@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <dt-bindings/pinctrl/mt65xx.h>
+#include <linux/regmap.h>
 #include "pinctrl-paris.h"
 
 /* Custom pinconf parameters */
@@ -463,8 +464,7 @@ static int mtk_pctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 		pin = MTK_GET_PIN_NO(pinfunc);
 		func = MTK_GET_PIN_FUNC(pinfunc);
 
-		if (pin >= hw->soc->npins ||
-		    func >= ARRAY_SIZE(mtk_gpio_functions)) {
+		if (func >= ARRAY_SIZE(mtk_gpio_functions)) {
 			dev_err(hw->dev, "invalid pins value.\n");
 			err = -EINVAL;
 			goto exit;
@@ -1103,6 +1103,535 @@ const struct dev_pm_ops mtk_paris_pinctrl_pm_ops = {
 	.resume_noirq = mtk_paris_pinctrl_resume,
 };
 EXPORT_SYMBOL_GPL(mtk_paris_pinctrl_pm_ops);
+
+static int mt63xx_lookup_field(struct mtk_pinctrl *hw, unsigned int pin, int field,
+			struct mtk_pin_field_calc *found)
+{
+	const struct mtk_pin_reg_calc *rc;
+	int start = 0, end, check;
+
+	if (hw->soc->reg_cal && hw->soc->reg_cal[field].range) {
+		rc = &hw->soc->reg_cal[field];
+	} else {
+		dev_dbg(hw->dev,
+			"Not support field %d for pin %d\n", field, pin);
+		return -EOPNOTSUPP;
+	}
+
+	end = rc->nranges - 1;
+
+	while (start <= end) {
+		check = (start + end) >> 1;
+		if (pin == rc->range[check].s_pin) {
+			found->s_addr = rc->range[check].s_addr;
+			found->s_bit = rc->range[check].s_bit;
+			found->x_bits = rc->range[check].x_bits;
+			return 0;
+		} else if (start == end)
+			break;
+		else if (pin < rc->range[check].s_pin)
+			end = check - 1;
+		else
+			start = check + 1;
+	}
+
+	dev_dbg(hw->dev, "Not support field %d for pin = %d\n",
+		field, pin);
+	return -EOPNOTSUPP;
+}
+
+int mt63xx_hw_set_value(struct mtk_pinctrl *hw, unsigned int pin,
+			int field, int value)
+{
+	struct mtk_pin_field_calc c = {0};
+	struct regmap *pinctrl_regmap;
+	u32 mask;
+	int ret;
+
+	pinctrl_regmap = (struct regmap *)hw->base[0];
+	ret = mt63xx_lookup_field(hw, pin, field, &c);
+	if (ret)
+		return ret;
+
+	mask = ((1 << c.x_bits) - 1) << c.s_bit;
+	ret = regmap_update_bits(pinctrl_regmap, c.s_addr, mask,
+			value << c.s_bit);
+
+	return ret;
+}
+
+static int mt63xx_hw_get_value(struct mtk_pinctrl *hw, unsigned int pin,
+			int field, int *value)
+{
+	struct mtk_pin_field_calc c = {0};
+	struct regmap *pinctrl_regmap;
+	u32 reg_val, mask;
+	int ret;
+
+	pinctrl_regmap = (struct regmap *)hw->base[0];
+	ret = mt63xx_lookup_field(hw, pin, field, &c);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(pinctrl_regmap, c.s_addr, &reg_val);
+	if (ret)
+		return ret;
+	mask = ((1 << c.x_bits) - 1);
+	*value = (reg_val >> c.s_bit) & mask;
+	return 0;
+}
+
+static int mt63xx_pinmux_gpio_request_enable(struct pinctrl_dev *pctldev,
+					  struct pinctrl_gpio_range *range,
+					  unsigned int pin)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+
+	return mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_MODE,
+				hw->soc->gpio_m);
+}
+
+static int mt63xx_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
+					 struct pinctrl_gpio_range *range,
+					 unsigned int pin, bool input)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+
+	/* hardware take 0 as input direction */
+	return mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DIR, !input);
+}
+
+static int mt63xx_pmx_set_mux(struct pinctrl_dev *pctldev,
+			   unsigned int function,
+			   unsigned int group)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+	struct mtk_pinctrl_group *grp = hw->groups + group;
+	bool ret;
+
+	ret = mtk_pctrl_is_function_valid(hw, grp->pin, function);
+	if (!ret) {
+		dev_notice(hw->dev, "invalid function %d on group %d .\n",
+			function, group);
+		return -EINVAL;
+	}
+
+	return mt63xx_hw_set_value(hw, grp->pin, PINCTRL_PIN_REG_MODE,
+					function);
+}
+
+static int mt63xx_pinconf_get(struct pinctrl_dev *pctldev,
+			   unsigned int pin, unsigned long *config)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+	u32 param = pinconf_to_config_param(*config);
+	const struct mtk_pin_desc *desc;
+	int err, ret = 1, pullup;
+
+	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin];
+
+	switch (param) {
+	case PIN_CONFIG_BIAS_DISABLE:
+	case PIN_CONFIG_BIAS_PULL_UP:
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		err = mt63xx_hw_get_value(hw, pin, PINCTRL_PIN_REG_PULLEN,
+				&ret);
+		if (err)
+			goto out;
+
+		if (param != PIN_CONFIG_BIAS_DISABLE) {
+			err = mt63xx_hw_get_value(hw, pin,
+						PINCTRL_PIN_REG_PULLSEL,
+						&pullup);
+			if (err)
+				goto out;
+		}
+
+		if (param == PIN_CONFIG_BIAS_PULL_UP) {
+			/* When desire to get pull-up value,
+			 * return error if current setting is pull-down
+			 */
+			if (!pullup)
+				err = -EINVAL;
+		}  else if (param == PIN_CONFIG_BIAS_PULL_DOWN) {
+			/* When desire to get pull-down value,
+			 * return error if current setting is pull-up
+			 */
+			if (pullup)
+				err = -EINVAL;
+		}
+		break;
+	case PIN_CONFIG_INPUT_ENABLE:
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		err = mt63xx_hw_get_value(hw, pin, PINCTRL_PIN_REG_DIR, &ret);
+		if (err)
+			goto out;
+		/*     CONFIG     Current direction return value
+		 * -------------  ----------------- ----------------------
+		 * OUTPUT_ENABLE       output       1 (= HW value)
+		 *                     input        0 (= HW value)
+		 * INPUT_ENABLE        output       0 (= reverse HW value)
+		 *                     input        1 (= reverse HW value)
+		 */
+		if (param == PIN_CONFIG_INPUT_ENABLE)
+			ret = !ret;
+
+		break;
+	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
+		err = mt63xx_hw_get_value(hw, pin, PINCTRL_PIN_REG_DIR, &ret);
+		if (err)
+			goto out;
+		/* return error when in output mode
+		 * because schmitt trigger only work in input mode
+		 */
+		if (ret) {
+			err = -EINVAL;
+			goto out;
+		}
+
+		err = mt63xx_hw_get_value(hw, pin, PINCTRL_PIN_REG_SMT, &ret);
+
+		break;
+	case PIN_CONFIG_DRIVE_STRENGTH:
+		err = mt63xx_hw_get_value(hw, pin, PINCTRL_PIN_REG_DRV, &ret);
+		break;
+	default:
+		err = -EOPNOTSUPP;
+	}
+
+out:
+	if (!err)
+		*config = pinconf_to_config_packed(param, ret);
+
+	return err;
+}
+
+static int mt63xx_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
+			   enum pin_config_param param, u32 arg)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+	const struct mtk_pin_desc *desc;
+	int err = 0;
+
+	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin];
+
+	switch ((u32)param) {
+	case PIN_CONFIG_BIAS_DISABLE:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_PULLEN,
+				       MTK_DISABLE);
+		break;
+	case PIN_CONFIG_BIAS_PULL_UP:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_PULLEN,
+				       MTK_ENABLE);
+		if (err)
+			goto err;
+
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_PULLSEL,
+				       MTK_PULLUP);
+		break;
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_PULLEN,
+				       MTK_ENABLE);
+		if (err)
+			goto err;
+
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_PULLSEL,
+				       MTK_PULLDOWN);
+		break;
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_SMT,
+				       MTK_DISABLE);
+		if (err)
+			goto err;
+
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DIR,
+				       MTK_OUTPUT);
+		break;
+	case PIN_CONFIG_INPUT_ENABLE:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DIR,
+				       MTK_INPUT);
+		break;
+	case PIN_CONFIG_OUTPUT:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DIR,
+				       MTK_OUTPUT);
+		if (err)
+			goto err;
+
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DO, arg);
+		break;
+	case PIN_CONFIG_INPUT_SCHMITT:
+	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
+		/* arg = 1: Input mode & SMT enable
+		 * arg = 0: Output mode & SMT disable
+		 */
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DIR, !arg);
+		if (err)
+			goto err;
+
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_SMT, !!arg);
+		break;
+	case PIN_CONFIG_DRIVE_STRENGTH:
+		err = mt63xx_hw_set_value(hw, pin, PINCTRL_PIN_REG_DRV, arg);
+		break;
+	default:
+		err = -EOPNOTSUPP;
+	}
+
+err:
+	return err;
+}
+
+static int mt63xx_pconf_group_set(struct pinctrl_dev *pctldev, unsigned int group,
+			       unsigned long *configs, unsigned int num_configs)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+	struct mtk_pinctrl_group *grp = &hw->groups[group];
+	int i, ret;
+
+	for (i = 0; i < num_configs; i++) {
+		ret = mt63xx_pinconf_set(pctldev, grp->pin,
+				      pinconf_to_config_param(configs[i]),
+				      pinconf_to_config_argument(configs[i]));
+		if (ret < 0)
+			return ret;
+
+		grp->config = configs[i];
+	}
+
+	return 0;
+}
+
+ssize_t mt63xx_pctrl_show_one_pin(struct mtk_pinctrl *hw,
+	unsigned int gpio, char *buf, unsigned int bufLen)
+{
+	int pinmux, dir, dout, di, smt, drv, pullen, pullsel;
+	int len = 0;
+
+	if (gpio > hw->soc->npins)
+		return -EINVAL;
+
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_MODE, &pinmux);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DIR, &dir);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DO, &dout);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DI, &di);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DRV, &drv);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_SMT, &smt);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLEN, &pullen);
+	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLSEL, &pullsel);
+	len += snprintf(buf + len, bufLen - len,
+			"%02d: %1d%1d%1d%1d%02d%1d%1d%1d\n",
+			gpio,
+			pinmux,
+			dir,
+			dout,
+			di,
+			drv,
+			smt,
+			pullen,
+			pullsel);
+
+	return len;
+}
+
+static void mt63xx_pctrl_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *s,
+			  unsigned int gpio)
+{
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+	char buf[PIN_DBG_BUF_SZ];
+
+	(void)mt63xx_pctrl_show_one_pin(hw, gpio, buf, PIN_DBG_BUF_SZ);
+
+	seq_printf(s, "%s", buf);
+}
+
+static const struct pinctrl_ops mt63xx_pctlops = {
+	.dt_node_to_map         = mtk_pctrl_dt_node_to_map,
+	.dt_free_map            = pinctrl_utils_free_map,
+	.get_groups_count       = mtk_pctrl_get_groups_count,
+	.get_group_name         = mtk_pctrl_get_group_name,
+	.get_group_pins         = mtk_pctrl_get_group_pins,
+	.pin_dbg_show           = mt63xx_pctrl_dbg_show,
+};
+
+static const struct pinconf_ops mt63xx_confops = {
+	.pin_config_get = mt63xx_pinconf_get,
+	.pin_config_group_get   = mtk_pconf_group_get,
+	.pin_config_group_set   = mt63xx_pconf_group_set,
+	.is_generic = true,
+};
+
+static const struct pinmux_ops mt63xx_pmxops = {
+	.get_functions_count    = mtk_pmx_get_funcs_cnt,
+	.get_function_name      = mtk_pmx_get_func_name,
+	.get_function_groups    = mtk_pmx_get_func_groups,
+	.set_mux                = mt63xx_pmx_set_mux,
+	.gpio_set_direction     = mt63xx_pinmux_gpio_set_direction,
+	.gpio_request_enable    = mt63xx_pinmux_gpio_request_enable,
+};
+
+static struct pinctrl_desc mtk_desc_mt63xx = {
+	//.name = PINCTRL_PINCTRL_DEV,
+	.name = "mt63xx",
+	.pctlops = &mt63xx_pctlops,
+	.pmxops = &mt63xx_pmxops,
+	.confops = &mt63xx_confops,
+	.owner = THIS_MODULE,
+};
+
+static int mt63xx_gpio_get_direction(struct gpio_chip *chip, unsigned int gpio)
+{
+	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
+	int value, err;
+
+	if (gpio > hw->soc->npins)
+		return -EINVAL;
+
+	err = mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DIR, &value);
+	if (err)
+		return err;
+
+	return !value;
+}
+
+static int mt63xx_gpio_get(struct gpio_chip *chip, unsigned int gpio)
+{
+	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
+	int value, err;
+
+	if (gpio > hw->soc->npins)
+		return -EINVAL;
+
+	err = mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DI, &value);
+	if (err)
+		return err;
+
+	return !!value;
+}
+
+static void mt63xx_gpio_set(struct gpio_chip *chip, unsigned int gpio, int value)
+{
+	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
+
+	if (gpio > hw->soc->npins)
+		return;
+
+	(void)mt63xx_hw_set_value(hw, gpio, PINCTRL_PIN_REG_DO, !!value);
+}
+
+static int mt63xx_gpio_direction_input(struct gpio_chip *chip, unsigned int gpio)
+{
+	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
+
+	if (gpio > hw->soc->npins)
+		return -EINVAL;
+
+	return pinctrl_gpio_direction_input(chip->base + gpio);
+}
+
+static int mt63xx_gpio_direction_output(struct gpio_chip *chip, unsigned int gpio,
+				     int value)
+{
+	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
+
+	if (gpio > hw->soc->npins)
+		return -EINVAL;
+
+	mt63xx_gpio_set(chip, gpio, value);
+
+	return pinctrl_gpio_direction_output(chip->base + gpio);
+}
+
+static int mt6373_build_gpiochip(struct mtk_pinctrl *hw, struct device_node *np)
+{
+	struct gpio_chip *chip = &hw->chip;
+	int ret;
+
+	chip->label             = "mt6373";
+	chip->parent            = hw->dev;
+	chip->request           = gpiochip_generic_request;
+	chip->free              = gpiochip_generic_free;
+	chip->get_direction     = mt63xx_gpio_get_direction;
+	chip->direction_input   = mt63xx_gpio_direction_input;
+	chip->direction_output  = mt63xx_gpio_direction_output;
+	chip->get               = mt63xx_gpio_get;
+	chip->set               = mt63xx_gpio_set;
+	chip->base              = -1;
+	/* Since MT6373 GPIO pin number start at 1, instead of 0,
+	 *  we add 1 to chip->ngpio as workaround so that
+	 *  global pin index can be mapped correctly
+	 */
+	chip->ngpio             = hw->soc->npins + 1;
+	chip->of_node           = np;
+	chip->of_gpio_n_cells   = 2;
+
+	ret = gpiochip_add_data(chip, hw);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+int mt63xx_pinctrl_probe(struct platform_device *pdev,
+	const struct mtk_pin_soc *soc)
+{
+	struct pinctrl_pin_desc *pins;
+	struct mtk_pinctrl *hw;
+	int err, i;
+
+	hw = devm_kzalloc(&pdev->dev, sizeof(*hw), GFP_KERNEL);
+	if (!hw)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, hw);
+	hw->soc = soc;
+	hw->dev = &pdev->dev;
+
+	hw->base = devm_kmalloc_array(&pdev->dev, 1, sizeof(*hw->base),
+			GFP_KERNEL | __GFP_ZERO);
+	hw->base[0] = (struct regmap *)dev_get_regmap(pdev->dev.parent, NULL);
+
+	err = mtk_pctrl_build_state(pdev);
+	if (err) {
+		dev_notice(&pdev->dev, "build state failed: %d\n", err);
+		return -EINVAL;
+	}
+
+	/* Copy from internal struct mtk_pin_desc to register to the core */
+	pins = devm_kmalloc_array(&pdev->dev, hw->soc->npins, sizeof(*pins),
+				  GFP_KERNEL);
+	if (!pins)
+		return -ENOMEM;
+
+	for (i = 0; i < hw->soc->npins; i++) {
+		pins[i].number = hw->soc->pins[i].number;
+		pins[i].name = hw->soc->pins[i].name;
+	}
+
+	/* Setup pins descriptions per SoC types */
+	mtk_desc_mt63xx.pins = (const struct pinctrl_pin_desc *)pins;
+	mtk_desc_mt63xx.npins = hw->soc->npins;
+
+	err = devm_pinctrl_register_and_init(&pdev->dev, &mtk_desc_mt63xx, hw,
+					     &hw->pctrl);
+	if (err)
+		return err;
+
+	err = pinctrl_enable(hw->pctrl);
+	if (err)
+		return err;
+
+	/* Build gpiochip should be after pinctrl_enable is done */
+	err = mt6373_build_gpiochip(hw, pdev->dev.of_node);
+	if (err) {
+		dev_notice(&pdev->dev, "Failed to add gpio_chip\n");
+		return err;
+	}
+
+	platform_set_drvdata(pdev, hw);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt63xx_pinctrl_probe);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek Pinctrl Common Driver V2 Paris");

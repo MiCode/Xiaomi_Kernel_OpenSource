@@ -86,6 +86,17 @@ config PINCTRL_MT2712
 	default ARM64 && ARCH_MEDIATEK
 	select PINCTRL_MTK
 
+config PINCTRL_MT6373
+	tristate "Mediatek MT6373 pin control"
+	depends on OF
+	depends on MFD_MTK_SPMI_PMIC
+	select PINCTRL_MTK_PARIS
+	help
+	  This is the pin controller and gpio driver for mediatek
+	  mt6373 chipset. It will enable mediatek common v2,
+	  paris and eint core driver.
+	  Say Y here to enable it.
+
 config PINCTRL_MT6765
 	tristate "Mediatek MT6765 pin control"
 	depends on OF || COMPILE_TEST
