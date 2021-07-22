@@ -88,8 +88,14 @@ static inline unsigned long cpu_util(int cpu)
 int is_reserved(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
+	int reserved = 0;
+	struct rq_flags rf;
 
-	return (rq->active_balance != 0);
+	rq_lock(rq, &rf);
+	reserved = rq->active_balance;
+	rq_unlock(rq, &rf);
+
+	return reserved;
 }
 
 bool is_min_capacity_cpu(int cpu)
