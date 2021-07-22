@@ -527,6 +527,15 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 	deferred_free(&buffer->deferred_free, mtk_mm_heap_buf_free, npages);
 }
 
+static int mtk_mm_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
+{
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
+
+	*flags = buffer->uncached;
+
+	return 0;
+}
+
 static const struct dma_buf_ops mtk_mm_heap_buf_ops = {
 	/* one attachment can only map once */
 	.cache_sgt_mapping = 1,
@@ -540,6 +549,7 @@ static const struct dma_buf_ops mtk_mm_heap_buf_ops = {
 	.vmap = mtk_mm_heap_vmap,
 	.vunmap = mtk_mm_heap_vunmap,
 	.release = mtk_mm_heap_dma_buf_release,
+	.get_flags = mtk_mm_heap_dma_buf_get_flags,
 };
 
 static struct page *alloc_largest_available(unsigned long size,

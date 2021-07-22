@@ -876,6 +876,15 @@ static int fill_heap_sgtable(struct secure_heap_region *sec_heap,
 	return 0;
 }
 
+static int mtk_sec_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
+{
+	struct mtk_sec_heap_buffer *buffer = dmabuf->priv;
+
+	*flags = buffer->uncached;
+
+	return 0;
+}
+
 static const struct dma_buf_ops sec_buf_region_ops = {
 	/* one attachment can only map once */
 	.cache_sgt_mapping = 1,
@@ -884,6 +893,7 @@ static const struct dma_buf_ops sec_buf_region_ops = {
 	.map_dma_buf = mtk_sec_heap_region_map_dma_buf,
 	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
 	.release = tmem_region_free,
+	.get_flags = mtk_sec_heap_dma_buf_get_flags,
 };
 
 static const struct dma_buf_ops sec_buf_page_ops = {
@@ -894,6 +904,7 @@ static const struct dma_buf_ops sec_buf_page_ops = {
 	.map_dma_buf = mtk_sec_heap_page_map_dma_buf,
 	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
 	.release = tmem_page_free,
+	.get_flags = mtk_sec_heap_dma_buf_get_flags,
 };
 
 /* region base size is 4K alignment */

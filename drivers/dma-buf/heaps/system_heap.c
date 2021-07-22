@@ -361,6 +361,15 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
 }
 
+static int system_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
+{
+	struct system_heap_buffer *buffer = dmabuf->priv;
+
+	*flags = buffer->uncached;
+
+	return 0;
+}
+
 static const struct dma_buf_ops system_heap_buf_ops = {
 	/* one attachment can only map once */
 	.cache_sgt_mapping = 1,
@@ -374,6 +383,7 @@ static const struct dma_buf_ops system_heap_buf_ops = {
 	.vmap = system_heap_vmap,
 	.vunmap = system_heap_vunmap,
 	.release = system_heap_dma_buf_release,
+	.get_flags = system_heap_dma_buf_get_flags,
 };
 
 static struct page *alloc_largest_available(unsigned long size,
