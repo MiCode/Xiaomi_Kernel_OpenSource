@@ -8,6 +8,7 @@
 #define _MTK_DMABUFHEAP_H
 
 #include <linux/dma-buf.h>
+#include "deferred-free-helper.h"
 
 #define MTK_HEAP_EXP_NAME_LEN    (100)
 

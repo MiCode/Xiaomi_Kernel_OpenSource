@@ -321,6 +321,8 @@ static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
 
 		dump_param.heap = heap;
 		dump_param.file = s;
+
+		dmabuf_dump(s, "freelist: %d KB\n", get_freelist_nr_pages() * 4);
 		//dump all heaps
 		for (; i < _DEBUG_HEAP_CNT_; i++) {
 			heap = dma_heap_find(debug_heap_list[i].heap_name);
