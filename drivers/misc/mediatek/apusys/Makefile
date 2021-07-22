@@ -192,12 +192,13 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/apusys_rv/
 apusys-objs += apusys_rv/apu_config.o
 apusys-objs += apusys_rv/apu_coredump.o
 apusys-objs += apusys_rv/apu_excep.o
-apusys-objs += apusys_rv/apu_hw.o
 apusys-objs += apusys_rv/apu_ipi.o
 apusys-objs += apusys_rv/apu_mbox.o
 apusys-objs += apusys_rv/apu_mem.o
 apusys-objs += apusys_rv/apu_rproc.o
 apusys-objs += apusys_rv/apu_sysfs.o
+apusys-objs += apusys_rv/1.0/mt6893_plat.o
+apusys-objs += apusys_rv/2.0/mt6983_plat.o
 
 # ipi
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/ipi/

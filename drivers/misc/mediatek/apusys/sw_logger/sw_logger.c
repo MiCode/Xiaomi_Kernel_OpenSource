@@ -28,11 +28,11 @@
 #include <linux/spinlock.h>
 #include <linux/sched/signal.h>
 
-
 #include "apu_ctrl_rpmsg.h"
 #include "sw_logger.h"
 
 #define SW_LOGGER_DEV_NAME "apu_sw_logger"
+#define VDRAM_BOOT (0)
 
 DEFINE_SPINLOCK(sw_logger_spinlock);
 
@@ -106,9 +106,10 @@ static ssize_t show_debuglv(struct file *filp, char __user *buffer,
 
 static void sw_logger_buf_invalidate(void)
 {
-	if (sw_logger_dev)
-		dma_sync_single_for_cpu(
-			sw_logger_dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
+	if (!VDRAM_BOOT)
+		if (sw_logger_dev)
+			dma_sync_single_for_cpu(
+				sw_logger_dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
 }
 
 static int sw_logger_buf_alloc(struct device *dev)
@@ -117,28 +118,48 @@ static int sw_logger_buf_alloc(struct device *dev)
 
 	ret = of_dma_configure(dev, dev->of_node, true);
 	if (ret) {
-		pr_info("%s: of_dma_configure fail(%d)\n", __func__, ret);
+		dev_info(sw_logger_dev, "%s: of_dma_configure fail(%d)\n", __func__, ret);
 		return -ENOMEM;
 	}
 
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
-	if (ret) {
-		pr_info("%s: dma_set_coherent_mask fail(%d)\n", __func__, ret);
-		return -ENOMEM;
+	if (!VDRAM_BOOT) {
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+		if (ret) {
+			dev_info(sw_logger_dev, "%s: dma_set_coherent_mask fail(%d)\n",
+				__func__, ret);
+			return -ENOMEM;
+		}
 	}
 
-	sw_log_buf = kmalloc(APU_LOG_SIZE, GFP_KERNEL);
-	pr_info("%s: sw_log_buf = 0x%x\n", __func__, sw_log_buf);
-	if (!sw_log_buf)
-		return -ENOMEM;
-	memset(sw_log_buf, 0, APU_LOG_SIZE);
+	if (!VDRAM_BOOT) {
+		sw_log_buf = kmalloc(APU_LOG_SIZE, GFP_KERNEL);
+		dev_info(sw_logger_dev, "%s: sw_log_buf = 0x%llx\n",
+			__func__, (uint64_t) sw_log_buf);
+		if (!sw_log_buf)
+			return -ENOMEM;
+		memset(sw_log_buf, 0, APU_LOG_SIZE);
 
-	handle = dma_map_single(dev, sw_log_buf, APU_LOG_SIZE,
-		DMA_FROM_DEVICE);
-	pr_info("handle = 0x%x\n", handle);
-	if (dma_mapping_error(dev, handle) != 0) {
-		pr_info("%s: dma_map_single fail\n", __func__);
-		return -ENOMEM;
+		handle = dma_map_single(dev, sw_log_buf, APU_LOG_SIZE,
+			DMA_FROM_DEVICE);
+		dev_info(sw_logger_dev, "handle = 0x%llx\n", handle);
+		if (dma_mapping_error(dev, handle) != 0) {
+			dev_info(sw_logger_dev, "%s: dma_map_single fail\n", __func__);
+			kfree(sw_log_buf);
+			return -ENOMEM;
+		}
+	} else {
+		sw_log_buf = dma_alloc_coherent(dev, APU_LOG_SIZE,
+					&handle, GFP_KERNEL);
+
+		if (sw_log_buf == NULL || handle == 0) {
+			dev_info(sw_logger_dev, "%s: dma_alloc_coherent fail\n", __func__);
+			return -ENOMEM;
+		}
+
+		memset(sw_log_buf, 0, APU_LOG_SIZE);
+
+		dev_info(sw_logger_dev, "%s: sw_log_buf = 0x%llx, handle = 0x%llx\n",
+			__func__, (uint64_t) sw_log_buf, (uint64_t) handle);
 	}
 
 	return 0;
@@ -146,6 +167,7 @@ static int sw_logger_buf_alloc(struct device *dev)
 
 int sw_logger_config_init(struct mtk_apu *apu)
 {
+	int ret;
 	unsigned long flags;
 	struct logger_init_info *st_logger_init_info;
 
@@ -162,6 +184,12 @@ int sw_logger_config_init(struct mtk_apu *apu)
 	if (!apu_mbox)
 		return 0;
 
+	ret = sw_logger_buf_alloc(sw_logger_dev);
+	if (ret) {
+		LOGGER_ERR("%s: sw_logger_buf_alloc fail\n", __func__);
+		return ret;
+	}
+
 	spin_lock_irqsave(&sw_logger_spinlock, flags);
 	/* fixme: if reset ptrs necessary for each power on? */
 	iowrite32(0, LOG_W_PTR);
@@ -173,7 +201,6 @@ int sw_logger_config_init(struct mtk_apu *apu)
 		get_apu_config_user_ptr(apu->conf_buf, eLOGGER_INIT_INFO);
 
 	st_logger_init_info->iova = handle;
-	//	log_mm_data.get_phys_param.phy_addr;
 
 	LOGGER_INFO("%s: set st_logger_init_info.iova = 0x%x\n",
 		__func__, st_logger_init_info->iova);
@@ -388,6 +415,9 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 
 	pSData->i = (pSData->i + LOG_LINE_MAX_LENS) % APU_LOG_SIZE;
 
+	/* prevent kernel warning */
+	*pos = pSData->i;
+
 	if (pSData->i != pSData->w_ptr)
 		return v;
 
@@ -413,6 +443,9 @@ static void *seq_next_lock(struct seq_file *s, void *v, loff_t *pos)
 		pSData->overflow_flg);
 
 	pSData->i = (pSData->i + LOG_LINE_MAX_LENS) % APU_LOG_SIZE;
+
+	/* prevent kernel warning */
+	*pos = pSData->i;
 
 	if (pSData->i != pSData->w_ptr)
 		return v;
@@ -486,7 +519,7 @@ static int seq_show(struct seq_file *s, void *v)
 		(sw_log_buf[pSData->i+1] == 0xA5)) {
 		seq_printf(s, "dbglog[%d,%d,%d] = ",
 			pSData->w_ptr, pSData->r_ptr, pSData->i);
-		for (i=0; i<LOG_LINE_MAX_LENS; i++)
+		for (i = 0; i < LOG_LINE_MAX_LENS; i++)
 			seq_printf(s, "%02X", sw_log_buf + pSData->i + i);
 		seq_printf(s, "\n");
 	} else
@@ -529,7 +562,7 @@ static int seq_showl(struct seq_file *s, void *v)
 			(sw_log_buf[pSData->i+1] == 0xA5)) {
 			seq_printf(s, "dbglog[%d,%d,%d] = ",
 				pSData->w_ptr, pSData->r_ptr, pSData->i);
-			for (i=0; i<LOG_LINE_MAX_LENS; i++)
+			for (i = 0; i < LOG_LINE_MAX_LENS; i++)
 				seq_printf(s, "%02X", sw_log_buf + pSData->i + i);
 			seq_printf(s, "\n");
 		} else
@@ -543,8 +576,7 @@ static int seq_showl(struct seq_file *s, void *v)
 			(sw_log_buf[pSData->i+1] == 0xA5)) {
 			prevIsBinary = 1;
 			seq_write(s, sw_log_buf + pSData->i, LOG_LINE_MAX_LENS);
-		}
-		else {
+		} else {
 			if (prevIsBinary)
 				seq_printf(s, "\n");
 			prevIsBinary = 0;
@@ -655,14 +687,14 @@ static int sw_logger_create_sysfs(struct device *dev)
 	/* create /sys/kernel/apusys_logger */
 	root_dir = kobject_create_and_add("apusys_logger", kernel_kobj);
 	if (!root_dir) {
-		pr_info("%s kobject_create_and_add fail for apusys_logger, ret %d\n",
+		dev_info(sw_logger_dev, "%s kobject_create_and_add fail for apusys_logger, ret %d\n",
 			__func__, ret);
 		return -EINVAL;
 	}
 
 	ret = sysfs_create_bin_file(root_dir, &bin_attr_apusys_log);
 	if (ret)
-		pr_info("%s sysfs create fail for apusys_log, ret %d\n",
+		dev_info(sw_logger_dev, "%s sysfs create fail for apusys_log, ret %d\n",
 			__func__, ret);
 
 	return ret;
@@ -671,6 +703,7 @@ static int sw_logger_create_sysfs(struct device *dev)
 static void sw_logger_remove_sysfs(struct device *dev)
 {
 	sysfs_remove_bin_file(root_dir, &bin_attr_apusys_log);
+	kobject_put(root_dir);
 }
 
 static void sw_logger_remove_procfs(struct device *dev)
@@ -745,7 +778,7 @@ static int sw_logger_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 
-	pr_info("%s in", __func__);
+	dev_info(sw_logger_dev, "%s in", __func__);
 
 	sw_logger_dev = dev;
 
@@ -765,30 +798,21 @@ static int sw_logger_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_mbox");
 	if (res == NULL) {
-		pr_info("%s: apu_mbox get resource fail\n", __func__);
+		dev_info(sw_logger_dev, "%s: apu_mbox get resource fail\n", __func__);
 		ret = -ENODEV;
 		goto remove_ioremap;
 	}
 	apu_mbox = ioremap(res->start, res->end - res->start + 1);
 	if (IS_ERR((void const *)apu_mbox)) {
-		pr_info("%s: apu_mbox remap base fail\n", __func__);
+		dev_info(sw_logger_dev, "%s: apu_mbox remap base fail\n", __func__);
 		ret = -ENOMEM;
 		goto remove_ioremap;
 	}
 
-	ret = sw_logger_buf_alloc(dev);
-	if (ret) {
-		LOGGER_ERR("%s: sw_logger_buf_alloc fail\n", __func__);
-		goto remove_sw_log_buf;
-	}
-
-	pr_info("apu_sw_logger probe done, sw_log_buf= 0x%p\n",
+	dev_info(sw_logger_dev, "apu_sw_logger probe done, sw_log_buf= 0x%p\n",
 		sw_log_buf);
 
 	return 0;
-
-remove_sw_log_buf:
-	kfree(sw_log_buf);
 
 remove_ioremap:
 	if (apu_mbox != NULL)
@@ -811,8 +835,10 @@ static int sw_logger_remove(struct platform_device *pdev)
 
 	sw_logger_remove_procfs(dev);
 	sw_logger_remove_sysfs(dev);
-	dma_unmap_single(dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
-	kfree(sw_log_buf);
+	if (!VDRAM_BOOT) {
+		dma_unmap_single(dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
+		kfree(sw_log_buf);
+	}
 
 	return 0;
 }
@@ -837,7 +863,7 @@ int sw_logger_init(void)
 {
 	int ret = 0;
 
-	pr_info("%s in", __func__);
+	dev_info(sw_logger_dev, "%s in", __func__);
 
 	allow_signal(SIGKILL);
 
@@ -847,7 +873,7 @@ int sw_logger_init(void)
 
 	ret = platform_driver_register(&sw_logger_driver);
 	if (ret != 0) {
-		LOGGER_ERR("failed to register sw_logger driver");
+		pr_info("failed to register sw_logger driver");
 		return -ENODEV;
 	}
 

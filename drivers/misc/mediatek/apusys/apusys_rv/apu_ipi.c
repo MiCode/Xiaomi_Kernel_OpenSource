@@ -30,8 +30,8 @@ static const char *ipi_lock_name[APU_IPI_MAX] = {
 };
 static struct lock_class_key ipi_lock_key[APU_IPI_MAX];
 
-static unsigned int tx_serial_no = 0;
-static unsigned int rx_serial_no = 0;
+static unsigned int tx_serial_no;
+static unsigned int rx_serial_no;
 
 static inline void dump_msg_buf(struct mtk_apu *apu, void *data, uint32_t len)
 {
@@ -67,9 +67,8 @@ static uint32_t calculate_csum(void *data, uint32_t len)
 		csum += *(((uint32_t *)data) + i);
 
 	ptr = (uint8_t *)data + len / sizeof(csum) * sizeof(csum);
-	for (i = 0; i < (len % sizeof(csum)); i++) {
+	for (i = 0; i < (len % sizeof(csum)); i++)
 		res |= *(ptr + i) << i * 8;
-	}
 
 	csum += res;
 
@@ -376,6 +375,9 @@ int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 	int i, ret;
+
+	tx_serial_no = 0;
+	rx_serial_no = 0;
 
 	mutex_init(&apu->send_lock);
 

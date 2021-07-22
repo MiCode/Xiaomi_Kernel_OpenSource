@@ -18,18 +18,18 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/sched/clock.h>
+#include <linux/of_device.h>
 
 #include "apu.h"
-#include "apu_map.h"
 #include "apu_excep.h"
 #include "apu_config.h"
 
-static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool* is_iomem)
+static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 {
 	void *ptr = NULL;
 	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;
 
-	if (da >= DRAM_OFFSET && da < DRAM_OFFSET + DRAM_SIZE) {
+	if (da >= DRAM_OFFSET && da < DRAM_OFFSET + CODE_BUF_SIZE) {
 		ptr = apu->code_buf + (da - DRAM_OFFSET);
 		//pr_info("%s(DRAM): da = 0x%llx, len = 0x%x\n",
 		//	__func__, da, len);
@@ -41,21 +41,17 @@ static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool* is_iome
 	return ptr;
 }
 
-static int apu_start(struct rproc *rproc)
+static int __apu_run(struct rproc *rproc)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct device *dev = apu->dev;
 	struct apu_run *run = &apu->run;
 	struct timespec64 begin, end, delta;
-	int ns = 1; /* Non Secure */
-	int domain = 0;
-	int boundary = APU_IOMMU_BOUNDARY;
 	int ret;
 
-	apu_setup_reviser(apu, boundary, ns, domain);
-	apu_reset_mp(apu);
-	apu_setup_boot(apu);
-	apu_start_mp(apu);
+	WARN_ON(!hw_ops->start);
+	hw_ops->start(apu);
 
 	/* check if boot success */
 	ktime_get_ts64(&begin);
@@ -84,83 +80,127 @@ static int apu_start(struct rproc *rproc)
 	return 0;
 
 stop:
-	apu_stop_mp(apu);
+	WARN_ON(!hw_ops->stop);
+	hw_ops->stop(apu);
+
 	return ret;
+}
+
+static int apu_start(struct rproc *rproc)
+{
+	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;
+
+	dev_info(apu->dev, "%s: try to boot uP\n", __func__);
+	return __apu_run(rproc);
+}
+
+static int apu_attach(struct rproc *rproc)
+{
+	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;
+
+	dev_info(apu->dev, "%s: try to boot uP\n", __func__);
+	return __apu_run(rproc);
 }
 
 static int apu_stop(struct rproc *rproc)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 
-	apu_stop_mp(apu);
+	WARN_ON(!hw_ops->stop);
+	hw_ops->stop(apu);
+
 	return 0;
 }
 
 static const struct rproc_ops apu_ops = {
 	.start		= apu_start,
 	.stop		= apu_stop,
+	.attach		= apu_attach,
 	.da_to_va	= apu_da_to_va,
 };
 
 static void apu_dram_boot_remove(struct mtk_apu *apu)
 {
 	void *domain = iommu_get_domain_for_dev(apu->dev);
+	u32 boundary = (u32) upper_32_bits(apu->code_da);
+	u64 iova = CODE_BUF_DA | ((u64) boundary << 32);
 
-	iommu_unmap(domain, DRAM_IOVA_ADDR, DRAM_SIZE);
-	dma_free_coherent(apu->dev, DRAM_SIZE, apu->code_buf, apu->code_da);
+	if (apu->platdata->flags & F_SECURE_BOOT)
+		return;
+
+	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0)
+		iommu_unmap(domain, iova, CODE_BUF_SIZE);
+	dma_free_coherent(apu->dev, CODE_BUF_SIZE, apu->code_buf, apu->code_da);
 }
 
 static int apu_dram_boot_init(struct mtk_apu *apu)
 {
+	struct device *dev = apu->dev;
 	int ret = 0;
 	int map_sg_sz = 0;
-	void *domain = iommu_get_domain_for_dev(apu->dev);
+	void *domain;
 	struct sg_table sgt;
 	phys_addr_t pa;
+	u32 boundary;
+	u64 iova;
 
-	if (domain == NULL) {
-		pr_info("%s: iommu_get_domain_for_dev fail\n", __func__);
-		return -ENOMEM;
+	if (apu->platdata->flags & F_SECURE_BOOT)
+		return 0;
+
+	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0) {
+		domain = iommu_get_domain_for_dev(apu->dev);
+		if (domain == NULL) {
+			dev_info(dev, "%s: iommu_get_domain_for_dev fail\n", __func__);
+			return -ENOMEM;
+		}
 	}
 
 	/* Allocate code buffer */
-	apu->code_buf = dma_alloc_coherent(apu->dev, DRAM_SIZE,
+	apu->code_buf = dma_alloc_coherent(apu->dev, CODE_BUF_SIZE,
 					&apu->code_da, GFP_KERNEL);
 	if (apu->code_buf == NULL || apu->code_da == 0) {
-		pr_info("%s: dma_alloc_coherent fail\n", __func__);
+		dev_info(dev, "%s: dma_alloc_coherent fail\n", __func__);
 		return -ENOMEM;
 	}
-	memset(apu->code_buf, 0, DRAM_SIZE);
+	memset(apu->code_buf, 0, CODE_BUF_SIZE);
 
-	sgt.sgl = NULL;
-	/* Convert IOVA to sgtable */
-	ret = dma_get_sgtable(apu->dev, &sgt, apu->code_buf,
-		apu->code_da, DRAM_SIZE);
-	if (ret < 0 || sgt.sgl == NULL) {
-		pr_info("get sgtable fail\n");
-		return -EINVAL;
+	boundary = (u32) upper_32_bits(apu->code_da);
+	iova = CODE_BUF_DA | ((u64) boundary << 32);
+	dev_info(dev, "%s: boundary = %u, iova = 0x%llx\n",
+		__func__, boundary, iova);
+
+	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0) {
+		sgt.sgl = NULL;
+		/* Convert IOVA to sgtable */
+		ret = dma_get_sgtable(apu->dev, &sgt, apu->code_buf,
+			apu->code_da, CODE_BUF_SIZE);
+		if (ret < 0 || sgt.sgl == NULL) {
+			dev_info(dev, "get sgtable fail\n");
+			return -EINVAL;
+		}
+
+		dev_info(dev, "%s: sgt.nents = %d, sgt.orig_nents = %d\n",
+			__func__, sgt.nents, sgt.orig_nents);
+		/* Map sg_list to MD32_BOOT_ADDR */
+		map_sg_sz = iommu_map_sg(domain, iova, sgt.sgl,
+			sgt.nents, IOMMU_READ|IOMMU_WRITE);
+		dev_info(dev, "%s: sgt.nents = %d, sgt.orig_nents = %d\n",
+			__func__, sgt.nents, sgt.orig_nents);
+		dev_info(dev, "%s: map_sg_sz = %d\n", __func__, map_sg_sz);
+		if (map_sg_sz != CODE_BUF_SIZE)
+			dev_info(dev, "%s: iommu_map_sg fail(%d)\n", __func__, ret);
+
+		pa = iommu_iova_to_phys(domain,
+			iova + CODE_BUF_SIZE - SZ_4K);
+		dev_info(dev, "%s: pa = 0x%llx\n",
+			__func__, (uint64_t) pa);
+		if (!pa) // pa should not be null
+			dev_info(dev, "%s: check pa fail(0x%llx)\n",
+				__func__, (uint64_t) pa);
 	}
 
-	pr_info("%s: sgt.nents = %d, sgt.orig_nents = %d\n",
-		__func__, sgt.nents, sgt.orig_nents);
-	/* Map sg_list to MD32_BOOT_ADDR */
-	map_sg_sz = iommu_map_sg(domain, DRAM_IOVA_ADDR, sgt.sgl,
-		sgt.nents, IOMMU_READ|IOMMU_WRITE);
-	pr_info("%s: sgt.nents = %d, sgt.orig_nents = %d\n",
-		__func__, sgt.nents, sgt.orig_nents);
-	pr_info("%s: map_sg_sz = %d\n", __func__, map_sg_sz);
-	if (map_sg_sz != DRAM_SIZE)
-		pr_info("%s: iommu_map_sg fail(%d)\n", __func__, ret);
-
-	pa = iommu_iova_to_phys(domain,
-		DRAM_IOVA_ADDR + DRAM_SIZE - SZ_4K);
-	pr_info("%s: pa = 0x%llx\n",
-		__func__, (uint64_t) pa);
-	if (!pa) // pa should not be null
-		pr_info("%s: check pa fail(0x%llx)\n",
-			__func__, (uint64_t) pa);
-
-	pr_info("%s: apu->code_buf = 0x%llx, apu->code_da = 0x%llx\n",
+	dev_info(dev, "%s: apu->code_buf = 0x%llx, apu->code_da = 0x%llx\n",
 		__func__, (uint64_t) apu->code_buf, (uint64_t) apu->code_da);
 
 	return ret;
@@ -172,13 +212,18 @@ static int apu_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	struct rproc *rproc;
 	struct mtk_apu *apu;
+	struct mtk_apu_platdata *data;
+	struct mtk_apu_hw_ops *hw_ops;
 	char *fw_name = "mrv.elf";
 	int ret = 0;
 
-	pr_info("%s: enter\n", __func__);
+	dev_info(dev, "%s: enter\n", __func__);
+	data = (struct mtk_apu_platdata *)of_device_get_match_data(dev);
+	dev_info(dev, "%s: platdata flags=0x%08x\n", __func__, data->flags);
+	hw_ops = &data->ops;
 
 	ret = device_rename(dev, "apusys_rv");
-	if(ret) {
+	if (ret) {
 		dev_info(dev, "unable to modify device name\n");
 		return -ENOMEM;
 	}
@@ -202,16 +247,22 @@ static int apu_probe(struct platform_device *pdev)
 	 * use below command to run uP:
 	 * echo start > /sys/class/remoteproc/remoteproc0/state
 	 */
-	rproc->auto_boot = false;
+	if (data->flags & F_IS_BRINGUP)
+		rproc->auto_boot = true;
+	else
+		rproc->auto_boot = false;
 
 	apu = (struct mtk_apu *)rproc->priv;
 	dev_info(dev, "%s: apu=%p\n", __func__, apu);
 	apu->rproc = rproc;
+	apu->pdev = pdev;
 	apu->dev = dev;
+	apu->platdata = data;
 	platform_set_drvdata(pdev, apu);
 	spin_lock_init(&apu->reg_lock);
 
-	ret = apu_memmap_init(pdev, apu);
+	WARN_ON(!hw_ops->apu_memmap_init);
+	ret = hw_ops->apu_memmap_init(apu);
 	if (ret)
 		goto remove_apu_memmap;
 
@@ -243,6 +294,9 @@ static int apu_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto remove_apu_excep;
 
+	if (data->flags & F_PRELOAD_FIRMWARE)
+		rproc->state = RPROC_DETACHED;
+
 	ret = rproc_add(rproc);
 	if (ret < 0) {
 		dev_info(dev, "boot fail ret:%d\n", ret);
@@ -250,7 +304,16 @@ static int apu_probe(struct platform_device *pdev)
 		goto remove_apu_excep;
 	}
 
-	goto out;
+	if (hw_ops->init) {
+		ret = hw_ops->init(apu);
+		if (ret)
+			goto del_rproc;
+	}
+
+	return 0;
+
+del_rproc:
+	rproc_del(rproc);
 
 remove_apu_excep:
 	apu_excep_remove(pdev, apu);
@@ -274,34 +337,70 @@ remove_apu_mem:
 	apu_mem_remove(apu);
 
 remove_apu_memmap:
-	apu_memmap_remove(apu);
+	WARN_ON(!hw_ops->apu_memmap_remove);
+	hw_ops->apu_memmap_remove(apu);
 
-out:
 	return ret;
 }
 
 static int apu_remove(struct platform_device *pdev)
 {
 	struct mtk_apu *apu = platform_get_drvdata(pdev);
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+
+	if (hw_ops->exit)
+		hw_ops->exit(apu);
 
 	rproc_del(apu->rproc);
 
 	apu_excep_remove(pdev, apu);
 	apu_sysfs_remove(pdev);
-	apu_coredump_remove(apu);
-	apu_memmap_remove(apu);
 	apu_ipi_remove(apu);
 	apu_dram_boot_remove(apu);
+	apu_coredump_remove(apu);
 	apu_config_remove(apu);
 	apu_mem_remove(apu);
+	WARN_ON(!hw_ops->apu_memmap_remove);
+	hw_ops->apu_memmap_remove(apu);
 
 	rproc_free(apu->rproc);
 
 	return 0;
 }
 
+const static struct mtk_apu_platdata mt6893_platdata = {
+	.flags		= 0,
+	.ops		= {
+		.init	= mt6893_rproc_init,
+		.exit	= mt6893_rproc_exit,
+		.start	= mt6893_rproc_start,
+		.stop	= mt6893_rproc_stop,
+		.apu_memmap_init = mt6893_apu_memmap_init,
+		.apu_memmap_remove = mt6893_apu_memmap_remove,
+		.cg_gating = mt6893_rv_cg_gating,
+		.cg_ungating = mt6893_rv_cg_ungating,
+		.rv_cachedump = mt6893_rv_cachedump,
+	},
+};
+
+const static struct mtk_apu_platdata mt6983_platdata = {
+	.flags		= F_IS_BRINGUP,
+	.ops		= {
+		.init	= mt6983_rproc_init,
+		.exit	= mt6983_rproc_exit,
+		.start	= mt6983_rproc_start,
+		.stop	= mt6983_rproc_stop,
+		.apu_memmap_init = mt6983_apu_memmap_init,
+		.apu_memmap_remove = mt6983_apu_memmap_remove,
+		.cg_gating = mt6983_rv_cg_gating,
+		.cg_ungating = mt6983_rv_cg_ungating,
+		.rv_cachedump = mt6983_rv_cachedump,
+	},
+};
+
 static const struct of_device_id mtk_apu_of_match[] = {
-	{ .compatible = "mediatek,apusys_rv"},
+	{ .compatible = "mediatek,mt6893-apusys_rv", .data = &mt6893_platdata},
+	{ .compatible = "mediatek,mt6983-apusys_rv", .data = &mt6983_platdata},
 	{},
 };
 
@@ -319,9 +418,8 @@ int apu_rproc_init(void)
 	int ret;
 
 	ret = platform_driver_register(&mtk_apu_driver);
-	if (ret) {
+	if (ret)
 		pr_info("failed to register mtk_apu_driver\n");
-	}
 
 	return ret;
 }
