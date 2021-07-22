@@ -46,7 +46,6 @@ __attribute__((weak, section(".rodata")));
 #ifdef MODULE
 int mrdump_module_init_mboot_params(void);
 #endif
-int mrdump_hw_init(bool drm_enabled);
 void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size);
 void mrdump_cblock_late_init(void);
 int mrdump_full_init(const char *version);

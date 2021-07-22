@@ -8,7 +8,6 @@
 #include <linux/module.h>
 #include <linux/processor.h>
 
-#include <mt-plat/mboot_params.h>
 #include <mrdump.h>
 #include "mrdump_private.h"
 
