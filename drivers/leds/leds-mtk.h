@@ -39,4 +39,4 @@ void mt_leds_classdev_unregister(struct device *parent,
 int mt_leds_call_notifier(unsigned long action, void *data);
 
 extern int mtkfb_set_backlight_level(unsigned int level);
-extern void _gate_ic_backlight_set(unsigned int level);
+extern int _gate_ic_backlight_set(unsigned int level);

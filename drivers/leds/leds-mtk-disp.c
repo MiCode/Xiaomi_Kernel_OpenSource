@@ -12,6 +12,9 @@
 #include <linux/slab.h>
 
 #include <leds-mtk.h>
+#if IS_ENABLED(CONFIG_RT4831A_I2C)
+#include "../misc/mediatek/gate_ic/gate_i2c.h"
+#endif
 
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
@@ -115,7 +118,8 @@ static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
 		       int brightness)
 {
 	pr_debug("set brightness %d", brightness);
-#ifdef CONFIG_MTK_GATE_IC
+
+#if IS_ENABLED(CONFIG_RT4831A_I2C)
 	return _gate_ic_backlight_set(brightness);
 #else
 	return 0;
