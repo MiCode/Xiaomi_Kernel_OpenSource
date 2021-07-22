@@ -619,6 +619,13 @@
 			alloc-ranges = <0 0x40000000 0 0x40000000>;
 		};
 
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x1000000>;
+		};
+
 		wifi_mem: wifi-reserve-memory {
 			compatible = "shared-dma-pool";
 			no-map;
@@ -626,6 +633,26 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+	};
+
+	memory_ssmr_features: memory-ssmr-features {
+		compatible = "mediatek,memory-ssmr-features";
+		svp-region-based-size = <0 0x10000000>;
+		svp-page-based-size = <0 0x40000000>;
+		2d_fr-size = <0 0x8000000>;
+		tui-size = <0 0x4000000>;
+		wfd-size = <0 0x10000000>;
+		prot-region-based-size = <0 0x8000000>;
+		prot-page-based-size = <0 0x8000000>;
+		ta-elf-size = <0 0x1000000>;
+		ta-stack-heap-size = <0 0x6000000>;
+		sdsp-tee-sharedmem-size = <0 0x1000000>;
+		sdsp-firmware-size = <0 0x1000000>;
+		};
+
+	ssmr {
+		compatible = "mediatek,trusted_mem";
+		memory-region = <&ssmr_cma_mem>;
 	};
 
 	gic: interrupt-controller {
