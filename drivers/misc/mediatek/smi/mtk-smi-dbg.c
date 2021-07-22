@@ -782,6 +782,49 @@ static struct kernel_param_ops smi_ut_dump_ops = {
 module_param_cb(smi_ut_dump, &smi_ut_dump_ops, NULL, 0644);
 MODULE_PARM_DESC(smi_ut_dump, "dump smi current setting");
 
+int smi_get_larb_dump(const char *val, const struct kernel_param *kp)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	s32		result, larb_id;
+
+	result = kstrtoint(val, 0, &larb_id);
+	if (result) {
+		pr_notice("SMI get larb dump failed: %d\n", result);
+		return result;
+	}
+	mtk_smi_larb_get(smi->larb[larb_id].dev);
+	mtk_smi_dbg_hang_detect("SMI larb get and dump");
+
+	return 0;
+}
+
+static struct kernel_param_ops smi_get_larb_dump_ops = {
+	.set = smi_get_larb_dump,
+};
+module_param_cb(smi_larb_enable_dump, &smi_get_larb_dump_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_larb_enable_dump, "enable smi larb and dump current setting");
+
+int smi_put_larb(const char *val, const struct kernel_param *kp)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	s32		result, larb_id;
+
+	result = kstrtoint(val, 0, &larb_id);
+	if (result) {
+		pr_notice("SMI put larb failed: %d\n", result);
+		return result;
+	}
+	mtk_smi_larb_put(smi->larb[larb_id].dev);
+
+	return 0;
+}
+
+static struct kernel_param_ops smi_put_larb_ops = {
+	.set = smi_put_larb,
+};
+module_param_cb(smi_larb_disable, &smi_put_larb_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_larb_disable, "disable smi larb");
+
 module_init(mtk_smi_dbg_init);
 MODULE_LICENSE("GPL v2");
 
