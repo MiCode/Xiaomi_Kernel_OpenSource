@@ -196,14 +196,21 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
+
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk-mt6853.o
 clk-chk-mt6853-$(CONFIG_COMMON_CLK_MT6853) += clkchk-mt6853.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_COMMON_CLK_MT6853) += clk-dbg-mt6853.o
+clk-dbg-mt6853-$(CONFIG_COMMON_CLK_MT6853) += clkdbg-mt6853.o
 endif
+endif
+
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6879.c),)
 obj-$(CONFIG_COMMON_CLK_MT6879) += clk-fmeter-mt6879.o
 clk-fmeter-mt6879-$(CONFIG_COMMON_CLK_MT6879) += clk-fmeter-mt6879.o
 endif
+
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6893.c),)
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-chk-mt6893.o
 clk-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clkchk-mt6893.o
@@ -211,18 +218,17 @@ obj-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter-mt6893.o
 clk-fmeter-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter-mt6893.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += pd-chk-mt6893.o
 pd-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += mtk-pd-chk-mt6893.o
-endif
 ifeq ($(CONFIG_DEBUG_FS), y)
-ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
-obj-$(CONFIG_COMMON_CLK_MT6853) += clk-dbg-mt6853.o
-clk-dbg-mt6853-$(CONFIG_COMMON_CLK_MT6853) += clkdbg-mt6853.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-dbg-mt6893.o
 clk-dbg-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clkdbg-mt6893.o
-obj-$(CONFIG_COMMON_CLK_MT6983) += clk-dbg-mt6983.o
-clk-dbg-mt6983-$(CONFIG_COMMON_CLK_MT6983) += clkdbg-mt6983.o
 endif
+endif
+
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6983.c),)
 obj-$(CONFIG_COMMON_CLK_MT6983) += clk-fmeter-mt6983.o
 clk-fmeter-mt6983-$(CONFIG_COMMON_CLK_MT6983) += clk-fmeter-mt6983.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_COMMON_CLK_MT6983) += clk-dbg-mt6983.o
+clk-dbg-mt6983-$(CONFIG_COMMON_CLK_MT6983) += clkdbg-mt6983.o
 endif
 endif
