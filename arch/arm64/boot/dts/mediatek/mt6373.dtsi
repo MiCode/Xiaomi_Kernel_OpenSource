@@ -338,6 +338,22 @@
 				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
+			mt6373_vmch_eint_high: VMCH_EINT_HIGH {
+				regulator-compatible = "VMCH_EINT_HIGH";
+				regulator-name = "mt6373_vmch_eint_high";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3500000>;
+				regulator-enable-ramp-delay = <720>;
+				regulator-allowed-modes = <0 2>;
+			};
+			mt6373_vmch_eint_low: VMCH_EINT_LOW {
+				regulator-compatible = "VMCH_EINT_LOW";
+				regulator-name = "mt6373_vmch_eint_low";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3500000>;
+				regulator-enable-ramp-delay = <720>;
+				regulator-allowed-modes = <0 2>;
+			};
 		};
 	};
 };
