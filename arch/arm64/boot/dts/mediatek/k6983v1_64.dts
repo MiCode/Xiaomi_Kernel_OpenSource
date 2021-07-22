@@ -445,11 +445,11 @@
 	pinctrl-names = "enable", "disable";
 	pinctrl-0 = <&ps_enable>;
 	pinctrl-1 = <&ps_disable>;
-	status = "disabled";
+	status = "okay";
 };
 
 &usb_dp_selector {
-	status = "disabled";
+	status = "okay";
 };
 /* usb typec mux end */
 

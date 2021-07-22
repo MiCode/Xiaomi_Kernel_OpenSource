@@ -6926,7 +6926,8 @@
 
 	usb_dp_selector: usb_dp_selector@10005600 {
 		compatible = "mediatek,usb_dp_selector";
-		mediatek,usb_dp_reg = <0x10005600>;
+		reg = <0 0x10005600 0 0x4>;
+		reg-names = "usb_dp_reg";
 		status = "okay";
 	};
 
