@@ -1716,8 +1716,8 @@ void mtk_btag_commit_req(struct request *rq, bool is_sd)
 {
 	struct request_queue *q = rq->q;
 	struct bio *bio = rq->bio;
-	struct bvec_iter iter;
 	struct bio_vec bvec;
+	struct req_iterator rq_iter;
 
 	if (unlikely(!mtk_btag_pagelogger) || !bio)
 		return;
@@ -1725,11 +1725,9 @@ void mtk_btag_commit_req(struct request *rq, bool is_sd)
 	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE)
 		return;
 
-	for_each_bio(bio) {
-		bio_for_each_segment(bvec, bio, iter) {
-			if (bvec.bv_page)
-				mtk_btag_pidlog_commit_bio(q, bio, &bvec, is_sd);
-		}
+	rq_for_each_segment(bvec, rq, rq_iter) {
+		if (bvec.bv_page)
+			mtk_btag_pidlog_commit_bio(q, bio, &bvec, is_sd);
 	}
 }
 
