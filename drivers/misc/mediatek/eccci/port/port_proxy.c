@@ -372,7 +372,9 @@ ssize_t port_dev_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 
 READ_START:
 	/* 1. get incoming request */
+	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
 	if (skb_queue_empty(&port->rx_skb_list)) {
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		if (!(file->f_flags & O_NONBLOCK)) {
 			spin_lock_irq(&port->rx_wq.lock);
 			ret = wait_event_interruptible_locked_irq(port->rx_wq,
@@ -386,7 +388,9 @@ READ_START:
 			ret = -EAGAIN;
 			goto exit;
 		}
-	}
+	} else
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+
 	CCCI_DEBUG_LOG(md_id, CHAR,
 		"read on %s for %zu\n", port->name, count);
 	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
