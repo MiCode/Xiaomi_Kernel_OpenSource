@@ -97,7 +97,7 @@ static void lpm_check_cg_pll(void)
 	for (i = 1 ; i < spm_cond.cg_cnt ; i++) {
 		blkcg = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL, MT_LPM_SMC_ACT_GET, 0, i);
 		if (blkcg != 0)
-			pr_info("suspend warning: CG: %6s = 0x%08lx\n"
+			pr_info("suspend warning: CG: %6s = 0x%08x\n"
 				, spm_cond.cg_str[i], blkcg);
 	}
 
