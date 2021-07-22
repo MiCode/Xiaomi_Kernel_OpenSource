@@ -338,6 +338,10 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			"pid[%d] type[%d] enqueue_e:%llu enqueue_l:%llu",
 			pid, f_render->frame_type,
 			enqueue_end_time, f_render->enqueue_length);
+
+		fpsgo_comp2fstb_calculate_target_fps(f_render->pid,
+			f_render->buffer_id, enqueue_end_time);
+
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_END, &running_time, &mid,
@@ -353,7 +357,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			f_render->buffer_id,
 			f_render->frame_type,
 			enqueue_end_time,
-			f_render->api);
+			f_render->api,
+			1);
 		fpsgo_comp2fstb_enq_end(f_render->pid,
 			f_render->buffer_id,
 			f_render->enqueue_length);

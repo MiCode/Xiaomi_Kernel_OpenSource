@@ -20,6 +20,7 @@
 #include <trace/events/sched.h>
 #include <trace/events/ipi.h>
 #include <trace/events/irq.h>
+#include <trace/events/timer.h>
 
 #include "xgf.h"
 #include "fpsgo_base.h"
@@ -42,6 +43,15 @@ static int xgf_spid_sub = XGF_DO_SP_SUB;
 static int xgf_ema_dividend = EMA_DIVIDEND;
 static int xgf_spid_ck_period = NSEC_PER_SEC;
 static int xgf_sp_name_id;
+static int display_rate = DEFAULT_DFRC;
+int fstb_frame_num;
+EXPORT_SYMBOL(fstb_frame_num);
+int fstb_no_stable_thr;
+EXPORT_SYMBOL(fstb_no_stable_thr);
+int fstb_target_fps_margin;
+EXPORT_SYMBOL(fstb_target_fps_margin);
+int fstb_separate_runtime_enable;
+EXPORT_SYMBOL(fstb_separate_runtime_enable);
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
 module_param(xgf_dep_frames, int, 0644);
@@ -49,6 +59,10 @@ module_param(xgf_spid_sub, int, 0644);
 module_param(xgf_ema_dividend, int, 0644);
 module_param(xgf_spid_ck_period, int, 0644);
 module_param(xgf_sp_name_id, int, 0644);
+module_param(fstb_frame_num, int, 0644);
+module_param(fstb_no_stable_thr, int, 0644);
+module_param(fstb_target_fps_margin, int, 0644);
+module_param(fstb_separate_runtime_enable, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgf_hw_events);
@@ -60,6 +74,20 @@ int (*xgf_est_runtime_fp)(
 	unsigned long long ts
 	);
 EXPORT_SYMBOL(xgf_est_runtime_fp);
+
+int (*fpsgo_xgf2ko_calculate_target_fps_fp)(
+	int pid,
+	unsigned long long bufID,
+	int *target_fps_margin,
+	unsigned long long cur_queue_end_ts
+	);
+EXPORT_SYMBOL(fpsgo_xgf2ko_calculate_target_fps_fp);
+
+void (*fpsgo_xgf2ko_do_recycle_fp)(
+	int pid,
+	unsigned long long bufID
+	);
+EXPORT_SYMBOL(fpsgo_xgf2ko_do_recycle_fp);
 
 static int (*xgf_stat_xchg_fp)(int enable);
 
@@ -203,6 +231,93 @@ static inline int xgf_ko_is_ready(void)
 	xgf_lockprove(__func__);
 
 	return xgf_ko_ready;
+}
+
+int xgf_get_display_rate(void)
+{
+	return display_rate;
+}
+EXPORT_SYMBOL(xgf_get_display_rate);
+
+int xgf_get_process_id(int pid)
+{
+	int process_id = -1;
+	struct task_struct *tsk;
+
+	rcu_read_lock();
+	tsk = find_task_by_vpid(pid);
+	if (tsk) {
+		get_task_struct(tsk);
+		process_id = tsk->tgid;
+		put_task_struct(tsk);
+	}
+	rcu_read_unlock();
+
+	return process_id;
+}
+EXPORT_SYMBOL(xgf_get_process_id);
+
+int xgf_check_main_sf_pid(int pid, int process_id)
+{
+	int ret = 0;
+	int hrtimer_process_id;
+	char hrtimer_process_name[16];
+	struct task_struct *gtsk;
+
+	hrtimer_process_id = xgf_get_process_id(pid);
+	if (hrtimer_process_id < 0)
+		return ret;
+
+	rcu_read_lock();
+	gtsk = find_task_by_vpid(hrtimer_process_id);
+	if (gtsk) {
+		get_task_struct(gtsk);
+		strncpy(hrtimer_process_name, gtsk->comm, 16);
+		hrtimer_process_name[15] = '\0';
+		put_task_struct(gtsk);
+	} else
+		hrtimer_process_name[0] = '\0';
+	rcu_read_unlock();
+
+	if ((hrtimer_process_id == process_id) ||
+		strstr(hrtimer_process_name, "surfaceflinger"))
+		ret = 1;
+
+	return ret;
+}
+EXPORT_SYMBOL(xgf_check_main_sf_pid);
+
+int xgf_check_specific_pid(int pid)
+{
+	int ret = 0;
+	char thread_name[16];
+	struct task_struct *tsk;
+
+	rcu_read_lock();
+	tsk = find_task_by_vpid(pid);
+	if (tsk) {
+		get_task_struct(tsk);
+		strncpy(thread_name, tsk->comm, 16);
+		thread_name[15] = '\0';
+		put_task_struct(tsk);
+	} else
+		thread_name[0] = '\0';
+	rcu_read_unlock();
+
+	if (strstr(thread_name, "mali-") || strstr(thread_name, "Binder:"))
+		ret = 1;
+	else if (strstr(thread_name, "UnityMain"))
+		ret = 2;
+
+	return ret;
+}
+EXPORT_SYMBOL(xgf_check_specific_pid);
+
+void fpsgo_ctrl2xgf_display_rate(int dfrc_fps)
+{
+	xgf_lock(__func__);
+	display_rate = dfrc_fps;
+	xgf_unlock(__func__);
 }
 
 static inline int xgf_is_enable(void)
@@ -786,6 +901,8 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		iter->u_runtime_idx = 0;
 		iter->spid = 0;
 		iter->dep_frames = xgf_prev_dep_frames;
+		iter->raw_l_runtime = 0;
+		iter->raw_r_runtime = 0;
 	}
 
 	INIT_HLIST_HEAD(&iter->sector_head);
@@ -1439,6 +1556,42 @@ static int xgf_enter_est_runtime(int rpid, struct xgf_render *render,
 	return ret;
 }
 
+int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
+	int *target_fps_margin, unsigned long long cur_queue_end_ts)
+{
+	int target_fps;
+
+	xgf_lock(__func__);
+
+	WARN_ON(!fpsgo_xgf2ko_calculate_target_fps_fp);
+	if (fpsgo_xgf2ko_calculate_target_fps_fp)
+		target_fps = fpsgo_xgf2ko_calculate_target_fps_fp(pid, bufID,
+			target_fps_margin, cur_queue_end_ts);
+	else
+		target_fps = -ENOENT;
+
+	xgf_unlock(__func__);
+
+	return target_fps;
+}
+
+int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID)
+{
+	int ret = 1;
+
+	xgf_lock(__func__);
+
+	WARN_ON(!fpsgo_xgf2ko_do_recycle_fp);
+	if (fpsgo_xgf2ko_do_recycle_fp)
+		fpsgo_xgf2ko_do_recycle_fp(pid, bufID);
+	else
+		ret = -ENOENT;
+
+	xgf_unlock(__func__);
+
+	return ret;
+}
+
 static int xgf_get_spid(struct xgf_render *render)
 {
 	struct rb_root *r;
@@ -1625,6 +1778,62 @@ qudeq_notify_err:
 	return ret;
 }
 
+void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
+	unsigned long long l_runtime, unsigned long long r_runtime)
+{
+	int ret = 0;
+	struct xgf_render *r, **rrender;
+
+	rrender = &r;
+	if (!xgf_get_render(pid, bufID, rrender, 1)) {
+		ret = 1;
+		r->raw_l_runtime = l_runtime;
+		r->raw_r_runtime = r_runtime;
+	}
+
+	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
+		r->raw_l_runtime, r->raw_r_runtime, ret);
+	fpsgo_systrace_c_fbt(pid, bufID, l_runtime, "raw_t_cpu_logical");
+	fpsgo_systrace_c_fbt(pid, bufID, r_runtime, "raw_t_cpu_render");
+}
+EXPORT_SYMBOL(xgf_set_logical_render_runtime);
+
+void xgf_set_logical_render_info(int pid, unsigned long long bufID,
+	int *l_arr, int l_num, int *r_arr, int r_num,
+	unsigned long long l_start_ts,
+	unsigned long long f_start_ts)
+{
+	char l_dep_str[100] = "";
+	char r_dep_str[100] = "";
+	int i, length, pos = 0;
+
+	for (i = 0; i < l_num; i++) {
+		if (i == 0)
+			length = scnprintf(l_dep_str + pos, 100 - pos,
+				"%d", l_arr[i]);
+		else
+			length = scnprintf(l_dep_str + pos, 100 - pos,
+				",%d", l_arr[i]);
+		pos += length;
+	}
+	pos = 0;
+	for (i = 0; i < r_num; i++) {
+		if (i == 0)
+			length = scnprintf(r_dep_str + pos, 100 - pos,
+				"%d", r_arr[i]);
+		else
+			length = scnprintf(r_dep_str + pos, 100 - pos,
+				",%d", r_arr[i]);
+		pos += length;
+	}
+
+	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | l_deplist:[%s]", pid, bufID, l_dep_str);
+	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | r_deplist:[%s]", pid, bufID, r_dep_str);
+	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | logical_start=%llu, frame_start=%llu", pid, bufID,
+		l_start_ts, f_start_ts);
+}
+EXPORT_SYMBOL(xgf_set_logical_render_info);
+
 static ssize_t deplist_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1692,7 +1901,15 @@ EXPORT_SYMBOL(xgf_ko_enabled);
 int xgf_max_events;
 EXPORT_SYMBOL(xgf_max_events);
 
+struct fstb_trace_event *fstb_event_data;
+EXPORT_SYMBOL(fstb_event_data);
+atomic_t fstb_event_data_idx;
+EXPORT_SYMBOL(fstb_event_data_idx);
+int fstb_event_buffer_size;
+EXPORT_SYMBOL(fstb_event_buffer_size);
+
 #define MAX_XGF_EVENTS (xgf_max_events)
+#define MAX_EVENT_NUM fstb_event_buffer_size
 
 static void xgf_buffer_update(int cpu, int event, int data, int note,
 				unsigned long long ts)
@@ -1755,6 +1972,44 @@ Reget:
 		xte->none = 0;
 		break;
 	}
+}
+
+static void fstb_buffer_record_waking_switch_timer(int cpu, int event,
+	int data, int note, int state, unsigned long long ts)
+{
+	int index;
+	struct fstb_trace_event *fte;
+
+	if (!xgf_atomic_read(xgf_ko_enabled))
+		return;
+
+Reget:
+	index = atomic_inc_return(&fstb_event_data_idx);
+
+	if (unlikely(index < 0)) {
+		atomic_set(&fstb_event_data_idx, 0);
+		return;
+	}
+
+	if (unlikely(index > (MAX_EVENT_NUM + (xgf_nr_cpus << 1)))) {
+		atomic_set(&fstb_event_data_idx, 0);
+		return;
+	}
+
+	if (unlikely(index == MAX_EVENT_NUM))
+		atomic_set(&fstb_event_data_idx, 0);
+	else if (unlikely(index > MAX_EVENT_NUM))
+		goto Reget;
+
+	index -= 1;
+
+	fte = &fstb_event_data[index];
+	fte->ts = ts;
+	fte->cpu = cpu;
+	fte->event = event;
+	fte->note = note;
+	fte->state = state;
+	fte->pid = data;
 }
 
 static void xgf_irq_handler_entry_tracer(void *ignore,
@@ -1874,6 +2129,7 @@ static void xgf_sched_switch_tracer(void *ignore,
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
 	int prev_pid = xgf_get_task_pid(prev);
+	int next_pid = xgf_get_task_pid(next);
 
 	prev_state = xgf_trace_sched_switch_state(preempt, prev);
 	temp_state = prev_state & (TASK_STATE_MAX-1);
@@ -1882,6 +2138,59 @@ static void xgf_sched_switch_tracer(void *ignore,
 		skip = 1;
 
 	xgf_buffer_update(c_wake_cpu, SCHED_SWITCH, prev_pid, skip, ts);
+
+	if (temp_state)
+		fstb_buffer_record_waking_switch_timer(c_wake_cpu, SCHED_SWITCH,
+			next_pid, prev_pid, 1, ts);
+	else
+		fstb_buffer_record_waking_switch_timer(c_wake_cpu, SCHED_SWITCH,
+			next_pid, prev_pid, 0, ts);
+}
+
+static void xgf_sched_waking_tracer(void *ignore, struct task_struct *p)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+	int p_pid = xgf_get_task_pid(p);
+
+	fstb_buffer_record_waking_switch_timer(c_wake_cpu, SCHED_WAKING,
+		p_pid, c_pid, 512, ts);
+}
+
+static void xgf_hrtimer_expire_entry_tracer(void *ignore,
+	struct hrtimer *hrtimer, ktime_t *now)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+	int length = -1;
+	char func_name[100];
+
+	length = scnprintf(func_name, 100, "%ps", hrtimer->function);
+	if (length >= 0) {
+		if (strncmp(func_name, "shader_tick_timer_callback", 26) &&
+			strncmp(func_name, "tick_sched_timer", 16))
+			fstb_buffer_record_waking_switch_timer(c_wake_cpu, HRTIMER_ENTRY, 0,
+				c_pid, 512, ts);
+	}
+}
+
+static void xgf_hrtimer_expire_exit_tracer(void *ignore, struct hrtimer *hrtimer)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+	int length = -1;
+	char func_name[100];
+
+	length = scnprintf(func_name, 100, "%ps", hrtimer->function);
+	if (length >= 0) {
+		if (strncmp(func_name, "shader_tick_timer_callback", 26) &&
+			strncmp(func_name, "tick_sched_timer", 16))
+			fstb_buffer_record_waking_switch_timer(c_wake_cpu, HRTIMER_EXIT, 0,
+				c_pid, 512, ts);
+	}
 }
 
 struct tracepoints_table {
@@ -1902,6 +2211,9 @@ static struct tracepoints_table xgf_tracepoints[] = {
 	{.name = "sched_wakeup", .func = xgf_sched_wakeup_tracer},
 	{.name = "sched_wakeup_new", .func = xgf_sched_wakeup_new_tracer},
 	{.name = "sched_switch", .func = xgf_sched_switch_tracer},
+	{.name = "sched_waking", .func = xgf_sched_waking_tracer},
+	{.name = "hrtimer_expire_entry", .func = xgf_hrtimer_expire_entry_tracer},
+	{.name = "hrtimer_expire_exit", .func = xgf_hrtimer_expire_exit_tracer},
 };
 
 #define FOR_EACH_INTEREST_MAX \
@@ -1939,6 +2251,7 @@ static void __nocfi xgf_tracing_register(void)
 
 	xgf_nr_cpus = xgf_num_possible_cpus();
 	xgf_atomic_set(xgf_event_index, 0);
+	atomic_set(&fstb_event_data_idx, 0);
 
 	/* xgf_irq_handler_entry_tracer */
 	ret = xgf_tracepoint_probe_register(xgf_tracepoints[0].tp,
@@ -2040,9 +2353,49 @@ static void __nocfi xgf_tracing_register(void)
 	}
 	xgf_tracepoints[9].registered = true;
 
+	/* xgf_sched_waking_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[10].tp,
+						xgf_tracepoints[10].func,  NULL);
+
+	if (ret) {
+		pr_info("sched trace: Couldn't activate tracepoint probe to kernel_sched_waking\n");
+		goto fail_reg_sched_waking;
+	}
+	xgf_tracepoints[10].registered = true;
+
+	/* xgf_hrtimer_expire_entry_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[11].tp,
+						xgf_tracepoints[11].func,  NULL);
+
+	if (ret) {
+		pr_info("hrtimer_entry trace: Couldn't activate tracepoint probe to kernel_hrtimer_expire_entry\n");
+		goto fail_reg_hrtimer_expire_entry;
+	}
+	xgf_tracepoints[11].registered = true;
+
+	/* xgf_hrtimer_expire_exit_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[12].tp,
+						xgf_tracepoints[12].func,  NULL);
+
+	if (ret) {
+		pr_info("hrtimer_exit trace: Couldn't activate tracepoint probe to kernel_hrtimer_expire_exit\n");
+		goto fail_reg_hrtimer_expire_exit;
+	}
+	xgf_tracepoints[12].registered = true;
+
 	xgf_atomic_set(xgf_event_index, 0);
+	atomic_set(&fstb_event_data_idx, 0);
 	return; /* successful registered all */
 
+fail_reg_hrtimer_expire_exit:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[12].tp,
+					xgf_tracepoints[12].func,  NULL);
+fail_reg_hrtimer_expire_entry:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[11].tp,
+					xgf_tracepoints[11].func,  NULL);
+fail_reg_sched_waking:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[10].tp,
+					xgf_tracepoints[10].func,  NULL);
 fail_reg_sched_switch:
 	xgf_tracepoint_probe_unregister(xgf_tracepoints[9].tp,
 					xgf_tracepoints[9].func,  NULL);
@@ -2086,6 +2439,7 @@ fail_reg_irq_handler_entry:
 
 	xgf_atomic_set(xgf_ko_enabled, 0);
 	xgf_atomic_set(xgf_event_index, 0);
+	atomic_set(&fstb_event_data_idx, 0);
 }
 
 static void __nocfi xgf_tracing_unregister(void)
@@ -2120,7 +2474,17 @@ static void __nocfi xgf_tracing_unregister(void)
 	xgf_tracepoint_probe_unregister(xgf_tracepoints[9].tp,
 					xgf_tracepoints[9].func,  NULL);
 	xgf_tracepoints[9].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[10].tp,
+					xgf_tracepoints[10].func,  NULL);
+	xgf_tracepoints[10].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[11].tp,
+					xgf_tracepoints[11].func,  NULL);
+	xgf_tracepoints[11].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[12].tp,
+					xgf_tracepoints[12].func,  NULL);
+	xgf_tracepoints[12].registered = false;
 	xgf_atomic_set(xgf_event_index, 0);
+	atomic_set(&fstb_event_data_idx, 0);
 }
 
 int xgf_stat_xchg(int xgf_enable)
@@ -2156,6 +2520,7 @@ int __init init_xgf_ko(void)
 	}
 
 	xgf_event_index = xgf_atomic_val_assign(0);
+	atomic_set(&fstb_event_data_idx, 0);
 	xgf_ko_enabled = xgf_atomic_val_assign(1);
 
 	xgf_stat_xchg_fp = xgf_stat_xchg;

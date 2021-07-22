@@ -20,6 +20,7 @@
 #define XGF_DEP_FRAMES_MAX 20
 #define XGF_DO_SP_SUB 0
 #define XGF_MAX_UFRMAES 200
+#define DEFAULT_DFRC 60
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -94,6 +95,9 @@ struct xgf_render {
 
 	int spid;
 	int dep_frames;
+
+	unsigned long long raw_l_runtime;
+	unsigned long long raw_r_runtime;
 };
 
 struct xgf_dep {
@@ -178,6 +182,12 @@ extern int (*xgf_est_runtime_fp)(pid_t r_pid,
 		struct xgf_render *render,
 		unsigned long long *runtime,
 		unsigned long long ts);
+extern int (*fpsgo_xgf2ko_calculate_target_fps_fp)(int pid,
+	unsigned long long bufID,
+	int *target_fps_margin,
+	unsigned long long cur_queue_end_ts);
+extern void (*fpsgo_xgf2ko_do_recycle_fp)(int pid,
+	unsigned long long bufID);
 
 void xgf_lockprove(const char *tag);
 void xgf_trace(const char *fmt, ...);
@@ -217,6 +227,24 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);
 
+int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
+	int *target_fps_margin, unsigned long long cur_queue_end_ts);
+int fpsgo_xgf2ko_calculate_target_fps(int pid, unsigned long long bufID,
+	int *target_fps_margin, unsigned long long cur_queue_end_ts);
+int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID);
+void fpsgo_xgf2ko_do_recycle(int pid, unsigned long long bufID);
+void fpsgo_ctrl2xgf_display_rate(int dfrc_fps);
+int xgf_get_display_rate(void);
+int xgf_get_process_id(int pid);
+int xgf_check_main_sf_pid(int pid, int process_id);
+int xgf_check_specific_pid(int pid);
+void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
+	unsigned long long l_runtime, unsigned long long r_runtime);
+void xgf_set_logical_render_info(int pid, unsigned long long bufID,
+	int *l_arr, int l_num, int *r_arr, int r_num,
+	unsigned long long l_start_ts,
+	unsigned long long f_start_ts);
+
 enum XGF_EVENT {
 	SCHED_SWITCH,
 	SCHED_WAKEUP,
@@ -226,7 +254,10 @@ enum XGF_EVENT {
 	IRQ_ENTRY,
 	IRQ_EXIT,
 	SOFTIRQ_ENTRY,
-	SOFTIRQ_EXIT
+	SOFTIRQ_EXIT,
+	SCHED_WAKING,
+	HRTIMER_ENTRY,
+	HRTIMER_EXIT
 };
 
 struct xgf_trace_event {
@@ -245,10 +276,26 @@ struct xgf_trace_event {
 	};
 };
 
+struct fstb_trace_event {
+	unsigned long long ts;
+	int event;
+	int cpu;
+	int note;
+	int state;
+	int pid;
+};
+
 extern struct xgf_trace_event *xgf_event_data;
 extern void *xgf_event_index;
 extern void *xgf_ko_enabled;
 extern int xgf_max_events;
+extern struct fstb_trace_event *fstb_event_data;
+extern atomic_t fstb_event_data_idx;
+extern int fstb_event_buffer_size;
+extern int fstb_frame_num;
+extern int fstb_no_stable_thr;
+extern int fstb_target_fps_margin;
+extern int fstb_separate_runtime_enable;
 
 int __init init_xgf(void);
 #endif

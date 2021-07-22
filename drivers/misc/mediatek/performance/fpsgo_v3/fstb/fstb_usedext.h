@@ -43,6 +43,8 @@ struct FSTB_FRAME_INFO {
 	int pid;
 	char proc_name[16];
 	int target_fps;
+	int target_fps_v2;
+	int target_fps_margin_v2;
 	int target_fps_margin;
 	int target_fps_margin2;
 	int target_fps_margin_dbnc_a;
@@ -82,6 +84,7 @@ struct FSTB_FRAME_INFO {
 	unsigned long long gblock_b;
 	unsigned long long gblock_time;
 	int fps_raise_flag;
+	int hwui_flag;
 };
 
 struct FSTB_RENDER_TARGET_FPS {
