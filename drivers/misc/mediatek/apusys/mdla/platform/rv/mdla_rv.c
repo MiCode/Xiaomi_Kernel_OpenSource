@@ -5,6 +5,7 @@
 #include <linux/of_device.h>
 #include <linux/debugfs.h>
 #include <linux/mutex.h>
+#include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
@@ -19,6 +20,9 @@
 #include <platform/mdla_plat_api.h>
 
 #include "mdla_rv.h"
+
+/* remove after lk/atf bootup flow ready */
+#define LK_BOOT_RDY 0
 
 #define DBGFS_USAGE_NAME    "help"
 #define DBGFS_MEM_NAME      "dbg_mem"
@@ -74,6 +78,7 @@ DEFINE_IPI_DBGFS_ATTRIBUTE(C14,            MDLA_IPI_PMU_COUNT,     14, "0x%llx\n
 DEFINE_IPI_DBGFS_ATTRIBUTE(C15,            MDLA_IPI_PMU_COUNT,     15, "0x%llx\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(preempt_times,  MDLA_IPI_PREEMPT_CNT,    0, "%llu\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(force_pwr_on,   MDLA_IPI_FORCE_PWR_ON,   0, "%d\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(profiling,      MDLA_IPI_PROFILE_EN,     0, "%d\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(dump_cmdbuf_en, MDLA_IPI_DUMP_CMDBUF_EN, 0, "%d\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(info,           MDLA_IPI_INFO,           0, "%d\n");
 
@@ -110,6 +115,7 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_PMU_COUNT,     15, 0x4, 0660,            "c15",            &C15_fops, 0},
 	{MDLA_IPI_PREEMPT_CNT,    0, 0xC, 0660,  "preempt_times",  &preempt_times_fops, 0},
 	{MDLA_IPI_FORCE_PWR_ON,   0, 0x8, 0660,   "force_pwr_on",   &force_pwr_on_fops, 0},
+	{MDLA_IPI_PROFILE_EN,     0, 0x8, 0660,      "profiling",      &profiling_fops, 0},
 	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0x8, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
 	{MDLA_IPI_INFO,           0, 0x8, 0660,           "info",           &info_fops, 0},
 	{NF_MDLA_IPI_TYPE_0,      0,   0,    0,             NULL,                 NULL, 0}
@@ -175,6 +181,11 @@ static void mdla_plat_v3_dbgfs_usage(struct seq_file *s, void *data)
 	seq_puts(s, "\t0: force power down and reset command queue\n");
 	seq_puts(s, "\t1: force power up and keep power on\n");
 
+	seq_puts(s, "\n--------------- profile control ---------------\n");
+	seq_printf(s, "echo [0|1] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_PROFILE_EN));
+	seq_puts(s, "\t0: stop profiling\n");
+	seq_puts(s, "\t1: start to profile\n");
+
 	seq_puts(s, "\n------------- show information -------------\n");
 	seq_printf(s, "echo [item] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_INFO));
 	seq_puts(s, "and then cat /proc/apusys_logger/seq_log\n");
@@ -182,6 +193,7 @@ static void mdla_plat_v3_dbgfs_usage(struct seq_file *s, void *data)
 	seq_printf(s, "\t%d: show register value\n", MDLA_IPI_INFO_REG);
 	seq_printf(s, "\t%d: show the last cmdbuf (if dump_cmdbuf_en != 0)\n",
 				MDLA_IPI_INFO_CMDBUF);
+	seq_printf(s, "\t%d: show profiling result\n", MDLA_IPI_INFO_PROF);
 
 	seq_puts(s, "\n----------- allocate debug memory -----------\n");
 	seq_printf(s, "echo [size(dec)] > /d/mdla/%s\n", DBGFS_MEM_NAME);
@@ -271,6 +283,27 @@ static int mdla_rv_dbg_mem_open(struct inode *inode, struct file *file)
 	return single_open(file, mdla_rv_dbg_mem_show, inode->i_private);
 }
 
+static int mdla_plat_send_addr_info(void *arg)
+{
+#if !LK_BOOT_RDY
+	if (cfg0 && cfg1) {
+		mdla_verbose("%s(): send ipi for fw addr(0x%08x, 0x%08x)\n", __func__,
+				cfg0, cfg1);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BOOT, (u64)cfg0);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_MAIN, (u64)cfg1);
+	} else {
+		mdla_err("Config data isn't ready yet\n");
+	}
+#endif
+
+	if (backup_mem.da) {
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA, (u64)backup_mem.da);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA_SZ, (u64)backup_mem.size);
+	}
+
+	return 0;
+}
+
 static ssize_t mdla_rv_dbg_mem_write(struct file *flip,
 		const char __user *buffer,
 		size_t count, loff_t *f_pos)
@@ -294,10 +327,20 @@ static ssize_t mdla_rv_dbg_mem_write(struct file *flip,
 		goto out;
 	}
 
-	mdla_plat_free_mem(&dbg_mem);
+	if (size == 1) {
+		struct task_struct *ipi_task;
+
+		ipi_task = kthread_run(mdla_plat_send_addr_info, NULL, "mdla uP init");
+		if (IS_ERR(ipi_task))
+			mdla_err("create uP init thread failed\n");
+
+		goto out;
+	}
 
 	if (size > 0x200000 || size < 0x10)
 		goto out;
+
+	mdla_plat_free_mem(&dbg_mem);
 
 	if (mdla_plat_alloc_mem(&dbg_mem, size) == 0) {
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA, (u64)dbg_mem.da);
@@ -347,19 +390,17 @@ static void mdla_plat_memory_show(struct seq_file *s)
 	mdla_rv_dbg_mem_show(s, NULL);
 }
 
+
 void mdla_plat_up_init(void)
 {
-	if (cfg0 && cfg1) {
-		mdla_verbose("%s(): send ipi for fw addr(0x%08x, 0x%08x)\n", __func__,
-				cfg0, cfg1);
-		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BOOT, (u64)cfg0);
-		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_MAIN, (u64)cfg1);
-	}
+#if LK_BOOT_RDY
+	struct task_struct *init_task;
 
-	if (backup_mem.da) {
-		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA, (u64)backup_mem.da);
-		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA_SZ, (u64)backup_mem.size);
-	}
+	init_task = kthread_run(mdla_plat_send_addr_info, NULL, "mdla uP init");
+
+	if (IS_ERR(init_task))
+		mdla_err("create uP init thread failed\n");
+#endif
 }
 
 /* platform public functions */
