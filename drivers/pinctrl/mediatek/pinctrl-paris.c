@@ -1018,8 +1018,6 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 	i = prop->length / (sizeof(unsigned int) * 4);
 	if (i < 1)
 		return -EINVAL;
-	if (of_property_read_bool(np, "interrupt-controller"))
-		i--;
 	hw->nbase = i;
 	hw->base = devm_kmalloc_array(&pdev->dev, i, sizeof(*hw->base),
 		GFP_KERNEL | __GFP_ZERO);
