@@ -255,7 +255,7 @@ static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf, 
 	}
 
 	ad->df = devm_devfreq_add_device(ad->dev, pf, gov_name, pgov_data);
-	if (IS_ERR(ad->df)) {
+	if (IS_ERR_OR_NULL(ad->df)) {
 		err = PTR_ERR(ad->df);
 		goto out;
 	}

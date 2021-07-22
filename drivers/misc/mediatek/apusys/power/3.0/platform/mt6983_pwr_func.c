@@ -225,9 +225,9 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 	size = tbl.tbl_size;
 
 	// first line
-	seq_printf(s, "\n|#|%*s|", "BUCK_VAPU");
+	seq_printf(s, "\n|#|%s|", "BUCK_VAPU");
 	for (i = 0 ; i < PLL_NUM ; i++)
-		seq_printf(s, "%*s|", pll_name[i]);
+		seq_printf(s, "%s|", pll_name[i]);
 
 	seq_puts(s, "\n");
 	for (i = 0 ; i < size ; i++) {
