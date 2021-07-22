@@ -11,6 +11,7 @@
 # GNU General Public License for more details.
 #
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/mrdump/
 ccflags-y += -I$(srctree)/drivers/scsi/ufs/
 ccflags-y += -I$(srctree)/drivers/mmc/core

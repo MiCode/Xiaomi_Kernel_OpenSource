@@ -11,8 +11,8 @@
 #include <linux/blk_types.h>
 #include <linux/blkdev.h>
 #include <linux/cpumask.h>
-#include <linux/kernel_stat.h>
 #include <linux/jiffies.h>
+#include <linux/kernel_stat.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
@@ -38,6 +38,7 @@
 #include <linux/exm_driver.h>
 #endif
 
+#include <mrdump.h>
 #include "blocktag-ufs.h"
 #include "mtk_blocktag.h"
 
@@ -1833,12 +1834,14 @@ static int __init mtk_btag_init(void)
 	mtk_btag_init_procfs();
 	mtk_btag_install_tracepoints();
 	mtk_btag_earaio_init();
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, mtk_btag_get_aee_buffer);
 
 	return 0;
 }
 
 static void __exit mtk_btag_exit(void)
 {
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, NULL);
 	proc_remove(btag_proc_root);
 	mtk_btag_uninstall_tracepoints();
 }
