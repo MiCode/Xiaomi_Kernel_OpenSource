@@ -52,6 +52,12 @@
 	epa_elna {
 		parts = <&wlan7207h &wlan7205c>;
 
+		wifi {
+			flags-0 {
+				/* open-loop; */
+			};
+		};
+
 		bt {
 			flags-0 {
 				/* choose one of: bypass / epa_elna / elna / epa */
@@ -62,15 +68,29 @@
 #endif
 
 	epa_elna_mtk {
-		parts = <&nofem &nofem>,
-			<&wlan7207h &wlan7205c_laa>;
+		parts = <&nofem &nofem>,		/* [0]iPA/iLNA */
+			<&wlan7207h &wlan7205c_laa>,	/* [1]ePA/eLNA - Open Loop, LAA 4x4 */
+			<&wlan7207h &wlan7205c>,	/* [2]ePA/eLNA - Open Loop */
+			<&wlan7207h &wlan7205c>,	/* [3]ePA/eLNA - Closed-Loop */
+			<&wlan7207h &wlan7205c_laa>,	/* [4]ePA/eLNA - Closed-Loop, LAA 4x4 */
+			<&wlan7207h &wlan7205c>,	/* [5]ePA/eLNA - Closed-Loop + BT Bypass */
+			<&wlan7207h &wlan7205c>;	/* [6]ePA/eLNA - Open Loop + BT Bypass */
 
 		hwid = <&pio 203 0x00>;
 
 		wifi {
 			flags-1 {
-				/* open-loop; */
+				open-loop;
 				laa;
+			};
+			flags-2 {
+				open-loop;
+			};
+			flags-4 {
+				laa;
+			};
+			flags-6 {
+				open-loop;
 			};
 		};
 
@@ -78,6 +98,21 @@
 			flags-1 {
 				/* choose one of: bypass / epa_elna / elna / epa */
 				epa_elna;
+			};
+			flags-2 {
+				epa_elna;
+			};
+			flags-3 {
+				epa_elna;
+			};
+			flags-4 {
+				epa_elna;
+			};
+			flags-5 {
+				bypass;
+			};
+			flags-6 {
+				bypass;
 			};
 		};
 	};
