@@ -516,6 +516,10 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
+	[MT6983_POWER_DOMAIN_APU] = {
+		.name = "apu",
+		.caps = MTK_SCPD_APU_OPS | MTK_SCPD_BYPASS_INIT_ON,
+	},
 };
 
 static const struct scp_subdomain scp_subdomain_mt6983[] = {
