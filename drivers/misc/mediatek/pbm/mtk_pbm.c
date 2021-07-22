@@ -535,6 +535,8 @@ static void pbm_thread_handle(struct work_struct *work)
 {
 	int g_dlpt_state_sync = 0;
 	unsigned int gpu_cur_pb = 0, gpu_cur_volt = 0;
+	struct cpu_pbm_policy *pbm_policy;
+	unsigned int req_total_power = 0;
 
 	mtk_gpufreq_get_max_min_pb();
 #if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
@@ -548,6 +550,12 @@ static void pbm_thread_handle(struct work_struct *work)
 		kicker_pbm_by_gpu(true, gpu_cur_pb, gpu_cur_volt);
 	else
 		kicker_pbm_by_gpu(false, gpu_cur_pb, gpu_cur_volt);
+
+
+	list_for_each_entry(pbm_policy, &pbm_policy_list, cpu_pbm_list) {
+		req_total_power += pbm_policy->power;
+	}
+	kicker_pbm_by_cpu(req_total_power);
 
 	mutex_lock(&pbm_mutex);
 	if (g_dlpt_need_do == 1 && g_pbm_update == true) {
@@ -610,13 +618,15 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 {
 	struct cpufreq_policy *policy = NULL;
 	struct cpu_pbm_policy *pbm_policy;
-	unsigned int cpu, num_cpus, freq, req_total_power = 0;
+	unsigned int cpu, num_cpus, freq;
 
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
-	if (cpu_id != cpumask_first(policy->related_cpus))
+	if (cpu_id != cpumask_first(policy->related_cpus)) {
+		cpufreq_cpu_put(policy);
 		return;
+	}
 
 	list_for_each_entry(pbm_policy, &pbm_policy_list, cpu_pbm_list) {
 		cpu = pbm_policy->policy->cpu;
@@ -627,10 +637,10 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 			freq = cpufreq_quick_get(cpu);
 
 		num_cpus = cpumask_weight(pbm_policy->policy->cpus);
-		req_total_power += cpu_freq_to_power(pbm_policy, freq) * num_cpus;
+		pbm_policy->power = cpu_freq_to_power(pbm_policy, freq) * num_cpus;
 	}
 
-	kicker_pbm_by_cpu(req_total_power);
+	cpufreq_cpu_put(policy);
 }
 
 struct tracepoints_table pbm_tracepoints[] = {
@@ -989,6 +999,7 @@ static int pbm_remove(struct platform_device *pdev)
 
 	list_for_each_entry_safe(pbm_policy, pbm_policy_t, &pbm_policy_list, cpu_pbm_list) {
 		freq_qos_remove_request(&pbm_policy->qos_req);
+		cpufreq_cpu_put(pbm_policy->policy);
 		list_del(&pbm_policy->cpu_pbm_list);
 		kfree(pbm_policy);
 	}

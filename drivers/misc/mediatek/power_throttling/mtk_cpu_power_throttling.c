@@ -141,6 +141,7 @@ static void __exit mtk_cpu_power_throttling_module_exit(void)
 
 	list_for_each_entry_safe(pt_policy, pt_policy_t, &pt_policy_list, cpu_pt_list) {
 		freq_qos_remove_request(&pt_policy->qos_req);
+		cpufreq_cpu_put(pt_policy->policy);
 		list_del(&pt_policy->cpu_pt_list);
 		kfree(pt_policy);
 	}
