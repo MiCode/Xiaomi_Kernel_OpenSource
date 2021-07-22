@@ -14,6 +14,7 @@
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
 #include <linux/tracepoint.h>
+#include <mrdump.h>
 #include "ufshcd.h"
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
@@ -748,6 +749,7 @@ EXPORT_SYMBOL_GPL(ufs_mtk_dbg_register);
 
 static void __exit ufs_mtk_dbg_exit(void)
 {
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_UFS, NULL);
 	kfree(cmd_hist);
 }
 
@@ -756,6 +758,7 @@ static int __init ufs_mtk_dbg_init(void)
 	cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
 			   sizeof(struct cmd_hist_struct),
 			   GFP_KERNEL);
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_UFS, ufs_mtk_dbg_get_aee_buffer);
 	return 0;
 }
 

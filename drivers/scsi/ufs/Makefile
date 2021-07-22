@@ -2,6 +2,7 @@
 # UFSHCD makefile
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/blocktag/
 
 # The link order is important here. ufshcd-core must initialize
