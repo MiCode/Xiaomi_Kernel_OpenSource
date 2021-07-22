@@ -3593,6 +3593,18 @@ static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char
 	case V4L2_PIX_FMT_NV61_10:
 		*descr = "Y/CrCb 4:2:2 10 bits";
 		break;
+	case V4L2_PIX_FMT_NV12_12:
+		*descr = "Y/CbCr 4:2:0 12 bits";
+		break;
+	case V4L2_PIX_FMT_NV21_12:
+		*descr = "Y/CrCb 4:2:0 12 bits";
+		break;
+	case V4L2_PIX_FMT_NV16_12:
+		*descr = "Y/CbCr 4:2:2 12 bits";
+		break;
+	case V4L2_PIX_FMT_NV61_12:
+		*descr = "Y/CrCb 4:2:2 12 bits";
+		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR10:
 		*descr = "10-bit Bayer BGGR MTISP Packed";
 		break;
@@ -3652,7 +3664,7 @@ static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char
 		break;
 	case V4L2_PIX_FMT_MTISP_SRGGB10F:
 		*descr = "10-bit Enhanced RGGB Packed";
-	break;
+		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR12F:
 		*descr = "12-bit Enhanced BGGR Packed";
 		break;
@@ -3700,6 +3712,60 @@ static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char
 		break;
 	case V4L2_PIX_FMT_MTISP_VYUY10P:
 		*descr = "VYUY 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_12P:
+		*descr = "Y/CbCr 4:2:0 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_12P:
+		*descr = "Y/CrCb 4:2:0 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV16_12P:
+		*descr = "Y/CbCr 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV61_12P:
+		*descr = "Y/CrCb 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YUYV12P:
+		*descr = "YUYV 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YVYU12P:
+		*descr = "YVYU 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_UYVY12P:
+		*descr = "UYVY 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_VYUY12P:
+		*descr = "VYUY 4:2:2 12 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
+		*descr = "YCbCr 420 8 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
+		*descr = "YCrCb 420 8 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
+		*descr = "YCbCr 420 10 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
+		*descr = "YCrCb 420 10 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
+		*descr = "YCbCr 420 12 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
+		*descr = "YCrCb 420 12 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
+		*descr = "RAW 8 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
+		*descr = "RAW 10 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
+		*descr = "RAW 12 bits compress";
+		break;
+	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
+		*descr = "RAW 14 bits compress";
 		break;
 	case V4L2_META_FMT_MTISP_3A:
 		*descr = "AE/AWB Histogram";
