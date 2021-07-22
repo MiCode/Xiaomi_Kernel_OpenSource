@@ -25,7 +25,8 @@ static const char *ipi_lock_name[APU_IPI_MAX] = {
 	"apu-reviser",
 	"apu-pwr-tx",
 	"apu-pwr-rx",
-	"apu-mdla",
+	"apu-mdla-tx",
+	"apu-mdla-rx",
 };
 static struct lock_class_key ipi_lock_key[APU_IPI_MAX];
 
