@@ -7868,6 +7868,7 @@
 	camisp_l13 {
 		compatible = "mediatek,camisp-larb";
 		mediatek,larb-id = <13>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L13_CAM1_CAMSV_CQI_E1>,
 			 <&disp_iommu M4U_PORT_L13_CAM1_CAMSV_CQI_E2>,
 			 <&disp_iommu M4U_PORT_L13_CAM1_GCAMSV_A_IMGO_1>,
@@ -7897,6 +7898,7 @@
 	camisp_l14 {
 		compatible = "mediatek,camisp-larb";
 		mediatek,larb-id = <14>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L14_CAM1_GCAMSV_B_IMGO_1>,
 			 <&mdp_iommu M4U_PORT_L14_CAM1_GCAMSV_B_IMGO_2>,
 			 <&mdp_iommu M4U_PORT_L14_CAM1_SCAMSV_A_IMGO_1>,
