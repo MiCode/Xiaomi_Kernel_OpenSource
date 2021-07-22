@@ -210,7 +210,6 @@ static int protect_kernel(void)
 		handle = mkp_create_handle(policy, (unsigned long)phys_addr, nr_pages<<12);
 		if (handle == 0) {
 			MKP_ERR("%s:%d: Create handle fail\n", __func__, __LINE__);
-			MKP_ERR("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
 		} else {
 			ret = mkp_set_mapping_x(policy, handle);
 			ret = mkp_set_mapping_ro(policy, handle);
@@ -231,7 +230,6 @@ static int protect_kernel(void)
 		handle = mkp_create_handle(policy, (unsigned long)phys_addr, nr_pages<<12);
 		if (handle == 0) {
 			MKP_ERR("%s:%d: Create handle fail\n", __func__, __LINE__);
-			MKP_ERR("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
 		} else
 			ret = mkp_set_mapping_ro(policy, handle);
 	}

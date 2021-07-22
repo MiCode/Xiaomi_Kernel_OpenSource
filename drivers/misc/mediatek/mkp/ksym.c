@@ -227,8 +227,8 @@ void mkp_get_krn_info(void **p_stext, void **p_etext,
 	*p_stext = (void *)stext;
 	*p_etext = (void *)etext;
 	*p__init_begin = (void *)init_begin;
-	MKP_INFO("_stext: %p, _etext: %p\n", *p_stext, *p_etext);
-	MKP_INFO(" __init_begin: %p\n", *p__init_begin);
+	MKP_DEBUG("_stext: %p, _etext: %p\n", *p_stext, *p_etext);
+	MKP_DEBUG(" __init_begin: %p\n", *p__init_begin);
 }
 
 void mkp_get_krn_code(void **p_stext, void **p_etext)
@@ -247,7 +247,7 @@ void mkp_get_krn_code(void **p_stext, void **p_etext)
 		MKP_ERR("%s: _etext not found\n", __func__);
 		return;
 	}
-	MKP_INFO("_stext: %px, _etext: %px\n", *p_stext, *p_etext);
+	MKP_DEBUG("_stext: %p, _etext: %p\n", *p_stext, *p_etext);
 	return;
 }
 
@@ -267,6 +267,6 @@ void mkp_get_krn_rodata(void **p_etext, void **p__init_begin)
 		MKP_ERR("%s: __init_begin not found\n", __func__);
 		return;
 	}
-	MKP_INFO("_etext: %px, __init_begin: %px\n", *p_etext, *p__init_begin);
+	MKP_DEBUG("_etext: %p, __init_begin: %p\n", *p_etext, *p__init_begin);
 	return;
 }

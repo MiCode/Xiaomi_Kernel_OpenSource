@@ -84,7 +84,6 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 				if (handle == 0) {
 					MKP_ERR("%s:%d: Create handle fail\n",
 						__func__, __LINE__);
-					MKP_ERR("pa: %pa, count: %lu\n", &phys_addr, count);
 					kfree(data);
 					start_pfn = 0; count = 1;
 					continue;
