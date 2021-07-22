@@ -25,7 +25,7 @@ uint32_t __ro_after_init mkp_policy_action[MKP_POLICY_NR] = {
 };
 void __init set_policy(void)
 {
-	pr_info("MKP: set policy start...\n");
+	MKP_INFO("MKP: set policy start...\n");
 	memset(policy_ctrl, 0, MKP_POLICY_NR*sizeof(int));
 
 	/* default enable all policy */
@@ -44,7 +44,7 @@ void __init set_policy(void)
 
 	/* Policies for vendors start from here (16 ~ 31) */
 	policy_ctrl[MKP_POLICY_VENDOR_START] = 1;
-	pr_info("MKP: set policy Done\n");
+	MKP_INFO("MKP: set policy Done\n");
 	return;
 }
 
@@ -65,11 +65,11 @@ int __init set_ext_policy(uint32_t policy)
 void handle_mkp_err_action(uint32_t policy)
 {
 	if (mkp_policy_action[policy] & ACTION_PANIC) {
-		pr_err("mkp error\n");
+		MKP_ERR("mkp error\n");
 		// For now we use warn for panic.
 		WARN(1, "mkp panic\n");
 	} else if (mkp_policy_action[policy] & ACTION_WARNING)
 		WARN(1, "mkp warning\n");
 	else
-		pr_info("mkp error\n");
+		MKP_ERR("mkp error\n");
 }
