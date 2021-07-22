@@ -149,7 +149,7 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* macro_comm status */
 	/*if (dl_path == IMGSYS_DL_WPE_PQDIP) {*/
-	wpedip1RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE_DIP1);
+	wpedip1RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE1_DIP1);
 	if (!wpedip1RegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip1 registers\n",
 								__func__);
