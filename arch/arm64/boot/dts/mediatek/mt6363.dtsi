@@ -282,6 +282,7 @@
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <240>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			mt6363_vaux18: VAUX18 {
 				regulator-compatible = "VAUX18";
