@@ -1666,11 +1666,9 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	}
 
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
-	if (IS_ERR_OR_NULL(vcu_mtkdev[vcuid]->clt_vdec[0]))
-		return -EINVAL;
 
 	vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev,
-		vcu_mtkdev[vcuid]->clt_vdec[0]->chan->mbox->dev);
+		NULL);
 
 	if (vcu_queue == NULL)
 		return -ENOMEM;
@@ -2568,28 +2566,6 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		if (ret < 0)
 			break;
 	}
-
-	vcu->clt_base = cmdq_register_device(dev);
-	for (i = 0; i < vcu->gce_th_num[VCU_VDEC]; i++)
-		vcu->clt_vdec[i] = cmdq_mbox_create(dev, i);
-	for (i = 0; i < vcu->gce_th_num[VCU_VENC]; i++)
-		vcu->clt_venc[i] =
-			cmdq_mbox_create(dev, i + vcu->gce_th_num[VCU_VDEC]);
-
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	vcu->clt_venc_sec[0] =
-		cmdq_mbox_create(dev,
-		vcu->gce_th_num[VCU_VDEC] + vcu->gce_th_num[VCU_VENC]);
-#endif
-
-	if (IS_ERR_OR_NULL(vcu->clt_vdec[0]))
-		goto err_device;
-
-	dev_dbg(dev, "[VCU] GCE clt_base %p clt_vdec %d %p %p clt_venc %d %p %p %p dev %p",
-		vcu->clt_base, vcu->gce_th_num[VCU_VDEC],
-		vcu->clt_vdec[0], vcu->clt_vdec[1],
-		vcu->gce_th_num[VCU_VENC], vcu->clt_venc[0],
-		vcu->clt_venc[1], vcu->clt_venc_sec[0], dev);
 
 	for (i = 0; i < GCE_EVENT_MAX; i++)
 		vcu->gce_codec_eid[i] = -1;
