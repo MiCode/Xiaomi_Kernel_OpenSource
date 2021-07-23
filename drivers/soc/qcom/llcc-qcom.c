@@ -293,7 +293,6 @@ static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
 struct llcc_slice_desc *llcc_slice_getd(u32 uid)
 {
 	const struct llcc_slice_config *cfg;
-	struct llcc_slice_desc *desc;
 	u32 sz, count;
 
 	if (IS_ERR(drv_data))
@@ -306,18 +305,10 @@ struct llcc_slice_desc *llcc_slice_getd(u32 uid)
 		if (cfg->usecase_id == uid)
 			break;
 
-	if (count == sz || !cfg)
+	if (count == sz || !cfg  || IS_ERR_OR_NULL(drv_data->desc))
 		return ERR_PTR(-ENODEV);
 
-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return ERR_PTR(-ENOMEM);
-
-	atomic_set(&desc->refcount, 0);
-	desc->slice_id = cfg->slice_id;
-	desc->slice_size = cfg->max_cap;
-
-	return desc;
+	return &drv_data->desc[count];
 }
 EXPORT_SYMBOL_GPL(llcc_slice_getd);
 
@@ -327,11 +318,9 @@ EXPORT_SYMBOL_GPL(llcc_slice_getd);
  */
 void llcc_slice_putd(struct llcc_slice_desc *desc)
 {
-	if (!IS_ERR_OR_NULL(desc)) {
-		WARN(atomic_read(&desc->refcount), " Slice %d is still active\n",
-					desc->slice_id);
-		kfree(desc);
-	}
+	if (!IS_ERR_OR_NULL(desc))
+		WARN(atomic_read(&desc->refcount), " Slice %d is still active\n", desc->slice_id);
+
 }
 EXPORT_SYMBOL_GPL(llcc_slice_putd);
 
@@ -454,7 +443,7 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 		return ret;
 	}
 
-	atomic_dec_return(&desc->refcount);
+	atomic_set(&desc->refcount, 0);
 	__clear_bit(desc->slice_id, drv_data->bitmap);
 	mutex_unlock(&drv_data->lock);
 
@@ -503,12 +492,18 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 wrcaen = 0;
 	int ret = 0;
 	const struct llcc_slice_config *llcc_table;
-	struct llcc_slice_desc desc;
+	struct llcc_slice_desc *desc;
 	bool cap_based_alloc_and_pwr_collapse =
 		drv_data->cap_based_alloc_and_pwr_collapse;
 
 	sz = drv_data->cfg_size;
 	llcc_table = drv_data->cfg;
+
+	for (i = 0; i < sz; i++) {
+		drv_data->desc[i].slice_id = llcc_table[i].slice_id;
+		drv_data->desc[i].slice_size = llcc_table[i].max_cap;
+		atomic_set(&drv_data->desc[i].refcount, 0);
+	}
 
 	for (i = 0; i < sz; i++) {
 		attr1_cfg = LLCC_TRP_ATTR1_CFGn(llcc_table[i].slice_id);
@@ -581,8 +576,17 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 		}
 
 		if (llcc_table[i].activate_on_init) {
-			desc.slice_id = llcc_table[i].slice_id;
-			ret = llcc_slice_activate(&desc);
+			desc = llcc_slice_getd(llcc_table[i].slice_id);
+			if (PTR_ERR_OR_ZERO(desc)) {
+				dev_err(&pdev->dev,
+					"Failed to get slice=%d\n", llcc_table[i].slice_id);
+				continue;
+			}
+
+			ret = llcc_slice_activate(desc);
+			if (ret)
+				dev_err(&pdev->dev,
+					"Failed to activate slice=%d\n", llcc_table[i].slice_id);
 		}
 	}
 	return ret;
@@ -672,6 +676,12 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 
 	llcc_cfg = cfg->sct_data;
 	sz = cfg->size;
+
+	drv_data->desc = devm_kzalloc(dev, sizeof(struct llcc_slice_desc)*sz, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(drv_data->desc)) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	for (i = 0; i < sz; i++)
 		if (llcc_cfg[i].slice_id > drv_data->max_slices)
