@@ -1,0 +1,35 @@
+/*
+this file is only for attribution of cannon
+*/
+#include "mediatek/xiaomi-mt6853-common.dtsi"
+#include "mediatek/novatek-nt36xxx-spi.dtsi"
+
+&ts_focal {
+	compatible = "focaltech,fts";
+	status = "ok";
+	spi-max-frequency = <4000000>; //4.5M
+	focaltech,reset-gpio = <&pio 15 0x00>;
+	focaltech,irq-gpio = <&pio 14 0x2002>;	//ONESHOT|FALLING
+	focaltech,max-touch-number = <10>;
+	focaltech,display-coords =  <0 0 1080 2340>;
+};
+
+&xiaomi_touch {
+    status = "ok";
+    compatible = "xiaomi-touch";
+    touch,name = "xiaomi-touch";
+};
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&pio 77 0>;
+	};
+	testing-mode {
+		compatible = "xiaomi,testing-mode";
+		status-gpio = <&pio 33 0>;
+		debounce-time = <30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&test_mode_irq>;
+	};
+};

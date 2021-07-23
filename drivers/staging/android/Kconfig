@@ -1,0 +1,87 @@
+menu "Android"
+
+if ANDROID
+
+config ASHMEM
+	bool "Enable the Anonymous Shared Memory Subsystem"
+	default n
+	depends on SHMEM
+	---help---
+	  The ashmem subsystem is a new shared memory allocator, similar to
+	  POSIX SHM but with different behavior and sporting a simpler
+	  file-based API.
+
+	  It is, in theory, a good memory allocator for low-memory devices,
+	  because it can discard shared memory units when under memory pressure.
+
+config ANDROID_VSOC
+	tristate "Android Virtual SoC support"
+	default n
+	depends on PCI_MSI
+	---help---
+	  This option adds support for the Virtual SoC driver needed to boot
+	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
+	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
+
+config ANDROID_INTF_ALARM_DEV
+	bool "Android alarm driver"
+	depends on RTC_CLASS
+	default n
+	---help---
+	  Provides non-wakeup and rtc backed wakeup alarms based on rtc or
+	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
+	  Espically for wake up alarm ioctl.
+	  Also exports the alarm interface to user-space.
+
+config MTK_GMO_RAM_OPTIMIZE
+	bool "MTK ram optimize"
+	default n
+	select MTK_ENABLE_GMO
+	select MTK_ENABLE_AGO
+	---help---
+	  Provide for phone to use memory efficiently.
+	  it will select MTK_ENABLE_GMO
+	  and MTK_ENABLE_AGO
+	  default.
+
+config MTK_ENABLE_GMO
+	bool "Enable/Disable GMO related feautre"
+	default n
+	select CC_OPTIMIZE_FOR_SIZE
+	select CRYPTO_LZ4K
+	---help---
+	  Enable/Disable GMO related feautre
+	  Do not use this options in Kernel directly
+	  this is a group kernel setting of GMO
+	  must set CONFIG_LOG_BUF_SHIFT=17 manually
+
+config MTK_ENABLE_AGO
+	bool "Enable/Disable A-Go related feautre"
+	default n
+	select SWAP
+	select ZRAM
+	select ZRAM_WRITEBACK
+	select CRYPTO_LZ4
+	select MEMCG
+	select MEMCG_SWAP
+	select HZ_300
+	select UID_CPUTIME
+	select SDCARD_FS
+	select F2FS_FS
+	select F2FS_FS_SECURITY
+	select F2FS_FS_ENCRYPTION
+	select DM_VERITY_FEC if (MD && DM_VERITY)
+	select DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED if (MD && DM_VERITY)
+	select PGTABLE_MAPPING if ZSMALLOC && (ARM || ARM64)
+	select PSI
+	---help---
+	  Enable/Disable GMO related feautre
+	  Do not use this options in Kernel
+	  directly.
+	  this is a group kernel setting of AGO
+
+source "drivers/staging/android/ion/Kconfig"
+
+endif # if ANDROID
+
+endmenu

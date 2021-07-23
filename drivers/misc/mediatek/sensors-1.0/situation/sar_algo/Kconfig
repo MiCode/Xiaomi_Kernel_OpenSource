@@ -1,0 +1,3 @@
+config SAR_ALGO
+	bool "sar algo reporting distance"
+	default n

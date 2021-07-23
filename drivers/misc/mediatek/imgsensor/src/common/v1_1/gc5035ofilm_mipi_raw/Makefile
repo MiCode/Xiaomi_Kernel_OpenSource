@@ -1,0 +1,1 @@
+obj-y += gc5035ofilm_mipi_Sensor.o

@@ -1,0 +1,77 @@
+config MTK_LEDS
+	tristate "MediaTek LED Support"
+	depends on LEDS_CLASS
+	---help---
+	  This selects the MediaTek(R) LEDs connected to MediaTek chips.
+	  If you want to use MediaTek(R) LEDs support, say Y or M here.
+	  If unsure, say N.
+	  Mediatek LED module includes backlight, indicate LED, keypad LED, button LED etc.
+
+config LIGHTNESS_MAPPING_VALUE
+	int "Backlight brightness mapping value"
+	default 255
+	---help---
+	  Backlight brightness mapping value, from 0 to 255.
+
+config BACKLIGHT_SUPPORT_LP8557
+	bool "Support backlight lp8557 board"
+	default n
+	---help---
+	  LED driver for LP8557 support.
+	  Set y to support.
+	  Set n to disable.
+	  For pwm external backlight.
+
+config BACKLIGHT_SUPPORT_LM3697
+	bool "LM3697(DW8832) Support"
+	default n
+	---help---
+	  LED driver for lm3697(dw8832) support.
+	  Set y to support.
+	  Set n to disable.
+	  Charge pump driver for external backlight.
+
+config LEDS_MTK_DISP
+	tristate "Mediatek display LED support"
+	depends on LEDS_CLASS
+	---help---
+	  This option enables support for Mediatek display LEDs.
+	  say 'y' to enable this
+          Set n to disable.
+	  To compile this driver as a module, the module will be called leds-mtk-disp.
+
+config LEDS_MTK_PWM
+	tristate "Mediatek pwm LED support"
+	depends on LEDS_CLASS
+	depends on PWM_MTK_DISP
+	help
+	  This option enables support for Mediatek pwm LEDs.
+	  say 'y' to enable this
+
+	  To compile this driver as a module, choose 'M' here: the module
+	  will be called leds-mtk-pwm.
+
+config CONTROL_BL_TEMPERATURE
+	bool "Support backlight controlled by thermal"
+	---help---
+	  This option enables support thermal to set max brightness.
+	  Set y to support.
+	  Set n to not support.
+	  This option enables means thermal can set brightness by the api of led driver.
+
+config BACKLIGHT_SUPPORT_LM36273
+	bool "LM36273 Support"
+	default n
+	---help---
+	  LED/bias driver for lm36273 support.
+	  Set y to support.
+	  Set n to disable.
+
+config LED_MT6853
+	bool "J22 Led only"
+	default n
+	---help---
+	  Backlight for mt6853 support.
+	  Set y to support.
+	  Set n to disable.
+

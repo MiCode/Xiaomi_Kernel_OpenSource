@@ -1,0 +1,90 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+
+
+
+pm8008_8: qcom,pm8008@8 {
+	compatible = "qcom,pm8008-chip";
+	reg = <0x8>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-parent = <&pio>;
+	interrupts = <7 IRQ_TYPE_EDGE_RISING 7 0>;
+	interrupt-names = "ocp";
+
+	PM8008_EN: qcom,pm8008-chip-en {
+		regulator-name = "pm8008-chip-en";
+	};
+};
+
+pm8008_9: qcom,pm8008@9 {
+	compatible = "qcom,pm8008-regulator";
+	reg = <0x9>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	pm8008_en-supply = <&PM8008_EN>;
+	qcom,enable-ocp-broadcast;
+
+	PM8008_L1P: qcom,pm8008-l1@4000 {
+		reg = <0x4000>;
+		regulator-name = "pm8008_l1";
+		regulator-min-microvolt = <528000>;
+		regulator-max-microvolt = <1504000>;
+		qcom,min-dropout-voltage = <225000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	PM8008_L2P: qcom,pm8008-l2@4100 {
+		reg = <0x4100>;
+		regulator-name = "pm8008_l2";
+		regulator-min-microvolt = <528000>;
+		regulator-max-microvolt = <1504000>;
+		qcom,min-dropout-voltage = <225000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	PM8008_L3P: qcom,pm8008-l3@4200 {
+		reg = <0x4200>;
+		regulator-name = "pm8008_l3";
+		regulator-min-microvolt = <1500000>;
+		regulator-max-microvolt = <3400000>;
+		qcom,min-dropout-voltage = <200000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	PM8008_L4P: qcom,pm8008-l4@4300 {
+		reg = <0x4300>;
+		regulator-name = "pm8008_l4";
+		regulator-min-microvolt = <1500000>;
+		regulator-max-microvolt = <3400000>;
+		qcom,min-dropout-voltage = <200000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	PM8008_L5P: qcom,pm8008-l5@4400 {
+		reg = <0x4400>;
+		regulator-name = "pm8008_l5";
+		regulator-min-microvolt = <1500000>;
+		regulator-max-microvolt = <3400000>;
+		qcom,min-dropout-voltage = <300000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	PM8008_L6P: qcom,pm8008-l6@4400 {
+		reg = <0x4500>;
+		regulator-name = "pm8008_l6";
+		regulator-min-microvolt = <1500000>;
+		regulator-max-microvolt = <3400000>;
+		qcom,min-dropout-voltage = <300000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	PM8008_L7P: qcom,pm8008-l7@4400 {
+		reg = <0x4600>;
+		regulator-name = "pm8008_l7";
+		regulator-min-microvolt = <1500000>;
+		regulator-max-microvolt = <3400000>;
+		qcom,min-dropout-voltage = <300000>;
+		qcom,hpm-min-load = <10000>;
+	};
+};
