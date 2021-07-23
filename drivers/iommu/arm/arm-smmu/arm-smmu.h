@@ -514,7 +514,6 @@ struct arm_smmu_domain {
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	struct arm_smmu_fault_model	fault_model;
 	struct arm_smmu_mapping_cfg	mapping_cfg;
 	bool				delayed_s1_trans_enable;

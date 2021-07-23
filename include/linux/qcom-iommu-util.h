@@ -23,12 +23,6 @@
 #define QCOM_IOMMU_MAPPING_CONF_ATOMIC		BIT(1)
 #define QCOM_IOMMU_MAPPING_CONF_FAST		BIT(2)
 
-/* QCOM iommu domain attributes */
-#define DOMAIN_ATTR_PGTBL_INFO			(0)
-#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(1)
-#define DOMAIN_ATTR_SPLIT_TABLES		(2)
-#define DOMAIN_ATTR_EXTENDED_MAX		(3)
-
 /* iommu transaction flags */
 /* 1 Write, 0 Read */
 #define QCOM_IOMMU_ATOS_TRANS_WRITE	BIT(0)
