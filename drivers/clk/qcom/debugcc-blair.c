@@ -230,6 +230,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_video_xo_clk",
 	"gpu_cc_debug_mux",
 	"mc_cc_debug_mux",
+	"measure_only_cnoc_clk",
 	"measure_only_gcc_camera_ahb_clk",
 	"measure_only_gcc_camera_xo_clk",
 	"measure_only_gcc_cpuss_gnoc_clk",
@@ -237,6 +238,12 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_gcc_disp_xo_clk",
 	"measure_only_gcc_gpu_cfg_ahb_clk",
 	"measure_only_gcc_video_ahb_clk",
+	"measure_only_hwkm_ahb_clk",
+	"measure_only_hwkm_km_core_clk",
+	"measure_only_ipa_2x_clk",
+	"measure_only_pka_ahb_clk",
+	"measure_only_pka_core_clk",
+	"measure_only_snoc_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -350,6 +357,7 @@ static int gcc_debug_mux_sels[] = {
 	0x3F,		/* gcc_video_xo_clk */
 	0xFB,		/* gpu_cc_debug_mux */
 	0xAE,		/* mc_cc_debug_mux */
+	0x1D,		/* measure_only_cnoc_clk */
 	0x38,		/* measure_only_gcc_camera_ahb_clk */
 	0x40,		/* measure_only_gcc_camera_xo_clk */
 	0xBA,		/* measure_only_gcc_cpuss_gnoc_clk */
@@ -357,6 +365,12 @@ static int gcc_debug_mux_sels[] = {
 	0x41,		/* measure_only_gcc_disp_xo_clk */
 	0xF9,		/* measure_only_gcc_gpu_cfg_ahb_clk */
 	0x37,		/* measure_only_gcc_video_ahb_clk */
+	0x166,		/* measure_only_hwkm_ahb_clk */
+	0x167,		/* measure_only_hwkm_km_core_clk */
+	0xD7,		/* measure_only_ipa_2x_clk */
+	0x162,		/* measure_only_pka_ahb_clk */
+	0x163,		/* measure_only_pka_core_clk */
+	0x7,		/* measure_only_snoc_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -450,6 +464,14 @@ static struct mux_regmap_names mux_list[] = {
 	{ .mux = &mc_cc_debug_mux, .regmap_name = "qcom,mccc" },
 };
 
+static struct clk_dummy measure_only_cnoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_cnoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_mccc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -530,6 +552,54 @@ static struct clk_dummy measure_only_gcc_video_ahb_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_hwkm_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_hwkm_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_hwkm_km_core_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_hwkm_km_core_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_ipa_2x_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_ipa_2x_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_pka_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_pka_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_pka_core_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_pka_core_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_snoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_snoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy perfcl_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -555,6 +625,7 @@ static struct clk_dummy l3_clk = {
 };
 
 static struct clk_hw *debugcc_blair_hws[] = {
+	&measure_only_cnoc_clk.hw,
 	&measure_only_disp_cc_sleep_clk.hw,
 	&measure_only_disp_cc_xo_clk.hw,
 	&measure_only_gcc_camera_ahb_clk.hw,
@@ -564,7 +635,13 @@ static struct clk_hw *debugcc_blair_hws[] = {
 	&measure_only_gcc_disp_xo_clk.hw,
 	&measure_only_gcc_gpu_cfg_ahb_clk.hw,
 	&measure_only_gcc_video_ahb_clk.hw,
+	&measure_only_ipa_2x_clk.hw,
 	&measure_only_mccc_clk.hw,
+	&measure_only_snoc_clk.hw,
+	&measure_only_hwkm_km_core_clk.hw,
+	&measure_only_hwkm_ahb_clk.hw,
+	&measure_only_pka_core_clk.hw,
+	&measure_only_pka_ahb_clk.hw,
 	&perfcl_clk.hw,
 	&pwrcl_clk.hw,
 	&l3_clk.hw,

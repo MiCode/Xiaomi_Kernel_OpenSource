@@ -1706,8 +1706,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE)
-		etr_pcie_start(drvdata->byte_cntr);
 
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE
 			&& drvdata->pcie_path == TMC_ETR_PCIE_SW_PATH)
