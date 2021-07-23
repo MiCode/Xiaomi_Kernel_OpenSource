@@ -1,0 +1,27 @@
+# Copyright (C) 2018 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+
+ifeq ($(CONFIG_MTK_PROT_MEM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
+endif
+
+ifeq ($(CONFIG_MTK_SECURE_MEM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
+endif
+
+ifeq ($(CONFIG_MTK_WFD_SMEM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
+endif
+
+ifeq ($(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
+endif

@@ -1,0 +1,16 @@
+#
+# Nxp SPi protocol (SPI) devices
+#
+
+config NXP_P73_DEVICES
+	bool "Nxp P73 secure element protocol driver (SPI) devices"
+	default y
+	---help---
+	  You'll have to say Y if your computer contains an SPI device that
+	  you want to use under Linux.
+
+	  You can say N here if you don't have any SPI connected to your computer.
+
+config BEGONIA_NFC
+        bool "nfc for begonia"
+	---help---

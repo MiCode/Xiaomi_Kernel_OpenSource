@@ -1,0 +1,9 @@
+
+config MTK_STATHUB
+	bool "stahub for MediaTek package"
+	default n
+	help
+	  A stationary is a device,
+	  usually portable
+	  and electronic or electromechanical,
+	  that detect device is kept static.

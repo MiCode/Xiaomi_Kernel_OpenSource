@@ -1,0 +1,48 @@
+config MTK_DEVMPU
+	bool "Enable MTK Device MPU driver"
+	help
+	  Device MPU is a kernel driver providing
+	  non-continuous memory protection in the
+	  2MB granularity. Note that the protection
+	  is conducted in parallel with EMI MPU.
+
+config MTK_DEVMPU_EMI
+	bool "Enable MTK Device MPU with EMI MPU"
+	select MTK_DEVMPU
+	help
+	  Device MPU hardware will receive the violation
+	  from EMI MPU hardware. Device MPU driver will
+	  receive violation via call-back function of
+	  EMI MPU.
+
+config DEVMPU_MT6885
+	bool "Mediatek MT6885 Device MPU driver"
+	depends on MACH_MT6885 || MACH_MT6893
+	select MTK_DEVMPU if (MTK_EMI || MEDIATEK_EMI)
+	select MTK_DEVMPU_EMI if (MTK_EMI || MEDIATEK_EMI)
+	help
+	  Say yes here to enable support Mediatek MT6885
+	  Device MPU driver. This driver is combined with
+	  SUB, ACP and EMI features of Device MPU in
+	  MT6885 platfom.
+
+config DEVMPU_MT6873
+	bool "Mediatek MT6873 Device MPU driver"
+	depends on MACH_MT6873
+	select MTK_DEVMPU
+	help
+	  Say yes here to enable support Mediatek MT6873
+	  Device MPU driver. This driver is combined with
+	  ACP and EMI features of Device MPU in MT6873
+	  platfom.
+
+config DEVMPU_MT6853
+	bool "Mediatek MT6853 Device MPU driver"
+	depends on MACH_MT6853
+	select MTK_DEVMPU
+	help
+	  Say yes here to enable support Mediatek MT6853
+	  Device MPU driver. This driver is combined with
+	  ACP features of Device MPU in MT6853 platfom
+	  without EMI.
+

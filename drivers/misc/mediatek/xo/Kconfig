@@ -1,0 +1,9 @@
+# XO Related
+config MTK_XO
+	bool "MediaTek XO Support"
+	---help---
+	  MediaTek XO driver.
+	  Which support MT8167/MT8516/MT8511 chips.
+	  XO module can generate 26MHz clock to other chip.
+	  The 26MHz can be adjusted to output a more accurate clock.
+	  XO module can generate 32.768KHz clock to other chip.

@@ -1,0 +1,1 @@
+obj-y += s5k3t2sunnymipiraw_Sensor.o

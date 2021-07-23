@@ -1,0 +1,7 @@
+config MTK_UNIFIED_DEBUG_INTERFACE
+	tristate "Mediatek Unified Debug Interface"
+	help
+	  UDI config to support Unified Debug Interface
+	  Note:
+	  This is a CPU related debug feature, it is recommended to enable.
+	  If unsure, say N.

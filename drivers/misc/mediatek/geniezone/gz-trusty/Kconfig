@@ -1,0 +1,31 @@
+menu "GZ Trusty"
+
+config GZ_LOG
+	tristate "GZ gz_log support"
+	help
+	 This symbol is used to build gz_log into kernel.
+	 The gz_log driver will create a proc node which can only print the gz
+	 message.
+	 It will be select if MTK_ENABLE_GENIEZONE is on.
+	 If the gz_log driver failed or this symbol is false, the mtk logger
+	 can not read the gz message correctly.
+
+config MT_GZ_TRUSTY_DEBUGFS
+	tristate "GZ Trusty debugfs for Mediatek platforms"
+	help
+	 MT_GZ_TRUSTY_DEBUGFS enable the debugfs for Mediatek platforms.
+	 The debugfs node will be created and allowed to test secure world
+	 functionalities.
+
+config MTK_NEBULA_VM_SUPPORT
+	tristate "Nebula VM OS Enable"
+	depends on MTK_ENABLE_GENIEZONE
+	help
+	  This is used for MTK Geniezone to Support Nebula VM OS.
+	  Nebula's IRQ will be routed by Linux to Geniezone.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+endmenu
+
+# GZ Trusty
