@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -283,7 +283,6 @@ struct spcom_device {
 
 	int32_t nvm_ion_fd;
 	uint32_t     rmb_error;    /* PBL error value storet here */
-	struct mutex ioctl_lock;
 	atomic_t subsys_req;
 	struct rproc *spss_rproc;
 	struct property *rproc_prop;
@@ -702,17 +701,15 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 
 	ret = rproc_boot(spcom_dev->spss_rproc);
 	if (ret == -ETIMEDOUT) {
-		/* userspace shoul handle retry if needed */
+		/* userspace handles retry if needed */
 		spcom_pr_err("FW loading process timeout\n");
 	} else if (ret) {
 		/*
 		 *  SPU shutdown. Return value comes from SPU PBL message.
-		 *  The error is not recoverable and userspace should handle it
-		 *  by request the value and analyse rmb_error value
+		 *  The error is not recoverable and userspace handles it
+		 *  by request and analyse rmb_error value
 		 */
-		mutex_lock(&spcom_dev->ioctl_lock);
 		spcom_dev->rmb_error = (uint32_t)ret;
-		mutex_unlock(&spcom_dev->ioctl_lock);
 
 		spcom_pr_err("spss crashed during device bootup rmb_error[0x%x]\n",
 			     spcom_dev->rmb_error);
@@ -1943,6 +1940,9 @@ static long spcom_device_ioctl(struct file *file,
 	case SPCOM_GET_IONFD:
 		ret = put_user(spcom_dev->nvm_ion_fd, (int32_t *)arg);
 		break;
+	case SPCOM_GET_RMB_ERROR:
+		ret = put_user(spcom_dev->rmb_error, (uint32_t *)arg);
+		break;
 	case SPCOM_POLL_STATE:
 		ret = copy_from_user(&op, argp,
 				     sizeof(struct spcom_poll_param));
@@ -1964,7 +1964,7 @@ static long spcom_device_ioctl(struct file *file,
 		break;
 	default:
 		spcom_pr_err("Unsupported ioctl:%d\n", ioctl);
-		ret = -EINVAL;
+		ret = -ENOIOCTLCMD;
 
 	}
 	return ret;
@@ -2522,7 +2522,6 @@ static int spcom_probe(struct platform_device *pdev)
 	spin_lock_init(&spcom_dev->rx_lock);
 	spcom_dev->nvm_ion_fd = -1;
 	spcom_dev->rmb_error = 0;
-	mutex_init(&spcom_dev->ioctl_lock);
 
 	ret = spcom_register_chardev();
 	if (ret) {
