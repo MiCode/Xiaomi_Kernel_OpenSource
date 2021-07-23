@@ -1186,21 +1186,6 @@ static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 		fast_smmu_put_dma_cookie(domain);
 }
 
-static unsigned long arm_smmu_domain_get_qcom_quirks(
-			struct arm_smmu_domain *smmu_domain,
-			struct arm_smmu_device *smmu)
-{
-	/* These TCR register options are mutually exclusive */
-	if (is_iommu_pt_coherent(smmu_domain))
-		return 0;
-	if (test_bit(DOMAIN_ATTR_USE_UPSTREAM_HINT, smmu_domain->attributes))
-		return IO_PGTABLE_QUIRK_ARM_OUTER_WBWA;
-	if (test_bit(DOMAIN_ATTR_USE_LLC_NWA, smmu_domain->attributes))
-		return IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
-
-	return 0;
-}
-
 static int arm_smmu_secure_pool_add(struct arm_smmu_domain *smmu_domain,
 				     void *addr, size_t size)
 {
@@ -1544,7 +1529,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			goto out_clear_smmu;
 	}
 
-	pgtbl_cfg->quirks |= arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu);
+	if (smmu_domain->pgtbl_quirks)
+		pgtbl_cfg->quirks |= smmu_domain->pgtbl_quirks;
 
 	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, &pgtbl_info, smmu_domain);
 	if (!pgtbl_ops) {
@@ -2118,12 +2104,9 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
 	else if (!strcmp(str, "LLC"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
+		smmu_domain->pgtbl_quirks = IO_PGTABLE_QUIRK_ARM_OUTER_WBWA;
 	else if (!strcmp(str, "LLC_NWA"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_USE_LLC_NWA, &attr);
-
+		smmu_domain->pgtbl_quirks = IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
 
 	/* Default value: disabled */
 	if (of_property_read_bool(np, "qcom,iommu-earlymap"))
@@ -2878,16 +2861,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	unsigned long iommu_attr = (unsigned long)attr;
 
 	switch (iommu_attr) {
-	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
-	case DOMAIN_ATTR_USE_LLC_NWA:
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-		} else if (*((int *)data)) {
-			set_bit(attr, smmu_domain->attributes);
-			ret = 0;
-		}
-		break;
 	case DOMAIN_ATTR_EARLY_MAP: {
 		int early_map = *((int *)data);
 
