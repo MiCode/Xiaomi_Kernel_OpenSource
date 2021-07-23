@@ -876,6 +876,24 @@ void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 #endif
 
 #if IS_ENABLED(CONFIG_IPC_LOGGING)
+void cnss_debug_ipc_log_print(void *log_ctx, char *process, const char *fn,
+			      const char *log_level, char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list va_args;
+
+	va_start(va_args, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &va_args;
+
+	if (log_level)
+		printk("%scnss: %pV", log_level, &vaf);
+
+	ipc_log_string(log_ctx, "[%s] %s: %pV", process, fn, &vaf);
+
+	va_end(va_args);
+}
+
 static int cnss_ipc_logging_init(void)
 {
 	cnss_ipc_log_context = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
@@ -911,6 +929,21 @@ static void cnss_ipc_logging_deinit(void)
 #else
 static int cnss_ipc_logging_init(void) { return 0; }
 static void cnss_ipc_logging_deinit(void) {}
+void cnss_debug_ipc_log_print(void *log_ctx, char *process, const char *fn,
+			      const char *log_level, char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list va_args;
+
+	va_start(va_args, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &va_args;
+
+	if (log_level)
+		printk("%scnss: %pV", log_level, &vaf);
+
+	va_end(va_args);
+}
 #endif
 
 int cnss_debug_init(void)

@@ -89,7 +89,4 @@ int btpower_get_chipset_version(void);
 
 #define TCS_CMD_IO_ADDR_OFFSET 0x4
 
-/* total number of power src */
-#define BT_POWER_SRC_SIZE           30
-
 #endif /* __LINUX_BLUETOOTH_POWER_H */

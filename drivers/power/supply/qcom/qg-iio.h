@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QG_IIO_H
@@ -91,6 +91,7 @@ static const struct qg_iio_channels qg_iio_psy_channels[] = {
 	QG_CHAN_RES("esr_actual", PSY_IIO_ESR_ACTUAL)
 	QG_CHAN_RES("esr_nominal", PSY_IIO_ESR_NOMINAL)
 	QG_CHAN_INDEX("soh", PSY_IIO_SOH)
+	QG_CHAN_INDEX("clear_soh", PSY_IIO_CLEAR_SOH)
 	QG_CHAN_ENERGY("cc_soc", PSY_IIO_CC_SOC)
 	QG_CHAN_ACT("fg_reset", PSY_IIO_FG_RESET)
 	QG_CHAN_VOLT("voltage_avg", PSY_IIO_VOLTAGE_AVG)

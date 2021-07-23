@@ -139,6 +139,7 @@ struct fts_ts_platform_data {
 	u32 x_min;
 	u32 y_min;
 	u32 max_touch_number;
+	bool power_always_on;
 };
 
 struct ts_event {

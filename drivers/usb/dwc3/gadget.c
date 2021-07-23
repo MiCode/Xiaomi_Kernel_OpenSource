@@ -971,7 +971,7 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 	dbg_event(dep->number, "DISABLE", ret);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	pm_runtime_mark_last_busy(dwc->sysdev);
-	pm_runtime_put_sync_autosuspend(dwc->sysdev);
+	pm_runtime_put_autosuspend(dwc->sysdev);
 
 	return ret;
 }
@@ -4369,7 +4369,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	dwc->gadget.speed		= USB_SPEED_UNKNOWN;
 	dwc->gadget.sg_supported	= true;
 	dwc->gadget.name		= "dwc3-gadget";
-	dwc->gadget.lpm_capable		= true;
+	dwc->gadget.lpm_capable		= !dwc->usb2_l1_disable;
 
 	/*
 	 * FIXME We might be setting max_speed to <SUPER, however versions

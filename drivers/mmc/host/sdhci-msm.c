@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/reset.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -163,6 +164,10 @@
 #define CQHCI_VENDOR_CFG1	0xA00
 #define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
 #define RCLK_TOGGLE BIT(2)
+
+/* enum for writing to TLMM_NORTH_SPARE register as defined by pinctrl API */
+#define TLMM_NORTH_SPARE	2
+#define TLMM_NORTH_SPARE_CORE_IE	BIT(15)
 
 struct sdhci_msm_offset {
 	u32 core_hc_mode;
@@ -2226,6 +2231,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *vreg_table[2];
 	struct mmc_host *mmc = msm_host->mmc;
+	u32 val = 0;
 
 	curr_slot = msm_host->vreg_data;
 	if (!curr_slot) {
@@ -2241,6 +2247,20 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	if (!enable && vreg_table[1]->is_always_on && !mmc->card)
 		vreg_table[1]->is_always_on = false;
 
+	if (!enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
+
+		/*
+		 * Disable Receiver of the Pad to avoid crowbar currents
+		 * when Pad power supplies are collapsed. Provide SW control
+		 * on the core_ie of SDC2 Pads. SW write 1’b0
+		 * into the bit 15 of register TLMM_NORTH_SPARE.
+		 */
+
+		val = msm_spare_read(TLMM_NORTH_SPARE);
+		val &= ~TLMM_NORTH_SPARE_CORE_IE;
+		msm_spare_write(TLMM_NORTH_SPARE, val);
+	}
+
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
 			if (enable)
@@ -2250,6 +2270,20 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 			if (ret)
 				goto out;
 		}
+	}
+
+	if (enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
+
+		/*
+		 * Disable Receiver of the Pad to avoid crowbar currents
+		 * when Pad power supplies are collapsed. Provide SW control
+		 * on the core_ie of SDC2 Pads. SW write 1’b1
+		 * into the bit 15 of register TLMM_NORTH_SPARE.
+		 */
+
+		val = msm_spare_read(TLMM_NORTH_SPARE);
+		val |= TLMM_NORTH_SPARE_CORE_IE;
+		msm_spare_write(TLMM_NORTH_SPARE, val);
 	}
 out:
 	return ret;

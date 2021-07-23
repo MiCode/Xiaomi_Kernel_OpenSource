@@ -685,6 +685,8 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 
 static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 {
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
 	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
 	u32 window_enable = WINDOW_ENABLE_BIT | window;
 	u32 val;
@@ -703,7 +705,8 @@ static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 	if (val != window_enable) {
 		cnss_pr_err("Failed to config window register to 0x%x, current value: 0x%x\n",
 			    window_enable, val);
-		if (!cnss_pci_check_link_status(pci_priv))
+		if (!cnss_pci_check_link_status(pci_priv) &&
+		    !test_bit(CNSS_IN_PANIC, &plat_priv->driver_state))
 			CNSS_ASSERT(0);
 	}
 }
@@ -1286,6 +1289,9 @@ static void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv)
 	}
 	pci_priv->pci_link_down_ind = true;
 	spin_unlock_irqrestore(&pci_link_down_lock, flags);
+
+	/* Notify MHI about link down */
+	mhi_control_error(pci_priv->mhi_ctrl);
 
 	if (pci_dev->device == QCA6174_DEVICE_ID)
 		disable_irq(pci_dev->irq);

@@ -484,7 +484,7 @@ int qbg_batterydata_init(struct device_node *profile_node,
 	rc = alloc_chrdev_region(&battery->dev_no, 0, 1, "qbg_battery");
 	if (rc < 0) {
 		pr_err("Failed to allocate chrdev, rc=%d\n", rc);
-		goto free_battery;
+		return rc;
 	}
 
 	cdev_init(&battery->battery_cdev, &qbg_battery_data_fops);
@@ -534,8 +534,6 @@ delete_cdev:
 	cdev_del(&battery->battery_cdev);
 unregister_chrdev:
 	unregister_chrdev_region(battery->dev_no, 1);
-free_battery:
-	kfree(battery);
 	return rc;
 }
 

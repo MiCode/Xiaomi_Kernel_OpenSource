@@ -140,6 +140,7 @@
 #define IPA_IOCTL_SET_PKT_THRESHOLD             87
 #define IPA_IOCTL_ADD_EoGRE_MAPPING             88
 #define IPA_IOCTL_DEL_EoGRE_MAPPING             89
+#define IPA_IOCTL_SET_IPPT_SW_FLT               90
 
 /**
  * max size of the header to be inserted
@@ -201,6 +202,12 @@
 #define IPA_MAX_FLT_RT_CLIENTS 60
 
 /**
+ * Max number of ports/IPs IPPT exception
+ */
+
+#define IPA_MAX_IPPT_NUM_PORT_FLT 5
+
+/**
  * New feature flag for CV2X config.
  */
 
@@ -255,6 +262,47 @@
  */
 #define IPA_MAX_PDN_NUM 16
 #define IPA_MAX_PDN_NUM_v4 5
+
+/**
+ * Macros duplicated from ipa_lnx_spearhead_stats.h and
+ * ipa_lnx_stats.h. All three macros should match.
+ * This needs to be updated whenever the header file structure
+ * and structure length macros are updated to match exactly
+ * the same. This is done to overcome backward and forward
+ * compatibility between userspace and driver spearhead structures.
+ */
+/* IPA Linux basic stats structure macros */
+#define IPA_LNX_PG_RECYCLE_STATS_STRUCT_LEN 32
+#define IPA_LNX_EXCEPTION_STATS_STRUCT_LEN 40
+#define IPA_LNX_ODL_EP_STATS_STRUCT_LEN 16
+#define IPA_LNX_HOLB_DISCARD_STATS_STRUCT_LEN 16
+#define IPA_LNX_HOLB_MONITOR_STATS_STRUCT_LEN 16
+#define IPA_LNX_HOLB_DROP_AND_MON_STATS_STRUCT_LEN (8 + 16 + 16)
+#define IPA_LNX_GENERIC_STATS_STRUCT_LEN (40 + 32 + 40 + 16 + 40)
+/* IPA Linux clock stats structures */
+#define IPA_LNX_PM_CLIENT_STATS_STRUCT_LEN 24
+#define IPA_LNX_CLOCK_STATS_STRUCT_LEN (24 + 24)
+/* Generic instance structures */
+#define IPA_LNX_GSI_RX_DEBUG_STATS_STRUCT_LEN 48
+#define IPA_LNX_GSI_TX_DEBUG_STATS_STRUCT_LEN 56
+#define IPA_LNX_GSI_DEBUG_STATS_STRUCT_LEN (8 + 48 + 56)
+#define IPA_LNX_PIPE_INFO_STATS_STRUCT_LEN 120
+/* IPA Linux wlan instance stats structures */
+#define IPA_LNX_WLAN_INSTANCE_INFO_STRUCT_LEN (32 + 112 + 120)
+#define IPA_LNX_WLAN_INST_STATS_STRUCT_LEN (8 + 264)
+/* IPA Linux eth instance stats structures */
+#define IPA_LNX_ETH_INSTANCE_INFO_STRUCT_LEN (16 + 112 + 120)
+#define IPA_LNX_ETH_INST_STATS_STRUCT_LEN (8 + 248)
+/* IPA Linux usb instance stats structures */
+#define IPA_LNX_USB_INSTANCE_INFO_STRUCT_LEN (16 + 112 + 120)
+#define IPA_LNX_USB_INST_STATS_STRUCT_LEN (8 + 248)
+/* IPA Linux mhip instance stats structures */
+#define IPA_LNX_MHIP_INSTANCE_INFO_STRUCT_LEN (16 + 112 + 120)
+#define IPA_LNX_MHIP_INST_STATS_STRUCT_LEN (8 + 248)
+/* IPA Linux Instance allocation info structures */
+#define IPA_LNX_EACH_INST_ALLOC_INFO_STRUCT_LEN (24 + 12 + 12 + 16)
+#define IPA_LNX_STATS_ALL_INFO_STRUCT_LEN (32 + 128 + 128 + 128)
+#define IPA_LNX_STATS_SPEARHEAD_CTX_STRUCT_LEN (8 + 4 + 416)
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
@@ -846,7 +894,13 @@ enum ipa_eogre_event {
 #define IPA_EoGRE_EVENT_MAX IPA_EoGRE_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_EoGRE_EVENT_MAX)
+enum ipa_ippt_sw_flt_event {
+	IPA_IPPT_SW_FLT_EVENT = IPA_EoGRE_EVENT_MAX,
+	IPA_IPPT_SW_FLT_EVENT_MAX
+#define IPA_IPPT_SW_FLT_EVENT_MAX IPA_IPPT_SW_FLT_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_IPPT_SW_FLT_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -3226,10 +3280,32 @@ struct ipa_sw_flt_list_type {
 };
 
 /**
+ * struct ipa_ippt_sw_flt_list_type- exception list
+ * @ipv4_enable: true to block ipv4 addrs given below and false to clean
+ *		up all previous ipv4 addrs
+ * @num_of_ipv4: holds num of ipv4 to SW-exception
+ * @ipv4: an array to hold ipv4 addrs to SW-exception
+ * @port_enable: true to block current ports and false to clean
+ *		up all previous ports
+ * @num_of_port: holds num of ports to SW-exception
+ * @port: an array to hold connection ports to SW-exception
+ */
+
+struct ipa_ippt_sw_flt_list_type {
+	uint8_t ipv4_enable;
+	int num_of_ipv4;
+	uint32_t ipv4[IPA_MAX_PDN_NUM];
+	uint8_t port_enable;
+	int num_of_port;
+	uint16_t port[IPA_MAX_IPPT_NUM_PORT_FLT];
+};
+
+/**
  * struct ipa_ioc_sw_flt_list_type
  * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
  * @ioctl_data_size:
  * Eg: For ipa_sw_flt_list_type = sizeof(ipa_sw_flt_list_type)
+ * Eg: For ipa_ippt_sw_flt_list_type = sizeof(ipa_ippt_sw_flt_list_type)
  */
 struct ipa_ioc_sw_flt_list_type {
 	__u64 ioctl_ptr;
@@ -3536,6 +3612,10 @@ struct ipa_ioc_sw_flt_list_type {
 #define IPA_IOC_DEL_EoGRE_MAPPING _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_DEL_EoGRE_MAPPING, \
 				struct ipa_ioc_eogre_info)
+
+#define IPA_IOC_SET_IPPT_SW_FLT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_IPPT_SW_FLT, \
+				struct ipa_ioc_sw_flt_list_type)
 /*
  * unique magic number of the Tethering bridge ioctls
  */

@@ -2895,7 +2895,12 @@ static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
 	/* Wait for 2 reference cycles before checking the ACK bit. */
 	udelay(1);
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
-	if (!(regval & ALPHA_PLL_ACK_LATCH)) {
+	if (!(regval & PLL_UPDATE_BYPASS)) {
+		ret = wait_for_pll_update(pll);
+		if (ret)
+			WARN_CLK(&pll->clkr.hw, 1, "PLL Update clear failed\n");
+		return ret;
+	} else if (!(regval & ALPHA_PLL_ACK_LATCH)) {
 		WARN_CLK(&pll->clkr.hw, 1,
 				"PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
