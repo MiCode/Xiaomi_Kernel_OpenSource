@@ -164,8 +164,7 @@ static void parse_driver_options(struct arm_smmu_device *smmu)
 
 static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 {
-	if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-		     smmu_domain->attributes))
+	if (smmu_domain->force_coherent_walk)
 		return true;
 	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
 		return dev_is_dma_coherent(smmu_domain->smmu->dev);
@@ -2101,8 +2100,7 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (ret)
 		str = "disabled";
 	if (!strcmp(str, "coherent"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
+		smmu_domain->force_coherent_walk = true;
 	else if (!strcmp(str, "LLC"))
 		smmu_domain->pgtbl_quirks = IO_PGTABLE_QUIRK_ARM_OUTER_WBWA;
 	else if (!strcmp(str, "LLC_NWA"))
@@ -2885,24 +2883,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 			set_bit(attr, smmu_domain->attributes);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
-		int force_coherent = *((int *)data);
-
-		if (smmu_domain->smmu != NULL) {
-			dev_err(smmu_domain->smmu->dev,
-			  "cannot change force coherent attribute while attached\n");
-			ret = -EBUSY;
-		} else if (force_coherent) {
-			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-				smmu_domain->attributes);
-			ret = 0;
-		} else {
-			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-				  smmu_domain->attributes);
-			ret = 0;
-		}
-		break;
-	}
 	default:
 		ret = -ENODEV;
 	}

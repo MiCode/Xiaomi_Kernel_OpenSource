@@ -494,6 +494,7 @@ struct arm_smmu_domain {
 	struct device			*dev;
 	struct io_pgtable_ops		*pgtbl_ops;
 	unsigned long			pgtbl_quirks;
+	bool				force_coherent_walk;
 	const struct iommu_flush_ops	*flush_ops;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
