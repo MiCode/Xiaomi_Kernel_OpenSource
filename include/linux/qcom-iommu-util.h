@@ -10,23 +10,24 @@
 #include <linux/dma-mapping.h>
 #include <linux/iova.h>
 
+#include <soc/qcom/secure_buffer.h>
+
 /* QCOM iommu domain attributes */
 #define DOMAIN_ATTR_NON_FATAL_FAULTS		(0)
 #define DOMAIN_ATTR_S1_BYPASS			(1)
 #define DOMAIN_ATTR_ATOMIC			(2)
-#define DOMAIN_ATTR_SECURE_VMID			(3)
-#define DOMAIN_ATTR_FAST			(4)
-#define DOMAIN_ATTR_PGTBL_INFO			(5)
-#define DOMAIN_ATTR_USE_UPSTREAM_HINT		(6)
-#define DOMAIN_ATTR_EARLY_MAP			(7)
-#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(8)
-#define DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT	(9)
-#define DOMAIN_ATTR_USE_LLC_NWA			(10)
-#define DOMAIN_ATTR_SPLIT_TABLES		(11)
-#define DOMAIN_ATTR_FAULT_MODEL_NO_CFRE		(12)
-#define DOMAIN_ATTR_FAULT_MODEL_NO_STALL	(13)
-#define DOMAIN_ATTR_FAULT_MODEL_HUPCF		(14)
-#define DOMAIN_ATTR_EXTENDED_MAX		(15)
+#define DOMAIN_ATTR_FAST			(3)
+#define DOMAIN_ATTR_PGTBL_INFO			(4)
+#define DOMAIN_ATTR_USE_UPSTREAM_HINT		(5)
+#define DOMAIN_ATTR_EARLY_MAP			(6)
+#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(7)
+#define DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT	(8)
+#define DOMAIN_ATTR_USE_LLC_NWA			(9)
+#define DOMAIN_ATTR_SPLIT_TABLES		(10)
+#define DOMAIN_ATTR_FAULT_MODEL_NO_CFRE		(11)
+#define DOMAIN_ATTR_FAULT_MODEL_NO_STALL	(12)
+#define DOMAIN_ATTR_FAULT_MODEL_HUPCF		(13)
+#define DOMAIN_ATTR_EXTENDED_MAX		(14)
 
 /* iommu transaction flags */
 /* 1 Write, 0 Read */
@@ -97,6 +98,7 @@ struct qcom_iommu_ops {
 	int (*get_fault_ids)(struct iommu_domain *domain,
 			struct qcom_iommu_fault_ids *ids);
 	int (*get_context_bank_nr)(struct iommu_domain *domain);
+	int (*set_secure_vmid)(struct iommu_domain *domain, enum vmid vmid);
 	struct iommu_ops iommu_ops;
 };
 #define to_qcom_iommu_ops(x) (container_of(x, struct qcom_iommu_ops, iommu_ops))
@@ -124,6 +126,8 @@ extern int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
 extern int qcom_iommu_get_msi_size(struct device *dev, u32 *msi_size);
 
 int qcom_iommu_get_context_bank_nr(struct iommu_domain *domain);
+
+int qcom_iommu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid);
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
 int __init qcom_arm_lpae_do_selftests(void);

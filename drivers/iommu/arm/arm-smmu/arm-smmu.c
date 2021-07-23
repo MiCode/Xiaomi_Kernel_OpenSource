@@ -2048,6 +2048,7 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	const char *str;
 	int attr = 1;
 	u32 val;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	np = arm_iommu_get_of_node(dev);
 	if (!np)
@@ -2106,10 +2107,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 
 	/* Default value: disabled */
 	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
-	if (!ret) {
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_SECURE_VMID, &val);
-	}
+	if (!ret)
+		smmu_domain->secure_vmid = val;
 
 	/* Default value: disabled */
 	ret = of_property_read_string(np, "qcom,iommu-pagetable", &str);
@@ -2840,20 +2839,6 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			clear_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes);
 		break;
 	}
-	case DOMAIN_ATTR_SECURE_VMID:
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-
-		if (smmu_domain->secure_vmid != VMID_INVAL) {
-			ret = -ENODEV;
-			WARN(1, "secure vmid already set!");
-			break;
-		}
-		smmu_domain->secure_vmid = *((int *)data);
-		break;
 		/*
 		 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
 		 * expect that the bus/clock/regulator are already on. Thus also
@@ -3079,11 +3064,28 @@ static int arm_smmu_get_context_bank_nr(struct iommu_domain *domain)
 	return ret;
 }
 
+static int arm_smmu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret = 0;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	if (smmu_domain->smmu)
+		ret = -EPERM;
+	else if (WARN(smmu_domain->secure_vmid != VMID_INVAL, "secure vmid already set"))
+		ret = -EPERM;
+	else
+		smmu_domain->secure_vmid = vmid;
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
 	.sid_switch		= arm_smmu_sid_switch,
 	.get_fault_ids		= arm_smmu_get_fault_ids,
 	.get_context_bank_nr	= arm_smmu_get_context_bank_nr,
+	.set_secure_vmid	= arm_smmu_set_secure_vmid,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,
