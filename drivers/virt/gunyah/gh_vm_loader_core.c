@@ -37,6 +37,7 @@ SRCU_NOTIFIER_HEAD_STATIC(gh_vm_loader_notifier);
 static struct gh_vm_loader_name_map gh_vm_loader_name_map[] = {
 	{GH_PRIMARY_VM, "pvm"},
 	{GH_TRUSTED_VM, "trustedvm"},
+	{GH_CPUSYS_VM, "cpusys_vm"},
 };
 
 static struct gh_vm_loader_info *gh_vm_loader_info[] = {

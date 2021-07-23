@@ -35,6 +35,7 @@ struct gh_sec_vm_dev {
 	ssize_t fw_size;
 	int pas_id;
 	int vmid;
+	bool always_on_vm;
 };
 
 /* Structure per VM: Binds struct gh_vm_struct and struct gh_sec_vm_dev */
@@ -102,12 +103,14 @@ static int
 gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 				int wait_status)
 {
-	struct device *dev = sec_vm_struct->vm_dev->dev;
+	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
+	struct device *dev = vm_dev->dev;
 	long timeleft;
 
 	timeleft = wait_event_interruptible_timeout(
 			sec_vm_struct->vm_status_wait,
-			sec_vm_struct->vm_status.os_status == wait_status,
+			((sec_vm_struct->vm_status.os_status == wait_status)
+				|| vm_dev->always_on_vm),
 			msecs_to_jiffies(GH_VM_LOADER_SEC_STATUS_TIMEOUT_MS));
 	if (timeleft < 0) {
 		dev_err(dev, "Wait for OS_STATUS %d interrupt\n", wait_status);
@@ -395,6 +398,7 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 {
 	struct gh_sec_vm_struct *sec_vm_struct;
 	struct gh_sec_vm_dev *vm_dev;
+	struct gh_vm_status *gh_vm_status;
 	enum gh_vm_names vm_name_val;
 	struct device *dev;
 	int ret, vmid;
@@ -419,6 +423,20 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	vm_name_val = gh_vm_loader_get_name_val(vm_struct);
 	ret = gh_rm_vm_alloc_vmid(vm_name_val, &vm_dev->vmid);
 	if (ret < 0) {
+		if (vm_dev->always_on_vm) {
+			gh_vm_status = gh_rm_vm_get_status(vm_dev->vmid);
+			if (IS_ERR_OR_NULL(gh_vm_status)) {
+				dev_err(dev, "Failed to get vm status: %d\n", ret);
+				ret = PTR_ERR(gh_vm_status);
+				goto err_unlock;
+			}
+			if (gh_vm_status->vm_status == GH_RM_VM_STATUS_RUNNING) {
+				dev_info(dev, "VM %d already running\n", vm_dev->vmid);
+				sec_vm_struct->vmid = vm_dev->vmid;
+				sec_vm_struct->vm_status.vm_status = GH_RM_VM_STATUS_RUNNING;
+				goto power_up_success;
+			}
+		}
 		dev_err(dev, "Failed to obtain the vmid: %d\n", ret);
 		goto err_unlock;
 	}
@@ -456,10 +474,9 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	if (ret)
 		goto err_reset_vm;
 
+power_up_success:
 	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_AFTER_POWERUP);
-
 	mutex_unlock(&sec_vm_struct->vm_lock);
-
 	return 0;
 
 err_reset_vm:
@@ -736,6 +753,10 @@ static int gh_vm_loader_sec_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	sec_vm_dev->always_on_vm = of_property_read_bool(dev->of_node, "qcom,no-shutdown");
+	if (sec_vm_dev->always_on_vm)
+		dev_err(dev, "Vm with no shutdown attribute added\n");
+
 	ret = of_property_read_u32(dev->of_node,
 				"qcom,vmid", &sec_vm_dev->vmid);
 	if (ret) {
@@ -751,6 +772,7 @@ static int gh_vm_loader_sec_probe(struct platform_device *pdev)
 				      &sec_vm_dev->vm_name);
 	if (ret)
 		goto err_unmap_fw;
+
 
 	spin_lock(&gh_sec_vm_devs_lock);
 	list_add(&sec_vm_dev->list, &gh_sec_vm_devs);
