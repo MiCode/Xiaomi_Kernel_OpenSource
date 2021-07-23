@@ -41,6 +41,19 @@
 		};
 	};
 
+	trigout_a: trigout_a {
+		mux {
+			pins = "gpio2";
+			function = "qdss_cti";
+		};
+
+		config {
+			pins = "gpio2";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
 	sdc2_on: sdc2_on {
 		clk {
 			pins = "sdc2_clk";
