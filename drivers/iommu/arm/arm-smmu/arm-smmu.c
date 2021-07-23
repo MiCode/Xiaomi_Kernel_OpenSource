@@ -121,8 +121,6 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 
 static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
-static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
-				    int attr, void *data);
 static void arm_smmu_free_pgtable(void *cookie, void *virt, int order);
 
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
@@ -991,7 +989,6 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_cb *cb = &smmu_domain->smmu->cbs[cfg->cbndx];
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
-	unsigned long *attributes = smmu_domain->attributes;
 
 	cb->cfg = cfg;
 
@@ -1063,8 +1060,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	cfg->sctlr.cfcfg = !smmu_domain->fault_model.no_stall;
 	cfg->sctlr.hupcf = smmu_domain->fault_model.hupcf;
 
-	if ((!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
-	     !smmu_domain->delayed_s1_trans_enable) || !stage1)
+	if ((!smmu_domain->mapping_cfg.s1_bypass && !smmu_domain->delayed_s1_trans_enable) ||
+	    !stage1)
 		cfg->sctlr.m = 1;
 
 	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
@@ -1157,13 +1154,12 @@ static int arm_smmu_get_dma_cookie(struct device *dev,
 				    struct arm_smmu_domain *smmu_domain,
 				    struct io_pgtable_ops *pgtbl_ops)
 {
-	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
 	struct iommu_domain *domain = &smmu_domain->domain;
 	int ret;
 
 	if (domain->type == IOMMU_DOMAIN_DMA)
 		return iommu_get_dma_cookie(domain);
-	else if (is_fast) {
+	else if (smmu_domain->mapping_cfg.fast) {
 		ret = fast_smmu_init_mapping(dev, domain, pgtbl_ops);
 		if (ret)
 			return ret;
@@ -1175,11 +1171,10 @@ static int arm_smmu_get_dma_cookie(struct device *dev,
 static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
 
 	if (domain->type == IOMMU_DOMAIN_DMA)
 		iommu_put_dma_cookie(domain);
-	else if (is_fast)
+	else if (smmu_domain->mapping_cfg.fast)
 		fast_smmu_put_dma_cookie(domain);
 }
 
@@ -1478,7 +1473,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_unlock;
 	}
 
-	if (test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes)) {
+	if (smmu_domain->mapping_cfg.fast) {
 		fmt = ARM_V8L_FAST;
 		ret = qcom_iommu_get_fast_iova_range(dev,
 					&pgtbl_info.iova_base,
@@ -1601,7 +1596,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 * Matches with call to arm_smmu_rpm_put in
 	 * arm_smmu_destroy_domain_context.
 	 */
-	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes)) {
+	if (smmu_domain->mapping_cfg.atomic) {
 		smmu_domain->rpm_always_on = true;
 		arm_smmu_rpm_get(smmu);
 	}
@@ -2029,7 +2024,6 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	struct device_node *np;
 	int ret;
 	const char *str;
-	int attr = 1;
 	u32 val;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
@@ -2042,23 +2036,19 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 		str = "default";
 
 	if (!strcmp(str, "bypass")) {
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_S1_BYPASS, &attr);
-	/*
-	 * Fallback to the upstream dma-allocator if fastmap is not enabled.
-	 * "fastmap" implies "atomic" due to it not calling arm_smmu_rpm_get()
-	 * in its map/unmap functions. Its clients may or may not actually
-	 * use iommu apis from atomic context.
-	 */
+		smmu_domain->mapping_cfg.s1_bypass = 1;
 	} else if (!strcmp(str, "fastmap")) {
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_ATOMIC, &attr);
+		/*
+		 * Fallback to the upstream dma-allocator if fastmap is not enabled.
+		 * "fastmap" implies "atomic" due to it not calling arm_smmu_rpm_get()
+		 * in its map/unmap functions. Its clients may or may not actually
+		 * use iommu apis from atomic context.
+		 */
+		smmu_domain->mapping_cfg.atomic = 1;
 		if (IS_ENABLED(CONFIG_IOMMU_IO_PGTABLE_FAST))
-			__arm_smmu_domain_set_attr(
-				domain, DOMAIN_ATTR_FAST, &attr);
+			smmu_domain->mapping_cfg.fast = 1;
 	} else if (!strcmp(str, "atomic")) {
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_ATOMIC, &attr);
+		smmu_domain->mapping_cfg.atomic = 1;
 	} else if (!strcmp(str, "disabled")) {
 		/* DT properties only intended for use by default-domains */
 		return 0;
@@ -2239,7 +2229,7 @@ static gfp_t arm_smmu_domain_gfp_flags(struct arm_smmu_domain *smmu_domain)
 	 * The dma layer always uses GFP_ATOMIC, which isn't indicative of
 	 * the actual client needs.
 	 */
-	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes))
+	if (smmu_domain->mapping_cfg.atomic)
 		return GFP_ATOMIC;
 
 	return GFP_KERNEL;
@@ -2759,76 +2749,6 @@ static int arm_smmu_set_pgtable_quirks(struct iommu_domain *domain,
 	return ret;
 }
 
-static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
-				    int attr, void *data)
-{
-	int ret = 0;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	unsigned long iommu_attr = (unsigned long)attr;
-
-	switch (iommu_attr) {
-	case DOMAIN_ATTR_S1_BYPASS: {
-		int bypass = *((int *)data);
-
-		/* bypass can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-		if (bypass)
-			set_bit(DOMAIN_ATTR_S1_BYPASS, smmu_domain->attributes);
-		else
-			clear_bit(DOMAIN_ATTR_S1_BYPASS,
-				  smmu_domain->attributes);
-
-		ret = 0;
-		break;
-	}
-	case DOMAIN_ATTR_ATOMIC:
-	{
-		int atomic_ctx = *((int *)data);
-
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-		if (atomic_ctx)
-			set_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes);
-		else
-			clear_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes);
-		break;
-	}
-		/*
-		 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
-		 * expect that the bus/clock/regulator are already on. Thus also
-		 * force DOMAIN_ATTR_ATOMIC to bet set.
-		 */
-	case DOMAIN_ATTR_FAST:
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-
-		if (*((int *)data)) {
-			if (IS_ENABLED(CONFIG_IOMMU_IO_PGTABLE_FAST)) {
-				set_bit(DOMAIN_ATTR_FAST,
-					smmu_domain->attributes);
-				set_bit(DOMAIN_ATTR_ATOMIC,
-					smmu_domain->attributes);
-				ret = 0;
-			} else {
-				ret = -EOPNOTSUPP;
-			}
-		}
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	return ret;
-}
-
 static int arm_smmu_of_xlate(struct device *dev, struct of_phandle_args *args)
 {
 	u32 mask, fwid = 0;
@@ -3006,14 +2926,33 @@ out:
 	return ret;
 }
 
+static int arm_smmu_get_mappings_configuration(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret = 0;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	if (!smmu_domain->smmu) {
+		ret = -EPERM;
+	} else {
+		ret |= smmu_domain->mapping_cfg.s1_bypass ? QCOM_IOMMU_MAPPING_CONF_S1_BYPASS : 0;
+		ret |= smmu_domain->mapping_cfg.atomic ? QCOM_IOMMU_MAPPING_CONF_ATOMIC : 0;
+		ret |= smmu_domain->mapping_cfg.fast ? QCOM_IOMMU_MAPPING_CONF_FAST : 0;
+	}
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
-	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
-	.sid_switch		= arm_smmu_sid_switch,
-	.get_fault_ids		= arm_smmu_get_fault_ids,
-	.get_context_bank_nr	= arm_smmu_get_context_bank_nr,
-	.set_secure_vmid	= arm_smmu_set_secure_vmid,
-	.set_fault_model	= arm_smmu_set_fault_model,
-	.enable_s1_translation	= arm_smmu_enable_s1_translation,
+	.iova_to_phys_hard		= arm_smmu_iova_to_phys_hard,
+	.sid_switch			= arm_smmu_sid_switch,
+	.get_fault_ids			= arm_smmu_get_fault_ids,
+	.get_context_bank_nr		= arm_smmu_get_context_bank_nr,
+	.set_secure_vmid		= arm_smmu_set_secure_vmid,
+	.set_fault_model		= arm_smmu_set_fault_model,
+	.enable_s1_translation		= arm_smmu_enable_s1_translation,
+	.get_mappings_configuration	= arm_smmu_get_mappings_configuration,
+
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,
