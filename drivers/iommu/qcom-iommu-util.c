@@ -385,6 +385,17 @@ int qcom_iommu_set_fault_model(struct iommu_domain *domain, int fault_model)
 }
 EXPORT_SYMBOL(qcom_iommu_set_fault_model);
 
+int qcom_iommu_enable_s1_translation(struct iommu_domain *domain)
+{
+	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
+
+	if (unlikely(ops->enable_s1_translation == NULL))
+		return -EINVAL;
+
+	return ops->enable_s1_translation(domain);
+}
+EXPORT_SYMBOL(qcom_iommu_enable_s1_translation);
+
 struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie)

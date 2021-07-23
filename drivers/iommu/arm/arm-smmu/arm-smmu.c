@@ -119,8 +119,6 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 
-static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
-
 static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
 static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
@@ -1066,7 +1064,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	cfg->sctlr.hupcf = smmu_domain->fault_model.hupcf;
 
 	if ((!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
-	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
+	     !smmu_domain->delayed_s1_trans_enable) || !stage1)
 		cfg->sctlr.m = 1;
 
 	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
@@ -2103,8 +2101,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 
 	/* Default value: disabled */
 	if (of_property_read_bool(np, "qcom,iommu-earlymap"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_EARLY_MAP, &attr);
+		smmu_domain->delayed_s1_trans_enable = true;
+
 	return 0;
 }
 
@@ -2761,8 +2759,6 @@ static int arm_smmu_set_pgtable_quirks(struct iommu_domain *domain,
 	return ret;
 }
 
-static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
-				    int attr, void *data);
 static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    int attr, void *data)
 {
@@ -2828,41 +2824,8 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		break;
 	default:
-		ret = __arm_smmu_domain_set_attr2(domain, attr, data);
-	}
-	return ret;
-}
-
-/* yeee-haw */
-static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
-				    int attr, void *data)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int ret = 0;
-	unsigned long iommu_attr = (unsigned long)attr;
-
-	switch (iommu_attr) {
-	case DOMAIN_ATTR_EARLY_MAP: {
-		int early_map = *((int *)data);
-
-		ret = 0;
-		if (early_map) {
-			set_bit(DOMAIN_ATTR_EARLY_MAP, smmu_domain->attributes);
-		} else {
-			if (smmu_domain->smmu)
-				ret = arm_smmu_enable_s1_translations(
-								smmu_domain);
-
-			if (!ret)
-				clear_bit(DOMAIN_ATTR_EARLY_MAP,
-					  smmu_domain->attributes);
-		}
-		break;
-	}
-	default:
 		ret = -ENODEV;
 	}
-
 	return ret;
 }
 
@@ -2912,26 +2875,6 @@ static int arm_smmu_def_domain_type(struct device *dev)
 		return impl->def_domain_type(dev);
 
 	return 0;
-}
-
-static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
-{
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	int idx = cfg->cbndx;
-	struct arm_smmu_cb *cb = &smmu->cbs[idx];
-	int ret;
-
-	ret = arm_smmu_rpm_get(smmu);
-	if (ret < 0)
-		return ret;
-
-	cfg->sctlr.m = 1;
-	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
-
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
-	arm_smmu_rpm_put(smmu);
-	return ret;
 }
 
 static int __arm_smmu_sid_switch(struct device *dev, void *data)
@@ -3028,6 +2971,41 @@ static int arm_smmu_set_fault_model(struct iommu_domain *domain, int fault_model
 	return ret;
 }
 
+static int arm_smmu_enable_s1_translation(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx;
+	struct arm_smmu_cb *cb;
+	int ret;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	if (!smmu_domain->smmu) {
+		ret = -EPERM;
+		goto out;
+	} else if (!smmu_domain->delayed_s1_trans_enable) {
+		ret = 0;
+		goto out;
+	}
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		goto out;
+
+	idx = cfg->cbndx;
+	cfg->sctlr.m = 1;
+	cb = &smmu->cbs[idx];
+	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
+
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
+	arm_smmu_rpm_put(smmu);
+	smmu_domain->delayed_s1_trans_enable = false;
+out:
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.sid_switch		= arm_smmu_sid_switch,
@@ -3035,6 +3013,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 	.get_context_bank_nr	= arm_smmu_get_context_bank_nr,
 	.set_secure_vmid	= arm_smmu_set_secure_vmid,
 	.set_fault_model	= arm_smmu_set_fault_model,
+	.enable_s1_translation	= arm_smmu_enable_s1_translation,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,

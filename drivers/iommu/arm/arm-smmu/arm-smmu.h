@@ -510,6 +510,7 @@ struct arm_smmu_domain {
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	struct arm_smmu_fault_model	fault_model;
+	bool				delayed_s1_trans_enable;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;

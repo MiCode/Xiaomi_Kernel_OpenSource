@@ -23,10 +23,9 @@
 #define DOMAIN_ATTR_ATOMIC			(1)
 #define DOMAIN_ATTR_FAST			(2)
 #define DOMAIN_ATTR_PGTBL_INFO			(3)
-#define DOMAIN_ATTR_EARLY_MAP			(4)
-#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(5)
-#define DOMAIN_ATTR_SPLIT_TABLES		(6)
-#define DOMAIN_ATTR_EXTENDED_MAX		(7)
+#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(4)
+#define DOMAIN_ATTR_SPLIT_TABLES		(5)
+#define DOMAIN_ATTR_EXTENDED_MAX		(6)
 
 /* iommu transaction flags */
 /* 1 Write, 0 Read */
@@ -99,6 +98,7 @@ struct qcom_iommu_ops {
 	int (*get_context_bank_nr)(struct iommu_domain *domain);
 	int (*set_secure_vmid)(struct iommu_domain *domain, enum vmid vmid);
 	int (*set_fault_model)(struct iommu_domain *domain, int fault_model);
+	int (*enable_s1_translation)(struct iommu_domain *domain);
 	struct iommu_ops iommu_ops;
 };
 #define to_qcom_iommu_ops(x) (container_of(x, struct qcom_iommu_ops, iommu_ops))
@@ -130,6 +130,8 @@ int qcom_iommu_get_context_bank_nr(struct iommu_domain *domain);
 int qcom_iommu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid);
 
 int qcom_iommu_set_fault_model(struct iommu_domain *domain, int fault_model);
+
+int qcom_iommu_enable_s1_translation(struct iommu_domain *domain);
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
 int __init qcom_arm_lpae_do_selftests(void);
