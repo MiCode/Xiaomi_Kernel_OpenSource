@@ -1,0 +1,11 @@
+source "drivers/misc/mediatek/sensor/2.0/lsm6dsm_secondary/Kconfig"
+source "drivers/misc/mediatek/sensor/2.0/test/Kconfig"
+
+config J22_SAR
+	tristate "j22_sar"
+	default N
+	help
+	  Enable support for the j22 sar.
+	  This driver supports the j22 sar.
+
+	  If in doubt, say N here.

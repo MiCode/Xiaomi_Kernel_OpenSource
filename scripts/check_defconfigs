@@ -1,0 +1,309 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+#!/bin/bash
+
+function usage ()
+{
+	echo $0 'Check for kernel defconfig mismacth'
+	echo 'Usage:'
+	echo '	'$0' [-c] [-u] [defconfig-files]'
+	echo '	    -c	Check changed defconfigs from last git commit'
+	echo '	    -u	Update defconfig if no mismatch is found'
+	echo '	    -h	This help'
+	exit 0
+}
+
+function build_config_parse ()
+{
+	build_config=$1
+
+	CC=
+	LD=
+	cc=`cat ${build_config} | grep ^CC= | cut -d'=' -f 2`
+	ld=`cat ${build_config} | grep ^LD= | cut -d'=' -f 2`
+
+	if [ $cc == clang ]; then
+		toolchain=`cat ${build_config} | grep CLANG_PREBUILT_BIN | cut -d'=' -f 2`
+		CC="${PWD}/../${toolchain}/${cc}"
+		LD="${PWD}/../${toolchain}/${ld}"
+	else
+		toolchain=`cat ${build_config} | grep LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN | cut -d'=' -f 2`
+		cross_compile=`cat ${build_config} | grep ^CROSS_COMPILE | cut -d'=' -f 2`
+		CC="${PWD}/../${toolchain}/${cross_compile}${cc}"
+	fi
+}
+
+function build_config_read ()
+{
+	build_config_parse ${ARM_CONFIG}
+	CC_ARM="${CC}"
+	LD_ARM="${LD}"
+
+	build_config_parse ${ARM64_CONFIG}
+	CC_ARM64="${CC}"
+	LD_ARM64="${LD}"
+
+	build_config_parse ${ARM64_GCC_CONFIG}
+	CC_ARM64_GCC="${CC}"
+	LD_ARM64_GCC="${LD}"
+
+	build_config_parse ${KASAN_CONFIG}
+	CC_KASAN="${CC}"
+	LD_KASAN="${LD}"
+
+	build_config_parse ${UBSAN_CONFIG}
+	CC_UBSAN="${CC}"
+	LD_UBSAN="${LD}"
+}
+
+function toolchain_check ()
+{
+	if [ ! -d "../${TOOLCHAIN_CLANG_PATH}/linux-x86" ]; then
+		echo "CLANG does not exist, clone it"
+		mkdir -p "../${TOOLCHAIN_CLANG_PATH}"
+		cd "../${TOOLCHAIN_CLANG_PATH}"
+		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_CLANG_REPO}"
+		cd linux-x86
+		git reset --hard ${TOOLCHAIN_CLANG_COMMIT}
+	else
+		echo "update CLANG to specific commit"
+		cd "../${TOOLCHAIN_CLANG_PATH}/linux-x86"
+		git reset --hard ${TOOLCHAIN_CLANG_COMMIT}
+	fi
+	cd ${KERNEL_PATH}
+
+	if [ ! -d "../${TOOLCHAIN_GCC_PATH}/bin" ]; then
+		echo "GCC does not exist, clone it"
+		rm -rf "../${TOOLCHAIN_GCC_PATH}"
+		mkdir -p "../prebuilts/gcc/linux-x86/aarch64"
+		cd "../prebuilts/gcc/linux-x86/aarch64"
+		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_GCC_REPO}" -b alps-trunk-r0.basic
+	else
+		echo "update GCC to the latest codebase"
+		cd "../${TOOLCHAIN_GCC_PATH}"
+		git pull
+	fi
+	cd ${KERNEL_PATH}
+}
+
+CONFIGS=
+UPDATE=0
+CHECK_COMMIT=0
+CHECK_SERVICE=0
+CC=
+LD=
+CC_ARM=
+CC_ARM64=
+CC_ARM64_GCC=
+CC_KASAN=
+CC_UBSAN=
+LD_ARM=
+LD_ARM64=
+LD_ARM64_GCC=
+LD_KASAN=
+LD_UBSAN=
+ARM_CONFIG='build.config.mtk.arm'
+ARM64_CONFIG='build.config.mtk.aarch64'
+ARM64_GCC_CONFIG='build.config.mtk.aarch64.gcc'
+KASAN_CONFIG='build.config.mtk.aarch64.kasan'
+UBSAN_CONFIG='build.config.mtk.aarch64.ubsan'
+TOOLCHAIN_CLANG_PATH='prebuilts/clang/host'
+TOOLCHAIN_GCC_PATH='prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
+TOOLCHAIN_CLANG_REPO='platform/prebuilts/clang/host/linux-x86'
+TOOLCHAIN_GCC_REPO='alps/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
+TOOLCHAIN_CLANG_COMMIT='252aba16f513a857bc923172f67b0e55e23de35f'
+KERNEL_PATH=${PWD}
+build_config_read
+
+echo "CC_ARM=${CC_ARM}"
+echo "CC_ARM64=${CC_ARM64}"
+echo "CC_ARM64_GCC=${CC_ARM64_GCC}"
+echo "CC_KASAN=${CC_KASAN}"
+echo "CC_UBSAN=${CC_UBSAN}"
+echo "LD_ARM=${LD_ARM}"
+echo "LD_ARM64=${LD_ARM64}"
+echo "LD_ARM64_GCC=${LD_ARM64_GCC}"
+echo "LD_KASAN=${LD_KASAN}"
+echo "LD_UBSAN=${LD_UBSAN}"
+
+while getopts "cuh" opt; do
+    case $opt in
+      c)
+	if [ $# == 2 ]; then
+		CHECK_COMMIT=$2
+		if [ ${CHECK_COMMIT} == FETCH_HEAD ]; then
+			CHECK_SERVICE=1
+			echo Checking from check service
+		fi
+	else
+		CHECK_COMMIT="HEAD"
+	fi
+
+	KCONFIG=`git show ${CHECK_COMMIT} --stat | gawk '/\/Kconfig.* +\| +[0-9]*/{print $1}'`
+	if [ ".$KCONFIG" != "." ]; then
+		echo From git commit: Checking all defconfig due to Kconfig is changed.
+		CONFIGS=`grep -rl "CONFIG_MTK_PLATFORM" arch/arm/configs arch/arm64/configs`
+	fi
+
+	CONFIGS+=" `git show ${CHECK_COMMIT} --stat-width=500 | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`"
+	CONFIGS=`echo $CONFIGS | xargs -n1 | sort -u | xargs`
+	if [ ".$CONFIGS" != "." ]; then
+		echo From git commit: Checking $CONFIGS
+	else
+		echo "Nothing to check"
+		exit 0
+	fi
+	;;
+      u)
+	UPDATE=1
+	;;
+      h)
+      	usage
+      	;;
+    esac
+done
+
+if [ $# == 0 ]; then
+	usage
+fi
+
+if [ $CHECK_COMMIT == 0 ]; then
+	shift $((OPTIND-1))
+	CONFIGS="${CONFIGS} $*"
+fi
+
+check_defconfig() {
+	CONFIG=${1}
+	UPDATE=${2}
+	CC_ARM=${3}
+	CC_ARM64=${4}
+	CC_ARM64_GCC=${5}
+	CC_KASAN=${6}
+	CC_UBSAN=${7}
+	LD_ARM=${8}
+	LD_ARM64=${9}
+	LD_ARM64_GCC=${10}
+	LD_KASAN=${11}
+	LD_UBSAN=${12}
+	FAIL=0
+	echo "Checking ${CONFIG}"
+
+	if [ ! -e ${CONFIG} ]; then
+		echo warning: defconfig file $CONFIG not found
+		return $FAIL
+	fi
+
+	echo $CONFIG | grep arch/arm64 > /dev/null
+	RETVAL=$?
+	if [ $RETVAL != 0 ]; then
+		ARCH=arm
+		CC=${CC_ARM}
+		LD=${LD_ARM}
+	else
+		ARCH=arm64
+		CC=${CC_ARM64}
+		LD=${LD_ARM64}
+	fi
+
+	echo $CONFIG | grep kasan > /dev/null
+	RETVAL=$?
+	if [ $RETVAL == 0 ]; then
+		CC=${CC_KASAN}
+		LD=${LD_KASAN}
+	fi
+
+	echo $CONFIG | grep ubsan > /dev/null
+	RETVAL=$?
+	if [ $RETVAL == 0 ]; then
+		CC=${CC_UBSAN}
+		LD=${LD_UBSAN}
+	fi
+
+	OUT=out-$$
+	mkdir ${OUT}
+
+	ARGS=()
+
+	if [ -n "${CC}" ]; then
+		ARGS+=("CC=${CC}")
+	fi
+
+	if [ -n "${LD}" ]; then
+		ARGS+=("LD=${LD}")
+	fi
+
+	CMD="make ARCH=${ARCH} ${ARGS[@]} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1"
+	echo $CMD
+
+	OUTPUT="$(${CMD})"
+	RETVAL=$?
+	echo "$OUTPUT"
+
+	if [ $RETVAL != 0 ]; then
+		echo error: Make ${CONFIG} error
+		rm -rf ${OUT}
+		FAIL=1
+		return $FAIL
+	fi
+
+	# Check if there is a warning message
+	if echo "$OUTPUT" | grep -q "^warning:"; then
+		echo error: there is a warning message with Kconfig
+		rm -rf ${OUT}
+		FAIL=1
+		return $FAIL
+	fi
+
+	# Check option mismatch
+	gawk 'BEGIN{lastf="";} { if (lastf != FILENAME) { if (lastf != "") CHECK=1; lastf=FILENAME; } }  \
+		/CONFIG_/ { match($0, /CONFIG_[^ =]*/); option=substr($0, RSTART, RLENGTH); \
+			if (CHECK==1) {  if (option in opts && opts[option]==$0) delete opts[option]; } \
+				else { if (option in opts && opts[option]!=$0) dups[option]=$0; opts[option]=$0; } }  \
+		END { C=0; RET=0; for (i in dups) { RET=1; C++; printf("error: %s duplicate in defconfig\n", i); } \
+			for (i in opts) { RET=1; C++;  printf("error: %s mismatch\n", i); } exit(RET);}' ${CONFIG} ${OUT}/.config
+	RETVAL=$?
+
+	if [ $RETVAL != 0 ]; then
+		echo error: ${CONFIG}: defconfig mismatch. Please check Kconfig and follow SOP to update _defconfig.
+		rm -rf ${OUT}
+		FAIL=1
+		return $FAIL
+	fi
+
+	if [ $UPDATE == 0 ]; then
+		# Compare output, make sure format is correct
+		OUTPUT="$(diff -u ${OUT}/defconfig ${CONFIG} 2>&1)"
+		RETVAL=$?
+		if [ $RETVAL != 0 ]; then
+			echo error: ${CONFIG} compare error. Please follow SOP to update _defconfig
+			echo "$OUTPUT"
+			rm -rf ${OUT}
+			FAIL=1
+			return $FAIL
+		fi
+	else
+		cp ${OUT}/defconfig ${CONFIG}
+	fi
+
+	rm -rf ${OUT}
+	return $FAIL
+}
+export -f check_defconfig
+
+toolchain_check
+parallel check_defconfig ::: $CONFIGS ::: $UPDATE ::: $CC_ARM ::: $CC_ARM64 ::: $CC_ARM64_GCC ::: $CC_KASAN ::: $CC_UBSAN ::: $LD_ARM ::: $LD_ARM64 ::: $LD_ARM64_GCC ::: $LD_KASAN ::: $LD_UBSAN
+RETVAL=$?
+
+if [ $RETVAL != 0 ]; then
+	echo
+	echo Please check the following wiki for detail, thanks!
+	echo http://wiki.mediatek.inc/display/KernelStandardization/Check+defconfig+in+kernel+preflight
+	echo http://wiki.mediatek.inc/display/KernelStandardization/SOP+to+update+kernel+config
+fi
+
+if [ ${CHECK_SERVICE} == 1 ]; then
+	rm -rf /tmp/prebuilts
+	echo Remove toolchain in check service
+fi
+
+exit $RETVAL

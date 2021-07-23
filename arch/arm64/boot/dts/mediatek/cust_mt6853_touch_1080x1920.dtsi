@@ -1,0 +1,128 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* TOUCH start */
+&spi4 {
+       status = "okay";
+       #address-cells = <1>;
+	#size-cells = <0>;
+	touch_spi@0 {
+		compatible = "xiaomi,spi-for-tp";
+		reg = <0>;
+		status = "ok";
+		spi-max-frequency = <6000000>;  //6M
+	};
+};
+
+&touch {
+
+	tpd-resolution = <1080 2340>;
+	use-tpd-button = <0>;
+	tpd-key-num = <3>;
+	tpd-key-local= <139 172 158 0>;
+	tpd-key-dim-local = <90 883 100 40 230
+				883 100 40 370 883 100 40 0 0 0 0>;
+	tpd-max-touch-num = <10>;
+	tpd-filter-enable = <0>;
+	tpd-filter-pixel-density = <168>;
+	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+	tpd-filter-custom-speed = <0 0 0>;
+	pinctrl-names = "default", "state_eint_as_int",
+		"state_eint_output0", "state_eint_output1",
+		"state_rst_output0", "state_rst_output1";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_pins_eint_as_int>;
+	pinctrl-2 = <&ctp_pins_eint_output0>;
+	pinctrl-3 = <&ctp_pins_eint_output1>;
+	pinctrl-4 = <&ctp_pins_rst_output0>;
+	pinctrl-5 = <&ctp_pins_rst_output1>;
+	status = "okay";
+};
+
+&pio {
+	ctp_pins_default: eint0default {
+	};
+	ctp_pins_eint_as_int: ent@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	ctp_pins_eint_output0: eintoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_pins_eint_output1: eintoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <1>;
+			output-high;
+	};
+	};
+	ctp_pins_rst_output0: rstoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_pins_rst_output1: rstoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_gt9896s_pins_default: pins_default {
+	};
+	ctp_ts_int_active: int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+	ctp_ts_reset_active: reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_ts_int_suspend: int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_reset_suspend: reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_i2c_mode: i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO97__FUNC_SCL0>,
+				<PINMUX_GPIO98__FUNC_SDA0>;
+		};
+	};
+};
+/* TOUCH end */

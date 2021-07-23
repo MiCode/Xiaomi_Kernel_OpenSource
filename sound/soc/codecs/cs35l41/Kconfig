@@ -1,0 +1,24 @@
+config SND_SOC_CS35L41
+	tristate "Cirrus Logic CS35L41 CODEC"
+	default y
+
+config SND_SOC_CS35L41_I2C
+	tristate "Cirrus Logic CS35L41 CODEC (I2C)"
+	depends on I2C
+	select SND_SOC_CS35L41
+	select REGMAP_I2C
+
+config SND_SOC_CS35L41_SPI
+	tristate "Cirrus Logic CS35L41 CODEC (SPI)"
+	depends on SPI_MASTER
+	select SND_SOC_CS35L41
+	select REGMAP_SPI
+
+config SND_SOC_WM_ADSP
+	tristate
+	select SND_SOC_COMPRESS
+	default y if SND_SOC_CS35L41=y
+	default m if SND_SOC_CS35L41=m
+config SND_SOC_CS35L41_J10
+        tristate "Cirrus Logic J10 CS35L41 CODEC"
+        default n

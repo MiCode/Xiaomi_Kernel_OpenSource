@@ -1,0 +1,9 @@
+config MT6360_LDO
+	bool "Support for MT6360 LDO part"
+	depends on I2C
+	select RT_REGMAP
+	help
+	  This selects for MediaTek(R) Sub PMIC MT6360 LDO parts.
+	  It's cordinate ldo feature
+	  with High PSRR and Low Dropout
+	  Select Y to enable support for MT6360 LDO.

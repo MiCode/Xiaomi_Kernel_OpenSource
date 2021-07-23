@@ -1,0 +1,6 @@
+
+config SND_SOC_TFA9874
+       tristate
+       depends on I2C
+       help
+       This option enables support for TFA9874 PA
