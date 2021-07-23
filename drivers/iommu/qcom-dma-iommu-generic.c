@@ -285,7 +285,7 @@ static unsigned long current_pool_size;
 /* Dynamic background expansion when the atomic pool is near capacity */
 static struct work_struct atomic_pool_work;
 
-static void __init dma_atomic_pool_debugfs_init(void)
+static void dma_atomic_pool_debugfs_init(void)
 {
 	struct dentry *root;
 
@@ -360,7 +360,7 @@ static void atomic_pool_work_fn(struct work_struct *work)
 	atomic_pool_resize(atomic_pool, GFP_KERNEL);
 }
 
-static __init struct gen_pool *__dma_atomic_pool_init(size_t pool_size, gfp_t gfp)
+static struct gen_pool *__dma_atomic_pool_init(size_t pool_size, gfp_t gfp)
 {
 	struct gen_pool *pool;
 	int ret;
