@@ -489,6 +489,13 @@ enum arm_smmu_domain_stage {
 	ARM_SMMU_DOMAIN_BYPASS,
 };
 
+struct arm_smmu_fault_model {
+	char non_fatal : 1;
+	char no_cfre : 1;
+	char no_stall : 1;
+	char hupcf : 1;
+};
+
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct device			*dev;
@@ -502,6 +509,7 @@ struct arm_smmu_domain {
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
+	struct arm_smmu_fault_model	fault_model;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;

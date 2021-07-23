@@ -924,7 +924,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			print_fault_regs(smmu_domain, smmu, idx);
 			arm_smmu_verify_fault(smmu_domain, smmu, idx);
 		}
-		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+		BUG_ON(!smmu_domain->fault_model.non_fatal);
 	}
 	if (ret != -EBUSY) {
 		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
@@ -1061,9 +1061,9 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_NSH;
 	}
 
-	cfg->sctlr.cfre = !(test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes));
-	cfg->sctlr.cfcfg = !(test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL, attributes));
-	cfg->sctlr.hupcf = test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes);
+	cfg->sctlr.cfre = !smmu_domain->fault_model.no_cfre;
+	cfg->sctlr.cfcfg = !smmu_domain->fault_model.no_stall;
+	cfg->sctlr.hupcf = smmu_domain->fault_model.hupcf;
 
 	if ((!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
 	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
@@ -2074,21 +2074,16 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	 */
 	if (of_property_match_string(np, "qcom,iommu-faults",
 				     "stall-disable") >= 0)
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &attr);
+		smmu_domain->fault_model.no_stall = 1;
 
 	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, &attr);
+		smmu_domain->fault_model.no_cfre = 1;
 
 	if (of_property_match_string(np, "qcom,iommu-faults", "HUPCF") >= 0)
-		__arm_smmu_domain_set_attr(domain,
-					   DOMAIN_ATTR_FAULT_MODEL_HUPCF,
-					   &attr);
+		smmu_domain->fault_model.hupcf = 1;
 
 	if (of_property_match_string(np, "qcom,iommu-faults", "non-fatal") >= 0)
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_NON_FATAL_FAULTS, &attr);
+		smmu_domain->fault_model.non_fatal = 1;
 
 	/* Default value: disabled */
 	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
@@ -2776,18 +2771,6 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 	unsigned long iommu_attr = (unsigned long)attr;
 
 	switch (iommu_attr) {
-	case DOMAIN_ATTR_NON_FATAL_FAULTS: {
-		u32 non_fatal_faults = *((int *)data);
-
-		if (non_fatal_faults)
-			set_bit(DOMAIN_ATTR_NON_FATAL_FAULTS,
-				smmu_domain->attributes);
-		else
-			clear_bit(DOMAIN_ATTR_NON_FATAL_FAULTS,
-				  smmu_domain->attributes);
-		ret = 0;
-		break;
-	}
 	case DOMAIN_ATTR_S1_BYPASS: {
 		int bypass = *((int *)data);
 
@@ -2876,13 +2859,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		}
 		break;
 	}
-	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
-	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
-	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
-		if (*((int *)data))
-			set_bit(attr, smmu_domain->attributes);
-		ret = 0;
-		break;
 	default:
 		ret = -ENODEV;
 	}
@@ -3033,12 +3009,32 @@ static int arm_smmu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid)
 	return ret;
 }
 
+static int arm_smmu_set_fault_model(struct iommu_domain *domain, int fault_model)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_fault_model *domain_model = &smmu_domain->fault_model;
+	int ret = 0;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	if (smmu_domain->smmu) {
+		ret = -EPERM;
+	} else {
+		domain_model->non_fatal = FIELD_GET(QCOM_IOMMU_FAULT_MODEL_NON_FATAL, fault_model);
+		domain_model->no_cfre = FIELD_GET(QCOM_IOMMU_FAULT_MODEL_NO_CFRE, fault_model);
+		domain_model->no_stall = FIELD_GET(QCOM_IOMMU_FAULT_MODEL_NO_STALL, fault_model);
+		domain_model->hupcf = FIELD_GET(QCOM_IOMMU_FAULT_MODEL_HUPCF, fault_model);
+	}
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
-	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
+	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.sid_switch		= arm_smmu_sid_switch,
 	.get_fault_ids		= arm_smmu_get_fault_ids,
 	.get_context_bank_nr	= arm_smmu_get_context_bank_nr,
 	.set_secure_vmid	= arm_smmu_set_secure_vmid,
+	.set_fault_model	= arm_smmu_set_fault_model,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,

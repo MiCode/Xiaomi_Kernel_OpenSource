@@ -369,6 +369,22 @@ int qcom_iommu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid)
 }
 EXPORT_SYMBOL(qcom_iommu_set_secure_vmid);
 
+int qcom_iommu_set_fault_model(struct iommu_domain *domain, int fault_model)
+{
+	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
+
+	if (unlikely(ops->set_fault_model == NULL))
+		return -EINVAL;
+	else if (fault_model & ~(QCOM_IOMMU_FAULT_MODEL_NON_FATAL |
+				 QCOM_IOMMU_FAULT_MODEL_NO_CFRE |
+				 QCOM_IOMMU_FAULT_MODEL_NO_STALL |
+				 QCOM_IOMMU_FAULT_MODEL_HUPCF))
+		return -EINVAL;
+
+	return ops->set_fault_model(domain, fault_model);
+}
+EXPORT_SYMBOL(qcom_iommu_set_fault_model);
+
 struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie)
