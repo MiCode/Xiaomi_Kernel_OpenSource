@@ -2257,17 +2257,23 @@ static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
 	if (!penv->ops || !penv->ops->set_therm_cdev_state)
 		return 0;
 
+	if (thermal_state > icnss_tcdev->max_thermal_state)
+		return -EINVAL;
+
 	icnss_pr_vdbg("Cooling device set current state: %ld,for cdev id %d",
 		      thermal_state, icnss_tcdev->tcdev_id);
 
 	mutex_lock(&penv->tcdev_lock);
-	icnss_tcdev->curr_thermal_state = thermal_state;
 	ret = penv->ops->set_therm_cdev_state(dev, thermal_state,
 					      icnss_tcdev->tcdev_id);
+	if (!ret)
+		icnss_tcdev->curr_thermal_state = thermal_state;
 	mutex_unlock(&penv->tcdev_lock);
-	if (ret)
+	if (ret) {
 		icnss_pr_err("Setting Current Thermal State Failed: %d,for cdev id %d",
 			     ret, icnss_tcdev->tcdev_id);
+		return ret;
+	}
 
 	return 0;
 }
