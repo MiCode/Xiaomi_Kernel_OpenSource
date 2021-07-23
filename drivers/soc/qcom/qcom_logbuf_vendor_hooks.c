@@ -58,13 +58,12 @@ static size_t info_print_prefix(const struct printk_info *info, char *buf,
 	return len;
 }
 
-static size_t record_print_text(struct printk_info *pinfo, char *text,
-					size_t buf_size)
+static size_t record_print_text(struct printk_info *pinfo, char *r_text, size_t buf_size)
 {
 	size_t text_len = pinfo->text_len;
 	char prefix[PREFIX_MAX];
-	bool truncated = false;
 	size_t prefix_len;
+	char *text = r_text;
 	size_t line_len;
 	size_t len = 0;
 	char *next;
@@ -79,26 +78,17 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	 */
 	for (;;) {
 		next = memchr(text, '\n', text_len);
-		if (next) {
+		if (next)
 			line_len = next - text;
-		} else {
-			/* Drop truncated line(s). */
-			if (truncated)
-				break;
+		else
 			line_len = text_len;
-		}
 
 		/*
 		 * Truncate the text if there is not enough space to add the
 		 * prefix and a trailing newline and a terminator.
 		 */
-		if (len + prefix_len + text_len + 1 + 1 > buf_size) {
-			if (len + prefix_len + line_len + 1 + 1 > buf_size)
-				break;
-
-			text_len = buf_size - len - prefix_len - 1 - 1;
-			truncated = true;
-		}
+		if ((len + prefix_len + line_len + 1 + 1) > buf_size)
+			break;
 
 		memmove(text + prefix_len, text, text_len);
 		memcpy(text, prefix, prefix_len);
@@ -147,7 +137,7 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	 */
 
 	if (buf_size > 0)
-		text[len] = 0;
+		r_text[len] = 0;
 
 	return len;
 }
@@ -209,7 +199,6 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	static unsigned int off;
 	enum desc_state state;
 	size_t rem_buf_sz;
-	int ret;
 
 	tailid = descring.tail_id;
 	headid = descring.head_id;
@@ -218,7 +207,12 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 		if (!r->info->text_len)
 			return;
 
-		if ((off + r->info->text_len) > boot_log_buf_size)
+		/*
+		 * Check whether remaining buffer has enough space
+		 * for record meta data size + newline + terminator
+		 * if not, let's reject the record.
+		 */
+		if ((off + r->info->text_len + PREFIX_MAX + 1 + 1) > boot_log_buf_size)
 			return;
 
 		rem_buf_sz = boot_log_buf_size - off;
@@ -226,12 +220,7 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			return;
 
 		memcpy(&boot_log_buf[off], &r->text_buf[0], r->info->text_len);
-		ret = record_print_text(r->info, &boot_log_buf[off],
-			rem_buf_sz);
-		if (!ret)
-			off += r->info->text_len;
-
-		off += ret;
+		off += record_print_text(r->info, &boot_log_buf[off], rem_buf_sz);
 		return;
 	}
 
@@ -265,20 +254,20 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			if (end - text_start < textlen)
 				textlen = end - text_start;
 
-			if ((off + textlen) > boot_log_buf_size)
+			/*
+			 * Check whether remaining buffer has enough space
+			 * for record meta data size + newline + terminator
+			 * if not, let's reject the record.
+			 */
+			if ((off + textlen + PREFIX_MAX + 1 + 1) > boot_log_buf_size)
 				break;
 
 			rem_buf_sz = boot_log_buf_size - off;
 
-			memcpy(&boot_log_buf[off],
-				&textdata_ring.data[text_start],
-				textlen);
-			ret = record_print_text(&p_infos[ind],
+			memcpy(&boot_log_buf[off], &textdata_ring.data[text_start],
+					textlen);
+			off += record_print_text(&p_infos[ind],
 					&boot_log_buf[off], rem_buf_sz);
-			if (!ret)
-				off += r->info->text_len;
-
-			off += ret;
 		}
 
 		if (did == atomic_long_read(&headid))
