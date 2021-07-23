@@ -26,6 +26,7 @@ msm_kgsl-$(CONFIG_COMPAT) += kgsl_compat.o
 msm_kgsl-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl-$(CONFIG_ARM_SMMU) += kgsl_iommu.o
 msm_kgsl-$(CONFIG_SYNC_FILE) += kgsl_sync.o
+msm_kgsl-$(CONFIG_QCOM_KGSL_PROCESS_RECLAIM) += kgsl_reclaim.o
 
 ifndef CONFIG_QCOM_KGSL_USE_SHMEM
 	msm_kgsl-y += kgsl_pool.o

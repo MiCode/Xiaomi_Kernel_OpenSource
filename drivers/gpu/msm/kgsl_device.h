@@ -423,6 +423,7 @@ struct kgsl_process_private {
 	struct idr mem_idr;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
+	struct list_head reclaim_list;
 	struct kobject kobj;
 	struct dentry *debug_root;
 	struct {
@@ -436,6 +437,26 @@ struct kgsl_process_private {
 	atomic_t ctxt_count;
 	spinlock_t ctxt_count_lock;
 	atomic64_t frame_count;
+	/**
+	 * @state: state consisting KGSL_PROC_STATE and KGSL_PROC_PINNED_STATE
+	 */
+	unsigned long state;
+	/**
+	 * @unpinned_page_count: The number of pages unpinned for reclaim
+	 */
+	atomic_t unpinned_page_count;
+	/**
+	 * @fg_work: Work struct to schedule foreground work
+	 */
+	struct work_struct fg_work;
+	/**
+	 * @reclaim_lock: Mutex lock to protect KGSL_PROC_PINNED_STATE
+	 */
+	struct mutex reclaim_lock;
+	/**
+	 * @cmd_count: The number of cmds that are active for the process
+	 */
+	atomic_t cmd_count;
 };
 
 struct kgsl_device_private {

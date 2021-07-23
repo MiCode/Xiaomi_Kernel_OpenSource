@@ -12,6 +12,7 @@
 
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
+#include "kgsl_reclaim.h"
 #include "kgsl_sharedmem.h"
 
 /*
@@ -27,18 +28,24 @@ static DEFINE_MUTEX(kernel_map_global_lock);
 
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
-	struct attribute attr;
+	struct kgsl_process_attribute attr;
 	int memtype;
 	ssize_t (*show)(struct kgsl_process_private *priv,
 		int type, char *buf);
 };
+
+static inline struct kgsl_process_attribute *to_process_attr(
+		struct attribute *attr)
+{
+	return container_of(attr, struct kgsl_process_attribute, attr);
+}
 
 #define to_mem_entry_attr(a) \
 container_of(a, struct kgsl_mem_entry_attribute, attr)
 
 #define __MEM_ENTRY_ATTR(_type, _name, _show) \
 { \
-	.attr = { .name = __stringify(_name), .mode = 0444 }, \
+	.attr = __ATTR(_name, 0444, mem_entry_sysfs_show, NULL), \
 	.memtype = _type, \
 	.show = _show, \
 }
@@ -46,6 +53,16 @@ container_of(a, struct kgsl_mem_entry_attribute, attr)
 #define MEM_ENTRY_ATTR(_type, _name, _show)  \
 	static struct kgsl_mem_entry_attribute mem_entry_##_name = \
 		__MEM_ENTRY_ATTR(_type, _name, _show)
+
+static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
+	struct kgsl_process_attribute *attr, char *buf)
+{
+	struct kgsl_mem_entry_attribute *pattr = to_mem_entry_attr(attr);
+	struct kgsl_process_private *priv =
+		container_of(kobj, struct kgsl_process_private, kobj);
+
+	return pattr->show(priv, pattr->memtype, buf);
+}
 
 static ssize_t
 imported_mem_show(struct kgsl_process_private *priv,
@@ -134,30 +151,32 @@ mem_entry_max_show(struct kgsl_process_private *priv, int type, char *buf)
 	return scnprintf(buf, PAGE_SIZE, "%llu\n", priv->stats[type].max);
 }
 
-static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
+static ssize_t process_sysfs_show(struct kobject *kobj,
 	struct attribute *attr, char *buf)
 {
-	struct kgsl_mem_entry_attribute *pattr = to_mem_entry_attr(attr);
-	struct kgsl_process_private *priv;
+	struct kgsl_process_attribute *pattr = to_process_attr(attr);
 
-	/*
-	 * sysfs_remove_file waits for reads to complete before the node is
-	 * deleted and process private is freed only once kobj is released.
-	 * This implies that priv will not be freed until this function
-	 * completes, and no further locking is needed.
-	 */
-	priv = container_of(kobj, struct kgsl_process_private, kobj);
+	return pattr->show(kobj, pattr, buf);
+}
 
-	return pattr->show(priv, pattr->memtype, buf);
+static ssize_t process_sysfs_store(struct kobject *kobj,
+	struct attribute *attr, const char *buf, size_t count)
+{
+	struct kgsl_process_attribute *pattr = to_process_attr(attr);
+
+	if (pattr->store)
+		return pattr->store(kobj, pattr, buf, count);
+	return -EIO;
 }
 
 /* Dummy release function - we have nothing to do here */
-static void mem_entry_release(struct kobject *kobj)
+static void process_sysfs_release(struct kobject *kobj)
 {
 }
 
-static const struct sysfs_ops mem_entry_sysfs_ops = {
-	.show = mem_entry_sysfs_show,
+static const struct sysfs_ops process_sysfs_ops = {
+	.show = process_sysfs_show,
+	.store = process_sysfs_store,
 };
 
 MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_KERNEL, kernel, mem_entry_show);
@@ -173,26 +192,39 @@ MEM_ENTRY_ATTR(0, gpumem_mapped, gpumem_mapped_show);
 MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_KERNEL, gpumem_unmapped, gpumem_unmapped_show);
 
 static struct attribute *mem_entry_attrs[] = {
-	&mem_entry_kernel.attr,
-	&mem_entry_kernel_max.attr,
-	&mem_entry_user.attr,
-	&mem_entry_user_max.attr,
+	&mem_entry_kernel.attr.attr,
+	&mem_entry_kernel_max.attr.attr,
+	&mem_entry_user.attr.attr,
+	&mem_entry_user_max.attr.attr,
 #ifdef CONFIG_ION
-	&mem_entry_ion.attr,
-	&mem_entry_ion_max.attr,
+	&mem_entry_ion.attr.attr,
+	&mem_entry_ion_max.attr.attr,
 #endif
-	&mem_entry_imported_mem.attr,
-	&mem_entry_gpumem_mapped.attr,
-	&mem_entry_gpumem_unmapped.attr,
+	&mem_entry_imported_mem.attr.attr,
+	&mem_entry_gpumem_mapped.attr.attr,
+	&mem_entry_gpumem_unmapped.attr.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(mem_entry);
 
-static struct kobj_type ktype_mem_entry = {
-	.sysfs_ops = &mem_entry_sysfs_ops,
-	.release = &mem_entry_release,
+static struct kobj_type process_ktype = {
+	.sysfs_ops = &process_sysfs_ops,
+	.release = &process_sysfs_release,
 	.default_groups = mem_entry_groups,
 };
+#ifdef CONFIG_QCOM_KGSL_PROCESS_RECLAIM
+static struct device_attribute dev_attr_max_reclaim_limit = {
+	.attr = { .name = "max_reclaim_limit", .mode = 0644 },
+	.show = kgsl_proc_max_reclaim_limit_show,
+	.store = kgsl_proc_max_reclaim_limit_store,
+};
+
+static struct device_attribute dev_attr_page_reclaim_per_call = {
+	.attr = { .name = "page_reclaim_per_call", .mode = 0644 },
+	.show = kgsl_nr_to_scan_show,
+	.store = kgsl_nr_to_scan_store,
+};
+#endif
 
 /**
  * kgsl_process_init_sysfs() - Initialize and create sysfs files for a process
@@ -207,12 +239,14 @@ static struct kobj_type ktype_mem_entry = {
 void kgsl_process_init_sysfs(struct kgsl_device *device,
 		struct kgsl_process_private *private)
 {
-	if (kobject_init_and_add(&private->kobj, &ktype_mem_entry,
+	if (kobject_init_and_add(&private->kobj, &process_ktype,
 		kgsl_driver.prockobj, "%d", pid_nr(private->pid))) {
 		dev_err(device->dev, "Unable to add sysfs for process %d\n",
 			pid_nr(private->pid));
 		kgsl_process_private_put(private);
 	}
+
+	kgsl_reclaim_proc_sysfs_init(private);
 }
 
 static ssize_t memstat_show(struct device *dev,
@@ -291,6 +325,10 @@ static const struct attribute *drv_attr_list[] = {
 	&dev_attr_mapped.attr,
 	&dev_attr_mapped_max.attr,
 	&dev_attr_full_cache_threshold.attr,
+#ifdef CONFIG_QCOM_KGSL_PROCESS_RECLAIM
+	&dev_attr_max_reclaim_limit.attr,
+	&dev_attr_page_reclaim_per_call.attr,
+#endif
 	NULL,
 };
 
@@ -304,15 +342,49 @@ static vm_fault_t kgsl_paged_vmfault(struct kgsl_memdesc *memdesc,
 				struct vm_area_struct *vma,
 				struct vm_fault *vmf)
 {
-	int pgoff;
+	int pgoff, ret;
+	struct page *page;
 	unsigned int offset = vmf->address - vma->vm_start;
+	struct kgsl_process_private *priv =
+		((struct kgsl_mem_entry *)vma->vm_private_data)->priv;
 
 	if (offset >= memdesc->size)
 		return VM_FAULT_SIGBUS;
 
 	pgoff = offset >> PAGE_SHIFT;
 
-	return vmf_insert_page(vma, vmf->address, memdesc->pages[pgoff]);
+	spin_lock(&memdesc->lock);
+	if (memdesc->pages[pgoff]) {
+		page = memdesc->pages[pgoff];
+		get_page(page);
+	} else {
+		/* We are here because page was reclaimed */
+		memdesc->priv |= KGSL_MEMDESC_SKIP_RECLAIM;
+		spin_unlock(&memdesc->lock);
+
+		page = shmem_read_mapping_page_gfp(
+			memdesc->shmem_filp->f_mapping, pgoff,
+			kgsl_gfp_mask(0));
+		if (IS_ERR(page))
+			return VM_FAULT_SIGBUS;
+		kgsl_page_sync_for_device(memdesc->dev, page, PAGE_SIZE);
+
+		spin_lock(&memdesc->lock);
+		/*
+		 * Update the pages array only if the page was
+		 * not already brought back.
+		 */
+		if (!memdesc->pages[pgoff]) {
+			memdesc->pages[pgoff] = page;
+			atomic_dec(&priv->unpinned_page_count);
+			get_page(page);
+		}
+	}
+	spin_unlock(&memdesc->lock);
+
+	ret = vmf_insert_page(vma, vmf->address, page);
+	put_page(page);
+	return ret;
 }
 
 static void kgsl_paged_unmap_kernel(struct kgsl_memdesc *memdesc)
@@ -850,7 +922,8 @@ static void _kgsl_free_pages(struct kgsl_memdesc *memdesc, unsigned int pcount)
 	int i;
 
 	for (i = 0; i < memdesc->page_count; i++)
-		put_page(memdesc->pages[i]);
+		if (memdesc->pages[i])
+			put_page(memdesc->pages[i]);
 
 	fput(memdesc->shmem_filp);
 }
@@ -1125,7 +1198,8 @@ void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
 	 * the IOMMU driver will BUG later if we reallocated the address and
 	 * tried to map it
 	 */
-	if (kgsl_mmu_unmap(memdesc->pagetable, memdesc))
+	if (!kgsl_memdesc_is_reclaimed(memdesc) &&
+		kgsl_mmu_unmap(memdesc->pagetable, memdesc))
 		return;
 
 	kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);

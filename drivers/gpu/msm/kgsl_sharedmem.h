@@ -170,6 +170,15 @@ struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
  */
 void kgsl_free_globals(struct kgsl_device *device);
 
+/**
+ * kgsl_page_sync_for_device - Initialize SG table with page & sync it for device
+ * @dev: A GPU device handle
+ * @page: Pointer to the struct page
+ * @size: Size of the page
+ */
+void kgsl_page_sync_for_device(struct device *dev, struct page *page,
+		size_t size);
+
 /*
  * kgsl_memdesc_get_align - Get alignment flags from a memdesc
  * @memdesc - the memdesc
@@ -265,6 +274,17 @@ static inline bool kgsl_memdesc_is_secured(const struct kgsl_memdesc *memdesc)
 }
 
 /*
+ * kgsl_memdesc_is_reclaimed - check if a buffer is reclaimed
+ * @memdesc: the memdesc
+ *
+ * Return: true if the memdesc pages were reclaimed, false otherwise
+ */
+static inline bool kgsl_memdesc_is_reclaimed(const struct kgsl_memdesc *memdesc)
+{
+	return memdesc && (memdesc->priv & KGSL_MEMDESC_RECLAIMED);
+}
+
+/*
  * kgsl_memdesc_use_cpu_map - use the same virtual mapping on CPU and GPU?
  * @memdesc: the memdesc
  *
@@ -331,6 +351,25 @@ static inline bool kgsl_cachemode_is_cached(u64 flags)
  * to the memdesc
  */
 void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc);
+
+/**
+ * struct kgsl_process_attribute - basic attribute for a process
+ * @attr: Underlying struct attribute
+ * @show: Attribute show function
+ * @store: Attribute store function
+ */
+struct kgsl_process_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *kobj,
+			struct kgsl_process_attribute *attr, char *buf);
+	ssize_t (*store)(struct kobject *kobj,
+		struct kgsl_process_attribute *attr, const char *buf,
+		ssize_t count);
+};
+
+#define PROCESS_ATTR(_name, _mode, _show, _store) \
+	static struct kgsl_process_attribute attr_##_name = \
+			__ATTR(_name, _mode, _show, _store)
 
 struct kgsl_sharedmem_bind_op_range {
 	u64 start;
