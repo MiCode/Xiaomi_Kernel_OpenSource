@@ -104,14 +104,14 @@ struct virtio_eventfd {
 	__u32 label;
 	__u32 flags;
 	__u32 queue_num;
-	int fd;
+	__s32 fd;
 };
 
 struct virtio_irqfd {
 	__u32 label;
 	__u32 flags;
-	int fd;
-	int reserved;
+	__s32 fd;
+	__u32 reserved;
 };
 
 #endif /* _UAPI_LINUX_VIRTIO_BACKEND_H */
