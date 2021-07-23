@@ -12,6 +12,7 @@
 
 #define USB_QDSS_CH_MDM	"qdss_mdm"
 #define USB_QDSS_CH_MSM	"qdss"
+#define USB_QDSS_CH_SW	"qdss_sw"
 
 struct qdss_request {
 	char *buf;
