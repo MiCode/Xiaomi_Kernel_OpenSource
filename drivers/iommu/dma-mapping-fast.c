@@ -1063,15 +1063,14 @@ static void __fast_smmu_setup_dma_ops(void *data, struct device *dev,
 {
 	struct dma_fast_smmu_mapping *fast;
 	struct iommu_domain *domain;
-	int is_fast;
 	int ret;
 
 	domain = iommu_get_domain_for_dev(dev);
 	if (!domain)
 		return;
 
-	ret = iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
-	if (ret || !is_fast)
+	ret = qcom_iommu_get_mappings_configuration(domain);
+	if (ret < 0 || !(ret & QCOM_IOMMU_MAPPING_CONF_FAST))
 		return;
 
 	fast = dev_get_mapping(dev);
