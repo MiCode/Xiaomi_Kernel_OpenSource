@@ -325,14 +325,6 @@ int slab_unmergeable(struct kmem_cache *s)
 	if (s->refcount < 0)
 		return 1;
 
-#ifdef CONFIG_MEMCG_KMEM
-	/*
-	 * Skip the dying kmem_cache.
-	 */
-	if (s->memcg_params.dying)
-		return 1;
-#endif
-
 	return 0;
 }
 
@@ -973,6 +965,16 @@ void kmem_cache_destroy(struct kmem_cache *s)
 	get_online_mems();
 
 	mutex_lock(&slab_mutex);
+
+	/*
+	 * Another thread referenced it again
+	 */
+	if (READ_ONCE(s->refcount)) {
+		spin_lock_irq(&memcg_kmem_wq_lock);
+		s->memcg_params.dying = false;
+		spin_unlock_irq(&memcg_kmem_wq_lock);
+		goto out_unlock;
+	}
 #endif
 
 	err = shutdown_memcg_caches(s);
