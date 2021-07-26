@@ -18,6 +18,8 @@
 #include <linux/blk-mq.h>
 #include <linux/thermal.h>
 #include <linux/cpufreq.h>
+#include <linux/debugfs.h>
+#include <trace/hooks/ufshcd.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -3880,6 +3882,55 @@ static int ufs_qcom_init_sysfs(struct ufs_hba *hba)
 	return ret;
 }
 
+static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
+				       struct ufshcd_lrb *lrbp)
+{
+
+}
+
+static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
+				       struct ufshcd_lrb *lrbp)
+{
+
+}
+
+static void ufs_qcom_hook_send_uic_command(void *param, struct ufs_hba *hba,
+					struct uic_command *ucmd,
+					const char *str)
+{
+
+}
+
+static void ufs_qcom_hook_send_tm_command(void *param, struct ufs_hba *hba,
+					int tag, const char *str)
+{
+
+}
+
+static void ufs_qcom_hook_check_int_errors(void *param, struct ufs_hba *hba,
+					bool queue_eh_work)
+{
+
+}
+
+/*
+ * Refer: common/include/trace/hooks/ufshcd.h for available hooks
+ */
+static void ufs_qcom_register_hooks(void)
+{
+	register_trace_android_vh_ufs_send_command(ufs_qcom_hook_send_command,
+						NULL);
+	register_trace_android_vh_ufs_compl_command(
+				ufs_qcom_hook_compl_command, NULL);
+	register_trace_android_vh_ufs_send_uic_command(
+				ufs_qcom_hook_send_uic_command, NULL);
+	register_trace_android_vh_ufs_send_tm_command(
+				ufs_qcom_hook_send_tm_command, NULL);
+	register_trace_android_vh_ufs_check_int_errors(
+				ufs_qcom_hook_check_int_errors, NULL);
+}
+
+
 /**
  * ufs_qcom_probe - probe routine of the driver
  * @pdev: pointer to Platform device handle
@@ -3932,6 +3983,7 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	if (err)
 		dev_err(dev, "ufshcd_pltfrm_init() failed %d\n", err);
 
+	ufs_qcom_register_hooks();
 	return err;
 }
 
