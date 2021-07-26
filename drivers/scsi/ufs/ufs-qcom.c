@@ -20,6 +20,7 @@
 #include <linux/cpufreq.h>
 #include <linux/debugfs.h>
 #include <trace/hooks/ufshcd.h>
+#include <linux/ipc_logging.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -43,6 +44,17 @@
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
 #define	ANDROID_BOOT_DEV_MAX	30
+
+
+/* Max number of log pages */
+#define UFS_QCOM_MAX_LOG_SZ	10
+#define ufs_qcom_log_str(host, fmt, ...)	\
+	do {	\
+		if (host->ufs_ipc_log_ctx && host->dbg_en)	\
+			ipc_log_string(host->ufs_ipc_log_ctx,	\
+					",%d,"fmt, current->cpu, ##__VA_ARGS__);\
+	} while (0)
+
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
@@ -682,6 +694,8 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		err = -EINVAL;
 		break;
 	}
+
+	ufs_qcom_log_str(host, "-,%d,%d\n", status, err);
 	return err;
 }
 
@@ -1048,6 +1062,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	}
 
 out:
+	ufs_qcom_log_str(host, "*,%d,%d\n", status, err);
 	return err;
 }
 
@@ -1271,6 +1286,9 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
 		ufs_qcom_device_reset_ctrl(hba, true);
 
+	ufs_qcom_log_str(host, "&,%d,%d,%d,%d,%d,%d\n",
+			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
+			hba->curr_dev_pwr_mode, err);
 	ufs_qcom_ice_disable(host);
 
 	cancel_dwork_unvote_cpufreq(hba);
@@ -1294,6 +1312,9 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (err)
 		return err;
 
+	ufs_qcom_log_str(host, "$,%d,%d,%d,%d,%d,%d\n",
+			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
+			hba->curr_dev_pwr_mode, err);
 	return 0;
 }
 
@@ -1810,6 +1831,13 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		break;
 	}
 out:
+	if (dev_req_params)
+		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
+			dev_req_params->gear_rx, dev_req_params->pwr_rx,
+			dev_req_params->hs_rate, ret);
+	else
+		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
+			0, 0, 0, ret);
 	return ret;
 }
 
@@ -2092,6 +2120,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 	}
 	if (!(!!atomic_read(&host->clks_on)))
 		cancel_dwork_unvote_cpufreq(hba);
+	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
 
 	return err;
 }
@@ -2859,6 +2888,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	host->hba = hba;
 	ufshcd_set_variant(hba, host);
 	ut = &host->uqt;
+#if defined(CONFIG_UFS_DBG)
+	host->dbg_en = true;
+#endif
 
 	/* Setup the reset control of HCI */
 	host->core_reset = devm_reset_control_get(hba->dev, "rst");
@@ -3057,6 +3089,10 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_save_host_ptr(hba);
 
 	ufs_qcom_qos_init(hba);
+	host->ufs_ipc_log_ctx = ipc_log_context_create(UFS_QCOM_MAX_LOG_SZ,
+							"ufs-qcom", 0);
+	if (!host->ufs_ipc_log_ctx)
+		dev_warn(dev, "IPC Log init - failed\n");
 
 	goto out;
 
@@ -3292,6 +3328,10 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 	if (!err)
 		atomic_set(&host->scale_up, scale_up);
 out:
+	if (scale_up)
+		ufs_qcom_log_str(host, "^,%d,%d\n", status, err);
+	else
+		ufs_qcom_log_str(host, "v,%d,%d\n", status, err);
 	return err;
 }
 
@@ -3808,20 +3848,40 @@ static ssize_t err_count_show(struct device *dev,
 
 static DEVICE_ATTR_RO(err_count);
 
+static ssize_t dbg_state_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool v;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &v))
+		return -EINVAL;
+
+	host->dbg_en = v;
+
+	return count;
+}
+
 static ssize_t dbg_state_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	int dbg_en = 0;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 #if defined(CONFIG_UFS_DBG)
-	dbg_en = 1;
+	host->dbg_en = true;
 #endif
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", dbg_en);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", host->dbg_en);
 }
 
 
-static DEVICE_ATTR_RO(dbg_state);
+static DEVICE_ATTR_RW(dbg_state);
 
 static ssize_t crash_on_err_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -3885,20 +3945,61 @@ static int ufs_qcom_init_sysfs(struct ufs_hba *hba)
 static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 				       struct ufshcd_lrb *lrbp)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
+	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
+		int sz = lrbp->cmd->request ?
+				blk_rq_sectors(lrbp->cmd->request) : 0;
+		ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
+				lrbp->cmd->cmnd[0],
+				lrbp->task_tag,
+				ufshcd_readl(hba,
+					REG_UTP_TRANSFER_REQ_DOOR_BELL),
+				sz);
+	}
 }
 
 static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 				       struct ufshcd_lrb *lrbp)
 {
 
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (lrbp && lrbp->cmd) {
+		int sz = lrbp->cmd->request ?
+				blk_rq_sectors(lrbp->cmd->request) : 0;
+		ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
+				lrbp->cmd->cmnd[0],
+				lrbp->task_tag,
+				ufshcd_readl(hba,
+					REG_UTP_TRANSFER_REQ_DOOR_BELL),
+				sz);
+	}
 }
 
 static void ufs_qcom_hook_send_uic_command(void *param, struct ufs_hba *hba,
 					struct uic_command *ucmd,
 					const char *str)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned int a, b, c, cmd;
+	char ch;
 
+	if (str[0] == 's') {
+		a = ucmd->argument1;
+		b = ucmd->argument2;
+		c = ucmd->argument3;
+		cmd = ucmd->command;
+		ch = '(';
+	} else {
+		a = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
+		b = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
+		c = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3);
+		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
+		ch = ')';
+	}
+	ufs_qcom_log_str(host, "%c,%x,%x,%x,%x\n",
+				ch, cmd, a, b, c);
 }
 
 static void ufs_qcom_hook_send_tm_command(void *param, struct ufs_hba *hba,
@@ -3910,7 +4011,11 @@ static void ufs_qcom_hook_send_tm_command(void *param, struct ufs_hba *hba,
 static void ufs_qcom_hook_check_int_errors(void *param, struct ufs_hba *hba,
 					bool queue_eh_work)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
+	if (queue_eh_work)
+		ufs_qcom_log_str(host, "_,%x,%x\n",
+					hba->errors, hba->uic_error);
 }
 
 /*
@@ -4012,7 +4117,9 @@ static void ufs_qcom_shutdown(struct platform_device *pdev)
 {
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
 	struct scsi_device *sdev;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
+	ufs_qcom_log_str(host, "0xdead\n");
 	pm_runtime_get_sync(hba->dev);
 
 	shost_for_each_device(sdev, hba->host) {
