@@ -28,7 +28,7 @@
 #define STM_MAKE_VERSION(ma, mi)	((ma << 8) | mi)
 #define STM_HEADER_MAGIC		(0x5953)
 
-static ssize_t notrace ost_write(struct stm_data *data,
+static ssize_t notrace __nocfi ost_write(struct stm_data *data,
 		struct stm_output *output, unsigned int chan,
 		const char *buf, size_t count)
 {
