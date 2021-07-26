@@ -2201,7 +2201,9 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 				spin_unlock_irqrestore(&drvdata->spinlock,
 					flags);
 				tmc_etr_bam_disable(drvdata);
+				mutex_unlock(&drvdata->mem_lock);
 				usb_qdss_close(drvdata->usbch);
+				mutex_lock(&drvdata->mem_lock);
 				drvdata->usbch = NULL;
 				goto out;
 			} else {
