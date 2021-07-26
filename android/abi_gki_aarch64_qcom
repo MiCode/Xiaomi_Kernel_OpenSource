@@ -1053,6 +1053,15 @@
   i2c_register_driver
   i2c_transfer
   i2c_transfer_buffer_flags
+  i3c_device_disable_ibi
+  i3c_device_do_priv_xfers
+  i3c_device_enable_ibi
+  i3c_device_free_ibi
+  i3c_device_get_info
+  i3c_device_request_ibi
+  i3cdev_to_dev
+  i3c_driver_register_with_owner
+  i3c_driver_unregister
   i3c_generic_ibi_alloc_pool
   i3c_generic_ibi_free_pool
   i3c_generic_ibi_get_free_slot
@@ -2463,6 +2472,8 @@
   trace_get_event_file
   trace_handle_return
   __traceiter_android_rvh_account_irq
+  __traceiter_android_rvh_after_dequeue_task
+  __traceiter_android_rvh_after_enqueue_task
   __traceiter_android_rvh_build_perf_domains
   __traceiter_android_rvh_can_migrate_task
   __traceiter_android_rvh_cgroup_force_kthread_migration
@@ -2569,6 +2580,8 @@
   __traceiter_sched_switch
   __traceiter_suspend_resume
   __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_after_dequeue_task
+  __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
   __tracepoint_android_rvh_cgroup_force_kthread_migration
