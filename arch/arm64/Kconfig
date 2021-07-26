@@ -1793,6 +1793,14 @@ config BUILD_ARM64_DT_OVERLAY
 	  required flags to add DT overlay in the
 	  compilation.
 
+config TLB_CONF_HANDLER
+	bool "enable handler for TLB conflict"
+	help
+	  This option enables graceful handling of TLB
+	  conflict in EL2. Say yes here to enable TLB
+	  conflict handler.
+	  If unsure, Say n.
+
 config SYSVIPC_COMPAT
 	def_bool y
 	depends on COMPAT && SYSVIPC
