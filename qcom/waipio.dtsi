@@ -2616,6 +2616,7 @@
 		ss-name = "modem", "adsp", "adsp_island",
 			  "cdsp", "slpi", "slpi_island",
 			  "apss";
+		mboxes = <&qmp_aop 0>;
 	};
 
 	subsystem-sleep-stats {
