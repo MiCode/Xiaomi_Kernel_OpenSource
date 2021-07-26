@@ -28,6 +28,12 @@ information on "qcom,pmic_glink" device which is used in the example below.
 	Definition: Firmware name that needs to be used for updating wireless
 		    charger firmware.
 
+- qcom,shutdown-voltage:
+	Usage: optional
+	Value type: <u32>
+	Definition: Battery voltage (in mV) when shutdown needs to be initiated
+		    when battery SOC reaches 0 and device is not charging.
+
 = EXAMPLE
 
 &soc {
@@ -38,6 +44,7 @@ information on "qcom,pmic_glink" device which is used in the example below.
 			qcom,thermal-mitigation =
 					<3000000 1500000 1000000 500000>;
 			qcom,wireless-fw-name = "idt9412.bin";
+			qcom,shutdown-voltage = <3100>;
 		};
 		...
 	};
