@@ -24,16 +24,6 @@ struct gh_vm_loader_name_map {
 	const char *str;
 };
 
-struct gh_vm_struct {
-	u16 type;
-	struct gh_vm_loader_info *loader_info;
-	void *loader_data;
-	struct gh_vm_loader_name_map *name_map;
-	struct notifier_block rm_nb;
-	struct mutex vm_lock;
-	bool vm_created;
-};
-
 struct gh_vm_struct vm_struct_ptr[GH_VM_MAX];
 
 SRCU_NOTIFIER_HEAD_STATIC(gh_vm_loader_notifier);

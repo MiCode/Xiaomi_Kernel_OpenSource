@@ -8,7 +8,15 @@
 
 #include <linux/gunyah/gh_vm_loader.h>
 
-struct gh_vm_struct;
+struct gh_vm_struct {
+	u16 type;
+	struct gh_vm_loader_info *loader_info;
+	void *loader_data;
+	struct gh_vm_loader_name_map *name_map;
+	struct notifier_block rm_nb;
+	struct mutex vm_lock;
+	bool vm_created;
+};
 
 const char *gh_vm_loader_get_name(struct gh_vm_struct *vm_struct);
 enum gh_vm_names gh_vm_loader_get_name_val(struct gh_vm_struct *vm_struct);
