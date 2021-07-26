@@ -63,8 +63,7 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	 */
 	if ((!cold_rst->is_nfc_enabled) &&
 			(nfc_dev->interface == PLATFORM_IF_I2C)) {
-		ret = nfc_dev->nfc_read(nfc_dev, rsp_buf, NCI_HDR_LEN,
-						NCI_CMD_RSP_TIMEOUT);
+		ret = i2c_master_recv(nfc_dev->i2c_dev.client, rsp_buf, NCI_HDR_LEN);
 		if (ret <= 0) {
 			dev_err(nfc_dev->nfc_device,
 				"%s: failure to read cold reset rsp header\n",
