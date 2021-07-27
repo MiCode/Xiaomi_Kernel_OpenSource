@@ -211,6 +211,7 @@ enum trusted_touch_tvm_states {
 struct trusted_touch_vm_info {
 	enum gh_irq_label irq_label;
 	enum gh_vm_names vm_name;
+	const char *trusted_touch_type;
 	u32 hw_irq;
 	gh_memparcel_handle_t vm_mem_handle;
 	u32 *iomem_bases;

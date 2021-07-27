@@ -239,6 +239,11 @@ static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
 		goto vm_error;
 	}
 
+	rc = of_property_read_string(np, "focaltech,trusted-touch-type",
+						&vm_info->trusted_touch_type);
+	if (rc)
+		pr_warn("%s: No trusted touch type selection made\n", __func__);
+
 	rc = of_property_read_u32_array(np, "focaltech,trusted-touch-io-bases",
 			vm_info->iomem_bases, vm_info->iomem_list_size);
 	if (rc) {
