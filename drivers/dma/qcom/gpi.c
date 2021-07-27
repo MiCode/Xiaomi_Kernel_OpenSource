@@ -2825,13 +2825,19 @@ xfer_alloc_err:
 	return ret;
 }
 
-static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid,
-		bool static_gpii)
+static int gpi_find_static_gpii(struct gpi_dev *gpi_dev, int gpii_no)
+{
+	if ((gpi_dev->static_gpii_mask) & (1<<gpii_no))
+		return gpii_no;
+
+	return -EIO;
+}
+
+static int gpi_find_dynamic_gpii(struct gpi_dev *gpi_dev, u32 seid)
 {
 	int gpii;
 	struct gpii_chan *tx_chan, *rx_chan;
-	u32 gpii_mask =
-		static_gpii ? gpi_dev->static_gpii_mask : gpi_dev->gpii_mask;
+	u32 gpii_mask = gpi_dev->gpii_mask;
 
 	/* check if same seid is already configured for another chid */
 	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
@@ -2874,9 +2880,8 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 {
 	struct gpi_dev *gpi_dev = (struct gpi_dev *)of_dma->of_dma_data;
 	u32 seid, chid;
-	int gpii, val;
+	int gpii, static_gpii_no;
 	struct gpii_chan *gpii_chan;
-	bool static_gpii;
 
 	if (args->args_count < REQ_OF_DMA_ARGS) {
 		GPI_ERR(gpi_dev,
@@ -2892,11 +2897,13 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	}
 
 	seid = args->args[1];
-	val = (args->args[4] & STATIC_GPII_BMSK) >> STATIC_GPII_SHFT;
-	static_gpii = (val == 1) ? true : false;
+	static_gpii_no = (args->args[4] & STATIC_GPII_BMSK) >> STATIC_GPII_SHFT;
 
-	/* find next available gpii to use */
-	gpii = gpi_find_avail_gpii(gpi_dev, seid, static_gpii);
+	if (static_gpii_no)
+		gpii = gpi_find_static_gpii(gpi_dev, static_gpii_no-1);
+	else	/* find next available gpii to use */
+		gpii = gpi_find_dynamic_gpii(gpi_dev, seid);
+
 	if (gpii < 0) {
 		GPI_ERR(gpi_dev, "no available gpii instances\n");
 		return NULL;
