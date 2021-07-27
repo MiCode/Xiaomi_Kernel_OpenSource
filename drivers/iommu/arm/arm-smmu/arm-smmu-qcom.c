@@ -389,6 +389,7 @@ struct qsmmuv500_tbu_device {
 	struct arm_smmu_power_resources *pwr;
 	u32				sid_start;
 	u32				num_sids;
+	u32				iova_width;
 
 	/* Protects halt count */
 	spinlock_t			halt_lock;
@@ -693,7 +694,7 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct qsmmuv500_tbu_device *tbu;
 	const __be32 *cell;
-	int len;
+	int ret, len;
 
 	tbu = devm_kzalloc(dev, sizeof(*tbu), GFP_KERNEL);
 	if (!tbu)
@@ -728,6 +729,10 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 
 	tbu->sid_start = of_read_number(cell, 1);
 	tbu->num_sids = of_read_number(cell + 1, 1);
+
+	ret = of_property_read_u32(dev->of_node, "qcom,iova-width", &tbu->iova_width);
+	if (ret < 0)
+		return ret;
 
 	dev_set_drvdata(dev, tbu);
 	return 0;
@@ -871,16 +876,14 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	int needs_redo = 0;
 	ktime_t timeout;
 
-	/* only 36 bit iova is supported */
-	if (iova >= (1ULL << 36)) {
-		dev_err_ratelimited(smmu->dev, "ECATS: address too large: %pad\n",
-					&iova);
-		return 0;
-	}
-
 	tbu = qsmmuv500_find_tbu(smmu, sid);
 	if (!tbu)
 		return 0;
+
+	if (iova >= (1ULL << tbu->iova_width)) {
+		dev_err_ratelimited(tbu->dev, "ECATS: address too large: %pad\n", &iova);
+		return 0;
+	}
 
 	ret = arm_smmu_power_on(tbu->pwr);
 	if (ret)
