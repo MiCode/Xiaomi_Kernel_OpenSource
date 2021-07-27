@@ -1014,16 +1014,16 @@ static struct _isp_bk_reg_t g_BkReg[ISP_IRQ_TYPE_AMOUNT];
 #ifdef SUB_COMMON_CLR
 static void ISP_SMI_CG_Dump(char *str, bool smi_dump_en)
 {
-	LOG_INF("%s: 3X1_SUB_COMMON_C404= 0x%x\n",
+	LOG_DBG("%s: 3X1_SUB_COMMON_C404= 0x%x\n",
 		str, (ISP_RD32(CAM_3X1_SUB_COMMON_C404) >> 19) & 0x3F);
-	LOG_INF("%s: 3X1_SUB_COMMON_C408= 0x%x\n",
+	LOG_DBG("%s: 3X1_SUB_COMMON_C408= 0x%x\n",
 		str, (ISP_RD32(CAM_3X1_SUB_COMMON_C408) >> 19) & 0x3F);
-	LOG_INF("%s: 4X1_SUB_COMMON_D404= 0x%x\n",
+	LOG_DBG("%s: 4X1_SUB_COMMON_D404= 0x%x\n",
 		str, (ISP_RD32(CAM_4X1_SUB_COMMON_D404) >> 19) & 0x3F);
 	LOG_INF("%s: 4X1_SUB_COMMON_D40C= 0x%x\n",
 		str, (ISP_RD32(CAM_4X1_SUB_COMMON_D40C) >> 19) & 0x3F);
 
-	LOG_INF("%s: (CG_CON/CG_SET/CG_CLR)= (0x%x/0x%x/0x%x)\n", str,
+	LOG_DBG("%s: (CG_CON/CG_SET/CG_CLR)= (0x%x/0x%x/0x%x)\n", str,
 			ISP_RD32(CAMSYS_REG_CG_CON),
 			ISP_RD32(CAMSYS_REG_CG_SET),
 			ISP_RD32(CAMSYS_REG_CG_CLR));
@@ -2221,6 +2221,10 @@ static inline void smi_control_clock_mtcmos(bool en)
 #endif
 		}
 #ifdef SUB_COMMON_CLR
+		ISP_SMI_CG_Dump("after disable larb17", false);
+
+		udelay(10); // delay 10us
+
 		tmp_reg = ISP_RD32(CAM_4X1_SUB_COMMON_EN_D110);
 		tmp_reg = tmp_reg & 0xFFFFBFFF;
 		ISP_WR32(CAM_4X1_SUB_COMMON_EN_D110, tmp_reg);
