@@ -155,6 +155,8 @@
  */
 #define CONTEXT_PD_CHECK (3)
 
+#define GET_CTXID_FROM_RSP_CTX(rsp_ctx) (rsp_ctx & ~CONTEXT_PD_CHECK)
+
 #define RH_CID ADSP_DOMAIN_ID
 
 #define FASTRPC_STATIC_HANDLE_PROCESS_GROUP (1)
@@ -5219,7 +5221,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	ctx = chan->ctxtable[index];
 	VERIFY(err, !IS_ERR_OR_NULL(ctx) &&
-		(ctx->ctxid == (rsp->ctx & ~CONTEXT_PD_CHECK)) &&
+		(ctx->ctxid == GET_CTXID_FROM_RSP_CTX(rsp->ctx)) &&
 		ctx->magic == FASTRPC_CTX_MAGIC);
 	if (err) {
 		/*
@@ -5228,9 +5230,10 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		 * completed processing of context. Ignore the message.
 		 * Also ignore response for a call which was already
 		 * completed by update of poll memory and the context was
-		 * removed from the table.
+		 * removed from the table and possibly reused for another call.
 		 */
-		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx) ? 1 : 0;
+		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx ||
+			(ctx && (ctx->ctxid != GET_CTXID_FROM_RSP_CTX(rsp->ctx)))) ? 1 : 0;
 		goto bail_unlock;
 	}
 
