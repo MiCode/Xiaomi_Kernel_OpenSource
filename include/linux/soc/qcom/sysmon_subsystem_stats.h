@@ -7,15 +7,17 @@
  */
 #ifndef __QCOM_SYSMON_SUBSYSTEM_STATS_H__
 #define __QCOM_SYSMON_SUBSYSTEM_STATS_H__
+/* Maximum number of clock levels in power stats */
+#define SYSMON_POWER_STATS_MAX_CLK_LEVELS 16
 /*
  * @struct sysmon_smem_power_stats
  * @brief Structure type to hold DSP power statistics.
  */
 struct sysmon_smem_power_stats {
-	u32 clk_arr[7];
+	u32 clk_arr[SYSMON_POWER_STATS_MAX_CLK_LEVELS];
 	/**< Core clock frequency(KHz) array */
 
-	u32 active_time[7];
+	u32 active_time[SYSMON_POWER_STATS_MAX_CLK_LEVELS];
 	/**< Active time(seconds) array corresponding to core clock array */
 
 	u32 pc_time;
@@ -103,7 +105,9 @@ enum dsp_id_t {
 /**
  * API to query requested DSP subsystem's power residency.
  * On success, returns power residency statistics in the given
- * sysmon_smem_power_stats structure.
+ * sysmon_smem_power_stats structure. DSP core clock frequencies are
+ * stored in power stats array in ascending order and
+ * zero value entries are invalid entries.
  * @arg dsp_id DSP subsystem id from dsp_id_t enum.
  * @arg sysmon_power_stats Pointer to sysmon_smem_power_stats structure.
  *@return The structure will be updated on SUCCESS (0).
