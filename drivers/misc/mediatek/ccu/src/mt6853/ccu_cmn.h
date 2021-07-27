@@ -181,7 +181,7 @@ int ccu_read_info_reg(int regNo);
 
 void ccu_write_info_reg(int regNo, int val);
 
-void ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt);
+int ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt);
 
 void ccu_print_reg(uint32_t *Reg);
 
