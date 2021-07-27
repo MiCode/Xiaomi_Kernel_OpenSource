@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -11,8 +11,11 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
+#include <linux/clk/qcom.h>
 
 #include "clk-branch.h"
+#include "clk-debug.h"
+#include "clk-regmap.h"
 
 static bool clk_branch_in_hwcg_mode(const struct clk_branch *br)
 {
@@ -44,6 +47,7 @@ static bool clk_branch_check_halt(const struct clk_branch *br, bool enabling)
 #define BRANCH_NOC_FSM_STATUS_SHIFT	28
 #define BRANCH_NOC_FSM_STATUS_MASK	0x7
 #define BRANCH_NOC_FSM_STATUS_ON	(0x2 << BRANCH_NOC_FSM_STATUS_SHIFT)
+#define BRANCH_CLK_DIS_MASK		BIT(22)
 
 static bool clk_branch2_check_halt(const struct clk_branch *br, bool enabling)
 {
@@ -68,8 +72,6 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 		bool (check_halt)(const struct clk_branch *, bool))
 {
 	bool voted = br->halt_check & BRANCH_VOTED;
-	const char *name = clk_hw_get_name(&br->clkr.hw);
-
 	/*
 	 * Skip checking halt bit if we're explicitly ignoring the bit or the
 	 * clock is in hardware gated mode
@@ -89,7 +91,7 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 				return 0;
 			udelay(1);
 		}
-		WARN(1, "%s status stuck at 'o%s'", name,
+		WARN_CLK((struct clk_hw *)&br->clkr.hw, 1, "status stuck at 'o%s'",
 				enabling ? "ff" : "n");
 		return -EBUSY;
 	}
@@ -123,10 +125,17 @@ static void clk_branch_disable(struct clk_hw *hw)
 	clk_branch_toggle(hw, false, clk_branch_check_halt);
 }
 
+static void clk_branch_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	clk_common_debug_init(hw, dentry);
+	clk_debug_measure_add(hw, dentry);
+}
+
 const struct clk_ops clk_branch_ops = {
 	.enable = clk_branch_enable,
 	.disable = clk_branch_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.debug_init = clk_branch_debug_init,
 };
 EXPORT_SYMBOL_GPL(clk_branch_ops);
 
@@ -140,18 +149,106 @@ static void clk_branch2_disable(struct clk_hw *hw)
 	clk_branch_toggle(hw, false, clk_branch2_check_halt);
 }
 
+static int clk_branch2_force_off_enable(struct clk_hw *hw)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	regmap_update_bits(rclk->regmap, rclk->enable_reg,
+			   BRANCH_CLK_DIS_MASK,
+			   0x0);
+	return clk_branch2_enable(hw);
+}
+
+static void clk_branch2_force_off_disable(struct clk_hw *hw)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	regmap_update_bits(rclk->regmap, rclk->enable_reg,
+			   BRANCH_CLK_DIS_MASK,
+			   BRANCH_CLK_DIS_MASK);
+	clk_branch2_disable(hw);
+}
+
+static void clk_branch2_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_branch *br = to_clk_branch(hw);
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"CBCR", 0x0},
+	};
+
+	static struct clk_register_data data1[] = {
+		{"APSS_VOTE", 0x0},
+		{"APSS_SLEEP_VOTE", 0x4},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(br->clkr.regmap, br->halt_reg + data[i].offset,
+					&val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	if ((br->halt_check & BRANCH_HALT_VOTED) &&
+			!(br->halt_check & BRANCH_VOTED)) {
+		if (rclk->enable_reg) {
+			size = ARRAY_SIZE(data1);
+			for (i = 0; i < size; i++) {
+				regmap_read(br->clkr.regmap, rclk->enable_reg +
+						data1[i].offset, &val);
+				clock_debug_output(f, "%20s: 0x%.8x\n",
+						data1[i].name, val);
+			}
+		}
+	}
+}
+
+static struct clk_regmap_ops clk_branch2_regmap_ops = {
+	.list_registers = clk_branch2_list_registers,
+};
+
+static int clk_branch2_init(struct clk_hw *hw)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	if (!rclk->ops)
+		rclk->ops = &clk_branch2_regmap_ops;
+
+	return 0;
+}
+
 const struct clk_ops clk_branch2_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.enable = clk_branch2_enable,
 	.disable = clk_branch2_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.init = clk_branch2_init,
+	.debug_init = clk_branch_debug_init,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
 const struct clk_ops clk_branch2_aon_ops = {
 	.enable = clk_branch2_enable,
 	.is_enabled = clk_is_enabled_regmap,
+	.init = clk_branch2_init,
+	.debug_init = clk_branch_debug_init,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_aon_ops);
+
+const struct clk_ops clk_branch2_force_off_ops = {
+	.enable = clk_branch2_force_off_enable,
+	.disable = clk_branch2_force_off_disable,
+	.is_enabled = clk_is_enabled_regmap,
+	.init = clk_branch2_init,
+	.debug_init = clk_branch_debug_init,
+};
+EXPORT_SYMBOL(clk_branch2_force_off_ops);
 
 static unsigned long clk_branch2_hw_ctl_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
@@ -201,6 +298,8 @@ const struct clk_ops clk_branch2_hw_ctl_ops = {
 	.is_enabled = clk_is_enabled_regmap,
 	.recalc_rate = clk_branch2_hw_ctl_recalc_rate,
 	.determine_rate = clk_branch2_hw_ctl_determine_rate,
+	.init = clk_branch2_init,
+	.debug_init = clk_branch_debug_init,
 };
 EXPORT_SYMBOL(clk_branch2_hw_ctl_ops);
 
@@ -208,5 +307,59 @@ const struct clk_ops clk_branch_simple_ops = {
 	.enable = clk_enable_regmap,
 	.disable = clk_disable_regmap,
 	.is_enabled = clk_is_enabled_regmap,
+	.init = clk_branch2_init,
+	.debug_init = clk_branch_debug_init,
 };
 EXPORT_SYMBOL_GPL(clk_branch_simple_ops);
+
+int qcom_clk_set_flags(struct clk *clk, unsigned long flags)
+{
+	struct clk_hw *hw;
+	struct clk_branch *br;
+	u32 cbcr_val = 0, cbcr_mask;
+	int ret;
+
+	if (IS_ERR_OR_NULL(clk))
+		return 0;
+
+	hw = __clk_get_hw(clk);
+	if (IS_ERR_OR_NULL(hw))
+		return -EINVAL;
+
+	switch (flags) {
+	case CLKFLAG_PERIPH_OFF_SET:
+		cbcr_val = cbcr_mask = BIT(12);
+		break;
+	case CLKFLAG_PERIPH_OFF_CLEAR:
+		cbcr_mask = BIT(12);
+		break;
+	case CLKFLAG_RETAIN_PERIPH:
+		cbcr_val = cbcr_mask = BIT(13);
+		break;
+	case CLKFLAG_NORETAIN_PERIPH:
+		cbcr_mask = BIT(13);
+		break;
+	case CLKFLAG_RETAIN_MEM:
+		cbcr_val = cbcr_mask = BIT(14);
+		break;
+	case CLKFLAG_NORETAIN_MEM:
+		cbcr_mask = BIT(14);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	br = to_clk_branch(hw);
+	ret = regmap_update_bits(br->clkr.regmap, br->halt_reg, cbcr_mask,
+								cbcr_val);
+	if (ret)
+		return ret;
+
+	/* Make sure power is enabled/disabled before returning. */
+	mb();
+
+	udelay(1);
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_clk_set_flags);
