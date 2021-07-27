@@ -11,11 +11,11 @@
 #include <linux/rwsem.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
-#include <linux/cnss_plat_ipc_qmi.h>
 #if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 #include <soc/qcom/minidump.h>
 #endif
 
+#include "cnss_plat_ipc_qmi.h"
 #include "main.h"
 #include "bus.h"
 #include "debug.h"
@@ -524,7 +524,7 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 {
 	u32 i;
 	int ret = 0;
-	struct cnss_plat_ipc_user_config *cfg;
+	struct cnss_plat_ipc_daemon_config *cfg;
 
 	ret = cnss_qmi_get_dms_mac(plat_priv);
 	if (ret == 0 && plat_priv->dms.mac_valid)
@@ -535,7 +535,7 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 	 */
 	if (plat_priv->use_nv_mac) {
 		/* Check if Daemon says platform support DMS MAC provisioning */
-		cfg = cnss_plat_ipc_qmi_user_config();
+		cfg = cnss_plat_ipc_qmi_daemon_config();
 		if (cfg) {
 			if (!cfg->dms_mac_addr_supported) {
 				cnss_pr_err("DMS MAC address not supported\n");
@@ -573,6 +573,8 @@ static int cnss_cal_db_mem_update(struct cnss_plat_data *plat_priv,
 	int ret = 0;
 	u32 timeout = cnss_get_timeout(plat_priv,
 				       CNSS_TIMEOUT_DAEMON_CONNECTION);
+	enum cnss_plat_ipc_qmi_client_id_v01 client_id =
+					CNSS_PLAT_IPC_DAEMON_QMI_CLIENT_V01;
 
 	if (op >= CNSS_CAL_DB_INVALID_OP)
 		return -EINVAL;
@@ -603,12 +605,14 @@ static int cnss_cal_db_mem_update(struct cnss_plat_data *plat_priv,
 	/* Copy CAL DB file contents to/from CAL_TYPE_DDR mem allocated to FW */
 	if (op == CNSS_CAL_DB_DOWNLOAD) {
 		cnss_pr_dbg("Initiating Calibration file download to mem\n");
-		ret = cnss_plat_ipc_qmi_file_download(CNSS_CAL_DB_FILE_NAME,
+		ret = cnss_plat_ipc_qmi_file_download(client_id,
+						      CNSS_CAL_DB_FILE_NAME,
 						      plat_priv->cal_mem->va,
 						      size);
 	} else {
 		cnss_pr_dbg("Initiating Calibration mem upload to file\n");
-		ret = cnss_plat_ipc_qmi_file_upload(CNSS_CAL_DB_FILE_NAME,
+		ret = cnss_plat_ipc_qmi_file_upload(client_id,
+						    CNSS_CAL_DB_FILE_NAME,
 						    plat_priv->cal_mem->va,
 						    *size);
 	}
@@ -3111,7 +3115,8 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	if (!plat_priv->recovery_ws)
 		cnss_pr_err("Failed to setup FW recovery wake source\n");
 
-	ret = cnss_plat_ipc_register(cnss_daemon_connection_update_cb,
+	ret = cnss_plat_ipc_register(CNSS_PLAT_IPC_DAEMON_QMI_CLIENT_V01,
+				     cnss_daemon_connection_update_cb,
 				     plat_priv);
 	if (ret)
 		cnss_pr_err("QMI IPC connection call back register failed, err = %d\n",
@@ -3122,6 +3127,8 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 
 static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 {
+	cnss_plat_ipc_unregister(CNSS_PLAT_IPC_DAEMON_QMI_CLIENT_V01,
+				 plat_priv);
 	complete_all(&plat_priv->recovery_complete);
 	complete_all(&plat_priv->rddm_complete);
 	complete_all(&plat_priv->cal_complete);
@@ -3132,7 +3139,6 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 	wakeup_source_unregister(plat_priv->recovery_ws);
-	cnss_plat_ipc_unregister(plat_priv);
 }
 
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
