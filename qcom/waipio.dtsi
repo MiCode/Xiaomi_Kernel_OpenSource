@@ -3471,6 +3471,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,platform-type = <1>; /* MSM platform */
 		qcom,ee = <0>;
+		qcom,entire-ipa-block-size = <0x200000>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
@@ -3491,6 +3492,9 @@
 		qcom,ipa-holb-monitor-max-cnt-wlan = <10>;
 		qcom,ipa-holb-monitor-max-cnt-usb = <10>;
 		qcom,ipa-holb-monitor-max-cnt-11ad = <10>;
+		qcom,register-collection-on-crash;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
 		qcom,tx-wrapper-cache-max-size = <400>;
 		qcom,ipa-gpi-event-rp-ddr;
 		qcom,ulso-supported;
