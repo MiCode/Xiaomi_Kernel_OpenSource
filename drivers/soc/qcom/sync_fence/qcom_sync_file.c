@@ -293,7 +293,7 @@ bind_invalid:
 		fence_array->fences = NULL;
 		dma_fence_set_error(fence, -EINVAL);
 		dma_fence_signal(fence);
-		clear_fence_array_tracker(true);
+		clear_fence_array_tracker(false);
 	}
 out:
 	kfree(user_fds);
