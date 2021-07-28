@@ -165,14 +165,20 @@ int gz_tipc_test(void *args)
 	rc = tipc_k_connect(&h, TIPC_TEST_SRV);
 	CHECK_EQ(0, rc, "connect");
 
-	rc = tipc_test_send(&h, buf1, sizeof(buf1));
+	if (h.dn)
+		rc = tipc_test_send(&h, buf1, sizeof(buf1));
 	CHECK_GT_ZERO(rc, "send 1");
-	rc = tipc_test_rcv(&h, buf1, sizeof(buf1));
+
+	if (h.dn)
+		rc = tipc_test_rcv(&h, buf1, sizeof(buf1));
 	CHECK_GT_ZERO(rc, "rcv 1");
 
-	rc = tipc_test_send(&h, buf2, sizeof(buf2));
+	if (h.dn)
+		rc = tipc_test_send(&h, buf2, sizeof(buf2));
 	CHECK_GT_ZERO(rc, "send 2");
-	rc = tipc_test_rcv(&h, buf1, sizeof(buf2));
+
+	if (h.dn)
+		rc = tipc_test_rcv(&h, buf1, sizeof(buf2));
 	CHECK_GT_ZERO(rc, "rcv 2");
 
 	if (h.dn)
