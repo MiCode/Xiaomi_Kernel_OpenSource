@@ -714,13 +714,6 @@
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
-		consys_mem: consys-reserve-memory {
-			compatible = "mediatek,consys-reserve-memory";
-			no-map;
-			size = <0 0x780000>;
-			alignment = <0 0x100000>;
-			alloc-ranges = <0 0x50000000 0 0x40000000>;
-		};
 
 		gps_mem: gps-reserve-memory {
 			compatible = "mediatek,gps-reserve-memory";
@@ -8013,7 +8006,10 @@
 			<0 0x1c001000 0 0xfb0>, /* 22. 0x1c00_1000 spm, sz=0xfb0 */
 			<0 0x1c007000 0 0x51c>; /* 23. 0x1c00_7000 top_rgu, sz=0x51c */
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CONN>;
-		memory-region = <&consys_mem>;
+		emi-addr = <0>;
+		emi-size = <0x800000>;
+		emi-alignment = <0x100000>;
+		emi-max-addr = <0x90000000>;
 	};
 
 	vcp: vcp@1ec00000 {
