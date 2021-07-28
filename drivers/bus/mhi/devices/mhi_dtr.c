@@ -103,6 +103,7 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 		goto tiocm_exit;
 	}
 
+	DTR_LOG("DTR TIOCMSET update done for %s\n", mhi_dev->name);
 	ret = 0;
 	spin_lock_irq(res_lock);
 	mhi_dev->tiocm &= ~(TIOCM_DTR | TIOCM_RTS);
@@ -122,8 +123,11 @@ long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
 	int ret;
 
 	/* ioctl not supported by this controller */
-	if (dtr_info->mhi_dev)
+	if (!dtr_info->mhi_dev) {
+		DTR_ERR("%s request denied. DTR channels not running\n",
+			mhi_dev->name);
 		return -EIO;
+	}
 
 	switch (cmd) {
 	case TIOCMGET:
