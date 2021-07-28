@@ -54,13 +54,13 @@
 
 		wifi {
 			flags-0 {
-				/* open-loop; */
+				open-loop;
 			};
 		};
 
 		bt {
 			flags-0 {
-				/* choose one of: bypass / epa_elna / elna / epa */
+				/* choose one of: epa_elna / epa / elna / bypass */
 				epa_elna;
 			};
 		};
@@ -96,7 +96,7 @@
 
 		bt {
 			flags-1 {
-				/* choose one of: bypass / epa_elna / elna / epa */
+				/* choose one of: epa_elna / epa / elna / bypass */
 				epa_elna;
 			};
 			flags-2 {
