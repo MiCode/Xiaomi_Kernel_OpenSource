@@ -70,6 +70,15 @@ config MTK_MET
 	  This is needed if support for MET devices is required.
 	  If unsure, say N.
 
+config MTK_MET_DEBUG
+	bool "MET DEBUG"
+	depends on MTK_MET
+	help
+	  To prevent abi violation, we introduce MET DEBUG config
+	  for those MET features enabled only in eng/userdebug build.
+	  Say Y in eng/userdebug build.
+	  If unsure, say N.
+
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/locking/Kconfig"
