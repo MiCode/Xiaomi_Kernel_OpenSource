@@ -19,6 +19,8 @@
 #include <linux/seq_file.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 #include <linux/dma-buf.h>
 
 #include "camera_mfb.h"
@@ -116,7 +118,6 @@ struct MFB_CLK_STRUCT mfb_clk;
 #define LOG_WRN(format, args...)    pr_info(MyTag format,  ##args)
 #define LOG_ERR(format, args...)    pr_info(MyTag format,  ##args)
 #define LOG_AST(format, args...)    pr_info(MyTag format, ##args)
-
 
 /******************************************************************************
  *
@@ -252,6 +253,7 @@ static u16 mss_token_id, msf_token_id;
 
 static unsigned int g_u4EnableClockCount;
 static unsigned int g_SuspendCnt;
+bool g_MFB_PMState;
 
 /* maximum number for supporting user to do interrupt operation */
 /* index 0 is for all the user that do not do register irq first */
@@ -4247,7 +4249,7 @@ PM_OK:
 	seqlock_init(&(vmss_reqs.seqlock));
 	seqlock_init(&(msf_reqs.seqlock));
 	seqlock_init(&(vmsf_reqs.seqlock));
-
+	g_MFB_PMState = 0;
 EXIT:
 	if (Ret < 0)
 		MFB_UnregCharDev();
@@ -4326,21 +4328,8 @@ static signed int MFB_remove(struct platform_device *pDev)
 /******************************************************************************
  *
  ******************************************************************************/
-static signed int bPass1_On_In_Resume_TG1;/*YWtodo*/
-
 static signed int MFB_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	/*signed int ret = 0;*/
-
-	if (g_u4EnableClockCount > 0) {
-		MFB_EnableClock(MFALSE);
-		g_SuspendCnt++;
-	}
-	bPass1_On_In_Resume_TG1 = 0;
-	LOG_DBG("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
-				g_u4EnableClockCount, g_SuspendCnt);
-
-
 	return 0;
 }
 
@@ -4349,21 +4338,57 @@ static signed int MFB_suspend(struct platform_device *pDev, pm_message_t Mesg)
  ******************************************************************************/
 static signed int MFB_resume(struct platform_device *pDev)
 {
-	LOG_DBG("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);
-	if (g_SuspendCnt > 0) {
-		MFB_EnableClock(MTRUE);
-		g_SuspendCnt--;
-	}
-	LOG_DBG("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
-				g_u4EnableClockCount, g_SuspendCnt);
-
 	return 0;
 }
 
+/*---------------------------------------------------------------------------*/
+#if IS_ENABLED(CONFIG_PM)
+/*---------------------------------------------------------------------------*/
+static signed int bPass1_On_In_Resume_TG1;
 
-/*---------------------------------------------------------------------------*/
-#ifdef CONFIG_PM
-/*---------------------------------------------------------------------------*/
+static int mfb_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		if (g_u4EnableClockCount > 0) {
+			MFB_EnableClock(MFALSE);
+			g_SuspendCnt++;
+		}
+		bPass1_On_In_Resume_TG1 = 0;
+		if (g_MFB_PMState == 0) {
+			LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+			g_u4EnableClockCount, g_SuspendCnt);
+			g_MFB_PMState = 1;
+		}
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		if (g_SuspendCnt > 0) {
+			MFB_EnableClock(MTRUE);
+			g_SuspendCnt--;
+		}
+		if (g_MFB_PMState == 1) {
+			LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+			g_u4EnableClockCount, g_SuspendCnt);
+			g_MFB_PMState = 0;
+		}
+		return NOTIFY_DONE;
+}
+	return NOTIFY_OK;
+}
+
 int MFB_pm_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -4448,11 +4473,18 @@ static struct platform_driver MFBDriver = {
 #ifdef CONFIG_OF
 		   .of_match_table = MFB_of_ids,
 #endif
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		   .pm = &MFB_pm_ops,
 #endif
 	}
 };
+
+#if IS_ENABLED(CONFIG_PM)
+static struct notifier_block mfb_suspend_pm_notifier_func = {
+	.notifier_call = mfb_suspend_pm_event,
+	.priority = 0,
+};
+#endif
 
 /******************************************************************************
  *
@@ -4574,7 +4606,13 @@ static signed int __init MFB_Init(void)
 			   MFB_DumpCallback, MFB_ResetCallback,
 			   MFB_ClockOffCallback);
 #endif
-
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&mfb_suspend_pm_notifier_func);
+	if (Ret) {
+		LOG_DBG("[Camera MFB] Failed to register PM notifier.\n");
+		return Ret;
+	}
+#endif
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
 }
