@@ -214,8 +214,8 @@
 			"aud_dat_mosi_ch34_on",
 			"aud_dat_miso0_off",
 			"aud_dat_miso0_on",
-			"aud_dat_miso1_off",
-			"aud_dat_miso1_on",
+			"aud_dat_miso2_off",
+			"aud_dat_miso2_on",
 			"vow_dat_miso_off",
 			"vow_dat_miso_on",
 			"vow_clk_miso_off",
@@ -232,8 +232,8 @@
 	pinctrl-5 = <&aud_dat_mosi_ch34_on>;
 	pinctrl-6 = <&aud_dat_miso0_off>;
 	pinctrl-7 = <&aud_dat_miso0_on>;
-	pinctrl-8 = <&aud_dat_miso1_off>;
-	pinctrl-9 = <&aud_dat_miso1_on>;
+	pinctrl-8 = <&aud_dat_miso2_off>;
+	pinctrl-9 = <&aud_dat_miso2_on>;
 	pinctrl-10 = <&vow_dat_miso_off>;
 	pinctrl-11 = <&vow_dat_miso_on>;
 	pinctrl-12 = <&vow_clk_miso_off>;
@@ -300,14 +300,14 @@
 			bias-disable;
 		};
 	};
-	aud_dat_miso1_off: aud_dat_miso1_off {
+	aud_dat_miso2_off: aud_dat_miso2_off {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
 			input-enable;
 			bias-pull-down;
 		};
 	};
-	aud_dat_miso1_on: aud_dat_miso1_on {
+	aud_dat_miso2_on: aud_dat_miso2_on {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_AUD_DAT_MISO1>;
 			input-schmitt-enable;
