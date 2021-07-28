@@ -412,6 +412,10 @@ static u32 get_max_bw(struct mu3h_sch_bw_info *sch_bw,
 		u32 base = offset + i * sch_ep->esit;
 
 		for (j = 0; j < sch_ep->num_budget_microframes; j++) {
+
+			if (base + j >= XHCI_MTK_MAX_ESIT)
+				break;
+
 			bw = sch_bw->bus_bw[base + j] +
 					sch_ep->bw_budget_table[j];
 			if (bw > max_bw)
@@ -433,6 +437,10 @@ static void update_bus_bw(struct mu3h_sch_bw_info *sch_bw,
 	for (i = 0; i < num_esit; i++) {
 		base = sch_ep->offset + i * sch_ep->esit;
 		for (j = 0; j < sch_ep->num_budget_microframes; j++) {
+
+			if (base + j >= XHCI_MTK_MAX_ESIT)
+				break;
+
 			if (used)
 				sch_bw->bus_bw[base + j] +=
 					sch_ep->bw_budget_table[j];
