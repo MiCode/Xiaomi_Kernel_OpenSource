@@ -1943,9 +1943,6 @@ static int scp_device_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
-	of_property_read_u32(pdev->dev.of_node, "scp_cfgreg"
-						, &scp_reg_base_phy);
-	scp_reg_base_phy &= 0xfff00000;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	scpreg.sram = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) scpreg.sram)) {
@@ -1957,6 +1954,8 @@ static int scp_device_probe(struct platform_device *pdev)
 		, scpreg.sram, scpreg.total_tcmsize);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	scp_reg_base_phy = res->start & 0xfff00000;
+	pr_notice("[SCP] scp_reg_base_phy = 0x%x\n", scp_reg_base_phy);
 	scpreg.cfg = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) scpreg.cfg)) {
 		pr_notice("[SCP] scpreg.cfg error\n");
