@@ -191,7 +191,7 @@ struct cmdq_client *cmdq_mbox_create(struct device *dev, int index)
 	client->client.knows_txdone = true;
 	client->chan = mbox_request_channel(&client->client, index);
 	if (IS_ERR(client->chan)) {
-		cmdq_err("channel request fail:%d, idx:%d",
+		cmdq_err("channel request fail:%ld idx:%d",
 			PTR_ERR(client->chan), index);
 		dump_stack();
 		kfree(client);
@@ -514,7 +514,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 					CMDQ_BUF_ADDR(buf),
 					pkt->cur_pool.cnt);
 			else {
-				cmdq_err("free pool:%s dev:%#lx pa:%pa iova:%pa cl:%#lx",
+				cmdq_err("free pool:%s dev:%#lx pa:%pa iova:%pa cl:%p",
 					buf->use_pool ? "true" : "false",
 					(unsigned long)pkt->dev,
 					&buf->pa_base, &buf->iova_base, cl);
@@ -983,7 +983,7 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	list_for_each_entry(buf, &src->buf, list_entry) {
 		new = cmdq_pkt_alloc_buf(dst);
 		if (unlikely(IS_ERR(new))) {
-			cmdq_err("alloc singe buffer fail status:%d pkt:0x%p",
+			cmdq_err("alloc singe buffer fail status:%ld pkt:0x%p",
 				PTR_ERR(new), dst);
 			return PTR_ERR(new);
 		}
@@ -1765,10 +1765,12 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	cmdq_util_helper->dump_lock();
 	cmdq_util_helper->error_enable();
 
-	cmdq_util_user_err(client->chan, "begin of error irq %u", err_num++);
+	cmdq_util_user_err(client ? client->chan : NULL,
+		"begin of error irq %u", err_num++);
 	cmdq_util_dump_dbg_reg(client->chan);
 	cmdq_task_get_thread_pc(client->chan, &pc);
-	cmdq_util_user_err(client->chan, "pkt:%lx thread:%d pc:%lx",
+	cmdq_util_user_err(client ? client->chan : NULL,
+		"pkt:%lx thread:%d pc:%lx",
 		(unsigned long)pkt, thread_id, (unsigned long)pc);
 
 	if (pc) {
@@ -1776,7 +1778,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			if (pc < CMDQ_BUF_ADDR(buf) ||
 				pc > CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE) {
 				size -= CMDQ_CMD_BUFFER_SIZE;
-				cmdq_util_user_msg(client->chan,
+				cmdq_util_user_msg(client ? client->chan : NULL,
 					"buffer %u va:0x%p pa:%pa iova:%pa",
 					cnt, buf->va_base, &buf->pa_base, &buf->iova_base);
 				cnt++;
@@ -1788,7 +1790,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			if (size > CMDQ_CMD_BUFFER_SIZE)
 				size = CMDQ_CMD_BUFFER_SIZE;
 
-			cmdq_util_user_msg(client->chan,
+			cmdq_util_user_msg(client ? client->chan : NULL,
 				"error irq buffer %u va:0x%p pa:%pa iova:%pa",
 				cnt, buf->va_base, &buf->pa_base, &buf->iova_base);
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
@@ -1855,7 +1857,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 		len = snprintf(text_gpr, ARRAY_SIZE(text_gpr),
 			" GPR R%u:%#x", gprid, val);
 		if (len >= ARRAY_SIZE(text_gpr))
-			cmdq_log("len:%d over text_gpr size:%d",
+			cmdq_log("len:%d over text_gpr size:%lu",
 				len, ARRAY_SIZE(text_gpr));
 	} else if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
 		inst->arg_a <= CMDQ_TOKEN_DISP_VA_END) {
@@ -2441,7 +2443,7 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 			"%#06x %#018llx [Move ] mask %#010llx",
 			offset, *((u64 *)cmdq_inst), ~val);
 	if (len >= txt_sz)
-		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
+		cmdq_log("len:%llu over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_logic(char *text, u32 txt_sz,
@@ -2619,11 +2621,11 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 	u32 size, cnt = 0;
 
 	if (!pkt) {
-		cmdq_err("%s pkt is empty");
+		cmdq_err("pkt is empty");
 		return -EINVAL;
 	}
 	if (!pkt->task_alive) {
-		cmdq_err("%s task_alive:%d", pkt->task_alive);
+		cmdq_err("task_alive:%d", pkt->task_alive);
 		return -EINVAL;
 	}
 
@@ -2633,7 +2635,7 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 		} else if (cnt > 2 && !(curr_pa >= CMDQ_BUF_ADDR(buf) &&
 			curr_pa < CMDQ_BUF_ADDR(buf) + CMDQ_BUF_ALLOC_SIZE)) {
-			cmdq_util_user_msg(client->chan,
+			cmdq_util_user_msg(client ? client->chan : NULL,
 				"buffer %u va:0x%p pa:%pa iova:%pa %#018llx (skip detail) %#018llx",
 				cnt, buf->va_base, &buf->pa_base, &buf->iova_base,
 				*((u64 *)buf->va_base),
@@ -2647,7 +2649,7 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		cmdq_util_user_msg(client ? client->chan : NULL,
 			"buffer %u va:0x%p pa:%pa iova:%pa",
 			cnt, buf->va_base, &buf->pa_base, &buf->iova_base);
-		if (buf->va_base) {
+		if (buf->va_base && client) {
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
 				CMDQ_BUF_ADDR(buf), curr_pa, NULL, client->chan);
 		}
@@ -2667,21 +2669,23 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 		return -EINVAL;
 	}
 	if (!pkt->task_alive) {
-		cmdq_err("%s task_alive:%d", pkt->task_alive);
+		cmdq_err("task_alive:%d", pkt->task_alive);
 		return -EINVAL;
 	}
-	if (client)
-	cmdq_util_user_msg(client->chan,
-		"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
-		pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
-		pkt->buf_size, pkt->avail_buf_size,
-		pkt->priority, pkt->loop ? " loop" : "");
+	if (client) {
+		cmdq_util_user_msg(client->chan,
+			"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
+			pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
+			pkt->buf_size, pkt->avail_buf_size,
+			pkt->priority, pkt->loop ? " loop" : "");
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util_user_msg(client->chan,
-		"submit:%llu trigger:%llu wait:%llu irq:%llu",
-		pkt->rec_submit, pkt->rec_trigger,
-		pkt->rec_wait, pkt->rec_irq);
+		cmdq_util_user_msg(client->chan,
+			"submit:%llu trigger:%llu wait:%llu irq:%llu",
+			pkt->rec_submit, pkt->rec_trigger,
+			pkt->rec_wait, pkt->rec_irq);
 #endif
+	}
+
 	if (dump_ist)
 		cmdq_pkt_dump_buf(pkt, pc);
 

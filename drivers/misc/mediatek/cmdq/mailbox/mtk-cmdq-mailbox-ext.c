@@ -1266,7 +1266,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	spin_lock_irqsave(&chan->lock, flags);
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-		cmdq_err("%s gce off cmdq:%lx thread:%u",
+		cmdq_err("%s gce off cmdq:%p thread:%u",
 			__func__, cmdq, thread->idx);
 		dump_stack();
 		spin_unlock_irqrestore(&chan->lock, flags);

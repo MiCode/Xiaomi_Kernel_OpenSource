@@ -594,7 +594,7 @@ static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
 	writel((1L << 16) | test->token_user0,
 		(void *)CMDQ_SYNC_TOKEN_UPD(test->gce.va));
 	val = readl((void *)CMDQ_SYNC_TOKEN_UPD(test->gce.va));
-	cmdq_log("data:%#lx event:%#x val:%#x",
+	cmdq_log("data:%#hx event:%#x val:%#x",
 		test->token_user0, (1 << 16), val);
 
 	if (!test->tick)
@@ -761,12 +761,17 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u8 swap_reg = CMDQ_THR_SPR_IDX1;
 	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
 
+	count = cmdq_util_test_get_subsys_list(&regs);
+	if (count <= 0) {
+		cmdq_err("invalid count:%d", count);
+		return;
+	}
+
 	va = cmdq_mbox_buf_alloc(clt, &pa);
 	if (!va) {
 		cmdq_err("cmdq_mbox_buf_alloc failed");
 		return;
 	}
-	count = cmdq_util_test_get_subsys_list(&regs);
 
 	for (i = 0; i < count; i++) {
 		va[0] = pat_init;
@@ -986,15 +991,20 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	*inst2 |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark2);
 	cmdq_pkt_set_event(pkt, event + 1);
 	cmdq_pkt_finalize_loop(pkt);
+	cmdq_dump_pkt(pkt, 0, true);
 
 	buf = list_first_entry_or_null(&pkt->buf, typeof(*buf), list_entry);
+	if (!buf) {
+		cmdq_pkt_destroy(pkt);
+		return;
+	}
+
 	cmdq_msg("%s: pkt:%p pa:%#lx cmd_buf_size:%#lx pc:%#lx end:%#lx",
 		__func__, pkt, (unsigned long)buf->pa_base, pkt->cmd_buf_size,
 		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base),
 		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base +
 			pkt->cmd_buf_size));
 
-	cmdq_dump_pkt(pkt, 0, true);
 	for (i = 0; i < pkt->cmd_buf_size / CMDQ_INST_SIZE; i++)
 		cmdq_msg(",%d,%#llx,", i, *((u64 *)buf->va_base + i));
 
@@ -1018,7 +1028,7 @@ static void cmdq_test_mbox_prebuilt(struct cmdq_test *test, const bool pipe,
 	s32			i, j;
 
 	dma_addr_t buf_pa;
-	u32 *perf, time;
+	u32 *perf;
 
 	cmdq_msg("%s: event:%lu mod:%lu pipe:%d timeout:%d",
 		__func__, event, mod, pipe, timeout);
@@ -1069,9 +1079,12 @@ static void cmdq_test_mbox_prebuilt(struct cmdq_test *test, const bool pipe,
 		cmdq_msg("right val:%#x ans:%#x", val, pttn & mask);
 
 	perf = cmdq_pkt_get_perf_ret(pkt);
-	time = perf[3] - perf[2];
-	cmdq_msg("%s: perf:%u %u %#llu",
-		__func__, perf[3], perf[2], CMDQ_TICK_TO_US(time));
+	if (perf) {
+		u32 time = perf[3] - perf[2];
+
+		cmdq_msg("%s: perf:%u %u %u",
+			__func__, perf[3], perf[2], CMDQ_TICK_TO_US(time));
+	}
 
 	cmdq_pkt_destroy(pkt);
 
