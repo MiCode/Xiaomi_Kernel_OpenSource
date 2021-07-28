@@ -216,8 +216,6 @@
 			"aud_dat_miso0_on",
 			"aud_dat_miso1_off",
 			"aud_dat_miso1_on",
-			"aud_dat_miso2_off",
-			"aud_dat_miso2_on",
 			"vow_dat_miso_off",
 			"vow_dat_miso_on",
 			"vow_clk_miso_off",
@@ -236,16 +234,14 @@
 	pinctrl-7 = <&aud_dat_miso0_on>;
 	pinctrl-8 = <&aud_dat_miso1_off>;
 	pinctrl-9 = <&aud_dat_miso1_on>;
-	pinctrl-10 = <&aud_dat_miso2_off>;
-	pinctrl-11 = <&aud_dat_miso2_on>;
-	pinctrl-12 = <&vow_dat_miso_off>;
-	pinctrl-13 = <&vow_dat_miso_on>;
-	pinctrl-14 = <&vow_clk_miso_off>;
-	pinctrl-15 = <&vow_clk_miso_on>;
-	pinctrl-16 = <&aud_gpio_i2s0_off>;
-	pinctrl-17 = <&aud_gpio_i2s0_on>;
-	pinctrl-18 = <&aud_gpio_i2s3_off>;
-	pinctrl-19 = <&aud_gpio_i2s3_on>;
+	pinctrl-10 = <&vow_dat_miso_off>;
+	pinctrl-11 = <&vow_dat_miso_on>;
+	pinctrl-12 = <&vow_clk_miso_off>;
+	pinctrl-13 = <&vow_clk_miso_on>;
+	pinctrl-14 = <&aud_gpio_i2s0_off>;
+	pinctrl-15 = <&aud_gpio_i2s0_on>;
+	pinctrl-16 = <&aud_gpio_i2s3_off>;
+	pinctrl-17 = <&aud_gpio_i2s3_on>;
 };
 &pio {
 	aud_clk_mosi_off: aud_clk_mosi_off {
@@ -305,29 +301,15 @@
 		};
 	};
 	aud_dat_miso1_off: aud_dat_miso1_off {
-		pins_cmd2_dat {
-			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
-			input-enable;
-			bias-disable;
-		};
-	};
-	aud_dat_miso1_on: aud_dat_miso1_on {
-		pins_cmd2_dat {
-			pinmux = <PINMUX_GPIO0__FUNC_AUD_DAT_MISO1>;
-			input-schmitt-enable;
-			bias-disable;
-		};
-	};
-	aud_dat_miso2_off: aud_dat_miso2_off {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
 			input-enable;
 			bias-pull-down;
 		};
 	};
-	aud_dat_miso2_on: aud_dat_miso2_on {
+	aud_dat_miso1_on: aud_dat_miso1_on {
 		pins_cmd1_dat {
-			pinmux = <PINMUX_GPIO1__FUNC_AUD_DAT_MISO2>;
+			pinmux = <PINMUX_GPIO1__FUNC_AUD_DAT_MISO1>;
 			input-schmitt-enable;
 			bias-disable;
 		};
