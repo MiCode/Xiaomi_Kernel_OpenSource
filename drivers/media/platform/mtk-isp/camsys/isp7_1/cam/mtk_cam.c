@@ -1337,6 +1337,8 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					req_tmp->stream_data[i].feature.switch_feature_type =
 						EXPOSURE_CHANGE_NONE;
 					cam->ctxs[i].pipe->res_config.raw_feature = raw_fut_pre_try;
+					cam->ctxs[i].pipe->try_res_config.raw_feature =
+						raw_fut_pre_try;
 					dev_info(cam->dev, "%s: invalid raw_feature judge, Real/Fake:%d/%d\n",
 						__func__, raw_fut_pre_try, raw_fut_cur_try);
 				} else {
