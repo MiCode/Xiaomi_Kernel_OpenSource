@@ -4481,7 +4481,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_NOTICE("get hwmodule from user fail\n");
 			Ret = -EFAULT;
 		} else {
-			if (module >= ISP_DEV_NODE_NUM) {
+			if ((module >= ISP_DEV_NODE_NUM) ||
+				(module < ISP_CAM_A_IDX)) {
 				LOG_NOTICE(
 				"ISP_RESET_BY_HWMODULE module is invalid\n");
 				Ret = -EFAULT;
@@ -5633,7 +5634,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 		if (copy_from_user(&pwrctl, (void *)Param,
 			sizeof(unsigned int) * 2) == 0) {
-			if (pwrctl[0] >= ISP_DEV_NODE_NUM) {
+			if ((pwrctl[0] >= ISP_DEV_NODE_NUM) ||
+				(pwrctl[0] < ISP_CAM_A_IDX)) {
 				LOG_NOTICE(
 					"module index is invalid module(%d)!", pwrctl[0]);
 				Ret = -EFAULT;
@@ -6313,8 +6315,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 
 EXIT:
 
-	LOG_INF("- X. UserCount: %d. G_u4EnableClockCount:%d",
-		IspInfo.UserCount, G_u4EnableClockCount);
+	LOG_INF("- X. UserCount: %d.", IspInfo.UserCount);
 	mutex_unlock(&open_isp_mutex);
 	return 0;
 }
@@ -7130,6 +7131,7 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 	unsigned int IrqType;
 	int ret, module;
 	char moduleName[128] = {'\0'};
+	unsigned int i = 0;
 
 	unsigned int regTGSt, loopCnt;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
@@ -7226,7 +7228,7 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 
 	if (regVal & 0x01) {
 		LOG_INF("%s_suspend,disable VF,wakelock:%d,clk:%d,devct:%d\n",
-			moduleName, g_WaitLockCt, G_u4EnableClockCount,
+			moduleName, g_WaitLockCt, G_u4EnableClockCount[module],
 			atomic_read(&G_u4DevNodeCt));
 
 		SuspnedRecord[module] = 1;
@@ -7299,27 +7301,28 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		ISP_WR32(CAMX_REG_TG_SEN_MODE(module), (regVal & (~0x01)));
 	} else {
 		LOG_INF("%s_suspend,wakelock:%d,clk:%d,devct:%d\n", moduleName,
-			g_WaitLockCt, G_u4EnableClockCount,
+			g_WaitLockCt, G_u4EnableClockCount[module],
 			atomic_read(&G_u4DevNodeCt));
 
 		SuspnedRecord[module] = 0;
 	}
-
 EXIT:
 	/* last dev node will disable clk "G_u4EnableClockCount" times */
 	if (!atomic_read(&G_u4DevNodeCt)) {
-		spin_lock(&(IspInfo.SpinLockClock));
-		loopCnt = G_u4EnableClockCount[module];
-		spin_unlock(&(IspInfo.SpinLockClock));
+		for (i = ISP_CAM_A_IDX; i < ISP_DEV_NODE_NUM; i++) {
+			spin_lock(&(IspInfo.SpinLockClock));
+			loopCnt = G_u4EnableClockCount[i];
+			spin_unlock(&(IspInfo.SpinLockClock));
 
-		LOG_INF("%s - X. wakelock:%d, last dev node,disable clk:%d\n",
+			LOG_INF(
+			"%s - X. wakelock:%d, last dev node,disable clk:%d\n",
 			moduleName, g_WaitLockCt, loopCnt);
-		while (loopCnt > 0) {
-			ISP_EnableClock(module, MFALSE);
-			loopCnt--;
+			while (loopCnt > 0) {
+				ISP_EnableClock(i, MFALSE);
+				loopCnt--;
+			}
 		}
 	}
-
 	return 0;
 }
 
@@ -7409,7 +7412,7 @@ static int ISP_resume(struct platform_device *pDev)
 
 	if (SuspnedRecord[module]) {
 		LOG_INF("%s_resume,enable VF,wakelock:%d,clk:%d,devct:%d\n",
-			moduleName, g_WaitLockCt, G_u4EnableClockCount,
+			moduleName, g_WaitLockCt, G_u4EnableClockCount[module],
 			atomic_read(&G_u4DevNodeCt));
 
 		SuspnedRecord[module] = 0;
@@ -7422,7 +7425,7 @@ static int ISP_resume(struct platform_device *pDev)
 		ISP_WR32(CAMX_REG_TG_VF_CON(module), (regVal | 0x01));
 	} else {
 		LOG_INF("%s_resume,wakelock:%d,clk:%d,devct:%d\n", moduleName,
-			g_WaitLockCt, G_u4EnableClockCount,
+			g_WaitLockCt, G_u4EnableClockCount[module],
 			atomic_read(&G_u4DevNodeCt));
 	}
 
