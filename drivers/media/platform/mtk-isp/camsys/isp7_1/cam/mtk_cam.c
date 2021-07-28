@@ -747,48 +747,60 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 
 }
 static void check_timeshared_buffer(struct mtk_cam_device *cam,
-				struct mtk_cam_request_stream_data *req)
+					struct mtk_cam_request *cam_req)
 {
-	struct mtk_cam_ctx *ctx = req->state.ctx;
+	struct mtk_cam_ctx *ctx;
 	struct mtkcam_ipi_img_input *in_fmt;
 	struct mtk_cam_img_working_buf_entry *buf_entry;
 	struct mtk_cam_video_device *node;
+	struct mtk_cam_request_stream_data *req;
 	const struct v4l2_format *cfg_fmt;
-	int input_node;
+	int input_node, i;
 
-		input_node = MTKCAM_IPI_RAW_RAWI_2;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		if (in_fmt->buf[0].iova == 0x0) {
-			node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-			cfg_fmt = &node->active_fmt;
-			in_fmt->uid.id = input_node;
-			in_fmt->uid.pipe_id = node->uid.pipe_id;
-			in_fmt->fmt.format = mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
-			in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
-			in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
-			in_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
-			/* prepare working buffer */
-			buf_entry = mtk_cam_img_working_buf_get(ctx);
-			if (!buf_entry) {
-				dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
-				__func__, req->frame_seq_no);
-				WARN_ON(1);
-				return;
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (cam_req->pipe_used & (1 << i)) {
+			ctx = &cam->ctxs[i];
+			input_node = MTKCAM_IPI_RAW_RAWI_2;
+			req = &cam_req->stream_data[ctx->stream_id];
+			in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
+			if (in_fmt->buf[0].iova == 0x0) {
+				node = &ctx->pipe->vdev_nodes[
+					MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+				cfg_fmt = &node->active_fmt;
+				in_fmt->uid.id = input_node;
+				in_fmt->uid.pipe_id = node->uid.pipe_id;
+				in_fmt->fmt.format =
+					mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
+				in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
+				in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
+				in_fmt->fmt.stride[0] =
+					cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
+				/* prepare working buffer */
+				buf_entry = mtk_cam_img_working_buf_get(ctx);
+				if (!buf_entry) {
+					dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
+					__func__, req->frame_seq_no);
+					WARN_ON(1);
+					return;
+				}
+				buf_entry->ctx = ctx;
+				buf_entry->req = req->state.req;
+				/* put to processing list */
+				spin_lock(&ctx->processing_img_buffer_list.lock);
+				list_add_tail(&buf_entry->list_entry,
+					&ctx->processing_img_buffer_list.list);
+				ctx->processing_img_buffer_list.cnt++;
+				spin_unlock(&ctx->processing_img_buffer_list.lock);
+				in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
 			}
-			buf_entry->ctx = ctx;
-			buf_entry->req = req->state.req;
-			/* put to processing list */
-			spin_lock(&ctx->processing_img_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-				&ctx->processing_img_buffer_list.list);
-			ctx->processing_img_buffer_list.cnt++;
-			spin_unlock(&ctx->processing_img_buffer_list.lock);
-			in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+			dev_dbg(cam->dev,
+			"[%s:%d] ctx:%d dma_port:%d size=%dx%d, stride:%d, fmt:0x%x (iova:0x%x)\n",
+			__func__, req->frame_seq_no, ctx->stream_id,
+			input_node, in_fmt->fmt.s.w,
+			in_fmt->fmt.s.h, in_fmt->fmt.stride[0],
+			in_fmt->fmt.format, in_fmt->buf[0].iova);
 		}
-		dev_dbg(cam->dev,
-		"[%s:%d] ctx:%d dma_port:%d size=%dx%d, stride:%d, fmt:0x%x (iova:0x%x)\n",
-		__func__, req->frame_seq_no, ctx->stream_id, input_node, in_fmt->fmt.s.w,
-		in_fmt->fmt.s.h, in_fmt->fmt.stride[0], in_fmt->fmt.format, in_fmt->buf[0].iova);
+	}
 }
 
 /* FIXME: should move following to raw's implementation. */
@@ -1269,7 +1281,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	if (mtk_cam_is_stagger(ctx))
 		check_stagger_buffer(cam, req);
 	if (mtk_cam_is_time_shared(ctx))
-		check_timeshared_buffer(cam, req_stream_data);
+		check_timeshared_buffer(cam, req);
 	return 0;
 }
 
