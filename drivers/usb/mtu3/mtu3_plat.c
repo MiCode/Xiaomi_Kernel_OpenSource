@@ -63,11 +63,12 @@ static void ssusb_hw_request(struct ssusb_mtk *ssusb,
 		break;
 	case MTU3_STATE_POWER_ON:
 	case MTU3_STATE_RESUME:
-		req = SSUSB_SPM_DDR_EN | SSUSB_SPM_INFRE_REQ |
-				SSUSB_SPM_SRCCLKENA;
+		req = SSUSB_SPM_DDR_EN | SSUSB_SPM_VRF18_REQ |
+			SSUSB_SPM_APSRC_REQ | SSUSB_SPM_INFRE_REQ |
+			SSUSB_SPM_SRCCLKENA;
 		break;
 	case MTU3_STATE_SUSPEND:
-		req = SSUSB_SPM_INFRE_REQ;
+		req = SSUSB_SPM_INFRE_REQ | SSUSB_SPM_SRCCLKENA;
 		break;
 	default:
 		return;
