@@ -6,6 +6,7 @@
 #ifndef __MTK_CAM_UT_ENGINES_H
 #define __MTK_CAM_UT_ENGINES_H
 
+#include <linux/kfifo.h>
 #include "mtk_cam_ut-event.h"
 
 struct engine_ops {
@@ -30,56 +31,6 @@ struct engine_ops {
 
 #define CALL_ENGINE_OPS(dev, ops, ...) \
 	((dev && dev->ops) ? dev.ops(dev, ##__VA_ARGS__) : -EINVAL)
-
-struct ut_raw_status {
-	/* raw INT1~7 */
-	u32 irq;
-	u32 wdma;
-	u32 rdma;
-	u32 drop;
-	u32 ofl;
-	u32 cq_done;
-	u32 cq_done2;
-
-};
-
-struct ut_raw_statusx {
-	/* raw INT1~7 */
-	u32 irq;
-	u32 wdma;
-	u32 rdma;
-	u32 drop;
-	u32 ofl;
-	u32 cq_done;
-	u32 cq_done2;
-
-};
-
-struct ut_raw_debug_csr {
-	/* CQ INT1~7 */
-	u32 cq_sub1_addr;
-	u32 cq_sub2_addr;
-	u32 cq_sub1_szie;
-	u32 cq_sub2_szie;
-
-	/* DMAO */
-	u32 imgo_addr;
-	u32 aao_addr;
-
-    /* FBC */
-	u32 fbc_imgo_ctl2;
-	u32 fbc_aao_ctl2;
-	u32 fbc_aaho_ctl2;
-
-	/* CQ */
-	u32 cq_en;
-	u32 sub_cq_en;
-
-	/* CTL */
-	u32 sw_pass1_done;
-	u32 sw_sub_ctl;
-
-};
 
 enum RAW_STREAMON_TYPE {
 	STREAM_FROM_TG,
@@ -106,9 +57,13 @@ struct mtk_ut_raw_device {
 	struct ut_event_source event_src;
 	struct engine_ops ops;
 
+	unsigned int	fifo_size;
+	struct kfifo	msgfifo;
+
 	int is_subsample;
 	int is_initial_cq;
 	int cq_done_mask; /* [0]: main, [1]: sub */
+
 };
 
 #define CALL_RAW_OPS(dev, op, ...) \
@@ -119,14 +74,6 @@ struct mtk_ut_raw_device {
 }
 
 struct ut_yuv_status {
-	/* yuv INT 1/2/4/5 */
-	u32 irq;
-	u32 wdma;
-	u32 drop;
-	u32 ofl;
-};
-
-struct ut_yuv_statusx {
 	/* yuv INT 1/2/4/5 */
 	u32 irq;
 	u32 wdma;

@@ -14,8 +14,8 @@
 #define SW_PASS1_DON_ST			(1L << 22)
 
 /* YUV siganl */
-#define YUV_SW_PASS1_DON_ST		(1L << 0)
-#define YUV_PASS1_DON_ST		(1L << 1)
+#define YUV_PASS1_DON_ST		(1L << 0)
+#define YUV_DON_ST			(1L << 1)
 #define YUV_DMA_ERR_ST			(1L << 2)
 
 /* err status */

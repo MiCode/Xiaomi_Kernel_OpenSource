@@ -12,11 +12,51 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/timekeeping.h>
 
 #include "mtk_cam_ut.h"
 #include "mtk_cam_ut-engines.h"
 
 #include "mtk_cam_regs.h"
+
+#define DUMP_FBC_AT_SOF		BIT(0) /* at SOF */
+#define DUMP_FBC_AT_HW_DONE	BIT(1) /* at HW_PASS1_DONE */
+#define DUMP_STX		BIT(2) /* at SW_PASS1_DONE */
+
+static unsigned int dump_cmd;
+module_param(dump_cmd, uint, 0644);
+MODULE_PARM_DESC(dump_cmd, "dump cmd");
+
+struct ut_raw_status {
+	/* raw INT1~7 */
+	u32 irq;
+	u32 wdma;
+	u32 rdma;
+	u32 drop;
+	u32 ofl;
+	u32 cq_done;
+	u32 cq_done2;
+};
+
+struct ut_debug_cmd {
+	union {
+		struct {
+			u8	dump_stx : 1;
+			u8	dump_fbc : 1;
+			u8	dump_dma_err : 1;
+			u8	dump_tg_err : 1;
+		};
+		u32	any_debug;
+	};
+};
+
+struct ut_raw_msg {
+	u64 ts_ns;
+	struct ut_event		event;
+	struct ut_debug_cmd	cmd;
+};
+
+#define RAW_MSG_KFIFO_SIZE	ALIGN(, sizeof(u32))
 
 static int ut_raw_reset(struct device *dev)
 {
@@ -340,35 +380,65 @@ static void raw_handle_dma_err(struct mtk_ut_raw_device *raw)
 			   );
 }
 
-static void raw_check_error_status(struct mtk_ut_raw_device *raw,
-				   struct ut_raw_status *st)
+static void raw_dump_stx(struct mtk_ut_raw_device *raw)
 {
-	u32 err_status;
+	void __iomem *base = raw->base;
+	struct ut_raw_status statusx;
 
-	err_status = st->irq & INT_ST_MASK_CAM_ERR;
-	if (!err_status)
-		return;
-	dev_info(raw->dev, "int_err:0x%x 0x%x\n", st->irq, err_status);
+	/* raw */
+	statusx.irq = readl_relaxed(CAM_REG_CTL_RAW_INT_STATUSX(base));
+	statusx.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUSX(base));
+	statusx.rdma = readl_relaxed(CAM_REG_CTL_RAW_INT3_STATUSX(base));
+	statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base));
+	statusx.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUSX(base));
+	statusx.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUSX(base));
+	statusx.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUSX(base));
 
-	if (err_status & DMA_ERR_ST)
-		raw_handle_dma_err(raw);
-	/* Show TG register for more error detail*/
-	if (err_status & TG_GBERR_ST)
-		raw_handle_tg_grab_err(raw);
+	dev_info(raw->dev,
+		 "STATUSX INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		 statusx.irq, statusx.wdma, statusx.rdma, statusx.drop,
+		 statusx.ofl, statusx.cq_done, statusx.cq_done2);
 }
 
+static void raw_dump_fbc(struct mtk_ut_raw_device *raw)
+{
+	void __iomem *base = raw->base;
+	void __iomem *yuvbase = raw->yuv_base;
+
+	int fbc_ctl = 0x2c00;
+
+	while (fbc_ctl <= 0x2c50) {
+		dev_info(raw->dev, "RAW FBC(0x%08x) 0x%08x 0x%08x\n",
+			 fbc_ctl,
+			 readl_relaxed(base + fbc_ctl),
+			 readl_relaxed(base + fbc_ctl + 4));
+		fbc_ctl += 8;
+	}
+
+	fbc_ctl = 0x3780;
+	while (fbc_ctl <= 0x3854) {
+		dev_info(raw->dev, "YUV FBC(0x%08x) 0x%08x 0x%08x\n",
+			 fbc_ctl,
+			 readl_relaxed(yuvbase + fbc_ctl),
+			 readl_relaxed(yuvbase + fbc_ctl + 4));
+		fbc_ctl += 8;
+	}
+}
+
+#define RAW_DEBUG 0
 static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 {
-#define RAW_DEBUG 0
+
 	struct mtk_ut_raw_device *raw = data;
 	void __iomem *base = raw->base;
 	struct ut_raw_status status;
-	struct ut_raw_statusx statusx;
-	struct ut_event event;
-#if RAW_DEBUG
-	void __iomem *base_inner = raw->base_inner;
-	struct ut_raw_debug_csr dbg_csr;
-#endif
+	struct ut_raw_msg msg;
+	struct ut_event *event = &msg.event;
+	struct ut_debug_cmd *cmd = &msg.cmd;
+	int wake_thread = 0;
+
+	msg.ts_ns = ktime_get_boottime_ns();
+
 	/* raw */
 	status.irq = readl_relaxed(CAM_REG_CTL_RAW_INT_STATUS(base));
 	status.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUS(base));
@@ -378,28 +448,22 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	status.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUS(base));
 	status.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUS(base));
 
-	event.mask = 0;
+	event->mask = 0;
+	cmd->any_debug = 0;
 
 	if (status.irq & SOF_INT_ST)
-		event.mask |= EVENT_SOF;
+		event->mask |= EVENT_SOF;
 
 	if (status.irq & SW_PASS1_DON_ST) {
-		event.mask |= EVENT_SW_P1_DONE;
+		event->mask |= EVENT_SW_P1_DONE;
 
-		/* raw */
-		statusx.irq = readl_relaxed(CAM_REG_CTL_RAW_INT_STATUSX(base));
-		statusx.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUSX(base));
-		statusx.rdma = readl_relaxed(CAM_REG_CTL_RAW_INT3_STATUSX(base));
-		statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base));
-		statusx.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUSX(base));
-		statusx.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUSX(base));
-		statusx.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUSX(base));
-
-		dev_info(raw->dev,
-			 "STATUSX INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-			 statusx.irq, statusx.wdma, statusx.rdma, statusx.drop,
-			 statusx.ofl, statusx.cq_done, statusx.cq_done2);
+		if (dump_cmd & DUMP_STX)
+			cmd->dump_stx = 1;
 	}
+
+	cmd->dump_fbc =
+		((dump_cmd & DUMP_FBC_AT_SOF) && (status.irq & SOF_INT_ST)) ||
+		((dump_cmd & DUMP_FBC_AT_HW_DONE) && (status.irq & HW_PASS1_DON_ST));
 
 	if (status.cq_done & CTL_CQ_THR0_DONE_ST)
 		raw->cq_done_mask |= 0x1;
@@ -410,85 +474,87 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	if (raw->is_subsample && !raw->is_initial_cq
 	    && (raw->cq_done_mask & 0x1)) {
 		raw->cq_done_mask = 0;
-		event.mask |= EVENT_CQ_DONE;
+		event->mask |= EVENT_CQ_DONE;
 	} else if (raw->cq_done_mask == 0x3) {
 		raw->is_initial_cq = 0;
 		raw->cq_done_mask = 0;
-		event.mask |= EVENT_CQ_DONE;
+		event->mask |= EVENT_CQ_DONE;
 	}
 
 	if (status.irq & CQ_MAIN_TRIG_DLY_ST)
-		event.mask |= EVENT_CQ_MAIN_TRIG_DLY;
+		event->mask |= EVENT_CQ_MAIN_TRIG_DLY;
 
-	if (event.mask && raw->id == 0) {
-		dev_dbg(raw->dev, "send event 0x%x\n", event.mask);
-		send_event(&raw->event_src, event);
+	if (status.irq & INT_ST_MASK_CAM_ERR) {
+		dev_info(raw->dev, "int_err: 0x%x\n",
+			 status.irq & INT_ST_MASK_CAM_ERR);
+
+		if (status.irq & DMA_ERR_ST)
+			cmd->dump_dma_err = 1;
+
+		if (status.irq & TG_GBERR_ST)
+			cmd->dump_tg_err = 1;
 	}
 
-		/* debug */
-#if RAW_DEBUG
-	dbg_csr.cq_sub1_addr =
-		readl_relaxed(CAM_REG_CQ_SUB_THR0_BASEADDR_1(base));
-	dbg_csr.cq_sub2_addr =
-		readl_relaxed(CAM_REG_CQ_SUB_THR0_BASEADDR_2(base));
-	dbg_csr.cq_sub1_szie =
-		readl_relaxed(CAM_REG_SUB_THR0_DESC_SIZE_1(base));
-	dbg_csr.cq_sub2_szie =
-		readl_relaxed(CAM_REG_SUB_THR0_DESC_SIZE_2(base));
+	if (raw->id != 0)
+		event->mask = 0;
 
-	dbg_csr.imgo_addr =
-		readl_relaxed(CAM_REG_IMGO_ORIWDMA_BASE_ADDR(base));
-	dbg_csr.fbc_imgo_ctl2 =
-		readl_relaxed(CAM_REG_FBC_IMGO_R1_CTL2(base));
+	if (event->mask || cmd->any_debug) {
+		int len;
 
-	dbg_csr.cq_en =
-		readl_relaxed(CAM_REG_CQ_EN(base));
-	dbg_csr.sub_cq_en =
-		readl_relaxed(CAM_REG_SUB_CQ_EN(base));
+		if (unlikely(kfifo_avail(&raw->msgfifo) < sizeof(msg))) {
+			dev_info(raw->dev, "msg fifo is full\n");
+			goto nomem;
+		}
 
-	dbg_csr.sw_pass1_done =
-		readl_relaxed(CAM_REG_SW_PASS1_DONE(base));
-	dbg_csr.sw_sub_ctl =
-		readl_relaxed(CAM_REG_SW_SUB_CTL(base));
+		len = kfifo_in(&raw->msgfifo, &msg, sizeof(msg));
+		WARN_ON(len != sizeof(msg));
 
-	dbg_csr.aao_addr =
-		readl_relaxed(CAM_REG_AAO_ORIWDMA_BASE_ADDR(base));
-	dbg_csr.fbc_aao_ctl2 =
-		readl_relaxed(CAM_REG_FBC_AAO_R1_CTL2(base));
-	dbg_csr.fbc_aaho_ctl2 =
-		readl_relaxed(CAM_REG_FBC_AAHO_R1_CTL2(base));
-#endif
-#if RAW_DEBUG
-	dev_info(raw->dev,
-		"INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		status.irq, status.wdma, status.rdma, status.drop,
-		status.ofl, status.cq_done, status.cq_done2);
+		wake_thread = 1;
+		dev_dbg(raw->dev, "time %lld: event %x, debug %x\n",
+			msg.ts_ns,
+			event->mask, cmd->any_debug);
+	}
 
-	dev_info(raw->dev,
-		"cq_sub1_addr=0x%x, cq_sub2_addr=0x%x, cq_sub1_szie:0x%x, cq_sub2_szie=0x%x\n",
-		dbg_csr.cq_sub1_addr, dbg_csr.cq_sub2_addr,
-		dbg_csr.cq_sub1_szie, dbg_csr.cq_sub2_szie);
+nomem:
 
-	dev_info(raw->dev,
-		"imgo_addr=0x%x fbc_imgo_ctl2=0x%x cq 0x%x sub_cq 0x%x sw_pass1_done 0x%x sw_sub_ctl 0x%x, aao_addr=0x%x ctl2 0x%x, 0x%x\n",
-		dbg_csr.imgo_addr, dbg_csr.fbc_imgo_ctl2, dbg_csr.cq_en, dbg_csr.sub_cq_en,
-		dbg_csr.sw_pass1_done, dbg_csr.sw_sub_ctl, dbg_csr.aao_addr, dbg_csr.fbc_aao_ctl2,
-		dbg_csr.fbc_aaho_ctl2);
-
-	dbg_csr.sw_pass1_done =
-		readl_relaxed(CAM_REG_SW_PASS1_DONE(base_inner));
-	dbg_csr.sw_sub_ctl =
-		readl_relaxed(CAM_REG_SW_SUB_CTL(base_inner));
-
-	dev_info(raw->dev,
-		"inner sw_pass1_done 0x%x sw_sub_ctl 0x%x\n",
-		dbg_csr.sw_pass1_done, dbg_csr.sw_sub_ctl);
-#endif
-
-	raw_check_error_status(raw, &status);
-	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x",
+	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		 status.irq, status.wdma, status.rdma, status.drop,
 		 status.ofl, status.cq_done, status.cq_done2);
+
+	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t mtk_ut_raw_thread_irq(int irq, void *data)
+{
+	struct mtk_ut_raw_device *raw = data;
+	struct ut_raw_msg msg;
+	struct ut_event *event = &msg.event;
+	struct ut_debug_cmd *cmd = &msg.cmd;
+
+	while (kfifo_len(&raw->msgfifo) >= sizeof(msg)) {
+		int len = kfifo_out(&raw->msgfifo, &msg, sizeof(msg));
+
+		WARN_ON(len != sizeof(msg));
+
+		dev_info(raw->dev, "time %lld\n", msg.ts_ns);
+
+		if (cmd->dump_fbc)
+			raw_dump_fbc(raw);
+
+		if (cmd->dump_stx)
+			raw_dump_stx(raw);
+
+		if (cmd->dump_tg_err)
+			raw_handle_tg_grab_err(raw);
+
+		if (cmd->dump_dma_err)
+			raw_handle_dma_err(raw);
+
+		if (event->mask) {
+			dev_dbg(raw->dev, "send event 0x%x\n", event->mask);
+			send_event(&raw->event_src, *event);
+		}
+	}
 
 	return IRQ_HANDLED;
 }
@@ -546,8 +612,10 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(dev, irq, mtk_ut_raw_irq, 0,
-			       dev_name(dev), raw);
+	ret = devm_request_threaded_irq(dev, irq,
+					mtk_ut_raw_irq,
+					mtk_ut_raw_thread_irq,
+					0, dev_name(dev), raw);
 	if (ret) {
 		dev_info(dev, "failed to request irq=%d\n", irq);
 		return ret;
@@ -586,6 +654,10 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 		return PTR_ERR(raw->raw_top_base);
 	}
 #endif
+
+	raw->fifo_size = roundup_pow_of_two(10 * sizeof(struct ut_raw_msg));
+	if (kfifo_alloc(&raw->msgfifo, raw->fifo_size, GFP_KERNEL))
+		return -ENOMEM;
 
 	return 0;
 }
@@ -635,6 +707,8 @@ static int mtk_ut_raw_remove(struct platform_device *pdev)
 
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_put(drvdata->clks[i]);
+
+	kfifo_free(&drvdata->msgfifo);
 
 	return 0;
 }
@@ -832,7 +906,6 @@ static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
 	struct mtk_ut_yuv_device *drvdata = data;
 	void __iomem *base = drvdata->base;
 	struct ut_yuv_status status;
-	struct ut_yuv_statusx statusx;
 
 	/* yuv */
 	status.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT_STATUS(base));
@@ -840,23 +913,29 @@ static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
 	status.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUS(base));
 	status.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUS(base));
 
-	if (status.irq & 0x04)
+	if (status.irq & YUV_DMA_ERR_ST)
 		yuv_handle_dma_err(data);
 
-	if (status.irq & (YUV_PASS1_DON_ST|YUV_SW_PASS1_DON_ST|YUV_DMA_ERR_ST)) {
+	if ((dump_cmd & DUMP_STX) && (status.irq & YUV_PASS1_DON_ST)) {
+		struct ut_yuv_status statusx;
 
 		statusx.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT_STATUSX(base));
 		statusx.wdma = readl_relaxed(CAM_REG_CTL2_RAW_INT2_STATUSX(base));
 		statusx.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUSX(base));
 		statusx.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUSX(base));
 
-		dev_info(drvdata->dev, "INT 1245 0x%x/0x%x/0x%x/0x%x\n",
-		 status.irq, status.wdma, status.drop, status.ofl);
-
-		dev_info(drvdata->dev, "INT-DONE 1245 0x%x/0x%x/0x%x/0x%x\n",
+		dev_info(drvdata->dev, "STATUSX INT-DONE 1245 0x%x/0x%x/0x%x/0x%x\n",
 			 statusx.irq, statusx.wdma, statusx.drop, statusx.ofl);
-
 	}
+
+	/* overflow interrupts may be annoying */
+	dev_info_ratelimited(drvdata->dev, "INT5 overflow 0x%x\n",
+			     status.ofl);
+
+	if (status.irq || status.wdma || status.drop)
+		dev_info(drvdata->dev, "INT 1245 0x%x/0x%x/0x%x/0x%x\n",
+			 status.irq, status.wdma, status.drop, status.ofl);
+
 	return IRQ_HANDLED;
 }
 
@@ -897,8 +976,9 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(dev, irq, mtk_ut_yuv_irq, 0,
-			       dev_name(dev), drvdata);
+	ret = devm_request_threaded_irq(dev, irq,
+					NULL, mtk_ut_yuv_irq,
+					IRQF_ONESHOT, dev_name(dev), drvdata);
 	if (ret) {
 		dev_info(dev, "failed to request irq=%d\n", irq);
 		return ret;
