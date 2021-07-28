@@ -443,11 +443,15 @@ static void ssr_notif_timeout_handler(struct timer_list *t)
 {
 	struct qcom_rproc_ssr *ssr = from_timer(ssr, t, timer);
 
-#if IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT)
-	panic(ssr_timeout_msg, ssr->info->name, subdevice_state_string[ssr->notification]);
-#else
-	WARN(1, ssr_timeout_msg, ssr->info->name, subdevice_state_string[ssr->notification]);
-#endif
+	if (IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT) &&
+	    system_state != SYSTEM_RESTART &&
+	    system_state != SYSTEM_POWER_OFF &&
+	    system_state != SYSTEM_HALT &&
+	    !qcom_device_shutdown_in_progress)
+		panic(ssr_timeout_msg, ssr->info->name, subdevice_state_string[ssr->notification]);
+	else
+		WARN(1, ssr_timeout_msg, ssr->info->name,
+		     subdevice_state_string[ssr->notification]);
 }
 
 /**
