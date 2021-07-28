@@ -61,6 +61,8 @@ struct mc_device_ctx {
 	atomic_t		c_slots;
 	atomic_t		c_vm_fes;
 	atomic_t		c_vm_maps;
+
+	u32 real_drv;
 };
 
 extern struct mc_device_ctx g_ctx;

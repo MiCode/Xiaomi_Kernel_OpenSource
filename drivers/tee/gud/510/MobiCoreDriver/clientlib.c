@@ -115,6 +115,9 @@ enum mc_result mc_open_device(u32 device_id)
 	enum mc_result mc_result = MC_DRV_OK;
 	int ret;
 
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
+
 	/* Check parameters */
 	if (!is_valid_device(device_id))
 		return MC_DRV_ERR_UNKNOWN_DEVICE;
@@ -148,6 +151,9 @@ EXPORT_SYMBOL(mc_open_device);
 enum mc_result mc_close_device(u32 device_id)
 {
 	enum mc_result mc_result = MC_DRV_OK;
+
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
 
 	/* Check parameters */
 	if (!is_valid_device(device_id))
@@ -185,6 +191,9 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 {
 	enum mc_result ret;
 
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
+
 	/* Check parameters */
 	if (!session || !uuid)
 		return MC_DRV_ERR_INVALID_PARAMETER;
@@ -208,6 +217,9 @@ enum mc_result mc_open_trustlet(struct mc_session_handle *session,
 				u8 *ta_va, u32 ta_len, u8 *tci_va, u32 tci_len)
 {
 	enum mc_result ret;
+
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
 
 	/* Check parameters */
 	if (!session || !ta_va || !ta_len)
@@ -233,6 +245,9 @@ enum mc_result mc_close_session(struct mc_session_handle *session)
 {
 	enum mc_result ret;
 
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
+
 	/* Check parameters */
 	if (!session)
 		return MC_DRV_ERR_INVALID_PARAMETER;
@@ -253,6 +268,9 @@ EXPORT_SYMBOL(mc_close_session);
 enum mc_result mc_notify(struct mc_session_handle *session)
 {
 	enum mc_result ret;
+
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
 
 	/* Check parameters */
 	if (!session)
@@ -275,6 +293,9 @@ enum mc_result mc_wait_notification(struct mc_session_handle *session,
 				    s32 timeout)
 {
 	enum mc_result ret;
+
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
 
 	/* Check parameters */
 	if (!session)
@@ -302,6 +323,9 @@ EXPORT_SYMBOL(mc_wait_notification);
 enum mc_result mc_malloc_wsm(u32 device_id, u32 align, u32 len, u8 **wsm,
 			     u32 wsm_flags)
 {
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
+
 	/* Check parameters */
 	if (!is_valid_device(device_id))
 		return MC_DRV_ERR_UNKNOWN_DEVICE;
@@ -329,6 +353,9 @@ EXPORT_SYMBOL(mc_malloc_wsm);
 
 enum mc_result mc_free_wsm(u32 device_id, u8 *wsm)
 {
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
+
 	/* Check parameters */
 	if (!is_valid_device(device_id))
 		return MC_DRV_ERR_UNKNOWN_DEVICE;
@@ -354,6 +381,9 @@ enum mc_result mc_map(struct mc_session_handle *session, void *address,
 		.len = length,
 		.flags = MC_IO_MAP_INPUT_OUTPUT,
 	};
+
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
 
 	/* Check parameters */
 	if (!session)
@@ -389,6 +419,9 @@ enum mc_result mc_unmap(struct mc_session_handle *session, void *address,
 		.flags = MC_IO_MAP_INPUT_OUTPUT,
 	};
 
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
+
 	/* Check parameters */
 	if (!session)
 		return MC_DRV_ERR_INVALID_PARAMETER;
@@ -416,6 +449,9 @@ enum mc_result mc_get_session_error_code(struct mc_session_handle *session,
 					 s32 *exit_code)
 {
 	enum mc_result ret;
+
+	if (!g_ctx.real_drv)
+		return MC_DRV_ERR_NOT_IMPLEMENTED;
 
 	/* Check parameters */
 	if (!session)
