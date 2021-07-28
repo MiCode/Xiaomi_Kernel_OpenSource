@@ -6085,7 +6085,10 @@
 		mediatek,hcp = <&hcp>;
 		mediatek,larbs = <&smi_larb9>,
 				 <&smi_larb10>,
-				 <&smi_larb11>;
+				 <&smi_larb11>,
+				 <&smi_larb15>,
+				 <&smi_larb22>,
+				 <&smi_larb23>;
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
@@ -6523,34 +6526,40 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_9>;
 		sw_sync_token_camsys_pool_10 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_10>;
-		clocks = <&imgsys CLK_IMG_TRAW0>,
-			 <&imgsys CLK_IMG_TRAW1>,
-			 <&imgsys CLK_IMG_TRAW2>,
-			 <&imgsys CLK_IMG_TRAW3>,
-			 <&imgsys CLK_IMG_DIP0>,
-			 <&imgsys CLK_IMG_WPE0>,
-			 <&imgsys CLK_IMG_DIP1>,
-			 <&imgsys CLK_IMG_WPE1>,
-			 <&imgsys1_dip_top CLK_IMG1_DIP_TOP_DIP_TOP>,
-			 <&imgsys1_dip_nr CLK_IMG1_DIP_NR_DIP_NR>,
-			 <&imgsys1_wpe CLK_IMG1_WPE_WPE>,
+#endif
+		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_TRAW0>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_TRAW1>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_VCORE_GALS>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_DIP0>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE0>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE1>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE2>,
 			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_LARB>,
 			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP0>,
-			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP1>;
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP1>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_GALS>,
+			 <&dip_top_dip1_clk CLK_DIP_TOP_DIP1_DIP_TOP>,
+			 <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_DIP_NR>,
+			 <&wpe1_dip1_clk CLK_WPE1_DIP1_WPE>,
+			 <&wpe2_dip1_clk CLK_WPE2_DIP1_WPE>,
+			 <&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>;
 		clock-names = "IMGSYS_CG_IMG_TRAW0",
 			      "IMGSYS_CG_IMG_TRAW1",
-			      "IMGSYS_CG_IMG_TRAW2",
-			      "IMGSYS_CG_IMG_TRAW3",
+			      "IMGSYS_CG_IMG_VCORE_GALS",
 			      "IMGSYS_CG_IMG_DIP0",
 			      "IMGSYS_CG_IMG_WPE0",
-			      "IMGSYS_CG_IMG_DIP1",
 			      "IMGSYS_CG_IMG_WPE1",
-			      "DIP_CG_IMG_DIP",
-			      "DIP_NR_DIP_NR",
-			      "WPE_CG_WPE_WPE",
+			      "IMGSYS_CG_IMG_WPE2",
 			      "IMGSYS_CG_IMG_ADL_LARB",
 			      "IMGSYS_CG_IMG_ADL_TOP0",
-			      "IMGSYS_CG_IMG_ADL_TOP1";
+			      "IMGSYS_CG_IMG_ADL_TOP1",
+			      "IMGSYS_CG_IMG_GALS",
+			      "DIP_TOP_DIP_TOP",
+			      "DIP_NR_DIP_NR",
+			      "WPE1_CG_DIP1_WPE",
+			      "WPE2_CG_DIP1_WPE",
+			      "WPE3_CG_DIP1_WPE";
+#if 0
 		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects =
