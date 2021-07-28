@@ -306,7 +306,7 @@ struct mml_task {
 	struct dma_fence *fence;
 	enum mml_task_state state;
 	struct kref ref;
-	struct list_head entry_clt;
+	struct list_head entry_clt[MML_PIPE_CNT];
 
 	u32 throughput;
 
