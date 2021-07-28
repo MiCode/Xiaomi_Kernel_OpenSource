@@ -32,7 +32,7 @@ static int disable_unused_probe(struct platform_device *pdev)
 		return 0;
 
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	for (i = 0; i < clk_con; i++) {
 		clk = of_clk_get(pdev->dev.of_node, i);
 		if (IS_ERR(clk)) {
@@ -73,7 +73,7 @@ static int disable_unused_probe(struct platform_device *pdev)
 		}
 	}
 
-	pm_runtime_put(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
 }
