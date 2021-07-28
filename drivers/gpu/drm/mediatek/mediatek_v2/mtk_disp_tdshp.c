@@ -451,8 +451,7 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 			}
 		}
 
-		if (comp->mtk_crtc != NULL)
-			mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+		mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
 	}
 	break;
 	default:

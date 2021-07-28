@@ -168,7 +168,7 @@ static bool disp_c3d_write_sram(struct mtk_ddp_comp *comp)
 	struct mtk_disp_c3d *c3d_data;
 
 	unsigned int sram_offset = 0;
-	unsigned int write_value;
+	unsigned int write_value = 0;
 
 	c3d_data = comp_to_c3d(comp);
 
@@ -299,8 +299,13 @@ static int disp_c3d_wait_irq(void)
 		ret = wait_event_interruptible(g_c3d_get_irq_wq,
 				(atomic_read(&g_c3d_get_irq) == 1) &&
 				(atomic_read(&g_c3d_eventctl) == 1));
-		pr_notice("%s: wait_event_interruptible ---", __func__);
-		pr_notice("%s: get_irq = 1, wake up, ret = %d", __func__, ret);
+
+		if (ret >= 0) {
+			pr_notice("%s: wait_event_interruptible ---", __func__);
+			pr_notice("%s: get_irq = 1, wake up, ret = %d", __func__, ret);
+		} else {
+			DDPINFO("%s: interrupted unexpected\n", __func__);
+		}
 	} else {
 		pr_notice("%s: get_irq = 0", __func__);
 	}
@@ -455,7 +460,7 @@ static int disp_c3d_write_3dlut_to_reg(struct mtk_ddp_comp *comp,
 			spin_unlock_irqrestore(&g_c3d_lut_lock, flags);
 		}
 	} else {
-		pr_notice("%s, c3d bin num: %d not support", c3dBinNum);
+		pr_notice("%s, c3d bin num: %d not support", __func__, c3dBinNum);
 	}
 
 	return 0;
@@ -699,7 +704,7 @@ static void mtk_disp_c3d_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_c3d *priv = dev_get_drvdata(comp->dev);
 
-	pr_notice("%s, line: %d, %s\n", __func__, __LINE__, comp->id);
+	pr_notice("%s, line: %d, compID:%d\n", __func__, __LINE__, comp->id);
 
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_c3d_is_clock_on[index_of_c3d(comp->id)], 1);
