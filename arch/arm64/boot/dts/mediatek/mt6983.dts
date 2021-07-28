@@ -7633,9 +7633,9 @@
 
 	sspm: sspm@1C340000 {
 		compatible = "mediatek,sspm";
-		reg = <0 0x1C300000 0 0x28000>,
-			<0 0x1C340000 0 0x10000>,
-			<0 0x1C380000 0 0x80>;
+		reg = <0 0x1c300000 0 0x30000>,
+			<0 0x1c340000 0 0x10000>,
+			<0 0x1c380000 0 0x80>;
 
 		reg-names = "sspm_base",
 				"cfgreg",
