@@ -1112,6 +1112,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			mtk_cam_set_timestamp(req_stream_data,
 						      time_boot - 1000, time_mono - 1000);
 			mtk_camsys_frame_done(ctx, write_cnt, ctx->stream_id);
+		} else if (mtk_cam_is_stagger(ctx)) {
+			dev_dbg(raw_dev->dev, "[SOF:%d] HDR SWD over SOF case\n", frame_inner_idx);
 		} else {
 			state_transition(state_inner, E_STATE_INNER,
 				 E_STATE_INNER_HW_DELAY);
