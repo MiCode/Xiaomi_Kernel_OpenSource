@@ -117,7 +117,7 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	u64 ibuf_iova, obuf_iova;
 	int ret;
 	void *ptr;
-	int node_id;
+	unsigned int node_id;
 
 	JPEG_LOG(1, "+ id:%d", id);
 	ret = 0;
@@ -144,18 +144,18 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	}
 
 	ret = jpg_dmabuf_get_iova(bufInfo[id].o_dbuf, &obuf_iova, gJpegqDev.pDev[node_id], &bufInfo[id].o_attach, &bufInfo[id].o_sgt);
-	JPEG_LOG(1, "obuf_iova:0x%llx lsb:0x%x msb:0x%lx", obuf_iova,
+	JPEG_LOG(1, "obuf_iova:0x%llx lsb:0x%lx msb:0x%lx", obuf_iova,
 		(unsigned long)(unsigned char*)obuf_iova,
 		(unsigned long)(unsigned char*)(obuf_iova>>32));
 
 	ptr = jpg_dmabuf_vmap(bufInfo[id].o_dbuf);
-	if (ptr != NULL)
+	if (ptr != NULL && data[20] > 0)
 		memset(ptr, 0, data[20]);
 	jpg_dmabuf_vunmap(bufInfo[id].o_dbuf, ptr);
 	*index_buf_fd = jpg_dmabuf_fd(bufInfo[id].o_dbuf);
 
 	ret = jpg_dmabuf_get_iova(bufInfo[id].i_dbuf, &ibuf_iova, gJpegqDev.pDev[node_id], &bufInfo[id].i_attach, &bufInfo[id].i_sgt);
-	JPEG_LOG(1, "ibuf_iova 0x%llx lsb:0x%x msb:0x%lx", ibuf_iova,
+	JPEG_LOG(1, "ibuf_iova 0x%llx lsb:0x%lx msb:0x%lx", ibuf_iova,
 		(unsigned long)(unsigned char*)ibuf_iova,
 		(unsigned long)(unsigned char*)(ibuf_iova>>32));
 
@@ -232,7 +232,7 @@ static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void jpeg_drv_hybrid_dec_prepare_dvfs(int id)
+void jpeg_drv_hybrid_dec_prepare_dvfs(unsigned int id)
 {
 	int ret;
 	struct dev_pm_opp *opp = 0;
@@ -267,16 +267,17 @@ void jpeg_drv_hybrid_dec_unprepare_dvfs(void)
 {
 }
 
-void jpeg_drv_hybrid_dec_start_dvfs(int id)
+void jpeg_drv_hybrid_dec_start_dvfs(unsigned int id)
 {
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
 
 	if (gJpegqDev.jpeg_reg[id] != 0) {
-		JPEG_LOG(1, "request freq %d", gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
+		JPEG_LOG(1, "request freq %lu",
+				gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
 		opp = dev_pm_opp_find_freq_ceil(gJpegqDev.pDev[id],
-					&gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
+		&gJpegqDev.jpeg_freqs[id][gJpegqDev.jpeg_freq_cnt[id]-1]);
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
@@ -289,14 +290,14 @@ void jpeg_drv_hybrid_dec_start_dvfs(int id)
 
 }
 
-void jpeg_drv_hybrid_dec_end_dvfs(int id)
+void jpeg_drv_hybrid_dec_end_dvfs(unsigned int id)
 {
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
 
 	if (gJpegqDev.jpeg_reg[id] != 0) {
-		JPEG_LOG(1, "request freq %d", gJpegqDev.jpeg_freqs[id][0]);
+		JPEG_LOG(1, "request freq %lu", gJpegqDev.jpeg_freqs[id][0]);
 		opp = dev_pm_opp_find_freq_ceil(gJpegqDev.pDev[id],
 					&gJpegqDev.jpeg_freqs[id][0]);
 		volt = dev_pm_opp_get_voltage(opp);
@@ -406,7 +407,7 @@ static int jpeg_drv_hybrid_dec_lock(int *hwid)
 	return retValue;
 }
 
-static void jpeg_drv_hybrid_dec_unlock(int hwid)
+static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 {
 	mutex_lock(&jpeg_hybrid_dec_lock);
 	if (!dec_hwlocked[hwid]) {
@@ -532,7 +533,7 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 		JPEG_LOG(1, "JPEG Hybrid Decoder Wait Resume Time: %ld",
 				timeout_jiff);
 		hwid = pnsParmas.hwid;
-		if (hwid < 0) {
+		if (hwid < 0 || hwid >= HW_CORE_NUMBER) {
 			JPEG_LOG(0, "get hybrid dec id failed");
 			return -EFAULT;
 		}
@@ -602,6 +603,10 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 		}
 
 		hwid = pnsParmas.hwid;
+		if (hwid < 0 || hwid >= HW_CORE_NUMBER) {
+			JPEG_LOG(0, "get P_N_S hwid invalid");
+			return -EFAULT;
+		}
 		progress_n_status = jpeg_drv_hybrid_dec_get_status(hwid);
 
 		if (copy_to_user(
@@ -825,7 +830,7 @@ static int jpeg_probe(struct platform_device *pdev)
 				(unsigned long)of_iomap(node, i);
 
 			gJpegqDev.hybriddecIrqId[i] = irq_of_parse_and_map(node, i);
-			JPEG_LOG(0, "Jpeg Hybrid Dec Probe %d base va 0x%x irqid %d",
+			JPEG_LOG(0, "Jpeg Hybrid Dec Probe %d base va 0x%lx irqid %d",
 				i, gJpegqDev.hybriddecRegBaseVA[i],
 				gJpegqDev.hybriddecIrqId[i]);
 
@@ -853,7 +858,7 @@ static int jpeg_probe(struct platform_device *pdev)
 
 		gJpegqDev.hybriddecIrqId[i] =
 			irq_of_parse_and_map(node, 0);
-		JPEG_LOG(0, "Jpeg Hybrid Dec Probe %d base va 0x%x irqid %d",
+		JPEG_LOG(0, "Jpeg Hybrid Dec Probe %d base va 0x%lx irqid %d",
 			i,
 			gJpegqDev.hybriddecRegBaseVA[i],
 			gJpegqDev.hybriddecIrqId[i]);
