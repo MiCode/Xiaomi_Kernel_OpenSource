@@ -1321,13 +1321,13 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	spin_unlock_irqrestore(&cam->pending_job_lock, flags);
 	if (!req_tmp)
 		return;
+
+	/* Initialize ctx related req_stream_data fields */
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req_tmp->pipe_used & (1 << i)) {
 			/* Accumulated frame sequence number */
 			req_tmp->stream_data[i].frame_seq_no =
 				++(cam->ctxs[i].enqueued_frame_seq_no);
-			req_tmp->stream_data[i].state.estate = E_STATE_READY;
-			req_tmp->stream_data[i].state.req = req_tmp;
 			if (is_raw_subdev(i)) {
 				raw_fut_pre = cam->ctxs[i].pipe->res_config.raw_feature;
 				raw_fut_pre_try = cam->ctxs[i].pipe->try_res_config.raw_feature;
@@ -1434,12 +1434,25 @@ static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
 	return pipe_used;
 }
 
+static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
+				    int pipe_id)
+{
+	struct mtk_cam_request_stream_data *req_stream_data;
+
+	req_stream_data = &req->stream_data[pipe_id];
+	req_stream_data->state.estate = E_STATE_READY;
+	req_stream_data->state.req = req;
+	spin_lock_init(&req_stream_data->bufs_lock);
+	INIT_LIST_HEAD(&req_stream_data->bufs);
+}
+
 static void mtk_cam_req_queue(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 	unsigned long flags;
+	int i;
 
 	cam_req->time_syscall_enque = ktime_get_boottime_ns() / 1000;
 
@@ -1447,6 +1460,12 @@ static void mtk_cam_req_queue(struct media_request *req)
 	cam_req->done_status = 0;
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);
 	cam_req->fs_on_cnt = 0;
+
+	/* Initialize per pipe's stream data (without ctx)*/
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (cam_req->pipe_used & (1 << i))
+			mtk_cam_req_s_data_init(cam_req, i);
+	}
 
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);

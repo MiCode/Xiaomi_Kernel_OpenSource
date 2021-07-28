@@ -708,6 +708,9 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 				ktime_get_boottime_ns() / 1000;
 			dev_dbg(cam->dev, "[%s] sensor_no:%d stream_no:%d\n", __func__,
 					sensor_seq_no_next, req_stream_data->frame_seq_no);
+			/* Increase the request ref count for camsys_state_list's usage*/
+			media_request_get(&req_stream_data->state.req->req);
+
 			/* EnQ this request's state element to state_list (STATE:READY) */
 			spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 			list_add_tail(&req_stream_data->state.state_element,
@@ -730,6 +733,8 @@ static void mtk_cam_set_sensor(struct mtk_cam_request *current_req,
 
 	req_stream_data =
 		&current_req->stream_data[sensor_ctrl->ctx->stream_id];
+	/* Increase the request ref count for camsys_state_list's usage*/
+	media_request_get(&req_stream_data->state.req->req);
 	/* EnQ this request's state element to state_list (STATE:READY) */
 	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_add_tail(&req_stream_data->state.state_element,
@@ -776,6 +781,12 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
 				state_element) {
 		state_req = state_entry->req;
+		if (!state_req) {
+			dev_info(cam->dev, "%s: req of state_entry(%p) is NULL, ctx:%d\n",
+				 __func__, state_entry, ctx->stream_id);
+			continue;
+		}
+
 		req_stream_data = &state_req->stream_data[ctx->stream_id];
 		if (req_stream_data->frame_seq_no == sensor_ctrl->sensor_request_seq_no) {
 			if (state_entry->estate == E_STATE_CQ && USINGSCQ &&
@@ -2161,6 +2172,8 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				&req->stream_data[ctx->stream_id].state;
 			if (state_entry == req_state) {
 				list_del(&state_entry->state_element);
+				/* Decrease the request ref count for camsys_state_list's usage */
+				media_request_put(&state_entry->req->req);
 				state_found = 1;
 			}
 		}
@@ -2673,6 +2686,8 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 				 &camsys_sensor_ctrl->camsys_state_list,
 				 state_element) {
 		list_del(&state_entry->state_element);
+		/* Decrease the request ref count for camsys_state_list's usage */
+		media_request_put(&state_entry->req->req);
 	}
 	spin_unlock_irqrestore(&camsys_sensor_ctrl->camsys_state_lock, flags);
 	if (ctx->sensor) {
