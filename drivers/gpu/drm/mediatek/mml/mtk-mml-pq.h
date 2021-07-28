@@ -52,8 +52,34 @@ struct mml_pq_tile_init_job {
 	struct mml_pq_param param[MML_MAX_OUTPUTS];
 };
 
+struct mml_pq_aal_config_param {
+	u32 dre_blk_width;
+	u32 dre_blk_height;
+};
+
+struct mml_pq_comp_config_result {
+	u8 param_cnt;
+	struct mml_pq_aal_config_param *aal_param;
+	u32 aal_reg_cnt;
+	struct mml_pq_reg *aal_regs;
+	u32 *aal_curve;
+};
+
+struct mml_pq_comp_config_job {
+	/* input from user-space */
+	u32 result_job_id;
+	struct mml_pq_comp_config_result *result;
+
+	/* output to user-space */
+	u32 new_job_id;
+	struct mml_frame_info info;
+	struct mml_pq_param param[MML_MAX_OUTPUTS];
+};
+
 #define MML_PQ_IOC_MAGIC 'W'
 #define MML_PQ_IOC_TILE_INIT _IOWR(MML_PQ_IOC_MAGIC, 0,\
 		struct mml_pq_tile_init_job)
+#define MML_PQ_IOC_COMP_CONFIG _IOWR(MML_PQ_IOC_MAGIC, 1,\
+		struct mml_pq_comp_config_job)
 
 #endif	/* __MTK_MML_PQ_H__ */
