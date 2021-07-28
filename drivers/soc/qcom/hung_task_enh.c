@@ -60,6 +60,8 @@ void qcom_before_check_tasks(void *ignore, struct task_struct *t, unsigned long 
 		return;
 	}
 
+	*need_check = true;
+
 	if (unlikely(t->in_iowait) && (t->state == TASK_UNINTERRUPTIBLE ||
 			t->state == TASK_STOPPED || t->state == TASK_TRACED) &&
 			t->last_switch_time != 0 &&
