@@ -847,9 +847,12 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
 		fps_ratio = get_fps_ratio(dev);
 		dev_info(dev->dev, "REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n", val, fps_ratio);
-
-		writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
-			(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
+		if (dev->stagger_en)
+			writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
+				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
+		else
+			writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
+				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
 #else
 		writel_relaxed(CQ_THR0_MODE_CONTINUOUS | CQ_THR0_EN,
 			       dev->base + REG_CQ_THR0_CTL);
@@ -872,11 +875,12 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		}
 		dev->vf_en = 1;
 		dev_dbg(dev->dev,
-			"%s - REG_CQ_EN:0x%x, REG_CQ_THR0_CTL:0x%8x, REG_TG_VF_CON:0x%8x\n",
+			"%s - CQ_EN:0x%x, CQ_THR0_CTL:0x%8x, TG_VF_CON:0x%8x, SCQ_START_PERIOD:%lld\n",
 			__func__,
 			readl_relaxed(dev->base + REG_CQ_EN),
 			readl_relaxed(dev->base + REG_CQ_THR0_CTL),
-			readl_relaxed(dev->base + REG_TG_VF_CON));
+			readl_relaxed(dev->base + REG_TG_VF_CON),
+			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	} else {
 		writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
 		wmb(); /* TBC */

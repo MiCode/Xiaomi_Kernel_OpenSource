@@ -800,7 +800,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 				in_fmt->fmt.s.w, in_fmt->fmt.s.h,
 				in_fmt->fmt.stride[0], in_fmt->fmt.format,
 				req->frame_params.img_ins[0].buf[0].iova,
-				req->frame_params.img_ins[2].buf[0].iova,
+				req->frame_params.img_ins[1].buf[0].iova,
 				req->frame_params.img_outs[0].buf[0][0].iova);
 			} else {
 				req->frame_params.raw_param.exposure_num = 1;
