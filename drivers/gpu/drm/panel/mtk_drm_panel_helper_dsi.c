@@ -495,6 +495,17 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 	}
 }
 
+static void parse_lcm_dsi_fpga_settings(struct device_node *np,
+	struct mtk_lcm_mode_dsi *mode_node)
+{
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	/* currently not used in kernel, but applied at LK parameters,
+	 * just keep for potential development
+	 * we can replace the normal settings with FPGA settings
+	 */
+#endif
+}
+
 static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	struct mtk_lcm_mode_dsi *mode_node, unsigned int phy_type)
 {
@@ -504,6 +515,10 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	struct mtk_panel_params *ext_param = &mode_node->ext_param;
 	int ret = 0;
 
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-voltage",
+			&mode_node->voltage);
+	DDPMSG("%s, voltage:%u\n", __func__, mode_node->voltage);
 	parse_lcm_dsi_fps_mode(np, mode);
 	parse_lcm_dsi_fps_ext_param(np, ext_param);
 
@@ -556,6 +571,16 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 				__func__, child);
 			parse_lcm_dsi_dyn_fps(child_np,
 					&ext_param->dyn_fps);
+		}
+		/* fpga settings */
+		ret = snprintf(child, sizeof(child) - 1,
+			"mediatek,lcm-dsi-fpga-params");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+		if (of_device_is_compatible(child_np, child)) {
+			DDPINFO("%s, parsing child:%s\n",
+				__func__, child);
+			parse_lcm_dsi_fpga_settings(child_np, mode_node);
 		}
 	}
 }
@@ -843,8 +868,8 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	}
 #endif
 
-	mtk_lcm_dts_read_u32(np, "set_backlight_mode",
-				&ops->set_backlight_mode);
+	mtk_lcm_dts_read_u32(np, "set_backlight_mask",
+				&ops->set_backlight_mask);
 
 	mtk_lcm_dts_read_u32(np, "set_backlight_cmdq_size",
 				&ops->set_backlight_cmdq_size);
@@ -946,8 +971,8 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		}
 	}
 
-	mtk_lcm_dts_read_u32(np, "set_aod_light_mode",
-				&ops->set_aod_light_mode);
+	mtk_lcm_dts_read_u32(np, "set_aod_light_mask",
+				&ops->set_aod_light_mask);
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_size",
 				&ops->set_aod_light_size);

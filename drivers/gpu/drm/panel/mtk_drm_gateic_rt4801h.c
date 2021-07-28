@@ -8,11 +8,12 @@
 #include <linux/platform_device.h>
 #include "mtk_drm_gateic.h"
 
-#define VOL_MIN_LEVEL (VOL_4_0V)
-#define VOL_MAX_LEVEL (VOL_6_0V)
-#define VOL_REG_VALUE(level) (level - VOL_MIN_LEVEL)
-
 struct mtk_gateic_data ctx_rt4801h;
+
+#define RT4801H_VOL_UINT (100) //100mV
+#define RT4801H_VOL_MIN_LEVEL (4000) //4000mV
+#define RT4801H_VOL_MAX_LEVEL (6500) //6500mV
+#define RT4801H_VOL_REG_VALUE(level) ((level - RT4801H_VOL_MIN_LEVEL) / RT4801H_VOL_UINT)
 
 static int rt4801h_reset(int on)
 {
@@ -34,13 +35,15 @@ static int rt4801h_power_on(void)
 {
 	int ret = 0;
 
-	if (ctx_rt4801h.init != 1) {
+	if (atomic_read(&ctx_rt4801h.init) != 1) {
 		DDPPR_ERR("%s gate ic is not initialized\n", __func__);
 		return -1;
 	}
 
-	if (ctx_rt4801h.ref++ > 0) {
-		DDPPR_ERR("%s gate ic (%u) already power on\n", __func__, ctx_rt4801h.ref);
+	if (atomic_read(&ctx_rt4801h.ref) > 0) {
+		atomic_inc(&ctx_rt4801h.ref);
+		DDPPR_ERR("%s gate ic (%u) already power on\n",
+			__func__, atomic_read(&ctx_rt4801h.ref));
 		return 0;
 	}
 
@@ -55,8 +58,6 @@ static int rt4801h_power_on(void)
 	gpiod_set_value(ctx_rt4801h.bias_pos_gpio, 1);
 	devm_gpiod_put(ctx_rt4801h.dev, ctx_rt4801h.bias_pos_gpio);
 
-
-
 	udelay(2000);
 
 	ctx_rt4801h.bias_neg_gpio = devm_gpiod_get_index(ctx_rt4801h.dev,
@@ -69,24 +70,32 @@ static int rt4801h_power_on(void)
 	gpiod_set_value(ctx_rt4801h.bias_neg_gpio, 1);
 	devm_gpiod_put(ctx_rt4801h.dev, ctx_rt4801h.bias_neg_gpio);
 
+	atomic_inc(&ctx_rt4801h.ref);
 	DDPMSG("%s--, %d\n", __func__, ret);
 	return ret;
 }
 
 static int rt4801h_power_off(void)
 {
-	if (ctx_rt4801h.init != 1) {
+	if (atomic_read(&ctx_rt4801h.init) != 1) {
 		DDPPR_ERR("%s gate ic is not initialized\n", __func__);
 		return -1;
 	}
 
-	if (ctx_rt4801h.ref == 0) {
-		DDPPR_ERR("%s gate ic (%u) already power off\n", __func__, ctx_rt4801h.ref);
+	if (atomic_read(&ctx_rt4801h.ref) == 0) {
+		DDPPR_ERR("%s gate ic (%u) already power off\n",
+			__func__, atomic_read(&ctx_rt4801h.ref));
 		return 0;
 	}
 
 	//DDPMSG("%s++\n", __func__);
-	ctx_rt4801h.ref--;
+	atomic_dec(&ctx_rt4801h.ref);
+	if (atomic_read(&ctx_rt4801h.ref) > 0) {
+		DDPMSG("%s, %d, do nothing, there are other users, %u\n",
+			__func__, __LINE__, atomic_read(&ctx_rt4801h.ref));
+		return 0;
+	}
+
 	ctx_rt4801h.reset_gpio =
 		devm_gpiod_get(ctx_rt4801h.dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx_rt4801h.reset_gpio)) {
@@ -124,34 +133,34 @@ static int rt4801h_power_off(void)
 	return 0;
 }
 
-static int rt4801h_set_voltage(enum vol_level level)
+static int rt4801h_set_voltage(unsigned int level)
 {
 	int ret = 0;
 
-	if (ctx_rt4801h.init != 1) {
+	if (atomic_read(&ctx_rt4801h.init) != 1) {
 		DDPPR_ERR("%s gate ic is not initialized\n", __func__);
 		return -1;
 	}
 
-	if (ctx_rt4801h.ref == 0) {
-		DDPPR_ERR("%s gate ic (%u) is power off\n", __func__, ctx_rt4801h.ref);
+	if (atomic_read(&ctx_rt4801h.ref) == 0) {
+		DDPPR_ERR("%s gate ic (%u) is power off\n",
+			__func__, atomic_read(&ctx_rt4801h.ref));
 		return -2;
 	}
 
-	if (level < VOL_MIN_LEVEL || level > VOL_MAX_LEVEL) {
+	if (level < RT4801H_VOL_MIN_LEVEL || level > RT4801H_VOL_MAX_LEVEL) {
 		DDPPR_ERR("%s invalid voltage level:%d\n", __func__, level);
 		return -3;
 	}
 
-	DDPMSG("%s++ level:%d\n", __func__, level);
-	ret = mtk_panel_i2c_write_bytes(0, VOL_REG_VALUE(level));
-	if (ret)
+	DDPMSG("%s++ level:%d, id:0x%x\n",
+		__func__, level, RT4801H_VOL_REG_VALUE(level));
+	ret = mtk_panel_i2c_write_bytes(0, RT4801H_VOL_REG_VALUE(level));
+	if (ret < 0)
 		return ret;
-	ret = mtk_panel_i2c_write_bytes(1, VOL_REG_VALUE(level));
-	if (ret)
-		return ret;
-	//DDPMSG("%s--\n", __func__);
-	return 0;
+	ret = mtk_panel_i2c_write_bytes(1, RT4801H_VOL_REG_VALUE(level));
+
+	return ret;
 }
 
 static struct mtk_gateic_funcs rt4801h_ops = {
@@ -166,7 +175,7 @@ static int rt4801h_drv_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 
-	if (ctx_rt4801h.init == 1)
+	if (atomic_read(&ctx_rt4801h.init) == 1)
 		return 0;
 	DDPMSG("%s++\n", __func__);
 
@@ -196,8 +205,8 @@ static int rt4801h_drv_probe(struct platform_device *pdev)
 	}
 	devm_gpiod_put(dev, ctx_rt4801h.bias_neg_gpio);
 
-	ctx_rt4801h.ref = 1;
-	ctx_rt4801h.init = 1;
+	atomic_set(&ctx_rt4801h.ref, 1);
+	atomic_set(&ctx_rt4801h.init, 1);
 
 	ret = mtk_drm_gateic_set(&rt4801h_ops, MTK_LCM_FUNC_DSI);
 	DDPMSG("%s--, %d\n", __func__, ret);

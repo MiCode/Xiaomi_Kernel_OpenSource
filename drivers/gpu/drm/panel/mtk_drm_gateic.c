@@ -47,9 +47,6 @@ int mtk_drm_gateic_set(struct mtk_gateic_funcs *gateic_ops,
 			return -EEXIST;
 		}
 		mtk_gateic_dbi_ops = gateic_ops;
-		DDPMSG("%s: DBI gateic ops:0x%lx-0x%lx\n",
-			__func__, (unsigned long)mtk_gateic_dbi_ops,
-			(unsigned long)gateic_ops);
 		break;
 	case MTK_LCM_FUNC_DPI:
 		if (mtk_gateic_dpi_ops != NULL) {
@@ -57,9 +54,6 @@ int mtk_drm_gateic_set(struct mtk_gateic_funcs *gateic_ops,
 			return -EEXIST;
 		}
 		mtk_gateic_dpi_ops = gateic_ops;
-		DDPMSG("%s: DPI gateic ops:0x%lx-0x%lx\n",
-			__func__, (unsigned long)mtk_gateic_dpi_ops,
-			(unsigned long)gateic_ops);
 		break;
 	case MTK_LCM_FUNC_DSI:
 		if (mtk_gateic_dsi_ops != NULL) {
@@ -67,9 +61,6 @@ int mtk_drm_gateic_set(struct mtk_gateic_funcs *gateic_ops,
 			return -EEXIST;
 		}
 		mtk_gateic_dsi_ops = gateic_ops;
-		DDPMSG("%s: DSI gateic ops:0x%lx-0x%lx\n",
-			__func__, (unsigned long)mtk_gateic_dsi_ops,
-			(unsigned long)gateic_ops);
 		break;
 	default:
 		DDPMSG("%s: invalid func:%d\n", __func__, func);
@@ -109,7 +100,7 @@ int mtk_drm_gateic_power_off(char func)
 }
 EXPORT_SYMBOL(mtk_drm_gateic_power_off);
 
-int mtk_drm_gateic_set_voltage(enum vol_level level,
+int mtk_drm_gateic_set_voltage(unsigned int level,
 		char func)
 {
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
@@ -132,8 +123,48 @@ int mtk_drm_gateic_reset(int on, char func)
 }
 EXPORT_SYMBOL(mtk_drm_gateic_reset);
 
+int mtk_drm_gateic_set_backlight(unsigned int level,
+		char func)
+{
+	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
+
+	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->set_backlight))
+		return -EFAULT;
+
+	return ops->set_backlight(level);
+}
+EXPORT_SYMBOL(mtk_drm_gateic_set_backlight);
+
+int mtk_drm_gateic_enable_backlight(char func)
+{
+	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
+
+	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->enable_backlight))
+		return -EFAULT;
+
+	return ops->enable_backlight();
+}
+EXPORT_SYMBOL(mtk_drm_gateic_enable_backlight);
+
+int mtk_drm_gateic_write_bytes(unsigned char addr, unsigned char value, char func)
+{
+	return mtk_panel_i2c_write_bytes(addr, value);
+}
+
+int mtk_drm_gateic_read_bytes(unsigned char addr, unsigned char *value, char func)
+{
+	return mtk_panel_i2c_read_bytes(addr, value);
+}
+
+int mtk_drm_gateic_write_multiple_bytes(unsigned char addr,
+		 unsigned char *value, unsigned int size, char func)
+{
+	return mtk_panel_i2c_write_multiple_bytes(addr, value, size);
+}
+
 static struct platform_driver *const mtk_drm_gateic_drivers[] = {
 	&mtk_gateic_rt4801h_driver,
+	&mtk_gateic_rt4831a_driver,
 };
 
 static int __init mtk_drm_gateic_init(void)
@@ -145,20 +176,21 @@ static int __init mtk_drm_gateic_init(void)
 	for (i = 0; (unsigned int)i < ARRAY_SIZE(mtk_drm_gateic_drivers); i++) {
 		ret = platform_driver_register(mtk_drm_gateic_drivers[i]);
 		if (ret < 0) {
-			DDPPR_ERR("Failed to register %s driver: %d\n",
-				  mtk_drm_gateic_drivers[i]->driver.name, ret);
+			DDPPR_ERR("%s: Failed to register %s driver: %d\n",
+				  __func__, mtk_drm_gateic_drivers[i]->driver.name, ret);
 			goto err;
 		}
 	}
-	DDPMSG("%s-\n", __func__);
 
+	DDPMSG("%s, add i2c driver\n", __func__);
 	ret = i2c_add_driver(&mtk_panel_i2c_driver);
 	if (ret < 0) {
-		DDPPR_ERR("Failed to register i2c driver: %d\n",
-			  ret);
+		DDPPR_ERR("%s, failed to register i2c driver: %d\n",
+			  __func__, ret);
 		return ret;
 	}
 
+	DDPMSG("%s-, ret:%d\n", __func__, ret);
 	return 0;
 
 err:

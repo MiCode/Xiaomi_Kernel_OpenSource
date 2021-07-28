@@ -196,6 +196,7 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_ops_input_packet input;
+	unsigned long flags = 0;
 	int ret = 0;
 
 	if (IS_ERR_OR_NULL(ops))
@@ -208,7 +209,9 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 	if (mtk_lcm_create_input(input.condition, 1,
 			MTK_LCM_INPUT_TYPE_CURRENT_FPS) < 0)
 		goto fail2;
-	*(unsigned int *)input.condition->data = atomic_read(&ctx_dsi->current_fps);
+	spin_lock_irqsave(&ctx_dsi->lock, flags);
+	*(unsigned int *)input.condition->data = ctx_dsi->current_mode->fps;
+	spin_unlock_irqrestore(&ctx_dsi->lock, flags);
 
 	if (mtk_lcm_create_input(input.data, 1,
 			MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0)
@@ -250,6 +253,17 @@ static int mtk_drm_panel_prepare(struct drm_panel *panel)
 		DDPPR_ERR("%s, gate ic power on failed, %d\n",
 			__func__, ret);
 		return ret;
+	}
+
+	if (ctx_dsi->current_mode->voltage != 0) {
+		ret = mtk_drm_gateic_set_voltage(
+				ctx_dsi->current_mode->voltage,
+				MTK_LCM_FUNC_DSI);
+		if (ret != 0) {
+			DDPPR_ERR("%s, gate ic set voltage:%u failed, %d\n",
+				__func__, ctx_dsi->current_mode->voltage, ret);
+			return ret;
+		}
 	}
 
 	ret = mtk_drm_panel_do_prepare(ctx_dsi);
@@ -361,6 +375,7 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	struct mtk_lcm_params_dsi *params =
 			&ctx_dsi->panel_resource->params.dsi_params;
 	struct mtk_lcm_mode_dsi *mode_node;
+	unsigned long flags = 0;
 	bool found = false;
 	struct drm_display_mode *mode = get_mode_by_connector_id(connector, id);
 
@@ -392,9 +407,12 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		return -EINVAL;
 	}
 	ext->params = &mode_node->ext_param;
-	atomic_set(&ctx_dsi->current_fps, mode_node->fps);
+	spin_lock_irqsave(&ctx_dsi->lock, flags);
+	ctx_dsi->current_mode = mode_node;
+	spin_unlock_irqrestore(&ctx_dsi->lock, flags);
+
 	DDPMSG("%s-, id:%u, fps:%u\n", __func__,
-		id, atomic_read(&ctx_dsi->current_fps));
+		id, ctx_dsi->current_mode->fps);
 	return 0;
 }
 
@@ -558,20 +576,8 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 
 	DDPINFO("%s, %d, table_size:%u, mode:%u, level:%u\n",
 		__func__, __LINE__, table_size, mode, level);
-	switch (mode) {
-	case MTK_BACKLIGHT_MODE_256:
-		ret = do_panel_set_backlight(dsi, cb, handle,
-					level, table, table_size);
-		break;
-	case MTK_BACKLIGHT_MODE_4K:
-		ret = do_panel_set_backlight(dsi, cb, handle,
-					level * 4095 / 255, table, table_size);
-		break;
-	default:
-		ret = do_panel_set_backlight(dsi, cb, handle,
-					level, table, table_size);
-		break;
-	}
+	ret = do_panel_set_backlight(dsi, cb, handle,
+				level * mode / 255, table, table_size);
 
 	DDPINFO("%s, %d, ret:%d\n", __func__, __LINE__, ret);
 	atomic_set(&ctx_dsi->current_backlight, level);
@@ -604,7 +610,7 @@ static int mtk_panel_set_backlight_cmdq(void *dsi, dcs_write_gce cb,
 
 	table = ops->set_backlight_cmdq;
 	table_size = ops->set_backlight_cmdq_size;
-	mode = ops->set_backlight_mode;
+	mode = ops->set_backlight_mask;
 
 	ret = panel_set_backlight(dsi, cb, handle,
 				level, table, table_size, mode);
@@ -636,9 +642,6 @@ static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 		DDPMSG("%s, invalid backlight table\n", __func__);
 		return -EINVAL;
 	}
-
-	if (ops->set_backlight_mode != MTK_BACKLIGHT_MODE_256)
-		return -EINVAL;
 
 	LCM_KZALLOC(panel_para, 64, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(panel_para))
@@ -768,7 +771,7 @@ static int mtk_panel_set_aod_light_mode(void *dsi,
 	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
 	struct mtk_lcm_ops_dsi *ops = NULL;
 	struct mtk_lcm_ops_data *table = NULL;
-	unsigned int table_size = 0, light_mode = 0;
+	unsigned int table_size = 0, light_mask = 0;
 	int ret = 0;
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
@@ -786,12 +789,12 @@ static int mtk_panel_set_aod_light_mode(void *dsi,
 		return -EINVAL;
 	}
 
-	light_mode = ops->set_aod_light_mode;
+	light_mask = ops->set_aod_light_mask;
 	table = ops->set_aod_light;
 	table_size = ops->set_aod_light_size;
 
 	ret = panel_set_backlight(dsi, cb, handle,
-				level, table, table_size, light_mode);
+				level, table, table_size, light_mask);
 
 	return ret;
 }
@@ -1316,8 +1319,9 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	atomic_set(&ctx_dsi->enabled, 1);
 	atomic_set(&ctx_dsi->error, 0);
 	atomic_set(&ctx_dsi->hbm_en, 0);
-	atomic_set(&ctx_dsi->current_fps, dsi_params->default_mode->fps);
 	atomic_set(&ctx_dsi->current_backlight, 0xFF);
+	ctx_dsi->current_mode = dsi_params->default_mode;
+	spin_lock_init(&ctx_dsi->lock);
 
 	drm_panel_init(&ctx_dsi->panel, dev,
 			&lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);

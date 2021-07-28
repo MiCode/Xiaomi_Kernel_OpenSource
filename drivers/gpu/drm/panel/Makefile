@@ -72,6 +72,7 @@ obj-$(CONFIG_DRM_PANEL_TRULY_NT35595_CMD) += panel-truly-nt35595-cmd.o
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \
+		  mtk_drm_gateic_rt4831a.o \
 		  mtk_drm_gateic.o
 
 mediatek-drm-panel-drv-y :=  \

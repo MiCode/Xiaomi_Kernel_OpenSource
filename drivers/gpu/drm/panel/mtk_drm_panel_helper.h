@@ -68,6 +68,7 @@ struct mtk_lcm_mode_dsi {
 	unsigned int width;
 	unsigned int height;
 	unsigned int fps;
+	unsigned int voltage;
 	struct list_head list;
 /* params */
 	struct drm_display_mode mode;
@@ -230,13 +231,13 @@ struct mtk_lcm_ops_dsi {
 	struct mtk_lcm_ops_data *disable;
 
 	/* panel backlight update*/
-	unsigned int set_backlight_mode;
+	unsigned int set_backlight_mask;
 	unsigned int set_backlight_cmdq_size;
 	struct mtk_lcm_ops_data *set_backlight_cmdq;
 	unsigned int set_backlight_grp_cmdq_size;
 	struct mtk_lcm_ops_data *set_backlight_grp_cmdq;
 
-	unsigned int set_aod_light_mode;
+	unsigned int set_aod_light_mask;
 	unsigned int set_aod_light_size;
 	struct mtk_lcm_ops_data *set_aod_light;
 

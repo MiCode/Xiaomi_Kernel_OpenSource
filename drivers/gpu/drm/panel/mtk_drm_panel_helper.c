@@ -908,7 +908,7 @@ static void mtk_get_type_name(unsigned int type, char *out)
 		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT");
 		break;
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT_MUL");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT_MUL");
 		break;
 	case MTK_LCM_GPIO_TYPE_MODE:
 		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_MODE");

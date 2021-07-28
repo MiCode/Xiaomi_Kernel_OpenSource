@@ -13,10 +13,12 @@
 #include <video/of_videomode.h>
 #include <video/videomode.h>
 #include <linux/backlight.h>
+#include <linux/spinlock.h>
 #include "mtk_drm_panel_helper.h"
 
 struct mtk_panel_context {
 	struct device *dev;
+	spinlock_t lock;
 
 	/* drm panel interfaces */
 	struct drm_panel panel;
@@ -29,6 +31,9 @@ struct mtk_panel_context {
 
 	/* panel params and operations parsed from dtsi */
 	struct mtk_panel_resource *panel_resource;
+
+	/* panel params and operations parsed from dtsi */
+	struct mtk_lcm_mode_dsi *current_mode;
 
 	/* panel status of prepared */
 	atomic_t prepared;
@@ -44,9 +49,6 @@ struct mtk_panel_context {
 
 	/* panel required delay of hight backlight mode*/
 	atomic_t hbm_wait;
-
-	/* current fps mode */
-	atomic_t current_fps;
 
 	/* current fps mode */
 	atomic_t current_backlight;
