@@ -30,7 +30,7 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+		bootargs = "console=tty0 root=/dev/ram \
 			vmalloc=400M swiotlb=noforce \
 			firmware_class.path=/vendor/firmware \
 			page_owner=on";
@@ -208,33 +208,32 @@
 		status = "disabled";
 	};
 
-	apdma: dma-controller@11000980 {
-		compatible = "mediatek,mt6577-uart-dma";
-		reg = <0 0x11000a80 0 0x80>,
-		      <0 0x11000b00 0 0x80>,
-		      <0 0x11000b80 0 0x80>,
-		      <0 0x11000c00 0 0x80>;
-		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
-		#dma-cells = <1>;
-		dma-bits = <34>;
+	apdma: dma-controller@11300800 {
+		compatible = "mediatek,mt6779-uart-dma";
+		reg = <0 0x11300800 0 0x80>,
+		      <0 0x11300880 0 0x80>,
+		      <0 0x11300900 0 0x80>,
+		      <0 0x11300980 0 0x80>;
+		interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
+		dma-requests = <4>;
 	};
 
-	apuart0: serial@11002000 {
+	apuart0: serial@11001000 {
 		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11002000 0 0x1000>;
-		interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0 0x11001000 0 0x1000>;
+		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>;
 		dmas = <&apdma 0
 				&apdma 1>;
 		dma-names = "tx", "rx";
 	};
 
-	apuart1: serial@11003000 {
+	apuart1: serial@11002000 {
 		compatible = "mediatek,mt6577-uart";
-		reg = <0 0x11003000 0 0x1000>;
-		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0 0x11002000 0 0x1000>;
+		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
 		dmas = <&apdma 2
 				&apdma 3>;
 		dma-names = "tx", "rx";
