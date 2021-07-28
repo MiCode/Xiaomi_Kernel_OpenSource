@@ -166,7 +166,7 @@ static void apu_qos_timer_start(void)
 
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
 		engine_pm_qos_counter[i].last_report_bw = 0;
-		engine_pm_qos_counter[i].last_idx = qos_info->idx;
+		engine_pm_qos_counter[i].last_idx = get_qos_bound_idx();
 	}
 
 	/* setup timer */
@@ -262,10 +262,9 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 	/* sum current bw value to cmd_qos */
 	mutex_lock(&cmd_qos->mtx);
 	idx = cmd_qos->last_idx;
-	while (idx != ((qos_info->idx + 1) % MTK_QOS_BUF_SIZE)) {
+	while (idx != ((get_qos_bound_idx() + 1) % MTK_QOS_BUF_SIZE)) {
 		if (cmd_qos->core < NR_APU_QOS_ENGINE)
-			cmd_qos->total_bw +=
-				qos_info->stats[idx].smibw_mon[qos_smi_idx];
+			cmd_qos->total_bw += get_qos_bound_apubw_mon(idx, qos_smi_idx);
 		cmd_qos->count++;
 		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
 	}
@@ -344,7 +343,7 @@ static int enque_cmd_qos(uint64_t cmd_id,
 	cmd_qos->sub_cmd_id = sub_cmd_id;
 	cmd_qos->core = core;
 	cmd_qos->status = CMD_RUNNING;
-	cmd_qos->last_idx = qos_info->idx;
+	cmd_qos->last_idx = get_qos_bound_idx();
 	cmd_qos->total_bw = 0;
 	mutex_unlock(&cmd_qos->mtx);
 
@@ -586,7 +585,7 @@ void apu_qos_resume(void)
 		if (pos->status == CMD_RUNNING) {
 			/* update last_idx to current pm qos idx */
 			mutex_lock(&pos->mtx);
-			pos->last_idx = qos_info->idx;
+			pos->last_idx = get_qos_bound_idx();
 			mutex_unlock(&pos->mtx);
 		}
 	}
@@ -867,7 +866,7 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 			 * cmd's bw due to monitor delay 1.26 ms
 			 */
 			cmd_qos->last_idx =
-				(qos_info->idx + 1) % MTK_QOS_BUF_SIZE;
+				(qo_bound_idx() + 1) % MTK_QOS_BUF_SIZE;
 
 			mutex_unlock(&cmd_qos->mtx);
 		}
