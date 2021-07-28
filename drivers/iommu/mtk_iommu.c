@@ -147,6 +147,7 @@
 /* Debug: Skip register IRQ */
 #define IOMMU_NO_IRQ			BIT(17)
 #define GET_DOM_ID_LEGACY		BIT(18)
+#define HAS_SMI_SUB_COMM		BIT(19)
 
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
@@ -1534,7 +1535,7 @@ out:
 	larb_nr = of_count_phandle_with_args(dev->of_node,
 					     "mediatek,larbs", NULL);
 	if (larb_nr < 0) {
-		dev_err(dev, "%s, can't fine mediatek,larbs !\n", __func__);
+		dev_err(dev, "%s, can't find mediatek,larbs !\n", __func__);
 		return larb_nr;
 	}
 
@@ -1542,8 +1543,10 @@ out:
 		u32 id;
 
 		larbnode = of_parse_phandle(dev->of_node, "mediatek,larbs", i);
-		if (!larbnode)
+		if (!larbnode) {
+			dev_err(dev, "%s, can't find larbnode:%d !\n", __func__, i);
 			return -EINVAL;
+		}
 
 		if (!of_device_is_available(larbnode)) {
 			of_node_put(larbnode);
@@ -1558,6 +1561,7 @@ out:
 
 		plarbdev = of_find_device_by_node(larbnode);
 		if (!plarbdev) {
+			dev_err(dev, "%s, can't find larb dev:%d !\n", __func__, i);
 			of_node_put(larbnode);
 			return -EPROBE_DEFER;
 		}
@@ -1569,12 +1573,49 @@ out:
 
 	/* Get smi-common dev from the last larb. */
 	smicomm_node = of_parse_phandle(larbnode, "mediatek,smi", 0);
-	if (!smicomm_node)
+	if (!smicomm_node) {
+		dev_err(dev, "%s, can't find smicomm_node phase1\n", __func__);
 		return -EINVAL;
+	}
 
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_SMI_SUB_COMM)) {
+		int string_nr, ret;
+		const char *compat_name = NULL;
+
+repeat:
+		pr_info("%s, check smi commom node start, dev:%s\n", __func__, dev_name(dev));
+		if (!smicomm_node) {
+			dev_err(dev, "%s, can't find smicomm_node phase2\n", __func__);
+			return -EINVAL;
+		}
+		string_nr = of_property_count_strings(smicomm_node, "compatible");
+		if (string_nr < 0) {
+			dev_err(dev, "%s err, find compatible fail, nr:%d\n", __func__, string_nr);
+			return -EINVAL;
+		}
+		for (i = 0; i < string_nr; i++) {
+			ret = of_property_read_string_index(smicomm_node, "compatible",
+							i, &compat_name);
+			if (ret) {
+				dev_err(dev, "%s err, find compatible name fail, ret:%d\n",
+				       __func__, ret);
+				return -EINVAL;
+			}
+			pr_info("%s, compatible_name:%s, i:%d\n", __func__, compat_name, i);
+			if (strstr(compat_name, "sub-common"))
+				break; /* it is sub-common and goto find next node */
+		}
+		if (i < string_nr) {
+			pr_info("%s, find next level node, dev:%s\n", __func__, dev_name(dev));
+			smicomm_node = of_parse_phandle(smicomm_node, "mediatek,smi", 0);
+			goto repeat;
+		}
+	}
 	plarbdev = of_find_device_by_node(smicomm_node);
 	of_node_put(smicomm_node);
 	data->smicomm_dev = &plarbdev->dev;
+	pr_info("%s, smi_common:%s, iommu_dev:%s\n", __func__,
+		dev_name(&plarbdev->dev), dev_name(dev));
 
 skip_smi:
 	pm_runtime_enable(dev);
@@ -1949,7 +1990,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_BK_EN | IOMMU_CLK_AO_EN |
-			  IOMMU_EN_PRE | SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK,
+			  SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
@@ -1968,7 +2009,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_BK_EN | IOMMU_CLK_AO_EN |
-			  IOMMU_EN_PRE | SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK,
+			  SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
 	.iommu_type     = MM_IOMMU,
