@@ -6830,7 +6830,28 @@
 			<&disp_iommu M4U_PORT_L5_VDEC_LAT0_WDMA_EXT>,
 			<&disp_iommu M4U_PORT_L5_VDEC_UFO_ENC_EXT>,
 			<&disp_iommu M4U_PORT_L5_VDEC_UFO_ENC_EXT_C>,
-			<&disp_iommu M4U_PORT_L5_VDEC_MC_EXT_C>;
+			<&disp_iommu M4U_PORT_L5_VDEC_MC_EXT_C>,
+			<&disp_iommu M4U_PORT_L7_VENC_RCPU_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_REC_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_BSDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_SV_COMV_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_RD_COMV_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_NBM_RDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_NBM_RDMA_LITE_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_NBM_WDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_NBM_WDMA_LITE_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_CUR_LUMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_CUR_CHROMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_REF_LUMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_REF_CHROMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_SUB_R_LUMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_SUB_W_LUMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_FCS_NBM_RDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_FCS_NBM_WDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_EC_WPP_BSDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_EC_WPP_RDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_DB_SYSRAM_WDMA_DISP>,
+			<&disp_iommu M4U_PORT_L7_VENC_DB_SYSRAM_RDMA_DISP>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 	};
 
@@ -6965,7 +6986,7 @@
 		mediatek,platform = "platform:mt6983";
 		mediatek,ipm = <2>;
 		reg = <0 0x17020000 0 0x2000>,
-			<0 0x17820000 0 0x20000>;
+			<0 0x17820000 0 0x2000>;
 		reg-names = "VENC_SYS",
 			"VENC_C1_SYS";
 		iommus = <&mdp_iommu M4U_PORT_L8_VENC_RCPU_MDP>,
