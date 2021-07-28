@@ -8475,7 +8475,7 @@
 		mtk_dsp_voip = <0x1f 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_primary = <0x5 0xffffffff 0xffffffff \
 				   0xffffffff 0x30000>;
-		mtk_dsp_offload = <0x0 0xffffffff 0xffffffff \
+		mtk_dsp_offload = <0x1d 0xffffffff 0xffffffff \
 				   0xffffffff 0x400000>;
 		mtk_dsp_deep = <0x5 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_playback = <0x1 0x4 0xffffffff 0x14 0x30000>;
@@ -8502,6 +8502,10 @@
 	speech_usip_mem: speech_usip_mem {
 		compatible = "mediatek,speech_usip_mem";
 		adsp_phone_call_enh_enable = <0x3>;
+	};
+
+	mt_soc_offload_common {
+		compatible = "mediatek,mt_soc_offload_common";
 	};
 
 	mtk_lpm: mtk_lpm {
