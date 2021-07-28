@@ -412,6 +412,19 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
 	}
 
+	dev_info(imgsys_dev->dev, "%s: dump tnr ctl regs\n", __func__);
+	for (i = TNR_CTL_OFFSET; i <= TNR_CTL_OFFSET + TNR_CTL_RANGE; i += 0x10) {
+		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
+		__func__, (unsigned int)(0x15100000 + i),
+		(unsigned int)ioread32((void *)(dipRegBA + i)),
+		(unsigned int)(0x15100000 + i + 0x4),
+		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+		(unsigned int)(0x15100000 + i + 0x8),
+		(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+		(unsigned int)(0x15100000 + i + 0xc),
+		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+
 	dev_info(imgsys_dev->dev, "%s: dump mcrop regs\n", __func__);
 	for (i = MCRP_OFFSET; i <= MCRP_OFFSET + MCRP_RANGE; i += 0x8) {
 		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X]",
@@ -460,84 +473,6 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		(unsigned int)(0x15100000 + i + 0xc),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
 	}
-
-	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
-	/* Set DIPCTL_DBG_SEL[15:8] to 0x13 */
-	/* Set DIPCTL_DBG_SEL[19:6] to 0x1~0x4 */
-	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_ee\n", __func__);
-	iowrite32(0x11301, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: ee_out_debug0: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x21301, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: ee_out_debug1: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x31301, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: ee_out_debug2: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x41301, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: ee_out_debug3: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-
-	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
-	/* Set DIPCTL_DBG_SEL[15:8] to 0x15 */
-	/* Set DIPCTL_DBG_SEL[19:6] to 0x1~0x8 */
-	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_aks\n", __func__);
-	iowrite32(0x11501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_checksum1: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x21501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_checksum2: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x31501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_checksum3: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x41501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_debug_data0: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x51501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_debug_data1: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x61501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_debug_data2: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x71501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_debug_data3: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x81501, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: aks_debug_data4: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-
-	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
-	/* Set DIPCTL_DBG_SEL[15:8] to 0x16 */
-	/* Set DIPCTL_DBG_SEL[19:6] to 0x1~0x9 */
-	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_cnr\n", __func__);
-	iowrite32(0x11601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug0: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x21601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug1: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x31601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug2: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x41601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug3: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x51601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug4: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x61601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug5: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x71601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug6: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x81601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug7: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
-	iowrite32(0x91601, (void *)(dipRegBA + DIPCTL_DBG_SEL));
-	dev_info(imgsys_dev->dev, "%s: cnr_debug8: %08X", __func__,
-	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
 
 	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
 	/* Set DIPCTL_DBG_SEL[15:8] to 0x18 */

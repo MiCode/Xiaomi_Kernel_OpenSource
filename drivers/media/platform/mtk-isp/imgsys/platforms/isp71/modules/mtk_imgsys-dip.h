@@ -21,7 +21,9 @@
 #define WDMA_OFFSET	0x22C0
 #define WDMA_RANGE	0x0C08
 #define NR3D_CTL_OFFSET	0x5000
-#define NR3D_CTL_RANGE	0x3544
+#define NR3D_CTL_RANGE	0x484
+#define TNR_CTL_OFFSET	0x6000
+#define TNR_CTL_RANGE	0x0004
 #define MCRP_OFFSET	0x5B240
 #define MCRP_RANGE	0x0004
 #define N_DMATOP_OFFSET	0x51000
@@ -33,7 +35,7 @@
 
 #define DIPCTL_DBG_SEL 0x1A8
 #define DIPCTL_DBG_OUT 0x1AC
-#define NR3D_DBG_SEL 0x200C
+#define NR3D_DBG_SEL 0x500C
 
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
