@@ -130,8 +130,7 @@ struct mtk_cam_request_stream_data {
 	unsigned int frame_seq_no;
 	u64 timestamp;
 	u64 timestamp_mono;
-	spinlock_t bufs_lock;
-	struct list_head bufs;
+	struct mtk_cam_buffer *bufs[MTK_RAW_TOTAL_NODES];
 	struct v4l2_subdev *seninf_old;
 	struct v4l2_subdev *seninf_new;
 	u32 pad_fmt_update;
@@ -371,6 +370,45 @@ mtk_cam_sv_wbuf_set_s_data(struct mtk_camsv_working_buf_entry *buf_entry,
 
 {
 	buf_entry->s_data = s_data;
+}
+
+static inline int
+mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data, int node_id)
+{
+
+	if (s_data->pipe_id >= MTKCAM_SUBDEV_RAW_START &&
+		s_data->pipe_id < MTKCAM_SUBDEV_RAW_END)
+		return node_id - MTK_RAW_SINK_NUM;
+
+	if (s_data->pipe_id >= MTKCAM_SUBDEV_CAMSV_START &&
+		s_data->pipe_id < MTKCAM_SUBDEV_CAMSV_END)
+		return  node_id - MTK_CAMSV_SINK_NUM;
+
+	return -1;
+}
+
+
+static inline void
+mtk_cam_s_data_set_vbuf(struct mtk_cam_request_stream_data *s_data,
+			struct mtk_cam_buffer *buf, int node_id)
+{
+	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
+
+	if (idx >= 0)
+		s_data->bufs[idx] = buf;
+}
+
+
+static inline struct mtk_cam_buffer*
+mtk_cam_s_data_get_vbuf(struct mtk_cam_request_stream_data *s_data,
+			int node_id)
+{
+	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
+
+	if (idx >= 0)
+		return s_data->bufs[idx];
+
+	return NULL;
 }
 
 static inline void

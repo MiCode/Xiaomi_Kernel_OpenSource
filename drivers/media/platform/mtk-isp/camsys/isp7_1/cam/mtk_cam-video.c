@@ -681,6 +681,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	frame_param = &req_stream_data->frame_params;
 	sv_frame_params = &req_stream_data->sv_frame_params;
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
+	mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id);
 
 	dev_dbg(dev, "%s: node:%d fd:%d idx:%d\n", __func__,
 		node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index);

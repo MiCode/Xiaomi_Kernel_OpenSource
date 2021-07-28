@@ -61,10 +61,10 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			  enum vb2_buffer_state state)
 {
 	struct mtk_cam_device *cam = ctx->cam;
-	struct mtk_cam_buffer *buf, *buf_prev;
 	struct mtk_camsys_ctrl_state *req_state;
 	struct mtk_cam_request_stream_data *req_stream_data_pipe;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	int i;
 
 	req_stream_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
 	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
@@ -83,10 +83,14 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		return;
 	}
 
-	spin_lock(&req_stream_data_pipe->bufs_lock);
-	list_for_each_entry_safe(buf, buf_prev, &req_stream_data_pipe->bufs, stream_data_list) {
+	for (i = 0; i < MTK_RAW_TOTAL_NODES; i++) {
+		struct mtk_cam_buffer *buf;
 		struct vb2_buffer *vb;
 		struct mtk_cam_video_device *node;
+
+		buf = req_stream_data_pipe->bufs[i];
+		if (!buf)
+			continue;
 
 		vb = &buf->vbb.vb2_buf;
 		node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
@@ -98,7 +102,6 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			continue;
 		}
 
-		list_del(&buf->stream_data_list);
 		spin_lock(&node->buf_list_lock);
 		list_del(&buf->list);
 		spin_unlock(&node->buf_list_lock);
@@ -118,7 +121,6 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
-	spin_unlock(&req_stream_data_pipe->bufs_lock);
 
 	req_state = &req_stream_data->state;
 	req_state->time_deque = ktime_get_boottime_ns() / 1000;
@@ -1163,7 +1165,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	struct media_request_object *obj, *obj_prev;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *req_stream_data;
-	struct mtk_cam_request_stream_data *req_stream_data_pipe;
 
 	mtk_cam_req_set_fmt(cam, req);
 
@@ -1180,7 +1181,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		struct v4l2_format *fmt;
 		struct media_request *request;
 		__s32 fd;
-		unsigned long flags;
 
 		if (!vb2_request_object_is_buffer(obj))
 			continue;
@@ -1203,11 +1203,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 		if (req_stream_data->seninf_new)
 			ctx->seninf = req_stream_data->seninf_new;
-
-		req_stream_data_pipe = mtk_cam_req_get_s_data(req, node->uid.pipe_id, 0);
-		spin_lock_irqsave(&req_stream_data_pipe->bufs_lock, flags);
-		list_add_tail(&buf->stream_data_list, &req_stream_data_pipe->bufs);
-		spin_unlock_irqrestore(&req_stream_data_pipe->bufs_lock, flags);
 
 		/* update buffer format */
 		switch (node->desc.dma_port) {
@@ -1520,8 +1515,6 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->req = req;
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
-		spin_lock_init(&req_stream_data->bufs_lock);
-		INIT_LIST_HEAD(&req_stream_data->bufs);
 	}
 }
 
