@@ -51,7 +51,6 @@ endif # !CONFIG_TEE
 obj-$(CONFIG_MTK_GZ_MAIN) += gz_main_mod.o
 gz_main_mod-objs += gz_main.o \
 			     mtee_ut/gz_ut.o mtee_ut/gz_sec_storage_ut.o \
-			     mtee_ut/gz_shmem_ut.o mtee_ut/gz_rkp_ut.o \
 			     mtee-kree/tz_mmap.o mtee-kree/kree_mem.o
 
 obj-$(CONFIG_MTK_GZ_TZ_SYSTEM) += gz_tz_system.o
