@@ -2489,6 +2489,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
 
+	ctx->dec_flush_buf->lastframe = NON_EOS;
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->state >= MTK_STATE_HEADER)
 			mtk_vdec_flush_decoder(ctx);
