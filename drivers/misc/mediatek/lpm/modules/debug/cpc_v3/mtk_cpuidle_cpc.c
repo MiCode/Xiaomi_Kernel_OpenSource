@@ -7,7 +7,12 @@
 
 #include <lpm.h>
 
+#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
+#include <lpm_dbg_cpc_v5.h>
+#else
 #include <lpm_dbg_cpc_v3.h>
+#endif
+
 #include <mtk_cpuidle_sysfs.h>
 
 #include "mtk_cpupm_dbg.h"
