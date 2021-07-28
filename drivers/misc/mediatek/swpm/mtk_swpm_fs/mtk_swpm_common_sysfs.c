@@ -79,7 +79,7 @@ int mtk_swpm_sysfs_entry_func_create(const char *name,
 				bRet = -ENOMEM;
 				break;
 			}
-			p->flag |= MTK_SWPM_SYSFS_FREEZABLE;
+			p->flag = MTK_SWPM_SYSFS_FREEZABLE;
 		} else
 			p = handle;
 
@@ -115,7 +115,7 @@ int mtk_swpm_sysfs_entry_func_node_add(const char *name,
 				bRet = -ENOMEM;
 				break;
 			}
-			p->flag |= MTK_SWPM_SYSFS_FREEZABLE;
+			p->flag = MTK_SWPM_SYSFS_FREEZABLE;
 		} else
 			p = node;
 

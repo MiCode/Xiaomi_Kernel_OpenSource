@@ -580,7 +580,7 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 		pr_notice("swpm share sram init fail\n");
 		goto error;
 	} else {
-		pr_notice("swpm init ipi offset = 0x%x\n");
+		pr_notice("swpm init offset = 0x%x\n", offset);
 	}
 
 	/* get wrapped sram address */
