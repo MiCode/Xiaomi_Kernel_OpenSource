@@ -271,10 +271,15 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 static int mtk_usb_extcon_tcpc_init(struct mtk_extcon_info *extcon)
 {
 	struct tcpc_device *tcpc_dev;
+	struct device_node *np = extcon->dev->of_node;
+	const char *tcpc_name;
 	int ret;
 
-	tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	ret = of_property_read_string(np, "tcpc", &tcpc_name);
+	if (ret < 0)
+		return -ENODEV;
 
+	tcpc_dev = tcpc_dev_get_by_name(tcpc_name);
 	if (!tcpc_dev) {
 		dev_err(extcon->dev, "get tcpc device fail\n");
 		return -ENODEV;
