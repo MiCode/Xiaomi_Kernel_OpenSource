@@ -17,7 +17,6 @@
 #include "mtk_heap.h"
 
 #define DUMP_INFO_LEN_MAX    (400)
-#define SKIP_DMBUF_BUFFER_DUMP
 
 /* Bit map */
 #define HEAP_DUMP_SKIP_ATTACH     (1 << 0)
@@ -31,13 +30,6 @@
 			pr_info(fmt, ##args);          \
 	} while(0)
 
-
-struct mtk_heap_priv_info {
-	char *(*get_buf_dump_str)(const struct dma_buf *dmabuf,
-				  const struct dma_heap *heap);
-	char *(*get_buf_dump_fmt)(const struct dma_heap *heap);
-	void (*show)(struct dma_heap *heap, void *seq_file, int flag);
-};
 
 /* copy from struct system_heap_buffer */
 struct sys_heap_buf_debug_use {

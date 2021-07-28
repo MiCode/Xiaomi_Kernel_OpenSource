@@ -741,125 +741,6 @@ static struct dma_heap_ops mtk_mm_uncached_heap_ops = {
 	.allocate = mtk_mm_uncached_heap_not_initialized,
 };
 
-/* no '\n' at end of str */
-static char *mm_get_buf_dump_str(const struct dma_buf *dmabuf,
-				 const struct dma_heap *heap) {
-	struct mtk_mm_heap_buffer *buf = dmabuf->priv;
-	struct mm_heap_priv *buf_priv = NULL;
-	struct dma_heap *buf_heap = NULL;
-	//int i;
-	char *info_str;
-	int len = 0;
-
-	/* buffer check */
-	if (dmabuf->ops != &mtk_mm_heap_buf_ops)
-		return NULL;
-
-	buf_priv = buf->priv;
-	buf_heap = buf->heap;
-
-	/* heap check */
-	if (heap != buf_heap)
-		return NULL;
-
-	info_str = kzalloc(sizeof(char) * (DUMP_INFO_LEN_MAX + 1), GFP_KERNEL);
-	if (!info_str)
-		return NULL;
-
-	len += scnprintf(info_str + len,
-			 DUMP_INFO_LEN_MAX - len,
-			 "%s \t%p \t0x%lx \t%s \t%s \t%d \t%x \t%x \t%ld \t%lu \t%d(%s) \t%d(%s)",
-			 dma_heap_get_name(buf_heap),
-			 dmabuf,
-			 dmabuf->size, dmabuf->exp_name,
-			 dmabuf->name ?: "NULL",
-			 !!buf->uncached,
-			 dmabuf->file->f_flags,
-			 dmabuf->file->f_mode,
-			 file_count(dmabuf->file),
-			 file_inode(dmabuf->file)->i_ino,
-			 /* after this is private part */
-			 buf_priv->pid, buf_priv->pid_name,
-			 buf_priv->tid, buf_priv->tid_name);
-
-#if 0
-	for(i = 0; i < BUF_PRIV_MAX_CNT; i++) {
-		if (len >= BUF_PRIV_MAX_CNT) {
-			pr_info("%s #%d: out of dump mem %d-%d\n",
-				__func__, __LINE__, len, BUF_PRIV_MAX_CNT);
-			break;
-		}
-		len += scnprintf(info_str + len,
-				 DUMP_INFO_LEN_MAX - len,
-				 " \t%d \t%s \t%d \t%lu \t%p",
-				 buf_priv->mapped[i],
-				 dev_name(buf_priv->dev_info[i].dev),
-				 buf_priv->dev_info[i].direction,
-				 buf_priv->dev_info[i].map_attrs,
-				 buf_priv->mapped_table[i]);
-	}
-#endif
-	return info_str;
-
-}
-
-/* no '\n' at end of str */
-static char *mm_get_buf_dump_fmt(const struct dma_heap *heap) {
-	//int i;
-	char *fmt_str = NULL;
-	int len = 0;
-
-	if (heap != mtk_mm_heap &&
-	    heap != mtk_mm_uncached_heap)
-		return NULL;
-
-	fmt_str = kzalloc(sizeof(char) * (DUMP_INFO_LEN_MAX + 1), GFP_KERNEL);
-	if (!fmt_str)
-		return NULL;
-
-	len += scnprintf(fmt_str + len,
-			 DUMP_INFO_LEN_MAX - len,
-			 "heap_name \tdmabuf \tsize(hex) \texp_name \tdmabuf_name \tuncached \tf_flag \tf_mode \tf_count \tino \tpid(name) \ttid(name)");
-
-#if 0
-	for(i = 0; i < BUF_PRIV_MAX_CNT; i++) {
-		len += scnprintf(fmt_str + len,
-				 DUMP_INFO_LEN_MAX - len,
-				 " \tmapped-%d \tdev_name-%d \tdir-%d \tmap_attrs-%d \tsgt-%d",
-				 i, i, i, i, i);
-	}
-#endif
-	return fmt_str;
-
-}
-
-#ifndef SKIP_DMBUF_BUFFER_DUMP
-static int mm_dump_buf_info_cb(const struct dma_buf *dmabuf,
-			       void *priv) {
-	struct mtk_heap_dump_t *dump_param = priv;
-	struct seq_file *s = dump_param->file;
-	struct dma_heap *dump_heap = dump_param->heap;
-	struct mtk_mm_heap_buffer *buf = dmabuf->priv;
-	struct dma_heap *buf_heap;
-	struct mtk_heap_priv_info *heap_priv = NULL;
-	char *buf_dump_str = NULL;
-
-	/* dmabuf check */
-	if (!buf || !buf->heap || buf->heap != dump_heap)
-		return 0;
-
-	buf_heap = buf->heap;
-	heap_priv = dma_heap_get_drvdata(buf_heap);
-
-	buf_dump_str = heap_priv->get_buf_dump_str(dmabuf, dump_heap);
-	dmabuf_dump(s, "%s\n", buf_dump_str);
-
-	kfree(buf_dump_str);
-
-	return 0;
-}
-#endif
-
 static void mm_dmaheap_show(struct dma_heap *heap,
 			    void *seq_file,
 			    int flag) {
@@ -875,15 +756,6 @@ static void mm_dmaheap_show(struct dma_heap *heap,
 	__HEAP_TOTAL_BUFFER_SZ_DUMP(s, heap);
 	__HEAP_PAGE_POOL_DUMP(s, heap);
 
-#ifndef SKIP_DMBUF_BUFFER_DUMP
-	__HEAP_BUF_DUMP_START(s, heap);
-
-	heap_priv = dma_heap_get_drvdata(heap);
-	dump_fmt = heap_priv->get_buf_dump_fmt(heap);
-	dmabuf_dump(s, "\t%s\n", dump_fmt);
-	kfree(dump_fmt);
-	get_each_dmabuf(mm_dump_buf_info_cb, &dump_param);
-#endif
 	if (flag & HEAP_DUMP_SKIP_ATTACH)
 		goto attach_done;
 
@@ -897,8 +769,6 @@ attach_done:
 }
 
 static const struct mtk_heap_priv_info mtk_mm_heap_priv = {
-	.get_buf_dump_str = mm_get_buf_dump_str,
-	.get_buf_dump_fmt = mm_get_buf_dump_fmt,
 	.show =             mm_dmaheap_show,
 };
 

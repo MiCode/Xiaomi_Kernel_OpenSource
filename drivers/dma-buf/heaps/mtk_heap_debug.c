@@ -260,98 +260,18 @@ static void dump_dmabuf_fds(struct seq_file *s, struct dma_heap *heap)
 	read_unlock(&tasklist_lock);
 }
 
-#ifndef SKIP_DMBUF_BUFFER_DUMP
-static char *dma_heap_default_fmt(struct dma_heap *heap)
-{
-	char *fmt_str = NULL;
-	int len = 0;
-
-	fmt_str = kzalloc(sizeof(char) * (DUMP_INFO_LEN_MAX + 1), GFP_KERNEL);
-	if (!fmt_str)
-		return NULL;
-
-	len += scnprintf(fmt_str + len,
-			 DUMP_INFO_LEN_MAX - len,
-			 "heap_name \tdmabuf \tsize(hex) \texp_name \tdmabuf_name \tf_flag \tf_mode \tf_count \tino \tpid(name) \ttid(name)");
-
-	return fmt_str;
-}
-#endif
-
-static char *dma_heap_default_str(const struct dma_buf *dmabuf,
-				  const struct dma_heap *dump_heap)
-{
-	struct sys_heap_buf_debug_use *buf = dmabuf->priv;
-	char *info_str;
-	int len = 0;
-
-	/* dmabuf check */
-	if (!buf || !buf->heap || buf->heap != dump_heap)
-		return NULL;
-
-	info_str = kzalloc(sizeof(char) * (DUMP_INFO_LEN_MAX + 1), GFP_KERNEL);
-	if (!info_str)
-		return NULL;
-
-	len += scnprintf(info_str + len,
-			 DUMP_INFO_LEN_MAX - len,
-			 "%s \t%p \t0x%lx \t%s \t%s \t%x \t%x \t%ld \t%lu",
-			 dma_heap_get_name(buf->heap),
-			 dmabuf,
-			 dmabuf->size, dmabuf->exp_name,
-			 dmabuf->name ?: "NULL",
-			 dmabuf->file->f_flags,
-			 dmabuf->file->f_mode,
-			 file_count(dmabuf->file),
-			 file_inode(dmabuf->file)->i_ino);
-
-	return info_str;
-}
-
-int dma_heap_default_buf_info_cb(const struct dma_buf *dmabuf,
-				 void *priv)
-{
-	struct mtk_heap_dump_t *dump_param = priv;
-	struct seq_file *s = dump_param->file;
-	struct dma_heap *dump_heap = dump_param->heap;
-	struct sys_heap_buf_debug_use *buf = dmabuf->priv;
-	char *buf_dump_str = NULL;
-
-	/* dmabuf check */
-	if (!buf || !buf->heap || buf->heap != dump_heap)
-		return 0;
-
-	buf_dump_str = dma_heap_default_str(dmabuf, dump_heap);
-	dmabuf_dump(s, "%s\n", buf_dump_str);
-	kfree(buf_dump_str);
-
-	return 0;
-}
-
 static void dma_heap_default_show(struct dma_heap *heap,
 				  void *seq_file,
 				  int flag)
 {
 	struct seq_file *s = seq_file;
 	struct mtk_heap_dump_t dump_param;
-#ifndef SKIP_DMBUF_BUFFER_DUMP
-	const char *dump_fmt = NULL;
-#endif
 	dump_param.heap = heap;
 	dump_param.file = seq_file;
 
 	__HEAP_DUMP_START(s, heap);
 	__HEAP_TOTAL_BUFFER_SZ_DUMP(s, heap);
 	__HEAP_PAGE_POOL_DUMP(s, heap);
-
-#ifndef SKIP_DMBUF_BUFFER_DUMP
-	__HEAP_BUF_DUMP_START(s, heap);
-
-	dump_fmt = dma_heap_default_fmt(heap);
-	dmabuf_dump(s, "\t%s\n", dump_fmt);
-	kfree(dump_fmt);
-	get_each_dmabuf(dma_heap_default_buf_info_cb, &dump_param);
-#endif
 
 	if (flag & HEAP_DUMP_SKIP_ATTACH)
 		goto attach_done;

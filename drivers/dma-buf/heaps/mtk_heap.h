@@ -21,6 +21,9 @@ struct dma_heap_attachment {
 	bool uncached;
 };
 
+struct mtk_heap_priv_info {
+	void (*show)(struct dma_heap *heap, void *seq_file, int flag);
+};
 
 /* return 0 means error */
 u32 dmabuf_to_secure_handle(struct dma_buf *dmabuf);
