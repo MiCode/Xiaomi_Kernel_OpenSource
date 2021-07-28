@@ -30,7 +30,8 @@
 #include <linux/oom.h>
 #include <linux/notifier.h>
 
-#include "mtk_heap_debug.h"
+#include "deferred-free-helper.h"
+#include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 
 #if IS_ENABLED(CONFIG_PROC_FS)

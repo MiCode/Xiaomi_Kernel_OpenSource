@@ -26,8 +26,6 @@
 #include "page_pool.h"
 #include "deferred-free-helper.h"
 
-#include "mtk_heap.h"
-
 static struct dma_heap *sys_heap;
 static struct dma_heap *sys_uncached_heap;
 
@@ -40,6 +38,15 @@ struct system_heap_buffer {
 	int vmap_cnt;
 	void *vaddr;
 	struct deferred_freelist_item deferred_free;
+
+	bool uncached;
+};
+
+struct dma_heap_attachment {
+	struct device *dev;
+	struct sg_table *table;
+	struct list_head list;
+	bool mapped;
 
 	bool uncached;
 };

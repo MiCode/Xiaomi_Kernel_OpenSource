@@ -27,7 +27,7 @@
 
 #include <public/trusted_mem_api.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
-#include "mtk_heap_debug.h"
+#include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 #include "mtk_iommu.h"
 

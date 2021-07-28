@@ -28,8 +28,21 @@
 			seq_printf(file, fmt, ##args); \
 		else                                   \
 			pr_info(fmt, ##args);          \
-	} while(0)
+	} while (0)
 
+/* mtk_heap private info, used for dump */
+struct mtk_heap_priv_info {
+	void (*show)(struct dma_heap *heap, void *seq_file, int flag);
+};
+
+struct dma_heap_attachment {
+	struct device *dev;
+	struct sg_table *table;
+	struct list_head list;
+	bool mapped;
+
+	bool uncached;
+};
 
 /* copy from struct system_heap_buffer */
 struct sys_heap_buf_debug_use {

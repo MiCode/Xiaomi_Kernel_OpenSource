@@ -29,7 +29,7 @@
 
 #include <linux/iommu.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
-#include "mtk_heap_debug.h"
+#include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 
 static struct dma_heap *mtk_mm_heap;

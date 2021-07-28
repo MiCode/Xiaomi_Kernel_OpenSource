@@ -4,26 +4,13 @@
  * MTK heap api can be used by other modules
  */
 
+
+/**
+ * This file is used to export api for mtk dmabufheap users
+ * Please don't add dmabufheap private info
+ */
 #ifndef _MTK_DMABUFHEAP_H
 #define _MTK_DMABUFHEAP_H
-
-#include <linux/dma-buf.h>
-#include "deferred-free-helper.h"
-
-#define MTK_HEAP_EXP_NAME_LEN    (100)
-
-struct dma_heap_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-	bool mapped;
-
-	bool uncached;
-};
-
-struct mtk_heap_priv_info {
-	void (*show)(struct dma_heap *heap, void *seq_file, int flag);
-};
 
 /* return 0 means error */
 u32 dmabuf_to_secure_handle(struct dma_buf *dmabuf);
