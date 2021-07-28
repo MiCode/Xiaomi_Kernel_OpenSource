@@ -245,7 +245,7 @@ static void apu_regulator_uninit(struct apu_dev *ad)
 static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf, void *data)
 {
 	struct apu_gov_data *pgov_data;
-	const char *gov_name;
+	const char *gov_name = NULL;
 	int err = 0;
 
 	pgov_data = apu_gov_init(ad->dev, pf, &gov_name);
