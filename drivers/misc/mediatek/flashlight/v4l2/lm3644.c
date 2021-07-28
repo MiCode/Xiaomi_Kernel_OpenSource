@@ -210,6 +210,7 @@ static int lm3644_mode_ctrl(struct lm3644_flash *flash)
 {
 	int rval = -EINVAL;
 
+	pr_info("%s mode:%d", __func__, flash->led_mode);
 	switch (flash->led_mode) {
 	case V4L2_FLASH_LED_MODE_NONE:
 		rval = regmap_update_bits(flash->regmap,
@@ -233,6 +234,7 @@ static int lm3644_enable_ctrl(struct lm3644_flash *flash,
 {
 	int rval;
 
+	pr_info("%s %d enable:%d", __func__, led_no, on);
 	if (led_no == LM3644_LED0) {
 		if (on)
 			rval = regmap_update_bits(flash->regmap,
@@ -258,10 +260,9 @@ static int lm3644_torch_brt_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 br_bits;
 
+	pr_info("%s %d brt:%u", __func__, led_no, brt);
 	if (brt < LM3644_TORCH_BRT_MIN)
 		return lm3644_enable_ctrl(flash, led_no, false);
-
-	rval = lm3644_enable_ctrl(flash, led_no, true);
 
 	br_bits = LM3644_TORCH_BRT_uA_TO_REG(brt);
 	if (led_no == LM3644_LED0)
@@ -281,10 +282,9 @@ static int lm3644_flash_brt_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 br_bits;
 
+	pr_info("%s %d brt:%u", __func__, led_no, brt);
 	if (brt < LM3644_FLASH_BRT_MIN)
 		return lm3644_enable_ctrl(flash, led_no, false);
-
-	rval = lm3644_enable_ctrl(flash, led_no, true);
 
 	br_bits = LM3644_FLASH_BRT_uA_TO_REG(brt);
 	if (led_no == LM3644_LED0)
@@ -351,6 +351,7 @@ static int lm3644_set_ctrl(struct v4l2_ctrl *ctrl, enum lm3644_led_id led_no)
 	struct lm3644_flash *flash = to_lm3644_flash(ctrl, led_no);
 	int rval = -EINVAL;
 
+	pr_info("%s %d ID:%d", __func__, led_no);
 	mutex_lock(&flash->lock);
 
 	switch (ctrl->id) {
@@ -362,6 +363,8 @@ static int lm3644_set_ctrl(struct v4l2_ctrl *ctrl, enum lm3644_led_id led_no)
 			rval = 0;
 		if (flash->led_mode == V4L2_FLASH_LED_MODE_NONE)
 			lm3644_enable_ctrl(flash, led_no, false);
+		else if (flash->led_mode == V4L2_FLASH_LED_MODE_TORCH)
+			rval = lm3644_enable_ctrl(flash, led_no, true);
 		break;
 
 	case V4L2_CID_FLASH_STROBE_SOURCE:
@@ -378,6 +381,7 @@ static int lm3644_set_ctrl(struct v4l2_ctrl *ctrl, enum lm3644_led_id led_no)
 		}
 		flash->led_mode = V4L2_FLASH_LED_MODE_FLASH;
 		rval = lm3644_mode_ctrl(flash);
+		rval = lm3644_enable_ctrl(flash, led_no, true);
 		break;
 
 	case V4L2_CID_FLASH_STROBE_STOP:
@@ -385,9 +389,9 @@ static int lm3644_set_ctrl(struct v4l2_ctrl *ctrl, enum lm3644_led_id led_no)
 			rval = -EBUSY;
 			goto err_out;
 		}
+		lm3644_enable_ctrl(flash, led_no, false);
 		flash->led_mode = V4L2_FLASH_LED_MODE_NONE;
 		rval = lm3644_mode_ctrl(flash);
-		lm3644_enable_ctrl(flash, led_no, false);
 		break;
 
 	case V4L2_CID_FLASH_TIMEOUT:
