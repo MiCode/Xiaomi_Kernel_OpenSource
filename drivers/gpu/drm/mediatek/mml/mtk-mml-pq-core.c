@@ -52,7 +52,7 @@ static void queue_msg(struct mml_pq_chan *chan,
 	atomic_inc(&chan->msg_cnt);
 	mutex_unlock(&chan->msg_lock);
 
-	pr_notice("wake up channel message queue\n");
+	pr_notice("%s wake up channel message queue\n", __func__);
 	wake_up_interruptible(&chan->msg_wq);
 }
 
@@ -140,10 +140,10 @@ void destroy_pq_task(struct mml_task *task)
 	mutex_unlock(&pq_task->lock);
 }
 
-static void init_pq_sub_task(struct mml_pq_sub_task *sub_task)
+static bool init_pq_sub_task(struct mml_pq_sub_task *sub_task)
 {
 	if (likely(sub_task->inited))
-		return;
+		return false;
 
 	pr_notice("init sub task\n");
 	mutex_init(&sub_task->lock);
@@ -153,6 +153,8 @@ static void init_pq_sub_task(struct mml_pq_sub_task *sub_task)
 	sub_task->job_cancelled = false;
 	sub_task->job_id = 0;
 	sub_task->inited = true;
+
+	return true;
 }
 
 static struct mml_pq_task *from_tile_init(struct mml_pq_sub_task *sub_task)
@@ -217,8 +219,9 @@ int mml_pq_tile_init(struct mml_task *task)
 	if (unlikely(ret))
 		return ret;
 
-	init_pq_sub_task(&task->pq_task->tile_init);
-	queue_msg(&pq_mbox->tile_init_chan, &task->pq_task->tile_init);
+	if (init_pq_sub_task(&task->pq_task->tile_init))
+		queue_msg(&pq_mbox->tile_init_chan, &task->pq_task->tile_init);
+
 	pr_notice("%s end\n", __func__);
 	return 0;
 }

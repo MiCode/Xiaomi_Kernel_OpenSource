@@ -48,7 +48,7 @@ void destroy_pq_task(struct mml_task *task);
  *
  * @task:	task data, include pq parameters and frame info
  *
- * Return:	if value < 0, means PQ update failed should debug 
+ * Return:	if value < 0, means PQ update failed should debug
  */
 int mml_pq_tile_init(struct mml_task *task);
 
@@ -58,7 +58,7 @@ int mml_pq_tile_init(struct mml_task *task);
  * @task:	task data, include pq parameters and frame info
  * @timeout_ms:	timeout setting to get result, unit: ms
  *
- * Return:	if value < 0, means PQ update failed should debug 
+ * Return:	if value < 0, means PQ update failed should debug
  */
 int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms);
 

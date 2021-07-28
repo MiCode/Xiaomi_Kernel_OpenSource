@@ -335,6 +335,8 @@ static s32 rsz_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 rsz_output_w;
 	u32 rsz_output_h;
 
+	mml_msg("%s is called", __func__);
+
 	if (!(tile->in.xe & 0x1))
 		/* Odd coordinate, should pad 1 column */
 		drs_padding_dis = 0;
