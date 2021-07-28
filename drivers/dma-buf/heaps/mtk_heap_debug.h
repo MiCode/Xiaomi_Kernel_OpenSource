@@ -136,19 +136,13 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 
 		device_name = dev_name(attach_obj->dev);
 
-		dmabuf_dump(s, "\tdev:%-16s, iova:0x%-16lx, sgt:0x%-8p, attr:%-4lu, dir:%-4d"
-#ifdef CONFIG_DMABUF_SYSFS_STATS
-			    "map_iova_cnt:%-4d"
-#endif
-			    "\n",
+		dmabuf_dump(s,
+			    "\tdev:%-16s, iova:0x%-16lx, sgt:0x%-8p, attr:%-4lu, dir:%-4d\n",
 			    device_name,
 			    iova,
 			    attach_obj->sgt,
 			    attach_obj->dma_map_attrs,
 			    attach_obj->dir
-#ifdef CONFIG_DMABUF_SYSFS_STATS
-			    , attach_obj->sysfs_entry->map_counter
-#endif
 			    );
 	}
 	dmabuf_dump(s, "\n");
