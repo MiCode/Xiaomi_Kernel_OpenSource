@@ -1440,17 +1440,41 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 
 		buf_va_info->buf_fd = fd_info->fds[i];
 		dmabuf = dma_buf_get(fd_info->fds[i]);
-		if (IS_ERR(dmabuf))
-			dev_info(imgsys_pipe->imgsys_dev->dev, "dmabuf %lx",
-								dmabuf);
+		if (IS_ERR(dmabuf)) {
+			dev_info(imgsys_pipe->imgsys_dev->dev, "%s:err fd %d",
+						__func__, fd_info->fds[i]);
+			vfree(buf_va_info);
+			continue;
+		}
 
 		dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		buf_va_info->kva = (u64)dma_buf_vmap(dmabuf);
 		buf_va_info->dma_buf_putkva = dmabuf;
 
 		attach = dma_buf_attach(dmabuf, imgsys_pipe->imgsys_dev->dev);
+		if (IS_ERR(attach)) {
+			dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
+			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+			dma_buf_put(dmabuf);
+			vfree(buf_va_info);
+			pr_info("dma_buf_attach fail fd:%d\n", fd_info->fds[i]);
+			continue;
+		}
+
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(sgt)) {
+			dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
+			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+			dma_buf_detach(dmabuf, attach);
+			dma_buf_put(dmabuf);
+			pr_info("%s:dma_buf_map_attachment sgt err: fd %d\n",
+						__func__, fd_info->fds[i]);
+			vfree(buf_va_info);
+
+			continue;
+		}
 		dma_addr = sg_dma_address(sgt->sgl);
+
 		buf_va_info->attach = attach;
 		buf_va_info->sgt = sgt;
 		buf_va_info->dma_addr = dma_addr;
@@ -1556,8 +1580,20 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 			continue;
 
 		attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->dev);
+		if (IS_ERR(attach)) {
+			dma_buf_put(dmabuf);
+			pr_info("dma_buf_attach fail fd:%d\n", kfd[i]);
+			continue;
+		}
 
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(sgt)) {
+			dma_buf_detach(dmabuf, attach);
+			dma_buf_put(dmabuf);
+			pr_info("%s:dma_buf_map_attachment sgt err: fd %d\n",
+						__func__, kfd[i]);
+			continue;
+		}
 
 		dma_addr = sg_dma_address(sgt->sgl);
 
