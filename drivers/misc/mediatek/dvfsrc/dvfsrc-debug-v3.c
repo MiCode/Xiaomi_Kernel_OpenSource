@@ -97,7 +97,7 @@ static const int mt6983_regs[] = {
 	[DVFSRC_CURRENT_LEVEL] = 0x5F0,
 	[DVFSRC_TARGET_LEVEL] = 0x5F0,
 	[DVFSRC_LAST] = 0x3AC,
-	[DVFSRC_RECORD_0] = 0x388,
+	[DVFSRC_RECORD_0] = 0x3B8,
 	[DVFSRC_DDR_REQUEST] = 0x2C8,
 	[DVSFRC_HRT_REQ_MD_URG] = 0x320,
 	[DVFSRC_HRT_REQ_MD_BW_0] = 0x324,
@@ -506,9 +506,9 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 		p += snprintf(p, buff_end - p,
 			"%-12s: %d, %d, %d\n",
 			"SW_BW_7~9",
+			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x1C),
 			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x20),
-			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x24),
-			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x28));
+			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x24));
 	}
 
 	p += snprintf(p, buff_end - p, "%-12s: %x\n",
