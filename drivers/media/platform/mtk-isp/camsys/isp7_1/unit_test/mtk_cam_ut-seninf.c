@@ -20,7 +20,7 @@
 /* seninf */
 static int get_test_hmargin(int w, int h, int clk_cnt, int clk_mhz, int fps)
 {
-	int target_h = clk_mhz * (1000000/fps) / w * max(8/(clk_cnt+1), 1);
+	int target_h = clk_mhz * (1000000/fps) / w * max(16/(clk_cnt+1), 1);
 
 	return max(target_h - h, 0x80);
 }
@@ -35,7 +35,7 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	void __iomem *base = seninf->base + seninf_idx * SENINF_OFFSET;
 	const u16 dummy_pxl = 0x80, h_margin = 0x1000;
-	const u8 clk_div_cnt = (8 >> pixmode_lg2) - 1;
+	const u8 clk_div_cnt = (16 >> pixmode_lg2) - 1;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);
@@ -50,8 +50,7 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	/* test mdl */
 	writel_relaxed((height + h_margin) << 16 | width,
 		       ISP_SENINF_TM_SIZE(base));
-	/*writel_relaxed(clk_div_cnt, ISP_SENINF_TM_CLK(base));*/
-	writel_relaxed(0xF, ISP_SENINF_TM_CLK(base));
+	writel_relaxed(clk_div_cnt, ISP_SENINF_TM_CLK(base));
 	writel_relaxed(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(base));
 	writel_relaxed(pattern << 4 | 0x1, ISP_SENINF_TM_CTL(base));
 	writel_relaxed(0x1f << 16 | pixmode_lg2 << 8 | 0x1,
