@@ -2170,7 +2170,7 @@
 		compatible = "mediatek,mtk-slbc";
 		reg = <0 0x00113C00 0 0x100>;
 		status = "enable";
-		apu = <2048>;
+		apu = <2097152>;
 	};
 
 	psci {
