@@ -565,7 +565,7 @@ static void mt6983_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 		dvfsrc->opp_forced = false;
 		goto out;
 	}
-	if (level > 32) {
+	if (level >= 32) {
 		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE_H, 1 << (level - 32));
 	} else {
