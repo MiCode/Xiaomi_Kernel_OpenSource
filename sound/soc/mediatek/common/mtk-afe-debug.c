@@ -85,7 +85,7 @@ void mtk_afe_write_reg(struct mtk_base_afe *afe, void *arg)
 	char delim[] = " ,";
 	unsigned long reg_addr = 0;
 	unsigned long reg_value = 0;
-	unsigned int reg_value_after;
+	unsigned int reg_value_after = 0;
 	int ret = 0;
 
 	if (!afe)

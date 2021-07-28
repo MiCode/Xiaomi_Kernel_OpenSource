@@ -153,7 +153,7 @@ static int mt6885_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_component *codec_component =
 		snd_soc_rtdcom_lookup(rtd, CODEC_MT6359_NAME);
 	int phase;
-	unsigned int monitor;
+	unsigned int monitor = 0;
 	int test_done_1, test_done_2, test_done_3;
 	int miso0_need_calib, miso1_need_calib, miso2_need_calib;
 	int cycle_1, cycle_2, cycle_3;

@@ -3080,7 +3080,7 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 	int device = DEVICE_HP;
-	unsigned int value;
+	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event 0x%x, dev_counter[DEV_HP] %d, mux %u\n",
 		 __func__, event, priv->dev_counter[device], mux);
@@ -3148,7 +3148,7 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	unsigned int value;
+	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n",
 		 __func__, event, dapm_kcontrol_get_value(w->kcontrols[0]));
@@ -3294,7 +3294,7 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
-	unsigned int value;
+	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n", __func__, event, mux);
 
@@ -8089,7 +8089,7 @@ static int detect_impedance(struct mt6338_priv *priv)
 	int dc_sum = 0, detect_sum = 0;
 	int pick_impedance = 0, impedance = 0, phase_flag = 0;
 	int cur_dc = 0;
-	unsigned int value;
+	unsigned int value = 0;
 
 	/* params by chip */
 	int auxcable_impedance = 5000;
@@ -8673,7 +8673,7 @@ static void keylock_set(struct mt6338_priv *priv)
 
 static void keylock_reset(struct mt6338_priv *priv)
 {
-	unsigned int value;
+	unsigned int value = 0;
 
 	regmap_read(priv->regmap, MT6338_TOP_DIG_WPK, &value);
 	dev_info(priv->dev, "%s() bf keylock_set, regmap_write MT6338_TOP_DIG_WPK = 0x%x\n",

@@ -490,7 +490,7 @@ static int mt6368_put_volsw(struct snd_kcontrol *kcontrol,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(component);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg;
+	unsigned int reg = 0;
 	int index = ucontrol->value.integer.value[0];
 	int ret;
 
@@ -5576,7 +5576,7 @@ static int mt6368_debugfs_open(struct inode *inode, struct file *file)
 static ssize_t mt6368_codec_read(struct mt6368_priv *priv, char *buffer, size_t size)
 {
 	int n = 0;
-	unsigned int value;
+	unsigned int value = 0;
 
 	if (!buffer)
 		return -ENOMEM;

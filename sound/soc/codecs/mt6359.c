@@ -5426,7 +5426,7 @@ static int mt6359_debugfs_open(struct inode *inode, struct file *file)
 static ssize_t mt6359_codec_read(struct mt6359_priv *priv, char *buffer, size_t size)
 {
 	int n = 0;
-	unsigned int value;
+	unsigned int value = 0;
 
 	if (!buffer)
 		return -ENOMEM;

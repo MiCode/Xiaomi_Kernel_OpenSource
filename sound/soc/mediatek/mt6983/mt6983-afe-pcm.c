@@ -3094,7 +3094,7 @@ static irqreturn_t mt6983_afe_irq_handler(int irq_id, void *dev)
 {
 	struct mtk_base_afe *afe = dev;
 	struct mtk_base_afe_irq *irq;
-	unsigned int status;
+	unsigned int status = 0;
 	unsigned int status_mcu;
 	unsigned int mcu_en;
 	int ret;
