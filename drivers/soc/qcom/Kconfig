@@ -480,6 +480,18 @@ config QTI_RIMPS_LOG
 	  This driver register with IPC_Logging framework, to have dedicated
 	  buffer for rimps hw device.
 
+config QTI_PLH_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for PLH"
+	depends on MSM_PERFORMANCE && QTI_SCMI_PLH_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for PLH
+	  vendor protocol, and also registers with the plh interface driver
+	  msm_performance.
+
+	  This driver deliver the PLH vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate
+	  with RIMPS PLH.
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
