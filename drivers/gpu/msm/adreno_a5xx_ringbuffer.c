@@ -32,10 +32,10 @@ static int a5xx_rb_pagetable_switch(struct kgsl_device *device,
 	cmds[7] = 1;
 
 	cmds[8] = cp_type7_packet(CP_MEM_WRITE, 5);
-	cmds[9] = lower_32_bits(rb->pagetable_desc->gpuaddr +
-			PT_INFO_OFFSET(ttbr0));
-	cmds[10] = upper_32_bits(rb->pagetable_desc->gpuaddr +
-			PT_INFO_OFFSET(ttbr0));
+	cmds[9] = lower_32_bits(SCRATCH_RB_GPU_ADDR(device,
+			rb->id, ttbr0));
+	cmds[10] = upper_32_bits(SCRATCH_RB_GPU_ADDR(device,
+			rb->id, ttbr0));
 	cmds[11] = lower_32_bits(ttbr0);
 	cmds[12] = upper_32_bits(ttbr0);
 	cmds[13] = id;
