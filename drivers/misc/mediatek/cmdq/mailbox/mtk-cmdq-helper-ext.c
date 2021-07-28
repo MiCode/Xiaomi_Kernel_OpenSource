@@ -980,7 +980,8 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	struct completion cmplt;
 	struct device *dev = dst->dev;
 	void *cl = dst->cl;
-	u64 *va, i;
+	u64 *va;
+	u32 cmd_size, copy_size, reduce_size = 0;
 
 	cmdq_pkt_free_buf(dst);
 	INIT_LIST_HEAD(&dst->buf);
@@ -991,6 +992,16 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	memcpy(&dst->cmplt, &cmplt, sizeof(cmplt));
 	memcpy(&dst->buf, &entry, sizeof(entry));
 	dst->flush_item = NULL;
+	cmd_size = src->cmd_buf_size;
+
+	if (cmdq_pkt_is_finalized(src)) {
+		reduce_size = 2 * CMDQ_INST_SIZE;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+			reduce_size += 2 * CMDQ_INST_SIZE;
+#endif
+	}
+	cmd_size -= reduce_size;
 
 	/* copy buf */
 	list_for_each_entry(buf, &src->buf, list_entry) {
@@ -1000,7 +1011,26 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 				PTR_ERR(new), dst);
 			return PTR_ERR(new);
 		}
-		memcpy(new->va_base, buf->va_base, CMDQ_CMD_BUFFER_SIZE);
+		copy_size = cmd_size > CMDQ_CMD_BUFFER_SIZE ?
+			CMDQ_CMD_BUFFER_SIZE : cmd_size;
+		memcpy(new->va_base, buf->va_base, copy_size);
+		cmd_size -= copy_size;
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (new == list_first_entry(&dst->buf, typeof(*buf), list_entry) &&
+			cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF)) {
+
+			dst->avail_buf_size = CMDQ_CMD_BUFFER_SIZE;
+			dst->cmd_buf_size = 0;
+			dst->buf_size = CMDQ_CMD_BUFFER_SIZE;
+			cmdq_pkt_perf_begin(dst);
+		}
+#endif
+		/* if last buf contains only perf or eoc, cmd_size goes to 0 so
+		 * stops copy here.
+		 */
+		if (!cmd_size)
+			break;
 	}
 
 	list_for_each_entry_safe(buf, tmp, &dst->buf, list_entry) {
@@ -1016,21 +1046,12 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 		}
 	}
 
-	dst->avail_buf_size = src->avail_buf_size;
-	dst->cmd_buf_size = src->cmd_buf_size;
+	dst->avail_buf_size = src->avail_buf_size + reduce_size;
+	dst->cmd_buf_size = src->cmd_buf_size - reduce_size;
 	dst->buf_size = src->buf_size;
-
-	/* del eoc & jump */
-	if (cmdq_pkt_is_finalized(dst)) {
-		for (i = 0; i < 2; i++) {
-			dst->avail_buf_size += CMDQ_INST_SIZE;
-			dst->cmd_buf_size -= CMDQ_INST_SIZE;
-			if (!(dst->avail_buf_size % CMDQ_CMD_BUFFER_SIZE)) {
-				buf = list_last_entry(
-					&dst->buf, typeof(*buf), list_entry);
-				list_del(&buf->list_entry);
-			}
-		}
+	if (dst->avail_buf_size > CMDQ_CMD_BUFFER_SIZE) {
+		dst->avail_buf_size -= CMDQ_CMD_BUFFER_SIZE;
+		dst->buf_size -= CMDQ_CMD_BUFFER_SIZE;
 	}
 
 	dst->cl = cl;
