@@ -1502,6 +1502,12 @@ static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
 	return pipe_used;
 }
 
+static void mtk_cam_req_work_init(struct mtk_cam_req_work *work,
+				  struct mtk_cam_request_stream_data *s_data)
+{
+	work->s_data = s_data;
+}
+
 static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 				    int pipe_id,
 				    int s_data_num)
@@ -1515,6 +1521,12 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->req = req;
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
+		mtk_cam_req_work_init(&req_stream_data->sensor_work,
+							  req_stream_data);
+		mtk_cam_req_work_init(&req_stream_data->frame_work,
+							  req_stream_data);
+		mtk_cam_req_work_init(&req_stream_data->frame_done_work,
+							  req_stream_data);
 	}
 }
 
@@ -1912,27 +1924,39 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_session_cookie *session = &event.cookie;
 	struct mtkcam_ipi_frame_info *frame_info = &event.frame_data;
 	struct mtkcam_ipi_frame_param *frame_data;
-	struct mtk_cam_request *req = mtk_cam_req_work_to_req(work);
+	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
 	unsigned long flags;
 
-	if (!req_work->req || !req_work->ctx) {
-		pr_info("%s req_work->req(%p) req_work->ctx(%p)\n", __func__,
-			req_work->req, req_work->ctx);
+	req_stream_data = mtk_cam_req_work_get_s_data(req_work);
+	if (!req_stream_data) {
+		pr_info("%s mtk_cam_req_work(%p), req_stream_data(%p), dropped\n",
+				__func__, req_work, req_stream_data);
 		return;
 	}
 
-	if (req_work->ctx->used_raw_num == 0) {
-		pr_info("%s raw is un-used, skip frame work", __func__);
+	req = mtk_cam_s_data_get_req(req_stream_data);
+	if (!req) {
+		pr_info("%s req_stream_data(%p), req(%p), dropped\n",
+				__func__, req_stream_data, req);
 		return;
 	}
 
-	ctx = req_work->ctx;
+	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
+	if (!ctx) {
+		pr_info("%s req_stream_data(%p), ctx(%p), dropped\n",
+				__func__, req_stream_data, ctx);
+		return;
+	}
+
 	cam = ctx->cam;
-	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	if (ctx->used_raw_num == 0) {
+		dev_dbg(cam->dev, "raw is un-used, skip frame work");
+		return;
+	}
 
 	/* check if the ctx is streaming */
 	spin_lock_irqsave(&ctx->streaming_lock, flags);
@@ -2006,14 +2030,6 @@ static void isp_tx_frame_worker(struct work_struct *work)
 			req_stream_data->frame_seq_no);
 
 	}
-}
-
-static void mtk_cam_req_work_init(struct mtk_cam_req_work *work,
-				  struct mtk_cam_request *req, struct mtk_cam_ctx *ctx, int pipe_id)
-{
-	work->req = req;
-	work->ctx = ctx;
-	work->pipe_id = pipe_id;
 }
 
 bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
@@ -2118,13 +2134,9 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				if (1 << j & ctx->streaming_pipe) {
 					pipe_stream_data = mtk_cam_req_get_s_data(req, j, 0);
 					frame_done_work = &pipe_stream_data->frame_done_work;
-					mtk_cam_req_work_init(frame_done_work, req, ctx, stream_id);
 					INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
 				}
 			}
-
-			/* Prepare sensor work */
-			mtk_cam_req_work_init(sensor_work, req, ctx, stream_id);
 
 			if (mtk_cam_is_time_shared(ctx)) {
 				req_stream_data->frame_params.raw_param.hardware_scenario =
@@ -2136,9 +2148,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			if (ctx->sensor && (req_stream_data->frame_seq_no == 1 ||
 				mtk_cam_is_stagger_m2m(ctx)))
 				mtk_cam_initial_sensor_setup(req, ctx);
-
-			/* Prepare CQ compose work */
-			mtk_cam_req_work_init(frame_work, req, ctx, stream_id);
 
 			mtk_cam_sv_req_enqueue(ctx, req);
 			INIT_WORK(&frame_work->work, isp_tx_frame_worker);

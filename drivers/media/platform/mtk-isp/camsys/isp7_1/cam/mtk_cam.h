@@ -104,10 +104,14 @@ struct mtk_camsv_working_buf_list {
 
 struct mtk_cam_req_work {
 	struct work_struct work;
-	struct mtk_cam_request *req;
-	struct mtk_cam_ctx *ctx;
-	int pipe_id;
+	struct mtk_cam_request_stream_data *s_data;
 };
+
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_req_work_get_s_data(struct mtk_cam_req_work *work)
+{
+	return work->s_data;
+}
 
 struct mtk_cam_req_feature {
 	int raw_feature;
@@ -372,6 +376,19 @@ mtk_cam_sv_wbuf_set_s_data(struct mtk_camsv_working_buf_entry *buf_entry,
 	buf_entry->s_data = s_data;
 }
 
+
+static inline struct mtk_cam_ctx*
+mtk_cam_s_data_get_ctx(struct mtk_cam_request_stream_data *s_data)
+{
+	return s_data->ctx;
+}
+
+static inline struct mtk_cam_request*
+mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
+{
+	return s_data->req;
+}
+
 static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data, int node_id)
 {
@@ -433,15 +450,6 @@ static inline struct mtk_cam_request *
 to_mtk_cam_req(struct media_request *__req)
 {
 	return container_of(__req, struct mtk_cam_request, req);
-}
-
-static inline struct mtk_cam_request*
-mtk_cam_req_work_to_req(struct work_struct *work)
-{
-	struct mtk_cam_req_work *req_work;
-
-	req_work = (struct mtk_cam_req_work *)work;
-	return req_work->req;
 }
 
 //TODO: with spinlock or not? depends on how request works [TBD]
