@@ -74,7 +74,7 @@ static int debug_locks_off_kretprobe_handler(struct kretprobe_instance *ri,
 		char aee_str[40];
 
 		pr_info("LockProve Warning, AEE!\n");
-		snprintf(aee_str, 40, "[%s]LockProve Warning", current->comm);
+		scnprintf(aee_str, 40, "[%s]LockProve Warning", current->comm);
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
 				aee_str, "LockProve Debug\n");
@@ -115,7 +115,7 @@ static int locking_aee_thread(void *data)
 		char aee_str[40];
 
 		pr_info("LockProve Warning, AEE!\n");
-		snprintf(aee_str, 40, "[%s]LockProve Warning", current->comm);
+		scnprintf(aee_str, 40, "[%s]LockProve Warning", current->comm);
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
 				aee_str, "LockProve Debug\n");
