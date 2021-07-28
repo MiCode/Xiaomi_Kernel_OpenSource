@@ -491,6 +491,7 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.b_qp = enc_prm->b_qp;
 		inst->vsi->config.svp_mode = enc_prm->svp_mode;
 		inst->vsi->config.tsvc = enc_prm->tsvc;
+		inst->vsi->config.highquality = enc_prm->highquality;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,

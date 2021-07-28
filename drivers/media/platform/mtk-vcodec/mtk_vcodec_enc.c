@@ -458,6 +458,13 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->tsvc = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
 		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY: %d",
+			ctrl->val);
+		p->highquality = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_HIGHQUALITY;
+		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -1029,6 +1036,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->b_qp = enc_params->b_qp;
 	param->svp_mode = enc_params->svp_mode;
 	param->tsvc = enc_params->tsvc;
+	param->highquality = enc_params->highquality;
 
 }
 
@@ -2153,6 +2161,17 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_HIGHQUALITY) {
+		enc_prm.highquality = mtk_buf->enc_params.highquality;
+		mtk_v4l2_debug(1, "[%d] idx=%d, enable highquality=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.highquality);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ENABLE_HIGHQUALITY,
+					&enc_prm);
+	}
+
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -2822,6 +2841,18 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.name = "Video encode tsvc switch";
 	cfg.min = 0;
 	cfg.max = 8;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode enable highquality";
+	cfg.min = 0;
+	cfg.max = 1;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;

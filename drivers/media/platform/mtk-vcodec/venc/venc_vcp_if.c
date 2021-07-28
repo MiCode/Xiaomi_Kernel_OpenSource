@@ -1097,6 +1097,10 @@ int vcp_enc_set_param(struct venc_inst *inst,
 		out.data_item = 1;
 		out.data[0] = enc_param->tsvc;
 		break;
+	case VENC_SET_PARAM_ENABLE_HIGHQUALITY:
+		out.data_item = 1;
+		out.data[0] = enc_param->highquality;
+		break;
 	default:
 		mtk_vcodec_err(inst, "id %d not supported", id);
 		return -EINVAL;
@@ -1153,6 +1157,7 @@ static int venc_vcp_set_param(unsigned long handle,
 		inst->vsi->config.b_qp = enc_prm->b_qp;
 		inst->vsi->config.svp_mode = enc_prm->svp_mode;
 		inst->vsi->config.tsvc = enc_prm->tsvc;
+		inst->vsi->config.highquality = enc_prm->highquality;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,

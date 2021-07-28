@@ -101,6 +101,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 15),
 	MTK_ENCODE_PARAM_TSVC = (1 << 16),
 	MTK_ENCODE_PARAM_NONREFPFREQ = (1 << 17),
+	MTK_ENCODE_PARAM_HIGHQUALITY = (1 << 18),
 };
 
 /*
@@ -255,6 +256,7 @@ struct mtk_enc_params {
 	unsigned int    svp_mode;
 	unsigned int    tsvc;
 	unsigned int    nonrefpfreq;
+	unsigned int	highquality;
 };
 
 /*
@@ -308,6 +310,7 @@ struct venc_enc_param {
 	unsigned int svp_mode;
 	unsigned int tsvc;
 	unsigned int nonrefpfreq;
+	unsigned int highquality;
 };
 
 /*
@@ -744,5 +747,8 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 	(V4L2_CID_MPEG_MTK_BASE+34)
 #define V4L2_CID_MPEG_MTK_ENCODE_NONREFP_FREQ \
 	(V4L2_CID_MPEG_MTK_BASE+35)
+
+#define V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY \
+	(V4L2_CID_MPEG_MTK_BASE+45)
 
 #endif /* _MTK_VCODEC_DRV_H_ */
