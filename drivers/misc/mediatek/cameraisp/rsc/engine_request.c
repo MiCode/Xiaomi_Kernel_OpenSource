@@ -94,7 +94,7 @@ signed int init_frame(struct frame *frame)
 /*
  * single request init
  */
-signed int init_request(struct request *req)
+signed int init_request(struct rsc_request *req)
 {
 	int f;
 

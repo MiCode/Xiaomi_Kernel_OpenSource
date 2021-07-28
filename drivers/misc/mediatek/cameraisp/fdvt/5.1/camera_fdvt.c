@@ -33,6 +33,8 @@
 #include <linux/dma-buf.h>
 #include <soc/mediatek/smi.h>
 #include "linux/soc/mediatek/mtk-cmdq-ext.h"
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 /*  */
@@ -4300,16 +4302,6 @@ static signed int bPass1_On_In_Resume_TG1;
 
 static signed int FDVT_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	/*signed int ret = 0;*/
-
-	log_dbg("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);
-
-	bPass1_On_In_Resume_TG1 = 0;
-
-	if (clock_enable_count > 0) {
-		fdvt_enable_clock(MFALSE);
-		fdvt_count++;
-	}
 	return 0;
 }
 
@@ -4318,18 +4310,47 @@ static signed int FDVT_suspend(struct platform_device *pDev, pm_message_t Mesg)
  *****************************************************************************/
 static signed int FDVT_resume(struct platform_device *pDev)
 {
-	log_dbg("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);
-
-	if (fdvt_count > 0) {
-		fdvt_enable_clock(MTRUE);
-		fdvt_count--;
-	}
 	return 0;
 }
 
 /*---------------------------------------------------------------------------*/
 #if IS_ENABLED(CONFIG_PM)
 /*---------------------------------------------------------------------------*/
+static int fdvt_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		log_dbg("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);
+		bPass1_On_In_Resume_TG1 = 0;
+		if (clock_enable_count > 0) {
+			fdvt_enable_clock(MFALSE);
+			fdvt_count++;
+		}
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		log_dbg("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);
+		if (fdvt_count > 0) {
+			fdvt_enable_clock(MTRUE);
+			fdvt_count--;
+		}
+		return NOTIFY_DONE;
+}
+	return NOTIFY_OK;
+}
+
 int FDVT_pm_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -4421,6 +4442,13 @@ static struct platform_driver FDVTDriver = {
 #endif
 	}
 };
+
+#if IS_ENABLED(CONFIG_PM)
+static struct notifier_block fdvt_suspend_pm_notifier_func = {
+	.notifier_call = fdvt_suspend_pm_event,
+	.priority = 0,
+};
+#endif
 
 static int fdvt_dump_read(struct seq_file *m, void *v)
 {
@@ -4812,7 +4840,13 @@ static signed int __init FDVT_Init(void)
 				    FDVT_M4U_TranslationFault_callback, NULL);
 #endif
 #endif
-
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&fdvt_suspend_pm_notifier_func);
+	if (ret) {
+		pr_debug("[Camera FDVT] Failed to register PM notifier.\n");
+		return ret;
+	}
+#endif
 	log_dbg("- X. ret: %d.", ret);
 	return ret;
 }

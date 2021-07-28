@@ -32,6 +32,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <soc/mediatek/smi.h>
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 
@@ -3349,17 +3351,6 @@ static signed int bPass1_On_In_Resume_TG1;
 
 static signed int RSC_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	/*signed int ret = 0;*/
-
-	LOG_DBG("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);
-	if (g_u4EnableClockCount > 0) {
-		RSC_EnableClock(MFALSE);
-		g_SuspendCnt++;
-	}
-	bPass1_On_In_Resume_TG1 = 0;
-	LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
-				g_u4EnableClockCount, g_SuspendCnt);
-
 	return 0;
 }
 
@@ -3368,19 +3359,51 @@ static signed int RSC_suspend(struct platform_device *pDev, pm_message_t Mesg)
  ******************************************************************************/
 static signed int RSC_resume(struct platform_device *pDev)
 {
-	LOG_DBG("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);
-	if (g_SuspendCnt > 0) {
-		RSC_EnableClock(MTRUE);
-		g_SuspendCnt--;
-	}
-	LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
-				g_u4EnableClockCount, g_SuspendCnt);
 	return 0;
 }
 
 /*---------------------------------------------------------------------------*/
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 /*---------------------------------------------------------------------------*/
+static int rsc_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		LOG_DBG("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);
+		if (g_u4EnableClockCount > 0) {
+			RSC_EnableClock(MFALSE);
+			g_SuspendCnt++;
+		}
+		bPass1_On_In_Resume_TG1 = 0;
+		LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+					g_u4EnableClockCount, g_SuspendCnt);
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		LOG_DBG("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);
+		if (g_SuspendCnt > 0) {
+			RSC_EnableClock(MTRUE);
+			g_SuspendCnt--;
+		}
+		LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+					g_u4EnableClockCount, g_SuspendCnt);
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
 int RSC_pm_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -3462,12 +3485,18 @@ static struct platform_driver RSCDriver = {
 #ifdef CONFIG_OF
 		   .of_match_table = RSC_of_ids,
 #endif
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		   .pm = &RSC_pm_ops,
 #endif
 		}
 };
 
+#if IS_ENABLED(CONFIG_PM)
+static struct notifier_block rsc_suspend_pm_notifier_func = {
+	.notifier_call = rsc_suspend_pm_event,
+	.priority = 0,
+};
+#endif
 
 static int rsc_dump_read(struct seq_file *m, void *v)
 {
@@ -3864,6 +3893,14 @@ static signed int __init RSC_Init(void)
 			   RSC_ClockOnCallback,
 			   RSC_DumpCallback, RSC_ResetCallback,
 							RSC_ClockOffCallback);
+#endif
+
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&rsc_suspend_pm_notifier_func);
+	if (Ret) {
+		pr_debug("[Camera RSC] Failed to register PM notifier.\n");
+		return Ret;
+	}
 #endif
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
