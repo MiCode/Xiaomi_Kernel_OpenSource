@@ -185,7 +185,7 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
 	struct media_entity *entity = &node->vdev.entity;
-	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_ctx *ctx = NULL;
 	int ret;
 
 	mutex_lock(&cam->op_lock);
@@ -245,7 +245,7 @@ fail_stop_ctx:
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	mtk_cam_stop_ctx(ctx, entity);
 fail_unlock:
-	mtk_cam_dev_req_cleanup(cam);
+	mtk_cam_dev_req_cleanup(cam, ctx);
 	mutex_unlock(&cam->op_lock);
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_QUEUED);
 
@@ -270,8 +270,10 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	dev_dbg(dev, "%s ctx:%d node:%d count info:%d\n", __func__,
 		ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
-	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt)
+	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt) {
 		mtk_cam_ctx_stream_off(ctx);
+		mtk_cam_dev_req_cleanup(cam, ctx);
+	}
 
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_ERROR);
 	/* NOTE: take multi-pipelines case into consideration */
@@ -282,7 +284,7 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		return;
 	}
 
-	mtk_cam_dev_req_cleanup(cam);
+	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
 	mutex_unlock(&cam->op_lock);
 }

@@ -370,10 +370,12 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	return result;
 }
 
-void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam)
+void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam,
+			     struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_request *req, *req_prev;
 	unsigned long flags;
+	unsigned int done_status;
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head *running = &cam->running_job_list;
 
@@ -388,7 +390,16 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam)
 
 	spin_lock_irqsave(&cam->running_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, running, list) {
-		if (!(req->pipe_used & cam->streaming_pipe)) {
+		/* only handle requests belong to current ctx */
+		if (!(req->pipe_used & ctx->streaming_pipe))
+			continue;
+
+		/* mark request status to done for release */
+		spin_lock(&req->done_status_lock);
+		done_status = req->done_status |=  1 << ctx->stream_id;
+		spin_unlock((&req->done_status_lock));
+
+		if (req->pipe_used == done_status) {
 			list_del(&req->list);
 			media_request_put(&req->req);
 		}
