@@ -20,7 +20,7 @@ struct vpu_algo_list;
 
 extern const size_t g_vpu_prop_type_size[VPU_NUM_PROP_TYPES];
 
-int vpu_init_algo(void);
+void vpu_init_algo(void);
 
 /* vpu_algo.c */
 struct __vpu_algo *vpu_alg_alloc(struct vpu_algo_list *al);

@@ -374,20 +374,17 @@ static void vpu_dev_del(struct vpu_device *vd)
 	vpu_drv_put();
 }
 
-static int vpu_init_bin(void)
+static int vpu_init_bin(struct device_node *node)
 {
-	struct device_node *node;
 	uint32_t phy_addr;
 	uint32_t phy_size;
 	uint32_t bin_head_ofs = 0;
 	uint32_t bin_preload_ofs = 0;
-	int ret = 0;
 
 	/* skip, if vpu firmware had ready been mapped */
 	if (vpu_drv && vpu_drv->bin_va)
 		return 0;
 
-	node = of_find_node_by_name(NULL, "vpu_core0");
 	if (!node) {
 		pr_info("%s: unable to get vpu firmware\n", __func__);
 		return -ENODEV;
@@ -396,8 +393,7 @@ static int vpu_init_bin(void)
 	if (of_property_read_u32(node, "bin-phy-addr", &phy_addr) ||
 		of_property_read_u32(node, "bin-size", &phy_size)) {
 		pr_info("%s: unable to get bin info\n", __func__);
-		ret = -ENODEV;
-		goto out;
+		return -ENODEV;
 	}
 
 	if (!of_property_read_u32(node, "img-head", &bin_head_ofs) &&
@@ -421,9 +417,8 @@ static int vpu_init_bin(void)
 
 	pr_info("%s: header: 0x%x, preload:0x%x\n", __func__,
 		vpu_drv->bin_head_ofs, vpu_drv->bin_preload_ofs);
-out:
-	of_node_put(node);
-	return ret;
+
+	return 0;
 }
 
 static void vpu_shared_release(struct kref *ref)
@@ -690,6 +685,31 @@ static int vpu_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	if (vd->id == 0) {
+		vpu_drv = kzalloc(sizeof(struct vpu_driver), GFP_KERNEL);
+
+		if (!vpu_drv)
+			return -ENOMEM;
+
+		kref_init(&vpu_drv->ref);
+
+		ret = vpu_init_bin(pdev->dev.of_node);
+		if (ret)
+			goto out;
+
+		vpu_init_debug();
+
+		INIT_LIST_HEAD(&vpu_drv->devs);
+		mutex_init(&vpu_drv->lock);
+
+		vpu_drv->mva_algo = 0;
+		vpu_drv->wq = create_workqueue("vpu_wq");
+
+		vpu_init_drv_hw();
+		vpu_init_drv_met();
+		vpu_init_drv_tags();
+	}
+
 	ret = snprintf(vd->name, sizeof(vd->name), "vpu%d", vd->id);
 	if (ret < 0)
 		goto out;
@@ -882,45 +902,15 @@ int vpu_init(struct apusys_core_info *info)
 {
 	int ret;
 
-	vpu_drv = NULL;
 	if (!apusys_power_check()) {
 		pr_info("%s: vpu is disabled by apusys\n", __func__);
 		return -ENODEV;
 	}
-	vpu_drv = kzalloc(sizeof(struct vpu_driver), GFP_KERNEL);
 
-	if (!vpu_drv)
-		return -ENOMEM;
-
-	kref_init(&vpu_drv->ref);
-
-	ret = vpu_init_bin();
-	if (ret)
-		goto error_out;
-
-	ret = vpu_init_algo();
-	if (ret)
-		goto error_out;
-
-	vpu_init_debug();
-
-	INIT_LIST_HEAD(&vpu_drv->devs);
-	mutex_init(&vpu_drv->lock);
-
-	vpu_drv->mva_algo = 0;
-	vpu_drv->wq = create_workqueue("vpu_wq");
-
-	vpu_init_drv_hw();
-	vpu_init_drv_met();
-	vpu_init_drv_tags();
+	vpu_init_algo();
 
 	ret = platform_driver_register(&vpu_plat_drv);
 
-	return ret;
-
-error_out:
-	kfree(vpu_drv);
-	vpu_drv = NULL;
 	return ret;
 }
 
@@ -928,6 +918,12 @@ void vpu_exit(void)
 {
 	struct vpu_device *vd;
 	struct list_head *ptr, *tmp;
+
+	if (!vpu_drv) {
+		vpu_drv_debug("%s: platform_driver_unregister\n", __func__);
+		platform_driver_unregister(&vpu_plat_drv);
+		return;
+	}
 
 	/* notify all devices that we are going to be removed
 	 *  wait and stop all on-going requests

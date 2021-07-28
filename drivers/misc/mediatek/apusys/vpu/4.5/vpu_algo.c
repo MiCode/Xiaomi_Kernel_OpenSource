@@ -30,7 +30,7 @@ struct vpu_prop_desc g_vpu_prop_descs[VPU_NUM_PROPS] = {
 };
 
 /* called by vpu_init(), calculating prop_info_data_length */
-int vpu_init_algo(void)
+void vpu_init_algo(void)
 {
 	int i = 0;
 	unsigned int offset = 0;
@@ -49,8 +49,6 @@ int vpu_init_algo(void)
 
 	vpu_alg_debug("%s: prop_info_data_length: %x\n",
 		__func__, prop_info_data_length);
-
-	return 0;
 }
 
 static struct __vpu_algo *vpu_alg_get(struct vpu_algo_list *al,
