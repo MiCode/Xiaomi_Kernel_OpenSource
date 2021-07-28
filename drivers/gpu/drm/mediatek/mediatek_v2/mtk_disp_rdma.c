@@ -11,7 +11,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -325,8 +330,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+#ifdef DISP_ENABLE_PF
 			atomic_set(&mtk_crtc->pf_event, 1);
 			wake_up_interruptible(&mtk_crtc->present_fence_wq);
+#endif
 		}
 	}
 
@@ -1529,6 +1536,22 @@ static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
 	.is_support_34bits = false,
 };
 
+static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
+	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.pre_ultra_low_us = 245,
+	.pre_ultra_high_us = 255,
+	.ultra_low_us = 230,
+	.ultra_high_us = 245,
+	.urgent_low_us = 113,
+	.urgent_high_us = 117,
+	.sodi_config = mt6879_mtk_sodi_config,
+	.shadow_update_reg = 0x00b8,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = true,
+
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
@@ -1546,6 +1569,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt6853_rdma_driver_data},
 	{.compatible = "mediatek,mt6833-disp-rdma",
 	 .data = &mt6833_rdma_driver_data},
+	{.compatible = "mediatek,mt6879-disp-rdma",
+	 .data = &mt6879_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);

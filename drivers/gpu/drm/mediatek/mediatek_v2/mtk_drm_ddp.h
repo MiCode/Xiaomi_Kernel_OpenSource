@@ -8,7 +8,11 @@
 
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #define DISP_MUTEX_TOTAL (16)
 #define DISP_MUTEX_DDP_FIRST (0)
@@ -89,6 +93,10 @@ void mtk_ddp_insert_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_remove_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
+void mtk_ddp_insert_dsc_prim_MT6879(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle);
+void mtk_ddp_remove_dsc_prim_MT6879(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle);
 void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_submit_sof(struct mtk_disp_mutex *mutex);
@@ -115,5 +123,8 @@ void mtk_ddp_remove_dsc_prim_MT6853(struct mtk_drm_crtc *mtk_crtc,
 
 void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs);
 void mutex_dump_analysis_mt6833(struct mtk_disp_mutex *mutex);
+
+void mmsys_config_dump_analysis_mt6879(void __iomem *config_regs);
+void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex);
 
 #endif /* MTK_DRM_DDP_H */

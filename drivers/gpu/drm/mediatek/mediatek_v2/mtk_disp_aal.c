@@ -9,13 +9,16 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/delay.h>
-
-//For 120Hz rotation issue
 #include <linux/time.h>
+
+#ifndef DRM_CMDQ_DISABLE
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #ifdef CONFIG_LEDS_MTK_MODULE
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -2913,6 +2916,16 @@ static const struct mtk_disp_aal_data mt6983_aal_driver_data = {
 	.bitShift = 16,
 };
 
+static const struct mtk_disp_aal_data mt6879_aal_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = true,
+	.aal_dre_hist_start = 1536,
+	.aal_dre_hist_end   = 4604,
+	.aal_dre_gain_start = 4608,
+	.aal_dre_gain_end   = 6780,
+	.bitShift = 16,
+};
+
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-aal",
 	  .data = &mt6885_aal_driver_data},
@@ -2924,6 +2937,8 @@ static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
 	  .data = &mt6833_aal_driver_data},
 	{ .compatible = "mediatek,mt6983-disp-aal",
 	  .data = &mt6983_aal_driver_data},
+	{ .compatible = "mediatek,mt6879-disp-aal",
+	  .data = &mt6879_aal_driver_data},
 	{},
 };
 

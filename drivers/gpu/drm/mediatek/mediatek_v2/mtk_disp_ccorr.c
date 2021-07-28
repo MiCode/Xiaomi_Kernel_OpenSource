@@ -9,7 +9,12 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -1279,6 +1284,11 @@ static const struct mtk_disp_ccorr_data mt6983_ccorr_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_ccorr_data mt6879_ccorr_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = true,
+};
+
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-ccorr",
 	  .data = &mt6779_ccorr_driver_data},
@@ -1292,6 +1302,8 @@ static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	  .data = &mt6833_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6983-disp-ccorr",
 	  .data = &mt6983_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6879-disp-ccorr",
+	  .data = &mt6879_ccorr_driver_data},
 	{},
 };
 

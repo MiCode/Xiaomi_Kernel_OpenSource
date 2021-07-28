@@ -149,6 +149,8 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_RDMA0_OUT_RELAY)                                 \
 	EXPR(DDP_COMPONENT_PQ0_VIRTUAL)                                     \
 /*85*/	EXPR(DDP_COMPONENT_MAIN0_VIRTUAL)                                   \
+	EXPR(DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL)                           \
+	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL)                       \
 	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,
@@ -574,8 +576,8 @@ void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6833_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
-
-
+void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
 

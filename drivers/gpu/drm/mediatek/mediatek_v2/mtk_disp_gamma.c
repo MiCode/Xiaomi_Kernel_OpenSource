@@ -8,7 +8,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -539,6 +544,7 @@ static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6853-disp-gamma",},
 	{ .compatible = "mediatek,mt6833-disp-gamma",},
 	{ .compatible = "mediatek,mt6983-disp-gamma",},
+	{ .compatible = "mediatek,mt6879-disp-gamma",},
 	{},
 };
 
