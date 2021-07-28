@@ -17,10 +17,9 @@
 
 #define TAG "ccci_adc"
 
-static struct device *md_adc_pdev;
+static struct platform_device *md_adc_pdev;
 static int adc_num;
 static int adc_val;
-static int adc_mV;
 
 #ifdef CCCI_KMODULE_ENABLE
 /*
@@ -36,11 +35,9 @@ unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 
 static int ccci_get_adc_info(struct device *dev)
 {
-	int ret, val, mV;
+	int ret, val;
 	struct iio_channel *md_channel;
 
-	adc_val = -1;
-	adc_mV = -1;
 	md_channel = iio_channel_get(dev, "md-channel");
 
 	ret = IS_ERR(md_channel);
@@ -54,27 +51,16 @@ static int ccci_get_adc_info(struct device *dev)
 		goto Fail;
 	}
 	adc_num = md_channel->channel->channel;
-
 	ret = iio_read_channel_raw(md_channel, &val);
+	iio_channel_release(md_channel);
 	if (ret < 0) {
-		iio_channel_release(md_channel);
 		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_raw fail");
 		goto Fail;
 	}
+
 	adc_val = val;
-
-	ret = iio_read_channel_processed(md_channel, &mV);
-	iio_channel_release(md_channel);
-	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_processed fail");
-		goto Fail;
-	}
-	adc_mV = mV;
-
-	CCCI_NORMAL_LOG(0, TAG, "md_ch = %d, raw_val = %d[%dmV]\n",
-		adc_num, val, mV);
+	CCCI_NORMAL_LOG(0, TAG, "md_ch = %d, val = %d\n", adc_num, adc_val);
 	return ret;
-
 Fail:
 	return -1;
 }
@@ -87,17 +73,9 @@ EXPORT_SYMBOL(ccci_get_adc_num);
 
 int ccci_get_adc_val(void)
 {
-	ccci_get_adc_info(md_adc_pdev);
 	return adc_val;
 }
 EXPORT_SYMBOL(ccci_get_adc_val);
-
-int ccci_get_adc_mV(void)
-{
-	ccci_get_adc_info(md_adc_pdev);
-	return adc_mV;
-}
-EXPORT_SYMBOL(ccci_get_adc_mV);
 
 int get_auxadc_probe(struct platform_device *pdev)
 {
@@ -108,7 +86,7 @@ int get_auxadc_probe(struct platform_device *pdev)
 		CCCI_ERROR_LOG(-1, TAG, "ccci get adc info fail");
 		return ret;
 	}
-	md_adc_pdev = &pdev->dev;
+	md_adc_pdev = pdev;
 	return 0;
 }
 
