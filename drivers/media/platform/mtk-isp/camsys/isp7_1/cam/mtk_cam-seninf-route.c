@@ -729,21 +729,23 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 	//spin_lock(&ctx->spinlock_sensor_work);
 	if (0) {
 	//ctx->sensor_wq && ctx->streaming) {
-		sensor_work = kmalloc(
-				sizeof(struct mtk_sensor_work),
-				GFP_KERNEL);
+		sensor_work = NULL;
+		//kmalloc(sizeof(struct mtk_sensor_work),
+		//		GFP_KERNEL);
 		if (sensor_work) {
 			INIT_WORK(&sensor_work->work, mtk_sensor_worker);
 			sensor_work->ctx = ctx;
 			sensor_work->data.sof = param->sof_cnt;
 			queue_work(ctx->sensor_wq, &sensor_work->work);
-		} else {
-			dev_err(ctx->dev,
-				"%s, sensor work alloc failed\n", __func__);
 		}
-	} else
-		dev_info(ctx->dev, "%s, ctx->sensor_wq = NULL || ctx->streaming = %d\n",
-			__func__, ctx->streaming);
+	//	else {
+	//		dev_info(ctx->dev,
+	//			"%s, sensor work alloc failed\n", __func__);
+	//	}
+	}
+	//else
+	//	dev_info(ctx->dev, "%s, ctx->sensor_wq = NULL || ctx->streaming = %d\n",
+	//		__func__, ctx->streaming);
 	//spin_unlock(&ctx->spinlock_sensor_work);
 }
 
