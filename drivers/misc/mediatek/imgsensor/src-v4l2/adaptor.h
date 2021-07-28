@@ -68,6 +68,7 @@ struct adaptor_ctx {
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *pd_pixel_region;
 	struct v4l2_ctrl *max_fps;
+	struct v4l2_ctrl *test_pattern;
 
 	/* custom v4l2 ctrls */
 	struct v4l2_ctrl *anti_flicker;
@@ -121,6 +122,7 @@ struct adaptor_ctx {
 	unsigned int is_sensor_scenario_inited:1;
 
 	int power_refcnt;
+	int open_refcnt;
 };
 
 #endif

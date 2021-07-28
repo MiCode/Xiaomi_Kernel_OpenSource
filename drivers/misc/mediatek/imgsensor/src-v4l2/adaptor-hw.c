@@ -256,6 +256,12 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 	struct adaptor_hw_ops *op;
 
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
+
+	if (!ctx->power_refcnt) {
+		dev_info(ctx->dev, "%s power ref cnt = %d, skip due to not power on yet\n",
+			__func__, ctx->power_refcnt);
+		return 0;
+	}
 	dev_info(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
 	ctx->power_refcnt--;
 	if (ctx->power_refcnt > 0) {

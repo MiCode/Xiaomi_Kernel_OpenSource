@@ -322,6 +322,8 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	try_fmt->height = ctx->cur_mode->height;
 	try_fmt->code = ctx->fmt_code;
 	try_fmt->field = V4L2_FIELD_NONE;
+	ctx->open_refcnt++;
+	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 
 #ifdef POWERON_ONCE_OPENED
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
@@ -348,6 +350,8 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
 	mutex_lock(&ctx->mutex);
+	ctx->open_refcnt--;
+	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 
 #ifdef POWERON_ONCE_OPENED
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
@@ -357,6 +361,9 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	dev_info(ctx->dev, "%s use self ref cnt\n", __func__);
 	adaptor_hw_power_off(ctx);
 #endif
+#else
+	if (!ctx->open_refcnt)
+		adaptor_hw_power_off(ctx);
 #endif
 
 	mutex_unlock(&ctx->mutex);
@@ -514,6 +521,13 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 
 		ctx->try_format_mode = mode;
 	} else {
+#ifndef POWERON_ONCE_OPENED
+		if (!ctx->is_sensor_inited) {
+			adaptor_hw_power_on(ctx);
+			subdrv_call(ctx, open);
+			ctx->is_sensor_inited = 1;
+		}
+#endif
 		set_sensor_mode(ctx, mode, 1);
 	}
 
@@ -619,6 +633,7 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	u32 len;
 
 	if (!ctx->is_sensor_inited) {
+		adaptor_hw_power_on(ctx);
 		subdrv_call(ctx, open);
 		ctx->is_sensor_inited = 1;
 	}
@@ -716,6 +731,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 			goto err_rpm_put;
 	} else {
 		imgsensor_stop_streaming(ctx);
+		adaptor_hw_power_off(ctx);
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 		pm_runtime_put(ctx->dev);
 #endif
@@ -987,6 +1003,7 @@ static int imgsensor_probe(struct i2c_client *client)
 
 	mutex_init(&ctx->mutex);
 	ctx->power_refcnt = 0;
+	ctx->open_refcnt = 0;
 
 	ctx->i2c_client = client;
 	ctx->dev = dev;

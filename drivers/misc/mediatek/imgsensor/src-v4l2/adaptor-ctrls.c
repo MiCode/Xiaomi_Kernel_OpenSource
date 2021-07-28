@@ -1159,10 +1159,12 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 		ctx->exposure_abs->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	/* test pattern */
-	v4l2_ctrl_new_std_menu_items(ctrl_hdlr, &ctrl_ops,
+	ctx->test_pattern = v4l2_ctrl_new_std_menu_items(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_TEST_PATTERN,
 			ARRAY_SIZE(test_pattern_menu) - 1,
 			0, 0, test_pattern_menu);
+	if (ctx->test_pattern)
+		ctx->test_pattern->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	/* hflip */
 	def = ctx->subctx.is_hflip;
