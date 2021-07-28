@@ -63,7 +63,7 @@ static ssize_t scp_hw_voter_dbg_proc_write(
 					loff_t *data)
 {
 	char desc[64];
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
 	int n;
 	struct hwvoter_ipi_test_t ipi_data;
