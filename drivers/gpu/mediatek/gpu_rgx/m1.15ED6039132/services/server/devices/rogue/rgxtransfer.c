@@ -1264,7 +1264,11 @@ PVRSRV_ERROR PVRSRVRGXSubmitTransferKM(RGX_SERVER_TQ_CONTEXT	*psTransferContext,
 		IMG_UINT32 ui32FWCtx = FWCommonContextGetFWAddress(psTransferContext->s3DData.psServerCommonContext).ui32Addr;
 		RGX_CLIENT_CCB *ps3DTQCCB = FWCommonContextGetClientCCB(psTransferContext->s3DData.psServerCommonContext);
 
-		RGX_CCB_CMD_HELPER_DATA *psCmdHelper = &pas3DCmdHelper[ui323DCmdCount];
+		/* Take one of the helper data structs and extract the common cmd struct,
+		 * this is used to obtain the frame num. Each command should share the same
+		 * frame number so we can just get the first.
+		 */
+		RGX_CCB_CMD_HELPER_DATA *psCmdHelper = &pas3DCmdHelper[0];
 		CMD_COMMON *psTransferCmdCmn = IMG_OFFSET_ADDR(psCmdHelper->pui8DMCmd, 0);
 
 		/* Construct the kernel 3D CCB command. */
@@ -1320,7 +1324,12 @@ PVRSRV_ERROR PVRSRVRGXSubmitTransferKM(RGX_SERVER_TQ_CONTEXT	*psTransferContext,
 		RGXFWIF_KCCB_CMD s2DKCCBCmd;
 		IMG_UINT32 ui32FWCtx = FWCommonContextGetFWAddress(psTransferContext->s2DData.psServerCommonContext).ui32Addr;
 		RGX_CLIENT_CCB *ps2DTQCCB = FWCommonContextGetClientCCB(psTransferContext->s2DData.psServerCommonContext);
-		RGX_CCB_CMD_HELPER_DATA *psCmdHelper = &pas2DCmdHelper[ui322DCmdCount];
+
+		/* Take one of the helper data structs and extract the common cmd struct,
+		 * this is used to obtain the frame num. Each command should share the same
+		 * frame number so we can just get the first.
+		 */
+		RGX_CCB_CMD_HELPER_DATA *psCmdHelper = &pas2DCmdHelper[0];
 		CMD_COMMON *psTransferCmdCmn = IMG_OFFSET_ADDR(psCmdHelper->pui8DMCmd, 0);
 
 		/* Construct the kernel 2D CCB command. */
