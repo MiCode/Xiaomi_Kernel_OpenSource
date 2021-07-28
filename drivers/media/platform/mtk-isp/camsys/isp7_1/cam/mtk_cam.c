@@ -55,6 +55,46 @@ static const struct of_device_id mtk_cam_of_ids[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
+/**
+ * All member of mtk_cam_request which may be used after
+ * media_request_ioctl_reinit and before next media_request_ioctl_queue
+ * must be clean here.
+ */
+static void mtk_cam_req_clean(struct mtk_cam_request *req)
+{
+	req->ctx_link_update = 0;
+}
+
+/**
+ * All member of mtk_cam_request_stream_data which may be used
+ * after media_request_ioctl_reinit and before the next
+ * media_request_ioctl_queue must be clean here. For
+ * example, the pending set fmt, set selection, and sensor
+ * switch extension of camsys driver.
+ */
+static void
+mtk_cam_req_s_data_clean(struct mtk_cam_request_stream_data *s_data)
+{
+	s_data->seninf_old = NULL;
+	s_data->seninf_new = NULL;
+	s_data->pad_fmt_update = 0;
+}
+
+static void
+mtk_cam_req_pipe_s_data_clean(struct mtk_cam_request *req, int pipe_id)
+{
+	struct mtk_cam_request_stream_data *req_stream_data;
+	int i;
+	int num_s_data = req->p_data[pipe_id].s_data_num;
+
+	for (i = 0; i < num_s_data; i++) {
+		req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, i);
+		if (req_stream_data)
+			mtk_cam_req_s_data_clean(req_stream_data);
+	}
+
+}
+
 void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			  struct mtk_cam_request *req,
 			  int pipe_id,
@@ -82,6 +122,9 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			req->ctx_used, pipe_id, req->pipe_used);
 		return;
 	}
+
+	/* clean the req_stream_data being used right after request reinit */
+	mtk_cam_req_s_data_clean(req_stream_data_pipe);
 
 	for (i = 0; i < MTK_RAW_TOTAL_NODES; i++) {
 		struct mtk_cam_buffer *buf;
@@ -410,19 +453,22 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	return result;
 }
 
-void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam,
-			     struct mtk_cam_ctx *ctx)
+void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 {
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req, *req_prev;
 	unsigned long flags;
 	unsigned int done_status;
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head *running = &cam->running_job_list;
 
+
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, pending, list) {
+		mtk_cam_req_pipe_s_data_clean(req, pipe_id);
 		if (!(req->pipe_used & cam->streaming_pipe)) {
 			list_del(&req->list);
+			mtk_cam_req_clean(req);
 			media_request_put(&req->req);
 		}
 	}
@@ -439,8 +485,11 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam,
 		done_status = req->done_status |=  1 << ctx->stream_id;
 		spin_unlock((&req->done_status_lock));
 
+		mtk_cam_req_pipe_s_data_clean(req, pipe_id);
+
 		if (req->pipe_used == done_status) {
 			list_del(&req->list);
+			mtk_cam_req_clean(req);
 			media_request_put(&req->req);
 		}
 	}
@@ -1521,12 +1570,23 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->req = req;
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
+
 		mtk_cam_req_work_init(&req_stream_data->sensor_work,
-							  req_stream_data);
+				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_work,
-							  req_stream_data);
+				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_done_work,
-							  req_stream_data);
+				      req_stream_data);
+		/**
+		 * clean the param structs since we support req reinit.
+		 * the mtk_cam_request may not be "zero" when it is
+		 * enqueued.
+		 */
+		memset(&req_stream_data->frame_params, 0,
+		       sizeof(req_stream_data->frame_params));
+		memset(&req_stream_data->sv_frame_params, 0,
+		       sizeof(req_stream_data->sv_frame_params));
+
 	}
 }
 
@@ -1543,6 +1603,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 	/* reset done status */
 	cam_req->done_status = 0;
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);
+	cam_req->ctx_used = 0; /* will update after stream on */
 	cam_req->fs_on_cnt = 0;
 
 	/* Initialize per pipe's stream data (without ctx)*/

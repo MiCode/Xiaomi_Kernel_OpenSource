@@ -349,6 +349,15 @@ mtk_cam_ctrl_state_get_req(struct mtk_camsys_ctrl_state *state)
 	return request_stream_data->req;
 }
 
+static inline int
+mtk_cam_req_get_num_s_data(struct mtk_cam_request *req, int pipe_id)
+{
+	if (pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
+		return 0;
+
+	return req->p_data[pipe_id].s_data_num;
+}
+
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 {
@@ -465,8 +474,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 // FIXME: refine following
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			     struct mtk_cam_request *req);
-void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam,
-			     struct mtk_cam_ctx *ctx);
+void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
 
