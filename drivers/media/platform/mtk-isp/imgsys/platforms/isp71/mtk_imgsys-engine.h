@@ -21,7 +21,8 @@ enum mtk_imgsys_module {
 	IMGSYS_MOD_PQDIP,
 	IMGSYS_MOD_ADL,
 	IMGSYS_MOD_ME,
-	IMGSYS_MOD_MAX
+	IMGSYS_MOD_IMGMAIN, /*pure sw, debug dump usage*/
+	IMGSYS_MOD_MAX,
 };
 
 /**

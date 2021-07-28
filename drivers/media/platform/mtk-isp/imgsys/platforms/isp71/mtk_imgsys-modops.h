@@ -18,6 +18,7 @@
 //#include "modules/mtk_imgsys-me.h"
 #include "modules/mtk_imgsys-adl.h"
 #include "mtk-ipesys-me.h"
+#include "mtk_imgsys-debug.h"
 
 const struct module_ops imgsys_isp7_modules[] = {
 	[IMGSYS_MOD_TRAW] = {
@@ -54,6 +55,13 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.init = imgsys_adl_set_initial_value,
 		.dump = imgsys_adl_debug_dump,
 		.uninit = imgsys_adl_uninit,
+	},
+	/*pure sw usage for timeout debug dump*/
+	[IMGSYS_MOD_IMGMAIN] = {
+		.module_id = IMGSYS_MOD_IMGMAIN,
+		.init = imgsys_main_init,
+		.dump = NULL,
+		.uninit = imgsys_main_uninit,
 	},
 };
 #define MTK_IMGSYS_MODULE_NUM	ARRAY_SIZE(imgsys_isp7_modules)

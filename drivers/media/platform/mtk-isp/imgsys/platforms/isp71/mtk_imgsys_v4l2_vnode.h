@@ -27,6 +27,7 @@ enum mtk_imgsys_module_id {
 	IMGSYS_MODULE_ME,
 	IMGSYS_MODULE_WPE,
 	IMGSYS_MODULE_ADL,
+	IMGSYS_MODULE_MAIN,
 	IMGSYS_MODULE_NUM,
 };
 
@@ -52,6 +53,10 @@ static const struct mtk_imgsys_mod_pipe_desc module_pipe_isp7[] = {
 		.node_num = ARRAY_SIZE(wpe_setting),
 	},
 	[IMGSYS_MODULE_ADL] = {
+		.vnode_desc = NULL,
+		.node_num = 0,
+	},
+	[IMGSYS_MODULE_MAIN] = {
 		.vnode_desc = NULL,
 		.node_num = 0,
 	}

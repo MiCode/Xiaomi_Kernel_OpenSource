@@ -29,12 +29,92 @@ struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_ADL_B, "ADLB"},
 };
 
+void __iomem *imgsysmainRegBA;
+void __iomem *wpedip1RegBA;
+void __iomem *wpedip2RegBA;
+void __iomem *wpedip3RegBA;
+
+void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
+{
+	pr_info("%s: +.\n", __func__);
+	imgsysmainRegBA = 0L;
+	wpedip1RegBA = 0L;
+	wpedip2RegBA = 0L;
+	wpedip3RegBA = 0L;
+
+
+	imgsysmainRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TOP);
+	if (!imgsysmainRegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap imgsys_top registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
+	wpedip1RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE1_DIP1);
+	if (!wpedip1RegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip1 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
+	wpedip2RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE2_DIP1);
+	if (!wpedip2RegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip2 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
+	wpedip3RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE3_DIP1);
+	if (!wpedip3RegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip3 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
+	pr_info("%s: -.\n", __func__);
+}
+
+void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
+{
+	pr_info("%s: +.\n", __func__);
+
+	if (!imgsysmainRegBA) {
+		iounmap(imgsysmainRegBA);
+		imgsysmainRegBA = 0L;
+	}
+
+	if (!wpedip1RegBA) {
+		iounmap(wpedip1RegBA);
+		wpedip1RegBA = 0L;
+	}
+
+	if (!wpedip2RegBA) {
+		iounmap(wpedip2RegBA);
+		wpedip2RegBA = 0L;
+	}
+
+	if (!wpedip3RegBA) {
+		iounmap(wpedip3RegBA);
+		wpedip3RegBA = 0L;
+	}
+
+	pr_info("%s: -.\n", __func__);
+}
+
 void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 	const struct module_ops *imgsys_modules,
 	int imgsys_module_num, unsigned int hw_comb)
 {
 	bool module_on[IMGSYS_MOD_MAX] = {
-		false, false, false, false, false, false};
+		false, false, false, false, false, false, false};
 	int i = 0;
 
 	dev_info(imgsys_dev->dev,
@@ -74,10 +154,10 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int hw_comb, char *logBuf_path,
 	char *logBuf_inport, char *logBuf_outport, int dl_path)
 {
-	void __iomem *imgsysmainRegBA = 0L;
-	void __iomem *wpedip1RegBA = 0L;
-	void __iomem *wpedip2RegBA = 0L;
-	void __iomem *wpedip3RegBA = 0L;
+	/*void __iomem *imgsysmainRegBA = 0L;*/
+	/*void __iomem *wpedip1RegBA = 0L;*/
+	/*void __iomem *wpedip2RegBA = 0L;*/
+	/*void __iomem *wpedip3RegBA = 0L;*/
 	unsigned int checksum_dbg_sel = 0x0;
 	unsigned int original_dbg_sel_value = 0x0;
 	char logBuf_final[log_length * 4];
@@ -106,7 +186,7 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		"%s: + hw_comb/path(0x%x/%s) dl_path:%d, start dump\n",
 		__func__, hw_comb, logBuf_path, dl_path);
 	/* iomap registers */
-	imgsysmainRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TOP);
+	/*imgsysmainRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TOP);*/
 	if (!imgsysmainRegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap imgsys_top registers\n",
 								__func__);
@@ -153,7 +233,7 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* macro_comm status */
 	/*if (dl_path == IMGSYS_DL_WPE_PQDIP) {*/
-	wpedip1RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE1_DIP1);
+	/*wpedip1RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE1_DIP1);*/
 	if (!wpedip1RegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip1 registers\n",
 								__func__);
@@ -162,9 +242,9 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 	wpe_pqdip_mux_v = (unsigned int)ioread32((void *)(wpedip1RegBA + 0xA8));
-	iounmap(wpedip1RegBA);
+	/*iounmap(wpedip1RegBA);*/
 
-	wpedip2RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE2_DIP1);
+	/*wpedip2RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE2_DIP1);*/
 	if (!wpedip2RegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip2 registers\n",
 								__func__);
@@ -173,9 +253,9 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 	wpe_pqdip_mux2_v = (unsigned int)ioread32((void *)(wpedip2RegBA + 0xA8));
-	iounmap(wpedip2RegBA);
+	/*iounmap(wpedip2RegBA);*/
 
-	wpedip3RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE3_DIP1);
+	/*wpedip3RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE3_DIP1);*/
 	if (!wpedip3RegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip3 registers\n",
 								__func__);
@@ -184,7 +264,7 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 	wpe_pqdip_mux3_v = (unsigned int)ioread32((void *)(wpedip3RegBA + 0xA8));
-	iounmap(wpedip3RegBA);
+	/*iounmap(wpedip3RegBA);*/
 	/*}*/
 
 	/* dump information */
@@ -302,7 +382,7 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_info(imgsys_dev->dev, "%s:  0x%08X %08X", __func__,
 		(unsigned int)(0x15620000 + 0xA8), wpe_pqdip_mux3_v);
 	/*}*/
-	iounmap(imgsysmainRegBA);
+	/*iounmap(imgsysmainRegBA);*/
 }
 
 void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_comb)

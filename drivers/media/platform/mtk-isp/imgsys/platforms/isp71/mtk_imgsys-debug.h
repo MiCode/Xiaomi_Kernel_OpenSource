@@ -43,5 +43,7 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 	const struct module_ops *imgsys_modules, int imgsys_module_num,
 	unsigned int hw_comb);
+void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev);
 
 #endif /* _MTK_IMGSYS_DEBUG_H_ */
