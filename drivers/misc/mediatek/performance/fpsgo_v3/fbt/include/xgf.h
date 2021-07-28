@@ -298,4 +298,19 @@ extern int fstb_target_fps_margin;
 extern int fstb_separate_runtime_enable;
 
 int __init init_xgf(void);
+
+extern int (*xgff_est_runtime_fp)(pid_t r_pid,
+		struct xgf_render *render,
+		unsigned long long *runtime,
+		unsigned long long ts);
+int xgff_est_runtime(pid_t r_pid, struct xgf_render *render,
+			unsigned long long *runtime, unsigned long long ts);
+extern int (*xgff_update_start_prev_index_fp)(struct xgf_render *render);
+int xgff_update_start_prev_index(struct xgf_render *render);
+
+void xgff_clean_deps_list(struct xgf_render *render, int pos);
+int xgff_dep_frames_mod(struct xgf_render *render, int pos);
+struct xgf_dep *xgff_get_dep(
+	pid_t tid, struct xgf_render *render, int pos, int force);
+
 #endif

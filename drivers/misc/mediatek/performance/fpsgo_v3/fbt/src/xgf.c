@@ -91,6 +91,34 @@ EXPORT_SYMBOL(fpsgo_xgf2ko_do_recycle_fp);
 
 static int (*xgf_stat_xchg_fp)(int enable);
 
+int (*xgff_est_runtime_fp)(
+	pid_t r_pid,
+	struct xgf_render *render,
+	unsigned long long *runtime,
+	unsigned long long ts
+	);
+EXPORT_SYMBOL(xgff_est_runtime_fp);
+int (*xgff_update_start_prev_index_fp)(struct xgf_render *render);
+EXPORT_SYMBOL(xgff_update_start_prev_index_fp);
+
+void xgff_clean_deps_list(struct xgf_render *render, int pos)
+{
+}
+EXPORT_SYMBOL(xgff_clean_deps_list);
+
+int xgff_dep_frames_mod(struct xgf_render *render, int pos)
+{
+	return 0;
+}
+EXPORT_SYMBOL(xgff_dep_frames_mod);
+
+struct xgf_dep *xgff_get_dep(
+	pid_t tid, struct xgf_render *render, int pos, int force)
+{
+	return NULL;
+}
+EXPORT_SYMBOL(xgff_get_dep);
+
 static inline void xgf_lock(const char *tag)
 {
 	mutex_lock(&xgf_main_lock);
