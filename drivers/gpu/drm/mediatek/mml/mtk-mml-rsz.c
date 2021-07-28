@@ -152,13 +152,11 @@ static bool rsz_relay(struct mml_frame_config *cfg,
 		    src->width == out_width &&
 		    dest->crop.r.height == src->height &&
 		    src->height == out_height &&
-		    dest->crop.x_sub_px == 0 && dest->crop.y_sub_px == 0)
+		    dest->crop.x_sub_px == 0 && dest->crop.y_sub_px == 0 &&
+		    dest->crop.w_sub_px == 0 && dest->crop.h_sub_px == 0)
 			return true;
-		else
-			return false;
-	} else {
-		return false;
 	}
+	return false;
 }
 
 static struct mml_pq_tile_init_result *get_init_result(struct mml_task *task)

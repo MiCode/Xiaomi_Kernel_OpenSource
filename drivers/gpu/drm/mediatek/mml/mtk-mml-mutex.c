@@ -37,8 +37,8 @@ static const struct mutex_data mt6893_mutex_data = {
 
 static const struct mutex_data mt6983_mutex_data = {
 	.mutex_cnt = 16,
-	.mod_offsets = {0x030},
-	.mod_cnt = 1,
+	.mod_offsets = {0x30, 0x34},
+	.mod_cnt = 2,
 };
 
 struct mutex_module {
@@ -75,6 +75,8 @@ static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
 		if (mod->trigger)
 			mutex_mod[mod->index] |= 1 << mod->field;
 	}
+	/* TODO: set by sof group of mout/sel */
+	mutex_mod[1] |= 1 << 24;
 
 	for (i = 0; i < mutex->data->mod_cnt; i++) {
 		u32 offset = mutex->data->mod_offsets[i];

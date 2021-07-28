@@ -23,6 +23,9 @@ module_param(mtk_mml_msg, int, 0644);
 int mml_pkt_dump;
 module_param(mml_pkt_dump, int, 0644);
 
+int mml_comp_dump;
+module_param(mml_comp_dump, int, 0644);
+
 int mml_trace;
 EXPORT_SYMBOL(mml_trace);
 module_param(mml_trace, int, 0644);
@@ -164,6 +167,10 @@ static s32 topology_select_path(struct mml_frame_config *cfg)
 
 #define call_hw_op(_comp, op, ...) \
 	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
+
+#define call_dbg_op(_comp, op, ...) \
+	((_comp->debug_ops && _comp->debug_ops->op) ? \
+		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
 
 static void core_prepare(struct mml_task *task, u32 pipe)
 {
@@ -314,6 +321,21 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
+static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
+	mml_err("dump %d task %p pipe %u config %p",
+		cnt, task, pipe, task->config);
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_dbg_op(comp, dump);
+	}
+}
+
 static s32 core_enable(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
@@ -356,6 +378,9 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	u32 i;
 
 	mml_clock_lock(task->config->mml);
+
+	if (mml_comp_dump)
+		core_comp_dump(task, pipe, -1);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		if (i == path->mmlsys_idx || i == path->mutex_idx)
@@ -697,25 +722,12 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 		mml_err("wait %s fence fail %p ret %ld", name, fence, ret);
 }
 
-#define call_dbg_op(_comp, op, ...) \
-	((_comp->debug_ops && _comp->debug_ops->op) ? \
-		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
-
 static void core_taskdump_cb(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
-	struct mml_comp *comp;
-	u32 i;
 	int cnt = atomic_fetch_inc(&mml_err_cnt);
 
-	mml_err("error dump %d task %p pipe %u config %p",
-		cnt, task, pipe, task->config);
-
-	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
-		call_dbg_op(comp, dump);
-	}
-
+	core_comp_dump(task, pipe, cnt);
 	if (cnt < 3) {
 		mml_err("dump smi");
 	}
@@ -990,30 +1002,54 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)
 	queue_work(cfg->wq_config[0], &task->work_config[0]);
 }
 
-s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
-	dma_addr_t addr, u32 value, u32 mask,
-	struct mml_pipe_cache *cache, u16 *label_idx, bool write_sec,
-	u16 reg_idx)
+static s32 check_label_idx(struct mml_task_reuse *reuse,
+			     struct mml_pipe_cache *cache)
 {
 	if (reuse->label_idx >= cache->label_cnt) {
 		mml_err("out of label cnt idx %u count %u",
 			reuse->label_idx, cache->label_cnt);
 		return -ENOMEM;
 	}
+	return 0;
+}
 
-	if (write_sec)
-		cmdq_pkt_assign_command_reuse(pkt, reg_idx, value,
-			&reuse->labels[reuse->label_idx].va,
-			&reuse->labels[reuse->label_idx].offset);
-	else
-		cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
-			&reuse->labels[reuse->label_idx].va,
-			&reuse->labels[reuse->label_idx].offset);
-
+static void add_reuse_label(struct mml_task_reuse *reuse,
+			      u16 *label_idx, u32 value)
+{
 	*label_idx = reuse->label_idx;
 	reuse->labels[reuse->label_idx].val = value;
 	reuse->label_idx++;
+}
 
+s32 mml_assign(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
+	       struct mml_task_reuse *reuse,
+	       struct mml_pipe_cache *cache,
+	       u16 *label_idx)
+{
+	if (check_label_idx(reuse, cache))
+		return -ENOMEM;
+
+	cmdq_pkt_assign_command_reuse(pkt, reg_idx, value,
+		&reuse->labels[reuse->label_idx].va,
+		&reuse->labels[reuse->label_idx].offset);
+
+	add_reuse_label(reuse, label_idx, value);
+	return 0;
+}
+
+s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
+	      struct mml_task_reuse *reuse,
+	      struct mml_pipe_cache *cache,
+	      u16 *label_idx)
+{
+	if (check_label_idx(reuse, cache))
+		return -ENOMEM;
+
+	cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
+		&reuse->labels[reuse->label_idx].va,
+		&reuse->labels[reuse->label_idx].offset);
+
+	add_reuse_label(reuse, label_idx, value);
 	return 0;
 }
 

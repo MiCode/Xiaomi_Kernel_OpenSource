@@ -388,7 +388,7 @@ static void tp_select_path(struct mml_topology_cache *cache,
 	path[1] = &cache->path[scene[1]];
 }
 
-static bool tp_need_dual(struct mml_frame_config *cfg)
+static inline bool tp_need_dual(struct mml_frame_config *cfg)
 {
 	const struct mml_frame_data *src = &cfg->info.src;
 	u32 min_crop_w, i;
@@ -413,13 +413,11 @@ static s32 tp_select(struct mml_topology_cache *cache,
 {
 	struct mml_topology_path *path[2] = {0};
 
-	if (mml_dual == MML_DUAL_NORMAL)
-		cfg->dual = tp_need_dual(cfg);
-	else if (mml_dual == MML_DUAL_DISABLE)
+	if (mml_dual == MML_DUAL_DISABLE)
 		cfg->dual = false;
 	else if (mml_dual == MML_DUAL_ALWAYS)
 		cfg->dual = true;
-	else
+	else /* (mml_dual == MML_DUAL_NORMAL) */
 		cfg->dual = tp_need_dual(cfg);
 
 	if (!cfg->dual && cfg->info.mode == MML_MODE_RACING)

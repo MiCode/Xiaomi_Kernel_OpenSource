@@ -47,6 +47,7 @@
 #define VIDO_CTRL_2			0x048
 #define VIDO_IN_LINE_ROT		0x050
 #define VIDO_DITHER			0x054
+#define VIDO_DITHER_CON			0x058
 #define VIDO_OFST_ADDR_V		0x068
 #define VIDO_STRIDE_V			0x06c
 #define VIDO_EOL_SEL			0x070
@@ -55,6 +56,8 @@
 #define VIDO_ROT_EN			0x07c
 #define VIDO_FIFO_TEST			0x080
 #define VIDO_MAT_CTRL			0x084
+#define VIDO_CG_NEW_CTRL		0x088
+#define VIDO_SHADOW_CTRL		0x08c
 #define VIDO_DEBUG			0x0d0
 #define VIDO_ARB_SW_CTL			0x0d4
 #define VIDO_PVRIC			0x0d8
@@ -63,6 +66,7 @@
 #define VIDO_PVRIC_SETTING		0x0e4
 #define VIDO_CRC_CTRL			0x0e8
 #define VIDO_CRC_VALUE			0x0ec
+#define VIDO_COMPRESSION_VALUE		0x0f0
 #define VIDO_BASE_ADDR			0xf00
 #define VIDO_BASE_ADDR_C		0xf04
 #define VIDO_BASE_ADDR_V		0xf08
@@ -76,28 +80,75 @@
 #define VIDO_AFBC_VERSION		0xf28
 #define VIDO_AFBC_YUVTRANS		0xf2c
 #define VIDO_BUS_CTRL			0xf30
+#define VIDO_BASE_ADDR_HIGH		0xf34
+#define VIDO_BASE_ADDR_HIGH_C		0xf38
+#define VIDO_BASE_ADDR_HIGH_V		0xf3c
+#define VIDO_OFST_ADDR_HIGH		0xf40
+#define VIDO_OFST_ADDR_HIGH_C		0xf44
+#define VIDO_OFST_ADDR_HIGH_V		0xf48
 
 /* register mask */
 #define VIDO_INT_MASK			0x00000007
 
-/* ceil_m and floor_m helper macro */
-//#define ceil_m(n, d) ((u32)(((float)(n) / (d)) + ((n) % (d) != 0)))
-//#define floor_m(n, d) ((u32)((float)(n) / (d)))
-u32 ceil_m(u64 n, u64 d) {
+/* ceil_m and floor_m helper function */
+static u32 ceil_m(u64 n, u64 d)
+{
 	u32 reminder = do_div((n),(d));
+
 	return n + (reminder != 0);
 }
-u32 floor_m(u64 n, u64 d) {
+
+static u32 floor_m(u64 n, u64 d)
+{
 	do_div(n, d);
 	return n;
 }
 
 enum wrot_label {
 	WROT_LABEL_ADDR = 0,
+	WROT_LABEL_ADDR_HIGH,
 	WROT_LABEL_ADDR_C,
+	WROT_LABEL_ADDR_HIGH_C,
 	WROT_LABEL_ADDR_V,
+	WROT_LABEL_ADDR_HIGH_V,
 	WROT_LABEL_TOTAL
 };
+
+static s32 wrot_write_ofst(struct cmdq_pkt *pkt,
+			   dma_addr_t addr, dma_addr_t addr_high, u64 value)
+{
+	s32 ret;
+
+	ret = cmdq_pkt_write(pkt, NULL, addr, value & GENMASK_ULL(31, 0), U32_MAX);
+	if (ret)
+		return ret;
+	ret = cmdq_pkt_write(pkt, NULL, addr_high, value >> 32, U32_MAX);
+	return ret;
+}
+
+static s32 wrot_write_addr(struct cmdq_pkt *pkt,
+			   dma_addr_t addr, dma_addr_t addr_high, u64 value,
+			   struct mml_task_reuse *reuse,
+			   struct mml_pipe_cache *cache,
+			   u16 *label_idx)
+{
+	s32 ret;
+
+	ret = mml_write(pkt, addr, value & GENMASK_ULL(31, 0), U32_MAX,
+			reuse, cache, label_idx);
+	if (ret)
+		return ret;
+	ret = mml_write(pkt, addr_high, value >> 32, U32_MAX,
+			reuse, cache, label_idx + 1);
+	return ret;
+}
+
+static void wrot_update_addr(struct mml_task_reuse *reuse,
+			     u16 label, u16 label_high, u64 value)
+{
+	mml_update(reuse, label, value & GENMASK_ULL(31, 0));
+	mml_update(reuse, label_high, value >> 32);
+}
 
 struct wrot_data {
 	u32 fifo;
@@ -168,9 +219,9 @@ static inline struct mml_comp_wrot *comp_to_wrot(struct mml_comp *comp)
 }
 
 struct wrot_ofst_addr {
-	u32 y;	/* wrot_y_ofst_adr for VIDO_OFST_ADDR */
-	u32 c;	/* wrot_c_ofst_adr for VIDO_OFST_ADDR_C */
-	u32 v;	/* wrot_v_ofst_adr for VIDO_OFST_ADDR_V */
+	u64 y;	/* wrot_y_ofst_adr for VIDO_OFST_ADDR */
+	u64 c;	/* wrot_c_ofst_adr for VIDO_OFST_ADDR_C */
+	u64 v;	/* wrot_v_ofst_adr for VIDO_OFST_ADDR_V */
 };
 
 /* different wrot setting between each tile */
@@ -586,16 +637,17 @@ static void calc_plane_offset(u32 left, u32 top,
 
 static void calc_afbc_block(u32 bits_per_pixel, u32 y_stride, u32 vert_stride,
 			    u64 *iova, u32 *offset,
-			    u32 *block_x, u32 *addr_c, u32 *addr_v, u32 *addr)
+			    u32 *block_x, u64 *addr_c, u64 *addr_v, u64 *addr)
 {
-	u32 block_y, header_sz;
+	u32 block_y;
+	u64 header_sz;
 
 	*block_x = ((y_stride << 3) / bits_per_pixel + 31) >> 5;
 	block_y = (vert_stride + 7) >> 3;
 	header_sz = ((((*block_x * block_y) << 4) + 1023) >> 10) << 10;
 
-	*addr_c = (u32)iova[0] + offset[0];
-	*addr_v = (u32)iova[2] + offset[2];
+	*addr_c = iova[0] + offset[0];
+	*addr_v = iova[2] + offset[2];
 	*addr = *addr_c + header_sz;
 }
 
@@ -654,13 +706,15 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const u32 h_subsample = MML_FMT_H_SUBSAMPLE(dest_fmt);
 	const u32 v_subsample = MML_FMT_V_SUBSAMPLE(dest_fmt);
 	const u8 plane = MML_FMT_PLANE(dest_fmt);
+	const u32 preultra_en = 1;	/* always enable wrot pre-ultra */
 	const u32 crop_en = 1;		/* always enable crop */
+	const u32 hw_fmt = MML_FMT_HW_FORMAT(dest_fmt);
 
-	u32 hw_fmt = MML_FMT_HW_FORMAT(dest_fmt);
+	u64 addr_c, addr_v, addr;
 	u32 out_swap = MML_FMT_SWAP(dest_fmt);
 	u32 uv_xsel, uv_ysel;
 	u32 filt_v = 0, filt_h = 0;
-	u32 preultra = 1;		/* always enable wrot pre-ultra */
+	u32 preultra;
 	u32 scan_10bit = 0, bit_num = 0, pending_zero = 0, pvric = 0;
 
 	wrot_color_fmt(cfg, wrot_frm);
@@ -716,7 +770,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* DMA_SUPPORT_AFBC */
 	if (MML_FMT_COMPRESS(dest_fmt)) {
-		u32 block_x, addr_c, addr_v, addr;
+		u32 block_x;
 		u32 frame_size;
 
 		/* Write frame base address */
@@ -724,14 +778,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 				wrot_frm->y_stride, dest->data.vert_stride,
 				wrot_frm->iova, wrot_frm->plane_offset,
 				&block_x, &addr_c, &addr_v, &addr);
-
-		/* Write frame base address */
-		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR, addr, U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR], false, 0);
-		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_C, addr_c, U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C], false, 0);
-		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_V, addr_v, U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V], false, 0);
 
 		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
 			frame_size = ((((wrot_frm->out_h + 31) >>
@@ -747,26 +793,30 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_AFBC_YUVTRANS,
 			       MML_FMT_IS_ARGB(dest_fmt), 0x1);
 	} else {
-		u32 iova[3] = {
-			wrot_frm->iova[0] + wrot_frm->plane_offset[0],
-			wrot_frm->iova[1] + wrot_frm->plane_offset[1],
-			wrot_frm->iova[2] + wrot_frm->plane_offset[2],
-		};
+		addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
+		addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
+		addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
 
-		mml_msg("%s base %#x+%u %#x+%u %#x+%u",
+		mml_msg("%s base %#llx+%u %#llx+%u %#llx+%u",
 			__func__,
-			iova[0], wrot_frm->plane_offset[0],
-			iova[1], wrot_frm->plane_offset[1],
-			iova[2], wrot_frm->plane_offset[2]);
-
-		/* Write frame base address */
-		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR, iova[0], U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR], false, 0);
-		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_C, iova[1], U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C], false, 0);
-		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_V, iova[2], U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V], false, 0);
+			addr, wrot_frm->plane_offset[0],
+			addr_c, wrot_frm->plane_offset[1],
+			addr_v, wrot_frm->plane_offset[2]);
 	}
+
+	/* Write frame base address */
+	wrot_write_addr(pkt,
+			base_pa + VIDO_BASE_ADDR,
+			base_pa + VIDO_BASE_ADDR_HIGH, addr,
+			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+	wrot_write_addr(pkt,
+			base_pa + VIDO_BASE_ADDR_C,
+			base_pa + VIDO_BASE_ADDR_HIGH_C, addr_c,
+			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+	wrot_write_addr(pkt,
+			base_pa + VIDO_BASE_ADDR_V,
+			base_pa + VIDO_BASE_ADDR_HIGH_V, addr_v,
+			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
 
 	/* Write frame related registers */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CTRL,
@@ -775,7 +825,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (flip		<< 24) +
 		       (dest->rotate	<< 20) +
 		       (cfg->alpharot	<< 16) + /* alpha rot */
-		       (preultra	<< 14) + /* pre-ultra */
+		       (preultra_en	<< 14) + /* pre-ultra */
 		       (crop_en		<< 12) +
 		       (out_swap	<<  8) +
 		       (hw_fmt		<<  0), 0xf131510f);
@@ -791,13 +841,11 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		pending_zero = 1;
 		bit_num = 1;
 	}
-
 	/* DMA_SUPPORT_AFBC */
 	if (MML_FMT_COMPRESS(dest_fmt)) {
 		scan_10bit = 0;
 		pending_zero = 1;
 	}
-
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SCAN_10BIT, scan_10bit, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_PENDING_ZERO,
 		       pending_zero << 26, 0x04000000);
@@ -827,20 +875,17 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	} else {
 		preultra = 0;
 	}
-
-	if (preultra)
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_DMA_PREULTRA,
-			       preultra, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_DMA_PREULTRA, preultra,
+		       U32_MAX);
 
 	/* Write frame Y stride */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE, wrot_frm->y_stride,
 		       U32_MAX);
-
 	/* Write frame UV stride */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE_C,
-		       wrot_frm->uv_stride, U32_MAX);
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE_V,
-		       wrot_frm->uv_stride, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE_C, wrot_frm->uv_stride,
+		       U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE_V, wrot_frm->uv_stride,
+		       U32_MAX);
 
 	/* Write matrix control */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAT_CTRL,
@@ -873,7 +918,8 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 				struct wrot_ofst_addr *ofst)
 {
 	/* Following data retrieve from tile calc result */
-	const u32 out_xs = tile->out.xs;
+	const u64 out_xs = tile->out.xs;
+	const char *msg = "";
 
 	if (dest->rotate == MML_ROT_0 && !dest->flip) {
 		/* Target Y offset */
@@ -885,8 +931,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		 */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s No flip and no rotation: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "No flip and no rotation";
 	} else if (dest->rotate == MML_ROT_0 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 32) * 32;
@@ -894,8 +939,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Flip without rotation: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip without rotation";
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((out_xs / 8) + 1) *
@@ -904,8 +948,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Rotate 90 degree only: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Rotate 90 degree only";
 	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (out_xs / 8) * (wrot_frm->y_stride / 128) * 1024;
@@ -913,11 +956,10 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Flip and Rotate 90 degree: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip and Rotate 90 degree";
 	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		/* Target Y offset */
-		ofst->y = (((wrot_frm->out_h / 8) - 1) *
+		ofst->y = ((((u64)wrot_frm->out_h / 8) - 1) *
 			  (wrot_frm->y_stride / 128) +
 			  ((wrot_frm->out_w / 32) - (out_xs / 32) - 1)) *
 			  1024;
@@ -925,19 +967,17 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Rotate 180 degree only: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Rotate 180 degree only";
 	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		/* Target Y offset */
-		ofst->y = (((wrot_frm->out_h / 8) - 1) *
+		ofst->y = ((((u64)wrot_frm->out_h / 8) - 1) *
 			  (wrot_frm->y_stride / 128) +
 			  (out_xs / 32)) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Flip and Rotate 180 degree: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip and Rotate 180 degree";
 	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8) - 1) *
@@ -946,8 +986,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Rotate 270 degree only: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Rotate 270 degree only";
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8)) *
@@ -956,9 +995,10 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
 
-		mml_msg("%s Flip and Rotate 270 degree: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip and Rotate 270 degree";
 	}
+	mml_msg("%s %s: offset Y:%#010llx U:%#010llx V:%#010llx",
+		__func__, msg, ofst->y, ofst->c, ofst->v);
 }
 
 static void wrot_tile_calc(const struct mml_frame_dest *dest,
@@ -967,8 +1007,9 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			   struct wrot_ofst_addr *ofst)
 {
 	/* Following data retrieve from tile calc result */
-	const u32 out_xs = tile->out.xs;
-	const u32 out_ys = tile->out.ys;
+	const u64 out_xs = tile->out.xs;
+	const u64 out_ys = tile->out.ys;
+	const char *msg = "";
 
 	if (dest->rotate == MML_ROT_0 && !dest->flip) {
 		/* Target Y offset */
@@ -987,8 +1028,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
-		mml_msg("%s No flip and no rotation: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "No flip and no rotation";
 	} else if (dest->rotate == MML_ROT_0 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_ys * wrot_frm->y_stride +
@@ -1007,8 +1047,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  (((wrot_frm->out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
-		mml_msg("%s Flip without rotation: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip without rotation";
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_xs * wrot_frm->y_stride +
@@ -1027,8 +1066,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  (((wrot_frm->out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
-		mml_msg("%s Rotate 90 degree only: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Rotate 90 degree only";
 	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_xs * wrot_frm->y_stride +
@@ -1046,8 +1084,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
-		mml_msg("%s Flip and Rotate 90 degree: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip and Rotate 90 degree";
 	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_h - out_ys - 1) *
@@ -1067,8 +1104,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  (((wrot_frm->out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
-		mml_msg("%s Rotate 180 degree only: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Rotate 180 degree only";
 	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_h - out_ys - 1) *
@@ -1087,8 +1123,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
-		mml_msg("%s Flip and Rotate 180 degree: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip and Rotate 180 degree";
 	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 1) *
@@ -1107,8 +1142,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
-		mml_msg("%s Rotate 270 degree only: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Rotate 270 degree only";
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 1) *
@@ -1128,9 +1162,10 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			  (((wrot_frm->out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
-		mml_msg("%s Flip and Rotate 270 degree: offset Y:%#010x U:%#010x V:%#010x",
-			__func__, ofst->y, ofst->c, ofst->v);
+		msg = "Flip and Rotate 270 degree";
 	}
+	mml_msg("%s %s: offset Y:%#010llx U:%#010llx V:%#010llx",
+		__func__, msg, ofst->y, ofst->c, ofst->v);
 }
 
 static void wrot_check_buf(const struct mml_frame_dest *dest,
@@ -1275,13 +1310,17 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 		wrot_tile_calc(dest, wrot_frm, tile, &ofst);
 
 	/* Write Y pixel offset */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR, ofst.y, U32_MAX);
-
+	wrot_write_ofst(pkt,
+			base_pa + VIDO_OFST_ADDR,
+			base_pa + VIDO_OFST_ADDR_HIGH, ofst.y);
 	/* Write U pixel offset */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR_C, ofst.c, U32_MAX);
-
+	wrot_write_ofst(pkt,
+			base_pa + VIDO_OFST_ADDR_C,
+			base_pa + VIDO_OFST_ADDR_HIGH_C, ofst.c);
 	/* Write V pixel offset */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR_V, ofst.v, U32_MAX);
+	wrot_write_ofst(pkt,
+			base_pa + VIDO_OFST_ADDR_V,
+			base_pa + VIDO_OFST_ADDR_HIGH_V, ofst.v);
 
 	/* Write source size */
 	wrot_in_xsize = in_xe  - in_xs + 1;
@@ -1378,6 +1417,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 	const u32 dest_fmt = dest->data.format;
 	const u32 out_swap = MML_FMT_SWAP(dest_fmt);
+	u64 addr_c, addr_v, addr;
 
 	if (out_swap == 1 && MML_FMT_PLANE(dest_fmt) == 3)
 		swap(wrot_frm->iova[1], wrot_frm->iova[2]);
@@ -1388,29 +1428,31 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* DMA_SUPPORT_AFBC */
 	if (MML_FMT_COMPRESS(dest_fmt)) {
-		u32 block_x, addr_c, addr_v, addr;
+		u32 block_x;
 
 		/* Write frame base address */
 		calc_afbc_block(wrot_frm->bbp_y,
 				wrot_frm->y_stride, dest->data.vert_stride,
 				wrot_frm->iova, wrot_frm->plane_offset,
 				&block_x, &addr_c, &addr_v, &addr);
-
-		/* update frame base address to list */
-		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR], addr);
-		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
-		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
 	} else {
-		u32 addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
-		u32 addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
-		u32 addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
-
-		/* update frame base address to list */
-		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR], addr);
-		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
-		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
+		addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
+		addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
+		addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
 	}
-
+	/* update frame base address to list */
+	wrot_update_addr(reuse,
+			 wrot_frm->labels[WROT_LABEL_ADDR],
+			 wrot_frm->labels[WROT_LABEL_ADDR_HIGH],
+			 addr);
+	wrot_update_addr(reuse,
+			 wrot_frm->labels[WROT_LABEL_ADDR_C],
+			 wrot_frm->labels[WROT_LABEL_ADDR_HIGH_C],
+			 addr_c);
+	wrot_update_addr(reuse,
+			 wrot_frm->labels[WROT_LABEL_ADDR_V],
+			 wrot_frm->labels[WROT_LABEL_ADDR_HIGH_V],
+			 addr_v);
 	return 0;
 }
 
@@ -1458,7 +1500,7 @@ static const char *wrot_state(u32 state)
 static void wrot_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[18];
+	u32 value[33];
 	u32 debug[34];
 	u32 dbg_id = 0, state;
 	u32 i;
@@ -1471,18 +1513,33 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	value[3] = readl(base + VIDO_SOFT_RST);
 	value[4] = readl(base + VIDO_SOFT_RST_STAT);
 	value[5] = readl(base + VIDO_INT);
-	value[6] = readl(base + VIDO_TAR_SIZE);
-	value[7] = readl(base + VIDO_FRAME_SIZE);
-	value[8] = readl(base + VIDO_OFST_ADDR);
-	value[9] = readl(base + VIDO_STRIDE);
-	value[10] = readl(base + VIDO_EOL_SEL);
-	value[11] = readl(base + VIDO_IN_SIZE);
-	value[12] = readl(base + VIDO_ROT_EN);
-	value[13] = readl(base + VIDO_PVRIC);
-	value[14] = readl(base + VIDO_PENDING_ZERO);
-	value[15] = readl(base + VIDO_BASE_ADDR);
-	value[16] = readl(base + VIDO_BASE_ADDR_C);
-	value[17] = readl(base + VIDO_BASE_ADDR_V);
+	value[6] = readl(base + VIDO_IN_SIZE);
+	value[7] = readl(base + VIDO_CROP_OFST);
+	value[8] = readl(base + VIDO_TAR_SIZE);
+	value[9] = readl(base + VIDO_FRAME_SIZE);
+	value[10] = readl(base + VIDO_OFST_ADDR_HIGH);
+	value[11] = readl(base + VIDO_OFST_ADDR);
+	value[12] = readl(base + VIDO_OFST_ADDR_HIGH_C);
+	value[13] = readl(base + VIDO_OFST_ADDR_C);
+	value[14] = readl(base + VIDO_OFST_ADDR_HIGH_V);
+	value[15] = readl(base + VIDO_OFST_ADDR_V);
+	value[16] = readl(base + VIDO_STRIDE);
+	value[17] = readl(base + VIDO_STRIDE_C);
+	value[18] = readl(base + VIDO_STRIDE_V);
+	value[19] = readl(base + VIDO_CTRL_2);
+	value[20] = readl(base + VIDO_IN_LINE_ROT);
+	value[21] = readl(base + VIDO_EOL_SEL);
+	value[22] = readl(base + VIDO_ROT_EN);
+	value[23] = readl(base + VIDO_SHADOW_CTRL);
+	value[24] = readl(base + VIDO_PVRIC);
+	value[25] = readl(base + VIDO_SCAN_10BIT);
+	value[26] = readl(base + VIDO_PENDING_ZERO);
+	value[27] = readl(base + VIDO_BASE_ADDR_HIGH);
+	value[28] = readl(base + VIDO_BASE_ADDR);
+	value[29] = readl(base + VIDO_BASE_ADDR_HIGH_C);
+	value[30] = readl(base + VIDO_BASE_ADDR_C);
+	value[31] = readl(base + VIDO_BASE_ADDR_HIGH_V);
+	value[32] = readl(base + VIDO_BASE_ADDR_V);
 
 	/* debug id from 0x0100 ~ 0x2100, count 34 which is debug array size */
 	for (i = 0; i < ARRAY_SIZE(debug); i++) {
@@ -1495,14 +1552,30 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		value[0], value[1], value[2]);
 	mml_err("VIDO_SOFT_RST %#010x VIDO_SOFT_RST_STAT %#010x VIDO_INT %#010x",
 		value[3], value[4], value[5]);
-	mml_err("VIDO_TAR_SIZE %#010x VIDO_FRAME_SIZE %#010x VIDO_OFST_ADDR %#010x",
+	mml_err("VIDO_IN_SIZE %#010x VIDO_CROP_OFST %#010x VIDO_TAR_SIZE %#010x",
 		value[6], value[7], value[8]);
-	mml_err("VIDO_STRIDE %#010x VIDO_EOL_SEL %#010x VIDO_IN_SIZE %#010x",
-		value[9], value[10], value[11]);
-	mml_err("VIDO_ROT_EN %#010x VIDO_PVRIC %#010x VIDO_PENDING_ZERO %#010x",
-		value[12], value[13], value[14]);
-	mml_err("VIDO_BASE_ADDR %#010x C %#010x V %#010x",
-		value[15], value[16], value[17]);
+	mml_err("VIDO_FRAME_SIZE %#010x",
+		value[9]);
+	mml_err("VIDO_OFST ADDR_HIGH   %#010x ADDR   %#010x",
+		value[10], value[11]);
+	mml_err("VIDO_OFST ADDR_HIGH_C %#010x ADDR_C %#010x",
+		value[12], value[13]);
+	mml_err("VIDO_OFST ADDR_HIGH_V %#010x ADDR_V %#010x",
+		value[14], value[15]);
+	mml_err("VIDO_STRIDE %#010x C %#010x V %#010x",
+		value[16], value[17], value[18]);
+	mml_err("VIDO_CTRL_2 %#010x VIDO_IN_LINE_ROT %#010x VIDO_EOL_SEL %#010x",
+		value[19], value[20], value[21]);
+	mml_err("VIDO_ROT_EN %#010x VIDO_SHADOW_CTRL %#010x",
+		value[22], value[23]);
+	mml_err("VIDO_PVRIC %#010x VIDO_SCAN_10BIT %#010x VIDO_PENDING_ZERO %#010x",
+		value[24], value[25], value[26]);
+	mml_err("VIDO_BASE ADDR_HIGH   %#010x ADDR   %#010x",
+		value[27], value[28]);
+	mml_err("VIDO_BASE ADDR_HIGH_C %#010x ADDR_C %#010x",
+		value[29], value[30]);
+	mml_err("VIDO_BASE ADDR_HIGH_V %#010x ADDR_V %#010x",
+		value[31], value[32]);
 
 	for (i = 0; i < ARRAY_SIZE(debug) / 3; i++)
 		mml_err("ROT_DEBUG_%x %#010x ROT_DEBUG_%x %#010x ROT_DEBUG_%x %#010x",

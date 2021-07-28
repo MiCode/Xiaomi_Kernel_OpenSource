@@ -31,6 +31,7 @@
 #define RDMA_INTERRUPT_ENABLE		0x010
 #define RDMA_INTERRUPT_STATUS		0x018
 #define RDMA_CON			0x020
+#define RDMA_SHADOW_CTRL		0x024
 #define RDMA_GMCIF_CON			0x028
 #define RDMA_SRC_CON			0x030
 #define RDMA_COMP_CON			0x038
@@ -43,41 +44,31 @@
 #define RDMA_MF_SRC_SIZE		0x070
 #define RDMA_MF_CLIP_SIZE		0x078
 #define RDMA_MF_OFFSET_1		0x080
-#define RDMA_MF_PAR			0x088
 #define RDMA_SF_BKGD_SIZE_IN_BYTE	0x090
 #define RDMA_MF_BKGD_H_SIZE_IN_PXL	0x098
-#define RDMA_SF_PAR			0x0b8
-#define RDMA_MB_DEPTH			0x0c0
-#define RDMA_MB_BASE			0x0c8
-#define RDMA_MB_CON			0x0d0
-#define RDMA_SB_DEPTH			0x0d8
-#define RDMA_SB_BASE			0x0e0
-#define RDMA_SB_CON			0x0e8
 #define RDMA_VC1_RANGE			0x0f0
-#define RDMA_SRC_END_0			0x100
-#define RDMA_SRC_END_1			0x108
-#define RDMA_SRC_END_2			0x110
 #define RDMA_SRC_OFFSET_0		0x118
 #define RDMA_SRC_OFFSET_1		0x120
 #define RDMA_SRC_OFFSET_2		0x128
-#define RDMA_SRC_OFFSET_W_0		0x130
-#define RDMA_SRC_OFFSET_W_1		0x138
-#define RDMA_SRC_OFFSET_W_2		0x140
 #define RDMA_SRC_OFFSET_WP		0x148
 #define RDMA_SRC_OFFSET_HP		0x150
 #define RDMA_TRANSFORM_0		0x200
 #define RDMA_DMABUF_CON_0		0x240
-#define RDMA_ULTRA_TH_HIGH_CON_0	0x248
-#define RDMA_ULTRA_TH_LOW_CON_0		0x250
-#define RDMA_DMABUF_CON_1		0x258
-#define RDMA_ULTRA_TH_HIGH_CON_1	0x260
-#define RDMA_ULTRA_TH_LOW_CON_1		0x268
-#define RDMA_DMABUF_CON_2		0x270
-#define RDMA_ULTRA_TH_HIGH_CON_2	0x278
-#define RDMA_ULTRA_TH_LOW_CON_2		0x280
-#define RDMA_DMABUF_CON_3		0x288
-#define RDMA_ULTRA_TH_HIGH_CON_3	0x290
-#define RDMA_ULTRA_TH_LOW_CON_3		0x298
+#define RDMA_URGENT_TH_CON_0		0x244
+#define RDMA_ULTRA_TH_CON_0		0x248
+#define RDMA_PREULTRA_TH_CON_0		0x250
+#define RDMA_DMABUF_CON_1		0x254
+#define RDMA_URGENT_TH_CON_1		0x258
+#define RDMA_ULTRA_TH_CON_1		0x260
+#define RDMA_PREULTRA_TH_CON_1		0x264
+#define RDMA_DMABUF_CON_2		0x268
+#define RDMA_URGENT_TH_CON_2		0x270
+#define RDMA_ULTRA_TH_CON_2		0x274
+#define RDMA_PREULTRA_TH_CON_2		0x278
+#define RDMA_DMABUF_CON_3		0x280
+#define RDMA_URGENT_TH_CON_3		0x284
+#define RDMA_ULTRA_TH_CON_3		0x288
+#define RDMA_PREULTRA_TH_CON_3		0x290
 #define RDMA_DITHER_CON			0x2a0
 #define RDMA_RESV_DUMMY_0		0x2a8
 #define RDMA_UNCOMP_MON			0x2c0
@@ -129,8 +120,17 @@
 #define RDMA_SRC_BASE_2			0xf10
 #define RDMA_UFO_DEC_LENGTH_BASE_Y	0xf20
 #define RDMA_UFO_DEC_LENGTH_BASE_C	0xf28
+#define RDMA_SRC_BASE_0_MSB		0xf30
+#define RDMA_SRC_BASE_1_MSB		0xf34
+#define RDMA_SRC_BASE_2_MSB		0xf38
+#define RDMA_UFO_DEC_LENGTH_BASE_Y_MSB	0xf3c
+#define RDMA_UFO_DEC_LENGTH_BASE_C_MSB	0xf40
+#define RDMA_SRC_OFFSET_0_MSB		0xf44
+#define RDMA_SRC_OFFSET_1_MSB		0xf48
+#define RDMA_SRC_OFFSET_2_MSB		0xf4c
+#define RDMA_AFBC_PAYLOAD_OST		0xf50
 
-enum rdma_secure_reg_idx {
+enum cpr_reg_idx {
 	CPR_RDMA_SRC_OFFSET_0 = 0,
 	CPR_RDMA_SRC_OFFSET_1,
 	CPR_RDMA_SRC_OFFSET_2,
@@ -155,17 +155,124 @@ enum rdma_secure_reg_idx {
 	CPR_RDMA_COUNT = 21,
 };
 
+static const dma_addr_t reg_idx_to_ofst[CPR_RDMA_COUNT] = {
+	[CPR_RDMA_SRC_OFFSET_0] = RDMA_SRC_OFFSET_0,
+	[CPR_RDMA_SRC_OFFSET_1] = RDMA_SRC_OFFSET_1,
+	[CPR_RDMA_SRC_OFFSET_2] = RDMA_SRC_OFFSET_2,
+	[CPR_RDMA_SRC_OFFSET_WP] = RDMA_SRC_OFFSET_WP,
+	[CPR_RDMA_SRC_OFFSET_HP] = RDMA_SRC_OFFSET_HP,
+	[CPR_RDMA_TRANSFORM_0] = RDMA_TRANSFORM_0,
+	[CPR_RDMA_SRC_BASE_0] = RDMA_SRC_BASE_0,
+	[CPR_RDMA_SRC_BASE_1] = RDMA_SRC_BASE_1,
+	[CPR_RDMA_SRC_BASE_2] = RDMA_SRC_BASE_2,
+	[CPR_RDMA_UFO_DEC_LENGTH_BASE_Y] = RDMA_UFO_DEC_LENGTH_BASE_Y,
+	[CPR_RDMA_UFO_DEC_LENGTH_BASE_C] = RDMA_UFO_DEC_LENGTH_BASE_C,
+	[CPR_RDMA_SRC_BASE_0_MSB] = RDMA_SRC_BASE_0_MSB,
+	[CPR_RDMA_SRC_BASE_1_MSB] = RDMA_SRC_BASE_1_MSB,
+	[CPR_RDMA_SRC_BASE_2_MSB] = RDMA_SRC_BASE_2_MSB,
+	[CPR_RDMA_UFO_DEC_LENGTH_BASE_Y_MSB] = RDMA_UFO_DEC_LENGTH_BASE_Y_MSB,
+	[CPR_RDMA_UFO_DEC_LENGTH_BASE_C_MSB] = RDMA_UFO_DEC_LENGTH_BASE_C_MSB,
+	[CPR_RDMA_SRC_OFFSET_0_MSB] = RDMA_SRC_OFFSET_0_MSB,
+	[CPR_RDMA_SRC_OFFSET_1_MSB] = RDMA_SRC_OFFSET_1_MSB,
+	[CPR_RDMA_SRC_OFFSET_2_MSB] = RDMA_SRC_OFFSET_2_MSB,
+	[CPR_RDMA_AFBC_PAYLOAD_OST] = RDMA_AFBC_PAYLOAD_OST,
+};
+
+static const enum cpr_reg_idx lsb_to_msb[CPR_RDMA_COUNT] = {
+	[CPR_RDMA_SRC_OFFSET_0] = CPR_RDMA_SRC_OFFSET_0_MSB,
+	[CPR_RDMA_SRC_OFFSET_1] = CPR_RDMA_SRC_OFFSET_1_MSB,
+	[CPR_RDMA_SRC_OFFSET_2] = CPR_RDMA_SRC_OFFSET_2_MSB,
+	[CPR_RDMA_SRC_BASE_0] = CPR_RDMA_SRC_BASE_0_MSB,
+	[CPR_RDMA_SRC_BASE_1] = CPR_RDMA_SRC_BASE_1_MSB,
+	[CPR_RDMA_SRC_BASE_2] = CPR_RDMA_SRC_BASE_2_MSB,
+	[CPR_RDMA_UFO_DEC_LENGTH_BASE_Y] = CPR_RDMA_UFO_DEC_LENGTH_BASE_Y_MSB,
+	[CPR_RDMA_UFO_DEC_LENGTH_BASE_C] = CPR_RDMA_UFO_DEC_LENGTH_BASE_C_MSB,
+};
+
 enum rdma_label {
 	RDMA_LABEL_BASE_0 = 0,
+	RDMA_LABEL_BASE_0_MSB,
 	RDMA_LABEL_BASE_1,
+	RDMA_LABEL_BASE_1_MSB,
 	RDMA_LABEL_BASE_2,
-	RDMA_LABEL_BASE_END_0,
-	RDMA_LABEL_BASE_END_1,
-	RDMA_LABEL_BASE_END_2,
+	RDMA_LABEL_BASE_2_MSB,
 	RDMA_LABEL_UFO_DEC_BASE_Y,
+	RDMA_LABEL_UFO_DEC_BASE_Y_MSB,
 	RDMA_LABEL_UFO_DEC_BASE_C,
+	RDMA_LABEL_UFO_DEC_BASE_C_MSB,
 	RDMA_LABEL_TOTAL
 };
+
+static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+		      enum cpr_reg_idx idx, u32 value, bool write_sec)
+{
+	if (write_sec) {
+		return cmdq_pkt_assign_command(pkt,
+			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML, pipe, idx), value);
+	}
+	/* else */
+	return cmdq_pkt_write(pkt, NULL,
+		base_pa + reg_idx_to_ofst[idx], value, U32_MAX);
+}
+
+static s32 rdma_write_ofst(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+			   enum cpr_reg_idx lsb_idx, u64 value, bool write_sec)
+{
+	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
+	s32 ret;
+
+	ret = rdma_write(pkt, base_pa, pipe,
+			 lsb_idx, value & GENMASK_ULL(31, 0), write_sec);
+	if (ret)
+		return ret;
+	ret = rdma_write(pkt, base_pa, pipe,
+			 msb_idx, value >> 32, write_sec);
+	return ret;
+}
+
+static s32 rdma_write_reuse(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+			    enum cpr_reg_idx idx, u32 value,
+			    struct mml_task_reuse *reuse,
+			    struct mml_pipe_cache *cache,
+			    u16 *label_idx, bool write_sec)
+{
+	if (write_sec) {
+		return mml_assign(pkt,
+			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML, pipe, idx), value,
+			reuse, cache, label_idx);
+	}
+	/* else */
+	return mml_write(pkt,
+		base_pa + reg_idx_to_ofst[idx], value, U32_MAX,
+		reuse, cache, label_idx);
+}
+
+static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+			   enum cpr_reg_idx lsb_idx, u64 value,
+			   struct mml_task_reuse *reuse,
+			   struct mml_pipe_cache *cache,
+			   u16 *label_idx, bool write_sec)
+{
+	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
+	s32 ret;
+
+	ret = rdma_write_reuse(pkt, base_pa, pipe,
+			       lsb_idx, value & GENMASK_ULL(31, 0),
+			       reuse, cache, label_idx, write_sec);
+	if (ret)
+		return ret;
+	ret = rdma_write_reuse(pkt, base_pa, pipe,
+			       msb_idx, value >> 32,
+			       reuse, cache, label_idx + 1, write_sec);
+	return ret;
+}
+
+static void rdma_update_addr(struct mml_task_reuse *reuse,
+			     u16 label_lsb, u16 label_msb, u64 value)
+{
+	mml_update(reuse, label_lsb, value & GENMASK_ULL(31, 0));
+	mml_update(reuse, label_msb, value >> 32);
+}
 
 struct rdma_data {
 	u32 tile_width;
@@ -174,7 +281,6 @@ struct rdma_data {
 
 static const struct rdma_data mt6893_rdma_data = {
 	.tile_width = 640,
-	.write_sec_reg = false,
 };
 
 static const struct rdma_data mt6983_rdma_data = {
@@ -529,7 +635,7 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 		if (!src->secure && ((src_buf->dma[0].iova & 0x0f) ||
 		    (plane > 1 && (src_buf->dma[1].iova & 0x0f)) ||
 		    (plane > 2 && (src_buf->dma[2].iova & 0x0f)))) {
-			mml_err("invalid block format setting, buffer %llu %llu %llu",
+			mml_err("invalid block format setting, buffer %#11llx %#11llx %#11llx",
 				src_buf->dma[0].iova, src_buf->dma[1].iova,
 				src_buf->dma[2].iova);
 			mml_err("buffer should be 16 align");
@@ -539,7 +645,7 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 		if (!src->secure && ((src_buf->dma[0].iova & 0x7f) ||
 		    (plane > 1 && (src_buf->dma[1].iova & 0x7f)) ||
 		    (plane > 2 && (src_buf->dma[2].iova & 0x7f)))) {
-			mml_log("warning: block format setting, buffer %llu %llu %llu",
+			mml_log("warning: block format setting, buffer %#11llx %#11llx %#11llx",
 				src_buf->dma[0].iova, src_buf->dma[1].iova,
 				src_buf->dma[2].iova);
 		}
@@ -568,7 +674,7 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 }
 
 static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
-		     u32 *ufo_dec_length_y, u32 *ufo_dec_length_c,
+		     u64 *ufo_dec_length_y, u64 *ufo_dec_length_c,
 		     u32 *u4pic_size_bs, u32 *u4pic_size_y_bs)
 {
 	u32 u4pic_size_y = src->width * src->height;
@@ -629,8 +735,7 @@ static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
 static void rdma_cpr_trigger(struct cmdq_pkt *pkt, u8 pipe)
 {
 	cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_MML_LOCK);
-	cmdq_pkt_assign_command(pkt,
-				CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MML),
+	cmdq_pkt_assign_command(pkt, CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MML),
 				pipe);
 	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_MML_WAIT);
 	cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_MML_SET);
@@ -650,6 +755,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 
 	const phys_addr_t base_pa = comp->base_pa;
+	const bool write_sec = rdma->data->write_sec_reg;
 	u8 simple_mode = 1;
 	u8 filterMode;
 	u8 loose = 0;
@@ -663,10 +769,9 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u8 ufbdc = 0;
 	u32 write_mask = 0;
 	u8 output_10bit = 0;
-	u32 iova[3];
-	u32 iova_end[3];
-	u32 ufo_dec_length_y = 0;
-	u32 ufo_dec_length_c = 0;
+	u64 iova[3];
+	u64 ufo_dec_length_y = 0;
+	u64 ufo_dec_length_c = 0;
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
 
@@ -691,15 +796,12 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		rdma_frm->color_tran = 0;
 	}
 
-	if (rdma_frm->blk_10bit) {
-		if (MML_FMT_IS_YUV(src->format)) {
-			rdma_frm->matrix_sel = 0xf;
-			rdma_frm->color_tran = 1;
-			cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESV_DUMMY_0,
-				       0x7, 0x00000007);
-		}
-	}
-	else {
+	if (rdma_frm->blk_10bit && MML_FMT_IS_YUV(src->format)) {
+		rdma_frm->matrix_sel = 0xf;
+		rdma_frm->color_tran = 1;
+		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESV_DUMMY_0,
+			       0x7, 0x00000007);
+	} else {
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESV_DUMMY_0,
 			       0x0, 0x00000007);
 	}
@@ -719,7 +821,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		bit_number = 1;
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_CON,
-		       (rdma_frm->hw_fmt <<  0) +
+		       (rdma_frm->hw_fmt << 0) +
 		       (filterMode << 9) +
 		       (loose << 11) +
 		       (rdma_frm->field << 12) +
@@ -765,33 +867,20 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
-		if (rdma->data->write_sec_reg) {
-			mml_write(pkt, reuse, 0, ufo_dec_length_y, 0, cache,
-				  &rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
-				  true,
-				  CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-					ccfg->pipe,
-					CPR_RDMA_UFO_DEC_LENGTH_BASE_Y));
+		rdma_write_addr(pkt, base_pa, ccfg->pipe,
+				CPR_RDMA_UFO_DEC_LENGTH_BASE_Y,
+				ufo_dec_length_y,
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
+				write_sec);
 
-			mml_write(pkt, reuse, 0, ufo_dec_length_c, 0, cache,
-				  &rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
-				  true,
-				  CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-					ccfg->pipe,
-					CPR_RDMA_UFO_DEC_LENGTH_BASE_C));
-		} else {
-			mml_write(pkt, reuse,
-				  base_pa + RDMA_UFO_DEC_LENGTH_BASE_Y,
-				  ufo_dec_length_y, U32_MAX, cache,
-				  &rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
-				  false, 0);
+		rdma_write_addr(pkt, base_pa, ccfg->pipe,
+				CPR_RDMA_UFO_DEC_LENGTH_BASE_C,
+				ufo_dec_length_c,
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
+				write_sec);
 
-			mml_write(pkt, reuse,
-				  base_pa + RDMA_UFO_DEC_LENGTH_BASE_C,
-				  ufo_dec_length_c, U32_MAX, cache,
-				  &rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
-				  false, 0);
-		}
 		if (rdma_frm->blk_10bit)
 			cmdq_pkt_write(pkt, NULL,
 				       base_pa + RDMA_MF_BKGD_SIZE_IN_PXL,
@@ -827,68 +916,37 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 
-	mml_msg("%s src %#x %#x %#x",
+	mml_msg("%s src %#11llx %#11llx %#11llx",
 		__func__, iova[0], iova[1], iova[2]);
 
-	if (rdma->data->write_sec_reg) {
-		mml_write(pkt, reuse, 0, iova[0], 0, cache,
-			  &rdma_frm->labels[RDMA_LABEL_BASE_0],
-			  true,
-			  CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-				ccfg->pipe,
-				CPR_RDMA_SRC_BASE_0));
-		mml_write(pkt, reuse, 0, iova[1], 0, cache,
-			  &rdma_frm->labels[RDMA_LABEL_BASE_1],
-			  true,
-			  CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-				ccfg->pipe,
-				CPR_RDMA_SRC_BASE_1));
-		mml_write(pkt, reuse, 0, iova[2], 0, cache,
-			  &rdma_frm->labels[RDMA_LABEL_BASE_2],
-			  true,
-			  CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-				ccfg->pipe,
-				CPR_RDMA_SRC_BASE_2));
-	} else {
-		mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_0, iova[0],
-			  U32_MAX, cache, &rdma_frm->labels[RDMA_LABEL_BASE_0],
-			  false, 0);
-		mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_1, iova[1],
-			  U32_MAX, cache, &rdma_frm->labels[RDMA_LABEL_BASE_1],
-			  false, 0);
-		mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_2, iova[2],
-			  U32_MAX, cache, &rdma_frm->labels[RDMA_LABEL_BASE_2],
-			  false, 0);
-	}
-	iova_end[0] = iova[0] + src_buf->size[0];
-	iova_end[1] = iova[1] + src_buf->size[1];
-	iova_end[2] = iova[2] + src_buf->size[2];
-	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_0, iova_end[0], U32_MAX, cache,
-		&rdma_frm->labels[RDMA_LABEL_BASE_END_0], false, 0);
-	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_1, iova_end[1], U32_MAX, cache,
-		&rdma_frm->labels[RDMA_LABEL_BASE_END_1], false, 0);
-	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_2, iova_end[2], U32_MAX, cache,
-		&rdma_frm->labels[RDMA_LABEL_BASE_END_2], false, 0);
-
-	mml_msg("%s end %#x %#x %#x",
-		__func__, iova_end[0], iova_end[1], iova_end[2]);
+	rdma_write_addr(pkt, base_pa, ccfg->pipe,
+			CPR_RDMA_SRC_BASE_0,
+			iova[0],
+			reuse, cache,
+			&rdma_frm->labels[RDMA_LABEL_BASE_0],
+			write_sec);
+	rdma_write_addr(pkt, base_pa, ccfg->pipe,
+			CPR_RDMA_SRC_BASE_1,
+			iova[1],
+			reuse, cache,
+			&rdma_frm->labels[RDMA_LABEL_BASE_1],
+			write_sec);
+	rdma_write_addr(pkt, base_pa, ccfg->pipe,
+			CPR_RDMA_SRC_BASE_2,
+			iova[2],
+			reuse, cache,
+			&rdma_frm->labels[RDMA_LABEL_BASE_2],
+			write_sec);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_BYTE,
 		       src->y_stride, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SF_BKGD_SIZE_IN_BYTE,
 		       src->uv_stride, U32_MAX);
 
-	if (rdma->data->write_sec_reg)
-		cmdq_pkt_assign_command(pkt,
-			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-					  ccfg->pipe,
-					  CPR_RDMA_TRANSFORM_0),
-			(rdma_frm->matrix_sel << 23) +
-				(rdma_frm->color_tran << 16));
-	else
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_TRANSFORM_0,
-			       (rdma_frm->matrix_sel << 23) +
-			       (rdma_frm->color_tran << 16), 0x0f810000);
+	rdma_write(pkt, base_pa, ccfg->pipe, CPR_RDMA_TRANSFORM_0,
+		   (rdma_frm->matrix_sel << 23) +
+		   (rdma_frm->color_tran << 16),
+		   write_sec);
 
 	/* TODO: write ESL settings */
 	return 0;
@@ -905,12 +963,13 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 plane;
 
 	const phys_addr_t base_pa = comp->base_pa;
+	const bool write_sec = rdma->data->write_sec_reg;
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 
-	u32 src_offset_0;
-	u32 src_offset_1;
-	u32 src_offset_2;
+	u64 src_offset_0;
+	u64 src_offset_1;
+	u64 src_offset_2;
 	u32 mf_src_w;
 	u32 mf_src_h;
 	u32 mf_clip_w;
@@ -919,13 +978,13 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 mf_offset_h_1;
 
 	/* Following data retrieve from tile calc result */
-	u32 in_xs = tile->in.xs;
+	u64 in_xs = tile->in.xs;
 	const u32 in_xe = tile->in.xe;
-	u32 in_ys = tile->in.ys;
+	u64 in_ys = tile->in.ys;
 	const u32 in_ye = tile->in.ye;
 	const u32 out_xs = tile->out.xs;
 	const u32 out_xe = tile->out.xe;
-	const u32 out_ys = tile->out.ys;
+	const u64 out_ys = tile->out.ys;
 	const u32 out_ye = tile->out.ye;
 	const u32 crop_ofst_x = tile->luma.x;
 	const u32 crop_ofst_y = tile->luma.y;
@@ -936,44 +995,31 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		/* Alignment X left in block boundary */
 		in_xs = ((in_xs >> rdma_frm->vdo_blk_shift_w) <<
 			rdma_frm->vdo_blk_shift_w);
-		/* Alignment Y top  in block boundary */
+		/* Alignment Y top in block boundary */
 		in_ys = ((in_ys >> rdma_frm->vdo_blk_shift_h) <<
 			rdma_frm->vdo_blk_shift_h);
 	}
 
 	if (MML_FMT_COMPRESS(src->format)) {
-		if (rdma->data->write_sec_reg) {
-			cmdq_pkt_assign_command(pkt,
-				CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-						  ccfg->pipe,
-						  CPR_RDMA_SRC_OFFSET_WP),
-				in_xs);
-			cmdq_pkt_assign_command(pkt,
-				CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-						  ccfg->pipe,
-						  CPR_RDMA_SRC_OFFSET_HP),
-				in_ys);
-		} else {
-			cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_WP,
-				       in_xs, U32_MAX);
-			cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_HP,
-				       in_ys, U32_MAX);
-		}
+		rdma_write(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_WP,
+			   in_xs, write_sec);
+		rdma_write(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_HP,
+			   in_ys, write_sec);
 	}
 
 	if (!rdma_frm->blk) {
 		/* Set Y pixel offset */
-		src_offset_0  = (in_xs * rdma_frm->bits_per_pixel_y >> 3) +
+		src_offset_0 = (in_xs * rdma_frm->bits_per_pixel_y >> 3) +
 				in_ys * cfg->info.src.y_stride;
 
 		/* Set U pixel offset */
-		src_offset_1  = ((in_xs >> rdma_frm->hor_shift_uv) *
+		src_offset_1 = ((in_xs >> rdma_frm->hor_shift_uv) *
 				rdma_frm->bits_per_pixel_uv >> 3) +
 				(in_ys >> rdma_frm->ver_shift_uv) *
 				cfg->info.src.uv_stride;
 
 		/* Set V pixel offset */
-		src_offset_2  = ((in_xs >> rdma_frm->hor_shift_uv) *
+		src_offset_2 = ((in_xs >> rdma_frm->hor_shift_uv) *
 				rdma_frm->bits_per_pixel_uv >> 3) +
 				(in_ys >> rdma_frm->ver_shift_uv) *
 				cfg->info.src.uv_stride;
@@ -999,17 +1045,13 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 		/* Set 10bit UFO mode */
 		if (MML_FMT_10BIT_PACKED(src->format) && rdma_frm->enable_ufo) {
-			if (rdma->data->write_sec_reg)
-				cmdq_pkt_assign_command(pkt,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-						ccfg->pipe,
-						CPR_RDMA_SRC_OFFSET_WP),
-					(src_offset_0 << 2) / 5);
-			else
-				cmdq_pkt_write(pkt, NULL,
-					       base_pa + RDMA_SRC_OFFSET_WP,
-					       (src_offset_0 << 2) / 5,
-					       U32_MAX);
+			rdma_write(pkt, base_pa, ccfg->pipe,
+				   CPR_RDMA_SRC_OFFSET_WP,
+				   (src_offset_0 << 2) / 5,
+				   write_sec);
+			rdma_write(pkt, base_pa, ccfg->pipe,
+				   CPR_RDMA_SRC_OFFSET_HP,
+				   0, write_sec);
 		}
 
 		/* Set U pixel offset */
@@ -1029,44 +1071,25 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 			       cfg->info.src.uv_stride;
 
 		/* Set source size */
-		mf_src_w      = in_xe - in_xs + 1;
-		mf_src_h      = (in_ye - in_ys + 1) << rdma_frm->field;
+		mf_src_w = in_xe - in_xs + 1;
+		mf_src_h = (in_ye - in_ys + 1) << rdma_frm->field;
 
 		/* Set target size */
-		mf_clip_w     = out_xe - out_xs + 1;
-		mf_clip_h     = (out_ye - out_ys + 1) << rdma_frm->field;
+		mf_clip_w = out_xe - out_xs + 1;
+		mf_clip_h = (out_ye - out_ys + 1) << rdma_frm->field;
 
 		/* Set crop offset */
-		mf_offset_w_1 = (out_xs - in_xs);
-		mf_offset_h_1 = (out_ys  - in_ys) << rdma_frm->field;
+		mf_offset_w_1 = out_xs - in_xs;
+		mf_offset_h_1 = (out_ys - in_ys) << rdma_frm->field;
 	}
 
-	if (rdma->data->write_sec_reg) {
-		cmdq_pkt_assign_command(pkt,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-						ccfg->pipe,
-						CPR_RDMA_SRC_OFFSET_0),
-					src_offset_0);
-		cmdq_pkt_assign_command(pkt,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-						ccfg->pipe,
-						CPR_RDMA_SRC_OFFSET_1),
-					src_offset_1);
-		cmdq_pkt_assign_command(pkt,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-						ccfg->pipe,
-						CPR_RDMA_SRC_OFFSET_2),
-					src_offset_2);
-	} else {
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_0,
-			       src_offset_0, U32_MAX);
+	rdma_write_ofst(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_0,
+			src_offset_0, write_sec);
+	rdma_write_ofst(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_1,
+			src_offset_1, write_sec);
+	rdma_write_ofst(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_2,
+			src_offset_2, write_sec);
 
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_1,
-			       src_offset_1, U32_MAX);
-
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_2,
-			       src_offset_2, U32_MAX);
-	}
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_SRC_SIZE,
 		       (mf_src_h << 16) + mf_src_w, U32_MAX);
 
@@ -1090,9 +1113,8 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		rdma_frm->datasize += mml_color_get_min_uv_size(cfg->info.src.format,
 			mf_src_w, mf_src_h);
 
-	if (rdma->data->write_sec_reg)
+	if (write_sec)
 		rdma_cpr_trigger(pkt, ccfg->pipe);
-
 	return 0;
 }
 
@@ -1141,10 +1163,9 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 
-	u32 iova[3];
-	u32 iova_end[3];
-	u32 ufo_dec_length_y = 0;
-	u32 ufo_dec_length_c = 0;
+	u64 iova[3];
+	u64 ufo_dec_length_y = 0;
+	u64 ufo_dec_length_c = 0;
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
 
@@ -1156,10 +1177,14 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
-		mml_update(reuse, rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
-			ufo_dec_length_y);
-		mml_update(reuse, rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
-			ufo_dec_length_c);
+		rdma_update_addr(reuse,
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y_MSB],
+				 ufo_dec_length_y);
+		rdma_update_addr(reuse,
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
+				 rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C_MSB],
+				 ufo_dec_length_c);
 	}
 
 	/* Write frame base address */
@@ -1182,17 +1207,18 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 
-	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_0], iova[0]);
-	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_1], iova[1]);
-	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_2], iova[2]);
-
-	iova_end[0] = iova[0] + src_buf->size[0];
-	iova_end[1] = iova[1] + src_buf->size[1];
-	iova_end[2] = iova[2] + src_buf->size[2];
-
-	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_END_0], iova_end[0]);
-	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_END_1], iova_end[1]);
-	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_END_2], iova_end[2]);
+	rdma_update_addr(reuse,
+			 rdma_frm->labels[RDMA_LABEL_BASE_0],
+			 rdma_frm->labels[RDMA_LABEL_BASE_0_MSB],
+			 iova[0]);
+	rdma_update_addr(reuse,
+			 rdma_frm->labels[RDMA_LABEL_BASE_1],
+			 rdma_frm->labels[RDMA_LABEL_BASE_1_MSB],
+			 iova[1]);
+	rdma_update_addr(reuse,
+			 rdma_frm->labels[RDMA_LABEL_BASE_2],
+			 rdma_frm->labels[RDMA_LABEL_BASE_2_MSB],
+			 iova[2]);
 
 	return 0;
 }
@@ -1257,15 +1283,17 @@ static const char *rdma_state(u32 state)
 
 static void rdma_debug_dump(struct mml_comp *comp)
 {
+	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	void __iomem *base = comp->base;
-	u32 value[24];
+	u32 value[30];
 	u32 mon[29];
 	u32 state, greq;
 	u32 i;
 
 	mml_err("rdma component %u dump:", comp->id);
 
-	cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MML_WAIT);
+	if (rdma->data->write_sec_reg)
+		cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MML_WAIT);
 
 	value[0] = readl(base + RDMA_EN);
 	value[1] = readl(base + RDMA_RESET);
@@ -1276,21 +1304,29 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	value[6] = readl(base + RDMA_MF_SRC_SIZE);
 	value[7] = readl(base + RDMA_MF_CLIP_SIZE);
 	value[8] = readl(base + RDMA_MF_OFFSET_1);
-	value[9] = readl(base + RDMA_MF_BKGD_H_SIZE_IN_PXL);
-	value[10] = readl(base + RDMA_SRC_END_0);
-	value[11] = readl(base + RDMA_SRC_END_1);
-	value[12] = readl(base + RDMA_SRC_END_2);
-	value[13] = readl(base + RDMA_SRC_OFFSET_0);
-	value[14] = readl(base + RDMA_SRC_OFFSET_1);
-	value[15] = readl(base + RDMA_SRC_OFFSET_2);
-	value[16] = readl(base + RDMA_SRC_OFFSET_W_0);
-	value[17] = readl(base + RDMA_SRC_OFFSET_W_1);
-	value[18] = readl(base + RDMA_SRC_OFFSET_W_2);
-	value[19] = readl(base + RDMA_SRC_OFFSET_WP);
-	value[20] = readl(base + RDMA_SRC_OFFSET_HP);
-	value[21] = readl(base + RDMA_SRC_BASE_0);
-	value[22] = readl(base + RDMA_SRC_BASE_1);
-	value[23] = readl(base + RDMA_SRC_BASE_2);
+	value[9] = readl(base + RDMA_SF_BKGD_SIZE_IN_BYTE);
+	value[10] = readl(base + RDMA_MF_BKGD_H_SIZE_IN_PXL);
+	if (!rdma->data->write_sec_reg) {
+		value[11] = readl(base + RDMA_SRC_OFFSET_0_MSB);
+		value[12] = readl(base + RDMA_SRC_OFFSET_0);
+		value[13] = readl(base + RDMA_SRC_OFFSET_1_MSB);
+		value[14] = readl(base + RDMA_SRC_OFFSET_1);
+		value[15] = readl(base + RDMA_SRC_OFFSET_2_MSB);
+		value[16] = readl(base + RDMA_SRC_OFFSET_2);
+		value[17] = readl(base + RDMA_SRC_OFFSET_WP);
+		value[18] = readl(base + RDMA_SRC_OFFSET_HP);
+		value[19] = readl(base + RDMA_SRC_BASE_0_MSB);
+		value[20] = readl(base + RDMA_SRC_BASE_0);
+		value[21] = readl(base + RDMA_SRC_BASE_1_MSB);
+		value[22] = readl(base + RDMA_SRC_BASE_1);
+		value[23] = readl(base + RDMA_SRC_BASE_2_MSB);
+		value[24] = readl(base + RDMA_SRC_BASE_2);
+		value[25] = readl(base + RDMA_UFO_DEC_LENGTH_BASE_Y_MSB);
+		value[26] = readl(base + RDMA_UFO_DEC_LENGTH_BASE_Y);
+		value[27] = readl(base + RDMA_UFO_DEC_LENGTH_BASE_C_MSB);
+		value[28] = readl(base + RDMA_UFO_DEC_LENGTH_BASE_C);
+		value[29] = readl(base + RDMA_AFBC_PAYLOAD_OST);
+	}
 
 	/* mon sta from 0 ~ 28 */
 	for (i = 0; i < ARRAY_SIZE(mon); i++)
@@ -1300,20 +1336,32 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		value[0], value[1], value[2], value[3]);
 	mml_err("RDMA_MF_BKGD_SIZE_IN_BYTE %#010x RDMA_MF_BKGD_SIZE_IN_PXL %#010x",
 		value[4], value[5]);
-	mml_err("RDMA_MF_SRC_SIZE %#010x RDMA_MF_CLIP_SIZE %#010x ",
-		value[6], value[7]);
-	mml_err("RDMA_MF_OFFSET_1 %#010x RDMA_MF_BKGD_H_SIZE_IN_PXL %#010x",
-		value[8], value[9]);
-	mml_err("RDMA_SRC_END_0 %#010x RDMA_SRC_END_1 %#010x RDMA_SRC_END_2 %#010x",
-		value[10], value[11], value[12]);
-	mml_err("RDMA_SRC_OFFSET_0 %#010x RDMA_SRC_OFFSET_1 %#010x RDMA_SRC_OFFSET_2 %#010x",
-		value[13], value[14], value[15]);
-	mml_err("RDMA_SRC_OFFSET_W_0 %#010x RDMA_SRC_OFFSET_W_1 %#010x RDMA_SRC_OFFSET_W_2 %#010x",
-		value[16], value[17], value[18]);
-	mml_err("RDMA_SRC_OFFSET_WP %#010x RDMA_SRC_OFFSET_HP %#010x",
-		value[19], value[20]);
-	mml_err("RDMA_SRC BASE_0 %#010x BASE_1 %#010x BASE_2 %#010x",
-		value[21], value[22], value[23]);
+	mml_err("RDMA_MF_SRC_SIZE %#010x RDMA_MF_CLIP_SIZE %#010x RDMA_MF_OFFSET_1 %#010x",
+		value[6], value[7], value[8]);
+	mml_err("RDMA_SF_BKGD_SIZE_IN_BYTE %#010x RDMA_MF_BKGD_H_SIZE_IN_PXL %#010x",
+		value[9], value[10]);
+	if (!rdma->data->write_sec_reg) {
+		mml_err("RDMA_SRC OFFSET_0_MSB %#010x OFFSET_0 %#010x",
+			value[11], value[12]);
+		mml_err("RDMA_SRC OFFSET_1_MSB %#010x OFFSET_1 %#010x",
+			value[13], value[14]);
+		mml_err("RDMA_SRC OFFSET_2_MSB %#010x OFFSET_2 %#010x",
+			value[15], value[16]);
+		mml_err("RDMA_SRC_OFFSET_WP %#010x RDMA_SRC_OFFSET_HP %#010x",
+			value[17], value[18]);
+		mml_err("RDMA_SRC BASE_0_MSB %#010x BASE_0 %#010x",
+			value[19], value[20]);
+		mml_err("RDMA_SRC BASE_1_MSB %#010x BASE_1 %#010x",
+			value[21], value[22]);
+		mml_err("RDMA_SRC BASE_2_MSB %#010x BASE_2 %#010x",
+			value[23], value[24]);
+		mml_err("RDMA_UFO_DEC_LENGTH BASE_Y_MSB %#010x BASE_Y %#010x",
+			value[25], value[26]);
+		mml_err("RDMA_UFO_DEC_LENGTH BASE_C_MSB %#010x BASE_C %#010x",
+			value[27], value[28]);
+		mml_err("RDMA_AFBC_PAYLOAD_OST %#010x",
+			value[29]);
+	}
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++)
 		mml_err("RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x",
