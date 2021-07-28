@@ -415,6 +415,8 @@ static void task_frame_done(struct mml_task *task)
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 	u8 i;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	mml_log("[drm]frame done task %p state %u job %u",
 		task, task->state, task->job.jobid);
 
@@ -470,6 +472,8 @@ static void task_frame_done(struct mml_task *task)
 
 done:
 	mutex_unlock(&ctx->config_mutex);
+
+	mml_trace_ex_end();
 }
 
 static void dump_pq_en(u32 idx, struct mml_pq_param *pq_param,

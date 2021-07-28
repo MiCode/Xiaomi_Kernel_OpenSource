@@ -343,10 +343,14 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	s32 ret;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	/* get iova */
 	ret = mml_buf_iova_get(rdma->dev, &task->buf.src);
 	if (ret < 0)
 		mml_err("%s iova fail %d", __func__, ret);
+
+	mml_trace_ex_end();
 
 	mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
 		__func__, comp->id,

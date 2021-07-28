@@ -16,6 +16,8 @@
 #include "mtk-mml-buf.h"
 #include "mtk-mml-tile.h"
 
+#define MML_TRACE_MSG_LEN	1024
+
 int mtk_mml_msg;
 EXPORT_SYMBOL(mtk_mml_msg);
 module_param(mtk_mml_msg, int, 0644);
@@ -346,11 +348,14 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 
 	mml_clock_lock(task->config->mml);
 
+	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
 		call_hw_op(comp, pw_enable);
 	}
+	mml_trace_ex_end();
 
+	mml_trace_ex_begin("%s_%s_%u", __func__, "clk", pipe);
 	if (path->mmlsys)
 		call_hw_op(path->mmlsys, clk_enable);
 	if (path->mutex)
@@ -362,6 +367,7 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 		comp = task_comp(task, pipe, i);
 		call_hw_op(comp, clk_enable);
 	}
+	mml_trace_ex_end();
 
 	cmdq_util_prebuilt_enable(0);
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
@@ -379,6 +385,8 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 
 	mml_clock_lock(task->config->mml);
 
+	mml_trace_ex_begin("%s_%s_%u", __func__, "clk", pipe);
+
 	if (mml_comp_dump)
 		core_comp_dump(task, pipe, -1);
 
@@ -393,11 +401,14 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 		call_hw_op(path->mutex, clk_disable);
 	if (path->mmlsys)
 		call_hw_op(path->mmlsys, clk_disable);
+	mml_trace_ex_end();
 
+	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
 		call_hw_op(comp, pw_disable);
 	}
+	mml_trace_ex_end();
 
 	mml_clock_unlock(task->config->mml);
 
@@ -448,6 +459,8 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	u32 throughput;
 	u32 max_pixel = task->config->cache[pipe].max_pixel;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	ktime_get_real_ts64(&curr_time);
 	mml_msg_qos("task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu",
 		task, pipe,
@@ -456,7 +469,7 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 
 	/* do not append to list and no qos/dvfs for this task */
 	if (!mml_qos)
-		return;
+		goto done;
 
 	if (timespec64_compare(&curr_time, &task->end_time) > 0)
 		task->end_time = curr_time;
@@ -504,6 +517,8 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 
 	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) pixel %u",
 		task, pipe, throughput, task->throughput, max_pixel);
+done:
+	mml_trace_ex_end();
 }
 
 static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
@@ -515,6 +530,8 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	struct timespec64 curr_time;
 	u32 throughput = 0, max_pixel = 0;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	ktime_get_real_ts64(&curr_time);
 	mml_msg_qos("task dvfs end %p pipe %u cur %2u.%03llu end %2u.%03llu",
 		task, pipe,
@@ -525,7 +542,7 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		/* task may already removed from other config (thread),
 		 * so safe to leave directly.
 		 */
-		return;
+		goto exit;
 	}
 
 	list_for_each_entry_safe(task_cur, task_tmp, &path_clt->tasks, entry_clt[pipe]) {
@@ -577,6 +594,8 @@ done:
 
 	if (throughput)
 		mml_core_qos_set(task_cur, pipe, throughput);
+exit:
+	mml_trace_ex_end();
 }
 
 static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
@@ -612,8 +631,11 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		goto done;
 
 	for (i = 0; i < task->buf.dest_cnt; i++) {
-		if (task->buf.dest[i].invalid)
+		if (task->buf.dest[i].invalid) {
+			mml_trace_ex_begin("%s_invalid", __func__);
 			mml_buf_invalid(&task->buf.dest[i]);
+			mml_trace_ex_end();
+		}
 	}
 
 	/* before clean up, signal buffer fence */
@@ -717,9 +739,11 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 
 	if (!fence)
 		return;
+	mml_trace_ex_begin("%s_%s", __func__, name);
 	ret = dma_fence_wait_timeout(fence, true, 3000);
 	if (ret < 0)
 		mml_err("wait %s fence fail %p ret %ld", name, fence, ret);
+	mml_trace_ex_end();
 }
 
 static void core_taskdump_cb(struct mml_task *task, u32 pipe)
@@ -765,6 +789,8 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 
 	mml_msg("%s task %p pipe %u pkt %p", __func__, task, pipe, pkt);
 
+	mml_trace_ex_begin("%s", __func__);
+
 	if (mml_pkt_dump)
 		cmdq_pkt_dump_buf(pkt, 0);
 
@@ -780,14 +806,18 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 		/* also make sure buffer content flushed by other module */
 		if (task->buf.src.flush) {
 			mml_msg("%s flush source", __func__);
+			mml_trace_ex_begin("%s_flush_src", __func__);
 			mml_buf_flush(&task->buf.src);
+			mml_trace_ex_end();
 		}
 
 		for (i = 0; i < task->buf.dest_cnt; i++) {
 			if (task->buf.dest[i].flush) {
 				mml_msg("%s flush dest %d plane %hhu",
 					__func__, i, task->buf.dest[i].cnt);
+				mml_trace_ex_begin("%s_flush_dst_%u", __func__, i);
 				mml_buf_flush(&task->buf.dest[i]);
+				mml_trace_ex_end();
 			}
 		}
 
@@ -798,6 +828,8 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	/* assign error handler */
 	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
+
+	mml_trace_ex_end();
 
 	return cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task->pkts[pipe]);
 }
@@ -835,11 +867,15 @@ static void core_buffer_map(struct mml_task *task)
 	const struct mml_topology_path *path = task->config->path[0];
 	u32 i;
 
+	mml_trace_begin("%s", __func__);
+
 	for (i = 0; i < path->node_cnt; i++) {
 		struct mml_comp *comp = path->nodes[i].comp;
 
 		call_cfg_op(comp, buf_map, task, &path->nodes[i]);
 	}
+
+	mml_trace_end();
 }
 
 static void core_config_thread(struct work_struct *work)
@@ -1058,15 +1094,28 @@ void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value)
 	reuse->labels[label_idx].val = value;
 }
 
-unsigned long mml_get_tracing_mark(void)
+static noinline int tracing_mark_write(const char *buf)
 {
-	static unsigned long __read_mostly tracing_mark_write_addr;
-
-#ifdef IF_ZERO
-	if (unlikely(tracing_mark_write_addr == 0))
-		tracing_mark_write_addr =
-			kallsyms_lookup_name("tracing_mark_write");
+#ifdef CONFIG_TRACING
+	trace_puts(buf);
 #endif
+	return 0;
+}
 
-	return tracing_mark_write_addr;
+void mml_print_trace(char *fmt, ...)
+{
+	char buf[MML_TRACE_MSG_LEN];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	if (len >= MML_TRACE_MSG_LEN) {
+		mml_err("%s trace size %u exceed limit", __func__, len);
+		return;
+	}
+
+	tracing_mark_write(buf);
 }

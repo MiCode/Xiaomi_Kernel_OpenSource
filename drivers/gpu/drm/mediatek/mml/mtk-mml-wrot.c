@@ -379,10 +379,14 @@ static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
 	struct mml_file_buf *dest_buf = &task->buf.dest[node->out_idx];
 	s32 ret;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	/* get iova */
 	ret = mml_buf_iova_get(wrot->dev, dest_buf);
 	if (ret < 0)
 		mml_err("%s iova fail %d", __func__, ret);
+
+	mml_trace_ex_end();
 
 	mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
 		__func__, comp->id,

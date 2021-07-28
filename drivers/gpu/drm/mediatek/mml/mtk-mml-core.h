@@ -18,7 +18,6 @@
 #include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 #include <linux/mailbox_client.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#include <linux/trace_events.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/types.h>
 #include <linux/time.h>
@@ -49,17 +48,16 @@ do { \
 
 /* mml ftrace */
 extern int mml_trace;
-#ifdef IF_ZERO // [FIXME] to check with KS team
 #define mml_trace_begin(fmt, args...) do { \
 	preempt_disable(); \
-	event_trace_printk(mml_get_tracing_mark(), \
+	mml_print_trace( \
 		"B|%d|" fmt "\n", current->tgid, ##args); \
 	preempt_enable();\
 } while (0)
 
 #define mml_trace_end() do { \
 	preempt_disable(); \
-	event_trace_printk(mml_get_tracing_mark(), "E\n"); \
+	mml_print_trace("E\n"); \
 	preempt_enable(); \
 } while (0)
 
@@ -72,12 +70,6 @@ extern int mml_trace;
 	if (mml_trace) \
 		mml_trace_end(); \
 } while (0)
-#else
-#define mml_trace_begin(fmt, args...) do {} while(0)
-#define mml_trace_end() do {} while(0)
-#define mml_trace_ex_begin(fmt, args...) do {} while(0)
-#define mml_trace_ex_end() do {} while(0)
-#endif
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
@@ -593,6 +585,6 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
  */
 void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value);
 
-unsigned long mml_get_tracing_mark(void);
+void mml_print_trace(char *fmt, ...);
 
 #endif	/* __MTK_MML_CORE_H__ */

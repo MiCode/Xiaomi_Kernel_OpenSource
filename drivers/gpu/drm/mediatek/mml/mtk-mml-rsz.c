@@ -122,15 +122,16 @@ static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 	struct rsz_frame_data *rsz_frm;
 	s32 ret = 0;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
 	ccfg->data = rsz_frm;
 	/* cache out index for easy use */
 	rsz_frm->out_idx = ccfg->node->out_idx;
 
 	ret = mml_pq_tile_init(task);
-	if (ret)
-		return ret;
 
+	mml_trace_ex_end();
 	return ret;
 }
 
@@ -186,6 +187,8 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 	u32 in_crop_w, in_crop_h;
 	s32 ret;
+
+	mml_trace_ex_begin("%s", __func__);
 
 	ret = mml_pq_get_tile_init_result(task, RSZ_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -250,6 +253,8 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		func->full_size_x_out = dest->data.width;
 		func->full_size_y_out = dest->data.height;
 	}
+
+	mml_trace_ex_end();
 
 	return 0;
 }
