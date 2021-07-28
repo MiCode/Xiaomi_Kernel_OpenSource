@@ -556,173 +556,193 @@ static void config_img_in_fmt_time_shared(struct mtk_cam_device *cam,
 }
 
 static void check_stagger_buffer(struct mtk_cam_device *cam,
-				struct mtk_cam_request_stream_data *req)
+				struct mtk_cam_request *cam_req)
 {
-	struct mtk_cam_ctx *ctx = req->state.ctx;
+	struct mtk_cam_ctx *ctx;
 	struct mtkcam_ipi_img_input *in_fmt;
 	struct mtkcam_ipi_img_output *out_fmt;
 	struct mtk_cam_img_working_buf_entry *buf_entry;
 	struct mtk_cam_video_device *node;
+	struct mtk_cam_request_stream_data *req;
 	const struct v4l2_format *cfg_fmt;
-	int input_node;
+	int in, i;
 
-	if (mtk_cam_is_2_exposure(ctx)) {
-		req->frame_params.raw_param.hardware_scenario =
-					MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER;
-		req->frame_params.raw_param.exposure_num = 2;
-		/* rawi_r3 should be 0x0*/
-		input_node = MTKCAM_IPI_RAW_RAWI_3;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		in_fmt->buf[0].iova = 0x0;
-		/* chech rawi_r2 if 0x0*/
-		input_node = MTKCAM_IPI_RAW_RAWI_2;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		if (in_fmt->buf[0].iova == 0x0) {
-			node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-			cfg_fmt = &node->active_fmt;
-			in_fmt->uid.id = input_node;
-			in_fmt->uid.pipe_id = node->uid.pipe_id;
-			in_fmt->fmt.format = mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
-			in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
-			in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
-			in_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
-			/* prepare working buffer */
-			buf_entry = mtk_cam_img_working_buf_get(ctx);
-			if (!buf_entry) {
-				dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
-				__func__, req->frame_seq_no);
-				WARN_ON(1);
-				return;
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (cam_req->pipe_used & (1 << i)) {
+			ctx = &cam->ctxs[i];
+			req = &cam_req->stream_data[ctx->stream_id];
+			if (mtk_cam_is_2_exposure(ctx)) {
+				req->frame_params.raw_param.hardware_scenario =
+							MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER;
+				req->frame_params.raw_param.exposure_num = 2;
+				/* rawi_r3 should be 0x0*/
+				in = MTKCAM_IPI_RAW_RAWI_3;
+				in_fmt = &req->frame_params.img_ins[in - MTKCAM_IPI_RAW_RAWI_2];
+				in_fmt->buf[0].iova = 0x0;
+				/* chech rawi_r2 if 0x0*/
+				in = MTKCAM_IPI_RAW_RAWI_2;
+				in_fmt = &req->frame_params.img_ins[in - MTKCAM_IPI_RAW_RAWI_2];
+				if (in_fmt->buf[0].iova == 0x0) {
+					node = &ctx->pipe->vdev_nodes[
+						MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+					cfg_fmt = &node->active_fmt;
+					in_fmt->uid.id = in;
+					in_fmt->uid.pipe_id = node->uid.pipe_id;
+					in_fmt->fmt.format = mtk_cam_get_img_fmt(
+							cfg_fmt->fmt.pix_mp.pixelformat);
+					in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
+					in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
+					in_fmt->fmt.stride[0] =
+						cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
+					/* prepare working buffer */
+					buf_entry = mtk_cam_img_working_buf_get(ctx);
+					if (!buf_entry) {
+						dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
+						__func__, req->frame_seq_no);
+						WARN_ON(1);
+						return;
+					}
+					buf_entry->ctx = ctx;
+					buf_entry->req = req->state.req;
+					/* put to processing list */
+					spin_lock(&ctx->processing_img_buffer_list.lock);
+					list_add_tail(&buf_entry->list_entry,
+						&ctx->processing_img_buffer_list.list);
+					ctx->processing_img_buffer_list.cnt++;
+					spin_unlock(&ctx->processing_img_buffer_list.lock);
+					in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+				}
+				dev_dbg(cam->dev,
+				"[%s:%d] 2-exp : ctx:%d dma_port:%d size=%dx%d, stride:%d, fmt:0x%x (in/out:0x%x/0x%x)\n",
+				__func__, req->frame_seq_no, ctx->stream_id, in, in_fmt->fmt.s.w,
+				in_fmt->fmt.s.h, in_fmt->fmt.stride[0], in_fmt->fmt.format,
+				in_fmt->buf[0].iova, req->frame_params.img_outs[0].buf[0][0].iova);
+			} else if (mtk_cam_is_3_exposure(ctx)) {
+				req->frame_params.raw_param.exposure_num = 3;
+				req->frame_params.raw_param.hardware_scenario =
+							MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER;
+				/* chech rawi_r2 if 0x0*/
+				in = MTKCAM_IPI_RAW_RAWI_2;
+				in_fmt = &req->frame_params.img_ins[in - MTKCAM_IPI_RAW_RAWI_2];
+				if (in_fmt->buf[0].iova == 0x0) {
+					node = &ctx->pipe->vdev_nodes[
+						MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+					cfg_fmt = &node->active_fmt;
+					in_fmt->uid.id = in;
+					in_fmt->uid.pipe_id = node->uid.pipe_id;
+					in_fmt->fmt.format = mtk_cam_get_img_fmt(
+							cfg_fmt->fmt.pix_mp.pixelformat);
+					in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
+					in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
+					in_fmt->fmt.stride[0] =
+						cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
+					/* prepare working buffer */
+					buf_entry = mtk_cam_img_working_buf_get(ctx);
+					if (!buf_entry) {
+						dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
+						__func__, req->frame_seq_no);
+						WARN_ON(1);
+						return;
+					}
+					buf_entry->ctx = ctx;
+					buf_entry->req = req->state.req;
+					/* put to processing list */
+					spin_lock(&ctx->processing_img_buffer_list.lock);
+					list_add_tail(&buf_entry->list_entry,
+						&ctx->processing_img_buffer_list.list);
+					ctx->processing_img_buffer_list.cnt++;
+					spin_unlock(&ctx->processing_img_buffer_list.lock);
+					in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+				}
+				/* chech rawi_r3 if 0x0*/
+				in = MTKCAM_IPI_RAW_RAWI_3;
+				in_fmt = &req->frame_params.img_ins[in - MTKCAM_IPI_RAW_RAWI_2];
+				if (in_fmt->buf[0].iova == 0x0) {
+					node = &ctx->pipe->vdev_nodes[
+						MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+					cfg_fmt = &node->active_fmt;
+					in_fmt->uid.id = in;
+					in_fmt->uid.pipe_id = node->uid.pipe_id;
+					in_fmt->fmt.format = mtk_cam_get_img_fmt(
+							cfg_fmt->fmt.pix_mp.pixelformat);
+					in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
+					in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
+					in_fmt->fmt.stride[0] =
+						cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
+					/* prepare working buffer */
+					buf_entry = mtk_cam_img_working_buf_get(ctx);
+					if (!buf_entry) {
+						dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
+						__func__, req->frame_seq_no);
+						WARN_ON(1);
+						return;
+					}
+					buf_entry->ctx = ctx;
+					buf_entry->req = req->state.req;
+					/* put to processing list */
+					spin_lock(&ctx->processing_img_buffer_list.lock);
+					list_add_tail(&buf_entry->list_entry,
+						&ctx->processing_img_buffer_list.list);
+					ctx->processing_img_buffer_list.cnt++;
+					spin_unlock(&ctx->processing_img_buffer_list.lock);
+					in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+				}
+				dev_dbg(cam->dev,
+				"[%s:%d] 3-exp : ctx:%d size=%dx%d, stride:%d, fmt:0x%x (inx2/out:0x%x/0x%x/0x%x)\n",
+				__func__, req->frame_seq_no, ctx->stream_id,
+				in_fmt->fmt.s.w, in_fmt->fmt.s.h,
+				in_fmt->fmt.stride[0], in_fmt->fmt.format,
+				req->frame_params.img_ins[0].buf[0].iova,
+				req->frame_params.img_ins[2].buf[0].iova,
+				req->frame_params.img_outs[0].buf[0][0].iova);
+			} else {
+				req->frame_params.raw_param.exposure_num = 1;
+				req->frame_params.raw_param.hardware_scenario =
+							MTKCAM_IPI_HW_PATH_ON_THE_FLY;
+				node = &ctx->pipe->vdev_nodes[
+						MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+				out_fmt = &req->frame_params.img_outs[0];
+				in = MTKCAM_IPI_RAW_RAWI_2;
+				out_fmt->buf[0][0].iova =
+					req->frame_params.img_ins[
+							in - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova;
+				/* rawi_r2 should be 0x0*/
+				in = MTKCAM_IPI_RAW_RAWI_2;
+				in_fmt = &req->frame_params.img_ins[in - MTKCAM_IPI_RAW_RAWI_2];
+				in_fmt->buf[0].iova = 0x0;
+				/* rawi_r3 should be 0x0*/
+				in = MTKCAM_IPI_RAW_RAWI_3;
+				in_fmt = &req->frame_params.img_ins[in - MTKCAM_IPI_RAW_RAWI_2];
+				in_fmt->buf[0].iova = 0x0;
+				dev_dbg(cam->dev,
+				"[%s:%d] 1-exp : ctx:%d size=%dx%d, stride:%d, fmt:0x%x (out:0x%x)\n",
+				__func__, req->frame_seq_no, ctx->stream_id, out_fmt->fmt.s.w,
+				out_fmt->fmt.s.h, out_fmt->fmt.stride[0], out_fmt->fmt.format,
+				out_fmt->buf[0][0].iova);
 			}
-			buf_entry->ctx = ctx;
-			buf_entry->req = req->state.req;
-			/* put to processing list */
-			spin_lock(&ctx->processing_img_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-				&ctx->processing_img_buffer_list.list);
-			ctx->processing_img_buffer_list.cnt++;
-			spin_unlock(&ctx->processing_img_buffer_list.lock);
-			in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
-		}
-		dev_dbg(cam->dev,
-		"[%s:%d] 2-exp : ctx:%d dma_port:%d size=%dx%d, stride:%d, fmt:0x%x (in/out:0x%x/0x%x)\n",
-		__func__, req->frame_seq_no, ctx->stream_id, input_node, in_fmt->fmt.s.w,
-		in_fmt->fmt.s.h, in_fmt->fmt.stride[0], in_fmt->fmt.format, in_fmt->buf[0].iova,
-		req->frame_params.img_outs[0].buf[0][0].iova);
-	} else if (mtk_cam_is_3_exposure(ctx)) {
-		req->frame_params.raw_param.exposure_num = 3;
-		req->frame_params.raw_param.hardware_scenario =
-					MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER;
-		/* chech rawi_r2 if 0x0*/
-		input_node = MTKCAM_IPI_RAW_RAWI_2;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		if (in_fmt->buf[0].iova == 0x0) {
-			node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-			cfg_fmt = &node->active_fmt;
-			in_fmt->uid.id = input_node;
-			in_fmt->uid.pipe_id = node->uid.pipe_id;
-			in_fmt->fmt.format = mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
-			in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
-			in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
-			in_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
-			/* prepare working buffer */
-			buf_entry = mtk_cam_img_working_buf_get(ctx);
-			if (!buf_entry) {
-				dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
-				__func__, req->frame_seq_no);
-				WARN_ON(1);
-				return;
-			}
-			buf_entry->ctx = ctx;
-			buf_entry->req = req->state.req;
-			/* put to processing list */
-			spin_lock(&ctx->processing_img_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-				&ctx->processing_img_buffer_list.list);
-			ctx->processing_img_buffer_list.cnt++;
-			spin_unlock(&ctx->processing_img_buffer_list.lock);
-			in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
-		}
-		/* chech rawi_r3 if 0x0*/
-		input_node = MTKCAM_IPI_RAW_RAWI_3;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		if (in_fmt->buf[0].iova == 0x0) {
-			node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-			cfg_fmt = &node->active_fmt;
-			in_fmt->uid.id = input_node;
-			in_fmt->uid.pipe_id = node->uid.pipe_id;
-			in_fmt->fmt.format = mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
-			in_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
-			in_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
-			in_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
-			/* prepare working buffer */
-			buf_entry = mtk_cam_img_working_buf_get(ctx);
-			if (!buf_entry) {
-				dev_info(cam->dev, "%s: No img buf availablle: req:%d\n",
-				__func__, req->frame_seq_no);
-				WARN_ON(1);
-				return;
-			}
-			buf_entry->ctx = ctx;
-			buf_entry->req = req->state.req;
-			/* put to processing list */
-			spin_lock(&ctx->processing_img_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-				&ctx->processing_img_buffer_list.list);
-			ctx->processing_img_buffer_list.cnt++;
-			spin_unlock(&ctx->processing_img_buffer_list.lock);
-			in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
-		}
-		dev_dbg(cam->dev,
-		"[%s:%d] 3-exp : ctx:%d size=%dx%d, stride:%d, fmt:0x%x (inx2/out:0x%x/0x%x/0x%x)\n",
-		__func__, req->frame_seq_no, ctx->stream_id, in_fmt->fmt.s.w, in_fmt->fmt.s.h,
-		in_fmt->fmt.stride[0], in_fmt->fmt.format,
-		req->frame_params.img_ins[0].buf[0].iova, req->frame_params.img_ins[2].buf[0].iova,
-		req->frame_params.img_outs[0].buf[0][0].iova);
-	} else {
-		req->frame_params.raw_param.exposure_num = 1;
-		req->frame_params.raw_param.hardware_scenario =
-					MTKCAM_IPI_HW_PATH_ON_THE_FLY;
-		node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-		out_fmt = &req->frame_params.img_outs[0];
-		input_node = MTKCAM_IPI_RAW_RAWI_2;
-		out_fmt->buf[0][0].iova =
-			req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova;
-		/* rawi_r2 should be 0x0*/
-		input_node = MTKCAM_IPI_RAW_RAWI_2;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		in_fmt->buf[0].iova = 0x0;
-		/* rawi_r3 should be 0x0*/
-		input_node = MTKCAM_IPI_RAW_RAWI_3;
-		in_fmt = &req->frame_params.img_ins[input_node - MTKCAM_IPI_RAW_RAWI_2];
-		in_fmt->buf[0].iova = 0x0;
-		dev_dbg(cam->dev,
-		"[%s:%d] 1-exp : ctx:%d size=%dx%d, stride:%d, fmt:0x%x (out:0x%x)\n",
-		__func__, req->frame_seq_no, ctx->stream_id, out_fmt->fmt.s.w,
-		out_fmt->fmt.s.h, out_fmt->fmt.stride[0], out_fmt->fmt.format,
-		out_fmt->buf[0][0].iova);
-	}
 
-	switch (req->feature.switch_feature_type) {
-	case EXPOSURE_CHANGE_NONE:
-		req->frame_params.raw_param.previous_exposure_num =
-				req->frame_params.raw_param.exposure_num;
-		break;
-	case EXPOSURE_CHANGE_3_to_2:
-	case EXPOSURE_CHANGE_3_to_1:
-		req->frame_params.raw_param.previous_exposure_num = 3;
-		break;
-	case EXPOSURE_CHANGE_2_to_3:
-	case EXPOSURE_CHANGE_2_to_1:
-		req->frame_params.raw_param.previous_exposure_num = 2;
-		break;
-	case EXPOSURE_CHANGE_1_to_3:
-	case EXPOSURE_CHANGE_1_to_2:
-		req->frame_params.raw_param.previous_exposure_num = 1;
-		break;
-	default:
-		req->frame_params.raw_param.previous_exposure_num =
-				req->frame_params.raw_param.exposure_num;
+			switch (req->feature.switch_feature_type) {
+			case EXPOSURE_CHANGE_NONE:
+				req->frame_params.raw_param.previous_exposure_num =
+						req->frame_params.raw_param.exposure_num;
+				break;
+			case EXPOSURE_CHANGE_3_to_2:
+			case EXPOSURE_CHANGE_3_to_1:
+				req->frame_params.raw_param.previous_exposure_num = 3;
+				break;
+			case EXPOSURE_CHANGE_2_to_3:
+			case EXPOSURE_CHANGE_2_to_1:
+				req->frame_params.raw_param.previous_exposure_num = 2;
+				break;
+			case EXPOSURE_CHANGE_1_to_3:
+			case EXPOSURE_CHANGE_1_to_2:
+				req->frame_params.raw_param.previous_exposure_num = 1;
+				break;
+			default:
+				req->frame_params.raw_param.previous_exposure_num =
+						req->frame_params.raw_param.exposure_num;
+			}
+		}
 	}
 
 }
@@ -1247,7 +1267,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		}
 	}
 	if (mtk_cam_is_stagger(ctx))
-		check_stagger_buffer(cam, req_stream_data);
+		check_stagger_buffer(cam, req);
 	if (mtk_cam_is_time_shared(ctx))
 		check_timeshared_buffer(cam, req_stream_data);
 	return 0;
