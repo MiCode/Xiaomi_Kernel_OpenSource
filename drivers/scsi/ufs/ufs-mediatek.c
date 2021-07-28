@@ -583,6 +583,7 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	bool clk_pwr_off = false;
+	u32 hw_ver;
 	int ret = 0;
 
 	/*
@@ -594,7 +595,9 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 		return 0;
 
 	if (!on && status == PRE_CHANGE) {
-		if (ufshcd_is_link_off(hba)) {
+		hw_ver = ufshcd_readl(hba, REG_UFS_MTK_HW_VER);
+		if (ufshcd_is_link_off(hba) ||
+			(((hw_ver >> 16) & 0xFF) >= 0x36)) {
 			clk_pwr_off = true;
 		} else if (ufshcd_is_link_hibern8(hba) ||
 			 (!ufshcd_can_hibern8_during_gating(hba) &&
