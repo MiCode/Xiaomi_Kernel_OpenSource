@@ -297,6 +297,7 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 	int val = ucontrol->value.integer.value[0];
 	int payload[7];
 	int old_usnd_state = scp_ultra->usnd_state;
+	bool ret_val = false;
 
 	if (val < SCP_ULTRA_STATE_IDLE || val > SCP_ULTRA_STATE_RECOVERY) {
 		pr_info("%s() unexpected state: %d, ignore\n", __func__, val);
@@ -327,11 +328,22 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		payload[4] = param_config.channel_in;
 		payload[5] = param_config.period_in_size;
 		payload[6] = param_config.target_out_channel;
-		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_ON,
-			       false,
-			       7,
-			       &payload[0],
-			       ULTRA_IPI_NEED_ACK);
+		ret_val = ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_ON,
+					false,
+					7,
+					&payload[0],
+					ULTRA_IPI_NEED_ACK);
+		if (ret_val == 0) {
+			pr_info("%s() set state on failed\n", __func__);
+			scp_ultra->usnd_state = SCP_ULTRA_STATE_IDLE;
+			afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable =
+				false;
+			afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable =
+				false;
+			scp_deregister_feature(ULTRA_FEATURE_ID);
+			aud_wake_unlock(&ultra_suspend_lock);
+			return -1;
+		}
 		return 0;
 	case SCP_ULTRA_STATE_OFF:
 		afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable = false;
