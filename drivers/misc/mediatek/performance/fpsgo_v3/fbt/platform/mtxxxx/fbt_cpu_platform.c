@@ -7,6 +7,9 @@
 #include <sched/sched.h>
 #include <mt-plat/fpsgo_common.h>
 #include <linux/cpumask.h>
+#include <linux/interconnect.h>
+#include <linux/platform_device.h>
+#include "dvfsrc-exp.h"
 #include "fpsgo_base.h"
 
 #define API_READY 0
@@ -14,6 +17,8 @@
 static struct cpumask mask[FPSGO_PREFER_TOTAL];
 static int mask_int[FPSGO_PREFER_TOTAL];
 static int mask_done;
+struct icc_path *bw_path;
+unsigned int peak_bw;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -23,17 +28,69 @@ void fbt_notify_CM_limit(int reach_limit)
 	fpsgo_systrace_c_fbt_gm(-100, 0, reach_limit, "notify_cm");
 }
 
+static int platform_fpsgo_probe(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+
+	bw_path = of_icc_get(&pdev->dev, "fpsgo-perf-bw");
+	if (IS_ERR(bw_path))
+		dev_info(&pdev->dev, "get cm-perf_bw fail\n");
+
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
+		peak_bw = dvfsrc_get_required_opp_peak_bw(node, 0);
+#endif /* CONFIG_MTK_DVFSRC */
+
+	return 0;
+}
+
+static int platform_fpsgo_remove(struct platform_device *pdev)
+{
+	icc_put(bw_path);
+
+	return 0;
+}
+
+static const struct of_device_id platform_fpsgo_of_match[] = {
+	{ .compatible = "mediatek,mt6893-fpsgo", },
+	{},
+};
+
+static const struct platform_device_id platform_fpsgo_id_table[] = {
+	{ "mt6893-fpsgo", 0},
+	{ },
+};
+
+static struct platform_driver mtk_platform_fpsgo_driver = {
+	.probe = platform_fpsgo_probe,
+	.remove	= platform_fpsgo_remove,
+	.driver = {
+		.name = "mt6893-fpsgo",
+		.owner = THIS_MODULE,
+		.of_match_table = platform_fpsgo_of_match,
+	},
+	.id_table = platform_fpsgo_id_table,
+};
+
+void init_fbt_dram_boost(void)
+{
+	platform_driver_register(&mtk_platform_fpsgo_driver);
+}
+
+void exit_fbt_dram_boost(void)
+{
+	platform_driver_unregister(&mtk_platform_fpsgo_driver);
+}
+
 void fbt_reg_dram_request(int reg)
 {
 }
 
 void fbt_boost_dram(int boost)
 {
-
 	if (boost)
-	fpsgo_sentcmd(FPSGO_SET_DRAM, 0, -1);
+		icc_set_bw(bw_path, 0, peak_bw);
 	else
-	fpsgo_sentcmd(FPSGO_SET_DRAM, -1, -1);
+		icc_set_bw(bw_path, 0, 0);
 
 	fpsgo_systrace_c_fbt_gm(-100, 0, boost, "dram_boost");
 }

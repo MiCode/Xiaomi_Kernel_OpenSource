@@ -5467,6 +5467,7 @@ void __exit fbt_cpu_exit(void)
 	kfree(limit_clus_ceil);
 
 	fbt_cpu_ctrl_exit();
+	exit_fbt_dram_boost();
 }
 
 int __init fbt_cpu_init(void)
@@ -5621,6 +5622,7 @@ int __init fbt_cpu_init(void)
 	thrm_aware_init(fbt_kobj);
 	fbt_reg_dram_request(1);
 	fbt_cpu_ctrl_init();
+	init_fbt_dram_boost();
 
 	return 0;
 }

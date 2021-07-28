@@ -21,6 +21,7 @@ ccflags-y += \
         -I$(COM_TOP)/include/ \
 				-I$(srctree)/kernel/ \
 				-I$(srctree)/drivers/misc/mediatek/sched/ \
+				-I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
 				-I$(UTCH_TOP)/ \
 				-I$(GBE_TOP)/ \
 
@@ -34,6 +35,7 @@ subdir-ccflags-y += \
         -I$(COM_TOP)/include/ \
 				-I$(srctree)/kernel/ \
 				-I$(srctree)/drivers/misc/mediatek/sched/ \
+				-I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
 				-I$(UTCH_TOP)/ \
 				-I$(GBE_TOP)/ \
 
