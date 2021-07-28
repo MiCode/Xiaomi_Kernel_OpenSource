@@ -475,7 +475,7 @@ static int pd_get_cap(struct adapter_device *dev,
 static int pd_authentication(struct adapter_device *dev,
 			     struct adapter_auth_data *data)
 {
-	int ret, apdo_idx = -1, i;
+	int ret = 0, apdo_idx = -1, i;
 	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
 	struct tcpm_power_cap_val apdo_cap;
 	struct tcpm_power_cap_val selected_apdo_cap;
@@ -505,13 +505,13 @@ static int pd_authentication(struct adapter_device *dev,
 		ret = tcpm_inquire_pd_source_apdo(info->tcpc,
 						  TCPM_POWER_CAP_APDO_TYPE_PPS,
 						  &cap_idx, &apdo_cap);
-		if (ret != TCP_DPM_RET_SUCCESS) {
+		if (ret != (int)TCP_DPM_RET_SUCCESS) {
 			if (apdo_idx == -1) {
 				pr_info("%s inquire pd apdo fail(%d)\n",
 				       __func__, ret);
-				ret = MTK_ADAPTER_ERROR;
+				ret = (int)MTK_ADAPTER_ERROR;
 			} else
-				ret = MTK_ADAPTER_OK;
+				ret = (int)MTK_ADAPTER_OK;
 			break;
 		}
 
@@ -549,7 +549,7 @@ static int pd_authentication(struct adapter_device *dev,
 		data->ita_gap_per_vstep = 200;
 		ret = tcpm_dpm_pd_get_source_cap_ext(info->tcpc, NULL,
 						     &src_cap_ext);
-		if (ret != TCP_DPM_RET_SUCCESS) {
+		if (ret != (int)TCP_DPM_RET_SUCCESS) {
 			pr_info("%s inquire pdp fail(%d)\n", __func__, ret);
 			if (data->pwr_lmt) {
 				for (i = 0; i < apdo_pps_cnt; i++) {
@@ -569,24 +569,24 @@ static int pd_authentication(struct adapter_device *dev,
 		}
 		/* Check whether TA supports getting pps status */
 		ret = pd_set_cap(dev, MTK_PD_APDO_START, 5000, 3000);
-		if (ret != MTK_ADAPTER_OK)
+		if (ret != (int)MTK_ADAPTER_OK)
 			goto out;
 		ret = pd_get_output(dev, &vta_meas, &ita_meas);
-		if (ret != MTK_ADAPTER_OK &&
-		    ret != MTK_ADAPTER_NOT_SUPPORT)
+		if (ret != (int)MTK_ADAPTER_OK &&
+		    ret != (int)MTK_ADAPTER_NOT_SUPPORT)
 			goto out;
-		if (ret == MTK_ADAPTER_NOT_SUPPORT ||
+		if (ret == (int)MTK_ADAPTER_NOT_SUPPORT ||
 		    vta_meas == PPS_STATUS_VTA_NOTSUPP ||
 		    ita_meas == PPS_STATUS_ITA_NOTSUPP) {
 			data->support_cc = false;
 			data->support_meas_cap = false;
-			ret = MTK_ADAPTER_OK;
+			ret = (int)MTK_ADAPTER_OK;
 		}
 		ret = pd_get_status(dev, &status);
-		if (ret == MTK_ADAPTER_NOT_SUPPORT) {
+		if (ret == (int)MTK_ADAPTER_NOT_SUPPORT) {
 			data->support_status = false;
-			ret = MTK_ADAPTER_OK;
-		} else if (ret != MTK_ADAPTER_OK)
+			ret = (int)MTK_ADAPTER_OK;
+		} else if (ret != (int)MTK_ADAPTER_OK)
 			goto out;
 		if (info->force_cv)
 			data->support_cc = false;
@@ -594,10 +594,10 @@ static int pd_authentication(struct adapter_device *dev,
 			__func__, apdo_idx, data->pwr_lmt, data->pdp);
 	} else {
 		pr_info("%s cannot find apdo for pps algo\n", __func__);
-		return MTK_ADAPTER_ERROR;
+		return (int)MTK_ADAPTER_ERROR;
 	}
 out:
-	if (ret != MTK_ADAPTER_OK)
+	if (ret != (int)MTK_ADAPTER_OK)
 		pr_info("%s fail(%d)\n", __func__, ret);
 	return ret;
 }

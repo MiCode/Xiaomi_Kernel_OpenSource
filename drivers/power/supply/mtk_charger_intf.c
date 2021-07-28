@@ -110,17 +110,18 @@ int get_battery_temperature(struct mtk_charger *info)
 {
 	union power_supply_propval prop;
 	struct power_supply *bat_psy = NULL;
-	int ret;
+	int ret = 0;
+	int tmp_ret = 0;
 
 	bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "gauge");
-	chr_debug("%s %x\n", __func__, bat_psy);
+	chr_debug("%s %p\n", __func__, bat_psy);
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 27;
 	} else {
-		ret = power_supply_get_property(bat_psy,
+		tmp_ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_TEMP, &prop);
 		ret = prop.intval / 10;
 	}
@@ -134,7 +135,8 @@ int get_battery_current(struct mtk_charger *info)
 {
 	union power_supply_propval prop;
 	struct power_supply *bat_psy = NULL;
-	int ret;
+	int ret = 0;
+	int tmp_ret = 0;
 
 	bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "gauge");
@@ -142,7 +144,7 @@ int get_battery_current(struct mtk_charger *info)
 		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 0;
 	} else {
-		ret = power_supply_get_property(bat_psy,
+		tmp_ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_CURRENT_NOW, &prop);
 		ret = prop.intval / 1000;
 	}
@@ -210,7 +212,8 @@ bool is_battery_exist(struct mtk_charger *info)
 {
 	union power_supply_propval prop;
 	struct power_supply *bat_psy = NULL;
-	int ret;
+	int ret = 0;
+	int tmp_ret = 0;
 
 	bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "gauge");
@@ -218,7 +221,7 @@ bool is_battery_exist(struct mtk_charger *info)
 		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 1;
 	} else {
-		ret = power_supply_get_property(bat_psy,
+		tmp_ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_PRESENT, &prop);
 		ret = prop.intval;
 	}
@@ -232,7 +235,8 @@ bool is_charger_exist(struct mtk_charger *info)
 {
 	union power_supply_propval prop;
 	static struct power_supply *chg_psy;
-	int ret;
+	int ret = 0;
+	int tmp_ret = 0;
 
 	if (chg_psy == NULL)
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
@@ -241,7 +245,7 @@ bool is_charger_exist(struct mtk_charger *info)
 		chr_err("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
-		ret = power_supply_get_property(chg_psy,
+		tmp_ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 		ret = prop.intval;
 	}

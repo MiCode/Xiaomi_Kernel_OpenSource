@@ -103,6 +103,10 @@ int pe50_hal_get_ta_status(struct chg_alg_device *alg,
 	int ret;
 	struct pe50_hal *hal = chg_alg_dev_get_drv_hal_data(alg);
 	struct adapter_status _status;
+	_status.temperature = 0;
+	_status.ocp = 0;
+	_status.ovp = 0;
+	_status.otp = 0;
 
 	ret = adapter_dev_get_status(hal->adapter, &_status);
 	if (ret < 0)
@@ -408,7 +412,8 @@ int pe50_hal_reset_vbusovp_alarm(struct chg_alg_device *alg,
 
 static int pe50_get_tbat(struct pe50_hal *hal)
 {
-	int ret;
+	int ret = 0;
+	int tmp_ret;
 	union power_supply_propval prop;
 	struct power_supply *bat_psy;
 
@@ -417,7 +422,7 @@ static int pe50_get_tbat(struct pe50_hal *hal)
 		PE50_ERR("%s Couldn't get bat_psy\n", __func__);
 		ret = 27;
 	} else {
-		ret = power_supply_get_property(bat_psy, POWER_SUPPLY_PROP_TEMP,
+		tmp_ret = power_supply_get_property(bat_psy, POWER_SUPPLY_PROP_TEMP,
 						&prop);
 		ret = prop.intval / 10;
 	}
@@ -456,6 +461,7 @@ int pe50_hal_get_adc(struct chg_alg_device *alg, enum chg_idx chgidx,
 int pe50_hal_get_soc(struct chg_alg_device *alg, u32 *soc)
 {
 	int ret;
+	int ret_tmp;
 	struct power_supply *bat_psy;
 	union power_supply_propval prop;
 	struct pe50_hal *hal = chg_alg_dev_get_drv_hal_data(alg);
@@ -465,7 +471,7 @@ int pe50_hal_get_soc(struct chg_alg_device *alg, u32 *soc)
 		PE50_ERR("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
 	} else {
-		ret = power_supply_get_property(bat_psy,
+		ret_tmp = power_supply_get_property(bat_psy,
 						POWER_SUPPLY_PROP_CAPACITY,
 						&prop);
 		ret = prop.intval;
@@ -480,7 +486,8 @@ int pe50_hal_get_soc(struct chg_alg_device *alg, u32 *soc)
 int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
 {
 	struct pe50_hal *hal;
-	int type, i;
+	int type = 0;
+	int i;
 
 	if (alg == NULL) {
 		pr_notice("%s: alg is null\n", __func__);
