@@ -428,6 +428,159 @@ static const struct proc_ops eas_Fops = {
 	.proc_release = single_release,
 };
 
+/*--------------------XGFFRAME------------------------*/
+int (*xgff_frame_startend_fp)(unsigned int startend,
+		unsigned int tid,
+		unsigned long long queueid,
+		unsigned long long frameid,
+		unsigned long long *cputime,
+		unsigned int *area,
+		unsigned int *pdeplistsize,
+		unsigned int *pdeplist);
+EXPORT_SYMBOL(xgff_frame_startend_fp);
+void (*xgff_frame_getdeplist_maxsize_fp)(
+		unsigned int *pdeplistsize);
+EXPORT_SYMBOL(xgff_frame_getdeplist_maxsize_fp);
+
+static int xgff_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int xgff_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, xgff_show, inode->i_private);
+}
+
+static long xgff_ioctl_impl(struct file *filp,
+		unsigned int cmd, unsigned long arg, void *pKM)
+{
+	ssize_t ret = 0;
+	struct _XGFFRAME_PACKAGE *msgKM = NULL,
+		*msgUM = (struct _XGFFRAME_PACKAGE *)arg;
+	struct _XGFFRAME_PACKAGE smsgKM;
+
+	__u32 *vpdeplist = NULL;
+	unsigned int maxsize_deplist = 0;
+
+	msgKM = (struct _XGFFRAME_PACKAGE *)pKM;
+	if (!msgKM) {
+		msgKM = &smsgKM;
+		if (perfctl_copy_from_user(msgKM, msgUM,
+				sizeof(struct _XGFFRAME_PACKAGE))) {
+			ret = -EFAULT;
+			goto ret_ioctl;
+		}
+	}
+
+	switch (cmd) {
+	case XGFFRAME_START:
+		if (!xgff_frame_startend_fp) {
+			ret = -EAGAIN;
+			goto ret_ioctl;
+		}
+
+		ret = xgff_frame_startend_fp(1, msgKM->tid, msgKM->queueid,
+			msgKM->frameid, NULL, NULL, &msgKM->deplist_size, NULL);
+
+		perfctl_copy_to_user(msgUM, msgKM, sizeof(struct _XGFFRAME_PACKAGE));
+
+		break;
+	case XGFFRAME_END:
+		if (!xgff_frame_startend_fp) {
+			ret = -EAGAIN;
+			goto ret_ioctl;
+		}
+
+		xgff_frame_getdeplist_maxsize_fp(&maxsize_deplist);
+
+		vpdeplist = kcalloc(maxsize_deplist, sizeof(__u32), GFP_KERNEL);
+		if (!vpdeplist) {
+			ret = -ENOMEM;
+			goto ret_ioctl;
+		}
+
+		if (msgKM->deplist_size > maxsize_deplist)
+			msgKM->deplist_size = maxsize_deplist;
+
+		ret = xgff_frame_startend_fp(0, msgKM->tid, msgKM->queueid,
+			msgKM->frameid, &msgKM->cputime, &msgKM->area,
+			&msgKM->deplist_size, vpdeplist);
+
+		perfctl_copy_to_user(msgUM, msgKM, sizeof(struct _XGFFRAME_PACKAGE));
+		if (msgKM->deplist_size)
+			perfctl_copy_to_user(msgKM->deplist, vpdeplist,
+				msgKM->deplist_size * sizeof(__u32));
+
+		kfree(vpdeplist);
+
+		break;
+
+	default:
+		pr_debug(TAG "%s %d: unknown cmd %x\n",
+			__FILE__, __LINE__, cmd);
+		ret = -1;
+		goto ret_ioctl;
+	}
+
+ret_ioctl:
+	return ret;
+}
+
+static long xgff_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	return xgff_ioctl_impl(filp, cmd, arg, NULL);
+}
+
+static long xgff_compat_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	int ret = -EFAULT;
+	struct _XGFFRAME_PACKAGE_32 {
+		__u32 tid;
+		__u64 queueid;
+		__u64 frameid;
+
+		__u64 cputime;
+		__u32 area;
+		__u32 deplist_size;
+
+		union {
+			__u32 *deplist;
+			__u64 p_dummy_deplist;
+		};
+	};
+
+	struct _XGFFRAME_PACKAGE sEaraPackageKM64;
+	struct _XGFFRAME_PACKAGE_32 sEaraPackageKM32;
+	struct _XGFFRAME_PACKAGE_32 *psEaraPackageKM32 = &sEaraPackageKM32;
+	struct _XGFFRAME_PACKAGE_32 *psEaraPackageUM32 =
+		(struct _XGFFRAME_PACKAGE_32 *)arg;
+
+	if (perfctl_copy_from_user(psEaraPackageKM32,
+			psEaraPackageUM32, sizeof(struct _XGFFRAME_PACKAGE_32)))
+		goto unlock_and_return;
+
+	sEaraPackageKM64 = *((struct _XGFFRAME_PACKAGE *)psEaraPackageKM32);
+	sEaraPackageKM64.deplist =
+		(void *)((size_t) psEaraPackageKM32->deplist);
+
+	ret = xgff_ioctl_impl(filp, cmd, arg, &sEaraPackageKM64);
+
+unlock_and_return:
+	return ret;
+}
+
+static const struct proc_ops xgff_Fops = {
+	.proc_ioctl = xgff_ioctl,
+	.proc_compat_ioctl = xgff_compat_ioctl,
+	.proc_open = xgff_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 /*--------------------INIT------------------------*/
 
 static int device_show(struct seq_file *m, void *v)
@@ -603,6 +756,15 @@ static int __init init_perfctl(void)
 	}
 
 	pe = proc_create("eas_ioctl", 0664, parent, &eas_Fops);
+	if (!pe) {
+		pr_debug(TAG"%s failed with %d\n",
+				"Creating file node ",
+				ret_val);
+		ret_val = -ENOMEM;
+		goto out_wq;
+	}
+
+	pe = proc_create("xgff_ioctl", 0664, parent, &xgff_Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",

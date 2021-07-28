@@ -36,4 +36,16 @@ void fpsgo_force_switch_enable(int enable);
 
 int fpsgo_perfserv_ta_value(void);
 void fpsgo_set_perfserv_ta(int value);
+
+extern int (*xgff_frame_startend_fp)(unsigned int startend,
+		unsigned int tid,
+		unsigned long long queueid,
+		unsigned long long frameid,
+		unsigned long long *cputime,
+		unsigned int *area,
+		unsigned int *pdeplistsize,
+		unsigned int *pdeplist);
+extern void (*xgff_frame_getdeplist_maxsize_fp)
+		(unsigned int *pdeplistsize);
+
 #endif

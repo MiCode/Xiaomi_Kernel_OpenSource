@@ -560,6 +560,7 @@ static struct fbt_thread_loading *fbt_list_loading_add(int pid,
 	obj->pid = pid;
 	obj->buffer_id = buffer_id;
 	obj->loading_cl = loading_cl;
+	obj->ext_id = 0;
 
 	spin_lock_irqsave(&loading_slock, flags);
 	list_add_tail(&obj->entry, &loading_list);
@@ -3558,9 +3559,12 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 			atomic_add_return(loading_result, &(pos->loading));
 			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
 				atomic_read(&pos->loading), "loading");
+			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+				pos->ext_id, "ext_id");
 
-			if (!adjust_loading || cluster_num == 1
-				|| !pos->loading_cl)
+			if (!pos->ext_id &&
+				(!adjust_loading || cluster_num == 1
+				|| !pos->loading_cl))
 				goto SKIP;
 
 			for (i = 0; i < cluster_num; i++) {
@@ -4347,6 +4351,177 @@ int fbt_switch_to_ta(int input)
 	}
 
 	return 0;
+}
+
+static void fbt_xgff_loading_reset_impl(struct fbt_thread_loading *ploading,
+				unsigned long long ts)
+{
+	int new_ts;
+	int i;
+
+	if (!ploading)
+		return;
+
+	new_ts = nsec_to_100usec(ts);
+
+	atomic_set(&ploading->loading, 0);
+	fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+			atomic_read(&ploading->loading), "loading");
+
+	atomic_set(&ploading->last_cb_ts, new_ts);
+
+	for (i = 0; i < cluster_num; i++) {
+		atomic_set(&ploading->loading_cl[i], 0);
+
+		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+				atomic_read(&ploading->loading_cl[i]),
+				"loading_cl[%d]", i);
+	}
+}
+
+void fbt_xgff_loading_reset(struct fbt_thread_loading *ploading,
+				unsigned long long ts)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&loading_slock, flags);
+	fbt_xgff_loading_reset_impl(ploading, ts);
+	spin_unlock_irqrestore(&loading_slock, flags);
+}
+
+struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
+	unsigned long long buffer_id, unsigned long long ts)
+{
+	struct fbt_thread_loading *obj;
+	unsigned long flags;
+	atomic_t *loading_cl;
+
+	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
+	if (!obj) {
+		FPSGO_LOGE("ERROR OOM\n");
+		return NULL;
+	}
+
+	loading_cl = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
+	if (!loading_cl) {
+		kfree(obj);
+		FPSGO_LOGE("ERROR OOM\n");
+		return NULL;
+	}
+
+	INIT_LIST_HEAD(&obj->entry);
+	obj->pid = pid;
+	obj->buffer_id = buffer_id;
+	obj->loading_cl = loading_cl;
+	obj->ext_id = pid;
+
+	fbt_xgff_loading_reset_impl(obj, ts);
+
+	spin_lock_irqsave(&loading_slock, flags);
+	list_add_tail(&obj->entry, &loading_list);
+	spin_unlock_irqrestore(&loading_slock, flags);
+
+	return obj;
+}
+
+long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsigned long long ts,
+	unsigned int prefer_cluster)
+{
+	int new_ts;
+	long loading = 0L;
+	long *loading_cl;
+	unsigned int temp_obv, *temp_obv_cl, *temp_stat_cl;
+	unsigned long long loading_result = 0U;
+	unsigned long flags;
+	int i;
+
+	new_ts = nsec_to_100usec(ts);
+
+	loading_cl = kcalloc(cluster_num, sizeof(long), GFP_KERNEL);
+	temp_obv_cl = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+	temp_stat_cl = kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
+	if (!loading_cl || !temp_obv_cl || !temp_stat_cl) {
+		kfree(loading_cl);
+		kfree(temp_obv_cl);
+		kfree(temp_stat_cl);
+		return 0;
+	}
+
+	spin_lock_irqsave(&freq_slock, flags);
+	temp_obv = last_obv;
+	for (i = 0; i < cluster_num; i++) {
+		temp_obv_cl[i] = clus_obv[i];
+		temp_stat_cl[i] = clus_status[i];
+	}
+	spin_unlock_irqrestore(&freq_slock, flags);
+
+	spin_lock_irqsave(&loading_slock, flags);
+
+	if (ploading) {
+		loading_result = fbt_est_loading(new_ts,
+			ploading->last_cb_ts, temp_obv);
+		atomic_add_return(loading_result, &ploading->loading);
+		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+			atomic_read(&ploading->loading), "loading");
+		loading = atomic_read(&ploading->loading);
+		atomic_set(&ploading->loading, 0);
+		//fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+		//	atomic_read(&ploading->loading), "loading");
+
+		if (/*!adjust_loading || */cluster_num == 1
+			|| !ploading->loading_cl) {
+			goto SKIP;
+		}
+
+		for (i = 0; i < cluster_num; i++) {
+			if (!temp_stat_cl[i]) {
+				loading_result = fbt_est_loading(new_ts,
+				ploading->last_cb_ts, temp_obv_cl[i]);
+				atomic_add_return(loading_result,
+						&ploading->loading_cl[i]);
+				fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+				atomic_read(&ploading->loading_cl[i]),
+					"loading_cl[%d]", i);
+			}
+			loading_cl[i] =
+				atomic_read(&ploading->loading_cl[i]);
+			atomic_set(&ploading->loading_cl[i], 0);
+			//fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+			//	atomic_read(&ploading->loading_cl[i]),
+			//	"loading_cl[%d]", i);
+		}
+
+SKIP:
+		atomic_set(&ploading->last_cb_ts, new_ts);
+		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+			atomic_read(&ploading->last_cb_ts), "last_cb_ts");
+
+		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+			loading_cl[prefer_cluster], "compute_loading");
+	}
+	spin_unlock_irqrestore(&loading_slock, flags);
+
+	loading = loading_cl[prefer_cluster];
+
+	kfree(loading_cl);
+	kfree(temp_obv_cl);
+	kfree(temp_stat_cl);
+	return loading;
+}
+
+void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading)
+{
+	unsigned long flags;
+
+	if (!ploading)
+		return;
+
+	spin_lock_irqsave(&loading_slock, flags);
+	list_del(&ploading->entry);
+	spin_unlock_irqrestore(&loading_slock, flags);
+	kfree(ploading->loading_cl);
+	ploading->loading_cl = NULL;
+	kfree(ploading);
 }
 
 static ssize_t light_loading_policy_show(struct kobject *kobj,

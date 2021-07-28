@@ -306,4 +306,30 @@ extern int fstb_target_fps_margin;
 extern int fstb_separate_runtime_enable;
 
 int __init init_xgf(void);
+
+struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
+	unsigned long long buffer_id, unsigned long long ts);
+void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading);
+long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading,
+					unsigned long long ts,
+					unsigned int prefer_cluster);
+void fbt_xgff_loading_reset(struct fbt_thread_loading *ploading,
+				unsigned long long ts);
+
+extern int (*xgff_est_runtime_fp)(pid_t r_pid,
+		struct xgf_render *render,
+		unsigned long long *runtime,
+		unsigned long long ts);
+int xgff_est_runtime(pid_t r_pid, struct xgf_render *render,
+			unsigned long long *runtime, unsigned long long ts);
+void xgff_clean_deps_list(struct xgf_render *render, int pos);
+int xgff_hw_events_update(int rpid, struct xgf_render *render);
+
+int xgff_dep_frames_mod(struct xgf_render *render, int pos);
+struct xgf_dep *xgff_get_dep(
+	pid_t tid, struct xgf_render *render, int pos, int force);
+
+extern int (*xgff_update_start_prev_index_fp)(struct xgf_render *render);
+int xgff_update_start_prev_index(struct xgf_render *render);
+
 #endif

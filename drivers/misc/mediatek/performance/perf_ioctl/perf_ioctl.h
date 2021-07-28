@@ -118,6 +118,21 @@ struct _CORE_CTL_PACKAGE {
 	__u32 max;
 };
 
+struct _XGFFRAME_PACKAGE {
+	__u32 tid;
+	__u64 queueid;
+	__u64 frameid;
+
+	__u64 cputime;
+	__u32 area;
+	__u32 deplist_size;
+
+	union {
+		__u32 *deplist;
+		__u64 p_dummy_deplist;
+	};
+};
+
 #define FPSGO_QUEUE                  _IOW('g', 1,  struct _FPSGO_PACKAGE)
 #define FPSGO_DEQUEUE                _IOW('g', 3,  struct _FPSGO_PACKAGE)
 #define FPSGO_VSYNC                  _IOW('g', 5,  struct _FPSGO_PACKAGE)
@@ -147,6 +162,9 @@ struct _CORE_CTL_PACKAGE {
 #define CORE_CTL_SET_BOOST                      _IOW('g', 11, struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_SET_UP_THRES                   _IOW('g', 12, struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_ENABLE_POLICY                  _IOW('g', 13, struct _CORE_CTL_PACKAGE)
+
+#define XGFFRAME_START              _IOW('g', 1, struct _XGFFRAME_PACKAGE)
+#define XGFFRAME_END                _IOW('g', 2, struct _XGFFRAME_PACKAGE)
 
 #endif
 

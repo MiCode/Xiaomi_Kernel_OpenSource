@@ -62,6 +62,7 @@ struct fbt_thread_loading {
 	atomic_t *loading_cl;
 	atomic_t last_cb_ts;
 	struct list_head entry;
+	int ext_id;
 };
 
 struct fbt_thread_blc {
