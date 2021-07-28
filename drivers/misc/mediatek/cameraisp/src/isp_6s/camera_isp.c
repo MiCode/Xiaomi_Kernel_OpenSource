@@ -3193,6 +3193,7 @@ static int ISP_WriteRegToHw(struct ISP_REG_STRUCT *pReg, unsigned int Count)
 		} else {
 			LOG_NOTICE("wrong address(0x%lx)\n",
 				   (unsigned long)(regBase + pReg[i].Addr));
+			Ret = -EFAULT;
 		}
 	}
 
@@ -3208,7 +3209,8 @@ static int ISP_WriteReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	int Ret = 0;
 	struct ISP_REG_STRUCT *pData = NULL;
 
-	if ((pRegIo->Count) * sizeof(struct ISP_REG_STRUCT) > 0xFFFFF000) {
+	if (((pRegIo->Count * sizeof(struct ISP_REG_STRUCT)) > 0xFFFFF000) ||
+		(pRegIo->Count == 0)) {
 		LOG_NOTICE("pRegIo->Count error");
 		Ret = -EFAULT;
 		goto EXIT;
@@ -3223,7 +3225,7 @@ static int ISP_WriteReg(struct ISP_REG_IO_STRUCT *pRegIo)
 			GFP_ATOMIC);
 
 	if (pData == NULL) {
-		LOG_DBG(
+		LOG_INF(
 			"ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
 			current->comm, current->pid, current->tgid);
 
@@ -3526,6 +3528,13 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
 		/* 3.return new userkey for user */
 		/*   if the user had not registered before */
 		if (key < 0) {
+
+			if (strcmp((void *)IrqUserKey_UserInfo[i].userName,
+				"DefaultUserNametoAllocMem") != 0) {
+				LOG_INF("userName was not initialized.\n");
+				return key;
+			}
+
 			/* IrqUserKey_UserInfo[i].userName=userName; */
 			memset((void *)IrqUserKey_UserInfo[i].userName, 0,
 			       sizeof(IrqUserKey_UserInfo[i].userName));
