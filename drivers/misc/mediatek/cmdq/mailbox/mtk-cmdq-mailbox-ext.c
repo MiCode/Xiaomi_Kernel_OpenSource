@@ -1645,12 +1645,16 @@ static int cmdq_prebuilt_notifier_callback(struct notifier_block *nb,
 {
 	struct cmdq *cmdq = container_of(nb, typeof(*cmdq), prebuilt_notifier);
 
-	cmdq_msg("%s: pa:%pa hwid:%u", __func__, &cmdq->base_pa, cmdq->hwid);
+	cmdq_log("%s: pa:%pa hwid:%u action:%lu",
+		__func__, &cmdq->base_pa, cmdq->hwid, action);
 
 	if (action == GENPD_NOTIFY_ON) {
 		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
 		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
 		cmdq_util_prebuilt_enable(cmdq->hwid);
+	} else if (action == GENPD_NOTIFY_PRE_OFF) {
+		clk_disable_unprepare(cmdq->clock_timer);
+		clk_disable_unprepare(cmdq->clock);
 	}
 
 	return NOTIFY_OK;
