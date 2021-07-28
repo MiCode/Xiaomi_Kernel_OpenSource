@@ -22,7 +22,7 @@
  * (0, 1) -> DVFS disable but init to CUST_INIT_OPPIDX (do DVFS only onces)
  * (0, 0) -> DVFS disable
  */
-#define GPUFREQ_DVFS_ENABLE             (0)
+#define GPUFREQ_DVFS_ENABLE             (1)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* misc setting control */
@@ -60,7 +60,7 @@
 /**************************************************
  * Frequency Hopping Setting
  **************************************************/
-#define GPUFREQ_FHCTL_ENABLE            (0)
+#define GPUFREQ_FHCTL_ENABLE            (1)
 #define MFG_PLL_NAME                    "mfgpll"
 #define MFGSC_PLL_NAME                  "mfgscpll"
 

@@ -1942,9 +1942,11 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 	}
 
 #if (GPUFREQ_FHCTL_ENABLE && IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING))
-	/* compute CON1 with POSDIV and apply to CON1 if needed */
-	pll = (readl(MFG_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
-
+	if (unlikely(!mtk_fh_set_rate)) {
+		__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION, "null hopping fp");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
 	/* POSDIV remain the same */
 	if (target_posdiv == cur_posdiv) {
 		/* change PCW by hopping only */
@@ -1965,17 +1967,21 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 			ret = GPUFREQ_EINVAL;
 			goto done;
 		}
+		/* 2. compute CON1 with POSDIV and apply to CON1 */
+		pll = (readl(MFG_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
+		/* 3. change POSDIV by writing CON1 */
+		writel(pll, MFG_PLL_CON1);
+		/* 4. wait until PLL stable */
+		udelay(20);
+	/* freq scale down */
+	} else {
+		/* 1. compute CON1 with POSDIV and apply to CON1 */
+		pll = (readl(MFG_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 		/* 2. change POSDIV by writing CON1 */
 		writel(pll, MFG_PLL_CON1);
 		/* 3. wait until PLL stable */
 		udelay(20);
-	/* freq scale down */
-	} else {
-		/* 1. change POSDIV by writing CON1 */
-		writel(pll, MFG_PLL_CON1);
-		/* 2. wait until PLL stable */
-		udelay(20);
-		/* 3. change PCW by hopping */
+		/* 4. change PCW by hopping */
 		ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
 		if (unlikely(!ret)) {
 			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
@@ -1985,20 +1991,19 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 		}
 	}
 #else
-	/* compute CON1 with PCW and POSDIV */
-	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
-
 	/* 1. switch to parking clk source */
 	ret = __gpufreq_switch_clksrc_gpu(CLOCK_SUB);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
 		goto done;
 	}
-	/* 2. change PCW and POSDIV by writing CON1 */
+	/* 2. compute CON1 with PCW and POSDIV */
+	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
+	/* 3. change PCW and POSDIV by writing CON1 */
 	writel(pll, MFG_PLL_CON1);
-	/* 3. wait until PLL stable */
+	/* 4. wait until PLL stable */
 	udelay(20);
-	/* 4. switch to main clk source */
+	/* 5. switch to main clk source */
 	ret = __gpufreq_switch_clksrc_gpu(CLOCK_MAIN);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
@@ -2051,9 +2056,11 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 	}
 
 #if (GPUFREQ_FHCTL_ENABLE && IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING))
-	/* compute CON1 with POSDIV and apply to CON1 if needed */
-	pll = (readl(MFGSC_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
-
+	if (unlikely(!mtk_fh_set_rate)) {
+		__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION, "null hopping fp");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
 	/* POSDIV remain the same */
 	if (target_posdiv == cur_posdiv) {
 		/* change PCW by hopping only */
@@ -2074,17 +2081,21 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 			ret = GPUFREQ_EINVAL;
 			goto done;
 		}
+		/* 2. compute CON1 with POSDIV and apply to CON1 */
+		pll = (readl(MFGSC_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
+		/* 3. change POSDIV by writing CON1 */
+		writel(pll, MFGSC_PLL_CON1);
+		/* 4. wait until PLL stable */
+		udelay(20);
+	/* freq scale down */
+	} else {
+		/* 1. compute CON1 with POSDIV and apply to CON1 */
+		pll = (readl(MFGSC_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 		/* 2. change POSDIV by writing CON1 */
 		writel(pll, MFGSC_PLL_CON1);
 		/* 3. wait until PLL stable */
 		udelay(20);
-	/* freq scale down */
-	} else {
-		/* 1. change POSDIV by writing CON1 */
-		writel(pll, MFGSC_PLL_CON1);
-		/* 2. wait until PLL stable */
-		udelay(20);
-		/* 3. change PCW by hopping */
+		/* 4. change PCW by hopping */
 		ret = mtk_fh_set_rate(MFGSC_PLL_NAME, pcw, target_posdiv);
 		if (unlikely(!ret)) {
 			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
@@ -2094,20 +2105,19 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 		}
 	}
 #else
-	/* compute CON1 with PCW and POSDIV */
-	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
-
 	/* 1. switch to parking clk source */
 	ret = __gpufreq_switch_clksrc_stack(CLOCK_SUB);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
 		goto done;
 	}
-	/* 2. change PCW and POSDIV by writing CON1 */
+	/* 2. compute CON1 with PCW and POSDIV */
+	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
+	/* 3. change PCW and POSDIV by writing CON1 */
 	writel(pll, MFGSC_PLL_CON1);
-	/* 3. wait until PLL stable */
+	/* 4. wait until PLL stable */
 	udelay(20);
-	/* 4. switch to main clk source */
+	/* 5. switch to main clk source */
 	ret = __gpufreq_switch_clksrc_stack(CLOCK_MAIN);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
@@ -4789,7 +4799,6 @@ register_fp:
 		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
 		goto done;
 	}
-
 	GPUFREQ_LOGI("gpufreq platform driver probe done");
 
 done:
