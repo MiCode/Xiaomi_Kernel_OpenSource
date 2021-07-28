@@ -228,12 +228,8 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 {
 	int ret = 0;
 	struct nlattr *attr_info = NULL;
-	//struct nlattr *nested_attr;
 	struct nlattr *test_attr[_TESTINFO_ATTR_MAX + 1];
-	//int rem;
-	//unsigned int *data = NULL;
-	struct test_info params;
-	//unsigned int param;
+	struct test_info params = {0};
 
 	pr_info("[%s]", __func__);
 	if (mutex_lock_killable(&g_ctx->nl_lock))
