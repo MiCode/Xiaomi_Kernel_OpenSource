@@ -1692,11 +1692,12 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		int *target_fps, int *target_cpu_time, int *fps_margin,
 		int tgid, unsigned long long mid, int *quantile_cpu_time,
-		int *quantile_gpu_time)
+		int *quantile_gpu_time, int *target_fpks)
 {
 	struct FSTB_FRAME_INFO *iter = NULL;
 	unsigned long long total_time, v_c_time;
 	int tolerence_fps = 0;
+	int eara_fps = max_fps_limit;
 
 	mutex_lock(&fstb_lock);
 
@@ -1716,6 +1717,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 			(*target_fps) + tolerence_fps > max_fps_limit ?
 			max_fps_limit : (*target_fps) + tolerence_fps);
 		v_c_time = total_time;
+		eara_fps = *target_fps * 1000;
 
 	} else {
 		(*quantile_cpu_time) = iter->quantile_cpu_time;
@@ -1727,10 +1729,10 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 				&& iter->target_fps_diff
 				&& !iter->target_fps_margin
 				&& !iter->target_fps_margin_gpu) {
-				int eara_fps = iter->target_fps * 1000;
 				int max_mlimit = max_fps_limit * 1000;
 				int min_mlimit = min_fps_limit * 1000;
 
+				eara_fps = iter->target_fps * 1000;
 				fpsgo_systrace_c_fstb_man(pid, iter->bufid,
 						iter->target_fps_diff, "eara_diff");
 
@@ -1764,6 +1766,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 					tolerence_fps = iter->target_fps_margin;
 					break;
 				}
+				eara_fps = *target_fps * 1000;
 				total_time = (int)FSTB_SEC_DIVIDER;
 				total_time =
 					div64_u64(total_time,
@@ -1774,10 +1777,10 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 			if (iter->target_fps_v2 && iter->target_fps_v2 != -1
 				&& iter->target_fps_diff
 				&& !iter->target_fps_margin_v2) {
-				int eara_fps = iter->target_fps_v2 * 1000;
 				int max_mlimit = max_fps_limit * 1000;
 				int min_mlimit = min_fps_limit * 1000;
 
+				eara_fps = iter->target_fps_v2 * 1000;
 				fpsgo_systrace_c_fstb_man(pid, iter->bufid,
 						iter->target_fps_diff, "eara_diff");
 
@@ -1800,6 +1803,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 					div64_u64(total_time,
 					(*target_fps) + tolerence_fps > max_fps_limit ?
 					max_fps_limit : (*target_fps) + tolerence_fps);
+				eara_fps = *target_fps * 1000;
 			}
 		}
 
@@ -1820,6 +1824,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 
 	*target_cpu_time = v_c_time;
 	*fps_margin = tolerence_fps;
+	*target_fpks = eara_fps;
 
 	mutex_unlock(&fstb_lock);
 }
