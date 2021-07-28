@@ -12,6 +12,7 @@ struct mtk_cam_device;
 struct mtk_cam_dump_param;
 struct mtk_raw_device;
 struct mtk_cam_request;
+struct mtk_cam_request_stream_data;
 struct mtk_cam_debug_fs;
 
 #define MTK_CAM_DEBUG_DUMP_MAX_BUF		(33 * 5)
@@ -83,8 +84,7 @@ struct mtk_cam_dump_param {
 
 struct mtk_cam_req_dbg_work {
 	struct work_struct work;
-	struct mtk_cam_ctx *ctx;
-	struct mtk_cam_request *req;
+	struct mtk_cam_request_stream_data *s_data;
 	int state;
 	unsigned int dump_flags;
 	int buffer_state;
@@ -203,16 +203,14 @@ static inline struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void)
 	return NULL;
 }
 
-static inline int mtk_cam_req_dump(struct mtk_cam_ctx *ctx,
-				   struct mtk_cam_request *req,
+static inline int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 				   unsigned int dump_flag, char *desc)
 {
 	return 0;
 }
 
 static inline void
-mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_ctx *ctx,
-				    struct mtk_cam_request *req,
+mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 				    const unsigned int frame_no_update_limit)
 {
 }
@@ -224,11 +222,10 @@ static inline void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head)
 #else
 struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void);
 
-int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
+int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 		     unsigned int dump_flag, char *desc);
 void
-mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_ctx *ctx,
-				    struct mtk_cam_request *req,
+mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 				    const unsigned int frame_no_update_limit);
 void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head);
 

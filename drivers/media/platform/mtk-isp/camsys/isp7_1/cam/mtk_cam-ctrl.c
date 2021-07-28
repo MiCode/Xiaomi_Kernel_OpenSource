@@ -1473,7 +1473,6 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 				       struct mtk_cam_ctx *ctx,
 				       unsigned int dequeued_frame_seq_no)
 {
-	struct mtk_cam_request *req = NULL, *req_cq = NULL;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_cam_working_buf_entry *buf_entry;
@@ -1487,9 +1486,9 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
 	/* Find request of this dequeued frame */
-	req = mtk_cam_get_req(ctx, dequeued_frame_seq_no);
+	req_stream_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
 	/* If continuous 8 frame dequeue failed, we trigger the debug dump */
-	mtk_cam_debug_detect_dequeue_failed(ctx, req, 8);
+	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 8);
 
 	if (ctx->sensor) {
 		if (mtk_cam_is_subsample(ctx))
@@ -1551,8 +1550,9 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			else
 				state_transition(current_state,
 				E_STATE_SENSOR, E_STATE_CQ);
-			req_cq = mtk_cam_ctrl_state_get_req(current_state);
-			req_stream_data = mtk_cam_req_get_s_data(req_cq, ctx->stream_id, 0);
+
+			/* req_stream_data of req_cq*/
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
 			req_stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 			dev_dbg(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",

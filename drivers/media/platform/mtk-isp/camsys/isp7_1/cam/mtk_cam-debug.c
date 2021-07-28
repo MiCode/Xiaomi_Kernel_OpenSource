@@ -24,51 +24,32 @@
 
 void mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 				   struct mtk_cam_dump_param *param,
-				   struct mtk_cam_request *req,
+				   struct mtk_cam_request_stream_data *stream_data,
 				   char *desc)
 {
 	struct mtk_cam_device *cam = ctx->cam;
-	struct mtk_cam_request_stream_data *stream_data;
-	struct media_request_object *obj, *obj_prev;
+	struct mtk_cam_buffer *buf;
+	struct mtk_cam_video_device *node;
 	int request_fd = -1;
 
 	memset(param, 0, sizeof(*param));
-	stream_data =  mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	param->stream_id = ctx->stream_id;
 	param->sequence = stream_data->frame_seq_no;
 	param->timestamp = stream_data->timestamp;
 	param->cq_cpu_addr = stream_data->working_buf->buffer.va;
 
-	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
-		struct vb2_buffer *vb;
-		struct vb2_v4l2_buffer *v4l2_buf;
-		struct mtk_cam_buffer *buf;
-		struct mtk_cam_video_device *node;
-
-		if (!vb2_request_object_is_buffer(obj))
-			continue;
-
-		vb = container_of(obj, struct vb2_buffer, req_obj);
-		v4l2_buf = to_vb2_v4l2_buffer(vb);
-		buf = mtk_cam_vb2_buf_to_dev_buf(vb);
-		node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
-
-		if (node->uid.pipe_id != ctx->stream_id)
-			continue;
-
-		if (request_fd < 0)
-			request_fd = v4l2_buf->request_fd;
-
-		if (node->desc.id == MTK_RAW_META_IN) {
-			param->meta_in_cpu_addr = vb2_plane_vaddr(vb, 0);
-			param->meta_in_dump_buf_size =
-				node->active_fmt.fmt.meta.buffersize;
-			param->meta_in_iova = buf->daddr;
-			dev_dbg(cam->dev,
-				"%s:ctx(%d):req(%d):MTK_RAW_META_IN(%s) found: %d\n",
-				__func__, ctx->stream_id, param->sequence,
-				node->desc.name, param->meta_in_dump_buf_size);
-		}
+	buf = mtk_cam_s_data_get_vbuf(stream_data, MTK_RAW_META_IN);
+	if (buf) {
+		request_fd = buf->vbb.request_fd;
+		node = mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
+		param->meta_in_cpu_addr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+		param->meta_in_dump_buf_size =
+			node->active_fmt.fmt.meta.buffersize;
+		param->meta_in_iova = buf->daddr;
+		dev_dbg(cam->dev,
+			"%s:ctx(%d):req(%d):MTK_RAW_META_IN(%s) found: %d\n",
+			__func__, ctx->stream_id, param->sequence,
+			node->desc.name, param->meta_in_dump_buf_size);
 	}
 
 	param->cq_size = stream_data->working_buf->buffer.size;
@@ -833,14 +814,15 @@ static void mtk_cam_debug_deinit(struct mtk_cam_debug_fs *debug_fs)
 static void mtk_cam_debug_dump_work(struct work_struct *work)
 {
 	struct mtk_cam_req_dbg_work *dbg_work = to_mtk_cam_req_dbg_work(work);
-	struct mtk_cam_request *req = dbg_work->req;
-	struct mtk_cam_ctx *ctx = dbg_work->ctx;
+	struct mtk_cam_request_stream_data *s_data = dbg_work->s_data;
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_dump_param dump_param;
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_REQUEST_DUMPED,
 	};
 
-	mtk_cam_debug_init_dump_param(ctx, &dump_param, req,
+	mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
 				      dbg_work->desc);
 	ctx->cam->debug_fs->ops->dump(ctx->cam->debug_fs, &dump_param);
 	dbg_work->state = MTK_CAM_REQ_DBGWORK_S_FINISHED;
@@ -853,22 +835,21 @@ static void mtk_cam_debug_dump_work(struct work_struct *work)
 static void mtk_cam_exception_work(struct work_struct *work)
 {
 	struct mtk_cam_req_dbg_work *dbg_work = to_mtk_cam_req_dbg_work(work);
-	struct mtk_cam_request *req = dbg_work->req;
-	struct mtk_cam_request_stream_data *req_stream_data;
-	struct mtk_cam_ctx *ctx = dbg_work->ctx;
+	struct mtk_cam_request_stream_data *s_data = dbg_work->s_data;
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_dump_param dump_param;
 	char warn_desc[48];
 
-	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-	mtk_cam_debug_init_dump_param(ctx, &dump_param, req,
+	mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
 				      dbg_work->desc);
 
 	ctx->cam->debug_fs->ops->exp_dump(ctx->cam->debug_fs, &dump_param);
-	snprintf(warn_desc, 48, "ctx(%d):req(%d):%s",
-		 ctx->stream_id, req_stream_data->frame_seq_no,
+	snprintf(warn_desc, 48, "%s:ctx(%d):req(%d):%s",
+		 req->req.debug_str, ctx->stream_id, s_data->frame_seq_no,
 		 dbg_work->desc);
-	dev_info(ctx->cam->dev, "%s:%s:camsys dump, %s\n",
-		 __func__, req->req.debug_str, warn_desc);
+	dev_info(ctx->cam->dev, "%s:camsys dump, %s\n",
+		 __func__, warn_desc);
 
 #ifdef CONFIG_MTK_AEE_FEATURE
 	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "Camsys",
@@ -910,13 +891,12 @@ mtk_cam_exceptoin_is_job_done(struct mtk_cam_request *req,
 static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 {
 	struct mtk_cam_req_dbg_work *dbg_work = to_mtk_cam_req_dbg_work(work);
-	struct mtk_cam_request *req = dbg_work->req;
-	struct mtk_cam_ctx *ctx = dbg_work->ctx;
-	struct mtk_cam_request_stream_data *stream_data;
+	struct mtk_cam_request_stream_data *s_data = dbg_work->s_data;
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	int ret;
 	bool streamoff;
 
-	stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	ret = wait_event_freezable_timeout(ctx->cam->debug_exception_waitq,
 					   mtk_cam_exceptoin_is_job_done(req,
 					   ctx, &streamoff),
@@ -926,7 +906,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 			dev_info(ctx->cam->dev,
 				"%s:ctx(%d):%s:req(%d):skip dump since job done\n",
 				__func__, ctx->stream_id, req->req.debug_str,
-				stream_data->frame_seq_no);
+				s_data->frame_seq_no);
 			dbg_work->state = MTK_CAM_REQ_DBGWORK_S_FINISHED;
 			media_request_put(&req->req);
 		} else {
@@ -956,10 +936,11 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 	mtk_cam_exception_work(work);
 }
 
-int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
+int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 		     unsigned int dump_flag, char *desc)
 {
-	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
 	struct mtk_cam_req_dbg_work *dbg_work;
 	void (*work_func)(struct work_struct *work);
 	struct workqueue_struct *wq;
@@ -967,32 +948,30 @@ int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 	if (!ctx->cam->debug_fs)
 		return false;
 
-	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-
 	switch (dump_flag) {
 	case MTK_CAM_REQ_DUMP_FORCE:
 		if (!ctx->cam->debug_fs->force_dump ||
 		    !ctx->cam->debug_fs->ctrl[ctx->stream_id].num)
 			return false;
 
-		dbg_work = &req_stream_data->dbg_work;
+		dbg_work = &s_data->dbg_work;
 		work_func = mtk_cam_debug_dump_work;
 		wq = ctx->cam->debug_wq;
 		break;
 	case MTK_CAM_REQ_DUMP_DEQUEUE_FAILED:
-		dbg_work =  &req_stream_data->dbg_exception_work;
+		dbg_work =  &s_data->dbg_exception_work;
 		work_func = mtk_cam_exception_work;
 		wq = ctx->cam->debug_exception_wq;
 		break;
 	case MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED:
-		dbg_work =  &req_stream_data->dbg_exception_work;
+		dbg_work =  &s_data->dbg_exception_work;
 		work_func = mtk_cam_exceptoin_detect_work;
 		wq = ctx->cam->debug_exception_wq;
 		break;
 	default:
 		dev_dbg(ctx->cam->dev,
 			"%s:seq(%d) dump skipped, unknown dump type (%d)\n",
-			__func__, req_stream_data->frame_seq_no,
+			__func__, s_data->frame_seq_no,
 			dump_flag);
 		return false;
 	}
@@ -1001,8 +980,7 @@ int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 		return false;
 
 	INIT_WORK(&dbg_work->work, work_func);
-	dbg_work->req = req;
-	dbg_work->ctx = ctx;
+	dbg_work->s_data = s_data;
 	dbg_work->dump_flags = dump_flag;
 	dbg_work->state = MTK_CAM_REQ_DBGWORK_S_PREPARED;
 	snprintf(dbg_work->desc, MTK_CAM_DEBUG_DUMP_DESC_SIZE - 1, desc);
@@ -1010,8 +988,7 @@ int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 	if (!queue_work(wq, &dbg_work->work)) {
 		dev_dbg(ctx->cam->dev,
 			"%s: seq(%d) failed, debug work is already in queue\n",
-			__func__,
-			req_stream_data->frame_seq_no);
+			__func__, s_data->frame_seq_no);
 		media_request_put(&req->req);
 		return false;
 	}
@@ -1020,18 +997,21 @@ int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 }
 
 void
-mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_ctx *ctx,
-				    struct mtk_cam_request *req,
+mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 				    const unsigned int frame_no_update_limit)
 {
-	struct mtk_cam_request_stream_data *stream_data;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request *req;
 
 	/**
 	 * If the requset is already dequeued (for example, the p1 done and sof
 	 * interrupt come almost together), skip the check.
 	 */
-	if (!req)
+	if (!s_data)
 		return;
+
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	req = mtk_cam_s_data_get_req(s_data);
 
 	/**
 	 * Considering first request's case ( both
@@ -1041,17 +1021,17 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_ctx *ctx,
 	    ctx->composed_frame_seq_no < ctx->dequeued_frame_seq_no)
 		return;
 
-	stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-	if (stream_data->state.estate == E_STATE_CQ ||
-	    stream_data->state.estate == E_STATE_INNER_HW_DELAY)
-		stream_data->no_frame_done_cnt++;
+	if (s_data->state.estate == E_STATE_CQ ||
+	    s_data->state.estate == E_STATE_INNER_HW_DELAY)
+		s_data->no_frame_done_cnt++;
 
-	if (stream_data->no_frame_done_cnt > frame_no_update_limit) {
+	if (s_data->no_frame_done_cnt > frame_no_update_limit) {
 		dev_info(ctx->cam->dev,
 			 "%s:SOF[ctx:%d-#%d] no p1 done for %d sofs, dump req(%d)\n",
-			 req->req.debug_str, ctx->stream_id, ctx->dequeued_frame_seq_no,
-			 stream_data->no_frame_done_cnt, stream_data->frame_seq_no);
-		mtk_cam_req_dump(ctx, req, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
+			 req->req.debug_str, ctx->stream_id,
+			 ctx->dequeued_frame_seq_no,
+			 s_data->no_frame_done_cnt, s_data->frame_seq_no);
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
 				 "No P1 done");
 	}
 }

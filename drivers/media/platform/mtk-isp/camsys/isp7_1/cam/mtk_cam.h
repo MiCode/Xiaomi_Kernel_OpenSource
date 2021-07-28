@@ -399,7 +399,8 @@ mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
 }
 
 static inline int
-mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data, int node_id)
+mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
+			    int node_id)
 {
 
 	if (s_data->pipe_id >= MTKCAM_SUBDEV_RAW_START &&

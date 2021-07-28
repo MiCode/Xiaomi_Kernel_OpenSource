@@ -1875,13 +1875,11 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		return -EINVAL;
 
 	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
-		struct mtk_cam_request *req;
-
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		spin_lock(&ctx->using_buffer_list.lock);
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
-		req = mtk_cam_get_req(ctx, ctx->composed_frame_seq_no);
-		if (!req) {
+		stream_data = mtk_cam_get_req_s_data(ctx, ctx->composed_frame_seq_no);
+		if (!stream_data) {
 			dev_dbg(dev, "ctx:%d no req for ack frame_num:%d\n",
 				ctx->stream_id, ctx->composed_frame_seq_no);
 			spin_unlock(&ctx->using_buffer_list.lock);
@@ -1889,10 +1887,8 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		}
 
 		/* Do nothing if the user doesn't enable force dump */
-		mtk_cam_req_dump(ctx, req,
+		mtk_cam_req_dump(stream_data,
 				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
-
-		stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		stream_data->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		dev_dbg(dev, "ctx:%d ack frame_num:%d\n",
 			ctx->stream_id, ctx->composed_frame_seq_no);

@@ -1417,7 +1417,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no)
 {
 	struct mtk_cam_ctx *ctx;
-	struct mtk_cam_request *req;
+	struct mtk_cam_request_stream_data *s_data;
 	int val, val2;
 
 	val = readl_relaxed(raw_dev->base + REG_TG_PATH_CFG);
@@ -1474,9 +1474,9 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 
 	/* TODO: check if we tried recover the error before we dump */
 
-	req = mtk_cam_get_req(ctx, dequeued_frame_seq_no);
-	if (req)
-		mtk_cam_req_dump(ctx, req, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
+	s_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
+	if (s_data)
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
 					 "TG overrun");
 	else
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
