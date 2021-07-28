@@ -1337,23 +1337,12 @@ static const struct mtk_heap_priv_info mtk_sec_heap_priv = {
 };
 
 static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf) {
-	int i, j;
-	struct mtk_sec_heap_buffer *buffer = NULL;
-
-	if (!dmabuf || !dmabuf->priv)
+	if (!dmabuf)
 		return 0;
 
-	buffer = dmabuf->priv;
-	for (i = SVP_REGION; i < REGION_HEAPS_NUM; i++) {
-		for (j = REGION_HEAP_NORMAL; j < REGION_TYPE_NUM; j++) {
-			if (mtk_sec_heap_region[i].heap[j] == buffer->heap)
-				return 1;
-		}
-	}
-	for (i = SVP_PAGE; i < PAGE_HEAPS_NUM; i++) {
-		if (mtk_sec_heap_page[i].heap == buffer->heap)
-			return 1;
-	}
+	if (dmabuf->ops == &sec_buf_page_ops ||
+	    dmabuf->ops == &sec_buf_region_ops)
+		return 1;
 
 	return 0;
 }
