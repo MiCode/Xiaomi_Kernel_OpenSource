@@ -169,12 +169,19 @@ static void lvts_write_device(struct lvts_data *lvts_data, unsigned int data,
 	int tc_id)
 {
 	void __iomem *base;
+	struct device *dev = lvts_data->dev;
+	int ret;
 
 	base = GET_BASE_ADDR(tc_id);
 
 	writel(data, LVTS_CONFIG_0 + base);
 
-	udelay(5);
+	ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				 !(data & DEVICE_ACCESS_STARTUS),
+				 2, 200);
+	if (ret)
+		dev_err(dev,
+			"write device err: LVTS %d didn't ready, data 0x%x\n", tc_id, data);
 }
 
 static unsigned int lvts_read_device(struct lvts_data *lvts_data,
@@ -194,7 +201,7 @@ static unsigned int lvts_read_device(struct lvts_data *lvts_data,
 				 2, 200);
 	if (ret)
 		dev_err(dev,
-			"Error: LVTS %d DEVICE_ACCESS_START didn't ready\n", tc_id);
+			"read device err: LVTS %d didn't ready, reg_idx 0x%x\n", tc_id, reg_idx);
 
 	data = (readl(LVTSRDATA0_0 + base));
 
@@ -741,17 +748,17 @@ static void disable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 	/* Disable the interrupt of AP SW */
 	temp = readl(LVTSMONINT_0 + base);
 
-        temp = temp & ~(STAGE3_INT_EN);
+	temp = temp & ~(STAGE3_INT_EN);
 
-        temp = temp & ~(HIGH_OFFSET3_INT_EN |
-                	HIGH_OFFSET2_INT_EN |
-		        HIGH_OFFSET1_INT_EN |
-		        HIGH_OFFSET0_INT_EN);
+	temp = temp & ~(HIGH_OFFSET3_INT_EN |
+					HIGH_OFFSET2_INT_EN |
+					HIGH_OFFSET1_INT_EN |
+					HIGH_OFFSET0_INT_EN);
 
-        temp = temp & ~(HOT_INT0_EN |
-			HOT_INT1_EN |
-			HOT_INT2_EN |
-			HOT_INT3_EN);
+	temp = temp & ~(LOW_OFFSET3_INT_EN |
+					LOW_OFFSET2_INT_EN |
+					LOW_OFFSET1_INT_EN |
+					LOW_OFFSET0_INT_EN);
 
 //	pr_notice("[LVTS]%s,temp=0x%8x\n", __func__,temp);
 
@@ -1501,10 +1508,7 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 
 			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(j), i);
 			lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_V4, i);
-			udelay(10);
-
 			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
-			udelay(30);
 
 			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
 				!(data & DEVICE_SENSING_STATUS),
@@ -2009,10 +2013,7 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 			lvts_write_device(lvts_data, SET_TS_EN_6893, i);
 			lvts_write_device(lvts_data, TOGGLE_RG_TSV2F_VCO_RST1_V4, i);
 			lvts_write_device(lvts_data, SET_TS_EN_6893, i);
-			udelay(10);
-
 			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
-			udelay(30);
 
 			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
 				!(data & DEVICE_SENSING_STATUS),
@@ -2022,7 +2023,6 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 					"Error: LVTS %d DEVICE_SENSING_STATUS didn't ready\n", i);
 
 			data = lvts_read_device(lvts_data, 0x00, i);
-			udelay(5);
 
 			rc_data = (data & GENMASK(23, 0));
 
@@ -2045,13 +2045,6 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 			}
 
 			lvts_write_device(lvts_data, SET_TS_DIS_6893, i);
-			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
-				!(data & DEVICE_ACCESS_STARTUS),
-				2, 200);
-			if (ret)
-				dev_info(dev,
-					"Error: LVTS %d DEVICE_ACCESS_START didn't ready\n",
-					i);
 
 			if (refine_data_idx[j] != 0xff) {
 				dev_info(dev, "refine_data_idx[%d]=%d\n", j, refine_data_idx[j]);
