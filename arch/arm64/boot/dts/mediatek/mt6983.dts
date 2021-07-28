@@ -4127,6 +4127,9 @@
 		temp_t4_threshold = <50>;
 		temp_t3_threshold = <45>;
 		temp_t1_threshold = <0>;
+
+		/* enable check vsys voltage */
+		enable_check_vsys;
 	};
 
 	pe: pe {
