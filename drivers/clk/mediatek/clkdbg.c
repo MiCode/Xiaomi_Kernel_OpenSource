@@ -1032,6 +1032,9 @@ static struct generic_pm_domain *__pd_dbg_lookup(int pg_idx)
 {
 	struct generic_pm_domain **pds = get_all_genpd();
 
+	if (!pds)
+		return NULL;
+
 	return pds[pg_idx];
 }
 
@@ -1988,7 +1991,7 @@ static void seq_print_reg(const struct regname *rn, void *data)
 #if CLKDBG_PM_DOMAIN
 	if (pg != PD_NULL) {
 		pd = __pd_dbg_lookup(pg);
-		if (pd->status)
+		if (pd && pd->status)
 			is_pwr_on = false;
 	}
 #endif

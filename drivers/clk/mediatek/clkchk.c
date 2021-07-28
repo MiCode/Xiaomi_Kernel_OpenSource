@@ -313,12 +313,11 @@ static const char *ccf_state(struct provider_clk *pvdck)
 static void dump_enabled_clks(struct provider_clk *pvdck)
 {
 	const char * const *pll_names;
+	const char *c_name;
 	const char *p_name;
+	const char *comp_name;
 	struct clk_hw *c_hw = __clk_get_hw(pvdck->ck);
 	struct clk_hw *p_hw;
-
-	if (IS_ERR_OR_NULL(c_hw))
-		return;
 
 	if (!clkchk_pvdck_is_prepared(pvdck) && !clkchk_pvdck_is_enabled(pvdck))
 		return;
@@ -326,24 +325,32 @@ static void dump_enabled_clks(struct provider_clk *pvdck)
 	if (clkchk_ops == NULL || clkchk_ops->get_off_pll_names == NULL)
 		return;
 
-	pll_names = clkchk_ops->get_off_pll_names();
+	if (IS_ERR_OR_NULL(c_hw))
+		return;
+
+	c_name = clk_hw_get_name(c_hw);
+
 	p_hw = clk_hw_get_parent(c_hw);
 	if (IS_ERR_OR_NULL(p_hw))
 		return;
 
-	p_name = c_hw ? clk_hw_get_name(c_hw) : NULL;
-	while (strcmp(clk_hw_get_name(p_hw), "clk26m")) {
+	p_name = clk_hw_get_name(c_hw);
+	comp_name = clk_hw_get_name(p_hw);
+	while (strcmp(comp_name, "clk26m")) {
 		p_name = p_hw ? clk_hw_get_name(p_hw) : NULL;
 		p_hw = clk_hw_get_parent(p_hw);
 		if (IS_ERR_OR_NULL(p_hw))
 			return;
+
+		comp_name = clk_hw_get_name(p_hw);
 	}
 
+	pll_names = clkchk_ops->get_off_pll_names();
 	for (; *pll_names != NULL && p_name != NULL; pll_names++) {
 		if (!strncmp(p_name, *pll_names, PLL_LEN)) {
 			p_hw = clk_hw_get_parent(c_hw);
 			pr_notice("[%-21s: %8s, %3d, %3d, %10ld, %21s]\n",
-					clk_hw_get_name(c_hw),
+					c_name,
 					ccf_state(pvdck),
 					clkchk_pvdck_is_prepared(pvdck),
 					clkchk_pvdck_is_enabled(pvdck),
