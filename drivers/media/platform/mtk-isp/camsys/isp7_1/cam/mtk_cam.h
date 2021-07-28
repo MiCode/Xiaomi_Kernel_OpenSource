@@ -276,6 +276,7 @@ struct mtk_cam_ctx {
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 
 	spinlock_t streaming_lock;
+	spinlock_t m2m_lock;
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;

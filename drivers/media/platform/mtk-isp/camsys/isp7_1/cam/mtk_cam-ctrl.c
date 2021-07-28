@@ -1367,6 +1367,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 	unsigned long flags;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
+	bool dequeue_result = false;
 
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
@@ -1409,6 +1410,9 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 
+	spin_lock(&ctx->m2m_lock);
+	dequeue_result = mtk_cam_dequeue_req_frame(ctx, dequeued_frame_seq_no, ctx->stream_id);
+
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
 	dev_dbg(raw_dev->dev,
@@ -1421,6 +1425,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
 			ctx->composed_buffer_list.cnt);
 		spin_unlock(&ctx->composed_buffer_list.lock);
+		spin_unlock(&ctx->m2m_lock);
 	} else {
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
@@ -1444,6 +1449,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		req_stream_data->timestamp = time_boot;
 		req_stream_data->timestamp_mono = time_mono;
+		spin_unlock(&ctx->m2m_lock);
 
 		apply_cq(raw_dev,
 			base_addr,
@@ -1465,7 +1471,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 
-	if (mtk_cam_dequeue_req_frame(ctx, dequeued_frame_seq_no, ctx->stream_id))
+	if (dequeue_result)
 		mtk_cam_dev_req_try_queue(ctx->cam);
 }
 

@@ -1858,6 +1858,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_cam_request_stream_data *stream_data;
 	unsigned long flags;
+	unsigned long m2m_flags;
 	bool is_m2m_apply_cq = false;
 
 	ipi_msg = (struct mtkcam_ipi_event *)data;
@@ -1912,13 +1913,28 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		buf_entry->sub_cq_desc_size =
 			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
 
+		if (mtk_cam_is_stagger_m2m(ctx))
+			spin_lock_irqsave(&ctx->m2m_lock, m2m_flags);
+
 		if (mtk_cam_is_stagger_m2m(ctx)) {
+
+			spin_lock_irqsave(&ctx->composed_buffer_list.lock, flags);
+			dev_dbg(dev, "%s ctx->composed_buffer_list.cnt %d\n", __func__,
+				ctx->composed_buffer_list.cnt);
+
+			if (ctx->composed_buffer_list.cnt == 0)
+				is_m2m_apply_cq = true;
+
+			spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
+
 			spin_lock_irqsave(&ctx->processing_buffer_list.lock, flags);
 			dev_dbg(dev, "%s ctx->processing_buffer_list.cnt %d\n", __func__,
 				ctx->processing_buffer_list.cnt);
 
 			if (ctx->processing_buffer_list.cnt == 0)
-				is_m2m_apply_cq = true;
+				is_m2m_apply_cq &= true;
+			else
+				is_m2m_apply_cq &= false;
 
 			spin_unlock_irqrestore(&ctx->processing_buffer_list.lock, flags);
 		}
@@ -1960,6 +1976,9 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			stream_data->timestamp_mono = ktime_get_ns();
 			stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 
+			if (mtk_cam_is_stagger_m2m(ctx))
+				spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
+
 			return 0;
 		}
 		spin_lock_irqsave(&ctx->composed_buffer_list.lock,
@@ -1967,8 +1986,15 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->composed_buffer_list.list);
 		ctx->composed_buffer_list.cnt++;
+		if (mtk_cam_is_stagger_m2m(ctx)) {
+			dev_dbg(dev, "%s M2M composed_buffer_list.cnt %d\n",
+					__func__, ctx->composed_buffer_list.cnt);
+		}
 		spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
 		spin_unlock(&ctx->using_buffer_list.lock);
+
+		if (mtk_cam_is_stagger_m2m(ctx))
+			spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		drain_workqueue(ctx->composer_wq);
@@ -3494,6 +3520,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	spin_lock_init(&ctx->sv_using_buffer_list.lock);
 	spin_lock_init(&ctx->sv_processing_buffer_list.lock);
 	spin_lock_init(&ctx->streaming_lock);
+	spin_lock_init(&ctx->m2m_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
 }
 
