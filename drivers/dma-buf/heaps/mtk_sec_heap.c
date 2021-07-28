@@ -376,14 +376,11 @@ static void tmem_region_free(struct dma_buf *dmabuf)
 		pr_err("%s fail, heap:%s\n", __func__, sec_heap->heap_type);
 		return;
 	}
-	/* TODO: why do you add lock???? */
-	/* mutex_lock(&dmabuf->lock); */
 	sg_free_table(&buffer->sg_table);
 	kfree(buffer);
-	/* mutex_unlock(&dmabuf->lock); */
 
 	pr_info("%s done: [%s], size:0x%lx, total_size:0x%lx\n", __func__,
-		dmabuf->exp_name, buffer->len, atomic64_read(&sec_heap->total_size));
+		dmabuf->exp_name, dmabuf->size, atomic64_read(&sec_heap->total_size));
 }
 
 static void tmem_page_free(struct dma_buf *dmabuf)
@@ -412,14 +409,11 @@ static void tmem_page_free(struct dma_buf *dmabuf)
 		pr_err("%s fail, heap:%s\n", __func__, sec_heap->heap_type);
 		return;
 	}
-	/* TODO: why do you add lock???? */
-	/* mutex_lock(&dmabuf->lock); */
 	sg_free_table(&buffer->sg_table);
 	kfree(buffer);
-	/* mutex_unlock(&dmabuf->lock); */
 
 	pr_info("%s done: [%s], size:0x%lx, total_size:0x%lx\n", __func__,
-		dmabuf->exp_name, buffer->len, atomic64_read(&sec_heap->total_size));
+		dmabuf->exp_name, dmabuf->size, atomic64_read(&sec_heap->total_size));
 }
 
 static int mtk_sec_heap_attach(struct dma_buf *dmabuf,
