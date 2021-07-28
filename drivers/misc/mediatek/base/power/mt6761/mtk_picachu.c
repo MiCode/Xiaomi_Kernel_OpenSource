@@ -97,7 +97,7 @@
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
-#define PICACHU_PROC_ENTRY_ATTR (0664)
+#define PICACHU_PROC_ENTRY_ATTR (0440)
 
 enum {
 	OPPH_VMIN_SEARCH, /* OPP High -> OPP0 */
