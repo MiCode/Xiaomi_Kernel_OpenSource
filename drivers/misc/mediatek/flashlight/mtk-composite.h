@@ -32,7 +32,6 @@ struct mtk_composite_v4l2_device {
 	struct device *dev;
 	u32 revision;
 
-	struct v4l2_subdev **sd;
 	struct v4l2_async_subdev *asd[MISC_MAX_SUBDEVS];
 	struct v4l2_subdev *subdevs[MISC_MAX_SUBDEVS];
 	struct device_node *dnode[MISC_MAX_SUBDEVS];
