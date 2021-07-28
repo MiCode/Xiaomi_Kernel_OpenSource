@@ -145,6 +145,11 @@ struct mdw_subcmd_exec_info {
 	uint32_t bw;
 	uint32_t boost;
 	uint32_t tcm_usage;
+	int32_t ret;
+};
+
+struct mdw_cmd_exec_info {
+	uint64_t sc_rets;
 };
 
 struct mdw_subcmd_cmdbuf {

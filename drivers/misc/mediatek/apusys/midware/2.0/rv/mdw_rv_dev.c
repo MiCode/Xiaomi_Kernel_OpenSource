@@ -109,11 +109,23 @@ out:
 
 static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
 {
+	int ret = 0;
 	struct mdw_rv_cmd *rc =
 		container_of(s_msg, struct mdw_rv_cmd, s_msg);
 
-	mdw_flw_debug("\n");
-	mdw_rv_cmd_done(rc, 0);
+	switch (s_msg->msg.ret) {
+	case MDW_IPI_MSG_STATUS_BUSY:
+		ret = -EBUSY;
+		break;
+	case MDW_IPI_MSG_STATUS_ERR:
+		ret = -EREMOTEIO;
+		break;
+	default:
+		break;
+	}
+
+	mdw_flw_debug("ipi ret(%d/%d)\n", s_msg->msg.ret, ret);
+	mdw_rv_cmd_done(rc, ret);
 }
 
 static int mdw_rv_dev_send_cmd(struct mdw_rv_cmd *rc)

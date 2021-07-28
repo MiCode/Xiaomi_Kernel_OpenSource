@@ -20,7 +20,6 @@ struct mdw_ap_cmd {
 	struct kref ref;
 	pid_t pid;
 	pid_t tgid;
-	int ret;
 	int state;
 
 	uint64_t sc_bitmask; // activated subcmds

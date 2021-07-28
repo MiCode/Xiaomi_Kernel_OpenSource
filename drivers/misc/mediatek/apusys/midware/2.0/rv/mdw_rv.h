@@ -40,7 +40,7 @@ struct mdw_rv_cmd {
 	uint64_t start_ts_ns; // create time at ap
 };
 
-struct mdw_rv_cmd_v2 {
+struct mdw_rv_msg_cmd {
 	/* ids */
 	uint64_t session_id;
 	uint64_t cmd_id;
@@ -62,7 +62,7 @@ struct mdw_rv_cmd_v2 {
 	uint32_t adj_matrix_offset;
 } __attribute__((__packed__));
 
-struct mdw_rv_subcmd_v2 {
+struct mdw_rv_msg_sc {
 	/* params */
 	uint32_t type;
 	uint32_t suggest_time;
@@ -83,7 +83,7 @@ struct mdw_rv_subcmd_v2 {
 	uint32_t num_cmdbufs;
 } __attribute__((__packed__));
 
-struct mdw_rv_cmdbuf_v2 {
+struct mdw_rv_msg_cb {
 	uint64_t device_va;
 	uint32_t size;
 } __attribute__((__packed__));

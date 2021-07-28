@@ -6,7 +6,7 @@
 #include "mdw_rv.h"
 #include "mdw_cmn.h"
 
-static void mdw_rv_cmd_print(struct mdw_rv_cmd_v2 *rc)
+static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 {
 	mdw_cmd_debug("-------------------------\n");
 	mdw_cmd_debug("rc kid(0x%llx)\n", rc->cmd_id);
@@ -27,7 +27,7 @@ static void mdw_rv_cmd_print(struct mdw_rv_cmd_v2 *rc)
 	mdw_cmd_debug("-------------------------\n");
 }
 
-static void mdw_rv_sc_print(struct mdw_rv_subcmd_v2 *rsc,
+static void mdw_rv_sc_print(struct mdw_rv_msg_sc *rsc,
 	uint64_t cmd_id, uint32_t idx)
 {
 	mdw_cmd_debug("-------------------------\n");
@@ -56,9 +56,9 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_cmd *rc = NULL;
 	uint32_t cb_size = 0, acc_cb = 0, i = 0, j = 0;
 	uint32_t subcmds_ofs = 0, cmdbuf_infos_ofs = 0, adj_matrix_ofs = 0;
-	struct mdw_rv_cmd_v2 *rc_v2 = NULL;
-	struct mdw_rv_subcmd_v2 *rsubcmds_v2 = NULL;
-	struct mdw_rv_cmdbuf_v2 *rcb_v2 = NULL;
+	struct mdw_rv_msg_cmd *rmc = NULL;
+	struct mdw_rv_msg_sc *rmsc = NULL;
+	struct mdw_rv_msg_cb *rmcb = NULL;
 
 	rc = vzalloc(sizeof(*rc));
 	if (!rc)
@@ -68,16 +68,16 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* calc size and offset */
 	rc->c = c;
-	cb_size += sizeof(struct mdw_rv_cmd_v2);
+	cb_size += sizeof(struct mdw_rv_msg_cmd);
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
 	adj_matrix_ofs = cb_size;
 	cb_size += (c->num_subcmds * c->num_subcmds * sizeof(uint8_t));
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
 	subcmds_ofs = cb_size;
-	cb_size += (c->num_subcmds * sizeof(struct mdw_rv_subcmd_v2));
+	cb_size += (c->num_subcmds * sizeof(struct mdw_rv_msg_sc));
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
 	cmdbuf_infos_ofs = cb_size;
-	cb_size += (c->num_cmdbufs * sizeof(struct mdw_rv_cmdbuf_v2));
+	cb_size += (c->num_cmdbufs * sizeof(struct mdw_rv_msg_cb));
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_alloc(mpriv, cb_size, MDW_DEFAULT_ALIGN,
@@ -89,63 +89,65 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	}
 
 	/* assign cmd info */
-	rc_v2 = (struct mdw_rv_cmd_v2 *)rc->cb->vaddr;
-	rc_v2->session_id = (uint64_t)c->mpriv;
-	rc_v2->cmd_id = c->kid;
-	rc_v2->exec_infos = c->exec_infos->device_va;
-	rc_v2->exec_size = c->exec_infos->size;
-	rc_v2->priority = c->priority;
-	rc_v2->hardlimit = c->hardlimit;
-	rc_v2->softlimit = c->softlimit;
-	rc_v2->power_save = c->power_save;
-	rc_v2->power_plcy = c->power_plcy;
-	rc_v2->power_dtime = c->power_dtime;
-	rc_v2->app_type = c->app_type;
-	rc_v2->num_subcmds = c->num_subcmds;
-	rc_v2->num_cmdbufs = c->num_cmdbufs;
-	rc_v2->subcmds_offset = subcmds_ofs;
-	rc_v2->cmdbuf_infos_offset = cmdbuf_infos_ofs;
-	rc_v2->adj_matrix_offset = adj_matrix_ofs;
-	mdw_rv_cmd_print(rc_v2);
+	rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
+	rmc->session_id = (uint64_t)c->mpriv;
+	rmc->cmd_id = c->kid;
+	rmc->exec_infos = c->exec_infos->device_va;
+	rmc->exec_size = c->exec_infos->size;
+	rmc->priority = c->priority;
+	rmc->hardlimit = c->hardlimit;
+	rmc->softlimit = c->softlimit;
+	rmc->power_save = c->power_save;
+	rmc->power_plcy = c->power_plcy;
+	rmc->power_dtime = c->power_dtime;
+	rmc->app_type = c->app_type;
+	rmc->num_subcmds = c->num_subcmds;
+	rmc->num_cmdbufs = c->num_cmdbufs;
+	rmc->subcmds_offset = subcmds_ofs;
+	rmc->cmdbuf_infos_offset = cmdbuf_infos_ofs;
+	rmc->adj_matrix_offset = adj_matrix_ofs;
+	mdw_rv_cmd_print(rmc);
 
 	/* copy adj matrix */
-	memcpy((void *)rc_v2 + rc_v2->adj_matrix_offset, c->adj_matrix,
+	memcpy((void *)rmc + rmc->adj_matrix_offset, c->adj_matrix,
 		c->num_subcmds * c->num_subcmds * sizeof(uint8_t));
 
 	/* assign subcmds info */
-	rsubcmds_v2 = (void *)rc_v2 + rc_v2->subcmds_offset;
-	rcb_v2 = (void *)rc_v2 + rc_v2->cmdbuf_infos_offset;
+	rmsc = (void *)rmc + rmc->subcmds_offset;
+	rmcb = (void *)rmc + rmc->cmdbuf_infos_offset;
 	for (i = 0; i < c->num_subcmds; i++) {
-		rsubcmds_v2[i].type = c->subcmds[i].type;
-		rsubcmds_v2[i].suggest_time = c->subcmds[i].suggest_time;
-		rsubcmds_v2[i].vlm_usage = c->subcmds[i].vlm_usage;
-		rsubcmds_v2[i].vlm_ctx_id = c->subcmds[i].vlm_ctx_id;
-		rsubcmds_v2[i].vlm_force = c->subcmds[i].vlm_force;
-		rsubcmds_v2[i].boost = c->subcmds[i].boost;
-		rsubcmds_v2[i].ip_time = c->subcmds[i].ip_time;
-		rsubcmds_v2[i].driver_time = c->subcmds[i].driver_time;
-		rsubcmds_v2[i].bw = c->subcmds[i].bw;
-		rsubcmds_v2[i].turbo_boost = c->subcmds[i].turbo_boost;
-		rsubcmds_v2[i].min_boost = c->subcmds[i].min_boost;
-		rsubcmds_v2[i].max_boost = c->subcmds[i].max_boost;
-		rsubcmds_v2[i].hse_en = c->subcmds[i].hse_en;
-		rsubcmds_v2[i].pack_id = c->subcmds[i].pack_id;
-		rsubcmds_v2[i].num_cmdbufs = c->subcmds[i].num_cmdbufs;
-		rsubcmds_v2[i].cmdbuf_start_idx = acc_cb;
-		mdw_rv_sc_print(&rsubcmds_v2[i], rc_v2->cmd_id, i);
+		rmsc[i].type = c->subcmds[i].type;
+		rmsc[i].suggest_time = c->subcmds[i].suggest_time;
+		rmsc[i].vlm_usage = c->subcmds[i].vlm_usage;
+		rmsc[i].vlm_ctx_id = c->subcmds[i].vlm_ctx_id;
+		rmsc[i].vlm_force = c->subcmds[i].vlm_force;
+		rmsc[i].boost = c->subcmds[i].boost;
+		rmsc[i].ip_time = c->subcmds[i].ip_time;
+		rmsc[i].driver_time = c->subcmds[i].driver_time;
+		rmsc[i].bw = c->subcmds[i].bw;
+		rmsc[i].turbo_boost = c->subcmds[i].turbo_boost;
+		rmsc[i].min_boost = c->subcmds[i].min_boost;
+		rmsc[i].max_boost = c->subcmds[i].max_boost;
+		rmsc[i].hse_en = c->subcmds[i].hse_en;
+		rmsc[i].pack_id = c->subcmds[i].pack_id;
+		rmsc[i].num_cmdbufs = c->subcmds[i].num_cmdbufs;
+		rmsc[i].cmdbuf_start_idx = acc_cb;
+		mdw_rv_sc_print(&rmsc[i], rmc->cmd_id, i);
 
-		for (j = 0; j < rsubcmds_v2[i].num_cmdbufs; j++) {
-			rcb_v2[acc_cb + j].size =
+		for (j = 0; j < rmsc[i].num_cmdbufs; j++) {
+			rmcb[acc_cb + j].size =
 				c->ksubcmds[i].cmdbufs[j].size;
-			rcb_v2[acc_cb + j].device_va =
+			rmcb[acc_cb + j].device_va =
 				c->ksubcmds[i].daddrs[j];
 			mdw_cmd_debug("sc(%u) #%u-cmdbufs 0x%llx/%u\n",
 				i, j,
-				rcb_v2[acc_cb + j].device_va,
-				rcb_v2[acc_cb + j].size);
+				rmcb[acc_cb + j].device_va,
+				rmcb[acc_cb + j].size);
 		}
 		acc_cb += c->subcmds[i].num_cmdbufs;
 	}
+
+	apusys_mem_flush_kva(rc->cb->vaddr, rc->cb->size);
 
 	goto out;
 
@@ -172,13 +174,13 @@ int mdw_rv_cmd_exec(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	struct mdw_rv_cmd *rc = NULL;
 	int ret = 0;
 
-	mdw_flw_debug("\n");
 	rc = mdw_rv_cmd_create(mpriv, c);
 	if (!rc)
 		return -ENOMEM;
-	mdw_flw_debug("\n");
+
+	mdw_flw_debug("cmd(0x%llx) exec\n", rc->c->kid);
 	ret = mdw_rv_dev_run_cmd(rc);
-	mdw_flw_debug("\n");
+
 	return ret;
 }
 
@@ -186,7 +188,14 @@ void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
 {
 	struct mdw_cmd *c = rc->c;
 
-	mdw_flw_debug("\n");
+	/* invalidate */
+	apusys_mem_invalidate_kva(rc->cb->vaddr, rc->cb->size);
+	apusys_mem_invalidate_kva(c->exec_infos->vaddr, c->exec_infos->size);
+	mdw_flw_debug("cmd(0x%llx) complete(0x%llx)\n",
+		c->kid, c->einfos->c.sc_rets);
+	if (!ret && c->einfos->c.sc_rets)
+		ret = -EFAULT;
+
 	mdw_rv_cmd_delete(rc);
 	c->complete(c, ret);
 }

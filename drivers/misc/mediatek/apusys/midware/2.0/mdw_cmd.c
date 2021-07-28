@@ -200,14 +200,15 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 	struct mdw_cmd *c)
 {
 	unsigned int i = 0, j = 0, total_size = 0;
-	struct mdw_subcmd_exec_info *einfo = NULL;
+	struct mdw_subcmd_exec_info *sc_einfo = NULL;
 	int ret = 0;
 
-	einfo = c->exec_infos->vaddr;
-	if (!einfo) {
+	c->einfos = c->exec_infos->vaddr;
+	if (!c->einfos) {
 		mdw_drv_err("invalid exec info addr\n");
 		return -EINVAL;
 	}
+	sc_einfo = &c->einfos->sc;
 
 	for (i = 0; i < c->num_subcmds; i++) {
 		c->ksubcmds[i].info = &c->subcmds[i];
@@ -250,7 +251,7 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 			goto free_cmdbufs;
 		}
 
-		c->ksubcmds[i].exec_infos = &einfo[i];
+		c->ksubcmds[i].sc_einfo = &sc_einfo[i];
 
 		/* accumulate cmdbuf size with alignment */
 		for (j = 0; j < c->subcmds[i].num_cmdbufs; j++) {
@@ -437,6 +438,7 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	mdw_cmd_put_cmdbufs(c->mpriv, c);
 	if (ret)
 		dma_fence_set_error(&c->fence->base_fence, ret);
+
 	dma_fence_signal(f);
 	mdw_cmd_delete(c);
 	dma_fence_put(f);
@@ -473,11 +475,12 @@ static int mdw_cmd_sanity_check(struct mdw_cmd *c)
 		return -EINVAL;
 	}
 
-	if (c->exec_infos->size != c->num_subcmds *
-		sizeof(struct mdw_subcmd_exec_info)) {
+	if (c->exec_infos->size != sizeof(struct mdw_cmd_exec_info) +
+		c->num_subcmds * sizeof(struct mdw_subcmd_exec_info)) {
 		mdw_drv_err("cmd invalid (0x%llx/%p/0x%llx) einfo(%u/%u)\n",
 			c->uid, c->mpriv, c->kid,
 			c->exec_infos->size,
+			sizeof(struct mdw_cmd_exec_info) +
 			c->num_subcmds * sizeof(struct mdw_subcmd_exec_info));
 		return -EINVAL;
 	}

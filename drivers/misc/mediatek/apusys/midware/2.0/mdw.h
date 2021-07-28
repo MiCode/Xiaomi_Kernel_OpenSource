@@ -128,11 +128,16 @@ struct mdw_fpriv {
 	void (*put)(struct mdw_fpriv *mpriv);
 };
 
+struct mdw_exec_info {
+	struct mdw_cmd_exec_info c;
+	struct mdw_subcmd_exec_info sc;
+};
+
 struct mdw_subcmd_kinfo {
 	struct mdw_subcmd_info *info; //c->subcmds
 	struct mdw_subcmd_cmdbuf *cmdbufs; //from usr
 	struct mdw_mem **ori_cbs; //pointer to original cmdbuf
-	struct mdw_subcmd_exec_info *exec_infos;
+	struct mdw_subcmd_exec_info *sc_einfo;
 	uint64_t *kvaddrs; //pointer to duplicated buf
 	uint64_t *daddrs; //pointer to duplicated buf
 	void *priv; //mdw_ap_sc
@@ -164,6 +169,7 @@ struct mdw_cmd {
 	uint32_t size_cmdbufs;
 	struct mdw_mem *cmdbufs;
 	struct mdw_mem *exec_infos;
+	struct mdw_exec_info *einfos;
 	uint8_t *adj_matrix;
 
 	struct mutex mtx;

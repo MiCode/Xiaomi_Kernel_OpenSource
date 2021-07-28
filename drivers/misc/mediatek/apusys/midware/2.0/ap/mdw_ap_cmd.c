@@ -74,18 +74,22 @@ static int mdw_ap_sc_ready(struct mdw_ap_sc *sc)
 static void mdw_ap_sc_set_einfo(struct mdw_ap_sc *sc)
 {
 	struct mdw_subcmd_exec_info *einfo = sc->einfo;
+	struct mdw_cmd *c = sc->parent->c;
 
 	einfo->driver_time = sc->driver_time;
 	einfo->ip_time = sc->ip_time;
 	einfo->bw = sc->bw;
 	einfo->boost = sc->boost;
 	einfo->tcm_usage = sc->tcm_real_size;
+	einfo->ret = sc->ret;
+	if (einfo->ret)
+		c->einfos->c.sc_rets |= (1ULL << sc->idx);
 
-	mdw_cmd_debug("sc(0x%llx-%u) (%u/%u/%u/%u/%u)\n",
-		sc->parent->c->kid, sc->idx,
+	mdw_cmd_debug("sc(0x%llx-%u) (%u/%u/%u/%u/%u/%d)\n",
+		c->kid, sc->idx,
 		einfo->driver_time, einfo->ip_time,
 		einfo->bw,  einfo->boost,
-		einfo->tcm_usage);
+		einfo->tcm_usage, einfo->ret);
 }
 
 static struct mdw_ap_sc *mdw_ap_cmd_get_avilable_sc(struct mdw_ap_cmd *ac)
@@ -109,7 +113,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 {
 	struct mdw_ap_cmd *ac = NULL;
 	struct mdw_ap_sc *sc = NULL;
-	struct mdw_subcmd_exec_info *einfo = NULL;
+	struct mdw_subcmd_exec_info *sc_info = NULL;
 	unsigned int i = 0;
 
 	mdw_trace_begin("ap cmd create|c(0x%llx) num_subcmds(%u)",
@@ -125,11 +129,12 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	INIT_LIST_HEAD(&ac->sc_list);
 	INIT_LIST_HEAD(&ac->di_list);
 	ac->c = c;
-	einfo = c->exec_infos->vaddr;
-	if (!einfo) {
-		mdw_drv_err("invalid exec info ptr\n");
+
+	if (!c->einfos) {
+		mdw_drv_err("invalidc info ptr\n");
 		goto free_ac;
 	}
+	sc_info = &c->einfos->sc;
 
 	/* setup ctx repo */
 	memset(ac->ctx_repo, MDW_CMD_EMPTY_NUM, sizeof(ac->ctx_repo));
@@ -160,7 +165,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		sc->parent = ac;
 		sc->idx = i;
 		sc->hdr = &c->ksubcmds[i];
-		sc->einfo = &einfo[i];
+		sc->einfo = &sc_info[i];
 		sc->boost = sc->hdr->info->boost;
 		sc->type = sc->hdr->info->type;
 		if (sc->hdr->info->vlm_ctx_id)
@@ -248,15 +253,18 @@ static void mdw_ap_cmd_done(struct kref *ref)
 	struct mdw_ap_cmd *ac =
 			container_of(ref, struct mdw_ap_cmd, ref);
 	struct mdw_cmd *c = ac->c;
-	int ret = ac->ret;
+	int ret = 0;
 
 	if (ac->sc_bitmask || ac->state) {
 		mdw_drv_warn("cmd(0x%llx) abort\n", ac->c->kid);
 		mdw_ap_cmd_delete(ac);
 	} else {
-		mdw_flw_debug("cmd(0x%llx) complete\n", ac->c->kid);
+		mdw_flw_debug("cmd(0x%llx) complete(0x%llx)\n",
+			ac->c->kid, c->einfos->c.sc_rets);
 		mdw_ap_cmd_delete(ac);
 		apusys_mem_flush_kva(c->exec_infos->vaddr, c->exec_infos->size);
+		if (c->einfos->c.sc_rets)
+			ret = -EFAULT;
 		c->complete(c, ret);
 	}
 }
@@ -281,8 +289,6 @@ static int mdw_ap_cmd_end_sc(struct mdw_ap_sc *in, struct mdw_ap_sc **out)
 			ac->adj_matrix[idx] = 0;
 		mdw_flw_debug("sc(0x%llx-#%d) done, clear dependency\n",
 			ac->c->kid, in->idx);
-		/* OR sc return value */
-		ac->ret |= in->ret;
 		mdw_ap_sc_set_einfo(in);
 		mdw_queue_task_end(in);
 	}
