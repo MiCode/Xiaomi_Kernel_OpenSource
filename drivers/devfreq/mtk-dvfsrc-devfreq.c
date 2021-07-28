@@ -18,8 +18,7 @@
 #define DVFSRC_DDR_DVFS_GET_FREQ_COUNT	0x7
 #define DVFSRC_DDR_DVFS_GET_FREQ_INFO	0x5
 
-/* Hardware limitation */
-#define MAX_FREQ_COUNT 8
+#define MAX_FREQ_COUNT 12
 
 struct dvfsrc_devfreq {
 	struct devfreq_dev_profile profile;
