@@ -18,6 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/kernel.h> // round_up
 #include <linux/reboot.h>
+#include <linux/workqueue.h>
 
 #include "selinux/mkp_security.h"
 #include "selinux/mkp_policycap.h"
@@ -30,6 +31,8 @@
 
 #define mkp_debug 0
 DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
+
+struct work_struct *avc_work;
 
 static uint32_t g_ro_avc_handle;
 static uint32_t g_ro_cred_handle;
@@ -437,14 +440,9 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 	}
 }
 
-static void probe_android_vh_selinux_is_initialized(void *ignore,
-	const struct selinux_state *state)
+static void avc_work_handler(struct work_struct *work)
 {
 	int ret = 0, ret_erri_line;
-
-	initialized = state->initialized;
-	avc = state->avc;
-	policy = state->policy;
 
 	// register avc vendor hook after selinux is initialized
 	if (policy_ctrl[MKP_POLICY_SELINUX_AVC] != 0 ||
@@ -478,6 +476,22 @@ static void probe_android_vh_selinux_is_initialized(void *ignore,
 avc_failed:
 	if (ret)
 		MKP_ERR("register avc hooks failed, ret %d line %d\n", ret, ret_erri_line);
+}
+static void probe_android_vh_selinux_is_initialized(void *ignore,
+	const struct selinux_state *state)
+{
+	initialized = state->initialized;
+	avc = state->avc;
+	policy = state->policy;
+
+	if (policy_ctrl[MKP_POLICY_SELINUX_AVC]) {
+		if (!avc_work) {
+			MKP_ERR("avc work create fail\n");
+			return;
+		}
+		INIT_WORK(avc_work, avc_work_handler);
+		schedule_work(avc_work);
+	}
 }
 
 static int protect_mkp_self(void)
@@ -523,6 +537,10 @@ int __init mkp_demo_init(void)
 		} else {
 			MKP_ERR("Create avc ro sharebuf fail\n");
 		}
+	}
+
+	if (policy_ctrl[MKP_POLICY_SELINUX_AVC]) {
+		avc_work = kmalloc(sizeof(struct work_struct), GFP_KERNEL);
 	}
 
 	if (policy_ctrl[MKP_POLICY_TASK_CRED] != 0) {
