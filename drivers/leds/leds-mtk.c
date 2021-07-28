@@ -272,9 +272,9 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	mdev->conf.limit_hw_brightness = mdev->conf.max_hw_brightness;
 	ret = fwnode_property_read_string(fwnode, "default-state", &state);
 	if (!ret) {
-		if (!strcmp(state, "half"))
+		if (!strncmp(state, "half", strlen("half")))
 			mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness / 2;
-		else if (!strcmp(state, "on"))
+		else if (!strncmp(state, "on", strlen("on")))
 			mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness;
 		else
 			mdev->conf.cdev.brightness = 0;
@@ -282,8 +282,8 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness;
 	}
 
-	strncpy(mdev->desp.name, mdev->conf.cdev.name,
-		strlen(mdev->conf.cdev.name));
+	strlcpy(mdev->desp.name, mdev->conf.cdev.name,
+		sizeof(mdev->desp.name));
 	mdev->desp.index = leds_info->lens;
 
 	nleds_info = krealloc(leds_info, sizeof(struct mt_leds_desp_info) +
