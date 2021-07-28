@@ -7166,11 +7166,27 @@
 		reg = <0 0x15310000 0 0x1000>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>;
+		mediatek,larb = <&smi_larb12>;
 		fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_IPE>;
 		iommus = <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDA0>,
 			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDB0>,
 			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_WRA0>,
 			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_WR0B>;
+		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_VCORE_GALS>,
+			<&imgsys_main_clk CLK_IMGSYS_MAIN_GALS>,
+			<&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
+			<&ipesys_clk CLK_IPESYS_FDVT>,
+			<&ipesys_clk CLK_IPESYS_FDVT1>,
+			<&ipesys_clk CLK_IPESYS_IPESYS_TOP>,
+			<&ipesys_clk CLK_IPESYS_SMI_LARB12>;
+		clock-names = "VCORE_GALS",
+			"MAIN_GALS",
+			"IMG_IPE",
+			"IPE_FDVT",
+			"IPE_FDVT1",
+			"IPE_TOP",
+			"IPE_SMI_LARB12";
 	};
 
 	dvs: dvs@15300000 {
