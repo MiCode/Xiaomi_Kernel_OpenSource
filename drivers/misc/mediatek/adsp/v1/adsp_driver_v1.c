@@ -27,6 +27,8 @@ const struct adspsys_description mt6893_adspsys_desc = {
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
 	.sysram_dsp_view = 0x56000000,
+	.axibus_idle_val = 0x100, //AP read pending counter = 1
+	.clkcg_default = 0xdf,
 };
 
 const struct adsp_core_description mt6893_adsp_c0_desc = {

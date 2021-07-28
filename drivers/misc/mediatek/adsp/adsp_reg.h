@@ -141,9 +141,12 @@
 #define ADSP_UART_BCLK_CG           (1 << 0)
 
 /* bus: only exist in v2 */
-#define AUDIO_BUS_DSP2EMI_REMAP0    (ADSP_BUS_BASE + 0x00)
-#define AUDIO_BUS_DSP2EMI_REMAP1    (ADSP_BUS_BASE + 0x04)
-#define AUDIO_BUS_DMA2EMI_REMAP0    (ADSP_BUS_BASE + 0x08)
-#define AUDIO_BUS_DMA2EMI_REMAP1    (ADSP_BUS_BASE + 0x0C)
+#define AUDIO_BUS_DSP2EMI_REMAP0    (ADSP_BASE2 + 0x4A00)
+#define AUDIO_BUS_DSP2EMI_REMAP1    (ADSP_BASE2 + 0x4A04)
+#define AUDIO_BUS_DMA2EMI_REMAP0    (ADSP_BASE2 + 0x4A08)
+#define AUDIO_BUS_DMA2EMI_REMAP1    (ADSP_BASE2 + 0x4A0C)
+/* dma2: only exist in v2 */
+#define ADSP_DMA2_BASE_REG          (ADSP_BASE2 + 0x2000)
+#define ADSP_DMA2_BASE_CH(ch)       (ADSP_DMA2_BASE_REG + (ch + 1) * 0x100)
 
 #endif

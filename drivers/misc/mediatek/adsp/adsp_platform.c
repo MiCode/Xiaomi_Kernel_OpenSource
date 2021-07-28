@@ -16,9 +16,17 @@
 #ifdef ADSP_SECURE_BASE
 #undef ADSP_SECURE_BASE
 #endif
+#ifdef ADSP_BUS_BASE
+#undef ADSP_BUS_BASE
+#endif
+#ifdef ADSP_BASE2
+#undef ADSP_BASE2
+#endif
+
 #define ADSP_BASE                  mt_base
 #define ADSP_SECURE_BASE           mt_secure
 #define ADSP_BUS_BASE              mt_bus
+#define ADSP_BASE2                 mt_base2
 
 #define SET_BITS(addr, mask) writel(readl(addr) | (mask), addr)
 #define CLR_BITS(addr, mask) writel(readl(addr) & ~(mask), addr)
@@ -26,16 +34,25 @@
 static void __iomem *mt_base;
 static void __iomem *mt_secure;
 static void __iomem *mt_bus;
+static void __iomem *mt_base2;
 
 static void adsp_mt_clr_dma(void)
 {
 	u32 ch = 0;
 	void __iomem *dma_base;
+	u32 version = adspsys->desc->version;
 
 	for (ch = 0; ch < ADSP_DMA_CHANNEL; ch++) {
 		dma_base = ADSP_DMA_BASE_CH(ch);
 		CLR_BITS(ADSP_DMA_START(dma_base), ADSP_DMA_START_CLR_BIT);
 		SET_BITS(ADSP_DMA_ACKINT(dma_base), ADSP_DMA_ACK_BIT);
+	}
+	if (version == 2) {
+		for (ch = 0; ch < ADSP_DMA_CHANNEL; ch++) {
+			dma_base = ADSP_DMA2_BASE_CH(ch);
+			CLR_BITS(ADSP_DMA_START(dma_base), ADSP_DMA_START_CLR_BIT);
+			SET_BITS(ADSP_DMA_ACKINT(dma_base), ADSP_DMA_ACK_BIT);
+		}
 	}
 }
 
@@ -100,9 +117,11 @@ void adsp_mt_stop(u32 cid)
 
 void adsp_mt_clear(void)
 {
+	u32 cg_val = adspsys->desc->clkcg_default;
+
 	writel(0x0, ADSP_CFGREG_SW_RSTN);
 	writel(0xC0001002, ADSP_HIFI3_IO_CONFIG);
-	writel(0xdf, ADSP_CLK_CTRL_BASE);
+	writel(cg_val, ADSP_CLK_CTRL_BASE);
 	writel(0x0, ADSP_A_IRQ_EN);
 	writel(0x0, ADSP_A_WDT_REG);
 	if (get_adsp_core_total() > 1) {
@@ -188,8 +207,9 @@ bool check_hifi_status(u32 mask)
 
 bool is_adsp_axibus_idle(void)
 {
-	/* only one transation currently: AP read pending counter */
-	return (readl(ADSP_DBG_PEND_CNT) == 0x000100);
+	u32 val = adspsys->desc->axibus_idle_val;
+
+	return (readl(ADSP_DBG_PEND_CNT) == val);
 }
 
 u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask)
@@ -264,5 +284,6 @@ void adsp_hardware_init(struct adspsys_priv *adspsys)
 	mt_base = adspsys->cfg;
 	mt_secure = adspsys->cfg_secure;
 	mt_bus = adspsys->bus;
+	mt_base2 = adspsys->cfg2;
 }
 

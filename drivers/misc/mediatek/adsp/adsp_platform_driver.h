@@ -39,6 +39,8 @@ struct adspsys_description {
 	const int semaphore_ctrl;
 	const int semaphore_retry;
 	const u32 sysram_dsp_view;
+	const u32 axibus_idle_val;
+	const u32 clkcg_default;
 };
 
 struct irq_t {
@@ -96,9 +98,11 @@ struct adspsys_priv {
 	void __iomem *cfg;
 	void __iomem *cfg_secure;
 	void __iomem *bus;
+	void __iomem *cfg2;
 	size_t cfg_size;
 	size_t cfg_secure_size;
 	size_t bus_size;
+	size_t cfg2_size;
 
 	struct device *dev;
 	struct miscdevice mdev;

@@ -33,7 +33,6 @@ struct adsp_priv;
 int adsp_mem_device_probe(struct platform_device *pdev);
 ssize_t adsp_reserve_memory_dump(char *buffer, int size);
 
-void adsp_set_emimpu_shared_region(void);
 void adsp_update_mpu_memory_info(struct adsp_priv *pdata);
 
 #endif /* __ADSP_RESERVEDMEM_DEFINE_H__ */

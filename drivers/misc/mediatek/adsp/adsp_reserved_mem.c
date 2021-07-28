@@ -115,40 +115,53 @@ void adsp_set_emimpu_shared_region(void)
 #endif
 }
 
-static int adsp_init_reserve_memory(struct adsp_reserve_mblock *mem)
+static int adsp_init_reserve_memory(struct platform_device *pdev, struct adsp_reserve_mblock *mem)
 {
 	struct device_node *node;
 	struct reserved_mem *rmem;
+	struct device *dev = &pdev->dev;
+	u64 mem_info[2];
+	int ret;
 
-	/* Get reserved memory */
+	/* Reserved memory allocated from lk */
+	ret = of_property_read_u64_array(dev->of_node, "shared_memory", mem_info, 2);
+	if (!ret) {
+		mem->phys_addr = (phys_addr_t)mem_info[0];
+		mem->size = (size_t)mem_info[1];
+		pr_info("%s(), get \"shared_memory\" property from dts, (%llx, %zx)\n",
+				__func__, mem->phys_addr, mem->size);
+		goto RSV_IOREMAP;
+	}
+	/* Otherwise, get reserved memory from reserved node */
 	node = of_find_compatible_node(NULL, NULL, ADSP_MEM_RESERVED_KEY);
 	if (!node) {
 		pr_info("%s(), no node for reserved memory\n", __func__);
 		return -ENOMEM;
 	}
-
 	rmem = of_reserved_mem_lookup(node);
 	if (!rmem) {
 		pr_info("%s(), cannot lookup reserved memory\n", __func__);
 		return -ENOMEM;
 	}
 
-	mem->phys_addr = rmem->base;
-	mem->size = rmem->size;
-	if (!mem->phys_addr || !mem->size) {
-		pr_info("%s() reserve memory illegal addr:%llx, size:%zx\n",
-			__func__, mem->phys_addr, mem->size);
+	if (!rmem->base || !rmem->size) {
+		pr_info("%s() reserve memory illegal addr:%llx, size:%llx\n",
+			__func__, rmem->base, rmem->size);
 		return -ENOMEM;
+	} else {
+		mem->phys_addr = rmem->base;
+		mem->size = (size_t)rmem->size;
+		/* set mpu of shared memory to emi */
+		adsp_set_emimpu_shared_region();
 	}
 
+RSV_IOREMAP:
 	mem->virt_addr = ioremap_wc(mem->phys_addr, mem->size);
 	if (!mem->virt_addr) {
 		pr_info("%s() ioremap fail\n", __func__);
 		return -ENOMEM;
 	}
 
-	/* set mpu of shared memory to emi */
-	adsp_set_emimpu_shared_region();
 	return 0;
 }
 
@@ -160,7 +173,7 @@ int adsp_mem_device_probe(struct platform_device *pdev)
 	size_t acc_size = 0;
 	u32 size;
 
-	ret = adsp_init_reserve_memory(mem);
+	ret = adsp_init_reserve_memory(pdev, mem);
 	if (ret)
 		return ret;
 
@@ -213,19 +226,6 @@ ssize_t adsp_reserve_memory_dump(char *buffer, int size)
 	return n;
 }
 
-#if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-static int __init adsp_reserve_mem_of_init(struct reserved_mem *rmem)
-{
-	adsp_reserve_mem.phys_addr = (phys_addr_t) rmem->base;
-	adsp_reserve_mem.size = (size_t) rmem->size;
-
-	return 0;
-}
-
-RESERVEDMEM_OF_DECLARE(adsp_reserve_mem_init,
-		       ADSP_MEM_RESERVED_KEY, adsp_reserve_mem_of_init);
-#endif  /* defined(CONFIG_OF_RESERVED_MEM) */
-
 void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
 {
 	struct adsp_mpu_info_t mpu_info;
@@ -238,4 +238,3 @@ void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
 	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
 		&mpu_info, sizeof(struct adsp_mpu_info_t));
 }
-

@@ -65,14 +65,14 @@ int adsp_mt_enable_clock(void)
 
 	pr_debug("%s()\n", __func__);
 
-	pm_runtime_get_sync(pm_dev);
-
 	ret = clk_prepare_enable(adsp_clks[CLK_TOP_ADSP_SEL].clock);
 	if (IS_ERR(&ret)) {
 		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
 			__func__, adsp_clks[CLK_TOP_ADSP_SEL].name, ret);
 		return -EINVAL;
 	}
+
+	pm_runtime_get_sync(pm_dev);
 
 	return 0;
 }
@@ -81,8 +81,8 @@ void adsp_mt_disable_clock(void)
 {
 	pr_debug("%s()\n", __func__);
 
-	clk_disable_unprepare(adsp_clks[CLK_TOP_ADSP_SEL].clock);
 	pm_runtime_put_sync(pm_dev);
+	clk_disable_unprepare(adsp_clks[CLK_TOP_ADSP_SEL].clock);
 }
 
 /* clock init */

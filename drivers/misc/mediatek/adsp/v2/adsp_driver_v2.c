@@ -22,6 +22,8 @@ const struct adspsys_description mt6983_adspsys_desc = {
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
 	.sysram_dsp_view = 0x50000000,
+	.axibus_idle_val = 0x0,
+	.clkcg_default = 0x10ff,
 };
 
 const struct adspsys_description mt6879_adspsys_desc = {
@@ -31,6 +33,8 @@ const struct adspsys_description mt6879_adspsys_desc = {
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
 	.sysram_dsp_view = 0x50000000,
+	.axibus_idle_val = 0x0,
+	.clkcg_default = 0x10ff,
 };
 
 const struct adsp_core_description mt6983_adsp_c0_desc = {
@@ -135,12 +139,8 @@ static int adspsys_drv_probe(struct platform_device *pdev)
 	adspsys->cfg_size = resource_size(res);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	adspsys->cfg_secure = devm_ioremap_resource(dev, res);
-	adspsys->cfg_secure_size = resource_size(res);
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	adspsys->bus = devm_ioremap_resource(dev, res);
-	adspsys->bus_size = resource_size(res);
+	adspsys->cfg2 = devm_ioremap_resource(dev, res);
+	adspsys->cfg2_size = resource_size(res);
 
 	of_property_read_u32(dev->of_node, "core_num", &adspsys->num_cores);
 
