@@ -6262,7 +6262,7 @@
 		};
 
 		mmlsys_config: mmlsys_config {
-			compatible = "mediatek,mmlsys_config", "mediatek,mt6893-mml";
+			compatible = "mediatek,mt6893-mml";
 			reg = <0 0x1f000000 0 0x1000>;
 			#clock-cells = <1>;
 			/* As components */

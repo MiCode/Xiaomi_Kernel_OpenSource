@@ -8325,7 +8325,7 @@
 	};
 
 	mmlsys_config: mdpsys_config@1f800000 {
-		compatible = "mediatek,mdpsys_config", "mediatek,mt6983-mml";
+		compatible = "mediatek,mt6983-mml";
 		reg = <0 0x1f800000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_APB_BUS>,
 		//	<&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_SMI0>,
