@@ -9,6 +9,8 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
+extern int gMdpRegMSBSupport;
+
 s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param);
 s32 mdp_ioctl_async_wait(unsigned long param);
 s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param);

@@ -324,28 +324,8 @@ static s32 translate_meta(struct op_meta *meta,
 	switch (meta->op) {
 	case CMDQ_MOP_WRITE_FD:
 	{
+		u32 reg_addr_msb = 0;
 		unsigned long mva = translate_fd(meta, mapping_job);
-
-		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
-		if (!reg_addr || !mva)
-			return -EINVAL;
-		status = cmdq_op_write_reg_ex(handle, cmd_buf,
-			reg_addr, mva, ~0);
-		break;
-	}
-	case CMDQ_MOP_WRITE:
-	{
-		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
-		if (!reg_addr)
-			return -EINVAL;
-		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
-					meta->value, meta->mask);
-		break;
-	}
-	case CMDQ_MOP_WRITE_FD_RDMA:
-	{
-		unsigned long mva = translate_fd(meta, mapping_job);
-		u32 rdma_idx = translate_engine_rdma(meta->engine);
 
 		if (!mva) {
 			CMDQ_ERR("%s: op:%u, get mva fail, engine %d, fd 0x%x, fd_offset 0x%x\n",
@@ -353,77 +333,120 @@ static s32 translate_meta(struct op_meta *meta,
 			return -EINVAL;
 		}
 
-		if (meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_OFFSET_0 &&
-		    meta->cpr_idx <= CPR_IDX_MDP_RDMA_AFBC_PAYLOAD_OST) {
+		/* check platform support LSB/MSB or not */
+		if (gMdpRegMSBSupport) {
+			reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
+			reg_addr_msb = cmdq_mdp_get_hw_reg_msb(meta->engine, meta->offset);
 
-			if (rdma_idx == 0 || rdma_idx == 1) { /* for rdma0 and rdma1 */
-				status = cmdq_op_assign_reg_idx_ex(
-					handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP, meta->pipe_idx,
-							  meta->cpr_idx),
-					mva);
-			} else if (rdma_idx == 2 || rdma_idx == 3) {
-				status = cmdq_op_assign_reg_idx_ex(
-					handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-							  meta->pipe_idx,
-							  meta->cpr_idx),
-					mva);
-			} else {
-				CMDQ_ERR("%s: meta op:%u, invalid engine %d\n",
-					 __func__, meta->op, meta->engine);
-			}
+			status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr, mva & U32_MAX, ~0);
+			status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr_msb, mva >> 32, ~0);
+
 		} else {
-			CMDQ_ERR("%s: meta op:%u, invalid cpr_idx %d\n",
-				 __func__, meta->op, meta->cpr_idx);
+			reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
+
+			status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr, mva, ~0);
+		}
+
+		break;
+	}
+	case CMDQ_MOP_WRITE:
+	{
+		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
+
+		if (!reg_addr)
+			return -EINVAL;
+
+		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr, meta->value, meta->mask);
+		break;
+	}
+	case CMDQ_MOP_WRITE_FD_RDMA:
+	{
+		u32 rdma_idx, src_base_lsb, src_base_msb;
+		unsigned long mva = translate_fd(meta, mapping_job);
+
+		rdma_idx = translate_engine_rdma(meta->engine);
+
+		if (!mva) {
+			CMDQ_ERR("%s: op:%u, get mva fail, engine %d, fd 0x%x, fd_offset 0x%x\n",
+				 __func__, meta->op, meta->engine, meta->fd, meta->fd_offset);
+			return -EINVAL;
+		}
+
+		if ((rdma_idx != 0) && (rdma_idx != 1)) {
+			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx %d invalid\n",
+				 __func__, meta->op, meta->engine, rdma_idx);
+			return -EINVAL;
+		}
+
+		if ((meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_BASE_0) &&
+		    (meta->cpr_idx <= CPR_IDX_MDP_RDMA_UFO_DEC_LENGTH_BASE_C)) {
+
+			/* check platform support LSB/MSB or not */
+			if (gMdpRegMSBSupport) {
+				src_base_msb = mva >> 32;
+				src_base_lsb = mva & U32_MAX;
+			} else {
+				src_base_msb = 0;
+				src_base_lsb = mva;
+			}
+
+			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+							  meta->pipe_idx, meta->cpr_idx),
+					src_base_lsb);
+
+			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+							  meta->pipe_idx, meta->cpr_idx + 5),
+					src_base_msb);
+		} else {
+			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx %d, cpr_idx %d invalid\n",
+				 __func__, meta->op, meta->engine, rdma_idx, meta->cpr_idx);
+			return -EINVAL;
 		}
 		break;
 	}
 	case CMDQ_MOP_WRITE_RDMA:
 	{
+		u32 src_base_lsb, src_base_msb;
 		u32 rdma_idx = translate_engine_rdma(meta->engine);
 
-		if (meta->cpr_idx == CPR_IDX_MDP_RDMA_PIPE_IDX) {
-			if (rdma_idx == 0 || rdma_idx == 1) { /* for rdma0 and rdma1 */
-				status = cmdq_op_assign_reg_idx_ex(
-					handle, cmd_buf,
-					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MDP),
-					meta->pipe_idx);
-			} else if (rdma_idx == 2 || rdma_idx == 3) {
-				status = cmdq_op_assign_reg_idx_ex(
-					handle, cmd_buf,
-					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MML),
-					meta->pipe_idx);
-			} else {
-				CMDQ_ERR("%s: meta op:%u, invalid engine %d\n",
-					 __func__, meta->op, meta->engine);
-			}
-		} else if (meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_OFFSET_0 &&
-		           meta->cpr_idx <= CPR_IDX_MDP_RDMA_AFBC_PAYLOAD_OST) {
-
-			if (rdma_idx == 0 || rdma_idx == 1) {  /* for rdma0 and rdma1 */
-				status = cmdq_op_assign_reg_idx_ex(
-					handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
-							  meta->pipe_idx,
-							  meta->cpr_idx),
-					meta->value);
-			} else if (rdma_idx == 2 || rdma_idx == 3) {
-				status = cmdq_op_assign_reg_idx_ex(
-					handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
-							  meta->pipe_idx,
-							  meta->cpr_idx),
-					meta->value);
-			} else {
-				CMDQ_ERR("%s: meta op:%u, invalid engine %d\n",
-					 __func__, meta->op, meta->engine);
-			}
-		} else {
-			CMDQ_ERR("%s: meta op:%u, invalid cpr_idx %d\n",
-				 __func__, meta->op, meta->cpr_idx);
+		if ((rdma_idx != 0) && (rdma_idx != 1)) {
+			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx %d invalid\n",
+				 __func__, meta->op, meta->engine, rdma_idx);
+			return -EINVAL;
 		}
 
+		if (meta->cpr_idx > CPR_IDX_MDP_RDMA_PIPE_IDX) {
+			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx, cpr_idx %d invalid\n",
+				 __func__, meta->op, meta->engine, rdma_idx, meta->cpr_idx);
+			return -EINVAL;
+		}
+
+		if (meta->cpr_idx == CPR_IDX_MDP_RDMA_PIPE_IDX) {
+			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
+					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MDP), meta->pipe_idx);
+		} else if ((meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_BASE_0) &&
+			   (meta->cpr_idx <= CPR_IDX_MDP_RDMA_UFO_DEC_LENGTH_BASE_C)) {
+
+			src_base_msb = 0x0;
+			src_base_lsb = meta->value;
+
+			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+							  meta->pipe_idx, meta->cpr_idx),
+					src_base_lsb);
+
+			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+							  meta->pipe_idx, meta->cpr_idx + 5),
+					src_base_msb);
+		} else {
+			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+							  meta->pipe_idx, meta->cpr_idx),
+					meta->value);
+		}
 		break;
 	}
 	case CMDQ_MOP_READ:
@@ -459,6 +482,7 @@ static s32 translate_meta(struct op_meta *meta,
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
+
 		status = cmdq_op_poll_ex(handle, cmd_buf, reg_addr,
 					meta->value, meta->mask);
 		break;

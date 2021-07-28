@@ -12,6 +12,7 @@
 #include <linux/types.h>
 
 extern struct cmdqMDPFuncStruct mdp_funcs;
+extern int gCmdqRdmaPrebuiltSupport;
 
 #ifdef CONFIG_MTK_SMI_EXT
 
@@ -124,6 +125,8 @@ typedef void (*CmdqMdpReadbackEngine) (struct cmdqRecStruct *handle,
 
 typedef s32 (*MdpGetRDMAIndex) (u32);
 
+typedef u16 (*MdpGetRegMSBOffset) (u32, u16);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -183,6 +186,7 @@ struct cmdqMDPFuncStruct {
 	CmdqMdpReadbackEngine mdpReadbackAal;
 	CmdqMdpReadbackEngine mdpReadbackHdr;
 	MdpGetRDMAIndex getRDMAIndex;
+	MdpGetRegMSBOffset getRegMSBOffset;
 
 };
 
@@ -308,6 +312,7 @@ u32 cmdq_mdp_wdma_get_reg_offset_dst_addr(void);
 void testcase_clkmgr_mdp(void);
 
 u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
+u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_port(u32 base);
 s32 cmdq_mdp_get_rdma_idx(u32 base);
 

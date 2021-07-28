@@ -34,6 +34,11 @@
 struct device *larb2;
 struct device *larb3;
 
+/* support RDMA prebuilt access */
+int gCmdqRdmaPrebuiltSupport;
+/* support register MSB */
+int gMdpRegMSBSupport;
+
 /* FIXME: Need to apply mt6893 */
 /* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
 #define CMDQ_FOREACH_MODULE_PRINT(ACTION)\

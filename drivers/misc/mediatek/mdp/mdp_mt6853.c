@@ -29,6 +29,11 @@
 #include "mdp_engine_mt6853.h"
 #include "mdp_base_mt6853.h"
 
+/* support RDMA prebuilt access */
+int gCmdqRdmaPrebuiltSupport;
+/* support register MSB */
+int gMdpRegMSBSupport;
+
 /* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
 #define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
 {		\

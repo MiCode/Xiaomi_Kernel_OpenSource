@@ -50,6 +50,9 @@
 #include "mmpath.h"
 #endif	/* MDP_MMPATH */
 
+
+#include <cmdq-util.h>
+
 /* mmdvfs with regulator */
 struct regulator *mdp_mmdvfs_reg;
 struct regulator *isp_mmdvfs_reg;
@@ -3213,6 +3216,12 @@ static s32 mdp_get_rdma_idx_virtual(u32 eng_base)
 	return -1;
 }
 
+static u16 mdp_get_reg_msb_offset_virtual(u32 eng_base, u16 offset)
+{
+	CMDQ_ERR("%s no support\n", __func__);
+	return 0;
+}
+
 void cmdq_mdp_virtual_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc;
@@ -3284,6 +3293,7 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpReadbackAal = mdp_readback_aal_virtual;
 	pFunc->mdpReadbackHdr = mdp_readback_hdr_virtual;
 	pFunc->getRDMAIndex = mdp_get_rdma_idx_virtual;
+	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset_virtual;
 
 }
 
@@ -3468,6 +3478,11 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	u32 value[44] = { 0 };
 	u32 state = 0;
 	u32 grep = 0;
+
+	if (gCmdqRdmaPrebuiltSupport) {
+		CMDQ_LOG("========== [CMDQ] %s use cmdq_util_prebuilt_dump ==========\n", label);
+		cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+	}
 
 	value[0] = CMDQ_REG_GET32(base + 0x030);
 	value[1] = CMDQ_REG_GET32(base +
@@ -4080,8 +4095,41 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 			__func__, base, offset);
 		return 0;
 	}
+
 	return mdp_base[base] + offset;
 }
+
+u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
+{
+	static u32 count;
+	static u32 *mdp_base;
+	u16 reg_msb_offset;
+
+	if (!count && !mdp_base) {
+		count = cmdq_mdp_get_func()->getEngineBaseCount();
+		mdp_base = cmdq_mdp_get_func()->getEngineBase();
+	}
+
+	if (!count || !mdp_base) {
+		CMDQ_ERR("%s count:%u base:%p\n", __func__, count, mdp_base);
+		return 0;
+	}
+
+	if (base >= count) {
+		CMDQ_ERR("%s: invalid engine:%u, offset:%#x\n", __func__, base, offset);
+		return 0;
+	}
+
+	if (offset > 0x1000) {
+		CMDQ_ERR("%s: invalid offset:%#x\n", __func__, offset);
+		return 0;
+	}
+
+	reg_msb_offset = cmdq_mdp_get_func()->getRegMSBOffset(base, offset);
+
+	return (mdp_base[base] + reg_msb_offset);
+}
+
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 u32 cmdq_mdp_get_hw_port(u32 base)
