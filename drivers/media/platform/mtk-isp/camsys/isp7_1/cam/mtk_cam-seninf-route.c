@@ -703,25 +703,19 @@ static void mtk_sensor_worker(struct work_struct *work)
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 				V4L2_CID_VSYNC_NOTIFY);
 	if (!ctrl) {
-		dev_info(ctx->dev, "%s, no V4L2_CID_VSYNC_NOTIFY %s\n",
+		dev_err(ctx->dev, "%s, no V4L2_CID_VSYNC_NOTIFY %s\n",
 			__func__,
 			sensor_sd->name);
 		return;
 	}
-//
+
 //	dev_info(ctx->dev, "%s sof %s cnt %d\n",
 //		__func__,
 //		sensor_sd->name,
 //		sof_cnt);
 	v4l2_ctrl_s_ctrl(ctrl, sof_cnt);
-}
 
-struct mtk_sensor_work *
-mtk_seninf_get_sof_work(struct seninf_ctx *ctx)
-{
-	if (ctx->work_number >= MAX_VSYNC_WORK)
-		ctx->work_number = 0;
-	return &ctx->sensor_work[ctx->work_number++];
+	kfree(work);
 }
 
 
@@ -734,11 +728,18 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 
 	spin_lock(&ctx->spinlock_sensor_work);
 	if (ctx->sensor_wq && ctx->streaming) {
-		sensor_work = mtk_seninf_get_sof_work(ctx);
-		INIT_WORK(&sensor_work->work, mtk_sensor_worker);
-		sensor_work->ctx = ctx;
-		sensor_work->data.sof = param->sof_cnt;
-		queue_work(ctx->sensor_wq, &sensor_work->work);
+		sensor_work = kmalloc(
+				sizeof(struct mtk_sensor_work),
+				GFP_KERNEL);
+		if (sensor_work) {
+			INIT_WORK(&sensor_work->work, mtk_sensor_worker);
+			sensor_work->ctx = ctx;
+			sensor_work->data.sof = param->sof_cnt;
+			queue_work(ctx->sensor_wq, &sensor_work->work);
+		} else {
+			dev_err(ctx->dev,
+				"%s, sensor work alloc failed\n", __func__);
+		}
 	} else
 		dev_info(ctx->dev, "%s, ctx->sensor_wq = NULL || ctx->streaming = %d\n",
 			__func__, ctx->streaming);

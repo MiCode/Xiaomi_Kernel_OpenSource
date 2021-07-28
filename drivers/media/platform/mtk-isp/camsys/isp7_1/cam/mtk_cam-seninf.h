@@ -92,7 +92,6 @@ struct mtk_sensor_work {
 	} data;
 };
 
-#define MAX_VSYNC_WORK 5
 struct seninf_ctx {
 	struct v4l2_subdev subdev;
 	struct v4l2_async_notifier notifier;
@@ -141,7 +140,7 @@ struct seninf_ctx {
 	void __iomem *reg_ana_cphy_top[CSI_PORT_MAX_NUM];
 	void __iomem *reg_if_top;
 	void __iomem *reg_if_ctrl[SENINF_NUM];
-		//void __iomem *reg_if_cam_mux;
+	//void __iomem *reg_if_cam_mux;
 	void __iomem *reg_if_cam_mux_gcsr;
 	void __iomem *reg_if_cam_mux_pcsr[SENINF_CAM_MUX_NUM];
 	void __iomem *reg_if_tg[SENINF_NUM];
@@ -157,8 +156,6 @@ struct seninf_ctx {
 
 	int seninf_dphy_settle_delay_dt;
 
-	struct mtk_sensor_work sensor_work[MAX_VSYNC_WORK];
-	int work_number;
 	struct workqueue_struct *sensor_wq;
 	spinlock_t spinlock_sensor_work;
 

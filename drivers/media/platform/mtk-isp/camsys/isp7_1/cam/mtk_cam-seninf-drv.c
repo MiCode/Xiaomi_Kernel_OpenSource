@@ -890,8 +890,6 @@ int update_isp_clk(struct seninf_ctx *ctx)
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	int ret;
-	struct workqueue_struct *wq_to_stop = NULL;
-	unsigned long flags = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
 	if (ctx->streaming == enable)
@@ -933,19 +931,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 #ifdef SENINF_VC_ROUTING
 		//update_sensor_frame_desc(ctx);
 #endif
-		if (!ctx->sensor_wq) {
-			spin_lock_irqsave(&ctx->spinlock_sensor_work, flags);
-			ctx->sensor_wq =
-			alloc_ordered_workqueue(dev_name(ctx->dev),
-						WQ_HIGHPRI | WQ_FREEZABLE);
-			spin_unlock_irqrestore(&ctx->spinlock_sensor_work, flags);
-		}
-
-
-		if (!ctx->sensor_wq) {
-			dev_info(ctx->dev,
-				"failed to alloc sensor workqueue\n");
-		}
 
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 1);
 		if (ret) {
@@ -959,17 +944,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			return ret;
 		}
 
-		spin_lock_irqsave(&ctx->spinlock_sensor_work, flags);
-		if (ctx->sensor_wq)
-			wq_to_stop = ctx->sensor_wq;
-		ctx->sensor_wq = NULL;
-		spin_unlock_irqrestore(&ctx->spinlock_sensor_work, flags);
-
-		if (wq_to_stop) {
-			drain_workqueue(wq_to_stop);
-			destroy_workqueue(wq_to_stop);
-			wq_to_stop = NULL;
-		}
 
 		mtk_cam_seninf_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
@@ -1384,6 +1358,10 @@ static int seninf_probe(struct platform_device *pdev)
 		goto err_free_handler;
 	}
 
+
+	ctx->sensor_wq =
+	alloc_ordered_workqueue(dev_name(ctx->dev), WQ_HIGHPRI | WQ_FREEZABLE);
+
 	pm_runtime_enable(dev);
 
 	dev_info(dev, "%s: port=%d\n", __func__, ctx->port);
@@ -1465,6 +1443,11 @@ static int seninf_remove(struct platform_device *pdev)
 	component_del(dev, &seninf_comp_ops);
 
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
+	spin_lock(&ctx->spinlock_sensor_work);
+	destroy_workqueue(ctx->sensor_wq);
+	drain_workqueue(ctx->sensor_wq);
+	ctx->sensor_wq = NULL;
+	spin_unlock(&ctx->spinlock_sensor_work);
 
 	dev_info(dev, "%s\n", __func__);
 
