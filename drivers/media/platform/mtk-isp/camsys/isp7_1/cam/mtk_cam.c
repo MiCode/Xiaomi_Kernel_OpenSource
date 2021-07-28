@@ -3081,6 +3081,37 @@ fail_pipe_off:
 	v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 	return ret;
 }
+static int mtk_cam_ts_are_all_ctx_off(struct mtk_cam_device *cam,
+			struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_pipeline *pipe_chk, *pipe;
+	struct mtk_cam_ctx *ctx_chk;
+	int i;
+	int ts_id, ts_id_chk;
+	int ret = true;
+
+	for (i = 0;  i < cam->max_stream_num; i++) {
+		ctx_chk = cam->ctxs + i;
+		if (ctx_chk == ctx)
+			continue;
+		if (ctx_chk->pipe) {
+			pipe = ctx->pipe;
+			ts_id = pipe->res_config.raw_feature &
+					MTK_CAM_FEATURE_TIMESHARE_MASK;
+			pipe_chk = ctx_chk->pipe;
+			ts_id_chk = pipe_chk->res_config.raw_feature &
+					MTK_CAM_FEATURE_TIMESHARE_MASK;
+			dev_info(cam->dev, "[%s] i:%d pipe/ts:%d/0x%x chk_pipe/ts:%d/0x%x\n",
+				__func__, i, pipe->id, ts_id, pipe_chk->id, ts_id_chk);
+			if (ts_id == ts_id_chk) {
+				if (ctx_chk->streaming)
+					ret = false;
+			}
+		}
+	}
+
+	return ret;
+}
 
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 {
@@ -3133,7 +3164,23 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			goto fail_stream_off;
 		}
 		raw_dev = dev_get_drvdata(dev);
-		stream_on(raw_dev, 0);
+		if (mtk_cam_is_time_shared(ctx)) {
+			unsigned int hw_scen =
+				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
+			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
+				if (ctx->pipe->enabled_raw & (1 << i)) {
+					mtk_cam_sv_dev_stream_on(
+						ctx, i - MTKCAM_SUBDEV_CAMSV_START, 0, hw_scen);
+					cam->sv.pipelines[
+						i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
+					ctx->pipe->enabled_raw &= ~(1 << i);
+				}
+			}
+			if (mtk_cam_ts_are_all_ctx_off(cam, ctx))
+				stream_on(raw_dev, 0);
+		} else {
+			stream_on(raw_dev, 0);
+		}
 		/* Twin */
 		if (ctx->pipe->res_config.raw_num_used != 1) {
 			struct mtk_raw_device *raw_dev_slave =
@@ -3154,17 +3201,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	if (mtk_cam_is_stagger(ctx)) {
 		unsigned int hw_scen =
 			(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
-		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
-			if (ctx->pipe->enabled_raw & (1 << i)) {
-				mtk_cam_sv_dev_stream_on(
-					ctx, i - MTKCAM_SUBDEV_CAMSV_START, 0, hw_scen);
-				cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
-			}
-		}
-	}
-	if (mtk_cam_is_time_shared(ctx)) {
-		unsigned int hw_scen =
-			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
 		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
 			if (ctx->pipe->enabled_raw & (1 << i)) {
 				mtk_cam_sv_dev_stream_on(
