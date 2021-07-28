@@ -63,14 +63,15 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 }
 
 #if IS_ENABLED(CONFIG_SYSFS)
-static ssize_t mrdump_version_show(struct module_attribute *attr,
-		struct module_kobject *kobj, char *buf)
+
+static ssize_t mrdump_version_show(struct kobject *kobj,
+		struct kobj_attribute *kattr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%s", MRDUMP_GO_DUMP);
 }
 
-static struct module_attribute mrdump_version_attribute =
-	__ATTR(version, 0400, mrdump_version_show, NULL);
+static struct kobj_attribute mrdump_version_attribute =
+	__ATTR(mrdump_version, 0400, mrdump_version_show, NULL);
 
 static struct attribute *attrs[] = {
 	&mrdump_version_attribute.attr,
@@ -81,34 +82,6 @@ static struct attribute_group attr_group = {
 	.attrs = attrs,
 };
 
-static int __init mrdump_sysfs_init(void)
-{
-	struct kobject *kobj;
-	struct kset *p_module_kset = aee_get_module_kset();
-
-	if (!p_module_kset) {
-		pr_notice("MT-RAMDUMP: Cannot find module_kset");
-		return -EINVAL;
-	}
-
-	kobj = kset_find_obj(p_module_kset, KBUILD_MODNAME);
-	if (kobj) {
-		if (sysfs_create_group(kobj, &attr_group)) {
-			pr_notice("MT-RAMDUMP: sysfs create sysfs failed\n");
-			return -ENOMEM;
-		}
-	} else {
-		pr_notice("MT-RAMDUMP: Cannot find module %s object\n",
-				KBUILD_MODNAME);
-		return -EINVAL;
-	}
-
-	pr_info("%s: done.\n", __func__);
-	return 0;
-}
-#ifndef MODULE
-module_init(mrdump_sysfs_init);
-#endif
 #endif
 
 int __init mrdump_full_init(void)
@@ -118,10 +91,11 @@ int __init mrdump_full_init(void)
 	aee__flush_dcache_area(mrdump_cblock,
 			sizeof(struct mrdump_control_block));
 	pr_info("%s: MT-RAMDUMP enabled done\n", __func__);
-#if defined(MODULE)
 #if IS_ENABLED(CONFIG_SYSFS)
-	mrdump_sysfs_init();
-#endif
+	if (sysfs_create_group(kernel_kobj, &attr_group)) {
+		pr_notice("MT-RAMDUMP: sysfs create sysfs failed\n");
+		return -ENOMEM;
+	}
 #endif
 	return 0;
 }

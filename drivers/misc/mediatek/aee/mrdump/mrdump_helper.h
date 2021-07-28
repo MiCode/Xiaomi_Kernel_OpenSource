@@ -31,9 +31,6 @@ extern char *aee_log_buf_addr_get(void);
 extern phys_addr_t aee_memblock_start_of_DRAM(void);
 extern phys_addr_t aee_memblock_end_of_DRAM(void);
 extern unsigned long aee_get_swapper_pg_dir(void);
-#ifdef CONFIG_SYSFS
-extern struct kset *aee_get_module_kset(void);
-#endif
 #ifdef __aarch64__
 extern bool aee_on_irq_stack(unsigned long sp, struct stack_info *info);
 #endif

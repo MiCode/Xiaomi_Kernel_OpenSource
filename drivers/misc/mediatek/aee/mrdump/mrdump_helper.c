@@ -212,22 +212,6 @@ unsigned long aee_get_kimage_vaddr(void)
 }
 #endif
 
-#ifdef CONFIG_SYSFS
-static struct kset **p_module_kset;
-struct kset *aee_get_module_kset(void)
-{
-	if (p_module_kset)
-		return *p_module_kset;
-
-	p_module_kset = (void *)aee_addr_find("module_kset");
-	if (!p_module_kset) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return *p_module_kset;
-}
-#endif
-
 static phys_addr_t (*p_memblock_start_of_DRAM)(void);
 phys_addr_t aee_memblock_start_of_DRAM(void)
 {
@@ -637,13 +621,6 @@ unsigned long aee_get_edata(void)
 unsigned long aee_get_kimage_vaddr(void)
 {
 	return (unsigned long)kimage_vaddr;
-}
-#endif
-
-#ifdef CONFIG_SYSFS
-struct kset *aee_get_module_kset(void)
-{
-	return module_kset;
 }
 #endif
 
