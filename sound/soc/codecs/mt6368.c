@@ -934,7 +934,7 @@ static int pga_l_mux_map_value[] = {
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(pga_left_mux_map_enum,
-				  MT6368_AUDENC_ANA_CON1,
+				  MT6368_AUDENC_ANA_CON0,
 				  RG_AUDPREAMPLINPUTSEL_SFT,
 				  RG_AUDPREAMPLINPUTSEL_MASK,
 				  pga_l_mux_map,
@@ -956,7 +956,7 @@ static int pga_r_mux_map_value[] = {
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(pga_right_mux_map_enum,
-				  MT6368_AUDENC_ANA_CON3,
+				  MT6368_AUDENC_ANA_CON2,
 				  RG_AUDPREAMPRINPUTSEL_SFT,
 				  RG_AUDPREAMPRINPUTSEL_MASK,
 				  pga_r_mux_map,
@@ -977,7 +977,7 @@ static int pga_3_mux_map_value[] = {
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(pga_3_mux_map_enum,
-				  MT6368_AUDENC_ANA_CON5,
+				  MT6368_AUDENC_ANA_CON4,
 				  RG_AUDPREAMP3INPUTSEL_SFT,
 				  RG_AUDPREAMP3INPUTSEL_MASK,
 				  pga_3_mux_map,
