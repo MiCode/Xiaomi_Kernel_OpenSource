@@ -1719,7 +1719,7 @@ void scp_region_info_init(void)
 {
 	/*get scp loader/firmware info from scp sram*/
 	scp_region_info = (SCP_TCM + SCP_REGION_INFO_OFFSET);
-	pr_debug("[SCP] scp_region_info = %pa\n", scp_region_info);
+	pr_debug("[SCP] scp_region_info = %px\n", scp_region_info);
 	memcpy_from_scp(&scp_region_info_copy,
 		scp_region_info, sizeof(scp_region_info_copy));
 }
@@ -1961,7 +1961,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		return -1;
 	}
 	scpreg.total_tcmsize = (unsigned int)resource_size(res);
-	pr_debug("[SCP] sram base = 0x%pa %x\n"
+	pr_debug("[SCP] sram base = 0x%px %x\n"
 		, scpreg.sram, scpreg.total_tcmsize);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
@@ -1970,7 +1970,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_notice("[SCP] scpreg.cfg error\n");
 		return -1;
 	}
-	pr_debug("[SCP] cfg base = 0x%pa\n", scpreg.cfg);
+	pr_debug("[SCP] cfg base = 0x%px\n", scpreg.cfg);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	scpreg.clkctrl = devm_ioremap_resource(dev, res);
@@ -1978,7 +1978,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_notice("[SCP] scpreg.clkctrl error\n");
 		return -1;
 	}
-	pr_debug("[SCP] clkctrl base = 0x%pa\n", scpreg.clkctrl);
+	pr_debug("[SCP] clkctrl base = 0x%px\n", scpreg.clkctrl);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
 	scpreg.cfg_core0 = devm_ioremap_resource(dev, res);
@@ -1986,7 +1986,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] scpreg.cfg_core0 error\n");
 		return -1;
 	}
-	pr_debug("[SCP] cfg_core0 base = 0x%pa\n", scpreg.cfg_core0);
+	pr_debug("[SCP] cfg_core0 base = 0x%px\n", scpreg.cfg_core0);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
 	scpreg.cfg_core1 = devm_ioremap_resource(dev, res);
@@ -1994,7 +1994,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] scpreg.cfg_core1 error\n");
 		return -1;
 	}
-	pr_debug("[SCP] cfg_core1 base = 0x%pa\n", scpreg.cfg_core1);
+	pr_debug("[SCP] cfg_core1 base = 0x%px\n", scpreg.cfg_core1);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 5);
 	scpreg.bus_tracker = devm_ioremap_resource(dev, res);
@@ -2002,7 +2002,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] scpreg.bus_tracker error\n");
 		return -1;
 	}
-	pr_debug("[SCP] bus_tracker base = 0x%pa\n", scpreg.bus_tracker);
+	pr_debug("[SCP] bus_tracker base = 0x%px\n", scpreg.bus_tracker);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 6);
 	scpreg.l1cctrl = devm_ioremap_resource(dev, res);
@@ -2010,7 +2010,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] scpreg.l1cctrl error\n");
 		return -1;
 	}
-	pr_debug("[SCP] l1cctrl base = 0x%pa\n", scpreg.l1cctrl);
+	pr_debug("[SCP] l1cctrl base = 0x%px\n", scpreg.l1cctrl);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 7);
 	scpreg.cfg_sec = devm_ioremap_resource(dev, res);
@@ -2018,7 +2018,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] scpreg.cfg_sec error\n");
 		return -1;
 	}
-	pr_debug("[SCP] cfg_sec base = 0x%pa\n", scpreg.cfg_sec);
+	pr_debug("[SCP] cfg_sec base = 0x%px\n", scpreg.cfg_sec);
 
 
 	of_property_read_u32(pdev->dev.of_node, "scp_sramSize"
