@@ -602,35 +602,38 @@ static irqreturn_t mtk_iommu_dump_sec_bank(struct mtk_iommu_data *data,
 	int ret;
 	int id = data->plat_data->iommu_id;
 	enum mtk_iommu_type type = data->plat_data->iommu_type;
-	struct device *dev = data->bk_dev[bank];
-	u32 va34_32, pa34_32, fault_iova_32, fault_pa_32;
+	u32 va34_32, pa34_32, fault_iova_32 = 0, fault_pa_32 = 0;
 	u64 fault_iova, fault_pa;
 	bool layer, write;
 
 	ret = mtk_iommu_secure_bk_tf_dump(type, id, bank, &fault_iova_32,
 			&fault_pa_32, &regval);
+	if (ret) {
+		pr_warn("%s fail, type:%d, id:%d, bank:%u\n",
+			__func__, type, id, bank);
+		return IRQ_HANDLED;
+	}
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN)) {
 		va34_32 = FIELD_GET(F_MMU_INVAL_VA_34_32_MASK, fault_iova_32);
 		fault_iova =  (u64)(fault_iova_32 & F_MMU_INVAL_VA_31_12_MASK);
 		fault_iova |= (u64)va34_32 << 32;
+	} else {
+		fault_iova = (u64)fault_iova_32;
 	}
 
 	pa34_32 = FIELD_GET(F_MMU_INVAL_PA_34_32_MASK, fault_iova_32);
 	fault_pa = (u64)fault_pa_32;
 	fault_pa |= (u64)pa34_32 << 32;
 
-	mtk_iommu_tlb_flush_all(data);
-	if (ret) {
-		dev_warn(dev, "%s secure bank fail, type:%d, id:%d\n",
-			 __func__, type, id);
-			return IRQ_HANDLED;
-	}
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
-	dev_warn(dev, "fault iova=0x%llx pa=0x%llx layer=%d %s\n",
-		 fault_iova, fault_pa, layer, write ? "write" : "read");
+	pr_info("fault iova=0x%llx pa=0x%llx layer=%d %s\n",
+		fault_iova, fault_pa, layer,
+		write ? "write" : "read");
+
+	mtk_iommu_tlb_flush_all(data);
 
 	return IRQ_HANDLED;
 }
@@ -641,7 +644,7 @@ static irqreturn_t mtk_iommu_isr_sec(int irq, struct mtk_iommu_data *data)
 
 	for (bk = IOMMU_BK1; bk < IOMMU_BK_NUM; bk++) {
 		if (data->bk_irq[bk] == irq) {
-			pr_err("%s, type:%d, id:%d, bank:%u\n",
+			pr_info("%s start, type:%d, id:%d, bank:%u\n",
 				__func__, data->plat_data->iommu_type,
 				data->plat_data->iommu_id, bk);
 			return mtk_iommu_dump_sec_bank(data, bk);
@@ -658,7 +661,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
 	void __iomem *base = data->base; /* bank0 base */
-	struct device *dev = data->dev; /* bank0 dev */
 	u32 int_state, regval, va34_32, pa34_32, table_base;
 	u64 fault_iova, fault_pa;
 	bool layer, write;
@@ -670,16 +672,18 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	phys_addr_t fault_pgpa;
 	#define TF_IOVA_DUMP_NUM	5
 #else
+	struct device *dev = data->dev; /* bank0 dev */
 	struct mtk_iommu_domain *dom = data->m4u_dom;
 	unsigned int fault_larb, fault_port, sub_comm = 0;
 #endif
 
-	pr_err("%s start, type:%d, id:%d\n", __func__,
-		data->plat_data->iommu_type, data->plat_data->iommu_id);
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
-	if (mtk_iommu_isr_sec(irq, data) == IRQ_HANDLED)
-		return IRQ_HANDLED;
+		if (mtk_iommu_isr_sec(irq, data) == IRQ_HANDLED)
+			return IRQ_HANDLED;
 #endif
+
+	pr_info("%s start, type:%d, id:%d\n", __func__,
+		data->plat_data->iommu_type, data->plat_data->iommu_id);
 	table_base = readl_relaxed(base + REG_MMU_PT_BASE_ADDR);
 	/* Read error info from registers */
 	int_state = readl_relaxed(base + REG_MMU_FAULT_ST1);
@@ -695,7 +699,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 
-	pr_err("%s, reg_raw_data: int_status:0x%x, int_id:0x%x, int_va:0x%x, int_pa:0x%x\n",
+	pr_info("%s, reg_raw_data: int_status:0x%x, int_id:0x%x, int_va:0x%llx, int_pa:0x%llx\n",
 	       __func__, int_state, regval, fault_iova, fault_pa);
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN)) {
@@ -720,9 +724,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	if (fault_iova) /* skip dump when fault iova = 0 */
 		mtk_iova_map_dump(fault_iova);
 	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
-	dev_err(dev, "base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
-		 table_base, int_state, fault_iova, fault_pa,
-		 layer, write ? "write" : "read");
+	pr_info("base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
+		table_base, int_state, fault_iova, fault_pa,
+		layer, write ? "write" : "read");
 #else
 	fault_port = F_MMU_INT_ID_PORT_ID(regval);
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_SUB_COMM)) {

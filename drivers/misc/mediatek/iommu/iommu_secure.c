@@ -138,7 +138,7 @@ int mtk_iommu_sec_bk_init_by_atf(uint32_t type, uint32_t id)
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%x\n",
+		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
 	}
@@ -158,7 +158,7 @@ int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id)
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%x\n",
+		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
 	}
@@ -174,7 +174,7 @@ int mtk_iommu_secure_bk_backup_by_atf(uint32_t type, uint32_t id)
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%x\n",
+		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
 	}
@@ -190,7 +190,7 @@ int mtk_iommu_secure_bk_restore_by_atf(uint32_t type, uint32_t id)
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%x\n",
+		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
 	}
@@ -206,14 +206,14 @@ int ao_secure_dbg_switch_by_atf(uint32_t type,
 	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, BANK_IGNORE, SECURITY_DBG_SWITCH);
 
 	if (en != 0 && en != 1) {
-		pr_info("%s fail, enable is invalid, en:%d\n", __func__, en);
+		pr_info("%s fail, enable is invalid, en:%lu\n", __func__, en);
 		return -EINVAL;
 	}
 
 	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, en, 0, 0, 0, 0, 0);
 	if (ret) {
 		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx, en:%lu\n",
-			__func__, type, id, cmd);
+			__func__, type, id, cmd, en);
 		return SMC_IOMMU_FAIL;
 	}
 
@@ -252,8 +252,8 @@ int mtk_iommu_copy_to_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, 
 
 	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, iova, size, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%llx\n",
-		       __func__, &iova, size);
+		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%lx\n",
+		       __func__, &iova, size, cmd);
 		return SMC_IOMMU_FAIL;
 	}
 
@@ -268,8 +268,8 @@ int mtk_iommu_clean_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, si
 
 	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, iova, size, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%llx\n",
-		       __func__, &iova, size);
+		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%lx\n",
+		       __func__, &iova, size, cmd);
 		return SMC_IOMMU_FAIL;
 	}
 
@@ -284,8 +284,8 @@ int mtk_iommu_dump_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, siz
 
 	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, iova, size, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%llx\n",
-		       __func__, &iova, size);
+		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%lx\n",
+		       __func__, &iova, size, cmd);
 		return SMC_IOMMU_FAIL;
 	}
 
@@ -298,38 +298,38 @@ void mtk_iommu_dump_bank_base(void)
 	int i, j, ret;
 	unsigned long cmd;
 
-	for (i = DISP_IOMMU; i < MM_IOMMU_NUM; i++) {
+	for (i = (int)DISP_IOMMU; i < (int)MM_IOMMU_NUM; i++) {
 		for (j = IOMMU_BK0; j < IOMMU_BK_NUM; j++) {
 			cmd = IOMMU_ATF_SET_CMD(MM_IOMMU,
 						i, j, DUMP_BANK_BASE);
 
 			ret = mtk_iommu_atf_call(MM_IOMMU, i, j, cmd, 0, 0, 0, 0, 0, 0);
 			if (ret)
-				pr_warn("%s fail, type:%s, id:%d, cmd:0x%x\n",
+				pr_warn("%s fail, type:%s, id:%d, cmd:0x%lx\n",
 					__func__, "mm_iommu", i, cmd);
 		}
 	}
-	for (i = APU_IOMMU0; i < APU_IOMMU_NUM; i++) {
+	for (i = (int)APU_IOMMU0; i < (int)APU_IOMMU_NUM; i++) {
 		for (j = IOMMU_BK0; j < IOMMU_BK_NUM; j++) {
 			cmd = IOMMU_ATF_SET_CMD(APU_IOMMU,
 						i, j, DUMP_BANK_BASE);
 
 			ret = mtk_iommu_atf_call(APU_IOMMU, i, j, cmd, 0, 0, 0, 0, 0, 0);
 			if (ret)
-				pr_warn("%s fail, type:%s, id:%d, cmd:0x%x\n",
+				pr_warn("%s fail, type:%s, id:%d, cmd:0x%lx\n",
 					__func__, "apu_iommu", i, cmd);
 		}
 
 	}
 
-	for (i = PERI_IOMMU_M4; i < PERI_IOMMU_NUM; i++) {
+	for (i = (int)PERI_IOMMU_M4; i < (int)PERI_IOMMU_NUM; i++) {
 		for (j = IOMMU_BK0; j < IOMMU_BK_NUM; j++) {
 			cmd = IOMMU_ATF_SET_CMD(PERI_IOMMU,
 						i, j, DUMP_BANK_BASE);
 
 			ret = mtk_iommu_atf_call(PERI_IOMMU, i, j, cmd, 0, 0, 0, 0, 0, 0);
 			if (ret)
-				pr_warn("%s fail, type:%s, id:%d, cmd:0x%x\n",
+				pr_warn("%s fail, type:%s, id:%d, cmd:0x%lx\n",
 					__func__, "peri_iommu", i, cmd);
 		}
 	}
@@ -343,7 +343,7 @@ int mtk_iommu_dump_bk0_val(uint32_t type, uint32_t id)
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK0, cmd, 0, 0, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%x\n",
+		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
 	}
