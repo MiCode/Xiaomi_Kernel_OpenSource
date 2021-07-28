@@ -181,13 +181,20 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 
 	info.clusters = 0;
 	tP = cpufreq_cpu_get(0);
-	info.policy[0] = tP;
-	cpufreq_cpu_put(tP);
-	for_each_possible_cpu(cpu) {
-		tP = cpufreq_cpu_get(cpu);
-		if (tP != info.policy[info.clusters])
-			info.policy[++info.clusters] = tP;
+	if (tP) {
+		info.policy[0] = tP;
 		cpufreq_cpu_put(tP);
+
+		for_each_possible_cpu(cpu) {
+			tP = cpufreq_cpu_get(cpu);
+			if (tP != info.policy[info.clusters])
+				info.policy[++info.clusters] = tP;
+			cpufreq_cpu_put(tP);
+		}
+	} else {
+		/* no policy? should check dvfs status first */
+		pr_info("cannot get policy, no available static power");
+		return 0;
 	}
 	info.clusters++;
 
