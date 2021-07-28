@@ -49,6 +49,21 @@ char *slbc_uid_str[UID_MAX] = {
 };
 EXPORT_SYMBOL_GPL(slbc_uid_str);
 
+/* bit count */
+int popcount(unsigned int x)
+{
+	x = x - ((x >> 1) & 0x55555555);
+	x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+	x = (x + (x >> 4)) & 0x0F0F0F0F;
+	x = x + (x >> 8);
+	x = x + (x >> 16);
+
+	/* pr_info("popcount %d\n", x & 0x0000003F); */
+
+	return x & 0x0000003F;
+}
+EXPORT_SYMBOL_GPL(popcount);
+
 u32 slbc_sram_read(u32 offset)
 {
 	if (common_ops && common_ops->slbc_sram_read)

@@ -33,6 +33,8 @@
 
 static struct pm_qos_request slbc_qos_request;
 
+#define SLBC_WAY_SIZE			0x80000
+
 #if IS_ENABLED(CONFIG_MTK_L3C_PART)
 #include <l3c_part.h>
 #endif /* CONFIG_MTK_L3C_PART */
@@ -197,8 +199,22 @@ static int slbc_request_cache(struct slbc_data *d)
 static int slbc_request_buffer(struct slbc_data *d)
 {
 	int ret = 0;
+	int uid = d->uid;
+	int sid;
+	struct slbc_config *config;
 
 	/* slbc_debug_log("%s: TP_BUFFER\n", __func__); */
+
+	if (uid <= UID_ZERO || uid > UID_MAX)
+		d->config = NULL;
+	else {
+		sid = slbc_get_sid_by_uid((enum slbc_uid)uid);
+		if (sid != SID_NOT_FOUND) {
+			d->sid = sid;
+			d->config = &p_config[sid];
+			config = (struct slbc_config *)d->config;
+		}
+	}
 
 	slbc_set_sram_data(d);
 	ret = _slbc_request_buffer_scmi(d);
@@ -262,9 +278,16 @@ static int slbc_request_acp(void *ptr)
 int slbc_request(struct slbc_data *d)
 {
 	int ret = 0;
+	struct slbc_config *config;
 
-	if ((d->type) == TP_BUFFER)
+	if ((d->type) == TP_BUFFER) {
 		ret = slbc_request_buffer(d);
+		if (d->config && (d->size == 0)) {
+			config = (struct slbc_config *)d->config;
+			if (config)
+				d->size = SLBC_WAY_SIZE * popcount(config->res_slot);
+		}
+	}
 
 	if ((d->type) == TP_CACHE)
 		ret = slbc_request_cache(d);
@@ -272,9 +295,9 @@ int slbc_request(struct slbc_data *d)
 	if ((d->type) == TP_ACP)
 		ret = slbc_request_acp(d);
 
-	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx\n",
+	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx size 0x%lx\n",
 			__func__, __LINE__, d->uid, ret, d->ret,
-			(unsigned long)d->paddr);
+			(unsigned long)d->paddr, d->size);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
@@ -362,8 +385,11 @@ int slbc_release(struct slbc_data *d)
 {
 	int ret = 0;
 
-	if ((d->type) == TP_BUFFER)
+	if ((d->type) == TP_BUFFER) {
 		ret = slbc_release_buffer(d);
+		if (d->size)
+			d->size = 0;
+	}
 
 	if ((d->type) == TP_CACHE)
 		ret = slbc_release_cache(d);
@@ -371,9 +397,9 @@ int slbc_release(struct slbc_data *d)
 	if ((d->type) == TP_ACP)
 		ret = slbc_release_acp(d);
 
-	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx\n",
+	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx size 0x%lx\n",
 			__func__, __LINE__, d->uid, ret, d->ret,
-			(unsigned long)d->paddr);
+			(unsigned long)d->paddr, d->size);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
@@ -483,8 +509,21 @@ void slbc_update_mm_bw(unsigned int bw)
 
 void slbc_update_mic_num(unsigned int num)
 {
+	int i;
+
 	slbc_mic_num = num;
 	slbc_mic_num_cmd(num);
+
+	if (!uid_ref[UID_HIFI3]) {
+		for (i = 0; i < ARRAY_SIZE(p_config); i++) {
+			if (p_config[i].uid == UID_HIFI3) {
+				if (num == 3)
+					p_config[i].res_slot = 0xe00;
+				else
+					p_config[i].res_slot = 0x200;
+			}
+		}
+	}
 }
 
 void slbc_update_inner(unsigned int inner)
