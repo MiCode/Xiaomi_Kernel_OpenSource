@@ -76,6 +76,8 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 {
 	void __iomem *imgsysmainRegBA = 0L;
 	void __iomem *wpedip1RegBA = 0L;
+	void __iomem *wpedip2RegBA = 0L;
+	void __iomem *wpedip3RegBA = 0L;
 	unsigned int checksum_dbg_sel = 0x0;
 	unsigned int original_dbg_sel_value = 0x0;
 	char logBuf_final[log_length * 4];
@@ -91,6 +93,8 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int debug1_value[2] = {0x0, 0x0};
 	unsigned int debug2_value[2] = {0x0, 0x0};
 	unsigned int wpe_pqdip_mux_v = 0x0;
+	unsigned int wpe_pqdip_mux2_v = 0x0;
+	unsigned int wpe_pqdip_mux3_v = 0x0;
 	char logBuf_temp[log_length];
 
 	memset((char *)logBuf_final, 0x0, log_length * 4);
@@ -159,79 +163,103 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	}
 	wpe_pqdip_mux_v = (unsigned int)ioread32((void *)(wpedip1RegBA + 0xA8));
 	iounmap(wpedip1RegBA);
+
+	wpedip2RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE2_DIP1);
+	if (!wpedip2RegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip2 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+	wpe_pqdip_mux2_v = (unsigned int)ioread32((void *)(wpedip2RegBA + 0xA8));
+	iounmap(wpedip2RegBA);
+
+	wpedip3RegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE3_DIP1);
+	if (!wpedip3RegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap wpe_dip3 registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+	wpe_pqdip_mux3_v = (unsigned int)ioread32((void *)(wpedip3RegBA + 0xA8));
+	iounmap(wpedip3RegBA);
 	/*}*/
 
 	/* dump information */
+	if (dl_path == IMGSYS_DL_WPET_TRAW) {
+	} else {
+		if (debug0_req[0] == 1) {
+			snprintf(logBuf_temp, log_length,
+				"%s req to send data to %s/",
+				logBuf_inport, logBuf_outport);
+		} else {
+			snprintf(logBuf_temp, log_length,
+				"%s not send data to %s/",
+				logBuf_inport, logBuf_outport);
+		}
+		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
+		memset((char *)logBuf_temp, 0x0, log_length);
+		logBuf_temp[strlen(logBuf_temp)] = '\0';
+		if (debug0_rdy[0] == 1) {
+			snprintf(logBuf_temp, log_length,
+				"%s rdy to receive data from %s",
+				logBuf_outport, logBuf_inport);
+		} else {
+			snprintf(logBuf_temp, log_length,
+				"%s not rdy to receive data from %s",
+				logBuf_outport, logBuf_inport);
+		}
+		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
+		dev_info(imgsys_dev->dev,
+			"%s: %s", __func__, logBuf_final);
 
-	if (debug0_req[0] == 1) {
-		snprintf(logBuf_temp, log_length,
-			"%s req to send data to %s/",
-			logBuf_inport, logBuf_outport);
-	} else {
-		snprintf(logBuf_temp, log_length,
-			"%s not send data to %s/",
-			logBuf_inport, logBuf_outport);
+		memset((char *)logBuf_final, 0x0, log_length * 4);
+		logBuf_final[strlen(logBuf_final)] = '\0';
+		memset((char *)logBuf_temp, 0x0, log_length);
+		logBuf_temp[strlen(logBuf_temp)] = '\0';
+		if (debug0_req[1] == 1) {
+			snprintf(logBuf_temp, log_length,
+				"%s req to send data to %sPIPE/",
+				logBuf_outport, logBuf_outport);
+		} else {
+			snprintf(logBuf_temp, log_length,
+				"%s not send data to %sPIPE/",
+				logBuf_outport, logBuf_outport);
+		}
+		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
+		memset((char *)logBuf_temp, 0x0, log_length);
+		logBuf_temp[strlen(logBuf_temp)] = '\0';
+		if (debug0_rdy[1] == 1) {
+			snprintf(logBuf_temp, log_length,
+				"%sPIPE rdy to receive data from %s",
+				logBuf_outport, logBuf_outport);
+		} else {
+			snprintf(logBuf_temp, log_length,
+				"%sPIPE not rdy to receive data from %s",
+				logBuf_outport, logBuf_outport);
+		}
+		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
+		dev_info(imgsys_dev->dev,
+			"%s: %s", __func__, logBuf_final);
+		dev_info(imgsys_dev->dev,
+			"%s: in_req/in_rdy/out_req/out_rdy = %d/%d/%d/%d,(cheskcum: in/out) = (%d/%d)",
+			__func__,
+			debug0_req[0], debug0_rdy[0],
+			debug0_req[1], debug0_rdy[1],
+			debug0_checksum[0], debug0_checksum[1]);
+		dev_info(imgsys_dev->dev,
+			"%s: info01 in_line/in_pix/out_line/out_pix = %d/%d/%d/%d",
+			__func__,
+			debug1_line_cnt[0], debug1_pix_cnt[0], debug1_line_cnt[1],
+			debug1_pix_cnt[1]);
+		dev_info(imgsys_dev->dev,
+			"%s: info02 in_line/in_pix/out_line/out_pix = %d/%d/%d/%d",
+			__func__,
+			debug2_line_cnt[0], debug2_pix_cnt[0], debug2_line_cnt[1],
+			debug2_pix_cnt[1]);
 	}
-	strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
-	memset((char *)logBuf_temp, 0x0, log_length);
-	logBuf_temp[strlen(logBuf_temp)] = '\0';
-	if (debug0_rdy[0] == 1) {
-		snprintf(logBuf_temp, log_length,
-			"%s rdy to receive data from %s",
-			logBuf_outport, logBuf_inport);
-	} else {
-		snprintf(logBuf_temp, log_length,
-			"%s not rdy to receive data from %s",
-			logBuf_outport, logBuf_inport);
-	}
-	strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
-	dev_info(imgsys_dev->dev,
-		"%s: %s", __func__, logBuf_final);
-
-	memset((char *)logBuf_final, 0x0, log_length * 4);
-	logBuf_final[strlen(logBuf_final)] = '\0';
-	memset((char *)logBuf_temp, 0x0, log_length);
-	logBuf_temp[strlen(logBuf_temp)] = '\0';
-	if (debug0_req[1] == 1) {
-		snprintf(logBuf_temp, log_length,
-			"%s req to send data to %sPIPE/",
-			logBuf_outport, logBuf_outport);
-	} else {
-		snprintf(logBuf_temp, log_length,
-			"%s not send data to %sPIPE/",
-			logBuf_outport, logBuf_outport);
-	}
-	strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
-	memset((char *)logBuf_temp, 0x0, log_length);
-	logBuf_temp[strlen(logBuf_temp)] = '\0';
-	if (debug0_rdy[1] == 1) {
-		snprintf(logBuf_temp, log_length,
-			"%sPIPE rdy to receive data from %s",
-			logBuf_outport, logBuf_outport);
-	} else {
-		snprintf(logBuf_temp, log_length,
-			"%sPIPE not rdy to receive data from %s",
-			logBuf_outport, logBuf_outport);
-	}
-	strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
-	dev_info(imgsys_dev->dev,
-		"%s: %s", __func__, logBuf_final);
-	dev_info(imgsys_dev->dev,
-		"%s: in_req/in_rdy/out_req/out_rdy = %d/%d/%d/%d,(cheskcum: in/out) = (%d/%d)",
-		__func__,
-		debug0_req[0], debug0_rdy[0],
-		debug0_req[1], debug0_rdy[1],
-		debug0_checksum[0], debug0_checksum[1]);
-	dev_info(imgsys_dev->dev,
-		"%s: info01 in_line/in_pix/out_line/out_pix = %d/%d/%d/%d",
-		__func__,
-		debug1_line_cnt[0], debug1_pix_cnt[0], debug1_line_cnt[1],
-		debug1_pix_cnt[1]);
-	dev_info(imgsys_dev->dev,
-		"%s: info02 in_line/in_pix/out_line/out_pix = %d/%d/%d/%d",
-		__func__,
-		debug2_line_cnt[0], debug2_pix_cnt[0], debug2_line_cnt[1],
-		debug2_pix_cnt[1]);
 	dev_info(imgsys_dev->dev, "%s: ===(%s): %s DBG INFO===",
 		__func__, logBuf_path, logBuf_inport);
 	dev_info(imgsys_dev->dev, "%s:  0x%08X %08X", __func__,
@@ -269,6 +297,10 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	/*if (dl_path == IMGSYS_DL_WPE_PQDIP) {*/
 	dev_info(imgsys_dev->dev, "%s:  0x%08X %08X", __func__,
 		(unsigned int)(0x15220000 + 0xA8), wpe_pqdip_mux_v);
+	dev_info(imgsys_dev->dev, "%s:  0x%08X %08X", __func__,
+		(unsigned int)(0x15520000 + 0xA8), wpe_pqdip_mux2_v);
+	dev_info(imgsys_dev->dev, "%s:  0x%08X %08X", __func__,
+		(unsigned int)(0x15620000 + 0xA8), wpe_pqdip_mux3_v);
 	/*}*/
 	iounmap(imgsysmainRegBA);
 }
@@ -368,7 +400,6 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW):
-		/*
 		dl_path = IMGSYS_DL_WPET_TRAW;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_LITE");
@@ -376,13 +407,11 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			"TRAW");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
-		*/
 		dev_info(imgsys_dev->dev,
 			"%s: we dont have checksum for WPELITE DL TRAW\n",
 			__func__);
 		break;
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR):
-		/*
 		dl_path = IMGSYS_DL_WPET_TRAW;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_LITE");
@@ -390,13 +419,11 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			"LTRAW");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
-		*/
 		dev_info(imgsys_dev->dev,
 			"%s: we dont have checksum for WPELITE DL LTRAW\n",
 			__func__);
 		break;
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_XTR):
-		/*
 		dl_path = IMGSYS_DL_WPET_TRAW;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_LITE");
@@ -404,7 +431,6 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			"XTRAW");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
-		*/
 		dev_info(imgsys_dev->dev,
 			"%s: we dont have checksum for WPELITE DL XTRAW\n",
 			__func__);
@@ -616,7 +642,6 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		IMGSYS_ENG_PQDIP_B):
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
-		/*
 		dl_path = IMGSYS_DL_WPEL_TRAW;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_LITE");
@@ -624,7 +649,9 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			"TRAW");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
-		*/
+		dev_info(imgsys_dev->dev,
+			"%s: we dont have checksum for WPELITE DL TRAW\n",
+			__func__);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
 	    logBuf_inport[strlen(logBuf_inport)] = '\0';
