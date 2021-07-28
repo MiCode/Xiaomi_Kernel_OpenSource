@@ -531,6 +531,11 @@ static void vow_service_Init(void)
 		vow_pcm_dump_init();
 		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
 		vowserv.mtkif_type = 0;
+		//set default value to platform identifier and version
+		memset(vowserv.google_engine_arch, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
+		sprintf(vowserv.google_engine_arch, "32fe89be-5205-3d4b-b8cf-55d650d9d20");
+		vowserv.google_engine_version = DEFAULT_GOOGLE_ENGINE_VER;
+		memset(vowserv.alexa_engine_version, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
 	} else {
 		int ipi_size;
 
@@ -589,8 +594,6 @@ static void vow_service_Init(void)
 			VOWDRV_DEBUG(
 			"IPIMSG_VOW_APREGDATA_ADDR ipi send error\n");
 		}
-		sprintf(vowserv.google_engine_arch, "RISC-V");
-		vowserv.google_engine_version = DEFAULT_GOOGLE_ENGINE_VER;
 		vow_ipi_send(IPIMSG_VOW_GET_ALEXA_ENGINE_VER, 0, NULL,
 				 VOW_IPI_BYPASS_ACK);
 		vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ENGINE_VER, 0, NULL,
