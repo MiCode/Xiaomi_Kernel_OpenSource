@@ -18,6 +18,9 @@
 #include <soc/mediatek/dramc.h>
 #endif /* CONFIG_MTK_DRAMC */
 
+#if IS_ENABLED(CONFIG_MTK_EMI)
+#include <soc/mediatek/emi.h>
+#endif /* CONFIG_MTK_EMI */
 
 static int qos_bound_enabled;
 static int qos_bound_stress_enabled;
@@ -26,6 +29,8 @@ static unsigned int qos_bound_count;
 static unsigned int qos_bound_buf[3];
 static BLOCKING_NOTIFIER_HEAD(qos_bound_chain_head);
 static struct qos_bound *bound;
+static unsigned short *qos_bound_apu;
+static unsigned int  qos_bound_apu_num;
 
 int is_qos_bound_enabled(void)
 {
@@ -59,7 +64,18 @@ void qos_bound_enable(int enable)
 	bound = (struct qos_bound *)sspm_sbuf_get(ack);
 	smp_mb(); /* init bound before flag enabled */
 #endif
-	qos_bound_enabled = enable;
+	if (bound->ver == QOS_BOUND_VER_TAG) {
+		qos_bound_apu = (unsigned short *)(bound);
+		qos_bound_apu += (sizeof(struct qos_bound)/sizeof(unsigned short));
+		qos_bound_apu_num = bound->apu_num;
+		pr_info("mtk_qos: bound ver=0x%x apu_num=%d\n",
+				bound->ver, bound->apu_num);
+		qos_bound_enabled = enable;
+	} else {
+		pr_info("mtk_qos: invalid bound version(0x%x, 0x%x)\n",
+				bound->ver, bound->apu_num);
+		qos_bound_enabled = false;
+	}
 }
 
 int is_qos_bound_stress_enabled(void)
@@ -108,19 +124,16 @@ unsigned int get_qos_bound_count(void)
 {
 	return qos_bound_count;
 }
-EXPORT_SYMBOL(get_qos_bound_count);
+EXPORT_SYMBOL_GPL(get_qos_bound_count);
 
 unsigned int *get_qos_bound_buf(void)
 {
 	return qos_bound_buf;
 }
-EXPORT_SYMBOL(get_qos_bound_buf);
+EXPORT_SYMBOL_GPL(get_qos_bound_buf);
 
 void qos_bound_init(void)
 {
-#ifndef MTK_QOS_V1
-	pr_info("mtk qos-bound init for k6853.\n");
-#endif
 	qos_bound_enable(1);
 }
 
@@ -128,14 +141,14 @@ struct qos_bound *get_qos_bound(void)
 {
 	return bound;
 }
-EXPORT_SYMBOL(get_qos_bound);
+EXPORT_SYMBOL_GPL(get_qos_bound);
 
 int get_qos_bound_bw_threshold(int state)
 {
 	int val = 0;
 
-#if IS_ENABLED(CONFIG_MTK_DRAMC)
-	val = mtk_dramc_get_steps_freq(0) * QOS_BOUND_EMI_CH * 2;
+#if IS_ENABLED(CONFIG_MTK_DRAMC) && IS_ENABLED(CONFIG_MTK_EMI)
+	val = mtk_dramc_get_steps_freq(0) * mtk_emicen_get_ch_cnt() * 2;
 #endif
 
 	if (state == QOS_BOUND_BW_FULL)
@@ -186,9 +199,7 @@ int qos_notifier_call_chain(unsigned long val, void *v)
 	}
 
 	bound = (struct qos_bound *) v;
-#ifndef MTK_QOS_V1
-	pr_info("mtk qos bound :notifier call for k6853.\n");
-#endif
+
 	state = bound->state;
 	if (state > 0 && state <= 4) {
 		for (i = 0; (state & (1 << i)) == 0; i++)
@@ -204,15 +215,11 @@ int qos_notifier_call_chain(unsigned long val, void *v)
 				idx, state,
 				stat->num, stat->event);
 		for (i = 0; i < NR_QOS_EMIBM_TYPE; i++)
-			pr_info("emibw [%d]: mon: %hu, req: %hu\n", i,
-					stat->emibw_mon[i],
-					stat->emibw_req[i]);
+			pr_info("emibw [%d]: mon: %hu\n", i,
+					stat->emibw_mon[i]);
 		for (i = 0; i < NR_QOS_SMIBM_TYPE; i++)
-			pr_info("smibw [%d]: mon: %hu, req: %hu\n", i,
-					stat->smibw_mon[i],
-					stat->smibw_req[i]);
-		for (i = 0; i < NR_QOS_LAT_TYPE; i++)
-			pr_info("lat [%d]: mon: %hu\n", i, stat->lat_mon[i]);
+			pr_info("smibw [%d]: mon: %hu\n", i,
+					stat->smibw_mon[i]);
 	}
 
 	ret = blocking_notifier_call_chain(&qos_bound_chain_head, val, v);
@@ -220,3 +227,80 @@ int qos_notifier_call_chain(unsigned long val, void *v)
 	return notifier_to_errno(ret);
 }
 
+unsigned short get_qos_bound_apubw_mon(int idx, int master)
+{
+	unsigned short *bw_val;
+
+	if (!is_qos_bound_enabled())
+		return 0;
+
+	if (idx < 0 || idx >= QOS_BOUND_BUF_SIZE)
+		idx = bound->idx;
+
+	if (master < 0 || master >= qos_bound_apu_num)
+		return 0;
+
+	bw_val = qos_bound_apu + (master + idx*qos_bound_apu_num);
+
+	return *bw_val;
+}
+EXPORT_SYMBOL_GPL(get_qos_bound_apubw_mon);
+
+unsigned short get_qos_bound_apulat_mon(int idx, int master)
+{
+	unsigned short *lat_val;
+
+	if (!is_qos_bound_enabled())
+		return 0;
+
+	if (idx < 0 || idx >= QOS_BOUND_BUF_SIZE)
+		idx = bound->idx;
+
+	if (master < 0 || master >= qos_bound_apu_num)
+		return 0;
+
+	lat_val = qos_bound_apu + QOS_BOUND_BUF_SIZE*qos_bound_apu_num;
+	lat_val += (master + idx*qos_bound_apu_num);
+
+	return *lat_val;
+}
+EXPORT_SYMBOL_GPL(get_qos_bound_apulat_mon);
+
+
+unsigned short get_qos_bound_emibw_mon(int idx, int master)
+{
+	unsigned short val;
+
+	if (!is_qos_bound_enabled())
+		return 0;
+
+	if (idx < 0 || idx >= QOS_BOUND_BUF_SIZE)
+		idx = bound->idx;
+
+	if (master < 0 || master >= NR_QOS_EMIBM_TYPE)
+		master = 0;
+
+	val = bound->stats[idx].emibw_mon[master];
+
+	return val;
+}
+EXPORT_SYMBOL_GPL(get_qos_bound_emibw_mon);
+
+unsigned short get_qos_bound_smibw_mon(int idx, int master)
+{
+	unsigned short val;
+
+	if (!is_qos_bound_enabled())
+		return 0;
+
+	if (idx < 0 || idx >= QOS_BOUND_BUF_SIZE)
+		idx = bound->idx;
+
+	if (master < 0 || master >= NR_QOS_SMIBM_TYPE)
+		master = 0;
+
+	val = bound->stats[idx].smibw_mon[master];
+
+	return val;
+}
+EXPORT_SYMBOL_GPL(get_qos_bound_smibw_mon);
