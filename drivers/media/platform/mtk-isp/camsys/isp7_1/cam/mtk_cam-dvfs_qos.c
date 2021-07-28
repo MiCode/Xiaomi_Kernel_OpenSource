@@ -498,17 +498,19 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 		dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w : %2d/%2d/%d/%5d BW(B/s):%lu\n",
 			raw_mmqos->port[qos_port_id % raw_qos_port_num], qos_port_id, ipi_fmt,
 			pixel_bits, num_plane, vdev->active_fmt.fmt.pix_mp.width, BW_MB_s);
-		qos_port_id = sv_imgo;
-		dvfs_info->sv_qos_bw_avg[qos_port_id] += BW_MB_s;
-		dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w : %2d/%2d/%d/%5d BW(B/s):%lu\n",
-			sv_qos[0].port[qos_port_id % sv_qos_port_num], qos_port_id, ipi_fmt,
-			pixel_bits, num_plane, vdev->active_fmt.fmt.pix_mp.width, BW_MB_s);
-		if (mtk_cam_is_3_exposure(ctx)) {
-			qos_port_id = sv_qos_port_num + sv_imgo;
-			dvfs_info->sv_qos_bw_avg[qos_port_id] += BW_MB_s;
-			dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w : %2d/%2d/%d/%5d BW(B/s):%lu\n",
-				sv_qos[1].port[qos_port_id % sv_qos_port_num], qos_port_id, ipi_fmt,
-				pixel_bits, num_plane, vdev->active_fmt.fmt.pix_mp.width, BW_MB_s);
+		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
+			if (ctx->pipe->enabled_raw & (1 << i)) {
+				qos_port_id =
+					((i - MTKCAM_SUBDEV_CAMSV_START) * sv_qos_port_num) +
+					sv_imgo;
+				dvfs_info->sv_qos_bw_avg[qos_port_id] += BW_MB_s;
+				dev_info(cam->dev,
+					"[%16s] qos_idx:%2d ipifmt/bits/plane/w : %2d/%2d/%d/%5d BW(B/s):%lu\n",
+					sv_qos[i - MTKCAM_SUBDEV_CAMSV_START].port[
+					qos_port_id % sv_qos_port_num],
+					qos_port_id, ipi_fmt, pixel_bits, num_plane,
+					vdev->active_fmt.fmt.pix_mp.width, BW_MB_s);
+			}
 		}
 	}
 	for (i = 0; i < ctx->used_sv_num; i++) {

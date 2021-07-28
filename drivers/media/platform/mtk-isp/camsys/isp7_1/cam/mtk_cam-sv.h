@@ -9,10 +9,19 @@
 #include "mtk_cam-video.h"
 
 #define PDAF_READY 1
-#define CAMSV_PIPELINE_NUM 6
+#define CAMSV_PIPELINE_NUM 16
+
+/* camsv hardware capability definition: */
+/* [15:0]: hardware scenario             */
+/* [19:16]: group number                 */
+/* [23:20]: exposure order               */
+#define CAMSV_GROUP_SHIFT 16
+#define CAMSV_EXP_ORDER_SHIFT 20
 
 #define MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO	(\
 			(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) |\
+			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) |\
+			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) |\
 			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M))
 
 #define CAMSV_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
@@ -54,6 +63,16 @@ enum camsv_module_id {
 	CAMSV_3 = 3,
 	CAMSV_4 = 4,
 	CAMSV_5 = 5,
+	CAMSV_6 = 6,
+	CAMSV_7 = 7,
+	CAMSV_8 = 8,
+	CAMSV_9 = 9,
+	CAMSV_10 = 10,
+	CAMSV_11 = 11,
+	CAMSV_12 = 12,
+	CAMSV_13 = 13,
+	CAMSV_14 = 14,
+	CAMSV_15 = 15,
 };
 
 enum camsv_db_load_src {

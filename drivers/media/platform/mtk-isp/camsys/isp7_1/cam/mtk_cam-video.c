@@ -286,7 +286,6 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		return;
 	}
 
-	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
 	mutex_unlock(&cam->op_lock);
 }
@@ -1447,8 +1446,13 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			video->uid.pipe_id < MTKCAM_SUBDEV_CAMSV_END) {
 			switch (video->uid.pipe_id) {
 			case MTKCAM_SUBDEV_CAMSV_0:
-			case MTKCAM_SUBDEV_CAMSV_2:
-			case MTKCAM_SUBDEV_CAMSV_3:
+			case MTKCAM_SUBDEV_CAMSV_1:
+			case MTKCAM_SUBDEV_CAMSV_4:
+			case MTKCAM_SUBDEV_CAMSV_5:
+			case MTKCAM_SUBDEV_CAMSV_8:
+			case MTKCAM_SUBDEV_CAMSV_9:
+			case MTKCAM_SUBDEV_CAMSV_12:
+			case MTKCAM_SUBDEV_CAMSV_13:
 				q->dev = find_larb(&cam->larb, 13);
 				break;
 			default:

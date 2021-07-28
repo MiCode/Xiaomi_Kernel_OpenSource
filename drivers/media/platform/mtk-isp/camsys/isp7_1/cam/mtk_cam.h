@@ -39,6 +39,8 @@
 #define CCF_READY 0
 #define DVFS_READY 0
 
+#define MAX_STAGGER_EXP_AMOUNT 3
+
 struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;

@@ -465,7 +465,17 @@ static const char *sv_capture_queue_names[CAMSV_PIPELINE_NUM][MTK_CAMSV_TOTAL_CA
 	{"mtk-cam camsv-2 main-stream"},
 	{"mtk-cam camsv-3 main-stream"},
 	{"mtk-cam camsv-4 main-stream"},
-	{"mtk-cam camsv-5 main-stream"}
+	{"mtk-cam camsv-5 main-stream"},
+	{"mtk-cam camsv-6 main-stream"},
+	{"mtk-cam camsv-7 main-stream"},
+	{"mtk-cam camsv-8 main-stream"},
+	{"mtk-cam camsv-9 main-stream"},
+	{"mtk-cam camsv-10 main-stream"},
+	{"mtk-cam camsv-11 main-stream"},
+	{"mtk-cam camsv-12 main-stream"},
+	{"mtk-cam camsv-13 main-stream"},
+	{"mtk-cam camsv-14 main-stream"},
+	{"mtk-cam camsv-15 main-stream"},
 };
 
 void sv_reset(struct mtk_camsv_device *dev)
@@ -671,12 +681,12 @@ int mtk_cam_sv_tg_config(struct mtk_camsv_device *dev, struct mtkcam_ipi_input_p
 
 	if (dev->pipeline->hw_scen &
 		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER)) {
-		if (dev->id == 0) {
+		if (dev->pipeline->is_first_expo) {
 			CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_SEN_MODE,
 				CAMSV_TG_SEN_MODE, STAGGER_EN, 0);
 			CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_PATH_CFG,
 				CAMSV_TG_PATH_CFG, SUB_SOF_SRC_SEL, 0);
-		} else if (dev->id == 1) {
+		} else {
 			CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_SEN_MODE,
 				CAMSV_TG_SEN_MODE, STAGGER_EN, 1);
 			CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_PATH_CFG,
@@ -1422,17 +1432,11 @@ static int mtk_camsv_pipeline_register(
 	for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++) {
 		video = pipe->vdev_nodes + i;
 
-		switch (pipe->id) {
-		case MTKCAM_SUBDEV_CAMSV_0:
-		case MTKCAM_SUBDEV_CAMSV_1:
-		case MTKCAM_SUBDEV_CAMSV_2:
-		case MTKCAM_SUBDEV_CAMSV_3:
-		case MTKCAM_SUBDEV_CAMSV_4:
-		case MTKCAM_SUBDEV_CAMSV_5:
+		if (pipe->id >= MTKCAM_SUBDEV_CAMSV_START &&
+			pipe->id < MTKCAM_SUBDEV_CAMSV_END)
 			video->uid.pipe_id = pipe->id;
-			break;
-		default:
-			dev_dbg(dev, "invalid pipe id\n");
+		else {
+			dev_info(dev, "invalid pipe id\n");
 			return -EINVAL;
 		}
 
