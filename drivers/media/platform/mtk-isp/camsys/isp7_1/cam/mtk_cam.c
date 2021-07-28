@@ -1250,7 +1250,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		ctx = mtk_cam_find_ctx(cam, &node->vdev.entity);
 		req->ctx_used |= 1 << ctx->stream_id;
 
-		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		req_stream_data = mtk_cam_req_get_s_data(req, node->uid.pipe_id, 0);
 		req_stream_data->ctx = ctx;
 		req_stream_data->no_frame_done_cnt = 0;
 		req_stream_data->dbg_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
