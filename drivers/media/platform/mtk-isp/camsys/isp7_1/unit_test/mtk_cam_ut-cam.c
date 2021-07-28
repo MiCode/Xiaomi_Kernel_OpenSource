@@ -420,7 +420,7 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	if (status.irq & CQ_MAIN_TRIG_DLY_ST)
 		event.mask |= EVENT_CQ_MAIN_TRIG_DLY;
 
-	if (event.mask) {
+	if (event.mask && raw->id == 0) {
 		dev_dbg(raw->dev, "send event 0x%x\n", event.mask);
 		send_event(&raw->event_src, event);
 	}
