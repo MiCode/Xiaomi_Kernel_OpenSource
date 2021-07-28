@@ -198,6 +198,7 @@ static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 	return ovl_comp;
 }
 
+#ifndef DRM_CMDQ_DISABLE
 #ifndef MTK_DRM_FB_LEAK
 static void mtk_drm_cmdq_done(struct cmdq_cb_data data)
 {
@@ -205,6 +206,7 @@ static void mtk_drm_cmdq_done(struct cmdq_cb_data data)
 
 	cmdq_pkt_destroy(cmdq_handle);
 }
+#endif
 #endif
 
 static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
@@ -309,6 +311,9 @@ static void disable_attached_layer(struct drm_crtc *crtc, struct mtk_ddp_comp *o
 
 int drm_show_dal(struct drm_crtc *crtc, bool enable)
 {
+#ifdef DRM_CMDQ_DISABLE
+	return 0;
+#else
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_plane_state *plane_state;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
@@ -360,6 +365,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 #endif
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return 0;
+#endif
 }
 
 void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
@@ -446,7 +452,9 @@ int DAL_Printf(const char *fmt, ...)
 	if (drm_dal_enable == 0)
 		drm_dal_enable = 1;
 
+#ifndef DRM_CMDQ_DISABLE
 	drm_show_dal(dal_crtc, true);
+#endif
 
 	DAL_UNLOCK();
 

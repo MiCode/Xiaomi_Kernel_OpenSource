@@ -8,8 +8,13 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <drm/drm_fourcc.h>
+
+#ifndef DRM_CMDQ_DISABLE
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -1559,6 +1564,20 @@ static const struct mtk_disp_wdma_data mt6833_wdma_driver_data = {
 	.is_support_34bits = false,
 };
 
+static const struct mtk_disp_wdma_data mt6879_wdma_driver_data = {
+	.fifo_size_1plane = 578,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 402,
+	.fifo_size_uv_2plane = 201,
+	.fifo_size_3plane = 402,
+	.fifo_size_uv_3plane = 99,
+	.sodi_config = mt6853_mtk_sodi_config,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = false,
+
+};
+
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-wdma"},
 	{.compatible = "mediatek,mt6779-disp-wdma",
@@ -1572,6 +1591,8 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	 .data = &mt6853_wdma_driver_data},
 	{.compatible = "mediatek,mt6833-disp-wdma",
 	 .data = &mt6833_wdma_driver_data},
+	{.compatible = "mediatek,mt6879-disp-wdma",
+	 .data = &mt6879_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);

@@ -7,7 +7,13 @@
 #define MTK_DRM_DDP_ADDON_H
 
 #include <drm/drm_crtc.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
+
 #include "mtk_rect.h"
 #include "mtk_layering_rule.h"
 

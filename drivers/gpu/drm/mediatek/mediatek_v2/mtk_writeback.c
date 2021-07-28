@@ -156,7 +156,7 @@ int mtk_wb_connector_init(struct drm_device *drm_dev,
 	return 0;
 }
 
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
+#ifndef DRM_CMDQ_DISABLE
 void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc, unsigned int v,
 			  unsigned int h, void *cmdq_handle)
 #else
@@ -174,7 +174,7 @@ void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc)
 	    conn_state->writeback_job->fb != NULL) {
 		struct drm_framebuffer *fb = conn_state->writeback_job->fb;
 		u32 addr;
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
+#ifndef DRM_CMDQ_DISABLE
 #else
 		void *cmdq_handle = NULL;
 #endif

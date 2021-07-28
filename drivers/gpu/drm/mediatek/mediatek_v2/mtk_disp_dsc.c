@@ -9,7 +9,12 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/ratelimit.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_drv.h"
@@ -744,6 +749,11 @@ static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-dsc",
 	  .data = &mt6885_dsc_driver_data},
@@ -753,6 +763,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6873_dsc_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-dsc",
 	  .data = &mt6853_dsc_driver_data},
+	{ .compatible = "mediatek,mt6879-disp-dsc",
+	  .data = &mt6879_dsc_driver_data},
 	{},
 };
 

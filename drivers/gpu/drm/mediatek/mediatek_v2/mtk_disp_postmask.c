@@ -8,7 +8,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -629,6 +634,11 @@ static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
 	.is_support_34bits = false,
 };
 
+static const struct mtk_disp_postmask_data mt6879_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-postmask",
 	  .data = &mt6779_postmask_driver_data},
@@ -642,6 +652,8 @@ static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	  .data = &mt6853_postmask_driver_data},
 	{ .compatible = "mediatek,mt6833-disp-postmask",
 	  .data = &mt6833_postmask_driver_data},
+	{ .compatible = "mediatek,mt6879-disp-postmask",
+	  .data = &mt6879_postmask_driver_data},
 	{},
 };
 

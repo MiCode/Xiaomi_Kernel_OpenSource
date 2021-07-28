@@ -302,7 +302,7 @@ int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
 			  unsigned long map_va)
 {
-#if IS_ENABLED(CONFIG_MTK_IOMMU)
+#ifdef CONFIG_MTK_DISPLAY_M4U
 	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
 #endif
 	return 0;

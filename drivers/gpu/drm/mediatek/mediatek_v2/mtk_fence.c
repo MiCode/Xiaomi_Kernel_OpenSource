@@ -438,7 +438,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 
 		layer_info->fence_fd = buf->fence;
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU)
+#ifdef CONFIG_MTK_DISPLAY_M4U
 		if (buf->buf_hnd) {
 			DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p\n",
 				 mtk_fence_session_mode_spy(session_id),
@@ -834,7 +834,7 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	list_add_tail(&buf_info->list, &layer_info->buf_list);
 	mutex_unlock(&layer_info->sync_lock);
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU)
+#ifdef CONFIG_MTK_DISPLAY_M4U
 	DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
