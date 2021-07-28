@@ -565,7 +565,12 @@ int mtk_ccd_put_fd(struct mtk_ccd *ccd,
 			if (task == NULL || f == NULL)
 				return -EINVAL;
 
-			__close_fd(f, target_fd);
+			if (atomic_long_read(&buf->dbuf->file->f_count) > 1)
+				__close_fd(f, target_fd);
+			else
+				dev_info(ccd_memory->dev,
+						 "%s user space signal exit to close fd already",
+						 __func__);
 
 			dma_buf_put(buf->dbuf);
 
