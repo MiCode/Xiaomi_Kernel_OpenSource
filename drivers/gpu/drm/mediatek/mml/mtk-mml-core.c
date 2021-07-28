@@ -9,6 +9,8 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <soc/mediatek/smi.h>
+#include <cmdq-util.h>
+
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-buf.h"
@@ -338,6 +340,9 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 		comp = task_comp(task, pipe, i);
 		call_hw_op(comp, clk_enable);
 	}
+
+	cmdq_util_prebuilt_enable(0);
+	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 
 	mml_clock_unlock(task->config->mml);
 
@@ -987,7 +992,8 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)
 
 s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
 	dma_addr_t addr, u32 value, u32 mask,
-	struct mml_pipe_cache *cache, u16 *label_idx)
+	struct mml_pipe_cache *cache, u16 *label_idx, bool write_sec,
+	u16 reg_idx)
 {
 	if (reuse->label_idx >= cache->label_cnt) {
 		mml_err("out of label cnt idx %u count %u",
@@ -995,9 +1001,14 @@ s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
 		return -ENOMEM;
 	}
 
-	cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
-		&reuse->labels[reuse->label_idx].va,
-		&reuse->labels[reuse->label_idx].offset);
+	if (write_sec)
+		cmdq_pkt_assign_command_reuse(pkt, reg_idx, value,
+			&reuse->labels[reuse->label_idx].va,
+			&reuse->labels[reuse->label_idx].offset);
+	else
+		cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
+			&reuse->labels[reuse->label_idx].va,
+			&reuse->labels[reuse->label_idx].offset);
 
 	*label_idx = reuse->label_idx;
 	reuse->labels[reuse->label_idx].val = value;

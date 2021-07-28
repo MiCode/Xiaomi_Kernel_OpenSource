@@ -561,7 +561,8 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task);
  */
 s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
 	dma_addr_t addr, u32 value, u32 mask,
-	struct mml_pipe_cache *cache, u16 *label_idx);
+	struct mml_pipe_cache *cache, u16 *label_idx, bool write_sec,
+	u16 reg_idx);
 
 /* mml_update - update new value to cache, which entry index from label.
  *

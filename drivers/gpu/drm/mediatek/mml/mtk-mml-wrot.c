@@ -727,11 +727,11 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		/* Write frame base address */
 		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR, addr, U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR], false, 0);
 		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_C, addr_c, U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C], false, 0);
 		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_V, addr_v, U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V], false, 0);
 
 		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
 			frame_size = ((((wrot_frm->out_h + 31) >>
@@ -761,11 +761,11 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		/* Write frame base address */
 		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR, iova[0], U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR], false, 0);
 		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_C, iova[1], U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C], false, 0);
 		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_V, iova[2], U32_MAX,
-			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V], false, 0);
 	}
 
 	/* Write frame related registers */
