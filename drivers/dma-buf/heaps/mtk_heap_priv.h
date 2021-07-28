@@ -17,6 +17,7 @@
 #include "mtk_heap.h"
 
 #define DUMP_INFO_LEN_MAX    (400)
+#define BUF_PRIV_MAX_CNT         MTK_M4U_DOM_NR_MAX
 
 /* Bit map */
 #define HEAP_DUMP_SKIP_ATTACH     (1 << 0)
@@ -42,6 +43,12 @@ struct dma_heap_attachment {
 	bool mapped;
 
 	bool uncached;
+};
+
+struct mtk_heap_dev_info {
+	struct device           *dev;
+	enum dma_data_direction direction;
+	unsigned long           map_attrs;
 };
 
 /* copy from struct system_heap_buffer */

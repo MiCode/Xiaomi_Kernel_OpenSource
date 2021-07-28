@@ -85,14 +85,6 @@ struct secure_heap_page {
 	enum HEAP_BASE_TYPE heap_type;
 };
 
-#define BUF_PRIV_MAX_CNT             MTK_M4U_DOM_NR_MAX
-
-struct sec_heap_dev_info {
-	struct device           *dev;
-	enum dma_data_direction direction;
-	unsigned long           map_attrs;
-};
-
 struct mtk_sec_heap_buffer {
 	struct dma_heap *heap;
 	struct list_head attachments;
@@ -102,14 +94,14 @@ struct mtk_sec_heap_buffer {
 	int vmap_cnt;
 	void *vaddr;
 	struct deferred_freelist_item deferred_free;
-	struct ssheap_buf_info *ssheap; /* for page base */
 
 	bool uncached;
 
 	void *priv;
+	struct ssheap_buf_info *ssheap; /* for page base */
 
 	bool                     mapped[BUF_PRIV_MAX_CNT];
-	struct sec_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
+	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
 	/* secure heap will not strore sgtable here */
 	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
 	struct mutex             map_lock; /* map iova lock */
@@ -258,7 +250,7 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 	/* remove all domains' sgtable */
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
 		struct sg_table *table = buffer->mapped_table[i];
-		struct sec_heap_dev_info dev_info = buffer->dev_info[i];
+		struct mtk_heap_dev_info dev_info = buffer->dev_info[i];
 		unsigned long attrs = dev_info.map_attrs;
 
 		if(buffer->uncached)
@@ -314,7 +306,7 @@ static int page_base_free(struct secure_heap_page *sec_heap, struct mtk_sec_heap
 	/* remove all domains' sgtable */
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
 		struct sg_table *table = buffer->mapped_table[i];
-		struct sec_heap_dev_info dev_info = buffer->dev_info[i];
+		struct mtk_heap_dev_info dev_info = buffer->dev_info[i];
 		unsigned long attrs = dev_info.map_attrs;
 
 		if(buffer->uncached)

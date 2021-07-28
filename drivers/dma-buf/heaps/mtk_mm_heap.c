@@ -48,18 +48,8 @@ struct mtk_mm_heap_buffer {
 	bool uncached;
 
 	void *priv;
-};
-
-struct mm_heap_dev_info {
-	struct device           *dev;
-	enum dma_data_direction direction;
-	unsigned long           map_attrs;
-};
-
-#define BUF_PRIV_MAX_CNT             MTK_M4U_DOM_NR_MAX
-struct mm_heap_priv {
 	bool                    mapped[BUF_PRIV_MAX_CNT];
-	struct mm_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
+	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
 	struct sg_table         *mapped_table[BUF_PRIV_MAX_CNT];
 	struct mutex            map_lock; /* map iova lock */
 	pid_t                   pid;
@@ -137,7 +127,7 @@ static int copy_sg_table(struct sg_table *source, struct sg_table *dest)
  * must check domain info before call fill_buffer_info
  * @Return 0: pass
  */
-static int fill_buffer_info(struct mm_heap_priv *info,
+static int fill_buffer_info(struct mtk_mm_heap_buffer *buffer,
                            struct sg_table *table,
                            struct dma_buf_attachment *a,
                            enum dma_data_direction dir,
@@ -152,7 +142,7 @@ static int fill_buffer_info(struct mm_heap_priv *info,
 	if (iommu_dom_id >= BUF_PRIV_MAX_CNT)
 		return 0;
 
-	if (info->mapped[iommu_dom_id]) {
+	if (buffer->mapped[iommu_dom_id]) {
 		pr_err("%s err: already mapped, no need fill again\n", __func__);
 		return -EINVAL;
 	}
@@ -172,12 +162,12 @@ static int fill_buffer_info(struct mm_heap_priv *info,
 	if (ret)
 		return ret;
 
-	info->mapped_table[iommu_dom_id] = new_table;
-	info->mapped[iommu_dom_id] = true;
-	info->dev_info[iommu_dom_id].dev = a->dev;
-	info->dev_info[iommu_dom_id].direction = dir;
+	buffer->mapped_table[iommu_dom_id] = new_table;
+	buffer->mapped[iommu_dom_id] = true;
+	buffer->dev_info[iommu_dom_id].dev = a->dev;
+	buffer->dev_info[iommu_dom_id].direction = dir;
 	/* TODO: check map_attrs affect??? */
-	info->dev_info[iommu_dom_id].map_attrs = a->dma_map_attrs;
+	buffer->dev_info[iommu_dom_id].map_attrs = a->dma_map_attrs;
 
 	return 0;
 }
@@ -240,21 +230,20 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
 	int dom_id = BUF_PRIV_MAX_CNT;
 	struct mtk_mm_heap_buffer *buffer = attachment->dmabuf->priv;
-	struct mm_heap_priv *buf_info = buffer->priv;
 
 	if (a->uncached)
 		attr |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	mutex_lock(&buf_info->map_lock);
+	mutex_lock(&buffer->map_lock);
 
 	if (fwspec)
 		dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
 
 	/* device with iommus attribute AND mapped before */
-	if (fwspec && buf_info->mapped[dom_id]) {
+	if (fwspec && buffer->mapped[dom_id]) {
 		/* mapped before, return saved table */
-		ret = copy_sg_table(buf_info->mapped_table[dom_id], table);
-		mutex_unlock(&buf_info->map_lock);
+		ret = copy_sg_table(buffer->mapped_table[dom_id], table);
+		mutex_unlock(&buffer->map_lock);
 		if (ret)
 			return ERR_PTR(-EINVAL);
 
@@ -266,19 +255,19 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 	if (dma_map_sgtable(attachment->dev, table, direction, attr)) {
 		pr_info("%s map fail dom:%d, dev:%s\n",
 			__func__, dom_id, dev_name(attachment->dev));
-		mutex_unlock(&buf_info->map_lock);
+		mutex_unlock(&buffer->map_lock);
 		return ERR_PTR(-ENOMEM);
 	}
 
-	ret = fill_buffer_info(buf_info, table,
+	ret = fill_buffer_info(buffer, table,
 			       attachment, direction, dom_id);
 	if (ret) {
-		mutex_unlock(&buf_info->map_lock);
+		mutex_unlock(&buffer->map_lock);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	a->mapped = true;
-	mutex_unlock(&buf_info->map_lock);
+	mutex_unlock(&buffer->map_lock);
 
 	return table;
 }
@@ -495,30 +484,27 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
-
-	struct mm_heap_priv *buf_info = buffer->priv;
 	int i;
 
 	pr_debug("%s: addr:%p, size:%lu, name:%s\n",
 		 __func__, dmabuf, buffer->len, dmabuf->name);
 	/* unmap all domains' iova */
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
-		struct sg_table *table = buf_info->mapped_table[i];
-		struct mm_heap_dev_info dev_info = buf_info->dev_info[i];
+		struct sg_table *table = buffer->mapped_table[i];
+		struct mtk_heap_dev_info dev_info = buffer->dev_info[i];
 		unsigned long attrs = dev_info.map_attrs;
 
 		if(buffer->uncached)
 			attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-		if (!buf_info->mapped[i])
+		if (!buffer->mapped[i])
 			continue;
 
 		dma_unmap_sgtable(dev_info.dev, table, dev_info.direction, attrs);
-		buf_info->mapped[i] = false;
+		buffer->mapped[i] = false;
 		sg_free_table(table);
 		kfree(table);
 	}
-	kfree(buf_info);
 
 	/* free buffer memory */
 	deferred_free(&buffer->deferred_free, mtk_mm_heap_buf_free, npages);
@@ -584,12 +570,10 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 	struct list_head pages;
 	struct page *page, *tmp_page;
 	int i, ret = -ENOMEM;
-	struct mm_heap_priv *info;
 	struct task_struct *task = current->group_leader;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!buffer || !info)
+	if (!buffer)
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&buffer->attachments);
@@ -629,13 +613,12 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 		list_del(&page->lru);
 	}
 
-	buffer->priv = info;
-	mutex_init(&info->map_lock);
+	mutex_init(&buffer->map_lock);
 	/* add alloc pid & tid info */
-	get_task_comm(info->pid_name, task);
-	get_task_comm(info->tid_name, current);
-	info->pid = task_pid_nr(task);
-	info->tid = task_pid_nr(current);
+	get_task_comm(buffer->pid_name, task);
+	get_task_comm(buffer->tid_name, current);
+	buffer->pid = task_pid_nr(task);
+	buffer->tid = task_pid_nr(current);
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
