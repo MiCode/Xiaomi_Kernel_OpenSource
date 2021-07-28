@@ -90,6 +90,7 @@
 			<&topckgen_clk CLK_TOP_UFS_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_VENC_SEL>,
+			<&topckgen_clk CLK_TOP_ADSP_SEL>,
 			<&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
 			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
@@ -228,6 +229,11 @@
 			<&topckgen_clk CLK_TOP_APLL12_DIV7_PDN>,
 			<&topckgen_clk CLK_TOP_APLL12_DIV8_PDN>,
 			<&topckgen_clk CLK_TOP_APLL12_DIV9_PDN>,
+			<&adsp_clk CLK_ADSP_CORE0_DBG_EN>,
+			<&adsp_clk CLK_ADSP_TIMER_EN>,
+			<&adsp_clk CLK_ADSP_DMA0_EN>,
+			<&adsp_clk CLK_ADSP_UART_EN>,
+			<&adsp_clk CLK_ADSP_UART_BCLK>,
 			<&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>,
 			<&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MERGE0>,
 			<&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_FAKE_ENG0>,
@@ -537,6 +543,11 @@
 	bring-up-pd-ufs0 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_UFS0>;
+	};
+
+	bring-up-pd-adsp_top {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_ADSP_TOP_DORMANT>;
 	};
 
 	bring-up-pd-isp_vcore {
