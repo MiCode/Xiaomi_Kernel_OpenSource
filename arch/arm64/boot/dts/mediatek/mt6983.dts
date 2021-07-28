@@ -7323,7 +7323,7 @@
 				  <7 10>;  /* vow dump */
 
 		secure_dump = "disable";   /* enable dump via secure world*/
-		secure_dump_size = <0x480000>;
+		secure_dump_size = <0x380000>;
 
 		scp_mem_key = "mediatek,reserve-memory-scp_share";
 		scp_mem_tbl = <0 0x0>, /* secure dump, its size is in secure_dump_size */
