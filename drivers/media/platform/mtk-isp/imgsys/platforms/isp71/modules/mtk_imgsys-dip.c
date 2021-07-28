@@ -58,15 +58,6 @@ const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x1450, 0x10000100},	/* DMGI_D1A_ORIRDMA_CON0 */
 	{0x1454, 0x11000100},	/* DMGI_D1A_ORIRDMA_CON1 */
 	{0x1458, 0x11000100},	/* DMGI_D1A_ORIRDMA_CON2 */
-	{0x514C0, 0x100001C0},	/* VIPI_D1A_ORIRDMA_CON0 */
-	{0x514C4, 0x11C001C0},	/* VIPI_D1A_ORIRDMA_CON1 */
-	{0x514C8, 0x11C001C0},	/* VIPI_D1A_ORIRDMA_CON2 */
-	{0x51530, 0x100000E0},	/* VIPBI_D1A_ORIRDMA_CON0 */
-	{0x51534, 0x10E000E0},	/* VIPBI_D1A_ORIRDMA_CON1 */
-	{0x51538, 0x10E000E0},	/* VIPBI_D1A_ORIRDMA_CON2 */
-	{0x515A0, 0x100000E0},	/* VIPCI_D1A_ORIRDMA_CON0 */
-	{0x515A4, 0x10E000E0},	/* VIPCI_D1A_ORIRDMA_CON1 */
-	{0x515A8, 0x10E000E0},	/* VIPCI_D1A_ORIRDMA_CON2 */
 	{0x1610, 0x10000120},	/* TNRWI_D1A_ULCRDMA_CON0 */
 	{0x1614, 0x11200120},	/* TNRWI_D1A_ULCRDMA_CON1 */
 	{0x1618, 0x11200120},	/* TNRWI_D1A_ULCRDMA_CON2 */
@@ -109,36 +100,9 @@ const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x1950, 0x10000040},	/* SMTI_D3A_ULCRDMA_CON0 */
 	{0x1954, 0x10400040},	/* SMTI_D3A_ULCRDMA_CON1 */
 	{0x1958, 0x10400040},	/* SMTI_D3A_ULCRDMA_CON2 */
-	{0x51990, 0x10000040},	/* SMTI_D4A_ULCRDMA_CON0 */
-	{0x51994, 0x10400040},	/* SMTI_D4A_ULCRDMA_CON1 */
-	{0x51998, 0x10400040},	/* SMTI_D4A_ULCRDMA_CON2 */
-	{0x519D0, 0x10000040},	/* SMTI_D5A_ULCRDMA_CON0 */
-	{0x519D4, 0x10400040},	/* SMTI_D5A_ULCRDMA_CON1 */
-	{0x519D8, 0x10400040},	/* SMTI_D5A_ULCRDMA_CON2 */
-	{0x51A10, 0x10000040},	/* SMTI_D6A_ULCRDMA_CON0 */
-	{0x51A14, 0x10400040},	/* SMTI_D6A_ULCRDMA_CON1 */
-	{0x51A18, 0x10400040},	/* SMTI_D6A_ULCRDMA_CON2 */
-	{0x51A50, 0x10000040},	/* SMTI_D7A_ULCRDMA_CON0 */
-	{0x51A54, 0x10400040},	/* SMTI_D7A_ULCRDMA_CON1 */
-	{0x51A58, 0x10400040},	/* SMTI_D7A_ULCRDMA_CON2 */
 	{0x1A90, 0x10000040},	/* SMTI_D8A_ULCRDMA_CON0 */
 	{0x1A94, 0x10400040},	/* SMTI_D8A_ULCRDMA_CON1 */
 	{0x1A98, 0x10400040},	/* SMTI_D8A_ULCRDMA_CON2 */
-	{0x51AD0, 0x10000040},	/* SMTI_D9A_ULCRDMA_CON0 */
-	{0x51AD4, 0x10400040},	/* SMTI_D9A_ULCRDMA_CON1 */
-	{0x51AD8, 0x10400040},	/* SMTI_D9A_ULCRDMA_CON2 */
-	{0x52020, 0x10000380},	/* IMG3O_D1A_ORIWDMA_CON0 */
-	{0x52024, 0x13800380},	/* IMG3O_D1A_ORIWDMA_CON1 */
-	{0x52028, 0x13800380},	/* IMG3O_D1A_ORIWDMA_CON2 */
-	{0x520D0, 0x100001C0},	/* IMG3BO_D1A_ORIWDMA_CON0 */
-	{0x520D4, 0x11C001C0},	/* IMG3BO_D1A_ORIWDMA_CON1 */
-	{0x520D8, 0x11C001C0},	/* IMG3BO_D1A_ORIWDMA_CON2 */
-	{0x52180, 0x100001C0},	/* IMG3CO_D1A_ORIWDMA_CON0 */
-	{0x52184, 0x11C001C0},	/* IMG3CO_D1A_ORIWDMA_CON1 */
-	{0x52188, 0x11C001C0},	/* IMG3CO_D1A_ORIWDMA_CON2 */
-	{0x52230, 0x10000040},	/* IMG3DO_D1A_ORIWDMA_CON0 */
-	{0x52234, 0x10040040},	/* IMG3DO_D1A_ORIWDMA_CON1 */
-	{0x52238, 0x10040040},	/* IMG3DO_D1A_ORIWDMA_CON2 */
 	{0x22E0, 0x100001C0},	/* IMG4O_D1A_ORIWDMA_CON0 */
 	{0x22E4, 0x11C001C0},	/* IMG4O_D1A_ORIWDMA_CON1 */
 	{0x22E8, 0x11C001C0},	/* IMG4O_D1A_ORIWDMA_CON2 */
@@ -151,15 +115,6 @@ const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x24F0, 0x10000040},	/* IMG4DO_D1A_ORIWDMA_CON0 */
 	{0x24F4, 0x10400040},	/* IMG4DO_D1A_ORIWDMA_CON1 */
 	{0x24F8, 0x10400040},	/* IMG4DO_D1A_ORIWDMA_CON2 */
-	{0x525A0, 0x10000200},	/* FEO_D1A_ORIWDMA_CON0 */
-	{0x525A4, 0x12000200},	/* FEO_D1A_ORIWDMA_CON1 */
-	{0x525A8, 0x12000200},	/* FEO_D1A_ORIWDMA_CON2 */
-	{0x52650, 0x10000200},	/* IMG2O_D1A_ULCWDMA_CON0 */
-	{0x52654, 0x12000200},	/* IMG2O_D1A_ULCWDMA_CON1 */
-	{0x52658, 0x12000200},	/* IMG2O_D1A_ULCWDMA_CON2 */
-	{0x52690, 0x10000100},	/* IMG2BO_D1A_ULCWDMA_CON0 */
-	{0x52694, 0x11000100},	/* IMG2BO_D1A_ULCWDMA_CON1 */
-	{0x52698, 0x11000100},	/* IMG2BO_D1A_ULCWDMA_CON2 */
 	{0x26D0, 0x10000120},	/* TNRWO_D1A_ULCWDMA_CON0 */
 	{0x26D4, 0x11200120},	/* TNRWO_D1A_ULCWDMA_CON1 */
 	{0x26D8, 0x11200120},	/* TNRWO_D1A_ULCWDMA_CON2 */
@@ -178,24 +133,9 @@ const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x2810, 0x10000040},	/* SMTO_D3A_ULCWDMA_CON0 */
 	{0x2814, 0x10400040},	/* SMTO_D3A_ULCWDMA_CON1 */
 	{0x2818, 0x10400040},	/* SMTO_D3A_ULCWDMA_CON2 */
-	{0x52850, 0x10000040},	/* SMTO_D4A_ULCWDMA_CON0 */
-	{0x52854, 0x10400040},	/* SMTO_D4A_ULCWDMA_CON1 */
-	{0x52858, 0x10400040},	/* SMTO_D4A_ULCWDMA_CON2 */
-	{0x52890, 0x10000040},	/* SMTO_D5A_ULCWDMA_CON0 */
-	{0x52894, 0x10400040},	/* SMTO_D5A_ULCWDMA_CON1 */
-	{0x52898, 0x10400040},	/* SMTO_D5A_ULCWDMA_CON2 */
-	{0x528D0, 0x10000040},	/* SMTO_D6A_ULCWDMA_CON0 */
-	{0x528D4, 0x10400040},	/* SMTO_D6A_ULCWDMA_CON1 */
-	{0x528D8, 0x10400040},	/* SMTO_D6A_ULCWDMA_CON2 */
-	{0x52910, 0x10000040},	/* SMTO_D7A_ULCWDMA_CON0 */
-	{0x52914, 0x10400040},	/* SMTO_D7A_ULCWDMA_CON1 */
-	{0x52918, 0x10400040},	/* SMTO_D7A_ULCWDMA_CON2 */
 	{0x2950, 0x10000040},	/* SMTO_D8A_ULCWDMA_CON0 */
 	{0x2954, 0x10400040},	/* SMTO_D8A_ULCWDMA_CON1 */
 	{0x2958, 0x10400040},	/* SMTO_D8A_ULCWDMA_CON2 */
-	{0x52990, 0x10000040},	/* SMTO_D9A_ULCWDMA_CON0 */
-	{0x52994, 0x10400040},	/* SMTO_D9A_ULCWDMA_CON1 */
-	{0x52998, 0x10400040},	/* SMTO_D9A_ULCWDMA_CON2 */
 	{0x2C10, 0x10000040}, /*SMTCO_D1A_ULCWDMA_CON0*/
 	{0x2C14, 0x10400040}, /*SMTCO_D1A_ULCWDMA_CON1*/
 	{0x2C18, 0x10400040}, /*SMTCO_D1A_ULCWDMA_CON2*/
@@ -205,21 +145,6 @@ const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x2D90, 0x10000040}, /*SMTCO_D8A_ULCWDMA_CON0*/
 	{0x2D94, 0x10400040}, /*SMTCO_D8A_ULCWDMA_CON1*/
 	{0x2D98, 0x10400040}, /*SMTCO_D8A_ULCWDMA_CON2*/
-	{0x52C90, 0x10000040},  /*SMTCO_D4A_ULCWDMA_CON0*/
-	{0x52C94, 0x10400040},  /*SMTCO_D4A_ULCWDMA_CON1*/
-	{0x52C98, 0x10400040},  /*SMTCO_D4A_ULCWDMA_CON2*/
-	{0x52CD0, 0x10000040},  /*SMTCO_D5A_ULCWDMA_CON0*/
-	{0x52CD4, 0x10400040},  /*SMTCO_D5A_ULCWDMA_CON1*/
-	{0x52CD8, 0x10400040},  /*SMTCO_D5A_ULCWDMA_CON2*/
-	{0x52D10, 0x10000040},  /*SMTCO_D6A_ULCWDMA_CON0*/
-	{0x52D14, 0x10400040},  /*SMTCO_D6A_ULCWDMA_CON1*/
-	{0x52D18, 0x10400040},  /*SMTCO_D6A_ULCWDMA_CON2*/
-	{0x52D50, 0x10000040},  /*SMTCO_D7A_ULCWDMA_CON0*/
-	{0x52D54, 0x10400040},  /*SMTCO_D7A_ULCWDMA_CON1*/
-	{0x52D58, 0x10400040},  /*SMTCO_D7A_ULCWDMA_CON2*/
-	{0x52DD0, 0x10000040},  /*SMTCO_D9A_ULCWDMA_CON0*/
-	{0x52DD4, 0x10400040},  /*SMTCO_D9A_ULCWDMA_CON1*/
-	{0x52DD8, 0x10400040},  /*SMTCO_D9A_ULCWDMA_CON2*/
 	{0x1B10, 0x10000040},  /* SMTCI_D1A_ULCRDMA_CON0*/
 	{0x1B14, 0x10400040},  /* SMTCI_D1A_ULCRDMA_CON1*/
 	{0x1B18, 0x10400040},  /* SMTCI_D1A_ULCRDMA_CON2*/
@@ -229,101 +154,190 @@ const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x1C90, 0x10000040},  /* SMTCI_D8A_ULCRDMA_CON0*/
 	{0x1C94, 0x10400040},  /* SMTCI_D8A_ULCRDMA_CON1*/
 	{0x1C98, 0x10400040},  /* SMTCI_D8A_ULCRDMA_CON2*/
-	{0x51B90, 0x10000040},  /* SMTCI_D4A_ULCRDMA_CON0*/
-	{0x51B94, 0x10400040},  /* SMTCI_D4A_ULCRDMA_CON1*/
-	{0x51B98, 0x10400040},  /* SMTCI_D4A_ULCRDMA_CON2*/
-	{0x51BD0, 0x10000040},  /* SMTCI_D5A_ULCRDMA_CON0*/
-	{0x51BD4, 0x10400040},  /* SMTCI_D5A_ULCRDMA_CON1*/
-	{0x51BD8, 0x10400040},  /* SMTCI_D5A_ULCRDMA_CON2*/
-	{0x51C10, 0x10000040},  /* SMTCI_D6A_ULCRDMA_CON0*/
-	{0x51C14, 0x10400040},  /* SMTCI_D6A_ULCRDMA_CON1*/
-	{0x51C18, 0x10400040},  /* SMTCI_D6A_ULCRDMA_CON2*/
-	{0x51C50, 0x10000040},  /* SMTCI_D7A_ULCRDMA_CON0*/
-	{0x51C54, 0x10400040},  /* SMTCI_D7A_ULCRDMA_CON1*/
-	{0x51C58, 0x10400040},  /* SMTCI_D7A_ULCRDMA_CON2*/
-	{0x51CD0, 0x10000040},  /* SMTCI_D9A_ULCRDMA_CON0*/
-	{0x51CD4, 0x10400040},  /* SMTCI_D9A_ULCRDMA_CON1*/
-	{0x51CD8, 0x10400040},  /* SMTCI_D9A_ULCRDMA_CON2*/
-	{0x529D0, 0x10000100},  /*TNCSO_D1A_ULCWDMA_CON0*/
-	{0x529D4, 0x11000100},  /*TNCSO_D1A_ULCWDMA_CON1*/
-	{0x529D8, 0x11000100},  /*TNCSO_D1A_ULCWDMA_CON2*/
-	{0x52A10, 0x10000060},  /*TNCSBO_D1A_ULCWDMA_CON0*/
-	{0x52A14, 0x10600060},  /*TNCSBO_D1A_ULCWDMA_CON1*/
-	{0x52A18, 0x10600060},  /*TNCSBO_D1A_ULCWDMA_CON2*/
-	{0x52A50, 0x10000040},  /*TNCSHO_D1A_ULCWDMA_CON0*/
-	{0x52A54, 0x10400040},  /*TNCSHO_D1A_ULCWDMA_CON1*/
-	{0x52A58, 0x10400040},  /*TNCSHO_D1A_ULCWDMA_CON2*/
-	{0x52A90, 0x10000040},  /*TNCSYO_D1A_ULCWDMA_CON0*/
-	{0x52A94, 0x10400040},  /*TNCSYO_D1A_ULCWDMA_CON1*/
-	{0x52A98, 0x10400040},  /*TNCSYO_D1A_ULCWDMA_CON2*/
-	{0x52AD0, 0x10000020},  /*TNCSTO_D1A_ULCWDMA_CON0*/
-	{0x52AD4, 0x10200020},  /*TNCSTO_D1A_ULCWDMA_CON1*/
-	{0x52AD8, 0x10200020},  /*TNCSTO_D1A_ULCWDMA_CON2*/
-	{0x52B10, 0x10000070},  /*TNCSTO_D2A_ULCWDMA_CON0*/
-	{0x52B14, 0x10700070},  /*TNCSTO_D2A_ULCWDMA_CON1*/
-	{0x52B18, 0x10700070},  /*TNCSTO_D2A_ULCWDMA_CON2*/
-	{0x52B50, 0x10000020},  /*TNCSTO_D3A_ULCWDMA_CON0*/
-	{0x52B54, 0x10200020},  /*TNCSTO_D3A_ULCWDMA_CON1*/
-	{0x52B58, 0x10200020},  /*TNCSTO_D3A_ULCWDMA_CON2*/
-	{0x52B90, 0x10000200},  /*TNCO_D1A_ULCWDMA_CON0*/
-	{0x52B94, 0x12000200},  /*TNCO_D1A_ULCWDMA_CON1*/
-	{0x52B98, 0x12000200},  /*TNCO_D1A_ULCWDMA_CON2*/
-	{0x52BD0, 0x10000100},  /*TNCBO_D1A_ULCWDMA_CON0*/
-	{0x52BD4, 0x11000100},  /*TNCBO_D1A_ULCWDMA_CON1*/
-	{0x52BD8, 0x11000100},  /*TNCBO_D1A_ULCWDMA_CON2*/
-	{0x51D10, 0x10000020},  /*TNCSTI_D1A_ULCRDMA_CON0*/
-	{0x51D14, 0x10200020},  /*TNCSTI_D1A_ULCRDMA_CON1*/
-	{0x51D18, 0x10200020},  /*TNCSTI_D1A_ULCRDMA_CON2*/
-	{0x51D50, 0x10000020},  /*TNCSTI_D2A_ULCRDMA_CON0*/
-	{0x51D54, 0x10700070},  /*TNCSTI_D2A_ULCRDMA_CON1*/
-	{0x51D58, 0x10700070},  /*TNCSTI_D2A_ULCRDMA_CON2*/
-	{0x51D90, 0x10000020},  /*TNCSTI_D3A_ULCRDMA_CON0*/
-	{0x51D94, 0x10200020},  /*TNCSTI_D3A_ULCRDMA_CON1*/
-	{0x51D98, 0x10200020},  /*TNCSTI_D3A_ULCRDMA_CON2*/
-	{0x51DD0, 0x10000064},  /*TNCSTI_D4A_ULCRDMA_CON0*/
-	{0x51DD4, 0x10640064},  /*TNCSTI_D4A_ULCRDMA_CON1*/
-	{0x51DD8, 0x10640064},  /*TNCSTI_D4A_ULCRDMA_CON2*/
-	{0x51E10, 0x10000020},  /*TNCSTI_D5A_ULCRDMA_CON0*/
-	{0x51E14, 0x10200020},  /*TNCSTI_D5A_ULCRDMA_CON1*/
-	{0x51E18, 0x10200020},  /*TNCSTI_D5A_ULCRDMA_CON2*/
-	{0x51E50, 0x10000080},  /*MASKI_D1A_ULCRDMA_CON0*/
-	{0x51E54, 0x10800080},  /*MASKI_D1A_ULCRDMA_CON1*/
-	{0x51E58, 0x10800080},  /*MASKI_D1A_ULCRDMA_CON2*/
-	{0x51E90, 0x10000040},  /*DHZAI_D1A_ULCRDMA_CON0*/
-	{0x51E94, 0x10400040},  /*DHZAI_D1A_ULCRDMA_CON1*/
-	{0x51E98, 0x10400040},  /*DHZAI_D1A_ULCRDMA_CON2*/
-	{0x51ED0, 0x10000040},  /*DHZGI_D1A_ULCRDMA_CON0*/
-	{0x51ED4, 0x10400040},  /*DHZGI_D1A_ULCRDMA_CON1*/
-	{0x51ED8, 0x10400040},  /*DHZGI_D1A_ULCRDMA_CON2*/
-	{0x51F10, 0x10000040},  /*DHZDI_D1A_ULCRDMA_CON0*/
-	{0x51F14, 0x10400040},  /*DHZDI_D1A_ULCRDMA_CON1*/
-	{0x51F18, 0x10400040}  /*DHZDI_D1A_ULCRDMA_CON2*/
 };
+
+const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary_nr[] = {
+	{0x14C0, 0x10000380},	/* VIPI_D1A_ORIRDMA_CON0 */
+	{0x14C4, 0x13800380},	/* VIPI_D1A_ORIRDMA_CON1 */
+	{0x14C8, 0x13800380},	/* VIPI_D1A_ORIRDMA_CON2 */
+	{0x1530, 0x100001C0},	/* VIPBI_D1A_ORIRDMA_CON0 */
+	{0x1534, 0x11C001C0},	/* VIPBI_D1A_ORIRDMA_CON1 */
+	{0x1538, 0x11C001C0},	/* VIPBI_D1A_ORIRDMA_CON2 */
+	{0x15A0, 0x100001C0},	/* VIPCI_D1A_ORIRDMA_CON0 */
+	{0x15A4, 0x11C001C0},	/* VIPCI_D1A_ORIRDMA_CON1 */
+	{0x15A8, 0x11C001C0},	/* VIPCI_D1A_ORIRDMA_CON2 */
+	{0x1990, 0x10000040},	/* SMTI_D4A_ULCRDMA_CON0 */
+	{0x1994, 0x10400040},	/* SMTI_D4A_ULCRDMA_CON1 */
+	{0x1998, 0x10400040},	/* SMTI_D4A_ULCRDMA_CON2 */
+	{0x19D0, 0x10000040},	/* SMTI_D5A_ULCRDMA_CON0 */
+	{0x19D4, 0x10400040},	/* SMTI_D5A_ULCRDMA_CON1 */
+	{0x19D8, 0x10400040},	/* SMTI_D5A_ULCRDMA_CON2 */
+	{0x1A10, 0x10000040},	/* SMTI_D6A_ULCRDMA_CON0 */
+	{0x1A14, 0x10400040},	/* SMTI_D6A_ULCRDMA_CON1 */
+	{0x1A18, 0x10400040},	/* SMTI_D6A_ULCRDMA_CON2 */
+	{0x1A50, 0x10000040},	/* SMTI_D7A_ULCRDMA_CON0 */
+	{0x1A54, 0x10400040},	/* SMTI_D7A_ULCRDMA_CON1 */
+	{0x1A58, 0x10400040},	/* SMTI_D7A_ULCRDMA_CON2 */
+	{0x1AD0, 0x10000040},	/* SMTI_D9A_ULCRDMA_CON0 */
+	{0x1AD4, 0x10400040},	/* SMTI_D9A_ULCRDMA_CON1 */
+	{0x1AD8, 0x10400040},	/* SMTI_D9A_ULCRDMA_CON2 */
+	{0x2020, 0x10000380},	/* IMG3O_D1A_ORIWDMA_CON0 */
+	{0x2024, 0x13800380},	/* IMG3O_D1A_ORIWDMA_CON1 */
+	{0x2028, 0x13800380},	/* IMG3O_D1A_ORIWDMA_CON2 */
+	{0x20D0, 0x100001C0},	/* IMG3BO_D1A_ORIWDMA_CON0 */
+	{0x20D4, 0x11C001C0},	/* IMG3BO_D1A_ORIWDMA_CON1 */
+	{0x20D8, 0x11C001C0},	/* IMG3BO_D1A_ORIWDMA_CON2 */
+	{0x2180, 0x100001C0},	/* IMG3CO_D1A_ORIWDMA_CON0 */
+	{0x2184, 0x11C001C0},	/* IMG3CO_D1A_ORIWDMA_CON1 */
+	{0x2188, 0x11C001C0},	/* IMG3CO_D1A_ORIWDMA_CON2 */
+	{0x2230, 0x10000040},	/* IMG3DO_D1A_ORIWDMA_CON0 */
+	{0x2234, 0x10040040},	/* IMG3DO_D1A_ORIWDMA_CON1 */
+	{0x2238, 0x10040040},	/* IMG3DO_D1A_ORIWDMA_CON2 */
+	{0x25A0, 0x10000200},	/* FEO_D1A_ORIWDMA_CON0 */
+	{0x25A4, 0x12000200},	/* FEO_D1A_ORIWDMA_CON1 */
+	{0x25A8, 0x12000200},	/* FEO_D1A_ORIWDMA_CON2 */
+	{0x2650, 0x10000200},	/* IMG2O_D1A_ULCWDMA_CON0 */
+	{0x2654, 0x12000200},	/* IMG2O_D1A_ULCWDMA_CON1 */
+	{0x2658, 0x12000200},	/* IMG2O_D1A_ULCWDMA_CON2 */
+	{0x2690, 0x10000100},	/* IMG2BO_D1A_ULCWDMA_CON0 */
+	{0x2694, 0x11000100},	/* IMG2BO_D1A_ULCWDMA_CON1 */
+	{0x2698, 0x11000100},	/* IMG2BO_D1A_ULCWDMA_CON2 */
+	{0x2850, 0x10000040},	/* SMTO_D4A_ULCWDMA_CON0 */
+	{0x2854, 0x10400040},	/* SMTO_D4A_ULCWDMA_CON1 */
+	{0x2858, 0x10400040},	/* SMTO_D4A_ULCWDMA_CON2 */
+	{0x2890, 0x10000040},	/* SMTO_D5A_ULCWDMA_CON0 */
+	{0x2894, 0x10400040},	/* SMTO_D5A_ULCWDMA_CON1 */
+	{0x2898, 0x10400040},	/* SMTO_D5A_ULCWDMA_CON2 */
+	{0x28D0, 0x10000040},	/* SMTO_D6A_ULCWDMA_CON0 */
+	{0x28D4, 0x10400040},	/* SMTO_D6A_ULCWDMA_CON1 */
+	{0x28D8, 0x10400040},	/* SMTO_D6A_ULCWDMA_CON2 */
+	{0x2910, 0x10000040},	/* SMTO_D7A_ULCWDMA_CON0 */
+	{0x2914, 0x10400040},	/* SMTO_D7A_ULCWDMA_CON1 */
+	{0x2918, 0x10400040},	/* SMTO_D7A_ULCWDMA_CON2 */
+	{0x2990, 0x10000040},	/* SMTO_D9A_ULCWDMA_CON0 */
+	{0x2994, 0x10400040},	/* SMTO_D9A_ULCWDMA_CON1 */
+	{0x2998, 0x10400040},	/* SMTO_D9A_ULCWDMA_CON2 */
+	{0x2C90, 0x10000040},  /*SMTCO_D4A_ULCWDMA_CON0*/
+	{0x2C94, 0x10400040},  /*SMTCO_D4A_ULCWDMA_CON1*/
+	{0x2C98, 0x10400040},  /*SMTCO_D4A_ULCWDMA_CON2*/
+	{0x2CD0, 0x10000040},  /*SMTCO_D5A_ULCWDMA_CON0*/
+	{0x2CD4, 0x10400040},  /*SMTCO_D5A_ULCWDMA_CON1*/
+	{0x2CD8, 0x10400040},  /*SMTCO_D5A_ULCWDMA_CON2*/
+	{0x2D10, 0x10000040},  /*SMTCO_D6A_ULCWDMA_CON0*/
+	{0x2D14, 0x10400040},  /*SMTCO_D6A_ULCWDMA_CON1*/
+	{0x2D18, 0x10400040},  /*SMTCO_D6A_ULCWDMA_CON2*/
+	{0x2D50, 0x10000040},  /*SMTCO_D7A_ULCWDMA_CON0*/
+	{0x2D54, 0x10400040},  /*SMTCO_D7A_ULCWDMA_CON1*/
+	{0x2D58, 0x10400040},  /*SMTCO_D7A_ULCWDMA_CON2*/
+	{0x2DD0, 0x10000040},  /*SMTCO_D9A_ULCWDMA_CON0*/
+	{0x2DD4, 0x10400040},  /*SMTCO_D9A_ULCWDMA_CON1*/
+	{0x2DD8, 0x10400040},  /*SMTCO_D9A_ULCWDMA_CON2*/
+	{0x1B90, 0x10000040},  /* SMTCI_D4A_ULCRDMA_CON0*/
+	{0x1B94, 0x10400040},  /* SMTCI_D4A_ULCRDMA_CON1*/
+	{0x1B98, 0x10400040},  /* SMTCI_D4A_ULCRDMA_CON2*/
+	{0x1BD0, 0x10000040},  /* SMTCI_D5A_ULCRDMA_CON0*/
+	{0x1BD4, 0x10400040},  /* SMTCI_D5A_ULCRDMA_CON1*/
+	{0x1BD8, 0x10400040},  /* SMTCI_D5A_ULCRDMA_CON2*/
+	{0x1C10, 0x10000040},  /* SMTCI_D6A_ULCRDMA_CON0*/
+	{0x1C14, 0x10400040},  /* SMTCI_D6A_ULCRDMA_CON1*/
+	{0x1C18, 0x10400040},  /* SMTCI_D6A_ULCRDMA_CON2*/
+	{0x1C50, 0x10000040},  /* SMTCI_D7A_ULCRDMA_CON0*/
+	{0x1C54, 0x10400040},  /* SMTCI_D7A_ULCRDMA_CON1*/
+	{0x1C58, 0x10400040},  /* SMTCI_D7A_ULCRDMA_CON2*/
+	{0x1CD0, 0x10000040},  /* SMTCI_D9A_ULCRDMA_CON0*/
+	{0x1CD4, 0x10400040},  /* SMTCI_D9A_ULCRDMA_CON1*/
+	{0x1CD8, 0x10400040},  /* SMTCI_D9A_ULCRDMA_CON2*/
+	{0x29D0, 0x10000100},  /*TNCSO_D1A_ULCWDMA_CON0*/
+	{0x29D4, 0x11000100},  /*TNCSO_D1A_ULCWDMA_CON1*/
+	{0x29D8, 0x11000100},  /*TNCSO_D1A_ULCWDMA_CON2*/
+	{0x2A10, 0x10000060},  /*TNCSBO_D1A_ULCWDMA_CON0*/
+	{0x2A14, 0x10600060},  /*TNCSBO_D1A_ULCWDMA_CON1*/
+	{0x2A18, 0x10600060},  /*TNCSBO_D1A_ULCWDMA_CON2*/
+	{0x2A50, 0x10000040},  /*TNCSHO_D1A_ULCWDMA_CON0*/
+	{0x2A54, 0x10400040},  /*TNCSHO_D1A_ULCWDMA_CON1*/
+	{0x2A58, 0x10400040},  /*TNCSHO_D1A_ULCWDMA_CON2*/
+	{0x2A90, 0x10000040},  /*TNCSYO_D1A_ULCWDMA_CON0*/
+	{0x2A94, 0x10400040},  /*TNCSYO_D1A_ULCWDMA_CON1*/
+	{0x2A98, 0x10400040},  /*TNCSYO_D1A_ULCWDMA_CON2*/
+	{0x2AD0, 0x10000020},  /*TNCSTO_D1A_ULCWDMA_CON0*/
+	{0x2AD4, 0x10200020},  /*TNCSTO_D1A_ULCWDMA_CON1*/
+	{0x2AD8, 0x10200020},  /*TNCSTO_D1A_ULCWDMA_CON2*/
+	{0x2B10, 0x10000070},  /*TNCSTO_D2A_ULCWDMA_CON0*/
+	{0x2B14, 0x10700070},  /*TNCSTO_D2A_ULCWDMA_CON1*/
+	{0x2B18, 0x10700070},  /*TNCSTO_D2A_ULCWDMA_CON2*/
+	{0x2B50, 0x10000020},  /*TNCSTO_D3A_ULCWDMA_CON0*/
+	{0x2B54, 0x10200020},  /*TNCSTO_D3A_ULCWDMA_CON1*/
+	{0x2B58, 0x10200020},  /*TNCSTO_D3A_ULCWDMA_CON2*/
+	{0x2B90, 0x10000200},  /*TNCO_D1A_ULCWDMA_CON0*/
+	{0x2B94, 0x12000200},  /*TNCO_D1A_ULCWDMA_CON1*/
+	{0x2B98, 0x12000200},  /*TNCO_D1A_ULCWDMA_CON2*/
+	{0x2BD0, 0x10000100},  /*TNCBO_D1A_ULCWDMA_CON0*/
+	{0x2BD4, 0x11000100},  /*TNCBO_D1A_ULCWDMA_CON1*/
+	{0x2BD8, 0x11000100},  /*TNCBO_D1A_ULCWDMA_CON2*/
+	{0x1D10, 0x10000020},  /*TNCSTI_D1A_ULCRDMA_CON0*/
+	{0x1D14, 0x10200020},  /*TNCSTI_D1A_ULCRDMA_CON1*/
+	{0x1D18, 0x10200020},  /*TNCSTI_D1A_ULCRDMA_CON2*/
+	{0x1D50, 0x10000070},  /*TNCSTI_D2A_ULCRDMA_CON0*/
+	{0x1D54, 0x10700070},  /*TNCSTI_D2A_ULCRDMA_CON1*/
+	{0x1D58, 0x10700070},  /*TNCSTI_D2A_ULCRDMA_CON2*/
+	{0x1D90, 0x10000020},  /*TNCSTI_D3A_ULCRDMA_CON0*/
+	{0x1D94, 0x10200020},  /*TNCSTI_D3A_ULCRDMA_CON1*/
+	{0x1D98, 0x10200020},  /*TNCSTI_D3A_ULCRDMA_CON2*/
+	{0x1DD0, 0x10000064},  /*TNCSTI_D4A_ULCRDMA_CON0*/
+	{0x1DD4, 0x10640064},  /*TNCSTI_D4A_ULCRDMA_CON1*/
+	{0x1DD8, 0x10640064},  /*TNCSTI_D4A_ULCRDMA_CON2*/
+	{0x1E10, 0x10000020},  /*TNCSTI_D5A_ULCRDMA_CON0*/
+	{0x1E14, 0x10200020},  /*TNCSTI_D5A_ULCRDMA_CON1*/
+	{0x1E18, 0x10200020},  /*TNCSTI_D5A_ULCRDMA_CON2*/
+	{0x1E50, 0x10000080},  /*MASKI_D1A_ULCRDMA_CON0*/
+	{0x1E54, 0x10800080},  /*MASKI_D1A_ULCRDMA_CON1*/
+	{0x1E58, 0x10800080},  /*MASKI_D1A_ULCRDMA_CON2*/
+	{0x1E90, 0x10000040},  /*DHZAI_D1A_ULCRDMA_CON0*/
+	{0x1E94, 0x10400040},  /*DHZAI_D1A_ULCRDMA_CON1*/
+	{0x1E98, 0x10400040},  /*DHZAI_D1A_ULCRDMA_CON2*/
+	{0x1ED0, 0x10000040},  /*DHZGI_D1A_ULCRDMA_CON0*/
+	{0x1ED4, 0x10400040},  /*DHZGI_D1A_ULCRDMA_CON1*/
+	{0x1ED8, 0x10400040},  /*DHZGI_D1A_ULCRDMA_CON2*/
+	{0x1F10, 0x10000040},  /*DHZDI_D1A_ULCRDMA_CON0*/
+	{0x1F14, 0x10400040},  /*DHZDI_D1A_ULCRDMA_CON1*/
+	{0x1F18, 0x10400040}  /*DHZDI_D1A_ULCRDMA_CON2*/
+};
+
+#define DIP_HW_SET 2
+
+void __iomem *gdipRegBA[DIP_HW_SET] = {0L};
 
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *dipRegBA = 0L;
 	void __iomem *ofset = NULL;
 	unsigned int i = 0;
+	unsigned int hw_idx = 0, ary_idx = 0;
 
 	pr_info("%s: +\n", __func__);
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
-	/* iomap registers */
-	dipRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_DIP);
-	if (!dipRegBA) {
-		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip registers\n",
-								__func__);
-		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
+	for (hw_idx = REG_MAP_E_DIP; hw_idx <= REG_MAP_E_DIP_NR; hw_idx++) {
+		/* iomap registers */
+		ary_idx = hw_idx - REG_MAP_E_DIP;
+		gdipRegBA[ary_idx] = of_iomap(imgsys_dev->dev->of_node, hw_idx);
+		if (!gdipRegBA[ary_idx]) {
+			dev_info(imgsys_dev->dev,
+				"%s: error: unable to iomap dip_%d registers, devnode(%s).\n",
+				__func__, hw_idx, imgsys_dev->dev->of_node->name);
+			continue;
+		}
 	}
 
 for (i = 0 ; i < sizeof(mtk_imgsys_dip_init_ary)/sizeof(struct mtk_imgsys_init_array) ; i++) {
-	ofset = dipRegBA + mtk_imgsys_dip_init_ary[i].ofset;
+	ofset = gdipRegBA[0] + mtk_imgsys_dip_init_ary[i].ofset;
 	writel(mtk_imgsys_dip_init_ary[i].val, ofset);
 }
 
-	iounmap(dipRegBA);
+for (i = 0 ; i < sizeof(mtk_imgsys_dip_init_ary_nr)/sizeof(struct mtk_imgsys_init_array) ; i++) {
+	ofset = gdipRegBA[1] + mtk_imgsys_dip_init_ary_nr[i].ofset;
+	writel(mtk_imgsys_dip_init_ary_nr[i].val, ofset);
+}
+
 	pr_info("%s: -\n", __func__);
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
@@ -339,13 +353,7 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	/* iomap registers */
-	dipRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_DIP);
-	if (!dipRegBA) {
-		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip registers\n",
-								__func__);
-		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
-	}
+	dipRegBA = gdipRegBA[0]; // dip: 0x15100000
 
 	dev_info(imgsys_dev->dev, "%s: dump dip ctl regs\n", __func__);
 	for (i = TOP_CTL_OFFSET; i <= TOP_CTL_OFFSET + TOP_CTL_RANGE; i += 0x10) {
@@ -425,12 +433,13 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
 	}
 
+	dipRegBA = gdipRegBA[1]; // dip_nr: 0x15150000
 	dev_info(imgsys_dev->dev, "%s: dump mcrop regs\n", __func__);
 	for (i = MCRP_OFFSET; i <= MCRP_OFFSET + MCRP_RANGE; i += 0x8) {
 		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X]",
-		__func__, (unsigned int)(0x15100000 + i),
+		__func__, (unsigned int)(0x15150000 + i),
 		(unsigned int)ioread32((void *)(dipRegBA + i)),
-		(unsigned int)(0x15100000 + i + 0x4),
+		(unsigned int)(0x15150000 + i + 0x4),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)));
 	}
 
@@ -438,41 +447,43 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_info(imgsys_dev->dev, "%s: dump dip dmatop regs\n", __func__);
 	for (i = N_DMATOP_OFFSET; i <= N_DMATOP_OFFSET + N_DMATOP_RANGE; i += 0x10) {
 		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
-		__func__, (unsigned int)(0x15100000 + i),
+		__func__, (unsigned int)(0x15150000 + i),
 		(unsigned int)ioread32((void *)(dipRegBA + i)),
-		(unsigned int)(0x15100000 + i + 0x4),
+		(unsigned int)(0x15150000 + i + 0x4),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
-		(unsigned int)(0x15100000 + i + 0x8),
+		(unsigned int)(0x15150000 + i + 0x8),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
-		(unsigned int)(0x15100000 + i + 0xc),
+		(unsigned int)(0x15150000 + i + 0xc),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
 	}
 
 	dev_info(imgsys_dev->dev, "%s: dump dip rdma regs\n", __func__);
 	for (i = N_RDMA_OFFSET; i <= N_RDMA_OFFSET + N_RDMA_RANGE; i += 0x10) {
 		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
-		__func__, (unsigned int)(0x15100000 + i),
+		__func__, (unsigned int)(0x15150000 + i),
 		(unsigned int)ioread32((void *)(dipRegBA + i)),
-		(unsigned int)(0x15100000 + i + 0x4),
+		(unsigned int)(0x15150000 + i + 0x4),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
-		(unsigned int)(0x15100000 + i + 0x8),
+		(unsigned int)(0x15150000 + i + 0x8),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
-		(unsigned int)(0x15100000 + i + 0xc),
+		(unsigned int)(0x15150000 + i + 0xc),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
 	}
 
 	dev_info(imgsys_dev->dev, "%s: dump dip wdma regs\n", __func__);
 	for (i = N_WDMA_OFFSET; i <= N_WDMA_OFFSET + N_WDMA_RANGE; i += 0x10) {
 		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
-		__func__, (unsigned int)(0x15100000 + i),
+		__func__, (unsigned int)(0x15150000 + i),
 		(unsigned int)ioread32((void *)(dipRegBA + i)),
-		(unsigned int)(0x15100000 + i + 0x4),
+		(unsigned int)(0x15150000 + i + 0x4),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
-		(unsigned int)(0x15100000 + i + 0x8),
+		(unsigned int)(0x15150000 + i + 0x8),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
-		(unsigned int)(0x15100000 + i + 0xc),
+		(unsigned int)(0x15150000 + i + 0xc),
 		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
 	}
+
+	dipRegBA = gdipRegBA[0]; // dip: 0x15100000
 
 	/* Set DIPCTL_DBG_SEL[3:0] to 0x1 */
 	/* Set DIPCTL_DBG_SEL[15:8] to 0x18 */
@@ -530,10 +541,24 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_info(imgsys_dev->dev, "%s: nr3d_tif39~37: %08X", __func__,
 	(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
 
-	iounmap(dipRegBA);
 	//dev_dbg(imgsys_dev->dev, "%s: +\n",__func__);
 	//
 	pr_info("%s: -\n", __func__);
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 EXPORT_SYMBOL(imgsys_dip_debug_dump);
+
+void imgsys_dip_uninit(struct mtk_imgsys_dev *imgsys_dev)
+{
+	unsigned int i;
+
+	pr_debug("%s: +\n", __func__);
+
+	for (i = 0; i < DIP_HW_SET; i++) {
+		iounmap(gdipRegBA[i]);
+		gdipRegBA[i] = 0L;
+	}
+
+	pr_debug("%s: -\n", __func__);
+}
+EXPORT_SYMBOL(imgsys_dip_uninit);
