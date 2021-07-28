@@ -1955,7 +1955,7 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	stream_data = mtk_cam_req_get_s_data(cam_req, pipe->id, 0);
+	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, pipe->id, 0);
 	stream_data->pad_fmt_update |= (1 << fmt->pad);
 	stream_data->pad_fmt[fmt->pad] = *fmt;
 

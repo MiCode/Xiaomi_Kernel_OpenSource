@@ -359,6 +359,16 @@ mtk_cam_req_get_num_s_data(struct mtk_cam_request *req, int pipe_id)
 	return req->p_data[pipe_id].s_data_num;
 }
 
+/**
+ * Be used operation between request reinit and enqueue.
+ * For example, request-based set fmt and selection.
+ */
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_req_get_s_data_no_chk(struct mtk_cam_request *req, int pipe_id, int idx)
+{
+	return &req->p_data[pipe_id].s_data[idx];
+}
+
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 {
@@ -368,8 +378,9 @@ mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num)
 		return NULL;
 
-	return &req->p_data[pipe_id].s_data[idx];
+	return mtk_cam_req_get_s_data_no_chk(req, pipe_id, idx);
 }
+
 
 static inline void
 mtk_cam_img_wbuf_set_s_data(struct mtk_cam_img_working_buf_entry *buf_entry,

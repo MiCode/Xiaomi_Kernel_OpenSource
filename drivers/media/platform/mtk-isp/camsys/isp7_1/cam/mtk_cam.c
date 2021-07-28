@@ -1683,7 +1683,7 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 	}
 
 	cam_req = to_mtk_cam_req(req);
-	stream_data = mtk_cam_req_get_s_data(cam_req, ctx->stream_id, 0);
+	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, ctx->stream_id, 0);
 	stream_data->seninf_old = ctx->seninf;
 	stream_data->seninf_new = media_entity_to_v4l2_subdev(source);
 	cam_req->ctx_link_update |= 1 << ctx->stream_id;
