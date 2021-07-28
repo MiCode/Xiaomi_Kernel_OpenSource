@@ -38,7 +38,6 @@ static struct gpudfd_platform_fp platform_fp = {
 	.set_dfd_force_dump_mode = __gpudfd_set_dfd_force_dump_mode,
 };
 
-
 void __gpudfd_set_dfd_force_dump_mode(unsigned int mode)
 {
 	/*
@@ -55,11 +54,7 @@ unsigned int __gpudfd_get_dfd_force_dump_mode(void)
 
 void __gpudfd_config_dfd(unsigned int enable)
 {
-
-#if !GPUDFD_ENABLE
-	return;
-#endif
-
+#if GPUDFD_ENABLE
 	if (enable) {
 		if (__gpudfd_get_dfd_force_dump_mode() == 1)
 			writel(MFG_DEBUGMON_CON_00_ENABLE, MFG_DEBUGMON_CON_00);
@@ -92,6 +87,9 @@ void __gpudfd_config_dfd(unsigned int enable)
 
 		writel(MFG_DEBUGMON_CON_00_DISABLE, MFG_DEBUGMON_CON_00);
 	}
+#else
+	(void)(enable);
+#endif /* GPUDFD_ENABLE */
 }
 
 unsigned int gpudfd_init(struct platform_device *pdev)
@@ -111,7 +109,7 @@ unsigned int gpudfd_init(struct platform_device *pdev)
 
 	/* register gpudfd platform function to misc */
 	gpu_misc_register_gpudfd_fp(&platform_fp);
+
 done:
 	return ret;
-
 }

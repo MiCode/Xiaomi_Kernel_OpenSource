@@ -2336,16 +2336,14 @@ static void __gpufreq_segment_adjustment(struct platform_device *pdev)
 
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_pod19");
 	if (IS_ERR(efuse_cell)) {
-		GPUFREQ_LOGE("fail to get efuse_pod19 (%d)",
-			PTR_ERR(efuse_cell));
+		GPUFREQ_LOGE("fail to get efuse_pod19 (%ld)", PTR_ERR(efuse_cell));
 		return;
 	}
 
 	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
 	nvmem_cell_put(efuse_cell);
 	if (IS_ERR(efuse_buf)) {
-		GPUFREQ_LOGE("fail to get efuse_buf (%d)",
-			PTR_ERR(efuse_buf));
+		GPUFREQ_LOGE("fail to get efuse_buf (%ld)", PTR_ERR(efuse_buf));
 		return;
 	}
 
@@ -2504,8 +2502,7 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
-		GPUFREQ_LOGE("fail to get efuse_segment_cell (%d)",
-			PTR_ERR(efuse_cell));
+		GPUFREQ_LOGE("fail to get efuse_segment_cell (%ld)", PTR_ERR(efuse_cell));
 		ret = PTR_ERR(efuse_cell);
 		goto done;
 	}
@@ -2513,8 +2510,7 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
 	nvmem_cell_put(efuse_cell);
 	if (IS_ERR(efuse_buf)) {
-		GPUFREQ_LOGE("fail to get efuse_buf (%d)",
-			PTR_ERR(efuse_buf));
+		GPUFREQ_LOGE("fail to get efuse_buf (%ld)", PTR_ERR(efuse_buf));
 		ret = PTR_ERR(efuse_buf);
 		goto done;
 	}
@@ -2929,7 +2925,7 @@ register_fp:
 	gpufreq_register_gpufreq_fp(&platform_fp);
 
 	/* init gpu ppm */
-	ret = gpuppm_init(g_gpueb_support);
+	ret = gpuppm_init(TARGET_GPU, g_gpueb_support, 0);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;

@@ -3227,7 +3227,7 @@ static int __init __gpufreq_init(void)
 	gpufreq_register_gpufreq_fp(&platform_fp);
 
 	/* init gpu ppm */
-	ret = gpuppm_init(g_gpueb_support);
+	ret = gpuppm_init(TARGET_STACK, g_gpueb_support, 0);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;

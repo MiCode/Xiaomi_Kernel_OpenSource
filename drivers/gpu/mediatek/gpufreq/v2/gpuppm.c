@@ -678,7 +678,8 @@ int gpuppm_limited_commit_stack(int oppidx)
 	return ret;
 }
 
-int gpuppm_init(unsigned int gpueb_support)
+int gpuppm_init(enum gpufreq_target target,
+	unsigned int gpueb_support, unsigned int sramrc_vsafe)
 {
 	int max_oppidx_gpu = 0, min_oppidx_gpu = 0;
 	int max_oppidx_stack = 0, min_oppidx_stack = 0;
@@ -703,8 +704,13 @@ int gpuppm_init(unsigned int gpueb_support)
 		g_gpu.opp_num = opp_num_gpu;
 		g_stack.opp_num = opp_num_stack;
 
+		/* set basic limit at boot time */
 		gpuppm_set_limit_gpu(LIMIT_SEGMENT, max_oppidx_gpu, min_oppidx_gpu);
 		gpuppm_set_limit_stack(LIMIT_SEGMENT, max_oppidx_stack, min_oppidx_stack);
+		if (target == TARGET_STACK)
+			gpuppm_set_limit_stack(LIMIT_SRAMRC, GPUPPM_KEEP_IDX, sramrc_vsafe);
+		else
+			gpuppm_set_limit_gpu(LIMIT_SRAMRC, GPUPPM_KEEP_IDX, sramrc_vsafe);
 	}
 
 	return ret;

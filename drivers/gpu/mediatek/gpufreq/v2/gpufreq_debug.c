@@ -152,7 +152,7 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_dual_buck ? "True" : "False",
 		g_gpueb_support ? "On" : "Off");
 	seq_printf(m,
-		"%-15s DVFSState: 0x%08x, ShaderPresent: 0x%08x\n",
+		"%-15s DVFSState: 0x%04x, ShaderPresent: 0x%08x\n",
 		"[Common-Status]",
 		gpu_opp_info.dvfs_state,
 		gpu_opp_info.shader_present);
@@ -398,7 +398,7 @@ static ssize_t limit_table_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%s %d %d %d", cmd, &limiter, &ceiling, &floor) == 4) {
+	if (sscanf(buf, "%6s %2d %2d %2d", cmd, &limiter, &ceiling, &floor) == 4) {
 		if (sysfs_streq(cmd, "set")) {
 			ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_DEBUG, ceiling, floor);
 			if (ret)
@@ -466,7 +466,7 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%d", &value) == 1) {
+	if (sscanf(buf, "%2d", &value) == 1) {
 		ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
 		if (ret) {
 			GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);
@@ -538,7 +538,7 @@ static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
 	if (!g_sudo_mode)
 		goto done_unlock;
 
-	if (sscanf(buf, "%d %d", &fixed_freq, &fixed_volt) == 2) {
+	if (sscanf(buf, "%7d %6d", &fixed_freq, &fixed_volt) == 2) {
 		ret = gpufreq_fix_custom_freq_volt(TARGET_DEFAULT, fixed_freq, fixed_volt);
 		if (ret) {
 			GPUFREQ_LOGE("fail to fix freq and volt (%d)", ret);
@@ -596,11 +596,17 @@ static ssize_t opp_stress_test_proc_write(struct file *file,
 	mutex_lock(&gpufreq_debug_lock);
 
 	if (sysfs_streq(buf, "enable")) {
-		gpufreq_set_stress_test(true);
-		g_stress_test_enable = true;
+		ret = gpufreq_set_stress_test(true);
+		if (ret)
+			GPUFREQ_LOGE("fail to enable stress test (%d)", ret);
+		else
+			g_stress_test_enable = true;
 	} else if (sysfs_streq(buf, "disable")) {
-		gpufreq_set_stress_test(false);
-		g_stress_test_enable = false;
+		ret = gpufreq_set_stress_test(false);
+		if (ret)
+			GPUFREQ_LOGE("fail to disable stress test (%d)", ret);
+		else
+			g_stress_test_enable = false;
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -760,11 +766,17 @@ static ssize_t gpm_mode_proc_write(struct file *file,
 	mutex_lock(&gpufreq_debug_lock);
 
 	if (sysfs_streq(buf, "enable")) {
-		gpufreq_set_gpm_mode(true);
-		g_gpm_enable = true;
+		ret = gpufreq_set_gpm_mode(true);
+		if (ret)
+			GPUFREQ_LOGE("fail to enable GPM1.0 (%d)", ret);
+		else
+			g_gpm_enable = true;
 	} else if (sysfs_streq(buf, "disable")) {
-		gpufreq_set_gpm_mode(false);
-		g_gpm_enable = false;
+		ret = gpufreq_set_gpm_mode(false);
+		if (ret)
+			GPUFREQ_LOGE("fail to disable GPM1.0 (%d)", ret);
+		else
+			g_gpm_enable = false;
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);

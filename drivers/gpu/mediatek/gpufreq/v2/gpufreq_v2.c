@@ -807,7 +807,7 @@ EXPORT_SYMBOL(gpufreq_get_dynamic_power);
 int gpufreq_power_control(enum gpufreq_power_state power)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("power=%d", power);
 
@@ -863,7 +863,7 @@ EXPORT_SYMBOL(gpufreq_power_control);
 int gpufreq_commit(enum gpufreq_target target, int oppidx)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
@@ -927,7 +927,7 @@ int gpufreq_set_limit(enum gpufreq_target target,
 	enum gpuppm_limiter limiter, int ceiling_info, int floor_info)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling_info=%d, floor_info=%d",
 		target, limiter, ceiling_info, floor_info);
@@ -1171,7 +1171,7 @@ const struct gpufreq_opp_info *gpufreq_get_working_table(enum gpufreq_target tar
 {
 	struct gpufreq_ipi_data send_msg = {};
 	const struct gpufreq_opp_info *opp_table = NULL;
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	if (gpufreq_validate_target(&target))
 		goto done;
@@ -1208,7 +1208,7 @@ const struct gpufreq_opp_info *gpufreq_get_signed_table(enum gpufreq_target targ
 {
 	struct gpufreq_ipi_data send_msg = {};
 	const struct gpufreq_opp_info *opp_table = NULL;
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	if (gpufreq_validate_target(&target))
 		goto done;
@@ -1245,7 +1245,7 @@ const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target targ
 {
 	struct gpufreq_ipi_data send_msg = {};
 	const struct gpuppm_limit_info *limit_table = NULL;
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	if (gpufreq_validate_target(&target))
 		goto done;
@@ -1282,7 +1282,7 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 	enum gpuppm_limiter limiter, int c_enable, int f_enable)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	ret = gpufreq_validate_target(&target);
 	if (ret)
@@ -1331,7 +1331,7 @@ done:
 int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
@@ -1381,7 +1381,7 @@ int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("target=%d, freq=%d, volt=%d", target, freq, volt);
 
@@ -1428,23 +1428,28 @@ done:
  * Function Name      : gpufreq_set_stress_test
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-void gpufreq_set_stress_test(unsigned int mode)
+int gpufreq_set_stress_test(unsigned int mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
 		send_msg.cmd_id = CMD_SET_STRESS_TEST;
 		send_msg.u.mode = mode;
 
-		gpufreq_ipi_to_gpueb(send_msg);
+		ret = gpufreq_ipi_to_gpueb(send_msg);
 	/* implement on AP */
 	} else {
 		if (gpufreq_fp && gpufreq_fp->set_stress_test)
 			gpufreq_fp->set_stress_test(mode);
-		else
+		else {
+			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+		}
 	}
+
+	return ret;
 }
 
 /***********************************************************************************
@@ -1454,7 +1459,7 @@ void gpufreq_set_stress_test(unsigned int mode)
 int gpufreq_set_aging_mode(unsigned int mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1469,8 +1474,10 @@ int gpufreq_set_aging_mode(unsigned int mode)
 	} else {
 		if (gpufreq_fp && gpufreq_fp->set_aging_mode)
 			ret = gpufreq_fp->set_aging_mode(mode);
-		else
+		else {
+			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+		}
 	}
 
 	if (unlikely(ret))
@@ -1483,23 +1490,28 @@ int gpufreq_set_aging_mode(unsigned int mode)
  * Function Name      : gpufreq_set_gpm_mode
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-void gpufreq_set_gpm_mode(unsigned int mode)
+int gpufreq_set_gpm_mode(unsigned int mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
 		send_msg.cmd_id = CMD_SET_GPM_MODE;
 		send_msg.u.mode = mode;
 
-		gpufreq_ipi_to_gpueb(send_msg);
+		ret = gpufreq_ipi_to_gpueb(send_msg);
 	/* implement on AP */
 	} else {
 		if (gpufreq_fp && gpufreq_fp->set_gpm_mode)
 			gpufreq_fp->set_gpm_mode(mode);
-		else
+		else {
+			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+		}
 	}
+
+	return ret;
 }
 
 /***********************************************************************************
@@ -1589,7 +1601,7 @@ static int gpufreq_validate_target(unsigned int *target)
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 {
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_BATT_OC, batt_oc_level, GPUPPM_KEEP_IDX);
 	if (unlikely(ret))
@@ -1601,7 +1613,7 @@ static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
 static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_percent_level)
 {
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_BATT_PERCENT,
 		batt_percent_level, GPUPPM_KEEP_IDX);
@@ -1614,7 +1626,7 @@ static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_pe
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 {
-	int ret = GPUFREQ_ENOENT;
+	int ret = GPUFREQ_SUCCESS;
 
 	ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_LOW_BATT, low_batt_level, GPUPPM_KEEP_IDX);
 	if (unlikely(ret))

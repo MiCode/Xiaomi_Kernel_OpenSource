@@ -30,7 +30,7 @@
 
 #if GPUFREQ_DEBUG_ENABLE
 	#define GPUFREQ_LOGD(fmt, args...) \
-		pr_debug(GPUFERQ_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
+		pr_info(GPUFERQ_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
 #else
 	#define GPUFREQ_LOGD(fmt, args...) {}
 #endif /* GPUFREQ_DEBUG_ENABLE */
@@ -278,9 +278,9 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx);
 int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
-void gpufreq_set_stress_test(unsigned int mode);
+int gpufreq_set_stress_test(unsigned int mode);
 int gpufreq_set_aging_mode(unsigned int mode);
-void gpufreq_set_gpm_mode(unsigned int mode);
+int gpufreq_set_gpm_mode(unsigned int mode);
 struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
 
 #endif /* __GPUFREQ_V2_H__ */

@@ -57,7 +57,7 @@ struct gpuppm_status {
 /**************************************************
  * Function
  **************************************************/
-int gpuppm_init(unsigned int gpueb_support);
+int gpuppm_init(enum gpufreq_target target, unsigned int gpueb_support, unsigned int sramrc_vsafe);
 int gpuppm_limited_commit_gpu(int oppidx);
 int gpuppm_limited_commit_stack(int oppidx);
 int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);

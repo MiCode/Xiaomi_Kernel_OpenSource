@@ -1661,7 +1661,7 @@ static int __gpufreq_custom_commit_stack(unsigned int target_freq,
 	cur_fgpu = g_gpu.cur_freq;
 	cur_vgpu = g_gpu.cur_volt;
 	cur_vsram_gpu = g_gpu.cur_vsram;
-	__gpufreq_get_hw_constraint_fgpu(cur_fstack, &target_oppidx_gpu, &target_fgpu);
+	__gpufreq_get_hw_constraint_fgpu(target_fstack, &target_oppidx_gpu, &target_fgpu);
 	target_vgpu = working_gpu[target_oppidx_gpu].volt;
 	target_vsram_gpu = working_gpu[target_oppidx_gpu].vsram;
 
@@ -2280,7 +2280,7 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	}
 	g_mfg_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_pll_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -2292,7 +2292,7 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	}
 	g_mfgsc_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfgsc_pll_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -2304,7 +2304,7 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	}
 	g_mfg_top_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_top_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -2316,7 +2316,7 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	}
 	g_sleep = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_sleep)) {
-		GPUFREQ_LOGE("fail to ioremap SLEEP: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap SLEEP: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -2328,7 +2328,7 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	}
 	g_topckgen_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_topckgen_base)) {
-		GPUFREQ_LOGE("fail to ioremap TOPCKGEN: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap TOPCKGEN: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -3337,49 +3337,53 @@ static int __gpufreq_init_opp_idx(void)
 {
 	struct gpufreq_opp_info *working_table = g_stack.working_table;
 	unsigned int cur_fgpu = 0, cur_fstack = 0;
-	int cur_oppidx_gpu = -1, cur_oppidx_stack = -1;
+	int target_oppidx_stack = -1;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START();
 
-	/* get GPU OPP idx */
+	/* get current GPU OPP idx by freq set in preloader */
 	cur_fgpu = g_gpu.cur_freq;
-	cur_oppidx_gpu = __gpufreq_get_idx_by_fgpu(cur_fgpu);
-	g_gpu.cur_oppidx = cur_oppidx_gpu;
+	g_gpu.cur_oppidx = __gpufreq_get_idx_by_fgpu(cur_fgpu);
 
-	/* get STACK OPP idx */
+	/* get current STACK OPP idx by freq set in preloader */
 	cur_fstack = g_stack.cur_freq;
+	g_stack.cur_oppidx = __gpufreq_get_idx_by_fstack(cur_fstack);
+
+	/* decide first OPP idx by custom setting */
 	if (__gpufreq_custom_init_enable()) {
-		cur_oppidx_stack = GPUFREQ_CUST_INIT_OPPIDX;
+		target_oppidx_stack = GPUFREQ_CUST_INIT_OPPIDX;
 		GPUFREQ_LOGI("custom init STACK OPP index: %d, Freq: %d",
-			cur_oppidx_stack, working_table[cur_oppidx_stack].freq);
+			target_oppidx_stack, working_table[target_oppidx_stack].freq);
+	/* decide first OPP idx by SRAMRC setting */
 	} else {
-		cur_oppidx_stack = __gpufreq_get_idx_by_fstack(cur_fstack);
+		target_oppidx_stack = __gpufreq_get_idx_by_vstack(GPUFREQ_SAFE_VLOGIC);
+		GPUFREQ_LOGI("SRAMRC init STACK OPP index: %d, Volt: %d",
+			target_oppidx_stack, working_table[target_oppidx_stack].volt);
 	}
-	g_stack.cur_oppidx = cur_oppidx_stack;
 
 	/* init first OPP index */
 	if (!__gpufreq_dvfs_enable()) {
 		g_dvfs_state = DVFS_DISABLE;
 		GPUFREQ_LOGI("DVFS state: 0x%x, disable DVFS", g_dvfs_state);
 
+		/* set OPP once if DVFS is disabled but custom init is enabled */
 		if (__gpufreq_custom_init_enable()) {
-			ret = __gpufreq_generic_commit_stack(cur_oppidx_stack, DVFS_DISABLE);
+			ret = __gpufreq_generic_commit_stack(target_oppidx_stack, DVFS_DISABLE);
 			if (unlikely(ret)) {
 				GPUFREQ_LOGE("fail to commit STACK OPP index: %d (%d)",
-					cur_oppidx_stack, ret);
+					target_oppidx_stack, ret);
 				goto done;
 			}
 		}
 	} else {
 		g_dvfs_state = DVFS_FREE;
-		GPUFREQ_LOGI("DVFS state: 0x%x, init STACK OPP index: %d",
-			g_dvfs_state, cur_oppidx_stack);
+		GPUFREQ_LOGI("DVFS state: 0x%x, enable DVFS", g_dvfs_state);
 
-		ret = __gpufreq_generic_commit_stack(cur_oppidx_stack, DVFS_FREE);
+		ret = __gpufreq_generic_commit_stack(target_oppidx_stack, DVFS_FREE);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to commit STACK OPP index: %d (%d)",
-				cur_oppidx_stack, ret);
+				target_oppidx_stack, ret);
 			goto done;
 		}
 	}
@@ -3822,14 +3826,16 @@ static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt
 
 static void __gpufreq_aging_adjustment(void)
 {
+	struct gpufreq_adj_info *aging_adj = NULL;
 	int adj_num = 0;
 	int i;
+	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE;
+
+#if GPUFREQ_ASENSOR_ENABLE
 	u32 a_tn_lvt_cnt = 0, a_tn_ulvt_cnt = 0, a_tn_ulvtll_cnt = 0;
 	u32 a_t0_lvt_rt = 0, a_t0_ulvt_rt = 0, a_t0_ulvtll_rt = 0;
 	u32 a_shift_error = 0, efuse_error = 0;
 	unsigned int is_efuse_read_success = false;
-	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE;
-	struct gpufreq_adj_info *aging_adj = NULL;
 
 	if (__gpufreq_dvfs_enable()) {
 		/* park the volt to 0.65V for A sensor working */
@@ -3854,6 +3860,7 @@ static void __gpufreq_aging_adjustment(void)
 
 	g_asensor_info.aging_table_idx_most_agrresive = GPUFREQ_AGING_MOST_AGRRESIVE;
 	g_asensor_info.aging_table_idx_choosed = aging_table_idx;
+#endif /* GPUFREQ_ASENSOR_ENABLE */
 
 	adj_num = g_stack.signed_opp_num;
 
@@ -4333,32 +4340,28 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 	g_clk->clk_mux = devm_clk_get(&pdev->dev, "clk_mux");
 	if (IS_ERR(g_clk->clk_mux)) {
 		ret = PTR_ERR(g_clk->clk_mux);
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get clk_mux (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get clk_mux (%ld)", ret);
 		goto done;
 	}
 
 	g_clk->clk_main_parent = devm_clk_get(&pdev->dev, "clk_main_parent");
 	if (IS_ERR(g_clk->clk_main_parent)) {
 		ret = PTR_ERR(g_clk->clk_main_parent);
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get clk_main_parent (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get clk_main_parent (%ld)", ret);
 		goto done;
 	}
 
 	g_clk->clk_sub_parent = devm_clk_get(&pdev->dev, "clk_sub_parent");
 	if (IS_ERR(g_clk->clk_sub_parent)) {
 		ret = PTR_ERR(g_clk->clk_sub_parent);
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get clk_sub_parent (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get clk_sub_parent (%ld)", ret);
 		goto done;
 	}
 
 	g_clk->clk_sc_mux = devm_clk_get(&pdev->dev, "clk_sc_mux");
 	if (IS_ERR(g_clk->clk_sc_mux)) {
 		ret = PTR_ERR(g_clk->clk_sc_mux);
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get clk_sc_mux (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get clk_sc_mux (%ld)", ret);
 		goto done;
 	}
 
@@ -4381,8 +4384,7 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 	g_clk->subsys_mfg_cg = devm_clk_get(&pdev->dev, "subsys_mfg_cg");
 	if (IS_ERR(g_clk->subsys_mfg_cg)) {
 		ret = PTR_ERR(g_clk->subsys_mfg_cg);
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get subsys_mfg_cg (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get subsys_mfg_cg (%ld)", ret);
 		goto done;
 	}
 
@@ -4408,9 +4410,8 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 	/* VGPU is co-buck with VCORE, so use VCORE_BUCK to get Volt */
 	g_pmic->reg_vcore = regulator_get_optional(&pdev->dev, "_vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
-		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION,
-			"fail to get VGPU (%ld)", PTR_ERR(g_pmic->reg_vcore));
 		ret = PTR_ERR(g_pmic->reg_vcore);
+		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VGPU (%ld)", ret);
 		goto done;
 	}
 
@@ -4418,27 +4419,24 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 	/* VGPU is co-buck with VCORE, so use DVFSRC to set Volt */
 	g_pmic->reg_dvfsrc = regulator_get_optional(&pdev->dev, "_dvfsrc");
 	if (IS_ERR(g_pmic->reg_dvfsrc)) {
-		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION,
-			"fail to get VGPU (%ld)", PTR_ERR(g_pmic->reg_dvfsrc));
 		ret = PTR_ERR(g_pmic->reg_dvfsrc);
+		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VGPU (%ld)", ret);
 		goto done;
 	}
 #endif /* GPUFREQ_VCORE_DVFS_ENABLE */
 
 	g_pmic->reg_vstack = regulator_get_optional(&pdev->dev, "_vstack");
 	if (IS_ERR(g_pmic->reg_vstack)) {
-		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION,
-			"fail to get VSATCK (%ld)", PTR_ERR(g_pmic->reg_vstack));
 		ret = PTR_ERR(g_pmic->reg_vstack);
+		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VSATCK (%ld)", ret);
 		goto done;
 	}
 
 	/* VSRAM is co-buck and controlled by SRAMRC, but use regulator to get Volt */
 	g_pmic->reg_vsram = regulator_get_optional(&pdev->dev, "_vsram");
 	if (IS_ERR(g_pmic->reg_vsram)) {
-		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION,
-			"fail to get VSRAM (%ld)", PTR_ERR(g_pmic->reg_vsram));
 		ret = PTR_ERR(g_pmic->reg_vsram);
+		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VSRAM (%ld)", ret);
 		goto done;
 	}
 
@@ -4481,7 +4479,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_mfg_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_pll_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4493,7 +4491,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_mfgsc_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfgsc_pll_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4505,7 +4503,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_mfg_top_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_top_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4517,7 +4515,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_mfg_rpc_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_rpc_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_RPC: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_RPC: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4529,7 +4527,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_sleep = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_sleep)) {
-		GPUFREQ_LOGE("fail to ioremap SLEEP: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap SLEEP: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4541,7 +4539,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_topckgen_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_topckgen_base)) {
-		GPUFREQ_LOGE("fail to ioremap TOPCKGEN: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap TOPCKGEN: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4553,7 +4551,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_nth_emicfg_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_nth_emicfg_base)) {
-		GPUFREQ_LOGE("fail to ioremap NTH_EMICFG_REG: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap NTH_EMICFG_REG: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4565,7 +4563,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_sth_emicfg_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_sth_emicfg_base)) {
-		GPUFREQ_LOGE("fail to ioremap STH_EMICFG_REG: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap STH_EMICFG_REG: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4577,7 +4575,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_infracfg_ao_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_infracfg_ao_base)) {
-		GPUFREQ_LOGE("fail to ioremap INFRACFG_AO: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap INFRACFG_AO: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4589,7 +4587,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_infra_ao_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_infra_ao_debug_ctrl)) {
-		GPUFREQ_LOGE("fail to ioremap INFRA_AO_DEBUG_CTRL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap INFRA_AO_DEBUG_CTRL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4601,7 +4599,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_infra_ao1_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_infra_ao1_debug_ctrl)) {
-		GPUFREQ_LOGE("fail to ioremap INFRA_AO1_DEBUG_CTRL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap INFRA_AO1_DEBUG_CTRL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4613,7 +4611,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_nth_emi_ao_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_nth_emi_ao_debug_ctrl)) {
-		GPUFREQ_LOGE("fail to ioremap NTH_EMI_AO_DEBUG_CTRL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap NTH_EMI_AO_DEBUG_CTRL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4626,7 +4624,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_avs_efuse_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_avs_efuse_base)) {
-		GPUFREQ_LOGE("fail to ioremap AVS_EFUSE: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap AVS_EFUSE: 0x%llx", res->start);
 		goto done;
 	}
 #endif /* GPUFREQ_AVS_ENABLE */
@@ -4640,7 +4638,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_mfg_cpe_control_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_cpe_control_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_CPE_CONTROL: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_CPE_CONTROL: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4652,7 +4650,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_mfg_cpe_sensor_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_cpe_sensor_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_CPE_SENSOR: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap MFG_CPE_SENSOR: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -4664,7 +4662,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 	g_cpe_0p65v_rt_blow_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_cpe_0p65v_rt_blow_base)) {
-		GPUFREQ_LOGE("fail to ioremap CPE_0P65V_RT_BLOW: 0x%x", res->start);
+		GPUFREQ_LOGE("fail to ioremap CPE_0P65V_RT_BLOW: 0x%llx", res->start);
 		goto done;
 	}
 #endif /* GPUFREQ_ASENSOR_ENABLE */
@@ -4779,7 +4777,7 @@ register_fp:
 	gpufreq_register_gpufreq_fp(&platform_fp);
 
 	/* init gpu ppm */
-	ret = gpuppm_init(g_gpueb_support);
+	ret = gpuppm_init(TARGET_STACK, g_gpueb_support, GPUFREQ_SAFE_VLOGIC);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;

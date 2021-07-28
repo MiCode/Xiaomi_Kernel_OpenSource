@@ -95,6 +95,7 @@ enum gpufreq_exception {
 	GPUFREQ_PMIC_EXCEPTION,
 	GPUFREQ_CCF_EXCEPTION,
 	GPUFREQ_FHCTL_EXCEPTION,
+	NUM_EXCEPTION,
 };
 
 /**************************************************
@@ -244,6 +245,11 @@ static inline void __gpufreq_dump_exception(enum gpufreq_exception except_type,
 #if IS_ENABLED(CONFIG_MTK_AEE_AED)
 	if (!exception_string) {
 		GPUFREQ_LOGE("null exception string");
+		return;
+	}
+
+	if (except_type < 0 || except_type >= NUM_EXCEPTION) {
+		GPUFREQ_LOGE("invalid exception type");
 		return;
 	}
 
