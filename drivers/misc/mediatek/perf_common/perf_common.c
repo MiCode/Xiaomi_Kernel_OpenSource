@@ -90,6 +90,7 @@ static int init_cpufreq_table(void)
 		if (!cluster_ppm_info[i].dvfs_tbl) {
 			ret = -ENOMEM;
 			pr_info("Failed to allocate dvfs table for cid %d", i);
+			cpufreq_cpu_put(policy);
 			goto alloc_table_oom;
 		}
 
@@ -99,6 +100,7 @@ static int init_cpufreq_table(void)
 				policy->freq_table[opp_ids];
 
 		cluster_ppm_info[i].init = 1;
+		cpufreq_cpu_put(policy);
 	}
 	return ret;
 
