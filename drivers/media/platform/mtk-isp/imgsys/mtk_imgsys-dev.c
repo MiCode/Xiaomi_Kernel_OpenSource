@@ -235,6 +235,11 @@ void mtk_imgsys_pipe_job_finish(struct mtk_imgsys_request *req,
 		return;
 	}
 #endif
+	if (req->req.state != MEDIA_REQUEST_STATE_QUEUED) {
+		dev_info(pipe->imgsys_dev->dev, "%s: req %d flushed", __func__,
+					req->tstate.req_fd);
+		goto done;
+	}
 
 	i = is_singledev_mode(req);
 	if (!i)
@@ -269,6 +274,7 @@ void mtk_imgsys_pipe_job_finish(struct mtk_imgsys_request *req,
 			__func__, pipe->desc->name, node->desc->name,
 			vb2_buffer_index, vbf_state);
 	}
+done:
 	req->tstate.time_notify2vb2done = ktime_get_boottime_ns()/1000;
 	complete(&req->done);
 		dev_dbg(pipe->imgsys_dev->dev,
