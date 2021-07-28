@@ -145,6 +145,12 @@
 #define RG_RTC_MCLK_PDN_CLR             MT6685_SCK_TOP_CKPDN_CON0_L_CLR
 #define RG_RTC_MCLK_PDN_MASK    (MT6685_RG_RTC_MCLK_PDN_MASK << MT6685_RG_RTC_MCLK_PDN_SHIFT)
 
+/*SCK_TOP rtc interrupt*/
+#define SCK_TOP_INT_CON0                MT6685_SCK_TOP_INT_CON0
+#define EN_RTC_INTERRUPT                MT6685_RG_INT_EN_RTC_MASK
+#define SCK_TOP_INT_STATUS0             MT6685_SCK_TOP_INT_STATUS0
+
+
 #define MTK_RTC_POLL_DELAY_US            10
 #define MTK_RTC_POLL_TIMEOUT             (jiffies_to_usecs(HZ))
 

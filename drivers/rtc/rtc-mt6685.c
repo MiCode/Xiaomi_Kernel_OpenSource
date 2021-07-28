@@ -33,15 +33,33 @@
 #endif
 
 /*debug information*/
-static int rtc_show_time = 1;
+static int rtc_show_time;
 static int rtc_show_alarm;
 
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
 
-//extern u16 rtc_spare_reg[][3];
 
 static int mtk_rtc_write_trigger(struct mt6685_rtc *rtc);
+
+void power_on_mclk(struct mt6685_rtc *rtc)
+{
+	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
+	regmap_write(rtc->regmap, TOP_DIG_WPK, 0x15);
+	regmap_write(rtc->regmap, TOP_DIG_WPK_H, 0x63);
+	/*Power on RTC MCLK before write RTC register*/
+	regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_CLR, RG_RTC_MCLK_PDN_MASK);
+}
+
+static void power_down_mclk(struct mt6685_rtc *rtc)
+{
+	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
+	regmap_write(rtc->regmap, TOP_DIG_WPK, 0x15);
+	regmap_write(rtc->regmap, TOP_DIG_WPK_H, 0x63);
+	/*Power down RTC MCLK after write RTC register*/
+	regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_SET, RG_RTC_MCLK_PDN_MASK);
+}
+
 
 static int rtc_bulk_read(struct mt6685_rtc *rtc, unsigned int reg,
 				   void *val, size_t val_count)
@@ -64,13 +82,9 @@ static int rtc_bulk_write(struct mt6685_rtc *rtc, unsigned int reg,
 {
 	int ret;
 
-	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
-	regmap_write(rtc->regmap, TOP_DIG_WPK, 0x15);
-	regmap_write(rtc->regmap, TOP_DIG_WPK_H, 0x63);
-	/*Power on RTC MCLK before write RTC register*/
-	regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_CLR, RG_RTC_MCLK_PDN_MASK);
-
+	power_on_mclk(rtc);
 	ret = regmap_bulk_write(rtc->regmap, reg, val, val_count);
+
 	return ret;
 }
 
@@ -92,8 +106,7 @@ static int rtc_update_bits(struct mt6685_rtc *rtc, unsigned int reg,
 		return ret;
 	tmp = orig & ~mask;
 	tmp |= val & mask;
-	if (tmp != orig)
-		ret = rtc_write(rtc, reg, tmp);
+	ret = rtc_write(rtc, reg, tmp);
 	return ret;
 }
 
@@ -527,10 +540,7 @@ static int mtk_rtc_write_trigger(struct mt6685_rtc *rtc)
 		cpu_relax();
 	}
 
-	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
-	rtc_write(rtc, TOP_DIG_WPK, 0x1563);
-	/*Power down RTC MCLK after write RTC register*/
-	rtc_write(rtc, RG_RTC_MCLK_PDN_SET, RG_RTC_MCLK_PDN_MASK);
+	power_down_mclk(rtc);
 
 	return ret;
 }
@@ -557,10 +567,17 @@ exit:
 static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 {
 	u32 irqsta = 0, bbpu;
+	u32 sck;
 	int ret;
 
-	/* read clear */
-	ret = rtc_read(rtc, rtc->addr_base + RTC_IRQ_STA, &irqsta);
+	power_on_mclk(rtc);
+	ret = rtc_read(rtc, rtc->addr_base + RTC_IRQ_STA, &irqsta);/* read clear */
+
+	/*clear SCK_TOP rtc interrupt*/
+	rtc_read(rtc, SCK_TOP_INT_STATUS0, &sck);
+	rtc_write(rtc, SCK_TOP_INT_STATUS0, sck);
+	power_down_mclk(rtc);
+
 	if ((ret == 0) && (irqsta & RTC_IRQ_STA_AL)) {
 		bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN;
 		ret = rtc_write(rtc,
@@ -952,6 +969,7 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 				   RTC_AL_MASK_DOW);
 		if (ret < 0)
 			goto exit;
+
 		ret =  rtc_update_bits(rtc,
 					 rtc->addr_base + RTC_IRQ_EN,
 					 RTC_IRQ_EN_ONESHOT_AL,
@@ -962,6 +980,7 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 		ret = rtc_update_bits(rtc,
 					 rtc->addr_base + RTC_IRQ_EN,
 					 RTC_IRQ_EN_ONESHOT_AL, 0);
+
 		if (ret < 0)
 			goto exit;
 	}
@@ -1188,6 +1207,9 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/*Enable SCK_TOP rtc interrupt*/
+	rtc_update_bits(rtc, SCK_TOP_INT_CON0, EN_RTC_INTERRUPT, 1);
+
 	device_init_wakeup(&pdev->dev, 1);
 
 	rtc->rtc_dev->ops = &mtk_rtc_ops;
@@ -1200,11 +1222,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "register rtc device failed\n");
 	};
 
-	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
-	rtc_write(rtc, TOP_DIG_WPK, 0x1563);
-	/*Power on RTC MCLK before write RTC register*/
-	rtc_write(rtc, RG_RTC_MCLK_PDN_SET, RG_RTC_MCLK_PDN_MASK);
-
+	power_down_mclk(rtc);
 	return 0;
 }
 
