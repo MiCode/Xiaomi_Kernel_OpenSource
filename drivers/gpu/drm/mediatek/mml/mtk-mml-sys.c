@@ -103,7 +103,7 @@ static inline struct mml_comp_sys *comp_to_sys(struct mml_comp *comp)
 }
 
 static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
-		       const phys_addr_t base_pa, u8 mux_idx,
+		       const phys_addr_t base_pa, u8 mux_idx, u8 sof_grp,
 		       u16 *offset, u32 *mout)
 {
 	struct mml_mux_pin *mux;
@@ -120,7 +120,7 @@ static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
 	case MML_MUX_SOUT:
 	case MML_MUX_SELIN:
 		cmdq_pkt_write(pkt, NULL, base_pa + mux->offset,
-			       mux->index, U32_MAX);
+			       mux->index + (sof_grp << 8), U32_MAX);
 		break;
 	default:
 		break;
@@ -134,6 +134,7 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
+	u8 sof_grp = path->mux_group;
 	u32 i, j;
 
 	for (i = 0; i < path->node_cnt; i++) {
@@ -147,16 +148,16 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 			if (node->next[j]) {	/* && next enabled */
 				to = node->next[j]->id;
 				mux_idx = sys->adjacency[from][to];
-				config_mux(sys, pkt, base_pa, mux_idx,
+				config_mux(sys, pkt, base_pa, mux_idx, sof_grp,
 					   &offset, &mout);
 				mux_idx = sys->adjacency[to][from];
-				config_mux(sys, pkt, base_pa, mux_idx,
+				config_mux(sys, pkt, base_pa, mux_idx, sof_grp,
 					   &offset, &mout);
 			}
 		}
 		if (mout)
 			cmdq_pkt_write(pkt, NULL, base_pa + offset,
-				       mout, U32_MAX);
+				       mout + (sof_grp << 8), U32_MAX);
 	}
 	return 0;
 }

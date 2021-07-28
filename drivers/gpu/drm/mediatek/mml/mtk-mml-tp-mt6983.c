@@ -140,6 +140,27 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_2OUT_P1] = MML_CLT_PIPE1,
 };
 
+/* mux sof group of mmlsys mout/sel */
+enum mux_sof_group {
+	MUX_SOF_GRP0 = 0,
+	MUX_SOF_GRP1,
+	MUX_SOF_GRP2,
+	MUX_SOF_GRP3,
+	MUX_SOF_GRP4,
+	MUX_SOF_GRP5,
+	MUX_SOF_GRP6,
+	MUX_SOF_GRP7,
+};
+
+static const u8 grp_dispatch[PATH_MML_MAX] = {
+	[PATH_MML_NOPQ_P0] = MUX_SOF_GRP1,
+	[PATH_MML_NOPQ_P1] = MUX_SOF_GRP2,
+	[PATH_MML_PQ_P0] = MUX_SOF_GRP1,
+	[PATH_MML_PQ_P1] = MUX_SOF_GRP2,
+	[PATH_MML_2OUT_P0] = MUX_SOF_GRP1,
+	[PATH_MML_2OUT_P1] = MUX_SOF_GRP2,
+};
+
 /* reset bit to each engine,
  * reverse of MMSYS_SW0_RST_B_REG and MMSYS_SW1_RST_B_REG
  */
@@ -168,7 +189,7 @@ static u8 engine_reset_bit[MML_ENGINE_TOTAL] = {
 	[MML_DLO1] = 30,
 };
 
-static void tp_dump_path(struct mml_topology_path *path)
+static void tp_dump_path(const struct mml_topology_path *path)
 {
 	u8 i;
 
@@ -319,20 +340,25 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 	u32 i;
 
 	if (clt_cnt < MML_CLT_MAX) {
-		mml_err("[topology]%s not enough cmdq clients to all path", __func__);
+		mml_err("[topology]%s not enough cmdq clients to all paths",
+			__func__);
 		return -ECHILD;
 	}
 
 	for (i = 0; i < PATH_MML_MAX; i++) {
-		tp_parse_path(mml, &cache->path[i], path_map[i]);
+		struct mml_topology_path *path = &cache->path[i];
+
+		tp_parse_path(mml, path, path_map[i]);
 		if (mtk_mml_msg) {
 			mml_log("[topology]dump path %hhu count %u",
-				i, cache->path[i].node_cnt);
-			tp_dump_path(&cache->path[i]);
+				i, path->node_cnt);
+			tp_dump_path(path);
 		}
 
 		/* now dispatch cmdq client (channel) to path */
-		cache->path[i].clt = clts[clt_dispatch[i]];
+		path->clt = clts[clt_dispatch[i]];
+
+		path->mux_group = grp_dispatch[i];
 	}
 
 	return 0;

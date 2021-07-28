@@ -151,6 +151,8 @@ struct mml_topology_path {
 	u8 clt_id;
 	struct cmdq_client *clt;
 
+	/* Path configurations */
+	u8 mux_group;
 	union {
 		u64 reset_bits;
 		struct {

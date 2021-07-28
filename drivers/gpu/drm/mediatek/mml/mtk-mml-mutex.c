@@ -75,8 +75,8 @@ static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
 		if (mod->trigger)
 			mutex_mod[mod->index] |= 1 << mod->field;
 	}
-	/* TODO: set by sof group of mout/sel */
-	mutex_mod[1] |= 1 << 24;
+	/* TODO: get sof group0 shift from dts */
+	mutex_mod[1] |= 1 << (24 + path->mux_group);
 
 	for (i = 0; i < mutex->data->mod_cnt; i++) {
 		u32 offset = mutex->data->mod_offsets[i];
@@ -129,7 +129,7 @@ static void mutex_debug_dump(struct mml_comp *comp)
 
 	mml_err("mutex component %u dump:", comp->id);
 
-	for (i = 0; i < mutex->data->mutex_cnt; i++)
+	for (i = 0; i < mutex->data->mutex_cnt; i++) {
 		for (j = 0; j < mutex->data->mod_cnt; j++) {
 			u32 offset = mutex->data->mod_offsets[j];
 			u32 value;
@@ -138,6 +138,7 @@ static void mutex_debug_dump(struct mml_comp *comp)
 			mml_err("MDP_MUTEX%d_MOD%d %#010x",
 			i, j, value);
 		}
+	}
 }
 
 static const struct mml_comp_debug_ops mutex_debug_ops = {
