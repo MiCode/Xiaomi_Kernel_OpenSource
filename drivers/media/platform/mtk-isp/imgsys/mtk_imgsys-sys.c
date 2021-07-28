@@ -522,7 +522,8 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 								false);
 	req->working_buf = NULL;
 	/*  vb2 bufer done in below function  */
-	mtk_imgsys_pipe_job_finish(req, vbf_state);
+	if (vbf_state == VB2_BUF_STATE_DONE)
+		mtk_imgsys_pipe_job_finish(req, vbf_state);
 	mtk_imgsys_pipe_remove_job(req);
 
 	req->tstate.time_unmapiovaEnd = ktime_get_boottime_ns()/1000;
