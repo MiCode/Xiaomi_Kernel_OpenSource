@@ -813,6 +813,12 @@ int mtk_vdec_m4u_port_name_to_index(const char *name)
 		return VDEC_M4U_PORT_LAT0_WDMA;
 	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_LAT0_RG_CTRL_DMA, name))
 		return VDEC_M4U_PORT_LAT0_RG_CTRL_DMA;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_LAT0_MC, name))
+		return VDEC_M4U_PORT_LAT0_MC;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_LAT0_UFO_ENC, name))
+		return VDEC_M4U_PORT_LAT0_UFO;
+	else if (!strcmp(MTK_VDEC_M4U_PORT_NAME_LAT0_UFO_ENC_C, name))
+		return VDEC_M4U_PORT_LAT0_UFO_C;
 	else
 		return -1;
 }
