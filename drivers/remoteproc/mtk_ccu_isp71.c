@@ -616,6 +616,10 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 
 	rproc = rproc_alloc(dev, node->name, &ccu_ops,
 		"lib3a.ccu_dummy", sizeof(*ccu));
+	if ((!rproc) || (!rproc->priv)) {
+		dev_err(dev, "rproc or rproc->priv is NULL.\n");
+		return -EINVAL;
+	}
 	ccu = (struct mtk_ccu *)rproc->priv;
 	ccu->pdev = pdev;
 	ccu->dev = &pdev->dev;
