@@ -21,6 +21,7 @@
 #include "modem_sys.h"
 #include "ccci_hif.h"
 #include "md_sys1_platform.h"
+#include "ccci_auxadc.h"
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -1708,6 +1709,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 	unsigned int random_seed = 0;
 	struct timespec64 t;
 	unsigned int c2k_flags = 0;
+	int adc_val = 0;
 
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"prepare_runtime_data  AP total %u features\n",
@@ -1799,6 +1801,16 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				boot_info.boot_channel = CCCI_CONTROL_RX;
 				boot_info.booting_start_id =
 					get_booting_start_id(md);
+				adc_val = ccci_get_adc_mV();
+				/* 0V ~ 0.1V is EVB */
+				if (adc_val >= 100) {
+					CCCI_BOOTUP_LOG(md->index, TAG,
+					"ADC val:%d, Phone\n", adc_val);
+					/* bit 1: 0: EVB 1: Phone */
+					boot_info.boot_attributes |= (1 << 1);
+				} else
+					CCCI_BOOTUP_LOG(md->index, TAG,
+					"ADC val:%d, EVB\n", adc_val);
 				append_runtime_feature(&rt_data,
 					&rt_feature, &boot_info);
 				break;
