@@ -3380,14 +3380,9 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 			&cali_car_tune,
 			&msg->fgd_data[0],
 			sizeof(cali_car_tune));
-#ifdef CALIBRATE_CAR_TUNE_VALUE_BY_META_TOOL
 		bm_err("[K] cali_car_tune = %d, default = %d, Use [cali_car_tune]\n",
 			cali_car_tune, gm->fg_cust_data.car_tune_value);
 		gm->fg_cust_data.car_tune_value = cali_car_tune;
-#else
-		bm_err("[K] cali_car_tune = %d, default = %d, Use [default]\n",
-			cali_car_tune, gm->fg_cust_data.car_tune_value);
-#endif
 	}
 	break;
 	case FG_DAEMON_CMD_GET_RTC_UI_SOC:
