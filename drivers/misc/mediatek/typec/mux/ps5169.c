@@ -57,8 +57,10 @@ static int ps5169_switch_set(struct typec_switch *sw,
 			mdelay(20);
 		}
 		ps5169_init(ps);
-		i2c_smbus_write_byte_data(ps->i2c, 0x40,
+
+		/* i2c_smbus_write_byte_data(ps->i2c, 0x40,
 			PS5169_ORIENTATION_NORMAL);
+		*/
 		break;
 	case TYPEC_ORIENTATION_REVERSE:
 		/* switch cc2 side */
@@ -67,8 +69,9 @@ static int ps5169_switch_set(struct typec_switch *sw,
 			mdelay(20);
 		}
 		ps5169_init(ps);
-		i2c_smbus_write_byte_data(ps->i2c, 0x40,
+		/* i2c_smbus_write_byte_data(ps->i2c, 0x40,
 			PS5169_ORIENTATION_FLIP);
+		*/
 		break;
 	default:
 		break;
@@ -188,4 +191,3 @@ module_i2c_driver(ps5169_driver);
 
 MODULE_DESCRIPTION("PS5169 Type-C Redriver");
 MODULE_LICENSE("GPL v2");
-
