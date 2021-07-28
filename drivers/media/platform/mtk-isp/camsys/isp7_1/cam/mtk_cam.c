@@ -1262,7 +1262,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	struct mtk_cam_request *req, *req_prev, *req_tmp;
 	unsigned long flags;
 	int i;
-	int raw_fut_pre;
+	int raw_fut_pre, raw_fut_pre_try, raw_fut_cur_try;
 
 	if (!cam->streaming_ctx) {
 		dev_dbg(cam->dev, "streams are off\n");
@@ -1303,9 +1303,20 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			req_tmp->stream_data[i].state.req = req_tmp;
 			if (is_raw_subdev(i)) {
 				raw_fut_pre = cam->ctxs[i].pipe->res_config.raw_feature;
+				raw_fut_pre_try = cam->ctxs[i].pipe->try_res_config.raw_feature;
 				mtk_cam_req_ctrl_setup(&cam->ctxs[i], req_tmp);
-				req_tmp->stream_data[i].feature.switch_feature_type =
-					mtk_cam_get_feature_switch(&cam->ctxs[i], raw_fut_pre);
+				raw_fut_cur_try = cam->ctxs[i].pipe->try_res_config.raw_feature;
+				if (raw_fut_pre_try != raw_fut_cur_try) {
+					req_tmp->stream_data[i].feature.switch_feature_type =
+						EXPOSURE_CHANGE_NONE;
+					cam->ctxs[i].pipe->res_config.raw_feature = raw_fut_pre_try;
+					dev_info(cam->dev, "%s: invalid raw_feature judge, Real/Fake:%d/%d\n",
+						__func__, raw_fut_pre_try, raw_fut_cur_try);
+				} else {
+					req_tmp->stream_data[i].feature.switch_feature_type =
+						mtk_cam_get_feature_switch(
+							&cam->ctxs[i], raw_fut_pre);
+				}
 				req_tmp->stream_data[i].feature.raw_feature =
 					cam->ctxs[i].pipe->res_config.raw_feature;
 			}

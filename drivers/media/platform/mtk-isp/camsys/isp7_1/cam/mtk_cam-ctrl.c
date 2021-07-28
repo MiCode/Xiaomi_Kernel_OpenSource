@@ -624,7 +624,14 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 			settings[1].source, settings[1].camtg,/* settings[1].enable,*/
 			settings[2].source, settings[2].camtg/*, settings[2].enable*/);
 	}
-
+	/*switch state*/
+	if (type == EXPOSURE_CHANGE_3_to_1 ||
+		type == EXPOSURE_CHANGE_2_to_1) {
+		state_transition(&req_stream_data->state,
+				E_STATE_CQ, E_STATE_CAMMUX_OUTER);
+		state_transition(&req_stream_data->state,
+				E_STATE_OUTER, E_STATE_CAMMUX_OUTER);
+	}
 	return 0;
 }
 
@@ -1026,6 +1033,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			state_rec[stateidx] = state_temp;
 			/* Find outer state element */
 			if (state_temp->estate == E_STATE_OUTER ||
+				state_temp->estate == E_STATE_CAMMUX_OUTER ||
 			    state_temp->estate == E_STATE_OUTER_HW_DELAY) {
 				state_outer = state_temp;
 				mtk_cam_set_timestamp(req_stream_data,
@@ -1579,11 +1587,7 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 	unsigned long flags;
 
 	sensor_ctrl->ctx->dequeued_frame_seq_no = deque_frame_no;
-	/*1-exp - as normal mode*/
-	if (!raw_dev->stagger_en) {
-		mtk_camsys_raw_frame_start(raw_dev, ctx, deque_frame_no);
-		return 0;
-	}
+
 	/* List state-queue status*/
 	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
@@ -1595,7 +1599,8 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
 			/* Find switch element for switch request*/
 			if (state_temp->estate > E_STATE_SENSOR &&
-			    state_temp->estate < E_STATE_INNER) {
+			    state_temp->estate < E_STATE_CAMMUX_OUTER &&
+			    req_stream_data->feature.switch_feature_type) {
 				state_switch = state_temp;
 			}
 			dev_dbg(ctx->cam->dev,
@@ -1606,20 +1611,19 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 		que_cnt++;
 	}
 	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
+	/*1-exp - as normal mode*/
+	if (!raw_dev->stagger_en && !state_switch) {
+		mtk_camsys_raw_frame_start(raw_dev, ctx, deque_frame_no);
+		return 0;
+	}
 	/*HDR to Normal cam mux switch case timing will be at last sof*/
 	if (state_switch) {
 		req = state_switch->req;
 		req_stream_data = &req->stream_data[ctx->stream_id];
-		if (req_stream_data->feature.switch_feature_type) {
-			mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
-			dev_info(ctx->cam->dev,
+		mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
+		dev_info(ctx->cam->dev,
 			"[%s] switch Req:%d / State:%d\n",
 			__func__, req_stream_data->frame_seq_no, state_switch->estate);
-		} else {
-			dev_info(ctx->cam->dev,
-			"[%s] non-switch Req:%d / State:%d\n",
-			__func__, req_stream_data->frame_seq_no, state_switch->estate);
-		}
 	}
 
 	return 0;
