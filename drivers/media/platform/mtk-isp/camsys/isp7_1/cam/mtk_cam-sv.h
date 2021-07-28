@@ -154,7 +154,7 @@ struct mtk_camsv_device {
 	void __iomem *base;
 	void __iomem *base_inner;
 	unsigned int num_clks;
-	struct clk_bulk_data *clks;
+	struct clk **clks;
 	struct mtk_camsv_pipeline *pipeline;
 	unsigned int hw_cap;
 

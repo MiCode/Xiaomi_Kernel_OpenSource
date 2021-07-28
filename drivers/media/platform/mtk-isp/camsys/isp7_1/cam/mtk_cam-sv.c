@@ -44,98 +44,6 @@ static const struct of_device_id mtk_camsv_of_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_camsv_of_ids);
 
-#define MAX_NUM_CAMSV_CLOCKS 5
-#define LARB13_PORT_SIZE 12
-#define LARB14_PORT_SIZE 6
-
-
-struct sv_resource {
-	char *clock[MAX_NUM_CAMSV_CLOCKS];
-};
-
-static const struct sv_resource sv_resources[] = {
-	[CAMSV_0] = {
-		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsva_cg_con",
-			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
-			"topckgen_top_camtm_sel"},
-	},
-	[CAMSV_1] = {
-		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsva_cg_con",
-			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
-			"topckgen_top_camtm_sel"},
-	},
-	[CAMSV_2] = {
-		.clock = {"cam_main_larb14_cg_con", "cam_main_gcamsvb_cg_con",
-			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
-			"topckgen_top_camtm_sel"},
-	},
-	[CAMSV_3] = {
-		.clock = {"cam_main_larb14_cg_con", "cam_main_gcamsvb_cg_con",
-			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
-			"topckgen_top_camtm_sel"},
-	},
-	[CAMSV_4] = {
-		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsvc_cg_con",
-			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
-			"topckgen_top_camtm_sel"},
-	},
-	[CAMSV_5] = {
-		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsvc_cg_con",
-			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
-			"topckgen_top_camtm_sel"},
-	},
-};
-
-#ifdef CONFIG_MTK_SMI_EXT
-static const char *larb13_port_name[LARB13_PORT_SIZE] = {
-	"mrawi_mdp",
-	"mrawo0_mdp",
-	"mrawo1_mdp",
-	"camsv1_mdp",
-	"camsv2_mdp",
-	"camsv3_mdp",
-	"camsv4_mdp",
-	"camsv5_mdp",
-	"camsv6_mdp",
-	"ccui_mdp",
-	"ccuo_mdp",
-	"fake_mdp"
-};
-
-static const char *larb14_port_name[LARB14_PORT_SIZE] = {
-	"mrawi_disp",
-	"mrawo0_disp",
-	"mrawo1_disp",
-	"camsv0_disp",
-	"ccui_disp",
-	"ccuo_disp"
-};
-#endif
-
-static const int larb13_support_port_map[LARB13_PORT_SIZE] = {
-	false,	 /* MRAWI */
-	false,	 /* MRAWO0 */
-	false,	 /* MRAWO1 */
-	true,	 /* CAMSV1 */
-	true,	 /* CAMSV2 */
-	true,	 /* CAMSV3 */
-	true,	 /* CAMSV4 */
-	true,	 /* CAMSV5 */
-	true,	 /* CAMSV6 */
-	false,	 /* CCUI */
-	false,	 /* CCUO */
-	false,	 /* FAKE */
-};
-
-static const int larb14_support_port_map[LARB14_PORT_SIZE] = {
-	false,	 /* MRAWI */
-	false,	 /* MRAWO0 */
-	false,	 /* MRAWO1 */
-	true,	 /* CAMSV0 */
-	false,	 /* CCUI */
-	false,	 /* CCUO */
-};
-
 static const struct v4l2_mbus_framefmt sv_mfmt_default = {
 	.code = MEDIA_BUS_FMT_SBGGR10_1X10,
 	.width = DEFAULT_WIDTH,
@@ -1803,7 +1711,6 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 			    struct mtk_camsv_device *sv)
 {
 	struct device *dev = &pdev->dev;
-	const struct sv_resource *sv_res;
 	struct resource *res;
 #if CCF_READY
 	unsigned int i;
@@ -1823,8 +1730,6 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "missing hardware capability property\n");
 		return ret;
 	}
-
-	sv_res = sv_resources + sv->id;
 
 	/* base outer register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
@@ -1870,8 +1775,9 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 
 	sv->num_clks = 0;
 #if CCF_READY
-	while (sv_res->clock[sv->num_clks] && sv->num_clks < MAX_NUM_CAMSV_CLOCKS)
-		sv->num_clks++;
+	sv->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+			"#clock-cells");
+	dev_info(dev, "clk_num:%d\n", sv->num_clks);
 	if (!sv->num_clks) {
 		dev_dbg(dev, "no clock\n");
 		return -ENODEV;
@@ -1882,14 +1788,14 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	if (!sv->clks)
 		return -ENOMEM;
 
-	for (i = 0; i < sv->num_clks; i++)
-		sv->clks[i].id = sv_res->clock[i];
-
-	ret = devm_clk_bulk_get(dev, sv->num_clks, sv->clks);
-	if (ret) {
-		dev_dbg(dev, "failed to get camsv clock:%d\n", ret);
-		return ret;
+	for (i = 0; i < sv->num_clks; i++) {
+		sv->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(sv->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
 	}
+
 #endif
 	return 0;
 }
@@ -2085,85 +1991,45 @@ static int mtk_camsv_pm_resume(struct device *dev)
 
 static int mtk_camsv_runtime_suspend(struct device *dev)
 {
+#if CCF_READY
 	struct mtk_camsv_device *camsv_dev = dev_get_drvdata(dev);
-	int ret = 0;
-
-	dev_dbg(dev, "%s:disable clock\n", __func__);
-	clk_bulk_disable_unprepare(camsv_dev->num_clks, camsv_dev->clks);
-	pm_runtime_put(camsv_dev->cam->dev);
-
-#ifdef CONFIG_MTK_SMI_EXT
 	int i;
-
-	for (i = 0; i < LARB13_PORT_SIZE; i++) {
-		if (larb13_support_port_map[i]) {
-			ret = smi_bus_disable_unprepare(SMI_LARB13,
-						larb13_port_name[i]);
-			if (ret != 0) {
-				dev_dbg(dev, "smi_bus_disable_unprepare fail:%d, %s\n",
-					SMI_LARB13, larb13_port_name[i]);
-			}
-		}
-	}
-	for (i = 0; i < LARB14_PORT_SIZE; i++) {
-		if (larb14_support_port_map[i]) {
-			ret = smi_bus_disable_unprepare(SMI_LARB14,
-						larb14_port_name[i]);
-			if (ret != 0) {
-				dev_dbg(dev, "smi_bus_disable_unprepare fail:%d, %s\n",
-					SMI_LARB14, larb14_port_name[i]);
-			}
-		}
-	}
 #endif
 
-	return ret;
+	dev_dbg(dev, "%s:disable clock\n", __func__);
+#if CCF_READY
+	for (i = 0; i < camsv_dev->num_clks; i++)
+		clk_disable_unprepare(camsv_dev->clks[i]);
+#endif
+
+	return 0;
 }
 
 static int mtk_camsv_runtime_resume(struct device *dev)
 {
+#if CCF_READY
 	struct mtk_camsv_device *camsv_dev = dev_get_drvdata(dev);
-	int ret = 0;
+	int i, ret;
+#endif
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
-	pm_runtime_get_sync(camsv_dev->cam->dev);
-	ret = clk_bulk_prepare_enable(camsv_dev->num_clks, camsv_dev->clks);
-	if (ret) {
-		dev_dbg(dev, "failed to enable clock:%d\n", ret);
-		return ret;
-	}
+#if CCF_READY
+	for (i = 0; i < camsv_dev->num_clks; i++) {
+		ret = clk_prepare_enable(camsv_dev->clks[i]);
+		if (ret) {
+			dev_info(dev, "enable failed at clk #%d, ret = %d\n",
+				 i, ret);
+			i--;
+			while (i >= 0)
+				clk_disable_unprepare(camsv_dev->clks[i--]);
 
-#ifdef CONFIG_MTK_SMI_EXT
-	int i;
-
-	for (i = 0; i < LARB13_PORT_SIZE; i++) {
-		if (larb13_support_port_map[i]) {
-			ret = smi_bus_prepare_enable(SMI_LARB13,
-						larb13_port_name[i]);
-			if (ret != 0) {
-				dev_dbg(dev, "smi_bus_disable_unprepare fail:%d, %s\n",
-					SMI_LARB13, larb13_port_name[i]);
-			}
+			return ret;
 		}
 	}
-	for (i = 0; i < LARB14_PORT_SIZE; i++) {
-		if (larb14_support_port_map[i]) {
-			ret = smi_bus_prepare_enable(SMI_LARB14,
-						larb14_port_name[i]);
-			if (ret != 0) {
-				dev_dbg(dev, "smi_bus_disable_unprepare fail:%d, %s\n",
-					SMI_LARB14, larb14_port_name[i]);
-			}
-		}
-	}
-#endif
-
-#ifdef CONFIG_MTK_IOMMU_V2
-	m4u_control_camsv_iommu_port();
-#endif
 	sv_reset(camsv_dev);
+#endif
 
-	return ret;
+	return 0;
 }
 
 static const struct dev_pm_ops mtk_camsv_pm_ops = {
