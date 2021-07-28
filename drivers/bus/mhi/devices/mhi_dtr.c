@@ -119,6 +119,7 @@ tiocm_exit:
 long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
 		      unsigned long arg)
 {
+	struct device *dev = &mhi_dev->dev;
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	int ret;
 
