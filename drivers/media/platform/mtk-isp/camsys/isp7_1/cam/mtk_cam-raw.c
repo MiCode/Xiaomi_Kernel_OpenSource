@@ -1360,7 +1360,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		if (err_status & TG_OVRUN_ST) {
 			struct mtk_cam_ctx *ctx =
 			mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
-			if (raw_dev->sof_count > 3)
+			if (0 && raw_dev->sof_count > 3)
 				mtk_cam_seninf_dump(ctx->seninf);
 			raw_irq_handle_tg_overrun_err(raw_dev,
 						      dequeued_frame_seq_no_inner);

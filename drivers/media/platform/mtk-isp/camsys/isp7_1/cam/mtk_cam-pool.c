@@ -178,7 +178,7 @@ mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx)
 	return buf_entry;
 }
 
-int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
 {
 	int i;
 	struct mem_obj smem;
@@ -193,7 +193,7 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	INIT_LIST_HEAD(&ctx->img_buf_pool.cam_freeimglist.list);
 	spin_lock_init(&ctx->img_buf_pool.cam_freeimglist.lock);
 	ctx->img_buf_pool.cam_freeimglist.cnt = 0;
-	ctx->img_buf_pool.working_img_buf_size = CAM_IMG_BUF_NUM * working_buf_size;
+	ctx->img_buf_pool.working_img_buf_size = buf_num * working_buf_size;
 	smem.len = ctx->img_buf_pool.working_img_buf_size;
 	dev_info(ctx->cam->dev, "%s:ctx(%d) smem.len(%d)\n",
 			__func__, ctx->stream_id, smem.len);
@@ -205,7 +205,7 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	ctx->img_buf_pool.working_img_buf_iova = smem.iova;
 	ctx->img_buf_pool.working_img_buf_fd = dmabuf_fd;
 
-	for (i = 0; i < CAM_IMG_BUF_NUM; i++) {
+	for (i = 0; i < buf_num; i++) {
 		struct mtk_cam_img_working_buf_entry *buf = &ctx->img_buf_pool.img_working_buf[i];
 		int offset;
 

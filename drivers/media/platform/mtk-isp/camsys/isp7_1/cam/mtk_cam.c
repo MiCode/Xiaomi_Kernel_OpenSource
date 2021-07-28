@@ -409,8 +409,7 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 				mtk_cam_sv_finish_buf(req_stream_data);
 			} else {
 				finish_cq_buf(req_stream_data);
-				if (mtk_cam_is_stagger(ctx) ||
-				    mtk_cam_is_time_shared(ctx))
+				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
 				if (req_stream_data->state.estate ==
 				    E_STATE_DONE_MISMATCH)
@@ -444,8 +443,7 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 				mtk_cam_sv_finish_buf(req_stream_data);
 			} else {
 				finish_cq_buf(req_stream_data);
-				if (mtk_cam_is_stagger(ctx) ||
-				    mtk_cam_is_time_shared(ctx))
+				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
 			}
 
@@ -720,6 +718,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 					ctx->processing_img_buffer_list.cnt++;
 					spin_unlock(&ctx->processing_img_buffer_list.lock);
 					in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+					finish_img_buf(req);
 				}
 				dev_dbg(cam->dev,
 				"[%s:%d] 2-exp : ctx:%d dma_port:%d size=%dx%d, stride:%d, fmt:0x%x (in/out:0x%x/0x%x)\n",
@@ -761,6 +760,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 					ctx->processing_img_buffer_list.cnt++;
 					spin_unlock(&ctx->processing_img_buffer_list.lock);
 					in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+					finish_img_buf(req);
 				}
 				/* chech rawi_r3 if 0x0*/
 				in = MTKCAM_IPI_RAW_RAWI_3;
@@ -793,6 +793,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 					ctx->processing_img_buffer_list.cnt++;
 					spin_unlock(&ctx->processing_img_buffer_list.lock);
 					in_fmt->buf[0].iova = buf_entry->img_buffer.iova;
+					finish_img_buf(req);
 				}
 				dev_dbg(cam->dev,
 				"[%s:%d] 3-exp : ctx:%d size=%dx%d, stride:%d, fmt:0x%x (inx2/out:0x%x/0x%x/0x%x)\n",
@@ -1912,7 +1913,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ipi_msg->ack_data.frame_result.sub_cq_desc_offset;
 		buf_entry->sub_cq_desc_size =
 			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
-
 		if (mtk_cam_is_stagger_m2m(ctx))
 			spin_lock_irqsave(&ctx->m2m_lock, m2m_flags);
 
@@ -2898,9 +2898,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		 * TODO: validate pad's setting of each pipes
 		 * return -EPIPE if failed
 		 */
-		if (mtk_cam_is_stagger(ctx)
-			|| mtk_cam_is_time_shared(ctx))
-			mtk_cam_img_working_buf_pool_init(ctx);
+		if (mtk_cam_is_stagger(ctx))
+			mtk_cam_img_working_buf_pool_init(ctx, 2 + mtk_cam_is_3_exposure(ctx));
+		if (mtk_cam_is_time_shared(ctx))
+			mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		ret = mtk_cam_dev_config(ctx, false, true);
 		if (ret)
 			return ret;

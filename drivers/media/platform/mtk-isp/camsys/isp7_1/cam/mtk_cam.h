@@ -32,8 +32,8 @@
 #define CAMSV_CQ_BUF_NUM 8
 #define IPI_FRAME_BUF_SIZE 0x8000
 
-/* for stagger, time-sharing camsv working buffer, 3exps * (1backup + 2streams)*/
-#define CAM_IMG_BUF_NUM (3*3)
+/* for time-sharing camsv working buffer, (1inner+2backendprogramming+2backup)*/
+#define CAM_IMG_BUF_NUM (5)
 
 #define CCD_READY 1
 #define CCF_READY 0
