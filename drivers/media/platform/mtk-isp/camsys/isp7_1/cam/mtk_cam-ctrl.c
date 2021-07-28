@@ -2610,7 +2610,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	int fps_factor = 1, sub_ratio = 0;
 
 	if (ctx->used_raw_num) {
-		fi.pad = 1;
+		fi.pad = 0;
 		v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 		fps_factor = (fi.interval.numerator > 0) ?
