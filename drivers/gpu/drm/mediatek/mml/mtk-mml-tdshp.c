@@ -14,6 +14,7 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
@@ -351,6 +352,8 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 tdshp_crop_y_offset;
 	u32 tdshp_hist_left;
 	u32 tdshp_hist_top;
+
+	mml_pq_msg("%s idx[%d] engine_id[%d]", __func__, idx, comp->id);
 
 	tdshp_input_w = tile->in.xe - tile->in.xs + 1;
 	tdshp_input_h = tile->in.ye - tile->in.ys + 1;

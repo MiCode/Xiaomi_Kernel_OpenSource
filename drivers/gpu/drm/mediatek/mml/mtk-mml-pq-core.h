@@ -11,6 +11,43 @@
 #include <linux/types.h>
 #include <linux/wait.h>
 
+#include "mtk-mml-core.h"
+
+extern int mtk_mml_pq_msg;
+
+#define mml_pq_msg(fmt, args...) \
+do { \
+	if (mtk_mml_pq_msg) \
+		pr_notice("[mml]" fmt "\n", ##args); \
+} while (0)
+
+#define mml_pq_log(fmt, args...) \
+	pr_notice("[mml]" fmt "\n", ##args)
+
+#define mml_pq_err(fmt, args...) \
+	pr_notice("[mml][err]" fmt "\n", ##args)
+
+extern int mtk_mml_pq_dump;
+
+#define mml_pq_dump(fmt, args...) \
+do { \
+	if (mtk_mml_pq_dump) \
+		pr_notice("[mml_pq]" fmt "\n", ##args); \
+} while (0)
+
+/* mml pq ftrace */
+extern int mml_pq_trace;
+
+#define mml_pq_trace_ex_begin(fmt, args...) do { \
+	if (mml_pq_trace) \
+		mml_trace_begin(fmt, ##args); \
+} while (0)
+
+#define mml_pq_trace_ex_end() do { \
+	if (mml_pq_trace) \
+		mml_trace_end(); \
+} while (0)
+
 struct mml_task;
 
 struct mml_pq_sub_task {

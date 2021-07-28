@@ -129,6 +129,8 @@ static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 	/* cache out index for easy use */
 	rsz_frm->out_idx = ccfg->node->out_idx;
 
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
+
 	ret = mml_pq_tile_init(task);
 
 	mml_trace_ex_end();
@@ -182,13 +184,14 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_data *src = &cfg->info.src;
 	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
 	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
-	struct mml_pq_tile_init_result *result;
+	struct mml_pq_tile_init_result *result = NULL;
 	struct mml_pq_rsz_tile_init_param *init_param;
 	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 	u32 in_crop_w, in_crop_h;
 	s32 ret;
 
 	mml_trace_ex_begin("%s", __func__);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
 	ret = mml_pq_get_tile_init_result(task, RSZ_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -340,7 +343,8 @@ static s32 rsz_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 rsz_output_w;
 	u32 rsz_output_h;
 
-	mml_msg("%s is called", __func__);
+	mml_msg("%s idx[%d]", __func__, idx);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
 	if (!(tile->in.xe & 0x1))
 		/* Odd coordinate, should pad 1 column */

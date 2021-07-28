@@ -13,6 +13,7 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
 

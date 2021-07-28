@@ -14,6 +14,7 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
@@ -226,6 +227,7 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->full_size_x_out = func->full_size_x_in;
 	func->full_size_y_out = func->full_size_y_in;
 
+	mml_pq_msg("%s engine_id[%d]", __func__, comp->id);
 	return 0;
 }
 
@@ -255,6 +257,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
 
+	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id, dest->pq_config.en_dre);
 	/* relay mode */
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG, 0x1, 0x00000001);
 

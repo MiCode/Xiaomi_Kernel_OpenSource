@@ -14,6 +14,7 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
@@ -227,6 +228,8 @@ static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
+
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x1, 0x00000001);
 
 	return 0;
@@ -242,6 +245,8 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_data *src = &cfg->info.src;
 	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
+
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
 	if (MML_FMT_10BIT(src->format) ||
 	    MML_FMT_10BIT(dest->data.format))
@@ -270,6 +275,9 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 hdr_crop_xs;
 	u32 hdr_crop_xe;
 	u32 hdr_crop_ye;
+
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] idx[%d]", __func__,
+			ccfg->pipe, comp->id, idx);
 
 	hdr_input_w = tile->in.xe - tile->in.xs + 1;
 	hdr_input_h = tile->in.ye - tile->in.ys + 1;
