@@ -24,8 +24,7 @@ static int rt4801h_reset(int on)
 		return PTR_ERR(ctx_rt4801h.reset_gpio);
 	}
 	gpiod_set_value(ctx_rt4801h.reset_gpio, on);
-	DDPINFO("%s, gpio:0x%x, on:%d\n",
-		__func__, ctx_rt4801h.reset_gpio, on);
+	DDPINFO("%s, on:%d\n", __func__, on);
 	devm_gpiod_put(ctx_rt4801h.dev, ctx_rt4801h.reset_gpio);
 
 	return 0;

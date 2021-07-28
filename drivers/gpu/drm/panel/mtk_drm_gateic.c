@@ -138,11 +138,11 @@ static struct platform_driver *const mtk_drm_gateic_drivers[] = {
 
 static int __init mtk_drm_gateic_init(void)
 {
-	int ret;
-	unsigned int i;
+	int ret = 0;
+	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	for (i = 0; i < ARRAY_SIZE(mtk_drm_gateic_drivers); i++) {
+	for (i = 0; (unsigned int)i < ARRAY_SIZE(mtk_drm_gateic_drivers); i++) {
 		ret = platform_driver_register(mtk_drm_gateic_drivers[i]);
 		if (ret < 0) {
 			DDPPR_ERR("Failed to register %s driver: %d\n",

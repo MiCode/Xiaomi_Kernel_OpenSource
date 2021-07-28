@@ -222,7 +222,7 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 			struct dynamic_fps_params *dyn_fps)
 {
 	u8 temp[sizeof(struct dfps_switch_cmd)] = {0};
-	int i = 0, j = 0, len = 0;
+	int i = 0, j = 0, len = 0, ret = 0;
 	char node[128] = { 0 };
 
 	if (IS_ERR_OR_NULL(dyn_fps))
@@ -239,8 +239,11 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 			"lcm-params-dsi-dyn_fps_data_rate",
 			&dyn_fps->data_rate);
 	for (i = 0; i < MAX_DYN_CMD_NUM; i++) {
-		snprintf(node, sizeof(node),
-			 "lcm-params-dsi-dyn_fps_dfps_cmd_table%u", i);
+		ret = snprintf(node, sizeof(node),
+			 "lcm-params-dsi-dyn_fps_dfps_cmd_table%u",
+			 (unsigned int)i);
+		if (ret < 0 || (size_t)ret >= sizeof(node))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		len = mtk_lcm_dts_read_u8_array(np, node, &temp[0], 0,
 					sizeof(struct dfps_switch_cmd));
 		if (len < 0 || len > sizeof(struct dfps_switch_cmd)) {
@@ -320,10 +323,10 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			struct mtk_panel_params *ext_param)
 {
 	char prop[128] = { 0 };
-	unsigned int pattern_id;
+	unsigned int pattern_id = 0;
 	u8 temp[RT_MAX_NUM * 2 + 2] = {0};
 	unsigned int i = 0, j = 0;
-	int len = 0;
+	int len = 0, ret = 0;
 
 	if (IS_ERR_OR_NULL(ext_param) || IS_ERR_OR_NULL(np))
 		return;
@@ -451,8 +454,10 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			&ext_param->esd_check_enable);
 	if (ext_param->esd_check_enable != 0) {
 		for (i = 0; i < ESD_CHECK_NUM; i++) {
-			snprintf(prop, sizeof(prop),
+			ret = snprintf(prop, sizeof(prop),
 				 "lcm-params-dsi-lcm_esd_check_table%u", i);
+			if (ret < 0 || (size_t)ret >= sizeof(prop))
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 			len = mtk_lcm_dts_read_u8_array(np,
 					prop, temp, 0, sizeof(struct esd_check_item));
 			if (len < 0 || len > sizeof(struct esd_check_item)) {
@@ -479,8 +484,10 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 	/* lane swap */
 	if (ext_param->lane_swap_en != 0) {
 		for (i = 0; i < MIPITX_PHY_PORT_NUM; i++) {
-			snprintf(prop, sizeof(prop),
+			ret = snprintf(prop, sizeof(prop),
 				 "lcm-params-dsi-lane_swap%u", i);
+			if (ret < 0 || (size_t)ret >= sizeof(prop))
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 			mtk_lcm_dts_read_u32_array(np, prop,
 					(u32 *)&ext_param->lane_swap[i][0],
 					0, MIPITX_PHY_LANE_NUM);
@@ -495,6 +502,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	char child[128] = { 0 };
 	struct drm_display_mode *mode = &mode_node->mode;
 	struct mtk_panel_params *ext_param = &mode_node->ext_param;
+	int ret = 0;
 
 	parse_lcm_dsi_fps_mode(np, mode);
 	parse_lcm_dsi_fps_ext_param(np, ext_param);
@@ -506,8 +514,10 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 
 	for_each_available_child_of_node(np, child_np) {
 		/* dsc params */
-		snprintf(child, sizeof(child) - 1,
+		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dsc-params");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -515,8 +525,10 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 					&ext_param->dsc_params);
 		}
 		/* phy timcon */
-		snprintf(child, sizeof(child) - 1,
+		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-phy-timcon");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -524,8 +536,10 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 					&ext_param->phy_timcon);
 		}
 		/* dyn */
-		snprintf(child, sizeof(child) - 1,
+		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dyn");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -533,8 +547,10 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 					&ext_param->dyn);
 		}
 		/* dyn fps */
-		snprintf(child, sizeof(child) - 1,
+		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dyn-fps");
+		if (ret < 0 || (size_t)ret >= sizeof(child))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -553,6 +569,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 	u32 *mode = NULL;
 	char mode_name[128] = { 0 };
 	struct device_node *mode_np = NULL;
+	int ret = 0;
 #if MTK_LCM_DEBUG_DUMP
 	struct platform_device *pdev = NULL;
 #endif
@@ -682,9 +699,11 @@ int parse_lcm_params_dsi(struct device_node *np,
 		unsigned int height = mode[i * MTK_LCM_MODE_UNIT + 2];
 		unsigned int fps = mode[i * MTK_LCM_MODE_UNIT + 3];
 
-		snprintf(mode_name, sizeof(mode_name),
+		ret = snprintf(mode_name, sizeof(mode_name),
 			 "mediatek,lcm-dsi-fps-%u-%u-%u-%u",
 			 id, width, height, fps);
+		if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		for_each_available_child_of_node(np, mode_np) {
 			if (of_device_is_compatible(mode_np, mode_name)) {
 				struct mtk_lcm_mode_dsi *mode_node = NULL;
@@ -717,7 +736,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		struct mtk_panel_cust *cust)
 {
 	struct device_node *mode_np = NULL;
-	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	struct mtk_lcm_mode_dsi *mode_node;
 	char mode_name[128] = {0};
 	int len = 0, ret = 0;
 
@@ -1119,18 +1138,24 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		if (of_device_is_compatible(mode_np,
 				"mediatek,lcm-ops-dsi-fps-switch-before-powerdown")) {
 			list_for_each_entry(mode_node, &params->mode_list, list) {
-				snprintf(mode_name, sizeof(mode_name),
+				ret = snprintf(mode_name, sizeof(mode_name),
 					"fps-switch-%u-%u-%u-%u_size",
 					mode_node->id, mode_node->width,
 					mode_node->height, mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+					DDPMSG("%s, %d, snprintf failed\n",
+						__func__, __LINE__);
 				mtk_lcm_dts_read_u32(mode_np, mode_name,
 						&mode_node->fps_switch_bfoff_size);
 
 				if (mode_node->fps_switch_bfoff_size > 0) {
-					snprintf(mode_name, sizeof(mode_name),
+					ret = snprintf(mode_name, sizeof(mode_name),
 						"fps-switch-%u-%u-%u-%u_table",
 						mode_node->id, mode_node->width,
 						mode_node->height, mode_node->fps);
+					if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+						DDPMSG("%s, %d, snprintf failed\n",
+							__func__, __LINE__);
 
 					LCM_KZALLOC(mode_node->fps_switch_bfoff,
 							sizeof(struct mtk_lcm_ops_data) *
@@ -1164,18 +1189,23 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		if (of_device_is_compatible(mode_np,
 				"mediatek,lcm-ops-dsi-fps-switch-after-poweron")) {
 			list_for_each_entry(mode_node, &params->mode_list, list) {
-				snprintf(mode_name, sizeof(mode_name),
+				ret = snprintf(mode_name, sizeof(mode_name),
 					"fps-switch-%u-%u-%u-%u_size",
 					mode_node->id, mode_node->width,
 					mode_node->height, mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+					DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 				mtk_lcm_dts_read_u32(mode_np, mode_name,
 						&mode_node->fps_switch_afon_size);
 
 				if (mode_node->fps_switch_afon_size > 0) {
-					snprintf(mode_name, sizeof(mode_name),
+					ret = snprintf(mode_name, sizeof(mode_name),
 						"fps-switch-%u-%u-%u-%u_table",
 						mode_node->id, mode_node->width,
 						mode_node->height, mode_node->fps);
+					if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+						DDPMSG("%s, %d, snprintf failed\n",
+							__func__, __LINE__);
 					LCM_KZALLOC(mode_node->fps_switch_afon,
 						sizeof(struct mtk_lcm_ops_data) *
 						mode_node->fps_switch_afon_size,
@@ -1477,7 +1507,7 @@ EXPORT_SYMBOL(dump_lcm_dsi_fps_settings);
 void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 	struct mtk_panel_cust *cust)
 {
-	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	struct mtk_lcm_mode_dsi *mode_node;
 	int i = 0;
 
 	if (IS_ERR_OR_NULL(params)) {
@@ -1515,8 +1545,8 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 		struct mtk_panel_cust *cust)
 {
 	char mode_name[128] = {0};
-	struct mtk_lcm_mode_dsi *mode_node = NULL;
-	int i = 0;
+	struct mtk_lcm_mode_dsi *mode_node;
+	int i = 0, ret = 0;
 
 	if (IS_ERR_OR_NULL(ops)) {
 		DDPPR_ERR("%s, %d: invalid params\n", __func__, __LINE__);
@@ -1583,16 +1613,20 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 
 	if (params != NULL) {
 		list_for_each_entry(mode_node, &params->mode_list, list) {
-			snprintf(mode_name, sizeof(mode_name),
+			ret = snprintf(mode_name, sizeof(mode_name),
 				 "fps_switch_bfoff_%u_%u_%u", mode_node->width,
 				 mode_node->height, mode_node->fps);
+			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 			dump_lcm_ops_func(mode_node->fps_switch_bfoff,
 				mode_node->fps_switch_bfoff_size,
 				cust, mode_name);
 
-			snprintf(mode_name, sizeof(mode_name),
+			ret = snprintf(mode_name, sizeof(mode_name),
 				 "fps_switch_afon_%u_%u_%u", mode_node->width,
 				 mode_node->height, mode_node->fps);
+			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 			dump_lcm_ops_func(mode_node->fps_switch_afon,
 				mode_node->fps_switch_afon_size,
 				cust, mode_name);
@@ -1611,7 +1645,7 @@ EXPORT_SYMBOL(dump_lcm_ops_dsi);
 
 void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 {
-	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	struct mtk_lcm_mode_dsi *mode_node;
 
 	if (IS_ERR_OR_NULL(params)) {
 		DDPPR_ERR("%s:%d, ERROR: invalid params/ops\n",

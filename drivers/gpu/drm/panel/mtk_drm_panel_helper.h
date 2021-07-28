@@ -27,15 +27,14 @@ extern unsigned long long mtk_lcm_total_size;
 
 #define DO_LCM_KZALLOC(buf, size, flag, debug) \
 do { \
-	if (debug == 1) \
-		pr_notice("%s, %d, size:%lu, align:%lu, flag:0x%x\n", \
-			__func__, __LINE__, size, roundup(size, 4), flag); \
 	buf = kzalloc(roundup(size, 4), flag); \
 	if (buf != NULL) \
 		mtk_lcm_total_size += size; \
 	if (debug == 1 && buf != NULL) \
-		pr_notice("%s, %d, buf:0x%lx, size:%lu, align:%lu, flag:0x%x\n", \
-			__func__, __LINE__, buf, size, roundup(size, 4), flag); \
+		pr_notice("%s, %d, buf:0x%lx, size:%u, align:%u, flag:0x%x\n", \
+			__func__, __LINE__, (unsigned long)buf, \
+			(unsigned int)size, (unsigned int)roundup(size, 4), \
+			(unsigned int)flag); \
 } while (0)
 
 #define LCM_KZALLOC(buf, size, flag) DO_LCM_KZALLOC(buf, size, flag, 0)
@@ -43,8 +42,8 @@ do { \
 #define DO_LCM_KFREE(buf, size, debug) \
 do { \
 	if (debug == 1) \
-		pr_notice("%s, %d, size:%lu\n", \
-			__func__, __LINE__, roundup(size, 4)); \
+		pr_notice("%s, %d, size:%u\n", \
+			__func__, __LINE__, (unsigned int)roundup(size, 4)); \
 	if (mtk_lcm_total_size >= roundup(size, 4)) \
 		mtk_lcm_total_size -= roundup(size, 4); \
 	else \

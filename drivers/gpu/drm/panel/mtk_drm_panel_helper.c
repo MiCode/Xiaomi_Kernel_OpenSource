@@ -143,7 +143,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dbi params\n", __func__);
 				ret = parse_lcm_params_dbi(type_np,
 						&params->dbi_params);
-				if (ret == 0)
+				if (ret >= 0)
 					dump_lcm_params_dbi(&params->dbi_params, NULL);
 				else
 					free_lcm_params_dbi(&params->dbi_params);
@@ -157,7 +157,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dpi params\n", __func__);
 				ret = parse_lcm_params_dpi(type_np,
 						&params->dpi_params);
-				if (ret == 0)
+				if (ret >= 0)
 					dump_lcm_params_dpi(&params->dpi_params, NULL);
 				else
 					free_lcm_params_dpi(&params->dpi_params);
@@ -171,7 +171,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dsi params\n", __func__);
 				ret = parse_lcm_params_dsi(type_np,
 						&params->dsi_params);
-				if (ret == 0)
+				if (ret >= 0)
 					dump_lcm_params_dsi(&params->dsi_params, NULL);
 				else
 					free_lcm_params_dsi(&params->dsi_params);
@@ -264,7 +264,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		DDPMSG("%s, condition, %u, %u, %u\n", __func__,
 			lcm_op->param.buf_con_data.name,
 			lcm_op->param.buf_con_data.condition,
-			lcm_op->param.buf_con_data.data_len);
+			(unsigned int)lcm_op->param.buf_con_data.data_len);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
 		/* func type size input_type id data0 data1 ... */
@@ -283,7 +283,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 			DDPMSG("%s, %d, runtime data index:%u is invalid, %u\n",
 				__func__, __LINE__,
 				lcm_op->param.buf_runtime_data.id,
-				lcm_op->param.buf_runtime_data.data_len);
+				(unsigned int)lcm_op->param.buf_runtime_data.data_len);
 			LCM_KFREE(lcm_op->param.buf_runtime_data.data,
 				lcm_op->param.buf_runtime_data.data_len + 1);
 			return -EINVAL;
@@ -296,7 +296,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		DDPMSG("%s, runtime, %u, %u, %u\n", __func__,
 			lcm_op->param.buf_runtime_data.name,
 			lcm_op->param.buf_runtime_data.id,
-			lcm_op->param.buf_runtime_data.data_len);
+			(unsigned int)lcm_op->param.buf_runtime_data.data_len);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
 		/* func type size cmd data0 data1 ... */
@@ -636,7 +636,7 @@ int parse_lcm_ops_func(struct device_node *np,
 				table[i].size, len, tmp_len, ret,
 				phase, phase_skip_flag);
 #endif
-			if (ret != 0) {
+			if (ret < 0) {
 				DDPMSG("[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,fail:%d\n",
 					func, i, table[i].func, table[i].type,
 					table[i].size, len, ret);
@@ -703,7 +703,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dbi params\n", __func__);
 				ret = parse_lcm_ops_dbi(type_np,
 						ops->dbi_ops, &params->dbi_params, cust);
-				if (ret == 0)
+				if (ret >= 0)
 					dump_lcm_ops_dbi(ops->dbi_ops, &params->dbi_params, NULL);
 				else
 					free_lcm_ops_dbi(ops->dbi_ops);
@@ -723,7 +723,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dpi params\n", __func__);
 				ret = parse_lcm_ops_dpi(type_np,
 						ops->dpi_ops, &params->dpi_params, cust);
-				if (ret == 0)
+				if (ret >= 0)
 					dump_lcm_ops_dpi(ops->dpi_ops, &params->dpi_params, NULL);
 				else
 					free_lcm_ops_dpi(ops->dpi_ops);
@@ -743,7 +743,7 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 				DDPMSG("%s, LCM parse dsi ops\n", __func__);
 				ret = parse_lcm_ops_dsi(type_np,
 						ops->dsi_ops, &params->dsi_params, cust);
-				if (ret == 0)
+				if (ret >= 0)
 					dump_lcm_ops_dsi(ops->dsi_ops, &params->dsi_params, NULL);
 				else
 					free_lcm_ops_dsi(ops->dsi_ops);
@@ -781,7 +781,7 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 	for_each_available_child_of_node(lcm_np, np) {
 		if (of_device_is_compatible(np, "mediatek,lcm-params")) {
 			ret = parse_lcm_params_dt_node(np, &data->params);
-			if (ret != 0)
+			if (ret < 0)
 				return ret;
 			DDPMSG("%s: parsing lcm-params, total_size:%lluByte\n",
 				__func__, mtk_lcm_total_size);
@@ -789,10 +789,10 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 			if (atomic_read(&data->cust.cust_enabled) == 1 &&
 			    data->cust.parse_params != NULL) {
 				DDPMSG("%s: parsing cust settings, enable:%d, func:0x%lx\n",
-					__func__, data->cust.cust_enabled,
+					__func__, atomic_read(&data->cust.cust_enabled),
 					(unsigned long)data->cust.parse_params);
 				ret = data->cust.parse_params(np);
-				if (ret != 0)
+				if (ret < 0)
 					DDPMSG("%s, failed at cust parsing, %d\n",
 						__func__, ret);
 				DDPMSG("%s: parsing lcm-params-cust, total_size:%lluByte\n",
@@ -806,7 +806,7 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 		if (of_device_is_compatible(np, "mediatek,lcm-ops")) {
 			ret = parse_lcm_ops_dt_node(np, &data->ops,
 				&data->params, &data->cust);
-			if (ret != 0) {
+			if (ret < 0) {
 				DDPMSG("%s, failed to parse operations, %d\n", __func__, ret);
 				return ret;
 			}
@@ -822,6 +822,7 @@ EXPORT_SYMBOL(load_panel_resource_from_dts);
 static void mtk_get_func_name(char func, char *out)
 {
 	char name[MTK_LCM_NAME_LENGTH] = { 0 };
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(out)) {
 		DDPMSG("%s: invalid out buffer\n", __func__);
@@ -830,25 +831,30 @@ static void mtk_get_func_name(char func, char *out)
 
 	switch (func) {
 	case MTK_LCM_FUNC_DBI:
-		snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "DBI");
+		ret = snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "DBI");
 		break;
 	case MTK_LCM_FUNC_DPI:
-		snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "DPI");
+		ret = snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "DPI");
 		break;
 	case MTK_LCM_FUNC_DSI:
-		snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "DSI");
+		ret = snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "DSI");
 		break;
 	default:
-		snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
+		ret = snprintf(&name[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
 		break;
 	}
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
-	snprintf(out, MTK_LCM_NAME_LENGTH - 1, &name[0]);
+	ret = snprintf(out, MTK_LCM_NAME_LENGTH - 1, &name[0]);
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 }
 
 static void mtk_get_type_name(unsigned int type, char *out)
 {
 	char name[MTK_LCM_NAME_LENGTH] = { 0 };
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(out)) {
 		DDPMSG("%s: invalid out buffer\n", __func__);
@@ -857,112 +863,116 @@ static void mtk_get_type_name(unsigned int type, char *out)
 
 	switch (type) {
 	case MTK_LCM_UTIL_TYPE_RESET:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "RESET");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "RESET");
 		break;
 	case MTK_LCM_UTIL_TYPE_MDELAY:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "MDELAY");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "MDELAY");
 		break;
 	case MTK_LCM_UTIL_TYPE_UDELAY:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "UDELAY");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "UDELAY");
 		break;
 	case MTK_LCM_UTIL_TYPE_TDELAY:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "TICK_DELAY");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "TICK_DELAY");
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_VOLTAGE:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1,	"POWER_VOLTAGE");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,	"POWER_VOLTAGE");
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_ON:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "POWER_ON");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "POWER_ON");
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_OFF:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1,	"POWER_OFF");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,	"POWER_OFF");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_BUF");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_BUF");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_BUF_CON");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_BUF_CON");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_BUF_RUNTIME");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_BUF_RUNTIME");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_CMD");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "WRITE_CMD");
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "READ_BUF");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "READ_BUF");
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "READ_CMD");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "READ_CMD");
 		break;
 	case MTK_LCM_CB_TYPE_RUNTIME:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME");
 		break;
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT");
 		break;
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
 		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT_MUL");
 		break;
 	case MTK_LCM_GPIO_TYPE_MODE:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_MODE");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_MODE");
 		break;
 	case MTK_LCM_GPIO_TYPE_DIR_OUTPUT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_DIR_OUT");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_DIR_OUT");
 		break;
 	case MTK_LCM_GPIO_TYPE_DIR_INPUT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_DIR_IN");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_DIR_IN");
 		break;
 	case MTK_LCM_GPIO_TYPE_OUT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_OUT");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_OUT");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_COUNT");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_COUNT");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_PARAM");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_PARAM");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_FIX_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_FIX");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_FIX");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_X0_MSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X0_MSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X0_MSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_X0_LSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X0_LSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X0_LSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_X1_MSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X1_MSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X1_MSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_X1_LSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X1_LSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_X1_LSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_MSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y0_MSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y0_MSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_LSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y0_LSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y0_LSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_MSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y1_MSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y1_MSB");
 		break;
 	case MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_LSB_BIT:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y1_LSB");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_PREPARE_Y1_LSB");
 		break;
 	case MTK_LCM_LK_TYPE_WRITE_PARAM:
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_WRITE_PARAM");
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "LK_WRITE_PARAM");
 		break;
 	default:
 		if (type > MTK_LCM_CUST_TYPE_START &&
 		    type < MTK_LCM_CUST_TYPE_END)
-			snprintf(name, MTK_LCM_NAME_LENGTH - 1,
+			ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
 				"CUST-%d", type);
-		snprintf(name, MTK_LCM_NAME_LENGTH - 1,
+		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1,
 				"unknown");
 		break;
 	}
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
-	snprintf(out, MTK_LCM_NAME_LENGTH - 1, &name[0]);
+	ret = snprintf(out, MTK_LCM_NAME_LENGTH - 1, &name[0]);
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 }
 
 static void dump_lcm_ops_func_util(struct mtk_lcm_ops_data *lcm_op,
@@ -1028,7 +1038,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->param.buf_con_data.name,
 			lcm_op->param.buf_con_data.condition,
 			lcm_op->size,
-			lcm_op->param.buf_con_data.data_len);
+			(unsigned int)lcm_op->param.buf_con_data.data_len);
 		for (i = 0; i < (unsigned int)lcm_op->param.buf_con_data.data_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
@@ -1044,7 +1054,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->param.buf_runtime_data.name,
 			lcm_op->param.buf_runtime_data.id,
 			lcm_op->size,
-			lcm_op->param.buf_runtime_data.data_len);
+			(unsigned int)lcm_op->param.buf_runtime_data.data_len);
 		for (i = 0; i < (unsigned int)lcm_op->param.buf_runtime_data.data_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
@@ -1058,9 +1068,9 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,data_len:%u,startid:%u\n",
 			owner, id, func_name, type_name, lcm_op->size,
 			lcm_op->param.cmd_data.cmd,
-			lcm_op->param.cmd_data.data_len,
+			(unsigned int)lcm_op->param.cmd_data.data_len,
 			lcm_op->param.cmd_data.start_id);
-		for (i = 0; i < lcm_op->param.cmd_data.data_len; i += 4) {
+		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.data_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
 				lcm_op->param.cmd_data.data[i],
@@ -1072,9 +1082,9 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,data_len:%u,startid:%u\n",
 			owner, id, func_name, type_name, lcm_op->size,
-			lcm_op->param.cmd_data.data_len,
+			(unsigned int)lcm_op->param.cmd_data.data_len,
 			lcm_op->param.cmd_data.start_id);
-		for (i = 0; i < lcm_op->param.cmd_data.data_len; i += 4) {
+		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.data_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
 				lcm_op->param.cmd_data.data[i],
@@ -1087,7 +1097,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,data_len:%u,startid:%u\n",
 			owner, id, func_name, type_name, lcm_op->size,
 			lcm_op->param.cmd_data.cmd,
-			lcm_op->param.cmd_data.data_len,
+			(unsigned int)lcm_op->param.cmd_data.data_len,
 			lcm_op->param.cmd_data.start_id);
 		break;
 	default:
@@ -1200,11 +1210,14 @@ void dump_lcm_ops_func(struct mtk_lcm_ops_data *table,
 	struct mtk_lcm_ops_data *lcm_op = NULL;
 	char owner_tmp[MTK_LCM_NAME_LENGTH] = { 0 };
 	unsigned int i = 0;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(owner))
-		snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
+		ret = snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
 	else
-		snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, owner);
+		ret = snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, owner);
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
 	if (IS_ERR_OR_NULL(table) || size == 0) {
 		DDPDUMP("%s: \"%s\" is empty\n", __func__, owner_tmp);
@@ -1496,7 +1509,7 @@ int mtk_execute_func_cmd(void *dev,
 
 		if (IS_ERR_OR_NULL(input) ||
 		    IS_ERR_OR_NULL(input->data)) {
-			DDPMSG("%s: err input\n", __func__, __LINE__);
+			DDPMSG("%s: %d, err input\n", __func__, __LINE__);
 			return -EINVAL;
 		}
 
@@ -1549,25 +1562,25 @@ int mtk_execute_func_util(struct mtk_lcm_ops_data *lcm_op)
 	switch (lcm_op->type) {
 	case MTK_LCM_UTIL_TYPE_RESET:
 		ret = mtk_drm_gateic_reset(data, lcm_op->func);
-		if (ret != 0)
+		if (ret < 0)
 			DDPMSG("%s, reset failed, %d\n",
 				__func__, ret);
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_ON:
 		ret = mtk_drm_gateic_power_on(lcm_op->func);
-		if (ret != 0)
+		if (ret < 0)
 			DDPMSG("%s, power on failed, %d\n",
 				__func__, ret);
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_OFF:
 		ret = mtk_drm_gateic_power_off(lcm_op->func);
-		if (ret != 0)
+		if (ret < 0)
 			DDPMSG("%s, power off failed, %d\n",
 				__func__, ret);
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_VOLTAGE:
 		ret = mtk_drm_gateic_set_voltage(data, lcm_op->func);
-		if (ret != 0)
+		if (ret < 0)
 			DDPMSG("%s, set voltage:%u failed, %d\n",
 				__func__, data, ret);
 		break;
@@ -1706,9 +1719,11 @@ int mtk_panel_execute_operation(void *dev,
 	int ret = 0;
 
 	if (IS_ERR_OR_NULL(owner))
-		snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
+		ret = snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
 	else
-		snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, owner);
+		ret = snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, owner);
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
 	if (IS_ERR_OR_NULL(dev) || IS_ERR_OR_NULL(table) ||
 	    table_size == 0 ||
@@ -1766,7 +1781,7 @@ int mtk_panel_execute_operation(void *dev,
 			ret = -EINVAL;
 		}
 
-		if (ret != 0) {
+		if (ret < 0) {
 			DDPMSG("%s: [%s+%u] func:%s/%u, type:%s/%u, failed:%d\n",
 				__func__, owner_tmp, i,
 				func_name, op->func,
