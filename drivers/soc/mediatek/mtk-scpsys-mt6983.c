@@ -289,6 +289,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.name = "adsp_infra",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE1C,
+		.basic_clk_name = {"adsp_ao_0"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				ADSP_INFRA_PROT_STEP1_0_MASK),
