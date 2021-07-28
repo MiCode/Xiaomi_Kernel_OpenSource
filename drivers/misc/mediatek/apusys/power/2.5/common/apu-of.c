@@ -172,7 +172,7 @@ int of_apu_cg_get(struct device *dev,	struct apu_cgs **dst)
 		(*dst)->cgs[idx].regs =
 			ioremap((*dst)->cgs[idx].phyaddr, PAGE_SIZE);
 		if (!((*dst)->cgs[idx].regs)) {
-			aclk_err(dev, "[%s] cannot iomap pa:0x%x\n",
+			aclk_err(dev, "[%s] cannot iomap pa:0x%llx\n",
 					__func__, (*dst)->cgs[idx].phyaddr);
 			ret = -ENOMEM;
 			break;
