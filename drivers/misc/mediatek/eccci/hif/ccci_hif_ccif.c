@@ -1943,7 +1943,7 @@ static void ccif_set_clk_off(unsigned char hif_id)
 {
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
-	int ret, idx, reg_val;
+	int idx;
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
 
@@ -1984,17 +1984,8 @@ static void ccif_set_clk_off(unsigned char hif_id)
 			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 		}
 	} else if (ccif_ctrl->plat_val.md_gen >= 6298) {
-		ret = regmap_read(ccif_ctrl->plat_val.infra_ao_base,
-			0xBF0, &reg_val);
-		if (ret) {
-			CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
-				"%s: read 0x1000_1BF0 fail\n", __func__);
-			return;
-		}
-		reg_val &= ~(0xFFFF);
-		reg_val |= 0xF7FF;
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
-			0xBF0, reg_val);
+			0xBF0, 0xF7FF);
 		devapc_check_flag = 0;
 		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
 			if (ccif_clk_table[idx].clk_ref == NULL)
