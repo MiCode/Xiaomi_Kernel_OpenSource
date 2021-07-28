@@ -45,7 +45,7 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 		send_item_num = 3,
 		recv_item_num = 4
 	};
-	u32 i, ret, mbox_id, recv_opt, pin_name_size;
+	u32 i, ret, mbox_id, recv_opt, pin_name_size, cnt_elems;
 
 	// Get MBOX num
 	of_property_read_u32(pdev->dev.of_node, "mbox_count",
@@ -72,22 +72,22 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 	}
 
 	// Get send PIN num
-	gpueb_mboxdev.send_count = of_property_count_u32_elems(
-			pdev->dev.of_node, "send_table")
-			/ send_item_num;
-	if (gpueb_mboxdev.send_count <= 0) {
+	cnt_elems = of_property_count_u32_elems(
+			pdev->dev.of_node, "send_table");
+	if (cnt_elems <= 0) {
 		gpueb_pr_debug("send table not found\n");
 		return false;
 	}
+	gpueb_mboxdev.send_count = cnt_elems / send_item_num;
 
 	// Get recv PIN num
-	gpueb_mboxdev.recv_count = of_property_count_u32_elems(
-			pdev->dev.of_node, "recv_table")
-			/ recv_item_num;
-	if (gpueb_mboxdev.recv_count <= 0) {
+	cnt_elems = of_property_count_u32_elems(
+			pdev->dev.of_node, "recv_table");
+	if (cnt_elems <= 0) {
 		gpueb_pr_debug("recv table not found\n");
 		return false;
 	}
+	gpueb_mboxdev.recv_count = cnt_elems / recv_item_num;
 
 	// Get send PIN name
 	ret = of_property_read_string_array(pdev->dev.of_node,
