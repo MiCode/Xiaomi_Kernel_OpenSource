@@ -1284,6 +1284,19 @@ static int mtk_cam_dev_req_is_stream_on(struct mtk_cam_device *cam,
 	return (req->pipe_used & cam->streaming_pipe) == req->pipe_used;
 }
 
+/* workaroud before the refactored request/steam data enqueue*/
+static void mtk_cam_req_update_frame_seq_no(struct mtk_cam_device *cam,
+					    struct mtk_cam_request *req)
+{
+	int i;
+
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->pipe_used & (1 << i))
+			req->stream_data[i].frame_seq_no =
+				++(cam->ctxs[i].enqueued_frame_seq_no);
+	}
+}
+
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
 	struct mtk_cam_request *req, *req_prev, *req_tmp;
@@ -1311,6 +1324,8 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				"%s job cnt(%d), allow req_enqueue(%s)\n",
 				__func__, cam->running_job_count, req->req.debug_str);
 			cam->running_job_count++;
+			/* Accumulated frame sequence number */
+			mtk_cam_req_update_frame_seq_no(cam, req);
 			list_del(&req->list);
 			list_add_tail(&req->list, &cam->running_job_list);
 			spin_unlock(&cam->running_job_lock);
@@ -1325,9 +1340,6 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	/* Initialize ctx related req_stream_data fields */
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req_tmp->pipe_used & (1 << i)) {
-			/* Accumulated frame sequence number */
-			req_tmp->stream_data[i].frame_seq_no =
-				++(cam->ctxs[i].enqueued_frame_seq_no);
 			if (is_raw_subdev(i)) {
 				raw_fut_pre = cam->ctxs[i].pipe->res_config.raw_feature;
 				raw_fut_pre_try = cam->ctxs[i].pipe->try_res_config.raw_feature;
