@@ -63,7 +63,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.checksum_value = 0x8ac2d94a,
 
-	.pre = { /* QBIN_VBin_4096x3072_30FPS */
+	.pre = { /* QBIN_HVBin_4096x3072_30FPS */
 		.pclk = 1488000000,
 		.linelength = 15616,
 		.framelength = 3176,
@@ -75,7 +75,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 787200000,
 		.max_framerate = 300,
 	},
-	.cap = { /* QBIN_VBin_4096x3072_30FPS */
+	.cap = { /* QBIN_HVBin_4096x3072_30FPS */
 		.pclk = 1488000000,
 		.linelength = 15616,
 		.framelength = 3176,
@@ -87,7 +87,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 787200000,
 		.max_framerate = 300,
 	},
-	.normal_video = { /* QBIN_VBIN_4096x2304_30FPS */
+	.normal_video = { /* QBIN_HVBIN_4096x2304_30FPS */
 		.pclk = 2246400000,
 		.linelength = 15616,
 		.framelength = 4794,
@@ -99,7 +99,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 938060000,
 		.max_framerate = 300,
 	},
-	.hs_video = { /* QBIN_VBIN_V2H2_FHD_2048x1152_120FPS */
+	.hs_video = { /* QBIN_HVBIN_V2H2_FHD_2048x1152_120FPS */
 		.pclk = 1300800000,
 		.linelength = 8816,
 		.framelength = 1228,
@@ -111,7 +111,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 517030000,
 		.max_framerate = 1200,
 	},
-	.slim_video = { /* QBIN_VBin_4096x3072_30FPS */
+	.slim_video = { /* QBIN_HVBin_4096x3072_30FPS */
 		.pclk = 1488000000,
 		.linelength = 15616,
 		.framelength = 3176,
@@ -123,7 +123,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 787200000,
 		.max_framerate = 300,
 	},
-	.custom1 = { /* QBIN_VBin_4096x3072_24FPS */
+	.custom1 = { /* QBIN_HVBin_4096x3072_24FPS */
 		.pclk = 2380800000,
 		.linelength = 31232,
 		.framelength = 3176,
@@ -135,7 +135,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 462170000,
 		.max_framerate = 240,
 	},
-	.custom2 = { /* QBIN_VBin_4096x2304_60FPS */
+	.custom2 = { /* QBIN_HVBin_4096x2304_60FPS */
 		.pclk = 2284800000,
 		.linelength = 15616,
 		.framelength = 2438,
@@ -159,7 +159,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 1738970000,
 		.max_framerate = 240,
 	},
-	.custom4 = { /* QBIN_VBIN_2DOL_4096x2304_30FPS */
+	.custom4 = { /* QBIN_HVBIN_2DOL_4096x2304_30FPS */
 		.pclk = 2246400000,
 		.linelength = 15616,
 		.framelength = 4792,
@@ -171,7 +171,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 938060000,
 		.max_framerate = 300,
 	},
-	.custom5 = { /* QBIN_VBIN_V2H2_FHD_2048x1152_240FPS */
+	.custom5 = { /* QBIN_HVBIN_V2H2_FHD_2048x1152_240FPS */
 		.pclk = 2716800000,
 		.linelength = 8816,
 		.framelength = 1284,
@@ -183,7 +183,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 1110860000,
 		.max_framerate = 2400,
 	},
-	.custom6 = { /* QBIN_VBIN_V2H2_1280x720_480FPS */
+	.custom6 = { /* QBIN_HVBIN_V2H2_1280x720_480FPS */
 		.pclk = 2400000000,
 		.linelength = 5568,
 		.framelength = 896,
@@ -207,7 +207,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 787200000,
 		.max_framerate = 300,
 	},
-	.custom8 = { /* QBIN_VBIN_V2H2_2048x1536_30FPS */
+	.custom8 = { /* QBIN_HVBIN_V2H2_2048x1536_30FPS */
 		.pclk = 1281600000,
 		.linelength = 8816,
 		.framelength = 4844,
@@ -219,7 +219,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 510170000,
 		.max_framerate = 300,
 	},
-	.custom9 = { /* QBIN_VBIN_V2H2_2DOL_2048x1536_30FPS */
+	.custom9 = { /* QBIN_HVBIN_V2H2_2DOL_2048x1536_30FPS */
 		.pclk = 1281600000,
 		.linelength = 8816,
 		.framelength = 4840,
@@ -231,7 +231,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 510170000,
 		.max_framerate = 300,
 	},
-	.custom10 = { /* QBIN_VBIN_V2H2_3DOL_2048x1536_30FPS */
+	.custom10 = { /* QBIN_HVBIN_V2H2_3DOL_2048x1536_30FPS */
 		.pclk = 1281600000,
 		.linelength = 8816,
 		.framelength = 4836,
@@ -280,7 +280,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_interface_type = SENSOR_INTERFACE_TYPE_MIPI,
 	.mipi_sensor_type = MIPI_CPHY,
 	.mipi_settle_delay_mode = 0,
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	.mclk = 24, /* suggest 24 or 26 for 24Mhz or 26Mhz */
 	.mipi_lane_num = SENSOR_MIPI_3_LANE,
 	.i2c_addr_table = {0x20, 0xff},
@@ -288,6 +288,26 @@ static struct imgsensor_info_struct imgsensor_info = {
 	 * only supprt 4 must end with 0xff
 	 */
 	.i2c_speed = 1000, /* kbps */
+};
+
+static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
+	.i4OffsetX = 0,
+	.i4OffsetY = 0,
+	.i4PitchX = 0,
+	.i4PitchY = 0,
+	.i4PairNum = 0,
+	.i4SubBlkW = 0,
+	.i4SubBlkH = 0,
+	.i4PosL = {{0, 0} },
+	.i4PosR = {{0, 0} },
+	.i4BlockNumX = 0,
+	.i4BlockNumY = 0,
+	.i4LeFirst = 0,
+	.i4Crop = {
+		{0, 0}, {0, 0}, {0, 356}, {0, 356}, {0, 0},
+		{0, 0}, {0, 356}, {0, 0}, {0, 356}, {0, 356}
+	},  //{0, 1632}
+	.iMirrorFlip = 3,
 };
 
 /* Sensor output window information */
@@ -1039,6 +1059,8 @@ static void sensor_init(struct subdrv_ctx *ctx)
 	LOG_INF("E\n");
 	imx766_table_write_cmos_sensor_8(ctx, imx766_init_setting,
 		sizeof(imx766_init_setting)/sizeof(kal_uint16));
+	/*enable temperature sensor, TEMP_SEN_CTL:*/
+	write_cmos_sensor_8(ctx, 0x0138, 0x01);
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X\n");
 }
@@ -2942,15 +2964,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			(UINT16) *feature_data);
 		PDAFinfo =
 		  (struct SET_PD_BLOCK_INFO_T *)(uintptr_t)(*(feature_data+1));
-		switch (*feature_data) {
-		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-		default:
-			break;
-		}
+		memcpy((void *)PDAFinfo, (void *)&imgsensor_pd_info,
+			sizeof(struct SET_PD_BLOCK_INFO_T));
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
 		LOG_INF(
@@ -3603,7 +3618,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.data_type = 0x30,
 			.hsize = 0x0a00,
 			.vsize = 0x0240,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
 	{
@@ -3907,7 +3922,7 @@ static const struct subdrv_ctx defctx = {
 	.margin = 48,
 	.max_frame_length = 0xffff,
 
-	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
+	.mirror = IMAGE_HV_MIRROR,	/* mirrorflip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 
 	.shutter = 0x3D0,	/* current shutter */
