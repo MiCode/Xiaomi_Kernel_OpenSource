@@ -34,3 +34,4 @@ mkp-$(CONFIG_MTK_MKP) += mkp_rbtree.o
 mkp-$(CONFIG_MTK_MKP) += helper.o
 mkp-$(CONFIG_MTK_MKP) += mkp_module.o
 endif
+mkp-$(CONFIG_MTK_MKP) += ext/mkp_pcpu.o

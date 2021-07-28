@@ -18,6 +18,9 @@
 
 #include "mkp.h"
 
+/* ext policies */
+#include "ext/mkp_pcpu.h"
+
 static int __init mkp_init(void)
 {
 	int ret = 0;
@@ -26,6 +29,18 @@ static int __init mkp_init(void)
 		__fix_to_virt(__end_of_fixed_addresses - 1));
 
 	pr_info("%s:%d start\n", __func__, __LINE__);
+
+	/****************************************/
+	/* Good position to call following APIs */
+	/* - mkp_change_policy_action           */
+	/* - mkp_request_new_policy             */
+	/****************************************/
+
+	/* Try to protect per cpu data */
+	ret = mkp_protect_percpu_data();
+	if (ret)
+		pr_info("%s:%d failed, ret: %d\n", __func__, __LINE__, ret);
+
 #ifdef DEMO_MKP
 	ret = mkp_demo_init();
 #endif
