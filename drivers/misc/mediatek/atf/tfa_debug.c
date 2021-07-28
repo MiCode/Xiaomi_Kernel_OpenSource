@@ -4,17 +4,18 @@
  */
 
 #include <linux/arm-smccc.h>
-#include <linux/module.h>
-#include <linux/uaccess.h>
-#include <linux/slab.h>
-#include <linux/sched/clock.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/poll.h>
 #include <linux/proc_fs.h>
+#include <linux/sched/clock.h>
+#include <linux/slab.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/uaccess.h>
 
 #define ATF_LOG_RESERVED_MEMORY_KEY "mediatek,atf-log-reserved"
 #define DEBUG_BUF_NAME_LEN 16
@@ -326,9 +327,51 @@ static int runtime_log_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static ssize_t runtime_log_write(struct file *file,
+	const char __user *buf, size_t count, loff_t *ppos)
+{
+	unsigned long ret = -1;
+	unsigned long param = -1;
+	struct arm_smccc_res res;
+
+	if (count < 12) {
+		/* use kstrtoul_from_user() instead of */
+		/* copy_from_user() and kstrtoul() */
+		ret = kstrtoul_from_user(buf, count, 16, &param);
+	}
+
+	pr_info("[%s]param:0x%lx, count:%zu, ret:%ld\n",
+		__func__, param, count, ret);
+
+	if (!ret) {
+		arm_smccc_smc(MTK_SIP_KERNEL_ATF_DEBUG,
+			param, 0, 0, 0, 0, 0, 0, &res);
+		*ppos = count;
+	} else
+		return 0;
+
+	return count;
+}
+
+static unsigned int runtime_log_poll(struct file *file,
+				poll_table *wait)
+{
+	unsigned int ret = 0;
+	struct tfa_debug_instance *inst_p = file->private_data;
+
+	poll_wait(file, &(inst_p->waitq), wait);
+
+	if (!is_runtime_empty_for_read(file))
+		ret = POLLIN | POLLRDNORM;
+
+	return ret;
+}
+
 static const struct proc_ops tfa_debug_runtime_fops = {
 	.proc_open = runtime_log_open,
 	.proc_read = runtime_log_read,
+	.proc_write = runtime_log_write,
+	.proc_poll = runtime_log_poll,
 	.proc_release = raw_release,
 	.proc_lseek = no_llseek,
 };
