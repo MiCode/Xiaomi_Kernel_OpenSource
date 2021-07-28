@@ -8513,6 +8513,7 @@
 		reg = <0 0x14021000 0 0x1000>;
 		mediatek,smi = <&smi_disp_common &smi_disp_subcommon0>;
 		mediatek,larb-id = <0>;
+		init-power-on;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS0>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_SMI_SUB_COMM>,
 				 <&dispsys_config_clk CLK_DISPSYS_CONFIG_SMI_SUB_COMM>;
@@ -8525,7 +8526,6 @@
 		reg = <0 0x14022000 0 0x1000>;
 		mediatek,smi = <&smi_mdp_common &smi_disp_subcommon0>;
 		mediatek,larb-id = <1>;
-		init-power-on;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS0>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_SMI_SUB_COMM>,
 				 <&dispsys_config_clk CLK_DISPSYS_CONFIG_SMI_SUB_COMM>;
