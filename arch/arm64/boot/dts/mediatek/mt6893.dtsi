@@ -3895,6 +3895,7 @@
 
 		mtk_iommu_debug {
 		compatible = "mediatek,mt6893-iommu-debug";
+		mediatek,iommus = <&iommu0 &iommu1 &iommu2 &iommu3>;
 		};
 
 		iommu_test {
@@ -3911,6 +3912,8 @@
 		iommu0: iommu@1411a000  {
 			compatible = "mediatek,mt6893-iommu0";
 			reg = <0 0x1411a000 0 0x1000>;
+			iommu_id = <0>;
+			iommu_type = "mm";
 			mediatek,larbs = <&larb0 &larb1 &larb5>,
 					<&larb7 &larb11 &larb14>,
 					<&larb17 &larb19 &larb20>;
@@ -3923,6 +3926,8 @@
 		iommu1: iommu@1f027000{
 			compatible = "mediatek,mt6893-iommu1";
 			reg = <0 0x1f027000 0 0x1000>;
+			iommu_id = <1>;
+			iommu_type = "mm";
 			mediatek,larbs = <&larb2 &larb3 &larb4>,
 					<&larb8 &larb9 &larb13>,
 					<&larb16 &larb18>;
@@ -3935,6 +3940,8 @@
 		iommu2: iommu@19010000  {
 			compatible = "mediatek,mt6893-iommu2";
 			reg = <0 0x19010000 0 0x1000>;
+			iommu_id = <0>;
+			iommu_type = "apu";
 			mediatek,apu_power = <&apusys_power>;
 			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_APU>;
@@ -3945,6 +3952,8 @@
 		iommu3: iommu@19015000  {
 			compatible = "mediatek,mt6893-iommu3";
 			reg = <0 0x19015000 0 0x1000>;
+			iommu_id = <1>;
+			iommu_type = "apu";
 			mediatek,apu_power = <&apusys_power>;
 			interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_APU>;
