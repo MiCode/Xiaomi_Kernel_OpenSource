@@ -802,7 +802,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 		reg = regulator_get_optional(dev, name);
 		if (IS_ERR_OR_NULL(reg)) {
 			ret = PTR_ERR(reg);
-			apower_err(dev, "[%s] voltage fail, ret = %d\n", ret);
+			apower_err(dev, "Get [%s] voltage node fail, ret = %d\n", name, ret);
 			goto out;
 		}
 
@@ -816,7 +816,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 		clk = clk_get(dev, name);
 		if (IS_ERR_OR_NULL(clk)) {
 			ret = PTR_ERR(clk);
-			apower_err(dev, "[%s] clock fail, ret = %d\n", ret);
+			apower_err(dev, "Get [%s] clock node fail, ret = %d\n", name, ret);
 			goto out;
 		}
 
@@ -831,7 +831,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 		paddr = of_get_property(dev->of_node, "cgs", &psize);
 		if (!paddr) {
 			ret = -EINVAL;
-			apower_err(dev, "[%s] cg fail, ret = %d\n", ret);
+			apower_err(dev, "Get [%s] cg node fail, ret = %d\n", name, ret);
 			goto out;
 		}
 		psize /= 4;
