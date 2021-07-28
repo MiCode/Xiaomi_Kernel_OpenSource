@@ -1389,6 +1389,7 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 	active->fmt.pix_mp.pixelformat = default_fmt->fmt.pix_mp.pixelformat;
 	active->fmt.pix_mp.width = default_fmt->fmt.pix_mp.width;
 	active->fmt.pix_mp.height = default_fmt->fmt.pix_mp.height;
+	active->fmt.pix_mp.num_planes = default_fmt->fmt.pix_mp.num_planes;
 
 	cal_image_pix_mp(desc->id, &active->fmt.pix_mp, 0);
 

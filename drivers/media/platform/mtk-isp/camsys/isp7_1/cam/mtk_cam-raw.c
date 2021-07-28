@@ -2212,6 +2212,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2219,6 +2220,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2226,6 +2228,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2240,6 +2243,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2247,6 +2251,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2254,6 +2259,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2261,6 +2267,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2268,6 +2275,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2275,6 +2283,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2282,6 +2291,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2296,6 +2306,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2303,6 +2314,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2310,6 +2322,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2317,6 +2330,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2324,6 +2338,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2331,6 +2346,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2338,6 +2354,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2352,6 +2369,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2359,6 +2377,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2366,6 +2385,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2373,6 +2393,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2380,6 +2401,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2387,6 +2409,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2394,6 +2417,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2409,6 +2433,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2416,6 +2441,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2423,6 +2449,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2430,6 +2457,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2437,6 +2465,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR16,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2444,6 +2473,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG16,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2451,6 +2481,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG16,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -2458,6 +2489,7 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB16,
+			.num_planes = 1,
 		},
 	},
 };
@@ -2817,7 +2849,7 @@ mtk_cam_dev_node_desc output_queues[] = {
 		.name = "meta input",
 		.cap = V4L2_CAP_META_OUTPUT,
 		.buf_type = V4L2_BUF_TYPE_META_OUTPUT,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 #ifdef CONFIG_MTK_SCP
 		.smem_alloc = true,
@@ -2835,7 +2867,7 @@ mtk_cam_dev_node_desc output_queues[] = {
 		.name = "rawi 2",
 		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_RAWI_2,
@@ -2926,7 +2958,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "imgo",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_IMGO,
@@ -2952,7 +2984,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "yuvo 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_YUVO_1,
@@ -2978,7 +3010,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "yuvo 2",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_YUVO_2,
@@ -3004,7 +3036,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "yuvo 3",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_YUVO_3,
@@ -3030,7 +3062,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "yuvo 4",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_YUVO_4,
@@ -3056,7 +3088,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "yuvo 5",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_YUVO_5,
@@ -3082,7 +3114,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "drzs4no 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_DRZS4NO_1,
@@ -3108,7 +3140,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "drzs4no 2",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_DRZS4NO_2,
@@ -3134,7 +3166,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "drzs4no 3",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_DRZS4NO_3,
@@ -3160,7 +3192,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "rzh1n2to 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_RZH1N2TO_1,
@@ -3186,7 +3218,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "rzh1n2to 2",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_RZH1N2TO_2,
@@ -3212,7 +3244,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "rzh1n2to 3",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_RZH1N2TO_3,
@@ -3238,7 +3270,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "partial meta 0",
 		.cap = V4L2_CAP_META_CAPTURE,
 		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
@@ -3252,7 +3284,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "partial meta 1",
 		.cap = V4L2_CAP_META_CAPTURE,
 		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_1,
@@ -3266,7 +3298,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.name = "partial meta 2",
 		.cap = V4L2_CAP_META_CAPTURE,
 		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
-		.link_flags = 0,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_2,
