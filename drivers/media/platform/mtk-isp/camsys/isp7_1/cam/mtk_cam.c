@@ -194,28 +194,35 @@ static bool finish_cq_buf(struct mtk_cam_request_stream_data *req_stream_data)
 {
 	bool result = false;
 	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
-	struct mtk_cam_working_buf_entry *cq_buf_entry, *cq_buf_entry_prev;
+	struct mtk_cam_working_buf_entry *cq_buf_entry;
 
 	if (!ctx->used_raw_num)
 		return false;
 
 	spin_lock(&ctx->processing_buffer_list.lock);
-	list_for_each_entry_safe(cq_buf_entry, cq_buf_entry_prev,
-				 &ctx->processing_buffer_list.list,
-				 list_entry) {
-		if (cq_buf_entry->s_data == req_stream_data) {
-			list_del(&cq_buf_entry->list_entry);
-			mtk_cam_s_data_reset_wbuf(req_stream_data);
-			mtk_cam_working_buf_put(cq_buf_entry);
-			ctx->processing_buffer_list.cnt--;
-			result = true;
-			dev_dbg(ctx->cam->dev, "put cq buf:%pad, %s\n",
-				&cq_buf_entry->buffer.iova,
-				req_stream_data->req->req.debug_str);
-			break;
-		}
+
+	cq_buf_entry = req_stream_data->working_buf;
+	/* Check if the cq buffer is already finished */
+	if (!cq_buf_entry || !cq_buf_entry->s_data) {
+		dev_info(ctx->cam->dev,
+			 "%s:%s:ctx(%d):req(%d):working_buf is already release\n", __func__,
+			req_stream_data->req->req.debug_str, ctx->stream_id,
+			req_stream_data->frame_seq_no);
+		spin_unlock(&ctx->processing_buffer_list.lock);
+		return false;
 	}
+
+	list_del(&cq_buf_entry->list_entry);
+	mtk_cam_s_data_reset_wbuf(req_stream_data);
+	ctx->processing_buffer_list.cnt--;
 	spin_unlock(&ctx->processing_buffer_list.lock);
+
+	mtk_cam_working_buf_put(cq_buf_entry);
+	result = true;
+
+	dev_dbg(ctx->cam->dev, "put cq buf:%pad, %s\n",
+			&cq_buf_entry->buffer.iova,
+			req_stream_data->req->req.debug_str);
 
 	return result;
 }
