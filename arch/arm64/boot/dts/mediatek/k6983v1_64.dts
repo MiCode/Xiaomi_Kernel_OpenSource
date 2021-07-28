@@ -309,7 +309,7 @@
 	};
 	aud_dat_miso2_on: aud_dat_miso2_on {
 		pins_cmd1_dat {
-			pinmux = <PINMUX_GPIO1__FUNC_AUD_DAT_MISO1>;
+			pinmux = <PINMUX_GPIO1__FUNC_AUD_DAT_MISO2>;
 			input-schmitt-enable;
 			bias-disable;
 		};
