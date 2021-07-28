@@ -47,7 +47,7 @@ struct frame {
 	void *data; /* points to engine data */
 };
 
-struct request {
+struct request_dpe {
 	enum REQUEST_STATE_ENUM state;
 	pid_t pid;
 	struct ring_ctrl fctl;
@@ -64,7 +64,7 @@ struct engine_ops {
 
 struct engine_requests {
 	struct ring_ctrl req_ctl;
-	struct request reqs[MAX_REQUEST_SIZE_PER_ENGINE];
+	struct request_dpe reqs[MAX_REQUEST_SIZE_PER_ENGINE];
 	const struct engine_ops *ops;
 	struct completion req_handler_done;
 
@@ -73,7 +73,7 @@ struct engine_requests {
 };
 
 signed int dpe_init_ring_ctl(struct ring_ctrl *rctl);
-signed int dpe_init_request(struct request *req);
+signed int dpe_init_request(struct request_dpe *req);
 signed int dpe_set_frame_data(struct frame *f, void *engine);
 signed int dpe_register_requests(struct engine_requests *eng, size_t size);
 signed int dpe_unregister_requests(struct engine_requests *eng);

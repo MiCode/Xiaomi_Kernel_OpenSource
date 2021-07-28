@@ -94,7 +94,7 @@ signed int dpe_init_frame(struct frame *frame)
 /*
  * single request init
  */
-signed int dpe_init_request(struct request *req)
+signed int dpe_init_request(struct request_dpe *req)
 {
 	int f;
 

@@ -30,6 +30,8 @@
 #include <linux/sched/clock.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 // V4L2
 #include <linux/mutex.h>
 #include <media/v4l2-device.h>
@@ -4874,21 +4876,8 @@ static signed int DPE_remove(struct platform_device *pDev)
 /*******************************************************************************
  *
  ******************************************************************************/
-static signed int bPass1_On_In_Resume_TG1;
 static signed int DPE_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	/*signed int ret = 0;*/
-	LOG_DBG("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);
-	if (g_u4EnableClockCount > 0) {
-		DPE_EnableClock(MFALSE);
-		g_SuspendCnt++;
-	}
-	bPass1_On_In_Resume_TG1 = 0;
-if (g_DPE_PMState == 0) {
-	LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
-				g_u4EnableClockCount, g_SuspendCnt);
-		g_DPE_PMState = 1;
-}
 	return 0;
 }
 /*******************************************************************************
@@ -4896,21 +4885,57 @@ if (g_DPE_PMState == 0) {
  ******************************************************************************/
 static signed int DPE_resume(struct platform_device *pDev)
 {
-	LOG_DBG("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);
-	if (g_SuspendCnt > 0) {
-		DPE_EnableClock(MTRUE);
-		g_SuspendCnt--;
-	}
-if (g_DPE_PMState == 1) {
-	LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
-				g_u4EnableClockCount, g_SuspendCnt);
-		g_DPE_PMState = 0;
-}
 	return 0;
 }
 /*---------------------------------------------------------------------------*/
 #if IS_ENABLED(CONFIG_PM)
 /*---------------------------------------------------------------------------*/
+static signed int bPass1_On_In_Resume_TG1;
+static int dpe_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		if (g_u4EnableClockCount > 0) {
+			DPE_EnableClock(MFALSE);
+			g_SuspendCnt++;
+		}
+		bPass1_On_In_Resume_TG1 = 0;
+		if (g_DPE_PMState == 0) {
+			LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+				g_u4EnableClockCount,
+				g_SuspendCnt);
+			g_DPE_PMState = 1;
+		}
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		if (g_SuspendCnt > 0) {
+			DPE_EnableClock(MTRUE);
+			g_SuspendCnt--;
+		}
+		if (g_DPE_PMState == 1) {
+			LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+				g_u4EnableClockCount,
+				g_SuspendCnt);
+			g_DPE_PMState = 0;
+		}
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
 int DPE_pm_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -4983,6 +5008,14 @@ static struct platform_driver DPEDriver = {
 #endif
 		}
 };
+
+#if IS_ENABLED(CONFIG_PM)
+static struct notifier_block dpe_suspend_pm_notifier_func = {
+	.notifier_call = dpe_suspend_pm_event,
+	.priority = 0,
+};
+#endif
+
 static int dpe_dump_read(struct seq_file *m, void *v)
 {
 /* fix unexpected close clock issue */
@@ -5359,6 +5392,14 @@ static signed int __init DPE_Init(void)
 			   DPE_ClockOnCallback,
 			   DPE_DumpCallback, DPE_ResetCallback,
 							DPE_ClockOffCallback);
+#endif
+
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&dpe_suspend_pm_notifier_func);
+	if (Ret) {
+		pr_debug("[Camera DPE] Failed to register PM notifier.\n");
+		return Ret;
+	}
 #endif
 
 	NUM_BASEADDR = 21; // allocate buffer count
