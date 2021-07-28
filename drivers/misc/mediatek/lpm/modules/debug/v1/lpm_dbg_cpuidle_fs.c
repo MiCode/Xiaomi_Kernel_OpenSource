@@ -69,7 +69,8 @@ static ssize_t cpuidle_enable_read(char *ToUserBuf, size_t sz, void *priv)
 		return -EINVAL;
 
 	if (en == 0) {
-		mtk_dbg_cpuidle_log("MCDI: Disable\n");
+		mtk_dbg_cpuidle_log("MCDI: Disable, %llu ms\n",
+			   mtk_cpuidle_state_last_dis_ms());
 	} else {
 		mtk_dbg_cpuidle_log("MCDI: Enable\n");
 		mtk_dbg_cpuidle_log(
