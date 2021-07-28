@@ -445,7 +445,8 @@ int mdla_rv_init(struct platform_device *pdev)
 	mdla_dbg_plat_cb()->dbgfs_plat_init = mdla_plat_dbgfs_init;
 	mdla_dbg_plat_cb()->memory_show     = mdla_plat_memory_show;
 
-	mdla_plat_alloc_mem(&backup_mem, 1024);
+	/* backup size * core num * preempt lv */
+	mdla_plat_alloc_mem(&backup_mem, 1024 * 4 * 4);
 
 	return 0;
 }
