@@ -2731,6 +2731,8 @@
 
 	mtk_iommu_debug {
 			compatible = "mediatek,mt6983-iommu-debug";
+			mediatek,iommus = <&disp_iommu &mdp_iommu &apu_iommu0 &apu_iommu1
+					   &peri_iommu_m4 &peri_iommu_m6 &peri_iommu_m7>;
 	};
 
 	mtk_sec_dmaheap {
@@ -2769,6 +2771,8 @@
 	disp_iommu: iommu@1e802000 {
 			compatible = "mediatek,mt6983-disp-iommu";
 			reg = <0 0x1e802000 0 0x1000>;
+			iommu_id = <0>;
+			iommu_type = "mm";
 			mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
 						&disp_iommu_bank3 &disp_iommu_bank4>;
 			interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -2809,6 +2813,8 @@
 	mdp_iommu: iommu@1e810000 {
 			compatible = "mediatek,mt6983-mdp-iommu";
 			reg = <0 0x1e810000 0 0x1000>;
+			iommu_id = <1>;
+			iommu_type = "mm";
 			mediatek,iommu_banks = <&mdp_iommu_bank1 &mdp_iommu_bank2
 						&mdp_iommu_bank3 &mdp_iommu_bank4>;
 			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -2845,6 +2851,8 @@
 	peri_iommu_m4: iommu@10330000 {
 			compatible = "mediatek,mt6983-peri-iommu-m4";
 			reg = <0 0x10330000 0 0x1000>;
+			iommu_id = <0>;
+			iommu_type = "peri";
 			mediatek,iommu_banks = <&peri_iommu_m4_bank1 &peri_iommu_m4_bank2
 						&peri_iommu_m4_bank3 &peri_iommu_m4_bank4>;
 			#iommu-cells = <1>;
@@ -2877,6 +2885,8 @@
 	peri_iommu_m6: iommu@10335000 {
 			compatible = "mediatek,mt6983-peri-iommu-m6";
 			reg = <0 0x10335000 0 0x1000>;
+			iommu_id = <1>;
+			iommu_type = "peri";
 			mediatek,iommu_banks = <&peri_iommu_m6_bank1 &peri_iommu_m6_bank2
 						&peri_iommu_m6_bank3 &peri_iommu_m6_bank4>;
 			#iommu-cells = <1>;
@@ -2909,6 +2919,8 @@
 	peri_iommu_m7: iommu@1033a000 {
 			compatible = "mediatek,mt6983-peri-iommu-m7";
 			reg = <0 0x1033a000 0 0x1000>;
+			iommu_id = <2>;
+			iommu_type = "peri";
 			mediatek,iommu_banks = <&peri_iommu_m7_bank1 &peri_iommu_m7_bank2
 						&peri_iommu_m7_bank3 &peri_iommu_m7_bank4>;
 			#iommu-cells = <1>;
@@ -2967,6 +2979,8 @@
 	apu_iommu0: iommu@19010000 {
 			compatible = "mediatek,mt6983-apu-iommu0";
 			reg = <0 0x19010000 0 0x1000>;
+			iommu_id = <0>;
+			iommu_type = "apu";
 			mediatek,iommu_banks = <&apu_iommu0_bank1 &apu_iommu0_bank2
 						&apu_iommu0_bank3 &apu_iommu0_bank4>;
 			interrupts = <GIC_SPI 579 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -3005,6 +3019,8 @@
 	apu_iommu1: iommu@19015000 {
 			compatible = "mediatek,mt6983-apu-iommu1";
 			reg = <0 0x19015000 0 0x1000>;
+			iommu_id = <1>;
+			iommu_type = "apu";
 			mediatek,iommu_banks = <&apu_iommu1_bank1 &apu_iommu1_bank2
 						&apu_iommu1_bank3 &apu_iommu1_bank4>;
 			interrupts = <GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH 0>;
