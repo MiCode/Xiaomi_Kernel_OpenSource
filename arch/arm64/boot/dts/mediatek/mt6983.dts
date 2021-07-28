@@ -3040,6 +3040,19 @@
 			#iommu-cells = <1>;
 	};
 
+	apusys_reviser@1903c000 {
+		compatible = "mediatek, rv-reviser";
+		reg = <0 0x1903c000 0 0x1000>,          /* apu_sctrl_reviser  */
+			<0 0x02000000 0 0xC00000>,    /* VLM          */
+			<0 0x1D900000 0 0x600000>,    /* TCM          */
+			<0 0x19001000 0 0x1000>;              /* apusys int */
+		//interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
+		default-dram = <0x0>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		boundary = <0x0>;
+		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
+	};
+
 	apdma@10220000 {
 		compatible = "mediatek,apdma";
 		reg = <0 0x10220000 0 0x4000>;
@@ -9139,6 +9152,21 @@
 			compatible = "mediatek,apu-mdw-rpmsg";
 			mtk,rpmsg-name = "apu-mdw-rpmsg";
 		};
+
+		apu_reviser {
+			compatible = "mediatek,apu-reviser-rpmsg";
+			mtk,rpmsg-name = "apu-reviser-rpmsg";
+		};
+
+		mdla_tx_rpmsg {
+			compatible = "mediatek,mdla-tx-rpmsg";
+			mtk,rpmsg-name = "mdla-tx-rpmsg";
+		};
+
+		mdla_rx_rpmsg {
+			compatible = "mediatek,mdla-rx-rpmsg";
+			mtk,rpmsg-name = "mdla-rx-rpmsg";
+		};
 	};
 
 	apusys_sw_logger {
@@ -9159,7 +9187,7 @@
 		type = <1>;
 		mask = /bits/ 64 <0x00000003ffffffff>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
-		iommus = <&apu_iommu1 M4U_PORT_L34_APU_CODE>;
+		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
 	};
 
 	mtk_apu_mem_data: mtk_apu_mem_data {
@@ -9170,6 +9198,15 @@
 		mask = /bits/ 64 <0x00000003ffffffff>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 		iommus = <&apu_iommu1 M4U_PORT_L34_APU_CODE>;
+	};
+
+	mdla {
+		compatible = "mediatek, mdla-rv";
+		boot-method = "array";
+		core_num = <4>;
+		version = <0x69830300>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
 	};
 
 	camera_fsync_ccu {
