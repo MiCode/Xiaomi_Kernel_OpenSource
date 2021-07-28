@@ -89,8 +89,16 @@ mtk_cam_req_pipe_s_data_clean(struct mtk_cam_request *req, int pipe_id)
 
 	for (i = 0; i < num_s_data; i++) {
 		req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, i);
-		if (req_stream_data)
+		if (req_stream_data) {
 			mtk_cam_req_s_data_clean(req_stream_data);
+			/**
+			 * Notice that the we clean req_stream_data->bufs here so
+			 * we should not use it after this function called on it.
+			 * mtk_cam_vb2_return_all_buffers() uses another list
+			 * of mtk_cam_video_device to keep the vb2 buffers to be clean.
+			 */
+			memset(req_stream_data->bufs, 0, sizeof(req_stream_data->bufs));
+		}
 	}
 
 }
@@ -162,6 +170,8 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			vb->vb2_queue->type, vb->vb2_queue->timestamp_flags,
 			vb->timestamp);
 
+		/* clean the stream data for req reinit case */
+		req_stream_data_pipe->bufs[i] = NULL;
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
 
