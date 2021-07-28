@@ -2896,6 +2896,10 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->allow_zero_bytesused = 1;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	dst_vq->dev		= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+	if (!dst_vq->dev)
+		dst_vq->dev = &ctx->dev->plat_dev->dev;
+#endif
 #else
 	dst_vq->dev		= &ctx->dev->plat_dev->dev;
 #endif

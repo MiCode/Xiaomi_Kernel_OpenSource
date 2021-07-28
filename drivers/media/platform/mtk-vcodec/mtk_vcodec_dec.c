@@ -3216,6 +3216,10 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->lock            = &ctx->dev->dev_mutex;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	src_vq->dev		= vcp_get_io_device(VCP_IOMMU_VDEC_512MB1);
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+	if (!src_vq->dev)
+		src_vq->dev = &ctx->dev->plat_dev->dev;
+#endif
 #else
 	src_vq->dev		= &ctx->dev->plat_dev->dev;
 #endif

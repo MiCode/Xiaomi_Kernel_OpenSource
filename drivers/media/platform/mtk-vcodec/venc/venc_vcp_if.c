@@ -94,8 +94,10 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	if (!is_vcp_ready(VCP_A_ID))
 		mtk_vcodec_err(inst, "VCP_A_ID not ready");
 
-	if (len > sizeof(struct share_obj))
+	if (len > sizeof(struct share_obj)) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
+		return -EIO;
+	}
 
 	if (!is_ack)
 		mutex_lock(&inst->ctx->dev->ipi_mutex);
