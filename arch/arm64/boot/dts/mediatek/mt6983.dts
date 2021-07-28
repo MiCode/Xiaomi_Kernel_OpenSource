@@ -2415,7 +2415,7 @@
 		reg = <0 0x1000c000 0 0xe00>;
 	};
 
-	fhctl@1000ce00 {
+	fhctl: fhctl@1000ce00 {
 		compatible = "mediatek,mt6983-fhctl";
 		reg = <0 0x1000ce00 0 0x200>, //AP FHCTL base
 			  <0 0x1000c000 0 0xe00>, //APMIX base
@@ -5464,6 +5464,7 @@
 		_vstack-supply = <&mt6373_vbuck2>;
 		_vsram-supply = <&mt6363_vbuck4>;
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
+		fhctl-supply = <&fhctl>;
 	};
 
 	gpufreq_wrapper: gpufreq_wrapper {
