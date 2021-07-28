@@ -1721,7 +1721,7 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
 			pipe->enabled_dmas |=
-				(unsigned int) (1 << pipe->vdev_nodes[i].desc.dma_port);
+				(1ULL << pipe->vdev_nodes[i].desc.dma_port);
 		}
 	} else {
 		for (i = 0; i < ARRAY_SIZE(raw->devs); i++) {
