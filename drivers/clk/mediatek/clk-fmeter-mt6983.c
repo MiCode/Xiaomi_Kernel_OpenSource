@@ -44,73 +44,94 @@ static unsigned int fm_clk_cnt;
 
 static const struct fmeter_clk fclks[] = {
 	/* CKGEN Part */
-	FMCLK2(CKGEN, FM_AXI_CK, "fm_axi_ck", 0x0010, 7, 1),
-	FMCLK2(CKGEN, FM_AXIP_CK, "fm_axip_ck", 0x0010, 15, 1),
-	FMCLK2(CKGEN, FM_AXI_U_CK, "fm_axi_u_ck", 0x0010, 23, 1),
-	FMCLK2(CKGEN, FM_B, "fm_b", 0x0010, 31, 1),
-	FMCLK2(CKGEN, FM_DISP0_CK, "fm_disp0_ck", 0x0020, 7, 1),
-	FMCLK2(CKGEN, FM_MDP0_CK, "fm_mdp0_ck", 0x0020, 15, 1),
-	FMCLK2(CKGEN, FM_MMINFRA_CK, "fm_mminfra_ck", 0x0020, 23, 1),
-	FMCLK2(CKGEN, FM_MMUP_CK, "fm_mmup_ck", 0x0020, 31, 1),
-	FMCLK2(CKGEN, FM_DSP_CK, "fm_dsp_ck", 0x0030, 7, 1),
-	FMCLK2(CKGEN, FM_DSP1_CK, "fm_dsp1_ck", 0x0030, 15, 1),
-	FMCLK2(CKGEN, FM_DSP2_CK, "fm_dsp2_ck", 0x0030, 23, 1),
-	FMCLK2(CKGEN, FM_DSP3_CK, "fm_dsp3_ck", 0x0030, 31, 1),
-	FMCLK2(CKGEN, FM_DSP4_CK, "fm_dsp4_ck", 0x0040, 7, 1),
-	FMCLK2(CKGEN, FM_DSP5_CK, "fm_dsp5_ck", 0x0040, 15, 1),
-	FMCLK2(CKGEN, FM_DSP6_CK, "fm_dsp6_ck", 0x0040, 23, 1),
-	FMCLK2(CKGEN, FM_DSP7_CK, "fm_dsp7_ck", 0x0040, 31, 1),
-	FMCLK2(CKGEN, FM_IPU_IF_CK, "fm_ipu_if_ck", 0x0050, 7, 1),
-	FMCLK2(CKGEN, FM_CAMTG_CK, "fm_camtg_ck", 0x0050, 15, 1),
-	FMCLK2(CKGEN, FM_CAMTG2_CK, "fm_camtg2_ck", 0x0050, 23, 1),
-	FMCLK2(CKGEN, FM_CAMTG3_CK, "fm_camtg3_ck", 0x0050, 31, 1),
-	FMCLK2(CKGEN, FM_CAMTG4_CK, "fm_camtg4_ck", 0x0060, 7, 1),
-	FMCLK2(CKGEN, FM_CAMTG5_CK, "fm_camtg5_ck", 0x0060, 15, 1),
-	FMCLK2(CKGEN, FM_CAMTG6_CK, "fm_camtg6_ck", 0x0060, 23, 1),
-	FMCLK2(CKGEN, FM_UART_CK, "fm_uart_ck", 0x0060, 31, 1),
-	FMCLK2(CKGEN, FM_SPI_CK, "fm_spi_ck", 0x0070, 7, 1),
-	FMCLK2(CKGEN, FM_MSDC_MACRO_CK, "fm_msdc_macro_ck", 0x0070, 15, 1),
-	FMCLK2(CKGEN, FM_MSDC30_1_CK, "fm_msdc30_1_ck", 0x0070, 23, 1),
-	FMCLK2(CKGEN, FM_AUDIO_CK, "fm_audio_ck", 0x0070, 31, 1),
-	FMCLK2(CKGEN, FM_AUD_INTBUS_CK, "fm_aud_intbus_ck", 0x0080, 7, 1),
-	FMCLK2(CKGEN, FM_ATB_CK, "fm_atb_ck", 0x0080, 23, 1),
-	FMCLK2(CKGEN, FM_DISP_PWM_CK, "fm_disp_pwm_ck", 0x0080, 31, 1),
-	FMCLK2(CKGEN, FM_USB_CK, "fm_usb_ck", 0x0090, 7, 1),
-	FMCLK2(CKGEN, FM_USB_XHCI_CK, "fm_usb_xhci_ck", 0x0090, 15, 1),
-	FMCLK2(CKGEN, FM_I2C_CK, "fm_i2c_ck", 0x0090, 23, 1),
-	FMCLK2(CKGEN, FM_SENINF_CK, "fm_seninf_ck", 0x0090, 31, 1),
-	FMCLK2(CKGEN, FM_SENINF1_CK, "fm_seninf1_ck", 0x00A0, 7, 1),
-	FMCLK2(CKGEN, FM_SENINF2_CK, "fm_seninf2_ck", 0x00A0, 15, 1),
-	FMCLK2(CKGEN, FM_SENINF3_CK, "fm_seninf3_ck", 0x00A0, 23, 1),
-	FMCLK2(CKGEN, FM_DXCC_CK, "fm_dxcc_ck", 0x00A0, 31, 1),
-	FMCLK2(CKGEN, FM_AUD_ENGEN1_CK, "fm_aud_engen1_ck", 0x00B0, 7, 1),
-	FMCLK2(CKGEN, FM_AUD_ENGEN2_CK, "fm_aud_engen2_ck", 0x00B0, 15, 1),
-	FMCLK2(CKGEN, FM_AES_UFSFDE_CK, "fm_aes_ufsfde_ck", 0x00B0, 23, 1),
-	FMCLK2(CKGEN, FM_U_CK, "fm_u_ck", 0x00B0, 31, 1),
-	FMCLK2(CKGEN, FM_U_MBIST_CK, "fm_u_mbist_ck", 0x00C0, 7, 1),
-	FMCLK2(CKGEN, FM_AUD_1_CK, "fm_aud_1_ck", 0x00C0, 15, 1),
-	FMCLK2(CKGEN, FM_AUD_2_CK, "fm_aud_2_ck", 0x00C0, 23, 1),
-	FMCLK2(CKGEN, FM_ADSP_CK, "fm_adsp_ck", 0x00C0, 31, 1),
-	FMCLK2(CKGEN, FM_DPMAIF_MAIN_CK, "fm_dpmaif_main_ck", 0x00D0, 7, 1),
-	FMCLK2(CKGEN, FM_VENC_CK, "fm_venc_ck", 0x00D0, 15, 1),
-	FMCLK2(CKGEN, FM_VDEC_CK, "fm_vdec_ck", 0x00D0, 23, 1),
-	FMCLK2(CKGEN, FM_PWM_CK, "fm_pwm_ck", 0x00D0, 31, 1),
-	FMCLK2(CKGEN, FM_AUDIO_H_CK, "fm_audio_h_ck", 0x00E0, 7, 1),
-	FMCLK2(CKGEN, FM_MCUPM_CK, "fm_mcupm_ck", 0x00E0, 15, 1),
-	FMCLK2(CKGEN, FM_MEM_SUB_CK, "fm_mem_sub_ck", 0x00F0, 7, 1),
-	FMCLK2(CKGEN, FM_MEM_SUBP_CK, "fm_mem_subp_ck", 0x00F0, 15, 1),
-	FMCLK2(CKGEN, FM_MEM_SUB_U_CK, "fm_mem_sub_u_ck", 0x00F0, 23, 1),
-	FMCLK2(CKGEN, FM_EMI_N_CK, "fm_emi_n_ck", 0x00F0, 31, 1),
-	FMCLK2(CKGEN, FM_DSI_OCC_CK, "fm_dsi_occ_ck", 0x0100, 15, 1),
-	FMCLK2(CKGEN, FM_CCU_AHB_CK, "fm_ccu_ahb_ck", 0x0100, 23, 1),
-	FMCLK2(CKGEN, FM_AP2CONN_HOST_CK, "fm_ap2conn_host_ck", 0x0110, 7, 1),
-	FMCLK2(CKGEN, FM_MCU_ACP_CK, "fm_mcu_acp_ck", 0x0110, 15, 1),
-	FMCLK2(CKGEN, FM_DPI_CK, "fm_dpi_ck", 0x0110, 23, 1),
-	FMCLK2(CKGEN, FM_IMG1_CK, "fm_img1_ck", 0x0110, 31, 1),
-	FMCLK2(CKGEN, FM_IPE_CK, "fm_ipe_ck", 0x0180, 7, 1),
-	FMCLK2(CKGEN, FM_CAM_CK, "fm_cam_ck", 0x0180, 15, 1),
-	FMCLK2(CKGEN, FM_CCUSYS_CK, "fm_ccusys_ck", 0x0180, 23, 1),
-	FMCLK2(CKGEN, FM_CAMTM_CK, "fm_camtm_ck", 0x0180, 31, 1),
+	FMCLK2(CKGEN, hd_faxi_ck, "hd_faxi_ck", 0x0010, 7, 1),
+	FMCLK2(CKGEN, f_fperi_hd_faxi_ck, "f_fperi_hd_faxi_ck", 0x0010, 15, 1),
+	FMCLK2(CKGEN, f_fufs_hd_haxi_ck, "f_fufs_hd_haxi_ck", 0x0010, 23, 1),
+	FMCLK2(CKGEN, hd_fbus_aximem_ck, "hd_fbus_aximem_ck", 0x0010, 31, 1),
+	FMCLK2(CKGEN, hf_fdisp0_ck, "hf_fdisp0_ck", 0x0020, 7, 1),
+	FMCLK2(CKGEN, hf_fdisp1_ck, "hf_fdisp1_ck", 0x0020, 15, 1),
+	FMCLK2(CKGEN, hf_fmdp0_ck, "hf_fmdp0_ck", 0x0020, 23, 1),
+	FMCLK2(CKGEN, hf_fmdp1_ck, "hf_fmdp1_ck", 0x0020, 31, 1),
+	FMCLK2(CKGEN, f_fmminfra_ck, "f_fmminfra_ck", 0x0030, 7, 1),
+	FMCLK2(CKGEN, f_fmmup_ck, "f_fmmup_ck", 0x0030, 15, 1),
+	FMCLK2(CKGEN, hf_fdsp_ck, "hf_fdsp_ck", 0x0030, 23, 1),
+	FMCLK2(CKGEN, hf_fdsp1_ck, "hf_fdsp1_ck", 0x0030, 31, 1),
+	FMCLK2(CKGEN, hf_fdsp2_ck, "hf_fdsp2_ck", 0x0040, 7, 1),
+	FMCLK2(CKGEN, hf_fdsp3_ck, "hf_fdsp3_ck", 0x0040, 15, 1),
+	FMCLK2(CKGEN, hf_fdsp4_ck, "hf_fdsp4_ck", 0x0040, 23, 1),
+	FMCLK2(CKGEN, hf_fdsp5_ck, "hf_fdsp5_ck", 0x0040, 31, 1),
+	FMCLK2(CKGEN, hf_fdsp6_ck, "hf_fdsp6_ck", 0x0050, 7, 1),
+	FMCLK2(CKGEN, hf_fdsp7_ck, "hf_fdsp7_ck", 0x0050, 15, 1),
+	FMCLK2(CKGEN, hf_fipu_if_ck, "hf_fipu_if_ck", 0x0050, 23, 1),
+	FMCLK2(CKGEN, hf_fmfg_ref_ck, "hf_fmfg_ref_ck", 0x0050, 31, 1),
+	FMCLK2(CKGEN, hf_fmfgsc_ref_ck, "hf_fmfgsc_ref_ck", 0x0060, 7, 1),
+	FMCLK2(CKGEN, f_fcamtg_ck, "f_fcamtg_ck", 0x0060, 15, 1),
+	FMCLK2(CKGEN, f_fcamtg2_ck, "f_fcamtg2_ck", 0x0060, 23, 1),
+	FMCLK2(CKGEN, f_fcamtg3_ck, "f_fcamtg3_ck", 0x0060, 31, 1),
+	FMCLK2(CKGEN, f_fcamtg4_ck, "f_fcamtg4_ck", 0x0070, 7, 1),
+	FMCLK2(CKGEN, f_fcamtg5_ck, "f_fcamtg5_ck", 0x0070, 15, 1),
+	FMCLK2(CKGEN, f_fcamtg6_ck, "f_fcamtg6_ck", 0x0070, 23, 1),
+	FMCLK2(CKGEN, f_fcamtg7_ck, "f_fcamtg7_ck", 0x0070, 31, 1),
+	FMCLK2(CKGEN, f_fcamtg8_ck, "f_fcamtg8_ck", 0x0080, 7, 1),
+	FMCLK2(CKGEN, f_fuart_ck, "f_fuart_ck", 0x0080, 15, 1),
+	FMCLK2(CKGEN, hf_fspi_ck, "hf_fspi_ck", 0x0080, 23, 1),
+	FMCLK2(CKGEN, hf_fmsdc50_0_hclk_ck, "hf_fmsdc50_0_hclk_ck", 0x0080, 31, 1),
+	FMCLK2(CKGEN, hf_fmsdc_macro_ck, "hf_fmsdc_macro_ck", 0x0090, 7, 1),
+	FMCLK2(CKGEN, hf_fmsdc30_1_ck, "hf_fmsdc30_1_ck", 0x0090, 15, 1),
+	FMCLK2(CKGEN, hf_fmsdc30_2_ck, "hf_fmsdc30_2_ck", 0x0090, 23, 1),
+	FMCLK2(CKGEN, hf_faudio_ck, "hf_faudio_ck", 0x0090, 31, 1),
+	FMCLK2(CKGEN, hf_faud_intbus_ck, "hf_faud_intbus_ck", 0x00A0, 7, 1),
+	FMCLK2(CKGEN, f_fpwrap_ulposc_ck, "f_fpwrap_ulposc_ck", 0x00A0, 15, 1),
+	FMCLK2(CKGEN, hf_fatb_ck, "hf_fatb_ck", 0x00A0, 23, 1),
+	FMCLK2(CKGEN, hf_fdp_ck, "hf_fdp_ck", 0x00A0, 31, 1),
+	FMCLK2(CKGEN, f_fdisp_pwm_ck, "f_fdisp_pwm_ck", 0x00B0, 7, 1),
+	FMCLK2(CKGEN, f_fusb_top_ck, "f_fusb_top_ck", 0x00B0, 15, 1),
+	FMCLK2(CKGEN, f_fssusb_xhci_ck, "f_fssusb_xhci_ck", 0x00B0, 23, 1),
+	FMCLK2(CKGEN, f_fusb_top_1p_ck, "f_fusb_top_1p_ck", 0x00B0, 31, 1),
+	FMCLK2(CKGEN, f_fssusb_xhci_1p_ck, "f_fssusb_xhci_1p_ck", 0x00C0, 7, 1),
+	FMCLK2(CKGEN, f_fi2c_ck, "f_fi2c_ck", 0x00C0, 15, 1),
+	FMCLK2(CKGEN, f_fseninf_ck, "f_fseninf_ck", 0x00C0, 23, 1),
+	FMCLK2(CKGEN, f_fseninf1_ck, "f_fseninf1_ck", 0x00C0, 31, 1),
+	FMCLK2(CKGEN, f_fseninf2_ck, "f_fseninf2_ck", 0x00D0, 7, 1),
+	FMCLK2(CKGEN, f_fseninf3_ck, "f_fseninf3_ck", 0x00D0, 15, 1),
+	FMCLK2(CKGEN, f_fseninf4_ck, "f_fseninf4_ck", 0x00D0, 23, 1),
+	FMCLK2(CKGEN, f_fseninf5_ck, "f_fseninf5_ck", 0x00D0, 31, 1),
+	FMCLK2(CKGEN, hf_fdxcc_ck, "hf_fdxcc_ck", 0x00E0, 7, 1),
+	FMCLK2(CKGEN, hf_faud_engen1_ck, "hf_faud_engen1_ck", 0x00E0, 15, 1),
+	FMCLK2(CKGEN, hf_faud_engen2_ck, "hf_faud_engen2_ck", 0x00E0, 23, 1),
+	FMCLK2(CKGEN, hf_faes_ufsfde_ck, "hf_faes_ufsfde_ck", 0x00E0, 31, 1),
+	FMCLK2(CKGEN, hf_fufs_ck, "hf_fufs_ck", 0x00F0, 7, 1),
+	FMCLK2(CKGEN, f_fufs_mbist_ck, "f_fufs_mbist_ck", 0x00F0, 15, 1),
+	FMCLK2(CKGEN, f_fpextp_mbist_ck, "f_fpextp_mbist_ck", 0x00F0, 23, 1),
+	FMCLK2(CKGEN, hf_faud_1_ck, "hf_faud_1_ck", 0x00F0, 31, 1),
+	FMCLK2(CKGEN, hf_faud_2_ck, "hf_faud_2_ck", 0x0100, 7, 1),
+	FMCLK2(CKGEN, hf_fadsp_ck, "hf_fadsp_ck", 0x0100, 15, 1),
+	FMCLK2(CKGEN, hf_fdpmaif_main_ck, "hf_fdpmaif_main_ck", 0x0100, 23, 1),
+	FMCLK2(CKGEN, hf_fvenc_ck, "hf_fvenc_ck", 0x0100, 31, 1),
+	FMCLK2(CKGEN, hf_fvdec_ck, "hf_fvdec_ck", 0x0110, 7, 1),
+	FMCLK2(CKGEN, hf_fpwm_ck, "hf_fpwm_ck", 0x0110, 15, 1),
+	FMCLK2(CKGEN, hf_faudio_h_ck, "hf_faudio_h_ck", 0x0110, 23, 1),
+	FMCLK2(CKGEN, hg_fmcupm_ck, "hg_fmcupm_ck", 0x0110, 31, 1),
+	FMCLK2(CKGEN, hf_fspmi_p_mst_ck, "hf_fspmi_p_mst_ck", 0x0120, 7, 1),
+	FMCLK2(CKGEN, hf_fspmi_m_mst_ck, "hf_fspmi_m_mst_ck", 0x0120, 15, 1),
+	FMCLK2(CKGEN, hf_ftl_ck, "hf_ftl_ck", 0x0120, 23, 1),
+	FMCLK2(CKGEN, hf_fmem_sub_ck, "hf_fmem_sub_ck", 0x0120, 31, 1),
+	FMCLK2(CKGEN, f_fperi_hf_fmem_ck, "f_fperi_hf_fmem_ck", 0x0130, 7, 1),
+	FMCLK2(CKGEN, f_fufs_hf_fmem_ck, "f_fufs_hf_fmem_ck", 0x0130, 15, 1),
+	FMCLK2(CKGEN, hf_faes_msdcfde_ck, "hf_faes_msdcfde_ck", 0x0130, 23, 1),
+	FMCLK2(CKGEN, hf_femi_n_ck, "hf_femi_n_ck", 0x0130, 31, 1),
+	FMCLK2(CKGEN, hf_femi_s_ck, "hf_femi_s_ck", 0x0140, 7, 1),
+	FMCLK2(CKGEN, hf_fdsi_occ_ck, "hf_fdsi_occ_ck", 0x0140, 15, 1),
+	FMCLK2(CKGEN, f_fdptx_ck, "f_fdptx_ck", 0x0140, 23, 1),
+	FMCLK2(CKGEN, hf_fccu_ahb_ck, "hf_fccu_ahb_ck", 0x0140, 31, 1),
+	FMCLK2(CKGEN, f_fap2conn_host_ck, "f_fap2conn_host_ck", 0x0150, 7, 1),
+	FMCLK2(CKGEN, hf_fimg1_ck, "hf_fimg1_ck", 0x0150, 15, 1),
+	FMCLK2(CKGEN, hf_fipe_ck, "hf_fipe_ck", 0x0150, 23, 1),
+	FMCLK2(CKGEN, hf_fcam_ck, "hf_fcam_ck", 0x0150, 31, 1),
+	FMCLK2(CKGEN, hf_fccusys_ck, "hf_fccusys_ck", 0x0160, 7, 1),
+	FMCLK2(CKGEN, f_fcamtm_ck, "f_fcamtm_ck", 0x0160, 15, 1),
+	FMCLK2(CKGEN, hf_fsflash_ck, "hf_fsflash_ck", 0x0160, 23, 1),
+	FMCLK2(CKGEN, hf_fmcu_acp_ck, "hf_fmcu_acp_ck", 0x0160, 31, 1),
 	/* ABIST Part */
 	FMCLK(ABIST, FM_ADSPPLL_CK, "fm_adsppll_ck", 1),
 	FMCLK(ABIST, FM_APLL1_CK, "fm_apll1_ck", 1),
@@ -195,8 +216,8 @@ static const struct fmeter_clk fclks[] = {
 };
 
 #define _CKGEN(x)		(topck_base + (x))
-#define CLK_MISC_CFG_0		_CKGEN(0x140)
-#define CLK_DBG_CFG		_CKGEN(0x17C)
+#define CLK_MISC_CFG_0		_CKGEN(0x240)
+#define CLK_DBG_CFG		_CKGEN(0x28C)
 #define CLK26CALI_0		_CKGEN(0x220)
 #define CLK26CALI_1		_CKGEN(0x224)
 #define _APMIXED(x)		(apmixed_base + (x))
@@ -247,7 +268,7 @@ static unsigned int get_post_div(unsigned int type, unsigned int ID)
 	unsigned int post_div = 1;
 	int i;
 
-	if ((ID <= 0) || (ID >= 64))
+	if ((ID <= 0) || (ID >= 89))
 		return post_div;
 
 	for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++) {
@@ -267,7 +288,7 @@ static unsigned int get_clk_div(unsigned int type, unsigned int ID)
 	unsigned int clk_div = 1;
 	int i;
 
-	if ((ID <= 0) || (ID >= 64))
+	if ((ID <= 0) || (ID >= 89))
 		return clk_div;
 
 	for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++)
@@ -529,13 +550,6 @@ static int mt6983_subsys_freq_register(struct fm_subsys *fm, unsigned int size)
 
 static int mt6983_get_fmeter_id(enum FMETER_ID fid)
 {
-	if (fid == FID_DISP_PWM)
-		return FM_DISP_PWM_CK;
-	else if (fid == FID_ULPOSC1)
-		return FM_ULPOSC_CK;
-	else if (fid == FID_ULPOSC2)
-		return FM_ULPOSC_CORE_CK;
-
 	return FID_NULL;
 }
 
