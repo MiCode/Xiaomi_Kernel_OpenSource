@@ -132,6 +132,8 @@ int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size)
 	*addr = (uint32_t) g_rdv->plat.vlm_addr;
 	*size = (uint32_t) g_rdv->plat.vlm_size;
 
+	LOG_DBG_RVR_VLM("VLM addr(0x%x) size(0x%x)core\n", *addr, *size);
+
 	return 0;
 }
 

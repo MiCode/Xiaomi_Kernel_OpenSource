@@ -68,9 +68,11 @@ static void mdw_rv_sw_deinit(struct mdw_device *mdev)
 
 static int mdw_rv_late_init(struct mdw_device *mdev)
 {
-	/* TODO */
-	mdev->vlm_start = 0x1D800000;
-	mdev->vlm_size = 0x100000;
+	int ret = 0;
+
+	ret = mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
+	if (ret)
+		mdw_drv_err("vlm wrong\n");
 
 	return mdw_rv_dev_init(mdev);
 }

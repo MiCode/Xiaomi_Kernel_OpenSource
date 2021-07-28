@@ -378,10 +378,10 @@ static void reviser_print_plat(void *drvinfo, void *s_file)
 		LOG_CON(s, "-----------Pool[%d]--------------\n", i);
 	}
 
-	LOG_CON(s, "device[REVISER_DEVICE_MDLA]: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_MDLA]);
-	LOG_CON(s, "device[REVISER_DEVICE_VPU]: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_VPU]);
-	LOG_CON(s, "edma_max: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_EDMA]);
-	LOG_CON(s, "up_max: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_SECURE_MD32]);
+	LOG_CON(s, "MDLA: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_MDLA]);
+	LOG_CON(s, "VPU: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_VPU]);
+	LOG_CON(s, "EDMA: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_EDMA]);
+	LOG_CON(s, "SECURE_MD32: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_SECURE_MD32]);
 	LOG_CON(s, "dram: 0x%llx\n", rdv->plat.dram[0]);
 
 	LOG_CON(s, "hw_ver: 0x%lx\n", rdv->plat.hw_ver);

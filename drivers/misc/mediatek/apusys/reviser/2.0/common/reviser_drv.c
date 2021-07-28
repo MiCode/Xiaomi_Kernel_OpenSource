@@ -282,6 +282,9 @@ static int reviser_map_dts(struct platform_device *pdev)
 	int ret = 0;
 	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
 	uint32_t dram_offset = 0;
+	uint32_t slb_size = 0;
+	struct device_node *slb_node;
+
 	DEBUG_TAG;
 
 	if (!rdv) {
@@ -306,8 +309,9 @@ static int reviser_map_dts(struct platform_device *pdev)
 	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
 
 
-	ret = reviser_get_addr(pdev, &rdv->rsc.pool[0].base,
-			2, &rdv->rsc.pool[0].addr, &rdv->rsc.pool[0].size);
+	ret = reviser_get_addr(pdev, &rdv->rsc.pool[REVSIER_POOL_TCM].base,
+			2, &rdv->rsc.pool[REVSIER_POOL_TCM].addr,
+			&rdv->rsc.pool[REVSIER_POOL_TCM].size);
 	if (ret && (ret != -ENOMEM)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
@@ -320,6 +324,7 @@ static int reviser_map_dts(struct platform_device *pdev)
 	rdv->plat.pool_bank_max[REVSIER_POOL_TCM] =
 			rdv->plat.pool_size[REVSIER_POOL_TCM] / rdv->plat.bank_size;
 	rdv->plat.pool_max++;
+
 
 	if (reviser_get_addr(pdev, &rdv->rsc.isr.base, 3,
 			&rdv->rsc.isr.addr, &rdv->rsc.isr.size)) {
@@ -349,6 +354,18 @@ static int reviser_map_dts(struct platform_device *pdev)
 		rdv->plat.fix_dram = dram_offset;
 	else
 		rdv->plat.fix_dram = 0;
+
+	slb_node = of_find_compatible_node(
+			NULL, NULL, "mediatek,mtk-slbc");
+	if (slb_node) {
+		of_property_read_u32(slb_node,
+					"apu", &slb_size);
+		rdv->rsc.pool[REVSIER_POOL_SLBS].size = slb_size * 1024; //KB to Bytes
+		rdv->plat.pool_type[REVSIER_POOL_SLBS] = REVISER_MEM_TYPE_SLBS;
+		rdv->plat.pool_size[REVSIER_POOL_SLBS] = rdv->rsc.pool[REVSIER_POOL_SLBS].size;
+		rdv->plat.pool_max++;
+		LOG_INFO("APU-slb size: 0x%x\n", rdv->plat.pool_size[REVSIER_POOL_SLBS]);
+	}
 
 	return ret;
 
@@ -517,6 +534,17 @@ static int reviser_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto free_map;
 		}
+
+		ret = apu_power_callback_device_register(REVISOR,
+				reviser_power_on_cb, reviser_power_off_cb);
+		if (ret) {
+			LOG_ERR("apu_power_callback_device_register return error(%d)\n",
+				ret);
+			ret = -EINVAL;
+			goto free_dbg;
+		}
+
+		apu_power_device_register(REVISER, pdev);
 	}
 
 
@@ -528,17 +556,6 @@ static int reviser_probe(struct platform_device *pdev)
 
 	reviser_dbg_init(rdv, g_apusys->dbg_root);
 
-
-	ret = apu_power_callback_device_register(REVISOR,
-			reviser_power_on_cb, reviser_power_off_cb);
-	if (ret) {
-		LOG_ERR("apu_power_callback_device_register return error(%d)\n",
-			ret);
-		ret = -EINVAL;
-		goto free_dbg;
-	}
-
-	apu_power_device_register(REVISER, pdev);
 
 	g_rdv = rdv;
 
@@ -568,9 +585,10 @@ static int reviser_remove(struct platform_device *pdev)
 
 	DEBUG_TAG;
 
-	apu_power_device_unregister(REVISER);
-	apu_power_callback_device_unregister(REVISOR);
-
+	if (rdv->plat.fix_dram) {
+		apu_power_device_unregister(REVISER);
+		apu_power_callback_device_unregister(REVISOR);
+	}
 	reviser_table_uninit(rdv);
 	reviser_dbg_destroy(rdv);
 	if (mem_task) {

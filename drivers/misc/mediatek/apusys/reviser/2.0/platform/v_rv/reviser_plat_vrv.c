@@ -31,8 +31,6 @@ int reviser_vrv_init(struct platform_device *pdev)
 	//Set TCM Info
 	rdv->plat.pool_type[REVSIER_POOL_TCM] = REVISER_MEM_TYPE_TCM;
 
-	rdv->plat.pool_type[REVSIER_POOL_SLBS] = REVISER_MEM_TYPE_SLBS;
-	rdv->plat.pool_size[REVSIER_POOL_SLBS] = 0x600000; //ToDo get from dts
 	return 0;
 }
 int reviser_vrv_uninit(struct platform_device *pdev)
