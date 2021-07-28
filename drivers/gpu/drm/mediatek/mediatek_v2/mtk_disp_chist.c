@@ -250,14 +250,20 @@ static void mtk_chist_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		comp->regs_pa + DISP_CHIST_CFG, 0x0, ~0);
 }
 
-static void mtk_chist_bypass(struct mtk_ddp_comp *comp,
+static void mtk_chist_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
 
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_CHIST_CFG, 0x1, 0x1);
-	g_chist_relay_value[index_of_chist(comp->id)] = 0x1;
+	if (bypass == 1) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_CHIST_CFG, 0x1, 0x1);
+		g_chist_relay_value[index_of_chist(comp->id)] = 0x1;
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_CHIST_CFG, 0x0, 0x1);
+		g_chist_relay_value[index_of_chist(comp->id)] = 0x0;
+	}
 
 }
 
@@ -284,7 +290,7 @@ static void mtk_chist_channel_enabled(unsigned int channel,
 			break;
 	}
 	if ((i % DISP_CHIST_CHANNEL_COUNT) == DISP_CHIST_CHANNEL_COUNT)
-		mtk_chist_bypass(comp, handle);
+		mtk_chist_bypass(comp, 1, handle);
 	else
 		mtk_chist_start(comp, handle);
 

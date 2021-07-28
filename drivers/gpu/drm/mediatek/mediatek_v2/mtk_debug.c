@@ -79,6 +79,8 @@ unsigned int lfr_dbg;
 unsigned int lfr_params;
 unsigned int disp_spr_bypass;
 unsigned int disp_cm_bypass;
+static unsigned int m_old_pq_persist_property[32];
+unsigned int m_new_pq_persist_property[32];
 
 int gCaptureOVLEn;
 int gCaptureWDMAEn;
@@ -1758,6 +1760,49 @@ static void mtk_crtc_set_spr_tune_para(
 
 	//DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	//DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+}
+
+int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	int i, ret = 0;
+	unsigned int pq_persist_property[32];
+	struct mtk_drm_private *private = dev->dev_private;
+	struct drm_crtc *crtc = private->crtc[0];
+
+	memset(pq_persist_property, 0, sizeof(pq_persist_property));
+	memcpy(pq_persist_property, (unsigned int *)data, sizeof(pq_persist_property));
+
+	for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++) {
+		m_old_pq_persist_property[i] = m_new_pq_persist_property[i];
+		m_new_pq_persist_property[i] = pq_persist_property[i];
+	}
+
+	DDPFUNC("+");
+
+	if (m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS])
+		disp_color_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS]);
+
+	if (m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS])
+		disp_ccorr_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS]);
+
+	if (m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS])
+		disp_gamma_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS]);
+
+	if (m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS])
+		disp_dither_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS]);
+
+	if (m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_AAL_BYPASS])
+		disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
+
+	DDPFUNC("-");
+
+	return ret;
 }
 
 static void process_dbg_opt(const char *opt)

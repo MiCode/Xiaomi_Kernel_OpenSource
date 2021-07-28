@@ -133,7 +133,8 @@ struct DISP_DRE30_PARAM {
 void disp_aal_debug(const char *opt);
 
 /* Provide for LED */
-void disp_aal_notify_backlight_changed(int bl_1024);
+void disp_aal_notify_backlight_changed(int trans_backlight,
+	int max_backlight);
 
 void disp_aal_on_start_of_frame(void);
 

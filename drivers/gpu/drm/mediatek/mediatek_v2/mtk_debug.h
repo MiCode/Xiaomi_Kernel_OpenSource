@@ -23,6 +23,29 @@
 #define DEBUG_BUFFER_SIZE 10240
 #endif
 
+extern void disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
+	unsigned int gain[3], unsigned int bl);
+
+extern unsigned int m_new_pq_persist_property[32];
+enum mtk_pq_persist_property {
+	DISP_PQ_COLOR_BYPASS,
+	DISP_PQ_CCORR_BYPASS,
+	DISP_PQ_GAMMA_BYPASS,
+	DISP_PQ_DITHER_BYPASS,
+	DISP_PQ_AAL_BYPASS,
+	DISP_PQ_CCORR_SILKY_BRIGHTNESS,
+	DISP_PQ_GAMMA_SILKY_BRIGHTNESS,
+	DISP_PQ_PROPERTY_MAX,
+};
+
+int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+
 extern int mtk_disp_hrt_bw_dbg(void);
 
 #ifdef _DRM_P_H_

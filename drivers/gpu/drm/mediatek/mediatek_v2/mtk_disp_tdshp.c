@@ -476,11 +476,12 @@ static void mtk_disp_tdshp_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		comp->regs_pa + DISP_TDSHP_CTRL, 0x0, 0x1);
 }
 
-static void mtk_disp_tdshp_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+static void mtk_disp_tdshp_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
 {
 	pr_notice("%s, comp_id: %d\n", __func__, comp->id);
 
-//	if (bypass == 1) {
+	if (bypass == 1) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_TDSHP_CFG, 0x1, 0x1);
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -488,11 +489,11 @@ static void mtk_disp_tdshp_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_TDSHP_CTRL, 0xfffffffd, ~0);
 		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x1;
-//	} else {
-//		cmdq_pkt_write(handle, comp->cmdq_base,
-//			comp->regs_pa + DISP_TDSHP_CFG, 0x0, 0x1);
-//		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x0;
-//	}
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_CFG, 0x0, 0x1);
+		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x0;
+	}
 }
 
 static void mtk_disp_tdshp_prepare(struct mtk_ddp_comp *comp)

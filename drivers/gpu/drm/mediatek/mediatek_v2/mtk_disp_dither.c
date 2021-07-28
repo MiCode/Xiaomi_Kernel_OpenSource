@@ -49,12 +49,15 @@ static unsigned int g_dither_relay_value[DITHER_TOTAL_MODULE_NUM];
 #define index_of_dither(module) ((module == DDP_COMPONENT_DITHER0) ? 0 : 1)
 static atomic_t g_dither_is_clock_on = ATOMIC_INIT(0);
 static DEFINE_SPINLOCK(g_dither_clock_lock);
+// It's a work around for no comp assigned in functions.
+static struct mtk_ddp_comp *default_comp;
 
 static unsigned int g_dither_mode = 1;
 
 enum COLOR_IOCTL_CMD {
 	DITHER_SELECT = 0,
 	SET_PARAM,
+	BYPASS_DITHER
 };
 
 struct mtk_disp_dither_data {
@@ -195,20 +198,38 @@ static void mtk_dither_stop(struct mtk_ddp_comp *comp,
 	priv->pwr_sta = 0;
 }
 
-static void mtk_dither_bypass(struct mtk_ddp_comp *comp,
+static void mtk_dither_bypass(struct mtk_ddp_comp *comp, int bypass,
 			      struct cmdq_pkt *handle)
 {
 	struct mtk_disp_dither *priv = dev_get_drvdata(comp->dev);
-
 	DDPINFO("%s\n", __func__);
-	g_dither_relay_value[index_of_dither(comp->id)] = 0x1;
+	g_dither_relay_value[index_of_dither(comp->id)] = bypass;
 
-	priv->cfg_reg = 0x1 | (priv->cfg_reg & ~0x1);
+	if (bypass)
+		priv->cfg_reg = 0x1 | (priv->cfg_reg & ~0x1);
+	else
+		priv->cfg_reg = ~0x1 & priv->cfg_reg;
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_DITHER_CFG,
 		g_dither_relay_value[index_of_dither(comp->id)], 0x1);
 
+}
+
+struct dither_backup {
+	unsigned int REG_DITHER_CFG;
+};
+static struct dither_backup g_dither_backup;
+
+static void ddp_dither_backup(struct mtk_ddp_comp *comp)
+{
+	g_dither_backup.REG_DITHER_CFG =
+		readl(comp->regs + DISP_REG_DITHER_CFG);
+}
+
+static void ddp_dither_restore(struct mtk_ddp_comp *comp)
+{
+	writel(g_dither_backup.REG_DITHER_CFG, comp->regs + DISP_REG_DITHER_CFG);
 }
 
 static void mtk_dither_prepare(struct mtk_ddp_comp *comp)
@@ -222,6 +243,7 @@ static void mtk_dither_prepare(struct mtk_ddp_comp *comp)
 	if (priv->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, DITHER_BYPASS_SHADOW,
 			DITHER_REG(0), DITHER_BYPASS_SHADOW);
+	ddp_dither_restore(comp);
 }
 
 static void mtk_dither_unprepare(struct mtk_ddp_comp *comp)
@@ -237,7 +259,7 @@ static void mtk_dither_unprepare(struct mtk_ddp_comp *comp)
 	spin_unlock_irqrestore(&g_dither_clock_lock, flags);
 	DDPINFO("%s @ %d......... spin_unlock_irqrestore ",
 		__func__, __LINE__);
-
+	ddp_dither_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
@@ -367,6 +389,20 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			mtk_dither_set_param(comp_dither1, handle, relay, mode);
 		}
 	}
+	case BYPASS_DITHER:
+	{
+		int *value = data;
+
+		mtk_dither_bypass(comp, *value, handle);
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
+			mtk_dither_bypass(comp_dither1, *value, handle);
+		}
+	}
 	break;
 	default:
 		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
@@ -458,6 +494,9 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 		DDPPR_ERR("Failed to identify by alias: %d\n", comp_id);
 		return comp_id;
 	}
+
+	if (!default_comp)
+		default_comp = &priv->ddp_comp;
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
 				&mtk_disp_dither_funcs);
@@ -585,4 +624,11 @@ void dither_test(const char *cmd, char *debug_output, struct mtk_ddp_comp *comp)
 	}
 }
 
+void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass)
+{
+	int ret;
 
+	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_DITHER, &bypass);
+
+	DDPINFO("%s : ret = %d", __func__, ret);
+}

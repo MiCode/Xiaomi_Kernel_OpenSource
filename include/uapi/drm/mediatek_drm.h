@@ -407,6 +407,7 @@ struct DISP_DITHER_PARAM {
 #define DRM_MTK_MML_GEM_SUBMIT         0x0E
 
 /* PQ */
+#define DRM_MTK_PQ_PERSIST_PROPERTY	0x1F
 #define DRM_MTK_SET_CCORR			0x20
 #define DRM_MTK_CCORR_EVENTCTL   0x21
 #define DRM_MTK_CCORR_GET_IRQ    0x22
@@ -689,6 +690,8 @@ struct DRM_DISP_CCORR_COEF_T {
 	enum drm_disp_ccorr_id_t hw_id;
 	unsigned int coef[3][3];
 	unsigned int offset[3];
+	int FinalBacklight;
+	int silky_bright_flag;
 };
 
 enum drm_disp_gamma_id_t {
@@ -957,6 +960,9 @@ struct drm_mtk_chist_config {
 #define DRM_IOCTL_MTK_SEC_HND_TO_GEM_HND     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SEC_HND_TO_GEM_HND, struct drm_mtk_sec_gem_hnd)
 
+#define DRM_IOCTL_MTK_PQ_PERSIST_PROPERTY    DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_PQ_PERSIST_PROPERTY, unsigned int [32])
+
 #define DRM_IOCTL_MTK_SET_CCORR     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_CCORR, struct DRM_DISP_CCORR_COEF_T)
 
@@ -1097,13 +1103,21 @@ struct DISP_AAL_INITREG {
 	int last_tile_y_flag;
 };
 
+enum rgbSeq {
+	gain_r,
+	gain_g,
+	gain_b,
+};
+
 struct DISP_AAL_PARAM {
 	int DREGainFltStatus[AAL_DRE_POINT_NUM];
 	int cabc_fltgain_force;	/* 10-bit ; [0,1023] */
 	int cabc_gainlmt[33];
 	int FinalBacklight;	/* 10-bit ; [0,1023] */
+	int silky_bright_flag;
 	int allowPartial;
 	int refreshLatency;	/* DISP_AAL_REFRESH_LATENCY */
+	unsigned int silky_bright_gain[3];    /* 13-bit ; [1,8192] */
 	unsigned long long dre30_gain;
 };
 

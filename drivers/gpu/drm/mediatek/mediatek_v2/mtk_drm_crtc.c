@@ -52,6 +52,7 @@
 #include "cmdq-sec-iwc-common.h"
 #include "cmdq-util.h"
 #include "mtk_disp_ccorr.h"
+#include "mtk_debug.h"
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -80,6 +81,9 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "SKIP_CONFIG", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OVL_DSI_SEQ", 0, UINT_MAX, 0},
 };
+
+static struct cmdq_pkt *sb_cmdq_handle;
+static unsigned int sb_backlight;
 
 bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
@@ -690,6 +694,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct cmdq_pkt_buffer *cmdq_buf;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
+	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])
+		sb_backlight = level;
 
 	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
 			level);
@@ -726,8 +732,14 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
-	cmdq_handle =
-		cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
+		sb_cmdq_handle != NULL) {
+		cmdq_handle = sb_cmdq_handle;
+		sb_cmdq_handle = NULL;
+	} else {
+		cmdq_handle =
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	}
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
@@ -764,6 +776,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 			   cmdq_buf->pa_base +
 				   DISP_SLOT_CUR_BL_IDX,
 			   bl_cnt, ~0);
+
 	CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
 	bl_cnt++;
 
@@ -960,7 +973,7 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	return 0;
 }
 
-static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
+int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -1014,7 +1027,7 @@ static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 	return 0;
 }
 
-static int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en)
+int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en)
 {
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -1222,6 +1235,8 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	struct mtk_cmdq_cb_data *cb_data;
 	static unsigned int user_cmd_cnt;
 	struct cmdq_pkt_buffer *cmdq_buf;
+	struct DRM_DISP_CCORR_COEF_T *ccorr_config;
+
 	int index = 0;
 
 	if (!mtk_crtc) {
@@ -1305,10 +1320,33 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 4);
 	user_cmd_cnt++;
 
-	cb_data->crtc = crtc;
-	cb_data->cmdq_handle = cmdq_handle;
-	if (cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data) < 0)
-		DDPPR_ERR("failed to flush user_cmd\n");
+	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
+		if (comp->id == DDP_COMPONENT_CCORR0 && cmd == 0) {
+			ccorr_config = params;
+			if (ccorr_config->silky_bright_flag == 1 &&
+				ccorr_config->FinalBacklight != sb_backlight) {
+				sb_cmdq_handle = cmdq_handle;
+				kfree(cb_data);
+			} else {
+				cb_data->crtc = crtc;
+				cb_data->cmdq_handle = cmdq_handle;
+				if (cmdq_pkt_flush_threaded(cmdq_handle,
+					user_cmd_cmdq_cb, cb_data) < 0)
+					DDPPR_ERR("failed to flush user_cmd\n");
+			}
+		} else {
+			cb_data->crtc = crtc;
+			cb_data->cmdq_handle = cmdq_handle;
+			if (cmdq_pkt_flush_threaded(cmdq_handle,
+				user_cmd_cmdq_cb, cb_data) < 0)
+				DDPPR_ERR("failed to flush user_cmd\n");
+		}
+	} else {
+		cb_data->crtc = crtc;
+		cb_data->cmdq_handle = cmdq_handle;
+		if (cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data) < 0)
+			DDPPR_ERR("failed to flush user_cmd\n");
+	}
 
 	CRTC_MMP_EVENT_END(index, user_cmd, (unsigned long)cmd,
 			(unsigned long)params);
@@ -4521,7 +4559,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-			mtk_ddp_comp_bypass(comp, cmdq_handle);
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
@@ -4533,7 +4571,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 			if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-				mtk_ddp_comp_bypass(comp, cmdq_handle);
+				mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 		}
 	}
 	/* Althought some of the m4u port may be enabled in LK stage.
@@ -6708,6 +6746,34 @@ static void msync_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
+static void mtk_atomic_hbm_bypass_pq(struct drm_crtc *crtc,
+		struct cmdq_pkt *handle, int en)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	int i, j;
+
+	DDPINFO("%s: enter\n", __func__);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		if (comp && (comp->id == DDP_COMPONENT_AAL0 ||
+			comp->id == DDP_COMPONENT_CCORR0)) {
+			if (comp->funcs && comp->funcs->bypass)
+				mtk_ddp_comp_bypass(comp, en, handle);
+		}
+	}
+
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			if (comp && (comp->id == DDP_COMPONENT_AAL1 ||
+				comp->id == DDP_COMPONENT_CCORR1)) {
+				if (comp->funcs && comp->funcs->bypass)
+					mtk_ddp_comp_bypass(comp, en, handle);
+			}
+		}
+	}
+}
+
 static void sf_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
@@ -6776,6 +6842,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		hbm_en = (bool)state->prop_val[CRTC_PROP_HBM_ENABLE];
 		mtk_drm_crtc_set_panel_hbm(crtc, hbm_en);
 		mtk_drm_crtc_hbm_wait(crtc, hbm_en);
+		mtk_atomic_hbm_bypass_pq(crtc, cmdq_handle, hbm_en);
 	}
 
 	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
@@ -7936,7 +8003,6 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		wake_up_process(mtk_crtc->vblank_enable_task);
 	}
 
-
 	init_waitqueue_head(&mtk_crtc->crtc_status_wq);
 	if (drm_crtc_index(&mtk_crtc->base) == 0) {
 		mtk_disp_hrt_cond_init(&mtk_crtc->base);
@@ -8285,7 +8351,7 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-			mtk_ddp_comp_bypass(comp, cmdq_handle);
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
 	if (mtk_crtc->is_dual_pipe)
@@ -8352,7 +8418,7 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-			mtk_ddp_comp_bypass(comp, cmdq_handle);
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
 	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_ID;

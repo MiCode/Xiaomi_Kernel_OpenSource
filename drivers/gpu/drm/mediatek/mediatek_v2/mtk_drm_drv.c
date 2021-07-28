@@ -727,6 +727,118 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 }
 
+static void pq_bypass_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
+static void mtk_atomit_doze_bypass_pq(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *mtk_state;
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_cmdq_cb_data *cb_data;
+	int i, j;
+
+	DDPINFO("%s\n", __func__);
+	mtk_state = to_mtk_crtc_state(crtc->state);
+
+	if (!crtc->state->active) {
+		DDPINFO("%s: crtc is not active\n", __func__);
+		return;
+	}
+
+	if (mtk_state->doze_changed &&
+		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+		DDPINFO("%s: enable doze, bypass pq\n", __func__);
+
+		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+		if (!cb_data) {
+			DDPPR_ERR("cb data creation failed\n");
+			return;
+		}
+
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		cb_data->crtc = crtc;
+		cb_data->cmdq_handle = cmdq_handle;
+
+		if (mtk_crtc_is_frame_trigger_mode(crtc))
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		else
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+			if (comp && (comp->id == DDP_COMPONENT_AAL0 ||
+				comp->id == DDP_COMPONENT_CCORR0)) {
+				if (comp->funcs && comp->funcs->bypass)
+					mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
+			}
+		}
+
+		if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
+			DDPPR_ERR("failed to flush user_cmd\n");
+	}
+}
+
+static void mtk_atomit_doze_enable_pq(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *mtk_state;
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_cmdq_cb_data *cb_data;
+	int i, j;
+
+	DDPINFO("%s\n", __func__);
+	mtk_state = to_mtk_crtc_state(crtc->state);
+
+	if (!crtc->state->active) {
+		DDPINFO("%s: crtc is not active\n", __func__);
+		return;
+	}
+
+	if (mtk_state->doze_changed &&
+		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+		DDPINFO("%s: disable doze, enable pq\n", __func__);
+
+		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+		if (!cb_data) {
+			DDPPR_ERR("cb data creation failed\n");
+			return;
+		}
+
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		cb_data->crtc = crtc;
+		cb_data->cmdq_handle = cmdq_handle;
+
+		if (mtk_crtc_is_frame_trigger_mode(crtc))
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		else
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+			if (comp && (comp->id == DDP_COMPONENT_AAL0 ||
+				comp->id == DDP_COMPONENT_CCORR0)) {
+				if (comp->funcs && comp->funcs->bypass)
+					mtk_ddp_comp_bypass(comp, 0, cmdq_handle);
+			}
+		}
+
+		if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
+			DDPPR_ERR("failed to flush user_cmd\n");
+	}
+}
+
 static void mtk_atomic_doze_preparation(struct drm_device *dev,
 					 struct drm_atomic_state *old_state)
 {
@@ -744,11 +856,13 @@ static void mtk_atomic_doze_preparation(struct drm_device *dev,
 			continue;
 		}
 
+		mtk_atomit_doze_bypass_pq(crtc);
+
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 1);
 
 		mtk_atomic_force_doze_switch(dev, old_state, connector, crtc);
-	}
 
+	}
 }
 
 static void mtk_atomic_doze_finish(struct drm_device *dev,
@@ -769,8 +883,9 @@ static void mtk_atomic_doze_finish(struct drm_device *dev,
 		}
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 0);
-	}
 
+		mtk_atomit_doze_enable_pq(crtc);
+	}
 }
 
 static bool mtk_drm_is_enable_from_lk(struct drm_crtc *crtc)
@@ -942,7 +1057,6 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	drm_atomic_helper_commit_modeset_enables(drm, state);
 
 	mtk_drm_enable_trig(drm, state);
-
 
 	mtk_atomic_disp_rsz_roi(drm, state);
 
@@ -3323,6 +3437,9 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_GET_MASTER_INFO, mtk_drm_get_master_info_ioctl,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_PQ_PERSIST_PROPERTY,
+				mtk_drm_ioctl_pq_get_persist_property,
+				DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_CCORR, mtk_drm_ioctl_set_ccorr,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_CCORR_EVENTCTL, mtk_drm_ioctl_ccorr_eventctl,

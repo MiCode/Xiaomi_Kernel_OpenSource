@@ -691,13 +691,20 @@ static void mtk_disp_c3d_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + C3D_EN, 0x0, ~0);
 }
 
-static void mtk_disp_c3d_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+static void mtk_disp_c3d_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
 {
 	pr_notice("%s, comp_id: %d\n", __func__, index_of_c3d(comp->id));
 
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + C3D_CFG, 0x1, 0x1);
-	atomic_set(&g_c3d_force_relay[index_of_c3d(comp->id)], 0x1);
+	if (bypass == 1) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + C3D_CFG, 0x1, 0x1);
+		atomic_set(&g_c3d_force_relay[index_of_c3d(comp->id)], 0x1);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + C3D_CFG, 0x0, 0x1);
+		atomic_set(&g_c3d_force_relay[index_of_c3d(comp->id)], 0x0);
+	}
 }
 
 static void mtk_disp_c3d_prepare(struct mtk_ddp_comp *comp)
