@@ -2773,6 +2773,11 @@
 			reg = <0 0x1e802000 0 0x1000>;
 			iommu_id = <0>;
 			iommu_type = "mm";
+			mediatek,larbs = <&smi_larb0 &smi_larb2 &smi_larb5>,
+					<&smi_larb6 &smi_larb7 &smi_larb9>,
+					<&smi_larb10 &smi_larb11 &smi_larb13>,
+					<&smi_larb21 &smi_larb23 &smi_larb25>,
+					<&smi_larb27 &smi_larb29 &smi_larb30>;
 			mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
 						&disp_iommu_bank3 &disp_iommu_bank4>;
 			interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -2815,6 +2820,11 @@
 			reg = <0 0x1e810000 0 0x1000>;
 			iommu_id = <1>;
 			iommu_type = "mm";
+			mediatek,larbs = <&smi_larb1 &smi_larb3 &smi_larb4>,
+					 <&smi_larb8 &smi_larb12 &smi_larb14>,
+					 <&smi_larb15 &smi_larb16 &smi_larb17>,
+					 <&smi_larb18 &smi_larb19 &smi_larb20>,
+					 <&smi_larb22 &smi_larb26 &smi_larb28>;
 			mediatek,iommu_banks = <&mdp_iommu_bank1 &mdp_iommu_bank2
 						&mdp_iommu_bank3 &mdp_iommu_bank4>;
 			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -2981,6 +2991,7 @@
 			reg = <0 0x19010000 0 0x1000>;
 			iommu_id = <0>;
 			iommu_type = "apu";
+			mediatek,apu_power = <&apusys_rv>;
 			mediatek,iommu_banks = <&apu_iommu0_bank1 &apu_iommu0_bank2
 						&apu_iommu0_bank3 &apu_iommu0_bank4>;
 			interrupts = <GIC_SPI 579 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -3021,6 +3032,7 @@
 			reg = <0 0x19015000 0 0x1000>;
 			iommu_id = <1>;
 			iommu_type = "apu";
+			mediatek,apu_power = <&apusys_rv>;
 			mediatek,iommu_banks = <&apu_iommu1_bank1 &apu_iommu1_bank2
 						&apu_iommu1_bank3 &apu_iommu1_bank4>;
 			interrupts = <GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH 0>;
