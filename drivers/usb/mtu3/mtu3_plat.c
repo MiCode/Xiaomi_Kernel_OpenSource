@@ -195,6 +195,15 @@ void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
 		phy_power_off(ssusb->phys[i]);
 }
 
+
+void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
+{
+	unsigned int i;
+
+	for (i = 0; i < ssusb->num_phys; i++)
+		phy_set_mode(ssusb->phys[i], mode);
+}
+
 int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 {
 	int ret;

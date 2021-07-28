@@ -100,16 +100,19 @@ static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
 	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
 }
 
-static void switch_port_to_on(struct ssusb_mtk *ssusb, bool is_on)
+static void switch_port_to_on(struct ssusb_mtk *ssusb,
+	bool is_on, enum phy_mode mode)
 {
 	if (!ssusb->clk_mgr)
 		return;
 
-	dev_info(ssusb->dev, "%s (%s)\n", __func__, is_on ? "on" : "off");
+	dev_info(ssusb->dev, "%s (%s) (%d)\n",
+		__func__, is_on ? "on" : "off", mode);
 
 	if (is_on) {
 		ssusb_clks_enable(ssusb);
 		ssusb_phy_power_on(ssusb);
+		ssusb_phy_set_mode(ssusb, mode);
 		ssusb_ip_sw_reset(ssusb);
 		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 	} else {
@@ -216,7 +219,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 
 	switch (status) {
 	case MTU3_ID_GROUND:
-		switch_port_to_on(ssusb, true);
+		switch_port_to_on(ssusb, true, PHY_MODE_USB_HOST);
 		if (ssusb->clk_mgr) {
 			ssusb_host_enable(ssusb);
 			ssusb_host_register(ssusb, true);
@@ -237,7 +240,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		ssusb_set_vbus(otg_sx, 0);
 		switch_port_to_device(ssusb);
 		otg_sx->sw_state &= ~MTU3_SW_ID_GROUND;
-		switch_port_to_on(ssusb, false);
+		switch_port_to_on(ssusb, false, PHY_MODE_USB_OTG);
 		break;
 	case MTU3_VBUS_OFF:
 		spin_lock_irqsave(&mtu->lock, flags);
@@ -250,10 +253,10 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		pm_relax(ssusb->dev);
 		ssusb_set_force_vbus(ssusb, false);
 		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
-		switch_port_to_on(ssusb, false);
+		switch_port_to_on(ssusb, false, PHY_MODE_USB_OTG);
 		break;
 	case MTU3_VBUS_VALID:
-		switch_port_to_on(ssusb, true);
+		switch_port_to_on(ssusb, true, PHY_MODE_USB_DEVICE);
 		ssusb_set_force_vbus(ssusb, true);
 		switch_port_to_device(ssusb);
 		/* avoid suspend when works as device */
