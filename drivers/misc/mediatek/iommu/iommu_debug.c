@@ -2371,6 +2371,7 @@ struct iommu_event_t {
 	unsigned long data1;
 	unsigned long data2;
 	unsigned long data3;
+	struct device *dev;
 };
 
 struct iommu_global_t {
@@ -2384,11 +2385,12 @@ struct iommu_global_t {
 
 static struct iommu_global_t iommu_globals;
 
-static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size);
+static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
+				struct device *dev);
 
-static void mtk_iommu_iova_alloc_dump(struct seq_file *s);
+static void mtk_iommu_iova_alloc_dump(struct seq_file *s, struct device *dev);
 
-static void mtk_iommu_iova_map_dump(struct seq_file *s);
+static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova);
 
 struct iova_map_info {
 	u64			iova;
@@ -2430,7 +2432,7 @@ void mtk_iova_map(u64 iova, size_t size)
 	list_add(&iova_buf->list_node, &map_list.head[id]);
 	spin_unlock_irqrestore(&map_list.lock, flags);
 
-	mtk_iommu_iova_trace(IOMMU_MAP, iova, size);
+	mtk_iommu_iova_trace(IOMMU_MAP, iova, size, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_iova_map);
 
@@ -2466,11 +2468,17 @@ void mtk_iova_unmap(u64 iova, size_t size)
 		pr_info("%s time:%llu\n", __func__, (end_t - start_t));
 	spin_unlock_irqrestore(&map_list.lock, flags);
 
-	mtk_iommu_iova_trace(IOMMU_UNMAP, iova, size);
+	mtk_iommu_iova_trace(IOMMU_UNMAP, iova, size, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_iova_unmap);
 
 void mtk_iova_map_dump(u64 iova)
+{
+	mtk_iommu_iova_map_dump(NULL, iova);
+}
+EXPORT_SYMBOL_GPL(mtk_iova_map_dump);
+
+static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova)
 {
 	u32 i, id = (iova >> 32);
 	unsigned long flags;
@@ -2482,14 +2490,15 @@ void mtk_iova_map_dump(u64 iova)
 		return;
 	}
 
-	spin_lock_irqsave(&map_list.lock, flags);
-	pr_info("%-4s %-14s %-10s %-18s\n", "id", "start_iova", "size", "time");
+	iommu_dump(s, "iommu iova map dump:\n");
+	iommu_dump(s, "%-4s %-14s %-10s %-18s\n",
+			"id", "start_iova", "size", "time");
 
+	spin_lock_irqsave(&map_list.lock, flags);
 	if (!iova) {
 		for (i = 0; i < MTK_IOVA_SPACE_NUM; i++) {
-			list_for_each_entry_safe(plist, n, &map_list.head[i],
-					 list_node)
-				pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
+			list_for_each_entry_safe(plist, n, &map_list.head[i], list_node)
+				iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
 					i, plist->iova,
 					plist->size,
 					plist->time_high,
@@ -2499,39 +2508,14 @@ void mtk_iova_map_dump(u64 iova)
 		return;
 	}
 
-	list_for_each_entry_safe(plist, n, &map_list.head[id],
-				 list_node)
+	list_for_each_entry_safe(plist, n, &map_list.head[id], list_node)
 		if (iova <= (plist->iova + SZ_4M) &&
 		    iova >= (plist->iova - SZ_4M))
-			pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
+			iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
 				id, plist->iova,
 				plist->size,
 				plist->time_high,
 				plist->time_low);
-	spin_unlock_irqrestore(&map_list.lock, flags);
-}
-EXPORT_SYMBOL_GPL(mtk_iova_map_dump);
-
-static void mtk_iommu_iova_map_dump(struct seq_file *s)
-{
-	u32 i;
-	unsigned long flags;
-	struct iova_map_info *plist = NULL;
-	struct iova_map_info *n = NULL;
-
-	iommu_dump(s, "iommu iova map dump:\n");
-	iommu_dump(s, "%-4s %-14s %-10s %-18s\n",
-			"id", "start_iova", "size", "time");
-
-	spin_lock_irqsave(&map_list.lock, flags);
-	for (i = 0; i < MTK_IOVA_SPACE_NUM; i++) {
-		list_for_each_entry_safe(plist, n, &map_list.head[i], list_node)
-			iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
-				i, plist->iova,
-				plist->size,
-				plist->time_high,
-				plist->time_low);
-	}
 	spin_unlock_irqrestore(&map_list.lock, flags);
 }
 
@@ -2544,8 +2528,8 @@ static void mtk_iommu_trace_dump(struct seq_file *s)
 		return;
 
 	iommu_dump(s, "iommu trace dump:\n");
-	iommu_dump(s, "%-8s %-4s %-14s %-12s %-14s %-18s\n",
-			"action", "id", "iova_start", "size", "iova_end", "time");
+	iommu_dump(s, "%-8s %-4s %-14s %-12s %-14s %-18s %-18s\n",
+			"action", "id", "iova_start", "size", "iova_end", "time", "dev");
 	for (i = 0; i < IOMMU_MAX_EVENT_COUNT; i++) {
 		unsigned long end_iova = 0;
 
@@ -2561,29 +2545,18 @@ static void mtk_iommu_trace_dump(struct seq_file *s)
 				iommu_globals.record[i].data2 - 1;
 
 		iommu_dump(s,
-			"%-8s %-4lu 0x%-12lx 0x%-10zx 0x%-12lx %llu.%06llu\n",
+			"%-8s %-4lu 0x%-12lx 0x%-10zx 0x%-12lx %llu.%06llu %s\n",
 			event_mgr[event_id].name,
 			iommu_globals.record[i].data3,
 			iommu_globals.record[i].data1,
 			iommu_globals.record[i].data2,
 			end_iova,
 			iommu_globals.record[i].time_high,
-			iommu_globals.record[i].time_low);
+			iommu_globals.record[i].time_low,
+			(iommu_globals.record[i].dev != NULL ?
+			dev_name(iommu_globals.record[i].dev) : ""));
 	}
 }
-
-void mtk_iommu_log_dump(void *seq_file)
-{
-	struct seq_file *s = NULL;
-
-	if (!seq_file)
-		return;
-
-	s = (struct seq_file *)seq_file;
-
-	mtk_iommu_trace_dump(s);
-}
-EXPORT_SYMBOL_GPL(mtk_iommu_log_dump);
 
 void mtk_iommu_debug_reset(void)
 {
@@ -2749,6 +2722,13 @@ EXPORT_SYMBOL_GPL(mtk_iommu_unregister_fault_callback);
 
 static int mtk_iommu_debug_help(struct seq_file *s)
 {
+	iommu_dump(s, "iommu debug file:\n");
+	iommu_dump(s, "help: description debug file and command\n");
+	iommu_dump(s, "debug: iommu main debug file, receive debug command\n");
+	iommu_dump(s, "iommu_dump: iova trace dump file\n");
+	iommu_dump(s, "iova_alloc: iova alloc list dump file\n");
+	iommu_dump(s, "iova_map: iova map list dump file\n\n");
+
 	iommu_dump(s, "iommu debug command:\n");
 	iommu_dump(s, "echo 1 > /proc/iommu_debug/debug: iommu debug help\n");
 	iommu_dump(s, "echo 2 > /proc/iommu_debug/debug: mm translation fault test\n");
@@ -2852,10 +2832,10 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_trace_dump(NULL);
 		break;
 	case 19:	/* dump iova alloc list */
-		mtk_iommu_iova_alloc_dump(NULL);
+		mtk_iommu_iova_alloc_dump(NULL, NULL);
 		break;
 	case 20:	/* dump iova map list */
-		mtk_iommu_iova_map_dump(NULL);
+		mtk_iommu_iova_map_dump(NULL, 0);
 		break;
 	default:
 		pr_err("%s error,val=%llu\n", __func__, val);
@@ -2903,13 +2883,13 @@ static int mtk_iommu_dump_fops_proc_show(struct seq_file *s, void *unused)
 
 static int mtk_iommu_iova_alloc_fops_proc_show(struct seq_file *s, void *unused)
 {
-	mtk_iommu_iova_alloc_dump(s);
+	mtk_iommu_iova_alloc_dump(s, NULL);
 	return 0;
 }
 
 static int mtk_iommu_iova_map_fops_proc_show(struct seq_file *s, void *unused)
 {
-	mtk_iommu_iova_map_dump(s);
+	mtk_iommu_iova_map_dump(s, 0);
 	return 0;
 }
 
@@ -2959,9 +2939,10 @@ static void mtk_iommu_system_time(unsigned int *low, unsigned int *high)
 }
 
 static void mtk_iommu_trace_rec_write(int event,
-			       unsigned long data1,
-			       unsigned long data2,
-			       unsigned long data3)
+				unsigned long data1,
+				unsigned long data2,
+				unsigned long data3,
+				struct device *dev)
 {
 	unsigned int index;
 	struct iommu_event_t *p_event = NULL;
@@ -2974,9 +2955,10 @@ static void mtk_iommu_trace_rec_write(int event,
 		return;
 
 	if (event_mgr[event].dump_log)
-		pr_info("[trace] %5s |0x%-9lx |%9zx |0x%lx\n",
+		pr_info("[trace] %5s |0x%-9lx |%9zx |0x%lx |%s\n",
 			event_mgr[event].name,
-			data1, data2, data3);
+			data1, data2, data3,
+			(dev != NULL ? dev_name(dev) : ""));
 
 	if (event_mgr[event].dump_trace == 0)
 		return;
@@ -2994,11 +2976,13 @@ static void mtk_iommu_trace_rec_write(int event,
 	p_event->data1 = data1;
 	p_event->data2 = data2;
 	p_event->data3 = data3;
+	p_event->dev = dev;
 
 	spin_unlock_irqrestore(&iommu_globals.lock, flags);
 }
 
-static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size)
+static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
+				struct device *dev)
 {
 	u32 id = (iova >> 32);
 
@@ -3007,7 +2991,7 @@ static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size)
 		return;
 	}
 
-	mtk_iommu_trace_rec_write(event, (unsigned long) iova, size, id);
+	mtk_iommu_trace_rec_write(event, (unsigned long) iova, size, id, dev);
 }
 
 static int m4u_debug_init(struct mtk_m4u_data *data)
@@ -3065,40 +3049,28 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 	return 0;
 }
 
-static void mtk_iommu_iova_alloc_dump(struct seq_file *s)
+static void mtk_iommu_iova_alloc_dump(struct seq_file *s, struct device *dev)
 {
+	struct iommu_fwspec *fwspec = NULL;
 	struct iova_info *plist = NULL;
 	struct iova_info *n = NULL;
 
-	spin_lock(&iova_list.lock);
-	iommu_dump(s, "iommu iova alloc dump:\n");
-	iommu_dump(s, "%6s %18s %8s %18s\n", "dom_id", "iova", "size", "dev");
-	list_for_each_entry_safe(plist, n, &iova_list.head, list_node)
-		iommu_dump(s, "%6u %18pa %8zx %18s\n",
-				plist->dom_id,
-				&plist->iova,
-				plist->size,
-				dev_name(plist->dev));
-	spin_unlock(&iova_list.lock);
-}
-
-static void mtk_iova_dbg_dump(struct device *dev)
-{
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct iova_info *plist = NULL;
-	struct iova_info *n = NULL;
-
-	if (fwspec == NULL) {
-		pr_info("%s fail! dev:%s, fwspec is NULL\n",
-			__func__, dev_name(dev));
-		return;
+	if (dev != NULL) {
+		fwspec = dev_iommu_fwspec_get(dev);
+		if (fwspec == NULL) {
+			pr_info("%s fail! dev:%s, fwspec is NULL\n",
+				__func__, dev_name(dev));
+			return;
+		}
 	}
 
+	iommu_dump(s, "iommu iova alloc dump:\n");
+	iommu_dump(s, "%6s %18s %8s %18s\n", "dom_id", "iova", "size", "dev");
+
 	spin_lock(&iova_list.lock);
-	pr_info("%6s %18s %8s %18s\n", "dom_id", "iova", "size", "dev");
 	list_for_each_entry_safe(plist, n, &iova_list.head, list_node)
-		if (plist->dom_id == MTK_M4U_TO_DOM(fwspec->ids[0]))
-			pr_info("%6u %18pa %8zx %18s\n",
+		if (dev == NULL || plist->dom_id == MTK_M4U_TO_DOM(fwspec->ids[0]))
+			iommu_dump(s, "%6u %18pa %8zx %s\n",
 				plist->dom_id,
 				&plist->iova,
 				plist->size,
@@ -3114,7 +3086,7 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
-		return mtk_iova_dbg_dump(dev);
+		return mtk_iommu_iova_alloc_dump(NULL, dev);
 	}
 
 	iova_buf = kzalloc(sizeof(*iova_buf), GFP_ATOMIC);
@@ -3129,7 +3101,7 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 	list_add(&iova_buf->list_node, &iova_list.head);
 	spin_unlock(&iova_list.lock);
 
-	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size);
+	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, dev);
 }
 
 static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
@@ -3148,7 +3120,7 @@ static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 	}
 	spin_unlock(&iova_list.lock);
 
-	mtk_iommu_iova_trace(IOMMU_FREE, iova, size);
+	mtk_iommu_iova_trace(IOMMU_FREE, iova, size, NULL);
 }
 
 /* all code inside alloc_iova_hook can't be scheduled! */
