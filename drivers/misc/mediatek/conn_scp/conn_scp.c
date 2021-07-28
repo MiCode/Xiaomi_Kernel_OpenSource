@@ -45,7 +45,6 @@ static ssize_t conn_scp_dev_write(struct file *filp,
 				loff_t *f_pos);
 static long conn_scp_dev_unlocked_ioctl(
 		struct file *filp, unsigned int cmd, unsigned long arg);
-static int conn_scp_mmap(struct file *pFile, struct vm_area_struct *pVma);
 
 
 struct conn_scp_dev *g_conn_scp_dev;
@@ -56,7 +55,6 @@ const struct file_operations g_conn_scp_dev_fops = {
 	.read = conn_scp_dev_read,
 	.write = conn_scp_dev_write,
 	.unlocked_ioctl = conn_scp_dev_unlocked_ioctl,
-	.mmap = conn_scp_mmap,
 };
 
 int conn_scp_dev_open(struct inode *inode, struct file *file)
@@ -89,12 +87,6 @@ ssize_t conn_scp_dev_write(struct file *filp,
 
 static long conn_scp_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	return 0;
-}
-
-static int conn_scp_mmap(struct file *pFile, struct vm_area_struct *pVma)
-{
-	/* Invalid bufId */
 	return 0;
 }
 

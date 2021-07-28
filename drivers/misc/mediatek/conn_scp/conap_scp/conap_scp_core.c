@@ -235,7 +235,7 @@ static int opfunc_recv_msg(struct msg_op_data *op)
 					msecs_to_jiffies(2000));
 
 	if (wait_ret == 0) {
-		pr_warn("[%s] send msg timeout");
+		pr_warn("[%s] send msg timeout", __func__);
 		return CONN_TIMEOUT;
 	}
 
@@ -368,7 +368,7 @@ int conn_state_event_handler(struct notifier_block *this,
 		return 0;
 	}
 
-	pr_info("[%s] ========= event =[%d] [%x][%x]",
+	pr_info("[%s] ========= event =[%d] [%x][%llu]",
 				__func__, event, info->chip_info, info->emi_phy_addr);
 
 	g_core_ctx.chip_info = info->chip_info;
@@ -468,7 +468,7 @@ int conap_scp_register_drv(enum conap_scp_drv_type type, struct conap_scp_drv_cb
 {
 	if (g_core_ctx.enable == 0)
 		return CONN_CONAP_NOT_SUPPORT;
-	if (type >= CONAP_SCP_DRV_NUM)
+	if (type < 0 || type >= CONAP_SCP_DRV_NUM)
 		return -EINVAL;
 	if (g_drv_user[type].enable)
 		return -EEXIST;
@@ -488,7 +488,7 @@ int conap_scp_unregister_drv(enum conap_scp_drv_type type)
 {
 	if (g_core_ctx.enable == 0)
 		return CONN_CONAP_NOT_SUPPORT;
-	if (type >= CONAP_SCP_DRV_NUM)
+	if (type < 0 || type >= CONAP_SCP_DRV_NUM)
 		return -EINVAL;
 	if (!g_drv_user[type].enable)
 		return -EEXIST;

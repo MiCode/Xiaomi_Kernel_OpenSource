@@ -378,14 +378,15 @@ unsigned int msg_evt_wait_event_checker(struct msg_thread_ctx *ctx)
 static int msg_evt_thread(void *pvData)
 {
 	struct msg_thread_ctx *ctx = (struct msg_thread_ctx *)pvData;
-	struct task_struct *p_thread = ctx->pThread;
+	struct task_struct *p_thread = NULL;
 	struct msg_op *op;
 	int ret;
 
-	if (ctx == NULL) {
+	if (ctx == NULL || ctx->pThread == NULL) {
 		pr_err("[%s] ctx is NULL", __func__);
 		return -1;
 	}
+	p_thread = ctx->pThread;
 
 	for (;;) {
 		op = NULL;
