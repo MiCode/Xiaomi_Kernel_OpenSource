@@ -2389,58 +2389,10 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			ret = -EINVAL;
 			break;
 		}
-		/* Twin only handle cq done case, sw done and sof will not be handled */
-		if (raw_dev->pipeline->res_config.raw_num_used == 2) {
-			/* twin - master/slave's CQ done */
-			if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
-				struct mtk_raw_device *raw_dev_master =
-					get_master_raw_dev(cam, raw_dev->pipeline);
-				struct mtk_raw_device *raw_dev_slave =
-					get_slave_raw_dev(cam, raw_dev->pipeline);
-				dev_dbg(raw_dev->dev, "[twin-cq] cnt m=%d/s=%d\n",
-					raw_dev_master->setting_count,
-					raw_dev_slave->setting_count);
-				if (raw_dev_master->setting_count == raw_dev_slave->setting_count)
-					raw_dev = raw_dev_master;
-				else
-					return ret;
-			}
-			/* twin - slave's SOF and SW done */
-			if (irq_info->slave_engine) {
-				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
-					return ret;
-				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
-					return ret;
-			}
-		} else if (raw_dev->pipeline->res_config.raw_num_used == 3) {
-			/* triplet - master/slave/slave2's CQ done */
-			if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
-				struct mtk_raw_device *raw_dev_master =
-					get_master_raw_dev(cam, raw_dev->pipeline);
-				struct mtk_raw_device *raw_dev_slave =
-					get_slave_raw_dev(cam, raw_dev->pipeline);
-				struct mtk_raw_device *raw_dev_slave2 =
-					get_slave2_raw_dev(cam, raw_dev->pipeline);
-				dev_dbg(raw_dev->dev, "[triplet-cq] cnt m=%d/s=%d/s2=%d\n",
-					raw_dev_master->setting_count,
-					raw_dev_slave->setting_count,
-					raw_dev_slave2->setting_count);
-				if ((raw_dev_master->setting_count ==
-					raw_dev_slave->setting_count)
-					&& (raw_dev_master->setting_count ==
-					raw_dev_slave2->setting_count))
-					raw_dev = raw_dev_master;
-				else
-					return ret;
-			}
-			/* triplet - slave's SOF and SW done */
-			if (irq_info->slave_engine) {
-				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
-					return ret;
-				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
-					return ret;
-			}
-		}
+		/* Twin: skip all */
+		if (irq_info->slave_engine)
+			return ret;
+
 		/* raw's CQ done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 			if (ctx->pipe->res_config.raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
