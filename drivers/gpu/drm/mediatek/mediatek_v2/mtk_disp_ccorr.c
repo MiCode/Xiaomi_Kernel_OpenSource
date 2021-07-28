@@ -50,7 +50,6 @@
 
 static unsigned int g_ccorr_8bit_switch[DISP_CCORR_TOTAL];
 static unsigned int g_ccorr_relay_value[DISP_CCORR_TOTAL];
-static unsigned int g_reg_ccorr_inten_value;
 
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : 1)
 
@@ -385,10 +384,6 @@ static void disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp,
 	if (default_comp == NULL)
 		default_comp = comp;
 
-	if (enabled && (readl(comp->regs + DISP_REG_CCORR_INTEN) & 0x2))
-		return;
-	if (!enabled && !(readl(comp->regs + DISP_REG_CCORR_INTEN) & 0x2))
-		return;
 	if (!enabled && (g_old_pq_backlight != g_pq_backlight))
 		g_old_pq_backlight = g_pq_backlight;
 	else
@@ -452,7 +447,6 @@ static void disp_ccorr_clear_irq_only(struct mtk_ddp_comp *comp)
 		{
 			/* Disable output frame end interrupt */
 			writel(0x0, comp->regs + DISP_REG_CCORR_INTEN);
-			g_reg_ccorr_inten_value = 0x0;
 			DDPINFO("%s: Interrupt disabled\n", __func__);
 		}
 			spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
@@ -642,12 +636,10 @@ static int mtk_disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp, void *data)
 		}
 		/* Enable output frame end interrupt */
 		writel(0x2, comp->regs + DISP_REG_CCORR_INTEN);
-		g_reg_ccorr_inten_value = 0x2;
 		DDPINFO("%s: Interrupt enabled\n", __func__);
 	} else {
 		/* Disable output frame end interrupt */
 		writel(0x0, comp->regs + DISP_REG_CCORR_INTEN);
-		g_reg_ccorr_inten_value = 0x0;
 		DDPINFO("%s: Interrupt disabled\n", __func__);
 	}
 	spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
@@ -894,8 +886,7 @@ int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
 		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
 
 	//mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
-	DDPINFO("ccorr_eventctl, enabled = %d, g_reg_ccorr_inten_value = %d\n",
-		*enabled, g_reg_ccorr_inten_value);
+	DDPINFO("ccorr_eventctl, enabled = %d\n", *enabled);
 	disp_ccorr_set_interrupt(comp, *enabled);
 
 	return ret;
