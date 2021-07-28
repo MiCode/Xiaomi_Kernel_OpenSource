@@ -201,6 +201,7 @@
 			<&audio_clk CLK_AUDSYS_I2S8_BCLK>,
 			<&audio_clk CLK_AUDSYS_I2S9_BCLK>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_AUDIO>;
+			#set-syscore-device;
 	};
 
 	disable-unused-clk-imp_iic_wrap_c {
@@ -217,6 +218,7 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&scp_par_top_clk CLK_SCP_ADSP_RG_AUDIODSP>;
+		#set-syscore-device;
 	};
 
 	disable-unused-clk-infracfg_ao {
@@ -397,11 +399,13 @@
 	disable-unused-pd-audio {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6893_POWER_DOMAIN_AUDIO>;
+		#set-syscore-device;
 	};
 
 	disable-unused-pd-adsp_dormant {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6893_POWER_DOMAIN_ADSP_DORMANT>;
+		#set-syscore-device;
 	};
 
 	disable-unused-pd-cam {
@@ -422,15 +426,5 @@
 	disable-unused-pd-cam_rawc {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM_RAWC>;
-	};
-
-	disable-unused-pd-md {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6893_POWER_DOMAIN_MD>;
-	};
-
-	disable-unused-pd-conn {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6893_POWER_DOMAIN_CONN>;
 	};
 };
