@@ -33,7 +33,7 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
-
+#include <linux/suspend.h>
 
 /* MET: define to enable MET */
 /* GKI: not support MET yet */
@@ -7136,202 +7136,6 @@ static int ISP_remove(struct platform_device *pDev)
 
 static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	unsigned int regVal;
-	unsigned int IrqType;
-	int ret, module;
-	char moduleName[128] = {'\0'};
-	unsigned int i = 0;
-
-	unsigned int regTGSt, loopCnt;
-	struct ISP_WAIT_IRQ_STRUCT waitirq;
-	ktime_t time;
-	unsigned long long sec = 0, m_sec = 0;
-	unsigned long long timeoutMs = 500000000; /*500ms */
-
-	ret = 0;
-	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
-	moduleName[sizeof(moduleName)-1] = '\0';
-
-	/* update device node count */
-	atomic_dec(&G_u4DevNodeCt);
-
-	for (IrqType = 0; IrqType < ISP_IRQ_TYPE_AMOUNT; IrqType++) {
-		if (strcmp(moduleName, IRQ_CB_TBL[IrqType].device_name) == 0)
-			break;
-	}
-
-	switch (IrqType) {
-	case ISP_IRQ_TYPE_INT_CAM_A_ST:
-		module = ISP_CAM_A_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAM_B_ST:
-		module = ISP_CAM_B_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-		module = ISP_CAM_C_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
-		module = ISP_CAMSV0_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-		module = ISP_CAMSV1_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
-		module = ISP_CAMSV2_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
-		module = ISP_CAMSV3_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
-		module = ISP_CAMSV4_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
-		module = ISP_CAMSV5_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
-		module = ISP_CAMSV6_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
-		module = ISP_CAMSV7_IDX;
-		break;
-	case ISP_IRQ_TYPE_AMOUNT:
-		LOG_NOTICE("dev name is not found (%s)", moduleName);
-		break;
-	default:
-		/*don nothing */
-		break;
-	}
-
-	if (module < 0)
-		goto EXIT;
-
-	/* Check clock counter instead of check IspInfo.UserCount
-	 *  for ensuring current clocks are on or off
-	 */
-	spin_lock(&(IspInfo.SpinLockClock));
-	if (!G_u4EnableClockCount[module]) {
-		spin_unlock(&(IspInfo.SpinLockClock));
-		/* Only print cama log */
-		if (strcmp(moduleName,
-			IRQ_CB_TBL[ISP_IRQ_TYPE_INT_CAM_A_ST].device_name) ==
-			0) {
-
-			LOG_DBG("%s - X. UserCount=%d,wakelock:%d,devct:%d\n",
-				moduleName, IspInfo.UserCount,
-				G_u4EnableClockCount[module],
-				atomic_read(&G_u4DevNodeCt));
-		} else if (IspInfo.UserCount != 0) {
-			LOG_INF("%s - X. UserCount=%d,Cnt:%d,devct:%d\n",
-				moduleName, IspInfo.UserCount,
-				G_u4EnableClockCount[module],
-				atomic_read(&G_u4DevNodeCt));
-		}
-
-		return ret;
-	}
-	spin_unlock(&(IspInfo.SpinLockClock));
-
-	regVal = ISP_RD32(CAMX_REG_TG_VF_CON(module));
-	/*LOG_DBG("%s: Rs_TG(0x%08x)\n", moduleName, regVal); */
-
-	if (regVal & 0x01) {
-		LOG_INF("%s_suspend,disable VF,wakelock:%d,clk:%d,devct:%d\n",
-			moduleName, g_WaitLockCt, G_u4EnableClockCount[module],
-			atomic_read(&G_u4DevNodeCt));
-
-		SuspnedRecord[module] = 1;
-		/* disable VF */
-		ISP_WR32(CAMX_REG_TG_VF_CON(module), (regVal & (~0x01)));
-
-		/* wait TG idle */
-		loopCnt = 3;
-		waitirq.Type = IrqType;
-		waitirq.EventInfo.Clear = ISP_IRQ_CLEAR_WAIT;
-		waitirq.EventInfo.Status = VS_INT_ST;
-		waitirq.EventInfo.St_type = SIGNAL_INT;
-		waitirq.EventInfo.Timeout = 0x100;
-		waitirq.EventInfo.UserKey = 0x0;
-		waitirq.bDumpReg = 0;
-
-		do {
-			regTGSt = (ISP_RD32(CAMX_REG_TG_INTER_ST(module)) &
-				   0x00003F00) >>
-				  8;
-
-			if (regTGSt == 1)
-				break;
-
-			LOG_INF("%s: wait 1VD (%d)\n", moduleName, loopCnt);
-			ret = ISP_WaitIrq(&waitirq);
-			/* first wait is clear wait, */
-			/* others are non-clear wait */
-			waitirq.EventInfo.Clear = ISP_IRQ_CLEAR_NONE;
-		} while (--loopCnt);
-
-		if (-ERESTARTSYS == ret) {
-			LOG_INF("%s: interrupt by system signal, wait idle\n",
-				moduleName);
-
-			/* timer */
-			time = ktime_get();
-			m_sec = time;
-
-			while (regTGSt != 1) {
-
-				regTGSt = (ISP_RD32(CAMX_REG_TG_INTER_ST(
-						   module)) &
-					   0x00003F00) >>
-					  8;
-
-				/*timer */
-				time = ktime_get();
-				sec = time;
-				/* wait time>timeoutMs, break */
-				if ((sec - m_sec) > timeoutMs)
-					break;
-			}
-			if (regTGSt == 1) {
-				LOG_INF("%s: wait idle done\n", moduleName);
-			} else {
-				LOG_INF("%s: wait idle timeout(%lld)\n",
-					moduleName, (sec - m_sec));
-			}
-		}
-
-		/* backup: frame CNT
-		 * After VF enable, The frame count will be 0 at next VD;
-		 * if it has P1_DON after set vf disable, g_BkReg no need
-		 * to add 1
-		 */
-		regTGSt = ISP_RD32_TG_CAMX_FRM_CNT(IrqType, module);
-		g_BkReg[IrqType].CAM_TG_INTER_ST = regTGSt;
-		regVal = ISP_RD32(CAMX_REG_TG_SEN_MODE(module));
-		ISP_WR32(CAMX_REG_TG_SEN_MODE(module), (regVal & (~0x01)));
-	} else {
-		LOG_INF("%s_suspend,wakelock:%d,clk:%d,devct:%d\n", moduleName,
-			g_WaitLockCt, G_u4EnableClockCount[module],
-			atomic_read(&G_u4DevNodeCt));
-
-		SuspnedRecord[module] = 0;
-	}
-EXIT:
-	/* last dev node will disable clk "G_u4EnableClockCount" times */
-	if (!atomic_read(&G_u4DevNodeCt)) {
-		for (i = ISP_CAM_A_IDX; i < ISP_DEV_NODE_NUM; i++) {
-			spin_lock(&(IspInfo.SpinLockClock));
-			loopCnt = G_u4EnableClockCount[i];
-			spin_unlock(&(IspInfo.SpinLockClock));
-
-			LOG_INF(
-			"%s - X. wakelock:%d, last dev node,disable clk:%d\n",
-			moduleName, g_WaitLockCt, loopCnt);
-			while (loopCnt > 0) {
-				ISP_EnableClock(i, MFALSE);
-				loopCnt--;
-			}
-		}
-	}
 	return 0;
 }
 
@@ -7340,104 +7144,6 @@ EXIT:
  ******************************************************************************/
 static int ISP_resume(struct platform_device *pDev)
 {
-	unsigned int regVal;
-	unsigned int IrqType;
-	int ret, module;
-	char moduleName[128] = {'\0'};
-
-	ret = 0;
-	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
-	moduleName[sizeof(moduleName)-1] = '\0';
-
-	/* update device node count */
-	atomic_inc(&G_u4DevNodeCt);
-
-	if (IspInfo.UserCount == 0) {
-		/* Only print cama log */
-		if (strcmp(moduleName,
-			   IRQ_CB_TBL[ISP_IRQ_TYPE_INT_CAM_A_ST].device_name) ==
-		    0)
-			LOG_DBG("%s - X. UserCount=0\n", moduleName);
-
-		return 0;
-	}
-
-	for (IrqType = 0; IrqType < ISP_IRQ_TYPE_AMOUNT; IrqType++) {
-		if (strcmp(moduleName, IRQ_CB_TBL[IrqType].device_name) == 0)
-			break;
-	}
-
-	switch (IrqType) {
-	case ISP_IRQ_TYPE_INT_CAM_A_ST:
-		module = ISP_CAM_A_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAM_B_ST:
-		module = ISP_CAM_B_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-		module = ISP_CAM_C_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
-		module = ISP_CAMSV0_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-		module = ISP_CAMSV1_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
-		module = ISP_CAMSV2_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
-		module = ISP_CAMSV3_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
-		module = ISP_CAMSV4_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
-		module = ISP_CAMSV5_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
-		module = ISP_CAMSV6_IDX;
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
-		module = ISP_CAMSV7_IDX;
-		break;
-	case ISP_IRQ_TYPE_AMOUNT:
-		LOG_NOTICE("dev name is not found (%s)", moduleName);
-		break;
-	default:
-		/*don nothing */
-		break;
-	}
-
-	if (module < 0)
-		return ret;
-
-#ifdef ENABLE_TIMESYNC_HANDLE
-	archcounter_timesync_init(MTRUE); /* Global timer enable */
-#endif
-
-	ISP_EnableClock(module, MTRUE);
-
-	if (SuspnedRecord[module]) {
-		LOG_INF("%s_resume,enable VF,wakelock:%d,clk:%d,devct:%d\n",
-			moduleName, g_WaitLockCt, G_u4EnableClockCount[module],
-			atomic_read(&G_u4DevNodeCt));
-
-		SuspnedRecord[module] = 0;
-
-		/*cmos */
-		regVal = ISP_RD32(CAMX_REG_TG_SEN_MODE(module));
-		ISP_WR32(CAMX_REG_TG_SEN_MODE(module), (regVal | 0x01));
-		/*vf */
-		regVal = ISP_RD32(CAMX_REG_TG_VF_CON(module));
-		ISP_WR32(CAMX_REG_TG_VF_CON(module), (regVal | 0x01));
-	} else {
-		LOG_INF("%s_resume,wakelock:%d,clk:%d,devct:%d\n", moduleName,
-			g_WaitLockCt, G_u4EnableClockCount[module],
-			atomic_read(&G_u4DevNodeCt));
-	}
-
 	return 0;
 }
 
@@ -7515,6 +7221,210 @@ static struct platform_driver IspDriver = {.probe = ISP_probe,
 						   .pm = &ISP_pm_ops,
 #endif
 					   } };
+
+#if IS_ENABLED(CONFIG_PM)
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int ISP_pm_event_suspend(void)
+{
+	unsigned int regVal;
+	enum ISP_IRQ_TYPE_ENUM IrqType = ISP_IRQ_TYPE_AMOUNT;
+	int ret = 0;
+	unsigned int i = 0;
+	unsigned int regTGSt, loopCnt;
+	struct ISP_WAIT_IRQ_STRUCT waitirq;
+	ktime_t time;
+	unsigned long long sec = 0, m_sec = 0;
+	unsigned long long timeoutMs = 500000000; /*500ms */
+
+
+	for (i = ISP_CAM_A_IDX; i < ISP_DEV_NODE_NUM; i++) {
+		if (i == ISP_CAM_C_IDX) {
+			if (IS_MT6853(g_platform_id))
+				continue;
+		}
+
+		/* Check clock counter instead of check IspInfo.UserCount
+		 *  for ensuring current clocks are on or off
+		 */
+		spin_lock(&(IspInfo.SpinLockClock));
+		if (!G_u4EnableClockCount[i]) {
+			spin_unlock(&(IspInfo.SpinLockClock));
+
+			LOG_INF("dev(%d) - X. UserCount=%d,Cnt:%d\n",
+				i, IspInfo.UserCount,
+				G_u4EnableClockCount[i]);
+
+			continue;
+		}
+		spin_unlock(&(IspInfo.SpinLockClock));
+
+		switch (i) {
+		case ISP_CAM_A_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAM_A_ST;
+			break;
+		case ISP_CAM_B_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAM_B_ST;
+			break;
+		case ISP_CAM_C_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAM_C_ST;
+			break;
+		case ISP_CAMSV0_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
+			break;
+		case ISP_CAMSV1_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_1_ST;
+			break;
+		case ISP_CAMSV2_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_2_ST;
+			break;
+		case ISP_CAMSV3_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_3_ST;
+			break;
+		case ISP_CAMSV4_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_4_ST;
+			break;
+		case ISP_CAMSV5_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_5_ST;
+			break;
+		case ISP_CAMSV6_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_6_ST;
+			break;
+		case ISP_CAMSV7_IDX:
+			IrqType = ISP_IRQ_TYPE_INT_CAMSV_7_ST;
+			break;
+		default:
+			IrqType = ISP_IRQ_TYPE_AMOUNT;
+			break;
+		}
+
+		regVal = ISP_RD32(CAMX_REG_TG_VF_CON(i));
+		if (regVal & 0x01) {
+			LOG_INF("dev(%d) suspend,disable VF,wakelock:%d,clk:%d,devct:%d\n",
+				i, g_WaitLockCt, G_u4EnableClockCount[i]);
+
+			SuspnedRecord[i] = 1;
+			/* disable VF */
+			ISP_WR32(CAMX_REG_TG_VF_CON(i), (regVal & (~0x01)));
+
+			/* wait TG idle */
+			loopCnt = 3;
+			waitirq.Type = IrqType;
+			waitirq.EventInfo.Clear = ISP_IRQ_CLEAR_WAIT;
+			waitirq.EventInfo.Status = VS_INT_ST;
+			waitirq.EventInfo.St_type = SIGNAL_INT;
+			waitirq.EventInfo.Timeout = 0x100;
+			waitirq.EventInfo.UserKey = 0x0;
+			waitirq.bDumpReg = 0;
+
+			do {
+				regTGSt = (ISP_RD32(CAMX_REG_TG_INTER_ST(i)) &
+					   0x00003F00) >> 8;
+
+				if (regTGSt == 1)
+					break;
+
+				LOG_INF("dev(%d): wait 1VD (%d)\n", i, loopCnt);
+				ret = ISP_WaitIrq(&waitirq);
+				/* first wait is clear wait, */
+				/* others are non-clear wait */
+				waitirq.EventInfo.Clear = ISP_IRQ_CLEAR_NONE;
+			} while (--loopCnt);
+
+			if (-ERESTARTSYS == ret) {
+				LOG_INF("dev(%d): interrupt by system signal, wait idle\n", i);
+
+				/* timer */
+				time = ktime_get();
+				m_sec = time;
+
+				while (regTGSt != 1) {
+
+					regTGSt = (ISP_RD32(CAMX_REG_TG_INTER_ST(
+							   i)) & 0x00003F00) >> 8;
+
+					/*timer */
+					time = ktime_get();
+					sec = time;
+					/* wait time>timeoutMs, break */
+					if ((sec - m_sec) > timeoutMs)
+						break;
+				}
+				if (regTGSt == 1) {
+					LOG_INF("dev(%d): wait idle done\n", i);
+				} else {
+					LOG_INF("dev(%d): wait idle timeout(%lld)\n",
+						i, (sec - m_sec));
+				}
+			}
+
+			/* backup: frame CNT
+			 * After VF enable, The frame count will be 0 at next VD;
+			 * if it has P1_DON after set vf disable, g_BkReg no need
+			 * to add 1
+			 */
+			regTGSt = ISP_RD32_TG_CAMX_FRM_CNT(IrqType, i);
+			g_BkReg[IrqType].CAM_TG_INTER_ST = regTGSt;
+			regVal = ISP_RD32(CAMX_REG_TG_SEN_MODE(i));
+			ISP_WR32(CAMX_REG_TG_SEN_MODE(i), (regVal & (~0x01)));
+		} else {
+			LOG_INF("dev(%d) suspend,wakelock:%d,clk:%d,devct:%d\n", i,
+				g_WaitLockCt, G_u4EnableClockCount[i]);
+
+			SuspnedRecord[i] = 0;
+		}
+
+		spin_lock(&(IspInfo.SpinLockClock));
+		loopCnt = G_u4EnableClockCount[i];
+		spin_unlock(&(IspInfo.SpinLockClock));
+
+		LOG_INF("dev(%d) - X. wakelock:%d, last dev node,disable clk:%d\n",
+			i, g_WaitLockCt, loopCnt);
+		while (loopCnt > 0) {
+			ISP_EnableClock(i, MFALSE);
+			loopCnt--;
+		}
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void ISP_pm_event_resume(void)
+{
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int ISP_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /* before enter suspend */
+		ISP_pm_event_suspend();
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND: /* after resume */
+		ISP_pm_event_resume();
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block ISP_suspend_pm_notifier_func = {
+	.notifier_call = ISP_suspend_pm_event,
+	.priority = 0,
+};
+#endif
 
 /*******************************************************************************
  *
@@ -7793,6 +7703,14 @@ static int __init ISP_Init(void)
 		SV_SetPMQOS(E_BW_ADD, j, NULL);
 
 	SV_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAMSV_START_ST, NULL);
+
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&ISP_suspend_pm_notifier_func);
+	if (Ret) {
+		LOG_NOTICE("Failed to register PM notifier.\n");
+		return Ret;
+	}
+#endif
 
 	LOG_DBG("- E. Ret: %d.", Ret);
 	return Ret;
