@@ -161,11 +161,10 @@ static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				      enum dma_data_direction direction)
 {
 	struct dma_heap_attachment *a = attachment->priv;
-	int attr = attachment->dma_map_attrs;;
+	int attr = attachment->dma_map_attrs;
 
 	if (a->uncached)
 		attr |= DMA_ATTR_SKIP_CPU_SYNC;
-
 	a->mapped = false;
 	dma_unmap_sgtable(attachment->dev, table, direction, attr);
 }
