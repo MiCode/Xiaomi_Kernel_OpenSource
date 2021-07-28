@@ -32,7 +32,7 @@ void *mkp_abt_addr(void *ssa)
 	}
 
 	if ((unsigned long)ssa >= KV + S_MAX) {
-		MKP_ERR("out of range: 0xLx\n", ssa);
+		MKP_ERR("out of range: 0xlx\n", (unsigned long)ssa);
 		return NULL;
 	}
 
@@ -42,7 +42,7 @@ void *mkp_abt_addr(void *ssa)
 		pos = memchr(pos, 'a', s_left);
 
 		if (!pos) {
-			MKP_ERR("fail at: 0x%lx @ 0x%x\n", ssa, s_left);
+			MKP_ERR("fail at: 0x%lx @ 0x%lx\n", (unsigned long)ssa, s_left);
 			return NULL;
 		}
 		s_left = KV + S_MAX - (unsigned long)pos;
@@ -53,7 +53,7 @@ void *mkp_abt_addr(void *ssa)
 		pos += 1;
 	}
 
-	MKP_ERR("fail at end: 0x%lx @ 0x%x\n", ssa, s_left);
+	MKP_ERR("fail at end: 0x%lx @ 0x%lx\n", (unsigned long)ssa, s_left);
 	return NULL;
 }
 
@@ -66,7 +66,7 @@ unsigned long *mkp_krb_addr(void)
 	while((u64)ssa < KV + S_MAX) {
 		abt_addr = mkp_abt_addr(ssa);
 		if (!abt_addr) {
-			MKP_ERR("krb not found: 0x%lx\n", ssa);
+			MKP_ERR("krb not found: 0x%lx\n", (unsigned long)ssa);
 			return NULL;
 		}
 
@@ -81,7 +81,7 @@ unsigned long *mkp_krb_addr(void)
 		ssa = abt_addr + 1;
 	}
 
-	MKP_ERR("krb not found: 0x%lx\n", ssa);
+	MKP_ERR("krb not found: 0x%lx\n", (unsigned long)ssa);
 	return NULL;
 }
 
