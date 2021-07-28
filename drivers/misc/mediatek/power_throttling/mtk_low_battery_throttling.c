@@ -53,6 +53,8 @@ void exec_low_battery_callback(unsigned int thd)
 {
 	int i = 0;
 
+	if (!low_bat_thl_data)
+		return;
 	if (low_bat_thl_data->low_bat_thl_stop == 1) {
 		pr_info("[%s] low_bat_thl_stop=%d\n",
 			__func__, low_bat_thl_data->low_bat_thl_stop);
@@ -194,6 +196,7 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+	low_bat_thl_data = priv;
 	dev_set_drvdata(&pdev->dev, priv);
 
 	ret = of_property_read_u32(np, "hv_thd_volt", &priv->hv_thd_volt);
@@ -224,8 +227,6 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	/* lbat_dump_reg(); */
 	dev_notice(&pdev->dev, "%d mV, %d mV, %d mV Done\n",
 		   priv->hv_thd_volt, priv->lv1_thd_volt, priv->lv2_thd_volt);
-
-	low_bat_thl_data = priv;
 
 	ret = device_create_file(&(pdev->dev),
 		&dev_attr_low_battery_protect_ut);
