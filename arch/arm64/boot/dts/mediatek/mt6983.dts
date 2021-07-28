@@ -2263,10 +2263,6 @@
 		map0 {
 			domain = "top";
 			method = "fhctl-ap";
-			emipll {
-				fh-id = <5>;
-				pll-id = <CLK_APMIXEDSYS_EMIPLL>;
-			};
 			mpll {
 				fh-id = <6>;
 				pll-id = <CLK_APMIXEDSYS_MPLL>;
