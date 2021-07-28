@@ -776,14 +776,10 @@ EXPORT_SYMBOL(rt_cache_getlasterror);
 
 void rt_cache_clrlasterror(struct rt_regmap_device *rd)
 {
-	int ret = 0;
-
 	down(&rd->semaphore);
 	rd->error_occurred = 0;
 	rd->err_msg[0] = 0;
 	up(&rd->semaphore);
-	if ((ret < 0) || (ret >= ERR_MSG_SIZE))
-		dev_notice(&rd->dev, "%s snprintf fail(%d)\n", __func__, ret);
 }
 EXPORT_SYMBOL(rt_cache_clrlasterror);
 
