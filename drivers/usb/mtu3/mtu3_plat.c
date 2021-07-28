@@ -82,6 +82,9 @@ static void ssusb_hw_request(struct ssusb_mtk *ssusb,
 void ssusb_set_power_state(struct ssusb_mtk *ssusb,
 	enum mtu3_power_state state)
 {
+	if (ssusb->plat_type == PLAT_FPGA || !ssusb->clk_mgr)
+		return;
+
 	if (ssusb->hw_req_ctrl)
 		ssusb_hw_request(ssusb, state);
 	else
