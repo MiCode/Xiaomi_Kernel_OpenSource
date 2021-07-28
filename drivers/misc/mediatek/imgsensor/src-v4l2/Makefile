@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2020 MediaTek Inc.
 
-ifeq ($(CONFIG_MTK_CAMSYS_VENDOR_HOOK), y)
 MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
 IMGSENSOR_DRIVER_PATH := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 MTK_DRIVER_PATH := $(srctree)/drivers/misc/mediatek
@@ -80,4 +79,3 @@ $(info imgsensor-objs : $(imgsensor-objs))
 $(info subdir-ccflags-y : $(subdir-ccflags-y))
 
 obj-$(CONFIG_MTK_V4L2_IMGSENSOR) += imgsensor.o
-endif

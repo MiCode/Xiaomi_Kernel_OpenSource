@@ -204,9 +204,7 @@ static long media_device_setup_link(struct media_device *mdev, void *arg)
 	struct media_link *link = NULL;
 	struct media_entity *source;
 	struct media_entity *sink;
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 	int ret = 0;
-#endif
 
 	/* Find the source and sink entities and link.
 	 */
@@ -226,12 +224,13 @@ static long media_device_setup_link(struct media_device *mdev, void *arg)
 		return -EINVAL;
 
 	/* Setup the link on both entities */
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 	trace_android_vh_media_device_setup_link(link, linkd, &ret);
+#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 	trace_android_rvh_media_device_setup_link(link, linkd, &ret);
+#endif
 	if (ret)
 		return ret;
-#endif
+
 	memset(linkd->reserved, 0, sizeof(linkd->reserved));
 	return __media_entity_setup_link(link, linkd->flags);
 }

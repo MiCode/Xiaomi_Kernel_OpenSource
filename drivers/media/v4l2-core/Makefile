@@ -14,9 +14,7 @@ videodev-$(CONFIG_MEDIA_CONTROLLER) += v4l2-mc.o
 videodev-$(CONFIG_SPI) += v4l2-spi.o
 videodev-$(CONFIG_VIDEO_V4L2_I2C) += v4l2-i2c.o
 
-ifeq ($(CONFIG_MTK_CAMSYS_VENDOR_HOOK), y)
 obj-$(CONFIG_V4L2_FWNODE) += v4l2-fwnode.o
-endif
 obj-$(CONFIG_VIDEO_V4L2) += videodev.o
 obj-$(CONFIG_VIDEO_V4L2) += v4l2-dv-timings.o
 

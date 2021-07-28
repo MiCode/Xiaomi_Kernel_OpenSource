@@ -3928,7 +3928,7 @@ static struct platform_driver mtk_cam_driver = {
 		.pm     = &mtk_cam_pm_ops,
 	}
 };
-
+#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 static void media_device_setup_link_hook(void *data,
 			struct media_link *link, struct media_link_desc *linkd, int *ret)
 {
@@ -3941,7 +3941,7 @@ static void media_device_setup_link_hook(void *data,
 	*ret = (ret_value < 0) ? ret_value : 1;
 	pr_debug("%s ret:%d\n", __func__, *ret);
 }
-
+#endif
 static void clear_reserved_fmt_fields_hook(void *data,
 			struct v4l2_format *p, int *ret)
 {
@@ -4175,7 +4175,7 @@ static void clear_mask_adjust_hook(void *data, unsigned int ctrl, int *n)
 	if (ctrl == VIDIOC_S_SELECTION)
 		*n = offsetof(struct v4l2_selection, reserved[1]);
 }
-
+#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 static void v4l2subdev_set_fmt_hook(void *data,
 	struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *pad,
 	struct v4l2_subdev_format *format, int *ret)
@@ -4210,15 +4210,17 @@ static void v4l2subdev_set_frame_interval_hook(void *data,
 	retval = v4l2_subdev_call(sd, video, s_frame_interval, fi);
 	*ret = (retval < 0) ? retval : 1;
 }
-
+#endif
 static void mtk_cam_trace_init(void)
 {
 	int ret = 0;
 
+#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 	ret = register_trace_android_rvh_media_device_setup_link(
 			media_device_setup_link_hook, NULL);
 	if (ret)
 		pr_info("register android_rvh_media_device_setup_link failed!\n");
+#endif
 	ret = register_trace_android_vh_clear_reserved_fmt_fields(
 			clear_reserved_fmt_fields_hook, NULL);
 	if (ret)
@@ -4231,6 +4233,7 @@ static void mtk_cam_trace_init(void)
 			clear_mask_adjust_hook, NULL);
 	if (ret)
 		pr_info("register android_vh_clear_mask_adjust failed!\n");
+#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 	ret = register_trace_android_rvh_v4l2subdev_set_fmt(
 			v4l2subdev_set_fmt_hook, NULL);
 	if (ret)
@@ -4243,6 +4246,7 @@ static void mtk_cam_trace_init(void)
 			v4l2subdev_set_frame_interval_hook, NULL);
 	if (ret)
 		pr_info("register android_rvh_v4l2subdev_set_frame_interval failed!\n");
+#endif
 }
 
 static void mtk_cam_trace_exit(void)

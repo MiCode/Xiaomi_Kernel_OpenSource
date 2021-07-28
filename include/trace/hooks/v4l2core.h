@@ -24,7 +24,6 @@ DECLARE_HOOK(android_vh_clear_mask_adjust,
 	TP_PROTO(unsigned int ctrl, int *n),
 	TP_ARGS(ctrl, n));
 
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 struct v4l2_subdev;
 struct v4l2_subdev_pad_config;
 struct v4l2_subdev_selection;
@@ -45,6 +44,7 @@ DECLARE_HOOK(android_vh_v4l2subdev_set_frame_interval,
 	int *ret),
 	TP_ARGS(sd, fi, ret));
 
+#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 DECLARE_RESTRICTED_HOOK(android_rvh_v4l2subdev_set_selection,
 	TP_PROTO(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *pad,
 	struct v4l2_subdev_selection *sel, int *ret),
