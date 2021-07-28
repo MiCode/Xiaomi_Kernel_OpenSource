@@ -9125,6 +9125,11 @@
 			compatible = "mediatek,aputop-rpmsg";
 			mtk,rpmsg-name = "apu_top_3_rpmsg";
 		};
+
+		apu_mdw_rpmsg {
+			compatible = "mediatek,apu-mdw-rpmsg";
+			mtk,rpmsg-name = "apu-mdw-rpmsg";
+		};
 	};
 
 	apusys_sw_logger {
@@ -9134,6 +9139,26 @@
 		reg = <0 0x190e1000 0 0x1000>;
 		reg-names = "apu_mbox";
 
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus = <&apu_iommu1 M4U_PORT_L34_APU_CODE>;
+	};
+
+	mtk_apu_mem_code: mtk_apu_mem_code {
+		compatible = "mediatek, apu_mem_code";
+
+		status = "okay";
+		type = <1>;
+		mask = /bits/ 64 <0x00000003ffffffff>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus = <&apu_iommu1 M4U_PORT_L34_APU_CODE>;
+	};
+
+	mtk_apu_mem_data: mtk_apu_mem_data {
+		compatible = "mediatek, apu_mem_data";
+
+		status = "okay";
+		type = <2>;
+		mask = /bits/ 64 <0x00000003ffffffff>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 		iommus = <&apu_iommu1 M4U_PORT_L34_APU_CODE>;
 	};
