@@ -2417,14 +2417,6 @@ void mtk_iova_map(u64 iova, size_t size)
 		return;
 	}
 
-	if (!atomic_cmpxchg(&map_list.init_flag, 0, 1)) {
-		pr_info("iommu map list init\n");
-		spin_lock_init(&map_list.lock);
-		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE0]);
-		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE1]);
-		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE2]);
-		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE3]);
-	}
 	iova_buf = kzalloc(sizeof(*iova_buf), GFP_ATOMIC);
 	if (!iova_buf)
 		return;
@@ -3057,6 +3049,19 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 
 	mtk_iommu_trace_init(data);
 
+	if (!atomic_cmpxchg(&iova_list.init_flag, 0, 1)) {
+		spin_lock_init(&iova_list.lock);
+		INIT_LIST_HEAD(&iova_list.head);
+	}
+
+	if (!atomic_cmpxchg(&map_list.init_flag, 0, 1)) {
+		spin_lock_init(&map_list.lock);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE0]);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE1]);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE2]);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE3]);
+	}
+
 	return 0;
 }
 
@@ -3112,11 +3117,6 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 		return mtk_iova_dbg_dump(dev);
 	}
 
-	if (!atomic_cmpxchg(&iova_list.init_flag, 0, 1)) {
-		/* pr_info("iommu debug info init\n"); */
-		spin_lock_init(&iova_list.lock);
-		INIT_LIST_HEAD(&iova_list.head);
-	}
 	iova_buf = kzalloc(sizeof(*iova_buf), GFP_ATOMIC);
 	if (!iova_buf)
 		return;
