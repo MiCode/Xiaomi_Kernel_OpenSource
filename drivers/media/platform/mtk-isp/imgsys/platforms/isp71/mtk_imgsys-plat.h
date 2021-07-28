@@ -19,10 +19,7 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 		.id = "IMGSYS_CG_IMG_TRAW1",
 	},
 	{
-		.id = "IMGSYS_CG_IMG_TRAW2",
-	},
-	{
-		.id = "IMGSYS_CG_IMG_TRAW3",
+		.id = "IMGSYS_CG_IMG_VCORE_GALS",
 	},
 	{
 		.id = "IMGSYS_CG_IMG_DIP0",
@@ -31,19 +28,10 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 		.id = "IMGSYS_CG_IMG_WPE0",
 	},
 	{
-		.id = "IMGSYS_CG_IMG_DIP1",
-	},
-	{
 		.id = "IMGSYS_CG_IMG_WPE1",
 	},
 	{
-		.id = "DIP_CG_IMG_DIP",
-	},
-	{
-		.id = "DIP_NR_DIP_NR",
-	},
-	{
-		.id = "WPE_CG_WPE_WPE",
+		.id = "IMGSYS_CG_IMG_WPE2",
 	},
 	{
 		.id = "IMGSYS_CG_IMG_ADL_LARB",
@@ -53,6 +41,24 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 	},
 	{
 		.id = "IMGSYS_CG_IMG_ADL_TOP1",
+	},
+	{
+		.id = "IMGSYS_CG_IMG_GALS",
+	},
+	{
+		.id = "DIP_TOP_DIP_TOP",
+	},
+	{
+		.id = "DIP_NR_DIP_NR",
+	},
+	{
+		.id = "WPE1_CG_DIP1_WPE",
+	},
+	{
+		.id = "WPE2_CG_DIP1_WPE",
+	},
+	{
+		.id = "WPE3_CG_DIP1_WPE",
 	}
 };
 
