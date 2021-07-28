@@ -836,6 +836,7 @@ static unsigned int instant_current_for_car_tune(struct mtk_gauge *gauge)
 
 static int calculate_car_tune(struct mtk_gauge *gauge)
 {
+	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
 	int cali_car_tune;
 	long long sum_all = 0;
 	unsigned long long temp_sum = 0;
@@ -904,9 +905,9 @@ static int calculate_car_tune(struct mtk_gauge *gauge)
 		dvalue = (unsigned int) Temp_Value2;
 
 		/* Auto adjust value */
-		if (gauge->hw_status.r_fg_value != 100)
-			dvalue = (dvalue * 100) /
-			gauge->hw_status.r_fg_value;
+		if (gauge->hw_status.r_fg_value != priv->default_r_fg)
+			dvalue = (dvalue * priv->default_r_fg) /
+				 gauge->hw_status.r_fg_value;
 
 		bm_err("[666]dvalue %d fg_cust_data.r_fg_value %d\n",
 			dvalue, gauge->hw_status.r_fg_value);
