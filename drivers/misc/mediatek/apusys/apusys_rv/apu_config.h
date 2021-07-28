@@ -3,8 +3,10 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __APU_CONFIG_H__
-#define __APU_CONFIG_H__
+#ifndef APU_CONFIG_H
+#define APU_CONFIG_H
+
+struct mtk_apu;
 
 struct apu_ipi_config {
 	u64 in_buf_da;
@@ -110,4 +112,4 @@ static inline void *get_apu_config_user_ptr(struct config_v1 *conf,
 
 	return (void *)conf + entry_tbl->user_entry[user_id];
 }
-#endif /* __APU_CONFIG_H__ */
+#endif /* APU_CONFIG_H */

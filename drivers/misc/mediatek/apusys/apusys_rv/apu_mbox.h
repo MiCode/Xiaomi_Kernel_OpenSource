@@ -3,8 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __APU_MBOX_H__
-#define __APU_MBOX_H__
+#ifndef APU_MBOX_H
+#define APU_MBOX_H
 
 struct apu_mbox_hdr {
 	unsigned int id;
@@ -24,4 +24,4 @@ void apu_mbox_write_inbox(struct mtk_apu *apu, struct apu_mbox_hdr *hdr);
 void apu_mbox_hw_init(struct mtk_apu *apu);
 void apu_mbox_hw_exit(struct mtk_apu *apu);
 
-#endif /* __APU_MBOX_H__ */
+#endif /* APU_MBOX_H */

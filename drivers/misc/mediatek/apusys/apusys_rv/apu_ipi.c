@@ -39,15 +39,27 @@ static inline void dump_msg_buf(struct mtk_apu *apu, void *data, uint32_t len)
 	uint32_t i;
 	int size = 64, num;
 	uint8_t buf[64], *ptr = buf;
+	int ret;
 
 	dev_info(dev, "===== dump message =====\n");
 	for (i = 0; i < len; i++) {
 		num = snprintf(ptr, size, "%02x ", ((uint8_t *)data)[i]);
+		if (num <= 0) {
+			dev_info(dev, "%s: snprintf return error(num = %d)\n",
+				__func__, num);
+			return;
+		}
 		size -= num;
 		ptr += num;
 
-		if ((i + 1) % 4 == 0)
-			snprintf(ptr++, size--, " ");
+		if ((i + 1) % 4 == 0) {
+			ret = snprintf(ptr++, size--, " ");
+			if (ret <= 0) {
+				dev_info(dev, "%s: snprintf return error(ret = %d)\n",
+					__func__, ret);
+				return;
+			}
+		}
 
 		if ((i + 1) % 16 == 0 || (i + 1) >= len) {
 			dev_info(dev, "%s\n", buf);
@@ -212,7 +224,12 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	struct mtk_share_obj *recv_obj = apu->recv_buf;
 	ipi_handler_t handler;
 	u32 id, len, calc_csum;
-	u32 temp_buf[APU_SHARE_BUFFER_SIZE / 4];
+	u32 temp_buf[APU_SHARE_BUFFER_SIZE / 4] = {0};
+
+	hdr.id = 0;
+	hdr.len = 0;
+	hdr.serial_no = 0;
+	hdr.csum = 0;
 
 	ktime_get_ts64(&ts);
 

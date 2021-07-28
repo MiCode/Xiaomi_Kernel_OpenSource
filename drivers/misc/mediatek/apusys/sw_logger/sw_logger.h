@@ -20,13 +20,13 @@ enum {
 };
 
 #define LOGGER_ERR(x, args...) \
-	pr_info(LOGGER_PREFIX "[error] %s " x, __func__, ##args)
+	dev_info(sw_logger_dev, LOGGER_PREFIX "[error] %s " x, __func__, ##args)
 #define LOGGER_WARN(x, args...) \
-	pr_info(LOGGER_PREFIX "[warn] %s " x, __func__, ##args)
+	dev_info(sw_logger_dev, LOGGER_PREFIX "[warn] %s " x, __func__, ##args)
 #define LOGGER_INFO(x, args...) \
 	{ \
 		if (g_sw_logger_log_lv >= DEBUG_LOG_DEBUG) \
-			pr_info(LOGGER_PREFIX "[debug] %s/%d "\
+			dev_info(sw_logger_dev, LOGGER_PREFIX "[debug] %s/%d "\
 			x, __func__, __LINE__, ##args); \
 	}
 

@@ -3,8 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __APU_IPI_H__
-#define __APU_IPI_H__
+#ifndef APU_IPI_H
+#define APU_IPI_H
 
 #include "apu.h"
 
@@ -46,6 +46,6 @@ struct apu_run {
 	wait_queue_head_t wq;
 };
 
-#endif /* __APU_IPI_ID_H__ */
+#endif /* APU_IPI_H */
 
 
