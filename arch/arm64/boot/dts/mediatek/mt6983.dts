@@ -8421,8 +8421,7 @@
 		dlo0-dl-relay = /bits/ 16 <DL_OUT_RELAY0_SIZE>;
 		dlo1-dl-relay = /bits/ 16 <DL_OUT_RELAY1_SIZE>;
 		dbg-reg-names = "CG_CON0", "CG_SET0", "CG_CLR0",
-			"CG_CON2", "CG_SET2", "CG_CLR2",
-			"SW0_RST_B", "SW2_RST_B", "MOUT_RST", "SMI_LARB_GREQ",
+			"SW0_RST_B", "MOUT_RST", "SMI_LARB_GREQ",
 			"DLI0_SEL_IN", "DLI1_SEL_IN",
 			"RDMA0_MOUT_EN", "RDMA1_MOUT_EN",
 			"PQ0_SEL_IN", "PQ1_SEL_IN",
@@ -8441,8 +8440,7 @@
 			"DLO_ASYNC1_STATUS0", "DLO_ASYNC1_STATUS1",
 			"DL_VALID0", "DL_VALID1", "DL_READY0", "DL_READY1";
 		dbg-reg-offsets = <CG_CON0>, <CG_SET0>, <CG_CLR0>,
-			<CG_CON2>, <CG_SET2>, <CG_CLR2>,
-			<SW0_RST_B>, <SW2_RST_B>, <MOUT_RST>, <SMI_LARB_GREQ>,
+			<SW0_RST_B>, <MOUT_RST>, <SMI_LARB_GREQ>,
 			<DLI0_SEL_IN>, <DLI1_SEL_IN>,
 			<RDMA0_MOUT_EN>, <RDMA1_MOUT_EN>,
 			<PQ0_SEL_IN>, <PQ1_SEL_IN>,
@@ -8540,7 +8538,7 @@
 		reg = <0 0x1f803000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RDMA0>;
 		// clock-names = "rdma0";
-		// mediatek,larb = <&larb3>;
+		mediatek,larb = <&smi_larb3>;
 		comp-ids = <MML_RDMA0>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
@@ -8555,7 +8553,7 @@
 		reg = <0 0x1f804000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RDMA1>;
 		// clock-names = "rdma1";
-		// mediatek,larb = <&larb3>;
+		mediatek,larb = <&smi_larb3>;
 		comp-ids = <MML_RDMA1>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
@@ -8650,7 +8648,7 @@
 		reg = <0 0x1f80f000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT0>;
 		// clock-names = "wrot0";
-		// mediatek,larb = <&larb3>;
+		mediatek,larb = <&smi_larb3>;
 		comp-ids = <MML_WROT0>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
@@ -8665,7 +8663,7 @@
 		reg = <0 0x1f810000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT1>;
 		// clock-names = "wrot1";
-		// mediatek,larb = <&larb3>;
+		mediatek,larb = <&smi_larb3>;
 		comp-ids = <MML_WROT1>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT1_SW_RST_DONE_ENG_EVENT>;
@@ -8706,7 +8704,7 @@
 		reg = <0 0x1f815000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT2>;
 		// clock-names = "wrot2";
-		// mediatek,larb = <&larb3>;
+		mediatek,larb = <&smi_larb3>;
 		comp-ids = <MML_WROT2>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT2_SW_RST_DONE_ENG_EVENT>;
@@ -8721,7 +8719,7 @@
 		reg = <0 0x1f816000 0 0x1000>;
 		// clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT3>;
 		// clock-names = "wrot3";
-		// mediatek,larb = <&larb3>;
+		mediatek,larb = <&smi_larb3>;
 		comp-ids = <MML_WROT3>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT3_SW_RST_DONE_ENG_EVENT>;
