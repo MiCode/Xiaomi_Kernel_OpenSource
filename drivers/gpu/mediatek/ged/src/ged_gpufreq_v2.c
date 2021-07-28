@@ -23,12 +23,12 @@ int ged_get_cur_oppidx(void)
 
 int ged_get_max_oppidx(void)
 {
-	return gpufreq_get_max_oppidx(TARGET_DEFAULT);
+	return 0;
 }
 
 int ged_get_min_oppidx(void)
 {
-	return gpufreq_get_min_oppidx(TARGET_DEFAULT);
+	return gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
 }
 
 unsigned int ged_get_opp_num(void)
@@ -41,11 +41,6 @@ unsigned int ged_get_freq_by_idx(int oppidx)
 	return gpufreq_get_freq_by_idx(TARGET_DEFAULT, oppidx);
 }
 
-unsigned int ged_get_volt_by_idx(int oppidx)
-{
-	return gpufreq_get_volt_by_idx(TARGET_DEFAULT, oppidx);
-}
-
 unsigned int ged_get_power_by_idx(int oppidx)
 {
 	return gpufreq_get_power_by_idx(TARGET_DEFAULT, oppidx);
@@ -55,10 +50,7 @@ int ged_get_oppidx_by_freq(unsigned int freq)
 {
 	return gpufreq_get_oppidx_by_freq(TARGET_DEFAULT, freq);
 }
-int ged_get_oppidx_by_power(unsigned int power)
-{
-	return gpufreq_get_oppidx_by_power(TARGET_DEFAULT, power);
-}
+
 unsigned int ged_get_leakage_power(unsigned int volt)
 {
 	return gpufreq_get_leakage_power(TARGET_DEFAULT, volt);

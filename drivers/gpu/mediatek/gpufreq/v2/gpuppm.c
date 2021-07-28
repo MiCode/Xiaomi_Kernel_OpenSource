@@ -693,12 +693,12 @@ int gpuppm_init(unsigned int gpueb_support)
 	/* init only in AP mode */
 	if (!g_gpueb_support) {
 		opp_num_gpu = __gpufreq_get_opp_num_gpu();
-		max_oppidx_gpu = __gpufreq_get_max_idx_gpu();
-		min_oppidx_gpu = __gpufreq_get_min_idx_gpu();
+		max_oppidx_gpu = 0;
+		min_oppidx_gpu = opp_num_gpu - 1;
 
 		opp_num_stack = __gpufreq_get_opp_num_stack();
-		max_oppidx_stack = __gpufreq_get_max_idx_stack();
-		min_oppidx_stack = __gpufreq_get_min_idx_stack();
+		max_oppidx_stack = 0;
+		min_oppidx_stack = opp_num_stack - 1;
 
 		g_gpu.opp_num = opp_num_gpu;
 		g_stack.opp_num = opp_num_stack;

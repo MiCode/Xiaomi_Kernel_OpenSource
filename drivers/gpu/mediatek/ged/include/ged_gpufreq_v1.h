@@ -12,10 +12,8 @@ int ged_get_max_oppidx(void);
 int ged_get_min_oppidx(void);
 int ged_get_opp_num(void);
 unsigned int ged_get_freq_by_idx(int oppidx);
-unsigned int ged_get_volt_by_idx(int oppidx);
 unsigned int ged_get_power_by_idx(int oppidx);
 int ged_get_oppidx_by_freq(unsigned int freq);
-int ged_get_oppidx_by_power(unsigned int power);
 unsigned int ged_get_leakage_power(unsigned int volt);
 unsigned int ged_get_dynamic_power(unsigned int freq, unsigned int volt);
 

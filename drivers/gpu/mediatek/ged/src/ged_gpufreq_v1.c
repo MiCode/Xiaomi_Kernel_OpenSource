@@ -40,11 +40,6 @@ unsigned int ged_get_freq_by_idx(int oppidx)
 	return mt_gpufreq_get_freq_by_idx(oppidx);
 }
 
-unsigned int ged_get_volt_by_idx(int oppidx)
-{
-	return mt_gpufreq_get_volt_by_real_idx(oppidx);
-}
-
 unsigned int ged_get_power_by_idx(int oppidx)
 {
 	return mt_gpufreq_get_power_by_idx(oppidx);
@@ -54,10 +49,7 @@ int ged_get_oppidx_by_freq(unsigned int freq)
 {
 	return mt_gpufreq_get_opp_idx_by_freq(freq);
 }
-int ged_get_oppidx_by_power(unsigned int power)
-{
-	return -1;
-}
+
 unsigned int ged_get_leakage_power(unsigned int volt)
 {
 	return mt_gpufreq_get_leakage_mw();

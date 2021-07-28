@@ -92,10 +92,6 @@
 /**************************************************
  * Reference Power Setting
  **************************************************/
-#define GPU_ACT_REF_POWER               (0)             /* mW  */
-#define GPU_ACT_REF_FREQ                (0)             /* KHz */
-#define GPU_ACT_REF_VOLT                (0)             /* mV x 100 */
-#define GPU_LEAKAGE_POWER               (0)
 #define STACK_ACT_REF_POWER             (2671)          /* mW  */
 #define STACK_ACT_REF_FREQ              (848000)        /* KHz */
 #define STACK_ACT_REF_VOLT              (75000)         /* mV x 100 */

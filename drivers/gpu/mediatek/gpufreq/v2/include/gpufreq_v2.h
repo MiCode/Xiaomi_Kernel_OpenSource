@@ -11,39 +11,39 @@
 /**************************************************
  * Definition
  **************************************************/
+#define GPUFREQ_UNREFERENCED(param)     ((void)(param))
 #define GPUFREQ_GPUEB_ENABLE            (0)
+#define GPUFREQ_DEBUG_ENABLE            (0)
 #define GPUFREQ_TRACE_ENABLE            (0)
-#define GPUFREQ_TRACE_TAG "[GPU/TRACE]"
+#define GPUFERQ_TAG                     "[GPU/FREQ]"
+#define GPUFREQ_TRACE_TAG               "[GPU/TRACE]"
 
 /**************************************************
  * GPUFREQ Log Setting
  **************************************************/
-#define GPUFERQ_TAG "[GPU/FREQ]"
 #define GPUFREQ_LOGE(fmt, args...) \
 	pr_err(GPUFERQ_TAG"[ERROR]@%s: "fmt"\n", __func__, ##args)
 #define GPUFREQ_LOGW(fmt, args...) \
 	pr_debug(GPUFERQ_TAG"[WARN]@%s: "fmt"\n", __func__, ##args)
 #define GPUFREQ_LOGI(fmt, args...) \
 	pr_info(GPUFERQ_TAG"[INFO]@%s: "fmt"\n", __func__, ##args)
-#define GPUFREQ_LOGD(fmt, args...) \
-	pr_debug(GPUFERQ_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
+
+#if GPUFREQ_DEBUG_ENABLE
+	#define GPUFREQ_LOGD(fmt, args...) \
+		pr_debug(GPUFERQ_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
+#else
+	#define GPUFREQ_LOGD(fmt, args...) {}
+#endif /* GPUFREQ_DEBUG_ENABLE */
 
 #if GPUFREQ_TRACE_ENABLE
 	#define GPUFREQ_TRACE_START(fmt, args...) \
-		pr_err(GPUFREQ_TRACE_TAG" + %s("fmt")\n", __func__, ##args)
+		pr_info(GPUFREQ_TRACE_TAG" + %s("fmt")\n", __func__, ##args)
 	#define GPUFREQ_TRACE_END(fmt, args...) \
-		pr_err(GPUFREQ_TRACE_TAG" - %s("fmt")\n", __func__, ##args)
+		pr_info(GPUFREQ_TRACE_TAG" - %s("fmt")\n", __func__, ##args)
 #else
-	#define GPUFREQ_TRACE_START(fmt, args...) \
-		pr_debug(GPUFREQ_TRACE_TAG" + %s("fmt")\n", __func__, ##args)
-	#define GPUFREQ_TRACE_END(fmt, args...) \
-		pr_debug(GPUFREQ_TRACE_TAG" - %s("fmt")\n", __func__, ##args)
-#endif
-
-/**************************************************
- * Misc. Definition
- **************************************************/
-#define GPUFREQ_UNREFERENCED(param) ((void)(param))
+	#define GPUFREQ_TRACE_START(fmt, args...) {}
+	#define GPUFREQ_TRACE_END(fmt, args...) {}
+#endif /* GPUFREQ_TRACE_ENABLE */
 
 /**************************************************
  * Enumeration
@@ -148,7 +148,6 @@ struct gpufreq_platform_fp {
 	unsigned int (*bringup)(void);
 	unsigned int (*power_ctrl_enable)(void);
 	unsigned int (*get_power_state)(void);
-	unsigned int (*get_dvfs_state)(void);
 	unsigned int (*get_shader_present)(void);
 	int (*power_control)(enum gpufreq_power_state power);
 	void (*set_timestamp)(void);
@@ -160,25 +159,16 @@ struct gpufreq_platform_fp {
 	struct gpufreq_asensor_info (*get_asensor_info)(void);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
-	unsigned int (*get_max_fgpu)(void);
-	unsigned int (*get_min_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
-	unsigned int (*get_max_vgpu)(void);
-	unsigned int (*get_min_vgpu)(void);
 	unsigned int (*get_cur_pgpu)(void);
 	unsigned int (*get_max_pgpu)(void);
 	unsigned int (*get_min_pgpu)(void);
 	int (*get_cur_idx_gpu)(void);
-	int (*get_max_idx_gpu)(void);
-	int (*get_min_idx_gpu)(void);
 	int (*get_opp_num_gpu)(void);
 	int (*get_signed_opp_num_gpu)(void);
 	unsigned int (*get_fgpu_by_idx)(int oppidx);
-	unsigned int (*get_vgpu_by_idx)(int oppidx);
 	unsigned int (*get_pgpu_by_idx)(int oppidx);
 	int (*get_idx_by_fgpu)(unsigned int freq);
-	int (*get_idx_by_vgpu)(unsigned int volt);
-	int (*get_idx_by_pgpu)(unsigned int power);
 	unsigned int (*get_lkg_pgpu)(unsigned int volt);
 	unsigned int (*get_dyn_pgpu)(unsigned int freq, unsigned int volt);
 	const struct gpufreq_opp_info *(*get_working_table_gpu)(void);
@@ -190,29 +180,18 @@ struct gpufreq_platform_fp {
 	/* SRAM */
 	unsigned int (*get_cur_vsram_gpu)(void);
 	unsigned int (*get_cur_vsram_stack)(void);
-	unsigned int (*get_vsram_by_vgpu)(unsigned int volt);
-	unsigned int (*get_vsram_by_vstack)(unsigned int volt);
 	/* STACK */
 	unsigned int (*get_cur_fstack)(void);
-	unsigned int (*get_max_fstack)(void);
-	unsigned int (*get_min_fstack)(void);
 	unsigned int (*get_cur_vstack)(void);
-	unsigned int (*get_max_vstack)(void);
-	unsigned int (*get_min_vstack)(void);
 	unsigned int (*get_cur_pstack)(void);
 	unsigned int (*get_max_pstack)(void);
 	unsigned int (*get_min_pstack)(void);
 	int (*get_cur_idx_stack)(void);
-	int (*get_max_idx_stack)(void);
-	int (*get_min_idx_stack)(void);
 	int (*get_opp_num_stack)(void);
 	int (*get_signed_opp_num_stack)(void);
 	unsigned int (*get_fstack_by_idx)(int oppidx);
-	unsigned int (*get_vstack_by_idx)(int oppidx);
 	unsigned int (*get_pstack_by_idx)(int oppidx);
 	int (*get_idx_by_fstack)(unsigned int freq);
-	int (*get_idx_by_vstack)(unsigned int volt);
-	int (*get_idx_by_pstack)(unsigned int power);
 	unsigned int (*get_lkg_pstack)(unsigned int volt);
 	unsigned int (*get_dyn_pstack)(unsigned int freq, unsigned int volt);
 	const struct gpufreq_opp_info *(*get_working_table_stack)(void);
@@ -261,31 +240,21 @@ extern int (*mtk_get_gpu_cur_oppidx_fp)(enum gpufreq_target target);
 unsigned int gpufreq_bringup(void);
 unsigned int gpufreq_power_ctrl_enable(void);
 unsigned int gpufreq_get_power_state(void);
-unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
 void gpufreq_set_timestamp(void);
 void gpufreq_check_bus_idle(void);
 void gpufreq_dump_infra_status(void);
 unsigned int gpufreq_get_cur_freq(enum gpufreq_target target);
-unsigned int gpufreq_get_max_freq(enum gpufreq_target target);
-unsigned int gpufreq_get_min_freq(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_volt(enum gpufreq_target target);
-unsigned int gpufreq_get_max_volt(enum gpufreq_target target);
-unsigned int gpufreq_get_min_volt(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_power(enum gpufreq_target target);
 unsigned int gpufreq_get_max_power(enum gpufreq_target target);
 unsigned int gpufreq_get_min_power(enum gpufreq_target target);
 int gpufreq_get_cur_oppidx(enum gpufreq_target target);
-int gpufreq_get_max_oppidx(enum gpufreq_target target);
-int gpufreq_get_min_oppidx(enum gpufreq_target target);
 int gpufreq_get_opp_num(enum gpufreq_target target);
 unsigned int gpufreq_get_freq_by_idx(enum gpufreq_target target, int oppidx);
-unsigned int gpufreq_get_volt_by_idx(enum gpufreq_target target, int oppidx);
 unsigned int gpufreq_get_power_by_idx(enum gpufreq_target target, int oppidx);
 int gpufreq_get_oppidx_by_freq(enum gpufreq_target target, unsigned int freq);
-int gpufreq_get_oppidx_by_volt(enum gpufreq_target target, unsigned int volt);
-int gpufreq_get_oppidx_by_power(enum gpufreq_target target, unsigned int power);
 unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int volt);
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);

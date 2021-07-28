@@ -52,6 +52,7 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev);
 static int gpufreq_gpueb_init(void);
 static void gpufreq_init_external_callback(void);
 static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data);
+static int gpufreq_validate_target(unsigned int *target);
 
 /**
  * ===============================================
@@ -151,36 +152,6 @@ unsigned int gpufreq_get_power_state(void)
 	return power_state;
 }
 
-/***********************************************************************************
- * Function Name      : gpufreq_get_dvfs_state
- * Inputs             : -
- * Outputs            : -
- * Returns            : state - Current status of GPU DVFS
- * Description        : Get current DVFS state
- *                      If it isn't DVFS_FREE, then DVFS is fixed in some state
- ***********************************************************************************/
-unsigned int gpufreq_get_dvfs_state(void)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	enum gpufreq_dvfs_state dvfs_state = DVFS_DISABLE;
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_DVFS_STATE;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			dvfs_state = g_recv_msg.u.dvfs_state;
-	/* implement on AP */
-	} else {
-		if (gpufreq_fp && gpufreq_fp->get_dvfs_state)
-			dvfs_state = gpufreq_fp->get_dvfs_state();
-		else
-			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-	}
-
-	return dvfs_state;
-}
-EXPORT_SYMBOL(gpufreq_get_dvfs_state);
 
 /***********************************************************************************
  * Function Name      : gpufreq_get_shader_present
@@ -276,18 +247,8 @@ unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int freq = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -317,110 +278,6 @@ done:
 EXPORT_SYMBOL(gpufreq_get_cur_freq);
 
 /***********************************************************************************
- * Function Name      : gpufreq_get_max_freq
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- * Outputs            : -
- * Returns            : freq   - Max freq of given target in working table
- * Description        : Query maximum frequency of the target
- ***********************************************************************************/
-unsigned int gpufreq_get_max_freq(enum gpufreq_target target)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	unsigned int freq = 0;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MAX_FREQ;
-		send_msg.target = target;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			freq = g_recv_msg.u.freq;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_fstack)
-		freq = gpufreq_fp->get_max_fstack();
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_fgpu)
-		freq = gpufreq_fp->get_max_fgpu();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, max freq: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		freq);
-
-	return freq;
-}
-EXPORT_SYMBOL(gpufreq_get_max_freq);
-
-/***********************************************************************************
- * Function Name      : gpufreq_get_min_freq
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- * Outputs            : -
- * Returns            : freq   - Min freq of given target in working table
- * Description        : Query minimum frequency of the target
- ***********************************************************************************/
-unsigned int gpufreq_get_min_freq(enum gpufreq_target target)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	unsigned int freq = 0;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MIN_FREQ;
-		send_msg.target = target;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			freq = g_recv_msg.u.freq;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_fstack)
-		freq = gpufreq_fp->get_min_fstack();
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_fgpu)
-		freq = gpufreq_fp->get_min_fgpu();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, min freq: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		freq);
-
-	return freq;
-}
-EXPORT_SYMBOL(gpufreq_get_min_freq);
-
-/***********************************************************************************
  * Function Name      : gpufreq_get_cur_volt
  * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
  * Outputs            : -
@@ -432,18 +289,8 @@ unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int volt = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -473,110 +320,6 @@ done:
 EXPORT_SYMBOL(gpufreq_get_cur_volt);
 
 /***********************************************************************************
- * Function Name      : gpufreq_get_max_volt
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- * Outputs            : -
- * Returns            : volt   - Max volt of given target in working table
- * Description        : Query maximum voltage of the target
- ***********************************************************************************/
-unsigned int gpufreq_get_max_volt(enum gpufreq_target target)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	unsigned int volt = 0;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MAX_VOLT;
-		send_msg.target = target;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			volt = g_recv_msg.u.volt;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_vstack)
-		volt = gpufreq_fp->get_max_vstack();
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_vgpu)
-		volt = gpufreq_fp->get_max_vgpu();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, max volt: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		volt);
-
-	return volt;
-}
-EXPORT_SYMBOL(gpufreq_get_max_volt);
-
-/***********************************************************************************
- * Function Name      : gpufreq_get_min_volt
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- * Outputs            : -
- * Returns            : volt   - Min volt of given target in working table
- * Description        : Query minimum voltage of the target
- ***********************************************************************************/
-unsigned int gpufreq_get_min_volt(enum gpufreq_target target)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	unsigned int volt = 0;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MIN_VOLT;
-		send_msg.target = target;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			volt = g_recv_msg.u.volt;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_vstack)
-		volt = gpufreq_fp->get_min_vstack();
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_vgpu)
-		volt = gpufreq_fp->get_min_vgpu();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, min volt: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		volt);
-
-	return volt;
-}
-EXPORT_SYMBOL(gpufreq_get_min_volt);
-
-/***********************************************************************************
  * Function Name      : gpufreq_get_cur_vsram
  * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
  * Outputs            : -
@@ -588,18 +331,8 @@ unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int vsram = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -640,18 +373,8 @@ unsigned int gpufreq_get_cur_power(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int power = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -692,18 +415,8 @@ unsigned int gpufreq_get_max_power(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int power = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -744,18 +457,8 @@ unsigned int gpufreq_get_min_power(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int power = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -796,18 +499,8 @@ int gpufreq_get_cur_oppidx(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	int oppidx = -1;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -837,110 +530,6 @@ done:
 EXPORT_SYMBOL(gpufreq_get_cur_oppidx);
 
 /***********************************************************************************
- * Function Name      : gpufreq_get_max_oppidx
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- * Outputs            : -
- * Returns            : oppidx - Max working OPP index of given target
- * Description        : Query maximum working OPP index of the target
- ***********************************************************************************/
-int gpufreq_get_max_oppidx(enum gpufreq_target target)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int oppidx = -1;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MAX_OPPIDX;
-		send_msg.target = target;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			oppidx = g_recv_msg.u.oppidx;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_idx_stack)
-		oppidx = gpufreq_fp->get_max_idx_stack();
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_idx_gpu)
-		oppidx = gpufreq_fp->get_max_idx_gpu();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, max OPP index: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		oppidx);
-
-	return oppidx;
-}
-EXPORT_SYMBOL(gpufreq_get_max_oppidx);
-
-/***********************************************************************************
- * Function Name      : gpufreq_get_min_oppidx
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- * Outputs            : -
- * Returns            : oppidx - Min working OPP index of given target
- * Description        : Query minimum working OPP index of the target
- ***********************************************************************************/
-int gpufreq_get_min_oppidx(enum gpufreq_target target)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int oppidx = -1;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MIN_OPPIDX;
-		send_msg.target = target;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			oppidx = g_recv_msg.u.oppidx;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_idx_stack)
-		oppidx = gpufreq_fp->get_min_idx_stack();
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_idx_gpu)
-		oppidx = gpufreq_fp->get_min_idx_gpu();
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, min OPP index: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		oppidx);
-
-	return oppidx;
-}
-EXPORT_SYMBOL(gpufreq_get_min_oppidx);
-
-/***********************************************************************************
  * Function Name      : gpufreq_get_opp_num
  * Inputs             : target  - Target of GPU DVFS (GPU, STACK, DEFAULT)
  * Outputs            : -
@@ -952,18 +541,8 @@ int gpufreq_get_opp_num(enum gpufreq_target target)
 	struct gpufreq_ipi_data send_msg = {};
 	int opp_num = -1;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1005,18 +584,8 @@ unsigned int gpufreq_get_freq_by_idx(enum gpufreq_target target, int oppidx)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int freq = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1047,61 +616,6 @@ done:
 EXPORT_SYMBOL(gpufreq_get_freq_by_idx);
 
 /***********************************************************************************
- * Function Name      : gpufreq_get_volt_by_idx
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- *                      oppidx - Worknig OPP index of the target
- * Outputs            : -
- * Returns            : volt   - Volt of given target at given working OPP index
- * Description        : Query volt of the target by working OPP index
- ***********************************************************************************/
-unsigned int gpufreq_get_volt_by_idx(enum gpufreq_target target, int oppidx)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	unsigned int volt = 0;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_VOLT_BY_IDX;
-		send_msg.target = target;
-		send_msg.u.oppidx = oppidx;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			volt = g_recv_msg.u.volt;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_vstack_by_idx)
-		volt = gpufreq_fp->get_vstack_by_idx(oppidx);
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_vgpu_by_idx)
-		volt = gpufreq_fp->get_vgpu_by_idx(oppidx);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, volt[%d]: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		oppidx, volt);
-
-	return volt;
-}
-EXPORT_SYMBOL(gpufreq_get_volt_by_idx);
-
-
-/***********************************************************************************
  * Function Name      : gpufreq_get_power_by_idx
  * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
  *                      oppidx - Worknig OPP index of the target
@@ -1114,18 +628,8 @@ unsigned int gpufreq_get_power_by_idx(enum gpufreq_target target, int oppidx)
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int power = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1168,18 +672,8 @@ int gpufreq_get_oppidx_by_freq(enum gpufreq_target target, unsigned int freq)
 	struct gpufreq_ipi_data send_msg = {};
 	int oppidx = -1;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1210,114 +704,6 @@ done:
 EXPORT_SYMBOL(gpufreq_get_oppidx_by_freq);
 
 /***********************************************************************************
- * Function Name      : gpufreq_get_oppidx_by_volt
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- *                      volt   - Volt of the target
- * Outputs            : -
- * Returns            : oppidx - Working OPP index of given target that has given volt
- * Description        : Query working OPP index of the target that has the voltage
- ***********************************************************************************/
-int gpufreq_get_oppidx_by_volt(enum gpufreq_target target, unsigned int volt)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int oppidx = -1;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_OPPIDX_BY_VOLT;
-		send_msg.target = target;
-		send_msg.u.volt = volt;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			oppidx = g_recv_msg.u.oppidx;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_idx_by_vstack)
-		oppidx = gpufreq_fp->get_idx_by_vstack(volt);
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_idx_by_vgpu)
-		oppidx = gpufreq_fp->get_idx_by_vgpu(volt);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		volt, oppidx);
-
-	return oppidx;
-}
-EXPORT_SYMBOL(gpufreq_get_oppidx_by_volt);
-
-/***********************************************************************************
- * Function Name      : gpufreq_get_oppidx_by_power
- * Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
- *                      power  - Power of the target
- * Outputs            : -
- * Returns            : oppidx - Working OPP index of given target that has given power
- * Description        : Query working OPP index of the target that has the power
- ***********************************************************************************/
-int gpufreq_get_oppidx_by_power(enum gpufreq_target target, unsigned int power)
-{
-	struct gpufreq_ipi_data send_msg = {};
-	int oppidx = -1;
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_OPPIDX_BY_POWER;
-		send_msg.target = target;
-		send_msg.u.power = power;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			oppidx = g_recv_msg.u.oppidx;
-		goto done;
-	}
-
-	/* implement on AP */
-	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_idx_by_pstack)
-		oppidx = gpufreq_fp->get_idx_by_pstack(power);
-	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_idx_by_pgpu)
-		oppidx = gpufreq_fp->get_idx_by_pgpu(power);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-done:
-	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		power, oppidx);
-
-	return oppidx;
-}
-EXPORT_SYMBOL(gpufreq_get_oppidx_by_power);
-
-/***********************************************************************************
  * Function Name      : gpufreq_get_leakage_power
  * Inputs             : target    - Target of GPU DVFS (GPU, STACK, DEFAULT)
  *                      volt      - Voltage of the target
@@ -1330,18 +716,8 @@ unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int 
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int p_leakage = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1387,18 +763,8 @@ unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int p_dynamic = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1466,8 +832,10 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 	/* implement on AP */
 	if (gpufreq_fp && gpufreq_fp->power_control)
 		ret = gpufreq_fp->power_control(power);
-	else
+	else {
+		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
 
 done:
 	if (unlikely(ret < 0))
@@ -1499,19 +867,9 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		ret = GPUFREQ_EINVAL;
+	ret = gpufreq_validate_target(&target);
+	if (ret)
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	GPUFREQ_LOGD("target: %s, oppidx: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -1535,8 +893,10 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 		ret = gpuppm_fp->limited_commit_stack(oppidx);
 	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->limited_commit_gpu)
 		ret = gpuppm_fp->limited_commit_gpu(oppidx);
-	else
+	else {
+		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+	}
 
 done:
 	if (unlikely(ret))
@@ -1572,19 +932,9 @@ int gpufreq_set_limit(enum gpufreq_target target,
 	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling_info=%d, floor_info=%d",
 		target, limiter, ceiling_info, floor_info);
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		ret = GPUFREQ_EINVAL;
+	ret = gpufreq_validate_target(&target);
+	if (ret)
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, ceiling_info: %d, floor_info: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -1610,8 +960,10 @@ int gpufreq_set_limit(enum gpufreq_target target,
 		ret = gpuppm_fp->set_limit_stack(limiter, ceiling_info, floor_info);
 	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
 		ret = gpuppm_fp->set_limit_gpu(limiter, ceiling_info, floor_info);
-	else
+	else {
+		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+	}
 
 done:
 	if (unlikely(ret))
@@ -1638,22 +990,12 @@ int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type
 	struct gpufreq_ipi_data send_msg = {};
 	int limit_idx = -1;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
 
 	if (limit >= GPUPPM_INVALID || limit < 0) {
 		GPUFREQ_LOGE("invalid limit target: %d (EINVAL)", limit);
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
 	}
 
 	/* implement on EB */
@@ -1707,22 +1049,12 @@ unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_lim
 	struct gpufreq_ipi_data send_msg = {};
 	unsigned int limiter = 0;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
 
 	if (limit >= GPUPPM_INVALID || limit < 0) {
 		GPUFREQ_LOGE("invalid limit target: %d (EINVAL)", limit);
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
 	}
 
 	/* implement on EB */
@@ -1772,18 +1104,8 @@ struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target tar
 	struct gpufreq_ipi_data send_msg = {};
 	struct gpufreq_debug_opp_info opp_info = {};
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1816,18 +1138,8 @@ struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target
 	struct gpufreq_ipi_data send_msg = {};
 	struct gpufreq_debug_limit_info limit_info = {};
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1861,18 +1173,8 @@ const struct gpufreq_opp_info *gpufreq_get_working_table(enum gpufreq_target tar
 	const struct gpufreq_opp_info *opp_table = NULL;
 	int ret = GPUFREQ_ENOENT;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1908,18 +1210,8 @@ const struct gpufreq_opp_info *gpufreq_get_signed_table(enum gpufreq_target targ
 	const struct gpufreq_opp_info *opp_table = NULL;
 	int ret = GPUFREQ_ENOENT;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -1955,18 +1247,8 @@ const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target targ
 	const struct gpuppm_limit_info *limit_table = NULL;
 	int ret = GPUFREQ_ENOENT;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+	if (gpufreq_validate_target(&target))
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -2002,19 +1284,9 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_ENOENT;
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		ret = GPUFREQ_EINVAL;
+	ret = gpufreq_validate_target(&target);
+	if (ret)
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -2036,8 +1308,10 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 		ret = gpuppm_fp->switch_limit_stack(limiter, c_enable, f_enable);
 	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->switch_limit_gpu)
 		ret = gpuppm_fp->switch_limit_gpu(limiter, c_enable, f_enable);
-	else
+	else {
+		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+	}
 
 done:
 	if (unlikely(ret))
@@ -2061,19 +1335,9 @@ int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx)
 
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		ret = GPUFREQ_EINVAL;
+	ret = gpufreq_validate_target(&target);
+	if (ret)
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -2093,8 +1357,10 @@ int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx)
 		ret = gpufreq_fp->fix_target_oppidx_stack(oppidx);
 	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->fix_target_oppidx_gpu)
 		ret = gpufreq_fp->fix_target_oppidx_gpu(oppidx);
-	else
+	else {
+		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
 
 done:
 	if (unlikely(ret))
@@ -2119,19 +1385,9 @@ int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 
 	GPUFREQ_TRACE_START("target=%d, freq=%d, volt=%d", target, freq, volt);
 
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_STACK && !g_dual_buck)) {
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-		ret = GPUFREQ_EINVAL;
+	ret = gpufreq_validate_target(&target);
+	if (ret)
 		goto done;
-	}
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_STACK;
-		else
-			target = TARGET_GPU;
-	}
 
 	/* implement on EB */
 	if (g_gpueb_support) {
@@ -2152,8 +1408,10 @@ int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 		ret = gpufreq_fp->fix_custom_freq_volt_stack(freq, volt);
 	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->fix_custom_freq_volt_gpu)
 		ret = gpufreq_fp->fix_custom_freq_volt_gpu(freq, volt);
-	else
+	else {
+		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
 
 done:
 	if (unlikely(ret))
@@ -2306,6 +1564,28 @@ done:
 	return ret;
 }
 
+/***********************************************************************************
+ * Function Name      : gpufreq_validate_target
+ * Description        : Validate gpufreq target and re-assign default target
+ ***********************************************************************************/
+static int gpufreq_validate_target(unsigned int *target)
+{
+	if (*target >= TARGET_INVALID || *target < 0 ||
+		(*target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", *target);
+		return GPUFREQ_EINVAL;
+	}
+
+	if (*target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			*target = TARGET_STACK;
+		else
+			*target = TARGET_GPU;
+	}
+
+	return GPUFREQ_SUCCESS;
+}
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 {
@@ -2351,7 +1631,6 @@ static void gpufreq_init_external_callback(void)
 		.get_min_pb = gpufreq_get_min_power,
 		.get_cur_pb = gpufreq_get_cur_power,
 		.get_cur_vol = gpufreq_get_cur_volt,
-		.get_opp_by_pb = gpufreq_get_oppidx_by_power,
 		.set_limit = gpufreq_set_limit,
 	};
 #endif /* CONFIG_MTK_PBM */
