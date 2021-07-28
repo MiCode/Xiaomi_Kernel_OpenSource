@@ -79,6 +79,43 @@ static int reviser_memory_func(void *arg)
 
 	return 0;
 }
+
+static int reviser_rprmsg_memory_func(void *arg)
+{
+	struct reviser_dev_info *rdv;
+	int ret = 0;
+	uint32_t i;
+
+	rdv = (struct reviser_dev_info *) arg;
+
+	ret = reviser_remote_handshake(rdv, NULL);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+
+	ret = reviser_memory_func(arg);
+	if (ret) {
+		LOG_ERR("reviser memory fail\n");
+		goto out;
+	}
+
+	for (i = 0; i < rdv->plat.dram_max; i++) {
+		ret = reviser_remote_set_hw_default_iova(rdv, i, rdv->plat.dram[i]);
+		if (ret) {
+			LOG_ERR("reviser_remote_set_hw_default_iova fail %d\n", ret);
+			goto out;
+		}
+	}
+
+	LOG_INFO("reviser memory init\n");
+
+
+out:
+	return ret;
+}
+
+
 int reviser_set_init_info(struct mtk_apu *apu)
 {
 	struct reviser_dev_info *rdv;
@@ -278,9 +315,10 @@ static int reviser_map_dts(struct platform_device *pdev)
 	}
 
 	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
-	rdv->plat.pool_addr[0] = rdv->rsc.pool[0].addr;
-	rdv->plat.pool_size[0] = rdv->rsc.pool[0].size;
-	rdv->plat.pool_bank_max[0] = rdv->plat.pool_size[0] / rdv->plat.bank_size;
+	rdv->plat.pool_addr[REVSIER_POOL_TCM] = rdv->rsc.pool[REVSIER_POOL_TCM].addr;
+	rdv->plat.pool_size[REVSIER_POOL_TCM] = rdv->rsc.pool[REVSIER_POOL_TCM].size;
+	rdv->plat.pool_bank_max[REVSIER_POOL_TCM] =
+			rdv->plat.pool_size[REVSIER_POOL_TCM] / rdv->plat.bank_size;
 	rdv->plat.pool_max++;
 
 	if (reviser_get_addr(pdev, &rdv->rsc.isr.base, 3,
@@ -440,6 +478,7 @@ static int reviser_probe(struct platform_device *pdev)
 	DEBUG_TAG;
 
 	g_rdv = NULL;
+	mem_task = NULL;
 
 	rdv = devm_kzalloc(dev, sizeof(*rdv), GFP_KERNEL);
 	if (!rdv)
@@ -471,15 +510,15 @@ static int reviser_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto free_node;
 	}
-
-	mem_task = kthread_run(reviser_memory_func, rdv, "reviser");
-	if (mem_task == NULL) {
-		LOG_ERR("create kthread(mem) fail\n");
-		ret = -ENOMEM;
-		goto free_map;
+	if (rdv->plat.fix_dram) {
+		mem_task = kthread_run(reviser_memory_func, rdv, "reviser");
+		if (mem_task == NULL) {
+			LOG_ERR("create kthread(mem) fail\n");
+			ret = -ENOMEM;
+			goto free_map;
+		}
 	}
 
-	DEBUG_TAG;
 
 	if (reviser_table_init(rdv)) {
 		LOG_ERR("table init fail\n");
@@ -515,7 +554,6 @@ static int reviser_probe(struct platform_device *pdev)
 	return ret;
 free_dbg:
 	reviser_dbg_destroy(rdv);
-
 free_map:
 	reviser_unmap_dts(pdev);
 free_node:
@@ -535,7 +573,10 @@ static int reviser_remove(struct platform_device *pdev)
 
 	reviser_table_uninit(rdv);
 	reviser_dbg_destroy(rdv);
-	reviser_dram_remap_destroy(rdv);
+	if (mem_task) {
+		reviser_dram_remap_destroy(rdv);
+		mem_task = NULL;
+	}
 	reviser_unmap_dts(pdev);
 	reviser_delete_node(rdv);
 
@@ -582,18 +623,15 @@ static int reviser_rpmsg_probe(struct rpmsg_device *rpdev)
 
 	rdv = g_rdv;
 	rdv->rpdev = rpdev;
+	rdv->power.power = true;
 	reviser_remote_init();
 
-//	ret = reviser_remote_handshake(rdv, NULL);
-//	if (ret) {
-//		LOG_ERR("Remote Handshake fail %d\n", ret);
-//	}
-//	LOG_ERR("Try Again\n");
-//	ret = reviser_remote_handshake(rdv, NULL);
-//	if (ret) {
-//		LOG_ERR("Remote Handshake fail %d\n", ret);
-//		return -ENODEV;
-//	}
+	mem_task = kthread_run(reviser_rprmsg_memory_func, rdv, "reviser");
+	if (mem_task == NULL) {
+		LOG_ERR("create kthread(mem) fail\n");
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	dev_set_drvdata(&rpdev->dev, rdv);
 
@@ -603,6 +641,7 @@ static int reviser_rpmsg_probe(struct rpmsg_device *rpdev)
 	//reviser_power_on(rdv);
 
 	LOG_INFO("Done\n");
+out:
 	return ret;
 }
 

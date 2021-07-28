@@ -10,14 +10,7 @@
 #include <linux/bitmap.h>
 
 
-enum REVISER_MEM_TYPE {
-	/* memory type */
-	REVISER_MEM_TYPE_DRAM = 0x0,
-	REVISER_MEM_TYPE_TCM = 0x1,
-	REVISER_MEM_TYPE_INFRA = 0x2,
-	REVISER_MEM_TYPE_L3_CACHE = 0x3,
-	REVISER_MEM_TYPE_MAX
-};
+#include "reviser_mem_def.h"
 
 
 /*TCM Resource*/

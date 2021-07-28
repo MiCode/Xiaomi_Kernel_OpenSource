@@ -6,6 +6,7 @@
 #include <linux/types.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include "reviser_mem_def.h"
 #include "reviser_cmn.h"
 #include "reviser_plat.h"
 #include "reviser_drv.h"

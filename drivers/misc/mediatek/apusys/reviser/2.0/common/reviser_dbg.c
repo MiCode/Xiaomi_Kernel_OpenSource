@@ -14,6 +14,7 @@
 #include <linux/string.h>
 #include <linux/delay.h>
 
+#include "reviser_mem_def.h"
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
 #include "reviser_dbg.h"
@@ -23,6 +24,7 @@
 #include "reviser_table_mgt.h"
 #include "reviser_remote.h"
 #include "reviser_remote_cmd.h"
+#include "reviser_export.h"
 
 static struct dentry *reviser_dbg_root;
 //hw
@@ -68,10 +70,6 @@ static int reviser_dbg_show_remap_table(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *rdv = s->private;
 
-	if (!reviser_is_power(rdv)) {
-		LOG_ERR("Can Not Read when power disable\n");
-		return -EINVAL;
-	}
 
 	reviser_mgt_dmp_rmp(rdv, s);
 	return 0;
@@ -98,11 +96,6 @@ static int reviser_dbg_show_context_ID(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *rdv = s->private;
 
-	if (!reviser_is_power(rdv)) {
-		LOG_ERR("Can Not Read when power disable\n");
-		return -EINVAL;
-	}
-
 	reviser_mgt_dmp_ctx(rdv, s);
 	return 0;
 }
@@ -128,11 +121,6 @@ static int reviser_dbg_show_boundary(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *rdv = s->private;
 
-	if (!reviser_is_power(rdv)) {
-		LOG_ERR("Can Not Read when power disable\n");
-		return -EINVAL;
-	}
-
 	reviser_mgt_dmp_boundary(rdv, s);
 	return 0;
 }
@@ -154,11 +142,6 @@ static const struct file_operations reviser_dbg_fops_boundary = {
 static int reviser_dbg_show_iova(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *rdv = s->private;
-
-	if (!reviser_is_power(rdv)) {
-		LOG_ERR("Can Not Read when power disable\n");
-		return -EINVAL;
-	}
 
 	reviser_mgt_dmp_default(rdv, s);
 	return 0;
@@ -517,10 +500,6 @@ static int reviser_dbg_show_err_reg(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *rdv = s->private;
 
-	if (!reviser_is_power(rdv)) {
-		LOG_ERR("Can Not Read when power disable\n");
-		return 0;
-	}
 
 	reviser_mgt_dmp_exception(rdv, s);
 	return 0;
@@ -554,41 +533,58 @@ static int reviser_dbg_write_debug_op(void *data, u64 val)
 {
 	struct reviser_dev_info *rdv = data;
 	int ret = 0;
-	uint32_t i;
+//	uint32_t i;
+	uint32_t type, size, session;
 
 	g_rvr_debug_op = val;
 
 	switch (g_rvr_debug_op) {
 	case 0:
-		LOG_INFO("Set POwer On\n");
-		reviser_power_on(rdv);
-		break;
-	case 1:
-		LOG_INFO("Set POwer value to 1\n");
-		rdv->power.power = true;
-		break;
-	case 2:
-		LOG_INFO("Remote Handshake\n");
-		ret = reviser_remote_handshake(rdv, NULL);
+		LOG_INFO("SLB Handshake Alloc\n");
+		type = REVISER_MEM_TYPE_VLM;
+		size = 0x600000;
+		session = 0x5566;
+		ret = reviser_remote_alloc_mem(rdv, type, size, session);
 		if (ret)
 			LOG_ERR("Remote Handshake fail %d\n", ret);
 		break;
-	case 3:
-		for (i = 0; i < rdv->plat.dram_max; i++) {
-			ret = reviser_remote_set_hw_default_iova(rdv, i, rdv->plat.dram[i]);
-			if (ret) {
-				LOG_ERR("reviser_remote_set_hw_default_iova fail %d\n", ret);
-				break;
-			}
-			udelay(1000);
+	case 1:
+		LOG_INFO("SLB Handshake Free\n");
+		session = 0x5566;
+		ret = reviser_remote_free_mem(rdv, session);
+		if (ret)
+			LOG_ERR("Remote Handshake fail %d\n", ret);
+		break;
+	case 2:
+		LOG_INFO("SLB allocate\n");
+		session = 0x5566;
+		type = REVISER_MEM_TYPE_SLBS;
+
+		ret = reviser_get_pool_size(type, &size);
+		if (ret) {
+			LOG_ERR("Get Pool[%u] size fail %d\n", type, ret);
+			goto out;
 		}
 
+		LOG_INFO("Pool[%u] allocate size %x\n", type, size);
+
+		ret = reviser_alloc_pool(type, session, size);
+		if (ret) {
+			LOG_ERR("Alloc Session[%x] %u/%x fail %d\n", session, type, size, ret);
+			goto out;
+		}
+
+		ret = reviser_free_pool(session);
+		if (ret) {
+			LOG_ERR("Free Session[%x] fail %d\n", session, ret);
+			goto out;
+		}
 		break;
 	default:
 		ret = -EINVAL;
 		break;
 	}
-
+out:
 	return ret;
 }
 DEFINE_SIMPLE_ATTRIBUTE(reviser_dbg_fops_debug_op,

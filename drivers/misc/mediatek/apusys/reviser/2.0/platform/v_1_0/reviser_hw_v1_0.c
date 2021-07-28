@@ -106,6 +106,11 @@ void reviser_print_exception(void *drvinfo, void *s_file)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
+	if (!reviser_is_power(rdv)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return;
+	}
+
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser exception info\n");
 	LOG_CON(s, "-----------------------------\n");
@@ -157,6 +162,11 @@ void reviser_print_boundary(void *drvinfo, void *s_file)
 	}
 
 	rdv = (struct reviser_dev_info *)drvinfo;
+
+	if (!reviser_is_power(rdv)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return;
+	}
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser driver boundary info\n");
@@ -214,6 +224,11 @@ void reviser_print_context_ID(void *drvinfo, void *s_file)
 	}
 
 	rdv = (struct reviser_dev_info *)drvinfo;
+
+	if (!reviser_is_power(rdv)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return;
+	}
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser driver ID info\n");
@@ -273,6 +288,10 @@ void reviser_print_remap_table(void *drvinfo, void *s_file)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
+	if (!reviser_is_power(rdv)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return;
+	}
 	for (i = 0; i < VLM_REMAP_TABLE_MAX; i++) {
 		offset[i] = _reviser_get_remap_offset(i);
 		if (offset[i] == REVISER_FAIL) {
@@ -319,6 +338,10 @@ void reviser_print_default_iova(void *drvinfo, void *s_file)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
+	if (!reviser_is_power(rdv)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return;
+	}
 	reg = _reviser_ctrl_reg_read(rdv, VLM_DEFAULT_MVA);
 
 	LOG_CON(s, "=============================\n");

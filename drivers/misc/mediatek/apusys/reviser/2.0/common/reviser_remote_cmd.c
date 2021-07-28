@@ -528,6 +528,8 @@ int reviser_remote_handshake(void *drvinfo, void *remote)
 	}
 	//Init Remote Info
 	rdv->remote.hw_ver = reply.data[0];
+	rdv->remote.dram_max = reply.data[1];
+	rdv->plat.dram_max = rdv->remote.dram_max;
 
 	reviser_remote_sync_sn(drvinfo, reply.sn);
 
@@ -565,6 +567,102 @@ int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iov
 
 	req.data[0] = ctx;
 	memcpy(req.data + 1, &iova, sizeof(iova));
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+out:
+	return 0;
+}
+
+int reviser_remote_alloc_mem(void *drvinfo, uint32_t type, uint32_t size, uint64_t session)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	int index = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	req.data[index] = REVISER_MEM_ALLOC;
+	index++;
+	req.data[index] = type;
+	index = index + sizeof(type)/sizeof(req.data[0]);
+	req.data[index] = size;
+	index = index + sizeof(size)/sizeof(req.data[0]);
+	memcpy(req.data + index, &session, sizeof(session));
+	index = index + sizeof(session)/sizeof(req.data[0]);
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+out:
+	return 0;
+}
+
+int reviser_remote_free_mem(void *drvinfo, uint64_t session)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	int index = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	req.data[index] = REVISER_MEM_FREE;
+	index++;
+	memcpy(req.data + index, &session, sizeof(session));
+	index = index + sizeof(session)/sizeof(req.data[0]);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {

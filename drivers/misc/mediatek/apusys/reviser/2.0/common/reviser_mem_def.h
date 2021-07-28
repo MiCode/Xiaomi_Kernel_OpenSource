@@ -9,6 +9,19 @@
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
 
+
+enum REVISER_MEM_TYPE {
+	/* memory type */
+	REVISER_MEM_TYPE_NONE = 0x0,
+	REVISER_MEM_TYPE_DRAM,
+	REVISER_MEM_TYPE_TCM,
+	REVISER_MEM_TYPE_SLBS,
+	REVISER_MEM_TYPE_SLBD,
+	REVISER_MEM_TYPE_ACP,
+	REVISER_MEM_TYPE_VLM,
+	REVISER_MEM_TYPE_MAX
+};
+
 struct reviser_mem {
 	uint64_t uva;
 	uint64_t kva;
@@ -22,5 +35,7 @@ struct reviser_mem {
 	uint64_t handle;
 	struct sg_table sgt;
 };
+
+
 
 #endif

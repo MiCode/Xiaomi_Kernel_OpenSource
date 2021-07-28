@@ -5,6 +5,7 @@
 
 #include <linux/platform_device.h>
 
+#include "reviser_mem_def.h"
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
 #include "reviser_plat.h"
@@ -37,9 +38,9 @@ int reviser_v1_0_init(struct platform_device *pdev)
 	hw_cb->set_int = reviser_enable_interrupt;
 
 	//Set TCM Info
-	rdv->plat.pool_type[0] = 2;
-	rdv->plat.pool_base[0] = 0;
-	rdv->plat.pool_step[0] = 1;
+	rdv->plat.pool_type[REVSIER_POOL_TCM] = REVISER_MEM_TYPE_TCM;
+	rdv->plat.pool_base[REVSIER_POOL_TCM] = 0;
+	rdv->plat.pool_step[REVSIER_POOL_TCM] = 1;
 	//Set DRAM fallback
 	rdv->plat.dram[0] = REMAP_DRAM_BASE;
 

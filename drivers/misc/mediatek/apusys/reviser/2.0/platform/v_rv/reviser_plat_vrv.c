@@ -5,6 +5,7 @@
 
 #include <linux/platform_device.h>
 
+#include "reviser_mem_def.h"
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
 #include "reviser_plat.h"
@@ -28,19 +29,10 @@ int reviser_vrv_init(struct platform_device *pdev)
 
 
 	//Set TCM Info
-	rdv->plat.pool_type[0] = 2;
-	rdv->plat.pool_base[0] = 0;
-	rdv->plat.pool_step[0] = 1;
-	//Set DRAM fallback
-	rdv->plat.dram[0] = 0x4000000;
+	rdv->plat.pool_type[REVSIER_POOL_TCM] = REVISER_MEM_TYPE_TCM;
 
-	//Set remap max
-	rdv->plat.rmp_max = 0xD;
-	//Set ctx max
-	rdv->plat.ctx_max = 32;
-
-	rdv->plat.hw_ver = 0x100;
-
+	rdv->plat.pool_type[REVSIER_POOL_SLBS] = REVISER_MEM_TYPE_SLBS;
+	rdv->plat.pool_size[REVSIER_POOL_SLBS] = 0x600000; //ToDo get from dts
 	return 0;
 }
 int reviser_vrv_uninit(struct platform_device *pdev)

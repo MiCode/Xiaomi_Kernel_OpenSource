@@ -11,7 +11,7 @@
 #include "reviser_table_mgt.h"
 #include "reviser_hw_mgt.h"
 #include "reviser_drv.h"
-
+#include "reviser_remote_cmd.h"
 
 
 /**
@@ -130,7 +130,85 @@ int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size)
 	}
 
 	*addr = (uint32_t) g_rdv->plat.vlm_addr;
-	*size = (uint32_t) g_rdv->plat.pool_size[0];
+	*size = (uint32_t) g_rdv->plat.vlm_size;
 
 	return 0;
+}
+
+int reviser_set_manual_vlm(uint32_t session, uint32_t size)
+{
+	int ret = 0;
+
+	return ret;
+}
+
+int reviser_clear_manual_vlm(uint32_t session)
+{
+	int ret = 0;
+
+	return ret;
+}
+
+int reviser_alloc_pool(uint32_t type, uint32_t session, uint32_t size)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = reviser_remote_alloc_mem(g_rdv, type, size, session);
+	if (ret)
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+
+	return ret;
+}
+
+int reviser_free_pool(uint32_t session)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = reviser_remote_free_mem(g_rdv, session);
+	if (ret)
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+
+	return 0;
+}
+
+int reviser_get_pool_size(uint32_t type, uint32_t *size)
+{
+	int ret = 0;
+	uint32_t ret_size = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	switch (type) {
+	case REVISER_MEM_TYPE_TCM:
+		ret_size = g_rdv->plat.pool_size[REVSIER_POOL_TCM];
+		break;
+	case REVISER_MEM_TYPE_SLBS:
+		ret_size = g_rdv->plat.pool_size[REVSIER_POOL_SLBS];
+		break;
+	default:
+		LOG_ERR("Invalid type\n", type);
+		ret = -EINVAL;
+		break;
+	}
+
+	*size = ret_size;
+
+
+	return ret;
 }
