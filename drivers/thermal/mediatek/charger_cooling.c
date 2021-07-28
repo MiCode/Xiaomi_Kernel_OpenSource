@@ -85,7 +85,7 @@ static int charger_cooling_set_cur_state(struct thermal_cooling_device *cdev, un
  *==================================================
  */
 
-static int mt6360_cooling_state_to_charger_limit(struct charger_cooling_device *chg)
+static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 {
 	union power_supply_propval prop_bat_chr;
 	union power_supply_propval prop_input;
@@ -165,13 +165,21 @@ static int mt6360_cooling_state_to_charger_limit(struct charger_cooling_device *
 
 
 static const struct charger_cooling_platform_data mt6360_pdata = {
-	.state_to_charger_limit = mt6360_cooling_state_to_charger_limit,
+	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
+};
+
+static const struct charger_cooling_platform_data mt6375_pdata = {
+	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
 };
 
 static const struct of_device_id charger_cooling_of_match[] = {
 	{
 		.compatible = "mediatek,mt6360-charger-cooler",
 		.data = (void *)&mt6360_pdata,
+	},
+	{
+		.compatible = "mediatek,mt6375-charger-cooler",
+		.data = (void *)&mt6375_pdata,
 	},
 	{},
 };

@@ -102,6 +102,11 @@ enum lvts_sensing_point {
 	ALL_SENSING_POINTS
 };
 
+enum calibration_mode {
+	CALI_NT,
+	CALI_HT,
+	ALL_CALI_MODES
+};
 
 /*==================================================
  * Data structure
@@ -114,6 +119,12 @@ struct speed_settings {
 	unsigned int group_interval_delay;
 	unsigned int filter_interval_delay;
 	unsigned int sensor_interval_delay;
+};
+
+struct formula_coeff {
+	int a;
+	unsigned int golden_temp;
+	enum calibration_mode cali_mode;
 };
 
 struct tc_settings {
@@ -138,23 +149,21 @@ struct tc_settings {
 	int dominator_sensing_point;
 	int hw_reboot_trip_point; /* -274000: Disable HW reboot */
 	unsigned int irq_bit;
-};
-
-struct formula_coeff {
-	int a;
-	int b;
-	unsigned int golden_temp;
+	struct formula_coeff coeff;
 };
 
 struct sensor_cal_data {
 	int use_fake_efuse;	/* 1: Use fake efuse, 0: Use real efuse */
 	unsigned int golden_temp;
+	unsigned int golden_temp_ht;
+	unsigned int cali_mode;
 	unsigned int *count_r;
 	unsigned int *count_rc;
 	unsigned int *count_rc_now;
 	unsigned int *efuse_data;
 
 	unsigned int default_golden_temp;
+	unsigned int default_golden_temp_ht;
 	unsigned int default_count_r;
 	unsigned int default_count_rc;
 };
@@ -166,6 +175,11 @@ struct platform_ops {
 	int (*device_read_count_rc_n)(struct lvts_data *lvts_data);
 	void (*set_cal_data)(struct lvts_data *lvts_data);
 	void (*init_controller)(struct lvts_data *lvts_data);
+	int (*lvts_raw_to_temp)(struct formula_coeff *co, unsigned int msr_raw);
+	unsigned int (*lvts_temp_to_raw)(struct formula_coeff *co, int temp);
+	void (*check_cal_data)(struct lvts_data *lvts_data);
+	void (*update_hw_reboot_point)(struct lvts_data *lvts_data, int trip_point);
+	int (*get_soc_max_temp)(struct lvts_data *lvts_data);
 };
 
 struct power_domain {
@@ -200,7 +214,6 @@ struct lvts_data {
 	unsigned int *efuse;
 	unsigned int num_efuse_block;	/* Number of contiguous efuse indexes */
 	struct sensor_cal_data cal_data;
-	struct formula_coeff coeff;
 	bool init_done; /*lvts driver init finish*/
 };
 

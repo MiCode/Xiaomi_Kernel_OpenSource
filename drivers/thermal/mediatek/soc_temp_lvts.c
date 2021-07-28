@@ -89,24 +89,45 @@ static unsigned int g_lvts_controller_value_e[LVTS_CONTROLLER_DEBUG_NUM]
  * LVTS local common code
  *==================================================
  */
-static int lvts_raw_to_temp(struct formula_coeff *co, unsigned int msr_raw)
+static int lvts_raw_to_temp_v1(struct formula_coeff *co, unsigned int msr_raw)
 {
 	/* This function returns degree mC */
 
 	int temp;
 
 	temp = (co->a * ((unsigned long long)msr_raw)) >> 14;
-	temp = temp + co->golden_temp * 500 + co->b;
+	temp = temp + co->golden_temp * 500 - co->a;
 
 	return temp;
 }
 
-static unsigned int lvts_temp_to_raw(struct formula_coeff *co, int temp)
+static unsigned int lvts_temp_to_raw_v1(struct formula_coeff *co, int temp)
 {
 	unsigned int msr_raw = 0;
 
-	msr_raw = ((long long)((co->golden_temp * 500 + co->b - temp)) << 14)
+	msr_raw = ((long long)((co->golden_temp * 500 - co->a - temp)) << 14)
 		/ (-1 * co->a);
+
+	return msr_raw;
+}
+
+static int lvts_raw_to_temp_v2(struct formula_coeff *co, unsigned int msr_raw)
+{
+	/* This function returns degree mC */
+
+	int temp;
+
+	temp = ((long long)co->a << 14) / msr_raw;
+	temp = temp + co->golden_temp * 500 - co->a;
+
+	return temp;
+}
+
+static unsigned int lvts_temp_to_raw_v2(struct formula_coeff *co, int temp)
+{
+	unsigned int msr_raw = 0;
+
+	msr_raw = ((long long)co->a << 14) / (temp - (co->golden_temp * 500) + co->a);
 
 	return msr_raw;
 }
@@ -125,6 +146,7 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 	unsigned int i, j, s_index, msr_raw;
 	int max_temp, current_temp;
 	void __iomem *base;
+	struct platform_ops *ops = &lvts_data->ops;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		base = GET_BASE_ADDR(i);
@@ -132,7 +154,7 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 			s_index = tc[i].sensor_map[j];
 
 			msr_raw = lvts_read_tc_msr_raw(LVTSMSR0_0 + base + 0x4 * j);
-			current_temp = lvts_raw_to_temp(&lvts_data->coeff, msr_raw);
+			current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), msr_raw);
 
 			if (msr_raw == 0)
 				current_temp = THERMAL_TEMP_INVALID;
@@ -347,8 +369,7 @@ static void read_controller_reg_when_error(struct lvts_data *lvts_data)
 		base = GET_BASE_ADDR(i);
 
                 for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
-			temp = readl(LVTSMONCTL0_0 + g_lvts_controller_addrs[j]
-				+ base);
+			temp = readl(g_lvts_controller_addrs[j] + base);
 			g_lvts_controller_value_e[i][j] = temp;
 		}
 	}
@@ -805,6 +826,7 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int msr_raw, temp, config, ts_name, d_index;
 	void __iomem *base;
+	struct platform_ops *ops = &lvts_data->ops;
 
 	base = GET_BASE_ADDR(tc_id);
 	d_index = get_dominator_index(lvts_data, tc_id);
@@ -824,7 +846,7 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 		writel(config | temp, LVTSPROTCTL_0 + base);
 	}
 
-	msr_raw = lvts_temp_to_raw(&lvts_data->coeff, trip_point);
+	msr_raw = ops->lvts_temp_to_raw(&(tc[tc_id].coeff), trip_point);
 //	writel(msr_raw, LVTSPROTTC_0 + base);
 
 	/* high offset INT */
@@ -1017,30 +1039,16 @@ static int lvts_init(struct lvts_data *lvts_data)
 
         lvts_data->init_done = true;
 
-
 	return 0;
 }
 
-static int prepare_calibration_data(struct lvts_data *lvts_data)
+
+static void check_cal_data_v1(struct lvts_data *lvts_data)
 {
 	struct device *dev = lvts_data->dev;
 	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
-	struct platform_ops *ops = &lvts_data->ops;
-	int i, offset, size;
-	char buffer[512];
-
-	cal_data->count_r = devm_kcalloc(dev, lvts_data->num_sensor,
-				sizeof(*cal_data->count_r), GFP_KERNEL);
-	if (!cal_data->count_r)
-		return -ENOMEM;
-
-	cal_data->count_rc = devm_kcalloc(dev, lvts_data->num_sensor,
-				sizeof(*cal_data->count_rc), GFP_KERNEL);
-	if (!cal_data->count_rc)
-		return -ENOMEM;
-
-	if (ops->efuse_to_cal_data)
-		ops->efuse_to_cal_data(lvts_data);
+	struct tc_settings *tc = lvts_data->tc;
+	int i;
 
 	cal_data->use_fake_efuse = 1;
 	if (cal_data->golden_temp != 0) {
@@ -1067,15 +1075,51 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 		}
 	}
 
-	lvts_data->coeff.golden_temp = cal_data->golden_temp;
+	for (i = 0; i < lvts_data->num_tc; i++)
+		tc[i].coeff.golden_temp = cal_data->golden_temp;
 
-	dev_info(dev, "[lvts_cal] golden_temp = %d\n", cal_data->golden_temp);
+}
+
+static int prepare_calibration_data(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct platform_ops *ops = &lvts_data->ops;
+	struct tc_settings *tc = lvts_data->tc;
+	int i, offset, size;
+	char buffer[512];
+
+	cal_data->count_r = devm_kcalloc(dev, lvts_data->num_sensor,
+				sizeof(*cal_data->count_r), GFP_KERNEL);
+	if (!cal_data->count_r)
+		return -ENOMEM;
+
+	cal_data->count_rc = devm_kcalloc(dev, lvts_data->num_sensor,
+				sizeof(*cal_data->count_rc), GFP_KERNEL);
+	if (!cal_data->count_rc)
+		return -ENOMEM;
+
+	if (ops->efuse_to_cal_data)
+		ops->efuse_to_cal_data(lvts_data);
+
+	if (ops->check_cal_data)
+		ops->check_cal_data(lvts_data);
+
+	dev_info(dev, "[lvts_cal] cali_mode = %d\n", cal_data->cali_mode);
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[lvts_cal] num:g_count:g_count_rc ");
 	for (i = 0; i < lvts_data->num_sensor; i++)
 		offset += snprintf(buffer + offset, size - offset, "%d:%d:%d ",
 				i, cal_data->count_r[i], cal_data->count_rc[i]);
+
+	buffer[offset] = '\0';
+	dev_info(dev, "%s\n", buffer);
+
+	offset = snprintf(buffer, size, "[lvts_cal] num_tc:g_golden_temp");
+	for (i = 0; i < lvts_data->num_tc; i++)
+		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
+				i, tc[i].coeff.golden_temp);
 
 	buffer[offset] = '\0';
 	dev_info(dev, "%s\n", buffer);
@@ -1346,7 +1390,6 @@ static int lvts_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct lvts_data *lvts_data;
 	int ret;
-
 
 	lvts_data = (struct lvts_data *) of_device_get_match_data(dev);
 
@@ -1742,6 +1785,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[1] = {
 		.domain_index = MT6873_MCU_DOMAIN,
@@ -1753,6 +1801,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[2] = {
 		.domain_index = MT6873_MCU_DOMAIN,
@@ -1764,6 +1817,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(5),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[3] = {
 		.domain_index = MT6873_AP_DOMAIN,
@@ -1775,6 +1833,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[4] = {
 		.domain_index = MT6873_AP_DOMAIN,
@@ -1786,6 +1849,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[5] = {
 		.domain_index = MT6873_AP_DOMAIN,
@@ -1797,6 +1865,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(5),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[6] = {
 		.domain_index = MT6873_AP_DOMAIN,
@@ -1808,6 +1881,11 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT2,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(6),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	}
 };
 
@@ -1823,6 +1901,11 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT3,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[1] = {
 		.domain_index = MT6853_MCU_DOMAIN,
@@ -1834,6 +1917,11 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[2] = {
 		.domain_index = MT6853_AP_DOMAIN,
@@ -1845,6 +1933,11 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[3] = {
 		.domain_index = MT6853_AP_DOMAIN,
@@ -1856,6 +1949,11 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[4] = {
 		.domain_index = MT6853_AP_DOMAIN,
@@ -1867,6 +1965,11 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT2,
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(5),
+		.coeff = {
+			.a = -250460,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	}
 };
 
@@ -1883,6 +1986,9 @@ static struct lvts_data mt6873_lvts_data = {
 		.device_read_count_rc_n = device_read_count_rc_n_v4,
 		.set_cal_data = set_calibration_data_v4,
 		.init_controller = init_controller_v4,
+		.lvts_temp_to_raw = lvts_temp_to_raw_v1,
+		.lvts_raw_to_temp = lvts_raw_to_temp_v1,
+		.check_cal_data = check_cal_data_v1,
 	},
 	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
 	.num_efuse_addr = 22,
@@ -1891,10 +1997,6 @@ static struct lvts_data mt6873_lvts_data = {
 		.default_golden_temp = 50,
 		.default_count_r = 35000,
 		.default_count_rc = 2750,
-	},
-	.coeff = {
-		.a = -250460,
-		.b = 250460,
 	},
 	.init_done = false,
 };
@@ -1911,6 +2013,9 @@ static struct lvts_data mt6853_lvts_data = {
 		.device_read_count_rc_n = device_read_count_rc_n_v4,
 		.set_cal_data = set_calibration_data_v4,
 		.init_controller = init_controller_v4,
+		.lvts_temp_to_raw = lvts_temp_to_raw_v1,
+		.lvts_raw_to_temp = lvts_raw_to_temp_v1,
+		.check_cal_data = check_cal_data_v1,
 	},
 	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
 	.num_efuse_addr = 17,
@@ -1919,10 +2024,6 @@ static struct lvts_data mt6853_lvts_data = {
 		.default_golden_temp = 50,
 		.default_count_r = 35000,
 		.default_count_rc = 2750,
-	},
-	.coeff = {
-		.a = -250460,
-		.b = 250460,
 	},
 	.init_done = false,
 };
@@ -2180,6 +2281,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[MT6893_LVTS_MCU_CTRL1] = {
 		.domain_index = MT6893_MCU_DOMAIN,
@@ -2191,6 +2297,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[MT6893_LVTS_MCU_CTRL2] = {
 		.domain_index = MT6893_MCU_DOMAIN,
@@ -2202,6 +2313,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[MT6893_LVTS_AP_CTRL0] = {
 		.domain_index = MT6893_AP_DOMAIN,
@@ -2213,6 +2329,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[MT6893_LVTS_AP_CTRL1] = {
 		.domain_index = MT6893_AP_DOMAIN,
@@ -2224,6 +2345,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[MT6893_LVTS_AP_CTRL2] = {
 		.domain_index = MT6893_AP_DOMAIN,
@@ -2235,6 +2361,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	},
 	[MT6893_LVTS_AP_CTRL3] = {
 		.domain_index = MT6893_AP_DOMAIN,
@@ -2246,6 +2377,11 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(4),
+		.coeff = {
+			.a = -252500,
+			.golden_temp = 50,
+			.cali_mode = CALI_NT,
+		},
 	}
 };
 
@@ -2262,6 +2398,9 @@ static struct lvts_data mt6893_lvts_data = {
 		.device_read_count_rc_n = mt6893_device_read_count_rc_n,
 		.set_cal_data = set_calibration_data_v4,
 		.init_controller = init_controller_v4,
+		.lvts_temp_to_raw = lvts_temp_to_raw_v1,
+		.lvts_raw_to_temp = lvts_raw_to_temp_v1,
+		.check_cal_data = check_cal_data_v1,
 	},
 	.feature_bitmap = 0,
 	.num_efuse_addr = 22,
@@ -2271,9 +2410,488 @@ static struct lvts_data mt6893_lvts_data = {
 		.default_count_r = 35000,
 		.default_count_rc = 2750,
 	},
-	.coeff = {
-		.a = -252500,
-		.b = 252500,
+	.init_done = false,
+};
+
+/*==================================================
+ * LVTS MT6983
+ *==================================================
+ */
+#define SET_TS_DIS_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8	\
+						| 0xF1)
+
+#define SET_LVTS_MANUAL_RCK_OPERATION_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_6 << 8 | 0x00)
+
+#define SET_COUNTING_WINDOW_47US2 (DEVICE_WRITE | RG_TSFM_CTRL_1 << 8 | 0x47)
+
+#define TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6983_1 (DEVICE_WRITE | RG_TSV2F_CTRL_2 << 8	\
+						| 0x30)
+
+#define TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6983_2 (DEVICE_WRITE | RG_TSV2F_CTRL_3 << 8	\
+						| 0x03)
+
+#define TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_4 << 8	\
+						| 0xFF)
+
+#define SET_TS_RSV_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_1 << 8 | 0x99)
+#define SET_TS_CHOP_CTRL_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
+#define SET_TS_DIV_EN_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF5)
+#define SET_VCO_RST_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xFD)
+#define COFF_A_HT 246740
+
+static void mt6983_device_enable_and_init(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		lvts_write_device(lvts_data, STOP_COUNTING_V4, i);
+		lvts_write_device(lvts_data, SET_RG_TSFM_LPDLY_V4, i);
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US1_V4, i);
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_47US2, i);
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6983_1, i);
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6983_2, i);
+		lvts_write_device(lvts_data, TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6983, i);
+		lvts_write_device(lvts_data, SET_TS_RSV_6983, i);
+		lvts_write_device(lvts_data, SET_TS_CHOP_CTRL_6983, i);
+	}
+
+	lvts_data->counting_window_us = 20;
+}
+
+static int mt6983_device_read_count_rc_n(struct lvts_data *lvts_data)
+{
+
+	/* Resistor-Capacitor Calibration */
+	/* count_RC_N: count RC now */
+	struct device *dev = lvts_data->dev;
+	struct tc_settings *tc = lvts_data->tc;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	unsigned int offset, size, s_index, data;
+	void __iomem *base;
+	int ret, i, j;
+	char buffer[512];
+	unsigned int  rc_data;
+	int refine_data_idx[4] = {0};
+	int count_rc_delta = 0;
+
+	if (lvts_data->init_done) {
+
+		for (i = 0; i < lvts_data->num_tc; i++) {
+			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+			lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_V4, i);
+		}
+		return 0;
+	}
+
+
+	cal_data->count_rc_now =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->count_rc_now), GFP_KERNEL);
+
+	cal_data->efuse_data =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->efuse_data), GFP_KERNEL);
+
+	if ((!cal_data->count_rc_now) || (!cal_data->efuse_data))
+		return -ENOMEM;
+
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+		lvts_write_device(lvts_data, SET_LVTS_MANUAL_RCK_OPERATION_6983, i);
+
+		for (j = 0; j < tc[i].num_sensor; j++) {
+			refine_data_idx[j] = 0xff;
+			s_index = tc[i].sensor_map[j];
+
+			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(j), i);
+			lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_V4, i);
+			lvts_write_device(lvts_data, SET_TS_DIV_EN_6983, i);
+			lvts_write_device(lvts_data, SET_VCO_RST_6983, i);
+			lvts_write_device(lvts_data, SET_TS_DIV_EN_6983, i);
+			udelay(10);
+
+			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
+			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				!(data & DEVICE_SENSING_STATUS),
+				2, 200);
+			if (ret)
+				dev_info(dev,
+					"Error: LVTS %d DEVICE_SENSING_STATUS didn't ready\n", i);
+
+			lvts_write_device(lvts_data, SET_TS_DIS_6983, i);
+			data = lvts_read_device(lvts_data, 0x00, i);
+			udelay(5);
+
+			rc_data = (data & GENMASK(23, 0));
+
+			if (rc_data == 0) {
+				refine_data_idx[j] = s_index;
+				dev_info(dev, "rc_data %d, data_idx[%d]=%d\n", rc_data, j,
+					s_index);
+			} else {
+				if (cal_data->count_rc[i] > rc_data)
+					count_rc_delta = (cal_data->count_rc[i] * 1000) / rc_data;
+				else
+					count_rc_delta = (rc_data * 1000) / cal_data->count_rc[i];
+
+				if (count_rc_delta > 1061) {
+					refine_data_idx[j] = s_index;
+					dev_info(dev,
+						"delta %d, data_idx[%d]=%d\n",
+						count_rc_delta, j, s_index);
+				}
+			}
+
+			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				!(data & DEVICE_ACCESS_STARTUS),
+				2, 200);
+			if (ret)
+				dev_info(dev,
+					"Error: LVTS %d DEVICE_ACCESS_START didn't ready\n",
+					i);
+
+			if (refine_data_idx[j] != 0xff) {
+				dev_info(dev, "refine_data_idx[%d]=%d\n", j, refine_data_idx[j]);
+				cal_data->count_rc_now[s_index] = cal_data->count_rc[i];
+			} else
+				cal_data->count_rc_now[s_index] = (rc_data & GENMASK(23, 0));
+
+			/*count data here that want to set to efuse later*/
+			cal_data->efuse_data[s_index] = (((unsigned long long)
+				cal_data->count_rc_now[s_index]) *
+				cal_data->count_r[s_index]) >> 14;
+		}
+
+		/* Recover Setting for Normal Access on
+		 * temperature fetch
+		 */
+		lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+		lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_V4, i);
+	}
+
+
+	size = sizeof(buffer);
+	offset = snprintf(buffer, size, "[COUNT_RC_NOW] ");
+	for (i = 0; i < lvts_data->num_sensor; i++)
+		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
+				i, cal_data->count_rc_now[i]);
+
+	buffer[offset] = '\0';
+	dev_info(dev, "%s\n", buffer);
+
+	return 0;
+}
+
+#define MT6983_NUM_LVTS (ARRAY_SIZE(mt6983_tc_settings))
+
+enum mt6983_lvts_domain {
+	MT6983_AP_DOMAIN,
+	MT6983_MCU_DOMAIN,
+	MT6983_NUM_DOMAIN
+};
+
+enum mt6983_lvts_sensor_enum {
+	MT6983_TS1_0,
+	MT6983_TS1_1,
+	MT6983_TS1_2,
+	MT6983_TS1_3,
+	MT6983_TS2_0,
+	MT6983_TS2_1,
+	MT6983_TS2_2,
+	MT6983_TS2_3,
+	MT6983_TS3_0,
+	MT6983_TS3_1,
+	MT6983_TS3_2,
+	MT6983_TS3_3,
+	MT6983_TS5_0,
+	MT6983_TS5_1,
+	MT6983_TS6_0,
+	MT6983_TS6_1,
+	MT6983_TS6_2,
+	MT6983_TS6_3,
+	MT6983_TS7_0,
+	MT6983_TS7_1,
+	MT6983_TS7_2,
+	MT6983_TS8_0,
+	MT6983_TS8_1,
+	MT6983_TS8_2,
+	MT6983_TS9_0,
+	MT6983_TS9_1,
+	MT6983_TS9_2,
+	MT6983_NUM_TS
+
+};
+
+enum mt6983_lvts_controller_enum {
+	MT6983_LVTS_MCU_CTRL0,
+	MT6983_LVTS_MCU_CTRL1,
+	MT6983_LVTS_MCU_CTRL2,
+	MT6983_LVTS_AP_CTRL0,
+	MT6983_LVTS_AP_CTRL1,
+	MT6983_LVTS_AP_CTRL2,
+	MT6983_LVTS_AP_CTRL3,
+	MT6983_LVTS_AP_CTRL4,
+	MT6983_LVTS_CTRL_NUM
+};
+
+static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
+{
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct tc_settings *tc = lvts_data->tc;
+	int i = 0;
+
+	cal_data->cali_mode = GET_CAL_DATA_BIT(0, 31);
+	cal_data->golden_temp_ht = GET_CAL_DATA_BITMASK(0, 15, 8);
+	cal_data->golden_temp = GET_CAL_DATA_BITMASK(0, 7, 0);
+
+	for (i = 0; i < lvts_data->num_tc; i++)
+		tc[i].coeff.golden_temp = cal_data->golden_temp;
+
+	if (cal_data->cali_mode == 1) {
+		tc[MT6983_LVTS_MCU_CTRL0].coeff.a = COFF_A_HT;
+		tc[MT6983_LVTS_MCU_CTRL1].coeff.a = COFF_A_HT;
+		tc[MT6983_LVTS_MCU_CTRL2].coeff.a = COFF_A_HT;
+		tc[MT6983_LVTS_MCU_CTRL0].coeff.golden_temp = cal_data->golden_temp_ht;
+		tc[MT6983_LVTS_MCU_CTRL1].coeff.golden_temp = cal_data->golden_temp_ht;
+		tc[MT6983_LVTS_MCU_CTRL2].coeff.golden_temp = cal_data->golden_temp_ht;
+		tc[MT6983_LVTS_MCU_CTRL0].coeff.cali_mode = CALI_HT;
+		tc[MT6983_LVTS_MCU_CTRL1].coeff.cali_mode = CALI_HT;
+		tc[MT6983_LVTS_MCU_CTRL2].coeff.cali_mode = CALI_HT;
+	}
+
+	cal_data->count_r[MT6983_TS1_0] = GET_CAL_DATA_BITMASK(1, 15, 0);
+	cal_data->count_r[MT6983_TS1_1] = GET_CAL_DATA_BITMASK(1, 31, 16);
+	cal_data->count_r[MT6983_TS1_2] = GET_CAL_DATA_BITMASK(2, 15, 0);
+	cal_data->count_r[MT6983_TS1_3] = GET_CAL_DATA_BITMASK(2, 31, 16);
+
+	cal_data->count_r[MT6983_TS2_0] = GET_CAL_DATA_BITMASK(3, 15, 0);
+	cal_data->count_r[MT6983_TS2_1] = GET_CAL_DATA_BITMASK(3, 31, 16);
+	cal_data->count_r[MT6983_TS2_2] = GET_CAL_DATA_BITMASK(4, 15, 0);
+	cal_data->count_r[MT6983_TS2_3] = GET_CAL_DATA_BITMASK(4, 31, 16);
+
+	cal_data->count_r[MT6983_TS3_0] = GET_CAL_DATA_BITMASK(5, 15, 0);
+	cal_data->count_r[MT6983_TS3_1] = GET_CAL_DATA_BITMASK(5, 31, 16);
+	cal_data->count_r[MT6983_TS3_2] = GET_CAL_DATA_BITMASK(6, 15, 0);
+	cal_data->count_r[MT6983_TS3_3] = GET_CAL_DATA_BITMASK(6, 31, 16);
+
+	cal_data->count_r[MT6983_TS5_0] = GET_CAL_DATA_BITMASK(9, 15, 0);
+	cal_data->count_r[MT6983_TS5_1] = GET_CAL_DATA_BITMASK(9, 31, 16);
+
+	cal_data->count_r[MT6983_TS6_0] = GET_CAL_DATA_BITMASK(10, 15, 0);
+	cal_data->count_r[MT6983_TS6_1] = GET_CAL_DATA_BITMASK(10, 31, 16);
+	cal_data->count_r[MT6983_TS6_2] = GET_CAL_DATA_BITMASK(11, 15, 0);
+	cal_data->count_r[MT6983_TS6_3] = GET_CAL_DATA_BITMASK(11, 31, 16);
+
+	cal_data->count_r[MT6983_TS7_0] = GET_CAL_DATA_BITMASK(12, 15, 0);
+	cal_data->count_r[MT6983_TS7_1] = GET_CAL_DATA_BITMASK(12, 31, 16);
+	cal_data->count_r[MT6983_TS7_2] = GET_CAL_DATA_BITMASK(13, 15, 0);
+
+	cal_data->count_r[MT6983_TS8_0] = GET_CAL_DATA_BITMASK(13, 31, 16);
+	cal_data->count_r[MT6983_TS8_1] = GET_CAL_DATA_BITMASK(14, 15, 0);
+	cal_data->count_r[MT6983_TS8_2] = GET_CAL_DATA_BITMASK(14, 31, 16);
+
+	cal_data->count_r[MT6983_TS9_0] = GET_CAL_DATA_BITMASK(15, 15, 0);
+	cal_data->count_r[MT6983_TS9_1] = GET_CAL_DATA_BITMASK(15, 31, 16);
+	cal_data->count_r[MT6983_TS9_2] = GET_CAL_DATA_BITMASK(16, 15, 0);
+
+	cal_data->count_rc[MT6983_LVTS_MCU_CTRL0] = GET_CAL_DATA_BITMASK(18, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_MCU_CTRL1] = GET_CAL_DATA_BITMASK(19, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_MCU_CTRL2] = GET_CAL_DATA_BITMASK(20, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_AP_CTRL0] = GET_CAL_DATA_BITMASK(22, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_AP_CTRL1] = GET_CAL_DATA_BITMASK(23, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_AP_CTRL2] = GET_CAL_DATA_BITMASK(24, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_AP_CTRL3] = GET_CAL_DATA_BITMASK(25, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_AP_CTRL4] = GET_CAL_DATA_BITMASK(26, 23, 0);
+}
+
+static void mt6983_check_cal_data(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct tc_settings *tc = lvts_data->tc;
+	int i;
+
+	cal_data->use_fake_efuse = 1;
+	if ((cal_data->golden_temp != 0) || (cal_data->golden_temp_ht != 0)) {
+		cal_data->use_fake_efuse = 0;
+	} else {
+		for (i = 0; i < lvts_data->num_sensor; i++) {
+			if (cal_data->count_r[i] != 0 ||
+				cal_data->count_rc[i] != 0) {
+				cal_data->use_fake_efuse = 0;
+				break;
+			}
+		}
+	}
+
+	if (cal_data->use_fake_efuse) {
+		/* It means all efuse data are equal to 0 */
+		dev_info(dev,
+			"[lvts_cal] This sample is not calibrated, fake !!\n");
+		for (i = 0; i < lvts_data->num_sensor; i++)
+			cal_data->count_r[i] = cal_data->default_count_r;
+
+		for (i = 0; i < lvts_data->num_tc; i++)
+			cal_data->count_rc[i] = cal_data->default_count_rc;
+
+		for (i = 0; i < lvts_data->num_tc; i++) {
+			if (tc[i].coeff.cali_mode == CALI_HT)
+				tc[i].coeff.golden_temp = cal_data->default_golden_temp_ht;
+			else
+				tc[i].coeff.golden_temp = cal_data->default_golden_temp;
+		}
+	}
+}
+
+static struct tc_settings mt6983_tc_settings[] = {
+	[MT6983_LVTS_MCU_CTRL0] = {
+		.domain_index = MT6983_MCU_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 4,
+		.sensor_map = {MT6983_TS1_0, MT6983_TS1_1, MT6983_TS1_2, MT6983_TS1_3},
+		.tc_speed = SET_TC_SPEED_IN_US(10, 10, 10, 10),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT2,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_MCU_CTRL1] = {
+		.domain_index = MT6983_MCU_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 4,
+		.sensor_map = {MT6983_TS2_0, MT6983_TS2_1, MT6983_TS2_2, MT6983_TS2_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_MCU_CTRL2] = {
+		.domain_index = MT6983_MCU_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 4,
+		.sensor_map = {MT6983_TS3_0, MT6983_TS3_1, MT6983_TS3_2, MT6983_TS3_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT3,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(3),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_AP_CTRL0] = {
+		.domain_index = MT6983_AP_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 2,
+		.sensor_map = {MT6983_TS5_0, MT6983_TS5_1},
+		.tc_speed = SET_TC_SPEED_IN_US(370, 370, 370, 370),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_AP_CTRL1] = {
+		.domain_index = MT6983_AP_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 4,
+		.sensor_map = {MT6983_TS6_0, MT6983_TS6_1, MT6983_TS6_2, MT6983_TS6_3},
+		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.a = 191740,
+			.golden_temp = 60,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_AP_CTRL2] = {
+		.domain_index = MT6983_AP_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 3,
+		.sensor_map = {MT6983_TS7_0, MT6983_TS7_1, MT6983_TS7_2},
+		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(3),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_AP_CTRL3] = {
+		.domain_index = MT6983_AP_DOMAIN,
+		.addr_offset = 0x300,
+		.num_sensor = 3,
+		.sensor_map = {MT6983_TS8_0, MT6983_TS8_1, MT6983_TS8_2},
+		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(4),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6983_LVTS_AP_CTRL4] = {
+		.domain_index = MT6983_AP_DOMAIN,
+		.addr_offset = 0x400,
+		.num_sensor = 3,
+		.sensor_map = {MT6983_TS9_0, MT6983_TS9_1, MT6983_TS9_2},
+		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT2,
+		.hw_reboot_trip_point = 114500,
+		.irq_bit = BIT(5),
+		.coeff = {
+			.a = 191740,
+			.cali_mode = CALI_NT,
+		},
+	}
+};
+
+static struct lvts_data mt6983_lvts_data = {
+	.num_domain = MT6983_NUM_DOMAIN,
+	.num_tc = MT6983_LVTS_CTRL_NUM,
+	.tc = mt6983_tc_settings,
+	.num_sensor = MT6983_NUM_TS,
+	.ops = {
+		.efuse_to_cal_data = mt6983_efuse_to_cal_data,
+		.device_enable_and_init = mt6983_device_enable_and_init,
+		.device_enable_auto_rck = device_enable_auto_rck_v4,
+		.device_read_count_rc_n = mt6983_device_read_count_rc_n,
+		.set_cal_data = set_calibration_data_v4,
+		.init_controller = init_controller_v4,
+		.lvts_temp_to_raw = lvts_temp_to_raw_v2,
+		.lvts_raw_to_temp = lvts_raw_to_temp_v2,
+		.check_cal_data = mt6983_check_cal_data,
+	},
+	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
+	.num_efuse_addr = 28,
+	.num_efuse_block = 3,
+	.cal_data = {
+		.default_golden_temp = 60,
+		.default_golden_temp_ht = 170,
+		.default_count_r = 12084,
+		.default_count_rc = 13799,
 	},
 	.init_done = false,
 };
@@ -2299,6 +2917,10 @@ static const struct of_device_id lvts_of_match[] = {
 	{
 		.compatible = "mediatek,mt6893-lvts",
 		.data = (void *)&mt6893_lvts_data,
+	},
+	{
+		.compatible = "mediatek,mt6983-lvts",
+		.data = (void *)&mt6983_lvts_data,
 	},
 	{
 	},
