@@ -10814,3 +10814,6 @@
 		};
 	};
 };
+
+/* cust.dtsi part */
+#include "mediatek/trusty.dtsi"
