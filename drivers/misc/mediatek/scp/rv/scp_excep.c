@@ -27,8 +27,14 @@
 #include "scp_reservedmem_define.h"
 #endif
 
-#define POLLING_RETRY 100
 #define SCP_SECURE_DUMP_MEASURE 0
+#define POLLING_RETRY 1000
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
+	struct cal {
+		uint64_t start, end;
+		int type;	//1:all 2:dump 3:polling
+	} scpdump_cal[POLLING_RETRY+1];
+#endif
 
 struct scp_dump_st {
 	uint8_t *detail_buff;
@@ -358,29 +364,6 @@ void scp_do_tbufdump_RV55(uint32_t *out, uint32_t *out_end)
 	}
 }
 
-#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-static inline unsigned long scp_do_dump(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_START,
-			0, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline unsigned long scp_do_polling(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_POLLING,
-			0, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-#endif
-
 /*
  * this function need SCP to keeping awaken
  * scp_crash_dump: dump scp tcm info.
@@ -394,12 +377,9 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 	uint32_t dram_start = 0;
 	uint32_t dram_size = 0;
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
-	struct cal {
-		uint64_t start, end;
-		int type;	//0:dump 1:polling
-	} cal[POLLING_RETRY+1];
 	int idx;
 #endif
+	uint64_t dump_start, dump_end;
 
 	/*flag use to indicate scp awake success or not*/
 	scp_awake_fail_flag = 0;
@@ -414,25 +394,26 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 	if (scpreg.secure_dump) {
 #if SCP_SECURE_DUMP_MEASURE
-		memset(cal, 0x0, sizeof(cal));
+		memset(scpdump_cal, 0x0, sizeof(scpdump_cal));
 		idx = 0;
-		cal[0].type = 1;
-		cal[0].start = ktime_get_boottime_ns();
+		scpdump_cal[0].type = 1;
+		scpdump_cal[0].start = ktime_get_boottime_ns();
 #endif
 
+		dump_start = ktime_get_boottime_ns();
 		{
 			int polling = 1;
 			int retry = POLLING_RETRY;
 #if SCP_SECURE_DUMP_MEASURE
 			idx++;
-			cal[idx].type = 2;
-			cal[idx].start = ktime_get_boottime_ns();
+			scpdump_cal[idx].type = 2;
+			scpdump_cal[idx].start = ktime_get_boottime_ns();
 #endif
 
 			scp_do_dump();
 
 #if SCP_SECURE_DUMP_MEASURE
-			cal[idx].end = ktime_get_boottime_ns();
+			scpdump_cal[idx].end = ktime_get_boottime_ns();
 #endif
 
 			while (polling != 0 && retry > 0) {
@@ -440,14 +421,14 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 				if (idx >= POLLING_RETRY)
 					break;
 				idx++;
-				cal[idx].type = 3;
-				cal[idx].start = ktime_get_boottime_ns();
+				scpdump_cal[idx].type = 3;
+				scpdump_cal[idx].start = ktime_get_boottime_ns();
 #endif
 
 				polling = scp_do_polling();
 
 #if SCP_SECURE_DUMP_MEASURE
-				cal[idx].end = ktime_get_boottime_ns();
+				scpdump_cal[idx].end = ktime_get_boottime_ns();
 #endif
 
 				if (!polling)
@@ -455,15 +436,19 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 				mdelay(polling);
 				retry--;
 			}
+			if (retry == 0)
+				pr_notice("[SCP] Dump timed out:%d\n", POLLING_RETRY);
 		}
+		dump_end = ktime_get_boottime_ns();
+		pr_notice("[SCP] Dump: %lld ns\n", (dump_end - dump_start));
 
 #if SCP_SECURE_DUMP_MEASURE
-		cal[0].end = ktime_get_boottime_ns();
+		scpdump_cal[0].end = ktime_get_boottime_ns();
 		for (idx = 0; idx < POLLING_RETRY; idx++) {
-			if (cal[idx].type == 0)
+			if (scpdump_cal[idx].type == 0)
 				break;
-			pr_notice("MDebug SCP Cal:%d Type:%d %lldns\n", idx, cal[idx].type,
-						(cal[idx].end - cal[idx].start));
+			pr_notice("[SCP] scpdump:%d Type:%d %lldns\n", idx, scpdump_cal[idx].type,
+						(scpdump_cal[idx].end - scpdump_cal[idx].start));
 		}
 #endif
 

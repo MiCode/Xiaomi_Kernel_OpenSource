@@ -37,6 +37,13 @@
 #include "scp_dvfs.h"
 #include "scp.h"
 
+#define SCP_SECURE_DUMP_MEASURE 0
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
+static struct cal {
+	uint64_t start, end;
+} scpdump_cal[3];
+#endif
+
 struct mutex scp_awake_mutexs[SCP_CORE_TOTAL];
 
 
@@ -116,8 +123,16 @@ int scp_awake_lock(void *_scp_id)
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
 			pr_notice("%s: start to reset scp...\n", __func__);
 
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+			if (scpreg.secure_dump) {
+				scp_do_halt_set();
+			} else {
+#else
+			{
+#endif
 			/* trigger halt isr, force scp enter wfi */
 			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
+			}
 
 			scp_send_reset_wq(RESET_TYPE_AWAKE);
 		} else
@@ -232,8 +247,29 @@ void scp_enable_sram(void)
 int scp_sys_full_reset(void)
 {
 	void *tmp;
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
+	int idx;
+#endif
 
 	pr_notice("[SCP] %s\n", __func__);
+
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+#if SCP_SECURE_DUMP_MEASURE
+		memset(scpdump_cal, 0x0, sizeof(scpdump_cal));
+		scpdump_cal[0].start = ktime_get_boottime_ns();
+		scpdump_cal[1].start = ktime_get_boottime_ns();
+#endif
+
+		scp_restore_l2tcm();
+
+#if SCP_SECURE_DUMP_MEASURE
+		scpdump_cal[1].end = ktime_get_boottime_ns();
+#endif
+	} else {
+#else
+	{
+#endif
 	/* clear whole TCM */
 	memset_io(SCP_TCM, 0, SCP_TCM_SIZE);
 	/*copy loader to scp sram*/
@@ -242,7 +278,29 @@ int scp_sys_full_reset(void)
 	/*set info to sram*/
 	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy
 			, sizeof(scp_region_info_copy));
+	}
 
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+#if SCP_SECURE_DUMP_MEASURE
+		scpdump_cal[2].start = ktime_get_boottime_ns();
+#endif
+		tmp = (void *)(scp_ap_dram_virt +
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)
+			* scpreg.core_nums);
+		scp_restore_dram();
+#if SCP_SECURE_DUMP_MEASURE
+		scpdump_cal[2].end = ktime_get_boottime_ns();
+		scpdump_cal[0].end = ktime_get_boottime_ns();
+		for (idx = 0; idx < 3; idx++) {
+			pr_notice("MDebug SCP Cal:%d %lldns\n", idx,
+					(scpdump_cal[idx].end - scpdump_cal[idx].start));
+		}
+#endif
+	} else {
+#else
+	{
+#endif
 	/* reset dram from dram back */
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		tmp = (void *)(scp_ap_dram_virt +
@@ -253,6 +311,7 @@ int scp_sys_full_reset(void)
 			* scpreg.core_nums);
 		memcpy(scp_ap_dram_virt, tmp,
 			scp_region_info_copy.ap_dram_size);
+	}
 	}
 	return 0;
 }

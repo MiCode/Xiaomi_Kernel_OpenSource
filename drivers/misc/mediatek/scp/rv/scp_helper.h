@@ -6,9 +6,11 @@
 #ifndef __SCP_HELPER_H__
 #define __SCP_HELPER_H__
 
+#include <linux/arm-smccc.h>
 #include <linux/notifier.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "scp_reg.h"
 #include "scp_feature_define.h"
 #include "scp.h"
@@ -206,6 +208,112 @@ extern struct scp_region_info_st *scp_region_info;
 extern void __iomem *scp_ap_dram_virt;
 extern void __iomem *scp_loader_virt;
 extern void __iomem *scp_regdump_virt;
+#endif
+
+enum MTK_TINYSYS_SCP_KERNEL_OP {
+	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_START = 0,
+	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_POLLING,
+	MTK_TINYSYS_SCP_KERNEL_OP_RESET_SET,
+	MTK_TINYSYS_SCP_KERNEL_OP_RESET_RELEASE,
+	MTK_TINYSYS_SCP_KERNEL_OP_RESTORE_L2TCM,
+	MTK_TINYSYS_SCP_KERNEL_OP_RESTORE_DRAM,
+	MTK_TINYSYS_SCP_KERNEL_OP_WDT_SET,
+	MTK_TINYSYS_SCP_KERNEL_OP_HALT_SET,
+	MTK_TINYSYS_SCP_KERNEL_OP_WDT_CLEAR,
+	MTK_TINYSYS_SCP_KERNEL_OP_NUM,
+};
+
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+static inline unsigned long scp_do_dump(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_START,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long scp_do_polling(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_POLLING,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline uint64_t scp_do_rstn_set(uint64_t boot_ok)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_RESET_SET,
+			boot_ok, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline uint64_t scp_do_rstn_clr(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_RESET_RELEASE,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long scp_restore_l2tcm(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_RESTORE_L2TCM,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long scp_restore_dram(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_RESTORE_DRAM,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline uint64_t scp_do_wdt_set(uint64_t coreid)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_WDT_SET,
+			coreid, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline uint64_t scp_do_halt_set(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_HALT_SET,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline uint64_t scp_do_wdt_clear(uint64_t coreid)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_WDT_CLEAR,
+			coreid, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
 #endif
 
 #endif

@@ -560,29 +560,6 @@ unsigned int is_scp_ready(enum scp_core_id id)
 }
 EXPORT_SYMBOL_GPL(is_scp_ready);
 
-#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-static inline unsigned long scp_do_rstn_set(unsigned long boot_ok)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_RESET_SET,
-			boot_ok, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline unsigned long scp_do_rstn_clr(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_RESET_RELEASE,
-			0, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-#endif
-
 /*
  * reset scp and create a timer waiting for scp notify
  * apps to stop their tasks if needed
@@ -864,6 +841,20 @@ DEVICE_ATTR_RW(scp_ipi_test);
 #if SCP_RECOVERY_SUPPORT
 void scp_wdt_reset(int cpu_id)
 {
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+		switch (cpu_id) {
+		case 0:
+			scp_do_wdt_set(0);
+			break;
+		case 1:
+			scp_do_wdt_set(1);
+			break;
+		}
+	} else {
+#else
+	{
+#endif
 	switch (cpu_id) {
 	case 0:
 		writel(V_INSTANT_WDT, R_CORE0_WDT_CFG);
@@ -871,6 +862,7 @@ void scp_wdt_reset(int cpu_id)
 	case 1:
 		writel(V_INSTANT_WDT, R_CORE1_WDT_CFG);
 		break;
+	}
 	}
 }
 EXPORT_SYMBOL(scp_wdt_reset);

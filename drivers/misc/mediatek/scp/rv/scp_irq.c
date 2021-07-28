@@ -15,7 +15,6 @@
 #include "scp_excep.h"
 #include "scp_dvfs.h"
 
-
 /*
  * handler for wdt irq for scp
  * dump scp register
@@ -73,10 +72,21 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 		scp_A_wdt_handler();
 		/* clear IRQ */
 		wait_scp_wdt_irq_done();
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+		if (scpreg.secure_dump) {
+			if (reg0)
+				scp_do_wdt_clear(0);
+			if (reg1)
+				scp_do_wdt_clear(1);
+		} else {
+#else
+		{
+#endif
 		if (reg0)
 			writel(B_WDT_IRQ, R_CORE0_WDT_IRQ);
 		if (reg1)
 			writel(B_WDT_IRQ, R_CORE1_WDT_IRQ);
+		}
 	}
 	return IRQ_HANDLED;
 }
