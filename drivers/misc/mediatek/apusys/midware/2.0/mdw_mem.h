@@ -9,7 +9,7 @@
 int mdw_mem_init(struct mdw_device *mdev);
 void mdw_mem_deinit(struct mdw_device *mdev);
 int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
-int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle);
+int mdw_mem_dma_alloc(struct mdw_mem *mem);
 int mdw_mem_dma_free(struct mdw_mem *mem);
 int mdw_mem_dma_map(struct mdw_mem *mem);
 int mdw_mem_dma_unmap(struct mdw_mem *mem);

@@ -15,10 +15,32 @@
 #include "mdw_mem.h"
 
 struct mdw_device *mdw_dev;
-struct apusys_core_info *g_info;
+static struct apusys_core_info *g_info;
 static atomic_t g_inited;
 
-static int mdw_dev_open(struct inode *inode, struct file *filp)
+
+static void mdw_drv_priv_delete(struct kref *ref)
+{
+	struct mdw_fpriv *mpriv =
+			container_of(ref, struct mdw_fpriv, ref);
+
+	mdw_drv_debug("mpriv(%p) free\n", mpriv);
+	kfree(mpriv);
+}
+
+static void mdw_drv_priv_get(struct mdw_fpriv *mpriv)
+{
+	mdw_flw_debug("mpriv(%p) ref(%u)\n", mpriv, kref_read(&mpriv->ref));
+	kref_get(&mpriv->ref);
+}
+
+static void mdw_drv_priv_put(struct mdw_fpriv *mpriv)
+{
+	mdw_flw_debug("mpriv(%p) ref(%u)\n", mpriv, kref_read(&mpriv->ref));
+	kref_put(&mpriv->ref, mdw_drv_priv_delete);
+}
+
+static int mdw_drv_open(struct inode *inode, struct file *filp)
 {
 	struct mdw_fpriv *mpriv = NULL;
 
@@ -37,27 +59,33 @@ static int mdw_dev_open(struct inode *inode, struct file *filp)
 		atomic_inc(&g_inited);
 	}
 
+	mpriv->get = mdw_drv_priv_get;
+	mpriv->put = mdw_drv_priv_put;
+	kref_init(&mpriv->ref);
+	mdw_flw_debug("mpriv(%p)\n", mpriv);
+
 	return 0;
 }
 
-static int mdw_dev_release(struct inode *inode, struct file *filp)
+static int mdw_drv_close(struct inode *inode, struct file *filp)
 {
 	struct mdw_fpriv *mpriv = NULL;
 
 	mpriv = filp->private_data;
+	mdw_flw_debug("mpriv(%p)\n", mpriv);
 	mutex_lock(&mpriv->mtx);
 	mdw_cmd_mpriv_release(mpriv);
 	mdw_mem_mpriv_release(mpriv);
 	mutex_unlock(&mpriv->mtx);
-	kfree(mpriv);
+	mpriv->put(mpriv);
 
 	return 0;
 }
 
 static const struct file_operations mdw_fops = {
 	.owner = THIS_MODULE,
-	.open = mdw_dev_open,
-	.release = mdw_dev_release,
+	.open = mdw_drv_open,
+	.release = mdw_drv_close,
 	.unlocked_ioctl = mdw_ioctl,
 	.compat_ioctl = mdw_ioctl,
 };
@@ -76,7 +104,7 @@ static void mdw_drv_misc_deinit(struct mdw_device *mdev)
 	return misc_deregister(&mdev->misc_dev);
 }
 
-static int mdw_probe(struct platform_device *pdev)
+static int mdw_platform_probe(struct platform_device *pdev)
 {
 	struct mdw_device *mdev = NULL;
 	int ret = 0;
@@ -138,7 +166,7 @@ out:
 	return ret;
 }
 
-static int mdw_remove(struct platform_device *pdev)
+static int mdw_platform_remove(struct platform_device *pdev)
 {
 	struct mdw_device *mdev = platform_get_drvdata(pdev);
 
@@ -160,14 +188,14 @@ static const struct of_device_id mdw_of_match[] = {
 	{},
 };
 
-static struct platform_driver mdw_driver = {
+static struct platform_driver mdw_platform_driver = {
 	.driver = {
 		.name = "apusys",
 		.owner = THIS_MODULE,
 		.of_match_table = mdw_of_match,
 	},
-	.probe = mdw_probe,
-	.remove = mdw_remove,
+	.probe = mdw_platform_probe,
+	.remove = mdw_platform_remove,
 };
 
 //----------------------------------------
@@ -275,7 +303,7 @@ int mdw_init(struct apusys_core_info *info)
 	}
 
 	pr_info("%s register platorm...\n", __func__);
-	ret = platform_driver_register(&mdw_driver);
+	ret = platform_driver_register(&mdw_platform_driver);
 	if (ret) {
 		pr_info("failed to register apu mdw driver\n");
 		goto out;
@@ -285,14 +313,14 @@ int mdw_init(struct apusys_core_info *info)
 	ret = register_rpmsg_driver(&mdw_rpmsg_driver);
 	if (ret) {
 		pr_info("failed to register apu mdw rpmsg driver\n");
-		platform_driver_unregister(&mdw_driver);
+		platform_driver_unregister(&mdw_platform_driver);
 		goto unregister_platform_driver;
 	}
 	pr_info("%s init done\n", __func__);
 	goto out;
 
 unregister_platform_driver:
-	platform_driver_unregister(&mdw_driver);
+	platform_driver_unregister(&mdw_platform_driver);
 out:
 	return ret;
 }
@@ -300,6 +328,6 @@ out:
 void mdw_exit(void)
 {
 	unregister_rpmsg_driver(&mdw_rpmsg_driver);
-	platform_driver_unregister(&mdw_driver);
+	platform_driver_unregister(&mdw_platform_driver);
 	g_info = NULL;
 }

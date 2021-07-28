@@ -410,18 +410,21 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 static void mdw_cmd_delete(struct mdw_cmd *c)
 {
+	struct mdw_fpriv *mpriv = c->mpriv;
+
 	mdw_cmd_show(c, mdw_drv_debug);
 
-	/* delete */
 	mdw_cmd_delete_infos(c->mpriv, c);
 	mdw_cmd_put_mem(c->mpriv, c->exec_infos);
 	kvfree(c->ksubcmds);
 	kvfree(c->adj_matrix);
 	kvfree(c->subcmds);
-	mutex_lock(&c->mpriv->mtx);
+	mutex_lock(&mpriv->mtx);
 	list_del(&c->u_item);
-	mutex_unlock(&c->mpriv->mtx);
+	mutex_unlock(&mpriv->mtx);
 	kvfree(c);
+
+	mpriv->put(mpriv);
 }
 
 static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
@@ -458,8 +461,6 @@ static void mdw_cmd_trigger_func(struct work_struct *wk)
 
 void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
 {
-	mdw_drv_debug("TODO\n");
-	//TODO
 }
 
 static int mdw_cmd_sanity_check(struct mdw_cmd *c)
@@ -596,6 +597,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	}
 	mutex_init(&c->mtx);
 	c->mpriv = mpriv;
+	c->mpriv->get(c->mpriv);
 	c->complete = mdw_cmd_complete;
 	INIT_WORK(&c->t_wk, &mdw_cmd_trigger_func);
 	mutex_lock(&mpriv->mtx);

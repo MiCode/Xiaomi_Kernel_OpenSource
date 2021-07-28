@@ -63,6 +63,7 @@ struct mdw_mem {
 	unsigned int align;
 	uint64_t flags;
 	struct mdw_fpriv *mpriv;
+	bool need_handle;
 
 	/* out */
 	int handle;
@@ -73,8 +74,6 @@ struct mdw_mem {
 
 	/* control */
 	enum mdw_mem_type type;
-	bool is_invalid;
-	bool is_released;
 	struct list_head u_item;
 	struct list_head m_item;
 	struct kref map_ref;
@@ -122,6 +121,11 @@ struct mdw_fpriv {
 	struct list_head mems;
 	struct list_head cmds;
 	struct mutex mtx;
+
+	/* ref count for cmd/mem */
+	struct kref ref;
+	void (*get)(struct mdw_fpriv *mpriv);
+	void (*put)(struct mdw_fpriv *mpriv);
 };
 
 struct mdw_subcmd_kinfo {

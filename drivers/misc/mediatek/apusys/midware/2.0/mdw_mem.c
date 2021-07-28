@@ -15,11 +15,11 @@
 #include "mdw_trace.h"
 
 #define mdw_mem_show(m) \
-	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d" \
-	"/%d/%p)(%u/%d)\n", \
-	m, m->handle, (uint64_t)m->vaddr, m->size, m->device_va, \
-	m->align, m->flags, m->type, kref_read(&m->map_ref), \
-	m->priv, m->is_released, current->pid)
+	mdw_mem_debug("mem(%p/%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d" \
+	"/%d/%p)(%d)\n", \
+	m->mpriv, m, m->handle, (uint64_t)m->vaddr, m->size, \
+	m->device_va, m->align, m->flags, m->type, \
+	kref_read(&m->map_ref), m->priv, current->pid)
 
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 {
@@ -29,9 +29,6 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 static void mdw_mem_delete(struct mdw_mem *m)
 {
 	struct mdw_fpriv *mpriv = m->mpriv;
-
-	if (m->is_released == true)
-		goto out;
 
 	mdw_mem_show(m);
 
@@ -48,8 +45,8 @@ static void mdw_mem_delete(struct mdw_mem *m)
 		break;
 	}
 
-out:
 	vfree(m);
+	mpriv->put(mpriv);
 }
 
 static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
@@ -61,25 +58,11 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 		m->mpriv = mpriv;
 		m->release = mdw_mem_delete;
 		mdw_mem_show(m);
+		mpriv->get(mpriv);
 	}
 
 	return m;
 }
-
-static int mdw_mem_destroy(struct mdw_mem *m)
-{
-	int ret = 0;
-
-	if (!m) {
-		mdw_drv_err("Destroy Null pointer\n");
-		return -ENODATA;
-	}
-
-	vfree(m);
-
-	return ret;
-}
-
 
 static void mdw_mem_map_release(struct kref *ref)
 {
@@ -114,34 +97,34 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint64_t flags, enum mdw_mem_type type)
 {
 	struct mdw_mem *m = NULL;
-	bool need_handle = true;
 	int ret = 0;
 
 	mdw_trace_begin("%s|size(%u) align(%u)",
 		__func__, size, align);
 
-	if (type == MDW_MEM_TYPE_INTERNAL)
-		need_handle = false;
-
 	m = mdw_mem_create(mpriv);
 	if (!m)
 		goto out;
 
+	if (type == MDW_MEM_TYPE_INTERNAL)
+		m->need_handle = false;
+	else
+		m->need_handle = true;
 	m->size = size;
 	m->align = align;
 	m->flags = flags;
-	m->type = type;
-	ret = mdw_mem_dma_alloc(m, need_handle);
+	ret = mdw_mem_dma_alloc(m);
 	if (ret) {
 		mdw_drv_err("mdw_mem_dma_alloc Fail (%d)\n", ret);
 		goto free_mem;
 	}
+	m->type = type;
 
 	mdw_mem_show(m);
 	goto out;
 
 free_mem:
-	mdw_mem_destroy(m);
+	mdw_mem_delete(m);
 	m = NULL;
 out:
 	mdw_trace_end("%s|size(%u) align(%u)",
@@ -207,13 +190,12 @@ static struct mdw_mem *mdw_mem_import(struct mdw_fpriv *mpriv,
 
 	m->size = size;
 	m->handle = handle;
-	m->type = MDW_MEM_TYPE_IMPORT;
-
 	if (mdw_mem_dma_import(m)) {
 		mdw_drv_err("import fail\n");
 		goto free_mem;
 	}
 
+	m->type = MDW_MEM_TYPE_IMPORT;
 	kref_init(&m->map_ref);
 	list_add_tail(&m->u_item, &mpriv->mems);
 	mdw_mem_show(m);
@@ -221,7 +203,7 @@ static struct mdw_mem *mdw_mem_import(struct mdw_fpriv *mpriv,
 	goto out;
 
 free_mem:
-	mdw_mem_destroy(m);
+	mdw_mem_delete(m);
 	m = NULL;
 out:
 	return m;
@@ -229,19 +211,10 @@ out:
 
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv)
 {
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct mdw_mem *m = NULL;
+	struct mdw_mem *m = NULL, *tmp = NULL;
 	int i = 0, ref_cnt = 0;
 
-	list_for_each_safe(list_ptr, tmp, &mpriv->mems) {
-		m = list_entry(list_ptr, struct mdw_mem, u_item);
-
-		mdw_mem_show(m);
-		m->is_released = true;
-		if (m->type == MDW_MEM_TYPE_ALLOC ||
-			m->type == MDW_MEM_TYPE_IMPORT)
-			list_del(&m->u_item);
-
+	list_for_each_entry_safe(m, tmp, &mpriv->mems, u_item) {
 		ref_cnt = kref_read(&m->map_ref);
 		for (i = 0; i < ref_cnt; i++)
 			kref_put(&m->map_ref, mdw_mem_map_release);

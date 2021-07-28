@@ -49,9 +49,9 @@ struct mdw_mem_dma_mgr {
 };
 
 #define mdw_mem_dma_show(d) \
-	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/0x%x)(%d)\n", \
+	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/0x%x/%d)(%d)\n", \
 	d->mmem, d->mmem->handle, (uint64_t)d->mmem->vaddr, d->mmem->size, \
-	d->dma_addr, d->dma_size, current->pid)
+	d->dma_addr, d->dma_size, d->mmem->need_handle, current->pid)
 
 
 static struct mdw_mem_dma_mgr mdmgr;
@@ -198,14 +198,14 @@ struct mdw_mem *mdw_mem_dma_get(int handle)
 
 	dma_buf_put(dbuf);
 	if (!m) {
-		mdw_mem_debug("handle(%d) not belong APU\n", handle);
+		mdw_mem_debug("handle(%d) not belong to apu\n", handle);
 		return NULL;
 	}
 
 	return m->mmem;
 }
 
-int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
+int mdw_mem_dma_alloc(struct mdw_mem *mem)
 {
 	struct mdw_mem_dma *mdbuf = NULL;
 	int ret = 0;
@@ -259,7 +259,6 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 		goto free_mdw_dbuf;
 	}
 
-
 	/* export as dma-buf */
 	exp_info.ops = &mdw_dmabuf_ops;
 	exp_info.size = mdbuf->dma_size;
@@ -288,7 +287,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 	mutex_unlock(&mdmgr.mtx);
 
 	/* internal use, don't export fd */
-	if (need_handle == false) {
+	if (mem->need_handle == false) {
 		mem->handle = -1;
 		goto out;
 	}
