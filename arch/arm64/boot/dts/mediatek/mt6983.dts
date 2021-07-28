@@ -386,6 +386,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -397,6 +400,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -408,6 +414,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -419,6 +428,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -430,6 +442,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <944>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -441,6 +456,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <944>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -452,6 +470,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <944>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu7: cpu@200 {
@@ -463,6 +484,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu-map {
@@ -504,6 +528,82 @@
 				doe_dvfs_cl2: doe {
 				};
 
+			};
+		};
+
+		idle-states {
+			entry-method = "arm,psci";
+				cpuoff_l: cpuoff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1600>;
+			};
+			cpuoff_b: cpuoff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010002>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1400>;
+			};
+			clusteroff_l: clusteroff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010101>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <2100>;
+			};
+			clusteroff_b: clusteroff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010102>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <1900>;
+			};
+			mcusysoff: mcusysoff {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010701>;
+				local-timer-stop;
+				entry-latency-us = <450>;
+				exit-latency-us = <600>;
+				min-residency-us = <4000>;
+			};
+			system_mem: system_mem {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f01>;
+				local-timer-stop;
+				entry-latency-us = <700>;
+				exit-latency-us = <850>;
+				min-residency-us = <4000>;
+			};
+			system_pll: system_pll {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f02>;
+				local-timer-stop;
+				entry-latency-us = <800>;
+				exit-latency-us = <950>;
+				min-residency-us = <4000>;
+			};
+			system_bus: system_bus {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f03>;
+				local-timer-stop;
+				entry-latency-us = <1300>;
+				exit-latency-us = <2800>;
+				min-residency-us = <4000>;
+			};
+			s2idle: s2idle {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01011f01>;
+				local-timer-stop;
+				entry-latency-us = <10000>;
+				exit-latency-us = <10000>;
+				min-residency-us = <4294967295>;
 			};
 		};
 	};
@@ -9876,9 +9976,9 @@
 			reg = <0 0x0011b000 0 0x500>;
 		};
 
-		mcusys_ctrl: mcusys-ctrl@0c53a000 {
+		mcusys_ctrl: mcusys-ctrl@0c040000 {
 			compatible = "mediatek,mcusys-ctrl";
-			reg = <0 0x0c53a000 0 0x1000>;
+			reg = <0 0x0c040000 0 0x1000>;
 		};
 
 		lpm_sysram: lpm_sysram@0011b500 {
