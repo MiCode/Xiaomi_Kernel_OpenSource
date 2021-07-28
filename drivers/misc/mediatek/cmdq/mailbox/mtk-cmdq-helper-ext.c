@@ -879,6 +879,19 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
 
+s32 cmdq_pkt_assign_command_reuse(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
+	u64 **curr_buf_va, u32 *inst_offset)
+{
+	s32 err;
+
+	err = cmdq_pkt_assign_command(pkt, reg_idx, value);
+
+	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_assign_command_reuse);
+
 s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
 	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
 {

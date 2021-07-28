@@ -324,6 +324,9 @@ s32 cmdq_pkt_write_reg_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	u32 value, u32 mask);
 
+s32 cmdq_pkt_assign_command_reuse(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
+	u64 **curr_buf_va, u32 *inst_offset);
+
 s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
 	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset);
 
