@@ -1474,7 +1474,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 
 	/* TODO: check if we tried recover the error before we dump */
 
-	req = mtk_cam_dev_get_req(raw_dev->cam, ctx, dequeued_frame_seq_no);
+	req = mtk_cam_get_req(ctx, dequeued_frame_seq_no);
 	if (req)
 		mtk_cam_req_dump(ctx, req, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
 					 "TG overrun");
@@ -1951,7 +1951,7 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	stream_data = &cam_req->stream_data[pipe->id];
+	stream_data = mtk_cam_req_get_s_data(cam_req, pipe->id, 0);
 	stream_data->pad_fmt_update |= (1 << fmt->pad);
 	stream_data->pad_fmt[fmt->pad] = *fmt;
 

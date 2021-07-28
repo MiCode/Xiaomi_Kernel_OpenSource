@@ -658,6 +658,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	unsigned int pipe_id;
 	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
+	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct device *dev = cam->dev;
 	unsigned long flags;
@@ -676,8 +677,9 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 
 	dma_port = node->desc.dma_port;
 	pipe_id = node->uid.pipe_id;
-	frame_param = &req->stream_data[pipe_id].frame_params;
-	sv_frame_params = &req->stream_data[pipe_id].sv_frame_params;
+	req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
+	frame_param = &req_stream_data->frame_params;
+	sv_frame_params = &req_stream_data->sv_frame_params;
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
 
 	dev_dbg(dev, "%s: node:%d fd:%d idx:%d\n", __func__,

@@ -33,7 +33,7 @@ void mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 	int request_fd = -1;
 
 	memset(param, 0, sizeof(*param));
-	stream_data = &req->stream_data[ctx->stream_id];
+	stream_data =  mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	param->stream_id = ctx->stream_id;
 	param->sequence = stream_data->frame_seq_no;
 	param->timestamp = stream_data->timestamp;
@@ -854,16 +854,18 @@ static void mtk_cam_exception_work(struct work_struct *work)
 {
 	struct mtk_cam_req_dbg_work *dbg_work = to_mtk_cam_req_dbg_work(work);
 	struct mtk_cam_request *req = dbg_work->req;
+	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_ctx *ctx = dbg_work->ctx;
 	struct mtk_cam_dump_param dump_param;
 	char warn_desc[48];
 
+	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	mtk_cam_debug_init_dump_param(ctx, &dump_param, req,
 				      dbg_work->desc);
 
 	ctx->cam->debug_fs->ops->exp_dump(ctx->cam->debug_fs, &dump_param);
 	snprintf(warn_desc, 48, "ctx(%d):req(%d):%s",
-		 ctx->stream_id, req->stream_data[ctx->stream_id].frame_seq_no,
+		 ctx->stream_id, req_stream_data->frame_seq_no,
 		 dbg_work->desc);
 	dev_info(ctx->cam->dev, "%s:%s:camsys dump, %s\n",
 		 __func__, req->req.debug_str, warn_desc);
@@ -914,7 +916,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 	int ret;
 	bool streamoff;
 
-	stream_data = &req->stream_data[ctx->stream_id];
+	stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	ret = wait_event_freezable_timeout(ctx->cam->debug_exception_waitq,
 					   mtk_cam_exceptoin_is_job_done(req,
 					   ctx, &streamoff),
@@ -957,6 +959,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 		     unsigned int dump_flag, char *desc)
 {
+	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_req_dbg_work *dbg_work;
 	void (*work_func)(struct work_struct *work);
 	struct workqueue_struct *wq;
@@ -964,30 +967,32 @@ int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 	if (!ctx->cam->debug_fs)
 		return false;
 
+	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+
 	switch (dump_flag) {
 	case MTK_CAM_REQ_DUMP_FORCE:
 		if (!ctx->cam->debug_fs->force_dump ||
 		    !ctx->cam->debug_fs->ctrl[ctx->stream_id].num)
 			return false;
 
-		dbg_work = &req->stream_data[ctx->stream_id].dbg_work;
+		dbg_work = &req_stream_data->dbg_work;
 		work_func = mtk_cam_debug_dump_work;
 		wq = ctx->cam->debug_wq;
 		break;
 	case MTK_CAM_REQ_DUMP_DEQUEUE_FAILED:
-		dbg_work = &req->stream_data[ctx->stream_id].dbg_exception_work;
+		dbg_work =  &req_stream_data->dbg_exception_work;
 		work_func = mtk_cam_exception_work;
 		wq = ctx->cam->debug_exception_wq;
 		break;
 	case MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED:
-		dbg_work = &req->stream_data[ctx->stream_id].dbg_exception_work;
+		dbg_work =  &req_stream_data->dbg_exception_work;
 		work_func = mtk_cam_exceptoin_detect_work;
 		wq = ctx->cam->debug_exception_wq;
 		break;
 	default:
 		dev_dbg(ctx->cam->dev,
 			"%s:seq(%d) dump skipped, unknown dump type (%d)\n",
-			__func__, req->stream_data[ctx->stream_id].frame_seq_no,
+			__func__, req_stream_data->frame_seq_no,
 			dump_flag);
 		return false;
 	}
@@ -1006,7 +1011,7 @@ int mtk_cam_req_dump(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
 		dev_dbg(ctx->cam->dev,
 			"%s: seq(%d) failed, debug work is already in queue\n",
 			__func__,
-			req->stream_data[ctx->stream_id].frame_seq_no);
+			req_stream_data->frame_seq_no);
 		media_request_put(&req->req);
 		return false;
 	}
@@ -1036,7 +1041,7 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_ctx *ctx,
 	    ctx->composed_frame_seq_no < ctx->dequeued_frame_seq_no)
 		return;
 
-	stream_data = &req->stream_data[ctx->stream_id];
+	stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	if (stream_data->state.estate == E_STATE_CQ ||
 	    stream_data->state.estate == E_STATE_INNER_HW_DELAY)
 		stream_data->no_frame_done_cnt++;

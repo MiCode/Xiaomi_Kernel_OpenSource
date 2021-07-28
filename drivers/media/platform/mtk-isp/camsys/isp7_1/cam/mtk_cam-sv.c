@@ -1773,6 +1773,7 @@ bool mtk_cam_sv_finish_buf(struct mtk_cam_ctx *ctx,
 	bool result = false;
 	int cnt = 0;
 	struct mtk_camsv_working_buf_entry *sv_buf_entry, *sv_buf_entry_prev;
+	struct mtk_cam_request_stream_data *req_stream_data;
 
 
 	spin_lock(&ctx->sv_processing_buffer_list.lock);
@@ -1781,8 +1782,9 @@ bool mtk_cam_sv_finish_buf(struct mtk_cam_ctx *ctx,
 	list_for_each_entry_safe(sv_buf_entry, sv_buf_entry_prev,
 				 &ctx->sv_processing_buffer_list.list,
 				 list_entry) {
+		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		if (sv_buf_entry->buffer.frame_seq_no ==
-		    req->stream_data[ctx->stream_id].frame_seq_no) {
+		    req_stream_data->frame_seq_no) {
 			list_del(&sv_buf_entry->list_entry);
 			mtk_cam_sv_working_buf_put(ctx, sv_buf_entry);
 			ctx->sv_processing_buffer_list.cnt--;

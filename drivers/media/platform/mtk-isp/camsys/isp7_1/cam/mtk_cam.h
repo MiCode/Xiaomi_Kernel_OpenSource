@@ -24,11 +24,14 @@
 #include "mtk_cam-ctrl.h"
 #include "mtk_cam-debug.h"
 
+#define MTK_CAM_REQ_MAX_S_DATA	2
+
 /* for cq working buffers */
 #define CQ_BUF_SIZE  0x8000
 #define CAM_CQ_BUF_NUM 8
 #define CAMSV_CQ_BUF_NUM 8
 #define IPI_FRAME_BUF_SIZE 0x8000
+
 /* for stagger, time-sharing camsv working buffer, 3exps * (1backup + 2streams)*/
 #define CAM_IMG_BUF_NUM (3*3)
 
@@ -105,6 +108,11 @@ struct mtk_cam_req_work {
 	int pipe_id;
 };
 
+struct mtk_cam_req_feature {
+	int raw_feature;
+	int switch_feature_type;
+};
+
 /*
  * struct mtk_cam_request_stream_data - per stream members of a request
  *
@@ -114,12 +122,10 @@ struct mtk_cam_req_work {
  * @working_buf: command queue buffer associated to this request
  *
  */
-struct mtk_cam_req_feature {
-	int raw_feature;
-	int switch_feature_type;
-};
-
 struct mtk_cam_request_stream_data {
+	struct mtk_cam_request *req;
+	struct mtk_cam_ctx *ctx;
+	int pipe_id;
 	unsigned int frame_seq_no;
 	u64 timestamp;
 	u64 timestamp_mono;
@@ -141,6 +147,11 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct mtk_cam_req_feature feature;
 	bool frame_done_queue_work;
+};
+
+struct mtk_cam_req_pipe {
+	int s_data_num;
+	struct mtk_cam_request_stream_data s_data[MTK_CAM_REQ_MAX_S_DATA];
 };
 
 /*
@@ -170,9 +181,21 @@ struct mtk_cam_request {
 	struct list_head list;
 	struct work_struct link_work;
 	u64 time_syscall_enque;
-	struct mtk_cam_request_stream_data stream_data[MTKCAM_SUBDEV_MAX];
+	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
 	s64 sync_id;
 };
+
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
+{
+	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
+		return NULL;
+
+	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num)
+		return NULL;
+
+	return &req->p_data[pipe_id].s_data[idx];
+}
 
 static inline struct mtk_cam_request *
 to_mtk_cam_req(struct media_request *__req)
@@ -325,6 +348,21 @@ struct mtk_cam_device {
 
 };
 
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_ctrl_state_to_req_s_data(struct mtk_camsys_ctrl_state *state)
+{
+	return container_of(state, struct mtk_cam_request_stream_data, state);
+}
+
+static inline struct mtk_cam_request*
+mtk_cam_ctrl_state_get_req(struct mtk_camsys_ctrl_state *state)
+{
+	struct mtk_cam_request_stream_data *request_stream_data;
+
+	request_stream_data = mtk_cam_ctrl_state_to_req_s_data(state);
+	return request_stream_data->req;
+}
+
 static inline struct mtk_cam_request*
 mtk_cam_req_work_to_req(struct work_struct *work)
 {
@@ -363,11 +401,14 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe);
 
-struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
-					    struct mtk_cam_ctx *ctx,
-					    unsigned int frame_seq_no);
+struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
+					unsigned int frame_seq_no);
+
+struct mtk_cam_request_stream_data*
+mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int frame_seq_no);
+
 struct mtk_raw_pipeline *mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam,
-	unsigned int id);
+						      unsigned int id);
 
 int get_main_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_sub_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
