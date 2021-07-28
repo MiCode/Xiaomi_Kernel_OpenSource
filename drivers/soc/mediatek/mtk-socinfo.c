@@ -26,8 +26,7 @@ static int __init mediatek_socinfo_init(void)
 	attrs->family = "MediaTek";
 
 	np = of_find_node_by_path("/");
-	of_property_read_string(np, "model", &attrs->machine);
-	of_property_read_string(np, "soc_id", &attrs->soc_id);
+	of_property_read_string(np, "model", &attrs->soc_id);
 	of_node_put(np);
 
 	soc_dev = soc_device_register(attrs);
