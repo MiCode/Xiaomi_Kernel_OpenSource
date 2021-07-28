@@ -244,7 +244,7 @@ static int __maybe_unused vib_suspend(struct device *dev)
 	if (atomic_read(&vibr->vibr_state)) {
 		atomic_set(&vibr->vibr_state, 0);
 		vibr_disable(vibr);
-		pr_notice("vibr disbale ret=%d, enter suspend.");
+		pr_notice("vibr disabled, enter suspend.");
 	}
 
 	return 0;
