@@ -70,6 +70,11 @@ static void mml_qos_init(struct mml_dev *mml)
 	unsigned long freq = 0;
 	u32 i;
 
+	if (!tp) {
+		mml_err("%s topology fail so stop qos", __func__);
+		return;
+	}
+
 	mutex_init(&tp->qos_mutex);
 
 	/* Create opp table from dts */
@@ -102,7 +107,7 @@ static void mml_qos_init(struct mml_dev *mml)
 		tp->opp_speeds[i] = (u32)div_u64(freq, 1000000);
 		tp->opp_volts[i] = dev_pm_opp_get_voltage(opp);
 		tp->freq_max = tp->opp_speeds[i];
-		mml_log("mml opp %u: %luMHz\t%d",
+		mml_log("mml opp %u: %uMHz\t%d",
 			i, tp->opp_speeds[i], tp->opp_volts[i]);
 		freq++;
 		i++;
@@ -116,7 +121,7 @@ void mml_qos_update_tput(struct mml_dev *mml)
 	u32 tput = 0, i;
 	int volt, ret;
 
-	if (!tp->reg)
+	if (!tp || !tp->reg)
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(tp->path_clts); i++) {
@@ -131,7 +136,7 @@ void mml_qos_update_tput(struct mml_dev *mml)
 	volt = tp->opp_volts[min(i, tp->opp_cnt - 1)];
 	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 	if (ret)
-		mml_err("%s fail to set volt %d", volt);
+		mml_err("%s fail to set volt %d", __func__, volt);
 }
 
 
@@ -149,7 +154,7 @@ struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 		mml_qos_init(mml);
 	}
 	if (IS_ERR(mml->topology)) {
-		mml_err("topology create fail %d", PTR_ERR(mml->topology));
+		mml_err("topology create fail %ld", PTR_ERR(mml->topology));
 		return (void *)mml->topology;
 	}
 
@@ -401,7 +406,7 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 		comp->icc_path = NULL;
 	}
 
-	mml_log("%s dev %p larb dev %u comp %u",
+	mml_log("%s dev %p larb dev %p comp %u",
 		__func__, dev, larb_pdev, comp->id);
 
 	return 0;

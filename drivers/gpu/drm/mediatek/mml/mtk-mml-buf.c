@@ -24,7 +24,7 @@ void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt)
 
 		dmabuf = dma_buf_get(fd[i]);
 		if (!dmabuf || IS_ERR(dmabuf)) {
-			mml_err("%s fail to get dma_buf %u by fd %d err %d",
+			mml_err("%s fail to get dma_buf %u by fd %d err %ld",
 				__func__, i, fd[i], PTR_ERR(dmabuf));
 			continue;
 		}
