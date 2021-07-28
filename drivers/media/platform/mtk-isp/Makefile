@@ -2,3 +2,4 @@
 obj-m += mtk-hcp/
 obj-m += imgsys/
 obj-y += camsys/
+obj-m += mtk-ipesys-me/

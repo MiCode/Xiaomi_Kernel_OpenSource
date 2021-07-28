@@ -15,8 +15,9 @@
 #include "modules/mtk_imgsys-traw.h"
 #include "modules/mtk_imgsys-pqdip.h"
 #include "modules/mtk_imgsys-wpe.h"
-#include "modules/mtk_imgsys-me.h"
+//#include "modules/mtk_imgsys-me.h"
 #include "modules/mtk_imgsys-adl.h"
+#include "mtk-ipesys-me.h"
 
 const struct module_ops imgsys_isp7_modules[] = {
 	[IMGSYS_MOD_TRAW] = {
@@ -37,9 +38,9 @@ const struct module_ops imgsys_isp7_modules[] = {
 	},
 	[IMGSYS_MOD_ME] = {
 		.module_id = IMGSYS_MOD_ME,
-		.init = imgsys_me_set_initial_value,
-		.dump = imgsys_me_debug_dump,
-		.uninit = imgsys_me_uninit,
+		.init = ipesys_me_set_initial_value,
+		.dump = ipesys_me_debug_dump,
+		.uninit = ipesys_me_uninit,
 	},
 	[IMGSYS_MOD_WPE] = {
 		.module_id = IMGSYS_MOD_WPE,

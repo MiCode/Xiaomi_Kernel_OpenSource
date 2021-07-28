@@ -3,7 +3,8 @@
 # Copyright (C) 2018 MediaTek Inc.
 #
 ccflags-$(CONFIG_MTK_AEE_FEATURE) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/mtk-hcp
+ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/mtk-hcp/
+ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/mtk-ipesys-me/
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)

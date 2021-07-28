@@ -20,7 +20,7 @@
 #include <linux/of_address.h>
 #include <linux/clk.h>
 #include "mtk_imgsys-engine.h"
-#include "mtk_imgsys-me.h"
+#include "mtk-ipesys-me.h"
 #ifdef TF_DUMP
 #include "mtk_iommu_ext.h"
 #include <dt-bindings/memory/mt8195-larb-port.h>
@@ -33,7 +33,7 @@ struct clk_bulk_data imgsys_isp7_me_clks[] = {
 	{ .id = "ME_CG_LARB12" },
 };
 
-//static struct me_device *me_dev;
+static struct ipesys_me_device *me_dev;
 
 #ifdef TF_DUMP
 int ME_TranslationFault_callback(int port, unsigned long mva, void *data)
@@ -54,9 +54,8 @@ int ME_TranslationFault_callback(int port, unsigned long mva, void *data)
 }
 #endif
 
-void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
+void ipesys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-#ifdef TF_DUMP
 	int ret;
 
 	pr_info("%s: +\n", __func__);
@@ -67,6 +66,7 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		pr_info("failed to enable clock:%d\n", ret);
 		return;
 	}
+#ifdef TF_DUMP
 	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_ME_RDMA,
 	(mtk_iommu_fault_callback_t)ME_TranslationFault_callback,
 	NULL);
@@ -76,26 +76,25 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 #endif
 	pr_info("%s: -\n", __func__);
 }
-EXPORT_SYMBOL(imgsys_me_set_initial_value);
+EXPORT_SYMBOL(ipesys_me_set_initial_value);
 
-void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
+void ipesys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
-#ifdef TF_DUMP
 	pr_info("%s: +\n", __func__);
 
 	pm_runtime_put_sync(me_dev->dev);
 	clk_bulk_disable_unprepare(me_dev->me_clk.clk_num, me_dev->me_clk.clks);
 
 	pr_info("%s: -\n", __func__);
-#endif
 }
-EXPORT_SYMBOL(imgsys_me_uninit);
+EXPORT_SYMBOL(ipesys_me_uninit);
 
-void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
+void ipesys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 			unsigned int engine)
 {
 	void __iomem *meRegBA = 0L;
 	unsigned int i;
+
 	pr_info("%s\n", __func__);
 	/* iomap registers */
 	meRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ME);
@@ -115,20 +114,24 @@ void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		(unsigned int)ioread32((void *)(meRegBA + (i+0xC))));
 	}
 }
-EXPORT_SYMBOL(imgsys_me_debug_dump);
+EXPORT_SYMBOL(ipesys_me_debug_dump);
 
-#ifdef ME_PROBE
-struct device *me_getdev(void)
+
+struct device *ipesys_me_getdev(void)
 {
 	return me_dev->dev;
 }
 
-static int mtk_imgsys_me_probe(struct platform_device *pdev)
+static int mtk_ipesys_me_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct device_link *link;
+	int larbs_num;
+	struct device_node *larb_node;
+	struct platform_device *larb_pdev;
 
-	pr_info("mtk imgsys me probe start\n");
-	me_dev = devm_kzalloc(&pdev->dev, sizeof(struct me_device) * 1, GFP_KERNEL);
+	pr_info("mtk ipesys me probe start\n");
+	me_dev = devm_kzalloc(&pdev->dev, sizeof(struct ipesys_me_device) * 1, GFP_KERNEL);
 	if (!me_dev)
 		return -ENOMEM;
 
@@ -142,6 +145,30 @@ static int mtk_imgsys_me_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	larbs_num = of_count_phandle_with_args(pdev->dev.of_node,
+						"mediatek,larb", NULL);
+	dev_info(me_dev->dev, "%d larbs to be added", larbs_num);
+
+	larb_node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", 0);
+	if (!larb_node) {
+		dev_info(me_dev->dev,
+			"%s: larb node not found\n", __func__);
+	}
+
+	larb_pdev = of_find_device_by_node(larb_node);
+	if (!larb_pdev) {
+		of_node_put(larb_node);
+		dev_info(me_dev->dev,
+			"%s: larb device not found\n", __func__);
+	}
+	of_node_put(larb_node);
+
+	link = device_link_add(&pdev->dev, &larb_pdev->dev,
+			DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+
+	if (!link)
+		dev_info(me_dev->dev, "unable to link SMI LARB\n");
+
 	pm_runtime_enable(&pdev->dev);
 
 	pr_info("mtk imgsys me probe done\n");
@@ -149,7 +176,7 @@ static int mtk_imgsys_me_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int mtk_imgsys_me_remove(struct platform_device *pdev)
+static int mtk_ipesys_me_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	devm_kfree(&pdev->dev, me_dev);
@@ -157,62 +184,62 @@ static int mtk_imgsys_me_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int __maybe_unused mtk_imgsys_me_runtime_suspend(struct device *dev)
+static int __maybe_unused mtk_ipesys_me_runtime_suspend(struct device *dev)
 {
 	pr_info("%s\n", __func__);
 	return 0;
 }
 
-static int __maybe_unused mtk_imgsys_me_runtime_resume(struct device *dev)
+static int __maybe_unused mtk_ipesys_me_runtime_resume(struct device *dev)
 {
 	pr_info("%s\n", __func__);
 	return 0;
 }
 
-static int __maybe_unused mtk_imgsys_me_pm_suspend(struct device *dev)
+static int __maybe_unused mtk_ipesys_me_pm_suspend(struct device *dev)
 {
 	pr_info("%s\n", __func__);
 	return 0;
 }
 
-static int __maybe_unused mtk_imgsys_me_pm_resume(struct device *dev)
+static int __maybe_unused mtk_ipesys_me_pm_resume(struct device *dev)
 {
 	pr_info("%s\n", __func__);
 	return 0;
 }
 
-static const struct dev_pm_ops mtk_imgsys_me_pm_ops = {
+static const struct dev_pm_ops mtk_ipesys_me_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(
-		mtk_imgsys_me_pm_suspend,
-		mtk_imgsys_me_pm_resume
+		mtk_ipesys_me_pm_suspend,
+		mtk_ipesys_me_pm_resume
 	)
 	SET_RUNTIME_PM_OPS(
-		mtk_imgsys_me_runtime_suspend,
-		mtk_imgsys_me_runtime_resume,
+		mtk_ipesys_me_runtime_suspend,
+		mtk_ipesys_me_runtime_resume,
 		NULL
 	)
 };
 
-static const struct of_device_id mtk_imgsys_me_of_match[] = {
+static const struct of_device_id mtk_ipesys_me_of_match[] = {
 	{ .compatible = "mediatek,ipesys-me", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, mtk_imgsys_me_of_match);
+MODULE_DEVICE_TABLE(of, mtk_ipesys_me_of_match);
 
-static struct platform_driver mtk_imgsys_me_driver = {
-	.probe   = mtk_imgsys_me_probe,
-	.remove  = mtk_imgsys_me_remove,
+static struct platform_driver mtk_ipesys_me_driver = {
+	.probe   = mtk_ipesys_me_probe,
+	.remove  = mtk_ipesys_me_remove,
 	.driver  = {
 		.name = "camera-me",
 		.owner	= THIS_MODULE,
-		.pm = &mtk_imgsys_me_pm_ops,
-		.of_match_table = mtk_imgsys_me_of_match,
+		.pm = &mtk_ipesys_me_pm_ops,
+		.of_match_table = mtk_ipesys_me_of_match,
 	}
 };
 
-module_platform_driver(mtk_imgsys_me_driver);
+module_platform_driver(mtk_ipesys_me_driver);
 
-MODULE_AUTHOR("Frederic Chen <frederic.chen@mediatek.com>");
+MODULE_AUTHOR("Marvin Lin <marvin.lin@mediatek.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Mediatek ME driver");
-#endif
+
