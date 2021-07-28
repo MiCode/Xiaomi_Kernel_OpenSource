@@ -349,6 +349,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, regulator, REGULATOR_AFVDD, HW_ID_AFVDD,
 			set_reg, unset_reg);
 
+	INST_OPS(ctx, regulator, REGULATOR_AVDD1, HW_ID_AVDD1,
+			set_reg, unset_reg);
+
 	if (ctx->state[STATE_MIPI_SWITCH_ON])
 		ctx->hw_ops[HW_ID_MIPI_SWITCH].set = set_state_mipi_switch;
 
@@ -374,6 +377,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 			set_state_boolean, unset_state);
 
 	INST_OPS(ctx, state, STATE_AFVDD_OFF, HW_ID_AFVDD,
+			set_state_boolean, unset_state);
+
+	INST_OPS(ctx, state, STATE_AVDD1_OFF, HW_ID_AVDD1,
 			set_state_boolean, unset_state);
 
 	/* the pins of mipi switch are shared. free it for another users */
