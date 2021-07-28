@@ -452,6 +452,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"vde0_0"},
+		.subsys_clk_prefix = "vde0",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				VDE0_PROT_STEP1_0_MASK),
@@ -510,6 +511,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"vde1_0"},
+		.subsys_clk_prefix = "vde1",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				VDE1_PROT_STEP1_0_MASK),
@@ -788,7 +790,7 @@ static const struct scp_subdomain scp_subdomain_mt6983[] = {
 	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_VDE0},
 	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_VEN0},
 	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_MDP0},
-	{MT6983_POWER_DOMAIN_DIS1, MT6983_POWER_DOMAIN_VDE1},
+	{MT6983_POWER_DOMAIN_VDE0, MT6983_POWER_DOMAIN_VDE1},
 	{MT6983_POWER_DOMAIN_DIS1, MT6983_POWER_DOMAIN_VEN1},
 	{MT6983_POWER_DOMAIN_DIS1, MT6983_POWER_DOMAIN_MDP1},
 	{MT6983_POWER_DOMAIN_CAM_VCORE, MT6983_POWER_DOMAIN_CAM_MAIN},
