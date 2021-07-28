@@ -1359,8 +1359,8 @@ static int seninf_probe(struct platform_device *pdev)
 	}
 
 
-	ctx->sensor_wq =
-	alloc_ordered_workqueue(dev_name(ctx->dev), WQ_HIGHPRI | WQ_FREEZABLE);
+	ctx->sensor_wq = NULL;
+	//alloc_ordered_workqueue(dev_name(ctx->dev), WQ_HIGHPRI | WQ_FREEZABLE);
 
 	pm_runtime_enable(dev);
 

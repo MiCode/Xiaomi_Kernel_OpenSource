@@ -726,8 +726,9 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct mtk_sensor_work *sensor_work = NULL;
 
-	spin_lock(&ctx->spinlock_sensor_work);
-	if (ctx->sensor_wq && ctx->streaming) {
+	//spin_lock(&ctx->spinlock_sensor_work);
+	if (0) {
+	//ctx->sensor_wq && ctx->streaming) {
 		sensor_work = kmalloc(
 				sizeof(struct mtk_sensor_work),
 				GFP_KERNEL);
@@ -743,7 +744,7 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 	} else
 		dev_info(ctx->dev, "%s, ctx->sensor_wq = NULL || ctx->streaming = %d\n",
 			__func__, ctx->streaming);
-	spin_unlock(&ctx->spinlock_sensor_work);
+	//spin_unlock(&ctx->spinlock_sensor_work);
 }
 
 int notify_fsync_cammux_usage(struct seninf_ctx *ctx)
@@ -784,8 +785,9 @@ void notify_fsync_cammux_usage_with_wq(struct seninf_ctx *ctx)
 {
 	struct mtk_sensor_work *sensor_work = NULL;
 
-	spin_lock(&ctx->spinlock_sensor_work);
-	if (ctx->sensor_wq && ctx->streaming) {
+	//spin_lock(&ctx->spinlock_sensor_work);
+	if (0) {
+	//ctx->sensor_wq && ctx->streaming) {
 		sensor_work = kmalloc(sizeof(struct mtk_sensor_work),
 					GFP_KERNEL);
 		if (sensor_work) {
@@ -800,6 +802,6 @@ void notify_fsync_cammux_usage_with_wq(struct seninf_ctx *ctx)
 		dev_info(ctx->dev,
 			"%s, sensor_wq is null or streaming = %d\n",
 			__func__, ctx->streaming);
-	spin_unlock(&ctx->spinlock_sensor_work);
+	//spin_unlock(&ctx->spinlock_sensor_work);
 }
 
