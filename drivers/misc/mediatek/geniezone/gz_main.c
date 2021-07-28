@@ -1261,7 +1261,6 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	TZ_RESULT ret = 0;
 	char __user *user_req;
 	struct user_shm_param shm_data;
-	struct kree_user_sc_param cparam;
 	KREE_SHAREDMEM_HANDLE shm_handle = 0;
 
 	if (_IOC_TYPE(cmd) != MTEE_IOC_MAGIC)
@@ -1350,31 +1349,6 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_SC_TEST_UPT_CHMDATA(0x%x)\n",
 			__func__, cmd);
 		return _sc_test_upt_chmdata(filep, arg);
-
-	case MTEE_CMD_SC_CHMEM_HANDLE:
-		KREE_DEBUG("[%s]cmd=MTEE_CMD_SC_CHMEM_HANDLE(0x%x)\n", __func__,
-			cmd);
-		err = copy_from_user(&cparam, user_req, sizeof(cparam));
-		if (err) {
-			KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
-				err);
-			return err;
-		}
-		ret =
-			_IONHandle2MemHandle(cparam.ION_handle,
-			&(cparam.other_handle));
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("[%s]_IONHandle2MemHandle fail(0x%x)\n",
-				__func__, ret);
-			return ret;
-		}
-		err = copy_to_user(user_req, &cparam, sizeof(cparam));
-		if (err) {
-			KREE_ERR("[%s]copy_to_user fail(0x%x)\n", __func__,
-				err);
-			return err;
-		}
-		break;
 
 #ifndef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case MTEE_CMD_FOD_TEE_SHM_ON:

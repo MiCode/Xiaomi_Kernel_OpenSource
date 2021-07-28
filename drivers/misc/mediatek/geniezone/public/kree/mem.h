@@ -333,37 +333,34 @@ TZ_RESULT KREE_UnreferenceSecureMultichunkmem(KREE_SESSION_HANDLE session,
 
 TZ_RESULT KREE_ION_AllocChunkmem(KREE_SESSION_HANDLE session,
 				 KREE_SHAREDMEM_HANDLE chm_handle,
-				 KREE_ION_HANDLE_PTR IONHandle,
+				 KREE_SECUREMEM_HANDLE *secmHandle,
 				 uint32_t alignment,
 				 uint32_t size);
 
 TZ_RESULT KREE_ION_ZallocChunkmem(KREE_SESSION_HANDLE session,
 				  KREE_SHAREDMEM_HANDLE chm_handle,
-				  KREE_ION_HANDLE_PTR IONHandle,
+				  KREE_SECUREMEM_HANDLE *secmHandle,
 				  uint32_t alignment, uint32_t size);
 
 TZ_RESULT KREE_ION_ReferenceChunkmem(KREE_SESSION_HANDLE session,
-				     KREE_ION_HANDLE IONHandle);
+				     KREE_SECUREMEM_HANDLE secmHandle);
 
 TZ_RESULT KREE_ION_UnreferenceChunkmem(KREE_SESSION_HANDLE session,
-				       KREE_ION_HANDLE IONHandle);
+				       KREE_SECUREMEM_HANDLE secmHandle);
 
 /*only for test*/
 TZ_RESULT KREE_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
-				KREE_ION_HANDLE IONHandle, uint32_t cmd);
+				KREE_SECUREMEM_HANDLE secmHandle, uint32_t cmd);
 TZ_RESULT KREE_ION_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
-				      KREE_ION_HANDLE IONHandle, uint32_t cmd);
+				      KREE_SECUREMEM_HANDLE secmHandle, uint32_t cmd);
 
 
 TZ_RESULT KREE_ION_AccessChunkmem(KREE_SESSION_HANDLE session,
 				  union MTEEC_PARAM param[4], uint32_t cmd);
 
 TZ_RESULT KREE_ION_CP_Chm2Shm(KREE_SESSION_HANDLE session,
-			      KREE_ION_HANDLE ION_Handle,
-			      KREE_SECUREMEM_HANDLE shm_handle, uint32_t size);
-
-uint32_t _IONHandle2MemHandle(KREE_ION_HANDLE IONHandle,
-			      KREE_SECUREMEM_HANDLE *mem_handle);
+			      KREE_SECUREMEM_HANDLE secm_hd,
+			      KREE_SECUREMEM_HANDLE shm_hd, uint32_t size);
 
 /**
  * Secure chunk memory allocation
