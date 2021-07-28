@@ -59,7 +59,8 @@ struct mtk_cam_msg_buf {
 
 /* TODO: remove this entry wrapper */
 struct mtk_cam_working_buf_entry {
-	struct mtk_cam_request *req;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_working_buf buffer;
 	struct mtk_cam_msg_buf msg_buffer;
 	struct list_head list_entry;
@@ -67,14 +68,13 @@ struct mtk_cam_working_buf_entry {
 	int cq_desc_size;
 	int sub_cq_desc_offset;
 	int sub_cq_desc_size;
-	struct mtk_cam_ctx *ctx;
 };
 
 struct mtk_cam_img_working_buf_entry {
-	struct mtk_cam_request *req;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_working_buf img_buffer;
 	struct list_head list_entry;
-	struct mtk_cam_ctx *ctx;
 };
 
 struct mtk_cam_working_buf_list {
@@ -90,7 +90,8 @@ struct mtk_camsv_working_buf {
 };
 
 struct mtk_camsv_working_buf_entry {
-	struct mtk_cam_request *req;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_camsv_working_buf buffer;
 	struct list_head list_entry;
 };
@@ -184,24 +185,6 @@ struct mtk_cam_request {
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
 	s64 sync_id;
 };
-
-static inline struct mtk_cam_request_stream_data*
-mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
-{
-	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
-		return NULL;
-
-	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num)
-		return NULL;
-
-	return &req->p_data[pipe_id].s_data[idx];
-}
-
-static inline struct mtk_cam_request *
-to_mtk_cam_req(struct media_request *__req)
-{
-	return container_of(__req, struct mtk_cam_request, req);
-}
 
 struct mtk_cam_working_buf_pool {
 	struct mtk_cam_ctx *ctx;
@@ -361,6 +344,57 @@ mtk_cam_ctrl_state_get_req(struct mtk_camsys_ctrl_state *state)
 
 	request_stream_data = mtk_cam_ctrl_state_to_req_s_data(state);
 	return request_stream_data->req;
+}
+
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
+{
+	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
+		return NULL;
+
+	if (idx < 0 || idx >= req->p_data[pipe_id].s_data_num)
+		return NULL;
+
+	return &req->p_data[pipe_id].s_data[idx];
+}
+
+static inline void
+mtk_cam_img_wbuf_set_s_data(struct mtk_cam_img_working_buf_entry *buf_entry,
+	struct mtk_cam_request_stream_data *s_data)
+{
+	buf_entry->s_data = s_data;
+}
+
+static inline void
+mtk_cam_sv_wbuf_set_s_data(struct mtk_camsv_working_buf_entry *buf_entry,
+			   struct mtk_cam_request_stream_data *s_data)
+
+{
+	buf_entry->s_data = s_data;
+}
+
+static inline void
+mtk_cam_s_data_set_wbuf(struct mtk_cam_request_stream_data *s_data,
+			struct mtk_cam_working_buf_entry *buf_entry)
+{
+	buf_entry->s_data = s_data;
+	s_data->working_buf = buf_entry;
+}
+
+static inline void
+mtk_cam_s_data_reset_wbuf(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!s_data->working_buf)
+		return;
+
+	s_data->working_buf->s_data = NULL;
+	s_data->working_buf = NULL;
+}
+
+static inline struct mtk_cam_request *
+to_mtk_cam_req(struct media_request *__req)
+{
+	return container_of(__req, struct mtk_cam_request, req);
 }
 
 static inline struct mtk_cam_request*

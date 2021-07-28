@@ -190,9 +190,10 @@ struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 
 }
 
-static bool finish_cq_buf(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
+static bool finish_cq_buf(struct mtk_cam_request_stream_data *req_stream_data)
 {
 	bool result = false;
+	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
 	struct mtk_cam_working_buf_entry *cq_buf_entry, *cq_buf_entry_prev;
 
 	if (!ctx->used_raw_num)
@@ -202,14 +203,15 @@ static bool finish_cq_buf(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
 	list_for_each_entry_safe(cq_buf_entry, cq_buf_entry_prev,
 				 &ctx->processing_buffer_list.list,
 				 list_entry) {
-		if (cq_buf_entry->req == req) {
+		if (cq_buf_entry->s_data == req_stream_data) {
 			list_del(&cq_buf_entry->list_entry);
-			cq_buf_entry->req = NULL;
-			mtk_cam_working_buf_put(ctx, cq_buf_entry);
+			mtk_cam_s_data_reset_wbuf(req_stream_data);
+			mtk_cam_working_buf_put(cq_buf_entry);
 			ctx->processing_buffer_list.cnt--;
 			result = true;
 			dev_dbg(ctx->cam->dev, "put cq buf:%pad, %s\n",
-				&cq_buf_entry->buffer.iova, req->req.debug_str);
+				&cq_buf_entry->buffer.iova,
+				req_stream_data->req->req.debug_str);
 			break;
 		}
 	}
@@ -218,9 +220,10 @@ static bool finish_cq_buf(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
 	return result;
 }
 
-static bool finish_img_buf(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
+static bool finish_img_buf(struct mtk_cam_request_stream_data *req_stream_data)
 {
 	bool result = false;
+	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
 	struct mtk_cam_img_working_buf_entry *buf_entry, *buf_entry_prev;
 
 	if (!ctx->used_raw_num)
@@ -232,10 +235,10 @@ static bool finish_img_buf(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
 	list_for_each_entry_safe(buf_entry, buf_entry_prev,
 				 &ctx->processing_img_buffer_list.list,
 				 list_entry) {
-		if (buf_entry->req == req) {
+		if (buf_entry->s_data == req_stream_data) {
 			list_del(&buf_entry->list_entry);
-			buf_entry->req = NULL;
-			mtk_cam_img_working_buf_put(ctx, buf_entry);
+			mtk_cam_img_wbuf_set_s_data(buf_entry, NULL);
+			mtk_cam_img_working_buf_put(buf_entry);
 			ctx->processing_img_buffer_list.cnt--;
 			result = true;
 			dev_dbg(ctx->cam->dev, "[%s] iova:0x%x\n",
@@ -341,12 +344,14 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			spin_unlock(&req->done_status_lock);
 
 			if (mtk_camsv_is_sv_pipe(pipe_id)) {
-				mtk_cam_sv_finish_buf(ctx, req);
+				mtk_cam_sv_finish_buf(req_stream_data);
 			} else {
-				finish_cq_buf(ctx, req);
-				if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx))
-					finish_img_buf(ctx, req);
-				if (req_stream_data->state.estate == E_STATE_DONE_MISMATCH)
+				finish_cq_buf(req_stream_data);
+				if (mtk_cam_is_stagger(ctx) ||
+				    mtk_cam_is_time_shared(ctx))
+					finish_img_buf(req_stream_data);
+				if (req_stream_data->state.estate ==
+				    E_STATE_DONE_MISMATCH)
 					buf_state = VB2_BUF_STATE_ERROR;
 			}
 
@@ -374,11 +379,12 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			spin_unlock(&req->done_status_lock);
 
 			if (mtk_camsv_is_sv_pipe(pipe_id)) {
-				mtk_cam_sv_finish_buf(ctx, req);
+				mtk_cam_sv_finish_buf(req_stream_data);
 			} else {
-				finish_cq_buf(ctx, req);
-				if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx))
-					finish_img_buf(ctx, req);
+				finish_cq_buf(req_stream_data);
+				if (mtk_cam_is_stagger(ctx) ||
+				    mtk_cam_is_time_shared(ctx))
+					finish_img_buf(req_stream_data);
 			}
 
 			if (mtk_cam_update_done_status(ctx, req, pipe_id))
@@ -574,8 +580,8 @@ static void config_img_in_fmt_time_shared(struct mtk_cam_device *cam,
 		WARN_ON(1);
 		return;
 	}
-	buf_entry->ctx = ctx;
-	buf_entry->req = req->req;
+
+	mtk_cam_img_wbuf_set_s_data(buf_entry, req);
 	/* put to processing list */
 	spin_lock(&ctx->processing_img_buffer_list.lock);
 	list_add_tail(&buf_entry->list_entry, &ctx->processing_img_buffer_list.list);
@@ -638,8 +644,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 						WARN_ON(1);
 						return;
 					}
-					buf_entry->ctx = ctx;
-					buf_entry->req = req->req;
+					mtk_cam_img_wbuf_set_s_data(buf_entry, req);
 					/* put to processing list */
 					spin_lock(&ctx->processing_img_buffer_list.lock);
 					list_add_tail(&buf_entry->list_entry,
@@ -680,8 +685,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 						WARN_ON(1);
 						return;
 					}
-					buf_entry->ctx = ctx;
-					buf_entry->req = req->req;
+					mtk_cam_img_wbuf_set_s_data(buf_entry, req);
 					/* put to processing list */
 					spin_lock(&ctx->processing_img_buffer_list.lock);
 					list_add_tail(&buf_entry->list_entry,
@@ -713,8 +717,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 						WARN_ON(1);
 						return;
 					}
-					buf_entry->ctx = ctx;
-					buf_entry->req = req->req;
+					mtk_cam_img_wbuf_set_s_data(buf_entry, req);
 					/* put to processing list */
 					spin_lock(&ctx->processing_img_buffer_list.lock);
 					list_add_tail(&buf_entry->list_entry,
@@ -819,8 +822,7 @@ static void check_timeshared_buffer(struct mtk_cam_device *cam,
 					WARN_ON(1);
 					return;
 				}
-				buf_entry->ctx = ctx;
-				buf_entry->req = req->req;
+				mtk_cam_img_wbuf_set_s_data(buf_entry, req);
 				/* put to processing list */
 				spin_lock(&ctx->processing_img_buffer_list.lock);
 				list_add_tail(&buf_entry->list_entry,
@@ -1957,9 +1959,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		return;
 	}
 
-	buf_entry->ctx = ctx;
-	buf_entry->req = req;
-	req_stream_data->working_buf = buf_entry;
+	mtk_cam_s_data_set_wbuf(req_stream_data, buf_entry);
 
 	/* put to using list */
 	spin_lock(&ctx->using_buffer_list.lock);

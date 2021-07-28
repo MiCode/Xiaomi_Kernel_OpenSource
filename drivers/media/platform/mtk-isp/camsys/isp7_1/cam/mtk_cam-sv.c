@@ -1767,14 +1767,13 @@ ctx_not_found:
 	return IRQ_HANDLED;
 }
 
-bool mtk_cam_sv_finish_buf(struct mtk_cam_ctx *ctx,
-			     struct mtk_cam_request *req)
+bool
+mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 {
 	bool result = false;
 	int cnt = 0;
 	struct mtk_camsv_working_buf_entry *sv_buf_entry, *sv_buf_entry_prev;
-	struct mtk_cam_request_stream_data *req_stream_data;
-
+	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
 
 	spin_lock(&ctx->sv_processing_buffer_list.lock);
 
@@ -1782,11 +1781,11 @@ bool mtk_cam_sv_finish_buf(struct mtk_cam_ctx *ctx,
 	list_for_each_entry_safe(sv_buf_entry, sv_buf_entry_prev,
 				 &ctx->sv_processing_buffer_list.list,
 				 list_entry) {
-		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		if (sv_buf_entry->buffer.frame_seq_no ==
 		    req_stream_data->frame_seq_no) {
 			list_del(&sv_buf_entry->list_entry);
-			mtk_cam_sv_working_buf_put(ctx, sv_buf_entry);
+			mtk_cam_sv_wbuf_set_s_data(sv_buf_entry, NULL);
+			mtk_cam_sv_working_buf_put(sv_buf_entry);
 			ctx->sv_processing_buffer_list.cnt--;
 			cnt++;
 			result = true;
@@ -1794,7 +1793,8 @@ bool mtk_cam_sv_finish_buf(struct mtk_cam_ctx *ctx,
 	}
 	spin_unlock(&ctx->sv_processing_buffer_list.lock);
 
-	dev_dbg(ctx->cam->dev, "put %d sv bufs, %s\n", cnt, req->req.debug_str);
+	dev_dbg(ctx->cam->dev, "put %d sv bufs, %s\n", cnt,
+			req_stream_data->req->req.debug_str);
 
 	return result;
 }

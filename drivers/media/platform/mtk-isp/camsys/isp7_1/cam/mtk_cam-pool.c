@@ -64,6 +64,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		struct mtk_cam_working_buf_entry *buf = &ctx->buf_pool.working_buf[i];
 		int offset, offset_msg;
 
+		buf->ctx = ctx;
 		offset = i * working_buf_size;
 		offset_msg = i * msg_buf_size;
 
@@ -72,7 +73,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		buf->buffer.size = working_buf_size;
 		buf->msg_buffer.va = ctx->buf_pool.msg_buf_va + offset_msg;
 		buf->msg_buffer.size = msg_buf_size;
-		buf->req = NULL;
+		buf->s_data = NULL;
 		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
 			__func__, ctx->stream_id, i, &buf->buffer.iova);
 
@@ -119,9 +120,10 @@ void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 
 }
 
-void mtk_cam_working_buf_put(struct mtk_cam_ctx *ctx,
-			     struct mtk_cam_working_buf_entry *buf_entry)
+void
+mtk_cam_working_buf_put(struct mtk_cam_working_buf_entry *buf_entry)
 {
+	struct mtk_cam_ctx *ctx = buf_entry->ctx;
 	unsigned long flags;
 
 	spin_lock_irqsave(&ctx->buf_pool.cam_freelist.lock, flags);
@@ -244,10 +246,10 @@ void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 		__func__, ctx->stream_id, smem.iova, smem.len);
 }
 
-void mtk_cam_img_working_buf_put(struct mtk_cam_ctx *ctx,
-			     struct mtk_cam_img_working_buf_entry *buf_entry)
+void mtk_cam_img_working_buf_put(struct mtk_cam_img_working_buf_entry *buf_entry)
 {
 	unsigned long flags;
+	struct mtk_cam_ctx *ctx = buf_entry->ctx;
 
 	spin_lock_irqsave(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
 
@@ -291,7 +293,6 @@ mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx)
 				     list_entry);
 	list_del(&buf_entry->list_entry);
 	ctx->img_buf_pool.cam_freeimglist.cnt--;
-	buf_entry->ctx = ctx;
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
 		__func__, ctx->stream_id, buf_entry->img_buffer.iova,
 		ctx->img_buf_pool.cam_freeimglist.cnt);
@@ -311,6 +312,7 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 
 	for (i = 0; i < CAMSV_CQ_BUF_NUM; i++) {
 		struct mtk_camsv_working_buf_entry *buf = &ctx->buf_pool.sv_working_buf[i];
+		buf->ctx = ctx;
 
 		list_add_tail(&buf->list_entry,
 			      &ctx->buf_pool.sv_freelist.list);
@@ -322,10 +324,11 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
-void mtk_cam_sv_working_buf_put(struct mtk_cam_ctx *ctx,
-			     struct mtk_camsv_working_buf_entry *buf_entry)
+void
+mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry)
 {
 	unsigned long flags;
+	struct mtk_cam_ctx *ctx = buf_entry->ctx;
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
 
