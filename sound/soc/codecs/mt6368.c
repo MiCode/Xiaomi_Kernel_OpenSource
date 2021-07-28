@@ -554,19 +554,12 @@ static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
 
 static const struct snd_kcontrol_new mt6368_snd_controls[] = {
 	/* dl pga gain */
-	SOC_SINGLE_EXT_TLV("HeadsetL Volume",
-			   MT6368_ZCD_CON3, 0, 0x1E, 0,
+	SOC_DOUBLE_R_EXT_TLV("Headset Volume",
+			   MT6368_ZCD_CON3, MT6368_ZCD_CON4, 0, 0x1E, 0,
 			   snd_soc_get_volsw, mt6368_put_volsw,
 			   hp_playback_tlv),
-	SOC_SINGLE_EXT_TLV("HeadsetR Volume",
-			   MT6368_ZCD_CON4, 0, 0x1E, 0,
-			   snd_soc_get_volsw, mt6368_put_volsw,
-			   hp_playback_tlv),
-	SOC_SINGLE_EXT_TLV("LineoutL Volume",
-			   MT6368_ZCD_CON1, 0, 0x12, 0,
-			   snd_soc_get_volsw, mt6368_put_volsw, playback_tlv),
-	SOC_SINGLE_EXT_TLV("LineoutR Volume",
-			   MT6368_ZCD_CON2, 0, 0x12, 0,
+	SOC_DOUBLE_R_EXT_TLV("Lineout Volume",
+			   MT6368_ZCD_CON1, MT6368_ZCD_CON2, 0, 0x12, 0,
 			   snd_soc_get_volsw, mt6368_put_volsw, playback_tlv),
 	SOC_SINGLE_EXT_TLV("Handset Volume",
 			   MT6368_ZCD_CON5, 0, 0x12, 0,
@@ -1355,7 +1348,7 @@ static int mtk_hp_impedance_disable(struct mt6368_priv *priv)
 
 #if IS_ENABLED(CONFIG_SND_SOC_MT6368_ACCDET)
 	/* from accdet request */
-	accdet_modify_vref_volt();
+	mt6368_accdet_modify_vref_volt();
 #endif
 	return 0;
 }
@@ -4721,8 +4714,8 @@ static int dc_trim_thread(void *arg)
 
 	get_hp_trim_offset(priv, false);
 
-#if IS_ENABLED(CONFIG_SND_SOC_MT6368P_ACCDET)
-	accdet_late_init(0);
+#if IS_ENABLED(CONFIG_SND_SOC_MT6368_ACCDET)
+	mt6368_accdet_late_init(0);
 #endif
 	do_exit(0);
 
