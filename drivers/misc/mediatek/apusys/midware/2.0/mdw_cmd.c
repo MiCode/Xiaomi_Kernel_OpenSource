@@ -254,7 +254,7 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 
 		/* accumulate cmdbuf size with alignment */
 		for (j = 0; j < c->subcmds[i].num_cmdbufs; j++) {
-			c->num_cmdbufs += c->subcmds[i].num_cmdbufs;
+			c->num_cmdbufs++;
 			if (c->ksubcmds[i].cmdbufs[j].align) {
 				total_size = MDW_ALIGN(total_size,
 					c->ksubcmds[i].cmdbufs[j].align) +
@@ -681,7 +681,7 @@ delete_cmd:
 put_file:
 	put_unused_fd(fd);
 out:
-	mutex_unlock(&mpriv->mtx);
+
 	return ret;
 }
 

@@ -137,7 +137,6 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 		goto free_mem;
 	}
 
-
 	mdw_mem_show(m);
 	goto out;
 

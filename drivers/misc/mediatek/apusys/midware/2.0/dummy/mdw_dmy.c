@@ -56,40 +56,30 @@ static void mdw_dmy_print_hnd(int type, void *hnd)
 	if (hnd == NULL)
 		return;
 
-	mdw_sub_debug("================================");
-
 	/* print */
 	switch (type) {
 	case APUSYS_CMD_POWERON:
 	case APUSYS_CMD_POWERDOWN:
 		pwr = (struct apusys_power_hnd *)hnd;
-		mdw_sub_debug("| power on hnd                 |\n");
-		mdw_sub_debug("--------------------------------");
-		mdw_sub_debug("| opp      = %-18d|\n", pwr->opp);
-		mdw_sub_debug("| boostval = %-18d|\n", pwr->boost_val);
+		mdw_sub_debug("pwr hnd: opp(%u) boost(%d)\n",
+			pwr->opp, pwr->boost_val);
 		break;
 
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_handle *)hnd;
-		mdw_sub_debug(" cmd hnd                       |\n");
-		mdw_sub_debug("--------------------------------");
-		mdw_sub_debug("| boostval = %-18d|\n", cmd->boost);
+		mdw_sub_debug("cmd hnd: boost(%u)\n", cmd->boost);
 		break;
 
 	case APUSYS_CMD_USER:
 		u = (struct apusys_usercmd_hnd *)hnd;
-		mdw_sub_debug("| user hnd                      |\n");
-		mdw_sub_debug("--------------------------------");
-		mdw_sub_debug("| kva      = 0x%-16llx|\n", u->kva);
-		mdw_sub_debug("| iova     = 0x%-16x|\n", u->iova);
-		mdw_sub_debug("| size     = %-18u|\n", u->size);
+		mdw_sub_debug("usr hnd: (0x%llx/0x%llx/%u)\n",
+			u->kva, u->iova, u->size);
 		break;
 
 	default:
-		mdw_sub_debug("| not support type(%-2d) hnd    |\n", type);
+		mdw_sub_debug("hnd(%d) not support\n", type);
 		break;
 	}
-	mdw_sub_debug("================================");
 }
 
 //----------------------------------------------
@@ -116,10 +106,10 @@ static int mdw_dmy_pwron(struct apusys_power_hnd *hnd,
 	if (hnd == NULL || info == NULL)
 		return -EINVAL;
 
-	mdw_sub_debug("[dmy] poweron(%d)\n", info->pwr_status);
+	mdw_sub_debug("poweron(%d)\n", info->pwr_status);
 	if (hnd->timeout == 0) {
 		if (info->pwr_status != 0)
-			mdw_drv_err("[dmy] pwr on already w/o timeout\n");
+			mdw_drv_err("pwr on already w/o timeout\n");
 	}
 
 	info->pwr_status = 1;
@@ -135,7 +125,7 @@ static int mdw_dmy_pwroff(struct mdw_dmy_dev_info *info)
 	if (info == NULL)
 		return -EINVAL;
 
-	mdw_sub_debug("[dmy] poweroff(%d)\n", info->pwr_status);
+	mdw_sub_debug("poweroff(%d)\n", info->pwr_status);
 	info->pwr_status = 0;
 
 	return 0;
@@ -143,14 +133,14 @@ static int mdw_dmy_pwroff(struct mdw_dmy_dev_info *info)
 
 static int mdw_dmy_resume(void)
 {
-	mdw_sub_debug("[dmy] resume done\n");
+	mdw_sub_debug("resume done\n");
 
 	return 0;
 }
 
 static int mdw_dmy_suspend(void)
 {
-	mdw_sub_debug("[dmy] suspend done\n");
+	mdw_sub_debug("suspend done\n");
 
 	return 0;
 }
@@ -167,18 +157,18 @@ static int mdw_dmy_exec(struct apusys_cmd_handle *hnd,
 		return -EINVAL;
 
 	if (hnd->num_cmdbufs != 1) {
-		mdw_drv_err("[dmy] command num invalid(%u)\n",
+		mdw_drv_err("command num invalid(%u)\n",
 			hnd->num_cmdbufs);
 		return -EINVAL;
 	}
 
 	if (hnd->cmdbufs[0].size != sizeof(struct mdw_dmy_req)) {
-		mdw_drv_err("[dmy] command size invalid(%u)\n",
+		mdw_drv_err("command size invalid(%u)\n",
 			hnd->cmdbufs[0].size);
 		return -EINVAL;
 	}
 
-	mdw_sub_debug("[dmy] multicore_total = %u\n", hnd->multicore_total);
+	mdw_sub_debug("multicore_total = %u\n", hnd->multicore_total);
 	req = (struct mdw_dmy_req *)hnd->cmdbufs[0].kva;
 	info = (struct mdw_dmy_dev_info *)dev->private;
 	mutex_lock(&info->mtx);
@@ -189,37 +179,23 @@ static int mdw_dmy_exec(struct apusys_cmd_handle *hnd,
 	}
 	info->run = 1;
 
-	mdw_sub_debug("|====================================================|\n");
-	mdw_sub_debug("| sample driver request(0x%llx) (use #%-2d device)   |\n",
-		(uint64_t)req, info->idx);
-	mdw_sub_debug("|----------------------------------------------------|\n");
-	mdw_sub_debug("| name     = %-32s        |\n",
-		req->name);
-	mdw_sub_debug("| algo id  = 0x%-16x                      |\n",
-		req->algo_id);
-	mdw_sub_debug("| delay ms = %-16d                        |\n",
-		req->delay_ms);
-	mdw_sub_debug("| driver done(should be 0) = %-2d                      |\n",
-		req->driver_done);
-	mdw_sub_debug("|----------------------------------------------------|\n");
+	mdw_sub_debug("dmy-#%u request(0x%llx) (%s/0x%x/%u/%u)\n",
+		info->idx, (uint64_t)req, req->name,
+		req->algo_id, req->delay_ms, req->driver_done);
 
 	memset(&duration, 0, sizeof(duration));
 	tdiff = mdw_dmy_get_time_diff(&duration);
 
 	if (req->delay_ms) {
-		mdw_sub_debug("delay %d ms\n", req->delay_ms);
+		mdw_sub_debug("delay %u ms\n", req->delay_ms);
 		msleep(req->delay_ms);
 	}
 
 	tdiff = mdw_dmy_get_time_diff(&duration);
-	mdw_sub_debug("| ip time  = %-16ld                        |\n",
-		tdiff);
-	mdw_sub_debug("|====================================================|\n");
-
 	hnd->ip_time = tdiff;
 
 	if (req->driver_done != 0) {
-		mdw_drv_warn("[dmy] done flag is (%d)\n", req->driver_done);
+		mdw_drv_warn("done flag is (%d)\n", req->driver_done);
 		info->run = 0;
 		mutex_unlock(&info->mtx);
 		return -EINVAL;
@@ -245,14 +221,14 @@ static int mdw_dmy_usr_cmd(void *hnd,
 
 	/* check hnd */
 	if (u->kva == 0 || u->size == 0) {
-		mdw_drv_err("[dmy] invalid argument(0x%llx/0x%x/%u)\n",
+		mdw_drv_err("invalid argument(0x%llx/0x%x/%u)\n",
 			u->kva, u->iova, u->size);
 		return -EINVAL;
 	}
 
 	/* check cmd size */
 	if (u->size != sizeof(struct mdw_dmy_ucmd)) {
-		mdw_drv_err("[dmy] handle size not match(%u/%lu)\n",
+		mdw_drv_err("handle size not match(%u/%lu)\n",
 			u->size, sizeof(struct mdw_dmy_ucmd));
 		return -EINVAL;
 	}
@@ -261,13 +237,13 @@ static int mdw_dmy_usr_cmd(void *hnd,
 	s = (struct mdw_dmy_ucmd *)u->kva;
 	if (s->cmd_idx != MDW_DMY_UCMD_IDX ||
 		s->magic != MDW_DMY_UCMD_MAGIC) {
-		mdw_drv_err("[dmy] user cmd param not match(%d/0x%llx)\n",
+		mdw_drv_err("user cmd param not match(%d/0x%llx)\n",
 			s->cmd_idx, s->magic);
 		return -EINVAL;
 	}
 
 	s->u_write = MDW_DMY_UCMD_UW;
-	mdw_sub_debug("[dmy] get user cm ok\n");
+	mdw_sub_debug("get user cm ok\n");
 
 	return ret;
 }
@@ -277,34 +253,34 @@ static int mdw_dmy_send_cmd(int type, void *hnd, struct apusys_device *dev)
 {
 	int ret = 0;
 
-	mdw_sub_debug("[dmy] send cmd: private ptr = %p\n", dev->private);
+	mdw_sub_debug("send cmd: private ptr = %p\n", dev->private);
 
 	mdw_dmy_print_hnd(type, hnd);
 
 	switch (type) {
 	case APUSYS_CMD_POWERON:
-		mdw_sub_debug("[dmy] cmd poweron\n");
+		mdw_sub_debug("cmd poweron\n");
 		ret = mdw_dmy_pwron(hnd,
 			(struct mdw_dmy_dev_info *)dev->private);
 		break;
 
 	case APUSYS_CMD_POWERDOWN:
-		mdw_sub_debug("[dmy] cmd powerdown\n");
+		mdw_sub_debug("cmd powerdown\n");
 		ret = mdw_dmy_pwroff((struct mdw_dmy_dev_info *)dev->private);
 		break;
 
 	case APUSYS_CMD_RESUME:
-		mdw_sub_debug("[dmy] cmd resume\n");
+		mdw_sub_debug("cmd resume\n");
 		ret = mdw_dmy_resume();
 		break;
 
 	case APUSYS_CMD_SUSPEND:
-		mdw_sub_debug("[dmy] cmd suspend\n");
+		mdw_sub_debug("cmd suspend\n");
 		ret = mdw_dmy_suspend();
 		break;
 
 	case APUSYS_CMD_EXECUTE:
-		mdw_sub_debug("[dmy] cmd execute\n");
+		mdw_sub_debug("cmd execute\n");
 		ret = mdw_dmy_exec(hnd, dev);
 		break;
 
@@ -314,13 +290,13 @@ static int mdw_dmy_send_cmd(int type, void *hnd, struct apusys_device *dev)
 		break;
 
 	default:
-		mdw_drv_err("[dmy] unknown cmd(%d)\n", type);
+		mdw_drv_err("unknown cmd(%d)\n", type);
 		ret = -EINVAL;
 		break;
 	}
 
 	if (ret) {
-		mdw_drv_err("[dmy] send cmd fail, %d (%d/%p/%p)\n",
+		mdw_drv_err("send cmd fail, %d (%d/%p/%p)\n",
 			ret, type, hnd, dev);
 	}
 
@@ -354,7 +330,7 @@ int mdw_dmy_init(void)
 
 		/* register device to midware */
 		if (apusys_register_device(&mdw_dmy_inst[i].dev)) {
-			mdw_drv_err("[dmy] register dev fail\n");
+			mdw_drv_err("register dev fail\n");
 			ret = -EINVAL;
 			goto delete_dev;
 		}
