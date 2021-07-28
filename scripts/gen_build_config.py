@@ -125,10 +125,9 @@ def main(**args):
         print 'Please check whether ' + project_defconfig + ' defined CONFIG_BUILD_CONFIG_FILE.'
         sys.exit(2)
 
-    file_text.append("PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:$PATH")
-    file_text.append("MAKE_GOALS=\"${MAKE_GOALS}")
-    file_text.append("all")
-    file_text.append("\"")
+    file_text.append("PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin:/usr/bin:/bin:$PATH")
+    file_text.append("MAKE_GOALS=\"all\"")
+    file_text.append("HERMETIC_TOOLCHAIN=")
     file_text.append("TRIM_NONLISTED_KMI=")
     file_text.append("KMI_SYMBOL_LIST_STRICT_MODE=")
     file_text.append("MODULES_ORDER=")
