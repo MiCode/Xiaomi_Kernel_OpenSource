@@ -53,6 +53,8 @@
 #include "m4u_port.h"
 #endif
 
+#include "slbc_ops.h"
+
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
 #include <linux/dma-heap.h>
@@ -586,6 +588,37 @@ int mtk_hcp_send_async(struct platform_device *pdev,
 	return hcp_send_internal(pdev, id, buf, len, frame_no, ASYNC_SEND);
 }
 EXPORT_SYMBOL(mtk_hcp_send_async);
+
+int mtk_hcp_set_apu_dc(struct platform_device *pdev,
+	int32_t value, size_t size)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	struct slbc_data slb;
+	//struct ctrl_info ctrl;
+	int ret;
+
+	//if (hcp_dev->have_slb == false && *((uint64_t *)data)) {
+		slb.uid = UID_SH_P2;
+		slb.type = TP_BUFFER;
+		ret = slbc_request(&slb);
+		if (ret < 0) {
+			dev_info(hcp_dev->dev, "%s: Failed to allocate SLB buffer", __func__);
+			return -1;
+		}
+		//hcp_dev->have_slb = true;
+
+		//ctrl.id    = 0x1;
+		//ctrl.size  = sizeof(slb.paddr);
+		//ctrl.value = (uint64_t)slb.paddr;
+
+		//return hcp_send_internal(pdev,
+		//	HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
+	//}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_hcp_set_apu_dc);
 
 struct platform_device *mtk_hcp_get_plat_device(struct platform_device *pdev)
 {

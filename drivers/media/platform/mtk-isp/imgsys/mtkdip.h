@@ -7,6 +7,7 @@
 #define MTK_DIP_H
 
 #include <linux/videodev2.h>
+#include <linux/v4l2-controls.h>
 #include "mtk-img-ipi.h"
 
 #define MTKDIP_IOC_QBUF \
@@ -44,6 +45,18 @@ struct sensor_info {
 };
 #define MTKDIP_IOC_S_SENSOR_INFO \
 			_IOW('V', BASE_VIDIOC_PRIVATE + 12, struct sensor_info)
+
+#define V4L2_CID_IMGSYS_OFFSET	(0xC000)
+#define V4L2_CID_IMGSYS_BASE    (V4L2_CID_USER_BASE + V4L2_CID_IMGSYS_OFFSET)
+#define V4L2_CID_IMGSYS_APU_DC  (V4L2_CID_IMGSYS_BASE + 1)
+
+struct ctrl_info {
+	uint32_t id;
+	int32_t value;
+} __attribute__ ((__packed__));
+
+#define MTKDIP_IOC_SET_CONTROL _IOW('V', BASE_VIDIOC_PRIVATE + 13, struct ctrl_info)
+#define MTKDIP_IOC_GET_CONTROL _IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct ctrl_info)
 
 #define STANDARD_MODE_MAX_FRAMES (1)
 #define BATCH_MODE_MAX_FRAMES (32)

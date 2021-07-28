@@ -518,7 +518,7 @@ static int mtk_imgsys_vb2_video_queue_setup(struct vb2_queue *vq,
 		sizes[0] = fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
 	}
 
-	for (i = 0; i < *num_planes; i++) {	
+	for (i = 0; i < *num_planes; i++) {
 		if (sizes[i] < fmt->fmt.pix_mp.plane_fmt[i].sizeimage) {
 			size = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
 			dev_dbg(pipe->imgsys_dev->dev,
@@ -1692,6 +1692,31 @@ static int mtkdip_ioc_s_sensorinfo(struct v4l2_subdev *subdev, void *arg)
 	return 0;
 }
 
+static int mtkdip_ioc_set_control(struct v4l2_subdev *subdev, void *arg)
+{
+	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
+	struct ctrl_info *ctrl = (struct ctrl_info *)arg;
+	int ret = -1;
+
+	if (!ctrl) {
+		return -EINVAL;
+		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
+	}
+
+	pr_info("%s set control:%d, %p\n", __func__, ctrl->id, ctrl->value);
+
+	switch (ctrl->id) {
+	case V4L2_CID_IMGSYS_APU_DC:
+		ret = mtk_hcp_set_apu_dc(pipe->imgsys_dev->scp_pdev,
+			ctrl->value, sizeof(ctrl->value));
+	default:
+	  pr_info("%s: non-supported ctrl id(%x)\n", __func__, ctrl->id);
+		break;
+	}
+
+	return ret;
+}
+
 long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 								void *arg)
 {
@@ -1709,6 +1734,8 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 		return mtkdip_ioc_del_iova(subdev, arg);
 	case MTKDIP_IOC_S_SENSOR_INFO:
 		return mtkdip_ioc_s_sensorinfo(subdev, arg);
+	case MTKDIP_IOC_SET_CONTROL:
+		return mtkdip_ioc_set_control(subdev, arg);
 	default:
 		pr_info("%s: non-supported cmd(%x)\n", __func__, cmd);
 		return -ENOTTY;
