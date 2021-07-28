@@ -40,6 +40,8 @@
 
 #define _HEAP_FD_FLAGS_  (O_CLOEXEC|O_RDWR)
 
+int vma_dump_flag;
+
 #if IS_ENABLED(CONFIG_PROC_FS)
 enum DMA_HEAP_T_CMD {
 	DMABUF_T_OOM_TEST,
@@ -102,6 +104,61 @@ static struct dma_buf *file_to_dmabuf(struct file *file)
 		return (struct dma_buf *)file->private_data;
 
 	return ERR_PTR(-EINVAL);
+}
+
+/** dump all dmabuf userspace va info
+ *  Reference code: drivers/misc/mediatek/monitor_hang/hang_detect.c
+ */
+static void dma_heap_dump_vmas(struct task_struct *t, void *priv)
+{
+	struct seq_file *s = priv;
+	struct vm_area_struct *vma;
+	int mapcount = 0;
+	int flags;
+	struct file *file;
+	unsigned long long pgoff = 0;
+	char tpath[512];
+	char *path_p = NULL;
+	struct path base_path;
+	struct dma_buf *dmabuf;
+
+	if (!t->mm) {
+		dmabuf_dump(s, "\tpid:%d(%s)t->mm is NULL ---->\n",
+			    t->pid, t->comm);
+		return;
+	}
+
+	dmabuf_dump(s, "\tpid:%d(%s) dmabuf vma---->\n",
+		    t->pid, t->comm);
+
+	vma = t->mm->mmap;
+	while (vma && (mapcount < t->mm->map_count)) {
+		if (!vma->vm_file || !is_dma_buf_file(vma->vm_file))
+			goto next_vma;
+
+		file = vma->vm_file;
+		dmabuf = file->private_data;
+		base_path = file->f_path;
+		path_p = d_path(&base_path, tpath, 512);
+		flags = vma->vm_flags;
+		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+
+		dmabuf_dump(s,
+			    "\t\tinode:%d sz:0x%lx va:%08lx-%08lx map_sz:0x%lx prot:%c%c%c%c off:%08llx node:%s\n",
+			    file_inode(file)->i_ino,
+			    dmabuf->size,
+			    vma->vm_start, vma->vm_end,
+			    vma->vm_end - vma->vm_start,
+			    flags & VM_READ ? 'r' : '-',
+			    flags & VM_WRITE ? 'w' : '-',
+			    flags & VM_EXEC ? 'x' : '-',
+			    flags & VM_MAYSHARE ? 's' : 'p',
+			    pgoff, path_p);
+next_vma:
+		vma = vma->vm_next;
+		mapcount++;
+	}
+	dmabuf_dump(s, "\n");
 }
 
 /* return first dmabuf fd */
@@ -177,6 +234,8 @@ static void dump_dmabuf_fds(struct seq_file *s, struct dma_heap *heap)
 	fddata.constd.s = s;
 	fddata.constd.heap = heap;
 	for_each_process(p) {
+		if (fatal_signal_pending(p))
+			continue;
 		task_lock(p);
 		fddata.constd.p = p;
 		fddata.size = 0;
@@ -191,6 +250,10 @@ static void dump_dmabuf_fds(struct seq_file *s, struct dma_heap *heap)
 		dmabuf_dump(s, "\tpid:%d(%s) Total size:%d KB\n\n",
 			    p->pid, p->comm,
 			    fddata.size * 4 / PAGE_SIZE);
+
+		/* dump process all dmabuf maps */
+		if (vma_dump_flag)
+			dma_heap_dump_vmas(p, s);
 
 		task_unlock(p);
 	}
@@ -307,6 +370,20 @@ fd_dump_done:
 
 }
 
+/* Goal: for different heap, show different info */
+static void show_help_info(struct dma_heap *heap, struct seq_file *s)
+{
+	dmabuf_dump(s, "%s: help info\n",
+		    heap ? dma_heap_get_name(heap) : "all_heaps");
+
+	dmabuf_dump(s, "- Set debug name for dmabuf: %s\n",
+		    "https://wiki.mediatek.inc/display/WSDOSS3ME18/How+to+set+dmabuf+debug+name");
+	dmabuf_dump(s, "debug:\n");
+	dmabuf_dump(s, "- dump_vma:%s\n",
+		    vma_dump_flag ? "on" : "off");
+	dmabuf_dump(s, "\n");
+}
+
 static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
 				 struct seq_file *s,
 				 int flag)
@@ -322,6 +399,7 @@ static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
 		dump_param.heap = heap;
 		dump_param.file = s;
 
+		show_help_info(heap, s);
 		dmabuf_dump(s, "freelist: %d KB\n", get_freelist_nr_pages() * 4);
 		//dump all heaps
 		for (; i < _DEBUG_HEAP_CNT_; i++) {
@@ -358,6 +436,26 @@ static inline void mtk_dmabuf_dump_all(struct seq_file *s, int flag)
 static ssize_t dma_heap_all_proc_write(struct file *file, const char *buf,
 				       size_t count, loff_t *data)
 {
+#define CMDLINE_LEN   (30)
+	char cmdline[CMDLINE_LEN];
+
+	if (count >= CMDLINE_LEN)
+		return count;
+
+	if (copy_from_user(cmdline, buf, count))
+		return -EINVAL;
+
+	cmdline[count] = 0;
+
+	pr_info("%s #%d: set info:%s", __func__, __LINE__, cmdline);
+
+	if (!strncmp(cmdline, "vma_dump:on", strlen("vma_dump:on"))) {
+		vma_dump_flag = 1;
+		pr_info("vma_dump status now: on!\n");
+	} else if (!strncmp(cmdline, "vma_dump:off", strlen("vma_dump:off"))) {
+		vma_dump_flag = 0;
+		pr_info("vma_dump status now: off!\n");
+	}
 
 	return count;
 }
