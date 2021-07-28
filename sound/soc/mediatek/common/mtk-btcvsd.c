@@ -948,6 +948,9 @@ static int mtk_pcm_btcvsd_open(struct snd_soc_component *component,
 		bt->rx->substream = substream;
 	}
 
+	/* set the wait_for_avail to 2 sec*/
+	substream->wait_time = msecs_to_jiffies(2 * 1000);
+
 	return ret;
 }
 
