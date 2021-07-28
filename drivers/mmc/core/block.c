@@ -2298,13 +2298,20 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 	host->areq_que[index] = NULL;
 	/* make sure host->areq_que[index] clear earlier than atomic_set(&mq->mqrq[index].index
 	 * which maybe caused by cpu out of order execution or C compiler optimization.
-	 * Otherwise, there is a competition risk at  mmc_blk_swcq_issue_rw_rq :
+	 * Otherwise, there is a competition risk at mmc_blk_swcq_issue_rw_rq :
 	 * "card->host->areq_que[atomic_read(&mqrq->index) - 1] = new_areq;"
 	 */
 	mb();
 	mmc_blk_mq_post_req(mq, req);
 	mq->mqrq[index].req = NULL;
 	atomic_set(&mq->mqrq[index].index, 0);
+	/* make sure mq->mqrq[index].index clear earlier than atomic_dec(&host->areq_cnt)
+	 * which maybe caused by cpu out of order execution.
+	 * Otherwise, there is a competition risk at mmc_blk_swcq_issue_rw_rq :
+	 * "index = mmc_get_cmdq_index(mq);"
+	 * index may be equal to cmdq_depth
+	 */
+	mb();
 	atomic_dec(&host->areq_cnt);
 
 	if (atomic_read(&host->areq_cnt) == 0)
@@ -2336,9 +2343,14 @@ static int mmc_blk_swcq_issue_rw_rq(struct mmc_queue *mq,
 	struct mmc_async_req *new_areq = &mqrq->areq;
 	struct mmc_card *card = mq->card;
 
-	if (atomic_read(&host->areq_cnt) < card->ext_csd.cmdq_depth)
+	if (atomic_read(&host->areq_cnt) < card->ext_csd.cmdq_depth) {
 		index = mmc_get_cmdq_index(mq);
-	else
+		if (WARN_ON(index == card->ext_csd.cmdq_depth)) {
+			pr_info("%s,areq_cnt:%d\n",
+				__func__, atomic_read(&host->areq_cnt));
+			return -EBUSY;
+		}
+	} else
 		return -EBUSY;
 
 	if (req) {
