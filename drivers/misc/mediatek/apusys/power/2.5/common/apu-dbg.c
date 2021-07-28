@@ -177,7 +177,7 @@ static int _apupw_default_freq_range(struct apu_dev *ad)
 	/* Change qos max freq to fix freq */
 	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req,
 					TOKHZ(ad->df->scaling_max_freq));
-	pr_info("[%s] [%s] restore default max/min %dMhz/%dMhz, ret = %d\n",
+	pr_info("[%s] [%s] restore default max/min %luMhz/%luMhz, ret = %d\n",
 		apu_dev_name(ad->dev), __func__,
 		TOMHZ(ad->df->scaling_max_freq),
 		TOMHZ(ad->df->scaling_min_freq), ret);
