@@ -14,6 +14,7 @@
 #include <linux/iopoll.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
@@ -240,6 +241,20 @@ enum mtk_xsphy_mode {
 enum mtk_xsphy_jtag_version {
 	XSP_JTAG_V1 = 1,
 	XSP_JTAG_V2,
+};
+
+enum mtk_phy_efuse {
+	INTR_CAL = 0,
+	IEXT_INTR_CTRL,
+	RX_IMPSEL,
+	TX_IMPSEL,
+};
+
+static char *efuse_name[4] = {
+	"intr_cal",
+	"iext_intr_ctrl",
+	"rx_impsel",
+	"tx_impsel",
 };
 
 struct xsphy_instance {
@@ -1109,6 +1124,69 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 	}
 }
 
+static u32 phy_get_efuse_value(struct xsphy_instance *inst,
+			     enum mtk_phy_efuse type)
+{
+	struct device *dev = &inst->phy->dev;
+	struct device_node *np = dev->of_node;
+	u32 val, mask;
+	int index = 0, ret = 0;
+
+	index = of_property_match_string(np,
+			"nvmem-cell-names", efuse_name[type]);
+	if (index < 0)
+		goto no_efuse;
+
+	ret = of_property_read_u32_index(np, "nvmem-cell-masks",
+			index, &mask);
+	if (ret)
+		goto no_efuse;
+
+	ret = nvmem_cell_read_u32(dev, efuse_name[type], &val);
+	if (ret)
+		goto no_efuse;
+
+	if (!val || !mask)
+		goto no_efuse;
+
+	val = (val & mask) >> (ffs(mask) - 1);
+	dev_info(dev, "%s, %s=0x%x\n", __func__, efuse_name[type], val);
+
+	return val;
+
+no_efuse:
+	return 0;
+}
+
+static void phy_parse_efuse_property(struct mtk_xsphy *xsphy,
+			     struct xsphy_instance *inst)
+{
+	u32 val = 0;
+
+	switch (inst->type) {
+	case PHY_TYPE_USB2:
+		val = phy_get_efuse_value(inst, INTR_CAL);
+		if (val)
+			inst->efuse_intr = val;
+		break;
+	case PHY_TYPE_USB3:
+		val = phy_get_efuse_value(inst, IEXT_INTR_CTRL);
+		if (val)
+			inst->efuse_intr = val;
+
+		val = phy_get_efuse_value(inst, RX_IMPSEL);
+		if (val)
+			inst->efuse_rx_imp = val;
+
+		val = phy_get_efuse_value(inst, TX_IMPSEL);
+		if (val)
+			inst->efuse_tx_imp = val;
+		break;
+	default:
+		return;
+	}
+}
+
 static void phy_parse_property(struct mtk_xsphy *xsphy,
 				struct xsphy_instance *inst)
 {
@@ -1485,6 +1563,7 @@ static struct phy *mtk_phy_xlate(struct device *dev,
 	}
 
 	phy_parse_property(xsphy, inst);
+	phy_parse_efuse_property(xsphy, inst);
 
 	return inst->phy;
 }
