@@ -745,6 +745,8 @@ static inline void typec_custom_src_attached_entry(
 	TYPEC_NEW_STATE(typec_attached_custom_src);
 	tcpc_dev->typec_attach_new = TYPEC_ATTACHED_CUSTOM_SRC;
 
+	tcpc_dev->typec_remote_rp_level = typec_get_cc1();
+
 	tcpci_report_power_control(tcpc_dev, true);
 	tcpci_sink_vbus(tcpc_dev, TCP_VBUS_CTRL_TYPEC,
 		TCPC_VBUS_SINK_5V, tcpc_dev->typec_usb_sink_curr);
