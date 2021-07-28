@@ -12,11 +12,11 @@
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 
-struct soc_device *soc_dev;
+static struct soc_device *soc_dev;
+static struct soc_device_attribute *attrs;
 
 static int __init mediatek_socinfo_init(void)
 {
-	struct soc_device_attribute *attrs;
 	struct device_node *np;
 
 	attrs = kzalloc(sizeof(*attrs), GFP_KERNEL);
@@ -45,7 +45,9 @@ module_init(mediatek_socinfo_init);
 
 static void __exit mediatek_socinfo_exit(void)
 {
-	soc_device_unregister(soc_dev);
+	if (soc_dev)
+		soc_device_unregister(soc_dev);
+	kfree(attrs);
 }
 module_exit(mediatek_socinfo_exit);
 
