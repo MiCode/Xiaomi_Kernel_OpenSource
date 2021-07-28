@@ -32,8 +32,7 @@
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
 			vmalloc=400M swiotlb=noforce \
-			firmware_class.path=/vendor/firmware \
-			page_owner=on";
+			firmware_class.path=/vendor/firmware";
 	};
 
 	cpus {
