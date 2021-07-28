@@ -22552,6 +22552,13 @@ enum {
 	HP_MUX_MASK = 0x7,
 };
 
+/* Test mode */
+enum {
+	HP_MUX_TEST = 0,
+	HP_MUX_HS,
+	HP_MUX_LOL = 0x2,
+};
+
 enum {
 	RCV_MUX_OPEN = 0,
 	RCV_MUX_MUTE,
