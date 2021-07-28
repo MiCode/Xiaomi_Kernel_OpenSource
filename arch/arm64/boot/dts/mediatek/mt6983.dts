@@ -9485,6 +9485,159 @@
 		ccu_emiRegion = <20>;
 	};
 
+	opp_table_cam: opp-table-cam {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <273000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <575000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <688000000>;
+			opp-microvolt = <700000>;
+		};
+	};
+
+	opp_table_img: opp-table-img {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <264000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <575000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <660000000>;
+			opp-microvolt = <700000>;
+		};
+	};
+
+	opp_table_ipe: opp-table-ipe {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <273000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <575000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <364000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <458000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <700000>;
+		};
+	};
+
+	opp_table_ccu: opp-table-ccu {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <273000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <575000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <499000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <700000>;
+		};
+	};
+
+	ispdvfs {
+		compatible = "mediatek,ispdvfs";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+		mediatek,support_micro_processor = <1>;
+		operating-points-v2 = <&opp_table_img>;
+		buck-vmm-supply = <&mt6319_6_vbuck3>;
+
+		mediatek,support_mux = "cam",
+					"img", "ipe", "ccu";
+		mediatek,mux_cam = "TOP_MAINPLL_D4_D2",
+				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+				   "TOP_MAINPLL_D4", "TOP_MMPLL_D4";
+		mediatek,mux_img = "TOP_IMGPLL_D5",
+				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+				   "TOP_MAINPLL_D4", "TOP_IMGPLL_D2";
+		mediatek,mux_ipe = "TOP_MAINPLL_D4_D2",
+				   "TOP_UNIVPLL_D4_D2", "TOP_MAINPLL_D6",
+				   "TOP_MMPLL_D6", "TOP_MAINPLL_D4";
+		mediatek,mux_ccu = "TOP_MAINPLL_D4_D2",
+				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+				   "TOP_UNIVPLL_D5", "TOP_MAINPLL_D4";
+		clocks = <&topckgen_clk CLK_TOPCKGEN_CAM_SEL>,	/* 0 */
+			 <&topckgen_clk CLK_TOPCKGEN_IMG1_SEL>,	/* 1 */
+			 <&topckgen_clk CLK_TOPCKGEN_IPE_SEL>,	/* 2 */
+			 <&topckgen_clk CLK_TOPCKGEN_CCUSYS_SEL>,	/* 3 */
+			 <&topckgen_clk CLK_TOPCKGEN_MAINPLL_D4_D2>,	/* 4 */
+			 <&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D4_D2>,	/* 5 */
+			 <&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6>,	/* 6 */
+			 <&topckgen_clk CLK_TOPCKGEN_MAINPLL_D4>,	/* 7 */
+			 <&topckgen_clk CLK_TOPCKGEN_MMPLL_D4>,	/* 8 */
+			 <&topckgen_clk CLK_TOPCKGEN_IMGPLL_D5>,	/* 9 */
+			 <&topckgen_clk CLK_TOPCKGEN_IMGPLL_D2>,	/* 10 */
+			 <&topckgen_clk CLK_TOPCKGEN_MAINPLL_D6>,	/* 11 */
+			 <&topckgen_clk CLK_TOPCKGEN_MMPLL_D6>,	/* 12 */
+			 <&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D5>;	/* 13 */
+		clock-names = "cam",	/* 0 */
+				"img",	/* 1 */
+				"ipe",	/* 2 */
+				"ccu",	/* 3 */
+				"TOP_MAINPLL_D4_D2",	/* 4 */
+				"TOP_UNIVPLL_D4_D2",	/* 5 */
+				"TOP_UNIVPLL_D6",	/* 6 */
+				"TOP_MAINPLL_D4",	/* 7 */
+				"TOP_MMPLL_D4",	/* 8 */
+				"TOP_IMGPLL_D5",	/* 9 */
+				"TOP_IMGPLL_D2",	/* 10 */
+				"TOP_MAINPLL_D6",	/* 11 */
+				"TOP_MMPLL_D6",	/* 12 */
+				"TOP_UNIVPLL_D5";	/* 13 */
+		vmm_proxy_label: vmm-proxy {
+			regulator-name = "dvfs-vmm";
+			regulator-min-microvolt = <550000>;
+			regulator-max-microvolt = <700000>;
+			regulator-always-on;
+		};
+	};
+
 	ccu_rproc1: ccu_rproc1 {
 		compatible = "mediatek,ccu_rproc1";
 		iommus = <&mdp_iommu M4U_PORT_L19_CAM_CCUO2>,
