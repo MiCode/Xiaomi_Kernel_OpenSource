@@ -131,12 +131,12 @@ enum {
 };
 
 /* just be called by audio module for DC trim */
-extern void accdet_late_init(unsigned long data);
+extern void mt6368_accdet_late_init(unsigned long data);
 extern const struct file_operations *accdet_get_fops(void);
 extern void mt_accdet_suspend(void);
 extern void mt_accdet_resume(void);
 extern void accdet_set_debounce(int state, unsigned int debounce);
-extern void accdet_modify_vref_volt(void);
+extern void mt6368_accdet_modify_vref_volt(void);
 extern int mt6368_accdet_init(struct snd_soc_component *component, struct snd_soc_card *card);
 extern int mt6368_accdet_set_drvdata(struct snd_soc_card *card);
 #endif
