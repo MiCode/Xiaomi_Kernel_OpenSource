@@ -688,7 +688,8 @@ enum ISP_CMD_ENUM {
 	ISP_CMD_ION_UNMAP_PA, /* AOSP ION: unmap physical address from fd */
 	ISP_CMD_ION_UNMAP_PA_BY_MODULE,
 	ISP_CMD_ION_GET_PA,
-	ISP_CMD_SET_VIR_CQCNT
+	ISP_CMD_SET_VIR_CQCNT,
+	ISP_CMD_POWER_CTRL
 };
 
 enum ISP_HALT_DMA_ENUM {
@@ -779,6 +780,9 @@ enum ISP_HALT_DMA_ENUM {
 
 #define ISP_SET_VIR_CQCNT \
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_VIR_CQCNT, unsigned int*)
+
+#define ISP_POWER_CTRL                            \
+	_IOWR(ISP_MAGIC, ISP_CMD_POWER_CTRL, unsigned int*)
 
 #define ISP_SET_PM_QOS                           \
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_PM_QOS, unsigned int)
@@ -899,6 +903,9 @@ enum ISP_HALT_DMA_ENUM {
 
 #define COMPAT_ISP_SET_VIR_CQCNT                 \
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_VIR_CQCNT, compat_uptr_t)
+
+#define COMPAT_ISP_POWER_CTRL                 \
+	_IOWR(ISP_MAGIC, ISP_CMD_POWER_CTRL, compat_uptr_t)
 
 #define COMPAT_ISP_DUMP_BUFFER                   \
 	_IOWR(ISP_MAGIC,                         \
