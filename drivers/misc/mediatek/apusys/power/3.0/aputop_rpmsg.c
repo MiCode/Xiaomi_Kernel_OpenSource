@@ -99,6 +99,18 @@ out:
 	return ret;
 }
 
+void test_ipi_wakeup_apu(void)
+{
+	struct aputop_rpmsg_data rpmsg_data;
+
+	pr_info("%s ++\n", __func__);
+	memset(&rpmsg_data, 0, sizeof(struct aputop_rpmsg_data));
+	rpmsg_data.cmd = APUTOP_CURR_STATUS;
+	rpmsg_data.data0 = 0x0; // pseudo data
+	aputop_send_rpmsg(&rpmsg_data, 100);
+	pr_info("%s --\n", __func__);
+}
+
 static int aputop_rpmsg_probe(struct rpmsg_device *rpdev)
 {
 	struct rpmsg_channel_info chinfo = {};

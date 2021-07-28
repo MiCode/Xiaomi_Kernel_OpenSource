@@ -18,6 +18,7 @@
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
 
+#include "aputop_rpmsg.h"
 #include "apu_top.h"
 #include "mt6983_apupwr.h"
 #include "mt6983_apupwr_prot.h"
@@ -658,7 +659,58 @@ static int __apu_are_init(struct device *dev)
 	return 0;
 }
 
-#ifdef APMCU_REQ_RPC_SLEEP
+static void are_dump_entry(int are_hw)
+{
+	int are_id, are_entry_max_id;
+	uint32_t reg, data;
+	uint32_t target_data = 0x0;
+	void *target_addr = 0x0;
+	int entry, err_flag;
+
+	if (are_hw == 0) {
+		are_id = apu_are0;
+		are_entry_max_id = 238;
+	} else if (are_hw == 1) {
+		are_id = apu_are1;
+		are_entry_max_id = 210;
+	} else {
+		are_id = apu_are2;
+		are_entry_max_id = 237;
+	}
+
+	for (entry = 3 ; entry <= are_entry_max_id ; entry++) {
+		reg = readl(apupw.regs[are_id] +
+				APU_ARE_ETRY0_SRAM_H + entry * 4);
+		data = readl(apupw.regs[are_id] +
+				APU_ARE_ETRY0_SRAM_L + entry * 4);
+		err_flag = 0;
+		target_addr = 0x0;
+		target_data = 0x0;
+
+		if (reg != 0x0) {
+			//pr_info("%s: remapping 0x%08x\n", __func__, reg);
+			target_addr = ioremap(reg, PAGE_SIZE);
+
+			if (IS_ERR((void const *)target_addr)) {
+				pr_info("%s: remap fail 0x%08x\n",
+						__func__, reg);
+			} else {
+				target_data = readl(target_addr);
+				iounmap(target_addr);
+				if (target_data != data)
+					err_flag = 1;
+
+				pr_info(
+					"APU_ARE_DUMP %d-%03d 0x%08x 0x%08x 0x%08x 0x%08x %d\n",
+					are_hw, entry, reg, data,
+					target_addr, target_data, err_flag);
+			}
+		}
+
+	}
+}
+
+#if APMCU_REQ_RPC_SLEEP
 // backup solution : send request for RPC sleep from APMCU
 static int __apu_sleep_rpc_rcx(struct device *dev)
 {
@@ -944,7 +996,7 @@ static int mt6983_apu_top_off(struct device *dev)
 
 	pr_info("%s +\n", __func__);
 
-#ifdef APMCU_REQ_RPC_SLEEP
+#if APMCU_REQ_RPC_SLEEP
 	// backup solution : send request for RPC sleep from APMCU
 	__apu_sleep_rpc_rcx(dev);
 #endif
@@ -957,6 +1009,8 @@ static int mt6983_apu_top_off(struct device *dev)
 				__func__, ret);
 		return -1;
 	}
+
+	mt6983_apu_dump_rpc_status(RCX, NULL);
 
 #if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
@@ -1266,6 +1320,16 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 #if DEBUG_DUMP_REG
 		aputop_dump_all_reg();
 #endif
+		break;
+	case APUTOP_FUNC_IPI_TEST:
+		test_ipi_wakeup_apu();
+		break;
+	case APUTOP_FUNC_ARE_DUMP1:
+		are_dump_entry(0);
+		are_dump_entry(1);
+		break;
+	case APUTOP_FUNC_ARE_DUMP2:
+		are_dump_entry(2);
 		break;
 	default:
 		pr_info("%s invalid func_id : %d\n", __func__, aputop->func_id);

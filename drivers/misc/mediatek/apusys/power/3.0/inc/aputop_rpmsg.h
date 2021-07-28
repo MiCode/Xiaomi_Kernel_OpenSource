@@ -23,6 +23,7 @@ struct aputop_rpmsg_data {
 /* send a top_rpmsg message to remote side */
 int aputop_send_rpmsg(struct aputop_rpmsg_data *rpmsg_data, int timeout);
 
+void test_ipi_wakeup_apu(void);
 enum aputop_rpmsg_cmd get_curr_rpmsg_cmd(void);
 int aputop_register_rpmsg(void);
 void aputop_unregister_rpmsg(void);

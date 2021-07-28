@@ -287,6 +287,7 @@ MODULE_PARM_DESC(aputop_func_sel, "trigger apu top func by parameter");
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static int aputop_dbg_open(struct inode *inode, struct file *file)
 {
+	pr_info("%s ++\n", __func__);
 	if (pwr_data->plat_aputop_dbg_open)
 		return pwr_data->plat_aputop_dbg_open(inode, file);
 	else
@@ -296,6 +297,7 @@ static int aputop_dbg_open(struct inode *inode, struct file *file)
 static ssize_t aputop_dbg_write(struct file *flip, const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
+	pr_info("%s ++\n", __func__);
 	if (pwr_data->plat_aputop_dbg_write)
 		return pwr_data->plat_aputop_dbg_write(
 				flip, buffer, count, f_pos);

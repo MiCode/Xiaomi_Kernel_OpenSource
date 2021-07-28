@@ -9,7 +9,7 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 
-#define APU_POWER_BRING_UP	(1)
+#define APU_POWER_BRING_UP	(0)
 #define APU_PWR_SOC_PATH	(0)	// 1: do not run apu pll/acc init
 #define ENABLE_SW_BUCK_CTL	(0)	// 1: enable regulator in rpm resume
 #define ENABLE_SOC_CLK_MUX	(0)	// 1: enable soc clk in rpm resume
@@ -20,6 +20,7 @@
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
 #define USER_MIN_OPP_VAL	(7) // slowest speed user can specify
 #define TURBO_BOOST_OPP		USER_MAX_OPP_VAL
+#define TURBO_BOOST_VAL		(110)
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
 
@@ -160,6 +161,9 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APU_ARE_ETRY1_SRAM_L    0x0804
 #define APU_ARE_ETRY2_SRAM_H    0x0C08
 #define APU_ARE_ETRY2_SRAM_L    0x0808
+#define APU_ARE_ETRY3_SRAM_H	0x0C0C
+#define APU_ARE_ETRY3_SRAM_L	0x080C
+
 
 /* vcore offset define */
 #define APUSYS_VCORE_CG_CON     0x0000

@@ -18,7 +18,7 @@ static void __iomem *spare_reg_base;
 static struct tiny_dvfs_opp_tbl opp_tbl;
 static struct apu_pwr_curr_info curr_info;
 static const char * const pll_name[] = {
-				"PLL_CONN", "PLL_UP", "PLL_VPU", "PLL_DLA"};
+				"PLL_CONN", "PLL_RV33", "PLL_MVPU", "PLL_MDLA"};
 static const char * const buck_name[] = {
 				"BUCK_VAPU", "BUCK_VSRAM", "BUCK_VCORE"};
 static const char * const cluster_name[] = {
@@ -32,12 +32,27 @@ static struct cluster_dev_opp_info opp_limit_tbl[CLUSTER_NUM] = {
 	_OPP_LMT_TBL(ACX1_LIMIT_OPP_REG),
 };
 
+static inline int over_range_check(int opp)
+{
+	if (opp < USER_MAX_OPP_VAL)
+		return USER_MAX_OPP_VAL;
+	else if (opp > USER_MIN_OPP_VAL)
+		return USER_MIN_OPP_VAL;
+	else
+		return opp;
+}
+
 static void _opp_limiter(int vpu_max, int vpu_min, int dla_max, int dla_min,
 		enum apu_opp_limit_type type)
 {
 	int i;
 	unsigned int reg_data;
 	unsigned int reg_offset;
+
+	vpu_max = over_range_check(vpu_max);
+	vpu_min = over_range_check(vpu_min);
+	dla_max = over_range_check(dla_max);
+	dla_min = over_range_check(dla_min);
 
 #if LOCAL_DBG
 	pr_info("%s type:%d, %d/%d/%d/%d\n", __func__, type,
@@ -200,19 +215,18 @@ static void plat_dump_boost_mapping(struct seq_file *s)
 	int opp_cnt[USER_MIN_OPP_VAL + 1] = {};
 	int begin, end;
 
-	for (boost = TURBO_BOOST_OPP ; boost >= 0 ; boost--) {
+	for (boost = TURBO_BOOST_VAL ; boost >= 0 ; boost--) {
 		opp = _apu_boost_to_opp(boost);
 		opp_cnt[opp]++;
 	}
 
-	begin = TURBO_BOOST_OPP;
-	end = begin - opp_cnt[0] + 1;
+	begin = TURBO_BOOST_VAL;
 
 	for (i = 0 ; i < USER_MIN_OPP_VAL + 1; i++) {
+		end = begin - opp_cnt[i] + 1;
 		seq_printf(s, "opp%d : boost %d ~ %d (%d)\n",
 					i, begin, end, opp_cnt[i]);
 		begin -= opp_cnt[i];
-		end = begin - opp_cnt[i+1] + 1;
 	}
 }
 
@@ -221,6 +235,7 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 	struct tiny_dvfs_opp_tbl tbl;
 	int size, i, j;
 
+	pr_info("%s ++\n", __func__);
 	memcpy(&tbl, &opp_tbl, sizeof(struct tiny_dvfs_opp_tbl));
 	size = tbl.tbl_size;
 
@@ -231,10 +246,10 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 
 	seq_puts(s, "\n");
 	for (i = 0 ; i < size ; i++) {
-		seq_printf(s, "|%d|%*d|", i, tbl.opp[i].vapu);
+		seq_printf(s, "| %d |   %d  |", i, tbl.opp[i].vapu);
 
 		for (j = 0 ; j < PLL_NUM ; j++)
-			seq_printf(s, "|%*d|", tbl.opp[i].pll_freq[j]);
+			seq_printf(s, "  %07d |", tbl.opp[i].pll_freq[j]);
 
 		seq_puts(s, "\n");
 	}
@@ -252,19 +267,20 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	struct rpc_status_dump cluster_dump[CLUSTER_NUM + 1];
 	int i;
 
+	pr_info("%s ++\n", __func__);
 	memcpy(&info, &curr_info, sizeof(struct apu_pwr_curr_info));
 
 	seq_puts(s, "\n");
 
 	for (i = 0 ; i < PLL_NUM ; i++) {
-		seq_printf(s, "%*s : opp %*d , %*d(kHz)",
+		seq_printf(s, "%s : opp %d , %d(kHz)\n",
 				pll_name[i],
 				info.pll_opp[i],
 				info.pll_freq[i]);
 	}
 
 	for (i = 0 ; i < BUCK_NUM ; i++) {
-		seq_printf(s, "%*s : opp %*d , %*d(mV)\n",
+		seq_printf(s, "%s : opp %d , %d(mV)\n",
 				buck_name[i],
 				info.buck_opp[i],
 				info.buck_volt[i]);
@@ -272,7 +288,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 
 	for (i = 0 ; i < CLUSTER_NUM ; i++) {
 		mt6983_apu_dump_rpc_status(i, &cluster_dump[i]);
-		seq_printf(s, "%*s : rpc_status 0x%08x , conn_cg 0x%08x\n",
+		seq_printf(s, "%s : rpc_status 0x%08x , conn_cg 0x%08x\n",
 				cluster_name[i],
 				cluster_dump[i].rpc_reg_status,
 				cluster_dump[i].conn_reg_status);
@@ -281,7 +297,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	// for RCX
 	mt6983_apu_dump_rpc_status(RCX, &cluster_dump[CLUSTER_NUM]);
 	seq_printf(s,
-		"%*s : rpc_status 0x%08x , conn_cg 0x%08x vcore_cg 0x%08x\n",
+		"%s : rpc_status 0x%08x , conn_cg 0x%08x vcore_cg 0x%08x\n",
 			cluster_name[CLUSTER_NUM],
 			cluster_dump[CLUSTER_NUM].rpc_reg_status,
 			cluster_dump[CLUSTER_NUM].conn_reg_status,
@@ -311,6 +327,8 @@ static int apu_top_dbg_show(struct seq_file *s, void *unused)
 
 int mt6983_apu_top_dbg_open(struct inode *inode, struct file *file)
 {
+	pr_info("%s ++\n", __func__);
+
 	return single_open(file, apu_top_dbg_show, inode->i_private);
 }
 

@@ -30,6 +30,7 @@ static void __exit apu_top_entry_exit(void)
 // caller is middleware
 int apu_power_drv_init(struct apusys_core_info *info)
 {
+	pr_info("%s ++\n", __func__);
 	if (g_apupw_drv_ver != 3)
 		return apupw_dbg_init(info);	// 2.5
 	else
