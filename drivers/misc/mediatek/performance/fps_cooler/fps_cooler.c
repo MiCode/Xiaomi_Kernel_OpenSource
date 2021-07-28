@@ -137,8 +137,8 @@ int eara_nl_send_to_user(void *buf, int size)
 	pr_debug(TAG "Netlink_unicast size=%d\n", size);
 
 	ret = netlink_unicast(fps_cooler_nl_sk, skb, eara_pid, MSG_DONTWAIT);
-	kfree_skb(skb);
 	if (ret < 0) {
+		kfree_skb(skb);
 		pr_debug(TAG "Send to pid %d failed %d\n", eara_pid, ret);
 		return -1;
 	}
