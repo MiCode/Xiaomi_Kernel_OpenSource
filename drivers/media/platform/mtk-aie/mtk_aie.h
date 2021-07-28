@@ -1141,8 +1141,14 @@ struct mtk_aie_req_work {
 	struct mtk_aie_dev *fd_dev;
 };
 
+struct ipesys_aie_clocks {
+	struct clk_bulk_data *clks;
+	unsigned int clk_num;
+};
+
 struct mtk_aie_dev {
 	struct device *dev;
+	struct ipesys_aie_clocks aie_clk;
 	struct cmdq_client *fdvt_clt;
 	struct cmdq_client *fdvt_secure_clt;
 	s32 fdvt_event_id;
@@ -1151,8 +1157,11 @@ struct mtk_aie_dev {
 	struct v4l2_m2m_dev *m2m_dev;
 	struct media_device mdev;
 	struct video_device vfd;
+	struct clk *vcore_gals;
+	struct clk *main_gals;
 	struct clk *img_ipe;
 	struct clk *ipe_fdvt;
+	struct clk *ipe_fdvt1;
 	struct clk *ipe_smi_larb12;
 	struct clk *ipe_top;
 	struct device *larb;

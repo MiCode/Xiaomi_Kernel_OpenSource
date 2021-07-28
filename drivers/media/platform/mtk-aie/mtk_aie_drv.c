@@ -3492,10 +3492,6 @@ void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	pkt = cmdq_pkt_create(fd->fdvt_clt);
 	/*for early porting*/
-	cmdq_pkt_write(pkt, NULL, 0x15000008, 0xFFFFFFFF,
-			CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, NULL, 0x15330008, 0xFFFFFFFF,
-			CMDQ_REG_MASK);
 	if (aie_cfg->sel_mode == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
 			CMDQ_REG_MASK);

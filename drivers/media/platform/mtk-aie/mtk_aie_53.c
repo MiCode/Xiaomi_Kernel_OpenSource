@@ -40,7 +40,7 @@
 #define AIE_READ_AVG_BW 213
 #define AIE_WRITE_AVG_BW 145
 #define CHECK_SERVICE_0 0
-
+#define CLK_SINGLE 1
 #if CHECK_SERVICE_0 //Remove CID
 #define V4L2_CID_MTK_AIE_INIT (V4L2_CID_USER_MTK_FD_BASE + 1)
 #define V4L2_CID_MTK_AIE_PARAM (V4L2_CID_USER_MTK_FD_BASE + 2)
@@ -81,6 +81,17 @@ static const struct v4l2_pix_format_mplane mtk_aie_img_fmts[] = {
 		.pixelformat = V4L2_PIX_FMT_NV12, .num_planes = 1,
 	},
 };
+
+struct clk_bulk_data ipesys_isp7_aie_clks[] = {
+	{ .id = "VCORE_GALS" },
+	{ .id = "MAIN_GALS" },
+	{ .id = "IMG_IPE" },
+	{ .id = "IPE_FDVT" },
+	{ .id = "IPE_FDVT1" },
+	{ .id = "IPE_TOP" },
+	{ .id = "IPE_SMI_LARB12" },
+};
+
 #if CHECK_SERVICE_0
 static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
 	{NULL, "l12_fdvt_rda", 0},
@@ -311,8 +322,7 @@ static void mtk_aie_hw_job_finish(struct mtk_aie_dev *fd,
 {
 	struct mtk_aie_ctx *ctx;
 	struct vb2_v4l2_buffer *src_vbuf = NULL, *dst_vbuf = NULL;
-
-	pm_runtime_put(fd->dev);
+	dev_info(fd->dev, "mtk_aie_hw_job_finish");
 
 	ctx = v4l2_m2m_get_curr_priv(fd->m2m_dev);
 	src_vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
@@ -337,10 +347,121 @@ static void mtk_aie_hw_done(struct mtk_aie_dev *fd,
 	wake_up(&fd->flushing_waitq);
 }
 
+static int mtk_aie_ccf_enable(struct device *dev)
+{
+	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
+	int ret;
+
+	dev_info(dev, "%s: CCF start)\n", __func__);
+#ifdef CLK_SINGLE
+	ret = clk_prepare_enable(fd->vcore_gals);
+	if (ret) {
+		dev_info(dev, "Failed to open vcore_gals clk:%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(fd->main_gals);
+	if (ret) {
+		dev_info(dev, "Failed to open main_gals clk:%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(fd->img_ipe);
+	if (ret) {
+		dev_info(dev, "Failed to open img_ipe clk:%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(fd->ipe_fdvt);
+	if (ret) {
+		dev_info(dev, "Failed to open ipe_fdvt clk:%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(fd->ipe_fdvt1);
+	if (ret) {
+		dev_info(dev, "Failed to open ipe_fdvt1 clk:%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(fd->ipe_smi_larb12);
+	if (ret) {
+		dev_info(dev, "Failed to open ipe_smi_larb12 clk:%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(fd->ipe_top);
+	if (ret) {
+		dev_info(dev, "Failed to open ipe_top clk:%d\n", ret);
+		return ret;
+	}
+
+	dev_info(dev, "%s: runtime resume aie job end)\n", __func__);
+#else
+	dev_info(dev, "%s: CCF BULK start)\n", __func__);
+	ret = clk_bulk_prepare_enable(fd->aie_clk.clk_num, fd->aie_clk.clks);
+	if (ret) {
+		dev_info("failed to enable AIE clock:%d\n", ret);
+		return ret;
+	}
+#endif
+	return 0;
+
+
+}
+
+static int mtk_aie_ccf_disable(struct device *dev)
+{
+	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s: runtime suspend aie job start)\n", __func__);
+
+	clk_disable_unprepare(fd->ipe_top);
+	clk_disable_unprepare(fd->ipe_smi_larb12);
+	clk_disable_unprepare(fd->ipe_fdvt1);
+	clk_disable_unprepare(fd->ipe_fdvt);
+	clk_disable_unprepare(fd->img_ipe);
+	clk_disable_unprepare(fd->main_gals);
+	clk_disable_unprepare(fd->vcore_gals);
+	return 0;
+}
+
 static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
+
+	dev_info(fd->dev, "pm_runtime_get_sync!\n");
+	pm_runtime_get_sync((fd->dev));
 	dev_info(fd->dev, "mtk_aie_hw_connect start!: %x %x\n", fd->map_count, fd->fd_stream_count);
+	mtk_aie_ccf_enable((fd->dev));
+
+	dev_info(fd->dev, "%s Setting MSB\n ", __func__);
+	writel(0x00000003, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
+	writel(0x00000003, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
+	writel(0x00000003, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
+
+	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
+	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
+
+	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
+	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
+
+	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB);
+	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
+
+	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB);
+	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB);
+
+	writel(0x33333333, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
+	writel(0x03333333, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
+
+	writel(0x03000000, fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB);
+
+	writel(0x33333333, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
+	writel(0x03333333, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
+	writel(0x00000003, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0_MSB);
+	writel(0x00000003, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0_MSB);
+
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
@@ -362,6 +483,8 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
 	dev_info(fd->dev, "mtk_aie_hw_disconnect start!: %x %x\n", fd->map_count,
 								fd->fd_stream_count);
+	mtk_aie_ccf_disable(fd->dev);
+	pm_runtime_put(fd->dev);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) {
 		//mtk_aie_mmqos_set(fd, 0);
@@ -373,7 +496,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 static int mtk_aie_hw_job_exec(struct mtk_aie_dev *fd,
 			       struct fd_enq_param *fd_param)
 {
-	pm_runtime_get_sync((fd->dev));
+	dev_info(fd->dev, "mtk_aie_hw_job_exec\n");
 
 	reinit_completion(&fd->fd_job_finished);
 	schedule_delayed_work(&fd->job_timeout_work,
@@ -1414,11 +1537,12 @@ err_free_dev:
 	video_device_release(vfd);
 	return ret;
 }
-#if CHECK_SERVICE_0
+
 static int mtk_aie_dev_larb_init(struct mtk_aie_dev *fd)
 {
 	struct device_node *node;
 	struct platform_device *pdev;
+	struct device_link *link;
 
 	node = of_parse_phandle(fd->dev->of_node, "mediatek,larb", 0);
 	if (!node)
@@ -1432,9 +1556,16 @@ static int mtk_aie_dev_larb_init(struct mtk_aie_dev *fd)
 
 	fd->larb = &pdev->dev;
 
+	link = device_link_add(fd->dev, &pdev->dev,
+					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+	if (!link) {
+		dev_info(fd->dev, "unable to link SMI LARB idx %d\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
-#endif
+
 static int mtk_aie_dev_v4l2_init(struct mtk_aie_dev *fd)
 {
 	struct media_device *mdev = &fd->mdev;
@@ -1567,44 +1698,30 @@ static int mtk_aie_probe(struct platform_device *pdev)
 #endif
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	fd->fd_base = devm_ioremap_resource(dev, res);
+
+#ifdef CLK_SINGLE
+
 	if (IS_ERR(fd->fd_base)) {
 		dev_info(dev, "Failed to get fd reg base\n");
 		return PTR_ERR(fd->fd_base);
 	}
 
-
-	dev_info(fd->dev, "%s Setting MSB\n ", __func__);
-	writel(0x00000003, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
-	writel(0x00000003, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
-	writel(0x00000003, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
-
-	writel(0x03000000, fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
-	writel(0x00000003, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0_MSB);
-	writel(0x00000003, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0_MSB);
-
-#if CHECK_SERVICE_0
 	ret = mtk_aie_dev_larb_init(fd);
 	if (ret) {
 		dev_info(dev, "Failed to init larb : %d\n", ret);
 		return ret;
+	}
+
+	fd->vcore_gals = devm_clk_get(dev, "VCORE_GALS");
+	if (IS_ERR(fd->vcore_gals)) {
+		dev_info(dev, "Failed to get vcore_gals clock\n");
+		return PTR_ERR(fd->vcore_gals);
+	}
+
+	fd->main_gals = devm_clk_get(dev, "MAIN_GALS");
+	if (IS_ERR(fd->main_gals)) {
+		dev_info(dev, "Failed to get main_gals clock\n");
+		return PTR_ERR(fd->main_gals);
 	}
 
 	fd->img_ipe = devm_clk_get(dev, "IMG_IPE");
@@ -1613,10 +1730,22 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		return PTR_ERR(fd->img_ipe);
 	}
 
+	fd->ipe_top = devm_clk_get(dev, "IPE_TOP");
+	if (IS_ERR(fd->ipe_top)) {
+		dev_info(dev, "Failed to get ipe_top clock\n");
+		return PTR_ERR(fd->ipe_top);
+	}
+
 	fd->ipe_fdvt = devm_clk_get(dev, "IPE_FDVT");
 	if (IS_ERR(fd->ipe_fdvt)) {
 		dev_info(dev, "Failed to get ipe_fdvt clock\n");
 		return PTR_ERR(fd->ipe_fdvt);
+	}
+
+	fd->ipe_fdvt1 = devm_clk_get(dev, "IPE_FDVT1");
+	if (IS_ERR(fd->ipe_fdvt1)) {
+		dev_info(dev, "Failed to get ipe_fdvt1 clock\n");
+		return PTR_ERR(fd->ipe_fdvt1);
 	}
 
 	fd->ipe_smi_larb12 = devm_clk_get(dev, "IPE_SMI_LARB12");
@@ -1625,19 +1754,22 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		return PTR_ERR(fd->ipe_smi_larb12);
 	}
 
-	fd->ipe_top = devm_clk_get(dev, "IPE_TOP");
-	if (IS_ERR(fd->ipe_top)) {
-		dev_info(dev, "Failed to get ipe_top clock\n");
-		return PTR_ERR(fd->ipe_top);
-	}
-#endif
-
 	fd->fdvt_clt = cmdq_mbox_create(dev, 0);
 	dev_info(dev, "cmdq fd->fdvt_clt:%x\n", fd->fdvt_clt);
 	if (!fd->fdvt_clt)
 		dev_info(dev, "cmdq mbox create fail\n");
 	else
 		dev_info(dev, "cmdq mbox create done\n");
+#else
+	fd->aie_clk.clk_num = ARRAY_SIZE(ipesys_isp7_aie_clks);
+	fd->aie_clk.clks = ipesys_isp7_aie_clks;
+	ret = devm_clk_bulk_get(&pdev->dev, fd->aie_clk.clk_num, fd->aie_clk.clks);
+	if (ret) {
+		dev_info("failed to get raw AIE clock: %d\n", ret);
+		return ret;
+	}
+#endif
+
 #if CHECK_SERVICE_0
 	fd->fdvt_secure_clt = cmdq_mbox_create(dev, 1);
 
@@ -1758,52 +1890,15 @@ static int mtk_aie_resume(struct device *dev)
 
 static int mtk_aie_runtime_suspend(struct device *dev)
 {
-	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 
-	dev_dbg(dev, "%s: runtime suspend aie job start)\n", __func__);
-
-	clk_disable_unprepare(fd->ipe_top);
-	clk_disable_unprepare(fd->ipe_smi_larb12);
-	clk_disable_unprepare(fd->ipe_fdvt);
-	clk_disable_unprepare(fd->img_ipe);
-
-	dev_dbg(dev, "%s: runtime suspend aie job end)\n", __func__);
+	dev_info(dev, "%s: runtime suspend aie job)\n", __func__);
 
 	return 0;
 }
 
 static int mtk_aie_runtime_resume(struct device *dev)
 {
-	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
-	int ret;
-
-	dev_dbg(dev, "%s: runtime resume aie job start)\n", __func__);
-
-	ret = clk_prepare_enable(fd->img_ipe);
-	if (ret) {
-		dev_info(dev, "Failed to open img_ipe clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->ipe_fdvt);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_fdvt clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->ipe_smi_larb12);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_smi_larb12 clk:%d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(fd->ipe_top);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_top clk:%d\n", ret);
-		return ret;
-	}
-	dev_dbg(dev, "%s: runtime resume aie job end)\n", __func__);
-
+	dev_info(dev, "%s: empty runtime resume aie job)\n", __func__);
 	return 0;
 }
 
