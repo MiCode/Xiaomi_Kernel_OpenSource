@@ -8892,7 +8892,7 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	hp_gain_ctl_select(priv, priv->hp_gain_ctl);
 
 	/* hp hifi mode, default normal mode */
-	priv->hp_hifi_mode = 1;
+	priv->hp_hifi_mode = 0;
 
 	/* Disable AUD_ZCD */
 	zcd_enable(priv, false, DEVICE_HP);
