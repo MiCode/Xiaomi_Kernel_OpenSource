@@ -8444,6 +8444,7 @@
 		vbus-voltage = <5000000>;
 		vbus-current = <1800000>;
 		charger = <&mt6375_chg>;
+		tcpc = "type_c_port0";
 		mediatek,bypss-typec-sink = <1>;
 		port {
 			usb_role: endpoint@0 {

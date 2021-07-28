@@ -883,6 +883,7 @@
 		vbus-supply = <&otg_vbus>;
 		vbus-volt = <5000000>;
 		charger = <&mt6360_chg>;
+		tcpc = "type_c_port0";
 		mediatek,bypss-typec-sink = <1>;
 		vbus-current = <1800000>;
 		port {
