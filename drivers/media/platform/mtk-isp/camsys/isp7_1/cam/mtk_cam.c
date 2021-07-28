@@ -109,6 +109,13 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			vb->timestamp = req_stream_data->timestamp_mono;
 		else
 			vb->timestamp = req_stream_data->timestamp;
+		/*check buffer's timestamp*/
+		if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG)
+			dev_dbg(cam->dev, "%s:%s:vb sequence:%d, queue type:%d, timestamp_flags:0x%x, timestamp:%lld\n",
+			__func__, node->desc.name, buf->vbb.sequence,
+			vb->vb2_queue->type, vb->vb2_queue->timestamp_flags,
+			vb->timestamp);
+
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
 	spin_unlock(&req_stream_data_pipe->bufs_lock);
@@ -1969,7 +1976,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	unsigned int i, j;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
-		if (req->ctx_used & (1 << cam->ctxs[i].stream_id)) {
+		if (req->pipe_used & (1 << i)) {
 			unsigned int stream_id = i;
 			struct mtk_cam_req_work *sensor_work, *frame_work, *frame_done_work;
 			struct mtk_cam_request_stream_data *req_stream_data;
