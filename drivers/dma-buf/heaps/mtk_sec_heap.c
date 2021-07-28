@@ -172,9 +172,6 @@ static struct secure_heap_region mtk_sec_heap_region[REGION_HEAPS_NUM] = {
 	},
 };
 
-/* Function Declcare */
-static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf);
-
 static bool region_heap_is_aligned(struct dma_heap *heap)
 {
 	if (strstr(dma_heap_get_name(heap), "aligned"))
@@ -356,11 +353,6 @@ static void tmem_region_free(struct dma_buf *dmabuf)
 	struct secure_heap_region *sec_heap;
 	struct mtk_sec_heap_buffer *buffer = NULL;
 
-	if (unlikely(!is_mtk_secure_dmabuf(dmabuf))) {
-		pr_err("%s err, dmabuf is not secure\n", __func__);
-		return;
-	}
-
 	buffer = dmabuf->priv;
 	sec_heap = sec_heap_region_get(buffer->heap);
 	if (!sec_heap) {
@@ -388,11 +380,6 @@ static void tmem_page_free(struct dma_buf *dmabuf)
 	int ret = -EINVAL;
 	struct secure_heap_page *sec_heap;
 	struct mtk_sec_heap_buffer *buffer = NULL;
-
-	if (unlikely(!is_mtk_secure_dmabuf(dmabuf))) {
-		pr_err("%s err, dmabuf is not secure\n", __func__);
-		return;
-	}
 
 	buffer = dmabuf->priv;
 	sec_heap = sec_heap_page_get(buffer->heap);
@@ -571,11 +558,6 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 
 	pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
 
-	if (unlikely(!is_mtk_secure_dmabuf(dmabuf))) {
-		pr_err("%s err, dmabuf is not secure\n", __func__);
-		return NULL;
-	}
-
 	if (a->uncached)
 		attr |= DMA_ATTR_SKIP_CPU_SYNC;
 
@@ -665,11 +647,6 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 	int attr = attachment->dma_map_attrs;
 
 	pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
-
-	if (unlikely(!is_mtk_secure_dmabuf(dmabuf))) {
-		pr_err("%s err, dmabuf is not secure\n", __func__);
-		return NULL;
-	}
 
 	if (a->uncached)
 		attr |= DMA_ATTR_SKIP_CPU_SYNC;
@@ -1200,7 +1177,8 @@ static const struct mtk_heap_priv_info mtk_sec_heap_priv = {
 	.show =             sec_dmaheap_show,
 };
 
-static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf) {
+int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf)
+{
 	if (!dmabuf)
 		return 0;
 
@@ -1210,14 +1188,15 @@ static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf) {
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(is_mtk_sec_heap_dmabuf);
 
 /* return 0 means error */
-u32 dmabuf_to_secure_handle(struct dma_buf *dmabuf)
+u32 dmabuf_to_secure_handle(const struct dma_buf *dmabuf)
 {
 	int heap_base;
 	struct mtk_sec_heap_buffer *buffer;
 
-	if (!is_mtk_secure_dmabuf(dmabuf)) {
+	if (!is_mtk_sec_heap_dmabuf(dmabuf)) {
 		pr_err("%s err, dmabuf is not secure\n", __func__);
 		return 0;
 	}

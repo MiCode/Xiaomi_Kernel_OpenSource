@@ -814,5 +814,14 @@ static int mtk_mm_heap_create(void)
 
 	return 0;
 }
+
+int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf)
+{
+	if (dmabuf && dmabuf->ops == &mtk_mm_heap_buf_ops)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(is_mtk_mm_heap_dmabuf);
+
 module_init(mtk_mm_heap_create);
 MODULE_LICENSE("GPL v2");

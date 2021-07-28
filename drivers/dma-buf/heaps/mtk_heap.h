@@ -13,6 +13,9 @@
 #define _MTK_DMABUFHEAP_H
 
 /* return 0 means error */
-u32 dmabuf_to_secure_handle(struct dma_buf *dmabuf);
+u32 dmabuf_to_secure_handle(const  struct dma_buf *dmabuf);
+
+int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf);
+int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf);
 
 #endif /* _MTK_DMABUFHEAP_DEBUG_H */
