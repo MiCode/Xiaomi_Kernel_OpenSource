@@ -832,6 +832,15 @@ config REGULATOR_MTK_DVFSRC
 	  of Mediatek. It allows for voting on regulator state
 	  between multiple users.
 
+config REGULATOR_MTK_VMM
+	tristate "MediaTek ISPDVFS regulator driver"
+	help
+	  Say y here to control regulator by ISPDVFS (dynamic voltage
+	  and frequency scaling resource collector).
+	  This driver supports to control regulators via the ISPDVFS
+	  of Mediatek. It allows for voting on regulator state
+	  between multiple users.
+
 config REGULATOR_PALMAS
 	tristate "TI Palmas PMIC Regulators"
 	depends on MFD_PALMAS
