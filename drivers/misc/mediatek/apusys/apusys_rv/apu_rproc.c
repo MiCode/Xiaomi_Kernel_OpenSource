@@ -19,6 +19,7 @@
 #include <linux/device.h>
 #include <linux/sched/clock.h>
 #include <linux/of_device.h>
+#include <linux/pm_runtime.h>
 
 #include "apu.h"
 #include "apu_excep.h"
@@ -274,6 +275,11 @@ static int apu_probe(struct platform_device *pdev)
 	apu->platdata = data;
 	platform_set_drvdata(pdev, apu);
 	spin_lock_init(&apu->reg_lock);
+
+	dev_info(dev, "%s %d\n", __func__, __LINE__);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+	dev_info(dev, "%s %d\n", __func__, __LINE__);
 
 	if (!hw_ops->apu_memmap_init) {
 		WARN_ON(1);
