@@ -4167,7 +4167,24 @@ static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
 	struct drm_device *drm = private->drm;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	int i;
+	bool wake_state = false;
 
+	/* check each CRTC suspend already */
+	for (i = 0; i < 3; i++) {
+		crtc = private->crtc[i];
+		if (!crtc)
+			continue;
+		mtk_crtc = to_mtk_crtc(crtc);
+		wake_state |= mtk_crtc->wk_lock->active;
+	}
+
+	if (wake_state == false)
+		goto OUT;
+
+	DDPMSG("%s\n");
 	drm_kms_helper_poll_disable(drm);
 
 	private->suspend_state = drm_atomic_helper_suspend(drm);
@@ -4175,6 +4192,7 @@ static int mtk_drm_sys_suspend(struct device *dev)
 		drm_kms_helper_poll_enable(drm);
 		return PTR_ERR(private->suspend_state);
 	}
+OUT:
 #ifdef MTK_DRM_FENCE_SUPPORT
 	mtk_drm_suspend_release_fence(dev);
 #endif
@@ -4199,6 +4217,8 @@ static int mtk_drm_sys_resume(struct device *dev)
 
 	drm_atomic_helper_resume(drm, private->suspend_state);
 	drm_kms_helper_poll_enable(drm);
+
+	private->suspend_state = NULL;
 
 	DRM_DEBUG_DRIVER("%s\n", __func__);
 	return 0;
