@@ -211,6 +211,7 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 
 		offset = i * working_buf_size;
 
+		buf->ctx = ctx;
 		buf->img_buffer.va = ctx->img_buf_pool.working_img_buf_va + offset;
 		buf->img_buffer.iova = ctx->img_buf_pool.working_img_buf_iova + offset;
 		buf->img_buffer.size = working_buf_size;
