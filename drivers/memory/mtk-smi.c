@@ -21,6 +21,10 @@
 
 #include <linux/kthread.h>
 
+/* SCMI */
+#include <linux/scmi_protocol.h>
+#include "../misc/mediatek/tinysys_scmi/tinysys-scmi.h"
+
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
 
@@ -115,6 +119,7 @@ struct mtk_smi_common_plat {
 	bool		has_bwl;
 	u16		*bwl;
 	struct mtk_smi_reg_pair *misc;
+	bool use_swccf;
 };
 
 struct mtk_smi_larb_gen {
@@ -163,6 +168,9 @@ enum smi_log_level {
 	log_config_bit = 0,
 	log_set_bw,
 };
+
+static struct scmi_tinysys_info_st *tinfo;
+static int feature_id = -1;
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
@@ -1311,6 +1319,7 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt6983 = {
 	.has_bwl  = true,
 	.bwl      = (u16 *)mtk_smi_common_mt6983_bwl,
 	.misc     = (struct mtk_smi_reg_pair *)mtk_smi_common_mt6983_misc,
+	.use_swccf = true,
 };
 
 static const struct mtk_smi_common_plat mtk_smi_common_mt8183 = {
@@ -1485,6 +1494,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 
 	if (of_parse_phandle(dev->of_node, "mediatek,cmdq", 0))
 		kthr = kthread_run(smi_cmdq, dev, __func__);
+
 	return 0;
 }
 
@@ -1492,6 +1502,29 @@ static int mtk_smi_common_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	return 0;
+}
+
+static void do_bkrs_by_scmi(bool is_restore)
+{
+	int ret;
+
+	if (!tinfo)
+		tinfo = get_scmi_tinysys_info();
+	if (IS_ERR_OR_NULL(tinfo)) {
+		pr_notice("SMI %s(%d): get scmi tinfo failed\n", __func__, is_restore);
+	} else {
+		if (IS_ERR_OR_NULL(tinfo->ph)) {
+			pr_notice("SMI %s(%d): tinfo->ph is wrong!!\n", __func__, is_restore);
+		} else {
+			if (feature_id < 0)
+				of_property_read_u32(tinfo->sdev->dev.of_node,
+						"scmi_smi", &feature_id);
+			ret = scmi_tinysys_common_set(tinfo->ph, feature_id,
+					2, (is_restore)?0:1, 0, 0, 0);
+			pr_notice("SMI %s(%d): call scmi_tinysys_common_set ret=%d\n",
+				__func__, is_restore, ret);
+		}
+	}
 }
 
 static int __maybe_unused mtk_smi_common_resume(struct device *dev)
@@ -1505,6 +1538,8 @@ static int __maybe_unused mtk_smi_common_resume(struct device *dev)
 		dev_err(common->dev, "Failed to enable clock(%d).\n", ret);
 		return ret;
 	}
+	if (common->plat->use_swccf)
+		do_bkrs_by_scmi(true);
 
 	atomic_inc(&common->ref_count);
 	if ((common->plat->gen == MTK_SMI_GEN2 || common->plat->gen == MTK_SMI_GEN3)
@@ -1541,6 +1576,9 @@ static int __maybe_unused mtk_smi_common_resume(struct device *dev)
 static int __maybe_unused mtk_smi_common_suspend(struct device *dev)
 {
 	struct mtk_smi *common = dev_get_drvdata(dev);
+
+	if (common->plat->use_swccf)
+		do_bkrs_by_scmi(false);
 
 	mtk_smi_clk_disable(common);
 	atomic_dec(&common->ref_count);
