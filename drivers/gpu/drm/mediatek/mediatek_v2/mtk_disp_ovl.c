@@ -8,12 +8,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-
-#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#else
-#include "mtk-cmdq-ext.h"
-#endif
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -3685,30 +3680,6 @@ static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
 	.is_support_34bits = false,
 };
 
-static const struct compress_info compr_info_mt6879  = {
-	.name = "AFBC_V1_2_MTK_1",
-	.l_config = &compr_l_config_AFBC_V1_2,
-};
-
-static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
-	.addr = DISP_REG_OVL_ADDR_BASE,
-	.el_addr_offset = 0x10,
-	.fmt_rgb565_is_0 = true,
-	.fmt_rgb565_is_0 = true,
-	.fmt_uyvy = 4U << 12,
-	.fmt_yuyv = 5U << 12,
-	.compr_info = &compr_info_mt6879,
-	.support_shadow = false,
-	.need_bypass_shadow = false,
-	.preultra_th_dc = 0xe0,
-	.fifo_size = 288,
-	.issue_req_th_dl = 191,
-	.issue_req_th_urg_dl = 95,
-	.greq_num_dl = 0x5555,
-	.ovl_secure = 0xfe0,
-	.is_support_34bits = true,
-};
-
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT8173,
 	.el_addr_offset = 0x04,
@@ -3738,8 +3709,6 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6853_ovl_driver_data},
 	{.compatible = "mediatek,mt6833-disp-ovl",
 	 .data = &mt6833_ovl_driver_data},
-	{.compatible = "mediatek,mt6879-disp-ovl",
-	 .data = &mt6879_ovl_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_ovl_driver_dt_match);

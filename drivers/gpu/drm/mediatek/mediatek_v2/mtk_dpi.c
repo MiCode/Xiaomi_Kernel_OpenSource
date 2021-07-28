@@ -14,12 +14,7 @@
 #include <linux/types.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
-
-#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#else
-#include "mtk-cmdq-ext.h"
-#endif
 
 #include "mtk_dpi_regs.h"
 #include "mtk_drm_ddp_comp.h"

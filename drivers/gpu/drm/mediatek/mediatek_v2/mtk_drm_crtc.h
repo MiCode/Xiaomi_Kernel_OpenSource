@@ -9,25 +9,20 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 #include <linux/wait.h>
-#include <linux/pm_wakeup.h>
-#include <drm/drm_crtc.h>
-#include <drm/drm_writeback.h>
-
-#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#else
-#include "mtk-cmdq-ext.h"
-#endif
-
+#include <drm/drm_crtc.h>
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_plane.h"
+#include <drm/drm_writeback.h>
 #include "mtk_debug.h"
 #include "mtk_log.h"
 #include "mtk_panel_ext.h"
 #include "mtk_drm_lowpower.h"
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_ddp_addon.h"
+#include <linux/pm_wakeup.h>
 #include "mtk_disp_pmqos.h"
+
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -946,8 +941,6 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level);
 
 int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc);
 void mtk_drm_crtc_init_para(struct drm_crtc *crtc);
-void trigger_without_cmdq(struct drm_crtc *crtc);
-void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc);
 void mtk_drm_layer_dispatch_to_dual_pipe(
 	struct mtk_plane_state *plane_state,
 	struct mtk_plane_state *plane_state_l,

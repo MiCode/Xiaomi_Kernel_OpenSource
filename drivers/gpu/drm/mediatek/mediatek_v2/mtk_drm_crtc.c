@@ -12,6 +12,7 @@
 #include <drm/drm_fourcc.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/mailbox_controller.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -24,12 +25,6 @@
 #include <linux/delay.h>
 #include <drm/drm_crtc.h>
 #include <linux/kmemleak.h>
-
-#ifndef DRM_CMDQ_DISABLE
-#include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#else
-#include "mtk-cmdq-ext.h"
-#endif
 
 #include "mtk_drm_arr.h"
 #include "mtk_drm_drv.h"
@@ -262,7 +257,6 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	case MMSYS_MT6873:
 	case MMSYS_MT6853:
 	case MMSYS_MT6833:
-	case MMSYS_MT6879:
 		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
 		break;
@@ -380,10 +374,6 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6833:
 		mmsys_config_dump_analysis_mt6833(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6833(mtk_crtc->mutex[0]);
-		break;
-	case MMSYS_MT6879:
-		mmsys_config_dump_analysis_mt6879(mtk_crtc->config_regs);
-		mutex_dump_analysis_mt6879(mtk_crtc->mutex[0]);
 		break;
 	default:
 		pr_info("%s mtk drm not support mmsys id %d\n",
@@ -2466,9 +2456,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
 #ifndef CONFIG_MTK_DISP_NO_LK
-#ifndef MTK_DRM_BRINGUP_STAGE
 	struct drm_device *dev = crtc->dev;
-#endif
 #endif
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
@@ -2510,15 +2498,13 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);
 #ifndef CONFIG_MTK_DISP_NO_LK
-#ifndef MTK_DRM_BRINGUP_STAGE
 			if (lyeblob_ids->lye_idx == 2 && !already_free) {
 				/*free fb buf in second query valid*/
-				DDPMSG("%s, %d release frame buffer\n", __func__, __LINE__);
+				DDPMSG("release frame buffer\n");
 				mtk_drm_fb_gem_release(dev);
 				free_fb_buf();
 				already_free = true;
 			}
-#endif
 #endif
 			break;
 		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
@@ -2595,12 +2581,10 @@ static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 
 bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc)
 {
-#ifndef DRM_CMDQ_DISABLE
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	if (mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP])
 		return true;
-#endif
 	return false;
 }
 
@@ -2800,13 +2784,10 @@ static int _mtk_crtc_cmdq_retrig(void *data)
 static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 {
 	struct drm_crtc *crtc = data.data;
-
-#ifndef DRM_CMDQ_DISABLE
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_client *cl;
 	dma_addr_t trig_pc;
 	u64 *inst;
-#endif
 
 	if (!crtc) {
 		DDPPR_ERR("%s find crtc fail\n", __func__);
@@ -2818,7 +2799,6 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 	mtk_drm_crtc_analysis(crtc);
 	mtk_drm_crtc_dump(crtc);
 
-#ifndef DRM_CMDQ_DISABLE
 	if ((mtk_crtc->trig_loop_cmdq_handle) &&
 			(mtk_crtc->trig_loop_cmdq_handle->cl)) {
 		cl = (struct cmdq_client *)mtk_crtc->trig_loop_cmdq_handle->cl;
@@ -2829,9 +2809,8 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 
 		DDPMSG("------ Dump trigger loop ------\n");
 	}
-	atomic_set(&mtk_crtc->cmdq_trig, 1);
-#endif
 
+	atomic_set(&mtk_crtc->cmdq_trig, 1);
 	/* CMDQ driver would not trigger aee when timeout. */
 	DDPAEE("%s cmdq timeout, crtc id:%d\n", __func__, drm_crtc_index(crtc));
 }
@@ -3052,7 +3031,6 @@ end:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
 
-#ifndef DRM_CMDQ_DISABLE
 static void mtk_crtc_release_input_layer_fence(
 	struct drm_crtc *crtc, int session_id)
 {
@@ -3115,7 +3093,6 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 				NO_PENDING_HRT;
 	}
 }
-#endif
 
 int mtk_crtc_fill_fb_para(struct mtk_drm_crtc *mtk_crtc)
 {
@@ -3211,7 +3188,6 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 	}
 }
 
-#ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_FB_LEAK
 static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cmdq_cb_data data)
@@ -3444,7 +3420,7 @@ static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 }
-#endif
+
 #endif
 
 static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
@@ -3456,11 +3432,8 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	unsigned int i;
 	unsigned int ovl_is_busy;
-
-#ifndef DRM_CMDQ_DISABLE
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
-#endif
 
 	/*
 	 * TODO: instead of updating the registers here, we should prepare
@@ -3496,7 +3469,7 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	if ((mtk_crtc->pending_planes) == false)
 		return;
 
-#ifdef DRM_CMDQ_DISABLE
+#ifndef CONFIG_MTK_DISPLAY_CMDQ
 	mtk_wb_atomic_commit(mtk_crtc);
 #endif
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
@@ -3509,7 +3482,6 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 
 		mtk_ddp_comp_layer_config(comp, i, plane_state, cmdq_handle);
 
-#ifndef DRM_CMDQ_DISABLE
 		last_fence = *(unsigned int *)(cmdq_buf->va_base +
 					       DISP_SLOT_CUR_CONFIG_FENCE(i));
 		cur_fence =
@@ -3526,7 +3498,7 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 			       cmdq_buf->pa_base +
 				       DISP_SLOT_SUBTRACTOR_WHEN_FREE(i),
 			       sub, ~0);
-#endif
+
 		plane_state->pending.config = false;
 	}
 
@@ -3563,13 +3535,11 @@ int mtk_crtc_comp_is_busy(struct mtk_drm_crtc *mtk_crtc)
 	return ret;
 }
 
-#ifndef DRM_CMDQ_DISABLE
 /* TODO: need to remove this in vdo mode for lowpower */
 static void trig_done_cb(struct cmdq_cb_data data)
 {
 	CRTC_MMP_MARK((unsigned long)data.data, trig_loop_done, 0, 0);
 }
-#endif
 
 void mtk_crtc_clear_wait_event(struct drm_crtc *crtc)
 {
@@ -3591,7 +3561,6 @@ void mtk_crtc_clear_wait_event(struct drm_crtc *crtc)
 
 }
 
-#ifndef DRM_CMDQ_DISABLE
 static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
 				  struct cmdq_pkt *cmdq_handle)
 {
@@ -3609,7 +3578,6 @@ static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
 				cmdq_buf->pa_base + DISP_SLOT_TRIG_CNT,
 				CMDQ_CPR_DISP_CNT, U32_MAX);
 }
-#endif
 
 /* sw workaround to fix gce hw bug */
 void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
@@ -3719,10 +3687,6 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 {
-#ifdef DRM_CMDQ_DISABLE
-	DDPINFO("%s+\n", __func__);
-	return;
-#else
 	int ret = 0;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -3898,33 +3862,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	ret = cmdq_pkt_flush_async(cmdq_handle, trig_done_cb, (void *)crtc_id);
 
 	mtk_crtc_clear_wait_event(crtc);
-#endif
 }
-
-#ifdef DRM_CMDQ_DISABLE
-void trigger_without_cmdq(struct drm_crtc *crtc)
-{
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
-	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
-
-	/* wait for TE, fpga no TE signal */
-	drm_wait_one_vblank(priv->drm, 0);
-#endif
-
-	DDPDBG("%s:%d for early porting\n",
-		__func__, __LINE__);
-	/*Trigger without cmdq*/
-	mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
-		mtk_crtc->gce_obj.base);
-	mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
-		MTK_TRIG_FLAG_TRIGGER);
-	//loop for check idle of dsi, maybe timeout
-	mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle, MTK_TRIG_FLAG_EOF);
-}
-#endif
 
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
 {
@@ -4069,9 +4007,6 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 		case MMSYS_MT6853:
 			mtk_ddp_remove_dsc_prim_MT6853(mtk_crtc, handle);
 			break;
-		case MMSYS_MT6879:
-			mtk_ddp_remove_dsc_prim_MT6879(mtk_crtc, handle);
-			break;
 		default:
 			DDPINFO("%s mtk drm not support mmsys id %d\n",
 				__func__, priv->data->mmsys_id);
@@ -4160,9 +4095,6 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 			break;
 		case MMSYS_MT6853:
 			mtk_ddp_insert_dsc_prim_MT6853(mtk_crtc, handle);
-			break;
-		case MMSYS_MT6879:
-			mtk_ddp_insert_dsc_prim_MT6879(mtk_crtc, handle);
 			break;
 		default:
 			DDPINFO("%s mtk drm not support mmsys id %d\n",
@@ -4405,7 +4337,7 @@ static void set_dirty_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
-void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
+static void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
@@ -4696,10 +4628,6 @@ void mtk_crtc_stop_ddp(struct mtk_drm_crtc *mtk_crtc,
 /* Stop trig loop and stop all modules in this CRTC */
 void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 {
-#ifdef DRM_CMDQ_DISABLE
-	DDPINFO("%s:%d +\n", __func__, __LINE__);
-	return;
-#else
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
 	int i, j;
@@ -4778,7 +4706,6 @@ skip:
 	}
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
-#endif
 }
 
 /* TODO: how to remove add-on module? */
@@ -4827,9 +4754,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int crtc_id = drm_crtc_index(crtc);
-#ifndef DRM_CMDQ_DISABLE
 	struct cmdq_client *client;
-#endif
 	struct mtk_ddp_comp *comp;
 	int i, j;
 	struct mtk_ddp_comp *output_comp = NULL;
@@ -4868,14 +4793,12 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	mtk_crtc_ddp_prepare(mtk_crtc);
 #endif
 
-#ifndef DRM_CMDQ_DISABLE
 	/* 3. power on cmdq client */
 	if (crtc_id == 2) {
 		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 		cmdq_mbox_enable(client->chan);
 		CRTC_MMP_MARK(crtc_id, enable, 1, 1);
 	}
-#endif
 
 	/* 4. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(crtc)) {
@@ -5255,10 +5178,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	mtk_crtc_load_round_corner_pattern(&mtk_crtc->base, cmdq_handle);
 #endif
 
-#ifdef CONFIG_MTK_DISPLAY_M4U
 	/*3. Enable M4U port and replace OVL address to mva */
 	mtk_crtc_enable_iommu_runtime(mtk_crtc, cmdq_handle);
-#endif
 
 	/*4. Enable Frame done IRQ &  process first config */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
@@ -5355,9 +5276,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_ddp_comp *comp = NULL;
 	struct mtk_ddp_comp *output_comp = NULL;
-#ifndef DRM_CMDQ_DISABLE
 	struct cmdq_client *client;
-#endif
 	int en = 0;
 
 	CRTC_MMP_EVENT_START(crtc_id, disable,
@@ -5404,14 +5323,12 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	/* 7. disable vblank */
 	drm_crtc_vblank_off(crtc);
 
-#ifndef DRM_CMDQ_DISABLE
 	/* 8. power off cmdq client */
 	if (crtc_id == 2) {
 		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 		cmdq_mbox_disable(client->chan);
 		CRTC_MMP_MARK(crtc_id, disable, 1, 2);
 	}
-#endif
 
 	/* 9. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
@@ -5726,7 +5643,6 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 #define msync_index_dec(index) \
 	((index) = ((index) + MSYNC_MAX_RECORD - 1) % MSYNC_MAX_RECORD)
 
-#ifndef DRM_CMDQ_DISABLE
 static void msync_add_frame_time(struct mtk_drm_crtc *mtk_crtc,
 		enum MSYNC_RECORD_TYPE type, u64 time)
 {
@@ -5795,7 +5711,6 @@ static void msync_add_frame_time(struct mtk_drm_crtc *mtk_crtc,
 		break;
 	}
 }
-#endif
 
 static bool msync_need_disable(struct mtk_drm_crtc *mtk_crtc)
 {
@@ -5818,7 +5733,6 @@ static bool msync_need_disable(struct mtk_drm_crtc *mtk_crtc)
 	return low_frame_count >= MSYNC_LOWFRAME_THRESHOLD;
 }
 
-#ifndef DRM_CMDQ_DISABLE
 static bool msync_need_enable(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct mtk_msync2_dy *msync_dy = &mtk_crtc->msync2.msync_dy;
@@ -5842,16 +5756,12 @@ static bool msync_need_enable(struct mtk_drm_crtc *mtk_crtc)
 		return true;
 	return false;
 }
-#endif
 
 static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 				      struct mtk_crtc_state *old_mtk_state,
 				      struct mtk_crtc_state *crtc_state,
 				      struct cmdq_pkt *cmdq_handle)
 {
-#ifdef DRM_CMDQ_DISABLE
-	return;
-#else
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
 	bool need_enable = false;
@@ -5971,7 +5881,6 @@ static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 	 * condition match
 	 * only if vfp_period ==1, we can config directly
 	 */
-#endif
 }
 /******************Msync 2.0 function end**********************/
 
@@ -6166,14 +6075,14 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
 	struct mtk_plane_comp_state *comp_state;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
+#endif
+	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
-#endif
-	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 
 	DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
 		plane->index, comp->id, plane_state->comp_state.comp_id);
@@ -6189,7 +6098,7 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 						  cmdq_handle);
 		}
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 		mtk_wb_atomic_commit(mtk_crtc, v, h, state->cmdq_handle);
 #else
 		mtk_wb_atomic_commit(mtk_crtc);
@@ -6231,7 +6140,6 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 			}
 		}
 	}
-#ifndef DRM_CMDQ_DISABLE
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
 				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
 	cur_fence = plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
@@ -6248,7 +6156,7 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 		sub = 0;
 	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
-#endif
+
 	DDPINFO("%s-\n", __func__);
 }
 
@@ -6261,14 +6169,14 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
+#endif
+	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
-#endif
-	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	int need_skip = state->prop_val[CRTC_PROP_SKIP_CONFIG];
 
 	if (comp && !need_skip)
@@ -6286,7 +6194,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 						  cmdq_handle);
 		}
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 		mtk_wb_atomic_commit(mtk_crtc, v, h, state->cmdq_handle);
 #else
 		mtk_wb_atomic_commit(mtk_crtc);
@@ -6325,8 +6233,6 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 						  cmdq_handle);
 		}
 	}
-
-#ifndef DRM_CMDQ_DISABLE
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
 				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
 	cur_fence = plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
@@ -6343,7 +6249,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		sub = 0;
 	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
-#endif
+
 	DDPINFO("%s-\n", __func__);
 }
 
@@ -6884,9 +6790,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	unsigned int index = drm_crtc_index(crtc);
 	unsigned int pending_planes = 0;
 	unsigned int i, j;
-#ifndef DRM_CMDQ_DISABLE
 	unsigned int ret = 0;
-#endif
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
@@ -7063,8 +6967,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			pr_info("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
 		}
 	}
-
-#ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC
 	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
 	if (ret) {
@@ -7080,7 +6982,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		goto end;
 	}
 	ddp_cmdq_cb_blocking(cb_data);
-#endif
 #endif
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SF_PF) &&
@@ -7199,9 +7100,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 end:
-#ifdef DRM_CMDQ_DISABLE
-	trigger_without_cmdq(crtc);
-#endif
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	mtk_drm_trace_end();
@@ -7437,7 +7335,6 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 	}
 }
 
-#ifndef DRM_CMDQ_DISABLE
 static void mtk_crtc_init_color_matrix_data_slot(
 					struct mtk_drm_crtc *mtk_crtc)
 {
@@ -7457,7 +7354,6 @@ static void mtk_crtc_init_color_matrix_data_slot(
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }
-#endif
 
 static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 				  struct mtk_drm_crtc *mtk_crtc)
@@ -7508,7 +7404,6 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	}
 
 	cmdq_buf = &(mtk_crtc->gce_obj.buf);
-#ifndef DRM_CMDQ_DISABLE
 	if (mtk_crtc->gce_obj.client[CLIENT_CFG]) {
 		DDPINFO("[CRTC][CHECK-1]0x%p\n",
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -7543,7 +7438,6 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	mtk_crtc_init_color_matrix_data_slot(mtk_crtc);
 
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
-#endif
 }
 
 static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
@@ -8182,16 +8076,12 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		wakeup_source_add(mtk_crtc->wk_lock);
 	}
 
-#ifndef DRM_CMDQ_DISABLE
-#ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_FB_LEAK
 	mtk_crtc->signal_present_fece_task = kthread_create(
 		mtk_drm_signal_fence_worker_kthread, mtk_crtc, "signal_fence");
 	init_waitqueue_head(&mtk_crtc->signal_fence_task_wq);
 	atomic_set(&mtk_crtc->cmdq_done, 0);
 	wake_up_process(mtk_crtc->signal_present_fece_task);
-#endif
-#endif
 #endif
 
 	if (output_comp && mtk_drm_helper_get_opt(priv->helper_opt,

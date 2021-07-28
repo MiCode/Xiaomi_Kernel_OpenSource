@@ -17,12 +17,7 @@
 #include <linux/delay.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/pinctrl/consumer.h>
-
-#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#else
-#include "mtk-cmdq-ext.h"
-#endif
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"

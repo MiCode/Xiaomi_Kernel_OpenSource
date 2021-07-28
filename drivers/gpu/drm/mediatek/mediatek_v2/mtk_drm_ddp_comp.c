@@ -10,13 +10,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-
-#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-#else
-#include "mtk-cmdq-ext.h"
-#endif
-
 #include <soc/mediatek/smi.h>
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 #include "iommu_debug.h"
@@ -85,14 +79,6 @@
 #define SODI_REQ_VAL_RDMA1_PD_MODE	REG_FLD_MSB_LSB(14, 14)
 #define SODI_REQ_VAL_RDMA1_CG_MODE	REG_FLD_MSB_LSB(15, 15)
 
-#define MT6879_DVFS_HALT_MASK_SEL_ALL     REG_FLD_MSB_LSB(21, 16)
-#define MT6879_DVFS_HALT_MASK_SEL_RDMA0	  REG_FLD_MSB_LSB(16, 16)
-#define MT6879_DVFS_HALT_MASK_SEL_RDMA1	  REG_FLD_MSB_LSB(17, 17)
-#define MT6879_DVFS_HALT_MASK_SEL_RDMA4	  REG_FLD_MSB_LSB(18, 18)
-#define MT6879_DVFS_HALT_MASK_SEL_RDMA5	  REG_FLD_MSB_LSB(19, 19)
-#define MT6879_DVFS_HALT_MASK_SEL_WDMA0	  REG_FLD_MSB_LSB(20, 20)
-#define MT6879_DVFS_HALT_MASK_SEL_WDMA1	  REG_FLD_MSB_LSB(21, 21)
-
 #define MMSYS_EMI_REQ_CTL	0xF8
 #define HRT_URGENT_CTL_SEL_ALL		REG_FLD_MSB_LSB(7, 0)
 #define HRT_URGENT_CTL_SEL_RDMA0	REG_FLD_MSB_LSB(0, 0)
@@ -128,7 +114,7 @@
 void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 		   unsigned int offset, void *handle)
 {
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 		       comp->regs_pa + offset, value, ~0);
 #else
@@ -139,7 +125,7 @@ void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 void mtk_ddp_write_relaxed(struct mtk_ddp_comp *comp, unsigned int value,
 			   unsigned int offset, void *handle)
 {
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 		       comp->regs_pa + offset, value, ~0);
 #else
@@ -150,7 +136,7 @@ void mtk_ddp_write_relaxed(struct mtk_ddp_comp *comp, unsigned int value,
 void mtk_ddp_write_mask(struct mtk_ddp_comp *comp, unsigned int value,
 			unsigned int offset, unsigned int mask, void *handle)
 {
-#ifndef DRM_CMDQ_DISABLE
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 		       comp->regs_pa + offset, value, mask);
 #else
@@ -380,8 +366,6 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_RDMA0_OUT_RELAY, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, 1, NULL, 0},
 	{DDP_COMPONENT_MAIN0_VIRTUAL, MTK_DISP_VIRTUAL, 1, NULL, 0},
-	{DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
-	{DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
@@ -746,8 +730,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 				comp->larb_dev->of_node->full_name);
 			return;
 		}
-
-#ifndef CONFIG_MTK_DISPLAY_M4U
+#ifdef MTK_DRM_BRINGUP_STAGE
 		//bypass m4u
 		cmdq_pkt_write(handle, NULL,
 			res.start + SMI_LARB_NON_SEC_CON + port * 4, 0,
@@ -969,84 +952,6 @@ void mt6833_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			} else
 				DDPINFO("%s: failed to disable infra ddr control\n", __func__);
 		}
-	}
-}
-
-void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
-			    struct cmdq_pkt *handle, void *data)
-{
-	struct mtk_drm_private *priv = drm->dev_private;
-	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
-	unsigned int emi_req_val = 0, emi_req_mask = 0;
-	bool en = *((bool *)data);
-
-	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
-		if (!en)
-			return;
-
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					0, MT6873_SODI_REQ_SEL_ALL);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					0, MT6873_SODI_REQ_VAL_ALL);
-
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_SEL_RDMA0_PD_MODE);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_VAL_RDMA0_PD_MODE);
-
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0x1, HRT_URGENT_CTL_SEL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0x1, HRT_URGENT_CTL_SEL_WDMA0);
-
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, HRT_URGENT_CTL_VAL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, HRT_URGENT_CTL_VAL_WDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, HRT_URGENT_CTL_VAL_RDMA4);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, HRT_URGENT_CTL_VAL_MDP_RDMA4);
-
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, DVFS_HALT_MASK_SEL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, DVFS_HALT_MASK_SEL_RDMA4);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, DVFS_HALT_MASK_SEL_WDMA0);
-	} else if (id == DDP_COMPONENT_RDMA0) {
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
-					SODI_REQ_SEL_RDMA0_CG_MODE);
-
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
-				HRT_URGENT_CTL_SEL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-				DVFS_HALT_MASK_SEL_RDMA0);
-	} else if (id == DDP_COMPONENT_WDMA0) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
-					HRT_URGENT_CTL_SEL_WDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-					DVFS_HALT_MASK_SEL_WDMA0);
-	} else
-		return;
-
-	if (handle == NULL) {
-		unsigned int v;
-
-		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
-			& (~sodi_req_mask));
-		v += (sodi_req_val & sodi_req_mask);
-		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
-
-		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
-			& (~emi_req_mask));
-		v += (emi_req_val & emi_req_mask);
-		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
-	} else {
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
 	}
 }
 

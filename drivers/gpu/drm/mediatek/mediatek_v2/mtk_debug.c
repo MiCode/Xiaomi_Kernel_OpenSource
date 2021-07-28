@@ -66,17 +66,11 @@ static struct proc_dir_entry *disp_lowpower_proc;
 static struct proc_dir_entry *mtkfb_debug_procfs;
 #endif
 static struct drm_device *drm_dev;
-#ifdef MTK_DRM_BRINGUP_STAGE
-bool g_mobile_log = 1;
-bool g_fence_log = 1;
-bool g_detail_log = 1;
-#else
 bool g_mobile_log;
-bool g_fence_log;
-bool g_detail_log;
-#endif
 EXPORT_SYMBOL(g_mobile_log);
+bool g_fence_log;
 bool g_irq_log;
+bool g_detail_log;
 bool g_trace_log;
 bool g_mml_debug;
 unsigned int mipi_volt;

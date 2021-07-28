@@ -197,11 +197,9 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 	return 0;
 }
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
 struct notifier_block pmqos_hrt_notifier = {
 	.notifier_call = mtk_disp_hrt_cond_change_cb,
 };
-#endif
 
 int mtk_disp_hrt_bw_dbg(void)
 {
