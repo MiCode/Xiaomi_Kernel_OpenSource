@@ -978,13 +978,21 @@ out:
 
 static int mt6983_apu_top_on(struct device *dev)
 {
+	int ret = 0;
+
 	pr_info("%s +\n", __func__);
 
 #if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
-	__apu_wake_rpc_rcx(dev);
+	ret = __apu_wake_rpc_rcx(dev);
+
+	// for refcnt ++ to avoid be auto turned off by regulator framework
+	if (!ret) {
+		pr_info("%s enable vapu regulator\n", __func__);
+		regulator_enable(vapu_reg_id);
+	}
 
 	pr_info("%s -\n", __func__);
 	return 0;
@@ -1011,6 +1019,10 @@ static int mt6983_apu_top_off(struct device *dev)
 	}
 
 	mt6983_apu_dump_rpc_status(RCX, NULL);
+
+	// for refcnt ++ to avoid be auto turned off by regulator framework
+	pr_info("%s disable vapu regulator\n", __func__);
+	regulator_disable(vapu_reg_id);
 
 #if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
