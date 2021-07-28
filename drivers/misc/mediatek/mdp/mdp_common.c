@@ -3479,11 +3479,12 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	u32 state = 0;
 	u32 grep = 0;
 
+/*
 	if (gCmdqRdmaPrebuiltSupport) {
 		CMDQ_LOG("========== [CMDQ] %s use cmdq_util_prebuilt_dump ==========\n", label);
 		cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MDP_WAIT);
 	}
-
+*/
 	value[0] = CMDQ_REG_GET32(base + 0x030);
 	value[1] = CMDQ_REG_GET32(base +
 		cmdq_mdp_get_func()->rdmaGetRegOffsetSrcAddr());
