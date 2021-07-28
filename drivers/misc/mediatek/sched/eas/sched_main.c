@@ -172,6 +172,10 @@ static int __init mtk_scheduler_init(void)
 #endif
 #endif
 
+	ret = register_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);
+	if (ret)
+		pr_info("scheduler: register scheduler_tick hooks failed, returned %d\n", ret);
+
 	mtk_sched_trace_init();
 
 	return ret;
@@ -181,6 +185,7 @@ static int __init mtk_scheduler_init(void)
 static void __exit mtk_scheduler_exit(void)
 {
 	mtk_sched_trace_exit();
+	unregister_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);
 	cleanup_sched_common_sysfs();
 }
 

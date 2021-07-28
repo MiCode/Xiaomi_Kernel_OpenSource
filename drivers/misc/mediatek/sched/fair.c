@@ -239,99 +239,6 @@ unsigned int get_uclamp_min_ls(void)
 }
 EXPORT_SYMBOL_GPL(get_uclamp_min_ls);
 
-struct lb_env {
-	struct sched_domain	*sd;
-
-	struct rq		*src_rq;
-	int			src_cpu;
-
-	int			dst_cpu;
-	struct rq		*dst_rq;
-
-	struct cpumask		*dst_grpmask;
-	int			new_dst_cpu;
-	enum cpu_idle_type	idle;
-	long			imbalance;
-	/* The set of CPUs under consideration for load-balancing */
-	struct cpumask		*cpus;
-
-	unsigned int		flags;
-
-	unsigned int		loop;
-	unsigned int		loop_break;
-	unsigned int		loop_max;
-
-	struct rq_flags		*src_rq_rf;
-};
-
-/*
- * can_migrate_task - may task p from runqueue rq be migrated to this_cpu?
- */
-static
-int mtk_can_migrate_task(struct task_struct *p, struct lb_env *env)
-{
-
-	lockdep_assert_held(&env->src_rq->lock);
-
-
-	/* Disregard pcpu kthreads; they are where they need to be. */
-	if (p->flags & PF_KTHREAD)
-		return 0;
-
-	if (!cpumask_test_cpu(env->dst_cpu, p->cpus_ptr))
-		return 0;
-
-	/* Record that we found atleast one task that could run on dst_cpu */
-
-	if (task_running(env->src_rq, p))
-		return 0;
-
-	return 1;
-}
-
-/*
- * detach_task() -- detach the task for the migration specified in env
- */
-static void detach_task(struct task_struct *p, struct lb_env *env)
-{
-
-	lockdep_assert_held(&env->src_rq->lock);
-
-	deactivate_task(env->src_rq, p, DEQUEUE_NOCLOCK);
-	set_task_cpu(p, env->dst_cpu);
-}
-
-
-/*
- * detach_one_task() -- tries to dequeue exactly one task from env->src_rq, as
- * part of active balancing operations within "domain".
- *
- * Returns a task if successful and NULL otherwise.
- */
-static struct task_struct *detach_one_task(struct lb_env *env)
-{
-	struct task_struct *p;
-
-	lockdep_assert_held(&env->src_rq->lock);
-
-	list_for_each_entry_reverse(p,
-			&env->src_rq->cfs_tasks, se.group_node) {
-		if (!mtk_can_migrate_task(p, env))
-			continue;
-
-		detach_task(p, env);
-
-		/*
-		 * Right now, this is only the second place where
-		 * lb_gained[env->idle] is updated (other is detach_tasks)
-		 * so we can safely collect stats here rather than
-		 * inside detach_tasks().
-		 */
-		return p;
-	}
-	return NULL;
-}
-
 /*
  * attach_task() -- attach the task detached by detach_task() to its new rq.
  */
@@ -645,78 +552,77 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 	return p;
 }
 
-static int active_load_balance_cpu_stop(void *data)
+static int mtk_active_load_balance_cpu_stop(void *data)
 {
 
-	struct rq *busiest_rq = data;
-	int busiest_cpu = cpu_of(busiest_rq);
+	struct task_struct *target_task = data;
+	int busiest_cpu = smp_processor_id();
+	struct rq *busiest_rq = cpu_rq(busiest_cpu);
 	int target_cpu = busiest_rq->push_cpu;
 	struct rq *target_rq = cpu_rq(target_cpu);
-	struct sched_domain *sd;
-	struct task_struct *p = NULL;
 	struct rq_flags rf;
+	int deactivated = 0;
 
 	rq_lock_irq(busiest_rq, &rf);
+
+	if (task_cpu(target_task) != busiest_cpu ||
+		(target_task->flags & PF_KTHREAD) ||
+		task_running(busiest_rq, target_task) ||
+		target_rq == busiest_rq)
+		goto out_unlock;
+
+	if (!task_on_rq_queued(target_task))
+		goto out_unlock;
 
 	if (!cpu_active(busiest_cpu) || !cpu_active(target_cpu))
 		goto out_unlock;
 	/* Make sure the requested CPU hasn't gone down in the meantime: */
-	if (unlikely(busiest_cpu != smp_processor_id() ||
-		     !busiest_rq->active_balance))
+	if (unlikely(!busiest_rq->active_balance))
 		goto out_unlock;
 
 	/* Is there any task to move? */
 	if (busiest_rq->nr_running <= 1)
 		goto out_unlock;
 
-	/*
-	 * This condition is "impossible", if it occurs
-	 * we need to fix it. Originally reported by
-	 * Bjorn Helgaas on a 128-CPU setup.
-	 */
-	BUG_ON(busiest_rq == target_rq);
-
-	/* Search for an sd spanning us and the target CPU. */
-	rcu_read_lock();
-	for_each_domain(target_cpu, sd) {
-		if (cpumask_test_cpu(busiest_cpu, sched_domain_span(sd)))
-			break;
-	}
-
-	if (likely(sd)) {
-		struct lb_env env = {
-			.sd		= sd,
-			.dst_cpu	= target_cpu,
-			.dst_rq		= target_rq,
-			.src_cpu	= busiest_rq->cpu,
-			.src_rq		= busiest_rq,
-			.idle		= CPU_IDLE,
-			/*
-			 * can_migrate_task() doesn't need to compute new_dst_cpu
-			 * for active balancing. Since we have CPU_IDLE, but no
-			 * @dst_grpmask we need to make that test go away with lying
-			 * about DST_PINNED.
-			 */
-			.src_rq_rf	= &rf,
-		};
-
-		update_rq_clock(busiest_rq);
-		p = detach_one_task(&env);
-		if (p) {
-			/* Active balancing done, reset the failure counter. */
-			sd->nr_balance_failed = 0;
-		}
-	}
-	rcu_read_unlock();
+	update_rq_clock(busiest_rq);
+	deactivate_task(busiest_rq, target_task, DEQUEUE_NOCLOCK);
+	set_task_cpu(target_task, target_cpu);
+	deactivated = 1;
 out_unlock:
 	busiest_rq->active_balance = 0;
 	rq_unlock(busiest_rq, &rf);
 
-	if (p)
-		attach_one_task(target_rq, p);
+	if (deactivated)
+		attach_one_task(target_rq, target_task);
+
+	put_task_struct(target_task);
 
 	local_irq_enable();
 	return 0;
+}
+
+int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target, int reason)
+{
+	struct rq_flags dst_rf;
+	int active_balance = false;
+
+	rq_lock_irqsave(target, &dst_rf);
+	if (!target->active_balance &&
+		(task_rq(p) == target) && p->state != TASK_DEAD) {
+		target->active_balance = 1;
+		target->push_cpu = this_cpu;
+		active_balance = true;
+		get_task_struct(p);
+	}
+	rq_unlock_irqrestore(target, &dst_rf);
+	if (active_balance) {
+		trace_sched_force_migrate(p, this_cpu, reason);
+		stop_one_cpu_nowait(cpu_of(target),
+				mtk_active_load_balance_cpu_stop,
+				p, &target->active_balance_work);
+	}
+
+	return active_balance;
 }
 
 void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *rf,
@@ -724,7 +630,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 {
 	int cpu;
 	struct rq *src_rq, *misfit_task_rq = NULL;
-	struct task_struct *p = NULL;
+	struct task_struct *p = NULL, *best_running_task = NULL;
 	struct rq_flags src_rf;
 	int this_cpu = this_rq->cpu;
 	unsigned long misfit_load = 0;
@@ -765,6 +671,10 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 				cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
 				misfit_task_rq = src_rq;
 				misfit_load = src_rq->misfit_task_load;
+				if (best_running_task)
+					put_task_struct(best_running_task);
+				best_running_task = p;
+				get_task_struct(best_running_task);
 			}
 			p = NULL;
 		}
@@ -789,25 +699,11 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	 * If p is null meaning that we have not pull a runnable task, we try to
 	 * pull a latency sensitive running task.
 	 */
-	if (!p && misfit_task_rq) {
-		bool active_balance = false;
-
-		rq_lock_irqsave(misfit_task_rq, &src_rf);
-		if (!misfit_task_rq->active_balance) {
-			misfit_task_rq->active_balance = 1;
-			misfit_task_rq->push_cpu = this_cpu;
-			active_balance = true;
-		}
-		rq_unlock_irqrestore(misfit_task_rq, &src_rf);
-		if (active_balance) {
-			stop_one_cpu_nowait(cpu_of(misfit_task_rq),
-				active_load_balance_cpu_stop,
-				misfit_task_rq,
-				&misfit_task_rq->active_balance_work);
-			*done = 1;
-		}
-	}
-
+	if (!p && misfit_task_rq)
+		*done = migrate_running_task(this_cpu, best_running_task,
+					misfit_task_rq, MIGR_TICK_PULL_MISFIT_RUNNING);
+	if (best_running_task)
+		put_task_struct(best_running_task);
 	raw_spin_lock(&this_rq->lock);
 	/*
 	 * While browsing the domains, we released the rq lock, a task could

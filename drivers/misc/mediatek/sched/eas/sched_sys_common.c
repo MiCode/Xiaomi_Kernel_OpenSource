@@ -24,14 +24,6 @@
 
 #define CREATE_TRACE_POINTS
 
-static void hook_scheduler_tick(void *data, struct rq *rq)
-{
-#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
-	if (rq->curr->policy == SCHED_NORMAL)
-		check_for_migration(rq->curr);
-#endif
-}
-
 static struct attribute *sched_ctl_attrs[] = {
 #if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
 	&sched_core_pause_info_attr.attr,
@@ -64,12 +56,6 @@ int init_sched_common_sysfs(void)
 	task_rotate_init();
 #endif
 
-	ret = register_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);
-	if (ret) {
-		pr_info("scheduler: register scheduler_tick hooks failed, returned %d\n", ret);
-		goto error;
-	}
-
 	return 0;
 
 error:
@@ -80,7 +66,6 @@ error:
 
 void cleanup_sched_common_sysfs(void)
 {
-	unregister_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);
 	if (kobj) {
 		sysfs_remove_group(kobj, &sched_ctl_attr_group);
 		kobject_put(kobj);

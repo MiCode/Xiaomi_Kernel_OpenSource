@@ -401,3 +401,42 @@ sys_restriction:
 }
 #endif
 
+static DEFINE_RAW_SPINLOCK(migration_lock);
+
+void check_for_migration(struct task_struct *p)
+{
+	int new_cpu = -1;
+	int cpu = task_cpu(p);
+	struct rq *rq = cpu_rq(cpu);
+
+	if (rq->misfit_task_load) {
+		if (rq->curr->state != TASK_RUNNING ||
+			rq->curr->nr_cpus_allowed == 1)
+			return;
+
+		raw_spin_lock(&migration_lock);
+		rcu_read_lock();
+		new_cpu = p->sched_class->select_task_rq(p, cpu, SD_BALANCE_WAKE, 0);
+		rcu_read_unlock();
+		if (new_cpu < 0) {
+			raw_spin_unlock(&migration_lock);
+			return;
+		}
+
+		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
+			raw_spin_unlock(&migration_lock);
+			migrate_running_task(new_cpu, p, rq, MIGR_TICK_PULL_MISFIT_RUNNING);
+		} else {
+#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
+			task_check_for_rotation(rq);
+#endif
+			raw_spin_unlock(&migration_lock);
+		}
+	}
+}
+
+void hook_scheduler_tick(void *data, struct rq *rq)
+{
+	if (rq->curr->policy == SCHED_NORMAL)
+		check_for_migration(rq->curr);
+}

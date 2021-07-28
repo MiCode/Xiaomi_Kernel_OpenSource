@@ -6,7 +6,9 @@
 #ifndef _EAS_PLUS_H
 #define _EAS_PLUS_H
 
-#define MIGR_IDLE_BALANCE 1
+#define MIGR_IDLE_BALANCE               1
+#define MIGR_IDLE_PULL_MISFIT_RUNNING   2
+#define MIGR_TICK_PULL_MISFIT_RUNNING   3
 
 #ifdef CONFIG_SMP
 /*
@@ -47,5 +49,12 @@ extern void mtk_uclamp_eff_get(void *data, struct task_struct *p, enum uclamp_id
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,
 		struct rq_flags *rf, int *pulled_task, int *done);
 #endif
+#endif
+
+extern int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
+		int reason);
+extern void hook_scheduler_tick(void *data, struct rq *rq);
+#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
+extern void task_check_for_rotation(struct rq *src_rq);
 #endif
 #endif
