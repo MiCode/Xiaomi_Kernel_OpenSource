@@ -25,13 +25,6 @@
 #include "gpueb_helper.h"
 #include "gpueb_hwvoter_dbg.h"
 
-struct hw_voter_ipi_test_t {
-	unsigned short cmd;
-	unsigned char type;
-	unsigned char op;
-	unsigned short clk_id;
-	unsigned short val;
-};
 
 #if IPI_SUPPORT
 static unsigned char ipi_ackdata[16];
@@ -52,14 +45,13 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 					size_t count,
 					loff_t *data)
 {
-	char desc[64], type[32];
-	int len = 0;
+	char desc[64];
+	unsigned int len = 0;
 #if IPI_SUPPORT
 	int ret = 0;
 #endif
 	int n;
-	unsigned int op, clk_id, val;
-	struct hw_voter_ipi_test_t ipi_data;
+	struct hwvoter_ipi_test_t ipi_data;
 	int channel_id = 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
@@ -69,29 +61,18 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 	desc[len] = '\0';
 	pr_notice("%s: %s\n", __func__, desc);
 
-	n = sscanf(desc, "%31s %d %d %d", type, &op, &clk_id, &val);
-	if (n != 3 && n != 4) {
+	n = sscanf(desc, "%d %d %d %d %d",
+			&ipi_data.type,
+			&ipi_data.op,
+			&ipi_data.clk_category,
+			&ipi_data.clk_id,
+			&ipi_data.val);
+	if (n != 4 && n != 5) {
 		pr_notice("invalid cmd length %d\n", n);
 		return count;
 	}
 
 	ipi_data.cmd = HW_VOTER_DBG_CMD_TEST;
-	ipi_data.op = op;
-	ipi_data.clk_id = clk_id;
-	ipi_data.val = val;
-
-	if (!strcmp(type, "pd")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_PD;
-	} else if (!strcmp(type, "pll")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_PLL;
-	} else if (!strcmp(type, "mux")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_MUX;
-	} else if (!strcmp(type, "cg")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_CG;
-	} else {
-		pr_notice("invalid type %s\n", type);
-		return count;
-	}
 
 	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_CCF");
 #if IPI_SUPPORT
@@ -103,7 +84,7 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 			4, /* 4 slots message = 4 * 4 = 16 bytes */
 			500);
 	if (ret != IPI_ACTION_DONE)
-		pr_info("[%s]: SCP send IPI failed - %d\n",
+		pr_notice("[%s]: SCP send IPI failed - %d\n",
 			__func__, ret);
 #endif
 
@@ -218,14 +199,19 @@ int gpueb_hw_voter_dbg_init(void)
 		pr_notice("gpueb hwvoter mtk_ipi_register fail, %d\n",
 				ret);
 		WARN_ON(1);
-	}
+	} else
+		pr_notice("gpueb hwvoter mtk_ipi_register done\n");
 #endif
 
 	if (gpueb_hw_voter_create_procfs()) {
 		pr_notice("gpueb_hw_voter_create_procfs fail, %d\n",
 				ret);
 		WARN_ON(1);
-	}
+	} else
+		pr_notice("gpueb_hw_voter_create_procfs done\n");
+#else
+	pr_notice("no %s due to CONFIG_PROC_FS not defined\n",
+			__func__);
 #endif
 
 	return 0;
