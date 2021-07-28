@@ -90,7 +90,7 @@ static void apupwr_tag_seq_rpc(struct seq_file *s, struct apupwr_tag *t)
 
 static void apupwr_tag_seq_dvfs(struct seq_file *s, struct apupwr_tag *t)
 {
-	seq_printf(s, "[%s] %s->%s[%d/%u]\n",
+	seq_printf(s, "[%s] %s->%s[%d/%lu]\n",
 		   t->dvfs.gov_name, t->dvfs.p_name,
 		   t->dvfs.c_name, t->dvfs.opp, t->dvfs.freq);
 }
