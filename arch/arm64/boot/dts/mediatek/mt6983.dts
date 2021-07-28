@@ -6336,10 +6336,7 @@
 		mediatek,hcp = <&hcp>;
 		mediatek,larbs = <&smi_larb9>,
 				 <&smi_larb10>,
-				 <&smi_larb11>,
-				 <&smi_larb15>,
-				 <&smi_larb22>,
-				 <&smi_larb23>;
+				 <&smi_larb11>;
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
@@ -6777,7 +6774,6 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_9>;
 		sw_sync_token_camsys_pool_10 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_10>;
-#endif
 		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_TRAW0>,
 			 <&imgsys_main_clk CLK_IMGSYS_MAIN_TRAW1>,
 			 <&imgsys_main_clk CLK_IMGSYS_MAIN_VCORE_GALS>,
@@ -6810,7 +6806,6 @@
 			      "WPE1_CG_DIP1_WPE",
 			      "WPE2_CG_DIP1_WPE",
 			      "WPE3_CG_DIP1_WPE";
-#if 0
 		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects =
