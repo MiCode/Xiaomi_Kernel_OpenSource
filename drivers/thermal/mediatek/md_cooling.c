@@ -255,20 +255,20 @@ static int scg_off_throttle(struct md_cooling_device *md_cdev, unsigned long sta
 
 	status = get_md_cooling_status();
 	/*
-	 * Ignore when MUTT is activated because SCG off is the one of MUTT cooling levels
-	 */
-	if (is_mutt_enabled(status)) {
-		dev_info(dev, "skip SCG control due to MUTT is enabled\n");
-		return 0;
-	}
-
-	/*
 	 * SCG will be turned on again when MD is reset. Clear target
 	 * LV to avoid sending unnecessary SCG on command to MD
 	 */
 	if (is_md_off(status)) {
 		md_cdev->target_state = MD_COOLING_UNLIMITED_STATE;
 		trace_md_scg_off(md_cdev, status);
+		return 0;
+	}
+
+	/*
+	 * Ignore when MUTT is activated because SCG off is the one of MUTT cooling levels
+	 */
+	if (is_mutt_enabled(status)) {
+		dev_info(dev, "skip SCG control due to MUTT is enabled\n");
 		return 0;
 	}
 
@@ -312,7 +312,7 @@ static int md_cooling_set_cur_state(struct thermal_cooling_device *cdev, unsigne
 	int ret;
 
 	/* Request state should be less than max_state */
-	if (WARN_ON(state > md_cdev->max_state || !md_cdev->throttle))
+	if (state > md_cdev->max_state || !md_cdev->throttle)
 		return -EINVAL;
 
 	if (md_cdev->target_state == state)
