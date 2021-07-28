@@ -1364,7 +1364,10 @@ static enum mc_result rpmb_gp_open_session(void)
 
 		/* open device */
 		mc_ret = mc_open_device(rpmb_gp_devid);
-		if (mc_ret != MC_DRV_OK) {
+		if (mc_ret == MC_DRV_ERR_NOT_IMPLEMENTED) {
+			MSG(INFO, "%s, mc_open_device not support\n", __func__);
+			break;
+		} else	if (mc_ret != MC_DRV_OK) {
 			MSG(ERR, "%s, mc_open_device failed: %d\n",
 				__func__, mc_ret);
 			cnt++;
