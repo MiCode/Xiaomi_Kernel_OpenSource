@@ -1488,7 +1488,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#ifndef FPGA_EP
+#if CCF_READY
 	unsigned int i;
 #endif
 	int irq, ret;
@@ -1543,7 +1543,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	raw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 	dev_info(dev, "clk_num:%d\n", raw->num_clks);
@@ -1564,19 +1564,6 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 			dev_info(dev, "failed to get clk %d\n", i);
 			return -ENODEV;
 		}
-	}
-
-#else
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
-	if (!res) {
-		dev_info(dev, "failed to get mem\n");
-		return -ENODEV;
-	}
-
-	raw->top_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(raw->top_base)) {
-		dev_info(dev, "failed to map register base\n");
-		return PTR_ERR(raw->top_base);
 	}
 #endif
 	return 0;
@@ -3721,32 +3708,30 @@ static int mtk_raw_pm_resume(struct device *dev)
 
 static int mtk_raw_runtime_suspend(struct device *dev)
 {
+#if CCF_READY
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
-#ifndef FPGA_EP
 	int i;
 #endif
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-#else
-	writel_relaxed(0xffffffff, drvdata->top_base + 0x4);
 #endif
 	return 0;
 }
 
 static int mtk_raw_runtime_resume(struct device *dev)
 {
+#if CCF_READY
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
-#ifndef FPGA_EP
 	int i, ret;
 #endif
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -3759,10 +3744,8 @@ static int mtk_raw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-#else
-	writel_relaxed(0xffffffff, drvdata->top_base + 0x8);
-#endif
 	reset(drvdata);
+#endif
 	return 0;
 }
 
@@ -3847,7 +3830,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#ifndef FPGA_EP
+#if CCF_READY
 	unsigned int i;
 #endif
 	int irq, ret;
@@ -3886,7 +3869,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	drvdata->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
@@ -3908,18 +3891,6 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 			dev_info(dev, "failed to get clk %d\n", i);
 			return -ENODEV;
 		}
-	}
-#else
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
-	if (!res) {
-		dev_info(dev, "failed to get mem\n");
-		return -ENODEV;
-	}
-
-	drvdata->top_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(drvdata->top_base)) {
-		dev_info(dev, "failed to map register base\n");
-		return PTR_ERR(drvdata->top_base);
 	}
 #endif
 	return 0;
@@ -4002,18 +3973,16 @@ static int mtk_yuv_pm_resume(struct device *dev)
 /* driver for yuv part */
 static int mtk_yuv_runtime_suspend(struct device *dev)
 {
+#if CCF_READY
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
-#ifndef FPGA_EP
 	int i;
 #endif
 
 	dev_info(dev, "%s:disable clock\n", __func__);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-#else
-	writel_relaxed(0xffffffff, drvdata->top_base + 0x4);
 #endif
 
 	return 0;
@@ -4021,14 +3990,14 @@ static int mtk_yuv_runtime_suspend(struct device *dev)
 
 static int mtk_yuv_runtime_resume(struct device *dev)
 {
+#if CCF_READY
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
-#ifndef FPGA_EP
 	int i, ret;
 #endif
 
 	dev_info(dev, "%s:enable clock\n", __func__);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -4041,8 +4010,6 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-#else
-	writel_relaxed(0xffffffff, drvdata->top_base + 0x8);
 #endif
 
 	return 0;

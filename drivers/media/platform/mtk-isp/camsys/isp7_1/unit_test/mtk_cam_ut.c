@@ -806,7 +806,7 @@ static int cam_open(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut =	container_of(inode->i_cdev,
 					     struct mtk_cam_ut, cdev);
-#ifdef FPGA_EP
+#if !CCF_READY
 	struct mtk_ut_raw_device *raw_drvdata;
 	struct mtk_ut_yuv_device *yuv_drvdata;
 #ifdef USE_PA
@@ -817,7 +817,7 @@ static int cam_open(struct inode *inode, struct file *filp)
 
 	dev_info(ut->dev, "%s\n", __func__);
 	get_device(ut->dev);
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_get_sync(ut->dev);
 
 	for (i = 0; i < ut->num_raw; i++) {
@@ -880,7 +880,7 @@ static int cam_open(struct inode *inode, struct file *filp)
 static int cam_release(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
-#ifdef FPGA_EP
+#if !CCF_READY
 	struct mtk_ut_raw_device *raw_drvdata;
 	struct mtk_ut_yuv_device *yuv_drvdata;
 #endif
@@ -889,7 +889,7 @@ static int cam_release(struct inode *inode, struct file *filp)
 	dev_info(ut->dev, "%s\n", __func__);
 
 	cam_composer_uninit(ut);
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_put(ut->seninf);
 
 	for (i = 0; i < ut->num_camsv; i++)
@@ -1217,7 +1217,7 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_cam_ut *ut;
-#ifdef FPGA_EP
+#if CCF_READY
 	struct resource *res;
 	void __iomem *base;
 #endif
@@ -1257,7 +1257,7 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 	ut->listener.on_notify = ut_event_on_notify;
 
 
-#ifdef FPGA_EP
+#if CCF_READY
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
 	if (!res) {
 		dev_info(dev, "failed to get mem\n");
@@ -1286,7 +1286,7 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_enable(dev);
 #endif
 

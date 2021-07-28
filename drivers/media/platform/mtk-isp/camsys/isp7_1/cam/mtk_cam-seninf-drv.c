@@ -62,7 +62,7 @@ static ssize_t status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(status);
 
-#ifndef FPGA_EP
+#if DVFS_READY
 static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
 {
 	int ret, i;
@@ -323,7 +323,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#ifndef FPGA_EP
+#if DVFS_READY
 	ret = seninf_dfs_init(&core->dfs, dev);
 	if (ret) {
 		dev_info(dev, "%s: failed to init dfs\n", __func__);
@@ -952,9 +952,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev, "sensor stream-on ret %d\n", ret);
 			return  ret;
 		}
-#ifdef FPGA_EP
-		mtk_cam_seninf_debug(ctx);
-#endif
 	} else {
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 0);
 		if (ret) {

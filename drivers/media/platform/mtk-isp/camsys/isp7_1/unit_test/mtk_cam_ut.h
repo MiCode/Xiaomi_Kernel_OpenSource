@@ -13,7 +13,10 @@
 #include <cam/mtk_cam-ipi.h>
 #include "mtk_cam_ut-event.h"
 
-#define FPGA_EP
+#define RAW_CCF_READY 1
+#define CAMSV_CCF_READY 0
+#define SENINF_CCF_READY 0
+#define CCF_READY (RAW_CCF_READY && CAMSV_CCF_READY && SENINF_CCF_READY)
 
 #define IPI_FRAME_BUF_SIZE		0x8000
 #define IPI_FRAME_BUF_NUM		3

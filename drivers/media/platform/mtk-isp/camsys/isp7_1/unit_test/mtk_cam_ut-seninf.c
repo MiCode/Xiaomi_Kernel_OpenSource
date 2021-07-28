@@ -131,7 +131,7 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#ifndef FPGA_EP
+#if CCF_READY
 	int i;
 #endif
 
@@ -149,7 +149,7 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "seninf, map_addr=0x%pK\n", seninf->base);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	seninf->num_clks = of_count_phandle_with_args(pdev->dev.of_node,
 						      "clocks", "#clock-cells");
 	dev_info(dev, "clk_num:%d\n", seninf->num_clks);
@@ -179,8 +179,7 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 	struct mtk_ut_seninf_device *seninf;
 	int ret;
 
-
-#ifdef FPGA_EP
+#if CCF_READY
 	pr_info("v4l2_subdev_mtk_ut_seninf_probe\n");
 #endif
 	dev_info(dev, "%s\n", __func__);
@@ -198,7 +197,7 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 
 	ut_seninf_set_ops(dev);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_enable(dev);
 #endif
 
@@ -223,7 +222,7 @@ static int mtk_ut_seninf_remove(struct platform_device *pdev)
 			clk_put(seninf->clks[i]);
 	}
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_disable(dev);
 #endif
 

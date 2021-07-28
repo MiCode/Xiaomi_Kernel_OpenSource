@@ -208,9 +208,8 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 
 		dev_info(cam->dev, "%s:%s:fs_sync_frame(1): sync %d ctxs: 0x%x\n",
 			__func__, req->req.debug_str, ctx_cnt, req->ctx_used);
-#ifndef FPGA_EP
+
 		fs_sync_frame(1);
-#endif
 
 		mutex_unlock(&req->fs_op_lock);
 		return true;
@@ -252,9 +251,9 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 		dev_info(cam->dev,
 			 "%s:%s:fs_sync_frame(0): sync %d ctxs: 0x%x\n",
 			 __func__, req->req.debug_str, ctx_cnt, req->ctx_used);
-#ifndef FPGA_EP
+
 		fs_sync_frame(0);
-#endif
+
 		mutex_unlock(&req->fs_op_lock);
 		return true;
 	}

@@ -2906,7 +2906,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	if (need_dump_mem)
 		cam->debug_fs->ops->reinit(cam->debug_fs, ctx->stream_id);
 	/* update dvfs/qos */
-#ifndef FPGA_EP
+#if DVFS_READY
 	if (ctx->used_raw_num) {
 		mtk_cam_dvfs_update_clk(ctx->cam);
 		mtk_cam_qos_bw_calc(ctx);
@@ -3032,7 +3032,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 	/* reset dvfs/qos */
-#ifndef FPGA_EP
+#if DVFS_READY
 	if (ctx->used_raw_num) {
 		mtk_cam_dvfs_update_clk(ctx->cam);
 		mtk_cam_qos_bw_reset(ctx->cam);
@@ -3220,13 +3220,13 @@ static int mtk_cam_master_bind(struct device *dev)
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_camsv_entities;
 	}
-#ifdef FPGA_EP
+#if DVFS_READY
+	mtk_cam_dvfs_init(cam_dev);
+#else
 	cam_dev->camsys_ctrl.dvfs_info.clklv[0] = 546000000;
 	cam_dev->camsys_ctrl.dvfs_info.clklv_target = 546000000;
 	cam_dev->camsys_ctrl.dvfs_info.clklv_num = 1;
-#else
-	mtk_cam_dvfs_init(cam_dev);
- #endif
+#endif
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
 
@@ -3532,9 +3532,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_dbg(dev, "failed to map register base\n");
 		return PTR_ERR(cam_dev->base);
 	}
-#ifdef FPGA_EP
-	writel_relaxed(0xffffffff, cam_dev->base + 0x8);
-#endif
+
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
 

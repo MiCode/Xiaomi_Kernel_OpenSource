@@ -810,7 +810,7 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int irq, ret;
-#ifndef FPGA_EP
+#if CCF_READY
 	int i;
 #endif
 
@@ -863,7 +863,7 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	camsv->num_clks = of_count_phandle_with_args(
 		pdev->dev.of_node, "clocks", "#clock-cells");
 	dev_info(dev, "clk_num:%d\n", camsv->num_clks);
@@ -909,7 +909,7 @@ static int mtk_ut_camsv_probe(struct platform_device *pdev)
 	init_event_source(&camsv->event_src);
 	ut_camsv_set_ops(dev);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_enable(dev);
 #endif
 
@@ -934,7 +934,7 @@ static int mtk_ut_camsv_remove(struct platform_device *pdev)
 			clk_put(camsv->clks[i]);
 	}
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_disable(dev);
 #endif
 

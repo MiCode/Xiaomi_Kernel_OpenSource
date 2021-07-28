@@ -1803,7 +1803,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	const struct sv_resource *sv_res;
 	struct resource *res;
-#ifndef FPGA_EP
+#if CCF_READY
 	unsigned int i;
 #endif
 	int irq, ret;
@@ -1867,7 +1867,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
 	sv->num_clks = 0;
-#ifndef FPGA_EP
+#if CCF_READY
 	while (sv_res->clock[sv->num_clks] && sv->num_clks < MAX_NUM_CAMSV_CLOCKS)
 		sv->num_clks++;
 	if (!sv->num_clks) {

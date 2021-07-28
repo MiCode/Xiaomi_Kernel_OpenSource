@@ -499,7 +499,7 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int irq, ret;
-#ifndef FPGA_EP
+#if CCF_READY
 	int i;
 #endif
 
@@ -554,7 +554,7 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	raw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 	dev_info(dev, "clk_num:%d\n", raw->num_clks);
@@ -866,7 +866,7 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int irq, ret;
-#ifndef FPGA_EP
+#if CCF_READY
 	int i;
 #endif
 
@@ -905,7 +905,7 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	drvdata->num_clks = of_count_phandle_with_args(pdev->dev.of_node,
 						       "clocks",
 						       "#clock-cells");
@@ -965,7 +965,7 @@ static int mtk_ut_yuv_probe(struct platform_device *pdev)
 
 	ut_yuv_set_ops(dev);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_enable(dev);
 #endif
 
@@ -985,7 +985,7 @@ static int mtk_ut_yuv_remove(struct platform_device *pdev)
 
 	dev_info(dev, "%s\n", __func__);
 
-#ifndef FPGA_EP
+#if CCF_READY
 	pm_runtime_disable(dev);
 #endif
 	component_del(dev, &mtk_ut_yuv_component_ops);
