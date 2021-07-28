@@ -16,8 +16,8 @@
 #define MTK_PANEL_COMPARE_ID_LENGTH (10)
 #define MTK_PANEL_ATA_ID_LENGTH (10)
 
-#define MTK_BACKLIGHT_MODE_256 (0)
-#define MTK_BACKLIGHT_MODE_4K (1)
+#define BL_PWM_MODE (0)
+#define BL_I2C_MODE (1)
 
 /* LCM PHY TYPE*/
 #define MTK_LCM_MIPI_DPHY (0)
