@@ -342,6 +342,49 @@ static void mtk_cam_link_change_worker(struct work_struct *work)
 	dev_dbg(cam->dev, "%s: cam mux switch done\n", __func__);
 }
 
+static void mtk_cam_m2m_sensor_skip(struct mtk_cam_request_stream_data *req_stream_data)
+{
+	struct mtk_cam_request *req;
+	struct mtk_cam_device *cam;
+	struct media_request_object *obj;
+	struct media_request_object *pipe_obj = NULL;
+	struct v4l2_ctrl_handler *parent_hdl;
+	struct mtk_cam_ctx *ctx;
+
+	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
+	cam = ctx->cam;
+	req = mtk_cam_s_data_get_req(req_stream_data);
+	dev_dbg(cam->dev, "%s:%s:ctx(%d):sensor ctrl skip frame_seq_no %d\n",
+		__func__, req->req.debug_str,
+		ctx->stream_id, req_stream_data->frame_seq_no);
+
+	state_transition(&req_stream_data->state,
+	E_STATE_READY, E_STATE_SENSOR);
+
+	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
+
+	/* request complete - time consuming*/
+	list_for_each_entry(obj, &req->req.objects, list) {
+		if (likely(obj))
+			parent_hdl = obj->priv;
+		else
+			continue;
+		if (parent_hdl == ctx->sensor->ctrl_handler ||
+		    (ctx->prev_sensor && parent_hdl ==
+		     ctx->prev_sensor->ctrl_handler)) {
+#ifdef SENSOR_AE_CTRL_COMPLETE
+			v4l2_ctrl_request_complete(&req->req, parent_hdl);
+#else
+			media_request_object_complete(obj);
+#endif
+		}
+	}
+
+	/* mark pipeline control completed */
+	if (likely(pipe_obj))
+		media_request_object_complete(pipe_obj);
+}
+
 static void mtk_cam_sensor_worker(struct work_struct *work)
 {
 	struct mtk_cam_request *req;
@@ -373,30 +416,29 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
 			__func__, req->req.debug_str, ctx->stream_id);
 	/* request setup*/
-	if (!mtk_cam_is_stagger_m2m(ctx)) {
-		list_for_each_entry(obj, &req->req.objects, list) {
-			if (likely(obj))
-				parent_hdl = obj->priv;
-			else
-				continue;
-			if (parent_hdl == ctx->sensor->ctrl_handler ||
-			    (ctx->prev_sensor && parent_hdl ==
-			     ctx->prev_sensor->ctrl_handler)) {
-				struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
+	list_for_each_entry(obj, &req->req.objects, list) {
+		if (likely(obj))
+			parent_hdl = obj->priv;
+		else
+			continue;
+		if (parent_hdl == ctx->sensor->ctrl_handler ||
+			(ctx->prev_sensor && parent_hdl ==
+			ctx->prev_sensor->ctrl_handler)) {
+			struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 
-				v4l2_ctrl_request_setup(&req->req, parent_hdl);
-				time_after_sof = ktime_get_boottime_ns() / 1000000 -
-					sensor_ctrl->sof_time;
-				dev_dbg(cam->dev,
-					"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
-					time_after_sof, req_stream_data->frame_seq_no,
-					ctx->stream_id);
-			}
-
-			if (parent_hdl == &ctx->pipe->ctrl_handler)
-				pipe_obj = obj;
+			v4l2_ctrl_request_setup(&req->req, parent_hdl);
+			time_after_sof = ktime_get_boottime_ns() / 1000000 -
+				sensor_ctrl->sof_time;
+			dev_dbg(cam->dev,
+				"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
+				time_after_sof, req_stream_data->frame_seq_no,
+				ctx->stream_id);
 		}
+
+		if (parent_hdl == &ctx->pipe->ctrl_handler)
+			pipe_obj = obj;
 	}
+
 	if (mtk_cam_is_subsample(ctx))
 		state_transition(&req_stream_data->state,
 		E_STATE_SUBSPL_OUTER, E_STATE_SUBSPL_SENSOR);
@@ -744,9 +786,14 @@ static void mtk_cam_set_sensor(struct mtk_cam_request_stream_data *req_stream_da
 	if (!sensor_ctrl->sensorsetting_wq) {
 		pr_info("[set_sensor] return:workqueue null\n");
 	} else {
-		INIT_WORK(&req_stream_data->sensor_work.work,
-		  mtk_cam_sensor_worker);
-		queue_work(sensor_ctrl->sensorsetting_wq, &req_stream_data->sensor_work.work);
+		if (mtk_cam_is_stagger_m2m(sensor_ctrl->ctx))
+			mtk_cam_m2m_sensor_skip(req_stream_data);
+		else {
+			INIT_WORK(&req_stream_data->sensor_work.work,
+			  mtk_cam_sensor_worker);
+			queue_work(sensor_ctrl->sensorsetting_wq,
+			  &req_stream_data->sensor_work.work);
+		}
 	}
 }
 
@@ -1443,13 +1490,19 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 			ctx->processing_buffer_list.cnt);
 
 		spin_unlock(&ctx->processing_buffer_list.lock);
+		spin_unlock(&ctx->m2m_lock);
+
 		base_addr = buf_entry->buffer.iova;
+
+		if (state_sensor == NULL) {
+			dev_info(raw_dev->dev, "[M2M P1 Don] Invalid state_sensor\n");
+			return;
+		}
 
 		req = mtk_cam_ctrl_state_get_req(state_sensor);
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		req_stream_data->timestamp = time_boot;
 		req_stream_data->timestamp_mono = time_mono;
-		spin_unlock(&ctx->m2m_lock);
 
 		apply_cq(raw_dev,
 			base_addr,
