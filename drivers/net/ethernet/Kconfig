@@ -194,4 +194,13 @@ config QPS615
 	  NTN3 is a PCIe switch for 2 emac interfaces to send Internet Packets
 	  to SDX65 host.
 
+config QPS615_IOSS
+	tristate "QPS615_IOSS glue driver for QPS615 driver"
+	depends on QPS615
+	default m
+	help
+	  Say M here to compile this driver as a dynamically loadable kernel
+	  module. The DLKM will be called qps615_ioss.ko.
+	  QPS615_IOSS is a glue layer for QPS615 driver.
+	  This driver depends on qps615 driver module.
 endif # ETHERNET
