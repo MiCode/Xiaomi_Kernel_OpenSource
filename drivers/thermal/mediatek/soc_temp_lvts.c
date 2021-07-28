@@ -476,12 +476,16 @@ static void dump_lvts_device_register_value(struct lvts_data *lvts_data)
 		dev_info(dev, "[LVTS_ERROR][BEFROE][CONTROLLER_%d][DUMP]\n", i);
 		offset = snprintf(buffer, sizeof(buffer),
                         	"[LVTS_ERROR][BEFORE][DEVICE][DUMP] ");
+		if (offset < 0)
+			return;
 		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
 			offset += snprintf(buffer + offset,
 	                                sizeof(buffer) - offset, "0x%x:%x ",
 					g_lvts_device_addrs[j],
 					g_lvts_device_value_b[i][j]);
 		}
+		if (offset < 0)
+			return;
 
 		buffer[offset] = '\0';
 		dev_info(dev, "%s\n", buffer);
@@ -489,13 +493,17 @@ static void dump_lvts_device_register_value(struct lvts_data *lvts_data)
 
 		offset = snprintf(buffer, sizeof(buffer),
                         	"[LVTS_ERROR][AFTER][DEVICE][DUMP] ");
+		if (offset < 0)
+			return;
+
 		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
 			offset += snprintf(buffer + offset,
 	                                sizeof(buffer) - offset, "0x%x:%x ",
 					g_lvts_device_addrs[j],
 					g_lvts_device_value_e[i][j]);
 		}
-
+		if (offset < 0)
+			return;
 		buffer[offset] = '\0';
 		dev_info(dev, "%s\n", buffer);
 	}
@@ -506,37 +514,46 @@ static void dump_lvts_controller_register_value(struct lvts_data *lvts_data)
 	int i, j, offset;
 	char buffer[512];
 	struct device *dev = lvts_data->dev;
-        struct tc_settings *tc = lvts_data->tc;
+	struct tc_settings *tc = lvts_data->tc;
 
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
-                dev_info(dev, "[LVTS_ERROR][BEFROE][CONTROLLER_%d]\n", i);
+		dev_info(dev, "[LVTS_ERROR][BEFROE][CONTROLLER_%d]\n", i);
 
 		offset = snprintf(buffer, sizeof(buffer),
-				"[LVTS_ERROR][BEFORE][TC][DUMP] ");
+			"[LVTS_ERROR][BEFORE][TC][DUMP] ");
+		if (offset < 0)
+			return;
 		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
 			offset += snprintf(buffer + offset,
-                                	sizeof(buffer) - offset, "(0x%x:%x)",
+					sizeof(buffer) - offset, "(0x%x:%x)",
 					tc[i].addr_offset + g_lvts_controller_addrs[j],
 					g_lvts_controller_value_b[i][j]);
 		}
+		if (offset < 0)
+			return;
 
 		buffer[offset] = '\0';
-                dev_info(dev, "%s\n", buffer);
+		dev_info(dev, "%s\n", buffer);
 
 
 		dev_info(dev, "[LVTS_ERROR][AFTER][CONTROLLER_%d]\n", i);
 
 		offset = snprintf(buffer, sizeof(buffer),
-				"[LVTS_ERROR][AFTER][TC][DUMP] ");
+						"[LVTS_ERROR][AFTER][TC][DUMP] ");
+		if (offset < 0)
+			return;
+
 		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
 			offset += snprintf(buffer + offset,
-	                                sizeof(buffer) - offset,"(0x%x:%x)",
-					tc[i].addr_offset + g_lvts_controller_addrs[j],
-					g_lvts_controller_value_e[i][j]);
+						sizeof(buffer) - offset, "(0x%x:%x)",
+						tc[i].addr_offset + g_lvts_controller_addrs[j],
+						g_lvts_controller_value_e[i][j]);
 		}
+		if (offset < 0)
+			return;
 
-                buffer[offset] = '\0';
+		buffer[offset] = '\0';
 		dev_info(dev, "%s\n", buffer);
 	}
 }
@@ -546,27 +563,31 @@ static void dump_lvts_controller_temp_and_raw(struct lvts_data *lvts_data)
 	int i, offset;
 	char buffer[512];
 	struct device *dev = lvts_data->dev;
-        struct tc_settings *tc = lvts_data->tc;
+	struct tc_settings *tc = lvts_data->tc;
 	unsigned int j, s_index;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 
-                dev_info(dev, "[LVTS_ERROR][CONTROLLER_%d] ", i);
+		dev_info(dev, "[LVTS_ERROR][CONTROLLER_%d] ", i);
 
-                offset = snprintf(buffer, sizeof(buffer),
-				"[LVTS_ERROR][TEMP][MSR_RAW] ");
+		offset = snprintf(buffer, sizeof(buffer),
+			"[LVTS_ERROR][TEMP][MSR_RAW] ");
 
+		if (offset < 0)
+			return;
 		for (j = 0; j < tc[i].num_sensor; j++) {
 			s_index = tc[i].sensor_map[j];
 
 			offset += snprintf(buffer + offset,
-                                	sizeof(buffer) - offset, "[0x%x,%d]",
+					sizeof(buffer) - offset, "[0x%x,%d]",
 					lvts_data->sen_data[s_index].msr_raw,
 					lvts_data->sen_data[s_index].temp);
 		}
+		if (offset < 0)
+			return;
 
 		buffer[offset] = '\0';
-                dev_info(dev, "%s\n", buffer);
+		dev_info(dev, "%s\n", buffer);
 	}
 }
 
@@ -1109,9 +1130,18 @@ static int prepare_calibration_data(struct lvts_data *lvts_data)
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[lvts_cal] num:g_count:g_count_rc ");
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 	for (i = 0; i < lvts_data->num_sensor; i++)
 		offset += snprintf(buffer + offset, size - offset, "%d:%d:%d ",
 				i, cal_data->count_r[i], cal_data->count_rc[i]);
+
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 
 	buffer[offset] = '\0';
 	dev_info(dev, "%s\n", buffer);
@@ -1133,7 +1163,7 @@ static int get_calibration_data(struct lvts_data *lvts_data)
 	char cell_name[8] = "e_data0";
 	struct nvmem_cell *cell;
 	u32 *buf;
-	size_t len;
+	size_t len = 0;
 	int i, j, index = 0, ret;
 
 	lvts_data->efuse = devm_kcalloc(dev, lvts_data->num_efuse_addr,
@@ -1580,9 +1610,17 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[COUNT_RC_NOW] ");
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 	for (i = 0; i < lvts_data->num_sensor; i++)
 		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
 				i, cal_data->count_rc_now[i]);
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 
 	buffer[offset] = '\0';
 	dev_info(dev, "%s\n", buffer);
@@ -2168,10 +2206,17 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[COUNT_RC_NOW] ");
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 	for (i = 0; i < lvts_data->num_sensor; i++)
 		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
 				i, cal_data->count_rc_now[i]);
-
+	if (offset < 0)
+		return -EINVAL;
+	if (offset >= size)
+		return -ENOMEM;
 	buffer[offset] = '\0';
 	dev_info(dev, "%s\n", buffer);
 
