@@ -959,7 +959,7 @@ void dump_hist(struct DISP_AAL_HIST *data)
 	}
 
 	pr_notice("serviceFlags:%u, backlight: %d, colorHist: %d\n",
-			data->serviceFlags, data->backlight, data->aal0_maxHist);
+			data->serviceFlags, data->backlight, data->aal0_colorHist);
 	pr_notice("requestPartial:%d, panel_type: %u\n",
 			data->requestPartial, data->panel_type);
 	pr_notice("essStrengthIndex:%d, ess_enable: %d, dre_enable: %d\n",
@@ -2401,7 +2401,8 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 		atomic_set(&g_aal1_data->is_clock_on, 1);
 	AALFLOW_LOG("[aal_data, g_aal_data] addr[%x, %x] val[%d, %d]\n",
 			&aal_data->is_clock_on, &g_aal_data->is_clock_on,
-			aal_data->is_clock_on, g_aal_data->is_clock_on);
+			atomic_read(&aal_data->is_clock_on),
+			atomic_read(&g_aal_data->is_clock_on));
 
 	if (g_aal_fo->mtk_dre30_support) {
 		if (aal_data->dre3_hw.clk)
