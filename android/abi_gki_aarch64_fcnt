@@ -1,0 +1,71 @@
+[abi_symbol_list]
+# required by appnv.ko
+  __lock_page
+  sync_blockdev
+  read_cache_page
+  blkdev_put
+  blkdev_get_by_dev
+
+# required by pt.ko
+  input_mt_sync_frame
+  mod_timer_pending
+
+# required by pt_device_access.ko
+  device_remove_bin_file
+  request_firmware_direct
+
+# required by msm_drm.ko
+  mipi_dsi_dcs_write_buffer
+
+# required by earphonedrv.ko
+  gpiod_put
+  iio_read_channel_raw
+
+# required by drv260x.ko
+  devm_led_classdev_unregister
+  regmap_multi_reg_write
+
+# required by leds-gpio.ko
+  gpiod_set_consumer_name
+
+# required by qpnp-smb5-main.ko
+  param_get_uint
+  round_jiffies_relative
+  emergency_restart
+
+# required by fj_watchdog.ko
+  del_timer
+  panic
+  param_get_uint
+  param_set_int
+  platform_device_register
+
+# required by sleep_time_log.ko
+  register_pm_notifier
+  rtc_time64_to_tm
+  unregister_pm_notifier
+
+# required by aw_haptic.ko
+  devm_gpio_free
+
+# required by fs18xx_dlkm.ko
+  snd_pcm_format_physical_width
+  snd_pcm_hw_constraint_mask64
+
+# required by camera.ko
+  i2c_unregister_device
+  i2c_smbus_write_byte_data
+  i2c_smbus_read_byte_data
+
+# required by semi_touch_driver.ko
+  vfs_llseek
+
+# required by cdfingerfp.ko
+  wakeup_source_remove
+  wakeup_source_add
+
+# required by drv2624-ram.ko
+  devm_led_classdev_unregister
+
+# required by chipone-ts.ko
+  input_mt_sync_frame
