@@ -1415,6 +1415,80 @@ TRACE_EVENT(kgsl_thermal_constraint,
 	)
 );
 
+TRACE_EVENT(kgsl_pool_add_page,
+	TP_PROTO(int order, u32 count),
+	TP_ARGS(order, count),
+	TP_STRUCT__entry(
+		__field(int, order)
+		__field(u32, count)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+		__entry->count = count;
+	),
+	TP_printk("order=%d count=%u",
+		__entry->order, __entry->count
+	)
+);
+
+TRACE_EVENT(kgsl_pool_get_page,
+	TP_PROTO(int order, u32 count),
+	TP_ARGS(order, count),
+	TP_STRUCT__entry(
+		__field(int, order)
+		__field(u32, count)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+		__entry->count = count;
+	),
+	TP_printk("order=%d count=%u",
+		__entry->order, __entry->count
+	)
+);
+
+TRACE_EVENT(kgsl_pool_alloc_page_system,
+	TP_PROTO(int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+	),
+	TP_printk("order=%d",
+		__entry->order
+	)
+);
+
+TRACE_EVENT(kgsl_pool_try_page_lower,
+	TP_PROTO(int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+	),
+	TP_printk("order=%d",
+		__entry->order
+	)
+);
+
+TRACE_EVENT(kgsl_pool_free_page,
+	TP_PROTO(int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+	),
+	TP_printk("order=%d",
+		__entry->order
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
