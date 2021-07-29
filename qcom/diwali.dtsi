@@ -1112,6 +1112,7 @@
 #include "diwali-pinctrl.dtsi"
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
+#include "ipcc-test-diwali.dtsi"
 
 &cam_cc_bps_gdsc {
 	status = "ok";
