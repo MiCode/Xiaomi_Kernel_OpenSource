@@ -32,6 +32,12 @@ struct pll_freq_tbl {
 	u32 ibits;
 };
 
+struct pll_spm_ctrl {
+	u32 offset;
+	u32 event_bit;
+	void __iomem *spm_base;
+};
+
 /**
  * struct clk_pll - phase locked loop (PLL)
  * @l_reg: L register
@@ -58,6 +64,7 @@ struct clk_pll {
 	const struct pll_freq_tbl *freq_tbl;
 
 	struct clk_regmap clkr;
+	struct pll_spm_ctrl spm_ctrl;
 };
 
 extern const struct clk_ops clk_pll_ops;

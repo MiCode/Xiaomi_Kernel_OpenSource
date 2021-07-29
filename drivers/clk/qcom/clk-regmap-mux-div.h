@@ -8,8 +8,27 @@
 #define __QCOM_CLK_REGMAP_MUX_DIV_H__
 
 #include <linux/clk-provider.h>
+#include <linux/pm_qos.h>
+#include <soc/qcom/pm.h>
 #include "common.h"
 #include "clk-regmap.h"
+
+/**
+ * struct clk_regmap_mux_div_lpm - regmap_mux_div_lpm clock
+ * @cpu_reg_mask: logical cpu mask for node
+ * @hw_low_power_ctrl: hw low power control
+ * @req:  pm_qos request
+ * @latency_lvl: lpm latency level
+ * @cpu_latency_no_l2_pc_us:  cpu latency in ms
+ */
+
+struct clk_regmap_mux_div_lpm {
+	cpumask_t cpu_reg_mask;
+	bool hw_low_power_ctrl;
+	struct pm_qos_request req;
+	struct latency_level latency_lvl;
+	s32 cpu_latency_no_l2_pc_us;
+};
 
 /**
  * struct mux_div_clk - combined mux/divider clock
@@ -52,6 +71,9 @@ struct clk_regmap_mux_div {
 	struct clk_regmap		clkr;
 	struct clk			*pclk;
 	struct notifier_block		clk_nb;
+
+	/* LPM Latency related */
+	struct clk_regmap_mux_div_lpm	clk_lpm;
 };
 
 extern const struct clk_ops clk_regmap_mux_div_ops;

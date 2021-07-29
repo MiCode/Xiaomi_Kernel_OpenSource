@@ -51,7 +51,8 @@ int mux_div_set_src_div(struct clk_regmap_mux_div *md, u32 src, u32 div)
 		udelay(1);
 	}
 
-	pr_err("%s: RCG did not update its configuration", name);
+	WARN_CLK(md->clkr.hw.core, name, 1,
+			"%s: rcg didn't update its configuration.", name);
 	return -EBUSY;
 }
 EXPORT_SYMBOL_GPL(mux_div_set_src_div);

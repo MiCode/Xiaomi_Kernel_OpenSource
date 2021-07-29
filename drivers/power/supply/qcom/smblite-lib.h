@@ -55,7 +55,7 @@ enum print_reason {
 
 #define VBAT_TO_VRAW_ADC(v)		div_u64((u64)v * 1000000UL, 194637UL)
 
-#define ITERM_LIMITS_MA			10000
+#define ITERM_LIMITS_MA			5000
 #define ADC_CHG_ITERM_MASK		32767
 
 #define USBIN_25UA	25000
