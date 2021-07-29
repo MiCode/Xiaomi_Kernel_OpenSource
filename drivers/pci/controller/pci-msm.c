@@ -879,6 +879,8 @@ struct msm_pcie_dev_t {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
+	bool config_recovery;
+	struct work_struct link_recover_wq;
 
 	struct msm_pcie_drv_info *drv_info;
 	struct work_struct drv_enable_pc_work;
@@ -2967,6 +2969,17 @@ static int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 			"RC%d %d:0x%02x + 0x%04x[%d] <- 0x%08x; rd 0x%08x val 0x%08x\n",
 			rc_idx, bus->number, devfn, where, size,
 			wr_val, rd_val, *val);
+	}
+
+	if (rd_val == PCIE_LINK_DOWN &&
+	   (readl_relaxed(config_base) == PCIE_LINK_DOWN)) {
+		if (dev->config_recovery) {
+			PCIE_ERR(dev,
+				"RC%d link recovery schedule\n",
+				rc_idx);
+			dev->cfg_access = false;
+			schedule_work(&dev->link_recover_wq);
+		}
 	}
 
 unlock:
@@ -5095,6 +5108,16 @@ static struct pci_dev *find_pci_dev_from_bdf(u16 bdf, int domain)
 		return NULL;
 
 	return pci_get_slot(bus, devfn);
+
+}
+
+static void handle_link_recover(struct work_struct *work)
+{
+	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
+					link_recover_wq);
+	PCIE_DBG(dev, "PCIe: link recover start for RC%d\n", dev->rc_idx);
+
+	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINKDOWN);
 }
 
 static irqreturn_t handle_aer_irq(int irq, void *data)
@@ -6243,6 +6266,15 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		goto decrease_rc_num;
 	}
 
+	pcie_dev->config_recovery = of_property_read_bool(of_node,
+					 "qcom,config-recovery");
+	if (pcie_dev->config_recovery) {
+		PCIE_DUMP(pcie_dev,
+			"PCIe RC%d config space recovery enabled\n",
+			pcie_dev->rc_idx);
+		INIT_WORK(&pcie_dev->link_recover_wq, handle_link_recover);
+	}
+
 	pcie_dev->drv_supported = of_property_read_bool(of_node,
 							"qcom,drv-supported");
 	if (pcie_dev->drv_supported) {
@@ -7224,6 +7256,15 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	spin_lock_irqsave(&pcie_dev->irq_lock, irqsave_flags);
 	pcie_dev->suspending = true;
 	spin_unlock_irqrestore(&pcie_dev->irq_lock, irqsave_flags);
+
+	if (pcie_dev->config_recovery) {
+		if (work_pending(&pcie_dev->link_recover_wq)) {
+			PCIE_DBG(pcie_dev,
+				"RC%d: cancel link_recover_wq at pm suspend\n",
+				pcie_dev->rc_idx);
+			cancel_work_sync(&pcie_dev->link_recover_wq);
+		}
+	}
 
 	if (!pcie_dev->power_on) {
 		PCIE_DBG(pcie_dev,
