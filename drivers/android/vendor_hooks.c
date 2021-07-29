@@ -72,6 +72,7 @@
 #include <trace/hooks/ipv6.h>
 #include <trace/hooks/sound.h>
 #include <trace/hooks/snd_compr.h>
+#include <trace/hooks/ipv4.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -212,6 +213,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_filemap_fault_cache_page);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_enable_thermal_genl_check);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_thermal_pm_notify_suspend);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_fill_prdt);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_ufs_reprogram_all_keys);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_prepare_command);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_update_sysfs);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_send_command);
@@ -371,3 +373,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipv6_gen_linklocal_addr);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sound_usb_support_cpu_suspend);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_snd_compr_use_pause_in_drain);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_show_max_freq);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_sendmsg_locked);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_recvmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_udp_sendmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_udp_recvmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_recvmsg_stat);
