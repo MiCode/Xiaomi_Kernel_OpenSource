@@ -245,29 +245,11 @@ void handler_post(struct kprobe *p, struct pt_regs *regs, unsigned long flags)
 	}
 }
 
-static int handler_fault(struct kprobe *p, struct pt_regs *regs, int trapnr);
-
 static struct kprobe kp_kpd_irq_handler = {
 	.symbol_name = "kpd_irq_handler",
 	.pre_handler = handler_pre,
 	.post_handler = handler_post,
-	.fault_handler = handler_fault,
 };
-
-/*
- * fault_handler: this is called if an exception is generated for any
- * instruction within the pre- or post-handler, or when Kprobes
- * single-steps the probed instruction.
- */
-static int handler_fault(struct kprobe *p, struct pt_regs *regs, int trapnr)
-{
-	pr_notice("fault_handler: p->addr = 0x%p, trap #%dn", p->addr, trapnr);
-	unregister_kprobe(&kp_kpd_irq_handler);
-	pr_notice("kprobe at %p unregistered\n", kp_kpd_irq_handler.addr);
-
-	/* Return 0 because we don't handle the fault. */
-	return 0;
-}
 
 static int register_kprobe_kpd_irq_handler(void)
 {

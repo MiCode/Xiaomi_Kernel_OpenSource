@@ -430,9 +430,11 @@ static unsigned long nsec_low(unsigned long long nsec)
 void show_thread_info(struct task_struct *p, bool dump_bt)
 {
 	unsigned int state;
+	unsigned int p_state;
 	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 
-	state = p->state ? __ffs(p->state) + 1 : 0;
+	p_state = READ_ONCE(p->__state);
+	state = p_state ? __ffs(p_state) + 1 : 0;
 
 	log_hang_info("%-15.15s %c ", p->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
@@ -468,8 +470,8 @@ void show_thread_info(struct task_struct *p, bool dump_bt)
 #endif
 
 #ifdef CONFIG_STACKTRACE
-	if (dump_bt || ((p->state == TASK_RUNNING ||
-			p->state & TASK_UNINTERRUPTIBLE) &&
+	if (dump_bt || ((p_state == TASK_RUNNING ||
+			p_state & TASK_UNINTERRUPTIBLE) &&
 			!strstr(p->comm, "wdtk")))
 	/* Catch kernel-space backtrace */
 		get_kernel_bt(p);
@@ -870,6 +872,7 @@ static void show_bt_by_pid(int task_pid)
 #endif
 	int count = 0, dump_native = 0;
 	unsigned int state = 0;
+	unsigned int p_state;
 	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 
 	pid = find_get_pid(task_pid);
@@ -909,7 +912,8 @@ static void show_bt_by_pid(int task_pid)
 				dump_native_maps(task_pid, p);
 			put_task_struct(p);
 		} else {
-			state = p->state ? __ffs(p->state) + 1 : 0;
+			p_state = READ_ONCE(t->__state);
+			state = p_state ? __ffs(p_state) + 1 : 0;
 			log_hang_info("%s pid %d state %c, flags %d. stack is null.\n",
 				t->comm, task_pid, state < sizeof(stat_nam) - 1 ?
 				stat_nam[state] : '?', t->flags);
@@ -923,7 +927,9 @@ static void show_bt_by_pid(int task_pid)
 
 				get_task_struct(t);
 				tid = task_pid_vnr(t);
-				state = t->state ? __ffs(t->state) + 1 : 0;
+
+				p_state = READ_ONCE(t->__state);
+				state = p_state ? __ffs(p_state) + 1 : 0;
 				/* catch kernel bt */
 				show_thread_info(t, true);
 

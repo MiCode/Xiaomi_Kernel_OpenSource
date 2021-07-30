@@ -20,7 +20,7 @@ unsigned int hang_kernel_trace(struct task_struct *tsk,
 	}
 	*store = frame.pc;
 	while(store_len < size) {
-		if (!on_task_stack(tsk, fp, &info))
+		if (!on_task_stack(tsk, fp, 16, &info))
 			break;
 		frame.fp = READ_ONCE_NOCHECK(*(unsigned long *)(fp));
 		frame.pc = READ_ONCE_NOCHECK(*(unsigned long *)(fp + 8));

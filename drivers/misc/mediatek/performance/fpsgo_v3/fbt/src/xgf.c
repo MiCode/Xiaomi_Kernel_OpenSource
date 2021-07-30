@@ -202,7 +202,7 @@ EXPORT_SYMBOL(xgf_get_task_pid);
 
 long xgf_get_task_state(struct task_struct *t)
 {
-	return t->state;
+	return READ_ONCE(t->__state);
 }
 EXPORT_SYMBOL(xgf_get_task_state);
 

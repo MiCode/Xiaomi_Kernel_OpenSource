@@ -88,6 +88,7 @@ void wk_start_kick_cpu(int cpu)
 void dump_wdk_bind_info(void)
 {
 	int i = 0;
+	unsigned int p_state;
 
 	snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
 		"kick=0x%x,check=0x%x\n",
@@ -100,11 +101,12 @@ void dump_wdk_bind_info(void)
 #endif
 	for (i = 0; i < CPU_NR; i++) {
 		if (wk_tsk[i] != NULL) {
+			p_state = READ_ONCE(wk_tsk[i]->__state);
 			memset(wk_tsk_buf, 0, sizeof(wk_tsk_buf));
 			snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
 				"[wdk]CPU %d, %d, %lld, %d, %ld, %lld\n",
 				i, wk_tsk_bind[i], wk_tsk_bind_time[i],
-				wk_tsk[i]->on_rq, wk_tsk[i]->state,
+				wk_tsk[i]->on_rq, p_state,
 				wk_tsk_kick_time[i]);
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 			aee_sram_fiq_log(wk_tsk_buf);
