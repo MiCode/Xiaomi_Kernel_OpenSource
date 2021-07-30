@@ -580,19 +580,19 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->pgsize_bitmap = SZ_4K;
 
 	/* TCR */
-	if (cfg->quirks & IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT) {
-		tcr->sh = AV8L_FAST_TCR_SH_OS;
-		tcr->irgn = AV8L_FAST_TCR_RGN_NC;
-		tcr->orgn = AV8L_FAST_TCR_RGN_WBWA;
-	} else if (cfg->coherent_walk) {
-		/* Changed from SH_OS to SH_IS per io-pgtable-arm.c */
+	if (cfg->coherent_walk) {
 		tcr->sh = AV8L_FAST_TCR_SH_IS;
 		tcr->irgn = AV8L_FAST_TCR_RGN_WBWA;
 		tcr->orgn = AV8L_FAST_TCR_RGN_WBWA;
+		if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_OUTER_WBWA)
+			goto out_free_data;
 	} else {
 		tcr->sh = AV8L_FAST_TCR_SH_OS;
 		tcr->irgn = AV8L_FAST_TCR_RGN_NC;
-		tcr->orgn = AV8L_FAST_TCR_RGN_NC;
+		if (!(cfg->quirks & IO_PGTABLE_QUIRK_ARM_OUTER_WBWA))
+			tcr->orgn = AV8L_FAST_TCR_RGN_NC;
+		else
+			tcr->orgn = AV8L_FAST_TCR_RGN_WBWA;
 	}
 
 	tcr->tg = AV8L_FAST_TCR_TG0_4K;
