@@ -19,3 +19,31 @@
 		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
 		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
 };
+
+&LITTLE_CPU_OFF {
+	status = "nok";
+};
+
+&LITTLE_CPU_RAIL_OFF {
+	status = "nok";
+};
+
+&BIG_CPU_OFF {
+	status = "nok";
+};
+
+&BIG_CPU_RAIL_OFF {
+	status = "nok";
+};
+
+&CLUSTER_OFF {
+	status = "nok";
+};
+
+&CX_RET {
+	status = "nok";
+};
+
+&APSS_OFF {
+	status = "nok";
+};
