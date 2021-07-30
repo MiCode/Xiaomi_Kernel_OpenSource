@@ -225,6 +225,9 @@ config USB_F_AUDIO_SRC
 config USB_F_CDEV
 	tristate
 
+config USB_F_CCID
+	tristate
+
 config USB_F_FS_IPC_LOGGING
         tristate "Enable IPC logging for FunctionFS via f_fs_ipc_log"
 	depends on IPC_LOGGING
@@ -541,6 +544,18 @@ config USB_CONFIGFS_F_CDEV
 	  function also supports a single interrupt IN endpoint for
 	  asynchronous notification to the host. This driver is typically
 	  used to support DUN/NMEA functions.
+
+config USB_CONFIGFS_F_CCID
+	tristate "USB CCID function"
+	select USB_F_CCID
+	depends on USB_CONFIGFS
+	help
+	  The Chip Card Interface Device (CCID) function implements a USB
+	  interface that exposes a standard CSCID class that consists of a
+	  pair of bulk IN and OUT endpoints and a single interrupt IN
+	  endpoint. This driver provides a character device interface
+	  allowing a userspace component to be able to provide the
+	  implementation necessary to interface with the smartcard.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 
