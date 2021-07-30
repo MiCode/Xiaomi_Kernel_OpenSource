@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGFWD_PERIPHERAL_H
@@ -7,7 +7,7 @@
 
 #define PERIPHERAL_BUF_SZ		16384
 #define MAX_PERIPHERAL_BUF_SZ		32768
-#define MAX_PERIPHERAL_HDLC_BUF_SZ	65539
+#define MAX_PERIPHERAL_HDLC_BUF_SZ	65536
 
 #define TRANSPORT_UNKNOWN		-1
 #define TRANSPORT_SOCKET		0
