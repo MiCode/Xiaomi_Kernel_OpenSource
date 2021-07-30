@@ -228,6 +228,9 @@ config USB_F_CDEV
 config USB_F_CCID
 	tristate
 
+config USB_F_QDSS
+	tristate
+
 config USB_F_FS_IPC_LOGGING
         tristate "Enable IPC logging for FunctionFS via f_fs_ipc_log"
 	depends on IPC_LOGGING
@@ -556,6 +559,16 @@ config USB_CONFIGFS_F_CCID
 	  endpoint. This driver provides a character device interface
 	  allowing a userspace component to be able to provide the
 	  implementation necessary to interface with the smartcard.
+
+config USB_CONFIGFS_F_QDSS
+	tristate "USB QDSS function"
+	select USB_F_QDSS
+	depends on USB_CONFIGFS
+	help
+	  USB QDSS function driver to get hwtracing related data over
+	  USB. USB QDSS function driver which allows communication
+	  between USB BAM and QDSS BAM for QDSS debug functionality
+	  over USB.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 
