@@ -84,8 +84,9 @@ enum ffs_os_desc_type {
 	FFS_OS_DESC, FFS_OS_DESC_EXT_COMPAT, FFS_OS_DESC_EXT_PROP
 };
 
-#define kprobe_log(context, func, fmt, ...) \
-	ipc_log_string(context, "%s: " fmt,  func, ##__VA_ARGS__)
+#define kprobe_log(context, fmt, ...) \
+	ipc_log_string(context, "%s: " fmt, \
+		get_kretprobe(ri)->kp.symbol_name, ##__VA_ARGS__)
 
 #define MAX_IPC_INSTANCES 9
 
@@ -195,8 +196,8 @@ static int entry_ffs_user_copy_worker(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x0 = work;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: ret %d for %s", ret, io_data->read ? "read" : "write");
+	kprobe_log(context, "enter: ret %d for %s",
+		ret, io_data->read ? "read" : "write");
 	return 0;
 }
 
@@ -210,8 +211,7 @@ static int entry_ffs_epfile_io(struct kretprobe_instance *ri, struct pt_regs *re
 
 	data->x0 = file;
 	data->x1 = io_data;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: %s about to queue %zd bytes",
+	kprobe_log(context, "enter: %s about to queue %zd bytes",
 		epfile->name, iov_iter_count(&io_data->data));
 	return 0;
 }
@@ -224,8 +224,7 @@ static int exit_ffs_epfile_io(struct kretprobe_instance *ri, struct pt_regs *reg
 	unsigned long ret = regs_return_value(regs);
 	void *context = get_ipc_context(epfile->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "exit: %s ret %zd", epfile->name,
-		ret);
+	kprobe_log(context, "exit: %s ret %zd", epfile->name, ret);
 	return 0;
 }
 
@@ -236,7 +235,7 @@ static int entry_ffs_epfile_async_io_complete(struct kretprobe_instance *ri,
 	struct ffs_io_data *io_data = req->context;
 	void *context = get_ipc_context(io_data->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -249,7 +248,7 @@ static int entry_ffs_epfile_write_iter(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(epfile->ffs);
 
 	data->x0 = kiocb;
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -263,7 +262,7 @@ static int exit_ffs_epfile_write_iter(struct kretprobe_instance *ri,
 	unsigned long ret = regs_return_value(regs);
 
 	if (ret != -ENOMEM && ret != -EIOCBQUEUED)
-		kprobe_log(context, ri->rp->kp.symbol_name, "exit: ret %zd", ret);
+		kprobe_log(context, "exit: ret %zd", ret);
 	return 0;
 }
 
@@ -276,7 +275,7 @@ static int entry_ffs_epfile_read_iter(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(epfile->ffs);
 
 	data->x0 = kiocb;
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -289,17 +288,18 @@ static int exit_ffs_epfile_read_iter(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(epfile->ffs);
 	unsigned long ret = regs_return_value(regs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "exit: ret %zd", ret);
+	kprobe_log(context, "exit: ret %zd", ret);
 	return 0;
 }
 
-static int entry_ffs_data_put(struct kretprobe_instance *ri, struct pt_regs *regs)
+static int entry_ffs_data_put(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
 {
 	struct ffs_data *ffs = (struct ffs_data *)regs->regs[0];
 	void *context = get_ipc_context(ffs);
 	unsigned int refcount = refcount_read(&ffs->ref);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "ref %u", refcount);
+	kprobe_log(context, "ref %u", refcount);
 
 	if (refcount == 1) {
 		ipc_log_context_destroy(context);
@@ -326,9 +326,8 @@ static int entry___ffs_ep0_queue_wait(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x0 = ffs;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: state %d setup_state %d flags %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	kprobe_log(context, "enter: state %d setup_state %d flags %lu",
+		ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -339,9 +338,8 @@ static int exit___ffs_ep0_queue_wait(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = data->x0;
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"exit: state %d setup_state %d flags %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	kprobe_log(context, "exit: state %d setup_state %d flags %lu",
+		ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -355,9 +353,8 @@ static int entry_ffs_ep0_write(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x0 = file;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter:len %zu state %d setup_state %d flags %lu", len,
-		ffs->state, ffs->setup_state, ffs->flags);
+	kprobe_log(context, "enter:len %zu state %d setup_state %d flags %lu",
+		len, ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -372,7 +369,7 @@ static int exit_ffs_ep0_write(struct kretprobe_instance *ri,
 	unsigned long ret = regs_return_value(regs);
 
 	if (ret != -EIDRM && ret != -EINVAL)
-		kprobe_log(context, ri->rp->kp.symbol_name,
+		kprobe_log(context,
 			"exit:ret %zd state %d setup_state %d flags %lu",
 			ret, ffs->state, ffs->setup_state, ffs->flags);
 
@@ -391,9 +388,8 @@ static int entry_ffs_ep0_read(struct kretprobe_instance *ri,
 
 	data->x0 = file;
 	n = min((len / sizeof(struct usb_functionfs_event)), (size_t)ffs->ev.count);
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter:len %zu state %d setup_state %d flags %lu n %zu", len,
-		ffs->state, ffs->setup_state, ffs->flags, n);
+	kprobe_log(context, "enter:len %zu state %d setup_state %d flags %lu n %zu",
+		len, ffs->state, ffs->setup_state, ffs->flags, n);
 	return 0;
 }
 
@@ -406,9 +402,8 @@ static int exit_ffs_ep0_read(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 	unsigned long ret = regs_return_value(regs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"exit:ret %d state %d setup_state %d flags %lu", ret,
-		ffs->state, ffs->setup_state, ffs->flags);
+	kprobe_log(context, "exit:ret %d state %d setup_state %d flags %lu",
+		ret, ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -419,9 +414,9 @@ static int entry_ffs_ep0_open(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = inode->i_private;
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"state %d setup_state %d flags %lu opened %d", ffs->state,
-		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
+	kprobe_log(context, "state %d setup_state %d flags %lu opened %d",
+		ffs->state, ffs->setup_state, ffs->flags,
+		atomic_read(&ffs->opened));
 	return 0;
 }
 
@@ -432,9 +427,9 @@ static int entry_ffs_ep0_release(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = file->private_data;
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"state %d setup_state %d flags %lu opened %d", ffs->state,
-		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
+	kprobe_log(context, "state %d setup_state %d flags %lu opened %d",
+		ffs->state, ffs->setup_state, ffs->flags,
+		atomic_read(&ffs->opened));
 	return 0;
 }
 
@@ -445,9 +440,9 @@ static int entry_ffs_ep0_ioctl(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = file->private_data;
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"state %d setup_state %d flags %lu opened %d", ffs->state,
-		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
+	kprobe_log(context, "state %d setup_state %d flags %lu opened %d",
+		ffs->state, ffs->setup_state, ffs->flags,
+		atomic_read(&ffs->opened));
 	return 0;
 }
 
@@ -460,9 +455,9 @@ static int entry_ffs_ep0_poll(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x0 = file;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"state %d setup_state %d flags %lu opened %d", ffs->state,
-		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
+	kprobe_log(context, "state %d setup_state %d flags %lu opened %d",
+		ffs->state, ffs->setup_state, ffs->flags,
+		atomic_read(&ffs->opened));
 	return 0;
 }
 
@@ -475,7 +470,7 @@ static int exit_ffs_ep0_poll(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = file->private_data;
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "exit: mask %u", ret);
+	kprobe_log(context, "exit: mask %u", ret);
 	return 0;
 }
 
@@ -486,8 +481,7 @@ static int entry_ffs_epfile_open(struct kretprobe_instance *ri,
 	struct ffs_epfile *epfile = inode->i_private;
 	void *context = get_ipc_context(epfile->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"%s: state %d setup_state %d flag %lu opened %u",
+	kprobe_log(context, "%s: state %d setup_state %d flag %lu opened %u",
 		epfile->name, epfile->ffs->state, epfile->ffs->setup_state,
 		epfile->ffs->flags, atomic_read(&epfile->ffs->opened));
 	return 0;
@@ -502,9 +496,9 @@ static int entry_ffs_aio_cancel(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(epfile->ffs);
 
 	data->x0 = kiocb;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter:state %d setup_state %d flag %lu", epfile->ffs->state,
-		epfile->ffs->setup_state, epfile->ffs->flags);
+	kprobe_log(context, "enter:state %d setup_state %d flag %lu",
+		epfile->ffs->state, epfile->ffs->setup_state,
+		epfile->ffs->flags);
 	return 0;
 }
 
@@ -517,7 +511,7 @@ static int exit_ffs_aio_cancel(struct kretprobe_instance *ri,
 	struct ffs_epfile *epfile = kiocb->ki_filp->private_data;
 	void *context = get_ipc_context(epfile->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "exit: mask %u", ret);
+	kprobe_log(context, "exit: mask %u", ret);
 	return 0;
 }
 
@@ -528,8 +522,7 @@ static int entry_ffs_epfile_release(struct kretprobe_instance *ri,
 	struct ffs_epfile *epfile = inode->i_private;
 	void *context = get_ipc_context(epfile->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"%s: state %d setup_state %d flag %lu opened %u",
+	kprobe_log(context, "%s: state %d setup_state %d flag %lu opened %u",
 		epfile->name, epfile->ffs->state, epfile->ffs->setup_state,
 		epfile->ffs->flags, atomic_read(&epfile->ffs->opened));
 	return 0;
@@ -546,7 +539,7 @@ static int entry_ffs_epfile_ioctl(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(epfile->ffs);
 
 	data->x0 = file;
-	kprobe_log(context, ri->rp->kp.symbol_name,
+	kprobe_log(context,
 		"%s: code 0x%08x value %#lx state %d setup_state %d flag %lu",
 		epfile->name, code, value, epfile->ffs->state,
 		epfile->ffs->setup_state, epfile->ffs->flags);
@@ -562,8 +555,7 @@ static int exit_ffs_epfile_ioctl(struct kretprobe_instance *ri,
 	struct ffs_epfile *epfile = file->private_data;
 	void *context = get_ipc_context(epfile->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"exit: %s: ret %d\n", epfile->name, ret);
+	kprobe_log(context, "exit: %s: ret %d\n", epfile->name, ret);
 	return 0;
 }
 
@@ -573,7 +565,7 @@ static int entry_ffs_data_opened(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = (struct ffs_data *)regs->regs[0];
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
+	kprobe_log(context,
 		"enter: state %d setup_state %d flag %lu opened %d ref %d",
 		ffs->state, ffs->setup_state, ffs->flags,
 		atomic_read(&ffs->opened), refcount_read(&ffs->ref));
@@ -586,9 +578,9 @@ static int entry_ffs_data_closed(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = (struct ffs_data *)regs->regs[0];
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"state %d setup_state %d flag %lu opened %d", ffs->state,
-		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
+	kprobe_log(context, "state %d setup_state %d flag %lu opened %d",
+		ffs->state, ffs->setup_state, ffs->flags,
+		atomic_read(&ffs->opened));
 	return 0;
 }
 
@@ -598,9 +590,8 @@ static int entry_ffs_data_clear(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = (struct ffs_data *)regs->regs[0];
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: state %d setup_state %d flag %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	kprobe_log(context, "enter: state %d setup_state %d flag %lu",
+		ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -612,9 +603,8 @@ static int entry_functionfs_bind(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x0 = ffs;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: state %d setup_state %d flag %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	kprobe_log(context, "enter: state %d setup_state %d flag %lu",
+		ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -626,8 +616,7 @@ static int exit_functionfs_bind(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 	unsigned long ret = regs_return_value(regs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"functionfs_bind returned %d", ret);
+	kprobe_log(context, "functionfs_bind returned %d", ret);
 	return 0;
 }
 
@@ -637,9 +626,8 @@ static int entry_ffs_func_eps_disable(struct kretprobe_instance *ri,
 	struct ffs_function *func = (struct ffs_function *)regs->regs[0];
 	void *context = get_ipc_context(func->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: state %d setup_state %d flag %lu", func->ffs->state,
-		func->ffs->setup_state, func->ffs->flags);
+	kprobe_log(context, "enter: state %d setup_state %d flag %lu",
+		func->ffs->state, func->ffs->setup_state, func->ffs->flags);
 	return 0;
 }
 
@@ -659,7 +647,7 @@ static int entry_ffs_func_bind(struct kretprobe_instance *ri,
 
 	context = get_ipc_context(ffs);
 	data->x0 = ffs;
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context,  "enter");
 	kprobe_log(context, "_ffs_func_bind",
 		"enter: state %d setup_state %d flag %lu", ffs->state,
 		ffs->setup_state, ffs->flags);
@@ -679,7 +667,7 @@ static int exit_ffs_func_bind(struct kretprobe_instance *ri,
 
 	context = get_ipc_context(ffs);
 	if (ret < 0)
-		kprobe_log(context, ri->rp->kp.symbol_name, "exit: ret %d", ret);
+		kprobe_log(context, "exit: ret %d", ret);
 	return 0;
 }
 
@@ -690,7 +678,7 @@ static int entry_ffs_reset_work(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = container_of(work, struct ffs_data, reset_work);
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -704,7 +692,7 @@ static int entry_ffs_func_set_alt(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(func->ffs);
 
 	data->x0 = func;
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter: alt %d", (int)alt);
+	kprobe_log(context, "enter: alt %d", (int)alt);
 	return 0;
 }
 
@@ -715,7 +703,7 @@ static int entry_ffs_func_disable(struct kretprobe_instance *ri,
 	struct ffs_function *func = container_of(f, struct ffs_function, function);
 	void *context = get_ipc_context(func->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -728,7 +716,7 @@ static int entry_ffs_func_setup(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = func->ffs;
 	void *context = get_ipc_context(func->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
+	kprobe_log(context,
 		"enter: state %d reqtype=%02x req=%02x wv=%04x wi=%04x wl=%04x",
 			ffs->state, creq->bRequestType, creq->bRequest,
 			le16_to_cpu(creq->wValue), le16_to_cpu(creq->wIndex),
@@ -743,7 +731,7 @@ static int entry_ffs_func_suspend(struct kretprobe_instance *ri,
 	struct ffs_function *func = container_of(f, struct ffs_function, function);
 	void *context = get_ipc_context(func->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -754,7 +742,7 @@ static int entry_ffs_func_resume(struct kretprobe_instance *ri,
 	struct ffs_function *func = container_of(f, struct ffs_function, function);
 	void *context = get_ipc_context(func->ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -770,9 +758,8 @@ static int entry_ffs_func_unbind(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x1 = ffs;
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: state %d setup_state %d flag %lu refcnt %u", ffs->state,
-		ffs->setup_state, ffs->flags, opts->refcnt);
+	kprobe_log(context, "enter: state %d setup_state %d flag %lu refcnt %u",
+		ffs->state, ffs->setup_state, ffs->flags, opts->refcnt);
 	return 0;
 }
 
@@ -783,9 +770,8 @@ static int exit_ffs_func_unbind(struct kretprobe_instance *ri,
 	struct ffs_data *ffs = data->x1;
 	void *context = get_ipc_context(ffs);
 
-	kprobe_log(context, ri->rp->kp.symbol_name,
-		"exit: state %d setup_state %d flag %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	kprobe_log(context, "exit: state %d setup_state %d flag %lu",
+		ffs->state, ffs->setup_state, ffs->flags);
 	return 0;
 }
 
@@ -797,7 +783,7 @@ static int entry_ffs_closed(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	data->x0 = ffs;
-	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
+	kprobe_log(context, "enter");
 	return 0;
 }
 
@@ -810,11 +796,11 @@ static int exit_ffs_closed(struct kretprobe_instance *ri,
 	void *context = get_ipc_context(ffs);
 
 	if (test_bit(FFS_FL_BOUND, &ffs->flags))
-		kprobe_log(context, ri->rp->kp.symbol_name, "unreg gadget done");
+		kprobe_log(context, "unreg gadget done");
 	else if (!ffs_obj || !ffs_obj->opts || ffs_obj->opts->no_configfs ||
 		 !ffs_obj->opts->func_inst.group.cg_item.ci_parent
 		 || !kref_read(&ffs_obj->opts->func_inst.group.cg_item.ci_kref))
-		kprobe_log(context, ri->rp->kp.symbol_name, "exit error");
+		kprobe_log(context, "exit error");
 	return 0;
 }
 
