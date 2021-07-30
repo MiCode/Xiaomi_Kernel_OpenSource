@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -391,6 +391,38 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
 	"measure_only_core_bi_pll_test_se",
+	"measure_only_gcc_aoss_at_clk",
+	"measure_only_gcc_apss_qdss_apb_clk",
+	"measure_only_gcc_apss_qdss_tsctr_clk",
+	"measure_only_gcc_cnoc_qdss_stm_clk",
+	"measure_only_gcc_config_noc_at_clk",
+	"measure_only_gcc_cpuss_at_clk",
+	"measure_only_gcc_cpuss_trig_clk",
+	"measure_only_gcc_ddrss_at_clk",
+	"measure_only_gcc_east_at_clk",
+	"measure_only_gcc_gpu_at_clk",
+	"measure_only_gcc_gpu_trig_clk",
+	"measure_only_gcc_lpass_trig_clk",
+	"measure_only_gcc_mmnoc_at_clk",
+	"measure_only_gcc_mmss_at_clk",
+	"measure_only_gcc_mmss_trig_clk",
+	"measure_only_gcc_mss_at_clk",
+	"measure_only_gcc_north_at_clk",
+	"measure_only_gcc_phy_at_clk",
+	"measure_only_gcc_pimem_at_clk",
+	"measure_only_gcc_qdss_center_at_clk",
+	"measure_only_gcc_qdss_cfg_ahb_clk",
+	"measure_only_gcc_qdss_dap_ahb_clk",
+	"measure_only_gcc_qdss_dap_clk",
+	"measure_only_gcc_qdss_etr_usb_clk",
+	"measure_only_gcc_qdss_stm_clk",
+	"measure_only_gcc_qdss_traceclkin_clk",
+	"measure_only_gcc_qdss_tsctr_clk",
+	"measure_only_gcc_qdss_xo_clk",
+	"measure_only_gcc_south_at_clk",
+	"measure_only_gcc_sys_noc_at_clk",
+	"measure_only_gcc_turing_at_clk",
+	"measure_only_gcc_turing_trig_clk",
 	"measure_only_ipa_2x_clk",
 	"measure_only_memnoc_clk",
 	"measure_only_pcie_0_pipe_clk",
@@ -401,6 +433,10 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_ufs_phy_tx_symbol_0_clk",
 	"measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk",
 	"video_cc_debug_mux",
+	"measure_only_gcc_at_clk",
+	"measure_only_gcc_lpass_at_clk",
+	"measure_only_gcc_mss_trig_clk",
+	"measure_only_gcc_qdss_trig_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -508,6 +544,38 @@ static int gcc_debug_mux_sels[] = {
 	0xCD,		/* mc_cc_debug_mux or ddrss_gcc_debug_clk */
 	0x17,		/* measure_only_cnoc_clk */
 	0x5,		/* measure_only_core_bi_pll_test_se */
+	0xA9,		/* measure_only_gcc_aoss_at_clk */
+	0xE2,		/* measure_only_gcc_apss_qdss_apb_clk */
+	0xE1,		/* measure_only_gcc_apss_qdss_tsctr_clk */
+	0x1A,		/* measure_only_gcc_cnoc_qdss_stm_clk */
+	0x24,		/* measure_only_gcc_config_noc_at_clk */
+	0xE0,		/* measure_only_gcc_cpuss_at_clk */
+	0xDF,		/* measure_only_gcc_cpuss_trig_clk */
+	0xCA,		/* measure_only_gcc_ddrss_at_clk */
+	0x64,		/* measure_only_gcc_east_at_clk */
+	0x13B,		/* measure_only_gcc_gpu_at_clk */
+	0x13F,		/* measure_only_gcc_gpu_trig_clk */
+	0xD0,		/* measure_only_gcc_lpass_trig_clk */
+	0x34,		/* measure_only_gcc_mmnoc_at_clk */
+	0x40,		/* measure_only_gcc_mmss_at_clk */
+	0x42,		/* measure_only_gcc_mmss_trig_clk */
+	0x131,		/* measure_only_gcc_mss_at_clk */
+	0x65,		/* measure_only_gcc_north_at_clk */
+	0x66,		/* measure_only_gcc_phy_at_clk */
+	0x5F,		/* measure_only_gcc_pimem_at_clk */
+	0x62,		/* measure_only_gcc_qdss_center_at_clk */
+	0x61,		/* measure_only_gcc_qdss_cfg_ahb_clk */
+	0x60,		/* measure_only_gcc_qdss_dap_ahb_clk */
+	0x6C,		/* measure_only_gcc_qdss_dap_clk */
+	0x67,		/* measure_only_gcc_qdss_etr_usb_clk */
+	0x68,		/* measure_only_gcc_qdss_stm_clk */
+	0x69,		/* measure_only_gcc_qdss_traceclkin_clk */
+	0x6A,		/* measure_only_gcc_qdss_tsctr_clk */
+	0x6E,		/* measure_only_gcc_qdss_xo_clk */
+	0x63,		/* measure_only_gcc_south_at_clk */
+	0xE,		/* measure_only_gcc_sys_noc_at_clk */
+	0xDB,		/* measure_only_gcc_turing_at_clk */
+	0xDC,		/* measure_only_gcc_turing_trig_clk */
 	0x128,		/* measure_only_ipa_2x_clk */
 	0xC9,		/* measure_only_memnoc_clk */
 	0xF8,		/* measure_only_pcie_0_pipe_clk */
@@ -518,6 +586,10 @@ static int gcc_debug_mux_sels[] = {
 	0x107,		/* measure_only_ufs_phy_tx_symbol_0_clk */
 	0x78,		/* measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk */
 	0x5C,		/* video_cc_debug_mux */
+	0xB8,		/* measure_only_gcc_at_clk */
+	0xD1,		/* measure_only_gcc_lpass_at_clk */
+	0x130,		/* measure_only_gcc_mss_trig_clk */
+	0x6B,		/* measure_only_gcc_qdss_trig_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -713,6 +785,262 @@ static struct clk_dummy measure_only_core_bi_pll_test_se = {
 	},
 };
 
+static struct clk_dummy measure_only_gcc_aoss_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_aoss_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_apss_qdss_apb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_apss_qdss_apb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_apss_qdss_tsctr_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_apss_qdss_tsctr_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_cnoc_qdss_stm_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_cnoc_qdss_stm_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_config_noc_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_config_noc_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_cpuss_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_cpuss_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_cpuss_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_cpuss_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_ddrss_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_ddrss_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_east_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_east_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_gpu_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_gpu_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_gpu_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_gpu_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_lpass_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_lpass_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_mmnoc_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_mmnoc_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_mmss_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_mmss_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_mmss_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_mmss_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_mss_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_mss_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_north_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_north_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_phy_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_phy_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pimem_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pimem_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_center_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_center_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_cfg_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_cfg_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_dap_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_dap_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_dap_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_dap_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_etr_usb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_etr_usb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_stm_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_stm_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_traceclkin_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_traceclkin_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_tsctr_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_tsctr_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_xo_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_xo_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_south_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_south_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_sys_noc_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_sys_noc_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_turing_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_turing_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_turing_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_turing_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_gpu_cc_cb_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -825,6 +1153,38 @@ static struct clk_dummy measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_gcc_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_lpass_at_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_lpass_at_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_mss_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_mss_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qdss_trig_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qdss_trig_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_hw *debugcc_shima_hws[] = {
 	&measure_only_apcs_gold_post_acd_clk.hw,
 	&measure_only_apcs_goldplus_post_acd_clk.hw,
@@ -832,6 +1192,38 @@ static struct clk_hw *debugcc_shima_hws[] = {
 	&measure_only_apcs_silver_post_acd_clk.hw,
 	&measure_only_cnoc_clk.hw,
 	&measure_only_core_bi_pll_test_se.hw,
+	&measure_only_gcc_aoss_at_clk.hw,
+	&measure_only_gcc_apss_qdss_apb_clk.hw,
+	&measure_only_gcc_apss_qdss_tsctr_clk.hw,
+	&measure_only_gcc_cnoc_qdss_stm_clk.hw,
+	&measure_only_gcc_config_noc_at_clk.hw,
+	&measure_only_gcc_cpuss_at_clk.hw,
+	&measure_only_gcc_cpuss_trig_clk.hw,
+	&measure_only_gcc_ddrss_at_clk.hw,
+	&measure_only_gcc_east_at_clk.hw,
+	&measure_only_gcc_gpu_at_clk.hw,
+	&measure_only_gcc_gpu_trig_clk.hw,
+	&measure_only_gcc_lpass_trig_clk.hw,
+	&measure_only_gcc_mmnoc_at_clk.hw,
+	&measure_only_gcc_mmss_at_clk.hw,
+	&measure_only_gcc_mmss_trig_clk.hw,
+	&measure_only_gcc_mss_at_clk.hw,
+	&measure_only_gcc_north_at_clk.hw,
+	&measure_only_gcc_phy_at_clk.hw,
+	&measure_only_gcc_pimem_at_clk.hw,
+	&measure_only_gcc_qdss_center_at_clk.hw,
+	&measure_only_gcc_qdss_cfg_ahb_clk.hw,
+	&measure_only_gcc_qdss_dap_ahb_clk.hw,
+	&measure_only_gcc_qdss_dap_clk.hw,
+	&measure_only_gcc_qdss_etr_usb_clk.hw,
+	&measure_only_gcc_qdss_stm_clk.hw,
+	&measure_only_gcc_qdss_traceclkin_clk.hw,
+	&measure_only_gcc_qdss_tsctr_clk.hw,
+	&measure_only_gcc_qdss_xo_clk.hw,
+	&measure_only_gcc_south_at_clk.hw,
+	&measure_only_gcc_sys_noc_at_clk.hw,
+	&measure_only_gcc_turing_at_clk.hw,
+	&measure_only_gcc_turing_trig_clk.hw,
 	&measure_only_gpu_cc_cb_clk.hw,
 	&measure_only_gpu_cc_cx_gfx3d_clk.hw,
 	&measure_only_gpu_cc_cx_gfx3d_slv_clk.hw,
@@ -846,6 +1238,10 @@ static struct clk_hw *debugcc_shima_hws[] = {
 	&measure_only_ufs_phy_rx_symbol_1_clk.hw,
 	&measure_only_ufs_phy_tx_symbol_0_clk.hw,
 	&measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk.hw,
+	&measure_only_gcc_at_clk.hw,
+	&measure_only_gcc_lpass_at_clk.hw,
+	&measure_only_gcc_mss_trig_clk.hw,
+	&measure_only_gcc_qdss_trig_clk.hw,
 };
 
 static const struct of_device_id clk_debug_match_table[] = {
