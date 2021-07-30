@@ -3547,6 +3547,10 @@ static int fastrpc_create_persistent_headers(struct fastrpc_file *fl,
 	spin_unlock(&fl->hlock);
 bail:
 	if (err) {
+		ADSPRPC_ERR(
+			"failed to map len %zu, flags %d, user concurrency %u, num headers %u with err %d\n",
+			hdr_buf_alloc_len, ADSP_MMAP_PERSIST_HDR,
+			user_concurrency, num_pers_hdrs, err);
 		fl->pers_hdr_buf = NULL;
 		fl->hdr_bufs = NULL;
 		fl->num_pers_hdrs = 0;
@@ -4410,10 +4414,6 @@ static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 	if (raddr)
 		*raddr = (uintptr_t)routargs.vaddrout;
 bail:
-	if (err) {
-		pr_err("adsprpc: %s failed. err 0x%x fd %d len 0x%x\n",
-			__func__, err, fd, size);
-	}
 	return err;
 }
 
@@ -4452,10 +4452,6 @@ static int fastrpc_mem_unmap_to_dsp(struct fastrpc_file *fl, int fd,
 	if (err)
 		goto bail;
 bail:
-	if (err) {
-		pr_err("adsprpc: %s failed. err 0x%x fd %d len 0x%x\n",
-			__func__, err, fd, size);
-	}
 	return err;
 }
 
@@ -4892,9 +4888,9 @@ static int fastrpc_internal_mem_map(struct fastrpc_file *fl,
 
 	/* create SMMU mapping */
 	mutex_lock(&fl->map_mutex);
-	VERIFY(err, !fastrpc_mmap_create(fl, ud->m.fd, NULL, ud->m.attrs,
+	VERIFY(err, !(err = fastrpc_mmap_create(fl, ud->m.fd, NULL, ud->m.attrs,
 			ud->m.vaddrin, ud->m.length,
-			 ud->m.flags, &map));
+			 ud->m.flags, &map)));
 	mutex_unlock(&fl->map_mutex);
 	if (err)
 		goto bail;
@@ -4912,8 +4908,8 @@ static int fastrpc_internal_mem_map(struct fastrpc_file *fl,
 	ud->m.vaddrout = map->raddr;
 bail:
 	if (err) {
-		pr_err("adsprpc: %s failed to map fd %d flags %d err %d\n",
-			__func__, ud->m.fd, ud->m.flags, err);
+		ADSPRPC_ERR("failed to map fd %d, len 0x%x, flags %d, map %pK, err %d\n",
+			ud->m.fd, ud->m.length, ud->m.flags, map, err);
 		if (map) {
 			mutex_lock(&fl->map_mutex);
 			fastrpc_mmap_free(map, 0);
@@ -4928,6 +4924,7 @@ static int fastrpc_internal_mem_unmap(struct fastrpc_file *fl,
 {
 	int err = 0;
 	struct fastrpc_mmap *map = NULL;
+	size_t map_size = 0;
 
 	VERIFY(err, fl->dsp_proc_init == 1);
 	if (err) {
@@ -4938,8 +4935,8 @@ static int fastrpc_internal_mem_unmap(struct fastrpc_file *fl,
 	}
 
 	mutex_lock(&fl->map_mutex);
-	VERIFY(err, !fastrpc_mmap_remove(fl, ud->um.fd,
-			(uintptr_t)ud->um.vaddr, ud->um.length, &map));
+	VERIFY(err, !(err = fastrpc_mmap_remove(fl, ud->um.fd,
+			(uintptr_t)ud->um.vaddr, ud->um.length, &map)));
 	mutex_unlock(&fl->map_mutex);
 	if (err)
 		goto bail;
@@ -4951,7 +4948,7 @@ static int fastrpc_internal_mem_unmap(struct fastrpc_file *fl,
 		err = -EBADMSG;
 		goto bail;
 	}
-
+	map_size = map->size;
 	/* remove mapping on DSP */
 	VERIFY(err, !(err = fastrpc_mem_unmap_to_dsp(fl, map->fd, map->flags,
 				map->raddr, map->phys, map->size)));
@@ -4965,8 +4962,9 @@ static int fastrpc_internal_mem_unmap(struct fastrpc_file *fl,
 	map = NULL;
 bail:
 	if (err) {
-		pr_err("adsprpc: %s failed to unmap fd %d addr 0x%llx length 0x%x err 0x%x\n",
-			__func__, ud->um.fd, ud->um.vaddr, ud->um.length, err);
+		ADSPRPC_ERR(
+			"failed to unmap fd %d addr 0x%llx length %zu map size %zu err 0x%x\n",
+			ud->um.fd, ud->um.vaddr, ud->um.length, map_size, err);
 		/* Add back to map list in case of error to unmap on DSP */
 		if (map) {
 			mutex_lock(&fl->map_mutex);
