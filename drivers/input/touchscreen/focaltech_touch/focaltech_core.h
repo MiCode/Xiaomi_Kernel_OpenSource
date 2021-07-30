@@ -62,6 +62,7 @@
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
 #include <linux/gunyah/gh_irq_lend.h>
+#include <linux/gunyah/gh_mem_notifier.h>
 #include "focaltech_common.h"
 
 /*****************************************************************************
@@ -210,6 +211,7 @@ enum trusted_touch_tvm_states {
 
 struct trusted_touch_vm_info {
 	enum gh_irq_label irq_label;
+	enum gh_mem_notifier_tag mem_tag;
 	enum gh_vm_names vm_name;
 	const char *trusted_touch_type;
 	u32 hw_irq;

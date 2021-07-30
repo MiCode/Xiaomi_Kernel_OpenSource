@@ -61,9 +61,7 @@
 #include <linux/uaccess.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
-#include "linux/gunyah/gh_irq_lend.h"
 #include "linux/gunyah/gh_msgq.h"
-#include "linux/gunyah/gh_mem_notifier.h"
 #include "linux/gunyah/gh_rm_drv.h"
 #include <linux/sort.h>
 #endif
@@ -200,7 +198,6 @@ static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
 	}
 
 	fts_data->vm_info = vm_info;
-	vm_info->irq_label = GH_IRQ_LABEL_TRUSTED_TOUCH;
 	vm_info->vm_name = GH_TRUSTED_VM;
 	rc = of_property_read_u32(np, "focaltech,trusted-touch-spi-irq",
 			&vm_info->hw_irq);
@@ -237,6 +234,21 @@ static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
 	if (!vm_info->iomem_bases) {
 		rc = -ENOMEM;
 		goto vm_error;
+	}
+
+	rc = of_property_read_string(np, "focaltech,trusted-touch-type",
+						&vm_info->trusted_touch_type);
+	if (rc) {
+		pr_warn("%s: No trusted touch type selection made\n", __func__);
+		vm_info->mem_tag = GH_MEM_NOTIFIER_TAG_TOUCH_PRIMARY;
+		vm_info->irq_label = GH_IRQ_LABEL_TRUSTED_TOUCH_PRIMARY;
+		rc = 0;
+	} else if (!strcmp(vm_info->trusted_touch_type, "primary")) {
+		vm_info->mem_tag = GH_MEM_NOTIFIER_TAG_TOUCH_PRIMARY;
+		vm_info->irq_label = GH_IRQ_LABEL_TRUSTED_TOUCH_PRIMARY;
+	} else if (!strcmp(vm_info->trusted_touch_type, "secondary")) {
+		vm_info->mem_tag = GH_MEM_NOTIFIER_TAG_TOUCH_SECONDARY;
+		vm_info->irq_label = GH_IRQ_LABEL_TRUSTED_TOUCH_SECONDARY;
 	}
 
 	rc = of_property_read_string(np, "focaltech,trusted-touch-type",
@@ -544,8 +556,15 @@ static void fts_ts_vm_mem_on_lend_handler(enum gh_mem_notifier_tag tag,
 	struct trusted_touch_vm_info *vm_info;
 	struct fts_ts_data *fts_data;
 
+	fts_data = (struct fts_ts_data *)entry_data;
+	vm_info = fts_data->vm_info;
+	if (!vm_info) {
+		pr_err("Invalid vm_info\n");
+		return;
+	}
+
 	if (notif_type != GH_RM_NOTIF_MEM_SHARED ||
-			tag != GH_MEM_NOTIFIER_TAG_TOUCH) {
+			tag != vm_info->mem_tag) {
 		pr_err("Invalid command passed from rm\n");
 		return;
 	}
@@ -555,12 +574,6 @@ static void fts_ts_vm_mem_on_lend_handler(enum gh_mem_notifier_tag tag,
 		return;
 	}
 
-	fts_data = (struct fts_ts_data *)entry_data;
-	vm_info = fts_data->vm_info;
-	if (!vm_info) {
-		pr_err("Invalid vm_info\n");
-		return;
-	}
 
 	payload = (struct gh_rm_notif_mem_shared_payload  *)notif_msg;
 	if (payload->trans_type != GH_RM_TRANS_TYPE_LEND ||
@@ -597,7 +610,7 @@ static int fts_ts_vm_mem_release(struct fts_ts_data *fts_data)
 
 	rc = gh_rm_mem_notify(fts_data->vm_info->vm_mem_handle,
 				GH_RM_MEM_NOTIFY_OWNER_RELEASED,
-				GH_MEM_NOTIFIER_TAG_TOUCH, 0);
+				fts_data->vm_info->mem_tag, 0);
 	if (rc)
 		pr_err("Failed to notify mem release to PVM: rc=%d\n");
 	pr_debug("vm mem release succeded\n");
@@ -972,25 +985,25 @@ static void fts_ts_vm_mem_on_release_handler(enum gh_mem_notifier_tag tag,
 	struct trusted_touch_vm_info *vm_info;
 	struct fts_ts_data *fts_data;
 
+	fts_data = (struct fts_ts_data *)entry_data;
+	vm_info = fts_data->vm_info;
+	if (!vm_info) {
+		pr_err(" Invalid vm_info\n");
+		return;
+	}
+
 	if (notif_type != GH_RM_NOTIF_MEM_RELEASED) {
 		pr_err(" Invalid notification type\n");
 		return;
 	}
 
-	if (tag != GH_MEM_NOTIFIER_TAG_TOUCH) {
+	if (tag != vm_info->mem_tag) {
 		pr_err(" Invalid tag\n");
 		return;
 	}
 
 	if (!entry_data || !notif_msg) {
 		pr_err(" Invalid data or notification message\n");
-		return;
-	}
-
-	fts_data = (struct fts_ts_data *)entry_data;
-	vm_info = fts_data->vm_info;
-	if (!vm_info) {
-		pr_err(" Invalid vm_info\n");
 		return;
 	}
 
@@ -1051,7 +1064,7 @@ static int fts_ts_vm_mem_lend(struct fts_ts_data *fts_data)
 	vmid_desc = fts_ts_vm_get_vmid(trusted_vmid);
 
 	rc = gh_rm_mem_notify(mem_handle, GH_RM_MEM_NOTIFY_RECIPIENT_SHARED,
-			GH_MEM_NOTIFIER_TAG_TOUCH, vmid_desc);
+			fts_data->vm_info->mem_tag, vmid_desc);
 	if (rc) {
 		pr_err("Failed to notify mem lend to hypervisor rc:%d\n", rc);
 		goto vmid_error;
@@ -1213,7 +1226,7 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 
 	vm_info = fts_data->vm_info;
 #ifdef CONFIG_ARCH_QTI_VM
-	mem_cookie = gh_mem_notifier_register(GH_MEM_NOTIFIER_TAG_TOUCH,
+	mem_cookie = gh_mem_notifier_register(vm_info->mem_tag,
 			fts_ts_vm_mem_on_lend_handler, fts_data);
 	if (!mem_cookie) {
 		pr_err("Failed to register on lend mem notifier\n");
@@ -1226,7 +1239,7 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 	mutex_init(&fts_data->vm_info->tvm_state_mutex);
 	fts_ts_trusted_touch_set_tvm_driver_state(fts_data, TRUSTED_TOUCH_TVM_INIT);
 #else
-	mem_cookie = gh_mem_notifier_register(GH_MEM_NOTIFIER_TAG_TOUCH,
+	mem_cookie = gh_mem_notifier_register(vm_info->mem_tag,
 			fts_ts_vm_mem_on_release_handler, fts_data);
 	if (!mem_cookie) {
 		pr_err("Failed to register on release mem notifier\n");
