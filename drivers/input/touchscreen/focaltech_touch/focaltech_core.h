@@ -220,13 +220,7 @@ struct trusted_touch_vm_info {
 	u32 *iomem_sizes;
 	u32 iomem_list_size;
 	void *mem_cookie;
-#ifdef CONFIG_ARCH_QTI_VM
-	struct mutex tvm_state_mutex;
-	atomic_t tvm_state;
-#else
-	struct mutex pvm_state_mutex;
-	atomic_t pvm_state;
-#endif
+	atomic_t vm_state;
 };
 #endif
 
@@ -247,7 +241,7 @@ struct fts_ts_data {
 	spinlock_t irq_lock;
 	struct mutex report_mutex;
 	struct mutex bus_lock;
-	struct mutex suspend_lock;
+	struct mutex transition_lock;
 	int irq;
 	int log_level;
 	int fw_is_running;      /* confirm fw is running when using spi:default 0 */
@@ -300,7 +294,7 @@ struct fts_ts_data {
 	struct clk *iface_clk;
 	atomic_t trusted_touch_initialized;
 	atomic_t trusted_touch_enabled;
-	atomic_t trusted_touch_underway;
+	atomic_t trusted_touch_transition;
 	atomic_t trusted_touch_event;
 	atomic_t trusted_touch_abort_status;
 	atomic_t delayed_vm_probe_pending;
