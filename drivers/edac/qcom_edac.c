@@ -28,7 +28,7 @@
 #define DRP_SYN_REG_CNT                 8
 
 #define LLCC_COMMON_STATUS0_V2          0x0003000c
-#define LLCC_COMMON_STATUS0_V21         0x0004000c
+#define LLCC_COMMON_STATUS0_V21         0x0003400c
 #define LLCC_COMMON_STATUS0             edac_regs[LLCC_COMMON_STATUS0_num]
 #define LLCC_LB_CNT_MASK                GENMASK(31, 28)
 #define LLCC_LB_CNT_SHIFT               28
@@ -380,7 +380,7 @@ static void llcc_edac_handle_ce(struct edac_device_ctl_info *edac_dev,
 				int inst_nr, int block_nr, const char *msg)
 {
 	edac_device_handle_ce(edac_dev, inst_nr, block_nr, msg);
-#ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
+#ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_CE
 	panic("EDAC %s CE: %s\n", edac_dev->ctl_name, msg);
 #endif
 }
