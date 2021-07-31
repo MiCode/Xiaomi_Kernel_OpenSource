@@ -358,6 +358,17 @@ int qcom_iommu_get_context_bank_nr(struct iommu_domain *domain)
 }
 EXPORT_SYMBOL(qcom_iommu_get_context_bank_nr);
 
+int qcom_iommu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid)
+{
+	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
+
+	if (unlikely(ops->set_secure_vmid == NULL))
+		return -EINVAL;
+
+	return ops->set_secure_vmid(domain, vmid);
+}
+EXPORT_SYMBOL(qcom_iommu_set_secure_vmid);
+
 struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie)

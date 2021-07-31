@@ -1186,21 +1186,6 @@ static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 		fast_smmu_put_dma_cookie(domain);
 }
 
-static unsigned long arm_smmu_domain_get_qcom_quirks(
-			struct arm_smmu_domain *smmu_domain,
-			struct arm_smmu_device *smmu)
-{
-	/* These TCR register options are mutually exclusive */
-	if (is_iommu_pt_coherent(smmu_domain))
-		return 0;
-	if (test_bit(DOMAIN_ATTR_USE_UPSTREAM_HINT, smmu_domain->attributes))
-		return IO_PGTABLE_QUIRK_ARM_OUTER_WBWA;
-	if (test_bit(DOMAIN_ATTR_USE_LLC_NWA, smmu_domain->attributes))
-		return IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
-
-	return 0;
-}
-
 static int arm_smmu_secure_pool_add(struct arm_smmu_domain *smmu_domain,
 				     void *addr, size_t size)
 {
@@ -1544,7 +1529,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			goto out_clear_smmu;
 	}
 
-	pgtbl_cfg->quirks |= arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu);
+	if (smmu_domain->pgtbl_quirks)
+		pgtbl_cfg->quirks |= smmu_domain->pgtbl_quirks;
 
 	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, &pgtbl_info, smmu_domain);
 	if (!pgtbl_ops) {
@@ -2048,6 +2034,7 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	const char *str;
 	int attr = 1;
 	u32 val;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	np = arm_iommu_get_of_node(dev);
 	if (!np)
@@ -2106,10 +2093,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 
 	/* Default value: disabled */
 	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
-	if (!ret) {
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_SECURE_VMID, &val);
-	}
+	if (!ret)
+		smmu_domain->secure_vmid = val;
 
 	/* Default value: disabled */
 	ret = of_property_read_string(np, "qcom,iommu-pagetable", &str);
@@ -2119,12 +2104,9 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
 	else if (!strcmp(str, "LLC"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
+		smmu_domain->pgtbl_quirks = IO_PGTABLE_QUIRK_ARM_OUTER_WBWA;
 	else if (!strcmp(str, "LLC_NWA"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_USE_LLC_NWA, &attr);
-
+		smmu_domain->pgtbl_quirks = IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
 
 	/* Default value: disabled */
 	if (of_property_read_bool(np, "qcom,iommu-earlymap"))
@@ -2840,20 +2822,6 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			clear_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes);
 		break;
 	}
-	case DOMAIN_ATTR_SECURE_VMID:
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-
-		if (smmu_domain->secure_vmid != VMID_INVAL) {
-			ret = -ENODEV;
-			WARN(1, "secure vmid already set!");
-			break;
-		}
-		smmu_domain->secure_vmid = *((int *)data);
-		break;
 		/*
 		 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
 		 * expect that the bus/clock/regulator are already on. Thus also
@@ -2893,16 +2861,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	unsigned long iommu_attr = (unsigned long)attr;
 
 	switch (iommu_attr) {
-	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
-	case DOMAIN_ATTR_USE_LLC_NWA:
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-		} else if (*((int *)data)) {
-			set_bit(attr, smmu_domain->attributes);
-			ret = 0;
-		}
-		break;
 	case DOMAIN_ATTR_EARLY_MAP: {
 		int early_map = *((int *)data);
 
@@ -3079,11 +3037,28 @@ static int arm_smmu_get_context_bank_nr(struct iommu_domain *domain)
 	return ret;
 }
 
+static int arm_smmu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret = 0;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	if (smmu_domain->smmu)
+		ret = -EPERM;
+	else if (WARN(smmu_domain->secure_vmid != VMID_INVAL, "secure vmid already set"))
+		ret = -EPERM;
+	else
+		smmu_domain->secure_vmid = vmid;
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
 	.sid_switch		= arm_smmu_sid_switch,
 	.get_fault_ids		= arm_smmu_get_fault_ids,
 	.get_context_bank_nr	= arm_smmu_get_context_bank_nr,
+	.set_secure_vmid	= arm_smmu_set_secure_vmid,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,
