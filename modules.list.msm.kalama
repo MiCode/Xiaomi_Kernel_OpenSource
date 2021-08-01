@@ -18,3 +18,4 @@ qnoc-kalama.ko
 icc-debug.ko
 gdsc-regulator.ko
 gcc-kalama.ko
+videocc-kalama.ko
