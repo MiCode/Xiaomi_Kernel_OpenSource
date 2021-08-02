@@ -13,6 +13,9 @@ properties:
   compatible:
     const: qcom,gh-vm-loader-sec
 
+  qcom,no-shutdown:
+    description: Specify if this is a critical VM that doesn't support shutdown
+
   image_to_be_loaded:
     $ref: /schemas/types.yaml#/definitions/string
 
