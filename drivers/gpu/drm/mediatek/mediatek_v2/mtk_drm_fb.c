@@ -162,7 +162,7 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 		return 0;
 
 	resv = gem->dma_buf->resv;
-	ret = dma_resv_wait_timeout_rcu(resv, false, true,
+	ret = dma_resv_wait_timeout(resv, false, true,
 					MAX_SCHEDULE_TIMEOUT);
 	/* MAX_SCHEDULE_TIMEOUT on success, -ERESTARTSYS if interrupted */
 	if (ret < 0) {

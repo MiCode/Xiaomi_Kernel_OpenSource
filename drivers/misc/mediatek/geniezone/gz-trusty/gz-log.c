@@ -31,6 +31,7 @@
 #include <linux/sched.h>
 #include <linux/sched/signal.h> /* Linux kernel 4.14 */
 #include <linux/wait.h>
+#include <linux/panic_notifier.h>
 #include <linux/poll.h>
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>

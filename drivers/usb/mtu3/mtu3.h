@@ -10,6 +10,7 @@
 #ifndef __MTU3_H__
 #define __MTU3_H__
 
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/dmapool.h>
 #include <linux/extcon.h>
@@ -63,9 +64,6 @@ struct mtu3_request;
 #define MTU3_U3_IP_SLOT_DEFAULT 2
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
-#define MTU3_SW_ID_GROUND	BIT(0)
-#define MTU3_SW_VBUS_VALID	BIT(1)
-
 /**
  * IP TRUNK version
  * from 0x1003 version, USB3 Gen2 is supported, two changes affect driver:
@@ -91,6 +89,8 @@ struct mtu3_request;
  * the SET_SEL request uses 6 so far, and GET_STATUS is 2
  */
 #define EP0_RESPONSE_BUF  6
+
+#define BULK_CLKS_CNT	4
 
 /* device operated link and speed got from DEVICE_CONF register */
 enum mtu3_speed {
@@ -210,13 +210,9 @@ struct mtu3_gpd_ring {
 /**
 * @vbus: vbus 5V used by host mode
 * @edev: external connector used to detect vbus and iddig changes
-* @vbus_nb: notifier for vbus detection
-* @vbus_work : work of vbus detection notifier, used to avoid sleep in
-*		notifier callback which is atomic context
-* @vbus_event : event of vbus detecion notifier
 * @id_nb : notifier for iddig(idpin) detection
-* @id_work : work of iddig detection notifier
-* @id_event : event of iddig detecion notifier
+* @dr_work : work for drd mode switch, used to avoid sleep in atomic context
+* @desired_role : role desired to switch
 * @role_sw : use USB Role Switch to support dual-role switch, can't use
 *		extcon at the same time, and extcon is deprecated.
 * @role_sw_used : true when the USB Role Switch is used.
@@ -227,18 +223,16 @@ struct mtu3_gpd_ring {
 struct otg_switch_mtk {
 	struct regulator *vbus;
 	struct extcon_dev *edev;
-	struct notifier_block vbus_nb;
-	struct work_struct vbus_work;
-	unsigned long vbus_event;
 	struct notifier_block id_nb;
-	struct work_struct id_work;
-	unsigned long id_event;
+	struct work_struct dr_work;
+	enum usb_role desired_role;
 	struct usb_role_switch *role_sw;
 	bool role_sw_used;
 	bool is_u3_drd;
 	bool manual_drd_enabled;
 	u32 sw_state;
 	enum usb_role latest_role;
+	enum usb_role current_role;
 	enum mtu3_dr_operation_mode op_mode;
 };
 
@@ -246,10 +240,6 @@ struct otg_switch_mtk {
  * @mac_base: register base address of device MAC, exclude xHCI's
  * @ippc_base: register base address of IP Power and Clock interface (IPPC)
  * @vusb33: usb3.3V shared by device/host IP
- * @sys_clk: system clock of mtu3, shared by device/host IP
- * @ref_clk: reference clock
- * @mcu_clk: mcu_bus_ck clock for AHB bus etc
- * @dma_clk: dma_bus_ck clock for AXI bus etc
  * @dr_mode: works in which mode:
  *		host only, device only or dual-role mode
  * @u2_ports: number of usb2.0 host ports
@@ -272,10 +262,7 @@ struct ssusb_mtk {
 	int num_phys;
 	/* common power & clock */
 	struct regulator *vusb33;
-	struct clk *sys_clk;
-	struct clk *ref_clk;
-	struct clk *mcu_clk;
-	struct clk *dma_clk;
+	struct clk_bulk_data clks[BULK_CLKS_CNT];
 	/* otg */
 	struct otg_switch_mtk otg_switch;
 	enum usb_dr_mode dr_mode;
@@ -452,11 +439,9 @@ int mtu3_config_ep(struct mtu3 *mtu, struct mtu3_ep *mep,
 		int interval, int burst, int mult);
 void mtu3_deconfig_ep(struct mtu3 *mtu, struct mtu3_ep *mep);
 void mtu3_ep_stall_set(struct mtu3_ep *mep, bool set);
-void mtu3_ep0_setup(struct mtu3 *mtu);
 void mtu3_start(struct mtu3 *mtu);
 void mtu3_stop(struct mtu3 *mtu);
 void mtu3_dev_on_off(struct mtu3 *mtu, int is_on);
-void mtu3_set_speed(struct mtu3 *mtu, enum usb_device_speed speed);
 
 int mtu3_gadget_setup(struct mtu3 *mtu);
 void mtu3_gadget_cleanup(struct mtu3 *mtu);
