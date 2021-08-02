@@ -1560,9 +1560,15 @@ static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 	karg.vmids = vmids;
 	karg.perms = perms;
 
-	ret = mem_buf_lend_internal(dmabuf, &karg, is_lend);
-	if (ret)
-		goto err_lend;
+	if (is_lend) {
+		ret = mem_buf_lend(dmabuf, &karg);
+		if (ret)
+			goto err_lend;
+	} else {
+		ret = mem_buf_share(dmabuf, &karg);
+		if (ret)
+			goto err_lend;
+	}
 
 	uarg->memparcel_hdl = karg.memparcel_hdl;
 err_lend:

@@ -409,7 +409,7 @@ static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
 	return 0;
 }
 
-int mem_buf_lend_internal(struct dma_buf *dmabuf,
+static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg,
 			bool is_lend)
 {
@@ -498,7 +498,6 @@ err_resize:
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
-EXPORT_SYMBOL(mem_buf_lend_internal);
 
 /*
  * Kernel API for Sharing, Lending, Recieving or Reclaiming
