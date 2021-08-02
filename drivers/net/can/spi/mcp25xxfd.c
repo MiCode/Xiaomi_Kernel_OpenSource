@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2021, The Linux Foundation. All rights reserved.
  *
  * CAN bus driver for Microchip 25XXFD CAN Controller with SPI Interface
  *
@@ -4148,7 +4148,6 @@ static void mcp25xxfd_debugfs_remove(struct mcp25xxfd_priv *priv)
 #else
 static void mcp25xxfd_debugfs_add(struct mcp25xxfd_priv *priv)
 {
-	return 0;
 }
 
 static void mcp25xxfd_debugfs_remove(struct mcp25xxfd_priv *priv)

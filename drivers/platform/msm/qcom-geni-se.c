@@ -1566,6 +1566,10 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	u32 se_dma_rx_len_in = 0;
 	u32 se_dma_tx_len = 0;
 	u32 se_dma_tx_len_in = 0;
+	u32 geni_m_irq_en = 0;
+	u32 geni_s_irq_en = 0;
+	u32 geni_dma_tx_irq_en = 0;
+	u32 geni_dma_rx_irq_en = 0;
 	struct geni_se_device *geni_se_dev;
 
 	if (!ipc)
@@ -1596,6 +1600,10 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	se_dma_rx_len_in = geni_read_reg(base, SE_DMA_RX_LEN_IN);
 	se_dma_tx_len = geni_read_reg(base, SE_DMA_TX_LEN);
 	se_dma_tx_len_in = geni_read_reg(base, SE_DMA_TX_LEN_IN);
+	geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
+	geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
+	geni_dma_tx_irq_en = geni_read_reg(base, SE_DMA_TX_IRQ_EN);
+	geni_dma_rx_irq_en = geni_read_reg(base, SE_DMA_RX_IRQ_EN);
 
 	GENI_SE_DBG(ipc, true, rsc->ctrl_dev,
 	"%s: m_cmd0:0x%x, m_irq_status:0x%x, s_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
@@ -1608,6 +1616,9 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
 	GENI_SE_DBG(ipc, true, rsc->ctrl_dev,
 	"dma_txlen:0x%x, dma_txlen_in:0x%x\n", se_dma_tx_len, se_dma_tx_len_in);
+	GENI_SE_DBG(ipc, false, NULL,
+	"dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
+	geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en, geni_s_irq_en);
 }
 EXPORT_SYMBOL(geni_se_dump_dbg_regs);
 

@@ -746,6 +746,9 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 			cnss_pr_err("Failed to set D3Hot, err =  %d\n", ret);
 	}
 
+	/* Always do PCIe L2 suspend during power off/PCIe link recovery */
+	pci_priv->drv_connected_last = 0;
+
 	ret = cnss_set_pci_link(pci_priv, PCI_LINK_DOWN);
 	if (ret)
 		goto out;

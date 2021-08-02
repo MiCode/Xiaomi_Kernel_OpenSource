@@ -2798,7 +2798,7 @@ static struct clk_branch mmss_snoc_dvm_axi_clk = {
 
 static struct clk_branch mmss_video_ahb_clk = {
 	.halt_reg = 0x1030,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1030,
 		.enable_mask = BIT(0),

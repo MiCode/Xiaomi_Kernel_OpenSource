@@ -2099,23 +2099,25 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		return 0;
 	}
 
+	mutex_unlock(&drvdata->mem_lock);
 	coresight_disable_all_source_link();
+	mutex_lock(&drvdata->mem_lock);
 	_tmc_disable_etr_sink(drvdata->csdev, true);
 	old_mode = drvdata->out_mode;
 	drvdata->out_mode = new_mode;
 	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
 		drvdata->out_mode = old_mode;
 		tmc_enable_etr_sink_sysfs(drvdata->csdev);
+		mutex_unlock(&drvdata->mem_lock);
 		coresight_enable_all_source_link();
 		dev_err(drvdata->dev, "Switch to %s failed. Fall back to %s.\n",
 			str_tmc_etr_out_mode[new_mode],
 			str_tmc_etr_out_mode[old_mode]);
-		mutex_unlock(&drvdata->mem_lock);
 		return -EINVAL;
 	}
 
-	coresight_enable_all_source_link();
 	mutex_unlock(&drvdata->mem_lock);
+	coresight_enable_all_source_link();
 	return 0;
 }
 

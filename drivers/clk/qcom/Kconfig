@@ -641,3 +641,11 @@ config SM_DEBUGCC_KHAJE
 	 Support for the debug clock controller on Qualcomm Technologies, Inc
 	 KHAJE devices.
 	 Say Y if you want to support the clock measurement functionality.
+
+config SDM_DEBUGCC_439
+	tristate "SDM439 SDM429 Debug Clock Controller"
+	depends on SDM_GCC_429W
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDM429/SDM439 devices.
+	  Say Y if you want to support the clock measurement functionality.

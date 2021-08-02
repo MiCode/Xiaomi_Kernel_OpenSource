@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -478,12 +478,10 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 			 * we've returned from this function.
 			 */
 			rpmh_rsc_debug(ctrlr_to_drv(ctrlr), &compls[i]);
-			ret = -ETIMEDOUT;
-			goto exit;
+			BUG_ON(1);
 		}
 	}
 
-exit:
 	kfree(ptr);
 
 	return ret;
