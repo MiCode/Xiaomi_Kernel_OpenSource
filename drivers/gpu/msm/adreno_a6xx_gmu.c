@@ -1263,30 +1263,42 @@ int a6xx_gmu_itcm_shadow(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static void a6xx_gmu_enable_lm(struct adreno_device *adreno_dev)
+static void a6xx_gmu_enable_throttle_counters(
+	struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 val;
 
-	if (!adreno_dev->lm_enabled)
+	if (!(adreno_dev->lm_enabled || adreno_dev->bcl_enabled))
 		return;
 
-	/*
-	 * For throttling, use the following counters for throttled cycles:
-	 * XOCLK1: countable: 0x10
-	 * XOCLK2: countable: 0x16 for newer hardware / 0x15 for others
-	 * XOCLK3: countable: 0xf for newer hardware / 0x19 for others
-	 *
-	 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
-	 * is 8 bits wide.
-	 */
+	if (adreno_dev->lm_enabled) {
+		/*
+		 * For LM throttling -
+		 * XOCLK1: countable: 0x10
+		 * XOCLK2: countable: 0x16 for newer hardware / 0x15 for others
+		 * XOCLK3: countable: 0xf for newer hardware / 0x19 for others
+		 *
+		 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
+		 * is 8 bits wide.
+		 */
 
-	if (adreno_is_a620(adreno_dev) || adreno_is_a650(adreno_dev))
-		val = (0x10 << 8) | (0x16 << 16) | (0x0f << 24);
-	else
-		val = (0x10 << 8) | (0x15 << 16) | (0x19 << 24);
-
-
+		if (adreno_is_a620(adreno_dev) || adreno_is_a650(adreno_dev))
+			val = (0x10 << 8) | (0x16 << 16) | (0x0f << 24);
+		else
+			val = (0x10 << 8) | (0x15 << 16) | (0x19 << 24);
+	} else {
+		/*
+		 * When LM is not enabled, we can enable BCL throttling -
+		 * XOCLK1: countable: 0x13 (25% throttle)
+		 * XOCLK2: countable: 0x17 (58% throttle)
+		 * XOCLK3: countable: 0x19 (75% throttle)
+		 *
+		 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
+		 * is 8 bits wide.
+		 */
+		val = (0x13 << 8) | (0x17 << 16) | (0x19 << 24);
+	}
 	/* Make sure not to write over XOCLK0 */
 	gmu_core_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
 		0xffffff00, val);
@@ -1374,7 +1386,7 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(adreno_dev);
 
-	a6xx_gmu_enable_lm(adreno_dev);
+	a6xx_gmu_enable_throttle_counters(adreno_dev);
 }
 
 struct kgsl_memdesc *reserve_gmu_kernel_block(struct a6xx_gmu_device *gmu,

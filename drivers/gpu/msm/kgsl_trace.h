@@ -1172,6 +1172,33 @@ TRACE_EVENT(kgsl_clock_throttling,
 	)
 );
 
+TRACE_EVENT(kgsl_bcl_clock_throttling,
+	TP_PROTO(
+		int crc_25pct,
+		int crc_58pct,
+		int crc_75pct
+	),
+	TP_ARGS(
+		crc_25pct,
+		crc_58pct,
+		crc_75pct
+	),
+	TP_STRUCT__entry(
+		__field(int, crc_25pct)
+		__field(int, crc_58pct)
+		__field(int, crc_75pct)
+	),
+	TP_fast_assign(
+		__entry->crc_25pct = crc_25pct;
+		__entry->crc_58pct = crc_58pct;
+		__entry->crc_75pct = crc_75pct;
+	),
+	TP_printk("crc_25=%d crc_58=%d crc_75=%d",
+		__entry->crc_25pct, __entry->crc_58pct,
+		__entry->crc_75pct
+	)
+);
+
 DECLARE_EVENT_CLASS(gmu_oob_template,
 	TP_PROTO(unsigned int mask),
 	TP_ARGS(mask),
