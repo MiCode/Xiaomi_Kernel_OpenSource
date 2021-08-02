@@ -941,9 +941,9 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 		if (st_asm330lhhx_suspend_resume[i].page != FUNC_CFG_ACCESS_0) {
 			err = regmap_update_bits(hw->regmap,
 						 ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-						 GENMASK(7, 6),
+						 ST_ASM330LHHX_REG_ACCESS_MASK,
 						 FIELD_PREP(
-					GENMASK(7, 6),
+					ST_ASM330LHHX_REG_ACCESS_MASK,
 					st_asm330lhhx_suspend_resume[i].page));
 			if (err < 0) {
 				dev_err(hw->dev,
@@ -968,7 +968,7 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 		if (restore) {
 			err = regmap_update_bits(hw->regmap,
 						 ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-						 GENMASK(7, 6),
+						 ST_ASM330LHHX_REG_ACCESS_MASK,
 						 FUNC_CFG_ACCESS_0);
 			if (err < 0) {
 				dev_err(hw->dev,

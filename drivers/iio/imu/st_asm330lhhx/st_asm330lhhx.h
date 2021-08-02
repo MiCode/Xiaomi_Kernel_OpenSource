@@ -26,6 +26,7 @@
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
 #define ST_ASM330LHHX_REG_FUNC_CFG_MASK			BIT(7)
+#define ST_ASM330LHHX_REG_ACCESS_MASK			GENMASK(7, 6)
 
 #define ST_ASM330LHHX_REG_FIFO_CTRL1_ADDR		0x07
 #define ST_ASM330LHHX_REG_FIFO_CTRL2_ADDR		0x08
@@ -271,17 +272,19 @@ enum st_asm330lhh_suspend_resume_register {
 	ST_ASM330LHHX_SUSPEND_RESUME_REGS,
 };
 
-/*
- * Define the function configuration register access
+/**
+ * Define embedded functions register access
  *
  * FUNC_CFG_ACCESS_0 is default bank
- * FUNC_CFG_ACCESS_FUNC_CFG is for embedded functions registers
- * FUNC_CFG_ACCESS_SHUB_REG is for sensor hub registers
+ * FUNC_CFG_ACCESS_SHUB_REG Enable access to the sensor hub (I2C master)
+ *                          registers.
+ * FUNC_CFG_ACCESS_FUNC_CFG Enable access to the embedded functions
+ *                          configuration registers.
  */
 enum st_asm330lhh_page_sel_register {
 	FUNC_CFG_ACCESS_0 = 0,
-	FUNC_CFG_ACCESS_FUNC_CFG,
 	FUNC_CFG_ACCESS_SHUB_REG,
+	FUNC_CFG_ACCESS_FUNC_CFG,
 };
 
 /**
