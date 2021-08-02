@@ -198,10 +198,12 @@ static void register_kernel_sections(void)
 {
 	struct md_region ksec_entry;
 	char *data_name = "KDATABSS";
+	char *rodata_name = "KROAIDATA";
 	size_t static_size;
 	void __percpu *base;
 	unsigned int cpu;
 	void *_sdata, *__bss_stop;
+	void *start_ro, *end_ro;
 
 	_sdata = android_debug_symbol(ADS_SDATA);
 	__bss_stop = android_debug_symbol(ADS_BSS_END);
@@ -214,6 +216,15 @@ static void register_kernel_sections(void)
 	ksec_entry.size = roundup((__bss_stop - _sdata), 4);
 	if (msm_minidump_add_region(&ksec_entry) < 0)
 		pr_err("Failed to add data section in Minidump\n");
+
+	start_ro = android_debug_symbol(ADS_START_RO_AFTER_INIT);
+	end_ro = android_debug_symbol(ADS_END_RO_AFTER_INIT);
+	strlcpy(ksec_entry.name, rodata_name, sizeof(ksec_entry.name));
+	ksec_entry.virt_addr = (uintptr_t)start_ro;
+	ksec_entry.phys_addr = virt_to_phys(start_ro);
+	ksec_entry.size = roundup((end_ro - start_ro), 4);
+	if (msm_minidump_add_region(&ksec_entry) < 0)
+		pr_err("Failed to add rodata section in Minidump\n");
 
 	/* Add percpu static sections */
 	for_each_possible_cpu(cpu) {
