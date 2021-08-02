@@ -26,68 +26,65 @@
 
 #include "st_asm330lhhx.h"
 
-#define ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR		0x09
-#define ST_ASM330LHHX_REG_FIFO_CTRL4_ADDR		0x0a
-#define ST_ASM330LHHX_REG_INT1_CTRL_ADDR		0x0d
-#define ST_ASM330LHHX_REG_INT2_CTRL_ADDR		0x0e
-#define ST_ASM330LHHX_REG_FIFO_TH_MASK			BIT(3)
-
-#define ST_ASM330LHHX_REG_WHOAMI_ADDR			0x0f
-#define ST_ASM330LHHX_WHOAMI_VAL			0x6b
-
-#define ST_ASM330LHHX_CTRL1_XL_ADDR			0x10
-#define ST_ASM330LHHX_CTRL2_G_ADDR			0x11
-
-#define ST_ASM330LHHX_REG_CTRL3_C_ADDR			0x12
-#define ST_ASM330LHHX_REG_SW_RESET_MASK			BIT(0)
-#define ST_ASM330LHHX_REG_BOOT_MASK			BIT(7)
-#define ST_ASM330LHHX_REG_BDU_MASK			BIT(6)
-
-#define ST_ASM330LHHX_REG_CTRL4_C_ADDR			0x13
-#define ST_ASM330LHHX_REG_DRDY_MASK			BIT(3)
-
-#define ST_ASM330LHHX_REG_CTRL5_C_ADDR			0x14
-#define ST_ASM330LHHX_REG_ROUNDING_MASK			GENMASK(6, 5)
-
-#define ST_ASM330LHHX_REG_CTRL6_C_ADDR			0x15
-#define ST_ASM330LHHX_REG_XL_HM_MODE_MASK		BIT(4)
-
-#define ST_ASM330LHHX_REG_CTRL7_G_ADDR			0x16
-#define ST_ASM330LHHX_REG_G_HM_MODE_MASK		BIT(7)
-
-#define ST_ASM330LHHX_REG_CTRL10_C_ADDR			0x19
-#define ST_ASM330LHHX_REG_TIMESTAMP_EN_MASK		BIT(5)
-
-#define ST_ASM330LHHX_REG_STATUS_ADDR			0x1e
-#define ST_ASM330LHHX_REG_STATUS_TDA			BIT(2)
-
-#define ST_ASM330LHHX_REG_OUT_TEMP_L_ADDR		0x20
-#define ST_ASM330LHHX_REG_OUT_TEMP_H_ADDR		0x21
-
-#define ST_ASM330LHHX_REG_OUTX_L_A_ADDR			0x28
-#define ST_ASM330LHHX_REG_OUTY_L_A_ADDR			0x2a
-#define ST_ASM330LHHX_REG_OUTZ_L_A_ADDR			0x2c
-
-#define ST_ASM330LHHX_REG_OUTX_L_G_ADDR			0x22
-#define ST_ASM330LHHX_REG_OUTY_L_G_ADDR			0x24
-#define ST_ASM330LHHX_REG_OUTZ_L_G_ADDR			0x26
-
-#define ST_ASM330LHHX_REG_TAP_CFG0_ADDR			0x56
-#define ST_ASM330LHHX_REG_LIR_MASK			BIT(0)
-
-#define ST_ASM330LHHX_REG_MD1_CFG_ADDR			0x5e
-#define ST_ASM330LHHX_REG_MD2_CFG_ADDR			0x5f
-#define ST_ASM330LHHX_REG_INT2_TIMESTAMP_MASK		BIT(0)
-#define ST_ASM330LHHX_REG_INT_EMB_FUNC_MASK		BIT(1)
-
-#define ST_ASM330LHHX_INTERNAL_FREQ_FINE		0x63
-
-/* Timestamp Tick 25us/LSB */
-#define ST_ASM330LHHX_TS_DELTA_NS			25000ULL
-
-/* Temperature in uC */
-#define ST_ASM330LHHX_TEMP_GAIN				256
-#define ST_ASM330LHHX_TEMP_OFFSET			6400
+static struct st_asm330lhhx_suspend_resume_entry
+	st_asm330lhhx_suspend_resume[ST_ASM330LHHX_SUSPEND_RESUME_REGS] = {
+    [ST_ASM330LHHX_CTRL1_XL_REG] = {
+		.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
+		.mask = GENMASK(3, 2),
+	},
+	[ST_ASM330LHHX_CTRL2_G_REG] = {
+		.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
+		.mask = GENMASK(3, 2),
+	},
+	[ST_ASM330LHHX_REG_CTRL3_C_REG] = {
+		.addr = ST_ASM330LHHX_REG_CTRL3_C_ADDR,
+		.mask = ST_ASM330LHHX_REG_BDU_MASK	|
+			ST_ASM330LHHX_REG_PP_OD_MASK	|
+			ST_ASM330LHHX_REG_H_LACTIVE_MASK,
+	},
+	[ST_ASM330LHHX_REG_CTRL4_C_REG] = {
+		.addr = ST_ASM330LHHX_REG_CTRL4_C_ADDR,
+		.mask = ST_ASM330LHHX_REG_DRDY_MASK,
+	},
+	[ST_ASM330LHHX_REG_CTRL5_C_REG] = {
+		.addr = ST_ASM330LHHX_REG_CTRL5_C_ADDR,
+		.mask = ST_ASM330LHHX_REG_ROUNDING_MASK,
+	},
+	[ST_ASM330LHHX_REG_CTRL10_C_REG] = {
+		.addr = ST_ASM330LHHX_REG_CTRL10_C_ADDR,
+		.mask = ST_ASM330LHHX_REG_TIMESTAMP_EN_MASK,
+	},
+	[ST_ASM330LHHX_REG_TAP_CFG0_REG] = {
+		.addr = ST_ASM330LHHX_REG_TAP_CFG0_ADDR,
+		.mask = ST_ASM330LHHX_REG_LIR_MASK,
+	},
+	[ST_ASM330LHHX_REG_INT1_CTRL_REG] = {
+		.addr = ST_ASM330LHHX_REG_INT1_CTRL_ADDR,
+		.mask = ST_ASM330LHHX_REG_FIFO_TH_MASK,
+	},
+	[ST_ASM330LHHX_REG_INT2_CTRL_REG] = {
+		.addr = ST_ASM330LHHX_REG_INT2_CTRL_ADDR,
+		.mask = ST_ASM330LHHX_REG_FIFO_TH_MASK,
+	},
+	[ST_ASM330LHHX_REG_FIFO_CTRL1_REG] = {
+		.addr = ST_ASM330LHHX_REG_FIFO_CTRL1_ADDR,
+		.mask = GENMASK(7, 0),
+	},
+	[ST_ASM330LHHX_REG_FIFO_CTRL2_REG] = {
+		.addr = ST_ASM330LHHX_REG_FIFO_CTRL2_ADDR,
+		.mask = ST_ASM330LHHX_REG_FIFO_WTM8_MASK,
+	},
+	[ST_ASM330LHHX_REG_FIFO_CTRL3_REG] = {
+		.addr = ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR,
+		.mask = ST_ASM330LHHX_REG_BDR_XL_MASK |
+			ST_ASM330LHHX_REG_BDR_GY_MASK,
+	},
+	[ST_ASM330LHHX_REG_FIFO_CTRL4_REG] = {
+		.addr = ST_ASM330LHHX_REG_FIFO_CTRL4_ADDR,
+		.mask = ST_ASM330LHHX_REG_DEC_TS_MASK |
+			ST_ASM330LHHX_REG_ODR_T_BATCH_MASK,
+	},
+};
 
 static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 	[ST_ASM330LHHX_ID_ACC] = {
@@ -278,6 +275,27 @@ static const struct iio_chan_spec st_asm330lhhx_temp_channels[] = {
 	ST_ASM330LHHX_EVENT_CHANNEL(IIO_TEMP, flush),
 	IIO_CHAN_SOFT_TIMESTAMP(1),
 };
+
+static __maybe_unused int st_asm330lhhx_reg_access(struct iio_dev *iio_dev,
+				 unsigned int reg, unsigned int writeval,
+				 unsigned int *readval)
+{
+	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
+	int ret;
+
+	ret = iio_device_claim_direct_mode(iio_dev);
+	if (ret)
+		return ret;
+
+	if (readval == NULL)
+		ret = regmap_write(sensor->hw->regmap, reg, writeval);
+	else
+		ret = regmap_read(sensor->hw->regmap, reg, readval);
+
+	iio_device_release_direct_mode(iio_dev);
+
+	return (ret < 0) ? ret : 0;
+}
 
 static int st_asm330lhhx_check_whoami(struct st_asm330lhhx_hw *hw)
 {
@@ -768,6 +786,9 @@ static const struct iio_info st_asm330lhhx_acc_info = {
 	.attrs = &st_asm330lhhx_acc_attribute_group,
 	.read_raw = st_asm330lhhx_read_raw,
 	.write_raw = st_asm330lhhx_write_raw,
+#ifdef CONFIG_DEBUG_FS
+	.debugfs_reg_access = &st_asm330lhhx_reg_access,
+#endif /* CONFIG_DEBUG_FS */
 };
 
 static struct attribute *st_asm330lhhx_gyro_attributes[] = {
@@ -846,6 +867,57 @@ static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, u8 *drdy_reg)
 		err = -EINVAL;
 		break;
 	}
+
+	return err;
+}
+
+static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
+{
+	int i, err = 0;
+	unsigned int data;
+
+	mutex_lock(&hw->page_lock);
+
+	for (i = 0; i < ST_ASM330LHHX_SUSPEND_RESUME_REGS; i++) {
+		err = regmap_read(hw->regmap,
+				  st_asm330lhhx_suspend_resume[i].addr,
+				  &data);
+		if (err < 0) {
+			dev_err(hw->dev,
+				"failed to save register %02x\n",
+				st_asm330lhhx_suspend_resume[i].addr);
+			goto out_lock;
+		}
+
+		st_asm330lhhx_suspend_resume[i].val = data;
+	}
+
+out_lock:
+	mutex_unlock(&hw->page_lock);
+
+	return err;
+}
+
+static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw)
+{
+	int i, err = 0;
+
+	mutex_lock(&hw->page_lock);
+
+	for (i = 0; i < ST_ASM330LHHX_SUSPEND_RESUME_REGS; i++) {
+		err = regmap_update_bits(hw->regmap,
+					 st_asm330lhhx_suspend_resume[i].addr,
+					 st_asm330lhhx_suspend_resume[i].mask,
+					 st_asm330lhhx_suspend_resume[i].val);
+		if (err < 0) {
+			dev_err(hw->dev,
+				"failed to update %02x reg\n",
+				st_asm330lhhx_suspend_resume[i].addr);
+			break;
+		}
+	}
+
+	mutex_unlock(&hw->page_lock);
 
 	return err;
 }
@@ -1106,15 +1178,22 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 			return err;
 	}
 
-	if (st_asm330lhhx_is_fifo_enabled(hw))
+	if (st_asm330lhhx_is_fifo_enabled(hw)) {
 		err = st_asm330lhhx_suspend_fifo(hw);
+		if (err < 0)
+			return err;
+	}
+
+	err = st_asm330lhhx_bk_regs(hw);
+
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
 	if (device_may_wakeup(dev))
 		enable_irq_wake(hw->irq);
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP */
+
 	dev_info(dev, "Suspending device\n");
 
-	return err;
+	return err < 0 ? err : 0;
 }
 
 static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
@@ -1124,10 +1203,15 @@ static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
 	int i, err = 0;
 
 	dev_info(dev, "Resuming device\n");
+
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
 	if (device_may_wakeup(dev))
 		disable_irq_wake(hw->irq);
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP */
+
+	err = st_asm330lhhx_restore_regs(hw);
+	if (err < 0)
+		return err;
 
 	for (i = 0; i < ST_ASM330LHHX_ID_MAX; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
@@ -1145,7 +1229,7 @@ static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
 	if (st_asm330lhhx_is_fifo_enabled(hw))
 		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_CONT);
 
-	return err;
+	return err < 0 ? err : 0;
 }
 
 const struct dev_pm_ops st_asm330lhhx_pm_ops = {

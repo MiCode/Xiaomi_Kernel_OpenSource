@@ -24,23 +24,6 @@
 
 #include "st_asm330lhhx.h"
 
-#define ST_ASM330LHHX_REG_FIFO_CTRL1_ADDR		0x07
-#define ST_ASM330LHHX_REG_FIFO_WTM_MASK			GENMASK(8, 0)
-#define ST_ASM330LHHX_REG_FIFO_STATUS_DIFF		GENMASK(9, 0)
-
-#define ST_ASM330LHHX_REG_FIFO_CTRL4_ADDR		0x0a
-#define ST_ASM330LHHX_REG_FIFO_MODE_MASK		GENMASK(2, 0)
-#define ST_ASM330LHHX_REG_DEC_TS_MASK			GENMASK(7, 6)
-
-#define ST_ASM330LHHX_REG_CTRL3_C_ADDR			0x12
-#define ST_ASM330LHHX_REG_PP_OD_MASK			BIT(4)
-#define ST_ASM330LHHX_REG_H_LACTIVE_MASK		BIT(5)
-
-#define ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR		0x3a
-#define ST_ASM330LHHX_REG_TIMESTAMP0_ADDR		0x40
-#define ST_ASM330LHHX_REG_TIMESTAMP2_ADDR		0x42
-#define ST_ASM330LHHX_REG_FIFO_DATA_OUT_TAG_ADDR	0x78
-
 #define ST_ASM330LHHX_SAMPLE_DISCHARD			0x7ffd
 
 /* Timestamp convergence filter parameters */
@@ -55,9 +38,9 @@ enum {
 };
 
 /* Default timeout before to re-enable gyro */
-static int delay_gyro = 10;
-module_param(delay_gyro, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(delay_gyro, "Delay for Gyro arming");
+static int asm330lhhx_delay_gyro = 10;
+module_param(asm330lhhx_delay_gyro, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(asm330lhhx_delay_gyro, "Delay for Gyro arming");
 static bool delayed_enable_gyro;
 
 static inline s64 st_asm330lhhx_ewma(s64 old, s64 new, int weight)
@@ -425,7 +408,7 @@ static int st_asm330lhhx_update_fifo(struct iio_dev *iio_dev, bool enable)
 	if (sensor->id == ST_ASM330LHHX_ID_GYRO &&
 	    enable && delayed_enable_gyro) {
 		delayed_enable_gyro = false;
-		msleep(delay_gyro);
+		msleep(asm330lhhx_delay_gyro);
 	}
 
 	disable_irq(hw->irq);
