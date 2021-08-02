@@ -375,14 +375,6 @@ st_asm330lhhx_write_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
 	return err;
 }
 
-static inline s64 st_asm330lhhx_get_time_ns(void)
-{
-	struct timespec ts;
-
-	get_monotonic_boottime(&ts);
-	return timespec_to_ns(&ts);
-}
-
 int st_asm330lhhx_probe(struct device *dev, int irq,
 		       struct regmap *regmap);
 int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,

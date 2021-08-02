@@ -75,7 +75,7 @@ static inline int st_asm330lhhx_reset_hwts(struct st_asm330lhhx_hw *hw)
 {
 	u8 data = 0xaa;
 
-	hw->ts = st_asm330lhhx_get_time_ns();
+	hw->ts = iio_get_time_ns(hw->iio_devs[0]);
 	hw->ts_offset = hw->ts;
 	hw->val_ts_old = 0;
 	hw->hw_ts_high = 0;
@@ -111,8 +111,8 @@ int st_asm330lhhx_set_fifo_mode(struct st_asm330lhhx_hw *hw,
 int __st_asm330lhhx_set_sensor_batching_odr(struct st_asm330lhhx_sensor *sensor,
 					 bool enable)
 {
-	enum st_asm330lhhx_sensor_id id = sensor->id;
 	struct st_asm330lhhx_hw *hw = sensor->hw;
+	enum st_asm330lhhx_sensor_id id = sensor->id;
 	u8 data = 0;
 	int err;
 
@@ -369,7 +369,7 @@ ssize_t st_asm330lhhx_flush_fifo(struct device *dev,
 	s64 ts;
 
 	mutex_lock(&hw->fifo_lock);
-	ts = st_asm330lhhx_get_time_ns();
+	ts = iio_get_time_ns(iio_dev);
 	hw->delta_ts = ts - hw->ts;
 	hw->ts = ts;
 	set_bit(ST_ASM330LHHX_HW_FLUSH, &hw->state);
@@ -487,7 +487,7 @@ out:
 static irqreturn_t st_asm330lhhx_handler_irq(int irq, void *private)
 {
 	struct st_asm330lhhx_hw *hw = (struct st_asm330lhhx_hw *)private;
-	s64 ts = st_asm330lhhx_get_time_ns();
+	s64 ts = iio_get_time_ns(hw->iio_devs[0]);
 
 	hw->delta_ts = ts - hw->ts;
 	hw->ts = ts;

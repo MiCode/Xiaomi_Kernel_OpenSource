@@ -669,7 +669,7 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 						return err;
 
 					iio_push_event(iio_dev, (u64)event[i],
-						       st_asm330lhhx_get_time_ns());
+						       iio_get_time_ns(iio_dev));
 
 					dev_info(hw->dev,
 						 "MLC %d Status %x MLC EVENT %llx\n",
@@ -709,7 +709,7 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 						return err;
 
 					iio_push_event(iio_dev, (u64)event[i],
-						       st_asm330lhhx_get_time_ns(iio_dev));
+						       iio_get_time_ns(iio_dev));
 
 					dev_info(hw->dev,
 						 "FSM %d Status %x FSM EVENT %llx\n",

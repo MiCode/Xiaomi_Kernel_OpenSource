@@ -21,6 +21,8 @@ Follow some features of MLC/FSM for ASM330LHHX driver:
 >	-	MLC/FSM devices can be removed by using the *mlc_flush* iio sysfs entry in MLC iio device
 >	-	Added support to remove driver module unregistering all MLC dynamic IIO device
 
+Tested on rapsberry pi zero-w with the kernel v5.3 (rpi-5.3.y_asm330lhhx_mlc) and v5.4 (rpi-5.4.y)
+
 
 Integration details
 =====================
