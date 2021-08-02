@@ -274,6 +274,12 @@ struct gh_rm_notif_vm_console_chars {
 	u8 bytes[0];
 } __packed;
 
+struct gh_vm_status {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
 struct notifier_block;
 
 typedef int (*gh_virtio_mmio_cb_t)(gh_vmid_t peer, const char *vm_name,
@@ -328,12 +334,6 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name);
 int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name);
 
 /* Client APIs for VM Services */
-struct gh_vm_status {
-	u8 vm_status;
-	u8 os_status;
-	u16 app_status;
-} __packed;
-
 struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid);
 int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status);
 int gh_rm_vm_set_vm_status(u8 vm_status);
