@@ -17,9 +17,20 @@
 
 #define GH_VM_IOCTL_TYPE	'g'
 
-#define GH_VM_API_VERSION	0x1
+#define GH_VM_API_MAJOR_VERSION		0x1
+#define GH_VM_API_MINOR_VERSION		0x0
 
-#define GH_VM_GET_API_VERSION	_IO(GH_VM_IOCTL_TYPE, 0x1)
+/*
+ * gh_vm_api_version is passed as an arg to GH_VM_GET_API_VERSION IOCTL
+ ** type - enum gh_vm_types to choose the loader.
+ ** name - Name of the firmware to be loaded.
+ */
+struct gh_vm_api_version {
+	unsigned int major;
+	unsigned int minor;
+};
+
+#define GH_VM_GET_API_VERSION	_IOR(GH_VM_IOCTL_TYPE, 0x1, struct gh_vm_api_version)
 
 /*
  * gh_vm_types specifies the kind of loader the VM needs for its loading.
@@ -57,11 +68,11 @@ enum gh_vm_sec_stop {
 	GH_VM_STOP_SHUTDOWN,
 	GH_VM_STOP_RESTART,
 	GH_VM_STOP_CRASH,
+	GH_VM_STOP_FORCE_STOP,
 	GH_VM_STOP_MAX,
 };
 
 #define GH_VM_SEC_STOP			_IOW(GH_VM_IOCTL_TYPE, 0x4, __u32)
-#define GH_VM_SEC_FORCE_STOP	_IO(GH_VM_IOCTL_TYPE, 0x5)
 
 /*
  * gh_vm_sec_exit_reasons specifies the various reasons why
@@ -90,7 +101,7 @@ struct gh_vm_sec_exit_status {
 };
 
 #define GH_VM_SEC_WAIT_FOR_EXIT \
-	_IOR(GH_VM_IOCTL_TYPE, 0x6,  struct gh_vm_sec_exit_status)
+	_IOR(GH_VM_IOCTL_TYPE, 0x5,  struct gh_vm_sec_exit_status)
 
 /*
  * gh_vm_sec_restart_levels specifies how a fatal error in the SVM should
@@ -103,7 +114,7 @@ enum gh_vm_sec_restart_levels {
 	GH_VM_RESTART_LEVELS_MAX,
 };
 
-#define GH_VM_SEC_SET_RESTART_LEVEL	_IOW(GH_VM_IOCTL_TYPE, 0x7, __u32)
+#define GH_VM_SEC_SET_RESTART_LEVEL	_IOW(GH_VM_IOCTL_TYPE, 0x6, __u32)
 
 /* End Secure VM IOCTLs */
 

@@ -14,12 +14,13 @@
 #include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_rm_drv.h>
 
-#define GH_GUEST_POPS_POFF_BUTTON_HOLD_DELAY_MS	1000
+#define GH_GUEST_POPS_POFF_BUTTON_HOLD_SHUTDOWN_DELAY_MS	1000
+#define GH_GUEST_POPS_POFF_BUTTON_HOLD_RESTART_DELAY_MS		500
 
 static struct input_dev *gh_vm_poff_input;
 static struct notifier_block rm_nb;
 
-static int gh_guest_pops_handle_stop_shutdown(void)
+static int gh_guest_pops_handle_stop_shutdown(u32 stop_reason)
 {
 	/* Emulate a KEY_POWER event to notify user-space of a shutdown */
 	pr_info("Sending KEY_POWER event\n");
@@ -27,7 +28,14 @@ static int gh_guest_pops_handle_stop_shutdown(void)
 	input_report_key(gh_vm_poff_input, KEY_POWER, 1);
 	input_sync(gh_vm_poff_input);
 
-	msleep(GH_GUEST_POPS_POFF_BUTTON_HOLD_DELAY_MS);
+	switch (stop_reason) {
+	case GH_VM_STOP_SHUTDOWN:
+		msleep(GH_GUEST_POPS_POFF_BUTTON_HOLD_SHUTDOWN_DELAY_MS);
+		break;
+	case GH_VM_STOP_RESTART:
+		msleep(GH_GUEST_POPS_POFF_BUTTON_HOLD_RESTART_DELAY_MS);
+		break;
+	}
 
 	input_report_key(gh_vm_poff_input, KEY_POWER, 0);
 	input_sync(gh_vm_poff_input);
@@ -46,11 +54,11 @@ gh_guest_pops_vm_shutdown(struct gh_rm_notif_vm_shutdown_payload *vm_shutdown)
 {
 	switch (vm_shutdown->stop_reason) {
 	case GH_VM_STOP_SHUTDOWN:
-		return gh_guest_pops_handle_stop_shutdown();
+		return gh_guest_pops_handle_stop_shutdown(vm_shutdown->stop_reason);
 	case GH_VM_STOP_CRASH:
 		return gh_guest_pops_handle_stop_crash();
 	case GH_VM_STOP_RESTART:
-		return gh_guest_pops_handle_stop_shutdown();
+		return gh_guest_pops_handle_stop_shutdown(vm_shutdown->stop_reason);
 	};
 
 	return 0;

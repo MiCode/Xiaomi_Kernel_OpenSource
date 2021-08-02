@@ -35,6 +35,7 @@ struct gh_sec_vm_dev {
 	ssize_t fw_size;
 	int pas_id;
 	int vmid;
+	bool always_on_vm;
 };
 
 /* Structure per VM: Binds struct gh_vm_struct and struct gh_sec_vm_dev */
@@ -102,12 +103,14 @@ static int
 gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 				int wait_status)
 {
-	struct device *dev = sec_vm_struct->vm_dev->dev;
+	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
+	struct device *dev = vm_dev->dev;
 	long timeleft;
 
 	timeleft = wait_event_interruptible_timeout(
 			sec_vm_struct->vm_status_wait,
-			sec_vm_struct->vm_status.os_status == wait_status,
+			((sec_vm_struct->vm_status.os_status == wait_status)
+				|| vm_dev->always_on_vm),
 			msecs_to_jiffies(GH_VM_LOADER_SEC_STATUS_TIMEOUT_MS));
 	if (timeleft < 0) {
 		dev_err(dev, "Wait for OS_STATUS %d interrupt\n", wait_status);
@@ -120,13 +123,13 @@ gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 	return 0;
 }
 
-static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason, u8 stop_flags)
+static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason)
 {
 	switch (stop_reason) {
 	case GH_VM_STOP_SHUTDOWN:
-		if (stop_flags)
-			return GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED;
 		return GH_RM_VM_EXIT_TYPE_SYSTEM_OFF;
+	case GH_VM_STOP_FORCE_STOP:
+		return GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED;
 	case GH_VM_STOP_RESTART:
 		return GH_RM_VM_EXIT_TYPE_SYSTEM_RESET;
 	case GH_VM_STOP_CRASH:
@@ -217,14 +220,15 @@ gh_vm_loader_handle_fatal_err(struct gh_sec_vm_struct *sec_vm_struct,
 	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
 	struct device *dev = vm_dev->dev;
 
-	dev_info(dev, "VM: %d Crashed! restart_level set: %u\n",
-		sec_vm_struct->vmid, sec_vm_struct->restart_level);
+	if (vm_exited->exit_type != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED) {
+		dev_info(dev, "VM: %d Crashed! restart_level set: %u\n",
+			sec_vm_struct->vmid, sec_vm_struct->restart_level);
 
-	if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_SYSTEM)
-		panic("Resetting the SoC");
-	else if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_RELATIVE)
-		dev_info(dev, "Recovering the VM\n");
-
+		if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_SYSTEM)
+			panic("Resetting the SoC");
+		else if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_RELATIVE)
+			dev_info(dev, "Recovering the VM\n");
+	}
 	/* Send a early notification to the clients before
 	 * the VM's resources are cleaned
 	 */
@@ -394,6 +398,7 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 {
 	struct gh_sec_vm_struct *sec_vm_struct;
 	struct gh_sec_vm_dev *vm_dev;
+	struct gh_vm_status *gh_vm_status;
 	enum gh_vm_names vm_name_val;
 	struct device *dev;
 	int ret, vmid;
@@ -418,6 +423,20 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	vm_name_val = gh_vm_loader_get_name_val(vm_struct);
 	ret = gh_rm_vm_alloc_vmid(vm_name_val, &vm_dev->vmid);
 	if (ret < 0) {
+		if (vm_dev->always_on_vm) {
+			gh_vm_status = gh_rm_vm_get_status(vm_dev->vmid);
+			if (IS_ERR_OR_NULL(gh_vm_status)) {
+				dev_err(dev, "Failed to get vm status: %d\n", ret);
+				ret = PTR_ERR(gh_vm_status);
+				goto err_unlock;
+			}
+			if (gh_vm_status->vm_status == GH_RM_VM_STATUS_RUNNING) {
+				dev_info(dev, "VM %d already running\n", vm_dev->vmid);
+				sec_vm_struct->vmid = vm_dev->vmid;
+				sec_vm_struct->vm_status.vm_status = GH_RM_VM_STATUS_RUNNING;
+				goto power_up_success;
+			}
+		}
 		dev_err(dev, "Failed to obtain the vmid: %d\n", ret);
 		goto err_unlock;
 	}
@@ -455,10 +474,9 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	if (ret)
 		goto err_reset_vm;
 
+power_up_success:
 	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_AFTER_POWERUP);
-
 	mutex_unlock(&sec_vm_struct->vm_lock);
-
 	return 0;
 
 err_reset_vm:
@@ -486,7 +504,7 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	if (stop_reason >= GH_VM_STOP_MAX)
 		return -EINVAL;
 
-	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason, stop_flags);
+	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason);
 	if (wait_status < 0)
 		return -EINVAL;
 
@@ -504,7 +522,11 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 		return -ENODEV;
 	}
 
-	gh_vm_loader_notify_clients(vm_struct,
+	if (wait_status == GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED)
+		stop_flags = GH_RM_VM_STOP_FLAG_FORCE_STOP;
+
+	else
+		gh_vm_loader_notify_clients(vm_struct,
 					GH_VM_LOADER_SEC_BEFORE_SHUTDOWN);
 
 	ret = gh_rm_vm_stop(sec_vm_struct->vmid, stop_reason, stop_flags);
@@ -516,6 +538,12 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	mutex_unlock(&sec_vm_struct->vm_lock);
 
 	ret = gh_vm_loader_wait_for_vm_exited(sec_vm_struct, wait_status);
+	if (ret && wait_status != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED) {
+		dev_err(dev, "VM stop timed out, so trying to force stop\n");
+		ret = gh_vm_loader_sec_stop(vm_struct,
+					GH_VM_STOP_FORCE_STOP, 0);
+	}
+
 	if (ret)
 		goto err_notify_fail;
 
@@ -524,7 +552,8 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 err_unlock:
 	mutex_unlock(&sec_vm_struct->vm_lock);
 err_notify_fail:
-	gh_vm_loader_notify_clients(vm_struct,
+	if (wait_status != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED)
+		gh_vm_loader_notify_clients(vm_struct,
 					GH_VM_LOADER_SEC_SHUTDOWN_FAIL);
 	return ret;
 }
@@ -591,9 +620,6 @@ static long gh_vm_loader_sec_ioctl(struct file *file,
 		return gh_vm_loader_sec_start(vm_struct);
 	case GH_VM_SEC_STOP:
 		return gh_vm_loader_sec_stop(vm_struct, arg, 0);
-	case GH_VM_SEC_FORCE_STOP:
-		return gh_vm_loader_sec_stop(vm_struct, GH_VM_STOP_SHUTDOWN,
-						GH_RM_VM_STOP_FLAG_FORCE_STOP);
 	case GH_VM_SEC_WAIT_FOR_EXIT:
 		return gh_vm_loader_wait_for_exit(vm_struct,
 						(void __user *)arg);
@@ -727,6 +753,10 @@ static int gh_vm_loader_sec_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	sec_vm_dev->always_on_vm = of_property_read_bool(dev->of_node, "qcom,no-shutdown");
+	if (sec_vm_dev->always_on_vm)
+		dev_err(dev, "Vm with no shutdown attribute added\n");
+
 	ret = of_property_read_u32(dev->of_node,
 				"qcom,vmid", &sec_vm_dev->vmid);
 	if (ret) {
@@ -742,6 +772,7 @@ static int gh_vm_loader_sec_probe(struct platform_device *pdev)
 				      &sec_vm_dev->vm_name);
 	if (ret)
 		goto err_unmap_fw;
+
 
 	spin_lock(&gh_sec_vm_devs_lock);
 	list_add(&sec_vm_dev->list, &gh_sec_vm_devs);
