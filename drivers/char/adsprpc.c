@@ -5252,8 +5252,10 @@ bail:
 			ADSPRPC_ERR(
 				"invalid response data %pK, len %d from remote subsystem err %d\n",
 				data, len, err);
-		else
+		else {
+			err = 0;
 			me->duplicate_rsp_err_cnt++;
+		}
 	}
 
 	trace_fastrpc_msg("rpmsg_callback: end");
