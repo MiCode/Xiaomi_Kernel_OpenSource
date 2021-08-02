@@ -24,35 +24,6 @@
 
 #define ST_ASM330LHHX_MLC_LOADER_VERSION		"0.2"
 
-#define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
-#define ST_ASM330LHHX_REG_FUNC_CFG_MASK			BIT(7)
-
-#define ST_ASM330LHHX_FSM_STATUS_A_MAINPAGE		0x36
-#define ST_ASM330LHHX_FSM_STATUS_B_MAINPAGE		0x37
-#define ST_ASM330LHHX_MLC_STATUS_MAINPAGE 		0x38
-
-/* embedded function registers */
-#define ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR		0x05
-#define ST_ASM330LHHX_FSM_EN_MASK			BIT(0)
-#define ST_ASM330LHHX_MLC_EN_MASK			BIT(4)
-
-#define ST_ASM330LHHX_FSM_INT1_A_ADDR			0x0b
-#define ST_ASM330LHHX_FSM_INT1_B_ADDR			0x0c
-#define ST_ASM330LHHX_MLC_INT1_ADDR			0x0d
-
-#define ST_ASM330LHHX_FSM_INT2_A_ADDR			0x0f
-#define ST_ASM330LHHX_FSM_INT2_B_ADDR			0x10
-#define ST_ASM330LHHX_MLC_INT2_ADDR			0x11
-
-#define ST_ASM330LHHX_REG_MLC_STATUS_ADDR		0x15
-
-#define ST_ASM330LHHX_FSM_ENABLE_A_ADDR			0x46
-#define ST_ASM330LHHX_FSM_ENABLE_B_ADDR			0x47
-
-#define ST_ASM330LHHX_FSM_OUTS1_ADDR			0x4c
-
-#define ST_ASM330LHHX_REG_MLC0_SRC_ADDR			0x70
-
 /* number of machine learning core available on device hardware */
 #define ST_ASM330LHHX_MLC_NUMBER			8
 #define ST_ASM330LHHX_FSM_NUMBER			16
@@ -77,31 +48,15 @@ static const unsigned long st_asm330lhhx_fsm_available_scan_masks[] = {
 	0x1, 0x0
 };
 
-static inline int st_asm330lhhx_set_page_access(struct st_asm330lhhx_hw *hw,
-						u8 data)
-{
-	int err;
-
-	err = regmap_update_bits(hw->regmap,
-				 ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-				 ST_ASM330LHHX_REG_FUNC_CFG_MASK,
-				 ST_ASM330LHHX_SHIFT_VAL(data,
-					ST_ASM330LHHX_REG_FUNC_CFG_MASK));
-	usleep_range(100, 150);
-
-	return err;
-}
-
 static inline int
 st_asm330lhhx_read_page_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
 			       void *val, unsigned int len)
 {
 	int err;
 
-	mutex_lock(&hw->page_lock);
-	st_asm330lhhx_set_page_access(hw, true);
+	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	err = regmap_bulk_read(hw->regmap, addr, val, len);
-	st_asm330lhhx_set_page_access(hw, false);
+	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	mutex_unlock(&hw->page_lock);
 
 	return err;
@@ -114,9 +69,9 @@ st_asm330lhhx_write_page_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
 	int err;
 
 	mutex_lock(&hw->page_lock);
-	st_asm330lhhx_set_page_access(hw, true);
+	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	err = regmap_bulk_write(hw->regmap, addr, val, len);
-	st_asm330lhhx_set_page_access(hw, false);
+	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	mutex_unlock(&hw->page_lock);
 
 	return err;
@@ -130,9 +85,9 @@ st_asm330lhhx_update_page_bits_locked(struct st_asm330lhhx_hw *hw,
 	int err;
 
 	mutex_lock(&hw->page_lock);
-	st_asm330lhhx_set_page_access(hw, true);
+	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	err = regmap_update_bits(hw->regmap, addr, mask, val);
-	st_asm330lhhx_set_page_access(hw, false);
+	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	mutex_unlock(&hw->page_lock);
 
 	return err;
@@ -647,7 +602,6 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 			return err;
 
 		if (mlc_status) {
-
 			for (i = 0; i < ST_ASM330LHHX_MLC_NUMBER; i++) {
 				id = st_asm330lhhx_mlc_sensor_list[i];
 				if (!(hw->enable_mask & BIT(id)))
