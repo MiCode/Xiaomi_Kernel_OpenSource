@@ -1227,6 +1227,51 @@ static const struct file_operations dwc3_gadget_int_events_fops = {
 	.release	= single_release,
 };
 
+static ssize_t dwc3_gadget_l1_store(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct dwc3	*dwc = s->private;
+	bool		 enable_l1;
+	int		 ret;
+
+	ret = kstrtobool_from_user(ubuf, count, &enable_l1);
+	if (ret < 0) {
+		dev_err(dwc->dev, "%s: can't get entered value: %d\n",
+							__func__, ret);
+		return ret;
+	}
+
+	dwc->gadget.lpm_capable = enable_l1;
+	dwc->usb2_gadget_lpm_disable = !enable_l1;
+
+	pr_info("dwc3 gadget lpm : %s. Perform a plugout/plugin\n",
+				enable_l1 ? "enabled" : "disabled");
+
+	return count;
+}
+
+static int dwc3_gadget_l1_status_show(struct seq_file *s, void *unused)
+{
+	struct dwc3 *dwc = s->private;
+
+	seq_printf(s, "%d\n", dwc->gadget.lpm_capable);
+	return 0;
+}
+
+static int dwc3_gadget_l1_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, dwc3_gadget_l1_status_show, inode->i_private);
+}
+
+static const struct file_operations dwc3_l1_enable_ops = {
+	.open		= dwc3_gadget_l1_open,
+	.write		= dwc3_gadget_l1_store,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 void dwc3_debugfs_init(struct dwc3 *dwc)
 {
 	struct dentry		*root;
@@ -1255,6 +1300,8 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 
 	debugfs_create_file("lsp_dump", S_IRUGO | S_IWUSR, root, dwc,
 			    &dwc3_lsp_fops);
+	debugfs_create_file("enable_l1_suspend", 0644, root, dwc,
+			    &dwc3_l1_enable_ops);
 
 	if (IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)) {
 		debugfs_create_file("mode", S_IRUGO | S_IWUSR, root, dwc,
