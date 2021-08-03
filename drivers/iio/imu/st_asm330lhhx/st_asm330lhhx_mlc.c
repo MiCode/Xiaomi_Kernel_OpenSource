@@ -1,11 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * STMicroelectronics st_asm330lhhx machine learning core driver
  *
- * Copyright 2019 STMicroelectronics Inc.
+ * Copyright 2021 STMicroelectronics Inc.
  *
  * Tesi Mario <mario.tesi@st.com>
- *
- * Licensed under the GPL-2.
  */
 
 #include <linux/kernel.h>

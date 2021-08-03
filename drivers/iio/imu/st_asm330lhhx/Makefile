@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-only
 st_asm330lhhx-y := st_asm330lhhx_core.o \
 		st_asm330lhhx_buffer.o \
 		st_asm330lhhx_mlc.o \

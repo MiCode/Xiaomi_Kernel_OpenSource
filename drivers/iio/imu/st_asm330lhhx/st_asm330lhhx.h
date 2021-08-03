@@ -1,12 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * STMicroelectronics st_asm330lhhx sensor driver
  *
- * Copyright 2019 STMicroelectronics Inc.
+ * Copyright 2021 STMicroelectronics Inc.
  *
  * Lorenzo Bianconi <lorenzo.bianconi@st.com>
  * Tesi Mario <mario.tesi@st.com>
- *
- * Licensed under the GPL-2.
  */
 
 #ifndef ST_ASM330LHHX_H
@@ -623,7 +622,6 @@ static inline int st_asm330lhhx_set_page_access(struct st_asm330lhhx_hw *hw,
 				 ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
 				 mask,
 				 ST_ASM330LHHX_SHIFT_VAL(val, mask));
-	//usleep_range(100, 150);
 
 	return err;
 }
