@@ -15,8 +15,6 @@
 #include <linux/ipc_logging.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <soc/qcom/icnss2.h>
-#include <soc/qcom/service-locator.h>
-#include <soc/qcom/service-notifier.h>
 #include "wlan_firmware_service_v01.h"
 
 #define WCN6750_DEVICE_ID 0x6750
@@ -278,12 +276,6 @@ struct icnss_stats {
 #define WLFW_MAX_NUM_SHADOW_REG 24
 #define WLFW_MAX_HANG_EVENT_DATA_SIZE 400
 
-struct service_notifier_context {
-	void *handle;
-	uint32_t instance_id;
-	char name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
-};
-
 struct wlfw_rf_chip_info {
 	uint32_t chip_id;
 	uint32_t chip_family;
@@ -396,11 +388,6 @@ struct icnss_priv {
 	struct dentry *root_dentry;
 	spinlock_t on_off_lock;
 	struct icnss_stats stats;
-	struct work_struct service_notifier_work;
-	struct service_notifier_context *service_notifier;
-	struct notifier_block service_notifier_nb;
-	int total_domains;
-	struct notifier_block get_service_nb;
 	void *modem_notify_handler;
 	void *wpss_notify_handler;
 	struct notifier_block modem_ssr_nb;
@@ -454,6 +441,9 @@ struct icnss_priv {
 	u32 hw_trc_override;
 	struct icnss_dms_data dms;
 	u8 use_nv_mac;
+	struct pdr_handle *pdr_handle;
+	struct pdr_service *pdr_service;
+	bool root_pd_shutdown;
 };
 
 struct icnss_reg_info {
