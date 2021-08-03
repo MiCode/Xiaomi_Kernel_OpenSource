@@ -391,10 +391,10 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 				     struct st_asm330lhhx_hw *hw,
 				     u8 *mlc_mask, u16 *fsm_mask)
 {
-	uint8_t mlc_int = 0, mlc_num = 0, fsm_num = 0, skip = 0;
+	u8 mlc_int = 0, mlc_num = 0, fsm_num = 0, skip = 0;
 	int int_pin, reg, val, ret, i = 0;
-	uint8_t fsm_int[2] = { 0, 0 };
-	uint8_t mlc_fsm_en = 0;
+	u8 fsm_int[2] = { 0, 0 };
+	u8 mlc_fsm_en = 0;
 	bool stmc_page = false;
 
 	mutex_lock(&hw->page_lock);

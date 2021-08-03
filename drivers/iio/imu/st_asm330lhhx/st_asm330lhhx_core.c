@@ -172,7 +172,7 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 		.size = 8,
 		.reg = {
 			.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
-			.mask = GENMASK(7, 4),
+			.mask = ST_ASM330LHHX_CTRL1_XL_ODR_XL_MASK,
 		},
 		.pm = {
 			.addr = ST_ASM330LHHX_REG_CTRL6_C_ADDR,
@@ -180,7 +180,7 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 		},
 		.batching_reg = {
 			.addr = ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR,
-			.mask = GENMASK(3, 0),
+			.mask = ST_ASM330LHHX_REG_BDR_XL_MASK,
 		},
 		.odr_avl[0] = {   1, 600000,  0x01,  0x0b },
 		.odr_avl[1] = {  12, 500000,  0x01,  0x01 },
@@ -195,7 +195,7 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 		.size = 8,
 		.reg = {
 			.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-			.mask = GENMASK(7, 4),
+			.mask = ST_ASM330LHHX_CTRL1_XL_ODR_G_MASK,
 		},
 		.pm = {
 			.addr = ST_ASM330LHHX_REG_CTRL7_G_ADDR,
@@ -203,7 +203,7 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 		},
 		.batching_reg = {
 			.addr = ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR,
-			.mask = GENMASK(7, 4),
+			.mask = ST_ASM330LHHX_REG_BDR_GY_MASK,
 		},
 		.odr_avl[0] = {   6, 500000,  0x01,  0x0b },
 		.odr_avl[1] = {  12, 500000,  0x01,  0x01 },
@@ -218,7 +218,7 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 		.size = 3,
 		.batching_reg = {
 			.addr = ST_ASM330LHHX_REG_FIFO_CTRL4_ADDR,
-			.mask = GENMASK(5, 4),
+			.mask = ST_ASM330LHHX_REG_ODR_T_BATCH_MASK,
 		},
 		.odr_avl[0] = {  1, 600000,   0x01,  0x01 },
 		.odr_avl[1] = { 12, 500000,   0x02,  0x02 },
@@ -232,7 +232,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[0] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
-				.mask = GENMASK(3, 2),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_XL_MASK,
 			},
 			.gain = IIO_G_TO_M_S_2(61),
 			.val = 0x0,
@@ -240,7 +240,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[1] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
-				.mask = GENMASK(3, 2),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_XL_MASK,
 			},
 			.gain = IIO_G_TO_M_S_2(122),
 			.val = 0x2,
@@ -248,7 +248,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[2] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
-				.mask = GENMASK(3, 2),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_XL_MASK,
 			},
 			.gain = IIO_G_TO_M_S_2(244),
 			.val = 0x3,
@@ -256,7 +256,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[3] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
-				.mask = GENMASK(3, 2),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_XL_MASK,
 			},
 			.gain = IIO_G_TO_M_S_2(488),
 			.val = 0x1,
@@ -267,7 +267,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[0] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = GENMASK(3, 0),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
 			},
 			.gain = IIO_DEGREE_TO_RAD(8750),
 			.val = 0x0,
@@ -275,7 +275,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[1] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = GENMASK(3, 0),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
 			},
 			.gain = IIO_DEGREE_TO_RAD(17500),
 			.val = 0x4,
@@ -283,7 +283,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[2] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = GENMASK(3, 0),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
 			},
 			.gain = IIO_DEGREE_TO_RAD(35000),
 			.val = 0x8,
@@ -291,7 +291,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[3] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = GENMASK(3, 0),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
 			},
 			.gain = IIO_DEGREE_TO_RAD(70000),
 			.val = 0x0C,
@@ -299,7 +299,7 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		.fs_avl[4] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = GENMASK(3, 0),
+				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
 			},
 			.gain = IIO_DEGREE_TO_RAD(140000),
 			.val = 0x1,

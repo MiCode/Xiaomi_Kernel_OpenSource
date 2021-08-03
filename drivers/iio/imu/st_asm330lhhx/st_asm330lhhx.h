@@ -51,7 +51,12 @@
 #define ST_ASM330LHHX_WHOAMI_VAL			0x6b
 
 #define ST_ASM330LHHX_CTRL1_XL_ADDR			0x10
+#define ST_ASM330LHHX_CTRL1_XL_ODR_XL_MASK		GENMASK(7, 4)
+#define ST_ASM330LHHX_CTRL1_XL_FS_XL_MASK		GENMASK(3, 2)
+
 #define ST_ASM330LHHX_CTRL2_G_ADDR			0x11
+#define ST_ASM330LHHX_CTRL1_XL_ODR_G_MASK		GENMASK(7, 4)
+#define ST_ASM330LHHX_CTRL1_XL_FS_G_MASK		GENMASK(3, 0)
 
 #define ST_ASM330LHHX_REG_CTRL3_C_ADDR			0x12
 #define ST_ASM330LHHX_REG_SW_RESET_MASK			BIT(0)
@@ -175,12 +180,12 @@
 #define ST_ASM330LHHX_TEMP_OFFSET			6400
 
 /* FIFO simple size and depth */
-#define ST_ASM330LHHX_SAMPLE_SIZE	6
-#define ST_ASM330LHHX_TS_SAMPLE_SIZE	4
-#define ST_ASM330LHHX_TAG_SIZE		1
-#define ST_ASM330LHHX_FIFO_SAMPLE_SIZE	(ST_ASM330LHHX_SAMPLE_SIZE + \
-					 ST_ASM330LHHX_TAG_SIZE)
-#define ST_ASM330LHHX_MAX_FIFO_DEPTH	416
+#define ST_ASM330LHHX_SAMPLE_SIZE			6
+#define ST_ASM330LHHX_TS_SAMPLE_SIZE			4
+#define ST_ASM330LHHX_TAG_SIZE				1
+#define ST_ASM330LHHX_FIFO_SAMPLE_SIZE			(ST_ASM330LHHX_SAMPLE_SIZE + \
+							 ST_ASM330LHHX_TAG_SIZE)
+#define ST_ASM330LHHX_MAX_FIFO_DEPTH			416
 
 #define ST_ASM330LHHX_DATA_CHANNEL(chan_type, addr, mod, ch2, scan_idx,	\
 				rb, sb, sg)				\
@@ -251,15 +256,15 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
  * @status: mlc/fsm status
  */
 struct st_asm330lhhx_mlc_config_t {
-	uint8_t mlc_int_addr;
-	uint8_t mlc_int_mask;
-	uint8_t fsm_int_addr[2];
-	uint8_t fsm_int_mask[2];
-	uint8_t mlc_configured;
-	uint8_t fsm_configured;
-	uint16_t bin_len;
+	u8 mlc_int_addr;
+	u8 mlc_int_mask;
+	u8 fsm_int_addr[2];
+	u8 fsm_int_mask[2];
+	u8 mlc_configured;
+	u8 fsm_configured;
+	u16 bin_len;
 	int mlc_int_pin;
-	uint8_t mlc_fsm_en;
+	u8 mlc_fsm_en;
 	enum st_asm330lhhx_fsm_mlc_enable_id status;
 };
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
@@ -506,13 +511,13 @@ struct st_asm330lhhx_sensor {
 			s64 last_fifo_timestamp;
 
 			/* self test */
-			int8_t selftest_status;
+			s8 selftest_status;
 			int min_st;
 			int max_st;
 		};
 		struct {
-			uint8_t status_reg;
-			uint8_t outreg_addr;
+			u8 status_reg;
+			u8 outreg_addr;
 			enum st_asm330lhhx_fsm_mlc_enable_id status;
 		};
 	};
@@ -540,6 +545,7 @@ struct st_asm330lhhx_sensor {
  * @mlc_config: mlc configuration structure.
  * @odr_table_entry: Sensors ODR table.
  * @preload_mlc: Preloaded MLC flag.
+ * @resuming: System resuming flag.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  */
 struct st_asm330lhhx_hw {
