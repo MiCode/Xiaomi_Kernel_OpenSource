@@ -2380,7 +2380,7 @@ static size_t arm_smmu_unmap_pages(struct iommu_domain *domain, unsigned long io
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
-	if (!ret)
+	if (ret)
 		trace_unmap_pages(smmu_domain, iova, pgsize, pgcount);
 	return ret;
 }
