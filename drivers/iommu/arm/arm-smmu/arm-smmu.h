@@ -424,24 +424,6 @@ struct arm_smmu_device {
 	unsigned long			sync_timed_out;
 };
 
-struct qsmmuv500_tbu_device {
-	struct list_head		list;
-	struct device			*dev;
-	struct arm_smmu_device		*smmu;
-	void __iomem			*base;
-	void __iomem			*status_reg;
-
-	struct arm_smmu_power_resources *pwr;
-	u32				sid_start;
-	u32				num_sids;
-
-	/* Protects halt count */
-	spinlock_t			halt_lock;
-	u32				halt_count;
-
-	bool				has_micro_idle;
-};
-
 enum arm_smmu_context_fmt {
 	ARM_SMMU_CTX_FMT_NONE,
 	ARM_SMMU_CTX_FMT_AARCH64,
@@ -728,13 +710,13 @@ struct arm_smmu_device *qcom_adreno_smmu_impl_init(struct arm_smmu_device *smmu)
 void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx);
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
-int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr);
-void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 			struct device *dev);
+
+extern struct platform_driver qsmmuv500_tbu_driver;
 
 /* Misc. constants */
 #define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)

@@ -380,8 +380,133 @@ struct qsmmuv500_group_iommudata {
 	((struct qsmmuv500_group_iommudata *)				\
 		(iommu_group_get_iommudata(group)))
 
-static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
-	struct arm_smmu_device *smmu, u32 sid);
+struct qsmmuv500_tbu_device {
+	struct list_head		list;
+	struct device			*dev;
+	struct arm_smmu_device		*smmu;
+	void __iomem			*base;
+
+	struct arm_smmu_power_resources *pwr;
+	u32				sid_start;
+	u32				num_sids;
+
+	/* Protects halt count */
+	spinlock_t			halt_lock;
+	u32				halt_count;
+
+	bool				has_micro_idle;
+};
+
+static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
+				struct arm_smmu_domain *smmu_domain)
+{
+	unsigned long flags;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
+	u32 halt, fsr, status;
+	void __iomem *tbu_base;
+
+	if (of_property_read_bool(tbu->dev->of_node,
+						"qcom,opt-out-tbu-halting")) {
+		dev_notice(tbu->dev, "TBU opted-out for halting!\n");
+		return -EBUSY;
+	}
+
+	spin_lock_irqsave(&tbu->halt_lock, flags);
+	if (tbu->halt_count) {
+		tbu->halt_count++;
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return 0;
+	}
+
+	tbu_base = tbu->base;
+	halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+	halt |= DEBUG_SID_HALT_REQ;
+	writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+	if ((fsr & ARM_SMMU_FSR_FAULT) && (fsr & ARM_SMMU_FSR_SS)) {
+		u32 sctlr_orig, sctlr;
+		/*
+		 * We are in a fault; Our request to halt the bus will not
+		 * complete until transactions in front of us (such as the fault
+		 * itself) have completed. Disable iommu faults and terminate
+		 * any existing transactions.
+		 */
+		sctlr_orig = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
+		sctlr = sctlr_orig & ~(ARM_SMMU_SCTLR_CFCFG | ARM_SMMU_SCTLR_CFIE);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr);
+
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+				  ARM_SMMU_RESUME_TERMINATE);
+
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
+	}
+
+	if (readl_poll_timeout_atomic(tbu_base + DEBUG_SR_HALT_ACK_REG, status,
+					(status & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "Couldn't halt TBU!\n");
+
+		halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+		halt &= ~DEBUG_SID_HALT_REQ;
+		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return -ETIMEDOUT;
+	}
+
+	tbu->halt_count = 1;
+	spin_unlock_irqrestore(&tbu->halt_lock, flags);
+	return 0;
+}
+
+static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
+{
+	unsigned long flags;
+	u32 val;
+	void __iomem *base;
+
+	spin_lock_irqsave(&tbu->halt_lock, flags);
+	if (!tbu->halt_count) {
+		WARN(1, "%s: bad tbu->halt_count", dev_name(tbu->dev));
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return;
+
+	} else if (tbu->halt_count > 1) {
+		tbu->halt_count--;
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return;
+	}
+
+	base = tbu->base;
+	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_REQ;
+	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+
+	tbu->halt_count = 0;
+	spin_unlock_irqrestore(&tbu->halt_lock, flags);
+}
+
+static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(struct arm_smmu_device *smmu, u32 sid)
+{
+	struct qsmmuv500_tbu_device *tbu = NULL;
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
+
+	list_for_each_entry(tbu, &data->tbus, list) {
+		if (tbu->sid_start <= sid &&
+		    sid < tbu->sid_start + tbu->num_sids)
+			return tbu;
+	}
+
+	return NULL;
+}
 
 /*
  * Provides mutually exclusive access to the registers used by the
@@ -468,6 +593,119 @@ unlock:
 bug:
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }
+
+/*
+ * Prior to accessing registers in the TBU local register space,
+ * TBU must be woken from micro idle.
+ */
+static int __arm_smmu_micro_idle_cfg(struct arm_smmu_device *smmu,
+					    u32 val, u32 mask)
+{
+	void __iomem *reg;
+	u32 tmp, new;
+	unsigned long flags;
+	int ret;
+
+	/* Protect APPS_SMMU_TBU_REG_ACCESS register. */
+	spin_lock_irqsave(&smmu->global_sync_lock, flags);
+	new = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF5,
+			APPS_SMMU_TBU_REG_ACCESS_REQ_NS);
+	new &= ~mask;
+	new |= val;
+	arm_smmu_writel(smmu, ARM_SMMU_IMPL_DEF5,
+			APPS_SMMU_TBU_REG_ACCESS_REQ_NS,
+			new);
+
+	reg = arm_smmu_page(smmu, ARM_SMMU_IMPL_DEF5);
+	reg += APPS_SMMU_TBU_REG_ACCESS_ACK_NS;
+	ret = readl_poll_timeout_atomic(reg, tmp, ((tmp & mask) == val), 0, 200);
+	if (ret)
+		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
+			tmp, new);
+	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
+	return ret;
+}
+
+int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
+{
+	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	u32 val;
+
+	if (!tbu->has_micro_idle)
+		return 0;
+
+	val = tbu->sid_start >> 10;
+	val = 1 << val;
+	return __arm_smmu_micro_idle_cfg(tbu->smmu, val, val);
+}
+
+void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
+{
+	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	u32 val;
+
+	if (!tbu->has_micro_idle)
+		return;
+
+	val = tbu->sid_start >> 10;
+	val = 1 << val;
+	__arm_smmu_micro_idle_cfg(tbu->smmu, 0, val);
+}
+
+static const struct of_device_id qsmmuv500_tbu_of_match[] = {
+	{.compatible = "qcom,qsmmuv500-tbu"},
+	{}
+};
+
+static int qsmmuv500_tbu_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct qsmmuv500_tbu_device *tbu;
+	const __be32 *cell;
+	int len;
+
+	tbu = devm_kzalloc(dev, sizeof(*tbu), GFP_KERNEL);
+	if (!tbu)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&tbu->list);
+	tbu->dev = dev;
+	spin_lock_init(&tbu->halt_lock);
+
+	tbu->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
+	if (IS_ERR(tbu->base))
+		return PTR_ERR(tbu->base);
+
+	cell = of_get_property(dev->of_node, "qcom,stream-id-range", &len);
+	if (!cell || len < 8)
+		return -EINVAL;
+
+	tbu->sid_start = of_read_number(cell, 1);
+	tbu->num_sids = of_read_number(cell + 1, 1);
+
+	/* Return -EINVAL only if property not present */
+	tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
+
+	tbu->pwr = arm_smmu_init_power_resources(dev);
+	if (IS_ERR(tbu->pwr))
+		return PTR_ERR(tbu->pwr);
+
+	if (tbu->has_micro_idle) {
+		tbu->pwr->resume = arm_smmu_micro_idle_wake;
+		tbu->pwr->suspend = arm_smmu_micro_idle_allow;
+	}
+
+	dev_set_drvdata(dev, tbu);
+	return 0;
+}
+
+struct platform_driver qsmmuv500_tbu_driver = {
+	.driver	= {
+		.name		= "qsmmuv500-tbu",
+		.of_match_table	= of_match_ptr(qsmmuv500_tbu_of_match),
+	},
+	.probe	= qsmmuv500_tbu_probe,
+};
 
 static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 {
@@ -577,117 +815,6 @@ static bool smr_is_subset(struct arm_smmu_smr *smr2, struct arm_smmu_smr *smr)
 {
 	return (smr->mask & smr2->mask) == smr2->mask &&
 	    !((smr->id ^ smr2->id) & ~smr->mask);
-}
-
-static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
-				struct arm_smmu_domain *smmu_domain)
-{
-	unsigned long flags;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	int idx = smmu_domain->cfg.cbndx;
-	u32 halt, fsr, status;
-	void __iomem *tbu_base;
-
-	if (of_property_read_bool(tbu->dev->of_node,
-						"qcom,opt-out-tbu-halting")) {
-		dev_notice(tbu->dev, "TBU opted-out for halting!\n");
-		return -EBUSY;
-	}
-
-	spin_lock_irqsave(&tbu->halt_lock, flags);
-	if (tbu->halt_count) {
-		tbu->halt_count++;
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return 0;
-	}
-
-	tbu_base = tbu->base;
-	halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
-	halt |= DEBUG_SID_HALT_REQ;
-	writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
-
-	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if ((fsr & ARM_SMMU_FSR_FAULT) && (fsr & ARM_SMMU_FSR_SS)) {
-		u32 sctlr_orig, sctlr;
-		/*
-		 * We are in a fault; Our request to halt the bus will not
-		 * complete until transactions in front of us (such as the fault
-		 * itself) have completed. Disable iommu faults and terminate
-		 * any existing transactions.
-		 */
-		sctlr_orig = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
-		sctlr = sctlr_orig & ~(ARM_SMMU_SCTLR_CFCFG | ARM_SMMU_SCTLR_CFIE);
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr);
-
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
-		 */
-		wmb();
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-				  ARM_SMMU_RESUME_TERMINATE);
-
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
-	}
-
-	if (readl_poll_timeout_atomic(tbu_base + DEBUG_SR_HALT_ACK_REG, status,
-					(status & DEBUG_SR_HALT_ACK_VAL),
-					0, TBU_DBG_TIMEOUT_US)) {
-		dev_err(tbu->dev, "Couldn't halt TBU!\n");
-
-		halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
-		halt &= ~DEBUG_SID_HALT_REQ;
-		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
-
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return -ETIMEDOUT;
-	}
-
-	tbu->halt_count = 1;
-	spin_unlock_irqrestore(&tbu->halt_lock, flags);
-	return 0;
-}
-
-static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
-{
-	unsigned long flags;
-	u32 val;
-	void __iomem *base;
-
-	spin_lock_irqsave(&tbu->halt_lock, flags);
-	if (!tbu->halt_count) {
-		WARN(1, "%s: bad tbu->halt_count", dev_name(tbu->dev));
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return;
-
-	} else if (tbu->halt_count > 1) {
-		tbu->halt_count--;
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return;
-	}
-
-	base = tbu->base;
-	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_REQ;
-	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
-
-	tbu->halt_count = 0;
-	spin_unlock_irqrestore(&tbu->halt_lock, flags);
-}
-
-static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
-	struct arm_smmu_device *smmu, u32 sid)
-{
-	struct qsmmuv500_tbu_device *tbu = NULL;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		if (tbu->sid_start <= sid &&
-		    sid < tbu->sid_start + tbu->num_sids)
-			return tbu;
-	}
-	return NULL;
 }
 
 /*

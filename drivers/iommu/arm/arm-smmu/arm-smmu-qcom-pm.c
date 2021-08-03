@@ -126,64 +126,6 @@ out:
 	return ret;
 }
 
-/*
- * Prior to accessing registers in the TBU local register space,
- * TBU must be woken from micro idle.
- */
-static int __arm_smmu_micro_idle_cfg(struct arm_smmu_device *smmu,
-					    u32 val, u32 mask)
-{
-	void __iomem *reg;
-	u32 tmp, new;
-	unsigned long flags;
-	int ret;
-
-	/* Protect APPS_SMMU_TBU_REG_ACCESS register. */
-	spin_lock_irqsave(&smmu->global_sync_lock, flags);
-	new = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF5,
-			APPS_SMMU_TBU_REG_ACCESS_REQ_NS);
-	new &= ~mask;
-	new |= val;
-	arm_smmu_writel(smmu, ARM_SMMU_IMPL_DEF5,
-			APPS_SMMU_TBU_REG_ACCESS_REQ_NS,
-			new);
-
-	reg = arm_smmu_page(smmu, ARM_SMMU_IMPL_DEF5);
-	reg += APPS_SMMU_TBU_REG_ACCESS_ACK_NS;
-	ret = readl_poll_timeout_atomic(reg, tmp, ((tmp & mask) == val), 0, 200);
-	if (ret)
-		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
-			tmp, new);
-	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
-	return ret;
-}
-
-int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
-{
-	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
-	u32 val;
-
-	if (!tbu->has_micro_idle)
-		return 0;
-
-	val = tbu->sid_start >> 10;
-	val = 1 << val;
-	return __arm_smmu_micro_idle_cfg(tbu->smmu, val, val);
-}
-
-void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
-{
-	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
-	u32 val;
-
-	if (!tbu->has_micro_idle)
-		return;
-
-	val = tbu->sid_start >> 10;
-	val = 1 << val;
-	__arm_smmu_micro_idle_cfg(tbu->smmu, 0, val);
-}
-
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
 {
 	int ret;
