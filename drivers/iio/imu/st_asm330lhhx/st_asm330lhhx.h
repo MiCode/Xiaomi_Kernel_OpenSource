@@ -543,9 +543,9 @@ struct st_asm330lhhx_hw {
 	unsigned long state;
 	u32 enable_mask;
 	u32 requested_mask;
-	u8 ext_data_len;
 
 	s64 ts_offset;
+	u8 ext_data_len;
 	u64 ts_delta_ns;
 	s64 hw_ts;
 	u32 val_ts_old;

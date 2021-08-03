@@ -95,8 +95,8 @@ static inline int
 st_asm330lhhx_set_sensor_batching_odr(struct st_asm330lhhx_sensor *sensor,
 				      bool enable)
 {
-	struct st_asm330lhhx_hw *hw = sensor->hw;
 	enum st_asm330lhhx_sensor_id id = sensor->id;
+	struct st_asm330lhhx_hw *hw = sensor->hw;
 	u8 data = 0;
 	int err;
 
@@ -202,7 +202,7 @@ static inline void st_asm330lhhx_sync_hw_ts(struct st_asm330lhhx_hw *hw, s64 ts)
 static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 {
 	u8 iio_buf[ALIGN(ST_ASM330LHHX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-	u8 buf[30 * ST_ASM330LHHX_FIFO_SAMPLE_SIZE], tag, *ptr;
+	u8 buf[32 * ST_ASM330LHHX_FIFO_SAMPLE_SIZE], tag, *ptr;
 	int i, err, word_len, fifo_len, read_len;
 	struct iio_dev *iio_dev;
 	s64 ts_irq, hw_ts_old;
@@ -221,14 +221,12 @@ static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 
 	ts_irq = hw->ts - hw->delta_ts;
 
-	err = st_asm330lhhx_read_locked(hw,
-					ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR,
-					&fifo_status, sizeof(fifo_status));
+	err = st_asm330lhhx_read_locked(hw, ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR,
+				       &fifo_status, sizeof(fifo_status));
 	if (err < 0)
 		return err;
 
-	fifo_depth = le16_to_cpu(fifo_status) &
-		     ST_ASM330LHHX_REG_FIFO_STATUS_DIFF;
+	fifo_depth = le16_to_cpu(fifo_status) & ST_ASM330LHHX_REG_FIFO_STATUS_DIFF;
 	if (!fifo_depth)
 		return 0;
 
@@ -283,15 +281,16 @@ static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 				sensor = iio_priv(iio_dev);
 				memcpy(iio_buf, ptr, ST_ASM330LHHX_SAMPLE_SIZE);
 
+				ts = hw->hw_ts + hw->ts_offset;
+
 				/* support decimation for ODR < 12.5 Hz */
 				if (sensor->dec_counter > 0) {
 					sensor->dec_counter--;
 				} else {
 					sensor->dec_counter = sensor->decimator;
-					ts = hw->hw_ts + hw->ts_offset;
 					iio_push_to_buffers_with_timestamp(iio_dev,
-									   iio_buf,
-									   ts);
+								iio_buf,
+								ts);
 					sensor->last_fifo_timestamp = ts;
 				}
 			}
