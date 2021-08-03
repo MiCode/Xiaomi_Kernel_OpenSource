@@ -159,8 +159,9 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 			return err;
 
 		dev_info(sensor->hw->dev,
-			"Enabling MLC sensor %d to %d (INT %x)\n",
-			sensor->id, enable, int_mlc_value);
+			"%s MLC sensor %d (INT %x)\n",
+			enable ? "Enabling" : "Disabling",
+			sensor->id, int_mlc_value);
 	} else if (sensor->status == ST_ASM330LHHX_FSM_ENABLED) {
 		u8 mask;
 		int id = sensor->id;
@@ -185,7 +186,7 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 				return err;
 
 			dev_info(sensor->hw->dev,
-				"%s FSM sensor %d (INT %x)\n",
+				"%s FSM A sensor %d (INT %x)\n",
 				enable ? "Enabling" : "Disabling", id,
 				mask);
 		} else if (id >= ST_ASM330LHHX_ID_FSM_8 &&
@@ -208,7 +209,7 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 				return err;
 
 			dev_info(sensor->hw->dev,
-				"%s FSM sensor %d (INT %x)\n",
+				"%s FSM B sensor %d (INT %x)\n",
 				enable ? "Enabling" : "Disabling", id,
 				mask);
 		} else {
@@ -236,10 +237,7 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 				return err;
 		}
 	} else {
-		dev_err(hw->dev, "invalid sensor configuration\n");
-		err = -ENODEV;
-
-		return err;
+		return -ENODEV;
 	}
 
 	if (enable)
@@ -333,7 +331,7 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 				 * Check if mlc or fsm need to be enabled even
 				 * if the interrupts are not used
 				 */
-				mlc_fsm_en = val;
+				mlc_fsm_en |= val;
 				skip = true;
 				break;
 			default:
@@ -377,12 +375,8 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 		hw->mlc_config->mlc_int_mask = mlc_int;
 		*mlc_mask = mlc_int;
 
-		hw->mlc_config->mlc_int_addr = (hw->mlc_config->mlc_int_pin == 1 ?
-					    ST_ASM330LHHX_MLC_INT1_ADDR :
-					    ST_ASM330LHHX_MLC_INT2_ADDR);
-
 		hw->mlc_config->status |= ST_ASM330LHHX_MLC_ENABLED;
-		hw->mlc_config->mlc_configured += mlc_num;
+		hw->mlc_config->mlc_configured = mlc_num;
 	}
 
 	if (fsm_num) {
@@ -390,15 +384,8 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 		hw->mlc_config->fsm_int_mask[1] = fsm_int[1];
 		*fsm_mask = (u16)(((u16)fsm_int[1] << 8) | fsm_int[0]);
 
-		hw->mlc_config->fsm_int_addr[0] = (hw->mlc_config->mlc_int_pin == 1 ?
-					    ST_ASM330LHHX_FSM_INT1_A_ADDR :
-					    ST_ASM330LHHX_FSM_INT2_A_ADDR);
-		hw->mlc_config->fsm_int_addr[1] = (hw->mlc_config->mlc_int_pin == 1 ?
-					    ST_ASM330LHHX_FSM_INT1_B_ADDR :
-					    ST_ASM330LHHX_FSM_INT2_B_ADDR);
-
 		hw->mlc_config->status |= ST_ASM330LHHX_FSM_ENABLED;
-		hw->mlc_config->fsm_configured += fsm_num;
+		hw->mlc_config->fsm_configured = fsm_num;
 
 		hw->mlc_config->fsm_enabled_mask[0] = fsm_enable[0];
 		hw->mlc_config->fsm_enabled_mask[1] = fsm_enable[1];
@@ -598,7 +585,14 @@ static ssize_t st_asm330lhhx_mlc_flush(struct device *dev,
 	int ret;
 
 	ret = st_asm330lhhx_mlc_flush_all(hw);
-	memset(hw->mlc_config, 0, sizeof(*hw->mlc_config));
+
+	hw->mlc_config->status = 0;
+	hw->mlc_config->fsm_configured = 0;
+	hw->mlc_config->mlc_configured = 0;
+	hw->mlc_config->mlc_fsm_en = 0;
+	hw->mlc_config->bin_len = 0;
+	hw->mlc_config->fsm_mlc_requested_odr = 0;
+	hw->mlc_config->fsm_mlc_requested_uodr = 0;
 
 	return ret < 0 ? ret : size;
 }
@@ -989,6 +983,16 @@ int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw)
 		return -ENOMEM;
 
 	hw->mlc_config->mlc_int_pin = int_pin;
+
+	hw->mlc_config->mlc_int_addr = (hw->mlc_config->mlc_int_pin == 1 ?
+				    ST_ASM330LHHX_MLC_INT1_ADDR :
+				    ST_ASM330LHHX_MLC_INT2_ADDR);
+	hw->mlc_config->fsm_int_addr[0] = (hw->mlc_config->mlc_int_pin == 1 ?
+				    ST_ASM330LHHX_FSM_INT1_A_ADDR :
+				    ST_ASM330LHHX_FSM_INT2_A_ADDR);
+	hw->mlc_config->fsm_int_addr[1] = (hw->mlc_config->mlc_int_pin == 1 ?
+				    ST_ASM330LHHX_FSM_INT1_B_ADDR :
+				    ST_ASM330LHHX_FSM_INT2_B_ADDR);
 
 	return 0;
 }
