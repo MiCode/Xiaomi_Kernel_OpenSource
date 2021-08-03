@@ -2,6 +2,7 @@ Index
 =======
         * Introduction
         * Integration details
+        * Self Test procedure
         * Copyright
 
 Introduction
@@ -21,7 +22,7 @@ Follow some features of MLC/FSM for ASM330LHHX driver:
 >	-	MLC/FSM devices can be removed by using the *mlc_flush* iio sysfs entry in MLC iio device
 >	-	Added support to remove driver module unregistering all MLC dynamic IIO device
 
-Tested on rapsberry pi zero-w with the kernel v5.3 (rpi-5.3.y_asm330lhhx_mlc) and v5.4 (rpi-5.4.y)
+Tested on rapsberry pi zero-w with the kernel v5.4 (md HiKey960 kernel v4.19rpi-5.3.y_asm330lhhx_mlc) and v5.4 (rpi-5.4.y)
 
 
 Integration details
@@ -120,6 +121,40 @@ Configure kernel with *make menuconfig* (alternatively use *make xconfig* or *ma
 >				[*]   Enable machine learning core
 >				[*]   Enable wake-up irq
 
+
+### Self Test procedure
+
+Selftest procedure is embedded in the driver
+
+For acc and gyro (iio device 0, 1) there are the following sysfs:
+
+>	- selftest_available
+>	- selftest
+
+reading from selftest_available
+
+>	$# > cat selftest_available
+>	positive-sign, negative-sign
+
+for starting positive-sign self test:
+
+>	echo positive-sign > selftest
+
+for check result:
+
+>	cat selftest
+
+>	[results are pass or fail]
+
+for starting negative-sign self test:
+
+>	echo negative-sign > selftest
+
+for check result:
+
+>	cat selftest
+
+>	[results are pass or fail]
 
 Copyright Driver
 ===========
