@@ -287,19 +287,21 @@ int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 					iio_dev_mlc_fifo_acc = hw->iio_devs[ST_ASM330LHHX_ID_FIFO_MLC];
 					iio_push_to_buffers_with_timestamp(iio_dev_mlc_fifo_acc,
 								iio_buf, ts);
+				} else {
+#endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
+					/* decimation for ODR < 12.5 Hz on SHUB */
+					if (sensor->dec_counter > 0) {
+						sensor->dec_counter--;
+					} else {
+						sensor->dec_counter = sensor->decimator;
+						iio_push_to_buffers_with_timestamp(iio_dev,
+									iio_buf,
+									ts);
+						sensor->last_fifo_timestamp = ts;
+					}
+#ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
 				}
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
-
-				/* decimation for ODR < 12.5 Hz on SHUB */
-				if (sensor->dec_counter > 0) {
-					sensor->dec_counter--;
-				} else {
-					sensor->dec_counter = sensor->decimator;
-					iio_push_to_buffers_with_timestamp(iio_dev,
-								iio_buf,
-								ts);
-					sensor->last_fifo_timestamp = ts;
-				}
 			}
 		}
 		read_len += word_len;

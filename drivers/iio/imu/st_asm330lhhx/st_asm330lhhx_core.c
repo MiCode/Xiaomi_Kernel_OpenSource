@@ -1699,6 +1699,21 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 }
 EXPORT_SYMBOL(st_asm330lhhx_probe);
 
+static void __maybe_unused st_asm330lhhx_register_dump(struct st_asm330lhhx_hw *hw)
+{
+	int i, err = 0, data;
+
+	for (i = 1; i < 0x38; i++) {
+		err = regmap_read(hw->regmap, i, &data);
+		if (err < 0) {
+			dev_err(hw->dev, "failed to read register %02x\n", i);
+			break;
+		}
+
+		dev_info(hw->dev, "Reg %02x = %02x\n", i, (u8)data);
+	}
+}
+
 static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
@@ -1738,42 +1753,54 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		if (err < 0)
 			return err;
 
-		/* toggle FIFO mode to flush data */
+		/* reset and flush FIFO data */
 		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_BYPASS);
 		if (err < 0)
 			return err;
 
 		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
-		err = st_asm330lhhx_set_odr(sensor_acc,
-				st_asm330lhhx_odr_table[id_acc].odr_avl[1].hz,
-				st_asm330lhhx_odr_table[id_acc].odr_avl[1].uhz);
+		err = regmap_update_bits(hw->regmap,
+				  st_asm330lhhx_odr_table[id_acc].reg.addr,
+				  st_asm330lhhx_odr_table[id_acc].reg.mask,
+				  ST_ASM330LHHX_SHIFT_VAL(
+					st_asm330lhhx_odr_table[id_acc].odr_avl[1].val,
+					st_asm330lhhx_odr_table[id_acc].reg.mask));
 		if (err < 0)
 			return err;
 
-		/* enable batch on acc */
-		err = st_asm330lhhx_update_batching(hw->iio_devs[id_acc], true);
+		/* enable FIFO batch for acc only */
+		err = st_asm330lhhx_update_bits_locked(hw,
+				hw->odr_table_entry[id_acc].batching_reg.addr,
+				hw->odr_table_entry[id_acc].batching_reg.mask,
+				st_asm330lhhx_odr_table[id_acc].odr_avl[1].batch_val);
 		if (err < 0)
 			return err;
 
-		/* switch interrupt mode to mlc event */
+		/* get int pin configuration */
 		err = _st_asm330lhhx_get_int_reg(hw, hw->int_pin, &drdy_reg);
 		if (err < 0)
 			return err;
 
+		/* remove interrupt from FIFO watermark */
 		err = regmap_update_bits(hw->regmap, drdy_reg,
 					 ST_ASM330LHHX_REG_FIFO_TH_MASK,
 					 FIELD_PREP(ST_ASM330LHHX_REG_FIFO_TH_MASK, 0));
 		if (err < 0)
 			return err;
 
+		/* set FIFO watermark to max level */
 		err = st_asm330lhhx_update_watermark(sensor_acc,
 						ST_ASM330LHHX_MAX_FIFO_DEPTH);
 		if (err < 0)
 			return err;
 
+		/* start acquiring data in FIFO cont. mode */
 		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_CONT);
 		if (err < 0)
 			return err;
+
+		/* Setting state to resuming */
+		hw->resuming = true;
 	} else {
 		if (st_asm330lhhx_is_fifo_enabled(hw)) {
 			err = st_asm330lhhx_suspend_fifo(hw);
@@ -1806,35 +1833,21 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
 	int i, err = 0, id_acc;
-	//u8 drdy_reg;
 
-	/* stop acc */
-	id_acc = ST_ASM330LHHX_ID_ACC;
-	sensor_acc = iio_priv(hw->iio_devs[id_acc]);
-	err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
+	if (hw->resuming) {
+		/* stop acc */
+		id_acc = ST_ASM330LHHX_ID_ACC;
+		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
+		err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
 
-	/* restore low power mode to acc */
-	//err = regmap_update_bits(hw->regmap,
-	//			st_asm330lhhx_odr_table[i].pm.addr,
-	//			st_asm330lhhx_odr_table[i].pm.mask,
-	//			ST_ASM330LHHX_SHIFT_VAL(sensor->pm,
-	//			  st_asm330lhhx_odr_table[i].pm.mask));
-	//if (err < 0)
-	//	return err;
+		//mutex_lock(&hw->fifo_lock);
+		//err = st_asm330lhhx_read_fifo(hw);
+		//mutex_unlock(&hw->fifo_lock);
+	}
 
 	err = st_asm330lhhx_restore_regs(hw);
 	if (err < 0)
 		return err;
-
-
-	mutex_lock(&hw->fifo_lock);
-
-	/* Setting state to resuming */
-	hw->resuming = true;
-
-	err = st_asm330lhhx_read_fifo(hw);
-
-	mutex_unlock(&hw->fifo_lock);
 
 	for (i = 0; i <= ST_ASM330LHHX_ID_EXT1; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
@@ -1855,15 +1868,6 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 		if (err < 0)
 			return err;
 	}
-
-	/* switch interrupt mode to mlc event */
-	//err = _st_asm330lhhx_get_int_reg(hw, hw->int_pin, &drdy_reg);
-	//if (err < 0)
-	//	return err;
-
-	//err = regmap_update_bits(hw->regmap, drdy_reg,
-	//			ST_ASM330LHHX_REG_FIFO_TH_MASK,
-	//			FIELD_PREP(ST_ASM330LHHX_REG_FIFO_TH_MASK, 1));
 
 	return err < 0 ? err : 0;
 }

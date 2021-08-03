@@ -21,8 +21,19 @@
 #include <linux/platform_data/st_sensors_pdata.h>
 
 #include "st_asm330lhhx.h"
-
-#define ST_ASM330LHHX_MLC_LOADER_VERSION		"0.4"
+/*
+ * Change History
+ * 0.1:  First version with static preloaded mlc / fsm
+ * 0.2:  Added support to mlc / fsm dynamic load (ucf file)
+ * 0.3:  Support static and dynamic fsm / mlc load
+ * 0.4:  Added IIO channel for retrieve accelerometer data from fifo after
+ *       MLC event detection
+ *       Fix fsm/mlc count using bitmask instead of write on INT<X>_ADDR
+ *       occurences
+ *       Added preload mlc configuration for towing_impact v0.52
+ * 0.5:  Add fifo and page lock during mlc updates
+ */
+#define ST_ASM330LHHX_MLC_LOADER_VERSION		"0.5"
 
 /* number of machine learning core available on device hardware */
 #define ST_ASM330LHHX_MLC_NUMBER			8
@@ -386,6 +397,8 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 	uint8_t mlc_fsm_en = 0;
 	bool stmc_page = false;
 
+	mutex_lock(&hw->page_lock);
+
 	while (i < fw->size) {
 		reg = fw->data[i++];
 		val = fw->data[i++];
@@ -432,7 +445,7 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 			if (ret) {
 				dev_err(hw->dev, "regmap_write fails\n");
 
-				return ret;
+				goto unlock_page;
 			}
 		}
 
@@ -484,6 +497,9 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 
 	hw->mlc_config->mlc_fsm_en = mlc_fsm_en;
 
+unlock_page:
+	mutex_unlock(&hw->page_lock);
+
 	return fsm_num + mlc_num;
 }
 
@@ -500,6 +516,8 @@ static void st_asm330lhhx_mlc_update(const struct firmware *fw, void *context)
 		dev_err(hw->dev, "could not get binary firmware\n");
 		return;
 	}
+
+	mutex_lock(&hw->fifo_lock);
 
 	ret = st_asm330lhhx_program_mlc(fw, hw, &mlc_mask, &fsm_mask);
 	if (ret > 0) {
@@ -569,6 +587,8 @@ static void st_asm330lhhx_mlc_update(const struct firmware *fw, void *context)
 	}
 
 release:
+	mutex_unlock(&hw->fifo_lock);
+
 	if (hw->preload_mlc) {
 		hw->preload_mlc = 0;
 
