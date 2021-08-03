@@ -362,12 +362,12 @@ struct actlr_setting {
 };
 
 struct qsmmuv500_archdata {
+	struct arm_smmu_device		smmu;
 	struct list_head		tbus;
 	struct actlr_setting		*actlrs;
 	u32				actlr_tbl_size;
 	struct work_struct		outstanding_tnx_work;
 	spinlock_t			atos_lock;
-	struct arm_smmu_device		smmu;
 };
 #define to_qsmmuv500_archdata(smmu)				\
 	container_of(smmu, struct qsmmuv500_archdata, smmu)
@@ -1107,7 +1107,12 @@ struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 	struct qsmmuv500_archdata *data;
 	int ret;
 
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	/*
+	 * devm_krealloc() invokes devm_kmalloc(), so we pass __GFP_ZERO
+	 * to ensure that fields after smmu are initialized, even if we don't
+	 * initialize them (e.g. ACTLR related fields).
+	 */
+	data = devm_krealloc(dev, smmu, sizeof(*data), GFP_KERNEL | __GFP_ZERO);
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
@@ -1115,10 +1120,7 @@ struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 	spin_lock_init(&data->atos_lock);
 	INIT_WORK(&data->outstanding_tnx_work,
 		  qsmmuv500_log_outstanding_transactions);
-
-	data->smmu = *smmu;
 	data->smmu.impl = impl;
-	devm_kfree(smmu->dev, smmu);
 
 	ret = qsmmuv500_read_actlr_tbl(data);
 	if (ret)

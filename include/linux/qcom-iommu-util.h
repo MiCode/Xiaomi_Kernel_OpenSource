@@ -12,20 +12,16 @@
 
 #include <soc/qcom/secure_buffer.h>
 
-/* QCOM iommu domain attributes */
-#define DOMAIN_ATTR_NON_FATAL_FAULTS		(0)
-#define DOMAIN_ATTR_S1_BYPASS			(1)
-#define DOMAIN_ATTR_ATOMIC			(2)
-#define DOMAIN_ATTR_FAST			(3)
-#define DOMAIN_ATTR_PGTBL_INFO			(4)
-#define DOMAIN_ATTR_EARLY_MAP			(5)
-#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(6)
-#define DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT	(7)
-#define DOMAIN_ATTR_SPLIT_TABLES		(8)
-#define DOMAIN_ATTR_FAULT_MODEL_NO_CFRE		(9)
-#define DOMAIN_ATTR_FAULT_MODEL_NO_STALL	(10)
-#define DOMAIN_ATTR_FAULT_MODEL_HUPCF		(11)
-#define DOMAIN_ATTR_EXTENDED_MAX		(12)
+/* IOMMU fault behaviors */
+#define QCOM_IOMMU_FAULT_MODEL_NON_FATAL	BIT(0)
+#define QCOM_IOMMU_FAULT_MODEL_NO_CFRE		BIT(1)
+#define QCOM_IOMMU_FAULT_MODEL_NO_STALL		BIT(2)
+#define QCOM_IOMMU_FAULT_MODEL_HUPCF		BIT(3)
+
+/* IOMMU mapping configurations */
+#define QCOM_IOMMU_MAPPING_CONF_S1_BYPASS	BIT(0)
+#define QCOM_IOMMU_MAPPING_CONF_ATOMIC		BIT(1)
+#define QCOM_IOMMU_MAPPING_CONF_FAST		BIT(2)
 
 /* iommu transaction flags */
 /* 1 Write, 0 Read */
@@ -97,6 +93,9 @@ struct qcom_iommu_ops {
 			struct qcom_iommu_fault_ids *ids);
 	int (*get_context_bank_nr)(struct iommu_domain *domain);
 	int (*set_secure_vmid)(struct iommu_domain *domain, enum vmid vmid);
+	int (*set_fault_model)(struct iommu_domain *domain, int fault_model);
+	int (*enable_s1_translation)(struct iommu_domain *domain);
+	int (*get_mappings_configuration)(struct iommu_domain *domain);
 	struct iommu_ops iommu_ops;
 };
 #define to_qcom_iommu_ops(x) (container_of(x, struct qcom_iommu_ops, iommu_ops))
@@ -126,6 +125,12 @@ extern int qcom_iommu_get_msi_size(struct device *dev, u32 *msi_size);
 int qcom_iommu_get_context_bank_nr(struct iommu_domain *domain);
 
 int qcom_iommu_set_secure_vmid(struct iommu_domain *domain, enum vmid vmid);
+
+int qcom_iommu_set_fault_model(struct iommu_domain *domain, int fault_model);
+
+int qcom_iommu_enable_s1_translation(struct iommu_domain *domain);
+
+int qcom_iommu_get_mappings_configuration(struct iommu_domain *domain);
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
 int __init qcom_arm_lpae_do_selftests(void);

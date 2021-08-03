@@ -489,18 +489,34 @@ enum arm_smmu_domain_stage {
 	ARM_SMMU_DOMAIN_BYPASS,
 };
 
+struct arm_smmu_fault_model {
+	char non_fatal : 1;
+	char no_cfre : 1;
+	char no_stall : 1;
+	char hupcf : 1;
+};
+
+struct arm_smmu_mapping_cfg {
+	char s1_bypass : 1;
+	char atomic : 1;
+	char fast : 1;
+};
+
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct device			*dev;
 	struct io_pgtable_ops		*pgtbl_ops;
 	unsigned long			pgtbl_quirks;
+	bool				force_coherent_walk;
 	const struct iommu_flush_ops	*flush_ops;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
+	struct arm_smmu_fault_model	fault_model;
+	struct arm_smmu_mapping_cfg	mapping_cfg;
+	bool				delayed_s1_trans_enable;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
@@ -517,10 +533,7 @@ struct arm_smmu_domain {
 
 	struct iommu_debug_attachment	*logger;
 	struct iommu_domain		domain;
-	/*
-	 * test_bit(DOMAIN_ATTR_ATOMIC, aattributes) indicates that
-	 * runtime power management should be disabled.
-	 */
+	/* mapping_cfg.atomic indicates that runtime power management should be disabled. */
 	bool				rpm_always_on;
 };
 
