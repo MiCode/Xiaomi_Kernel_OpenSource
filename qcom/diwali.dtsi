@@ -741,6 +741,10 @@
 		compatible = "qcom,cpu-vendor-hooks";
 	};
 
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
+	};
+
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";
