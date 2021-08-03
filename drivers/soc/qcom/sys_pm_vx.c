@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
@@ -113,6 +113,7 @@ static int read_vx_data(struct vx_platform_data *pd, struct vx_log *log)
 		data[i].ts = read_word(base, itr);
 		if (!data[i].ts)
 			break;
+		data[i].ts <<= hdr->flags.ts_shift;
 		vx = kcalloc(ALIGN(pd->ndrv, 4), sizeof(*vx), GFP_KERNEL);
 		if (!vx)
 			goto no_mem;
@@ -144,6 +145,7 @@ static void show_vx_data(struct vx_platform_data *pd, struct vx_log *log,
 	struct vx_header *hdr = &log->header;
 	struct vx_data *data;
 	u32 prev;
+	bool from_exit = false;
 
 	seq_printf(seq, "Mode           : %s\n"
 			"Duration (ms)  : %u\n"
@@ -169,7 +171,13 @@ static void show_vx_data(struct vx_platform_data *pd, struct vx_log *log,
 		for (j = 0, prev = data->drv_vx[0]; j < pd->ndrv; j++)
 			prev |= data->drv_vx[j];
 		if (!prev) {
-			seq_printf(seq, "%s Enter", MODE_STR(hdr->mode.type));
+			if (!from_exit) {
+				seq_printf(seq, "%s Enter\n", MODE_STR(hdr->mode.type));
+				from_exit = true;
+			} else {
+				seq_printf(seq, "%s Exit\n", MODE_STR(hdr->mode.type));
+				from_exit = false;
+			}
 			continue;
 		}
 		for (j = 0; j < pd->ndrv; j++)
