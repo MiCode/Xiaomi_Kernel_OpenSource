@@ -16,10 +16,12 @@
 #include <linux/regmap.h>
 #include <linux/bitfield.h>
 
+#define ST_ASM330LHHX_ENABLE_DEBUG
+
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.6"
+#define ST_ASM330LHHX_DRV_VERSION			"1.7"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -59,6 +61,7 @@
 #define ST_ASM330LHHX_REG_BOOT_MASK			BIT(7)
 
 #define ST_ASM330LHHX_REG_CTRL4_C_ADDR			0x13
+#define ST_ASM330LHHX_REG_INT2_ON_INT1_MASK		BIT(5)
 #define ST_ASM330LHHX_REG_DRDY_MASK			BIT(3)
 
 #define ST_ASM330LHHX_REG_CTRL5_C_ADDR			0x14
@@ -275,6 +278,7 @@ enum st_asm330lhh_suspend_resume_register {
 	ST_ASM330LHHX_REG_CTRL3_C_REG,
 	ST_ASM330LHHX_REG_CTRL4_C_REG,
 	ST_ASM330LHHX_REG_CTRL5_C_REG,
+	ST_ASM330LHHX_REG_CTRL6_C_REG,
 	ST_ASM330LHHX_REG_CTRL10_C_REG,
 	ST_ASM330LHHX_REG_TAP_CFG0_REG,
 	ST_ASM330LHHX_REG_INT1_CTRL_REG,
@@ -444,6 +448,7 @@ static const enum st_asm330lhhx_sensor_id st_asm330lhhx_fsm_sensor_list[] = {
 
 enum st_asm330lhhx_fifo_mode {
 	ST_ASM330LHHX_FIFO_BYPASS = 0x0,
+	ST_ASM330LHHX_FIFO_MODE = 0x1,
 	ST_ASM330LHHX_FIFO_CONT = 0x6,
 };
 

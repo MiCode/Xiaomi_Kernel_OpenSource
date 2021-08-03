@@ -24,6 +24,10 @@
 
 #include "st_asm330lhhx.h"
 
+/* use for debug suspend resume */
+static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw);
+static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw);
+
 static struct st_asm330lhhx_selftest_table {
 	char *string_mode;
 	u8 accel_value;
@@ -75,6 +79,11 @@ static struct st_asm330lhhx_suspend_resume_entry
 		.page = FUNC_CFG_ACCESS_0,
 		.addr = ST_ASM330LHHX_REG_CTRL5_C_ADDR,
 		.mask = ST_ASM330LHHX_REG_ROUNDING_MASK,
+	},
+	[ST_ASM330LHHX_REG_CTRL6_C_REG] = {
+		.page = FUNC_CFG_ACCESS_0,
+		.addr = ST_ASM330LHHX_REG_CTRL6_C_ADDR,
+		.mask = ST_ASM330LHHX_REG_XL_HM_MODE_MASK,
 	},
 	[ST_ASM330LHHX_REG_CTRL10_C_REG] = {
 		.page = FUNC_CFG_ACCESS_0,
@@ -938,6 +947,14 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 #endif /* ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS */
 
 		st_asm330lhhx_suspend_resume[i].val = data;
+
+#ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
+	dev_info(hw->dev,
+		 "%s %d: %x -> %x\n",
+		 __FUNCTION__, __LINE__,
+		 st_asm330lhhx_suspend_resume[i].addr,
+		 st_asm330lhhx_suspend_resume[i].val);
+#endif /* ST_ASM330LHHX_ENABLE_DEBUG */
 	}
 
 out_lock:
@@ -983,6 +1000,14 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 				"failed to update %02x reg\n",
 				st_asm330lhhx_suspend_resume[i].addr);
 			break;
+
+#ifdef ST_ASM330LHHX_ENABLE_DEBUG
+	dev_info(hw->dev,
+		 "%s %d: %x <- %x\n",
+		 __FUNCTION__, __LINE__,
+		 st_asm330lhhx_suspend_resume[i].addr,
+		 st_asm330lhhx_suspend_resume[i].val);
+#endif /* ST_ASM330LHHX_ENABLE_DEBUG */
 		}
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 		if (restore) {
@@ -1289,6 +1314,38 @@ out_claim:
 
 	return size;
 }
+static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw);
+static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw);
+
+ssize_t st_asm330lhhx_debug_suspend_resume(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	struct iio_dev *iio_dev = dev_get_drvdata(dev);
+	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
+	struct st_asm330lhhx_hw *hw = sensor->hw;
+	int err, val;
+
+	err = iio_device_claim_direct_mode(iio_dev);
+	if (err)
+		return err;
+
+	err = kstrtoint(buf, 10, &val);
+	if (err < 0)
+		goto out;
+
+	if (val == 0)
+		err = _st_asm330lhhx_suspend(hw);
+	else if (val == 1)
+		err = _st_asm330lhhx_resume(hw);
+	else
+		err = -EINVAL;
+
+out:
+	iio_device_release_direct_mode(iio_dev);
+
+	return err < 0 ? err : size;
+}
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(st_asm330lhhx_sysfs_sampling_frequency_avail);
 static IIO_DEVICE_ATTR(in_accel_scale_available, 0444,
@@ -1314,6 +1371,9 @@ static IIO_DEVICE_ATTR(power_mode, 0644,
 		       st_asm330lhhx_get_power_mode,
 		       st_asm330lhhx_set_power_mode, 0);
 
+static IIO_DEVICE_ATTR(suspend_resume, 0200, NULL,
+		       st_asm330lhhx_debug_suspend_resume, 0);
+
 static struct attribute *st_asm330lhhx_acc_attributes[] = {
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_scale_available.dev_attr.attr,
@@ -1323,6 +1383,7 @@ static struct attribute *st_asm330lhhx_acc_attributes[] = {
 	&iio_dev_attr_power_mode.dev_attr.attr,
 	&iio_dev_attr_selftest_available.dev_attr.attr,
 	&iio_dev_attr_selftest.dev_attr.attr,
+	&iio_dev_attr_suspend_resume.dev_attr.attr,
 	NULL,
 };
 
@@ -1636,11 +1697,10 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 }
 EXPORT_SYMBOL(st_asm330lhhx_probe);
 
-static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
+static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 {
-	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
-	struct st_asm330lhhx_sensor *sensor;
-	int i, err = 0, mlc_event = 0;
+	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
+	int i, err = 0, mlc_event = 0, id_acc;
 
 	err = st_asm330lhhx_bk_regs(hw);
 	if (err < 0)
@@ -1657,19 +1717,22 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 		//err = st_asm330lhhx_set_odr(sensor, 0, 0);
 		//if (err < 0)
 		//	return err;
+
+		/* check for some mlc/fsm enabled during suspend */
+		if (sensor->id > ST_ASM330LHHX_ID_MLC)
+			mlc_event++;
 	}
 
 	if (mlc_event) {
 		u8 drdy_reg;
 
 		/* set low power mode to acc at 12.5 Hz in FIFO */
-		i = ST_ASM330LHHX_ID_ACC;
-		sensor = iio_priv(hw->iio_devs[i]);
+		id_acc = ST_ASM330LHHX_ID_ACC;
 		err = regmap_update_bits(hw->regmap,
-					st_asm330lhhx_odr_table[i].pm.addr,
-					st_asm330lhhx_odr_table[i].pm.mask,
+					st_asm330lhhx_odr_table[id_acc].pm.addr,
+					st_asm330lhhx_odr_table[id_acc].pm.mask,
 					ST_ASM330LHHX_SHIFT_VAL(ST_ASM330LHHX_LP_MODE,
-					  st_asm330lhhx_odr_table[i].pm.mask));
+					  st_asm330lhhx_odr_table[id_acc].pm.mask));
 		if (err < 0)
 			return err;
 
@@ -1678,14 +1741,15 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 		if (err < 0)
 			return err;
 
-		err = st_asm330lhhx_set_odr(sensor,
-				st_asm330lhhx_odr_table[i].odr_avl[1].hz,
-				st_asm330lhhx_odr_table[i].odr_avl[1].uhz);
+		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
+		err = st_asm330lhhx_set_odr(sensor_acc,
+				st_asm330lhhx_odr_table[id_acc].odr_avl[1].hz,
+				st_asm330lhhx_odr_table[id_acc].odr_avl[1].uhz);
 		if (err < 0)
 			return err;
 
 		/* enable batch on acc */
-		err = st_asm330lhhx_update_batching(hw->iio_devs[i], true);
+		err = st_asm330lhhx_update_batching(hw->iio_devs[id_acc], true);
 		if (err < 0)
 			return err;
 
@@ -1700,16 +1764,31 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 		if (err < 0)
 			return err;
 
+		err = st_asm330lhhx_update_watermark(sensor_acc,
+						ST_ASM330LHHX_MAX_FIFO_DEPTH);
+		if (err < 0)
+			return err;
+
 		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_CONT);
 		if (err < 0)
 			return err;
 	} else {
-		//if (st_asm330lhhx_is_fifo_enabled(hw)) {
-			//err = st_asm330lhhx_suspend_fifo(hw);
-			//if (err < 0)
-			//      return err;
-		//}
+		if (st_asm330lhhx_is_fifo_enabled(hw)) {
+			err = st_asm330lhhx_suspend_fifo(hw);
+			if (err < 0)
+			      return err;
+		}
 	}
+
+	return err < 0 ? err : 0;
+}
+
+static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
+{
+	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
+	int err = 0;
+
+	err = _st_asm330lhhx_suspend(hw);
 
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
 	if (device_may_wakeup(dev))
@@ -1721,38 +1800,31 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 	return err < 0 ? err : 0;
 }
 
-static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
+static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 {
-	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
-	struct st_asm330lhhx_sensor *sensor;
-	int i, err = 0;
+	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
+	int i, err = 0, id_acc;
+	//u8 drdy_reg;
 
-	dev_info(dev, "Resuming device\n");
+	/* stop acc */
+	id_acc = ST_ASM330LHHX_ID_ACC;
+	sensor_acc = iio_priv(hw->iio_devs[id_acc]);
+	err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
 
-#ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
-	if (device_may_wakeup(dev))
-		disable_irq_wake(hw->irq);
-#endif /* CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP */
+	/* restore low power mode to acc */
+	//err = regmap_update_bits(hw->regmap,
+	//			st_asm330lhhx_odr_table[i].pm.addr,
+	//			st_asm330lhhx_odr_table[i].pm.mask,
+	//			ST_ASM330LHHX_SHIFT_VAL(sensor->pm,
+	//			  st_asm330lhhx_odr_table[i].pm.mask));
+	//if (err < 0)
+	//	return err;
 
 	err = st_asm330lhhx_restore_regs(hw);
 	if (err < 0)
 		return err;
 
-	/* stop acc */
-	i = ST_ASM330LHHX_ID_ACC;
-	sensor = iio_priv(hw->iio_devs[i]);
-	err = st_asm330lhhx_set_odr(sensor, 0, 0);
-
-	/* restore low power mode to acc */
-	err = regmap_update_bits(hw->regmap,
-				st_asm330lhhx_odr_table[i].pm.addr,
-				st_asm330lhhx_odr_table[i].pm.mask,
-				ST_ASM330LHHX_SHIFT_VAL(sensor->pm,
-				  st_asm330lhhx_odr_table[i].pm.mask));
-	if (err < 0)
-		return err;
-
-	for (i = 0; i < ST_ASM330LHHX_ID_MAX; i++) {
+	for (i = 0; i <= ST_ASM330LHHX_ID_EXT1; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
 		if (!hw->iio_devs[i])
 			continue;
@@ -1766,10 +1838,36 @@ static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
 	}
 
 	/* FIFO still configured */
-	if (st_asm330lhhx_is_fifo_enabled(hw))
+	if (st_asm330lhhx_is_fifo_enabled(hw)) {
 		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_CONT);
+		if (err < 0)
+			return err;
+	}
+
+	/* switch interrupt mode to mlc event */
+	//err = _st_asm330lhhx_get_int_reg(hw, hw->int_pin, &drdy_reg);
+	//if (err < 0)
+	//	return err;
+
+	//err = regmap_update_bits(hw->regmap, drdy_reg,
+	//			ST_ASM330LHHX_REG_FIFO_TH_MASK,
+	//			FIELD_PREP(ST_ASM330LHHX_REG_FIFO_TH_MASK, 1));
 
 	return err < 0 ? err : 0;
+}
+
+static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
+{
+	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
+
+	dev_info(dev, "Resuming device\n");
+
+#ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
+	if (device_may_wakeup(dev))
+		disable_irq_wake(hw->irq);
+#endif /* CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP */
+
+	return _st_asm330lhhx_resume(hw);
 }
 
 const struct dev_pm_ops st_asm330lhhx_pm_ops = {
