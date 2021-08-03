@@ -232,6 +232,7 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 		} else if (reg == 0x01 && val == 0x00) {
 			stmc_page = false;
 		} else if (stmc_page) {
+			/* catch configuration in stmc page */
 			switch (reg) {
 			case ST_ASM330LHHX_MLC_INT1_ADDR:
 			case ST_ASM330LHHX_MLC_INT2_ADDR:
@@ -257,6 +258,15 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 				 * if the interrupts are not used
 				 */
 				mlc_fsm_en = val;
+				skip = 1;
+				break;
+			default:
+				break;
+			}
+		} else if (!stmc_page) {
+			/* catch configuration in page 0 */
+			switch (reg) {
+			case ST_ASM330LHHX_CTRL1_XL_ADDR:
 				skip = 1;
 				break;
 			default:
