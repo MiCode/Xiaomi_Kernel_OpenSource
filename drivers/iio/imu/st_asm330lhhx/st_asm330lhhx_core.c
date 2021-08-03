@@ -480,6 +480,26 @@ int st_asm330lhhx_get_odr_val(enum st_asm330lhhx_sensor_id id, int odr,
 	return 0;
 }
 
+int __maybe_unused
+st_asm330lhhx_get_odr_from_reg(enum st_asm330lhhx_sensor_id id, u8 reg_val,
+			       u16 *podr, u32 *puodr)
+{
+	int i;
+
+	for (i = 0; i < st_asm330lhhx_odr_table[id].size; i++) {
+		if (reg_val == st_asm330lhhx_odr_table[id].odr_avl[i].val)
+			break;
+	}
+
+	if (i == st_asm330lhhx_odr_table[id].size)
+		return -EINVAL;
+
+	*podr = st_asm330lhhx_odr_table[id].odr_avl[i].hz;
+	*puodr = st_asm330lhhx_odr_table[id].odr_avl[i].uhz;
+
+	return 0;
+}
+
 int st_asm330lhhx_get_batch_val(struct st_asm330lhhx_sensor *sensor, int odr,
 			       int uodr, u8 *val)
 {

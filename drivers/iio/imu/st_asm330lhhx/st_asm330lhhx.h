@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.9"
+#define ST_ASM330LHHX_DRV_VERSION			"1.10"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -246,6 +246,7 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
  * struct mlc_config_t -
  * @mlc_int_addr: interrupt register address
  * @mlc_int_mask: interrupt register mask
+ * @fsm_enabled_mask: enable fsm register mask
  * @fsm_int_addr: interrupt register address
  * @fsm_int_mask: interrupt register mask
  * @mlc_configured: number of mlc configured
@@ -253,11 +254,13 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
  * @bin_len: fw binary size
  * @mlc_int_pin: where route mlc int pin
  * @mlc_fsm_en: mlc and fsm enable bit reported by ucf file
+ * @fsm_mlc_requested_odr, fsm_mlc_requested_uodr: Min required ODR by MLC/FSM.
  * @status: mlc/fsm status
  */
 struct st_asm330lhhx_mlc_config_t {
 	u8 mlc_int_addr;
 	u8 mlc_int_mask;
+	u8 fsm_enabled_mask[2];
 	u8 fsm_int_addr[2];
 	u8 fsm_int_mask[2];
 	u8 mlc_configured;
@@ -265,6 +268,8 @@ struct st_asm330lhhx_mlc_config_t {
 	u16 bin_len;
 	int mlc_int_pin;
 	u8 mlc_fsm_en;
+	u16 fsm_mlc_requested_odr;
+	u32 fsm_mlc_requested_uodr;
 	enum st_asm330lhhx_fsm_mlc_enable_id status;
 };
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
@@ -709,6 +714,8 @@ int st_asm330lhhx_mlc_remove(struct device *dev);
 int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_mlc_init_preload(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw);
+int st_asm330lhhx_get_odr_from_reg(enum st_asm330lhhx_sensor_id id, u8 reg_val,
+				   u16 *podr, u32 *puodr);
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
 
 #endif /* ST_ASM330LHHX_H */
