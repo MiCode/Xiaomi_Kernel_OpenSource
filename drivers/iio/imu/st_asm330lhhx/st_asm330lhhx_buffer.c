@@ -17,7 +17,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger.h>
-#include <linux/iio/buffer.h>
 #include <linux/of.h>
 
 #include "st_asm330lhhx.h"
@@ -199,12 +198,12 @@ static inline void st_asm330lhhx_sync_hw_ts(struct st_asm330lhhx_hw *hw, s64 ts)
 }
 
 
-static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
+int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 {
 	u8 iio_buf[ALIGN(ST_ASM330LHHX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 	u8 buf[32 * ST_ASM330LHHX_FIFO_SAMPLE_SIZE], tag, *ptr;
+	struct iio_dev *iio_dev, *iio_dev_mlc_fifo_acc;
 	int i, err, word_len, fifo_len, read_len;
-	struct iio_dev *iio_dev;
 	s64 ts_irq, hw_ts_old;
 	__le16 fifo_status;
 	u16 fifo_depth;
@@ -283,7 +282,15 @@ static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 
 				ts = hw->hw_ts + hw->ts_offset;
 
-				/* support decimation for ODR < 12.5 Hz */
+#ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
+				if (hw->resuming) {
+					iio_dev_mlc_fifo_acc = hw->iio_devs[ST_ASM330LHHX_ID_FIFO_MLC];
+					iio_push_to_buffers_with_timestamp(iio_dev_mlc_fifo_acc,
+								iio_buf, ts);
+				}
+#endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
+
+				/* decimation for ODR < 12.5 Hz on SHUB */
 				if (sensor->dec_counter > 0) {
 					sensor->dec_counter--;
 				} else {
@@ -297,6 +304,8 @@ static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 		}
 		read_len += word_len;
 	}
+
+	hw->resuming = false;
 
 	return read_len;
 }

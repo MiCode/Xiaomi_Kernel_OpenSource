@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.7"
+#define ST_ASM330LHHX_DRV_VERSION			"1.8"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -247,6 +247,7 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
  * @fsm_configured: number of fsm configured
  * @bin_len: fw binary size
  * @mlc_int_pin: where route mlc int pin
+ * @mlc_fsm_en: mlc and fsm enable bit reported by ucf file
  * @status: mlc/fsm status
  */
 struct st_asm330lhhx_mlc_config_t {
@@ -258,6 +259,7 @@ struct st_asm330lhhx_mlc_config_t {
 	uint8_t fsm_configured;
 	uint16_t bin_len;
 	int mlc_int_pin;
+	uint8_t mlc_fsm_en;
 	enum st_asm330lhhx_fsm_mlc_enable_id status;
 };
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
@@ -386,7 +388,9 @@ enum st_asm330lhhx_sensor_id {
 	ST_ASM330LHHX_ID_TEMP,
 	ST_ASM330LHHX_ID_EXT0,
 	ST_ASM330LHHX_ID_EXT1,
+
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
+	ST_ASM330LHHX_ID_FIFO_MLC,
 	ST_ASM330LHHX_ID_MLC,
 	ST_ASM330LHHX_ID_MLC_0,
 	ST_ASM330LHHX_ID_MLC_1,
@@ -413,6 +417,7 @@ enum st_asm330lhhx_sensor_id {
 	ST_ASM330LHHX_ID_FSM_14,
 	ST_ASM330LHHX_ID_FSM_15,
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
+
 	ST_ASM330LHHX_ID_MAX,
 };
 
@@ -566,6 +571,7 @@ struct st_asm330lhhx_hw {
 	const struct st_asm330lhhx_odr_table_entry *odr_table_entry;
 
 	bool preload_mlc;
+	bool resuming;
 
 	struct iio_dev *iio_devs[ST_ASM330LHHX_ID_MAX];
 };
@@ -696,6 +702,7 @@ int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_mlc_remove(struct device *dev);
 int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_mlc_init_preload(struct st_asm330lhhx_hw *hw);
+int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw);
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
 
 #endif /* ST_ASM330LHHX_H */
