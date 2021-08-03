@@ -169,7 +169,7 @@ static struct st_asm330lhhx_suspend_resume_entry
 
 static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 	[ST_ASM330LHHX_ID_ACC] = {
-		.size = 8,
+		.size = 7,
 		.reg = {
 			.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
 			.mask = ST_ASM330LHHX_CTRL1_XL_ODR_XL_MASK,
@@ -182,17 +182,17 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 			.addr = ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR,
 			.mask = ST_ASM330LHHX_REG_BDR_XL_MASK,
 		},
-		.odr_avl[0] = {   1, 600000,  0x01,  0x0b },
-		.odr_avl[1] = {  12, 500000,  0x01,  0x01 },
-		.odr_avl[2] = {  26,      0,  0x02,  0x02 },
-		.odr_avl[3] = {  52,      0,  0x03,  0x03 },
-		.odr_avl[4] = { 104,      0,  0x04,  0x04 },
-		.odr_avl[5] = { 208,      0,  0x05,  0x05 },
-		.odr_avl[6] = { 416,      0,  0x06,  0x06 },
-		.odr_avl[7] = { 833,      0,  0x07,  0x07 },
+		//.odr_avl[0] = {   1, 600000,  0x01,  0x0b },
+		.odr_avl[0] = {  12, 500000,  0x01,  0x01 },
+		.odr_avl[1] = {  26,      0,  0x02,  0x02 },
+		.odr_avl[2] = {  52,      0,  0x03,  0x03 },
+		.odr_avl[3] = { 104,      0,  0x04,  0x04 },
+		.odr_avl[4] = { 208,      0,  0x05,  0x05 },
+		.odr_avl[5] = { 416,      0,  0x06,  0x06 },
+		.odr_avl[6] = { 833,      0,  0x07,  0x07 },
 	},
 	[ST_ASM330LHHX_ID_GYRO] = {
-		.size = 8,
+		.size = 7,
 		.reg = {
 			.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
 			.mask = ST_ASM330LHHX_CTRL1_XL_ODR_G_MASK,
@@ -205,24 +205,24 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 			.addr = ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR,
 			.mask = ST_ASM330LHHX_REG_BDR_GY_MASK,
 		},
-		.odr_avl[0] = {   6, 500000,  0x01,  0x0b },
-		.odr_avl[1] = {  12, 500000,  0x01,  0x01 },
-		.odr_avl[2] = {  26,      0,  0x02,  0x02 },
-		.odr_avl[3] = {  52,      0,  0x03,  0x03 },
-		.odr_avl[4] = { 104,      0,  0x04,  0x04 },
-		.odr_avl[5] = { 208,      0,  0x05,  0x05 },
-		.odr_avl[6] = { 416,      0,  0x06,  0x06 },
-		.odr_avl[7] = { 833,      0,  0x07,  0x07 },
+		//.odr_avl[0] = {   6, 500000,  0x01,  0x0b },
+		.odr_avl[0] = {  12, 500000,  0x01,  0x01 },
+		.odr_avl[1] = {  26,      0,  0x02,  0x02 },
+		.odr_avl[2] = {  52,      0,  0x03,  0x03 },
+		.odr_avl[3] = { 104,      0,  0x04,  0x04 },
+		.odr_avl[4] = { 208,      0,  0x05,  0x05 },
+		.odr_avl[5] = { 416,      0,  0x06,  0x06 },
+		.odr_avl[6] = { 833,      0,  0x07,  0x07 },
 	},
 	[ST_ASM330LHHX_ID_TEMP] = {
-		.size = 3,
+		.size = 2,
 		.batching_reg = {
 			.addr = ST_ASM330LHHX_REG_FIFO_CTRL4_ADDR,
 			.mask = ST_ASM330LHHX_REG_ODR_T_BATCH_MASK,
 		},
-		.odr_avl[0] = {  1, 600000,   0x01,  0x01 },
-		.odr_avl[1] = { 12, 500000,   0x02,  0x02 },
-		.odr_avl[2] = { 52,      0,   0x03,  0x03 },
+		//.odr_avl[0] = {  1, 600000,   0x01,  0x01 },
+		.odr_avl[0] = { 12, 500000,   0x02,  0x02 },
+		.odr_avl[1] = { 52,      0,   0x03,  0x03 },
 	},
 };
 
@@ -1571,8 +1571,8 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = 0;
 		sensor->pm = ST_ASM330LHHX_HP_MODE;
-		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[1].hz;
-		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[1].uhz;
+		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
+		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
 		sensor->min_st = ST_ASM330LHHX_SELFTEST_ACCEL_MIN;
 		sensor->max_st = ST_ASM330LHHX_SELFTEST_ACCEL_MAX;
 		break;
@@ -1586,8 +1586,8 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = 0;
 		sensor->pm = ST_ASM330LHHX_HP_MODE;
-		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[1].hz;
-		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[1].uhz;
+		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
+		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
 		sensor->min_st = ST_ASM330LHHX_SELFTEST_GYRO_MIN;
 		sensor->max_st = ST_ASM330LHHX_SELFTEST_GYRO_MAX;
 		break;
@@ -1601,8 +1601,8 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = ST_ASM330LHHX_TEMP_OFFSET;
 		sensor->pm = ST_ASM330LHHX_NO_MODE;
-		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[1].hz;
-		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[1].uhz;
+		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
+		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
 		break;
 	default:
 		return NULL;
@@ -1763,7 +1763,7 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 				  st_asm330lhhx_odr_table[id_acc].reg.addr,
 				  st_asm330lhhx_odr_table[id_acc].reg.mask,
 				  ST_ASM330LHHX_SHIFT_VAL(
-					st_asm330lhhx_odr_table[id_acc].odr_avl[1].val,
+					st_asm330lhhx_odr_table[id_acc].odr_avl[0].val,
 					st_asm330lhhx_odr_table[id_acc].reg.mask));
 		if (err < 0)
 			return err;
@@ -1772,7 +1772,7 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		err = st_asm330lhhx_update_bits_locked(hw,
 				hw->odr_table_entry[id_acc].batching_reg.addr,
 				hw->odr_table_entry[id_acc].batching_reg.mask,
-				st_asm330lhhx_odr_table[id_acc].odr_avl[1].batch_val);
+				st_asm330lhhx_odr_table[id_acc].odr_avl[0].batch_val);
 		if (err < 0)
 			return err;
 
