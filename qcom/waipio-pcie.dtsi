@@ -119,6 +119,7 @@
 		qcom,slv-addr-space-size = <0x4000000>;
 		qcom,ep-latency = <10>;
 		qcom,num-parf-testbus-sel = <0xb9>;
+		qcom,config-recovery;
 
 		qcom,pcie-phy-ver = <104>;
 		qcom,phy-status-offset = <0x214>;
