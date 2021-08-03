@@ -4,7 +4,6 @@
  *
  * Copyright 2021 STMicroelectronics Inc.
  *
- * Lorenzo Bianconi <lorenzo.bianconi@st.com>
  * Tesi Mario <mario.tesi@st.com>
  */
 
@@ -20,7 +19,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.5"
+#define ST_ASM330LHHX_DRV_VERSION			"1.6"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -244,6 +243,8 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
  * @mlc_configured: number of mlc configured
  * @fsm_configured: number of fsm configured
  * @bin_len: fw binary size
+ * @mlc_int_pin: where route mlc int pin
+ * @status: mlc/fsm status
  */
 struct st_asm330lhhx_mlc_config_t {
 	uint8_t mlc_int_addr;
@@ -253,6 +254,7 @@ struct st_asm330lhhx_mlc_config_t {
 	uint8_t mlc_configured;
 	uint8_t fsm_configured;
 	uint16_t bin_len;
+	int mlc_int_pin;
 	enum st_asm330lhhx_fsm_mlc_enable_id status;
 };
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
@@ -524,7 +526,8 @@ struct st_asm330lhhx_sensor {
  * @delta_ts: Delta time between two consecutive interrupts.
  * @ts: Latest timestamp from irq handler.
  * @i2c_master_pu: I2C master line Pull Up configuration.
- * @mlc_config:
+ * @int_pin: fifo wtm interrupt pin configuration.
+ * @mlc_config: mlc configuration structure.
  * @odr_table_entry: Sensors ODR table.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  */
@@ -551,6 +554,7 @@ struct st_asm330lhhx_hw {
 	s64 delta_ts;
 	s64 ts;
 	u8 i2c_master_pu;
+	u8 int_pin;
 
 	struct st_asm330lhhx_mlc_config_t *mlc_config;
 	const struct st_asm330lhhx_odr_table_entry *odr_table_entry;

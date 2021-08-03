@@ -4,7 +4,6 @@
  *
  * Copyright 2021 STMicroelectronics Inc.
  *
- * Lorenzo Bianconi <lorenzo.bianconi@st.com>
  * Tesi Mario <mario.tesi@st.com>
  */
 

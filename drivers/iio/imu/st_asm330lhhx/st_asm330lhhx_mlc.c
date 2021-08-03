@@ -677,8 +677,33 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 	return err;
 }
 
+static int st_asm330lhhx_of_get_mlc_int_pin(struct st_asm330lhhx_hw *hw,
+					    int *pin)
+{
+	struct device_node *np = hw->dev->of_node;
+
+	if (!np)
+		return -EINVAL;
+
+	return of_property_read_u32(np, "st,mlc-int-pin", pin);
+}
+
 int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw)
 {
+	int int_pin;
+	int ret;
+
+	ret = st_asm330lhhx_of_get_mlc_int_pin(hw, &int_pin);
+	if (ret < 0) {
+		dev_info(hw->dev, "missing mlc-int-pin, using default\n");
+		int_pin = hw->int_pin;
+	}
+
+	if (int_pin != 1 && int_pin != 2) {
+		dev_err(hw->dev, "invalid mlc interrupt configuration\n");
+		return -EINVAL;
+	}
+
 	hw->iio_devs[ST_ASM330LHHX_ID_MLC] =
 		st_asm330lhhx_mlc_alloc_iio_dev(hw, ST_ASM330LHHX_ID_MLC);
 	if (!hw->iio_devs[ST_ASM330LHHX_ID_MLC])
@@ -689,6 +714,8 @@ int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw)
 				      GFP_KERNEL);
 	if (!hw->mlc_config)
 		return -ENOMEM;
+
+	hw->mlc_config->mlc_int_pin = int_pin;
 
 	return 0;
 }

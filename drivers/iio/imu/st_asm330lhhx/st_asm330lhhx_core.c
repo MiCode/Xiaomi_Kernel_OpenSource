@@ -4,7 +4,6 @@
  *
  * Copyright 2021 STMicroelectronics Inc.
  *
- * Lorenzo Bianconi <lorenzo.bianconi@st.com>
  * Tesi Mario <mario.tesi@st.com>
  */
 
@@ -840,17 +839,10 @@ int st_asm330lhhx_of_get_pin(struct st_asm330lhhx_hw *hw, int *pin)
 	return of_property_read_u32(np, "st,int-pin", pin);
 }
 
-static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, u8 *drdy_reg)
+static int _st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, int int_pin,
+				      u8 *drdy_reg)
 {
-	int err = 0, int_pin;
-
-	if (st_asm330lhhx_of_get_pin(hw, &int_pin) < 0) {
-		struct st_sensors_platform_data *pdata;
-		struct device *dev = hw->dev;
-
-		pdata = (struct st_sensors_platform_data *)dev->platform_data;
-		int_pin = pdata ? pdata->drdy_int_pin : 1;
-	}
+	int err = 0;
 
 	switch (int_pin) {
 	case 1:
@@ -864,6 +856,27 @@ static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, u8 *drdy_reg)
 		err = -EINVAL;
 		break;
 	}
+
+	return err;
+}
+
+static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, u8 *drdy_reg)
+{
+	int err = 0, int_pin;
+
+	if (st_asm330lhhx_of_get_pin(hw, &int_pin) < 0) {
+		struct st_sensors_platform_data *pdata;
+		struct device *dev = hw->dev;
+
+		pdata = (struct st_sensors_platform_data *)dev->platform_data;
+		int_pin = pdata ? pdata->drdy_int_pin : 1;
+	}
+
+	err = _st_asm330lhhx_get_int_reg(hw, int_pin, drdy_reg);
+	if (err)
+		return err;
+
+	hw->int_pin = int_pin;
 
 	return err;
 }
@@ -1622,7 +1635,11 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 {
 	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
 	struct st_asm330lhhx_sensor *sensor;
-	int i, err = 0;
+	int i, err = 0, mlc_event = 0;
+
+	err = st_asm330lhhx_bk_regs(hw);
+	if (err < 0)
+		return err;
 
 	for (i = 0; i < ST_ASM330LHHX_ID_MAX; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
@@ -1632,18 +1649,62 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 		if (!(hw->enable_mask & BIT(sensor->id)))
 			continue;
 
-		err = st_asm330lhhx_set_odr(sensor, 0, 0);
-		if (err < 0)
-			return err;
+		//err = st_asm330lhhx_set_odr(sensor, 0, 0);
+		//if (err < 0)
+		//	return err;
 	}
 
-	if (st_asm330lhhx_is_fifo_enabled(hw)) {
-		err = st_asm330lhhx_suspend_fifo(hw);
+	if (mlc_event) {
+		u8 drdy_reg;
+
+		/* set low power mode to acc at 12.5 Hz in FIFO */
+		i = ST_ASM330LHHX_ID_ACC;
+		sensor = iio_priv(hw->iio_devs[i]);
+		err = regmap_update_bits(hw->regmap,
+					st_asm330lhhx_odr_table[i].pm.addr,
+					st_asm330lhhx_odr_table[i].pm.mask,
+					ST_ASM330LHHX_SHIFT_VAL(ST_ASM330LHHX_LP_MODE,
+					  st_asm330lhhx_odr_table[i].pm.mask));
 		if (err < 0)
 			return err;
-	}
 
-	err = st_asm330lhhx_bk_regs(hw);
+		/* toggle FIFO mode to flush data */
+		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_BYPASS);
+		if (err < 0)
+			return err;
+
+		err = st_asm330lhhx_set_odr(sensor,
+				st_asm330lhhx_odr_table[i].odr_avl[1].hz,
+				st_asm330lhhx_odr_table[i].odr_avl[1].uhz);
+		if (err < 0)
+			return err;
+
+		/* enable batch on acc */
+		err = st_asm330lhhx_update_batching(hw->iio_devs[i], true);
+		if (err < 0)
+			return err;
+
+		/* switch interrupt mode to mlc event */
+		err = _st_asm330lhhx_get_int_reg(hw, hw->int_pin, &drdy_reg);
+		if (err < 0)
+			return err;
+
+		err = regmap_update_bits(hw->regmap, drdy_reg,
+					ST_ASM330LHHX_REG_FIFO_TH_MASK,
+					FIELD_PREP(ST_ASM330LHHX_REG_FIFO_TH_MASK, 0));
+		if (err < 0)
+			return err;
+
+		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_CONT);
+		if (err < 0)
+			return err;
+	} else {
+		//if (st_asm330lhhx_is_fifo_enabled(hw)) {
+			//err = st_asm330lhhx_suspend_fifo(hw);
+			//if (err < 0)
+			//      return err;
+		//}
+	}
 
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
 	if (device_may_wakeup(dev))
@@ -1672,6 +1733,20 @@ static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
 	if (err < 0)
 		return err;
 
+	/* stop acc */
+	i = ST_ASM330LHHX_ID_ACC;
+	sensor = iio_priv(hw->iio_devs[i]);
+	err = st_asm330lhhx_set_odr(sensor, 0, 0);
+
+	/* restore low power mode to acc */
+	err = regmap_update_bits(hw->regmap,
+				st_asm330lhhx_odr_table[i].pm.addr,
+				st_asm330lhhx_odr_table[i].pm.mask,
+				ST_ASM330LHHX_SHIFT_VAL(sensor->pm,
+				  st_asm330lhhx_odr_table[i].pm.mask));
+	if (err < 0)
+		return err;
+
 	for (i = 0; i < ST_ASM330LHHX_ID_MAX; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
 		if (!hw->iio_devs[i])
@@ -1685,6 +1760,7 @@ static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
 			return err;
 	}
 
+	/* FIFO still configured */
 	if (st_asm330lhhx_is_fifo_enabled(hw))
 		err = st_asm330lhhx_set_fifo_mode(hw, ST_ASM330LHHX_FIFO_CONT);
 
@@ -1696,7 +1772,6 @@ const struct dev_pm_ops st_asm330lhhx_pm_ops = {
 };
 EXPORT_SYMBOL(st_asm330lhhx_pm_ops);
 
-MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi@st.com>");
 MODULE_AUTHOR("Mario Tesi <mario.tesi@st.com>");
 MODULE_DESCRIPTION("STMicroelectronics st_asm330lhhx driver");
 MODULE_LICENSE("GPL v2");
