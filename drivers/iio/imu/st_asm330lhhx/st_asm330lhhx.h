@@ -20,7 +20,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.4"
+#define ST_ASM330LHHX_DRV_VERSION			"1.5"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -64,9 +64,17 @@
 
 #define ST_ASM330LHHX_REG_CTRL5_C_ADDR			0x14
 #define ST_ASM330LHHX_REG_ROUNDING_MASK			GENMASK(6, 5)
+#define ST_ASM330LHHX_REG_ST_G_MASK			GENMASK(3, 2)
+#define ST_ASM330LHHX_REG_ST_XL_MASK			GENMASK(1, 0)
+#define ST_ASM330LHHX_SELFTEST_ACCEL_MIN		737
+#define ST_ASM330LHHX_SELFTEST_ACCEL_MAX		13934
+#define ST_ASM330LHHX_SELFTEST_GYRO_MIN			2142
+#define ST_ASM330LHHX_SELFTEST_GYRO_MAX			10000
 
-#define ST_ASM330LHHX_REG_STATUS_MASTER_MAINPAGE_ADDR	0x39
-#define ST_ASM330LHHX_REG_STATUS_SENS_HUB_ENDOP_MASK	BIT(0)
+#define ST_ASM330LHHX_SELF_TEST_DISABLED_VAL		0
+#define ST_ASM330LHHX_SELF_TEST_POS_SIGN_VAL		1
+#define ST_ASM330LHHX_SELF_TEST_NEG_ACCEL_SIGN_VAL	2
+#define ST_ASM330LHHX_SELF_TEST_NEG_GYRO_SIGN_VAL	3
 
 #define ST_ASM330LHHX_REG_CTRL6_C_ADDR			0x15
 #define ST_ASM330LHHX_REG_XL_HM_MODE_MASK		BIT(4)
@@ -78,6 +86,8 @@
 #define ST_ASM330LHHX_REG_TIMESTAMP_EN_MASK		BIT(5)
 
 #define ST_ASM330LHHX_REG_STATUS_ADDR			0x1e
+#define ST_ASM330LHHX_REG_STATUS_XLDA			BIT(0)
+#define ST_ASM330LHHX_REG_STATUS_GDA			BIT(1)
 #define ST_ASM330LHHX_REG_STATUS_TDA			BIT(2)
 
 #define ST_ASM330LHHX_REG_OUT_TEMP_L_ADDR		0x20
@@ -93,6 +103,9 @@
 #define ST_ASM330LHHX_FSM_STATUS_A_MAINPAGE		0x36
 #define ST_ASM330LHHX_FSM_STATUS_B_MAINPAGE		0x37
 #define ST_ASM330LHHX_MLC_STATUS_MAINPAGE 		0x38
+
+#define ST_ASM330LHHX_REG_STATUS_MASTER_MAINPAGE_ADDR	0x39
+#define ST_ASM330LHHX_REG_STATUS_SENS_HUB_ENDOP_MASK	BIT(0)
 
 #define ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR		0x3a
 #define ST_ASM330LHHX_REG_TIMESTAMP0_ADDR		0x40
@@ -268,6 +281,7 @@ enum st_asm330lhh_suspend_resume_register {
 	ST_ASM330LHHX_REG_FIFO_CTRL2_REG,
 	ST_ASM330LHHX_REG_FIFO_CTRL3_REG,
 	ST_ASM330LHHX_REG_FIFO_CTRL4_REG,
+#ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 	ST_ASM330LHHX_REG_EMB_FUNC_EN_B_REG,
 	ST_ASM330LHHX_REG_FSM_INT1_A_REG,
 	ST_ASM330LHHX_REG_FSM_INT1_B_REG,
@@ -275,6 +289,7 @@ enum st_asm330lhh_suspend_resume_register {
 	ST_ASM330LHHX_REG_FSM_INT2_A_REG,
 	ST_ASM330LHHX_REG_FSM_INT2_B_REG,
 	ST_ASM330LHHX_REG_MLC_INT2_REG,
+#endif /* ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS */
 	ST_ASM330LHHX_SUSPEND_RESUME_REGS,
 };
 
@@ -455,7 +470,9 @@ struct st_asm330lhhx_ext_dev_info {
  * @max_watermark: Max supported watermark level.
  * @watermark: Sensor watermark level.
  * @pm: sensor power mode (HP, LP).
- */
+ * @selftest_status: Last status of self test output.
+ * @min_st, @max_st: Min/Max acc/gyro data values during self test procedure.
+  */
 struct st_asm330lhhx_sensor {
 	char name[32];
 	enum st_asm330lhhx_sensor_id id;
@@ -475,6 +492,11 @@ struct st_asm330lhhx_sensor {
 			u16 watermark;
 			u8 pm;
 			s64 last_fifo_timestamp;
+
+			/* self test */
+			int8_t selftest_status;
+			int min_st;
+			int max_st;
 		};
 		struct {
 			uint8_t status_reg;
