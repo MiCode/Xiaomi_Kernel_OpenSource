@@ -365,11 +365,23 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 			break;
 	}
 
+	/* if MLC/FSM ODR is not configured uses first available */
+	if (!fsm_mlc_requested_odr)
+		fsm_mlc_requested_odr = 0x01;
+
 	ret = st_asm330lhhx_get_odr_from_reg(ST_ASM330LHHX_ID_ACC,
 					     fsm_mlc_requested_odr,
 					     &odr, &uodr);
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		fsm_num = 0;
+		mlc_num = 0;
+
+		dev_err(hw->dev,
+			"unsupported ODR %d for MLC/FSM\n",
+			fsm_mlc_requested_odr);
+
+		goto unlock_page;
+	}
 
 	if (mlc_num) {
 		hw->mlc_config->mlc_int_mask = mlc_int;
