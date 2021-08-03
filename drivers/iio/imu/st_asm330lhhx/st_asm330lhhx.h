@@ -529,6 +529,7 @@ struct st_asm330lhhx_sensor {
  * @int_pin: fifo wtm interrupt pin configuration.
  * @mlc_config: mlc configuration structure.
  * @odr_table_entry: Sensors ODR table.
+ * @preload_mlc: Preloaded MLC flag.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  */
 struct st_asm330lhhx_hw {
@@ -558,6 +559,8 @@ struct st_asm330lhhx_hw {
 
 	struct st_asm330lhhx_mlc_config_t *mlc_config;
 	const struct st_asm330lhhx_odr_table_entry *odr_table_entry;
+
+	bool preload_mlc;
 
 	struct iio_dev *iio_devs[ST_ASM330LHHX_ID_MAX];
 };
@@ -687,6 +690,7 @@ int st_asm330lhhx_shub_set_enable(struct st_asm330lhhx_sensor *sensor,
 int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_mlc_remove(struct device *dev);
 int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw);
+int st_asm330lhhx_mlc_init_preload(struct st_asm330lhhx_hw *hw);
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
 
 #endif /* ST_ASM330LHHX_H */

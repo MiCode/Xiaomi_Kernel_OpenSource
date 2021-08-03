@@ -495,7 +495,6 @@ int st_asm330lhhx_get_batch_val(struct st_asm330lhhx_sensor *sensor, int odr,
 	return 0;
 }
 
-
 static u16 st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
 					   int odr, int uodr,
 					   enum st_asm330lhhx_sensor_id ref_id)
@@ -1620,6 +1619,12 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 		if (err)
 			return err;
 	}
+
+#ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
+	err = st_asm330lhhx_mlc_init_preload(hw);
+	if (err)
+		return err;
+#endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
 
 #if defined(CONFIG_PM) && defined(CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP)
 	device_init_wakeup(dev, 1);
