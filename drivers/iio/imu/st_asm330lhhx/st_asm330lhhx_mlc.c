@@ -399,19 +399,19 @@ static int st_asm330lhhx_program_mlc(const struct firmware *fw,
 			case ST_ASM330LHHX_MLC_INT1_ADDR:
 			case ST_ASM330LHHX_MLC_INT2_ADDR:
 				mlc_int |= val;
-				mlc_num++;
+				mlc_num = hweight8(mlc_int);
 				skip = 1;
 				break;
 			case ST_ASM330LHHX_FSM_INT1_A_ADDR:
 			case ST_ASM330LHHX_FSM_INT2_A_ADDR:
 				fsm_int[0] |= val;
-				fsm_num++;
+				fsm_num = hweight16(*(u16 *)fsm_int);
 				skip = 1;
 				break;
 			case ST_ASM330LHHX_FSM_INT1_B_ADDR:
 			case ST_ASM330LHHX_FSM_INT2_B_ADDR:
 				fsm_int[1] |= val;
-				fsm_num++;
+				fsm_num = hweight16(*(u16 *)fsm_int);
 				skip = 1;
 				break;
 			case ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR:
