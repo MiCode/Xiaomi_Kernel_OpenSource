@@ -3928,6 +3928,7 @@ include/trace/hooks/gpiolib.h
 include/trace/hooks/hung_task.h
 include/trace/hooks/i2c.h
 include/trace/hooks/iommu.h
+include/trace/hooks/ipv4.h
 include/trace/hooks/ipv6.h
 include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
