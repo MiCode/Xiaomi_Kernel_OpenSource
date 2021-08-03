@@ -1609,9 +1609,7 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 	}
 
 #if defined(CONFIG_PM) && defined(CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP)
-	err = device_init_wakeup(dev, 1);
-	if (err)
-		return err;
+	device_init_wakeup(dev, 1);
 #endif /* CONFIG_PM && CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP */
 
 	dev_info(dev, "Device probed v%s\n", ST_ASM330LHHX_DRV_VERSION);
