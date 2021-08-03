@@ -30,11 +30,14 @@
 #define ST_ASM330LHHX_EWMA_LEVEL			120
 #define ST_ASM330LHHX_EWMA_DIV				128
 
+/* FIFO tags */
 enum {
 	ST_ASM330LHHX_GYRO_TAG = 0x01,
 	ST_ASM330LHHX_ACC_TAG = 0x02,
 	ST_ASM330LHHX_TEMP_TAG = 0x03,
 	ST_ASM330LHHX_TS_TAG = 0x04,
+	ST_ASM330LHHX_EXT0_TAG = 0x0f,
+	ST_ASM330LHHX_EXT1_TAG = 0x10,
 };
 
 /* Default timeout before to re-enable gyro */
@@ -122,7 +125,7 @@ int st_asm330lhhx_update_watermark(struct st_asm330lhhx_sensor *sensor,
 	int i, err;
 	int data = 0;
 
-	for (i = ST_ASM330LHHX_ID_GYRO; i < ST_ASM330LHHX_ID_MAX; i++) {
+	for (i = ST_ASM330LHHX_ID_GYRO; i <= ST_ASM330LHHX_ID_EXT1; i++) {
 		if (!hw->iio_devs[i])
 			continue;
 
@@ -171,6 +174,15 @@ iio_dev *st_asm330lhhx_get_iiodev_from_tag(struct st_asm330lhhx_hw *hw, u8 tag)
 		break;
 	case ST_ASM330LHHX_TEMP_TAG:
 		iio_dev = hw->iio_devs[ST_ASM330LHHX_ID_TEMP];
+		break;
+	case ST_ASM330LHHX_EXT0_TAG:
+		if (hw->enable_mask & BIT(ST_ASM330LHHX_ID_EXT0))
+			iio_dev = hw->iio_devs[ST_ASM330LHHX_ID_EXT0];
+		else
+			iio_dev = hw->iio_devs[ST_ASM330LHHX_ID_EXT1];
+		break;
+	case ST_ASM330LHHX_EXT1_TAG:
+		iio_dev = hw->iio_devs[ST_ASM330LHHX_ID_EXT1];
 		break;
 	default:
 		iio_dev = NULL;
@@ -359,12 +371,11 @@ ssize_t st_asm330lhhx_flush_fifo(struct device *dev,
 	set_bit(ST_ASM330LHHX_HW_FLUSH, &hw->state);
 	count = st_asm330lhhx_read_fifo(hw);
 	sensor->dec_counter = 0;
-	mutex_unlock(&hw->fifo_lock);
-
 	if (count > 0)
 		fts = sensor->last_fifo_timestamp;
 	else
 		fts = ts;
+	mutex_unlock(&hw->fifo_lock);
 
 	type = count > 0 ? IIO_EV_DIR_FIFO_DATA : IIO_EV_DIR_FIFO_EMPTY;
 	event = IIO_UNMOD_EVENT_CODE(iio_dev->channels[0].type, -1,
@@ -416,13 +427,20 @@ static int st_asm330lhhx_update_fifo(struct iio_dev *iio_dev, bool enable)
 
 	disable_irq(hw->irq);
 
-	err = st_asm330lhhx_sensor_set_enable(sensor, enable);
-	if (err < 0)
-		goto out;
+	if (sensor->id == ST_ASM330LHHX_ID_EXT0 ||
+	    sensor->id == ST_ASM330LHHX_ID_EXT1) {
+		err = st_asm330lhhx_shub_set_enable(sensor, enable);
+		if (err < 0)
+			goto out;
+	} else {
+		err = st_asm330lhhx_sensor_set_enable(sensor, enable);
+		if (err < 0)
+			goto out;
 
-	err = st_asm330lhhx_set_sensor_batching_odr(sensor, enable);
-	if (err < 0)
-		goto out;
+		err = st_asm330lhhx_set_sensor_batching_odr(sensor, enable);
+		if (err < 0)
+			goto out;
+	}
 
 	/*
 	 * This is an auxiliary sensor, it need to get batched
@@ -565,7 +583,7 @@ int st_asm330lhhx_buffers_setup(struct st_asm330lhhx_hw *hw)
 		return err;
 	}
 
-	for (i = ST_ASM330LHHX_ID_GYRO; i < ST_ASM330LHHX_ID_MAX; i++) {
+	for (i = ST_ASM330LHHX_ID_GYRO; i <= ST_ASM330LHHX_ID_EXT1; i++) {
 		if (!hw->iio_devs[i])
 			continue;
 

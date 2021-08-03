@@ -423,13 +423,12 @@ static int st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
 	return 0;
 }
 
-int st_asm330lhhx_get_odr_val(struct st_asm330lhhx_sensor *sensor, int odr,
+int st_asm330lhhx_get_odr_val(enum st_asm330lhhx_sensor_id id, int odr,
 			     int uodr, int *podr, int *puodr, u8 *val)
 {
-	enum st_asm330lhhx_sensor_id id = sensor->id;
 	int all_odr = ST_ASM330LHHX_ODR_EXPAND(odr, uodr);
-	int i;
 	int sensor_odr;
+	int i;
 
 	for (i = 0; i < st_asm330lhhx_odr_table[id].size; i++) {
 		sensor_odr = ST_ASM330LHHX_ODR_EXPAND(
@@ -512,11 +511,10 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor, int req_od
 		int i;
 
 		id = ST_ASM330LHHX_ID_ACC;
-		for (i = ST_ASM330LHHX_ID_ACC; i < ST_ASM330LHHX_ID_MAX; i++) {
-			if (!hw->iio_devs[i])
-				continue;
-
-			if (i == sensor->id)
+		for (i = ST_ASM330LHHX_ID_ACC;
+		     i <= ST_ASM330LHHX_ID_EXT1;
+		     i++) {
+			if (!hw->iio_devs[i] || i == sensor->id)
 				continue;
 
 			odr = st_asm330lhhx_check_odr_dependency(hw, req_odr,
@@ -532,7 +530,7 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor, int req_od
 		break;
 	}
 
-	err = st_asm330lhhx_get_odr_val(sensor, req_odr, req_uodr, &req_odr,
+	err = st_asm330lhhx_get_odr_val(id, req_odr, req_uodr, &req_odr,
 				       &req_uodr, &val);
 	if (err < 0)
 		return err;
@@ -540,19 +538,19 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor, int req_od
 	/* check if sensor supports power mode setting */
 	if (sensor->pm != ST_ASM330LHHX_NO_MODE) {
 		err = regmap_update_bits(hw->regmap,
-					 st_asm330lhhx_odr_table[sensor->id].pm.addr,
-					 st_asm330lhhx_odr_table[sensor->id].pm.mask,
+					 st_asm330lhhx_odr_table[id].pm.addr,
+					 st_asm330lhhx_odr_table[id].pm.mask,
 					 ST_ASM330LHHX_SHIFT_VAL(sensor->pm,
-						st_asm330lhhx_odr_table[sensor->id].pm.mask));
+						st_asm330lhhx_odr_table[id].pm.mask));
 		if (err < 0)
 			return err;
 	}
 
 	return regmap_update_bits(hw->regmap,
-				  st_asm330lhhx_odr_table[sensor->id].reg.addr,
-				  st_asm330lhhx_odr_table[sensor->id].reg.mask,
+				  st_asm330lhhx_odr_table[id].reg.addr,
+				  st_asm330lhhx_odr_table[id].reg.mask,
 				  ST_ASM330LHHX_SHIFT_VAL(val,
-					st_asm330lhhx_odr_table[sensor->id].reg.mask));
+					st_asm330lhhx_odr_table[id].reg.mask));
 }
 
 int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,
@@ -695,7 +693,7 @@ static int st_asm330lhhx_write_raw(struct iio_dev *iio_dev,
 		int todr, tuodr;
 		u8 data;
 
-		err = st_asm330lhhx_get_odr_val(sensor, val, val2, &todr,
+		err = st_asm330lhhx_get_odr_val(sensor->id, val, val2, &todr,
 					       &tuodr, &data);
 		if (!err) {
 			sensor->odr = val;
@@ -1121,13 +1119,10 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 	sensor->id = id;
 	sensor->hw = hw;
 	sensor->watermark = 1;
-
 	sensor->decimator = 0;
 	sensor->dec_counter = 0;
 
-	/* Set default ODR/FS to each sensor. */
-	sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
-	sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
+	/* Set default FS to each sensor */
 	sensor->gain = st_asm330lhhx_fs_table[id].fs_avl[0].gain;
 
 	switch (id) {
@@ -1141,6 +1136,8 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = 0;
 		sensor->pm = ST_ASM330LHHX_HP_MODE;
+		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[1].hz;
+		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[1].uhz;
 		break;
 	case ST_ASM330LHHX_ID_GYRO:
 		iio_dev->channels = st_asm330lhhx_gyro_channels;
@@ -1152,6 +1149,8 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = 0;
 		sensor->pm = ST_ASM330LHHX_HP_MODE;
+		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[1].hz;
+		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[1].uhz;
 		break;
 	case ST_ASM330LHHX_ID_TEMP:
 		iio_dev->channels = st_asm330lhhx_temp_channels;
@@ -1163,6 +1162,8 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = ST_ASM330LHHX_TEMP_OFFSET;
 		sensor->pm = ST_ASM330LHHX_NO_MODE;
+		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[1].hz;
+		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[1].uhz;
 		break;
 	default:
 		return NULL;
@@ -1233,12 +1234,6 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 	if (err < 0)
 		return err;
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
-
-#ifdef CONFIG_IIO_ST_ASM330LHHX_FSM
-	err = st_asm330lhhx_fsm_probe(hw);
-	if (err < 0)
-		return err;
-#endif /* CONFIG_IIO_ST_ASM330LHHX_FSM */
 
 	for (i = 0; i < ST_ASM330LHHX_ID_MAX; i++) {
 		if (!hw->iio_devs[i])

@@ -890,6 +890,7 @@ static struct iio_dev *st_asm330lhhx_shub_alloc_iio_dev(struct st_asm330lhhx_hw 
 	sensor->ext_dev_info.ext_dev_settings = ext_settings;
 	sensor->decimator = 0;
 	sensor->dec_counter = 0;
+	sensor->pm = ST_ASM330LHHX_NO_MODE;
 
 	return iio_dev;
 }

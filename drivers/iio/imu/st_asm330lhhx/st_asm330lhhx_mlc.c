@@ -533,6 +533,7 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 		sensor->outreg_addr = ST_ASM330LHHX_REG_MLC0_SRC_ADDR +
 				id - ST_ASM330LHHX_ID_MLC_0;
 		sensor->status = ST_ASM330LHHX_MLC_ENABLED;
+		sensor->pm = ST_ASM330LHHX_NO_MODE;
 		break;
 	}
 	case ST_ASM330LHHX_ID_FSM_0:
@@ -572,6 +573,7 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 		sensor->outreg_addr = ST_ASM330LHHX_FSM_OUTS1_ADDR +
 				id - ST_ASM330LHHX_ID_FSM_0;
 		sensor->status = ST_ASM330LHHX_FSM_ENABLED;
+		sensor->pm = ST_ASM330LHHX_NO_MODE;
 		break;
 	}
 	default:

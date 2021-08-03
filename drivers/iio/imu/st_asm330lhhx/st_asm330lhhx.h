@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.3"
+#define ST_ASM330LHHX_DRV_VERSION			"1.4"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -66,10 +66,8 @@
 #define ST_ASM330LHHX_REG_CTRL5_C_ADDR			0x14
 #define ST_ASM330LHHX_REG_ROUNDING_MASK			GENMASK(6, 5)
 
-#define ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR		0x3a
-#define ST_ASM330LHHX_REG_TIMESTAMP0_ADDR		0x40
-#define ST_ASM330LHHX_REG_TIMESTAMP2_ADDR		0x42
-#define ST_ASM330LHHX_REG_FIFO_DATA_OUT_TAG_ADDR	0x78
+#define ST_ASM330LHHX_REG_STATUS_MASTER_MAINPAGE_ADDR	0x39
+#define ST_ASM330LHHX_REG_STATUS_SENS_HUB_ENDOP_MASK	BIT(0)
 
 #define ST_ASM330LHHX_REG_CTRL6_C_ADDR			0x15
 #define ST_ASM330LHHX_REG_XL_HM_MODE_MASK		BIT(4)
@@ -97,6 +95,10 @@
 #define ST_ASM330LHHX_FSM_STATUS_B_MAINPAGE		0x37
 #define ST_ASM330LHHX_MLC_STATUS_MAINPAGE 		0x38
 
+#define ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR		0x3a
+#define ST_ASM330LHHX_REG_TIMESTAMP0_ADDR		0x40
+#define ST_ASM330LHHX_REG_TIMESTAMP2_ADDR		0x42
+
 #define ST_ASM330LHHX_REG_TAP_CFG0_ADDR			0x56
 #define ST_ASM330LHHX_REG_LIR_MASK			BIT(0)
 
@@ -106,6 +108,8 @@
 #define ST_ASM330LHHX_REG_INT_EMB_FUNC_MASK		BIT(1)
 
 #define ST_ASM330LHHX_INTERNAL_FREQ_FINE		0x63
+
+#define ST_ASM330LHHX_REG_FIFO_DATA_OUT_TAG_ADDR	0x78
 
 /* shub registers */
 #define ST_ASM330LHHX_REG_MASTER_CONFIG_ADDR		0x14
@@ -121,6 +125,9 @@
 #define ST_ASM330LHHX_REG_DATAWRITE_SLV0_ADDR		0x21
 #define ST_ASM330LHHX_REG_BATCH_EXT_SENS_EN_MASK	BIT(3)
 #define ST_ASM330LHHX_REG_SLAVE_NUMOP_MASK		GENMASK(2, 0)
+
+#define ST_ASM330LHHX_REG_STATUS_MASTER_ADDR		0x22
+#define ST_ASM330LHHX_REG_SENS_HUB_ENDOP_MASK		BIT(0)
 
 #define ST_ASM330LHHX_REG_SLV0_OUT_ADDR			0x02
 
@@ -357,8 +364,8 @@ enum st_asm330lhhx_sensor_id {
 	ST_ASM330LHHX_ID_GYRO = 0,
 	ST_ASM330LHHX_ID_ACC,
 	ST_ASM330LHHX_ID_TEMP,
-        ST_ASM330LHHX_ID_EXT0,
-        ST_ASM330LHHX_ID_EXT1,
+	ST_ASM330LHHX_ID_EXT0,
+	ST_ASM330LHHX_ID_EXT1,
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
 	ST_ASM330LHHX_ID_MLC,
 	ST_ASM330LHHX_ID_MLC_0,
@@ -616,7 +623,7 @@ static inline int st_asm330lhhx_set_page_access(struct st_asm330lhhx_hw *hw,
 				 ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
 				 mask,
 				 ST_ASM330LHHX_SHIFT_VAL(val, mask));
-	usleep_range(100, 150);
+	//usleep_range(100, 150);
 
 	return err;
 }
@@ -626,7 +633,7 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,
 				    bool enable);
 int st_asm330lhhx_buffers_setup(struct st_asm330lhhx_hw *hw);
-int st_asm330lhhx_get_odr_val(struct st_asm330lhhx_sensor *sensor, int odr,
+int st_asm330lhhx_get_odr_val(enum st_asm330lhhx_sensor_id id, int odr,
 			      int uodr, int *podr, int *puodr, u8 *val);
 int st_asm330lhhx_get_batch_val(struct st_asm330lhhx_sensor *sensor, int odr,
 			        int uodr, u8 *val);
@@ -649,6 +656,8 @@ int st_asm330lhhx_set_fifo_mode(struct st_asm330lhhx_hw *hw,
 int st_asm330lhhx_update_batching(struct iio_dev *iio_dev, bool enable);
 int st_asm330lhhx_of_get_pin(struct st_asm330lhhx_hw *hw, int *pin);
 int st_asm330lhhx_shub_probe(struct st_asm330lhhx_hw *hw);
+int st_asm330lhhx_shub_set_enable(struct st_asm330lhhx_sensor *sensor,
+				  bool enable);
 
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
 int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw);
