@@ -193,16 +193,9 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 
 	rc = blocking_notifier_chain_register
 				(&fsa_priv->fsa4480_notifier, nb);
-	if (rc)
-		return rc;
 
-	/*
-	 * as part of the init sequence check if there is a connected
-	 * USB C analog adapter
-	 */
-	dev_dbg(fsa_priv->dev, "%s: verify if USB adapter is already inserted\n",
-		__func__);
-	rc = fsa4480_usbc_analog_setup_switches(fsa_priv);
+	dev_dbg(fsa_priv->dev, "%s: registered notifier for %s\n",
+		__func__, node->name);
 
 	return rc;
 }
