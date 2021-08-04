@@ -7994,10 +7994,10 @@
 
 		dvfs-opp =
 		/* vlp		vsram	dvfsrc_opp	spm_vcore	freq mux resource */
-		< 750000	750000	0xff		0xfff		175  0	0x3>,
-		< 750000	750000	0xff		0xfff		233  0	0x3>,
-		< 750000	750000	0xff		0xfff		350  0	0x3>,
-		< 750000	750000	0xff		0xfff		700  0	0x3>;
+		< 750000	750000	0xff		0xfff		175  0	0x0>,
+		< 750000	750000	0xff		0xfff		233  0	0x0>,
+		< 750000	750000	0xff		0xfff		350  0	0x0>,
+		< 750000	750000	0xff		0xfff		700  0	0x0>;
 
 		gpio-base = <&scp_gpio>;
 		gpio-vreq-mode = <1>;
