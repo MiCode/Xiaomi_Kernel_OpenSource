@@ -5384,10 +5384,9 @@
 			<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 			<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
 			<0 0x10042000 0 0x1000>,  /* NTH_EMI_AO_DEBUG_CTRL */
-			<0 0x11ee05d4 0 0x20>,    /* AVS_EFUSE */
+			<0 0x11ee0000 0 0x1000>,  /* EFUSE */
 			<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
-			<0 0x13fb6000 0 0x1000>,  /* MFG_CPE_SENSOR */
-			<0 0x11ee0000 0 0x1000>;  /* CPE_0P65V_RT_BLOW */
+			<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
 		reg-names =
 			"mfg_pll",
 			"mfgsc_pll",
@@ -5401,10 +5400,9 @@
 			"infra_ao_debug_ctrl",
 			"infra_ao1_debug_ctrl",
 			"nth_emi_ao_debug_ctrl",
-			"avs_efuse",
+			"efuse",
 			"mfg_cpe_control",
-			"mfg_cpe_sensor",
-			"cpe_0p65v_rt_blow";
+			"mfg_cpe_sensor";
 		clocks =
 			<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_0>,     /* mfg_sel_0 */
 			<&topckgen_clk CLK_TOPCKGEN_MFGPLL_CK>,     /* mfgpll_ck */
