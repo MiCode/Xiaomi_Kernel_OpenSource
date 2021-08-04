@@ -13,6 +13,7 @@
 
 #define PLT_INIT		0x504C5401
 #define PLT_LOG_ENABLE		0x504C5402
+#define PLT_SSC_INIT		0x504C5403
 
 struct plt_msg_s {
 	unsigned int cmd;
