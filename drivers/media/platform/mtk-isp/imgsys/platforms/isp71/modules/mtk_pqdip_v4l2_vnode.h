@@ -192,7 +192,31 @@ static const struct mtk_imgsys_dev_format pqdip_wroto_fmts[] = {
 
 };
 
+static const struct mtk_imgsys_dev_format pqdip_tccso_fmts[] = {
+	{
+		.format	= V4L2_PIX_FMT_GREY,
+		.depth		= { 8 },
+		.row_depth	= { 8 },
+		.num_planes	= 1,
+		.num_cplanes = 1,
+	},
+	{	// Must have for SMVR/Multis-cale for every video_device nodes
+		.format = V4L2_META_FMT_MTISP_DESC,
+		.num_planes = 1,
+#if defaultdesc
+		.depth = { 8 },
+		.row_depth = { 8 },
+		.num_cplanes = 1,
+#endif
+		.buffer_size = sizeof(struct header_desc),
+	},
+	{
+		.format = V4L2_META_FMT_MTISP_DESC_NORM,
+		.num_planes = 1,
+		.buffer_size = sizeof(struct header_desc_norm),
+	},
 
+};
 
 static const struct v4l2_frmsizeenum pqdip_in_frmsizeenum = {
 	.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
@@ -265,11 +289,47 @@ static const struct mtk_imgsys_video_device_desc pqdip_setting[] = {
 		.default_fmt_idx = 1,
 		.default_width = MTK_PQDIP_CAPTURE_MAX_WIDTH,
 		.default_height = MTK_PQDIP_CAPTURE_MAX_WIDTH,
-		.dma_port = 0,
+		.dma_port = 1,
 		.frmsizeenum = &pqdip_out_frmsizeenum,
 		.ops = &mtk_imgsys_v4l2_video_cap_ioctl_ops,
 		.vb2_ops = &mtk_imgsys_vb2_video_ops,
 		.description = "Output quality enhanced image",
+	},
+	{
+		.id = MTK_IMGSYS_VIDEO_NODE_ID_TCCSO_A_CAPTURE,
+		.name = "TCCSO A Output",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_STREAMING,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.smem_alloc = 0,
+		.flags = MEDIA_LNK_FL_DYNAMIC,
+		.fmts = pqdip_tccso_fmts,
+		.num_fmts = ARRAY_SIZE(pqdip_tccso_fmts),
+		.default_fmt_idx = 1,
+		.default_width = MTK_PQDIP_CAPTURE_MAX_WIDTH,
+		.default_height = MTK_PQDIP_CAPTURE_MAX_WIDTH,
+		.dma_port = 2,
+		.frmsizeenum = &pqdip_out_frmsizeenum,
+		.ops = &mtk_imgsys_v4l2_video_cap_ioctl_ops,
+		.vb2_ops = &mtk_imgsys_vb2_video_ops,
+		.description = "Output tone curve statistics",
+	},
+	{
+		.id = MTK_IMGSYS_VIDEO_NODE_ID_TCCSO_B_CAPTURE,
+		.name = "TCCSO B Output",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_STREAMING,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.smem_alloc = 0,
+		.flags = MEDIA_LNK_FL_DYNAMIC,
+		.fmts = pqdip_tccso_fmts,
+		.num_fmts = ARRAY_SIZE(pqdip_tccso_fmts),
+		.default_fmt_idx = 1,
+		.default_width = MTK_PQDIP_CAPTURE_MAX_WIDTH,
+		.default_height = MTK_PQDIP_CAPTURE_MAX_WIDTH,
+		.dma_port = 3,
+		.frmsizeenum = &pqdip_out_frmsizeenum,
+		.ops = &mtk_imgsys_v4l2_video_cap_ioctl_ops,
+		.vb2_ops = &mtk_imgsys_vb2_video_ops,
+		.description = "Output tone curve statistics",
 	},
 };
 
