@@ -5512,6 +5512,7 @@
 
 	dispsys_config: dispsys_config@14000000 {
 		compatible = "mediatek,mt6983-disp";
+		mediatek,mml = <&mmlsys_config>;
 		reg = <0 0x14000000 0 0x1000>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_0>;
 		mediatek,larb = <&smi_larb0>;
@@ -5641,7 +5642,8 @@
 			"MTK_DRM_OPT_SF_PF",
 			"MTK_DRM_OPT_DYN_MIPI_CHANGE",
 			"MTK_DRM_OPT_PRIM_DUAL_PIPE",
-			"MTK_DRM_OPT_MSYNC2_0";
+			"MTK_DRM_OPT_MSYNC2_0",
+			"MTK_DRM_OPT_MML_PRIMARY";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -5685,12 +5687,14 @@
 			<0>, /*MTK_DRM_OPT_SF_PF*/
 			<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 			<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
-			<0>; /*MTK_DRM_OPT_MSYNC2_0*/
+			<0>, /*MTK_DRM_OPT_MSYNC2_0*/
+			<1>; /*MTK_DRM_OPT_MML_PRIMARY*/
 	};
 
 	disp_mutex0: disp_mutex@14001000 {
 		compatible = "mediatek,disp_mutex0",
 					"mediatek,mt6983-disp-mutex";
+		mediatek,mml = <&mmlsys_config>;
 		reg = <0 0x14001000 0 0x1000>;
 		interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>;
