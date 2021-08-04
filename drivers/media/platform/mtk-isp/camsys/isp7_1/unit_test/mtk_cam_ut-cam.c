@@ -564,10 +564,8 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int irq, ret;
-#if CCF_READY
+	int irq, clks, ret;
 	int i;
-#endif
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
@@ -622,9 +620,10 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#if CCF_READY
-	raw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
-			"#clock-cells");
+	clks = of_count_phandle_with_args(pdev->dev.of_node,
+				"clocks", "#clock-cells");
+
+	raw->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", raw->num_clks);
 
 	if (raw->num_clks) {
@@ -641,19 +640,6 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-#else
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
-	if (!res) {
-		dev_info(dev, "failed to get mem\n");
-		return -ENODEV;
-	}
-
-	raw->raw_top_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(raw->raw_top_base)) {
-		dev_info(dev, "failed to map register base\n");
-		return PTR_ERR(raw->raw_top_base);
-	}
-#endif
 
 	raw->fifo_size = roundup_pow_of_two(10 * sizeof(struct ut_raw_msg));
 	if (kfifo_alloc(&raw->msgfifo, raw->fifo_size, GFP_KERNEL))
@@ -944,10 +930,8 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int irq, ret;
-#if CCF_READY
+	int irq, clks, ret;
 	int i;
-#endif
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &drvdata->id);
@@ -985,10 +969,10 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#if CCF_READY
-	drvdata->num_clks = of_count_phandle_with_args(pdev->dev.of_node,
-						       "clocks",
-						       "#clock-cells");
+	clks = of_count_phandle_with_args(pdev->dev.of_node,
+				"clocks", "#clock-cells");
+
+	drvdata->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
 
 	if (drvdata->num_clks) {
@@ -1006,19 +990,6 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-#else
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
-	if (!res) {
-		dev_info(dev, "failed to get mem\n");
-		return -ENODEV;
-	}
-
-	drvdata->yuv_top_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(drvdata->yuv_top_base)) {
-		dev_info(dev, "failed to map register base\n");
-		return PTR_ERR(drvdata->yuv_top_base);
-	}
-#endif
 
 	return 0;
 }
@@ -1045,9 +1016,7 @@ static int mtk_ut_yuv_probe(struct platform_device *pdev)
 
 	ut_yuv_set_ops(dev);
 
-#if CCF_READY
 	pm_runtime_enable(dev);
-#endif
 
 	ret = component_add(dev, &mtk_ut_yuv_component_ops);
 	if (ret)
@@ -1065,9 +1034,8 @@ static int mtk_ut_yuv_remove(struct platform_device *pdev)
 
 	dev_info(dev, "%s\n", __func__);
 
-#if CCF_READY
 	pm_runtime_disable(dev);
-#endif
+
 	component_del(dev, &mtk_ut_yuv_component_ops);
 
 	for (i = 0; i < drvdata->num_clks; i++)

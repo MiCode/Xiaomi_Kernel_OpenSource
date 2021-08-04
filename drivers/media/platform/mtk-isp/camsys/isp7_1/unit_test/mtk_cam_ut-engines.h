@@ -50,7 +50,6 @@ struct mtk_ut_raw_device {
 	void __iomem *base;
 	void __iomem *base_inner;
 	void __iomem *yuv_base;
-	void __iomem *raw_top_base;
 	unsigned int num_clks;
 	struct clk **clks;
 
@@ -95,7 +94,6 @@ struct mtk_ut_yuv_device {
 	struct device *dev;
 	unsigned int id;
 	void __iomem *base;
-	void __iomem *yuv_top_base;
 	unsigned int num_clks;
 	struct clk **clks;
 

@@ -134,9 +134,7 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#if CCF_READY
-	int i;
-#endif
+	int i, clks;
 
 	/* base register */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -152,9 +150,10 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "seninf, map_addr=0x%pK\n", seninf->base);
 
-#if CCF_READY
-	seninf->num_clks = of_count_phandle_with_args(pdev->dev.of_node,
-						      "clocks", "#clock-cells");
+	clks = of_count_phandle_with_args(pdev->dev.of_node,
+				"clocks", "#clock-cells");
+
+	seninf->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", seninf->num_clks);
 
 	if (seninf->num_clks) {
@@ -171,7 +170,6 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-#endif
 
 	return 0;
 }
@@ -182,9 +180,6 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 	struct mtk_ut_seninf_device *seninf;
 	int ret;
 
-#if CCF_READY
-	pr_info("v4l2_subdev_mtk_ut_seninf_probe\n");
-#endif
 	dev_info(dev, "%s\n", __func__);
 
 	seninf = devm_kzalloc(dev, sizeof(*seninf), GFP_KERNEL);
@@ -200,9 +195,7 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 
 	ut_seninf_set_ops(dev);
 
-#if CCF_READY
 	pm_runtime_enable(dev);
-#endif
 
 	ret = component_add(dev, &mtk_ut_seninf_component_ops);
 	if (ret)
@@ -225,9 +218,7 @@ static int mtk_ut_seninf_remove(struct platform_device *pdev)
 			clk_put(seninf->clks[i]);
 	}
 
-#if CCF_READY
 	pm_runtime_disable(dev);
-#endif
 
 	component_del(dev, &mtk_ut_seninf_component_ops);
 	return 0;

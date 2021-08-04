@@ -819,18 +819,11 @@ static int cam_open(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut =	container_of(inode->i_cdev,
 					     struct mtk_cam_ut, cdev);
-#if !CCF_READY
-	struct mtk_ut_raw_device *raw_drvdata;
-	struct mtk_ut_yuv_device *yuv_drvdata;
-#ifdef USE_PA
-	int idx;
-#endif
-#endif
 	int i;
 
 	dev_info(ut->dev, "%s\n", __func__);
 	get_device(ut->dev);
-#if CCF_READY
+
 	pm_runtime_get_sync(ut->dev);
 
 	for (i = 0; i < ut->num_raw; i++) {
@@ -845,42 +838,29 @@ static int cam_open(struct inode *inode, struct file *filp)
 
 	/* Note: seninf's dts have no power-domains now, so do it after raw's */
 	pm_runtime_get_sync(ut->seninf);
-#else
-	for (i = 0; i < ut->num_raw; i++) {
-		raw_drvdata = dev_get_drvdata(ut->raw[i]);
-		writel_relaxed(0xffffffff, raw_drvdata->raw_top_base + 0x8);
-	}
-
-	for (i = 0; i < ut->num_yuv; i++) {
-		yuv_drvdata = dev_get_drvdata(ut->yuv[i]);
-		writel_relaxed(0xffffffff, yuv_drvdata->yuv_top_base + 0x8);
-	}
-	/* make sure reset take effect */
-	wmb();
 
 #ifdef USE_PA
 	//force SMI to disable MMU
-	for (idx = 0; idx < 32; idx++) {
+	for (i = 0; i < 32; i++) {
 		// SMI_LARB13_BASE in CAMSYS_MAIN
-		writel_relaxed(0xa0000, ut->base + 0x1380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0x1380 + (i<<2));
 		// SMI_LARB14_BASE in CAMSYS_MAIN
-		writel_relaxed(0xa0000, ut->base + 0x2380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0x2380 + (i<<2));
 		// SMI_LARB16_BASE in CAMSYS_RAWA
-		writel_relaxed(0xa0000, ut->base + 0x8380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0x8380 + (i<<2));
 		// SMI_LARB17_BASE in CAMSYS_YUVA
-		writel_relaxed(0xa0000, ut->base + 0x9380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0x9380 + (i<<2));
 		// SMI_LARB16_BASE in CAMSYS_RAWB
-		writel_relaxed(0xa0000, ut->base + 0xa380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0xa380 + (i<<2));
 		// SMI_LARB17_BASE in CAMSYS_YUVB
-		writel_relaxed(0xa0000, ut->base + 0xb380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0xb380 + (i<<2));
 		// SMI_LARB16_BASE in CAMSYS_RAWC
-		writel_relaxed(0xa0000, ut->base + 0xc380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0xc380 + (i<<2));
 		// SMI_LARB17_BASE in CAMSYS_YUVC
-		writel_relaxed(0xa0000, ut->base + 0xd380 + (idx<<2));
+		writel_relaxed(0xa0000, ut->base + 0xd380 + (i<<2));
 	}
 	/* make sure reset take effect */
 	wmb();
-#endif
 #endif
 
 	filp->private_data = ut;
@@ -893,16 +873,12 @@ static int cam_open(struct inode *inode, struct file *filp)
 static int cam_release(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
-#if !CCF_READY
-	struct mtk_ut_raw_device *raw_drvdata;
-	struct mtk_ut_yuv_device *yuv_drvdata;
-#endif
 	int i;
 
 	dev_info(ut->dev, "%s\n", __func__);
 
 	cam_composer_uninit(ut);
-#if CCF_READY
+
 	pm_runtime_put(ut->seninf);
 
 	for (i = 0; i < ut->num_camsv; i++)
@@ -912,17 +888,7 @@ static int cam_release(struct inode *inode, struct file *filp)
 		pm_runtime_put(ut->raw[i]);
 
 	pm_runtime_put(ut->dev);
-#else
-	for (i = 0; i < ut->num_raw; i++) {
-		raw_drvdata = dev_get_drvdata(ut->raw[i]);
-		writel_relaxed(0xffffffff, raw_drvdata->raw_top_base + 0x4);
-	}
 
-	for (i = 0; i < ut->num_yuv; i++) {
-		yuv_drvdata = dev_get_drvdata(ut->yuv[i]);
-		writel_relaxed(0xffffffff, yuv_drvdata->yuv_top_base + 0x4);
-	}
-#endif
 	put_device(ut->dev);
 
 	return 0;
@@ -1230,10 +1196,6 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_cam_ut *ut;
-#if CCF_READY
-	struct resource *res;
-	void __iomem *base;
-#endif
 	int ret;
 
 	ut = devm_kzalloc(dev, sizeof(*ut), GFP_KERNEL);
@@ -1269,39 +1231,13 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 
 	ut->listener.on_notify = ut_event_on_notify;
 
-
-#if CCF_READY
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
-	if (!res) {
-		dev_info(dev, "failed to get mem\n");
-		return -ENODEV;
-	}
-
-	base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(base)) {
-		dev_info(dev, "failed to map register base\n");
-		return PTR_ERR(base);
-	}
-	ut->base = base;
-
-	dev_info(dev, "ut base 0x%p\n", base);
-	writel_relaxed(0xffffffff, base + 0x8);
-	dev_info(dev, "cam-main cg 0x%x\n",
-			 readl_relaxed(base));
-
-	/* make sure reset take effect */
-	wmb();
-#endif
-
 	ret = register_sub_drivers(dev);
 	if (ret) {
 		dev_info(dev, "fail to register_sub_drivers\n");
 		return ret;
 	}
 
-#if CCF_READY
 	pm_runtime_enable(dev);
-#endif
 
 	dev_info(dev, "%s: success\n", __func__);
 	return 0;

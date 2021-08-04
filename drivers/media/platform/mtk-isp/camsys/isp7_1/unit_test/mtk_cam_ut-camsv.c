@@ -809,10 +809,8 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int irq, ret;
-#if CCF_READY
+	int irq, clks, ret;
 	int i;
-#endif
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
 				   &camsv->id);
@@ -863,9 +861,10 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#if CCF_READY
-	camsv->num_clks = of_count_phandle_with_args(
-		pdev->dev.of_node, "clocks", "#clock-cells");
+	clks = of_count_phandle_with_args(pdev->dev.of_node,
+				"clocks", "#clock-cells");
+
+	camsv->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", camsv->num_clks);
 
 	if (camsv->num_clks) {
@@ -882,7 +881,6 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-#endif
 
 	return 0;
 }
@@ -909,9 +907,7 @@ static int mtk_ut_camsv_probe(struct platform_device *pdev)
 	init_event_source(&camsv->event_src);
 	ut_camsv_set_ops(dev);
 
-#if CCF_READY
 	pm_runtime_enable(dev);
-#endif
 
 	ret = component_add(dev, &mtk_ut_camsv_component_ops);
 	if (ret)
@@ -934,9 +930,7 @@ static int mtk_ut_camsv_remove(struct platform_device *pdev)
 			clk_put(camsv->clks[i]);
 	}
 
-#if CCF_READY
 	pm_runtime_disable(dev);
-#endif
 
 	component_del(dev, &mtk_ut_camsv_component_ops);
 	return 0;
