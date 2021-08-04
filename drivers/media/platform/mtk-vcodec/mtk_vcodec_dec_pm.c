@@ -178,7 +178,10 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 
 	if (hw_id == MTK_VDEC_CORE) {
 		ctx = dev->curr_dec_ctx[hw_id];
-		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (ctx)
+			fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		else
+			fourcc = v4l2_fourcc('U', 'N', 'K', 'N');
 
 		if (vdec_vld_addr == NULL || vdec_misc_addr == NULL) {
 			mtk_v4l2_debug(4, "VDEC codec:0x%08x(%c%c%c%c) HW break fail since vdec_vld_addr 0x%x vdec_misc_addr 0x%x",
@@ -258,7 +261,10 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 		writel(0x0, vdec_vld_addr + 0x0108);
 	} else if (dev->pm.mtkdev->vdec_hw_ipm == VCODEC_IPM_V2 && hw_id == MTK_VDEC_LAT) {
 		ctx = dev->curr_dec_ctx[hw_id];
-		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (ctx)
+			fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		else
+			fourcc = v4l2_fourcc('U', 'N', 'K', 'N');
 
 		if (vdec_lat_vld_addr == NULL || vdec_lat_misc_addr == NULL) {
 			mtk_v4l2_debug(4, "VDEC codec:0x%08x(%c%c%c%c) HW break fail since vdec_lat_vld_addr 0x%x vdec_lat_misc_addr 0x%x",
