@@ -15,8 +15,6 @@ extern const char *aee_arch_vma_name(struct vm_area_struct *vma);
 extern unsigned long aee_get_stext(void);
 extern unsigned long aee_get_etext(void);
 extern unsigned long aee_get_text(void);
-extern unsigned long aee_get_sdata(void);
-extern unsigned long aee_get_edata(void);
 #if defined(CONFIG_ARM64)
 extern unsigned long aee_get_kimage_vaddr(void);
 #endif
