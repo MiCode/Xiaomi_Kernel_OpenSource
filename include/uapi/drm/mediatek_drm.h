@@ -359,6 +359,7 @@ struct DISP_CCORR_COEF_T {
 };
 
 #define DISP_GAMMA_LUT_SIZE 512
+#define DISP_GAMMA_12BIT_LUT_SIZE 1024
 
 enum disp_gamma_id_t {
 	DISP_GAMMA0 = 0,
@@ -370,6 +371,12 @@ enum disp_gamma_id_t {
 struct DISP_GAMMA_LUT_T {
 	enum disp_gamma_id_t hw_id;
 	unsigned int lut[DISP_GAMMA_LUT_SIZE];
+};
+
+struct DISP_GAMMA_12BIT_LUT_T {
+	enum disp_gamma_id_t hw_id;
+	unsigned int lut_0[DISP_GAMMA_12BIT_LUT_SIZE];
+	unsigned int lut_1[DISP_GAMMA_12BIT_LUT_SIZE];
 };
 
 struct DISP_PQ_PARAM {
@@ -407,8 +414,9 @@ struct DISP_DITHER_PARAM {
 #define DRM_MTK_MML_GEM_SUBMIT         0x0E
 
 /* PQ */
+#define DRM_MTK_SET_12BIT_GAMMALUT	0x1D
 #define DRM_MTK_PQ_PERSIST_PROPERTY	0x1F
-#define DRM_MTK_SET_CCORR			0x20
+#define DRM_MTK_SET_CCORR		0x20
 #define DRM_MTK_CCORR_EVENTCTL   0x21
 #define DRM_MTK_CCORR_GET_IRQ    0x22
 #define DRM_MTK_SET_GAMMALUT    0x23
@@ -975,6 +983,9 @@ struct drm_mtk_chist_config {
 
 #define DRM_IOCTL_MTK_SET_GAMMALUT     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_GAMMALUT, struct DISP_GAMMA_LUT_T)
+
+#define DRM_IOCTL_MTK_SET_12BIT_GAMMALUT     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_SET_12BIT_GAMMALUT, struct DISP_GAMMA_12BIT_LUT_T)
 
 #define DRM_IOCTL_MTK_SET_PQPARAM     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_PQPARAM, struct DISP_PQ_PARAM)
