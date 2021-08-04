@@ -10552,6 +10552,11 @@
 		swdsp_smartpa_process_enable = <0x5>;
 		mtk_dsp_mem_afe = <0x1 0x40000>;
 	};
+
+	pmic-oc-debug {
+		compatible = "mediatek,mt6983-oc-debug";
+		status = "okay";
+	};
 };
 
 &i2c6 {
