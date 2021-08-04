@@ -36,7 +36,8 @@
 enum common_ev_idx {
 	INST_IDX,
 	CYC_IDX,
-	STALL_IDX,
+	FE_STALL_IDX,
+	BE_STALL_IDX,
 	NUM_COMMON_EVS
 };
 
@@ -83,7 +84,8 @@ struct cpu_stats {
 	ktime_t				last_sample_ts;
 	spinlock_t			ctrs_lock;
 	u32				freq_mhz;
-	u32				stall_pct;
+	u32				fe_stall_pct;
+	u32				be_stall_pct;
 	u32				ipm[MAX_MEMLAT_GRPS];
 	u32				wb_pct[MAX_MEMLAT_GRPS];
 };
@@ -101,7 +103,8 @@ struct memlat_mon {
 	cpumask_t			cpus;
 	struct cpufreq_memfreq_map	*freq_map;
 	u32				ipm_ceil;
-	u32				stall_floor;
+	u32				fe_stall_floor;
+	u32				be_stall_floor;
 	u32				freq_scale_pct;
 	u32				freq_scale_limit_mhz;
 	u32				wb_pct_thres;
@@ -291,8 +294,10 @@ show_attr(max_freq);
 show_attr(cur_freq);
 show_attr(ipm_ceil);
 store_attr(ipm_ceil, 1U, 50000U);
-show_attr(stall_floor);
-store_attr(stall_floor, 0U, 100U);
+show_attr(fe_stall_floor);
+store_attr(fe_stall_floor, 0U, 100U);
+show_attr(be_stall_floor);
+store_attr(be_stall_floor, 0U, 100U);
 show_attr(freq_scale_pct);
 store_attr(freq_scale_pct, 0U, 1000U);
 show_attr(wb_pct_thres);
@@ -309,7 +314,8 @@ MEMLAT_ATTR_RW(max_freq);
 MEMLAT_ATTR_RO(freq_map);
 MEMLAT_ATTR_RO(cur_freq);
 MEMLAT_ATTR_RW(ipm_ceil);
-MEMLAT_ATTR_RW(stall_floor);
+MEMLAT_ATTR_RW(fe_stall_floor);
+MEMLAT_ATTR_RW(be_stall_floor);
 MEMLAT_ATTR_RW(freq_scale_pct);
 MEMLAT_ATTR_RW(wb_pct_thres);
 MEMLAT_ATTR_RW(wb_filter_ipm);
@@ -326,7 +332,8 @@ static struct attribute *memlat_mon_attr[] = {
 	&freq_map.attr,
 	&cur_freq.attr,
 	&ipm_ceil.attr,
-	&stall_floor.attr,
+	&fe_stall_floor.attr,
+	&be_stall_floor.attr,
 	&freq_scale_pct.attr,
 	&wb_pct_thres.attr,
 	&wb_filter_ipm.attr,
@@ -463,12 +470,18 @@ static void calculate_sampling_stats(void)
 		}
 
 		stats->freq_mhz = delta->common_ctrs[CYC_IDX] / delta_us;
-		if (!memlat_data->common_ev_ids[STALL_IDX])
-			stats->stall_pct = 100;
+		if (!memlat_data->common_ev_ids[FE_STALL_IDX])
+			stats->fe_stall_pct = 100;
 		else
-			stats->stall_pct = mult_frac(100,
-						delta->common_ctrs[STALL_IDX],
-						delta->common_ctrs[CYC_IDX]);
+			stats->fe_stall_pct = mult_frac(100,
+					       delta->common_ctrs[FE_STALL_IDX],
+					       delta->common_ctrs[CYC_IDX]);
+		if (!memlat_data->common_ev_ids[BE_STALL_IDX])
+			stats->be_stall_pct = 100;
+		else
+			stats->be_stall_pct = mult_frac(100,
+					       delta->common_ctrs[BE_STALL_IDX],
+					       delta->common_ctrs[CYC_IDX]);
 		for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 			memlat_grp = memlat_data->groups[grp];
 			if (!memlat_grp) {
@@ -493,8 +506,9 @@ static void calculate_sampling_stats(void)
 			trace_memlat_dev_meas(dev_name(memlat_grp->dev), cpu,
 					delta->common_ctrs[INST_IDX],
 					delta->grp_ctrs[grp][MISS_IDX],
-					stats->freq_mhz, stats->stall_pct,
-					stats->wb_pct[grp], stats->ipm[grp]);
+					stats->freq_mhz, stats->be_stall_pct,
+					stats->wb_pct[grp], stats->ipm[grp],
+					stats->fe_stall_pct);
 
 		}
 		memcpy(&stats->prev, &stats->curr, sizeof(stats->curr));
@@ -538,7 +552,8 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 			max_cpufreq_scaled = stats->freq_mhz;
 			if (mon->freq_scale_pct && stats->freq_mhz &&
 			    (stats->freq_mhz < mon->freq_scale_limit_mhz) &&
-			    (stats->stall_pct >= mon->stall_floor)) {
+			    (stats->fe_stall_pct >= mon->fe_stall_floor ||
+			     stats->be_stall_pct >= mon->be_stall_floor)) {
 				max_cpufreq_scaled += (stats->freq_mhz * ipm_diff *
 					mon->freq_scale_pct) / (mon->ipm_ceil * 100);
 				max_cpufreq_scaled = min(mon->freq_scale_limit_mhz,
@@ -955,11 +970,17 @@ static int memlat_dev_probe(struct platform_device *pdev)
 	}
 	dev_data->common_ev_ids[CYC_IDX] = event_id;
 
-	ret = of_property_read_u32(dev->of_node, "qcom,stall-ev", &event_id);
+	ret = of_property_read_u32(dev->of_node, "qcom,fe-stall-ev", &event_id);
 	if (ret < 0)
-		dev_dbg(dev, "Stall event not specified. Skipping.\n");
+		dev_dbg(dev, "FE Stall event not specified. Skipping.\n");
 	else
-		dev_data->common_ev_ids[STALL_IDX] = event_id;
+		dev_data->common_ev_ids[FE_STALL_IDX] = event_id;
+
+	ret = of_property_read_u32(dev->of_node, "qcom,be-stall-ev", &event_id);
+	if (ret < 0)
+		dev_dbg(dev, "BE Stall event not specified. Skipping.\n");
+	else
+		dev_data->common_ev_ids[BE_STALL_IDX] = event_id;
 
 	for_each_possible_cpu(cpu) {
 		for (i = 0; i < NUM_COMMON_EVS; i++) {
@@ -1196,7 +1217,8 @@ static int memlat_mon_probe(struct platform_device *pdev)
 		mon->is_compute = true;
 
 	mon->ipm_ceil = 400;
-	mon->stall_floor = 0;
+	mon->fe_stall_floor = 0;
+	mon->be_stall_floor = 0;
 	mon->freq_scale_pct = 0;
 	mon->wb_pct_thres = 100;
 	mon->wb_filter_ipm = 25000;

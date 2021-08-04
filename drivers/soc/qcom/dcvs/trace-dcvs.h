@@ -88,9 +88,9 @@ TRACE_EVENT(memlat_dev_meas,
 
 	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
 		 unsigned long mem, unsigned long freq, unsigned int stall,
-		 unsigned int wb, unsigned int ratio),
+		 unsigned int wb, unsigned int ratio, unsigned int fe_stall),
 
-	TP_ARGS(name, dev_id, inst, mem, freq, stall, wb, ratio),
+	TP_ARGS(name, dev_id, inst, mem, freq, stall, wb, ratio, fe_stall),
 
 	TP_STRUCT__entry(
 		__string(name, name)
@@ -101,6 +101,7 @@ TRACE_EVENT(memlat_dev_meas,
 		__field(unsigned int, stall)
 		__field(unsigned int, wb)
 		__field(unsigned int, ratio)
+		__field(unsigned int, fe_stall)
 	),
 
 	TP_fast_assign(
@@ -112,9 +113,10 @@ TRACE_EVENT(memlat_dev_meas,
 		__entry->stall = stall;
 		__entry->wb = wb;
 		__entry->ratio = ratio;
+		__entry->fe_stall = fe_stall;
 	),
 
-	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, stall=%u, wb=%u, ratio=%u",
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, stall=%u, wb=%u, ratio=%u, fe_stall=%u",
 		__get_str(name),
 		__entry->dev_id,
 		__entry->inst,
@@ -122,7 +124,8 @@ TRACE_EVENT(memlat_dev_meas,
 		__entry->freq,
 		__entry->stall,
 		__entry->wb,
-		__entry->ratio)
+		__entry->ratio,
+		__entry->fe_stall)
 );
 
 TRACE_EVENT(memlat_dev_update,
