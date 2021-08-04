@@ -759,7 +759,7 @@ static void start_devapc(void)
 		}
 	}
 
-	print_vio_mask_sta(false);
+	print_vio_mask_sta(true);
 
 	/* register subsys test cb */
 	register_devapc_violation_callback(&devapc_test_handle);
@@ -890,7 +890,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			pr_info(PFX "irq_type: %d\n", irq_type);
 	}
 
-	print_vio_mask_sta(false);
+	print_vio_mask_sta(true);
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
