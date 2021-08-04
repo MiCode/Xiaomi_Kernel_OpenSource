@@ -171,7 +171,9 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 		list_for_each_entry(comm_port,
 				    &comm_node->comm_port_list, list) {
 			if (comm_port->hrt_type != HRT_NONE) {
+				mutex_lock(&comm_port->bw_lock);
 				hrt_bw[comm_port->hrt_type] += icc_to_MBps(comm_port->latest_peak_bw);
+				mutex_unlock(&comm_port->bw_lock);
 			}
 		}
 	}
