@@ -135,7 +135,7 @@ void register_battery_oc_notify(battery_oc_callback oc_cb,
 }
 EXPORT_SYMBOL(register_battery_oc_notify);
 
-static void exec_battery_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
+void exec_battery_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 {
 	int i;
 
