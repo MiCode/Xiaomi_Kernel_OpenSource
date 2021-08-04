@@ -637,16 +637,8 @@ static void ke_destroy_log(void)
 
 static int ke_log_avail(void)
 {
-	if (aed_dev.kerec.lastlog) {
-#ifdef __aarch64__
-		if (is_compat_task() !=
-			((aed_dev.kerec.lastlog->dump_option & DB_OPT_AARCH64)
-			 == 0))
-			return 0;
-#endif
+	if (aed_dev.kerec.lastlog)
 		return 1;
-	}
-
 	return 0;
 }
 
