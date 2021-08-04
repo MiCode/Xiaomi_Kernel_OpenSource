@@ -675,20 +675,20 @@ EXPORT_SYMBOL(mtk_hcp_send_async);
 int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 	int32_t value, size_t size)
 {
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	//struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	struct slbc_data slb;
+	//struct slbc_data slb;
 	//struct ctrl_info ctrl;
-	int ret;
+	//int ret;
 
 	//if (hcp_dev->have_slb == false && *((uint64_t *)data)) {
-		slb.uid = UID_SH_P2;
-		slb.type = TP_BUFFER;
-		ret = slbc_request(&slb);
-		if (ret < 0) {
-			dev_info(hcp_dev->dev, "%s: Failed to allocate SLB buffer", __func__);
-			return -1;
-		}
+		//slb.uid = UID_SH_P2;
+		//slb.type = TP_BUFFER;
+		//ret = slbc_request(&slb);
+		//if (ret < 0) {
+		//	dev_info(hcp_dev->dev, "%s: Failed to allocate SLB buffer", __func__);
+		//	return -1;
+		//}
 
 		//hcp_dev->have_slb = true;
 
