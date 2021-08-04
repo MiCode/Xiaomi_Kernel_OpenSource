@@ -9925,6 +9925,16 @@
 				"N_GPU_1_W,S_APU_0_R,S_APU_0_W,S_GPU_0_R,",
 				"S_GPU_0_W,S_APU_1_R,S_APU_1_W,",
 				"S_GPU_1_R,S_GPU_1_W";
+			node_61 = "SSPM_SLBC_SLOT",
+				"enable,force,done,buffer_used,f_buffer,cached_used,force_size";
+			node_62 = "SSPM_SLBC_REF",
+				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp";
+			node_63 = "SSPM_SLBC_BW",
+				"mm,apu,mm_est";
+			node_64 = "SSPM_SLBC_PMU",
+				"hit,miss";
+			node_65 = "SSPM_SLBC_WAY",
+				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc";
 		};
 	};
 
