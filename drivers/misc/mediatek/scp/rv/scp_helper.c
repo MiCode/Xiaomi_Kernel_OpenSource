@@ -1307,7 +1307,14 @@ void scp_register_feature(enum feature_id id)
 #endif
 
 	scp_current_freq = readl(CURRENT_FREQ_REG);
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	/* if secure_dump is enabled, expected_freq is sent in scp_request_freq() */
+	if (!scpreg.secure_dump) {
+#else
+	{
+#endif
 	writel(scp_expected_freq, EXPECTED_FREQ_REG);
+	}
 
 	/* send request only when scp is not down */
 	if (scp_ready[SCP_A_ID]) {
@@ -1360,7 +1367,14 @@ void scp_deregister_feature(enum feature_id id)
 #endif
 
 	scp_current_freq = readl(CURRENT_FREQ_REG);
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	/* if secure_dump is enabled, expected_freq is sent in scp_request_freq() */
+	if (!scpreg.secure_dump) {
+#else
+	{
+#endif
 	writel(scp_expected_freq, EXPECTED_FREQ_REG);
+	}
 
 	/* send request only when scp is not down */
 	if (scp_ready[SCP_A_ID]) {
