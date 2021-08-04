@@ -1227,7 +1227,7 @@ void sync_ulposc_cali_data_to_scp(void)
 	ipi_data[0] = SCP_SYNC_ULPOSC_CALI;
 	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
 		*p = dvfs.ulposc_hw.cali_freq[i];
-		if (!dvfs.vlpck_support | dvfs.vlpck_bypass_phase1)
+		if ((!dvfs.vlpck_support) || dvfs.vlpck_bypass_phase1)
 			*(p + 1) = dvfs.ulposc_hw.cali_val[i];
 		else
 			*(p + 1) = dvfs.ulposc_hw.cali_val[i] |
@@ -2267,7 +2267,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 	dvfs.vlp_support = of_property_read_bool(node, "vlp-support");
 	if (dvfs.vlp_support)
 		pr_notice("[%s]: VCORE DVS sould be bypassed\n", __func__);
-	
+
 	if (dvfs.vlp_support) {
 		dvfs.vow_lp_en_gear = -1;
 	} else {
@@ -2282,8 +2282,10 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 
 	dvfs.vlpck_support = of_property_read_bool(node, "vlpck-support");
 	if (dvfs.vlpck_support) {
-		pr_notice("[%s]: Use VLP_CKSYS in calibration flow\n", __func__);
 		dvfs.vlpck_bypass_phase1 = of_property_read_bool(node, "vlpck-bypass-phase1");
+		pr_notice("[%s]: Use %d-phase VLP_CKSYS in calibration flow\n",
+			__func__,
+			dvfs.vlpck_bypass_phase1 ? 1:2);
 	} else {
 		dvfs.vlpck_bypass_phase1 = false;
 	}
