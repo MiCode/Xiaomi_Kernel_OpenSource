@@ -2826,9 +2826,23 @@
 		reg = <0 0x10218000 0 0x1000>;
 	};
 
-	emi@10219000 {
-		compatible = "mediatek,emi";
-		reg = <0 0x10219000 0 0x1000>;
+	emicen: emicen@10219000 {
+		compatible = "mediatek,mt6983-emicen";
+		reg = <0 0x10219000 0 0x1000>,
+			<0 0x1021d000 0 0x1000>;
+		mediatek,emi-reg = <&emichn>;
+	};
+
+	emichn: emichn@10235000 {
+		compatible = "mediatek,mt6983-emichn";
+		reg = <0 0x10235000 0 0x1000>,
+			<0 0x10245000 0 0x1000>,
+			<0 0x10255000 0 0x1000>,
+			<0 0x10265000 0 0x1000>;
+	};
+
+	emiisu {
+		compatible = "mediatek,mt6983-emiisu";
 	};
 
 	infra_device_mpu@1021a000 {
