@@ -316,13 +316,13 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 
 	scale = (SCHED_CAPACITY_SCALE * 100 / (100 - sysctl_sched_capacity_margin_dvfs));
 	util = util * scale / SCHED_CAPACITY_SCALE;
-	util = min(util, cap);
 
 	for (i = 0; i < pd_count; i++) {
 		info = &pd_capacity_tbl[i];
-		if (cap != info->caps[0])
+		if (abs(cap - info->caps[0]) > 1)
 			continue;
 
+		util = min(util, info->caps[0]);
 		cpu = cpumask_first(&info->cpus);
 		for (j = info->nr_caps - 1; j >= 0; j--) {
 			cur_cap = info->caps[j];
