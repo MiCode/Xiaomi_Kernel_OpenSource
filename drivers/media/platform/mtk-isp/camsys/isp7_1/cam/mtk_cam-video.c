@@ -609,8 +609,9 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 							 / info->bit_r_den;
 				img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
 				img_out->buf[0][0].size += img_out->fmt.stride[0] * height / 2;
-				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 64) * height
-							   * 2;
+				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height;
+				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height
+							   / 2;
 				img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
 
 				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
@@ -622,7 +623,7 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 				img_out->fmt.stride[0] = aligned_width * info->bit_r_num /
 							 info->bit_r_den;
 				img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
-				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 64) * height;
+				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height;
 				img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
 
 				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
@@ -1417,7 +1418,8 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 					plane->bytesperline = stride;
 				plane->sizeimage = stride * height;
 				plane->sizeimage += stride * height / 2;
-				plane->sizeimage += ALIGN((aligned_width / 64), 64) * height * 2;
+				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
+				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height / 2;
 				plane->sizeimage += sizeof(struct UfbcBufferHeader);
 			} else if (is_raw_ufo(pixelformat)) {
 				/* UFO format width should align 64 pixel */
@@ -1427,7 +1429,7 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				if (stride > plane->bytesperline)
 					plane->bytesperline = stride;
 				plane->sizeimage = stride * height;
-				plane->sizeimage += ALIGN((aligned_width / 64), 64) * height;
+				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
 				plane->sizeimage += sizeof(struct UfbcBufferHeader);
 			} else {
 				/* width should be bus_size align */
