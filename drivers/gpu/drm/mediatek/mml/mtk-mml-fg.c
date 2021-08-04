@@ -293,26 +293,26 @@ static int remove(struct platform_device *pdev)
 	return 0;
 }
 
-const struct of_device_id mtk_mml_fg_driver_dt_match[] = {
+const struct of_device_id mml_fg_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6893-mml_fg",
 		.data = &mt6893_fg_data
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(of, mtk_mml_fg_driver_dt_match);
+MODULE_DEVICE_TABLE(of, mml_fg_driver_dt_match);
 
-struct platform_driver mtk_mml_fg_driver = {
+struct platform_driver mml_fg_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
 		.name = "mediatek-mml-fg",
 		.owner = THIS_MODULE,
-		.of_match_table = mtk_mml_fg_driver_dt_match,
+		.of_match_table = mml_fg_driver_dt_match,
 	},
 };
 
-//module_platform_driver(mtk_mml_fg_driver);
+//module_platform_driver(mml_fg_driver);
 
 static s32 ut_case;
 static s32 ut_set(const char *val, const struct kernel_param *kp)

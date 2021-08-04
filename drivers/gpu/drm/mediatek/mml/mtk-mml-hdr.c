@@ -441,7 +441,7 @@ static int remove(struct platform_device *pdev)
 	return 0;
 }
 
-const struct of_device_id mtk_mml_hdr_driver_dt_match[] = {
+const struct of_device_id mml_hdr_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6983-mml_hdr",
 		.data = &hdr10_hdr_data,
@@ -452,19 +452,19 @@ const struct of_device_id mtk_mml_hdr_driver_dt_match[] = {
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(of, mtk_mml_hdr_driver_dt_match);
+MODULE_DEVICE_TABLE(of, mml_hdr_driver_dt_match);
 
-struct platform_driver mtk_mml_hdr_driver = {
+struct platform_driver mml_hdr_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
 		.name = "mediatek-mml-hdr",
 		.owner = THIS_MODULE,
-		.of_match_table = mtk_mml_hdr_driver_dt_match,
+		.of_match_table = mml_hdr_driver_dt_match,
 	},
 };
 
-//module_platform_driver(mtk_mml_hdr_driver);
+//module_platform_driver(mml_hdr_driver);
 
 static s32 ut_case;
 static s32 ut_set(const char *val, const struct kernel_param *kp)

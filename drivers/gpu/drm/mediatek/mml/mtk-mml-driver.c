@@ -715,7 +715,7 @@ static const struct dev_pm_ops mml_pm_ops = {
 	SET_RUNTIME_PM_OPS(mml_pm_suspend, mml_pm_resume, NULL)
 };
 
-static struct platform_driver mml_driver = {
+static struct platform_driver mtk_mml_driver = {
 	.probe = mml_probe,
 	.remove = mml_remove,
 	.driver = {
@@ -726,98 +726,30 @@ static struct platform_driver mml_driver = {
 	},
 };
 
+static struct platform_driver *mml_drivers[] = {
+	&mtk_mml_driver,
+	&mml_sys_driver,
+	&mml_aal_driver,
+	&mml_color_driver,
+	&mml_fg_driver,
+	&mml_hdr_driver,
+	&mml_mutex_driver,
+	&mml_rdma_driver,
+	&mml_rsz_driver,
+	&mml_tcc_driver,
+	&mml_tdshp_driver,
+	&mml_wrot_driver,
+
+	&mtk_mml_test_drv,
+};
+
 static int __init mml_driver_init(void)
 {
 	int ret;
 
-	ret = platform_driver_register(&mml_driver);
+	ret = platform_register_drivers(mml_drivers, ARRAY_SIZE(mml_drivers));
 	if (ret) {
-		mml_err("failed to register %s driver",
-			mml_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_rsz_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_rsz_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_rdma_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_rdma_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_wrot_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_wrot_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mml_mutex_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mml_mutex_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mml_sys_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mml_sys_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_hdr_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_hdr_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_color_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_color_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_aal_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_aal_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_tdshp_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_tdshp_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_tcc_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_tcc_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_fg_driver);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_fg_driver.driver.name);
-		return ret;
-	}
-
-	ret = platform_driver_register(&mtk_mml_test_drv);
-	if (ret) {
-		mml_err("failed to register %s driver",
-			mtk_mml_test_drv.driver.name);
+		mml_err("failed to register mml core drivers");
 		return ret;
 	}
 
@@ -830,7 +762,7 @@ module_init(mml_driver_init);
 
 static void __exit mml_driver_exit(void)
 {
-	platform_driver_unregister(&mml_driver);
+	platform_unregister_drivers(mml_drivers, ARRAY_SIZE(mml_drivers));
 }
 module_exit(mml_driver_exit);
 

@@ -436,7 +436,7 @@ static int remove(struct platform_device *pdev)
 	return 0;
 }
 
-const struct of_device_id mtk_mml_aal_driver_dt_match[] = {
+const struct of_device_id mml_aal_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6983-mml_aal",
 		.data = &mt6983_aal_data,
@@ -447,19 +447,19 @@ const struct of_device_id mtk_mml_aal_driver_dt_match[] = {
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(of, mtk_mml_aal_driver_dt_match);
+MODULE_DEVICE_TABLE(of, mml_aal_driver_dt_match);
 
-struct platform_driver mtk_mml_aal_driver = {
+struct platform_driver mml_aal_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
 		.name = "mediatek-mml-aal",
 		.owner = THIS_MODULE,
-		.of_match_table = mtk_mml_aal_driver_dt_match,
+		.of_match_table = mml_aal_driver_dt_match,
 	},
 };
 
-//module_platform_driver(mtk_mml_aal_driver);
+//module_platform_driver(mml_aal_driver);
 
 static s32 ut_case;
 static s32 ut_set(const char *val, const struct kernel_param *kp)

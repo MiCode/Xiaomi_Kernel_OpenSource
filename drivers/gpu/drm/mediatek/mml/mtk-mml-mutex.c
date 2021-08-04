@@ -250,10 +250,10 @@ struct platform_driver mml_mutex_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
-			.name = "mediatek-mml-mutex",
-			.owner = THIS_MODULE,
-			.of_match_table = mml_mutex_driver_dt_match,
-		},
+		.name = "mediatek-mml-mutex",
+		.owner = THIS_MODULE,
+		.of_match_table = mml_mutex_driver_dt_match,
+	},
 };
 
 //module_platform_driver(mml_mutex_driver);
