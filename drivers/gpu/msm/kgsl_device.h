@@ -271,8 +271,6 @@ struct kgsl_device {
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
 	struct kobject gpu_sysfs_kobj;
-	/** @icc_path: Interconnect path for scaling l3 frequency */
-	struct icc_path *l3_icc;
 	unsigned int l3_freq[3];
 	unsigned int num_l3_pwrlevels;
 	/* store current L3 vote to determine if we should change our vote */
@@ -301,6 +299,8 @@ struct kgsl_device {
 	spinlock_t timelines_lock;
 	/** @fence_trace_array: A local trace array for fence debugging */
 	struct trace_array *fence_trace_array;
+	/** @l3_vote: Enable/Disable l3 voting */
+	bool l3_vote;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \

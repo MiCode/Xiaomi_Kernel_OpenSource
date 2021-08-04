@@ -16,6 +16,7 @@
 #include "kgsl_gmu_core.h"
 #include "kgsl_pwrscale.h"
 
+#define KGSL_L3_DEVICE "kgsl-l3"
 
 /*
  * --- kgsl drawobj flags ---
