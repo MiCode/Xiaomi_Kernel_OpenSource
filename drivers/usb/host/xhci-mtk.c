@@ -858,6 +858,12 @@ static const struct dev_pm_ops xhci_mtk_pm_ops = {
 #define DEV_PM_OPS IS_ENABLED(CONFIG_PM) ? &xhci_mtk_pm_ops : NULL
 
 #ifdef CONFIG_OF
+static const struct of_device_id mtk_xhci_p1_of_match[] = {
+	{ .compatible = "mediatek,mtk-xhci-p1"},
+	{ },
+};
+MODULE_DEVICE_TABLE(of, mtk_xhci_p1_of_match);
+
 static const struct of_device_id mtk_xhci_of_match[] = {
 	{ .compatible = "mediatek,mt8173-xhci"},
 	{ .compatible = "mediatek,mtk-xhci"},
@@ -865,6 +871,16 @@ static const struct of_device_id mtk_xhci_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_xhci_of_match);
 #endif
+
+static struct platform_driver mtk_xhci_p1_driver = {
+	.probe	= xhci_mtk_probe,
+	.remove	= xhci_mtk_remove,
+	.driver	= {
+		.name = "xhci-mtk-p1",
+		.pm = DEV_PM_OPS,
+		.of_match_table = of_match_ptr(mtk_xhci_p1_of_match),
+	},
+};
 
 static struct platform_driver mtk_xhci_driver = {
 	.probe	= xhci_mtk_probe,
@@ -879,13 +895,19 @@ MODULE_ALIAS("platform:xhci-mtk");
 
 static int __init xhci_mtk_init(void)
 {
+	int ret;
+
 	xhci_init_driver(&xhci_mtk_hc_driver, &xhci_mtk_overrides);
+	ret = platform_driver_register(&mtk_xhci_p1_driver);
+	if (ret < 0)
+		return ret;
 	return platform_driver_register(&mtk_xhci_driver);
 }
 module_init(xhci_mtk_init);
 
 static void __exit xhci_mtk_exit(void)
 {
+	platform_driver_unregister(&mtk_xhci_p1_driver);
 	platform_driver_unregister(&mtk_xhci_driver);
 }
 module_exit(xhci_mtk_exit);
