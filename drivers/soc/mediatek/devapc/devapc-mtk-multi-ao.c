@@ -868,9 +868,11 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	uint32_t irq_type_num = IRQ_TYPE_NUM_DEFAULT;
 	const struct mtk_device_info **device_info;
 	struct mtk_devapc_vio_info *vio_info;
 	int slave_type, vio_idx, index;
+	int irq_type;
 	const char *vio_master;
 	unsigned long flags;
 	uint8_t perm;
@@ -879,6 +881,14 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	spin_lock_irqsave(&devapc_lock, flags);
 
 	pr_info(PFX "irq_number: %d\n", irq_number);
+
+	if (mtk_devapc_ctx->soc->irq_type_num)
+		irq_type_num = mtk_devapc_ctx->soc->irq_type_num;
+
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
+		if (irq_number == mtk_devapc_ctx->devapc_irq[irq_type])
+			pr_info(PFX "irq_type: %d\n", irq_type);
+	}
 
 	print_vio_mask_sta(false);
 
