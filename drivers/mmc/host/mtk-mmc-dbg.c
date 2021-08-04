@@ -16,6 +16,7 @@
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/uidgid.h>
+#include <mt-plat/mrdump.h>
 
 /*  For msdc register dump  */
 u16 msdc_offsets[] = {
@@ -96,6 +97,7 @@ struct mmc_host *mtk_mmc_host[] = {NULL, NULL};
 
 #define dbg_max_cnt (4000)
 #define sd_dbg_max_cnt (500)
+#define MMC_AEE_BUFFER_SIZE (300 * 1024)
 
 struct dbg_run_host_log {
 	unsigned long long time_sec;
@@ -127,6 +129,7 @@ static unsigned int print_cpu_test = UINT_MAX;
 static spinlock_t cmd_hist_lock;
 static bool cmd_hist_init;
 static bool cmd_hist_enabled;
+static char *mmc_aee_buffer;
 
 /**
  * Data structures to store tracepoints information
@@ -1032,9 +1035,6 @@ int mmc_dbg_register(struct mmc_host *mmc)
 	int i, ret;
 	bool is_sd;
 
-	if (cmd_hist_enabled)
-		return -EINVAL;
-
 	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 		mtk_mmc_host[0] = mmc;
 		is_sd = false;
@@ -1044,17 +1044,24 @@ int mmc_dbg_register(struct mmc_host *mmc)
 	} else /* SDIO no debug */
 		return -EINVAL;
 
+	/* avoid init repeatedly */
+	if (cmd_hist_init == true)
+		return 0;
+
+	/*
+	 * Ignore any failure of AEE buffer allocation to still allow
+	 * command history dump in procfs.
+	 */
+	mmc_aee_buffer = kzalloc(MMC_AEE_BUFFER_SIZE, GFP_NOFS);
+
 	/* Blocktag */
 	ret = mmc_mtk_biolog_init(mmc);
 	if (ret)
 		return ret;
 
-	/* avoid init repeatedly */
-	if (cmd_hist_init == true)
-		return 0;
-
 	spin_lock_init(&cmd_hist_lock);
 	cmd_hist_init = true;
+	cmd_hist_enabled = true;
 
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
@@ -1081,16 +1088,39 @@ int mmc_dbg_register(struct mmc_host *mmc)
 }
 EXPORT_SYMBOL_GPL(mmc_dbg_register);
 
+void mmc_mtk_dbg_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	unsigned long free_size = MMC_AEE_BUFFER_SIZE;
+	char *buff;
+
+	if (!mmc_aee_buffer) {
+		pr_info("failed to dump MMC: null AEE buffer");
+		return;
+	}
+
+	buff = mmc_aee_buffer;
+	msdc_dump_host_state(&buff, &free_size, NULL);
+	mmc_cmd_dump(&buff, &free_size, NULL, mtk_mmc_host[0], dbg_max_cnt);
+	sd_cmd_dump(&buff, &free_size, NULL, mtk_mmc_host[1], sd_dbg_max_cnt);
+
+	/* return start location */
+	*vaddr = (unsigned long)mmc_aee_buffer;
+	*size = MMC_AEE_BUFFER_SIZE - free_size;
+}
+EXPORT_SYMBOL_GPL(mmc_mtk_dbg_get_aee_buffer);
+
 static int __init mmc_mtk_dbg_init(void)
 {
 	dbg_host_cnt = 0;
 	dbg_sd_cnt = 0;
 
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_MMC, mmc_mtk_dbg_get_aee_buffer);
 	return 0;
 }
 
 static void __exit mmc_mtk_dbg_exit(void)
 {
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_MMC, NULL);
 	return;
 }
 

@@ -17,9 +17,9 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 
+#include <mt-plat/mtk_blocktag.h>
 #include "cqhci.h"
 #include "cqhci-crypto.h"
-#include "mtk_blocktag.h"
 
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32

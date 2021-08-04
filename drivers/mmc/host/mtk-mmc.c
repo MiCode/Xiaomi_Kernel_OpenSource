@@ -3,11 +3,11 @@
  * Copyright (c) 2014-2015 MediaTek Inc.
  * Author: Chaotian.Jing <chaotian.jing@mediatek.com>
  */
-#include "mtk_blocktag.h"
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
 #include "../core/card.h"
 #include <linux/regulator/consumer.h>
+#include <mt-plat/mtk_blocktag.h>
 
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode);
 
