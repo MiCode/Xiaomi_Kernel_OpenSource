@@ -1472,11 +1472,11 @@ immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
 	bool change_seninf = false;
 	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
 
-	if (!s_data->seninf_new || !s_data->seninf_old) {
+	if (req->ctx_link_update && (!s_data->seninf_new || !s_data->seninf_old)) {
 		dev_info(cam->dev,
-			 "%s:req(%s):pipe(%d):ctx_link_update(0x%x),seninf_old(%p)/seninf_new(%p) can't be null\n",
+			 "%s:req(%s):pipe(%d):seq(%d):ctx_link_update(0x%x):seninf_old(%p),seninf_new(%p) can't be null\n",
 			 __func__, req->req.debug_str, pipe_id,
-			 req->ctx_link_update, s_data->frame_seq_no,
+			 s_data->frame_seq_no, req->ctx_link_update,
 			 s_data->seninf_old, s_data->seninf_new);
 		req->ctx_link_update = 0;
 	}
