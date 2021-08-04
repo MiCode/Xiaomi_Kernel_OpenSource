@@ -16,6 +16,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
+#include <linux/errno.h>
 
 #include <slbc.h>
 
@@ -87,7 +88,7 @@ int slbc_request(struct slbc_data *d)
 	if (common_ops && common_ops->slbc_request)
 		return common_ops->slbc_request(d);
 	else
-		return 0;
+		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_request);
 
@@ -96,7 +97,7 @@ int slbc_release(struct slbc_data *d)
 	if (common_ops && common_ops->slbc_release)
 		return common_ops->slbc_release(d);
 	else
-		return 0;
+		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_release);
 
@@ -105,7 +106,7 @@ int slbc_power_on(struct slbc_data *d)
 	if (common_ops && common_ops->slbc_power_on)
 		return common_ops->slbc_power_on(d);
 	else
-		return 0;
+		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_power_on);
 
@@ -114,7 +115,7 @@ int slbc_power_off(struct slbc_data *d)
 	if (common_ops && common_ops->slbc_power_off)
 		return common_ops->slbc_power_off(d);
 	else
-		return 0;
+		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_power_off);
 
@@ -123,7 +124,7 @@ int slbc_secure_on(struct slbc_data *d)
 	if (common_ops && common_ops->slbc_secure_on)
 		return common_ops->slbc_secure_on(d);
 	else
-		return 0;
+		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_secure_on);
 
@@ -132,7 +133,7 @@ int slbc_secure_off(struct slbc_data *d)
 	if (common_ops && common_ops->slbc_secure_off)
 		return common_ops->slbc_secure_off(d);
 	else
-		return 0;
+		return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(slbc_secure_off);
 
@@ -168,7 +169,6 @@ EXPORT_SYMBOL_GPL(slbc_unregister_common_ops);
 
 int __init slbc_common_module_init(void)
 {
-
 	return 0;
 }
 
