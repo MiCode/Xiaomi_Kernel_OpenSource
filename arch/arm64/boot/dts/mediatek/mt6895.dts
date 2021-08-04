@@ -323,9 +323,93 @@
 		reg = <0 0x1000c000 0 0xe00>;
 	};
 
-	fhctl@1000ce00 {
-		compatible = "mediatek,fhctl";
-		reg = <0 0x1000ce00 0 0x200>;
+	fhctl: fhctl@1000ce00 {
+		compatible = "mediatek,mt6895-fhctl";
+		reg = <0 0x1000ce00 0 0x200>, //AP FHCTL base
+		<0 0x1000c000 0 0xe00>, //APMIX base
+
+		<0 0x13fa0100 0 0x030>, //GPU0 EN
+		<0 0x13fa0000 0 0x100>, //GPU APMIX
+		<0 0x13fa0900 0 0x030>,
+		<0 0x13fa0800 0 0x100>,
+		<0 0x13fa0d00 0 0x030>,
+		<0 0x13fa0c00 0 0x100>;
+
+		map0 {
+			domain = "top";
+			method = "fhctl-ap";
+			armpll_ll {
+				fh-id = <0>;
+				pll-id = <999>;
+			};
+			armpll_bl {
+				fh-id = <1>;
+				pll-id = <999>;
+			};
+			armpll_b {
+				fh-id = <2>;
+				pll-id = <999>;
+			};
+			ccipll {
+				fh-id = <3>;
+				pll-id = <999>;
+			};
+			mpll {
+				fh-id = <6>;
+				pll-id = <999>;
+			};
+			mmpll {
+				fh-id = <7>;
+				pll-id = <999>;
+			};
+			mainpll {
+				fh-id = <8>;
+				pll-id = <999>;
+			};
+			msdcpll {
+				fh-id = <9>;
+				pll-id = <999>;
+			};
+			adsppll {
+				fh-id = <10>;
+				pll-id = <999>;
+			};
+			imgpll {
+				fh-id = <11>;
+				pll-id = <999>;
+			};
+			tvdpll {
+				fh-id = <12>;
+				pll-id = <999>;
+			};
+		};
+
+		map5 {
+			domain = "gpu0";
+			method = "fhctl-ap";
+			mfgpll {
+				fh-id = <0>;
+				pll-id = <999>;
+			};
+		};
+
+		map7 {
+			domain = "gpu2";
+			method = "fhctl-ap";
+			mfgpll2 {
+				fh-id = <0>;
+				pll-id = <999>;
+			};
+		};
+
+		map8 {
+			domain = "gpu3";
+			method = "fhctl-ap";
+			mfgscpll {
+				fh-id = <0>;
+				pll-id = <999>;
+			};
+		};
 	};
 
 	devapc_ao_infra_peri@1000e000 {
