@@ -1351,6 +1351,10 @@ static int mtk_pe2_probe(struct platform_device *pdev)
 	pe2->vbus = 5000000;
 	pe2->state = PE2_HW_UNINIT;
 	mtk_pe2_parse_dt(pe2, &pdev->dev);
+	pe2->bat_psy = devm_power_supply_get_by_phandle(&pdev->dev, "gauge");
+
+	if (IS_ERR_OR_NULL(pe2->bat_psy))
+		pe2_err("%s: devm power fail to get bat_psy\n", __func__);
 
 	pe2->profile[0].vbat = 3400000;
 	pe2->profile[1].vbat = 3500000;

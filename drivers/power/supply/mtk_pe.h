@@ -69,6 +69,7 @@ struct mtk_pe {
 	struct mutex cable_out_lock;
 	struct wakeup_source *suspend_lock;
 	int state;
+	struct power_supply *bat_psy;
 
 	int ta_vchr_org; /* uA */
 	bool to_tune_ta_vchr;

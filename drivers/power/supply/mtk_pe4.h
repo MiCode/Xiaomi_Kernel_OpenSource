@@ -109,6 +109,7 @@ struct mtk_pe40 {
 	bool can_query;
 	int state;
 	struct pe4_power_cap cap;
+	struct power_supply *bat_psy;
 
 	int avbus;
 	int vbus;

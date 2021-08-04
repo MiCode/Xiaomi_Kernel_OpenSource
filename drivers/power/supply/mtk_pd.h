@@ -91,6 +91,7 @@ struct mtk_pd {
 	int state;
 	struct mutex access_lock;
 	struct mutex data_lock;
+	struct power_supply *bat_psy;
 
 	int cv;
 	int pd_input_current;

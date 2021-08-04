@@ -612,8 +612,14 @@ int pd_hal_get_uisoc(struct chg_alg_device *alg)
 		return -EINVAL;
 
 	pd = dev_get_drvdata(&alg->dev);
-	bat_psy = devm_power_supply_get_by_phandle(&pd->pdev->dev,
-						       "gauge");
+	bat_psy = pd->bat_psy;
+
+	if (IS_ERR_OR_NULL(bat_psy)) {
+		pr_notice("%s retry to get bat_psy\n", __func__);
+		bat_psy = devm_power_supply_get_by_phandle(&pd->pdev->dev, "gauge");
+		pd->bat_psy = bat_psy;
+	}
+
 	if (IS_ERR_OR_NULL(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;

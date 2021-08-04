@@ -87,6 +87,7 @@ struct mtk_pe20 {
 	struct mutex cable_out_lock;
 	struct mutex data_lock;
 	bool is_cable_out_occur; /* Plug out happened while detect PE+20 */
+	struct power_supply *bat_psy;
 
 	int ta_vchr_org;
 	int idx;
