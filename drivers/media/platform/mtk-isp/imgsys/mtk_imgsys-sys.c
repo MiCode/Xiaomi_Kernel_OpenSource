@@ -28,6 +28,8 @@
 #include <linux/remoteproc/mtk_scp.h>
 #endif
 
+static struct gce_timeout_work imgsys_timeout_winfo[VIDEO_MAX_FRAME];
+static int imgsys_timeout_idx;
 static struct info_list_t frm_info_list = {
 	.mymutex = __MUTEX_INITIALIZER(frm_info_list.mymutex),
 	.configed_list = LIST_HEAD_INIT(frm_info_list.configed_list),
@@ -581,14 +583,17 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 	frm_info = (struct swfrm_info_t *)(swork->req_sbuf_kva);
 
 	if (frm_info) {
+		frm_info->fail_uinfo_idx = swork->fail_uinfo_idx;
+		frm_info->fail_isHWhang = swork->fail_isHWhang;
 		dev_info(req->imgsys_pipe->imgsys_dev->dev,
-			"%s: req fd/no(%d/%d)frame_no(%d) tfnum(%d) fail idx/sidx(%d/%d) timeout_w\n",
+			"%s: req fd/no(%d/%d)frame_no(%d) tfnum(%d) fail idx/sidx(%d/%d) timeout_w(%d)\n",
 			__func__, frm_info->request_fd,
 			frm_info->request_no,
 			frm_info->frame_no,
 			frm_info->total_frmnum,
 			frm_info->fail_uinfo_idx,
-			frm_info->user_info[frm_info->fail_uinfo_idx].subfrm_idx);
+			frm_info->user_info[frm_info->fail_uinfo_idx].subfrm_idx,
+			frm_info->fail_isHWhang);
 		/* DAEMON debug dump */
 		ipi_param.usage = IMG_IPI_DEBUG;
 		swbuf_data.offset  = frm_info->req_sbuf_goft;
@@ -601,11 +606,12 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 	}
 
 release_work:
-	vfree(swork);
+	/*vfree(swork);*/
+	pr_debug("%s leave\n", __func__);
 }
 
 static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
-						unsigned int fail_subfidx)
+						unsigned int fail_subfidx, bool isHWhang)
 {
 	struct mtk_imgsys_pipe *pipe;
 	struct mtk_imgsys_request *req;
@@ -634,41 +640,51 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 	imgsys_dev = req->imgsys_pipe->imgsys_dev;
-	frm_info_cb->fail_uinfo_idx = fail_subfidx;
+	/*frm_info_cb->fail_uinfo_idx = fail_subfidx;*/
 	dev_info(imgsys_dev->dev,
-		"%s:req fd/no(%d/%d) frame_no(%d) tfnum(%d)idx/sidx/hw(%d/%d/0x%x)timeout dump cb +",
+		"%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d) dump cb +",
 		__func__, frm_info_cb->request_fd,
 		frm_info_cb->request_no,
 		frm_info_cb->frame_no,
 		frm_info_cb->total_frmnum,
-		frm_info_cb->fail_uinfo_idx,
-		frm_info_cb->user_info[frm_info_cb->fail_uinfo_idx].subfrm_idx,
-		frm_info_cb->user_info[frm_info_cb->fail_uinfo_idx].hw_comb);
+		frm_info_cb->swfrminfo_ridx,
+		fail_subfidx,
+		frm_info_cb->user_info[fail_subfidx].subfrm_idx,
+		frm_info_cb->user_info[fail_subfidx].hw_comb, isHWhang,
+		imgsys_timeout_idx);
 
 	/* DUMP DL CHECKSUM & HW REGISTERS*/
-	if (imgsys_dev->dump) {
+	if (imgsys_dev->dump && isHWhang) {
 		imgsys_modules = req->imgsys_pipe->imgsys_dev->modules;
 		imgsys_dev->dump(imgsys_dev, imgsys_modules,
 		req->imgsys_pipe->imgsys_dev->num_mods,
-		frm_info_cb->user_info[frm_info_cb->fail_uinfo_idx].hw_comb);
+		frm_info_cb->user_info[fail_subfidx].hw_comb);
 	}
 
-	swork = vzalloc(sizeof(struct gce_timeout_work));
+
+	/*swork = vzalloc(sizeof(struct gce_timeout_work));*/
+	swork = &(imgsys_timeout_winfo[imgsys_timeout_idx]);
 	swork->req = req;
 	swork->req_sbuf_kva = frm_info_cb->req_sbuf_kva;
 	swork->pipe = frm_info_cb->pipe;
+	swork->fail_uinfo_idx = fail_subfidx;
+	swork->fail_isHWhang = isHWhang;
 	INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
 	queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
 		&swork->work);
+	imgsys_timeout_idx = (imgsys_timeout_idx + 1) % VIDEO_MAX_FRAME;
 
 	dev_info(imgsys_dev->dev,
-		"%s:req fd/no(%d/%d) frame_no(%d) tfnum(%d) fail idx/sidx(%d/%d) timeout dump cb -",
+		"%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d) dump cb -",
 		__func__, frm_info_cb->request_fd,
 		frm_info_cb->request_no,
 		frm_info_cb->frame_no,
 		frm_info_cb->total_frmnum,
-		frm_info_cb->fail_uinfo_idx,
-		frm_info_cb->user_info[frm_info_cb->fail_uinfo_idx].subfrm_idx);
+		frm_info_cb->swfrminfo_ridx,
+		fail_subfidx,
+		frm_info_cb->user_info[fail_subfidx].subfrm_idx,
+		frm_info_cb->user_info[fail_subfidx].hw_comb, isHWhang,
+		imgsys_timeout_idx);
 }
 
 static void cmdq_cb_done_worker(struct work_struct *work)

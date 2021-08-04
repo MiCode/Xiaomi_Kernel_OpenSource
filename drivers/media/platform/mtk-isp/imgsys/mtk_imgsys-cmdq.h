@@ -47,7 +47,7 @@ struct mtk_imgsys_cb_param {
 	struct mtk_imgsys_cmdq_timestamp cmdqTs;
 	struct mtk_imgsys_dev *imgsys_dev;
 	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx);
-	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx);
+	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang);
 	s32 err;
 	u32 frm_idx;
 	u32 frm_num;
@@ -191,7 +191,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
 					uint32_t uinfo_idx),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
-					uint32_t fail_uinfo_idx));
+					uint32_t fail_uinfo_idx, bool isHWhang));
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd);
 
 #if DVFS_QOS_READY

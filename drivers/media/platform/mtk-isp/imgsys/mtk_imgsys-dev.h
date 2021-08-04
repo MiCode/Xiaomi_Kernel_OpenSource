@@ -351,6 +351,8 @@ struct gce_timeout_work {
 	struct mtk_imgsys_request *req;
 	void *req_sbuf_kva;
 	void *pipe;
+	uint32_t fail_uinfo_idx;
+	int8_t fail_isHWhang;
 };
 
 struct gce_cb_work {
@@ -690,6 +692,7 @@ struct swfrm_info_t {
 	void *req;		/*mtk_dip_request*/
 	void *pipe;
 	uint32_t fail_uinfo_idx;
+	int8_t fail_isHWhang;
 	struct timeval eqtime;
 	int chan_id;
 };

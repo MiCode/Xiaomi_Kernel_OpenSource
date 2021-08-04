@@ -311,11 +311,36 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 				imgsys_cmdq_cmd_dump(cb_param->frm_info, cb_param->frm_idx);
 				if (cb_param->user_cmdq_err_cb) {
 					struct cmdq_cb_data user_cb_data;
+					u16 event = 0;
+					bool isHWhang = 0;
+
+					event = cb_param->pkt->err_data.event;
+					if ((event >= IMGSYS_CMDQ_HW_EVENT_BEGIN) &&
+						(event <= IMGSYS_CMDQ_HW_EVENT_END)) {
+						isHWhang = 1;
+						pr_info(
+							"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
+							__func__,
+							cb_param->pkt->err_data.wfe_timeout,
+							cb_param->pkt->err_data.event, isHWhang);
+					} else if ((event >= IMGSYS_CMDQ_SW_EVENT_BEGIN) &&
+							(event <= IMGSYS_CMDQ_SW_EVENT_END))
+						pr_info(
+							"%s: [ERROR] SW event timeout! wfe(%d) event(%d) isHW(%d)",
+							__func__,
+							cb_param->pkt->err_data.wfe_timeout,
+							cb_param->pkt->err_data.event, isHWhang);
+					else
+						pr_info(
+							"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
+							__func__,
+							cb_param->pkt->err_data.wfe_timeout,
+							cb_param->pkt->err_data.event, isHWhang);
 
 					user_cb_data.err = cb_param->err;
 					user_cb_data.data = (void *)cb_param->frm_info;
 					cb_param->user_cmdq_err_cb(
-						user_cb_data, cb_param->frm_idx);
+						user_cb_data, cb_param->frm_idx, isHWhang);
 				}
 			} else {
 				is_stream_off = 1;
@@ -338,7 +363,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
 					uint32_t subfidx),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
-					uint32_t fail_subfidx))
+					uint32_t fail_subfidx, bool isHWhang))
 {
 	struct cmdq_client *clt = NULL;
 	struct cmdq_pkt *pkt = NULL;

@@ -12,6 +12,11 @@
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
 
+#define IMGSYS_CMDQ_HW_EVENT_BEGIN	129
+#define IMGSYS_CMDQ_HW_EVENT_END	250
+#define IMGSYS_CMDQ_SW_EVENT_BEGIN	514
+#define IMGSYS_CMDQ_SW_EVENT_END	579
+
 enum mtk_imgsys_event {
 	/* HW event */
 	IMGSYS_CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0 = 0,
@@ -218,7 +223,7 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_6, "ltraw_cq_thread6_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_7, "ltraw_cq_thread7_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_8, "ltraw_cq_thread8_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_9, "ltraw_cq_thread9_frame_done"},	
+	{IMGSYS_CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_9, "ltraw_cq_thread9_frame_done"},
 	/*XTRAW frame done*/
 	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_0, "xtraw_cq_thread0_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_1, "xtraw_cq_thread1_frame_done"},
