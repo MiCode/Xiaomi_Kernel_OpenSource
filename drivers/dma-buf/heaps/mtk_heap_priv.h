@@ -33,7 +33,13 @@
 
 /* mtk_heap private info, used for dump */
 struct mtk_heap_priv_info {
+	/* used for heap dump */
 	void (*show)(struct dma_heap *heap, void *seq_file, int flag);
+
+	/* used for buffer dump */
+	int (*buf_priv_dump)(const struct dma_buf *dmabuf,
+			     struct dma_heap *heap,
+			     void *seq_file);
 };
 
 struct dma_heap_attachment {
