@@ -566,13 +566,14 @@ static void ufs_mtk_dbg_print_cmd_hist(char **buff, unsigned long *size,
 
 }
 
-void ufs_mediatek_dbg_dump(void)
+void ufs_mtk_dbg_dump(void)
 {
 	ufs_mtk_dbg_print_info(NULL, NULL, NULL);
 
 	ufs_mtk_dbg_print_cmd_hist(NULL, NULL, MAX_CMD_HIST_ENTRY_CNT,
 				   NULL);
 }
+EXPORT_SYMBOL_GPL(ufs_mtk_dbg_dump);
 
 void ufs_mtk_dbg_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
@@ -624,7 +625,10 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 	if (kstrtoul(cmd_buf, 15, &op))
 		return -EINVAL;
 
-	if (op == UFSDBG_CMD_LIST_ENABLE) {
+	if (op == UFSDBG_CMD_LIST_DUMP) {
+		dev_info(hba->dev, "debug info and cmd history dump\n");
+		ufs_mtk_dbg_dump();
+	} else if (op == UFSDBG_CMD_LIST_ENABLE) {
 		cmd_hist_enable();
 		dev_info(hba->dev, "cmd history on\n");
 	} else if (op == UFSDBG_CMD_LIST_DISABLE) {
