@@ -1563,12 +1563,13 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			if (is_raw_subdev(i)) {
 				req_stream_data = mtk_cam_req_get_s_data(req_tmp, i, 0);
 				mtk_cam_req_update_ctrl(&cam->ctxs[i], req_stream_data);
-			}
 
-			running_s_data_num = atomic_inc_return(&cam->ctxs[i].running_s_data_cnt);
-			if (immediate_link_update_chk(cam, i, running_s_data_num,
-						      req_stream_data))
-				change_seninf = true;
+				running_s_data_num =
+					atomic_inc_return(&cam->ctxs[i].running_s_data_cnt);
+				if (immediate_link_update_chk(cam, i, running_s_data_num,
+								  req_stream_data))
+					change_seninf = true;
+			}
 		}
 	}
 
