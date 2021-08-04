@@ -2499,7 +2499,7 @@
 
 		map9 {
 			domain = "mcu0";
-			method = "fhctl-ap";
+			method = "fhctl-mcupm";
 			ccipll {
 				fh-id = <0>;
 				pll-id = <999>;
@@ -2509,7 +2509,7 @@
 
 		map10 {
 			domain = "mcu1";
-			method = "fhctl-ap";
+			method = "fhctl-mcupm";
 			armpll_ll {
 				fh-id = <0>;
 				pll-id = <999>;
@@ -2519,7 +2519,7 @@
 
 		map11 {
 			domain = "mcu2";
-			method = "fhctl-ap";
+			method = "fhctl-mcupm";
 			armpll_bl {
 				fh-id = <0>;
 				pll-id = <999>;
@@ -2529,7 +2529,7 @@
 
 		map12 {
 			domain = "mcu3";
-			method = "fhctl-ap";
+			method = "fhctl-mcupm";
 			armpll_b {
 				fh-id = <0>;
 				pll-id = <999>;
