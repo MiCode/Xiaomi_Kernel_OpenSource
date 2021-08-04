@@ -202,16 +202,17 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		/* pr_debug("[wdk] set kick_bit\n"); */
 		local_bit |= (1 << cpu);
 		/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
-	} else if (g_hang_detected == 0) {
+	} else if ((g_hang_detected == 0) &&
+		    ((local_bit & get_check_bit()) != get_check_bit())) {
 		g_hang_detected = 1;
 		dump_timeout = 1;
 	}
 
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
-	 cpu, local_bit, get_check_bit(), lasthpg_cpu, lasthpg_act,
-	 lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
+	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,&=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
+	 cpu, local_bit, get_check_bit(), local_bit & get_check_bit(), lasthpg_cpu,
+	 lasthpg_act, lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
 	 curInterval);
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
