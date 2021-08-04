@@ -639,7 +639,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 		gauge_get_property(GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
 			&bat_temperature_volt);
 
-		gm->vbat = bat_temperature_volt;
+		gm->baton = bat_temperature_volt;
 
 		if (bat_temperature_volt != 0) {
 			fg_r_value = gm->fg_cust_data.com_r_fg_value;
@@ -1238,7 +1238,7 @@ static int fg_read_dts_val(const struct device_node *np,
 		bm_debug("Get %s: %d\n",
 			 node_srting, *param);
 	} else {
-		bm_err("Get %s no data\n", node_srting);
+		bm_debug("Get %s no data\n", node_srting);
 		return -1;
 	}
 	return 0;
@@ -1255,7 +1255,7 @@ static int fg_read_dts_val_by_idx(const struct device_node *np,
 		bm_debug("Get %s %d: %d\n",
 			 node_srting, idx, *param);
 	} else {
-		bm_err("Get %s no data, idx %d\n", node_srting, idx);
+		bm_debug("Get %s no data, idx %d\n", node_srting, idx);
 		return -1;
 	}
 	return 0;
@@ -1275,7 +1275,7 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 	saddles = gm->fg_table_cust_data.fg_profile[0].size;
 	idx = 0;
 
-	bm_err("%s: %s, %d, column:%d\n",
+	bm_debug("%s: %s, %d, column:%d\n",
 		__func__,
 		node_srting, saddles, column);
 
@@ -2490,9 +2490,10 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
 
+	gm->vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
 	gm->tbat = force_get_tbat_internal(gm, true);
 
-	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d algo:%d gm3:%d %d %d %d,boot:%d\n",
+	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d,boot:%d\n",
 		gauge_get_int_property(GAUGE_PROP_COULOMB),
 		gm->coulomb_plus.end, gm->coulomb_minus.end,
 		gm->uisoc_plus.end, gm->uisoc_minus.end,
@@ -2500,6 +2501,7 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 		gm->soc, gm->ui_soc,
 		gm->vbat,
 		gm->ibat,
+		gm->baton,
 		gm->algo.active,
 		gm->disableGM30, gm->fg_cust_data.disable_nafg,
 		gm->ntc_disable_nafg, gm->cmd_disable_nafg,

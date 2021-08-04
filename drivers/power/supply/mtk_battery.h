@@ -908,6 +908,7 @@ struct mtk_battery {
 	int charge_power_sel;
 
 	/*battery status*/
+	int baton;
 	int vbat;
 	int ibat;
 	int tbat;
