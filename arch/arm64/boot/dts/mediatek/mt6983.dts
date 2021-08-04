@@ -8117,6 +8117,7 @@
 
 		core_0 = "enable";
 		vcp_sramSize = <0x00040000>;
+		vcp_dramSize = <0x00800000>;
 		core_nums = <1>;	/* core number */
 		twohart = <1>;		/* two hart arch */
 		mbox_count = <5>;
