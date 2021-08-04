@@ -27,6 +27,9 @@
 #define DISP_CHIST_PQ_CHANNEL_INDEX 0
 /* chist custom info end*/
 
+#define DISP_CHIST_YUV_PARAM_COUNT  12
+#define DISP_CHIST_POST_PARAM_INDEX 9
+
 #define DISP_CHIST_CHANNEL_COUNT 7
 #define DISP_CHIST_MAX_RGB 0x0321
 // TODO: overlap need correct
@@ -64,6 +67,31 @@ static DEFINE_SPINLOCK(g_chist_clock_lock);
 static DECLARE_WAIT_QUEUE_HEAD(g_chist_get_irq_wq);
 
 static atomic_t g_chist_get_irq = ATOMIC_INIT(0);
+
+static int sel_index;
+
+static int g_rgb_2_yuv[4][DISP_CHIST_YUV_PARAM_COUNT] = {
+	// BT601 full
+	{0x1322D,  0x25916,  0x74BC,   // RMR,RMG,RMB
+	 0x7F5337, 0x7EACCA, 0x20000,  // GMR,GMG,GMB
+	 0x20000,  0x7E5344, 0x7FACBD, // BMR,BMG,BMB
+	 0X0,      0X7FF,    0X7FF},   // POST_RA,POST_GA,POST_BA}
+	 // BT709 full
+	{0xD9B3,   0x2D999,  0x49EE,   // RMR,RMG,RMB
+	 0x7F8AAE, 0x7E76D0, 0x20000,  // GMR,GMG,GMB
+	 0x20000,  0x7E30B4, 0x7FD10E, // BMR,BMG,BMB
+	 0X0,      0X7FF,    0X7FF},   // POST_RA,POST_GA,POST_BA}
+	 // BT601 limit
+	{0x106F3,  0x2043A,  0x6441,   // RMR,RMG,RMB
+	 0x7F6839, 0x7ED606, 0x1C1C1,  // GMR,GMG,GMB
+	 0x1C1C1,  0x7E8763, 0x7FB6DC, // BMR,BMG,BMB
+	 0X100,      0X7FF,    0X7FF},    // POST_RA,POST_GA,POST_BA}
+	 // BT709 limit
+	{0xBAF7,   0x27298,  0x3F7E,   // RMR,RMG,RMB
+	 0x7F98F1, 0x7EA69D, 0x1C1C1,  // GMR,GMG,GMB
+	 0x1C1C1,  0x7E6907, 0x7FD6C3, // BMR,BMG,BMB
+	 0X100,      0X7FF,    0X7FF}  // POST_RA,POST_GA,POST_BA
+};
 
 
 static atomic_t g_chist_is_clock_on[2] = { ATOMIC_INIT(0),
@@ -391,7 +419,7 @@ static int mtk_chist_user_cmd(struct mtk_ddp_comp *comp,
 	if (config->config_channel_count == 0)
 		return -EINVAL;
 
-	DDPINFO("%s: cmd: %d, config channel count:%d\n", __func__,
+	DDPINFO("%s:, config channel count:%d\n", __func__,
 		config->config_channel_count);
 
 	disp_chist_set_interrupt(comp, 1, handle);
@@ -487,6 +515,7 @@ static void mtk_chist_config(struct mtk_ddp_comp *comp,
 			     struct cmdq_pkt *handle)
 {
 	unsigned int width;
+	int i = 0;
 
 	if (comp->mtk_crtc->is_dual_pipe) {
 		width = cfg->w / 2;
@@ -495,7 +524,17 @@ static void mtk_chist_config(struct mtk_ddp_comp *comp,
 		width = cfg->w;
 
 	DDPINFO("%s\n", __func__);
-	// TODO: config rgb->yuv reg
+	// rgb 2 yuv regs
+	for (; i < DISP_CHIST_YUV_PARAM_COUNT; i++) {
+		if (i == DISP_CHIST_POST_PARAM_INDEX)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_CHIST_Y2R_PAPA_R0 + (i - 1) * 4 + 0x10,
+				g_rgb_2_yuv[sel_index][i], ~0);
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_CHIST_Y2R_PAPA_R0 + i * 4,
+				g_rgb_2_yuv[sel_index][i], ~0);
+	}
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			   comp->regs_pa + DISP_CHIST_SIZE,
 			   (width << 16) | cfg->h, ~0);
@@ -632,7 +671,8 @@ static int mtk_chist_read_kthread(void *data)
 			DDPDBG("%s: wait_event_interruptible ++ ", __func__);
 			ret = wait_event_interruptible(g_chist_get_irq_wq,
 				atomic_read(&g_chist_get_irq) == 1);
-			DDPDBG("%s: wait_event_interruptible -- ", __func__);
+			if (!ret)
+				DDPDBG("%s: wait_event_interruptible -- ", __func__);
 		} else {
 			DDPINFO("%s: get_irq = 0", __func__);
 		}
