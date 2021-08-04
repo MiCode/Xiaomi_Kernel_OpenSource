@@ -113,7 +113,6 @@ static void qos_sspm_enable(void)
 	struct qos_ipi_data qos_ipi_d;
 
 	qos_ipi_d.cmd = QOS_IPI_QOS_ENABLE;
-	//qos_ipi_to_sspm_command(&qos_ipi_d, 1);
 	qos_ipi_to_sspm_scmi_command(qos_ipi_d.cmd, 0, 0, 0, 0);
 }
 

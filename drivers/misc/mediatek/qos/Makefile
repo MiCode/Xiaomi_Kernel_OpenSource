@@ -3,15 +3,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6873
 endif
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v3
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/tinysys_scmi
-
-QOS_PLAT_NAME = $(strip $(subst ",, $(CONFIG_MTK_LPM_MODULE_NAME)))
-
-ifneq (,$(findstring mt6873, $(QOS_PLAT_NAME)))
- ccflags-y += -DMTK_QOS_V1
-endif
 
 ifeq ($(CONFIG_MTK_QOS_MT6893),y)
  ccflags-y += -DMTK_SCMI
