@@ -12,6 +12,7 @@
 #include <mtk_low_battery_throttling.h>
 #endif
 
+static unsigned int g_enable = 1;
 static unsigned int g_radio_pwr_level[CONN_PWR_DRV_MAX];
 static unsigned int g_platform_pwr_level[CONN_PWR_PLAT_MAX];
 static struct conn_pwr_event_max_temp g_thermal_info;
@@ -35,6 +36,45 @@ int conn_pwr_core_init(void)
 
 	spin_lock_init(&pwr_core_lock);
 
+	return 0;
+}
+
+int conn_pwr_core_enable(int enable)
+{
+	int i, default_lv = 0;
+
+	if (enable) {
+		g_enable = 1;
+	} else {
+		for (i = 0; i < CONN_PWR_DRV_MAX; i++) {
+			if (conn_pwr_get_drv_status(i) == CONN_PWR_DRV_STATUS_ON &&
+				g_radio_pwr_level[i] != default_lv) {
+				conn_pwr_notify_event(i, CONN_PWR_EVENT_LEVEL, &default_lv);
+			}
+			g_radio_pwr_level[i] = default_lv;
+		}
+		g_enable = 0;
+	}
+
+	pr_info("%s\n enable = %d", __func__, enable);
+
+	return 0;
+}
+
+int conn_pwr_core_resume(void)
+{
+	pr_info("%s low_battery=%d, thermal=%d, customer=0x%08x\n", __func__,
+			g_platform_pwr_level[CONN_PWR_PLAT_LOW_BATTERY],
+			g_platform_pwr_level[CONN_PWR_PLAT_THERMAL],
+			g_platform_pwr_level[CONN_PWR_PLAT_CUSTOMER]);
+	pr_info("%s bt=%d, FM=%d, GPS=%d, Wi-Fi=%d\n", __func__, g_radio_pwr_level[0],
+			g_radio_pwr_level[1], g_radio_pwr_level[2], g_radio_pwr_level[3]);
+
+	return 0;
+}
+
+int conn_pwr_core_suspend(void)
+{
 	return 0;
 }
 
@@ -164,7 +204,7 @@ int conn_pwr_set_level(struct conn_pwr_update_info *info, int radio_power_level[
 
 int conn_pwr_get_drv_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level *level)
 {
-	if (type < CONN_PWR_DRV_MAX) {
+	if (level != NULL && type < CONN_PWR_DRV_MAX) {
 		*level = g_radio_pwr_level[type];
 		return 0;
 	} else {
@@ -173,8 +213,22 @@ int conn_pwr_get_drv_level(enum conn_pwr_drv_type type, enum conn_pwr_low_batter
 }
 EXPORT_SYMBOL(conn_pwr_get_drv_level);
 
+int conn_pwr_get_platform_level(enum conn_pwr_plat_type type, int *level)
+{
+	if (level != NULL && type < CONN_PWR_PLAT_MAX) {
+		*level = g_platform_pwr_level[type];
+		return 0;
+	} else {
+		return -1;
+	}
+}
+EXPORT_SYMBOL(conn_pwr_get_platform_level);
+
 int conn_pwr_get_thermal(struct conn_pwr_event_max_temp *temp)
 {
+	if (temp == NULL)
+		return -1;
+
 	temp->max_temp = g_thermal_info.max_temp;
 	temp->recovery_temp = g_thermal_info.recovery_temp;
 
@@ -187,7 +241,22 @@ int conn_pwr_arbitrate(struct conn_pwr_update_info *info)
 	int radio_power_level[CONN_PWR_DRV_MAX] = {CONN_PWR_THR_LV_0};
 	int i;
 	int current_temp = 0;
+	int adie;
 	unsigned long flag;
+
+	if (!g_enable) {
+		pr_info("%s disable\n", __func__);
+		return 0;
+	}
+
+	if (info == NULL)
+		return -1;
+
+	adie = conn_pwr_get_adie_id();
+	if (adie != 0x6637) {
+		pr_info("%s no support 0x%x", __func__, adie);
+		return 0;
+	}
 
 	if (info->reason == CONN_PWR_ARB_SUBSYS_ON_OFF) {
 		if (info->drv == CONN_PWR_DRV_WIFI) {

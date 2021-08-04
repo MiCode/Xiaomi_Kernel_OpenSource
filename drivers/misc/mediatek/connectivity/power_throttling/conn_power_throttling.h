@@ -96,6 +96,9 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 int conn_pwr_get_drv_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level *level);
 
 /* called by conn_pwr_adapter */
+int conn_pwr_get_platform_level(enum conn_pwr_plat_type type, int *level);
+
+/* called by conn_pwr_adapter */
 int conn_pwr_get_thermal(struct conn_pwr_event_max_temp *temp);
 
 /* called by conn_pwr_adapter */
@@ -110,10 +113,17 @@ int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, vo
 
 /* called by adapter */
 int conn_pwr_core_init(void);
+int conn_pwr_core_resume(void);
+int conn_pwr_core_suspend(void);
+
+/* called by adapter */
+int conn_pwr_core_enable(int enable);
 
 /* called by WMT/conninfra */
 int conn_pwr_init(struct conn_pwr_plat_info *data);
 int conn_pwr_deinit(void);
+int conn_pwr_resume(void);
+int conn_pwr_suspend(void);
 
 /* called by subsys before function on */
 int conn_pwr_drv_pre_on(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level *level);
@@ -124,6 +134,9 @@ int conn_pwr_drv_post_off(enum conn_pwr_drv_type type);
 /* called by subsys to report min. level required */
 int conn_pwr_report_level_required(enum conn_pwr_drv_type type,
 					enum conn_pwr_low_battery_level level);
+
+/* called by enable/disable */
+int conn_pwr_enable(int enable);
 
 /* called by UT */
 int conn_pwr_set_max_temp(unsigned long arg);

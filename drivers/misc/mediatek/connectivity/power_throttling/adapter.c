@@ -14,6 +14,8 @@
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
 #if IS_ENABLED(CONFIG_COMPAT)
 #include <linux/compat.h>
 #endif
@@ -40,6 +42,10 @@
 #define CONN_PWR_DEV_IOC_MAGIC 0xc2
 #define CONN_PWR_IOCTL_SET_MAX_TEMP  _IOW(CONN_PWR_DEV_IOC_MAGIC, 0, int)
 #define CONN_PWR_IOCTL_GET_DRV_LEVEL _IOR(CONN_PWR_DEV_IOC_MAGIC, 1, int)
+#define CONN_PWR_IOCTL_GET_PLAT_LEVEL _IOR(CONN_PWR_DEV_IOC_MAGIC, 2, int)
+#define CONN_PWR_SWITCH_LEVEL_MIN_SEC 30
+#define CONN_CUSTOMER_SET_LEVEL_SUCCESS 0
+#define CONN_CUSTOMER_SET_LEVEL_FAILED -1
 
 static struct conn_pwr_plat_info g_plat_info;
 static CONN_PWR_EVENT_CB g_event_cb_tbl[CONN_PWR_DRV_MAX];
@@ -52,6 +58,7 @@ static int g_low_battery_level = 0;
 static int g_max_temp = CONN_PWR_MAX_TEMP_HIGH;
 static int g_connsys_temp = CONN_PWR_INVALID_TEMP;
 static unsigned int g_customer_level;
+static unsigned long long g_radio_last_updated_time[CONN_PWR_DRV_MAX];
 
 /* device node related */
 static int gConnPwrMajor = CONN_PWR_DEV_MAJOR;
@@ -75,6 +82,22 @@ const struct file_operations gConnPwrDevFops = {
 	.compat_ioctl = conn_pwr_dev_compat_ioctl,
 #endif
 };
+
+void conn_pwr_get_local_time(unsigned long long *sec, unsigned long *usec)
+{
+	if (sec != NULL && usec != NULL) {
+		*sec = local_clock();
+		*usec = do_div(*sec, 1000000000)/1000;
+	} else
+		pr_info("The input parameters error when get local time\n");
+}
+
+int conn_pwr_enable(int enable)
+{
+	conn_pwr_core_enable(enable);
+	return 0;
+}
+EXPORT_SYMBOL(conn_pwr_enable);
 
 int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, void *data)
 {
@@ -163,6 +186,9 @@ static long conn_pwr_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, uns
 	case CONN_PWR_IOCTL_GET_DRV_LEVEL:
 		conn_pwr_get_drv_level(arg, (enum conn_pwr_low_battery_level *)&ret);
 		break;
+	case CONN_PWR_IOCTL_GET_PLAT_LEVEL:
+		conn_pwr_get_platform_level(arg, (int *)&ret);
+		break;
 	default:
 		break;
 	}
@@ -209,29 +235,74 @@ int conn_pwr_get_plat_level(enum conn_pwr_plat_type type, int *data)
 int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level level)
 {
 	struct conn_pwr_update_info info;
+	int i;
+	int updated = 0;
+	unsigned long long sec;
+	unsigned long usec;
+	int ret = CONN_CUSTOMER_SET_LEVEL_SUCCESS;
 
 	if (type < CONN_PRW_DRV_ALL || type >= CONN_PWR_DRV_MAX || level < CONN_PWR_THR_LV_0 ||
 		level >= CONN_PWR_LOW_BATTERY_MAX) {
 		pr_info("%s, invalid parameter, type = %d, level = %d\n", __func__, type, level);
-		return -1;
+		return CONN_CUSTOMER_SET_LEVEL_FAILED;
 	}
 
+	conn_pwr_get_local_time(&sec, &usec);
+
 	if (type == CONN_PRW_DRV_ALL) {
-		CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_BT, level);
-		CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_FM, level);
-		CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_GPS, level);
-		CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_WIFI, level);
-	} else
-		CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, type, level);
+		for (i = 0; i < CONN_PWR_DRV_MAX; i++) {
+			if (sec > (g_radio_last_updated_time[i] + CONN_PWR_SWITCH_LEVEL_MIN_SEC) ||
+				g_radio_last_updated_time[i] > sec) {
+				updated = 1;
+			} else {
+				updated = 0;
+				break;
+			}
+		}
 
-	info.reason = CONN_PWR_ARB_CUSTOMER;
-	info.drv = type;
-	conn_pwr_arbitrate(&info);
+		if (updated) {
+			CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_BT, level);
+			CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_FM, level);
+			CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_GPS,
+							  level);
+			CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, CONN_PWR_DRV_WIFI,
+							  level);
+			g_radio_last_updated_time[CONN_PWR_DRV_BT] = sec;
+			g_radio_last_updated_time[CONN_PWR_DRV_FM] = sec;
+			g_radio_last_updated_time[CONN_PWR_DRV_GPS] = sec;
+			g_radio_last_updated_time[CONN_PWR_DRV_WIFI] = sec;
+		}
+	} else {
+		if (sec > (g_radio_last_updated_time[type] + CONN_PWR_SWITCH_LEVEL_MIN_SEC) ||
+				g_radio_last_updated_time[type] > sec) {
+			g_radio_last_updated_time[type] = sec;
+			updated = 1;
+		}
 
-	pr_info("%s, type = %d, level = %d, customer_level = %d\n", __func__,
-		type, level, g_customer_level);
+		if (updated)
+			CONN_PWR_SET_CUSTOMER_POWER_LEVEL(g_customer_level, type, level);
+	}
 
-	return 0;
+	if (updated) {
+		info.reason = CONN_PWR_ARB_CUSTOMER;
+		info.drv = type;
+		conn_pwr_arbitrate(&info);
+	}
+
+	pr_info("%s, type = %d, level = %d, customer_level = %d, updated = %d\n", __func__,
+		type, level, g_customer_level, updated);
+
+	if (updated == 0) {
+		pr_info("%s, Set Level failed within %d, %d (%d, %d, %d, %d)\n", __func__,
+			CONN_PWR_SWITCH_LEVEL_MIN_SEC, sec,
+			g_radio_last_updated_time[CONN_PWR_DRV_BT],
+			g_radio_last_updated_time[CONN_PWR_DRV_FM],
+			g_radio_last_updated_time[CONN_PWR_DRV_GPS],
+			g_radio_last_updated_time[CONN_PWR_DRV_WIFI]);
+		ret = CONN_CUSTOMER_SET_LEVEL_FAILED;
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(conn_pwr_set_customer_level);
 
@@ -481,4 +552,16 @@ int conn_pwr_deinit(void)
 }
 EXPORT_SYMBOL(conn_pwr_deinit);
 
+int conn_pwr_resume(void)
+{
+	conn_pwr_core_resume();
+	return 0;
+}
+EXPORT_SYMBOL(conn_pwr_resume);
 
+int conn_pwr_suspend(void)
+{
+	conn_pwr_core_suspend();
+	return 0;
+}
+EXPORT_SYMBOL(conn_pwr_suspend);
