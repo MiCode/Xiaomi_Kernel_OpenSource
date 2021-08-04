@@ -388,3 +388,12 @@ config MTK_AOL_DEBUG
 	  test for Always on Location feature or not.
 	  Will support test if set to 'y',
 	  otherwise will not support test.
+
+config CONN_PWR_DEBUG
+	bool "Enable Power Throttling test"
+	help
+	  This config is used to choose whether to support
+	  test for Power Throttling feature or not.
+	  Will support test if set to 'y',
+	  otherwise will not support test.
+
