@@ -749,6 +749,12 @@ static void mtk_spr_config(struct mtk_ddp_comp *comp,
 				SPR_LUT_EN, handle);
 	mtk_ddp_write_mask(comp, SPR_STALL_CG_ON, DISP_REG_SPR_CFG,
 				SPR_STALL_CG_ON, handle);
+	mtk_ddp_write_mask(comp, RG_BYPASS_DITHER, DISP_REG_SPR_CFG,
+				RG_BYPASS_DITHER, handle);
+	mtk_ddp_write_mask(comp, width << 16, DISP_REG_SPR_RDY_SEL,
+				width << 16 | 0xffff, handle);
+	mtk_ddp_write_mask(comp, cfg->h << 16, DISP_REG_SPR_RDY_SEL_EN,
+				cfg->h << 16 | 0xffff, handle);
 	if (disp_spr_bypass) {
 		/*enable spr relay mode*/
 		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,

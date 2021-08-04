@@ -628,6 +628,22 @@
 #define DISP_REG_CONFIG_MMSYS_CG_CON0_MT6983 0x100
 #define DISP_REG_CONFIG_MMSYS_CG_CON1_MT6983 0x110
 
+#define MT6983_DISP_REG_CONFIG_DL_VALID_0 0xe9c
+#define MT6983_DISP_REG_CONFIG_DL_VALID_1 0xea0
+#define MT6983_DISP_REG_CONFIG_DL_VALID_2 0xea4
+#define MT6983_DISP_REG_CONFIG_DL_VALID_3 0xe80
+#define MT6983_DISP_REG_CONFIG_DL_VALID_4 0xe84
+#define MT6983_DISP_REG_CONFIG_DL_VALID_5 0xe88
+
+#define MT6983_DISP_REG_CONFIG_DL_READY_0 0xea8
+#define MT6983_DISP_REG_CONFIG_DL_READY_1 0xeac
+#define MT6983_DISP_REG_CONFIG_DL_READY_2 0xeb0
+#define MT6983_DISP_REG_CONFIG_DL_READY_3 0xe70
+#define MT6983_DISP_REG_CONFIG_DL_READY_4 0xe74
+#define MT6983_DISP_REG_CONFIG_DL_READY_5 0xe78
+#define MT6983_DISP_REG_CONFIG_SMI_LARB0_GREQ 0x8dc
+#define MT6983_DISP_REG_CONFIG_SMI_LARB1_GREQ 0x8e0
+
 /* CHIST path select*/
 #define DISP_CHIST0_FROM_RDMA0_POS 0
 #define DISP_CHIST1_FROM_RDMA0_POS 1
@@ -636,8 +652,8 @@
 #define DISP_CHIST0_FROM_DITHER0   4
 #define DISP_CHIST1_FROM_DITHER0   5
 /*customer*/
-#define MT6983_CHIST_PATH_CONNECT (BIT(DISP_CHIST0_FROM_RDMA0_POS) | \
-	BIT(DISP_CHIST1_FROM_DITHER0))
+#define MT6983_CHIST_PATH_CONNECT 0//(BIT(DISP_CHIST0_FROM_RDMA0_POS) | \
+	//BIT(DISP_CHIST1_FROM_DITHER0))
 
 /*For MT6873*/
 #define MT6873_DISP_OVL0_MOUT_EN 0xf04
@@ -2310,6 +2326,591 @@ static char *ddp_signal_mt6885(int idx, int bit)
 }
 
 /* MMSYS_DL_VALID0/MMSYS_DL_READY0 */
+static char *ddp_signal_0_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_aal0_to_disp_gamma0";
+	case 1:
+		return
+			"disp_c3d0_to_disp_c3d0_sout";
+	case 2:
+		return
+			"disp_c3d0_sel_to_disp_c3d0_valid";
+	case 3:
+		return
+			"disp_c3d0_sout_out0_to_disp_color0_sel_in0";
+	case 4:
+		return
+			"disp_c3d0_sout_out1_to_disp_mdp_aal0_sel_in1";
+	case 5:
+		return
+			"disp_ccorr0_to_disp_ccorr1";
+	case 6:
+		return
+			"disp_ccorr1_to_disp_ccorr1_sout";
+	case 7:
+		return
+			"disp_ccorr1_sout_out0_to_disp_mdp_aal0_sel_in0";
+	case 8:
+		return
+			"disp_ccorr1_sout_out1_to_disp_c3d0_sel_in1";
+	case 9:
+		return
+			"disp_chist0_sel_to_disp_chist0";
+	case 10:
+		return
+			"disp_chist1_sel_to_disp_chist1";
+	case 11:
+		return
+			"disp_cm0_to_disp_spr0";
+	case 12:
+		return
+			"disp_color0_to_disp_ccorr0";
+	case 13:
+		return
+			"disp_color0_sel_to_disp_color0";
+	case 14:
+		return
+			"disp_dither0_to_disp_dither0_mout";
+	case 15:
+		return
+			"disp_dither0_mout_out0_to_disp_cm0";
+	case 16:
+		return
+			"disp_dither0_mout_out1_to_disp_chist0_sel_in2";
+	case 17:
+		return
+			"disp_dither0_mout_out2_to_disp_chist1_sel_in2";
+	case 18:
+		return
+			"disp_dli0_sout_out0_to_disp_merge0_r_sel_in0";
+	case 19:
+		return
+			"disp_dli0_sout_out1_to_disp_dsc_wrap0_r_sel_in0";
+	case 20:
+		return
+			"disp_dli2_sout_out0_to_disp_merge0_r_sel_in1";
+	case 21:
+		return
+			"disp_dli2_sout_out1_to_disp_dsc_wrap0_r_sel_in1";
+	case 22:
+		return
+			"disp_dli_async0_to_disp_dli_relay0";
+	case 23:
+		return
+			"disp_dli_async1_to_disp_dli_relay1";
+	case 24:
+		return
+			"disp_dli_async2_to_disp_dli_relay2";
+	case 25:
+		return
+			"disp_dli_async3_to_disp_dli_relay3";
+	case 26:
+		return
+			"disp_dli_relay0_to_disp_dli0_sout";
+	case 27:
+		return
+			"disp_dli_relay1_to_disp_main0_sel_in0";
+	case 28:
+		return
+			"disp_dli_relay2_to_disp_dli2_sout";
+	case 29:
+		return
+			"disp_dli_relay3_to_disp_y2r0";
+	case 30:
+		return
+			"disp_dlo_relay0_to_disp_dlo_async0";
+	case 31:
+		return
+			"disp_dlo_relay1_to_disp_dlo_async1";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_1_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_dlo_relay2_to_disp_dlo_async2";
+	case 1:
+		return
+			"disp_dlo_relay3_to_disp_dlo_async3";
+	case 2:
+		return
+			"disp_dp_intf0_sel_to_disp_sub0_tx_sout";
+	case 3:
+		return
+			"disp_dsc_wrap0_l_sel_to_disp_dsc_wrap0_in0";
+	case 4:
+		return
+			"disp_dsc_wrap0_mout_out0_to_disp_main0_sel_in3";
+	case 5:
+		return
+			"disp_dsc_wrap0_mout_out1_to_disp_sub0_sel_in3";
+	case 6:
+		return
+			"disp_dsc_wrap0_mout_out2_to_disp_wdma1_sel_in0";
+	case 7:
+		return
+			"disp_dsc_wrap0_out0_to_disp_dsc_wrap0_mout";
+	case 8:
+		return
+			"disp_dsc_wrap0_out1_to_disp_dlo_relay1";
+	case 9:
+		return
+			"disp_dsc_wrap0_r_sel_to_disp_dsc_wrap0_in1";
+	case 10:
+		return
+			"disp_dsi0_sel_to_disp_dsi0";
+	case 11:
+		return
+			"disp_gamma0_to_disp_postmask0";
+	case 12:
+		return
+			"disp_main0_sel_to_disp_main0_sout";
+	case 13:
+		return
+			"disp_main0_sout_out0_to_disp_rdma0_in_relay";
+	case 14:
+		return
+			"disp_main0_sout_out1_to_disp_dsi0_sel_in1";
+	case 15:
+		return
+			"disp_main_ovl_disp_pq0_sel_to_disp_pq0_sel_in1";
+	case 16:
+		return
+			"disp_main_ovl_disp_ufbc_wdma_sel_to_disp_ufbc_wdma0_sel_in1";
+	case 17:
+		return
+			"disp_main_ovl_disp_wdma_sel_to_disp_wdma0_sel_in1";
+	case 18:
+		return
+			"disp_main_ovl_dmdp_sel_to_disp_dlo_relay3";
+	case 19:
+		return
+			"disp_mdp_aal0_to_disp_aal0";
+	case 20:
+		return
+			"disp_mdp_aal0_sel_to_disp_mdp_aal0";
+	case 21:
+		return
+			"disp_merge0_to_disp_merge0_mout";
+	case 22:
+		return
+			"disp_merge0_l_sel_to_disp_merge0_in0";
+	case 23:
+		return
+			"disp_merge0_mout_out0_to_disp_wdma0_sel_in3";
+	case 24:
+		return
+			"disp_merge0_mout_out1_to_disp_main0_sel_in2";
+	case 25:
+		return
+			"disp_merge0_mout_out2_to_disp_sub0_sel_in2";
+	case 26:
+		return
+			"disp_merge0_mout_out3_to_disp_ufbc_wdma0_sel_in3";
+	case 27:
+		return
+			"disp_merge0_r_sel_to_disp_merge0_in1";
+	case 28:
+		return
+			"disp_ovl0_2l_blend_mout_out0_to_disp_rsz0_sel_in0";
+	case 29:
+		return
+			"disp_ovl0_2l_blend_mout_out1_to_disp_main_ovl_dmdp_sel_in1";
+	case 30:
+		return
+		"disp_ovl0_2l_blend_mout_out2_to_disp_main_ovl_disp_wdma_sel_in1";
+	case 31:
+		return
+		"disp_ovl0_2l_blend_mout_out3_to_disp_main_ovl_disp_ufbc_wdma_sel_in1";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_2_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_ovl0_2l_blend_mout_out4_to_disp_main_ovl_disp_pq0_sel_in1";
+	case 1:
+		return
+			"disp_ovl0_2l_nwcg_to_disp_ovl0_2l_nwcg_blend_mout";
+	case 2:
+		return
+			"disp_ovl0_2l_nwcg_blend_mout_out0_to_disp_rdma1_pos_sel_in0";
+	case 3:
+		return
+			"disp_ovl0_2l_nwcg_blend_mout_out1_to_disp_rdma1_sel_in1";
+	case 4:
+		return
+			"disp_ovl0_2l_nwcg_blend_mout_out2_to_disp_wdma0_sel_in4";
+	case 5:
+		return
+			"disp_ovl0_2l_nwcg_blend_mout_out3_to_disp_wdma1_sel_in1";
+	case 6:
+		return
+			"disp_ovl0_2l_nwcg_blend_mout_out4_to_disp_ufbc_wdma0_sel_in4";
+	case 7:
+		return
+			"disp_ovl0_2l_out0_to_disp_ovl0_2l_blend_mout";
+	case 8:
+		return
+			"disp_ovl0_2l_out1_to_disp_ovl1_2l_in0";
+	case 9:
+		return
+			"disp_ovl0_2l_out2_to_disp_rsz0_sel_in3";
+	case 10:
+		return
+			"disp_ovl0_2l_pq_sel_to_disp_ovl0_2l_in1";
+	case 11:
+		return
+			"disp_ovl0_2l_ufod_sel_to_disp_ovl0_2l_in2";
+	case 12:
+		return
+			"disp_ovl0_bg_sout_out0_to_disp_ovl0_2l_in0";
+	case 13:
+		return
+			"disp_ovl0_bg_sout_out1_to_disp_ovl1_2l_nwcg";
+	case 14:
+		return
+			"disp_ovl0_blend_mout_out0_to_disp_rsz0_sel_in2";
+	case 15:
+		return
+			"disp_ovl0_blend_mout_out1_to_disp_main_ovl_dmdp_sel_in3";
+	case 16:
+		return
+			"disp_ovl0_blend_mout_out2_to_disp_main_ovl_disp_wdma_sel_in3";
+	case 17:
+		return
+			"disp_ovl0_blend_mout_out3_to_disp_main_ovl_disp_ufbc_wdma_sel_in3";
+	case 18:
+		return
+			"disp_ovl0_blend_mout_out4_to_disp_main_ovl_disp_pq0_sel_in3";
+	case 19:
+		return
+			"disp_ovl0_out0_to_disp_ovl0_blend_mout";
+	case 20:
+		return
+			"disp_ovl0_out1_to_disp_ovl0_bg_sout";
+	case 21:
+		return
+			"disp_ovl0_out2_to_disp_rsz0_sel_in5";
+	case 22:
+		return
+			"disp_ovl0_pq_sel_to_disp_ovl0_in1";
+	case 23:
+		return
+			"disp_ovl0_ufod_sel_to_disp_ovl0_in2";
+	case 24:
+		return
+			"disp_ovl1_2l_blend_mout_out0_to_disp_rsz0_in1";
+	case 25:
+		return
+			"disp_ovl1_2l_blend_mout_out1_to_disp_main_ovl_dmdp_sel_in2";
+	case 26:
+		return
+			"disp_ovl1_2l_blend_mout_out2_to_disp_main_ovl_disp_wdma_sel_in2";
+	case 27:
+		return
+			"disp_ovl1_2l_blend_mout_out3_to_disp_main_ovl_disp_ufbc_wdma_sel_in2";
+	case 28:
+		return
+			"disp_ovl1_2l_blend_mout_out4_to_disp_main_ovl_disp_pq0_sel_in2";
+	case 29:
+		return
+			"disp_ovl1_2l_nwcg_out0_to_disp_wdma1_sel_in2";
+	case 30:
+		return
+		"disp_ovl1_2l_nwcg_out1_to_disp_ovl0_2l_nwcg";
+	case 31:
+		return
+		"disp_ovl1_2l_out0_to_disp_ovl1_2l_blend_mout";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_3_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_ovl1_2l_out1_to_disp_ovl0_in0";
+	case 1:
+		return
+			"disp_ovl1_2l_out2_to_disp_rsz0_sel_in4";
+	case 2:
+		return
+			"disp_ovl1_2l_pq_sel_to_disp_ovl1_2l_in1";
+	case 3:
+		return
+			"disp_ovl1_2l_ufod_sel_to_disp_ovl1_2l_in2";
+	case 4:
+		return
+			"disp_postmask0_to_disp_postmask0_mout";
+	case 5:
+		return
+			"disp_postmask0_mout_out0_to_disp_dither0";
+	case 6:
+		return
+			"disp_postmask0_mout_out1_to_disp_chist0_sel_in1";
+	case 7:
+		return
+			"disp_postmask0_mout_out2_to_disp_chist1_sel_in1";
+	case 8:
+		return
+			"disp_pq0_sel_to_disp_rdma0_pos_mout";
+	case 9:
+		return
+			"disp_pq0_sout_out0_to_disp_dlo_relay0";
+	case 10:
+		return
+			"disp_pq0_sout_out1_to_disp_main0_sel_in1";
+	case 11:
+		return
+			"disp_pq0_sout_out2_to_disp_sub0_sel_in0";
+	case 12:
+		return
+			"disp_pq0_sout_out3_to_disp_merge0_l_sel_in0";
+	case 13:
+		return
+			"disp_pq0_sout_out4_to_disp_dsc_wrap0_l_sel_in0";
+	case 14:
+		return
+			"disp_rdma0_to_disp_rdma0_sout";
+	case 15:
+		return
+			"disp_rdma0_in_relay_to_disp_dsi0_sel_in0";
+	case 16:
+		return
+			"disp_rdma0_out_relay_to_disp_dsi0-sel_in0";
+	case 17:
+		return
+			"disp_rdma0_pos_mout_out0_to_disp_rdma0_pos_sel_in0";
+	case 18:
+		return
+			"disp_rdma0_pos_mout_out1_to_disp_rdma0_sel_in1";
+	case 19:
+		return
+			"disp_rdma0_pos_mout_out2_to_disp_chist0_sel_in0";
+	case 20:
+		return
+			"disp_rdma0_pos_mout_out3_to_disp_chist1_sel_in0";
+	case 21:
+		return
+			"disp_rdma0_pos_sel_to_disp_tdshp0";
+	case 22:
+		return
+			"disp_rdma0_sel_to_disp_rdma0";
+	case 23:
+		return
+			"disp_rdma0_sout_out0_to_disp_rdma0_out_relay";
+	case 24:
+		return
+			"disp_rdma0_sout_out1_to_disp_rdma0_pos_sel_in1";
+	case 25:
+		return
+			"disp_rdma1_to_disp_rdma1_sout";
+	case 26:
+		return
+			"disp_rdma1_in_relay_to_disp_rdma1_sel_in0";
+	case 27:
+		return
+			"disp_rdma1_out_relay_to_disp_dp_intf0_sel_in0";
+	case 28:
+		return
+			"disp_rdma1_pos_sel_to_disp_tv0_sout";
+	case 29:
+		return
+			"disp_rdma1_sel_to_disp_rdma1";
+	case 30:
+		return
+		"disp_rdma1_sout_out0_to_disp_rdma1_out_relay";
+	case 31:
+		return
+		"disp_rdma1_sout_out1_to_disp_rdma1_pos_sel_in1";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_4_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_rdma1_sout_out2_to_disp_main0_sel_in4";
+	case 1:
+		return
+			"disp_rsz0_to_disp-rsz0_mout";
+	case 2:
+		return
+			"disp_rsz0_main_ovl_sout_out0_to_disp_ovl0_2l_ufod_sel_in0";
+	case 3:
+		return
+			"disp_rsz0_main_ovl_sout_out1_to_disp_ovl1_2l_ufod_sel_in0";
+	case 4:
+		return
+			"disp_rsz0_main_ovl_sout_out2_to_disp_ovl0_ufod_sel_in0";
+	case 5:
+		return
+			"disp_rsz0_main_ovl_sout_out3_to_disp_ovl0_2l_pq_sel_in1";
+	case 6:
+		return
+			"disp_rsz0_main_ovl_sout_out4_to_disp_ovl1_2l_pq_sel_in1";
+	case 7:
+		return
+			"disp_rsz0_main_ovl_sout_out5_to_disp_ovl0_pq_sel_in1";
+	case 8:
+		return
+			"disp_rsz0_mout_out0_to_disp_rsz0_main_ovl_sout";
+	case 9:
+		return
+			"disp_rsz0_mout_out1_to_disp_main_ovl_dmdp_sel_in0";
+	case 10:
+		return
+			"disp_rsz0_mout_out2_to_disp_main_ovl_disp_wdma_sel_in0";
+	case 11:
+		return
+			"disp_rsz0_mout_out3_to_disp_main_ovl_disp_ufbc_wdma_sel_in0";
+	case 12:
+		return
+			"disp_rsz0_mout_out4_to_disp_main_ovl_disp_pq0_sel_in0";
+	case 13:
+		return
+			"disp_rsz0_sel_to_disp_rsz0";
+	case 14:
+		return
+			"disp_spr0_to_disp_spr0_mout";
+	case 15:
+		return
+			"disp_spr0_mout_out0_to_disp_wdma0_sel_in2";
+	case 16:
+		return
+			"disp_spr0_mout_out1_to_disp_ufbc_wdma0_sel_in2";
+	case 17:
+		return
+			"disp_spr0_mout_out2_to_disp_pq0_sout";
+	case 18:
+		return
+			"disp_sub0_sel_to_disp_sub0_sout";
+	case 19:
+		return
+			"disp_sub0_sout_out0_to_disp_rdma1_in_relay";
+	case 20:
+		return
+			"disp_sub0_sout_out1_to_disp_dp_intf0_sel_in1";
+	case 21:
+		return
+			"disp_sub0_tx_sout_out0_to_disp_dp_intf0";
+	case 22:
+		return
+			"disp_sub0_tx_sout_out1_to_disp_dpi0";
+	case 23:
+		return
+			"disp_tdshp0_to_disp_tdshp0_sout";
+	case 24:
+		return
+			"disp_tdshp0_sout_out0_to_disp_c3d0_sel_in0";
+	case 25:
+		return
+			"disp_tdshp0_sout_out1_to_disp_color0_sel_in1";
+	case 26:
+		return
+			"disp_tv0_sout_out0_to_disp_dlo_relay2";
+	case 27:
+		return
+			"disp_tv0_sout_out1_to_disp_sub0_sel_in1";
+	case 28:
+		return
+			"disp_tv0_sout_out2_to_disp_merge0_l_sel_in1";
+	case 29:
+		return
+			"disp_tv0_sout_out3_to_disp_dsc_wrap0_l_sel_in1";
+	case 30:
+		return
+		"disp_ufbc_wdma0_sel_to_disp_ufbc_wdma0";
+	case 31:
+		return
+		"disp_wdma0_sel_to_disp_wdma0";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_5_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"disp_wdma1_sel_to_disp_wdma";
+	case 1:
+		return
+			"disp_y2r0_to_disp_y2r0_mout";
+	case 2:
+		return
+			"disp_y2r0_mout_out0_to_dmdp_main_ovl_sout";
+	case 3:
+		return
+			"disp_y2r0_mout_out1_to_disp_pq0_sel_in0";
+	case 4:
+		return
+			"disp_y2r0_mout_out2_to_disp_wdma0_sel_in0";
+	case 5:
+		return
+			"disp_y2r0_mout_out3_to_disp_ufbc_wdma0_sel_in0";
+	case 6:
+		return
+			"dmdp_main_ovl_sout_out0_to_disp_ovl0_2l_ufod_sel_in1";
+	case 7:
+		return
+			"dmdp_main_ovl_sout_out1_to_disp_ovl1_2l_ufod_sel_in1";
+	case 8:
+		return
+			"dmdp_main_ovl_sout_out2_to_disp_ovl0_ufod_sel_in1";
+	case 9:
+		return
+			"dmdp_main_ovl_sout_out3_to_disp_ovl0_2l_pq_sel_in0";
+	case 10:
+		return
+			"dmdp_main_ovl_sout_out4_to_disp_ovl1_2l_pq_sel_in0";
+	case 11:
+		return
+			"dmdp_main_ovl_sout_out5_to_disp_ovl0_pq_sel_in0";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_mt6983(int idx, int bit)
+{
+	switch (idx) {
+	case 0:
+		return ddp_signal_0_mt6983(bit);
+	case 1:
+		return ddp_signal_1_mt6983(bit);
+	case 2:
+		return ddp_signal_2_mt6983(bit);
+	case 3:
+		return ddp_signal_3_mt6983(bit);
+	case 4:
+		return ddp_signal_4_mt6983(bit);
+	case 5:
+		return ddp_signal_5_mt6983(bit);
+	default:
+		return NULL;
+	}
+}
+
+/* MMSYS_DL_VALID0/MMSYS_DL_READY0 */
 static char *ddp_signal_0_mt6873(int bit)
 {
 	switch (bit) {
@@ -3025,6 +3626,50 @@ static char *ddp_greq_name_mt6885(int bit)
 	}
 }
 
+static char *ddp_greq_name_larb0_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return "DISP_POSTMASK0 ";
+	case 1:
+		return "DISP_OVL0_HDR ";
+	case 2:
+		return "DISP_OVL0 ";
+	case 3:
+		return "DISP_RDMA0 ";
+	case 4:
+		return "DISP_WDMA0 ";
+	case 5:
+		return "DISP_FAKE_ENG0 ";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_greq_name_larb1_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return "DISP_OVL0_2L_HDR ";
+	case 1:
+		return "DISP_OVL2_2L_HDR ";
+	case 2:
+		return "DISP_OVL0_2L ";
+	case 3:
+		return "DISP_OVL2_2L ";
+	case 4:
+		return "MDP_RDMA4 ";
+	case 5:
+		return "DISP_RDMA4 ";
+	case 6:
+		return "DISP_UFBC_WDMA0 ";
+	case 7:
+		return "DISP_FAKE_ENG1 ";
+	default:
+		return NULL;
+	}
+}
+
 static char *ddp_greq_name_larb0_mt6873(int bit)
 {
 	switch (bit) {
@@ -3705,6 +4350,86 @@ static char *ddp_clock_1_mt6885(int bit)
 		break;
 	}
 	return NULL;
+}
+
+static char *ddp_clock_0_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return "disp_mutex0, ";
+	case 1:
+		return "disp_ovl0, ";
+	case 2:
+		return "disp_merge0, ";
+	case 3:
+		return "disp_fake_eng0, ";
+	case 4:
+		return "inlinerot, ";
+	case 5:
+		return "disp_wdma0, ";
+	case 6:
+		return "disp_fake_eng1, ";
+	case 7:
+		return "disp_dpi0, ";
+	case 8:
+		return "disp_ovl0_2l_nwcg, ";
+	case 9:
+		return "disp_rdma0, ";
+	case 10:
+		return "disp_rdma1, ";
+	case 11:
+		return "disp_dli_async0, ";
+	case 12:
+		return "disp_dli_async1, ";
+	case 13:
+		return "disp_dli_async2, ";
+	case 14:
+		return "disp_dlo_async0, ";
+	case 15:
+		return "disp_dlo_async1, ";
+	case 16:
+		return "disp_dlo_async2, ";
+	case 17:
+		return "disp_rsz0, ";
+	case 18:
+		return "disp_color0, ";
+	case 19:
+		return "disp_ccorr0, ";
+	case 20:
+		return "disp_ccorr1, ";
+	case 21:
+		return "disp_aal0, ";
+	case 22:
+		return "disp_gamma0, ";
+	case 23:
+		return "disp_postmask0, ";
+	case 24:
+		return "disp_dither0, ";
+	case 25:
+		return "disp_cm0, ";
+	case 26:
+		return "disp_spr0, ";
+	case 27:
+		return "disp_dsc_wrap0, ";
+	case 29:
+		return "disp_dsi0, ";
+	case 30:
+		return "disp_ufbc_wdma0, ";
+	case 31:
+		return "disp_wdma1, ";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_clock_1_mt6983(int bit)
+{
+	switch (bit) {
+	case 0:
+		return "smi_iommu, ";
+	default:
+		return NULL;
+	}
 }
 
 static char *ddp_clock_0_mt6873(int bit)
@@ -4521,7 +5246,7 @@ static int mtk_ddp_sel_in_MT6983(const struct mtk_mmsys_reg_data *data,
 			  enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
 			  unsigned int *addr)
 {
-	int value;
+	int value = 0;
 
 	if (cur == DDP_COMPONENT_OVL0 && next == DDP_COMPONENT_OVL0_VIRTUAL0) {
 		*addr = MT6983_DISP_MAIN_OVL_DISP_PQ0_SEL_IN;
@@ -7610,6 +8335,152 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 		}
 	}
 	DDPDUMP("%s\n", clock_on);
+}
+
+void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
+{
+	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int reg = 0;
+	char clock_on[512] = {'\0'};
+	char *pos = NULL;
+	char *name = NULL;
+	unsigned int valid[6] = {0};
+	unsigned int ready[6] = {0};
+	unsigned int greq0 =
+		readl_relaxed(config_regs +
+				MT6983_DISP_REG_CONFIG_SMI_LARB0_GREQ);
+	unsigned int greq1 =
+		readl_relaxed(config_regs +
+				MT6983_DISP_REG_CONFIG_SMI_LARB1_GREQ);
+	valid[0] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_VALID_0);
+	valid[1] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_VALID_1);
+	valid[2] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_VALID_2);
+	valid[3] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_VALID_3);
+	valid[4] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_VALID_4);
+	valid[5] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_VALID_5);
+
+	ready[0] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_READY_0);
+	ready[1] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_READY_1);
+	ready[2] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_READY_2);
+	ready[3] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_READY_3);
+	ready[4] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_READY_4);
+	ready[5] =
+		readl_relaxed(config_regs + MT6983_DISP_REG_CONFIG_DL_READY_5);
+
+	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
+	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON0_MT6983);
+	for (bit = 0; bit < 32; bit++) {
+		if ((reg & (1 << bit)) == 0) {
+			name = ddp_clock_0_mt6983(bit);
+			if (name)
+				strncat(clock_on, name, (sizeof(clock_on) -
+							 strlen(clock_on) - 1));
+		}
+	}
+
+	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON1_MT6983);
+	for (bit = 0; bit < 32; bit++) {
+		if ((reg & (1 << bit)) == 0) {
+			name = ddp_clock_1_mt6983(bit);
+			if (name)
+				strncat(clock_on, name, (sizeof(clock_on) -
+							 strlen(clock_on) - 1));
+		}
+	}
+
+	DDPDUMP("clock on modules:%s\n", clock_on);
+
+	DDPDUMP("va0=0x%x,va1=0x%x,va2=0x%x,va3=0x%x,va4=0x%x,va5=0x%x\n",
+		valid[0], valid[1], valid[2], valid[3], valid[4], valid[5]);
+	DDPDUMP("rd0=0x%x,rd1=0x%x,rd2=0x%x,rd3=0x%x,rd4=0x%x,rd5=0x%x\n",
+		ready[0], ready[1], ready[2], ready[3], ready[4], ready[5]);
+	DDPDUMP("greq0=0x%x greq1=0x%x\n", greq0, greq1);
+	for (idx = 0; idx < 6; idx++) {
+		for (bit = 0; bit < 32; bit++) {
+			name = ddp_signal_mt6983(idx, bit);
+			if (!name)
+				continue;
+			pos = clock_on;
+
+			if ((valid[idx] & (1 << bit)))
+				len = sprintf(pos, "%s,", "v");
+			else
+				len = sprintf(pos, "%s,", "n");
+
+			if (len >= 0)
+				pos += len;
+
+			if ((ready[idx] & (1 << bit)))
+				len = sprintf(pos, "%s", "r");
+			else
+				len = sprintf(pos, "%s", "n");
+			if (len >= 0)
+				pos += len;
+
+			len = sprintf(pos, ": %s", name);
+			if (len >= 0)
+				pos += len;
+
+			DDPDUMP("%s\n", clock_on);
+		}
+	}
+
+	/* greq: 1 means SMI dose not grant, maybe SMI hang */
+	if (greq0) {
+		DDPDUMP("smi larb0 greq not grant module:\n");
+		DDPDUMP(
+		"(greq0: 1 means SMI dose not grant, maybe SMI larb0 hang)\n");
+	}
+	if (greq1) {
+		DDPDUMP("smi larb1 greq not grant module:\n");
+		DDPDUMP(
+		"(greq1: 1 means SMI dose not grant, maybe SMI larb1 hang)\n");
+	}
+
+	clock_on[0] = '\0';
+	for (bit = 0; bit < 32; bit++) {
+		if (greq0 & (1 << bit)) {
+			name = ddp_greq_name_larb0_mt6983(bit);
+			if (!name)
+				continue;
+			strncat(clock_on, name,
+				(sizeof(clock_on) -
+				strlen(clock_on) - 1));
+		}
+	}
+
+	for (bit = 0; bit < 32; bit++) {
+		if (greq1 & (1 << bit)) {
+			name = ddp_greq_name_larb1_mt6983(bit);
+			if (!name)
+				continue;
+			strncat(clock_on, name,
+				(sizeof(clock_on) -
+				strlen(clock_on) - 1));
+		}
+	}
+
+	DDPDUMP("%s\n", clock_on);
+
+#ifdef CONFIG_MTK_SMI_EXT
+	if (greq0 || greq1) {
+		if (!in_interrupt())
+			smi_debug_bus_hang_detect(false, "DISP");
+		else
+			DDPDUMP("%s, Can't smi dump in IRQ\n", __func__);
+	}
+#endif
 }
 
 void mmsys_config_dump_analysis_mt6873(void __iomem *config_regs)
