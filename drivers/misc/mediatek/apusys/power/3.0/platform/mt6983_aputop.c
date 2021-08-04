@@ -53,6 +53,7 @@ static struct clk *clk_top_dsp6_sel;
 static struct clk *clk_top_dsp7_sel;
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
 
+#if APU_POWER_INIT
 // WARNING: can not call this API after acc initial or you may cause bus hang !
 static void dump_rpc_lite_reg(int line)
 {
@@ -68,6 +69,7 @@ static void dump_rpc_lite_reg(int line)
 				+ APU_RPC_TOP_SEL));
 	}
 }
+#endif
 
 static int init_plat_pwr_res(struct platform_device *pdev)
 {
@@ -211,6 +213,7 @@ static void plt_pwr_res_ctl(int enable)
 }
 #endif
 
+#if APU_POWER_INIT
 #if !APU_PWR_SOC_PATH
 static void get_pll_pcw(uint32_t clk_rate, uint32_t *r1, uint32_t *r2)
 {
@@ -415,6 +418,7 @@ static void __apu_buck_off_cfg(void)
 	// move to probe last line
 	pr_info("%s %d --\n", __func__, __LINE__);
 }
+#endif // APU_POWER_INIT
 
 #if DEBUG_DUMP_REG
 static void aputop_dump_all_reg(void)
@@ -450,7 +454,7 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
 		status1 = apu_readl(apupw.regs[apu_acx1_rpc_lite]
 				+ APU_RPC_INTF_PWR_RDY);
 		status2 = apu_readl(apupw.regs[apu_acx1]
-					+ APU_ACX_CONN_CG_CON);
+				+ APU_ACX_CONN_CG_CON);
 		pr_info(
 		"%s ACX1 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
 				__func__, status1, status2);
@@ -467,7 +471,7 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
 				__func__, status1, status2, status3);
 		/*
 		 * print_hex_dump(KERN_ERR, "rpc: ", DUMP_PREFIX_OFFSET,
-		 *		16, 4, apupw.regs[apu_rpc], 0x100, 1);
+		 *              16, 4, apupw.regs[apu_rpc], 0x100, 1);
 		 */
 	}
 
@@ -479,6 +483,7 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
 	}
 }
 
+#if APU_POWER_INIT
 /*
  * low 32-bit data for PMIC control
  *	APU_PCU_PMIC_TAR_BUF1 (or APU_PCU_BUCK_ON_DAT0_L)
@@ -658,6 +663,7 @@ static int __apu_are_init(struct device *dev)
 
 	return 0;
 }
+#endif // APU_POWER_INIT
 
 static void are_dump_entry(int are_hw)
 {
@@ -1032,6 +1038,7 @@ static int mt6983_apu_top_off(struct device *dev)
 	return 0;
 }
 
+#if APU_POWER_INIT
 static void __apu_aoc_init(void)
 {
 	pr_info("AOC init %s %d ++\n", __func__, __LINE__);
@@ -1071,6 +1078,7 @@ static void __apu_aoc_init(void)
 
 	pr_info("AOC init %s %d --\n", __func__, __LINE__);
 }
+#endif // APU_POWER_INIT
 
 static int init_plat_chip_data(struct platform_device *pdev)
 {
@@ -1087,6 +1095,7 @@ static int init_plat_chip_data(struct platform_device *pdev)
 	return mt6983_chip_data_remote_sync(&plat_cfg);
 }
 
+#if APU_POWER_INIT
 static int init_hw_setting(struct device *dev)
 {
 	__apu_aoc_init();
@@ -1102,6 +1111,7 @@ static int init_hw_setting(struct device *dev)
 
 	return 0;
 }
+#endif // APU_POWER_INIT
 
 static int init_reg_base(struct platform_device *pdev)
 {
@@ -1146,7 +1156,10 @@ static int init_reg_base(struct platform_device *pdev)
 
 static int mt6983_apu_top_pb(struct platform_device *pdev)
 {
-	int ret_clk = 0, ret = 0;
+#if APU_POWER_INIT
+	int ret_clk = 0;
+#endif
+	int ret = 0;
 
 	pr_info("%s paul dbg fpga_type : %d\n", __func__, fpga_type);
 
@@ -1154,6 +1167,7 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 
 	init_plat_pwr_res(pdev);
 
+#if APU_POWER_INIT
 	// enable vapu buck
 	regulator_enable(vapu_reg_id);
 
@@ -1176,8 +1190,6 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 
 	// before apu power init, we have to ensure soc regulator/clk is ready
 	init_hw_setting(&pdev->dev);
-	mt6983_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
-	init_plat_chip_data(pdev);
 
 #if !APU_POWER_BRING_UP
 	DISABLE_CLK(clk_top_dsp7_sel);
@@ -1200,6 +1212,10 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	//	   ARE will use this information to ensure the SRAM in ARE is
 	//	   trusted or not
 	apu_setl(0x1 << 0, apupw.regs[sys_vlp] + APUSYS_AO_CTRL_ADDR);
+#endif // APU_POWER_INIT
+
+	mt6983_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
+	init_plat_chip_data(pdev);
 
 #if APU_POWER_BRING_UP
 #if !APU_PWR_SOC_PATH

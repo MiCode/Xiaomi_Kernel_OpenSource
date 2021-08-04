@@ -24,6 +24,11 @@ static struct aputop_rpmsg {
 
 enum aputop_rpmsg_cmd get_curr_rpmsg_cmd(void)
 {
+	if (IS_ERR_OR_NULL(top_rpmsg) || !top_rpmsg->initialized) {
+		pr_info("%s: rpmsg not ready yet\n", __func__);
+		return APUTOP_RPMSG_CMD_MAX;
+	}
+
 	return top_rpmsg->curr_rpmsg_cmd;
 }
 
