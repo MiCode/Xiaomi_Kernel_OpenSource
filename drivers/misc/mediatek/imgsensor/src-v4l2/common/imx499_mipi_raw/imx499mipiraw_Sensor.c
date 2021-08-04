@@ -2755,6 +2755,12 @@ static const struct subdrv_ctx defctx = {
 	.i2c_write_id = 0x6c,/* record current sensor's i2c write id */
 };
 
+static int get_temp(struct subdrv_ctx *ctx, int *temp)
+{
+	*temp = get_sensor_temperature(ctx) * 1000;
+	return 0;
+}
+
 static int init_ctx(struct subdrv_ctx *ctx,
 		struct i2c_client *i2c_client, u8 i2c_write_id)
 {
@@ -2773,6 +2779,7 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+	.get_temp = get_temp,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {

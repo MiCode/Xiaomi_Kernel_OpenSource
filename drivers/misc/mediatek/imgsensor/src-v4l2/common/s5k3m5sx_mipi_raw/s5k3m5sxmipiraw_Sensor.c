@@ -3784,6 +3784,12 @@ static const struct subdrv_ctx defctx = {
 	.current_ae_effective_frame = 2,
 };
 
+static int get_temp(struct subdrv_ctx *ctx, int *temp)
+{
+	*temp = get_sensor_temperature(ctx) * 1000;
+	return 0;
+}
+
 static int init_ctx(struct subdrv_ctx *ctx,
 		struct i2c_client *i2c_client, u8 i2c_write_id)
 {
@@ -3805,6 +3811,7 @@ static struct subdrv_ops ops = {
 #ifdef IMGSENSOR_VC_ROUTING
 	.get_frame_desc = get_frame_desc,
 #endif
+	.get_temp = get_temp,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
