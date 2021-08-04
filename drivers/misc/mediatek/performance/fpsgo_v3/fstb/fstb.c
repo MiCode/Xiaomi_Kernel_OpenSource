@@ -78,8 +78,6 @@ static int nr_fps_levels = MAX_NR_FPS_LEVELS;
 
 static int fstb_fps_klog_on;
 static int fstb_enable, fstb_active, fstb_idle_cnt;
-static int fstb_hrtimer_ctrl_fps_enable;
-static int fstb_camera_flag;
 static long long last_update_ts;
 
 static void reset_fps_level(void);
@@ -887,43 +885,6 @@ int fpsgo_comp2fstb_enq_end(int pid, unsigned long long bufID,
 	return 0;
 }
 
-int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_queue_end_ts)
-{
-	struct FSTB_FRAME_INFO *iter;
-
-	mutex_lock(&fstb_lock);
-
-	if (!fstb_enable)
-		goto out;
-
-	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		if (iter->pid == pid && iter->bufid == bufID)
-			break;
-	}
-
-	if ((iter == NULL) || fstb_camera_flag || (iter->hwui_flag == 1) ||
-		!fstb_hrtimer_ctrl_fps_enable)
-		goto out;
-
-	iter->target_fps_v2 = fpsgo_fstb2xgf_get_target_fps(pid, bufID, &iter->target_fps_margin_v2,
-		cur_queue_end_ts);
-
-	if (iter->target_fps_v2 <= 0) {
-		iter->target_fps_v2 = iter->target_fps;
-		fpsgo_main_trace("change to target_fps_v1 (%d)(%d)", iter->target_fps_v2,
-			iter->hwui_flag);
-	}
-
-	fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid, iter->target_fps_v2, "target_fps_v2");
-	fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid, iter->target_fps_margin_v2,
-		"target_fps_margin_v2");
-
-out:
-	mutex_unlock(&fstb_lock);
-	return 0;
-}
-
 static long long get_cpu_frame_time(struct FSTB_FRAME_INFO *iter)
 {
 	long long ret = INT_MAX;
@@ -988,11 +949,6 @@ static void fstb_set_cam_active(int active)
 	if (fstb_is_cam_active == active)
 		return;
 
-	if (active)
-		fstb_camera_flag = 1;
-	else
-		fstb_camera_flag = 0;
-
 	fstb_is_cam_active = active;
 	fpsgo_gpu_block_boost_enable_camera(active ? 0 : -1);
 }
@@ -1053,7 +1009,7 @@ static int mode(int a[], int n)
 
 void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	int frame_type, unsigned long long ts,
-	int api, int hwui_flag)
+	int api)
 {
 	struct FSTB_FRAME_INFO *iter;
 	ktime_t cur_time;
@@ -1090,8 +1046,6 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 
 		new_frame_info->pid = pid;
 		new_frame_info->target_fps = max_fps_limit;
-		new_frame_info->target_fps_v2 = max_fps_limit;
-		new_frame_info->target_fps_margin_v2 = 0;
 		new_frame_info->target_fps_margin = 0;
 		new_frame_info->target_fps_margin2 = 0;
 		new_frame_info->target_fps_margin_dbnc_a = margin_mode_dbnc_a;
@@ -1116,7 +1070,6 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->gblock_time = 0ULL;
 		new_frame_info->fps_raise_flag = 0;
 		new_frame_info->vote_i = 0;
-		new_frame_info->hwui_flag = hwui_flag;
 
 		rcu_read_lock();
 		tsk = find_task_by_vpid(pid);
@@ -1486,41 +1439,29 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		v_c_time = total_time;
 
 	} else {
-
-		if (fstb_camera_flag || (iter->hwui_flag == 1) ||
-			!fstb_hrtimer_ctrl_fps_enable) {
-			switch (iter->sbe_state) {
-			case -1:
-				*target_fps = -1;
-				tolerence_fps = 0;
-				break;
-			case 0:
-				*target_fps = iter->target_fps;
-				tolerence_fps = iter->target_fps_margin;
-				break;
-			case 1:
-				*target_fps = max_fps_limit;
-				tolerence_fps = 0;
-				break;
-			default:
-				*target_fps = iter->target_fps;
-				tolerence_fps = iter->target_fps_margin;
-				break;
-			}
-			total_time = (int)FSTB_SEC_DIVIDER;
-			total_time =
-				div64_u64(total_time,
-				(*target_fps) + tolerence_fps > max_fps_limit ?
-				max_fps_limit : (*target_fps) + tolerence_fps);
-		} else {
-			*target_fps = iter->target_fps_v2;
-			tolerence_fps = iter->target_fps_margin_v2;
-			total_time = (int)FSTB_SEC_DIVIDER;
-			total_time =
-				div64_u64(total_time,
-				(*target_fps) + tolerence_fps > max_fps_limit ?
-				max_fps_limit : (*target_fps) + tolerence_fps);
+		switch (iter->sbe_state) {
+		case -1:
+			*target_fps = -1;
+			tolerence_fps = 0;
+			break;
+		case 0:
+			*target_fps = iter->target_fps;
+			tolerence_fps = iter->target_fps_margin;
+			break;
+		case 1:
+			*target_fps = max_fps_limit;
+			tolerence_fps = 0;
+			break;
+		default:
+			*target_fps = iter->target_fps;
+			tolerence_fps = iter->target_fps_margin;
+			break;
 		}
+		total_time = (int)FSTB_SEC_DIVIDER;
+		total_time =
+			div64_u64(total_time,
+			(*target_fps) + tolerence_fps > max_fps_limit ?
+			max_fps_limit : (*target_fps) + tolerence_fps);
 
 		if (total_time > 1000000ULL + iter->gblock_time &&
 				iter->gblock_time > 1000000ULL) {
@@ -1593,14 +1534,9 @@ static void fstb_fps_stats(struct work_struct *work)
 				iter->target_fps_margin_dbnc_b,
 				"target_fps_margin_dbnc_b");
 
-			if (fstb_camera_flag || (iter->hwui_flag == 1) ||
-				!fstb_hrtimer_ctrl_fps_enable) {
-				gpu_fps = iter->target_fps;
-				tolerence_fps = iter->target_fps_margin;
-			} else {
-				gpu_fps = iter->target_fps_v2;
-				tolerence_fps = iter->target_fps_margin_v2;
-			}
+			gpu_fps = iter->target_fps;
+			tolerence_fps = iter->target_fps_margin;
+
 			switch (iter->sbe_state) {
 			case -1:
 			case 0:
@@ -1624,7 +1560,6 @@ static void fstb_fps_stats(struct work_struct *work)
 				max_target_fps = iter->target_fps;
 			/* if queue fps == 0, we delete that frame_info */
 		} else {
-			fpsgo_fstb2xgf_notify_recycle(iter->pid, iter->bufid);
 			hlist_del(&iter->hlist);
 
 			vfree(iter);
@@ -2170,10 +2105,6 @@ static ssize_t fstb_debug_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"fstb_hrtimer_ctrl_fps_enable %d\n", fstb_hrtimer_ctrl_fps_enable);
-	pos += length;
-
-	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 			"fstb_log %d\n", fstb_fps_klog_on);
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -2261,35 +2192,6 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 }
 static KOBJ_ATTR_RO(fpsgo_status);
 
-static ssize_t fstb_hrtimer_ctrl_fps_enable_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fstb_hrtimer_ctrl_fps_enable);
-}
-
-static ssize_t fstb_hrtimer_ctrl_fps_enable_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fstb_lock);
-				fstb_hrtimer_ctrl_fps_enable = !!arg;
-				mutex_unlock(&fstb_lock);
-			}
-		}
-	}
-
-	return count;
-}
-
-static KOBJ_ATTR_RW(fstb_hrtimer_ctrl_fps_enable);
-
 int mtk_fstb_init(void)
 {
 	int num_cluster = 0;
@@ -2326,8 +2228,6 @@ int mtk_fstb_init(void)
 				&kobj_attr_jump_check_num);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_max_fps);
-		fpsgo_sysfs_create_file(fstb_kobj,
-				&kobj_attr_fstb_hrtimer_ctrl_fps_enable);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_no_ctrl);
 	}
@@ -2379,8 +2279,6 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_jump_check_num);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_max_fps);
-	fpsgo_sysfs_remove_file(fstb_kobj,
-			&kobj_attr_fstb_hrtimer_ctrl_fps_enable);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_no_ctrl);
 

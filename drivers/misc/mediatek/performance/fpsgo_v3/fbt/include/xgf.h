@@ -20,7 +20,6 @@
 #define XGF_DEP_FRAMES_MAX 20
 #define XGF_DO_SP_SUB 0
 #define XGF_MAX_UFRMAES 200
-#define DEFAULT_DFRC 60
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -95,9 +94,6 @@ struct xgf_render {
 
 	int spid;
 	int dep_frames;
-
-	unsigned long long raw_l_runtime;
-	unsigned long long raw_r_runtime;
 };
 
 struct xgf_dep {
@@ -227,11 +223,8 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);
 
-int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
-	int *target_fps_margin, unsigned long long cur_queue_end_ts);
 int fpsgo_xgf2ko_calculate_target_fps(int pid, unsigned long long bufID,
 	int *target_fps_margin, unsigned long long cur_queue_end_ts);
-int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID);
 void fpsgo_xgf2ko_do_recycle(int pid, unsigned long long bufID);
 void fpsgo_ctrl2xgf_display_rate(int dfrc_fps);
 int xgf_get_display_rate(void);

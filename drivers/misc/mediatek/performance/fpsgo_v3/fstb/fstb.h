@@ -11,11 +11,9 @@ int mtk_fstb_init(void);
 void fpsgo_comp2fstb_queue_time_update(
 	int pid, unsigned long long bufID, int frame_type,
 	unsigned long long ts,
-	int api, int hwui_flag);
+	int api);
 int fpsgo_comp2fstb_enq_end(int pid,
 	unsigned long long bufID, unsigned long long enq);
-int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_queue_end_ts);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
 int fpsgo_ctrl2fstb_get_fps(void);
 void fpsgo_comp2fstb_camera_active(int pid);
