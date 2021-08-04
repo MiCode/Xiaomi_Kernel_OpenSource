@@ -356,6 +356,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 
 		gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
 			&bs_data->bat_batt_vol);
+		gm->vbat = bs_data->bat_batt_vol;
 		val->intval = bs_data->bat_batt_vol * 1000;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
@@ -2490,7 +2491,6 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
 
-	gm->vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
 	gm->tbat = force_get_tbat_internal(gm, true);
 
 	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d,boot:%d\n",
