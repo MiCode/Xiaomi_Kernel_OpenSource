@@ -29,8 +29,13 @@ static ssize_t rv33_coredump(struct file *filep,
 		if ((offset + size) > coredump_length)
 			size = coredump_length - offset;
 
-		/* XXX invalid cache here? */
-		memcpy(buf, apu->coredump_buf + offset, size);
+		if (apu->platdata->flags & F_SECURE_COREDUMP)
+			memcpy(buf, apu->apu_aee_coredump_mem_base +
+				apu->apusys_aee_coredump_info->up_coredump_ofs + offset,
+				size);
+		else
+			/* XXX invalid cache here? */
+			memcpy(buf, apu->coredump_buf + offset, size);
 		length = size;
 	}
 

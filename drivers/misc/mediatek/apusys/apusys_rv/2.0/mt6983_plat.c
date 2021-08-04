@@ -9,9 +9,25 @@
 #include <linux/sched/clock.h>
 
 #include "apusys_power.h"
+#include "apusys_secure.h"
 #include "../apu.h"
 #include "../apu_config.h"
 #include "../apu_hw.h"
+
+static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
+	uint32_t a2)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL, smc_id,
+				a2, 0, 0, 0, 0, 0, &res);
+	if (((int) res.a0) < 0)
+		dev_info(dev, "%s: smc call %d return error(%d)\n",
+			__func__,
+			smc_id, res.a0);
+
+	return res.a0;
+}
 
 static int mt6983_rproc_init(struct mtk_apu *apu)
 {
@@ -29,7 +45,8 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 	unsigned long flags;
 
 	if (apu->platdata->flags & F_SECURE_BOOT) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_SETUP_REVISER, 0);
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* setup boundary */
@@ -64,7 +81,8 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 			__func__,
 			ioread32(apu->apu_sctrl_reviser + SECUREFW_CTXT));
 
-		if (apu->platdata->flags & F_BYPASS_IOMMU) {
+		if ((apu->platdata->flags & F_BYPASS_IOMMU) ||
+			(apu->platdata->flags & F_PRELOAD_FIRMWARE)) {
 			spin_lock_irqsave(&apu->reg_lock, flags);
 			/* vld=1, partial_enable=1 */
 			iowrite32(0x7,
@@ -103,7 +121,15 @@ static void apu_reset_mp(struct mtk_apu *apu)
 	unsigned long flags;
 
 	if (apu->platdata->flags & F_SECURE_BOOT) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_RESET_MP, 0);
+
+		dev_info(dev, "%s: MD32_SYS_CTRL = 0x%x\n",
+			__func__, ioread32(apu->md32_sysctrl + MD32_SYS_CTRL));
+		dev_info(dev, "%s: MD32_CLK_EN = 0x%x\n",
+			__func__, ioread32(apu->md32_sysctrl + MD32_CLK_EN));
+		dev_info(dev, "%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
+			__func__, ioread32(apu->md32_sysctrl + UP_WAKE_HOST_MASK0));
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* reset uP */
@@ -142,14 +168,21 @@ static void apu_setup_boot(struct mtk_apu *apu)
 		boot_from_tcm = 0;
 
 	if (apu->platdata->flags & F_SECURE_BOOT) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_SETUP_BOOT, 0);
+
+		dev_info(dev, "%s: MD32_BOOT_CTRL = 0x%x\n",
+			__func__, ioread32(apu->apu_ao_ctl + MD32_BOOT_CTRL));
+		dev_info(dev, "%s: MD32_PRE_DEFINE = 0x%x\n",
+			__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
 	} else {
 		/* Set uP boot addr to DRAM.
 		 * If boot from tcm == 1, boot addr will always map to
 		 * 0x1d000000 no matter what value boot_addr is
 		 */
 		spin_lock_irqsave(&apu->reg_lock, flags);
-		if (apu->platdata->flags & F_BYPASS_IOMMU)
+		if ((apu->platdata->flags & F_BYPASS_IOMMU) ||
+			(apu->platdata->flags & F_PRELOAD_FIRMWARE))
 			iowrite32((u32)apu->code_da,
 				apu->apu_ao_ctl + MD32_BOOT_CTRL);
 		else
@@ -175,7 +208,16 @@ static void apu_start_mp(struct mtk_apu *apu)
 	unsigned long flags;
 
 	if (apu->platdata->flags & F_SECURE_BOOT) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_START_MP, 0);
+
+		usleep_range(0, 1000);
+		for (i = 0; i < 20; i++) {
+			dev_info(dev, "apu boot: pc=%08x, sp=%08x\n",
+			ioread32(apu->md32_sysctrl + 0x838),
+					ioread32(apu->md32_sysctrl+0x840));
+			usleep_range(0, 1000);
+		}
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* Release runstall */
@@ -211,8 +253,14 @@ static int mt6983_rproc_start(struct mtk_apu *apu)
 
 static int mt6983_rproc_stop(struct mtk_apu *apu)
 {
+	struct device *dev = apu->dev;
+
 	/* Hold runstall */
-	iowrite32(0x1, apu->apu_ao_ctl + 8);
+	if (apu->platdata->flags & F_SECURE_BOOT)
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_STOP_MP, 0);
+	else
+		iowrite32(0x1, apu->apu_ao_ctl + 8);
 
 	return 0;
 }

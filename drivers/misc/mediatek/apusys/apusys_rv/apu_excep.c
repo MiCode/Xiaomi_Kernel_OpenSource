@@ -13,6 +13,7 @@
 #include "apu.h"
 #include "apu_excep.h"
 #include "apu_config.h"
+#include "apusys_secure.h"
 
 const uint32_t TaskContext[] = {
 	0x0, // GPR
@@ -239,6 +240,21 @@ static uint32_t dbg_read_csr(struct mtk_apu *apu, uint32_t csr_id)
 	return dbg_apb_dr(apu, DBG_DATA_REG_INSTR);
 }
 
+static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
+	uint32_t a2)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL, smc_id,
+				a2, 0, 0, 0, 0, 0, &res);
+	if (((int) res.a0) < 0)
+		dev_info(dev, "%s: smc call %d return error(%d)\n",
+			__func__,
+			smc_id, res.a0);
+
+	return res.a0;
+}
+
 static void apu_coredump_work_func(struct work_struct *p_work)
 {
 	unsigned long flags;
@@ -263,12 +279,43 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 	 */
 	if (apu->conf_buf->ramdump_type == 0x1) {
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV EXCEPTION");
+		if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
+			apusys_rv_smc_call(dev,
+				MTK_APUSYS_KERNEL_OP_APUSYS_RV_COREDUMP_SHADOW_COPY, 0);
+			apusys_rv_smc_call(dev,
+				MTK_APUSYS_KERNEL_OP_APUSYS_RV_CLEAR_WDT_ISR, 0);
+		}
 		dev_info(dev, "%s: done\n", __func__);
 		return;
 	}
 
 	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_TCMDUMP, 0);
+
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_RAMDUMP, 0);
+
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_TBUFDUMP, 0);
+
+		/* ungate md32 cg for debug apb connection */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_CG_UNGATING, 0);
+		status = apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_DBG_APB_ATTACH, 0);
+
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_REGDUMP, status);
+
+		/* gating md32 cg for cache dump */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_CG_GATING, 0);
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_CACHEDUMP, 0);
+
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_CLEAR_WDT_ISR, 0);
 	} else {
 		pc = ioread32(apu->md32_sysctrl + MON_PC);
 		lr = ioread32(apu->md32_sysctrl + MON_LR);
@@ -390,7 +437,11 @@ static irqreturn_t apu_wdt_isr(int irq, void *private_data)
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 
 	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_CG_GATING, 0);
+
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_DISABLE_WDT_ISR, 0);
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* freeze md32 by turn off cg */
@@ -456,7 +507,10 @@ void apu_excep_remove(struct platform_device *pdev, struct mtk_apu *apu)
 	unsigned long flags;
 
 	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
-		/* todo: add smc call */
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_DISABLE_WDT_ISR, 0);
+		apusys_rv_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_RV_CLEAR_WDT_ISR, 0);
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* disable apu wdt */

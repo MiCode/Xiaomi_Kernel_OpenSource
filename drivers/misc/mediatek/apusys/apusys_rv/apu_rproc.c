@@ -71,12 +71,12 @@ static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iome
 
 	if (da >= DRAM_OFFSET && da < DRAM_OFFSET + CODE_BUF_SIZE) {
 		ptr = apu->code_buf + (da - DRAM_OFFSET);
-		//pr_info("%s(DRAM): da = 0x%llx, len = 0x%x\n",
-		//	__func__, da, len);
+		pr_info("%s(DRAM): da = 0x%llx, len = 0x%x\n",
+			__func__, da, len);
 	} else if (da >= TCM_OFFSET && da < TCM_OFFSET + TCM_SIZE) {
 		ptr = apu->md32_tcm + (da - TCM_OFFSET);
-		//pr_info("%s(TCM): da = 0x%llx, len = 0x%x\n",
-		//	__func__, da, len);
+		pr_info("%s(TCM): da = 0x%llx, len = 0x%x\n",
+			__func__, da, len);
 	}
 	return ptr;
 }
@@ -178,7 +178,10 @@ static void apu_dram_boot_remove(struct mtk_apu *apu)
 	if (apu->platdata->flags & F_SECURE_BOOT)
 		return;
 
-	if ((apu->platdata->flags & F_BYPASS_IOMMU) == 0)
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
+		if (domain != NULL)
+			iommu_unmap(domain, APU_SEC_FW_IOVA, apu->apusys_sec_mem_size);
+	} else if ((apu->platdata->flags & F_BYPASS_IOMMU) == 0)
 		if (domain != NULL)
 			iommu_unmap(domain, iova, CODE_BUF_SIZE);
 
@@ -209,8 +212,11 @@ static int apu_dram_boot_init(struct mtk_apu *apu)
 	}
 
 	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
-		/* Map reserved code buffer to CODE_BUF_DA */
-		ret = iommu_map(domain, CODE_BUF_DA,
+		apu->code_buf = (void *) apu->apu_sec_mem_base +
+			apu->apusys_sec_info->up_code_buf_ofs;
+		apu->code_da = APU_SEC_FW_IOVA;
+		/* Map reserved code buffer to APU_SEC_FW_IOVA */
+		ret = iommu_map(domain, APU_SEC_FW_IOVA,
 				apu->apusys_sec_mem_start,
 				apu->apusys_sec_mem_size, IOMMU_READ|IOMMU_WRITE);
 		if (ret) {
