@@ -724,35 +724,54 @@ static struct dma_heap_ops mtk_mm_uncached_heap_ops = {
 	.allocate = mtk_mm_uncached_heap_not_initialized,
 };
 
-static void mm_dmaheap_show(struct dma_heap *heap,
-			    void *seq_file,
-			    int flag) {
-	struct seq_file *s = seq_file;
-	struct mtk_heap_dump_t dump_param;
-	//struct mtk_heap_priv_info *heap_priv = NULL;
-	//const char * dump_fmt = NULL;
+/**
+ * return none-zero value means dump fail.
+ *       maybe the input dmabuf isn't this heap buffer, no need dump
+ *
+ * return 0 means dump pass
+ */
+static int mm_heap_buf_priv_dump(const struct dma_buf *dmabuf,
+				 struct dma_heap *heap,
+				 void *priv)
+{
+	struct mtk_mm_heap_buffer *buf = dmabuf->priv;
+	struct seq_file *s = priv;
+	int i = 0;
 
-	dump_param.heap = heap;
-	dump_param.file = seq_file;
+	/* buffer check */
+	if (!is_mtk_mm_heap_dmabuf(dmabuf))
+		return -EINVAL;
 
-	__HEAP_DUMP_START(s, heap);
-	__HEAP_TOTAL_BUFFER_SZ_DUMP(s, heap);
-	__HEAP_PAGE_POOL_DUMP(s, heap);
+	if (heap != buf->heap)
+		return -EINVAL;
 
-	if (flag & HEAP_DUMP_SKIP_ATTACH)
-		goto attach_done;
+	dmabuf_dump(s, "\t\tbuf_priv: uncache:%d alloc-pid:%d[%s]-tid:%d[%s]\n",
+		    !!buf->uncached,
+		    buf->pid, buf->pid_name,
+		    buf->tid, buf->tid_name);
 
-	__HEAP_ATTACH_DUMP_STAT(s, heap);
-	get_each_dmabuf(dma_heap_default_attach_dump_cb, &dump_param);
-	__HEAP_ATTACH_DUMP_END(s, heap);
+	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
+		bool mapped = buf->mapped[i];
+		struct device *dev = buf->dev_info[i].dev;
+		struct sg_table *sgt = buf->mapped_table[i];
 
-attach_done:
-	__HEAP_DUMP_END(s, heap);
+		if (!sgt || !dev || !dev_iommu_fwspec_get(dev))
+			continue;
 
+		dmabuf_dump(s,
+			    "\t\tbuf_priv: dom:%-2d map:%d iova:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
+			    i, mapped,
+			    sg_dma_address(sgt->sgl),
+			    buf->dev_info[i].map_attrs,
+			    buf->dev_info[i].direction,
+			    dev_name(dev));
+	}
+
+	return 0;
 }
 
-static const struct mtk_heap_priv_info mtk_mm_heap_priv = {
-	.show =             mm_dmaheap_show,
+static struct mtk_heap_priv_info mtk_mm_heap_priv = {
+	.buf_priv_dump = mm_heap_buf_priv_dump,
 };
 
 static int mtk_mm_heap_create(void)

@@ -1141,32 +1141,67 @@ static const struct dma_heap_ops sec_heap_region_ops = {
 	.allocate = tmem_region_allocate,
 };
 
-static void sec_dmaheap_show(struct dma_heap *heap,
-			     void *seq_file,
-			     int flag) {
-	struct seq_file *s = seq_file;
-	struct mtk_heap_dump_t dump_param;
-	dump_param.heap = heap;
-	dump_param.file = seq_file;
+/**
+ * return none-zero value means dump fail.
+ *       maybe the input dmabuf isn't this heap buffer, no need dump
+ *
+ * return 0 means dump pass
+ */
+static int sec_heap_buf_priv_dump(const struct dma_buf *dmabuf,
+				  struct dma_heap *heap,
+				  void *priv)
+{
+	struct mtk_sec_heap_buffer *buf = dmabuf->priv;
+	struct seq_file *s = priv;
+	int i = 0;
+	dma_addr_t iova = 0;
+	int region_buf = 0;
 
-	__HEAP_DUMP_START(s, heap);
-	__HEAP_TOTAL_BUFFER_SZ_DUMP(s, heap);
-	__HEAP_PAGE_POOL_DUMP(s, heap);
+	/* buffer check */
+	if (!is_mtk_sec_heap_dmabuf(dmabuf))
+		return -EINVAL;
 
-	if (flag & HEAP_DUMP_SKIP_ATTACH)
-		goto attach_done;
+	if (heap != buf->heap)
+		return -EINVAL;
 
-	__HEAP_ATTACH_DUMP_STAT(s, heap);
-	get_each_dmabuf(dma_heap_default_attach_dump_cb, &dump_param);
-	__HEAP_ATTACH_DUMP_END(s, heap);
+	dmabuf_dump(s, "\t\tbuf_priv: uncache:%d alloc-pid:%d[%s]-tid:%d[%s]\n",
+		    !!buf->uncached,
+		    buf->pid, buf->pid_name,
+		    buf->tid, buf->tid_name);
 
-attach_done:
-	__HEAP_DUMP_END(s, heap);
+	/* region base, only has secure handle */
+	if (dmabuf->ops == &sec_buf_region_ops)
+		region_buf = 1;
+	else
+		region_buf = 0;
 
+	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
+		bool mapped = buf->mapped[i];
+		struct device *dev = buf->dev_info[i].dev;
+		struct sg_table *sgt = buf->mapped_table[i];
+
+		if (!sgt || !dev || !dev_iommu_fwspec_get(dev))
+			continue;
+
+		if (region_buf)
+			iova = (dma_addr_t)dmabuf_to_secure_handle(dmabuf);
+		else
+			iova = sg_dma_address(sgt->sgl);
+
+		dmabuf_dump(s,
+			    "\t\tbuf_priv: dom:%-2d map:%d %4s:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
+			    i, mapped,
+			    region_buf ? "shdl" : "iova",
+			    iova,
+			    buf->dev_info[i].map_attrs,
+			    buf->dev_info[i].direction,
+			    dev_name(buf->dev_info[i].dev));
+	}
+	return 0;
 }
 
 static const struct mtk_heap_priv_info mtk_sec_heap_priv = {
-	.show =             sec_dmaheap_show,
+	.buf_priv_dump = sec_heap_buf_priv_dump,
 };
 
 int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf)
