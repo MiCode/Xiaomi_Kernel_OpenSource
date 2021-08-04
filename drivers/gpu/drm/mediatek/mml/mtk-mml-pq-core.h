@@ -13,6 +13,8 @@
 
 #include "mtk-mml-core.h"
 
+#define AAL_CURVE_NUM (544)
+
 extern int mtk_mml_pq_msg;
 
 #define mml_pq_msg(fmt, args...) \

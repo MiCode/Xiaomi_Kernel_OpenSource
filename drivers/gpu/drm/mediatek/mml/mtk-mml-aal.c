@@ -165,6 +165,12 @@ struct mml_comp_aal {
 /* meta data for each different frame config */
 struct aal_frame_data {
 	u8 out_idx;
+	u32 out_hist_xs;
+	u32 in_crop_xs;
+	u32 dre_blk_width;
+	u32 dre_blk_height;
+	u16 labels[AAL_CURVE_NUM];
+	bool is_aal_need_readback;
 };
 
 #define aal_frm_data(i)	((struct aal_frame_data *)(i->data))
@@ -185,6 +191,23 @@ static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 	aal_frm->out_idx = ccfg->node->out_idx;
 
 	return 0;
+}
+
+static s32 aal_buf_prepare(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
+	s32 ret = 0;
+
+	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
+			dest->pq_config.en_dre);
+
+	if (!dest->pq_config.en_dre)
+		return ret;
+
+	return ret;
 }
 
 static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -235,6 +258,22 @@ static const struct mml_comp_tile_ops aal_tile_ops = {
 	.prepare = aal_tile_prepare,
 };
 
+static u32 aal_get_label_count(struct mml_comp *comp, struct mml_task *task,
+			       struct mml_comp_config *ccfg)
+{
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
+
+	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
+			dest->pq_config.en_dre);
+
+	if (!dest->pq_config.en_dre)
+		return 0;
+
+	return AAL_CURVE_NUM;
+}
+
 static s32 aal_init(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg)
 {
@@ -278,14 +317,41 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
+	u32 src_frame_width = cfg->info.src.width;
+	u32 src_frame_height = cfg->info.src.height;
+	u16 tile_cnt = cfg->tile_output[ccfg->pipe]->tile_cnt;
+
 	u32 aal_input_w;
 	u32 aal_input_h;
 	u32 aal_output_w;
 	u32 aal_output_h;
 	u32 aal_crop_x_offset;
 	u32 aal_crop_y_offset;
+	u32 dre_blk_width = 0;
+	u32 dre_blk_height = 0;
+
+	u32 act_win_x_start = 0, act_win_x_end = 0;
+	u32 act_win_y_start = 0, act_win_y_end = 0;
+	u32 win_x_start = 0, win_x_end = 0;
+	u32 blk_num_x_start = 0, blk_num_x_end = 0;
+	u32 blk_num_y_start = 0, blk_num_y_end = 0;
+	u32 blk_cnt_x_start = 0, blk_cnt_x_end = 0;
+	u32 blk_cnt_y_start = 0, blk_cnt_y_end = 0;
+	u32 roi_x_start = 0, roi_x_end = 0;
+	u32 roi_y_start = 0, roi_y_end = 0;
+	u32 win_y_start = 0, win_y_end = 0;
+
+	u32 aal_hist_left_start = 0;
+	u32 tile_pxl_x_start = 0, tile_pxl_x_end = 0;
+	u32 tile_pxl_y_start = 0, tile_pxl_y_end = 0;
+	u32 last_tile_x_flag = 0, last_tile_y_flag = 0;
+	u32 save_first_blk_col_flag = 0;
+	u32 save_last_blk_col_flag = 0;
+	s32 ret = 0;
 
 	aal_input_w = tile->in.xe - tile->in.xs + 1;
 	aal_input_h = tile->in.ye - tile->in.ys + 1;
@@ -301,14 +367,144 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_OUTPUT_SIZE,
 		(aal_output_w << 16) + aal_output_h, U32_MAX);
 
+	if (!dest->pq_config.en_dre)
+		return ret;
+
+	aal_hist_left_start =
+		(tile->out.xs > aal_frm->out_hist_xs) ? tile->out.xs : aal_frm->out_hist_xs;
+
+	if (!idx)
+		aal_frm->in_crop_xs = tile->in.xs;
+
+	mml_pq_msg("%s %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, tile->in.xs, tile->in.xe, tile->in.ys, tile->in.ye);
+	mml_pq_msg("%s %d: [output] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, tile->out.xs, tile->out.xe, tile->out.ys,
+			tile->out.ye);
+	mml_pq_msg("%s %d: [aal_crop_offset] [x, y] = [%d, %d], aal_hist_left_start[%d]",
+			__func__, idx, aal_crop_x_offset, aal_crop_y_offset, aal_hist_left_start);
+
+	act_win_x_start = aal_hist_left_start - tile->in.xs;
+	act_win_x_end = tile->out.xe - tile->in.xs;
+	tile_pxl_x_start = tile->in.xs - aal_frm->in_crop_xs;
+	tile_pxl_x_end = tile->in.xe;
+
+	last_tile_x_flag = (tile->in.xe+1 >= src_frame_width) ? 1:0;
+
+	act_win_y_start = 0;
+	act_win_y_end = tile->in.ye - tile->in.ys;
+	tile_pxl_y_start = 0;
+	tile_pxl_y_end = tile->in.ye - tile->in.ys;
+
+	last_tile_y_flag = (tile_pxl_y_end+1 >= src_frame_height) ? 1:0;
+	roi_x_start = 0;
+	roi_x_end = tile->in.xe - tile->in.xs;
+	roi_y_start = 0;
+	roi_y_end = tile->in.ye - tile->in.ys;
+
+	blk_num_x_start = (tile_pxl_x_start / dre_blk_width);
+	blk_num_x_end = (tile_pxl_x_end / dre_blk_width);
+	blk_cnt_x_start = tile_pxl_x_start - (blk_num_x_start * dre_blk_width);
+	blk_cnt_x_end = tile_pxl_x_end - (blk_num_x_end * dre_blk_width);
+	blk_num_y_start = (tile_pxl_y_start / dre_blk_height);
+	blk_num_y_end = (tile_pxl_y_end / dre_blk_height);
+	blk_cnt_y_start = tile_pxl_y_start - (blk_num_y_start * dre_blk_height);
+	blk_cnt_y_end = tile_pxl_y_end - (blk_num_y_end * dre_blk_height);
+
+	if (!idx) {
+		aal_frm->out_hist_xs = tile->out.xe+1;
+		save_first_blk_col_flag = 1;
+		save_last_blk_col_flag = 0;
+	} else if (idx+1 >= tile_cnt) {
+		aal_frm->out_hist_xs = 0;
+		save_last_blk_col_flag  = 1;
+	} else {
+		aal_frm->out_hist_xs = tile->out.xe+1;
+		save_first_blk_col_flag = 0;
+		save_last_blk_col_flag = 0;
+	}
+
+	win_x_start = 0;
+	win_x_end = tile_pxl_x_end - tile_pxl_x_start + 1;
+	win_y_start = 0;
+	win_y_end = tile_pxl_y_end - tile_pxl_y_start + 1;
+
+	mml_pq_msg("%s %d:[act_win][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, act_win_x_start, act_win_x_end,
+			act_win_y_start, act_win_y_end);
+	mml_pq_msg("%s %d:[blk_num][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, blk_num_x_start, blk_num_x_end,
+			blk_num_y_start, blk_num_y_end);
+	mml_pq_msg("%s %d:[blk_cnt][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, blk_cnt_x_start, blk_cnt_x_end,
+			blk_cnt_y_start, blk_cnt_y_end);
+	mml_pq_msg("%s %d:[roi][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, roi_x_start, roi_x_end, roi_y_start, roi_y_end);
+	mml_pq_msg("%s %d:[win][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, win_x_start, win_x_end, win_y_start, win_y_end);
+	mml_pq_msg("%s %d:save_first_blk_col_flag[%d], save_last_blk_col_flag[%d]",
+			__func__, idx, save_first_blk_col_flag, save_last_blk_col_flag);
+	mml_pq_msg("%s %d:last_tile_x_flag[%d], last_tile_y_flag[%d]",
+			__func__, idx, last_tile_x_flag, last_tile_y_flag);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_00,
+		(act_win_x_end << 16) | act_win_x_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_07, (act_win_y_end << 16) |
+		act_win_y_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_00, (save_first_blk_col_flag << 23) |
+		(save_last_blk_col_flag << 22) | (last_tile_x_flag << 21) |
+		(last_tile_y_flag << 20) | (blk_num_x_end << 15) |
+		(blk_num_x_start << 10) | (blk_num_y_end << 5) |
+		blk_num_y_start, 0x00FFFFFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_01, (blk_cnt_x_end << 16) |
+		blk_cnt_x_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_02, (blk_cnt_y_end << 16) |
+		blk_cnt_y_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_ROI_00, (roi_x_end << 16) |
+		roi_x_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_ROI_01, (roi_y_end << 16) |
+		roi_y_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_WIN_X_MAIN, (win_x_end << 16) |
+		win_x_start, 0x3FFF3FFF);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_WIN_Y_MAIN, (win_y_end << 16) |
+		win_y_start, 0x3FFF3FFF);
+
 	return 0;
 }
 
+static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg)
+{
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
+	s32 ret = 0;
+
+	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
+			dest->pq_config.en_dre);
+
+	if (!dest->pq_config.en_dre)
+		return ret;
+	return ret;
+}
+
+
 static const struct mml_comp_config_ops aal_cfg_ops = {
 	.prepare = aal_prepare,
+	.buf_prepare = aal_buf_prepare,
+	.get_label_count = aal_get_label_count,
 	.init = aal_init,
 	.frame = aal_config_frame,
 	.tile = aal_config_tile,
+	.reframe = aal_reconfig_frame,
 };
 
 static void aal_debug_dump(struct mml_comp *comp)
