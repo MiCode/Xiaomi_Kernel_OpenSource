@@ -450,9 +450,9 @@
 			reg = <0 0x1000f000 0 0x1000>;
 		};
 
-		keypad: kp@10010000 {
+		keypad: kp@1c00e000 {
 			compatible = "mediatek,kp";
-			reg = <0 0x10010000 0 0x1000>;
+			reg = <0 0x1c00e000 0 0x1000>;
 			interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING 0>;
 			mediatek,key-debounce-ms = <1024>;
 			mediatek,hw-map-num = <72>;
