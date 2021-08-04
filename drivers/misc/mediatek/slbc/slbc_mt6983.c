@@ -137,7 +137,7 @@ void slbc_sram_init(struct mtk_slbc *slbc)
 
 static void slbc_set_sram_data(struct slbc_data *d)
 {
-	pr_info("slbc: pa:%lx va:%lx\n",
+	pr_info("slbc: set pa:%lx va:%lx\n",
 			(unsigned long)d->paddr, (unsigned long)d->vaddr);
 }
 
@@ -145,7 +145,7 @@ static void slbc_clr_sram_data(struct slbc_data *d)
 {
 	d->paddr = 0;
 	d->vaddr = 0;
-	pr_info("slbc: pa:%lx va:%lx\n",
+	pr_info("slbc: clr pa:%lx va:%lx\n",
 			(unsigned long)d->paddr, (unsigned long)d->vaddr);
 }
 
@@ -216,8 +216,8 @@ static int slbc_request_buffer(struct slbc_data *d)
 		}
 	}
 
-	slbc_set_sram_data(d);
 	ret = _slbc_request_buffer_scmi(d);
+	slbc_set_sram_data(d);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
@@ -327,8 +327,8 @@ static int slbc_release_buffer(struct slbc_data *d)
 
 	/* slbc_debug_log("%s: TP_BUFFER\n", __func__); */
 
-	slbc_clr_sram_data(d);
 	ret = _slbc_release_buffer_scmi(d);
+	slbc_clr_sram_data(d);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
@@ -387,8 +387,7 @@ int slbc_release(struct slbc_data *d)
 
 	if ((d->type) == TP_BUFFER) {
 		ret = slbc_release_buffer(d);
-		if (d->size)
-			d->size = 0;
+		d->size = 0;
 	}
 
 	if ((d->type) == TP_CACHE)
@@ -410,6 +409,27 @@ int slbc_release(struct slbc_data *d)
 	}
 
 	return ret;
+}
+
+static void slbc_sync_mb(void *task)
+{
+	dsb(sy);
+	isb();
+	/* Pairs with smp_wmb() */
+	smp_rmb();
+}
+
+static void slbc_mem_barrier(void)
+{
+	/*
+	 * Ensure all data update before kicking the CPUs.
+	 * Pairs with smp_rmb() in slbc_sync_mb().
+	 */
+	smp_wmb();
+	dsb(sy);
+	isb();
+
+	smp_call_function(slbc_sync_mb, NULL, 1);
 }
 
 int slbc_power_on(struct slbc_data *d)
@@ -815,6 +835,7 @@ static struct slbc_common_ops common_ops = {
 static struct slbc_ipi_ops ipi_ops = {
 	.slbc_request_acp = slbc_request_acp,
 	.slbc_release_acp = slbc_release_acp,
+	.slbc_mem_barrier = slbc_mem_barrier,
 };
 
 static int slbc_probe(struct platform_device *pdev)

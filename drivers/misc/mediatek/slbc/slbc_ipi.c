@@ -283,6 +283,10 @@ static void slbc_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 					"IPI_SLBC_ACP_RELEASE_TO_AP",
 					d.type);
 		break;
+	case IPI_SLBC_MEM_BARRIER:
+		if (ipi_ops && ipi_ops->slbc_mem_barrier)
+			ipi_ops->slbc_mem_barrier();
+		break;
 	default:
 		pr_info("wrong slbc IPI command: %d\n",
 				cmd);

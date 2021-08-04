@@ -31,6 +31,7 @@ enum {
 	IPI_SLBC_STALL_OFFSET,
 	IPI_SLBC_STALL_THR,
 	IPI_SLBC_STALL_HIST,
+	IPI_SLBC_MEM_BARRIER,
 	NR_IPI_SLBC,
 };
 
@@ -42,6 +43,7 @@ struct slbc_ipi_data {
 struct slbc_ipi_ops {
 	int (*slbc_request_acp)(void *ptr);
 	int (*slbc_release_acp)(void *ptr);
+	void (*slbc_mem_barrier)(void);
 };
 
 extern unsigned int slbc_scmi_set(void *buffer, int slot);
