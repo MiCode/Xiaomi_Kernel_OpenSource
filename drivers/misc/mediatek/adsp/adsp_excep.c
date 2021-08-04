@@ -38,7 +38,7 @@ static u32 copy_from_buffer(void *dest, size_t destsize, const void *src,
 		request = srcsize - offset;
 
 	/* if destsize == -1, don't check the request size */
-	if (!dest || destsize < request) {
+	if (!src || !dest || destsize < request) {
 		pr_warn("%s, buffer null or not enough space", __func__);
 		return 0;
 	}
@@ -88,6 +88,8 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 	n += copy_from_buffer(buf + n, size - n,
 				adspsys->cfg, adspsys->cfg_size, 0, -1);
 	n += copy_from_buffer(buf + n, size - n,
+				adspsys->cfg2, adspsys->cfg2_size, 0, -1);
+	n += copy_from_buffer(buf + n, size - n,
 				pdata->itcm, pdata->itcm_size, 0, -1);
 	n += copy_from_buffer(buf + n, size - n,
 				pdata->dtcm, pdata->dtcm_size, 0, -1);
@@ -123,6 +125,7 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 	}
 
 	total = adspsys->cfg_size
+		+ adspsys->cfg2_size
 		+ pdata->itcm_size
 		+ pdata->dtcm_size
 		+ pdata->sysram_size
@@ -421,6 +424,8 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	if (pdata) {
 		n += copy_from_buffer(buf + n, len - n,
 					adspsys->cfg, adspsys->cfg_size, 0, -1);
+		n += copy_from_buffer(buf + n, len - n,
+					adspsys->cfg2, adspsys->cfg2_size, 0, -1);
 		n += copy_from_buffer(buf + n, len - n,
 					pdata->dtcm, pdata->dtcm_size, 0, -1);
 	}

@@ -97,11 +97,9 @@ struct adspsys_priv {
 	/* address & size */
 	void __iomem *cfg;
 	void __iomem *cfg_secure;
-	void __iomem *bus;
 	void __iomem *cfg2;
 	size_t cfg_size;
 	size_t cfg_secure_size;
-	size_t bus_size;
 	size_t cfg2_size;
 
 	struct device *dev;

@@ -123,11 +123,6 @@
 #define ADSP_B_IS_WFI               (1 << 1)
 #define ADSP_AXI_BUS_IS_IDLE        (1 << 2)
 
-/* adsp secure */
-#define R_SYS_REMAP_ENABLE          (ADSP_SECURE_BASE + 0x0020)
-#define R_SYS_REMAP0                (ADSP_SECURE_BASE + 0x0024)
-#define R_SYS_REMAP0_ADDR           (ADSP_SECURE_BASE + 0x0028)
-
 /* clk reg */
 #define ADSP_CLK_CTRL_BASE          (ADSP_BASE + 0x1000)
 #define ADSP_CLK_UART_EN            (1 << 5)
@@ -139,6 +134,11 @@
 #define ADSP_UART_RST_N             (1 << 3)
 #define ADSP_UART_CLK_SEL           (1 << 1)
 #define ADSP_UART_BCLK_CG           (1 << 0)
+
+/* secure: only exist in v1 */
+#define R_SYS_REMAP_ENABLE          (ADSP_SECURE_BASE + 0x0020)
+#define R_SYS_REMAP0                (ADSP_SECURE_BASE + 0x0024)
+#define R_SYS_REMAP0_ADDR           (ADSP_SECURE_BASE + 0x0028)
 
 /* bus: only exist in v2 */
 #define AUDIO_BUS_DSP2EMI_REMAP0    (ADSP_BASE2 + 0x4A00)

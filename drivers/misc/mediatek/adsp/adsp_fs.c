@@ -28,6 +28,10 @@ static inline ssize_t dev_dump_show(struct device *dev,
 			pdata->name, pdata->id);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg = %p, size = %zu\n",
 			adspsys->cfg, adspsys->cfg_size);
+	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg2 = %p, size = %zu\n",
+			adspsys->cfg2, adspsys->cfg2_size);
+	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg_secure = %p, size = %zu\n",
+			adspsys->cfg_secure, adspsys->cfg_secure_size);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "itcm = %p, size = %zu\n",
 			pdata->itcm, pdata->itcm_size);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "dtcm = %p, size = %zu\n",

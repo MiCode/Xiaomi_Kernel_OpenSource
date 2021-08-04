@@ -16,16 +16,12 @@
 #ifdef ADSP_SECURE_BASE
 #undef ADSP_SECURE_BASE
 #endif
-#ifdef ADSP_BUS_BASE
-#undef ADSP_BUS_BASE
-#endif
 #ifdef ADSP_BASE2
 #undef ADSP_BASE2
 #endif
 
 #define ADSP_BASE                  mt_base
 #define ADSP_SECURE_BASE           mt_secure
-#define ADSP_BUS_BASE              mt_bus
 #define ADSP_BASE2                 mt_base2
 
 #define SET_BITS(addr, mask) writel(readl(addr) | (mask), addr)
@@ -33,7 +29,6 @@
 
 static void __iomem *mt_base;
 static void __iomem *mt_secure;
-static void __iomem *mt_bus;
 static void __iomem *mt_base2;
 
 static void adsp_mt_clr_dma(void)
@@ -283,7 +278,6 @@ void adsp_hardware_init(struct adspsys_priv *adspsys)
 
 	mt_base = adspsys->cfg;
 	mt_secure = adspsys->cfg_secure;
-	mt_bus = adspsys->bus;
 	mt_base2 = adspsys->cfg2;
 }
 
