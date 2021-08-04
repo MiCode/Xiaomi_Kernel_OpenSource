@@ -592,7 +592,9 @@ extern const struct dev_pm_ops st_asm330lhhx_pm_ops;
 static inline bool st_asm330lhhx_is_fifo_enabled(struct st_asm330lhhx_hw *hw)
 {
 	return hw->enable_mask & (BIT(ST_ASM330LHHX_ID_GYRO) |
-				  BIT(ST_ASM330LHHX_ID_ACC));
+				  BIT(ST_ASM330LHHX_ID_ACC)  |
+				  BIT(ST_ASM330LHHX_ID_EXT0) |
+				  BIT(ST_ASM330LHHX_ID_EXT1));
 }
 
 static inline int __st_asm330lhhx_write_with_mask(struct st_asm330lhhx_hw *hw,
