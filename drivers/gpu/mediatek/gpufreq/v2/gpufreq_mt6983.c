@@ -134,6 +134,8 @@ static void __gpufreq_pdc_control(void);
 static void __gpufreq_hw_dcm_control(void);
 static void __gpufreq_acp_control(void);
 static void __gpufreq_gpm_control(void);
+static void __gpufreq_slc_control(void);
+
 /* init function */
 static void __gpufreq_init_shader_present(void);
 static void __gpufreq_segment_adjustment(struct platform_device *pdev);
@@ -829,21 +831,25 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			__gpufreq_gpm_control();
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0A);
 
+		/* config SLC policy */
+		__gpufreq_slc_control();
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
+
 		/* control DFD */
 		__gpudfd_config_dfd(true);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
 
 		if (g_stack.power_count == 1)
 			g_dvfs_state &= ~DVFS_POWEROFF;
 	} else {
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0D);
 
 		if (g_stack.power_count == 0)
 			g_dvfs_state |= DVFS_POWEROFF;
 
 		/* control DFD */
 		__gpudfd_config_dfd(false);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0D);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0E);
 
 		/* switch STACK MUX to sub_parent */
 		ret = __gpufreq_switch_clksrc_stack(CLOCK_SUB);
@@ -851,7 +857,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			GPUFREQ_LOGE("fail to switch STACK to sub clock source (%d)", ret);
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0E);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0F);
 
 		/* switch GPU MUX to sub_parent */
 		ret = __gpufreq_switch_clksrc_gpu(CLOCK_SUB);
@@ -859,7 +865,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			GPUFREQ_LOGE("fail to switch GPU to sub clock source (%d)", ret);
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0F);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_10);
 
 		/* control CG */
 		ret = __gpufreq_cg_control(POWER_OFF);
@@ -868,7 +874,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_10);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_11);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -877,11 +883,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_11);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_12);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_12);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_13);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -890,7 +896,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_13);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_14);
 	}
 
 	/* return power count if successfully control power */
@@ -3424,6 +3430,73 @@ done:
 	GPUFREQ_TRACE_END();
 
 	return ret;
+}
+
+static void __gpufreq_slc_control(void)
+{
+	writel(0x00000000, g_mfg_top_base + 0x700); // group0: default
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x704); // group1
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x708);
+	writel(0x0600A001, g_mfg_top_base + 0x70C);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x710); // group2
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x714);
+	writel(0x0600A002, g_mfg_top_base + 0x718);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x71C); // group3
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x720);
+	writel(0x0600A003, g_mfg_top_base + 0x724);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x728); // group4
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x72C);
+	writel(0x0600A004, g_mfg_top_base + 0x730);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x734); // group5
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x738);
+	writel(0x0600A005, g_mfg_top_base + 0x73C);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x740); // group6 (OK)
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x744);
+	writel(0x06002006, g_mfg_top_base + 0x748); // W-alloc, R cache, wo spec.
+	//writel(0x0600A006, g_mfg_base + 0x748); // W-alloc, R cache, wz spec.
+	//writel(0x0600E006, g_mfg_base + 0x748); // RW-alloc
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x74C); // group7
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x750);
+	writel(0x0600A007, g_mfg_top_base + 0x754);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x758); // group8
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x75C);
+	writel(0x0600A008, g_mfg_top_base + 0x760);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x764); // group9
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x768);
+	writel(0x0600A009, g_mfg_top_base + 0x76C);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x770); // group10
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x774);
+	writel(0x0600A00a, g_mfg_top_base + 0x778);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x77C); // group11
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x780);
+	writel(0x0600A00b, g_mfg_top_base + 0x784);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x788); // group12
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x78C);
+	writel(0x0600A00c, g_mfg_top_base + 0x790);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x794); // group13
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x798);
+	writel(0x0600A00d, g_mfg_top_base + 0x79C);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x7A0); // group14
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x7A4);
+	writel(0x0600A00e, g_mfg_top_base + 0x7A8);
+
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x7AC); // group15
+	writel(0xFFFFFFFF, g_mfg_top_base + 0x7B0);
+	writel(0x0600A00f, g_mfg_top_base + 0x7B4);
 }
 
 /* API: init first OPP idx by init freq set in preloader */
