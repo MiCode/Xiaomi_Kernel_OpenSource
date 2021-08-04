@@ -44,9 +44,7 @@ unsigned int log_ctl_debug;
 
 static unsigned int gpueb_log_enable_set(unsigned int enable)
 {
-#if IPI_SUPPORT
 	int ret = 0;
-#endif
 	int channel_id;
 	struct plat_ipi_send_data plat_send_data;
 
@@ -62,7 +60,6 @@ static unsigned int gpueb_log_enable_set(unsigned int enable)
 		}
 
 		// CH_PLATFORM message size is 16 byte, 4 slots
-#if IPI_SUPPORT
 		ret = mtk_ipi_send_compl(
 			&gpueb_ipidev, // GPUEB's IPI device
 			channel_id, // Send channel
@@ -80,7 +77,6 @@ static unsigned int gpueb_log_enable_set(unsigned int enable)
 			gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
 			return -1;
 		}
-#endif
 	}
 
 	return 0;

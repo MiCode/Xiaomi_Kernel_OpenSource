@@ -34,7 +34,6 @@ int plat_service_init_ret;
 
 int gpueb_plat_service_init(struct platform_device *pdev)
 {
-#if IPI_SUPPORT
 	int ret = 0;
 	int channel_id = 0;
 #if PLAT_IPI_TEST
@@ -84,7 +83,6 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 		gpueb_pr_info("%s: plt IPI success, recv data=%d\n",
 			__func__, plat_service_init_ret);
 #endif // PLAT_IPI_TEST
-#endif // IPI_SUPPORT
 
 	return 0;
 }

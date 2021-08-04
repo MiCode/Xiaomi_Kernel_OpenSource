@@ -35,14 +35,11 @@ int gpumpu_ack_data;
 
 int gpueb_gpumpu_init(struct platform_device *pdev)
 {
-#if IPI_SUPPORT
 	int ret = 0;
 	int channel_id = -1;
-#endif
 	struct gpumpu_ipi_send_data gpumpu_send_data;
 
 	/* register IPI channel */
-#if IPI_SUPPORT
 	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_GPUMPU");
 	if (channel_id == -1) {
 		gpueb_pr_info("get channel ID fail!");
@@ -57,7 +54,6 @@ int gpueb_gpumpu_init(struct platform_device *pdev)
 		gpueb_pr_info("ipi register fail!");
 		return ret;
 	}
-#endif
 
 	/* prepare send data */
 	gpumpu_send_data.cmd = CMD_INIT_PAGE_TABLE;
@@ -72,7 +68,6 @@ int gpueb_gpumpu_init(struct platform_device *pdev)
 			sizeof(struct gpumpu_ipi_send_data));
 
 	/* send IPI to GPUEB */
-#if IPI_SUPPORT
 	ret = mtk_ipi_send_compl(
 		&gpueb_ipidev,
 		channel_id,
@@ -84,7 +79,6 @@ int gpueb_gpumpu_init(struct platform_device *pdev)
 		gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
 		return ret;
 	}
-#endif
 
 	return 0;
 }

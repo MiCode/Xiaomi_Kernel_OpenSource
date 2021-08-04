@@ -8,7 +8,6 @@
 
 // Common implementation
 #define IPI_TIMEOUT_MS     3000U
-#define IPI_SUPPORT        0
 
 extern struct mtk_mbox_device   gpueb_mboxdev;
 extern struct mtk_ipi_device    gpueb_ipidev;
