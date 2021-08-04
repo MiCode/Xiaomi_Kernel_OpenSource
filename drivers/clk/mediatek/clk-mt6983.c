@@ -2372,21 +2372,21 @@ static const struct mtk_gate_regs ifr_ao_6_cg_regs = {
 };
 
 static const struct mtk_gate_regs peri_ao_0_cg_regs = {
-	.set_ofs = 0x24,
-	.clr_ofs = 0x28,
-	.sta_ofs = 0x10,
+	.set_ofs = 0x3c,
+	.clr_ofs = 0x3c,
+	.sta_ofs = 0x3c,
 };
 
 static const struct mtk_gate_regs peri_ao_1_cg_regs = {
-	.set_ofs = 0x2C,
-	.clr_ofs = 0x30,
-	.sta_ofs = 0x14,
+	.set_ofs = 0x40,
+	.clr_ofs = 0x40,
+	.sta_ofs = 0x40,
 };
 
 static const struct mtk_gate_regs peri_ao_2_cg_regs = {
-	.set_ofs = 0x34,
-	.clr_ofs = 0x38,
-	.sta_ofs = 0x18,
+	.set_ofs = 0x44,
+	.clr_ofs = 0x44,
+	.sta_ofs = 0x44,
 };
 
 static const struct mtk_gate_regs top_1_cg_regs = {
@@ -2457,7 +2457,7 @@ static const struct mtk_gate_regs top_1_cg_regs = {
 		.parent_name = _parent,					\
 		.regs = &peri_ao_0_cg_regs,				\
 		.shift = _shift,					\
-		.ops = &mtk_clk_gate_ops_setclr,			\
+		.ops = &mtk_clk_gate_ops_no_setclr,			\
 	}
 #define GATE_PERI_AO_1(_id, _name, _parent, _shift) {			\
 		.id = _id,						\
@@ -2465,7 +2465,7 @@ static const struct mtk_gate_regs top_1_cg_regs = {
 		.parent_name = _parent,					\
 		.regs = &peri_ao_1_cg_regs,				\
 		.shift = _shift,					\
-		.ops = &mtk_clk_gate_ops_setclr,			\
+		.ops = &mtk_clk_gate_ops_no_setclr,			\
 	}
 #define GATE_PERI_AO_2(_id, _name, _parent, _shift) {			\
 		.id = _id,						\
@@ -2473,7 +2473,7 @@ static const struct mtk_gate_regs top_1_cg_regs = {
 		.parent_name = _parent,					\
 		.regs = &peri_ao_2_cg_regs,				\
 		.shift = _shift,					\
-		.ops = &mtk_clk_gate_ops_setclr,			\
+		.ops = &mtk_clk_gate_ops_no_setclr,			\
 	}
 
 #define GATE_TOP_1(_id, _name, _parent, _shift) {			\
