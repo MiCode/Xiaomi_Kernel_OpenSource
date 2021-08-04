@@ -1892,6 +1892,7 @@ int STT_FBC_Reset(unsigned int reg_module)
 #define Rdy_ReqDump
 static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module, unsigned int ErrStatus)
 {
+#define NO_DMA_ERROR (0xffff0000)
 #ifdef Rdy_ReqDump
 #define ISP_MODULE_GROUPS 7
 	unsigned int moduleReqStatus[ISP_MODULE_GROUPS];
@@ -2050,41 +2051,52 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module, unsigned int ErrSt
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "camsys:0x%x",
 		       ISP_RD32(ISP_CAMSYS_CONFIG_BASE));
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"%s:IMGO:0x%x,LTMSO:0x%x,RRZO:0x%x,LCSO=0x%x,LCESHO=0x%x,AAO=0x%x,",
-		cam, dmaerr[_imgo_], dmaerr[_ltmso_], dmaerr[_rrzo_],
-		dmaerr[_lcso_], dmaerr[_lcesho_], dmaerr[_aao_]);
+	if ((dmaerr[_imgo_] | dmaerr[_ltmso_] | dmaerr[_rrzo_] |
+		dmaerr[_lcso_] | dmaerr[_lcesho_] | dmaerr[_aao_]) != NO_DMA_ERROR)
+		IRQ_LOG_KEEPER(
+			module, m_CurrentPPB, _LOG_ERR,
+			"%s:IMGO=0x%x,LTMSO=0x%x,RRZO=0x%x,LCSO=0x%x,LCESHO=0x%x,AAO=0x%x\n",
+			cam, dmaerr[_imgo_], dmaerr[_ltmso_], dmaerr[_rrzo_],
+			dmaerr[_lcso_], dmaerr[_lcesho_], dmaerr[_aao_]);
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"AAHO=0x%x,FLKO=0x%x,UFEO=0x%x,AFO=0x%x,UFGO=0x%x,RSSO=0x%x\n",
-		dmaerr[_aaho_], dmaerr[_flko_], dmaerr[_ufeo_], dmaerr[_afo_],
-		dmaerr[_ufgo_], dmaerr[_rsso_]);
+	if ((dmaerr[_aaho_] | dmaerr[_flko_] | dmaerr[_ufeo_] |
+		dmaerr[_afo_] | dmaerr[_ufgo_] | dmaerr[_rsso_]) != NO_DMA_ERROR)
+		IRQ_LOG_KEEPER(
+			module, m_CurrentPPB, _LOG_ERR,
+			"AAHO=0x%x,FLKO=0x%x,UFEO=0x%x,AFO=0x%x,UFGO=0x%x,RSSO=0x%x\n",
+			dmaerr[_aaho_], dmaerr[_flko_], dmaerr[_ufeo_], dmaerr[_afo_],
+			dmaerr[_ufgo_], dmaerr[_rsso_]);
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"EISO=0x%x,YUVBO=0x%x,TSFSO=0x%x,PDO=0x%x,CRZO=0x%x,CRZBO=0x%x\n",
-		dmaerr[_lmvo_], dmaerr[_yuvbo_], dmaerr[_tsfso_], dmaerr[_pdo_],
-		dmaerr[_crzo_], dmaerr[_crzbo_]);
+	if ((dmaerr[_lmvo_] | dmaerr[_yuvbo_] | dmaerr[_tsfso_] |
+		dmaerr[_pdo_] | dmaerr[_crzo_] | dmaerr[_crzbo_]) != NO_DMA_ERROR)
+		IRQ_LOG_KEEPER(
+			module, m_CurrentPPB, _LOG_ERR,
+			"EISO=0x%x,YUVBO=0x%x,TSFSO=0x%x,PDO=0x%x,CRZO=0x%x,CRZBO=0x%x\n",
+			dmaerr[_lmvo_], dmaerr[_yuvbo_], dmaerr[_tsfso_], dmaerr[_pdo_],
+			dmaerr[_crzo_], dmaerr[_crzbo_]);
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"YUVCO=0x%x,CRZO_R2=0x%x,RSSO_R2=0x%x,YUVO=0x%x\n",
-		dmaerr[_yuvco_], dmaerr[_crzo_r2_],	dmaerr[_rsso_r2_],
-		dmaerr[_yuvo_]);
+	if ((dmaerr[_yuvco_] | dmaerr[_crzo_r2_] |
+		dmaerr[_rsso_r2_] | dmaerr[_yuvo_]) != NO_DMA_ERROR)
+		IRQ_LOG_KEEPER(
+			module, m_CurrentPPB, _LOG_ERR,
+			"YUVCO=0x%x,CRZO_R2=0x%x,RSSO_R2=0x%x,YUVO=0x%x\n",
+			dmaerr[_yuvco_], dmaerr[_crzo_r2_], dmaerr[_rsso_r2_],
+			dmaerr[_yuvo_]);
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"DMA_DBG_SEL=0x%x,TOP_DBG_PORT=0x%x,RAWI_R2=0x%x,RAWI_R3=0x%x\n",
-		(unsigned int)ISP_RD32(CAM_REG_DMA_DEBUG_SEL(regModule)), 0,
-		dmaerr[_rawi_], dmaerr[_rawi_r3_]);
+	if ((dmaerr[_rawi_] | dmaerr[_rawi_r3_]) != NO_DMA_ERROR)
+		IRQ_LOG_KEEPER(
+			module, m_CurrentPPB, _LOG_ERR,
+			"DMA_DBG_SEL=0x%x,TOP_DBG_PORT=0x%x,RAWI_R2=0x%x,RAWI_R3=0x%x\n",
+			(unsigned int)ISP_RD32(CAM_REG_DMA_DEBUG_SEL(regModule)), 0,
+			dmaerr[_rawi_], dmaerr[_rawi_r3_]);
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"%s:BPCI:0x%x,LSCI=0x%x,BPCI_R2=0x%x,PDI=0x%x,UFDI_R2=0x%x,\n",
-		cam, dmaerr[_bpci_], dmaerr[_lsci_],
-		dmaerr[_bpci_r2_], dmaerr[_pdi_], dmaerr[_ufdi_r2_]);
+	if ((dmaerr[_bpci_] | dmaerr[_lsci_] |
+		dmaerr[_bpci_r2_] | dmaerr[_pdi_] | dmaerr[_ufdi_r2_]) != NO_DMA_ERROR)
+		IRQ_LOG_KEEPER(
+			module, m_CurrentPPB, _LOG_ERR,
+			"%s:BPCI=0x%x,LSCI=0x%x,BPCI_R2=0x%x,PDI=0x%x,UFDI_R2=0x%x\n",
+			cam, dmaerr[_bpci_], dmaerr[_lsci_],
+			dmaerr[_bpci_r2_], dmaerr[_pdi_], dmaerr[_ufdi_r2_]);
 
 	/* DMAO */
 	g_DmaErr_CAM[module][_imgo_] |= dmaerr[_imgo_];
@@ -2123,13 +2135,13 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module, unsigned int ErrSt
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
-			 (0x00200101 + (i * 0x100)));
+			 (0x00040101 + (i * 0x100)));
 		moduleReqStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
-			 (0x00201101 + (i * 0x100)));
+			 (0x00041101 + (i * 0x100)));
 		moduleRdyStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
