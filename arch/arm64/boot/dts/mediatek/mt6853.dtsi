@@ -4487,11 +4487,7 @@
 				<&iommu0 M4U_PORT_L18_CAM_LTMSO_R1_C>,
 				<&iommu0 M4U_PORT_L18_CAM_RSSO_R1_C>,
 				<&iommu0 M4U_PORT_L18_CAM_AAHO_R1_C>,
-				<&iommu0 M4U_PORT_L18_CAM_LSCI_R1_C>,
-
-				/* rsc */
-				<&iommu0 M4U_PORT_L20_IPE_RSC_RDMA0>,
-				<&iommu0 M4U_PORT_L20_IPE_RSC_WDMA>;
+				<&iommu0 M4U_PORT_L18_CAM_LSCI_R1_C>;
 		};
 
 		camisp_legacy: camisp_legacy@1a000000 {
