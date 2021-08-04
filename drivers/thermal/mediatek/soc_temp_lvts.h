@@ -215,6 +215,7 @@ struct lvts_data {
 	unsigned int num_efuse_block;	/* Number of contiguous efuse indexes */
 	struct sensor_cal_data cal_data;
 	bool init_done; /*lvts driver init finish*/
+	unsigned int *irq_bitmap;
 };
 
 struct soc_temp_tz {

@@ -1330,29 +1330,19 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 	struct lvts_data *lvts_data = (struct lvts_data *) dev_id;
 	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
-	unsigned int i, *irq_bitmap;
+	unsigned int i;
 	void __iomem *base;
-
-	irq_bitmap = kcalloc(lvts_data->num_domain,
-				sizeof(*irq_bitmap), GFP_KERNEL);
-
-	if (!irq_bitmap) {
-		dev_err(dev, "Error: Failed to allocate memory for irq_bitmap\n");
-		return IRQ_NONE;
-	}
 
 	for (i = 0; i < lvts_data->num_domain; i++) {
 		base = lvts_data->domain[i].base;
-		irq_bitmap[i] = readl(THERMINTST + base);
-		dev_info(dev, "%s : THERMINTST = 0x%x\n", __func__, irq_bitmap[i]);
+		lvts_data->irq_bitmap[i] = readl(THERMINTST + base);
+		dev_info(dev, "%s : THERMINTST = 0x%x\n", __func__, lvts_data->irq_bitmap[i]);
 	}
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
-		if ((irq_bitmap[tc[i].domain_index] & tc[i].irq_bit) == 0)
+		if ((lvts_data->irq_bitmap[tc[i].domain_index] & tc[i].irq_bit) == 0)
 			tc_irq_handler(lvts_data, i);
 	}
-
-	kfree(irq_bitmap);
 
 	return IRQ_HANDLED;
 }
@@ -1360,8 +1350,16 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 static int lvts_register_irq_handler(struct lvts_data *lvts_data)
 {
 	struct device *dev = lvts_data->dev;
-	unsigned int i;
+	unsigned int i, *irq_bitmap;
 	int ret;
+
+	irq_bitmap = devm_kcalloc(dev, lvts_data->num_domain, sizeof(*irq_bitmap),
+			GFP_KERNEL);
+	if (!irq_bitmap) {
+		dev_err(dev, "Error: Failed to allocate memory for irq_bitmap\n");
+		return -ENOMEM;
+	}
+	lvts_data->irq_bitmap = irq_bitmap;
 
 	for (i = 0; i < lvts_data->num_domain; i++) {
 		ret = devm_request_irq(dev, lvts_data->domain[i].irq_num,
