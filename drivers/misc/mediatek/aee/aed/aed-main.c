@@ -1789,7 +1789,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					find_pid_ns(thread_info.tid,
 						task_active_pid_ns(current)),
 					PIDTYPE_PID);
-			if (!task || !task->stack) {
+			if (!task) {
 				rcu_read_unlock();
 				ret = -EINVAL;
 				goto EXIT;
@@ -1798,12 +1798,20 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			get_task_struct(task);
 
 			rcu_read_unlock();
+
+			if (!try_get_task_stack(task)) {
+				ret = -EINVAL;
+				put_task_struct(task);
+				goto EXIT;
+			}
+
 			// 1. get registers
 			user_ret = task_pt_regs(task);
 
 			if (copy_to_user((void *)thread_info.regs, user_ret,
 				sizeof(struct pt_regs))) {
 				ret = -EFAULT;
+				put_task_stack(task);
 				put_task_struct(task);
 				goto EXIT;
 			}
@@ -1811,6 +1819,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			// 2. get maps
 			if ((!user_mode(user_ret))) {
 				ret = -EFAULT;
+				put_task_stack(task);
 				put_task_struct(task);
 				goto EXIT;
 			}
@@ -1818,6 +1827,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rms_mm = get_task_mm(task);
 			if (!rms_mm) {
 				ret = -EFAULT;
+				put_task_stack(task);
 				put_task_struct(task);
 				goto EXIT;
 			}
@@ -1826,6 +1836,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (!maps) {
 				ret = -ENOMEM;
 				mmput(rms_mm);
+				put_task_stack(task);
 				put_task_struct(task);
 				goto EXIT;
 			}
@@ -1862,18 +1873,22 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 			mmap_read_unlock(rms_mm);
 			mmput(rms_mm);
-			put_task_struct(task);
 			if (copy_to_user(thread_info.Userthread_maps,
 				maps, mapsLength)) {
 				vfree(maps);
+				put_task_stack(task);
+				put_task_struct(task);
 				ret = -EFAULT;
 				goto EXIT;
 			}
+
 			vfree(maps);
 			thread_info.Userthread_mapsLength = mapsLength;
 			if (end == 0) {
 				pr_info("Dump native stack failed:\n");
 				ret = -EFAULT;
+				put_task_stack(task);
+				put_task_struct(task);
 				goto EXIT;
 			}
 
@@ -1884,6 +1899,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			stack = vmalloc(MaxStackSize);
 			if (!stack) {
 				ret = -ENOMEM;
+				put_task_stack(task);
+				put_task_struct(task);
 				goto EXIT;
 			}
 
@@ -1892,6 +1909,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copied != length) {
 				pr_info("Access stack error");
 				vfree(stack);
+				put_task_stack(task);
+				put_task_struct(task);
 				ret = -EIO;
 				goto EXIT;
 			}
@@ -1899,6 +1918,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_to_user(thread_info.Userthread_Stack,
 				stack, length)) {
 				vfree(stack);
+				put_task_stack(task);
+				put_task_struct(task);
 				ret = -EFAULT;
 				goto EXIT;
 			}
@@ -1906,10 +1927,14 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_to_user((struct unwind_info_rms __user *)arg,
 				&thread_info, sizeof(struct unwind_info_rms))) {
 				vfree(stack);
+				put_task_stack(task);
+				put_task_struct(task);
 				ret = -EFAULT;
 				goto EXIT;
 			}
 			vfree(stack);
+			put_task_stack(task);
+			put_task_struct(task);
 		}
 		break;
 	}
