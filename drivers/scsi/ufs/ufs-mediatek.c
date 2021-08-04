@@ -1523,6 +1523,11 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 #endif
 
 #if defined(CONFIG_UFSFEATURE)
+	/*
+	 * hba would be referred by ufsf_reset_host later, it
+	 * needs initialization first.
+	 */
+	host->ufsf.hba = hba;
 	ufsf_set_init_state(ufs_mtk_get_ufsf(hba));
 #endif
 
