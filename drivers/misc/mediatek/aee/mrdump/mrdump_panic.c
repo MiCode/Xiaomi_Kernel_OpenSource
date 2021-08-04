@@ -198,7 +198,6 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_START);
 		mrdump_cblock_update(reboot_reason, regs, msg);
 		mrdump_mini_ke_cpu_regs(regs);
-		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
 		/* release locks after stopping other cpus */
@@ -228,6 +227,7 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	case AEE_FIQ_STEP_COMMON_DIE_EMISC:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_EMISC);
 		mrdump_mini_add_extra_misc();
+		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_CS:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
 		console_unlock();

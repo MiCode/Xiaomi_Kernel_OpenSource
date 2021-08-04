@@ -138,11 +138,12 @@ static void fill_ko_list(unsigned int idx, struct module *mod)
 void load_ko_addr_list(struct module *module)
 {
 	unsigned int i;
+	unsigned long flags;
 
 	if (!ko_info_list)
 		return;
 
-	spin_lock(&kolist_lock);
+	spin_lock_irqsave(&kolist_lock, flags);
 	for (i = 0; i < MAX_KO_NUM; i++) {
 		if (!ko_info_list[i].text_addr)
 			break;
@@ -151,35 +152,36 @@ void load_ko_addr_list(struct module *module)
 	}
 
 	if (i >= MAX_KO_NUM) {
-		spin_unlock(&kolist_lock);
+		spin_unlock_irqrestore(&kolist_lock, flags);
 		pr_info("no spare room for new ko: %s", module->name);
 		return;
 	}
 
 	fill_ko_list(i, module);
-	spin_unlock(&kolist_lock);
+	spin_unlock_irqrestore(&kolist_lock, flags);
 }
 
 void unload_ko_addr_list(struct module *module)
 {
 	unsigned int i;
+	unsigned long flags;
 
 	if (!ko_info_list)
 		return;
 
-	spin_lock(&kolist_lock);
+	spin_lock_irqsave(&kolist_lock, flags);
 	for (i = 0; i < MAX_KO_NUM; i++)
 		if (!strcmp(ko_info_list[i].name, module->name))
 			break;
 
 	if (i >= MAX_KO_NUM) {
-		spin_unlock(&kolist_lock);
+		spin_unlock_irqrestore(&kolist_lock, flags);
 		pr_info("un-recorded module: %s", module->name);
 		return;
 	}
 
 	memset(&ko_info_list[i], 0, sizeof(struct ko_info));
-	spin_unlock(&kolist_lock);
+	spin_unlock_irqrestore(&kolist_lock, flags);
 }
 
 void init_ko_addr_list_late(void)
