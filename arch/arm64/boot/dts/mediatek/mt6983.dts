@@ -7337,7 +7337,7 @@
 			<&mdp_iommu M4U_PORT_L4_VDEC_VLD2_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_AVC_MV_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_UFO_EXT_C>;
-		//mediatek,larbs = <&larb4 &larb5>;
+		mediatek,larbs = <&smi_larb4 &smi_larb5>;
 		interrupts = <GIC_SPI 637 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_SPI 640 IRQ_TYPE_LEVEL_HIGH 0>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
