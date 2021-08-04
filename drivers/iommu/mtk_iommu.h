@@ -110,7 +110,6 @@ struct mtk_iommu_domain;
 
 struct mtk_iommu_data {
 	void __iomem			*base;
-	void __iomem			*bk_base[IOMMU_BK_NUM];
 	int				irq;
 	int				bk_irq[IOMMU_BK_NUM];
 	struct device			*dev;

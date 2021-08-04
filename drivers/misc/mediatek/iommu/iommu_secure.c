@@ -147,19 +147,22 @@ int mtk_iommu_sec_bk_init_by_atf(uint32_t type, uint32_t id)
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_sec_bk_init_by_atf);
 
-/*
- * Call iommu tf-a smc to dump iommu secure bank reg
- * Return 0 is fail, 1 is success.
- */
-int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id)
+int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id,
+				unsigned long en)
 {
 	int ret;
-	unsigned long cmd =IOMMU_ATF_SET_CMD(type, id, IOMMU_BK4, SECURE_BANK_IRQ_EN);
+	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, IOMMU_BK4,
+			SECURE_BANK_IRQ_EN);
 
-	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
+	if (en != 0 && en != 1) {
+		pr_info("%s fail, enable is invalid, en:%lu\n", __func__, en);
+		return SMC_IOMMU_FAIL;
+	}
+
+	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, en, 0, 0, 0, 0, 0);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
-			__func__, type, id, cmd);
+		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx, en:%lu\n",
+			__func__, type, id, cmd, en);
 		return SMC_IOMMU_FAIL;
 	}
 
@@ -173,7 +176,7 @@ int mtk_iommu_secure_bk_backup_by_atf(uint32_t type, uint32_t id)
 	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, IOMMU_BK4, SECURE_BANK_BACKUP);
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
-	if (ret) {
+	if (ret && ret != SMC_IOMMU_NONSUPPORT) {
 		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
@@ -189,7 +192,7 @@ int mtk_iommu_secure_bk_restore_by_atf(uint32_t type, uint32_t id)
 	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, IOMMU_BK4, SECURE_BANK_RESTORE);
 
 	ret = mtk_iommu_atf_call(type, id, IOMMU_BK4, cmd, 0, 0, 0, 0, 0, 0);
-	if (ret) {
+	if (ret && ret != SMC_IOMMU_NONSUPPORT) {
 		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
 			__func__, type, id, cmd);
 		return SMC_IOMMU_FAIL;
@@ -207,7 +210,7 @@ int ao_secure_dbg_switch_by_atf(uint32_t type,
 
 	if (en != 0 && en != 1) {
 		pr_info("%s fail, enable is invalid, en:%lu\n", __func__, en);
-		return -EINVAL;
+		return SMC_IOMMU_FAIL;
 	}
 
 	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, en, 0, 0, 0, 0, 0);

@@ -7,11 +7,11 @@
 
 #define SMC_IOMMU_SUCCESS			(0)
 #define SMC_IOMMU_FAIL				(1)
-
+#define SMC_IOMMU_NONSUPPORT			(-1)
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 int mtk_iommu_sec_bk_init_by_atf(uint32_t type, uint32_t id);
-int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id);
+int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id, unsigned long en);
 int mtk_iommu_secure_bk_backup_by_atf(uint32_t type, uint32_t id);
 int mtk_iommu_secure_bk_restore_by_atf(uint32_t type, uint32_t id);
 int mtk_iommu_secure_bk_tf_dump(uint32_t type, uint32_t id, uint32_t bank,
@@ -31,7 +31,7 @@ int mtk_iommu_sec_bk_init_by_atf(uint32_t type, uint32_t id)
 	return 0;
 }
 
-int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id)
+int mtk_iommu_sec_bk_irq_en_by_atf(uint32_t type, uint32_t id, unsigned long en)
 {
 	pr_warn("mtk_iommu: secure warning, %s is not support\n", __func__);
 

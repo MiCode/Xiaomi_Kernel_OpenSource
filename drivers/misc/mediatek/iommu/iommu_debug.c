@@ -2881,7 +2881,7 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_sec_bk_init_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
 	case 8:
-		mtk_iommu_sec_bk_irq_en_by_atf(MM_IOMMU, DISP_IOMMU);
+		mtk_iommu_sec_bk_irq_en_by_atf(MM_IOMMU, DISP_IOMMU, 1);
 		break;
 	case 9:
 		mtk_iommu_secure_bk_backup_by_atf(MM_IOMMU, DISP_IOMMU);

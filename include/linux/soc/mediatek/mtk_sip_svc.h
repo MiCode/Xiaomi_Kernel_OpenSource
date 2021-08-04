@@ -113,7 +113,7 @@
 
 /* IOMMU related SMC call */
 #define MTK_IOMMU_SECURE_CONTROL \
-	MTK_SIP_SMC_CMD(0x2B0)
+	MTK_SIP_SMC_CMD(0x514)
 
 /* USB related SMC call */
 #define MTK_SIP_KERNEL_USB_CONTROL \
