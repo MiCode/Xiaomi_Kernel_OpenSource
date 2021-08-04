@@ -240,7 +240,8 @@ struct scp_dvfs_hw {
 	bool ccf_fmeter_support; /* Has CCF provided fmeter api to use? */
 	int ccf_fmeter_id;
 	int ccf_fmeter_type;
-	bool vlpck_support; /* Using 2-phase calibration flow */
+	bool vlpck_support; /* Using 2-phase calibration if vlpck_bypass_phase1 not set */
+	bool vlpck_bypass_phase1;
 	bool vlp_support; /* Moving regulator & PMIC setting into SCP side */
 	bool pmic_sshub_en;
 	bool sleep_init_done;

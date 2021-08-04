@@ -1227,7 +1227,7 @@ void sync_ulposc_cali_data_to_scp(void)
 	ipi_data[0] = SCP_SYNC_ULPOSC_CALI;
 	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
 		*p = dvfs.ulposc_hw.cali_freq[i];
-		if (!dvfs.vlpck_support)
+		if (!dvfs.vlpck_support | dvfs.vlpck_bypass_phase1)
 			*(p + 1) = dvfs.ulposc_hw.cali_val[i];
 		else
 			*(p + 1) = dvfs.ulposc_hw.cali_val[i] |
@@ -1506,39 +1506,44 @@ static int __init ulposc_cali_process_vlp(unsigned int cali_idx,
 	target_val = FM_FREQ2CNT(dvfs.ulposc_hw.cali_freq[cali_idx]);
 
 	/* phase1 */
-	set_ulposc_cali_value(dvfs.ulposc_hw.ulposc_regs->_cali.init_config); /* fixed in phase1 */
-	min = CAL_MIN_VAL_EXT, max = CAL_MAX_VAL_EXT;
-	do {
-		mid = (min + max) / 2;
-		if (mid == min) {
-			pr_debug("turning_factor1 mid(%u) == min(%u)\n", mid, min);
-			break;
-		}
+	if (dvfs.vlpck_bypass_phase1) {
+		/* fixed in phase1 */
+		set_ulposc_cali_value(dvfs.ulposc_hw.ulposc_regs->_cali.init_config);
+		min = CAL_MIN_VAL_EXT;
+		max = CAL_MAX_VAL_EXT;
+		do {
+			mid = (min + max) / 2;
+			if (mid == min) {
+				pr_debug("turning_factor1 mid(%u) == min(%u)\n", mid, min);
+				break;
+			}
 
-		set_ulposc_cali_value_ext(mid);
+			set_ulposc_cali_value_ext(mid);
+			current_val = get_ulposc_clk_by_fmeter_vlp();
+
+			if (current_val > target_val)
+				max = mid;
+			else
+				min = mid;
+		} while (min <= max);
+
+		set_ulposc_cali_value_ext(min);
 		current_val = get_ulposc_clk_by_fmeter_vlp();
+		diff_by_min = (current_val > target_val) ?
+			(current_val - target_val):(target_val - current_val);
 
-		if (current_val > target_val)
-			max = mid;
-		else
-			min = mid;
-	} while (min <= max);
+		set_ulposc_cali_value_ext(max);
+		current_val = get_ulposc_clk_by_fmeter_vlp();
+		diff_by_max = (current_val > target_val) ?
+			(current_val - target_val):(target_val - current_val);
 
-	set_ulposc_cali_value_ext(min);
-	current_val = get_ulposc_clk_by_fmeter_vlp();
-	diff_by_min = (current_val > target_val) ?
-		(current_val - target_val):(target_val - current_val);
-
-	set_ulposc_cali_value_ext(max);
-	current_val = get_ulposc_clk_by_fmeter_vlp();
-	diff_by_max = (current_val > target_val) ?
-		(current_val - target_val):(target_val - current_val);
-
-	*cali_res1 = (diff_by_min < diff_by_max) ? min : max;
-	set_ulposc_cali_value_ext(*cali_res1);
+		*cali_res1 = (diff_by_min < diff_by_max) ? min : max;
+		set_ulposc_cali_value_ext(*cali_res1);
+	}
 
 	/* phase2 */
-	min = CAL_MIN_VAL, max = CAL_MAX_VAL;
+	min = CAL_MIN_VAL;
+	max = CAL_MAX_VAL;
 	do {
 		mid = (min + max) / 2;
 		if (mid == min) {
@@ -2276,8 +2281,12 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 	}
 
 	dvfs.vlpck_support = of_property_read_bool(node, "vlpck-support");
-	if (dvfs.vlpck_support)
+	if (dvfs.vlpck_support) {
 		pr_notice("[%s]: Use VLP_CKSYS in calibration flow\n", __func__);
+		dvfs.vlpck_bypass_phase1 = of_property_read_bool(node, "vlpck-bypass-phase1");
+	} else {
+		dvfs.vlpck_bypass_phase1 = false;
+	}
 
 	ret = of_property_read_u32(node, "scp-cores",
 		&dvfs.core_nums);
