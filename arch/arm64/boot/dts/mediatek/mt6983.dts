@@ -6606,8 +6606,8 @@
 		      <0 0x15600000 0 0x10000>,	/* 9 IMGSYS_WPE_LITE */
 		      <0 0x15220000 0 0x00100>,	/* 10 IMGSYS_WPE1_DIP1 */
 		      <0 0x15320000 0 0x10000>,	/* 11 IMGSYS_ME */
-		      <0 0x15005300 0 0x01000>,	/* 12 IMGSYS_ADL_A */
-		      <0 0x15007300 0 0x01000>,	/* 13 IMGSYS_ADL_B */
+		      <0 0x15005000 0 0x01000>,	/* 12 IMGSYS_ADL_A */
+		      <0 0x15007000 0 0x01000>,	/* 13 IMGSYS_ADL_B */
 		      <0 0x15520000 0 0x00100>,	/* 14 IMGSYS_WPE2_DIP1 */
 		      <0 0x15620000 0 0x00100>,	/* 15 IMGSYS_WPE3_DIP1 */
 		      <0 0x15110000 0 0x00100>,	/* 16 IMGSYS_DIP_TOP */
@@ -6618,7 +6618,8 @@
 				 <&smi_larb11>,
 				 <&smi_larb15>,
 				 <&smi_larb22>,
-				 <&smi_larb23>;
+				 <&smi_larb23>,
+				 <&smi_larb18>;
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
