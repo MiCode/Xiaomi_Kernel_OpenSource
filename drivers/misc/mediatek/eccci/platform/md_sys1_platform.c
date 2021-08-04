@@ -551,7 +551,7 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 					md_reg_table[idx].reg_name, ret);
 
 			CCCI_BOOTUP_LOG(-1, TAG,
-				"get regulator(%s=%d %d) successfully\n",
+				"get regulator(%s=%ld %d) successfully\n",
 				md_reg_table[idx].reg_name,
 				md_reg_table[idx].reg_vol0, md_reg_table[idx].reg_vol1);
 		}
@@ -590,7 +590,7 @@ static void md1_pmic_setting_on(void)
 				continue;
 			} else
 				CCCI_BOOTUP_LOG(-1, TAG,
-					"[POWER ON]pmic set_voltage %s=%d uV\n",
+					"[POWER ON]pmic set_voltage %s=%ld uV\n",
 					md_reg_table[idx].reg_name,
 					md_reg_table[idx].reg_vol0);
 
@@ -684,7 +684,7 @@ static int md_start_platform(struct ccci_modem *md)
 
 static int md_cd_topclkgen_on(struct ccci_modem *md)
 {
-	unsigned int reg_value;
+	unsigned int reg_value = 0;
 	int ret;
 
 	CCCI_NORMAL_LOG(md->index, TAG,
@@ -712,7 +712,7 @@ static int md_cd_topclkgen_on(struct ccci_modem *md)
 
 static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 {
-	unsigned int val;
+	unsigned int val = 0;
 	int ret;
 
 	if (!(md_cd_plat_val_ptr.srclkena_setting & (1 << SRCLKEN_O1_BIT))) {
@@ -1021,7 +1021,7 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
 	int ret = -1;
-	unsigned int reg_value;
+	unsigned int reg_value = 0;
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */

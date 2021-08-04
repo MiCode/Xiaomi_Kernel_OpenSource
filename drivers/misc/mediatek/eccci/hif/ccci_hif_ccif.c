@@ -332,7 +332,7 @@ static void md_ccif_queue_dump(unsigned char hif_id)
 		md_ctrl->txq[idx].ringbuf->tx_control.length,
 		md_ctrl->txq[idx].ringbuf);
 		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d RX: w=%d, r=%d, len=%d, isr_cnt=%d\n",
+		"Q%d RX: w=%d, r=%d, len=%d, isr_cnt=%lld\n",
 		idx, md_ctrl->rxq[idx].ringbuf->rx_control.write,
 		md_ctrl->rxq[idx].ringbuf->rx_control.read,
 		md_ctrl->rxq[idx].ringbuf->rx_control.length,
@@ -824,7 +824,7 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 			goto err_exit1;
 		}
 
-		ret = snprintf(string, 1024, "total cnt=%d;",
+		ret = snprintf(string, 1024, "total cnt=%lld;",
 			md_ctrl->traffic_info.isr_cnt);
 		if (ret < 0 || ret >= 1024) {
 			CCCI_NORMAL_LOG(md_ctrl->md_id, TAG,
@@ -2176,7 +2176,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		"ccif-pericfg");
 	if (!md_ctrl->pericfg_base)
 		CCCI_ERROR_LOG(-1, TAG,
-			"%s: get ccif-pericfg failed\n");
+			"%s: get ccif-pericfg failed\n", __func__);
 
 	if (!md_ctrl->ccif_ap_base ||
 		!md_ctrl->ccif_md_base) {

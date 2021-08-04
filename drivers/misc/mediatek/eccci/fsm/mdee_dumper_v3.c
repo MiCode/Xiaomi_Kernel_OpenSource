@@ -166,6 +166,11 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 		snprintf(ex_info_temp, EE_BUF_LEN_UMOLY, "%s", ex_info);
 		if (debug_info->dump_fatal.err_code1 == 0x3104) {
 			mem_layout = ccci_md_get_mem(mdee->md_id);
+			if (mem_layout == NULL) {
+				CCCI_ERROR_LOG(-1, FSM, "ccci_md_get_mem fail\n");
+				kfree(ex_info_temp);
+				return;
+			}
 			snprintf(ex_info, EE_BUF_LEN_UMOLY,
 			"%s%s, MD base = 0x%08X\n\n", ex_info_temp,
 			mdee->ex_mpu_string,

@@ -355,8 +355,17 @@ static u16 ccmni_select_queue(struct net_device *dev, struct sk_buff *skb,
 {
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[ccmni->md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 
+	if (ccmni->md_id < 0 || ccmni->md_id >= MAX_MD_NUM) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id = %d\n", __func__, ccmni->md_id);
+		return CCMNI_TXQ_NORMAL;
+	}
+	ctlb = ccmni_ctl_blk[ccmni->md_id];
+	if (ctlb == NULL) {
+		CCMNI_INF_MSG(ccmni->md_id, "%s : invalid ctlb\n", __func__);
+		return CCMNI_TXQ_NORMAL;
+	}
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
 		if (skb->mark == APP_VIP_MARK)
 			return CCMNI_TXQ_FAST;
@@ -375,10 +384,16 @@ static int ccmni_open(struct net_device *dev)
 {
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
-	struct ccmni_ctl_block *ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
+	struct ccmni_ctl_block *ccmni_ctl = NULL;
 	struct ccmni_instance *ccmni_tmp = NULL;
 	int usage_cnt = 0;
 
+	if (ccmni->md_id < 0 || ccmni->md_id >= MAX_MD_NUM || ccmni->index < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, ccmni->md_id, ccmni->index);
+		return -1;
+	}
+	ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
 	if (unlikely(ccmni_ctl == NULL)) {
 		CCMNI_PR_DBG(ccmni->md_id,
 			"%s_Open: MD%d ctlb is NULL\n",
@@ -426,10 +441,16 @@ static int ccmni_close(struct net_device *dev)
 {
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
-	struct ccmni_ctl_block *ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
+	struct ccmni_ctl_block *ccmni_ctl = NULL;
 	struct ccmni_instance *ccmni_tmp = NULL;
 	int usage_cnt = 0, ret = 0;
 
+	if (ccmni->md_id < 0 || ccmni->md_id >= MAX_MD_NUM || ccmni->index < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, ccmni->md_id, ccmni->index);
+		return -1;
+	}
+	ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
 	if (unlikely(ccmni_ctl == NULL)) {
 		CCMNI_PR_DBG(ccmni->md_id, "%s_Close: MD%d ctlb is NULL\n",
 			dev->name, ccmni->md_id);
@@ -655,6 +676,11 @@ static int ccmni_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	unsigned int i;
 	unsigned int cmp_len;
 
+	if (ccmni->md_id < 0 || ccmni->md_id >= MAX_MD_NUM || ccmni->index < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, ccmni->md_id, ccmni->index);
+		return -EINVAL;
+	}
 	switch (cmd) {
 	case SIOCSTXQSTATE:
 		/* ifru_ivalue[3~0]:start/stop; ifru_ivalue[7~4]:reserve; */
@@ -968,8 +994,17 @@ static void get_queued_pkts(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct ccmni_instance *ccmni =
 		container_of(dwork, struct ccmni_instance, pkt_queue_work);
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[ccmni->md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 
+	if (ccmni->md_id < 0 || ccmni->md_id >= MAX_MD_NUM) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id = %d\n", __func__, ccmni->md_id);
+		return;
+	}
+	ctlb = ccmni_ctl_blk[ccmni->md_id];
+	if (ctlb == NULL) {
+		CCMNI_INF_MSG(ccmni->md_id, "%s : invalid ctlb\n", __func__);
+		return;
+	}
 	if (ctlb->ccci_ops->ccci_handle_port_list(DEV_OPEN, ccmni->dev->name))
 		CCMNI_INF_MSG(ccmni->md_id,
 			"%s is failed to handle port list\n",
@@ -1102,6 +1137,10 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 	struct ccmni_instance *ccmni_irat_src = NULL;
 	struct net_device *dev = NULL;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id = %d\n", __func__, md_id);
+		return -EINVAL;
+	}
 	if (unlikely(ccci_info->md_ability & MODEM_CAP_CCMNI_DISABLE)) {
 		CCMNI_PR_DBG(md_id, "no need init ccmni: md_ability=0x%08X\n",
 			ccci_info->md_ability);
@@ -1344,7 +1383,7 @@ ccmni_exit_ret:
 static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 		void *priv_data)
 {
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 	/* struct ccci_header *ccci_h = (struct ccci_header*)skb->data; */
 	struct ccmni_instance *ccmni = NULL;
 	struct net_device *dev = NULL;
@@ -1357,6 +1396,12 @@ static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 	unsigned int tag_id = 0;
 #endif
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, md_id, ccmni_idx);
+		return -1;
+	}
+	ctlb = ccmni_ctl_blk[md_id];
 	if (unlikely(ctlb == NULL || ctlb->ccci_ops == NULL)) {
 		CCMNI_PR_DBG(md_id,
 			"invalid CCMNI%d ctrl/ops struct\n",
@@ -1446,12 +1491,18 @@ static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 	enum HIF_STATE state, int is_ack)
 {
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 	struct ccmni_instance *ccmni = NULL;
 	struct ccmni_instance *ccmni_tmp = NULL;
 	struct net_device *dev = NULL;
 	struct netdev_queue *net_queue = NULL;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, md_id, ccmni_idx);
+		return;
+	}
+	ctlb = ccmni_ctl_blk[md_id];
 	if (unlikely(ctlb == NULL)) {
 		CCMNI_DBG_MSG(md_id,
 			"invalid ccmni ctrl when ccmni%d_hif_sta=%d\n",
@@ -1558,12 +1609,18 @@ static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 static void ccmni_md_state_callback(int md_id, int ccmni_idx,
 	enum MD_STATE state)
 {
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 	struct ccmni_instance *ccmni = NULL;
 	struct ccmni_instance *ccmni_tmp = NULL;
 	struct net_device *dev = NULL;
 	int i = 0;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, md_id, ccmni_idx);
+		return;
+	}
+	ctlb = ccmni_ctl_blk[md_id];
 	if (unlikely(ctlb == NULL)) {
 		CCMNI_DBG_MSG(md_id,
 			"invalid ccmni ctrl when ccmni%d_md_sta=%d\n",
@@ -1613,7 +1670,7 @@ static void ccmni_md_state_callback(int md_id, int ccmni_idx,
 
 static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 {
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 	struct ccmni_instance *ccmni = NULL;
 	struct ccmni_instance *ccmni_tmp = NULL;
 	struct net_device *dev = NULL;
@@ -1622,8 +1679,17 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 	struct Qdisc *qdisc = NULL;
 	struct Qdisc *ack_qdisc = NULL;
 
-	if (ctlb == NULL)
+	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, md_id, ccmni_idx);
 		return;
+	}
+	ctlb = ccmni_ctl_blk[md_id];
+	if (ctlb == NULL) {
+		CCMNI_INF_MSG(md_id, "invalid ctlb\n");
+		return;
+	}
+
 
 	ccmni_tmp = ctlb->ccmni_inst[ccmni_idx];
 	if (unlikely(ccmni_tmp == NULL))
@@ -1650,7 +1716,7 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 		 * packets is count by qdisc in net device layer
 		 */
 		CCMNI_INF_MSG(md_id,
-			      "%s(%d,%d), irat_MD%d, rx=(%ld,%ld,%d), tx=(%ld,%d,%d), txq_len=(%d,%d), tx_drop=(%ld,%d,%d), rx_drop=(%ld,%ld), tx_busy=(%ld,%ld), sta=(0x%lx,0x%x,0x%lx,0x%lx)\n",
+			"%s(%d,%d), irat_MD%d, rx=(%ld,%ld,%d), tx=(%ld,%d,%lld), txq_len=(%d,%d), tx_drop=(%ld,%d,%d), rx_drop=(%ld,%ld), tx_busy=(%ld,%ld), sta=(0x%lx,0x%x,0x%lx,0x%lx)\n",
 				  dev->name,
 				  atomic_read(&ccmni->usage),
 				  atomic_read(&ccmni_tmp->usage),
@@ -1670,7 +1736,7 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 				  ack_queue->state);
 	} else
 		CCMNI_INF_MSG(md_id,
-			      "%s(%d,%d), irat_MD%d, rx=(%ld,%ld,%d), tx=(%ld,%ld), txq_len=%d, tx_drop=(%ld,%d), rx_drop=(%ld,%ld), tx_busy=(%ld,%ld), sta=(0x%lx,0x%x,0x%lx)\n",
+			"%s(%d,%d), irat_MD%d, rx=(%ld,%ld,%d), tx=(%ld,%ld), txq_len=%d, tx_drop=(%ld,%d), rx_drop=(%ld,%ld), tx_busy=(%ld,%ld), sta=(0x%lx,0x%x,0x%lx)\n",
 			      dev->name, atomic_read(&ccmni->usage),
 				  atomic_read(&ccmni_tmp->usage),
 						(ccmni->md_id + 1),
@@ -1688,8 +1754,17 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 
 static void ccmni_dump_rx_status(int md_id, unsigned long long *status)
 {
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id = %d\n", __func__, md_id);
+		return;
+	}
+	ctlb = ccmni_ctl_blk[md_id];
+	if (ctlb == NULL) {
+		CCMNI_INF_MSG(md_id, "%s : invalid ctlb\n", __func__);
+		return;
+	}
 	status[0] = ctlb->net_rx_delay[0];
 	status[1] = ctlb->net_rx_delay[1];
 	status[2] = ctlb->net_rx_delay[2];
@@ -1697,8 +1772,18 @@ static void ccmni_dump_rx_status(int md_id, unsigned long long *status)
 
 static struct ccmni_ch *ccmni_get_ch(int md_id, int ccmni_idx)
 {
-	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_ctl_block *ctlb = NULL;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
+		CCMNI_INF_MSG(-1, "%s : invalid md_id or index:md_id = %d,index = %d\n",
+			__func__, md_id, ccmni_idx);
+		return NULL;
+	}
+	ctlb = ccmni_ctl_blk[md_id];
+	if (ctlb == NULL) {
+		CCMNI_INF_MSG(md_id, "%s : invalid ctlb\n", __func__);
+		return NULL;
+	}
 	return &ctlb->ccmni_inst[ccmni_idx]->ch;
 }
 

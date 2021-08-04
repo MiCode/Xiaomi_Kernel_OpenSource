@@ -1125,6 +1125,11 @@ static ssize_t md_cd_debug_show(struct ccci_modem *md, char *buf)
 	int curr = 0;
 
 	curr = snprintf(buf, 16, "%d\n", ccci_debug_enable);
+	if (curr < 0 || curr >= 16) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,curr = %d\n", __func__, __LINE__, curr);
+		return -1;
+	}
 	return curr;
 }
 
