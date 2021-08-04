@@ -2757,6 +2757,7 @@ static int __gpufreq_cg_control(enum gpufreq_power_state power)
 {
 	int ret = GPUFREQ_SUCCESS;
 
+#if GPUFREQ_CG_CONTROL_ENABLE
 	GPUFREQ_TRACE_START("power=%d", power);
 
 	if (power == POWER_ON) {
@@ -2776,6 +2777,7 @@ static int __gpufreq_cg_control(enum gpufreq_power_state power)
 
 done:
 	GPUFREQ_TRACE_END();
+#endif
 
 	return ret;
 }
