@@ -404,15 +404,12 @@ static void disp_c3d_update_sram(struct mtk_ddp_comp *comp,
 
 void disp_c3d_on_start_of_frame(void)
 {
-	pr_notice("%s, line: %d", __func__, __LINE__);
-
 	atomic_set(&g_c3d_get_irq, 1);
 	wake_up_interruptible(&g_c3d_get_irq_wq);
 }
 
 void disp_c3d_on_end_of_frame_mutex(void)
 {
-	pr_notice("%s, line: %d", __func__, __LINE__);
 	atomic_set(&g_c3d_get_irq, 0);
 }
 
