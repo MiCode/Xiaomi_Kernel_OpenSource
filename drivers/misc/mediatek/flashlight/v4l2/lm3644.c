@@ -679,6 +679,7 @@ static int lm3644_ioctl(unsigned int cmd, unsigned long arg)
 			lm3644_torch_brt_ctrl(lm3644_flash_data, channel, 25000);
 			lm3644_flash_data->led_mode = V4L2_FLASH_LED_MODE_TORCH;
 			lm3644_mode_ctrl(lm3644_flash_data);
+			lm3644_enable_ctrl(lm3644_flash_data, channel, true);
 		} else {
 			lm3644_flash_data->led_mode = V4L2_FLASH_LED_MODE_NONE;
 			lm3644_mode_ctrl(lm3644_flash_data);
@@ -726,6 +727,7 @@ static ssize_t lm3644_strobe_store(struct flashlight_arg arg)
 	//lm3644_enable(arg.channel);
 	lm3644_torch_brt_ctrl(lm3644_flash_data, arg.channel,
 				arg.level * 25000);
+	lm3644_enable_ctrl(lm3644_flash_data, arg.channel, true);
 	lm3644_flash_data->led_mode = V4L2_FLASH_LED_MODE_TORCH;
 	lm3644_mode_ctrl(lm3644_flash_data);
 	msleep(arg.dur);
