@@ -15,26 +15,26 @@
 
 #define AAL_CURVE_NUM (544)
 
-extern int mtk_mml_pq_msg;
+extern int mml_pq_msg;
 
 #define mml_pq_msg(fmt, args...) \
 do { \
-	if (mtk_mml_pq_msg) \
-		pr_notice("[mml]" fmt "\n", ##args); \
+	if (mml_pq_msg) \
+		pr_notice("[flow]" fmt "\n", ##args); \
 } while (0)
 
 #define mml_pq_log(fmt, args...) \
-	pr_notice("[mml]" fmt "\n", ##args)
+	pr_notice("[flow]" fmt "\n", ##args)
 
 #define mml_pq_err(fmt, args...) \
-	pr_notice("[mml][err]" fmt "\n", ##args)
+	pr_notice("[flow][err]" fmt "\n", ##args)
 
-extern int mtk_mml_pq_dump;
+extern int mml_pq_dump;
 
 #define mml_pq_dump(fmt, args...) \
 do { \
-	if (mtk_mml_pq_dump) \
-		pr_notice("[mml_pq]" fmt "\n", ##args); \
+	if (mml_pq_dump) \
+		pr_notice("[param_dump]" fmt "\n", ##args); \
 } while (0)
 
 /* mml pq ftrace */
@@ -67,6 +67,7 @@ struct mml_pq_task {
 	atomic_t ref_cnt;
 	struct mutex lock;
 	struct mml_pq_sub_task tile_init;
+	struct mml_pq_sub_task comp_config;
 };
 
 /*
@@ -100,5 +101,25 @@ int mml_pq_tile_init(struct mml_task *task);
  * Return:	if value < 0, means PQ update failed should debug
  */
 int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms);
+
+/*
+ * mml_pq_comp_config - noify from MML core through MML PQ driver
+ *   to update frame information for comp config
+ *
+ * @task:	task data, include pq parameters and frame info
+ *
+ * Return:	if value < 0, means PQ update failed should debug
+ */
+int mml_pq_comp_config(struct mml_task *task);
+
+/*
+ * mml_pq_get_tile_init_result - wait for result and update data
+ *
+ * @task:	task data, include pq parameters and frame info
+ * @timeout_ms:	timeout setting to get result, unit: ms
+ *
+ * Return:	if value < 0, means PQ update failed should debug
+ */
+int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
 
 #endif	/* __MTK_MML_PQ_CORE_H__ */
