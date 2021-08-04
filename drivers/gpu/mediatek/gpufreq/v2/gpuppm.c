@@ -111,7 +111,7 @@ static struct gpuppm_limit_info g_stack_limit_table[] = {
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
 };
 
-static struct gpuppm_platform_fp platform_fp = {
+static struct gpuppm_platform_fp platform_ap_fp = {
 	.limited_commit_gpu = gpuppm_limited_commit_gpu,
 	.limited_commit_stack = gpuppm_limited_commit_stack,
 	.set_limit_gpu = gpuppm_set_limit_gpu,
@@ -131,6 +131,8 @@ static struct gpuppm_platform_fp platform_fp = {
 	.get_limit_table_stack = gpuppm_get_limit_table_stack,
 	.get_debug_limit_info_stack = gpuppm_get_debug_limit_info_stack,
 };
+
+static struct gpuppm_platform_fp platform_eb_fp = {};
 
 /**
  * ===============================================
@@ -688,11 +690,10 @@ int gpuppm_init(enum gpufreq_target target,
 
 	g_gpueb_support = gpueb_support;
 
-	/* register gpuppm function to wrapper in both AP and EB mode */
-	gpufreq_register_gpuppm_fp(&platform_fp);
-
+	if (g_gpueb_support)
+		gpufreq_register_gpuppm_fp(&platform_eb_fp);
 	/* init only in AP mode */
-	if (!g_gpueb_support) {
+	else {
 		opp_num_gpu = __gpufreq_get_opp_num_gpu();
 		max_oppidx_gpu = 0;
 		min_oppidx_gpu = opp_num_gpu - 1;
@@ -711,6 +712,8 @@ int gpuppm_init(enum gpufreq_target target,
 			gpuppm_set_limit_stack(LIMIT_SRAMRC, GPUPPM_KEEP_IDX, sramrc_vsafe);
 		else
 			gpuppm_set_limit_gpu(LIMIT_SRAMRC, GPUPPM_KEEP_IDX, sramrc_vsafe);
+
+		gpufreq_register_gpuppm_fp(&platform_ap_fp);
 	}
 
 	return ret;

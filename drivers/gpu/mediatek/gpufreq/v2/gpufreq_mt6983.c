@@ -49,11 +49,6 @@
 #if IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING)
 #include <clk-mtk.h>
 #endif
-/* todo: fmeter not ready */
-// #if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
-// #include <clk-fmeter.h>
-// #include <clk-mt6983-fmeter.h>
-// #endif
 
 /**
  * ===============================================
@@ -206,7 +201,7 @@ static unsigned int g_desel_ulv_park_volt;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
 
-static struct gpufreq_platform_fp platform_fp = {
+static struct gpufreq_platform_fp platform_ap_fp = {
 	.bringup = __gpufreq_bringup,
 	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
 	.get_power_state = __gpufreq_get_power_state,
@@ -259,6 +254,16 @@ static struct gpufreq_platform_fp platform_fp = {
 	.set_aging_mode = __gpufreq_set_aging_mode,
 	.set_gpm_mode = __gpufreq_set_gpm_mode,
 	.get_asensor_info = __gpufreq_get_asensor_info,
+};
+
+static struct gpufreq_platform_fp platform_eb_fp = {
+	.bringup = __gpufreq_bringup,
+	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
+	.set_timestamp = __gpufreq_set_timestamp,
+	.check_bus_idle = __gpufreq_check_bus_idle,
+	.dump_infra_status = __gpufreq_dump_infra_status,
+	.get_fmeter_fgpu = __gpufreq_get_fmeter_fgpu,
+	.get_fmeter_fstack = __gpufreq_get_fmeter_fstack,
 };
 
 /**
@@ -2376,12 +2381,12 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		__gpufreq_get_real_fgpu(), mfg_sel_0, mfg_ref_sel);
 	GPUFREQ_LOGI("[STACK] CON1: %d, MFG_SEL_1: 0x%08x, MFGSC_REF_SEL: 0x%08x",
 		__gpufreq_get_real_fstack(), mfg_sel_1, mfgsc_ref_sel);
-	// GPUFREQ_LOGI("[TOP] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
-	// __gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu(),
-	// __gpufreq_get_fmeter_main_fgpu(), __gpufreq_get_fmeter_sub_fgpu());
-	// GPUFREQ_LOGI("[STACK] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
-	// __gpufreq_get_fmeter_fstack(), __gpufreq_get_real_fstack(),
-	// __gpufreq_get_fmeter_main_fstack(), __gpufreq_get_fmeter_sub_fstack());
+	GPUFREQ_LOGI("[TOP] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
+		__gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu(),
+		__gpufreq_get_fmeter_main_fgpu(), __gpufreq_get_fmeter_sub_fgpu());
+	GPUFREQ_LOGI("[STACK] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
+		__gpufreq_get_fmeter_fstack(), __gpufreq_get_real_fstack(),
+		__gpufreq_get_fmeter_main_fstack(), __gpufreq_get_fmeter_sub_fstack());
 
 done:
 	return;
@@ -2417,48 +2422,96 @@ static unsigned int __gpufreq_get_fmeter_fstack(void)
 		return 0;
 }
 
+/* MFGPLL fmeter control flow is from GPU DE */
 static unsigned int __gpufreq_get_fmeter_main_fgpu(void)
 {
-#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
-	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MFGPLL1);
-	return 0;
-#else
-	return 0;
-#endif /* CONFIG_COMMON_CLK_MT6983 */
+	u32 val = 0, ckgen_load_cnt = 0, ckgen_k1 = 0;
+	int i = 0;
+	unsigned int freq = 0;
+
+	writel(0x00FF0000, MFGPLL_FQMTR_CON1);
+	val = readl(MFGPLL_FQMTR_CON0);
+	writel((val & 0x00FFFFFF), MFGPLL_FQMTR_CON0);
+	writel(0x00009000, MFGPLL_FQMTR_CON0);
+
+	ckgen_load_cnt = readl(MFGPLL_FQMTR_CON1) >> 16;
+	ckgen_k1 = readl(MFGPLL_FQMTR_CON0) >> 24;
+
+	val = readl(MFGPLL_FQMTR_CON0);
+	writel((val | 0x1010), MFGPLL_FQMTR_CON0);
+
+	/* wait fmeter finish */
+	while (readl(MFGPLL_FQMTR_CON0) & 0x10) {
+		udelay(10);
+		i++;
+		if (i > 1000) {
+			GPUFREQ_LOGE("wait MFGPLL Fmeter timeout");
+			break;
+		}
+	}
+
+	val = readl(MFGPLL_FQMTR_CON1) & 0xFFFF;
+	/* KHz */
+	freq = (val * 26000 * (ckgen_k1 + 1)) / (ckgen_load_cnt + 1);
+
+	return freq;
 }
 
+/* MFGSCPLL fmeter control flow is from GPU DE */
 static unsigned int __gpufreq_get_fmeter_main_fstack(void)
 {
-#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
-	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MFGPLL4);
-	return 0;
-#else
-	return 0;
-#endif /* CONFIG_COMMON_CLK_MT6983 */
+	u32 val = 0, ckgen_load_cnt = 0, ckgen_k1 = 0;
+	int i = 0;
+	unsigned int freq = 0;
+
+	writel(0x00FF0000, MFGSCPLL_FQMTR_CON1);
+	val = readl(MFGSCPLL_FQMTR_CON0);
+	writel((val & 0x00FFFFFF), MFGSCPLL_FQMTR_CON0);
+	writel(0x00009000, MFGSCPLL_FQMTR_CON0);
+
+	ckgen_load_cnt = readl(MFGSCPLL_FQMTR_CON1) >> 16;
+	ckgen_k1 = readl(MFGSCPLL_FQMTR_CON0) >> 24;
+
+	val = readl(MFGSCPLL_FQMTR_CON0);
+	writel((val | 0x1010), MFGSCPLL_FQMTR_CON0);
+
+	/* wait fmeter finish */
+	while (readl(MFGSCPLL_FQMTR_CON0) & 0x10) {
+		udelay(10);
+		i++;
+		if (i > 1000) {
+			GPUFREQ_LOGE("wait MFGSCPLL Fmeter timeout");
+			break;
+		}
+	}
+
+	val = readl(MFGSCPLL_FQMTR_CON1) & 0xFFFF;
+	/* KHz */
+	freq = (val * 26000 * (ckgen_k1 + 1)) / (ckgen_load_cnt + 1);
+
+	return freq;
 }
 
+/* GPU parking source use CCF API directly */
 static unsigned int __gpufreq_get_fmeter_sub_fgpu(void)
 {
-#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
-	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MFG_REF_CK);
-	return 0;
-#else
-	return 0;
-#endif /* CONFIG_COMMON_CLK_MT6983 */
+	unsigned int freq = 0;
+
+	/* Hz */
+	freq = clk_get_rate(g_clk->clk_sub_parent) / 1000;
+
+	return freq;
 }
 
+/* STACK parking source use CCF API directly */
 static unsigned int __gpufreq_get_fmeter_sub_fstack(void)
 {
-#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
-	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MFGSC_REF_CK);
-	return 0;
-#else
-	return 0;
-#endif /* CONFIG_COMMON_CLK_MT6983 */
+	unsigned int freq = 0;
+
+	/* Hz */
+	freq = clk_get_rate(g_clk->clk_sc_sub_parent) / 1000;
+
+	return freq;
 }
 
 /*
@@ -4793,9 +4846,12 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 register_fp:
 	/*
 	 * GPUFREQ PLATFORM INIT DONE
-	 * register platform function pointer to wrapper in both AP and EB mode
+	 * register differnet platform fp to wrapper depending on AP or EB mode
 	 */
-	gpufreq_register_gpufreq_fp(&platform_fp);
+	if (g_gpueb_support)
+		gpufreq_register_gpufreq_fp(&platform_eb_fp);
+	else
+		gpufreq_register_gpufreq_fp(&platform_ap_fp);
 
 	/* init gpu ppm */
 	ret = gpuppm_init(TARGET_STACK, g_gpueb_support, GPUFREQ_SAFE_VLOGIC);

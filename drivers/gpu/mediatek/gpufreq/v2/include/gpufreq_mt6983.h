@@ -53,6 +53,10 @@
 #define MFGPLL_FIN                      (26)            /* MHz */
 #define MFG_PLL_CON1                    (g_mfg_pll_base + 0x00C)
 #define MFGSC_PLL_CON1                  (g_mfgsc_pll_base + 0x00C)
+#define MFGPLL_FQMTR_CON0               (g_mfg_pll_base + 0x040)
+#define MFGPLL_FQMTR_CON1               (g_mfg_pll_base + 0x044)
+#define MFGSCPLL_FQMTR_CON0             (g_mfgsc_pll_base + 0x040)
+#define MFGSCPLL_FQMTR_CON1             (g_mfgsc_pll_base + 0x044)
 #define MFG_SEL_0_MASK                  (0x10000)       /* [16] */
 #define MFG_SEL_1_MASK                  (0x20000)       /* [17] */
 #define MFG_REF_SEL_MASK                (0x3000000)     /* [25:24] */
