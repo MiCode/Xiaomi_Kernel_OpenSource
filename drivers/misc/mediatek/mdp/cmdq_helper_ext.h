@@ -904,6 +904,7 @@ u64 cmdq_core_get_gpr64(const enum cmdq_gpr_reg regID);
 void cmdq_core_set_gpr64(const enum cmdq_gpr_reg regID, const u64 value);
 
 void cmdq_core_release_handle_by_file_node(void *file_node);
+s32 cmdq_core_remove(void);
 s32 cmdq_core_suspend(void);
 s32 cmdq_core_resume(void);
 s32 cmdq_core_resume_notifier(void);

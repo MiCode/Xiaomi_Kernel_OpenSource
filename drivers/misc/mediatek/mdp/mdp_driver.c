@@ -1222,6 +1222,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 static int cmdq_remove(struct platform_device *pDevice)
 {
+	cmdq_core_remove();
 	disable_irq(cmdq_dev_get_irq_id());
 	return 0;
 }
