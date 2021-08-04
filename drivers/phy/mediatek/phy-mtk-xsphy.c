@@ -55,8 +55,6 @@
 #define P2A0_RG_INTR_EN	BIT(5)
 
 #define XSP_USBPHYACR1		((SSUSB_SIFSLV_U2PHY_COM) + 0x04)
-#define P2A1_RG_INTR_CAL		GENMASK(23, 19)
-#define P2A1_RG_INTR_CAL_VAL(x)	((0x1f & (x)) << 19)
 #define P2A1_RG_VRT_SEL			GENMASK(14, 12)
 #define P2A1_RG_VRT_SEL_VAL(x)	((0x7 & (x)) << 12)
 #define P2A1_RG_VRT_SEL_MASK	(0x7)
@@ -86,11 +84,18 @@
 #define P2A6_RG_U2_DISCTH_MASK	(0xf)
 #define P2A6_RG_U2_DISCTH_OFET	(4)
 
-
 #define XSP_USBPHYACR4		((SSUSB_SIFSLV_U2PHY_COM) + 0x020)
 #define P2A4_RG_USB20_GPIO_CTL		BIT(9)
 #define P2A4_USB20_GPIO_MODE		BIT(8)
 #define P2A4_U2_GPIO_CTR_MSK (P2A4_RG_USB20_GPIO_CTL | P2A4_USB20_GPIO_MODE)
+
+#define XSP_USBPHYA_RESERVE	((SSUSB_SIFSLV_U2PHY_COM) + 0x030)
+#define P2AR_RG_INTR_CAL		GENMASK(29, 24)
+#define P2AR_RG_INTR_CAL_VAL(x)		((0x3f & (x)) << 24)
+
+#define XSP_USBPHYA_RESERVEA	((SSUSB_SIFSLV_U2PHY_COM) + 0x034)
+#define P2ARA_RG_TERM_CAL		GENMASK(11, 8)
+#define P2ARA_RG_TERM_CAL_VAL(x)	((0xf & (x)) << 8)
 
 #define XSP_U2PHYDTM0		((SSUSB_SIFSLV_U2PHY_COM) + 0x068)
 #define P2D_FORCE_UART_EN		BIT(26)
@@ -245,13 +250,15 @@ enum mtk_xsphy_jtag_version {
 
 enum mtk_phy_efuse {
 	INTR_CAL = 0,
+	TERM_CAL,
 	IEXT_INTR_CTRL,
 	RX_IMPSEL,
 	TX_IMPSEL,
 };
 
-static char *efuse_name[4] = {
+static char *efuse_name[5] = {
 	"intr_cal",
+	"term_cal",
 	"iext_intr_ctrl",
 	"rx_impsel",
 	"tx_impsel",
@@ -265,6 +272,7 @@ struct xsphy_instance {
 	u32 type;
 	/* only for HQA test */
 	int efuse_intr;
+	int efuse_term_cal;
 	int efuse_tx_imp;
 	int efuse_rx_imp;
 	/* u2 eye diagram */
@@ -1163,7 +1171,7 @@ static u32 phy_get_efuse_value(struct xsphy_instance *inst,
 		goto no_efuse;
 
 	val = (val & mask) >> (ffs(mask) - 1);
-	dev_info(dev, "%s, %s=0x%x\n", __func__, efuse_name[type], val);
+	dev_dbg(dev, "%s, %s=0x%x\n", __func__, efuse_name[type], val);
 
 	return val;
 
@@ -1181,6 +1189,10 @@ static void phy_parse_efuse_property(struct mtk_xsphy *xsphy,
 		val = phy_get_efuse_value(inst, INTR_CAL);
 		if (val)
 			inst->efuse_intr = val;
+
+		val = phy_get_efuse_value(inst, TERM_CAL);
+		if (val)
+			inst->efuse_term_cal = val;
 		break;
 	case PHY_TYPE_USB3:
 		val = phy_get_efuse_value(inst, IEXT_INTR_CTRL);
@@ -1209,6 +1221,8 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 	case PHY_TYPE_USB2:
 		device_property_read_u32(dev, "mediatek,efuse-intr",
 					 &inst->efuse_intr);
+		device_property_read_u32(dev, "mediatek,efuse-term",
+					 &inst->efuse_term_cal);
 		device_property_read_u32(dev, "mediatek,eye-src",
 					 &inst->eye_src);
 		device_property_read_u32(dev, "mediatek,eye-vrt",
@@ -1227,8 +1241,8 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 					 &inst->eye_term_host);
 		device_property_read_u32(dev, "mediatek,rev6-host",
 				 &inst->rev6_host);
-		dev_dbg(dev, "intr:%d, src:%d, vrt:%d, term:%d\n",
-			inst->efuse_intr, inst->eye_src,
+		dev_dbg(dev, "intr:%d, term_cal, src:%d, vrt:%d, term:%d\n",
+			inst->efuse_intr, inst->efuse_term_cal, inst->eye_src,
 			inst->eye_vrt, inst->eye_term);
 		dev_dbg(dev, "src_host:%d, vrt_host:%d, term_host:%d\n",
 			inst->eye_src_host, inst->eye_vrt_host,
@@ -1261,11 +1275,19 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 	u32 tmp;
 
 	if (inst->efuse_intr) {
-		tmp = readl(pbase + XSP_USBPHYACR1);
-		tmp &= ~P2A1_RG_INTR_CAL;
-		tmp |= P2A1_RG_INTR_CAL_VAL(inst->efuse_intr);
-		writel(tmp, pbase + XSP_USBPHYACR1);
+		tmp = readl(pbase + XSP_USBPHYA_RESERVE);
+		tmp &= ~P2AR_RG_INTR_CAL;
+		tmp |= P2AR_RG_INTR_CAL_VAL(inst->efuse_intr);
+		writel(tmp, pbase + XSP_USBPHYA_RESERVE);
 	}
+
+	if (inst->efuse_term_cal) {
+		tmp = readl(pbase + XSP_USBPHYA_RESERVEA);
+		tmp &= ~P2ARA_RG_TERM_CAL;
+		tmp |= P2ARA_RG_TERM_CAL_VAL(inst->efuse_term_cal);
+		writel(tmp, pbase + XSP_USBPHYA_RESERVEA);
+	}
+
 
 	if (inst->eye_src) {
 		tmp = readl(pbase + XSP_USBPHYACR5);
@@ -1384,14 +1406,14 @@ static int mtk_phy_init(struct phy *phy)
 		u2_phy_props_set(xsphy, inst);
 		u2_phy_procfs_init(xsphy, inst);
 		/* show default u2 driving setting */
-		dev_info(xsphy->dev, "device src:%d vrt:%d term:%d, rev6:%d\n",
+		dev_info(xsphy->dev, "device src:%d vrt:%d term:%d rev6:%d\n",
 			inst->eye_src, inst->eye_vrt,
 			inst->eye_term, inst->rev6);
-		dev_info(xsphy->dev, "host src:%d, vrt:%d term:%d rev6:%d\n",
+		dev_info(xsphy->dev, "host src:%d vrt:%d term:%d rev6:%d\n",
 			inst->eye_src_host, inst->eye_vrt_host,
 			inst->eye_term_host, inst->rev6_host);
-		dev_info(xsphy->dev, "u2_intr:%d discth:%d\n",
-			inst->efuse_intr, inst->discth);
+		dev_info(xsphy->dev, "u2_intr:%d term_cal:%d discth:%d\n",
+			inst->efuse_intr, inst->efuse_term_cal, inst->discth);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
