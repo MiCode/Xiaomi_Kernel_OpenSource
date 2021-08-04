@@ -217,6 +217,7 @@ struct mrdump_mini_elf_header {
 
 enum AEE_EXTRA_FILE_ID {
 	AEE_EXTRA_FILE_UFS,
+	AEE_EXTRA_FILE_MMC,
 	AEE_EXTRA_FILE_BLOCKIO,
 	AEE_EXTRA_FILE_NUM
 };

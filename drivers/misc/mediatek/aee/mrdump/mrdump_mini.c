@@ -583,6 +583,7 @@ EXPORT_SYMBOL(mrdump_mini_add_extra_file);
 
 typedef void (*dump_func_t)(unsigned long *vaddr, unsigned long *size);
 dump_func_t p_ufs_mtk_dbg_get_aee_buffer;
+dump_func_t p_mmc_mtk_dbg_get_aee_buffer;
 dump_func_t p_mtk_btag_get_aee_buffer;
 
 void mrdump_set_extra_dump(enum AEE_EXTRA_FILE_ID id,
@@ -596,6 +597,9 @@ void mrdump_set_extra_dump(enum AEE_EXTRA_FILE_ID id,
 	switch (id) {
 	case AEE_EXTRA_FILE_UFS:
 		p_ufs_mtk_dbg_get_aee_buffer = fn;
+		break;
+	case AEE_EXTRA_FILE_MMC:
+		p_mmc_mtk_dbg_get_aee_buffer = fn;
 		break;
 	case AEE_EXTRA_FILE_BLOCKIO:
 		p_mtk_btag_get_aee_buffer = fn;
@@ -621,6 +625,12 @@ void mrdump_mini_add_extra_misc(void)
 		p_ufs_mtk_dbg_get_aee_buffer(&vaddr, &size);
 		mrdump_mini_add_extra_file(vaddr, __pa_nodebug(vaddr), size,
 					   "EXTRA_UFS");
+	}
+
+	if (p_mmc_mtk_dbg_get_aee_buffer) {
+		p_mmc_mtk_dbg_get_aee_buffer(&vaddr, &size);
+		mrdump_mini_add_extra_file(vaddr, __pa_nodebug(vaddr), size,
+					   "EXTRA_MMC");
 	}
 
 	if (p_mtk_btag_get_aee_buffer) {
