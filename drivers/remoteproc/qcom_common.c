@@ -193,13 +193,20 @@ clean_minidump:
 }
 EXPORT_SYMBOL_GPL(qcom_minidump);
 
-static int glink_subdev_start(struct rproc_subdev *subdev)
+static int glink_subdev_prepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
 
 	glink->edge = qcom_glink_smem_register(glink->dev, glink->node);
 
 	return PTR_ERR_OR_ZERO(glink->edge);
+}
+
+static int glink_subdev_start(struct rproc_subdev *subdev)
+{
+	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	return qcom_glink_smem_start(glink->edge);
 }
 
 static void glink_subdev_stop(struct rproc_subdev *subdev, bool crashed)
@@ -238,6 +245,7 @@ void qcom_add_glink_subdev(struct rproc *rproc, struct qcom_rproc_glink *glink,
 
 	glink->dev = dev;
 	glink->subdev.start = glink_subdev_start;
+	glink->subdev.prepare = glink_subdev_prepare;
 	glink->subdev.stop = glink_subdev_stop;
 	glink->subdev.unprepare = glink_subdev_unprepare;
 
