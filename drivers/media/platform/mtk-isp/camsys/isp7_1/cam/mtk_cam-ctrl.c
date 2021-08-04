@@ -704,6 +704,33 @@ static int mtk_cam_exp_sensor_switch(struct mtk_cam_ctx *ctx,
 
 	return 0;
 }
+static int mtk_cam_hdr_switch_toggle(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev;
+	struct mtk_camsv_device *camsv_dev;
+	struct mtk_cam_video_device *node;
+	struct device *dev_sv;
+	int sv_main_id, sv_sub_id;
+
+	node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+	sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
+	dev_sv = ctx->cam->sv.devs[sv_main_id - MTKCAM_PIPE_CAMSV_0];
+	camsv_dev = dev_get_drvdata(dev_sv);
+	enable_tg_db(raw_dev, 0);
+	mtk_cam_sv_toggle_tg_db(camsv_dev);
+	if (node->raw_feature == STAGGER_3_EXPOSURE_LE_NE_SE ||
+		node->raw_feature == STAGGER_3_EXPOSURE_LE_NE_SE) {
+		sv_sub_id = get_sub_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
+		dev_sv = ctx->cam->sv.devs[sv_sub_id - MTKCAM_PIPE_CAMSV_0];
+		camsv_dev = dev_get_drvdata(dev_sv);
+		mtk_cam_sv_toggle_tg_db(camsv_dev);
+	}
+	enable_tg_db(raw_dev, 1);
+	toggle_db(raw_dev);
+
+	return 0;
+}
 
 void mtk_cam_set_sub_sample_sensor(struct mtk_raw_device *raw_dev,
 			       struct mtk_cam_ctx *ctx)
@@ -2119,27 +2146,18 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_raw_device *raw_dev;
-	struct device *dev_sv;
-	struct mtk_camsv_device *camsv_dev;
-	int type, sv_main_id, i;
+	int i;
 
 	if (mtk_cam_is_stagger(ctx)) {
 		req = mtk_cam_get_req(ctx, frame_seq_no + 1);
 		if (req) {
 			req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
-			type = req_stream_data->feature.switch_feature_type;
-			if (type != 0) {
-				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-				sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
-				dev_sv = ctx->cam->sv.devs[sv_main_id - MTKCAM_PIPE_CAMSV_0];
-				camsv_dev = dev_get_drvdata(dev_sv);
-				enable_tg_db(raw_dev, 0);
-				mtk_cam_sv_toggle_tg_db(camsv_dev);
-				enable_tg_db(raw_dev, 1);
-				toggle_db(raw_dev);
+			if (req_stream_data->feature.switch_feature_type) {
+				mtk_cam_hdr_switch_toggle(ctx);
 				dev_dbg(ctx->cam->dev,
-					"[SWD-switch req+1 check] req:%d type:%d\n",
-					req_stream_data->frame_seq_no, type);
+					"[SWD] switch req toggle check req:%d type:%d\n",
+					req_stream_data->frame_seq_no,
+					req_stream_data->feature.switch_feature_type);
 			}
 		}
 	}

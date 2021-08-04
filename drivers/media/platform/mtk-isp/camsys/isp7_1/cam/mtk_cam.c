@@ -1256,6 +1256,35 @@ int mtk_cam_get_sensor_exposure_num(u32 raw_feature)
 	}
 	return result;
 }
+static int mtk_cam_req_update_ctrl(struct mtk_cam_ctx *ctx,
+			      struct mtk_cam_request_stream_data *req_stream_data)
+{
+	int raw_fut_pre, raw_fut_pre_try, raw_fut_cur_try;
+
+	raw_fut_pre = ctx->pipe->res_config.raw_feature;
+	raw_fut_pre_try = ctx->pipe->try_res_config.raw_feature;
+	mtk_cam_req_ctrl_setup(ctx, req_stream_data->req);
+	raw_fut_cur_try = ctx->pipe->try_res_config.raw_feature;
+	if (raw_fut_pre_try != raw_fut_cur_try) {
+		req_stream_data->feature.switch_feature_type =
+			EXPOSURE_CHANGE_NONE;
+		ctx->pipe->res_config.raw_feature = raw_fut_pre_try;
+		ctx->pipe->try_res_config.raw_feature = raw_fut_pre_try;
+		dev_info(ctx->cam->dev, "%s: invalid raw_feature judge, Real/Fake:%d/%d\n",
+			__func__, raw_fut_pre_try, raw_fut_cur_try);
+	} else {
+		if (raw_fut_cur_try != ctx->pipe->res_config.raw_feature) {
+			dev_info(ctx->cam->dev, "%s: correct set raw_feature, try/set:%d/%d\n",
+				__func__, raw_fut_cur_try, ctx->pipe->res_config.raw_feature);
+			ctx->pipe->res_config.raw_feature = raw_fut_cur_try;
+		}
+		req_stream_data->feature.switch_feature_type =
+			mtk_cam_get_feature_switch(ctx, raw_fut_pre);
+	}
+	req_stream_data->feature.raw_feature = ctx->pipe->res_config.raw_feature;
+
+	return 0;
+}
 
 static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			      struct mtk_cam_request *req)
@@ -1431,7 +1460,6 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	struct mtk_cam_request_stream_data *req_stream_data;
 	unsigned long flags;
 	int i;
-	int raw_fut_pre, raw_fut_pre_try, raw_fut_cur_try;
 
 	if (!cam->streaming_ctx) {
 		dev_dbg(cam->dev, "streams are off\n");
@@ -1471,25 +1499,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 		if (req_tmp->pipe_used & (1 << i)) {
 			if (is_raw_subdev(i)) {
 				req_stream_data = mtk_cam_req_get_s_data(req_tmp, i, 0);
-				raw_fut_pre = cam->ctxs[i].pipe->res_config.raw_feature;
-				raw_fut_pre_try = cam->ctxs[i].pipe->try_res_config.raw_feature;
-				mtk_cam_req_ctrl_setup(&cam->ctxs[i], req_tmp);
-				raw_fut_cur_try = cam->ctxs[i].pipe->try_res_config.raw_feature;
-				if (raw_fut_pre_try != raw_fut_cur_try) {
-					req_stream_data->feature.switch_feature_type =
-						EXPOSURE_CHANGE_NONE;
-					cam->ctxs[i].pipe->res_config.raw_feature = raw_fut_pre_try;
-					cam->ctxs[i].pipe->try_res_config.raw_feature =
-						raw_fut_pre_try;
-					dev_info(cam->dev, "%s: invalid raw_feature judge, Real/Fake:%d/%d\n",
-						__func__, raw_fut_pre_try, raw_fut_cur_try);
-				} else {
-					req_stream_data->feature.switch_feature_type =
-						mtk_cam_get_feature_switch(&cam->ctxs[i],
-									   raw_fut_pre);
-				}
-				req_stream_data->feature.raw_feature =
-					cam->ctxs[i].pipe->res_config.raw_feature;
+				mtk_cam_req_update_ctrl(&cam->ctxs[i], req_stream_data);
 			}
 		}
 	}
