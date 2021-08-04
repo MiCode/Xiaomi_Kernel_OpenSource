@@ -13,6 +13,8 @@
 #include "mtk_jpeg_core.h"
 
 #define JPEG_ENC_INT_STATUS_DONE	BIT(0)
+#define JPEG_ENC_INT_STATUS_STALL	BIT(1)
+
 #define JPEG_ENC_INT_STATUS_MASK_ALLIRQ	0x13
 
 #define JPEG_ENC_DST_ADDR_OFFSET_MASK	GENMASK(3, 0)
@@ -68,6 +70,13 @@
 #define JPEG_ENC_DCM_CTRL		0x300
 #define JPEG_ENC_CODEC_SEL		0x314
 #define JPEG_ENC_ULTRA_THRES		0x318
+#define JPEG_ENC_SRC_LUMA_ADDR_EXT      0x584
+#define JPEG_ENC_SRC_CHROMA_ADDR_EXT    0x588
+#define JPEG_ENC_Q_TBL_ADDR_EXT         0x58C
+#define JPEG_ENC_DEST_ADDR0_EXT         0x590
+#define JPEG_ENC_STALL_ADDR0_EXT        0x594
+
+
 
 /**
  * struct mtk_jpeg_enc_qlt - JPEG encoder quality data

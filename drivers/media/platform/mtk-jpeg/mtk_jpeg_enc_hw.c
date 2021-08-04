@@ -39,7 +39,7 @@ void mtk_jpeg_enc_reset(void __iomem *base)
 
 u32 mtk_jpeg_enc_get_file_size(void __iomem *base)
 {
-	return readl(base + JPEG_ENC_DMA_ADDR0) -
+	return readl(base + JPEG_ENC_DMA_ADDR0)*4 -
 	       readl(base + JPEG_ENC_DST_ADDR0);
 }
 
@@ -61,10 +61,15 @@ void mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,  void __iomem *base,
 	for (i = 0; i < src_buf->num_planes; i++) {
 		dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, i) +
 			   src_buf->planes[i].data_offset;
-		if (!i)
+		if (!i) {
+			pr_info("%s %d dma_addr %llx", __func__, __LINE__, dma_addr);
 			writel(dma_addr, base + JPEG_ENC_SRC_LUMA_ADDR);
-		else
+			writel(dma_addr >> 32, base + JPEG_ENC_SRC_LUMA_ADDR_EXT);
+		} else {
+			pr_info("%s %d dma_addr %llx", __func__, __LINE__, dma_addr);
 			writel(dma_addr, base + JPEG_ENC_SRC_CHROMA_ADDR);
+			writel(dma_addr >> 32, base + JPEG_ENC_SRC_CHROMA_ADDR_EXT);
+		}
 	}
 }
 
@@ -77,14 +82,17 @@ void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
 	u32 dma_addr_offsetmask;
 
 	dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
-	dma_addr_offset = ctx->enable_exif ? MTK_JPEG_MAX_EXIF_SIZE : 0;
+	dma_addr += ctx->dst_offset;
+	dma_addr_offset = 0;
 	dma_addr_offsetmask = dma_addr & JPEG_ENC_DST_ADDR_OFFSET_MASK;
 	size = vb2_plane_size(dst_buf, 0);
 
 	writel(dma_addr_offset & ~0xf, base + JPEG_ENC_OFFSET_ADDR);
 	writel(dma_addr_offsetmask & 0xf, base + JPEG_ENC_BYTE_OFFSET_MASK);
 	writel(dma_addr & ~0xf, base + JPEG_ENC_DST_ADDR0);
+	writel(dma_addr >> 32, base + JPEG_ENC_DEST_ADDR0_EXT);
 	writel((dma_addr + size) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
+	writel(((dma_addr + size)>>32), base + JPEG_ENC_STALL_ADDR0_EXT);
 }
 
 void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)

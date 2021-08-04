@@ -589,6 +589,20 @@ static int mtk_jpeg_enc_s_selection(struct file *file, void *priv,
 	return 0;
 }
 
+static int mtk_jpeg_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
+{
+	struct v4l2_fh *fh = file->private_data;
+	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
+
+
+	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		ctx->dst_offset = buf->m.planes[0].data_offset;
+		pr_info("%s %d data_offset %d\n", __func__, __LINE__, buf->m.planes[0].data_offset);
+	}
+
+	return v4l2_m2m_qbuf(file, fh->m2m_ctx, buf);
+}
+
 static const struct v4l2_ioctl_ops mtk_jpeg_enc_ioctl_ops = {
 	.vidioc_querycap                = mtk_jpeg_querycap,
 	.vidioc_enum_fmt_vid_cap	= mtk_jpeg_enum_fmt_vid_cap,
@@ -599,7 +613,7 @@ static const struct v4l2_ioctl_ops mtk_jpeg_enc_ioctl_ops = {
 	.vidioc_g_fmt_vid_out_mplane    = mtk_jpeg_g_fmt_vid_mplane,
 	.vidioc_s_fmt_vid_cap_mplane    = mtk_jpeg_s_fmt_vid_cap_mplane,
 	.vidioc_s_fmt_vid_out_mplane    = mtk_jpeg_s_fmt_vid_out_mplane,
-	.vidioc_qbuf                    = v4l2_m2m_ioctl_qbuf,
+	.vidioc_qbuf                    = mtk_jpeg_qbuf,
 	.vidioc_subscribe_event         = mtk_jpeg_subscribe_event,
 	.vidioc_g_selection		= mtk_jpeg_enc_g_selection,
 	.vidioc_s_selection		= mtk_jpeg_enc_s_selection,
@@ -1089,6 +1103,7 @@ static irqreturn_t mtk_jpeg_enc_done(struct mtk_jpeg_dev *jpeg)
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 
 	result_size = mtk_jpeg_enc_get_file_size(jpeg->reg_base);
+	pr_info("%s done size %d", __func__, result_size);
 	vb2_set_plane_payload(&dst_buf->vb2_buf, 0, result_size);
 
 	buf_state = VB2_BUF_STATE_DONE;
@@ -1112,6 +1127,9 @@ static irqreturn_t mtk_jpeg_enc_irq(int irq, void *priv)
 		     JPEG_ENC_INT_STATUS_MASK_ALLIRQ;
 	if (irq_status)
 		writel(0, jpeg->reg_base + JPEG_ENC_INT_STS);
+
+	if (irq_status & JPEG_ENC_INT_STATUS_STALL)
+		pr_info("irq stall need to check output buffer size");
 
 	if (!(irq_status & JPEG_ENC_INT_STATUS_DONE))
 		return ret;
@@ -1418,6 +1436,12 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	if (ret) {
 		v4l2_err(&jpeg->v4l2_dev, "Failed to register video device\n");
 		goto err_vfd_jpeg_register;
+	}
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	if (ret) {
+		dev_info(&pdev->dev, "34-bit DMA enable failed\n");
+		return ret;
 	}
 
 	video_set_drvdata(jpeg->vdev, jpeg);
