@@ -439,7 +439,8 @@ static const struct mml_comp_tile_ops rdma_tile_ops = {
 	.prepare = rdma_tile_prepare,
 };
 
-static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
+static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task,
+				struct mml_comp_config *ccfg)
 {
 	return RDMA_LABEL_TOTAL;
 }

@@ -238,7 +238,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	cache->label_cnt = 0;
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		cache->label_cnt += call_cfg_op(comp, get_label_count, task);
+		cache->label_cnt += call_cfg_op(comp, get_label_count, task, &ccfg[i]);
 	}
 
 	reuse->labels = kcalloc(cache->label_cnt, sizeof(*reuse->labels), GFP_KERNEL);

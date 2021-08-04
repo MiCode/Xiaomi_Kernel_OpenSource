@@ -453,7 +453,8 @@ static const struct mml_comp_tile_ops wrot_tile_ops = {
 	.prepare = wrot_tile_prepare,
 };
 
-static u32 wrot_get_label_count(struct mml_comp *comp, struct mml_task *task)
+static u32 wrot_get_label_count(struct mml_comp *comp, struct mml_task *task,
+				struct mml_comp_config *ccfg)
 {
 	return WROT_LABEL_TOTAL;
 }
