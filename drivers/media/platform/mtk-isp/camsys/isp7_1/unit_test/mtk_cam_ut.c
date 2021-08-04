@@ -36,6 +36,10 @@
 
 #define CAM_DEV_NAME "mtk_cam_ut"
 
+static int debug_testmdl_pixmode = -1;
+module_param(debug_testmdl_pixmode, int, 0644);
+MODULE_PARM_DESC(debug_testmdl_pixmode, "fixed pixel mode for testmdl");
+
 static int apply_next_req(struct mtk_cam_ut *ut)
 {
 	struct mtk_cam_ut_buf_entry *buf_entry;
@@ -414,6 +418,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case ISP_UT_IOCTL_SET_TESTMDL: {
 		struct cam_ioctl_set_testmdl testmdl;
+		int pixel_mode;
 
 		ut->is_dcif_camsv = 0;
 		ut->with_testmdl = 0;
@@ -422,6 +427,13 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				   sizeof(struct cam_ioctl_set_testmdl)) != 0) {
 			dev_dbg(dev, "Fail to get testmdl parameter\n");
 			return -EFAULT;
+		}
+
+		pixel_mode = testmdl.pixmode_lg2;
+		if (debug_testmdl_pixmode >= 0) {
+			dev_info(dev, "DEBUG: set testmdl pixel mode (log2) %d\n",
+				debug_testmdl_pixmode);
+			pixel_mode = debug_testmdl_pixmode;
 		}
 
 		// update hardware scenario
@@ -442,28 +454,28 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ut->is_dcif_camsv = 2;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_0, camsv_tg_0);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_1, camsv_tg_1);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_2, raw_tg_0);
 			} else if (testmdl.mode == stagger_2exp) {
 				ut->is_dcif_camsv = 1;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_0, camsv_tg_0);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_1, raw_tg_0);
 			}
 		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
@@ -472,25 +484,25 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ut->is_dcif_camsv = 2;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_0, camsv_tg_0);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_1, camsv_tg_1);
 			} else if (testmdl.mode == normal) {
 				ut->is_dcif_camsv = 1;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_0, camsv_tg_0);
 			}
 		} else {
 			if (ut->with_testmdl == 1) {
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   testmdl.pixmode_lg2, testmdl.pattern,
+					   pixel_mode, testmdl.pattern,
 					   seninf_0, raw_tg_0);
 			}
 		}

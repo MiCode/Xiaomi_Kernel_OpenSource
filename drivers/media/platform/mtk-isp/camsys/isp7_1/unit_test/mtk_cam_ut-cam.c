@@ -338,7 +338,7 @@ static void raw_handle_dma_err(struct mtk_ut_raw_device *raw)
 	void __iomem *base = raw->base;
 	void __iomem *yuv_base = raw->yuv_base;
 
-	dev_dbg_ratelimited(raw->dev,
+	dev_info_ratelimited(raw->dev,
 			    "IMGO:%x,YUVO_R1/R2/R3/R4/R5:%x/%x/%x/%x/%x\n",
 			    readl_relaxed(base + REG_IMGO_R1_ERR_STAT),
 			    readl_relaxed(yuv_base + REG_YUVO_R1_ERR_STAT),
@@ -348,7 +348,7 @@ static void raw_handle_dma_err(struct mtk_ut_raw_device *raw)
 			    readl_relaxed(yuv_base + REG_YUVO_R5_ERR_STAT)
 			   );
 
-	dev_dbg_ratelimited(raw->dev,
+	dev_info_ratelimited(raw->dev,
 			    "RZH1N2TO_R1/R2/R3:%x/%x/%x,DRZS4NO_R1/R2/R3:%x/%x/%x\n",
 			    readl_relaxed(yuv_base + REG_RZH1N2TO_R1_ERR_STAT),
 			    readl_relaxed(yuv_base + REG_RZH1N2TO_R2_ERR_STAT),
@@ -358,7 +358,7 @@ static void raw_handle_dma_err(struct mtk_ut_raw_device *raw)
 			    readl_relaxed(yuv_base + REG_DRZS4NO_R3_ERR_STAT)
 			   );
 
-	dev_dbg_ratelimited(raw->dev,
+	dev_info_ratelimited(raw->dev,
 			    "AAO/AAHO/LTMSO/FLKO/AFO:%x/%x/%x/%x/%x,TSFSO_R1/R2:%x/%x\n",
 			    readl_relaxed(base + REG_AAO_R1_ERR_STAT),
 			    readl_relaxed(base + REG_AAHO_R1_ERR_STAT),
@@ -369,7 +369,7 @@ static void raw_handle_dma_err(struct mtk_ut_raw_device *raw)
 			    readl_relaxed(base + REG_TSFSO_R2_ERR_STAT)
 			   );
 
-	dev_dbg_ratelimited(raw->dev,
+	dev_info_ratelimited(raw->dev,
 			    "RAWI_R2/R3:%x/%x,LSCI:%x,BPCI_R1/R2/R3:%x/%x/%x\n",
 			    readl_relaxed(base + REG_RAWI_R2_ERR_STAT),
 			    readl_relaxed(base + REG_RAWI_R3_ERR_STAT),
@@ -881,7 +881,7 @@ static void yuv_handle_dma_err(struct mtk_ut_yuv_device *raw)
 	//void __iomem *base = raw->base;
 	void __iomem *yuv_base = raw->base;
 
-	dev_dbg_ratelimited(raw->dev,
+	dev_info_ratelimited(raw->dev,
 			    "YUVO_R1/R2/R3/R4/R5:%x/%x/%x/%x/%x\n",
 			    readl_relaxed(yuv_base + REG_YUVO_R1_ERR_STAT),
 			    readl_relaxed(yuv_base + REG_YUVO_R2_ERR_STAT),
@@ -890,7 +890,7 @@ static void yuv_handle_dma_err(struct mtk_ut_yuv_device *raw)
 			    readl_relaxed(yuv_base + REG_YUVO_R5_ERR_STAT)
 			   );
 
-	dev_dbg_ratelimited(raw->dev,
+	dev_info_ratelimited(raw->dev,
 			    "RZH1N2TO_R1/R2/R3:%x/%x/%x,DRZS4NO_R1/R2/R3:%x/%x/%x\n",
 			    readl_relaxed(yuv_base + REG_RZH1N2TO_R1_ERR_STAT),
 			    readl_relaxed(yuv_base + REG_RZH1N2TO_R2_ERR_STAT),

@@ -17,6 +17,10 @@
 #include "mtk_cam_ut-engines.h"
 #include "mtk_cam_regs.h"
 
+static unsigned int testmdl_hblank = 0x80;
+module_param(testmdl_hblank, int, 0644);
+MODULE_PARM_DESC(testmdl_hblank, "h-blanking for testmdl");
+
 /* seninf */
 static int get_test_hmargin(int w, int h, int clk_cnt, int clk_mhz, int fps)
 {
@@ -34,7 +38,7 @@ static int ut_seninf_set_testmdl(struct device *dev,
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	void __iomem *base = seninf->base + seninf_idx * SENINF_OFFSET;
-	const u16 dummy_pxl = 0x80, h_margin = 0x1000;
+	const u16 dummy_pxl = testmdl_hblank, h_margin = 0x1000;
 	const u8 clk_div_cnt = (16 >> pixmode_lg2) - 1;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
