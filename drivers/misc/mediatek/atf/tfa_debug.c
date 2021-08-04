@@ -300,8 +300,6 @@ static ssize_t runtime_log_read(struct file *file,
 		copy_len++;
 		dmb(ish);
 	}
-	pr_info("%s %u copy_len:%u count:%u error:%d",
-		__func__, __LINE__, copy_len, count, error);
 	if (!error)
 		error = copy_len;
 
