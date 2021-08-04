@@ -356,6 +356,7 @@
 						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
 					};
 				};
+			};
 		};
 
 		lcm-ops {
@@ -372,7 +373,7 @@
 
 			lcm-ops-dsi {
 				compatible = "mediatek,lcm-ops-dsi";
-				prepare_size = <435>;
+				prepare_size = <411>;
 				prepare_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 15>,
 					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
@@ -800,7 +801,6 @@
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x35 0x82>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0xF0>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x5A 0x00>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1C 0x01>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x33 0x01>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x5A 0x00>,
