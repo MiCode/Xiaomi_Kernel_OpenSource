@@ -847,13 +847,14 @@
 			mcucfg-ver = <1>;
 			apmixedsys = <&cpu_pll>;
 			clk-div-base = <&cpu_mcucfg>;
-			pll-con = <0x40c>, <0x80c>, <0xc0c>;
-			clk-div = <0x10c>, <0x118>, <0x124>;
+			pll-con = <0x40c>, <0x80c>, <0xc0c>, <0x00c>;
+			clk-div = <0x10c>, <0x118>, <0x124>, <0x100>;
 
 			/* regulator */
 			proc1-supply = <&mt6373_vbuck9>; //L
 			proc2-supply = <&mt6319_7_vbuck1>; //BL
 			proc3-supply = <&mt6319_6_vbuck1>; //B
+			proc4-supply = <&mt6373_vbuck9>; //DSU
 		};
 
 		regulator_vibrator {

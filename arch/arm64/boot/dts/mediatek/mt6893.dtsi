@@ -1048,14 +1048,15 @@
 			reg-names="USRAM","CSRAM";
 			cslog-range =<0x03d0>,<0x0fa0>;
 
-			pll-con = <0x20c>, <0x22c>, <0x21c>;
-			clk-div = <0xa2a0>,<0xa2a4>,<0xa2b0>;
+			pll-con = <0x20c>, <0x22c>, <0x21c>, <0x25c>;
+			clk-div = <0xa2a0>, <0xa2a4>, <0xa2b0>, <0xa2e0>;
 			tbl-off = <4>,     <76>,    <148>,   <220>;
 			apmixedsys   = <&apmixedsys_clk>;
 			clk-div-base = <&cm_mgr>;
 			proc1-supply = <&mt6315_7_vbuck3>; //L
 			proc2-supply = <&mt6315_6_vbuck1>; //BL
 			proc3-supply = <&mt6315_6_vbuck1>; //B
+			proc4-supply = <&mt6315_7_vbuck3>; //DSU
 		};
 
 		dvfsp: dvfsp@0011bc00 {
