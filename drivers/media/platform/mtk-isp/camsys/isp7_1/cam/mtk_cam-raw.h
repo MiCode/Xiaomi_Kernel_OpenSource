@@ -16,8 +16,8 @@
 #define MTK_CAMSYS_RES_STEP_NUM	8
 #define _STAGGER_TRIGGER_CQ_BY_CAMSV_SOF 1
 /* FIXME: dynamic config image max/min w/h */
-#define IMG_MAX_WIDTH		5376
-#define IMG_MAX_HEIGHT		4032
+#define IMG_MAX_WIDTH		8192
+#define IMG_MAX_HEIGHT		6144
 #define IMG_MIN_WIDTH		80
 #define IMG_MIN_HEIGHT		60
 #define YUV_GROUP1_MAX_WIDTH	8160
