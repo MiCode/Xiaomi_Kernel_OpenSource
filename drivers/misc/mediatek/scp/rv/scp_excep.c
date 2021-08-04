@@ -699,11 +699,13 @@ static ssize_t scp_A_dump_show(struct file *filep,
 			pr_notice("[SCP] %s ramdump length=0 at of:0x%x sz:0x%x\n", __func__,
 				offset, size);
 		/* clean the buff after readed */
-		memset(scp_dump.ramdump + offset, 0x0, size);
+		/* memset(scp_dump.ramdump + offset, 0x0, size); */
 		/* log for the first and latest cleanup */
-		if (offset == 0 || offset > (scp_dump.ramdump_length - 0x1000))
-			pr_notice("[SCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
-				offset, size);
+		/*
+		 * if (offset == 0 || offset > (scp_dump.ramdump_length - 0x1000))
+		 *         pr_notice("[SCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
+		 *                 offset, size);
+		 */
 	}
 
 	mutex_unlock(&scp_excep_mutex);
