@@ -152,8 +152,7 @@ static void switch_port_to_device(struct ssusb_mtk *ssusb)
 
 	ssusb_port0_switch(ssusb, USB2_PORT, false);
 
-	if (ssusb->otg_switch.is_u3_drd &&
-		ssusb->u3d->max_speed >= USB_SPEED_SUPER) {
+	if (ssusb->otg_switch.is_u3_drd) {
 		ssusb_port0_switch(ssusb, USB3_PORT, false);
 		check_clk = SSUSB_U3_MAC_RST_B_STS;
 	}
