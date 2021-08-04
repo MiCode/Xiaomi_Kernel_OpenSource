@@ -7,6 +7,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/reset/ti-syscon.h>
 
 / {
 	model = "MT6895";
@@ -1640,6 +1641,51 @@
 	mminfra_bcrm_pdn@1e827000 {
 		compatible = "mediatek,mminfra_bcrm_pdn";
 		reg = <0 0x1e827000 0 0x1000>;
+	};
+
+	ufs_ao_config_clk: syscon@112b8000 {
+		compatible = "mediatek,mt6895-ufs_ao_config", "syscon";
+		reg = <0 0x112b8000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	ufs_pdn_cfg_clk: syscon@112bc000 {
+		compatible = "mediatek,mt6895-ufs_pdn_cfg", "syscon";
+		reg = <0 0x112bc000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	ufshci: ufshci@112b0000 {
+		compatible = "mediatek,mt8183-ufshci";
+		reg = <0 0x112b0000 0 0x2300>;
+		interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH 0>;
+#if 0
+		clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
+			   <&infracfg_ao_clk CLK_IFRAO_UFS_TICK>,
+			   <&infracfg_ao_clk CLK_IFRAO_UFS_AXI>,
+			   <&infracfg_ao_clk CLK_IFRAO_UFS_MP_SAP_BCLK>,
+			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_TICK>,
+			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_MBIST>,
+			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
+			   <&infracfg_ao_clk CLK_IFRAO_AES>;
+		clock-names = "ufs", "ufs_tick", "ufs_axi", "ufs_mp",
+			"unipro_tick", "unipro_mbist", "unipro_sys",
+			"crypt_infra";
+
+		freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
+				<0 0>, <0 0>, <0 0>;
+
+		vcc-supply = <&mt6359p_vemc_reg>;
+
+		resets = <&infracfg_rst 2>, <&infracfg_rst 3>,
+			 <&infracfg_rst 4>;
+		reset-names = "hci_rst", "unipro_rst", "crypto_rst";
+#endif
+
+		bootmode = <&chosen>;
+
+		mediatek,ufs-disable-ah8;
+		mediatek,ufs-qos;
 	};
 
 	gce@1e980000 {
