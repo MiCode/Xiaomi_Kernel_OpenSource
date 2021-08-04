@@ -46,7 +46,7 @@ static struct pbm_callback_table pbmcb_tb[DLPTCB_MAX_NUM] = { {0} };
 static struct pbm_gpu_callback_table pbm_gpu_cb = {0,0,0,0,0,0};
 #endif
 
-static struct hpf hpf_ctrl = {
+struct hpf hpf_ctrl = {
 	.switch_md1 = 1,
 	.switch_gpu = 0,
 	.switch_flash = 0,
@@ -132,7 +132,7 @@ static unsigned long hpf_get_power_gpu(void)
 		return 0;
 }
 
-static unsigned long hpf_get_power_flash(void)
+unsigned long hpf_get_power_flash(void)
 {
 	struct hpf *hpfmgr = &hpf_ctrl;
 
@@ -423,15 +423,16 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
 	bool pbm_enable = false;
 	bool pbm_update = false;
 
+	pbm_enable = pbm_func_enable_check();
+	if (!pbm_enable)
+		return;
+
 	pbm_update = pbm_update_table_info(kicker, mrpmgr);
 	if (!pbm_update)
 		return;
 	else
 		g_pbm_update = pbm_update;
 
-	pbm_enable = pbm_func_enable_check();
-	if (!pbm_enable)
-		return;
 }
 
 static void pbm_timer_add(int enable)
@@ -452,14 +453,14 @@ static void pbm_timer_add(int enable)
 
 void pbm_check_and_run_polling(int uisoc, int pbm_stop)
 {
-	if ((uisoc <= BAT_PERCENT_LIMIT && uisoc >= 0) &&
-		g_start_polling == 0 && pbm_stop == 0) {
+	if (((uisoc <= BAT_PERCENT_LIMIT && uisoc >= 0 && pbm_stop == 0)
+				|| pbm_stop == 2) && g_start_polling == 0) {
 		g_start_polling = 1;
 		pbm_timer_add(g_start_polling);
 		pr_info("[DLPT] pbm polling, soc=%d polling=%d stop=%d\n", uisoc,
 			g_start_polling, pbm_ctrl.pbm_stop);
-	} else if ((uisoc > BAT_PERCENT_LIMIT || pbm_stop == 1)
-		&& (g_start_polling == 1)) {
+	} else if (((uisoc > BAT_PERCENT_LIMIT && pbm_stop == 0)
+			|| pbm_stop == 1) && g_start_polling == 1) {
 		g_start_polling = 0;
 
 		pr_info("[DLPT] pbm release polling, soc=%d polling=%d stop=%d\n",
@@ -511,7 +512,7 @@ void kicker_pbm_by_cpu(unsigned int loading)
 	mtk_power_budget_manager(KR_CPU, &mrpmgr);
 }
 
-static void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
+void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 {
 	struct mrp mrpmgr = {0};
 
@@ -829,11 +830,11 @@ static ssize_t mt_pbm_stop_proc_write
 	if (strncmp(cmd, "stop", 4))
 		return -EINVAL;
 
-	if (stop == 0 || stop == 1) {
+	if (stop == 0 || stop == 1 || stop == 2) {
 		pbm_ctrl.pbm_stop = stop;
 		pbm_check_and_run_polling(uisoc, pbm_ctrl.pbm_stop);
 	} else
-		pr_notice("pbm stop should be 0 or 1\n");
+		pr_notice("pbm stop should be 0 or 1 or 2\n");
 
 	return count;
 }

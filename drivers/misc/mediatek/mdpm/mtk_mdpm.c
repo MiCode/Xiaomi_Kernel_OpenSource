@@ -1379,8 +1379,8 @@ int get_md1_scenario_power(enum md_scenario scenario,
 		break;
 	}
 	mdpm_pwr_sta->scenario_id = scenario;
-	sprintf(mdpm_pwr_sta->scenario_name, "%s",
-		mdpm_scen[scenario].scenario_name);
+	snprintf(mdpm_pwr_sta->scenario_name, sizeof(mdpm_pwr_sta->scenario_name),
+			"%s", mdpm_scen[scenario].scenario_name);
 	mdpm_pwr_sta->scanario_power = s_power;
 	mdpm_pwr_sta->power_type = power_type;
 
@@ -1594,6 +1594,7 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 		}
 
 	memset((void *)&mdpm_power_s_tmp, 0, sizeof(struct md_power_status));
+	tx_power_max = 0;
 
 	for (i = 0; i < MAX_DBM_FUNC_NUM; i++) {
 		rat = mdpm_scen[scenario].tx_power_rat[i];
