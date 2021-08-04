@@ -399,7 +399,7 @@
 	sensor4: sensor4@10 {
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
-
+		#thermal-sensor-cells = <0>;
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -473,6 +473,7 @@
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
 
+		#thermal-sensor-cells = <0>;
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -526,6 +527,7 @@
 		compatible = "mediatek,imgsensor";
 		reg = <0x1a>;
 
+		#thermal-sensor-cells = <0>;
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -625,6 +627,7 @@
 	sensor0: sensor0@1a {
 		compatible = "mediatek,imgsensor";
 		reg = <0x1a>;
+		#thermal-sensor-cells = <0>;
 
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
@@ -666,3 +669,27 @@
 		};
 	};
 };
+
+&thermal_zones {
+		camera0: camera0 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&sensor0>;
+		};
+		camera1: camera1 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&sensor1>;
+		};
+		camera2: camera2 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&sensor2>;
+		};
+		camera4: camera4 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&sensor4>;
+		};
+};
+
