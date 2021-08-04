@@ -123,6 +123,11 @@ struct cmdq_buf_pool {
 	u32 *limit;
 };
 
+struct cmdq_pkt_err {
+	bool	wfe_timeout;
+	u16		event;
+};
+
 struct cmdq_pkt {
 	struct list_head	buf;
 	size_t			avail_buf_size; /* available buf size */
@@ -152,6 +157,7 @@ struct cmdq_pkt {
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 	bool			task_alloc;
 	bool			task_alive;
+	struct cmdq_pkt_err	err_data;
 };
 
 struct cmdq_thread {

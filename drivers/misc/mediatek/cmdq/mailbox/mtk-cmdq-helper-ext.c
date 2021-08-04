@@ -1994,6 +1994,8 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 #endif
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
+		pkt->err_data.wfe_timeout = true;
+		pkt->err_data.event = inst->arg_a;
 		mod = cmdq_util_helper->event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
 		cmdq_util_aee(mod,
