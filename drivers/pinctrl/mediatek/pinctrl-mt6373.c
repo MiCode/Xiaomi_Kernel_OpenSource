@@ -34,6 +34,7 @@ static const struct mtk_pin_desc mtk_pins_mt6373[] = {
 	MTK_SIMPLE_PIN(11, "GPIO11", MTK_FUNCTION(0, "GPIO11")),
 	MTK_SIMPLE_PIN(12, "GPIO12", MTK_FUNCTION(0, "GPIO12")),
 	MTK_SIMPLE_PIN(13, "GPIO13", MTK_FUNCTION(0, "GPIO13")),
+	MTK_SIMPLE_PIN(0xFFFFFFFF, "DUMMY", MTK_FUNCTION(0, NULL)),
 };
 
 #define PIN_SIMPLE_FIELD_BASE(pin, addr, bit, width) {		\

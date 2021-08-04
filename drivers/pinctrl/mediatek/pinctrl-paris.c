@@ -1603,6 +1603,9 @@ int mt63xx_pinctrl_probe(struct platform_device *pdev,
 	 *       valid pin range can always using ">= hw->soc->npins"
 	 *  3. devm_pinctrl_register_and_init(): use actual pin count
 	 *  4. mt6373_build_gpiochip: use hw->soc->pins to register gpiochip
+	 *  5. at end of static const struct mtk_pin_desc mtk_pins_mtXXXX[],
+	 *       add a dummy pin declaration:
+	 *       MTK_SIMPLE_PIN(0xFFFFFFFF, "DUMMY", MTK_FUNCTION(0, NULL))
 	 */
 	if (hw->soc->capability_flags & FLAG_GPIO_START_IDX_1)
 		npins = hw->soc->npins - 1;
@@ -1615,7 +1618,7 @@ int mt63xx_pinctrl_probe(struct platform_device *pdev,
 	if (!pins)
 		return -ENOMEM;
 
-	for (i = 0; i < hw->soc->npins; i++) {
+	for (i = 0; i < npins; i++) {
 		pins[i].number = hw->soc->pins[i].number;
 		pins[i].name = hw->soc->pins[i].name;
 	}
