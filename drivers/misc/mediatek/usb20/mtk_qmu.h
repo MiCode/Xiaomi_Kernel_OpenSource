@@ -44,7 +44,7 @@
 /*#define TXZLP NO_ZLP */
 
 /* #define CFG_RX_ZLP_EN */
-/* #define CFG_RX_COZ_EN */
+#define CFG_RX_COZ_EN
 
 #define CFG_CS_CHECK
 /* #define CFG_EMPTY_CHECK */
