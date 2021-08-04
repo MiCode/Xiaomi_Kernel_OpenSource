@@ -1376,6 +1376,9 @@
 		<&mdpsys_config_clk CLK_MDP_SMI0>,
 		<&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_SMI0>,
 		<&mminfra_config_clk CLK_MMINFRA_CONFIG_SMI>,
+		<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_D>,
+		<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_M>,
+		<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>,
 		<&vdec_soc_gcon_base_clk CLK_VDE1_BASE_LARB1_CKEN>,
 		<&vdec_gcon_base_clk CLK_VDE2_BASE_LARB1_CKEN>;
 		clock-names = "ufs0_0",
@@ -1400,7 +1403,7 @@
 		"cam-0", "cam-1", "cam-2", "cam-3", "cam-4",
 		"dis0-0", "dis1-0",
 		"mdp0-0", "mdp1-0",
-		"mminfra-0",
+		"mminfra-0", "mminfra-1","mminfra-2","mminfra-3",
 		"vde0-0",
 		"vde1-0";
 		infracfg = <&infracfg_ao_clk>;
