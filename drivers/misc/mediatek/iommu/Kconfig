@@ -41,3 +41,10 @@ config MTK_IOMMU_MISC_TEST
 	  iova by dma-buf framework test and so on. We can need to ensure
 	  MTK iommu driver is available before iommu's masters use it by
 	  iommu test.
+
+config MTK_IOMMU_DEBUG
+	bool "Debugging log for Mediatek IOMMU"
+	help
+	  Select this to see the detailed log message that shows what
+	  happens in the IOMMU driver.
+	  If unsure, say N.

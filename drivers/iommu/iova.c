@@ -238,8 +238,10 @@ retry:
 			goto retry;
 		}
 		iovad->max32_alloc_size = size;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 		pr_info("[iommu_debug] %s fail, size:0x%lx,limit:0x%lx, new:0x%lx, start:0x%lx\n",
 			__func__, size, limit_pfn, new_pfn, iovad->start_pfn);
+#endif
 		goto iova32_full;
 	}
 
@@ -495,11 +497,13 @@ free_iova(struct iova_domain *iovad, unsigned long pfn)
 
 	if (iova)
 		__free_iova(iovad, iova);
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 	else {
 		pr_info("[iommu_debug] find iova fail!! start:0x%lx, cur:0x%lx\n",
 			iovad->start_pfn, pfn);
 		dump_stack();
 	}
+#endif
 }
 EXPORT_SYMBOL_GPL(free_iova);
 
