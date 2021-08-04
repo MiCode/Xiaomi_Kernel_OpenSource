@@ -518,10 +518,18 @@ static void cqhci_prep_task_desc_dbg(struct mmc_request *mrq,
 
 static bool is_dcmd_request(struct mmc_request *mrq)
 {
-	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
-	struct request *req = blk_mq_rq_from_pdu(mqrq);
+	struct mmc_queue_req *mqrq;
+	struct request *req;
 	struct mmc_queue *mq;
 	struct mmc_host *host;
+
+	/* skip non-cqe cmd */
+	if (PTR_ERR(mrq->completion.wait.task_list.next)
+		&& PTR_ERR(mrq->completion.wait.task_list.prev))
+		return false;
+
+	mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+	req = blk_mq_rq_from_pdu(mqrq);
 
 	if (!req || !req->q || !req->q->queuedata)
 		return false;
@@ -764,18 +772,18 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 static void record_mmc_send_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_start(__data, mmc, mrq);
-	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
 		__sd_store_buf_start(__data, mmc, mrq);
 }
 
 static void record_mmc_receive_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_end(__data, mmc, mrq);
-	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
 		__sd_store_buf_end(__data, mmc, mrq);
 }
 
@@ -1035,10 +1043,10 @@ int mmc_dbg_register(struct mmc_host *mmc)
 	int i, ret;
 	bool is_sd;
 
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO)) {
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC)) {
 		mtk_mmc_host[0] = mmc;
 		is_sd = false;
-	} else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO)) {
+	} else if (!(mmc->caps2 & MMC_CAP2_NO_SD)) {
 		mtk_mmc_host[1] = mmc;
 		is_sd = true;
 	} else /* SDIO no debug */
@@ -1060,8 +1068,6 @@ int mmc_dbg_register(struct mmc_host *mmc)
 		return ret;
 
 	spin_lock_init(&cmd_hist_lock);
-	cmd_hist_init = true;
-	cmd_hist_enabled = true;
 
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
@@ -1083,6 +1089,9 @@ int mmc_dbg_register(struct mmc_host *mmc)
 
 	/* Create control nodes in procfs */
 	ret = mmc_debug_init_procfs();
+
+	cmd_hist_init = true;
+	cmd_hist_enabled = true;
 
 	return ret;
 }
@@ -1113,6 +1122,8 @@ static int __init mmc_mtk_dbg_init(void)
 {
 	dbg_host_cnt = 0;
 	dbg_sd_cnt = 0;
+	cmd_hist_init = false;
+	cmd_hist_enabled = false;
 
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_MMC, mmc_mtk_dbg_get_aee_buffer);
 	return 0;
