@@ -414,7 +414,7 @@ static int _do_dump_dmabuf_fd(const void *data, struct file *file,
 		    file_count(dmabuf->file),
 		    dmabuf->exp_name?:"NULL");
 
-	new_node = kzalloc(sizeof(*new_node), GFP_KERNEL);
+	new_node = kzalloc(sizeof(*new_node), GFP_ATOMIC);
 	if (!new_node) {
 		fd_info->err = 1;
 		/* error case, add all */
