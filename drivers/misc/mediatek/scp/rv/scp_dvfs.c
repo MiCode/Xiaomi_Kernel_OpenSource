@@ -1506,7 +1506,7 @@ static int __init ulposc_cali_process_vlp(unsigned int cali_idx,
 	target_val = FM_FREQ2CNT(dvfs.ulposc_hw.cali_freq[cali_idx]);
 
 	/* phase1 */
-	if (dvfs.vlpck_bypass_phase1) {
+	if (!dvfs.vlpck_bypass_phase1) {
 		/* fixed in phase1 */
 		set_ulposc_cali_value(dvfs.ulposc_hw.ulposc_regs->_cali.init_config);
 		min = CAL_MIN_VAL_EXT;
