@@ -2011,6 +2011,13 @@ static int seq_print_regs(struct seq_file *s, void *v)
 	return 0;
 }
 
+static int seq_print_feature(struct seq_file *s, void *v)
+{
+	seq_puts(s, "clk: ready, power: ready\n");
+
+	return 0;
+}
+
 static const struct cmd_fn *custom_cmds;
 
 void set_custom_cmds(const struct cmd_fn *cmds)
@@ -2021,6 +2028,7 @@ void set_custom_cmds(const struct cmd_fn *cmds)
 static int clkdbg_cmds(struct seq_file *s, void *v);
 
 static const struct cmd_fn common_cmds[] = {
+	CMDFN("dump_feature", seq_print_feature),
 	CMDFN("dump_regs", seq_print_regs),
 	CMDFN("dump_regs2", clkdbg_dump_regs2),
 	CMDFN("dump_state", clkdbg_dump_state_all),
