@@ -10769,7 +10769,8 @@
 			};
 		};
 		mt6375_auxadc: auxadc {
-			compatible = "mediatek,mt6375-auxadc", "mediatek,pmic-auxadc";
+			compatible = "mediatek,pmic-auxadc",
+				     "mediatek,mt6375-auxadc";
 			interrupts = <MT6375_GM30_EVT>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
