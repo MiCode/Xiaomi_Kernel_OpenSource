@@ -160,6 +160,7 @@ struct mtk_camsv_pipeline {
 
 	/* special hardware scenario */
 	unsigned int hw_cap;
+	unsigned int cammux_id;
 	unsigned int hw_scen;
 	unsigned int master_pipe_id;
 	unsigned int is_first_expo;
@@ -176,6 +177,7 @@ struct mtk_camsv_device {
 	struct clk **clks;
 	struct mtk_camsv_pipeline *pipeline;
 	unsigned int hw_cap;
+	unsigned int cammux_id;
 
 	spinlock_t spinlock_irq;
 	unsigned int sof_count;

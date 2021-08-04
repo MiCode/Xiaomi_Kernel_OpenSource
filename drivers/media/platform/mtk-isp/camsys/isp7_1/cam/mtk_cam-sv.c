@@ -1396,6 +1396,7 @@ static int mtk_camsv_pipeline_register(
 
 	pipe->id = id;
 	pipe->hw_cap = camsv_dev->hw_cap;
+	pipe->cammux_id = camsv_dev->cammux_id;
 
 	/* Initialize subdev */
 	v4l2_subdev_init(sd, &mtk_camsv_subdev_ops);
@@ -1732,6 +1733,13 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 						       &sv->hw_cap);
 	if (ret) {
 		dev_dbg(dev, "missing hardware capability property\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,cammux-id",
+						       &sv->cammux_id);
+	if (ret) {
+		dev_dbg(dev, "missing cammux id property\n");
 		return ret;
 	}
 

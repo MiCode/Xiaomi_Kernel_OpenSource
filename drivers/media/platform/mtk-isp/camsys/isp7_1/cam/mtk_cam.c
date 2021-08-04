@@ -2998,6 +2998,8 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 }
 int PipeIDtoTGIDX(int pipe_id)
 {
+	/* camsv/mraw's cammux id is defined in its own dts */
+
 	switch (pipe_id) {
 	case MTKCAM_SUBDEV_RAW_0:
 					return 0;
@@ -3005,46 +3007,6 @@ int PipeIDtoTGIDX(int pipe_id)
 					return 1;
 	case MTKCAM_SUBDEV_RAW_2:
 					return 2;
-	case MTKCAM_SUBDEV_CAMSV_0:
-					return 3;
-	case MTKCAM_SUBDEV_CAMSV_1:
-					return 4;
-	case MTKCAM_SUBDEV_CAMSV_2:
-					return 5;
-	case MTKCAM_SUBDEV_CAMSV_3:
-					return 6;
-	case MTKCAM_SUBDEV_CAMSV_4:
-					return 7;
-	case MTKCAM_SUBDEV_CAMSV_5:
-					return 8;
-	case MTKCAM_SUBDEV_CAMSV_6:
-					return 19;
-	case MTKCAM_SUBDEV_CAMSV_7:
-					return 20;
-	case MTKCAM_SUBDEV_CAMSV_8:
-					return 21;
-	case MTKCAM_SUBDEV_CAMSV_9:
-					return 22;
-	case MTKCAM_SUBDEV_CAMSV_10:
-					return 9;
-	case MTKCAM_SUBDEV_CAMSV_11:
-					return 10;
-	case MTKCAM_SUBDEV_CAMSV_12:
-					return 11;
-	case MTKCAM_SUBDEV_CAMSV_13:
-					return 12;
-	case MTKCAM_SUBDEV_CAMSV_14:
-					return 13;
-	case MTKCAM_SUBDEV_CAMSV_15:
-					return 14;
-	case MTKCAM_SUBDEV_MRAW_0:
-					return 15;
-	case MTKCAM_SUBDEV_MRAW_1:
-					return 16;
-	case MTKCAM_SUBDEV_MRAW_2:
-					return 17;
-	case MTKCAM_SUBDEV_MRAW_3:
-					return 18;
 	default:
 			break;
 	}
@@ -3112,9 +3074,12 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						src_pad_idx,
 						ctx->pipe->res_config.tgo_pxl_mode);
 					mtk_cam_seninf_set_camtg(ctx->seninf, src_pad_idx,
-						PipeIDtoTGIDX(i));
+						cam->sv.pipelines[
+							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
 					dev_info(cam->dev, "seninf_set_camtg(src_pad:%d/i:%d/camtg:%d)",
-						src_pad_idx, i, PipeIDtoTGIDX(i));
+						src_pad_idx, i,
+						cam->sv.pipelines[
+							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
 					ret = mtk_cam_sv_dev_config(
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						(src_pad_idx == PAD_SRC_RAW0));
@@ -3136,7 +3101,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						src_pad_idx,
 						ctx->pipe->res_config.tgo_pxl_mode);
 					mtk_cam_seninf_set_camtg(ctx->seninf, src_pad_idx,
-						PipeIDtoTGIDX(i));
+						cam->sv.pipelines[
+							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
 					ret = mtk_cam_sv_dev_config(
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						0);
@@ -3175,7 +3141,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			mtk_cam_seninf_set_pixelmode(ctx->seninf, ctx->sv_pipe[i]->seninf_padidx,
 				3); /* use 8-pixel mode as default */
 			mtk_cam_seninf_set_camtg(ctx->seninf, ctx->sv_pipe[i]->seninf_padidx,
-						PipeIDtoTGIDX(ctx->sv_pipe[i]->id));
+				ctx->sv_pipe[i]->cammux_id);
 			ret = mtk_cam_sv_dev_config(ctx, i, 1, 0);
 			if (ret)
 				goto fail_pipe_off;

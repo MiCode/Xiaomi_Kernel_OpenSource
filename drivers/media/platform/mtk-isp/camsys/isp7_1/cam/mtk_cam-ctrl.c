@@ -706,7 +706,9 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		case EXPOSURE_CHANGE_1_to_2:
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
-			settings[0].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[0].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_main_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[0].enable = 1;
 
 			settings[1].seninf = ctx->seninf;
@@ -716,7 +718,9 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 
 			settings[2].seninf = ctx->seninf;
 			settings[2].source = PAD_SRC_RAW2;
-			settings[2].camtg  = PipeIDtoTGIDX(sv_sub_id);
+			settings[2].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_sub_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[2].enable = 0;
 			break;
 		case EXPOSURE_CHANGE_3_to_1:
@@ -728,24 +732,32 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
-			settings[1].camtg  = PipeIDtoTGIDX(sv_sub_id);
+			settings[1].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_sub_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[1].enable = 0;
 
 			settings[2].seninf = ctx->seninf;
 			settings[2].source = PAD_SRC_RAW2;
-			settings[2].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[2].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_main_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[2].enable = 0;
 			break;
 		case EXPOSURE_CHANGE_2_to_3:
 		case EXPOSURE_CHANGE_1_to_3:
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
-			settings[0].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[0].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_main_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[0].enable = 1;
 
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
-			settings[1].camtg  = PipeIDtoTGIDX(sv_sub_id);
+			settings[1].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_sub_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[1].enable = 1;
 
 			settings[2].seninf = ctx->seninf;
@@ -775,13 +787,17 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 			settings[0].enable = 1;
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
-			settings[1].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[1].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_main_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[1].enable = 0;
 			break;
 		case EXPOSURE_CHANGE_1_to_2:
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
-			settings[0].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[0].camtg  =
+				ctx->cam->sv.pipelines[
+					sv_main_id - MTKCAM_SUBDEV_CAMSV_START].cammux_id;
 			settings[0].enable = 1;
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
