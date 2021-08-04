@@ -120,10 +120,10 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 
 	req = NULL;
 
-	if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
-		is_sd = true;
-	else if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		is_sd = false;
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
+		is_sd = true;
 	else
 		return;
 
@@ -135,13 +135,19 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
 		req = blk_mq_rq_from_pdu(mqrq);
 	/* SD non-cqhci */
-	} else if (mrq->cmd->opcode == MMC_READ_SINGLE_BLOCK ||
+	} else if (is_sd &&
+		(mrq->cmd->opcode == MMC_READ_SINGLE_BLOCK ||
 		mrq->cmd->opcode == MMC_READ_MULTIPLE_BLOCK ||
 		mrq->cmd->opcode == MMC_WRITE_BLOCK ||
-		mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
+		mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK)) {
+		/* skip ioctl path such as RPMB test */
+		if (PTR_ERR(mrq->completion.wait.task_list.next)
+			&& PTR_ERR(mrq->completion.wait.task_list.prev))
+			return;
 		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
 		req = blk_mq_rq_from_pdu(mqrq);
-	}
+	} else
+		return;
 
 	if (req)
 		mtk_btag_commit_req(req, is_sd);
@@ -204,10 +210,10 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 	__u32 size;
 	bool is_sd;
 
-	if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
-		is_sd = true;
-	else if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		is_sd = false;
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
+		is_sd = true;
 	else
 		return;
 
@@ -339,10 +345,10 @@ void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask)
 	unsigned long flags;
 	bool is_sd;
 
-	if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
-		is_sd = true;
-	else if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		is_sd = false;
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
+		is_sd = true;
 	else
 		return;
 
