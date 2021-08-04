@@ -120,7 +120,7 @@ static unsigned int dbg_host_cnt;
 static unsigned int dbg_sd_cnt;
 
 static struct dbg_run_host_log dbg_run_host_log_dat[dbg_max_cnt];
-static struct dbg_run_host_log *dbg_run_sd_log_dat_p;
+static struct dbg_run_host_log dbg_run_sd_log_dat[sd_dbg_max_cnt];
 
 static unsigned int print_cpu_test = UINT_MAX;
 
@@ -570,6 +570,8 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 		dbg_run_host_log_dat[dbg_host_cnt].arg = lower_32_bits(*task_desc);
 		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
 		dbg_host_cnt++;
+		if (dbg_host_cnt >= dbg_max_cnt)
+			dbg_host_cnt = 0;
 		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
 		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
 		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
@@ -698,12 +700,12 @@ static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
 
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_sec = t;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_usec = nanosec_rem;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].type = 0;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].cmd = mrq->cmd->opcode;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].arg = mrq->cmd->arg;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].skip = 0;
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
+	dbg_run_sd_log_dat[dbg_sd_cnt].type = 0;
+	dbg_run_sd_log_dat[dbg_sd_cnt].cmd = mrq->cmd->opcode;
+	dbg_run_sd_log_dat[dbg_sd_cnt].arg = mrq->cmd->arg;
+	dbg_run_sd_log_dat[dbg_sd_cnt].skip = 0;
 	dbg_sd_cnt++;
 
 	if (dbg_sd_cnt >= sd_dbg_max_cnt)
@@ -743,12 +745,12 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	l_skip = skip;
 	skip = 0;
 
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_sec = t;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_usec = nanosec_rem;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].type = 1;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].cmd = mrq->cmd->opcode;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].arg = mrq->cmd->resp[0];
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].skip = l_skip;
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
+	dbg_run_sd_log_dat[dbg_sd_cnt].type = 1;
+	dbg_run_sd_log_dat[dbg_sd_cnt].cmd = mrq->cmd->opcode;
+	dbg_run_sd_log_dat[dbg_sd_cnt].arg = mrq->cmd->resp[0];
+	dbg_run_sd_log_dat[dbg_sd_cnt].skip = l_skip;
 	dbg_sd_cnt++;
 
 	if (dbg_sd_cnt >= sd_dbg_max_cnt)
@@ -835,12 +837,12 @@ void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		i = sd_dbg_max_cnt - 1;
 
 	for (j = 0; j < dump_cnt; j++) {
-		time_sec = dbg_run_sd_log_dat_p[i].time_sec;
-		time_usec = dbg_run_sd_log_dat_p[i].time_usec;
-		type = dbg_run_sd_log_dat_p[i].type;
-		cmd = dbg_run_sd_log_dat_p[i].cmd;
-		arg = dbg_run_sd_log_dat_p[i].arg;
-		skip = dbg_run_sd_log_dat_p[i].skip;
+		time_sec = dbg_run_sd_log_dat[i].time_sec;
+		time_usec = dbg_run_sd_log_dat[i].time_usec;
+		type = dbg_run_sd_log_dat[i].type;
+		cmd = dbg_run_sd_log_dat[i].cmd;
+		arg = dbg_run_sd_log_dat[i].arg;
+		skip = dbg_run_sd_log_dat[i].skip;
 
 		SPREAD_PRINTF(buff, size, m,
 		"%03d [%5llu.%06llu]%2d %3d %08x (%d)\n",
@@ -854,8 +856,8 @@ void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 	SPREAD_PRINTF(buff, size, m,
 		"SD claimed(%d), claim_cnt(%d), claimer pid(%d), comm %s\n",
 		mmc->claimed, mmc->claim_cnt,
-		mmc->claimer ? mmc->claimer->task->pid : 0,
-		mmc->claimer ? mmc->claimer->task->comm : "NULL");
+		mmc->claimer && mmc->claimer->task ? mmc->claimer->task->pid : 0,
+		mmc->claimer && mmc->claimer->task ? mmc->claimer->task->comm : "NULL");
 }
 
 
@@ -1084,20 +1086,12 @@ static int __init mmc_mtk_dbg_init(void)
 	dbg_host_cnt = 0;
 	dbg_sd_cnt = 0;
 
-	dbg_run_sd_log_dat_p = kcalloc(sd_dbg_max_cnt,
-			   sizeof(struct dbg_run_host_log),
-			   GFP_KERNEL);
-
-	/* if true, mmc_dbg_register() will do nothing */
-	if (!dbg_run_sd_log_dat_p)
-		cmd_hist_enabled = true;
-
 	return 0;
 }
 
 static void __exit mmc_mtk_dbg_exit(void)
 {
-	kfree(dbg_run_sd_log_dat_p);
+	return;
 }
 
 module_init(mmc_mtk_dbg_init);
