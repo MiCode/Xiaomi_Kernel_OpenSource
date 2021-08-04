@@ -106,6 +106,7 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	unsigned int gpueb_support = 0;
+	unsigned int gpueb_logger_support = 0;
 	struct device_node *node;
 
 	gpueb_pr_info("@%s: GPUEB driver probe start\n", __func__);
@@ -133,18 +134,24 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 	if (ret != 0)
 		gpueb_pr_info("@%s: plat service init fail\n", __func__);
 
-	gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
-	if (gpueb_logger_init(pdev,
-			gpueb_get_reserve_mem_virt(0),
-			gpueb_get_reserve_mem_size(0)) == -1) {
-		gpueb_pr_info("@%s: logger init fail\n", __func__);
-		goto err;
-	}
+	of_property_read_u32(pdev->dev.of_node, "gpueb-logger-support",
+			&gpueb_logger_support);
+	if (gpueb_logger_support == 1) {
+		gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
+		if (gpueb_logger_init(pdev,
+				gpueb_get_reserve_mem_virt(0),
+				gpueb_get_reserve_mem_size(0)) == -1) {
+			gpueb_pr_info("@%s: logger init fail\n", __func__);
+			goto err;
+		}
 
-	ret = gpueb_create_files();
-	if (unlikely(ret != 0)) {
-		gpueb_pr_info("@%s: create files fail\n", __func__);
-		goto err;
+		ret = gpueb_create_files();
+		if (unlikely(ret != 0)) {
+			gpueb_pr_info("@%s: create files fail\n", __func__);
+			goto err;
+		}
+	} else {
+		gpueb_pr_info("@%s: gpueb no logger support.\n", __func__);
 	}
 
 	gpueb_hw_voter_dbg_init();
