@@ -1017,7 +1017,7 @@ static bool get_user_by_file(struct file *filp, struct mtk_imgsys_user **user)
 
 		if ((*user)->fh == filp->private_data) {
 			found = true;
-			pr_info("%s: user(%x) found! id(%d)", __func__, (*user),
+			pr_debug("%s: user(%x) found! id(%d)", __func__, (*user),
 				(*user)->id);
 			break;
 		}
@@ -1935,7 +1935,7 @@ int mtk_imgsys_v4l2_fh_open(struct file *filp)
 	mutex_lock(&imgsys_dev->imgsys_users.user_lock);
 	list_add_tail(&user->entry, &imgsys_dev->imgsys_users.list);
 	mutex_unlock(&imgsys_dev->imgsys_users.user_lock);
-	pr_info("%s: id(%d)\n", __func__, user->id);
+	pr_debug("%s: id(%d)\n", __func__, user->id);
 	return 0;
 }
 
@@ -1946,7 +1946,7 @@ int mtk_imgsys_v4l2_fh_release(struct file *filp)
 	struct mtk_imgsys_dev *imgsys_dev = pipe->imgsys_dev;
 	int ret = 0;
 
-	pr_info("%s: filp(%x)\n", __func__, filp);
+	pr_debug("%s: filp(%x)\n", __func__, filp);
 	ret = get_user_by_file(filp, &user);
 	if (ret < 0) {
 		pr_info("%s: cannot find user\n", __func__);
@@ -1955,7 +1955,7 @@ int mtk_imgsys_v4l2_fh_release(struct file *filp)
 		mutex_lock(&imgsys_dev->imgsys_users.user_lock);
 		list_del(&user->entry);
 		mutex_unlock(&imgsys_dev->imgsys_users.user_lock);
-		pr_info("%s: id(%d)\n", __func__, user->id);
+		pr_debug("%s: id(%d)\n", __func__, user->id);
 		vfree(user);
 	}
 	vb2_fop_release(filp);
