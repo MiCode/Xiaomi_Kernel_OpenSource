@@ -853,10 +853,11 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		return -1;
 	}
 	dev_info(ctx->dev, "%s pixel mode%d\n", __func__, vc->pixel_mode);
-
-	if (ctx->buffered_pixel_rate)
-		pixel_rate = ctx->buffered_pixel_rate;
-	else if (ctx->mipi_pixel_rate)
+	//Use SensorPixelrate
+	//if (ctx->buffered_pixel_rate)
+	//	pixel_rate = ctx->buffered_pixel_rate;
+	//else
+	if (ctx->mipi_pixel_rate)
 		pixel_rate = ctx->mipi_pixel_rate;
 	else {
 		dev_info(ctx->dev, "failed to get pixel_rate\n");
@@ -1492,10 +1493,11 @@ int mtk_cam_seninf_calc_pixelrate(struct device *dev, s64 width, s64 height,
 
 	ret = calc_buffered_pixel_rate(dev, width, height, hblank, vblank,
 				       fps_n, fps_d, &p_pixel_rate);
-	if (ret)
-		return sensor_pixel_rate;
+	//if (ret)
+	//Use Sensor_pixel_rate
+	return sensor_pixel_rate;
 
-	return p_pixel_rate;
+	//return p_pixel_rate;
 }
 
 /* to be replaced by mtk_cam_seninf_calc_pixelrate() */
