@@ -148,13 +148,12 @@
 /**************************************************
  * Power Throttling Setting
  **************************************************/
-#define GPUFREQ_BATT_OC_ENABLE          (0)
+#define GPUFREQ_BATT_OC_ENABLE          (1)
 #define GPUFREQ_BATT_PERCENT_ENABLE     (0)
-#define GPUFREQ_LOW_BATT_ENABLE         (0)
-
-#define GPUFREQ_BATT_OC_IDX             (34)
-#define GPUFREQ_BATT_PERCENT_IDX        (34)
-#define GPUFREQ_LOW_BATT_IDX            (34)
+#define GPUFREQ_LOW_BATT_ENABLE         (1)
+#define GPUFREQ_BATT_OC_FREQ            (484000)
+#define GPUFREQ_BATT_PERCENT_IDX        (0)
+#define GPUFREQ_LOW_BATT_FREQ           (484000)
 
 /**************************************************
  * Adaptive Volt Scaling (AVS) Setting

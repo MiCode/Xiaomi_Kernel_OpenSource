@@ -1393,7 +1393,7 @@ int __gpufreq_get_batt_oc_idx(int batt_oc_level)
 {
 #if (GPUFREQ_BATT_OC_ENABLE && IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING))
 	if (batt_oc_level == BATTERY_OC_LEVEL_1)
-		return GPUFREQ_BATT_OC_IDX - g_stack.segment_upbound;
+		return __gpufreq_get_idx_by_fstack(GPUFREQ_BATT_OC_FREQ);
 	else
 		return GPUPPM_RESET_IDX;
 #else
@@ -1423,7 +1423,7 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 {
 #if (GPUFREQ_LOW_BATT_ENABLE && IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING))
 	if (low_batt_level == LOW_BATTERY_LEVEL_2)
-		return GPUFREQ_LOW_BATT_IDX - g_stack.segment_upbound;
+		return __gpufreq_get_idx_by_fstack(GPUFREQ_LOW_BATT_FREQ);
 	else
 		return GPUPPM_RESET_IDX;
 #else
@@ -2802,10 +2802,18 @@ static void __gpufreq_hw_dcm_control(void)
 
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [8]  GPU_SOCIF_MST_FREE_RUN = 1'b0 */
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [10] GPU_CLK_FREE_RUN = 1'b0 */
+	/* MFG_GLOBAL_CON 0x13FBF0B0 [13] mfg_m0_GALS_slpprot_idle_en = 1'b1 */
+	/* MFG_GLOBAL_CON 0x13FBF0B0 [14] mfg_m1_GALS_slpprot_idle_en = 1'b1 */
+	/* MFG_GLOBAL_CON 0x13FBF0B0 [17] mfg_m0_1_GALS_slpprot_idle_en = 1'b1 */
+	/* MFG_GLOBAL_CON 0x13FBF0B0 [18] mfg_m1_1_GALS_slpprot_idle_en = 1'b1 */
 	/* MFG_GLOBAL_CON 0x13FBF0B0 [21] dvfs_hint_cg_en = 1'b0 */
 	val = readl(g_mfg_top_base + 0xB0);
 	val &= ~(1UL << 8);
 	val &= ~(1UL << 10);
+	val |= (1UL << 13);
+	val |= (1UL << 14);
+	val |= (1UL << 17);
+	val |= (1UL << 18);
 	val &= ~(1UL << 21);
 	writel(val, g_mfg_top_base + 0xB0);
 
@@ -3725,12 +3733,12 @@ static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulv
 	GPUFREQ_LOGD("efuse_val1=0x%08x, efuse_val2=0x%08x, efuse_val3=0x%08x, efuse_val4=0x%08x",
 		efuse_val1, efuse_val2, efuse_val3, efuse_val4);
 
-	/* A_T0_ULVTLL_RT: 0x11EE0AA8 [9:0],   shift value: 0x708 */
-	*a_t0_ulvtll_rt = (efuse_val1  & 0x000003FF) + 0x708;
-	/* A_T0_LVT_RT   : 0x11EE0AA8 [19:10], shift value: 0x578 */
-	*a_t0_lvt_rt    = ((efuse_val1 & 0x000FFC00) >> 10) + 0x578;
-	/* A_T0_ULVT_RT  : 0x11EE0AA8 [29:20], shift value: 0x898 */
-	*a_t0_ulvt_rt   = ((efuse_val1 & 0x3FF00000) >> 20) + 0x898;
+	/* A_T0_ULVTLL_RT: 0x11EE0AA8 [9:0],   shift value: 0x5DC */
+	*a_t0_ulvtll_rt = (efuse_val1  & 0x000003FF) + 0x5DC;
+	/* A_T0_LVT_RT   : 0x11EE0AA8 [19:10], shift value: 0x4B0 */
+	*a_t0_lvt_rt    = ((efuse_val1 & 0x000FFC00) >> 10) + 0x4B0;
+	/* A_T0_ULVT_RT  : 0x11EE0AA8 [29:20], shift value: 0x708 */
+	*a_t0_ulvt_rt   = ((efuse_val1 & 0x3FF00000) >> 20) + 0x708;
 	/* A_shift_error : 0x11EE0AA8 [31] */
 	*a_shift_error  = ((efuse_val1 & 0x80000000) >> 31);
 	/* efuse_error   : A_shift_error | Reg(0x11EE0AA8) == 0 */
