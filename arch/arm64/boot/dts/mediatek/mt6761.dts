@@ -3457,6 +3457,11 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		compatible = "mediatek,bat_gm30";
 	};
 
+	iommu_test {
+		compatible = "mediatek,ktf-iommu-test";
+		iommus = <&iommu M4U_PORT_DISP_RDMA0>;
+		};
+
 	pseudo_m4u {
 		compatible = "mediatek,mt-pseudo_m4u";
 		iommus = <&iommu M4U_PORT_DISP_RDMA0>;

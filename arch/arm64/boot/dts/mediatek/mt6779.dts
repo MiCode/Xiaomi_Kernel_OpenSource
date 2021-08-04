@@ -4480,6 +4480,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		adapter_name = "pd_adapter";
 	};
 
+	iommu_test {
+		compatible = "mediatek,ktf-iommu-test";
+		iommus = <&iommu0 M4U_PORT_DISP_RDMA0>;
+		};
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		charger = <&mt6360_chg>;
