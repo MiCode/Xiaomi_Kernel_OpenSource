@@ -606,6 +606,9 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
 
+	if (desc->eint.eint_m == EINT_NO_GPIO)
+		return 0;
+
 	if (desc->eint.eint_m != NO_EINT_SUPPORT
 	 && desc->funcs[desc->eint.eint_m].name == 0)
 		return 0;

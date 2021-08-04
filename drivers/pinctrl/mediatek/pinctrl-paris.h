@@ -51,6 +51,20 @@
 			__VA_ARGS__, { } },				\
 	}
 
+#define MTK_PIN_NODRV(_number, _name, _eint, ...) {	\
+		.number = _number,			\
+		.name = _name,				\
+		.eint = _eint,				\
+		.funcs = (struct mtk_func_desc[]){	\
+			__VA_ARGS__, { } },		\
+	}
+
+#define MTK_PIN_EINT(_number, _eint) {			\
+		.number = _number,			\
+		.name = "GPIO"#_number,			\
+		.eint = MTK_EINT_FUNCTION(EINT_NO_GPIO, _eint),	\
+	}
+
 #define PINCTRL_PIN_GROUP(name, id)			\
 	{						\
 		name,					\

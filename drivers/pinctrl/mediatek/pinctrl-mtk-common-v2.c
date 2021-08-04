@@ -372,6 +372,9 @@ bool mtk_is_virt_gpio(struct mtk_pinctrl *hw, unsigned int gpio_n)
 	if (desc->eint.eint_m == NO_EINT_SUPPORT)
 		return virt_gpio;
 
+	if (desc->eint.eint_m == EINT_NO_GPIO)
+		virt_gpio = true;
+
 	if (desc->funcs && !desc->funcs[desc->eint.eint_m].name)
 		virt_gpio = true;
 
