@@ -39,7 +39,7 @@
 #define CCD_READY 1
 #define CCF_READY 0
 #define DVFS_READY 0
-#define SENINF_DVFS_READY 1
+#define SENINF_DVFS_READY 0
 
 #define MAX_STAGGER_EXP_AMOUNT 3
 
