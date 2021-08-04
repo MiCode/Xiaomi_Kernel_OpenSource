@@ -165,7 +165,7 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 				max_temp = current_temp;
 
 			lvts_data->sen_data[s_index].msr_raw = msr_raw;
-			lvts_data->sen_data[s_index].temp = current_temp;
+			WRITE_ONCE(lvts_data->sen_data[s_index].temp, current_temp);
 		}
 	}
 
@@ -180,7 +180,7 @@ static int soc_temp_lvts_read_temp(void *data, int *temperature)
 	if (lvts_tz->id == 0)
 		*temperature = lvts_read_all_tc_temperature(lvts_data);
 	else if (lvts_tz->id - 1 < lvts_data->num_sensor)
-		*temperature = lvts_data->sen_data[lvts_tz->id - 1].temp;
+		*temperature = READ_ONCE(lvts_data->sen_data[lvts_tz->id - 1].temp);
 	else
 		return -EINVAL;
 
