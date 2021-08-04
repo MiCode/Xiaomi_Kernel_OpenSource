@@ -10693,6 +10693,11 @@
 		compatible = "mediatek,mt6983-oc-debug";
 		status = "okay";
 	};
+
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
 };
 
 &i2c6 {

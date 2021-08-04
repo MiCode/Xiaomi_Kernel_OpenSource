@@ -1218,6 +1218,11 @@
 		status = "okay";
 		interrupts = <0 0x8 0 0>;
 	};
+
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
 };
 
 &i2c5 {
