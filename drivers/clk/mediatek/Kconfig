@@ -524,15 +524,6 @@ config COMMON_CLK_MT6879_ADSP
 	  If you wish to use clock resources from the adsp device,
 	  say Y. Otherwise, say N.
 
-config COMMON_CLK_MT6879_APU
-	tristate "Clock driver for MediaTek MT6879 apu"
-	depends on COMMON_CLK_MT6879
-	help
-	  This driver supports MediaTek MT6879 apu clocks,
-	  which is used to control apu clock output.
-	  If you wish to use clock resources from the apu device,
-	  say Y. Otherwise, say N.
-
 config COMMON_CLK_MT6879_CAM
 	tristate "Clock driver for MediaTek MT6879 cam"
 	depends on COMMON_CLK_MT6879

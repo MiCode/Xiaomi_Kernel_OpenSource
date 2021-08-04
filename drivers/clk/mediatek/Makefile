@@ -70,7 +70,6 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6879.c),)
 obj-$(CONFIG_COMMON_CLK_MT6879) += clk-mt6879.o clk-bringup.o
 obj-$(CONFIG_COMMON_CLK_MT6879_ADSP) += clk-mt6879-adsp.o
-obj-$(CONFIG_COMMON_CLK_MT6879_APU) += clk-mt6879-apu.o
 obj-$(CONFIG_COMMON_CLK_MT6879_CAM) += clk-mt6879-cam.o
 obj-$(CONFIG_COMMON_CLK_MT6879_CCU) += clk-mt6879-ccu.o
 obj-$(CONFIG_COMMON_CLK_MT6879_IMG) += clk-mt6879-img.o
