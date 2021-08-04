@@ -726,6 +726,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		config.config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
+					/* |MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW */
 
 		ut->subsample = config.config_param.input.subsample;
 

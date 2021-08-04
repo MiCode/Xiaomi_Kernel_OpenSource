@@ -210,6 +210,7 @@ struct mtkcam_ipi_hw_mapping {
 #define MTK_CAM_IPI_CONFIG_TYPE_INIT			0x0001
 #define MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE		0x0002
 #define MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE		0x0004
+#define MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW		0x0008
 
 struct mtkcam_ipi_config_param {
 	__u8 flags;
