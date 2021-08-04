@@ -33,6 +33,26 @@
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
 
+static unsigned int debug_raw;
+module_param(debug_raw, uint, 0644);
+MODULE_PARM_DESC(debug_raw, "activates debug info");
+
+static int debug_raw_num = -1;
+module_param(debug_raw_num, int, 0644);
+MODULE_PARM_DESC(debug_raw_num, "debug: num of used raw devices");
+
+static int debug_pixel_mode = -1;
+module_param(debug_pixel_mode, int, 0644);
+MODULE_PARM_DESC(debug_pixel_mode, "debug: pixel mode");
+
+static int debug_clk_idx = -1;
+module_param(debug_clk_idx, int, 0644);
+MODULE_PARM_DESC(debug_clk_idx, "debug: clk idx");
+
+static int debug_dump_fbc;
+module_param(debug_dump_fbc, int, 0644);
+MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
+
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
 
@@ -1133,6 +1153,36 @@ static int mtk_raw_pixelmode_calc(int rawpxl, int b_twin, bool b_bin,
 	return pixelmode;
 }
 
+static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
+				       struct mtk_cam_resource_config *res,
+				       int *clk_idx)
+{
+	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
+
+	/* skip if debug is not enabled */
+	if (!debug_raw)
+		return;
+
+	if (debug_raw_num > 0) {
+		dev_info(cam->dev, "DEBUG: force raw_num_used: %d\n",
+			 debug_raw_num);
+		res->raw_num_used = debug_raw_num;
+	}
+
+	if (debug_pixel_mode >= 0) {
+		dev_info(cam->dev, "DEBUG: force debug_pixel_mode (log2): %d\n",
+			 debug_pixel_mode);
+		res->tgo_pxl_mode = debug_pixel_mode;
+	}
+
+	if (debug_clk_idx >= 0) {
+		dev_info(cam->dev, "DEBUG: force debug_clk_idx: %d\n",
+			 debug_clk_idx);
+		*clk_idx = debug_clk_idx;
+		res->clk_target = clk->clklv[debug_clk_idx];
+	}
+}
+
 static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 				  struct mtk_cam_resource_config *res,
 				  s64 pixel_rate, int res_plan,
@@ -1256,6 +1306,7 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			frz_en, twin_en, clk_cur, lb_chk_res, pixel_mode[idx],
 			eq_throughput);
 	}
+
 	tgo_pxl_mode = pixel_mode[idx_res];
 	switch (tgo_pxl_mode) {
 	case 1:
@@ -1273,9 +1324,12 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	default:
 		break;
 	}
-	eq_throughput = ((u64)tgo_pxl_mode) * res->clk_target;
+
+	mtk_raw_update_debug_param(cam, res, &clk_res);
+
+	eq_throughput = ((u64)(1 << res->tgo_pxl_mode)) * res->clk_target;
 	if (res_found) {
-		dev_dbg(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d:%10llu, clk:%d\n",
+		dev_info(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d:%10llu, clk:%d\n",
 			idx_res, res->bin_enable, res->frz_enable, res->frz_ratio,
 			res->raw_num_used, clk_res, res->tgo_pxl_mode, eq_throughput,
 			res->clk_target);
@@ -1534,11 +1588,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		}
 	}
 
-	/* enable to debug fbc related
-	 * if (irq_status & SOF_INT_ST)
-	 *     mtk_cam_raw_dump_fbc(raw_dev->dev,
-	 *                          raw_dev->base, raw_dev->yuv_base);
-	 */
+	/* enable to debug fbc related */
+	if (debug_raw && debug_dump_fbc && (irq_status & SOF_INT_ST))
+		mtk_cam_raw_dump_fbc(raw_dev->dev,
+				     raw_dev->base, raw_dev->yuv_base);
 
 ctx_not_found:
 
@@ -1848,7 +1901,7 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 			selected = true;
 		}
 	} else if (pipe->res_config.raw_num_used == 2) {
-		for (m = MTKCAM_SUBDEV_RAW_1; m >= MTKCAM_SUBDEV_RAW_0; m--) {
+		for (m = MTKCAM_SUBDEV_RAW_0; m >= MTKCAM_SUBDEV_RAW_0; m--) {
 			mask = (1 << m) | (1 << (m + 1));
 			if (!(raw_status & mask)) {
 				pipe->enabled_raw |= mask;
