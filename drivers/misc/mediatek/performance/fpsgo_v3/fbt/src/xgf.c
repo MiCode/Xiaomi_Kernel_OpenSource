@@ -97,6 +97,9 @@ EXPORT_SYMBOL(xgff_est_runtime_fp);
 int (*xgff_update_start_prev_index_fp)(struct xgf_render *render);
 EXPORT_SYMBOL(xgff_update_start_prev_index_fp);
 
+long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
+EXPORT_SYMBOL(xgf_ema2_predict_fp);
+
 void xgff_clean_deps_list(struct xgf_render *render, int pos)
 {
 }
@@ -1764,7 +1767,7 @@ void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
 	struct xgf_render *r, **rrender;
 
 	rrender = &r;
-	if (!xgf_get_render(pid, bufID, rrender, 1))
+	if (!xgf_get_render(pid, bufID, rrender, 0))
 		ret = 1;
 
 	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
