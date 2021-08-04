@@ -126,14 +126,14 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.slim_video = {
 			.pclk = 560000000,
 			.linelength = 5088,
-			.framelength = 3668,
+			.framelength = 917,
 			.startx = 0,
 			.starty = 0,
-			.grabwindow_width = 2320,
-			.grabwindow_height = 1744,
+			.grabwindow_width = 640,
+			.grabwindow_height = 480,
 			.mipi_data_lp2hs_settle_dc = 85,
-			.mipi_pixel_rate = 269400000,
-			.max_framerate = 300,
+			.mipi_pixel_rate = 278400000,
+			.max_framerate = 1200,
 		},
 		.margin = 3,
 		.min_shutter = 3,
@@ -159,35 +159,33 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.isp_driving_current = ISP_DRIVING_2MA,
 		.sensor_interface_type = SENSOR_INTERFACE_TYPE_MIPI,
 		.mipi_sensor_type = MIPI_OPHY_NCSI2,
-		/*0,MIPI_OPHY_NCSI2;  1,MIPI_OPHY_CSI2*/
 		.mipi_settle_delay_mode = 1,
-		/*0,MIPI_SETTLEDELAY_AUTO; 1,MIPI_SETTLEDELAY_MANNUAL*/
 		.sensor_output_dataformat =
 			SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gr,
 		.mclk = 24,
 		.mipi_lane_num = SENSOR_MIPI_4_LANE,
-		.i2c_addr_table = {0x21, 0x20, 0xff},
+		.i2c_addr_table = {0x20, 0xff},
 		.i2c_speed = 1000,
 };
 
 /* Sensor output window information */
 /*no mirror flip*/
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
-	{4640, 3488, 0000, 0000, 4640, 3488, 2320, 1744,
-	 0000, 0000, 2320, 1744, 0000, 0000, 2320, 1744},/* Preview */
+	{4640, 3488,    0,    0, 4640, 3488, 2320, 1744,
+	    0,    0, 2320, 1744,    0,    0, 2320, 1744},/* Preview */
 #if USE_REMOSAIC
-	{4640, 3488, 0000, 0000, 4640, 3488, 4640, 3488,
-	 0000, 0000, 4640, 3488, 0000, 0000, 4640, 3488},/* Capture Remosaic */
+	{4640, 3488,    0,    0, 4640, 3488, 4640, 3488,
+	    0,    0, 4640, 3488,    0,    0, 4640, 3488},/* Capture Remosaic */
 #else
-	{4640, 3488, 0000, 0000, 4640, 3488, 2320, 1744,
-	 0000, 0000, 2320, 1744, 0000, 0000, 2320, 1744},/* Capture == Preview*/
+	{4640, 3488,    0,    0, 4640, 3488, 2320, 1744,
+	    0,    0, 2320, 1744,    0,    0, 2320, 1744},/* Capture == Preview*/
 #endif
-	{4640, 3488, 0400, 0664, 3840, 2160, 1920, 1080,
-	 0000, 0000, 1920, 1080, 0000, 0000, 1920, 1080},/* Video */
-	{4640, 3488, 0400, 0664, 3840, 2160, 1920, 1080,
-	 0000, 0000, 1920, 1080, 0000, 0000, 1920, 1080},/* hs_video == Video */
-	{4640, 3488, 0000, 0000, 4640, 3488, 2320, 1744,
-	 0000, 0000, 2320, 1744, 0000, 0000, 2320, 1744},/* slim_video == Preview */
+	{4640, 3488,  400,  664, 3840, 2160, 1920, 1080,
+	    0,    0, 1920, 1080,    0,    0, 1920, 1080},/* Video */
+	{4640, 3488,  400,  664, 3840, 2160, 1920, 1080,
+	    0,    0, 1920, 1080,    0,    0, 1920, 1080},/* hs_video == Video */
+	{4640, 3488, 1024,  784, 2592, 1920, 1296,  960,
+	  328,  240,  640,  480,    0,    0,  640,  480},/* slim_video */
 };
 
 static void set_dummy(struct subdrv_ctx *ctx)
@@ -595,8 +593,8 @@ static void hs_video_setting(struct subdrv_ctx *ctx)
 
 static void slim_video_setting(struct subdrv_ctx *ctx)
 {
-	s5k3p9sp_table_write_cmos_sensor_16(ctx, addr_data_pair_preview,
-		   sizeof(addr_data_pair_preview) / sizeof(kal_uint16));
+	s5k3p9sp_table_write_cmos_sensor_16(ctx, addr_data_pair_slim_video,
+		   sizeof(addr_data_pair_slim_video) / sizeof(kal_uint16));
 	LOG_INF("E\n");
 }	/*	slim_video_setting  */
 
@@ -806,6 +804,7 @@ static kal_uint32 preview(struct subdrv_ctx *ctx,
 
 	preview_setting(ctx);
 
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/*	preview   */
 
@@ -829,13 +828,8 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
 	LOG_INF("E\n");
+
 	ctx->sensor_mode = IMGSENSOR_MODE_CAPTURE;
-	if (ctx->current_fps != imgsensor_info.cap.max_framerate) {
-		LOG_INF("Warning: current_fps %d fps is not support",
-			ctx->current_fps);
-		LOG_INF("so use cap's setting: %d fps!\n",
-			imgsensor_info.cap.max_framerate / 10);
-	}
 	ctx->pclk = imgsensor_info.cap.pclk;
 	ctx->line_length = imgsensor_info.cap.linelength;
 	ctx->frame_length = imgsensor_info.cap.framelength;
@@ -844,6 +838,7 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 
 	capture_setting(ctx);
 
+	LOG_INF("X\n");
 	return ERROR_NONE;
 } /* capture(ctx) */
 
@@ -862,6 +857,7 @@ static kal_uint32 normal_video(struct subdrv_ctx *ctx,
 
 	normal_video_setting(ctx);
 
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/*	normal_video   */
 
@@ -869,7 +865,7 @@ static kal_uint32 hs_video(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("HS_Video E\n");
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_HIGH_SPEED_VIDEO;
 	ctx->pclk = imgsensor_info.hs_video.pclk;
@@ -882,6 +878,7 @@ static kal_uint32 hs_video(struct subdrv_ctx *ctx,
 
 	hs_video_setting(ctx);
 
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/*	hs_video   */
 
@@ -902,6 +899,7 @@ static kal_uint32 slim_video(struct subdrv_ctx *ctx,
 
 	slim_video_setting(ctx);
 
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/*	slim_video	 */
 
@@ -1484,8 +1482,6 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		switch (*(feature_data + 1)) {
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-			*feature_return_para_32 = 4;
-			break;
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 			*feature_return_para_32 = 4;
@@ -1615,6 +1611,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	},
 };
 
+static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0280,
+			.vsize = 0x01e0,
+		},
+	},
+};
+
 static int get_frame_desc(struct subdrv_ctx *ctx,
 		int scenario_id, struct mtk_mbus_frame_desc *fd)
 {
@@ -1629,10 +1636,16 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 		fd->num_entries = ARRAY_SIZE(frame_desc_cap);
 		memcpy(fd->entry, frame_desc_cap, sizeof(frame_desc_cap));
 		break;
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_vid);
 		memcpy(fd->entry, frame_desc_vid, sizeof(frame_desc_vid));
+		break;
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_slim_vid);
+		memcpy(fd->entry, frame_desc_slim_vid, sizeof(frame_desc_slim_vid));
 		break;
 	default:
 		return -1;
