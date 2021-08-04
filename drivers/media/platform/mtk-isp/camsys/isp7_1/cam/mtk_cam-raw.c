@@ -3747,7 +3747,7 @@ static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUE
 	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2",
 	 "mtk-cam raw-0 rawi-3", "mtk-cam raw-0 rawi-4"},
 	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2",
-	 "mtk-cam raw-1 rawi 3", "mtk-cam raw-1 rawi-4"},
+	 "mtk-cam raw-1 rawi-3", "mtk-cam raw-1 rawi-4"},
 };
 
 struct mtk_cam_pad_ops source_pad_ops_default = {
