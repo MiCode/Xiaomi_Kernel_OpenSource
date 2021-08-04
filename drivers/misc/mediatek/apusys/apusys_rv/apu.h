@@ -28,7 +28,7 @@ struct mtk_apu_hw_ops {
 
 #define F_PRELOAD_FIRMWARE	BIT(0)
 #define F_IS_BRINGUP		BIT(1)
-#define F_VDRAM_BOOT		BIT(2)
+#define F_BYPASS_IOMMU		BIT(2)
 #define F_SECURE_BOOT		BIT(3)
 #define F_SECURE_COREDUMP	BIT(4)
 
@@ -38,17 +38,9 @@ struct mtk_apu_platdata {
 };
 
 struct apusys_secure_info_t {
+	unsigned int total_sz;
 	unsigned int up_code_buf_ofs;
 	unsigned int up_code_buf_sz;
-
-	unsigned int up_coredump_ofs;
-	unsigned int up_coredump_sz;
-	unsigned int mdla_coredump_ofs;
-	unsigned int mdla_coredump_sz;
-	unsigned int mvpu_coredump_ofs;
-	unsigned int mvpu_coredump_sz;
-	unsigned int mvpu_sec_coredump_ofs;
-	unsigned int mvpu_sec_coredump_sz;
 
 	unsigned int up_fw_ofs;
 	unsigned int up_fw_sz;
@@ -68,6 +60,15 @@ struct apusys_secure_info_t {
 	unsigned int mvpu_sec_fw_sz;
 	unsigned int mvpu_sec_xfile_ofs;
 	unsigned int mvpu_sec_xfile_sz;
+
+	unsigned int up_coredump_ofs;
+	unsigned int up_coredump_sz;
+	unsigned int mdla_coredump_ofs;
+	unsigned int mdla_coredump_sz;
+	unsigned int mvpu_coredump_ofs;
+	unsigned int mvpu_coredump_sz;
+	unsigned int mvpu_sec_coredump_ofs;
+	unsigned int mvpu_sec_coredump_sz;
 };
 
 struct apusys_aee_coredump_info_t {
@@ -102,16 +103,20 @@ struct mtk_apu {
 	void *md32_sysctrl;
 	void *md32_debug_apb;
 	void *apu_mbox;
-	void *apu_img_base;
-	struct apusys_aee_coredump_info_t *apusys_aee_coredump_info;
+	void *apu_sec_mem_base;
+	void *apu_aee_coredump_mem_base;
 	void *coredump_buf;
 	dma_addr_t coredump_da;
 	int wdt_irq_number;
 	int mbox0_irq_number;
 	spinlock_t reg_lock;
 
-	uint32_t apusys_res_mem_start;
-	uint32_t apusys_res_mem_size;
+	struct apusys_secure_info_t *apusys_sec_info;
+	struct apusys_aee_coredump_info_t *apusys_aee_coredump_info;
+	uint32_t apusys_sec_mem_start;
+	uint32_t apusys_sec_mem_size;
+	uint32_t apusys_aee_coredump_mem_start;
+	uint32_t apusys_aee_coredump_mem_size;
 
 	/* Buffer to place execution area */
 	void *code_buf;
@@ -153,6 +158,7 @@ struct mtk_apu {
 #define DRAM_DUMP_OFFSET (TCM_SIZE)
 #define TCM_OFFSET (0x1d000000UL)
 #define CODE_BUF_DA (DRAM_OFFSET)
+#define APU_SEC_FW_IOVA (0x200000UL)
 
 struct apu_coredump {
 	char tcmdump[TCM_SIZE];

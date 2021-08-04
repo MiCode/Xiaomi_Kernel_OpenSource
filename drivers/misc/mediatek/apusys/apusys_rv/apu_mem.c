@@ -23,7 +23,7 @@ int apu_mem_init(struct mtk_apu *apu)
 		return -ENOMEM;
 	}
 
-	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0) {
+	if ((apu->platdata->flags & F_BYPASS_IOMMU) == 0) {
 		ret = dma_set_mask_and_coherent(apu->dev, DMA_BIT_MASK(34));
 		if (ret) {
 			pr_info("%s: dma_set_mask_and_coherent fail(%d)\n", __func__, ret);

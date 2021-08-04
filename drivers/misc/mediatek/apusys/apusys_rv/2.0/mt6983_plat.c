@@ -39,7 +39,7 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 			apu->apu_sctrl_reviser + SECUREFW_CTXT);
 
 		/* setup iommu ctrl(mmu_ctrl | mmu_en) */
-		if (apu->platdata->flags & F_VDRAM_BOOT)
+		if (apu->platdata->flags & F_BYPASS_IOMMU)
 			iowrite32(0x2, apu->apu_sctrl_reviser + UP_IOMMU_CTRL);
 		else
 			iowrite32(0x3, apu->apu_sctrl_reviser + UP_IOMMU_CTRL);
@@ -64,7 +64,7 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 			__func__,
 			ioread32(apu->apu_sctrl_reviser + SECUREFW_CTXT));
 
-		if (apu->platdata->flags & F_VDRAM_BOOT) {
+		if (apu->platdata->flags & F_BYPASS_IOMMU) {
 			spin_lock_irqsave(&apu->reg_lock, flags);
 			/* vld=1, partial_enable=1 */
 			iowrite32(0x7,
@@ -149,7 +149,7 @@ static void apu_setup_boot(struct mtk_apu *apu)
 		 * 0x1d000000 no matter what value boot_addr is
 		 */
 		spin_lock_irqsave(&apu->reg_lock, flags);
-		if (apu->platdata->flags & F_VDRAM_BOOT)
+		if (apu->platdata->flags & F_BYPASS_IOMMU)
 			iowrite32((u32)apu->code_da,
 				apu->apu_ao_ctl + MD32_BOOT_CTRL);
 		else
@@ -357,7 +357,7 @@ static void mt6983_rv_cachedump(struct mtk_apu *apu)
 }
 
 const struct mtk_apu_platdata mt6983_platdata = {
-	.flags		= 0,
+	.flags		= F_PRELOAD_FIRMWARE,
 	.ops		= {
 		.init	= mt6983_rproc_init,
 		.exit	= mt6983_rproc_exit,

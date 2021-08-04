@@ -32,7 +32,7 @@
 #include "sw_logger.h"
 
 #define SW_LOGGER_DEV_NAME "apu_sw_logger"
-#define VDRAM_BOOT (0)
+#define BYPASS_IOMMU (0)
 
 DEFINE_SPINLOCK(sw_logger_spinlock);
 
@@ -106,7 +106,7 @@ static ssize_t show_debuglv(struct file *filp, char __user *buffer,
 
 static void sw_logger_buf_invalidate(void)
 {
-	if (!VDRAM_BOOT)
+	if (!BYPASS_IOMMU)
 		if (sw_logger_dev)
 			dma_sync_single_for_cpu(
 				sw_logger_dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
@@ -122,7 +122,7 @@ static int sw_logger_buf_alloc(struct device *dev)
 		return -ENOMEM;
 	}
 
-	if (!VDRAM_BOOT) {
+	if (!BYPASS_IOMMU) {
 		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 		if (ret) {
 			dev_info(sw_logger_dev, "%s: dma_set_coherent_mask fail(%d)\n",
@@ -131,7 +131,7 @@ static int sw_logger_buf_alloc(struct device *dev)
 		}
 	}
 
-	if (!VDRAM_BOOT) {
+	if (!BYPASS_IOMMU) {
 		sw_log_buf = kmalloc(APU_LOG_SIZE, GFP_KERNEL);
 		dev_info(sw_logger_dev, "%s: sw_log_buf = 0x%llx\n",
 			__func__, (uint64_t) sw_log_buf);
@@ -837,7 +837,7 @@ static int sw_logger_remove(struct platform_device *pdev)
 
 	sw_logger_remove_procfs(dev);
 	sw_logger_remove_sysfs(dev);
-	if (!VDRAM_BOOT) {
+	if (!BYPASS_IOMMU) {
 		dma_unmap_single(dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
 		kfree(sw_log_buf);
 	}

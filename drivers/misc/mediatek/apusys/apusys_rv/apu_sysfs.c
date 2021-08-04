@@ -50,7 +50,7 @@ static ssize_t rv33_xfile(struct file *filep,
 	dev = container_of(kobj, struct device, kobj);
 	pdev = container_of(dev, struct platform_device, dev);
 	apu = platform_get_drvdata(pdev);
-	if (apu->platdata->flags & F_SECURE_COREDUMP) {
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
 		WARN_ON(!apu->apusys_aee_coredump_info->up_xfile_sz);
 		xfile_length = apu->apusys_aee_coredump_info->up_xfile_sz;
 	} else {
@@ -62,7 +62,8 @@ static ssize_t rv33_xfile(struct file *filep,
 			size = xfile_length - offset;
 
 		memcpy(buf,
-			apu->apu_img_base + apu->apusys_aee_coredump_info->up_xfile_ofs + offset,
+			apu->apu_aee_coredump_mem_base +
+			apu->apusys_aee_coredump_info->up_xfile_ofs + offset,
 			size);
 		length = size;
 	}

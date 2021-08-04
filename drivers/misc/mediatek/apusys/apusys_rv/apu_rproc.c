@@ -178,10 +178,12 @@ static void apu_dram_boot_remove(struct mtk_apu *apu)
 	if (apu->platdata->flags & F_SECURE_BOOT)
 		return;
 
-	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0)
+	if ((apu->platdata->flags & F_BYPASS_IOMMU) == 0)
 		if (domain != NULL)
 			iommu_unmap(domain, iova, CODE_BUF_SIZE);
-	dma_free_coherent(apu->dev, CODE_BUF_SIZE, apu->code_buf, apu->code_da);
+
+	if ((apu->platdata->flags & F_PRELOAD_FIRMWARE) == 0)
+		dma_free_coherent(apu->dev, CODE_BUF_SIZE, apu->code_buf, apu->code_da);
 }
 
 static int apu_dram_boot_init(struct mtk_apu *apu)
@@ -198,12 +200,26 @@ static int apu_dram_boot_init(struct mtk_apu *apu)
 	if (apu->platdata->flags & F_SECURE_BOOT)
 		return 0;
 
-	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0) {
+	if ((apu->platdata->flags & F_BYPASS_IOMMU) == 0) {
 		domain = iommu_get_domain_for_dev(apu->dev);
 		if (domain == NULL) {
 			dev_info(dev, "%s: iommu_get_domain_for_dev fail\n", __func__);
 			return -ENOMEM;
 		}
+	}
+
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
+		/* Map reserved code buffer to CODE_BUF_DA */
+		ret = iommu_map(domain, CODE_BUF_DA,
+				apu->apusys_sec_mem_start,
+				apu->apusys_sec_mem_size, IOMMU_READ|IOMMU_WRITE);
+		if (ret) {
+			pr_info("%s: iommu_map fail(%d)\n", __func__, ret);
+			return ret;
+		}
+
+		pr_info("%s: iommu_map done\n", __func__);
+		return ret;
 	}
 
 	/* Allocate code buffer */
@@ -220,7 +236,7 @@ static int apu_dram_boot_init(struct mtk_apu *apu)
 	dev_info(dev, "%s: boundary = %u, iova = 0x%llx\n",
 		__func__, boundary, iova);
 
-	if ((apu->platdata->flags & F_VDRAM_BOOT) == 0) {
+	if ((apu->platdata->flags & F_BYPASS_IOMMU) == 0) {
 		sgt.sgl = NULL;
 		/* Convert IOVA to sgtable */
 		ret = dma_get_sgtable(apu->dev, &sgt, apu->code_buf,
@@ -260,12 +276,15 @@ static int apu_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct device_node *apusys_sec_mem_node,
+		*apusys_aee_coredump_mem_node;
 	struct rproc *rproc;
 	struct mtk_apu *apu;
 	struct mtk_apu_platdata *data;
 	struct mtk_apu_hw_ops *hw_ops;
 	char *fw_name = "mrv.elf";
 	int ret = 0;
+	uint32_t up_code_buf_sz;
 
 	dev_info(dev, "%s: enter\n", __func__);
 	data = (struct mtk_apu_platdata *)of_device_get_match_data(dev);
@@ -327,6 +346,63 @@ static int apu_probe(struct platform_device *pdev)
 	g_pdev = pdev;
 	pm_runtime_get_sync(&pdev->dev);
 	dev_info(dev, "%s %d\n", __func__, __LINE__);
+
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
+		apusys_sec_mem_node = of_find_compatible_node(NULL, NULL,
+			"mediatek,apu_apusys-rv_secure");
+		if (!apusys_sec_mem_node) {
+			pr_info("DT,mediatek,apu_apusys-rv_secure not found\n");
+			return -EINVAL;
+		}
+		of_property_read_u32_index(apusys_sec_mem_node, "reg", 1,
+			&(apu->apusys_sec_mem_start));
+		of_property_read_u32_index(apusys_sec_mem_node, "reg", 3,
+			&(apu->apusys_sec_mem_size));
+		pr_info("%s: start = 0x%x, size = 0x%x\n",
+			apusys_sec_mem_node->full_name, apu->apusys_sec_mem_start,
+			apu->apusys_sec_mem_size);
+		apu->apu_sec_mem_base = memremap(apu->apusys_sec_mem_start,
+			apu->apusys_sec_mem_size, MEMREMAP_WC);
+
+		ret = of_property_read_u32(np, "up_code_buf_sz",
+					   &up_code_buf_sz);
+		if (ret) {
+			dev_info(dev, "parsing up_code_buf_sz error: %d\n", ret);
+			return -EINVAL;
+		}
+
+		apu->apusys_sec_info = (struct apusys_secure_info_t *)
+			(apu->apu_sec_mem_base + up_code_buf_sz);
+
+		dev_info(dev, "up_fw_ofs = 0x%x, up_fw_sz = 0x%x\n",
+			apu->apusys_sec_info->up_fw_ofs,
+			apu->apusys_sec_info->up_fw_sz);
+
+		dev_info(dev, "up_xfile_ofs = 0x%x, up_xfile_sz = 0x%x\n",
+			apu->apusys_sec_info->up_xfile_ofs,
+			apu->apusys_sec_info->up_xfile_sz);
+
+		apusys_aee_coredump_mem_node = of_find_compatible_node(NULL, NULL,
+			"mediatek,apu_apusys-rv_aee-coredump");
+		if (!apusys_aee_coredump_mem_node) {
+			pr_info("DT,mediatek,apu_apusys-rv_aee-coredump not found\n");
+			return -EINVAL;
+		}
+		of_property_read_u32_index(apusys_aee_coredump_mem_node, "reg", 1,
+			&(apu->apusys_aee_coredump_mem_start));
+		of_property_read_u32_index(apusys_aee_coredump_mem_node, "reg", 3,
+			&(apu->apusys_aee_coredump_mem_size));
+		pr_info("%s: start = 0x%x, size = 0x%x\n",
+			apusys_aee_coredump_mem_node->full_name,
+			apu->apusys_aee_coredump_mem_start,
+			apu->apusys_aee_coredump_mem_size);
+		apu->apu_aee_coredump_mem_base =
+			memremap(apu->apusys_aee_coredump_mem_start,
+			apu->apusys_aee_coredump_mem_size, MEMREMAP_WC);
+
+		apu->apusys_aee_coredump_info = (struct apusys_aee_coredump_info_t *)
+			apu->apu_aee_coredump_mem_base;
+	}
 
 	if (!hw_ops->apu_memmap_init) {
 		pm_runtime_put_sync(&pdev->dev);
