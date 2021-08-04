@@ -845,7 +845,8 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_entry);
 		if (req_stream_data->frame_seq_no == sensor_ctrl->sensor_request_seq_no) {
 			if (state_entry->estate == E_STATE_CQ && USINGSCQ &&
-			    req_stream_data->frame_seq_no > INITIAL_DROP_FRAME_CNT) {
+			    req_stream_data->frame_seq_no > INITIAL_DROP_FRAME_CNT &&
+			    !mtk_cam_is_stagger(ctx)) {
 				state_entry->estate = E_STATE_CQ_SCQ_DELAY;
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 				dev_info(ctx->cam->dev,
