@@ -46,22 +46,22 @@ static void reset_adl_hardware(struct mtk_imgsys_dev *imgsys_dev,
 	 */
 
 	/* Reset ADL_A */
-	uint32_t value = ioread32((void *)(reg_base_va));
+	uint32_t value = ioread32((void *)(reg_base_va + ADL_REG_RESET));
 
 	value |= ((0x1 << 8) | (0x1 << 9));
-	iowrite32(value, reg_base_va);
+	iowrite32(value, (reg_base_va + ADL_REG_RESET));
 
 	count = 0;
 	while (count < 1000) {
-		value = ioread32((void *)(reg_base_va));
+		value = ioread32((void *)(reg_base_va + ADL_REG_RESET));
 		if ((value & 0x3) == 0x3)
 			break;
 		count++;
 	}
 
-	value = ioread32((void *)(reg_base_va));
+	value = ioread32((void *)(reg_base_va + ADL_REG_RESET));
 	value &= ~((0x1 << 8) | (0x1 << 9));
-	iowrite32(value, reg_base_va);
+	iowrite32(value, (reg_base_va + ADL_REG_RESET));
 }
 
 static void init_adl_hardware(struct mtk_imgsys_dev *imgsys_dev,
@@ -82,8 +82,7 @@ static void dump_adl_register(struct mtk_imgsys_dev *imgsys_dev,
 	int32_t index;
 
 	for (index = 0; index <= size; index += 0x10) {
-		dev_info(imgsys_dev->dev,
-			"%s: [0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X", __func__,
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
 			(uint32_t)(reg_base_pa + index),
 			(uint32_t)ioread32((void *)(reg_base_va + index)),
 			(uint32_t)ioread32((void *)(reg_base_va + index + 0x4)),
@@ -136,7 +135,7 @@ static uint32_t dump_debug_data(struct mtk_imgsys_dev *imgsys_dev,
 
 	iowrite32(debug_cmd, sel_reg_va);
 	value = (uint32_t)ioread32(data_reg_va);
-	dev_info(imgsys_dev->dev, "%s: [0x%08X](0x%08X,0x%08X)\n", __func__,
+	pr_info("[0x%08X](0x%08X,0x%08X)\n",
 		debug_cmd, data_reg_pa, value);
 
 	return value;
@@ -262,7 +261,7 @@ void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		dump_cq_rdma_status(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va);
 
 		/* dump adl register map */
-		dump_adl_register(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va, 0x1000);
+		dump_adl_register(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va, ADL_A_DUMP_SIZE);
 	}
 
 	if (engine & IMGSYS_ENG_ADL_B) {
@@ -279,7 +278,7 @@ void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		dump_cq_rdma_status(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va);
 
 		/* dump adl register map */
-		dump_adl_register(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va, 0x1000);
+		dump_adl_register(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va, ADL_B_DUMP_SIZE);
 	}
 }
 

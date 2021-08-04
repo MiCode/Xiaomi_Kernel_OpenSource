@@ -20,14 +20,18 @@
 #include "mtk_imgsys-engine.h"
 
 // ADL A & B register base
-#define ADL_A_REG_BASE  (0x15005300)
-#define ADL_B_REG_BASE  (0x15007300)
+#define ADL_A_REG_BASE  (0x15005000)
+#define ADL_B_REG_BASE  (0x15007000)
+
+#define ADL_A_DUMP_SIZE (0x1000)
+#define ADL_B_DUMP_SIZE (0x1000)
 
 // Debug port offset
-#define ADL_REG_DMA_DBG (0x50)
-#define ADL_REG_DBG_SEL (0x54)
-#define ADL_REG_CQ_DBG  (0x58)
-#define ADL_REG_CQ_DMA  (0x5C)
+#define ADL_REG_RESET   (0x300)
+#define ADL_REG_DMA_DBG (0x350)
+#define ADL_REG_DBG_SEL (0x354)
+#define ADL_REG_CQ_DBG  (0x358)
+#define ADL_REG_CQ_DMA  (0x35C)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
