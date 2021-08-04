@@ -74,6 +74,7 @@ st_asm330lhhx_read_page_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
 {
 	int err;
 
+	mutex_lock(&hw->page_lock);
 	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 	err = regmap_bulk_read(hw->regmap, addr, val, len);
 	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
