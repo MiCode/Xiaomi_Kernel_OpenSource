@@ -47,7 +47,7 @@ static inline bool info_list_is_empty(struct info_list_t *info_list)
 };
 
 static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
-		    void *buf, unsigned int  len, int frame_no, unsigned int wait)
+		    void *buf, unsigned int  len, int req_fd, unsigned int wait)
 {
 	int ret;
 #if MTK_CM4_SUPPORT
@@ -55,9 +55,9 @@ static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 			   sizeof(ipi_param), 0);
 #else
 	if (wait)
-		ret = mtk_hcp_send(pdev, id, buf, len, frame_no);
+		ret = mtk_hcp_send(pdev, id, buf, len, req_fd);
 	else
-		ret = mtk_hcp_send_async(pdev, id, buf, len, frame_no);
+		ret = mtk_hcp_send_async(pdev, id, buf, len, req_fd);
 #endif
 	return 0;
 }
@@ -596,7 +596,7 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 				HCP_IMGSYS_HW_TIMEOUT_ID,
 				&swbuf_data,
 				sizeof(struct img_sw_buffer),
-				req->img_fparam.frameparam.frame_no, 1);
+				frm_info->request_fd, 1);
 		wake_up_interruptible(&frm_info_waitq);
 	}
 
@@ -696,7 +696,7 @@ static void cmdq_cb_done_worker(struct work_struct *work)
 	swbuf_data.offset = gwfrm_info->req_sbuf_goft;
 	imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_DEQUE_DONE_ID,
 		&swbuf_data, sizeof(struct img_sw_buffer),
-		req->img_fparam.frameparam.frame_no, 0);
+		req->tstate.req_fd, 0);
 
 	wake_up_interruptible(&frm_info_waitq);
 
@@ -1391,7 +1391,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 
 		ret = imgsys_send(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID,
 			&ipi_param, sizeof(ipi_param),
-			req->img_fparam.frameparam.frame_no, 0);
+			req->tstate.req_fd, 0);
 
 		if (ret)
 			dev_info(imgsys_dev->dev,
@@ -1466,7 +1466,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 
 	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID,
 		&ipi_param, sizeof(ipi_param),
-		req->img_fparam.frameparam.frame_no, 0);
+		req->tstate.req_fd, 0);
 
 	index = req->img_fparam.frameparam.index;
 	frame_no = req->img_fparam.frameparam.frame_no;
@@ -1577,7 +1577,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				__func__, ret);
 			return -EBUSY;
 		}
-		mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
+		// mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
 		/* IMGSYS HW INIT */
 		memset(&info, 0, sizeof(info));
 		info.drv_data = (u64)&imgsys_dev;

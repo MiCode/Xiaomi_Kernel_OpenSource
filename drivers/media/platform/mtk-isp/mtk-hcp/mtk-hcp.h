@@ -47,6 +47,12 @@ enum hcp_id {
 	HCP_DIP_DEQUE_DUMP_ID,
 	HCP_IMGSYS_DEQUE_DONE_ID,
 	HCP_IMGSYS_DEINIT_ID,
+	HCP_IMGSYS_IOVA_FDS_ADD_ID,
+	HCP_IMGSYS_IOVA_FDS_DEL_ID,
+	HCP_IMGSYS_UVA_FDS_ADD_ID,
+	HCP_IMGSYS_UVA_FDS_DEL_ID,
+	HCP_IMGSYS_SET_CONTROL_ID,
+	HCP_IMGSYS_GET_CONTROL_ID,
 	HCP_FD_CMD_ID,
 	HCP_FD_FRAME_ID,
 	HCP_RSC_INIT_ID,
@@ -107,8 +113,8 @@ int mtk_hcp_unregister(struct platform_device *pdev, enum hcp_id id);
  * Return: Return 0 if sending data successfully, otherwise it is failed.
  **/
 int mtk_hcp_send(struct platform_device *pdev,
-		 enum hcp_id id, void *buf,
-		 unsigned int len, int frame_no);
+		enum hcp_id id, void *buf,
+		unsigned int len, int req_fd);
 
 /**
  * mtk_hcp_send_async - send data from camera kernel driver to HCP without
@@ -129,6 +135,13 @@ int mtk_hcp_send(struct platform_device *pdev,
 int mtk_hcp_send_async(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
 		 unsigned int len, int frame_no);
+
+
+/**
+ * Callback from v4l2 layer to notify daemon apu dc status
+ */
+int mtk_hcp_set_apu_dc(struct platform_device *pdev,
+	int32_t value, size_t size);
 
 /**
  * mtk_hcp_get_plat_device - get HCP's platform device

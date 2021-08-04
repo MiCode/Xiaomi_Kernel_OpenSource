@@ -99,7 +99,6 @@ static void _imgsys_ion_free_handle(struct ion_client *client,
 #define START_FD_MEM_ADDR         0x12348000
 #define START_DIP_MEM_FOR_SW_ADDR 0x12349000
 
-
 /*
  * define module register mmap address
  */
@@ -109,18 +108,6 @@ static void _imgsys_ion_free_handle(struct ion_client *client,
 #define ISP_C_BASE_HW           0x1A008000
 #define DIP_BASE_HW             0x15021000
 #define FD_BASE_HW              0x1502B000
-
-#define HCP_INIT                _IOWR('H', 0, struct share_buf)
-#define HCP_GET_OBJECT          _IOWR('H', 1, struct share_buf)
-#define HCP_NOTIFY              _IOWR('H', 2, struct share_buf)
-#define HCP_COMPLETE            _IOWR('H', 3, struct share_buf)
-#define HCP_WAKEUP              _IOWR('H', 4, struct share_buf)
-
-#define COMPAT_HCP_INIT         _IOWR('H', 0, struct share_buf)
-#define COMPAT_HCP_GET_OBJECT   _IOWR('H', 1, struct share_buf)
-#define COMPAT_HCP_NOTIFY       _IOWR('H', 2, struct share_buf)
-#define COMPAT_HCP_COMPLETE     _IOWR('H', 3, struct share_buf)
-#define COMPAT_HCP_WAKEUP       _IOWR('H', 4, struct share_buf)
 
 static struct mtk_hcp *hcp_mtkdev;
 
@@ -150,18 +137,18 @@ struct hcp_desc {
 	void *priv;
 };
 
-/**
- * struct request -
- *
- * @hcp_id:      id
- * @data:        meta data which to be processed in other module
- * @len:         data length
- */
-struct request {
-	enum hcp_id id;
-	void *data;
-	unsigned int len;
-};
+struct object_id {
+	union {
+		struct send {
+			uint32_t hcp: 5;
+			uint32_t ack: 1;
+			uint32_t req: 10;
+			uint32_t seq: 16;
+		} __packed send;
+
+		uint32_t cmd;
+	};
+} __packed;
 
 /**
  * struct share_buf - DTCM (Data Tightly-Coupled Memory) buffer shared with
@@ -172,10 +159,34 @@ struct request {
  * @share_buf:      share buffer data
  */
 struct share_buf {
-	s32 id;
-	u32 len;
-	unsigned char share_data[HCP_SHARE_BUF_SIZE];
+	uint32_t id;
+	uint32_t len;
+	uint8_t share_data[HCP_SHARE_BUF_SIZE];
+	struct object_id info;
 };
+
+#define IPI_MAX_BUFFER_COUNT    (4)
+
+struct packet {
+	int32_t module;
+	bool more;
+	int32_t count;
+	struct share_buf *buffer[IPI_MAX_BUFFER_COUNT];
+};
+
+#define HCP_INIT                _IOWR('H', 0, struct share_buf)
+#define HCP_GET_OBJECT          _IOWR('H', 1, struct share_buf)
+#define HCP_NOTIFY              _IOWR('H', 2, struct share_buf)
+#define HCP_COMPLETE            _IOWR('H', 3, struct share_buf)
+#define HCP_WAKEUP              _IOWR('H', 4, struct share_buf)
+#define HCP_TIMEOUT             _IO('H', 5)
+
+#define COMPAT_HCP_INIT         _IOWR('H', 0, struct share_buf)
+#define COMPAT_HCP_GET_OBJECT   _IOWR('H', 1, struct share_buf)
+#define COMPAT_HCP_NOTIFY       _IOWR('H', 2, struct share_buf)
+#define COMPAT_HCP_COMPLETE     _IOWR('H', 3, struct share_buf)
+#define COMPAT_HCP_WAKEUP       _IOWR('H', 4, struct share_buf)
+#define COMPAT_HCP_TIMEOUT      _IO('H', 5)
 
 struct msg {
 	struct list_head entry;
@@ -203,25 +214,16 @@ struct my_wq_t {
  * @hcp_desc:            hcp descriptor
  * @dev:                 hcp struct device
  * @mem_ops:             memory operations
- * @hcp_mutex:           protect mtk_hcp (except recv_buf) and ensure only
- *                       one client to use hcp service at a time.
- * @data_mutex:          protect shared buffer between kernel user send and
- *                       user thread get&read/copy
  * @file:                hcp daemon file pointer
  * @is_open:             the flag to indicate if hcp device is open.
  * @ack_wq:              the wait queue for each client. When sleeping
  *                       processes wake up, they will check the condition
  *                       "hcp_id_ack" to run the corresponding action or
  *                       go back to sleep.
- * @hcp_id_ack:         The ACKs for registered HCP function.
- * @get_wq:              When sleeping process waking up, it will check the
- *                       condition "ipi_got" to run the corresponding action or
+ * @hcp_id_ack:          The ACKs for registered HCP function.
+ * @get_wq:              When sleeping process waking up, it will check queued
+ *                       messages to run the corresponding action or
  *                       go back to sleep.
- * @ipi_got:             The flags for IPI message polling from user.
- * @ipi_done:            The flags for IPI message polling from user again,
- *       which means the previous messages has been dispatched
- *                       done in daemon.
- * @user_obj:            Temporary share_buf used for hcp_msg_get.
  * @hcp_devno:           The hcp_devno for hcp init hcp character device
  * @hcp_cdev:            The point of hcp character device.
  * @hcp_class:           The class_create for create hcp device
@@ -232,6 +234,7 @@ struct my_wq_t {
  * @ current_task        hcp current task struct
  */
 struct mtk_hcp {
+	bool have_slb;
 	struct hcp_mem extmem;
 	struct hcp_desc hcp_desc_table[HCP_MAX_ID];
 	struct device *dev;
@@ -240,16 +243,13 @@ struct mtk_hcp {
 	struct ion_client *pIonClient;
 #endif
 	/* for protecting vcu data structure */
-	struct mutex hcp_mutex[MODULE_MAX_ID];
-	struct mutex data_mutex[MODULE_MAX_ID];
 	struct file *file;
 	bool   is_open;
+	atomic_t seq;
 	wait_queue_head_t ack_wq[MODULE_MAX_ID];
 	atomic_t hcp_id_ack[HCP_MAX_ID];
 	wait_queue_head_t get_wq[MODULE_MAX_ID];
-	atomic_t ipi_got[MODULE_MAX_ID];
-	atomic_t ipi_done[MODULE_MAX_ID];
-	struct share_buf user_obj[MODULE_MAX_ID];
+	wait_queue_head_t poll_wq[MODULE_MAX_ID];
 	struct list_head chans[MODULE_MAX_ID];
 	struct list_head msg_list;
 	spinlock_t msglock;
@@ -264,15 +264,78 @@ struct mtk_hcp {
 	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
 };
 
-static int msg_pool_available(struct mtk_hcp *hcp_dev)
+static struct msg *msg_pool_get(struct mtk_hcp *hcp_dev)
+{
+	unsigned long flag, empty;
+	struct msg *msg = NULL;
+
+	spin_lock_irqsave(&hcp_dev->msglock, flag);
+	empty = list_empty(&hcp_dev->msg_list);
+	if (!empty) {
+		msg = list_first_entry(&hcp_dev->msg_list, struct msg, entry);
+		list_del(&msg->entry);
+	}
+	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+
+	return msg;
+}
+
+static void chans_pool_dump(struct mtk_hcp *hcp_dev)
+{
+	unsigned long flag;
+	struct msg *msg, *tmp;
+	int i = 0, seq_id, req_fd, hcp_id;
+
+	spin_lock_irqsave(&hcp_dev->msglock, flag);
+	for (i = 0; i < MODULE_MAX_ID; i++) {
+		dev_info(hcp_dev->dev, "HCP(%d) stalled IPI object+\n", i);
+
+		list_for_each_entry_safe(msg, tmp,
+				&hcp_dev->chans[i], entry){
+
+			seq_id = msg->user_obj.info.send.seq;
+			req_fd = msg->user_obj.info.send.req;
+			hcp_id = msg->user_obj.info.send.hcp;
+
+			dev_info(hcp_dev->dev, "req_fd(%d), seq_id(%d), hcp_id(%d)\n",
+				req_fd, seq_id, hcp_id);
+		}
+
+		dev_info(hcp_dev->dev, "HCP(%d) stalled IPI object-\n", i);
+	}
+	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+}
+
+static struct msg *chan_pool_get(struct mtk_hcp *hcp_dev, int module_id)
+{
+	unsigned long flag, empty;
+	struct msg *msg = NULL;
+
+	spin_lock_irqsave(&hcp_dev->msglock, flag);
+	empty = list_empty(&hcp_dev->chans[module_id]);
+	if (!empty) {
+		msg = list_first_entry(&hcp_dev->chans[module_id], struct msg, entry);
+		list_del(&msg->entry);
+	}
+	empty = list_empty(&hcp_dev->chans[module_id]);
+	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+
+	// dev_info(hcp_dev->dev, "chan pool empty(%d)\n", empty);
+
+	return msg;
+}
+
+static bool chan_pool_available(struct mtk_hcp *hcp_dev, int module_id)
 {
 	unsigned long flag, empty;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
-	empty = list_empty(&hcp_dev->msg_list);
+	empty = list_empty(&hcp_dev->chans[module_id]);
 	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 
-	return !empty;
+	// dev_info(hcp_dev->dev, "chan pool abailable(%d)\n", !empty);
+
+	return (!empty);
 }
 
 inline int hcp_id_to_ipi_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
@@ -314,6 +377,12 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 	case HCP_DIP_DEQUE_DUMP_ID:
 	case HCP_IMGSYS_DEQUE_DONE_ID:
 	case HCP_IMGSYS_DEINIT_ID:
+	case HCP_IMGSYS_IOVA_FDS_ADD_ID:
+	case HCP_IMGSYS_IOVA_FDS_DEL_ID:
+	case HCP_IMGSYS_UVA_FDS_ADD_ID:
+	case HCP_IMGSYS_UVA_FDS_DEL_ID:
+	case HCP_IMGSYS_SET_CONTROL_ID:
+	case HCP_IMGSYS_GET_CONTROL_ID:
 		module_id = MODULE_DIP;
 		break;
 	case HCP_RSC_INIT_ID:
@@ -456,11 +525,10 @@ int mtk_hcp_unregister(struct platform_device *pdev, enum hcp_id id)
 	return -EINVAL;
 }
 EXPORT_SYMBOL(mtk_hcp_unregister);
-static atomic_t seq;
 
 static int hcp_send_internal(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
-		 unsigned int len, int frame_no,
+		 unsigned int len, int req_fd,
 		 unsigned int wait)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
@@ -469,6 +537,9 @@ static int hcp_send_internal(struct platform_device *pdev,
 	struct msg *msg;
 	int ret = 0;
 	unsigned int no;
+
+	dev_dbg(&pdev->dev, "%s id:%d len %d\n",
+				__func__, id, len);
 
 	if (id < HCP_INIT_ID || id >= HCP_MAX_ID ||
 			len > sizeof(send_obj.share_data) || buf == NULL) {
@@ -497,17 +568,14 @@ static int hcp_send_internal(struct platform_device *pdev,
 			return -EINVAL;
 		}
 
-		mutex_lock(&hcp_dev->hcp_mutex[module_id]);
 		timeout = msecs_to_jiffies(HCP_TIMEOUT_MS);
 		ret = wait_event_timeout(hcp_dev->msg_wq,
-				msg_pool_available(hcp_dev), timeout);
+			((msg = msg_pool_get(hcp_dev)) != NULL), timeout);
 		if (ret == 0) {
-			mutex_unlock(&hcp_dev->hcp_mutex[module_id]);
 			dev_info(&pdev->dev, "%s id:%d refill time out !\n",
 				__func__, id);
 			return -EIO;
 		} else if (-ERESTARTSYS == ret) {
-			mutex_unlock(&hcp_dev->hcp_mutex[module_id]);
 			dev_info(&pdev->dev, "%s id:%d refill interrupted !\n",
 				__func__, id);
 			return -ERESTARTSYS;
@@ -515,24 +583,41 @@ static int hcp_send_internal(struct platform_device *pdev,
 
 		atomic_set(&hcp_dev->hcp_id_ack[id], 0);
 
-		spin_lock_irqsave(&hcp_dev->msglock, flag);
-		msg = list_first_entry(&hcp_dev->msg_list, struct msg, entry);
-		list_del(&msg->entry);
-		spin_unlock_irqrestore(&hcp_dev->msglock, flag);
-		no = atomic_inc_return(&seq);
+		//spin_lock_irqsave(&hcp_dev->msglock, flag);
+		//msg = list_first_entry(&hcp_dev->msg_list, struct msg, entry);
+		//list_del(&msg->entry);
+		//spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 
 		memcpy((void *)msg->user_obj.share_data, buf, len);
 		msg->user_obj.len = len;
-		msg->user_obj.id = (int)id | (no << 16);
 
 		spin_lock_irqsave(&hcp_dev->msglock, flag);
+
+		// Bypass sequeunce check for the following commands
+		if ((id == HCP_IMGSYS_IOVA_FDS_ADD_ID) ||
+			(id == HCP_IMGSYS_IOVA_FDS_DEL_ID) ||
+			(id == HCP_IMGSYS_UVA_FDS_ADD_ID) ||
+			(id == HCP_IMGSYS_UVA_FDS_DEL_ID)) {
+			no = 0;
+		} else {
+			no = atomic_inc_return(&hcp_dev->seq);
+		}
+
+		//msg->user_obj.id =
+		//	(int)((id & 0x01F) | ((req_fd << 5) & 0x0FFE0) | (no << 16));
+
+		msg->user_obj.info.send.hcp = id;
+		msg->user_obj.info.send.req = req_fd;
+		msg->user_obj.info.send.seq = no;
+		msg->user_obj.info.send.ack = (wait ? 1 : 0);
+		msg->user_obj.id = id;
+
 		list_add_tail(&msg->entry, &hcp_dev->chans[module_id]);
 		spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 
-		atomic_inc(&hcp_dev->ipi_got[module_id]);
-		atomic_set(&hcp_dev->ipi_done[module_id], 0);
 		wake_up(&hcp_dev->get_wq[module_id]);
-		mutex_unlock(&hcp_dev->hcp_mutex[module_id]);
+		wake_up(&hcp_dev->poll_wq[module_id]);
+
 		dev_dbg(&pdev->dev,
 			"%s frame_no_%d, message(%d)size(%d) send to user space !!!\n",
 			__func__, no, id, len);
@@ -543,9 +628,7 @@ static int hcp_send_internal(struct platform_device *pdev,
 		/* wait for RED's ACK */
 		timeout = msecs_to_jiffies(HCP_TIMEOUT_MS);
 		ret = wait_event_timeout(hcp_dev->ack_wq[module_id],
-						atomic_read(&hcp_dev->hcp_id_ack[id]),
-								timeout);
-		atomic_set(&hcp_dev->hcp_id_ack[id], 0);
+			atomic_cmpxchg(&(hcp_dev->hcp_id_ack[id]), 1, 0), timeout);
 		if (ret == 0) {
 			dev_info(&pdev->dev, "%s hcp id:%d ack time out !\n",
 				__func__, id);
@@ -575,17 +658,17 @@ EXPORT_SYMBOL(mtk_hcp_get_current_task);
 
 int mtk_hcp_send(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
-		 unsigned int len, int frame_no)
+		 unsigned int len, int req_fd)
 {
-	return hcp_send_internal(pdev, id, buf, len, frame_no, SYNC_SEND);
+	return hcp_send_internal(pdev, id, buf, len, req_fd, SYNC_SEND);
 }
 EXPORT_SYMBOL(mtk_hcp_send);
 
 int mtk_hcp_send_async(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
-		 unsigned int len, int frame_no)
+		 unsigned int len, int req_fd)
 {
-	return hcp_send_internal(pdev, id, buf, len, frame_no, ASYNC_SEND);
+	return hcp_send_internal(pdev, id, buf, len, req_fd, ASYNC_SEND);
 }
 EXPORT_SYMBOL(mtk_hcp_send_async);
 
@@ -606,6 +689,7 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 			dev_info(hcp_dev->dev, "%s: Failed to allocate SLB buffer", __func__);
 			return -1;
 		}
+
 		//hcp_dev->have_slb = true;
 
 		//ctrl.id    = 0x1;
@@ -1162,13 +1246,47 @@ static int mtk_hcp_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static unsigned int mtk_hcp_poll(struct file *file, poll_table *wait)
+{
+	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
+
+	// dev_info(hcp_dev->dev, "%s: poll start+", __func__);
+	if (chan_pool_available(hcp_dev, MODULE_IMG)) {
+		// dev_info(hcp_dev->dev, "%s: poll start-: %d", __func__, POLLIN);
+		return POLLIN;
+	}
+
+	poll_wait(file, &hcp_dev->poll_wq[MODULE_IMG], wait);
+	if (chan_pool_available(hcp_dev, MODULE_IMG)) {
+		// dev_info(hcp_dev->dev, "%s: poll start-: %d", __func__, POLLIN);
+		return POLLIN;
+	}
+
+	// dev_info(hcp_dev->dev, "%s: poll start-: 0", __func__);
+	return 0;
+}
+
 static int mtk_hcp_release(struct inode *inode, struct file *file)
 {
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
 
+	//struct slbc_data data;
+	//int ret;
+
 	dev_dbg(hcp_dev->dev, "- E. hcp release.\n");
 
 	hcp_dev->is_open = false;
+
+	//if (hcp_dev->have_slb) {
+	//	data.uid  = UID_SH_P2;
+	//	data.type = TP_BUFFER;
+	//	ret = slbc_release(&data);
+	//	if (ret < 0) {
+	//		dev_info(hcp_dev->dev, "Failed to release SLB buffer");
+	//		return -1;
+	//	}
+	//}
+
 	kfree(hcp_dev->extmem.d_va);
 	return 0;
 }
@@ -1299,81 +1417,6 @@ dma_buf_out:
 	return 0;
 }
 
-static int mtk_hcp_get_data(struct mtk_hcp *hcp_dev, unsigned long arg)
-{
-	struct share_buf share_buff_data;
-	int module_id = 0;
-	unsigned long flag;
-	struct msg *msg;
-	int ret = 0;
-	char *cmd;
-
-	ret = (long)copy_from_user(&share_buff_data, (unsigned char *)arg,
-					 (unsigned long)sizeof(struct share_buf));
-	module_id = share_buff_data.id;
-	if (module_id < MODULE_ISP || module_id >= MODULE_MAX_ID) {
-		pr_info("[HCP] invalid module id %d", module_id);
-		return -EINVAL;
-	}
-
-	atomic_set(&hcp_dev->ipi_done[module_id], 1);
-	dev_dbg(hcp_dev->dev, "%s ipi_done[%d] = %d\n", __func__, module_id,
-		hcp_dev->ipi_done[module_id]);
-
-	mutex_lock(&hcp_dev->data_mutex[module_id]);
-	ret = wait_event_freezable(hcp_dev->get_wq[module_id],
-		atomic_read(&hcp_dev->ipi_got[module_id]));
-	if (ret != 0) {
-		mutex_unlock(&hcp_dev->data_mutex[module_id]);
-		dev_info(hcp_dev->dev, "%s wait event return %d\n", __func__,
-									ret);
-		return ret;
-	}
-	atomic_dec(&hcp_dev->ipi_got[module_id]);
-	mutex_unlock(&hcp_dev->data_mutex[module_id]);
-
-	spin_lock_irqsave(&hcp_dev->msglock, flag);
-	msg = list_first_entry(&hcp_dev->chans[module_id], struct msg, entry);
-	list_del(&msg->entry);
-	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
-
-	ret = copy_to_user((void *)arg, &msg->user_obj,
-		(unsigned long)sizeof(struct share_buf));
-
-	spin_lock_irqsave(&hcp_dev->msglock, flag);
-	list_add_tail(&msg->entry, &hcp_dev->msg_list);
-	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
-	wake_up(&hcp_dev->msg_wq);
-
-	switch (msg->user_obj.id) {
-	case HCP_DIP_FRAME_ID:
-		cmd = "HCP_DIP_FRAME_ID";
-		break;
-	case HCP_IMGSYS_DEQUE_DONE_ID:
-		cmd = "HCP_IMGSYS_DEQUE_DONE_ID";
-		break;
-	case HCP_IMGSYS_INIT_ID:
-		cmd = "HCP_IMGSYS_INIT_ID";
-		break;
-	case HCP_IMGSYS_DEINIT_ID:
-		cmd = "HCP_IMGSYS_DEINIT_ID";
-		break;
-	default:
-		cmd = "unknown cmd";
-		break;
-	}
-	dev_dbg(hcp_dev->dev, "%s copy data(id = %d) %s to user %d\n", __func__,
-		msg->user_obj.id, cmd, ret);
-
-	if (ret != 0) {
-		dev_info(hcp_dev->dev, "%s(%d) Copy data to user failed!\n",
-							__func__, __LINE__);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
 static void module_notify(struct mtk_hcp *hcp_dev,
 					struct share_buf *user_data_addr)
 {
@@ -1423,62 +1466,97 @@ static void module_wake_up(struct mtk_hcp *hcp_dev,
 	wake_up(&hcp_dev->ack_wq[module_id]);
 }
 
-static void hcp_handle_daemon_event(struct work_struct *work)
-{
-	struct my_wq_t *my_work_data = container_of(work,
-		struct my_wq_t, task_work);
-
-	switch (my_work_data->ioctl_event) {
-	case HCP_NOTIFY:
-		module_notify(my_work_data->hcp_dev, &(my_work_data->data_addr));
-		break;
-	case HCP_COMPLETE:
-		module_notify(my_work_data->hcp_dev, &(my_work_data->data_addr));
-		module_wake_up(my_work_data->hcp_dev, &(my_work_data->data_addr));
-		break;
-	case HCP_WAKEUP:
-		module_wake_up(my_work_data->hcp_dev, &(my_work_data->data_addr));
-		break;
-	default:
-		break;
-	}
-
-	vfree(my_work_data);
-}
-
 static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 							unsigned long arg)
 {
 	long ret = -1;
 	//void *mem_priv;
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
+	struct share_buf buffer;
+	struct packet data;
+	int index;
+	struct msg *msg;
+	unsigned long flag;
 
 	switch (cmd) {
 	case HCP_GET_OBJECT:
-		ret = mtk_hcp_get_data(hcp_dev, arg);
+		// pr_info("[HCP] HCP_GET_OBJECT+");
+		copy_from_user(&data, (void *)arg, sizeof(struct packet));
+		// pr_info("[HCP] send count %d", data.count);
+		for (index = 0; index < data.count; index++) {
+			copy_from_user((void *)&buffer, (void *)data.buffer[index],
+				sizeof(struct share_buf));
+			if (buffer.info.cmd == HCP_COMPLETE) {
+				// pr_info("[HCP] HCP_COMPLETE+");
+				module_notify(hcp_dev, &buffer);
+				module_wake_up(hcp_dev, &buffer);
+				// pr_info("[HCP] HCP_COMPLETE-");
+			} else if (buffer.info.cmd == HCP_NOTIFY) {
+				// pr_info("[HCP] HCP_NOTIFY+");
+				module_notify(hcp_dev, &buffer);
+				// pr_info("[HCP] HCP_NOTIFY-");
+			} else {
+				pr_info("[HCP] Unknown commands 0x%x, %d", data.buffer[index],
+					buffer.info.cmd);
+				return ret;
+			}
+		}
+
+		index = 0;
+		while (chan_pool_available(hcp_dev, MODULE_IMG)) {
+			if (index >= IPI_MAX_BUFFER_COUNT)
+				break;
+
+			msg = chan_pool_get(hcp_dev, MODULE_IMG);
+
+			// pr_info("[HCP] Copy to user+: %d", index);
+			ret = copy_to_user((void *)data.buffer[index++], &msg->user_obj,
+				(unsigned long)sizeof(struct share_buf));
+			// pr_info("[HCP] Copy to user-");
+
+			// dev_info(hcp_dev->dev, "copy req fd(%d), obj id(%d) to user",
+			//	req_fd, hcp_id);
+
+			spin_lock_irqsave(&hcp_dev->msglock, flag);
+			list_add_tail(&msg->entry, &hcp_dev->msg_list);
+			spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+		}
+
+		put_user(index, (int32_t *)(arg + offsetof(struct packet, count)));
+		ret = chan_pool_available(hcp_dev, MODULE_IMG);
+		put_user(ret, (bool *)(arg + offsetof(struct packet, more)));
+		//ret = mtk_hcp_get_data(hcp_dev, arg);
+	  wake_up(&hcp_dev->msg_wq);
+
+		ret = 0;
+		// pr_info("[HCP] HCP_GET_OBJECT-: %d", index);
+		break;
+	case HCP_COMPLETE:
+		pr_info("[HCP] HCP_COMPLETE+");
+		copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
+		module_notify(hcp_dev, &buffer);
+		module_wake_up(hcp_dev, &buffer);
+		pr_info("[HCP] HCP_COMPLETE-");
+		ret = 0;
 		break;
 	case HCP_NOTIFY:
-	case HCP_COMPLETE:
+		pr_info("[HCP] HCP_NOTIFY+");
+		copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
+		module_notify(hcp_dev, &buffer);
+		pr_info("[HCP] HCP_NOTIFY-");
+		ret = 0;
+		break;
 	case HCP_WAKEUP:
-		{
-			int module_id = 0;
-			struct my_wq_t *my_wq_d = (struct my_wq_t *)
-				vzalloc(sizeof(struct my_wq_t));
-
-			my_wq_d->hcp_dev = (struct mtk_hcp *)file->private_data;
-			my_wq_d->ioctl_event = cmd;
-			copy_from_user(&(my_wq_d->data_addr), (void *)arg,
-				sizeof(struct share_buf));
-			module_id = hcp_id_to_module_id(hcp_dev, my_wq_d->data_addr.id);
-			if (module_id < MODULE_ISP || module_id >= MODULE_MAX_ID) {
-				pr_info("[HCP] invalid module id %d", module_id);
-				return -EINVAL;
-			}
-			/*dev_info(hcp_dev->dev, "(%d) event: 0x%x.\n", module_id, cmd);*/
-			INIT_WORK(&my_wq_d->task_work, hcp_handle_daemon_event);
-			queue_work(hcp_dev->daemon_notify_wq[module_id], &my_wq_d->task_work);
-			ret = 0;
-		}
+		//copy_from_user(&buffer, (void*)arg, sizeof(struct share_buf));
+		//module_wake_up(hcp_dev, &buffer);
+		pr_info("[HCP] HCP_WAKEUP+");
+		wake_up(&hcp_dev->poll_wq[MODULE_IMG]);
+		pr_info("[HCP] HCP_WAKEUP-");
+		ret = 0;
+		break;
+	case HCP_TIMEOUT:
+		chans_pool_dump(hcp_dev);
+		ret = 0;
 		break;
 	default:
 		dev_info(hcp_dev->dev, "Invalid cmd_number 0x%x.\n", cmd);
@@ -1517,6 +1595,7 @@ static const struct file_operations hcp_fops = {
 	.owner          = THIS_MODULE,
 	.unlocked_ioctl = mtk_hcp_ioctl,
 	.open           = mtk_hcp_open,
+	.poll           = mtk_hcp_poll,
 	.release        = mtk_hcp_release,
 	.mmap           = mtk_hcp_mmap,
 #if IS_ENABLED(CONFIG_COMPAT)
@@ -1794,9 +1873,8 @@ void mtk_hcp_purge_msg(struct platform_device *pdev)
 			list_del(&msg->entry);
 			list_add_tail(&msg->entry, &hcp_dev->msg_list);
 		}
-		atomic_set(&hcp_dev->ipi_got[i], 0);
 	}
-	atomic_set(&seq, 0);
+	atomic_set(&hcp_dev->seq, 0);
 	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 }
 EXPORT_SYMBOL(mtk_hcp_purge_msg);
@@ -1823,20 +1901,15 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34)))
 		dev_info(&pdev->dev, "%s:No DMA available\n", __func__);
 
+	hcp_dev->have_slb = false;
+
 	hcp_dev->is_open = false;
 	for (i = 0; i < MODULE_MAX_ID; i++) {
-		mutex_init(&hcp_dev->hcp_mutex[i]);
-		mutex_init(&hcp_dev->data_mutex[i]);
-
 		init_waitqueue_head(&hcp_dev->ack_wq[i]);
 		init_waitqueue_head(&hcp_dev->get_wq[i]);
-		memset(&hcp_dev->user_obj[i], 0,
-			sizeof(struct share_buf));
+		init_waitqueue_head(&hcp_dev->poll_wq[i]);
 
 		INIT_LIST_HEAD(&hcp_dev->chans[i]);
-
-		atomic_set(&hcp_dev->ipi_got[i], 0);
-		atomic_set(&hcp_dev->ipi_done[i], 0);
 
 		switch (i) {
 		case MODULE_ISP:
@@ -1944,9 +2017,6 @@ err_add:
 err_alloc:
 	unregister_chrdev_region(hcp_dev->hcp_devno, 1);
 	for (i = 0; i < MODULE_MAX_ID; i++) {
-		mutex_destroy(&hcp_dev->hcp_mutex[i]);
-		mutex_destroy(&hcp_dev->data_mutex[i]);
-
 		if (hcp_dev->daemon_notify_wq[i]) {
 			destroy_workqueue(hcp_dev->daemon_notify_wq[i]);
 			hcp_dev->daemon_notify_wq[i] = NULL;
