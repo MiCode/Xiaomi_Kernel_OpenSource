@@ -1287,6 +1287,15 @@ void __gpufreq_dump_infra_status(void)
 		g_stack.cur_oppidx, g_stack.cur_freq,
 		g_stack.cur_volt, g_stack.cur_vsram);
 
+	/* 0x13FBF000 */
+	if (g_mfg_top_base) {
+		/* MFG_DEBUG_SEL */
+		GPUFREQ_LOGI("mfg status (0x%x): 0x%08x",
+			(0x13FBF000 + 0x170), readl(g_mfg_top_base + 0x170));
+		GPUFREQ_LOGI("mfg status (0x%x): 0x%08x",
+			(0x13FBF000 + 0x178), readl(g_mfg_top_base + 0x178));
+	}
+
 	/* 0x1021C000 */
 	if (g_nth_emicfg_base) {
 		/* NTH_EMICFG_REG_MFG_EMI1_GALS_SLV_DBG */
