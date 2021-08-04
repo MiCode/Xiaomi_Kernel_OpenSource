@@ -15,13 +15,13 @@
  * Definition about supported hw modules
  */
 enum mtk_imgsys_module {
-	IMGSYS_MOD_WPE	= 0,
+	IMGSYS_MOD_IMGMAIN = 0, /*pure sw, debug dump usage*/
+	IMGSYS_MOD_WPE,
 	IMGSYS_MOD_TRAW,
 	IMGSYS_MOD_DIP,
 	IMGSYS_MOD_PQDIP,
 	IMGSYS_MOD_ADL,
 	IMGSYS_MOD_ME,
-	IMGSYS_MOD_IMGMAIN, /*pure sw, debug dump usage*/
 	IMGSYS_MOD_MAX,
 };
 
@@ -68,7 +68,9 @@ enum IMGSYS_REG_MAP_E {
 	REG_MAP_E_ADL_A,
 	REG_MAP_E_ADL_B,
 	REG_MAP_E_WPE2_DIP1,
-	REG_MAP_E_WPE3_DIP1
+	REG_MAP_E_WPE3_DIP1,
+	REG_MAP_E_DIP_TOP,
+	REG_MAP_E_DIP_TOP_NR
 };
 
 #endif /* _MTK_IMGSYS_ENGINE_H_ */
