@@ -285,7 +285,7 @@ static const struct of_device_id ssc_of_ids[] = {
 	{.compatible = "mediatek,ssc",},
 	{}
 };
-static int __init mt_ssc_pdrv_probe(struct platform_device *pdev)
+static int mt_ssc_pdrv_probe(struct platform_device *pdev)
 {
 
 	ssc_vcore_voter = regulator_get(&pdev->dev, SSC_VCORE_REGULATOR);
