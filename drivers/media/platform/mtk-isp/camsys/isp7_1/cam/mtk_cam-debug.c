@@ -12,8 +12,9 @@
 #include "mtk_cam-debug.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
-/* #include <mt-plat/aee.h> */
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
 #define CAMSYS_DUMP_SATATE_INIT		0
 #define CAMSYS_DUMP_SATATE_READY	1
 
@@ -851,7 +852,7 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	dev_info(ctx->cam->dev, "%s:camsys dump, %s\n",
 		 __func__, warn_desc);
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "Camsys",
 			       warn_desc);
 #else
