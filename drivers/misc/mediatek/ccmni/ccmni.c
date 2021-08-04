@@ -899,6 +899,10 @@ static int ccmni_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ctlb->ccmni_inst[i]->ack_prio_en);
 		break;
 
+	case SIOPUSHPENDING:
+		pr_info("Using dummy SIOPUSHPENDING\n");
+		return 0;
+
 	default:
 		CCMNI_DBG_MSG(ccmni->md_id,
 			"%s: unknown ioctl cmd=%x\n", dev->name, cmd);

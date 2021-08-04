@@ -51,7 +51,8 @@
 #define  SIOCFWDFILTER          (SIOCDEVPRIVATE + 2)
 /* disable ack first mechanism */
 #define  SIOCACKPRIO          (SIOCDEVPRIVATE + 3)
-
+/* push the queued packet to stack */
+#define  SIOPUSHPENDING       (SIOCDEVPRIVATE + 4)
 
 
 #define  IS_CCMNI_LAN(dev)      \
