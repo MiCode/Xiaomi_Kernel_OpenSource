@@ -44,6 +44,7 @@ int rem;
 static bool initialized;
 static struct selinux_avc *avc;
 static struct selinux_policy __rcu *policy;
+const struct selinux_state *g_selinux_state;
 static DEFINE_RATELIMIT_STATE(rs, 1*HZ, 10);
 
 #if mkp_debug
@@ -483,6 +484,7 @@ static void probe_android_vh_selinux_is_initialized(void *ignore,
 	initialized = state->initialized;
 	avc = state->avc;
 	policy = state->policy;
+	g_selinux_state = state;
 
 	if (policy_ctrl[MKP_POLICY_SELINUX_AVC]) {
 		if (!avc_work) {
