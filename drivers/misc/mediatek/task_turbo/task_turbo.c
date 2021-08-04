@@ -164,6 +164,7 @@ static void probe_android_rvh_prepare_prio_fork(void *ignore, struct task_struct
 			p->prio = p->normal_prio = p->static_prio;
 			set_load_weight(p, false);
 		}
+		trace_turbo_prepare_prio_fork(turbo_data, p);
 	}
 }
 
@@ -216,6 +217,7 @@ static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_
 				if (running)
 					set_next_task(rq, p);
 
+				trace_turbo_rtmutex_prepare_setprio(turbo_data, p);
 				__task_rq_unlock(rq, &rf);
 			}
 		}
@@ -319,6 +321,8 @@ static void probe_android_vh_alter_futex_plist_add(void *ignore, struct plist_no
 	struct futex_q *this, *next;
 	struct plist_node *current_node = q_list;
 	struct plist_node *this_node;
+	int prev_pid = 0;
+	bool prev_turbo = 1;
 
 	if (!sub_feat_enable(SUB_FEAT_LOCK) &&
 	    !is_turbo_task(current)) {
@@ -329,11 +333,15 @@ static void probe_android_vh_alter_futex_plist_add(void *ignore, struct plist_no
 	plist_for_each_entry_safe(this, next, hb_chain, list) {
 		if ((!this->pi_state || !this->rt_waiter) && !is_turbo_task(this->task)) {
 			this_node = &this->list;
+			trace_turbo_futex_plist_add(prev_pid, prev_turbo,
+					this->task->pid, is_turbo_task(this->task));
 			list_add(&current_node->node_list,
 				 this_node->node_list.prev);
 			*already_on_hb = true;
 			return;
 		}
+		prev_pid = this->task->pid;
+		prev_turbo = is_turbo_task(this->task);
 	}
 
 	*already_on_hb = false;
