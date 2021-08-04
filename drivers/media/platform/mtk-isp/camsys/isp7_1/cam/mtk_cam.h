@@ -140,7 +140,11 @@ struct mtk_cam_request_stream_data {
 	struct v4l2_subdev *seninf_old;
 	struct v4l2_subdev *seninf_new;
 	u32 pad_fmt_update;
+	u32 vdev_fmt_update;
+	u32 vdev_selection_update;
 	struct v4l2_subdev_format pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
+	struct v4l2_format vdev_fmt[MTK_RAW_TOTAL_NODES];
+	struct v4l2_selection vdev_selection[MTK_RAW_TOTAL_NODES];
 	struct mtkcam_ipi_frame_param frame_params;
 	struct mtk_camsv_frame_params sv_frame_params;
 	struct mtk_cam_req_work frame_work;
@@ -526,6 +530,7 @@ s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp);
 void set_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp, s32 request_fd);
 s32 get_crop_request_fd(struct v4l2_selection *crop);
 void set_crop_request_fd(struct v4l2_selection *crop, s32 request_fd);
+
 int PipeIDtoTGIDX(int pipe_id);
 int mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);

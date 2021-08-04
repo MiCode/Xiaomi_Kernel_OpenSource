@@ -1639,24 +1639,44 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 {
 	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	struct mtk_cam_request *cam_req;
+	struct media_request *req;
+	struct mtk_cam_request_stream_data *stream_data;
+	s32 fd;
 
-	if (vb2_is_busy(node->vdev.queue)) {
-		s32 fd = get_format_request_fd(&f->fmt.pix_mp);
+	if (!vb2_is_busy(node->vdev.queue)) {
 
-		if (fd > 0) {
-			node->pending_fmt = *f;
-			set_format_request_fd(&node->pending_fmt.fmt.pix_mp, fd);
-			return 0;
-		}
-
-		dev_dbg(cam->dev, "%s: queue is busy\n", __func__);
-		return -EBUSY;
+		/* Get the valid format */
+		mtk_cam_vidioc_try_fmt(file, fh, f);
+		/* Configure to video device */
+		node->active_fmt = *f;
+		return 0;
 	}
 
-	/* Get the valid format */
-	mtk_cam_vidioc_try_fmt(file, fh, f);
-	/* Configure to video device */
-	node->active_fmt = *f;
+	fd = get_format_request_fd(&f->fmt.pix_mp);
+	if (fd < 0)
+		return -EINVAL;
+
+	req = media_request_get_by_fd(&cam->media_dev, fd);
+	if (IS_ERR(req)) {
+		dev_info(cam->dev,
+			"%s:pipe(%d):%s:invalid request_fd:%d\n",
+			__func__, node->uid.pipe_id, node->desc.name, fd);
+
+		return -EINVAL;
+	}
+
+	cam_req = to_mtk_cam_req(req);
+	dev_dbg(cam->dev,
+		"%s:%s:pipe(%d):%s:pending s_fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
+		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
+		f->fmt.pix_mp.pixelformat,  f->fmt.pix_mp.width, f->fmt.pix_mp.height);
+
+	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
+	stream_data->vdev_fmt_update |= (1 << node->desc.id);
+	stream_data->vdev_fmt[node->desc.id] = *f;
+	media_request_put(req);
+
 	return 0;
 }
 
@@ -1776,6 +1796,7 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 
 	*f = try_fmt;
 	set_format_request_fd(&f->fmt.pix_mp, request_fd);
+
 	return 0;
 }
 
@@ -1819,19 +1840,42 @@ int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 {
 	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	struct mtk_cam_request_stream_data *stream_data;
+	struct mtk_cam_request *cam_req;
+	struct media_request *req;
+	s32 fd;
 
-	if (vb2_is_busy(node->vdev.queue)) {
-		s32 fd = get_crop_request_fd(s);
+	fd = get_crop_request_fd(s);
+	if (fd < 0)
+		return -EINVAL;
 
-		if (fd > 0) {
+	req = media_request_get_by_fd(&cam->media_dev, fd);
+	if (IS_ERR(req)) {
+		if (!vb2_is_busy(node->vdev.queue)) {
+			dev_info(cam->dev,
+				"%s:pipe(%d):%s: apply setting without fd\n",
+				__func__, node->uid.pipe_id, node->desc.name);
 			node->pending_crop = *s;
-			set_crop_request_fd(&node->pending_crop, fd);
-		} else {
-			dev_dbg(cam->dev, "%s: queue is busy\n", __func__);
-			return -EBUSY;
+			return 0;
 		}
-	} else
-		node->pending_crop = *s;
+
+		dev_info(cam->dev,
+			"%s:pipe(%d):%s:invalid request_fd:%d\n",
+			__func__, node->uid.pipe_id, node->desc.name, fd);
+
+		return -EINVAL;
+	}
+
+	cam_req = to_mtk_cam_req(req);
+	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
+	stream_data->vdev_selection_update |= (1 << node->desc.id);
+	stream_data->vdev_selection[node->desc.id] = *s;
+	dev_dbg(cam->dev,
+		"%s:%s:pipe(%d):%s:pending vidioc_s_selection (%d,%d,%d,%d)\n",
+		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
+		s->r.left, s->r.top, s->r.width, s->r.height);
+
+	media_request_put(req);
 
 	return 0;
 }

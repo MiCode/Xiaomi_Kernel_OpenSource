@@ -78,6 +78,8 @@ mtk_cam_req_s_data_clean(struct mtk_cam_request_stream_data *s_data)
 	s_data->seninf_old = NULL;
 	s_data->seninf_new = NULL;
 	s_data->pad_fmt_update = 0;
+	s_data->vdev_fmt_update = 0;
+	s_data->vdev_selection_update = 0;
 }
 
 static void
@@ -1029,7 +1031,6 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 	return 0;
 }
 
-
 s32 get_crop_request_fd(struct v4l2_selection *crop)
 {
 	s32 request_fd = 0;
@@ -1276,8 +1277,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		struct mtkcam_ipi_img_output *out_fmt;
 		struct mtkcam_ipi_img_input *in_fmt;
 		struct v4l2_format *fmt;
-		struct media_request *request;
-		__s32 fd;
+		bool vdev_fmt_update;
+		bool vdev_crop_update;
 
 		if (!vb2_request_object_is_buffer(obj))
 			continue;
@@ -1297,6 +1298,9 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		req_stream_data->dbg_exception_work.dump_flags = 0;
 		req_stream_data->frame_done_queue_work = 0;
 		req->sync_id = (ctx->used_raw_num) ? ctx->pipe->sync_id : 0;
+		vdev_fmt_update = req_stream_data->vdev_fmt_update & 1 << node->desc.id;
+		vdev_crop_update = req_stream_data->vdev_selection_update &
+				   1 << node->desc.id;
 
 		if (req_stream_data->seninf_new)
 			ctx->seninf = req_stream_data->seninf_new;
@@ -1304,21 +1308,11 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		/* update buffer format */
 		switch (node->desc.dma_port) {
 		case MTKCAM_IPI_RAW_RAWI_2:
-			fd = get_format_request_fd(&node->pending_fmt.fmt.pix_mp);
-			if (fd > 0) {
-				request = media_request_get_by_fd
-						(&cam->media_dev, fd);
-
-				if (request == &req->req) {
-					fmt = &node->pending_fmt;
-					video_try_fmt(node, fmt);
-					node->active_fmt = *fmt;
-				}
-
-				if (!IS_ERR(request))
-					media_request_put(request);
+			if (vdev_fmt_update) {
+				fmt = &req_stream_data->vdev_fmt[node->desc.id];
+				video_try_fmt(node, fmt);
+				node->active_fmt = *fmt;
 			}
-
 			in_fmt = &req_stream_data->frame_params
 					.img_ins[node->desc.id - MTK_RAW_RAWI_2_IN];
 			in_fmt->uid.pipe_id = node->uid.pipe_id;
@@ -1350,21 +1344,12 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				return ret;
 			}
 
-			fd = get_format_request_fd(&node->pending_fmt.fmt.pix_mp);
-			if (fd > 0) {
-				request = media_request_get_by_fd
-						(&cam->media_dev, fd);
-
-				if (request == &req->req) {
-					fmt = &node->pending_fmt;
-					video_try_fmt(node, fmt);
-					node->active_fmt = *fmt;
-				}
-
-				if (!IS_ERR(request))
-					media_request_put(request);
+			/* Apply request-based frame fmt setting */
+			if (vdev_fmt_update) {
+				fmt = &req_stream_data->vdev_fmt[node->desc.id];
+				video_try_fmt(node, fmt);
+				node->active_fmt = *fmt;
 			}
-
 			sd_width = sd_fmt.format.width;
 			sd_height = sd_fmt.format.height;
 
@@ -1373,31 +1358,22 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			out_fmt->uid.pipe_id = node->uid.pipe_id;
 			out_fmt->uid.id =  node->desc.dma_port;
 
-			fd = get_crop_request_fd(&node->pending_crop);
-			if (fd > 0) {
-				request = media_request_get_by_fd(
-					&cam->media_dev, fd);
-
-				if (request == &req->req ||
-				    ctx->enqueued_frame_seq_no == 0) {
-					out_fmt->crop.p.x =
-						node->pending_crop.r.left;
-					out_fmt->crop.p.y =
-						node->pending_crop.r.top;
-					out_fmt->crop.s.w =
-						node->pending_crop.r.width;
-					out_fmt->crop.s.h =
-						node->pending_crop.r.height;
-				}
-
-				if (!IS_ERR(request))
-					media_request_put(request);
-			} else {
-				out_fmt->crop.p.x = node->pending_crop.r.left;
-				out_fmt->crop.p.y = node->pending_crop.r.top;
-				out_fmt->crop.s.w = node->pending_crop.r.width;
-				out_fmt->crop.s.h = node->pending_crop.r.height;
+			/* Apply request-based frame crop setting */
+			if (vdev_crop_update) {
+				node->pending_crop =
+					req_stream_data->vdev_selection[node->desc.id];
+				dev_dbg(cam->dev,
+					"%s:%s:pipe(%d):%s: apply pending vidioc_s_selection (%d,%d,%d,%d)\n",
+					__func__, req->req.debug_str, node->uid.pipe_id,
+					node->desc.name, node->pending_crop.r.left,
+					node->pending_crop.r.top, node->pending_crop.r.width,
+					node->pending_crop.r.height);
 			}
+
+			out_fmt->crop.p.x = node->pending_crop.r.left;
+			out_fmt->crop.p.y = node->pending_crop.r.top;
+			out_fmt->crop.s.w = node->pending_crop.r.width;
+			out_fmt->crop.s.h = node->pending_crop.r.height;
 
 			ret = config_img_fmt(cam, node, out_fmt,
 					     sd_width, sd_height);
