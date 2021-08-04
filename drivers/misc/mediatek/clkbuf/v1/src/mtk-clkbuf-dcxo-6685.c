@@ -69,7 +69,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(de_sense, RG_XO_EXTBUF_BBCK1_HD)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK1_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK1_BBLPM_EN_MASK)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[1] = {
@@ -80,7 +80,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(de_sense, RG_XO_EXTBUF_BBCK2_HD)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK2_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK2_BBLPM_EN_MASK)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[2] = {
@@ -91,7 +91,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(de_sense, RG_XO_EXTBUF_BBCK3_HD)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK3_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK3_BBLPM_EN_MASK)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[3] = {
@@ -102,7 +102,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(de_sense, RG_XO_EXTBUF_BBCK4_HD)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK4_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK4_BBLPM_EN_MASK)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[4] = {
@@ -112,7 +112,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_BBCK5_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK5_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK5_BBLPM_EN_MASK)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 0,
 	},
 	[5] = {
@@ -121,7 +121,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_H_ADDR, 0x1, 2)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_RFCK1A_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_RFCK1A_VOTE_L)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[6] = {
@@ -130,7 +130,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_H_ADDR, 0x1, 1)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_RFCK1B_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_RFCK1B_VOTE_L)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[7] = {
@@ -139,8 +139,8 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_H_ADDR, 0x1, 0)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_RFCK1C_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_RFCK1C_VOTE_L)
-		.xo_en_auxout_sel = 16,
-		.in_use = 0,
+		.xo_en_auxout_sel = 15,
+		.in_use = 1,
 	},
 	[8] = {
 		MT6685_SET_REG_BY_NAME(xo_mode, XO_RFCK2A_MODE)
@@ -148,7 +148,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_L_ADDR, 0x1, 7)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_RFCK2A_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_RFCK2A_VOTE_L)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[9] = {
@@ -157,7 +157,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_L_ADDR, 0x1, 6)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_RFCK2B_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_RFCK2B_VOTE_L)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 1,
 	},
 	[10] = {
@@ -166,8 +166,8 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_L_ADDR, 0x1, 5)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_RFCK2C_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_RFCK2C_VOTE_L)
-		.xo_en_auxout_sel = 16,
-		.in_use = 0,
+		.xo_en_auxout_sel = 15,
+		.in_use = 1,
 	},
 	[11] = {
 		MT6685_SET_REG_BY_NAME(xo_mode, XO_CONCK1_MODE)
@@ -175,7 +175,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_L_ADDR, 0x1, 4)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_CONCK1_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_CONCK1_VOTE_L)
-		.xo_en_auxout_sel = 16,
+		.xo_en_auxout_sel = 15,
 		.in_use = 0,
 	},
 	[12] = {
@@ -184,8 +184,8 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_L_ADDR, 0x1, 3)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_CONCK2_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_CONCK2_VOTE_L)
-		.xo_en_auxout_sel = 16,
-		.in_use = 0,
+		.xo_en_auxout_sel = 15,
+		.in_use = 1,
 	},
 };
 

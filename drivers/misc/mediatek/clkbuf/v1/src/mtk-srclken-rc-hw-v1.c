@@ -177,10 +177,10 @@ int srclken_rc_dump_time(u8 idx, char *buf, u32 buf_size)
 	len -= 1;
 
 	len += snprintf(buf + len, buf_size - len,
-		"TIME_P_%u LSB: 0x%x ", idx, time_p_lsb);
+		", TIME_P_%u LSB: 0x%x ", idx, time_p_lsb);
 
 	len += snprintf(buf + len, buf_size - len,
-		"TIME_P_%u_MSB: 0x%x\n", idx, time_p_msb);
+		", TIME_P_%u_MSB: 0x%x\n", idx, time_p_msb);
 
 	return len;
 }
@@ -231,10 +231,10 @@ int srclken_rc_dump_trace(u8 idx, char *buf, u32 buf_size)
 	len -= 1;
 
 	len += snprintf(buf + len, buf_size - len,
-		"TRACE_P_%u LSB: 0x%x ", idx, trace_p_msb);
+		", TRACE_P_%u LSB: 0x%x ", idx, trace_p_msb);
 
 	len += snprintf(buf + len, buf_size - len,
-		"TRACE_P_%u MSB: 0x%x\n", idx, trace_p_lsb);
+		", TRACE_P_%u MSB: 0x%x\n", idx, trace_p_lsb);
 
 	return len;
 }

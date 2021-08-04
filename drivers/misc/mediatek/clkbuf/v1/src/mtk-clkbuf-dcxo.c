@@ -740,7 +740,7 @@ int clkbuf_dcxo_dump_pmrc_en(char *buf)
 			pr_notice("read dcxo pmrc_en ofs: 1 failed\n");
 			return len;
 		}
-		val = (val << 8) | tmp;
+		val |= (tmp << 8);
 	}
 	len += snprintf(buf + len,
 			PAGE_SIZE - len,
@@ -770,6 +770,7 @@ int clkbuf_dcxo_dump_pmrc_en(char *buf)
 						i);
 				return len;
 			}
+			val |= (tmp << 8);
 		}
 		len += snprintf(buf + len,
 				PAGE_SIZE - len,
@@ -884,6 +885,9 @@ static int clkbuf_dcxo_bblpm_init(void)
 		pr_debug("bblpm not support\n");
 		return 0;
 	}
+
+	if (!dcxo->hwbblpm_support)
+		return 0;
 
 	for (i = 0; i < dcxo->xo_num; i++) {
 		if (!dcxo->xo_bufs[i].in_use)
@@ -1012,6 +1016,10 @@ static int clkbuf_dcxo_dts_pmrc_en_init(struct device_node *ctl_node)
 	u8 i = 0;
 
 	ret = of_property_count_u32_elems(ctl_node, CLKBUF_PMRC_EN_ADDR);
+	if (ret <= 0) {
+		pr_notice("no pmrc_en addr specified.\n");
+		return 0;
+	}
 	if (ret % 2) {
 		pr_notice("pmic node/pmrc_en addr does not paired!\n");
 		return ret;
@@ -1362,7 +1370,7 @@ static int clkbuf_dcxo_dts_init(struct platform_device *pdev)
 static int clkbuf_dcxo_base_init(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
-	struct mt6397_chip *chip = dev_get_drvdata(pdev->dev.parent);
+	struct mt6397_chip *chip;
 
 	if (of_property_read_bool(node, CLKBUF_PMIC_CENTRAL_BASE)) {
 		/* get regmap by old way, use pmic main chip */
