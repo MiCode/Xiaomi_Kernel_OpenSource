@@ -336,11 +336,16 @@ static void update_hw_mapping(struct mtk_cam_ctx *ctx,
 						MTKCAM_SUBDEV_CAMSV_START].hw_cap &
 						(1 << CAMSV_EXP_ORDER_SHIFT))
 						config_param->maps[
+						config_param->n_maps].exp_order = 0;
+					else if (ctx->cam->sv.pipelines[i -
+						MTKCAM_SUBDEV_CAMSV_START].hw_cap &
+						(1 << (CAMSV_EXP_ORDER_SHIFT + 1)))
+						config_param->maps[
 						config_param->n_maps].exp_order = 1;
 					else
 						config_param->maps[
-						config_param->n_maps].exp_order = 0;
-					dev_info(ctx->cam->dev, "hw mapping pipe_id:%d is_first_expo:%d",
+						config_param->n_maps].exp_order = 2;
+					dev_info(ctx->cam->dev, "hw mapping pipe_id:%d exp_order:%d",
 						i,
 						config_param->maps[config_param->n_maps].exp_order);
 					config_param->n_maps++;
