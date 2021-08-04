@@ -2203,22 +2203,29 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 			qcom_glink_set_affinity(glink, arr, size);
 		kfree(arr);
 	}
+	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
+
+	return glink;
+}
+EXPORT_SYMBOL(qcom_glink_native_probe);
+
+int qcom_glink_native_start(struct qcom_glink *glink)
+{
+	int ret;
 
 	ret = qcom_glink_send_version(glink);
 	if (ret) {
-		dev_err(dev, "failed to send version %d\n", ret);
-		return ERR_PTR(ret);
+		dev_err(glink->dev, "failed to send version: %d\n", ret);
+		return ret;
 	}
 
 	ret = qcom_glink_create_chrdev(glink);
 	if (ret)
 		dev_err(glink->dev, "failed to register chrdev\n");
 
-	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
-
-	return glink;
+	return 0;
 }
-EXPORT_SYMBOL_GPL(qcom_glink_native_probe);
+EXPORT_SYMBOL(qcom_glink_native_start);
 
 static int qcom_glink_remove_device(struct device *dev, void *data)
 {
@@ -2262,7 +2269,13 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 
 	kthread_flush_worker(&glink->kworker);
 	kthread_stop(glink->task);
+
+	/*
+	 * Required for spss only. A cb is provided for this in spss driver. For
+	 * others, its done in prepare stage in smem driver. No cb is given.
+	 */
 	qcom_glink_pipe_reset(glink);
+
 	mbox_free_channel(glink->mbox_chan);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_remove);
