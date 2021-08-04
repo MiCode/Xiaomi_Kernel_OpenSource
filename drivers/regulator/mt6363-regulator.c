@@ -52,6 +52,7 @@ struct mt6363_regulator_info {
 	.desc = {						\
 		.name = #_name,					\
 		.of_match = of_match_ptr(#_name),		\
+		.of_parse_cb = mt6363_of_parse_cb,		\
 		.regulators_node = "regulators",		\
 		.ops = &mt6363_volt_range_ops,			\
 		.type = REGULATOR_VOLTAGE,			\
@@ -79,6 +80,7 @@ struct mt6363_regulator_info {
 	.desc = {						\
 		.name = #_name,					\
 		.of_match = of_match_ptr(#_name),		\
+		.of_parse_cb = mt6363_of_parse_cb,		\
 		.regulators_node = "regulators",		\
 		.ops = &mt6363_volt_range_ops,			\
 		.type = REGULATOR_VOLTAGE,			\
@@ -104,6 +106,7 @@ struct mt6363_regulator_info {
 	.desc = {						\
 		.name = #_name,					\
 		.of_match = of_match_ptr(#_name),		\
+		.of_parse_cb = mt6363_of_parse_cb,		\
 		.regulators_node = "regulators",		\
 		.ops = &mt6363_volt_table_ops,			\
 		.type = REGULATOR_VOLTAGE,			\
@@ -349,6 +352,10 @@ static const struct regulator_ops isink_load_ops = {
 	.disable = isink_load_disable,
 	.is_enabled = isink_load_is_enabled,
 };
+
+static int mt6363_of_parse_cb(struct device_node *np,
+			      const struct regulator_desc *desc,
+			      struct regulator_config *config);
 
 /* The array is indexed by id(MT6363_ID_XXX) */
 static struct mt6363_regulator_info mt6363_regulators[] = {
@@ -680,7 +687,7 @@ static int mt6363_of_parse_cb(struct device_node *np,
 	int ret;
 	struct mt6363_regulator_info *info = config->driver_data;
 
-	if (info->irq) {
+	if (info->irq > 0) {
 		ret = of_property_read_u32(np, "mediatek,oc-irq-enable-delay-ms",
 					   &info->oc_irq_enable_delay_ms);
 		if (ret || !info->oc_irq_enable_delay_ms)
@@ -694,31 +701,34 @@ static int mt6363_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
-	int i, ret, irq;
+	struct mt6363_regulator_info *info;
+	int i, ret;
 
 	config.dev = pdev->dev.parent;
 	config.regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	for (i = 0; i < MT6363_MAX_REGULATOR; i++) {
-		mt6363_regulators[i].desc.of_parse_cb = mt6363_of_parse_cb;
-		config.driver_data = &mt6363_regulators[i];
-		rdev = devm_regulator_register(&pdev->dev, &mt6363_regulators[i].desc, &config);
+		info = &mt6363_regulators[i];
+		info->irq = platform_get_irq_byname_optional(pdev, info->desc.name);
+		config.driver_data = info;
+
+		rdev = devm_regulator_register(&pdev->dev, &info->desc, &config);
 		if (IS_ERR(rdev)) {
 			ret = PTR_ERR(rdev);
 			dev_err(&pdev->dev, "failed to register %s, ret=%d\n",
-				mt6363_regulators[i].desc.name, ret);
+				info->desc.name, ret);
 			continue;
 		}
-		irq = platform_get_irq_byname_optional(pdev, mt6363_regulators[i].desc.name);
-		if (irq < 0)
+
+		if (info->irq <= 0)
 			continue;
-		ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+		ret = devm_request_threaded_irq(&pdev->dev, info->irq, NULL,
 						mt6363_oc_irq,
 						IRQF_TRIGGER_HIGH,
-						mt6363_regulators[i].desc.name,
+						info->desc.name,
 						rdev);
 		if (ret) {
 			dev_err(&pdev->dev, "Failed to request IRQ:%s, ret=%d",
-				mt6363_regulators[i].desc.name, ret);
+				info->desc.name, ret);
 			continue;
 		}
 	}
