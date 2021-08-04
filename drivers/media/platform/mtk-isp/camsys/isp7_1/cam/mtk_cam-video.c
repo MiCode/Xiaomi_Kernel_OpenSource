@@ -11,6 +11,7 @@
 #include "mtk_cam-meta.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
+#include "mtk_cam-ufbc-def.h"
 
 /*
  * Note
@@ -37,7 +38,7 @@ int mtk_cam_dma_bus_size(int bpp, int pixel_mode_shift, int is_fg)
 static inline
 int mtk_cam_yuv_dma_bus_size(int bpp, int pixel_mode_shift)
 {
-	unsigned int bus_size = ALIGN(bpp, 32) << pixel_mode_shift;
+	unsigned int bus_size = ALIGN(bpp, 32);
 
 	return bus_size / 8; /* in bytes */
 }
@@ -395,11 +396,32 @@ int is_mtk_format(u32 pixelformat)
 	case V4L2_PIX_FMT_MTISP_NV21_12P:
 	case V4L2_PIX_FMT_MTISP_NV16_12P:
 	case V4L2_PIX_FMT_MTISP_NV61_12P:
+	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
 		return 1;
 	break;
 	default:
 		return 0;
 	break;
+	}
+}
+
+int is_yuv_ufo(u32 pixelformat)
+{
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
+	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
+		return 1;
+	default:
+		return 0;
 	}
 }
 
@@ -504,6 +526,25 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		{ .format = V4L2_PIX_FMT_MTISP_NV61_12P, .mem_planes = 1, .comp_planes = 2,
 			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
 			.bit_r_num = 3, .bit_r_den = 2 },
+		/* YUV UFBC formats */
+		{ .format = V4L2_PIX_FMT_MTISP_NV12_UFBC, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV21_UFBC, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV12_10_UFBC, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV21_10_UFBC, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV12_12_UFBC, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV21_12_UFBC, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2 },
 	};
 	unsigned int i;
 
@@ -535,19 +576,35 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 
 		aligned_width = stride / info->bpp[0];
 		if (info->mem_planes == 1) {
-			for (i = 0; i < info->comp_planes; i++) {
-				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+			if (is_yuv_ufo(pixelformat)) {
+				aligned_width = ALIGN(width, 64);
+				img_out->buf[0][0].iova = daddr;
+				img_out->fmt.stride[0] = aligned_width * info->bit_r_num
+							 / info->bit_r_den;
+				img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
+				img_out->buf[0][0].size += img_out->fmt.stride[0] * height / 2;
+				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 64) * height
+							   * 2;
+				img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
 
-				img_out->buf[0][i].iova = daddr + addr_offset;
-				img_out->fmt.stride[i] = info->bpp[i] *
-					DIV_ROUND_UP(aligned_width, hdiv);
-				img_out->buf[0][i].size = img_out->fmt.stride[i]
-					* DIV_ROUND_UP(height, vdiv);
-				addr_offset += img_out->buf[0][i].size;
 				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-					i, img_out->fmt.stride[i], img_out->buf[0][i].size,
-					img_out->buf[0][i].iova);
+					0, img_out->fmt.stride[0], img_out->buf[0][0].size,
+					img_out->buf[0][0].iova);
+			} else {
+				for (i = 0; i < info->comp_planes; i++) {
+					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+					img_out->buf[0][i].iova = daddr + addr_offset;
+					img_out->fmt.stride[i] = info->bpp[i] *
+						DIV_ROUND_UP(aligned_width, hdiv);
+					img_out->buf[0][i].size = img_out->fmt.stride[i]
+						* DIV_ROUND_UP(height, vdiv);
+					addr_offset += img_out->buf[0][i].size;
+					pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
+						i, img_out->fmt.stride[i], img_out->buf[0][i].size,
+						img_out->buf[0][i].iova);
+				}
 			}
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
@@ -713,6 +770,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		/* TODO: support sub-sampling multi-plane buffer */
 		desc_id = node->desc.id-MTK_RAW_SOURCE_BEGIN;
 		frame_param->img_outs[desc_id].buf[0][0].iova = buf->daddr;
+		frame_param->img_outs[desc_id].buf[0][0].ccd_fd = vb->planes[0].m.fd;
 		if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_LSC)
 			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_LSC;
 		else
@@ -748,6 +806,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		/* TODO: support sub-sampling multi-plane buffer */
 		desc_id = node->desc.id - MTK_RAW_SOURCE_BEGIN;
 		img_out = &frame_param->img_outs[desc_id];
+		img_out->buf[0][0].ccd_fd = vb->planes[0].m.fd;
 		mtk_cam_fill_img_buf(img_out, f, buf->daddr);
 		if (node->raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
 			int comp_planes = 1;
@@ -1011,6 +1070,27 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_YUV_P012_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YVU_P012_PACKED:
 		return 12;
+	case MTKCAM_IPI_IMG_FMT_RGB_8B_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
+	case MTKCAM_IPI_IMG_FMT_UFBC_NV12:
+	case MTKCAM_IPI_IMG_FMT_UFBC_NV21:
+		return 8;
+	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P010:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P010:
+		return 10;
+	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P012:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P012:
+		return 12;
+	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
+		return 16;
+
 	default:
 		break;
 	}
@@ -1155,6 +1235,19 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	case V4L2_PIX_FMT_SGRBG16:
 	case V4L2_PIX_FMT_SRGGB16:
 		return MTKCAM_IPI_IMG_FMT_BAYER16;
+	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
+		return MTKCAM_IPI_IMG_FMT_UFBC_NV12;
+	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
+		return MTKCAM_IPI_IMG_FMT_UFBC_NV21;
+	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
+		return MTKCAM_IPI_IMG_FMT_UFBC_YUV_P010;
+	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
+		return MTKCAM_IPI_IMG_FMT_UFBC_YVU_P010;
+	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
+		return MTKCAM_IPI_IMG_FMT_UFBC_YUV_P012;
+	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
+		return MTKCAM_IPI_IMG_FMT_UFBC_YVU_P012;
+
 	default:
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
@@ -1211,6 +1304,13 @@ int mtk_cam_get_plane_num(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_YUV_420_3P:
 	case MTKCAM_IPI_IMG_FMT_YVU_420_3P:
 						return 3;
+	case MTKCAM_IPI_IMG_FMT_UFBC_NV12:
+	case MTKCAM_IPI_IMG_FMT_UFBC_NV21:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P010:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P010:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P012:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P012:
+						return 2;
 
 	default:
 		break;
@@ -1247,22 +1347,36 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 			return -EINVAL;
 
 		if (info->mem_planes == 1) {
-			/* width should be bus_size align */
-			aligned_width = ALIGN(DIV_ROUND_UP(width
-				* info->bit_r_num, info->bit_r_den), bus_size);
-			stride = aligned_width * info->bpp[0];
+			if (is_yuv_ufo(pixelformat)) {
+				/* UFO format width should align 64 pixel */
+				aligned_width = ALIGN(width, 64);
+				stride = aligned_width * info->bit_r_num / info->bit_r_den;
 
-			if (stride > plane->bytesperline)
-				plane->bytesperline = stride;
+				if (stride > plane->bytesperline)
+					plane->bytesperline = stride;
+				plane->sizeimage = stride * height;
+				plane->sizeimage += stride * height / 2;
+				plane->sizeimage += ALIGN((aligned_width / 64), 64) * height * 2;
+				plane->sizeimage += sizeof(struct UfbcBufferHeader);
+			} else {
+				/* width should be bus_size align */
+				aligned_width = ALIGN(DIV_ROUND_UP(width
+					* info->bit_r_num, info->bit_r_den), bus_size);
+				stride = aligned_width * info->bpp[0];
 
-			for (i = 0; i < info->comp_planes; i++) {
-				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+				if (stride > plane->bytesperline)
+					plane->bytesperline = stride;
 
-				plane->sizeimage += info->bpp[i]
-					* DIV_ROUND_UP(aligned_width, hdiv)
-					* DIV_ROUND_UP(height, vdiv);
+				for (i = 0; i < info->comp_planes; i++) {
+					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+					plane->sizeimage += info->bpp[i]
+						* DIV_ROUND_UP(aligned_width, hdiv)
+						* DIV_ROUND_UP(height, vdiv);
+				}
 			}
+
 			pr_debug("%s stride %d sizeimage %d\n", __func__,
 				plane->bytesperline, plane->sizeimage);
 		} else {
@@ -1371,6 +1485,12 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_YVU_P212_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YUV_P012_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YVU_P012_PACKED:
+	case MTKCAM_IPI_IMG_FMT_UFBC_NV12:
+	case MTKCAM_IPI_IMG_FMT_UFBC_NV21:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P010:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P010:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P012:
+	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P012:
 		mtk_cam_fill_pixfmt_mp(mp, mp->pixelformat, width, height);
 	default:
 		break;

@@ -3393,6 +3393,48 @@ static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_YUV420,
 		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_UFBC,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_UFBC,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10_UFBC,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10_UFBC,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_12_UFBC,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_12_UFBC,
+		},
 	}
 };
 
