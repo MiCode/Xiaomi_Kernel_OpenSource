@@ -339,17 +339,6 @@ unsigned long aee_get_text(void)
 	return p_text;
 }
 
-/* _sdata, _edata is in *ABS* section and kallsyms API can not find it */
-unsigned long aee_get_sdata(void)
-{
-	return 0;
-}
-
-unsigned long aee_get_edata(void)
-{
-	return 0;
-}
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -522,16 +511,6 @@ unsigned long aee_get_etext(void)
 unsigned long aee_get_text(void)
 {
 	return (unsigned long)_text;
-}
-
-unsigned long aee_get_sdata(void)
-{
-	return (unsigned long)_sdata;
-}
-
-unsigned long aee_get_edata(void)
-{
-	return (unsigned long)_edata;
 }
 
 #ifdef CONFIG_MODULES

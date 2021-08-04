@@ -117,8 +117,6 @@ void mrdump_cblock_late_init(void)
 	machdesc_p->kimage_stext = (uint64_t)aee_get_text();
 	machdesc_p->kimage_etext = (uint64_t)aee_get_etext();
 	machdesc_p->kimage_stext_real = (uint64_t)aee_get_stext();
-	machdesc_p->kimage_sdata = (uint64_t)aee_get_sdata();
-	machdesc_p->kimage_edata = (uint64_t)aee_get_edata();
 	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
 			sizeof(struct mrdump_machdesc));
 	pr_notice("%s: done.\n", __func__);

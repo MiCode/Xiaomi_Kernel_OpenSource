@@ -15,8 +15,6 @@ extern const char *aee_arch_vma_name(struct vm_area_struct *vma);
 extern unsigned long aee_get_stext(void);
 extern unsigned long aee_get_etext(void);
 extern unsigned long aee_get_text(void);
-extern unsigned long aee_get_sdata(void);
-extern unsigned long aee_get_edata(void);
 
 extern void *aee_log_buf_addr_get(void);
 
