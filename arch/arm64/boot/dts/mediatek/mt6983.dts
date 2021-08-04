@@ -777,7 +777,8 @@
 		ta-stack-heap-size = <0 0x6000000>;
 		sdsp-tee-sharedmem-size = <0 0x1000000>;
 		sdsp-firmware-size = <0 0x1000000>;
-		};
+		sapu-data-shm-size = <0 0x2000000>;
+	};
 
 	ssmr {
 		compatible = "mediatek,trusted_mem";
