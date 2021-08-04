@@ -1642,6 +1642,11 @@ static int __init rpmb_init(void)
 	unsigned int major;
 	dev_t dev;
 	struct device *device = NULL;
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)
+	struct device_node *mobicore_node;
+	int ret = 0;
+	u32 real_drv;
+#endif
 
 	MSG(INFO, "%s start\n", __func__);
 
@@ -1682,6 +1687,21 @@ static int __init rpmb_init(void)
 	}
 
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)
+	mobicore_node = of_find_compatible_node(NULL, NULL,
+					     "trustonic,mobicore");
+	if (!mobicore_node) {
+		MSG(ERR, "find trustonic,mobicore fail\n");
+		goto fake_out;
+	}
+
+	ret = of_property_read_u32(mobicore_node,
+				   "trustonic,real-drv", &real_drv);
+	if (ret || !real_drv) {
+		MSG(INFO, "MobiCore dummy driver, ret=%d, real_drv=%d",
+			ret, real_drv);
+		goto fake_out;
+	}
+
 	open_th = kthread_run(rpmb_thread, NULL, "rpmb_open");
 	if (IS_ERR(open_th))
 		MSG(ERR, "%s, init kthread_run failed!\n", __func__);
@@ -1695,6 +1715,8 @@ static int __init rpmb_init(void)
 	init_waitqueue_head(&wait_rpmb);
 	mutex_init(&rpmb_lock);
 #endif
+
+fake_out:
 #endif
 
 	MSG(INFO, "%s end!!!!\n", __func__);
