@@ -1046,10 +1046,14 @@
 			mediatek,usb3-drd;
 			mediatek,hw-req-ctrl;
 			usb-role-switch;
-			status = "disabled";
+			port {
+				mtu3_drd_switch1: endpoint@0 {
+					remote-endpoint = <&usb_role1>;
+				};
+			};
 
 			usb_host1: xhci1@11210000 {
-				compatible = "mediatek,mtk-xhci";
+				compatible = "mediatek,mtk-xhci-p1";
 				reg = <0 0x11210000 0 0x1000>;
 				reg-names = "mac";
 				interrupts = <GIC_SPI 731 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -1092,7 +1096,6 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
-			status = "disabled";
 
 			u2port1: usb2-phy1@11e30000 {
 				reg = <0 0x11e30000 0 0x400>;
@@ -8871,6 +8874,15 @@
 		port {
 			usb_role: endpoint@0 {
 				remote-endpoint = <&mtu3_drd_switch>;
+			};
+		};
+	};
+
+	extcon_usb1: extcon_usb1 {
+		compatible = "mediatek,extcon-usb";
+		port {
+			usb_role1: endpoint@0 {
+				remote-endpoint = <&mtu3_drd_switch1>;
 			};
 		};
 	};
