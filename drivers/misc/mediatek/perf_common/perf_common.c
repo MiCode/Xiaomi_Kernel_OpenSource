@@ -257,7 +257,7 @@ static int __init init_perf_common(void)
 	/* register tracepoint of scheduler_tick */
 	ret = register_trace_android_vh_scheduler_tick(perf_common, NULL);
 	if (ret) {
-		pr_debug("perf_comm: register hooks failed, returned %d\n", ret);
+		pr_info("perf_comm: register hooks failed, returned %d\n", ret);
 		goto register_failed;
 	}
 	perf_common_init = 1;
@@ -265,10 +265,11 @@ static int __init init_perf_common(void)
 	return ret;
 
 register_failed:
-	cleanup_perf_common_sysfs();
+	unregister_trace_android_vh_scheduler_tick(perf_common, NULL);
 get_base_failed:
 	exit_cpufreq_table();
 out:
+	cleanup_perf_common_sysfs();
 	return ret;
 }
 
