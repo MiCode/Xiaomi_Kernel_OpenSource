@@ -28,7 +28,7 @@ struct match {
 };
 struct hdlr_data_v1 {
 	struct pll_dts *array;
-	struct mutex *lock;
+	spinlock_t *lock;
 	struct fh_pll_domain *domain;
 };
 
@@ -107,10 +107,11 @@ static int ap_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 	int ret = 0;
 	unsigned int con_pcw_tmp;
 	struct hdlr_data_v1 *d = (struct hdlr_data_v1 *)priv_data;
-	struct mutex *lock = d->lock;
+	spinlock_t *lock = d->lock;
 	struct pll_dts *array = d->array;
+	unsigned long flags = 0;
 
-	mutex_lock(lock);
+	spin_lock_irqsave(lock, flags);
 
 	domain = d->domain;
 	regs = &domain->regs[fh_id];
@@ -172,7 +173,7 @@ static int ap_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 	if (array->ssc_rate)
 		__ssc_v1(regs, data, fh_id, array->ssc_rate);
 
-	mutex_unlock(lock);
+	spin_unlock_irqrestore(lock, flags);
 	return ret;
 }
 
@@ -183,10 +184,11 @@ static int ap_ssc_enable_v1(void *priv_data,
 	struct fh_pll_regs *regs;
 	struct fh_pll_data *data;
 	struct hdlr_data_v1 *d = (struct hdlr_data_v1 *)priv_data;
-	struct mutex *lock = d->lock;
+	spinlock_t *lock = d->lock;
 	struct pll_dts *array = d->array;
+	unsigned long flags = 0;
 
-	mutex_lock(lock);
+	spin_lock_irqsave(lock, flags);
 
 	FHDBG("id<%d>, rate<%d>\n", fh_id, rate);
 
@@ -198,7 +200,7 @@ static int ap_ssc_enable_v1(void *priv_data,
 
 	array->ssc_rate = rate;
 
-	mutex_unlock(lock);
+	spin_unlock_irqrestore(lock, flags);
 
 	return 0;
 }
@@ -210,10 +212,11 @@ static int ap_ssc_disable_v1(void *priv_data,
 	struct fh_pll_regs *regs;
 	struct fh_pll_data *data;
 	struct hdlr_data_v1 *d = (struct hdlr_data_v1 *)priv_data;
-	struct mutex *lock = d->lock;
+	spinlock_t *lock = d->lock;
 	struct pll_dts *array = d->array;
+	unsigned long flags = 0;
 
-	mutex_lock(lock);
+	spin_lock_irqsave(lock, flags);
 
 	FHDBG("id<%d>\n", fh_id);
 
@@ -225,14 +228,14 @@ static int ap_ssc_disable_v1(void *priv_data,
 
 	array->ssc_rate = 0;
 
-	mutex_unlock(lock);
+	spin_unlock_irqrestore(lock, flags);
 
 	return 0;
 }
 
 static int ap_init_v1(struct pll_dts *array, struct match *match)
 {
-	static DEFINE_MUTEX(lock);
+	static DEFINE_SPINLOCK(lock);
 	struct hdlr_data_v1 *priv_data;
 	struct fh_hdlr *hdlr;
 	struct fh_pll_domain *domain;
@@ -324,6 +327,11 @@ static struct match mt6885_match = {
 	.hdlr = &ap_hdlr_v1,
 	.init = &ap_init_v1,
 };
+static struct match mt6895_match = {
+	.name = "mediatek,mt6895-fhctl",
+	.hdlr = &ap_hdlr_v1,
+	.init = &ap_init_v1,
+};
 static struct match mt6983_match = {
 	.name = "mediatek,mt6983-fhctl",
 	.hdlr = &ap_hdlr_v1,
@@ -335,6 +343,7 @@ static struct match *matches[] = {
 	&mt6877_match,
 	&mt6873_match,
 	&mt6885_match,
+	&mt6895_match,
 	&mt6983_match,
 	NULL,
 };
