@@ -3146,12 +3146,14 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			}
 		}
 
-		/*set cam mux*/
+		/*set cam mux camtg and pixel mode*/
 		if (mtk_cam_is_stagger(ctx)) {
+			int seninf_pad = (mtk_cam_is_2_exposure(ctx) == 1) ?
+					PAD_SRC_RAW1 : PAD_SRC_RAW2;
 			/* todo: backend support one pixel mode only */
-			mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW2,
+			mtk_cam_seninf_set_pixelmode(ctx->seninf, seninf_pad,
 						ctx->pipe->res_config.tgo_pxl_mode);
-			mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW2,
+			mtk_cam_seninf_set_camtg(ctx->seninf, seninf_pad,
 						PipeIDtoTGIDX(raw_dev->id));
 		} else if (!mtk_cam_is_stagger_m2m(ctx) &&
 					!mtk_cam_is_time_shared(ctx)) {

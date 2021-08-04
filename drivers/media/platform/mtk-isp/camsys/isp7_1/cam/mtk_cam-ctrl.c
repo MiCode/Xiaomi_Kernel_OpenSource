@@ -686,12 +686,19 @@ static void mtk_cam_exp_switch_sensor_worker(struct work_struct *work)
 static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		struct mtk_cam_ctx *ctx, struct mtk_cam_request_stream_data *req_stream_data)
 {
+	struct mtk_cam_video_device *node;
 	struct mtk_cam_seninf_mux_param param;
 	struct mtk_cam_seninf_mux_setting settings[3];
 	int type = req_stream_data->feature.switch_feature_type;
 	int sv_main_id, sv_sub_id;
+	int config_exposure_num = 3;
 
-	if (type != EXPOSURE_CHANGE_NONE) {
+	node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+	if (node->raw_feature == STAGGER_2_EXPOSURE_LE_SE ||
+		node->raw_feature == STAGGER_2_EXPOSURE_SE_LE)
+		config_exposure_num = 2;
+
+	if (type != EXPOSURE_CHANGE_NONE && config_exposure_num == 3) {
 		sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
 		sv_sub_id = get_sub_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
 		switch (type) {
@@ -700,51 +707,51 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
 			settings[0].camtg  = PipeIDtoTGIDX(sv_main_id);
-			//settings[0].enable = 1;
+			settings[0].enable = 1;
 
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
-			settings[1].camtg  = PipeIDtoTGIDX(sv_sub_id);
-			//settings[1].enable = 0;
+			settings[1].camtg  = PipeIDtoTGIDX(raw_dev->id);
+			settings[1].enable = 1;
 
 			settings[2].seninf = ctx->seninf;
 			settings[2].source = PAD_SRC_RAW2;
-			settings[2].camtg  = PipeIDtoTGIDX(raw_dev->id);
-			//settings[2].enable = 1;
+			settings[2].camtg  = PipeIDtoTGIDX(sv_sub_id);
+			settings[2].enable = 0;
 			break;
 		case EXPOSURE_CHANGE_3_to_1:
 		case EXPOSURE_CHANGE_2_to_1:
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
 			settings[0].camtg  = PipeIDtoTGIDX(raw_dev->id);
-			//settings[0].enable = 1;
+			settings[0].enable = 1;
 
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
 			settings[1].camtg  = PipeIDtoTGIDX(sv_sub_id);
-			//settings[1].enable = 0;
+			settings[1].enable = 0;
 
 			settings[2].seninf = ctx->seninf;
 			settings[2].source = PAD_SRC_RAW2;
 			settings[2].camtg  = PipeIDtoTGIDX(sv_main_id);
-			//settings[2].enable = 0;
+			settings[2].enable = 0;
 			break;
 		case EXPOSURE_CHANGE_2_to_3:
 		case EXPOSURE_CHANGE_1_to_3:
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
 			settings[0].camtg  = PipeIDtoTGIDX(sv_main_id);
-			//settings[0].enable = 1;
+			settings[0].enable = 1;
 
 			settings[1].seninf = ctx->seninf;
 			settings[1].source = PAD_SRC_RAW1;
 			settings[1].camtg  = PipeIDtoTGIDX(sv_sub_id);
-			//settings[1].enable = 1;
+			settings[1].enable = 1;
 
 			settings[2].seninf = ctx->seninf;
 			settings[2].source = PAD_SRC_RAW2;
 			settings[2].camtg  = PipeIDtoTGIDX(raw_dev->id);
-			//settings[2].enable = 1;
+			settings[2].enable = 1;
 			break;
 		default:
 			break;
@@ -753,11 +760,45 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		param.num = 3;
 		mtk_cam_seninf_streaming_mux_change(&param);
 		dev_info(ctx->cam->dev,
-			"[%s] switch Req:%d, type:%d, cam_mux[0][1][2]:[%d/%d][%d/%d][%d/%d]\n",
+			"[%s] switch Req:%d, type:%d, cam_mux[0][1][2]:[%d/%d/%d][%d/%d/%d][%d/%d/%d]\n",
 			__func__, req_stream_data->frame_seq_no, type,
-			settings[0].source, settings[0].camtg,/* settings[0].enable,*/
-			settings[1].source, settings[1].camtg,/* settings[1].enable,*/
-			settings[2].source, settings[2].camtg/*, settings[2].enable*/);
+			settings[0].source, settings[0].camtg, settings[0].enable,
+			settings[1].source, settings[1].camtg, settings[1].enable,
+			settings[2].source, settings[2].camtg, settings[2].enable);
+	} else if (type != EXPOSURE_CHANGE_NONE && config_exposure_num == 2) {
+		sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
+		switch (type) {
+		case EXPOSURE_CHANGE_2_to_1:
+			settings[0].seninf = ctx->seninf;
+			settings[0].source = PAD_SRC_RAW0;
+			settings[0].camtg  = PipeIDtoTGIDX(raw_dev->id);
+			settings[0].enable = 1;
+			settings[1].seninf = ctx->seninf;
+			settings[1].source = PAD_SRC_RAW1;
+			settings[1].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[1].enable = 0;
+			break;
+		case EXPOSURE_CHANGE_1_to_2:
+			settings[0].seninf = ctx->seninf;
+			settings[0].source = PAD_SRC_RAW0;
+			settings[0].camtg  = PipeIDtoTGIDX(sv_main_id);
+			settings[0].enable = 1;
+			settings[1].seninf = ctx->seninf;
+			settings[1].source = PAD_SRC_RAW1;
+			settings[1].camtg  = PipeIDtoTGIDX(raw_dev->id);
+			settings[1].enable = 1;
+			break;
+		default:
+			break;
+		}
+		param.settings = &settings[0];
+		param.num = 2;
+		mtk_cam_seninf_streaming_mux_change(&param);
+		dev_info(ctx->cam->dev,
+			"[%s] switch Req:%d, type:%d, cam_mux[0][1]:[%d/%d/%d][%d/%d/%d]\n",
+			__func__, req_stream_data->frame_seq_no, type,
+			settings[0].source, settings[0].camtg, settings[0].enable,
+			settings[1].source, settings[1].camtg, settings[1].enable);
 	}
 	/*switch state*/
 	if (type == EXPOSURE_CHANGE_3_to_1 ||
