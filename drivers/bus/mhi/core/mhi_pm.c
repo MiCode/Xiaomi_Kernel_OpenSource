@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -1061,8 +1061,8 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 				sfr_info->buf_addr);
 	}
 
-	/* link is not down if device is in RDDM */
-	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
+	/* link is not down if device supports RDDM */
+	transition_state = (mhi_cntrl->rddm_supported) ?
 		MHI_PM_DEVICE_ERR_DETECT : MHI_PM_LD_ERR_FATAL_DETECT;
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
