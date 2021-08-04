@@ -28,6 +28,7 @@
 struct fd_info {
 	uint8_t fd_num;
 	unsigned int fds[FD_MAX];
+	size_t fds_size[FD_MAX];
 } __attribute__ ((__packed__));
 #define MTKDIP_IOC_ADD_KVA _IOW('V', BASE_VIDIOC_PRIVATE + 8, struct fd_info)
 #define MTKDIP_IOC_DEL_KVA _IOW('V', BASE_VIDIOC_PRIVATE + 9, struct fd_info)

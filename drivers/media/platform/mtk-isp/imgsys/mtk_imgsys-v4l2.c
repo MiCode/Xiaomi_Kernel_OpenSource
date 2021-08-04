@@ -1440,12 +1440,15 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 
 		buf_va_info->buf_fd = fd_info->fds[i];
 		dmabuf = dma_buf_get(fd_info->fds[i]);
+
 		if (IS_ERR(dmabuf)) {
 			dev_info(imgsys_pipe->imgsys_dev->dev, "%s:err fd %d",
 						__func__, fd_info->fds[i]);
 			vfree(buf_va_info);
 			continue;
 		}
+
+		fd_info->fds_size[i] = dmabuf->size;
 
 		dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		buf_va_info->kva = (u64)dma_buf_vmap(dmabuf);
@@ -1483,8 +1486,13 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		list_add_tail(vlist_link(buf_va_info, struct buf_va_info_t),
 		   &kva_list->mylist);
 		mutex_unlock(&(kva_list->mymutex));
-		pr_info("%s: fd(%d) cached\n", __func__, fd_info->fds[i]);
+		pr_info("%s: fd(%d) size(%llx) cached\n", __func__,
+					fd_info->fds[i], fd_info->fds_size[i]);
 	}
+
+	mtk_hcp_send_async(imgsys_pipe->imgsys_dev->scp_pdev,
+				HCP_IMGSYS_UVA_FDS_ADD_ID, fd_info,
+				sizeof(struct fd_info), 0);
 
 	return 0;
 }
@@ -1528,12 +1536,16 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,
 			DMA_BIDIRECTIONAL);
 		dma_buf_detach(dmabuf, buf_va_info->attach);
-
-
+		fd_info->fds_size[i] = dmabuf->size;
 		dma_buf_put(dmabuf);
 		buf_va_info = NULL;
-		pr_info("%s: fd(%d) cache invalidated\n", __func__, fd_info->fds[i]);
+		pr_debug("%s: fd(%d) size (%llx) cache invalidated\n", __func__,
+					fd_info->fds[i], fd_info->fds_size[i]);
 	}
+
+	mtk_hcp_send_async(imgsys_pipe->imgsys_dev->scp_pdev,
+				HCP_IMGSYS_UVA_FDS_DEL_ID, fd_info,
+				sizeof(struct fd_info), 0);
 
 	return 0;
 }
@@ -1544,6 +1556,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
 	struct mtk_imgsys_dma_buf_iova_get_info *fd_iova;
 	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
+	struct fd_info fd_info;
 	struct dma_buf *dmabuf;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
@@ -1569,11 +1582,15 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		return -EINVAL;
 	}
 
+	fd_info.fd_num = fd_tbl->fd_num;
 
 	for (i = 0; i < fd_tbl->fd_num; i++) {
 
-		if (!kfd[i])
+		if (!kfd[i]) {
+			fd_info.fds[i] = 0;
+			fd_info.fds_size[i] = 0;
 			continue;
+		}
 
 		dmabuf = dma_buf_get(kfd[i]);
 		if (IS_ERR(dmabuf))
@@ -1610,8 +1627,17 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		spin_lock(&pipe->iova_cache.lock);
 		list_add_tail(&fd_iova->list_entry, &pipe->iova_cache.list);
 		spin_unlock(&pipe->iova_cache.lock);
+		fd_info.fds_size[i] = dmabuf->size;
+		fd_info.fds[i] = kfd[i];
+		pr_info("%s: fd(%d) size (%llx) cache added\n", __func__,
+					fd_info.fds[i], fd_info.fds_size[i]);
 
 	}
+
+	mtk_hcp_send_async(pipe->imgsys_dev->scp_pdev,
+				HCP_IMGSYS_IOVA_FDS_ADD_ID, (void *)&fd_info,
+				sizeof(struct fd_info), 0);
+
 	vfree(kfd);
 
 	return 0;
@@ -1622,6 +1648,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
 	struct mtk_imgsys_dma_buf_iova_get_info *iova_info, *tmp;
 	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
+	struct fd_info fd_info;
 	struct dma_buf *dmabuf;
 	unsigned int *kfd;
 	size_t size;
@@ -1644,12 +1671,16 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 		return -EINVAL;
 	}
 
+	fd_info.fd_num = fd_tbl->fd_num;
 
 	for (i = 0; i < fd_tbl->fd_num; i++) {
 		unsigned int fd = kfd[i];
 
-		if (!fd)
+		if (!fd) {
+			fd_info.fds[i] = 0;
+			fd_info.fds_size[i] = 0;
 			continue;
+		}
 		dmabuf = dma_buf_get(fd);
 		if (IS_ERR(dmabuf))
 			continue;
@@ -1670,9 +1701,18 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}
-
+		fd_info.fds_size[i] = dmabuf->size;
 		dma_buf_put(dmabuf);
+
+		fd_info.fds[i] = kfd[i];
+		pr_debug("%s: fd(%d) size (%llx) cache invalidated\n", __func__,
+					fd_info.fds[i], fd_info.fds_size[i]);
+
 	}
+
+	mtk_hcp_send_async(pipe->imgsys_dev->scp_pdev,
+				HCP_IMGSYS_IOVA_FDS_DEL_ID, (void *)&fd_info,
+				sizeof(struct fd_info), 0);
 
 	vfree(kfd);
 
