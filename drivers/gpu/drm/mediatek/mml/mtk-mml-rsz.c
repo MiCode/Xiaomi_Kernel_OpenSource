@@ -109,7 +109,7 @@ struct rsz_frame_data {
 };
 
 #define rsz_frm_data(i)	((struct rsz_frame_data *)(i->data))
-#define RSZ_WAIT_TIMEOUT_MS 50
+#define RSZ_WAIT_TIMEOUT_MS 5000
 
 static inline struct mml_comp_rsz *comp_to_rsz(struct mml_comp *comp)
 {
