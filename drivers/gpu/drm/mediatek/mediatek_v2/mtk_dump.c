@@ -103,6 +103,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_MERGE1:
 		mtk_merge_dump(comp);
 		break;
+	case DDP_COMPONENT_CHIST0:
+	case DDP_COMPONENT_CHIST1:
+		mtk_chist_dump(comp);
+		break;
 	default:
 		return 0;
 	}
@@ -160,6 +164,10 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_MERGE0:
 	case DDP_COMPONENT_MERGE1:
 		mtk_merge_analysis(comp);
+	case DDP_COMPONENT_CHIST0:
+	case DDP_COMPONENT_CHIST1:
+		mtk_chist_analysis(comp);
+		break;
 	default:
 		return 0;
 	}

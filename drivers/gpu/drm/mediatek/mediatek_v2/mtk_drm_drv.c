@@ -1394,7 +1394,7 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 	DDP_COMPONENT_DSI0,      DDP_COMPONENT_PWM0,
 #ifndef DRM_BYPASS_PQ
 	/* the chist connect by customer config*/
-	DDP_COMPONENT_CHIST0,    DDP_COMPONENT_CHIST0,
+	DDP_COMPONENT_CHIST0,    DDP_COMPONENT_CHIST1,
 #endif
 };
 

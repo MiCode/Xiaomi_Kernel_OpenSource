@@ -35,6 +35,7 @@
 // TODO: overlap need correct
 #define DISP_CHIST_DUAL_PIPE_OVERLAP 100
 
+#define DISP_CHIST_EN                0x0
 #define DISP_CHIST_INTEN             0x08
 #define DISP_CHIST_INSTA             0x0C
 #define DISP_CHIST_CFG               0x20
@@ -224,8 +225,15 @@ void mtk_chist_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
-	mtk_cust_dump_reg(baddr, DISP_CHIST_HIST_CH_CFG1, DISP_CHIST_HIST_CH_CFG2,
-					DISP_CHIST_HIST_CH_CFG3, DISP_CHIST_HIST_CH_CFG4);
+	mtk_cust_dump_reg(baddr, DISP_CHIST_EN, DISP_CHIST_CFG, DISP_CHIST_SIZE,
+					DISP_CHIST_SHADOW_CTRL);
+}
+
+int mtk_chist_analysis(struct mtk_ddp_comp *comp)
+{
+	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+
+	return 0;
 }
 
 int mtk_drm_ioctl_get_chist(struct drm_device *dev, void *data,
@@ -493,6 +501,7 @@ static int mtk_chist_user_cmd(struct mtk_ddp_comp *comp,
 static void mtk_chist_prepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
+	DDPINFO("%s\n", __func__);
 
 	mtk_ddp_comp_clk_prepare(comp);
 	spin_lock_irqsave(&g_chist_clock_lock, flags);
@@ -503,6 +512,7 @@ static void mtk_chist_prepare(struct mtk_ddp_comp *comp)
 static void mtk_chist_unprepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
+	DDPINFO("%s\n", __func__);
 
 	spin_lock_irqsave(&g_chist_clock_lock, flags);
 	atomic_set(&g_chist_is_clock_on[index_of_chist(comp->id)], 0);
@@ -536,15 +546,26 @@ static void mtk_chist_config(struct mtk_ddp_comp *comp,
 				g_rgb_2_yuv[sel_index][i], ~0);
 	}
 	cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DISP_CHIST_EN,
+				   0x1, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
 			   comp->regs_pa + DISP_CHIST_SIZE,
 			   (width << 16) | cfg->h, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 				   comp->regs_pa + DISP_CHIST_SHADOW_CTRL,
-				   0, ~0);
+				   0x1, ~0);
+}
+
+void mtk_chist_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	DDPINFO("%s\n", __func__);
+	mtk_chist_config(comp, cfg, handle);
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_chist_funcs = {
 	.config = mtk_chist_config,
+	.first_cfg = mtk_chist_first_cfg,
 	.start = mtk_chist_start,
 	.stop = mtk_chist_stop,
 	.bypass = mtk_chist_bypass,
@@ -577,6 +598,7 @@ static void mtk_disp_chist_unbind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_chist *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
+	DDPINFO("%s\n", __func__);
 
 	mtk_ddp_comp_unregister(drm_dev, &priv->ddp_comp);
 }
