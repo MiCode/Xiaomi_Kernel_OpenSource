@@ -241,7 +241,7 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 		}
 		op->set(ctx, op->data, ent->val);
 		if (ent->delay)
-			msleep(ent->delay);
+			mdelay(ent->delay);
 	}
 
 	dev_info(ctx->dev, "%s\n", __func__);
