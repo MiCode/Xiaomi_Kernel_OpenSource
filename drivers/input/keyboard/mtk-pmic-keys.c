@@ -12,6 +12,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_wakeup.h>
 #include <linux/regmap.h>
 #include <linux/mfd/mt6323/registers.h>
 #include <linux/mfd/mt6359p/registers.h>
@@ -132,7 +133,7 @@ struct mtk_pmic_keys_info {
 	unsigned int keycode;
 	int irq;
 	int release_irq_num;
-	bool wakeup:1;
+	struct wakeup_source *suspend_lock;
 };
 
 struct mtk_pmic_keys {
@@ -216,6 +217,8 @@ static irqreturn_t mtk_pmic_keys_release_irq_handler_thread(
 
 	input_report_key(info->keys->input_dev, info->keycode, 0);
 	input_sync(info->keys->input_dev);
+	if (info->suspend_lock)
+		__pm_relax(info->suspend_lock);
 	dev_dbg(info->keys->dev, "release key =%d using PMIC\n",
 			info->keycode);
 	return IRQ_HANDLED;
@@ -237,6 +240,10 @@ static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 	input_report_key(info->keys->input_dev, info->keycode, pressed);
 	input_sync(info->keys->input_dev);
 
+	if (pressed && info->suspend_lock)
+		__pm_stay_awake(info->suspend_lock);
+	else if (info->suspend_lock)
+		__pm_relax(info->suspend_lock);
 	dev_dbg(info->keys->dev, "(%s) key =%d using PMIC\n",
 		 pressed ? "pressed" : "released", info->keycode);
 
@@ -289,7 +296,7 @@ static int __maybe_unused mtk_pmic_keys_suspend(struct device *dev)
 	int index;
 
 	for (index = 0; index < MTK_PMIC_MAX_KEY_COUNT; index++) {
-		if (keys->keys[index].wakeup)
+		if (keys->keys[index].suspend_lock)
 			enable_irq_wake(keys->keys[index].irq);
 	}
 
@@ -302,7 +309,7 @@ static int __maybe_unused mtk_pmic_keys_resume(struct device *dev)
 	int index;
 
 	for (index = 0; index < MTK_PMIC_MAX_KEY_COUNT; index++) {
-		if (keys->keys[index].wakeup)
+		if (keys->keys[index].suspend_lock)
 			disable_irq_wake(keys->keys[index].irq);
 	}
 
@@ -405,7 +412,8 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 		}
 
 		if (of_property_read_bool(child, "wakeup-source"))
-			keys->keys[index].wakeup = true;
+			keys->keys[index].suspend_lock =
+				wakeup_source_register(NULL, "pwrkey wakelock");
 
 		error = mtk_pmic_key_setup(keys, &keys->keys[index]);
 		if (error) {
