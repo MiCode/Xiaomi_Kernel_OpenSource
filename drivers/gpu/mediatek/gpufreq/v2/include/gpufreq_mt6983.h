@@ -30,7 +30,7 @@
 #define GPUFREQ_MTCMOS_ALWAYS_ON        (0)
 #define GPUFREQ_CG_ALWAYS_ON            (0)
 #define GPUFREQ_VCORE_DVFS_ENABLE       (0)
-#define GPUFREQ_FORCE_4_CORES           (1)
+#define GPUFREQ_FORCE_4_CORES           (0)
 #define GPUFREQ_MFG1_CONTROL_ENABLE     (0)
 #define GPUFREQ_CG_CONTROL_ENABLE       (0)
 
