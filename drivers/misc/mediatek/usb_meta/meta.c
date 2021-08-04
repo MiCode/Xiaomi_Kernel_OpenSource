@@ -1340,7 +1340,8 @@ static int dummy_bind(struct usb_composite_dev *cdev)
 	return 0;
 }
 
-static int __init meta_usb_init(void)
+
+static int usb_meta_probe(struct platform_device *pdev)
 {
 	struct android_dev *dev;
 	struct usb_composite_driver dummy_usb_driver = {
@@ -1350,6 +1351,9 @@ static int __init meta_usb_init(void)
 	};
 	int err;
 	int config = 0;
+	static char meta_udc_name[256];
+	struct device_node *node_udc;
+	struct platform_device *pdev_udc = NULL;
 
 	config = meta_dt_get_mboot_params();
 
@@ -1397,8 +1401,21 @@ static int __init meta_usb_init(void)
 	android_usb_driver.gadget_driver.function =  (char *) android_usb_driver.name;
 	android_usb_driver.gadget_driver.driver.name = android_usb_driver.name;
 	android_usb_driver.gadget_driver.max_speed = android_usb_driver.max_speed;
-	android_usb_driver.gadget_driver.udc_name = "11201000.usb0";
-	pr_info("%s: udc_name= '%s'", __func__, android_usb_driver.gadget_driver.udc_name);
+
+	// get udc name from dt
+	node_udc = of_parse_phandle(pdev->dev.of_node, "udc", 0);
+	if (node_udc) {
+		pdev_udc = of_find_device_by_node(node_udc);
+		sprintf(meta_udc_name, "%s", dev_name(&pdev_udc->dev));
+		of_node_put(node_udc);
+	} else {
+		pr_info("%s: cannot get 'udc' node from dt.", __func__);
+		err = -EINVAL;
+		goto err_probe;
+	}
+
+	android_usb_driver.gadget_driver.udc_name = meta_udc_name;
+	pr_info("%s: udc_name='%s'", __func__, android_usb_driver.gadget_driver.udc_name);
 
 	err = usb_gadget_probe_driver(&android_usb_driver.gadget_driver);
 	if (err) {
@@ -1424,14 +1441,33 @@ err_dev:
 	class_destroy(android_class);
 	return err;
 }
-module_init(meta_usb_init);
 
-static void __exit cleanup(void)
+static int usb_meta_remove(struct platform_device *pdev)
 {
 	usb_composite_unregister(&android_usb_driver);
 	class_destroy(android_class);
 	kfree(_android_dev);
 	_android_dev = NULL;
+	return 0;
 }
-module_exit(cleanup);
+
+static const struct of_device_id usb_meta_of_match[] = {
+	{.compatible = "mediatek,usb_meta",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, usb_meta_of_match);
+
+static struct platform_driver usb_meta_driver = {
+	.probe = usb_meta_probe,
+	.remove = usb_meta_remove,
+	.driver = {
+		.name = "mtk-usb-meta",
+		.of_match_table = of_match_ptr(usb_meta_of_match),
+	},
+};
+module_platform_driver(usb_meta_driver);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek USB Meta Driver");
 

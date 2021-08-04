@@ -2697,6 +2697,11 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		usb_meta: usb_meta {
+			compatible = "mediatek,usb_meta";
+			udc = <&ssusb>;
+		};
+
 		ssusb: usb0@11201000 {
 			compatible = "mediatek,mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
