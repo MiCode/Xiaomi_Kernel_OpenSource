@@ -37,6 +37,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.module_id = IMGSYS_MOD_PQDIP,
 		.init = imgsys_pqdip_set_initial_value,
 		.dump = imgsys_pqdip_debug_dump,
+		.uninit = imgsys_pqdip_uninit,
 	},
 	[IMGSYS_MOD_ME] = {
 		.module_id = IMGSYS_MOD_ME,

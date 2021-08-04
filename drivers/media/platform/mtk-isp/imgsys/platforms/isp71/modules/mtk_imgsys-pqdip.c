@@ -109,12 +109,12 @@ const struct mtk_imgsys_init_array
 
 #define PQDIP_INIT_ARRAY_COUNT	ARRAY_SIZE(mtk_imgsys_pqdip_init_ary)
 
+void __iomem *gpqdipRegBA[PQDIP_HW_SET] = {0L};
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void imgsys_pqdip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *pqdipRegBA = 0L;
 	void __iomem *ofset = NULL;
 	unsigned int hw_idx = 0;
 	unsigned int i = 0;
@@ -123,12 +123,13 @@ void imgsys_pqdip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
 		/* iomap registers */
-		pqdipRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_PQDIP_A + hw_idx);
+		gpqdipRegBA[hw_idx] = of_iomap(imgsys_dev->dev->of_node,
+			REG_MAP_E_PQDIP_A + hw_idx);
 		for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
-			ofset = pqdipRegBA + mtk_imgsys_pqdip_init_ary[i].ofset;
+			ofset = gpqdipRegBA[hw_idx]
+				+ mtk_imgsys_pqdip_init_ary[i].ofset;
 			writel(mtk_imgsys_pqdip_init_ary[i].val, ofset);
 		}
-	iounmap(pqdipRegBA);
 	}
 
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
@@ -146,11 +147,7 @@ void imgsys_pqdip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
 		/* iomap registers */
-		pqdipRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_PQDIP_A + hw_idx);
-		if (!pqdipRegBA) {
-			dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
-		}
+		pqdipRegBA = gpqdipRegBA[hw_idx];
 
 		/* PQ_DIP control registers */
 		for (i = 0x0; i < PQDIP_CTL_REG_CNT; i += 0x10) {
@@ -205,9 +202,22 @@ void imgsys_pqdip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 			(unsigned int)ioread32((void *)(pqdipRegBA + PQDIP_WROT2_OFST + i + 0x08)),
 			(unsigned int)ioread32((void *)(pqdipRegBA + PQDIP_WROT2_OFST + i + 0x0c)));
 		}
-	iounmap(pqdipRegBA);
 	}
 
 	dev_info(imgsys_dev->dev, "%s: -\n", __func__);
 }
 EXPORT_SYMBOL(imgsys_pqdip_debug_dump);
+
+void imgsys_pqdip_uninit(struct mtk_imgsys_dev *imgsys_dev)
+{
+	unsigned int i;
+
+	pr_debug("%s: +\n", __func__);
+	for (i = 0; i < PQDIP_HW_SET; i++) {
+		iounmap(gpqdipRegBA[i]);
+		gpqdipRegBA[i] = 0L;
+	}
+	pr_debug("%s: -\n", __func__);
+}
+EXPORT_SYMBOL(imgsys_pqdip_uninit);
+
