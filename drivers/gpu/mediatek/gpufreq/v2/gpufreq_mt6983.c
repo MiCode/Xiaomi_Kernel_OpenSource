@@ -184,10 +184,9 @@ static void __iomem *g_infracfg_ao_base;
 static void __iomem *g_infra_ao_debug_ctrl;
 static void __iomem *g_infra_ao1_debug_ctrl;
 static void __iomem *g_nth_emi_ao_debug_ctrl;
-static void __iomem *g_avs_efuse_base;
+static void __iomem *g_efuse_base;
 static void __iomem *g_mfg_cpe_control_base;
 static void __iomem *g_mfg_cpe_sensor_base;
-static void __iomem *g_cpe_0p65v_rt_blow_base;
 static void __iomem *g_topckgen_base;
 static void __iomem *g_mali_base;
 static struct gpufreq_pmic_info *g_pmic;
@@ -1163,7 +1162,6 @@ int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 int __gpufreq_fix_target_oppidx_stack(int oppidx)
 {
 	int opp_num = g_stack.opp_num;
-	unsigned int min_oppidx = g_stack.min_oppidx;
 	int ret = GPUFREQ_SUCCESS;
 
 	ret = __gpufreq_power_control(POWER_ON);
@@ -1173,9 +1171,6 @@ int __gpufreq_fix_target_oppidx_stack(int oppidx)
 	}
 
 	if (oppidx == -1) {
-		/* we don't care the result of this commit */
-		__gpufreq_generic_commit_stack(min_oppidx, DVFS_DEBUG_KEEP);
-
 		__gpufreq_set_dvfs_state(false, DVFS_DEBUG_KEEP);
 	} else if (oppidx >= 0 && oppidx < opp_num) {
 		__gpufreq_set_dvfs_state(true, DVFS_DEBUG_KEEP);
@@ -1208,7 +1203,7 @@ int __gpufreq_fix_custom_freq_volt_gpu(unsigned int freq, unsigned int volt)
 /* API: fix Freq and Volt of STACK via given Freq and Volt */
 int __gpufreq_fix_custom_freq_volt_stack(unsigned int freq, unsigned int volt)
 {
-	struct gpufreq_opp_info *working_table = g_stack.working_table;
+	struct gpufreq_opp_info *signed_table = g_stack.signed_table;
 	unsigned int max_oppidx = g_stack.max_oppidx;
 	unsigned int min_oppidx = g_stack.min_oppidx;
 	unsigned int max_freq = 0, min_freq = 0;
@@ -1225,15 +1220,12 @@ int __gpufreq_fix_custom_freq_volt_stack(unsigned int freq, unsigned int volt)
 	 * because of DVFS timing issues,
 	 * we only support up/down to max/min freq/volt in OPP table
 	 */
-	max_freq = working_table[max_oppidx].freq;
-	min_freq = working_table[min_oppidx].freq;
-	max_volt = working_table[max_oppidx].volt;
-	min_volt = working_table[min_oppidx].volt;
+	max_freq = signed_table[max_oppidx].freq;
+	min_freq = signed_table[min_oppidx].freq;
+	max_volt = signed_table[max_oppidx].volt;
+	min_volt = signed_table[min_oppidx].volt;
 
 	if (freq == 0 && volt == 0) {
-		/* we don't care the result of this commit */
-		__gpufreq_generic_commit_stack(min_oppidx, DVFS_DEBUG_KEEP);
-
 		__gpufreq_set_dvfs_state(false, DVFS_DEBUG_KEEP);
 	} else if (freq > max_freq || freq < min_freq) {
 		GPUFREQ_LOGE("invalid fixed Freq: %d", freq);
@@ -1440,6 +1432,9 @@ int __gpufreq_set_aging_mode(unsigned int mode)
 	if (g_aging_enable ^ mode) {
 		__gpufreq_apply_aging(mode);
 		g_aging_enable = mode;
+
+		/* set power info to working table */
+		__gpufreq_measure_power();
 
 		/* update HW constraint parking volt */
 		__gpufreq_update_hw_constraint_volt();
@@ -1967,7 +1962,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 			ret = GPUFREQ_EINVAL;
 			goto done;
 		}
-		/* 2. compute CON1 with POSDIV and apply to CON1 */
+		/* 2. compute CON1 with target POSDIV */
 		pll = (readl(MFG_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 		/* 3. change POSDIV by writing CON1 */
 		writel(pll, MFG_PLL_CON1);
@@ -1975,7 +1970,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 		udelay(20);
 	/* freq scale down */
 	} else {
-		/* 1. compute CON1 with POSDIV and apply to CON1 */
+		/* 1. compute CON1 with target POSDIV */
 		pll = (readl(MFG_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 		/* 2. change POSDIV by writing CON1 */
 		writel(pll, MFG_PLL_CON1);
@@ -2081,7 +2076,7 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 			ret = GPUFREQ_EINVAL;
 			goto done;
 		}
-		/* 2. compute CON1 with POSDIV and apply to CON1 */
+		/* 2. compute CON1 with target POSDIV */
 		pll = (readl(MFGSC_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 		/* 3. change POSDIV by writing CON1 */
 		writel(pll, MFGSC_PLL_CON1);
@@ -2089,7 +2084,7 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 		udelay(20);
 	/* freq scale down */
 	} else {
-		/* 1. compute CON1 with POSDIV and apply to CON1 */
+		/* 1. compute CON1 with target POSDIV */
 		pll = (readl(MFGSC_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 		/* 2. change POSDIV by writing CON1 */
 		writel(pll, MFGSC_PLL_CON1);
@@ -2790,6 +2785,14 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 {
 	u32 val = 0;
 
+	/* wait HW semaphore: SPM_SEMA_M4 0x1C0016AC [0] = 1'b1 */
+	val = readl(g_sleep + 0x6AC);
+	val |= (1UL << 0);
+	writel(val, g_sleep + 0x6AC);
+	do {
+		val = readl(g_sleep + 0x6AC) & 0x1;
+	} while (val != 0x1);
+
 	/* power on: AOCISO -> AOCLHENB */
 	if (power == POWER_ON) {
 		/* SOC_BUCK_ISO_CON 0x1C001F30 [9] AOC_VGPU_SRAM_ISO_DIN = 1'b0 */
@@ -2801,6 +2804,8 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 		val = readl(g_sleep + 0xF30);
 		val &= ~(1UL << 10);
 		writel(val, g_sleep + 0xF30);
+
+		GPUFREQ_LOGD("AOC_VGPU_SRAM_ISO_DIN = 1'b0, AOC_VGPU_SRAM_LATCH_ENB = 1'b0");
 	/* power off: AOCLHENB -> AOCISO */
 	} else {
 		/* SOC_BUCK_ISO_CON 0x1C001F30 [10] AOC_VGPU_SRAM_LATCH_ENB = 1'b1 */
@@ -2812,7 +2817,14 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 		val = readl(g_sleep + 0xF30);
 		val |= (1UL << 9);
 		writel(val, g_sleep + 0xF30);
+
+		GPUFREQ_LOGD("AOC_VGPU_SRAM_ISO_DIN = 1'b1, AOC_VGPU_SRAM_LATCH_ENB = 1'b1");
 	}
+
+	/* signal HW semaphore: SPM_SEMA_M4 0x1C0016AC [0] = 1'b1 */
+	val = readl(g_sleep + 0x6AC);
+	val |= (1UL << 0);
+	writel(val, g_sleep + 0x6AC);
 }
 
 /* PDCv2: GPU FW Control GPU shader cores itself */
@@ -3636,13 +3648,13 @@ static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulv
 	u32 efuse_val1 = 0, efuse_val2 = 0, efuse_val3 = 0, efuse_val4 = 0;
 
 	/* efuse_val1 address: 0x11EE0AA8 */
-	efuse_val1 = readl(g_cpe_0p65v_rt_blow_base + 0xAA8);
+	efuse_val1 = readl(g_efuse_base + 0xAA8);
 	/* efuse_val1 address: 0x11EE0AAC */
-	efuse_val2 = readl(g_cpe_0p65v_rt_blow_base + 0xAAC);
+	efuse_val2 = readl(g_efuse_base + 0xAAC);
 	/* efuse_val1 address: 0x11EE0B6C */
-	efuse_val3 = readl(g_cpe_0p65v_rt_blow_base + 0xB6C);
+	efuse_val3 = readl(g_efuse_base + 0xB6C);
 	/* efuse_val1 address: 0x11EE05D8 */
-	efuse_val4 = readl(g_cpe_0p65v_rt_blow_base + 0x5D8);
+	efuse_val4 = readl(g_efuse_base + 0x5D8);
 	if (efuse_val1 == 0)
 		return false;
 
@@ -3916,7 +3928,7 @@ static void __gpufreq_avs_adjustment(void)
 
 	for (i = 0; i < adj_num; i++) {
 		oppidx = g_avs_adj[i].oppidx;
-		val = readl(g_avs_efuse_base + (i * 0x4));
+		val = readl(g_efuse_base + 0x5D4 + (i * 0x4));
 
 		/* compute Freq from efuse */
 		temp_freq |= (val & 0x00100000) >> 10; // Get freq[10]  from efuse[20]
@@ -4625,19 +4637,19 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-#if GPUFREQ_AVS_ENABLE
-	/* 0x11EE05D4 */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "avs_efuse");
+#if GPUFREQ_AVS_ENABLE || GPUFREQ_ASENSOR_ENABLE
+	/* 0x11EE0000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
 	if (unlikely(!res)) {
-		GPUFREQ_LOGE("fail to get resource AVS_EFUSE");
+		GPUFREQ_LOGE("fail to get resource EFUSE");
 		goto done;
 	}
-	g_avs_efuse_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
-	if (unlikely(!g_avs_efuse_base)) {
-		GPUFREQ_LOGE("fail to ioremap AVS_EFUSE: 0x%llx", res->start);
+	g_efuse_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_efuse_base)) {
+		GPUFREQ_LOGE("fail to ioremap EFUSE: 0x%llx", res->start);
 		goto done;
 	}
-#endif /* GPUFREQ_AVS_ENABLE */
+#endif /* GPUFREQ_AVS_ENABLE || GPUFREQ_ASENSOR_ENABLE */
 
 #if GPUFREQ_ASENSOR_ENABLE
 	/* 0x13FB9C00 */
@@ -4661,18 +4673,6 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_mfg_cpe_sensor_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_cpe_sensor_base)) {
 		GPUFREQ_LOGE("fail to ioremap MFG_CPE_SENSOR: 0x%llx", res->start);
-		goto done;
-	}
-
-	/* 0x11EE0000 */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cpe_0p65v_rt_blow");
-	if (unlikely(!res)) {
-		GPUFREQ_LOGE("fail to get resource CPE_0P65V_RT_BLOW");
-		goto done;
-	}
-	g_cpe_0p65v_rt_blow_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
-	if (unlikely(!g_cpe_0p65v_rt_blow_base)) {
-		GPUFREQ_LOGE("fail to ioremap CPE_0P65V_RT_BLOW: 0x%llx", res->start);
 		goto done;
 	}
 #endif /* GPUFREQ_ASENSOR_ENABLE */
@@ -4799,6 +4799,7 @@ register_fp:
 		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
 		goto done;
 	}
+
 	GPUFREQ_LOGI("gpufreq platform driver probe done");
 
 done:
