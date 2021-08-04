@@ -623,8 +623,8 @@ static int mt6375_auxadc_parse_dt(struct mt6375_priv *priv)
 		dev_notice(priv->dev, "no imix_r(%d)\n", ret);
 		return ret;
 	}
-	dev_info(priv->dev, "%s: imix_r = %d\n", __func__, priv->imix_r);
 	priv->imix_r = val;
+	dev_info(priv->dev, "%s: imix_r = %d\n", __func__, priv->imix_r);
 	return ret;
 }
 
