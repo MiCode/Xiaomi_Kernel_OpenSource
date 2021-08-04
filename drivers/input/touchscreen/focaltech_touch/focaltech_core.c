@@ -359,21 +359,13 @@ static void fts_trusted_touch_intr_gpio_toggle(struct fts_ts_data *fts_data,
 
 static int fts_ts_trusted_touch_get_tvm_driver_state(struct fts_ts_data *fts_data)
 {
-	int state;
-
-	mutex_lock(&fts_data->vm_info->tvm_state_mutex);
-	state = atomic_read(&fts_data->vm_info->tvm_state);
-	mutex_unlock(&fts_data->vm_info->tvm_state_mutex);
-
-	return state;
+	return atomic_read(&fts_data->vm_info->vm_state);
 }
 
 static void fts_ts_trusted_touch_set_tvm_driver_state(struct fts_ts_data *fts_data,
 						int state)
 {
-	mutex_lock(&fts_data->vm_info->tvm_state_mutex);
-	atomic_set(&fts_data->vm_info->tvm_state, state);
-	mutex_unlock(&fts_data->vm_info->tvm_state_mutex);
+	atomic_set(&fts_data->vm_info->vm_state, state);
 }
 
 static int fts_ts_sgl_cmp(const void *a, const void *b)
@@ -623,6 +615,8 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 {
 	int rc = 0;
 
+	atomic_set(&fts_data->trusted_touch_transition, 1);
+
 	if (atomic_read(&fts_data->trusted_touch_abort_status)) {
 		fts_ts_trusted_touch_abort_tvm(fts_data);
 		return;
@@ -664,6 +658,7 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 					TVM_IOMEM_RELEASED);
 	}
 	fts_ts_trusted_touch_set_tvm_driver_state(fts_data, TRUSTED_TOUCH_TVM_INIT);
+	atomic_set(&fts_data->trusted_touch_transition, 0);
 	atomic_set(&fts_data->trusted_touch_enabled, 0);
 	pr_info("trusted touch disabled\n");
 	return;
@@ -717,14 +712,14 @@ int fts_ts_handle_trusted_touch_tvm(struct fts_ts_data *fts_data, int value)
 static void fts_ts_trusted_touch_abort_tvm(struct fts_ts_data *fts_data)
 {
 	int rc = 0;
-	int tvm_state = fts_ts_trusted_touch_get_tvm_driver_state(fts_data);
+	int vm_state = fts_ts_trusted_touch_get_tvm_driver_state(fts_data);
 
-	if (tvm_state >= TRUSTED_TOUCH_TVM_STATE_MAX) {
-		pr_err("invalid tvm driver state: %d\n", tvm_state);
+	if (vm_state >= TRUSTED_TOUCH_TVM_STATE_MAX) {
+		pr_err("invalid tvm driver state: %d\n", vm_state);
 		return;
 	}
 
-	switch (tvm_state) {
+	switch (vm_state) {
 	case TVM_INTERRUPT_ENABLED:
 		fts_irq_disable();
 	case TVM_IRQ_ACCEPTED:
@@ -765,35 +760,26 @@ static void fts_ts_bus_put(struct fts_ts_data *fts_data);
 
 static int fts_ts_trusted_touch_get_pvm_driver_state(struct fts_ts_data *fts_data)
 {
-	int state;
-
-	mutex_lock(&fts_data->vm_info->pvm_state_mutex);
-	state = atomic_read(&fts_data->vm_info->pvm_state);
-	mutex_unlock(&fts_data->vm_info->pvm_state_mutex);
-
-	return state;
-
+	return atomic_read(&fts_data->vm_info->vm_state);
 }
 
 static void fts_ts_trusted_touch_set_pvm_driver_state(struct fts_ts_data *fts_data,
 							int state)
 {
-	mutex_lock(&fts_data->vm_info->pvm_state_mutex);
-	atomic_set(&fts_data->vm_info->pvm_state, state);
-	mutex_unlock(&fts_data->vm_info->pvm_state_mutex);
+	atomic_set(&fts_data->vm_info->vm_state, state);
 }
 
 static void fts_ts_trusted_touch_abort_pvm(struct fts_ts_data *fts_data)
 {
 	int rc = 0;
-	int pvm_state = fts_ts_trusted_touch_get_pvm_driver_state(fts_data);
+	int vm_state = fts_ts_trusted_touch_get_pvm_driver_state(fts_data);
 
-	if (pvm_state >= TRUSTED_TOUCH_PVM_STATE_MAX) {
-		pr_err("Invalid driver state: %d\n", pvm_state);
+	if (vm_state >= TRUSTED_TOUCH_PVM_STATE_MAX) {
+		pr_err("Invalid driver state: %d\n", vm_state);
 		return;
 	}
 
-	switch (pvm_state) {
+	switch (vm_state) {
 	case PVM_IRQ_RELEASE_NOTIFIED:
 	case PVM_ALL_RESOURCES_RELEASE_NOTIFIED:
 	case PVM_IRQ_LENT:
@@ -818,7 +804,7 @@ static void fts_ts_trusted_touch_abort_pvm(struct fts_ts_data *fts_data)
 	case TRUSTED_TOUCH_PVM_INIT:
 	case PVM_I2C_RESOURCE_RELEASED:
 		atomic_set(&fts_data->trusted_touch_enabled, 0);
-		atomic_set(&fts_data->trusted_touch_underway, 0);
+		atomic_set(&fts_data->trusted_touch_transition, 0);
 	}
 
 	atomic_set(&fts_data->trusted_touch_abort_status, 0);
@@ -855,7 +841,6 @@ static int fts_ts_bus_get(struct fts_ts_data *fts_data)
 	int rc = 0;
 	struct device *dev = NULL;
 
-	cancel_work_sync(&fts_data->suspend_work);
 	cancel_work_sync(&fts_data->resume_work);
 	reinit_completion(&fts_data->trusted_touch_powerdown);
 	fts_ts_enable_reg(fts_data, true);
@@ -914,6 +899,8 @@ static void fts_trusted_touch_pvm_vm_mode_disable(struct fts_ts_data *fts_data)
 {
 	int rc = 0;
 
+	atomic_set(&fts_data->trusted_touch_transition, 1);
+
 	if (atomic_read(&fts_data->trusted_touch_abort_status)) {
 		fts_ts_trusted_touch_abort_pvm(fts_data);
 		return;
@@ -944,12 +931,12 @@ static void fts_trusted_touch_pvm_vm_mode_disable(struct fts_ts_data *fts_data)
 	fts_irq_enable();
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, PVM_INTERRUPT_ENABLED);
 	fts_ts_bus_put(fts_data);
+	atomic_set(&fts_data->trusted_touch_transition, 0);
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data,
 						PVM_I2C_RESOURCE_RELEASED);
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data,
 						TRUSTED_TOUCH_PVM_INIT);
 	atomic_set(&fts_data->trusted_touch_enabled, 0);
-	atomic_set(&fts_data->trusted_touch_underway, 0);
 	pr_info("trusted touch disabled\n");
 	return;
 error:
@@ -1088,12 +1075,12 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 	int rc = 0;
 	struct trusted_touch_vm_info *vm_info = fts_data->vm_info;
 
-	atomic_set(&fts_data->trusted_touch_underway, 1);
-	mutex_lock(&fts_data->suspend_lock);
+	atomic_set(&fts_data->trusted_touch_transition, 1);
+	mutex_lock(&fts_data->transition_lock);
 
 	if (fts_data->suspended) {
 		FTS_ERROR("Invalid power state for operation\n");
-		atomic_set(&fts_data->trusted_touch_underway, 0);
+		atomic_set(&fts_data->trusted_touch_transition, 0);
 		rc =  -EPERM;
 		goto error;
 	}
@@ -1134,7 +1121,8 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 	}
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, PVM_IRQ_LENT_NOTIFIED);
 
-	mutex_unlock(&fts_data->suspend_lock);
+	mutex_unlock(&fts_data->transition_lock);
+	atomic_set(&fts_data->trusted_touch_transition, 0);
 	atomic_set(&fts_data->trusted_touch_enabled, 1);
 	pr_info("trusted touch enabled\n");
 	return rc;
@@ -1143,7 +1131,7 @@ abort_handler:
 	fts_ts_trusted_touch_abort_handler(fts_data, TRUSTED_TOUCH_EVENT_LEND_FAILURE);
 
 error:
-	mutex_unlock(&fts_data->suspend_lock);
+	mutex_unlock(&fts_data->transition_lock);
 	return rc;
 }
 
@@ -1236,7 +1224,6 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 	vm_info->mem_cookie = mem_cookie;
 	rc = gh_irq_wait_for_lend_v2(vm_info->irq_label, GH_PRIMARY_VM,
 			&fts_ts_vm_irq_on_lend_callback, fts_data);
-	mutex_init(&fts_data->vm_info->tvm_state_mutex);
 	fts_ts_trusted_touch_set_tvm_driver_state(fts_data, TRUSTED_TOUCH_TVM_INIT);
 #else
 	mem_cookie = gh_mem_notifier_register(vm_info->mem_tag,
@@ -1247,7 +1234,6 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 		goto init_fail;
 	}
 	vm_info->mem_cookie = mem_cookie;
-	mutex_init(&fts_data->vm_info->pvm_state_mutex);
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, TRUSTED_TOUCH_PVM_INIT);
 #endif
 	return rc;
@@ -1412,7 +1398,7 @@ void fts_irq_disable(void)
 
 	if (!fts_data->irq_disabled) {
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
-		if (atomic_read(&fts_data->trusted_touch_underway))
+		if (atomic_read(&fts_data->trusted_touch_transition))
 			disable_irq_wake(fts_data->irq);
 		else
 			disable_irq_nosync(fts_data->irq);
@@ -1435,7 +1421,7 @@ void fts_irq_enable(void)
 
 	if (fts_data->irq_disabled) {
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
-		if (atomic_read(&fts_data->trusted_touch_underway))
+		if (atomic_read(&fts_data->trusted_touch_transition))
 			enable_irq_wake(fts_data->irq);
 		else
 			enable_irq(fts_data->irq);
@@ -1984,7 +1970,12 @@ static irqreturn_t fts_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	if (!mutex_trylock(&fts_data->transition_lock))
+		return IRQ_HANDLED;
+
 	fts_irq_read_report();
+	mutex_unlock(&fts_data->transition_lock);
+
 	return IRQ_HANDLED;
 }
 
@@ -2829,7 +2820,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	spin_lock_init(&ts_data->irq_lock);
 	mutex_init(&ts_data->report_mutex);
 	mutex_init(&ts_data->bus_lock);
-	mutex_init(&ts_data->suspend_lock);
+	mutex_init(&ts_data->transition_lock);
 
 	/* Init communication interface */
 	ret = fts_bus_init(ts_data);
@@ -3014,13 +3005,13 @@ static int fts_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
-	if (atomic_read(&fts_data->trusted_touch_underway)
+	if (atomic_read(&fts_data->trusted_touch_transition)
 			|| atomic_read(&fts_data->trusted_touch_enabled))
 		wait_for_completion_interruptible(
 			&fts_data->trusted_touch_powerdown);
 #endif
 
-	mutex_lock(&ts_data->suspend_lock);
+	mutex_lock(&ts_data->transition_lock);
 
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_suspend();
@@ -3048,7 +3039,7 @@ static int fts_ts_suspend(struct device *dev)
 
 	fts_release_all_finger();
 	ts_data->suspended = true;
-	mutex_unlock(&ts_data->suspend_lock);
+	mutex_unlock(&ts_data->transition_lock);
 	FTS_FUNC_EXIT();
 	return 0;
 }
@@ -3065,12 +3056,12 @@ static int fts_ts_resume(struct device *dev)
 
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 
-	if (atomic_read(&ts_data->trusted_touch_underway))
+	if (atomic_read(&ts_data->trusted_touch_transition))
 		wait_for_completion_interruptible(
 			&ts_data->trusted_touch_powerdown);
 #endif
 
-	mutex_lock(&ts_data->suspend_lock);
+	mutex_lock(&ts_data->transition_lock);
 
 	fts_release_all_finger();
 
@@ -3095,7 +3086,7 @@ static int fts_ts_resume(struct device *dev)
 	}
 
 	ts_data->suspended = false;
-	mutex_unlock(&ts_data->suspend_lock);
+	mutex_unlock(&ts_data->transition_lock);
 	FTS_FUNC_EXIT();
 	return 0;
 }
