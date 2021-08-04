@@ -3,6 +3,7 @@ ccflags-y += -I$(srctree)/drivers/char/rpmb/drrpmb_gp/public
 ccflags-y += -I$(srctree)/drivers/tee/gud/500/MobiCoreDriver/public/
 endif
 ccflags-y += -I$(srctree)/drivers/scsi/ufs
+ccflags-y += -I$(srctree)/drivers/scsi/ufs/vendor
 
 obj-$(CONFIG_RPMB) += rpmb-mtk.o
 
