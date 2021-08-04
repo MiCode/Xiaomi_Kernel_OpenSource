@@ -1478,7 +1478,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	spin_unlock_irqrestore(&raw_dev->spinlock_irq, flags);
 
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
-	dev_info(dev,
+	dev_dbg(dev,
 		"INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:%d)\n",
 		irq_status, err_status,
 		dma_done_status, dmai_done_status, drop_status,
