@@ -258,6 +258,8 @@ struct kgsl_device {
 	bool snapshot_crashdumper;
 	/* Use HOST side register reads to get GPU snapshot*/
 	bool snapshot_legacy;
+	/* Use to dump the context record in bytes */
+	u64 snapshot_ctxt_record_size;
 
 	struct kobject snapshot_kobj;
 

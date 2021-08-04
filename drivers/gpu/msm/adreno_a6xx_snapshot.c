@@ -1667,22 +1667,28 @@ static size_t snapshot_preemption_record(struct kgsl_device *device,
 	struct kgsl_snapshot_gpu_object_v2 *header =
 		(struct kgsl_snapshot_gpu_object_v2 *)buf;
 	u8 *ptr = buf + sizeof(*header);
+	const struct adreno_a6xx_core *gpucore = to_a6xx_core(ADRENO_DEVICE(device));
+	u64 ctxt_record_size = A6XX_CP_CTXRECORD_SIZE_IN_BYTES;
 
-	if (remain < (A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES +
-						sizeof(*header))) {
+	if (gpucore->ctxt_record_size)
+		ctxt_record_size = gpucore->ctxt_record_size;
+
+	ctxt_record_size = min_t(u64, ctxt_record_size, device->snapshot_ctxt_record_size);
+
+	if (remain < (ctxt_record_size + sizeof(*header))) {
 		SNAPSHOT_ERR_NOMEM(device, "PREEMPTION RECORD");
 		return 0;
 	}
 
-	header->size = A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES >> 2;
+	header->size = ctxt_record_size >> 2;
 	header->gpuaddr = memdesc->gpuaddr;
 	header->ptbase =
 		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
 	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
 
-	memcpy(ptr, memdesc->hostptr, A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES);
+	memcpy(ptr, memdesc->hostptr, ctxt_record_size);
 
-	return A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES + sizeof(*header);
+	return ctxt_record_size + sizeof(*header);
 }
 
 static size_t a6xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,

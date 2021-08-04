@@ -1096,6 +1096,7 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 	device->snapshot_atomic = false;
 	device->panic_nb.notifier_call = kgsl_panic_notifier_callback;
 	device->panic_nb.priority = 1;
+	device->snapshot_ctxt_record_size = 64 * 1024;
 
 	/*
 	 * Set this to false so that we only ever keep the first snapshot around
