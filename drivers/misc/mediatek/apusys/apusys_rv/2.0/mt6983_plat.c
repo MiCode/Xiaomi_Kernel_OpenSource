@@ -123,13 +123,6 @@ static void apu_reset_mp(struct mtk_apu *apu)
 	if (apu->platdata->flags & F_SECURE_BOOT) {
 		apusys_rv_smc_call(dev,
 			MTK_APUSYS_KERNEL_OP_APUSYS_RV_RESET_MP, 0);
-
-		dev_info(dev, "%s: MD32_SYS_CTRL = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + MD32_SYS_CTRL));
-		dev_info(dev, "%s: MD32_CLK_EN = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + MD32_CLK_EN));
-		dev_info(dev, "%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + UP_WAKE_HOST_MASK0));
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* reset uP */
@@ -170,11 +163,6 @@ static void apu_setup_boot(struct mtk_apu *apu)
 	if (apu->platdata->flags & F_SECURE_BOOT) {
 		apusys_rv_smc_call(dev,
 			MTK_APUSYS_KERNEL_OP_APUSYS_RV_SETUP_BOOT, 0);
-
-		dev_info(dev, "%s: MD32_BOOT_CTRL = 0x%x\n",
-			__func__, ioread32(apu->apu_ao_ctl + MD32_BOOT_CTRL));
-		dev_info(dev, "%s: MD32_PRE_DEFINE = 0x%x\n",
-			__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
 	} else {
 		/* Set uP boot addr to DRAM.
 		 * If boot from tcm == 1, boot addr will always map to
@@ -210,14 +198,6 @@ static void apu_start_mp(struct mtk_apu *apu)
 	if (apu->platdata->flags & F_SECURE_BOOT) {
 		apusys_rv_smc_call(dev,
 			MTK_APUSYS_KERNEL_OP_APUSYS_RV_START_MP, 0);
-
-		usleep_range(0, 1000);
-		for (i = 0; i < 20; i++) {
-			dev_info(dev, "apu boot: pc=%08x, sp=%08x\n",
-			ioread32(apu->md32_sysctrl + 0x838),
-					ioread32(apu->md32_sysctrl+0x840));
-			usleep_range(0, 1000);
-		}
 	} else {
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* Release runstall */

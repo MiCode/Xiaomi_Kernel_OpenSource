@@ -354,39 +354,42 @@ static int apu_probe(struct platform_device *pdev)
 	dev_info(dev, "%s %d\n", __func__, __LINE__);
 
 	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
-		apusys_sec_mem_node = of_find_compatible_node(NULL, NULL,
-			"mediatek,apu_apusys-rv_secure");
-		if (!apusys_sec_mem_node) {
-			pr_info("DT,mediatek,apu_apusys-rv_secure not found\n");
-			return -EINVAL;
+		/* prevent MPU violation when F_SECURE_BOOT is enabled */
+		if ((apu->platdata->flags & F_SECURE_BOOT) == 0) {
+			apusys_sec_mem_node = of_find_compatible_node(NULL, NULL,
+				"mediatek,apu_apusys-rv_secure");
+			if (!apusys_sec_mem_node) {
+				pr_info("DT,mediatek,apu_apusys-rv_secure not found\n");
+				return -EINVAL;
+			}
+			of_property_read_u32_index(apusys_sec_mem_node, "reg", 1,
+				&(apu->apusys_sec_mem_start));
+			of_property_read_u32_index(apusys_sec_mem_node, "reg", 3,
+				&(apu->apusys_sec_mem_size));
+			pr_info("%s: start = 0x%x, size = 0x%x\n",
+				apusys_sec_mem_node->full_name, apu->apusys_sec_mem_start,
+				apu->apusys_sec_mem_size);
+			apu->apu_sec_mem_base = memremap(apu->apusys_sec_mem_start,
+				apu->apusys_sec_mem_size, MEMREMAP_WC);
+
+			ret = of_property_read_u32(np, "up_code_buf_sz",
+						   &up_code_buf_sz);
+			if (ret) {
+				dev_info(dev, "parsing up_code_buf_sz error: %d\n", ret);
+				return -EINVAL;
+			}
+
+			apu->apusys_sec_info = (struct apusys_secure_info_t *)
+				(apu->apu_sec_mem_base + up_code_buf_sz);
+
+			dev_info(dev, "up_fw_ofs = 0x%x, up_fw_sz = 0x%x\n",
+				apu->apusys_sec_info->up_fw_ofs,
+				apu->apusys_sec_info->up_fw_sz);
+
+			dev_info(dev, "up_xfile_ofs = 0x%x, up_xfile_sz = 0x%x\n",
+				apu->apusys_sec_info->up_xfile_ofs,
+				apu->apusys_sec_info->up_xfile_sz);
 		}
-		of_property_read_u32_index(apusys_sec_mem_node, "reg", 1,
-			&(apu->apusys_sec_mem_start));
-		of_property_read_u32_index(apusys_sec_mem_node, "reg", 3,
-			&(apu->apusys_sec_mem_size));
-		pr_info("%s: start = 0x%x, size = 0x%x\n",
-			apusys_sec_mem_node->full_name, apu->apusys_sec_mem_start,
-			apu->apusys_sec_mem_size);
-		apu->apu_sec_mem_base = memremap(apu->apusys_sec_mem_start,
-			apu->apusys_sec_mem_size, MEMREMAP_WC);
-
-		ret = of_property_read_u32(np, "up_code_buf_sz",
-					   &up_code_buf_sz);
-		if (ret) {
-			dev_info(dev, "parsing up_code_buf_sz error: %d\n", ret);
-			return -EINVAL;
-		}
-
-		apu->apusys_sec_info = (struct apusys_secure_info_t *)
-			(apu->apu_sec_mem_base + up_code_buf_sz);
-
-		dev_info(dev, "up_fw_ofs = 0x%x, up_fw_sz = 0x%x\n",
-			apu->apusys_sec_info->up_fw_ofs,
-			apu->apusys_sec_info->up_fw_sz);
-
-		dev_info(dev, "up_xfile_ofs = 0x%x, up_xfile_sz = 0x%x\n",
-			apu->apusys_sec_info->up_xfile_ofs,
-			apu->apusys_sec_info->up_xfile_sz);
 
 		apusys_aee_coredump_mem_node = of_find_compatible_node(NULL, NULL,
 			"mediatek,apu_apusys-rv_aee-coredump");
