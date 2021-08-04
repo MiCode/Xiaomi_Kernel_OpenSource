@@ -462,6 +462,14 @@ int st_asm330lhhx_get_odr_val(enum st_asm330lhhx_sensor_id id, int odr,
 	int sensor_odr;
 	int i;
 
+	if (all_odr == 0) {
+		*val = 0;
+		*podr = 0;
+		*puodr = 0;
+
+		return 0;
+	}
+
 	for (i = 0; i < st_asm330lhhx_odr_table[id].size; i++) {
 		sensor_odr = ST_ASM330LHHX_ODR_EXPAND(
 				st_asm330lhhx_odr_table[id].odr_avl[i].hz,
@@ -545,15 +553,41 @@ static u16 st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
 	return ret;
 }
 
-static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor, int req_odr,
-				 int req_uodr)
+static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor,
+				 int req_odr, int req_uodr)
 {
-	struct st_asm330lhhx_hw *hw = sensor->hw;
 	enum st_asm330lhhx_sensor_id id = sensor->id;
-	int err;
+	struct st_asm330lhhx_hw *hw = sensor->hw;
 	u8 val = 0;
+	int err;
 
 	switch (id) {
+#ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
+	case ST_ASM330LHHX_ID_MLC_0:
+	case ST_ASM330LHHX_ID_MLC_1:
+	case ST_ASM330LHHX_ID_MLC_2:
+	case ST_ASM330LHHX_ID_MLC_3:
+	case ST_ASM330LHHX_ID_MLC_4:
+	case ST_ASM330LHHX_ID_MLC_5:
+	case ST_ASM330LHHX_ID_MLC_6:
+	case ST_ASM330LHHX_ID_MLC_7:
+	case ST_ASM330LHHX_ID_FSM_0:
+	case ST_ASM330LHHX_ID_FSM_1:
+	case ST_ASM330LHHX_ID_FSM_2:
+	case ST_ASM330LHHX_ID_FSM_3:
+	case ST_ASM330LHHX_ID_FSM_4:
+	case ST_ASM330LHHX_ID_FSM_5:
+	case ST_ASM330LHHX_ID_FSM_6:
+	case ST_ASM330LHHX_ID_FSM_7:
+	case ST_ASM330LHHX_ID_FSM_8:
+	case ST_ASM330LHHX_ID_FSM_9:
+	case ST_ASM330LHHX_ID_FSM_10:
+	case ST_ASM330LHHX_ID_FSM_11:
+	case ST_ASM330LHHX_ID_FSM_12:
+	case ST_ASM330LHHX_ID_FSM_13:
+	case ST_ASM330LHHX_ID_FSM_14:
+	case ST_ASM330LHHX_ID_FSM_15:
+#endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
 	case ST_ASM330LHHX_ID_EXT0:
 	case ST_ASM330LHHX_ID_EXT1:
 	case ST_ASM330LHHX_ID_TEMP:
@@ -562,14 +596,12 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor, int req_od
 		int i;
 
 		id = ST_ASM330LHHX_ID_ACC;
-		for (i = ST_ASM330LHHX_ID_ACC;
-		     i <= ST_ASM330LHHX_ID_EXT1;
-		     i++) {
+		for (i = ST_ASM330LHHX_ID_ACC; i <= ST_ASM330LHHX_ID_MAX; i++) {
 			if (!hw->iio_devs[i] || i == sensor->id)
 				continue;
 
 			odr = st_asm330lhhx_check_odr_dependency(hw, req_odr,
-								req_uodr, i);
+								 req_uodr, i);
 			if (odr != req_odr) {
 				/* device already configured */
 				return 0;
@@ -1719,21 +1751,6 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 }
 EXPORT_SYMBOL(st_asm330lhhx_probe);
 
-static void __maybe_unused st_asm330lhhx_register_dump(struct st_asm330lhhx_hw *hw)
-{
-	int i, err = 0, data;
-
-	for (i = 1; i < 0x38; i++) {
-		err = regmap_read(hw->regmap, i, &data);
-		if (err < 0) {
-			dev_err(hw->dev, "failed to read register %02x\n", i);
-			break;
-		}
-
-		dev_info(hw->dev, "Reg %02x = %02x\n", i, (u8)data);
-	}
-}
-
 static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
@@ -1859,10 +1876,6 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 		id_acc = ST_ASM330LHHX_ID_ACC;
 		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
 		err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
-
-		//mutex_lock(&hw->fifo_lock);
-		//err = st_asm330lhhx_read_fifo(hw);
-		//mutex_unlock(&hw->fifo_lock);
 	}
 
 	err = st_asm330lhhx_restore_regs(hw);

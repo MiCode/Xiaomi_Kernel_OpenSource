@@ -55,6 +55,10 @@ static const struct iio_chan_spec st_asm330lhhx_mlc_fifo_acc_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(3),
 };
 
+static const struct iio_chan_spec st_asm330lhhx_mlc_fsm_x_ch[] = {
+	ST_ASM330LHHX_EVENT_CHANNEL(IIO_ACTIVITY, thr),
+};
+
 static const unsigned long st_asm330lhhx_mlc_available_scan_masks[] = {
 	0x1, 0x0
 };
@@ -240,10 +244,7 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 		return -ENODEV;
 	}
 
-	if (enable)
-		hw->enable_mask |= BIT(sensor->id);
-	else
-		hw->enable_mask &= ~BIT(sensor->id);
+	err = st_asm330lhhx_sensor_set_enable(sensor, enable);
 
 	return err < 0 ? err : 0;
 }
@@ -527,7 +528,6 @@ static int st_asm330lhhx_mlc_flush_all(struct st_asm330lhhx_hw *hw)
 			break;
 
 		iio_device_unregister(iio_dev);
-		kfree(iio_dev->channels);
 		iio_device_free(iio_dev);
 		hw->iio_devs[id] = NULL;
 	}
@@ -544,7 +544,6 @@ static int st_asm330lhhx_mlc_flush_all(struct st_asm330lhhx_hw *hw)
 			break;
 
 		iio_device_unregister(iio_dev);
-		kfree(iio_dev->channels);
 		iio_device_free(iio_dev);
 		hw->iio_devs[id] = NULL;
 	}
@@ -706,8 +705,7 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 						enum st_asm330lhhx_sensor_id id)
 {
 	struct st_asm330lhhx_sensor *sensor;
-	struct iio_chan_spec *channels;
-	struct iio_dev *iio_dev;
+	struct iio_dev *iio_dev = NULL;
 
 	/* devm management only for ST_ASM330LHHX_ID_MLC */
 	if (id == ST_ASM330LHHX_ID_MLC)
@@ -726,35 +724,22 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 	sensor->hw = hw;
 
 	switch (id) {
-	case ST_ASM330LHHX_ID_MLC: {
-		const struct iio_chan_spec st_asm330lhhx_mlc_channels[] = {
-			ST_ASM330LHHX_EVENT_CHANNEL(IIO_ACTIVITY, thr),
-		};
-
-		channels = devm_kzalloc(hw->dev,
-					sizeof(st_asm330lhhx_mlc_channels),
-					GFP_KERNEL);
-		if (!channels)
-			return NULL;
-
-		memcpy(channels, st_asm330lhhx_mlc_channels,
-		       sizeof(st_asm330lhhx_mlc_channels));
-
+	case ST_ASM330LHHX_ID_MLC:
 		iio_dev->available_scan_masks =
 			st_asm330lhhx_mlc_available_scan_masks;
-		iio_dev->channels = channels;
-		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_mlc_channels);
+		iio_dev->channels = st_asm330lhhx_mlc_fsm_x_ch;
+		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_mlc_fsm_x_ch);
 		iio_dev->info = &st_asm330lhhx_mlc_event_info;
 		scnprintf(sensor->name, sizeof(sensor->name), "asm330lhhx_mlc");
 		break;
-	}
 	case ST_ASM330LHHX_ID_FIFO_MLC:
 		iio_dev->channels = st_asm330lhhx_mlc_fifo_acc_channels;
 		iio_dev->num_channels =
 				ARRAY_SIZE(st_asm330lhhx_mlc_fifo_acc_channels);
 		iio_dev->available_scan_masks =
 			st_asm330lhhx_fifo_mlc_scan_masks;
-		scnprintf(sensor->name, sizeof(sensor->name), "asm330lhhx_mfifo");
+		scnprintf(sensor->name, sizeof(sensor->name),
+			  "asm330lhhx_mfifo");
 		iio_dev->info = &st_asm330lhhx_mlc_fifo_acc_info;
 		break;
 	case ST_ASM330LHHX_ID_MLC_0:
@@ -764,22 +749,11 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 	case ST_ASM330LHHX_ID_MLC_4:
 	case ST_ASM330LHHX_ID_MLC_5:
 	case ST_ASM330LHHX_ID_MLC_6:
-	case ST_ASM330LHHX_ID_MLC_7: {
-		const struct iio_chan_spec st_asm330lhhx_mlc_x_ch[] = {
-			ST_ASM330LHHX_EVENT_CHANNEL(IIO_ACTIVITY, thr),
-		};
-
-		channels = kzalloc(sizeof(st_asm330lhhx_mlc_x_ch), GFP_KERNEL);
-		if (!channels)
-			return NULL;
-
-		memcpy(channels, st_asm330lhhx_mlc_x_ch,
-		       sizeof(st_asm330lhhx_mlc_x_ch));
-
+	case ST_ASM330LHHX_ID_MLC_7:
 		iio_dev->available_scan_masks =
 			st_asm330lhhx_mlc_available_scan_masks;
-		iio_dev->channels = channels;
-		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_mlc_x_ch);
+		iio_dev->channels = st_asm330lhhx_mlc_fsm_x_ch;
+		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_mlc_fsm_x_ch);
 		iio_dev->info = &st_asm330lhhx_mlc_x_event_info;
 		scnprintf(sensor->name, sizeof(sensor->name),
 			  "asm330lhhx_mlc_%d", id - ST_ASM330LHHX_ID_MLC_0);
@@ -790,7 +764,6 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 		sensor->odr = hw->mlc_config->fsm_mlc_requested_odr;
 		sensor->uodr = hw->mlc_config->fsm_mlc_requested_uodr;
 		break;
-	}
 	case ST_ASM330LHHX_ID_FSM_0:
 	case ST_ASM330LHHX_ID_FSM_1:
 	case ST_ASM330LHHX_ID_FSM_2:
@@ -806,22 +779,11 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 	case ST_ASM330LHHX_ID_FSM_12:
 	case ST_ASM330LHHX_ID_FSM_13:
 	case ST_ASM330LHHX_ID_FSM_14:
-	case ST_ASM330LHHX_ID_FSM_15: {
-		const struct iio_chan_spec st_asm330lhhx_fsm_x_ch[] = {
-			ST_ASM330LHHX_EVENT_CHANNEL(IIO_ACTIVITY, thr),
-		};
-
-		channels = kzalloc(sizeof(st_asm330lhhx_fsm_x_ch), GFP_KERNEL);
-		if (!channels)
-			return NULL;
-
-		memcpy(channels, st_asm330lhhx_fsm_x_ch,
-		       sizeof(st_asm330lhhx_fsm_x_ch));
-
+	case ST_ASM330LHHX_ID_FSM_15:
 		iio_dev->available_scan_masks =
 			st_asm330lhhx_fsm_available_scan_masks;
-		iio_dev->channels = channels;
-		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_fsm_x_ch);
+		iio_dev->channels = st_asm330lhhx_mlc_fsm_x_ch;
+		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_mlc_fsm_x_ch);
 		iio_dev->info = &st_asm330lhhx_mlc_x_event_info;
 		scnprintf(sensor->name, sizeof(sensor->name),
 			  "asm330lhhx_fsm_%d", id - ST_ASM330LHHX_ID_FSM_0);
@@ -832,9 +794,9 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 		sensor->odr = hw->mlc_config->fsm_mlc_requested_odr;
 		sensor->uodr = hw->mlc_config->fsm_mlc_requested_uodr;
 		break;
-	}
 	default:
 		dev_err(hw->dev, "invalid sensor id %d\n", id);
+		iio_device_free(iio_dev);
 
 		return NULL;
 	}
