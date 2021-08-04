@@ -61,6 +61,10 @@ void qos_bound_enable(int enable)
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	ack = qos_ipi_to_sspm_scmi_command(qos_ipi_d.cmd,
 			qos_ipi_d.u.qos_bound_enable.enable, 0, 0, QOS_IPI_SCMI_GET);
+	if (!ack || ack == -1) {
+		pr_info("get qos sspm address fail\n");
+		return;
+	}
 	bound = (struct qos_bound *)sspm_sbuf_get(ack);
 	smp_mb(); /* init bound before flag enabled */
 #endif
