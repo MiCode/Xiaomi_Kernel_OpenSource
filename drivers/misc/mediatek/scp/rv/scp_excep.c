@@ -150,37 +150,37 @@ void scp_dump_last_regs(void)
 		c1_t1_m->sp_latch = readl(R_CORE1_T1_MON_SP_LATCH);
 	}
 
-	pr_debug("[SCP] c0_status = %08x\n", c0_m->status);
-	pr_debug("[SCP] c0_pc = %08x\n", c0_m->pc);
-	pr_debug("[SCP] c0_lr = %08x\n", c0_m->lr);
-	pr_debug("[SCP] c0_sp = %08x\n", c0_m->sp);
-	pr_debug("[SCP] c0_pc_latch = %08x\n", c0_m->pc_latch);
-	pr_debug("[SCP] c0_lr_latch = %08x\n", c0_m->lr_latch);
-	pr_debug("[SCP] c0_sp_latch = %08x\n", c0_m->sp_latch);
+	pr_debug("[SCP] c0h0_status = %08x\n", c0_m->status);
+	pr_debug("[SCP] c0h0_pc = %08x\n", c0_m->pc);
+	pr_debug("[SCP] c0h0_lr = %08x\n", c0_m->lr);
+	pr_debug("[SCP] c0h0_sp = %08x\n", c0_m->sp);
+	pr_debug("[SCP] c0h0_pc_latch = %08x\n", c0_m->pc_latch);
+	pr_debug("[SCP] c0h0_lr_latch = %08x\n", c0_m->lr_latch);
+	pr_debug("[SCP] c0h0_sp_latch = %08x\n", c0_m->sp_latch);
 	if (scpreg.twohart) {
-		pr_debug("[SCP] c0_t0_pc = %08x\n", c0_t1_m->pc);
-		pr_debug("[SCP] c0_t0_lr = %08x\n", c0_t1_m->lr);
-		pr_debug("[SCP] c0_t0_sp = %08x\n", c0_t1_m->sp);
-		pr_debug("[SCP] c0_t0_pc_latch = %08x\n", c0_t1_m->pc_latch);
-		pr_debug("[SCP] c0_t0_lr_latch = %08x\n", c0_t1_m->lr_latch);
-		pr_debug("[SCP] c0_t0_sp_latch = %08x\n", c0_t1_m->sp_latch);
+		pr_debug("[SCP] c0h1_pc = %08x\n", c0_t1_m->pc);
+		pr_debug("[SCP] c0h1_lr = %08x\n", c0_t1_m->lr);
+		pr_debug("[SCP] c0h1_sp = %08x\n", c0_t1_m->sp);
+		pr_debug("[SCP] c0h1_pc_latch = %08x\n", c0_t1_m->pc_latch);
+		pr_debug("[SCP] c0h1_lr_latch = %08x\n", c0_t1_m->lr_latch);
+		pr_debug("[SCP] c0h1_sp_latch = %08x\n", c0_t1_m->sp_latch);
 	}
 	if (scpreg.core_nums == 2) {
-		pr_debug("[SCP] c1_status = %08x\n", c1_m->status);
-		pr_debug("[SCP] c1_pc = %08x\n", c1_m->pc);
-		pr_debug("[SCP] c1_lr = %08x\n", c1_m->lr);
-		pr_debug("[SCP] c1_sp = %08x\n", c1_m->sp);
-		pr_debug("[SCP] c1_pc_latch = %08x\n", c1_m->pc_latch);
-		pr_debug("[SCP] c1_lr_latch = %08x\n", c1_m->lr_latch);
-		pr_debug("[SCP] c1_sp_latch = %08x\n", c1_m->sp_latch);
+		pr_debug("[SCP] c1h0_status = %08x\n", c1_m->status);
+		pr_debug("[SCP] c1h0_pc = %08x\n", c1_m->pc);
+		pr_debug("[SCP] c1h0_lr = %08x\n", c1_m->lr);
+		pr_debug("[SCP] c1h0_sp = %08x\n", c1_m->sp);
+		pr_debug("[SCP] c1h0_pc_latch = %08x\n", c1_m->pc_latch);
+		pr_debug("[SCP] c1h0_lr_latch = %08x\n", c1_m->lr_latch);
+		pr_debug("[SCP] c1h0_sp_latch = %08x\n", c1_m->sp_latch);
 	}
 	if (scpreg.core_nums == 2 && scpreg.twohart) {
-		pr_debug("[SCP] c1_pc = %08x\n", c1_t1_m->pc);
-		pr_debug("[SCP] c1_lr = %08x\n", c1_t1_m->lr);
-		pr_debug("[SCP] c1_sp = %08x\n", c1_t1_m->sp);
-		pr_debug("[SCP] c1_pc_latch = %08x\n", c1_t1_m->pc_latch);
-		pr_debug("[SCP] c1_lr_latch = %08x\n", c1_t1_m->lr_latch);
-		pr_debug("[SCP] c1_sp_latch = %08x\n", c1_t1_m->sp_latch);
+		pr_debug("[SCP] c1h1_pc = %08x\n", c1_t1_m->pc);
+		pr_debug("[SCP] c1h1_lr = %08x\n", c1_t1_m->lr);
+		pr_debug("[SCP] c1h1_sp = %08x\n", c1_t1_m->sp);
+		pr_debug("[SCP] c1h1_pc_latch = %08x\n", c1_t1_m->pc_latch);
+		pr_debug("[SCP] c1h1_lr_latch = %08x\n", c1_t1_m->lr_latch);
+		pr_debug("[SCP] c1h1_sp_latch = %08x\n", c1_t1_m->sp_latch);
 	}
 
 	/* bus tracker reg dump */

@@ -654,64 +654,64 @@ static inline ssize_t scp_A_reg_status_show(struct device *kobj
 
 	scp_dump_last_regs();
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_status = %08x\n", c0_m->status);
+		"c0h0_status = %08x\n", c0_m->status);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_pc = %08x\n", c0_m->pc);
+		"c0h0_pc = %08x\n", c0_m->pc);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_lr = %08x\n", c0_m->lr);
+		"c0h0_lr = %08x\n", c0_m->lr);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_sp = %08x\n", c0_m->sp);
+		"c0h0_sp = %08x\n", c0_m->sp);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_pc_latch = %08x\n", c0_m->pc_latch);
+		"c0h0_pc_latch = %08x\n", c0_m->pc_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_lr_latch = %08x\n", c0_m->lr_latch);
+		"c0h0_lr_latch = %08x\n", c0_m->lr_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_sp_latch = %08x\n", c0_m->sp_latch);
+		"c0h0_sp_latch = %08x\n", c0_m->sp_latch);
 	if (!scpreg.twohart)
 		goto core1;
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_t1_pc = %08x\n", c0_t1_m->pc);
+		"c0h1_pc = %08x\n", c0_t1_m->pc);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_t1_lr = %08x\n", c0_t1_m->lr);
+		"c0h1_lr = %08x\n", c0_t1_m->lr);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_t1_sp = %08x\n", c0_t1_m->sp);
+		"c0h1_sp = %08x\n", c0_t1_m->sp);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_t1_pc_latch = %08x\n", c0_t1_m->pc_latch);
+		"c0h1_pc_latch = %08x\n", c0_t1_m->pc_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_t1_lr_latch = %08x\n", c0_t1_m->lr_latch);
+		"c0h1_lr_latch = %08x\n", c0_t1_m->lr_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c0_t1_sp_latch = %08x\n", c0_t1_m->sp_latch);
+		"c0h1_sp_latch = %08x\n", c0_t1_m->sp_latch);
 core1:
 	if (scpreg.core_nums == 1)
 		goto end;
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_status = %08x\n", c1_m->status);
+		"c1h0_status = %08x\n", c1_m->status);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_pc = %08x\n", c1_m->pc);
+		"c1h0_pc = %08x\n", c1_m->pc);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_lr = %08x\n", c1_m->lr);
+		"c1h0_lr = %08x\n", c1_m->lr);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_sp = %08x\n", c1_m->sp);
+		"c1h0_sp = %08x\n", c1_m->sp);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_pc_latch = %08x\n", c1_m->pc_latch);
+		"c1h0_pc_latch = %08x\n", c1_m->pc_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_lr_latch = %08x\n", c1_m->lr_latch);
+		"c1h0_lr_latch = %08x\n", c1_m->lr_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_sp_latch = %08x\n", c1_m->sp_latch);
+		"c1h0_sp_latch = %08x\n", c1_m->sp_latch);
 	if (!scpreg.twohart)
 		goto end;
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_t1_pc = %08x\n", c1_t1_m->pc);
+		"c1h1_pc = %08x\n", c1_t1_m->pc);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_t1_lr = %08x\n", c1_t1_m->lr);
+		"c1h1_lr = %08x\n", c1_t1_m->lr);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_t1_sp = %08x\n", c1_t1_m->sp);
+		"c1h1_sp = %08x\n", c1_t1_m->sp);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_t1_pc_latch = %08x\n", c1_t1_m->pc_latch);
+		"c1h1_pc_latch = %08x\n", c1_t1_m->pc_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_t1_lr_latch = %08x\n", c1_t1_m->lr_latch);
+		"c1h1_lr_latch = %08x\n", c1_t1_m->lr_latch);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
-		"c1_t1_sp_latch = %08x\n", c1_t1_m->sp_latch);
+		"c1h1_sp_latch = %08x\n", c1_t1_m->sp_latch);
 
 end:
 	return len;
