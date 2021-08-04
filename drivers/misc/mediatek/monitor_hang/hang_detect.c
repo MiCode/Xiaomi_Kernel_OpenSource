@@ -1012,7 +1012,7 @@ static void show_bt_by_pid(int task_pid)
 			if (dump_native == 1)
 				/* catch maps to Userthread_maps */
 				dump_native_maps(task_pid, p);
-			put_task_struct(p);
+			put_task_stack(p);
 		} else {
 			state = p->state ? __ffs(p->state) + 1 : 0;
 			log_hang_info("%s pid %d state %c, flags %d. stack is null.\n",
@@ -1023,10 +1023,13 @@ static void show_bt_by_pid(int task_pid)
 				stat_nam[state] : '?', t->flags);
 		}
 		do {
-			if (t && try_get_task_stack(t)) {
+			if (!t)
+				break;
+
+			get_task_struct(t);
+			if (try_get_task_stack(t)) {
 				pid_t tid = 0;
 
-				get_task_struct(t);
 				tid = task_pid_vnr(t);
 				state = t->state ? __ffs(t->state) + 1 : 0;
 				/* catch kernel bt */
@@ -1039,12 +1042,17 @@ static void show_bt_by_pid(int task_pid)
 
 				if (dump_native == 1)
 					dump_native_info_by_tid(tid, t);
-				put_task_struct(t);
+
+				put_task_stack(t);
 			}
+			put_task_struct(t);
+
 			if ((++count) % 5 == 4)
 				msleep(20);
 			log_hang_info("-\n");
 		} while_each_thread(p, t);
+
+		put_task_struct(p);  /* pairing get_pid_task */
 	}
 	put_pid(pid);
 }
@@ -1131,9 +1139,12 @@ static void show_task_backtrace(void)
 			continue;
 		}
 		for_each_thread(p, t) {
-			if (try_get_task_stack(t)) {
+			if (t) {
 				get_task_struct(t);
-				show_thread_info(t, false);
+				if (try_get_task_stack(t)) {
+					show_thread_info(t, false);
+					put_task_stack(t);
+				}
 				put_task_struct(t);
 			}
 		}
