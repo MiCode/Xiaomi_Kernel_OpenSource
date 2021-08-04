@@ -54,6 +54,11 @@ static const struct i2c_device_id st_asm330lhhx_i2c_id_table[] = {
 };
 MODULE_DEVICE_TABLE(i2c, st_asm330lhhx_i2c_id_table);
 
+static void st_asm330lhhx_i2c_shutdown(struct i2c_client *client)
+{
+	st_asm330lhhx_shutdown(&client->dev);
+}
+
 static struct i2c_driver st_asm330lhhx_driver = {
 	.driver = {
 		.name = "st_asm330lhhx_i2c",
@@ -63,6 +68,7 @@ static struct i2c_driver st_asm330lhhx_driver = {
 	.probe = st_asm330lhhx_i2c_probe,
 	.remove = st_asm330lhhx_i2c_remove,
 	.id_table = st_asm330lhhx_i2c_id_table,
+	.shutdown = st_asm330lhhx_i2c_shutdown,
 };
 module_i2c_driver(st_asm330lhhx_driver);
 

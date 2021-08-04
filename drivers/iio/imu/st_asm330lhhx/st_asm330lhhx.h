@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.11"
+#define ST_ASM330LHHX_DRV_VERSION			"1.12"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -707,6 +707,7 @@ int st_asm330lhhx_of_get_pin(struct st_asm330lhhx_hw *hw, int *pin);
 int st_asm330lhhx_shub_probe(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_shub_set_enable(struct st_asm330lhhx_sensor *sensor,
 				  bool enable);
+void st_asm330lhhx_shutdown(struct device *dev);
 
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
 int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw);

@@ -53,6 +53,11 @@ static const struct spi_device_id st_asm330lhhx_spi_id_table[] = {
 };
 MODULE_DEVICE_TABLE(spi, st_asm330lhhx_spi_id_table);
 
+static void st_asm330lhhx_spi_shutdown(struct spi_device *spi)
+{
+	st_asm330lhhx_shutdown(&spi->dev);
+}
+
 static struct spi_driver st_asm330lhhx_driver = {
 	.driver = {
 		.name = "st_asm330lhhx_spi",
@@ -62,6 +67,7 @@ static struct spi_driver st_asm330lhhx_driver = {
 	.probe = st_asm330lhhx_spi_probe,
 	.remove = st_asm330lhhx_spi_remove,
 	.id_table = st_asm330lhhx_spi_id_table,
+	.shutdown = st_asm330lhhx_spi_shutdown,
 };
 module_spi_driver(st_asm330lhhx_driver);
 

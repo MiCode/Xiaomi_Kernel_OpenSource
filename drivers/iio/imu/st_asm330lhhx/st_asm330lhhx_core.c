@@ -1906,6 +1906,14 @@ static int __maybe_unused st_asm330lhhx_resume(struct device *dev)
 	return _st_asm330lhhx_resume(hw);
 }
 
+void st_asm330lhhx_shutdown(struct device *dev)
+{
+	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
+
+	st_asm330lhhx_reset_device(hw);
+}
+EXPORT_SYMBOL(st_asm330lhhx_shutdown);
+
 const struct dev_pm_ops st_asm330lhhx_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(st_asm330lhhx_suspend, st_asm330lhhx_resume)
 };
