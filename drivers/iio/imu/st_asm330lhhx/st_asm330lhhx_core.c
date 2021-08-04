@@ -1856,7 +1856,9 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
 	int err = 0;
 
+	mutex_lock(&hw->fifo_lock);
 	err = _st_asm330lhhx_suspend(hw);
+	mutex_unlock(&hw->fifo_lock);
 
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
 	if (device_may_wakeup(dev))
@@ -1925,7 +1927,26 @@ void st_asm330lhhx_shutdown(struct device *dev)
 {
 	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
 
-	st_asm330lhhx_reset_device(hw);
+	mutex_lock(&hw->fifo_lock);
+	/* after reset the irq line can be pulled up by hardware, disable it */
+	disable_irq(hw->irq);
+	mutex_unlock(&hw->fifo_lock);
+
+	/* disable all algos for power consumption reduction */
+	st_asm330lhhx_set_page_access(hw, true,
+				      ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	regmap_write(hw->regmap, ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR, 0);
+	regmap_write(hw->regmap, ST_ASM330LHHX_FSM_ENABLE_A_ADDR, 0);
+	regmap_write(hw->regmap, ST_ASM330LHHX_FSM_ENABLE_B_ADDR, 0);
+	st_asm330lhhx_set_page_access(hw, false,
+				      ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+
+	/* reset device */
+	regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_CTRL3_C_ADDR,
+			   ST_ASM330LHHX_REG_SW_RESET_MASK,
+			   FIELD_PREP(ST_ASM330LHHX_REG_SW_RESET_MASK, 1));
+
+	dev_info(dev, "Set all devices in power down\n");
 }
 EXPORT_SYMBOL(st_asm330lhhx_shutdown);
 
