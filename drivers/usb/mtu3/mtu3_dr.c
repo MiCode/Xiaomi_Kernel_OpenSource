@@ -219,7 +219,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		switch_port_to_on(ssusb, false);
 	default:
 		dev_err(ssusb->dev, "invalid role\n");
-	}	
+	}
 }
 
 static void ssusb_mode_sw_work(struct work_struct *work)

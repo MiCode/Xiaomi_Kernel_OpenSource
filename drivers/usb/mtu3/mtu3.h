@@ -230,7 +230,6 @@ struct otg_switch_mtk {
 	bool role_sw_used;
 	bool is_u3_drd;
 	bool manual_drd_enabled;
-	u32 sw_state;
 	enum usb_role latest_role;
 	enum usb_role current_role;
 	enum mtu3_dr_operation_mode op_mode;
