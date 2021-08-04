@@ -30,28 +30,8 @@
 #define write_cmos_sensor(...) subdrv_i2c_wr_u16(__VA_ARGS__)
 #define table_write_cmos_sensor(...) subdrv_i2c_wr_regs_u16(__VA_ARGS__)
 
-#undef VENDOR_EDIT
-
-/***************Modify Following Strings for Debug**********************/
 #define PFX "S5K3M5SX_camera_sensor"
-/****************************   Modify end    **************************/
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
-
-#define MULTI_WRITE_REGISTER_VALUE  (16)
-
-#if MULTI_WRITE_REGISTER_VALUE == 8
-#define I2C_BUFFER_LEN 765 /* trans# max is 255, each 3 bytes */
-#elif MULTI_WRITE_REGISTER_VALUE == 16
-#define I2C_BUFFER_LEN 1020 /* trans# max is 255, each 4 bytes */
-#endif
-
-
-#ifdef VENDOR_EDIT
-#define MODULE_ID_OFFSET 0x0000
-#endif
-
-
-
 
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = S5K3M5SX_SENSOR_ID,
@@ -1797,10 +1777,6 @@ static kal_int32 get_sensor_temperature(struct subdrv_ctx *ctx)
 	else
 		temperature_convert = (INT8)temperature | 0xFFFFFF0;
 
-	/* LOG_INF("temp_c(%d), read_reg(%d)\n",
-	 * temperature_convert, temperature);
-	 */
-
 	return temperature_convert;
 }
 
@@ -2246,7 +2222,11 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 				LOG_INF(
 					"i2c write id: 0x%x, sensor id: 0x%x\n",
 					ctx->i2c_write_id, *sensor_id);
-
+				if (ctx->i2c_write_id == 0x5a) {
+					ctx->mirror = IMAGE_HV_MIRROR;
+					imgsensor_info.sensor_output_dataformat =
+						SENSOR_OUTPUT_FORMAT_RAW_Gb;
+				}
 				return ERROR_NONE;
 			}
 			LOG_INF("Read sensor id fail, id: 0x%x\n",
@@ -2299,6 +2279,11 @@ static int open(struct subdrv_ctx *ctx)
 				LOG_INF(
 					"i2c write id: 0x%x, sensor id: 0x%x\n",
 					ctx->i2c_write_id, sensor_id);
+				if (ctx->i2c_write_id == 0x5a) {
+					ctx->mirror = IMAGE_HV_MIRROR;
+					imgsensor_info.sensor_output_dataformat =
+						SENSOR_OUTPUT_FORMAT_RAW_Gb;
+				}
 				break;
 			}
 			LOG_INF("Read sensor id fail, id: 0x%x\n",
@@ -2380,7 +2365,7 @@ static kal_uint32 preview(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("%s E\n", __func__);
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_PREVIEW;
 	ctx->pclk = imgsensor_info.pre.pclk;
@@ -2388,10 +2373,11 @@ static kal_uint32 preview(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->min_frame_length = imgsensor_info.pre.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	set_mirror_flip(ctx, ctx->mirror);
 
 	preview_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
 
+	LOG_INF("X\n");
 	return ERROR_NONE;
 } /* preview */
 
@@ -2415,42 +2401,18 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
 	LOG_INF("E\n");
+
 	ctx->sensor_mode = IMGSENSOR_MODE_CAPTURE;
-
-
-	if (ctx->current_fps != imgsensor_info.cap.max_framerate) {
-		LOG_INF(
-			"Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
-			ctx->current_fps,
-			imgsensor_info.cap.max_framerate / 10);
-
-		ctx->pclk = imgsensor_info.cap.pclk;
-		ctx->line_length = imgsensor_info.cap.linelength;
-		ctx->frame_length = imgsensor_info.cap.framelength;
-		ctx->min_frame_length = imgsensor_info.cap.framelength;
-		ctx->autoflicker_en = KAL_FALSE;
-
-	} else {
-		/* PIP capture:
-		 *	24fps for less than 13M,
-		 *	20fps for 16M,
-		 *	15fps for 20M
-		 */
-		LOG_INF(
-			"Warning:=== current_fps %d fps is not support, so use cap1's setting\n",
-			ctx->current_fps / 10);
-
-		ctx->pclk = imgsensor_info.cap.pclk;
-		ctx->line_length = imgsensor_info.cap.linelength;
-		ctx->frame_length = imgsensor_info.cap.framelength;
-		ctx->min_frame_length = imgsensor_info.cap.framelength;
-		ctx->autoflicker_en = KAL_FALSE;
-	}
+	ctx->pclk = imgsensor_info.cap.pclk;
+	ctx->line_length = imgsensor_info.cap.linelength;
+	ctx->frame_length = imgsensor_info.cap.framelength;
+	ctx->min_frame_length = imgsensor_info.cap.framelength;
+	ctx->autoflicker_en = KAL_FALSE;
 
 	capture_setting(ctx, ctx->current_fps);
+	set_mirror_flip(ctx, ctx->mirror);
 
-	/* set_mirror_flip(ctx, ctx->mirror); */
-
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/* capture(ctx) */
 
@@ -2466,9 +2428,11 @@ static kal_uint32 normal_video(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.normal_video.framelength;
 	ctx->min_frame_length = imgsensor_info.normal_video.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	normal_video_setting(ctx, ctx->current_fps);
-	/*set_mirror_flip(ctx, ctx->mirror);*/
 
+	normal_video_setting(ctx, ctx->current_fps);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/*	normal_video   */
 
@@ -2480,17 +2444,17 @@ static kal_uint32 hs_video(struct subdrv_ctx *ctx,
 
 	ctx->sensor_mode = IMGSENSOR_MODE_HIGH_SPEED_VIDEO;
 	ctx->pclk = imgsensor_info.hs_video.pclk;
-	/*ctx->video_mode = KAL_TRUE;*/
 	ctx->line_length = imgsensor_info.hs_video.linelength;
 	ctx->frame_length = imgsensor_info.hs_video.framelength;
 	ctx->min_frame_length = imgsensor_info.hs_video.framelength;
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
-	/*ctx->current_fps = 300;*/
 	ctx->autoflicker_en = KAL_FALSE;
-	hs_video_setting(ctx);
-	/*set_mirror_flip(ctx, ctx->mirror);*/
 
+	hs_video_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/*	hs_video   */
 
@@ -2502,17 +2466,17 @@ static kal_uint32 slim_video(struct subdrv_ctx *ctx,
 
 	ctx->sensor_mode = IMGSENSOR_MODE_SLIM_VIDEO;
 	ctx->pclk = imgsensor_info.slim_video.pclk;
-	/*ctx->video_mode = KAL_TRUE;*/
 	ctx->line_length = imgsensor_info.slim_video.linelength;
 	ctx->frame_length = imgsensor_info.slim_video.framelength;
 	ctx->min_frame_length = imgsensor_info.slim_video.framelength;
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
-	/*ctx->current_fps = 300;*/
 	ctx->autoflicker_en = KAL_FALSE;
-	slim_video_setting(ctx);
-	/*set_mirror_flip(ctx, ctx->mirror);*/
 
+	slim_video_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/* slim_video */
 
@@ -2520,7 +2484,7 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("%s.\n", __func__);
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM1;
 	ctx->pclk = imgsensor_info.custom1.pclk;
@@ -2528,8 +2492,11 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom1.framelength;
 	ctx->min_frame_length = imgsensor_info.custom1.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom1_setting(ctx);
 
+	custom1_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/* custom1 */
 
@@ -2537,7 +2504,7 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("%s.\n", __func__);
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM2;
 	ctx->pclk = imgsensor_info.custom2.pclk;
@@ -2545,8 +2512,11 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom2.framelength;
 	ctx->min_frame_length = imgsensor_info.custom2.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom2_setting(ctx);
 
+	custom2_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/* custom2 */
 
@@ -2554,7 +2524,7 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("%s.\n", __func__);
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM3;
 	ctx->pclk = imgsensor_info.custom3.pclk;
@@ -2562,8 +2532,11 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom3.framelength;
 	ctx->min_frame_length = imgsensor_info.custom3.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom3_setting(ctx);
 
+	custom3_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }	/* custom1 */
 
@@ -2571,7 +2544,7 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("%s.\n", __func__);
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM4;
 	ctx->pclk = imgsensor_info.custom4.pclk;
@@ -2579,8 +2552,11 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom4.framelength;
 	ctx->min_frame_length = imgsensor_info.custom4.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom4_setting(ctx);
 
+	custom4_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }
 
@@ -2588,7 +2564,7 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("%s.\n", __func__);
+	LOG_INF("E\n");
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM5;
 	ctx->pclk = imgsensor_info.custom5.pclk;
@@ -2596,8 +2572,11 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom5.framelength;
 	ctx->min_frame_length = imgsensor_info.custom5.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	custom5_setting(ctx);
 
+	custom5_setting(ctx);
+	set_mirror_flip(ctx, ctx->mirror);
+
+	LOG_INF("X\n");
 	return ERROR_NONE;
 }
 
@@ -3220,11 +3199,6 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_SET_NIGHTMODE:
 		/* night_mode((BOOL) *feature_data); */
 		break;
-#ifdef VENDOR_EDIT
-	case SENSOR_FEATURE_CHECK_MODULE_ID:
-		*feature_return_para_32 = imgsensor_info.module_id;
-		break;
-#endif
 	case SENSOR_FEATURE_SET_GAIN:
 		set_gain(ctx, (UINT16) *feature_data);
 		break;
@@ -3761,7 +3735,6 @@ static const struct subdrv_ctx defctx = {
 	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
-	/* support long exposure at most 128 times) */
 	.exposure_max = (0xffff * 128) - 4,
 	.exposure_min = 4,
 	.exposure_step = 1,
@@ -3780,7 +3753,7 @@ static const struct subdrv_ctx defctx = {
 	.test_pattern = KAL_FALSE,
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
-	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
+	.i2c_write_id = 0x20, /* record current sensor's i2c write id */
 	.current_ae_effective_frame = 2,
 };
 
@@ -3834,4 +3807,3 @@ const struct subdrv_entry s5k3m5sx_mipi_raw_entry = {
 	.pw_seq_cnt = ARRAY_SIZE(pw_seq),
 	.ops = &ops,
 };
-
