@@ -10442,6 +10442,18 @@
 		block_size = <0x1000>;
 	};
 
+	btcvsd_snd: mtk-btcvsd-snd@18830000 {
+		compatible = "mediatek,mtk-btcvsd-snd";
+		reg=<0 0x18830000 0 0x2000>, /*PKV_PHYSICAL_BASE*/
+			<0 0x18840000 0 0x20000>; /*SRAM_BANK2*/
+		interrupts = <GIC_SPI 552 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,infracfg = <&infracfg_ao_clk>;
+		/*INFRA MISC, conn_bt_cvsd_mask*/
+		/*cvsd_mcu_read, write, packet_indicator*/
+		mediatek,offset =<0xf00 0x800 0x140 0x144 0x148>;
+		disable_write_silence = <1>;
+	};
+
 	sound: sound {
 		compatible = "mediatek,mt6983-mt6338-sound";
 		/* mediatek,snd_audio_dsp = <&snd_audio_dsp>; */
