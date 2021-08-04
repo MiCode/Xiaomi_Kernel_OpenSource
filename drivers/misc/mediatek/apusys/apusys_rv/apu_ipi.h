@@ -21,6 +21,7 @@ enum {
 	APU_IPI_PWR_RX, // cmd direction from up to ap
 	APU_IPI_MDLA_TX,
 	APU_IPI_MDLA_RX,
+	APU_IPI_TIMESYNC,
 	APU_IPI_MAX,
 };
 

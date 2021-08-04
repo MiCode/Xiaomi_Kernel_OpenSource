@@ -141,6 +141,8 @@ struct mtk_apu {
 	dma_addr_t send_buf_da;
 	struct mtk_share_obj *send_buf;
 
+	struct work_struct timesync_work;
+
 	struct rproc_subdev *rpmsg_subdev;
 
 	struct mtk_apu_platdata	*platdata;
@@ -179,6 +181,7 @@ void apu_ipi_remove(struct mtk_apu *apu);
 int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu);
 int apu_ipi_register(struct mtk_apu *apu, u32 id,
 		ipi_handler_t handler, void *priv);
+void apu_ipi_unregister(struct mtk_apu *apu, u32 id);
 int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		 u32 wait_ms);
 
@@ -187,6 +190,8 @@ void apu_sysfs_remove(struct platform_device *pdev);
 int apu_coredump_init(struct mtk_apu *apu);
 void apu_coredump_remove(struct mtk_apu *apu);
 void apu_setup_dump(struct mtk_apu *apu, dma_addr_t da);
+int apu_timesync_init(struct mtk_apu *apu);
+void apu_timesync_remove(struct mtk_apu *apu);
 
 extern const struct mtk_apu_platdata mt6879_platdata;
 extern const struct mtk_apu_platdata mt6893_platdata;

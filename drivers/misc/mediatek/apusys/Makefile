@@ -197,6 +197,7 @@ apusys-objs += apusys_rv/apu_mbox.o
 apusys-objs += apusys_rv/apu_mem.o
 apusys-objs += apusys_rv/apu_rproc.o
 apusys-objs += apusys_rv/apu_sysfs.o
+apusys-objs += apusys_rv/apu_timesync.o
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/apusys_rv/2.0/mt6879_plat.c),)
 subdir-ccflags-y += -DMT6879_APUSYS_RV_PLAT_DATA
 apusys-objs += apusys_rv/2.0/mt6879_plat.o
@@ -214,7 +215,6 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/ipi/
 ccflags-y += -I$(srctree)/drivers/rpmsg/
 apusys-objs += ipi/apu_ctrl_rpmsg.o
-apusys-objs += ipi/apu_systrace.o
 apusys-objs += ipi/mtk_apu_rpmsg.o
 
 # sw logger

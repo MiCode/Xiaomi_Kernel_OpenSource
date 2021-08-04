@@ -370,7 +370,7 @@ static int apu_ctrl_rpmsg_probe(struct rpmsg_device *rpdev)
 	initialized = true;
 
 	apu_ctrl_rpmsg_test();
-	apu_timesync_init();
+	//apu_timesync_init();
 
 	//@@@ apu_dpidle_init();
 
@@ -384,7 +384,7 @@ static void apu_ctrl_rpmsg_remove(struct rpmsg_device *rpdev)
 
 	//@@@ apu_dpidle_exit();
 
-	apu_timesync_remove();
+	//apu_timesync_remove();
 
 	ctldev = NULL;
 	initialized = false;
