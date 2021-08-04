@@ -3314,6 +3314,34 @@ static const struct mtk_cam_format_desc stream_out_fmts[] = {
 			.code = MEDIA_BUS_FMT_SRGGB16_1X16,
 		}
 	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER8_UFBC,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER10_UFBC,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER12_UFBC,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER14_UFBC,
+		},
+	},
 };
 
 static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
@@ -3395,42 +3423,42 @@ static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_UFBC,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_UFBC,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10_UFBC,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10_UFBC,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_12_UFBC,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_12_UFBC,
