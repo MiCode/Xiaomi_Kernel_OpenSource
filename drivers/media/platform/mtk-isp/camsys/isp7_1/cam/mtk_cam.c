@@ -114,15 +114,16 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *req_state;
 	struct mtk_cam_request_stream_data *req_stream_data_pipe;
 	struct mtk_cam_request_stream_data *req_stream_data;
-	int i;
+	int i, running_s_data_cnt;
 
+	running_s_data_cnt = atomic_dec_return(&ctx->running_s_data_cnt);
 	req_stream_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
 	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	dev_dbg(cam->dev,
-		 "%s: job done, req:%d, state:%d, ctx:(%d,0x%x), pipe:(%d,0x%x), done_status:0x%x\n",
+		 "%s: job done, req:%d, state:%d, ctx:(%d,0x%x), pipe:(%d,0x%x), done_status:0x%x, running(%d)\n",
 		 req->req.debug_str, req_stream_data->frame_seq_no, state,
 		 ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
-		 req->done_status);
+		 req->done_status, running_s_data_cnt);
 
 	if (!(cam->streaming_pipe & (1 << pipe_id))) {
 		dev_dbg(cam->dev,
@@ -394,6 +395,7 @@ static bool mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
 			ctx->stream_id, req->ctx_used, ctx->cam->streaming_ctx,
 			pipe_id, req->pipe_used, ctx->cam->streaming_pipe,
 			req->done_status);
+		mtk_cam_req_clean(req);
 		media_request_put(&req->req);
 	}
 
@@ -1454,12 +1456,64 @@ static void mtk_cam_req_update_frame_seq_no(struct mtk_cam_device *cam,
 	}
 }
 
+static void mtk_cam_link_change_worker(struct work_struct *work)
+{
+	struct mtk_cam_request *req =
+		container_of(work, struct mtk_cam_request, link_work);
+	mtk_cam_req_seninf_change(req);
+	req->seninf_changed = true;
+}
+
+static bool
+immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
+			  int running_s_data_num,
+			  struct mtk_cam_request_stream_data *s_data)
+{
+	bool change_seninf = false;
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
+
+	if (!s_data->seninf_new || !s_data->seninf_old) {
+		dev_info(cam->dev,
+			 "%s:req(%s):pipe(%d):ctx_link_update(0x%x),seninf_old(%p)/seninf_new(%p) can't be null\n",
+			 __func__, req->req.debug_str, pipe_id,
+			 req->ctx_link_update, s_data->frame_seq_no,
+			 s_data->seninf_old, s_data->seninf_new);
+		req->ctx_link_update = 0;
+	}
+
+	/**
+	 * If there is only one running job and it is the
+	 * switching request, trigger the seninf change
+	 * before set sensor.
+	 */
+	if (req->ctx_link_update & (1 << pipe_id)) {
+		if (running_s_data_num == 1) {
+			dev_info(cam->dev,
+				 "%s:req(%s):pipe(%d):link change before enqueue: seq(%d), running_s_data_num(%d)\n",
+				 __func__, req->req.debug_str, pipe_id,
+				 s_data->frame_seq_no, running_s_data_num);
+			s_data->state.estate = E_STATE_SENINF;
+			change_seninf = true;
+		} else {
+			dev_info(cam->dev,
+				 "%s:req(%s):pipe(%d):link change after last p1 done: seq(%d), running_s_data_num(%d)\n",
+				 __func__, req->req.debug_str, pipe_id,
+				 s_data->frame_seq_no, running_s_data_num);
+		}
+
+	}
+
+	return change_seninf;
+}
+
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
 	struct mtk_cam_request *req, *req_prev, *req_tmp;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	unsigned long flags;
 	int i;
+	int running_s_data_num;
+	bool change_seninf = false;
 
 	if (!cam->streaming_ctx) {
 		dev_dbg(cam->dev, "streams are off\n");
@@ -1501,6 +1555,11 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				req_stream_data = mtk_cam_req_get_s_data(req_tmp, i, 0);
 				mtk_cam_req_update_ctrl(&cam->ctxs[i], req_stream_data);
 			}
+
+			running_s_data_num = atomic_inc_return(&cam->ctxs[i].running_s_data_cnt);
+			if (immediate_link_update_chk(cam, i, running_s_data_num,
+						      req_stream_data))
+				change_seninf = true;
 		}
 	}
 
@@ -1511,6 +1570,12 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 		WARN_ON(1);
 		return;
 	}
+
+	if (change_seninf) {
+		INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
+		queue_work(cam->link_change_wq, &req->link_work);
+	}
+
 	mtk_cam_dev_req_enqueue(cam, req_tmp);
 }
 
@@ -2296,10 +2361,10 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			INIT_WORK(&frame_work->work, isp_tx_frame_worker);
 			queue_work(ctx->composer_wq, &frame_work->work);
 
-			dev_dbg(cam->dev, "%s:ctx:%d:req:%d(%s) enqueue ctx_used:0x%x,streaming_ctx:0x%x,job cnt:%d\n",
+			dev_dbg(cam->dev, "%s:ctx:%d:req:%d(%s) enqueue ctx_used:0x%x,streaming_ctx:0x%x,job cnt:%d, running(%d)\n",
 				__func__, stream_id, req_stream_data->frame_seq_no,
 				req->req.debug_str, req->ctx_used, cam->streaming_ctx,
-				cam->running_job_count);
+				cam->running_job_count, atomic_read(&ctx->running_s_data_cnt));
 		}
 	}
 }
@@ -2685,6 +2750,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	ctx->enqueued_frame_seq_no = 0;
 	ctx->composed_frame_seq_no = 0;
 	ctx->dequeued_frame_seq_no = 0;
+	atomic_set(&ctx->running_s_data_cnt, 0);
 
 	if (!cam->composer_cnt) {
 		cam->running_job_count = 0;

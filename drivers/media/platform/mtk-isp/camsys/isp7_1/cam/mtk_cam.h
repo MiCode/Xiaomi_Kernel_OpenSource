@@ -185,6 +185,7 @@ struct mtk_cam_request {
 	unsigned int ctx_used;
 	unsigned int pipe_used;
 	unsigned int ctx_link_update;
+	bool seninf_changed;
 	unsigned int done_status;
 	spinlock_t done_status_lock;
 	unsigned int fs_on_cnt; /*0:init X:sensor_fs_on*/
@@ -243,6 +244,7 @@ struct mtk_cam_ctx {
 	unsigned int enabled_node_cnt;
 	unsigned int streaming_pipe;
 	unsigned int streaming_node_cnt;
+	atomic_t running_s_data_cnt;
 	struct v4l2_subdev *sensor;
 	struct v4l2_subdev *prev_sensor;
 	struct v4l2_subdev *seninf;

@@ -1557,14 +1557,23 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 	val2 = val2 | TG_CMOS_RDY_SEL;
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);
 	wmb(); /* TBC */
+
 	dev_dbg_ratelimited(raw_dev->dev,
-		"TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		"[Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
 		readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
 		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
 		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+	dev_dbg_ratelimited(raw_dev->dev,
+		"[Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG),
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE),
+		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST),
+		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
+		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
 }
 
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)

@@ -261,20 +261,22 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 	return false;
 }
 
+
 /**
- * Handling E_STATE_CAMMUX_OUTER_CFG_DELAY state, we must
- * disable SENINF_MUX_EN and change the cammux setting.
+ *  Not used now since mtk_cam_seninf_streaming_mux_change
+ *  caused seninf workqueue corruption.
  */
-static void mtk_cam_link_change_worker(struct work_struct *work)
+void mtk_cam_req_seninf_change_new(struct mtk_cam_request *req)
 {
-	struct mtk_cam_request *req =
-		container_of(work, struct mtk_cam_request, link_work);
+	struct media_pipeline *m_pipe;
+	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam =
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
-	struct mtk_cam_ctx *ctx;
-	struct mtk_camsys_sensor_ctrl *sensor_ctrl;
-	struct mtk_cam_request_stream_data *req_stream_data;
-	int i, ret, stream_id;
+	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_seninf_mux_param param;
+	struct mtk_cam_seninf_mux_setting settings[4];
+	struct mtk_raw_device *raw_dev;
+	int i, stream_id, setting_cnt = 0, val;
 
 	dev_info(cam->dev, "%s, req->ctx_used:0x%x, req->ctx_link_update:0x%x\n",
 		__func__, req->ctx_used, req->ctx_link_update);
@@ -282,23 +284,130 @@ static void mtk_cam_link_change_worker(struct work_struct *work)
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->ctx_used & (1 << i) && (req->ctx_link_update & (1 << i))) {
 			stream_id = i;
-			sensor_ctrl = &cam->ctxs[stream_id].sensor_ctrl;
-			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
+			ctx = &cam->ctxs[stream_id];
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+			s_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
-			dev_info(cam->dev, "%s: pipe(%d): stream off seninf %s to switch sensor\n",
-				 __func__, stream_id, req_stream_data->seninf_old->name);
+			dev_info(cam->dev, "%s: pipe(%d): switch seninf: %s--> %s\n",
+				 __func__, stream_id, s_data->seninf_old->name,
+				 s_data->seninf_new->name);
 
-			/* TBC: may not the normal way */
-			req_stream_data->seninf_old->entity.stream_count--;
-			ret = v4l2_subdev_call(req_stream_data->seninf_old, video, s_stream, 0);
-			if (ret)
-				dev_info(cam->dev, "failed to stream off seninf %s:%d\n",
-					 req_stream_data->seninf_old->name, ret);
+			val = readl(raw_dev->base + REG_TG_VF_CON);
+			writel(val & (~TG_VFDATA_EN), raw_dev->base + REG_TG_VF_CON);
+
+			settings[setting_cnt].seninf = s_data->seninf_old;
+			settings[setting_cnt].source = PAD_SRC_RAW0;
+			settings[setting_cnt].camtg  = PipeIDtoTGIDX(raw_dev->id);
+			settings[setting_cnt].enable  = 0;
+			setting_cnt++;
+
+			settings[setting_cnt].seninf = s_data->seninf_new;
+			settings[setting_cnt].source = PAD_SRC_RAW0;
+			settings[setting_cnt].camtg  = PipeIDtoTGIDX(raw_dev->id);
+			settings[setting_cnt].enable  = 1;
+			setting_cnt++;
+
+			m_pipe = s_data->seninf_new->entity.pipe;
+			s_data->seninf_new->entity.stream_count++;
+			s_data->seninf_new->entity.pipe =
+				s_data->seninf_old->entity.pipe;
+			s_data->seninf_old->entity.stream_count--;
+			s_data->seninf_old->entity.pipe = m_pipe;
+
+			mtk_cam_seninf_set_pixelmode(s_data->seninf_new,
+						     PAD_SRC_RAW0,
+						     ctx->pipe->res_config.tgo_pxl_mode);
+
+			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
+				 __func__, stream_id, s_data->seninf_new->name);
+			mtk_cam_qos_bw_calc(ctx);
 		}
 	}
 
-	dev_info(cam->dev, "%s: pipe(%d): update DVFS for %s\n",
-		 __func__, stream_id, req_stream_data->seninf_new->name);
+	dev_info(cam->dev, "%s: update DVFS\n",	 __func__);
+	mtk_cam_dvfs_update_clk(cam);
+
+	param.settings = &settings[0];
+	param.num = setting_cnt;
+	mtk_cam_seninf_streaming_mux_change(&param);
+
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->ctx_used & (1 << i) && req->ctx_link_update & (1 << i)) {
+			stream_id = i;
+			ctx = &cam->ctxs[stream_id];
+			s_data = mtk_cam_req_get_s_data(req, stream_id, 0);
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+
+			state_transition(&s_data->state,
+				E_STATE_CAMMUX_OUTER_CFG_DELAY, E_STATE_INNER);
+			state_transition(&s_data->state,
+			E_STATE_SENINF, E_STATE_READY);
+
+			val = readl(raw_dev->base + REG_TG_VF_CON);
+			writel(val | TG_VFDATA_EN, raw_dev->base + REG_TG_VF_CON);
+
+			if (ctx->prev_sensor || ctx->prev_seninf) {
+				ctx->prev_sensor = NULL;
+				ctx->prev_seninf = NULL;
+			}
+		}
+	}
+	dev_dbg(cam->dev, "%s: cam mux switch done\n", __func__);
+}
+
+void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
+{
+	struct media_pipeline *m_pipe;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_raw_device *raw_dev;
+	int i, stream_id, val;
+
+	dev_info(cam->dev, "%s, req->ctx_used:0x%x, req->ctx_link_update:0x%x\n",
+		__func__, req->ctx_used, req->ctx_link_update);
+
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->ctx_used & (1 << i) && (req->ctx_link_update & (1 << i))) {
+			stream_id = i;
+			ctx = &cam->ctxs[stream_id];
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
+
+			dev_info(cam->dev, "%s: pipe(%d): switch seninf: %s--> %s\n",
+				 __func__, stream_id, req_stream_data->seninf_old->name,
+				 req_stream_data->seninf_new->name);
+
+			val = readl(raw_dev->base + REG_TG_VF_CON);
+			writel(val & (~TG_VFDATA_EN), raw_dev->base + REG_TG_VF_CON);
+
+			m_pipe = req_stream_data->seninf_new->entity.pipe;
+			req_stream_data->seninf_new->entity.stream_count++;
+			req_stream_data->seninf_new->entity.pipe =
+				req_stream_data->seninf_old->entity.pipe;
+			req_stream_data->seninf_old->entity.stream_count--;
+			req_stream_data->seninf_old->entity.pipe = m_pipe;
+
+			mtk_cam_seninf_set_pixelmode(req_stream_data->seninf_new,
+						     PAD_SRC_RAW0,
+						     ctx->pipe->res_config.tgo_pxl_mode);
+
+			dev_info(cam->dev,
+				 "%s: pipe(%d): seninf_set_camtg, pad(%d) camtg(%d)",
+				 __func__, stream_id, PAD_SRC_RAW0,
+				 PipeIDtoTGIDX(raw_dev->id));
+			mtk_cam_seninf_set_camtg(req_stream_data->seninf_new,
+						 PAD_SRC_RAW0,
+						 PipeIDtoTGIDX(raw_dev->id));
+
+			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
+				 __func__, stream_id, req_stream_data->seninf_new->name);
+			mtk_cam_qos_bw_calc(ctx);
+		}
+	}
+
+	dev_info(cam->dev, "%s: update DVFS\n",	 __func__);
 	mtk_cam_dvfs_update_clk(cam);
 
 	for (i = 0; i < cam->max_stream_num; i++) {
@@ -306,33 +415,16 @@ static void mtk_cam_link_change_worker(struct work_struct *work)
 			stream_id = i;
 			ctx = &cam->ctxs[stream_id];
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
-			sensor_ctrl = &cam->ctxs[stream_id].sensor_ctrl;
-
-			dev_info(cam->dev, "%s: pipe(%d): stream on seninf %s to switch sensor\n",
-				 __func__, stream_id, req_stream_data->seninf_new->name);
-
-			/**
-			 * TO BE VERIFY: PAD_SRC_RAW0 here should be
-			 * stream_id - MTKCAM_SUBDEV_RAW_0 +  PAD_SRC_RAW0
-			 */
-			mtk_cam_seninf_set_pixelmode(req_stream_data->seninf_new, PAD_SRC_RAW0,
-						     ctx->pipe->res_config.tgo_pxl_mode);
-			mtk_cam_seninf_set_camtg(req_stream_data->seninf_new, PAD_SRC_RAW0,
-						 stream_id);
-			/* TBC: may not the normal way */
-			req_stream_data->seninf_new->entity.stream_count++;
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 
 			state_transition(&req_stream_data->state,
 				E_STATE_CAMMUX_OUTER_CFG_DELAY, E_STATE_INNER);
+			state_transition(&req_stream_data->state,
+			E_STATE_SENINF, E_STATE_READY);
 
-			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
-				 __func__, stream_id, req_stream_data->seninf_new->name);
-			mtk_cam_qos_bw_calc(ctx);
+			val = readl(raw_dev->base + REG_TG_VF_CON);
+			writel(val | TG_VFDATA_EN, raw_dev->base + REG_TG_VF_CON);
 
-			ret = v4l2_subdev_call(req_stream_data->seninf_new, video, s_stream, 1);
-			if (ret)
-				dev_info(cam->dev, "failed to stream on seninf %s:%d\n",
-					 req_stream_data->seninf_new->name, ret);
 			if (ctx->prev_sensor || ctx->prev_seninf) {
 				ctx->prev_sensor = NULL;
 				ctx->prev_seninf = NULL;
@@ -837,6 +929,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 	int sensor_seq_no_next = sensor_ctrl->sensor_request_seq_no + 1;
 	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
 			   ctx->sensor_ctrl.sof_time;
+	struct mtk_cam_request *req;
 
 	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	/* Check if previous state was without cq done */
@@ -881,6 +974,14 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 
 	req_stream_data =  mtk_cam_get_req_s_data(ctx, sensor_seq_no_next);
 	if (req_stream_data) {
+		req = mtk_cam_s_data_get_req(req_stream_data);
+		if (req_stream_data->state.estate == E_STATE_SENINF &&
+			!req->seninf_changed) {
+			dev_info(ctx->cam->dev,
+				"[TimerIRQ] wrong state:%d (seninf change delay)\n",
+				state_entry->estate);
+			return HRTIMER_NORESTART;
+		}
 		req_stream_data->state.time_swirq_timer = ktime_get_boottime_ns() / 1000;
 		mtk_cam_set_sensor(req_stream_data, &ctx->sensor_ctrl);
 		dev_dbg(cam->dev,
@@ -1209,6 +1310,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		}
 		if (state_rec[0]->estate == E_STATE_READY)
 			dev_info(raw_dev->dev, "[SOF] sensor delay\n");
+		if (state_rec[0]->estate == E_STATE_SENINF)
+			dev_info(raw_dev->dev, "[SOF] seninf delay\n");
 		/* CQ triggering judgment*/
 		if (state_rec[0]->estate == E_STATE_SENSOR) {
 			*current_state = state_rec[0];
@@ -1723,6 +1826,17 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 	if (!(req->ctx_used & cam->streaming_ctx & req->ctx_link_update))
 		return;
 
+	if (req->seninf_changed) {
+		for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++) {
+			if ((1 << i) & req->ctx_link_update) {
+				raw_dev = get_master_raw_dev(ctx->cam, cam->ctxs[i].pipe);
+				enable_tg_db(raw_dev, 0);
+				enable_tg_db(raw_dev, 1);
+				toggle_db(raw_dev);
+			}
+		}
+		return;
+	}
 	/* Check if all ctx is ready to change mux though double buffer */
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (1 << i & (req->ctx_used & cam->streaming_ctx & req->ctx_link_update)) {
@@ -2067,7 +2181,7 @@ mtk_camsys_raw_change_pipeline(struct mtk_raw_device *raw_dev,
 				 */
 				dev_info(raw_dev->dev, "Exchange streams at req(%d), update link ctx (0x%x)\n",
 				frame_seq, ctx->stream_id, req->ctx_link_update);
-				mtk_cam_link_change_worker(&req->link_work);
+				mtk_cam_req_seninf_change(req);
 				return;
 			}
 		}

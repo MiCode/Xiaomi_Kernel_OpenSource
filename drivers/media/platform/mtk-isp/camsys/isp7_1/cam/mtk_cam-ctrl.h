@@ -73,6 +73,7 @@ struct mtk_camsys_irq_info {
 /*For state analysis and controlling for request*/
 enum MTK_CAMSYS_STATE_IDX {
 	E_STATE_READY = 0x0,
+	E_STATE_SENINF,
 	E_STATE_SENSOR,
 	E_STATE_CQ,
 	E_STATE_OUTER,
@@ -176,6 +177,7 @@ void mtk_cam_req_ctrl_setup(struct mtk_cam_ctx *ctx,
 					struct mtk_cam_request *req);
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */
 void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx); /* ctx_stream_off */
+void mtk_cam_req_seninf_change(struct mtk_cam_request *req);
 void mtk_cam_frame_done_work(struct work_struct *work);
 void mtk_cam_m2m_enter_cq_state(struct mtk_camsys_ctrl_state *ctrl_state);
 
