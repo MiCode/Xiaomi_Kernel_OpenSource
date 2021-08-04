@@ -1401,7 +1401,8 @@ bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
 	return false;
 }
 
-static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev);
+static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
+				       int dequeued_frame_seq_no);
 static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev);
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no);
@@ -1571,21 +1572,12 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 			 */
 		}
 		/* Show TG register for more error detail*/
-		if (err_status & TG_GBERR_ST) {
-			struct mtk_cam_ctx *ctx =
-			mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
-
-			mtk_cam_seninf_dump(ctx->seninf);
-			raw_irq_handle_tg_grab_err(raw_dev);
-		}
-		if (err_status & TG_OVRUN_ST) {
-			struct mtk_cam_ctx *ctx =
-			mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
-			if (0 && raw_dev->sof_count > 3)
-				mtk_cam_seninf_dump(ctx->seninf);
+		if (err_status & TG_GBERR_ST)
+			raw_irq_handle_tg_grab_err(raw_dev,
+						   dequeued_frame_seq_no_inner);
+		if (err_status & TG_OVRUN_ST)
 			raw_irq_handle_tg_overrun_err(raw_dev,
 						      dequeued_frame_seq_no_inner);
-		}
 	}
 
 	/* enable to debug fbc related */
@@ -1598,8 +1590,11 @@ ctx_not_found:
 	return IRQ_HANDLED;
 }
 
-void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
+void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
+				int dequeued_frame_seq_no)
 {
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request_stream_data *s_data;
 	int val, val2;
 
 	val = readl_relaxed(raw_dev->base + REG_TG_PATH_CFG);
@@ -1627,6 +1622,22 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 		readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
 		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
 		readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
+
+	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
+	if (!ctx) {
+		dev_info(raw_dev->dev, "%s: cannot find ctx\n", __func__);
+		return;
+	}
+
+	s_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
+	if (s_data) {
+		mtk_cam_debug_seninf_dump(s_data);
+	} else {
+		dev_info(raw_dev->dev,
+			 "%s: req(%d) can't be found for seninf dump\n",
+			 __func__, dequeued_frame_seq_no);
+	}
+
 }
 
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
@@ -1708,12 +1719,22 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	/* TODO: check if we tried recover the error before we dump */
 
 	s_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
-	if (s_data)
+	if (s_data) {
+		/**
+		 * Enable the dump manually if needed.
+		 * mtk_cam_req_dump() already call mtk_cam_seninf_dump()
+		 * in a delayed work if no P1 done comes.
+		 */
+		if (0 && raw_dev->sof_count > 3)
+			mtk_cam_debug_seninf_dump(s_data);
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
 					 "TG overrun");
-	else
+	} else {
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
 			__func__, dequeued_frame_seq_no);
+		if (0 && raw_dev->sof_count > 3 && ctx->seninf)
+			mtk_cam_seninf_dump(ctx->seninf);
+	}
 }
 
 static int mtk_raw_of_probe(struct platform_device *pdev,

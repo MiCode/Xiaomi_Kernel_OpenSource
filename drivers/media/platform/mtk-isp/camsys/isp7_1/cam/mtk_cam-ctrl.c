@@ -2272,7 +2272,6 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	if (mtk_cam_dequeue_req_frame(ctx, frame_seq_no, pipe_id)) {
 		mtk_cam_dev_req_try_queue(ctx->cam);
 		if (is_raw_subdev(pipe_id)) {
-			mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
 			mtk_camsys_raw_change_pipeline(raw_dev, ctx,
 									&ctx->sensor_ctrl,
 									frame_seq_no);

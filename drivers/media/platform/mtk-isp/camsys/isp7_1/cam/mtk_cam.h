@@ -155,6 +155,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	unsigned int no_frame_done_cnt;
+	struct mtk_cam_req_dump_work dump_work;
 	struct mtk_cam_req_dbg_work dbg_work;
 	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct mtk_cam_req_feature feature;
@@ -414,6 +415,12 @@ mtk_cam_s_data_get_ctx(struct mtk_cam_request_stream_data *s_data)
 	return s_data->ctx;
 }
 
+static inline char*
+mtk_cam_s_data_get_dbg_str(struct mtk_cam_request_stream_data *s_data)
+{
+	return s_data->req->req.debug_str;
+}
+
 static inline struct mtk_cam_request*
 mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
 {
@@ -476,6 +483,12 @@ mtk_cam_s_data_reset_wbuf(struct mtk_cam_request_stream_data *s_data)
 
 	s_data->working_buf->s_data = NULL;
 	s_data->working_buf = NULL;
+}
+
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_dump_work_to_s_data(struct work_struct *work)
+{
+	return container_of(work, struct mtk_cam_request_stream_data, dump_work.work);
 }
 
 static inline struct mtk_cam_request *

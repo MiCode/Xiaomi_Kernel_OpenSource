@@ -82,10 +82,16 @@ struct mtk_cam_dump_param {
 	__u32 config_param_size;
 };
 
+struct mtk_cam_req_dump_work {
+	struct work_struct work;
+	atomic_t state;
+	unsigned int dump_flags;
+};
+
 struct mtk_cam_req_dbg_work {
 	struct work_struct work;
 	struct mtk_cam_request_stream_data *s_data;
-	int state;
+	atomic_t state;
 	unsigned int dump_flags;
 	int buffer_state;
 	char desc[MTK_CAM_DEBUG_DUMP_DESC_SIZE];
@@ -219,6 +225,21 @@ static inline void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head)
 {
 }
 
+static inline void
+mtk_cam_req_dump_work_init(struct mtk_cam_req_dump_work *work)
+{
+}
+
+static inline void
+mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
+{
+}
+
+static inline void
+mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
+{
+}
+
 #else
 struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void);
 
@@ -228,6 +249,13 @@ void
 mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 				    const unsigned int frame_no_update_limit);
 void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head);
+
+void mtk_cam_req_dump_work_init(struct mtk_cam_req_dump_work *work);
+
+void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data);
+
+void
+mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data);
 
 #endif /* CONFIG_DEBUG_FS */
 

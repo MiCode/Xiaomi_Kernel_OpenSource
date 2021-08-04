@@ -134,6 +134,10 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		return;
 	}
 
+	/* clean the works of the workqueues if needed */
+	mtk_cam_req_works_clean(req_stream_data_pipe);
+	mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
+
 	/* clean the req_stream_data being used right after request reinit */
 	mtk_cam_req_s_data_clean(req_stream_data_pipe);
 
@@ -1328,9 +1332,9 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		req_stream_data = mtk_cam_req_get_s_data(req, node->uid.pipe_id, 0);
 		req_stream_data->ctx = ctx;
 		req_stream_data->no_frame_done_cnt = 0;
-		req_stream_data->dbg_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
+		atomic_set(&req_stream_data->dbg_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
 		req_stream_data->dbg_work.dump_flags = 0;
-		req_stream_data->dbg_exception_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
+		atomic_set(&req_stream_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
 		req_stream_data->dbg_exception_work.dump_flags = 0;
 		req_stream_data->frame_done_queue_work = 0;
 		req->sync_id = (ctx->used_raw_num) ? ctx->pipe->sync_id : 0;
@@ -2363,6 +2367,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				mtk_cam_initial_sensor_setup(req, ctx);
 
 			mtk_cam_sv_req_enqueue(ctx, req);
+			mtk_cam_req_dump_work_init(&req_stream_data->dump_work);
 			INIT_WORK(&frame_work->work, isp_tx_frame_worker);
 			queue_work(ctx->composer_wq, &frame_work->work);
 
