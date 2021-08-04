@@ -15,7 +15,7 @@ s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 	if (!mmqos_hrt)
 		return -ENOENT;
 	for (i = 0; i < HRT_TYPE_NUM; i++) {
-		if (mmqos_hrt->hrt_bw[i] != type)
+		if (i != type)
 			used_bw += mmqos_hrt->hrt_bw[i];
 	}
 	if (type != HRT_CAM && mmqos_hrt->cam_max_bw)

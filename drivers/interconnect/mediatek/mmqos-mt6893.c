@@ -587,7 +587,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6893 = {
 	.max_ratio = 40,
 	.hrt = {
 		.hrt_bw = {3344, 0, 0},
-		.hrt_total_bw = 8532, /* Todo: Use DRAMC API */
+		.hrt_total_bw = 14932, /* Todo: Use DRAMC API */
 		.md_speech_bw = { 3844, 3344},
 		.blocking = true,
 	},
