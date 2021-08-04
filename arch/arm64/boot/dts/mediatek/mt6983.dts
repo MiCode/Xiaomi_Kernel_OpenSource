@@ -6396,7 +6396,6 @@
 
 		bootmode = <&chosen>;
 
-		mediatek,ufs-disable-ah8;
 		mediatek,ufs-qos;
 	};
 
