@@ -21,14 +21,12 @@
 #include "mtk_log.h"
 #include "mtk_disp_gamma.h"
 #include "mtk_dump.h"
-#ifdef CONFIG_LEDS_MTK_DISP
-#include <mtk_leds_drv.h>
-#include <leds-mtk-disp.h>
-#elif defined CONFIG_LEDS_MTK_PWM
-#include <mtk_leds_drv.h>
-#include <leds-mtk-pwm.h>
+
+#ifdef CONFIG_LEDS_MTK_MODULE
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#include <linux/leds-mtk.h>
 #else
-#define mt_leds_brightness_set(x, y) do { } while (0)
+#define mtk_leds_brightness_set(x, y) do { } while (0)
 #endif
 
 #define DISP_GAMMA_EN 0x0000
@@ -555,14 +553,14 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 				SET_12BIT_GAMMALUT, (void *)&data);
 		}
 
-		mt_leds_brightness_set("lcd-backlight", bl);
+		mtk_leds_brightness_set("lcd-backlight", bl);
 		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 		DDPINFO("%s : gain = %d, backlight = %d",
 			__func__, g_sb_param.gain[gain_r], bl);
 	} else {
 		if (g_sb_param.bl != bl) {
 			g_sb_param.bl = bl;
-			mt_leds_brightness_set("lcd-backlight", bl);
+			mtk_leds_brightness_set("lcd-backlight", bl);
 			DDPINFO("%s : backlight = %d", __func__, bl);
 		}
 	}

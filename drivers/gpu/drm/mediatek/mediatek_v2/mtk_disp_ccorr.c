@@ -25,7 +25,7 @@
 #include "mtk_dump.h"
 #include "mtk_drm_helper.h"
 
-#ifdef CONFIG_LEDS_MTK
+#ifdef CONFIG_LEDS_MTK_MODULE
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <linux/leds-mtk.h>
 #else
