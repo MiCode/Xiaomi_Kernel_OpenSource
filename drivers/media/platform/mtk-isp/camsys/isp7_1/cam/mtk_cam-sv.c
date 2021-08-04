@@ -159,7 +159,7 @@ static int mtk_camsv_try_fmt(struct v4l2_subdev *sd,
 				node->desc.name, node->desc.num_fmts);
 		for (i = 0; i < node->desc.num_fmts; i++) {
 			img_fmt = mtk_cam_get_img_fmt(
-				node->desc.fmts[i].fmt.pix_mp.pixelformat);
+				node->desc.fmts[i].vfmt.fmt.pix_mp.pixelformat);
 			dev_dbg(sv->cam_dev,
 				"try format sensor_fmt 0x%x img_fmt 0x%x",
 				sensor_fmt, img_fmt);
@@ -311,115 +311,115 @@ static const struct v4l2_ioctl_ops mtk_camsv_v4l2_vcap_ioctl_ops = {
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 };
 
-static const struct v4l2_format sv_stream_out_fmts[] = {
+static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 	/* This is a default image format */
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR8,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR14,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG8,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG14,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG8,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG14,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB8,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,

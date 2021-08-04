@@ -23,6 +23,7 @@
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-ctrl.h"
 #include "mtk_cam-debug.h"
+#include "mtk_camera-v4l2-controls.h"
 
 #define MTK_CAM_REQ_MAX_S_DATA	2
 
@@ -478,6 +479,22 @@ static inline struct mtk_cam_request *
 to_mtk_cam_req(struct media_request *__req)
 {
 	return container_of(__req, struct mtk_cam_request, req);
+}
+
+static inline void
+mtk_cam_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt,
+								bool enable)
+{
+	if (enable)
+		framefmt->flags |= V4L2_MBUS_FRAMEFMT_PAD_ENABLE;
+	else
+		framefmt->flags &= ~V4L2_MBUS_FRAMEFMT_PAD_ENABLE;
+}
+
+static inline bool
+mtk_cam_is_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt)
+{
+	return framefmt->flags & V4L2_MBUS_FRAMEFMT_PAD_ENABLE;
 }
 
 //TODO: with spinlock or not? depends on how request works [TBD]

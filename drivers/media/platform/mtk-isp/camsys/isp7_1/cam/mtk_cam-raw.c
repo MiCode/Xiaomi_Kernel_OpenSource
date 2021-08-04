@@ -36,6 +36,10 @@
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
 
+static int en_fmt;
+module_param(en_fmt, int, 0644);
+MODULE_PARM_DESC(en_fmt, "enable fmt negotiation");
+
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define MTK_CAMSYS_RES_IDXMASK		0xF0
@@ -1950,7 +1954,7 @@ static int mtk_raw_try_fmt(struct v4l2_subdev *sd,
 			node->desc.name, node->desc.num_fmts, node->raw_feature);
 		for (i = 0; i < node->desc.num_fmts; i++) {
 			img_fmt = mtk_cam_get_img_fmt
-				(node->desc.fmts[i].fmt.pix_mp.pixelformat);
+				(node->desc.fmts[i].vfmt.fmt.pix_mp.pixelformat);
 			dev_dbg(raw->cam_dev,
 				"try format sensor_fmt 0x%x img_fmt 0x%x",
 				sensor_fmt, img_fmt);
@@ -1976,6 +1980,20 @@ static struct v4l2_mbus_framefmt *get_fmt(struct mtk_raw_pipeline *pipe,
 	return &pipe->cfg[padid].mbus_fmt;
 }
 
+static struct v4l2_rect *get_selection(struct mtk_raw_pipeline *pipe,
+					  struct v4l2_subdev_pad_config *cfg,
+					   int pad, int which)
+{
+	/* format invalid and return default format */
+	if (which == V4L2_SUBDEV_FORMAT_TRY)
+		return v4l2_subdev_get_try_crop(&pipe->subdev, cfg, pad);
+
+	if (WARN_ON(pad >= pipe->subdev.entity.num_pads))
+		return &pipe->cfg[0].crop;
+
+	return &pipe->cfg[pad].crop;
+}
+
 static void propagate_fmt(struct v4l2_mbus_framefmt *sink_mf,
 			  struct v4l2_mbus_framefmt *source_mf, int w, int h)
 {
@@ -1986,6 +2004,465 @@ static void propagate_fmt(struct v4l2_mbus_framefmt *sink_mf,
 	source_mf->height = h;
 }
 
+bool mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_format *fmt,
+					  struct mtk_cam_resource *res)
+{
+	void *user_ptr;
+	u64 addr;
+
+	addr = ((u64)fmt->reserved[1] << 32) | fmt->reserved[2];
+	user_ptr = (void *)addr;
+	if (!user_ptr) {
+		dev_info(sd->v4l2_dev->dev, "%s: mtk_cam_resource is null\n",
+			__func__);
+		return false;
+	}
+
+	if (copy_from_user(res, user_ptr, sizeof(*res))) {
+		dev_info(sd->v4l2_dev->dev, "%s: copy_from_user failedm user_ptr:%p\n",
+			__func__, user_ptr);
+		return false;
+	}
+
+	dev_info(sd->v4l2_dev->dev,	"%s:sensor:%d/%d/%lld/%d/%d\n",
+		__func__,
+		res->sensor_res.hblank, res->sensor_res.vblank,
+		res->sensor_res.pixel_rate,	res->sensor_res.interval.denominator,
+		res->sensor_res.interval.numerator);
+
+	dev_info(sd->v4l2_dev->dev,	"%s:raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+		__func__, res->raw_res.feature,	res->raw_res.bin, res->raw_res.path_sel,
+		res->raw_res.raw_max, res->raw_res.raw_min, res->raw_res.raw_used,
+		res->raw_res.strategy, res->raw_res.pixel_mode,
+		res->raw_res.throughput);
+
+	return res;
+}
+
+bool mtk_raw_sel_get_res(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_selection *sel,
+					  struct mtk_cam_resource *res)
+{
+	void *user_ptr;
+	u64 addr;
+
+	addr = ((u64)sel->reserved[1] << 32) | sel->reserved[2];
+	user_ptr = (void *)addr;
+	if (!user_ptr) {
+		dev_info(sd->v4l2_dev->dev, "%s: mtk_cam_resource is null\n",
+			__func__);
+		return false;
+	}
+
+	if (copy_from_user(res, user_ptr, sizeof(*res))) {
+		dev_info(sd->v4l2_dev->dev, "%s: copy_from_user failedm user_ptr:%p\n",
+			__func__, user_ptr);
+		return false;
+	}
+
+	return res;
+}
+
+int mtk_raw_set_src_pad_selection_default(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_pad_config *cfg,
+					  struct v4l2_mbus_framefmt *sink_fmt,
+					  struct mtk_cam_resource *res,
+					  int pad, int which)
+{
+	struct v4l2_rect *source_sel;
+	struct mtk_raw_pipeline *pipe;
+
+	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+	source_sel = get_selection(pipe, cfg, pad, which);
+	if (source_sel->width > sink_fmt->width) {
+		source_sel->width = sink_fmt->width;
+		/* may need some log */
+	}
+
+	if (source_sel->height > sink_fmt->height) {
+		source_sel->height = sink_fmt->height;
+		/* may need some log */
+	}
+
+	return 0;
+
+}
+
+int mtk_raw_set_src_pad_selection_yuv(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_pad_config *cfg,
+					  struct v4l2_mbus_framefmt *sink_fmt,
+					  struct mtk_cam_resource *res,
+					  int pad, int which)
+{
+	int i;
+	struct v4l2_rect *prev_yuv = NULL, *source_sel, *tmp_sel;
+	struct v4l2_mbus_framefmt *framefmt;
+	struct mtk_raw_pipeline *pipe;
+
+	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+	mtk_raw_set_src_pad_selection_default(sd, cfg, sink_fmt, res, pad, which);
+	source_sel = get_selection(pipe, cfg, pad, which);
+
+	for (i = MTK_RAW_YUVO_1_OUT; i < pad; i++) {
+		framefmt = get_fmt(pipe, cfg, pad, which);
+		tmp_sel = get_selection(pipe, cfg, pad, which);
+
+		/* Skip disabled YUV pad */
+		if (!mtk_cam_is_pad_fmt_enable(framefmt))
+			continue;
+
+		prev_yuv = tmp_sel;
+	}
+
+	if (prev_yuv) {
+		if (source_sel->width != prev_yuv->width) {
+			source_sel->width = prev_yuv->width;
+			/* may need some log */
+		}
+
+		if (source_sel->height != prev_yuv->height) {
+			source_sel->height = prev_yuv->height;
+			/* may need some log */
+		}
+	}
+
+	return 0;
+
+}
+
+struct v4l2_mbus_framefmt*
+mtk_raw_get_sink_pad_framefmt(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_pad_config *cfg, int which)
+{
+	struct v4l2_mbus_framefmt *sink_fmt = NULL, *tmp_fmt;
+	struct mtk_raw_pipeline *pipe;
+	int i;
+
+	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+	for (i = MTK_RAW_SINK; i < MTK_RAW_SOURCE_BEGIN; i++) {
+		tmp_fmt = get_fmt(pipe, cfg, i, which);
+		if (i != MTK_RAW_META_IN &&
+			mtk_cam_is_pad_fmt_enable(tmp_fmt)) {
+			sink_fmt = tmp_fmt;
+			break;
+		}
+	}
+
+	return sink_fmt;
+}
+
+static int mtk_raw_set_pad_selection(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_pad_config *cfg,
+					  struct v4l2_subdev_selection *sel)
+{
+	struct v4l2_mbus_framefmt *sink_fmt = NULL;
+	struct mtk_raw_pipeline *pipe;
+	struct mtk_cam_video_device *node;
+	struct mtk_cam_resource *res = NULL;
+	struct v4l2_rect *crop;
+	int ret;
+
+	if (sel->pad < MTK_RAW_MAIN_STREAM_OUT || sel->pad >= MTK_RAW_META_OUT_BEGIN)
+		return -EINVAL;
+
+	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+
+	/*
+	 * Find the sink pad fmt, there must be one eanbled sink pad at least
+	 */
+	sink_fmt = mtk_raw_get_sink_pad_framefmt(sd, cfg, sel->which);
+	if (!sink_fmt)
+		return -EINVAL;
+
+	node = &pipe->vdev_nodes[sel->pad - MTK_RAW_SINK_NUM];
+	crop = get_selection(pipe, cfg, sel->pad, sel->which);
+	*crop = sel->r;
+	ret = node->desc.pad_ops->set_pad_selection(sd, cfg, sink_fmt, res, sel->pad, sel->which);
+	if (ret)
+		return -EINVAL;
+
+	sel->r = *crop;
+
+	return 0;
+}
+
+static int mtk_raw_get_pad_selection(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_pad_config *cfg,
+					  struct v4l2_subdev_selection *sel)
+{
+	return 0;
+}
+
+int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_pad_config *cfg,
+			   struct v4l2_subdev_format *fmt)
+{
+	struct device *dev;
+	struct mtk_cam_video_device *node;
+	const char *node_str;
+	const struct mtk_cam_format_desc *fmt_desc;
+	struct mtk_raw_pipeline *pipe;
+	int i;
+	int ipi_fmt;
+	struct v4l2_mbus_framefmt *framefmt, *source_fmt = NULL, *tmp_fmt;
+
+	/* Do nothing for pad to meta video device */
+	if (fmt->pad == MTK_RAW_META_IN)
+		return 0;
+
+	dev = sd->v4l2_dev->dev;
+	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+	framefmt = get_fmt(pipe, cfg, fmt->pad, fmt->which);
+
+	/* If data from sensor, we check the size with max imgo size*/
+	if (fmt->pad < MTK_RAW_SINK_NUM) {
+		/* from sensor */
+		node = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+		node_str = "sink";
+	} else {
+		/* from memory */
+		node = &pipe->vdev_nodes[fmt->pad - MTK_RAW_SINK_NUM];
+		node_str = node->desc.name;
+	}
+
+	ipi_fmt = mtk_cam_get_sensor_fmt(framefmt->code);
+	if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
+		/**
+		 * Set imgo's default fmt, the user must check
+		 * if the pad sink format is the same as the
+		 * source format of the link before stream on.
+		 */
+		fmt_desc = &node->desc.fmts[node->desc.default_fmt_idx];
+		framefmt->code = fmt_desc->pfmt.code;
+		dev_info(dev,
+			"%s(%d): Adjust unaccept fmt code on sink pad:%d, 0x%x->0x%x\n",
+			__func__, fmt->which, fmt->pad, fmt->format.code, framefmt->code);
+	}
+
+	/* Reset pads' enable state*/
+	for (i = MTK_RAW_SINK; i < MTK_RAW_META_OUT_BEGIN; i++) {
+		if (i == MTK_RAW_META_IN)
+			continue;
+
+		tmp_fmt = get_fmt(pipe, cfg, i, fmt->which);
+		mtk_cam_pad_fmt_enable(tmp_fmt, false);
+	}
+
+	/* TODO: copy the filed we are used only*/
+	*framefmt = fmt->format;
+	if (framefmt->width > node->desc.frmsizes->stepwise.max_width)
+		framefmt->width = node->desc.frmsizes->stepwise.max_width;
+
+	if (framefmt->height > node->desc.frmsizes->stepwise.max_height)
+		framefmt->height = node->desc.frmsizes->stepwise.max_height;
+
+	mtk_cam_pad_fmt_enable(framefmt, true);
+
+	dev_info(dev,
+		"%s(%d): Set fmt pad:%d(%s), (0x%x/%d/%d)\n",
+		__func__, fmt->which, fmt->pad, node_str,
+		source_fmt->code, framefmt->width, framefmt->height);
+
+	/* Propagation inside subdev */
+	for (i = MTK_RAW_SOURCE_BEGIN; i < MTK_RAW_META_OUT_BEGIN; i++) {
+		source_fmt = get_fmt(pipe, cfg, i, fmt->which);
+
+		/* Get default format's desc for the pad */
+		node = &pipe->vdev_nodes[i - MTK_RAW_SINK_NUM];
+
+		/**
+		 * Propagate the size from sink pad to source pades, adjusted
+		 * based on each pad's default format.
+		 */
+		if (source_fmt->width > node->desc.frmsizes->stepwise.max_width)
+			source_fmt->width = node->desc.frmsizes->stepwise.max_width;
+		else
+			source_fmt->width = framefmt->width;
+
+		if (source_fmt->height > node->desc.frmsizes->stepwise.max_height)
+			source_fmt->height = node->desc.frmsizes->stepwise.max_height;
+		else
+			source_fmt->height = framefmt->height;
+
+		dev_info(dev,
+			"%s(%d): Propagate to pad:%d(%s), (0x%x/%d/%d)\n",
+			__func__, fmt->which, fmt->pad, node->desc.name,
+			source_fmt->code, source_fmt->width, source_fmt->height);
+
+	}
+
+	return 0;
+}
+
+int mtk_raw_set_src_pad_fmt_default(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_pad_config *cfg,
+			   struct v4l2_mbus_framefmt *sink_fmt,
+			   struct mtk_cam_resource *res,
+			   int pad, int which)
+{
+	struct device *dev;
+	struct v4l2_mbus_framefmt *source_fmt;
+	struct mtk_raw_pipeline *pipe =
+		container_of(sd, struct mtk_raw_pipeline, subdev);
+	struct mtk_cam_video_device *node;
+
+	dev = sd->v4l2_dev->dev;
+	node = &pipe->vdev_nodes[pad - MTK_RAW_SINK_NUM];
+	source_fmt = get_fmt(pipe, cfg, pad, which);
+	if (source_fmt->width > sink_fmt->width) {
+		dev_info(dev,
+			"%s(%d): adjusted: width(%d) over sink (%d)\n",
+			__func__, which, pad, node->desc.name,
+			source_fmt->width, sink_fmt->width);
+		source_fmt->width = sink_fmt->width;
+
+	}
+
+	if (source_fmt->height > sink_fmt->height) {
+		dev_info(dev,
+			"%s(%d): adjusted: width(%d) over sink (%d)\n",
+			__func__, which, pad, node->desc.name,
+			source_fmt->height, sink_fmt->height);
+		source_fmt->height = sink_fmt->height;
+	}
+
+	if (source_fmt->width > node->desc.frmsizes->stepwise.max_width) {
+		dev_info(dev,
+			"%s(%d): adjusted: width(%d) over max (%d)\n",
+			__func__, which, pad, node->desc.name,
+			source_fmt->width, node->desc.frmsizes->stepwise.max_width);
+		source_fmt->width = node->desc.frmsizes->stepwise.max_width;
+	}
+
+	if (source_fmt->height > node->desc.frmsizes->stepwise.max_height) {
+		dev_info(dev,
+			"%s(%d): adjusted: height(%d) over max (%d)\n",
+			__func__, which, pad, node->desc.name,
+			source_fmt->height, node->desc.frmsizes->stepwise.max_height);
+	}
+
+	return 0;
+
+}
+
+int mtk_raw_set_src_pad_fmt_rzh1n2(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_pad_config *cfg,
+			   struct v4l2_mbus_framefmt *sink_fmt,
+			   struct mtk_cam_resource *res,
+			   int pad, int which)
+{
+	struct device *dev;
+	struct v4l2_mbus_framefmt *source_fmt;
+	struct v4l2_mbus_framefmt *tmp_fmt;
+	struct mtk_cam_video_device *node;
+	struct mtk_raw_pipeline *pipe =
+		container_of(sd, struct mtk_raw_pipeline, subdev);
+
+	dev = sd->v4l2_dev->dev;
+	mtk_raw_set_src_pad_fmt_default(sd, cfg, sink_fmt, res, pad, which);
+	source_fmt = get_fmt(pipe, cfg, pad, which);
+	node = &pipe->vdev_nodes[pad - MTK_RAW_SINK_NUM];
+
+	/* rzh1n2to_r1 and rzh1n2to_r3 size must be the same */
+	if (pad == MTK_RAW_RZH1N2TO_3_OUT) {
+		tmp_fmt = get_fmt(pipe, cfg, MTK_RAW_RZH1N2TO_1_OUT, which);
+		if (mtk_cam_is_pad_fmt_enable(tmp_fmt) &&
+			source_fmt->height != tmp_fmt->height &&
+			source_fmt->width != tmp_fmt->width) {
+			dev_info(dev,
+				"%s(%d): adjusted: rzh1n2to_r3(%d,%d) and rzh1n2to_r1(%d,%d) must have the same sz\n",
+				__func__, which, pad, node->desc.name,
+				source_fmt->width, source_fmt->height,
+				tmp_fmt->width, tmp_fmt->height);
+			source_fmt->width = tmp_fmt->width;
+			source_fmt->height = tmp_fmt->height;
+		}
+
+	}
+
+	return 0;
+
+}
+
+int mtk_raw_set_src_pad_fmt(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_pad_config *cfg,
+			   struct v4l2_subdev_format *fmt)
+{
+	struct device *dev;
+	struct mtk_cam_resource res;
+	struct mtk_cam_video_device *node;
+	const struct mtk_cam_format_desc *fmt_desc;
+	struct mtk_raw_pipeline *pipe;
+	int ret = 0;
+	struct v4l2_mbus_framefmt *source_fmt, *sink_fmt = NULL;
+
+	/* Do nothing for pad to meta video device */
+	if (fmt->pad >= MTK_RAW_META_OUT_BEGIN)
+		return 0;
+
+	pipe = container_of(sd, struct mtk_raw_pipeline, subdev);
+	dev = sd->v4l2_dev->dev;
+	node = &pipe->vdev_nodes[fmt->pad - MTK_RAW_SINK_NUM];
+
+	/*
+	 * Find the sink pad fmt, there must be one eanbled sink pad at least
+	 */
+	sink_fmt = mtk_raw_get_sink_pad_framefmt(sd, cfg, fmt->which);
+	if (!sink_fmt) {
+		dev_info(dev,
+			"%s(%d): Set fmt pad:%d(%s), no s_fmt on sink pad\n",
+			__func__, fmt->which, fmt->pad, node->desc.name);
+		return -EINVAL;
+	}
+
+	fmt_desc = &node->desc.fmts[node->desc.default_fmt_idx];
+	if (!mtk_raw_fmt_get_res(sd, fmt, &res)) {
+		dev_info(dev,
+			"%s(%d): Set fmt pad:%d(%s), no mtk_cam_resource found\n",
+			__func__, fmt->which, fmt->pad, node->desc.name);
+		return -EINVAL;
+	}
+
+	if (node->desc.pad_ops->set_pad_fmt) {
+		/* call source pad's set_pad_fmt op to adjust fmt by pad */
+		source_fmt = get_fmt(pipe, cfg, fmt->pad, fmt->which);
+		/* TODO: copy the fileds we are used only*/
+		*source_fmt = fmt->format;
+		ret = node->desc.pad_ops->set_pad_fmt(sd, cfg, sink_fmt, &res, fmt->pad,
+											fmt->which);
+	}
+
+	if (ret)
+		return ret;
+
+	dev_dbg(dev,
+		"%s(%d): s_fmt to pad:%d(%s), user(0x%x/%d/%d) driver(0x%x/%d/%d)\n",
+		__func__, fmt->which, fmt->pad, node->desc.name,
+		fmt->format.code, fmt->format.width, fmt->format.height,
+		source_fmt->code, source_fmt->width, source_fmt->height);
+	mtk_cam_pad_fmt_enable(source_fmt, false);
+	fmt->format = *source_fmt;
+
+	return 0;
+}
+
+int mtk_raw_try_pad_fmt(struct v4l2_subdev *sd,
+				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_format *fmt)
+{
+
+	if (fmt->pad >= MTK_RAW_SINK && fmt->pad < MTK_RAW_SOURCE_BEGIN)
+		mtk_raw_set_sink_pad_fmt(sd, cfg, fmt);
+	else if (fmt->pad < MTK_RAW_PIPELINE_PADS_NUM)
+		mtk_raw_set_src_pad_fmt(sd, cfg, fmt);
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+/* To be deplicated */
 static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 				struct v4l2_subdev_pad_config *cfg,
 				struct v4l2_subdev_format *fmt)
@@ -2099,8 +2576,15 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_cam_device *cam = dev_get_drvdata(pipe->raw->cam_dev);
 
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+		if (en_fmt)
+			return mtk_raw_try_pad_fmt(sd, cfg, fmt);
+		else
+			return mtk_raw_call_set_fmt(sd, cfg, fmt);
+	}
+
 	/* if the pipeline is streaming, pending the change */
-	if (!sd->entity.stream_count || fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+	if (!sd->entity.stream_count)
 		return mtk_raw_call_set_fmt(sd, cfg, fmt);
 
 	if (v4l2_subdev_format_request_fd(fmt) <= 0)
@@ -2244,6 +2728,8 @@ static const struct v4l2_subdev_pad_ops mtk_raw_subdev_pad_ops = {
 	.init_cfg = mtk_raw_init_cfg,
 	.set_fmt = mtk_raw_set_fmt,
 	.get_fmt = mtk_raw_get_fmt,
+	.set_selection = mtk_raw_set_pad_selection,
+	.get_selection = mtk_raw_get_pad_selection,
 };
 
 static const struct v4l2_subdev_ops mtk_raw_subdev_ops = {
@@ -2332,250 +2818,325 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_meta_out_ioctl_ops = {
 	.vidioc_expbuf = vb2_ioctl_expbuf,
 };
 
-static const struct v4l2_format meta_fmts[] = { /* FIXME for ISP6 meta format */
+static const struct mtk_cam_format_desc meta_fmts[] = { /* FIXME for ISP6 meta format */
 	{
-		.fmt.meta = {
+		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_PARAMS,
 			.buffersize = RAW_STATS_CFG_SIZE,
 		},
 	},
 	{
-		.fmt.meta = {
+		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_3A,
 			.buffersize = RAW_STATS_0_SIZE,
 		},
 	},
 	{
-		.fmt.meta = {
+		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_AF,
 			.buffersize = RAW_STATS_1_SIZE,
 		},
 	},
 	{
-		.fmt.meta = {
+		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_LCS,
 			.buffersize = RAW_STATS_2_SIZE,
 		},
 	},
 };
 
-static const struct v4l2_format stream_out_fmts[] = {
+static const struct mtk_cam_format_desc stream_out_fmts[] = {
 	/* This is a default image format */
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR8,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SBGGR10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR12_1X12,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SBGGR12_1X12,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR14,
-			.num_planes = 1,
+			 .num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SBGGR14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG8,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG8_1X8,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG10_1X10,
+		}
+
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGBRG10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG12_1X12,
+		}
+
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGBRG12_1X12,
+		}
+
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGBRG14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG8,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG8_1X8,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGRBG10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG12_1X12,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGRBG12_1X12,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SGRBG14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB8,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB8_1X8,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB10,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SRGGB10_1X10,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB10P,
@@ -2583,144 +3144,168 @@ static const struct v4l2_format stream_out_fmts[] = {
 	},
 
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB12_1X12,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB12,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SRGGB12_1X12,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_MTISP_SRGGB14_1X14,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR16,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SBGGR16_1X16,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG16,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGBRG16_1X16,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG16,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SGRBG16_1X16,
+		}
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB16,
 			.num_planes = 1,
 		},
+		.pfmt = {
+			.code = MEDIA_BUS_FMT_SRGGB16_1X16,
+		}
 	},
 };
 
-static const struct v4l2_format yuv_out_group1_fmts[] = {
+static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12_12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21_12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_12P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_12P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP1_MAX_WIDTH,
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_YUV420,
@@ -2728,72 +3313,72 @@ static const struct v4l2_format yuv_out_group1_fmts[] = {
 	}
 };
 
-static const struct v4l2_format yuv_out_group2_fmts[] = {
+static const struct mtk_cam_format_desc yuv_out_group2_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12_12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21_12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_12P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = YUV_GROUP2_MAX_WIDTH,
 			.height = YUV_GROUP2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_12P,
@@ -2801,30 +3386,30 @@ static const struct v4l2_format yuv_out_group2_fmts[] = {
 	}
 };
 
-static const struct v4l2_format rzh1n2to1_out_fmts[] = {
+static const struct mtk_cam_format_desc rzh1n2to1_out_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO1_MAX_WIDTH,
 			.height = RZH1N2TO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO1_MAX_WIDTH,
 			.height = RZH1N2TO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO1_MAX_WIDTH,
 			.height = RZH1N2TO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV16,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO1_MAX_WIDTH,
 			.height = RZH1N2TO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV61,
@@ -2832,16 +3417,16 @@ static const struct v4l2_format rzh1n2to1_out_fmts[] = {
 	}
 };
 
-static const struct v4l2_format rzh1n2to2_out_fmts[] = {
+static const struct mtk_cam_format_desc rzh1n2to2_out_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO2_MAX_WIDTH,
 			.height = RZH1N2TO2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_YUYV,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO2_MAX_WIDTH,
 			.height = RZH1N2TO2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_YVYU,
@@ -2849,30 +3434,30 @@ static const struct v4l2_format rzh1n2to2_out_fmts[] = {
 	}
 };
 
-static const struct v4l2_format rzh1n2to3_out_fmts[] = {
+static const struct mtk_cam_format_desc rzh1n2to3_out_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO3_MAX_WIDTH,
 			.height = RZH1N2TO3_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO3_MAX_WIDTH,
 			.height = RZH1N2TO3_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO3_MAX_WIDTH,
 			.height = RZH1N2TO3_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV16,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = RZH1N2TO3_MAX_WIDTH,
 			.height = RZH1N2TO3_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV61,
@@ -2880,93 +3465,93 @@ static const struct v4l2_format rzh1n2to3_out_fmts[] = {
 	}
 };
 
-static const struct v4l2_format drzs4no1_out_fmts[] = {
+static const struct mtk_cam_format_desc drzs4no1_out_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_GREY,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV16,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV61,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV16_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV61_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV16_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV61_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV12_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_NV21_10,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10P,
 		},
 	},
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO1_MAX_WIDTH,
 			.height = DRZS4NO1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10P,
@@ -2974,9 +3559,9 @@ static const struct v4l2_format drzs4no1_out_fmts[] = {
 	},
 };
 
-static const struct v4l2_format drzs4no2_out_fmts[] = {
+static const struct mtk_cam_format_desc drzs4no2_out_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO2_MAX_WIDTH,
 			.height = DRZS4NO2_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_GREY,
@@ -2984,9 +3569,9 @@ static const struct v4l2_format drzs4no2_out_fmts[] = {
 	}
 };
 
-static const struct v4l2_format drzs4no3_out_fmts[] = {
+static const struct mtk_cam_format_desc drzs4no3_out_fmts[] = {
 	{
-		.fmt.pix_mp = {
+		.vfmt.fmt.pix_mp = {
 			.width = DRZS4NO3_MAX_WIDTH,
 			.height = DRZS4NO3_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_GREY,
@@ -3103,6 +3688,26 @@ static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUE
 	 "mtk-cam raw-1 rawi 3", "mtk-cam raw-1 rawi-4"},
 };
 
+struct mtk_cam_pad_ops source_pad_ops_default = {
+	.set_pad_fmt = mtk_raw_set_src_pad_fmt_default,
+	.set_pad_selection = mtk_raw_set_src_pad_selection_default,
+};
+
+struct mtk_cam_pad_ops source_pad_ops_yuv = {
+	.set_pad_fmt = mtk_raw_set_src_pad_fmt_default,
+	.set_pad_selection = mtk_raw_set_src_pad_selection_yuv,
+};
+
+struct mtk_cam_pad_ops source_pad_ops_drzs4no = {
+	.set_pad_fmt = mtk_raw_set_src_pad_fmt_default,
+	.set_pad_selection = mtk_raw_set_src_pad_selection_default,
+};
+
+struct mtk_cam_pad_ops source_pad_ops_rzh1n2 = {
+	.set_pad_fmt = mtk_raw_set_src_pad_fmt_rzh1n2,
+	.set_pad_selection = mtk_raw_set_src_pad_selection_default,
+};
+
 #define MTK_RAW_TOTAL_CAPTURE_QUEUES 15 //todo :check backend node size
 
 static const struct
@@ -3119,6 +3724,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = stream_out_fmts,
 		.num_fmts = ARRAY_SIZE(stream_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_default,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3145,6 +3751,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = yuv_out_group1_fmts,
 		.num_fmts = ARRAY_SIZE(yuv_out_group1_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_yuv,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3171,6 +3778,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = yuv_out_group2_fmts,
 		.num_fmts = ARRAY_SIZE(yuv_out_group2_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_yuv,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3197,6 +3805,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = yuv_out_group1_fmts,
 		.num_fmts = ARRAY_SIZE(yuv_out_group1_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_yuv,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3223,6 +3832,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = yuv_out_group2_fmts,
 		.num_fmts = ARRAY_SIZE(yuv_out_group2_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_yuv,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3249,6 +3859,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = yuv_out_group2_fmts,
 		.num_fmts = ARRAY_SIZE(yuv_out_group2_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_yuv,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3275,6 +3886,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = drzs4no1_out_fmts,
 		.num_fmts = ARRAY_SIZE(drzs4no1_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_drzs4no,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3301,6 +3913,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = drzs4no2_out_fmts,
 		.num_fmts = ARRAY_SIZE(drzs4no2_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_drzs4no,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3327,6 +3940,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = drzs4no3_out_fmts,
 		.num_fmts = ARRAY_SIZE(drzs4no3_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_drzs4no,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3353,6 +3967,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = rzh1n2to1_out_fmts,
 		.num_fmts = ARRAY_SIZE(rzh1n2to1_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_rzh1n2,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3379,6 +3994,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = rzh1n2to2_out_fmts,
 		.num_fmts = ARRAY_SIZE(rzh1n2to2_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_rzh1n2,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
@@ -3405,6 +4021,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.fmts = rzh1n2to3_out_fmts,
 		.num_fmts = ARRAY_SIZE(rzh1n2to3_out_fmts),
 		.default_fmt_idx = 0,
+		.pad_ops = &source_pad_ops_rzh1n2,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,

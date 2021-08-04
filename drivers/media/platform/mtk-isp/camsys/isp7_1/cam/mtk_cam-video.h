@@ -19,6 +19,19 @@
 #define MAX_PLANE_NUM 3
 
 struct mtk_cam_device;
+struct mtk_cam_resource;
+
+typedef int (*set_pad_fmt_func_t)(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_pad_config *cfg,
+			   struct v4l2_mbus_framefmt *sink_fmt,
+			   struct mtk_cam_resource *res,
+			   int pad, int which);
+
+typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
+					  struct v4l2_subdev_pad_config *cfg,
+					  struct v4l2_mbus_framefmt *sink_fmt,
+					  struct mtk_cam_resource *res,
+					  int pad, int which);
 
 /*
  * struct mtk_cam_buffer - MTK camera device buffer.
@@ -37,6 +50,16 @@ struct mtk_cam_buffer {
 
 	dma_addr_t daddr;
 	dma_addr_t scp_addr;
+};
+
+struct mtk_cam_format_desc {
+	struct v4l2_format vfmt;
+	struct v4l2_mbus_framefmt pfmt;
+};
+
+struct mtk_cam_pad_ops {
+	set_pad_fmt_func_t set_pad_fmt;
+	set_pad_selection_func_t set_pad_selection;
 };
 
 /*
@@ -71,8 +94,9 @@ struct mtk_cam_dev_node_desc {
 	u8 default_fmt_idx;
 	u8 max_buf_count;
 	const struct v4l2_ioctl_ops *ioctl_ops;
-	const struct v4l2_format *fmts;
+	const struct mtk_cam_format_desc *fmts;
 	const struct v4l2_frmsizeenum *frmsizes;
+	struct mtk_cam_pad_ops *pad_ops;
 };
 
 /*

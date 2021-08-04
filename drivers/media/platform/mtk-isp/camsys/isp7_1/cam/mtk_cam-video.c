@@ -1382,7 +1382,7 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 	struct mtk_cam_dev_node_desc *desc = &video->desc;
 	struct v4l2_format *active = &video->active_fmt;
 	const struct v4l2_format *default_fmt =
-		&desc->fmts[desc->default_fmt_idx];
+		&desc->fmts[desc->default_fmt_idx].vfmt;
 
 	active->type = desc->buf_type;
 
@@ -1573,7 +1573,7 @@ mtk_cam_dev_find_fmt(struct mtk_cam_dev_node_desc *desc, u32 format)
 	const struct v4l2_format *fmt;
 
 	for (i = 0; i < desc->num_fmts; i++) {
-		fmt = &desc->fmts[i];
+		fmt = &desc->fmts[i].vfmt;
 		if (fmt->fmt.pix_mp.pixelformat == format)
 			return fmt;
 	}
@@ -1619,7 +1619,7 @@ int mtk_cam_vidioc_enum_fmt(struct file *file, void *fh,
 		return -EINVAL;
 
 	/* f->description is filled in v4l_fill_fmtdesc function */
-	f->pixelformat = node->desc.fmts[f->index].fmt.pix_mp.pixelformat;
+	f->pixelformat = node->desc.fmts[f->index].vfmt.fmt.pix_mp.pixelformat;
 	f->flags = 0;
 	return 0;
 }
@@ -1697,7 +1697,7 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 	if (!dev_fmt) {
 		dev_dbg(cam->dev, "unknown fmt:%d\n",
 			f->fmt.pix_mp.pixelformat);
-		dev_fmt = &node->desc.fmts[node->desc.default_fmt_idx];
+		dev_fmt = &node->desc.fmts[node->desc.default_fmt_idx].vfmt;
 	}
 	try_fmt.fmt.pix_mp.pixelformat = dev_fmt->fmt.pix_mp.pixelformat;
 
@@ -1828,6 +1828,9 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+//	struct mtk_cam_dev_node_desc *desc = &node->desc;
+//	const struct v4l2_format *default_fmt =
+//		&desc->fmts[desc->default_fmt_idx].vfmt;
 
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;

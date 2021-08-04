@@ -8,6 +8,7 @@
 
 #include <media/v4l2-subdev.h>
 #include "mtk_cam-video.h"
+#include "mtk_camera-v4l2-controls.h"
 
 #define RAW_PIPELINE_NUM 2
 #define SCQ_DEADLINE_MS  15 // ~1/2 frame length
@@ -191,6 +192,7 @@ struct mtk_cam_resource_config {
 
 struct mtk_raw_pad_config {
 	struct v4l2_mbus_framefmt mbus_fmt;
+	struct v4l2_rect crop;
 };
 
 struct mtk_raw_pipeline {
@@ -205,6 +207,8 @@ struct mtk_raw_pipeline {
 	unsigned long enabled_dmas;
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;
+	/* TODO: merge or integrate with mtk_cam_resource_config */
+	struct mtk_cam_resource user_res;
 	struct mtk_cam_resource_config res_config;
 	struct mtk_cam_resource_config try_res_config;
 	s64 sync_id;
@@ -285,7 +289,14 @@ int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
 int mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
 			  struct media_entity *entity);
-
+bool
+mtk_raw_sel_get_res(struct v4l2_subdev *sd,
+			  struct v4l2_subdev_selection *sel,
+			  struct mtk_cam_resource *res);
+bool
+mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
+			  struct v4l2_subdev_format *fmt,
+			  struct mtk_cam_resource *res);
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
 
