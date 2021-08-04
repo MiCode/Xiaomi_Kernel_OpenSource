@@ -1198,6 +1198,14 @@
 		reg = <0 0x0d100000 0 0x100000>;
 	};
 
+	mmc1: mmc@11240000 {
+		compatible = "mediatek,common-mmc";
+		reg = <0 0x11240000 0 0x10000>,
+		      <0 0x11e70000 0 0x1000>;
+		interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH 0>;
+		status = "disabled";
+	};
+
 	g3d_brisket@13bfee00 {
 		compatible = "mediatek,g3d_brisket";
 		reg = <0 0x13bfee00 0 0x200>;
@@ -2431,3 +2439,5 @@
 		status = "okay";
 	};
 };
+
+#include "mediatek/cust_mt6895_msdc.dtsi"
