@@ -10,11 +10,15 @@
 #include <linux/task_work.h>
 #include <linux/sched.h>
 #include <linux/percpu-defs.h>
+#include <trace/events/task.h>
 
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/cgroup.h>
 #include <sched/sched.h>
 #include "cpuqos_sys_common.h"
+
+#define CREATE_TRACE_POINTS
+#include <cpuqos_v3_trace.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jing-Ting Wu");
@@ -91,6 +95,15 @@ unsigned int get_task_partid(struct task_struct *p)
 	return partid;
 }
 
+unsigned int get_task_rank(struct task_struct *p)
+{
+	unsigned int rank;
+
+	rank = (unsigned int)p->android_vendor_data1[2];
+
+	return rank;
+}
+
 /* Get the css:partid mapping */
 static int mpam_map_css_partid(struct cgroup_subsys_state *css)
 {
@@ -121,24 +134,19 @@ no_match:
  */
 static int mpam_map_task_partid(struct task_struct *p)
 {
-#if IS_ENABLED(CONFIG_CGROUP_SCHED)
 	struct cgroup_subsys_state *css;
 	int partid;
-	int rank = p->android_vendor_data1[2];
+	int rank = get_task_rank(p);
 
 	if (cpuqos_perf_mode == DISABLE) {
 		/* disable mode */
 		partid = DEF_PARTID;
-		//pr_info("disable_mode: p=%d, partid=%d, rank=%d, cpuqos_perf_mode=%d\n",
-		//	p->pid, partid, rank, cpuqos_perf_mode);
 		goto out;
 	}
 
 	if (rank == TASK_RANK) {
 		/* task rank */
 		partid = get_task_partid(p);
-		//pr_info("task_rank: p=%d, partid=%d, rank=%d, cpuqos_perf_mode=%d\n",
-		//	p->pid, partid, rank, cpuqos_perf_mode);
 		goto out;
 	} else {
 		/* group rank */
@@ -146,15 +154,10 @@ static int mpam_map_task_partid(struct task_struct *p)
 		css = task_css(p, cpuqos_subsys_id);
 		partid = mpam_map_css_partid(css);
 		rcu_read_unlock();
-		//pr_info("group_rank: p=%d, css->id=%d, partid=%d, rank=%d, cpuqos_perf_mode=%d\n",
-		//	p->pid, css->id, partid, rank, cpuqos_perf_mode);
 		goto out;
 	}
 out:
 	return partid;
-#else
-	return -1;
-#endif
 }
 
 /*
@@ -168,7 +171,7 @@ static void mpam_write_partid(int partid)
 	this_cpu_write(mpam_local_partid, partid);
 
 	/* Write to e.g. MPAM0_EL1.PARTID_D here */
-	//pr_info("partid=%d\n", partid);
+
 }
 
 /*
@@ -176,7 +179,20 @@ static void mpam_write_partid(int partid)
  */
 static void mpam_sync_task(struct task_struct *p)
 {
+	struct cgroup_subsys_state *css;
+	int old_partid = this_cpu_read(mpam_local_partid);
+
+	rcu_read_lock();
+	css = task_css(p, cpuqos_subsys_id);
+	rcu_read_unlock();
+
 	mpam_write_partid(mpam_map_task_partid(p));
+	trace_cpuqos_cpu_partid(smp_processor_id(), p->pid,
+				css->id, old_partid,
+				this_cpu_read(mpam_local_partid),
+				get_task_rank(p),
+				cpuqos_perf_mode);
+
 }
 
 /*
@@ -238,30 +254,38 @@ static void mpam_kick_task(struct task_struct *p, int partid)
 int set_ct_group(int group_id, bool set)
 {
 	int css_id = -1;
+	int old_partid;
 	int new_partid;
 
-	if ((group_id >= ARRAY_SIZE(mpam_path_partid_map)) || (group_id < 0))
+	if ((group_id >= ARRAY_SIZE(mpam_path_partid_map)) || (group_id < 0) ||
+		(cpuqos_perf_mode == DISABLE))
 		return -1;
 
 	css_id = mpam_group_css_map[group_id];
 	if (css_id < 0)
 		return -1;
 
-	if (cpuqos_perf_mode == DISABLE) {
-		new_partid = DEF_PARTID;
-	} else {
-		if (set)
-			new_partid = CT_PARTID;
-		else
-			new_partid = NCT_PARTID;
-	}
+	old_partid = mpam_css_partid_map[css_id];
 
-	if (mpam_css_partid_map[css_id] != new_partid)
+	if (set)
+		new_partid = CT_PARTID;
+	else
+		new_partid = NCT_PARTID;
+
+	trace_cpuqos_set_ct_group(group_id, css_id, set,
+				old_partid, new_partid,
+				cpuqos_perf_mode);
+
+	if (new_partid != old_partid) {
 		mpam_css_partid_map[css_id] = new_partid;
 
-	pr_info("%s: group_id=%d, css->id=%d, set=%d, cpuqos_perf_mode=%d, new_partid=%d, mpam_partid=%d\n",
-		__func__, group_id, css_id, set, cpuqos_perf_mode,
-		new_partid, mpam_css_partid_map[css_id]);
+		/*
+		 * Ensure the partid map update is visible before kicking the CPUs.
+		 * Pairs with smp_rmb() in mpam_sync_current_mb().
+		 */
+		smp_wmb();
+		smp_call_function(mpam_sync_current_mb, NULL, 1);
+	}
 
 	return 0;
 }
@@ -278,6 +302,9 @@ EXPORT_SYMBOL_GPL(set_ct_group);
 int set_ct_task(int pid, bool set)
 {
 	struct task_struct *p;
+	struct cgroup_subsys_state *css;
+	int old_partid;
+	int new_partid;
 
 	if (cpuqos_perf_mode == DISABLE)
 		return -1;
@@ -292,18 +319,30 @@ int set_ct_task(int pid, bool set)
 	if (!p)
 		return -1;
 
-	if (set) {
+	rcu_read_lock();
+	css = task_css(p, cpuqos_subsys_id);
+	rcu_read_unlock();
+
+	old_partid = mpam_map_task_partid(p); /* before rank change */
+
+	if (set) { /* set task is critical task */
 		p->android_vendor_data1[2] = TASK_RANK;
-		if (get_task_partid(p) != CT_PARTID)
-			mpam_kick_task(p, CT_PARTID);
-	} else {
+		if (mpam_map_task_partid(p) != CT_PARTID)
+			new_partid = CT_PARTID;
+		else
+			new_partid = old_partid;
+	} else { /* reset to group setting */
 		p->android_vendor_data1[2] = GROUP_RANK;
-		mpam_kick_task(p, mpam_map_task_partid(p));
+		new_partid = mpam_map_task_partid(p); /* after rank change */
 	}
 
-	pr_info("%s: p=%d, set=%d, cpuqos_perf_mode=%d, partid=%d\n",
-		__func__, p->pid, set, cpuqos_perf_mode,
-		mpam_map_task_partid(p));
+	trace_cpuqos_set_ct_task(p->pid, css->id, set,
+				old_partid, new_partid,
+				get_task_rank(p), cpuqos_perf_mode);
+
+	if (new_partid != old_partid)
+		mpam_kick_task(p, new_partid);
+
 	put_task_struct(p);
 
 	return 0;
@@ -327,7 +366,15 @@ int set_cpuqos_mode(int mode)
 		break;
 	}
 
-	pr_info("%s: cpuqos mode=%d", __func__, mode);
+	trace_cpuqos_set_cpuqos_mode(mode);
+
+	/*
+	 * Ensure the partid map update is visible before kicking the CPUs.
+	 * Pairs with smp_rmb() in mpam_sync_current_mb().
+	 */
+	smp_wmb();
+	smp_call_function(mpam_sync_current_mb, NULL, 1);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(set_cpuqos_mode);
@@ -437,6 +484,13 @@ static void mpam_hook_switch(void __always_unused *data,
 	mpam_sync_task(next);
 }
 
+static void mpam_task_newtask(void __always_unused *data,
+				struct task_struct *p, unsigned long clone_flags)
+{
+	p->android_vendor_data1[1] = NCT_PARTID; /* partid */
+	p->android_vendor_data1[2] = GROUP_RANK; /* rank */
+}
+
 /* Check if css' path matches any in mpam_path_partid_map and cache that */
 static void __init __map_css_partid(struct cgroup_subsys_state *css, char *tmp, int pathlen)
 {
@@ -457,7 +511,7 @@ static void __init __map_css_partid(struct cgroup_subsys_state *css, char *tmp, 
 			else
 				WRITE_ONCE(mpam_css_partid_map[css->id], NCT_PARTID);
 
-			pr_info("i=%d, path=%s, mpam_path=%s, css->id=%d, group_css=%d, partid_map=%d\n",
+			pr_info("group_id=%d, path=%s, mpam_path=%s, css_id=%d, group_css=%d, partid_map=%d\n",
 				i, tmp, mpam_path_partid_map[i], css->id, mpam_group_css_map[i],
 				mpam_css_partid_map[css->id]);
 		}
@@ -541,6 +595,12 @@ static int __init mpam_proto_init(void)
 		goto out_attach;
 	}
 
+	ret = register_trace_task_newtask(mpam_task_newtask, NULL);
+	if (ret) {
+		pr_info("register trace_task_newtask failed\n");
+		goto out_attach;
+	}
+
 	/*
 	 * Ensure the partid map update is visible before kicking the CPUs.
 	 * Pairs with smp_rmb() in mpam_sync_current_mb().
@@ -569,6 +629,7 @@ static void __init mpam_proto_exit(void)
 {
 	unregister_trace_android_vh_is_fpsimd_save(mpam_hook_switch, NULL);
 	unregister_trace_android_vh_cgroup_attach(mpam_hook_attach, NULL);
+	unregister_trace_task_newtask(mpam_task_newtask, NULL);
 
 	smp_call_function(mpam_reset_partid, NULL, 1);
 	cleanup_cpuqos_common_sysfs();

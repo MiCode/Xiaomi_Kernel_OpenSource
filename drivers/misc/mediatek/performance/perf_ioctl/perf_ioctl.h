@@ -38,6 +38,12 @@ extern int core_ctl_force_pause_cpu(int cpu, bool paused);
 extern int core_ctl_enable_policy(bool paused);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
+extern int set_cpuqos_mode(int mode);
+extern int set_ct_task(int pid, bool set);
+extern int set_ct_group(int group_id, bool set);
+#endif
+
 struct _FPSGO_PACKAGE {
 	union {
 		__u32 tid;
@@ -133,6 +139,14 @@ struct _XGFFRAME_PACKAGE {
 	};
 };
 
+struct _CPUQOS_V3_PACKAGE {
+	__u32 mode;
+	__u32 pid;
+	__u32 set_task;
+	__u32 group_id;
+	__u32 set_group;
+};
+
 #define FPSGO_QUEUE                  _IOW('g', 1,  struct _FPSGO_PACKAGE)
 #define FPSGO_DEQUEUE                _IOW('g', 3,  struct _FPSGO_PACKAGE)
 #define FPSGO_VSYNC                  _IOW('g', 5,  struct _FPSGO_PACKAGE)
@@ -162,6 +176,9 @@ struct _XGFFRAME_PACKAGE {
 #define CORE_CTL_SET_BOOST                      _IOW('g', 11, struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_SET_UP_THRES                   _IOW('g', 12, struct _CORE_CTL_PACKAGE)
 #define CORE_CTL_ENABLE_POLICY                  _IOW('g', 13, struct _CORE_CTL_PACKAGE)
+#define CPUQOS_V3_SET_CPUQOS_MODE		_IOW('g', 14, struct _CPUQOS_V3_PACKAGE)
+#define CPUQOS_V3_SET_CT_TASK			_IOW('g', 15, struct _CPUQOS_V3_PACKAGE)
+#define CPUQOS_V3_SET_CT_GROUP			_IOW('g', 16, struct _CPUQOS_V3_PACKAGE)
 
 #define XGFFRAME_START              _IOW('g', 1, struct _XGFFRAME_PACKAGE)
 #define XGFFRAME_END                _IOW('g', 2, struct _XGFFRAME_PACKAGE)
