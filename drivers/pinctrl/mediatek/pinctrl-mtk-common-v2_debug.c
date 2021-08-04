@@ -204,6 +204,7 @@ static ssize_t mt_gpio_show(struct device *dev,
 			break;
 		}
 		len += mtk_pctrl_show_one_pin(hw, i, buf + len, bufLen - len);
+		len += snprintf(buf+len, bufLen-len, "\n");
 	}
 
 	return len;

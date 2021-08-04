@@ -204,6 +204,7 @@ struct mtk_pinctrl;
 
 #define FLAG_RACE_FREE_ACCESS	0x00000001
 #define FLAG_DRIVE_SET_RAW	0x00000002
+#define FLAG_GPIO_START_IDX_1   0x00000004
 
 /* struct mtk_pin_soc - the structure that holds SoC-specific data */
 struct mtk_pin_soc {

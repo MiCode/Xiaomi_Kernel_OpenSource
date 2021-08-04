@@ -187,10 +187,11 @@ static const struct mtk_pin_reg_calc mt6373_reg_cals[PINCTRL_PIN_REG_MAX] = {
 static const struct mtk_pin_soc mt6373_data = {
 	.reg_cal = mt6373_reg_cals,
 	.pins = mtk_pins_mt6373,
-	.npins = 13,
-	.ngrps = 13,
+	.npins = 14,
+	.ngrps = 14,
 	.nfuncs = 2,
 	.gpio_m = 0,
+	.capability_flags = FLAG_GPIO_START_IDX_1,
 };
 
 static int mt6373_pinctrl_probe(struct platform_device *pdev)

@@ -464,7 +464,8 @@ static int mtk_pctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 		pin = MTK_GET_PIN_NO(pinfunc);
 		func = MTK_GET_PIN_FUNC(pinfunc);
 
-		if (func >= ARRAY_SIZE(mtk_gpio_functions)) {
+		if (pin >= hw->soc->npins ||
+		    func >= ARRAY_SIZE(mtk_gpio_functions)) {
 			dev_err(hw->dev, "invalid pins value.\n");
 			err = -EINVAL;
 			goto exit;
@@ -668,12 +669,12 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 		len += snprintf(buf + len, bufLen - len, "X");
 
 	if (pullen == -1)
-		len += snprintf(buf + len, bufLen - len, "XX\n");
+		len += snprintf(buf + len, bufLen - len, "XX");
 	else if (r1 != -1)
-		len += snprintf(buf + len, bufLen - len, "%1d%1d (%1d %1d)\n",
+		len += snprintf(buf + len, bufLen - len, "%1d%1d (%1d %1d)",
 			pullen, pullup, r1, r0);
 	else
-		len += snprintf(buf + len, bufLen - len, "%1d%1d\n",
+		len += snprintf(buf + len, bufLen - len, "%1d%1d",
 			pullen, pullup);
 
 	return len;
@@ -1406,7 +1407,7 @@ ssize_t mt63xx_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	int pinmux, dir, dout, di, smt, drv, pullen, pullsel;
 	int len = 0;
 
-	if (gpio > hw->soc->npins)
+	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
 	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_MODE, &pinmux);
@@ -1418,7 +1419,7 @@ ssize_t mt63xx_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLEN, &pullen);
 	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLSEL, &pullsel);
 	len += snprintf(buf + len, bufLen - len,
-			"%02d: %1d%1d%1d%1d%02d%1d%1d%1d\n",
+			"%02d: %1d%1d%1d%1d%02d%1d%1d%1d",
 			gpio,
 			pinmux,
 			dir,
@@ -1482,7 +1483,7 @@ static int mt63xx_gpio_get_direction(struct gpio_chip *chip, unsigned int gpio)
 	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
 	int value, err;
 
-	if (gpio > hw->soc->npins)
+	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
 	err = mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DIR, &value);
@@ -1497,7 +1498,7 @@ static int mt63xx_gpio_get(struct gpio_chip *chip, unsigned int gpio)
 	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
 	int value, err;
 
-	if (gpio > hw->soc->npins)
+	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
 	err = mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DI, &value);
@@ -1511,7 +1512,7 @@ static void mt63xx_gpio_set(struct gpio_chip *chip, unsigned int gpio, int value
 {
 	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
 
-	if (gpio > hw->soc->npins)
+	if (gpio >= hw->soc->npins)
 		return;
 
 	(void)mt63xx_hw_set_value(hw, gpio, PINCTRL_PIN_REG_DO, !!value);
@@ -1521,7 +1522,7 @@ static int mt63xx_gpio_direction_input(struct gpio_chip *chip, unsigned int gpio
 {
 	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
 
-	if (gpio > hw->soc->npins)
+	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
 	return pinctrl_gpio_direction_input(chip->base + gpio);
@@ -1532,7 +1533,7 @@ static int mt63xx_gpio_direction_output(struct gpio_chip *chip, unsigned int gpi
 {
 	struct mtk_pinctrl *hw = gpiochip_get_data(chip);
 
-	if (gpio > hw->soc->npins)
+	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
 	mt63xx_gpio_set(chip, gpio, value);
@@ -1555,11 +1556,7 @@ static int mt6373_build_gpiochip(struct mtk_pinctrl *hw, struct device_node *np)
 	chip->get               = mt63xx_gpio_get;
 	chip->set               = mt63xx_gpio_set;
 	chip->base              = -1;
-	/* Since MT6373 GPIO pin number start at 1, instead of 0,
-	 *  we add 1 to chip->ngpio as workaround so that
-	 *  global pin index can be mapped correctly
-	 */
-	chip->ngpio             = hw->soc->npins + 1;
+	chip->ngpio             = hw->soc->npins;
 	chip->of_node           = np;
 	chip->of_gpio_n_cells   = 2;
 
@@ -1575,7 +1572,7 @@ int mt63xx_pinctrl_probe(struct platform_device *pdev,
 {
 	struct pinctrl_pin_desc *pins;
 	struct mtk_pinctrl *hw;
-	int err, i;
+	int err, i, npins;
 
 	hw = devm_kzalloc(&pdev->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
@@ -1597,8 +1594,23 @@ int mt63xx_pinctrl_probe(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
+	/* If GPIO pin number start at 1, instead of 0,
+	 *  special handle is required:
+	 *  1. gpio ranges in devicetree: start from 0 and add 1 to pin count,
+	 *       e.g., gpio-ranges = <&mt6373_pio 1 1 13> is changed as
+	 *             gpio-ranges = <&mt6373_pio 0 0 14>;
+	 *  2. hw->soc->npins and hw->soc->ngrps: added by 1, so that checking
+	 *       valid pin range can always using ">= hw->soc->npins"
+	 *  3. devm_pinctrl_register_and_init(): use actual pin count
+	 *  4. mt6373_build_gpiochip: use hw->soc->pins to register gpiochip
+	 */
+	if (hw->soc->capability_flags & FLAG_GPIO_START_IDX_1)
+		npins = hw->soc->npins - 1;
+	else
+		npins = hw->soc->npins;
+
 	/* Copy from internal struct mtk_pin_desc to register to the core */
-	pins = devm_kmalloc_array(&pdev->dev, hw->soc->npins, sizeof(*pins),
+	pins = devm_kmalloc_array(&pdev->dev, npins, sizeof(*pins),
 				  GFP_KERNEL);
 	if (!pins)
 		return -ENOMEM;
@@ -1610,7 +1622,7 @@ int mt63xx_pinctrl_probe(struct platform_device *pdev,
 
 	/* Setup pins descriptions per SoC types */
 	mtk_desc_mt63xx.pins = (const struct pinctrl_pin_desc *)pins;
-	mtk_desc_mt63xx.npins = hw->soc->npins;
+	mtk_desc_mt63xx.npins = npins;
 
 	err = devm_pinctrl_register_and_init(&pdev->dev, &mtk_desc_mt63xx, hw,
 					     &hw->pctrl);
