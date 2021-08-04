@@ -62,7 +62,7 @@ static ssize_t status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(status);
 
-#if DVFS_READY
+#if SENINF_DVFS_READY
 static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
 {
 	int ret, i;
@@ -77,9 +77,9 @@ static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
 		return ret;
 	}
 
-	dfs->reg = devm_regulator_get_optional(dev, "dvfsrc-vcore");
+	dfs->reg = devm_regulator_get_optional(dev, "dvfsrc-vmm");
 	if (IS_ERR(dfs->reg)) {
-		dev_info(dev, "can't get dvfsrc-vcore\n");
+		dev_info(dev, "can't get dvfsrc-vmm\n");
 		return PTR_ERR(dfs->reg);
 	}
 
@@ -323,7 +323,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#if DVFS_READY
+#if SENINF_DVFS_READY
 	ret = seninf_dfs_init(&core->dfs, dev);
 	if (ret) {
 		dev_info(dev, "%s: failed to init dfs\n", __func__);
