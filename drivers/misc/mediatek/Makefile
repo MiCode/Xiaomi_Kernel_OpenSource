@@ -94,3 +94,4 @@ obj-$(CONFIG_MTK_USB_BOOST) += usb_boost/
 obj-$(CONFIG_MTK_USB_META) += usb_meta/
 obj-$(CONFIG_MTK_CPUQOS_V3) += cache-auditor/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
+obj-$(CONFIG_MTK_WIDEVINE_DRM) += widevine_drm/

@@ -1,0 +1,4 @@
+config MTK_WIDEVINE_DRM
+	tristate "MediaTek widevine l1 driver"
+	help
+	  This is widevine drm driver, it is used to get secure handle from dma-buf
