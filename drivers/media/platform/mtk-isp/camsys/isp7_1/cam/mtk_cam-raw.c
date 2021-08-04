@@ -1032,6 +1032,11 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		default:
 			break;
 		}
+
+		/* 1 for force bin on */
+		if (res->bin_limit == 1)
+			bin_en = 1;
+
 		/* max line buffer check*/
 		lb_chk_res = mtk_raw_linebuf_chk(twin_en, bin_en, frz_en, 0, 0,
 						 in_w, &frz_ratio);

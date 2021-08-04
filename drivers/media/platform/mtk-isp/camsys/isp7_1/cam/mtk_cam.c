@@ -2168,6 +2168,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		buf_entry->buffer.iova -
 		cam->ctxs[session->session_id].buf_pool.working_buf_iova;
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
+	frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_enable;
 
 	req_stream_data->state.time_composing = ktime_get_boottime_ns() / 1000;
 
