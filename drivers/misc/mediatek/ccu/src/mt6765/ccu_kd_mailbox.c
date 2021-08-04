@@ -26,10 +26,6 @@ enum mb_result mailbox_init(struct ccu_mailbox_t *apmcu_mb_addr,
 
 	LOG_DBG("ccu_mailbox addr: %p\n", _ccu_mailbox);
 	LOG_DBG("apmcu_mailbox addr: %p\n", _apmcu_mailbox);
-	LOG_DBG("memclr _ccu_mailbox: %d\n",
-		ccu_memclr(_ccu_mailbox, sizeof(struct ccu_mailbox_t)));
-	LOG_DBG("memclr _apmcu_mailbox: %d\n",
-		ccu_memclr(_apmcu_mailbox, sizeof(struct ccu_mailbox_t)));
 
 	/* memory barrier to check mailbox value wrote into DRAM*/
 	/* instead of keep in CPU write buffer*/

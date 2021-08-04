@@ -847,6 +847,61 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 			return ccu_read_info_reg(regToRead);
 		}
+
+	case CCU_IOCTL_PRINT_REG:
+	{
+		uint32_t *Reg;
+
+		Reg = kzalloc(sizeof(uint8_t)*
+			(CCU_HW_DUMP_SIZE+CCU_DMEM_SIZE+CCU_PMEM_SIZE),
+			GFP_KERNEL);
+		if (!Reg) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_REG alloc failed\n");
+			break;
+		}
+		ccu_print_reg(Reg);
+		ret = copy_to_user((char *)arg,
+			Reg, sizeof(uint8_t)*
+			(CCU_HW_DUMP_SIZE+CCU_DMEM_SIZE+CCU_PMEM_SIZE));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_REG copy_to_user failed: %d\n", ret);
+		}
+		kfree(Reg);
+		break;
+	}
+
+	case CCU_IOCTL_PRINT_SRAM_LOG:
+	{
+		char *sram_log;
+
+		sram_log = kzalloc(sizeof(char)*
+			(CCU_LOG_SIZE*2+CCU_ISR_LOG_SIZE),
+			GFP_KERNEL);
+		if (!sram_log) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_SRAM_LOG alloc failed\n");
+			break;
+		}
+		ccu_print_sram_log(sram_log);
+		ret = copy_to_user((char *)arg,
+			sram_log, sizeof(char)*
+			(CCU_LOG_SIZE*2+CCU_ISR_LOG_SIZE));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_SRAM_LOG copy_to_user failed: %d\n", ret);
+		}
+		kfree(sram_log);
+		break;
+	}
+
+	case CCU_IOCTL_LOAD_CCU_BIN:
+	{
+		ret = ccu_load_bin(g_ccu_device);
+		break;
+	}
+
 	default:
 		LOG_WARN("ioctl:No such command!\n");
 		ret = -EINVAL;
@@ -1096,6 +1151,16 @@ static int ccu_probe(struct platform_device *pdev)
 				phy_addr, phy_size);
 			LOG_INF("dmem_base va: 0x%lx\n",
 				g_ccu_device->dmem_base);
+
+			/*remap pmem_base*/
+			phy_addr = CCU_PMEM_BASE;
+			phy_size = CCU_PMEM_SIZE;
+			g_ccu_device->pmem_base =
+				(unsigned long)ioremap_wc(phy_addr, phy_size);
+			LOG_INF("pmem_base pa: 0x%x, size: 0x%x\n",
+				phy_addr, phy_size);
+			LOG_INF("pmem_base va: 0x%lx\n",
+				g_ccu_device->pmem_base);
 
 			/*remap camsys_base*/
 			phy_addr = CCU_CAMSYS_BASE;

@@ -17,6 +17,7 @@
 #include <linux/spinlock.h>
 #include <linux/iommu.h>
 #include <linux/sched.h>
+#include <linux/firmware.h>
 
 #include "mtk_ion.h"
 #include "ion_priv.h"
@@ -39,11 +40,14 @@
 #include "ccu_kd_mailbox.h"
 #include "ccu_i2c.h"
 
+#include "ccu_platform_def.h"
+
 #include "kd_camera_feature.h"/*for sensorType in ccu_set_sensor_info*/
 
 static uint64_t camsys_base;
 static uint64_t bin_base;
 static uint64_t dmem_base;
+static uint64_t pmem_base;
 
 static struct ccu_device_s *ccu_dev;
 static struct task_struct *enque_task;
@@ -88,6 +92,7 @@ static int _ccu_allocate_mva(uint32_t *mva, void *va,
 	struct ion_handle **handle);
 static int _ccu_deallocate_mva(struct ion_client **client,
 	struct ion_handle **handle);
+static int ccu_load_segments(const struct firmware *fw);
 
 static int _ccu_config_m4u_port(void)
 {
@@ -493,6 +498,7 @@ int ccu_init_hw(struct ccu_device_s *device)
 	camsys_base = device->camsys_base;
 	bin_base = device->bin_base;
 	dmem_base = device->dmem_base;
+	pmem_base = device->pmem_base;
 
 	ccu_dev = device;
 
@@ -893,6 +899,115 @@ static int _ccu_powerdown(void)
 	return 0;
 }
 
+int ccu_load_bin(struct ccu_device_s *device)
+{
+	const struct firmware *firmware_p;
+	int ret = 0;
+
+	ret = request_firmware(&firmware_p, "lib3a.ccu", device->dev);
+	if (ret < 0) {
+		LOG_ERR("request_firmware failed: %d\n", ret);
+		goto EXIT;
+	}
+
+	ret = ccu_load_segments(firmware_p);
+	if (ret < 0)
+		LOG_ERR("load segments failed: %d\n", ret);
+EXIT:
+	release_firmware(firmware_p);
+	return ret;
+}
+
+static void ccu_load_memcpy(void *dst, const void *src, uint32_t len)
+{
+	int i, copy_len;
+	uint32_t data = 0;
+	uint32_t align_data = 0;
+
+	for (i = 0; i < len/4; ++i)
+		writel(*((uint32_t *)src+i), (uint32_t *)dst+i);
+
+	if ((len % 4) != 0) {
+		copy_len = len & ~(0x3);
+		for (i = 0; i < 4; ++i) {
+			if (i < (len%4)) {
+				data = *((char *)src + copy_len + i);
+				align_data += data << (8 * i);
+			}
+		}
+		writel(align_data, (uint32_t *)dst + len/4);
+	}
+}
+
+int ccu_load_segments(const struct firmware *fw)
+{
+	struct elf32_hdr *ehdr;
+	// struct elf32_phdr *phdr;
+	struct elf32_shdr *shdr;
+	int i, ret = 0;
+	const u8 *elf_data = fw->data;
+
+	LOG_DBG("(0x%llx),(0x%llx),(0x%llx),(0x%llx)\n",
+	ccu_base, camsys_base, dmem_base, pmem_base);
+
+
+	/*0. Set CCU_A_RESET. CCU_HW_RST=1*/
+	ehdr = (struct elf32_hdr *)elf_data;
+	// phdr = (struct elf32_phdr *)(elf_data + ehdr->e_phoff);
+	shdr = (struct elf32_shdr *)(elf_data + ehdr->e_shoff);
+	// dev_info(dev, "ehdr->e_phnum %d\n", ehdr->e_phnum);
+	LOG_DBG("ehdr->e_shnum %d\n", ehdr->e_shnum);
+	/* go through the available ELF segments */
+	for (i = 0; i < ehdr->e_shnum; i++, shdr++) {
+		u32 da = shdr->sh_addr;
+		u32 size = shdr->sh_size;
+		u32 offset = shdr->sh_offset;
+		void *ptr = NULL;
+
+		if ((shdr->sh_type & SHT_PROGBITS) == 0)
+			continue;
+
+		LOG_DBG("shdr:type %d flag %d da 0x%x size 0x%x\n",
+			shdr->sh_type, shdr->sh_flags, da, size);
+
+		if (offset + size > fw->size) {
+			LOG_ERR("truncated fw: need 0x%x avail 0x%zx\n",
+				offset + size, fw->size);
+			ret = -EINVAL;
+			break;
+		}
+
+		/* grab the kernel address for this device address */
+		if (shdr->sh_flags & SHF_EXECINSTR)
+			ptr = (void *)(pmem_base+da);
+		else
+			ptr = (void *)(dmem_base+da);
+		if (!ptr) {
+			LOG_ERR("bad phdr da 0x%x size 0x%x\n", da, size);
+			// ret = -EINVAL;
+			continue;
+		}
+
+		/* put the segment where the remote processor expects it */
+		if (size) {
+			ccu_load_memcpy(ptr,
+				(void *)elf_data + offset, size);
+		}
+
+		/*
+		 * Zero out remaining memory for this segment.
+		 *
+		 * This isn't strictly required since dma_alloc_coherent already
+		 * did this for us. albeit harmless, we may consider removing
+		 * this.
+		 */
+		// if (memsz > filesz)
+		// ccu_load_memclr(ptr + filesz, memsz - filesz);
+	}
+
+	return ret;
+}
+
 int ccu_run(void)
 {
 	int32_t timeout = 100;
@@ -1138,6 +1253,63 @@ void ccu_get_sensor_name(char **sensor_name)
 		sensor_name[i] =
 		g_ccu_sensor_info[i].sensor_name_string;
 	}
+}
+
+void ccu_print_reg(uint32_t *Reg)
+{
+	int i;
+	uint32_t offset = 0;
+	uint32_t *ccuCtrlPtr = Reg;
+	uint32_t *ccuDmPtr = Reg + (CCU_HW_DUMP_SIZE>>2);
+	uint32_t *ccuPmPtr = Reg + (CCU_HW_DUMP_SIZE>>2) + (CCU_DMEM_SIZE>>2);
+
+	for (i = 0 ; i < CCU_HW_DUMP_SIZE ; i += 16) {
+		*(ccuCtrlPtr+offset) = *(uint32_t *)(ccu_base + i);
+		*(ccuCtrlPtr+offset + 1) = *(uint32_t *)(ccu_base + i + 4);
+		*(ccuCtrlPtr+offset + 2) = *(uint32_t *)(ccu_base + i + 8);
+		*(ccuCtrlPtr+offset + 3) = *(uint32_t *)(ccu_base + i + 12);
+		offset += 4;
+	}
+	offset = 0;
+	for (i = 0 ; i < CCU_DMEM_SIZE ; i += 16) {
+		*(ccuDmPtr+offset) = *(uint32_t *)(dmem_base + i);
+		*(ccuDmPtr+offset + 1) = *(uint32_t *)(dmem_base + i + 4);
+		*(ccuDmPtr+offset + 2) = *(uint32_t *)(dmem_base + i + 8);
+		*(ccuDmPtr+offset + 3) = *(uint32_t *)(dmem_base + i + 12);
+		offset += 4;
+	}
+	offset = 0;
+	for (i = 0 ; i < CCU_PMEM_SIZE ; i += 16) {
+		*(ccuPmPtr+offset) = *(uint32_t *)(pmem_base + i);
+		*(ccuPmPtr+offset + 1) = *(uint32_t *)(pmem_base + i + 4);
+		*(ccuPmPtr+offset + 2) = *(uint32_t *)(pmem_base + i + 8);
+		*(ccuPmPtr+offset + 3) = *(uint32_t *)(pmem_base + i + 12);
+		offset += 4;
+	}
+}
+
+void ccu_print_sram_log(char *sram_log)
+{
+	int i;
+	char *ccuLogPtr_1 = (char *)dmem_base + CCU_LOG_BASE;
+	char *ccuLogPtr_2 = (char *)dmem_base + CCU_LOG_BASE + CCU_LOG_SIZE;
+	char *isrLogPtr = (char *)dmem_base + CCU_ISR_LOG_BASE;
+
+	MUINT32 *from_sram;
+	MUINT32 *to_dram;
+
+	from_sram = (MUINT32 *)ccuLogPtr_1;
+	to_dram = (MUINT32 *)sram_log;
+	for (i = 0; i < CCU_LOG_SIZE/4-1; i++)
+		*(to_dram+i) = *(from_sram+i);
+	from_sram = (MUINT32 *)ccuLogPtr_2;
+	to_dram = (MUINT32 *)(sram_log + CCU_LOG_SIZE);
+	for (i = 0; i < CCU_LOG_SIZE/4-1; i++)
+		*(to_dram+i) = *(from_sram+i);
+	from_sram = (MUINT32 *)isrLogPtr;
+	to_dram = (MUINT32 *)(sram_log + (CCU_LOG_SIZE * 2));
+	for (i = 0; i < CCU_ISR_LOG_SIZE/4-1; i++)
+		*(to_dram+i) = *(from_sram+i);
 }
 
 int ccu_query_power_status(void)

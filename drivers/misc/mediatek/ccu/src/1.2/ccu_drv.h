@@ -323,4 +323,8 @@ struct ccu_cmd_s {
 #define CCU_IOCTL_GET_SENSOR_NAME           _IOR(CCU_MAGICNO,  25, int)
 #define CCU_IOCTL_GET_PLATFORM_INFO         _IOR(CCU_MAGICNO,  26, int)
 
+#define CCU_IOCTL_LOAD_CCU_BIN              _IOW(CCU_MAGICNO,  30, int)
+#define CCU_IOCTL_PRINT_REG                 _IOR(CCU_MAGICNO,  37, int)
+#define CCU_IOCTL_PRINT_SRAM_LOG            _IOR(CCU_MAGICNO,  38, int)
+
 #endif
