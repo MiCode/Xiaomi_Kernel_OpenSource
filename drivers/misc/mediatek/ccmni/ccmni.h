@@ -32,9 +32,7 @@
  * NAPI with GRO:      MODEM_CAP_NAPI=1, ENABLE_NAPI_GRO=1, ENABLE_WQ_GRO=0
  */
 /* #define ENABLE_NAPI_GRO */
-#ifdef CONFIG_MTK_ECCCI_C2K
 #define ENABLE_WQ_GRO
-#endif
 
 #define  CCMNI_MTU              1500
 #define  CCMNI_TX_QUEUE         1000
