@@ -612,7 +612,7 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 {
 	unsigned long op = UFSDBG_UNKNOWN;
 	struct ufs_hba *hba = ufshba;
-	struct ufs_mtk_host *host =ufshcd_get_variant(hba);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	char cmd_buf[16];
 
 	if (count == 0 || count > 15)

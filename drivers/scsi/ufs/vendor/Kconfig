@@ -1,0 +1,89 @@
+config UFSFEATURE
+	bool "UFS feature activate"
+	depends on SCSI_UFSHCD
+	help
+	  UFS feature activate such as hpb, tw and etc.
+
+config UFSSHPB
+	bool "UFS Samsung Host Performance Booster support"
+	depends on SCSI_UFSHCD && UFSFEATURE
+	help
+	  UFS HPB Feature Enable
+
+config HPB_DEBUG
+	bool "HPB Debug Log Enable"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSSHPB
+	default n
+	help
+	  UFS HPB Debug Enable (dmesg log[=if set debug sysfs] & BLK_TRACE msg)
+
+config HPB_DEBUG_SYSFS
+	bool "HPB Debug sysfs"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSSHPB
+	default n
+	help
+	  UFS HPB Debug Sysfs Enable
+
+config HPB_ERR_INJECTION
+	bool "HPB ERROR INJECTION"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSSHPB
+	help
+	  error injection for checking HPB entry integrity
+
+config UFSTW
+	bool "UFS Turbo Write support"
+	depends on SCSI_UFSHCD && UFSFEATURE
+	help
+	  UFS TW Feature Enable
+
+config UFSTW_IGNORE_GUARANTEE_BIT
+	bool "Ignore UFS Turbo Write Life Time Guarantee bit for POC"
+	default n
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
+	help
+	  ignore the guarantee bit[31] of dTurboWriteBufferLifeTimeEst for PoC
+
+config UFSTW_BOOT_ENABLED
+	bool "Turbo Write enabled at boot time"
+	default y
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
+	help
+	  fTurboWriteEn and fTurboWriteBufferFlushDuringHibnerEnter flags
+	  are enabled at boot time.
+
+config UFSHID
+	bool "UFS Host Initiated Defrag support"
+	depends on SCSI_UFSHCD && UFSFEATURE
+	help
+	  UFS HID Feature Enable
+
+config UFSHID_POC
+	bool "UFSHID_POC test"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSHID
+	help
+	  UFS HID POC test
+	  1. block to enter suspend state
+	  2. auto_hibern8 enable/disable (HCI)
+	  3. set flag bDefragOperation
+	  4. debug msg enable (default : disable)
+
+config UFSHID_DEBUG
+	bool "HID Debug Enable"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSHID
+	default n
+	help
+	UFS HID Debug Enable (for check io stat during trigger)
+
+config UFSRINGBUF
+	bool "UFS RingBuffer support"
+	depends on SCSI_UFSHCD && UFSFEATURE
+	help
+	  UFS RingBuffer Feature Enable
+
+config UFSRINGBUF_POC
+	bool "UFS RingBuffer POC test"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSRINGBUF
+	help
+	  UFS RingBuffer POC test
+	  1. set default vendor_signature & vendor_parameter for test
+	  2. Set custom vender_parameter
