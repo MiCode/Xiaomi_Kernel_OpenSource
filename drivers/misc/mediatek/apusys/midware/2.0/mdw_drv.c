@@ -44,6 +44,9 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 {
 	struct mdw_fpriv *mpriv = NULL;
 
+	if (!mdw_dev)
+		return -ENODEV;
+
 	mpriv = kzalloc(sizeof(*mpriv), GFP_KERNEL);
 	if (!mpriv)
 		return -ENOMEM;
@@ -90,20 +93,13 @@ static const struct file_operations mdw_fops = {
 	.compat_ioctl = mdw_ioctl,
 };
 
-static int mdw_drv_misc_init(struct mdw_device *mdev)
-{
-	mdev->misc_dev.minor = MISC_DYNAMIC_MINOR;
-	mdev->misc_dev.name = MDW_NAME;
-	mdev->misc_dev.fops = &mdw_fops;
+static struct miscdevice mdw_misc_dev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = MDW_NAME,
+	.fops = &mdw_fops,
+};
 
-	return misc_register(&mdev->misc_dev);
-}
-
-static void mdw_drv_misc_deinit(struct mdw_device *mdev)
-{
-	return misc_deregister(&mdev->misc_dev);
-}
-
+//----------------------------------------
 static int mdw_platform_probe(struct platform_device *pdev)
 {
 	struct mdw_device *mdev = NULL;
@@ -123,21 +119,15 @@ static int mdw_platform_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "dma_mask", &mdev->dma_mask);
 	mdev->pdev = pdev;
 	mdev->driver_type = MDW_DRIVER_TYPE_PLATFORM;
+	mdev->misc_dev = &mdw_misc_dev;
 	mdw_dev = mdev;
 	platform_set_drvdata(pdev, mdev);
-
-	/* register misc device */
-	ret = mdw_drv_misc_init(mdev);
-	if (ret) {
-		pr_info("%s: register misc device fail\n", __func__);
-		goto delete_mdw_dev;
-	}
-	dev_set_drvdata(mdev->misc_dev.this_device, mdev);
+	dev_set_drvdata(mdev->misc_dev->this_device, mdev);
 
 	/* init mdw device */
 	ret = mdw_dev_init(mdev);
 	if (ret)
-		goto unregister_misc;
+		goto delete_mdw_dev;
 
 	ret = mdw_mem_init(mdev);
 	if (ret)
@@ -157,8 +147,6 @@ deinit_mem:
 	mdw_mem_deinit(mdev);
 deinit_mdev:
 	mdw_dev_deinit(mdev);
-unregister_misc:
-	mdw_drv_misc_deinit(mdev);
 delete_mdw_dev:
 	kfree(mdev);
 	mdw_dev = NULL;
@@ -175,7 +163,6 @@ static int mdw_platform_remove(struct platform_device *pdev)
 	mdw_sysfs_deinit(mdev);
 	mdw_mem_deinit(mdev);
 	mdw_dev_deinit(mdev);
-	mdw_drv_misc_deinit(mdev);
 	kfree(mdev);
 	mdw_dev = NULL;
 	pr_info("%s done\n", __func__);
@@ -218,21 +205,15 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	mdev->driver_type = MDW_DRIVER_TYPE_RPMSG;
 	mdev->version = 2;
 	mdev->rpdev = rpdev;
+	mdev->misc_dev = &mdw_misc_dev;
 	mdw_dev = mdev;
 	dev_set_drvdata(dev, mdev);
-
-	/* register misc device */
-	ret = mdw_drv_misc_init(mdev);
-	if (ret) {
-		pr_info("%s: register misc device fail\n", __func__);
-		goto delete_mdw_dev;
-	}
-	dev_set_drvdata(mdev->misc_dev.this_device, mdev);
+	dev_set_drvdata(mdev->misc_dev->this_device, mdev);
 
 	/* init mdw device */
 	ret = mdw_dev_init(mdev);
 	if (ret)
-		goto unregister_misc;
+		goto delete_mdw_dev;
 
 	ret = mdw_mem_init(mdev);
 	if (ret)
@@ -252,8 +233,6 @@ deinit_mem:
 	mdw_mem_deinit(mdev);
 deinit_mdev:
 	mdw_dev_deinit(mdev);
-unregister_misc:
-	mdw_drv_misc_deinit(mdev);
 delete_mdw_dev:
 	kfree(mdev);
 	mdw_dev = NULL;
@@ -270,7 +249,6 @@ static void mdw_rpmsg_remove(struct rpmsg_device *rpdev)
 	mdw_sysfs_deinit(mdev);
 	mdw_mem_deinit(mdev);
 	mdw_dev_deinit(mdev);
-	mdw_drv_misc_deinit(mdev);
 	kfree(mdev);
 	mdw_dev = NULL;
 	pr_info("%s done\n", __func__);
@@ -302,25 +280,34 @@ int mdw_init(struct apusys_core_info *info)
 		return -ENODEV;
 	}
 
+	pr_info("%s register misc...\n", __func__);
+	ret = misc_register(&mdw_misc_dev);
+	if (ret) {
+		pr_info("failed to register apu mdw misc driver\n");
+		goto out;
+	}
+
 	pr_info("%s register platorm...\n", __func__);
 	ret = platform_driver_register(&mdw_platform_driver);
 	if (ret) {
 		pr_info("failed to register apu mdw driver\n");
-		goto out;
+		goto unregister_misc_dev;
 	}
 
 	pr_info("%s register rpmsg...\n", __func__);
 	ret = register_rpmsg_driver(&mdw_rpmsg_driver);
 	if (ret) {
 		pr_info("failed to register apu mdw rpmsg driver\n");
-		platform_driver_unregister(&mdw_platform_driver);
 		goto unregister_platform_driver;
 	}
+
 	pr_info("%s init done\n", __func__);
 	goto out;
 
 unregister_platform_driver:
 	platform_driver_unregister(&mdw_platform_driver);
+unregister_misc_dev:
+	misc_deregister(&mdw_misc_dev);
 out:
 	return ret;
 }
@@ -329,5 +316,6 @@ void mdw_exit(void)
 {
 	unregister_rpmsg_driver(&mdw_rpmsg_driver);
 	platform_driver_unregister(&mdw_platform_driver);
+	misc_deregister(&mdw_misc_dev);
 	g_info = NULL;
 }

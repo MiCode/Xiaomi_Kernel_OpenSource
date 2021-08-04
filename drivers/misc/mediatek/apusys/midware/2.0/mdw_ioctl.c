@@ -9,12 +9,12 @@
 #include "apusys_drv.h"
 #include "mdw_cmn.h"
 
-long mdw_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
+long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	unsigned int usize = 0;
 	void *kdata = NULL;
-	struct mdw_fpriv *mpriv = filep->private_data;
+	struct mdw_fpriv *mpriv = filp->private_data;
 
 	/* allocate for user data */
 	usize = _IOC_SIZE(cmd);

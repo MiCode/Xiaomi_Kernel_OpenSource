@@ -346,7 +346,7 @@ static const char *mdw_fence_get_timeline_name(struct dma_fence *fence)
 	struct mdw_fence *f =
 		container_of(fence, struct mdw_fence, base_fence);
 
-	return dev_name(f->mdev->misc_dev.this_device);
+	return dev_name(f->mdev->misc_dev->this_device);
 }
 
 static bool mdw_fence_enable_signaling(struct dma_fence *fence)

@@ -98,7 +98,7 @@ struct mdw_device {
 		struct rpmsg_device *rpdev;
 	};
 	struct device *dev;
-	struct miscdevice misc_dev;
+	struct miscdevice *misc_dev;
 
 	uint64_t vlm_start;
 	uint32_t vlm_size;
