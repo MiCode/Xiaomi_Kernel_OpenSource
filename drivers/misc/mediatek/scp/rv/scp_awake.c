@@ -250,10 +250,14 @@ int scp_sys_full_reset(void)
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
 	int idx;
 #endif
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	uint64_t restore_start, restore_end;
+#endif
 
 	pr_notice("[SCP] %s\n", __func__);
 
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	restore_start = ktime_get_boottime_ns();
 	if (scpreg.secure_dump) {
 #if SCP_SECURE_DUMP_MEASURE
 		memset(scpdump_cal, 0x0, sizeof(scpdump_cal));
@@ -297,6 +301,8 @@ int scp_sys_full_reset(void)
 					(scpdump_cal[idx].end - scpdump_cal[idx].start));
 		}
 #endif
+		restore_end = ktime_get_boottime_ns();
+		pr_notice("[SCP] Restore: %lld ns\n", (restore_end - restore_start));
 	} else {
 #else
 	{

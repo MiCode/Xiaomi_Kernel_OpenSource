@@ -28,7 +28,7 @@
 #endif
 
 #define SCP_SECURE_DUMP_MEASURE 0
-#define POLLING_RETRY 1000
+#define POLLING_RETRY 200
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
 	struct cal {
 		uint64_t start, end;
@@ -379,7 +379,9 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
 	int idx;
 #endif
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 	uint64_t dump_start, dump_end;
+#endif
 
 	/*flag use to indicate scp awake success or not*/
 	scp_awake_fail_flag = 0;
@@ -600,10 +602,8 @@ core1:
 		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
 		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp), offset);
 end:
-		if (!SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
-			SCP_AED_STR_LEN - offset, "last log:\n%s", scp_A_log), offset))
-			pr_notice("[SCP] %s snprintf error, of=%d, sz=%d\n", __func__,
-				offset, SCP_AED_STR_LEN);
+		offset += SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
+			SCP_AED_STR_LEN - offset, "last log:\n%s", scp_A_log), offset);
 
 		scp_dump.detail_buff[SCP_AED_STR_LEN - 1] = '\0';
 	}
@@ -611,6 +611,7 @@ end:
 	/*prepare scp A db file*/
 	scp_dump.ramdump_length = 0;
 	memset(scp_dump.ramdump, 0x0, get_MDUMP_size_accumulate(MDUMP_DRAM));
+	pr_notice("[SCP] %s cleaned ramdump\n", __func__);
 	scp_dump.ramdump_length = scp_crash_dump(SCP_A_ID);
 
 	pr_notice("[SCP] %s ends, @%p, size = %x\n", __func__,
@@ -694,8 +695,15 @@ static ssize_t scp_A_dump_show(struct file *filep,
 
 		memcpy(buf, scp_dump.ramdump + offset, size);
 		length = size;
-		//clean the buff after readed
+		if (scp_dump.ramdump_length == 0)
+			pr_notice("[SCP] %s ramdump length=0 at of:0x%x sz:0x%x\n", __func__,
+				offset, size);
+		/* clean the buff after readed */
 		memset(scp_dump.ramdump + offset, 0x0, size);
+		/* log for the first and latest cleanup */
+		if (offset == 0 || offset > (scp_dump.ramdump_length - 0x1000))
+			pr_notice("[SCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
+				offset, size);
 	}
 
 	mutex_unlock(&scp_excep_mutex);
