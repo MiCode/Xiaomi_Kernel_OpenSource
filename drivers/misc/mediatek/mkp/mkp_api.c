@@ -155,7 +155,7 @@ uint32_t mkp_create_ro_sharebuf(uint32_t policy, unsigned long size, struct page
 	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
 		return 0;
 
-	l_pages = alloc_pages(GFP_ATOMIC | __GFP_ZERO, get_order(size));
+	l_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO, get_order(size));
 	if (l_pages == NULL)
 		return 0;
 	ipa = page_to_phys(l_pages);
@@ -183,7 +183,7 @@ uint32_t mkp_create_wo_sharebuf(uint32_t policy, unsigned long size, struct page
 	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
 		return 0;
 
-	l_pages = alloc_pages(GFP_ATOMIC | __GFP_ZERO, get_order(size));
+	l_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO, get_order(size));
 	if (l_pages == NULL)
 		return 0;
 	ipa = page_to_phys(l_pages);
