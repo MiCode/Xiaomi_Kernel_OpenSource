@@ -48,4 +48,6 @@ void mtk_iova_unmap(u64 iova, size_t size);
 void mtk_iova_map_dump(u64 iova);
 
 void mtk_iommu_debug_reset(void);
+enum peri_iommu get_peri_iommu_id(u32 bus_id);
+char *peri_tf_analyse(enum peri_iommu iommu_id, u32 fault_id);
 #endif

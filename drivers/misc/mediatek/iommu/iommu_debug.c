@@ -97,9 +97,31 @@ struct mtk_m4u_data {
 };
 
 struct mtk_m4u_plat_data {
+	struct peri_iommu_data		*peri_data;
 	const struct mtk_iommu_port	*port_list[TYPE_NUM];
 	u32				port_nr[TYPE_NUM];
 	int (*mm_tf_is_gce_videoup)(u32 port_tf, u32 vld_tf);
+	char *(*peri_tf_analyse)(enum peri_iommu bus_id, u32 id);
+};
+
+struct peri_iommu_data {
+	enum peri_iommu id;
+	u32 bus_id;
+};
+
+static struct peri_iommu_data mt6983_peri_iommu_data[PERI_IOMMU_NUM] = {
+	[PERI_IOMMU_M4] = {
+		.id = PERI_IOMMU_M4,
+		.bus_id = 4,
+	},
+	[PERI_IOMMU_M6] = {
+		.id = PERI_IOMMU_M6,
+		.bus_id = 6,
+	},
+	[PERI_IOMMU_M7] = {
+		.id = PERI_IOMMU_M7,
+		.bus_id = 7,
+	},
 };
 
 static const struct mtk_iommu_port iommu_port_mt6779[] = {
@@ -1858,20 +1880,6 @@ static const struct mtk_iommu_port apu_port_mt6983[] = {
 	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0x1f)
 };
 
-static const struct mtk_iommu_port peri_port_mt6983[] = {
-	/* 8 */
-	APU_IOMMU_PORT_INIT("APU_VP6_0", 0, 0, 0, 0x0),
-	APU_IOMMU_PORT_INIT("APU_VP6_1", 0, 0, 0, 0x1),
-	APU_IOMMU_PORT_INIT("APU_UP", 0, 0, 0, 0x2),
-	APU_IOMMU_PORT_INIT("APU_RESERVED", 0, 0, 0, 0x3),
-	APU_IOMMU_PORT_INIT("APU_XPU", 0, 0, 0, 0x4),
-	APU_IOMMU_PORT_INIT("APU_EDMA", 0, 0, 0, 0x5),
-	APU_IOMMU_PORT_INIT("APU_MDLA0", 0, 0, 0, 0x6),
-	APU_IOMMU_PORT_INIT("APU_MDLA1", 0, 0, 0, 0x7),
-
-	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0xf)
-};
-
 static const struct mtk_iommu_port mm_port_mt6879[] = {
 	/* Larb0 */
 	MM_IOMMU_PORT_INIT("LARB0_PORT0", DISP_IOMMU, 0, 0x0, 0),
@@ -2753,6 +2761,99 @@ static int mtk_iommu_debug_help(struct seq_file *s)
 	return 0;
 }
 
+static char *mt6983_peri_m7_id(u32 id)
+{
+	u32 id1_0 = id & GENMASK(1, 0);
+	u32 id4_2 = FIELD_GET(GENMASK(4, 2), id);
+
+	if (id1_0 == 0)
+		return "MCU_AP_M";
+	else if (id1_0 == 1)
+		return "DEBUG_TRACE_LOG";
+	else if (id1_0 == 2)
+		return "PERI2INFRA1_M";
+
+	switch (id4_2) {
+	case 0:
+		return "CQ_DMA";
+	case 1:
+		return "DEBUGTOP";
+	case 2:
+		return "GPU_EB";
+	case 3:
+		return "CPUM_M";
+	case 4:
+		return "DXCC_M";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static char *mt6983_peri_m6_id(u32 id)
+{
+	return "PERI2INFRA0_M";
+}
+
+static char *mt6983_peri_m4_id(u32 id)
+{
+	u32 id0 = id & 0x1;
+	u32 id1_0 = id & GENMASK(1, 0);
+	u32 id3_2 = FIELD_GET(GENMASK(3, 2), id);
+
+	if (id0 == 0)
+		return "DFD_M";
+	else if (id1_0 == 1)
+		return "DPMAIF_M";
+
+	switch (id3_2) {
+	case 0:
+		return "ADSPSYS_M0_M";
+	case 1:
+		return "VLPSYS_M";
+	case 2:
+		return "CONN_M";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static char *mt6983_peri_tf(enum peri_iommu id, u32 fault_id)
+{
+	switch (id) {
+	case PERI_IOMMU_M4:
+		return mt6983_peri_m4_id(fault_id);
+	case PERI_IOMMU_M6:
+		return mt6983_peri_m6_id(fault_id);
+	case PERI_IOMMU_M7:
+		return mt6983_peri_m7_id(fault_id);
+	default:
+		return "UNKNOWN";
+	}
+}
+
+enum peri_iommu get_peri_iommu_id(u32 bus_id)
+{
+	int i;
+
+	for (i = PERI_IOMMU_M4; i < PERI_IOMMU_NUM; i++) {
+		if (bus_id == m4u_data->plat_data->peri_data[i].bus_id)
+			return i;
+	}
+
+	return PERI_IOMMU_NUM;
+};
+EXPORT_SYMBOL_GPL(get_peri_iommu_id);
+
+char *peri_tf_analyse(enum peri_iommu iommu_id, u32 fault_id)
+{
+	if (m4u_data->plat_data->peri_tf_analyse)
+		return m4u_data->plat_data->peri_tf_analyse(iommu_id, fault_id);
+
+	pr_info("%s is not support\n", __func__);
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(peri_tf_analyse);
+
 static int m4u_debug_set(void *data, u64 val)
 {
 	pr_info("%s:val=%llu\n", __func__, val);
@@ -3155,20 +3256,13 @@ static int mtk_m4u_dbg_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	m4u_debug_init(m4u_data);
-	pr_info("%s done: total:%u, apu:%u -- %s, mm:%u -- %s, 0x%lx\n",
-		__func__,
-		total_port,
-		m4u_data->plat_data->port_nr[APU_IOMMU],
-		m4u_data->plat_data->port_list[APU_IOMMU][3].name,
-		m4u_data->plat_data->port_nr[MM_IOMMU],
-		m4u_data->plat_data->port_list[MM_IOMMU][10].name,
-		F_APU_MMU_INT_TF_MSK(0x111));
 
 	ret = register_trace_android_vh_iommu_alloc_iova(alloc_iova_hook, "mtk_m4u_dbg_probe");
 	pr_debug("add alloc iova hook %s\n", ret ? "fail": "pass");
 	ret = register_trace_android_vh_iommu_free_iova(free_iova_hook, "mtk_m4u_dbg_probe");
 	pr_debug("add free iova hook %s\n", ret ? "fail": "pass");
 
+	pr_info("%s done\n", __func__);
 	return 0;
 }
 
@@ -3220,9 +3314,9 @@ static const struct mtk_m4u_plat_data mt6983_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6983),
 	.port_list[APU_IOMMU] = apu_port_mt6983,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6983),
-	.port_list[PERI_IOMMU] = peri_port_mt6983,
-	.port_nr[PERI_IOMMU]   = ARRAY_SIZE(peri_port_mt6983),
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
+	.peri_data	= mt6983_peri_iommu_data,
+	.peri_tf_analyse = mt6983_peri_tf,
 };
 
 static const struct mtk_m4u_plat_data mt6879_data = {
