@@ -25,6 +25,45 @@
 #include "apu_excep.h"
 #include "apu_config.h"
 
+static struct platform_device *g_pdev;
+static int drv_param;
+
+static int set_drv_param(const char *buf, const struct kernel_param *kp)
+{
+	int err = 0;
+	int param = 0;
+
+	err = kstrtoint(buf, 10, &param);
+	if (err || (param != 0 && param != 1))
+		return -EINVAL;
+
+	if (param == 1) {
+		pr_info("%s call rpm get sync ++\n", __func__);
+		pm_runtime_get_sync(&g_pdev->dev);
+		pr_info("%s call rpm get sync --\n", __func__);
+	} else {
+		pr_info("%s call rpm put sync ++\n", __func__);
+		pm_runtime_put_sync(&g_pdev->dev);
+		pr_info("%s call rpm put sync --\n", __func__);
+	}
+
+	return 0;
+}
+
+static int get_drv_param(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, 64, "drv_param:%d\n", drv_param);
+}
+
+static struct kernel_param_ops drv_param_ops = {
+	.set = set_drv_param,
+	.get = get_drv_param,
+};
+
+__MODULE_PARM_TYPE(drv_param, "int");
+module_param_cb(drv_param, &drv_param_ops, &drv_param, 0644);
+MODULE_PARM_DESC(drv_param, "apusys rv33 driver param");
+
 static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 {
 	void *ptr = NULL;
@@ -278,10 +317,19 @@ static int apu_probe(struct platform_device *pdev)
 
 	dev_info(dev, "%s %d\n", __func__, __LINE__);
 	pm_runtime_enable(&pdev->dev);
+
+	/*
+	 * CAUTION !
+	 * this line will cause rpm refcnt of apu_top +2
+	 * apusys_rv -> iommu0 -> apu_top
+	 * apusys_rv -> iommu1 -> apu_top
+	 */
+	g_pdev = pdev;
 	pm_runtime_get_sync(&pdev->dev);
 	dev_info(dev, "%s %d\n", __func__, __LINE__);
 
 	if (!hw_ops->apu_memmap_init) {
+		pm_runtime_put_sync(&pdev->dev);
 		WARN_ON(1);
 		return -EINVAL;
 	}
@@ -333,6 +381,7 @@ static int apu_probe(struct platform_device *pdev)
 			goto del_rproc;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	return 0;
 
 del_rproc:
@@ -360,6 +409,7 @@ remove_apu_mem:
 	apu_mem_remove(apu);
 
 remove_apu_memmap:
+	pm_runtime_put_sync(&pdev->dev);
 	if (!hw_ops->apu_memmap_remove) {
 		WARN_ON(1);
 		return -EINVAL;
