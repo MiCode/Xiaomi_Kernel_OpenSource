@@ -25,6 +25,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 
 
 /*#include <linux/xlog.h>		 For xlog_printk(). */
@@ -183,6 +185,7 @@ pr_info(MyTag "[%s] " format, __func__, ##args)
 pr_info(MyTag "[%s] " format, __func__, ##args)
 #define LOG_AST(format, args...) \
 pr_debug(MyTag "[%s] " format, __func__, ##args)
+
 
 /***********************************************************************
  *
@@ -5347,6 +5350,7 @@ static signed int WPE_probe(struct platform_device *pDev)
 #endif
 	}
 
+
 EXIT:
 	if (Ret < 0)
 		WPE_UnregCharDev();
@@ -5396,19 +5400,6 @@ static signed int bPass1_On_In_Resume_TG1;
 static signed int WPE_suspend(
 		struct platform_device *pDev, pm_message_t Mesg)
 {
-	/*signed int ret = 0; */
-
-	/*LOG_DBG("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);*/
-
-	bPass1_On_In_Resume_TG1 = 0;
-
-	if (g_u4EnableClockCount > 0) {
-		WPE_EnableClock(MFALSE);
-		g_u4WpeCnt++;
-	}
-
-	LOG_INF("%s: WPE suspend g_u4EnableClockCount: %d, g_u4WpeCnt: %d",
-		 __func__, g_u4EnableClockCount, g_u4WpeCnt);
 
 	return 0;
 }
@@ -5418,20 +5409,55 @@ static signed int WPE_suspend(
  ***********************************************************************/
 static signed int WPE_resume(struct platform_device *pDev)
 {
-	/*LOG_DBG("bPass1_On_In_Resume_TG1(%d).\n", bPass1_On_In_Resume_TG1);*/
-	if (g_u4WpeCnt > 0) {
-		WPE_EnableClock(MTRUE);
-		g_u4WpeCnt--;
-	}
-
-	LOG_INF("%s: WPE resume g_u4EnableClockCount: %d, g_u4WpeCnt: %d",
-		 __func__, g_u4EnableClockCount, g_u4WpeCnt);
 
 	return 0;
 }
+//#if IS_ENABLED(CONFIG_PM)
 
+static int wpe_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		/*LOG_DBG("bPass1_On_In_Resume_TG1(%d)\n", bPass1_On_In_Resume_TG1);*/
+		bPass1_On_In_Resume_TG1 = 0;
+		if (g_u4EnableClockCount > 0) {
+			WPE_EnableClock(MFALSE);
+			g_u4WpeCnt++;
+		}
+
+		LOG_INF("%s: WPE suspend g_u4EnableClockCount: %d, g_u4WpeCnt: %d",
+		__func__, g_u4EnableClockCount, g_u4WpeCnt);
+
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		if (g_u4WpeCnt > 0) {
+			WPE_EnableClock(MTRUE);
+			g_u4WpeCnt--;
+		}
+
+		LOG_INF("%s: WPE resume g_u4EnableClockCount: %d, g_u4WpeCnt: %d",
+		__func__, g_u4EnableClockCount, g_u4WpeCnt);
+
+
+		return NOTIFY_DONE;
+}
+	return NOTIFY_OK;
+}
+#if IS_ENABLED(CONFIG_PM)
 /*---------------------------------------------------------------------*/
-#ifdef CONFIG_PM
 /*---------------------------------------------------------------------*/
 int WPE_pm_suspend(struct device *device)
 {
@@ -5512,12 +5538,18 @@ static struct platform_driver WPEDriver = {
 #ifdef CONFIG_OF
 		   .of_match_table = WPE_of_ids,
 #endif
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		   .pm = &WPE_pm_ops,
 #endif
 		}
 };
 
+#if IS_ENABLED(CONFIG_PM)
+static struct notifier_block wpe_suspend_pm_notifier_func = {
+	.notifier_call = wpe_suspend_pm_event,
+	.priority = 0,
+};
+#endif
 
 static int wpe_dump_read(struct seq_file *m, void *v)
 {
@@ -5812,6 +5844,14 @@ LOG_INF("- platform_driver_register OK");
 			   WPE_DumpCallback,
 			   WPE_ResetCallback,
 			   WPE_ClockOffCallback);
+#endif
+
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&wpe_suspend_pm_notifier_func);
+	if (Ret) {
+		pr_debug("[Camera WPE] Failed to register PM notifier.\n");
+		return Ret;
+	}
 #endif
 
 	LOG_INF("[WPE_init]CG_IMG_LARB11_ON = %d ,CG_IMG1_ON = %d , GKI_IMG1_LARB_ON = %d \n",CG_IMG_LARB11_ON, CG_IMG1_ON, GKI_IMG1_LARB_ON);
