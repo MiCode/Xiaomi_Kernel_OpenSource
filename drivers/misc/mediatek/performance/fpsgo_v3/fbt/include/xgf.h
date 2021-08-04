@@ -8,6 +8,7 @@
 
 #include <linux/rbtree.h>
 #include <linux/tracepoint.h>
+#include <linux/slab.h>
 
 #define HW_EVENT_NUM 2
 #define HW_MONITER_WINDOW 10
@@ -28,6 +29,7 @@
 #define UB_BEGIN_FRAME 50
 #define XGF_MAX_SPID_LIST_LENGTH 20
 #define DEFAULT_DFRC 60
+#define N 8
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -63,6 +65,49 @@ struct xgf_sub_sect {
 	struct hlist_node hlist;
 	unsigned long long start_ts;
 	unsigned long long end_ts;
+};
+
+struct xgf_ema2_predictor {
+	/* data */
+	long long learn_rate;
+	long long beta;
+	long long epsilon;
+	long long alpha;
+	long long mu;
+	long long one;
+
+	long long L[N];
+	long long W[N];
+
+	long long RMSProp[N];
+	long long nabla[N];
+	long long rho[N];
+
+	long long x_record[N];
+	long long acc_x;
+	long long acc_xx[N + 1];
+	long long x_front[N];
+	long long xt_last;
+	long long xt_last_valid;
+
+	int record_idx;
+	long long ar_error_diff;
+	long long ar_coeff_sum;
+	bool ar_coeff_enable;
+	int ar_coeff_frames;
+	int acc_idx;
+	int coeff_shift;
+	int order;
+	long long t;
+	bool ar_coeff_valid;
+
+	int invalid_th;
+	unsigned int invalid_input_cnt;
+	unsigned int invalid_negative_output_cnt;
+	unsigned int skip_grad_update_cnt;
+	bool rmsprop_initialized;
+	bool x_record_initialized;
+	int err_code;
 };
 
 struct xgf_render {
@@ -105,6 +150,9 @@ struct xgf_render {
 
 	unsigned long long raw_l_runtime;
 	unsigned long long raw_r_runtime;
+
+	int hwui_flag;
+	struct xgf_ema2_predictor *ema2_pt;
 };
 
 struct xgf_dep {
@@ -195,6 +243,7 @@ extern int (*fpsgo_xgf2ko_calculate_target_fps_fp)(int pid,
 	unsigned long long cur_queue_end_ts);
 extern void (*fpsgo_xgf2ko_do_recycle_fp)(int pid,
 	unsigned long long bufID);
+extern long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
 
 void xgf_lockprove(const char *tag);
 void xgf_trace(const char *fmt, ...);
@@ -228,7 +277,7 @@ int fpsgo_ctrl2xgf_nn_job_end(unsigned int tid, unsigned long long mid);
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts);
+	unsigned long long ts, int hwui_flag);
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);
@@ -241,7 +290,8 @@ int fpsgo_xgf2ko_calculate_target_fps(int pid, unsigned long long bufID,
 	int *target_fps_margin, unsigned long long cur_queue_end_ts);
 int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID);
 void fpsgo_xgf2ko_do_recycle(int pid, unsigned long long bufID);
-void fpsgo_ctrl2xgf_display_rate(int dfrc_fps);
+void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps);
+void fpsgo_fstb2xgf_set_camera_flag(int camera_flag);
 int xgf_get_display_rate(void);
 int xgf_get_process_id(int pid);
 int xgf_check_main_sf_pid(int pid, int process_id);
@@ -252,6 +302,8 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 	int *l_arr, int l_num, int *r_arr, int r_num,
 	unsigned long long l_start_ts,
 	unsigned long long f_start_ts);
+
+long long xgf_ema2_predict(struct xgf_ema2_predictor *pt, long long X);
 
 enum XGF_EVENT {
 	SCHED_SWITCH,

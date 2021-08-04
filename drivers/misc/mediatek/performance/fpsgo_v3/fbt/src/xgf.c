@@ -38,6 +38,8 @@ static unsigned long long last_check2recycle_ts;
 static atomic_t xgf_atomic_val_0 = ATOMIC_INIT(0);
 static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
+static unsigned long long xgf_ema_mse;
+static unsigned long long xgf_ema2_mse;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
 static int xgf_force_no_extra_sub;
@@ -53,7 +55,9 @@ static int xgf_stddev_multi = XGF_UBOOST_STDDEV_M;
 static int xgf_spid_list_length;
 static int xgf_wspid_list_length;
 static int xgf_cfg_spid;
-static int display_rate = DEFAULT_DFRC;
+static int xgf_ema2_enable = 1;
+static int xgf_camera_flag;
+static int xgf_display_rate = DEFAULT_DFRC;
 int fstb_frame_num;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr;
@@ -74,6 +78,7 @@ module_param(xgf_sp_name_id, int, 0644);
 module_param(xgf_uboost, int, 0644);
 module_param(xgf_stddev_multi, int, 0644);
 module_param(xgf_cfg_spid, int, 0644);
+module_param(xgf_ema2_enable, int, 0644);
 module_param(fstb_frame_num, int, 0644);
 module_param(fstb_no_stable_thr, int, 0644);
 module_param(fstb_target_fps_margin, int, 0644);
@@ -99,7 +104,6 @@ int (*fpsgo_xgf2ko_calculate_target_fps_fp)(
 	unsigned long long cur_queue_end_ts
 	);
 EXPORT_SYMBOL(fpsgo_xgf2ko_calculate_target_fps_fp);
-
 void (*fpsgo_xgf2ko_do_recycle_fp)(
 	int pid,
 	unsigned long long bufID
@@ -117,6 +121,9 @@ int (*xgff_est_runtime_fp)(
 EXPORT_SYMBOL(xgff_est_runtime_fp);
 int (*xgff_update_start_prev_index_fp)(struct xgf_render *render);
 EXPORT_SYMBOL(xgff_update_start_prev_index_fp);
+
+long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
+EXPORT_SYMBOL(xgf_ema2_predict_fp);
 
 static inline void xgf_lock(const char *tag)
 {
@@ -262,7 +269,7 @@ static inline int xgf_ko_is_ready(void)
 
 int xgf_get_display_rate(void)
 {
-	return display_rate;
+	return xgf_display_rate;
 }
 EXPORT_SYMBOL(xgf_get_display_rate);
 
@@ -340,10 +347,17 @@ int xgf_check_specific_pid(int pid)
 }
 EXPORT_SYMBOL(xgf_check_specific_pid);
 
-void fpsgo_ctrl2xgf_display_rate(int dfrc_fps)
+void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps)
 {
 	xgf_lock(__func__);
-	display_rate = dfrc_fps;
+	xgf_display_rate = dfrc_fps;
+	xgf_unlock(__func__);
+}
+
+void fpsgo_fstb2xgf_set_camera_flag(int camera_flag)
+{
+	xgf_lock(__func__);
+	xgf_camera_flag = camera_flag;
 	xgf_unlock(__func__);
 }
 
@@ -1118,8 +1132,94 @@ static int xgf_hw_event_collect(int event_type, int tid,
 	return ret;
 }
 
+static struct xgf_ema2_predictor *xgf_ema2_get_pred(void)
+{
+	struct xgf_ema2_predictor *pt = kzalloc(sizeof(*pt), GFP_KERNEL);
+
+	pt->learn_rate = 12;
+	pt->beta = 3686;
+	pt->alpha = 2048;
+	pt->one = 4096;
+
+	pt->ar_error_diff = 1024;
+	pt->ar_coeff_sum = 2867;
+
+	if (EMA_DIVIDEND == 5) {
+		pt->L[0] = 2048;
+		pt->L[1] = 1024;
+		pt->L[2] = 512;
+		pt->L[3] = 256;
+		pt->L[4] = 128;
+		pt->L[5] = 64;
+		pt->L[6] = 32;
+		pt->L[7] = 16;
+	} else {
+		pt->L[0] = 2867;
+		pt->L[1] = 860;
+		pt->L[2] = 258;
+		pt->L[3] = 77;
+		pt->L[4] = 23;
+		pt->L[5] = 7;
+		pt->L[6] = 2;
+		pt->L[7] = 1;
+	}
+
+	pt->W[0] = 115;
+	pt->W[1] = 191;
+	pt->W[2] = 319;
+	pt->W[3] = 531;
+	pt->W[4] = 885;
+	pt->W[5] = 1475;
+	pt->W[6] = 2458;
+	pt->W[7] = 4096;
+
+	pt->coeff_shift = 12;
+	pt->epsilon = 1;
+	pt->mu = 0;
+
+	pt->acc_x = 0;
+	pt->record_idx = 0;
+	pt->acc_idx = 0;
+	pt->ar_coeff_enable = true;
+	pt->ar_coeff_frames = 200;
+
+	pt->t = 0;
+	pt->order = 8;
+	pt->ar_coeff_valid = 0;
+
+	pt->invalid_input_cnt = 0;
+	pt->invalid_negative_output_cnt = 0;
+	pt->invalid_th = 5;
+	pt->skip_grad_update_cnt = N;
+	pt->err_code = 0;
+	pt->xt_last = 0;
+	pt->xt_last_valid = 0;
+	pt->rmsprop_initialized = false;
+	pt->x_record_initialized = false;
+	return pt;
+}
+
+static void xgf_ema2_free(struct xgf_ema2_predictor *pt)
+{
+	kfree(pt);
+}
+
+static void xgf_ema2_dump_rho(struct xgf_ema2_predictor *pt, char *buffer)
+{
+	int i;
+
+	if (!pt)
+		return;
+
+	for (i = 0; i < N; i++)
+		buffer += sprintf(buffer, " %lld", pt->rho[i]);
+	buffer += sprintf(buffer, " -");
+	for (i = 0; i < N; i++)
+		buffer += sprintf(buffer, " %lld", pt->L[i]);
+}
+
 static int xgf_get_render(pid_t rpid, unsigned long long bufID,
-	struct xgf_render **ret, int force)
+	struct xgf_render **ret, int force, int hwui_flag)
 {
 	struct xgf_render *iter;
 
@@ -1186,11 +1286,16 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		iter->dep_frames = xgf_prev_dep_frames;
 		iter->raw_l_runtime = 0;
 		iter->raw_r_runtime = 0;
+		iter->hwui_flag = hwui_flag;
+		iter->ema2_pt = 0;
 	}
 
 	INIT_HLIST_HEAD(&iter->sector_head);
 	INIT_HLIST_HEAD(&iter->hw_head);
 	hlist_add_head(&iter->hlist, &xgf_renders);
+
+	iter->ema2_pt = xgf_ema2_get_pred();
+	iter->ema2_pt->ar_coeff_enable = 1;
 
 	if (ret)
 		*ret = iter;
@@ -1786,6 +1891,12 @@ void xgf_reset_renders(void)
 		xgf_clean_deps_list(r_iter, PREVI_DEPS);
 		xgf_reset_render_sector(r_iter);
 		xgf_reset_render_hw_list(r_iter);
+
+		if (r_iter->ema2_pt) {
+			xgf_ema2_free(r_iter->ema2_pt);
+			r_iter->ema2_pt = 0;
+		}
+
 		hlist_del(&r_iter->hlist);
 		xgf_free(r_iter);
 	}
@@ -2285,7 +2396,7 @@ static void xgf_calculate_u_avg2sd(struct xgf_render *render)
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts)
+	unsigned long long ts, int hwui_flag)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgf_render *r, **rrender;
@@ -2297,6 +2408,10 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long t_dequeue_time = 0;
 	int do_extra_sub = 0;
 	unsigned long long q2q_time = 0;
+	unsigned long long tmp_runtime = 0;
+	unsigned long long delta = 0;
+	unsigned long long time_scale = 1000;
+	char buf[255] = {0};
 
 	if (rpid <= 0 || ts == 0)
 		return XGF_PARAM_ERR;
@@ -2311,7 +2426,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2321,7 +2436,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 1)) {
+		if (xgf_get_render(rpid, bufID, rrender, 1, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2367,13 +2482,67 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			if (q2q_time && raw_runtime > q2q_time)
 				raw_runtime = q2q_time;
 
-			r->ema_runtime =
-				xgf_ema_cal(raw_runtime, r->ema_runtime);
+			if (xgf_ema2_enable && !xgf_camera_flag && (r->hwui_flag == 2)) {
+				//calculate mse
+				delta = abs((long long)(raw_runtime/time_scale) -
+					(long long)(r->ema_runtime/time_scale));
+				xgf_ema_mse += delta*delta;
 
-			*run_time = r->ema_runtime;
+				delta = abs((long long)(raw_runtime/time_scale) -
+					(long long)(r->ema2_pt->xt_last));
+				xgf_ema2_mse += delta*delta;
+
+				//predict next frame
+				r->ema_runtime = xgf_ema_cal(raw_runtime, r->ema_runtime);
+				WARN_ON(!xgf_ema2_predict_fp);
+				if (xgf_ema2_predict_fp) {
+					tmp_runtime =
+						xgf_ema2_predict_fp(r->ema2_pt,
+							raw_runtime/time_scale)
+						* time_scale;
+
+					xgf_trace("[ t:%d err:%d ei:%d eo:%d i:%d-%d ]",
+						r->ema2_pt->t, r->ema2_pt->err_code,
+						r->ema2_pt->invalid_input_cnt,
+						r->ema2_pt->invalid_negative_output_cnt,
+						r->ema2_pt->rmsprop_initialized,
+						r->ema2_pt->x_record_initialized);
+					xgf_trace("xgf ema2 raw_t:%llu alpha:%llu ema2:%lld",
+						raw_runtime, r->ema_runtime, tmp_runtime);
+
+					if (r->ema2_pt->acc_idx == 1) {
+						xgf_ema2_dump_rho(r->ema2_pt, buf);
+						xgf_trace("xgf ema2 oneshot:%d rho-L:%s ",
+							r->ema2_pt->ar_coeff_valid, buf);
+						xgf_ema_mse = xgf_ema_mse/
+							(r->ema2_pt->ar_coeff_frames*
+								time_scale*time_scale);
+						xgf_ema2_mse = xgf_ema2_mse/
+							(r->ema2_pt->ar_coeff_frames*
+								time_scale*time_scale);
+
+						xgf_trace("xgf ema2 mse_alpha:%lld mse_ema2:%lld",
+							xgf_ema_mse, xgf_ema2_mse);
+						fpsgo_systrace_c_fbt(rpid, bufID, xgf_ema_mse,
+							"mse_alpha");
+						fpsgo_systrace_c_fbt(rpid, bufID, xgf_ema2_mse,
+							"mse_ema2");
+						xgf_ema_mse = 0;
+						xgf_ema2_mse = 0;
+					}
+
+					*run_time = tmp_runtime;
+				} else
+					*run_time = r->ema_runtime;
+			} else {
+				r->ema_runtime = xgf_ema_cal(raw_runtime, r->ema_runtime);
+				*run_time = r->ema_runtime;
+			}
 		}
 
 		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
+		if (xgf_ema2_enable && !xgf_camera_flag && (r->hwui_flag == 2))
+			fpsgo_systrace_c_fbt(rpid, bufID, tmp_runtime, "ema2_t_cpu");
 
 		/* hw event for fbt */
 		hlist_for_each_entry_safe(hr_iter, hr, &r->hw_head, hlist) {
@@ -2388,7 +2557,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2397,7 +2566,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2422,13 +2591,13 @@ void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
 	struct xgf_render *r, **rrender;
 
 	rrender = &r;
-	if (!xgf_get_render(pid, bufID, rrender, 1)) {
+	if (!xgf_get_render(pid, bufID, rrender, 0, 0)) {
 		ret = 1;
 		r->raw_l_runtime = l_runtime;
 		r->raw_r_runtime = r_runtime;
 	}
 
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
+	fpsgo_main_trace("[fstb][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
 		r->raw_l_runtime, r->raw_r_runtime, ret);
 	fpsgo_systrace_c_fbt(pid, bufID, l_runtime, "raw_t_cpu_logical");
 	fpsgo_systrace_c_fbt(pid, bufID, r_runtime, "raw_t_cpu_render");
@@ -2470,9 +2639,9 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 			break;
 	}
 
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | l_deplist:[%s]", pid, bufID, l_dep_str);
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | r_deplist:[%s]", pid, bufID, r_dep_str);
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | logical_start=%llu, frame_start=%llu", pid, bufID,
+	fpsgo_main_trace("[fstb][%d][0x%llx] | l_deplist:[%s]", pid, bufID, l_dep_str);
+	fpsgo_main_trace("[fstb][%d][0x%llx] | r_deplist:[%s]", pid, bufID, r_dep_str);
+	fpsgo_main_trace("[fstb][%d][0x%llx] | logical_start=%llu, frame_start=%llu", pid, bufID,
 		l_start_ts, f_start_ts);
 }
 EXPORT_SYMBOL(xgf_set_logical_render_info);

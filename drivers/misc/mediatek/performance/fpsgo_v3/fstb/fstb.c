@@ -1150,6 +1150,7 @@ static void fstb_set_cam_active(int active)
 		fstb_camera_flag = 0;
 
 	fstb_is_cam_active = active;
+	fpsgo_fstb2xgf_set_camera_flag(fstb_camera_flag);
 }
 
 static void fstb_check_cam_status(void)
@@ -2664,7 +2665,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	}
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\t\tsbe_state\t\tHWUI\n");
+	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\tHWUI\n");
 	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
