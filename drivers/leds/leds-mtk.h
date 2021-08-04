@@ -29,6 +29,7 @@ struct mt_led_data {
 	struct led_debug_info debug;
 	int (*mtk_hw_brightness_set)(struct mt_led_data *m_data,
 		int brightness);
+	struct mutex	led_access;
 };
 
 int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode);

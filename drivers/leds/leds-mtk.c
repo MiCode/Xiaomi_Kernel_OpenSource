@@ -158,14 +158,15 @@ int mtk_leds_brightness_set(char *name, int level)
 	led_dat = container_of(leds_info->leds[index],
 		struct mt_led_data, desp);
 
+	mutex_lock(&led_dat->led_access);
 	if (!led_dat->conf.aal_enable) {
 		led_dat->conf.aal_enable = 1;
 		pr_notice("aal not enable, set %s %d return", name, level);
-		return -1;
 	}
 
 	mtk_set_hw_brightness(led_dat, level);
 	led_dat->last_hw_brightness = level;
+	mutex_unlock(&led_dat->led_access);
 
 	return 0;
 }
@@ -191,10 +192,12 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 	led_debug_log(led_dat, brightness, trans_level);
 
 	call_notifier(LED_BRIGHTNESS_CHANGED, led_conf);
+	mutex_lock(&led_dat->led_access);
 	if (!led_conf->aal_enable) {
 		mtk_set_hw_brightness(led_dat, trans_level);
 		led_dat->last_hw_brightness = trans_level;
 	}
+	mutex_unlock(&led_dat->led_access);
 
 	return 0;
 
@@ -298,6 +301,7 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	leds_info->leds[leds_info->lens] = &mdev->desp;
 	leds_info->lens++;
 	mdev->conf.aal_enable = 0;
+	mutex_init(&mdev->led_access);
 
 	pr_info("parse led: %s, num: %d, max: %d, max_hw: %d, brightness: %d",
 		mdev->conf.cdev.name,
