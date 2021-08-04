@@ -16,7 +16,7 @@ struct led_conf_info {
 	int limit_hw_brightness;
 	unsigned int aal_enable;
 	struct led_classdev cdev;
-} led_conf_info;
+};
 
 int mtk_leds_register_notifier(struct notifier_block *nb);
 int mtk_leds_unregister_notifier(struct notifier_block *nb);
