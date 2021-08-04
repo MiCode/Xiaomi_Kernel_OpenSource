@@ -978,7 +978,7 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 				  &data);
 		if (err < 0) {
 			dev_err(hw->dev,
-				"failed to save register %02x\n",
+				"failed to read register %02x\n",
 				st_asm330lhhx_suspend_resume[i].addr);
 			goto out_lock;
 		}
@@ -1002,12 +1002,12 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 
 		st_asm330lhhx_suspend_resume[i].val = data;
 
-#ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
-	dev_info(hw->dev,
-		 "%s %d: %x -> %x\n",
-		 __FUNCTION__, __LINE__,
-		 st_asm330lhhx_suspend_resume[i].addr,
-		 st_asm330lhhx_suspend_resume[i].val);
+#ifdef ST_ASM330LHHX_ENABLE_DEBUG
+		dev_info(hw->dev,
+			 "%s %d: %x -> %x\n",
+			 __FUNCTION__, __LINE__,
+			 st_asm330lhhx_suspend_resume[i].addr,
+			 st_asm330lhhx_suspend_resume[i].val);
 #endif /* ST_ASM330LHHX_ENABLE_DEBUG */
 	}
 
@@ -1054,15 +1054,8 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 				"failed to update %02x reg\n",
 				st_asm330lhhx_suspend_resume[i].addr);
 			break;
-
-#ifdef ST_ASM330LHHX_ENABLE_DEBUG
-	dev_info(hw->dev,
-		 "%s %d: %x <- %x\n",
-		 __FUNCTION__, __LINE__,
-		 st_asm330lhhx_suspend_resume[i].addr,
-		 st_asm330lhhx_suspend_resume[i].val);
-#endif /* ST_ASM330LHHX_ENABLE_DEBUG */
 		}
+
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 		if (restore) {
 			err = regmap_update_bits(hw->regmap,
@@ -1079,6 +1072,15 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 			restore = 0;
 		}
 #endif /* ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS */
+
+#ifdef ST_ASM330LHHX_ENABLE_DEBUG
+		dev_info(hw->dev,
+			 "%s %d: %x <- %x\n",
+			 __FUNCTION__, __LINE__,
+			 st_asm330lhhx_suspend_resume[i].addr,
+			 st_asm330lhhx_suspend_resume[i].val);
+#endif /* ST_ASM330LHHX_ENABLE_DEBUG */
+
 	}
 
 	mutex_unlock(&hw->page_lock);

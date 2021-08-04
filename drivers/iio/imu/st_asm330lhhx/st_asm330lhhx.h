@@ -16,7 +16,7 @@
 #include <linux/regmap.h>
 #include <linux/bitfield.h>
 
-#define ST_ASM330LHHX_ENABLE_DEBUG
+//#define ST_ASM330LHHX_ENABLE_DEBUG
 
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
