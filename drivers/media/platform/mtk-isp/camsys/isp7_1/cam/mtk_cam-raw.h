@@ -185,6 +185,8 @@ struct mtk_cam_resource_config {
 	u32 frz_ratio;
 	u32 tgo_pxl_mode;
 	u32 raw_path;
+	/* sink fmt adjusted according resource used*/
+	struct v4l2_mbus_framefmt sink_fmt;
 };
 
 struct mtk_raw_pad_config {

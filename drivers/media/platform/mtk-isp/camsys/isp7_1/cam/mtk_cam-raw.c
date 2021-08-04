@@ -50,6 +50,9 @@
 #define MHz		1000000
 #define MTK_CAMSYS_PROC_DEFAULT_PIXELMODE 2
 
+#define sizeof_u32(__struct__) ((sizeof(__struct__) + sizeof(u32) - 1)/ \
+				sizeof(u32))
+
 enum MTK_CAMSYS_RES_STEP {
 	E_RES_BASIC,
 	E_RES_BIN_S = MTK_CAMSYS_RES_BIN_TAG,
@@ -133,6 +136,11 @@ static const struct v4l2_mbus_framefmt mfmt_default = {
 	.quantization = V4L2_QUANTIZATION_DEFAULT,
 };
 
+static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
+				  struct mtk_cam_resource_config *res,
+				  s64 pixel_rate, int res_plan,
+				  int in_w, int in_h, int *out_w, int *out_h);
+
 static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_raw_pipeline *pipeline;
@@ -203,6 +211,134 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+static int
+mtk_cam_raw_try_res_ctrl(struct v4l2_ctrl *ctrl,
+			 struct mtk_cam_resource_config *res_cfg)
+{
+	struct v4l2_mbus_framefmt *sink_fmt;
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_resource *res_user;
+	struct device *dev;
+	s64 prate = 0;
+	int width, height;
+	long bytes;
+
+	sink_fmt = &res_cfg->sink_fmt;
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
+	res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
+
+	if (!res_user->sink_fmt) {
+		dev_info(dev,
+			 "%s:pipe(%d): sink_fmt can't be NULL for res ctrl\n",
+			 __func__, pipeline->id);
+
+		return -EINVAL;
+	}
+
+	bytes = copy_from_user(sink_fmt, (void *)res_user->sink_fmt,
+			       sizeof(*sink_fmt));
+	if (bytes) {
+		dev_info(dev,
+			 "%s:pipe(%d): copy_from_user on sink_fmt failed (%ld)\n",
+			 __func__, pipeline->id, bytes);
+		return -EINVAL;
+	}
+
+	dev_info(dev,
+		"%s:pipe(%d):sensor:%d/%d/%lld/%d/%d\n",
+		__func__, pipeline->id,
+		res_user->sensor_res.hblank, res_user->sensor_res.vblank,
+		res_user->sensor_res.pixel_rate,
+		res_user->sensor_res.interval.denominator,
+		res_user->sensor_res.interval.numerator);
+
+	dev_info(dev,
+		"%s:pipe(%d):raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+		__func__, pipeline->id,
+		res_user->raw_res.feature,
+		res_user->raw_res.bin,
+		res_user->raw_res.path_sel,
+		res_user->raw_res.raw_max,
+		res_user->raw_res.raw_min,
+		res_user->raw_res.raw_used,
+		res_user->raw_res.strategy,
+		res_user->raw_res.pixel_mode,
+		res_user->raw_res.throughput);
+
+	res_cfg->pixel_rate = res_user->sensor_res.pixel_rate;
+	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
+	res_cfg->frz_limit = 0;
+	res_cfg->hwn_limit = res_user->raw_res.raw_max;
+	res_cfg->hblank = res_user->sensor_res.hblank;
+	res_cfg->vblank = res_user->sensor_res.vblank;
+	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
+	res_cfg->res_plan = res_user->raw_res.strategy;
+	res_cfg->raw_feature = res_user->raw_res.feature;
+	res_cfg->raw_path = res_user->raw_res.path_sel;
+
+	prate = mtk_cam_seninf_calc_pixelrate
+				(pipeline->raw->cam_dev, sink_fmt->width,
+				 sink_fmt->height,
+				 res_user->sensor_res.hblank,
+				 res_user->sensor_res.vblank,
+				 res_user->sensor_res.interval.denominator,
+				 res_user->sensor_res.interval.numerator,
+				 res_user->sensor_res.pixel_rate);
+
+	mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
+			      res_cfg, res_user->sensor_res.pixel_rate,
+			      res_cfg->res_plan, sink_fmt->width,
+			      sink_fmt->height, &width, &height);
+
+	res_user->raw_res.raw_used = res_cfg->raw_num_used;
+	res_user->raw_res.bin = res_cfg->bin_enable;
+
+	/**
+	 * Other output not reveal to user now:
+	 * res_cfg->res_strategy[MTK_CAMSYS_RES_STEP_NUM];
+	 * res_cfg->clk_target;
+	 * res_cfg->frz_enable;
+	 * res_cfg->frz_ratio;
+	 * res_cfg->tgo_pxl_mode;
+	 */
+	if (width != sink_fmt->width || height != sink_fmt->height) {
+		dev_info(dev,
+			 "%s:pipe(%d): sink sz adjuest: before(%d,%d) after(%d,%d)\n",
+			 __func__, pipeline->id, sink_fmt->width, sink_fmt->height,
+			 width, height);
+	}
+	sink_fmt->width = width;
+	sink_fmt->height = height;
+
+	/* return the fmt to the users */
+	bytes = copy_to_user((void *)res_user->sink_fmt, sink_fmt,
+					   sizeof(*sink_fmt));
+	if (bytes) {
+		dev_info(dev,
+			 "%s:pipe(%d): copy_to_user on sink_fmt failed (%ld)\n",
+			 __func__, pipeline->id, bytes);
+
+		return -EINVAL;
+	}
+
+	return 0;
+
+}
+
+static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mtk_raw_pipeline *pipeline;
+	int ret;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	ret = mtk_cam_raw_try_res_ctrl(ctrl, &pipeline->res_config);
+	if (ret)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 				struct mtk_cam_resource_config *res_cfg,
 				int pipe_id)
@@ -266,8 +402,15 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_resource_config res_cfg;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
+		return mtk_cam_raw_try_res_ctrl(ctrl, &res_cfg);
+
+	}
 
 	return mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id], ctrl,
 				    &pipeline->try_res_config, pipeline->id);
@@ -278,6 +421,10 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 	struct mtk_raw_pipeline *pipeline;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+
+	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE)
+		return mtk_cam_raw_set_res_ctrl(ctrl);
+
 
 	return mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id], ctrl,
 				    &pipeline->res_config, pipeline->id);
@@ -438,6 +585,17 @@ static const struct v4l2_ctrl_config mtk_feature = {
 	.max = RAW_FUNCTION_END,
 	.step = 1,
 	.def = 0,
+};
+
+static struct v4l2_ctrl_config cfg_res_ctrl = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE,
+	.name = "resource ctrl",
+	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof(struct mtk_cam_resource)},
 };
 
 void trigger_rawi(struct mtk_raw_device *dev)
@@ -3414,6 +3572,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 				    V4L2_CID_VBLANK, 0, 65535, 1, 0);
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_ctrl, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
 	pipe->res_config.hwn_limit = hwn_limit.def;
 	pipe->res_config.frz_limit = frz_limit.def;
 	pipe->res_config.bin_limit = bin_limit.def;

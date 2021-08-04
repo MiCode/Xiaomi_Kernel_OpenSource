@@ -61,7 +61,8 @@
 	(V4L2_CID_USER_MTK_CAM_BASE + 13)
 #define V4L2_CID_MTK_CAM_RAW_PATH_SELECT\
 	(V4L2_CID_USER_MTK_CAM_BASE + 14)
-
+#define V4L2_CID_MTK_CAM_RAW_RESOURCE \
+	(V4L2_CID_USER_MTK_CAM_BASE + 18)
 /* Allowed value of V4L2_CID_MTK_CAM_RAW_PATH_SELECT */
 #define V4L2_MTK_CAM_RAW_PATH_SELECT_LSC	1
 
@@ -151,4 +152,79 @@
 
 #define V4L2_CID_VSYNC_NOTIFY \
 	(V4L2_CID_USER_MTK_SENINF_BASE + 3)
+
+
+#define MTK_CAM_RESOURCE_DEFAULT	0xFFFF
+
+/*
+ * struct mtk_cam_resource_sensor - sensor resoruces for format negotiation
+ *
+ */
+struct mtk_cam_resource_sensor {
+	struct v4l2_fract interval;
+	__u32 hblank;
+	__u32 vblank;
+	__u64 pixel_rate;
+};
+
+/*
+ * struct mtk_cam_resource_raw - MTK camsys raw resoruces for format negotiation
+ *
+ * @feature: value of V4L2_CID_MTK_CAM_FEATURE the user want to check the
+ *		  resource with. If it is used in set CTRL, we will apply the value
+ *		  to V4L2_CID_MTK_CAM_FEATURE ctrl directly.
+ * @strategy: indicate the order of multiple raws, binning or DVFS to be selected
+ *	      when doing format negotiation of raw's source pads (output pads).
+ *	      Please pass MTK_CAM_RESOURCE_DEFAULT if you want camsys driver to
+ *	      determine it.
+ * @raw_max: indicate the max number of raw to be used for the raw pipeline.
+ *	     Please pass MTK_CAM_RESOURCE_DEFAULT if you want camsys driver to
+ *	     determine it.
+ * @raw_min: indicate the max number of raw to be used for the raw pipeline.
+ *	     Please pass MTK_CAM_RESOURCE_DEFAULT if you want camsys driver to
+ *	     determine it.
+ * @raw_used: The number of raw used. The used don't need to writ this failed,
+ *	      the driver always updates the field.
+ * @bin: indicate if the driver should enable the bining or not. The driver
+ *	 update the field depanding the hardware supporting status. Please pass
+ *	 MTK_CAM_RESOURCE_DEFAULT if you want camsys driver to determine it.
+ * @path_sel: indicate the user selected raw path. The driver
+ *	      update the field depanding the hardware supporting status. Please
+ *	      pass MTK_CAM_RESOURCE_DEFAULT if you want camsys driver to
+ *	      determine it.
+ * @pixel_mode: the pixel mode driver used in the raw pipeline. It is written by
+ *		drive only.
+ * @throughput: the throughput be used in the raw pipeline. It is written by
+ *		drive only.
+ *
+ */
+struct mtk_cam_resource_raw {
+	__u32	feature;
+	__u16	strategy;
+	__u8	raw_max;
+	__u8	raw_min;
+	__u8	raw_used;
+	__u8	bin;
+	__u8	path_sel;
+	__u8	pixel_mode;
+	__u64	throughput;
+};
+
+/*
+ * struct mtk_cam_resource - MTK camsys resoruces for format negotiation
+ *
+ * @sink_fmt: sink_fmt pad's format, it must be return by g_fmt or s_fmt
+ *		from driver.
+ * @sensor_res: senor information to calculate the required resource, it is
+ *		read-only and camsys driver will not change it.
+ * @raw_res: user hint and resource negotiation result.
+ * @status:	TBC
+ *
+ */
+struct mtk_cam_resource {
+	struct v4l2_mbus_framefmt *sink_fmt;
+	struct mtk_cam_resource_sensor sensor_res;
+	struct mtk_cam_resource_raw raw_res;
+	__u8 status;
+};
 #endif /* __MTK_CAMERA_V4l2_CONTROLS_H */
