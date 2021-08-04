@@ -4573,6 +4573,29 @@
 		lv2_thd_volt = <3100>;
 	};
 
+	pbm: pbm {
+		compatible = "mediatek,pbm";
+	};
+
+	mdpm: mdpm {
+		compatible = "mediatek,mt6983-mdpm";
+	};
+
+	power_throttling: power_throttling {
+		compatible = "mediatek,power_throttling";
+		lbat_cpu_limit = <900000 900000 1300000>;
+		lbat_md_reduce_tx = <6>;
+		oc_cpu_limit = <900000 900000 1300000>;
+		oc_md_reduce_tx = <6>;
+	};
+
+	bp_thl: bp_thl {
+		compatible = "mediatek,mtk-bp-thl";
+		soc_limit = <15>;
+		soc_limit_ext = <20>;
+		soc_limit_ext_release = <25>;
+	};
+
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
