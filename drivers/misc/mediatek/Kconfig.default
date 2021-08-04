@@ -215,6 +215,7 @@ config ANDROID_DEFAULT_SETTING
 	select QUOTACTL
 	select RTC_CLASS
 	select SCHED_DEBUG
+	select SDCARD_FS
 	select SECCOMP
 	select SECCOMP_FILTER
 	select SECURITY
