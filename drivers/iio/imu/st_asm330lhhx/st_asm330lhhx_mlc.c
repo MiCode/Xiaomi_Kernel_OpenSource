@@ -810,9 +810,9 @@ struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor;
-	u8 i, mlc_status, id, event[16];
 	struct iio_dev *iio_dev;
 	__le16 __fsm_status = 0;
+	u8 i, mlc_status, id;
 	u16 fsm_status;
 	int err = 0;
 
@@ -824,6 +824,8 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 			return err;
 
 		if (mlc_status) {
+			u8 mlc_event[ST_ASM330LHHX_MLC_NUMBER];
+
 			for (i = 0; i < ST_ASM330LHHX_MLC_NUMBER; i++) {
 				id = st_asm330lhhx_mlc_sensor_list[i];
 				if (!(hw->enable_mask & BIT(id)))
@@ -840,16 +842,17 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 					sensor = iio_priv(iio_dev);
 					err = st_asm330lhhx_read_page_locked(hw,
 						sensor->outreg_addr,
-						(void *)&event[i], 1);
+						(void *)&mlc_event[i], 1);
 					if (err)
 						return err;
 
-					iio_push_event(iio_dev, (u64)event[i],
+					iio_push_event(iio_dev, (u64)mlc_event[i],
 						       iio_get_time_ns(iio_dev));
 
 					dev_info(hw->dev,
 						 "MLC %d Status %x MLC EVENT %llx\n",
-						 id, mlc_status, (u64)event[i]);
+						 id, mlc_status,
+						 (u64)mlc_event[i]);
 				}
 			}
 		}
@@ -864,6 +867,8 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 
 		fsm_status = le16_to_cpu(__fsm_status);
 		if (fsm_status) {
+			u8 fsm_event[ST_ASM330LHHX_FSM_NUMBER];
+
 			for (i = 0; i < ST_ASM330LHHX_FSM_NUMBER; i++) {
 				id = st_asm330lhhx_fsm_sensor_list[i];
 				if (!(hw->enable_mask & BIT(id)))
@@ -880,16 +885,17 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 					sensor = iio_priv(iio_dev);
 					err = st_asm330lhhx_read_page_locked(hw,
 						sensor->outreg_addr,
-						(void *)&event[i], 1);
+						(void *)&fsm_event[i], 1);
 					if (err)
 						return err;
 
-					iio_push_event(iio_dev, (u64)event[i],
+					iio_push_event(iio_dev, (u64)fsm_event[i],
 						       iio_get_time_ns(iio_dev));
 
 					dev_info(hw->dev,
 						 "FSM %d Status %x FSM EVENT %llx\n",
-						 id, mlc_status, (u64)event[i]);
+						 id, mlc_status,
+						 (u64)fsm_event[i]);
 				}
 			}
 		}
