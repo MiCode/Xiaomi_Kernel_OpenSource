@@ -4,6 +4,7 @@
  */
 
 #include "esoc-mdm.h"
+#include <linux/regulator/consumer.h>
 #include <linux/input/qpnp-power-on.h>
 
 /* This function can be called from atomic context. */
@@ -81,7 +82,7 @@ static int sdx55m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 
 static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 {
-	int i;
+	int i, rc;
 	int pblrdy;
 	struct device *dev = mdm->dev;
 
@@ -89,6 +90,18 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 	dev_dbg(dev, "Powering on modem for the first time\n");
 	if (mdm->esoc->auto_boot)
 		return 0;
+
+	/* turn on regulators on AP side */
+	for (i = 0; i < mdm->reg_cnt; ++i) {
+		regulator_set_voltage(mdm->regs[i].reg, mdm->regs[i].uV, INT_MAX);
+		regulator_set_load(mdm->regs[i].reg, mdm->regs[i].uA);
+		rc = regulator_enable(mdm->regs[i].reg);
+		if (rc) {
+			dev_err(mdm->dev, "Failed to enable regulator %d (rc:%d)\n", i, rc);
+			esoc_mdm_log("Failed to enable regulator %d (rc:%d)\n", i, rc);
+			return rc;
+		}
+	}
 
 	mdm_toggle_soft_reset(mdm, false);
 	/* Add a delay to allow PON sequence to complete*/
@@ -114,6 +127,7 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 		esoc_mdm_log("Queueing the request: ESOC_REQ_IMG\n");
 		esoc_clink_queue_request(ESOC_REQ_IMG, mdm->esoc);
 	}
+
 	return 0;
 }
 

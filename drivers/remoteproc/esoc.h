@@ -17,6 +17,8 @@
 #include <linux/remoteproc.h>
 #include <linux/ipc_logging.h>
 
+#include "qcom_common.h"
+
 #define ESOC_MDM_IPC_PAGES	10
 
 extern void *ipc_log;
@@ -68,6 +70,7 @@ struct esoc_eng {
  * @userspace_handle_shutdown: True if user space handles shutdown requests.
  * @ssctl_id: SSCTL id for a subsystem.
  * @sysmon_name: Sysmon name for external soc
+ * @dbg_dir: Debugfs entry associated to this clink
  */
 struct esoc_clink {
 	const char *name;
@@ -86,6 +89,7 @@ struct esoc_clink {
 	void *compat_data;
 	struct rproc *rproc;
 	struct rproc_ops ops;
+	struct qcom_sysmon *rproc_sysmon;
 	struct device_node *np;
 	bool auto_boot;
 	bool primary;
@@ -94,6 +98,7 @@ struct esoc_clink {
 	struct esoc_client_hook *client_hook[ESOC_MAX_HOOKS];
 	int ssctl_id;
 	char *sysmon_name;
+	struct dentry *dbg_dir;
 };
 
 /**
@@ -134,9 +139,8 @@ struct esoc_drv {
 	struct esoc_compat *compat_table;
 	unsigned int compat_entries;
 	int (*probe)(struct esoc_clink *esoc_clink, struct esoc_drv *drv);
+	int (*remove)(struct esoc_clink *esoc_clink, struct esoc_drv *drv);
 };
-
-extern struct esoc_drv esoc_ssr_drv;
 
 #define to_esoc_clink(d) container_of(d, struct esoc_clink, dev)
 #define to_esoc_drv(d) container_of(d, struct esoc_drv, driver)
@@ -149,6 +153,9 @@ extern struct bus_type esoc_bus_type;
 /* Exported apis */
 void esoc_dev_exit(void);
 int esoc_dev_init(void);
+void mdm_drv_exit(void);
+int mdm_drv_init(void);
+void esoc_bus_exit(void);
 int esoc_bus_init(void);
 void esoc_clink_unregister(struct esoc_clink *esoc_dev);
 int esoc_clink_register(struct esoc_clink *esoc_dev);
@@ -164,9 +171,12 @@ int esoc_clink_register_cmd_eng(struct esoc_clink *esoc_clink, struct esoc_eng *
 void esoc_clink_unregister_cmd_eng(struct esoc_clink *esoc_clink, struct esoc_eng *eng);
 int esoc_clink_register_req_eng(struct esoc_clink *esoc_clink, struct esoc_eng *eng);
 void esoc_clink_unregister_req_eng(struct esoc_clink *esoc_clink, struct esoc_eng *eng);
-int esoc_drv_register(struct esoc_drv *driver);
+int esoc_driver_register(struct esoc_drv *driver);
+void esoc_driver_unregister(struct esoc_drv *driver);
 void esoc_set_drv_data(struct esoc_clink *esoc_clink, void *data);
 void *esoc_get_drv_data(struct esoc_clink *esoc_clink);
+int esoc_clink_add_device(struct device *dev, void *dummy);
+int esoc_clink_del_device(struct device *dev, void *dummy);
 /* ssr operations */
 int esoc_clink_register_rproc(struct esoc_clink *esoc_clink);
 int esoc_clink_request_ssr(struct esoc_clink *esoc_clink);

@@ -7,6 +7,7 @@
 #include <linux/coresight-cti.h>
 #include <linux/workqueue.h>
 #include <linux/sched/clock.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/sysmon.h>
 #include "esoc-mdm.h"
 
@@ -330,17 +331,15 @@ static void mdm_get_restart_reason(struct work_struct *work)
 	int ret = 0;
 	int ntries = 0;
 	char sfr_buf[RD_BUF_SIZE];
-	struct mdm_ctrl *mdm =
-		container_of(work, struct mdm_ctrl, restart_reason_work);
+	struct mdm_ctrl *mdm = container_of(work, struct mdm_ctrl, restart_reason_work);
 	struct device *dev = mdm->dev;
 
 	do {
-		sysmon_get_reason(&mdm->esoc->subsys, sfr_buf,
-							sizeof(sfr_buf));
+		qcom_sysmon_get_reason(mdm->esoc->rproc_sysmon, sfr_buf, sizeof(sfr_buf));
 		if (!ret) {
 			esoc_mdm_log("restart reason is %s\n", sfr_buf);
 			dev_err(dev, "mdm restart reason is %s\n", sfr_buf);
-		break;
+			break;
 		}
 		msleep(SFR_RETRY_INTERVAL);
 	} while (++ntries < SFR_MAX_RETRIES);
@@ -1083,6 +1082,79 @@ err_destroy_wrkq:
 	return ret;
 }
 
+static int lemur_setup_regulators(struct mdm_ctrl *mdm)
+{
+	int len;
+	int i, rc;
+	char uv_ua[50];
+	u32 uv_ua_vals[2];
+	const char *reg_name;
+
+	mdm->reg_cnt = of_property_count_strings(mdm->dev->of_node, "reg-names");
+	if (mdm->reg_cnt <= 0) {
+		dev_err(mdm->dev, "No regulators for this device\n");
+		esoc_mdm_log("No regulators for %s device\n", mdm->esoc->name);
+		return 0;
+	}
+
+	mdm->regs = devm_kzalloc(mdm->dev, sizeof(struct reg_info) * mdm->reg_cnt, GFP_KERNEL);
+	if (!mdm->regs)
+		return -ENOMEM;
+
+	for (i = 0; i < mdm->reg_cnt; i++) {
+		of_property_read_string_index(mdm->dev->of_node, "reg-names", i, &reg_name);
+
+		mdm->regs[i].reg = devm_regulator_get(mdm->dev, reg_name);
+		if (IS_ERR(mdm->regs[i].reg)) {
+			dev_err(mdm->dev, "failed to get %s reg\n", reg_name);
+			return PTR_ERR(mdm->regs[i].reg);
+		}
+
+		/* Read current(uA) and voltage(uV) value */
+		snprintf(uv_ua, sizeof(uv_ua), "%s-uV-uA", reg_name);
+		if (!of_find_property(mdm->dev->of_node, uv_ua, &len))
+			continue;
+
+		rc = of_property_read_u32_array(mdm->dev->of_node, uv_ua, uv_ua_vals,
+						ARRAY_SIZE(uv_ua_vals));
+		if (rc) {
+			dev_err(mdm->dev, "Failed to read uVuA value(rc:%d)\n", rc);
+			return rc;
+		}
+
+		if (uv_ua_vals[0] > 0)
+			mdm->regs[i].uV = uv_ua_vals[0];
+		if (uv_ua_vals[1] > 0)
+			mdm->regs[i].uA = uv_ua_vals[1];
+	}
+	return 0;
+}
+
+static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
+			  struct platform_device *pdev)
+{
+	int ret;
+
+	/* Same configuration as that of sdx50, except for the name */
+	ret = sdx50m_setup_hw(mdm, ops, pdev);
+	if (ret) {
+		dev_err(mdm->dev, "Hardware setup failed for lemur\n");
+		esoc_mdm_log("Hardware setup failed for lemur\n");
+		return ret;
+	}
+
+	ret = lemur_setup_regulators(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
+		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
+	}
+
+	mdm->esoc->name = LEMUR_LABEL;
+	esoc_mdm_log("Hardware setup done for lemur\n");
+
+	return ret;
+}
+
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
@@ -1108,6 +1180,12 @@ static struct mdm_ops sdx55m_ops = {
 	.pon_ops = &sdx55m_pon_ops,
 };
 
+static struct mdm_ops lemur_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = lemur_setup_hw,
+	.pon_ops = &sdx50m_pon_ops,
+};
+
 static const struct of_device_id mdm_dt_match[] = {
 	{ .compatible = "qcom,ext-mdm9x55",
 		.data = &mdm9x55_ops, },
@@ -1115,6 +1193,8 @@ static const struct of_device_id mdm_dt_match[] = {
 		.data = &sdx50m_ops, },
 	{ .compatible = "qcom,ext-sdx55m",
 		.data = &sdx55m_ops, },
+	{ .compatible = "qcom,ext-lemur",
+		.data = &lemur_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);
@@ -1135,23 +1215,28 @@ static int mdm_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(mdm))
 		return PTR_ERR(mdm);
 
-	ipc_log = ipc_log_context_create(ESOC_MDM_IPC_PAGES, "esoc-mdm", 0);
-	if (!ipc_log)
-		dev_err(&pdev->dev, "Failed to setup IPC logging\n");
-
-	ret = esoc_bus_init();
-	if (ret)
-		dev_err(&pdev->dev, "Failed to initialize esoc bus\n");
-
 	ret = mdm_ops->config_hw(mdm, mdm_ops, pdev);
-	if (ret)
-		ipc_log_context_destroy(ipc_log);
+
+	platform_set_drvdata(pdev, mdm);
 
 	return ret;
 }
 
+static int mdm_remove(struct platform_device *pdev)
+{
+	struct mdm_ctrl *mdm = platform_get_drvdata(pdev);
+
+	if (mdm->mdm_queue)
+		destroy_workqueue(mdm->mdm_queue);
+
+	esoc_clink_unregister(mdm->esoc);
+
+	return 0;
+}
+
 static struct platform_driver mdm_driver = {
 	.probe		= mdm_probe,
+	.remove		= mdm_remove,
 	.driver = {
 		.name	= "ext-mdm",
 		.of_match_table = of_match_ptr(mdm_dt_match),
@@ -1160,6 +1245,18 @@ static struct platform_driver mdm_driver = {
 
 static int __init mdm_register(void)
 {
+	int ret;
+
+	ipc_log = ipc_log_context_create(ESOC_MDM_IPC_PAGES, "esoc-mdm", 0);
+	if (!ipc_log)
+		pr_err("Failed to setup esoc-mdm IPC logging\n");
+
+	ret = esoc_bus_init();
+	if (ret) {
+		pr_err("Failed to initialize esoc bus\n");
+		return ret;
+	}
+
 	return platform_driver_register(&mdm_driver);
 }
 module_init(mdm_register);
@@ -1167,6 +1264,8 @@ module_init(mdm_register);
 static void __exit mdm_unregister(void)
 {
 	platform_driver_unregister(&mdm_driver);
+	esoc_bus_exit();
+	ipc_log_context_destroy(ipc_log);
 }
 module_exit(mdm_unregister);
 MODULE_LICENSE("GPL v2");

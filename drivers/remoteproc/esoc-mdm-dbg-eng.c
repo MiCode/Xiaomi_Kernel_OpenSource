@@ -3,8 +3,12 @@
  * Copyright (c) 2015, 2017-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/atomic.h>
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include "esoc.h"
+
+/* esoc debug engine parent dir */
+static struct dentry *esoc_dbg;
 
 /*
  * cmd_mask : Specifies if a command/notifier is masked, and
@@ -121,9 +125,18 @@ EXPORT_SYMBOL(dbg_check_notify_mask);
  * Create driver attributes that let you mask
  * specific commands.
  */
-static ssize_t command_mask_store(struct device_driver *drv, const char *buf, size_t count)
+static ssize_t command_mask_write(struct file *filp, const char __user *user_buf, size_t count,
+				  loff_t *ppos)
 {
-	unsigned int cmd, i;
+	unsigned int cmd, i, ret;
+	char buf[20];
+
+	if (count > sizeof(buf))
+		return -EINVAL;
+
+	ret = copy_from_user(buf, user_buf, count);
+	if (ret)
+		return -EFAULT;
 
 	pr_debug("user input command %s\n", buf);
 	for (i = 0; i < ARRAY_SIZE(cmd_map); i++) {
@@ -142,11 +155,25 @@ static ssize_t command_mask_store(struct device_driver *drv, const char *buf, si
 		pr_err("invalid command specified\n");
 	return count;
 }
-static DRIVER_ATTR_WO(command_mask);
 
-static ssize_t notifier_mask_store(struct device_driver *drv, const char *buf, size_t count)
+static const struct file_operations esoc_cmd_mask_fops = {
+	.write = command_mask_write,
+	.open = simple_open,
+	.llseek = generic_file_llseek,
+};
+
+static ssize_t notifier_mask_write(struct file *filp, const char __user *user_buf, size_t count,
+				  loff_t *ppos)
 {
-	unsigned int notify, i;
+	unsigned int notify, i, ret;
+	char buf[20];
+
+	if (count > sizeof(buf))
+		return -EINVAL;
+
+	ret = copy_from_user(buf, user_buf, count);
+	if (ret)
+		return -EFAULT;
 
 	pr_debug("user input notifier %s\n", buf);
 	for (i = 0; i < ARRAY_SIZE(notify_map); i++) {
@@ -165,10 +192,13 @@ static ssize_t notifier_mask_store(struct device_driver *drv, const char *buf, s
 		pr_err("invalid notifier specified\n");
 	return count;
 }
-static DRIVER_ATTR_WO(notifier_mask);
 
-#ifdef CONFIG_QCOM_ESOC_DBG_REQ_ENG
-static struct esoc_clink *dbg_clink;
+static const struct file_operations esoc_notifier_mask_fops = {
+	.write = notifier_mask_write,
+	.open = simple_open,
+	.llseek = generic_file_llseek,
+};
+
 /* Last recorded request from esoc */
 static enum esoc_req last_req;
 static DEFINE_SPINLOCK(req_lock);
@@ -230,46 +260,65 @@ static struct esoc_to_user req_to_str[] = {
 	},
 };
 
-static ssize_t req_eng_resp_store(struct device_driver *drv, const char *buf,
-							size_t count)
+static ssize_t req_eng_resp_write(struct file *filp, const char __user *user_buf, size_t count,
+				  loff_t *ppos)
 {
-	unsigned int i;
-	const struct esoc_clink_ops *const clink_ops = dbg_clink->clink_ops;
+	unsigned int i, ret;
+	struct esoc_clink *clink = filp->private_data;
+	const struct esoc_clink_ops *const clink_ops = clink->clink_ops;
+	char buf[20];
 
-	dev_dbg(&dbg_clink->dev, "user input req eng response %s\n", buf);
+	if (count > sizeof(buf))
+		return -EINVAL;
+
+	ret = copy_from_user(buf, user_buf, count);
+	if (ret)
+		return -EFAULT;
+
+	dev_dbg(&clink->dev, "user input req eng response %s\n", buf);
 	for (i = 0; i < ARRAY_SIZE(in_to_resp); i++) {
 		size_t len1 = strlen(buf);
 		size_t len2 = strlen(in_to_resp[i].str);
 
 		if (len1 == len2 && !strcmp(buf, in_to_resp[i].str)) {
-			clink_ops->notify(in_to_resp[i].id, dbg_clink);
+			clink_ops->notify(in_to_resp[i].id, clink);
 			break;
 		}
 	}
 	if (i > ARRAY_SIZE(in_to_resp))
-		dev_err(&dbg_clink->dev, "Invalid resp %s, specified\n", buf);
+		dev_err(&clink->dev, "Invalid resp %s, specified\n", buf);
 	return count;
 }
 
-static DRIVER_ATTR_WO(req_eng_resp);
+static const struct file_operations esoc_req_eng_resp_fops = {
+	.write = req_eng_resp_write,
+	.open = simple_open,
+	.llseek = generic_file_llseek,
+};
 
-static ssize_t last_esoc_req_show(struct device_driver *drv, char *buf)
+static ssize_t last_esoc_req_read(struct file *filp, char __user *user_buf, size_t count,
+				  loff_t *ppos)
 {
 	unsigned int i;
 	unsigned long flags;
-	size_t count = 0;
 
 	spin_lock_irqsave(&req_lock, flags);
 	for (i = 0; i < ARRAY_SIZE(req_to_str); i++) {
 		if (last_req == req_to_str[i].id) {
-			count = scnprintf(buf, PAGE_SIZE, "%s\n", req_to_str[i].str);
+			count = simple_read_from_buffer(user_buf, count, 0, req_to_str[i].str,
+							strlen(req_to_str[i].str));
 			break;
 		}
 	}
 	spin_unlock_irqrestore(&req_lock, flags);
 	return count;
 }
-static DRIVER_ATTR_RO(last_esoc_req);
+
+static const struct file_operations esoc_last_esoc_req_fops = {
+	.read = last_esoc_req_read,
+	.open = simple_open,
+	.llseek = generic_file_llseek,
+};
 
 static void esoc_handle_req(enum esoc_req req, struct esoc_eng *eng)
 {
@@ -289,66 +338,100 @@ static struct esoc_eng dbg_req_eng = {
 	.handle_clink_evt = esoc_handle_evt,
 };
 
-int register_dbg_req_eng(struct esoc_clink *clink, struct device_driver *drv)
+int register_dbg_req_eng(struct esoc_clink *clink)
 {
+	struct device *dev = &clink->dev;
+	struct dentry *file;
 	int ret;
 
-	dbg_clink = clink;
-	ret = driver_create_file(drv, &driver_attr_req_eng_resp);
-	if (ret)
-		return ret;
-	ret = driver_create_file(drv, &driver_attr_last_esoc_req);
-	if (ret) {
-		dev_err(&clink->dev, "Unable to create last esoc req\n");
-		goto last_req_err;
+	if (clink->dbg_dir)
+		return 0;
+
+	clink->dbg_dir = debugfs_create_dir(dev_name(dev), esoc_dbg);
+	if (IS_ERR_OR_NULL(clink->dbg_dir)) {
+		pr_err("can't create debugfs dir: %s\n", dev_name(dev));
+		ret = PTR_ERR(clink->dbg_dir);
+		goto dbg_req_err;
 	}
+
+	file = debugfs_create_file("req_eng_resp", 0600, clink->dbg_dir, clink,
+				   &esoc_req_eng_resp_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		pr_err("Unable to create req_eng_resp file\n");
+		ret = PTR_ERR(file);
+		goto dbg_req_err;
+	}
+
+	file = debugfs_create_file("last_esoc_req", 0400, clink->dbg_dir, clink,
+				   &esoc_last_esoc_req_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		pr_err("Unable to create last_esoc_req file\n");
+		ret = PTR_ERR(file);
+		goto dbg_req_err;
+	}
+
 	ret = esoc_clink_register_req_eng(clink, &dbg_req_eng);
 	if (ret) {
 		pr_err("Unable to register req eng\n");
-		goto req_eng_fail;
+		goto dbg_req_err;
 	}
 	spin_lock_init(&req_lock);
 	return 0;
-last_req_err:
-	driver_remove_file(drv, &driver_attr_last_esoc_req);
-req_eng_fail:
-	driver_remove_file(drv, &driver_attr_req_eng_resp);
+dbg_req_err:
+	debugfs_remove(clink->dbg_dir);
+	clink->dbg_dir = NULL;
 	return ret;
 }
-#else
-int register_dbg_req_eng(struct esoc_clink *clink, struct device_driver *d)
-{
-	return 0;
-}
-#endif
 
-int mdm_dbg_eng_init(struct esoc_drv *esoc_drv, struct esoc_clink *clink)
+void unregister_dbg_req_eng(struct esoc_clink *clink)
+{
+	esoc_clink_unregister_req_eng(clink, &dbg_req_eng);
+	debugfs_remove(clink->dbg_dir);
+}
+
+int __init mdm_dbg_eng_init(void)
 {
 	int ret;
-	struct device_driver *drv = &esoc_drv->driver;
+	struct dentry *file;
 
-	ret = driver_create_file(drv, &driver_attr_command_mask);
-	if (ret) {
+	if (!debugfs_initialized())
+		return -EINVAL;
+
+	if (esoc_dbg)
+		return 0;
+
+	esoc_dbg = debugfs_create_dir(KBUILD_MODNAME, NULL);
+	if (IS_ERR_OR_NULL(esoc_dbg)) {
+		pr_err("can't create debugfs dir\n");
+		ret = PTR_ERR(esoc_dbg);
+		goto dbg_eng_fail;
+	}
+
+	file = debugfs_create_file("command_mask", 0600, esoc_dbg, NULL, &esoc_cmd_mask_fops);
+	if (IS_ERR_OR_NULL(file)) {
 		pr_err("Unable to create command mask file\n");
-		goto cmd_mask_err;
+		ret = PTR_ERR(file);
+		goto dbg_eng_fail;
 	}
-	ret = driver_create_file(drv, &driver_attr_notifier_mask);
-	if (ret) {
+
+	file = debugfs_create_file("notifier_mask", 0600, esoc_dbg, NULL, &esoc_notifier_mask_fops);
+	if (IS_ERR_OR_NULL(file)) {
 		pr_err("Unable to create notify mask file\n");
-		goto notify_mask_err;
-	}
-	ret = register_dbg_req_eng(clink, drv);
-	if (ret) {
-		pr_err("Failed to register esoc dbg req eng\n");
-		goto dbg_req_fail;
+		ret = PTR_ERR(file);
+		goto dbg_eng_fail;
 	}
 	return 0;
-dbg_req_fail:
-	driver_remove_file(drv, &driver_attr_notifier_mask);
-notify_mask_err:
-	driver_remove_file(drv, &driver_attr_command_mask);
-cmd_mask_err:
+dbg_eng_fail:
+	debugfs_remove(esoc_dbg);
+	esoc_dbg = NULL;
 	return ret;
 }
 EXPORT_SYMBOL(mdm_dbg_eng_init);
+
+void __exit mdm_dbg_eng_exit(void)
+{
+	debugfs_remove(esoc_dbg);
+}
+EXPORT_SYMBOL(mdm_dbg_eng_exit);
+
 MODULE_LICENSE("GPL v2");

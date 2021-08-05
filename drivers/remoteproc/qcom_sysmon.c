@@ -655,6 +655,138 @@ static irqreturn_t sysmon_shutdown_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define QMI_SSCTL_GET_FAILURE_REASON_REQ	0x0022
+#define QMI_SSCTL_EMPTY_MSG_LENGTH		0
+#define QMI_SSCTL_ERROR_MSG_LENGTH		90
+#define QMI_EOTI_DATA_TYPE	\
+{				\
+	.data_type = QMI_EOTI,	\
+	.elem_len  = 0,		\
+	.elem_size = 0,		\
+	.array_type  = NO_ARRAY,\
+	.tlv_type  = 0x00,	\
+	.offset    = 0,		\
+	.ei_array  = NULL,	\
+},
+
+struct qmi_ssctl_get_failure_reason_resp_msg {
+	struct qmi_response_type_v01 resp;
+	uint8_t error_message_valid;
+	uint32_t error_message_len;
+	char error_message[QMI_SSCTL_ERROR_MSG_LENGTH];
+};
+
+static struct qmi_elem_info qmi_ssctl_get_failure_reason_req_msg_ei[] = {
+	QMI_EOTI_DATA_TYPE
+};
+
+static struct qmi_elem_info qmi_ssctl_get_failure_reason_resp_msg_ei[] = {
+	{
+		.data_type = QMI_STRUCT,
+		.elem_len  = 1,
+		.elem_size = sizeof(struct qmi_response_type_v01),
+		.array_type  = NO_ARRAY,
+		.tlv_type  = 0x02,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+							resp),
+		.ei_array  = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type = QMI_OPT_FLAG,
+		.elem_len  = 1,
+		.elem_size = sizeof(uint8_t),
+		.array_type  = NO_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+						error_message_valid),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_DATA_LEN,
+		.elem_len  = 1,
+		.elem_size = sizeof(uint8_t),
+		.array_type  = NO_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+						error_message_len),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_UNSIGNED_1_BYTE,
+		.elem_len  = QMI_SSCTL_ERROR_MSG_LENGTH,
+		.elem_size = sizeof(char),
+		.array_type  = VAR_LEN_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+						error_message),
+		.ei_array  = NULL,
+	},
+	QMI_EOTI_DATA_TYPE
+};
+
+/**
+ * qcom_sysmon_get_reason() - Retrieve failure reason from a subsystem.
+ * @dest_desc:	Subsystem descriptor of the subsystem to query
+ * @buf:	Caller-allocated buffer for the returned NUL-terminated reason
+ * @len:	Length of @buf
+ *
+ * Reverts to using legacy sysmon API (sysmon_get_reason_no_qmi()) if client
+ * handle is not set.
+ *
+ * Returns 0 for success, -EINVAL for an invalid destination, -ENODEV if
+ * the SMD transport channel is not open, -ETIMEDOUT if the destination
+ * subsystem does not respond, and -EPROTO if the destination subsystem
+ * responds with something unexpected.
+ *
+ */
+int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon, char *buf, size_t len)
+{
+	char req = 0;
+	struct qmi_ssctl_get_failure_reason_resp_msg resp;
+	struct qmi_txn txn;
+	const char *dest_ss = sysmon->name;
+	int ret;
+
+	if (sysmon == NULL || buf == NULL || len == 0)
+		return -EINVAL;
+
+	ret = qmi_txn_init(&sysmon->qmi, &txn, qmi_ssctl_get_failure_reason_resp_msg_ei,
+			   &resp);
+	if (ret < 0) {
+		pr_err("SYSMON QMI tx init failed to dest %s, ret - %d\n", dest_ss, ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&sysmon->qmi, &sysmon->ssctl, &txn,
+			       QMI_SSCTL_GET_FAILURE_REASON_REQ,
+			       QMI_SSCTL_EMPTY_MSG_LENGTH,
+			       qmi_ssctl_get_failure_reason_req_msg_ei,
+			       &req);
+	if (ret < 0) {
+		pr_err("SYSMON QMI send req failed to dest %s, ret - %d\n", dest_ss, ret);
+		qmi_txn_cancel(&txn);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, 5 * HZ);
+	if (ret < 0) {
+		pr_err("SYSMON QMI qmi txn wait failed to dest %s, ret - %d\n", dest_ss, ret);
+		goto out;
+	} else if (resp.resp.result) {
+		dev_err(sysmon->dev, "failed to receive req. response result: %d\n",
+			resp.resp.result);
+		goto out;
+	}
+	strlcpy(buf, resp.error_message, len);
+out:
+	return ret;
+}
+EXPORT_SYMBOL(qcom_sysmon_get_reason);
+
 /**
  * qcom_add_sysmon_subdev() - create a sysmon subdev for the given remoteproc
  * @rproc:	rproc context to associate the subdev with

@@ -6,7 +6,6 @@
 #include <linux/idr.h>
 #include <linux/slab.h>
 #include "esoc.h"
-#include "qcom_common.h"
 
 static DEFINE_IDA(esoc_ida);
 
@@ -68,11 +67,21 @@ static int esoc_bus_probe(struct device *dev)
 	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
 
 	ret = esoc_drv->probe(esoc_clink, esoc_drv);
-	if (ret) {
+	if (ret)
 		pr_err("failed to probe %s dev\n", esoc_clink->name);
-		return ret;
-	}
-	return 0;
+	return ret;
+}
+
+static int esoc_bus_remove(struct device *dev)
+{
+	int ret;
+	struct esoc_clink *esoc_clink = to_esoc_clink(dev);
+	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
+
+	ret = esoc_drv->remove(esoc_clink, esoc_drv);
+	if (ret)
+		pr_err("failed to remove %s dev\n", esoc_clink->name);
+	return ret;
 }
 
 struct bus_type esoc_bus_type = {
@@ -169,7 +178,6 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 	int ret;
 	int len;
 	char *rproc_name;
-	struct qcom_sysmon *sysmon;
 
 	len = strlen("esoc") + sizeof(esoc_clink->id);
 	rproc_name = kzalloc(len, GFP_KERNEL);
@@ -188,22 +196,25 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 
 	esoc_clink->rproc->recovery_disabled = true;
 	esoc_clink->rproc->auto_boot = false;
-	sysmon = qcom_add_sysmon_subdev(esoc_clink->rproc, esoc_clink->sysmon_name,
-					esoc_clink->ssctl_id);
-	if (IS_ERR(sysmon)) {
+	esoc_clink->rproc_sysmon = qcom_add_sysmon_subdev(esoc_clink->rproc,
+							  esoc_clink->sysmon_name,
+							  esoc_clink->ssctl_id);
+	if (IS_ERR(esoc_clink->rproc_sysmon)) {
 		dev_err(&esoc_clink->dev, "Failed to register sysmon\n");
-		ret = PTR_ERR(sysmon);
+		ret = PTR_ERR(esoc_clink->rproc_sysmon);
 		goto rproc_err;
 	}
 
 	ret = rproc_add(esoc_clink->rproc);
 	if (ret) {
 		dev_err(&esoc_clink->dev, "unable to add remoteproc\n");
-		goto rproc_err;
+		goto remove_subdev;
 	}
 
 	return 0;
 
+remove_subdev:
+	qcom_remove_sysmon_subdev(esoc_clink->rproc_sysmon);
 rproc_err:
 	kfree(rproc_name);
 	return ret;
@@ -212,6 +223,7 @@ rproc_err:
 void esoc_clink_unregister_rproc(struct esoc_clink *esoc_clink)
 {
 	rproc_del(esoc_clink->rproc);
+	qcom_remove_sysmon_subdev(esoc_clink->rproc_sysmon);
 	rproc_free(esoc_clink->rproc);
 }
 
@@ -274,8 +286,10 @@ void *esoc_get_drv_data(struct esoc_clink *esoc_clink)
 void esoc_clink_unregister(struct esoc_clink *esoc_clink)
 {
 	if (get_device(&esoc_clink->dev) != NULL) {
+		esoc_clink_del_device(&esoc_clink->dev, NULL);
 		device_unregister(&esoc_clink->dev);
 		put_device(&esoc_clink->dev);
+		ida_simple_remove(&esoc_ida, esoc_clink->id);
 	}
 }
 
@@ -306,9 +320,17 @@ int esoc_clink_register(struct esoc_clink *esoc_clink)
 	err = device_register(dev);
 	if (err) {
 		dev_err(esoc_clink->parent, "esoc device register failed\n");
+		put_device(dev);
 		goto exit_ida;
 	}
+
+	err = esoc_clink_add_device(&esoc_clink->dev, NULL);
+	if (err)
+		goto exit_dev_add;
+
 	return 0;
+exit_dev_add:
+	device_unregister(dev);
 exit_ida:
 	ida_simple_remove(&esoc_ida, id);
 	pr_err("unable to register %s, err = %d\n", esoc_clink->name, err);
@@ -353,19 +375,25 @@ void esoc_clink_unregister_cmd_eng(struct esoc_clink *esoc_clink,
 	esoc_clink_evt_notify(ESOC_CMD_ENG_OFF, esoc_clink);
 }
 
-int esoc_drv_register(struct esoc_drv *driver)
+int esoc_driver_register(struct esoc_drv *driver)
 {
 	int ret;
 
 	driver->driver.bus = &esoc_bus_type;
 	driver->driver.probe = esoc_bus_probe;
+	driver->driver.remove = esoc_bus_remove;
 	ret = driver_register(&driver->driver);
 	if (ret)
 		return ret;
 	return 0;
 }
 
-int esoc_bus_init(void)
+void esoc_driver_unregister(struct esoc_drv *driver)
+{
+	driver_unregister(&driver->driver);
+}
+
+int __init esoc_bus_init(void)
 {
 	int ret;
 
@@ -383,13 +411,21 @@ int esoc_bus_init(void)
 	//TODO: add cleanup path
 	ret = esoc_dev_init();
 	if (ret) {
-		pr_err("esoc userspace driver registration failed\n");
+		pr_err("esoc userspace driver initialization failed\n");
 		return ret;
 	}
-	ret = esoc_drv_register(&esoc_ssr_drv);
+	ret = mdm_drv_init();
 	if (ret) {
-		pr_err("esoc ssr driver registration failed\n");
+		pr_err("esoc failed to initialize ssr driver\n");
 		return ret;
 	}
 	return 0;
+}
+
+void __exit esoc_bus_exit(void)
+{
+	mdm_drv_exit();
+	esoc_dev_exit();
+	bus_unregister(&esoc_bus_type);
+	device_unregister(&esoc_bus);
 }

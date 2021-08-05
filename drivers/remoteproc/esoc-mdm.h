@@ -26,6 +26,7 @@
 #define SDX50M_PCIE			"PCIe"
 #define SDX55M_LABEL			"SDX55M"
 #define SDX55M_PCIE			"PCIe"
+#define LEMUR_LABEL			"SDXLEMUR"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000
@@ -80,6 +81,8 @@ struct mdm_ctrl {
 	int errfatal_irq;
 	int status_irq;
 	int pblrdy_irq;
+	struct reg_info *regs;
+	int reg_cnt;
 	int debug;
 	int init;
 	bool debug_fail;

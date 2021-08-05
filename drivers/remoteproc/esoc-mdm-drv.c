@@ -537,21 +537,36 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 	ret = register_reboot_notifier(&mdm_drv->esoc_restart);
 	if (ret)
 		dev_err(&esoc_clink->dev, "register for reboot failed\n");
-	ret = mdm_dbg_eng_init(drv, esoc_clink);
-	if (ret) {
-		debug_init_done = false;
-		dev_err(&esoc_clink->dev, "dbg engine failure\n");
-	} else {
-		dev_dbg(&esoc_clink->dev, "dbg engine initialized\n");
-		debug_init_done = true;
-	}
 
+	ret = register_dbg_req_eng(esoc_clink);
+	if (ret)
+		dev_err(&esoc_clink->dev, "Failed to register esoc dbg req eng\n");
 	return 0;
 queue_err:
 	esoc_clink_unregister_rproc(esoc_clink);
 ssr_err:
 	esoc_clink_unregister_cmd_eng(esoc_clink, esoc_eng);
 	return ret;
+}
+
+int esoc_ssr_remove(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
+{
+	int ret;
+	struct mdm_drv *mdm_drv;
+
+	mdm_drv = esoc_get_drv_data(esoc_clink);
+	esoc_set_drv_data(esoc_clink, NULL);
+	esoc_clink_unregister_cmd_eng(esoc_clink, &mdm_drv->cmd_eng);
+	esoc_clink_unregister_rproc(esoc_clink);
+	if (mdm_drv->mdm_queue)
+		destroy_workqueue(mdm_drv->mdm_queue);
+	ret = unregister_reboot_notifier(&mdm_drv->esoc_restart);
+	if (ret)
+		dev_err(&esoc_clink->dev, "unregister reboot notifier failed\n");
+
+	unregister_dbg_req_eng(esoc_clink);
+
+	return 0;
 }
 
 struct esoc_compat compat_table[] = {
@@ -567,14 +582,45 @@ struct esoc_compat compat_table[] = {
 		.name = "SDX55M",
 		.data = NULL,
 	},
+	{
+		.name = "SDXLEMUR",
+		.data = NULL,
+	},
 };
 
-struct esoc_drv esoc_ssr_drv = {
+static struct esoc_drv esoc_ssr_drv = {
 	.owner = THIS_MODULE,
 	.probe = esoc_ssr_probe,
+	.remove = esoc_ssr_remove,
 	.compat_table = compat_table,
 	.compat_entries = ARRAY_SIZE(compat_table),
 	.driver = {
 		.name = "mdm-4x",
 	},
 };
+
+int __init mdm_drv_init(void)
+{
+	int ret;
+
+	ret = mdm_dbg_eng_init();
+	if (ret) {
+		debug_init_done = false;
+		pr_err("esoc dbg engine failure\n");
+	} else {
+		debug_init_done = true;
+		pr_debug("esoc dbg engine initialized\n");
+	}
+
+	ret = esoc_driver_register(&esoc_ssr_drv);
+	if (ret)
+		pr_err("esoc ssr driver registration failed\n");
+
+	return ret;
+}
+
+void __exit mdm_drv_exit(void)
+{
+	esoc_driver_unregister(&esoc_ssr_drv);
+	mdm_dbg_eng_exit();
+}
