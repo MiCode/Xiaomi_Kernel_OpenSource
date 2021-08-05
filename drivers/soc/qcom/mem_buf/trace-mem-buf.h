@@ -14,7 +14,7 @@
 
 #include "mem-buf-msgq.h"
 
-#if defined(CREATE_TRACE_POINTS) && IS_ENABLED(CONFIG_QCOM_MEM_BUF_TRACES)
+#ifdef CREATE_TRACE_POINTS
 static void __maybe_unused gh_acl_to_vmid_perms(struct gh_acl_desc *acl_desc,
 						u16 *vmids, u8 *perms)
 {
