@@ -3293,11 +3293,33 @@ static ssize_t wpss_boot_store(struct device *dev,
 	return count;
 }
 
+static ssize_t wlan_en_delay_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	uint32_t wlan_en_delay  = 0;
+
+	if (priv->device_id != WCN6750_DEVICE_ID)
+		return count;
+
+	if (sscanf(buf, "%du", &wlan_en_delay) != 1) {
+		icnss_pr_err("Failed to read wlan_en_delay");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("WLAN_EN delay: %dms", wlan_en_delay);
+	priv->wlan_en_delay_ms = wlan_en_delay;
+
+	return count;
+}
+
 static DEVICE_ATTR_WO(qdss_tr_start);
 static DEVICE_ATTR_WO(qdss_tr_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
 static DEVICE_ATTR_WO(hw_trc_override);
 static DEVICE_ATTR_WO(wpss_boot);
+static DEVICE_ATTR_WO(wlan_en_delay);
 
 static struct attribute *icnss_attrs[] = {
 	&dev_attr_qdss_tr_start.attr,
@@ -3305,6 +3327,7 @@ static struct attribute *icnss_attrs[] = {
 	&dev_attr_qdss_conf_download.attr,
 	&dev_attr_hw_trc_override.attr,
 	&dev_attr_wpss_boot.attr,
+	&dev_attr_wlan_en_delay.attr,
 	NULL,
 };
 
