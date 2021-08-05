@@ -347,24 +347,25 @@ static bool __disable_cx_regulator_wait(struct regulator *reg,
 	}
 }
 
-bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+void a6xx_cx_regulator_disable_wait(struct regulator *reg,
 				struct kgsl_device *device, u32 timeout)
 {
-	bool ret;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	if (IS_ERR_OR_NULL(reg))
-		return true;
+		return;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(reg, REGULATOR_MODE_IDLE);
 
-	ret = __disable_cx_regulator_wait(reg, device, timeout);
+	if (!__disable_cx_regulator_wait(reg, device, timeout)) {
+		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
+		/* Dump the cx regulator consumer list */
+		qcom_clk_dump(NULL, reg, false);
+	}
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(reg, REGULATOR_MODE_NORMAL);
-
-	return ret;
 }
 
 static void set_holi_sptprac_clock(struct adreno_device *adreno_dev, bool enable)
@@ -2594,8 +2595,8 @@ static void a619_holi_regulator_disable_poll(struct kgsl_device *device)
 	/* Remove the vote for the vdd parent supply */
 	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent, 0);
 
-	if (!a6xx_cx_regulator_disable_wait(pwr->cx_gdsc, device, 200))
-		dev_err(device->dev, "Regulator vddcx is stuck on\n");
+	a6xx_cx_regulator_disable_wait(pwr->cx_gdsc, device, 200);
+
 }
 
 const struct adreno_gpudev adreno_a6xx_gpudev = {
