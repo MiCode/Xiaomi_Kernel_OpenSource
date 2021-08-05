@@ -919,7 +919,8 @@ struct etmv4_save_state {
  * @nooverflow:	Indicate if overflow prevention is supported.
  * @atbtrig:	If the implementation can support ATB triggers
  * @lpoverride:	If the implementation can support low-power state over.
- * @trfc:	If the implementation supports Arm v8.4 trace filter controls.
+ * @trfcr:	If the CPU supportfs FEAT_TRF, value of the TRFCR_ELx with
+ *		trace allowed at user and kernel ELs. Otherwise, 0.
  * @config:	structure holding configuration parameters.
  * @save_trfcr:	Saved TRFCR_EL1 register during a CPU PM event.
  * @save_state:	State to be preserved across power loss
@@ -972,7 +973,7 @@ struct etmv4_drvdata {
 	bool				nooverflow;
 	bool				atbtrig;
 	bool				lpoverride;
-	bool				trfc;
+	u64				trfcr;
 	struct etmv4_config		config;
 	u64				save_trfcr;
 	struct etmv4_save_state		*save_state;
