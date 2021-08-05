@@ -2359,9 +2359,8 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 	/* Hard stop all the channels */
 	for (ch_id = 0; ch_id < mhi->cfg.channels; ch_id++) {
 		ring = &mhi->ring[ch_id + mhi->ch_ring_start];
-		if (ring->state == RING_STATE_UINT)
+		if (!ring || ring->state == RING_STATE_UINT)
 			continue;
-
 		ch = &mhi->ch[ch_id];
 		mutex_lock(&ch->ch_lock);
 		mhi->ch[ch_id].state = MHI_DEV_CH_STOPPED;
