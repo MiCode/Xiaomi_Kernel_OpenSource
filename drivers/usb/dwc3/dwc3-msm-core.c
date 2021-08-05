@@ -5202,8 +5202,11 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		}
 	} else if (!udev->parent) {
 		/* USB root hub device */
-		if (event == USB_DEVICE_ADD)
+		if (event == USB_DEVICE_ADD) {
+			pm_runtime_use_autosuspend(&udev->dev);
+			pm_runtime_set_autosuspend_delay(&udev->dev, 1000);
 			dev_pm_syscore_device(&udev->dev, true);
+		}
 	}
 
 	return NOTIFY_DONE;
@@ -5287,7 +5290,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dwc3_msm_override_pm_ops(&dwc->xhci->dev, mdwc->xhci_pm_ops, true);
 		mdwc->in_host_mode = true;
 		pm_runtime_use_autosuspend(&dwc->xhci->dev);
-		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 1000);
+		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 0);
 		pm_runtime_allow(&dwc->xhci->dev);
 		pm_runtime_mark_last_busy(&dwc->xhci->dev);
 
