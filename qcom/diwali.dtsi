@@ -1665,6 +1665,14 @@
 		qcom,mem-buf-capabilities = "supplier";
 		qcom,vmid = <3>;
 	};
+
+	qcom,guestvm_loader@e0b00000 {
+		compatible = "qcom,guestvm-loader";
+		qcom,pas-id = <28>;
+		qcom,vmid = <45>;
+		qcom,firmware-name = "trustedvm";
+		memory-region = <&trust_ui_vm_mem>;
+	};
 };
 
 #include "diwali-qupv3.dtsi"
