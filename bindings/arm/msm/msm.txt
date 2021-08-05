@@ -98,6 +98,9 @@ SoCs:
 - NEO
   compatible = "qcom,neo"
 
+- PARROT
+  compatible = "qcom,parrot"
+
 Generic board variants:
 
 - CDP device:
@@ -267,3 +270,4 @@ compatible = "qcom,diwali-rumi"
 compatible = "qcom,diwali-idp"
 compatible = "qcom,diwali-qrd"
 compatible = "qcom,neo-rumi"
+compatible = "qcom,parrot-rumi"

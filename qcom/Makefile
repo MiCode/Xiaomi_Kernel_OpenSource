@@ -187,6 +187,14 @@ dtb-$(CONFIG_ARCH_CAPE) += cape-mtp.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_PARROT) += parrot-rumi-overlay.dtbo
+
+parrot-rumi-overlay.dtbo-base := parrot.dtb
+else
+dtb-$(CONFIG_ARCH_PARROT) += parrot-rumi.dtb
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_HOLI) +=  holi-rumi-overlay.dtbo
 dtbo-$(CONFIG_ARCH_HOLI) += holi-rumi-overlay.dtbo \
 	holi-mtp-overlay.dtbo \
