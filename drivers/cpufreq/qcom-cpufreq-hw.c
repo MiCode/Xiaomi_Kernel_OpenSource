@@ -71,6 +71,7 @@ struct cpufreq_qcom {
 	char dcvsh_irq_name[MAX_FN_SIZE];
 	bool is_irq_enabled;
 	bool is_irq_requested;
+	bool exited;
 };
 
 struct cpufreq_counter {
@@ -157,6 +158,9 @@ static void limits_dcvsh_poll(struct work_struct *work)
 
 	mutex_lock(&c->dcvsh_lock);
 
+	if (c->exited)
+		goto out;
+
 	cpu = cpumask_first(&c->related_cpus);
 
 	freq_limit = limits_mitigation_notify(c, true);
@@ -178,6 +182,7 @@ static void limits_dcvsh_poll(struct work_struct *work)
 		enable_irq(c->dcvsh_irq);
 	}
 
+out:
 	mutex_unlock(&c->dcvsh_lock);
 }
 
@@ -365,6 +370,16 @@ static void qcom_cpufreq_ready(struct cpufreq_policy *policy)
 {
 	struct device_node *np;
 	unsigned int cpu = policy->cpu;
+	struct cpufreq_qcom *c = qcom_freq_domain_map[cpu];
+
+	mutex_lock(&c->dcvsh_lock);
+
+	c->exited = false;
+	if (!c->is_irq_enabled)
+		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
+				 msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
+
+	mutex_unlock(&c->dcvsh_lock);
 
 	if (cdev[cpu])
 		return;
@@ -392,6 +407,11 @@ static void qcom_cpufreq_ready(struct cpufreq_policy *policy)
 static int qcom_cpufreq_exit(struct cpufreq_policy *policy)
 {
 	unsigned int cpu = policy->cpu;
+	struct cpufreq_qcom *c = qcom_freq_domain_map[cpu];
+
+	mutex_lock(&c->dcvsh_lock);
+	c->exited = true;
+	mutex_unlock(&c->dcvsh_lock);
 
 	if (!cdev[cpu])
 		return 0;
