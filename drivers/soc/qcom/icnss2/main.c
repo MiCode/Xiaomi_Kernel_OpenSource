@@ -3352,9 +3352,12 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 {
 	struct icnss_priv *priv = icnss_get_plat_priv();
 
+	icnss_pr_dbg("Start WPSS Boot\n");
+
 	priv->subsys = subsystem_get("wpss");
 	if (IS_ERR_OR_NULL(priv->subsys))
-		icnss_pr_err("Failed to load wpss subsys");
+		icnss_pr_err("Failed to load wpss subsys, ret: %d",
+			     PTR_ERR(priv->subsys));
 }
 
 static inline void icnss_wpss_unload(struct icnss_priv *priv)
