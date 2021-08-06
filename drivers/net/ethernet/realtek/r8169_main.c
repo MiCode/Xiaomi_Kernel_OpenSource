@@ -4713,6 +4713,7 @@ static void rtl_hw_start_8168g(struct rtl8169_private *tp)
 	rtl_eri_clear_bits(tp, 0x1b0, ERIAR_MASK_0011, BIT(12));
 
 	rtl_pcie_state_l2l3_disable(tp);
+	rtl_hw_aspm_clkreq_enable(tp, true);
 }
 
 static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
