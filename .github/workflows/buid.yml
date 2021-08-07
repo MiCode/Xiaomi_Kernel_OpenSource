@@ -1,0 +1,46 @@
+name: "Build"
+
+on:
+  push:
+    branches: lineage-18.1
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: "Build kernel"
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout kernel source"
+      uses: actions/checkout@v2
+
+    - name: "Pre-build message to Telegram"
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        message: Building kernel. https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    - name: "Android kernel build"
+      uses: lemniskett/android-kernel-actions@master
+      id: build
+      with:
+        arch: arm64
+        compiler: clang/9
+        defconfig: olive_perf_defconfig
+        image: Image.gz-dtb
+
+    - name: "Post build to Telegram"
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        message: Kernel is built!, took ${{ steps.build.outputs.elapsed_time }} seconds.
+        document: ${{ steps.build.outputs.outfile }}
+
+    - name: "Alert failed build"
+      uses: appleboy/telegram-action@master
+      if: ${{ failure() }}
+      with:
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        message: Failed building kernel, check action for more info.
