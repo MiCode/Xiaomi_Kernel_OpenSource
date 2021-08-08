@@ -1315,13 +1315,22 @@ static int adreno_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	const struct adreno_gpu_core *gpucore;
+	int ret;
 	u32 chipid;
 
 	gpucore = adreno_identify_gpu(pdev, &chipid);
 	if (IS_ERR(gpucore))
 		return PTR_ERR(gpucore);
 
-	return gpucore->gpudev->probe(pdev, chipid, gpucore);
+	ret = gpucore->gpudev->probe(pdev, chipid, gpucore);
+
+	if (!ret) {
+		struct kgsl_device *device = dev_get_drvdata(dev);
+
+		device->pdev_loaded = true;
+	}
+
+	return ret;
 }
 
 static void adreno_unbind(struct device *dev)
@@ -1333,6 +1342,8 @@ static void adreno_unbind(struct device *dev)
 	device = dev_get_drvdata(dev);
 	if (!device)
 		return;
+
+	device->pdev_loaded = false;
 
 	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -1547,6 +1558,9 @@ static int adreno_first_open(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	if (!device->pdev_loaded)
+		return -ENODEV;
 
 	return ops->first_open(adreno_dev);
 }

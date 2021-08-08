@@ -301,6 +301,8 @@ struct kgsl_device {
 	struct trace_array *fence_trace_array;
 	/** @l3_vote: Enable/Disable l3 voting */
 	bool l3_vote;
+	/** @pdev_loaded: Flag to test if platform driver is probed */
+	bool pdev_loaded;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
