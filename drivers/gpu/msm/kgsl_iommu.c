@@ -1230,6 +1230,7 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu_context *ctx = &iommu->secure_context;
 	int secure_vmid = VMID_CP_PIXEL;
 	struct kgsl_global_memdesc *md;
+	int cb_num;
 
 	if (!mmu->secured)
 		return -EPERM;
@@ -1258,6 +1259,17 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	iommu_set_fault_handler(iommu_pt->domain,
 				kgsl_iommu_fault_handler, pt);
+
+	ret = iommu_domain_get_attr(iommu_pt->domain,
+				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
+	if (ret) {
+		dev_err(device->dev, "get DOMAIN_ATTR_CONTEXT_BANK failed: %d\n",
+			ret);
+		_free_pt(ctx, pt);
+		return ret;
+	}
+
+	ctx->cb_num = cb_num;
 
 	/* Map any pending secure global buffers */
 	list_for_each_entry(md, &device->globals, node) {
