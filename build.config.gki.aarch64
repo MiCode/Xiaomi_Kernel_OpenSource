@@ -14,6 +14,7 @@ android/abi_gki_aarch64_goldfish
 android/abi_gki_aarch64_hikey960
 android/abi_gki_aarch64_imx
 android/abi_gki_aarch64_oneplus
+android/abi_gki_aarch64_microsoft
 android/abi_gki_aarch64_oplus
 android/abi_gki_aarch64_qcom
 android/abi_gki_aarch64_sony
