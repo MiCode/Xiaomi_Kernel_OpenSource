@@ -2115,6 +2115,19 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	}
 
 	SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev, "%s:\n", __func__);
+
+	if (geni_mas->shared_se) {
+		if (geni_mas->tx != NULL) {
+			ret = dmaengine_pause(geni_mas->tx);
+			if (ret) {
+				SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
+				"%s dmaengine_pause failed: %d\n", __func__, ret);
+			}
+			SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev,
+			"%s: Shared_SE dma_pause\n", __func__);
+		}
+	}
+
 	/* Do not unconfigure the GPIOs for a shared_se usecase */
 	if (geni_mas->shared_ee && !geni_mas->shared_se)
 		goto exit_rt_suspend;
@@ -2159,6 +2172,19 @@ static int spi_geni_runtime_resume(struct device *dev)
 	}
 
 	SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev, "%s:\n", __func__);
+
+	if (geni_mas->shared_se) {
+		/* very first time mas->tx channel is not getting updated */
+		if (geni_mas->tx != NULL) {
+			ret = dmaengine_resume(geni_mas->tx);
+			if (ret) {
+				SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
+				"%s dmaengine_resume failed: %d\n", __func__, ret);
+			}
+			SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev,
+			"%s: Shared_SE dma_resume call\n", __func__);
+		}
+	}
 
 	if (geni_mas->shared_ee)
 		goto exit_rt_resume;
