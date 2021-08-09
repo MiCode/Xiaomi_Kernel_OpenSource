@@ -26,6 +26,7 @@
 #endif
 #include <linux/sched.h>
 #include <linux/sched/task_stack.h>
+#include <linux/sched/mm.h>
 #include <linux/semaphore.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
@@ -1717,9 +1718,10 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		unsigned long start = 0;
 		unsigned long end = 0, length = 0;
 		unsigned char *maps;
-		int mapsLength;
+		int mapsLength = 0;
 		unsigned char *stack;
 		int copied;
+		struct mm_struct *rms_mm;
 
 		pr_info("Get direct unwind backtrace info");
 
@@ -1733,56 +1735,71 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (thread_info.tid > 0) {
 			struct task_struct *task;
 			struct pt_regs *user_ret;
+			struct pt_regs regs;
 
 			rcu_read_lock();
 			task = pid_task(
 					find_pid_ns(thread_info.tid,
 						task_active_pid_ns(current)),
 					PIDTYPE_PID);
-			if (!task || !task->stack) {
+			if (!task) {
 				rcu_read_unlock();
 				ret = -EINVAL;
 				goto EXIT;
 			}
 
+			get_task_struct(task);
+
 			rcu_read_unlock();
-			// 1. get registers
+
+			if (!task->stack) {
+				ret = -EINVAL;
+				put_task_struct(task);
+				goto EXIT;
+			}
+
+			// 1. get registers, backup pt_regs to kernel stack
 			user_ret = task_pt_regs(task);
+			memcpy(&regs, user_ret, sizeof(struct pt_regs));
+			user_ret = &regs;
 
 			if (copy_to_user((void *)thread_info.regs, user_ret,
 				sizeof(struct pt_regs))) {
 				ret = -EFAULT;
+				put_task_struct(task);
 				goto EXIT;
 			}
 
 			// 2. get maps
-			if ((!user_mode(user_ret)) || !task->mm) {
+			if ((!user_mode(user_ret))) {
 				ret = -EFAULT;
+				put_task_struct(task);
+				goto EXIT;
+			}
+
+			rms_mm = get_task_mm(task);
+			if (!rms_mm) {
+				ret = -EFAULT;
+				put_task_struct(task);
 				goto EXIT;
 			}
 
 			maps = vmalloc(MaxMapsSize);
 			if (!maps) {
 				ret = -ENOMEM;
+				mmput(rms_mm);
+				put_task_struct(task);
 				goto EXIT;
 			}
 			memset(maps, 0, MaxMapsSize);
-			down_read(&task->mm->mmap_lock);
-			vma = task->mm->mmap;
-			while (vma && (mapcount < task->mm->map_count)) {
+
+			mmap_read_lock(rms_mm);
+			vma = rms_mm->mmap;
+			while (vma && (mapcount < rms_mm->map_count)) {
 				show_map_vma(maps, &mapsLength, vma);
 				vma = vma->vm_next;
 				mapcount++;
 			}
-
-			if (copy_to_user(thread_info.Userthread_maps,
-				maps, mapsLength)) {
-				vfree(maps);
-				ret = -EFAULT;
-				goto EXIT;
-			}
-			vfree(maps);
-			thread_info.Userthread_mapsLength = mapsLength;
 
 			// 3. get stack
 #ifndef __aarch64__ //K32+U32
@@ -1793,7 +1810,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			else //K64+U64
 				start = (ulong)user_ret->user_regs.sp;
 #endif
-			vma = task->mm->mmap;
+			vma = rms_mm->mmap;
 			while (vma) {
 				if (vma->vm_start <= start &&
 					vma->vm_end >= start) {
@@ -1801,14 +1818,26 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					break;
 				}
 				vma = vma->vm_next;
-				if (vma == task->mm->mmap)
+				if (vma == rms_mm->mmap)
 					break;
 			}
 
-			up_read(&task->mm->mmap_lock);
+			mmap_read_unlock(rms_mm);
+			mmput(rms_mm);
+			if (copy_to_user(thread_info.Userthread_maps,
+				maps, mapsLength)) {
+				vfree(maps);
+				put_task_struct(task);
+				ret = -EFAULT;
+				goto EXIT;
+			}
+
+			vfree(maps);
+			thread_info.Userthread_mapsLength = mapsLength;
 			if (end == 0) {
 				pr_info("Dump native stack failed:\n");
 				ret = -EFAULT;
+				put_task_struct(task);
 				goto EXIT;
 			}
 
@@ -1819,6 +1848,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			stack = vmalloc(MaxStackSize);
 			if (!stack) {
 				ret = -ENOMEM;
+				put_task_struct(task);
 				goto EXIT;
 			}
 
@@ -1827,6 +1857,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copied != length) {
 				pr_info("Access stack error");
 				vfree(stack);
+				put_task_struct(task);
 				ret = -EIO;
 				goto EXIT;
 			}
@@ -1834,6 +1865,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_to_user(thread_info.Userthread_Stack,
 				stack, length)) {
 				vfree(stack);
+				put_task_struct(task);
 				ret = -EFAULT;
 				goto EXIT;
 			}
@@ -1841,10 +1873,12 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_to_user((struct unwind_info_rms __user *)arg,
 				&thread_info, sizeof(struct unwind_info_rms))) {
 				vfree(stack);
+				put_task_struct(task);
 				ret = -EFAULT;
 				goto EXIT;
 			}
 			vfree(stack);
+			put_task_struct(task);
 		}
 		break;
 	}
