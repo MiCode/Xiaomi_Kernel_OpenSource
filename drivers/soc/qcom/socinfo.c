@@ -322,6 +322,7 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* kona ID */
 	[356] = {MSM_CPU_KONA, "KONA"},
 	[455] = {MSM_CPU_KONA, "KONA"},
+	[496] = {MSM_CPU_KONA, "KONA"},
 
 	/* Lito ID */
 	[400] = {MSM_CPU_LITO, "LITO"},
