@@ -271,3 +271,5 @@
 		};
 	};
 };
+
+#include "parrot-pinctrl.dtsi"
