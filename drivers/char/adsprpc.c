@@ -5517,21 +5517,22 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			"%s %6s %d\n", "file_close", ":", fl->file_close);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %9s %d\n", "profile", ":", fl->profile);
-		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %3s %d\n", "smmu.coherent", ":",
-			fl->sctx->smmu.coherent);
-		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %4s %d\n", "smmu.enabled", ":",
-			fl->sctx->smmu.enabled);
-		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %9s %d\n", "smmu.cb", ":", fl->sctx->smmu.cb);
-		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %5s %d\n", "smmu.secure", ":",
-			fl->sctx->smmu.secure);
-		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %5s %d\n", "smmu.faults", ":",
-			fl->sctx->smmu.faults);
-
+		if (fl->sctx) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %3s %d\n", "smmu.coherent", ":",
+				fl->sctx->smmu.coherent);
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %4s %d\n", "smmu.enabled", ":",
+				fl->sctx->smmu.enabled);
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %9s %d\n", "smmu.cb", ":", fl->sctx->smmu.cb);
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %5s %d\n", "smmu.secure", ":",
+				fl->sctx->smmu.secure);
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %5s %d\n", "smmu.faults", ":",
+				fl->sctx->smmu.faults);
+		}
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n=======%s %s %s======\n", title,
 			" LIST OF MAPS ", title);
