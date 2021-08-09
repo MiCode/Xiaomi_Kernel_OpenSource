@@ -2990,7 +2990,7 @@ enable_clk_err:
 
 static int __qseecom_cleanup_app(struct qseecom_dev_handle *data)
 {
-	int ret = 1;	/* Set unload app */
+	int ret = 0;	/* Set unload app */
 
 	wake_up_all(&qseecom.send_resp_wq);
 	if (qseecom.qsee_reentrancy_support)
@@ -3074,7 +3074,12 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		goto unload_exit;
 	}
 
-	__qseecom_cleanup_app(data);
+	ret = __qseecom_cleanup_app(data);
+	if (ret && !app_crash) {
+		pr_err("cleanup app failed, pending ioctl:%d\n", data->ioctl_count);
+		return ret;
+	}
+
 	__qseecom_reentrancy_check_if_no_app_blocked(TZ_OS_APP_SHUTDOWN_ID);
 
 	/* ignore app_id 0, it happens when close qseecom_fd if load app fail*/
