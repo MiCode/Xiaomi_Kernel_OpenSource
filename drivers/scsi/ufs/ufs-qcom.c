@@ -3834,7 +3834,7 @@ static ssize_t err_count_show(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 
 	return scnprintf(buf, PAGE_SIZE,
-			 "%s: %d\n%s: %d\n%s: %d\n",
+			 "%s: %d\n%s: %d\n%s: %d\n%s: %d\n",
 			 "pa_err_cnt_total",
 			 ufs_qcom_gec(hba, UFS_EVT_PA_ERR,
 				      "pa_err_cnt_total"),
@@ -3843,7 +3843,10 @@ static ssize_t err_count_show(struct device *dev,
 				      "dl_err_cnt_total"),
 			 "dme_err_cnt",
 			 ufs_qcom_gec(hba, UFS_EVT_DME_ERR,
-				      "dme_err_cnt"));
+				      "dme_err_cnt"),
+			 "req_abort_cnt",
+			  hba->req_abort_count);
+
 }
 
 static DEVICE_ATTR_RO(err_count);
