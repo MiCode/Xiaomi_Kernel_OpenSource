@@ -1132,7 +1132,7 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 }
 
 static const struct of_device_id adreno_gmu_match[] = {
-	{ .compatible = "qcom,genc-gmu" },
+	{ .compatible = "qcom,gen7-gmu" },
 	{ .compatible = "qcom,gpu-gmu" },
 	{ .compatible = "qcom,gpu-rgmu" },
 	{},
@@ -1196,7 +1196,7 @@ int adreno_device_probe(struct platform_device *pdev,
 		kgsl_mmu_set_feature(device, KGSL_MMU_64BIT);
 
 	/*
-	 * Set the SMMU aperture on A6XX/GenC targets to use per-process
+	 * Set the SMMU aperture on A6XX/Gen7 targets to use per-process
 	 * pagetables.
 	 */
 	if (ADRENO_GPUREV(adreno_dev) >= 600)
@@ -1661,7 +1661,7 @@ void adreno_get_bus_counters(struct adreno_device *adreno_dev)
 		&adreno_dev->starved_ram_lo, NULL);
 
 	/* Target has GBIF */
-	if (adreno_is_genc(adreno_dev) ||
+	if (adreno_is_gen7(adreno_dev) ||
 		(adreno_is_a6xx(adreno_dev) && !adreno_is_a630(adreno_dev))) {
 		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,

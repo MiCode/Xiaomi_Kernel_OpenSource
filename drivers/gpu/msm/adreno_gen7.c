@@ -12,78 +12,78 @@
 #include <linux/soc/qcom/llcc-qcom.h>
 
 #include "adreno.h"
-#include "adreno_genc.h"
-#include "adreno_genc_hwsched.h"
+#include "adreno_gen7.h"
+#include "adreno_gen7_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
 /* IFPC & Preemption static powerup restore list */
-static const u32 genc_pwrup_reglist[] = {
-	GENC_UCHE_TRAP_BASE_LO,
-	GENC_UCHE_TRAP_BASE_HI,
-	GENC_UCHE_WRITE_THRU_BASE_LO,
-	GENC_UCHE_WRITE_THRU_BASE_HI,
-	GENC_UCHE_GMEM_RANGE_MIN_LO,
-	GENC_UCHE_GMEM_RANGE_MIN_HI,
-	GENC_UCHE_GMEM_RANGE_MAX_LO,
-	GENC_UCHE_GMEM_RANGE_MAX_HI,
-	GENC_UCHE_CACHE_WAYS,
-	GENC_UCHE_MODE_CNTL,
-	GENC_RB_NC_MODE_CNTL,
-	GENC_TPL1_NC_MODE_CNTL,
-	GENC_SP_NC_MODE_CNTL,
-	GENC_GRAS_NC_MODE_CNTL,
-	GENC_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
-	GENC_UCHE_GBIF_GX_CONFIG,
-	GENC_RBBM_GBIF_CLIENT_QOS_CNTL,
+static const u32 gen7_pwrup_reglist[] = {
+	GEN7_UCHE_TRAP_BASE_LO,
+	GEN7_UCHE_TRAP_BASE_HI,
+	GEN7_UCHE_WRITE_THRU_BASE_LO,
+	GEN7_UCHE_WRITE_THRU_BASE_HI,
+	GEN7_UCHE_GMEM_RANGE_MIN_LO,
+	GEN7_UCHE_GMEM_RANGE_MIN_HI,
+	GEN7_UCHE_GMEM_RANGE_MAX_LO,
+	GEN7_UCHE_GMEM_RANGE_MAX_HI,
+	GEN7_UCHE_CACHE_WAYS,
+	GEN7_UCHE_MODE_CNTL,
+	GEN7_RB_NC_MODE_CNTL,
+	GEN7_TPL1_NC_MODE_CNTL,
+	GEN7_SP_NC_MODE_CNTL,
+	GEN7_GRAS_NC_MODE_CNTL,
+	GEN7_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
+	GEN7_UCHE_GBIF_GX_CONFIG,
+	GEN7_RBBM_GBIF_CLIENT_QOS_CNTL,
 };
 
 /* IFPC only static powerup restore list */
-static const u32 genc_ifpc_pwrup_reglist[] = {
-	GENC_CP_CHICKEN_DBG,
-	GENC_CP_DBG_ECO_CNTL,
-	GENC_CP_PROTECT_CNTL,
-	GENC_CP_PROTECT_REG,
-	GENC_CP_PROTECT_REG+1,
-	GENC_CP_PROTECT_REG+2,
-	GENC_CP_PROTECT_REG+3,
-	GENC_CP_PROTECT_REG+4,
-	GENC_CP_PROTECT_REG+5,
-	GENC_CP_PROTECT_REG+6,
-	GENC_CP_PROTECT_REG+7,
-	GENC_CP_PROTECT_REG+8,
-	GENC_CP_PROTECT_REG+9,
-	GENC_CP_PROTECT_REG+10,
-	GENC_CP_PROTECT_REG+11,
-	GENC_CP_PROTECT_REG+12,
-	GENC_CP_PROTECT_REG+13,
-	GENC_CP_PROTECT_REG+14,
-	GENC_CP_PROTECT_REG+15,
-	GENC_CP_PROTECT_REG+16,
-	GENC_CP_PROTECT_REG+17,
-	GENC_CP_PROTECT_REG+18,
-	GENC_CP_PROTECT_REG+19,
-	GENC_CP_PROTECT_REG+20,
-	GENC_CP_PROTECT_REG+21,
-	GENC_CP_PROTECT_REG+22,
-	GENC_CP_PROTECT_REG+23,
-	GENC_CP_PROTECT_REG+24,
-	GENC_CP_PROTECT_REG+25,
-	GENC_CP_PROTECT_REG+26,
-	GENC_CP_PROTECT_REG+27,
-	GENC_CP_PROTECT_REG+28,
-	GENC_CP_PROTECT_REG+29,
-	GENC_CP_PROTECT_REG+30,
-	GENC_CP_PROTECT_REG+31,
-	GENC_CP_PROTECT_REG+32,
-	GENC_CP_PROTECT_REG+33,
-	GENC_CP_PROTECT_REG+47,
-	GENC_CP_AHB_CNTL,
+static const u32 gen7_ifpc_pwrup_reglist[] = {
+	GEN7_CP_CHICKEN_DBG,
+	GEN7_CP_DBG_ECO_CNTL,
+	GEN7_CP_PROTECT_CNTL,
+	GEN7_CP_PROTECT_REG,
+	GEN7_CP_PROTECT_REG+1,
+	GEN7_CP_PROTECT_REG+2,
+	GEN7_CP_PROTECT_REG+3,
+	GEN7_CP_PROTECT_REG+4,
+	GEN7_CP_PROTECT_REG+5,
+	GEN7_CP_PROTECT_REG+6,
+	GEN7_CP_PROTECT_REG+7,
+	GEN7_CP_PROTECT_REG+8,
+	GEN7_CP_PROTECT_REG+9,
+	GEN7_CP_PROTECT_REG+10,
+	GEN7_CP_PROTECT_REG+11,
+	GEN7_CP_PROTECT_REG+12,
+	GEN7_CP_PROTECT_REG+13,
+	GEN7_CP_PROTECT_REG+14,
+	GEN7_CP_PROTECT_REG+15,
+	GEN7_CP_PROTECT_REG+16,
+	GEN7_CP_PROTECT_REG+17,
+	GEN7_CP_PROTECT_REG+18,
+	GEN7_CP_PROTECT_REG+19,
+	GEN7_CP_PROTECT_REG+20,
+	GEN7_CP_PROTECT_REG+21,
+	GEN7_CP_PROTECT_REG+22,
+	GEN7_CP_PROTECT_REG+23,
+	GEN7_CP_PROTECT_REG+24,
+	GEN7_CP_PROTECT_REG+25,
+	GEN7_CP_PROTECT_REG+26,
+	GEN7_CP_PROTECT_REG+27,
+	GEN7_CP_PROTECT_REG+28,
+	GEN7_CP_PROTECT_REG+29,
+	GEN7_CP_PROTECT_REG+30,
+	GEN7_CP_PROTECT_REG+31,
+	GEN7_CP_PROTECT_REG+32,
+	GEN7_CP_PROTECT_REG+33,
+	GEN7_CP_PROTECT_REG+47,
+	GEN7_CP_AHB_CNTL,
 };
 
-void genc_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
+void gen7_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 {
 	u32 i = 0, mask = 0;
 
@@ -120,7 +120,7 @@ void genc_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 	cmds[i++] = 0;
 }
 
-int genc_fenced_write(struct adreno_device *adreno_dev, u32 offset,
+int gen7_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		u32 value, u32 mask)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -135,7 +135,7 @@ int genc_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		 */
 		mb();
 
-		gmu_core_regread(device, GENC_GMU_AHB_FENCE_STATUS, &status);
+		gmu_core_regread(device, GEN7_GMU_AHB_FENCE_STATUS, &status);
 
 		/*
 		 * If !writedropped0/1, then the write to fenced register
@@ -160,27 +160,27 @@ int genc_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 	return -ETIMEDOUT;
 }
 
-int genc_init(struct adreno_device *adreno_dev)
+int gen7_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 
-	adreno_dev->highest_bank_bit = genc_core->highest_bank_bit;
+	adreno_dev->highest_bank_bit = gen7_core->highest_bank_bit;
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 			ADRENO_COOP_RESET);
 
-	genc_crashdump_init(adreno_dev);
+	gen7_crashdump_init(adreno_dev);
 
 	return adreno_allocate_global(device, &adreno_dev->pwrup_reglist,
 		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 		"powerup_register_list");
 }
 
-static void genc_protect_init(struct adreno_device *adreno_dev)
+static void gen7_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
-	const struct genc_protected_regs *regs = genc_core->protected_regs;
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
+	const struct gen7_protected_regs *regs = gen7_core->protected_regs;
 	int i;
 
 	/*
@@ -188,7 +188,7 @@ static void genc_protect_init(struct adreno_device *adreno_dev)
 	 * protect violation and select the last span to protect from the start
 	 * address all the way to the end of the register address space
 	 */
-	kgsl_regwrite(device, GENC_CP_PROTECT_CNTL,
+	kgsl_regwrite(device, GEN7_CP_PROTECT_CNTL,
 		BIT(0) | BIT(1) | BIT(3));
 
 	/* Program each register defined by the core definition */
@@ -208,10 +208,10 @@ static void genc_protect_init(struct adreno_device *adreno_dev)
 	}
 }
 
-void genc_cx_regulator_disable_wait(struct regulator *reg,
+void gen7_cx_regulator_disable_wait(struct regulator *reg,
 		struct kgsl_device *device, u32 timeout)
 {
-	if (!adreno_regulator_disable_poll(device, reg, GENC_GPU_CC_CX_GDSCR, timeout)) {
+	if (!adreno_regulator_disable_poll(device, reg, GEN7_GPU_CC_CX_GDSCR, timeout)) {
 		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
 		/* Dump the cx regulator consumer list */
 		qcom_clk_dump(NULL, reg, false);
@@ -223,24 +223,24 @@ void genc_cx_regulator_disable_wait(struct regulator *reg,
 #define GMU_AO_CGC_DELAY_CNTL 0x00010111
 #define GMU_AO_CGC_HYST_CNTL 0x00005555
 
-static void genc_hwcg_set(struct adreno_device *adreno_dev, bool on)
+static void gen7_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 	unsigned int value;
 	int i;
 
 	if (!adreno_dev->hwcg_enabled)
 		on = false;
 
-	gmu_core_regwrite(device, GENC_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
+	gmu_core_regwrite(device, GEN7_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
 			on ? GMU_AO_CGC_MODE_CNTL : 0);
-	gmu_core_regwrite(device, GENC_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
+	gmu_core_regwrite(device, GEN7_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
 			on ? GMU_AO_CGC_DELAY_CNTL : 0);
-	gmu_core_regwrite(device, GENC_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
+	gmu_core_regwrite(device, GEN7_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
 			on ? GMU_AO_CGC_HYST_CNTL : 0);
 
-	kgsl_regread(device, GENC_RBBM_CLOCK_CNTL, &value);
+	kgsl_regread(device, GEN7_RBBM_CLOCK_CNTL, &value);
 
 	if (value == RBBM_CLOCK_CNTL_ON && on)
 		return;
@@ -248,16 +248,16 @@ static void genc_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	if (value == 0 && !on)
 		return;
 
-	for (i = 0; i < genc_core->hwcg_count; i++)
-		kgsl_regwrite(device, genc_core->hwcg[i].offset,
-			on ? genc_core->hwcg[i].val : 0);
+	for (i = 0; i < gen7_core->hwcg_count; i++)
+		kgsl_regwrite(device, gen7_core->hwcg[i].offset,
+			on ? gen7_core->hwcg[i].val : 0);
 
 	/* enable top level HWCG */
-	kgsl_regwrite(device, GENC_RBBM_CLOCK_CNTL,
+	kgsl_regwrite(device, GEN7_RBBM_CLOCK_CNTL,
 		on ? RBBM_CLOCK_CNTL_ON : 0);
 }
 
-static void genc_patch_pwrup_reglist(struct adreno_device *adreno_dev)
+static void gen7_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 {
 	struct adreno_reglist_list reglist[2];
 	void *ptr = adreno_dev->pwrup_reglist->hostptr;
@@ -266,12 +266,12 @@ static void genc_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	u32 *dest = ptr + sizeof(*lock);
 
 	/* Static IFPC-only registers */
-	reglist[0].regs = genc_ifpc_pwrup_reglist;
-	reglist[0].count = ARRAY_SIZE(genc_ifpc_pwrup_reglist);
+	reglist[0].regs = gen7_ifpc_pwrup_reglist;
+	reglist[0].count = ARRAY_SIZE(gen7_ifpc_pwrup_reglist);
 
 	/* Static IFPC + preemption registers */
-	reglist[1].regs = genc_pwrup_reglist;
-	reglist[1].count = ARRAY_SIZE(genc_pwrup_reglist);
+	reglist[1].regs = gen7_pwrup_reglist;
+	reglist[1].count = ARRAY_SIZE(gen7_pwrup_reglist);
 
 	/*
 	 * For each entry in each of the lists, write the offset and the current
@@ -289,7 +289,7 @@ static void genc_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	}
 
 	/* This needs to be at the end of the list */
-	*dest++ = GENC_RBBM_PERFCTR_CNTL;
+	*dest++ = GEN7_RBBM_PERFCTR_CNTL;
 	*dest++ = 1;
 	lock->list_length += 2;
 
@@ -323,7 +323,7 @@ static void _llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 	gpu_scid = llcc_get_slice_id(adreno_dev->gpu_llc_slice);
 
 	/* 6 blocks at 5 bits per block */
-	kgsl_regwrite(device, GENC_GBIF_SCACHE_CNTL1,
+	kgsl_regwrite(device, GEN7_GBIF_SCACHE_CNTL1,
 			FIELD_PREP(GENMASK(29, 25), gpu_scid) |
 			FIELD_PREP(GENMASK(24, 20), gpu_scid) |
 			FIELD_PREP(GENMASK(19, 15), gpu_scid) |
@@ -331,7 +331,7 @@ static void _llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(9, 5), gpu_scid) |
 			FIELD_PREP(GENMASK(4, 0), gpu_scid));
 
-	kgsl_regwrite(device, GENC_GBIF_SCACHE_CNTL0,
+	kgsl_regwrite(device, GEN7_GBIF_SCACHE_CNTL0,
 			FIELD_PREP(GENMASK(14, 10), gpu_scid) | BIT(8));
 }
 
@@ -346,17 +346,17 @@ static void _llc_gpuhtw_slice_activate(struct adreno_device *adreno_dev)
 
 static void _set_secvid(struct kgsl_device *device)
 {
-	kgsl_regwrite(device, GENC_RBBM_SECVID_TSB_CNTL, 0x0);
-	kgsl_regwrite(device, GENC_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
+	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_CNTL, 0x0);
+	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
 		lower_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
-	kgsl_regwrite(device, GENC_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
 		upper_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
-	kgsl_regwrite(device, GENC_RBBM_SECVID_TSB_TRUSTED_SIZE,
+	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_TRUSTED_SIZE,
 		KGSL_IOMMU_SECURE_SIZE(&device->mmu));
 }
 
 /*
- * All GenC targets support marking certain transactions as always privileged
+ * All Gen7 targets support marking certain transactions as always privileged
  * which allows us to mark more memory as privileged without having to
  * explicitly set the APRIV bit. Choose the following transactions to be
  * privileged by default:
@@ -368,37 +368,37 @@ static void _set_secvid(struct kgsl_device *device)
  * ICACHE      [0:0] - Instruction cache fetches
  */
 
-#define GENC_APRIV_DEFAULT (BIT(3) | BIT(2) | BIT(1) | BIT(0))
+#define GEN7_APRIV_DEFAULT (BIT(3) | BIT(2) | BIT(1) | BIT(0))
 /* Add crashdumper permissions for the BR APRIV */
-#define GENC_BR_APRIV_DEFAULT (GENC_APRIV_DEFAULT | BIT(6) | BIT(5))
+#define GEN7_BR_APRIV_DEFAULT (GEN7_APRIV_DEFAULT | BIT(6) | BIT(5))
 
-int genc_start(struct adreno_device *adreno_dev)
+int gen7_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 	static bool patch_reglist;
 
 	/* Set up GBIF registers from the GPU core definition */
-	kgsl_regmap_multi_write(&device->regmap, genc_core->gbif,
-		genc_core->gbif_count);
+	kgsl_regmap_multi_write(&device->regmap, gen7_core->gbif,
+		gen7_core->gbif_count);
 
-	kgsl_regwrite(device, GENC_UCHE_GBIF_GX_CONFIG, 0x10240e0);
+	kgsl_regwrite(device, GEN7_UCHE_GBIF_GX_CONFIG, 0x10240e0);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
-	kgsl_regwrite(device, GENC_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xffffffff);
+	kgsl_regwrite(device, GEN7_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xffffffff);
 
 	/*
 	 * Set UCHE_WRITE_THRU_BASE to the UCHE_TRAP_BASE effectively
 	 * disabling L2 bypass
 	 */
-	kgsl_regwrite(device, GENC_UCHE_TRAP_BASE_LO, 0xfffff000);
-	kgsl_regwrite(device, GENC_UCHE_TRAP_BASE_HI, 0x0001ffff);
-	kgsl_regwrite(device, GENC_UCHE_WRITE_THRU_BASE_LO, 0xfffff000);
-	kgsl_regwrite(device, GENC_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
+	kgsl_regwrite(device, GEN7_UCHE_TRAP_BASE_LO, 0xfffff000);
+	kgsl_regwrite(device, GEN7_UCHE_TRAP_BASE_HI, 0x0001ffff);
+	kgsl_regwrite(device, GEN7_UCHE_WRITE_THRU_BASE_LO, 0xfffff000);
+	kgsl_regwrite(device, GEN7_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
 
-	kgsl_regwrite(device, GENC_UCHE_CACHE_WAYS, 0x800000);
+	kgsl_regwrite(device, GEN7_UCHE_CACHE_WAYS, 0x800000);
 
-	kgsl_regwrite(device, GENC_UCHE_CMDQ_CONFIG,
+	kgsl_regwrite(device, GEN7_UCHE_CMDQ_CONFIG,
 			FIELD_PREP(GENMASK(19, 16), 6) |
 			FIELD_PREP(GENMASK(15, 12), 6) |
 			FIELD_PREP(GENMASK(11, 8), 9) |
@@ -406,52 +406,52 @@ int genc_start(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(1, 0), 2));
 
 	/* Set the AHB default slave response to "ERROR" */
-	kgsl_regwrite(device, GENC_CP_AHB_CNTL, 0x1);
+	kgsl_regwrite(device, GEN7_CP_AHB_CNTL, 0x1);
 
 	/* Turn on performance counters */
-	kgsl_regwrite(device, GENC_RBBM_PERFCTR_CNTL, 0x1);
+	kgsl_regwrite(device, GEN7_RBBM_PERFCTR_CNTL, 0x1);
 
 	/* Turn on the IFPC counter (countable 4 on XOCLK4) */
-	kgsl_regwrite(device, GENC_GMU_CX_GMU_POWER_COUNTER_SELECT_1,
+	kgsl_regwrite(device, GEN7_GMU_CX_GMU_POWER_COUNTER_SELECT_1,
 			FIELD_PREP(GENMASK(7, 0), 0x4));
 
-	kgsl_regwrite(device, GENC_RB_NC_MODE_CNTL, BIT(11) | BIT(4) |
+	kgsl_regwrite(device, GEN7_RB_NC_MODE_CNTL, BIT(11) | BIT(4) |
 			FIELD_PREP(GENMASK(2, 1), 3));
-	kgsl_regwrite(device, GENC_TPL1_NC_MODE_CNTL,
+	kgsl_regwrite(device, GEN7_TPL1_NC_MODE_CNTL,
 			FIELD_PREP(GENMASK(2, 1), 3));
-	kgsl_regwrite(device, GENC_SP_NC_MODE_CNTL,
+	kgsl_regwrite(device, GEN7_SP_NC_MODE_CNTL,
 			FIELD_PREP(GENMASK(5, 4), 2) |
 			FIELD_PREP(GENMASK(2, 1), 3));
-	kgsl_regwrite(device, GENC_GRAS_NC_MODE_CNTL,
+	kgsl_regwrite(device, GEN7_GRAS_NC_MODE_CNTL,
 			FIELD_PREP(GENMASK(8, 5), 3));
 
-	kgsl_regwrite(device, GENC_UCHE_MODE_CNTL,
+	kgsl_regwrite(device, GEN7_UCHE_MODE_CNTL,
 			FIELD_PREP(GENMASK(22, 21), 3));
-	kgsl_regwrite(device, GENC_RBBM_INTERFACE_HANG_INT_CNTL, BIT(30) |
+	kgsl_regwrite(device, GEN7_RBBM_INTERFACE_HANG_INT_CNTL, BIT(30) |
 			FIELD_PREP(GENMASK(27, 0),
-				genc_core->hang_detect_cycles));
-	kgsl_regwrite(device, GENC_UCHE_CLIENT_PF, BIT(0));
+				gen7_core->hang_detect_cycles));
+	kgsl_regwrite(device, GEN7_UCHE_CLIENT_PF, BIT(0));
 
 	/* Enable the GMEM save/restore feature for preemption */
 	if (adreno_is_preemption_enabled(adreno_dev))
-		kgsl_regwrite(device, GENC_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
+		kgsl_regwrite(device, GEN7_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
 
 	/* Enable GMU power counter 0 to count GPU busy */
-	kgsl_regwrite(device, GENC_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
-	kgsl_regrmw(device, GENC_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+	kgsl_regwrite(device, GEN7_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
+	kgsl_regrmw(device, GEN7_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
 			0xFF, 0x20);
-	kgsl_regwrite(device, GENC_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+	kgsl_regwrite(device, GEN7_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
-	genc_protect_init(adreno_dev);
+	gen7_protect_init(adreno_dev);
 
 	/* Configure LLCC */
 	_llc_configure_gpu_scid(adreno_dev);
 	_llc_gpuhtw_slice_activate(adreno_dev);
 
-	kgsl_regwrite(device, GENC_CP_APRIV_CNTL, GENC_BR_APRIV_DEFAULT);
-	kgsl_regwrite(device, GENC_CP_BV_APRIV_CNTL, GENC_APRIV_DEFAULT);
-	kgsl_regwrite(device, GENC_CP_LPAC_APRIV_CNTL, GENC_APRIV_DEFAULT);
+	kgsl_regwrite(device, GEN7_CP_APRIV_CNTL, GEN7_BR_APRIV_DEFAULT);
+	kgsl_regwrite(device, GEN7_CP_BV_APRIV_CNTL, GEN7_APRIV_DEFAULT);
+	kgsl_regwrite(device, GEN7_CP_LPAC_APRIV_CNTL, GEN7_APRIV_DEFAULT);
 
 	_set_secvid(device);
 
@@ -459,7 +459,7 @@ int genc_start(struct adreno_device *adreno_dev)
 	 * Enable hardware clock gating here to prevent any register access
 	 * issue due to internal clock gating.
 	 */
-	genc_hwcg_set(adreno_dev, true);
+	gen7_hwcg_set(adreno_dev, true);
 
 	/*
 	 * All registers must be written before this point so that we don't
@@ -467,14 +467,14 @@ int genc_start(struct adreno_device *adreno_dev)
 	 * list.
 	 */
 	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
-		genc_patch_pwrup_reglist(adreno_dev);
+		gen7_patch_pwrup_reglist(adreno_dev);
 		patch_reglist = true;
 	}
 
 	return 0;
 }
 
-void genc_spin_idle_debug(struct adreno_device *adreno_dev,
+void gen7_spin_idle_debug(struct adreno_device *adreno_dev,
 				const char *str)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -484,13 +484,13 @@ void genc_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, str);
 
-	kgsl_regread(device, GENC_CP_RB_RPTR, &rptr);
-	kgsl_regread(device, GENC_CP_RB_WPTR, &wptr);
+	kgsl_regread(device, GEN7_CP_RB_RPTR, &rptr);
+	kgsl_regread(device, GEN7_CP_RB_WPTR, &wptr);
 
-	kgsl_regread(device, GENC_RBBM_STATUS, &status);
-	kgsl_regread(device, GENC_RBBM_STATUS3, &status3);
-	kgsl_regread(device, GENC_RBBM_INT_0_STATUS, &intstatus);
-	kgsl_regread(device, GENC_CP_HW_FAULT, &hwfault);
+	kgsl_regread(device, GEN7_RBBM_STATUS, &status);
+	kgsl_regread(device, GEN7_RBBM_STATUS3, &status3);
+	kgsl_regread(device, GEN7_RBBM_INT_0_STATUS, &intstatus);
+	kgsl_regread(device, GEN7_CP_HW_FAULT, &hwfault);
 
 	dev_err(device->dev,
 		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
@@ -503,29 +503,29 @@ void genc_spin_idle_debug(struct adreno_device *adreno_dev,
 }
 
 /*
- * genc_send_cp_init() - Initialize ringbuffer
+ * gen7_send_cp_init() - Initialize ringbuffer
  * @adreno_dev: Pointer to adreno device
  * @rb: Pointer to the ringbuffer of device
  *
  * Submit commands for ME initialization,
  */
-static int genc_send_cp_init(struct adreno_device *adreno_dev,
+static int gen7_send_cp_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
 	int ret;
 
-	cmds = adreno_ringbuffer_allocspace(rb, GENC_CP_INIT_DWORDS);
+	cmds = adreno_ringbuffer_allocspace(rb, GEN7_CP_INIT_DWORDS);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
 
-	genc_cp_init_cmds(adreno_dev, cmds);
+	gen7_cp_init_cmds(adreno_dev, cmds);
 
-	ret = genc_ringbuffer_submit(rb, NULL);
+	ret = gen7_ringbuffer_submit(rb, NULL);
 	if (!ret) {
 		ret = adreno_spin_idle(adreno_dev, 2000);
 		if (ret) {
-			genc_spin_idle_debug(adreno_dev,
+			gen7_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 			rb->wptr = 0;
 			rb->_wptr = 0;
@@ -535,7 +535,7 @@ static int genc_send_cp_init(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static int genc_post_start(struct adreno_device *adreno_dev)
+static int gen7_post_start(struct adreno_device *adreno_dev)
 {
 	int ret;
 	unsigned int *cmds;
@@ -564,20 +564,20 @@ static int genc_post_start(struct adreno_device *adreno_dev)
 	/* generate interrupt on preemption completion */
 	cmds[11] = 0;
 
-	ret = genc_ringbuffer_submit(rb, NULL);
+	ret = gen7_ringbuffer_submit(rb, NULL);
 	if (!ret) {
 		ret = adreno_spin_idle(adreno_dev, 2000);
 		if (ret)
-			genc_spin_idle_debug(adreno_dev,
+			gen7_spin_idle_debug(adreno_dev,
 				"hw preemption initialization failed to idle\n");
 	}
 
 	return ret;
 }
 
-int genc_rb_start(struct adreno_device *adreno_dev)
+int gen7_rb_start(struct adreno_device *adreno_dev)
 {
-	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
@@ -598,40 +598,40 @@ int genc_rb_start(struct adreno_device *adreno_dev)
 		rb->wptr_preempt_end = UINT_MAX;
 	}
 
-	genc_preemption_start(adreno_dev);
+	gen7_preemption_start(adreno_dev);
 
 	/* Set up the current ringbuffer */
 	rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 
 	addr = SCRATCH_RPTR_GPU_ADDR(device, rb->id);
-	kgsl_regwrite(device, GENC_CP_RB_RPTR_ADDR_LO, lower_32_bits(addr));
-	kgsl_regwrite(device, GENC_CP_RB_RPTR_ADDR_HI, upper_32_bits(addr));
+	kgsl_regwrite(device, GEN7_CP_RB_RPTR_ADDR_LO, lower_32_bits(addr));
+	kgsl_regwrite(device, GEN7_CP_RB_RPTR_ADDR_HI, upper_32_bits(addr));
 
 	addr = SCRATCH_BV_RPTR_GPU_ADDR(device, rb->id);
-	kgsl_regwrite(device, GENC_CP_BV_RB_RPTR_ADDR_LO, lower_32_bits(addr));
-	kgsl_regwrite(device, GENC_CP_BV_RB_RPTR_ADDR_HI, upper_32_bits(addr));
+	kgsl_regwrite(device, GEN7_CP_BV_RB_RPTR_ADDR_LO, lower_32_bits(addr));
+	kgsl_regwrite(device, GEN7_CP_BV_RB_RPTR_ADDR_HI, upper_32_bits(addr));
 
-	kgsl_regwrite(device, GENC_CP_RB_CNTL, GENC_CP_RB_CNTL_DEFAULT);
+	kgsl_regwrite(device, GEN7_CP_RB_CNTL, GEN7_CP_RB_CNTL_DEFAULT);
 
-	kgsl_regwrite(device, GENC_CP_RB_BASE,
+	kgsl_regwrite(device, GEN7_CP_RB_BASE,
 		lower_32_bits(rb->buffer_desc->gpuaddr));
-	kgsl_regwrite(device, GENC_CP_RB_BASE_HI,
+	kgsl_regwrite(device, GEN7_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
 	/* Program the ucode base for CP */
-	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_LO,
+	kgsl_regwrite(device, GEN7_CP_SQE_INSTR_BASE_LO,
 		lower_32_bits(fw->memdesc->gpuaddr));
-	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_HI,
+	kgsl_regwrite(device, GEN7_CP_SQE_INSTR_BASE_HI,
 		upper_32_bits(fw->memdesc->gpuaddr));
 
 	/* Clear the SQE_HALT to start the CP engine */
-	kgsl_regwrite(device, GENC_CP_SQE_CNTL, 1);
+	kgsl_regwrite(device, GEN7_CP_SQE_CNTL, 1);
 
-	ret = genc_send_cp_init(adreno_dev, rb);
+	ret = gen7_send_cp_init(adreno_dev, rb);
 	if (ret)
 		return ret;
 
-	ret = adreno_zap_shader_load(adreno_dev, genc_core->zap_name);
+	ret = adreno_zap_shader_load(adreno_dev, gen7_core->zap_name);
 	if (ret)
 		return ret;
 
@@ -640,7 +640,7 @@ int genc_rb_start(struct adreno_device *adreno_dev)
 	 * otherwise just try to write directly to the secure control register
 	 */
 	if (!adreno_dev->zap_loaded)
-		kgsl_regwrite(device, GENC_RBBM_SECVID_TRUST_CNTL, 0);
+		kgsl_regwrite(device, GEN7_RBBM_SECVID_TRUST_CNTL, 0);
 	else {
 		cmds = adreno_ringbuffer_allocspace(rb, 2);
 		if (IS_ERR(cmds))
@@ -649,49 +649,49 @@ int genc_rb_start(struct adreno_device *adreno_dev)
 		*cmds++ = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 		*cmds++ = 0;
 
-		ret = genc_ringbuffer_submit(rb, NULL);
+		ret = gen7_ringbuffer_submit(rb, NULL);
 		if (!ret) {
 			ret = adreno_spin_idle(adreno_dev, 2000);
 			if (ret) {
-				genc_spin_idle_debug(adreno_dev,
+				gen7_spin_idle_debug(adreno_dev,
 					"Switch to unsecure failed to idle\n");
 				return ret;
 			}
 		}
 	}
 
-	return genc_post_start(adreno_dev);
+	return gen7_post_start(adreno_dev);
 }
 
 /*
- * genc_gpu_keepalive() - GMU reg write to request GPU stays on
+ * gen7_gpu_keepalive() - GMU reg write to request GPU stays on
  * @adreno_dev: Pointer to the adreno device that has the GMU
  * @state: State to set: true is ON, false is OFF
  */
-static void genc_gpu_keepalive(struct adreno_device *adreno_dev,
+static void gen7_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
 	gmu_core_regwrite(KGSL_DEVICE(adreno_dev),
-			GENC_GMU_GMU_PWR_COL_KEEPALIVE, state);
+			GEN7_GMU_GMU_PWR_COL_KEEPALIVE, state);
 }
 
-bool genc_hw_isidle(struct adreno_device *adreno_dev)
+bool gen7_hw_isidle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
-	gmu_core_regread(device, GENC_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+	gmu_core_regread(device, GEN7_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
 
 	/* Bit 23 is GPUBUSYIGNAHB */
 	return (reg & BIT(23)) ? false : true;
 }
 
-int genc_microcode_read(struct adreno_device *adreno_dev)
+int gen7_microcode_read(struct adreno_device *adreno_dev)
 {
 	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
-	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 
-	return adreno_get_firmware(adreno_dev, genc_core->sqefw_name, sqe_fw);
+	return adreno_get_firmware(adreno_dev, gen7_core->sqefw_name, sqe_fw);
 }
 
 /* CP Interrupt bits */
@@ -712,18 +712,18 @@ int genc_microcode_read(struct adreno_device *adreno_dev)
 #define CP_INT_REGISTERPROTECTIONBV 16
 #define CP_INT_ILLEGALINSTRUCTIONBV 17
 
-static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
+static void gen7_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int status1, status2;
 	struct device *dev = device->dev;
 	unsigned int opcode;
 
-	kgsl_regread(device, GENC_CP_INTERRUPT_STATUS, &status1);
+	kgsl_regread(device, GEN7_CP_INTERRUPT_STATUS, &status1);
 
 	if (status1 & BIT(CP_INT_OPCODEERROR)) {
-		kgsl_regwrite(device, GENC_CP_SQE_STAT_ADDR, 1);
-		kgsl_regread(device, GENC_CP_SQE_STAT_DATA, &opcode);
+		kgsl_regwrite(device, GEN7_CP_SQE_STAT_ADDR, 1);
+		kgsl_regread(device, GEN7_CP_SQE_STAT_DATA, &opcode);
 		dev_crit_ratelimited(dev,
 			"CP opcode error interrupt | opcode=0x%8.8x\n", opcode);
 	}
@@ -732,13 +732,13 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 		dev_crit_ratelimited(dev, "CP ucode error interrupt\n");
 
 	if (status1 & BIT(CP_INT_CPHWFAULT)) {
-		kgsl_regread(device, GENC_CP_HW_FAULT, &status2);
+		kgsl_regread(device, GEN7_CP_HW_FAULT, &status2);
 		dev_crit_ratelimited(dev,
 			"CP | Ringbuffer HW fault | status=%x\n", status2);
 	}
 
 	if (status1 & BIT(CP_INT_REGISTERPROTECTION)) {
-		kgsl_regread(device, GENC_CP_PROTECT_STATUS, &status2);
+		kgsl_regread(device, GEN7_CP_PROTECT_STATUS, &status2);
 		dev_crit_ratelimited(dev,
 			"CP | Protected mode error | %s | addr=%x | status=%x\n",
 			status2 & BIT(20) ? "READ" : "WRITE",
@@ -767,8 +767,8 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 		dev_crit_ratelimited(dev, "CP illegal instruction LPAC\n");
 
 	if (status1 & BIT(CP_INT_OPCODEERRORBV)) {
-		kgsl_regwrite(device, GENC_CP_BV_SQE_STAT_ADDR, 1);
-		kgsl_regread(device, GENC_CP_BV_SQE_STAT_DATA, &opcode);
+		kgsl_regwrite(device, GEN7_CP_BV_SQE_STAT_ADDR, 1);
+		kgsl_regread(device, GEN7_CP_BV_SQE_STAT_DATA, &opcode);
 		dev_crit_ratelimited(dev, "CP opcode error BV | opcode=0x%8.8x\n", opcode);
 	}
 
@@ -776,13 +776,13 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 		dev_crit_ratelimited(dev, "CP ucode error BV\n");
 
 	if (status1 & BIT(CP_INT_CPHWFAULTBV)) {
-		kgsl_regread(device, GENC_CP_BV_HW_FAULT, &status2);
+		kgsl_regread(device, GEN7_CP_BV_HW_FAULT, &status2);
 		dev_crit_ratelimited(dev,
 			"CP BV | Ringbuffer HW fault | status=%x\n", status2);
 	}
 
 	if (status1 & BIT(CP_INT_REGISTERPROTECTIONBV)) {
-		kgsl_regread(device, GENC_CP_BV_PROTECT_STATUS, &status2);
+		kgsl_regread(device, GEN7_CP_BV_PROTECT_STATUS, &status2);
 		dev_crit_ratelimited(dev,
 			"CP BV | Protected mode error | %s | addr=%x | status=%x\n",
 			status2 & BIT(20) ? "READ" : "WRITE",
@@ -793,28 +793,28 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 		dev_crit_ratelimited(dev, "CP illegal instruction BV\n");
 }
 
-static void genc_err_callback(struct adreno_device *adreno_dev, int bit)
+static void gen7_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct device *dev = device->dev;
 
 	switch (bit) {
-	case GENC_INT_AHBERROR:
+	case GEN7_INT_AHBERROR:
 		dev_crit_ratelimited(dev, "CP: AHB bus error\n");
 		break;
-	case GENC_INT_ATBASYNCFIFOOVERFLOW:
+	case GEN7_INT_ATBASYNCFIFOOVERFLOW:
 		dev_crit_ratelimited(dev, "RBBM: ATB ASYNC overflow\n");
 		break;
-	case GENC_INT_ATBBUSOVERFLOW:
+	case GEN7_INT_ATBBUSOVERFLOW:
 		dev_crit_ratelimited(dev, "RBBM: ATB bus overflow\n");
 		break;
-	case GENC_INT_OUTOFBOUNDACCESS:
+	case GEN7_INT_OUTOFBOUNDACCESS:
 		dev_crit_ratelimited(dev, "UCHE: Out of bounds access\n");
 		break;
-	case GENC_INT_UCHETRAPINTERRUPT:
+	case GEN7_INT_UCHETRAPINTERRUPT:
 		dev_crit_ratelimited(dev, "UCHE: Trap interrupt\n");
 		break;
-	case GENC_INT_TSBWRITEERROR:
+	case GEN7_INT_TSBWRITEERROR:
 		dev_crit_ratelimited(dev, "TSB: Write error interrupt\n");
 		break;
 	default:
@@ -831,7 +831,7 @@ static const char *const uche_client[] = {
 
 #define SCOOBYDOO 0x5c00bd00
 
-static const char *genc_fault_block_uche(struct kgsl_device *device,
+static const char *gen7_fault_block_uche(struct kgsl_device *device,
 		unsigned int mid)
 {
 	unsigned int uche_client_id;
@@ -852,7 +852,7 @@ static const char *genc_fault_block_uche(struct kgsl_device *device,
 		return "UCHE: unknown";
 	}
 
-	kgsl_regread(device, GENC_UCHE_CLIENT_PF, &uche_client_id);
+	kgsl_regread(device, GEN7_UCHE_CLIENT_PF, &uche_client_id);
 	mutex_unlock(&device->mutex);
 
 	/* Ignore the value if the gpu is in IFPC */
@@ -870,7 +870,7 @@ static const char *genc_fault_block_uche(struct kgsl_device *device,
 	return str;
 }
 
-static const char *genc_iommu_fault_block(struct kgsl_device *device,
+static const char *gen7_iommu_fault_block(struct kgsl_device *device,
 		unsigned int fsynr1)
 {
 	unsigned int mid = fsynr1 & 0xff;
@@ -881,7 +881,7 @@ static const char *genc_iommu_fault_block(struct kgsl_device *device,
 	case 0x2:
 		return "UCHE_LPAC";
 	case 0x3:
-		return genc_fault_block_uche(device, mid);
+		return gen7_fault_block_uche(device, mid);
 	case 0x4:
 		return "CCU";
 	case 0x6:
@@ -893,22 +893,22 @@ static const char *genc_iommu_fault_block(struct kgsl_device *device,
 	return "Unknown";
 }
 
-static void genc_cp_callback(struct adreno_device *adreno_dev, int bit)
+static void gen7_cp_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (adreno_is_preemption_enabled(adreno_dev))
-		genc_preemption_trigger(adreno_dev, true);
+		gen7_preemption_trigger(adreno_dev, true);
 
 	adreno_dispatcher_schedule(device);
 }
 
 /*
- * genc_gpc_err_int_callback() - Isr for GPC error interrupts
+ * gen7_gpc_err_int_callback() - Isr for GPC error interrupts
  * @adreno_dev: Pointer to device
  * @bit: Interrupt bit
  */
-static void genc_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
+static void gen7_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -925,17 +925,17 @@ static void genc_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
 }
 
-static const struct adreno_irq_funcs genc_irq_funcs[32] = {
+static const struct adreno_irq_funcs gen7_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 0 - RBBM_GPU_IDLE */
-	ADRENO_IRQ_CALLBACK(genc_err_callback), /* 1 - RBBM_AHB_ERROR */
+	ADRENO_IRQ_CALLBACK(gen7_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 2 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 3 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 4 - CPIPCINT0 */
 	ADRENO_IRQ_CALLBACK(NULL), /* 5 - CPIPCINT1 */
-	ADRENO_IRQ_CALLBACK(genc_err_callback), /* 6 - ATBASYNCOVERFLOW */
-	ADRENO_IRQ_CALLBACK(genc_gpc_err_int_callback), /* 7 - GPC_ERR */
-	ADRENO_IRQ_CALLBACK(genc_preemption_callback),/* 8 - CP_SW */
-	ADRENO_IRQ_CALLBACK(genc_cp_hw_err_callback), /* 9 - CP_HW_ERROR */
+	ADRENO_IRQ_CALLBACK(gen7_err_callback), /* 6 - ATBASYNCOVERFLOW */
+	ADRENO_IRQ_CALLBACK(gen7_gpc_err_int_callback), /* 7 - GPC_ERR */
+	ADRENO_IRQ_CALLBACK(gen7_preemption_callback),/* 8 - CP_SW */
+	ADRENO_IRQ_CALLBACK(gen7_cp_hw_err_callback), /* 9 - CP_HW_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 10 - CP_CCU_FLUSH_DEPTH_TS */
 	ADRENO_IRQ_CALLBACK(NULL), /* 11 - CP_CCU_FLUSH_COLOR_TS */
 	ADRENO_IRQ_CALLBACK(NULL), /* 12 - CP_CCU_RESOLVE_TS */
@@ -946,15 +946,15 @@ static const struct adreno_irq_funcs genc_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 17 - CP_RB_DONE_TS */
 	ADRENO_IRQ_CALLBACK(NULL), /* 18 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 19 - UNUSED */
-	ADRENO_IRQ_CALLBACK(genc_cp_callback), /* 20 - CP_CACHE_FLUSH_TS */
+	ADRENO_IRQ_CALLBACK(gen7_cp_callback), /* 20 - CP_CACHE_FLUSH_TS */
 	ADRENO_IRQ_CALLBACK(NULL), /* 21 - CP_CACHE_TS_LPAC */
-	ADRENO_IRQ_CALLBACK(genc_err_callback), /* 22 - RBBM_ATB_BUS_OVERFLOW */
+	ADRENO_IRQ_CALLBACK(gen7_err_callback), /* 22 - RBBM_ATB_BUS_OVERFLOW */
 	ADRENO_IRQ_CALLBACK(adreno_hang_int_callback), /* 23 - MISHANGDETECT */
-	ADRENO_IRQ_CALLBACK(genc_err_callback), /* 24 - UCHE_OOB_ACCESS */
-	ADRENO_IRQ_CALLBACK(genc_err_callback), /* 25 - UCHE_TRAP_INTR */
+	ADRENO_IRQ_CALLBACK(gen7_err_callback), /* 24 - UCHE_OOB_ACCESS */
+	ADRENO_IRQ_CALLBACK(gen7_err_callback), /* 25 - UCHE_TRAP_INTR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 26 - DEBBUS_INTR_0 */
 	ADRENO_IRQ_CALLBACK(NULL), /* 27 - DEBBUS_INTR_1 */
-	ADRENO_IRQ_CALLBACK(genc_err_callback), /* 28 - TSBWRITEERROR */
+	ADRENO_IRQ_CALLBACK(gen7_err_callback), /* 28 - TSBWRITEERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 29 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 30 - ISDB_CPU_IRQ */
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
@@ -967,27 +967,27 @@ static const struct adreno_irq_funcs genc_irq_funcs[32] = {
  * This is usually harmless because the GMU will abort power collapse
  * and change the fence back to ALLOW. Poll so that this can happen.
  */
-static int genc_irq_poll_fence(struct adreno_device *adreno_dev)
+static int gen7_irq_poll_fence(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 status, fence, fence_retries = 0;
 	u64 a, b, c;
 
-	a = genc_read_alwayson(adreno_dev);
+	a = gen7_read_alwayson(adreno_dev);
 
-	kgsl_regread(device, GENC_GMU_AO_AHB_FENCE_CTRL, &fence);
+	kgsl_regread(device, GEN7_GMU_AO_AHB_FENCE_CTRL, &fence);
 
 	while (fence != 0) {
-		b = genc_read_alwayson(adreno_dev);
+		b = gen7_read_alwayson(adreno_dev);
 
 		/* Wait for small time before trying again */
 		udelay(1);
-		kgsl_regread(device, GENC_GMU_AO_AHB_FENCE_CTRL, &fence);
+		kgsl_regread(device, GEN7_GMU_AO_AHB_FENCE_CTRL, &fence);
 
 		if (fence_retries == 100 && fence != 0) {
-			c = genc_read_alwayson(adreno_dev);
+			c = gen7_read_alwayson(adreno_dev);
 
-			kgsl_regread(device, GENC_GMU_RBBM_INT_UNMASKED_STATUS,
+			kgsl_regread(device, GEN7_GMU_RBBM_INT_UNMASKED_STATUS,
 				&status);
 
 			dev_crit_ratelimited(device->dev,
@@ -1003,7 +1003,7 @@ static int genc_irq_poll_fence(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static irqreturn_t genc_irq_handler(struct adreno_device *adreno_dev)
+static irqreturn_t gen7_irq_handler(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	irqreturn_t ret = IRQ_NONE;
@@ -1014,30 +1014,30 @@ static irqreturn_t genc_irq_handler(struct adreno_device *adreno_dev)
 	 * But there still might be some register reads required so
 	 * force the GMU/GPU into KEEPALIVE mode until done with the ISR.
 	 */
-	genc_gpu_keepalive(adreno_dev, true);
+	gen7_gpu_keepalive(adreno_dev, true);
 
-	if (genc_irq_poll_fence(adreno_dev)) {
+	if (gen7_irq_poll_fence(adreno_dev)) {
 		adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT);
 		goto done;
 	}
 
-	kgsl_regread(device, GENC_RBBM_INT_0_STATUS, &status);
+	kgsl_regread(device, GEN7_RBBM_INT_0_STATUS, &status);
 
-	kgsl_regwrite(device, GENC_RBBM_INT_CLEAR_CMD, status);
+	kgsl_regwrite(device, GEN7_RBBM_INT_CLEAR_CMD, status);
 
-	ret = adreno_irq_callbacks(adreno_dev, genc_irq_funcs, status);
+	ret = adreno_irq_callbacks(adreno_dev, gen7_irq_funcs, status);
 
-	trace_kgsl_genc_irq_status(adreno_dev, status);
+	trace_kgsl_gen7_irq_status(adreno_dev, status);
 
 done:
 	/* If hard fault, then let snapshot turn off the keepalive */
 	if (!(adreno_gpu_fault(adreno_dev) & ADRENO_HARD_FAULT))
-		genc_gpu_keepalive(adreno_dev, false);
+		gen7_gpu_keepalive(adreno_dev, false);
 
 	return ret;
 }
 
-int genc_probe_common(struct platform_device *pdev,
+int gen7_probe_common(struct platform_device *pdev,
 	struct adreno_device *adreno_dev, u32 chipid,
 	const struct adreno_gpu_core *gpucore)
 {
@@ -1057,30 +1057,30 @@ int genc_probe_common(struct platform_device *pdev,
 	return adreno_device_probe(pdev, adreno_dev);
 }
 
-/* Register offset defines for GenC, in order of enum adreno_regs */
-static unsigned int genc_register_offsets[ADRENO_REG_REGISTER_MAX] = {
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE, GENC_CP_RB_BASE),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE_HI, GENC_CP_RB_BASE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_RPTR, GENC_CP_RB_RPTR),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_WPTR, GENC_CP_RB_WPTR),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_CNTL, GENC_CP_SQE_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE, GENC_CP_IB1_BASE),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE_HI, GENC_CP_IB1_BASE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BUFSZ, GENC_CP_IB1_REM_SIZE),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE, GENC_CP_IB2_BASE),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE_HI, GENC_CP_IB2_BASE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BUFSZ, GENC_CP_IB2_REM_SIZE),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, GENC_RBBM_STATUS),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, GENC_RBBM_STATUS3),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, GENC_RBBM_INT_0_MASK),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, GENC_RBBM_SW_RESET_CMD),
+/* Register offset defines for Gen7, in order of enum adreno_regs */
+static unsigned int gen7_register_offsets[ADRENO_REG_REGISTER_MAX] = {
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE, GEN7_CP_RB_BASE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE_HI, GEN7_CP_RB_BASE_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_RPTR, GEN7_CP_RB_RPTR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_WPTR, GEN7_CP_RB_WPTR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_CNTL, GEN7_CP_SQE_CNTL),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE, GEN7_CP_IB1_BASE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE_HI, GEN7_CP_IB1_BASE_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BUFSZ, GEN7_CP_IB1_REM_SIZE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE, GEN7_CP_IB2_BASE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE_HI, GEN7_CP_IB2_BASE_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BUFSZ, GEN7_CP_IB2_REM_SIZE),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, GEN7_RBBM_STATUS),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, GEN7_RBBM_STATUS3),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, GEN7_RBBM_INT_0_MASK),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, GEN7_RBBM_SW_RESET_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
-			GENC_GMU_AO_HOST_INTERRUPT_MASK),
+			GEN7_GMU_AO_HOST_INTERRUPT_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-			GENC_GMU_GMU2HOST_INTR_MASK),
+			GEN7_GMU_GMU2HOST_INTR_MASK),
 };
 
-int genc_perfcounter_update(struct adreno_device *adreno_dev,
+int gen7_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg)
 {
 	void *ptr = adreno_dev->pwrup_reglist->hostptr;
@@ -1104,20 +1104,20 @@ int genc_perfcounter_update(struct adreno_device *adreno_dev,
 			goto update;
 		}
 
-		if (data[offset] == GENC_RBBM_PERFCTR_CNTL)
+		if (data[offset] == GEN7_RBBM_PERFCTR_CNTL)
 			break;
 
 		offset += 2;
 	}
 
 	/*
-	 * For all targets GENC_RBBM_PERFCTR_CNTL needs to be the last entry,
-	 * so overwrite the existing GENC_RBBM_PERFCNTL_CTRL and add it back to
+	 * For all targets GEN7_RBBM_PERFCTR_CNTL needs to be the last entry,
+	 * so overwrite the existing GEN7_RBBM_PERFCNTL_CTRL and add it back to
 	 * the end.
 	 */
 	data[offset] = reg->select;
 	data[offset + 1] = reg->countable;
-	data[offset + 2] = GENC_RBBM_PERFCTR_CNTL;
+	data[offset + 2] = GEN7_RBBM_PERFCTR_CNTL;
 	data[offset + 3] = 1;
 
 	lock->list_length += 2;
@@ -1131,20 +1131,20 @@ update:
 	return 0;
 }
 
-u64 genc_read_alwayson(struct adreno_device *adreno_dev)
+u64 gen7_read_alwayson(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 lo = 0, hi = 0, tmp = 0;
 
 	/* Always use the GMU AO counter when doing a AHB read */
-	gmu_core_regread(device, GENC_GMU_ALWAYS_ON_COUNTER_H, &hi);
-	gmu_core_regread(device, GENC_GMU_ALWAYS_ON_COUNTER_L, &lo);
+	gmu_core_regread(device, GEN7_GMU_ALWAYS_ON_COUNTER_H, &hi);
+	gmu_core_regread(device, GEN7_GMU_ALWAYS_ON_COUNTER_L, &lo);
 
 	/* Check for overflow */
-	gmu_core_regread(device, GENC_GMU_ALWAYS_ON_COUNTER_H, &tmp);
+	gmu_core_regread(device, GEN7_GMU_ALWAYS_ON_COUNTER_H, &tmp);
 
 	if (hi != tmp) {
-		gmu_core_regread(device, GENC_GMU_ALWAYS_ON_COUNTER_L,
+		gmu_core_regread(device, GEN7_GMU_ALWAYS_ON_COUNTER_L,
 				&lo);
 		hi = tmp;
 	}
@@ -1152,13 +1152,13 @@ u64 genc_read_alwayson(struct adreno_device *adreno_dev)
 	return (((u64) hi) << 32) | lo;
 }
 
-static void genc_remove(struct adreno_device *adreno_dev)
+static void gen7_remove(struct adreno_device *adreno_dev)
 {
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		del_timer(&adreno_dev->preempt.timer);
 }
 
-static void genc_read_bus_stats(struct kgsl_device *device,
+static void gen7_read_bus_stats(struct kgsl_device *device,
 		struct kgsl_power_stats *stats,
 		struct adreno_busy_data *busy)
 {
@@ -1191,7 +1191,7 @@ static void genc_read_bus_stats(struct kgsl_device *device,
 	stats->ram_wait = starved_ram;
 }
 
-static void genc_power_stats(struct adreno_device *adreno_dev,
+static void gen7_power_stats(struct adreno_device *adreno_dev,
 		struct kgsl_power_stats *stats)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1199,7 +1199,7 @@ static void genc_power_stats(struct adreno_device *adreno_dev,
 	u64 gpu_busy;
 
 	/* Set the GPU busy counter for frequency scaling */
-	gpu_busy = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
+	gpu_busy = counter_delta(device, GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
 		&busy->gpu_busy);
 
 	stats->busy_time = gpu_busy * 10;
@@ -1207,7 +1207,7 @@ static void genc_power_stats(struct adreno_device *adreno_dev,
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC)) {
 		u32 ifpc = counter_delta(device,
-			GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
+			GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
 			&busy->num_ifpc);
 
 		adreno_dev->ifpc_count += ifpc;
@@ -1216,25 +1216,25 @@ static void genc_power_stats(struct adreno_device *adreno_dev,
 	}
 
 	if (device->pwrctrl.bus_control)
-		genc_read_bus_stats(device, stats, busy);
+		gen7_read_bus_stats(device, stats, busy);
 
 	if (adreno_dev->bcl_enabled) {
 		u32 a, b, c;
 
-		a = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
+		a = counter_delta(device, GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
 			&busy->throttle_cycles[0]);
 
-		b = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
+		b = counter_delta(device, GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
 			&busy->throttle_cycles[1]);
 
-		c = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
+		c = counter_delta(device, GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
 			&busy->throttle_cycles[2]);
 
 		trace_kgsl_bcl_clock_throttling(a, b, c);
 	}
 }
 
-static int genc_setproperty(struct kgsl_device_private *dev_priv,
+static int gen7_setproperty(struct kgsl_device_private *dev_priv,
 		u32 type, void __user *value, u32 sizebytes)
 {
 	struct kgsl_device *device = dev_priv->device;
@@ -1270,47 +1270,47 @@ static int genc_setproperty(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-const struct genc_gpudev adreno_genc_hwsched_gpudev = {
+const struct gen7_gpudev adreno_gen7_hwsched_gpudev = {
 	.base = {
-		.reg_offsets = genc_register_offsets,
-		.probe = genc_hwsched_probe,
-		.snapshot = genc_hwsched_snapshot,
-		.irq_handler = genc_irq_handler,
-		.iommu_fault_block = genc_iommu_fault_block,
-		.preemption_context_init = genc_preemption_context_init,
-		.context_detach = genc_hwsched_context_detach,
-		.read_alwayson = genc_read_alwayson,
-		.reset = genc_hwsched_reset,
-		.power_ops = &genc_hwsched_power_ops,
-		.power_stats = genc_power_stats,
-		.setproperty = genc_setproperty,
-		.hw_isidle = genc_hw_isidle,
+		.reg_offsets = gen7_register_offsets,
+		.probe = gen7_hwsched_probe,
+		.snapshot = gen7_hwsched_snapshot,
+		.irq_handler = gen7_irq_handler,
+		.iommu_fault_block = gen7_iommu_fault_block,
+		.preemption_context_init = gen7_preemption_context_init,
+		.context_detach = gen7_hwsched_context_detach,
+		.read_alwayson = gen7_read_alwayson,
+		.reset = gen7_hwsched_reset,
+		.power_ops = &gen7_hwsched_power_ops,
+		.power_stats = gen7_power_stats,
+		.setproperty = gen7_setproperty,
+		.hw_isidle = gen7_hw_isidle,
 	},
-	.hfi_probe = genc_hwsched_hfi_probe,
-	.hfi_remove = genc_hwsched_hfi_remove,
-	.handle_watchdog = genc_hwsched_handle_watchdog,
+	.hfi_probe = gen7_hwsched_hfi_probe,
+	.hfi_remove = gen7_hwsched_hfi_remove,
+	.handle_watchdog = gen7_hwsched_handle_watchdog,
 };
 
-const struct genc_gpudev adreno_genc_gmu_gpudev = {
+const struct gen7_gpudev adreno_gen7_gmu_gpudev = {
 	.base = {
-		.reg_offsets = genc_register_offsets,
-		.probe = genc_gmu_device_probe,
-		.snapshot = genc_gmu_snapshot,
-		.irq_handler = genc_irq_handler,
-		.rb_start = genc_rb_start,
-		.gpu_keepalive = genc_gpu_keepalive,
-		.hw_isidle = genc_hw_isidle,
-		.iommu_fault_block = genc_iommu_fault_block,
-		.reset = genc_gmu_reset,
-		.preemption_schedule = genc_preemption_schedule,
-		.preemption_context_init = genc_preemption_context_init,
-		.read_alwayson = genc_read_alwayson,
-		.power_ops = &genc_gmu_power_ops,
-		.remove = genc_remove,
-		.ringbuffer_submitcmd = genc_ringbuffer_submitcmd,
-		.power_stats = genc_power_stats,
-		.setproperty = genc_setproperty,
+		.reg_offsets = gen7_register_offsets,
+		.probe = gen7_gmu_device_probe,
+		.snapshot = gen7_gmu_snapshot,
+		.irq_handler = gen7_irq_handler,
+		.rb_start = gen7_rb_start,
+		.gpu_keepalive = gen7_gpu_keepalive,
+		.hw_isidle = gen7_hw_isidle,
+		.iommu_fault_block = gen7_iommu_fault_block,
+		.reset = gen7_gmu_reset,
+		.preemption_schedule = gen7_preemption_schedule,
+		.preemption_context_init = gen7_preemption_context_init,
+		.read_alwayson = gen7_read_alwayson,
+		.power_ops = &gen7_gmu_power_ops,
+		.remove = gen7_remove,
+		.ringbuffer_submitcmd = gen7_ringbuffer_submitcmd,
+		.power_stats = gen7_power_stats,
+		.setproperty = gen7_setproperty,
 	},
-	.hfi_probe = genc_gmu_hfi_probe,
-	.handle_watchdog = genc_gmu_handle_watchdog,
+	.hfi_probe = gen7_gmu_hfi_probe,
+	.handle_watchdog = gen7_gmu_handle_watchdog,
 };

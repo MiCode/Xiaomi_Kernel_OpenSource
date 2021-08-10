@@ -179,7 +179,14 @@ enum adreno_gpurev {
 	ADRENO_REV_A650 = 650,
 	ADRENO_REV_A660 = 660,
 	ADRENO_REV_A680 = 680,
-	ADRENO_REV_C500 = 10000,
+	/*
+	 * Gen7 and higher version numbers may exceed 1 digit
+	 * Bits 16-23: Major
+	 * Bits 8-15: Minor
+	 * Bits 0-7: Patch id
+	 */
+	ADRENO_REV_GEN7_0_0 = 0x070000,
+	ADRENO_REV_GEN7_0_1 = 0x070001,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)
@@ -1074,13 +1081,14 @@ static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
 
-static inline int adreno_is_genc(struct adreno_device *adreno_dev)
+static inline int adreno_is_gen7(struct adreno_device *adreno_dev)
 {
-	return ADRENO_GPUREV(adreno_dev) >= 10000 &&
-			ADRENO_GPUREV(adreno_dev) < 11000;
+	return ADRENO_GPUREV(adreno_dev) >= 0x070000 &&
+			ADRENO_GPUREV(adreno_dev) < 0x080000;
 }
 
-ADRENO_TARGET(c500, ADRENO_REV_C500)
+ADRENO_TARGET(gen7_0_0, ADRENO_REV_GEN7_0_0)
+ADRENO_TARGET(gen7_0_1, ADRENO_REV_GEN7_0_1)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
