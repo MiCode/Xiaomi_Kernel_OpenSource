@@ -877,6 +877,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"ccu_read_struct_size failed: %d\n", ret);
+			kfree(structSizes);
 			break;
 		}
 		ret = copy_to_user((char *)arg,
