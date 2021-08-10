@@ -1312,7 +1312,9 @@ static int sja1105_fdb_dump(struct dsa_switch *ds, int port,
 		/* We need to hide the dsa_8021q VLANs from the user. */
 		if (!dsa_port_is_vlan_filtering(&ds->ports[port]))
 			l2_lookup.vlanid = 0;
-		cb(macaddr, l2_lookup.vlanid, l2_lookup.lockeds, data);
+		rc = cb(macaddr, l2_lookup.vlanid, l2_lookup.lockeds, data);
+		if (rc)
+			return rc;
 	}
 	return 0;
 }
