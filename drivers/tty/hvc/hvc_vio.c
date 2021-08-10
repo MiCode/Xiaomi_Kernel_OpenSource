@@ -249,7 +249,7 @@ static void udbg_hvc_putc(char c)
 			count = hvterm_hvsi_put_chars(0, &c, 1);
 			break;
 		}
-	} while (count == 0 || count == -EAGAIN);
+	} while(count == 0);
 }
 
 static int udbg_hvc_getc_poll(void)

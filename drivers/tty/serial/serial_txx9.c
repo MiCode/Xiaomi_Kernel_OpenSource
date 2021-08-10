@@ -24,7 +24,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 
-#include <linux/io.h>
+#include <asm/io.h>
 
 static char *serial_version = "1.11";
 static char *serial_name = "TX39/49 Serial driver";

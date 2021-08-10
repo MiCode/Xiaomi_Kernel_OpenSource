@@ -774,7 +774,7 @@ static void gs_flush_chars(struct tty_struct *tty)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
-static unsigned int gs_write_room(struct tty_struct *tty)
+static int gs_write_room(struct tty_struct *tty)
 {
 	struct gs_port	*port = tty->driver_data;
 	unsigned long	flags;
@@ -791,7 +791,7 @@ static unsigned int gs_write_room(struct tty_struct *tty)
 	return room;
 }
 
-static unsigned int gs_chars_in_buffer(struct tty_struct *tty)
+static int gs_chars_in_buffer(struct tty_struct *tty)
 {
 	struct gs_port	*port = tty->driver_data;
 	unsigned long	flags;

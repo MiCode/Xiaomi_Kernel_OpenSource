@@ -48,6 +48,7 @@ static struct tty_ldisc_ops *tty_ldiscs[NR_LDISCS];
 
 /**
  *	tty_register_ldisc	-	install a line discipline
+ *	@disc: ldisc number
  *	@new_ldisc: pointer to the ldisc object
  *
  *	Installs a new line discipline into the kernel. The discipline
@@ -58,16 +59,18 @@ static struct tty_ldisc_ops *tty_ldiscs[NR_LDISCS];
  *		takes tty_ldiscs_lock to guard against ldisc races
  */
 
-int tty_register_ldisc(struct tty_ldisc_ops *new_ldisc)
+int tty_register_ldisc(int disc, struct tty_ldisc_ops *new_ldisc)
 {
 	unsigned long flags;
 	int ret = 0;
 
-	if (new_ldisc->num < N_TTY || new_ldisc->num >= NR_LDISCS)
+	if (disc < N_TTY || disc >= NR_LDISCS)
 		return -EINVAL;
 
 	raw_spin_lock_irqsave(&tty_ldiscs_lock, flags);
-	tty_ldiscs[new_ldisc->num] = new_ldisc;
+	tty_ldiscs[disc] = new_ldisc;
+	new_ldisc->num = disc;
+	new_ldisc->refcount = 0;
 	raw_spin_unlock_irqrestore(&tty_ldiscs_lock, flags);
 
 	return ret;
@@ -76,7 +79,7 @@ EXPORT_SYMBOL(tty_register_ldisc);
 
 /**
  *	tty_unregister_ldisc	-	unload a line discipline
- *	@ldisc: ldisc number
+ *	@disc: ldisc number
  *
  *	Remove a line discipline from the kernel providing it is not
  *	currently in use.
@@ -85,13 +88,22 @@ EXPORT_SYMBOL(tty_register_ldisc);
  *		takes tty_ldiscs_lock to guard against ldisc races
  */
 
-void tty_unregister_ldisc(struct tty_ldisc_ops *ldisc)
+int tty_unregister_ldisc(int disc)
 {
 	unsigned long flags;
+	int ret = 0;
+
+	if (disc < N_TTY || disc >= NR_LDISCS)
+		return -EINVAL;
 
 	raw_spin_lock_irqsave(&tty_ldiscs_lock, flags);
-	tty_ldiscs[ldisc->num] = NULL;
+	if (tty_ldiscs[disc]->refcount)
+		ret = -EBUSY;
+	else
+		tty_ldiscs[disc] = NULL;
 	raw_spin_unlock_irqrestore(&tty_ldiscs_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(tty_unregister_ldisc);
 
@@ -105,8 +117,10 @@ static struct tty_ldisc_ops *get_ldops(int disc)
 	ldops = tty_ldiscs[disc];
 	if (ldops) {
 		ret = ERR_PTR(-EAGAIN);
-		if (try_module_get(ldops->owner))
+		if (try_module_get(ldops->owner)) {
+			ldops->refcount++;
 			ret = ldops;
+		}
 	}
 	raw_spin_unlock_irqrestore(&tty_ldiscs_lock, flags);
 	return ret;
@@ -117,6 +131,7 @@ static void put_ldops(struct tty_ldisc_ops *ldops)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&tty_ldiscs_lock, flags);
+	ldops->refcount--;
 	module_put(ldops->owner);
 	raw_spin_unlock_irqrestore(&tty_ldiscs_lock, flags);
 }
