@@ -489,6 +489,13 @@ void usb_phy_poweron(void)
 	/* wait 50 usec for PHY3.3v/1.8v stable. */
 	udelay(50);
 
+	USBPHY_SET32(0x68, (0x1 << 18));
+	USBPHY_CLR32(0x68, (0x1 << 3));
+	USBPHY_SET32(0x68, (0x1 << 3));
+	udelay(30);
+	USBPHY_CLR32(0x68, (0x1 << 18));
+	USBPHY_CLR32(0x68, (0x1 << 3));
+
 	/*
 	 * force_uart_en	1'b0		0x68 26
 	 * RG_UART_EN		1'b0		0x6c 16
@@ -631,6 +638,12 @@ void usb_phy_recover(void)
 	/* wait 50 usec. */
 	udelay(50);
 
+	USBPHY_SET32(0x68, (0x1 << 18));
+	USBPHY_CLR32(0x68, (0x1 << 3));
+	USBPHY_SET32(0x68, (0x1 << 3));
+	udelay(30);
+	USBPHY_CLR32(0x68, (0x1 << 18));
+	USBPHY_CLR32(0x68, (0x1 << 3));
 
 	/*
 	 * 04.force_uart_en	1'b0 0x68 26

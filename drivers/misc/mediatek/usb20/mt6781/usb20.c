@@ -79,6 +79,13 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 
 	DBG(0, "connection=%d\n", is_con);
 
+	USBPHY_SET32(0x68, (0x1 << 18));
+	USBPHY_CLR32(0x68, (0x1 << 3));
+	USBPHY_SET32(0x68, (0x1 << 3));
+	udelay(30);
+	USBPHY_CLR32(0x68, (0x1 << 18));
+	USBPHY_CLR32(0x68, (0x1 << 3));
+
 	if (enable) {
 		regmap_read(pericfg, USB_WAKEUP_DEC_CON1, &tmp);
 		tmp |= USB1_CDDEBOUNCE(0x8) | USB1_CDEN;
