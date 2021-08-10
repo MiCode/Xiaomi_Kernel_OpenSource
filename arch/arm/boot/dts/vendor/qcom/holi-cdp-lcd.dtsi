@@ -1,0 +1,54 @@
+#include "holi-cdp.dtsi"
+
+&pm6150a_amoled {
+	status = "disabled";
+};
+
+&pm6150l_lcdb {
+	status = "ok";
+};
+
+&pm6150l_wled {
+	status = "ok";
+	qcom,string-cfg = <15>;
+	qcom,leds-per-string = <4>;
+};
+
+&sde_dsi {
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	qcom,dsi-default-panel = <&dsi_sharp_qsync_fhd_video>;
+};
+
+&qupv3_se8_i2c {
+	qcom,i2c-touch-active="synaptics,dsx-i2c";
+
+	synaptics_dsx@22 {
+		compatible = "synaptics,dsx-i2c";
+		reg = <0x22>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <39 0x2008>;
+		vdd-supply = <&L11A>;
+		avdd-supply = <&L6A>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+						"pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&pmx_ts_release>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,ub-i2c-addr = <0x22>;
+		synaptics,max-y-for-2d = <1859>;
+		synaptics,irq-gpio = <&tlmm 22 0x2008>;
+		synaptics,reset-gpio = <&tlmm 21 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+
+		panel = <&dsi_sharp_qsync_fhd_video
+			 &dsi_sharp_qsync_fhd_cmd
+			 &dsi_sharp_qsync_fhd_60hz_cmd>;
+	};
+};

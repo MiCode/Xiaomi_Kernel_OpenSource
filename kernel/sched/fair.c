@@ -576,12 +576,40 @@ static void update_min_vruntime(struct cfs_rq *cfs_rq)
 
 	/* ensure we never gain time by being placed backwards. */
 	cfs_rq->min_vruntime = max_vruntime(cfs_rq->min_vruntime, vruntime);
+#ifdef CONFIG_PERF_HUMANTASK
+	cfs_rq->min_vruntimex = min_vruntime(cfs_rq->min_vruntime, vruntime);
+#endif
 #ifndef CONFIG_64BIT
 	smp_wmb();
 	cfs_rq->min_vruntime_copy = cfs_rq->min_vruntime;
 #endif
 }
 
+#ifdef CONFIG_PERF_HUMANTASK
+static inline bool jump_queue(struct task_struct *tsk, struct rb_node *root)
+{
+	bool jump = false ;
+	if (tsk && tsk->human_task && root) { //0,1-3,4...
+
+		if (tsk->human_task > MAX_LEVER) {
+			jump = true;
+			goto out;
+		}
+
+		if (tsk->human_task  <  MAX_LEVER)
+			jump  = true;//66%
+
+		tsk->human_task = jump ? ++tsk->human_task : 1;
+
+	}
+out:
+	if (jump) {
+		trace_sched_debug_einfo(tsk, "jumper", "boostx", tsk->human_task, sched_boost(),1,1,0);
+	}
+
+	return jump;
+}
+#endif
 /*
  * Enqueue an entity into the rb-tree:
  */
@@ -591,6 +619,20 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	struct rb_node *parent = NULL;
 	struct sched_entity *entry;
 	bool leftmost = true;
+	int left = 0;
+	int right = 0;
+#ifdef CONFIG_PERF_HUMANTASK
+	bool  speed = false;
+	struct task_struct *tsk = NULL;
+	if (entity_is_task(se)) {
+		tsk = task_of(se);
+		speed = jump_queue(tsk, *link);
+	}
+	//CONFIG_HZ_300 *  jiffies_64; 100 = 1ms  < 10 ms ,50,100,200
+	if (speed) {
+		se->vruntime =  tsk->human_task * 1000000;
+	}
+#endif
 
 	/*
 	 * Find the right place in the rbtree:
@@ -604,15 +646,22 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		 */
 		if (entity_before(se, entry)) {
 			link = &parent->rb_left;
+			left++;
 		} else {
 			link = &parent->rb_right;
 			leftmost = false;
+			right++;
 		}
 	}
-
+#ifdef CONFIG_PERF_HUMANTASK
+	if (speed) {
+		//trace_sched_debug_einfo(tsk,"jumper left","right",left,right,se->vruntime,entry->vruntime,cfs_rq->min_vruntimex);
+		se->vruntime = entry->vruntime - 1;
+	}
+#endif
 	rb_link_node(&se->run_node, parent, link);
 	rb_insert_color_cached(&se->run_node,
-			       &cfs_rq->tasks_timeline, leftmost);
+				&cfs_rq->tasks_timeline, leftmost);
 }
 
 static void __dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
@@ -6687,6 +6736,10 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 			if (fbt_env->skip_cpu == i)
 				continue;
+			#ifdef CONFIG_PERF_HUMANTASK
+			if (p->human_task > MAX_LEVER)
+				break;
+			#endif
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -7122,6 +7175,10 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		fbt_env.fastpath = SYNC_WAKEUP;
 		goto done;
 	}
+	#ifdef CONFIG_PERF_HUMANTASK
+	if (p->human_task > MAX_LEVER)
+		goto done;
+	#endif
 
 	rcu_read_lock();
 	pd = rcu_dereference(rd->pd);
@@ -8435,6 +8492,10 @@ redo:
 			env->flags |= LBF_NEED_BREAK;
 			break;
 		}
+		#ifdef CONFIG_PERF_HUMANTASK
+		if (p->human_task > MAX_LEVER)
+			goto next;
+		#endif
 
 		if (!can_migrate_task(p, env))
 			goto next;

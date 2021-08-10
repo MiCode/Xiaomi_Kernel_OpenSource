@@ -1,0 +1,608 @@
+&soc {
+	fuse: fuse@a601c {
+		compatible = "arm,coresight-fuse-v2";
+		reg = <0xa601c 0x8>,
+		      <0xa600c 0x4>;
+		reg-names = "fuse-base", "qpdi-fuse-base";
+		coresight-name = "coresight-fuse";
+
+	};
+
+	csr: csr@801000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0x801000 0x1000>;
+		reg-names = "csr-base";
+		coresight-name = "coresight-csr";
+		qcom,usb-bam-support;
+		qcom,hwctrl-set-support;
+		qcom,set-byte-cntr-support;
+		qcom,blk-size = <1>;
+	};
+
+
+	hwevent {
+		compatible = "qcom,coresight-hwevent";
+		coresight-name = "coresight-hwevent";
+		coresight-csr = <&csr>;
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	stm: stm@802000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb962>;
+		reg = <0x802000 0x1000>,
+		      <0x9280000 0x180000>;
+		reg-names = "stm-base", "stm-stimulus-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-stm";
+
+		out-ports {
+			port {
+				stm_out_funnel_in0: endpoint {
+					remote-endpoint = <&funnel_in0_in_stm>;
+				};
+			};
+		};
+	};
+
+	dbgui: dbgui@86d000 {
+		compatible = "qcom,coresight-dbgui";
+		reg = <0x86d000 0x1000>;
+		reg-names = "dbgui-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-dbgui";
+
+		qcom,dbgui-addr-offset = <0x30>;
+		qcom,dbgui-data-offset = <0xb0>;
+		qcom,dbgui-size = <0x20>;
+
+		out-ports {
+			port {
+				dbgui_out_funnel_in0: endpoint {
+					remote-endpoint = <&funnel_in0_in_dbugi>;
+				};
+			};
+		};
+	};
+
+	etm0: etm@842000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb956>;
+		reg = <0x842000 0x1000>;
+		cpu = <&CPU0>;
+
+		qcom,tupwr-disable;
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-etm0";
+
+		out-ports {
+			port {
+				etm0_out_funnel_in1: endpoint {
+					remote-endpoint = <&funnel_in1_in_etm0>;
+				};
+			};
+		};
+	};
+
+
+	tpdm_modem: tpdm@83a000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb968>;
+		reg = <0x83a000 0x1000>;
+		reg-names = "tpdm-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-tpdm-modem";
+
+		out-ports {
+			port {
+				tpdm_modem_out_tpda_modem: endpoint {
+					remote-endpoint =
+					<&tpda_modem_in_tpdm_modem>;
+				};
+			};
+		};
+	};
+
+	modem_etm0: modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+		coresight-name = "coresight-modem-etm0";
+
+		qcom,inst-id = <2>;
+
+		out-ports {
+			port {
+				modem_etm0_out_funnel_in1: endpoint {
+					remote-endpoint =
+					<&funnel_in1_in_modem_etm0>;
+				};
+			};
+		};
+	};
+
+	rpm_etm0: rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+		coresight-name = "coresight-rpm-etm0";
+
+		qcom,inst-id = <4>;
+		status = "disabled";
+		out-ports {
+			port {
+				rpm_etm0_out_funnel_in0: endpoint {
+					remote-endpoint =
+					<&funnel_in0_in_rpm_etm0>;
+				};
+			};
+		};
+	};
+
+	tpdm_dcc: tpdm@864000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb969>;
+		reg = <0x864000 0x1000>;
+		reg-names = "tpdm-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-tpdm-dcc";
+		qcom,hw-enable-check;
+
+		out-ports {
+			port {
+				tpdm_dcc_out_tpda: endpoint {
+					remote-endpoint =
+					<&tpda_in_tpdm_dcc>;
+				};
+			};
+		};
+	};
+
+
+	tpda_modem: tpda@83b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb969>;
+		reg = <0x083b000 0x1000>;
+		reg-names = "tpda-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-tpda-modem";
+
+		qcom,tpda-atid = <67>;
+		qcom,dsb-elem-size = <0 32>;
+		qcom,cmb-elem-size = <0 8>;
+
+		out-ports {
+			port {
+				tpda_modem_out_funnel_in1: endpoint {
+					remote-endpoint =
+					<&funnel_in1_in_tpda_modem>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_modem_in_tpdm_modem: endpoint {
+
+					remote-endpoint =
+					<&tpdm_modem_out_tpda_modem>;
+				};
+			};
+
+		};
+	};
+
+
+	tpda: tpda@803000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb969>;
+		reg = <0x0803000 0x1000>;
+		reg-names = "tpda-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-tpda";
+
+		qcom,tpda-atid = <65>;
+		qcom,cmb-elem-size = <0 8>;
+
+		out-ports {
+			port {
+				tpda_out_funnel_in0: endpoint {
+					remote-endpoint =
+					<&funnel_in0_in_tpda>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_in_tpdm_dcc: endpoint {
+					remote-endpoint =
+					<&tpdm_dcc_out_tpda>;
+				};
+			};
+
+		};
+	};
+
+	funnel_in0: funnel@821000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb908>;
+		reg = <0x0821000 0x1000>;
+		reg-names = "funnel-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-funnel-in0";
+
+		out-ports {
+			port {
+				funnel_in0_out_funnel_merge: endpoint {
+					remote-endpoint =
+					<&funnel_merge_in_funnel_in0>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				funnel_in0_in_rpm_etm0: endpoint {
+					remote-endpoint =
+					<&rpm_etm0_out_funnel_in0>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+				funnel_in0_in_dbugi: endpoint {
+					remote-endpoint =
+					<&dbgui_out_funnel_in0>;
+				};
+			};
+
+			port@6 {
+				reg = <6>;
+				funnel_in0_in_tpda: endpoint {
+					remote-endpoint =
+					<&tpda_out_funnel_in0>;
+				};
+			};
+
+			port@7 {
+				reg = <7>;
+				funnel_in0_in_stm: endpoint {
+					remote-endpoint =
+					<&stm_out_funnel_in0>;
+				};
+			};
+
+		};
+	};
+
+	funnel_in1: funnel@822000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb908>;
+		reg = <0x0822000 0x1000>;
+		reg-names = "funnel-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-funnel-in1";
+
+		out-ports {
+			port {
+				funnel_in1_out_funnel_merge: endpoint {
+					remote-endpoint =
+					<&funnel_merge_in_funnel_in1>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@6 {
+				reg = <6>;
+				funnel_in1_in_modem_etm0: endpoint {
+					remote-endpoint =
+					<&modem_etm0_out_funnel_in1>;
+				};
+			};
+
+			port@5 {
+				reg = <5>;
+				funnel_in1_in_tpda_modem: endpoint {
+					remote-endpoint =
+					<&tpda_modem_out_funnel_in1>;
+				};
+			};
+
+			port@7 {
+				reg = <7>;
+				funnel_in1_in_etm0: endpoint {
+					remote-endpoint =
+					<&etm0_out_funnel_in1>;
+				};
+			};
+
+		};
+	};
+
+	funnel_merg: funnel@825000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb908>;
+		reg = <0x0825000 0x1000>;
+		reg-names = "funnel-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-funnel-merg";
+
+		out-ports {
+			port {
+				funnel_merge_out_tmc_etf: endpoint {
+					remote-endpoint =
+					<&tmc_etf_in_funnel_merge>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				funnel_merge_in_funnel_in0: endpoint {
+					remote-endpoint =
+					<&funnel_in0_out_funnel_merge>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				funnel_merge_in_funnel_in1: endpoint {
+					remote-endpoint =
+					<&funnel_in1_out_funnel_merge>;
+				};
+			};
+
+		};
+	};
+
+	tmc_etf: tmc@827000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb961>;
+		reg = <0x0827000 0x1000>;
+		reg-names = "tmc-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-tmc-etf";
+		coresight-ctis = <&cti0 &cti6>;
+		cti-reset-trig-num = <0>;
+		cti-flush-trig-num = <1>;
+
+		in-ports {
+			port {
+				tmc_etf_in_funnel_merge: endpoint {
+					remote-endpoint =
+					<&funnel_merge_out_tmc_etf>;
+				};
+			};
+		};
+
+		out-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port {
+				tmc_etf_out_replicator_qdss: endpoint {
+					remote-endpoint =
+					<&replicator_qdss_in_tmc_etf>;
+				};
+			};
+
+		};
+	};
+
+	replicator_qdss: replicator@8026000 {
+		compatible = "arm,coresight-dynamic-replicator",
+					"arm,primecell";
+		reg = <0x0826000 0x1000>;
+		reg-names = "replicator-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-replicator-qdss";
+
+		in-ports {
+			port {
+				replicator_qdss_in_tmc_etf: endpoint {
+					remote-endpoint =
+					<&tmc_etf_out_replicator_qdss>;
+				};
+			};
+		};
+
+		out-ports {
+			port@0 {
+				reg = <0>;
+				replicator_qdss_out_tmc_etr: endpoint {
+					remote-endpoint =
+					<&tmc_etr_in_replicator_qdss>;
+				};
+			};
+		};
+	};
+
+	tmc_etr: tmc@828000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb961>;
+		reg = <0x0828000 0x1000>,
+			<0x884000 0x15000>;
+		reg-names = "tmc-base", "bam-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-tmc-etr";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ranges;
+		arm,buffer-size = <0x100000>;
+		arm,scatter-gather;
+
+		coresight-ctis = <&cti0 &cti6>;
+		cti-reset-trig-num = <0>;
+		cti-flush-trig-num = <1>;
+		coresight-csr = <&csr>;
+
+		interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "byte-cntr-irq";
+
+		in-ports {
+			port {
+				tmc_etr_in_replicator_qdss: endpoint {
+					remote-endpoint =
+					<&replicator_qdss_out_tmc_etr>;
+				};
+			};
+
+		};
+	};
+
+	cti0: cti@810000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x810000 0x1000>;
+
+		reg-names = "cti-base";
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti0";
+
+	};
+
+	cti1: cti@811000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x811000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti1";
+
+	};
+
+	cti2: cti@812000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x812000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti2";
+	};
+
+	cti3: cti@813000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x813000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti3";
+	};
+
+	cti4: cti@814000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x814000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti4";
+	};
+
+	cti5: cti@815000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x815000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti5";
+	};
+
+	cti6: cti@816000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x816000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti6";
+
+	};
+
+	cti_modem_cpu0: cti@8390000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x839000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti-modem-cpu0";
+	};
+
+	cti_pmu_cpu0: cti@841000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x841000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti-pmu-cpu0";
+		cpu = <&CPU0>;
+	};
+
+	cti_cpu0: cti@843000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x843000 0x1000>;
+		reg-names = "cti-base";
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+		coresight-name = "coresight-cti-cpu0";
+		cpu = <&CPU0>;
+	};
+};
+
+

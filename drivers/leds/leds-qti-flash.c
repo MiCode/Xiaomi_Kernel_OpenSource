@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #define pr_fmt(fmt)	"qti-flash: %s: " fmt, __func__
 
@@ -192,7 +193,7 @@ struct qti_flash_led {
 	u16				base;
 	u8				revision;
 	u8				subtype;
-	u8				max_channels;
+	u64				max_channels;
 	u8				chan_en_map;
 	bool				module_en;
 	bool				trigger_lmh;
@@ -219,6 +220,22 @@ static int timeout_to_code(u32 timeout)
 
 	return DIV_ROUND_CLOSEST(timeout, SAFETY_TIMER_STEP_SIZE) - 1;
 }
+
+#if 0
+#undef dev_dbg
+#define dev_dbg dev_err
+#undef pr_debug
+#define pr_debug pr_err
+#endif
+
+static struct flash_node_data *p_torch;
+static struct flash_switch_data *p_switch;
+int flashlight_num_fnodes_torch;
+int flashlight_num_snodes;
+int flashlight_current;
+
+static int qti_flash_switch_enable(struct flash_switch_data *snode);
+static int qti_flash_switch_disable(struct flash_switch_data *snode);
 
 static int get_ires_idx(u32 ires_ua)
 {
@@ -499,31 +516,41 @@ static enum led_brightness qti_flash_led_brightness_get(
 static int __qti_flash_led_brightness_set(struct led_classdev *led_cdev,
 					enum led_brightness brightness)
 {
+	struct qti_flash_led *led = NULL;
 	struct flash_node_data *fnode = NULL;
 	struct led_classdev_flash *fdev = NULL;
-	int rc;
+	int rc,i=0,j=0;
 	u32 current_ma = brightness;
 	u32 min_current_ma;
 
 	fdev = container_of(led_cdev, struct led_classdev_flash, led_cdev);
 	fnode = container_of(fdev, struct flash_node_data, fdev);
+	led = fnode->led;
 
 	if (!brightness) {
-		rc = qti_flash_led_strobe(fnode->led, NULL,
-			FLASH_LED_ENABLE(fnode->id), 0);
-		if (rc < 0) {
-			pr_err("Failed to destrobe LED, rc=%d\n", rc);
-			return rc;
-		}
+		if (!strncmp(led_cdev->name, "flashlight", strlen("flashlight"))) {
+			if (p_torch && p_switch) {
+				pr_debug("[flashlight] fnode %d value %d", __LINE__, brightness);
+				qti_flash_switch_disable(&p_switch[2]);
+			}
+			return 0;
+		}else{
+				rc = qti_flash_led_strobe(fnode->led, NULL,
+				FLASH_LED_ENABLE(fnode->id), 0);
+				if (rc < 0) {
+				pr_err("Failed to destrobe LED, rc=%d\n", rc);
+				return rc;
+				}
 
-		rc = qti_flash_led_disable(fnode);
-		if (rc < 0)
-			pr_err("Failed to disable LED\n");
+				rc = qti_flash_led_disable(fnode);
+				if (rc < 0)
+				pr_err("Failed to disable LED\n");
+				led_cdev->brightness = 0;
 
-		led_cdev->brightness = 0;
-
-		return rc;
+				return rc;
+			}
 	}
+
 
 	min_current_ma = DIV_ROUND_CLOSEST(fnode->ires_ua, 1000);
 	if (current_ma < min_current_ma)
@@ -544,11 +571,32 @@ static int __qti_flash_led_brightness_set(struct led_classdev *led_cdev,
 	fnode->current_ma = current_ma;
 	led_cdev->brightness = current_ma;
 
-	rc = qti_flash_led_enable(fnode);
-	if (rc < 0)
-		pr_err("Failed to set brightness %d to LED\n", brightness);
+		if (!strncmp(led_cdev->name, "flashlight", strlen("flashlight"))) {
+			if (p_torch && p_switch) {
+				pr_debug("[flashlight] fnode %d value %d", __LINE__, brightness);
+				for(i = 0;i < flashlight_num_fnodes_torch ;i++){
+					//p_torch[i].current_ma = flashlight_current;
+					qti_flash_led_enable(&p_torch[i]);
+					pr_debug("[flashlight] p_torch[%d] %s enable currrent %d ma\n",i,p_torch[i].fdev.led_cdev.name,p_torch[i].current_ma);
+				}
+				for(i = 0; i < led->num_fnodes; i++) {      //traverse all fnodes from switch
+					for(j = 0;j < flashlight_num_fnodes_torch ;j++){      //select all torch node from switch
+						if (!strncmp(p_torch[j].fdev.led_cdev.name, p_switch[2].led->fnode[i].fdev.led_cdev.name, strlen("led:torch_0")))
+						p_switch[2].led->fnode[i].configured = true;
+						p_switch[2].led->fnode[i].current_ma = flashlight_current;
+					}
+					pr_debug("[flashlight] switch fnode name %s isconfigured %d\n",p_switch[2].led->fnode[i].fdev.led_cdev.name,p_switch[2].led->fnode[i].configured);
+				}
+				qti_flash_switch_enable(&p_switch[2]);
+			}
+		}else{
+		rc = qti_flash_led_enable(fnode);
+		if (rc < 0)
+			pr_err("Failed to set brightness %d to LED\n", brightness);
+		return rc;
+	}
 
-	return rc;
+	return 0;
 }
 
 static int qti_flash_config_group_symmetry(struct qti_flash_led *led,
@@ -759,7 +807,6 @@ static void qti_flash_led_switch_brightness_set(
 			snode->enabled = state;
 			return;
 		}
-
 		rc = qti_flash_switch_enable(snode);
 	} else {
 		rc = qti_flash_switch_disable(snode);
@@ -1560,6 +1607,17 @@ static int register_flash_device(struct qti_flash_led *led,
 	fnode->max_current = val;
 	fnode->fdev.led_cdev.max_brightness = val;
 
+	rc = of_property_read_u32(node, "qcom,flashlight-current-ma", &val);
+	if (rc < 0) {
+		pr_debug("%s dont set current-ma, rc=%d\n", led->fnode->fdev.led_cdev.name,rc);
+	}
+	else{
+		fnode->current_ma = val;
+		fnode->fdev.led_cdev.brightness = val;
+		flashlight_current = fnode->current_ma;
+		pr_debug("%s set flashlight current %d ma, rc=%d\n", fnode->fdev.led_cdev.name,fnode->current_ma,rc);
+	}
+
 	duration = SAFETY_TIMER_DEFAULT_TIMEOUT_MS;
 	rc = of_property_read_u32(node, "qcom,duration-ms", &val);
 	if (!rc && (val >= SAFETY_TIMER_MIN_TIMEOUT_MS &&
@@ -1631,7 +1689,7 @@ static int qti_flash_led_register_device(struct qti_flash_led *led,
 	struct device_node *temp;
 	char buffer[20];
 	const char *label;
-	int rc, i = 0, j = 0;
+	int rc, i = 0, j = 0,k = 0;
 	u32 val;
 
 	rc = of_property_read_u32(node, "reg", &val);
@@ -1709,6 +1767,10 @@ static int qti_flash_led_register_device(struct qti_flash_led *led,
 			of_node_put(temp);
 			return -EINVAL;
 		}
+
+		if (!strcmp("torch", label)) {
+			flashlight_num_fnodes_torch++;
+		}
 	}
 
 	if (!led->num_fnodes) {
@@ -1721,11 +1783,19 @@ static int qti_flash_led_register_device(struct qti_flash_led *led,
 		return -ECHILD;
 	}
 
+	flashlight_num_snodes = led->num_snodes;
 	led->fnode = devm_kcalloc(&led->pdev->dev, led->num_fnodes,
 				sizeof(*led->fnode), GFP_KERNEL);
 	led->snode = devm_kcalloc(&led->pdev->dev, led->num_snodes,
 				sizeof(*led->snode), GFP_KERNEL);
 	if ((!led->fnode) || (!led->snode))
+		return -ENOMEM;
+
+	p_torch = devm_kcalloc(&led->pdev->dev, led->num_fnodes,
+				sizeof(*led->fnode), GFP_KERNEL);
+	p_switch = devm_kcalloc(&led->pdev->dev, led->num_snodes,
+				sizeof(*led->snode), GFP_KERNEL);
+	if ((!p_torch) || (!p_switch))
 		return -ENOMEM;
 
 	i = 0;
@@ -1745,6 +1815,13 @@ static int qti_flash_led_register_device(struct qti_flash_led *led,
 				of_node_put(temp);
 				goto unreg_led;
 			}
+			#if 1
+			if (!strcmp("torch", label)) {
+				p_torch[k] = led->fnode[i];
+			pr_debug("[flashlight] find led p_torch[%d] %s regist\n",k,p_torch[k].fdev.led_cdev.name);
+			k++;
+			}
+			#endif
 			led->fnode[i++].fdev.led_cdev.dev->of_node = temp;
 		} else {
 			rc = register_switch_device(led, &led->snode[j], temp);
@@ -1755,6 +1832,12 @@ static int qti_flash_led_register_device(struct qti_flash_led *led,
 				of_node_put(temp);
 				goto unreg_led;
 			}
+			#if 1
+			if (!strcmp("switch", label)) {
+				p_switch[j] = led->snode[j];
+			pr_debug("[flashlight] find switch p_switch[%d] %s regist\n",j,p_switch[j].cdev.name);
+			}
+			#endif
 			led->snode[j++].cdev.dev->of_node = temp;
 		}
 	}
@@ -1784,7 +1867,7 @@ static int qti_flash_led_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	led->max_channels = (u8)of_device_get_match_data(&pdev->dev);
+	led->max_channels = (u64)of_device_get_match_data(&pdev->dev);
 	if (!led->max_channels) {
 		pr_err("Failed to get max supported led channels\n");
 		return -EINVAL;

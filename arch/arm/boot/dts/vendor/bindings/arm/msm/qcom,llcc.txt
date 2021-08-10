@@ -1,0 +1,66 @@
+== Introduction==
+
+LLCC (Last Level Cache Controller) provides last level of cache memory in SOC,
+that can be shared by multiple clients. Clients here are different cores in the
+SOC, the idea is to minimize the local caches at the clients and migrate to
+common pool of memory. Cache memory is divided into partitions called slices
+which are assigned to clients. Clients can query the slice details, activate
+and deactivate them.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,sdm845-llcc" or "qcom,lahaina-llcc"
+	            or "qcom,shima-llcc" or "qcom,sdxlemur-llcc"
+	            or "qcom,yupik-llcc" or "qcom,sm8150-llcc"
+		    or "qcom,sdmshrike-llcc" or "qcom,sm6150-llcc"
+		    or "qcom,direwolf-llcc"
+		    "qcom,llcc-v2" must be appended for V2 hardware.
+
+- reg:
+	Usage: required
+	Value Type: <prop-encoded-array>
+	Definition: The first element specifies the llcc base start address and
+		    the size of the register region. The second element specifies
+		    the llcc broadcast base address and size of the register region.
+
+- reg-names:
+        Usage: required
+        Value Type: <stringlist>
+        Definition: Register region names. Must be "llcc_base", "llcc_broadcast_base".
+
+- interrupts:
+	Usage: required
+	Definition: The interrupt is associated with the llcc edac device.
+			It's used for llcc cache single and double bit error detection
+			and reporting.
+
+- clocks:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition:  List of phandles and clock specifier pairs for the llcc perfmon
+		     trace feature support.
+
+- clock-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: List of clock input name strings sorted in the same
+		    order as the clocks property. Definition must have
+		    "qdss_clk"
+
+- memory-region:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: List of memory regions which define the range of addresses used
+		    for tightly coupled memory in the llcc.
+Example:
+
+	cache-controller@1100000 {
+		compatible = "qcom,sdm845-llcc";
+		reg = <0x1100000 0x200000>, <0x1300000 0x50000> ;
+		reg-names = "llcc_base", "llcc_broadcast_base";
+		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "qdss_clk";
+	};

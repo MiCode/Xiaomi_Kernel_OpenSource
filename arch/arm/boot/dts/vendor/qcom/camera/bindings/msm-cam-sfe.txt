@@ -1,0 +1,132 @@
+* Qualcomm Technologies, Inc. MSM Camera SFE
+
+Camera SFE device provides the definitions for enabling
+the SFE hardware. It also provides the functions for the client
+to control the SFE hardware.
+
+=======================
+Required Node Structure
+=======================
+The SFE device is described in one level of the device node.
+
+======================================
+First Level Node - CAM SFE device
+======================================
+Required properties:
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the compatibility string for matching the
+
+  driver. e.g. "qcom,sfe680".
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the name of the register block.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: required
+  Value type: <u32>
+  Definition: List of bases.
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with SFE HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for SFE HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+	"regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for SFE HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for SFE HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: All different clock level node can support.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- scl-clk-names
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name for register write.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+Example:
+cam_sfe0: qcom,sfe0@ac9e000 {
+	cell-index = <0>;
+	compatible = "qcom,sfe680";
+	reg-names = "sfe0", "rt_wrapper";
+	reg = <0xac9e000 0x8000>,
+		<0xac62000 0x64000>;
+	reg-cam-base = <0x9e000 0x62000>;
+	interrupt-names = "sfe";
+	interrupts = <GIC_SPI 462 IRQ_TYPE_EDGE_RISING>;
+	regulator-names = "camss", "sfe0";
+	camss-supply = <&cam_cc_titan_top_gdsc>;
+	sfe0-supply = <&cam_cc_sfe_0_gdsc>;
+	clock-names =
+		"sfe_0_ahb",
+		"sfe_clk_src",
+		"sfe_clk";
+	clocks =
+		<&clock_camcc CAM_CC_SFE_0_FAST_AHB_CLK>,
+		<&clock_camcc CAM_CC_SFE_0_CLK_SRC>,
+		<&clock_camcc CAM_CC_SFE_0_CLK>;
+	clock-rates =
+		<100000000 432000000 0>,
+		<200000000 594000000 0>,
+		<300000000 675000000 0>,
+		<400000000 785000000 0>,
+		<400000000 785000000 0>;
+	clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+		"turbo";
+	src-clock-name = "sfe_clk_src";
+	scl-clk-names = "sfe_0_ahb";
+	clock-control-debugfs = "true";
+	status = "ok";
+};

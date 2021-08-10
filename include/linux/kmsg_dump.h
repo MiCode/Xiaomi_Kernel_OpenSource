@@ -2,6 +2,7 @@
  * linux/include/kmsg_dump.h
  *
  * Copyright (C) 2009 Net Insight AB
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Simon Kagstrom <simon.kagstrom@netinsight.net>
  *
@@ -23,6 +24,7 @@
 enum kmsg_dump_reason {
 	KMSG_DUMP_UNDEF,
 	KMSG_DUMP_PANIC,
+	KMSG_DUMP_LONG_PRESS,
 	KMSG_DUMP_OOPS,
 	KMSG_DUMP_EMERG,
 	KMSG_DUMP_RESTART,

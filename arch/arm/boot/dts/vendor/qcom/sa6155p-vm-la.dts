@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sa6155p-vm.dtsi"
+#include "sa6155p-vm-la.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA6155P Virtual Machine";
+	compatible = "qcom,sa6155p";
+	qcom,pmic-name = "PM6150";
+	qcom,board-id = <0x1000001 0>;
+};

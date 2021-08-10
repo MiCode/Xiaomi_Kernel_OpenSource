@@ -1,0 +1,19 @@
+* rename block devices
+
+Required properties:
+
+- compatible:	"qcom,blkdev-rename" compatibility string
+- actual-dev:	Name of the  disk assigned by generic driver
+- rename-dev:	Re-name of the disk to set for disks
+
+Example:
+
+rename_blk: rename_blk {
+		compatible = "qcom,blkdev-rename";
+		actual-dev = "vda", "vdb", "vdc",
+				"vdd", "vde", "vdf",
+				"vdg", "vdh";
+		rename-dev = "la_system", "la_userdata", "la_vendor",
+				"la_persist", "modem", "bluetooth",
+				"la_misc", "vbmeta";
+};

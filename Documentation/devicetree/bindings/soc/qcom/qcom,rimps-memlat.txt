@@ -1,0 +1,80 @@
+RIMPS memory latency
+
+RIMPS memlat is a device that represents the use of the PMU in ARM cores
+to measure the parameters for latency driven memory access patterns in rimps.
+
+Required structure:
+An instance of rimps-memlat must be described in two levels of device nodes.
+The first level describes the controller while the second level describes the
+monitors that the controller manages. At least one monitor is required per
+controller.
+
+[First Level Nodes]
+Required properties:
+- compatible:			Must be "qcom,rimps-memlat-cpugrp"
+- qcom,cpulist:			List of CPU phandles to be monitored in a
+				cluster. Must be a superset of cpulists
+				described in second level nodes.
+- reg-names:			pmu-base addresses need to store the pmu events
+				during LPM and hotplug scenario.
+
+[Second Level Nodes]
+Required properties:
+- compatible:			Must be "qcom,rimps-memlat-mon-l3"
+- qcom,core-dev-table:		A mapping table of core frequency to a required
+				bandwidth vote at the given core frequency.
+				A phandle that contains this property may be
+				provided instead (to share tables across nodes).
+- qcom,cachemiss-ev:		The cache miss event that this monitor is
+				supposed to measure. Optional for compute only.
+- reg-names:				ftbl_base address required to populate
+				L3 frequency and perf_base address required to know the current
+				L3 frequency set.
+Optional properties:
+- qcom,cpulist:			List of CPU phandles to be monitored in a
+				cluster. Must be a subset of the cpulist
+				described in first level node. Defaults to
+				cpulist in first level node if not specified.
+- qcom,inst-ev:			The instruction count event that this monitor is
+				supposed to measure. Defaults to 0x08 if not
+				specified.
+- qcom,stall-cycle-ev:		The stall cycle count that this monitor is
+				supposed to measure. Assumes 100% stall if not
+				specified.
+
+Example:
+
+	cpu0_grp: qcom,cpu0_grp {
+		compatible = "qcom,rimps-memlat-cpugrp";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0x0fd04900 0x1000>;
+		reg-names = "pmu-base";
+
+		cpu0_rimps_l3_latmon: qcom,cpu0-rimps-l3-latmon {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			compatible = "qcom,rimps-memlat-mon-l3";
+			qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+			qcom,cachemiss-ev = <0x17>;
+			reg = <0x18590100 0xa0>, <0x18590320 0x4>;
+			reg-names = "ftbl-base", "perf-base";
+
+			qcom,core-dev-table =
+				<  300000  300000000 >,
+				<  403200  403200000 >,
+				<  499200  499200000 >,
+				<  691200  614400000 >,
+				<  806400  710400000 >,
+				<  998400  806400000 >,
+				< 1190400  998400000 >,
+				< 1286400 1094400000 >,
+				< 1459200 1248000000 >,
+				< 1728000 1344000000 >,
+				< 1804800 1440000000 >,
+				< 1900800 1516800000 >;
+		};
+	};

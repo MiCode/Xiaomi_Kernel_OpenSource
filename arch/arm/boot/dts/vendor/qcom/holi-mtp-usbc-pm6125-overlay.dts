@@ -1,0 +1,52 @@
+/dts-v1/;
+/plugin/;
+
+#include "holi-pm6125-overlay.dtsi"
+#include "holi-regulators-pm6125.dtsi"
+#include "holi-mtp-usbc-pm6125.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi MTP USBC PM6125 audio";
+	compatible = "qcom,holi-mtp", "qcom,holi", "qcom,mtp";
+	qcom,msm-id = <454 0x10000>, <472 0x10000>;
+	qcom,board-id = <8 1>;
+	qcom,pmic-id-size = <4>;
+	qcom,pmic-id = <0x2D 0x0 0x2E 0x0>;
+};
+
+&swr0 {
+	qcom,is_wcd937x = <0>;
+};
+
+&wcd937x_tx_slave {
+	status = "disabled";
+};
+
+&wcd937x_rx_slave {
+	status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "disabled";
+};
+
+&wcd938x_tx_slave {
+	status = "ok";
+};
+
+&wcd938x_rx_slave {
+	status = "ok";
+};
+
+&wcd938x_codec {
+	status = "ok";
+};
+
+&holi_snd {
+	asoc-codec  = <&stub_codec>, <&bolero>,
+		      <&wcd938x_codec>, <&wsa881x_i2c_e>,
+		      <&wsa881x_i2c_f>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+			   "wcd938x_codec", "wsa-codec0",
+			   "wsa-codec1";
+};

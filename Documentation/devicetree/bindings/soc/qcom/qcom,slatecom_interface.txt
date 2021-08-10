@@ -1,0 +1,16 @@
+* Slatecom Interface Driver
+
+slatecom_interface driver creates a slate_com_dev device
+node for user space communication. Single user space
+client can open device node for communication from hardware.
+Hardware will provide access to read/write registers or AHB
+memory in the device.
+
+Required properties:
+- compatible:	      Must be "qcom,slate-daemon"
+
+Example:
+	qcom,slate-daemon {
+		compatible = "qcom,slate-daemon";
+		};
+

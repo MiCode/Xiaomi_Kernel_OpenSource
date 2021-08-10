@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "direwolf-vm.dtsi"
+#include "direwolf-vm-lv.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Direwolf Single LV Virtual Machine";
+	compatible = "qcom,direwolf";
+	qcom,board-id = <0x1000002 0>;
+};

@@ -1,0 +1,126 @@
+* Qualcomm Technologies, Inc. MSM Camera TPG
+
+Camera TPG device provides the definitions for enabling
+the TPG hardware. It also provides the functions for the client
+to control the TPG hardware.
+
+=======================
+Required Node Structure
+=======================
+The TPG device is described in one level of the device node.
+
+======================================
+First Level Node - CAM TPG device
+======================================
+Required properties:
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the compatibility string for matching the
+	driver. e.g. "qcom,tpg101", "qcom,tpg102", "qcom,tpgv1", "qcom,tpg103"
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the name of the register block.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: required
+  Value type: <u32>
+  Definition: List of bases.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for TFE HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+	"regulator-names".
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with TFE HW.
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for TFE HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for TFE HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: All different clock level node can support.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- scl-clk-names:
+  Usage: optional
+  Value type: <string>
+  Definition: Scalable clock names to identify which clocks needs to update
+	along with source clock.
+
+Example:
+cam_csiphy_tpg0: qcom,tpg0@acf6000 {
+	cell-index = <0>;
+	compatible = "qcom,tpg103";
+	reg-names = "tpg0", "cam_cpas_top";
+	reg = <0xacf6000 0x400>,
+		<0xac13000 0x1000>;
+	reg-cam-base = <0xf6000 0x13000>;
+	regulator-names = "camss";
+	camss-supply = <&cam_cc_titan_top_gdsc>;
+	interrupt-names = "tpg0";
+	interrupts = <GIC_SPI 413 IRQ_TYPE_EDGE_RISING>;
+	clock-names =
+		"cphy_rx_clk_src",
+		"csiphy0_clk",
+		"csi0phytimer_clk_src",
+		"csi0phytimer_clk";
+	clocks =
+		<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+		<&clock_camcc CAM_CC_CSIPHY0_CLK>,
+		<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK_SRC>,
+		<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK>;
+	clock-rates =
+		<480000000 0 400000000 0>;
+	clock-cntl-level = "nominal";
+	src-clock-name = "csi0phytimer_clk_src";
+	status = "ok";
+};

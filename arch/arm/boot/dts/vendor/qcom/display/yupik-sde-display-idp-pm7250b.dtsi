@@ -1,0 +1,77 @@
+#include "yupik-sde-display.dtsi"
+
+&pm7250b_gpios {
+	disp_lcd_bias_en {
+		disp_lcd_bias_en_default: disp_lcd_bias_en_default {
+			pins = "gpio2";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <0>;
+			qcom,drive-strength = <2>;
+		};
+	};
+};
+
+&pm8350c_gpios {
+	lcd_backlight_ctrl {
+		lcd_backlight_ctrl_default: lcd_backlight_ctrl_default {
+			pins = "gpio8";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <1>;       /* 1.8V */
+			qcom,drive-strength = <2>;
+		};
+	};
+};
+
+&sde_dsi {
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+
+	pinctrl-names = "panel_active", "panel_suspend", "pwm_pin";
+	pinctrl-0 = <&sde_dsi_active &sde_te_active &disp_lcd_bias_en_default>;
+	pinctrl-2 = <&lcd_backlight_ctrl_default>;
+
+	qcom,dsi-default-panel = <&dsi_nt36672e_fhd_plus_120_video>;
+};
+
+&dsi_nt36672e_fhd_plus_60_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm8350c_pwm_2 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+	qcom,platform-en-gpio = <&pm7250b_gpios 2 0>;
+	qcom,platform-bklight-en-gpio = <&pm8350c_gpios 7 0>;
+};
+
+&dsi_nt36672e_fhd_plus_120_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm8350c_pwm_2 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+	qcom,platform-en-gpio = <&pm7250b_gpios 2 0>;
+	qcom,platform-bklight-en-gpio = <&pm8350c_gpios 7 0>;
+};
+
+&dsi_nt36672e_fhd_plus_144_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm8350c_pwm_2 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+	qcom,platform-en-gpio = <&pm7250b_gpios 2 0>;
+	qcom,platform-bklight-en-gpio = <&pm8350c_gpios 7 0>;
+};
+

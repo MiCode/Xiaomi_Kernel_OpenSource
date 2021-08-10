@@ -1,0 +1,80 @@
+#include "yupik-sde-display.dtsi"
+
+&dsi_nt36672e_fhd_plus_144_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_nt36672e_fhd_plus_120_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_nt36672e_fhd_plus_90hz_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_nt36672e_fhd_plus_60_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_r66451_amoled_90hz_cmd_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <255>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_r66451_amoled_120hz_cmd_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <255>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_r66451_amoled_144hz_cmd_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <255>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_prim_sim_vid {
+       qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+       qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+       qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_prim_sim_vid>;
+};
+

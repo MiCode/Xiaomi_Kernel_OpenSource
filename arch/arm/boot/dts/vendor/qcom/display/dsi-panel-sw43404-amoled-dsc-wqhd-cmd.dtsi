@@ -1,0 +1,120 @@
+&mdss_mdp {
+	dsi_sw43404_amoled_cmd: qcom,mdss_dsi_sw43404_amoled_wqhd_cmd {
+		qcom,mdss-dsi-panel-name =
+			"sw43404 amoled cmd mode dsi boe panel with DSC";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-panel-physical-type = "oled";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-color-order = "rgb_swap_rgb";
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_event";
+		qcom,mdss-dsi-lane-map = "lane_map_0123";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+			17000 15500 30000 8000 3000>;
+		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+		qcom,mdss-dsi-panel-blackness-level = <3230>;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0 {
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-width = <1440>;
+				qcom,mdss-dsi-panel-height = <2880>;
+				qcom,mdss-dsi-h-front-porch = <60>;
+				qcom,mdss-dsi-h-back-porch = <30>;
+				qcom,mdss-dsi-h-pulse-width = <12>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <8>;
+				qcom,mdss-dsi-v-front-porch = <8>;
+				qcom,mdss-dsi-v-pulse-width = <1>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-jitter = <0x6 0x1>;
+				qcom,mdss-mdp-transfer-time-us = <15300>;
+
+				qcom,mdss-dsi-timing-switch-command = [
+					39 01 00 00 00 00 03 b0 a5 00
+					39 01 00 00 00 00 0c b1 a0 9f 42 4f 63 0e 0a 10 0e 0a 10
+					39 01 00 00 00 00 07 e4 30 06 00 40 34 03
+				];
+
+				qcom,mdss-dsi-on-command = [
+					39 01 00 00 00 00 03 b0 a5 00
+					39 01 00 00 00 00 03 5c 42 00
+					07 01 00 00 00 00 02 01 00
+					0a 01 00 00 00 00 80 11 00 00 89 30 80
+					   0B 40 05 A0 05 A0 02 D0 02 D0 02 00
+					   02 68 00 20 9A DB 00 0A 00 0C 00 12
+					   00 0E 18 00 10 F0 03 0C 20 00 06 0B
+					   0B 33 0E 1C 2A 38 46 54 62 69 70 77
+					   79 7B 7D 7E 01 02 01 00 09 40 09 BE
+					   19 FC 19 FA 19 F8 1A 38 1A 78 1A B6
+					   2A F6 2B 34 2B 74 3B 74 6B F4 00 00
+					   00 00 00 00 00 00 00 00 00 00 00 00
+					   00 00 00 00 00 00 00 00 00 00 00 00
+					   00 00 00 00 00 00 00 00 00 00 00 00
+					   00 00
+					39 01 00 00 00 00 03 b0 a5 00
+					39 01 00 00 00 00 09 F8 00 08 10 08 2D
+					   00 00 2D
+					15 01 00 00 00 00 02 55 08
+					05 01 00 00 1e 00 02 11 00
+					39 01 00 00 00 00 03 b0 a5 00
+					15 01 00 00 00 00 02 e0 18
+					39 01 00 00 00 00 0c c0 00 53 6f 51 50
+					   51 34 4f 5a 33 19
+					05 01 00 00 78 00 02 35 00
+					05 01 00 00 3c 00 02 29 00
+				];
+
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 14 00 02 28 00
+					05 01 00 00 78 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-lp1-command = [
+					05 01 00 00 00 00 02 39 00
+				];
+				qcom,mdss-dsi-lp1-command-state =
+					"dsi_lp_mode";
+				qcom,mdss-dsi-nolp-command = [
+					05 01 00 00 00 00 02 38 00
+				];
+				qcom,mdss-dsi-nolp-command-state =
+					"dsi_lp_mode";
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <180>;
+				qcom,mdss-dsc-slice-width = <720>;
+				qcom,mdss-dsc-slice-per-pkt = <1>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};

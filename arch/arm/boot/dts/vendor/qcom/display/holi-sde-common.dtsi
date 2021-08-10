@@ -1,0 +1,252 @@
+#include <dt-bindings/clock/mdss-10nm-pll-clk.h>
+
+&soc {
+	mdss_mdp: qcom,mdss_mdp@5e00000 {
+		compatible = "qcom,sde-kms";
+		reg = <0x05e00000 0x8f030>,
+		      <0x05eb0000 0x2008>,
+		      <0x05e8f000 0x030>;
+		reg-names = "mdp_phys",
+			"vbif_phys",
+			"sid_phys";
+
+		clock-rate = <0 0 0 0 0 448000000 19200000 448000000 200000000>;
+		clock-max-rate = <0 0 0 0 0 560000000 19200000 560000000
+					560000000>;
+
+		/* interrupt config */
+		interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		#power-domain-cells = <0>;
+
+		/* hw blocks */
+		qcom,sde-off = <0x1000>;
+		qcom,sde-len = <0x494>;
+
+		qcom,sde-ctl-off = <0x2000>;
+		qcom,sde-ctl-size = <0x1dc>;
+		qcom,sde-ctl-display-pref = "primary";
+
+		qcom,sde-mixer-off = <0x45000>;
+		qcom,sde-mixer-size = <0x320>;
+		qcom,sde-mixer-display-pref = "primary";
+
+		qcom,sde-dspp-top-off = <0x1300>;
+		qcom,sde-dspp-top-size = <0x80>;
+		qcom,sde-dspp-off = <0x55000>;
+		qcom,sde-dspp-size = <0x1800>;
+
+		qcom,sde-dspp-rc-version = <0x00010000>;
+		qcom,sde-dspp-rc-off = <0x15800>;
+		qcom,sde-dspp-rc-size = <0x100>;
+		qcom,sde-dspp-rc-mem-size = <2720>;
+
+		qcom,sde-intf-off = <0x0 0x6b800>;
+		qcom,sde-intf-size = <0x2c0>;
+		qcom,sde-intf-type = "none", "dsi";
+		qcom,sde-intf-tear-irq-off = <0 0x6e800>;
+
+		qcom,sde-pp-off = <0x71000>;
+		qcom,sde-pp-size = <0xd4>;
+
+		qcom,sde-dsc-off = <0x81000>;
+		qcom,sde-dsc-size = <0x140>;
+
+		qcom,sde-dither-off = <0x30e0>;
+		qcom,sde-dither-version = <0x00010000>;
+		qcom,sde-dither-size = <0x20>;
+
+		qcom,sde-sspp-type = "vig", "dma";
+
+		qcom,sde-sspp-off = <0x5000 0x25000>;
+		qcom,sde-sspp-src-size = <0x1f8>;
+
+		qcom,sde-sspp-xin-id = <0 1>;
+		qcom,sde-sspp-excl-rect = <1 1>;
+		qcom,sde-sspp-smart-dma-priority = <2 1>;
+		qcom,sde-smart-dma-rev = "smart_dma_v2p5";
+
+		qcom,sde-mixer-pair-mask = <0>;
+		qcom,sde-mixer-stage-base-layer;
+
+		qcom,sde-mixer-blend-op-off = <0x20 0x38 0x50 0x68 0x80 0x98
+						0xb0 0xc8 0xe0 0xf8 0x110>;
+
+		qcom,sde-max-per-pipe-bw-kbps = <4100000 4100000>;
+
+		qcom,sde-max-per-pipe-bw-high-kbps = <4100000 4100000>;
+
+		/* offsets are relative to "mdp_phys + qcom,sde-off */
+		qcom,sde-sspp-clk-ctrl = <0x2ac 0>, <0x2ac 8>;
+		qcom,sde-sspp-clk-status = <0x2b0 0>, <0x2b0 12>;
+		qcom,sde-sspp-csc-off = <0x1a00>;
+		qcom,sde-csc-type = "csc-10bit";
+		qcom,sde-qseed-sw-lib-rev = "qseedv3lite";
+		qcom,sde-qseed-scalar-version = <0x3000>;
+		qcom,sde-sspp-qseed-off = <0xa00>;
+		qcom,sde-sspp-linewidth = <2160>;
+		qcom,sde-vig-sspp-linewidth = <4096>;
+		qcom,sde-scaling-linewidth = <2560>;
+		qcom,sde-mixer-linewidth = <2048>;
+		qcom,sde-mixer-blendstages = <0x4>;
+		qcom,sde-highest-bank-bit = <0x0 0x1>;
+		qcom,sde-ubwc-version = <0x200>;
+		qcom,sde-ubwc-swizzle = <0x6>;
+		qcom,sde-ubwc-bw-calc-version = <0x1>;
+		qcom,sde-ubwc-static = <0x1e>;
+		qcom,sde-macrotile-mode = <0x0>;
+		qcom,sde-panic-per-pipe;
+		qcom,sde-has-cdp;
+		qcom,sde-has-dim-layer;
+		qcom,sde-max-bw-low-kbps = <5200000>;
+		qcom,sde-max-bw-high-kbps = <6200000>;
+		qcom,sde-min-core-ib-kbps = <2500000>;
+		qcom,sde-min-llcc-ib-kbps = <0>;
+		qcom,sde-min-dram-ib-kbps = <1600000>;
+		qcom,sde-dram-channels = <1>;
+		qcom,sde-num-nrt-paths = <0>;
+
+		qcom,sde-vbif-off = <0>;
+		qcom,sde-vbif-size = <0x2008>;
+		qcom,sde-vbif-id = <0>;
+		qcom,sde-vbif-memtype-0 = <3 3 3 3 3 3 3 3>;
+		qcom,sde-vbif-memtype-1 = <3 3 3 3 3 3>;
+
+		qcom,sde-vbif-qos-rt-remap = <3 3 4 4 5 5 6 6>;
+		qcom,sde-vbif-qos-nrt-remap = <3 3 3 3 3 3 3 3>;
+
+		qcom,sde-qos-refresh-rates = <60 120>;
+		qcom,sde-danger-lut = <0xffff 0xffff 0x0
+			0x0 0xffff 0xffff>, <0x3ffff 0x3ffff 0x0
+			0x0 0x3ffff 0x3ffff>;
+
+		qcom,sde-safe-lut = <0xff00 0xff00 0xffff 0x0000 0xff00 0xff00>,
+				<0xfe00 0xfe00 0xffff 0x0000 0xfe00 0xfe00>;
+
+		qcom,sde-qos-lut-linear = <0x00112233 0x44556677>, <0x00112234 0x45566777>;
+		qcom,sde-qos-lut-macrotile = <0x00112233 0x44556677>, <0x00112234 0x45566777>;
+		qcom,sde-qos-lut-macrotile-qseed = <0x00112233 0x66777777>, <0x00112236 0x67777777>;
+		qcom,sde-qos-lut-linear-qseed = <0x00112233 0x66777777>, <0x00112236 0x67777777>;
+		qcom,sde-qos-lut-nrt = <0x0 0x0>, <0x0 0x0>;
+
+		qcom,sde-cdp-setting = <1 1>, <1 0>;
+
+		qcom,sde-qos-cpu-mask = <0x3>;
+		qcom,sde-qos-cpu-dma-latency = <300>;
+		qcom,sde-qos-cpu-irq-latency = <300>;
+
+
+		qcom,sde-secure-sid-mask = <0x821>;
+		qcom,sde-num-mnoc-ports = <1>;
+		qcom,sde-axi-bus-width = <32>;
+
+		qcom,sde-reg-bus,vectors-KBps = <0 0>,
+				<0 76800>,
+				<0 150000>,
+				<0 300000>;
+
+		qcom,sde-sspp-vig-blocks {
+			qcom,sde-vig-csc-off = <0x1a00>;
+			qcom,sde-vig-qseed-off = <0xa00>;
+			qcom,sde-vig-qseed-size = <0xa0>;
+		};
+
+		qcom,sde-dspp-blocks {
+			qcom,sde-dspp-igc = <0x0 0x00030001>;
+			qcom,sde-dspp-hsic = <0x800 0x00010007>;
+			qcom,sde-dspp-memcolor = <0x880 0x00010007>;
+			qcom,sde-dspp-hist = <0x800 0x00010007>;
+			qcom,sde-dspp-sixzone= <0x900 0x00010007>;
+			qcom,sde-dspp-vlut = <0xa00 0x00010008>;
+			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
+			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
+			qcom,sde-dspp-dither = <0x82c 0x00010007>;
+		};
+
+	};
+
+	mdss_dsi0: qcom,mdss_dsi_ctrl0@5e94000 {
+		compatible = "qcom,dsi-ctrl-hw-v2.4";
+		label = "dsi-ctrl-0";
+		cell-index = <0>;
+		frame-threshold-time-us = <1000>;
+		reg = <0x05e94000 0x400>,
+			<0x05f08000 0x4>,
+			<0x05e6b800 0x300>;
+		reg-names = "dsi_ctrl", "disp_cc_base", "mdp_intf_base";
+		interrupt-parent = <&mdss_mdp>;
+		interrupts = <4 0>;
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p2";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <21800>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+
+	mdss_dsi_phy0: qcom,mdss_dsi_phy0@5e94900 {
+		compatible = "qcom,dsi-phy-v3.0";
+		label = "dsi-phy-0";
+		cell-index = <0>;
+		#clock-cells = <1>;
+		reg = <0x05e94400 0x800>,
+		      <0x05e94a00 0x1e0>,
+		      <0x05f01004 0x8>,
+		      <0x05e94200 0x100>;
+		reg-names = "dsi_phy", "pll_base", "gdsc_base", "dyn_refresh_base";
+		pll-label = "dsi_pll_10nm";
+
+		qcom,platform-strength-ctrl = [55 03
+						55 03
+						55 03
+						55 03
+						55 00];
+		qcom,platform-lane-config = [00 00 00 00
+						00 00 00 00
+						00 00 00 00
+						00 00 00 00
+						00 00 00 80];
+		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-0p9";
+				qcom,supply-min-voltage =
+					<RPMH_REGULATOR_LEVEL_NOM>;
+				qcom,supply-max-voltage =
+					<RPMH_REGULATOR_LEVEL_TURBO_L1>;
+				qcom,supply-off-min-voltage =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+
+};

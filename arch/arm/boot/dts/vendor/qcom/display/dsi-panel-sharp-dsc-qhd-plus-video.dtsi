@@ -1,0 +1,193 @@
+&mdss_mdp {
+	dsi_sharp_qhd_plus_dsc_video: qcom,mdss_dsi_sharp_qhd_plus_dsc_video {
+		qcom,mdss-dsi-panel-name = "Sharp qhd video mode dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0 {
+				qcom,mdss-dsi-panel-width = <720>;
+				qcom,mdss-dsi-panel-height = <3120>;
+				qcom,mdss-dsi-h-front-porch = <72>;
+				qcom,mdss-dsi-h-back-porch = <20>;
+				qcom,mdss-dsi-h-pulse-width = <4>;
+				qcom,mdss-dsi-v-back-porch = <12>;
+				qcom,mdss-dsi-v-front-porch = <39>;
+				qcom,mdss-dsi-v-pulse-width = <2>;
+				qcom,mdss-dsi-panel-framerate = <120>;
+				qcom,mdss-dsi-on-command = [
+					39 01 00 00 00 00 04 df 97 51 e8
+					39 01 00 00 00 00 02 de 00
+					39 01 00 00 00 00 05 d9 00 00 00 04
+					39 01 00 00 00 00 03 bc 3f 66
+					39 01 00 00 00 00 04 dd 66 19 b7
+					39 01 00 00 00 00 07 b7 00 e7 00 00 e7 00
+					39 01 00 00 00 00 07 bb 00 33 69 55 11 33
+					39 01 00 00 00 00 09 cf 66 66 52 52 30 0a
+					00 00
+					39 01 00 00 00 00 03 c1 58 10
+					39 01 00 00 00 00 08 c3 12 05 00 00 45 01
+					45
+					39 01 00 00 00 00 0a c4 03 06 18 54 00 08
+					00 0b 10
+					39 01 00 00 00 00 34 c6 00 12 45 00 08 00
+					0b 01 20 25 30 01 49 01 49 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 03 00 00 00 45 01 45 4b 02 4b 05
+					05 05 05
+					39 01 00 00 00 00 0e ce 00 41 25 01 40 03
+					49 00 99 01 49 01 49
+					39 01 00 00 00 00 36 d0 00 02 00 08 04 0a
+					06 1f 1f 1f 1f 1f 1f 1f 1f 10 1f 1f 1f 1f
+					1f 1f 1f 1f 1f 1f 1f af af af af af af ff
+					ff ff ff ff ff ff ff aa ff ff ff ff ff ff
+					ff ff ff ff ff
+					39 01 00 00 00 00 36 d1 00 03 01 09 05 0b
+					07 1f 1f 1f 1f 1f 1f 1f 1f 10 1f 1f 1f 1f
+					1f 1f 1f 1f 1f 1f 1f af af af af af af ff
+					ff ff ff ff ff ff ff aa ff ff ff ff ff ff
+					ff ff ff ff ff
+					39 01 00 00 00 00 3a d4 03 00 00 32 5a 07
+					32 5a 0c 40 00 04 00 00 00 01 00 02 41 25
+					60 00 00 20 00 01 02 01 40 00 73 00 05 01
+					20 25 30 00 0a 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 08 02 02 04
+					39 01 00 00 00 00 31 d5 00 00 00 00 00 00
+					00 00 00 00 00 01 49 01 49 00 00 07 40 40
+					07 99 00 99 00 00 00 00 03 00 00 00 00 00
+					00 1f 00 1f 03 49 03 c0 00 00 02 06 08 08
+					39 01 00 00 00 00 02 de 02
+					39 01 00 00 00 00 09 c9 71 7d 94 18 71 7d
+					94 18
+					39 01 00 00 00 00 09 bb 00 5c 4e 40 40 40
+					40 40
+					39 01 00 00 00 00 02 c7 08
+					39 01 00 00 00 00 0d cc 15 85 54 a6 15 85
+					54 a6 82 d0 04 3c
+					39 01 00 00 00 00 0b c2 00 00 40 f0 01 f0
+					14 9d 0a 29
+					39 01 00 00 00 00 02 de 03
+					39 01 00 00 00 00 03 b0 04 f0
+					39 01 00 00 00 00 02 b2 10
+					39 01 00 00 00 00 02 b3 01
+					39 01 00 00 00 00 5a b4 00 11 00 00 8a 30
+					80 0c 30 02 d0 00 08 01 68 01 68 02 00 01
+					b4 00 20 00 97 00 05 00 0c 0d b7 13 12 18
+					00 10 f0 03 0c 20 00 06 0b 0b 33 0e 1c 2a
+					38 46 54 62 69 70 77 79 7b 7d 7e 01 02 01
+					00 09 40 09 be 19 fc 19 fa 19 f8 1a 38 1a
+					78 1a b6 2a f6 2b 34 2b 74 3b 74 6b f4
+					39 01 00 00 00 00 02 b5 68
+					39 01 00 00 00 00 0c b7 00 08 00 12 08 70
+					0f 00 16 11 bf
+					39 01 00 00 00 00 02 de 04
+					39 01 00 00 00 00 12 b0 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00
+					39 01 00 00 00 00 02 b6 00
+					39 01 00 00 00 00 03 bf 02 ff
+					39 01 00 00 00 00 1a eb 00 02 00 02 00 03
+					00 00 00 00 00 00 ab 00 02 0b 00 18 00 00
+					00 00 00 00 00
+					39 01 00 00 00 00 0c b2 7c ea ca 07 11 12
+					07 00 05 02 02
+					39 01 00 00 00 00 2c ed 00 00 00 00 00
+					00 00 00 00 00 00 00 05 00 00 10 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00
+					39 01 00 00 00 00 02 de 06
+					39 01 00 00 00 00 16 b2 01 40 00 e7 9e 79
+					9e 79 e7 79 e7 9e 9e 79 e7 e7 9e 79 9e 79
+					e7
+					39 01 00 00 00 00 02 bd 20
+					39 01 00 00 00 00 02 de 07
+					39 01 00 00 00 00 14 b0 53 aa 01 1d 1e 01
+					1e 3d 05 18 13 0f 1d 2c 0f 2d 3d 05 17
+					39 01 00 00 00 00 05 b2 00 00 00 00
+					39 01 00 00 00 00 0e b3 00 01 23 45 67 89
+					ab 10 32 54 76 98 ba
+					39 01 00 00 00 00 0e b4 00 9a b6 78 34 50
+					12 a9 6b 87 43 05 21
+					39 01 00 00 00 00 0e b5 00 e0 12 34 56 78
+					9a 0e 21 43 65 87 a9
+					39 01 00 00 00 00 0e b6 00 29 ab 67 83 45
+					01 92 ba 76 38 54 10
+					39 01 00 00 00 00 0e b7 00 01 23 45 67 89
+					ab 10 32 54 76 98 ba
+					39 01 00 00 00 00 0e b8 00 9a b6 78 34 50
+					12 a9 6b 87 43 05 21
+					39 01 00 00 00 00 0e b9 0f e0 12 34 56 78
+					9a 0e 21 43 65 87 a9
+					39 01 00 00 00 00 0e ba 00 2c d5 01 83 4b
+					67 c2 e4 10 38 5a 76
+					39 01 00 00 00 00 04 bb 1e cc 66
+					39 01 00 00 00 00 11 bc 0c ed ce af 88 69
+					4a 2b 04 e5 c6 a7 80 61 42 23
+					39 01 00 00 00 00 11 bd 0c ad ce ef 08 29
+					4a 6b 84 a5 c6 e7 00 21 42 63
+					39 01 00 00 00 00 05 be 3f ff ff ff
+					39 01 00 00 00 00 05 bf 3e ff ff ff
+					39 01 00 00 00 00 05 c0 2b ff ff ff
+					39 01 00 00 00 00 05 c1 1a 7f fb ff
+					39 01 00 00 00 00 05 c2 1a ff ff ff
+					39 01 00 00 00 00 05 c3 15 ff ff ff
+					39 01 00 00 00 00 05 c4 15 ff ff ff
+					39 01 00 00 00 00 05 c5 00 ff ff ff
+					39 01 00 00 00 00 03 c6 00 00
+					39 01 00 00 00 00 03 c7 00 00
+					39 01 00 00 00 00 05 c8 22 00 00 00
+					39 01 00 00 00 00 0c c9 10 f1 f0 ff
+					ff ff ff ff ff ee 02
+					39 01 00 00 00 00 02 de 08
+					39 01 00 00 00 00 1a b2 52 07 11 01
+					13 41 02 01 11 11 0e 15 15 15 0e 0e
+					0e 0e 0e 0e 0e 0e 0e 15 15
+					39 01 00 00 00 00 02 b6 18
+					39 01 00 00 00 00 02 de 0a
+					/* 8bit 78 10bit 7f */
+					39 01 00 00 00 00 04 d5 3f 78 00
+					39 01 00 00 00 00 02 de 00
+					39 01 00 00 00 00 02 36 00
+					39 01 00 00 00 00 02 35 00
+					39 01 00 00 00 00 03 be 2c e0
+					39 01 00 00 00 00 03 c0 27 78
+					39 01 00 00 00 00 08 cc 00 b3 0c 24 02
+					33 0c
+					39 01 00 00 00 00 05 b0 01 23 06 09
+					39 01 00 00 78 00 01 11
+					39 01 00 00 78 00 01 29
+				];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command = [
+					39 01 00 00 00 00 02 de 00
+					05 01 00 00 05 00 01 28
+					05 01 00 00 78 00 01 10
+				];
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <8>;
+				qcom,mdss-dsc-slice-width = <360>;
+				qcom,mdss-dsc-slice-per-pkt = <1>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};

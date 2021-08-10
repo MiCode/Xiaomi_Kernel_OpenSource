@@ -7,6 +7,7 @@
  * Some ARP specific bits are:
  *
  * Copyright (C) 2002 David S. Miller (davem@redhat.com)
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2006-2009 Patrick McHardy <kaber@trash.net>
  *
  */
@@ -1406,7 +1407,7 @@ static int compat_get_entries(struct net *net,
 	xt_compat_lock(NFPROTO_ARP);
 	t = xt_find_table_lock(net, NFPROTO_ARP, get.name);
 	if (!IS_ERR(t)) {
-		const struct xt_table_info *private = t->private;
+		const struct xt_table_info *private = xt_table_get_private_protected(t);
 		struct xt_table_info info;
 
 		ret = compat_table_info(private, &info);

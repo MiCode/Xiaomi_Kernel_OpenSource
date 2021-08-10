@@ -1,0 +1,25 @@
+Qualcomm Technologies Inc. IPA Offload Sub-System Device
+
+IPA Offload Sub-system is a generic kernel framework that enables a
+third-party ethernet driver to attach an ethernet peripheral to IPA
+for hardware offloading of tethered data paths.
+
+For each device attached to IOSS, we can define IPA offload data path
+configuration through below devicetree properties.
+
+Required properties:
+
+- compatible : should be "qcom,ioss-v2-device"
+- qcom,ioss : specify which IOSS platform device to be used
+- qcom,ioss_interfaces : to specify interface names and its channel config
+
+Example:
+
+&pcie_rc1 {
+	aqc_x2: qcom,aqc@1 {
+		compatible = "qcom,ioss-v2-device";
+
+		qcom,ioss = <&ioss>;
+		qcom,ioss_interfaces =
+			<&ioss_aqc_eth0>;
+};

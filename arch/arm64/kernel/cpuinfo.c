@@ -3,6 +3,7 @@
  * Record and handle CPU attributes.
  *
  * Copyright (C) 2014 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <asm/arch_timer.h>
 #include <asm/cache.h>
@@ -24,6 +25,7 @@
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/delay.h>
+#include <linux/of_fdt.h>
 
 /*
  * In case the boot CPU is hotpluggable, we record its initial state and
@@ -41,6 +43,7 @@ static const char *icache_policy_str[] = {
 };
 
 unsigned long __icache_flags;
+static const char *machine_name;
 
 static const char *const hwcap_str[] = {
 	"fp",
@@ -178,6 +181,7 @@ static int c_show(struct seq_file *m, void *v)
 		seq_printf(m, "CPU part\t: 0x%03x\n", MIDR_PARTNUM(midr));
 		seq_printf(m, "CPU revision\t: %d\n\n", MIDR_REVISION(midr));
 	}
+	seq_printf(m, "Hardware\t: %s\n", machine_name);
 
 	return 0;
 }
@@ -393,6 +397,7 @@ void __init cpuinfo_store_boot_cpu(void)
 
 	boot_cpu_data = *info;
 	init_cpu_features(&boot_cpu_data);
+	machine_name = of_flat_dt_get_machine_name();
 }
 
 device_initcall(cpuinfo_regs_init);

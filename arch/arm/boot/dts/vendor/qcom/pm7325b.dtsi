@@ -1,0 +1,235 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pm7325b@3 {
+		compatible = "qcom,spmi-pmic";
+		reg = <3 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pm7325b_tz: qcom,temp-alarm@a00 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0xa00>;
+			interrupts = <0x3 0xa 0x0 IRQ_TYPE_EDGE_BOTH>;
+			#thermal-sensor-cells = <0>;
+		};
+
+		pm7325b_gpios: pinctrl@8800 {
+			compatible = "qcom,pm7325b-gpio";
+			reg = <0x8800>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		pm7325b_bcl: bcl@4700 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x4700 0x100>;
+			interrupts = <0x3 0x47 0x0 IRQ_TYPE_NONE>,
+					<0x3 0x47 0x1 IRQ_TYPE_NONE>,
+					<0x3 0x47 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1",
+						"bcl-lvl2";
+			qcom,pmic7-threshold;
+			#thermal-sensor-cells = <1>;
+		};
+
+		bcl_soc:bcl-soc {
+			compatible = "qcom,msm-bcl-soc";
+			#thermal-sensor-cells = <0>;
+		};
+
+		pm7250b_vib: qcom,vibrator@df00 {
+			compatible = "qcom,qpnp-vibrator-ldo";
+			reg = <0xdf00>;
+			qcom,vib-ldo-volt-uv = <3000000>;
+			qcom,disable-overdrive;
+		};
+
+		pm7325b_lcdb: qcom,lcdb@fd00 {
+			compatible = "qcom,lcdb-pm7325b";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xfd00>;
+			interrupts = <0x3 0xfd 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "sc-irq";
+
+			lcdb_ldo_vreg: ldo {
+				label = "ldo";
+				regulator-name = "lcdb_ldo";
+				regulator-min-microvolt = <4400000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_ncp_vreg: ncp {
+				label = "ncp";
+				regulator-name = "lcdb_ncp";
+				regulator-min-microvolt = <4400000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_bst_vreg: bst {
+				label = "bst";
+				regulator-name = "lcdb_bst";
+				regulator-min-microvolt = <4700000>;
+				regulator-max-microvolt = <6400000>;
+			};
+		};
+
+		pm7325b_wled: qcom,wled@d800 {
+			compatible = "qcom,pm7325b-spmi-wled";
+			reg = <0xfb00>, <0xfc00>;
+			reg-names = "wled-ctrl-base", "wled-sink-base";
+			label = "backlight";
+			interrupts = <0x3 0xfb 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x3 0xfb 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x3 0xfb 0x5 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ovp-irq", "pre-flash-irq",
+					  "flash-irq";
+			qcom,auto-calibration;
+
+			wled_flash: qcom,wled-flash {
+				label = "flash";
+				qcom,default-led-trigger = "wled_flash";
+			};
+
+			wled_torch: qcom,wled-torch {
+				label = "torch";
+				qcom,default-led-trigger = "wled_torch";
+				qcom,wled-torch-timer = <1200>;
+			};
+
+			wled_switch: qcom,wled-switch {
+				label = "switch";
+				qcom,default-led-trigger = "wled_switch";
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	pm7325b_temp_alarm: pm7325b_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm7325b_tz>;
+
+		trips {
+			pm7325b_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm7325b_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			pm7325b_trip2: trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+
+	pm7325b-ibat-lvl0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm7325b_bcl 0>;
+
+		trips {
+			ibat_lvl0:ibat-lvl0 {
+				temperature = <6000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm7325b-ibat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm7325b_bcl 1>;
+
+		trips {
+			ibat_lvl1:ibat-lvl1 {
+				temperature = <7500>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm7325b-bcl-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm7325b_bcl 5>;
+
+		trips {
+			b_bcl_lvl0: b-bcl-lvl0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm7325b-bcl-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm7325b_bcl 6>;
+
+		trips {
+			b_bcl_lvl1: b-bcl-lvl1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm7325b-bcl-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm7325b_bcl 7>;
+
+		trips {
+			b_bcl_lvl2: b-bcl-lvl2 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	socd {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_soc>;
+
+		trips {
+			socd_trip:socd-trip {
+				temperature = <90>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};

@@ -1,0 +1,188 @@
+&soc {
+	usb0: ssusb@a600000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xa600000 0x100000>;
+		reg-names = "core_base";
+
+		iommus = <&apps_smmu 0x0820 0x0>;
+		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		dma-ranges;
+
+		interrupts-extended = <&pdc 14 IRQ_TYPE_EDGE_RISING>,
+				<&intc GIC_SPI 804 IRQ_TYPE_LEVEL_HIGH>,
+				<&pdc 138 IRQ_TYPE_LEVEL_HIGH>,
+				<&pdc 15 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
+		qcom,use-pdc-interrupts;
+
+		USB3_GDSC-supply = <&gcc_usb30_prim_gdsc>;
+		clocks = <&gcc GCC_USB30_PRIM_MASTER_CLK>,
+			<&gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
+			<&gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
+			<&gcc GCC_USB30_PRIM_SLEEP_CLK>,
+			<&gcc GCC_AGGRE_USB_NOC_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB_NOC_NORTH_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB_NOC_SOUTH_AXI_CLK>,
+			<&gcc GCC_SYS_NOC_USB_AXI_CLK>;
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+				"utmi_clk", "sleep_clk", "noc_aggr_clk",
+				"noc_aggr_north_clk", "noc_aggr_south_clk",
+				"noc_sys_clk";
+
+		resets = <&gcc GCC_USB30_PRIM_BCR>;
+		reset-names = "core_reset";
+
+		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate-hs = <66666667>;
+
+		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+
+		interconnect-names = "usb-ddr", "ddr-usb";
+		interconnects = <&aggre1_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
+				<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_USB3_0>;
+
+		dwc3@a600000 {
+			compatible = "snps,dwc3";
+			reg = <0xa600000 0xd93c>;
+			interrupts = <GIC_SPI 803 IRQ_TYPE_LEVEL_HIGH>;
+			usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+			linux,sysdev_is_parent;
+			snps,disable-clk-gating;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x0>;
+			snps,ssp-u3-u0-quirk;
+			snps,is-utmi-l1-suspend;
+			snps,dis-u1-entry-quirk;
+			snps,dis-u2-entry-quirk;
+			tx-fifo-resize;
+			maximum-speed = "high-speed";
+			dr_mode = "otg";
+		};
+	};
+
+	/* Primary USB port related High Speed PHY */
+	usb2_phy0: hsphy@88e5000 {
+		compatible = "qcom,usb-hsphy-snps-femto";
+		reg = <0x88e5000 0x120>;
+		reg-names = "hsusb_phy_base";
+
+		vdd-supply = <&L5A0>;
+		vdda18-supply = <&L7A0>;
+		vdda33-supply = <&L13A0>;
+		qcom,vdd-voltage-level = <0 912000 912000>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "ref_clk_src";
+
+		resets = <&gcc GCC_QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
+		qcom,param-override-seq =
+			<0xe6 0x6c	/* override_x0 */
+			 0x0b 0x70	/* override_x1 */
+			 0x17 0x74>;	/* override x2 */
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+
+	usb1: ssusb@a800000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xa800000 0x100000>;
+		reg-names = "core_base";
+
+		iommus = <&apps_smmu 0x0860 0x0>;
+		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		dma-ranges;
+
+		interrupts-extended = <&pdc 12 IRQ_TYPE_EDGE_RISING>,
+				<&intc GIC_SPI 811 IRQ_TYPE_LEVEL_HIGH>,
+				<&pdc 136 IRQ_TYPE_LEVEL_HIGH>,
+				<&pdc 13 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
+		qcom,use-pdc-interrupts;
+
+		USB3_GDSC-supply = <&gcc_usb30_sec_gdsc>;
+		clocks = <&gcc GCC_USB30_SEC_MASTER_CLK>,
+			<&gcc GCC_CFG_NOC_USB3_SEC_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB3_SEC_AXI_CLK>,
+			<&gcc GCC_USB30_SEC_MOCK_UTMI_CLK>,
+			<&gcc GCC_USB30_SEC_SLEEP_CLK>,
+			<&gcc GCC_AGGRE_USB_NOC_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB_NOC_NORTH_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB_NOC_SOUTH_AXI_CLK>,
+			<&gcc GCC_SYS_NOC_USB_AXI_CLK>;
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+				"utmi_clk", "sleep_clk", "noc_aggr_clk",
+				"noc_aggr_north_clk", "noc_aggr_south_clk",
+				"noc_sys_clk";
+
+		resets = <&gcc GCC_USB30_SEC_BCR>;
+		reset-names = "core_reset";
+
+		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate-hs = <66666667>;
+
+		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+		qcom,default-mode-host;
+
+		interconnect-names = "usb-ddr", "ddr-usb";
+		interconnects = <&aggre1_noc MASTER_USB3_1 &mc_virt SLAVE_EBI1>,
+				<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_USB3_1>;
+
+		dwc3@a800000 {
+			compatible = "snps,dwc3";
+			reg = <0xa800000 0xd93c>;
+			interrupts = <GIC_SPI 810 IRQ_TYPE_LEVEL_HIGH>;
+			usb-phy = <&usb2_phy1>, <&usb_nop_phy>;
+			linux,sysdev_is_parent;
+			snps,disable-clk-gating;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x0>;
+			snps,ssp-u3-u0-quirk;
+			snps,is-utmi-l1-suspend;
+			snps,dis-u1-entry-quirk;
+			snps,dis-u2-entry-quirk;
+			tx-fifo-resize;
+			maximum-speed = "high-speed";
+			dr_mode = "otg";
+		};
+	};
+
+	/* Secondary USB port related High Speed PHY */
+	usb2_phy1: hsphy@8902000 {
+		compatible = "qcom,usb-hsphy-snps-femto";
+		reg = <0x8902000 0x120>;
+		reg-names = "hsusb_phy_base";
+
+		vdd-supply = <&L1C0>;
+		vdda18-supply = <&L7C0>;
+		vdda33-supply = <&L2C0>;
+		qcom,vdd-voltage-level = <0 912000 912000>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "ref_clk_src";
+
+		resets = <&gcc GCC_USB2_PHY_SEC_BCR>;
+		reset-names = "phy_reset";
+		qcom,param-override-seq =
+			<0xe6 0x6c	/* override_x0 */
+			 0x0b 0x70	/* override_x1 */
+			 0x17 0x74>;	/* override x2 */
+	};
+
+};
+

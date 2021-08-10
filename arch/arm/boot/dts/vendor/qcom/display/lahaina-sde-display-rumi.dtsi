@@ -1,0 +1,11 @@
+#include "lahaina-sde-display.dtsi"
+
+&dsi_dual_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 25 0>;
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_dual_sim_vid>;
+};

@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "direwolf-adas.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DirewolfAU v1 ADAS SoC";
+	compatible = "qcom,direwolf-adas", "qcom,direwolf";
+	qcom,board-id = <0 0>;
+};

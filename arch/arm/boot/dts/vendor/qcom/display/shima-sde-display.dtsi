@@ -1,0 +1,195 @@
+#include "shima-sde-display-common.dtsi"
+#include <dt-bindings/clock/qcom,dispcc-shima.h>
+
+&soc {
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+};
+
+&sde_dsi {
+	clocks = <&mdss_dsi_phy0 BYTECLK_MUX_0_CLK>,
+		 <&mdss_dsi_phy0 PCLK_MUX_0_CLK>,
+		 <&mdss_dsi_phy0 CPHY_BYTECLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 CPHY_PCLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 BYTECLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 PCLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 SHADOW_BYTECLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 SHADOW_PCLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy1 BYTECLK_MUX_1_CLK>,
+		 <&mdss_dsi_phy1 PCLK_MUX_1_CLK>,
+		 <&mdss_dsi_phy1 CPHY_BYTECLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 CPHY_PCLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 BYTECLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 PCLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 SHADOW_BYTECLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 SHADOW_PCLK_SRC_1_CLK>,
+		/*
+		 * Currently the dsi clock handles are under the dsi
+		 * controller DT node. As soon as the controller probe
+		 * finishes, the dispcc sync state can get called before
+		 * the dsi_display probe potentially disturbing the clock
+		 * votes for cont_splash use case. Hence we are no longer
+		 * protected by the component model in this case against the
+		 * disp cc sync state getting triggered after the dsi_ctrl
+		 * probe. To protect against this incorrect sync state trigger
+		 * add this dummy MDP clk vote handle to the dsi_display
+		 * DT node. Since the dsi_display driver does not parse
+		 * MDP clock nodes, no actual vote shall be added and this
+		 * change is done just to satisfy sync state requirements.
+		 */
+		 <&dispcc DISP_CC_MDSS_MDP_CLK>;
+	clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"cphy_byte_clk0", "cphy_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0",
+			"mux_byte_clk1", "mux_pixel_clk1",
+			"cphy_byte_clk1", "cphy_pixel_clk1",
+			"src_byte_clk1", "src_pixel_clk1",
+			"shadow_byte_clk1", "shadow_pixel_clk1",
+			"mdp_core_clk";
+
+	pinctrl-names = "panel_active", "panel_suspend";
+	pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+	pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 82 0>;
+	qcom,panel-te-source = <0>;
+
+	vddio-supply = <&L12C>;
+	vdd-supply = <&L13C>;
+	lab-supply = <&ab_vreg>;
+	ibb-supply = <&ibb_vreg>;
+};
+
+&sde_dsi1 {
+	clocks = <&mdss_dsi_phy0 BYTECLK_MUX_0_CLK>,
+		 <&mdss_dsi_phy0 PCLK_MUX_0_CLK>,
+		 <&mdss_dsi_phy0 CPHY_BYTECLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 CPHY_PCLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy1 BYTECLK_MUX_1_CLK>,
+		 <&mdss_dsi_phy1 PCLK_MUX_1_CLK>,
+		 <&mdss_dsi_phy1 CPHY_BYTECLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 CPHY_PCLK_SRC_1_CLK>,
+		/*
+		 * Currently the dsi clock handles are under the dsi
+		 * controller DT node. As soon as the controller probe
+		 * finishes, the dispcc sync state can get called before
+		 * the dsi_display probe potentially disturbing the clock
+		 * votes for cont_splash use case. Hence we are no longer
+		 * protected by the component model in this case against the
+		 * disp cc sync state getting triggered after the dsi_ctrl
+		 * probe. To protect against this incorrect sync state trigger
+		 * add this dummy MDP clk vote handle to the dsi_display
+		 * DT node. Since the dsi_display driver does not parse
+		 * MDP clock nodes, no actual vote shall be added and this
+		 * change is done just to satisfy sync state requirements.
+		 */
+		 <&dispcc DISP_CC_MDSS_MDP_CLK>;
+	clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"cphy_byte_clk0", "cphy_pixel_clk0",
+			"mux_byte_clk1", "mux_pixel_clk1",
+			"cphy_byte_clk1", "cphy_pixel_clk1",
+			"mdp_core_clk";
+
+	pinctrl-names = "panel_active", "panel_suspend";
+	pinctrl-0 = <&sde_dsi1_active &sde_te1_active>;
+	pinctrl-1 = <&sde_dsi1_suspend &sde_te1_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 83 0>;
+	qcom,panel-te-source = <1>;
+
+	vddio-supply = <&L12C>;
+	vdd-supply = <&L13C>;
+};
+
+
+&mdss_mdp {
+	connectors = <&smmu_sde_unsec &smmu_sde_sec &sde_dp &sde_wb &sde_dsi
+		&sde_dsi1 &sde_rscc>;
+};
+
+&dsi_r66451_amoled_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_r66451_amoled_60hz_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_r66451_amoled_60hz_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_r66451_amoled_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_r66451_amoled_144hz_cmd {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_sharp_qhd_plus_dsc_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_r66451_amoled_video_cphy {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_sharp_qhd_plus_dsc_cmd {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};
+
+&dsi_r66451_amoled_cmd_cphy {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+};

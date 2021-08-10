@@ -1,0 +1,95 @@
+* Qualcomm Technologies, Inc. MSM camera PPI
+
+=======================
+Required Node Structure
+=======================
+The camera PPI node must be described in First level of device nodes. The
+first level describe the overall PPI node structure.
+
+======================================
+First Level Node - PPI device
+======================================
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,ppi100".
+
+- cell-index: ppi hardware core index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the Hardware index id.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: offset and length of the register set
+        for the device for the ppi operating in
+        compatible mode.
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify relevant names to each
+        reg property defined.
+
+- reg-cam-base
+  Usage: required
+  Value type: <string>
+  Definition: offset of PPI in  camera hw block
+
+- interrupts
+  Usage: required
+  Value type: <u32>
+  Definition: Interrupt associated with PPI HW.
+
+- interrupt-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for PPI HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clock rates in Hz for PPI HW.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: All different clock level node can support.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: all clock phandle and source clocks.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: name of the voltage regulators required for the device.
+
+- gdscr-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: should contain gdsr regulator used for PPI clocks.
+
+Example:
+     qcom,ppi0@5cb3000 {
+     cell-index = <0>;
+     compatible = "qcom,ppi100";
+     reg-names = "ppi0";
+     reg = <0x5cb3000 0x200>;
+     reg-cam-base = <0xb3000>;
+     interrupt-names = "ppi0";
+     interrupts = <GIC_SPI 215 IRQ_TYPE_EDGE_RISING>;
+     clocks = <&gcc GCC_CAMSS_CPHY_0_CLK>;
+     clock-names = "gcc_camss_cphy_0_clk";
+     clock-cntl-level = "svs";
+     clock-rates = <0>;
+     status = "ok";
+};

@@ -1,0 +1,229 @@
+#include <dt-bindings/iio/qcom,spmi-adc7-pmx65.h>
+
+#include "pmk8350.dtsi"
+#include "pmx65.dtsi"
+
+&pmk8350_vadc {
+	/delete-node/ pm8350_ref_gnd;
+	/delete-node/ pm8350_vref_1p25;
+	/delete-node/ pm8350_die_temp;
+	/delete-node/ pm8350_vph_pwr;
+
+	/delete-node/ pm8350b_ref_gnd;
+	/delete-node/ pm8350b_vref_1p25;
+	/delete-node/ pm8350b_die_temp;
+	/delete-node/ pm8350b_vph_pwr;
+	/delete-node/ pm8350b_vbat_sns;
+
+	/delete-node/ pmr735a_ref_gnd;
+	/delete-node/ pmr735a_vref_1p25;
+	/delete-node/ pmr735a_die_temp;
+
+	/delete-node/ pmr735b_ref_gnd;
+	/delete-node/ pmr735b_vref_1p25;
+	/delete-node/ pmr735b_die_temp;
+
+	pmx65_pa_therm1 {
+		reg = <PMX65_ADC7_AMUX_THM1_100K_PU>;
+		label = "pmx65_pa_therm1";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pmx65_pa_therm2 {
+		reg = <PMX65_ADC7_AMUX_THM2_100K_PU>;
+		label = "pmx65_pa_therm2";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pmx65_mdm_case_therm {
+		reg = <PMX65_ADC7_AMUX_THM3_100K_PU>;
+		label = "pmx65_mdm_case_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pmx65_ambient_therm {
+		reg = <PMX65_ADC7_AMUX_THM4_100K_PU>;
+		label = "pmx65_ambient_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pmx65_qtm_skin_therm {
+		reg = <PMX65_ADC7_AMUX_THM6_100K_PU>;
+		label = "pmx65_qtm_skin_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pmx65_die_temp {
+		reg = <PMX65_ADC7_DIE_TEMP>;
+		label = "pmx65_die_temp";
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pmk8350_adc_tm {
+	io-channels = <&pmk8350_vadc PMX65_ADC7_AMUX_THM1_100K_PU>,
+		      <&pmk8350_vadc PMX65_ADC7_AMUX_THM2_100K_PU>,
+		      <&pmk8350_vadc PMX65_ADC7_AMUX_THM3_100K_PU>,
+		      <&pmk8350_vadc PMX65_ADC7_AMUX_THM4_100K_PU>,
+		      <&pmk8350_vadc PMX65_ADC7_AMUX_THM6_100K_PU>;
+
+	pmx65_pa_therm1 {
+		reg = <PMX65_ADC7_AMUX_THM1_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pmx65_pa_therm2 {
+		reg = <PMX65_ADC7_AMUX_THM2_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pmx65_mdm_case_therm {
+		reg = <PMX65_ADC7_AMUX_THM3_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pmx65_ambient_therm {
+		reg = <PMX65_ADC7_AMUX_THM4_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pmx65_qtm_skin_therm {
+		reg = <PMX65_ADC7_AMUX_THM6_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&thermal_zones {
+	modem-lte-sub6-pa1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PMX65_ADC7_AMUX_THM1_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-lte-sub6-pa2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PMX65_ADC7_AMUX_THM2_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-skin-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PMX65_ADC7_AMUX_THM3_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-ambient-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PMX65_ADC7_AMUX_THM4_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-beamer-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PMX65_ADC7_AMUX_THM6_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};
+
+&soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
+};
+
+&pmx65_tz {
+	io-channels = <&pmk8350_vadc PMX65_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};

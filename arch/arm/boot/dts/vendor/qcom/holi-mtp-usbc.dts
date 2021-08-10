@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "holi.dtsi"
+#include "holi-mtp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi MTP USBC audio";
+	compatible = "qcom,holi-mtp", "qcom,holi", "qcom,mtp";
+	qcom,board-id = <8 1>;
+};

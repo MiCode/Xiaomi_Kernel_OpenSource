@@ -1,0 +1,78 @@
+&mdss_mdp {
+	dsi_sharp_1080_cmd: qcom,mdss_dsi_sharp_1080p_cmd {
+		qcom,mdss-dsi-panel-name = "sharp 1080p cmd mode dsi panel";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+
+		qcom,mdss-dsi-panel-destination = "display_1";
+		qcom,mdss-dsi-panel-clockrate = <850000000>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
+		qcom,mdss-pan-physical-width-dimension = <64>;
+		qcom,mdss-pan-physical-height-dimension = <117>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0 {
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <1920>;
+				qcom,mdss-dsi-h-front-porch = <0>;
+				qcom,mdss-dsi-h-back-porch = <0>;
+				qcom,mdss-dsi-h-pulse-width = <0>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <0>;
+				qcom,mdss-dsi-v-front-porch = <0>;
+				qcom,mdss-dsi-v-pulse-width = <0>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-on-command = [
+					15 01 00 00 00 00 02 bb 10
+					15 01 00 00 00 00 02 b0 03
+					05 01 00 00 78 00 01 11
+					15 01 00 00 00 00 02 51 ff
+					15 01 00 00 00 00 02 53 24
+					15 01 00 00 00 00 02 ff 23
+					15 01 00 00 00 00 02 08 05
+					15 01 00 00 00 00 02 46 90
+					15 01 00 00 00 00 02 ff 10
+					15 01 00 00 00 00 02 ff f0
+					15 01 00 00 00 00 02 92 01
+					15 01 00 00 00 00 02 ff 10
+					/* enable TE generation */
+					15 01 00 00 00 00 02 35 00
+					05 01 00 00 28 00 01 29];
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 10 00 01 28
+					05 01 00 00 40 00 01 10];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+			};
+		};
+	};
+};

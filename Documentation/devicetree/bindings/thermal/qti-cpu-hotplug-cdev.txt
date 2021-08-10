@@ -1,0 +1,50 @@
+QTI CPU hotplug cooling devices.
+
+The CPU hotplug cooling device will be used for hotpluging a CPU on a thermal
+condition. This cooling device driver can register one cooling device per CPU,
+which can be used by thermal zone to mitigate.
+
+Each child node will represent a cooling device and the child node should
+point to the CPU, which will be mitigated by that cooling device instance.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,cpu-hotplug"
+
+Cooling device node:
+- qcom,cpu:
+	Usage: required
+	Value type: <phandle>
+	Definition: phandle to the CPU device that this cooling device will
+			mitigate.
+
+-#cooling-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+Example:
+	qcom,cpu-hotplug {
+		compatible = "qcom,cpu-hotplug";
+
+		cpu0_hotplug: cpu0-hotplug {
+			qcom,cpu = <&CPU0>;
+			#cooling-cells = <2>;
+		};
+		cpu1_hotplug: cpu1-hotplug {
+			qcom,cpu = <&CPU1>;
+			#cooling-cells = <2>;
+		};
+		cpu2_hotplug: cpu2-hotplug {
+			qcom,cpu = <&CPU2>;
+			#cooling-cells = <2>;
+		};
+		cpu3_hotplug: cpu3-hotplug {
+			qcom,cpu = <&CPU3>;
+			#cooling-cells = <2>;
+		};
+        };

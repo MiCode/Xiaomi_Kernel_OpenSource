@@ -1,0 +1,348 @@
+* Qualcomm Technologies, Inc. MSM Camera ICP
+
+The MSM camera ICP devices are implemented multiple device nodes.
+The root icp device node has properties defined to hint the driver
+about the number of A5, LX7, IPE and BPS nodes available during the
+probe sequence. Each node has multiple properties defined
+for interrupts, clocks and regulators.
+
+=======================
+Required Node Structure
+=======================
+ICP root interface node takes care of the handling account for number
+of A5, LX7, IPE and BPS devices present on the hardware.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-icp".
+
+- compat-hw-name
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,a5", "qcom,lx7", "qcom,ipe0",
+	"qcom,ipe1" or "qcom,bps".
+
+- num-a5 or num-lx7
+  Usage: required
+  Value type: <u32>
+  Definition: Number of supported A5 or LX7 processors.
+
+- num-ipe
+  Usage: required
+  Value type: <u32>
+  Definition: Number of supported IPE HW blocks.
+
+- num-bps
+  Usage: required
+  Value type: <u32>
+  Definition: Number of supported BPS HW blocks.
+
+Example:
+qcom,cam-icp {
+	compatible = "qcom,cam-icp";
+	compat-hw-name = "qcom,a5", "qcom,lx7", "qcom,ipe0",
+		"qcom,ipe0", "qcom,bps";
+	num-a5 = <1>; or num-lx7 = <1>;
+	num-ipe = <2>;
+	num-bps = <1>;
+	status = "ok";
+};
+
+=======================
+Required Node Structure
+=======================
+A5/LX7/IPE/BPS Node's provides interface for Image Control Processor driver
+about the A5/LX7 register map, interrupt map, clocks, regulators
+and name of firmware image.
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Node instance number.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-a5", "qcom,cam-lx7",
+	"qcom,cam-ipe" or "qcom,cam-bps".
+
+- reg-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the register resources.
+
+- reg
+  Usage: optional
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: optional
+  Value type: <u32>
+  Definition: Register values.
+
+- interrupt-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: optional
+  Value type: <u32>
+  Definition: Interrupt associated with ICP HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for ICP HW.
+
+- camss-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed
+	in "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for ICP HW.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for ICP HW.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: lowsvs, svs, svs_l1, nominal, turbo.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- fw_name
+  Usage: optional
+  Value type: <string>
+  Definition: Name of firmware image.
+
+- ubwc-ipe-fetch-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC IPE fetch configuration based on DDR device type.
+
+- ubwc-ipe-write-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC IPE write configuration based on DDR device type.
+
+- ubwc-bps-fetch-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC BPS fetch configuration based on DDR device type.
+
+- ubwc-bps-write-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC BPS write configuration based on DDR device type.
+
+- ubwc-cfg
+  Usage: optional
+  Value type: <u32>
+  Definition: UBWC configuration, this is mandatory if above
+              ipe/bps ubwc properties are not used.
+
+Examples:
+cam_a5: qcom,a5 {
+	cell-index = <0>;
+	compatible = "qcom,cam-a5";
+	reg = <0xac00000 0x6000>,
+		<0xac10000 0x8000>,
+		<0xac18000 0x3000>;
+	reg-names = "a5_qgic", "a5_sierra", "a5_csr";
+	reg-cam-base = <0x00000 0x10000 0x18000>;
+	interrupts = <GIC_SPI 463 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "a5";
+	regulator-names = "camss-vdd";
+	camss-vdd-supply = <&cam_cc_titan_top_gdsc>;
+	clock-names =
+		"soc_fast_ahb",
+		"icp_ahb_clk",
+		"icp_clk_src",
+		"icp_clk";
+	src-clock-name = "icp_clk_src";
+	clocks =
+		<&clock_camcc CAM_CC_FAST_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_ICP_AHB_CLK>,
+		<&clock_camcc CAM_CC_ICP_CLK_SRC>,
+		<&clock_camcc CAM_CC_ICP_CLK>;
+
+	clock-rates =
+		<0 0 400000000 0>,
+		<0 0 480000000 0>,
+		<0 0 600000000 0>,
+		<0 0 600000000 0>,
+		<0 0 600000000 0>;
+	clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+		"turbo";
+	fw_name = "CAMERA_ICP.elf";
+	ubwc-ipe-fetch-cfg = <0x707b 0x7083>;
+	ubwc-ipe-write-cfg = <0x161ef 0x1620f>;
+	ubwc-bps-fetch-cfg = <0x707b 0x7083>;
+	ubwc-bps-write-cfg = <0x161ef 0x1620f>;
+	status = "ok";
+};
+
+cam_lx7: qcom,lx7 {
+	cell-index = <0>;
+	compatible = "qcom,cam-lx7";
+	reg = <0xac01000 0x400>,
+		<0xac01800 0x400>;
+	reg-names = "lx7_csr", "lx7_cirq";
+	reg-cam-base = <0x1000 0x1800>;
+	interrupts = <GIC_SPI 463 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "lx7";
+	regulator-names = "camss-vdd";
+	camss-vdd-supply = <&cam_cc_titan_top_gdsc>;
+	clock-names =
+		"soc_slow_ahb",
+		"icp_ahb_clk",
+		"icp_clk_src",
+		"icp_clk";
+	src-clock-name = "icp_clk_src";
+	clocks =
+		<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_ICP_AHB_CLK>,
+		<&clock_camcc CAM_CC_ICP_CLK_SRC>,
+		<&clock_camcc CAM_CC_ICP_CLK>;
+
+	clock-rates =
+		<80000000 0 400000000 0>,
+		<80000000 0 480000000 0>,
+		<80000000 0 600000000 0>,
+		<80000000 0 600000000 0>,
+		<80000000 0 600000000 0>;
+	clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+		"turbo";
+	fw_name = "CAMERA_ICP.elf";
+	ubwc-ipe-fetch-cfg = <0x707b 0x7083>;
+	ubwc-ipe-write-cfg = <0x161ef 0x1620f>;
+	ubwc-bps-fetch-cfg = <0x707b 0x7083>;
+	ubwc-bps-write-cfg = <0x161ef 0x1620f>;
+	status = "ok";
+};
+
+cam_ipe0: qcom,ipe0@ac42000 {
+	cell-index = <0>;
+	compatible = "qcom,cam-ipe";
+	reg = <0xac42000 0x18000>;
+	reg-names = "ipe0_top";
+	reg-cam-base = <0x42000>;
+	regulator-names = "ipe0-vdd";
+	ipe0-vdd-supply = <&cam_cc_ipe_0_gdsc>;
+	clock-names =
+		"ipe_nps_ahb_clk_src",
+		"ipe_nps_ahb_clk",
+		"ipe_fast_ahb_clk_src",
+		"ipe_nps_fast_ahb_clk",
+		"ipe_pps_fast_ahb_clk",
+		"ipe_nps_clk_src",
+		"ipe_nps_clk";
+		"ipe_pps_clk";
+	src-clock-name = "ipe_nps_clk_src";
+	clock-control-debugfs = "true";
+	clocks =
+		<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_IPE_NPS_AHB_CLK>,
+		<&clock_camcc CAM_CC_FAST_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_IPE_NPS_FAST_AHB_CLK>,
+		<&clock_camcc CAM_CC_IPE_PPS_FAST_AHB_CLK>,
+		<&clock_camcc CAM_CC_IPE_NPS_CLK_SRC>,
+		<&clock_camcc CAM_CC_IPE_NPS_CLK>,
+		<&clock_camcc CAM_CC_IPE_PPS_CLK>;
+
+	clock-rates =
+		<80000000 0 100000000 0 0 364000000 0 0>,
+		<80000000 0 200000000 0 0 500000000 0 0>,
+		<80000000 0 300000000 0 0 600000000 0 0>,
+		<80000000 0 400000000 0 0 700000000 0 0>,
+		<80000000 0 400000000 0 0 700000000 0 0>;
+	clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+		"turbo";
+	status = "ok";
+};
+
+qcom,ipe1 {
+	cell-index = <1>;
+	compatible = "qcom,cam-ipe";
+	regulator-names = "ipe1-vdd";
+	ipe1-vdd-supply = <&ipe_1_gdsc>;
+	clock-names = "ipe_1_ahb_clk",
+		"ipe_1_areg_clk",
+		"ipe_1_axi_clk",
+		"ipe_1_clk",
+		"ipe_1_clk_src";
+	src-clock-name = "ipe_1_clk_src";
+	clocks = <&clock_camcc CAM_CC_IPE_1_AHB_CLK>,
+			<&clock_camcc CAM_CC_IPE_1_AREG_CLK>,
+			<&clock_camcc CAM_CC_IPE_1_AXI_CLK>,
+			<&clock_camcc CAM_CC_IPE_1_CLK>,
+			<&clock_camcc CAM_CC_IPE_1_CLK_SRC>;
+
+	clock-rates = <0 0 0 0 240000000>,
+		<0 0 0 0 404000000>,
+		<0 0 0 0 480000000>,
+		<0 0 0 0 538000000>,
+		<0 0 0 0 600000000>;
+	clock-cntl-level = "lowsvs", "svs",
+		"svs_l1", "nominal", "turbo";
+};
+
+cam_bps: qcom,bps@ac2c000 {
+	cell-index = <0>;
+	compatible = "qcom,cam-bps";
+	reg = <0xac2c000 0xB000>;
+	reg-names = "bps_top";
+	reg-cam-base = <0x2c000>;
+	regulator-names = "bps-vdd";
+	bps-vdd-supply = <&cam_cc_bps_gdsc>;
+	clock-names =
+		"bps_ahb_clk_src",
+		"bps_ahb_clk",
+		"bps_fast_ahb_clk_src",
+		"bps_fast_ahb_clk",
+		"bps_clk_src",
+		"bps_clk";
+	src-clock-name = "bps_clk_src";
+	clock-control-debugfs = "true";
+	clocks =
+		<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_BPS_AHB_CLK>,
+		<&clock_camcc CAM_CC_FAST_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_BPS_FAST_AHB_CLK>,
+		<&clock_camcc CAM_CC_BPS_CLK_SRC>,
+		<&clock_camcc CAM_CC_BPS_CLK>;
+
+	clock-rates =
+		<80000000 0 100000000 0 200000000 0>,
+		<80000000 0 200000000 0 400000000 0>,
+		<80000000 0 300000000 0 480000000 0>,
+		<80000000 0 400000000 0 600000000 0>,
+		<80000000 0 400000000 0 600000000 0>;
+	clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+		"turbo";
+	status = "ok";
+};

@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxnightjar.dtsi"
+#include "sdxnightjar-cdp.dtsi"
+#include "sdxnightjar-bluetooth.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDX NIGHTJAR CDP";
+	compatible = "qcom,sdxnightjar-cdp",
+		   "qcom,sdxnightjar", "qcom,cdp";
+	qcom,board-id = <0x01 0>;
+};

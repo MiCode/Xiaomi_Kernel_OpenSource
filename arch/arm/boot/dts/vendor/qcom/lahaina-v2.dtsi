@@ -1,0 +1,294 @@
+#include "lahaina.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina v2";
+	compatible = "qcom,lahaina";
+	qcom,msm-id = <415 0x20000>, <456 0x20000>, <501 0x20000>;
+};
+
+&CPU4 {
+	dynamic-power-coefficient = <499>;
+};
+
+&CPU5 {
+	dynamic-power-coefficient = <499>;
+};
+
+&CPU6 {
+	dynamic-power-coefficient = <499>;
+};
+
+&CPU7 {
+	dynamic-power-coefficient = <760>;
+};
+
+&kryo_erp {
+
+	/delete-property/ qcom,disable-panic-on-ce;
+};
+
+&sde_dp {
+	/delete-node/ qcom,pll-supply-entries;
+};
+
+&c400_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&c500_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&c600_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&c700_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&pcie0 {
+	qcom,pcie-phy-ver = <20100>;
+	qcom,phy-sequence = <0x0240 0x03 0x0
+			0x0094 0x08 0x0
+			0x0154 0x34 0x0
+			0x016c 0x08 0x0
+			0x0058 0x0f 0x0
+			0x00a4 0x42 0x0
+			0x0110 0x24 0x0
+			0x011c 0x03 0x0
+			0x0118 0xb4 0x0
+			0x010c 0x02 0x0
+			0x01bc 0x11 0x0
+			0x00bc 0x82 0x0
+			0x00d4 0x03 0x0
+			0x00d0 0x55 0x0
+			0x00cc 0x55 0x0
+			0x00b0 0x1a 0x0
+			0x00ac 0x0a 0x0
+			0x00c4 0x68 0x0
+			0x00e0 0x02 0x0
+			0x00dc 0xaa 0x0
+			0x00d8 0xab 0x0
+			0x00b8 0x34 0x0
+			0x00b4 0x14 0x0
+			0x0158 0x01 0x0
+			0x0074 0x06 0x0
+			0x007c 0x16 0x0
+			0x0084 0x36 0x0
+			0x0078 0x06 0x0
+			0x0080 0x16 0x0
+			0x0088 0x36 0x0
+			0x01b0 0x1e 0x0
+			0x01ac 0xca 0x0
+			0x01b8 0x18 0x0
+			0x01b4 0xa2 0x0
+			0x0050 0x07 0x0
+			0x0010 0x01 0x0
+			0x001c 0x31 0x0
+			0x0020 0x01 0x0
+			0x0024 0xde 0x0
+			0x0028 0x07 0x0
+			0x0030 0x4c 0x0
+			0x0034 0x06 0x0
+			0x0ee4 0x20 0x0
+			0x0e84 0x75 0x0
+			0x0e90 0x3f 0x0
+			0x115c 0x7f 0x0
+			0x1160 0xff 0x0
+			0x1164 0xbf 0x0
+			0x1168 0x3f 0x0
+			0x116c 0xd8 0x0
+			0x1170 0xdc 0x0
+			0x1174 0xdc 0x0
+			0x1178 0x5c 0x0
+			0x117c 0x34 0x0
+			0x1180 0xa6 0x0
+			0x1190 0x34 0x0
+			0x10d8 0x07 0x0
+			0x0e40 0x0c 0x0
+			0x10dc 0x00 0x0
+			0x104c 0x08 0x0
+			0x1050 0x08 0x0
+			0x1044 0xf0 0x0
+			0x11a4 0x38 0x0
+			0x10cc 0xf0 0x0
+			0x0694 0x00 0x0
+			0x0654 0x00 0x0
+			0x06a8 0x0f 0x0
+			0x0044 0x04 0x0
+			0x0048 0xf0 0x0
+			0x0608 0x0f 0x0
+			0x0620 0xc1 0x0
+			0x0388 0xa8 0x0
+			0x0398 0x0b 0x0
+			0x02dc 0x05 0x0
+			0x0200 0x00 0x0
+			0x0244 0x03 0x0>;
+};
+
+&clock_camcc {
+	compatible = "qcom,lahaina-camcc-v2", "syscon";
+};
+
+&usb_qmp_phy {
+	vdd-supply = <&pm8350_l5>;
+	qcom,vdd-voltage-level = <0 880000 888000>;
+};
+
+#include "lahaina-v2-gpu.dtsi"
+
+&cpu0_cpu_l3_tbl {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  403200  403200000 >,
+		<  499200  499200000 >,
+		<  691200  614400000 >,
+		<  806400  710400000 >,
+		<  902400  883200000 >,
+		< 1094400  979200000 >,
+		< 1209600 1056000000 >,
+		< 1305600 1152000000 >,
+		< 1401600 1248000000 >,
+		< 1497600 1324800000 >,
+		< 1612800 1420800000 >,
+		< 1708800 1516800000 >,
+		< 1804800 1593600000 >;
+};
+
+&cpu4_cpu_l3_tbl {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  710400  499200000 >,
+		<  960000  614400000 >,
+		< 1209600  883200000 >,
+		< 1440000 1056000000 >,
+		< 1766400 1248000000 >,
+		< 2112000 1324800000 >,
+		< 2419200 1516800000 >,
+		< 2841600 1593600000 >;
+};
+
+&cpu7_l3_computemon {
+	qcom,core-dev-table =
+		< 2035200 300000000 >,
+		< 2814600 1593600000 >;
+};
+
+&cpu0_cpu_llcc_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 150, 16) >,
+		<  806400 MHZ_TO_MBPS( 300, 16) >,
+		< 1497600 MHZ_TO_MBPS( 466, 16) >,
+		< 1804800 MHZ_TO_MBPS( 600, 16) >;
+};
+
+&cpu0_llcc_ddr_latmon {
+	ddr4-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+		qcom,core-dev-table =
+			<  300000 MHZ_TO_MBPS(  200, 4) >,
+			<  806400 MHZ_TO_MBPS(  451, 4) >,
+			< 1209600 MHZ_TO_MBPS(  547, 4) >,
+			< 1497600 MHZ_TO_MBPS(  768, 4) >,
+			< 1804800 MHZ_TO_MBPS( 1017, 4) >;
+	};
+
+	ddr5-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR5>;
+		qcom,core-dev-table =
+			<  300000 MHZ_TO_MBPS(  200, 4) >,
+			<  806400 MHZ_TO_MBPS(  451, 4) >,
+			< 1209600 MHZ_TO_MBPS(  547, 4) >,
+			< 1497600 MHZ_TO_MBPS(  768, 4) >,
+			< 1804800 MHZ_TO_MBPS( 1555, 4) >;
+	};
+};
+
+&cpu4_cpu_llcc_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS(  150, 16) >,
+		<  710400 MHZ_TO_MBPS(  300, 16) >,
+		< 1075200 MHZ_TO_MBPS(  466, 16) >,
+		< 1324800 MHZ_TO_MBPS(  600, 16) >,
+		< 1881600 MHZ_TO_MBPS(  806, 16) >,
+		< 2592000 MHZ_TO_MBPS(  933, 16) >,
+		< 2841600 MHZ_TO_MBPS( 1000, 16) >;
+};
+
+&cpu4_llcc_ddr_latmon  {
+	ddr4-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+		qcom,core-dev-table =
+			<  300000 MHZ_TO_MBPS( 200, 4) >,
+			<  710400 MHZ_TO_MBPS( 451, 4) >,
+			<  844800 MHZ_TO_MBPS( 547, 4) >,
+			< 1075200 MHZ_TO_MBPS( 768, 4) >,
+			< 1324800 MHZ_TO_MBPS(1017, 4) >,
+			< 1881600 MHZ_TO_MBPS(1555, 4) >,
+			< 2419200 MHZ_TO_MBPS(1708, 4) >,
+			< 2841600 MHZ_TO_MBPS(2133, 4) >;
+	};
+
+	ddr5-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR5>;
+		qcom,core-dev-table =
+			<  300000 MHZ_TO_MBPS( 200, 4) >,
+			<  710400 MHZ_TO_MBPS( 451, 4) >,
+			<  844800 MHZ_TO_MBPS( 547, 4) >,
+			< 1075200 MHZ_TO_MBPS( 768, 4) >,
+			< 1881600 MHZ_TO_MBPS(1555, 4) >,
+			< 2592000 MHZ_TO_MBPS(2092, 4) >,
+			< 2841600 MHZ_TO_MBPS(3196, 4) >;
+	};
+};
+
+&cpu4_computemon {
+	ddr4-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+		qcom,core-dev-table =
+			< 1881600 MHZ_TO_MBPS( 200, 4) >,
+			< 2841600 MHZ_TO_MBPS(1017, 4) >;
+	};
+
+	ddr5-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR5>;
+		qcom,core-dev-table =
+			< 1881600 MHZ_TO_MBPS( 200, 4) >,
+			< 2841600 MHZ_TO_MBPS(1555, 4) >;
+	};
+};
+
+&cpu4_llcc_computemon {
+	qcom,core-dev-table =
+		< 1881600 MHZ_TO_MBPS( 150, 16) >,
+		< 2841600 MHZ_TO_MBPS( 600, 16) >;
+};
+
+&cpu7_llcc_ddr_latmon  {
+	ddr4-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+		qcom,core-dev-table =
+			< 2592000 MHZ_TO_MBPS( 200, 4) >,
+			< 2841600 MHZ_TO_MBPS(2133, 4) >;
+	};
+
+	ddr5-map {
+		qcom,ddr-type = <DDR_TYPE_LPDDR5>;
+		qcom,core-dev-table =
+			< 2592000 MHZ_TO_MBPS( 200, 4) >,
+			< 2841600 MHZ_TO_MBPS(3196, 4) >;
+	};
+};
+
+&cpu4_qoslatmon {
+	qcom,core-dev-table =
+		< 1881600 1 >,
+		< 2841600 2 >;
+};
+
+&cpu7_qoslatmon {
+	qcom,core-dev-table =
+		< 2035200 1 >,
+		< 2841600 2 >;
+};

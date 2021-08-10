@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "yupikp-iot.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YUPIKP-IOT SoC";
+	compatible = "qcom,yupikp-iot";
+	qcom,board-id = <0 0>;
+};

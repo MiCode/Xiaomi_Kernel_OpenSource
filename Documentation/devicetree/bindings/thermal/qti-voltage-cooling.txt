@@ -1,0 +1,42 @@
+===============================================================================
+CPU Voltage cooling device:
+===============================================================================
+A single cluster can have CPUs with different frequency plans.
+Mitigating individual CPU may or may not bring down the CPU cluster
+voltage depending on the operating level of the other CPUs.
+
+CPU voltage cooling device will provide support to apply CPU frequency
+mitigation on the different CPUs in a cluster to achieve a reduction in
+cluster voltage. This is achieved by building a mitigation table mapping
+the CPU frequency levels to a voltage.
+
+Required Parameters:
+- compatible: must be 'qcom,cc-cooling-devices' for cpu voltage cooling device
+  driver.
+
+	voltage cooling device node properties:
+	-qcom,cpus:
+		Usage: required
+		Value type: An array of CPU phandle
+		Definition: Specify array of 2 CPU phandles, which needs to be
+			used for building a voltage based mitigation table.
+
+	-#cooling-cells:
+		Usage: required
+		Value type: <integer>
+		Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+
+
+Optional Parameters:
+
+Example:
+	qcom,cpu-voltage-cdev {
+		compatible = "qcom,cc-cooling-devices";
+		apc1_cluster: qcom,apc1-cluster {
+			qcom,cpus = <&CPU4 &CPU7>;
+			#cooling-cells = <2>;
+		};
+	};

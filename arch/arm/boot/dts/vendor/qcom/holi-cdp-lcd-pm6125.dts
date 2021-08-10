@@ -1,0 +1,13 @@
+/dts-v1/;
+
+#include "holi.dtsi"
+#include "holi-pm6125-overlay.dtsi"
+#include "holi-regulators-pm6125.dtsi"
+#include "holi-cdp-lcd-pm6125.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Holi CDP-LCD PM6125 attach";
+	compatible = "qcom,holi-cdp", "qcom,holi", "qcom,cdp";
+	qcom,board-id = <1 1>;
+	qcom,pmic-id-size = <4>;
+	qcom,pmic-id = <0x2D 0x0 0x2E 0x0>;
+};

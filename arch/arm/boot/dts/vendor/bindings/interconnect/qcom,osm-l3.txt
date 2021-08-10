@@ -1,0 +1,27 @@
+Qualcomm Technologies, Inc. OSM L3 interconnect driver binding
+-----------------------------------------------------------
+
+The OSM L3 Interconnect provider supports the scaling of L3 cache
+performance states of the CPU subsystem.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,sdm845-osm-l3",
+			"qcom,sm8150-osm-l3";
+			"qcom,sm6150-osm-l3";
+			"qcom,scshrike-osm-l3";
+- reg : Address and length of the register set for the device
+- clock-names: should contain "xo", "alternate"
+- clocks: list of phandle and clock specifier pairs corresponding to
+          entries in the clock-names property.
+- #interconnect-cells : should contain 1
+
+Examples:
+
+osm_l3: interconnect@0x18321000 {
+	reg = <0x18321000 0x1400>;
+	compatible = "qcom,sm8150-osm-l3";
+	clocks = <&rpmhcc RPMH_CXO_CLK>, <&gcc GPLL0>;
+	clock-names = "xo", "alternate";
+	#interconnect-cells = <1>;
+};

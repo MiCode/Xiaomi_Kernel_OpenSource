@@ -3,6 +3,7 @@
  * ring buffer based function tracer
  *
  * Copyright (C) 2007-2012 Steven Rostedt <srostedt@redhat.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2008 Ingo Molnar <mingo@redhat.com>
  *
  * Originally taken from the RT patch by:
@@ -265,7 +266,8 @@ unsigned long long ns2usecs(u64 nsec)
 	 TRACE_ITER_PRINT_PARENT | TRACE_ITER_PRINTK |			\
 	 TRACE_ITER_ANNOTATE | TRACE_ITER_CONTEXT_INFO |		\
 	 TRACE_ITER_RECORD_CMD | TRACE_ITER_OVERWRITE |			\
-	 TRACE_ITER_IRQ_INFO | TRACE_ITER_MARKERS)
+	 TRACE_ITER_IRQ_INFO | TRACE_ITER_MARKERS |			\
+	 TRACE_ITER_RECORD_TGID)
 
 /* trace_options that are only supported by global_trace */
 #define TOP_LEVEL_TRACE_FLAGS (TRACE_ITER_PRINTK |			\

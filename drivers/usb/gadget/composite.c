@@ -3,6 +3,7 @@
  * composite.c - infrastructure for Composite USB Gadgets
  *
  * Copyright (C) 2006-2008 David Brownell
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /* #define VERBOSE_DEBUG */
@@ -22,6 +23,11 @@
 #include <asm/unaligned.h>
 
 #include "u_os_desc.h"
+
+#undef dev_dbg
+#undef pr_debug
+#define pr_debug pr_err
+#define dev_dbg dev_err
 
 /**
  * struct usb_os_string - represents OS String to be reported by a gadget
@@ -400,6 +406,7 @@ int usb_function_deactivate(struct usb_function *function)
 		status = usb_gadget_deactivate(cdev->gadget);
 		spin_lock_irqsave(&cdev->lock, flags);
 	}
+
 	if (status == 0)
 		cdev->deactivations++;
 
@@ -2115,7 +2122,7 @@ void composite_disconnect(struct usb_gadget *gadget)
 
 	if (cdev == NULL) {
 		WARN(1, "%s: Calling disconnect on a Gadget that is \
-			 not connected\n", __func__);
+			not connected\n", __func__);
 		return;
 	}
 

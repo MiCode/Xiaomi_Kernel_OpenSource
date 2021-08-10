@@ -1,0 +1,9 @@
+/dts-v1/;
+/plugin/;
+
+#include "monaco-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Monaco RUMI";
+	qcom,board-id = <15 0>;
+};

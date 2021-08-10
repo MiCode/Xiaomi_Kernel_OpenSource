@@ -3,6 +3,7 @@
 // core.c  --  Voltage/Current Regulator framework.
 //
 // Copyright 2007, 2008 Wolfson Microelectronics PLC.
+// Copyright (C) 2021 XiaoMi, Inc.
 // Copyright 2008 SlimLogic Ltd.
 //
 // Author: Liam Girdwood <lrg@slimlogic.co.uk>
@@ -28,6 +29,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/module.h>
+
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
@@ -6130,6 +6132,7 @@ static int _regulator_debug_print_enabled(struct device *dev, void *data)
 	return 0;
 }
 
+
 /**
  * regulator_debug_print_enabled - log enabled regulators
  *
@@ -6138,6 +6141,8 @@ static int _regulator_debug_print_enabled(struct device *dev, void *data)
  */
 void regulator_debug_print_enabled(void)
 {
+
+
 	if (likely(!debug_suspend))
 		return;
 

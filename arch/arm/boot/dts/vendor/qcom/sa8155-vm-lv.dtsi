@@ -1,0 +1,38 @@
+/ {
+	rename_blk: rename_blk {
+		compatible = "qcom,blkdev-rename";
+		actual-dev = "vda";
+		rename-dev = "system";
+	};
+};
+
+&hab {
+	vmid = <3>;
+};
+
+&reserved_memory {
+	pmem_shared: pmem_shared_region {
+		reg = <0x1 0x6a500000 0x0 0x51400000>;
+		label = "pmem_shared_mem";
+	};
+};
+
+&usb0 {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	status = "ok";
+};
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};

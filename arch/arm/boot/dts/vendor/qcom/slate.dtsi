@@ -1,0 +1,12 @@
+&soc {
+	qupv3_se4_spi: spi@4a90000 {  /* BLSP4 QUP3*/
+		status = "ok";
+		qcom,slate-spi {
+			compatible = "qcom,slate-spi";
+			reg = <0>;
+			spi-max-frequency = <737000>;
+			interrupt-parent = <&tlmm>;
+			qcom,irq-gpio = <&tlmm 95 1>;
+		};
+	};
+};

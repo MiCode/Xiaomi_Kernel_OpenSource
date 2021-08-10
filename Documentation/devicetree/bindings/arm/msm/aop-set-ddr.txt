@@ -1,0 +1,17 @@
+AOP set ddr interface:
+-----------------
+
+AOP set ddr is an interface to send data to the Always on
+processor using QMP.
+
+Required properties :
+- compatible : must be "qcom,aop-set-ddr-freq"
+- mboxes : list of QMP mailbox phandle and channel identifier tuples
+- mbox-names : names of the listed mboxes
+
+Example :
+       aop-set-ddr-freq {
+               compatible = "qcom,aop-set-ddr-freq";
+               mboxes = <&qmp_aop 0>;
+               mbox-names = "aop";
+       };

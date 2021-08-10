@@ -1,0 +1,65 @@
+#include <dt-bindings/arm/msm/msm_ion_ids.h>
+
+&soc {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		system_heap: qcom,ion-heap@25 {
+			reg = <ION_SYSTEM_HEAP_ID>;
+			qcom,ion-heap-type = "MSM_SYSTEM";
+		};
+
+		system_secure_heap: qcom,ion-heap@9 {
+			reg = <ION_SECURE_HEAP_ID>;
+			qcom,ion-heap-type = "SYSTEM_SECURE";
+		};
+
+		qcom,ion-heap@14 { /* SECURE CARVEOUT HEAP */
+			reg = <ION_SECURE_CARVEOUT_HEAP_ID>;
+			qcom,ion-heap-type = "SECURE_CARVEOUT";
+			cdsp {
+				memory-region = <&cdsp_secure_heap_mem>;
+				token = <0x20000000>;
+			};
+		};
+
+		qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */
+			reg = <ION_SECURE_DISPLAY_HEAP_ID>;
+			memory-region = <&secure_display_memory>;
+			qcom,ion-heap-type = "HYP_CMA";
+		};
+
+		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
+			reg = <ION_QSECOM_TA_HEAP_ID>;
+			memory-region = <&qseecom_ta_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@26 { /* USER CONTIG HEAP */
+			reg = <ION_USER_CONTIG_HEAP_ID>;
+			memory-region = <&user_contig_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@27 { /* QSEECOM HEAP */
+			reg = <ION_QSECOM_HEAP_ID>;
+			memory-region = <&qseecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@5 { /* AUDIO ML HEAP */
+			reg = <ION_AUDIO_ML_HEAP_ID>;
+			memory-region = <&audio_cma_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@3 { /* NON SECURE DISPLAY HEAP */
+			reg = <ION_DISPLAY_HEAP_ID>;
+			memory-region = <&non_secure_display_memory>;
+			qcom,ion-heap-type = "DMA";
+		};
+	};
+};
+

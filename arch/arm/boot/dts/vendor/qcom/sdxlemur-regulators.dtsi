@@ -1,0 +1,515 @@
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/* RPMh regulators: */
+&apps_rsc {
+	rpmh-regulator-msslvl {
+		compatible = "qcom,rpmh-arc-regulator";
+		qcom,resource-name = "mss.lvl";
+		VDD_MODEM_LEVEL:
+		VDD_MSS_LEVEL:
+		S1B_LEVEL: pmx65_s1_level: regulator-pmx65-s1-level {
+			regulator-name = "pmx65_s1_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
+
+	rpmh-regulator-smpb2 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpb2";
+		S2B: pmx65_s2: regulator-pmx65-s2 {
+			regulator-name = "pmx65_s2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1400000>;
+			qcom,init-voltage = <1224000>;
+		};
+	};
+
+	rpmh-regulator-smpb3 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpb3";
+		S3B: pmx65_s3: regulator-pmx65-s3 {
+			regulator-name = "pmx65_s3";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1040000>;
+			qcom,init-voltage = <776000>;
+		};
+	};
+
+	rpmh-regulator-smpb4 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpb4";
+		S4B: pmx65_s4: regulator-pmx65-s4 {
+			regulator-name = "pmx65_s4";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2024000>;
+			qcom,init-voltage = <1824000>;
+		};
+	};
+
+	rpmh-regulator-mxlvl {
+		compatible = "qcom,rpmh-arc-regulator";
+		qcom,resource-name = "mx.lvl";
+		proxy-supply = <&VDD_MXA_LEVEL>;
+
+		VDD_MXA_LEVEL: VDD_MX_LEVEL:
+		L19B_LEVEL: pmx65_l19_level: regulator-pmx65-l19-level {
+			regulator-name = "pmx65_l19_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage =
+				<RPMH_REGULATOR_LEVEL_TURBO
+				RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		VDD_MXA_LEVEL_AO: VDD_MX_LEVEL_AO: L19B_LEVEL_AO:
+		pmx65_l19_level_ao: regulator-pmx65-l19-level_ao {
+			regulator-name = "pmx65_l19_level_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
+
+	rpmh-regulator-cxlvl {
+		compatible = "qcom,rpmh-arc-regulator";
+		qcom,resource-name = "cx.lvl";
+		proxy-supply = <&VDD_CX_LEVEL>;
+
+		VDD_CX_LEVEL:
+		S5B_LEVEL: pmx65_s5_level: regulator-pmx65-s5-level {
+			regulator-name = "pmx65_s5_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			pmx65_s5_level-parent-supply = <&VDD_MXA_LEVEL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			qcom,min-dropout-voltage-level = <(-1)>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage =
+				<RPMH_REGULATOR_LEVEL_TURBO
+				 RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		VDD_CX_LEVEL_AO:
+		S5B_LEVEL_AO: pmx65_s5_level_ao: regulator-pmx65-s5-level_ao {
+			regulator-name = "pmx65_s5_level_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			vin-supply = <&VDD_MXA_LEVEL_AO>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			qcom,min-dropout-voltage-level = <(-1)>;
+		};
+	};
+
+	rpmh-regulator-smpb7 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpb7";
+		S7B: pmx65_s7: regulator-pmx65-s7 {
+			regulator-name = "pmx65_s7";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1040000>;
+			qcom,init-voltage = <936000>;
+		};
+	};
+
+	rpmh-regulator-smpb8 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpb8";
+		S8B: pmx65_s8: regulator-pmx65-s8 {
+			regulator-name = "pmx65_s8";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <304000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <824000>;
+		};
+	};
+
+	rpmh-regulator-ldob1 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob1";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L1B: pmx65_l1: regulator-pmx65-l1 {
+			regulator-name = "pmx65_l1";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob2 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob2";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L2B: pmx65_l2: regulator-pmx65-l2 {
+			regulator-name = "pmx65_l2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1128000>;
+			regulator-max-microvolt = <1128000>;
+			qcom,init-voltage = <1128000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob3 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob3";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L3B: pmx65_l3: regulator-pmx65-l3 {
+			regulator-name = "pmx65_l3";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <960000>;
+			qcom,init-voltage = <800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob4 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob4";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L4B: pmx65_l4: regulator-pmx65-l4 {
+			regulator-name = "pmx65_l4";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <912000>;
+			regulator-max-microvolt = <912000>;
+			qcom,init-voltage = <912000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob5 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob5";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L5B: pmx65_l5: regulator-pmx65-l5 {
+			regulator-name = "pmx65_l5";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob6 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob6";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L6B: pmx65_l6: regulator-pmx65-l6 {
+			regulator-name = "pmx65_l6";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-mxclvl {
+		compatible = "qcom,rpmh-arc-regulator";
+		qcom,resource-name = "mxc.lvl";
+		VDD_MXC_LEVEL:
+		L7B_LEVEL: pmx65_l7_level: regulator-pmx65-l7-level {
+			regulator-name = "pmx65_l7_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
+
+	rpmh-regulator-ldob8 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob8";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L8B: pmx65_l8: regulator-pmx65-l8 {
+			regulator-name = "pmx65_l8";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <800000>;
+			qcom,init-voltage = <800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob9 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob9";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L9B: pmx65_l9: regulator-pmx65-l9 {
+			regulator-name = "pmx65_l9";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <800000>;
+			qcom,init-voltage = <800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob10 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob10";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L10B: pmx65_l10: regulator-pmx65-l10 {
+			regulator-name = "pmx65_l10";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <3088000>;
+			regulator-max-microvolt = <3088000>;
+			qcom,init-voltage = <3088000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob11 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob11";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L11B: pmx65_l11: regulator-pmx65-l11 {
+			regulator-name = "pmx65_l11";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1704000>;
+			regulator-max-microvolt = <2928000>;
+			qcom,init-voltage = <1808000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob12 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob12";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L12B: pmx65_l12: regulator-pmx65-l12 {
+			regulator-name = "pmx65_l12";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob13 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob13";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L13B: pmx65_l13: regulator-pmx65-l13 {
+			regulator-name = "pmx65_l13";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1704000>;
+			regulator-max-microvolt = <2928000>;
+			qcom,init-voltage = <1808000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob14 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob14";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L14B: pmx65_l14: regulator-pmx65-l14 {
+			regulator-name = "pmx65_l14";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <800000>;
+			qcom,init-voltage = <624000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob15 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob15";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L15B: pmx65_l15: regulator-pmx65-l15 {
+			regulator-name = "pmx65_l15";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob16 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob16";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L16B: pmx65_l16: regulator-pmx65-l16 {
+			regulator-name = "pmx65_l16";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1776000>;
+			regulator-max-microvolt = <1776000>;
+			qcom,init-voltage = <1776000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob17 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob17";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L17B: pmx65_l17: regulator-pmx65-l17 {
+			regulator-name = "pmx65_l17";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <960000>;
+			qcom,init-voltage = <744000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob20 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob20";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L20B: pmx65_l20: regulator-pmx65-l20 {
+			regulator-name = "pmx65_l20";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <912000>;
+			regulator-max-microvolt = <912000>;
+			qcom,init-voltage = <912000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldob21 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob21";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L21B: pmx65_l21: regulator-pmx65-l21 {
+			regulator-name = "pmx65_l21";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <912000>;
+			regulator-max-microvolt = <912000>;
+			qcom,init-voltage = <912000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	vreg_vddpx_2: vddpx2-gpio-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "vddpx_2";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2850000>;
+		enable-gpio = <&tlmm 98 GPIO_ACTIVE_HIGH>;
+		gpios = <&tlmm 100 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0>,
+			 <2850000 1>;
+		startup-delay-us = <200000>;
+		enable-active-high;
+	};
+
+	vreg_sd_vdd: sd-vdd-fixed-regulator {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "sd_vdd";
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+		parent-supply = <&vreg_vddpx_2>;
+	};
+};

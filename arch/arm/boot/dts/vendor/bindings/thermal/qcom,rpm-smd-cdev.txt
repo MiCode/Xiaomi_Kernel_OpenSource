@@ -1,0 +1,27 @@
+Qualcomm Technologies, Inc. RPM SMD cooling device
+
+The RPM shared memory(SMD) cooling device, will be used to set
+different thermal band level to RPM hardware. When threshold violation
+occurs, RPM SMD cooling device sends pre-configured thermal band level
+to RPM hardware via SMD.
+
+Required Parameters:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,rpm-smd-cooling-device"
+
+- #cooling-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 2. This is required by of-thermal and refer the doc
+		<devicetree/bindings/thermal/thermal.txt> for more details.
+
+Example:
+
+&rpm_bus {
+	rpm_smd_cdev: rpm-smd-cdev {
+		compatible = "qcom,rpm-smd-cooling-device";
+		#cooling-cells = <2>;
+	};
+};

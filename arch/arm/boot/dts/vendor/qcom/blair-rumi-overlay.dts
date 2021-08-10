@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "blair-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Blair RUMI";
+	compatible = "qcom,blair-rumi", "qcom,blair", "qcom,rumi";
+	qcom,msm-id = <507 0x10000>;
+	qcom,board-id = <15 0>;
+};

@@ -1,0 +1,168 @@
+* Qualcomm Technologies, Inc. MSM Camera OPE
+
+The ope device node has properties defined to hint the driver
+about the number of OPE nodes available during the
+probe sequence. Each node has multiple properties defined
+for interrupts, clocks and regulators.
+
+=======================
+Required Node Structure
+=======================
+OPE root interface node takes care of the handling account for number
+of OPE devices present on the hardware.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-ope".
+
+- compat-hw-name
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,ope".
+
+- num-ope
+  Usage: required
+  Value type: <u32>
+  Definition: Number of supported OPE HW blocks.
+
+Example:
+	qcom,cam-ope {
+		compatible = "qcom,cam-ope";
+		compat-hw-name = "qcom,ope";
+		num-ope = <2>;
+		status = "ok";
+	};
+
+=======================
+Required Node Structure
+=======================
+OPE Node provides interface for Image Control Processor driver
+about the OPE register map, interrupt map, clocks, regulators.
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Node instance number.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,ope".
+
+- reg-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the register resources.
+
+- reg
+  Usage: optional
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: optional
+  Value type: <u32>
+  Definition: Register values.
+
+- interrupt-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: optional
+  Value type: <u32>
+  Definition: Interrupt associated with OPE HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for OPE HW.
+
+- camss-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed
+		in "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for CDM HW.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for CDM HW.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: lowsvs, svs, svs_l1, nominal, turbo.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+Examples:
+qcom,cam-ope {
+	compatible = "qcom,cam-ope";
+	compat-hw-name = "qcom,ope";
+	num-ope = <1>;
+	status = "ok";
+};
+
+ope: qcom,ope@ac00000 {
+	cell-index = <0>;
+	compatible = "qcom,ope";
+	reg =
+		<0x42000 0x400>,
+		<0x42400 0x200>,
+		<0x42600 0x200>,
+		<0x42800 0x4400>,
+		<0x46c00 0x190>,
+		<0x46d90 0x1270>;
+	reg-names =
+		"ope_cdm",
+		"ope_top",
+		"ope_qos",
+		"ope_pp",
+		"ope_bus_rd",
+		"ope_bus_wr";
+	reg-cam-base = <0x42000 0x42400 0x42600 0x42800 0x46c00 0x46d90>;
+	interrupts = <GIC_SPI 463 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "ope";
+	regulator-names = "camss-vdd";
+	camss-vdd-supply = <&gcc_camss_top_gdsc>;
+	clock-names =
+		"ope_ahb_clk_src",
+		"ope_ahb_clk",
+		"ope_clk_src",
+		"ope_clk";
+	clocks =
+		<&gcc GCC_CAMSS_OPE_AHB_CLK_SRC>,
+		<&gcc GCC_CAMSS_OPE_AHB_CLK>,
+		<&gcc GCC_CAMSS_OPE_CLK_SRC>,
+		<&gcc GCC_CAMSS_OPE_CLK>;
+
+	clock-rates =
+		<200000000 0 480000000 0>,
+		<400000000 0 600000000 0>;
+
+	clock-cntl-level = "svs", "turbo";
+	src-clock-name = "ope_clk_src";
+	status = "ok";
+};

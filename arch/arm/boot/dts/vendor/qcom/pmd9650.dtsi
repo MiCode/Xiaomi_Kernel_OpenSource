@@ -1,0 +1,110 @@
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pmd9650@0 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pmd9650_pon: qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800>;
+			qcom,pon-dbc-delay = <15625>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>;
+			interrupt-names = "kpdpwr";
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
+			qcom,use-legacy-hard-reset-offset;
+
+			qcom,pon_1 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
+				qcom,pull-up;
+				linux,code = <KEY_POWER>;
+			};
+		};
+
+		pmd9650_gpios: pinctrl@c000 {
+			compatible = "qcom,pmd9650-gpio";
+			reg = <0xc000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		pmd9650_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc-rev2";
+			reg = <0x3100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			die_temp {
+				reg = <ADC5_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			ref_gnd {
+				reg = <ADC5_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			ref_1p25 {
+				reg = <ADC5_1P25VREF>;
+				label = "ref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			xo_therm {
+				reg = <ADC5_XO_THERM_100K_PU>;
+				label = "xo_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+		};
+
+		qcom,pmd9650_rtc {
+			compatible = "qcom,pm8941-rtc";
+			interrupts = <0x0 0x61 0x1 IRQ_TYPE_EDGE_RISING>;
+		};
+	};
+
+	qcom,pmd9650@1 {
+		compatible = "qcom,spmi-pmic";
+		reg = <1 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pmd9650_pwm_1: pwm@bc00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <1>;
+		};
+
+		pmd9650_pwm_2: pwm@bd00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbd00>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <1>;
+		};
+	};
+};

@@ -1,0 +1,17 @@
+* SMCInvoke driver to provide transport between TZ and Linux
+
+Required properties:
+- compatible : Should be "qcom,smcinvoke"
+- qcom,support-legacy_smc : indicates that secure side uses QCOM_SCM_SMCINVOKE_INVOKE_LEGACY (value = 0x00) for smcinvoke
+			    functionality.
+
+Example:
+	qcom_smcinvoke: smcinvoke@87900000 {
+		compatible = "qcom,smcinvoke";
+	};
+
+Example: For targets where secure side runs with QCOM_SCM_SMCINVOKE_INVOKE_LEGACY cmd id
+	qcom_smcinvoke: smcinvoke@87900000 {
+                compatible = "qcom,smcinvoke";
+		qcom,support-legacy_smc;
+        };

@@ -1,0 +1,72 @@
+#include "lahaina-sde-common.dtsi"
+#include <dt-bindings/clock/mdss-5nm-pll-clk.h>
+
+&soc {
+	/* dummy display clock provider */
+	clock_cpucc: qcom,cpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpucc_clocks";
+		#clock-cells = <1>;
+	};
+};
+
+&mdss_mdp {
+	reg = <0x0ae00000 0x84000>,
+	      <0x0aeb0000 0x2008>,
+	      <0x0aeac000 0x800>,
+	      <0x0ae8f000 0x02c>;
+
+	reg-names = "mdp_phys",
+		"vbif_phys",
+		"regdma_phys",
+		"sid_phys";
+
+	qcom,sde-vm-exclude-reg-names = "sid_phys";
+
+	qcom,sde-hw-version =<0x70000000>;
+
+	clocks =
+		<&clock_cpucc GCC_DISP_AHB_CLK>,
+		<&clock_cpucc GCC_DISP_HF_AXI_CLK>,
+		<&clock_cpucc GCC_DISP_SF_AXI_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_AHB_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_MDP_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_VSYNC_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_MDP_LUT_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_ROT_CLK>;
+	clock-names = "gcc_iface", "gcc_bus", "gcc_nrt_bus",
+			"iface_clk", "core_clk", "vsync_clk",
+			"lut_clk", "rot_clk";
+	qcom,sde-trusted-vm-env;
+	qcom,vram-size = <0x200000>;
+};
+
+&mdss_dsi0 {
+	clocks = <&clock_cpucc DISP_CC_MDSS_BYTE0_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_BYTE0_CLK_SRC>,
+		<&clock_cpucc DISP_CC_MDSS_BYTE0_INTF_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_PCLK0_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_PCLK0_CLK_SRC>,
+		<&clock_cpucc DISP_CC_MDSS_ESC0_CLK>;
+	clock-names = "byte_clk", "byte_clk_rcg", "byte_intf_clk",
+			"pixel_clk", "pixel_clk_rcg", "esc_clk";
+};
+
+&mdss_dsi1 {
+	clocks = <&clock_cpucc DISP_CC_MDSS_BYTE1_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_BYTE1_CLK_SRC>,
+		<&clock_cpucc DISP_CC_MDSS_BYTE1_INTF_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_PCLK1_CLK>,
+		<&clock_cpucc DISP_CC_MDSS_PCLK1_CLK_SRC>,
+		<&clock_cpucc DISP_CC_MDSS_ESC1_CLK>;
+	clock-names = "byte_clk", "byte_clk_rcg", "byte_intf_clk",
+			"pixel_clk", "pixel_clk_rcg", "esc_clk";
+};
+
+&mdss_dsi_phy0 {
+	qcom,dsi-pll-in-trusted-vm;
+};
+
+&mdss_dsi_phy1 {
+	qcom,dsi-pll-in-trusted-vm;
+};

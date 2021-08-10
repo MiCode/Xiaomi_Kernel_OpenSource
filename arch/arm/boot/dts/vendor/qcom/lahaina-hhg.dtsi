@@ -1,0 +1,368 @@
+#include "lahaina-hdk.dtsi"
+#include "camera/lahaina-camera-sensor-hhg.dtsi"
+
+&wsa883x_0222 {
+	status = "ok";
+};
+
+&wsa_spkr_en2 {
+	status = "ok";
+};
+
+&lahaina_snd {
+	qcom,model = "lahaina-hhg-snd-card";
+
+	qcom,audio-routing =
+		"AMIC2", "Analog Mic2",
+		"Analog Mic2", "MIC BIAS2",
+		"TX DMIC1", "Digital Mic1",
+		"Digital Mic1", "MIC BIAS1",
+		"TX DMIC2", "Digital Mic2",
+		"Digital Mic2", "MIC BIAS3",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"HAP_IN", "PCM_OUT",
+		"WSA SRC0_INP", "SRC0",
+		"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"SpkrRight IN", "WSA_SPK2 OUT",
+		"TX SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA SWR_INPUT", "VA_SWR_CLK",
+		"VA SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK",
+		"VA DMIC1", "Digital Mic1",
+		"VA DMIC2", "Digital Mic2",
+		"VA DMIC1", "VA MIC BIAS1",
+		"VA DMIC2", "VA MIC BIAS2";
+
+	qcom,wsa-max-devs = <2>;
+};
+
+&tlmm {
+	fan: fan_pin {
+		mux {
+			pins = "gpio107","gpio108";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio107","gpio108";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+	};
+};
+
+&pm8008j_l7 {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3100000>;
+};
+
+&soc {
+	i2c@0 {
+		compatible = "i2c-gpio";
+		reg = <0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fan>;
+		gpios = <&tlmm 107 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN) /* sda */>,
+			<&tlmm 108 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN) /* scl */>;
+
+		i2c-gpio,sda-open-drain;
+		i2c-gpio,scl-open-drain;
+		i2c-gpio,delay-us = <5>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		fancontroller: max31760@50 {
+			compatible = "maxim,max31760";
+			reg = <0x50>;
+			#cooling-cells = <2>;
+			maxim,vdd-supply = <&pm8008j_l7>;
+			regulator-names = "maxim,vdd";
+			maxim,vcca-supply = <&pm8350_s10>;
+			maxim,fan_en_gpio = <&tlmm 48 0x00>;
+			status = "ok";
+		};
+	};
+
+	joystick_usb_vbus: joystick_usb_vbus_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "joystick_usb_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-enable-ramp-delay = <600>;
+		gpio = <&pm8350_gpios 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_boost_default>;
+	};
+};
+
+&usb1 {
+	qcom,ignore-wakeup-src-in-hostmode;
+
+	dwc3@a800000 {
+		usb-phy = <&usb2_phy1>, <&usb_nop_phy>;
+		maximum-speed = "full-speed";
+	};
+};
+
+&thermal_zones {
+	cpu-1-6-step {
+		trips {
+			fan_cpu16_config0: fan-cpu16-config0 {
+				temperature = <80000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_cpu16_config1: fan-cpu16-config1 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_cpu16_config2: fan-cpu16-config2 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_cpu16_config0>;
+				cooling-device = <&fancontroller 1 1>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_cpu16_config1>;
+				cooling-device = <&fancontroller 2 2>;
+			};
+
+			fan_cdev_2 {
+				trip = <&fan_cpu16_config2>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+		};
+	};
+
+	cpu-1-7-step {
+		trips {
+			fan_cpu17_config0: fan-cpu17-config0 {
+				temperature = <80000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_cpu17_config1: fan-cpu17-config1 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_cpu17_config2: fan-cpu17-config2 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_cpu17_config0>;
+				cooling-device = <&fancontroller 1 1>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_cpu17_config1>;
+				cooling-device = <&fancontroller 2 2>;
+			};
+
+			fan_cdev_2 {
+				trip = <&fan_cpu17_config2>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+		};
+	};
+
+	gpuss-0-step {
+		trips {
+			fan_gpuss0_config0: fan-gpuss0-config0 {
+				temperature = <85000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_gpuss0_config1: fan-gpuss0-config1 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_gpuss0_config2: fan-gpuss0-config2 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_gpuss0_config0>;
+				cooling-device = <&fancontroller 1 1>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_gpuss0_config1>;
+				cooling-device = <&fancontroller 2 2>;
+			};
+
+			fan_cdev_2 {
+				trip = <&fan_gpuss0_config2>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+		};
+	};
+
+	gpuss-1-step {
+		trips {
+			fan_gpuss1_config0: fan-gpuss1-config0 {
+				temperature = <85000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_gpuss1_config1: fan-gpuss1-config1 {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			fan_gpuss1_config2: fan-gpuss1-config2 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_gpuss1_config0>;
+				cooling-device = <&fancontroller 1 1>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_gpuss1_config1>;
+				cooling-device = <&fancontroller 2 2>;
+			};
+
+			fan_cdev_2 {
+				trip = <&fan_gpuss1_config2>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+		};
+	};
+
+	video-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens1 6>;
+		trips {
+			fan_video_config0: fan-video-config0 {
+				temperature = <50000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			fan_video_config1: fan-video-config1 {
+				temperature = <60000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_video_config0>;
+				cooling-device = <&fancontroller 1 1>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_video_config1>;
+				cooling-device = <&fancontroller 2 2>;
+			};
+		};
+	};
+
+	gpu-skin-avg-step {
+		disable-thermal-zone;
+	};
+
+	camera-therm-usr {
+		disable-thermal-zone;
+	};
+
+	rear-cam-therm-usr {
+		disable-thermal-zone;
+	};
+
+	tof-therm-usr {
+		disable-thermal-zone;
+	};
+
+	quiet-therm-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PM8350_ADC7_AMUX_THM2_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	qtm-w-therm-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PM8350_ADC7_AMUX_THM4_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	qtm-n-therm-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmk8350_adc_tm PM8350_ADC7_AMUX_THM5_100K_PU>;
+		wake-capable-sensor;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};

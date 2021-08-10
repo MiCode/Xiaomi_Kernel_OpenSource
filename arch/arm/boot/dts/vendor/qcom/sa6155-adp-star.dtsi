@@ -1,0 +1,79 @@
+#include "sa6155-adp-common.dtsi"
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v3-660";
+
+	vdda-phy-supply = <&pm6155_1_l5>; /* 0.9v */
+	vdda-pll-supply = <&pm6155_1_l12>;
+	vdda-phy-max-microamp = <30000>;
+	vdda-pll-max-microamp = <12000>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm6155_1_l17>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm6155_1_s4>;
+	vcc-max-microamp = <800000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm6155_1_l11>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1232000>;
+	qcom,vddp-ref-clk-max-uV = <1260000>;
+
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm6155_1_l17>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm6155_1_s4>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm6155_1_l10>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm6155_1_l2>;
+	qcom,vdd-io-voltage-level = <1800000 3100000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&qusb_phy0 {
+	qcom,usb-hs-ac-bitmask = <0x30>;
+	qcom,usb-hs-ac-value = <0x10>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb0_hs_ac_en_default>;
+};
+
+&qusb_phy1 {
+	qcom,usb-hs-ac-bitmask = <0xc0>;
+	qcom,usb-hs-ac-value = <0x40>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_hs_ac_en_default>;
+};

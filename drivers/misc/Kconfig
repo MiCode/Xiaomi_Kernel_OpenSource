@@ -524,6 +524,23 @@ config HISI_HIKEY_USB
 	help
 	  If you say yes here you get support for usb functionality of HiSilicon Hikey Platform.
 
+config MI_HARDWARE_ID
+	tristate "Register xiaomi hwid module"
+	default n
+	help
+	  This adds support for mi hwid.
+
+config PERF_HELPER
+	default y
+	help
+	  this module support record perf lock history and other perf messages.
+
+config GPIO_TESTING_MODE
+	tristate "A simple GPIO testing mode driver for sar controler"
+	default n
+	help
+	  Enable driver for a simple testing mode detection
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -539,4 +556,5 @@ source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
+source "drivers/misc/al6021/Kconfig"
 endmenu

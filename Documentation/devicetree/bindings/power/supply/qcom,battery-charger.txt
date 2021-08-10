@@ -1,0 +1,44 @@
+QTI battery charger binding
+
+This binding describes the Qualcomm Technologies, Inc. battery charger device.
+QTI battery charger gets and sets power supply properties by communicating with
+charger firmware running on the remote subsystem (e.g. DSP) over PMIC Glink.
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt for
+information on "qcom,pmic_glink" device which is used in the example below.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,battery-charger"
+
+- qcom,thermal-mitigation:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: Array of fast charge current limit values for different
+		    system thermal mitigation levels. This should be a flat
+		    array that denotes the maximum charging current (in uA) for
+		    each thermal level. Elements should be defined in such a
+		    way that the next element is always less than or equal to
+		    the current element (descending order).
+
+- qcom,wireless-fw-name:
+	Usage: optional
+	Value type: <string>
+	Definition: Firmware name that needs to be used for updating wireless
+		    charger firmware.
+
+= EXAMPLE
+
+&soc {
+	qcom,pmic_glink {
+		...
+		qcom,battery_charger {
+			compatible = "qcom,battery-charger";
+			qcom,thermal-mitigation =
+					<3000000 1500000 1000000 500000>;
+			qcom,wireless-fw-name = "idt9412.bin";
+		};
+		...
+	};
+};

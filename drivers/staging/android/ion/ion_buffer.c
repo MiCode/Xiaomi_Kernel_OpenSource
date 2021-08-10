@@ -3,6 +3,7 @@
  * ION Memory Allocator - buffer interface
  *
  * Copyright (c) 2019, Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/mm.h>
@@ -10,6 +11,9 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-noncoherent.h>
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+#include <linux/memcontrol.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "ion_trace.h"
@@ -35,7 +39,12 @@ static void track_buffer_destroyed(struct ion_buffer *buffer)
 static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 					    struct ion_device *dev,
 					    unsigned long len,
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+					    unsigned long flags,
+					    unsigned int id)
+#else
 					    unsigned long flags)
+#endif
 {
 	struct ion_buffer *buffer;
 	int ret;
@@ -82,6 +91,13 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	spin_unlock(&heap->stat_lock);
 
 	INIT_LIST_HEAD(&buffer->attachments);
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	memcg_misc_charge_id(sg_page(buffer->sg_table->sgl), 0,
+				PAGE_ALIGN(len) >> PAGE_SHIFT,
+				MEMCG_ION_TYPE, id);
+#endif
+
 	mutex_init(&buffer->lock);
 	track_buffer_created(buffer);
 	return buffer;
@@ -161,7 +177,11 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 		/* if the caller didn't specify this heap id */
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+		buffer = ion_buffer_create(heap, dev, len, flags, -1);
+#else
 		buffer = ion_buffer_create(heap, dev, len, flags);
+#endif
 		if (!IS_ERR(buffer))
 			break;
 	}
@@ -175,6 +195,57 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 
 	return buffer;
 }
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+struct ion_buffer *ion_buffer_alloc_id(struct ion_device *dev, size_t len,
+					unsigned int heap_id_mask,
+					unsigned int flags,
+					unsigned int id)
+{
+	struct ion_buffer *buffer = NULL;
+	struct ion_heap *heap;
+	char task_comm[TASK_COMM_LEN];
+
+	if (!dev || !len) {
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (heap_id_mask & ION_HEAP_SYSTEM) {
+		get_task_comm(task_comm, current->group_leader);
+		pr_warn_ratelimited("%s: Detected allocation from generic sys heap for task %s-%d\n",
+				    __func__, task_comm, current->tgid);
+	}
+
+	/*
+	 * traverse the list of heaps available in this system in priority
+	 * order.  If the heap type is supported by the client, and matches the
+	 * request of the caller allocate from it.  Repeat until allocate has
+	 * succeeded or all heaps have been tried
+	 */
+	len = PAGE_ALIGN(len);
+	if (!len)
+		return ERR_PTR(-EINVAL);
+
+	down_read(&dev->lock);
+	plist_for_each_entry(heap, &dev->heaps, node) {
+		/* if the caller didn't specify this heap id */
+		if (!((1 << heap->id) & heap_id_mask))
+			continue;
+		buffer = ion_buffer_create(heap, dev, len, flags, id);
+		if (!IS_ERR(buffer))
+			break;
+	}
+	up_read(&dev->lock);
+
+	if (!buffer)
+		return ERR_PTR(-ENODEV);
+
+	if (IS_ERR(buffer))
+		return ERR_CAST(buffer);
+
+	return buffer;
+}
+#endif /* CONFIG_MIMISC_MC */
 
 int ion_buffer_zero(struct ion_buffer *buffer)
 {
@@ -242,6 +313,12 @@ int ion_buffer_destroy(struct ion_device *dev, struct ion_buffer *buffer)
 
 	heap = buffer->heap;
 	track_buffer_destroyed(buffer);
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	memcg_misc_uncharge(sg_page(buffer->sg_table->sgl),
+					PAGE_ALIGN(buffer->size) >> PAGE_SHIFT,
+					MEMCG_ION_TYPE);
+#endif
 
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ion_heap_freelist_add(heap, buffer);

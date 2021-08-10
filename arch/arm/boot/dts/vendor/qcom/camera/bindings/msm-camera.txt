@@ -1,0 +1,18 @@
+* Qualcomm Technologies, Inc. MSM Camera
+
+Required properties:
+- compatible :
+    - "qcom,cam-req-mgr", "qcom,cam-sync"
+- qcom,sensor-manual-probe : specify if sensor probes at kernel boot time or user driven
+
+Example:
+
+   qcom,cam-req-mgr {
+       compatible = "qcom,cam-req-mgr";
+       qcom,sensor-manual-probe;
+   };
+
+   qcom,cam-sync {
+       compatible = "qcom,cam-sync";
+       status = "ok";
+   };

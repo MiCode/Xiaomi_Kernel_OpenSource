@@ -76,6 +76,17 @@ config F2FS_CHECK_FS
 
 	  If you want to improve the performance, say N.
 
+config F2FS_CP_OPT
+	bool "F2FS avoid needless checkpoint during fsync"
+	depends on F2FS_FS && QGKI
+	help
+	  Doing checkpoint every time when setting xattr for dir can seriously
+	  affect the performance of fsync. By adding the inode to the tracking
+	  list when setting up xattr, we can avoid doing checkpoint when xattr
+	  of the parent directory is not set.
+
+	  If you want to improve the performance, say Y.
+
 config F2FS_IO_TRACE
 	bool "F2FS IO tracer"
 	depends on F2FS_FS

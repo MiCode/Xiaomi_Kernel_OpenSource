@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "yupik-iot.dtsi"
+#include "yupik-iot-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YUPIK-IOT IDP";
+	compatible = "qcom,yupik-iot-idp", "qcom,yupik-iot", "qcom,idp";
+	qcom,board-id = <34 0>;
+};

@@ -2262,6 +2262,22 @@ static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
 			}
 		}
 	}
+	#if defined(CONFIG_PASSTHROUGH_SYSTEM) && defined(CONFIG_REGION_IS_CN)
+	else if (cmd == FUSE_DEV_IOC_PASSTHROUGH_OPEN) {
+		struct fuse_dev *fud;
+		struct fuse_passthrough_out pto;
+
+		err = -EFAULT;
+		if (!copy_from_user(&pto,
+				    (struct fuse_passthrough_out __user *)arg,
+				    sizeof(pto))) {
+			err = -EINVAL;
+			fud = fuse_get_dev(file);
+			if (fud)
+				err = fuse_passthrough_open(fud, &pto);
+		}
+	}
+	#endif
 	return err;
 }
 

@@ -20,6 +20,9 @@
 #include <linux/string.h>
 #include <linux/soc/qcom/spmi-pmic-arb.h>
 
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
+
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
 #define PMIC_ARB_VERSION_V2_MIN		0x20010000
@@ -1442,6 +1445,7 @@ error:
 #else
 static void spmi_pmic_arb_debugfs_init(struct spmi_pmic_arb *pmic_arb) { }
 #endif
+
 
 static int spmi_pmic_arb_probe(struct platform_device *pdev)
 {

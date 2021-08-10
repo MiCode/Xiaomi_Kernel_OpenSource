@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -2814,7 +2815,8 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Pool to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device,
+		IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON) ? 0 : 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);

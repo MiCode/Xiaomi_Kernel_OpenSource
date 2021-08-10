@@ -1,0 +1,41 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,tee-shared-memory-bridge.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. Trusted execution environment shared memory bridge binding
+
+maintainers:
+  - Zhen Kong <zkong@quicinc.com>
+
+description: |
+
+QTEE shared memory bridge driver is used to share memory between non-secure
+world and trustzone through shared memory bridge.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,tee-shared-memory-bridge
+
+  qcom,custom-bridge-size : indicates the size of SHM Bridge to be supported in multiples of 4K
+
+required:
+  - compatible
+
+optional:
+  - qcom,custom-bridge-size
+
+examples:
+  - |
+    qtee_shmbridge {
+        compatible = "qcom,tee-shared-memory-bridge";
+    };
+
+    To allocate 1M memory for SHMBridge, we will have entry like this:
+
+    qtee_shmbridge {
+	compatible = "qcom,tee-shared-memory-bridge";
+	qcom,custom-bridge-size = <256>;
+    };
+

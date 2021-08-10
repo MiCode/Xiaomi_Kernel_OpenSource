@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -1853,7 +1854,7 @@ static const struct msm_pingroup shima_groups[] = {
 };
 
 static const int shima_reserved_gpios[] = {
-	4, 5, 6, 7, 40, 41, 52, 53, 54, 55, 56, 57, 58, 59, -1
+	4, 5, 7, 40, 41, 52, 53, 54, 55, 56, 57, 58, 59, -1
 };
 
 static struct pinctrl_qup shima_qup_regs[] = {

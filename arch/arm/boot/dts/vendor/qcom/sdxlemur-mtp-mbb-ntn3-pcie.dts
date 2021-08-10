@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-mtp-mbb-ntn3-pcie.dtsi"
+#include "sdxlemur-1024mb.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR MTP MBB NTN3 PCIE";
+	compatible = "qcom,sdxlemur-mtp",
+		"qcom,sdxlemur", "qcom,mtp";
+	qcom,board-id = <0x5010008 0x305>;
+};

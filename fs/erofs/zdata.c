@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2018 HUAWEI, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.huawei.com/
  * Created by Gao Xiang <gaoxiang25@huawei.com>
  */
@@ -698,7 +699,8 @@ err_out:
 	goto out;
 }
 
-static void z_erofs_vle_unzip_kickoff(void *ptr, int bios)
+static void z_erofs_vle_unzip_wq(struct work_struct *work);
+static void z_erofs_vle_unzip_kickoff(void *ptr, int bios, struct erofs_sb_info *sbi)
 {
 	tagptr1_t t = tagptr_init(tagptr1_t, ptr);
 	struct z_erofs_unzip_io *io = tagptr_unfold_ptr(t);
@@ -714,8 +716,18 @@ static void z_erofs_vle_unzip_kickoff(void *ptr, int bios)
 		return;
 	}
 
-	if (!atomic_add_return(bios, &io->pending_bios))
+	if (atomic_add_return(bios, &io->pending_bios))
+		return;
+
+	/* Use workqueue decompression for atomic contexts only */
+	if (in_atomic() || irqs_disabled()) {
 		queue_work(z_erofs_workqueue, &io->u.work);
+		if (sbi)
+			sbi->readahead_sync_decompress = true;
+		return;
+	}
+	z_erofs_vle_unzip_wq(&io->u.work);
+
 }
 
 static inline void z_erofs_vle_read_endio(struct bio *bio)
@@ -748,7 +760,7 @@ static inline void z_erofs_vle_read_endio(struct bio *bio)
 			unlock_page(page);
 	}
 
-	z_erofs_vle_unzip_kickoff(bio->bi_private, -1);
+	z_erofs_vle_unzip_kickoff(bio->bi_private, -1, sbi);
 	bio_put(bio);
 }
 
@@ -1300,7 +1312,7 @@ skippage:
 	if (postsubmit_is_all_bypassed(q, nr_bios, force_fg))
 		return true;
 
-	z_erofs_vle_unzip_kickoff(bi_private, nr_bios);
+	z_erofs_vle_unzip_kickoff(bi_private, nr_bios, sbi);
 	return true;
 }
 
@@ -1372,7 +1384,8 @@ static int z_erofs_vle_normalaccess_readpages(struct file *filp,
 	struct inode *const inode = mapping->host;
 	struct erofs_sb_info *const sbi = EROFS_I_SB(inode);
 
-	bool sync = should_decompress_synchronously(sbi, nr_pages);
+	bool sync = (sbi->readahead_sync_decompress &&
+			        should_decompress_synchronously(sbi, nr_pages));
 	struct z_erofs_decompress_frontend f = DECOMPRESS_FRONTEND_INIT(inode);
 	gfp_t gfp = mapping_gfp_constraint(mapping, GFP_KERNEL);
 	struct page *head = NULL;

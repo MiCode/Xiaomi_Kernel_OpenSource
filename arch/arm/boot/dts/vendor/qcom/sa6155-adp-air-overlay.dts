@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "sa6155-adp-air.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA6155 ADP-AIR";
+	compatible = "qcom,sa6155-adp-air", "qcom,sa6155", "qcom,adp-air";
+	qcom,msm-id = <384 0x0>;
+	qcom,board-id = <0x03010019 0>;
+};

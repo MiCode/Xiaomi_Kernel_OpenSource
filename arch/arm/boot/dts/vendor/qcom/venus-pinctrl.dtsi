@@ -1,0 +1,174 @@
+/*for venus pinctrl */
+
+/*Display Reset, DispRate, Err_Int Pin*/
+&sde_dsi_active {
+	mux {
+		pins = "gpio24", "gpio74", "gpio75";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio24", "gpio74", "gpio75";
+		drive-strength = <8>;	/* 8 mA */
+		bias-disable = <0>;   /* no pull */
+	};
+};
+
+&sde_dsi_suspend {
+	mux {
+		pins = "gpio24", "gpio74", "gpio75";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio24", "gpio74", "gpio75";
+		drive-strength = <2>;	/* 2 mA */
+		bias-pull-down; 		/* PULL DOWN */
+	};
+};
+
+&tlmm {
+	sbu_uart_en_ctrl {
+		sbu_uart_en_idle: uart_audio_en_idle {
+			mux {
+				pins = "gpio6";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		sbu_uart_en_active: uart_audio_en_active {
+			mux {
+				pins = "gpio6";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	nfc {
+			nfc_enable_active: nfc_enable_active {
+				mux {
+					pins = "gpio62";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio62";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_suspend: nfc_enable_suspend {
+				mux {
+					pins = "gpio62";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio62";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+
+			nfc_fwdl_active: nfc_fwdl_active {
+				mux {
+					/* 86: Firmware */
+					pins = "gpio86";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio86";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+
+			nfc_fwdl_suspend: nfc_fwdl_suspend {
+				mux {
+					/*86: Firmware */
+					pins = "gpio86";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio86";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+
+			nfc_clk_req_active: nfc_clk_req_active {
+				/* active state */
+				mux {
+					/* GPIO 63: NFC CLOCK REQUEST */
+					pins = "gpio63";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio63";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_clk_req_suspend: nfc_clk_req_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 63: NFC CLOCK REQUEST */
+					pins = "gpio63";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio63";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+	};
+
+    md_mode_ctrl_irq {
+		ant3_ctrl_irq: ant3_ctrl_irq {
+			mux {
+				pins = "gpio84";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio84";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		ant14_ctrl_irq: ant14_ctrl_irq {
+			mux {
+				pins = "gpio115";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio115";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+};

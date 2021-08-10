@@ -24,8 +24,24 @@ obj-$(CONFIG_INPUT_MOUSE)	+= mouse/
 obj-$(CONFIG_INPUT_JOYSTICK)	+= joystick/
 obj-$(CONFIG_INPUT_TABLET)	+= tablet/
 obj-$(CONFIG_INPUT_TOUCHSCREEN)	+= touchscreen/
+obj-$(CONFIG_INPUT_FINGERPRINT) += fingerprint/
 obj-$(CONFIG_INPUT_MISC)	+= misc/
 
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+obj-$(CONFIG_STMVL53L5)		+= stmvl53l5/
+
+ifeq ($(TARGET_PRODUCT), renoir)
+    KBUILD_CPPFLAGS += -DQCOM_HAPTIC_BOB
+    KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifeq ($(TARGET_PRODUCT), cetus)
+    KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifeq ($(TARGET_PRODUCT), haydn)
+    KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+    KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_HAYDN
+endif

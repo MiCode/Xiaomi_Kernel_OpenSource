@@ -1,0 +1,44 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/iommu/iommu-debug-test.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: IOMMU Debugging and Testing Framework binding
+
+maintainers:
+  - Isaac J. Manjarres <isaacm@quicinc.com>
+
+description: |
+  The IOMMU Debugging and Testing Framework is used for collecting information
+  that is useful for debugging/instrumenting the IOMMU framework code, as well
+  as testing various IOMMU related features.
+
+properties:
+  compatible:
+    items:
+      - const: iommu-debug-test
+
+  child nodes:
+    compatible: : iommu-debug-usecase
+    iommus:
+      minItems: 1
+      items:
+        - description: IOMMU specifier with a SID and an SMR mask
+      description:
+        The SID in the IOMMU specifier is a placeholder so that the SMMU driver
+        can recognize the node. Our test uses ATOS, which doesn't use SIDs anyway,
+        so using a dummy value is ok.
+
+required:
+  - compatible
+  - iommus
+
+examples:
+  - |
+    iommu_test_device {
+        compatible = "iommu-debug-test";
+        basic_usecase {
+          compatible = "iommu-debug-usecase";
+          iommus = <&cpp_fd_smmu 42>;
+        }
+    };

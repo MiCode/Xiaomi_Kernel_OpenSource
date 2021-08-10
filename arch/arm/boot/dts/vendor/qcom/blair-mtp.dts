@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "blair.dtsi"
+#include "blair-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Blair MTP";
+	compatible = "qcom,blair-mtp", "qcom,blair", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};
+

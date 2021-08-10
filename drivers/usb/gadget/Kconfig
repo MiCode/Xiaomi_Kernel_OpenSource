@@ -597,6 +597,16 @@ config USB_CONFIGFS_F_GSI
 	  related functionalities using GSI hardware accelerated data
 	  path and control path.
 
+config USB_F_DTP
+	tristate "Usb DTP"
+	depends on USB_CONFIGFS
+	default n
+	help
+	  The XiaoMi File/Data Transfer Protocol (DTP) function mounts USB gadget
+	  as a file/data device but unlike Mass Storage Gadget, DTP operates
+	  at the file/data level. Thus exposing the relevant content but hiding
+	  the system/restricted files.
+
 config USB_LOW_MEM_VARIANT
 	bool "USB Memory optimization"
 	help

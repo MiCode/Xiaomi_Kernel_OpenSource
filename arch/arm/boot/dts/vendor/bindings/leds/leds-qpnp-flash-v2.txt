@@ -1,0 +1,330 @@
+Qualcomm Technologies Inc. PNP v2 Flash LED
+
+QPNP (Qualcomm Technologies Inc. Plug N Play) Flash LED (Light
+Emitting Diode) driver v2 is used to provide illumination to
+camera sensor when background light is dim to capture good
+picture. It can also be used for flashlight/torch application.
+It is part of PMIC on Qualcomm Technologies Inc. reference platforms.
+
+Main node:
+
+Required properties:
+- compatible		: one of "qcom,pm6150l-flash-led-v2"
+				 "qcom,pmi632-flash-led-v2"
+- reg			: Base address and size for flash LED modules
+
+Optional properties:
+- interrupts		: Specifies the interrupts associated with flash-led.
+- interrupt-names	: Specify the interrupt names associated with interrupts.
+- qcom,hdrm-auto-mode	: Boolean type to select headroom auto mode enabled or not
+- qcom,isc-delay-us	: Integer type to specify short circuit delay. Valid values are 32, 64,
+			  128, 192. Unit is uS.
+- qcom,warmup-delay-us	: Integer type to specify warm up delay. Valid values are 32, 64,
+			  128, 192. Unit is uS.
+- qcom,ramp-up-step	: Integer property to specify flash current ramp up time
+			  step. Unit is in nS. Allowed values are: 200, 400, 800, 1600,
+			  3200, 6400, 12800, 25600.
+- qcom,ramp-down-step	: Integer property to specify flash current ramp down
+			  time step. Unit is in nS. Allowed values are: 200, 400, 800, 1600,
+			  3200, 6400, 12800, 25600.
+- qcom,short-circuit-det	: Boolean property which enables short circuit fault detection.
+- qcom,open-circuit-det		: Boolean property which enables open circuit fault detection.
+- qcom,vph-droop-det		: Boolean property which enables VPH droop detection.
+- qcom,vph-droop-hysteresis-mv	: Integer property to specify VPH droop hysteresis. It is only used if
+				  qcom,vph-droop-det is specified. Valid values are 0, 25, 50 and 75.
+				  Unit is mV.
+- qcom,vph-droop-threshold-mv	: Integer property to specify VPH droop threshold. It is only used if
+				  qcom,vph-droop-det is specified. Valid values are
+				  2500 to 3200 with step size of 100. Unit is mV.
+- qcom,vph-droop-debounce-us	: Integer property to specify VPH droop debounce time. It is only used
+				  if qcom,vph-droop-det is specified. Valid values are 0, 8, 16 and 26.
+				  Unit is uS.
+- qcom,led1n2-iclamp-low-ma	: Integer property to specify current clamp low
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led1n2-iclamp-mid-ma	: Integer property to specify current clamp mid
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led3-iclamp-low-ma	: Integer property to specify current clamp low
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led3-iclamp-mid-ma	: Integer property to specify current clamp mid
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,vled-max-uv		: Integer property for flash current predictive mitigation.
+				  Default value is 3500000 uV.
+- qcom,ibatt-ocp-threshold-ua	: Integer property for flash current predictive mitigation.
+				  Default value is 4500000 uA.
+- qcom,rparasitic-uohm		: Integer property for flash current predictive mitigation indicating
+				  parasitic component of battery resistance. Default value is 0 uOhm.
+- qcom,lmh-ocv-threshold-uv	: Required property for flash current preemptive LMH mitigation.
+				  Default value is 3700000 uV.
+- qcom,lmh-rbatt-threshold-uohm	: Required property for flash current preemptive LMH mitigation.
+				  Default value is 400000 uOhm.
+- qcom,lmh-mitigation-sel	: Optional property to configure flash current preemptive LMH mitigation.
+				  Accepted values are:
+				  0: MITIGATION_DISABLED
+				  1: MITIGATION_BY_ILED_THRESHOLD
+				  2: MITIGATION_BY_SW
+				  Default value is 2.
+- qcom,chgr-mitigation-sel	: Optional property to configure flash current preemptive charger mitigation.
+				  Accepted values are:
+				  0: MITIGATION_DISABLED
+				  1: MITIGATION_BY_ILED_THRESHOLD
+				  2: MITIGATION_BY_SW
+				  Default value is 2.
+- qcom,lmh-level		: Optional property to configure flash current preemptive LMH mitigation.
+				  Accepted values are 0, 1, and 3. Default value is 0.
+- qcom,iled-thrsh-ma		: Optional property to configure the led current threshold at which HW
+				  preemptive mitigation is triggered. Unit is mA. Default value is 1000.
+				  Accepted values are in the range 0 - 3100, with steps of 100.
+				  0 disables autonomous HW mitigation.
+- qcom,thermal-derate-en	: Boolean property to enable flash current thermal mitigation.
+- qcom,thermal-derate-current	: Array of currrent limits for thermal mitigation. Required if
+				  qcom,thermal-derate-en is specified. Unit is mA. Format is
+				  qcom,thermal-derate-current = <OTST1_LIMIT, OTST2_LIMIT, OTST3_LIMIT>.
+- qcom,otst-ramp-back-up-dis	: Boolean property to disable current ramp
+				  backup after thermal derate trigger is
+				  deasserted.
+- qcom,thermal-derate-slow	: Integer property to specify slow ramping
+				  down thermal rate. Unit is in uS. Allowed
+				  values are: 128, 256, 512, 1024, 2048, 4096,
+				  8192 and 314592.
+- qcom,thermal-derate-fast	: Integer property to specify fast ramping
+				  down thermal rate. Unit is in uS. Allowed
+				  values are: 32, 64, 96, 128, 256, 384 and
+				  512.
+- qcom,thermal-debounce		: Integer property to specify thermal debounce
+				  time. It is only used if qcom,thermal-derate-en
+				  is specified. Unit is in uS. Allowed values
+				  are: 0, 16, 32, 64.
+- qcom,thermal-hysteresis	: Integer property to specify thermal derating
+				  hysteresis. Unit is in deciDegC. It is only
+				  used if qcom,thermal-derate-en is specified.
+				  Allowed values are:
+				  0, 15, 30, 45 for pmi8998.
+				  0, 20, 40, 60 for pm660l.
+- qcom,thermal-thrsh1		: Integer property to specify OTST1 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  85, 79, 73, 67, 109, 103, 97, 91.
+- qcom,thermal-thrsh2		: Integer property to specify OTST2 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  110, 104, 98, 92, 134, 128, 122, 116.
+- qcom,thermal-thrsh3		: Integer property to specify OTST3 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  125, 119, 113, 107, 149, 143, 137, 131.
+- qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
+			  value, additional GPIO configuration may be required to provide strobing
+			  support. Supported values are:
+			  0: Flash strobe is used for LED1, LED2, LED3
+			  1: Flash strobe is used for LED1, LED2 and GPIO10 is used for LED3
+			  2: Flash strobe is used for LED1; GPIO9 is used for LED2; GPIO10 is used for LED3
+			  For PM8150L/A and its derivatives, supported values are:
+			  0: Flash strobe is used for LED1, LED2, LED3
+			  1: Flash strobe is used for LED1, LED2 and GPIO12 is used for LED3
+- switchX-supply		: phandle of the regulator that needs to be used
+				  as a supply for flash switch_X device.
+- qcom,bst-pwm-ovrhd-uv		: Charger flash VPH overhead. Applicable for PMI632 only.
+				  Supported values (in mV) are: 300, 400, 500, 600. Default is 300.
+
+Child node: Contains settings for each individual LED. Each LED channel needs a flash node and
+torch node for itself, and an individual switch node to serve as an overall switch.
+
+Required Properties:
+- label			: Type of led that will be used, either "flash", "torch", or "switch.
+- qcom,led-name		: Name of the LED.
+- qcom,default-led-trigger	: Trigger for the camera flash and torch. Accepted values are
+			  "flash0_trigger", "flash1_trigger", "flash2_trigger, "torch0_trigger",
+			  "torch1_trigger", "torch2_trigger", and "switch_trigger".
+- qcom,id		: ID for each physical LED equipped. In order to handle situation when
+			  only 1 or 2 LEDs are installed, flash and torch nodes on LED channel 0
+			  should be specified with ID 0; nodes on channel 1 be ID 1, etc. This is
+			  not required for switch node.
+- qcom,max-current	: Maximum current allowed on this LED. Valid values should be
+			  integer from 0 to 1500 inclusive. Flash 2 should have maximum current of
+			  750 per hardware requirement. Unit is mA. For torch, the maximum current
+			  is clamped at 500 mA. This is not required for the switch node.
+- qcom,duration-ms	: Required property for flash nodes but not needed for torch. Integer
+			  type specifying flash duration. Values are from 10ms to 1280ms with
+			  10ms resolution. This is not required for switch node.
+- qcom,led-mask		: Required property for switch nodes. Bitmask to indicate which leds are
+			  controlled by this switch node. Accepted values are in the range 1 to 7,
+			  inclusive. Example:
+			  qcom,led-mask = <4>; /* This switch node controls the flash2/torch2 led. */
+
+Optional properties:
+- qcom,current-ma	: operational current intensity for LED in mA. Accepted values are a
+			  positive integer in the range of 0 to qcom,max-current inclusive.
+- qcom,ires-ua		: Integer type to specify current resolution. Accepted values should be
+			  12500, 10000, 7500, and 5000. Unit is uA.
+- qcom,hdrm-voltage-mv	: Integer type specifying headroom voltage. Values are from 125mV to 500mV
+			  with 25mV resolution. Default setting is 325mV
+- qcom,hdrm-vol-hi-lo-win-mv	: Integer type to specify headroom voltage swing range. Values are
+				  from 0mV to 375mV with 25mV resolution. Default setting is 100mV.
+- pinctrl-names		: Name of the pinctrl configuration that will be used when external GPIOs
+			  are used for enabling/disabling, HW strobing of flash LEDs. For more
+			  information on using pinctrl, please refer
+			  Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt
+                          Following are the pinctrl configs that can be specified:
+                          "led_enable" : pinctrl config to enable led. This should specify the active
+                          configuration defined for each pin or pin group.
+                          "led_disable" : pinctrl config to disable led. This should specify the sleep
+                          configuration defined for each pin or pin group.
+                          "strobe_enable" : pinctrl config to enable hw-strobe. This should specify the
+                          active configuration defined for each pin or pin group.
+                          "strobe_disable" : pinctrl config to disable hw-strobe. This should specify the
+                          sleep configuration defined for each pin or pin group.
+- qcom,hw-strobe-gpio	: phandle to specify GPIO for hardware strobing. This is used when there is no
+			  pinctrl support or PMIC GPIOs are used.
+- qcom,strobe-sel	: Property to select strobe type. If not defined,
+			  software strobe will be used. Allowed options are:
+			  0 - SW strobe
+			  1 - HW strobe
+			  2 - LPG strobe
+			  LPG strobe is supported only for LED3.
+			  If LPG strobe is specified, then strobe control is
+			  configured for active high and level triggered. Also
+			  qcom,hw-strobe-option should be set to 1 or 2.
+- qcom,hw-strobe-edge-trigger	: Boolean property to select trigger type. If defined, hw-strobe is set to
+				  be edge triggered. Otherwise, it is level triggered.
+- qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
+				  signal polarity is set to active-low, else it is active-high.
+- qcom,symmetry-en	: Boolean property to specify if the flash LEDs under a
+			  switch node are controlled symmetrically. This needs
+			  to be specified if a group of flash LED channels are
+			  connected to a single LED.
+Example:
+	qcom,leds@d300 {
+		compatible = "qcom,pm6150l-flash-led-v2";
+		status = "okay";
+		reg = <0xd300 0x100>;
+		label = "flash";
+		interrupts = <0x3 0xd3 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x2 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x3 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x4 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x5 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x6 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x7 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "led-fault-irq",
+				"mitigation-irq",
+				"flash-timer-exp-irq",
+				"all-ramp-down-done-irq",
+				"all-ramp-up-done-irq",
+				"led3-ramp-up-done-irq",
+				"led2-ramp-up-done-irq",
+				"led1-ramp-up-done-irq";
+
+		qcom,hdrm-auto-mode;
+		qcom,isc-delay = <192>;
+		switch0-supply = <&pmi8998_bob>;
+
+		pmi8998_flash0: qcom,flash_0 {
+			label = "flash";
+			qcom,led-name = "led:flash_0";
+			qcom,max-current = <1500>;
+			qcom,default-led-trigger =
+						"flash0_trigger";
+			qcom,id = <0>;
+			qcom,current-ma = <1000>;
+			qcom,duration-ms = <1280>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_flash1: qcom,flash_1 {
+			label = "flash";
+			qcom,led-name = "led:flash_1";
+			qcom,max-current = <1500>;
+			qcom,default-led-trigger =
+						"flash1_trigger";
+			qcom,id = <1>;
+			qcom,current-ma = <1000>;
+			qcom,duration-ms = <1280>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_flash2: qcom,flash_2 {
+			label = "flash";
+			qcom,led-name = "led:flash_2";
+			qcom,max-current = <750>;
+			qcom,default-led-trigger =
+						"flash2_trigger";
+			qcom,id = <2>;
+			qcom,current-ma = <500>;
+			qcom,duration-ms = <1280>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			pinctrl-names = "led_enable","led_disable";
+			pinctrl-0 = <&led_enable>;
+			pinctrl-1 = <&led_disable>;
+		};
+
+		pmi8998_torch0: qcom,torch_0 {
+			label = "torch";
+			qcom,led-name = "led:torch_0";
+			qcom,max-current = <500>;
+			qcom,default-led-trigger =
+						"torch0_trigger";
+			qcom,id = <0>;
+			qcom,current-ma = <300>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_torch1: qcom,torch_1 {
+			label = "torch";
+			qcom,led-name = "led:torch_1";
+			qcom,max-current = <500>;
+			qcom,default-led-trigger =
+						"torch1_trigger";
+			qcom,id = <1>;
+			qcom,current-ma = <300>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_torch2: qcom,torch_2 {
+			label = "torch";
+			qcom,led-name = "led:torch_2";
+			qcom,max-current = <500>;
+			qcom,default-led-trigger =
+						"torch2_trigger";
+			qcom,id = <2>;
+			qcom,current-ma = <300>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			pinctrl-names = "led_enable","led_disable";
+			pinctrl-0 = <&led_enable>;
+			pinctrl-1 = <&led_disable>;
+		};
+
+		pmi8998_switch0: qcom,led_switch_0 {
+			label = "switch";
+			qcom,led-name = "led:switch_0";
+			qcom,led-mask = <3>;
+			qcom,default-led-trigger =
+						"switch0_trigger";
+			qcom,symmetry-en;
+		};
+
+		pmi8998_switch1: qcom,led_switch_1 {
+			label = "switch";
+			qcom,led-name = "led:switch_1";
+			qcom,led-mask = <4>;
+			qcom,default-led-trigger =
+						"switch1_trigger";
+		};
+	};
+

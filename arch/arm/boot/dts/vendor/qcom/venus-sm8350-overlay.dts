@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "venus-sm8350.dtsi"
+
+/ {
+	model = "Venus based on Qualcomm Technologies, Inc SM8350";
+	compatible = "qcom,lahaina-mtp", "qcom,lahaina", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+	xiaomi,board-id = <0x3 0>;
+};

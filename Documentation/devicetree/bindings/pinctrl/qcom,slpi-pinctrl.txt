@@ -1,0 +1,129 @@
+Qualcomm Technologies, Inc. SLPI Pin controller driver
+
+This DT bindings describes the Pin controller driver
+being added for supporting SLPI (Sensor Low Power Island) TLMM
+from QTI chipsets.
+
+Following properties are for SLPI Pin controller device main node.
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,slpi-pinctrl"
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Base address and size of the SLPI TLMM register space.
+
+- qcom,num-pins:
+	Usage: required
+	Value type: <u32>
+	Definition: Number of PINs supported by the SLPI TLMM.
+
+- clock-names: Should be "ssc-clk"
+
+- clocks: Handles to clocks specified in "clock-names" property.
+
+Please refer to pinctrl-bindings.txt in this directory for details of the
+common pinctrl bindings used by client devices, including the meaning of the
+phrase "pin configuration node".
+
+The pin configuration nodes act as a container for an arbitrary number of
+subnodes. Each of these subnodes represents some desired configuration for a
+pin or a list of pins. This configuration can include the
+mux function to select on those pin(s), and various pin configuration
+parameters, as listed below.
+
+SUBNODES:
+
+The name of each subnode is not important; all subnodes should be enumerated
+and processed purely based on their content.
+
+Each subnode only affects those parameters that are explicitly listed. In
+other words, a subnode that lists a mux function but no pin configuration
+parameters implies no information about any pin configuration parameters.
+Similarly, a pin subnode that describes a pullup parameter implies no
+information about e.g. the mux function.
+
+The following generic properties as defined in pinctrl-bindings.txt are valid
+to specify in a pin configuration subnode:
+
+- pins:
+	Usage: required
+	Value type: <string-array>
+	Definition: List of gpio pins affected by the properties specified in
+		    this subnode.  Valid pins are: gpio0-gpio31 for LPI.
+
+- function:
+	Usage: required
+	Value type: <string>
+	Definition: Specify the alternative function to be configured for the
+		    specified pins. Valid values are:
+			"gpio",
+			"func1",
+			"func2",
+			"func3",
+			"func4",
+			"func5"
+
+- bias-disable:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configured as no pull.
+
+- bias-pull-down:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configured as pull down.
+
+- bias-bus-hold:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configured as bus-keeper mode.
+
+- bias-pull-up:
+	Usage: optional
+	Value type: <empty>
+	Definition: The specified pins should be configured as pull up.
+
+- qcom,drive-strength:
+	Usage: optional
+	Value type: <u32>
+	Definition: Selects the drive strength for the specified pins.
+
+Example:
+
+	slpi_tlmm: slpi_pinctrl@02b40000 {
+		compatible = "qcom,slpi-pinctrl";
+		qcom,num-pins = <14>;
+		clock-names = "ssc-clk";
+		clocks =  <&clock_scc SCC_QUPV3_S_HCLK_CLK>;
+		reg = <0x02b40000 0x20000>;
+
+		slpi_mclk0_active: slpi_mclk0_active {
+			mux {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+
+		slpi_mclk0_sleep: slpi_mclk0_sleep {
+			mux {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+	};

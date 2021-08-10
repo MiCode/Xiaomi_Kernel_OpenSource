@@ -1,0 +1,495 @@
+#include "lahaina-sde-display-common.dtsi"
+#include <dt-bindings/clock/qcom,dispcc-lahaina.h>
+
+/*
+&tlmm {
+	display_panel_avdd_default: display_panel_avdd_default {
+		mux {
+			pins = "gpio12";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-high;
+		};
+	};
+};*/
+
+&soc {
+	display_panel_avdd: display_gpio_regulator@1 {
+		compatible = "qti-regulator-fixed";
+		regulator-name = "display_panel_avdd";
+		regulator-min-microvolt = <5500000>;
+		regulator-max-microvolt = <5500000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 12 0>;
+		enable-active-high;
+		regulator-boot-on;
+		proxy-supply = <&display_panel_avdd>;
+		qcom,proxy-consumer-enable;
+		pinctrl-names = "default";
+		//pinctrl-0 = <&display_panel_avdd_default>;
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+};
+
+&sde_dsi {
+	clocks = <&mdss_dsi_phy0 BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi_phy0 PCLK_MUX_0_CLK>,
+			 <&mdss_dsi_phy0 CPHY_BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 CPHY_PCLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 PCLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 SHADOW_BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 SHADOW_PCLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 SHADOW_CPHY_BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy0 SHADOW_CPHY_PCLK_SRC_0_CLK>,
+			 <&mdss_dsi_phy1 BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi_phy1 PCLK_MUX_1_CLK>,
+			 <&mdss_dsi_phy1 CPHY_BYTECLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 CPHY_PCLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 BYTECLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 PCLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 SHADOW_BYTECLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 SHADOW_PCLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 SHADOW_CPHY_BYTECLK_SRC_1_CLK>,
+			 <&mdss_dsi_phy1 SHADOW_CPHY_PCLK_SRC_1_CLK>,
+			 /*
+			  * Currently the dsi clock handles are under the dsi
+			  * controller DT node. As soon as the controller probe
+			  * finishes, the dispcc sync state can get called before
+			  * the dsi_display probe potentially disturbing the clock
+			  * votes for cont_splash use case. Hence we are no longer
+			  * protected by the component model in this case against the
+			  * disp cc sync state getting triggered after the dsi_ctrl
+			  * probe. To protect against this incorrect sync state trigger
+			  * add this dummy MDP clk vote handle to the dsi_display
+			  * DT node. Since the dsi_display driver does not parse
+			  * MDP clock nodes, no actual vote shall be added and this
+			  * change is done just to satisfy sync state requirements.
+			  */
+			 <&clock_dispcc DISP_CC_MDSS_MDP_CLK>;
+	clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"cphy_byte_clk0", "cphy_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0",
+			"shadow_cphybyte_clk0", "shadow_cphypixel_clk0",
+			"mux_byte_clk1", "mux_pixel_clk1",
+			"cphy_byte_clk1", "cphy_pixel_clk1",
+			"src_byte_clk1", "src_pixel_clk1",
+			"shadow_byte_clk1", "shadow_pixel_clk1",
+			"shadow_cphybyte_clk1", "shadow_cphypixel_clk1",
+			"mdp_core_clk";
+
+	pinctrl-names = "panel_active", "panel_suspend";
+	pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+	pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 82 0>;
+	qcom,panel-te-source = <0>;
+
+	vddio-supply = <&L12C>;
+	vdd-supply = <&L13C>;
+	avdd-supply = <&display_panel_avdd>;
+	lab-supply = <&ab_vreg>;
+	ibb-supply = <&ibb_vreg>;
+};
+
+&sde_dsi1 {
+	clocks = <&mdss_dsi_phy0 BYTECLK_MUX_0_CLK>,
+		 <&mdss_dsi_phy0 PCLK_MUX_0_CLK>,
+		 <&mdss_dsi_phy0 CPHY_BYTECLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy0 CPHY_PCLK_SRC_0_CLK>,
+		 <&mdss_dsi_phy1 BYTECLK_MUX_1_CLK>,
+		 <&mdss_dsi_phy1 PCLK_MUX_1_CLK>,
+		 <&mdss_dsi_phy1 CPHY_BYTECLK_SRC_1_CLK>,
+		 <&mdss_dsi_phy1 CPHY_PCLK_SRC_1_CLK>,
+		 /*
+		  * Currently the dsi clock handles are under the dsi
+		  * controller DT node. As soon as the controller probe
+		  * finishes, the dispcc sync state can get called before
+		  * the dsi_display probe potentially disturbing the clock
+		  * votes for cont_splash use case. Hence we are no longer
+		  * protected by the component model in this case against the
+		  * disp cc sync state getting triggered after the dsi_ctrl
+		  * probe. To protect against this incorrect sync state trigger
+		  * add this dummy MDP clk vote handle to the dsi_display
+		  * DT node. Since the dsi_display driver does not parse
+		  * MDP clock nodes, no actual vote shall be added and this
+		  * change is done just to satisfy sync state requirements.
+		  */
+		 <&clock_dispcc DISP_CC_MDSS_MDP_CLK>;
+	clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"cphy_byte_clk0", "cphy_pixel_clk0",
+			"mux_byte_clk1", "mux_pixel_clk1",
+			"cphy_byte_clk1", "cphy_pixel_clk1",
+			"mdp_core_clk";
+
+	pinctrl-names = "panel_active", "panel_suspend";
+	pinctrl-0 = <&sde_dsi1_active &sde_te1_active>;
+	pinctrl-1 = <&sde_dsi1_suspend &sde_te1_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 83 0>;
+	qcom,panel-te-source = <1>;
+
+	vddio-supply = <&L12C>;
+	vdd-supply = <&L13C>;
+	avdd-supply = <&display_panel_avdd>;
+};
+
+&mdss_mdp {
+	connectors = <&smmu_sde_unsec &smmu_sde_sec &sde_dp &sde_wb &sde_dsi
+		&sde_dsi1 &sde_rscc>;
+};
+
+&dsi_sw43404_amoled_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <720 180 180 180 1440 180>;
+		};
+	};
+};
+
+&dsi_r66451_amoled_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_r66451_amoled_144hz_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_sharp_4k_dsc_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_sharp_1080_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_sharp_qsync_wqhd_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 { /* WQHD 60FPS CMD */
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <720 8 8 8 1440 8>;
+		};
+		timing@2 { /* FHD 60FPS CMD */
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <540 8 8 8 1080 8>;
+		};
+		timing@3 { /* WQHD 90FPS CMD */
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <720 8 8 8 1440 8>;
+		};
+		timing@4 { /* WQHD 120FPS CMD */
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <720 8 8 8 1440 8>;
+		};
+		timing@6 { /* FHD 120FPS CMD */
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <540 8 8 8 1080 8>;
+		};
+		timing@7 { /* FHD 90FPS CMD */
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <540 8 8 8 1080 8>;
+		};
+	};
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_sim_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 { /* WQHD 60FPS cmd mode*/
+			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+		timing@2 { /* WQHD 60FPS cmd mode*/
+			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+		timing@3 { /* FHD 60FPS cmd mode*/
+			qcom,panel-roi-alignment = <540 40 540 40 540 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+		timing@4 { /* HD 60FPS cmd mode*/
+			qcom,panel-roi-alignment = <360 40 360 40 360 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+	};
+};
+
+&dsi_sim_dsc_375_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_sim_dsc_10b_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_dual_sim_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_dual_sim_dsc_375_cmd {
+	qcom,ulps-enabled;
+};
+
+&dsi_k2_38_08_0a_dsc_cmd {
+	qcom,ulps-enabled;
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+	qcom,mdss-dsi-clk-strength = <0x65>;
+	qcom,mdss-dsi-display-timings {
+		/* 120 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 60 Hz */
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_k2_38_08_0a_mp_dsc_cmd {
+	//qcom,ulps-enabled;
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+	qcom,mdss-dsi-clk-strength = <0x65>;
+	qcom,mdss-dsi-display-timings {
+		/* 120 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 60 Hz */
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 90 Hz */
+		timing@2{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_k2b_38_08_0a_dsc_cmd {
+	//qcom,ulps-enabled;
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+	qcom,mdss-dsi-clk-strength = <0x65>;
+	qcom,mdss-dsi-display-timings {
+		/* 120 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 60 Hz */
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 90 Hz */
+		timing@2{
+			qcom,mdss-dsi-panel-phy-timings = [00 2B 0C 0C 1C 1A 0C
+				0C 0B 02 04 00 24 11];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_k11_38_08_0a_dsc_cmd {
+	//qcom,ulps-enabled;
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+	qcom,mdss-dsi-clk-strength = <0x65>;
+	qcom,mdss-dsi-display-timings {
+		/* 120 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 1A 19 09
+				0A 09 02 04 00 1E 0F];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 60 Hz */
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 1A 19 09
+				0A 09 02 04 00 1E 0F];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_j18_42_06_0a_prim_dsc_cmd {
+	/*qcom,ulps-enabled;*/
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+	qcom,mdss-dsi-clk-strength = <0x65>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1C 07 07 17 22 07
+				07 08 02 04 00 18 0C];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 1C 07 07 17 22 07
+				07 08 02 04 00 18 0C];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_j18_42_06_0a_sec_dsc_cmd {
+	/*qcom,ulps-enabled;*/
+	qcom,dsi-select-sec-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+	qcom,mdss-dsi-clk-strength = <0x65>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 17 06 05 15 20 06
+				06 07 02 04 00 15 0A];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 17 06 05 15 20 06
+				06 07 02 04 00 15 0A];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_sec_hd_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+	};
+};
+
+&dsi_prim_sim_vid {
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 57 17 17 2E 33 16
+			    17 14 02 04 43 1B 00];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sec_sim_vid {
+	qcom,dsi-select-sec-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [01 09 01 01 0E 1B 01
+				01 02 02 04 00 08 06];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_k1_43_06_00_sec_cmd {
+	//qcom,ulps-enabled;
+	qcom,dsi-select-sec-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+	//qcom,mdss-dsi-clk-strength = <0xFF>;
+	qcom,mdss-dsi-display-timings {
+		/* 60 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [03 08 00 01 0E 1B 01
+				01 01 02 02 04 08 06];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_k1_43_06_00_sec_video {
+	//qcom,ulps-enabled;
+	qcom,dsi-select-sec-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+	//qcom,mdss-dsi-clk-strength = <0xFF>;
+	qcom,mdss-dsi-display-timings {
+		/* 60 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [03 08 00 01 0E 1B 01
+				01 01 02 02 04 08 06];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_k8_42_02_0a_dsc_cmd {
+	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+	qcom,mdss-dsi-clk-strength = <0x65>;
+
+	qcom,mdss-dsi-display-timings {
+		/* 60 Hz */
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 1A 19 09
+				0A 09 02 04 00 1E 0F];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 90 Hz */
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 1A 19 09
+				0A 09 02 04 00 1E 0F];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		/* 120 Hz */
+		timing@2{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 1A 19 09
+				0A 09 02 04 00 1E 0F];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+
+	};
+};

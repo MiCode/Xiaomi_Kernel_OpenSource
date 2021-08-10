@@ -1,0 +1,40 @@
+Qualcomm Technologies, Inc. GENI Serial Engine Driver
+
+GENI Serial Engine Driver is used to configure and read the configuration
+from the Serial Engines on Qualcomm Technologies, Inc. Universal Peripheral
+(QUPv3) core. It is also used to enable the stage1 IOMMU translation and
+manage resources associated with the QUPv3 core.
+
+Required properties:
+- compatible:		Must be "qcom,qupv3-geni-se".
+- reg:			Must contain QUPv3 register address and length.
+- qcom,bus-mas-id:	Master Endpoint ID for bus driver.
+- qcom,bus-slv-id:	Slave Endpoint ID for bus driver.
+
+Optional properties:
+- qcom,iommu-s1-bypass:	Boolean flag to bypass IOMMU stage 1 translation.
+- qcom,msm-bus,num-paths: Number of paths to put vote for.
+- qcom,msm-bus,vectors-bus-ids: Master and slave Endpoint IDs for DDR
+				and Corex/2x paths.
+
+Optional subnodes:
+qcom,iommu_qupv3_geni_se_cb:	Child node representing the QUPV3 context
+				bank.
+
+Subnode Required properties:
+- compatible :		Must be "qcom,qupv3-geni-se-cb";
+- iommus:		A list of phandle and IOMMU specifier pairs that
+			describe the IOMMU master interfaces of the device.
+
+Example:
+	qupv3_0: qcom,qupv3_0_geni_se@8c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x8c0000 0x6000>;
+		qcom,bus-mas-id = <100>;
+		qcom,bus-slv-id = <300>;
+
+		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x1 0x0>;
+		};
+	}

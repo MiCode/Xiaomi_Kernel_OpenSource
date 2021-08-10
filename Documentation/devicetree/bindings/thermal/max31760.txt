@@ -1,0 +1,25 @@
+Bindings for the Maxim MAX31760 Intelligent Fan Controller
+==========================================================
+
+The Maxim MAX31760 is a i2c device and will register as a cooling device.
+MAX31760 fan controller supports different PWM frequencies, which can be
+used as cooling device levels by controlling the fan speed.
+
+Required properties:
+- compatible         : should be "maxim,max31760".
+- reg                : I2C address, 0x50.
+
+Optional properties:
+- maxim,vdd-supply   : regulator supplying the vdd pin
+- maxim,vcca-supply  : regulator supplying the vcca pin
+- maxim,fan_en_gpio  : fan enable gpio
+
+Example:
+	max31760@50 {
+		compatible = "maxim,max31760";
+		reg = <0x50>;
+		maxim,vdd-supply = <&some_reg>;
+		regulator-names = "maxim,vdd";
+		maxim,vcca-supply = <&some_reg>;
+		maxim,fan_en_gpio = <&tlmm 10 0x00>;
+	};

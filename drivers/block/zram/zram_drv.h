@@ -2,6 +2,7 @@
  * Compressed RAM block device
  *
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
+ * Copyright (C) 2021 XiaoMi, Inc.
  *               2012, 2013 Minchan Kim
  *
  * This code is released using a dual license strategy: BSD/GPL
@@ -39,7 +40,7 @@
  * The lower ZRAM_FLAG_SHIFT bits is for object size (excluding header),
  * the higher bits is for zram_pageflags.
  */
-#define ZRAM_FLAG_SHIFT 24
+#define ZRAM_FLAG_SHIFT (PAGE_SHIFT + 1)
 
 /* Flags for zram pages (table[page_no].flags) */
 enum zram_pageflags {
@@ -53,6 +54,15 @@ enum zram_pageflags {
 
 	__NR_ZRAM_PAGEFLAGS,
 };
+
+#define ZRAM_WB_IDLE_SHIFT (__NR_ZRAM_PAGEFLAGS)
+
+#define ZRAM_WB_IDLE_BITS_LEN (4U)
+
+#define ZRAM_WB_IDLE_MIN (1U)
+#define ZRAM_WB_IDLE_MAX (10U)
+
+#define ZRAM_WB_IDLE_DEFAULT ZRAM_WB_IDLE_MIN
 
 /*-- Data structures */
 
@@ -82,7 +92,7 @@ struct zram_stats {
 	atomic_long_t max_used_pages;	/* no. of maximum pages stored */
 	atomic64_t writestall;		/* no. of write slow paths */
 	atomic64_t miss_free;		/* no. of missed free */
-#ifdef	CONFIG_ZRAM_WRITEBACK
+#if defined(CONFIG_ZRAM_WRITEBACK) || defined(CONFIG_RTMM)
 	atomic64_t bd_count;		/* no. of pages in backing device */
 	atomic64_t bd_reads;		/* no. of reads from backing device */
 	atomic64_t bd_writes;		/* no. of writes from backing device */
@@ -113,7 +123,7 @@ struct zram {
 	 */
 	bool claim; /* Protected by bdev->bd_mutex */
 	struct file *backing_dev;
-#ifdef CONFIG_ZRAM_WRITEBACK
+#if defined(CONFIG_ZRAM_WRITEBACK) || defined(CONFIG_RTMM)
 	spinlock_t wb_limit_lock;
 	bool wb_limit_enable;
 	u64 bd_wb_limit;

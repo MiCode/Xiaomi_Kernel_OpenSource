@@ -1,0 +1,28 @@
+* Qualcomm Technologies, Inc. MSM Camera Custom HW
+
+Camera Custom device provides the definitions for enabling
+the custom hardware. It also provides the functions for the client
+to control the Custom hardware.
+
+=======================
+Required Node Structure
+=======================
+The Custom device is described in one level of the device node.
+
+======================================
+First Level Node - CAM Custom device
+======================================
+Required properties:
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the compatibility string for matching the
+	driver. e.g. "qcom,cam_custom_hw_sub_mod".
+
+Example:
+
+	qcom,cam-custom-hw {
+		compatible = "qcom,cam_custom_hw_sub_mod";
+		arch-compat = "custom";
+		status = "ok";
+	};

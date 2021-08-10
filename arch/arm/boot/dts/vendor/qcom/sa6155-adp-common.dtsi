@@ -1,0 +1,173 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include "sa6155-cnss.dtsi"
+
+&qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se6_spi {
+	status = "ok";
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <40 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&soc {
+	qcom,lpass@62400000 {
+	status = "ok";
+	};
+
+	qcom,venus@aae0000 {
+	status = "ok";
+	};
+
+	qcom,turing@8300000 {
+	status = "ok";
+	};
+
+	mtl_rx_setup: rx-queues-config {
+		snps,rx-queues-to-use = <4>;
+		snps,rx-sched-sp;
+
+		queue0 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x0>;
+			snps,route-up;
+			snps,priority = <0x1>;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x1>;
+			snps,route-ptp;
+		};
+
+		queue2 {
+			snps,avb-algorithm;
+			snps,map-to-dma-channel = <0x2>;
+			snps,route-avcp;
+		};
+
+		queue3 {
+			snps,avb-algorithm;
+			snps,map-to-dma-channel = <0x3>;
+			snps,priority = <0xC>;
+		};
+	};
+
+	mtl_tx_setup: tx-queues-config {
+		snps,tx-queues-to-use = <4>;
+		snps,tx-sched-sp;
+		queue0 {
+			snps,dcb-algorithm;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+		};
+
+		queue2 {
+			snps,avb-algorithm;
+			snps,send_slope = <0x1000>;
+			snps,idle_slope = <0x1000>;
+			snps,high_credit = <0x3E800>;
+			snps,low_credit = <0xFFC18000>;
+		};
+
+		queue3 {
+			snps,avb-algorithm;
+			snps,send_slope = <0x1000>;
+			snps,idle_slope = <0x1000>;
+			snps,high_credit = <0x3E800>;
+			snps,low_credit = <0xFFC18000>;
+		};
+	};
+
+	ethqos_hw: qcom,ethernet@00020000 {
+		compatible = "qcom,stmmac-ethqos";
+		qcom,arm-smmu;
+		emac-core-version = <0x20030001>;
+		reg = <0x20000 0x10000>,
+			<0x36000 0x100>,
+			<0x3D00000 0x300000>;
+		reg-names = "stmmaceth", "rgmii","tlmm-central-base";
+		clocks = <&gcc GCC_EMAC_AXI_CLK>,
+			<&gcc GCC_EMAC_SLV_AHB_CLK>,
+			<&gcc GCC_EMAC_PTP_CLK>,
+			<&gcc GCC_EMAC_RGMII_CLK>;
+		clock-names = "stmmaceth", "pclk", "ptp_ref", "rgmii";
+		snps,ptp-ref-clk-rate = <250000000>;
+		snps,ptp-req-clk-rate = <96000000>;
+		interrupts-extended = <&intc 0 660 4>, <&intc 0 700 4>,
+			<&tlmm 121 2>;
+		interrupt-names = "macirq", "eth_lpi",
+			"phy-intr";
+
+		snps,tso;
+		snps,pbl = <32>;
+		rx-fifo-depth = <16384>;
+		tx-fifo-depth = <20480>;
+		snps,mtl-rx-config = <&mtl_rx_setup>;
+		snps,mtl-tx-config = <&mtl_tx_setup>;
+		snps,reset-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
+		qcom,phy-intr-redirect = <&tlmm 121 GPIO_ACTIVE_LOW>;
+		gdsc_emac-supply = <&emac_gdsc>;
+
+		pinctrl-names = "dev-emac-mdc",
+			"dev-emac-mdio",
+			"dev-emac-rgmii_txd0_state",
+			"dev-emac-rgmii_txd1_state",
+			"dev-emac-rgmii_txd2_state",
+			"dev-emac-rgmii_txd3_state",
+			"dev-emac-rgmii_txc_state",
+			"dev-emac-rgmii_tx_ctl_state",
+			"dev-emac-rgmii_rxd0_state",
+			"dev-emac-rgmii_rxd1_state",
+			"dev-emac-rgmii_rxd2_state",
+			"dev-emac-rgmii_rxd3_state",
+			"dev-emac-rgmii_rxc_state",
+			"dev-emac-rgmii_rx_ctl_state",
+			"dev-emac-phy_intr",
+			"dev-emac-phy_reset_state",
+			"dev-emac_pin_pps_0";
+
+		pinctrl-0 = <&emac_mdc>;
+		pinctrl-1 = <&emac_mdio>;
+
+		pinctrl-2 = <&emac_rgmii_txd0>;
+		pinctrl-3 = <&emac_rgmii_txd1>;
+		pinctrl-4 = <&emac_rgmii_txd2>;
+		pinctrl-5 = <&emac_rgmii_txd3>;
+		pinctrl-6 = <&emac_rgmii_txc>;
+		pinctrl-7 = <&emac_rgmii_tx_ctl>;
+
+		pinctrl-8 = <&emac_rgmii_rxd0>;
+		pinctrl-9 = <&emac_rgmii_rxd1>;
+		pinctrl-10 = <&emac_rgmii_rxd2>;
+		pinctrl-11 = <&emac_rgmii_rxd3>;
+		pinctrl-12 = <&emac_rgmii_rxc>;
+		pinctrl-13 = <&emac_rgmii_rx_ctl>;
+
+		pinctrl-14 = <&emac_phy_intr>;
+		pinctrl-15 = <&emac_phy_reset_state>;
+		pinctrl-16 = <&emac_pin_pps_0>;
+
+		snps,reset-delays-us = <0 11000 70000>;
+		phy-mode = "rgmii";
+		ethqos_emb_smmu: ethqos_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			iommus = <&apps_smmu 0x1C0 0x0>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-dma-addr-pool = <0x80000000 0x40000000>;
+		};
+	};
+};

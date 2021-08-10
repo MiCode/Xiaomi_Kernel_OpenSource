@@ -1,0 +1,19 @@
+&soc {
+};
+
+&qupv3_se13_i2c {
+	status = "ok";
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		novatek,trusted-touch-mode = "vm_mode";
+		novatek,touch-environment = "tvm";
+		novatek,trusted-touch-spi-irq = <601>;
+		novatek,trusted-touch-io-bases = <0xf134000 0xf135000 0xf169000 0xf151000 0xa94000 0x00a10000>;
+		novatek,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+	};
+};
+
+&qupv3_se13_spi {
+	status = "disabled";
+};

@@ -27,7 +27,6 @@
 #include <linux/poll.h>
 #include <linux/timekeeping.h>
 #include <uapi/linux/gpio.h>
-
 #include "gpiolib.h"
 #include "gpiolib-of.h"
 #include "gpiolib-acpi.h"
@@ -1287,7 +1286,7 @@ int gpiochip_add_data_with_key(struct gpio_chip *chip, void *data,
 	if (chip->parent) {
 		gdev->dev.parent = chip->parent;
 		gdev->dev.of_node = chip->parent->of_node;
-	}
+}
 
 #ifdef CONFIG_OF_GPIO
 	/* If the gpiochip has an assigned OF node this takes precedence */
@@ -1629,6 +1628,7 @@ static struct gpio_chip *find_chip_by_name(const char *name)
 {
 	return gpiochip_find((void *)name, gpiochip_match_name);
 }
+
 
 #ifdef CONFIG_GPIOLIB_IRQCHIP
 
@@ -4948,6 +4948,7 @@ static int __init gpiolib_dev_init(void)
 		gpiolib_initialized = true;
 		gpiochip_setup_devs();
 	}
+
 	return ret;
 }
 core_initcall(gpiolib_dev_init);

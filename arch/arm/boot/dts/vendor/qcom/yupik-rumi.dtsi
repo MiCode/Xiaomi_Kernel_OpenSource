@@ -1,0 +1,200 @@
+#include <dt-bindings/clock/qcom,gcc-yupik.h>
+#include <dt-bindings/gpio/gpio.h>
+&soc {
+	timer {
+		clock-frequency = <5000000>;
+	};
+
+	timer@17c20000 {
+		clock-frequency = <5000000>;
+	};
+
+	wdog: qcom,wdt@17c10000 {
+		status = "disabled";
+	};
+
+	usb_emu_phy_0: usb_emu_phy@a720000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a720000 0x9500>;
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	usb_emu_phy_1: usb_emu_phy@8c0e000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x08c0e000 0x9500>;
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	bi_tcxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <4>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	bi_tcxo_ao: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <4>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+};
+
+&pil_wpss {
+	clocks = <&bi_tcxo>;
+};
+
+&usb0 {
+	/delete-property/ extcon;
+	dwc3@a600000 {
+		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};
+
+&usb1 {
+	/delete-property/ extcon;
+	dwc3@8c00000 {
+		usb-phy = <&usb_emu_phy_1>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};
+
+&sdhc_1 {
+	status = "disabled";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+
+	vdd-supply = <&L7B>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L19B>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	cap-mmc-highspeed;
+};
+
+&sdhc_2 {
+	status = "disabled";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	vdd-supply = <&L9C>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6C>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	cap-sd-highspeed;
+
+	cd-gpios = <&tlmm 91 GPIO_ACTIVE_LOW>;
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&L10C>;
+	vdda-pll-supply = <&L6B>;
+	vdda-phy-max-microamp = <97100>;
+	vdda-pll-max-microamp = <18400>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+
+	vcc-supply = <&L7B>;
+	vcc-max-microamp = <800000>;
+
+	vccq-supply = <&L9B>;
+	vccq-max-microamp = <900000>;
+
+	qcom,vddp-ref-clk-supply = <&L9B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+
+	status = "ok";
+};
+
+/* Debug UART console */
+&qupv3_se5_2uart {
+	qcom,rumi_platform;
+};
+
+&rpmhcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "rpmhcc_clocks";
+};
+
+&gcc {
+	clocks = <&bi_tcxo>,
+		<&sleep_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+};
+
+&gpucc {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPU_GPLL0_CLK_SRC>,
+		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>, <&gcc GCC_GPU_CFG_AHB_CLK>;
+};
+
+&videocc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>, <&gcc GCC_VIDEO_AHB_CLK>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>, <&gcc GCC_CAMERA_AHB_CLK>;
+};
+
+&cpufreq_hw {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
+	status = "disabled";
+};
+
+&dispcc {
+	clocks = <&bi_tcxo>, <&gcc GCC_DISP_GPLL0_CLK_SRC>,
+		<&gcc GCC_DISP_AHB_CLK>;
+};
+
+&debugcc {
+	clocks = <&bi_tcxo>;
+};

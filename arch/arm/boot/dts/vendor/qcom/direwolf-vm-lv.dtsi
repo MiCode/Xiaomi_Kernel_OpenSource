@@ -1,0 +1,20 @@
+&hab {
+	vmid = <3>;
+};
+
+&reserved_memory {
+	pmem_shared: pmem_shared_region {
+		reg = <0x1 0x66500000 0x0 0x51400000>;
+		label = "pmem_shared_mem";
+	};
+};
+
+#include "display/direwolf-vm-lv-display.dtsi"
+
+&usb0 {
+	status = "okay";
+};
+
+&usb2_phy0 {
+	status = "okay";
+};

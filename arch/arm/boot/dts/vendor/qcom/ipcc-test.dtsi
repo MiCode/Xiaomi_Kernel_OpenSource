@@ -1,0 +1,31 @@
+#include <dt-bindings/soc/qcom,ipcc.h>
+
+&soc {
+	ipcc_self_ping_apss: ipcc-self-ping-apss {
+		compatible = "qcom,ipcc-self-ping";
+		interrupts-extended = <&ipcc_mproc IPCC_CLIENT_APSS
+			IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_APSS IPCC_MPROC_SIGNAL_SMP2P>;
+	};
+
+	ipcc_self_ping_cdsp: ipcc-self-ping-cdsp {
+		compatible = "qcom,ipcc-self-ping";
+		interrupts-extended = <&ipcc_mproc IPCC_CLIENT_CDSP
+				IPCC_MPROC_SIGNAL_PING IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_CDSP IPCC_MPROC_SIGNAL_PING>;
+	};
+
+	ipcc_self_ping_adsp: ipcc-self-ping-adsp {
+		compatible = "qcom,ipcc-self-ping";
+		interrupts-extended = <&ipcc_mproc IPCC_CLIENT_LPASS
+				IPCC_MPROC_SIGNAL_PING IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_LPASS IPCC_MPROC_SIGNAL_PING>;
+	};
+
+	ipcc_self_ping_slpi: ipcc-self-ping-slpi {
+		compatible = "qcom,ipcc-self-ping";
+		interrupts-extended = <&ipcc_mproc IPCC_CLIENT_SLPI
+				IPCC_MPROC_SIGNAL_PING IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_SLPI IPCC_MPROC_SIGNAL_PING>;
+	};
+};

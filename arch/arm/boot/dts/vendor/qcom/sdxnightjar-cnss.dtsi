@@ -1,0 +1,41 @@
+
+&soc {
+	cnss_pcie: qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-en-gpio = <&tlmm_pinmux 95 0>;
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-xtal-supply = <&pmd9650_l5>;
+		vdd-wlan-io-supply = <&pmd9650_l6>;
+		vdd-wlan-xtal-aon-supply = <&pmd9650_l4>;
+		qcom,notify-modem-status;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<45 512 0 0>, <1 512 0 0>,
+			/* Upto 200 Mbps */
+			<45 512 41421 655360>, <1 512 41421 655360>,
+			/* Upto 400 Mbps */
+			<45 512 98572 655360>, <1 512 98572 1600000>,
+			/* Upto 800 Mbps */
+			<45 512 207108 1146880>, <1 512 207108 3124992>;
+	};
+
+	cnss_sdio: qcom,cnss_sdio {
+		compatible = "qcom,cnss_sdio";
+		subsys-name = "AR6320_SDIO";
+		vdd-wlan-xtal-supply = <&pmd9650_l5>;
+		vdd-wlan-io-supply = <&pmd9650_l6>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&cnss_sdio_active>;
+		pinctrl-1 = <&cnss_sdio_sleep>;
+		qcom,is-antenna-shared;
+	};
+};

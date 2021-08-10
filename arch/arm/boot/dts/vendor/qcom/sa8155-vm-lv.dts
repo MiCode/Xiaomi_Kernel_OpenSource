@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sa8155-vm.dtsi"
+#include "sa8155-vm-lv.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155 Single LV Virtual Machine";
+	compatible = "qcom,sa8155";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0x1000002 0>;
+};

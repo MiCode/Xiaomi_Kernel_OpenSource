@@ -1,0 +1,380 @@
+#include <dt-bindings/clock/qcom,gcc-direwolf.h>
+#include "quin-vm-common.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Direwolf Virtual Machine";
+	qcom,msm-name = "Direwolf V1";
+	qcom,msm-id = <460 0x10000>;
+
+	aliases {
+		hsuart0 = &qupv3_se2_4uart;
+	};
+
+	firmware:firmware {
+		android {
+			/delete-property/ boot_devices;
+			fstab {
+				vendor {
+					dev="/dev/block/platform/vdevs/1c160000.virtio_blk/vendor";
+					fsmgr_flags = "wait";
+				};
+			};
+		};
+	};
+};
+
+&soc {
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,direwolf-pinctrl";
+		reg = <0x0F000000 0x1000000>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	apps_smmu: apps-smmu@15000000 {
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x15000000 0x100000>,
+			<0x15182000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <2>;
+		qcom,skip-init;
+		qcom,use-3-lvl-tables;
+		#global-interrupts = <2>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =	<GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 316 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 706 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 689 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 690 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 691 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 692 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 693 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 694 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 695 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 696 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 707 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 708 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 709 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 710 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 711 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 712 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 713 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 714 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 715 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 912 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 911 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 910 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 909 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 908 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 907 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 906 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 905 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 904 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 903 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 902 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 901 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 900 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 899 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 898 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 897 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 896 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 895 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 894 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 893 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 892 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 891 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 890 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+	};
+
+	qcom_qseecom: qseecom@c1800000 {
+		compatible = "qcom,qseecom";
+		reg = <0xc1800000 0x3900000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	msm_gpu_hyp: qcom,hgsl {
+		compatible = "qcom,hgsl";
+
+		/* TBD, complete doorbell */
+		db-off = <1>;
+	};
+
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,direwolf-pdc";
+		reg = <0xb220000 0x30000>;
+		qcom,pdc-ranges = <14 494 2>, <138 623 1>;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
+	subsys_notif_virt: qcom,subsys_notif_virt@2D000000 {
+		compatible = "qcom,subsys-notif-virt";
+		reg = <0x2D000000 0x400>;
+		reg-names = "vdev_base";
+		cdsp0 {
+			subsys-name = "cdsp0";
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state-irq";
+			type = "virtual";
+			offset = <768>;
+		};
+	};
+
+	VDD_CX_LEVEL:
+	S1A0_LEVEL: pm8540_a0_s1_level: regulator-pm8540_a0-s1-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8540_a0_s1_level";
+		regulator-min-microvolt =
+			<RPMH_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt =
+			<RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pcie_2a_pipe_clk: pcie_2a_pipe_clk {
+		compatible = "fixed-clock";
+		clock-frequency = <1000>;
+		clock-output-names = "pcie_2a_pipe_clk";
+		#clock-cells = <0>;
+	};
+
+	pcie_2b_pipe_clk: pcie_2b_pipe_clk {
+		compatible = "fixed-clock";
+		clock-frequency = <1000>;
+		clock-output-names = "pcie_2b_pipe_clk";
+		#clock-cells = <0>;
+	};
+
+	pcie_3a_pipe_clk: pcie_3a_pipe_clk {
+		compatible = "fixed-clock";
+		clock-frequency = <1000>;
+		clock-output-names = "pcie_3a_pipe_clk";
+		#clock-cells = <0>;
+	};
+
+	pcie_3b_pipe_clk: pcie_3b_pipe_clk {
+		compatible = "fixed-clock";
+		clock-frequency = <1000>;
+		clock-output-names = "pcie_3b_pipe_clk";
+		#clock-cells = <0>;
+	};
+
+	pcie_4_pipe_clk: pcie_4_pipe_clk {
+		compatible = "fixed-clock";
+		clock-frequency = <1000>;
+		clock-output-names = "pcie_4_pipe_clk";
+		#clock-cells = <0>;
+	};
+};
+
+&regulator {
+	gcc_usb30_prim_gdsc: gcc_usb30_prim_gdsc {
+		regulator-name = "gcc_usb30_prim_gdsc";
+	};
+
+	gcc_usb30_sec_gdsc: gcc_usb30_sec_gdsc {
+		regulator-name = "gcc_usb30_sec_gdsc";
+	};
+
+	gcc_pcie_2a_gdsc: gcc_pcie_2a_gdsc {
+		regulator-name = "gcc_pcie_2a_gdsc";
+	};
+
+	gcc_pcie_2b_gdsc: gcc_pcie_2b_gdsc {
+		regulator-name = "gcc_pcie_2b_gdsc";
+	};
+
+	gcc_pcie_3a_gdsc: gcc_pcie_3a_gdsc {
+		regulator-name = "gcc_pcie_3a_gdsc";
+	};
+
+	gcc_pcie_3b_gdsc: gcc_pcie_3b_gdsc {
+		regulator-name = "gcc_pcie_3b_gdsc";
+	};
+
+	gcc_pcie_4_gdsc: gcc_pcie_4_gdsc {
+		regulator-name = "gcc_pcie_4_gdsc";
+	};
+
+	L3A0: pm8540_a0_l3: regulator-pm8540_a0-l3 {
+		regulator-name = "ldoa3";
+		regulator-min-microvolt = <1140000>;
+		regulator-max-microvolt = <1260000>;
+	};
+
+	L5A0: pm8540_a0_l5: regulator-pm8540_a0-l5 {
+		regulator-name = "ldoa5";
+		regulator-min-microvolt = <720000>;
+		regulator-max-microvolt = <950000>;
+	};
+
+	L7A0: pm8540_a0_l7: regulator-pm8540_a0-l7 {
+		regulator-name = "ldoa7";
+		regulator-min-microvolt = <1620000>;
+		regulator-max-microvolt = <1980000>;
+	};
+
+	L11A0: pm8540_a0_l11: regulator-pm8540_a0-l11 {
+		regulator-name = "ldoa11";
+		regulator-min-microvolt = <830000>;
+		regulator-max-microvolt = <920000>;
+	};
+
+	L13A0: pm8540_a0_l13: regulator-pm8540_a0-l13 {
+		regulator-name = "ldoa13";
+		regulator-min-microvolt = <2970000>;
+		regulator-max-microvolt = <3544000>;
+	};
+
+	L1C0: pm8540_c0_l1: regulator-pm8540_c0-l1 {
+		regulator-name = "ldoc1";
+		regulator-min-microvolt = <720000>;
+		regulator-max-microvolt = <950000>;
+	};
+
+	L7C0: pm8540_c0_l7: regulator-pm8540_c0-l7 {
+		regulator-name = "ldoc7";
+		regulator-min-microvolt = <1620000>;
+		regulator-max-microvolt = <1980000>;
+	};
+
+	L2C0: pm8540_c0_l2: regulator-pm8540_c0-l2 {
+		regulator-name = "ldoc2";
+		regulator-min-microvolt = <2970000>;
+		regulator-max-microvolt = <3544000>;
+	};
+};
+
+&firmware {
+	scm {
+		compatible = "qcom,scm";
+	};
+};
+
+#include "direwolf-pinctrl.dtsi"
+#include "direwolf-qupv3.dtsi"
+#include "pm8540-vm.dtsi"
+#include "direwolf-vm-audio.dtsi"
+#include "direwolf-vm-usb.dtsi"
+
+&qupv3_0 {
+	/delete-property/ qcom,msm-bus,num-paths;
+	/delete-property/ qcom,msm-bus,vectors-bus-ids;
+};
+
+&qupv3_1 {
+	/delete-property/ qcom,msm-bus,num-paths;
+	/delete-property/ qcom,msm-bus,vectors-bus-ids;
+};
+
+&qupv3_2 {
+	/delete-property/ qcom,msm-bus,num-paths;
+	/delete-property/ qcom,msm-bus,vectors-bus-ids;
+};
+
+&qupv3_se2_4uart {
+	status = "ok";
+};

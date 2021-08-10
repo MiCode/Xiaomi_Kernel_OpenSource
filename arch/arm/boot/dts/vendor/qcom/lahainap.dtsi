@@ -1,0 +1,11 @@
+#include "lahaina.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. LahainaP";
+	compatible = "qcom,lahainap";
+	qcom,msm-id = <439 0x10000>, <502 0x10000>;
+};
+
+&ipa_hw {
+	status = "disabled";
+};

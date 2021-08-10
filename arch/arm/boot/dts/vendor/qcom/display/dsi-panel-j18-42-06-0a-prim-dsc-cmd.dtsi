@@ -1,0 +1,331 @@
+&mdss_mdp {
+	dsi_j18_42_06_0a_prim_dsc_cmd: qcom,mdss_dsi_j18_42_06_0a_prim_dsc_cmd {
+		qcom,mdss-dsi-panel-name = "xiaomi 42 06 0a cmd mode dsc primary dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-color-order = "rgb_swap_rgb";
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-lane-map = "lane_map_0123";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 1>, <0 1>, <1 15>;
+		qcom,mdss-pan-physical-width-dimension = <1220>;
+		qcom,mdss-pan-physical-height-dimension = <1627>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-lp11-init;
+
+		qcom,mdss-dsi-bl-inverted-dbv;
+
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+			17000 15500 30000 8000 3000>;
+		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+		qcom,mdss-dsi-panel-blackness-level = <3230>;
+
+		qcom,bl-update-flag = "delay_until_first_frame";
+
+		qcom,mdss-dsi-display-timings {
+			timing@0{
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-width = <2480>;
+				qcom,mdss-dsi-panel-height = <1860>;
+				qcom,mdss-dsi-h-front-porch = <96>;
+				qcom,mdss-dsi-h-back-porch = <92>;
+				qcom,mdss-dsi-h-pulse-width = <4>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <180>;
+				qcom,mdss-dsi-v-front-porch = <202>;
+				qcom,mdss-dsi-v-pulse-width = <2>;
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-clockrate = <822000000>;
+				qcom,mdss-dsi-panel-jitter = <0x5 0x1>;
+				qcom,mdss-mdp-transfer-time-us = <14000>;
+				qcom,mdss-dsi-on-command = [
+					/* fix IR Drop flicker issue*/
+					15 00 00 00 00 00 02 FE 72
+					15 00 00 00 00 00 02 BC F0
+					15 00 00 00 00 00 02 FE 40
+					15 00 00 00 00 00 02 67 10
+					15 00 00 00 00 00 02 FE 76
+					15 00 00 00 00 00 02 00 3C
+					15 00 00 00 00 00 02 01 00
+					15 00 00 00 00 00 02 09 BD
+					15 00 00 00 00 00 02 0A 40
+					15 00 00 00 00 00 02 0B 05
+					15 00 00 00 00 00 02 0C 49
+					15 00 00 00 00 00 02 0D 76
+					15 00 00 00 00 00 02 0E 09
+					15 00 00 00 00 00 02 0F BD
+					15 00 00 00 00 00 02 10 40
+					15 00 00 00 00 00 02 11 00
+					15 00 00 00 00 00 02 12 52
+					15 00 00 00 00 00 02 13 76
+					15 00 00 00 00 00 02 14 09
+					15 00 00 00 00 00 02 49 FF
+					15 00 00 00 00 00 02 4A 01
+					15 00 00 00 00 00 02 4B 01
+					15 00 00 00 00 00 02 4C FE
+					15 00 00 00 00 00 02 4D 98
+					15 00 00 00 00 00 02 4E 1C
+					15 00 00 00 00 00 02 4F 04
+					15 00 00 00 00 00 02 50 FE
+					15 00 00 00 00 00 02 51 00
+					15 00 00 00 00 00 02 52 FF
+					15 00 00 00 00 00 02 53 01
+					15 00 00 00 00 00 02 54 01
+					15 00 00 00 00 00 02 55 FE
+					15 00 00 00 00 00 02 56 98
+					15 00 00 00 00 00 02 58 1C
+					15 00 00 00 00 00 02 59 00
+					15 00 00 00 00 00 02 5A FE
+					15 00 00 00 00 00 02 5B 00
+					15 00 00 00 00 00 02 FE 00
+					/* enable dynamic ELVSS*/
+					15 00 00 00 00 00 02 FA 01
+					15 00 00 00 00 00 02 FE 40
+					/*modify DVDD power1.15->1.2V*/
+					15 00 00 00 00 00 02 40 06
+					/*modify MVDDV power to1.25V*/
+					15 00 00 00 00 00 02 41 06
+					/* ESD 1/4 issue*/
+					15 00 00 00 00 00 02 2F 00
+					15 00 00 00 00 00 02 31 00
+					/*fix flicker issue after phone power up*/
+					15 00 00 00 00 00 02 24 54
+					15 00 00 00 00 00 02 B6 04
+					15 00 00 00 00 00 02 84 55
+					15 00 00 00 00 00 02 B5 4F
+					15 00 00 00 00 00 02 FE 70
+					15 00 00 00 00 00 02 2D 01
+					15 00 00 00 00 00 02 FE D2
+					/*ESD setting*/
+					15 00 00 00 00 00 02 36 83
+					15 00 00 00 00 00 02 37 0C
+					/* OSC learning*/
+					15 00 00 00 00 00 02 FE A0
+					15 00 00 00 00 00 02 46 0A
+					15 00 00 00 00 00 02 FE D4
+					15 00 00 00 00 00 02 1C 01
+					15 00 00 00 00 00 02 21 03
+					15 00 00 00 00 00 02 22 54
+					15 00 00 00 00 00 02 23 03
+					15 00 00 00 00 00 02 24 E8
+					15 00 00 00 00 00 02 1E 00
+					15 00 00 00 00 00 02 1F 04
+					15 00 00 00 00 00 02 20 04
+					15 00 00 00 00 00 02 14 83
+					15 00 00 00 00 00 02 FE 98
+					15 00 00 00 00 00 02 0F 0D
+					15 00 00 00 00 00 02 FE 00
+					15 00 00 00 00 00 02 C2 08
+					15 00 00 00 00 00 02 35 00
+					39 01 00 00 00 00 03 51 00 00
+					05 01 00 00 60 00 02 11 00
+					05 01 00 00 00 00 02 29 00];
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 22 00 02 28 00
+					05 01 00 00 11 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-lp1-command = [
+					/* enter AOD*/
+					05 01 00 00 00 00 02 39 00];
+				qcom,mdss-dsi-lp1-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-nolp-command = [
+					/* exit AOD*/
+					05 01 00 00 00 00 02 38 00];
+				qcom,mdss-dsi-nolp-command-state = "dsi_lp_mode";
+
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <930>;
+				qcom,mdss-dsc-slice-width = <1240>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+			timing@1{
+				qcom,mdss-dsi-panel-framerate = <90>;
+				qcom,mdss-dsi-panel-width = <2480>;
+				qcom,mdss-dsi-panel-height = <1860>;
+				qcom,mdss-dsi-h-front-porch = <96>;
+				qcom,mdss-dsi-h-back-porch = <92>;
+				qcom,mdss-dsi-h-pulse-width = <4>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <180>;
+				qcom,mdss-dsi-v-front-porch = <200>;
+				qcom,mdss-dsi-v-pulse-width = <2>;
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-clockrate = <822000000>;
+				qcom,mdss-dsi-panel-jitter = <0x5 0x1>;
+				qcom,mdss-mdp-transfer-time-us = <14000>;
+				qcom,mdss-dsi-on-command = [
+					/* fix IR Drop flicker issue*/
+					15 00 00 00 00 00 02 FE 72
+					15 00 00 00 00 00 02 BC F0
+					15 00 00 00 00 00 02 FE 40
+					15 00 00 00 00 00 02 67 10
+					15 00 00 00 00 00 02 FE 76
+					15 00 00 00 00 00 02 00 3C
+					15 00 00 00 00 00 02 01 00
+					15 00 00 00 00 00 02 09 BD
+					15 00 00 00 00 00 02 0A 40
+					15 00 00 00 00 00 02 0B 05
+					15 00 00 00 00 00 02 0C 49
+					15 00 00 00 00 00 02 0D 76
+					15 00 00 00 00 00 02 0E 09
+					15 00 00 00 00 00 02 0F BD
+					15 00 00 00 00 00 02 10 40
+					15 00 00 00 00 00 02 11 00
+					15 00 00 00 00 00 02 12 52
+					15 00 00 00 00 00 02 13 76
+					15 00 00 00 00 00 02 14 09
+					15 00 00 00 00 00 02 49 FF
+					15 00 00 00 00 00 02 4A 01
+					15 00 00 00 00 00 02 4B 01
+					15 00 00 00 00 00 02 4C FE
+					15 00 00 00 00 00 02 4D 98
+					15 00 00 00 00 00 02 4E 1C
+					15 00 00 00 00 00 02 4F 04
+					15 00 00 00 00 00 02 50 FE
+					15 00 00 00 00 00 02 51 00
+					15 00 00 00 00 00 02 52 FF
+					15 00 00 00 00 00 02 53 01
+					15 00 00 00 00 00 02 54 01
+					15 00 00 00 00 00 02 55 FE
+					15 00 00 00 00 00 02 56 98
+					15 00 00 00 00 00 02 58 1C
+					15 00 00 00 00 00 02 59 00
+					15 00 00 00 00 00 02 5A FE
+					15 00 00 00 00 00 02 5B 00
+					15 00 00 00 00 00 02 FE 00
+					/* enable dynamic ELVSS*/
+					15 00 00 00 00 00 02 FA 01
+					15 00 00 00 00 00 02 FE 40
+					/*modify DVDD power1.15->1.2V*/
+					15 00 00 00 00 00 02 40 06
+					15 00 00 00 00 00 02 FE D2
+					/* ESD 1/4 issue*/
+					15 00 00 00 00 00 02 2F 00
+					15 00 00 00 00 00 02 31 00
+					/*fix flicker issue after phone power up*/
+					15 00 00 00 00 00 02 24 54
+					15 00 00 00 00 00 02 B6 04
+					15 00 00 00 00 00 02 FE 70
+					15 00 00 00 00 00 02 2D 01
+					15 00 00 00 00 00 02 FE D2
+					/*ESD setting*/
+					15 00 00 00 00 00 02 36 83
+					15 00 00 00 00 00 02 37 0C
+					/* OSC learning*/
+					15 00 00 00 00 00 02 FE A0
+					15 00 00 00 00 00 02 46 0A
+					15 00 00 00 00 00 02 FE D4
+					15 00 00 00 00 00 02 1C 01
+					15 00 00 00 00 00 02 21 03
+					15 00 00 00 00 00 02 22 54
+					15 00 00 00 00 00 02 23 03
+					15 00 00 00 00 00 02 24 E8
+					15 00 00 00 00 00 02 1E 00
+					15 00 00 00 00 00 02 1F 04
+					15 00 00 00 00 00 02 20 04
+					15 00 00 00 00 00 02 14 83
+					15 00 00 00 00 00 02 FE 00
+					15 00 00 00 00 00 02 C2 08
+					15 00 00 00 00 00 02 35 00
+					39 01 00 00 00 00 03 51 00 00
+					05 01 00 00 60 00 02 11 00
+					05 01 00 00 00 00 02 29 00];
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 22 00 02 28 00
+					05 01 00 00 11 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-lp1-command = [
+					/* enter AOD*/
+					05 01 00 00 00 00 02 39 00];
+				qcom,mdss-dsi-lp1-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-nolp-command = [
+					/* exit AOD*/
+					05 01 00 00 00 00 02 38 00];
+				qcom,mdss-dsi-nolp-command-state = "dsi_lp_mode";
+
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <930>;
+				qcom,mdss-dsc-slice-width = <1240>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};
+
+&dsi_j18_42_06_0a_prim_dsc_cmd {
+	mi,aod-bl-51ctl-flag;
+	mi,fp-display-on-optimize-flag;
+	mi,mdss-dsi-panel-dc-type = <0>;
+	mi,max-brightness-clone = <8191>;
+	mi,esd-err-irq-gpio = <&tlmm 67 0x2001>;
+	mi,aod-exit-delay-time = <150>;
+
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			mi,mdss-dsi-flat-mode-on-command = [
+				15 00 00 00 00 00 02 FE 40
+				15 00 00 00 00 00 02 BD 05
+				15 01 00 00 00 00 02 FE 00];
+			mi,mdss-dsi-flat-mode-off-command = [
+				15 00 00 00 00 00 02 FE 40
+				15 00 00 00 00 00 02 BD 00
+				15 01 00 00 00 00 02 FE 00];
+			mi,mdss-dsi-flat-mode-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-flat-mode-off-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-nolp-dc-lbm-command = [
+				/* exit AOD*/
+				15 00 00 00 00 00 02 FE 00
+				05 01 00 00 00 00 02 38 00];
+			mi,mdss-dsi-nolp-dc-lbm-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-nolp-dc-hbm-command = [
+				/* exit AOD*/
+				15 00 00 00 00 00 02 FE 00
+				05 01 00 00 00 00 02 38 00];
+			mi,mdss-dsi-nolp-dc-hbm-command-state = "dsi_lp_mode";
+		};
+	};
+};

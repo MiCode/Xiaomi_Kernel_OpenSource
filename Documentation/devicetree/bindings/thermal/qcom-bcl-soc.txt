@@ -1,0 +1,14 @@
+===============================================================================
+PMIC state of charge driver:
+===============================================================================
+Battery state of charge driver can monitor for change in battery charge and
+notify thermal framework, when the value goes below a certain threshold.
+
+Required Parameters:
+- compatible: must be 'qcom,msm-bcl-soc' for battery state of charge driver.
+
+Optional Parameters:
+
+		bcl-soc {
+			compatible = "qcom,msm-bcl-soc";
+		};

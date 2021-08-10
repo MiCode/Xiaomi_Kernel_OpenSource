@@ -1,0 +1,20 @@
+&reserved_memory {
+	pmem_shared: pmem_shared_region@a0000000 {
+		reg = <0x0 0xa0000000 0x0 0x20000000>;
+		label = "pmem_shared_mem";
+	};
+};
+
+/ {
+	 rename_blk: rename_blk {
+		compatible = "qcom,blkdev-rename";
+		actual-dev = "vda", "vdb", "vdc",
+				"vdd", "vde", "vdf",
+				"vdg", "vdh";
+		rename-dev = "system", "userdata", "vendor",
+				"persist", "modem", "bluetooth",
+				"misc", "vbmeta";
+	};
+
+	/delete-node/ cpus;
+};

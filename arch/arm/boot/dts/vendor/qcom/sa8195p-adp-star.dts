@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sa8195p.dtsi"
+#include "sa8195p-adp-star.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195P ADP-STAR";
+	compatible = "qcom,sa8195p-adp-star", "qcom,sa8195p",
+		"qcom,adp-star";
+	qcom,board-id = <25 0>;
+};

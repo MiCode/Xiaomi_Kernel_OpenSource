@@ -1,0 +1,155 @@
+MSM PCI express endpoint
+
+Required properties:
+  - compatible: should be "qcom,pcie-ep".
+  - reg: should contain PCIe register maps.
+  - reg-names: indicates various resources passed to driver by name.
+		Should be "msi", "dm_core", "elbi", "parf", "phy", "mmio",
+		"tcsr_pcie_perst_en".
+		These correspond to different modules within the PCIe domain.
+  - #address-cells: Should provide a value of 0.
+  - interrupt-parent: Should be the PCIe device node itself here.
+  - interrupts: Should be in the format <0 1 2> and it is an index to the
+		interrupt-map that contains PCIe related interrupts.
+  - #interrupt-cells: Should provide a value of 1.
+  - #interrupt-map-mask: should provide a value of 0xffffffff.
+  - interrupt-map:  Must create mapping for the number of interrupts
+		    that are defined in above interrupts property.
+		    For PCIe device node, it should define 6 mappings for
+		    the corresponding PCIe interrupts supporting the
+		    specification.
+  - interrupt-names: indicates interrupts passed to driver by name.
+		     Should be "int_pm_turnoff", "int_dstate_change",
+				"int_l1sub_timeout", "int_link_up",
+				"int_link_down", "int_bridge_flush_n".
+  - perst-gpio: PERST GPIO specified by PCIe spec.
+  - wake-gpio: WAKE GPIO specified by PCIe spec.
+  - clkreq-gpio: CLKREQ GPIO specified by PCIe spec.
+  - <supply-name>-supply: phandle to the regulator device tree node.
+    Refer to the schematics for the corresponding voltage regulators.
+    vreg-1.8-supply: phandle to the analog supply for the PCIe controller.
+    vreg-0.9-supply: phandle to the analog supply for the PCIe controller.
+
+Optional Properties:
+  - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
+    Should be specified in pairs (max, min, optimal), units uV.
+  - qcom,vreg-mx-voltage-level: Support PCIe Gen4 on sdxlemur by scaling MX to
+    appropriate voltage.
+  - clock-names: list of names of clock inputs.
+		     Should be "pcie_pipe_clk",
+				"pcie_aux_clk", "pcie_cfg_ahb_clk",
+				"pcie_mstr_axi_clk", "pcie_slv_axi_clk",
+				"pcie_ldo";
+  - max-clock-frequency-hz: list of the maximum operating frequencies stored
+				in the same order of clock names;
+  - resets: reset specifier pair consists of phandle for the reset controller
+    and reset lines used by this controller.
+  - reset-names: reset signal names sorted in the same order as the property
+    of resets.
+  - qcom,pcie-phy-ver: version of PCIe PHY.
+  - qcom,phy-init: The initialization sequence to bring up the PCIe PHY.
+    Should be specified in groups (offset, value, delay, direction).
+  - qcom,phy-status-reg: Register offset for PHY status.
+  - qcom,phy-status-reg2: For sdxprairie and above use only
+    qcom,phy-status-reg2 as register offset for PHY status.
+  - qcom,dbi-base-reg: Register offset for DBI base address.
+  - qcom,slv-space-reg: Register offset for slave address space size.
+  - qcom,pcie-vendor-id: Vendor id to be written to the Vendor ID register.
+  - qcom,pcie-device-id: Device id to be written to the Device ID register.
+  - qcom,pcie-link-speed: generation of PCIe link speed. The value could be
+    1, 2 or 3.
+  - qcom,pcie-active-config: boolean type; active configuration of PCIe
+    addressing.
+  - qcom,pcie-edma: boolean type; edma usage for PCIe.
+  - qcom,pcie-aggregated-irq: boolean type; interrupts are aggregated.
+  - qcom,pcie-mhi-a7-irq: boolean type; MHI a7 has separate irq.
+  - qcom,pcie-perst-enum: Link enumeration will be triggered by PERST
+    deassertion.
+  - qcom,tcsr-not-supported: TCSR pcie perst is not supported.
+  - mdm2apstatus-gpio: GPIO used by PCIe endpoint side to notify the host side.
+  - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+    below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+  - qcom,pcie-m2-autonomous: Enable L1ss sleep/exit to support M2 autonomous mode.
+  - qcom,mhi-soc-reset-offset: AXI register offset to initiate a SOC reset.
+
+Example:
+
+	pcie_ep: qcom,pcie@bfffd000 {
+		compatible = "qcom,pcie-ep";
+
+		reg = <0xbfffd000 0x1000>,
+			<0xbfffe000 0x1000>,
+			<0xbffff000 0x1000>,
+			<0xfc520000 0x2000>,
+			<0xfc526000 0x1000>,
+			<0xfc527000 0x1000>,
+			<0x01fcb000 0x1000>;
+
+		reg-names = "msi", "dm_core", "elbi", "parf", "phy", "mmio",
+				"tcsr_pcie_perst";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie_ep>;
+		interrupts = <0 1 2 3 4 5>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 44 0
+				1 &intc 0 46 0
+				2 &intc 0 47 0
+				3 &intc 0 50 0
+				4 &intc 0 51 0
+				5 &intc 0 52 0>;
+		interrupt-names = "int_pm_turnoff", "int_dstate_change",
+				"int_l1sub_timeout", "int_link_up",
+				"int_link_down", "int_bridge_flush_n";
+
+		perst-gpio = <&msmgpio 65 0>;
+		wake-gpio = <&msmgpio 61 0>;
+		clkreq-gpio = <&msmgpio 64 0>;
+		mdm2apstatus-gpio = <&tlmm_pinmux 16 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pmd9635_l8>;
+		vreg-0.9-supply = <&pmd9635_l4>;
+
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		clock-names = "pcie_pipe_clk",
+				"pcie_aux_clk", "pcie_cfg_ahb_clk",
+				"pcie_mstr_axi_clk", "pcie_slv_axi_clk",
+				"pcie_ldo";
+		max-clock-frequency-hz = <62500000>, <1000000>,
+						<0>, <0>, <0>, <0>;
+
+		resets = <&clock_gcc GCC_PCIE_BCR>,
+			<&clock_gcc GCC_PCIE_PHY_BCR>;
+
+		reset-names = "pcie_core_reset", "pcie_phy_reset";
+
+		qcom,msm-bus,name = "pcie-ep";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		qcom,pcie-link-speed = <1>;
+		qcom,pcie-active-config;
+		qcom,pcie-aggregated-irq;
+		qcom,pcie-mhi-a7-irq;
+		qcom,pcie-perst-enum;
+		qcom,phy-status-reg = <0x728>;
+		qcom,dbi-base-reg = <0x168>;
+		qcom,slv-space-reg = <0x16c>;
+
+		qcom,phy-init = <0x604 0x03 0x0 0x1
+					0x048 0x08 0x0 0x1
+					0x64c 0x4d 0x0 0x1
+					0x600 0x00 0x0 0x1
+					0x608 0x03 0x0 0x1>;
+	};

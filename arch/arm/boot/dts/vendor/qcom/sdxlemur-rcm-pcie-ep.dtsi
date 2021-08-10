@@ -1,0 +1,27 @@
+#include "sdxlemur-pmic-overlay.dtsi"
+
+&soc {
+
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&sdhc_1 {
+	status = "ok";
+
+	vdd-supply = <&vreg_sd_vdd>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&vreg_vddpx_2>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <0 10000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
+};

@@ -2,6 +2,7 @@
 /* memcontrol.c - Memory Controller
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author Balbir Singh <balbir@linux.vnet.ibm.com>
  *
  * Copyright 2007 OpenVZ SWsoft Inc
@@ -90,6 +91,16 @@ int do_swap_account __read_mostly;
 
 #ifdef CONFIG_CGROUP_WRITEBACK
 static DECLARE_WAIT_QUEUE_HEAD(memcg_cgwb_frn_waitq);
+#endif
+
+#ifdef CONFIG_MIMISC_MC
+#define MEM_CGROUP_CACHES	10
+static struct mem_cgroup *group_cache[MEM_CGROUP_CACHES];
+
+static DEFINE_MUTEX(cache_mutex);
+
+static int memcg_update_misc_max(struct mem_cgroup *memcg,
+				 unsigned long max, enum memcg_misc_type type);
 #endif
 
 /* Whether legacy memory+swap accounting is active */
@@ -213,6 +224,11 @@ enum charge_type {
 	MEM_CGROUP_CHARGE_TYPE_ANON,
 	MEM_CGROUP_CHARGE_TYPE_SWAPOUT,	/* for accounting swapcache */
 	MEM_CGROUP_CHARGE_TYPE_DROP,	/* a page was unused swap cache */
+#ifdef CONFIG_MIMISC_MC
+	MEM_CGROUP_CHARGE_TYPE_ION,
+	MEM_CGROUP_CHARGE_TYPE_GPU,
+	MEM_CGROUP_CHARGE_TYPE_MISC,
+#endif
 	NR_CHARGE_TYPE,
 };
 
@@ -223,6 +239,11 @@ enum res_type {
 	_OOM_TYPE,
 	_KMEM,
 	_TCP,
+#ifdef CONFIG_MIMISC_MC
+	_ION,
+	_GPU,
+	_MISC,
+#endif
 };
 
 #define MEMFILE_PRIVATE(x, val)	((x) << 16 | (val))
@@ -1539,6 +1560,10 @@ void mem_cgroup_print_oom_meminfo(struct mem_cgroup *memcg)
 {
 	char *buf;
 
+#ifdef CONFIG_MIMISC_MC
+	int i = 0;
+#endif
+
 	pr_info("memory: usage %llukB, limit %llukB, failcnt %lu\n",
 		K((u64)page_counter_read(&memcg->memory)),
 		K((u64)memcg->memory.max), memcg->memory.failcnt);
@@ -1554,6 +1579,14 @@ void mem_cgroup_print_oom_meminfo(struct mem_cgroup *memcg)
 			K((u64)page_counter_read(&memcg->kmem)),
 			K((u64)memcg->kmem.max), memcg->kmem.failcnt);
 	}
+
+#ifdef CONFIG_MIMISC_MC
+	for (i = 0; i < MEMCG_NR_MISC_TYPE; i++) {
+		pr_info("MEMCG_TYPE %d: usage %llukB, limit %llukB\n", i,
+			K((u64)page_counter_read(&memcg->misc[i])),
+			K((u64)memcg->misc[i].max));
+	}
+#endif
 
 	pr_info("Memory cgroup stats for ");
 	pr_cont_cgroup_path(memcg->css.cgroup);
@@ -3453,6 +3486,14 @@ static u64 mem_cgroup_read_u64(struct cgroup_subsys_state *css,
 	case _TCP:
 		counter = &memcg->tcpmem;
 		break;
+#ifdef CONFIG_MIMISC_MC
+	case _ION:
+		counter = &memcg->misc[MEMCG_ION_TYPE];
+		break;
+	case _GPU:
+		counter = &memcg->misc[MEMCG_GPU_TYPE];
+		break;
+#endif
 	default:
 		BUG();
 	}
@@ -3716,6 +3757,14 @@ static ssize_t mem_cgroup_write(struct kernfs_open_file *of,
 		case _TCP:
 			ret = memcg_update_tcp_max(memcg, nr_pages);
 			break;
+#ifdef CONFIG_MIMISC_MC
+		case _ION:
+			ret = memcg_update_misc_max(memcg, nr_pages, MEMCG_ION_TYPE);
+			break;
+		case _GPU:
+			ret = memcg_update_misc_max(memcg, nr_pages, MEMCG_GPU_TYPE);
+			break;
+#endif
 		}
 		break;
 	case RES_SOFT_LIMIT:
@@ -3745,6 +3794,14 @@ static ssize_t mem_cgroup_reset(struct kernfs_open_file *of, char *buf,
 	case _TCP:
 		counter = &memcg->tcpmem;
 		break;
+#ifdef CONFIG_MIMISC_MC
+	case _ION:
+		counter = &memcg->misc[MEMCG_ION_TYPE];
+		break;
+	case _GPU:
+		counter = &memcg->misc[MEMCG_GPU_TYPE];
+		break;
+#endif
 	default:
 		BUG();
 	}
@@ -3762,6 +3819,227 @@ static ssize_t mem_cgroup_reset(struct kernfs_open_file *of, char *buf,
 
 	return nbytes;
 }
+
+#ifdef CONFIG_MIMISC_MC
+/*
+ * Here we add MISC memory support.
+ *
+ * accurately, MISC belongs to kmem.
+ * add the ion gpu eg. page_counter to get more info of the momery.
+ *
+ */
+
+DEFINE_STATIC_KEY_FALSE(memcg_misc_enabled_key);
+EXPORT_SYMBOL(memcg_misc_enabled_key);
+
+/**
+ * __memcg_misc_charge_memcg: charge misc pages
+ * @page: page to charge
+ * @gfp: reclaim mode
+ * @nr_pages: number of pages to uncharge
+ * @memcg: memory cgroup to charge
+ * @type: charge type
+ *
+ * Returns 0 on success, an error code on failure.
+ */
+int __memcg_misc_charge_memcg(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				struct mem_cgroup *memcg, enum memcg_misc_type type)
+{
+	struct page_counter *counter;
+
+	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys) &&
+		!page_counter_try_charge(&memcg->misc[type], nr_pages, &counter)) {
+
+		/*
+		 * Enforce __GFP_NOFAIL allocation because callers are not
+		 * prepared to see failures and likely do not have any failure
+		 * handling code.
+		 */
+		if (gfp & __GFP_NOFAIL) {
+			page_counter_charge(&memcg->misc[type], nr_pages);
+			return 0;
+		}
+		return -ENOMEM;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(__memcg_misc_charge_memcg);
+
+/**
+ * __memcg_misc_charge: charge misc page to the current memory cgroup
+ * @page: page to charge
+ * @gfp: reclaim mode
+ * @nr_pages: number of pages to uncharge
+ * @type: charge type
+ *
+ * Returns 0 on success, an error code on failure.
+ */
+int __memcg_misc_charge(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				enum memcg_misc_type type)
+{
+	struct mem_cgroup *memcg;
+	int ret = 0;
+
+	memcg = get_mem_cgroup_from_current();
+	if (!mem_cgroup_is_root(memcg)) {
+		ret = __memcg_misc_charge_memcg(page, gfp, nr_pages, memcg, type);
+		if (!ret) {
+			page->mem_cgroup = memcg;
+		}
+	}
+	css_put(&memcg->css);
+	return ret;
+}
+EXPORT_SYMBOL(__memcg_misc_charge);
+
+static struct mem_cgroup *__mem_cgroup_cache_get_from_id(unsigned int id)
+{
+	struct mem_cgroup *memcg = NULL;
+
+	if (id >= MEM_CGROUP_CACHES) {
+		return NULL;
+	}
+
+	rcu_read_lock();
+
+	memcg = rcu_dereference(group_cache[id]);
+	if (!memcg || !css_tryget_online(&memcg->css))
+		memcg = NULL;
+
+	rcu_read_unlock();
+
+	return memcg;
+}
+
+/**
+ * __memcg_misc_charge_pid: charge misc page to the current memory cgroup
+ * @page: page to charge
+ * @gfp: reclaim mode
+ * @nr_pages: number of pages to uncharge
+ * @type: charge type
+ * @id: id to chagre to
+ *
+ * Returns 0 on success, an error code on failure.
+ */
+
+int __memcg_misc_charge_id(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				enum memcg_misc_type type, unsigned int id)
+{
+	struct mem_cgroup *memcg = NULL;
+	int ret = 0;
+
+	memcg = __mem_cgroup_cache_get_from_id(id);
+
+	if (!memcg)
+		memcg = get_mem_cgroup_from_current();
+
+	if (!mem_cgroup_is_root(memcg)) {
+		ret = __memcg_misc_charge_memcg(page, gfp, nr_pages, memcg, type);
+		if (!ret) {
+			page->mem_cgroup = memcg;
+		}
+	}
+	css_put(&memcg->css);
+
+	return ret;
+}
+EXPORT_SYMBOL(__memcg_misc_charge_id);
+
+/**
+ * __memcg_misc_uncharge_memcg: uncharge misc page
+ * @memcg: memcg to uncharge
+ * @nr_pages: number of pages to uncharge
+ * @type: charge type
+ */
+void __memcg_misc_uncharge_memcg(struct mem_cgroup *memcg,
+				unsigned int nr_pages, enum memcg_misc_type type)
+{
+	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys))
+		page_counter_uncharge(&memcg->misc[type], nr_pages);
+
+}
+EXPORT_SYMBOL(__memcg_misc_uncharge_memcg);
+
+/**
+ * __memcg_mem_uncharge: uncharge misc page
+ * @page: page to uncharge
+ * @nr_pages: number of pages to uncharge
+ * @type: charge type
+ */
+void __memcg_misc_uncharge(struct page *page, unsigned int nr_pages,
+				enum memcg_misc_type type)
+{
+	struct mem_cgroup *memcg = page->mem_cgroup;
+
+	if (!memcg)
+		return;
+
+	VM_BUG_ON_PAGE(mem_cgroup_is_root(memcg), page);
+	__memcg_misc_uncharge_memcg(memcg, nr_pages, type);
+	page->mem_cgroup = NULL;
+
+	css_put_many(&memcg->css, nr_pages);
+}
+EXPORT_SYMBOL(__memcg_misc_uncharge);
+
+static int memcg_update_misc_max(struct mem_cgroup *memcg,
+				 unsigned long max, enum memcg_misc_type type)
+{
+	int ret;
+
+	mutex_lock(&memcg_max_mutex);
+	ret = page_counter_set_max(&memcg->misc[type], max);
+	mutex_unlock(&memcg_max_mutex);
+	return ret;
+}
+
+static int mem_cgroup_cache_set(struct cgroup_subsys_state *css,
+				struct cftype *cft, u64 val)
+{
+	int retval = 0;
+	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+	struct mem_cgroup *p = NULL;
+
+	if (val >= MEM_CGROUP_CACHES)
+		return -EINVAL;
+
+	mutex_lock(&cache_mutex);
+
+	rcu_read_lock();
+	p = rcu_dereference(group_cache[val]);
+	if (!p && css_tryget_online(&memcg->css))
+		rcu_assign_pointer(group_cache[val], memcg);
+	else
+		retval = -EBUSY;
+
+	rcu_read_unlock();
+
+	mutex_unlock(&cache_mutex);
+
+	return retval;
+}
+
+static u64 mem_cgroup_cache_get(struct cgroup_subsys_state *css,
+					struct cftype *cft)
+{
+	int retval = -EINVAL;
+	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+	struct mem_cgroup *p = NULL;
+	int index;
+
+	rcu_read_lock();
+	for (index = 0; index < MEM_CGROUP_CACHES; index ++) {
+		p = rcu_dereference(group_cache[index]);
+		if (p == memcg) {
+			retval = index;
+			break;
+		}
+	}
+	rcu_read_unlock();
+
+	return retval;
+}
+#endif /* CONFIG_MIMISC_MC */
 
 static u64 mem_cgroup_move_charge_read(struct cgroup_subsys_state *css,
 					struct cftype *cft)
@@ -3891,6 +4169,11 @@ static const unsigned int memcg1_stats[] = {
 	NR_FILE_DIRTY,
 	NR_WRITEBACK,
 	MEMCG_SWAP,
+#ifdef CONFIG_MIMISC_MC
+	MEMCG_ION,
+	MEMCG_GPU,
+	MEMCG_MISC,
+#endif
 };
 
 static const char *const memcg1_stat_names[] = {
@@ -3902,6 +4185,11 @@ static const char *const memcg1_stat_names[] = {
 	"dirty",
 	"writeback",
 	"swap",
+#ifdef CONFIG_MIMISC_MC
+	"ion",
+	"gpu",
+	"misc",
+#endif
 };
 
 /* Universal VM events cgroup1 shows, original sort order */
@@ -4958,6 +5246,68 @@ static struct cftype mem_cgroup_legacy_files[] = {
 		.write = mem_cgroup_reset,
 		.read_u64 = mem_cgroup_read_u64,
 	},
+#ifdef CONFIG_MIMISC_MC
+	// XIAOMI
+	{
+		.name = "cache",
+		.write_u64 = mem_cgroup_cache_set,
+		.read_u64 = mem_cgroup_cache_get,
+	},
+	// XIAOMI ION
+	{
+		.name = "ion.usage_in_bytes",
+		.private = MEMFILE_PRIVATE(_ION, RES_USAGE),
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "ion.max_usage_in_bytes",
+		.private = MEMFILE_PRIVATE(_ION, RES_MAX_USAGE),
+		.write = mem_cgroup_reset,
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "ion.limit_in_bytes",
+		.private = MEMFILE_PRIVATE(_ION, RES_LIMIT),
+		.write = mem_cgroup_write,
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	// XIAOMI GPU
+	{
+		.name = "gpu.usage_in_bytes",
+		.private = MEMFILE_PRIVATE(_GPU, RES_USAGE),
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "gpu.max_usage_in_bytes",
+		.private = MEMFILE_PRIVATE(_GPU, RES_MAX_USAGE),
+		.write = mem_cgroup_reset,
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "gpu.limit_in_bytes",
+		.private = MEMFILE_PRIVATE(_GPU, RES_LIMIT),
+		.write = mem_cgroup_write,
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	// XIAOMI MISC
+	{
+		.name = "misc.usage_in_bytes",
+		.private = MEMFILE_PRIVATE(_MISC, RES_USAGE),
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "misc.max_usage_in_bytes",
+		.private = MEMFILE_PRIVATE(_MISC, RES_MAX_USAGE),
+		.write = mem_cgroup_reset,
+		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "misc.limit_in_bytes",
+		.private = MEMFILE_PRIVATE(_MISC, RES_LIMIT),
+		.write = mem_cgroup_write,
+		.read_u64 = mem_cgroup_read_u64,
+	},
+#endif /* CONFIG_MIMISC_MC */
 	{ },	/* terminate */
 };
 
@@ -5195,12 +5545,22 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
 		page_counter_init(&memcg->memsw, &parent->memsw);
 		page_counter_init(&memcg->kmem, &parent->kmem);
 		page_counter_init(&memcg->tcpmem, &parent->tcpmem);
+#ifdef CONFIG_MIMISC_MC
+		page_counter_init(&memcg->misc[MEMCG_ION_TYPE], &parent->misc[MEMCG_ION_TYPE]);
+		page_counter_init(&memcg->misc[MEMCG_GPU_TYPE], &parent->misc[MEMCG_GPU_TYPE]);
+		page_counter_init(&memcg->misc[MEMCG_MISC_TYPE], &parent->misc[MEMCG_MISC_TYPE]);
+#endif
 	} else {
 		page_counter_init(&memcg->memory, NULL);
 		page_counter_init(&memcg->swap, NULL);
 		page_counter_init(&memcg->memsw, NULL);
 		page_counter_init(&memcg->kmem, NULL);
 		page_counter_init(&memcg->tcpmem, NULL);
+#ifdef CONFIG_MIMISC_MC
+		page_counter_init(&memcg->misc[MEMCG_ION_TYPE], NULL);
+		page_counter_init(&memcg->misc[MEMCG_GPU_TYPE], NULL);
+		page_counter_init(&memcg->misc[MEMCG_MISC_TYPE], NULL);
+#endif
 		/*
 		 * Deeper hierachy with use_hierarchy == false doesn't make
 		 * much sense so let cgroup subsystem know about this
@@ -5225,6 +5585,10 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
 
 	if (cgroup_subsys_on_dfl(memory_cgrp_subsys) && !cgroup_memory_nosocket)
 		static_branch_inc(&memcg_sockets_enabled_key);
+
+#ifdef CONFIG_MIMISC_MC
+	static_branch_inc(&memcg_misc_enabled_key);
+#endif
 
 	return &memcg->css;
 fail:
@@ -5258,6 +5622,10 @@ static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
 	struct mem_cgroup_event *event, *tmp;
 
+#ifdef CONFIG_MIMISC_MC
+	struct mem_cgroup *old = NULL;
+	int index;
+#endif
 	/*
 	 * Unregister events and notify userspace.
 	 * Notify userspace about cgroup removing only after rmdir of cgroup
@@ -5279,6 +5647,25 @@ static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 	drain_all_stock(memcg);
 
 	mem_cgroup_id_put(memcg);
+
+#ifdef CONFIG_MIMISC_MC
+	mutex_lock(&cache_mutex);
+
+	for (index = 0; index < MEM_CGROUP_CACHES; index++) {
+		old = rcu_dereference(group_cache[index]);
+		if (old == memcg) {
+			rcu_assign_pointer(group_cache[index], NULL);
+			break;
+		}
+		else
+			old = NULL;
+	}
+
+	mutex_unlock(&cache_mutex);
+
+	if (old)
+		css_put(&memcg->css);
+#endif /* CONFIG_MIMISC_MC */
 }
 
 static void mem_cgroup_css_released(struct cgroup_subsys_state *css)

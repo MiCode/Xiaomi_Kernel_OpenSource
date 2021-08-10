@@ -96,6 +96,11 @@ config USB_DWC3_KEYSTONE
 	  Support of USB2/3 functionality in TI Keystone2 and AM654 platforms.
 	  Say 'Y' or 'M' here if you have one such device
 
+config USB_K9
+	tristate "support k9 usb config"
+	help
+	  Say Y here to enable config k9 usb
+
 config USB_DWC3_MESON_G12A
        tristate "Amlogic Meson G12A Platforms"
        depends on OF && COMMON_CLK

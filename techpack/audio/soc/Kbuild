@@ -1,0 +1,226 @@
+# We can build either as part of a standalone Kernel build or as
+# an external module.  Determine which mechanism is being used
+ifeq ($(MODNAME),)
+	KERNEL_BUILD := 1
+else
+	KERNEL_BUILD := 0
+endif
+
+ifeq ($(KERNEL_BUILD), 1)
+	# These are configurable via Kconfig for kernel-based builds
+	# Need to explicitly configure for Android-based builds
+	AUDIO_BLD_DIR := $(shell pwd)/kernel/msm-5.4
+	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
+endif
+
+ifeq ($(CONFIG_SND_SOC_AUTO), y)
+	ifdef CONFIG_SND_SOC_SA8155
+		include $(AUDIO_ROOT)/config/sa8155auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sa8155autoconf.h
+	endif
+	ifdef CONFIG_SND_SOC_SA6155
+		include $(AUDIO_ROOT)/config/sa6155auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sa6155autoconf.h
+	endif
+	ifdef CONFIG_SND_SOC_GVM
+		include $(AUDIO_ROOT)/config/gvmauto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/gvmautoconf.h
+	endif
+	ifdef CONFIG_SND_SOC_GVM_SA8295
+		include $(AUDIO_ROOT)/config/sa8295gvmauto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sa8295gvmautoconf.h
+	endif
+else
+	ifeq ($(KERNEL_BUILD), 0)
+		ifeq ($(CONFIG_ARCH_SM8150), y)
+			ifdef CONFIG_SND_SOC_SA8155
+				include $(AUDIO_ROOT)/config/sa8155auto.conf
+				export
+				INCS    +=  -include $(AUDIO_ROOT)/config/sa8155autoconf.h
+			else
+				include $(AUDIO_ROOT)/config/sm8150auto.conf
+				export
+				INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+			endif
+		endif
+		ifeq ($(CONFIG_ARCH_KONA), y)
+			include $(AUDIO_ROOT)/config/konaauto.conf
+			INCS    +=  -include $(AUDIO_ROOT)/config/konaautoconf.h
+		endif
+		ifeq ($(CONFIG_ARCH_LITO), y)
+			include $(AUDIO_ROOT)/config/litoauto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/litoautoconf.h
+		endif
+		ifeq ($(CONFIG_ARCH_BENGAL), y)
+			include $(AUDIO_ROOT)/config/bengalauto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/bengalautoconf.h
+		endif
+		ifeq ($(CONFIG_ARCH_SM6150), y)
+			ifdef CONFIG_SND_SOC_SA6155
+				include $(AUDIO_ROOT)/config/sa6155auto.conf
+				export
+				INCS    +=  -include $(AUDIO_ROOT)/config/sa6155autoconf.h
+			else
+				include $(AUDIO_ROOT)/config/sm6150auto.conf
+				export
+				INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
+			endif
+		endif
+		ifeq ($(CONFIG_ARCH_TRINKET), y)
+			include $(AUDIO_ROOT)/config/sm6150auto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
+		endif
+		ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
+			ifdef CONFIG_SND_SOC_SA8155
+				include $(AUDIO_ROOT)/config/sa8155auto.conf
+				export
+				INCS    +=  -include $(AUDIO_ROOT)/config/sa8155autoconf.h
+			else
+				include $(AUDIO_ROOT)/config/sm8150auto.conf
+				export
+				INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+			endif
+		endif
+		ifeq ($(CONFIG_ARCH_QCS405), y)
+			include $(AUDIO_ROOT)/config/qcs405auto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/qcs405autoconf.h
+		endif
+		ifeq ($(CONFIG_QTI_QUIN_GVM), y)
+			include $(AUDIO_ROOT)/config/gvmauto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/gvmautoconf.h
+		endif
+	endif
+endif
+
+# As per target team, build is done as follows:
+# Defconfig : build with default flags
+# Slub      : defconfig  + CONFIG_SLUB_DEBUG := y +
+#	      CONFIG_SLUB_DEBUG_ON := y + CONFIG_PAGE_POISONING := y
+# Perf      : Using appropriate msmXXXX-perf_defconfig
+#
+# Shipment builds (user variants) should not have any debug feature
+# enabled. This is identified using 'TARGET_BUILD_VARIANT'. Slub builds
+# are identified using the CONFIG_SLUB_DEBUG_ON configuration. Since
+# there is no other way to identify defconfig builds, QTI internal
+# representation of perf builds (identified using the string 'perf'),
+# is used to identify if the build is a slub or defconfig one. This
+# way no critical debug feature will be enabled for perf and shipment
+# builds. Other OEMs are also protected using the TARGET_BUILD_VARIANT
+# config.
+
+############ UAPI ############
+UAPI_DIR :=	uapi/audio
+UAPI_INC :=	-I$(AUDIO_ROOT)/include/$(UAPI_DIR)
+
+############ COMMON ############
+COMMON_DIR :=	include
+COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
+
+############ SoC Modules ############
+
+# for pinctrl WCD driver
+ifdef CONFIG_PINCTRL_WCD
+	PINCTRL_WCD_OBJS += pinctrl-wcd.o
+endif
+
+# for pinctrl LPI driver
+ifdef CONFIG_PINCTRL_LPI
+	PINCTRL_LPI_OBJS += pinctrl-lpi.o
+endif
+
+# for soundwire driver
+ifdef CONFIG_SOUNDWIRE_WCD_CTRL
+	SWR_CTRL_OBJS += swr-wcd-ctrl.o
+endif
+
+# for new soundwire driver
+ifdef CONFIG_SOUNDWIRE_MSTR_CTRL
+	SWR_CTRL_OBJS += swr-mstr-ctrl.o
+endif
+
+ifdef CONFIG_SOUNDWIRE
+	SWR_OBJS += regmap-swr.o
+	SWR_OBJS += soundwire.o
+endif
+
+ifdef CONFIG_SND_EVENT
+	SND_EVENT_OBJS += snd_event.o
+endif
+
+ifdef CONFIG_WCD_SPI_AC
+	WCD_SPI_ACC_CTL_OBJS += wcd-spi-ac.o
+	WCD_SPI_ACC_CTL_OBJS += wcd_spi_ctl_v01.o
+endif
+
+LINUX_INC +=	-Iinclude/linux
+
+INCS +=		$(COMMON_INC) \
+		$(UAPI_INC)
+
+EXTRA_CFLAGS += $(INCS)
+
+
+CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
+		-DANI_LITTLE_BIT_ENDIAN \
+		-DDOT11F_LITTLE_ENDIAN_HOST \
+		-DANI_COMPILER_TYPE_GCC \
+		-DANI_OS_TYPE_ANDROID=6 \
+		-DPTT_SOCK_SVC_ENABLE \
+		-Wall\
+		-Werror\
+		-D__linux__
+
+KBUILD_CPPFLAGS += $(CDEFINES)
+
+ifeq ($(KERNEL_BUILD), 0)
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/dsp/Module.symvers
+endif
+
+# Currently, for versions of gcc which support it, the kernel Makefile
+# is disabling the maybe-uninitialized warning.  Re-enable it for the
+# AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
+# will override the kernel settings.
+ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
+EXTRA_CFLAGS += -Wmaybe-uninitialized
+endif
+#EXTRA_CFLAGS += -Wmissing-prototypes
+
+ifeq ($(call cc-option-yn, -Wheader-guard),y)
+EXTRA_CFLAGS += -Wheader-guard
+endif
+
+ifeq ($(CONFIG_SND_SOC_GCOV), y)
+GCOV_PROFILE := y
+endif
+
+# Module information used by KBuild framework
+obj-$(CONFIG_PINCTRL_WCD) += pinctrl_wcd_dlkm.o
+pinctrl_wcd_dlkm-y := $(PINCTRL_WCD_OBJS)
+
+obj-$(CONFIG_PINCTRL_LPI) += pinctrl_lpi_dlkm.o
+pinctrl_lpi_dlkm-y := $(PINCTRL_LPI_OBJS)
+
+obj-$(CONFIG_SOUNDWIRE) += swr_dlkm.o
+swr_dlkm-y := $(SWR_OBJS)
+
+obj-$(CONFIG_SND_EVENT) += snd_event_dlkm.o
+snd_event_dlkm-y := $(SND_EVENT_OBJS)
+
+obj-$(CONFIG_SOUNDWIRE_WCD_CTRL) += swr_ctrl_dlkm.o
+obj-$(CONFIG_SOUNDWIRE_MSTR_CTRL) += swr_ctrl_dlkm.o
+swr_ctrl_dlkm-y := $(SWR_CTRL_OBJS)
+
+obj-$(CONFIG_WCD_SPI_AC) += wcd_spi_acc_ctl_dlkm.o
+wcd_spi_acc_ctl_dlkm-y := $(WCD_SPI_ACC_CTL_OBJS)
+
+# inject some build related information
+DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

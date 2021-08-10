@@ -1,0 +1,81 @@
+#include "lahaina-sde-display-common.dtsi"
+
+&sde_dsi {
+	clocks = <&clock_cpucc BYTECLK_MUX_0_CLK>,
+			 <&clock_cpucc PCLK_MUX_0_CLK>,
+			 <&clock_cpucc CPHY_BYTECLK_SRC_0_CLK>,
+			 <&clock_cpucc CPHY_PCLK_SRC_0_CLK>,
+			 <&clock_cpucc BYTECLK_SRC_0_CLK>,
+			 <&clock_cpucc PCLK_SRC_0_CLK>,
+			 <&clock_cpucc SHADOW_BYTECLK_SRC_0_CLK>,
+			 <&clock_cpucc SHADOW_PCLK_SRC_0_CLK>,
+			 <&clock_cpucc BYTECLK_MUX_1_CLK>,
+			 <&clock_cpucc PCLK_MUX_1_CLK>,
+			 <&clock_cpucc CPHY_BYTECLK_SRC_1_CLK>,
+			 <&clock_cpucc CPHY_PCLK_SRC_1_CLK>,
+			 <&clock_cpucc BYTECLK_SRC_1_CLK>,
+			 <&clock_cpucc PCLK_SRC_1_CLK>,
+			 <&clock_cpucc SHADOW_BYTECLK_SRC_1_CLK>,
+			 <&clock_cpucc SHADOW_PCLK_SRC_1_CLK>;
+	clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"cphy_byte_clk0", "cphy_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0",
+			"mux_byte_clk1", "mux_pixel_clk1",
+			"cphy_byte_clk1", "cphy_pixel_clk1",
+			"src_byte_clk1", "src_pixel_clk1",
+			"shadow_byte_clk1", "shadow_pixel_clk1";
+	qcom,panel-te-source = <0>;
+};
+
+&sde_dsi1 {
+	clocks = <&clock_cpucc BYTECLK_MUX_0_CLK>,
+			 <&clock_cpucc PCLK_MUX_0_CLK>,
+			 <&clock_cpucc CPHY_BYTECLK_SRC_0_CLK>,
+			 <&clock_cpucc CPHY_PCLK_SRC_0_CLK>,
+			 <&clock_cpucc BYTECLK_SRC_0_CLK>,
+			 <&clock_cpucc BYTECLK_MUX_1_CLK>,
+			 <&clock_cpucc PCLK_MUX_1_CLK>,
+			 <&clock_cpucc CPHY_BYTECLK_SRC_1_CLK>,
+			 <&clock_cpucc CPHY_PCLK_SRC_1_CLK>;
+	clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"cphy_byte_clk0", "cphy_pixel_clk0",
+			"mux_byte_clk1", "mux_pixel_clk1",
+			"cphy_byte_clk1", "cphy_pixel_clk1";
+	qcom,panel-te-source = <1>;
+};
+
+&mdss_mdp {
+	connectors = <&sde_dsi &sde_dsi1>;
+};
+
+&dsi_sw43404_amoled_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-brightness-max-level = <255>;
+};
+
+&dsi_sw43404_amoled_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-brightness-max-level = <255>;
+};
+
+&dsi_r66451_amoled_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <255>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+};
+
+&dsi_r66451_amoled_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <255>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+};
+

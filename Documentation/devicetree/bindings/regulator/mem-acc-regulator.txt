@@ -1,0 +1,288 @@
+Qualcomm Technologies, Inc. Memory Accelerator
+
+Memory accelerator configures the power-mode (corner) for the
+accelerator.
+
+Required properties:
+- compatible:			Must be "qcom,mem-acc-regulator"
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	Minimum corner value as min constraint, which
+				should be 1 for SVS corner
+- regulator-max-microvolt:	Maximum corner value as max constraint, which
+				should be 4 for SUPER_TURBO or 3 for TURBO
+
+Optional properties:
+- reg:				Register addresses for acc-sel-l1, acc-sel-l2 control, acc-en,
+				MEM ACC eFuse address, acc-l1-custom , acc-l2-custom,
+				mem-acc-type1, mem-acc-type2, mem-acc-type3, mem-acc-type4,
+				mem-acc-type5 and mem-acc-type6.
+- reg-names:			Register names. Must be "acc-sel-l1",
+				"acc-sel-l2", "acc-en", "efuse_addr",
+				"acc-l1-custom", "acc-l2-custom", "mem-acc-type1",
+				"mem-acc-type2", "mem-acc-type3", "mem-acc-type4",
+				"mem-acc-type5", "mem-acc-type6".
+				A given mem-acc-regulator driver must have "acc-sel-l1" or
+				"acc-sel-l2" or "mem-acc-type*" reg-names property and
+				related register address property.
+- qcom,corner-acc-map		Array which maps the APC (application processor)
+				corner value to the accelerator corner. The number of elements
+				in this property defines the number of accelerator corners.
+				Either qcom,corner-acc-map property or qcom,cornerX-reg-config
+				properties should be specified.
+- qcom,acc-en-bit-pos		Array which specifies bit positions in the
+				'acc-en' register. Setting these bits forces the
+				the acclerator to use the corner value specified
+				in the 'acc-sel-l1' and 'acc-sel-l2' register.
+- qcom,acc-sel-l1-bit-size	Integer which specifies the number of bits in
+				the 'acc-sel-l1' register which define each L1
+				select parameter.  If this property is not
+				specified, then a default value of 2 is assumed.
+- qcom,acc-sel-l1-bit-pos	Array which specifies bit positions in the
+				'acc-sel-l1' register. Each element in this array
+				is the LSB of an N-bit value where 'N' is
+				defined by the qcom,acc-sel-l1-bit-size
+				property.  This N-bit value specifies the corner
+				value used by the accelerator for the L1 cache.
+- qcom,acc-sel-l2-bit-size	Integer which specifies the number of bits in
+				the 'acc-sel-l2' register which define each L2
+				select parameter.  If this property is not
+				specified, then a default value of 2 is assumed.
+- qcom,acc-sel-l2-bit-pos	Array which specifies bit positions in the
+				'acc-sel-l2' register. Each element in this array
+				is the LSB of an N-bit value where 'N' is
+				defined by the qcom,acc-sel-l2-bit-size
+				property.  This N-bit value specifies the corner
+				value used by the accelerator for the L2 cache.
+- qcom,l1-acc-custom-data:	Array which maps APC corner values to L1 ACC custom data values.
+				The corresponding custom data is written into the custom register
+				while switching between APC corners. The custom register address
+				is specified by "acc-11-custom" reg-property. The length of the array
+				should be equal to number of APC corners.
+- qcom,l2-acc-custom-data:	Array which maps APC corner values to L2 ACC custom data values.
+				The corresponding custom data is written into the custom register
+				while switching between APC corners. The custom register address
+				is specified by "acc-l2-custom" reg-property. The length of the array
+				should be equal to number of APC corners.
+- qcom,override-acc-fuse-sel:	Array of 4 elements which specify the way to read the override fuse.
+				The override fuse value is used by the qcom,override-fuse-version-map
+				to identify the correct set of override properties.
+				The 4 elements with index [0..4] are:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qcom,override-fuse-version-map: Array of integers which each match to a override fuse value.
+				Any element in a tuple may use the value 0xffffffff as a wildcard.
+				The index of the first value (in the array) which matches the override fuse
+				is used to select the right tuples from the other override properties.
+- qcom,override-corner-acc-map:	Array of tuples which overrides the existing acc-corner map
+				(specified by qcom,corner-acc-map) with corner values selected
+				from this property. "qcom,override-corner-acc-map" must contain the
+				same number of tuples as "qcom,override-fuse-version-map". These tuples
+				are then mapped one-to-one in the order specified. If the
+				"qcom,override-fuse-version-map" property is not specified, then
+				"qcom,override-corner-acc-map" must contain a single tuple which is then
+				applied unconditionally.
+- qcom,override-l1-acc-custom-data:	Array of tuples of which overrides the existing l1-acc-custom data
+				(specified by qcom,l1-acc-custom-data), with values specified in this property.
+				The corresponding custom data is written into the custom register while
+				switching between APC corners. The custom register address is specified by
+				"acc-11-custom" reg-property. This property can only be specified if the
+				"qcom,l1-acc-custom-data" is already defined. If the
+				"qcom,override-fuse-version-map" property is specified, then
+				qcom,override-l1-acc-custom-data must contain the same number of tuples
+				as "qcom,override-fuse-version-map". These tuples are then mapped one-to-one
+				in the order specified. If the qcom,override-fuse-version-map property is
+				not specified, then "qcom,override-l1-acc-custom-data" must contain a single
+				tuple which is then applied unconditionally.
+- qcom,override-l2-acc-custom-data:	Array of tuples of which overrides the existing l1-acc-custom data
+				(specified by qcom,l2-acc-custom-data), with values specified in this property.
+				The corresponding custom data is written into the custom register while
+				switching between APC corners. The custom register address is specified by
+				"acc-12-custom" reg-property. This property can only be specified if the
+				"qcom,l2-acc-custom-data" is already defined. If the
+				"qcom,override-fuse-version-map" property is specified, then
+				"qcom,override-l2-acc-custom-data" must contain the same number of tuples
+				as "qcom,override-fuse-version-map". These tuples are then mapped one-to-one
+				in the order specified. If the qcom,override-fuse-version-map property is
+				not specified, then "qcom,override-l2-acc-custom-data" must contain a single
+				tuple which is then applied unconditionally.
+- qcom,mem-acc-type1:		Array which specifies the value to be written to the mem acc type1 register for each fuse
+				corner, from the lowest fuse corner to the highest fuse corner. The length of the array
+				must be equal to the number of APC fuse corners. This property must be present if reg names
+				specifies mem-acc-type1.
+- qcom,mem-acc-type2:		Same as qcom,mem-acc-type1 except for mem acc type2 register.
+- qcom,mem-acc-type3:		Same as qcom,mem-acc-type1 except for mem acc type3 register.
+- qcom,mem-acc-type4:		Same as qcom,mem-acc-type1 except for mem acc type4 register.
+- qcom,mem-acc-type5:		Same as qcom,mem-acc-type1 except for mem acc type5 register.
+- qcom,mem-acc-type6:		Same as qcom,mem-acc-type1 except for mem acc type6 register.
+- qcom,acc-reg-addr-list:	Array of register addresses which need to be programmed during any corner switch.
+				This property can be used when multi register configuration is needed during a corner switch.
+- qcom,acc-init-reg-config:	Array of tuples specify the multi register configuration sequence need to be programmed
+				one time during device boot.
+				The format of each tuple as below:
+					<register-address-index, value>
+				Where register-address-index is used as an index in to qcom,acc-reg-addr-list property
+				to get the required register address and the value is programmed in to the corresponding
+				mapped register address. This property is required if qcom,acc-corner-addr-val-map
+				property specified.
+- qcom,cornerX-reg-config:	Array of tuples specify the multi register configuration sequence need to be programmed
+				when switching from acc corner X to any other corner. The possible values for X are {1, N},
+				where N is the value defined in qcom,num-acc-corners.
+				The format of each tuple as below:
+					<register-address-index, value>
+				Where register-address-index is used as an index in to qcom,acc-reg-addr-list property
+				to get the required register address and the value is programmed in to the corresponding
+				mapped register address. Same index can be used multiple times when the register is
+				required to configure multiple times with different values in the sequence.
+				The number of register configuration sequences should be equal to N, where N is the
+				value specified in qcom,num-acc-corners property. Also, the number of tuples in each
+				register configuration sequence should be same and must be equal to the maximum required
+				register configurations in any sequence. The invalid register configuration can be
+				specified as <(-1) (-1)>.  This property can only be specified when qcom,acc-corner-addr-val-map
+				property already defined. Either this property or qcom,corner-acc-map should be specified.
+- qcom,num-acc-corners:		The number of acc corners supported. This property is required if qcom,cornerX-reg-config
+				property specified.
+- qcom,boot-acc-corner:		The acc corner used during device boot. This property is required if qcom,cornerX-reg-config
+				property specified.
+- qcom,override-cornerX-reg-config:	A grouping of register configuration sequence lists. Each list is same as
+				the qcom,cornerX-reg-config property. The possible values for X are {1, N} where N is
+				the value defined in qcom,num-acc-corners. This property is used to specify the different
+				register configuration sequence lists and select one list among them based on the selected
+				index in qcom,override-fuse-version-map property. The selected list overrides the existing
+				register configuration sequence list specified in "qcom,cornerX-reg-config". If the
+				"qcom,override-fuse-version-map" property is specified, then
+				"qcom,override-cornerX-reg-config" must contain the same number of register
+				configuration sequence lists as the number of tuples in "qcom,override-fuse-version-map".
+				These register configuration sequence lists are then mapped one-to-one
+				in the order specified. If the qcom,override-fuse-version-map property is
+				not specified, then "qcom,override-cornerX-reg-config" must contain a single
+				register configuration sequence list which is then applied unconditionally.
+				This property can only be specified if qcom,cornerX-reg-config property is already defined.
+- qcom,override-acc-range-fuse-list:	Array of tuples define the selection parameters used for selecting the override
+				mem-acc configuration. The fused values for these selection parameters are used by the
+				qcom,override-fuse-range-map to identify the correct set of override properties.
+				Each tuple contains 4 elements as defined below:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qcom,override-fuse-range-map:	Array of tuples where each tuple specifies the allowed range for all the selection parameters
+				defined in qcom,override-acc-range-fuse-list. The fused values of these selection parameters
+				are compared against their allowed range in each tuple starting from 0th tuple and use the
+				first matched tuple index to select the right tuples from the other override properties.
+				Either qcom,override-fuse-range-map or qcom,override-fuse-version-map is used to select
+				the override configuration. The qcom,override-fuse-range-map is used if both the
+				properties are specified.
+
+mem_acc_vreg_corner: regulator@fd4aa044 {
+	compatible = "qcom,mem-acc-regulator";
+	reg = <0xfd4aa048 0x1>, <0xfd4aa044 0x1>, <0xfd4af000 0x1>,
+		<0x58000 0x1000>, <0x01942124 0x4>, <0xf900d084 1>,
+		<0xf900d088 1>, <0xf900d08c 1>, <0xf900d090 1>;
+	reg-names = "acc-en", "acc-sel-l1" , "acc-sel-l2",
+		"efuse_addr", "acc-l2-custom", "mem-acc-type1",
+		"mem-acc-type2", "mem-acc-type3", "mem-acc-type4";
+	regulator-name = "mem_acc_corner";
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <3>;
+
+	qcom,acc-en-bit-pos = <0>;
+	qcom,acc-sel-l1-bit-pos = <0>;
+	qcom,acc-sel-l2-bit-pos = <0>;
+	qcom,acc-sel-l1-bit-size = <2>;
+	qcom,acc-sel-l2-bit-size = <2>;
+	qcom,corner-acc-map = <0 1 3>;
+	qcom,l2-acc-custom-data = <0x0 0x3000 0x3000>;
+
+	qcom,override-acc-fuse-sel = <0 52 2 0>;
+	qcom,override-fuse-version-map = <0>,
+					 <2>,
+					 <(-1)>;
+	qcom,override-acc-range-fuse-list =
+					<37 40 3 0>,
+					<36 30 8 0>;
+	qcom,override-fuse-range-map =
+				<0 0>, <  0   0>, <49 63>,
+				<1 1>, <  0   0>, <50 63>,
+				<0 1>, < 95 255>, < 0 63>;
+	qcom,override-corner-acc-map =	<0 0 1>,
+					<0 1 2>,
+					<0 1 1>;
+	qcom,override-l2-acc-custom-data = <0x0	0x0	0x3000>,
+					  <0x0	0x3000	0x3000>,
+					  <0x0	0x0	0x0>;
+	qcom,mem-acc-type1 = <0x02 0x02 0x00>;
+	qcom,mem-acc-type2 = <0x02 0x02 0x00>;
+	qcom,mem-acc-type3 = <0x02 0x02 0x00>;
+	qcom,mem-acc-type4 = <0x02 0x02 0x00>;
+
+	qcom,acc-reg-addr-list = <0x01942130 0x01942124 0x01942120>;
+	qcom,acc-init-reg-config = <1 0x55> <2 0x02>;
+
+	qcom,num-acc-corners = <3>;
+	qcom,boot-acc-corner = <2>;
+	qcom,corner1-reg-config =
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 1 -> 1 */
+		<  1 0x155>, <  2   0x0>, <  3 0x155>, /* 1 -> 2 */
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>; /* 1 -> 3 */
+
+	qcom,corner2-reg-config =
+		<  1 0x155>, <(-1) (-1)>, <(-1) (-1)>, /* 2 -> 1 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 2 -> 2 */
+		<  1 0x155>, <  2   0x0>, <  3 0x155>; /* 2 -> 3 */
+
+	qcom,corner3-reg-config =
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>, /* 3 -> 1 */
+		<  1 0x155>, <(-1) (-1)>, <(-1) (-1)>, /* 3 -> 2 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>; /* 3 -> 3 */
+
+	qcom,override-corner1-reg-config =
+		/* 1st fuse version tuple matched */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 1 -> 1 */
+		<  1 0x155>, <  2   0x0>, <  3 0x155>, /* 1 -> 2 */
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>, /* 1 -> 3 */
+
+		/* 2nd fuse version tuple matched */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 1 -> 1 */
+		<  1 0x155>, <  2   0x0>, <  3 0x155>, /* 1 -> 2 */
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>, /* 1 -> 3 */
+
+		/* 3rd fuse version tuple matched */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 1 -> 1 */
+		<  1 0x155>, <  3  0x22>, <  3 0x155>, /* 1 -> 2 */
+		<  1   0x0>, <  2 0x155>, <  3 0x144>; /* 1 -> 3 */
+
+	qcom,override-corner2-reg-config =
+		/* 1st fuse version tuple matched */
+		<  1 0x144>, <  1  0x11>, <(-1) (-1)>, /* 2 -> 1 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 2 -> 2 */
+		<  1 0x155>, <  2   0x0>, <  3 0x155>, /* 2 -> 3 */
+
+		/* 2nd fuse version tuple matched */
+		<  1 0x144>, <  2 0x133>, <(-1) (-1)>, /* 2 -> 1 */
+		<(-1) (-1)>, <  1  0x33>, <(-1) (-1)>, /* 2 -> 2 */
+		<  1 0x133>, <  2   0x0>, <  3 0x155>, /* 2 -> 3 */
+
+		/* 3rd fuse version tuple matched */
+		<  1 0x144>, <  1  0x11>, <(-1) (-1)>, /* 2 -> 1 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 2 -> 2 */
+		<  1 0x155>, <  2  0x22>, <  3 0x155>; /* 2 -> 3 */
+
+
+	qcom,override-corner3-reg-config =
+		/* 1st fuse version tuple matched */
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>, /* 3 -> 1 */
+		<  1 0x155>, <(-1) (-1)>, <(-1) (-1)>, /* 3 -> 2 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 3 -> 3 */
+
+		/* 2nd fuse version tuple matched */
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>, /* 3 -> 1 */
+		<  1 0x155>, <(-1) (-1)>, <(-1) (-1)>, /* 3 -> 2 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>, /* 3 -> 3 */
+
+		/* 3rd fuse version tuple matched */
+		<  1   0x0>, <  2 0x155>, <(-1) (-1)>, /* 3 -> 1 */
+		<  1 0x155>, <  3  0x11>, <(-1) (-1)>, /* 3 -> 2 */
+		<(-1) (-1)>, <(-1) (-1)>, <(-1) (-1)>; /* 3 -> 3 */
+};

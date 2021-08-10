@@ -1,0 +1,22 @@
+#include "lahaina-qrd.dtsi"
+#include <dt-bindings/clock/qcom,rpmh.h>
+
+&wlan {
+	qcom,vdd-wlan-aon-config = <950000 952000 0 0 0>;
+	qcom,vdd-wlan-dig-config = <950000 952000 0 0 0>;
+	qcom,vdd-wlan-io-config = <1800000 1800000 0 0 0>;
+	qcom,vdd-wlan-rfa1-config = <1880000 1880000 0 0 0>;
+	qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 0>;
+
+	clocks = <&clock_rpmh RPMH_RF_CLK3>;
+	clock-names = "rf_clk";
+};
+
+&bluetooth {
+	qcom,bt-vdd-aon-config = <950000 950000 0 0>;
+	qcom,bt-vdd-dig-config = <950000 950000 0 0>;
+	qcom,bt-vdd-rfa1-config = <1880000 1880000 0 0>;
+	qcom,bt-vdd-rfa2-config = <1350000 1350000 0 0>;
+	clocks = <&clock_rpmh RPMH_RF_CLK3>;
+	clock-names = "ref3_clk";
+};

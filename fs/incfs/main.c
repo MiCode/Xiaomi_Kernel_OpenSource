@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2018 Google LLC
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -30,8 +31,18 @@ static ssize_t corefs_show(struct kobject *kobj,
 
 static struct kobj_attribute corefs_attr = __ATTR_RO(corefs);
 
+static ssize_t mounter_context_for_backing_rw_show(struct kobject *kobj,
+			  struct kobj_attribute *attr, char *buff)
+{
+	return snprintf(buff, PAGE_SIZE, "supported\n");
+}
+
+static struct kobj_attribute mounter_context_for_backing_rw_attr =
+	__ATTR_RO(mounter_context_for_backing_rw);
+
 static struct attribute *attributes[] = {
 	&corefs_attr.attr,
+	&mounter_context_for_backing_rw_attr.attr,
 	NULL,
 };
 

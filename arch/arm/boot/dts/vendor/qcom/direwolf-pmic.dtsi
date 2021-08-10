@@ -1,0 +1,115 @@
+#include "pm8540.dtsi"
+
+&thermal_zones {
+	pm8540_1_temp_alarm: pm8540_1_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8540_1_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8540_1_trip0: trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm8540_1_trip1: trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			trip2 {
+				temperature = <155000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+
+	pm8540_2_temp_alarm: pm8540_2_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8540_2_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8540_2_trip0: trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm8540_2_trip1: trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			trip2 {
+				temperature = <155000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+
+	pm8540_3_temp_alarm: pm8540_3_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8540_3_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8540_3_trip0: trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm8540_3_trip1: trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			trip2 {
+				temperature = <155000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+
+	pm8540_4_temp_alarm: pm8540_4_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8540_4_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8540_4_trip0: trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm8540_4_trip1: trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			trip2 {
+				temperature = <155000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+};

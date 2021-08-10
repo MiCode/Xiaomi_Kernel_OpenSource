@@ -1,0 +1,192 @@
+&soc {
+	msm_npu: qcom,msm_npu@9800000 {
+		compatible = "qcom,msm-npu";
+		status = "ok";
+		reg = <0x9800000 0x40000>,
+			<0x9900000 0x10000>,
+			<0x9960200 0x600>;
+		reg-names = "tcm", "core", "bwmon";
+		interrupts = <GIC_SPI 364 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 366 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "error_irq", "wdg_bite_irq", "ipc_irq";
+		iommus = <&apps_smmu 0x1461 0x0>, <&apps_smmu 0x2061 0x0>;
+		clocks = <&aopcc QDSS_CLK>,
+				<&gcc GCC_NPU_AT_CLK>,
+				<&gcc GCC_NPU_TRIG_CLK>,
+				<&npucc NPU_CC_ARMWIC_CORE_CLK>,
+				<&npucc NPU_CC_CAL_DP_CLK>,
+				<&npucc NPU_CC_CAL_DP_CDC_CLK>,
+				<&npucc NPU_CC_CONF_NOC_AHB_CLK>,
+				<&npucc NPU_CC_COMP_NOC_AXI_CLK>,
+				<&npucc NPU_CC_NPU_CORE_CLK>,
+				<&npucc NPU_CC_NPU_CORE_CTI_CLK>,
+				<&npucc NPU_CC_NPU_CORE_APB_CLK>,
+				<&npucc NPU_CC_NPU_CORE_ATB_CLK>,
+				<&npucc NPU_CC_NPU_CPC_CLK>,
+				<&npucc NPU_CC_NPU_CPC_TIMER_CLK>,
+				<&npucc NPU_CC_QTIMER_CORE_CLK>,
+				<&npucc NPU_CC_SLEEP_CLK>,
+				<&npucc NPU_CC_BWMON_CLK>,
+				<&npucc NPU_CC_PERF_CNT_CLK>,
+				<&npucc NPU_CC_BTO_CORE_CLK>,
+				<&npucc NPU_CC_XO_CLK>;
+		clock-names = "qdss_clk",
+				"at_clk",
+				"trig_clk",
+				"armwic_core_clk",
+				"cal_dp_clk",
+				"cal_dp_cdc_clk",
+				"conf_noc_ahb_clk",
+				"comp_noc_axi_clk",
+				"npu_core_clk",
+				"npu_core_cti_clk",
+				"npu_core_apb_clk",
+				"npu_core_atb_clk",
+				"npu_cpc_clk",
+				"npu_cpc_timer_clk",
+				"qtimer_core_clk",
+				"sleep_clk",
+				"bwmon_clk",
+				"perf_cnt_clk",
+				"bto_core_clk",
+				"xo_clk";
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+		#cooling-cells = <2>;
+		qcom,npu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,npu-pwrlevels";
+			initial-pwrlevel = <4>;
+			qcom,npu-pwrlevel@0 {
+				reg = <0>;
+				vreg = <1>;
+				clk-freq = <0
+					0
+					0
+					100000000
+					300000000
+					300000000
+					19200000
+					150000000
+					100000000
+					37500000
+					19200000
+					60000000
+					100000000
+					19200000
+					19200000
+					0
+					19200000
+					300000000
+					19200000
+					19200000>;
+			};
+
+			qcom,npu-pwrlevel@1 {
+				reg = <1>;
+				vreg = <2>;
+				clk-freq = <0
+					0
+					0
+					150000000
+					350000000
+					350000000
+					37500000
+					200000000
+					150000000
+					75000000
+					19200000
+					120000000
+					150000000
+					19200000
+					19200000
+					0
+					19200000
+					350000000
+					19200000
+					19200000>;
+			};
+
+			qcom,npu-pwrlevel@2 {
+				reg = <2>;
+				vreg = <3>;
+				clk-freq = <0
+					0
+					0
+					200000000
+					400000000
+					400000000
+					37500000
+					300000000
+					200000000
+					75000000
+					19200000
+					120000000
+					200000000
+					19200000
+					19200000
+					0
+					19200000
+					400000000
+					19200000
+					19200000>;
+			};
+
+			qcom,npu-pwrlevel@3 {
+				reg = <3>;
+				vreg = <4>;
+				clk-freq = <0
+					0
+					0
+					300000000
+					600000000
+					600000000
+					75000000
+					403000000
+					300000000
+					150000000
+					19200000
+					240000000
+					300000000
+					19200000
+					19200000
+					0
+					19200000
+					600000000
+					19200000
+					19200000>;
+			};
+
+			qcom,npu-pwrlevel@4 {
+				reg = <4>;
+				vreg = <6>;
+				clk-freq = <0
+					0
+					0
+					350000000
+					715000000
+					715000000
+					75000000
+					533000000
+					350000000
+					150000000
+					19200000
+					240000000
+					350000000
+					19200000
+					19200000
+					0
+					19200000
+					715000000
+					19200000
+					19200000>;
+			};
+		};
+	};
+};

@@ -1,0 +1,131 @@
+#include <dt-bindings/gpio/gpio.h>
+&soc {
+	timer {
+		clock-frequency = <500000>;
+	};
+
+	timer@f420000 {
+		clock-frequency = <500000>;
+	};
+
+	wdog {
+		status = "disabled";
+	};
+
+	usb_emu_phy_0: usb_emu_phy@0x04f20000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x04f20000 0x9500>;
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+};
+
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};
+
+&usb0 {
+	dpdm-supply = <&usb_nop_phy>;
+	dwc3@4e00000 {
+		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};
+
+&sdhc_1 {
+	status = "disabled";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+
+	cap-mmc-highspeed;
+
+	vdd-supply = <&L7E>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L12A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+};
+
+&sdhc_2 {
+	status = "ok";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cap-sd-highspeed;
+
+	vdd-supply = <&L9E>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6E>;
+	qcom,vdd-io-voltage-level = <2960000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	cd-gpios = <&tlmm 94 GPIO_ACTIVE_LOW>;
+};
+
+&ufsphy_mem {
+		compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+		vdda-phy-supply = <&L18A>;
+		vdda-pll-supply = <&L22A>;
+		vdda-phy-max-microamp = <62900>;
+		vdda-pll-max-microamp = <18300>;
+
+		status = "ok";
+};
+
+&ufshc_mem {
+
+		limit-tx-hs-gear = <1>;
+		limit-rx-hs-gear = <1>;
+		limit-rate = <1>; /* HS Rate-B */
+
+		vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+		vdd-hba-fixed-regulator;
+
+		vcc-supply = <&L7E>;
+		vcc-max-microamp = <800000>;
+
+		vccq2-supply = <&L12A>;
+		vccq2-max-microamp = <800000>;
+
+		qcom,vddp-ref-clk-supply = <&L22A>;
+		qcom,vddp-ref-clk-max-microamp = <100>;
+
+		qcom,disable-lpm;
+		rpm-level = <0>;
+		spm-level = <0>;
+
+		status = "ok";
+};
+
+/* Debug UART Console */
+&qupv3_se9_2uart {
+	qcom,rumi_platform;
+};
+
+&qupv3_se10_i2c {
+	 status = "disabled";
+};

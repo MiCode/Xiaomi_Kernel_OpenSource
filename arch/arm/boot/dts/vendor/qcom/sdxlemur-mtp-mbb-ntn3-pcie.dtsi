@@ -1,0 +1,77 @@
+#include "sdxlemur-mtp-mbb.dtsi"
+
+&soc {
+	ntn3_vreg: ntn3_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ntn3_vreg";
+		gpio = <&tlmm 107 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
+		enable-active-high;
+		regulator-enable-ramp-delay = <4300>;
+	};
+
+	aqr_vreg: aqr_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "aqr_vreg";
+		gpio = <&tlmm 105 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&ntn3_vreg>;
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
+		enable-active-high;
+		regulator-enable-ramp-delay = <2400>;
+	};
+
+};
+
+&i2c_3 {
+	pcie_i2c_ctrl: pcie_i2c_ctrl {
+		compatible = "qcom,pcie0-i2c-ntn3";
+		reg = <0x77>;
+		gpio-config-reg = <0x801208>;
+		ep-reset-reg = <0x801210>;
+		ep-reset-gpio-mask = <0x9>;
+		dump-regs = <0x801330 0x801350 0x801370>;
+	};
+};
+
+&pcie0 {
+	pcie-i2c-phandle = <&i2c_3>;
+
+	qcom,filtered-bdfs = <0x02080000>;
+
+	vreg-3p3-supply = <&aqr_vreg>;
+
+	iommu-map = <0x0 &apps_smmu 0x0200 0x1>,
+		<0x100 &apps_smmu 0x0201 0x1>,
+		<0x210 &apps_smmu 0x0202 0x1>,
+		<0x218 &apps_smmu 0x0203 0x1>,
+		<0x300 &apps_smmu 0x0208 0x1>,
+		<0x400 &apps_smmu 0x020c 0x1>,
+		<0x401 &apps_smmu 0x020e 0x1>;
+};
+
+&pcie0_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	/* BDF 1.0.0 */
+	pcie0_bus1_dev0_fn0: pcie0_bus1_dev0_fn0 {
+		reg = <0 0 0 0 0>;
+
+		/* BDF 2.1.0 */
+		pcie0_bus2_dev1_fn0: pcie0_bus2_dev1_fn0 {
+			reg = <0x800 0x0 0x0 0x0 0x0>;
+		};
+
+		/* BDF 2.2.0 */
+		pcie0_bus2_dev2_fn0: pcie0_bus2_dev2_fn0 {
+			reg = <0x1000 0x0 0x0 0x0 0x0>;
+		};
+
+		/* BDF 2.3.0 */
+		pcie0_bus2_dev3_fn0: pcie0_bus2_dev3_fn0 {
+			reg = <0x1800 0x0 0x0 0x0 0x0>;
+		};
+	};
+};

@@ -1,0 +1,319 @@
+&soc {
+	/* PWR_CTR1_VDD_1P8 supply */
+	vreg_conn_1p8: vreg_conn_1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_1p8";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm6155_1_gpios 1 0>;
+	};
+
+	/* PWR_CTR2_VDD_PA supply */
+	vreg_conn_pa: vreg_conn_pa {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_pa";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm6155_1_gpios 6 0>;
+	};
+
+	vreg_wlan: vreg_wlan {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "vreg_wlan";
+	};
+
+	bluetooth_ext: bt-qca-auto-converged {
+		compatible = "qcom,qca-auto-converged";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		/* BT_EN */
+		qcom,bt-reset-gpio = <&tlmm 85 0>;
+		/* PWR_CTR1_VDD_PA */
+		qcom,bt-vdd-ctrl1-supply = <&vreg_conn_pa>;
+		/* PWR_CTR2_VDD_1P8 */
+		qcom,bt-vdd-ctrl2-supply = <&vreg_conn_1p8>;
+		qcom,bt-vdd-rfa1-supply = <&pm6155_1_s6>;
+		qcom,bt-vdd-rfa2-supply = <&pm6155_1_s5>;
+		qcom,bt-vdd-rfa3-supply = <&pm6155_1_l15>;
+
+		/* <vol_min, vol_max, load_curr, is_retention_supp> */
+		qcom,bt-vdd-rfa1-config = <1350000 1350000 0 0>;
+		qcom,bt-vdd-rfa2-config = <2040000 2040000 0 0>;
+		qcom,bt-vdd-rfa3-config = <1904000 1904000 450000 0>;
+	};
+
+	cnss_pcie: qcom,cnss-qca-converged {
+		compatible = "qcom,cnss-qca-converged";
+
+		qcom,converged-dt;
+		qcom,wlan-rc-num = <0>;
+		qcom,bus-type=<0>;
+		qcom,notify-modem-status;
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<45 512 0 0>, <1 512 0 0>,
+			/* Upto 200 Mbps */
+			<45 512 41421 655360>, <1 512 41421 655360>,
+			/* Upto 400 Mbps */
+			<45 512 98572 655360>, <1 512 98572 1600000>,
+			/* Upto 800 Mbps */
+			<45 512 207108 1146880>, <1 512 207108 3124992>;
+
+		#address-cells=<1>;
+		#size-cells=<1>;
+		ranges = <0x10000000 0x10000000 0x10000000>,
+		      <0x20000000 0x20000000 0x10000>,
+		      <0xa0000000 0xa0000000 0x10000000>,
+		      <0xb0000000 0xb0000000 0x10000>;
+
+		vdd-wlan-ctrl1-supply = <&vreg_conn_pa>;
+		vdd-wlan-ctrl2-supply = <&vreg_conn_1p8>;
+		vdd-wlan-supply = <&vreg_wlan>;
+		vdd-wlan-rfa1-supply = <&pm6155_1_s6>;
+		vdd-wlan-rfa2-supply = <&pm6155_1_s5>;
+		vdd-wlan-rfa3-supply = <&pm6155_1_l15>;
+
+		wlan_vregs = "vdd-wlan-ctrl1", "vdd-wlan-ctrl2";
+		qcom,vdd-wlan-ctrl1-config = <0 0 0 0 0>;
+		qcom,vdd-wlan-ctrl2-config = <0 0 0 0 0>;
+
+		wlan-en-gpio = <&tlmm 98 0>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
+
+		chip_cfg@0 {
+			reg = <0x10000000 0x10000000>,
+			    <0x20000000 0x10000>;
+			reg-names = "smmu_iova_base", "smmu_iova_ipa";
+
+			supported-ids = <0x003e>;
+			wlan_vregs = "vdd-wlan";
+			qcom,vdd-wlan-config = <0 0 0 10 1>;
+
+			qcom,smmu-s1-enable;
+			qcom,wlan-ramdump-dynamic = <0x200000>;
+		};
+
+		chip_cfg@1 {
+			reg = <0xa0000000 0x10000000>,
+			    <0xb0000000 0x10000>;
+			reg-names = "smmu_iova_base", "smmu_iova_ipa";
+
+			supported-ids = <0x1101>;
+			wlan_vregs = "vdd-wlan-rfa1", "vdd-wlan-rfa2",
+				   "vdd-wlan-rfa3";
+			qcom,vdd-wlan-rfa1-config = <1350000 1350000 0 0 1>;
+			qcom,vdd-wlan-rfa2-config = <2040000 2040000 0 0 1>;
+			qcom,vdd-wlan-rfa3-config = <1904000 1904000 0 0 1>;
+
+			qcom,wlan-ramdump-dynamic = <0x400000>;
+			mhi,max-channels = <30>;
+			mhi,timeout = <10000>;
+
+			mhi_channels {
+				mhi_chan@0 {
+					reg = <0>;
+					label = "LOOPBACK";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@1 {
+					reg = <1>;
+					label = "LOOPBACK";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@4 {
+					reg = <4>;
+					label = "DIAG";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@5 {
+					reg = <5>;
+					label = "DIAG";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@20 {
+					reg = <20>;
+					label = "IPCR";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <1>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+					mhi,auto-start;
+				};
+
+				mhi_chan@21 {
+					reg = <21>;
+					label = "IPCR";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+					mhi,auto-queue;
+					mhi,auto-start;
+				};
+			};
+
+			mhi_events {
+				mhi_event@0 {
+					mhi,num-elements = <32>;
+					mhi,intmod = <1>;
+					mhi,msi = <1>;
+					mhi,priority = <1>;
+					mhi,brstmode = <2>;
+					mhi,data-type = <1>;
+				};
+
+				mhi_event@1 {
+					mhi,num-elements = <256>;
+					mhi,intmod = <1>;
+					mhi,msi = <2>;
+					mhi,priority = <1>;
+					mhi,brstmode = <2>;
+				};
+			};
+		};
+
+		chip_cfg@2 {
+			reg = <0xa0000000 0x10000000>,
+			    <0xb0000000 0x10000>;
+			reg-names = "smmu_iova_base", "smmu_iova_ipa";
+
+			supported-ids = <0x1102>;
+			wlan_vregs = "vdd-wlan-rfa1", "vdd-wlan-rfa2",
+				   "vdd-wlan-rfa3";
+			qcom,vdd-wlan-rfa1-config = <1350000 1350000 0 0 1>;
+			qcom,vdd-wlan-rfa2-config = <2040000 2040000 0 0 1>;
+			qcom,vdd-wlan-rfa3-config = <1904000 1904000 0 0 1>;
+
+			qcom,wlan-ramdump-dynamic = <0x300000>;
+			mhi,max-channels = <30>;
+			mhi,timeout = <10000>;
+			mhi,ee = <0x3>, <0x4>;
+			mhi,ee-names = "SBL", "RDDM";
+			mhi,bhie-offset = <0x0324>;
+
+			mhi_channels {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				mhi_chan@0 {
+					reg = <0>;
+					label = "LOOPBACK";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@1 {
+					reg = <1>;
+					label = "LOOPBACK";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@4 {
+					reg = <4>;
+					label = "DIAG";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@5 {
+					reg = <5>;
+					label = "DIAG";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@16 {
+					reg = <16>;
+					label = "IPCR";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <1>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+					mhi,auto-start;
+				};
+
+				mhi_chan@17 {
+					reg = <17>;
+					label = "IPCR";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+					mhi,auto-queue;
+					mhi,auto-start;
+				};
+			};
+
+			mhi_events {
+				mhi_event@0 {
+					mhi,num-elements = <32>;
+					mhi,intmod = <1>;
+					mhi,msi = <1>;
+					mhi,priority = <1>;
+					mhi,brstmode = <2>;
+					mhi,data-type = <1>;
+				};
+
+				mhi_event@1 {
+					mhi,num-elements = <256>;
+					mhi,intmod = <1>;
+					mhi,msi = <2>;
+					mhi,priority = <1>;
+					mhi,brstmode = <2>;
+				};
+			};
+		};
+	};
+};

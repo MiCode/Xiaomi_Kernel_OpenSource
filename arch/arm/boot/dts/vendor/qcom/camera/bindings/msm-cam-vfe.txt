@@ -1,0 +1,171 @@
+* Qualcomm Technologies, Inc. MSM Camera VFE
+
+Camera VFE device provides the definitions for enabling
+the VFE hardware. It also provides the functions for the client
+to control the VFE hardware.
+
+=======================
+Required Node Structure
+=======================
+The VFE device is described in one level of the device node.
+
+======================================
+First Level Node - CAM VFE device
+======================================
+Required properties:
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the compatibility string for matching the
+
+  driver. e.g. "qcom,vfe680", "qcom,vfe580", "qcom,vfe480", "qcom,vfe175",
+  "qcom,vfe170", "qcom,vfe175_130", "qcom,vfe170_150", "qcom,vfe165_160",
+  "qcom,vfe-lite680", "qcom,vfe-lite580", "qcom,vfe-lite480",
+  "qcom,vfe-lite175", "qcom,vfe-lite175_130" or "qcom,vfe-lite170",
+  "qcom,vfe-lite165".
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the name of the register block.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+ - reg-cam-base
+  Usage: required
+  Value type: <u32>
+  Definition: List of bases.
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with VFE HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for VFE HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+	"regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for VFE HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for VFE HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+Optional properties:
+- clock-names-option
+  Usage: optional
+  Value type: <string>
+  Definition: Optional clock names.
+
+- clocks-option
+  Usage: required if clock-names-option defined
+  Value type: <phandle>
+  Definition: List of optinal clocks used for VFE HW.
+
+- clock-rates-option
+  Usage: required if clock-names-option defined
+  Value type: <u32>
+  Definition: List of clocks rates for optional clocks.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- qcom,cam-cx-ipeak:
+  Usage: optional
+  Value type: <phandle bit>
+	phandle - phandle of CX Ipeak device node
+	bit     - Every bit corresponds to a client of CX Ipeak
+  Definition: CX Ipeak is a mitigation scheme which throttles camera frequency
+	if all the clients are running at their respective threshold
+	frequencies to limit CX peak current.
+	driver in the relevant register.
+
+- scl-clk-names:
+  Usage: optional
+  Value type: <string>
+  Definition: Scalable clock names to identify which clocks needs to update
+	along with source clock.
+
+- cam_hw_pid:
+  Usage: optional
+  Value type: <u32>
+  Definition: HW unique Pid values
+
+Example:
+cam_vfe0: qcom,ife0@ac62000 {
+	cell-index = <0>;
+	compatible = "qcom,vfe680";
+	reg-names = "ife", "cam_camnoc", "rt_wrapper";
+	reg = <0xac62000 0xF000>,
+		<0xac19000 0x9000>,
+		<0xac62000 0x64000>;
+	reg-cam-base = <0x62000 0x19000 0x62000>;
+	interrupt-names = "ife";
+	interrupts = <GIC_SPI 465 IRQ_TYPE_EDGE_RISING>;
+	regulator-names = "camss", "ife0";
+	camss-supply = <&cam_cc_titan_top_gdsc>;
+	ife0-supply = <&cam_cc_ife_0_gdsc>;
+	clock-names =
+		"ife_0_ahb_src",
+		"ife_0_ahb",
+		"ife_clk_src",
+		"ife_clk";
+	clocks =
+		<&clock_camcc CAM_CC_FAST_AHB_CLK_SRC>,
+		<&clock_camcc CAM_CC_IFE_0_FAST_AHB_CLK>,
+		<&clock_camcc CAM_CC_IFE_0_CLK_SRC>,
+		<&clock_camcc CAM_CC_IFE_0_CLK>;
+	clock-rates =
+		<100000000 0 432000000 0>,
+		<200000000 0 594000000 0>,
+		<300000000 0 675000000 0>,
+		<400000000 0 785000000 0>,
+		<400000000 0 785000000 0>;
+	clock-cntl-level = "lowsvs", "svs", "svs_l1", "nominal",
+		"turbo";
+	src-clock-name = "ife_clk_src";
+	scl-clk-names = "ife_0_ahb";
+	clock-control-debugfs = "true";
+	clock-names-option =  "ife_dsp_clk";
+	clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
+	clock-rates-option = <594000000>;
+	ubwc-static-cfg = <0x1026 0x1036>;
+	cam_hw_pid = <16 28 20 8>;
+	status = "ok";
+};
