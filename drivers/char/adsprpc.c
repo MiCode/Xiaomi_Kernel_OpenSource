@@ -126,6 +126,9 @@
 #define GET_TABLE_IDX_FROM_CTXID(ctxid) \
 	((ctxid & FASTRPC_CTX_TABLE_IDX_MASK) >> FASTRPC_CTX_TABLE_IDX_POS)
 
+#define VALID_FASTRPC_CID(cid) \
+	(cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS)
+
 /* Reserve few entries in context table for critical kernel and static RPC
  * calls to avoid user invocations from exhausting all entries.
  */
@@ -1206,7 +1209,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 	if (fl && !(map->flags == ADSP_MMAP_HEAP_ADDR ||
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR)) {
 		cid = fl->cid;
-		VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+		VERIFY(err, VALID_FASTRPC_CID(cid));
 		if (err) {
 			err = -ECHRNG;
 			pr_err("adsprpc: ERROR:%s, Invalid channel id: %d, err:%d\n",
@@ -1343,7 +1346,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 	struct scatterlist *sgl = NULL;
 	struct md_region md_entry;
 
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
@@ -2932,7 +2935,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	int64_t ns = 0;
 
 	cid = fl->cid;
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
@@ -3200,7 +3203,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	bool isasyncinvoke = false, isworkdone = false;
 
 	cid = fl->cid;
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS &&
+	VERIFY(err, VALID_FASTRPC_CID(cid) &&
 			fl->sctx != NULL);
 	if (err) {
 		ADSPRPC_ERR("kernel session not initialized yet for %s\n",
@@ -3332,7 +3335,8 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		context_free(ctx);
 		trace_fastrpc_msg("context_free: end");
 	}
-	if (fl->ssrcount != fl->apps->channel[cid].ssrcount)
+	if (VALID_FASTRPC_CID(cid)
+		&& (fl->ssrcount != fl->apps->channel[cid].ssrcount))
 		err = -ECONNRESET;
 
 invoke_end:
@@ -4097,7 +4101,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = -EFBIG;
 		goto bail;
 	}
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
@@ -5112,7 +5116,7 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 		return -ENODEV;
 
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
@@ -5141,7 +5145,7 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	}
 
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
@@ -5173,7 +5177,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 
 	trace_fastrpc_msg("rpmsg_callback: begin");
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
+	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
