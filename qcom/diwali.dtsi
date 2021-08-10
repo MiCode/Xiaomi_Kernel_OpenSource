@@ -1221,6 +1221,43 @@
 		};
 	};
 
+	wpss_pas: remoteproc-wpss@8A00000 {
+		compatible = "qcom,diwali-wpss-pas";
+		status = "ok";
+
+		memory-region = <&wpss_mem>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "xo";
+
+		cx-supply = <&VDD_CX_LEVEL>;
+		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		mx-supply = <&VDD_MXA_LEVEL>;
+		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		reg-names = "cx","mx";
+
+		qcom,qmp = <&aoss_qmp>;
+
+		/* Inputs from wpss */
+		interrupts-extended = <&intc GIC_SPI 587 IRQ_TYPE_LEVEL_HIGH>,
+				      <&wpss_smp2p_in 0 0>,
+				      <&wpss_smp2p_in 2 0>,
+				      <&wpss_smp2p_in 1 0>,
+				      <&wpss_smp2p_in 3 0>,
+				      <&wpss_smp2p_in 7 0>;
+
+		interrupt-names = "wdog",
+				   "fatal",
+				   "handover",
+				   "ready",
+				   "stop-ack",
+				   "shutdown-ack";
+
+		/* Outputs to wpss */
+		qcom,smem-states = <&wpss_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
+	};
+
 	eud: qcom,msm-eud@88e0000 {
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
