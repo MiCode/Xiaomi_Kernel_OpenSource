@@ -861,6 +861,11 @@
 			#clock-cells = <1>;
 		};
 
+		scmi_plh: protocol@81 {
+			reg = <0x81>;
+			#clock-cells = <1>;
+		};
+
 		scmi_pmu: protocol@86 {
 			reg = <0x86>;
 			#clock-cells = <1>;
