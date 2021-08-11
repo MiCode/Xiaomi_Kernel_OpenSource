@@ -28,6 +28,7 @@
 #include <linux/topology.h>
 
 #include <linux/scmi_protocol.h>
+#include <linux/scmi_plh.h>
 #include <trace/events/power.h>
 
 #define POLL_INT 25
@@ -80,18 +81,22 @@ static ssize_t get_game_start_pid(struct kobject *kobj,
 static ssize_t set_game_start_pid(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
-#ifdef CONFIG_QTI_PLH
-static ssize_t get_plh_log_level(struct kobject *kobj,
-	struct kobj_attribute *attr, char *buf);
-static ssize_t set_plh_log_level(struct kobject *kobj,
-	struct kobj_attribute *attr, const char *buf,
-	size_t count);
 static ssize_t get_splh_notif(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf);
 static ssize_t set_splh_notif(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
-#endif
+static ssize_t get_splh_sample_ms(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_splh_sample_ms(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
+static ssize_t get_splh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_splh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
+
 static struct kobj_attribute cpu_min_freq_attr =
 	__ATTR(cpu_min_freq, 0644, get_cpu_min_freq, set_cpu_min_freq);
 static struct kobj_attribute cpu_max_freq_attr =
@@ -103,12 +108,12 @@ static struct kobj_attribute core_ctl_register_attr =
 	set_core_ctl_register);
 static struct kobj_attribute evnt_gplaf_pid_attr =
 	__ATTR(evnt_gplaf_pid, 0644, get_game_start_pid, set_game_start_pid);
-#ifdef CONFIG_QTI_PLH
-static struct kobj_attribute plh_log_level_attr =
-	__ATTR(plh_log_level, 0644, get_plh_log_level, set_plh_log_level);
-static struct kobj_attribute splh_notify_attr =
-	__ATTR(splh_notify, 0644, get_splh_notif, set_splh_notif);
-#endif
+static struct kobj_attribute splh_notif_attr =
+	__ATTR(splh_notif, 0644, get_splh_notif, set_splh_notif);
+static struct kobj_attribute splh_sample_ms_attr =
+	__ATTR(splh_sample_ms, 0644, get_splh_sample_ms, set_splh_sample_ms);
+static struct kobj_attribute splh_log_level_attr =
+	__ATTR(splh_log_level, 0644, get_splh_log_level, set_splh_log_level);
 
 static struct attribute *param_attrs[] = {
 	&cpu_min_freq_attr.attr,
@@ -116,10 +121,9 @@ static struct attribute *param_attrs[] = {
 	&inst_attr.attr,
 	&core_ctl_register_attr.attr,
 	&evnt_gplaf_pid_attr.attr,
-#ifdef CONFIG_QTI_PLH
-	&plh_log_level_attr.attr,
-	&splh_notify_attr.attr,
-#endif
+	&splh_notif_attr.attr,
+	&splh_sample_ms_attr.attr,
+	&splh_log_level_attr.attr,
 	NULL,
 };
 
@@ -923,58 +927,102 @@ static ssize_t get_game_start_pid(struct kobject *kobj,
 }
 
 /*******************************GFX Call************************************/
-#ifdef CONFIG_QTI_PLH
-static struct scmi_handle *plh_handle;
-void rimps_plh_init(struct scmi_handle *handle)
+static struct scmi_protocol_handle *plh_handle;
+static const struct scmi_plh_vendor_ops *plh_ops;
+int cpucp_plh_init(struct scmi_device *sdev)
 {
-	if (handle)
-		plh_handle = handle;
+	int ret = 0;
+
+	if (!sdev || !sdev->handle)
+		return -EINVAL;
+
+	plh_ops = sdev->handle->devm_get_protocol(sdev, SCMI_PROTOCOL_PLH, &plh_handle);
+
+	if (!plh_ops)
+		return -EINVAL;
+
+	return ret;
 }
-EXPORT_SYMBOL(rimps_plh_init);
+EXPORT_SYMBOL(cpucp_plh_init);
 
-static int splh_notif, splh_init_done, plh_log_level;
+static int splh_notif, splh_init_done, splh_sample_ms, splh_log_level;
 
-#define PLH_MIN_LOG_LEVEL			0
-#define PLH_MAX_LOG_LEVEL			0xF
+#define SPLH_MIN_SAMPLE_MS			1
+#define SPLH_MAX_SAMPLE_MS			30
+#define SPLH_MIN_LOG_LEVEL			0
+#define SPLH_MAX_LOG_LEVEL			0xF
 #define SPLH_FPS_MAX_CNT			8
 #define SPLH_IPC_FREQ_VTBL_MAX_CNT		5 /* ipc freq pair */
 #define SPLH_INIT_IPC_FREQ_TBL_PARAMS	\
 			(2 + SPLH_FPS_MAX_CNT * (1 + (2 * SPLH_IPC_FREQ_VTBL_MAX_CNT)))
 
-static ssize_t get_plh_log_level(struct kobject *kobj,
+static ssize_t get_splh_sample_ms(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%d\n", plh_log_level);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", splh_sample_ms);
 }
 
-static ssize_t set_plh_log_level(struct kobject *kobj,
+static ssize_t set_splh_sample_ms(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count)
 {
-	int ret, log_val_backup;
-	struct scmi_plh_vendor_ops *ops;
+	int ret, ms_val_backup;
 
-	if (!plh_handle || !plh_handle->plh_ops) {
+	if (!plh_handle || !plh_ops) {
 		pr_err("msm_perf: plh scmi handle or vendor ops null\n");
 		return -EINVAL;
 	}
 
-	ops = plh_handle->plh_ops;
+	ms_val_backup = splh_sample_ms;
 
-	log_val_backup = plh_log_level;
-
-	ret = sscanf(buf, "%du", &plh_log_level);
+	ret = sscanf(buf, "%du", &splh_sample_ms);
 
 	if (ret < 0) {
-		pr_err("msm_perf: getting new plh_log_level failed, ret=%d\n", ret);
+		pr_err("msm_perf: getting new splh_sample_ms failed, ret=%d\n", ret);
 		return ret;
 	}
 
-	plh_log_level = clamp(plh_log_level, PLH_MIN_LOG_LEVEL, PLH_MAX_LOG_LEVEL);
-	ret = ops->set_plh_log_level(plh_handle, plh_log_level);
+	splh_sample_ms = clamp(splh_sample_ms, SPLH_MIN_SAMPLE_MS, SPLH_MAX_SAMPLE_MS);
+	ret = plh_ops->set_splh_sample_ms(plh_handle, splh_sample_ms);
 	if (ret < 0) {
-		plh_log_level = log_val_backup;
-		pr_err("msm_perf: setting new plh_log_level failed, ret=%d\n", ret);
+		splh_sample_ms = ms_val_backup;
+		pr_err("msm_perf: setting new splh_sample_ms failed, ret=%d\n", ret);
+		return ret;
+	}
+	return count;
+}
+
+static ssize_t get_splh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", splh_log_level);
+}
+
+static ssize_t set_splh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count)
+{
+	int ret, log_val_backup;
+
+	if (!plh_handle || !plh_ops) {
+		pr_err("msm_perf: plh scmi handle or vendor ops null\n");
+		return -EINVAL;
+	}
+
+	log_val_backup = splh_log_level;
+
+	ret = sscanf(buf, "%du", &splh_log_level);
+
+	if (ret < 0) {
+		pr_err("msm_perf: getting new splh_log_level failed, ret=%d\n", ret);
+		return ret;
+	}
+
+	splh_log_level = clamp(splh_log_level, SPLH_MIN_LOG_LEVEL, SPLH_MAX_LOG_LEVEL);
+	ret = plh_ops->set_splh_log_level(plh_handle, splh_log_level);
+	if (ret < 0) {
+		splh_log_level = log_val_backup;
+		pr_err("msm_perf: setting new splh_log_level failed, ret=%d\n", ret);
 		return ret;
 	}
 	return count;
@@ -986,10 +1034,9 @@ static int init_splh_notif(const char *buf)
 	u16 tmp[SPLH_INIT_IPC_FREQ_TBL_PARAMS];
 	u16 *ptmp = tmp, ntokens, nfps, n_ipc_freq_pair, tmp_valid_len = 0;
 	const char *cp, *cp1;
-	struct scmi_plh_vendor_ops *ops;
 
 	/* buf contains the init info from user */
-	if (buf == NULL || !plh_handle || !plh_handle->plh_ops)
+	if (buf == NULL || !plh_handle || !plh_ops)
 		return -EINVAL;
 
 	cp = buf;
@@ -1006,6 +1053,8 @@ static int init_splh_notif(const char *buf)
 		cp = strnchr(cp, strlen(cp), ':');	/* skip INIT */
 		cp++;
 		cp = strnchr(cp, strlen(cp), ':');	/* skip nfps */
+		if (!cp)
+			return -EINVAL;
 
 		*ptmp++ = nfps;		/* nfps is first cmd param */
 		tmp_valid_len++;
@@ -1032,6 +1081,9 @@ static int init_splh_notif(const char *buf)
 			ptmp++;		/* increment after storing FPS val */
 			tmp_valid_len++;
 			cp1 = strnchr(cp1, strlen(cp1), ','); /* move to ,ipc */
+			if (!cp1)
+				return -EINVAL;
+
 			for (j = 0; j < 2 * n_ipc_freq_pair; j++) {
 				if (sscanf(cp1, ",%hu", ptmp) != 1)
 					return -EINVAL;
@@ -1039,44 +1091,50 @@ static int init_splh_notif(const char *buf)
 				ptmp++;	/* increment after storing ipc or freq */
 				tmp_valid_len++;
 				cp1++;
-				if (j != (2 * n_ipc_freq_pair - 1))
+				if (j != (2 * n_ipc_freq_pair - 1)) {
 					cp1 = strnchr(cp1, strlen(cp1), ','); /* move to next */
+					if (!cp1)
+						return -EINVAL;
+
+				}
 			}
 
-			if (i != (nfps - 1))
+			if (i != (nfps - 1)) {
 				cp1 = strnchr(cp1, strlen(cp1), ':'); /* move to next FPS val */
+				if (!cp1)
+					return -EINVAL;
+
+			}
 
 		}
 	} else {
 		return -EINVAL;
 	}
 
-	ops = plh_handle->plh_ops;
-	ret = ops->init_splh_ipc_freq_tbl(plh_handle, tmp, tmp_valid_len);
+	ret = plh_ops->init_splh_ipc_freq_tbl(plh_handle, tmp, tmp_valid_len);
 	if (ret < 0)
 		return -EINVAL;
 
 	pr_info("msm_perf: nfps=%hu n_ipc_freq_pair=%hu last_freq_val=%hu len=%hu\n",
 		nfps, n_ipc_freq_pair, *--ptmp, tmp_valid_len);
+
 	splh_init_done = 1;
 	return 0;
 }
-
 static void activate_splh_notif(void)
 {
 	int ret;
-	struct scmi_plh_vendor_ops *ops;
+
 	/* received event notification here */
-	if (!plh_handle || !plh_handle->plh_ops) {
+	if (!plh_handle || !plh_ops) {
 		pr_err("msm_perf: splh not supported\n");
 		return;
 	}
-	ops = plh_handle->plh_ops;
 
 	if (splh_notif)
-		ret = ops->start_splh(plh_handle, splh_notif); /* splh_notif is fps */
+		ret = plh_ops->start_splh(plh_handle, splh_notif); /* splh_notif is fps */
 	else
-		ret = ops->stop_splh(plh_handle);
+		ret = plh_ops->stop_splh(plh_handle);
 
 	if (ret < 0) {
 		pr_err("msm_perf: splh start or stop failed, ret=%d\n", ret);
@@ -1118,7 +1176,6 @@ static ssize_t set_splh_notif(struct kobject *kobj,
 
 	return count;
 }
-#endif /* CONFIG_QTI_PLH */
 
 static int __init msm_performance_init(void)
 {

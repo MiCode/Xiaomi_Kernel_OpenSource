@@ -106,6 +106,7 @@ obj-$(CONFIG_ICNSS2) += icnss2/
 obj-$(CONFIG_QTI_HW_MEMLAT_SCMI_CLIENT)	+= memlat_scmi.o
 obj-$(CONFIG_QTI_HW_MEMLAT) += rimps_memlat.o
 obj-$(CONFIG_QTI_HW_MEMLAT_LOG)	+= rimps_log.o
+obj-$(CONFIG_QTI_PLH_SCMI_CLIENT) += plh_scmi.o
 obj-$(CONFIG_QCOM_DCVS) += dcvs/
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_LOGBUF_VENDOR_HOOKS) += qcom_logbuf_vendor_hooks.o
