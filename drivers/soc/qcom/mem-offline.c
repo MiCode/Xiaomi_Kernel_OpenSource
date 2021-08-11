@@ -906,19 +906,19 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 	c += print_blk_residency_times(buf + c, sz - c,
 			tot_blks, total_time, MEMORY_OFFLINE);
 
-	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
 
-	c += scnprintf(buf + c, sz, "\n");
-	c += scnprintf(buf + c, sz, "\tOnline %%:\t");
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tOnline %%:\t");
 	c += print_blk_residency_percentage(buf + c, sz - c,
 			tot_blks, total_time, MEMORY_ONLINE);
 
-	c += scnprintf(buf + c, sz, "\n");
-	c += scnprintf(buf + c, sz, "\tOffline %%:\t");
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tOffline %%:\t");
 	c += print_blk_residency_percentage(buf + c, sz - c,
 			tot_blks, total_time, MEMORY_OFFLINE);
-	c += scnprintf(buf + c, sz, "\n");
-	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
 
 	for (i = 0; i <= tot_blks; i++)
 		total = ktime_add(total,
@@ -931,14 +931,14 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 
 	total_offline = ktime_sub(total, total_online);
 
-	c += scnprintf(buf + c, sz,
+	c += scnprintf(buf + c, sz - c,
 					"\tAvg Online %%:\t%d%%\n",
 					((int)total_online * 100) / total);
-	c += scnprintf(buf + c, sz,
+	c += scnprintf(buf + c, sz - c,
 					"\tAvg Offline %%:\t%d%%\n",
 					((int)total_offline * 100) / total);
 
-	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
 	kfree(total_time);
 	return c;
 }
