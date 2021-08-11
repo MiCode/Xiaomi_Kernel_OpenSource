@@ -237,5 +237,13 @@ config QCOM_APR
 	  used by audio driver to configure QDSP6
 	  ASM, ADM and AFE modules.
 
+config MSM_BOOT_STATS
+	tristate "Use MSM boot stats reporting"
+	help
+	  Use this to report msm boot stats such as bootloader throughput,
+	  display init, total boot time.
+	  This figures are reported in mpm sleep clock cycles and have a
+	  resolution of 31 bits as 1 bit is used as an overflow check.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 endmenu
