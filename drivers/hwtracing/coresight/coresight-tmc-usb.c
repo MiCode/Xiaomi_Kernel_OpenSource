@@ -645,9 +645,9 @@ int tmc_usb_enable(struct tmc_usb_data *usb_data)
 
 	tmcdrvdata = usb_data->tmcdrvdata;
 	if (usb_data->usb_mode == TMC_ETR_USB_BAM_TO_BAM)
-		usb_data->usbch = usb_qdss_open("qdss", tmcdrvdata, usb_notifier);
+		usb_data->usbch = usb_qdss_open(USB_QDSS_CH_MSM, tmcdrvdata, usb_notifier);
 	else if (usb_data->usb_mode == TMC_ETR_USB_SW)
-		usb_data->usbch = usb_qdss_open("qdss_mdm", tmcdrvdata, usb_notifier);
+		usb_data->usbch = usb_qdss_open(USB_QDSS_CH_SW, tmcdrvdata, usb_notifier);
 
 	if (IS_ERR_OR_NULL(usb_data->usbch)) {
 		dev_err(&tmcdrvdata->csdev->dev, "usb_qdss_open failed for qdss.\n");
