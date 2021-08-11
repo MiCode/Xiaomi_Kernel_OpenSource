@@ -742,7 +742,7 @@ static bool device_pending_suspend(struct uart_port *uport)
 {
 	int usage_count = atomic_read(&uport->dev->power.usage_count);
 
-	return (pm_runtime_status_suspended(uport->dev) || !usage_count);
+	return (pm_runtime_status_suspended(uport->dev) && !usage_count);
 }
 
 static bool check_transfers_inflight(struct uart_port *uport)
