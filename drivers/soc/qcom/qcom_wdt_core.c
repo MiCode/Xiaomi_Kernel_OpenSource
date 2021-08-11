@@ -533,6 +533,39 @@ static ssize_t qcom_wdt_pet_time_get(struct device *dev,
 
 static DEVICE_ATTR(pet_time, 0400, qcom_wdt_pet_time_get, NULL);
 
+static ssize_t wakeup_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", wdog_dd->wakeup_irq_enable);
+}
+static ssize_t wakeup_enable_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+	u8 enable;
+	int ret;
+
+	ret = kstrtou8(buf, 10, &enable);
+	if (ret || enable > 1) {
+		dev_err(wdog_dd->dev, "invalid user input\n");
+		return ret ? : -EINVAL;
+	}
+	mutex_lock(&wdog_dd->disable_lock);
+	/* echo 1 > wakeup_enable means wakeup irq is enabled */
+	wdog_dd->wakeup_irq_enable = enable;
+	if (wdog_dd->enabled) {
+		u8 val = BIT(EN);
+
+		if (wdog_dd->wakeup_irq_enable)
+			val |= BIT(UNMASKED_INT_EN);
+		wdog_dd->ops->enable_wdt(val, wdog_dd);
+	}
+	mutex_unlock(&wdog_dd->disable_lock);
+	return count;
+}
+static DEVICE_ATTR_ADMIN_RW(wakeup_enable);
+
 static void qcom_wdt_keep_alive_response(void *info)
 {
 	struct msm_watchdog_data *wdog_dd = info;
@@ -753,6 +786,7 @@ static int qcom_wdt_init_sysfs(struct msm_watchdog_data *wdog_dd)
 	int error = 0;
 
 	error |= device_create_file(wdog_dd->dev, &dev_attr_disable);
+	error |= device_create_file(wdog_dd->dev, &dev_attr_wakeup_enable);
 	if (QCOM_WATCHDOG_USERSPACE_PET) {
 		error |= device_create_file(wdog_dd->dev, &dev_attr_pet_time);
 		error |= device_create_file(wdog_dd->dev,
