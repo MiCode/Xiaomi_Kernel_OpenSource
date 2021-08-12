@@ -12,6 +12,7 @@
 #include <trace/hooks/module.h>
 #include <trace/hooks/memory.h>
 #include <trace/hooks/selinux.h>
+#include <trace/hooks/syscall_check.h>
 #include <linux/types.h> // for list_head
 #include <linux/module.h> // module_layout
 #include <linux/init.h> // rodata_enable support
@@ -41,11 +42,10 @@ static struct page *cred_pages;
 int avc_array_sz;
 int cred_array_sz;
 int rem;
-static bool initialized;
-static struct selinux_avc *avc;
-static struct selinux_policy __rcu *policy;
+static bool g_initialized;
+static struct selinux_avc *g_avc;
+static struct selinux_policy __rcu *g_policy;
 const struct selinux_state *g_selinux_state;
-static DEFINE_RATELIMIT_STATE(rs, 1*HZ, 10);
 
 #if mkp_debug
 static void mkp_trace_event_func(struct timer_list *unused);
@@ -76,8 +76,6 @@ static void mkp_trace_event_func(struct timer_list *unused) // do not use sleep
 #endif
 
 struct rb_root mkp_rbtree = RB_ROOT;
-
-static DEFINE_PER_CPU(struct task_struct, old_task);
 
 #if !defined(CONFIG_KASAN_GENERIC) && !defined(CONFIG_KASAN_SW_TAGS)
 static void *p_stext;
@@ -386,40 +384,17 @@ static void probe_android_vh_selinux_avc_node_replace(void *ignore,
 static void probe_android_vh_selinux_avc_lookup(void *ignore,
 	const struct avc_node *node, u32 ssid, u32 tsid, u16 tclass)
 {
-	struct task_struct *ts, *current_task;
 	void *va;
 	struct avc_sbuf_content *ro_avc_sharebuf_ptr;
 	int i;
 	struct mkp_avc_node *temp_node = NULL;
+	static DEFINE_RATELIMIT_STATE(rs_avc, 1*HZ, 10);
 
 	if (!node || g_ro_avc_handle == 0)
 		return;
-	ts = this_cpu_ptr(&old_task);
-	current_task = get_current();
 
-	if (ts->pid != current_task->pid) {
-		*ts = *current_task;
-		temp_node = (struct mkp_avc_node *)node;
-		va = page_address(avc_pages);
-		ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
-
-		for (i = 0; i < avc_array_sz; ro_avc_sharebuf_ptr++, i++) {
-			if ((unsigned long)ro_avc_sharebuf_ptr->avc_node == (unsigned long)node) {
-				if (ro_avc_sharebuf_ptr->ssid != ssid ||
-					ro_avc_sharebuf_ptr->tsid != tsid ||
-					ro_avc_sharebuf_ptr->tclass != tclass ||
-					ro_avc_sharebuf_ptr->ae_allowed !=
-						temp_node->ae.avd.allowed) {
-					MKP_ERR("avc lookup is not matched\n");
-					handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
-				} else {
-					return; // pass
-				}
-			}
-		}
-	} else {
-		if (!__ratelimit(&rs))
-			return;
+	ratelimit_set_flags(&rs_avc, RATELIMIT_MSG_ON_RELEASE);
+	if (__ratelimit(&rs_avc)) {
 		temp_node = (struct mkp_avc_node *)node;
 		va = page_address(avc_pages);
 		ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
@@ -481,9 +456,9 @@ avc_failed:
 static void probe_android_vh_selinux_is_initialized(void *ignore,
 	const struct selinux_state *state)
 {
-	initialized = state->initialized;
-	avc = state->avc;
-	policy = state->policy;
+	g_initialized = state->initialized;
+	g_avc = state->avc;
+	g_policy = state->policy;
 	g_selinux_state = state;
 
 	if (policy_ctrl[MKP_POLICY_SELINUX_AVC]) {
@@ -494,6 +469,80 @@ static void probe_android_vh_selinux_is_initialized(void *ignore,
 		INIT_WORK(avc_work, avc_work_handler);
 		schedule_work(avc_work);
 	}
+}
+
+static void check_selinux_state(struct ratelimit_state *rs)
+{
+	ratelimit_set_flags(rs, RATELIMIT_MSG_ON_RELEASE);
+	if (!__ratelimit(rs))
+		return;
+	if (g_selinux_state &&
+		(g_selinux_state->initialized != g_initialized ||
+		g_selinux_state->avc != g_avc ||
+		g_selinux_state->policy != g_policy)) {
+		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+	}
+}
+static void check_cred(struct ratelimit_state *rs)
+{
+	struct task_struct *cur = NULL;
+	struct cred_sbuf_content *ro_cred_sharebuf_ptr = NULL;
+	struct cred_sbuf_content *target = NULL;
+
+	ratelimit_set_flags(rs, RATELIMIT_MSG_ON_RELEASE);
+	if (!__ratelimit(rs) && (g_ro_cred_handle == 0))
+		return;
+	cur = get_current();
+	ro_cred_sharebuf_ptr = (struct cred_sbuf_content *)page_address(cred_pages);
+
+	if (cur->pid > 32767) {
+		MKP_ERR("pid is overflow\n");
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		return;
+	}
+
+	target = ro_cred_sharebuf_ptr + cur->pid;
+	if (target->csc.security == NULL) {
+		MKP_WARN("%s:%d: target security point to NULL\n", __func__, __LINE__);
+		return;
+	}
+	if (target->csc.uid.val != cur->cred->uid.val ||
+		target->csc.gid.val != cur->cred->gid.val ||
+		target->csc.euid.val != cur->cred->euid.val ||
+		target->csc.egid.val != cur->cred->egid.val ||
+		target->csc.fsuid.val != cur->cred->fsuid.val ||
+		target->csc.fsgid.val != cur->cred->fsgid.val ||
+		target->csc.security != cur->cred->security) {
+		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		return;
+	}
+}
+static void probe_android_vh_check_mmap_file(void *ignore,
+	const struct file *file, unsigned long prot, unsigned long flag, unsigned long ret)
+{
+	static DEFINE_RATELIMIT_STATE(rs_mmap, 1*HZ, 10);
+
+	check_cred(&rs_mmap);
+	check_selinux_state(&rs_mmap);
+}
+
+static void probe_android_vh_check_file_open(void *ignore, const struct file *file)
+{
+	static DEFINE_RATELIMIT_STATE(rs_open, 1*HZ, 10);
+
+	check_cred(&rs_open);
+	check_selinux_state(&rs_open);
+}
+
+static void probe_android_vh_check_bpf_syscall(void *ignore,
+	int cmd, const union bpf_attr *attr, unsigned int size)
+{
+	static DEFINE_RATELIMIT_STATE(rs_bpf, 1*HZ, 10);
+
+	check_cred(&rs_bpf);
+	check_selinux_state(&rs_bpf);
 }
 
 static int protect_mkp_self(void)
@@ -654,6 +703,27 @@ int __init mkp_demo_init(void)
 		}
 		ret = protect_kernel();
 #endif
+	}
+	if (policy_ctrl[MKP_POLICY_TASK_CRED] ||
+		policy_ctrl[MKP_POLICY_SELINUX_STATE]) {
+		ret = register_trace_android_vh_check_mmap_file(
+				probe_android_vh_check_mmap_file, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto failed;
+		}
+		ret = register_trace_android_vh_check_bpf_syscall(
+				probe_android_vh_check_bpf_syscall, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto failed;
+		}
+		ret = register_trace_android_vh_check_file_open(
+				probe_android_vh_check_file_open, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto failed;
+		}
 	}
 	register_reboot_notifier(&mkp_reboot_notifier);
 
