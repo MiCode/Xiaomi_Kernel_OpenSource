@@ -5210,6 +5210,7 @@
 			clocks = <&pericfg_ao_clk CLK_PERICFG_AO_PERI_APDMA_CG>;
 			clock-names = "apdma";
 			dma-requests = <4>;
+			#dma-cells = <1>;
 	};
 
 	uart0: serial@11001000 {
