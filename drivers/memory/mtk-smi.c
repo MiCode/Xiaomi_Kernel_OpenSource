@@ -1279,7 +1279,7 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 	if (larb_ref_count) {
 		dev_notice(dev, "Error: larb(%d) ref count=%d on suspend\n",
 			larb->larbid, larb_ref_count);
-		WARN_ON(1);
+		//WARN_ON(1);
 	}
 
 	if (larb_gen->sleep_ctrl)
