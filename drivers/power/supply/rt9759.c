@@ -20,7 +20,7 @@
 #include "charger_class.h"
 
 /* Information */
-#define RT9759_DRV_VERSION	"2.0.0_MTK"
+#define RT9759_DRV_VERSION	"2.0.1_MTK"
 #define RT9759_DEVID		0x08
 
 /* Registers */
@@ -263,6 +263,7 @@ struct rt9759_desc {
 	bool tsbusadc_dis;
 	bool tsbatadc_dis;
 	bool tdieadc_dis;
+	bool ibat_rsense_half;
 };
 
 static const struct rt9759_desc rt9759_desc_defval = {
@@ -296,6 +297,7 @@ static const struct rt9759_desc rt9759_desc_defval = {
 	.tdieotp_dis = false,
 	.reg_en = false,
 	.voutovp_dis = false,
+	.ibat_rsense_half = false,
 };
 
 struct rt9759_chip {
@@ -787,6 +789,8 @@ static int __rt9759_get_adc(struct rt9759_chip *chip,
 	case RT9759_ADC_VBAT:
 	case RT9759_ADC_IBAT:
 		*val = ((data[0] << 8) + data[1]) * 1000;
+		if (chan == RT9759_ADC_IBAT && chip->desc->ibat_rsense_half)
+			*val *= 2;
 		break;
 	case RT9759_ADC_TDIE:
 		*val = (data[0] << 7) + (data[1] >> 1);
@@ -1532,8 +1536,6 @@ static int rt9759_init_irq(struct rt9759_chip *chip)
 		dev_info(chip->dev, "%s clr all irq fail(%d)\n", __func__, ret);
 		return ret;
 	}
-	if (chip->type == RT9759_TYPE_SLAVE)
-		return 0;
 
 	chip->irq = gpiod_to_irq(chip->irq_gpio);
 	if (chip->irq < 0) {
@@ -1688,14 +1690,10 @@ static int rt9759_parse_dt(struct rt9759_chip *chip)
 	if (!np)
 		return -ENODEV;
 
-	if (chip->type == RT9759_TYPE_SLAVE)
-		goto ignore_intr;
-
 	chip->irq_gpio = devm_gpiod_get(chip->dev, "rt9759,intr", GPIOD_IN);
 	if (IS_ERR(chip->irq_gpio))
 		return PTR_ERR(chip->irq_gpio);
 
-ignore_intr:
 	desc = devm_kzalloc(chip->dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
@@ -1716,6 +1714,8 @@ ignore_intr:
 			    ARRAY_SIZE(rt9759_dtprops_u32));
 	rt9759_parse_dt_bool(child_np, (void *)desc, rt9759_dtprops_bool,
 			     ARRAY_SIZE(rt9759_dtprops_bool));
+	desc->ibat_rsense_half = of_property_read_bool(child_np,
+						       "ibat_rsense_half");
 	chip->desc = desc;
 	return 0;
 }
@@ -1950,11 +1950,16 @@ MODULE_AUTHOR("ShuFan Lee<shufan_lee@richtek.com>");
 MODULE_VERSION(RT9759_DRV_VERSION);
 
 /*
+ * 2.0.1_MTK
+ * (1) Remove ignoring slave charger irq init
+ *
  * 2.0.0_MTK
  * (1) Adapt to new ops of charger_class
  * (2) Arrange include files by alphabet
  * (3) Remove suspend_lock, use enable/disable irq instead
  * (4) Reset register before shutdown and init_chip
+ * (5) Add ibat_rsense_half to allow user to use rsense with only
+ *     half of ibat rsense setting
  *
  * 1.0.8_MTK
  * (1) Add init_chip ops, if register reset happened, init_chip again.
