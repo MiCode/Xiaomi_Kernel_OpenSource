@@ -336,6 +336,30 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->feature = VC_PDAF_STATS;
 			vc->out_pad = PAD_SRC_PDAF0;
 			break;
+		case VC_PDAF_STATS_PIX_1:
+			vc->feature = VC_PDAF_STATS_PIX_1;
+			vc->out_pad = PAD_SRC_PDAF1;
+			break;
+		case VC_PDAF_STATS_PIX_2:
+			vc->feature = VC_PDAF_STATS_PIX_2;
+			vc->out_pad = PAD_SRC_PDAF2;
+			break;
+		case VC_PDAF_STATS_ME_PIX_1:
+			vc->feature = VC_PDAF_STATS_ME_PIX_1;
+			vc->out_pad = PAD_SRC_PDAF3;
+			break;
+		case VC_PDAF_STATS_ME_PIX_2:
+			vc->feature = VC_PDAF_STATS_ME_PIX_2;
+			vc->out_pad = PAD_SRC_PDAF4;
+			break;
+		case VC_PDAF_STATS_SE_PIX_1:
+			vc->feature = VC_PDAF_STATS_SE_PIX_1;
+			vc->out_pad = PAD_SRC_PDAF5;
+			break;
+		case VC_PDAF_STATS_SE_PIX_2:
+			vc->feature = VC_PDAF_STATS_SE_PIX_2;
+			vc->out_pad = PAD_SRC_PDAF6;
+			break;
 		default:
 			if (vc->dt == 0x2a || vc->dt == 0x2b ||
 			    vc->dt == 0x2c) {
@@ -434,7 +458,39 @@ void mtk_cam_seninf_release_mux(struct seninf_ctx *ctx)
 
 int mtk_cam_seninf_is_vc_enabled(struct seninf_ctx *ctx, struct seninf_vc *vc)
 {
+#ifdef SENINF_VC_ROUTING
 	return 1;
+#else
+	int i;
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+
+#ifdef SENINF_DEBUG
+	if (ctx->is_test_streamon)
+		return 1;
+#endif
+
+	if (vc->out_pad != PAD_SRC_RAW0 &&
+		vc->out_pad != PAD_SRC_RAW1 &&
+		vc->out_pad != PAD_SRC_RAW2) {
+		if (media_entity_remote_pad(&ctx->pads[vc->out_pad]))
+			return 1;
+		else
+			return 0;
+	}
+
+	for (i = 0; i < vcinfo->cnt; i++) {
+		u8 out_pad = vcinfo->vc[i].out_pad;
+
+		if ((out_pad == PAD_SRC_RAW0 ||
+			 out_pad == PAD_SRC_RAW1 ||
+			 out_pad == PAD_SRC_RAW2) &&
+			media_entity_remote_pad(&ctx->pads[out_pad]))
+			return 1;
+	}
+
+	return 0;
+
+#endif
 }
 
 int mtk_cam_seninf_is_di_enabled(struct seninf_ctx *ctx, u8 ch, u8 dt)
