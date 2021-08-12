@@ -34,6 +34,7 @@ struct _FPSGO_PACKAGE {
 	union {
 		__u32 start;
 		__u32 connectedAPI;
+		__u32 value1;
 	};
 	union {
 		__u64 frame_time;

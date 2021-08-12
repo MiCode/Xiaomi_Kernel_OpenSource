@@ -486,15 +486,15 @@ void fpsgo_notify_vsync(void)
 	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
 }
 
-int fpsgo_get_fps(void)
+void fpsgo_get_fps(int *pid, int *fps)
 {
-	int fps = -1;
+	//int pid = -1, fps = -1;
 
-	fps = fpsgo_ctrl2fstb_get_fps();
+	fpsgo_ctrl2fstb_get_fps(pid, fps);
 
-	FPSGO_LOGI("[FPSGO_CTRL] get_fps %d\n", fps);
+	FPSGO_LOGE("[FPSGO_CTRL] get_fps %d %d\n", *pid, *fps);
 
-	return fps;
+	//return fps;
 }
 
 
