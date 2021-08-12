@@ -97,7 +97,7 @@ void ipesys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	pr_info("%s\n", __func__);
 	/* iomap registers */
-	meRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ME);
+	meRegBA = me_dev->regs;
 	if (!meRegBA) {
 		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip registers\n",
 			__func__);
@@ -125,6 +125,7 @@ struct device *ipesys_me_getdev(void)
 static int mtk_ipesys_me_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	int ret_result = 0;
 	struct device_link *link;
 	int larbs_num;
 	struct device_node *larb_node;
@@ -142,7 +143,6 @@ static int mtk_ipesys_me_probe(struct platform_device *pdev)
 	ret = devm_clk_bulk_get(&pdev->dev, me_dev->me_clk.clk_num, me_dev->me_clk.clks);
 	if (ret) {
 		pr_info("failed to get raw clock:%d\n", ret);
-		return ret;
 	}
 
 	larbs_num = of_count_phandle_with_args(pdev->dev.of_node,
@@ -173,7 +173,7 @@ static int mtk_ipesys_me_probe(struct platform_device *pdev)
 
 	pr_info("mtk imgsys me probe done\n");
 
-	return ret;
+	return ret_result;
 }
 
 static int mtk_ipesys_me_remove(struct platform_device *pdev)
