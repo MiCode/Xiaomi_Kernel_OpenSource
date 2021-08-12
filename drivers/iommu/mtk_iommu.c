@@ -314,6 +314,7 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
 	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 7,VDO_UP_512MB_2 */
 	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 8,VDO_UP_256MB_1 */
 	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 9,VDO_UP_256MB_1 */
+	{ .iova_base = 0x170000000ULL, .size = 0x90000000, .type = NORMAL}, /* 10,VDEC */
 };
 
 static const struct mtk_iommu_iova_region mt6983_multi_dom_test[] = {
