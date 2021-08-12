@@ -3,8 +3,8 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#ifndef __APUSYS_DRV_H__
-#define __APUSYS_DRV_H__
+#ifndef __MTK_APU_IOCTL_H__
+#define __MTK_APU_IOCTL_H__
 
 #include <linux/ioctl.h>
 #include <linux/types.h>

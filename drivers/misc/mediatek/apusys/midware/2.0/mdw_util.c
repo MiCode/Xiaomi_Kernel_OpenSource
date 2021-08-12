@@ -3,7 +3,7 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#include "apusys_drv.h"
+#include "mdw_ioctl.h"
 #include "mdw_cmn.h"
 
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
@@ -18,7 +18,7 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
 
 	switch (args->in.op) {
 	case MDW_UTIL_IOCTL_SETPOWER:
-		ret = mdev->dev_funcs->set_power(in->power.dev_type,
+		ret = mdev->dev_funcs->set_power(mdev, in->power.dev_type,
 			in->power.core_idx, in->power.boost);
 		break;
 
@@ -42,7 +42,7 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
 			ret = -EFAULT;
 			goto free_ucmd;
 		}
-		ret = mdev->dev_funcs->ucmd(in->ucmd.dev_type,
+		ret = mdev->dev_funcs->ucmd(mdev, in->ucmd.dev_type,
 			mem_ucmd, in->ucmd.size);
 		if (ret) {
 			mdw_drv_err("dev(%d) ucmd fail\n", in->ucmd.dev_type);

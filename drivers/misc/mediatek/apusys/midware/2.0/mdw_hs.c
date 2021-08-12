@@ -3,7 +3,7 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#include "apusys_drv.h"
+#include "mdw_ioctl.h"
 #include "mdw_cmn.h"
 
 int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
@@ -18,7 +18,7 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 	switch (args->in.op) {
 	case MDW_HS_IOCTL_OP_BASIC:
 		memset(args, 0, sizeof(*args));
-		args->out.basic.version = mdev->version;
+		args->out.basic.version = mdev->uapi_ver;
 		memcpy(&args->out.basic.dev_bitmask,
 			mdev->dev_mask, sizeof(args->out.basic.dev_bitmask));
 		args->out.basic.meta_size = MDW_DEV_META_SIZE;

@@ -3,8 +3,8 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#ifndef __APUSYS_MDW_MEM_H__
-#define __APUSYS_MDW_MEM_H__
+#ifndef __MTK_APU_MDW_MEM_H__
+#define __MTK_APU_MDW_MEM_H__
 
 int mdw_mem_init(struct mdw_device *mdev);
 void mdw_mem_deinit(struct mdw_device *mdev);

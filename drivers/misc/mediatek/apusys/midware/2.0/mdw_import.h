@@ -3,8 +3,8 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#ifndef __APUSYS_MDW_IMPORT_H__
-#define __APUSYS_MDW_IMPORT_H__
+#ifndef __MTK_APU_MDW_IMPORT_H__
+#define __MTK_APU_MDW_IMPORT_H__
 
 /* import function */
 bool mdw_pwr_check(void);

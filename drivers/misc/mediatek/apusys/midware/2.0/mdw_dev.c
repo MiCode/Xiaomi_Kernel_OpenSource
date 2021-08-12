@@ -10,10 +10,10 @@
 
 int mdw_dev_init(struct mdw_device *mdev)
 {
-	int ret = 0;
+	int ret = -ENODEV;
 
 	mdw_drv_info("mdw dev init type(%d-%u)\n",
-		mdev->driver_type, mdev->version);
+		mdev->driver_type, mdev->mdw_ver);
 
 	switch (mdev->driver_type) {
 	case MDW_DRIVER_TYPE_PLATFORM:
@@ -46,7 +46,7 @@ int mdw_dev_lock(void)
 	if (!mdw_dev)
 		return -ENODEV;
 
-	return mdw_dev->dev_funcs->lock();
+	return mdw_dev->dev_funcs->lock(mdw_dev);
 }
 
 int mdw_dev_unlock(void)
@@ -54,5 +54,5 @@ int mdw_dev_unlock(void)
 	if (!mdw_dev)
 		return -ENODEV;
 
-	return mdw_dev->dev_funcs->unlock();
+	return mdw_dev->dev_funcs->unlock(mdw_dev);
 }

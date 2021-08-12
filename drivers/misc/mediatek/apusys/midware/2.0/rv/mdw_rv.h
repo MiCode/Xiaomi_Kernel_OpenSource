@@ -7,7 +7,7 @@
 #define __MTK_APU_MDW_RV_H__
 
 #include "mdw.h"
-#include "mdw_msg.h"
+#include "mdw_rv_msg.h"
 
 struct mdw_rv_dev {
 	struct rpmsg_device *rpdev;
@@ -90,15 +90,15 @@ struct mdw_rv_msg_cb {
 
 int mdw_rv_dev_init(struct mdw_device *mdev);
 void mdw_rv_dev_deinit(struct mdw_device *mdev);
-struct mdw_rv_dev *mdw_rv_dev_get(void);
-int mdw_rv_dev_handshake(void);
-int mdw_rv_dev_run_cmd(struct mdw_rv_cmd *rc);
-int mdw_rv_dev_lock(void);
-int mdw_rv_dev_unlock(void);
-int mdw_rv_dev_set_param(uint32_t idx, uint32_t val);
-uint32_t mdw_rv_dev_get_param(uint32_t idx);
+int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
+int mdw_rv_dev_lock(struct mdw_rv_dev *mrdev);
+int mdw_rv_dev_unlock(struct mdw_rv_dev *mrdev);
+int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, uint32_t idx, uint32_t val);
+uint32_t mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, uint32_t idx);
 
-int mdw_rv_cmd_exec(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
+struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
+	struct mdw_cmd *c);
+int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc);
 void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret);
 
 #endif

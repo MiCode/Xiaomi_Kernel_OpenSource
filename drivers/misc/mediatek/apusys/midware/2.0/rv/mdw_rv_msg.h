@@ -3,8 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __APUSYS_MDW_MSG__
-#define __APUSYS_MDW_MSG__
+#ifndef __MTK_APU_MDW_RV_MSG__
+#define __MTK_APU_MDW_RV_MSG__
 
 /* mdw queue cmd type */
 enum {

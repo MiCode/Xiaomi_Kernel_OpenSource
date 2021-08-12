@@ -3,8 +3,8 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#ifndef __APUSYS_MDW_H__
-#define __APUSYS_MDW_H__
+#ifndef __MTK_APU_MDW_H__
+#define __MTK_APU_MDW_H__
 
 #include <linux/miscdevice.h>
 #include <linux/iopoll.h>
@@ -18,9 +18,9 @@
 #include <linux/slab.h>
 #include <linux/dma-fence.h>
 
-#include "apusys_drv.h"
 #include "apusys_core.h"
 #include "apusys_device.h"
+#include "mdw_ioctl.h"
 #include "mdw_import.h"
 
 #define MDW_NAME "apusys"
@@ -103,10 +103,12 @@ struct mdw_device {
 	uint64_t vlm_start;
 	uint32_t vlm_size;
 
-	uint32_t version;
+	uint32_t mdw_ver;
 	uint32_t dsp_mask;
 	uint32_t dla_mask;
 	uint32_t dma_mask;
+
+	uint32_t uapi_ver;
 
 	unsigned long dev_mask[BITS_TO_LONGS(MDW_DEV_MAX)];
 	struct mdw_dinfo *dinfos[MDW_DEV_MAX];
@@ -190,12 +192,12 @@ struct mdw_dev_func {
 	void (*sw_deinit)(struct mdw_device *mdev);
 
 	int (*run_cmd)(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
-	int (*lock)(void);
-	int (*unlock)(void);
-	int (*set_power)(uint32_t type, uint32_t idx, uint32_t boost);
-	int (*ucmd)(uint32_t type, void *vaddr, uint32_t size);
-	int (*set_param)(enum mdw_info_type type, uint32_t val);
-	uint32_t (*get_info)(enum mdw_info_type type);
+	int (*lock)(struct mdw_device *mdev);
+	int (*unlock)(struct mdw_device *mdev);
+	int (*set_power)(struct mdw_device *mdev, uint32_t type, uint32_t idx, uint32_t boost);
+	int (*ucmd)(struct mdw_device *mdev, uint32_t type, void *vaddr, uint32_t size);
+	int (*set_param)(struct mdw_device *mdev, enum mdw_info_type type, uint32_t val);
+	uint32_t (*get_info)(struct mdw_device *mdev, enum mdw_info_type type);
 };
 
 void mdw_ap_set_func(struct mdw_device *mdev);

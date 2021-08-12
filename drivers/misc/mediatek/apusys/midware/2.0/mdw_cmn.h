@@ -3,8 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __APUSYS_MDW_CMN_H__
-#define __APUSYS_MDW_CMN_H__
+#ifndef __MTK_APU_MDW_CMN_H__
+#define __MTK_APU_MDW_CMN_H__
 
 #include <linux/printk.h>
 #include <linux/seq_file.h>

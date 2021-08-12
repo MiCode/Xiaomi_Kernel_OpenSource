@@ -14,17 +14,17 @@
 #include "apu_tp.h"
 #include "mdw_ap.h"
 #include "mdw_ap_tag.h"
-#include "mdw_events.h"
+#include "mdw_ap_events.h"
 
-static struct apu_tags *mdw_tags;
+static struct apu_tags *mdw_ap_tags;
 
 enum mdw_tag_type {
 	MDW_TAG_CMD,
 };
 
-/* The parameters must aligned with trace_mdw_cmd() */
+/* The parameters must aligned with trace_mdw_ap_cmd() */
 static void
-probe_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
+probe_ap_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
 		uint64_t cmd_id,
 		uint64_t sc_info,
 		char *dev_name,
@@ -34,9 +34,9 @@ probe_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
 		uint32_t boost, uint32_t ip_time,
 		int ret)
 {
-	struct mdw_tag t;
+	struct mdw_ap_tag t;
 
-	if (!mdw_tags)
+	if (!mdw_ap_tags)
 		return;
 
 	t.type = MDW_TAG_CMD;
@@ -53,10 +53,10 @@ probe_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
 	t.d.cmd.ip_time = ip_time;
 	t.d.cmd.ret = ret;
 
-	apu_tag_add(mdw_tags, &t);
+	apu_tag_add(mdw_ap_tags, &t);
 }
 
-static void mdw_tag_seq_cmd(struct seq_file *s, struct mdw_tag *t)
+static void mdw_ap_tag_seq_cmd(struct seq_file *s, struct mdw_ap_tag *t)
 {
 	char status[8];
 
@@ -79,54 +79,54 @@ static void mdw_tag_seq_cmd(struct seq_file *s, struct mdw_tag *t)
 		t->d.cmd.ip_time, t->d.cmd.ret);
 }
 
-static int mdw_tag_seq(struct seq_file *s, void *tag, void *priv)
+static int mdw_ap_tag_seq(struct seq_file *s, void *tag, void *priv)
 {
-	struct mdw_tag *t = (struct mdw_tag *)tag;
+	struct mdw_ap_tag *t = (struct mdw_ap_tag *)tag;
 
 	if (!t)
 		return -ENOENT;
 
 	if (t->type == MDW_TAG_CMD)
-		mdw_tag_seq_cmd(s, t);
+		mdw_ap_tag_seq_cmd(s, t);
 
 	return 0;
 }
 
-static int mdw_tag_seq_info(struct seq_file *s, void *tag, void *priv)
+static int mdw_ap_tag_seq_info(struct seq_file *s, void *tag, void *priv)
 {
 	return 0;
 }
 
-static struct apu_tp_tbl mdw_tp_tbl[] = {
-	{.name = "mdw_cmd", .func = probe_mdw_cmd},
+static struct apu_tp_tbl mdw_ap_tp_tbl[] = {
+	{.name = "mdw_cmd", .func = probe_ap_mdw_cmd},
 	APU_TP_TBL_END
 };
 
-void mdw_tag_show(struct seq_file *s)
+void mdw_ap_tag_show(struct seq_file *s)
 {
-	apu_tags_seq(mdw_tags, s);
+	apu_tags_seq(mdw_ap_tags, s);
 }
 
-int mdw_tag_init(void)
+int mdw_ap_tag_init(void)
 {
 	int ret;
 
-	mdw_tags = apu_tags_alloc("mdw", sizeof(*mdw_tags),
-		MDW_TAGS_CNT, mdw_tag_seq, mdw_tag_seq_info, NULL);
+	mdw_ap_tags = apu_tags_alloc("mdw", sizeof(*mdw_ap_tags),
+		MDW_TAGS_CNT, mdw_ap_tag_seq, mdw_ap_tag_seq_info, NULL);
 
-	if (!mdw_tags)
+	if (!mdw_ap_tags)
 		return -ENOMEM;
 
-	ret = apu_tp_init(mdw_tp_tbl);
+	ret = apu_tp_init(mdw_ap_tp_tbl);
 	if (ret)
 		pr_info("%s: unable to register\n", __func__);
 
 	return ret;
 }
 
-void mdw_tag_exit(void)
+void mdw_ap_tag_deinit(void)
 {
-	apu_tp_exit(mdw_tp_tbl);
-	apu_tags_free(mdw_tags);
+	apu_tp_exit(mdw_ap_tp_tbl);
+	apu_tags_free(mdw_ap_tags);
 }
 

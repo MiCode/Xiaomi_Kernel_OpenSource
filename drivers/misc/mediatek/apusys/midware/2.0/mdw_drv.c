@@ -43,6 +43,7 @@ static void mdw_drv_priv_put(struct mdw_fpriv *mpriv)
 static int mdw_drv_open(struct inode *inode, struct file *filp)
 {
 	struct mdw_fpriv *mpriv = NULL;
+	int ret = 0;
 
 	if (!mdw_dev)
 		return -ENODEV;
@@ -58,7 +59,11 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	INIT_LIST_HEAD(&mpriv->cmds);
 
 	if (!atomic_read(&g_inited)) {
-		mdw_dev->dev_funcs->sw_init(mdw_dev);
+		ret = mdw_dev->dev_funcs->sw_init(mdw_dev);
+		if (ret) {
+			mdw_drv_err("mdw sw init fail(%d)\n", ret);
+			goto out;
+		}
 		atomic_inc(&g_inited);
 	}
 
@@ -67,7 +72,8 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	kref_init(&mpriv->ref);
 	mdw_flw_debug("mpriv(%p)\n", mpriv);
 
-	return 0;
+out:
+	return ret;
 }
 
 static int mdw_drv_close(struct inode *inode, struct file *filp)
@@ -105,15 +111,17 @@ static int mdw_platform_probe(struct platform_device *pdev)
 	struct mdw_device *mdev = NULL;
 	int ret = 0;
 
-	if (mdw_dev)
+	if (mdw_dev) {
+		pr_info("%s already probe\n", __func__);
 		return -EBUSY;
+	}
 
 	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
 	if (!mdev)
 		return -ENOMEM;
 
 	/* get parameter from dts */
-	of_property_read_u32(pdev->dev.of_node, "version", &mdev->version);
+	of_property_read_u32(pdev->dev.of_node, "version", &mdev->mdw_ver);
 	of_property_read_u32(pdev->dev.of_node, "dsp_mask", &mdev->dsp_mask);
 	of_property_read_u32(pdev->dev.of_node, "dla_mask", &mdev->dla_mask);
 	of_property_read_u32(pdev->dev.of_node, "dma_mask", &mdev->dma_mask);
@@ -202,8 +210,13 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	if (!mdev)
 		return -ENOMEM;
 
+	/* get parameter from dts */
+	of_property_read_u32(rpdev->dev.of_node, "version", &mdev->mdw_ver);
+	of_property_read_u32(rpdev->dev.of_node, "dsp_mask", &mdev->dsp_mask);
+	of_property_read_u32(rpdev->dev.of_node, "dla_mask", &mdev->dla_mask);
+	of_property_read_u32(rpdev->dev.of_node, "dma_mask", &mdev->dma_mask);
+
 	mdev->driver_type = MDW_DRIVER_TYPE_RPMSG;
-	mdev->version = 2;
 	mdev->rpdev = rpdev;
 	mdev->misc_dev = &mdw_misc_dev;
 	mdw_dev = mdev;

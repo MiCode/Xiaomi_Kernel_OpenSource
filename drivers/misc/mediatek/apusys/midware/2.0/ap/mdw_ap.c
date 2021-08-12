@@ -6,6 +6,7 @@
 #include <linux/bitmap.h>
 #include "mdw_cmn.h"
 #include "mdw_ap.h"
+#include "mdw_ap_tag.h"
 #include "mdw_dmy.h"
 
 static int mdw_ap_sw_init(struct mdw_device *mdev)
@@ -66,7 +67,9 @@ static int mdw_ap_late_init(struct mdw_device *mdev)
 {
 	int ret = 0;
 
+	mdw_ap_tag_init();
 	mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
+
 	ret = mdw_rsc_init();
 	if (ret) {
 		mdw_drv_err("rsc init fail\n");
@@ -91,6 +94,7 @@ static void mdw_ap_late_deinit(struct mdw_device *mdev)
 {
 	mdw_dmy_deinit();
 	mdw_rsc_deinit();
+	mdw_ap_tag_deinit();
 }
 
 static int mdw_ap_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
@@ -98,7 +102,8 @@ static int mdw_ap_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	return mdw_ap_cmd_exec(c);
 }
 
-static int mdw_ap_set_power(uint32_t type, uint32_t idx, uint32_t boost)
+static int mdw_ap_set_power(struct mdw_device *mdev,
+	uint32_t type, uint32_t idx, uint32_t boost)
 {
 	struct mdw_dev_info *d = NULL;
 
@@ -109,7 +114,8 @@ static int mdw_ap_set_power(uint32_t type, uint32_t idx, uint32_t boost)
 	return d->pwr_on(d, boost, MDW_RSC_SET_PWR_TIMEOUT);
 }
 
-static int mdw_ap_ucmd(uint32_t type, void *vaddr, uint32_t size)
+static int mdw_ap_ucmd(struct mdw_device *mdev,
+	uint32_t type, void *vaddr, uint32_t size)
 {
 	struct mdw_dev_info *d = NULL;
 
@@ -120,19 +126,20 @@ static int mdw_ap_ucmd(uint32_t type, void *vaddr, uint32_t size)
 	return d->ucmd(d, (uint64_t)vaddr, 0, size);
 }
 
-static int mdw_ap_lock(void)
+static int mdw_ap_lock(struct mdw_device *mdev)
 {
 	mdw_drv_warn("not support\n");
 	return -EINVAL;
 }
 
-static int mdw_ap_unlock(void)
+static int mdw_ap_unlock(struct mdw_device *mdev)
 {
 	mdw_drv_warn("not support\n");
 	return -EINVAL;
 }
 
-static int mdw_ap_set_param(enum mdw_info_type type, uint32_t val)
+static int mdw_ap_set_param(struct mdw_device *mdev,
+	enum mdw_info_type type, uint32_t val)
 {
 	int ret = 0;
 
@@ -150,7 +157,8 @@ static int mdw_ap_set_param(enum mdw_info_type type, uint32_t val)
 	return ret;
 }
 
-static uint32_t mdw_ap_get_info(enum mdw_info_type type)
+static uint32_t mdw_ap_get_info(struct mdw_device *mdev,
+	enum mdw_info_type type)
 {
 	struct mdw_queue *mq = NULL;
 	uint32_t ret = 0;
@@ -205,5 +213,12 @@ static const struct mdw_dev_func mdw_ap_func = {
 
 void mdw_ap_set_func(struct mdw_device *mdev)
 {
+	/* check mdw ap version support */
+	if (mdev->mdw_ver != 1) {
+		mdw_drv_err("invalid version(%u) for ap\n", mdev->mdw_ver);
+		return;
+	}
+
 	mdev->dev_funcs = &mdw_ap_func;
+	mdev->uapi_ver = 2;
 }

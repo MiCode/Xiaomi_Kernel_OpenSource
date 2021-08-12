@@ -9,7 +9,6 @@
 #include "mdw.h"
 #include "apusys_device.h"
 
-
 struct mdw_ap_cmd {
 	struct mdw_cmd *c;
 	struct list_head sc_list;
@@ -65,11 +64,6 @@ struct mdw_ap_sc {
 };
 
 struct mdw_parser {
-	//struct mdw_ap_cmd *(*create_cmd)(int fd, uint32_t size, uint32_t ofs,
-	//		struct mdw_usr *c);
-	//int (*delete_cmd)(struct mdw_ap_cmd *c);
-	//int (*abort_cmd)(struct mdw_ap_cmd *c);
-	//int (*parse_cmd)(struct mdw_ap_cmd *c, struct mdw_ap_sc **out);
 	int (*end_sc)(struct mdw_ap_sc *in, struct mdw_ap_sc **out);
 	int (*get_ctx)(struct mdw_ap_sc *sc);
 	void (*put_ctx)(struct mdw_ap_sc *sc);

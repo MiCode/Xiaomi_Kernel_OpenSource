@@ -6,7 +6,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
-#include "apusys_drv.h"
+#include "mdw_ioctl.h"
 #include "mdw_cmn.h"
 
 long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)

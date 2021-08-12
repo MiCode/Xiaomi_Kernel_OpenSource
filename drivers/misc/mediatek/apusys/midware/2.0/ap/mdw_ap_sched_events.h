@@ -4,7 +4,7 @@
  */
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM apu_sched_events
+#define TRACE_SYSTEM mdw_ap_sched_events
 #if !defined(_TRACE_APU_SCHED_EVENTS_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_APU_SCHED_EVENTS_H
 #include <linux/tracepoint.h>
@@ -55,7 +55,7 @@ TRACE_EVENT(deadline_task,
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE apu_sched_events
+#define TRACE_INCLUDE_FILE mdw_ap_sched_events
 #include <trace/define_trace.h>
 
 

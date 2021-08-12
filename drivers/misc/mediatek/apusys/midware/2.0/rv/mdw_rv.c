@@ -5,19 +5,13 @@
 
 #include "mdw_cmn.h"
 #include "mdw_rv.h"
+#include "mdw_rv_tag.h"
 
 static int mdw_rv_sw_init(struct mdw_device *mdev)
 {
 	int ret = 0, i = 0;
-	struct mdw_rv_dev *rdev = NULL;
+	struct mdw_rv_dev *rdev = (struct mdw_rv_dev *)mdev->dev_specific;
 	struct mdw_dinfo *d = NULL;
-
-	ret = mdw_rv_dev_handshake();
-	if (ret)
-		return ret;
-
-	rdev = mdw_rv_dev_get();
-	memcpy(mdev->dev_mask, rdev->dev_mask, sizeof(mdev->dev_mask));
 
 	/* update device info */
 	for (i = 0; i < MDW_DEV_MAX; i++) {
@@ -70,51 +64,79 @@ static int mdw_rv_late_init(struct mdw_device *mdev)
 {
 	int ret = 0;
 
+	mdw_rv_tag_init();
+
+	/* get vlm property */
 	ret = mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
 	if (ret)
-		mdw_drv_err("vlm wrong\n");
+		mdw_drv_warn("vlm wrong\n");
 
-	return mdw_rv_dev_init(mdev);
+	/* init rv device */
+	ret = mdw_rv_dev_init(mdev);
+	if (ret || !mdev->dev_specific) {
+		mdw_drv_err("init mdw rvdev fail(%d)\n", ret);
+		goto dev_deinit;
+	}
+
+	goto out;
+
+dev_deinit:
+	mdw_rv_dev_deinit(mdev);
+out:
+	return ret;
 }
 
 static void mdw_rv_late_deinit(struct mdw_device *mdev)
 {
 	mdw_rv_dev_deinit(mdev);
+	mdw_rv_tag_deinit();
 }
 
 static int mdw_rv_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 {
-	return mdw_rv_cmd_exec(mpriv, c);
+	return mdw_rv_dev_run_cmd(mpriv, c);
 }
 
-static int mdw_rv_set_power(uint32_t type, uint32_t idx, uint32_t boost)
+static int mdw_rv_set_power(struct mdw_device *mdev,
+	uint32_t type, uint32_t idx, uint32_t boost)
 {
 	return -EINVAL;
 }
 
-static int mdw_rv_ucmd(uint32_t type, void *vaddr, uint32_t size)
+static int mdw_rv_ucmd(struct mdw_device *mdev,
+	uint32_t type, void *vaddr, uint32_t size)
 {
 	return -EINVAL;
 }
 
-static int mdw_rv_lock(void)
+static int mdw_rv_lock(struct mdw_device *mdev)
 {
-	return mdw_rv_dev_lock();
+	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
+
+	return mdw_rv_dev_lock(mrdev);
 }
 
-static int mdw_rv_unlock(void)
+static int mdw_rv_unlock(struct mdw_device *mdev)
 {
-	return mdw_rv_dev_unlock();
+	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
+
+	return mdw_rv_dev_unlock(mrdev);
 }
 
-static int mdw_rv_set_param(enum mdw_info_type type, uint32_t val)
+static int mdw_rv_set_param(struct mdw_device *mdev,
+	enum mdw_info_type type, uint32_t val)
 {
-	return mdw_rv_dev_set_param(type, val);
+	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
+
+	return mdw_rv_dev_set_param(mrdev, type, val);
 }
 
-static uint32_t mdw_rv_get_info(enum mdw_info_type type)
+static uint32_t mdw_rv_get_info(struct mdw_device *mdev,
+	enum mdw_info_type type)
 {
-	return mdw_rv_dev_get_param(type);
+	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
+
+	return mdw_rv_dev_get_param(mrdev, type);
 }
 
 static const struct mdw_dev_func mdw_rv_func = {
@@ -134,4 +156,5 @@ static const struct mdw_dev_func mdw_rv_func = {
 void mdw_rv_set_func(struct mdw_device *mdev)
 {
 	mdev->dev_funcs = &mdw_rv_func;
+	mdev->uapi_ver = 2;
 }

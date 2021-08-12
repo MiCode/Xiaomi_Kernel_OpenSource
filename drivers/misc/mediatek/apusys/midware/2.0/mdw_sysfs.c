@@ -27,7 +27,7 @@ static ssize_t dsp_task_num_show(struct device *dev,
 	}
 
 	/* get dma normal task num */
-	num = mdev->dev_funcs->get_info(MDW_INFO_NORMAL_TASK_DSP);
+	num = mdev->dev_funcs->get_info(mdev, MDW_INFO_NORMAL_TASK_DSP);
 	ret = sprintf(buf, "%u\n", num);
 	if (ret < 0)
 		mdw_drv_warn("show dsp task num fail(%d)\n", ret);
@@ -51,7 +51,7 @@ static ssize_t dla_task_num_show(struct device *dev,
 	}
 
 	/* get dla normal task num */
-	num = mdev->dev_funcs->get_info(MDW_INFO_NORMAL_TASK_DLA);
+	num = mdev->dev_funcs->get_info(mdev, MDW_INFO_NORMAL_TASK_DLA);
 	ret = sprintf(buf, "%u\n", num);
 	if (ret < 0)
 		mdw_drv_warn("show dla task num fail(%d)\n", ret);
@@ -75,7 +75,7 @@ static ssize_t dma_task_num_show(struct device *dev,
 	}
 
 	/* get dma normal task num */
-	num = mdev->dev_funcs->get_info(MDW_INFO_NORMAL_TASK_DMA);
+	num = mdev->dev_funcs->get_info(mdev, MDW_INFO_NORMAL_TASK_DMA);
 	ret = sprintf(buf, "%u\n", num);
 	if (ret < 0)
 		mdw_drv_warn("show dma task num fail(%d)\n", ret);
@@ -159,7 +159,7 @@ static ssize_t ulog_show(struct device *dev,
 		goto out;
 	}
 
-	log_lv = mdev->dev_funcs->get_info(MDW_INFO_ULOG);
+	log_lv = mdev->dev_funcs->get_info(mdev, MDW_INFO_ULOG);
 	ret = sprintf(buf, "%u\n", log_lv);
 	if (ret < 0)
 		mdw_drv_warn("show ulog fail(%d)\n", log_lv);
@@ -182,7 +182,7 @@ static ssize_t ulog_store(struct device *dev,
 
 	if (!kstrtouint(buf, 10, &val)) {
 		mdw_drv_info("set ulog(%u)\n", val);
-		mdev->dev_funcs->set_param(MDW_INFO_ULOG, val);
+		mdev->dev_funcs->set_param(mdev, MDW_INFO_ULOG, val);
 	}
 
 	return count;
@@ -202,7 +202,7 @@ static ssize_t klog_show(struct device *dev,
 		goto out;
 	}
 
-	log_lv = mdev->dev_funcs->get_info(MDW_INFO_KLOG);
+	log_lv = mdev->dev_funcs->get_info(mdev, MDW_INFO_KLOG);
 	ret = sprintf(buf, "%u\n", log_lv);
 	if (ret < 0)
 		mdw_drv_warn("show klog fail(%d)\n", log_lv);
@@ -225,7 +225,7 @@ static ssize_t klog_store(struct device *dev,
 
 	if (!kstrtouint(buf, 10, &val)) {
 		mdw_drv_info("set klog(%u)\n", val);
-		mdev->dev_funcs->set_param(MDW_INFO_KLOG, val);
+		mdev->dev_funcs->set_param(mdev, MDW_INFO_KLOG, val);
 	}
 
 	return count;

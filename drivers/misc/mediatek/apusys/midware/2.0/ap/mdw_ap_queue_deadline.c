@@ -17,7 +17,7 @@
 #include "mdw_ap.h"
 
 #define CREATE_TRACE_POINTS
-#include "apu_sched_events.h"
+#include "mdw_ap_sched_events.h"
 
 struct dentry *apusys_dbg_deadline;
 static u64 exp_decay_interval = 100;/* ms */

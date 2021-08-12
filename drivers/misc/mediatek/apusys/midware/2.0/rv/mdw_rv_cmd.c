@@ -6,6 +6,8 @@
 #include "mdw_rv.h"
 #include "mdw_cmn.h"
 
+#define MDW_IS_HIGHADDR(addr) ((addr & 0xffffffff00000000) ? true : false)
+
 static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 {
 	mdw_cmd_debug("-------------------------\n");
@@ -50,12 +52,7 @@ static void mdw_rv_sc_print(struct mdw_rv_msg_sc *rsc,
 	mdw_cmd_debug("-------------------------\n");
 }
 
-static inline bool mdw_rv_cmd_is_highaddr(uint64_t addr)
-{
-	return (addr & 0xffffffff00000000) ? true : false;
-}
-
-static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
+struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd *c)
 {
 	struct mdw_rv_cmd *rc = NULL;
@@ -66,8 +63,8 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_cb *rmcb = NULL;
 
 	/* check mem address for rv */
-	if (mdw_rv_cmd_is_highaddr(c->exec_infos->device_va) ||
-		mdw_rv_cmd_is_highaddr(c->cmdbufs->device_va)) {
+	if (MDW_IS_HIGHADDR(c->exec_infos->device_va) ||
+		MDW_IS_HIGHADDR(c->cmdbufs->device_va)) {
 		mdw_drv_err("rv dva high addr(0x%llx/0x%llx)\n",
 			c->cmdbufs->device_va, c->exec_infos->device_va);
 		return NULL;
@@ -173,7 +170,7 @@ out:
 	return rc;
 }
 
-static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
+int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
 	if (!rc)
 		return -EINVAL;
@@ -182,21 +179,6 @@ static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 	vfree(rc);
 
 	return 0;
-}
-
-int mdw_rv_cmd_exec(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
-{
-	struct mdw_rv_cmd *rc = NULL;
-	int ret = 0;
-
-	rc = mdw_rv_cmd_create(mpriv, c);
-	if (!rc)
-		return -ENOMEM;
-
-	mdw_flw_debug("cmd(0x%llx) exec\n", rc->c->kid);
-	ret = mdw_rv_dev_run_cmd(rc);
-
-	return ret;
 }
 
 void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
@@ -208,8 +190,13 @@ void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
 	apusys_mem_invalidate_kva(c->exec_infos->vaddr, c->exec_infos->size);
 	mdw_flw_debug("cmd(0x%llx) complete(0x%llx)\n",
 		c->kid, c->einfos->c.sc_rets);
+
 	if (!ret && c->einfos->c.sc_rets)
 		ret = -EFAULT;
+
+	if (ret)
+		mdw_drv_err("cmd(0x%llx) complete, ret(0x%llx)\n",
+		c->kid, c->einfos->c.sc_rets);
 
 	mdw_rv_cmd_delete(rc);
 	c->complete(c, ret);

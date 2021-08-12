@@ -4,9 +4,9 @@
  */
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM mdw_events
-#if !defined(__MDW_EVENTS_H__) || defined(TRACE_HEADER_MULTI_READ)
-#define __MDW_EVENTS_H__
+#define TRACE_SYSTEM mdw_ap_events
+#if !defined(__MDW_AP_EVENTS_H__) || defined(TRACE_HEADER_MULTI_READ)
+#define __MDW_AP_EVENTS_H__
 #include <linux/tracepoint.h>
 
 #define MDW_TAG_CMD_PRINT "%s,pid=%d,tgid=%d,cmd_id=0x%llx,"\
@@ -16,7 +16,7 @@
 	"tcm_info=0x%llx,"\
 	"boost=%u,ip_time=%u,ret=%d\n"\
 
-TRACE_EVENT(mdw_cmd,
+TRACE_EVENT(mdw_ap_cmd,
 	TP_PROTO(uint32_t done, pid_t pid, pid_t tgid,
 		uint64_t cmd_id,
 		uint64_t sc_info,
@@ -86,6 +86,6 @@ TRACE_EVENT(mdw_cmd,
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE mdw_events
-//#include <trace/define_trace.h>
+#define TRACE_INCLUDE_FILE mdw_ap_events
+#include <trace/define_trace.h>
 
