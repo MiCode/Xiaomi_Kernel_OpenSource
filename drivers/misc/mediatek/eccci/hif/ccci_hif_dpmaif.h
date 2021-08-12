@@ -296,7 +296,10 @@ struct dpmaif_drb_msg {
 	unsigned int    count_l:16;
 	unsigned int    channel_id:8;
 	unsigned int    network_type:3;
-	unsigned int    reserved2:5;
+	unsigned int    r:1;
+	unsigned int    ipv4:1; /* enable ul checksum offload for ipv4 header */
+	unsigned int    l4:1; /* enable ul checksum offload for tcp/udp */
+	unsigned int    rsv:2;
 };
 
 struct dpmaif_drb_skb {

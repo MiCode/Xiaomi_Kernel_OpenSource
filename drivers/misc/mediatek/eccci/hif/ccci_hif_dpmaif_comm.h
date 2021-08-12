@@ -13,6 +13,13 @@
 #include <linux/interrupt.h>
 #include <linux/hrtimer.h>
 #include <linux/skbuff.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/ipv6.h>
+#include <net/ipv6.h>
+
+#define  IPV4_VERSION           0x40
+#define  IPV6_VERSION           0x60
 
 #define DPMAIF_CAP_LRO		(1 << 0)
 #define DPMAIF_CAP_2RXQ		(1 << 1)

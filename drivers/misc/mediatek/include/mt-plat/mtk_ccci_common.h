@@ -423,6 +423,7 @@ enum {
 	MODEM_CAP_NAPI = (1<<0),
 	MODEM_CAP_TXBUSY_STOP = (1<<1),
 	MODEM_CAP_SGIO = (1<<2),
+	MODEM_CAP_HWTXCSUM = (1<<3),
 	/*bit16-bit31:
 	 *for modem capability only
 	 *related with ccmni driver

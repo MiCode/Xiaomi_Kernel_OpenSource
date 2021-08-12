@@ -1700,7 +1700,7 @@ static void wait_tx_done_thread_finish(struct dpmaif_tx_queue *txq)
 
 static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
 	unsigned int pkt_len, unsigned short count_l, unsigned char channel_id,
-	unsigned short network_type)
+	unsigned short network_type, unsigned short ipv4, unsigned short l4)
 {
 	struct dpmaif_drb_msg *drb =
 		((struct dpmaif_drb_msg *)dpmaif_ctrl->txq[q_num].drb_base +
@@ -1727,6 +1727,8 @@ static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
 		drb->network_type = 0;
 		break;
 	}
+	drb->ipv4 = ipv4;
+	drb->l4 = l4;
 #ifdef DPMAIF_DEBUG_LOG
 	temp = (unsigned int *)drb;
 	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG,
@@ -1799,6 +1801,45 @@ static void tx_force_md_assert(char buf[])
 	}
 }
 
+static inline int cs_type(struct sk_buff *skb)
+{
+	u32 packet_type;
+	struct iphdr *iph = (struct iphdr *)skb->data;
+
+	packet_type = skb->data[0] & 0xF0;
+	if (packet_type == IPV6_VERSION) {
+		if (skb->ip_summed == CHECKSUM_NONE)
+			return 0;
+		else if (skb->ip_summed == CHECKSUM_PARTIAL)
+			return 2;
+
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid ip_summed :%u; payload_len: %u\n",
+			skb->ip_summed,
+			((struct ipv6hdr *)skb->data)->payload_len);
+
+		return 0;
+	} else if (packet_type == IPV4_VERSION) {
+		if (iph->check == 0)
+			return 0; /* No HW check sum */
+
+		if (skb->ip_summed == CHECKSUM_NONE)
+			return 0;
+		else if (skb->ip_summed == CHECKSUM_PARTIAL)
+			return 1;
+
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid checksum flags ipid: 0x%x\n",
+			ntohs(iph->id));
+
+		return 0;
+	}
+
+	CCCI_ERROR_LOG(-1, TAG,
+		"invalid packet type:%u\n", packet_type);
+	return 0;
+}
+
 static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	struct sk_buff *skb, int skb_from_pool, int blocking)
 {
@@ -1816,6 +1857,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	unsigned long flags;
 	unsigned short prio_count = 0;
 	int total_size = 0;
+	short cs_ipv4 = 0, cs_l4 = 0;
 
 	/* 1. parameters check*/
 	if (!skb)
@@ -1927,8 +1969,13 @@ retry:
 	skb_pull(skb, sizeof(struct ccci_header));
 	/* 3 send data. */
 	/* 3.1 a msg drb first, then payload drb. */
+	if (cs_type(skb) == 1) {
+		cs_ipv4 = 1;
+		cs_l4 = 1;
+	} else if (cs_type(skb) == 2)
+		cs_l4 = 1;
 	set_drb_msg(txq->index, cur_idx, skb->len, prio_count,
-				ccci_h.data[0], skb->protocol);
+			ccci_h.data[0], skb->protocol, cs_ipv4, cs_l4);
 	record_drb_skb(txq->index, cur_idx, skb, 1, 0, 0, 0, 0);
 	/* for debug */
 	/*

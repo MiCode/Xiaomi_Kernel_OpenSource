@@ -1095,6 +1095,10 @@ static inline void ccmni_dev_init(int md_id, struct net_device *dev)
 	/* not support VLAN */
 	dev->features = NETIF_F_VLAN_CHALLENGED;
 	dev->features |= NETIF_F_GRO_FRAGLIST;
+	if (ctlb->ccci_ops->md_ability & MODEM_CAP_HWTXCSUM) {
+		pr_info("checksum_dbg %s MODEM_CAP_HWTXCSUM", __func__);
+		dev->features |= NETIF_F_HW_CSUM;
+	}
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_SGIO) {
 		dev->features |= NETIF_F_SG;
 		dev->hw_features |= NETIF_F_SG;
