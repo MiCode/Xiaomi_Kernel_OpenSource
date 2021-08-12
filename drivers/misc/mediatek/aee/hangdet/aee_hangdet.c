@@ -128,7 +128,7 @@ void dump_wdk_bind_info(void)
 #endif
 
 	if (toprgu_base) {
-		iowrite32((WDT_LENGTH_TIMEOUT(3) << 6) | WDT_LENGTH_KEY,
+		iowrite32((WDT_LENGTH_TIMEOUT(4) << 6) | WDT_LENGTH_KEY,
 			toprgu_base + WDT_LENGTH);
 		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 	}
@@ -212,7 +212,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	} else if ((g_hang_detected == 0) &&
 		    ((local_bit & get_check_bit()) != get_check_bit()) &&
 		    (sched_clock() - wk_lasthpg_t[cpu] >
-		     curInterval * 1000 * 1000 * 1000)) {
+		     curInterval * 1000)) {
 		g_hang_detected = 1;
 		dump_timeout = 1;
 	}
