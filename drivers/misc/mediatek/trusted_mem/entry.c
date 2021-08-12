@@ -257,7 +257,11 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 	pr_debug("[%d] alloc sz req is %d (0x%x), align 0x%x, clean: %d\n",
 		 mem_type, size, size, alignment, clean);
 
-	if (likely(do_alignment_check)) {
+	/*
+	 * IOMMU need to map 1MB alignment space, TMEM need to provide it.
+	 * When alignment is equal 1MB, then TMEM don't adjust alignment.
+	 */
+	if (likely(do_alignment_check && alignment != SZ_1M)) {
 		mem_cfg = &mem_device->configs;
 		ret = parameter_checks_with_alignment_adjust(
 			mem_type, &alignment, &size, mem_cfg);
