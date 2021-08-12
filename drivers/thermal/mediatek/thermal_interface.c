@@ -349,12 +349,15 @@ static ssize_t fps_cooler_info_store(struct kobject *kobj,
 static ssize_t atc_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
 {
-	int len = 0;
+	int i, len = 0, val;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d, %d, %d\n",
-		therm_intf_read_csram_s32(ATC_OFFSET),
-		therm_intf_read_csram_s32(ATC_OFFSET + 4),
-		therm_intf_read_csram_s32(ATC_OFFSET + 8));
+	for (i = 0; i < ATC_NUM - 1; i++) {
+		val = therm_intf_read_csram_s32(ATC_OFFSET + i * 0x4);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d,", val);
+	}
+
+	val = therm_intf_read_csram_s32(ATC_OFFSET + i * 0x4);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
 
 	return len;
 }
