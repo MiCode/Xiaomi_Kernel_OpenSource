@@ -1737,7 +1737,7 @@ EXPORT_SYMBOL(cmdq_pkt_refinalize);
 
 s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 {
-	u32 start_pa;
+	dma_addr_t start_pa;
 	s32 err;
 
 	if (cmdq_pkt_is_finalized(pkt))
