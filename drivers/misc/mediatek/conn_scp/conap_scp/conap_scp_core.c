@@ -183,7 +183,7 @@ static int opfunc_scp_state_change(struct msg_op_data *op)
 		pr_info("[%s] conn not enable yet", __func__);
 		return 0;
 	}
-	if (conap_scp_ipi_is_scp_ready() == 0) {
+	if (cur_state == 1 && conap_scp_ipi_is_scp_ready() == 0) {
 		pr_info("[%s] scp not enable yet", __func__);
 		return 0;
 	}
