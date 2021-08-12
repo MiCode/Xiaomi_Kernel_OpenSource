@@ -35,6 +35,7 @@
 #define WDT_STAGE_MASK      0x07
 #define WDT_STAGE_KERNEL    0x03
 #define CPU_NR (nr_cpu_ids)
+#define DEFAULT_INTERVAL    15
 
 static int start_kicker(void);
 static int g_kicker_init;
@@ -51,6 +52,7 @@ static struct workqueue_struct *wdk_workqueue;
 static unsigned int lasthpg_act;
 static unsigned int lasthpg_cpu;
 static unsigned long long lasthpg_t;
+static unsigned long long wk_lasthpg_t[16] = { 0 };	/* max cpu 16 */
 static unsigned long long lastsuspend_t;
 static unsigned long long lastresume_t;
 static struct notifier_block wdt_pm_nb;
@@ -71,7 +73,7 @@ static unsigned int get_kick_bit(void)
 
 static int start_kicker_thread_with_default_setting(void)
 {
-	g_kinterval = 15;	/* default interval: 20s */
+	g_kinterval = DEFAULT_INTERVAL;
 	start_kicker();
 
 	pr_debug("[wdk] %s done\n", __func__);
@@ -97,6 +99,11 @@ void dump_wdk_bind_info(void)
 	snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
 		"kick=0x%x,check=0x%x\n",
 		get_kick_bit(), get_check_bit());
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	aee_rr_rec_kick(('D' << 24) | get_kick_bit());
+	aee_rr_rec_check(('B' << 24) | get_check_bit());
+#endif
 
 	pr_info("%s", wk_tsk_buf);
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -203,7 +210,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		local_bit |= (1 << cpu);
 		/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
 	} else if ((g_hang_detected == 0) &&
-		    ((local_bit & get_check_bit()) != get_check_bit())) {
+		    ((local_bit & get_check_bit()) != get_check_bit()) &&
+		    (sched_clock() - wk_lasthpg_t[cpu] > curInterval)) {
 		g_hang_detected = 1;
 		dump_timeout = 1;
 	}
@@ -333,7 +341,8 @@ static int start_kicker(void)
 static int wk_cpu_callback_online(unsigned int cpu)
 {
 	wk_cpu_update_bit_flag(cpu, 1);
-
+	wk_lasthpg_t[cpu] = sched_clock();
+	kick_bit |= (1 << cpu);
 	/*
 	 * Bind WDK thread to this CPU.
 	 * NOTE: Thread binding must be executed after CPU is ready
