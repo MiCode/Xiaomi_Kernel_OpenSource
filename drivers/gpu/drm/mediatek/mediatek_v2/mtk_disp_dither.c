@@ -711,11 +711,6 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 	if (priv == NULL)
 		return -ENOMEM;
 
-	g_pure_clr_param = devm_kzalloc(dev,
-		sizeof(*g_pure_clr_param), GFP_KERNEL);
-	if (g_pure_clr_param == NULL)
-		return -ENOMEM;
-
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
@@ -748,8 +743,14 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(dev, "devm_request_irq fail: %d\n", ret);
 
-	if (comp_id == DDP_COMPONENT_DITHER0)
+	if (comp_id == DDP_COMPONENT_DITHER0) {
+		g_pure_clr_param = devm_kzalloc(dev,
+			sizeof(*g_pure_clr_param), GFP_KERNEL);
+		if (g_pure_clr_param == NULL)
+			return -ENOMEM;
+
 		mtk_disp_dither_dts_parse(dev->of_node, comp_id);
+	}
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 

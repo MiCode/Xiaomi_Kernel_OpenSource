@@ -2717,16 +2717,11 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	struct device_node *dre3_dev_node;
 	struct platform_device *dre3_pdev;
 	struct resource dre3_res;
-	struct mtk_aal_feature_option *aal_fo;
 
 	DDPINFO("%s+\n", __func__);
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
-		return -ENOMEM;
-
-	aal_fo = devm_kzalloc(dev, sizeof(*aal_fo), GFP_KERNEL);
-	if (aal_fo == NULL)
 		return -ENOMEM;
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_AAL);
@@ -2745,20 +2740,25 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return irq;
 
-	if (of_property_read_u32(dev->of_node, "mtk_aal_support",
-		&aal_fo->mtk_aal_support)) {
-		AALERR("comp_id: %d, mtk_aal_support = %d\n",
-			comp_id, g_aal_fo->mtk_aal_support);
-		return -EINVAL;
-	}
+	if (comp_id == DDP_COMPONENT_AAL0) {
+		g_aal_fo = devm_kzalloc(dev, sizeof(*g_aal_fo), GFP_KERNEL);
+		if (g_aal_fo == NULL)
+			return -ENOMEM;
 
-	if (of_property_read_u32(dev->of_node, "mtk_dre30_support",
-		&aal_fo->mtk_dre30_support)) {
-		AALERR("comp_id: %d, mtk_dre30_support = %d\n",
-			comp_id, g_aal_fo->mtk_dre30_support);
-		return -EINVAL;
+		if (of_property_read_u32(dev->of_node, "mtk_aal_support",
+			&g_aal_fo->mtk_aal_support)) {
+			AALERR("comp_id: %d, mtk_aal_support = %d\n",
+				comp_id, g_aal_fo->mtk_aal_support);
+			g_aal_fo->mtk_aal_support = 0;
+		}
+
+		if (of_property_read_u32(dev->of_node, "mtk_dre30_support",
+			&g_aal_fo->mtk_dre30_support)) {
+			AALERR("comp_id: %d, mtk_dre30_support = %d\n",
+				comp_id, g_aal_fo->mtk_dre30_support);
+			g_aal_fo->mtk_dre30_support = 0;
+		}
 	}
-	g_aal_fo = aal_fo;
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
 				&mtk_disp_aal_funcs);
