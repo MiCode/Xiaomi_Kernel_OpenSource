@@ -169,6 +169,9 @@ static u32 cpu_power_to_freq(struct cpu_pbm_policy *pbm_policy, u32 power)
 {
 	int i;
 
+	if (!pbm_policy->em)
+		return 0;
+
 	for (i = pbm_policy->max_perf_state - 1; i > 0; i--) {
 		if (power >= pbm_policy->em->table[i].power)
 			break;
@@ -180,6 +183,9 @@ static u32 cpu_power_to_freq(struct cpu_pbm_policy *pbm_policy, u32 power)
 static u32 cpu_freq_to_power(struct cpu_pbm_policy *pbm_policy, u32 freq)
 {
 	int i;
+
+	if (!pbm_policy->em)
+		return 0;
 
 	for (i = pbm_policy->max_perf_state - 1; i > 0; i--) {
 		if (freq >= pbm_policy->em->table[i].frequency)
@@ -211,7 +217,8 @@ static void mtk_cpu_dlpt_set_limit_by_pbm(unsigned int limit_power)
 		granted_power = limit_power * pbm_policy->power_weight / total_power_weight
 			/ num_cpus;
 		frequency = cpu_power_to_freq(pbm_policy, granted_power);
-		freq_qos_update_request(&pbm_policy->qos_req, frequency);
+		if (frequency)
+			freq_qos_update_request(&pbm_policy->qos_req, frequency);
 	}
 }
 
@@ -965,7 +972,12 @@ static int pbm_probe(struct platform_device *pdev)
 			}
 
 			pbm_policy->em = em_cpu_get(policy->cpu);
-			pbm_policy->max_perf_state = pbm_policy->em->nr_perf_states;
+			if (pbm_policy->em) {
+				pbm_policy->max_perf_state = pbm_policy->em->nr_perf_states;
+			} else {
+				pr_info("%s: Fail to get em from cpu %d\n",
+					__func__, policy->cpu);
+			}
 			pbm_policy->policy = policy;
 			pbm_policy->cpu = cpu;
 			pbm_policy->power_weight = DEFAULT_PBM_WEIGHT;
