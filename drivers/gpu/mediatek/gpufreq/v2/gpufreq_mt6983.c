@@ -4576,7 +4576,7 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 	g_pmic->reg_vcore = regulator_get_optional(&pdev->dev, "_vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
 		ret = PTR_ERR(g_pmic->reg_vcore);
-		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VGPU (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VCORE (%ld)", ret);
 		goto done;
 	}
 
@@ -4585,7 +4585,7 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 	g_pmic->reg_dvfsrc = regulator_get_optional(&pdev->dev, "_dvfsrc");
 	if (IS_ERR(g_pmic->reg_dvfsrc)) {
 		ret = PTR_ERR(g_pmic->reg_dvfsrc);
-		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get VGPU (%ld)", ret);
+		__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to get DVFSRC (%ld)", ret);
 		goto done;
 	}
 #endif /* GPUFREQ_VCORE_DVFS_ENABLE */
