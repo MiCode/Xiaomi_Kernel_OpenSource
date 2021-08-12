@@ -371,6 +371,7 @@ struct mtk_dsi {
 	struct clk *hs_clk;
 
 	u32 data_rate;
+	u32 d_rate;
 
 	unsigned long mode_flags;
 	enum mipi_dsi_pixel_format format;
@@ -529,6 +530,7 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	u32 value = 0;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 
+	DDPMSG("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
 	ui = 1000 / dsi->data_rate + 0x01;
 	cycle_time = 8000 / dsi->data_rate + 0x01;
 
@@ -642,6 +644,7 @@ static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 
 	DDPINFO("%s+\n", __func__);
+	DDPMSG("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
 	ui = 1000 / dsi->data_rate + 0x01;
 	cycle_time = 8000 / dsi->data_rate + 0x01;
 
@@ -813,7 +816,10 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
-	if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+	if ((priv->data->mmsys_id == MMSYS_MT6983) && (dsi->d_rate != 0)) {
+		data_rate = dsi->d_rate;
+		DDPMSG("%s, data rate=%d\n", __func__, data_rate);
+	} else if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_DYN_MIPI_CHANGE)
 		&& dsi->ext && dsi->ext->params
 		&& dsi->ext->params->dyn_fps.data_rate) {
@@ -3552,6 +3558,25 @@ static void mtk_dsi_config_slave(struct mtk_dsi *dsi, struct mtk_dsi *slave)
 	dsi->slave_dsi->format = dsi->format;
 	dsi->slave_dsi->mode_flags = dsi->mode_flags;
 	dsi->slave_dsi->master_dsi = dsi;
+}
+
+int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct mtk_dsi *dsi;
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp) {
+		DDPMSG("request output fail\n");
+		return -EINVAL;
+	}
+	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+
+	dsi->d_rate = data_rate;
+	DDPMSG("%s, set rate %u\n", __func__, dsi->d_rate);
+
+	return 0;
 }
 
 static int mtk_dsi_host_attach(struct mipi_dsi_host *host,

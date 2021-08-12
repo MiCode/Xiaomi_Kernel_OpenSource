@@ -1317,8 +1317,8 @@ static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 
 	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
 			mipi_tx->data_rate / 1000000;
-
 	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
+
 	if (rate >= 6000) {
 		txdiv = 1;
 		txdiv0 = 0;
@@ -1373,7 +1373,7 @@ static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 
 	fbksel = ((rate >> 1) * txdiv) >= 3800 ? 2 : 1;
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
-	FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
+			FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
 
 	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
 	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
@@ -2438,7 +2438,6 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	} else {
 		return;
 	}
-
 	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
 
 	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
@@ -2467,7 +2466,7 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
 			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
 
-	DDPDBG("%s-\n", __func__);
+	DDPINFO("%s-\n", __func__);
 }
 
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,
