@@ -43,9 +43,10 @@ enum {
 
 #if IS_ENABLED(CONFIG_OF)
 unsigned long PWM_register[PWM_MAX] = {};
-struct regmap *pwm_infracfg_regmap;
+struct regmap *pwm_src_regmap;
 u32 pwm_clk_src_ctrl;
 u32 pwm_bclk_sw_ctrl_offset;
+u32 pwm_x_bclk_sw_ctrl_offset[PWM_MAX] = {};
 #endif
 
 /**************************************************************/
@@ -147,7 +148,7 @@ void mt_pwm_init_power_flag(unsigned long *power_flag)
 		PWM_register[PWM1] = (unsigned long)pwm_base + 0x0080;
 		PWM_register[PWM2] = (unsigned long)pwm_base + 0x00c0;
 		PWM_register[PWM3] = (unsigned long)pwm_base + 0x0100;
-		PWM_register[PWM4] = (unsigned long)pwm_base + 0x0040;
+		PWM_register[PWM4] = (unsigned long)pwm_base + 0x0140;
 		PWM_register[PWM5] = (unsigned long)pwm_base + 0x0180;
 		PWM_register[PWM6] = (unsigned long)pwm_base + 0x01c0;
 	} else {
@@ -608,36 +609,51 @@ void mt_pwm_26M_clk_enable_hal(u32 enable)
 
 void mt_pwm_clk_sel_hal(u32 pwm_no, u32 clk_src)
 {
+	int pwm_x_offset = 0;
 	if (pwm_no > PWM_MAX)
 		pr_info("PWM: invalid pwm_no\n");
+
+	switch (pwm_no) {
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+		pwm_x_offset = pwm_x_bclk_sw_ctrl_offset[pwm_no];
+		break;
+	default:
+		pr_info("PWM: invalid pwm_x_offset\n");
+	}
+
 	switch (clk_src) {
 	/* 32K */
 	case 0x00:
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << (pwm_no * 2), 0x0);
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x0);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_x_offset, 0x0 << pwm_x_offset);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_bclk_sw_ctrl_offset, 0x0 << pwm_bclk_sw_ctrl_offset);
 		break;
 	/* 26M */
 	case 0x01:
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << (pwm_no * 2), 0x1);
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x1);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_x_offset, 0x1 << pwm_x_offset);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_bclk_sw_ctrl_offset, 0x1 << pwm_bclk_sw_ctrl_offset);
 		break;
 	/* 78M not recommend */
 	case 0x2:
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << (pwm_no * 2), 0x2);
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x2);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_x_offset, 0x2 << pwm_x_offset);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_bclk_sw_ctrl_offset, 0x2 << pwm_bclk_sw_ctrl_offset);
 		break;
 	/* 66M, topckgen default */
 	case 0x3:
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << (pwm_no * 2), 0x3);
-		regmap_update_bits(pwm_infracfg_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x3);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_x_offset, 0x3 << pwm_x_offset);
+		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
+			0x3 << pwm_bclk_sw_ctrl_offset, 0x3 << pwm_bclk_sw_ctrl_offset);
 		break;
 	default:
 		pr_info("PWM: invalid clk_src\n");
@@ -648,29 +664,61 @@ void mt_pwm_platform_init(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	pwm_infracfg_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-		"infracfg");
+	pwm_src_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+		"pwmsrcclk");
 
-	if (IS_ERR(pwm_infracfg_regmap)) {
-		dev_err(&pdev->dev, "Cannot find infracfg controller: %ld\n",
-		PTR_ERR(pwm_infracfg_regmap));
+	if (IS_ERR(pwm_src_regmap)) {
+		dev_err(&pdev->dev, "Cannot find pwm src controller: %ld\n",
+		PTR_ERR(pwm_src_regmap));
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm-infraclk-ctl-reg",
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm-topclk-ctl-reg",
 			&pwm_clk_src_ctrl);
 	if (ret == 0)
-		pr_info("find node mediatek,pwm-infraclk-ctl-reg: 0x%x\n",
+		pr_info("find node mediatek,pwm-topclk-ctl-reg: 0x%x\n",
 			pwm_clk_src_ctrl);
-	else
-		return;
 
 	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm-bclk-sw-ctrl-offset",
 			&pwm_bclk_sw_ctrl_offset);
 	if (ret == 0)
 		pr_info("find node mediatek,pwm-bclk-sw-ctrl-offfset: 0x%x\n",
 			pwm_bclk_sw_ctrl_offset);
-	else
-		return;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm1-bclk-sw-ctrl-offset",
+			&pwm_x_bclk_sw_ctrl_offset[0]);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm1-bclk-sw-ctrl-offfset: 0x%x\n",
+			pwm_x_bclk_sw_ctrl_offset[0]);
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm2-bclk-sw-ctrl-offset",
+			&pwm_x_bclk_sw_ctrl_offset[1]);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm2-bclk-sw-ctrl-offfset: 0x%x\n",
+			pwm_x_bclk_sw_ctrl_offset[1]);
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm3-bclk-sw-ctrl-offset",
+			&pwm_x_bclk_sw_ctrl_offset[2]);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm3-bclk-sw-ctrl-offfset: 0x%x\n",
+			pwm_x_bclk_sw_ctrl_offset[2]);
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm4-bclk-sw-ctrl-offset",
+			&pwm_x_bclk_sw_ctrl_offset[3]);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm4-bclk-sw-ctrl-offfset: 0x%x\n",
+			pwm_x_bclk_sw_ctrl_offset[3]);
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm5-bclk-sw-ctrl-offset",
+			&pwm_x_bclk_sw_ctrl_offset[4]);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm5-bclk-sw-ctrl-offfset: 0x%x\n",
+			pwm_x_bclk_sw_ctrl_offset[4]);
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm6-bclk-sw-ctrl-offset",
+			&pwm_x_bclk_sw_ctrl_offset[5]);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm6-bclk-sw-ctrl-offfset: 0x%x\n",
+			pwm_x_bclk_sw_ctrl_offset[5]);
 }
 
 int mt_get_pwm_clk_src(struct platform_device *pdev)

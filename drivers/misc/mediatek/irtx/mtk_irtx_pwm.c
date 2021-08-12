@@ -216,6 +216,7 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	struct mtk_pwm_ir *pwm_ir;
 	struct rc_dev *rcdev;
 	int rc;
+	const char *pwm_str;
 
 	pwm_ir = devm_kmalloc(&pdev->dev, sizeof(*pwm_ir), GFP_KERNEL);
 	if (!pwm_ir)
@@ -225,8 +226,10 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 		&pwm_ir->pwm_ch);
 	of_property_read_u32(pdev->dev.of_node, "pwm_data_invert",
 		&pwm_ir->pwm_data_invert);
+	of_property_read_string(pdev->dev.of_node, "pwm-supply",
+		&pwm_str);
 
-	pwm_ir->regulator = devm_regulator_get(&pdev->dev, "vio28");
+	pwm_ir->regulator = devm_regulator_get(&pdev->dev, pwm_str);
 	if (IS_ERR(pwm_ir->regulator))
 		return PTR_ERR(pwm_ir->regulator);
 
