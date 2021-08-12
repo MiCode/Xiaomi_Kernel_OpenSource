@@ -11,23 +11,9 @@
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-sys.h"
 
-#define CMDQ_STOP_FUNC		(0)
+#define CMDQ_STOP_FUNC         (0)
 
 #define DVFS_QOS_READY         (0)
-
-#define IMGSYS_DVFS_ENABLE     (1)
-#define IMGSYS_QOS_ENABLE      (1)
-
-/* Record info definitions */
-#define GCE_REC_MAX_FRAME_BLOCK     (32)
-#define GCE_REC_MAX_TILE_BLOCK      (2048)
-
-#define WPE_SMI_PORT_NUM 5
-#define ME_SMI_PORT_NUM 2
-#define PQ_DIP_SMI_PORT_NUM 4
-#define TRAW_SMI_PORT_NUM 13
-#define LTRAW_SMI_PORT_NUM 7
-#define DIP_SMI_PORT_NUM 16
 
 struct mtk_imgsys_cmdq_timestamp {
 	u64 tsReqStart;
@@ -82,6 +68,11 @@ struct imgsys_event_table {
 	char dts_name[256];
 };
 
+struct imgsys_dvfs_group {
+	u16 g_id;
+	u32 g_hw;
+};
+
 struct Command {
 	enum mtk_imgsys_cmd opcode;
 
@@ -107,82 +98,6 @@ struct Command {
 		};
 	} u;
 };
-
-struct BlockRecord {
-	uint32_t            label_min;
-	uint32_t            label_max;
-	uint32_t            label_count;
-	uint32_t            cmd_offset;
-	uint32_t            cmd_length;
-};
-
-struct GCERecoder {
-	// Record command offset
-	uint32_t            cmd_offset;
-
-	// Reocrd command buffer info
-	uint32_t            *pOutput;
-	uint32_t            *pBuffer;
-	uint32_t            max_length;
-	uint32_t            curr_length;
-
-	// Each frame block info
-	struct BlockRecord  frame_record[GCE_REC_MAX_FRAME_BLOCK];
-	uint32_t            frame_block;
-	uint32_t            curr_frame;
-
-	// Each tile block info
-	struct BlockRecord  tile_record[GCE_REC_MAX_TILE_BLOCK];
-	uint32_t            tile_block;
-	uint32_t            curr_tile;
-};
-
-struct smi_port_t {
-	uint32_t portenum;
-	uint32_t portbw;
-} __attribute__((__packed__));
-
-struct wpe_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[WPE_SMI_PORT_NUM];
-} __attribute__((__packed__));
-
-struct me_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[ME_SMI_PORT_NUM];
-} __attribute__((__packed__));
-
-struct pqdip_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[PQ_DIP_SMI_PORT_NUM];
-} __attribute__((__packed__));
-
-struct traw_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[TRAW_SMI_PORT_NUM];
-} __attribute__((__packed__));
-
-struct ltraw_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[LTRAW_SMI_PORT_NUM];
-} __attribute__((__packed__));
-
-struct dip_bw_t {
-	uint32_t totalbw;
-	struct smi_port_t smiport[DIP_SMI_PORT_NUM];
-} __attribute__((__packed__));
-
-struct frame_bw_t {
-	struct wpe_bw_t wpe_eis;
-	struct wpe_bw_t wpe_tnr;
-	struct wpe_bw_t wpe_lite;
-	struct me_bw_t me;
-	struct pqdip_bw_t pqdip_a;
-	struct pqdip_bw_t pqdip_b;
-	struct traw_bw_t traw;
-	struct ltraw_bw_t ltraw;
-	struct dip_bw_t dip;
-} __attribute__((__packed__));
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
 void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev);

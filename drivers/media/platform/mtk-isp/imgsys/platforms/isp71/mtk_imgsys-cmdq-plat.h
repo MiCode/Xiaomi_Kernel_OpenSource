@@ -9,6 +9,13 @@
 #ifndef _MTK_IMGSYS_CMDQ_PLAT_H_
 #define _MTK_IMGSYS_CMDQ_PLAT_H_
 
+#define IMGSYS_DVFS_ENABLE     (0)
+#define IMGSYS_QOS_ENABLE      (0)
+
+/* Record info definitions */
+#define GCE_REC_MAX_FRAME_BLOCK     (32)
+#define GCE_REC_MAX_TILE_BLOCK      (2048)
+
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
 
@@ -16,6 +23,14 @@
 #define IMGSYS_CMDQ_HW_EVENT_END	250
 #define IMGSYS_CMDQ_SW_EVENT_BEGIN	514
 #define IMGSYS_CMDQ_SW_EVENT_END	579
+
+#define WPE_SMI_PORT_NUM	8
+#define ME_SMI_PORT_NUM	2
+#define PQ_DIP_SMI_PORT_NUM	6
+#define TRAW_SMI_PORT_NUM	18
+#define LTRAW_SMI_PORT_NUM	7
+#define XTRAW_SMI_PORT_NUM	16
+#define DIP_SMI_PORT_NUM	39
 
 enum mtk_imgsys_event {
 	/* HW event */
@@ -400,145 +415,363 @@ static struct cmdq_client *imgsys_clt[IMGSYS_ENG_MAX];
 enum mtk_imgsys_m4u_port {
 	/* TRAW */
 	IMGSYS_M4U_PORT_TRAW_START,
-	IMGSYS_M4U_PORT_L9_IMG_IMGI_T1_A = IMGSYS_M4U_PORT_TRAW_START,
-	IMGSYS_M4U_PORT_L9_IMG_IMGBI_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_IMGCI_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_SMTI_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_TNCSTI_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_TNCSTI_T4_A,
-	IMGSYS_M4U_PORT_L9_IMG_YUVO_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_TIMGO_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_YUVO_T2_A,
-	IMGSYS_M4U_PORT_L9_IMG_YUVO_T5_A,
-	IMGSYS_M4U_PORT_L9_IMG_TNCSO_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_SMTO_T1_A,
-	IMGSYS_M4U_PORT_L9_IMG_TNCSTO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_IMGI_T1_A = IMGSYS_M4U_PORT_TRAW_START,
+	IMGSYS_M4U_PORT_L9_IMG1_UFDI_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_IMGBI_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_IMGCI_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_SMTI_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_SMTI_T4_A,
+	IMGSYS_M4U_PORT_L9_IMG1_TNCSTI_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_TNCSTI_T4_A,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVBO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVCO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_TIMGO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVO_T2_A,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVO_T5_A,
+	IMGSYS_M4U_PORT_L9_IMG1_TNCSO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_SMTO_T1_A,
+	IMGSYS_M4U_PORT_L9_IMG1_SMTO_T4_A,
+	IMGSYS_M4U_PORT_L9_IMG1_TNCSTO_T1_A,
 
 	/* LTRAW */
 	IMGSYS_M4U_PORT_LTRAW_START,
-	IMGSYS_M4U_PORT_L9_IMG_IMGI_T1_B = IMGSYS_M4U_PORT_LTRAW_START,
-	IMGSYS_M4U_PORT_L9_IMG_IMGBI_T1_B,
-	IMGSYS_M4U_PORT_L9_IMG_IMGCI_T1_B,
-	IMGSYS_M4U_PORT_L9_IMG_SMTI_T1_B,
-	IMGSYS_M4U_PORT_L9_IMG_YUVO_T2_B,
-	IMGSYS_M4U_PORT_L9_IMG_YUVO_T5_B,
-	IMGSYS_M4U_PORT_L9_IMG_SMTO_T1_B,
+	IMGSYS_M4U_PORT_L9_IMG1_IMGI_T1_B = IMGSYS_M4U_PORT_LTRAW_START,
+	IMGSYS_M4U_PORT_L9_IMG1_IMGBI_T1_B,
+	IMGSYS_M4U_PORT_L9_IMG1_IMGCI_T1_B,
+	IMGSYS_M4U_PORT_L9_IMG1_SMTI_T4_B,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVO_T2_B,
+	IMGSYS_M4U_PORT_L9_IMG1_YUVO_T5_B,
+	IMGSYS_M4U_PORT_L9_IMG1_SMTO_T4_B,
+
+	/* XTRAW */
+	IMGSYS_M4U_PORT_XTRAW_START,
+	IMGSYS_M4U_PORT_L23_IMG2_IMGI_T1_C = IMGSYS_M4U_PORT_XTRAW_START,
+	IMGSYS_M4U_PORT_L23_IMG2_IMGBI_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_IMGCI_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_SMTI_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_SMTI_T4_C,
+	IMGSYS_M4U_PORT_L23_IMG2_SMTI_T6_C,
+	IMGSYS_M4U_PORT_L23_IMG2_YUVO_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_YUVBO_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_YUVCO_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_TIMGO_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_YUVO_T2_C,
+	IMGSYS_M4U_PORT_L23_IMG2_YUVO_T5_C,
+	IMGSYS_M4U_PORT_L23_IMG2_SMTO_T1_C,
+	IMGSYS_M4U_PORT_L23_IMG2_SMTO_T4_C,
+	IMGSYS_M4U_PORT_L23_IMG2_SMTO_T6_C,
+	IMGSYS_M4U_PORT_L23_IMG2_DBGO_T1_C,
 
 	/* DIP */
 	IMGSYS_M4U_PORT_DIP_START,
-	IMGSYS_M4U_PORT_L10_IMG_IMGI_D1_A = IMGSYS_M4U_PORT_DIP_START,
-	IMGSYS_M4U_PORT_L10_IMG_IMGCI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_DEPI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_DMGI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_VIPI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_TNRWI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_RECI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_SMTI_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_SMTI_D6_A,
-	IMGSYS_M4U_PORT_L10_IMG_IMG3O_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_IMG4O_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_IMG3CO_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_FEO_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_IMG2O_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_TNRWO_D1_A,
-	IMGSYS_M4U_PORT_L10_IMG_SMTO_D1_A,
+	IMGSYS_M4U_PORT_L10_IMG2_IMGI_D1 = IMGSYS_M4U_PORT_DIP_START,
+	IMGSYS_M4U_PORT_L10_IMG2_IMGBI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_IMGCI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_IMGDI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_DEPI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_DMGI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_SMTI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_RECI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_RECI_D1_N,
+	IMGSYS_M4U_PORT_L10_IMG2_TNRWI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_TNRCI_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_TNRCI_D1_N,
+	IMGSYS_M4U_PORT_L10_IMG2_IMG4O_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_IMG4BO_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_SMTI_D8,
+	IMGSYS_M4U_PORT_L10_IMG2_SMTO_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_TNRMO_D1,
+	IMGSYS_M4U_PORT_L10_IMG2_TNRMO_D1_N,
+	IMGSYS_M4U_PORT_L10_IMG2_SMTO_D8,
+	IMGSYS_M4U_PORT_L10_IMG2_DBGO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_VIP1_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_VIPBI_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_SMTI_D6,
+	IMGSYS_M4U_PORT_L15_IMG2_TNCSTI_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_TNCSTI_D4,
+	IMGSYS_M4U_PORT_L15_IMG2_SMTI_D4,
+	IMGSYS_M4U_PORT_L15_IMG2_IMG3O_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_IMG3BO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_IMG3CO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_IMG2O_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_SMTI_D9,
+	IMGSYS_M4U_PORT_L15_IMG2_SMTO_D4,
+	IMGSYS_M4U_PORT_L15_IMG2_FEO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_TNCSO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_TNCSTO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_SMTO_D6,
+	IMGSYS_M4U_PORT_L15_IMG2_SMTO_D9,
+	IMGSYS_M4U_PORT_L15_IMG2_TNCO_D1,
+	IMGSYS_M4U_PORT_L15_IMG2_TNCO_D1_N,
 
 	/* PQDIP_A */
 	IMGSYS_M4U_PORT_PQDIP_A_START,
-	IMGSYS_M4U_PORT_L10_IMG_PIMGI_P1_A = IMGSYS_M4U_PORT_PQDIP_A_START,
-	IMGSYS_M4U_PORT_L10_IMG_PIMGBI_P1_A,
-	IMGSYS_M4U_PORT_L10_IMG_PIMGCI_P1_A,
-	IMGSYS_M4U_PORT_L10_IMG_WROT_P1_A,
+	IMGSYS_M4U_PORT_L11_IMG2_PIMGI_P1 = IMGSYS_M4U_PORT_PQDIP_A_START,
+	IMGSYS_M4U_PORT_L11_IMG2_PIMGBI_P1,
+	IMGSYS_M4U_PORT_L11_IMG2_PIMGCI_P1,
+	IMGSYS_M4U_PORT_L11_IMG2_WROT_P1,
+	IMGSYS_M4U_PORT_L11_IMG2_TCCSO_P1,
+	IMGSYS_M4U_PORT_L11_IMG2_TCCSI_P1,
 
 	/* PQDIP_B */
 	IMGSYS_M4U_PORT_PQDIP_B_START,
-	IMGSYS_M4U_PORT_L10_IMG_PIMGI_P1_B = IMGSYS_M4U_PORT_PQDIP_B_START,
-	IMGSYS_M4U_PORT_L10_IMG_PIMGBI_P1_B,
-	IMGSYS_M4U_PORT_L10_IMG_PIMGCI_P1_B,
-	IMGSYS_M4U_PORT_L10_IMG_WROT_P1_B,
+	IMGSYS_M4U_PORT_L22_IMG2_PIMGI_P1 = IMGSYS_M4U_PORT_PQDIP_B_START,
+	IMGSYS_M4U_PORT_L22_IMG2_PIMGBI_P1,
+	IMGSYS_M4U_PORT_L22_IMG2_PIMGCI_P1,
+	IMGSYS_M4U_PORT_L22_IMG2_WROT_P1,
+	IMGSYS_M4U_PORT_L22_IMG2_TCCSO_P1,
+	IMGSYS_M4U_PORT_L22_IMG2_TCCSI_P1,
 
 	/* WPE_EIS */
 	IMGSYS_M4U_PORT_WPE_EIS_START,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_EIS_RDMA0_A = IMGSYS_M4U_PORT_WPE_EIS_START,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_EIS_RDMA1_A,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_EIS_WDMA0_A,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_EIS_CQ0_A,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_EIS_CQ1_A,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_RDMA0 = IMGSYS_M4U_PORT_WPE_EIS_START,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_RDMA1,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_RDMA_4P0,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_RDMA_4P1,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_CQ0,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_CQ1,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_WDMA0,
+	IMGSYS_M4U_PORT_L11_IMG2_WPE_WDMA_4P0,
 
 	/* WPE_TNR */
 	IMGSYS_M4U_PORT_WPE_TNR_START,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_TNR_RDMA0_A = IMGSYS_M4U_PORT_WPE_TNR_START,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_TNR_RDMA1_A,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_TNR_WDMA0_A,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_TNR_CQ0_A,
-	IMGSYS_M4U_PORT_L11_IMG_WPE_TNR_CQ1_A,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_RDMA0 = IMGSYS_M4U_PORT_WPE_TNR_START,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_RDMA1,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_RDMA_4P0,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_RDMA_4P1,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_CQ0,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_CQ1,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_WDMA0,
+	IMGSYS_M4U_PORT_L22_IMG2_WPE_WDMA_4P0,
+
+	/* WPE_LITE */
+	IMGSYS_M4U_PORT_WPE_LITE_START,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_RDMA0 = IMGSYS_M4U_PORT_WPE_LITE_START,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_RDMA1,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_RDMA_4P0,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_RDMA_4P1,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_CQ0,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_CQ1,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_WDMA0,
+	IMGSYS_M4U_PORT_L23_IMG2_WPE_WDMA_4P0,
 
 	/* ME */
 	IMGSYS_M4U_PORT_ME_START,
-	IMGSYS_M4U_PORT_L12_IMG_ME_RDMA = IMGSYS_M4U_PORT_ME_START,
-	IMGSYS_M4U_PORT_L12_IMG_ME_WDMA,
+	IMGSYS_M4U_PORT_L12_IPE_ME_RDMA = IMGSYS_M4U_PORT_ME_START,
+	IMGSYS_M4U_PORT_L12_IPE_ME_WDMA,
 	IMGSYS_M4U_PORT_MAX
 };
 
 static struct mtk_imgsys_qos_path imgsys_qos_path[IMGSYS_M4U_PORT_MAX] = {
 	{NULL, "l9_imgi_t1_a", 0},
+	{NULL, "l9_ufdi_t1_a", 0},
 	{NULL, "l9_imgbi_t1_a", 0},
 	{NULL, "l9_imgci_t1_a", 0},
 	{NULL, "l9_smti_t1_a", 0},
+	{NULL, "l9_smti_t4_a", 0},
 	{NULL, "l9_tncsti_t1_a", 0},
 	{NULL, "l9_tncsti_t4_a", 0},
 	{NULL, "l9_yuvo_t1_a", 0},
+	{NULL, "l9_yuvbo_t1_a", 0},
+	{NULL, "l9_yuvco_t1_a", 0},
 	{NULL, "l9_timgo_t1_a", 0},
 	{NULL, "l9_yuvo_t2_a", 0},
 	{NULL, "l9_yuvo_t5_a", 0},
 	{NULL, "l9_tncso_t1_a", 0},
 	{NULL, "l9_smto_t1_a", 0},
+	{NULL, "l9_smto_t4_a", 0},
 	{NULL, "l9_tncsto_t1_a", 0},
 	{NULL, "l9_imgi_t1_b", 0},
 	{NULL, "l9_imgbi_t1_b", 0},
 	{NULL, "l9_imgci_t1_b", 0},
-	{NULL, "l9_smti_t1_b", 0},
+	{NULL, "l9_smti_t4_b", 0},
 	{NULL, "l9_yuvo_t2_b", 0},
 	{NULL, "l9_yuvo_t5_b", 0},
-	{NULL, "l9_smto_t1_b", 0},
-	{NULL, "l10_imgi_d1_a", 0},
-	{NULL, "l10_imgci_d1_a", 0},
-	{NULL, "l10_depi_d1_a", 0},
-	{NULL, "l10_dmgi_d1_a", 0},
-	{NULL, "l10_vipi_d1_a", 0},
-	{NULL, "l10_tnrwi_d1_a", 0},
-	{NULL, "l10_reci_d1_a", 0},
-	{NULL, "l10_smti_d1_a", 0},
-	{NULL, "l10_smti_d6_a", 0},
-	{NULL, "l10_img3o_d1_a", 0},
-	{NULL, "l10_img4o_d1_a", 0},
-	{NULL, "l10_img3co_d1_a", 0},
-	{NULL, "l10_feo_d1_a", 0},
-	{NULL, "l10_img2o_d1_a", 0},
-	{NULL, "l10_tnrwo_d1_a", 0},
-	{NULL, "l10_smto_d1_a", 0},
-	{NULL, "l10_pimgi_p1_a", 0},
-	{NULL, "l10_pimgbi_p1_a", 0},
-	{NULL, "l10_pimgci_p1_a", 0},
-	{NULL, "l10_wrot_p1_a", 0},
-	{NULL, "l10_pimgi_p1_b", 0},
-	{NULL, "l10_pimgbi_p1_b", 0},
-	{NULL, "l10_pimgci_p1_b", 0},
-	{NULL, "l10_wrot_p1_b", 0},
-	{NULL, "l11_wpe_eis_rdma0_a", 0},
-	{NULL, "l11_wpe_eis_rdma1_a", 0},
-	{NULL, "l11_wpe_eis_wdma0_a", 0},
-	{NULL, "l11_wpe_eis_cq0_a", 0},
-	{NULL, "l11_wpe_eis_cq1_a", 0},
-	{NULL, "l11_wpe_tnr_rdma0_a", 0},
-	{NULL, "l11_wpe_tnr_rdma1_a", 0},
-	{NULL, "l11_wpe_tnr_wdma0_a", 0},
-	{NULL, "l11_wpe_tnr_cq0_a", 0},
-	{NULL, "l11_wpe_tnr_cq1_a", 0},
+	{NULL, "l9_smto_t4_b", 0},
+	{NULL, "l23_imgi_t1_c", 0},
+	{NULL, "l23_imgbi_t1_c", 0},
+	{NULL, "l23_imgci_t1_c", 0},
+	{NULL, "l23_smti_t1_c", 0},
+	{NULL, "l23_smti_t4_c", 0},
+	{NULL, "l23_smti_t6_c", 0},
+	{NULL, "l23_yuvo_t1_c", 0},
+	{NULL, "l23_yuvbo_t1_c", 0},
+	{NULL, "l23_yuvco_t1_c", 0},
+	{NULL, "l23_timgo_t1_c", 0},
+	{NULL, "l23_yuvo_t2_c", 0},
+	{NULL, "l23_yuvo_t5_c", 0},
+	{NULL, "l23_smto_t1_c", 0},
+	{NULL, "l23_smto_t4_c", 0},
+	{NULL, "l23_smto_t6_c", 0},
+	{NULL, "l23_dbgo_t1_c", 0},
+	{NULL, "l10_imgi_d1", 0},
+	{NULL, "l10_imgbi_d1", 0},
+	{NULL, "l10_imgci_d1", 0},
+	{NULL, "l10_imgdi_d1", 0},
+	{NULL, "l10_depi_d1", 0},
+	{NULL, "l10_dmgi_d1", 0},
+	{NULL, "l10_smti_d1", 0},
+	{NULL, "l10_reci_d1", 0},
+	{NULL, "l10_reci_d1_n", 0},
+	{NULL, "l10_tnrwi_d1", 0},
+	{NULL, "l10_tnrci_d1", 0},
+	{NULL, "l10_tnrci_d1_n", 0},
+	{NULL, "l10_img4o_d1", 0},
+	{NULL, "l10_img4bo_d1", 0},
+	{NULL, "l10_smti_d8", 0},
+	{NULL, "l10_smto_d1", 0},
+	{NULL, "l10_tnrmo_d1", 0},
+	{NULL, "l10_tnrmo_d1_n", 0},
+	{NULL, "l10_smto_d8", 0},
+	{NULL, "l10_dbgo_d1", 0},
+	{NULL, "l15_vipi_d1", 0},
+	{NULL, "l15_vipbi_d1", 0},
+	{NULL, "l15_smti_d6", 0},
+	{NULL, "l15_tncsti_d1", 0},
+	{NULL, "l15_tncsti_d4", 0},
+	{NULL, "l15_smti_d4", 0},
+	{NULL, "l15_img3o_d1", 0},
+	{NULL, "l15_img3bo_d1", 0},
+	{NULL, "l15_img3co_d1", 0},
+	{NULL, "l15_img2o_d1", 0},
+	{NULL, "l15_smti_d9", 0},
+	{NULL, "l15_smto_d4", 0},
+	{NULL, "l15_feo_d1", 0},
+	{NULL, "l15_tncso_d1", 0},
+	{NULL, "l15_tncsto_d1", 0},
+	{NULL, "l15_smto_d6", 0},
+	{NULL, "l15_smto_d9", 0},
+	{NULL, "l15_tnco_d1", 0},
+	{NULL, "l15_tnco_d1_n", 0},
+	{NULL, "l11_pimgi_p1", 0},
+	{NULL, "l11_pimgbi_p1", 0},
+	{NULL, "l11_pimgci_p1", 0},
+	{NULL, "l11_wrot_p1", 0},
+	{NULL, "l11_tccso_p1", 0},
+	{NULL, "l11_tccsi_p1", 0},
+	{NULL, "l22_pimgi_p1", 0},
+	{NULL, "l22_pimgbi_p1", 0},
+	{NULL, "l22_pimgci_p1", 0},
+	{NULL, "l22_wrot_p1", 0},
+	{NULL, "l22_tccso_p1", 0},
+	{NULL, "l22_tccsi_p1", 0},
+	{NULL, "l11_wpe_rdma0", 0},
+	{NULL, "l11_wpe_rdma1", 0},
+	{NULL, "l11_wpe_rdma_4p0", 0},
+	{NULL, "l11_wpe_rdma_4p1", 0},
+	{NULL, "l11_wpe_cq0", 0},
+	{NULL, "l11_wpe_cq1", 0},
+	{NULL, "l11_wpe_wdma0", 0},
+	{NULL, "l11_wpe_wdma_4p0", 0},
+	{NULL, "l22_wpe_rdma0", 0},
+	{NULL, "l22_wpe_rdma1", 0},
+	{NULL, "l22_wpe_rdma_4p0", 0},
+	{NULL, "l22_wpe_rdma_4p1", 0},
+	{NULL, "l22_wpe_cq0", 0},
+	{NULL, "l22_wpe_cq1", 0},
+	{NULL, "l22_wpe_wdma0", 0},
+	{NULL, "l22_wpe_wdma_4p0", 0},
+	{NULL, "l23_wpe_rdma0", 0},
+	{NULL, "l23_wpe_rdma1", 0},
+	{NULL, "l23_wpe_rdma_4p0", 0},
+	{NULL, "l23_wpe_rdma_4p1", 0},
+	{NULL, "l23_wpe_cq0", 0},
+	{NULL, "l23_wpe_cq1", 0},
+	{NULL, "l23_wpe_wdma0", 0},
+	{NULL, "l23_wpe_wdma_4p0", 0},
 	{NULL, "l12_me_rdma", 0},
 	{NULL, "l12_me_wdma", 0}
 };
 
+struct BlockRecord {
+	uint32_t            label_min;
+	uint32_t            label_max;
+	uint32_t            label_count;
+	uint32_t            cmd_offset;
+	uint32_t            cmd_length;
+};
+
+struct GCERecoder {
+	// Record command offset
+	uint32_t            cmd_offset;
+
+	// Reocrd command buffer info
+	uint32_t            *pOutput;
+	uint32_t            *pBuffer;
+	uint32_t            max_length;
+	uint32_t            curr_length;
+
+	// Each frame block info
+	struct BlockRecord  frame_record[GCE_REC_MAX_FRAME_BLOCK];
+	uint32_t            frame_block;
+	uint32_t            curr_frame;
+
+	// Each tile block info
+	struct BlockRecord  tile_record[GCE_REC_MAX_TILE_BLOCK];
+	uint32_t            tile_block;
+	uint32_t            curr_tile;
+};
+
+static struct imgsys_dvfs_group  dvfs_group[MTK_IMGSYS_DVFS_GROUP] = {
+	{0, (IMGSYS_ENG_WPE_LITE
+			|IMGSYS_ENG_TRAW
+			|IMGSYS_ENG_LTR
+			|IMGSYS_ENG_XTR
+			|IMGSYS_ENG_ME)},
+	{1, (IMGSYS_ENG_WPE_EIS
+			|IMGSYS_ENG_WPE_TNR
+			|IMGSYS_ENG_DIP
+			|IMGSYS_ENG_PQDIP_A
+			|IMGSYS_ENG_PQDIP_B)}
+};
+
+struct smi_port_t {
+	uint32_t portenum;
+	uint32_t portbw;
+} __attribute__((__packed__));
+
+struct wpe_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[WPE_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
+struct me_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[ME_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
+struct pqdip_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[PQ_DIP_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
+struct traw_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[TRAW_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
+struct ltraw_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[LTRAW_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
+struct dip_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[DIP_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
+struct frame_bw_t {
+	struct wpe_bw_t wpe_eis;
+	struct wpe_bw_t wpe_tnr;
+	struct wpe_bw_t wpe_lite;
+	struct me_bw_t me;
+	struct pqdip_bw_t pqdip_a;
+	struct pqdip_bw_t pqdip_b;
+	struct traw_bw_t traw;
+	struct ltraw_bw_t ltraw;
+	struct dip_bw_t dip;
+} __attribute__((__packed__));
 
 #endif /* _MTK_IMGSYS_CMDQ_PLAT_H_ */
 

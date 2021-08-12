@@ -10,10 +10,10 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-cmdq-ext.h"
 #include "mtk_imgsys-cmdq-plat.h"
-#include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-trace.h"
 #include "mtk-interconnect.h"
 
@@ -649,9 +649,9 @@ void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 		dev_dbg(dvfs_info->dev, "fail to init opp table: %d\n", ret);
 		return;
 	}
-	dvfs_info->reg = devm_regulator_get(dvfs_info->dev, "dvfsrc-vcore");
+	dvfs_info->reg = devm_regulator_get(dvfs_info->dev, "dvfsrc-vmm");
 	if (IS_ERR(dvfs_info->reg)) {
-		dev_dbg(dvfs_info->dev, "can't get dvfsrc-vcore\n");
+		dev_dbg(dvfs_info->dev, "can't get dvfsrc-vmm\n");
 		return;
 	}
 
@@ -732,7 +732,7 @@ void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 	volt = dvfs_info->voltlv[opp_idx][idx];
 
 	if (dvfs_info->cur_volt != volt) {
-		dev_dbg(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
+		dev_info(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
 			__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
 			dvfs_info->voltlv[opp_idx][idx]);
 		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
@@ -922,8 +922,8 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 	port_st = 0;
 	port_num = IMGSYS_M4U_PORT_MAX;
 	for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-		if (qos_info->qos_path[port_idx].path == NULL) {
-			dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
+		if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
+			dev_dbg(qos_info->dev, "[ERROR] [%s] path of idx(%d) is NULL\n",
 				__func__, port_idx);
 			continue;
 		}
@@ -948,13 +948,14 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 {
 	struct mtk_imgsys_dvfs *dvfs_info = NULL;
 	struct mtk_imgsys_qos *qos_info = NULL;
-	unsigned long pixel_size = 0;
-	int frm_num = 0, frm_idx = 0;
+	unsigned long pixel_size[MTK_IMGSYS_DVFS_GROUP] = {0};
+	int frm_num = 0, frm_idx = 0, g_idx;
 	u32 hw_comb = 0;
 	u32 fps = 0;
 	u32 bw_exe = 0;
 	unsigned long freq = 0;
 	#if IMGSYS_DVFS_ENABLE
+	unsigned long pixel_max = 0, pixel_total_max = 0;
 	struct timeval curr_time;
 	u64 ts_curr = 0, ts_eq = 0, ts_sw = 0, ts_end = 0, ts_exe = 0, ts_hw = 0, ts_fps = 0;
 	#endif
@@ -972,11 +973,21 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 	hw_comb = frm_info->user_info[0].hw_comb;
 
 	/* Calculate DVFS*/
-	for (frm_idx = 0; frm_idx < frm_num; frm_idx++)
-		pixel_size += frm_info->user_info[frm_idx].pixel_bw;
+	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++) {
+			if (frm_info->user_info[frm_idx].hw_comb & dvfs_group[g_idx].g_hw)
+				pixel_size[g_idx] += frm_info->user_info[frm_idx].pixel_bw;
+		}
+	}
 	#if IMGSYS_DVFS_ENABLE
 	if (isSet == 1) {
-		dvfs_info->pixel_size += pixel_size;
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++) {
+			dvfs_info->pixel_size[g_idx] += pixel_size[g_idx];
+			if (pixel_size[g_idx] > pixel_max)
+				pixel_max = pixel_size[g_idx];
+			if (dvfs_info->pixel_size[g_idx] > pixel_total_max)
+				pixel_total_max = dvfs_info->pixel_size[g_idx];
+		}
 
 		/* Check current time */
 		/* do_gettimeofday(&curr_time); */
@@ -991,11 +1002,11 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 
 		if ((fps == 0) || (ts_hw == 0)) {
 			freq = 650000000; /* Forcing highest frequency if fps is 0 */
-			ts_exe = (pixel_size * 1000000) / freq;
+			ts_exe = (pixel_max * 1000000) / freq;
 			ts_end = ts_curr + ts_exe;
 			bw_exe = 1000000 / ts_exe;
 		} else {
-			freq = (dvfs_info->pixel_size * 1000000) / ts_hw;
+			freq = (pixel_total_max * 1000000) / ts_hw;
 			/* freq = (dvfs_info->pixel_size * fps); */
 			ts_exe = ts_hw;
 			/* ts_exe = (dvfs_info->pixel_size * 1000000) / freq; */
@@ -1008,16 +1019,22 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 		if (ts_end > dvfs_info->ts_end)
 			dvfs_info->ts_end = ts_end;
 	} else if (isSet == 0) {
-		dvfs_info->pixel_size -= pixel_size;
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++) {
+			dvfs_info->pixel_size[g_idx] -= pixel_size[g_idx];
+			if (pixel_size[g_idx] > pixel_max)
+				pixel_max = pixel_size[g_idx];
+			if (dvfs_info->pixel_size[g_idx] > pixel_total_max)
+				pixel_total_max = dvfs_info->pixel_size[g_idx];
+		}
 
 		if (fps == 0) {
 			freq = 650000000; /* Forcing highest frequency if fps is 0 */
-			ts_exe = (pixel_size * 1000000) / freq;
+			ts_exe = (pixel_max * 1000000) / freq;
 			bw_exe = 1000000 / ts_exe;
 		} else
 			bw_exe = fps;
 
-		if (dvfs_info->pixel_size == 0) {
+		if (pixel_total_max == 0) {
 			freq = 0;
 			dvfs_info->freq = freq;
 		}
@@ -1025,16 +1042,18 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 	dev_dbg(qos_info->dev,
 	"[%s] isSet(%d) fps(%d) bw_exe(%d) freq(%d/%d) pix_sz(%d/%d) eq(%lld) curr(%lld) sw(%lld) end(%lld) exe(%lld)\n",
 		__func__, isSet, fps, bw_exe, freq, dvfs_info->freq,
-		pixel_size, dvfs_info->pixel_size,
+		pixel_max, pixel_total_max,
 		ts_eq, ts_curr, ts_sw, ts_end, ts_exe);
 	#else
 	if (isSet == 1) {
-		dvfs_info->pixel_size += pixel_size;
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++)
+			dvfs_info->pixel_size[0] += pixel_size[g_idx];
 		freq = 650000000;
 		dvfs_info->freq = freq;
 	} else if (isSet == 0) {
-		dvfs_info->pixel_size -= pixel_size;
-		if (dvfs_info->pixel_size == 0) {
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++)
+			dvfs_info->pixel_size[0] -= pixel_size[g_idx];
+		if (dvfs_info->pixel_size[0] == 0) {
 			freq = 0;
 			dvfs_info->freq = freq;
 		}

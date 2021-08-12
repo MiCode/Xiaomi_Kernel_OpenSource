@@ -54,6 +54,7 @@
 #define MTK_DIP_DEV_META_BUF_POOL_MAX_SIZE	(1024 * 1024 * 16)
 #define MTK_IMGSYS_OPP_SET			2
 #define MTK_IMGSYS_CLK_LEVEL_CNT		5
+#define MTK_IMGSYS_DVFS_GROUP			2
 
 extern unsigned int nodes_num;
 
@@ -226,7 +227,7 @@ struct mtk_imgsys_dvfs {
 	unsigned int clklv_target[MTK_IMGSYS_OPP_SET];
 	unsigned int cur_volt;
 	u64 ts_end;
-	unsigned long pixel_size;
+	unsigned long pixel_size[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long freq;
 };
 
