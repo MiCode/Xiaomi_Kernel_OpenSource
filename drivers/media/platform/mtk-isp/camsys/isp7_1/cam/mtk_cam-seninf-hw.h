@@ -20,67 +20,66 @@ struct mtk_cam_seninf_mux_meter {
 	s64 line_time_in_us;
 };
 
-int mtk_cam_seninf_init_iomem(struct seninf_ctx *ctx,
-			      void __iomem *if_base, void __iomem *ana_base);
-int mtk_cam_seninf_init_port(struct seninf_ctx *ctx, int port);
-
-int mtk_cam_seninf_is_cammux_used(struct seninf_ctx *ctx, int cam_mux);
-int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux);
-int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux);
-int mtk_cam_seninf_disable_all_cammux(struct seninf_ctx *ctx);
-int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
-				    int mux_idx, int seninf_src);
-int mtk_cam_seninf_get_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx);
-int mtk_cam_seninf_get_cammux_ctrl(struct seninf_ctx *ctx, int cam_mux);
-u32 mtk_cam_seninf_get_cammux_res(struct seninf_ctx *ctx, int cam_mux);
-int mtk_cam_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
-				 int vc_sel, int dt_sel, int vc_en, int dt_en);
-int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src,
-				  int target, int exp_hsize, int exp_vsize);
-int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int seninfIdx,
-			  struct seninf_vcinfo *vcinfo);
-int mtk_cam_seninf_set_mux_ctrl(struct seninf_ctx *ctx, int mux,
-				int hsPol, int vsPol, int src_sel,
-				int pixel_mode);
-int mtk_cam_seninf_set_mux_crop(struct seninf_ctx *ctx, int mux,
-				int start_x, int end_x, int enable);
-int mtk_cam_seninf_is_mux_used(struct seninf_ctx *ctx, int mux);
-int mtk_cam_seninf_mux(struct seninf_ctx *ctx, int mux);
-int mtk_cam_seninf_disable_mux(struct seninf_ctx *ctx, int mux);
-int mtk_cam_seninf_disable_all_mux(struct seninf_ctx *ctx);
-int mtk_cam_seninf_set_cammux_chk_pixel_mode(struct seninf_ctx *ctx,
-					     int cam_mux, int pixelMode);
-int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
-				  int mux, int cam_mux, int pixelMode);
-int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx);
-
-int mtk_cam_seninf_poweroff(struct seninf_ctx *ctx);
-int mtk_cam_seninf_reset(struct seninf_ctx *ctx, int seninfIdx);
-int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx);
-
-int mtk_cam_seninf_get_mux_meter(struct seninf_ctx *ctx, int mux,
-				 struct mtk_cam_seninf_mux_meter *meter);
-
-ssize_t mtk_cam_seninf_show_status(struct device *dev,
-				   struct device_attribute *attr,
-		char *buf);
-int mtk_cam_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx, bool inner);
-
-int mtk_cam_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src, int target);
-int mtk_cam_seninf_update_mux_pixel_mode(struct seninf_ctx *ctx, int mux, int pixel_mode);
-int mtk_cam_seninf_irq_handler(int irq, void *data);
-
 extern int update_isp_clk(struct seninf_ctx *ctx);
 
-int mtk_cam_seninf_set_sw_cfg_busy(struct seninf_ctx *ctx, bool enable, int index);
-int mtk_cam_seninf_set_cam_mux_dyn_en(struct seninf_ctx *ctx, bool enable, int cam_mux, int index);
-int mtk_cam_seninf_reset_cam_mux_dyn_en(struct seninf_ctx *ctx, int index);
-int mtk_cam_seninf_enable_global_drop_irq(struct seninf_ctx *ctx, bool enable, int index);
-int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable, int cam_mux);
-int mtk_cam_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx);
+struct mtk_cam_seninf_ops {
+	int (*_init_iomem)(struct seninf_ctx *ctx,
+			      void __iomem *if_base, void __iomem *ana_base);
+	int (*_init_port)(struct seninf_ctx *ctx, int port);
+	int (*_is_cammux_used)(struct seninf_ctx *ctx, int cam_mux);
+	int (*_cammux)(struct seninf_ctx *ctx, int cam_mux);
+	int (*_disable_cammux)(struct seninf_ctx *ctx, int cam_mux);
+	int (*_disable_all_cammux)(struct seninf_ctx *ctx);
+	int (*_set_top_mux_ctrl)(struct seninf_ctx *ctx,
+						int mux_idx, int seninf_src);
+	int (*_get_top_mux_ctrl)(struct seninf_ctx *ctx, int mux_idx);
+	int (*_get_cammux_ctrl)(struct seninf_ctx *ctx, int cam_mux);
+	u32 (*_get_cammux_res)(struct seninf_ctx *ctx, int cam_mux);
+	int (*_set_cammux_vc)(struct seninf_ctx *ctx, int cam_mux,
+					 int vc_sel, int dt_sel, int vc_en, int dt_en);
+	int (*_set_cammux_src)(struct seninf_ctx *ctx, int src,
+					  int target, int exp_hsize, int exp_vsize);
+	int (*_set_vc)(struct seninf_ctx *ctx, int seninfIdx,
+				  struct seninf_vcinfo *vcinfo);
+	int (*_set_mux_ctrl)(struct seninf_ctx *ctx, int mux,
+					int hsPol, int vsPol, int src_sel,
+					int pixel_mode);
+	int (*_set_mux_crop)(struct seninf_ctx *ctx, int mux,
+					int start_x, int end_x, int enable);
+	int (*_is_mux_used)(struct seninf_ctx *ctx, int mux);
+	int (*_mux)(struct seninf_ctx *ctx, int mux);
+	int (*_disable_mux)(struct seninf_ctx *ctx, int mux);
+	int (*_disable_all_mux)(struct seninf_ctx *ctx);
+	int (*_set_cammux_chk_pixel_mode)(struct seninf_ctx *ctx,
+							 int cam_mux, int pixelMode);
+	int (*_set_test_model)(struct seninf_ctx *ctx,
+					  int mux, int cam_mux, int pixelMode);
+	int (*_set_csi_mipi)(struct seninf_ctx *ctx);
+	int (*_poweroff)(struct seninf_ctx *ctx);
+	int (*_reset)(struct seninf_ctx *ctx, int seninfIdx);
+	int (*_set_idle)(struct seninf_ctx *ctx);
+	int (*_get_mux_meter)(struct seninf_ctx *ctx, int mux,
+					 struct mtk_cam_seninf_mux_meter *meter);
+	ssize_t (*_show_status)(struct device *dev, struct device_attribute *attr, char *buf);
+	int (*_switch_to_cammux_inner_page)(struct seninf_ctx *ctx, bool inner);
+	int (*_set_cammux_next_ctrl)(struct seninf_ctx *ctx, int src, int target);
+	int (*_update_mux_pixel_mode)(struct seninf_ctx *ctx, int mux, int pixel_mode);
+	int (*_irq_handler)(int irq, void *data);
+	int (*_set_sw_cfg_busy)(struct seninf_ctx *ctx, bool enable, int index);
+	int (*_set_cam_mux_dyn_en)(struct seninf_ctx *ctx, bool enable, int cam_mux, int index);
+	int (*_reset_cam_mux_dyn_en)(struct seninf_ctx *ctx, int index);
+	int (*_enable_global_drop_irq)(struct seninf_ctx *ctx, bool enable, int index);
+	int (*_enable_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable, int cam_mux);
+	int (*_disable_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx);
+	int (*_debug)(struct seninf_ctx *ctx);
+	unsigned char seninf_num;
+	unsigned char mux_num;
+	unsigned char cam_mux_num;
 
+};
 
-
-int mtk_cam_seninf_debug(struct seninf_ctx *ctx);
+extern struct mtk_cam_seninf_ops mtk_csi_phy_3_0;
+extern struct mtk_cam_seninf_ops mtk_csi_phy_2_0;
+extern struct mtk_cam_seninf_ops *g_seninf_ops;
 
 #endif

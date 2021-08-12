@@ -30,14 +30,14 @@ void mtk_cam_seninf_init_res(struct seninf_core *core)
 	int i;
 
 	INIT_LIST_HEAD(&core->list_mux);
-	for (i = 0; i < ARRAY_SIZE(core->mux); i++) {
+	for (i = 0; i < g_seninf_ops->mux_num; i++) {
 		core->mux[i].idx = i;
 		list_add_tail(&core->mux[i].list, &core->list_mux);
 	}
 
 #ifdef SENINF_DEBUG
 	INIT_LIST_HEAD(&core->list_cam_mux);
-	for (i = 0; i < ARRAY_SIZE(core->cam_mux); i++) {
+	for (i = 0; i < g_seninf_ops->cam_mux_num; i++) {
 		core->cam_mux[i].idx = i;
 		list_add_tail(&core->cam_mux[i].list, &core->list_cam_mux);
 	}
@@ -522,7 +522,7 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 	vc->pixel_mode = pixelMode;
 	if (ctx->streaming) {
 		update_isp_clk(ctx);
-		mtk_cam_seninf_update_mux_pixel_mode(ctx, vc->mux, pixelMode);
+		g_seninf_ops->_update_mux_pixel_mode(ctx, vc->mux, pixelMode);
 	}
 	// if streaming, update ispclk and update pixle mode seninf mux and reset
 
@@ -551,27 +551,27 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 		old_camtg = vc->cam;
 		/* enable new */
 		vc->cam = camtg;
-		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, true);
-		mtk_cam_seninf_set_cammux_next_ctrl(ctx, 0xf, vc->cam);
+		g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
+		g_seninf_ops->_set_cammux_next_ctrl(ctx, 0xf, vc->cam);
 
-		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, false);
+		g_seninf_ops->_switch_to_cammux_inner_page(ctx, false);
 
-		mtk_cam_seninf_set_cammux_vc(ctx, vc->cam,
+		g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
 					     vc->vc, vc->dt,
 					     !!vc->dt, !!vc->dt);
-		mtk_cam_seninf_set_cammux_src(ctx, vc->mux, vc->cam,
+		g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
 					      vc->exp_hsize,
 					      vc->exp_vsize);
-		mtk_cam_seninf_set_cammux_chk_pixel_mode(ctx,
+		g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 							 vc->cam,
 							 vc->pixel_mode);
 		if (old_camtg != 0xff && disable_last)
-			mtk_cam_seninf_disable_cammux(ctx, old_camtg);//disable old in next sof
-		mtk_cam_seninf_cammux(ctx, vc->cam); //enable in next sof
-		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, true);
-		mtk_cam_seninf_set_cammux_next_ctrl(ctx, vc->mux, vc->cam);
+			g_seninf_ops->_disable_cammux(ctx, old_camtg);//disable old in next sof
+		g_seninf_ops->_cammux(ctx, vc->cam); //enable in next sof
+		g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
+		g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, vc->cam);
 		if (old_camtg != 0xff && disable_last)
-			mtk_cam_seninf_set_cammux_next_ctrl(ctx, vc->mux, old_camtg);
+			g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, old_camtg);
 
 		if (pad_id == PAD_SRC_RAW0) {
 			// notify vc->cam
@@ -634,11 +634,11 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		ctx = container_of(sd, struct seninf_ctx, subdev);
 
 		//mtk_cam_seninf_enable_global_drop_irq(ctx, true, 0);
-		mtk_cam_seninf_reset_cam_mux_dyn_en(ctx, index);
+		g_seninf_ops->_reset_cam_mux_dyn_en(ctx, index);
 		//k_cam_seninf_set_sw_cfg_busy(ctx, true, index);
 
 		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, false);
-		mtk_cam_seninf_enable_cam_mux_vsync_irq(ctx, true, camtg);//
+		g_seninf_ops->_enable_cam_mux_vsync_irq(ctx, true, camtg);//
 		//k_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
 
 
@@ -647,7 +647,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		pad_id = param->settings[1].source;
 		camtg = param->settings[1].camtg;
 		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, false);
-		mtk_cam_seninf_enable_cam_mux_vsync_irq(ctx, true, camtg);
+		g_seninf_ops->_enable_cam_mux_vsync_irq(ctx, true, camtg);
 		//mtk_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
 
 
@@ -659,7 +659,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 
 			_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, false);
 
-			mtk_cam_seninf_enable_cam_mux_vsync_irq(ctx, true, camtg);//
+			g_seninf_ops->_enable_cam_mux_vsync_irq(ctx, true, camtg);//
 			//k_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
 
 			dev_info(ctx->dev,
@@ -676,7 +676,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 
 		//mtk_cam_seninf_set_sw_cfg_busy(ctx, false, index);
 		//mtk_cam_seninf_enable_global_drop_irq(ctx, false, 0);
-		mtk_cam_seninf_disable_all_cam_mux_vsync_irq(ctx);
+		g_seninf_ops->_disable_all_cam_mux_vsync_irq(ctx);
 
 	}
 	return true;

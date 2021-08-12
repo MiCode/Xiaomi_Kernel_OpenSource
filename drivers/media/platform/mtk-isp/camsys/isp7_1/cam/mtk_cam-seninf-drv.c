@@ -42,9 +42,16 @@
 #define sizeof_u32(__struct_name__) (sizeof(__struct_name__) / sizeof(u32))
 #define sizeof_u16(__struct_name__) (sizeof(__struct_name__) / sizeof(u16))
 
+struct mtk_cam_seninf_ops *g_seninf_ops;
+
+
 #ifdef CSI_EFUSE_SET
 #include <linux/nvmem-consumer.h>
 #endif
+static const char * const csi_phy_versions[] = {
+	MTK_CSI_PHY_VERSIONS
+};
+
 
 static const char * const csi_port_names[] = {
 	SENINF_CSI_PORT_NAMES
@@ -57,7 +64,7 @@ static const char * const clk_names[] = {
 static ssize_t status_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
-	return mtk_cam_seninf_show_status(dev, attr, buf);
+	return g_seninf_ops->_show_status(dev, attr, buf);
 }
 
 static DEVICE_ATTR_RO(status);
@@ -245,8 +252,39 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 
 static irqreturn_t mtk_irq_seninf(int irq, void *data)
 {
-	mtk_cam_seninf_irq_handler(irq, data);
+	g_seninf_ops->_irq_handler(irq, data);
 	return IRQ_HANDLED;
+}
+
+static int get_seninf_ops(struct device *dev, struct seninf_core *core)
+{
+	int i, ret;
+	const char *ver;
+
+	ret = of_property_read_string(dev->of_node, "mtk_csi_phy_ver", &ver);
+	if (ret) {
+		g_seninf_ops = &mtk_csi_phy_3_0;
+		return 0;
+	}
+	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
+		if (!strcasecmp(ver, csi_phy_versions[i])) {
+			if (i == SENINF_PHY_2_0)
+				g_seninf_ops = &mtk_csi_phy_2_0;
+			else
+				g_seninf_ops = &mtk_csi_phy_3_0;
+
+			dev_info(dev, "%s: mtk_csi_phy_2_0 = 0x%x mtk_csi_phy_3_0 = 0x%x\n",
+			__func__,
+			&mtk_csi_phy_2_0, &mtk_csi_phy_3_0);
+
+			dev_info(dev, "%s: mtk_csi_phy_ver = %s i = %d 0x%x ret = %d\n",
+			__func__,
+			csi_phy_versions[i], i, g_seninf_ops, ret);
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
 static int seninf_core_probe(struct platform_device *pdev)
@@ -264,7 +302,6 @@ static int seninf_core_probe(struct platform_device *pdev)
 	core->dev = dev;
 	mutex_init(&core->mutex);
 	INIT_LIST_HEAD(&core->list);
-	mtk_cam_seninf_init_res(core);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
 	core->reg_if = devm_ioremap_resource(dev, res);
@@ -276,6 +313,12 @@ static int seninf_core_probe(struct platform_device *pdev)
 	if (IS_ERR(core->reg_ana))
 		return PTR_ERR(core->reg_ana);
 
+	ret = get_seninf_ops(dev, core);
+	if (ret) {
+		dev_dbg(dev, "failed to get seninf ops\n");
+		return ret;
+	}
+	mtk_cam_seninf_init_res(core);
 
 	spin_lock_init(&core->spinlock_irq);
 	irq = platform_get_irq(pdev, 0);
@@ -597,13 +640,13 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			dev_info(ctx->dev, "test mode mux %d, cam %d, pixel mode %d\n",
 					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode);
 
-			mtk_cam_seninf_set_test_model(ctx,
+			g_seninf_ops->_set_test_model(ctx,
 					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode);
 
 			udelay(40);
 		}
 	} else {
-		mtk_cam_seninf_set_idle(ctx);
+		g_seninf_ops->_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
 		if (dfs->cnt)
 			seninf_dfs_set(ctx, 0);
@@ -629,11 +672,11 @@ static int config_hw(struct seninf_ctx *ctx)
 	intf = ctx->seninfIdx;
 	vcinfo = &ctx->vcinfo;
 
-	mtk_cam_seninf_reset(ctx, intf);
+	g_seninf_ops->_reset(ctx, intf);
 
-	mtk_cam_seninf_set_vc(ctx, intf, vcinfo);
+	g_seninf_ops->_set_vc(ctx, intf, vcinfo);
 
-	mtk_cam_seninf_set_csi_mipi(ctx);
+	g_seninf_ops->_set_csi_mipi(ctx);
 
 	// TODO
 	hsPol = 0;
@@ -672,13 +715,13 @@ static int config_hw(struct seninf_ctx *ctx)
 		vc->cam = ctx->pad2cam[vc->out_pad];//
 
 		if (!skip_mux_ctrl) {
-			mtk_cam_seninf_mux(ctx, vc->mux);
-			mtk_cam_seninf_set_mux_ctrl(ctx, vc->mux,
+			g_seninf_ops->_mux(ctx, vc->mux);
+			g_seninf_ops->_set_mux_ctrl(ctx, vc->mux,
 						    hsPol, vsPol,
 				MIPI_SENSOR + vc->group,
 				vc->pixel_mode);
 
-			mtk_cam_seninf_set_top_mux_ctrl(ctx, vc->mux, intf);
+			g_seninf_ops->_set_top_mux_ctrl(ctx, vc->mux, intf);
 
 			//TODO
 			//mtk_cam_seninf_set_mux_crop(ctx, vc->mux, 0, 2327, 0);
@@ -692,14 +735,14 @@ static int config_hw(struct seninf_ctx *ctx)
 			dt_en = !!dt_sel;
 
 			/* CMD_SENINF_FINALIZE_CAM_MUX */
-			mtk_cam_seninf_set_cammux_vc(ctx, vc->cam,
+			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
 						     vc_sel, dt_sel, dt_en, dt_en);
-			mtk_cam_seninf_set_cammux_src(ctx, vc->mux, vc->cam,
+			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
 						      vc->exp_hsize, vc->exp_vsize);
-			mtk_cam_seninf_set_cammux_chk_pixel_mode(ctx,
+			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 								 vc->cam,
 								 vc->pixel_mode);
-			mtk_cam_seninf_cammux(ctx, vc->cam);
+			g_seninf_ops->_cammux(ctx, vc->cam);
 
 			dev_info(ctx->dev, "vc[%d] pad %d intf %d mux %d cam %d\n",
 				 i, vc->out_pad, intf, vc->mux, vc->cam,
@@ -946,7 +989,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 
 
-		mtk_cam_seninf_set_idle(ctx);
+		g_seninf_ops->_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
 		pm_runtime_put(ctx->dev);
@@ -1328,8 +1371,8 @@ static int seninf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	mtk_cam_seninf_init_iomem(ctx, core->reg_if, core->reg_ana);
-	mtk_cam_seninf_init_port(ctx, port);
+	g_seninf_ops->_init_iomem(ctx, core->reg_if, core->reg_ana);
+	g_seninf_ops->_init_port(ctx, port);
 	init_fmt(ctx);
 
 	/* default platform properties */
@@ -1416,8 +1459,8 @@ static int runtime_resume(struct device *dev)
 			if (core->clk[i])
 				clk_prepare_enable(core->clk[i]);
 		}
-		mtk_cam_seninf_disable_all_mux(ctx);
-		mtk_cam_seninf_disable_all_cammux(ctx);
+		g_seninf_ops->_disable_all_mux(ctx);
+		g_seninf_ops->_disable_all_cammux(ctx);
 	}
 
 	mutex_unlock(&core->mutex);
@@ -1435,7 +1478,7 @@ static int seninf_remove(struct platform_device *pdev)
 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
 
 	if (ctx->streaming) {
-		mtk_cam_seninf_set_idle(ctx);
+		g_seninf_ops->_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
 	}
 
@@ -1531,5 +1574,5 @@ int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *p_pixel_rate)
 
 int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 {
-	return mtk_cam_seninf_debug(sd_to_ctx(sd));
+	return g_seninf_ops->_debug(sd_to_ctx(sd));
 }

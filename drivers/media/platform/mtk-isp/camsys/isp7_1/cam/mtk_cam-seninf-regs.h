@@ -4,16 +4,7 @@
 #ifndef __MTK_CAM_SENINF_REGS_H__
 #define __MTK_CAM_SENINF_REGS_H__
 
-#include "mtk_cam-seninf-top-ctrl.h"
-#include "mtk_cam-seninf-seninf1-mux.h"
-#include "mtk_cam-seninf-seninf1.h"
-#include "mtk_cam-seninf-seninf1-csi2.h"
-#include "mtk_cam-seninf-tg1.h"
-#include "mtk_cam-seninf-cammux-gcsr.h"
-#include "mtk_cam-seninf-cammux-pcsr.h"
-#include "mtk_cam-seninf-mipi-rx-ana-cdphy-csi0a.h"
-#include "mtk_cam-seninf-csi0-cphy.h"
-#include "mtk_cam-seninf-csi0-dphy.h"
+
 
 #define SENINF_BITS(base, reg, field, val) do { \
 	u32 __iomem *__p = base + reg; \

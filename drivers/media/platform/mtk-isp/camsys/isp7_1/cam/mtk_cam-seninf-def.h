@@ -139,6 +139,16 @@ enum CSI_PORT {
 	"5A", \
 	"5B", \
 
+enum SENINF_PHY_VER_ENUM {
+	SENINF_PHY_3_0,
+	SENINF_PHY_2_0,
+	SENINF_PHY_VER_NUM,
+};
+
+#define MTK_CSI_PHY_VERSIONS \
+"mtk_csi_phy_3_0", \
+"mtk_csi_phy_2_0", \
+
 enum SENINF_ENUM {
 	SENINF_1,
 	SENINF_2,
