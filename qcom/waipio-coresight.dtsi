@@ -2458,6 +2458,14 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
+			port@0 {
+				reg = <0>;
+				funnel_apss_in_funnel_ete: endpoint {
+					remote-endpoint =
+					<&funnel_ete_out_funnel_apss>;
+				};
+			};
+
 			port@2 {
 				reg = <2>;
 				funnel_apss_in_tpda_apss: endpoint {
@@ -3390,6 +3398,10 @@
 		qcom,extended_cti;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
+
+		qcom,cti-gpio-trigout = <16>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti0: cti@10c2a000 {
@@ -4011,5 +4023,216 @@
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
+	};
+
+	ete0 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU0>;
+
+		coresight-name = "coresight-ete0";
+		qcom,skip-power-up;
+		atid = <1>;
+		out-ports {
+			port {
+				ete0_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete0>;
+				};
+			};
+		};
+	};
+
+	ete1 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU1>;
+
+		coresight-name = "coresight-ete1";
+		qcom,skip-power-up;
+		atid = <2>;
+		out-ports {
+			port {
+				ete1_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete1>;
+				};
+			};
+		};
+	};
+
+	ete2 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU2>;
+
+		coresight-name = "coresight-ete2";
+		qcom,skip-power-up;
+		atid = <3>;
+		out-ports {
+			port {
+				ete2_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete2>;
+				};
+			};
+		};
+	};
+
+	ete3 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU3>;
+
+		coresight-name = "coresight-ete3";
+		qcom,skip-power-up;
+		atid = <4>;
+		out-ports {
+			port {
+				ete3_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete3>;
+				};
+			};
+		};
+	};
+
+	ete4 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU4>;
+
+		coresight-name = "coresight-ete4";
+		qcom,skip-power-up;
+		atid = <5>;
+		out-ports {
+			port {
+				ete4_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete4>;
+				};
+			};
+		};
+	};
+
+	ete5 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU5>;
+
+		coresight-name = "coresight-ete5";
+		qcom,skip-power-up;
+		atid = <6>;
+		out-ports {
+			port {
+				ete5_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete5>;
+				};
+			};
+		};
+	};
+
+	ete6 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU6>;
+
+		coresight-name = "coresight-ete6";
+		qcom,skip-power-up;
+		atid = <7>;
+		out-ports {
+			port {
+				ete6_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete6>;
+				};
+			};
+		};
+	};
+
+	ete7 {
+		compatible = "arm,embedded-trace-extension";
+		cpu = <&CPU7>;
+
+		coresight-name = "coresight-ete7";
+		qcom,skip-power-up;
+		atid = <8>;
+		out-ports {
+			port {
+				ete7_out_funnel_ete: endpoint {
+				remote-endpoint = <&funnel_ete_in_ete7>;
+				};
+			};
+		};
+	};
+
+	funnel_ete {
+		compatible = "arm,coresight-static-funnel";
+		coresight-name = "coresight-funnel-ete";
+
+		out-ports {
+			port {
+				funnel_ete_out_funnel_apss: endpoint {
+					remote-endpoint =
+					<&funnel_apss_in_funnel_ete>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_ete_in_ete0: endpoint {
+					remote-endpoint =
+					<&ete0_out_funnel_ete>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				funnel_ete_in_ete1: endpoint {
+				remote-endpoint =
+					<&ete1_out_funnel_ete>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				funnel_ete_in_ete2: endpoint {
+				remote-endpoint =
+					<&ete2_out_funnel_ete>;
+				};
+			};
+
+			port@3 {
+				reg = <3>;
+				funnel_ete_in_ete3: endpoint {
+				remote-endpoint =
+					<&ete3_out_funnel_ete>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+				funnel_ete_in_ete4: endpoint {
+				remote-endpoint =
+					<&ete4_out_funnel_ete>;
+				};
+			};
+
+			port@5 {
+				reg = <5>;
+				funnel_ete_in_ete5: endpoint {
+					remote-endpoint =
+					<&ete5_out_funnel_ete>;
+				};
+			};
+
+			port@6 {
+				reg = <6>;
+				funnel_ete_in_ete6: endpoint {
+					remote-endpoint =
+					<&ete6_out_funnel_ete>;
+				};
+			};
+
+			port@7 {
+				reg = <7>;
+				funnel_ete_in_ete7: endpoint {
+					remote-endpoint =
+					<&ete7_out_funnel_ete>;
+				};
+			};
+		};
 	};
 };

@@ -786,7 +786,7 @@
 		S3E: pmr735a_s3: regulator-pmr735a-s3 {
 			regulator-name = "pmr735a_s3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2200000>;
+			regulator-min-microvolt = <435000>;
 			regulator-max-microvolt = <2352000>;
 			qcom,init-voltage = <2200000>;
 		};

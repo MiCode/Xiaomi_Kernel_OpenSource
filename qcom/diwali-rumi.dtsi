@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,gcc-diwali.h>
 
 &soc {
 	timer {
@@ -11,6 +12,28 @@
 	qcom,wdt@17410000 {
 		status = "disabled";
 	};
+
+	disp_rsc: rsc@af20000 {
+		status = "disabled";
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+
+	usb_emuphy: phy@a784000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a784000 0x9500>;
+
+		qcom,emu-init-seq = <0xfffff 0x4
+		     0xffff0 0x4
+		     0x100000 0x20
+		     0x0 0x20
+		     0x000101F0 0x20
+		     0x00100000 0x3c
+		     0x0 0x3c
+		     0x0 0x4>;
+	};
 };
 
 &gcc {
@@ -18,4 +41,53 @@
 		<&pcie_0_pipe_clk>, <&ufs_phy_rx_symbol_0_clk>,
 		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
 		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+};
+
+&LITTLE_CPU_OFF {
+	status = "nok";
+};
+
+&LITTLE_CPU_RAIL_OFF {
+	status = "nok";
+};
+
+&BIG_CPU_OFF {
+	status = "nok";
+};
+
+&BIG_CPU_RAIL_OFF {
+	status = "nok";
+};
+
+&CLUSTER_OFF {
+	status = "nok";
+};
+
+&CX_RET {
+	status = "nok";
+};
+
+&APSS_OFF {
+	status = "nok";
+};
+
+&usb0 {
+	dwc3@a600000 {
+		usb-phy = <&usb_emuphy>, <&usb_nop_phy>;
+		dr_mode = "peripheral";
+		maximum-speed = "high-speed";
+	};
+};
+
+&gpucc {
+	clocks = <&bi_tcxo>,
+		<&gcc GCC_GPU_GPLL0_CLK_SRC>,
+		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>,
+		<&bi_tcxo_ao>,
+		<&sleep_clk>,
+		<&gcc GCC_CAMERA_AHB_CLK>;
 };

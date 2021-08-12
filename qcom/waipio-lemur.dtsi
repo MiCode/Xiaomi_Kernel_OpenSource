@@ -14,7 +14,9 @@
 	qcom,target-link-width = <1>; /* force X1 lane width */
 	qcom,no-l0s-supported;
 	qcom,target-link-speed = <4>; /* Set max link speed to Gen4 */
+	vreg-qref-supply = <&pm8350_l5>;
 	qcom,vreg-0p9-voltage-level = <912000 912000 193000>;
+	qcom,vreg-qref-voltage-level = <880000 880000 25700>;
 	qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 					RPMH_REGULATOR_LEVEL_NOM 0>;
 	qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX

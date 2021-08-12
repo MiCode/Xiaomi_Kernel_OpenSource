@@ -24,7 +24,9 @@ Required properties:
 - qcom,bus-width:	Bus width of hardware interface (in Bytes).
 - qcom,freq-tbl:	Array of frequencies or phandle to an array of
 			frequencies in units of kHz that this hardware
-			device supports. Required for all devices except
+			device supports. A phandle must be used in conjunction
+			with the optional "qcom,ddr-type" property to support
+			multiple DDR types. Required for all devices except
 			DCVS_L3.
 - reg:			Physical base address and region size of the memory
 			mapped registers containing the device's base address
@@ -33,6 +35,9 @@ Required properties:
 - reg-names:		Name used for the above registers. Expected names are
 			"l3-base" and "l3tbl-base" respectively. Required for
 			DCVS_L3 devices.
+Optional properties:
+- qcom,ddr-type:	Specifies the DDR type supported by the corresponding
+			"qcom,freq-tbl" property.
 
 [Third Level Nodes]
 Required properties:
@@ -78,18 +83,34 @@ Example:
 	};
 
 	ddr_freq_table: ddr-freq-table {
-		qcom,freq-tbl =
-			<  200000 >,
-			<  451000 >,
-			<  547000 >,
-			<  681000 >,
-			<  768000 >,
-			< 1017000 >,
-			< 1555000 >,
-			< 1708000 >,
-			< 2092000 >,
-			< 2736000 >,
-			< 3196000 >;
+		ddr4 {
+			qcom,ddr-type = <7>;
+			qcom,freq-tbl =
+				<  200000 >,
+				<  451000 >,
+				<  547000 >,
+				<  681000 >,
+				<  768000 >,
+				< 1017000 >,
+				< 1555000 >,
+				< 1708000 >,
+				< 2092000 >,
+		};
+		ddr5 {
+			qcom,ddr-type = <8>;
+			qcom,freq-tbl =
+				<  200000 >,
+				<  451000 >,
+				<  547000 >,
+				<  681000 >,
+				<  768000 >,
+				< 1017000 >,
+				< 1555000 >,
+				< 1708000 >,
+				< 2092000 >,
+				< 2736000 >,
+				< 3196000 >;
+		}
 	};
 
 	qcom_dcvs: qcom,dcvs {

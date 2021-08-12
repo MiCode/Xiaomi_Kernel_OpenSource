@@ -5,6 +5,7 @@
 		reg = <0x38>;
 		focaltech,display-coords = <0 0 1080 2340>;
 		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,trusted-touch-type = "primary";
 		focaltech,touch-environment = "tvm";
 		focaltech,trusted-touch-spi-irq = <754>;
 		focaltech,trusted-touch-io-bases = <0xF110000 0xF111000 0xF112000 0xF113000

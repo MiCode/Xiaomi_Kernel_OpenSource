@@ -181,37 +181,37 @@
 	smb139x_1_smb_temp {
 		reg = <SMB1394_1_ADC7_SMB_TEMP>;
 		label = "smb139x_1_smb_temp";
-		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
 	};
 
 	smb139x_1_ichg_smb {
 		reg = <SMB1394_1_ADC7_ICHG_SMB>;
 		label = "smb139x_1_ichg_smb";
-		qcom,pre-scaling = <16 100>;
+		qcom,hw-settle-time = <200>;
 	};
 
 	smb139x_1_iin_smb {
 		reg = <SMB1394_1_ADC7_IIN_SMB>;
 		label = "smb139x_1_iin_smb";
-		qcom,pre-scaling = <32 100>;
+		qcom,hw-settle-time = <200>;
 	};
 
 	smb139x_2_smb_temp {
 		reg = <SMB1394_2_ADC7_SMB_TEMP>;
 		label = "smb139x_2_smb_temp";
-		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
 	};
 
 	smb139x_2_ichg_smb {
 		reg = <SMB1394_2_ADC7_ICHG_SMB>;
 		label = "smb139x_2_ichg_smb";
-		qcom,pre-scaling = <16 100>;
+		qcom,hw-settle-time = <200>;
 	};
 
 	smb139x_2_iin_smb {
 		reg = <SMB1394_2_ADC7_IIN_SMB>;
 		label = "smb139x_2_iin_smb";
-		qcom,pre-scaling = <32 100>;
+		qcom,hw-settle-time = <200>;
 	};
 };
 

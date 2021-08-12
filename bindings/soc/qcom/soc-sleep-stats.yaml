@@ -31,6 +31,11 @@ properties:
     Definition: Supported subsystem names. Must be from "modem", "adsp",
                 "adsp_island", "cdsp", "slpi", "slpi_island", "apss",
                 "gpu", "display".
+  mboxes:
+    $ref: "/schemas/types.yaml#/definitions/phandle-array"
+    maxItems: 1
+    Value type: Value type: <prop-encoded-array>
+    Definition: List of QMP mailbox phandle and channel identifier tuples.
 
 required:
   - compatible
@@ -45,6 +50,7 @@ examples:
       ss-name = "modem", "adsp", "adsp_island",
                 "cdsp", "slpi", "slpi_island",
                 "apss";
+      mboxes = <&qmp_aop 0>;
     };
   # Example of rpm sleep stats
   - |

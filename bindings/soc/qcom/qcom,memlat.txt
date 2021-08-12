@@ -52,6 +52,9 @@ Required properties:
 				(i.e. DCVS HW) frequency (both in units of kHz).
 				A phandle that contains this property may be
 				provided instead (to share tables across nodes).
+				A phandle must be used in conjunction with the
+				optional "qcom,ddr-type" property to support
+				multiple DDR types.
 - qcom,sampling-enabled:	Used to determine if this mon should be used by
 				the memlat sampling algorithm. This property or
 				the qcom,threadlat-enabled property is required.
@@ -61,6 +64,8 @@ Required properties:
 Optional properties:
 - qcom,compute-mon:		Used to configure mon as a "compute" mon which
 				means it monitors compute bound workloads.
+- qcom,ddr-type:		Specifies the DDR type supported by the
+				corresponding "qcom,cpufreq-memfreq-tbl" prop.
 
 Example:
 
@@ -77,12 +82,24 @@ Example:
 	};
 
 	silver_ddr_tbl: qcom,silver-ddr-tbl {
-		qcom,core-dev-table =
-			<  300000  200000 >,
-			<  691200  451000 >,
-			< 1190400  547000 >,
-			< 1459200  768000 >,
-			< 1900800 1555000 >;
+		ddr4-tbl {
+			qcom,ddr-type = <7>;
+			qcom,cpufreq-memfreq-tbl =
+				<  300000  200000 >,
+				<  691200  451000 >,
+				< 1190400  547000 >,
+				< 1459200  768000 >,
+				< 1900800 1017000 >;
+		};
+		ddr5-tbl {
+			qcom,ddr-type = <8>;
+			qcom,cpufreq-memfreq-tbl =
+				<  300000  200000 >,
+				<  691200  451000 >,
+				< 1190400  547000 >,
+				< 1459200  768000 >,
+				< 1900800 1555000 >;
+		}
 	};
 
 	qcom_memlat: qcom,memlat {
@@ -96,7 +113,7 @@ Example:
 			silver_ddr_lat: silver {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
-				qcom,core-dev-table = <&silver_ddr_tbl>;
+				qcom,cpufreq-memfreq-tbl = <&silver_ddr_tbl>;
 				qcom,sampling-enabled;
 			};
 		};

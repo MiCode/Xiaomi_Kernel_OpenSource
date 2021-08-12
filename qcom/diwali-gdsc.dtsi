@@ -1,7 +1,7 @@
 &soc {
 	/* CAM_CC GDSCs */
 	cam_cc_bps_gdsc: qcom,gdsc@ad10004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad10004 0x4>;
 		regulator-name = "cam_cc_bps_gdsc";
 		qcom,retain-regs;
@@ -10,7 +10,7 @@
 	};
 
 	cam_cc_ife_0_gdsc: qcom,gdsc@ad13004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad13004 0x4>;
 		regulator-name = "cam_cc_ife_0_gdsc";
 		qcom,retain-regs;
@@ -18,7 +18,7 @@
 	};
 
 	cam_cc_ife_1_gdsc: qcom,gdsc@ad14004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad14004 0x4>;
 		regulator-name = "cam_cc_ife_1_gdsc";
 		qcom,retain-regs;
@@ -26,7 +26,7 @@
 	};
 
 	cam_cc_ife_2_gdsc: qcom,gdsc@ad14078 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad14078 0x4>;
 		regulator-name = "cam_cc_ife_2_gdsc";
 		qcom,retain-regs;
@@ -34,7 +34,7 @@
 	};
 
 	cam_cc_ipe_0_gdsc: qcom,gdsc@ad11004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad11004 0x4>;
 		regulator-name = "cam_cc_ipe_0_gdsc";
 		qcom,retain-regs;
@@ -43,7 +43,7 @@
 	};
 
 	cam_cc_titan_top_gdsc: qcom,gdsc@ad15120 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad15120 0x4>;
 		regulator-name = "cam_cc_titan_top_gdsc";
 		qcom,retain-regs;
@@ -173,52 +173,86 @@
 	};
 
 	/* GPU_CC GDSCs */
+	gpu_cc_cx_hw_ctrl: syscon@3d9953c {
+		compatible = "syscon";
+		reg = <0x3d9953c 0x4>;
+	};
+
+	/* GPU_CC GDSCs */
 	gpu_cc_cx_gdsc: qcom,gdsc@3d99108 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x3d99108 0x4>;
+		hw-ctrl-addr = <&gpu_cc_cx_hw_ctrl>;
 		regulator-name = "gpu_cc_cx_gdsc";
+		qcom,no-status-check-on-disable;
+		qcom,clk-dis-wait-val = <8>;
 		qcom,retain-regs;
 		status = "disabled";
 	};
 
+	gpu_cc_gx_domain_addr: syscon@3d99504 {
+		compatible = "syscon";
+		reg = <0x3d99504 0x4>;
+	};
+
+	gpu_cc_gx_sw_reset: syscon@3d99058 {
+		compatible = "syscon";
+		reg = <0x3d99058 0x4>;
+	};
+
+	gpu_cc_gx_acd_reset: syscon@3d99358 {
+		compatible = "syscon";
+		reg = <0x3d99358 0x4>;
+	};
+
+	gpu_cc_gx_acd_iroot_reset: syscon@3d9958c {
+		compatible = "syscon";
+		reg = <0x3d9958c 0x4>;
+	};
+
 	gpu_cc_gx_gdsc: qcom,gdsc@3d9905c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x3d9905c 0x4>;
 		regulator-name = "gpu_cc_gx_gdsc";
+		domain-addr = <&gpu_cc_gx_domain_addr>;
+		sw-reset = <&gpu_cc_gx_sw_reset>,
+			   <&gpu_cc_gx_acd_reset>,
+			   <&gpu_cc_gx_acd_iroot_reset>;
+		qcom,reset-aon-logic;
 		qcom,retain-regs;
 		status = "disabled";
 	};
 
 	/* VIDEO_CC GDSCs */
-	video_cc_mvs0_gdsc: qcom,gdsc@abf81a4 {
-		compatible = "regulator-fixed";
-		reg = <0xabf81a4 0x4>;
+	video_cc_mvs0_gdsc: qcom,gdsc@aaf81a4 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf81a4 0x4>;
 		regulator-name = "video_cc_mvs0_gdsc";
 		qcom,retain-regs;
 		qcom,support-hw-trigger;
 		status = "disabled";
 	};
 
-	video_cc_mvs0c_gdsc: qcom,gdsc@abf8084 {
-		compatible = "regulator-fixed";
-		reg = <0xabf8084 0x4>;
+	video_cc_mvs0c_gdsc: qcom,gdsc@aaf8084 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf8084 0x4>;
 		regulator-name = "video_cc_mvs0c_gdsc";
 		qcom,retain-regs;
 		status = "disabled";
 	};
 
-	video_cc_mvs1_gdsc: qcom,gdsc@abf8244 {
-		compatible = "regulator-fixed";
-		reg = <0xabf8244 0x4>;
+	video_cc_mvs1_gdsc: qcom,gdsc@aaf8244 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf8244 0x4>;
 		regulator-name = "video_cc_mvs1_gdsc";
 		qcom,retain-regs;
 		qcom,support-hw-trigger;
 		status = "disabled";
 	};
 
-	video_cc_mvs1c_gdsc: qcom,gdsc@abf8124 {
-		compatible = "regulator-fixed";
-		reg = <0xabf8124 0x4>;
+	video_cc_mvs1c_gdsc: qcom,gdsc@aaf8124 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf8124 0x4>;
 		regulator-name = "video_cc_mvs1c_gdsc";
 		qcom,retain-regs;
 		status = "disabled";

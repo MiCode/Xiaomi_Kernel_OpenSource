@@ -142,6 +142,7 @@
 				6000000 5500000 5000000 4500000 4000000 3500000
 				3000000 2500000 2000000 1500000 1000000 500000>;
 	qcom,wireless-fw-name = "idt9415.bin";
+	qcom,shutdown-voltage = <3100>;
 };
 
 &qupv3_se9_i2c {
@@ -195,6 +196,7 @@
 
 		focaltech,trusted-touch-mode = "vm_mode";
 		focaltech,touch-environment = "pvm";
+		focaltech,trusted-touch-type = "primary";
 		focaltech,trusted-touch-spi-irq = <754>;
 		focaltech,trusted-touch-io-bases = <0xF110000 0xF111000 0xF112000 0xF113000 0xF114000 0xF115000 0x990000 0x00910000>;
 		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;

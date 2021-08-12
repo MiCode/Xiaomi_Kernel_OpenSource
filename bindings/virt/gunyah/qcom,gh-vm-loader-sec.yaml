@@ -1,0 +1,36 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/virt/gunyah/qcom,gh-vm-loader-sec.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Gunyah Secure Guest VM Loader
+
+maintainers:
+  - Prakruthi Deepak Heragu <pheragu@quicinc.com>
+  - Murali Nalajala <mnalajal@quicinc.com>
+
+properties:
+  compatible:
+    const: qcom,gh-vm-loader-sec
+
+  qcom,no-shutdown:
+    description: Specify if this is a critical VM that doesn't support shutdown
+
+  image_to_be_loaded:
+    $ref: /schemas/types.yaml#/definitions/string
+
+required:
+  - compatible
+  - qcom,pas-id
+  - qcom,firmware-name
+  - memory-region
+
+examples:
+  - |+
+    qcom,gh_vm_loader_sec {
+        compatible = "qcom,gh-vm-loader-sec";
+        qcom,pas-id = <28>;
+        qcom,firmware-name = "trustedvm";
+        memory-region = <&trust_ui_vm_mem>;
+    };
+...

@@ -201,6 +201,15 @@
 		compatible = "qcom,devfreq-cdev";
 		qcom,devfreq = <&msm_gpu>;
 	};
+
+	qcom,userspace-cdev {
+		compatible = "qcom,userspace-cooling-devices";
+
+		display_fps: display-fps {
+			qcom,max-level = <4>;
+			#cooling-cells = <2>;
+		};
+	};
 };
 
 #include "waipio-thermal-modem.dtsi"
@@ -1068,20 +1077,14 @@
 			};
 
 			mdmss0_config0: mdmss0-config0 {
-				temperature = <95000>;
-				hysteresis = <5000>;
+				temperature = <102000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
 			mdmss0_config1: mdmss0-config1 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-
-			mdmss0_config2: mdmss0-config2 {
 				temperature = <105000>;
-				hysteresis = <5000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
@@ -1095,41 +1098,26 @@
 		cooling-maps {
 			lte_cdev0 {
 				trip = <&mdmss0_config0>;
-				cooling-device = <&modem_lte_dsc 7 7>;
+				cooling-device = <&modem_lte_dsc 8 8>;
 			};
 
 			nr_scg_cdev0 {
 				trip = <&mdmss0_config0>;
-				cooling-device = <&modem_nr_scg_dsc 2 2>;
+				cooling-device = <&modem_nr_scg_dsc 10 10>;
 			};
 
 			nr_cdev0 {
 				trip = <&mdmss0_config0>;
-				cooling-device = <&modem_nr_dsc 4 4>;
-			};
-
-			lte_cdev1 {
-				trip = <&mdmss0_config1>;
-				cooling-device = <&modem_lte_dsc 8 8>;
-			};
-
-			nr_scg_cdev1 {
-				trip = <&mdmss0_config1>;
-				cooling-device = <&modem_nr_scg_dsc 10 10>;
-			};
-
-			nr_cdev1 {
-				trip = <&mdmss0_config1>;
 				cooling-device = <&modem_nr_dsc 6 6>;
 			};
 
 			lte_cdev2 {
-				trip = <&mdmss0_config2>;
+				trip = <&mdmss0_config1>;
 				cooling-device = <&modem_lte_dsc 255 255>;
 			};
 
 			nr_cdev2 {
-				trip = <&mdmss0_config2>;
+				trip = <&mdmss0_config1>;
 				cooling-device = <&modem_nr_dsc 255 255>;
 			};
 		};
@@ -1147,20 +1135,14 @@
 			};
 
 			mdmss1_config0: mdmss1-config0 {
-				temperature = <95000>;
-				hysteresis = <5000>;
+				temperature = <102000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
 			mdmss1_config1: mdmss1-config1 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-
-			mdmss1_config2: mdmss1-config2 {
 				temperature = <105000>;
-				hysteresis = <5000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
@@ -1174,41 +1156,26 @@
 		cooling-maps {
 			lte_cdev0 {
 				trip = <&mdmss1_config0>;
-				cooling-device = <&modem_lte_dsc 7 7>;
+				cooling-device = <&modem_lte_dsc 8 8>;
 			};
 
 			nr_scg_cdev0 {
 				trip = <&mdmss1_config0>;
-				cooling-device = <&modem_nr_scg_dsc 2 2>;
+				cooling-device = <&modem_nr_scg_dsc 10 10>;
 			};
 
 			nr_cdev0 {
 				trip = <&mdmss1_config0>;
-				cooling-device = <&modem_nr_dsc 4 4>;
-			};
-
-			lte_cdev1 {
-				trip = <&mdmss1_config1>;
-				cooling-device = <&modem_lte_dsc 8 8>;
-			};
-
-			nr_scg_cdev1 {
-				trip = <&mdmss1_config1>;
-				cooling-device = <&modem_nr_scg_dsc 10 10>;
-			};
-
-			nr_cdev1 {
-				trip = <&mdmss1_config1>;
 				cooling-device = <&modem_nr_dsc 6 6>;
 			};
 
 			lte_cdev2 {
-				trip = <&mdmss1_config2>;
+				trip = <&mdmss1_config1>;
 				cooling-device = <&modem_lte_dsc 255 255>;
 			};
 
 			nr_cdev2 {
-				trip = <&mdmss1_config2>;
+				trip = <&mdmss1_config1>;
 				cooling-device = <&modem_nr_dsc 255 255>;
 			};
 		};
@@ -1226,20 +1193,14 @@
 			};
 
 			mdmss2_config0: mdmss2-config0 {
-				temperature = <95000>;
-				hysteresis = <5000>;
+				temperature = <102000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
 			mdmss2_config1: mdmss2-config1 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-
-			mdmss2_config2: mdmss2-config2 {
 				temperature = <105000>;
-				hysteresis = <5000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
@@ -1253,41 +1214,26 @@
 		cooling-maps {
 			lte_cdev0 {
 				trip = <&mdmss2_config0>;
-				cooling-device = <&modem_lte_dsc 7 7>;
+				cooling-device = <&modem_lte_dsc 8 8>;
 			};
 
 			nr_scg_cdev0 {
 				trip = <&mdmss2_config0>;
-				cooling-device = <&modem_nr_scg_dsc 2 2>;
+				cooling-device = <&modem_nr_scg_dsc 10 10>;
 			};
 
 			nr_cdev0 {
 				trip = <&mdmss2_config0>;
-				cooling-device = <&modem_nr_dsc 4 4>;
-			};
-
-			lte_cdev1 {
-				trip = <&mdmss2_config1>;
-				cooling-device = <&modem_lte_dsc 8 8>;
-			};
-
-			nr_scg_cdev1 {
-				trip = <&mdmss2_config1>;
-				cooling-device = <&modem_nr_scg_dsc 10 10>;
-			};
-
-			nr_cdev1 {
-				trip = <&mdmss2_config1>;
 				cooling-device = <&modem_nr_dsc 6 6>;
 			};
 
 			lte_cdev2 {
-				trip = <&mdmss2_config2>;
+				trip = <&mdmss2_config1>;
 				cooling-device = <&modem_lte_dsc 255 255>;
 			};
 
 			nr_cdev2 {
-				trip = <&mdmss2_config2>;
+				trip = <&mdmss2_config1>;
 				cooling-device = <&modem_nr_dsc 255 255>;
 			};
 		};
@@ -1305,20 +1251,14 @@
 			};
 
 			mdmss3_config0: mdmss3-config0 {
-				temperature = <95000>;
-				hysteresis = <5000>;
+				temperature = <102000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
 			mdmss3_config1: mdmss3-config1 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-
-			mdmss3_config2: mdmss3-config2 {
 				temperature = <105000>;
-				hysteresis = <5000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 
@@ -1332,41 +1272,26 @@
 		cooling-maps {
 			lte_cdev0 {
 				trip = <&mdmss3_config0>;
-				cooling-device = <&modem_lte_dsc 7 7>;
+				cooling-device = <&modem_lte_dsc 8 8>;
 			};
 
 			nr_scg_cdev0 {
 				trip = <&mdmss3_config0>;
-				cooling-device = <&modem_nr_scg_dsc 2 2>;
+				cooling-device = <&modem_nr_scg_dsc 10 10>;
 			};
 
 			nr_cdev0 {
 				trip = <&mdmss3_config0>;
-				cooling-device = <&modem_nr_dsc 4 4>;
-			};
-
-			lte_cdev1 {
-				trip = <&mdmss3_config1>;
-				cooling-device = <&modem_lte_dsc 8 8>;
-			};
-
-			nr_scg_cdev1 {
-				trip = <&mdmss3_config1>;
-				cooling-device = <&modem_nr_scg_dsc 10 10>;
-			};
-
-			nr_cdev1 {
-				trip = <&mdmss3_config1>;
 				cooling-device = <&modem_nr_dsc 6 6>;
 			};
 
 			lte_cdev2 {
-				trip = <&mdmss3_config2>;
+				trip = <&mdmss3_config1>;
 				cooling-device = <&modem_lte_dsc 255 255>;
 			};
 
 			nr_cdev2 {
-				trip = <&mdmss3_config2>;
+				trip = <&mdmss3_config1>;
 				cooling-device = <&modem_nr_dsc 255 255>;
 			};
 		};
