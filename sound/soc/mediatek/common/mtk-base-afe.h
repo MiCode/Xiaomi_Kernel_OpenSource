@@ -157,7 +157,11 @@ struct mtk_base_afe {
 	int memif_32bit_supported;
 	struct mtk_base_afe_irq *irqs;
 	int irqs_size;
-	int is_bit_banding;
+
+	/* Bit banding of memif use AFE_AGEN_ON_SET/CLR
+	 * to control memif enable bit.
+	 */
+	int is_memif_bit_banding;
 
 	struct list_head sub_dais;
 	struct snd_soc_dai_driver *dai_drivers;

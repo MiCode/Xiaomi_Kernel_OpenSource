@@ -557,7 +557,7 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 		return 0;
 	}
 
-	if (afe->is_bit_banding)
+	if (afe->is_memif_bit_banding)
 		reg = memif->data->enable_reg + AFE_AGENT_SET_OFFSET;
 	else
 		reg = memif->data->enable_reg;
@@ -578,13 +578,17 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 		return 0;
 	}
 
-	if (afe->is_bit_banding)
+	if (afe->is_memif_bit_banding)
 		reg = memif->data->enable_reg + AFE_AGENT_CLR_OFFSET;
 	else
 		reg = memif->data->enable_reg;
 
+	/* In bit banding mechanism,
+	 * it sets 1 to corresponding bit for disabling memif.
+	 */
 	return mtk_regmap_update_bits(afe->regmap, reg,
-				      1, 1, memif->data->enable_shift);
+				      1, afe->is_memif_bit_banding,
+				      memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
 
@@ -602,7 +606,7 @@ int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
 	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	/* use semaphore to protect memif enable bit when adsp and AP access */
-	if (is_adsp_feature_in_active())
+	if ((afe->is_memif_bit_banding == 0) && is_adsp_feature_in_active())
 		adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
 
 	/* get sem ok */
@@ -633,7 +637,7 @@ int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
 	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	/* use semaphore to protect memif disable bit when adsp and AP access */
-	if (is_adsp_feature_in_active())
+	if ((afe->is_memif_bit_banding == 0) && is_adsp_feature_in_active())
 		adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
 
 	/* get sem ok */
