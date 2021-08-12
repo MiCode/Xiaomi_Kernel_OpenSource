@@ -14,6 +14,7 @@
 
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
+#define SYS_AID_SEL		0xfa8
 
 #define MML_MAX_SYS_COMPONENTS	10
 #define MML_MAX_SYS_MUX_PINS	88
@@ -95,11 +96,40 @@ struct mml_comp_sys {
 	u8 adjacency[MML_MAX_COMPONENTS][MML_MAX_COMPONENTS];
 	struct mml_dbg_reg dbg_regs[MML_MAX_SYS_DBG_REGS];
 	u32 dbg_reg_cnt;
+
+	/* store the bit to enable aid_sel for specific component */
+	u8 aid_sel[MML_MAX_COMPONENTS];
 };
 
 static inline struct mml_comp_sys *comp_to_sys(struct mml_comp *comp)
 {
 	return container_of(comp, struct mml_comp_sys, comps[comp->sub_idx]);
+}
+
+static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
+{
+	struct mml_comp_sys *sys = comp_to_sys(comp);
+	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
+	u32 aid_sel = 0, mask = 0;
+	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
+
+	if (task->config->info.src.secure)
+		aid_sel |= 1 << sys->aid_sel[in_engine_id];
+	mask |= 1 << sys->aid_sel[in_engine_id];
+	if (task->config->info.dest[0].data.secure)
+		aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[0]];
+	mask |= 1 << sys->aid_sel[path->out_engine_ids[0]];
+	if (task->config->info.dest_cnt > 1) {
+		if (task->config->info.dest[1].data.secure)
+			aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[1]];
+		mask |= 1 << sys->aid_sel[path->out_engine_ids[1]];
+	}
+
+	cmdq_pkt_write(task->pkts[ccfg->pipe], NULL, comp->base_pa + SYS_AID_SEL,
+		aid_sel, mask);
+
+	return 0;
 }
 
 static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
@@ -163,6 +193,7 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops sys_config_ops = {
+	.frame = sys_config_frame,
 	.tile = sys_config_tile,
 };
 
@@ -226,24 +257,24 @@ static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
 			 struct mml_comp *comp)
 {
 	struct device_node *node = dev->of_node;
-	int mux_cnt, i;
+	int cnt, i;
 	struct property *prop;
 	const char *name;
 	const __be32 *p;
-	u32 value;
+	u32 value, comp_id;
 
 	/* Initialize mux-pins */
-	mux_cnt = of_property_count_elems_of_size(node, "mux-pins",
+	cnt = of_property_count_elems_of_size(node, "mux-pins",
 						  sizeof(struct mml_mux_pin));
-	if (mux_cnt < 0 || mux_cnt > MML_MAX_SYS_MUX_PINS) {
+	if (cnt < 0 || cnt > MML_MAX_SYS_MUX_PINS) {
 		dev_err(dev, "no mux-pins or out of size in component %s: %d\n",
-			node->full_name, mux_cnt);
+			node->full_name, cnt);
 		return -EINVAL;
 	}
 
 	of_property_read_u16_array(node, "mux-pins", (u16 *)&sys->mux_pins[1],
-		mux_cnt * (sizeof(struct mml_mux_pin) / sizeof(u16)));
-	for (i = 1; i <= mux_cnt; i++) {
+		cnt * (sizeof(struct mml_mux_pin) / sizeof(u16)));
+	for (i = 1; i <= cnt; i++) {
 		struct mml_mux_pin *mux = &sys->mux_pins[i];
 
 		if (mux->from >= MML_MAX_COMPONENTS ||
@@ -280,6 +311,13 @@ static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
 		}
 		sys->dbg_regs[i].name = name;
 		i++;
+	}
+
+	cnt = of_property_count_u32_elems(node, "aid-sel");
+	for (i = 0; i + 1 < cnt; i += 2) {
+		of_property_read_u32_index(node, "aid-sel", i, &comp_id);
+		of_property_read_u32_index(node, "aid-sel", i + 1, &value);
+		sys->aid_sel[comp_id] = (u8)value;
 	}
 
 	comp->config_ops = &sys_config_ops;
