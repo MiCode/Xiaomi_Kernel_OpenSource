@@ -35,6 +35,13 @@ struct cpu_info {
 	u64 time;
 };
 
+struct cfp_req {
+	int enabled;
+	cfp_notifier_fn_t cb;
+};
+
+struct cfp_req cfp_req_tbl[CFP_KIR_MAX_NUM];
+
 /* Configurable */
 struct workqueue_struct *g_psFbtCpuCtrlWorkQueue;
 
@@ -197,8 +204,10 @@ static int update_cpu_loading_locked(void)
 		cur_idle_time[i].time = get_cpu_idle_time(i,
 				&cur_wall_time[i].time, 1);
 
-		wall_time += cur_wall_time[i].time - prev_wall_time[i].time;
-		idle_time += cur_idle_time[i].time - prev_idle_time[i].time;
+		if (cpu_active(i)) {
+			wall_time += cur_wall_time[i].time - prev_wall_time[i].time;
+			idle_time += cur_idle_time[i].time - prev_idle_time[i].time;
+		}
 	}
 
 	if (wall_time > 0 && wall_time > idle_time)
@@ -214,6 +223,15 @@ static int update_cpu_loading_locked(void)
 	return 0;
 }
 
+static void handle_cfp_callback(int heavy)
+{
+	int i;
+
+	for (i = 0; i < CFP_KIR_MAX_NUM; i++)
+		if (cfp_req_tbl[i].enabled && cfp_req_tbl[i].cb)
+			cfp_req_tbl[i].cb(heavy);
+}
+
 static void update_cfp_policy_locked(void)
 {
 	if (cfp_cur_loading >= cfp_up_loading) {
@@ -225,7 +243,7 @@ static void update_cfp_policy_locked(void)
 			if (!cfp_ceil_rel) {
 				cfp_ceil_rel = 1;
 				__cpu_ctrl_systrace(1, "cfp_ceil_rel");
-				__update_cpu_freq_locked();
+				handle_cfp_callback(1);
 			}
 		}
 
@@ -238,7 +256,7 @@ static void update_cfp_policy_locked(void)
 			if (cfp_ceil_rel) {
 				cfp_ceil_rel = 0;
 				__cpu_ctrl_systrace(0, "cfp_ceil_rel");
-				__update_cpu_freq_locked();
+				handle_cfp_callback(0);
 			}
 		}
 	} else {
@@ -258,6 +276,66 @@ static void notify_cpu_loading_timeout(struct work_struct *work)
 	update_cfp_policy_locked();
 	mutex_unlock(&cpu_ctrl_lock);
 	enable_cpu_loading_timer();
+}
+
+static void update_cfp_ctrl_locked(int kicker)
+{
+	int i, action = 0;
+
+	for (i = 0; i < CFP_KIR_MAX_NUM; i++) {
+		if (cfp_req_tbl[i].enabled) {
+			action = 1;
+			break;
+		}
+	}
+
+	if (cfp_enable == action)
+		return;
+
+	cfp_enable = action;
+
+	if (action)
+		enable_cpu_loading_timer();
+	else
+		disable_cpu_loading_timer();
+}
+
+int cfp_mon_enable(int kicker, cfp_notifier_fn_t cb)
+{
+	if (kicker < 0 || kicker >= CFP_KIR_MAX_NUM)
+		return -EFAULT;
+
+	mutex_lock(&cpu_ctrl_lock);
+
+	if (cfp_req_tbl[kicker].enabled)
+		goto ERR_EXIT;
+
+	cfp_req_tbl[kicker].enabled = 1;
+	cfp_req_tbl[kicker].cb = cb;
+	update_cfp_ctrl_locked(kicker);
+
+ERR_EXIT:
+	mutex_unlock(&cpu_ctrl_lock);
+	return 0;
+}
+
+int cfp_mon_disable(int kicker)
+{
+	if (kicker < 0 || kicker >= CFP_KIR_MAX_NUM)
+		return -EFAULT;
+
+	mutex_lock(&cpu_ctrl_lock);
+
+	if (cfp_req_tbl[kicker].enabled == 0)
+		goto ERR_EXIT;
+
+	cfp_req_tbl[kicker].enabled = 0;
+	cfp_req_tbl[kicker].cb = NULL;
+	update_cfp_ctrl_locked(kicker);
+
+ERR_EXIT:
+	mutex_unlock(&cpu_ctrl_lock);
+	return 0;
 }
 
 static void fbt_cpu_ctrl_notifier_wq_cb(struct work_struct *psWork)
@@ -403,6 +481,10 @@ static int fbt_cpu_topo_info(void)
 	return 0;
 }
 
+static void fbt_cfp_notifier(int heavy)
+{
+	__update_cpu_freq_locked();
+}
 
 int fbt_set_cpu_freq_ceiling(int num, int *freq)
 {
@@ -429,20 +511,14 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 		}
 	}
 	__update_cpu_freq_locked();
+	mutex_unlock(&cpu_ctrl_lock);
 
 	/* enable / disable CFP */
-	if (need_cfp) {
-		if (!cfp_enable) {
-			cfp_enable = 1;
-			enable_cpu_loading_timer();
-		}
-	} else {
-		if (cfp_enable) {
-			cfp_enable = 0;
-			disable_cpu_loading_timer();
-		}
-	}
-	mutex_unlock(&cpu_ctrl_lock);
+	if (need_cfp)
+		cfp_mon_enable(CFP_KIR_FPSGO, fbt_cfp_notifier);
+	else
+		cfp_mon_disable(CFP_KIR_FPSGO);
+
 	return 0;
 }
 
@@ -527,6 +603,11 @@ int fbt_cpu_ctrl_init(void)
 	cfp_up_loading   = 90;
 	cfp_down_loading = 80;
 
+	/* cfp request */
+	for (i = 0; i < CFP_KIR_MAX_NUM; i++) {
+		cfp_req_tbl[i].enabled = 0;
+		cfp_req_tbl[i].cb = NULL;
+	}
 
 	pr_info("%s done\n", __func__);
 	return 0;
