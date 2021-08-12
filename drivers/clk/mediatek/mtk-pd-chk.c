@@ -11,8 +11,10 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
+#include <linux/types.h>
 
 #include "mtk-pd-chk.h"
+#include "mt-plat/aee.h"
 
 #define TAG			"[pdchk] "
 #define MAX_PD_NUM		64
@@ -28,6 +30,7 @@ static bool pd_sta[MAX_PD_NUM];
 
 static const struct pdchk_ops *pdchk_ops;
 static bool bug_on_stat;
+static atomic_t check_enabled;
 
 static bool is_in_pd_list(unsigned int id)
 {
@@ -84,6 +87,24 @@ static const char * const prm_status_name[] = {
 	"suspending",
 };
 
+static int pdchk_suspend_is_in_usage(struct generic_pm_domain *pd)
+{
+	struct pm_domain_data *pdd;
+	int valid = 0;
+
+	if (IS_ERR_OR_NULL(pd))
+		return 0;
+
+	list_for_each_entry(pdd, &pd->dev_list, list_node) {
+		struct device *d = pdd->dev;
+
+		if (atomic_read(&d->power.usage_count) > 1)
+			valid = 1;
+	}
+
+	return valid;
+}
+
 static void pdchk_dump_enabled_power_domain(struct generic_pm_domain *pd)
 {
 	struct pm_domain_data *pdd;
@@ -95,15 +116,21 @@ static void pdchk_dump_enabled_power_domain(struct generic_pm_domain *pd)
 		struct device *d = pdd->dev;
 		struct platform_device *p = to_platform_device(d);
 
-		pr_notice("\t%c (%-19s %3d :  %10s)\n",
+		pr_notice("\t%c (%-19s %3d %3d %3d %3d %3d:  %10s)\n",
 				pm_runtime_active(d) ? '+' : '-',
 				p->name,
 				atomic_read(&d->power.usage_count),
+				d->power.is_noirq_suspended,
+				d->power.syscore,
+				d->power.direct_complete,
+				d->power.must_resume,
 				//d->power.disable_depth ? "unsupport" :
 				d->power.runtime_error ? "error" :
 				d->power.runtime_status < ARRAY_SIZE(prm_status_name) ?
 				prm_status_name[d->power.runtime_status] : "UFO");
 	}
+
+	return;
 }
 
 static bool __check_mtcmos_off(int *pd_id, bool dump_en)
@@ -118,8 +145,10 @@ static bool __check_mtcmos_off(int *pd_id, bool dump_en)
 
 		if (dump_en) {
 			/* dump devicelist belongs to current power domain */
-			pdchk_dump_enabled_power_domain(pds[*pd_id]);
-			valid++;
+			if (pdchk_suspend_is_in_usage(pds[*pd_id]) > 0) {
+				pdchk_dump_enabled_power_domain(pds[*pd_id]);
+				valid++;
+			}
 		}
 	}
 
@@ -175,19 +204,31 @@ EXPORT_SYMBOL(pdchk_get_bug_on_stat);
 
 static int pdchk_dev_pm_suspend(struct device *dev)
 {
+	atomic_inc(&check_enabled);
 	if (check_mtcmos_off()) {
 		if (is_mtcmos_chk_bug_on())
 			pdchk_set_bug_on_stat(true);
 
-		WARN_ON(1);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_DEFAULT, "pd-chk",
+				"fail to disable clk/pd in suspend\n");
+#endif
 	}
 
 	return 0;
 }
 
+static int pdchk_dev_pm_resume(struct device *dev)
+{
+	atomic_dec(&check_enabled);
+
+	return 0;
+}
+
 const struct dev_pm_ops pdchk_dev_pm_ops = {
-	.suspend_noirq = pdchk_dev_pm_suspend,
-	.resume_noirq = NULL,
+	.suspend = pdchk_dev_pm_suspend,
+	.resume = pdchk_dev_pm_resume,
 };
 EXPORT_SYMBOL(pdchk_dev_pm_ops);
 
@@ -256,12 +297,22 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 	switch (flags) {
 	case GENPD_NOTIFY_PRE_ON:
 		pd_sta[nb->priority] = POWER_ON_STA;
+		if (atomic_read(&check_enabled)
+				&& pdchk_suspend_is_in_usage(pds[nb->priority])) {
+			dump_stack();
+			pdchk_dump_enabled_power_domain(pds[nb->priority]);
+		}
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
 		pd_sta[nb->priority] = POWER_OFF_STA;
 #if ENABLE_PD_CHK_CG
 		mtk_check_subsys_swcg(nb->priority);
 #endif
+		if (atomic_read(&check_enabled)
+				&& pdchk_suspend_is_in_usage(pds[nb->priority])) {
+			dump_stack();
+			pdchk_dump_enabled_power_domain(pds[nb->priority]);
+		}
 		break;
 	case GENPD_NOTIFY_ON:
 		if (pd_sta[nb->priority] == POWER_OFF_STA) {
@@ -382,6 +433,7 @@ void pdchk_common_init(const struct pdchk_ops *ops)
 		pdchk_swcg_init_common(swcg);
 	}
 
+	atomic_set(&check_enabled, 0);
 	set_genpd_notify();
 }
 EXPORT_SYMBOL(pdchk_common_init);
