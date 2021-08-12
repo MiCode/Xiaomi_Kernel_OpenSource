@@ -840,6 +840,16 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 				frame_param->img_outs[desc_id].buf[i][0].iova =
 						buf->daddr + vb->planes[i].data_offset;
 			}
+			/*FOR 16 subsample ratios - FIXME*/
+			if (node->raw_feature == HIGHFPS_16_SUBSAMPLE)
+				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 16; i++)
+					frame_param->img_outs[desc_id].buf[i][0].iova =
+					buf->daddr + i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
+			/*FOR 32 subsample ratios - FIXME*/
+			if (node->raw_feature == HIGHFPS_32_SUBSAMPLE)
+				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++)
+					frame_param->img_outs[desc_id].buf[i][0].iova =
+					buf->daddr + i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
 		}
 		break;
 	case MTKCAM_IPI_RAW_YUVO_1:
@@ -887,6 +897,39 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 						img_out->buf[0][plane].size;
 				}
 			}
+			/*FOR 16 subsample ratios - FIXME*/
+			if (node->raw_feature == HIGHFPS_16_SUBSAMPLE) {
+				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 16; i++) {
+					int p;
+					unsigned int oft =
+						i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
+					img_out->buf[i][0].iova = buf->daddr + oft;
+					img_out->buf[i][0].size = img_out->buf[0][0].size;
+					for (p = 1 ; p < comp_planes; p++) {
+						img_out->buf[i][p].iova =
+							img_out->buf[i][p-1].iova +
+							img_out->buf[i][p-1].size;
+						img_out->buf[i][p].size =
+							img_out->buf[0][p].size;
+					}
+				}
+			}
+			/*FOR 32 subsample ratios - FIXME*/
+			if (node->raw_feature == HIGHFPS_32_SUBSAMPLE)
+				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++) {
+					int p;
+					unsigned int oft =
+						i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
+					img_out->buf[i][0].iova = buf->daddr + oft;
+					img_out->buf[i][0].size = img_out->buf[0][0].size;
+					for (p = 1 ; p < comp_planes; p++) {
+						img_out->buf[i][p].iova =
+							img_out->buf[i][p-1].iova +
+							img_out->buf[i][p-1].size;
+						img_out->buf[i][p].size =
+							img_out->buf[0][p].size;
+					}
+				}
 		}
 		break;
 
@@ -1965,6 +2008,10 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 			break;
 		case HIGHFPS_8_SUBSAMPLE:
 			try_fmt.fmt.pix_mp.num_planes = 8;
+			break;
+		case HIGHFPS_16_SUBSAMPLE:
+			try_fmt.fmt.pix_mp.num_planes =
+				MAX_SUBSAMPLE_PLANE_NUM;
 			break;
 		default:
 			try_fmt.fmt.pix_mp.num_planes = 1;

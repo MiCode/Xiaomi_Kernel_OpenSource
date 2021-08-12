@@ -17,6 +17,7 @@
 #include "mtk_cam-ipi.h"
 
 #define MAX_PLANE_NUM 3
+#define MAX_SUBSAMPLE_PLANE_NUM 8
 
 struct mtk_cam_device;
 struct mtk_cam_resource;

@@ -1131,6 +1131,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
+	struct mtk_camsys_ctrl_state *state_ready = NULL;
 	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
@@ -1159,9 +1160,12 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				req_stream_data->state.time_irq_sof2 =
 							ktime_get_boottime_ns() / 1000;
 			}
-			if (state_temp->estate == E_STATE_SUBSPL_READY)
+			if (state_temp->estate == E_STATE_SUBSPL_READY ||
+				state_temp->estate == E_STATE_SUBSPL_SCQ_DELAY) {
+				state_ready = state_temp;
 				req_stream_data->state.time_irq_sof1 =
 							ktime_get_boottime_ns() / 1000;
+			}
 			dev_dbg(raw_dev->dev,
 			"[SOF-subsample] STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
 			stateidx, req_stream_data->frame_seq_no,
@@ -1203,21 +1207,21 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 		INITIAL_DROP_FRAME_CNT) {
 		sensor_ctrl->isp_request_seq_no = frame_inner_idx;
 		dev_dbg(raw_dev->dev, "[SOF-subsample] INIT STATE cnt:%d\n", que_cnt);
-		if (que_cnt > 0)
-			state_transition(state_rec[0], E_STATE_SUBSPL_READY,
+		if (que_cnt > 0 && state_ready)
+			state_transition(state_ready, E_STATE_SUBSPL_READY,
 					 E_STATE_SUBSPL_SCQ);
 		return STATE_RESULT_PASS_CQ_INIT;
 	}
-	if (que_cnt > 0) {
+	if (que_cnt > 0 && state_ready) {
 		/* CQ triggering judgment*/
-		if (state_rec[0]->estate == E_STATE_SUBSPL_READY) {
-			*current_state = state_rec[0];
+		if (state_ready->estate == E_STATE_SUBSPL_READY) {
+			*current_state = state_ready;
 			return STATE_RESULT_TRIGGER_CQ;
 		}
 		/* last SCQ triggering delay judgment*/
-		if (state_rec[0]->estate == E_STATE_SUBSPL_SCQ_DELAY) {
+		if (state_ready->estate == E_STATE_SUBSPL_SCQ_DELAY) {
 			dev_dbg(raw_dev->dev, "[SOF-subsample] SCQ_DELAY state:0x%x\n",
-				state_rec[0]->estate);
+				state_ready->estate);
 			return STATE_RESULT_PASS_CQ_SCQ_DELAY;
 		}
 	}
