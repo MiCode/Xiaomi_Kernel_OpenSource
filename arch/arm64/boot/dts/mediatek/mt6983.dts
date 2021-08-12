@@ -8054,7 +8054,7 @@
 		clocks = <&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_VDEC_CKEN>,
 				<&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_LAT_CKEN>,
 				<&vdec_gcon_base_clk CLK_VDEC_GCON_BASE_VDEC_CKEN>;
-		clock-names = "CORE_MT_CG_SOC",
+		clock-names = "SOC_MT_CG_SOC",
 				"LAT_MT_CG_VDEC1",
 				"CORE_MT_CG_VDEC0";
 		mediatek,clock-parents = <4 3>;
