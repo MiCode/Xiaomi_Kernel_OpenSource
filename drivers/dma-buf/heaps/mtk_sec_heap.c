@@ -740,6 +740,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 	}
 	dma_address = phy_addr - sec_heap->region_pa + sg_dma_address(sec_heap->region_table->sgl);
 	sg_dma_address(table->sgl) = dma_address;
+	sg_dma_len(table->sgl) = buffer->len;
 
 map_done:
 	ret = fill_sec_buffer_info(buffer, table, attachment, direction, dom_id);
@@ -750,9 +751,10 @@ map_done:
 	}
 	a->mapped = true;
 
-	pr_info("%s done, dev:%s, sec_handle:%u, len:0x%lx, pa:0x%llx, iova:0x%lx, dom_id:%d\n",
+	pr_info("%s done, dev:%s, sec_handle:%u, len:0x%lx(0x%x), pa:0x%llx, iova:0x%lx, dom_id:%d\n",
 		__func__, dev_name(attachment->dev), buffer->sec_handle, buffer->len,
-		phy_addr, (unsigned long)sg_dma_address(table->sgl), dom_id);
+		sg_dma_len(table->sgl), phy_addr, (unsigned long)sg_dma_address(table->sgl),
+		dom_id);
 	mutex_unlock(&buffer->map_lock);
 
 	return table;
