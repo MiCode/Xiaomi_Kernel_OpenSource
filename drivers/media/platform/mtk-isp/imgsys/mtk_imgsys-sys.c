@@ -847,9 +847,34 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		req->img_fparam.frameparam.num_inputs,
 		req->img_fparam.frameparam.num_outputs);
 
-	if (data.err < 0) {
-		dev_info(imgsys_dev->dev,
-			"%s: req fd/no(%d/%d)frame no(%d) timeout, kva(0x%lx)lst(%d)e_cb(%d/%d)sidx(%d)tfrm(%d)\n",
+	if (swfrminfo_cb->fail_isHWhang >= 0) {
+		req->img_fparam.frameparam.state = FRAME_STATE_HW_TIMEOUT;
+		if (swfrminfo_cb->group_id >= 0) {
+			if (swfrminfo_cb->user_info[subfidx].is_lastingroup) {
+				if (swfrminfo_cb->is_lastfrm)
+					lastfrmInMWReq = true;
+			}
+
+			dev_info(imgsys_dev->dev,
+			"%s: req fd/no(%d/%d)frame no(%d)timeout, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d)->%d\n",
+			__func__, swfrminfo_cb->request_fd,
+			swfrminfo_cb->request_no,
+			swfrminfo_cb->frame_no,
+			(unsigned long)swfrminfo_cb,
+			swfrminfo_cb->group_id,
+			swfrminfo_cb->user_info[subfidx].is_lastingroup,
+			subfidx,
+			swfrminfo_cb->user_info[subfidx].is_earlycb,
+			swfrminfo_cb->total_frmnum,
+			swfrminfo_cb->is_earlycb,
+			swfrminfo_cb->is_lastfrm,
+			lastfrmInMWReq);
+		} else {
+			if (swfrminfo_cb->is_lastfrm)
+				lastfrmInMWReq = true;
+
+			dev_info(imgsys_dev->dev,
+			"%s: req fd/no(%d/%d)frame no(%d) timeout, kva(0x%lx)lst(%d)e_cb(%d/%d)sidx(%d)tfrm(%d) -> %d\n",
 			__func__, swfrminfo_cb->request_fd,
 			swfrminfo_cb->request_no,
 			swfrminfo_cb->frame_no,
@@ -857,10 +882,11 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->is_lastfrm,
 			swfrminfo_cb->is_earlycb,
 			swfrminfo_cb->user_info[0].subfrm_idx,
-			swfrminfo_cb->total_frmnum);
+			swfrminfo_cb->total_frmnum,
+			lastfrmInMWReq);
+		}
 
-		req->img_fparam.frameparam.state = FRAME_STATE_HW_TIMEOUT;
-		if (swfrminfo_cb->is_lastfrm)
+		if (lastfrmInMWReq)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 	} else {
 		if (swfrminfo_cb->is_lastfrm || swfrminfo_cb->is_earlycb ||
@@ -1300,6 +1326,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swfrm_info->pipe = (void *)pipe;
 	swfrm_info->cb_frmcnt = 0;
 	swfrm_info->chan_id = 0;
+	swfrm_info->fail_isHWhang = -1;
 	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
 		swfrm_info->user_info[i].g_swbuf =
 			mtk_hcp_get_reserve_mem_virt(IMG_MEM_G_ID) +
