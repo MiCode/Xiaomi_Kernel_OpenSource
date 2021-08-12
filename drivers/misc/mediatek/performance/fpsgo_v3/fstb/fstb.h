@@ -20,6 +20,7 @@ int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID,
 	int target_fps);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
 void fpsgo_ctrl2fstb_get_fps(int *pid, int *fps);
+int fpsgo_ctrl2fstb_wait_fstb_active(void);
 void fpsgo_comp2fstb_camera_active(int pid);
 
 #if defined(CONFIG_MTK_FPSGO) || defined(CONFIG_MTK_FPSGO_V3)

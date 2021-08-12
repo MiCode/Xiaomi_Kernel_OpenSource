@@ -18,6 +18,8 @@ extern void (*fpsgo_notify_vsync_fp)(void);
 extern void (*fpsgo_notify_swap_buffer_fp)(int pid);
 extern void (*fpsgo_get_fps_fp)(int *pid, int *fps);
 extern void (*fpsgo_get_cmd_fp)(int *cmd, int *value1, int *value2);
+extern int (*fpsgo_get_fstb_active_fp)(long long time_diff);
+extern int (*fpsgo_wait_fstb_active_fp)(void);
 
 extern void (*fpsgo_notify_nn_job_begin_fp)(unsigned int tid,
 		unsigned long long mid);

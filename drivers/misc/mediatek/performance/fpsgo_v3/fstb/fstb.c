@@ -71,8 +71,10 @@ static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
 static int JUMP_CHECK_Q_PCT = DEFAULT_JUMP_CHECK_Q_PCT;
 static int adopt_low_fps;
 static int condition_get_fps;
+static int condition_fstb_active;
 
 DECLARE_WAIT_QUEUE_HEAD(queue);
+DECLARE_WAIT_QUEUE_HEAD(active_queue);
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -190,6 +192,15 @@ void fpsgo_ctrl2fstb_get_fps(int *pid, int *fps)
 	if (list_empty(&head))
 		condition_get_fps = 0;
 	mutex_unlock(&fpsgo2pwr_lock);
+}
+
+int fpsgo_ctrl2fstb_wait_fstb_active(void)
+{
+	wait_event_interruptible(active_queue, condition_fstb_active);
+	mutex_lock(&fstb_lock);
+	condition_fstb_active = 0;
+	mutex_unlock(&fstb_lock);
+	return 0;
 }
 
 int fpsgo_ctrl2fstb_switch_fstb(int enable)
@@ -871,8 +882,13 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		mutex_unlock(&fstb_lock);
 		return 0;
 	}
-	if (Curr_cap)
+	if (Curr_cap) {
 		notify_touch(3);
+		if (wq_has_sleeper(&active_queue)) {
+			condition_fstb_active = 1;
+			wake_up_interruptible(&active_queue);
+		}
+	}
 	mtk_fstb_dprintk(
 	"pid %d Q2Q_time %lld Runnging_time %lld Curr_cap %u Max_cap %u\n",
 	pid, Q2Q_time, Runnging_time, Curr_cap, Max_cap);

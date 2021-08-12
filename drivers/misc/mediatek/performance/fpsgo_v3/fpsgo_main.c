@@ -486,6 +486,16 @@ void fpsgo_get_cmd(int *cmd, int *value1, int *value2)
 
 }
 
+int fpsgo_get_fstb_active(long long time_diff)
+{
+	return is_fstb_active(time_diff);
+}
+
+int fpsgo_wait_fstb_active(void)
+{
+	return fpsgo_ctrl2fstb_wait_fstb_active();
+}
+
 void fpsgo_notify_cpufreq(int cid, unsigned long freq)
 {
 	FPSGO_LOGI("[FPSGO_CTRL] cid %d, cpufreq %lu\n", cid, freq);
@@ -787,6 +797,8 @@ fail_reg_cpu_frequency_entry:
 	fpsgo_notify_swap_buffer_fp = fpsgo_notify_swap_buffer;
 	fpsgo_get_fps_fp = fpsgo_get_fps;
 	fpsgo_get_cmd_fp = fpsgo_get_cmd;
+	fpsgo_get_fstb_active_fp = fpsgo_get_fstb_active;
+	fpsgo_wait_fstb_active_fp = fpsgo_wait_fstb_active;
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(dfrc_fps_limit_cb);
