@@ -3,7 +3,7 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
-&i2c3 {
+&i2c6 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	rt9759_slave@66 {
@@ -13,7 +13,7 @@
 		/* Please modify this to rt9759_slave if there is dual rt9759 */
 		rm_name = "rt9759_slave";
 		rm_slave_addr = /bits/ 8 <0x66>;
-		rt9759,intr-gpios = <&pio 22 0x0>;
+		rt9759,intr-gpios = <&pio 40 0x0>;
 		standalone {
 			chg_name = "primary_dvchg";
 			vbatovp = <4500000>;
@@ -27,7 +27,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <30000000>;
-			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibat_rsense = <0>; /* 0: 2mohm, 1: 5mohm */
 			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
 			/* vbatovp_dis; */
 			/* vbatovp_alm_dis; */
@@ -41,7 +41,7 @@
 			/* tsbusotp_dis; */
 			/* tsbatotp_dis; */
 			/* tdieotp_dis; */
-			/* reg_en; */
+			reg_en;
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -52,6 +52,7 @@
 			/* tsbusadc_dis; */
 			/* tsbatadc_dis; */
 			/* tdieadc_dis; */
+			ibat_rsense_half;
 		};
 		slave {
 			chg_name = "secondary_dvchg";
@@ -66,7 +67,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <1000000>;
-			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibat_rsense = <0>; /* 0: 2mohm, 1: 5mohm */
 			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
 			vbatovp_dis;
 			vbatovp_alm_dis;
@@ -80,7 +81,7 @@
 			/* tsbusotp_dis; */
 			/* tsbatotp_dis; */
 			/* tdieotp_dis; */
-			/* reg_en; */
+			reg_en;
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -91,6 +92,7 @@
 			/* tsbusadc_dis; */
 			/* tsbatadc_dis; */
 			/* tdieadc_dis; */
+			ibat_rsense_half;
 		};
 	};
 	rt9759_master@65 {
@@ -99,7 +101,7 @@
 		reg = <0x65>;
 		rm_name = "rt9759_master";
 		rm_slave_addr = /bits/ 8 <0x65>;
-		rt9759,intr-gpios = <&pio 22 0x0>;
+		rt9759,intr-gpios = <&pio 38 0x0>;
 		standalone {
 			chg_name = "primary_dvchg";
 			vbatovp = <4500000>;
@@ -113,7 +115,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <30000000>;
-			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibat_rsense = <0>; /* 0: 2mohm, 1: 5mohm */
 			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
 			/* vbatovp_dis; */
 			/* vbatovp_alm_dis; */
@@ -127,7 +129,7 @@
 			/* tsbusotp_dis; */
 			/* tsbatotp_dis; */
 			/* tdieotp_dis; */
-			/* reg_en; */
+			reg_en;
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -138,6 +140,7 @@
 			/* tsbusadc_dis; */
 			/* tsbatadc_dis; */
 			/* tdieadc_dis; */
+			ibat_rsense_half;
 		};
 		master {
 			chg_name = "primary_dvchg";
@@ -152,7 +155,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <30000000>;
-			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibat_rsense = <0>; /* 0: 2mohm, 1: 5mohm */
 			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
 			/* vbatovp_dis; */
 			/* vbatovp_alm_dis; */
@@ -166,7 +169,7 @@
 			tsbusotp_dis;
 			tsbatotp_dis;
 			/* tdieotp_dis; */
-			/* reg_en; */
+			reg_en;
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -177,6 +180,7 @@
 			tsbusadc_dis;
 			tsbatadc_dis;
 			/* tdieadc_dis; */
+			ibat_rsense_half;
 		};
 	};
 };
