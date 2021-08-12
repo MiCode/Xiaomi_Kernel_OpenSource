@@ -1104,10 +1104,13 @@
 		};
 
 		fpsgo: fpsgo {
-			compatible = "mediatek,mt6893-fpsgo";
+			compatible = "mediatek,fpsgo";
 			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "fpsgo-perf-bw";
 			required-opps = <&dvfsrc_freq_opp0>;
+
+			gcc_enable = <1>;
+			fbt_cpu_mask = <255 128 15 127>;
 		};
 
 		mcupm: mcupm@0c540000 {
