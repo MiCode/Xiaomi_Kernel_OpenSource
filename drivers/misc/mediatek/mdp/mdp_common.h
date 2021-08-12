@@ -127,6 +127,8 @@ typedef s32 (*MdpGetRDMAIndex) (u32);
 
 typedef u16 (*MdpGetRegMSBOffset) (u32, u16);
 
+typedef bool (*MdpCheckIsCaminSupport) (void);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -187,6 +189,7 @@ struct cmdqMDPFuncStruct {
 	CmdqMdpReadbackEngine mdpReadbackHdr;
 	MdpGetRDMAIndex getRDMAIndex;
 	MdpGetRegMSBOffset getRegMSBOffset;
+	MdpCheckIsCaminSupport mdpIsCaminSupport;
 
 };
 

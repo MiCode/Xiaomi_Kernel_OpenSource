@@ -1830,6 +1830,10 @@ static u16 mdp_get_reg_msb_offset(u32 eng_base, u16 offset)
 	return reg_msb_offset;
 }
 
+static bool mdp_check_camin_support_virtual(void)
+{
+	return false;
+}
 
 void cmdq_mdp_platform_function_setting(void)
 {
@@ -1879,6 +1883,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset;
+	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 
 }
 

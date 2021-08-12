@@ -2343,9 +2343,13 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	if (!handle->prop_addr)
 		goto done;
 
-	if (!mdp_pmqos_freq || !isp_pmqos_freq) {
-		CMDQ_LOG("%s freq not available %p and %p\n",
-			__func__, mdp_pmqos_freq, isp_pmqos_freq);
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport() && !isp_pmqos_freq) {
+		CMDQ_ERR("%s isp_pmqos_freq not available\n", __func__);
+		goto done;
+	}
+
+	if (!mdp_pmqos_freq) {
+		CMDQ_ERR("%s mdp_pmqos_freq not available\n", __func__);
 		goto done;
 	}
 
@@ -2482,11 +2486,14 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		total_pixel,
 		mdp_t((unsigned long long)(max_throughput)),
 		mdp_curr_bandwidth);
-	DP_BANDWIDTH(
-		target_pmqos->isp_total_datasize,
-		total_pixel,
-		isp_t((unsigned long long)(max_throughput)),
-		isp_curr_bandwidth);
+
+	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
+		DP_BANDWIDTH(
+			target_pmqos->isp_total_datasize,
+			total_pixel,
+			isp_t((unsigned long long)(max_throughput)),
+			isp_curr_bandwidth);
+	}
 
 	CMDQ_LOG_PMQOS(
 		"[MDP][%d]mdp_curr_bandwidth %d, isp_curr_bandwidth %d, max_throughput %d\n",
@@ -2532,6 +2539,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				target_pmqos->mdp_total_pixel,
 				mdp_throughput,
 				mdp_curr_bandwidth);
+
 			mtk_icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
@@ -2621,9 +2629,13 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	if (!handle->prop_addr)
 		return;
 
-	if (!mdp_pmqos_freq || !isp_pmqos_freq) {
-		CMDQ_LOG("%s freq not available %p and %p\n",
-			__func__, mdp_pmqos_freq, isp_pmqos_freq);
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport() && !isp_pmqos_freq) {
+		CMDQ_ERR("%s isp_pmqos_freq not available\n", __func__);
+		return;
+	}
+
+	if (!mdp_pmqos_freq) {
+		CMDQ_ERR("%s mdp_pmqos_freq not available\n", __func__);
 		return;
 	}
 
@@ -2749,11 +2761,14 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		curr_pixel_size,
 		mdp_t((unsigned long long)(max_throughput)),
 		mdp_curr_bandwidth);
-	DP_BANDWIDTH(
-		isp_data_size,
-		curr_pixel_size,
-		isp_t((unsigned long long)(max_throughput)),
-		isp_curr_bandwidth);
+
+	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
+		DP_BANDWIDTH(
+			isp_data_size,
+			curr_pixel_size,
+			isp_t((unsigned long long)(max_throughput)),
+			isp_curr_bandwidth);
+	}
 
 	CMDQ_LOG_PMQOS(
 		"[MDP][%d]mdp_curr_bandwidth %d isp_curr_bandwidth %d max_throughput %d %s\n",
@@ -2920,13 +2935,13 @@ static u32 mdp_get_dummy_mdp(void)
 
 static u32 mdp_get_dummy_isp(void)
 {
-	CMDQ_ERR("%s not support dummy group\n", __func__);
-	return 0;
+	CMDQ_MSG("%s not support dummy group\n", __func__);
+	return U32_MAX;
 }
 
 static u32 mdp_get_dummy_wpe(void)
 {
-	CMDQ_ERR("%s not support dummy group\n", __func__);
+	CMDQ_MSG("%s not support dummy group\n", __func__);
 	return 0;
 }
 
@@ -3222,6 +3237,11 @@ static u16 mdp_get_reg_msb_offset_virtual(u32 eng_base, u16 offset)
 	return 0;
 }
 
+static bool mdp_check_camin_support_virtual(void)
+{
+	return true;
+}
+
 void cmdq_mdp_virtual_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc;
@@ -3294,6 +3314,7 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpReadbackHdr = mdp_readback_hdr_virtual;
 	pFunc->getRDMAIndex = mdp_get_rdma_idx_virtual;
 	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset_virtual;
+	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 
 }
 

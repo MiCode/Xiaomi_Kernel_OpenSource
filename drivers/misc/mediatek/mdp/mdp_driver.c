@@ -1217,9 +1217,11 @@ static int cmdq_probe(struct platform_device *pDevice)
 		cmdq_mdp_get_func()->beginTask,
 		cmdq_mdp_get_func()->endTask);
 
-	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
-		cmdq_mdp_get_func()->beginISPTask,
-		cmdq_mdp_get_func()->endISPTask);
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport()) {
+		cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
+			cmdq_mdp_get_func()->beginISPTask,
+			cmdq_mdp_get_func()->endISPTask);
+	}
 
 	CMDQ_LOG("MDP driver probe end\n");
 
