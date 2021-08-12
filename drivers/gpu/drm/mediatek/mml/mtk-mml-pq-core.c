@@ -581,6 +581,13 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 		goto wake_up_tile_init_task;
 	}
 
+	ret = copy_to_user(user_job->dst, new_pq_task->task->config->frame_out,
+		MML_MAX_OUTPUTS*sizeof(struct mml_frame_size));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to user frame out: %d", ret);
+		goto wake_up_tile_init_task;
+	}
+
 	ret = copy_to_user(user_job->param, new_pq_task->task->pq_param,
 		MML_MAX_OUTPUTS*sizeof(struct mml_pq_param));
 	if (unlikely(ret)) {

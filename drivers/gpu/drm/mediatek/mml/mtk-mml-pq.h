@@ -49,6 +49,7 @@ struct mml_pq_tile_init_job {
 	/* output to user-space */
 	u32 new_job_id;
 	struct mml_frame_info info;
+	struct mml_frame_size dst[MML_MAX_OUTPUTS];
 	struct mml_pq_param param[MML_MAX_OUTPUTS];
 };
 
