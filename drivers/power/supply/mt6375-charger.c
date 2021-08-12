@@ -830,7 +830,7 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 {
 	int ret;
 	u32 val;
-	bool bc12_ctrl = true, bc12_en = false;
+	bool bc12_ctrl = true, bc12_en = false, rpt_psy = true;
 	struct mt6375_chg_data *ddata = container_of(work,
 						     struct mt6375_chg_data,
 						     bc12_work);
@@ -845,21 +845,24 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 			ddata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 			ddata->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 			ddata->bc12_dn = false;
-			goto out_changed;
+			goto out;
 		}
 		if (!ddata->bc12_dn) {
 			bc12_en = true;
+			rpt_psy = false;
 			goto out;
 		}
 		ddata->bc12_dn = false;
 		ret = mt6375_chg_field_get(ddata, F_PORT_STAT, &val);
 		if (ret < 0) {
 			dev_err(ddata->dev, "failed to get port stat\n");
+			rpt_psy = false;
 			goto out;
 		}
 		switch (val) {
 		case PORT_STAT_NOINFO:
 			bc12_ctrl = false;
+			rpt_psy = false;
 			dev_warn(ddata->dev, "%s no info\n", __func__);
 			goto out;
 		case PORT_STAT_APPLE_5W:
@@ -885,6 +888,7 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 			break;
 		default:
 			bc12_ctrl = false;
+			rpt_psy = false;
 			dev_err(ddata->dev, "Unknown port stat %d\n", val);
 			goto out;
 		}
@@ -895,12 +899,12 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 		ddata->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		ddata->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 	}
-out_changed:
-	power_supply_changed(ddata->psy);
 out:
-	mutex_unlock(&ddata->attach_lock);
 	if (bc12_ctrl && (mt6375_chg_enable_bc12(ddata, bc12_en) < 0))
 		dev_err(ddata->dev, "failed to set bc12 = %d\n", bc12_en);
+	mutex_unlock(&ddata->attach_lock);
+	if (rpt_psy)
+		power_supply_changed(ddata->psy);
 }
 
 static enum power_supply_usb_type mt6375_chg_psy_usb_types[] = {
@@ -954,7 +958,9 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 		val->strval = MT6375_MANUFACTURER;
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
+		mutex_lock(&ddata->attach_lock);
 		val->intval = ddata->attach;
+		mutex_unlock(&ddata->attach_lock);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6375_chg_field_get(ddata, F_IC_STAT, &_val);
