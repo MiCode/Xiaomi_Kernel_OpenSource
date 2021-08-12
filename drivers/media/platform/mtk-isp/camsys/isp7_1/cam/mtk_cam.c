@@ -228,7 +228,8 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 }
 
 struct mtk_cam_request_stream_data*
-mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int frame_seq_no)
+mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int pipe_id,
+			unsigned int frame_seq_no)
 
 {
 	struct mtk_cam_device *cam = ctx->cam;
@@ -239,9 +240,9 @@ mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int frame_seq_no)
 
 	spin_lock_irqsave(&cam->running_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, &cam->running_job_list, list) {
-		if (req->ctx_used & (1 << ctx->stream_id)) {
-			for (i = 0; i < req->p_data[ctx->stream_id].s_data_num; i++) {
-				req_stream_data = &req->p_data[ctx->stream_id].s_data[i];
+		if (req->pipe_used & (1 << pipe_id)) {
+			for (i = 0; i < req->p_data[pipe_id].s_data_num; i++) {
+				req_stream_data = &req->p_data[pipe_id].s_data[i];
 				if (req_stream_data->frame_seq_no == frame_seq_no) {
 					spin_unlock_irqrestore(&cam->running_job_lock, flags);
 					return req_stream_data;
@@ -265,7 +266,7 @@ struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 {
 	struct mtk_cam_request_stream_data *req_stream_data;
 
-	req_stream_data = mtk_cam_get_req_s_data(ctx, frame_seq_no);
+	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, frame_seq_no);
 	if (!req_stream_data)
 		return NULL;
 
@@ -2388,7 +2389,8 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		spin_lock(&ctx->using_buffer_list.lock);
 
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
-		stream_data = mtk_cam_get_req_s_data(ctx, ctx->composed_frame_seq_no);
+		stream_data = mtk_cam_get_req_s_data(ctx,
+			ctx->stream_id, ctx->composed_frame_seq_no);
 		if (!stream_data) {
 			dev_dbg(dev, "ctx:%d no req for ack frame_num:%d\n",
 				ctx->stream_id, ctx->composed_frame_seq_no);
@@ -3367,7 +3369,7 @@ static void isp_composer_uninit_wait(struct mtk_cam_ctx *ctx)
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 {
 	struct mtk_cam_device *cam = ctx->cam;
-	unsigned int i;
+	unsigned int i, j;
 
 	pr_info("%s\n", __func__);
 	media_pipeline_stop(entity);
@@ -3390,6 +3392,15 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 						MEDIA_ENT_F_CAM_SENSOR) {
 				sd->entity.stream_count = 0;
 				sd->entity.pipe = NULL;
+			}
+		}
+	}
+
+	for (i = 0 ; i < ctx->used_sv_num ; i++) {
+		for (j = 0 ; j < cam->max_stream_num ; j++) {
+			if (ctx->sv_pipe[i]->id == cam->ctxs[j].stream_id) {
+				cam->ctxs[j].enqueued_frame_seq_no = 0;
+				break;
 			}
 		}
 	}

@@ -1692,7 +1692,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 		return;
 	}
 
-	s_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
+	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
 	} else {
@@ -1781,7 +1781,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 
 	/* TODO: check if we tried recover the error before we dump */
 
-	s_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
+	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	if (s_data) {
 		/**
 		 * Enable the dump manually if needed.

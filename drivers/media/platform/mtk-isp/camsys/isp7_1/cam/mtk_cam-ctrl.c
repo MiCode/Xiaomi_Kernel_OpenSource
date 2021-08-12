@@ -942,7 +942,7 @@ void mtk_cam_set_sub_sample_sensor(struct mtk_raw_device *raw_dev,
 
 	dev_dbg(ctx->cam->dev, "[%s:check] sensor_no:%d isp_no:%d\n", __func__,
 				sensor_seq_no_next, sensor_ctrl->isp_request_seq_no);
-	req_stream_data = mtk_cam_get_req_s_data(ctx, sensor_seq_no_next);
+	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 
 	if (req_stream_data && (sensor_seq_no_next > 1) &&
 		(sensor_seq_no_next > sensor_ctrl->isp_request_seq_no)) {
@@ -968,7 +968,7 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	int sensor_seq_no_next = sensor_ctrl->sensor_request_seq_no + 1;
 	unsigned long flags;
 
-	req_stream_data = mtk_cam_get_req_s_data(ctx, sensor_seq_no_next);
+	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
 		if (req_stream_data->state.estate == E_STATE_READY) {
 			req_stream_data->state.time_swirq_timer =
@@ -1083,7 +1083,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 	}
 	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 
-	req_stream_data =  mtk_cam_get_req_s_data(ctx, sensor_seq_no_next);
+	req_stream_data =  mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
 		req = mtk_cam_s_data_get_req(req_stream_data);
 		if (req_stream_data->state.estate == E_STATE_SENINF &&
@@ -1846,7 +1846,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	}
 
 	/* Find request of this dequeued frame */
-	req_stream_data = mtk_cam_get_req_s_data(ctx, dequeued_frame_seq_no);
+	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	/* If continuous 8 frame dequeue failed, we trigger the debug dump */
 	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 8);
 	if (ctx->sensor) {
@@ -2093,7 +2093,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 
 	/* initial CQ done */
 	if (raw_dev->sof_count == 0) {
-		req_stream_data = mtk_cam_get_req_s_data(ctx, 1);
+		req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, 1);
 		req = req_stream_data->req;
 		sensor_ctrl->initial_cq_done = 1;
 		if (req_stream_data->state.estate >= E_STATE_SENSOR ||
@@ -2568,12 +2568,6 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		}
 	}
 
-	req = mtk_cam_get_req(ctx, frame_seq_no);
-	if (!req) {
-		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
-			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
-		return;
-	}
 	/* Initial request readout will be delayed 1 frame*/
 	if (ctx->sensor) {
 		if (camsys_sensor_ctrl->isp_request_seq_no == 0 &&
@@ -2586,7 +2580,15 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		}
 	}
 
-	req_stream_data = mtk_cam_get_req_s_data(ctx, frame_seq_no);
+	req_stream_data = mtk_cam_get_req_s_data(ctx, pipe_id, frame_seq_no);
+	if (req_stream_data) {
+		req = mtk_cam_s_data_get_req(req_stream_data);
+	} else {
+		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
+			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
+		return;
+	}
+
 	if (req_stream_data->frame_done_queue_work) {
 		dev_info(ctx->cam->dev,
 			"already queue done work %d\n", req_stream_data->frame_seq_no);

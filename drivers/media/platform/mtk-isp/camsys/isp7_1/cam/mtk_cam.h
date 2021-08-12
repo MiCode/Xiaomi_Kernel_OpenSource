@@ -578,7 +578,8 @@ void mtk_cam_req_update_seq(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 			    int seq);
 
 struct mtk_cam_request_stream_data*
-mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int frame_seq_no);
+mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx,
+					unsigned int pipe_id, unsigned int frame_seq_no);
 
 struct mtk_raw_pipeline *mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam,
 						      unsigned int id);
