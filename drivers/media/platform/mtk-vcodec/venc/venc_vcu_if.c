@@ -470,6 +470,22 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->highquality;
 		break;
+	case VENC_SET_PARAM_ADJUST_MAX_QP:
+		out.data_item = 1;
+		out.data[0] = enc_param->max_qp;
+		break;
+	case VENC_SET_PARAM_ADJUST_MIN_QP:
+		out.data_item = 1;
+		out.data[0] = enc_param->min_qp;
+		break;
+	case VENC_SET_PARAM_ADJUST_I_P_QP_DELTA:
+		out.data_item = 1;
+		out.data[0] = enc_param->ip_qpdelta;
+		break;
+	case VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP:
+		out.data_item = 1;
+		out.data[0] = enc_param->framelvl_qp;
+		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);
 		return -EINVAL;
@@ -529,11 +545,21 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			vsi->meta_addr = 0;
 		}
 
+		if (frm_buf->has_qpmap) {
+			vsi->qpmap_addr = frm_buf->qpmap_dma_addr;
+			vsi->qpmap_size = frm_buf->qpmap_dma->size;
+		} else {
+			vsi->qpmap_addr = 0;
+			vsi->qpmap_size = 0;
+		}
+
 		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%d), meta fd %d size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
 			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
 			vsi->meta_addr);
+		mtk_vcodec_debug(vcu, "vsi qpmap addr %llx size%d",
+			vsi->meta_addr, vsi->qpmap_size);
 	}
 	else {
 		mtk_vcodec_debug(vcu, "frm_buf is null");

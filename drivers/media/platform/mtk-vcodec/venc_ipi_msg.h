@@ -477,7 +477,6 @@ struct venc_info {
 	__u32 fb_num_planes;
 	__u32 index;
 	__u64 timestamp;
-	__u32 roimap;
 	__u32 qpmap;
 };
 
@@ -523,6 +522,8 @@ struct venc_vsi {
 	__u32 meta_size;
 	__u64 meta_addr;
 	__s16 meta_fd;
+	__u64 qpmap_addr;
+	__u32 qpmap_size;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */

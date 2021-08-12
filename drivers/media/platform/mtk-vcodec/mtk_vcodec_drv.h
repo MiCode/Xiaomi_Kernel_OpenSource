@@ -102,6 +102,11 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_TSVC = (1 << 16),
 	MTK_ENCODE_PARAM_NONREFPFREQ = (1 << 17),
 	MTK_ENCODE_PARAM_HIGHQUALITY = (1 << 18),
+	MTK_ENCODE_PARAM_MAXQP = (1 << 19),
+	MTK_ENCODE_PARAM_MINQP = (1 << 20),
+	MTK_ENCODE_PARAM_FRAMELVLQP = (1 << 21),
+	MTK_ENCODE_PARAM_IP_QPDELTA = (1 << 22),
+	MTK_ENCODE_PARAM_QP_CTRL_MODE = (1 << 23),
 };
 
 /*
@@ -257,6 +262,11 @@ struct mtk_enc_params {
 	unsigned int    tsvc;
 	unsigned int    nonrefpfreq;
 	unsigned int	highquality;
+	unsigned int	max_qp;
+	unsigned int	min_qp;
+	unsigned int	framelvl_qp;
+	unsigned int	ip_qpdelta;
+	unsigned int	qp_control_mode;
 };
 
 /*
@@ -311,6 +321,11 @@ struct venc_enc_param {
 	unsigned int tsvc;
 	unsigned int nonrefpfreq;
 	unsigned int highquality;
+	unsigned int max_qp;
+	unsigned int min_qp;
+	unsigned int framelvl_qp;
+	unsigned int qp_control_mode;
+	unsigned int ip_qpdelta;
 };
 
 /*
@@ -322,12 +337,16 @@ struct venc_frm_buf {
 	struct mtk_vcodec_mem fb_addr[MTK_VCODEC_MAX_PLANES];
 	unsigned int num_planes;
 	u64 timestamp;
-	unsigned int roimap;
 	bool has_meta;
 	struct dma_buf *meta_dma;
 	struct dma_buf_attachment *buf_att;
 	struct sg_table *sgt;
 	dma_addr_t meta_addr;
+	bool has_qpmap;
+	struct dma_buf *qpmap_dma;
+	dma_addr_t qpmap_dma_addr;
+	struct dma_buf_attachment *qpmap_dma_att;
+	struct sg_table *qpmap_sgt;
 };
 
 /**
@@ -666,6 +685,7 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 #define V4L2_BUF_FLAG_CSD					0x00200000
 #define V4L2_BUF_FLAG_ROI					0x00400000
 #define V4L2_BUF_FLAG_HDR_META			0x00800000
+#define V4L2_BUF_FLAG_QP_META			0x01000000
 
 #define V4L2_EVENT_MTK_VCODEC_START	(V4L2_EVENT_PRIVATE_START + 0x00002000)
 #define V4L2_EVENT_MTK_VDEC_ERROR	(V4L2_EVENT_MTK_VCODEC_START + 1)
@@ -747,6 +767,16 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 	(V4L2_CID_MPEG_MTK_BASE+34)
 #define V4L2_CID_MPEG_MTK_ENCODE_NONREFP_FREQ \
 	(V4L2_CID_MPEG_MTK_BASE+35)
+#define V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP \
+	(V4L2_CID_MPEG_MTK_BASE+36)
+#define V4L2_CID_MPEG_MTK_ENCODE_RC_MIN_QP \
+	(V4L2_CID_MPEG_MTK_BASE+37)
+#define V4L2_CID_MPEG_MTK_ENCODE_RC_I_P_QP_DELTA \
+	(V4L2_CID_MPEG_MTK_BASE+38)
+#define V4L2_CID_MPEG_MTK_ENCODE_RC_QP_CONTROL_MODE \
+	(V4L2_CID_MPEG_MTK_BASE+39)
+#define V4L2_CID_MPEG_MTK_ENCODE_RC_FRAME_LEVEL_QP \
+	(V4L2_CID_MPEG_MTK_BASE+40)
 
 #define V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY \
 	(V4L2_CID_MPEG_MTK_BASE+45)

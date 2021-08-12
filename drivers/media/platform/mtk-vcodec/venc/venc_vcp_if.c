@@ -615,11 +615,21 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 			vsi->meta_addr = 0;
 		}
 
+		if (frm_buf->has_qpmap) {
+			vsi->qpmap_addr = frm_buf->qpmap_dma_addr;
+			vsi->qpmap_size = frm_buf->qpmap_dma->size;
+		} else {
+			vsi->qpmap_addr = 0;
+			vsi->qpmap_size = 0;
+		}
+
 		mtk_vcodec_debug(inst, " num_planes = %d input (dmabuf:%lx fd:%d), meta fd %d size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
 			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
 			vsi->meta_addr);
+		mtk_vcodec_debug(inst, "vsi qpmap addr %llx size%d",
+			vsi->qpmap_addr, vsi->qpmap_size);
 	}
 
 	if (bs_buf) {
@@ -693,9 +703,6 @@ static int venc_encode_frame(struct venc_inst *inst,
 	else {
 		inst->vsi->venc.venc_fb_va = (u64)(uintptr_t)frm_buf;
 		inst->vsi->venc.timestamp = frm_buf->timestamp;
-		inst->vsi->venc.roimap = frm_buf->roimap;
-
-		mtk_vcodec_debug(inst, "ROI: 0x%X", inst->vsi->venc.roimap);
 	}
 	ret = vcp_enc_encode(inst, VENC_BS_MODE_FRAME, frm_buf,
 						 bs_buf, bs_size);
@@ -1101,6 +1108,22 @@ int vcp_enc_set_param(struct venc_inst *inst,
 		out.data_item = 1;
 		out.data[0] = enc_param->highquality;
 		break;
+	case VENC_SET_PARAM_ADJUST_MAX_QP:
+		out.data_item = 1;
+		out.data[0] = enc_param->max_qp;
+		break;
+	case VENC_SET_PARAM_ADJUST_MIN_QP:
+		out.data_item = 1;
+		out.data[0] = enc_param->min_qp;
+		break;
+	case VENC_SET_PARAM_ADJUST_I_P_QP_DELTA:
+		out.data_item = 1;
+		out.data[0] = enc_param->ip_qpdelta;
+		break;
+	case VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP:
+		out.data_item = 1;
+		out.data[0] = enc_param->framelvl_qp;
+		break;
 	default:
 		mtk_vcodec_err(inst, "id %d not supported", id);
 		return -EINVAL;
@@ -1158,6 +1181,11 @@ static int venc_vcp_set_param(unsigned long handle,
 		inst->vsi->config.svp_mode = enc_prm->svp_mode;
 		inst->vsi->config.tsvc = enc_prm->tsvc;
 		inst->vsi->config.highquality = enc_prm->highquality;
+		inst->vsi->config.max_qp = enc_prm->max_qp;
+		inst->vsi->config.min_qp = enc_prm->min_qp;
+		inst->vsi->config.i_p_qp_delta = enc_prm->ip_qpdelta;
+		inst->vsi->config.qp_control_mode = enc_prm->qp_control_mode;
+		inst->vsi->config.frame_level_qp = enc_prm->framelvl_qp;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,
