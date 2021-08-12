@@ -81,9 +81,10 @@ struct scp_status_reg *c1_m = NULL;
 struct scp_status_reg *c1_t1_m = NULL;
 void (*scp_do_tbufdump)(uint32_t*, uint32_t*) = NULL;
 
-static struct mutex scp_excep_mutex;
 int scp_ee_enable;
 int scp_reset_counts = 100000;
+static atomic_t coredumping = ATOMIC_INIT(0);
+static DECLARE_COMPLETION(scp_coredump_comp);
 static uint32_t get_MDUMP_size(MDUMP_t type)
 {
 	return scp_dump.prefix[type] - scp_dump.prefix[type - 1];
@@ -630,7 +631,11 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 		return;
 	}
 
-	mutex_lock(&scp_excep_mutex);
+	/* wait for previous coredump complete */
+	wait_for_completion(&scp_coredump_comp);
+	if (atomic_read(&coredumping) == true)
+		pr_notice("[SCP] coredump overwrite happen\n");
+	atomic_set(&coredumping, true);
 
 	/* get scp title and exception type*/
 	switch (type) {
@@ -673,7 +678,6 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 
 	pr_debug("[SCP] scp exception dump is done\n");
 
-	mutex_unlock(&scp_excep_mutex);
 }
 
 
@@ -684,10 +688,9 @@ static ssize_t scp_A_dump_show(struct file *filep,
 {
 	unsigned int length = 0;
 
-	mutex_lock(&scp_excep_mutex);
 
 	if (offset >= 0 && offset < scp_dump.ramdump_length) {
-		if ((offset + size) > scp_dump.ramdump_length)
+		if ((offset + size) >= scp_dump.ramdump_length)
 			size = scp_dump.ramdump_length - offset;
 
 		memcpy(buf, scp_dump.ramdump + offset, size);
@@ -695,6 +698,15 @@ static ssize_t scp_A_dump_show(struct file *filep,
 		if (scp_dump.ramdump_length == 0)
 			pr_notice("[SCP] %s ramdump length=0 at of:0x%x sz:0x%x\n", __func__,
 				offset, size);
+		/* the last time read scp_dump buffer has done
+		 * so the next coredump flow can be continued
+		 */
+		if (size == scp_dump.ramdump_length - offset) {
+			atomic_set(&coredumping, false);
+			pr_notice("[SCP] coredumping:%d, coredump complete\n",
+				atomic_read(&coredumping));
+			complete(&scp_coredump_comp);
+		}
 		/* clean the buff after readed */
 		/* memset(scp_dump.ramdump + offset, 0x0, size); */
 		/* log for the first and latest cleanup */
@@ -705,7 +717,6 @@ static ssize_t scp_A_dump_show(struct file *filep,
 		 */
 	}
 
-	mutex_unlock(&scp_excep_mutex);
 
 	return length;
 }
@@ -731,7 +742,6 @@ int scp_excep_init(void)
 	int i;
 	int size_limit = sizeof(reg_save_list) / sizeof(struct reg_save_st);
 
-	mutex_init(&scp_excep_mutex);
 
 	/* last addr is infra */
 	for (i = 0; i < size_limit - 1; i++)
@@ -790,6 +800,8 @@ int scp_excep_init(void)
 	scp_dump.ramdump_length = 0;
 	/* 1: ee on, 0: ee disable */
 	scp_ee_enable = 1;
+	/* all coredump need element is prepare done */
+	complete(&scp_coredump_comp);
 
 	return 0;
 }
