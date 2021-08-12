@@ -474,7 +474,7 @@ static int eem_dbg_repo_proc_show(struct seq_file *m, void *v)
 
 	if ((void __iomem *)(eem_csram_base) != NULL) {
 		for (addr_ptr = (void __iomem *)(eem_csram_base)
-			, counter = 0; counter <=
+			, counter = 0; counter <
 			EEM_LOG_SIZE;
 			(addr_ptr += 4), counter += 4)
 			seq_printf(m, "%08X",
