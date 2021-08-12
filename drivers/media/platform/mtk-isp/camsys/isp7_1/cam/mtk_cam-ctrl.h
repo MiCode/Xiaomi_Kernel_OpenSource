@@ -57,6 +57,7 @@ enum MTK_CAMSYS_ENGINE_IDX {
 enum MTK_CAMSYS_IRQ_EVENT {
 	CAMSYS_IRQ_SETTING_DONE = 0,
 	CAMSYS_IRQ_FRAME_START,
+	CAMSYS_IRQ_AFO_DONE,
 	CAMSYS_IRQ_FRAME_DONE,
 	CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET,
 	CAMSYS_IRQ_FRAME_DROP,
@@ -183,6 +184,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */
 void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx); /* ctx_stream_off */
 void mtk_cam_req_seninf_change(struct mtk_cam_request *req);
 void mtk_cam_frame_done_work(struct work_struct *work);
+void mtk_cam_meta1_done_work(struct work_struct *work);
 void mtk_cam_m2m_enter_cq_state(struct mtk_camsys_ctrl_state *ctrl_state);
 
 #endif

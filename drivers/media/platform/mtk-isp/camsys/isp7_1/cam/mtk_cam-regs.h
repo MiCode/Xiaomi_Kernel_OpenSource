@@ -35,7 +35,8 @@
 
 /* CAM DMA done status */
 #define IMGO_DONE_ST					(1L << 0)
-#define CQI_R1_DONE_ST					(1L << 8)
+#define AFO_DONE_ST					BIT(8)
+#define CQI_R1_DONE_ST					BIT(15)
 
 /* RAW input trigger ctrl*/
 #define RAWI_R2_TRIG					(1L << 0)

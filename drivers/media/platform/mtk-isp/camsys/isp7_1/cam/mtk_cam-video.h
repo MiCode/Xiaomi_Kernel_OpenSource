@@ -211,4 +211,6 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int pix_fmt);
 
 unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
 
+void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr);
+
 #endif /*__MTK_CAM_VIDEO_H*/

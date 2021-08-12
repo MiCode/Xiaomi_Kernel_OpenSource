@@ -2436,6 +2436,89 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	}
 }
 
+void mtk_cam_meta1_done_work(struct work_struct *work)
+{
+	struct mtk_cam_req_work *meta1_done_work = (struct mtk_cam_req_work *)work;
+	struct mtk_cam_request_stream_data *s_data, *s_data_ctx;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request *req;
+	struct mtk_cam_buffer *buf;
+	struct vb2_buffer *vb;
+	struct mtk_cam_video_device *node;
+	void *vaddr;
+
+	s_data = mtk_cam_req_work_get_s_data(meta1_done_work);
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	req = mtk_cam_s_data_get_req(s_data);
+	s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+
+	/* Copy the meta1 output content to user buffer */
+	buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_OUT_1);
+	if (!buf) {
+		dev_info(ctx->cam->dev,
+			 "ctx(%d): can't get MTK_RAW_META_OUT_1 buf from req(%d)\n",
+			 ctx->stream_id, s_data->frame_seq_no);
+		return;
+	}
+
+	vb = &buf->vbb.vb2_buf;
+	node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+
+	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+	memcpy(vaddr, s_data->working_buf->meta_buffer.va,
+	       s_data->working_buf->meta_buffer.size);
+
+	spin_lock(&node->buf_list_lock);
+	list_del(&buf->list);
+	spin_unlock(&node->buf_list_lock);
+
+	/* Update the timestamp for the buffer*/
+	mtk_cam_s_data_update_timestamp(ctx, buf, s_data_ctx);
+
+	/* clean the stream data for req reinit case */
+	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);
+
+	/* Let use get the buffer */
+	vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
+	dev_dbg(ctx->cam->dev, "%s:%s: req(%d) done\n",
+		__func__, req->req.debug_str, s_data->frame_seq_no);
+}
+
+static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
+			       unsigned int frame_seq_no,
+			       unsigned int pipe_id)
+{
+	struct mtk_cam_request *req;
+	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_req_work *meta1_done_work;
+	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
+
+	req = mtk_cam_get_req(ctx, frame_seq_no);
+	if (!req) {
+		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
+			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
+		return;
+	}
+
+	req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
+	/* TODO: null check */
+	if (!(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT))
+		return;
+
+	/* Initial request readout will be delayed 1 frame*/
+	if (ctx->sensor) {
+		if (camsys_sensor_ctrl->isp_request_seq_no == 0 &&
+		    ctx->pipe->res_config.raw_feature == 0) {
+			dev_info(ctx->cam->dev,
+				 "1st META1 done passed for initial request setting\n");
+			return;
+		}
+	}
+
+	meta1_done_work = &req_stream_data->meta1_done_work;
+	queue_work(ctx->frame_done_wq, &meta1_done_work->work);
+}
+
 void mtk_cam_frame_done_work(struct work_struct *work)
 {
 	struct mtk_cam_req_work *frame_done_work = (struct mtk_cam_req_work *)work;
@@ -2750,6 +2833,12 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 		/* raw's subsample sensor setting */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET))
 			mtk_cam_set_sub_sample_sensor(raw_dev, ctx);
+
+		/* raw's DMA done, we only allow AFO done here */
+		if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE)) {
+			mtk_cam_meta1_done(ctx, ctx->dequeued_frame_seq_no, ctx->stream_id);
+		}
+
 		/* raw's SW done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 			if (ctx->pipe->res_config.raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {

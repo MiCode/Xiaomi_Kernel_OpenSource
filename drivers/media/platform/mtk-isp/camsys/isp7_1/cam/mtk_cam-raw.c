@@ -1465,24 +1465,24 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	struct device *dev = raw_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
 	unsigned int dequeued_frame_seq_no, dequeued_frame_seq_no_inner, fbc_fho_r1_ctl2;
-	unsigned int irq_status, err_status, dma_done_status, dmai_done_status;
+	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
 	unsigned int drop_status, dma_ofl_status, cq_done_status, cq2_done_status;
 	unsigned int tg_cfg, cq_en, val_dcif_ctl, val_tg_sen;
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&raw_dev->spinlock_irq, flags);
-	irq_status	= readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
-	dma_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT2_STAT);
+	irq_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
+	dmao_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT2_STAT);
 	dmai_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT3_STAT);
-	drop_status	= readl_relaxed(raw_dev->base + REG_CTL_RAW_INT4_STAT);
-	dma_ofl_status  = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT5_STAT);
-	cq_done_status  = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT6_STAT);
-	cq2_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT7_STAT);
-	tg_cfg = readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG);
-	cq_en = readl_relaxed(raw_dev->base_inner + REG_CQ_EN);
-	val_dcif_ctl = readl_relaxed(raw_dev->base_inner + REG_TG_DCIF_CTL);
-	val_tg_sen = readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE);
+	drop_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT4_STAT);
+	dma_ofl_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT5_STAT);
+	cq_done_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT6_STAT);
+	cq2_done_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT7_STAT);
+	tg_cfg		 = readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG);
+	cq_en		 = readl_relaxed(raw_dev->base_inner + REG_CQ_EN);
+	val_dcif_ctl	 = readl_relaxed(raw_dev->base_inner + REG_TG_DCIF_CTL);
+	val_tg_sen	 = readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE);
 
 	/**
 	 * TODO: read seq number from outer register.
@@ -1502,7 +1502,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	dev_dbg(dev,
 		"INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:%d)\n",
 		irq_status, err_status,
-		dma_done_status, dmai_done_status, drop_status,
+		dmao_done_status, dmai_done_status, drop_status,
 		dma_ofl_status, cq_done_status, cq2_done_status,
 		dequeued_frame_seq_no_inner);
 
@@ -1526,6 +1526,11 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
 		raw_dev->setting_count++;
+	}
+	/* DMAO done, only for AFO */
+	if (dmao_done_status & AFO_DONE_ST) {
+		irq_info.irq_type |= 1 << CAMSYS_IRQ_AFO_DONE;
+		/* enable AFO_DONE_EN at backend manually */
 	}
 	/* Frame done */
 	if (irq_status & SW_PASS1_DON_ST)

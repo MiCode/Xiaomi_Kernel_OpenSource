@@ -309,7 +309,7 @@ static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 	*offset += size;
 }
 
-static void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
+void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
 {
 	struct mtk_cam_uapi_meta_raw_stats_0 *stats0;
 	struct mtk_cam_uapi_meta_raw_stats_1 *stats1;

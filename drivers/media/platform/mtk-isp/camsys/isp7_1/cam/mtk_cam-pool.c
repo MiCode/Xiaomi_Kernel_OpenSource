@@ -16,6 +16,7 @@
 #include "mtk_cam.h"
 #include "mtk_cam-smem.h"
 #include "mtk_cam-pool.h"
+#include "mtk_cam-meta.h"
 
 #ifndef CONFIG_MTK_SCP
 #include <linux/platform_data/mtk_ccd.h>
@@ -28,12 +29,9 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 {
 	int i;
 	struct mem_obj smem;
-	struct mem_obj smem_ipi;
 	struct mtk_ccd *ccd;
 	void *mem_priv;
-	void *mem_ipi_priv;
 	int dmabuf_fd;
-	int dmabuf_ipi_fd;
 	const int working_buf_size = round_up(CQ_BUF_SIZE, PAGE_SIZE);
 	const int msg_buf_size = round_up(IPI_FRAME_BUF_SIZE, PAGE_SIZE);
 
@@ -41,24 +39,23 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	spin_lock_init(&ctx->buf_pool.cam_freelist.lock);
 	ctx->buf_pool.cam_freelist.cnt = 0;
 	ctx->buf_pool.working_buf_size = CAM_CQ_BUF_NUM * working_buf_size;
-	smem.len = ctx->buf_pool.working_buf_size;
-
 	ctx->buf_pool.msg_buf_size = CAM_CQ_BUF_NUM * msg_buf_size;
-	smem_ipi.len = ctx->buf_pool.msg_buf_size;
-
-
 	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
+
+	/* working buffer */
+	smem.len = ctx->buf_pool.working_buf_size;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
-
-	mem_ipi_priv = mtk_ccd_get_buffer(ccd, &smem_ipi);
-	dmabuf_ipi_fd = mtk_ccd_get_buffer_fd(ccd, mem_ipi_priv, 0);
-
 	ctx->buf_pool.working_buf_va = smem.va;
 	ctx->buf_pool.working_buf_iova = smem.iova;
 	ctx->buf_pool.working_buf_fd = dmabuf_fd;
-	ctx->buf_pool.msg_buf_va = smem_ipi.va;
-	ctx->buf_pool.msg_buf_fd = dmabuf_ipi_fd;
+
+	/* msg buffer */
+	smem.len = ctx->buf_pool.msg_buf_size;
+	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+	ctx->buf_pool.msg_buf_va = smem.va;
+	ctx->buf_pool.msg_buf_fd = dmabuf_fd;
 
 	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
 		struct mtk_cam_working_buf_entry *buf = &ctx->buf_pool.working_buf[i];
@@ -74,27 +71,59 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		buf->msg_buffer.va = ctx->buf_pool.msg_buf_va + offset_msg;
 		buf->msg_buffer.size = msg_buf_size;
 		buf->s_data = NULL;
+
 		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
 			__func__, ctx->stream_id, i, &buf->buffer.iova);
+
+		/* meta buffer */
+		smem.len = RAW_STATS_1_SIZE;
+		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+		buf->meta_buffer.va = smem.va;
+		buf->meta_buffer.iova = smem.iova;
+		buf->meta_buffer.size = smem.len;
+
+		dev_info(ctx->cam->dev,
+			 "%s:meta_buf[%d]:va(%d),iova(%pad),fd(%d),size(%d)\n",
+			 __func__, i, buf->meta_buffer.va, &buf->meta_buffer.iova,
+			 buf->meta_buffer.fd, buf->meta_buffer.size);
 
 		list_add_tail(&buf->list_entry, &ctx->buf_pool.cam_freelist.list);
 		ctx->buf_pool.cam_freelist.cnt++;
 	}
 
 	dev_info(ctx->cam->dev,
-		"%s: ctx(%d): cq buffers init, freebuf cnt(%d),fd(%d),ipi_fd(%d)\n",
+		"%s: ctx(%d): cq buffers init, freebuf cnt(%d),fd(%d)\n",
 		__func__, ctx->stream_id, ctx->buf_pool.cam_freelist.cnt,
-		dmabuf_fd, dmabuf_ipi_fd);
+		dmabuf_fd);
 
 	return 0;
 }
 
 void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
+	struct mtk_cam_working_buf_entry *buf;
 	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
 	struct mem_obj smem;
-	int fd;
+	int fd, i;
 
+	/* meta buffer */
+	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
+		buf = &ctx->buf_pool.working_buf[i];
+
+		smem.va = buf->meta_buffer.va;
+		smem.iova = buf->meta_buffer.iova;
+		smem.len = buf->meta_buffer.size;
+		fd = buf->meta_buffer.fd;
+
+		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
+		mtk_ccd_put_buffer(ccd, &smem);
+		dev_dbg(ctx->cam->dev,
+			"%s:ctx(%d):meta buffers[%d] release, mem iova(%pad), sz(%d)\n",
+			__func__, ctx->stream_id, i, &smem.iova, smem.len);
+	}
+
+	/* msg buffer */
 	smem.va = ctx->buf_pool.working_buf_va;
 	smem.iova = ctx->buf_pool.working_buf_iova;
 	smem.len = ctx->buf_pool.working_buf_size;
@@ -107,6 +136,7 @@ void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 		"%s:ctx(%d):cq buffers release, mem iova(%pad), sz(%d)\n",
 		__func__, ctx->stream_id, &smem.iova, smem.len);
 
+	/* working buffer */
 	smem.va = ctx->buf_pool.msg_buf_va;
 	smem.iova = 0;
 	smem.len = ctx->buf_pool.msg_buf_size;

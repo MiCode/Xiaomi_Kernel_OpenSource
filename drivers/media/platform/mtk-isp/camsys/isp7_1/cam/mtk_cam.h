@@ -50,6 +50,9 @@ struct mtk_cam_request;
 
 #define SENSOR_FMT_MASK			0xFFFF
 
+/* flags of mtk_cam_request_stream_data */
+#define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
+
 struct mtk_cam_working_buf {
 	void *va;
 	dma_addr_t iova;
@@ -61,11 +64,19 @@ struct mtk_cam_msg_buf {
 	int size;
 };
 
+struct mtk_cam_dmao_buf {
+	void *va;
+	dma_addr_t iova;
+	int size;
+	int fd;
+};
+
 /* TODO: remove this entry wrapper */
 struct mtk_cam_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_working_buf buffer;
+	struct mtk_cam_dmao_buf meta_buffer;
 	struct mtk_cam_msg_buf msg_buffer;
 	struct list_head list_entry;
 	int cq_desc_offset;
@@ -137,6 +148,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_ctx *ctx;
 	int pipe_id;
 	unsigned int frame_seq_no;
+	unsigned int flags;
 	u64 timestamp;
 	u64 timestamp_mono;
 	struct mtk_cam_buffer *bufs[MTK_RAW_TOTAL_NODES];
@@ -152,6 +164,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_camsv_frame_params sv_frame_params;
 	struct mtk_cam_req_work frame_work;
 	struct mtk_cam_req_work sensor_work;
+	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
@@ -408,7 +421,6 @@ mtk_cam_img_wbuf_set_s_data(struct mtk_cam_img_working_buf_entry *buf_entry,
 static inline void
 mtk_cam_sv_wbuf_set_s_data(struct mtk_camsv_working_buf_entry *buf_entry,
 			   struct mtk_cam_request_stream_data *s_data)
-
 {
 	buf_entry->s_data = s_data;
 }
@@ -473,6 +485,15 @@ mtk_cam_s_data_get_vbuf(struct mtk_cam_request_stream_data *s_data,
 }
 
 static inline void
+mtk_cam_s_data_reset_vbuf(struct mtk_cam_request_stream_data *s_data, int node_id)
+{
+	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
+
+	if (idx >= 0)
+		s_data->bufs[idx] = NULL;
+}
+
+static inline void
 mtk_cam_s_data_set_wbuf(struct mtk_cam_request_stream_data *s_data,
 			struct mtk_cam_working_buf_entry *buf_entry)
 {
@@ -534,6 +555,10 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
+
+void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
+				     struct mtk_cam_buffer *buf,
+				     struct mtk_cam_request_stream_data *s_data);
 
 bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			       unsigned int dequeued_frame_seq_no,

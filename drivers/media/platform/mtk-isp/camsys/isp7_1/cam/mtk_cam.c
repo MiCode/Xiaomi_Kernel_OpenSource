@@ -102,7 +102,31 @@ mtk_cam_req_pipe_s_data_clean(struct mtk_cam_request *req, int pipe_id)
 			memset(req_stream_data->bufs, 0, sizeof(req_stream_data->bufs));
 		}
 	}
+}
 
+void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
+				     struct mtk_cam_buffer *buf,
+				     struct mtk_cam_request_stream_data *s_data)
+{
+	struct vb2_buffer *vb;
+	struct mtk_cam_video_device *node;
+
+	vb = &buf->vbb.vb2_buf;
+	node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+
+	buf->vbb.sequence = s_data->frame_seq_no;
+	if (vb->vb2_queue->timestamp_flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
+		vb->timestamp = s_data->timestamp_mono;
+	else
+		vb->timestamp = s_data->timestamp;
+
+	/*check buffer's timestamp*/
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG)
+		dev_dbg(ctx->cam->dev,
+			"%s:%s:vb sequence:%d, queue type:%d, timestamp_flags:0x%x, timestamp:%lld\n",
+			__func__, node->desc.name, buf->vbb.sequence,
+			vb->vb2_queue->type, vb->vb2_queue->timestamp_flags,
+			vb->timestamp);
 }
 
 void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
@@ -146,7 +170,7 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		struct vb2_buffer *vb;
 		struct mtk_cam_video_device *node;
 
-		buf = req_stream_data_pipe->bufs[i];
+		buf = mtk_cam_s_data_get_vbuf(req_stream_data_pipe, i);
 		if (!buf)
 			continue;
 
@@ -165,21 +189,11 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		spin_unlock(&node->buf_list_lock);
 
 		// TODO(mstream): fill timestamp
-		buf->vbb.sequence = req_stream_data->frame_seq_no;
-		if (vb->vb2_queue->timestamp_flags &
-		    V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
-			vb->timestamp = req_stream_data->timestamp_mono;
-		else
-			vb->timestamp = req_stream_data->timestamp;
-		/*check buffer's timestamp*/
-		if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG)
-			dev_dbg(cam->dev, "%s:%s:vb sequence:%d, queue type:%d, timestamp_flags:0x%x, timestamp:%lld\n",
-			__func__, node->desc.name, buf->vbb.sequence,
-			vb->vb2_queue->type, vb->vb2_queue->timestamp_flags,
-			vb->timestamp);
+		mtk_cam_s_data_update_timestamp(ctx, buf, req_stream_data);
 
 		/* clean the stream data for req reinit case */
-		req_stream_data_pipe->bufs[i] = NULL;
+		mtk_cam_s_data_reset_vbuf(req_stream_data_pipe, i);
+
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
 
@@ -1479,6 +1493,10 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		if (ctx->used_raw_num && mtk_cam_is_mstream(ctx))
 			mtk_cam_update_s_data_exp(ctx, req, &ctx->pipe->mstream_exposure);
 
+		/* TODO: AFO independent supports TWIN */
+		if (ctx->pipe->res_config.raw_num_used == 1)
+			req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
+
 		if (req_stream_data->seninf_new)
 			ctx->seninf = req_stream_data->seninf_new;
 
@@ -1879,12 +1897,15 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->req = req;
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
+		req_stream_data->flags = 0;
 
 		mtk_cam_req_work_init(&req_stream_data->sensor_work,
 				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_work,
 				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_done_work,
+				      req_stream_data);
+		mtk_cam_req_work_init(&req_stream_data->meta1_done_work,
 				      req_stream_data);
 		/**
 		 * clean the param structs since we support req reinit.
@@ -2508,13 +2529,15 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_event event;
 	struct mtkcam_ipi_session_cookie *session = &event.cookie;
 	struct mtkcam_ipi_frame_info *frame_info = &event.frame_data;
-	struct mtkcam_ipi_frame_param *frame_data;
+	struct mtkcam_ipi_frame_param *frame_data, *frame_param;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
 	unsigned long flags;
+	struct mtkcam_ipi_meta_output *meta_1_out;
+	struct mtk_cam_buffer *meta1_buf;
 
 	req_stream_data = mtk_cam_req_work_get_s_data(req_work);
 	if (!req_stream_data) {
@@ -2569,6 +2592,23 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	list_add_tail(&buf_entry->list_entry, &ctx->using_buffer_list.list);
 	ctx->using_buffer_list.cnt++;
 	spin_unlock(&ctx->using_buffer_list.lock);
+
+	/* Prepare MTKCAM_IPI_RAW_META_STATS_1 params */
+	meta1_buf = mtk_cam_s_data_get_vbuf(req_stream_data, MTK_RAW_META_OUT_1);
+	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT &&
+	    meta1_buf) {
+		/* replace the video buffer with ccd buffer*/
+		frame_param = &req_stream_data->frame_params;
+		meta_1_out =
+			&frame_param->meta_outputs[MTK_RAW_META_OUT_1 - MTK_RAW_META_OUT_BEGIN];
+		meta_1_out->buf.ccd_fd = buf_entry->meta_buffer.fd;
+		meta_1_out->buf.size = buf_entry->meta_buffer.size;
+		meta_1_out->buf.iova = buf_entry->meta_buffer.iova;
+		meta_1_out->uid.id = MTKCAM_IPI_RAW_META_STATS_1;
+		mtk_cam_set_meta_stats_info(MTKCAM_IPI_RAW_META_STATS_1,
+					    buf_entry->meta_buffer.va);
+	}
+
 	/* Prepare rp message */
 	frame_info->cur_msgbuf_offset =
 		buf_entry->msg_buffer.va -
@@ -2678,7 +2718,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->pipe_used & (1 << i)) {
 			unsigned int stream_id = i;
-			struct mtk_cam_req_work *sensor_work, *frame_work, *frame_done_work;
+			struct mtk_cam_req_work *sensor_work, *frame_work, *done_work;
 			struct mtk_cam_request_stream_data *req_stream_data;
 			struct mtk_cam_request_stream_data *pipe_stream_data;
 			struct mtk_cam_ctx *ctx = &cam->ctxs[stream_id];
@@ -2708,8 +2748,11 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			for (j = 0 ; j < MTKCAM_SUBDEV_MAX ; j++) {
 				if (1 << j & ctx->streaming_pipe) {
 					pipe_stream_data = mtk_cam_req_get_s_data(req, j, 0);
-					frame_done_work = &pipe_stream_data->frame_done_work;
-					INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
+					done_work = &pipe_stream_data->frame_done_work;
+					INIT_WORK(&done_work->work, mtk_cam_frame_done_work);
+
+					done_work = &pipe_stream_data->meta1_done_work;
+					INIT_WORK(&done_work->work, mtk_cam_meta1_done_work);
 				}
 			}
 
