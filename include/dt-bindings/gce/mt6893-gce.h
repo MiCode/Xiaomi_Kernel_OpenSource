@@ -481,6 +481,10 @@
 /* end of hw event and begin of sw token */
 #define CMDQ_MAX_HW_EVENT				512
 
+/* MML sw tokens */
+#define CMDQ_SYNC_TOKEN_MML_WROT0_PIPE			630
+#define CMDQ_SYNC_TOKEN_MML_WROT2_PIPE			631
+
 /* Config thread notify trigger thread */
 #define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			640
 /* Trigger thread notify config thread */

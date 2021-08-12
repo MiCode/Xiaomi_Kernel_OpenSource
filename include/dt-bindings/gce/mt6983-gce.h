@@ -849,6 +849,10 @@
 #define CMDQ_SYNC_TOKEN_IMGSYS_POOL_65			578
 #define CMDQ_SYNC_TOKEN_IMGSYS_POOL_66			579
 
+/* MML sw tokens */
+#define CMDQ_SYNC_TOKEN_MML_WROT0_PIPE			630
+#define CMDQ_SYNC_TOKEN_MML_WROT2_PIPE			631
+
 /* Config thread notify trigger thread */
 #define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			640
 /* Trigger thread notify config thread */
