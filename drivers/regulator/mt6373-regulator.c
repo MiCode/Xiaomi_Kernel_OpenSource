@@ -139,8 +139,8 @@ struct mt6373_regulator_info {
 		.owner = THIS_MODULE,				\
 		.n_voltages = ARRAY_SIZE(_volt_table),		\
 		.volt_table = _volt_table,			\
-		.enable_reg = MT6373_PMIC_RG_LDO_VMCH_EN_ADDR,	\
-		.enable_mask = BIT(MT6373_PMIC_RG_LDO_VMCH_EN_SHIFT),	\
+		.enable_reg = MT6373_LDO_VMCH_EINT,	\
+		.enable_mask = MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK,	\
 		.vsel_reg = MT6373_PMIC_RG_VMCH_VOSEL_ADDR,	\
 		.vsel_mask = MT6373_PMIC_RG_VMCH_VOSEL_MASK,	\
 		.of_map_mode = mt6373_map_mode,			\
@@ -311,14 +311,14 @@ static int mt6373_vmch_eint_enable(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
-				 rdev->desc->enable_mask, rdev->desc->enable_mask);
+	ret = regmap_update_bits(rdev->regmap, MT6373_PMIC_RG_LDO_VMCH_EN_ADDR,
+				 BIT(MT6373_PMIC_RG_LDO_VMCH_EN_SHIFT),
+				 BIT(MT6373_PMIC_RG_LDO_VMCH_EN_SHIFT));
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(rdev->regmap, MT6373_LDO_VMCH_EINT,
-				 MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK,
-				 MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK);
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				 rdev->desc->enable_mask, rdev->desc->enable_mask);
 	return ret;
 }
 
@@ -326,14 +326,14 @@ static int mt6373_vmch_eint_disable(struct regulator_dev *rdev)
 {
 	int ret;
 
-	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
-				 rdev->desc->enable_mask, 0);
+	ret = regmap_update_bits(rdev->regmap, MT6373_PMIC_RG_LDO_VMCH_EN_ADDR,
+				 BIT(MT6373_PMIC_RG_LDO_VMCH_EN_SHIFT), 0);
 	if (ret)
 		return ret;
 
 	udelay(1500); /* Must delay for VMCH discharging */
-	ret = regmap_update_bits(rdev->regmap, MT6373_LDO_VMCH_EINT,
-				 MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK, 0);
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				 rdev->desc->enable_mask, 0);
 	return ret;
 }
 
