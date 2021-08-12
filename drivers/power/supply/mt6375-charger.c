@@ -74,6 +74,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6375_REG_CHG_STAT0	0x1E0
 #define MT6375_REG_CHG_STAT1	0x1E1
 
+#define MT6375_MSK_BATFET_DIS	0x40
 #define MT6375_MSK_OTG_EN	0x04
 #define MT6375_MSK_OTG_CV	0x3F
 #define MT6375_MSK_OTG_CC	0x07
@@ -2352,7 +2353,14 @@ static int mt6375_set_shipping_mode(struct mt6375_chg_data *ddata)
 		return ret;
 	}
 
-	return mt6375_chg_field_set(ddata, F_BATFET_DIS, 1);
+	ret = mt6375_chg_field_set(ddata, F_BUCK_EN, 0);
+	if (ret < 0) {
+		dev_notice(ddata->dev, "failed to disable chg buck en\n");
+		return ret;
+	}
+
+	return regmap_update_bits(ddata->rmap, MT6375_REG_CHG_TOP1,
+				  MT6375_MSK_BATFET_DIS, 0xFF);
 }
 
 static ssize_t shipping_mode_store(struct device *dev,
