@@ -3571,6 +3571,57 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	PanelMaster_Deinit();
 }
 
+int mtk_drm_fm_lcm_auto_test(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *private;
+	int *result = data;
+	int ret = 0;
+
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return -1;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!mtk_crtc->enabled || mtk_crtc->ddp_mode == DDP_NO_USE) {
+		DDPINFO("crtc 0 is already sleep, skip\n");
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return 0;
+	}
+
+	private = dev->dev_private;
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_IDLE_MGR)) {
+		mtk_drm_set_idlemgr(crtc, 0, 0);
+	}
+
+	ret = mtk_crtc_lcm_ATA(crtc);
+
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_IDLE_MGR))
+		mtk_drm_set_idlemgr(crtc, 1, 0);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	/* ret = 0 fail, ret = 1 pass */
+	if (ret == 0) {
+		DDPPR_ERR("ATA LCM failed\n");
+		*result = 0;
+	} else {
+		DDPPR_ERR("ATA LCM passed\n");
+		*result = 1;
+	}
+	return 0;
+}
+
 static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_GEM_CREATE, mtk_gem_create_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
@@ -3692,6 +3743,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_BYPASS_DISP_GAMMA, mtk_drm_ioctl_bypass_disp_gamma,
 		DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_FACTORY_LCM_AUTO_TEST, mtk_drm_fm_lcm_auto_test,
+			  DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {
