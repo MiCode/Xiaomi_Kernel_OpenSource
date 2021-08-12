@@ -387,16 +387,6 @@ static void lcm_panel_init(struct lcm *ctx)
 		lcm_dcs_write_seq_static(ctx, 0x1F, 0x00);
 		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
 
-		/* Open Multi-TE */
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
-		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
-		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Min FPS */
-		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
-		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x03);
-
 		lcm_dcs_write_seq_static(ctx, 0x51, 0x07, 0xFF);
 		lcm_dcs_write_seq_static(ctx, 0x29);
 }
@@ -967,17 +957,6 @@ static void mode_switch_to_60(struct drm_panel *panel,
 		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
 		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
 		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Open Multi-TE */
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
-		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
-		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Min FPS */
-		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
-		/* min fps 40fps */
-		lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x06);
 	}
 }
 
@@ -1062,16 +1041,6 @@ static void mode_switch_to_72(struct drm_panel *panel,
 		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
 		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
 		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Open Multi-TE */
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
-		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
-		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Min FPS */
-		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
-		lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x05);
 	}
 }
 
@@ -1157,16 +1126,6 @@ static void mode_switch_to_90(struct drm_panel *panel,
 		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
 		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
 		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Open Multi-TE */
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
-		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
-		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Min FPS */
-		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
-		lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x04);
 	}
 }
 
@@ -1251,16 +1210,6 @@ static void mode_switch_to_120(struct drm_panel *panel,
 		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
 		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
 		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Open Multi-TE */
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
-		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
-		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
-		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
-
-		/* Min FPS */
-		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
-		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x03);
 	}
 }
 
