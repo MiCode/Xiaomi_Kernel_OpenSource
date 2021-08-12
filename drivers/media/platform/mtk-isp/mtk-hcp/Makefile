@@ -14,6 +14,7 @@
 subdir-ccflags-y += -Werror
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/2.4
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/
 
 ifeq ($(CONFIG_MTK_ION),y)
     ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/
@@ -29,6 +30,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
              -I$(srctree)/drivers/iommu
 mtk_hcp-objs := \
 mtk-hcp.o \
+mtk-hcp_isp71.o \
 mem/hcp_videobuf2-memops.o \
 mem/hcp_videobuf2-vmalloc.o \
 mem/hcp_videobuf2-dma-contig.o

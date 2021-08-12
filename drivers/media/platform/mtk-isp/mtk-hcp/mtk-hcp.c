@@ -33,12 +33,8 @@
 
 #include "mtk-hcp.h"
 #include "mtk-hcp-support.h"
+#include "mtk-hcp_isp71.h"
 
-#ifdef USE_ION
-#include "ion_drv.h"
-#include "ion_priv.h"
-#include "mtk_ion.h"
-#endif
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu_ext.h"
@@ -71,21 +67,12 @@
  * register.
  *
  **/
-#ifdef USE_ION
-static struct ion_handle *_imgsys_ion_alloc(
-	struct ion_client *client,
-	unsigned int heap_id_mask, size_t align,
-	unsigned int size, bool cached);
-static void _imgsys_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle);
-#endif
 
 #define RED_PATH                "/dev/red"
 #define HCP_DEVNAME             "mtk_hcp"
 
 #define HCP_TIMEOUT_MS          4000U
 #define HCP_FW_VER_LEN          16
-#define HCP_SHARE_BUF_SIZE      388
 #define MAX_REQUEST_SIZE        10
 
 #define SYNC_SEND               1
@@ -110,60 +97,6 @@ static void _imgsys_ion_free_handle(struct ion_client *client,
 #define FD_BASE_HW              0x1502B000
 
 static struct mtk_hcp *hcp_mtkdev;
-
-/**
- * struct hcp_mem - HCP memory information
- *
- * @d_va:    the kernel virtual memory address of HCP extended data memory
- * @d_pa:    the physical memory address of HCP extended data memory
- * @d_len:   the length of extended data
- */
-struct hcp_mem {
-	void *d_va;
-	dma_addr_t d_pa;
-	unsigned long d_len;
-};
-
-/**
- * struct hcp_desc - hcp descriptor
- *
- * @handler:      IPI handler
- * @name:         the name of IPI handler
- * @priv:         the private data of IPI handler
- */
-struct hcp_desc {
-	hcp_handler_t handler;
-	const char *name;
-	void *priv;
-};
-
-struct object_id {
-	union {
-		struct send {
-			uint32_t hcp: 5;
-			uint32_t ack: 1;
-			uint32_t req: 10;
-			uint32_t seq: 16;
-		} __packed send;
-
-		uint32_t cmd;
-	};
-} __packed;
-
-/**
- * struct share_buf - DTCM (Data Tightly-Coupled Memory) buffer shared with
- *                    RED and HCP
- *
- * @id:             hcp id
- * @len:            share buffer length
- * @share_buf:      share buffer data
- */
-struct share_buf {
-	uint32_t id;
-	uint32_t len;
-	uint8_t share_data[HCP_SHARE_BUF_SIZE];
-	struct object_id info;
-};
 
 #define IPI_MAX_BUFFER_COUNT    (4)
 
@@ -206,62 +139,6 @@ struct my_wq_t {
 	unsigned int ioctl_event;
 	struct share_buf  data_addr;
 	struct work_struct task_work;
-};
-
-/**
- * struct mtk_hcp - hcp driver data
- * @extmem:              hcp extended memory information
- * @hcp_desc:            hcp descriptor
- * @dev:                 hcp struct device
- * @mem_ops:             memory operations
- * @file:                hcp daemon file pointer
- * @is_open:             the flag to indicate if hcp device is open.
- * @ack_wq:              the wait queue for each client. When sleeping
- *                       processes wake up, they will check the condition
- *                       "hcp_id_ack" to run the corresponding action or
- *                       go back to sleep.
- * @hcp_id_ack:          The ACKs for registered HCP function.
- * @get_wq:              When sleeping process waking up, it will check queued
- *                       messages to run the corresponding action or
- *                       go back to sleep.
- * @hcp_devno:           The hcp_devno for hcp init hcp character device
- * @hcp_cdev:            The point of hcp character device.
- * @hcp_class:           The class_create for create hcp device
- * @hcp_device:          hcp struct device
- * @hcpname:             hcp struct device name in dtsi
- * @ cm4_support_list    to indicate which module can run in cm4 or it will send
- *                       to user space for running action.
- * @ current_task        hcp current task struct
- */
-struct mtk_hcp {
-	bool have_slb;
-	struct hcp_mem extmem;
-	struct hcp_desc hcp_desc_table[HCP_MAX_ID];
-	struct device *dev;
-	const struct vb2_mem_ops *mem_ops;
-#ifdef USE_ION
-	struct ion_client *pIonClient;
-#endif
-	/* for protecting vcu data structure */
-	struct file *file;
-	bool   is_open;
-	atomic_t seq;
-	wait_queue_head_t ack_wq[MODULE_MAX_ID];
-	atomic_t hcp_id_ack[HCP_MAX_ID];
-	wait_queue_head_t get_wq[MODULE_MAX_ID];
-	wait_queue_head_t poll_wq[MODULE_MAX_ID];
-	struct list_head chans[MODULE_MAX_ID];
-	struct list_head msg_list;
-	spinlock_t msglock;
-	wait_queue_head_t msg_wq;
-	dev_t hcp_devno;
-	struct cdev hcp_cdev;
-	struct class *hcp_class;
-	struct device *hcp_device;
-	const char *hcpname;
-	bool cm4_support_list[MODULE_MAX_ID];
-	struct task_struct *current_task;
-	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
 };
 
 static struct msg *msg_pool_get(struct mtk_hcp *hcp_dev)
@@ -998,7 +875,7 @@ phys_addr_t mtk_hcp_mem_size;
 #ifdef NEED_LEGACY_MEM
 int mtk_hcp_reserve_mem_of_init(struct reserved_mem *rmem)
 {
-	enum mtk_hcp_reserve_mem_id_t id;
+	unsigned int id;
 	phys_addr_t accumlate_memory_size = 0;
 
 	mtk_hcp_mem_base_phys = (phys_addr_t) rmem->base;
@@ -1028,7 +905,7 @@ RESERVEDMEM_OF_DECLARE(mtk_hcp_reserve_mem_init, MTK_HCP_MEM_RESERVED_KEY,
 
 static int mtk_hcp_reserve_memory_ioremap(void)
 {
-	enum mtk_hcp_reserve_mem_id_t id;
+	unsigned int id;
 	phys_addr_t accumlate_memory_size;
 
 	accumlate_memory_size = 0;
@@ -1062,97 +939,7 @@ static int mtk_hcp_reserve_memory_ioremap(void)
 }
 #endif
 
-#ifdef USE_ION
-int hcp_get_ion_buffer_fd(struct platform_device *pdev, enum mtk_hcp_reserve_mem_id_t id)
-{
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	int fd = -1;
-
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-	} else if ((hcp_dev->pIonClient != NULL) &&
-						 (mtk_hcp_reserve_mblock[id].pIonHandle != NULL)) {
-		fd = ion_share_dma_buf_fd(hcp_dev->pIonClient,
-			mtk_hcp_reserve_mblock[id].pIonHandle);
-		mtk_hcp_set_reserve_mem_fd(id, fd);
-		pr_info("%s: pIonClient:0x%x, mblock[%d].pIonHandle:%x, fd:%d\n",
-			__func__, hcp_dev->pIonClient, id,
-			mtk_hcp_reserve_mblock[id].pIonHandle, fd);
-	} else {
-		pr_info("Wrong, pIonClient is NULL in %s!!", __func__);
-	}
-	return fd;
-}
-EXPORT_SYMBOL(hcp_get_ion_buffer_fd);
-
-void hcp_close_ion_buffer_fd(struct platform_device *pdev, enum mtk_hcp_reserve_mem_id_t id)
-{
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-
-	if ((id < 0) || (id >= NUMS_MEM_ID))
-		pr_info("[HCP] no reserve memory for %d", id);
-	else if ((hcp_dev->pIonClient != NULL) &&
-					 (mtk_hcp_reserve_mblock[id].pIonHandle != NULL)) {
-		mtk_hcp_set_reserve_mem_fd(id, -1);
-	} else {
-		pr_info("Wrong, pIonClient is NULL in %s!!", __func__);
-	}
-}
-EXPORT_SYMBOL(hcp_close_ion_buffer_fd);
-
-int hcp_allocate_buffer(struct platform_device *pdev, enum mtk_hcp_reserve_mem_id_t id,
-	unsigned int size)
-{
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-	} else if (hcp_dev->pIonClient != NULL) {
-		mtk_hcp_reserve_mblock[id].pIonHandle =
-			_imgsys_ion_alloc(hcp_dev->pIonClient,
-		ION_HEAP_MULTIMEDIA_MASK, 0, size, true);
-		if (mtk_hcp_reserve_mblock[id].pIonHandle != NULL) {
-			mtk_hcp_set_reserve_mem_virt(id,
-				ion_map_kernel(hcp_dev->pIonClient,
-					mtk_hcp_reserve_mblock[id].pIonHandle));
-			pr_info("%s: pIonClient:0x%x, mblock[%d].size:%x\n",
-			__func__, hcp_dev->pIonClient, id, size);
-		} else {
-			pr_info("pIonHandle is NULL!! in %s", __func__);
-		}
-	} else {
-		pr_info("Wrong, pIonClient is NULL in %s!!", __func__);
-	}
-	return 0;
-}
-EXPORT_SYMBOL(hcp_allocate_buffer);
-
-int hcp_free_buffer(struct platform_device *pdev, enum mtk_hcp_reserve_mem_id_t id)
-{
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	if ((id < 0) || (id >= NUMS_MEM_ID)) {
-		pr_info("[HCP] no reserve memory for %d", id);
-	} else if ((hcp_dev->pIonClient != NULL) &&
-						 (mtk_hcp_reserve_mblock[id].pIonHandle != NULL)) {
-		ion_unmap_kernel(hcp_dev->pIonClient, mtk_hcp_reserve_mblock[id].pIonHandle);
-		_imgsys_ion_free_handle(hcp_dev->pIonClient, mtk_hcp_reserve_mblock[id].pIonHandle);
-		mtk_hcp_reserve_mblock[id].mem_priv = NULL;
-		mtk_hcp_reserve_mblock[id].mmap_cnt = 0;
-		mtk_hcp_reserve_mblock[id].start_dma = 0x0;
-		mtk_hcp_reserve_mblock[id].start_virt = 0x0;
-		mtk_hcp_reserve_mblock[id].start_phys = 0x0;
-		mtk_hcp_reserve_mblock[id].d_buf = NULL;
-		mtk_hcp_reserve_mblock[id].fd = -1;
-		mtk_hcp_reserve_mblock[id].pIonHandle = NULL;
-	} else {
-		pr_info("Wrong, pIonClient is NULL in %s!!", __func__);
-	}
-	return 0;
-}
-EXPORT_SYMBOL(hcp_free_buffer);
-#endif
-
-phys_addr_t mtk_hcp_get_reserve_mem_phys(enum mtk_hcp_reserve_mem_id_t id)
+phys_addr_t mtk_hcp_get_reserve_mem_phys(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -1163,7 +950,7 @@ phys_addr_t mtk_hcp_get_reserve_mem_phys(enum mtk_hcp_reserve_mem_id_t id)
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_phys);
 
-void mtk_hcp_set_reserve_mem_virt(enum mtk_hcp_reserve_mem_id_t id,
+void mtk_hcp_set_reserve_mem_virt(unsigned int id,
 	void *virmem)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID))
@@ -1173,7 +960,7 @@ void mtk_hcp_set_reserve_mem_virt(enum mtk_hcp_reserve_mem_id_t id,
 }
 EXPORT_SYMBOL(mtk_hcp_set_reserve_mem_virt);
 
-void *mtk_hcp_get_reserve_mem_virt(enum mtk_hcp_reserve_mem_id_t id)
+void *mtk_hcp_get_reserve_mem_virt(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -1183,7 +970,7 @@ void *mtk_hcp_get_reserve_mem_virt(enum mtk_hcp_reserve_mem_id_t id)
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_virt);
 
-phys_addr_t mtk_hcp_get_reserve_mem_dma(enum mtk_hcp_reserve_mem_id_t id)
+phys_addr_t mtk_hcp_get_reserve_mem_dma(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -1194,7 +981,7 @@ phys_addr_t mtk_hcp_get_reserve_mem_dma(enum mtk_hcp_reserve_mem_id_t id)
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_dma);
 
-phys_addr_t mtk_hcp_get_reserve_mem_size(enum mtk_hcp_reserve_mem_id_t id)
+phys_addr_t mtk_hcp_get_reserve_mem_size(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -1206,7 +993,7 @@ phys_addr_t mtk_hcp_get_reserve_mem_size(enum mtk_hcp_reserve_mem_id_t id)
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_size);
 
 
-void mtk_hcp_set_reserve_mem_fd(enum mtk_hcp_reserve_mem_id_t id, uint32_t fd)
+void mtk_hcp_set_reserve_mem_fd(unsigned int id, uint32_t fd)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID))
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -1215,7 +1002,7 @@ void mtk_hcp_set_reserve_mem_fd(enum mtk_hcp_reserve_mem_id_t id, uint32_t fd)
 }
 EXPORT_SYMBOL(mtk_hcp_set_reserve_mem_fd);
 
-uint32_t mtk_hcp_get_reserve_mem_fd(enum mtk_hcp_reserve_mem_id_t id)
+uint32_t mtk_hcp_get_reserve_mem_fd(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -1224,6 +1011,33 @@ uint32_t mtk_hcp_get_reserve_mem_fd(enum mtk_hcp_reserve_mem_id_t id)
 		return mtk_hcp_reserve_mblock[id].fd;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_fd);
+
+void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if (!hcp_dev->data->get_gce_virt) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return NULL;
+	}
+
+	return hcp_dev->data->get_gce_virt();
+}
+EXPORT_SYMBOL(mtk_hcp_get_gce_mem_virt);
+
+void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if (!hcp_dev->data->get_hwid_virt) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return NULL;
+	}
+
+	return hcp_dev->data->get_hwid_virt();
+}
+EXPORT_SYMBOL(mtk_hcp_get_hwid_mem_virt);
+
 #endif
 
 static int mtk_hcp_open(struct inode *inode, struct file *file)
@@ -1619,55 +1433,24 @@ int hcp_reserve_mem_of_init(struct reserved_mem *rmem)
 #define HCP_RESERVE_MEM_KEY "mediatek,imgsys-reserve-memory"
 RESERVEDMEM_OF_DECLARE(hcp_reserve_mem_init, HCP_RESERVE_MEM_KEY, hcp_reserve_mem_of_init);
 
-#ifdef USE_ION
-#define ION_FLAG_FREE_WITHOUT_DEFER (4)
 
-static struct ion_handle *_imgsys_ion_alloc(struct ion_client *client,
-	unsigned int heap_id_mask, size_t align, unsigned int size, bool cached)
+int allocate_working_buffer_helper(struct platform_device *pdev)
 {
-	struct ion_handle *disp_handle = NULL;
-
-	disp_handle = ion_alloc(client, size, align,
-		heap_id_mask, ((cached)?3:0) | ION_FLAG_FREE_WITHOUT_DEFER);
-	if (IS_ERR(disp_handle)) {
-		pr_info("disp_ion_alloc 1error %p\n", disp_handle);
-		return NULL;
-	}
-
-	return disp_handle;
-}
-
-static void _imgsys_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle)
-{
-	if (!client) {
-		pr_info("invalid ion client!\n");
-		return;
-	}
-	if (!handle)
-		return;
-
-	ion_free(client, handle);
-
-}
-#endif
-
-int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
-{
-	enum mtk_hcp_reserve_mem_id_t id;
+	unsigned int id;
+	struct mtk_hcp_reserve_mblock *mblock;
+	unsigned int block_num;
 	struct sg_table *sgt;
 	struct dma_buf_attachment *attach;
-#ifdef USE_ION
-	int fd;
-	struct ion_handle *pIonHandle = NULL;
-#endif
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	struct dma_heap *pdma_heap;
 	void *buf_ptr;
 
+	mblock = hcp_dev->data->mblock;
+	block_num = hcp_dev->data->block_num;
+
 	/* allocate reserved memory */
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		if (mtk_hcp_reserve_mblock[id].is_dma_buf) {
+	for (id = 0; id < block_num; id++) {
+		if (mblock[id].is_dma_buf) {
 			switch (id) {
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
@@ -1731,156 +1514,162 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 					pr_info("pdma_heap find fail\n");
 					return -1;
 				}
-				mtk_hcp_reserve_mblock[id].d_buf = dma_heap_buffer_alloc(
+				mblock[id].d_buf = dma_heap_buffer_alloc(
 					pdma_heap,
-					mtk_hcp_reserve_mblock[id].size, O_RDWR | O_CLOEXEC,
+					mblock[id].size, O_RDWR | O_CLOEXEC,
 					DMA_HEAP_VALID_HEAP_FLAGS);
-				if (IS_ERR(mtk_hcp_reserve_mblock[id].d_buf)) {
+				if (IS_ERR(mblock[id].d_buf)) {
 					pr_info("dma_heap_buffer_alloc fail :%lld\n",
-					PTR_ERR(mtk_hcp_reserve_mblock[id].d_buf));
+					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
 
-				mtk_hcp_reserve_mblock[id].attach = dma_buf_attach(
-				mtk_hcp_reserve_mblock[id].d_buf, hcp_dev->dev);
-				attach = mtk_hcp_reserve_mblock[id].attach;
+				mblock[id].attach = dma_buf_attach(
+				mblock[id].d_buf, hcp_dev->dev);
+				attach = mblock[id].attach;
 				if (IS_ERR(attach)) {
 					pr_info("dma_buf_attach fail :%lld\n",
 					PTR_ERR(attach));
 					return -1;
 				}
 
-				mtk_hcp_reserve_mblock[id].sgt = dma_buf_map_attachment(attach,
+				mblock[id].sgt = dma_buf_map_attachment(attach,
 				DMA_TO_DEVICE);
-				sgt = mtk_hcp_reserve_mblock[id].sgt;
+				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
-					dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf, attach);
+					dma_buf_detach(mblock[id].d_buf, attach);
 					pr_info("dma_buf_map_attachment fail sgt:%lld\n",
 					PTR_ERR(sgt));
 					return -1;
 				}
-				mtk_hcp_reserve_mblock[id].start_phys = sg_dma_address(sgt->sgl);
-				mtk_hcp_reserve_mblock[id].start_dma =
-				mtk_hcp_reserve_mblock[id].start_phys;
-				buf_ptr = dma_buf_vmap(mtk_hcp_reserve_mblock[id].d_buf);
+				mblock[id].start_phys = sg_dma_address(sgt->sgl);
+				mblock[id].start_dma =
+				mblock[id].start_phys;
+				buf_ptr = dma_buf_vmap(mblock[id].d_buf);
 				if (!buf_ptr) {
 					pr_info("sg_dma_address fail\n");
 					return -1;
 				}
-				mtk_hcp_reserve_mblock[id].start_virt = buf_ptr;
-				mtk_hcp_reserve_mblock[id].fd =
-				dma_buf_fd(mtk_hcp_reserve_mblock[id].d_buf,
+				mblock[id].start_virt = buf_ptr;
+				mblock[id].fd =
+				dma_buf_fd(mblock[id].d_buf,
 				O_RDWR | O_CLOEXEC);
-				dma_buf_get(mtk_hcp_reserve_mblock[id].fd);
+				dma_buf_get(mblock[id].fd);
 				break;
 			}
 		} else {
-			mtk_hcp_reserve_mblock[id].start_virt =
-				kzalloc(mtk_hcp_reserve_mblock[id].size,
+			mblock[id].start_virt =
+				kzalloc(mblock[id].size,
 					GFP_KERNEL);
-			mtk_hcp_reserve_mblock[id].start_phys =
+			mblock[id].start_phys =
 				virt_to_phys(
-					mtk_hcp_reserve_mblock[id].start_virt);
-			mtk_hcp_reserve_mblock[id].start_dma = 0;
+					mblock[id].start_virt);
+			mblock[id].start_dma = 0;
 		}
-		pr_info(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-			__func__, id, mtk_hcp_get_reserve_mem_phys(id),
-			mtk_hcp_get_reserve_mem_virt(id),
-			mtk_hcp_get_reserve_mem_dma(id),
-			mtk_hcp_get_reserve_mem_size(id),
-			mtk_hcp_reserve_mblock[id].is_dma_buf,
-			mtk_hcp_get_reserve_mem_fd(id),
-			mtk_hcp_reserve_mblock[id].d_buf);
 	}
 
 	return 0;
+}
+EXPORT_SYMBOL(allocate_working_buffer_helper);
+
+int release_working_buffer_helper(struct platform_device *pdev)
+{
+	unsigned int id;
+	struct mtk_hcp_reserve_mblock *mblock;
+	unsigned int block_num;
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	#ifdef NEED_FORCE_MMAP_PAIR
+	int i = 0;
+	#endif
+
+	mblock = hcp_dev->data->mblock;
+	block_num = hcp_dev->data->block_num;
+
+	/* release reserved memory */
+	for (id = 0; id < block_num; id++) {
+		if (mblock[id].is_dma_buf) {
+			switch (id) {
+			case IMG_MEM_FOR_HW_ID:
+				/*allocated at probe via dts*/
+				break;
+			default:
+				/* free va */
+				dma_buf_vunmap(mblock[id].d_buf,
+				mblock[id].start_virt);
+				/* free iova */
+				dma_buf_unmap_attachment(mblock[id].attach,
+				mblock[id].sgt, DMA_TO_DEVICE);
+				dma_buf_detach(mblock[id].d_buf,
+				mblock[id].attach);
+				dma_buf_put(mblock[id].d_buf);
+				// close fd in user space driver, you can't close fd in kernel site
+				// dma_heap_buffer_free(mblock[id].d_buf);
+				//dma_buf_put(my_dma_buf);
+				//also can use this api, but not recommended
+				mblock[id].mem_priv = NULL;
+				mblock[id].mmap_cnt = 0;
+				mblock[id].start_dma = 0x0;
+				mblock[id].start_virt = 0x0;
+				mblock[id].start_phys = 0x0;
+				mblock[id].d_buf = NULL;
+				mblock[id].fd = -1;
+				mblock[id].pIonHandle = NULL;
+				mblock[id].attach = NULL;
+				mblock[id].sgt = NULL;
+				break;
+			}
+		} else {
+			kfree(mblock[id].start_virt);
+			mblock[id].start_virt = 0x0;
+			mblock[id].start_phys = 0x0;
+			mblock[id].start_dma = 0x0;
+			mblock[id].mmap_cnt = 0;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(release_working_buffer_helper);
+
+int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if (!hcp_dev->data->allocate) {
+		dev_info(&pdev->dev, "%s:allocate not supported\n", __func__);
+		return allocate_working_buffer_helper(pdev);
+	}
+
+	return hcp_dev->data->allocate(hcp_dev);
 }
 EXPORT_SYMBOL(mtk_hcp_allocate_working_buffer);
 
 int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 {
-	enum mtk_hcp_reserve_mem_id_t id;
-	/* struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev); */
-	#ifdef NEED_FORCE_MMAP_PAIR
-	int i = 0;
-	#endif
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	/* release reserved memory */
-	for (id = 0; id < NUMS_MEM_ID; id++) {
-		if (mtk_hcp_reserve_mblock[id].is_dma_buf) {
-			switch (id) {
-			case IMG_MEM_FOR_HW_ID:
-				/*allocated at probe via dts*/
-				break;
-			/* case IMG_MEM_G_ID: */
-#ifdef USE_ION
-				if ((hcp_dev->pIonClient != NULL) &&
-					(mtk_hcp_reserve_mblock[id].pIonHandle != NULL)) {
-					_imgsys_ion_free_handle(hcp_dev->pIonClient,
-						mtk_hcp_reserve_mblock[id].pIonHandle);
-				} else {
-					pr_info("pIonClient or pIonHandle is NULL!! in %s",
-					__func__);
-				}
-				mtk_hcp_reserve_mblock[id].mem_priv = NULL;
-				mtk_hcp_reserve_mblock[id].mmap_cnt = 0;
-				mtk_hcp_reserve_mblock[id].start_dma = 0x0;
-				mtk_hcp_reserve_mblock[id].start_virt = 0x0;
-				mtk_hcp_reserve_mblock[id].start_phys = 0x0;
-				mtk_hcp_reserve_mblock[id].d_buf = NULL;
-				mtk_hcp_reserve_mblock[id].fd = -1;
-				mtk_hcp_reserve_mblock[id].pIonHandle = NULL;
-				mtk_hcp_reserve_mblock[id].attach = NULL;
-				mtk_hcp_reserve_mblock[id].sgt = NULL;
-#endif
-				break;
-			default:
-				/* free va */
-				dma_buf_vunmap(mtk_hcp_reserve_mblock[id].d_buf,
-				mtk_hcp_reserve_mblock[id].start_virt);
-				/* free iova */
-				dma_buf_unmap_attachment(mtk_hcp_reserve_mblock[id].attach,
-				mtk_hcp_reserve_mblock[id].sgt, DMA_TO_DEVICE);
-				dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf,
-				mtk_hcp_reserve_mblock[id].attach);
-				dma_buf_put(mtk_hcp_reserve_mblock[id].d_buf);
-				// close fd in user space driver, you can't close fd in kernel site
-				// dma_heap_buffer_free(mtk_hcp_reserve_mblock[id].d_buf);
-				//dma_buf_put(my_dma_buf);
-				//also can use this api, but not recommended
-				mtk_hcp_reserve_mblock[id].mem_priv = NULL;
-				mtk_hcp_reserve_mblock[id].mmap_cnt = 0;
-				mtk_hcp_reserve_mblock[id].start_dma = 0x0;
-				mtk_hcp_reserve_mblock[id].start_virt = 0x0;
-				mtk_hcp_reserve_mblock[id].start_phys = 0x0;
-				mtk_hcp_reserve_mblock[id].d_buf = NULL;
-				mtk_hcp_reserve_mblock[id].fd = -1;
-				mtk_hcp_reserve_mblock[id].pIonHandle = NULL;
-				mtk_hcp_reserve_mblock[id].attach = NULL;
-				mtk_hcp_reserve_mblock[id].sgt = NULL;
-				break;
-			}
-		} else {
-			kfree(mtk_hcp_reserve_mblock[id].start_virt);
-			mtk_hcp_reserve_mblock[id].start_virt = 0x0;
-			mtk_hcp_reserve_mblock[id].start_phys = 0x0;
-			mtk_hcp_reserve_mblock[id].start_dma = 0x0;
-			mtk_hcp_reserve_mblock[id].mmap_cnt = 0;
-		}
-		pr_info(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-			__func__, id, mtk_hcp_get_reserve_mem_phys(id),
-			mtk_hcp_get_reserve_mem_virt(id),
-			mtk_hcp_get_reserve_mem_dma(id),
-			mtk_hcp_get_reserve_mem_size(id),
-			mtk_hcp_reserve_mblock[id].is_dma_buf,
-			mtk_hcp_get_reserve_mem_fd(id));
+	if (!hcp_dev->data->release) {
+		dev_info(&pdev->dev, "%s:release not supported\n", __func__);
+		return release_working_buffer_helper(pdev);
 	}
 
-	return 0;
+	return hcp_dev->data->release(hcp_dev);
 }
 EXPORT_SYMBOL(mtk_hcp_release_working_buffer);
+
+int mtk_hcp_get_init_info(struct platform_device *pdev,
+			struct img_init_info *info)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if (!hcp_dev->data->get_init_info || !info) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return -1;
+	}
+
+	return hcp_dev->data->get_init_info(info);
+}
+EXPORT_SYMBOL(mtk_hcp_get_init_info);
 
 void mtk_hcp_purge_msg(struct platform_device *pdev)
 {
@@ -1910,7 +1699,6 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	int i = 0;
 
 	dev_info(&pdev->dev, "- E. hcp driver probe.\n");
-
 	hcp_dev = devm_kzalloc(&pdev->dev, sizeof(*hcp_dev), GFP_KERNEL);
 	if (hcp_dev == NULL)
 		return -ENOMEM;
@@ -1918,6 +1706,9 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	hcp_mtkdev = hcp_dev;
 	hcp_dev->dev = &pdev->dev;
 	hcp_dev->mem_ops = &hcp_vb2_dma_contig_memops;
+
+	hcp_dev->data = of_device_get_match_data(&pdev->dev);
+
 	platform_set_drvdata(pdev, hcp_dev);
 	dev_set_drvdata(&pdev->dev, hcp_dev);
 
@@ -2013,13 +1804,6 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	/* allocate reserved memory */
 	/* allocate shared memory about ipi_param at probe, allocate others at streamon */
 		/* update size to be the same with dts */
-#ifdef USE_ION
-	hcp_dev->pIonClient = ion_client_create(g_ion_device, "imgsys");
-	if (hcp_dev->pIonClient == NULL) {
-		pr_info("hcp_dev->pIonClient is NULL!! in probe stage");
-		goto err_device;
-	}
-#endif
 	/* mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].start_virt = */
 	/* ioremap_wc(rmem_base_phys, rmem_size); */
 	/* mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].start_phys = */
@@ -2054,7 +1838,7 @@ err_alloc:
 }
 
 static const struct of_device_id mtk_hcp_match[] = {
-	{.compatible = "mediatek,hcp",},
+	{.compatible = "mediatek,hcp", .data = (void *)&isp71_hcp_data},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_hcp_match);
@@ -2065,7 +1849,7 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int i = 0;
 #if HCP_RESERVED_MEM
-	enum mtk_hcp_reserve_mem_id_t id;
+	unsigned int id;
 #endif
 
 	dev_dbg(&pdev->dev, "- E. hcp driver remove.\n");
@@ -2087,11 +1871,6 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 		}
 	}
 
-#ifdef USE_ION
-	if (hcp_dev->pIonClient != NULL) {
-		ion_client_destroy(hcp_dev->pIonClient);
-	}
-#endif
 	if (hcp_dev->is_open == true) {
 		hcp_dev->is_open = false;
 		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);

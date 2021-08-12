@@ -1193,8 +1193,8 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		return;
 
 	swbuf_data = (struct img_sw_buffer *)data;
-	swfrm_info = (struct swfrm_info_t *)(mtk_hcp_get_reserve_mem_virt(
-		IMG_MEM_G_ID) + (swbuf_data->offset));
+	swfrm_info = (struct swfrm_info_t *)(mtk_hcp_get_gce_mem_virt(
+				imgsys_dev->scp_pdev) + (swbuf_data->offset));
 
 	if (!swfrm_info) {
 		pr_info("%s: invalid swfrm_info\n", __func__);
@@ -1202,8 +1202,8 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	}
 
 	swfrm_info->req_sbuf_goft = swbuf_data->offset;
-	swfrm_info->req_sbuf_kva = mtk_hcp_get_reserve_mem_virt(
-		IMG_MEM_G_ID) + (swbuf_data->offset);
+	swfrm_info->req_sbuf_kva = mtk_hcp_get_gce_mem_virt(
+				imgsys_dev->scp_pdev) + (swbuf_data->offset);
 
 #if MTK_CM4_SUPPORT == 0
 
@@ -1329,10 +1329,10 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swfrm_info->fail_isHWhang = -1;
 	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
 		swfrm_info->user_info[i].g_swbuf =
-			mtk_hcp_get_reserve_mem_virt(IMG_MEM_G_ID) +
+			mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev) +
 			(swfrm_info->user_info[i].sw_goft);
 		swfrm_info->user_info[i].bw_swbuf =
-			mtk_hcp_get_reserve_mem_virt(IMG_MEM_G_ID) +
+			mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev) +
 			(swfrm_info->user_info[i].sw_bwoft);
 	}
 
@@ -1493,12 +1493,12 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 #endif
 	} else
 		ipi_param.frm_param.offset = (u32)(buf->frameparam.vaddr -
-			mtk_hcp_get_reserve_mem_virt(DIP_MEM_FOR_HW_ID));
+			mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev));
 
 	dev_dbg(imgsys_dev->dev, "req-fd:%d, va:0x%llx,sva:0x%llx, offset:%d, fd:%d\n",
 		req->tstate.req_fd,
 		buf->frameparam.vaddr,
-		mtk_hcp_get_reserve_mem_virt(DIP_MEM_FOR_HW_ID),
+		mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev),
 		ipi_param.frm_param.offset, ipi_param.frm_param.fd);
 #endif
 
@@ -1647,102 +1647,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		info.hw_buf_size = dbuf->size;
 		info.hw_buf_fd = buf->buf_fd;
 #endif
-		info.hw_buf = mtk_hcp_get_reserve_mem_phys(DIP_MEM_FOR_HW_ID);
-		/*WPE:0, TRAW:1, DIP:2, PQDIP:3, ADL:4 */
-		info.module_info[0].c_wbuf =
-				mtk_hcp_get_reserve_mem_phys(WPE_MEM_C_ID);
-		info.module_info[0].c_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(WPE_MEM_C_ID);
-		info.module_info[0].c_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(WPE_MEM_C_ID);
-		info.module_info[0].c_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(WPE_MEM_C_ID);
-		info.module_info[0].t_wbuf =
-				mtk_hcp_get_reserve_mem_phys(WPE_MEM_T_ID);
-		info.module_info[0].t_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(WPE_MEM_T_ID);
-		info.module_info[0].t_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(WPE_MEM_T_ID);
-		info.module_info[0].t_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(WPE_MEM_T_ID);
-
-		// TRAW
-		info.module_info[1].c_wbuf =
-				mtk_hcp_get_reserve_mem_phys(TRAW_MEM_C_ID);
-		info.module_info[1].c_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(TRAW_MEM_C_ID);
-		info.module_info[1].c_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(TRAW_MEM_C_ID);
-		info.module_info[1].c_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(TRAW_MEM_C_ID);
-		info.module_info[1].t_wbuf =
-				mtk_hcp_get_reserve_mem_phys(TRAW_MEM_T_ID);
-		info.module_info[1].t_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(TRAW_MEM_T_ID);
-		info.module_info[1].t_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(TRAW_MEM_T_ID);
-		info.module_info[1].t_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(TRAW_MEM_T_ID);
-
-		// DIP
-		info.module_info[2].c_wbuf =
-				mtk_hcp_get_reserve_mem_phys(DIP_MEM_C_ID);
-		info.module_info[2].c_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(DIP_MEM_C_ID);
-		info.module_info[2].c_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(DIP_MEM_C_ID);
-		info.module_info[2].c_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(DIP_MEM_C_ID);
-		info.module_info[2].t_wbuf =
-				mtk_hcp_get_reserve_mem_phys(DIP_MEM_T_ID);
-		info.module_info[2].t_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(DIP_MEM_T_ID);
-		info.module_info[2].t_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(DIP_MEM_T_ID);
-		info.module_info[2].t_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(DIP_MEM_T_ID);
-
-		// PQDIP
-		info.module_info[3].c_wbuf =
-				mtk_hcp_get_reserve_mem_phys(PQDIP_MEM_C_ID);
-		info.module_info[3].c_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(PQDIP_MEM_C_ID);
-		info.module_info[3].c_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(PQDIP_MEM_C_ID);
-		info.module_info[3].c_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(PQDIP_MEM_C_ID);
-		info.module_info[3].t_wbuf =
-				mtk_hcp_get_reserve_mem_phys(PQDIP_MEM_T_ID);
-		info.module_info[3].t_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(PQDIP_MEM_T_ID);
-		info.module_info[3].t_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(PQDIP_MEM_T_ID);
-		info.module_info[3].t_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(PQDIP_MEM_T_ID);
-
-		info.module_info[4].c_wbuf =
-				mtk_hcp_get_reserve_mem_phys(ADL_MEM_C_ID);
-		info.module_info[4].c_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(ADL_MEM_C_ID);
-		info.module_info[4].c_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(ADL_MEM_C_ID);
-		info.module_info[4].c_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(ADL_MEM_C_ID);
-		info.module_info[4].t_wbuf =
-				mtk_hcp_get_reserve_mem_phys(ADL_MEM_T_ID);
-		info.module_info[4].t_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(ADL_MEM_T_ID);
-		info.module_info[4].t_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(ADL_MEM_T_ID);
-		info.module_info[4].t_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(ADL_MEM_T_ID);
-
-		/*common*/
-		/* info.g_wbuf_fd = mtk_hcp_get_reserve_mem_fd(IMG_MEM_G_ID); */
-		info.g_wbuf_fd = mtk_hcp_get_reserve_mem_fd(IMG_MEM_G_ID);
-		info.g_wbuf = mtk_hcp_get_reserve_mem_phys(IMG_MEM_G_ID);
-		/*info.g_wbuf_sw = mtk_hcp_get_reserve_mem_virt(IMG_MEM_G_ID);*/
-		info.g_wbuf_sz = mtk_hcp_get_reserve_mem_size(IMG_MEM_G_ID);
+		mtk_hcp_get_init_info(imgsys_dev->scp_pdev, &info);
 
 		ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
 			(void *)&info, sizeof(info), 0, 1);

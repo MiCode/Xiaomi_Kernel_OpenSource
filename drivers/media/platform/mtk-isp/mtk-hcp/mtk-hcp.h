@@ -14,6 +14,7 @@
 #include <linux/dma-direction.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-buf.h>
+#include "mtk-img-ipi.h"
 
 //#include "scp_ipi.h"
 
@@ -183,6 +184,10 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev);
  **/
 int mtk_hcp_release_working_buffer(struct platform_device *pdev);
 
+void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev);
+void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev);
+int mtk_hcp_get_init_info(struct platform_device *pdev, struct img_init_info *info);
+
 /**
  * mtk_hcp_purge_msg - purge messages
  *
@@ -192,38 +197,139 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev);
  **/
 void mtk_hcp_purge_msg(struct platform_device *pdev);
 
+/**
+ * struct hcp_mem - HCP memory information
+ *
+ * @d_va:    the kernel virtual memory address of HCP extended data memory
+ * @d_pa:    the physical memory address of HCP extended data memory
+ * @d_len:   the length of extended data
+ */
+struct hcp_mem {
+	void *d_va;
+	dma_addr_t d_pa;
+	unsigned long d_len;
+};
+
+/**
+ * struct hcp_desc - hcp descriptor
+ *
+ * @handler:      IPI handler
+ * @name:         the name of IPI handler
+ * @priv:         the private data of IPI handler
+ */
+struct hcp_desc {
+	hcp_handler_t handler;
+	const char *name;
+	void *priv;
+};
+
+struct object_id {
+	union {
+		struct send {
+			uint32_t hcp: 5;
+			uint32_t ack: 1;
+			uint32_t req: 10;
+			uint32_t seq: 16;
+		} __packed send;
+
+		uint32_t cmd;
+	};
+} __packed;
+
+#define HCP_SHARE_BUF_SIZE      388
+/**
+ * struct share_buf - DTCM (Data Tightly-Coupled Memory) buffer shared with
+ *                    RED and HCP
+ *
+ * @id:             hcp id
+ * @len:            share buffer length
+ * @share_buf:      share buffer data
+ */
+struct share_buf {
+	uint32_t id;
+	uint32_t len;
+	uint8_t share_data[HCP_SHARE_BUF_SIZE];
+	struct object_id info;
+};
+
+
+/**
+ * struct mtk_hcp - hcp driver data
+ * @extmem:              hcp extended memory information
+ * @hcp_desc:            hcp descriptor
+ * @dev:                 hcp struct device
+ * @mem_ops:             memory operations
+ * @hcp_mutex:           protect mtk_hcp (except recv_buf) and ensure only
+ *                       one client to use hcp service at a time.
+ * @data_mutex:          protect shared buffer between kernel user send and
+ *                       user thread get&read/copy
+ * @file:                hcp daemon file pointer
+ * @is_open:             the flag to indicate if hcp device is open.
+ * @ack_wq:              the wait queue for each client. When sleeping
+ *                       processes wake up, they will check the condition
+ *                       "hcp_id_ack" to run the corresponding action or
+ *                       go back to sleep.
+ * @hcp_id_ack:         The ACKs for registered HCP function.
+ * @get_wq:              When sleeping process waking up, it will check the
+ *                       condition "ipi_got" to run the corresponding action or
+ *                       go back to sleep.
+ * @ipi_got:             The flags for IPI message polling from user.
+ * @ipi_done:            The flags for IPI message polling from user again,
+ *       which means the previous messages has been dispatched
+ *                       done in daemon.
+ * @user_obj:            Temporary share_buf used for hcp_msg_get.
+ * @hcp_devno:           The hcp_devno for hcp init hcp character device
+ * @hcp_cdev:            The point of hcp character device.
+ * @hcp_class:           The class_create for create hcp device
+ * @hcp_device:          hcp struct device
+ * @hcpname:             hcp struct device name in dtsi
+ * @ cm4_support_list    to indicate which module can run in cm4 or it will send
+ *                       to user space for running action.
+ * @ current_task        hcp current task struct
+ */
+struct mtk_hcp {
+	bool have_slb;
+	struct hcp_mem extmem;
+	struct hcp_desc hcp_desc_table[HCP_MAX_ID];
+	struct device *dev;
+	const struct vb2_mem_ops *mem_ops;
+	const struct mtk_hcp_data *data;
+	/* for protecting vcu data structure */
+	struct file *file;
+	bool   is_open;
+	atomic_t seq;
+	wait_queue_head_t ack_wq[MODULE_MAX_ID];
+	atomic_t hcp_id_ack[HCP_MAX_ID];
+	wait_queue_head_t get_wq[MODULE_MAX_ID];
+	wait_queue_head_t poll_wq[MODULE_MAX_ID];
+	struct list_head chans[MODULE_MAX_ID];
+	struct list_head msg_list;
+	spinlock_t msglock;
+	wait_queue_head_t msg_wq;
+	dev_t hcp_devno;
+	struct cdev hcp_cdev;
+	struct class *hcp_class;
+	struct device *hcp_device;
+	const char *hcpname;
+	bool cm4_support_list[MODULE_MAX_ID];
+	struct task_struct *current_task;
+	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
+};
+
+struct mtk_hcp_data {
+	struct mtk_hcp_reserve_mblock *mblock;
+	unsigned int block_num;
+	int (*allocate)(struct mtk_hcp *hcp_dev);
+	int (*release)(struct mtk_hcp *hcp_dev);
+	int (*get_init_info)(struct img_init_info *info);
+	void* (*get_gce_virt)(void);
+	void* (*get_hwid_virt)(void);
+};
 
 #define HCP_RESERVED_MEM  (1)
 #define MTK_CM4_SUPPORT     (0)
 
 #if HCP_RESERVED_MEM
-/* hcp reserve memory ID definition*/
-enum mtk_hcp_reserve_mem_id_t {
-	#ifdef NEED_LEGACY_MEM
-	ISP_MEM_ID,
-	DIP_MEM_FOR_HW_ID,
-	DIP_MEM_FOR_SW_ID,
-	MDP_MEM_ID,
-	FD_MEM_ID,
-	#else
-	DIP_MEM_FOR_HW_ID,
-	IMG_MEM_FOR_HW_ID = DIP_MEM_FOR_HW_ID, /*shared buffer for ipi_param*/
-	#endif
-	/*need replace DIP_MEM_FOR_HW_ID & DIP_MEM_FOR_SW_ID*/
-	WPE_MEM_C_ID, /*module cq buffer*/
-	WPE_MEM_T_ID, /*module tdr buffer*/
-	TRAW_MEM_C_ID,  /*module cq buffer*/
-	TRAW_MEM_T_ID,  /*module tdr buffer*/
-	DIP_MEM_C_ID, /*module cq buffer*/
-	DIP_MEM_T_ID, /*module tdr buffer*/
-	PQDIP_MEM_C_ID, /*module cq buffer*/
-	PQDIP_MEM_T_ID, /*module tdr buffer*/
-	ADL_MEM_C_ID, /*module cq buffer*/
-	ADL_MEM_T_ID, /*module tdr buffer*/
-	IMG_MEM_G_ID, /*gce cmd buffer*/
-	NUMS_MEM_ID,
-};
-
 /**
  * struct mtk_hcp_reserve_mblock - info about memory buffer allocated in kernel
  *
@@ -239,7 +345,7 @@ enum mtk_hcp_reserve_mem_id_t {
  * @fd:         buffer fd
  */
 struct mtk_hcp_reserve_mblock {
-	enum mtk_hcp_reserve_mem_id_t num;
+	unsigned int num;
 	phys_addr_t start_phys;
 	void *start_virt;
 	phys_addr_t start_dma;
@@ -255,31 +361,21 @@ struct mtk_hcp_reserve_mblock {
 	struct sg_table *sgt;
 };
 
-int hcp_allocate_buffer(struct platform_device *pdev,
-	enum mtk_hcp_reserve_mem_id_t id,
-	unsigned int size);
-int hcp_get_ion_buffer_fd(struct platform_device *pdev,
-	enum mtk_hcp_reserve_mem_id_t id);
-void hcp_close_ion_buffer_fd(struct platform_device *pdev,
-	enum mtk_hcp_reserve_mem_id_t id);
-int hcp_free_buffer(struct platform_device *pdev,
-	enum mtk_hcp_reserve_mem_id_t id);
-
 int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 	int32_t value, size_t size);
 
 extern phys_addr_t mtk_hcp_get_reserve_mem_phys(
-					enum mtk_hcp_reserve_mem_id_t id);
-extern void *mtk_hcp_get_reserve_mem_virt(enum mtk_hcp_reserve_mem_id_t id);
-extern void mtk_hcp_set_reserve_mem_virt(enum mtk_hcp_reserve_mem_id_t id,
+					unsigned int id);
+extern void *mtk_hcp_get_reserve_mem_virt(unsigned int id);
+extern void mtk_hcp_set_reserve_mem_virt(unsigned int id,
 	void *virmem);
 extern phys_addr_t mtk_hcp_get_reserve_mem_dma(
-					enum mtk_hcp_reserve_mem_id_t id);
+					unsigned int id);
 extern phys_addr_t mtk_hcp_get_reserve_mem_size(
-					enum mtk_hcp_reserve_mem_id_t id);
+					unsigned int id);
 extern uint32_t mtk_hcp_get_reserve_mem_fd(
-					enum mtk_hcp_reserve_mem_id_t id);
-extern void mtk_hcp_set_reserve_mem_fd(enum mtk_hcp_reserve_mem_id_t id,
+					unsigned int id);
+extern void mtk_hcp_set_reserve_mem_fd(unsigned int id,
 	uint32_t fd);
 #endif
 
