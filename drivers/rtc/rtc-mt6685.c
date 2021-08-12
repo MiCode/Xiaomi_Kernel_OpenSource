@@ -112,7 +112,7 @@ static int rtc_update_bits(struct mt6685_rtc *rtc, unsigned int reg,
 
 static unsigned int rtc_spare_reg[SPARE_RG_MAX][3] = {
 	{RTC_RG_FG2, 0xff, 0},
-	{RTC_RG_FG3, 0xf, 0},
+	{RTC_RG_FG3, 0xff, 0},
 	{RTC_SPAR0, 0xff, 0},
 #ifdef SUPPORT_PWR_OFF_ALARM
 	{RTC_PDN1_H, 0x1, 6},
@@ -191,11 +191,22 @@ static int rtc_spare_field_write(struct mt6685_rtc *rtc,
 		tmp_val = tmp_val & ~(rtc_spare_reg[cmd][RTC_MASK] <<
 				rtc_spare_reg[cmd][RTC_SHIFT]);
 
+		if (rtc->data->unlock_version == UNLOCK_MT6685_SERIES) {
+			if (rtc_spare_reg[cmd][RTC_REG] == RTC_RG_FG2) {
+				rtc_write(rtc, rtc->addr_base + RTC_RG_FG2, 0xaf);
+				rtc_write(rtc, rtc->addr_base + RTC_RG_FG2, 0xaf);
+				rtc_write(rtc, rtc->addr_base + RTC_RG_FG2, 0x5e);
+			}
+			if (rtc_spare_reg[cmd][RTC_REG] == RTC_RG_FG3) {
+				rtc_write(rtc, rtc->addr_base + RTC_RG_FG3, 0x66);
+				rtc_write(rtc, rtc->addr_base + RTC_RG_FG3, 0x66);
+				rtc_write(rtc, rtc->addr_base + RTC_RG_FG3, 0xf1);
+			}
+		}
+
 		rtc_write(rtc, rtc->addr_base + rtc_spare_reg[cmd][RTC_REG],
 					tmp_val | ((val & rtc_spare_reg[cmd][RTC_MASK]) <<
 						rtc_spare_reg[cmd][RTC_SHIFT]));
-
-		mtk_rtc_write_trigger(rtc);
 	}
 	return 0;
 }
@@ -1053,7 +1064,7 @@ int rtc_nvram_read(void *priv, unsigned int offset, void *val,
 							size_t bytes)
 {
 	struct mt6685_rtc *rtc = dev_get_drvdata(priv);
-	int ret;
+	unsigned int ret;
 	u8 *buf = val;
 
 	mutex_lock(&rtc->lock);
@@ -1062,7 +1073,10 @@ int rtc_nvram_read(void *priv, unsigned int offset, void *val,
 		ret = rtc_field_read(rtc, (SPARE_FG2 + offset++));
 		if (ret < 0)
 			goto out;
-		*buf++ = (u8)ret;
+		else {
+			*buf++ = (u8)ret;
+			ret = 0;
+		}
 	}
 out:
 	mutex_unlock(&rtc->lock);
@@ -1082,9 +1096,10 @@ int rtc_nvram_write(void *priv, unsigned int offset, void *val,
 	for (; bytes; bytes--) {
 		ival = *buf++;
 		ret = rtc_spare_field_write(rtc, (SPARE_FG2 + offset++), ival);
-		if (!ret)
+		if (ret < 0)
 			goto out;
 	}
+	mtk_rtc_write_trigger(rtc);
 out:
 	mutex_unlock(&rtc->lock);
 	return ret;
@@ -1261,6 +1276,7 @@ static SIMPLE_DEV_PM_OPS(mt6685_pm_ops, mt6685_rtc_suspend,
 
 static const struct mtk_rtc_data mt6685_rtc_data = {
 	.wrtgr = RTC_WRTGR_MT6685,
+	.unlock_version = UNLOCK_MT6685_SERIES,
 };
 
 static const struct of_device_id mt6685_rtc_of_match[] = {

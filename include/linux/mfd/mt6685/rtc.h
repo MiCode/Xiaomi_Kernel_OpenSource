@@ -181,6 +181,10 @@ enum rtc_reg_set {
 	RTC_SHIFT
 };
 
+enum unlock_version {
+	UNLOCK_MT6685_SERIES,
+};
+
 #ifdef SUPPORT_EOSC_CALI
 
 #define EOSC_SOL_1      0x5
@@ -201,14 +205,6 @@ enum cali_field_enum {
 	CALI_RG_MAX
 };
 
-enum eosc_cali_version {
-	EOSC_CALI_NONE,
-	EOSC_CALI_MT6357_SERIES,
-	EOSC_CALI_MT6358_SERIES,
-	EOSC_CALI_MT6359_SERIES,
-	EOSC_CALI_MT6359P_SERIES,
-	EOSC_CALI_MT6685_SERIES,
-};
 #endif
 
 #ifdef SUPPORT_PWR_OFF_ALARM
@@ -237,7 +233,8 @@ enum boot_mode_t {
 #endif
 
 struct mtk_rtc_data {
-	u32                     wrtgr;
+	u32         wrtgr;
+	u32			unlock_version;
 };
 
 struct mt6685_rtc {
