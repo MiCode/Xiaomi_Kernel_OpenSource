@@ -403,9 +403,61 @@ sys_restriction:
 
 static DEFINE_RAW_SPINLOCK(migration_lock);
 
+int select_idle_cpu_from_domains(struct task_struct *p,
+					struct perf_domain **prefer_pds, int len)
+{
+	int i = 0;
+	struct perf_domain *pd;
+	int cpu, best_cpu = -1;
+
+	for (; i < len; i++) {
+		pd = prefer_pds[i];
+		for_each_cpu_and(cpu, perf_domain_span(pd),
+						cpu_active_mask) {
+			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
+				continue;
+			if (idle_cpu(cpu)) {
+				best_cpu = cpu;
+				break;
+			}
+		}
+		if (best_cpu != -1)
+			break;
+	}
+
+	return best_cpu;
+}
+
+int select_bigger_idle_cpu(struct task_struct *p)
+{
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	struct perf_domain *pd, *prefer_pds[NR_CPUS];
+	int cpu = task_cpu(p), bigger_idle_cpu = -1;
+	int i = 0;
+	long max_capacity = capacity_orig_of(cpu);
+	long capacity;
+
+	rcu_read_lock();
+	pd = rcu_dereference(rd->pd);
+
+	for (; pd; pd = pd->next) {
+		capacity = capacity_orig_of(cpumask_first(perf_domain_span(pd)));
+		if (capacity > max_capacity &&
+			cpumask_intersects(p->cpus_ptr, perf_domain_span(pd))) {
+			prefer_pds[i++] = pd;
+		}
+	}
+
+	if (i != 0)
+		bigger_idle_cpu = select_idle_cpu_from_domains(p, prefer_pds, i);
+
+	rcu_read_unlock();
+	return bigger_idle_cpu;
+}
+
 void check_for_migration(struct task_struct *p)
 {
-	int new_cpu = -1;
+	int new_cpu = -1, better_idle_cpu = -1;
 	int cpu = task_cpu(p);
 	struct rq *rq = cpu_rq(cpu);
 
@@ -418,12 +470,19 @@ void check_for_migration(struct task_struct *p)
 		rcu_read_lock();
 		new_cpu = p->sched_class->select_task_rq(p, cpu, SD_BALANCE_WAKE, 0);
 		rcu_read_unlock();
+
+		if ((new_cpu < 0) ||
+			(capacity_orig_of(new_cpu) <= capacity_orig_of(cpu)))
+			better_idle_cpu = select_bigger_idle_cpu(p);
+		if (better_idle_cpu >= 0)
+			new_cpu = better_idle_cpu;
+
 		if (new_cpu < 0) {
 			raw_spin_unlock(&migration_lock);
 			return;
 		}
-
-		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
+		if ((better_idle_cpu >= 0) ||
+			(capacity_orig_of(new_cpu) > capacity_orig_of(cpu))) {
 			raw_spin_unlock(&migration_lock);
 			migrate_running_task(new_cpu, p, rq, MIGR_TICK_PULL_MISFIT_RUNNING);
 		} else {
