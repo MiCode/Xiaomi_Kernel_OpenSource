@@ -10,6 +10,7 @@
 #include <linux/wait.h>
 #include <linux/module.h>
 #include <linux/poll.h>
+#include <linux/mm_types.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -1320,12 +1321,74 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 /*
  * define character device operation for rpc_u
  */
+ #define BANK4_DRDI_SMEM_SIZE (512*1024)
+static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
+{
+	struct port_t *port = fp->private_data;
+	int md_id, len, ret;
+	unsigned long pfn;
+	struct ccci_smem_region *amms_smem = NULL;
+
+	if (port == NULL) {
+		CCCI_ERROR_LOG(-1, RPC, "%s:port is NULL\n", __func__);
+		return -1;
+	}
+
+	md_id = port->md_id;
+	if (port->rx_ch != CCCI_RPC_RX)
+		return -EFAULT;
+
+	amms_smem = ccci_md_get_smem_by_user_id(md_id,
+		SMEM_USER_MD_DRDI);
+	if (!amms_smem) {
+		CCCI_ERROR_LOG(md_id, RPC, "%s:%d:ccci_md_get_smem_by_user_id fail\n",
+			__func__, __LINE__);
+		return -1;
+	}
+
+	if (amms_smem->size != BANK4_DRDI_SMEM_SIZE)
+		CCCI_ERROR_LOG(md_id, RPC, "%s:%d:SMEM_USER_MD_DRDI size invalid(0x%x)\n",
+			__func__, __LINE__, amms_smem->size);
+	amms_smem->size &= ~(PAGE_SIZE - 1);
+	CCCI_NORMAL_LOG(md_id, RPC,
+			"remap drdi smem addr:0x%llx len:%d  map-len:%lx\n",
+			(unsigned long long)amms_smem->base_ap_view_phy,
+			amms_smem->size, vma->vm_end - vma->vm_start);
+	if ((vma->vm_end - vma->vm_start) != amms_smem->size) {
+		CCCI_ERROR_LOG(md_id, RPC,
+			"smem size error:%s,vm_start=0x%llx,vm_end=0x%llx,smem_size=0x%x\n",
+			port->name, vma->vm_start, vma->vm_end, amms_smem->size);
+		return -EINVAL;
+	}
+
+	len = amms_smem->size;
+	pfn = amms_smem->base_ap_view_phy;
+	pfn >>= PAGE_SHIFT;
+	/* ensure that memory does not get swapped to disk */
+	vma->vm_flags |= VM_IO;
+	/* ensure non-cacheable */
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	ret = remap_pfn_range(vma, vma->vm_start, pfn,
+				len, vma->vm_page_prot);
+	if (ret) {
+		CCCI_ERROR_LOG(md_id, RPC,
+			"drdi_smem remap failed %d/%lx, 0x%llx -> 0x%llx\n",
+			ret, pfn,
+			(unsigned long long)amms_smem->base_ap_view_phy,
+			(unsigned long long)vma->vm_start);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static const struct file_operations rpc_dev_fops = {
 	.owner = THIS_MODULE,
 	.open = &port_dev_open, /*use default API*/
 	.read = &port_dev_read, /*use default API*/
 	.write = &port_dev_write, /*use default API*/
 	.release = &port_dev_close,/*use default API*/
+	.mmap = &port_rpc_dev_mmap,/*use internal API*/
 };
 static int port_rpc_init(struct port_t *port)
 {
@@ -1401,6 +1464,7 @@ int port_rpc_recv_match(struct port_t *port, struct sk_buff *skb)
 
 		case IPC_RPC_QUERY_AP_SYS_PROPERTY:
 		case IPC_RPC_SAR_TABLE_IDX_QUERY_OP:
+		case IPC_RPC_AMMS_DRDI_CONTROL:
 			is_userspace_msg = 1;
 			break;
 		default:

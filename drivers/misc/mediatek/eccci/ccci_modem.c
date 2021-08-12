@@ -52,6 +52,10 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 	{SMEM_USER_RAW_DFD,	        0,	0,		 0, },
 	{SMEM_USER_RAW_UDC_DATA,	0,	0,		 0, },
 	{SMEM_USER_MD_WIFI_PROXY,	0,	0,		 0,},
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+	{SMEM_USER_SECURITY_SMEM,	0,	0,
+		SMF_NCLR_FIRST, },
+#endif
 	{SMEM_USER_RAW_AMMS_POS,	0,	0,
 		SMF_NCLR_FIRST, },
 
@@ -71,6 +75,8 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 		SMF_NCLR_FIRST, },
 	{SMEM_USER_CCISM_MCU,	0, (720+1)*1024,	SMF_NCLR_FIRST, },
 	{SMEM_USER_CCISM_MCU_EXP, 0, (120+1)*1024,	SMF_NCLR_FIRST, },
+	{SMEM_USER_RESERVED, 0, 18*1024,	 0, },
+	{SMEM_USER_MD_DRDI, 0, 512*1024, SMF_NCLR_FIRST, },
 	{SMEM_USER_MAX, }, /* tail guard */
 };
 
@@ -703,10 +709,6 @@ void ccci_md_config(struct ccci_modem *md)
 	md->mem_layout.md_bank0.base_ap_view_phy = md_resv_mem_addr;
 	md->mem_layout.md_bank0.size = md_resv_mem_size;
 	/* do not remap whole region, consume too much vmalloc space */
-	md->mem_layout.md_bank0.base_ap_view_vir =
-		ccci_map_phy_addr(
-			md->mem_layout.md_bank0.base_ap_view_phy,
-			MD_IMG_DUMP_SIZE);
 	/* Share memory */
 	/*
 	 * MD bank4 is remap to nearest 32M aligned address
@@ -1563,10 +1565,21 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[NVRAM_CACHE_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
-
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_MUST_SUPPORT;
+#else
 	/* This item is reserved */
 	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
+#endif
+#if (MD_GENERATION >= 6297)
+		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
+			CCCI_FEATURE_MUST_SUPPORT;
+#else
+		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
+#endif
 
 #if (MD_GENERATION >= 6297)
 	md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
@@ -2145,6 +2158,22 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					rt_mem_view, 4);
 				append_runtime_feature(&rt_data, &rt_feature,
 				rt_mem_view);
+				break;
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+			case SECURITY_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_SECURITY_SMEM,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+#endif
+			case AMMS_DRDI_COPY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_MD_DRDI,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
 				break;
 			default:
 				break;
