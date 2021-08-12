@@ -21,6 +21,11 @@
 #define DEFAULT_DELAY_MS		10
 
 /*
+ * MT6368 regulator lock register value
+ */
+#define MT6368_BUCK_TOP_UNLOCK_VALUE	0x5543
+
+/*
  * MT6368 regulators' information
  *
  * @desc: standard fields of regulator description.
@@ -223,6 +228,13 @@ static unsigned int mt6368_regulator_get_mode(struct regulator_dev *rdev)
 		return REGULATOR_MODE_NORMAL;
 }
 
+static int mt6368_buck_unlock(struct regmap *map, bool unlock)
+{
+	u16 buf = unlock ? MT6368_BUCK_TOP_UNLOCK_VALUE : 0;
+
+	return regmap_bulk_write(map, MT6368_BUCK_TOP_KEY_PROT_LO, &buf, 2);
+}
+
 static int mt6368_regulator_set_mode(struct regulator_dev *rdev,
 				     unsigned int mode)
 {
@@ -233,17 +245,25 @@ static int mt6368_regulator_set_mode(struct regulator_dev *rdev,
 	curr_mode = mt6368_regulator_get_mode(rdev);
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
+		ret = mt6368_buck_unlock(rdev->regmap, true);
+		if (ret)
+			return ret;
 		ret = regmap_update_bits(rdev->regmap,
 					 info->modeset_reg,
 					 info->modeset_mask,
 					 info->modeset_mask);
+		ret |= mt6368_buck_unlock(rdev->regmap, false);
 		break;
 	case REGULATOR_MODE_NORMAL:
 		if (curr_mode == REGULATOR_MODE_FAST) {
+			ret = mt6368_buck_unlock(rdev->regmap, true);
+			if (ret)
+				return ret;
 			ret = regmap_update_bits(rdev->regmap,
 						 info->modeset_reg,
 						 info->modeset_mask,
 						 0);
+			ret |= mt6368_buck_unlock(rdev->regmap, false);
 		} else if (curr_mode == REGULATOR_MODE_IDLE) {
 			ret = regmap_update_bits(rdev->regmap,
 						 info->lp_mode_reg,
@@ -573,7 +593,7 @@ static int mt6368_of_parse_cb(struct device_node *np,
 	int ret;
 	struct mt6368_regulator_info *info = config->driver_data;
 
-	if (info->irq) {
+	if (info->irq > 0) {
 		ret = of_property_read_u32(np, "mediatek,oc-irq-enable-delay-ms",
 					   &info->oc_irq_enable_delay_ms);
 		if (ret || !info->oc_irq_enable_delay_ms)
@@ -587,30 +607,34 @@ static int mt6368_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
-	int i, ret, irq;
+	struct mt6368_regulator_info *info;
+	int i, ret;
 
 	config.dev = pdev->dev.parent;
 	config.regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	for (i = 0; i < MT6368_MAX_REGULATOR; i++) {
-		config.driver_data = &mt6368_regulators[i];
-		rdev = devm_regulator_register(&pdev->dev, &mt6368_regulators[i].desc, &config);
+		info = &mt6368_regulators[i];
+		info->irq = platform_get_irq_byname_optional(pdev, info->desc.name);
+		config.driver_data = info;
+
+		rdev = devm_regulator_register(&pdev->dev, &info->desc, &config);
 		if (IS_ERR(rdev)) {
 			ret = PTR_ERR(rdev);
 			dev_err(&pdev->dev, "failed to register %s, ret=%d\n",
-				mt6368_regulators[i].desc.name, ret);
+				info->desc.name, ret);
 			continue;
 		}
-		irq = platform_get_irq_byname_optional(pdev, mt6368_regulators[i].desc.name);
-		if (irq < 0)
+
+		if (info->irq <= 0)
 			continue;
-		ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+		ret = devm_request_threaded_irq(&pdev->dev, info->irq, NULL,
 						mt6368_oc_irq,
 						IRQF_TRIGGER_HIGH,
-						mt6368_regulators[i].desc.name,
+						info->desc.name,
 						rdev);
 		if (ret) {
 			dev_err(&pdev->dev, "Failed to request IRQ:%s, ret=%d",
-				mt6368_regulators[i].desc.name, ret);
+				info->desc.name, ret);
 			continue;
 		}
 	}
