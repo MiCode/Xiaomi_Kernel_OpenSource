@@ -798,15 +798,15 @@ static void disable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 
 	temp = temp & ~(STAGE3_INT_EN);
 
-	temp = temp & ~(HIGH_OFFSET3_INT_EN |
-					HIGH_OFFSET2_INT_EN |
-					HIGH_OFFSET1_INT_EN |
-					HIGH_OFFSET0_INT_EN);
+//	temp = temp & ~(HIGH_OFFSET3_INT_EN |
+//					HIGH_OFFSET2_INT_EN |
+//					HIGH_OFFSET1_INT_EN |
+//					HIGH_OFFSET0_INT_EN);
 
-	temp = temp & ~(LOW_OFFSET3_INT_EN |
-					LOW_OFFSET2_INT_EN |
-					LOW_OFFSET1_INT_EN |
-					LOW_OFFSET0_INT_EN);
+//	temp = temp & ~(LOW_OFFSET3_INT_EN |
+//					LOW_OFFSET2_INT_EN |
+//					LOW_OFFSET1_INT_EN |
+//					LOW_OFFSET0_INT_EN);
 
 //	pr_notice("[LVTS]%s,temp=0x%8x\n", __func__,temp);
 
@@ -824,17 +824,17 @@ static void enable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 	/* Enable the interrupt of AP SW */
 	temp = readl(LVTSMONINT_0 + base);
 
-	temp = temp | 	HIGH_OFFSET3_INT_EN |
-			HIGH_OFFSET2_INT_EN |
-			HIGH_OFFSET1_INT_EN |
-			HIGH_OFFSET0_INT_EN;
+//	temp = temp | HIGH_OFFSET3_INT_EN |
+//			HIGH_OFFSET2_INT_EN |
+//			HIGH_OFFSET1_INT_EN |
+//			HIGH_OFFSET0_INT_EN;
 
-	temp = temp | 	LOW_OFFSET3_INT_EN |
-			LOW_OFFSET2_INT_EN |
-			LOW_OFFSET1_INT_EN |
-			LOW_OFFSET0_INT_EN;
+//	temp = temp | LOW_OFFSET3_INT_EN |
+//			LOW_OFFSET2_INT_EN |
+//			LOW_OFFSET1_INT_EN |
+//			LOW_OFFSET0_INT_EN;
 
-//	temp = temp | STAGE3_INT_EN;
+	temp = temp | STAGE3_INT_EN;
 
 //        pr_notice("[LVTS]%s,temp=0x%8x\n", __func__,temp);
 
@@ -880,17 +880,17 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 		msr_raw = ops->lvts_temp_to_raw(&(tc[tc_id].coeff), d_index, trip_point);
 	}
 
-//	writel(msr_raw, LVTSPROTTC_0 + base);
+	writel(msr_raw, LVTSPROTTC_0 + base);
 
 	/* high offset INT */
-	writel(msr_raw, LVTSOFFSETH_0 + base);
+//	writel(msr_raw, LVTSOFFSETH_0 + base);
 
 	/*
 	 * lowoffset INT
 	 * set a big msr_raw = 0xffff(very low temperature)
 	 * to let lowoffset INT not be triggered
 	 */
-	writel(0xffff, LVTSOFFSETL_0 + base);
+//	writel(0xffff, LVTSOFFSETL_0 + base);
 
 	enable_hw_reboot_interrupt(lvts_data, tc_id);
 }
