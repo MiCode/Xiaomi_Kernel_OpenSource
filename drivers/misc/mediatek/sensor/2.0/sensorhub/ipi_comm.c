@@ -74,7 +74,7 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	} while (ret == IPI_PIN_BUSY);
 
 	timeout = wait_for_completion_timeout(&hw->done,
-			msecs_to_jiffies(500));
+			msecs_to_jiffies(100));
 	spin_lock_irqsave(&hw_transfer_lock, flags);
 	if (!timeout)
 		hw->count = -ETIMEDOUT;

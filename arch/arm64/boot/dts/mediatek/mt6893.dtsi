@@ -2227,7 +2227,9 @@
 				      <5 0xa000>, /* vow bargein */
 				      <8 0x10000>, /* sensor supper*/
 				      <9 0x1000>, /* sensor list */
-				      <10 0x2000>; /* sensor debug */
+				      <10 0x2000>, /* sensor debug */
+				      <11 0x100>, /* sensor custom writer */
+				      <12 0x100>; /* sensor custom reader */
 
 			memorydump =
 			<0x180000>, /* l2tcm */

@@ -73,6 +73,18 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.start_virt = 0x0,
 		.size = 0x0,
 	},
+	{
+		.num = SENS_CUSTOM_W_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x0,
+	},
+	{
+		.num = SENS_CUSTOM_R_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x0,
+	},
 };
 
 

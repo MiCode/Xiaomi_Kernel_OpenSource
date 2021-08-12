@@ -71,7 +71,11 @@ struct sensor_info {
 } __packed __aligned(4);
 
 struct custom_cmd {
-	int data[16];
+	uint8_t command;
+	uint8_t tx_len;
+	uint8_t rx_len;
+	uint8_t padding[1];
+	int32_t data[15];
 } __packed __aligned(4);
 
 struct ioctl_packet {

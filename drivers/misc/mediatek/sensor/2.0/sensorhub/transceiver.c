@@ -25,6 +25,7 @@
 #include "share_memory.h"
 #include "timesync.h"
 #include "debug.h"
+#include "custom_cmd.h"
 
 struct transceiver_config {
 	uint8_t length;
@@ -643,12 +644,7 @@ static int transceiver_debug(struct hf_device *hfdev, int sensor_type,
 static int transceiver_custom_cmd(struct hf_device *hfdev, int sensor_type,
 		struct custom_cmd *cust_cmd)
 {
-	/*
-	 * implement by custom to define your's job.
-	 * you can use sensor_comm_notify or share_memory_xxx API to
-	 * communicate with sensorhub
-	 */
-	return 0;
+	return custom_cmd_comm_with(sensor_type, cust_cmd);
 }
 
 static void transceiver_restore_sensor(struct transceiver_device *dev)
@@ -875,6 +871,12 @@ static int __init transceiver_init(void)
 		goto out_sensor_list;
 	}
 
+	ret = custom_cmd_init();
+	if (ret < 0) {
+		pr_err("custom command init fail %d\n", ret);
+		goto out_debug;
+	}
+
 	dev->filter.max_diff = 10000000000LL;
 	dev->filter.min_diff = 10000000LL;
 	dev->filter.bufsize = 16;
@@ -882,7 +884,7 @@ static int __init transceiver_init(void)
 	ret = timesync_filter_init(&dev->filter);
 	if (ret < 0) {
 		pr_err("timesync filter init fail %d\n", ret);
-		goto out_debug;
+		goto out_cust_cmd;
 	}
 
 	ret = timesync_init();
@@ -917,9 +919,9 @@ static int __init transceiver_init(void)
 		transceiver_super_notify_func, dev);
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_SUPER_FULL_CMD,
 		transceiver_super_notify_func, dev);
-	share_mem_config_handler_register(SENS_COMM_NOTIFY_DATA_CMD,
+	share_mem_config_handler_register(SHARE_MEM_DATA_PAYLOAD_TYPE,
 		transceiver_shm_cfg, dev);
-	share_mem_config_handler_register(SENS_COMM_NOTIFY_SUPER_DATA_CMD,
+	share_mem_config_handler_register(SHARE_MEM_SUPER_DATA_PAYLOAD_TYPE,
 		transceiver_shm_super_cfg, dev);
 
 	/*
@@ -938,8 +940,8 @@ static int __init transceiver_init(void)
 out_ready:
 	host_ready_exit();
 	sensor_ready_notifier_chain_unregister(&transceiver_ready_notifier);
-	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
-	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
+	share_mem_config_handler_unregister(SHARE_MEM_SUPER_DATA_PAYLOAD_TYPE);
+	share_mem_config_handler_unregister(SHARE_MEM_DATA_PAYLOAD_TYPE);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_FULL_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_FULL_CMD);
@@ -950,6 +952,8 @@ out_timesync:
 	timesync_exit();
 out_timesync_filter:
 	timesync_filter_exit(&dev->filter);
+out_cust_cmd:
+	custom_cmd_exit();
 out_debug:
 	debug_exit();
 out_sensor_list:
@@ -966,8 +970,8 @@ static void __exit transceiver_exit(void)
 {
 	struct transceiver_device *dev = &transceiver_dev;
 
-	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
-	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
+	share_mem_config_handler_unregister(SHARE_MEM_SUPER_DATA_PAYLOAD_TYPE);
+	share_mem_config_handler_unregister(SHARE_MEM_DATA_PAYLOAD_TYPE);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_FULL_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_FULL_CMD);
@@ -976,6 +980,7 @@ static void __exit transceiver_exit(void)
 		kthread_stop(dev->task);
 	unregister_pm_notifier(&transceiver_pm_notifier);
 	timesync_exit();
+	custom_cmd_exit();
 	debug_exit();
 	sensor_list_exit();
 	sensor_ready_notifier_chain_unregister(&transceiver_ready_notifier);

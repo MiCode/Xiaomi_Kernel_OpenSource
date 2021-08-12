@@ -54,7 +54,7 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	 * sensor_comm_ctrl_send ---> reinit_completion -> wait_for_completion
 	 *                        |
 	 *                    complete
-	 * complete before reinit_completion, lose this complete
+	 * if complete before reinit_completion, will lose this complete
 	 * right sequence:
 	 * reinit_completion -> sensor_comm_ctrl_send -> wait_for_completion
 	 */
@@ -73,7 +73,7 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	}
 
 	timeout = wait_for_completion_timeout(&debug_done,
-		msecs_to_jiffies(500));
+		msecs_to_jiffies(100));
 	if (!timeout) {
 		pr_err("wait completion timeout\n");
 		ret = -ETIMEDOUT;
@@ -121,7 +121,7 @@ out1:
 int debug_get_debug(uint8_t sensor_type, uint8_t *buffer, unsigned int len)
 {
 	int retry = 0, ret = 0;
-	const int max_retry = 10;
+	const int max_retry = 3;
 
 	mutex_lock(&bus_user_lock);
 	do {
@@ -154,7 +154,7 @@ int debug_init(void)
 
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_DEBUG_CMD,
 		debug_notify_handler, NULL);
-	share_mem_config_handler_register(SENS_COMM_NOTIFY_DEBUG_CMD,
+	share_mem_config_handler_register(SHARE_MEM_DEBUG_PAYLOAD_TYPE,
 		debug_share_mem_cfg, NULL);
 	return 0;
 }
@@ -162,5 +162,5 @@ int debug_init(void)
 void debug_exit(void)
 {
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_DEBUG_CMD);
-	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_DEBUG_CMD);
+	share_mem_config_handler_unregister(SHARE_MEM_DEBUG_PAYLOAD_TYPE);
 }

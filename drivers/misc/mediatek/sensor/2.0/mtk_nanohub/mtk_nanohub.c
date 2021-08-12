@@ -2003,7 +2003,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 		int sensor_type, struct custom_cmd *cust_cmd)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
-	int cust_action = cust_cmd->data[0];
+	int cust_action = cust_cmd->command;
 	int ret = 0;
 
 	/*
@@ -2017,6 +2017,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->acc_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len = sizeof(device->acc_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->acc_config_data,
 					sizeof(device->acc_config_data));
@@ -2026,6 +2027,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->gyro_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len = sizeof(device->gyro_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->gyro_config_data,
 					sizeof(device->gyro_config_data));
@@ -2035,6 +2037,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->mag_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len = sizeof(device->mag_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->mag_config_data,
 					sizeof(device->mag_config_data));
@@ -2044,6 +2047,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->light_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len = sizeof(device->light_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->light_config_data,
 					sizeof(device->light_config_data));
@@ -2053,6 +2057,8 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->proximity_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len =
+				sizeof(device->proximity_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->proximity_config_data,
 					sizeof(device->proximity_config_data));
@@ -2062,6 +2068,8 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->pressure_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len =
+				sizeof(device->pressure_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->pressure_config_data,
 					sizeof(device->pressure_config_data));
@@ -2071,6 +2079,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->sar_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len = sizeof(device->sar_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->sar_config_data,
 					sizeof(device->sar_config_data));
@@ -2080,6 +2089,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->ois_config_data))
 				return -EINVAL;
+			cust_cmd->rx_len = sizeof(device->ois_config_data);
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->ois_config_data,
 					sizeof(device->ois_config_data));

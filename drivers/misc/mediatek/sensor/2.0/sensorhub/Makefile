@@ -12,5 +12,6 @@ sensorhub-objs += transceiver.o
 sensorhub-objs += share_memory.o
 sensorhub-objs += timesync.o
 sensorhub-objs += debug.o
+sensorhub-objs += custom_cmd.o
 
 #obj-y += test/
