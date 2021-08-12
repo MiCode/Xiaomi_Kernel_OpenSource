@@ -225,15 +225,15 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 	mdw_mem_debug("alloc mem(%p)(%u/%u)\n",
 		mem, mem->size, mdbuf->dma_size);
 
-	if (mem->flags & (1ULL << MDW_MEM_IOCTL_ALLOC_32BIT)) {
-		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
-		if (dev)
-			mdw_mem_debug("code %x dev %s\n",
-				mem->flags, dev_name(dev));
-	} else {
+	if (mem->flags & (1ULL << MDW_MEM_IOCTL_ALLOC_HIGHADDR)) {
 		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_DATA);
 		if (dev)
 			mdw_mem_debug("data %x dev %s\n",
+				mem->flags, dev_name(dev));
+	} else {
+		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
+		if (dev)
+			mdw_mem_debug("code %x dev %s\n",
 				mem->flags, dev_name(dev));
 	}
 

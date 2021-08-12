@@ -50,6 +50,11 @@ static void mdw_rv_sc_print(struct mdw_rv_msg_sc *rsc,
 	mdw_cmd_debug("-------------------------\n");
 }
 
+static inline bool mdw_rv_cmd_is_highaddr(uint64_t addr)
+{
+	return (addr & 0xffffffff00000000) ? true : false;
+}
+
 static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd *c)
 {
@@ -59,6 +64,14 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_cmd *rmc = NULL;
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
+
+	/* check mem address for rv */
+	if (mdw_rv_cmd_is_highaddr(c->exec_infos->device_va) ||
+		mdw_rv_cmd_is_highaddr(c->cmdbufs->device_va)) {
+		mdw_drv_err("rv dva high addr(0x%llx/0x%llx)\n",
+			c->cmdbufs->device_va, c->exec_infos->device_va);
+		return NULL;
+	}
 
 	rc = vzalloc(sizeof(*rc));
 	if (!rc)
@@ -81,7 +94,8 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_alloc(mpriv, cb_size, MDW_DEFAULT_ALIGN,
-		((1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE) | (1ULL << MDW_MEM_IOCTL_ALLOC_32BIT)),
+		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE |
+		1ULL << MDW_MEM_IOCTL_ALLOC_32BIT),
 		MDW_MEM_TYPE_INTERNAL);
 	if (!rc->cb) {
 		mdw_drv_err("c(0x%llx) alloc cb size(%u) fail\n",

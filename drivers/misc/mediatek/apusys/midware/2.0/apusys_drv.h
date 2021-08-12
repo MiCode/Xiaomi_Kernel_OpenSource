@@ -67,6 +67,7 @@ enum mdw_mem_ioctl_op {
 enum MDW_MEM_IOCTL_ALLOC_BITMASK {
 	MDW_MEM_IOCTL_ALLOC_CACHEABLE,
 	MDW_MEM_IOCTL_ALLOC_32BIT,
+	MDW_MEM_IOCTL_ALLOC_HIGHADDR,
 };
 
 struct mdw_mem_in {

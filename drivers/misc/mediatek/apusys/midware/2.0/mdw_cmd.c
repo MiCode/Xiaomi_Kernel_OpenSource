@@ -111,7 +111,8 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 	/* alloc cmdbuf by dmabuf */
 	c->cmdbufs = mdw_mem_alloc(mpriv, c->size_cmdbufs, MDW_DEFAULT_ALIGN,
-		((1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE) | (1ULL << MDW_MEM_IOCTL_ALLOC_32BIT)),
+		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE |
+		1ULL << MDW_MEM_IOCTL_ALLOC_32BIT),
 		MDW_MEM_TYPE_INTERNAL);
 	if (!c->cmdbufs) {
 		mdw_drv_err("cmd(%p/0x%llx) alloc buffer for duplicate fail\n",
