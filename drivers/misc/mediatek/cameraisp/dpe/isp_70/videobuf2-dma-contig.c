@@ -3,7 +3,6 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
-
 #include <linux/dma-buf.h>
 #include <linux/module.h>
 #include <linux/refcount.h>
@@ -37,9 +36,6 @@ struct vb2_dc_buf {
 	struct dma_buf_attachment	*db_attach;
 };
 
-//#define vb2_dc_mmap_en
-//#vb2_dc_put_userptr_en
-//#ifdef vb2_dc_get_userptr_en
 /*********************************************/
 /*        scatterlist table functions        */
 /*********************************************/
@@ -120,7 +116,6 @@ static void vb2_dc_finish(void *buf_priv)
 void vb2_dc_put(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
-
 	pr_debug("kernel_dpebuf refcount before = %d\n", buf->refcount);
 	if (!refcount_dec_and_test(&buf->refcount))
 		return;
@@ -175,7 +170,6 @@ void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
 	return buf;
 }
 
-
 #ifdef vb2_dc_mmap_en
 static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 {
@@ -192,6 +186,7 @@ static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 	 * map whole buffer
 	 */
 	vma->vm_pgoff = 0;
+
 	ret = dma_mmap_attrs(buf->dev, vma, buf->cookie,
 		buf->dma_addr, buf->size, buf->attrs);
 
@@ -213,7 +208,6 @@ static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 	return 0;
 }
 #endif
-
 
 /*********************************************/
 /*         DMABUF ops for exporters          */
@@ -334,6 +328,7 @@ static void vb2_dc_dmabuf_ops_release(struct dma_buf *dbuf)
 	vb2_dc_put(dbuf->priv);
 }
 
+
 static void *vb2_dc_dmabuf_ops_vmap(struct dma_buf *dbuf)
 {
 	struct vb2_dc_buf *buf = dbuf->priv;
@@ -353,7 +348,8 @@ static const struct dma_buf_ops vb2_dc_dmabuf_ops = {
 	.detach = vb2_dc_dmabuf_ops_detach,
 	.map_dma_buf = vb2_dc_dmabuf_ops_map,
 	.unmap_dma_buf = vb2_dc_dmabuf_ops_unmap,
-	//!.map_atomic = vb2_dc_dmabuf_ops_kmap,
+	//!.map = vb2_dc_dmabuf_ops_kmap,
+//!.map_atomic = vb2_dc_dmabuf_ops_kmap,
 	.vmap = vb2_dc_dmabuf_ops_vmap,
 	.mmap = vb2_dc_dmabuf_ops_mmap,
 	.release = vb2_dc_dmabuf_ops_release,
@@ -420,11 +416,14 @@ static void vb2_dc_put_userptr(void *buf_priv)
 	struct page **pages;
 
 	if (sgt) {
-
+		/*
+		 * No need to sync to CPU, it's already synced to the CPU
+		 * since the finish() memop will have been called before this.
+		 */
 		dma_unmap_sg_attrs(buf->dev, sgt->sgl, sgt->orig_nents,
 				   buf->dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
 		pages = frame_vector_pages(buf->vec);
-
+		/* sgt should exist only if vector contains pages... */
 		//BUG_ON(IS_ERR(pages));
 		WARN_ON(IS_ERR(pages));
 		for (i = 0; i < frame_vector_count(buf->vec); i++)
@@ -483,7 +482,7 @@ static void *vb2_dc_get_userptr(struct device *dev, unsigned long vaddr,
 	unsigned long contig_size;
 	unsigned long dma_align = dma_get_cache_alignment();
 
-
+	/* Only cache aligned DMA transfers are reliable */
 	if (!IS_ALIGNED(vaddr | size, dma_align)) {
 		pr_debug("user data must be aligned to %lu bytes\n", dma_align);
 		return ERR_PTR(-EINVAL);
@@ -517,7 +516,10 @@ static void *vb2_dc_get_userptr(struct device *dev, unsigned long vaddr,
 	if (ret < 0) {
 		unsigned long *nums = frame_vector_pfns(vec);
 
-
+		/*
+		 * Failed to convert to pages... Check the memory is physically
+		 * contiguous and use direct mapping
+		 */
 		for (i = 1; i < n_pages; i++)
 			if (nums[i-1] + 1 != nums[i])
 				goto fail_pfnvec;
@@ -539,7 +541,10 @@ static void *vb2_dc_get_userptr(struct device *dev, unsigned long vaddr,
 		goto fail_sgt;
 	}
 
-
+	/*
+	 * No need to sync to the device, this will happen later when the
+	 * prepare() memop is called.
+	 */
 	sgt->nents = dma_map_sg_attrs(buf->dev, sgt->sgl, sgt->orig_nents,
 				      buf->dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
 	if (sgt->nents <= 0) {

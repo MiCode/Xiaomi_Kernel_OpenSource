@@ -3,17 +3,21 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
+
+
 #ifndef _MT_DPE_H
 #define _MT_DPE_H
 
 #include <linux/ioctl.h>
+
+#include <linux/types.h>
+
 
 #if IS_ENABLED(CONFIG_COMPAT)
 /* 64 bit */
 #include <linux/fs.h>
 #include <linux/compat.h>
 #endif
-
 
 /*
  *   enforce kernel log enable
@@ -227,32 +231,32 @@ struct DPE_Kernel_Config {
 	unsigned int	DVS_SRC_02;
 	unsigned int	DVS_SRC_03;
 	unsigned int	DVS_SRC_04;
-	unsigned int	DVS_SRC_05_L_FRM0;
-	unsigned int	DVS_SRC_06_L_FRM1;
-	unsigned int	DVS_SRC_07_L_FRM2;
-	unsigned int	DVS_SRC_08_L_FRM3;
-	unsigned int	DVS_SRC_09_R_FRM0;
-	unsigned int	DVS_SRC_10_R_FRM1;
-	unsigned int	DVS_SRC_11_R_FRM2;
-	unsigned int	DVS_SRC_12_R_FRM3;
-	unsigned int	DVS_SRC_13_L_VMAP0;
-	unsigned int	DVS_SRC_14_L_VMAP1;
-	unsigned int	DVS_SRC_15_L_VMAP2;
-	unsigned int	DVS_SRC_16_L_VMAP3;
-	unsigned int	DVS_SRC_17_R_VMAP0;
-	unsigned int	DVS_SRC_18_R_VMAP1;
-	unsigned int	DVS_SRC_19_R_VMAP2;
-	unsigned int	DVS_SRC_20_R_VMAP3;
-	unsigned int	DVS_SRC_21_P4_L_DV_ADR;
-	unsigned int	DVS_SRC_26_OCCDV0;
-	unsigned int	DVS_SRC_27_OCCDV1;
-	unsigned int	DVS_SRC_28_OCCDV2;
-	unsigned int	DVS_SRC_29_OCCDV3;
-	unsigned int	DVS_SRC_34_P4_R_DV_ADR;
-	unsigned int	DVS_SRC_42_OCCDV_EXT0;
-	unsigned int	DVS_SRC_43_OCCDV_EXT1;
-	unsigned int	DVS_SRC_44_OCCDV_EXT2;
-	unsigned int	DVS_SRC_45_OCCDV_EXT3;
+	dma_addr_t	DVS_SRC_05_L_FRM0;
+	dma_addr_t	DVS_SRC_06_L_FRM1;
+	dma_addr_t	DVS_SRC_07_L_FRM2;
+	dma_addr_t	DVS_SRC_08_L_FRM3;
+	dma_addr_t	DVS_SRC_09_R_FRM0;
+	dma_addr_t	DVS_SRC_10_R_FRM1;
+	dma_addr_t	DVS_SRC_11_R_FRM2;
+	dma_addr_t	DVS_SRC_12_R_FRM3;
+	dma_addr_t	DVS_SRC_13_L_VMAP0;
+	dma_addr_t	DVS_SRC_14_L_VMAP1;
+	dma_addr_t	DVS_SRC_15_L_VMAP2;
+	dma_addr_t	DVS_SRC_16_L_VMAP3;
+	dma_addr_t	DVS_SRC_17_R_VMAP0;
+	dma_addr_t	DVS_SRC_18_R_VMAP1;
+	dma_addr_t	DVS_SRC_19_R_VMAP2;
+	dma_addr_t	DVS_SRC_20_R_VMAP3;
+	dma_addr_t	DVS_SRC_21_P4_L_DV_ADR;
+	dma_addr_t	DVS_SRC_26_OCCDV0;
+	dma_addr_t	DVS_SRC_27_OCCDV1;
+	dma_addr_t	DVS_SRC_28_OCCDV2;
+	dma_addr_t	DVS_SRC_29_OCCDV3;
+	dma_addr_t	DVS_SRC_34_P4_R_DV_ADR;
+	dma_addr_t	DVS_SRC_42_OCCDV_EXT0;
+	dma_addr_t	DVS_SRC_43_OCCDV_EXT1;
+	dma_addr_t	DVS_SRC_44_OCCDV_EXT2;
+	dma_addr_t	DVS_SRC_45_OCCDV_EXT3;
 	unsigned int	DVS_SRC_46;
 	unsigned int	DVS_CRC_OUT_0;
 	unsigned int	DVS_CRC_OUT_1;
@@ -358,30 +362,30 @@ struct DPE_Kernel_Config {
 	unsigned int	DVP_SRC_02;
 	unsigned int	DVP_SRC_03;
 	unsigned int	DVP_SRC_04;
-	unsigned int	DVP_SRC_05_Y_FRM0;
-	unsigned int	DVP_SRC_06_Y_FRM1;
-	unsigned int	DVP_SRC_07_Y_FRM2;
-	unsigned int	DVP_SRC_08_Y_FRM3;
-	unsigned int	DVP_SRC_09_C_FRM0;
-	unsigned int	DVP_SRC_10_C_FRM1;
-	unsigned int	DVP_SRC_11_C_FRM2;
-	unsigned int	DVP_SRC_12_C_FRM3;
-	unsigned int	DVP_SRC_13_OCCDV0;
-	unsigned int	DVP_SRC_14_OCCDV1;
-	unsigned int	DVP_SRC_15_OCCDV2;
-	unsigned int	DVP_SRC_16_OCCDV3;
-	unsigned int	DVP_SRC_17_CRM;
-	unsigned int	DVP_SRC_18_ASF_RMDV;
-	unsigned int DVP_SRC_19_ASF_RDDV;
-	unsigned int DVP_SRC_20_ASF_DV0;
-	unsigned int DVP_SRC_21_ASF_DV1;
-	unsigned int DVP_SRC_22_ASF_DV2;
-	unsigned int DVP_SRC_23_ASF_DV3;
-	unsigned int DVP_SRC_24_WMF_HFDV;
-	unsigned int DVP_SRC_25_WMF_DV0;
-	unsigned int DVP_SRC_26_WMF_DV1;
-	unsigned int DVP_SRC_27_WMF_DV2;
-	unsigned int DVP_SRC_28_WMF_DV3;
+	dma_addr_t	DVP_SRC_05_Y_FRM0;
+	dma_addr_t	DVP_SRC_06_Y_FRM1;
+	dma_addr_t	DVP_SRC_07_Y_FRM2;
+	dma_addr_t	DVP_SRC_08_Y_FRM3;
+	dma_addr_t	DVP_SRC_09_C_FRM0;
+	dma_addr_t	DVP_SRC_10_C_FRM1;
+	dma_addr_t	DVP_SRC_11_C_FRM2;
+	dma_addr_t	DVP_SRC_12_C_FRM3;
+	dma_addr_t	DVP_SRC_13_OCCDV0;
+	dma_addr_t	DVP_SRC_14_OCCDV1;
+	dma_addr_t	DVP_SRC_15_OCCDV2;
+	dma_addr_t	DVP_SRC_16_OCCDV3;
+	dma_addr_t	DVP_SRC_17_CRM;
+	dma_addr_t	DVP_SRC_18_ASF_RMDV;
+	dma_addr_t	DVP_SRC_19_ASF_RDDV;
+	dma_addr_t	DVP_SRC_20_ASF_DV0;
+	dma_addr_t	DVP_SRC_21_ASF_DV1;
+	dma_addr_t	DVP_SRC_22_ASF_DV2;
+	dma_addr_t	DVP_SRC_23_ASF_DV3;
+	dma_addr_t	DVP_SRC_24_WMF_HFDV;
+	dma_addr_t	DVP_SRC_25_WMF_DV0;
+	dma_addr_t	DVP_SRC_26_WMF_DV1;
+	dma_addr_t	DVP_SRC_27_WMF_DV2;
+	dma_addr_t	DVP_SRC_28_WMF_DV3;
 	unsigned int DVP_CORE_00;
 	unsigned int DVP_CORE_01;
 	unsigned int DVP_CORE_02;
@@ -412,16 +416,16 @@ struct DPE_Kernel_Config {
 	unsigned int DVP_DRAM_ULT;
 	unsigned int DVP_DRAM_PITCH;
 	unsigned int DVP_CORE_CRC_IN;
-	unsigned int DVP_EXT_SRC_13_OCCDV0;
-	unsigned int DVP_EXT_SRC_14_OCCDV1;
-	unsigned int DVP_EXT_SRC_15_OCCDV2;
-	unsigned int DVP_EXT_SRC_16_OCCDV3;
-	unsigned int DVP_EXT_SRC_18_ASF_RMDV;
-	unsigned int DVP_EXT_SRC_19_ASF_RDDV;
-	unsigned int DVP_EXT_SRC_20_ASF_DV0;
-	unsigned int DVP_EXT_SRC_21_ASF_DV1;
-	unsigned int DVP_EXT_SRC_22_ASF_DV2;
-	unsigned int DVP_EXT_SRC_23_ASF_DV3;
+	dma_addr_t DVP_EXT_SRC_13_OCCDV0;
+	dma_addr_t DVP_EXT_SRC_14_OCCDV1;
+	dma_addr_t DVP_EXT_SRC_15_OCCDV2;
+	dma_addr_t DVP_EXT_SRC_16_OCCDV3;
+	dma_addr_t DVP_EXT_SRC_18_ASF_RMDV;
+	dma_addr_t DVP_EXT_SRC_19_ASF_RDDV;
+	dma_addr_t DVP_EXT_SRC_20_ASF_DV0;
+	dma_addr_t DVP_EXT_SRC_21_ASF_DV1;
+	dma_addr_t DVP_EXT_SRC_22_ASF_DV2;
+	dma_addr_t DVP_EXT_SRC_23_ASF_DV3;
 	//unsigned int	USERDUMP_EN;
 	unsigned int DPE_MODE;
 };
@@ -570,40 +574,39 @@ struct DPE_Config_map {
 	unsigned int Dpe_InBuf_P4_R_DV_Ofs;
 };
 
-
 struct DPE_Config {
 	enum DPEMODE Dpe_engineSelect;
 	unsigned int Dpe_is16BitMode;
 	struct DVS_Settings	Dpe_DVSSettings;
 	struct DVP_Settings	Dpe_DVPSettings;
 	struct DPE_Config_map DPE_DMapSettings;
-		unsigned int Dpe_InBuf_SrcImg_Y_L;
-	unsigned int Dpe_InBuf_SrcImg_Y_R;
-	unsigned int Dpe_InBuf_SrcImg_Y;
-	unsigned int Dpe_InBuf_SrcImg_C;
-	unsigned int Dpe_InBuf_ValidMap_L;
-	unsigned int Dpe_InBuf_ValidMap_R;
-	unsigned int Dpe_OutBuf_CONF;
-	unsigned int Dpe_OutBuf_OCC;
-	unsigned int Dpe_OutBuf_OCC_Ext;
-	unsigned int Dpe_InBuf_OCC;
-	unsigned int Dpe_InBuf_OCC_Ext;
-	unsigned int Dpe_OutBuf_CRM;
-	unsigned int Dpe_OutBuf_ASF_RM;
-	unsigned int Dpe_OutBuf_ASF_RM_Ext;
-	unsigned int Dpe_OutBuf_ASF_RD;
-	unsigned int Dpe_OutBuf_ASF_RD_Ext;
-	unsigned int Dpe_OutBuf_ASF_HF;
-	unsigned int Dpe_OutBuf_ASF_HF_Ext;
-	unsigned int Dpe_OutBuf_WMF_HF;
-	unsigned int Dpe_OutBuf_WMF_FILT;
-	unsigned int DVP_SRC_18_ASF_RMDV;
-	unsigned int DVP_SRC_24_WMF_HFDV;
-	unsigned int DVP_EXT_SRC_18_ASF_RMDV;
-	unsigned int Dpe_InBuf_SrcImg_Y_L_Pre;
-	unsigned int Dpe_InBuf_SrcImg_Y_R_Pre;
-	unsigned int Dpe_InBuf_P4_L_DV;
-	unsigned int Dpe_InBuf_P4_R_DV;
+	dma_addr_t Dpe_InBuf_SrcImg_Y_L;
+	dma_addr_t Dpe_InBuf_SrcImg_Y_R;
+	dma_addr_t Dpe_InBuf_SrcImg_Y;
+	dma_addr_t Dpe_InBuf_SrcImg_C;
+	dma_addr_t Dpe_InBuf_ValidMap_L;
+	dma_addr_t Dpe_InBuf_ValidMap_R;
+	dma_addr_t Dpe_OutBuf_CONF;
+	dma_addr_t Dpe_OutBuf_OCC;
+	dma_addr_t Dpe_OutBuf_OCC_Ext;
+	dma_addr_t Dpe_InBuf_OCC;
+	dma_addr_t Dpe_InBuf_OCC_Ext;
+	dma_addr_t Dpe_OutBuf_CRM;
+	dma_addr_t Dpe_OutBuf_ASF_RM;
+	dma_addr_t Dpe_OutBuf_ASF_RM_Ext;
+	dma_addr_t Dpe_OutBuf_ASF_RD;
+	dma_addr_t Dpe_OutBuf_ASF_RD_Ext;
+	dma_addr_t Dpe_OutBuf_ASF_HF;
+	dma_addr_t Dpe_OutBuf_ASF_HF_Ext;
+	dma_addr_t Dpe_OutBuf_WMF_HF;
+	dma_addr_t Dpe_OutBuf_WMF_FILT;
+	dma_addr_t DVP_SRC_18_ASF_RMDV;
+	dma_addr_t DVP_SRC_24_WMF_HFDV;
+	dma_addr_t DVP_EXT_SRC_18_ASF_RMDV;
+	dma_addr_t Dpe_InBuf_SrcImg_Y_L_Pre;
+	dma_addr_t Dpe_InBuf_SrcImg_Y_R_Pre;
+	dma_addr_t Dpe_InBuf_P4_L_DV;
+	dma_addr_t Dpe_InBuf_P4_R_DV;
 	struct DPE_feedback	Dpe_feedback;
 };
 

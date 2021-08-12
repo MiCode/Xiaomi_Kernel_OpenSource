@@ -1,4 +1,4 @@
-config MTK_CAMERA_DPE_ISP6S
+config MTK_CAMERA_DPE_ISP7
 	tristate "[DPE] Depth Engine"
 	depends on MTK_CAMERA_ISP_SUPPORT
 	help
@@ -7,3 +7,11 @@ config MTK_CAMERA_DPE_ISP6S
 	  between two images on Dual Camera Application.
 	  Disable if it is not supported or not wanted.
 
+config MTK_CAMERA_DPE_ISP6S
+	tristate "[DPE] Depth Engine"
+	depends on MTK_CAMERA_ISP_SUPPORT
+	help
+	  Depth Engine.
+	  Enable to calculate the depth information
+	  between two images on Dual Camera Application.
+	  Disable if it is not supported or not wanted.

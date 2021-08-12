@@ -3,6 +3,8 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
+
+
 #ifndef _MEDIA_VIDEOBUF2_DMA_CONTIG_H
 #define _MEDIA_VIDEOBUF2_DMA_CONTIG_H
 
@@ -32,10 +34,7 @@ void vb2_dc_unmap_dmabuf(void *mem_priv);
 void vb2_dc_detach_dmabuf(void *mem_priv);
 void vb2_dc_put(void *buf_priv);
 
-//#if 0
 //extern struct frame_vector *vb2_create_framevec(unsigned long start,
 //					 unsigned long length,
 //					 bool write);
-
-//#endif
 #endif
