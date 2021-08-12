@@ -339,7 +339,7 @@ static inline u32 mt6360_trans_usbid_src_ton(u32 src_ton)
 static inline int mt6360_get_ieoc(struct mt6360_chg_info *mci, u32 *uA)
 {
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL9, &regval);
 	if (ret < 0)
@@ -354,7 +354,7 @@ static inline int mt6360_get_charging_status(
 					enum mt6360_charging_status *chg_stat)
 {
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT, &regval);
 	if (ret < 0)
@@ -367,7 +367,7 @@ static inline int mt6360_is_charger_enabled(struct mt6360_chg_info *mci,
 					    bool *en)
 {
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL2, &regval);
 	if (ret < 0)
@@ -404,7 +404,7 @@ static inline int mt6360_get_chrdet_ext_stat(struct mt6360_chg_info *mci,
 					  bool *pwr_rdy)
 {
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_FOD_STAT, &regval);
 	if (ret < 0)
@@ -462,7 +462,7 @@ static int __maybe_unused mt6360_is_dcd_tout_enable(
 				     struct mt6360_chg_info *mci, bool *en)
 {
 	int ret;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_DEVICE_TYPE, &regval);
 	if (ret < 0) {
@@ -591,7 +591,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 	int ret = 0;
 	bool attach = false, inform_psy = true;
 	u8 usb_status = MT6360_CHG_TYPE_NOVBUS;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	if (IS_ENABLED(CONFIG_TCPC_CLASS))
 		attach = atomic_read(&mci->tcpc_attach);
@@ -838,7 +838,7 @@ vsys_wkard_fail:
 static int __mt6360_is_enabled(struct mt6360_chg_info *mci, bool *en)
 {
 	int ret;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL2, &regval);
 	if (ret < 0)
@@ -928,6 +928,11 @@ static int __mt6360_get_adc(struct mt6360_chg_info *mci,
 {
 	int ret = 0;
 
+	if ((channel < 0) || (channel >= MT6360_ADC_MAX)) {
+		dev_info(mci->dev,
+			"%s: fail, channel invalid(%d)\n", __func__, channel);
+		return -EINVAL;
+	}
 	ret = iio_read_channel_processed(mci->channels[channel], min);
 	if (ret < 0) {
 		dev_info(mci->dev, "%s: fail(%d)\n", __func__, ret);
@@ -994,7 +999,7 @@ static int mt6360_get_ichg(struct charger_device *chg_dev, u32 *uA)
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL7, &regval);
 	if (ret < 0)
@@ -1073,7 +1078,7 @@ static int mt6360_get_cv(struct charger_device *chg_dev, u32 *uV)
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL4, &regval);
 	if (ret < 0)
@@ -1094,7 +1099,7 @@ static int mt6360_get_aicr(struct charger_device *chg_dev, u32 *uA)
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL3, &regval);
 	if (ret < 0)
@@ -1163,7 +1168,7 @@ static inline int mt6360_get_mivr(struct charger_device *chg_dev, u32 *uV)
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL6, &regval);
 	if (ret < 0)
@@ -1177,7 +1182,7 @@ static int mt6360_get_mivr_state(struct charger_device *chg_dev, bool *in_loop)
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT1, &regval);
 	if (ret < 0)
@@ -1300,7 +1305,7 @@ static inline int mt6360_get_aicc(struct mt6360_chg_info *mci,
 {
 	u8 aicc_sel = 0;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_AICC_RESULT, &regval);
 	if (ret < 0) {
@@ -1319,7 +1324,7 @@ static inline int mt6360_post_aicc_measure(struct charger_device *chg_dev,
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int cur, ret;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	mt_dbg(mci->dev,
 		"%s: post_aicc = (%d, %d, %d)\n", __func__, start, stop, step);
@@ -1348,7 +1353,7 @@ static int mt6360_run_aicc(struct charger_device *chg_dev, u32 *uA)
 	u32 aicc_val = 0, aicr_val;
 	long timeout;
 	bool mivr_stat = false;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	mt_dbg(mci->dev, "%s: aicc_once = %d\n", __func__, pdata->aicc_once);
 	/* check MIVR stat is act */
@@ -1465,7 +1470,7 @@ static int mt6360_is_power_path_enabled(struct charger_device *chg_dev,
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL1, &regval);
 	if (ret < 0)
@@ -1489,7 +1494,7 @@ static int mt6360_is_safety_timer_enabled(
 {
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL12, &regval);
 	if (ret < 0)
@@ -1548,7 +1553,7 @@ static int mt6360_enable_discharge(struct charger_device *chg_dev,
 	int i, ret = 0;
 	const int dischg_retry_cnt = 3;
 	bool is_dischg;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_dbg(mci->dev, "%s: en = %d\n", __func__, en);
 	ret = mt6360_enable_hidden_mode(mci->chg_dev, true);
@@ -1782,7 +1787,7 @@ static int mt6360_dump_registers(struct charger_device *chg_dev)
 	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_READY;
 	bool chg_en = false;
 	u8 chg_stat1 = 0, chg_ctrl[2] = {0};
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_dbg(mci->dev, "%s\n", __func__);
 	ret = mt6360_get_ichg(chg_dev, &ichg);
@@ -2040,7 +2045,7 @@ static irqreturn_t mt6360_pmu_chg_treg_evt_handler(int irq, void *data)
 {
 	struct mt6360_chg_info *mci = data;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_err(mci->dev, "%s\n", __func__);
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT1, &regval);
@@ -2069,7 +2074,7 @@ static irqreturn_t mt6360_pmu_pwr_rdy_evt_handler(int irq, void *data)
 	struct mt6360_chg_info *mci = data;
 	bool pwr_rdy = false;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT1, &regval);
 	if (ret < 0)
@@ -2119,7 +2124,7 @@ static irqreturn_t mt6360_pmu_chg_vbusov_evt_handler(int irq, void *data)
 	struct chgdev_notify *noti = &(mci->chg_dev->noti);
 	bool vbusov_stat = false;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_warn(mci->dev, "%s\n", __func__);
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT2, &regval);
@@ -2155,7 +2160,7 @@ static irqreturn_t mt6360_pmu_chg_tmri_handler(int irq, void *data)
 {
 	struct mt6360_chg_info *mci = data;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_notice(mci->dev, "%s\n", __func__);
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT4, &regval);
@@ -2183,8 +2188,8 @@ static irqreturn_t mt6360_pmu_chg_aiccmeasl_handler(int irq, void *data)
 static irqreturn_t mt6360_pmu_wdtmri_handler(int irq, void *data)
 {
 	struct mt6360_chg_info *mci = data;
-	int ret;
-	unsigned int regval;
+	int ret = 0;
+	unsigned int regval = 0;
 
 	dev_warn(mci->dev, "%s\n", __func__);
 	/* Any I2C R/W can kick watchdog timer */
@@ -2216,7 +2221,7 @@ static irqreturn_t mt6360_pmu_chg_ieoci_handler(int irq, void *data)
 	struct mt6360_chg_info *mci = data;
 	bool ieoc_stat = false;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_dbg(mci->dev, "%s\n", __func__);
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT4, &regval);
@@ -2425,7 +2430,7 @@ static int mt6360_chg_mivr_task_threadfn(void *data)
 	struct mt6360_chg_info *mci = data;
 	u32 ibus;
 	int ret;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_info(mci->dev, "%s ++\n", __func__);
 	while (!kthread_should_stop()) {
@@ -2593,7 +2598,7 @@ static int mt6360_chg_init_setting(struct mt6360_chg_info *mci)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mci->dev);
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	dev_info(mci->dev, "%s\n", __func__);
 	/*get boot mode*/
@@ -2708,10 +2713,11 @@ static int mt6360_set_shipping_mode(struct mt6360_chg_info *mci)
 	/* disable shipping mode rst */
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_CORE_CTRL2,
 				 MT6360_MASK_SHIP_RST_DIS, 0xff);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(mci->dev,
 			"%s: fail to disable ship reset\n", __func__);
 		goto out;
+	}
 	/* enter shipping mode and disable cfo_en/chg_en */
 	ret = regmap_write(mci->regmap, MT6360_PMU_CHG_CTRL2, 0x80);
 	if (ret < 0)
@@ -2782,6 +2788,11 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	int ret = 0;
 	bool pwr_rdy = false, chg_en = false;
 
+	if (IS_ERR_OR_NULL(mci)) {
+		pr_notice("%s: fail, mci is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -2839,7 +2850,12 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 				       const union power_supply_propval *val)
 {
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
-	int ret;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(mci)) {
+		pr_notice("%s: fail, mci is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
@@ -2906,10 +2922,9 @@ static int mt6360_boost_is_enabled(struct regulator_dev *rdev)
 	struct mt6360_chg_info *mci = rdev_get_drvdata(rdev);
 	const struct regulator_desc *desc = rdev->desc;
 	int ret = 0;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, desc->enable_reg, &regval);
-
 	if (ret < 0)
 		return ret;
 	return regval & desc->enable_mask ? true : false;
@@ -2931,7 +2946,7 @@ static int mt6360_boost_get_voltage_sel(struct regulator_dev *rdev)
 	struct mt6360_chg_info *mci = rdev_get_drvdata(rdev);
 	const struct regulator_desc *desc = rdev->desc;
 	int shift = ffs(desc->vsel_mask) - 1, ret;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, desc->vsel_reg, &regval);
 	if (ret < 0)
@@ -2967,13 +2982,13 @@ static int mt6360_boost_get_current_limit(struct regulator_dev *rdev)
 	struct mt6360_chg_info *mci = rdev_get_drvdata(rdev);
 	const struct regulator_desc *desc = rdev->desc;
 	int shift = ffs(desc->csel_mask) - 1, ret;
-	unsigned int regval;
+	unsigned int regval = 0;
 
 	ret = regmap_read(mci->regmap, desc->csel_reg, &regval);
 	if (ret < 0)
 		return ret;
 	ret = (regval & desc->csel_mask) >> shift;
-	if (ret > ARRAY_SIZE(mt6360_otg_oc_threshold))
+	if (ret >= ARRAY_SIZE(mt6360_otg_oc_threshold))
 		return -EINVAL;
 	return mt6360_otg_oc_threshold[ret];
 }
