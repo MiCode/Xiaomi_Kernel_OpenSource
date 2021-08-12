@@ -2470,17 +2470,23 @@
 				"PWM-main";
 
 			/* 1. pwm infraclk control reg offset */
-			mediatek,pwm-infraclk-ctl-reg = <0x410>;
+			mediatek,pwm-topclk-ctl-reg = <0x410>;
 			/* 2. pwm bclk sw ctrl offset */
 			mediatek,pwm-bclk-sw-ctrl-offset = <12>;
+			/* 3. pwm_x bclk sw ctrl offset */
+			mediatek,pwm1-bclk-sw-ctrl-offset = <0>;
+			mediatek,pwm2-bclk-sw-ctrl-offset = <2>;
+			mediatek,pwm3-bclk-sw-ctrl-offset = <4>;
+			mediatek,pwm4-bclk-sw-ctrl-offset = <6>;
 
-			infracfg = <&infracfg_ao_clk>;
+			pwmsrcclk = <&infracfg_ao_clk>;
 		};
 
 		irtx_pwm:irtx_pwm {
 			compatible = "mediatek,irtx-pwm";
 			pwm_ch = <3>;
 			pwm_data_invert = <0>;
+			pwm-supply = "vio28";
 		};
 
 		imp_iic_wrap_c_clk: syscon@11008000 {
