@@ -68,6 +68,12 @@ static inline u64 us_to_ms(u64 us)
 	return u64_div(us, 1000);
 }
 
+static bool is_valid_profile_entry(enum PROFILE_ENTRY_TYPE entry)
+{
+	return ((entry >= PROFILE_ENTRY_SSMR_GET)
+		&& (entry < PROFILE_ENTRY_MAX));
+}
+
 void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device)
 {
 	int idx;
@@ -104,6 +110,9 @@ void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device)
 static void increase_enter_count(enum PROFILE_ENTRY_TYPE entry,
 				 struct profile_data_context *data)
 {
+	if (!is_valid_profile_entry(entry))
+		return;
+
 	mutex_lock(&data->item[entry].lock);
 	data->item[entry].count++;
 	mutex_unlock(&data->item[entry].lock);
@@ -115,6 +124,9 @@ static void add_exec_time(enum PROFILE_ENTRY_TYPE entry,
 {
 	int time_diff_sec = GET_TIME_DIFF_SEC_P(start, end);
 	int time_diff_nsec = GET_TIME_DIFF_NSEC_P(start, end);
+
+	if (!is_valid_profile_entry(entry))
+		return;
 
 	mutex_lock(&data->item[entry].lock);
 
