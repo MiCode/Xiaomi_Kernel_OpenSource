@@ -48,6 +48,10 @@
 #define MTK_SIP_KERNEL_CCCI_GET_INFO \
 	MTK_SIP_SMC_CMD(0x206)
 
+/* DCM Security SMC call */
+#define MTK_SIP_KERNEL_DCM \
+	MTK_SIP_SMC_CMD(0x230)
+
 /* AMMS related SMC call */
 #define MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR \
 	MTK_SIP_SMC_CMD(0x250)

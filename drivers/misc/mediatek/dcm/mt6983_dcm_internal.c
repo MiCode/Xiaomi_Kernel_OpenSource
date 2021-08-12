@@ -3,9 +3,11 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/io.h>
 #include <linux/export.h>
 #include <linux/module.h>
+#include <mtk_sip_svc.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -23,13 +25,13 @@ static short dcm_cpu_cluster_stat;
 
 
 unsigned int all_dcm_type =
-		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE | INFRA_DCM_TYPE |
-		PERI_DCM_TYPE | VLP_DCM_TYPE | MCUSYS_ACP_DCM_TYPE |
-		MCUSYS_ADB_DCM_TYPE | MCUSYS_BUS_DCM_TYPE |
-		MCUSYS_CBIP_DCM_TYPE | MCUSYS_CORE_DCM_TYPE |
-		MCUSYS_IO_DCM_TYPE | MCUSYS_CPC_PBI_DCM_TYPE |
-		MCUSYS_CPC_TURBO_DCM_TYPE | MCUSYS_STALL_DCM_TYPE |
-		MCUSYS_APB_DCM_TYPE);
+		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
+		INFRA_DCM_TYPE | PERI_DCM_TYPE | VLP_DCM_TYPE |
+		MCUSYS_ACP_DCM_TYPE | MCUSYS_ADB_DCM_TYPE |
+		MCUSYS_BUS_DCM_TYPE | MCUSYS_CBIP_DCM_TYPE |
+		MCUSYS_CORE_DCM_TYPE | MCUSYS_IO_DCM_TYPE |
+		MCUSYS_CPC_PBI_DCM_TYPE | MCUSYS_CPC_TURBO_DCM_TYPE |
+		MCUSYS_STALL_DCM_TYPE |	MCUSYS_APB_DCM_TYPE);
 unsigned int init_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
 		INFRA_DCM_TYPE | PERI_DCM_TYPE | VLP_DCM_TYPE |
@@ -65,6 +67,7 @@ short is_dcm_bringup(void)
 #endif
 }
 
+static int dcm_smc_call_control(int onoff, unsigned int mask);
 /*****************************************
  * following is implementation per DCM module.
  * 1. per-DCM function is 1-argu with ON/OFF/MODE option.
@@ -85,17 +88,11 @@ int dcm_infra_preset(int on)
 
 int dcm_infra(int on)
 {
-	dcm_infracfg_ao_aximem_bus_dcm(on);
-	dcm_infracfg_ao_infra_bus_dcm(on);
-	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
-	dcm_infra_ao_bcrm_infra_bus_dcm(on);
-
 	return 0;
 }
 
 int dcm_peri(int on)
 {
-	dcm_peri_ao_bcrm_peri_bus_dcm(on);
 	return 0;
 }
 
@@ -138,12 +135,14 @@ int dcm_mcusys_io(int on)
 int dcm_mcusys_cpc_pbi(int on)
 {
 	dcm_mcusys_cpc_cpc_pbi_dcm(on);
+	dcm_smc_call_control(on, MCUSYS_CPC_PBI_DCM_TYPE);
 	return 0;
 }
 
 int dcm_mcusys_cpc_turbo(int on)
 {
 	dcm_mcusys_cpc_cpc_turbo_dcm(on);
+	dcm_smc_call_control(on, MCUSYS_CPC_TURBO_DCM_TYPE);
 	return 0;
 }
 
@@ -154,6 +153,8 @@ int dcm_mcusys_stall(int on)
 	dcm_mp_cpu5_top_mcu_stalldcm(on);
 	dcm_mp_cpu6_top_mcu_stalldcm(on);
 	dcm_mp_cpu7_top_mcu_stalldcm(on);
+	dcm_smc_call_control(on, MCUSYS_STALL_DCM_TYPE);
+
 	return 0;
 }
 
@@ -164,6 +165,8 @@ int dcm_mcusys_apb(int on)
 	dcm_mp_cpu5_top_mcu_apb_dcm(on);
 	dcm_mp_cpu6_top_mcu_apb_dcm(on);
 	dcm_mp_cpu7_top_mcu_apb_dcm(on);
+	dcm_smc_call_control(on, MCUSYS_APB_DCM_TYPE);
+
 	return 0;
 }
 
@@ -613,6 +616,15 @@ int mt_dcm_dts_map(void)
 void dcm_pre_init(void)
 {
 	dcm_pr_info("weak function of %s\n", __func__);
+}
+
+static int dcm_smc_call_control(int onoff, unsigned int mask)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_DCM, onoff, mask, 0, 0, 0, 0, 0, &res);
+
+	return 0;
 }
 
 static int __init mt6983_dcm_init(void)

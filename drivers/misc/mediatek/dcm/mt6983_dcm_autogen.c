@@ -752,7 +752,7 @@ void dcm_mcusys_top_mcu_io_dcm(int on)
 }
 
 #define MCUSYS_TOP_MCU_STALLDCM_REG0_MASK ((0xff << 0))
-#define MCUSYS_TOP_MCU_STALLDCM_REG0_ON ((0x1 << 0))
+#define MCUSYS_TOP_MCU_STALLDCM_REG0_ON ((0xff << 0))
 #define MCUSYS_TOP_MCU_STALLDCM_REG0_OFF ((0x0 << 0))
 
 bool dcm_mcusys_top_mcu_stalldcm_is_on(void)

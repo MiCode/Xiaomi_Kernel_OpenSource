@@ -1,3 +1,4 @@
+ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dcm/include/
 
 # Core
