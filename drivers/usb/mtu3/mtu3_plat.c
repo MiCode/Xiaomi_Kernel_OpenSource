@@ -215,6 +215,12 @@ int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 		goto sys_clk_err;
 	}
 
+	ret = clk_prepare_enable(ssusb->frmcnt_clk);
+	if (ret) {
+		dev_err(ssusb->dev, "failed to enable frmcnt_clk\n");
+		goto frmcnt_clk_err;
+	}
+
 	ret = clk_prepare_enable(ssusb->ref_clk);
 	if (ret) {
 		dev_err(ssusb->dev, "failed to enable ref_clk\n");
@@ -248,6 +254,8 @@ mcu_clk_err:
 host_clk_err:
 	clk_disable_unprepare(ssusb->ref_clk);
 ref_clk_err:
+	clk_disable_unprepare(ssusb->frmcnt_clk);
+frmcnt_clk_err:
 	clk_disable_unprepare(ssusb->sys_clk);
 sys_clk_err:
 	return ret;
@@ -259,6 +267,7 @@ void ssusb_clks_disable(struct ssusb_mtk *ssusb)
 	clk_disable_unprepare(ssusb->mcu_clk);
 	clk_disable_unprepare(ssusb->host_clk);
 	clk_disable_unprepare(ssusb->ref_clk);
+	clk_disable_unprepare(ssusb->frmcnt_clk);
 	clk_disable_unprepare(ssusb->sys_clk);
 }
 
@@ -363,6 +372,10 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 		dev_err(dev, "failed to get sys clock\n");
 		return PTR_ERR(ssusb->sys_clk);
 	}
+
+	ssusb->frmcnt_clk = devm_clk_get_optional(dev, "frmcnt_ck");
+	if (IS_ERR(ssusb->frmcnt_clk))
+		return PTR_ERR(ssusb->frmcnt_clk);
 
 	ssusb->ref_clk = devm_clk_get_optional(dev, "ref_ck");
 	if (IS_ERR(ssusb->ref_clk))

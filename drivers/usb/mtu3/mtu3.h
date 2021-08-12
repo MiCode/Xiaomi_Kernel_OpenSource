@@ -298,6 +298,7 @@ struct ssusb_mtk {
 	struct clk *mcu_clk;
 	struct clk *dma_clk;
 	struct clk *host_clk;
+	struct clk *frmcnt_clk;
 	/* otg */
 	struct otg_switch_mtk otg_switch;
 	enum usb_dr_mode dr_mode;
