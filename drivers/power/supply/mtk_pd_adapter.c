@@ -58,6 +58,8 @@ struct mtk_pd_adapter_info {
 	int pd_type;
 	bool force_cv;
 	u32 ita_min;
+	u32 bootmode;
+	u32 boottype;
 };
 
 struct apdo_pps_range {
@@ -75,6 +77,28 @@ static struct apdo_pps_range apdo_pps_tbl[] = {
 
 //void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 //	void *val);
+
+static int pd_adapter_high_voltage_enable(int enable)
+{
+	union power_supply_propval prop;
+	static struct power_supply *chg_psy;
+	int ret;
+
+	if (chg_psy == NULL)
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		ret = -1;
+	} else {
+		prop.intval = enable;
+		ret = power_supply_set_property(chg_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+		pr_notice("%s enable_hv:%d\n", __func__, prop.intval);
+		power_supply_changed(chg_psy);
+	}
+
+	return ret;
+}
 
 static inline int to_mtk_adapter_ret(int tcpm_ret)
 {
@@ -212,10 +236,15 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 		ret = srcu_notifier_call_chain(&adapter->evt_nh,
 			MTK_TYPEC_WD_STATUS, &noti->wd_status.water_detected);
 
-		if (noti->wd_status.water_detected)
+		if (noti->wd_status.water_detected) {
 			usb_dpdm_pulldown(adapter, false);
-		else
+			if (pinfo->bootmode == 8)
+				pd_adapter_high_voltage_enable(0);
+		} else {
 			usb_dpdm_pulldown(adapter, true);
+			if (pinfo->bootmode == 8)
+				pd_adapter_high_voltage_enable(1);
+		}
 		break;
 	}
 	return ret;
@@ -658,6 +687,13 @@ static int adapter_parse_dt(struct mtk_pd_adapter_info *info,
 	struct device *dev)
 {
 	struct device_node *np = dev->of_node;
+	struct device_node *boot_np = NULL;
+	const struct {
+		u32 size;
+		u32 tag;
+		u32 boot_mode;
+		u32 boot_type;
+	} *tag;
 
 	pr_notice("%s\n", __func__);
 
@@ -665,6 +701,25 @@ static int adapter_parse_dt(struct mtk_pd_adapter_info *info,
 		pr_notice("%s: no device node\n", __func__);
 		return -EINVAL;
 	}
+
+	/* mediatek boot mode */
+	boot_np = of_parse_phandle(np, "boot_mode", 0);
+	if (!boot_np) {
+		pr_info("%s: failed to get bootmode phandle\n", __func__);
+		return -ENODEV;
+	}
+
+	tag = of_get_property(boot_np, "atag,boot", NULL);
+	if (!tag) {
+		pr_info("%s: failed to get atag,boot\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_notice("%s: sz:0x%x tag:0x%x mode:0x%x type:0x%x\n",
+	__func__, tag->size, tag->tag, tag->boot_mode, tag->boot_type);
+
+	info->bootmode = tag->boot_mode;
+	info->boottype = tag->boot_type;
 
 	if (of_property_read_string(np, "adapter_name",
 		&info->adapter_dev_name) < 0)

@@ -863,6 +863,18 @@ static ssize_t ADC_Charger_Voltage_show(struct device *dev,
 
 static DEVICE_ATTR_RO(ADC_Charger_Voltage);
 
+static ssize_t ADC_Charging_Current_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	int ibat = get_battery_current(pinfo); /* mA */
+
+	chr_err("%s: %d\n", __func__, ibat);
+	return sprintf(buf, "%d\n", ibat);
+}
+
+static DEVICE_ATTR_RO(ADC_Charging_Current);
+
 static ssize_t input_current_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -2572,6 +2584,9 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_ADC_Charger_Voltage);
 	if (ret)
 		goto _out;
+	ret = device_create_file(&(pdev->dev), &dev_attr_ADC_Charging_Current);
+	if (ret)
+		goto _out;
 	ret = device_create_file(&(pdev->dev), &dev_attr_input_current);
 	if (ret)
 		goto _out;
@@ -3030,7 +3045,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		chr_err("register psy2 fail:%d\n",
 			PTR_ERR(info->psy2));
 
-	info->psy_dvchg_desc1.name = "mtk-master-divider-charger";
+	info->psy_dvchg_desc1.name = "mtk-mst-div-chg";
 	info->psy_dvchg_desc1.type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->psy_dvchg_desc1.properties = charger_psy_properties;
 	info->psy_dvchg_desc1.num_properties =
@@ -3047,7 +3062,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		chr_err("register psy dvchg1 fail:%d\n",
 			PTR_ERR(info->psy_dvchg1));
 
-	info->psy_dvchg_desc2.name = "mtk-slave-divider-charger";
+	info->psy_dvchg_desc2.name = "mtk-slv-div-chg";
 	info->psy_dvchg_desc2.type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->psy_dvchg_desc2.properties = charger_psy_properties;
 	info->psy_dvchg_desc2.num_properties =
