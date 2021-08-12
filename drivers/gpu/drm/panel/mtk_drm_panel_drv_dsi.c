@@ -477,11 +477,11 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 
 	DDPMSG("%s+\n", __func__);
 	if (IS_ERR_OR_NULL(ops))
-		return -EINVAL;
+		return 0;
 
 	/*prepare read back buffer*/
 	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
-		return ret;
+		return 0;
 
 	if (mtk_lcm_create_input(input.data, ops->ata_id_value_length,
 			MTK_LCM_INPUT_TYPE_READBACK) < 0)
@@ -492,19 +492,22 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 			ctx_dsi->panel_resource,
 			&input, "ata_check");
 	if (ret < 0) {
-		DDPPR_ERR("%s,%d: failed to do ata check\n",
-			__func__, __LINE__);
+		DDPPR_ERR("%s,%d: failed to do ata check, %d\n",
+			__func__, __LINE__, ret);
+		ret = 0;
 		goto end;
 	}
 
+	data = (u8 *)input.data->data;
 	for (i = 0; i < ops->ata_id_value_length; i++) {
 		if (data[i] != ops->ata_id_value_data[i]) {
 			DDPPR_ERR("ATA data%d is expected:0x%x, we got:0x%x\n",
 				i, ops->ata_id_value_data[i], data[i]);
-			ret = -1;
+			ret = 0;
 			goto end;
 		}
 	}
+	ret = 1; /*1 for pass*/
 
 end:
 	/*deallocate read back buffer*/
@@ -512,6 +515,7 @@ end:
 	input.data = NULL;
 fail:
 	mtk_lcm_destroy_input_packet(&input);
+
 	DDPMSG("%s-, %d\n", __func__, ret);
 	return ret;
 }

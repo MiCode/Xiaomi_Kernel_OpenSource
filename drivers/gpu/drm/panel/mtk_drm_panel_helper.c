@@ -1335,7 +1335,7 @@ int mtk_lcm_create_input(struct mtk_lcm_ops_input *input,
 
 	LCM_KZALLOC(input->data, data_len, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(input->data)) {
-		DDPMSG("%s, %d, failed to allocate condition data\n",
+		DDPMSG("%s, %d, failed to allocate input data\n",
 			__func__, __LINE__);
 		return -ENOMEM;
 	}
