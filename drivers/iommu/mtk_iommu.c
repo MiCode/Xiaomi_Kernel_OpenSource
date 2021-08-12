@@ -1936,7 +1936,8 @@ static const struct mtk_iommu_plat_data mt6879_data_disp = {
 static const struct mtk_iommu_plat_data mt6879_data_apu0 = {
 	.m4u_plat	= M4U_MT6879,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
-			  GET_DOM_ID_LEGACY | IOVA_34_EN,// | HAS_BCLK,
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU,
+			  // | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
