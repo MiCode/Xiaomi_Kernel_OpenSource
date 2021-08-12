@@ -664,6 +664,10 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 		src_rq = cpu_rq(cpu);
 		rq_lock_irqsave(src_rq, &src_rf);
 		update_rq_clock(src_rq);
+		if (src_rq->active_balance) {
+			rq_unlock_irqrestore(src_rq, &src_rf);
+			continue;
+		}
 		if (src_rq->misfit_task_load > misfit_load &&
 			capacity_orig_of(this_cpu) > capacity_orig_of(cpu)) {
 			p = src_rq->curr;
@@ -701,7 +705,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	 */
 	if (!p && misfit_task_rq)
 		*done = migrate_running_task(this_cpu, best_running_task,
-					misfit_task_rq, MIGR_TICK_PULL_MISFIT_RUNNING);
+					misfit_task_rq, MIGR_IDLE_PULL_MISFIT_RUNNING);
 	if (best_running_task)
 		put_task_struct(best_running_task);
 	raw_spin_lock(&this_rq->lock);
