@@ -1538,6 +1538,7 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		dma_buf_detach(dmabuf, buf_va_info->attach);
 		fd_info->fds_size[i] = dmabuf->size;
 		dma_buf_put(dmabuf);
+		vfree(buf_va_info);
 		buf_va_info = NULL;
 		pr_debug("%s: fd(%d) size (%llx) cache invalidated\n", __func__,
 					fd_info->fds[i], fd_info->fds_size[i]);
