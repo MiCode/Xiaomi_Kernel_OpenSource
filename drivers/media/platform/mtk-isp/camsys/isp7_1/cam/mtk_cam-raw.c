@@ -1820,6 +1820,9 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		return ret;
 	}
 
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+		dev_info(dev, "%s: No suitable DMA available\n", __func__);
+
 	/* base outer register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
 	if (!res) {
@@ -4867,6 +4870,9 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "missing camid property\n");
 		return ret;
 	}
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
 	/* base outer register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
