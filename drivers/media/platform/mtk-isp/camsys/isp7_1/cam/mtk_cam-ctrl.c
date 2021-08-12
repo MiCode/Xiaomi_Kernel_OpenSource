@@ -2556,9 +2556,8 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				state_found = 1;
 			}
 
-			if (mtk_cam_is_mstream(ctx)) {
-				req_stream_data =
-					mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+			if (feature_is_mstream(req_stream_data->feature.raw_feature)) {
+				req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 				req_state = &req_stream_data->state;
 				if (state_entry == req_state) {
 					list_del(&state_entry->state_element);
