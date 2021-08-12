@@ -6285,6 +6285,16 @@
 			mediatek,mml = <&mmlsys_config>;
 		};
 
+		inlinerot0: inlinerot0@1f016000 {
+			compatible = "mediatek,inlinerot0";
+			reg = <0 0x1f016000 0 0x1000>;
+		};
+
+		inlinerot1: inlinerot1@1f016000 {
+			compatible = "mediatek,inlinerot1";
+			reg = <0 0x1f016000 0 0x1000>;
+		};
+
 		mmlsys_config: mmlsys_config {
 			compatible = "mediatek,mt6893-mml";
 			reg = <0 0x1f000000 0 0x1000>;
@@ -6538,7 +6548,7 @@
 			reg = <0 0x1f006000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RDMA0>;
 			clock-names = "MDP_RDMA0";
-			mediatek,larb = <&larb2>;
+			mediatek,larb = <&larb2 MTK_M4U_TO_PORT(M4U_PORT_L2_MDP_RDMA0)>;
 			comp-ids = <MML_RDMA0>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
@@ -6557,7 +6567,7 @@
 			reg = <0 0x1f007000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RDMA1>;
 			clock-names = "MDP_RDMA1";
-			mediatek,larb = <&larb3>;
+			mediatek,larb = <&larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_RDMA1)>;
 			comp-ids = <MML_RDMA1>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
@@ -6576,7 +6586,7 @@
 			reg = <0 0x1f008000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RDMA2>;
 			clock-names = "MDP_RDMA2";
-			mediatek,larb = <&larb2>;
+			mediatek,larb = <&larb2 MTK_M4U_TO_PORT(M4U_PORT_L2_MDP_RDMA2)>;
 			comp-ids = <MML_RDMA2>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
@@ -6595,7 +6605,7 @@
 			reg = <0 0x1f009000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RDMA3>;
 			clock-names = "MDP_RDMA3";
-			mediatek,larb = <&larb3>;
+			mediatek,larb = <&larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_RDMA3)>;
 			comp-ids = <MML_RDMA3>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
@@ -6808,17 +6818,19 @@
 			reg = <0 0x1f016000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_WROT0>;
 			clock-names = "MDP_WROT0";
-			mediatek,larb = <&larb2>;
+			mediatek,larb = <&larb2 MTK_M4U_TO_PORT(M4U_PORT_L2_MDP_WROT0)>;
 			comp-ids = <MML_WROT0>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
 			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT0_FRAME_DONE>;
+			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu1 M4U_PORT_L2_MDP_WROT0>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_WROT0)
 					&mmqos SLAVE_COMMON(1)>;
 			interconnect-names = "mml_dma";
+			inlinerot = <&inlinerot0>, <&inlinerot1>;
 		};
 
 		mml_wrot1: mml_wrot1@1f017000 {
@@ -6826,17 +6838,19 @@
 			reg = <0 0x1f017000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_WROT1>;
 			clock-names = "MDP_WROT1";
-			mediatek,larb = <&larb3>;
+			mediatek,larb = <&larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WROT1)>;
 			comp-ids = <MML_WROT1>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R08>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>;
 			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT1_FRAME_DONE>;
+			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu1 M4U_PORT_L3_MDP_WROT1>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WROT1)
 					&mmqos SLAVE_COMMON(1)>;
 			interconnect-names = "mml_dma";
+			inlinerot = <&inlinerot0>, <&inlinerot1>;
 		};
 
 		mml_wrot2: mml_wrot2@1f018000 {
@@ -6845,17 +6859,19 @@
 			interrupts = <GIC_SPI 485 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&mdpsys CLK_MDP_WROT2>;
 			clock-names = "MDP_WROT2";
-			mediatek,larb = <&larb2>;
+			mediatek,larb = <&larb2 MTK_M4U_TO_PORT(M4U_PORT_L2_MDP_WROT2)>;
 			comp-ids = <MML_WROT2>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
 			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT2_FRAME_DONE>;
+			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT2_PIPE>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu1 M4U_PORT_L2_MDP_WROT2>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_WROT2)
 					&mmqos SLAVE_COMMON(1)>;
 			interconnect-names = "mml_dma";
+			inlinerot = <&inlinerot0>, <&inlinerot1>;
 		};
 
 		mml_wrot3: mml_wrot3@1f019000 {
@@ -6864,17 +6880,19 @@
 			interrupts = <GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&mdpsys CLK_MDP_WROT3>;
 			clock-names = "MDP_WROT3";
-			mediatek,larb = <&larb3>;
+			mediatek,larb = <&larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WROT3)>;
 			comp-ids = <MML_WROT3>;
 			gpr_poll = /bits/ 8 <GCE_GPR_R08>;
 			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>;
 			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT3_FRAME_DONE>;
+			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT2_PIPE>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu1 M4U_PORT_L3_MDP_WROT3>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WROT3)
 					&mmqos SLAVE_COMMON(1)>;
 			interconnect-names = "mml_dma";
+			inlinerot = <&inlinerot0>, <&inlinerot1>;
 		};
 
 		mdpsys_config: mdpsys_config@1f000000 {
