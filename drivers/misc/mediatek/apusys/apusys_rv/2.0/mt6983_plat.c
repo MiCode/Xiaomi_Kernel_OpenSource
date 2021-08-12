@@ -398,7 +398,7 @@ static void mt6983_rv_cachedump(struct mtk_apu *apu)
 }
 
 const struct mtk_apu_platdata mt6983_platdata = {
-	.flags		= F_PRELOAD_FIRMWARE,
+	.flags		= F_PRELOAD_FIRMWARE | F_AUTO_BOOT,
 	.ops		= {
 		.init	= mt6983_rproc_init,
 		.exit	= mt6983_rproc_exit,

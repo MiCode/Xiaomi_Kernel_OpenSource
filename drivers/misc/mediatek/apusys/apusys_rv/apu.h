@@ -133,6 +133,7 @@ struct mtk_apu {
 	struct mutex send_lock;
 	struct apu_ipi_desc ipi_desc[APU_IPI_MAX];
 	bool ipi_id_ack[APU_IPI_MAX]; /* per-ipi ack */
+	bool ipi_inbound_locked;
 	wait_queue_head_t ack_wq; /* for waiting for ipi ack */
 
 	/* ipi share buffer */
@@ -146,6 +147,7 @@ struct mtk_apu {
 	struct rproc_subdev *rpmsg_subdev;
 
 	struct mtk_apu_platdata	*platdata;
+	struct device *power_dev;
 };
 
 #define TCM_SIZE (128UL * 1024UL)
@@ -200,4 +202,7 @@ extern const struct mtk_apu_platdata mt6983_platdata;
 extern int reviser_set_init_info(struct mtk_apu *apu);
 extern int vpu_set_init_info(struct mtk_apu *apu);
 extern int power_set_chip_info(struct mtk_apu *apu);
+
+extern int apu_deepidle_init(struct mtk_apu *apu);
+extern void apu_deepidle_exit(struct mtk_apu *apu);
 #endif /* APU_H */

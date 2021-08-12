@@ -6,14 +6,18 @@
 #ifndef APU_IPI_H
 #define APU_IPI_H
 
-#include "apu.h"
-
 #include "mtk_apu_rpmsg.h"
+
+#define APU_FW_VER_LEN	       (32)
+#define APU_SHARE_BUFFER_SIZE  (256)
+#define APU_SHARE_BUF_SIZE (round_up(sizeof(struct mtk_share_obj)*2, PAGE_SIZE))
+
+struct mtk_apu;
 
 enum {
 	APU_IPI_INIT = 0,
 	APU_IPI_NS_SERVICE,
-	APU_IPI_POWER_ON_DUMMY,
+	APU_IPI_DEEP_IDLE,
 	APU_IPI_CTRL_RPMSG,
 	APU_IPI_MIDDLEWARE,
 	APU_IPI_REVISER_RPMSG,
@@ -25,27 +29,40 @@ enum {
 	APU_IPI_MAX,
 };
 
-struct apu_ipi_desc {
-	struct mutex lock;
-	ipi_handler_t handler;
-	void *priv;
-};
-
-#define APU_FW_VER_LEN	       (32)
-#define APU_SHARE_BUFFER_SIZE  (256)
-struct mtk_share_obj {
-	//u32 id;
-	//u32 len;
-	u8 share_buf[APU_SHARE_BUFFER_SIZE];
-};
-#define APU_SHARE_BUF_SIZE (round_up(sizeof(struct mtk_share_obj)*2, PAGE_SIZE))
-
 struct apu_run {
 	//u32 signaled;
 	s8 fw_ver[APU_FW_VER_LEN];
 	u32 signaled;
 	wait_queue_head_t wq;
 };
+
+struct apu_ipi_desc {
+	struct mutex lock;
+	ipi_handler_t handler;
+	void *priv;
+
+	/*
+	 * positive: host-initiated ipi outstanding count
+	 * negative: apu-initiated ipi outstanding count
+	 */
+	atomic_t usage_cnt;
+};
+
+struct mtk_share_obj {
+	//u32 id;
+	//u32 len;
+	u8 share_buf[APU_SHARE_BUFFER_SIZE];
+};
+
+void apu_ipi_remove(struct mtk_apu *apu);
+int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu);
+int apu_ipi_register(struct mtk_apu *apu, u32 id,
+		ipi_handler_t handler, void *priv);
+void apu_ipi_unregister(struct mtk_apu *apu, u32 id);
+int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
+		 u32 wait_ms);
+int apu_ipi_lock(struct mtk_apu *apu);
+void apu_ipi_unlock(struct mtk_apu *apu);
 
 #endif /* APU_IPI_H */
 

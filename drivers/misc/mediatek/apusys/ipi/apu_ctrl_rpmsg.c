@@ -157,8 +157,6 @@ int apu_ctrl_send_msg(u32 ch_id, void *data, unsigned int len,
 		return -EINVAL;
 	}
 
-	//@@@ apu_dpidle_power_on_aputop();
-
 	ipi_drv_info("ch_id=%d, data=%p, len=%d, timeout=%d\n", ch_id, data, len, timeout);
 
 	msg.ch_id = ch_id;

@@ -72,6 +72,9 @@ void apu_mbox_hw_init(struct mtk_apu *apu)
 {
 	iowrite32(~(1 << (APU_MBOX_HDR_SLOTS - 1)),
 		  _INBOX_IRQ_MASK(apu));
+
+	/* clear outbox IRQ */
+	apu_mbox_ack_outbox(apu);
 }
 
 void apu_mbox_hw_exit(struct mtk_apu *apu)

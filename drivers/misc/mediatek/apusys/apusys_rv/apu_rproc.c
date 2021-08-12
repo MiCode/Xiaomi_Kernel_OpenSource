@@ -26,6 +26,7 @@
 #include "apu_config.h"
 #include "apusys_core.h"
 
+
 static struct platform_device *g_pdev;
 static int drv_param;
 
@@ -95,6 +96,9 @@ static int __apu_run(struct rproc *rproc)
 		WARN_ON(1);
 		return -EINVAL;
 	}
+
+	pm_runtime_get_sync(apu->dev);
+
 	hw_ops->start(apu);
 
 	/* check if boot success */
@@ -336,19 +340,6 @@ static int apu_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, apu);
 	spin_lock_init(&apu->reg_lock);
 
-	dev_info(dev, "%s %d\n", __func__, __LINE__);
-	pm_runtime_enable(&pdev->dev);
-
-	/*
-	 * CAUTION !
-	 * this line will cause rpm refcnt of apu_top +2
-	 * apusys_rv -> iommu0 -> apu_top
-	 * apusys_rv -> iommu1 -> apu_top
-	 */
-	g_pdev = pdev;
-	pm_runtime_get_sync(&pdev->dev);
-	dev_info(dev, "%s %d\n", __func__, __LINE__);
-
 	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
 		/* prevent MPU violation when F_SECURE_BOOT is enabled */
 		if ((apu->platdata->flags & F_SECURE_BOOT) == 0) {
@@ -409,11 +400,29 @@ static int apu_probe(struct platform_device *pdev)
 			apu->apu_aee_coredump_mem_base;
 	}
 
+	dev_info(dev, "%s %d\n", __func__, __LINE__);
+	pm_runtime_enable(&pdev->dev);
+
+	/*
+	 * CAUTION !
+	 * this line will cause rpm refcnt of apu_top +2
+	 * apusys_rv -> iommu0 -> apu_top
+	 * apusys_rv -> iommu1 -> apu_top
+	 */
+	g_pdev = pdev;
+	pm_runtime_get_sync(&pdev->dev);
+
+	ret = apu_deepidle_init(apu);
+	if (ret < 0)
+		goto remove_apu_deepidle;
+
 	if (!hw_ops->apu_memmap_init) {
 		pm_runtime_put_sync(&pdev->dev);
+		pm_runtime_put_sync(apu->power_dev);
 		WARN_ON(1);
-		return -EINVAL;
+		goto remove_apu_deepidle;
 	}
+
 	ret = hw_ops->apu_memmap_init(apu);
 	if (ret)
 		goto remove_apu_memmap;
@@ -467,10 +476,13 @@ static int apu_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put_sync(apu->power_dev);
+
 	return 0;
 
 del_rproc:
 	rproc_del(rproc);
+
 
 remove_apu_excep:
 	apu_excep_remove(pdev, apu);
@@ -478,11 +490,11 @@ remove_apu_excep:
 remove_apu_procfs:
 	apu_procfs_remove(pdev);
 
-remove_apu_ipi:
-	apu_ipi_remove(apu);
-
 remove_apu_timesync:
 	apu_timesync_remove(apu);
+
+remove_apu_ipi:
+	apu_ipi_remove(apu);
 
 remove_apu_dram_boot:
 	apu_dram_boot_remove(apu);
@@ -498,11 +510,17 @@ remove_apu_mem:
 
 remove_apu_memmap:
 	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put_sync(apu->dev);
 	if (!hw_ops->apu_memmap_remove) {
 		WARN_ON(1);
 		return -EINVAL;
 	}
 	hw_ops->apu_memmap_remove(apu);
+
+remove_apu_deepidle:
+	apu_deepidle_exit(apu);
+
+	rproc_free(rproc);
 
 	return ret;
 }
@@ -516,6 +534,8 @@ static int apu_remove(struct platform_device *pdev)
 		hw_ops->exit(apu);
 
 	rproc_del(apu->rproc);
+
+	apu_deepidle_exit(apu);
 
 	apu_excep_remove(pdev, apu);
 	apu_procfs_remove(pdev);
