@@ -64,6 +64,7 @@ enum REGION_TYPE {
 
 struct secure_heap_region {
 	bool heap_mapped; /* indicate whole region if it is mapped */
+	bool heap_filled; /* indicate whole region if it is filled */
 	struct mutex heap_lock;
 	const char *heap_name[REGION_TYPE_NUM];
 	atomic64_t total_size;
@@ -286,6 +287,7 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 		}
 		sg_free_table(sec_heap->region_table);
 		kfree(sec_heap->region_table);
+		sec_heap->heap_filled = false;
 		pr_info("%s: all secure memory already free, unmap heap_region iova\n", __func__);
 	}
 
@@ -796,7 +798,7 @@ static int fill_heap_sgtable(struct secure_heap_region *sec_heap,
 	}
 	/* TODO: race condition????????????????? */
 	mutex_lock(&sec_heap->heap_lock);
-	if (sec_heap->heap_mapped) {
+	if (sec_heap->heap_filled) {
 		mutex_unlock(&sec_heap->heap_lock);
 		pr_info("%s, %s already filled\n", __func__, dma_heap_get_name(buffer->heap));
 		return 0;
@@ -825,9 +827,9 @@ static int fill_heap_sgtable(struct secure_heap_region *sec_heap,
 		       dma_heap_get_name(buffer->heap));
 		return ret;
 	}
-	atomic64_set(&sec_heap->total_size, 0);
 	sg_set_page(sec_heap->region_table->sgl, phys_to_page(sec_heap->region_pa),
 		    sec_heap->region_size, 0);
+	sec_heap->heap_filled = true;
 	mutex_unlock(&sec_heap->heap_lock);
 	pr_info("%s [%s] fill done, region_pa:%pa, region_size:0x%x\n",
 		__func__, dma_heap_get_name(buffer->heap), &sec_heap->region_pa,
