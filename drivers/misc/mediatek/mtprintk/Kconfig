@@ -33,3 +33,16 @@ config LOG_TOO_MUCH_DETECT_GAP
 	hex "detect log too much delay time"
 	default 30
 	depends on LOG_TOO_MUCH_WARNING
+
+config MTK_PRINTK_DEBUG
+	bool "Just for MTK to debug info"
+	default n
+	help
+	  MTK_PRINTK_DEBUG is used for debugging instead of gki.
+	  First, it adds process name in log info.
+
+	  Second, when one cpu exec console_unlock and log is too much,
+	  it may be writing to console for long time.
+	  This may Trigger HWT.
+	  We should better detect the duration in console.
+	  When the duration is over criteria, it will Report DB.
