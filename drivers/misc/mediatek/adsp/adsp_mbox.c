@@ -4,7 +4,6 @@
  */
 
 #include <linux/vmalloc.h>      /* needed by vmalloc */
-#include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/sched/clock.h>
 #include "adsp_core.h"
@@ -98,25 +97,6 @@ void unhook_ipi_queue_recv_msg_hanlder(void)
 	ipi_queue_recv_msg_hanlder = NULL;
 }
 EXPORT_SYMBOL(unhook_ipi_queue_recv_msg_hanlder);
-
-void adsp_mbox_dump(void)
-{
-	int mbox = 0;
-	struct mtk_mbox_info *minfo;
-
-	for (mbox = 0; mbox < ADSP_IPI_CH_CNT; mbox++) {
-		mtk_mbox_dump(&adsp_mboxdev, mbox);
-
-		minfo = &adsp_mbox_table[mbox];
-		pr_info("adsp_mbox%d reg:(0x%x,0x%x,0x%x,0x%x,0x%x)",
-			mbox,
-			readl(minfo->set_irq_reg),
-			readl(minfo->clr_irq_reg),
-			readl(minfo->init_base_reg),
-			readl(minfo->send_status_reg),
-			readl(minfo->recv_status_reg));
-	}
-}
 
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		unsigned int wait)

@@ -213,7 +213,6 @@ int adsp_core1_suspend(void)
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
 			show_adsp_core_suspend(pdata);
-			adsp_mbox_dump();
 			ret = -ETIME;
 			goto ERROR;
 		}
