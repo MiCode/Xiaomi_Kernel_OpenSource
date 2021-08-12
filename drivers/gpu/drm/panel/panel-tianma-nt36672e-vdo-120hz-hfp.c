@@ -17,6 +17,7 @@
 
 #include <linux/module.h>
 #include <linux/of_platform.h>
+#include <linux/of_graph.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
 
@@ -1032,9 +1033,29 @@ static const struct drm_panel_funcs tianma_drm_funcs = {
 static int tianma_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
+	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
 	struct tianma *ctx;
 	struct device_node *backlight;
 	int ret;
+
+	pr_info("%s+ tianma,nt36672e,vdo,120hz\n", __func__);
+
+	dsi_node = of_get_parent(dev->of_node);
+	if (dsi_node) {
+		endpoint = of_graph_get_next_endpoint(dsi_node, NULL);
+		if (endpoint) {
+			remote_node = of_graph_get_remote_port_parent(endpoint);
+			if (!remote_node) {
+				pr_info("No panel connected,skip probe lcm\n");
+				return -ENODEV;
+			}
+			pr_info("device node name:%s\n", remote_node->name);
+		}
+	}
+	if (remote_node != dev->of_node) {
+		pr_info("%s+ skip probe due to not current lcm\n", __func__);
+		return -ENODEV;
+	}
 
 	ctx = devm_kzalloc(dev, sizeof(struct tianma), GFP_KERNEL);
 	if (!ctx)
@@ -1084,7 +1105,7 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 		return ret;
 #endif
 
-	pr_err("%s-\n", __func__);
+	pr_info("%s- tianma,nt36672e,vdo,120hz\n", __func__);
 
 	return ret;
 }
