@@ -127,7 +127,7 @@ static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt
 	u32 a_t0_ulvtll_rt, u32 a_shift_error, u32 efuse_error, u32 a_tn_lvt_cnt,
 	u32 a_tn_ulvt_cnt, u32 a_tn_ulvtll_cnt, unsigned int is_efuse_read_success);
 /* power control function */
-static int __gpufreq_cg_control(enum gpufreq_power_state power);
+static int __gpufreq_clock_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
 static int __gpufreq_buck_control(enum gpufreq_power_state power);
 static void __gpufreq_aoc_control(enum gpufreq_power_state power);
@@ -265,8 +265,6 @@ static struct gpufreq_platform_fp platform_eb_fp = {
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
-	.get_fmeter_fgpu = __gpufreq_get_fmeter_fgpu,
-	.get_fmeter_fstack = __gpufreq_get_fmeter_fstack,
 };
 
 /**
@@ -794,88 +792,56 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		}
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_04);
 
-		/* control ACP after MFG_1 on */
-		__gpufreq_acp_control();
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
-
-		/* control CG */
-		ret = __gpufreq_cg_control(POWER_ON);
+		/* control clock */
+		ret = __gpufreq_clock_control(POWER_ON);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to control CG: On (%d)", ret);
+			GPUFREQ_LOGE("fail to control CLOCK: On (%d)", ret);
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
+
+		/* control ACP */
+		__gpufreq_acp_control();
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_06);
-
-		/* switch GPU MUX to main_parent */
-		ret = __gpufreq_switch_clksrc_gpu(CLOCK_MAIN);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch GPU to main clock source (%d)", ret);
-			goto done_unlock;
-		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_07);
-
-		/* switch STACK MUX to main_parent */
-		ret = __gpufreq_switch_clksrc_stack(CLOCK_MAIN);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch STACK to main clock source (%d)", ret);
-			goto done_unlock;
-		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_08);
 
 		/* control HWDCM */
 		__gpufreq_hw_dcm_control();
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_09);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_07);
 
 		/* control GPM 1.0 */
 		if (g_gpm_enable)
 			__gpufreq_gpm_control();
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0A);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_08);
 
 		/* config SLC policy */
 		__gpufreq_slc_control();
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_09);
 
 		/* control DFD */
 		__gpudfd_config_dfd(true);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0A);
 
 		/* free DVFS when power on */
 		g_dvfs_state &= ~DVFS_POWEROFF;
 	} else if (power == POWER_OFF && g_stack.power_count == 0) {
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0D);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
 
 		/* control DFD */
 		__gpudfd_config_dfd(false);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0E);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
 
-		/* switch STACK MUX to sub_parent */
-		ret = __gpufreq_switch_clksrc_stack(CLOCK_SUB);
+		/* control clock */
+		ret = __gpufreq_clock_control(POWER_OFF);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch STACK to sub clock source (%d)", ret);
-			goto done_unlock;
-		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0F);
-
-		/* switch GPU MUX to sub_parent */
-		ret = __gpufreq_switch_clksrc_gpu(CLOCK_SUB);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch GPU to sub clock source (%d)", ret);
-			goto done_unlock;
-		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_10);
-
-		/* control CG */
-		ret = __gpufreq_cg_control(POWER_OFF);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to control CG: Off (%d)", ret);
+			GPUFREQ_LOGE("fail to control CLOCK: Off (%d)", ret);
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_11);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0D);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -884,11 +850,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_12);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0E);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_13);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0F);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -897,13 +863,16 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_14);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_10);
 	}
 
 	/* return power count if successfully control power */
 	ret = g_stack.power_count;
 
 done_unlock:
+	GPUFREQ_LOGD("PWR_STATUS (0x%x): 0x%08x",
+		(0x1C001000 + PWR_STATUS_OFS), readl(g_sleep + PWR_STATUS_OFS));
+
 	mutex_unlock(&gpufreq_lock);
 
 	GPUFREQ_TRACE_END();
@@ -1184,6 +1153,7 @@ int __gpufreq_fix_target_oppidx_stack(int oppidx)
 
 	if (oppidx == -1) {
 		__gpufreq_set_dvfs_state(false, DVFS_DEBUG_KEEP);
+		ret = GPUFREQ_SUCCESS;
 	} else if (oppidx >= 0 && oppidx < opp_num) {
 		__gpufreq_set_dvfs_state(true, DVFS_DEBUG_KEEP);
 
@@ -1239,6 +1209,7 @@ int __gpufreq_fix_custom_freq_volt_stack(unsigned int freq, unsigned int volt)
 
 	if (freq == 0 && volt == 0) {
 		__gpufreq_set_dvfs_state(false, DVFS_DEBUG_KEEP);
+		ret = GPUFREQ_SUCCESS;
 	} else if (freq > max_freq || freq < min_freq) {
 		GPUFREQ_LOGE("invalid fixed Freq: %d", freq);
 		ret = GPUFREQ_EINVAL;
@@ -1752,13 +1723,6 @@ static int __gpufreq_switch_clksrc_gpu(enum gpufreq_clk_src clksrc)
 
 	GPUFREQ_TRACE_START("clksrc=%d", clksrc);
 
-	ret = clk_prepare_enable(g_clk->clk_mux);
-	if (unlikely(ret)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to enable clk_mux (%d)", ret);
-		goto done;
-	}
-
 	if (clksrc == CLOCK_MAIN) {
 		ret = clk_set_parent(g_clk->clk_mux, g_clk->clk_main_parent);
 		if (unlikely(ret)) {
@@ -1778,8 +1742,6 @@ static int __gpufreq_switch_clksrc_gpu(enum gpufreq_clk_src clksrc)
 		goto done;
 	}
 
-	clk_disable_unprepare(g_clk->clk_mux);
-
 done:
 	GPUFREQ_TRACE_END();
 
@@ -1791,13 +1753,6 @@ static int __gpufreq_switch_clksrc_stack(enum gpufreq_clk_src clksrc)
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("clksrc=%d", clksrc);
-
-	ret = clk_prepare_enable(g_clk->clk_sc_mux);
-	if (unlikely(ret)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to enable clk_sc_mux (%d)", ret);
-		goto done;
-	}
 
 	if (clksrc == CLOCK_MAIN) {
 		ret = clk_set_parent(g_clk->clk_sc_mux, g_clk->clk_sc_main_parent);
@@ -1817,8 +1772,6 @@ static int __gpufreq_switch_clksrc_stack(enum gpufreq_clk_src clksrc)
 		GPUFREQ_LOGE("invalid clock source: %d (EINVAL)", clksrc);
 		goto done;
 	}
-
-	clk_disable_unprepare(g_clk->clk_sc_mux);
 
 done:
 	GPUFREQ_TRACE_END();
@@ -2836,31 +2789,81 @@ static void __gpufreq_hw_dcm_control(void)
 	writel(val, g_mfg_rpc_base + 0x1034);
 }
 
-static int __gpufreq_cg_control(enum gpufreq_power_state power)
+static int __gpufreq_clock_control(enum gpufreq_power_state power)
 {
 	int ret = GPUFREQ_SUCCESS;
 
-#if GPUFREQ_CG_CONTROL_ENABLE
 	GPUFREQ_TRACE_START("power=%d", power);
 
 	if (power == POWER_ON) {
+#if GPUFREQ_CG_CONTROL_ENABLE
+		/* enable CG */
 		ret = clk_prepare_enable(g_clk->subsys_mfg_cg);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 				"fail to enable subsys_mfg_cg (%d)", ret);
 			goto done;
 		}
+#endif /* GPUFREQ_CG_CONTROL_ENABLE */
+		/* enable GPU MUX and GPU PLL */
+		ret = clk_prepare_enable(g_clk->clk_mux);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable clk_mux (%d)", ret);
+			goto done;
+		}
+		/* enable STACK MUX and STACK MUX */
+		ret = clk_prepare_enable(g_clk->clk_sc_mux);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable clk_sc_mux (%d)", ret);
+			goto done;
+		}
+
+		/* switch GPU MUX to main_parent */
+		ret = __gpufreq_switch_clksrc_gpu(CLOCK_MAIN);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to switch GPU to main clock source (%d)", ret);
+			goto done;
+		}
+		/* switch STACK MUX to main_parent */
+		ret = __gpufreq_switch_clksrc_stack(CLOCK_MAIN);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to switch STACK to main clock source (%d)", ret);
+			goto done;
+		}
+
 		g_gpu.cg_count++;
 		g_stack.cg_count++;
 	} else {
+		/* switch STACK MUX to sub_parent */
+		ret = __gpufreq_switch_clksrc_stack(CLOCK_SUB);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to switch STACK to sub clock source (%d)", ret);
+			goto done;
+		}
+		/* switch GPU MUX to sub_parent */
+		ret = __gpufreq_switch_clksrc_gpu(CLOCK_SUB);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to switch GPU to sub clock source (%d)", ret);
+			goto done;
+		}
+
+		/* disable STACK MUX and STACK PLL */
+		clk_disable_unprepare(g_clk->clk_sc_mux);
+		/* disable GPU MUX and GPU PLL */
+		clk_disable_unprepare(g_clk->clk_mux);
+#if GPUFREQ_CG_CONTROL_ENABLE
+		/* disable CG */
 		clk_disable_unprepare(g_clk->subsys_mfg_cg);
+#endif /* GPUFREQ_CG_CONTROL_ENABLE */
+
 		g_gpu.cg_count--;
 		g_stack.cg_count--;
 	}
 
 done:
 	GPUFREQ_TRACE_END();
-#endif
 
 	return ret;
 }
@@ -4553,12 +4556,14 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 		goto done;
 	}
 
+#if GPUFREQ_CG_CONTROL_ENABLE
 	g_clk->subsys_mfg_cg = devm_clk_get(&pdev->dev, "subsys_mfg_cg");
 	if (IS_ERR(g_clk->subsys_mfg_cg)) {
 		ret = PTR_ERR(g_clk->subsys_mfg_cg);
 		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get subsys_mfg_cg (%ld)", ret);
 		goto done;
 	}
+#endif /* GPUFREQ_CG_CONTROL_ENABLE */
 
 done:
 	GPUFREQ_TRACE_END();
@@ -4893,13 +4898,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* init shader present */
 	__gpufreq_init_shader_present();
 
-	/* init OPP table */
-	ret = __gpufreq_init_opp_table(pdev);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init OPP table (%d)", ret);
-		goto done;
-	}
-
 	/* default enable GPM 1.0, before power control */
 	g_gpm_enable = true;
 
@@ -4907,6 +4905,13 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	ret = __gpufreq_power_control(POWER_ON);
 	if (unlikely(ret < 0)) {
 		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
+		goto done;
+	}
+
+	/* init OPP table */
+	ret = __gpufreq_init_opp_table(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init OPP table (%d)", ret);
 		goto done;
 	}
 

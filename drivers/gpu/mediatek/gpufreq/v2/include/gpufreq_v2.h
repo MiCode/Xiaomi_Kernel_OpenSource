@@ -171,7 +171,6 @@ struct gpufreq_platform_fp {
 	int (*get_idx_by_fgpu)(unsigned int freq);
 	unsigned int (*get_lkg_pgpu)(unsigned int volt);
 	unsigned int (*get_dyn_pgpu)(unsigned int freq, unsigned int volt);
-	unsigned int (*get_fmeter_fgpu)(void);
 	const struct gpufreq_opp_info *(*get_working_table_gpu)(void);
 	const struct gpufreq_opp_info *(*get_signed_table_gpu)(void);
 	struct gpufreq_debug_opp_info (*get_debug_opp_info_gpu)(void);
@@ -195,7 +194,6 @@ struct gpufreq_platform_fp {
 	int (*get_idx_by_fstack)(unsigned int freq);
 	unsigned int (*get_lkg_pstack)(unsigned int volt);
 	unsigned int (*get_dyn_pstack)(unsigned int freq, unsigned int volt);
-	unsigned int (*get_fmeter_fstack)(void);
 	const struct gpufreq_opp_info *(*get_working_table_stack)(void);
 	const struct gpufreq_opp_info *(*get_signed_table_stack)(void);
 	struct gpufreq_debug_opp_info (*get_debug_opp_info_stack)(void);

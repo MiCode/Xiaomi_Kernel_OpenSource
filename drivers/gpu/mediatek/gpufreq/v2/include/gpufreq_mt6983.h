@@ -11,8 +11,7 @@
  **************************************************/
 #define GPUFREQ_BRINGUP                 (0)
 /*
- *  0 -> all on when mtk probe init (Freq/Vgpu/Vsram_gpu)
- *       disable DDK power on/off callback
+ * 0 -> power on once then never off and disable DDK power on/off callback
  */
 #define GPUFREQ_POWER_CTRL_ENABLE       (1)
 /*
@@ -26,9 +25,6 @@
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* misc setting control */
-#define GPUFREQ_BUCK_ALWAYS_ON          (0)
-#define GPUFREQ_MTCMOS_ALWAYS_ON        (0)
-#define GPUFREQ_CG_ALWAYS_ON            (0)
 #define GPUFREQ_VCORE_DVFS_ENABLE       (1)
 #define GPUFREQ_FORCE_4_CORES           (0)
 #define GPUFREQ_MFG1_CONTROL_ENABLE     (0)

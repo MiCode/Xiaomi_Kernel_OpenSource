@@ -1114,15 +1114,6 @@ struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target tar
 
 		if (!gpufreq_ipi_to_gpueb(send_msg))
 			opp_info = g_recv_msg.u.opp_info;
-
-		/* fmeter is only supported in AP */
-		if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_fmeter_fstack)
-			opp_info.fmeter_freq = gpufreq_fp->get_fmeter_fstack();
-		else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_fmeter_fgpu)
-			opp_info.fmeter_freq = gpufreq_fp->get_fmeter_fgpu();
-		else
-			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
 		goto done;
 	}
 
