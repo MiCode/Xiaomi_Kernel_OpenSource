@@ -169,7 +169,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	unsigned int no_frame_done_cnt;
-	struct mtk_cam_req_dump_work dump_work;
+	atomic_t seninf_dump_state;
 	struct mtk_cam_req_dbg_work dbg_work;
 	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct mtk_cam_req_feature feature;
@@ -511,10 +511,10 @@ mtk_cam_s_data_reset_wbuf(struct mtk_cam_request_stream_data *s_data)
 	s_data->working_buf = NULL;
 }
 
-static inline struct mtk_cam_request_stream_data*
-mtk_cam_dump_work_to_s_data(struct work_struct *work)
+static inline struct mtk_cam_seninf_dump_work*
+to_mtk_cam_seninf_dump_work(struct work_struct *work)
 {
-	return container_of(work, struct mtk_cam_request_stream_data, dump_work.work);
+	return container_of(work, struct mtk_cam_seninf_dump_work, work);
 }
 
 static inline struct mtk_cam_request *

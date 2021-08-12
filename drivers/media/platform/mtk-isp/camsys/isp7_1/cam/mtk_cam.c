@@ -2794,6 +2794,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 							stream_id, 0);
 					}
 					frame_work = &req_stream_data->frame_work;
+					mtk_cam_req_dump_work_init(req_stream_data);
 					INIT_WORK(&frame_work->work,
 						isp_tx_frame_worker);
 					queue_work(ctx->composer_wq,
@@ -2801,7 +2802,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				}
 			} else {
 				mtk_cam_sv_req_enqueue(ctx, req);
-				mtk_cam_req_dump_work_init(&req_stream_data->dump_work);
+				mtk_cam_req_dump_work_init(req_stream_data);
 				INIT_WORK(&frame_work->work, isp_tx_frame_worker);
 				queue_work(ctx->composer_wq, &frame_work->work);
 			}

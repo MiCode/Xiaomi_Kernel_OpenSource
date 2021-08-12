@@ -1041,10 +1041,26 @@ void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head)
 	wake_up(wq_head);
 }
 
+static void mtk_cam_req_seninf_dump_work(struct work_struct *work)
+{
+	struct mtk_cam_seninf_dump_work *seninf_dump_work;
+	struct v4l2_subdev *seninf;
+
+	seninf_dump_work = to_mtk_cam_seninf_dump_work(work);
+	seninf = seninf_dump_work->seninf;
+	if (!seninf)
+		pr_info("%s: filaed, seninf can't be NULL\n", __func__);
+	else
+		mtk_cam_seninf_dump(seninf);
+
+	kfree(seninf_dump_work);
+}
+
 void
 mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
 {
 	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_seninf_dump_work *dump_work;
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	if (!ctx) {
@@ -1062,7 +1078,7 @@ mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
 	}
 	spin_unlock(&ctx->streaming_lock);
 
-	if (atomic_read(&s_data->dump_work.state) != MTK_CAM_REQ_DBGWORK_S_INIT) {
+	if (atomic_read(&s_data->seninf_dump_state) != MTK_CAM_REQ_DBGWORK_S_INIT) {
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d):s_data(%d) drop duplicated dump\n",
 			 __func__, ctx->stream_id, s_data->frame_seq_no);
@@ -1070,67 +1086,29 @@ mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
 		return;
 	}
 
-	atomic_set(&s_data->dump_work.state, MTK_CAM_REQ_DBGWORK_S_PREPARED);
-	if (!queue_work(ctx->frame_done_wq, &s_data->dump_work.work))
+	dump_work = kmalloc(sizeof(*dump_work), GFP_ATOMIC);
+	if (!dump_work) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):s_data(%d) can't trigger seninf, work alloc failed\n",
+			 __func__, ctx->stream_id, s_data->frame_seq_no);
+
+		return;
+	}
+
+	dump_work->seninf = ctx->seninf;
+	INIT_WORK(&dump_work->work, mtk_cam_req_seninf_dump_work);
+	if (!queue_work(ctx->frame_done_wq, &dump_work->work))
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d):s_data(%d) work was already on a queue\n",
 			 __func__, ctx->stream_id, s_data->frame_seq_no);
+	else
+		atomic_set(&s_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+
 }
 
-static void mtk_cam_req_seninf_dump_work(struct work_struct *work)
+void mtk_cam_req_dump_work_init(struct mtk_cam_request_stream_data *s_data)
 {
-	struct mtk_cam_request_stream_data *s_data;
-	struct mtk_cam_ctx *ctx;
-	struct mtk_cam_request *req;
-	struct v4l2_subdev *seninf;
-	char *req_str = "unknown req";
-
-	s_data = mtk_cam_dump_work_to_s_data(work);
-	ctx = mtk_cam_s_data_get_ctx(s_data);
-	if (!ctx) {
-		pr_info("%s: filaed, ctx can't be NULL\n", __func__);
-		return;
-	}
-
-	spin_lock(&ctx->streaming_lock);
-	if (!ctx->streaming) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):s_data(%d) drop dump due to stream off\n",
-			 __func__, ctx->stream_id, s_data->frame_seq_no);
-		spin_unlock(&ctx->streaming_lock);
-
-		atomic_set(&s_data->dump_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
-		return;
-	}
-
-	if (!ctx->seninf) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):s_data(%d) failed, ctx->seninf can't be NULL\n",
-			 __func__, ctx->stream_id, s_data->frame_seq_no);
-		spin_unlock(&ctx->streaming_lock);
-
-		atomic_set(&s_data->dump_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
-		return;
-	}
-
-	seninf = ctx->seninf;
-	spin_unlock(&ctx->streaming_lock);
-
-	req = mtk_cam_s_data_get_req(s_data);
-	if (req)
-		req_str = req->req.debug_str;
-
-	dev_info(ctx->cam->dev, "%s:%s: ctx(%d):s_data(%d): seninf dump\n",
-		 __func__, req_str, ctx->stream_id, s_data->frame_seq_no);
-
-	mtk_cam_seninf_dump(seninf);
-	atomic_set(&s_data->dump_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
-}
-
-void mtk_cam_req_dump_work_init(struct mtk_cam_req_dump_work *work)
-{
-	atomic_set(&work->state, MTK_CAM_REQ_DBGWORK_S_INIT);
-	INIT_WORK(&work->work, mtk_cam_req_seninf_dump_work);
+	atomic_set(&s_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_INIT);
 }
 
 void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
@@ -1140,14 +1118,7 @@ void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
 	int state;
 
 	/* clean seninf dump work */
-	state = atomic_read(&s_data->dump_work.state);
-	if (state != MTK_CAM_REQ_DBGWORK_S_INIT &&
-	    state != MTK_CAM_REQ_DBGWORK_S_FINISHED) {
-		dev_info(ctx->cam->dev, "%s:ctx(%d):%s:seq(%d): cancel dump_work(%d)\n",
-			 __func__, ctx->stream_id, dbg_str,
-			 s_data->frame_seq_no, state);
-		atomic_set(&s_data->dump_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
-	}
+	atomic_set(&s_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 
 	/* clean execption dump work */
 	state = atomic_read(&s_data->dbg_exception_work.state);

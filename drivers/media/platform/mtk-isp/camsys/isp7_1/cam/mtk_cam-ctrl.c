@@ -2593,6 +2593,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		return;
 	}
 
+	atomic_set(&req_stream_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 	req_stream_data->frame_done_queue_work = 1;
 	frame_done_work = &req_stream_data->frame_done_work;
 	queue_work(ctx->frame_done_wq, &frame_done_work->work);
