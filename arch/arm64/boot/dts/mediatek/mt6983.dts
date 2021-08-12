@@ -1266,7 +1266,7 @@
 
 		adspsys: adspsys@1e000000 {
 			compatible = "mediatek,mt6983-adspsys";
-			status = "disabled";
+			status = "okay";
 			reg = <0 0x1e000000 0 0x6000>, /* CFG */
 				<0 0x1e00b000 0 0x5000>, /* CFG 2 */
 				<0 0x1e006000 0 0x100>, /* MBOX0 base */
@@ -1324,7 +1324,7 @@
 
 		adsp_core0: adsp_core0@1e020000 {
 			compatible = "mediatek,mt6983-adsp_core_0";
-			status = "disabled";
+			status = "okay";
 			reg = <0 0x1e050000 0 0x40000>, /* ITCM */
 				<0 0x1e020000 0 0x8000>; /* DTCM */
 			system = <0 0x50000000 0 0x700000>;
@@ -1338,7 +1338,7 @@
 
 		adsp_core1: adsp_core1@1e090000 {
 			compatible = "mediatek,mt6983-adsp_core_1";
-			status = "disabled";
+			status = "okay";
 			reg = <0 0x1e0c0000 0 0x40000>, /* ITCM */
 				<0 0x1e090000 0 0x8000>; /* DTCM */
 			system = <0 0x50700000 0 0x700000>;
