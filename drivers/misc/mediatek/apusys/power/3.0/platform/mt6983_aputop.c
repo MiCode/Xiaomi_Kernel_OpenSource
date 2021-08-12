@@ -1017,7 +1017,7 @@ static int mt6983_apu_top_off(struct device *dev)
 	// blocking until sleep success or timeout
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-			val, (val & 0x1UL) == 0x0, 50, 10000);
+			val, (val & 0x1UL) == 0x0, 50, 50000); // 50us, 50ms
 	if (ret) {
 		pr_info("%s timeout to wait RPC sleep, ret %d\n",
 				__func__, ret);

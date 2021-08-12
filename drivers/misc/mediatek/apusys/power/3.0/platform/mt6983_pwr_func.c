@@ -475,5 +475,8 @@ int mt6983_init_remote_data_sync(void __iomem *reg_base)
 		apu_writel(0xffffffff, spare_reg_base + reg_offset);
 	}
 
+	apu_writel(0x0, spare_reg_base + DRV_CFG_SYNC_REG);
+	apu_writel(0x0, spare_reg_base + PLAT_CFG_SYNC_REG);
+
 	return 0;
 }
