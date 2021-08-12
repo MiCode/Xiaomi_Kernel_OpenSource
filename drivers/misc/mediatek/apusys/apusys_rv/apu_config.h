@@ -76,6 +76,7 @@ struct config_v1 {
 	/* system related config begin */
 	u32 ramdump_offset;
 	u32 ramdump_type;
+	u32 ramdump_module;
 	u64 time_offset;
 	/* system related config end */
 

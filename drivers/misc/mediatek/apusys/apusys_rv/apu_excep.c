@@ -15,7 +15,7 @@
 #include "apu_config.h"
 #include "apusys_secure.h"
 
-const uint32_t TaskContext[] = {
+static const uint32_t TaskContext[] = {
 	0x0, // GPR
 	0x0, // GPR
 	0x0, // GPR
@@ -169,6 +169,30 @@ const uint32_t TaskContext[] = {
 	0x7c6, // CSR
 };
 
+enum apusys_assert_module {
+	assert_apusys_rv = 0,
+	assert_apusys_power,
+	assert_apusys_middleware,
+	assert_apusys_edma,
+	assert_apusys_mdla,
+	assert_apusys_mvpu,
+	assert_apusys_reviser,
+	assert_apusys_devapc,
+
+	assert_module_max,
+};
+
+static const char * const apusys_assert_module_name[assert_module_max] = {
+	"APUSYS_RV",
+	"APUSYS_POWER",
+	"APUSYS_MIDDLEWARE",
+	"APUSYS_EDMA",
+	"APUSYS_MDLA",
+	"APUSYS_MVPU",
+	"APUSYS_REVISER",
+	"APUSYS_DEVAPC",
+};
+
 struct apu_coredump_work_struct {
 	struct mtk_apu *apu;
 	struct work_struct work;
@@ -278,7 +302,13 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 	 * is triggered by uP exception
 	 */
 	if (apu->conf_buf->ramdump_type == 0x1) {
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV EXCEPTION");
+		if (apu->conf_buf->ramdump_module >= assert_module_max) {
+			dev_info(dev, "%s: ramdump_module(%u) >= assert_module_max(%u)\n",
+				__func__, apu->conf_buf->ramdump_module, assert_module_max);
+			apu->conf_buf->ramdump_module = 0;
+		}
+		apusys_rv_aee_warn(apusys_assert_module_name[apu->conf_buf->ramdump_module],
+			"APUSYS_RV EXCEPTION");
 		if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
 			apusys_rv_smc_call(dev,
 				MTK_APUSYS_KERNEL_OP_APUSYS_RV_COREDUMP_SHADOW_COPY, 0);

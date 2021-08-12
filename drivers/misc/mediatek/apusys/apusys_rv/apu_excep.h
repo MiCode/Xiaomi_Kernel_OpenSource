@@ -38,13 +38,18 @@
 #define DBG_ATTACH_INSTR (0x900)
 #define DBG_DEATTACH_INSTR (0x901)
 
-#define apusys_rv_aee_warn(key, format, args...) \
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define apusys_rv_aee_warn(key, format) \
 	do { \
-		dev_info(dev, format, ##args); \
-		aee_kernel_warning("APUSYS_RV", \
-			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+		char mod_name[150];\
+		snprintf(mod_name, 150, "%s: %s", format, key); \
+		dev_info(dev, "%s: %s\n", key, format); \
+		aee_kernel_warning(mod_name, \
+			"\nCRDISPATCH_KEY: %s\n", key); \
 	} while (0)
-
+#else
+#define apusys_rv_aee_warn(key, format)
+#endif
 
 int apu_excep_init(struct platform_device *pdev, struct mtk_apu *apu);
 void apu_excep_remove(struct platform_device *pdev, struct mtk_apu *apu);
