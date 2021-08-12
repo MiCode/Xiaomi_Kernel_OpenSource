@@ -69,6 +69,7 @@
 #define REG_MMU_TBW_ID				0xa0
 
 #define REG_MMU_CTRL_REG			0x110
+#define F_MMU_MON_EN				BIT(1)
 #define F_MMU_SYNC_INVLDT_EN			BIT(3)
 #define F_MMU_TF_PROT_TO_PROGRAM_ADDR		(2 << 4)
 #define F_MMU_PREFETCH_RT_REPLACE_MOD		BIT(4)
@@ -1305,6 +1306,7 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 			regval |= F_MMU_SYNC_INVLDT_EN;
 		else
 			regval |= F_MMU_TF_PROT_TO_PROGRAM_ADDR;
+		regval |= F_MMU_MON_EN;
 	}
 	writel_relaxed(regval, data->base + REG_MMU_CTRL_REG);
 
