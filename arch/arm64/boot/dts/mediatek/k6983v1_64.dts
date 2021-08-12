@@ -25,7 +25,7 @@
 	atag,videolfb-fps= <6000>;
 	atag,videolfb-vramSize= <0x1be0000>;
 	atag,videolfb-lcmname=
-		"nt36672e_fhdp_dsi_vdo_60hz_jdi_dphy_drv";
+		"nt36672e_fhdp_dsi_vdo_120hz_jdi_dphy_drv";
 };
 
 &odm {
@@ -570,7 +570,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "jdi,nt36672e,vdo,60hz";
+		compatible = "jdi,nt36672e,vdo,120hz";
 		reg = <0>;
 		pm-enable-gpios = <&pio 68 0>;
 		reset-gpios = <&pio 86 0>;
