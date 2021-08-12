@@ -229,7 +229,7 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 	unsigned short current_chan;
 
 	FMDBG("%s enter\n", __func__);
-
+	mutex_lock(&radio->lock);
 	/* check Seek/Tune Complete */
 	retval = rtc6226_get_register(radio, STATUS);
 	if (retval < 0) {
@@ -267,11 +267,13 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 			FMDBG("posting RICHWAVE_EVT_TUNE_SUCC event\n");
 			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
 			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
-		} else if (radio->seek_tune_status == TUNE_PENDING) {
+		} else if ((radio->seek_tune_status == TUNE_PENDING) ||
+			(radio->g_search_mode != SCAN)) {
 			FMDBG("posting RICHWAVE_EVT_TUNE_SUCC event\n");
 			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
 			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
-		} else if (radio->seek_tune_status == SCAN_PENDING) {
+		} else if ((radio->seek_tune_status == SCAN_PENDING) ||
+			(radio->g_search_mode == SCAN)) {
 			/* when scan is pending and STC int is set, signal
 			 * so that scan can proceed
 			 */
@@ -279,7 +281,8 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 			complete(&radio->completion);
 		}
 		FMDBG("%s Seek/Tune done\n", __func__);
-	} else {
+	} else if ((radio->seek_tune_status != TUNE_PENDING) &&
+				(radio->seek_tune_status != SCAN_PENDING)) {
 		/* Check RDS data after tune/seek interrupt finished
 		 * Update RDS registers
 		 */
@@ -302,6 +305,7 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 		}
 	}
 end:
+	mutex_unlock(&radio->lock);
 	FMDBG("%s exit :%d\n", __func__, retval);
 }
 
@@ -543,7 +547,7 @@ int rtc6226_fops_open(struct file *file)
 	struct rtc6226_device *radio = video_drvdata(file);
 	int retval;
 
-	FMDBG("%s enter user num = %d\n", __func__, radio->users);
+	FMDBG("%s enter user num = %d\n", __func__, atomic_read(&radio->users));
 	if (atomic_inc_return(&radio->users) != 1) {
 		FMDERR("Device already in use. Try again later\n");
 		atomic_dec(&radio->users);
@@ -586,6 +590,7 @@ int rtc6226_fops_release(struct file *file)
 	int retval = 0;
 
 	FMDBG("%s : Exit\n", __func__);
+	mutex_lock(&radio->lock);
 	if (radio->mode != FM_OFF) {
 		rtc6226_power_down(radio);
 		radio->mode = FM_OFF;
@@ -595,6 +600,7 @@ int rtc6226_fops_release(struct file *file)
 	retval = rtc6226_fm_power_cfg(radio, TURNING_OFF);
 	if (retval < 0)
 		FMDERR("%s: failed to apply voltage\n", __func__);
+	mutex_unlock(&radio->lock);
 	return retval;
 }
 
