@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1055,6 +1055,20 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 		/* If usb core is active, rely on set_suspend to clamp phy */
 		if (!qphy->cable_connected)
 			qusb_phy_clear_tcsr_clamp(qphy, false);
+
+		/*
+		 * Phy reset is needed in case multiple instances
+		 * of HSPHY exists with shared power supplies. This
+		 * reset is to bring out the PHY from high-Z state
+		 * and avoid extra current consumption.
+		 */
+		ret = reset_control_assert(qphy->phy_reset);
+		if (ret)
+			dev_err(qphy->phy.dev, "phyassert failed\n");
+		usleep_range(100, 150);
+		ret = reset_control_deassert(qphy->phy_reset);
+		if (ret)
+			dev_err(qphy->phy.dev, "deassert failed\n");
 
 		ret = qusb_phy_enable_power(qphy, false);
 		if (ret < 0) {
