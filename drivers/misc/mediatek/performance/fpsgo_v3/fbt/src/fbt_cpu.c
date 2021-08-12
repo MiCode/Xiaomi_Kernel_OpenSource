@@ -167,6 +167,12 @@ enum FPSGO_JERK_STAGE {
 	FPSGO_JERK_SECOND,
 };
 
+enum FPSGO_SCN_TYPE {
+	FPSGO_SCN_CAM = 0,
+	FPSGO_SCN_UX,
+	FPSGO_SCN_GAME,
+};
+
 static struct kobject *fbt_kobj;
 
 static int uclamp_boost_enable;
@@ -203,6 +209,9 @@ static int rescue_second_group;
 static int rescue_second_copp;
 static int rescue_second_enable;
 static int rescue_second_enhance_f;
+static int rescue_second_g_time;
+static int rescue_second_g_group;
+static int rescue_second_g_enable;
 static int qr_enable;
 static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
@@ -264,6 +273,9 @@ module_param(rescue_second_time, int, 0644);
 module_param(rescue_second_group, int, 0644);
 module_param(rescue_second_enable, int, 0644);
 module_param(rescue_second_enhance_f, int, 0644);
+module_param(rescue_second_g_time, int, 0644);
+module_param(rescue_second_g_group, int, 0644);
+module_param(rescue_second_g_enable, int, 0644);
 module_param(qr_enable, int, 0644);
 module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
@@ -329,6 +341,7 @@ static int limit_policy;
 static struct fbt_syslimit *limit_clus_ceil;
 static int limit_cap;
 static int limit_rcap;
+static int limit_cpu;
 
 static int *clus_max_cap;
 
@@ -852,25 +865,6 @@ static void fbt_free_bhr(void)
 	kfree(pld);
 }
 
-#define FPS_LEVEL 3
-static const int fbt_fps_level[FPS_LEVEL] = {60, 90, 120};
-static int fbt_get_fps_level(int target_fps)
-{
-	int tol_fps;
-	int i;
-
-	if (_gdfrc_fps_limit && _gdfrc_fps_limit <= fbt_fps_level[0])
-		return fbt_fps_level[0];
-
-	for (i = 0; i < FPS_LEVEL - 1; i++) {
-		tol_fps = fbt_fps_level[i] * (100+fps_level_range) / 100;
-		if (target_fps < tol_fps)
-			return fbt_fps_level[i];
-	}
-
-	return fbt_fps_level[FPS_LEVEL - 1];
-}
-
 static int fbt_set_priority(int pid, long nice)
 {
 	struct task_struct *tsk;
@@ -1224,7 +1218,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		return;
 	}
 
-	if (!jerk) {
+	if (jerk == FPSGO_JERK_INACTIVE) {
 		ret = fbt_get_dep_list(thr);
 		if (ret) {
 			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
@@ -1236,7 +1230,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		bhr_opp_local = bhr_opp;
 		bhr_local = bhr;
 	} else {
-		bhr_opp_local = rescue_opp_c;
+		if (jerk == FPSGO_JERK_SECOND)
+			bhr_opp_local = rescue_second_copp;
+		else
+			bhr_opp_local = rescue_opp_c;
 		bhr_local = 0;
 	}
 
@@ -1427,6 +1424,18 @@ static unsigned int fbt_must_enhance_floor(unsigned int blc_wt,
 	blc_wt = cpu_dvfs[cluster].capacity_ratio[tgt_opp];
 
 	return blc_wt;
+}
+
+static int fbt_check_scn(struct render_info *thr)
+{
+	if (fpsgo_fbt2fstb_get_cam_active())
+		return FPSGO_SCN_CAM;
+
+	if (thr->api == NATIVE_WINDOW_API_EGL
+		&& thr->hwui == RENDER_INFO_HWUI_NONE)
+		return FPSGO_SCN_GAME;
+
+	return FPSGO_SCN_UX;
 }
 
 static unsigned int fbt_get_new_base_blc(struct cpu_ctrl_data *pld,
@@ -1715,14 +1724,17 @@ static int fbt_check_to_jerk(
 }
 
 static void fbt_do_jerk_boost(struct render_info *thr, int blc_wt,
-				int boost_group)
+				int boost_group, int jerk)
 {
 	if (boost_ta || boost_group) {
+		if (boost_group && !boost_ta)
+			fbt_set_min_cap_locked(thr, blc_wt, jerk);
 		fbt_set_boost_value(blc_wt);
+		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, blc_wt, "perf idx");
 		max_blc_cur = blc_wt;
 		boosted_group = 1;
 	} else
-		fbt_set_min_cap_locked(thr, blc_wt, 1);
+		fbt_set_min_cap_locked(thr, blc_wt, jerk);
 
 	if (ultra_rescue)
 		fbt_boost_dram(1);
@@ -1738,16 +1750,16 @@ static void fbt_cancel_sjerk(void)
 	sjerk.active_id = -1;
 }
 
-static void fbt_set_sjerk(int pid, unsigned long long identifier, int active_id)
+static void fbt_set_sjerk(int pid, unsigned long long identifier,
+		int active_id, int scn)
 {
 	unsigned long long t2wnt;
 
 	fbt_cancel_sjerk();
 
-	if (!rescue_second_enable)
-		return;
-
-	t2wnt = rescue_second_time * vsync_period;
+	t2wnt = vsync_period;
+	t2wnt *= (scn == FPSGO_SCN_GAME) ?
+			rescue_second_g_time : rescue_second_time;
 	t2wnt = clamp(t2wnt, 1ULL, (unsigned long long)FBTCPU_SEC_DIVIDER);
 
 	sjerk.pid = pid;
@@ -1764,6 +1776,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 	unsigned int blc_wt = 0U, last_blc = 0U;
 	struct cpu_ctrl_data *pld;
 	int do_jerk = 0;
+	int scn;
 
 	jerk = container_of(work, struct fbt_sjerk, work);
 
@@ -1782,10 +1795,14 @@ static void fbt_do_sjerk(struct work_struct *work)
 
 	mutex_lock(&fbt_mlock);
 
-	if (!rescue_second_enable)
+	if (thr->pid != max_blc_pid || thr->buffer_id != max_blc_buffer_id)
 		goto EXIT;
 
-	if (thr->pid != max_blc_pid || thr->buffer_id != max_blc_buffer_id)
+	scn = fbt_check_scn(thr);
+
+	if (scn == FPSGO_SCN_CAM
+		|| (scn == FPSGO_SCN_GAME && !rescue_second_g_enable)
+		|| (scn == FPSGO_SCN_UX && !rescue_second_enable))
 		goto EXIT;
 
 	blc_wt = thr->boost_info.last_blc;
@@ -1809,11 +1826,15 @@ static void fbt_do_sjerk(struct work_struct *work)
 	blc_wt = fbt_get_new_base_blc(pld, thr->boost_info.last_blc,
 			rescue_second_enhance_f, rescue_second_copp);
 
-	thrm_aware_switch(0);
+	if (scn == FPSGO_SCN_GAME)
+		thrm_aware_switch();
+
 	fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
 
 	fbt_set_ceiling(pld, thr->pid, thr->buffer_id);
-	fbt_do_jerk_boost(thr, blc_wt, rescue_second_group);
+	fbt_do_jerk_boost(thr, blc_wt, (scn == FPSGO_SCN_GAME) ?
+			rescue_second_g_group : rescue_second_group,
+			FPSGO_JERK_SECOND);
 
 	thr->boost_info.last_blc = blc_wt;
 	thr->boost_info.cur_stage = FPSGO_JERK_SECOND;
@@ -1862,8 +1883,13 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 
 	blc_wt = fbt_limit_capacity(blc_wt, 1);
 
-	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
-		fbt_set_sjerk(thr->pid, thr->identifier, jerk_id);
+	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
+		int scn = fbt_check_scn(thr);
+
+		if ((scn == FPSGO_SCN_GAME && rescue_second_g_enable)
+			|| (scn == FPSGO_SCN_UX && rescue_second_enable))
+			fbt_set_sjerk(thr->pid, thr->identifier, jerk_id, scn);
+	}
 
 	do_jerk = fbt_check_to_jerk(thr->t_enqueue_start, thr->t_enqueue_end,
 		thr->t_dequeue_start, thr->t_dequeue_end,
@@ -1877,7 +1903,7 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 	switch (do_jerk) {
 	case FPSGO_JERK_ONLY_CEILING_WAIT_ENQ:
 	case FPSGO_JERK_ONLY_CEILING_WAIT_DEQ:
-		fbt_do_jerk_boost(thr, temp_blc, 0);
+		fbt_do_jerk_boost(thr, temp_blc, 0, FPSGO_JERK_FIRST);
 		fbt_set_cap_margin_locked(0);
 		fbt_set_hard_limit_locked(FPSGO_HARD_CEILING, pld);
 		fbt_set_ceiling(pld, thr->pid, thr->buffer_id);
@@ -1888,7 +1914,7 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 		}
 		break;
 	case FPSGO_JERK_NEED:
-		fbt_do_jerk_boost(thr, blc_wt, 0);
+		fbt_do_jerk_boost(thr, blc_wt, 0, FPSGO_JERK_FIRST);
 		thr->boost_info.last_blc = blc_wt;
 
 		fbt_set_cap_margin_locked(0);
@@ -2296,8 +2322,10 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 			fbt_set_cap_margin_locked(0);
 	}
 
-	if (boost_ta)
+	if (boost_ta) {
 		fbt_set_boost_value(blc_wt);
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "perf idx");
+	}
 
 	fbt_set_ceiling(pld, pid, buffer_id);
 
@@ -2373,6 +2401,9 @@ static void fbt_set_limit(unsigned int blc_wt,
 EXIT:
 	if (boosted_group && !boost_ta) {
 		fbt_clear_boost_value();
+		if (thread_info)
+			fpsgo_systrace_c_fbt(thread_info->pid, thread_info->buffer_id,
+						0, "perf idx");
 		boosted_group = 0;
 	}
 
@@ -2380,15 +2411,13 @@ EXIT:
 
 	fbt_cancel_sjerk();
 
-	if (thread_info) {
-		int tfps_level = thread_info->boost_info.target_fps;
+	if (thread_info && fbt_check_scn(thread_info) == FPSGO_SCN_GAME) {
+		int perf_hint = 0;
 
-		tfps_level = fbt_get_fps_level(tfps_level);
+		if ((!suppress_ceiling) || (bhr_opp >= (NR_FREQ_CPU - 1)))
+			perf_hint = 1;
 
-		thrm_aware_switch(1);
-		thrm_aware_frame_start(
-			(bhr_opp == (NR_FREQ_CPU - 1)) ? 1 : 0,
-			tfps_level);
+		thrm_aware_frame_start(thread_info->pid, perf_hint);
 	}
 
 	max_blc = final_blc;
@@ -3020,7 +3049,7 @@ static int fbt_boost_policy(
 	fbt_set_limit(blc_wt, pid, buffer_id, thread_info, t_cpu_cur);
 
 	if (!boost_ta)
-		fbt_set_min_cap_locked(thread_info, blc_wt, 0);
+		fbt_set_min_cap_locked(thread_info, blc_wt, FPSGO_JERK_INACTIVE);
 
 	boost_info->target_fps = target_fps;
 	boost_info->target_time = target_time;
@@ -3442,7 +3471,7 @@ static void fbt_reset_boost(struct render_info *thr)
 
 	mutex_lock(&fbt_mlock);
 	if (!boost_ta)
-		fbt_set_min_cap_locked(thr, 0, 0);
+		fbt_set_min_cap_locked(thr, 0, FPSGO_JERK_INACTIVE);
 	fbt_check_max_blc_locked();
 	mutex_unlock(&fbt_mlock);
 
@@ -3509,6 +3538,7 @@ static void fbt_setting_reset(int reset_idleprefer)
 	if (reset_idleprefer)
 		fbt_set_idleprefer_locked(0);
 
+	thrm_aware_stop();
 	fbt_filter_ppm_log_locked(0);
 	fbt_set_down_throttle_locked(-1);
 	fbt_set_sync_flag_locked(-1);
@@ -3833,7 +3863,7 @@ void fpsgo_base2fbt_item_del(struct fbt_thread_loading *obj,
 
 	mutex_lock(&fbt_mlock);
 	if (!boost_ta)
-		fbt_set_min_cap_locked(thr, 0, 0);
+		fbt_set_min_cap_locked(thr, 0, FPSGO_JERK_INACTIVE);
 	if (thr)
 		thr->boost_info.last_blc = 0;
 	mutex_unlock(&fbt_mlock);
@@ -3931,7 +3961,7 @@ void fpsgo_base2fbt_only_bypass(void)
 void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap)
 {
 	mutex_lock(&fbt_mlock);
-	fbt_set_min_cap_locked(thr, min_cap, 0);
+	fbt_set_min_cap_locked(thr, min_cap, FPSGO_JERK_INACTIVE);
 	if (thr)
 		thr->boost_info.last_blc = min_cap;
 	mutex_unlock(&fbt_mlock);
@@ -4013,9 +4043,10 @@ void fpsgo_uboost2fbt_uboost(struct render_info *thr)
 
 	if (boost_ta) {
 		fbt_set_boost_value(blc_wt);
+		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, blc_wt, "perf idx");
 		max_blc_cur = blc_wt;
 	} else
-		fbt_set_min_cap_locked(thr, blc_wt, 1);
+		fbt_set_min_cap_locked(thr, blc_wt, FPSGO_JERK_UBOOST);
 
 	thr->boost_info.last_blc = blc_wt;
 
@@ -4103,6 +4134,7 @@ static void fbt_set_cap_limit(void)
 	struct fbt_syslimit *limit = NULL;
 
 	limit_policy = FPSGO_LIMIT_NONE;
+	limit_cpu = -1;
 
 	if (!limit_clus_ceil)
 		return;
@@ -4117,8 +4149,9 @@ static void fbt_set_cap_limit(void)
 	if (cluster_num < 2)
 		return;
 
-	limit_ret = fbt_get_cluster_limit(&cluster, &freq, &r_freq);
-	if (!limit_ret)
+	limit_ret = fbt_get_cluster_limit(&cluster, &freq, &r_freq,
+					&limit_cpu);
+	if (limit_ret != FPSGO_LIMIT_FREQ)
 		return;
 
 	if (cluster < 0 || cluster >= cluster_num)
@@ -4627,51 +4660,7 @@ static ssize_t fbt_info_show(struct kobject *kobj,
 	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
 	int length;
-
-	mutex_lock(&fbt_mlock);
-
-	length = scnprintf(temp + posi,
-		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-		"enable\tbypass\tidleprefer\tmax_blc\tmax_pid\tmax_bufID\tdfps\tvsync\n");
-	posi += length;
-
-	length = scnprintf(temp + posi,
-		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-		"%d\t%d\t%d\t\t%d\t%d\t0x%llx\t%d\t%llu\n\n",
-		fbt_enable, bypass_flag,
-		set_idleprefer, max_blc, max_blc_pid,
-		max_blc_buffer_id, _gdfrc_fps_limit, vsync_time);
-	posi += length;
-
-	mutex_unlock(&fbt_mlock);
-
-	length = scnprintf(temp + posi,
-		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-		"pid\tperfidx\t\n");
-	posi += length;
-
-	mutex_lock(&blc_mlock);
-	list_for_each_entry_safe(pos, next, &blc_list, entry) {
-		length = scnprintf(temp + posi,
-			FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-			"%d\t0x%llx\t%d\n", pos->pid, pos->buffer_id, pos->blc);
-		posi += length;
-	}
-	mutex_unlock(&blc_mlock);
-
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
-}
-
-static KOBJ_ATTR_RO(fbt_info);
-
-static ssize_t table_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	int cluster, opp;
-	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
-	int posi = 0;
-	int length;
+	int cluster;
 
 	mutex_lock(&fbt_mlock);
 
@@ -4684,18 +4673,6 @@ static ssize_t table_show(struct kobject *kobj,
 		"%d\t%d\t%d\t\n\n",
 		cluster_num, max_cap_cluster, min_cap_cluster);
 	posi += length;
-
-	for (cluster = 0; cluster < cluster_num ; cluster++) {
-		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			length = scnprintf(temp + posi,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-				"[%d][%2d] %d, %d\n",
-				cluster, opp,
-				cpu_dvfs[cluster].power[opp],
-				cpu_dvfs[cluster].capacity_ratio[opp]);
-			posi += length;
-		}
-	}
 
 	length = scnprintf(temp + posi,
 		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
@@ -4712,12 +4689,97 @@ static ssize_t table_show(struct kobject *kobj,
 		posi += length;
 	}
 
+	length = scnprintf(temp + posi,
+		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+		"enable\tidleprefer\tmax_blc\tmax_pid\tmax_bufID\tdfps\tvsync\n");
+	posi += length;
+
+	length = scnprintf(temp + posi,
+		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+		"%d\t%d\t\t%d\t%d\t0x%llx\t%d\t%llu\n\n",
+		fbt_enable,
+		set_idleprefer, max_blc, max_blc_pid,
+		max_blc_buffer_id, _gdfrc_fps_limit, vsync_time);
+	posi += length;
+
+	mutex_unlock(&fbt_mlock);
+
+	length = scnprintf(temp + posi,
+		FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+		"pid\tbufid\t\tperfidx\t\n");
+	posi += length;
+
+	mutex_lock(&blc_mlock);
+	list_for_each_entry_safe(pos, next, &blc_list, entry) {
+		length = scnprintf(temp + posi,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+			"%d\t0x%llx\t%d\n", pos->pid, pos->buffer_id, pos->blc);
+		posi += length;
+	}
+	mutex_unlock(&blc_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static KOBJ_ATTR_RO(fbt_info);
+
+static ssize_t table_freq_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int cluster, opp;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int posi = 0;
+	int length;
+
+	mutex_lock(&fbt_mlock);
+
+	for (cluster = 0; cluster < cluster_num ; cluster++) {
+		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+			length = scnprintf(temp + posi,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+				"%d/%2d %d\n",
+				cluster, opp,
+				cpu_dvfs[cluster].power[opp] / 1000);
+			posi += length;
+		}
+	}
+
 	mutex_unlock(&fbt_mlock);
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static KOBJ_ATTR_RO(table);
+static KOBJ_ATTR_RO(table_freq);
+
+static ssize_t table_cap_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int cluster, opp;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int posi = 0;
+	int length;
+
+	mutex_lock(&fbt_mlock);
+
+	for (cluster = 0; cluster < cluster_num ; cluster++) {
+		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+			length = scnprintf(temp + posi,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+				"%d/%2d %d\n",
+				cluster, opp,
+				cpu_dvfs[cluster].capacity_ratio[opp]);
+			posi += length;
+		}
+	}
+
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static KOBJ_ATTR_RO(table_cap);
 
 static ssize_t enable_uclamp_boost_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -5440,7 +5502,9 @@ void __exit fbt_cpu_exit(void)
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_switch_idleprefer);
 	fpsgo_sysfs_remove_file(fbt_kobj,
-			&kobj_attr_table);
+			&kobj_attr_table_freq);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_table_cap);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_enable_switch_down_throttle);
 	fpsgo_sysfs_remove_file(fbt_kobj,
@@ -5511,6 +5575,9 @@ int __init fbt_cpu_init(void)
 	cm_big_cap = 95;
 	cm_tdiff = TIME_1MS;
 	rescue_second_time = 2;
+	rescue_second_g_enable = 1;
+	rescue_second_g_time = 1;
+	rescue_second_g_group = 1;
 	rescue_second_copp = NR_FREQ_CPU - 1;
 
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
@@ -5596,7 +5663,9 @@ int __init fbt_cpu_init(void)
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_switch_idleprefer);
 		fpsgo_sysfs_create_file(fbt_kobj,
-				&kobj_attr_table);
+				&kobj_attr_table_freq);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_table_cap);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_enable_switch_down_throttle);
 		fpsgo_sysfs_create_file(fbt_kobj,
@@ -5630,7 +5699,8 @@ int __init fbt_cpu_init(void)
 	/* sub-module initialization */
 	init_xgf();
 	minitop_init();
-	thrm_aware_init(fbt_kobj);
+
+	thrm_aware_init(fbt_kobj, limit_cpu);
 	fbt_reg_dram_request(1);
 	fbt_cpu_ctrl_init();
 

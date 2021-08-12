@@ -539,6 +539,18 @@ void update_userlimit_cpu_freq(int kicker, int cluster_num, struct cpu_ctrl_data
 	return;
 }
 
+int fbt_cpu_ctrl_get_ceil(void)
+{
+	int ceiled = 1;
+
+	mutex_lock(&cpu_ctrl_lock);
+	if (cfp_ceil_rel == 1 && cfp_onoff == 1)
+		ceiled = 0;
+
+	mutex_unlock(&cpu_ctrl_lock);
+
+	return ceiled;
+}
 
 int fbt_cpu_ctrl_init(void)
 {

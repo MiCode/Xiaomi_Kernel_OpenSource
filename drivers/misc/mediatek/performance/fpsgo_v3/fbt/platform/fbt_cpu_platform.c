@@ -18,6 +18,7 @@ static struct icc_path *bw_path;
 static struct device_node *node;
 static unsigned int peak_bw;
 static int plat_gcc_enable;
+static int plat_cpu_limit;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -52,6 +53,11 @@ static int platform_fpsgo_probe(struct platform_device *pdev)
 		plat_gcc_enable = retval;
 	else
 		FPSGO_LOGE("%s unable to get plat_gcc_enable\n", __func__);
+
+	ret = of_property_read_u32(node,
+			 "cpu_limit", &retval);
+	if (!ret)
+		plat_cpu_limit = retval;
 
 	generate_cpu_mask();
 
@@ -249,17 +255,27 @@ int fbt_get_default_adj_tdiff(void)
 	return 1000000;
 }
 
-int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq)
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq, int *cpu)
 {
 /*
- * when return value is zero -> no limit
- * when cluster is not set -> no limit
- * when cluster is set and freq is set -> ceiling limit
- * when cluster is set and r_freq is set -> rescue ceiling limit
+ * Use return value to specify limit on frequency or core
+ * 1. when return value is FPSGO_LIMIT_NO_LIMIT -> no limit
+ * 2. when return value is FPSGO_LIMIT_FREQ -> frequency limit
+ * 2.1 when cluster is set and freq is set -> ceiling limit
+ * 2.2 when cluster is set and r_freq is set -> rescue ceiling limit
+ * 3. when return value is FPSGO_LIMIT_CPU -> cpu limit
+ * 3.1 when cpu is set valid -> cpu isolation
  */
-	*cluster = 2;
-	*freq = 2600000;
-	return 1;
+	int limit = plat_cpu_limit;
+
+	if (limit == FPSGO_LIMIT_CPU)
+		*cpu = 7;
+	else if (limit == FPSGO_LIMIT_FREQ) {
+		*cluster = 2;
+		*freq = 2600000;
+	}
+
+	return limit;
 }
 
 int fbt_get_default_uboost(void)

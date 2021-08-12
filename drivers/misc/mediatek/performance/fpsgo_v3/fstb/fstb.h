@@ -51,6 +51,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		int tgid, unsigned long long mid, int *quantile_cpu_time,
 		int *quantile_gpu_time, int *target_fpks);
 void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps);
+int fpsgo_fbt2fstb_get_cam_active(void);
 
 /* EARA */
 void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
@@ -85,6 +86,7 @@ static inline void fpsgo_fbt2fstb_query_fps(int pid,
 		int tgid, unsigned long long mid, int *quantile_cpu_time,
 		int *quantile_gpu_time, int *target_fpks) { }
 static void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps) { }
+static int fpsgo_fbt2fstb_get_cam_active(void) { }
 
 /* EARA */
 static inline void eara2fstb_get_tfps(int max_cnt, int *pid,

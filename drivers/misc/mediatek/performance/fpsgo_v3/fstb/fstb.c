@@ -62,7 +62,7 @@ static int QUANTILE = 50;
 static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
 static long long ADJUST_INTERVAL_US = 1000000;
 static int margin_mode = 2;
-static int margin_mode_gpu;
+static int margin_mode_gpu = 2;
 static int margin_mode_dbnc_a = 9;
 static int margin_mode_dbnc_b = 1;
 static int margin_mode_gpu_dbnc_a = 9;
@@ -1147,6 +1147,17 @@ void fpsgo_comp2fstb_camera_active(int pid)
 
 	mtk_fstb_dprintk("camera_api pid %d\n", pid);
 	fpsgo_systrace_c_fstb(pid, 0, pid, "camera_active");
+}
+
+int fpsgo_fbt2fstb_get_cam_active(void)
+{
+	int active;
+
+	mutex_lock(&fstb_cam_active_time);
+	active = fstb_is_cam_active;
+	mutex_unlock(&fstb_cam_active_time);
+
+	return active;
 }
 
 static void fstb_set_cam_active(int active)
