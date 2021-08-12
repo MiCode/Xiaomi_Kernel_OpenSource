@@ -1109,6 +1109,7 @@
 			interconnect-names = "fpsgo-perf-bw";
 			required-opps = <&dvfsrc_freq_opp0>;
 
+			cpu_limit = <1>;
 			gcc_enable = <1>;
 			fbt_cpu_mask = <255 128 15 127>;
 		};
