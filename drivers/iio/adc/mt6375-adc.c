@@ -121,7 +121,7 @@ static int mt6375_adc_read_scale(struct mt6375_priv *priv, int chan, int *val1, 
 
 static int mt6375_adc_read_offset(struct mt6375_priv *priv, int chan, int *val)
 {
-	*val = (chan == MT6375_ADC_TEMPJC) ? -64 : 0;
+	*val = (chan == MT6375_ADC_TEMPJC) ? -56 : 0;
 	return IIO_VAL_INT;
 }
 
