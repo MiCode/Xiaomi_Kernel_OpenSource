@@ -8989,6 +8989,23 @@
 		mdp_wrot0_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
 		mdp_rdma1_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
 		mdp_rdma0_rst_done = <CMDQ_EVENT_MDPSYS0_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_RDMA0)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_RDMA2)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_WROT0)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_WROT2)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"mdp_rdma0",
+			"mdp_rdma1",
+			"mdp_wrot0",
+			"mdp_wrot1";
+		mdp-opp = <&opp_table_mdp0>;
+		operating-points-v2 = <&opp_table_mdp0>;
+		mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		dre30_hist_sram_start = <1536>;
 	};
 
