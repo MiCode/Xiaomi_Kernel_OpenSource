@@ -25,6 +25,13 @@
 #define APU_TEMP_OFFSET            (0x190)
 #define EMUL_TEMP_OFFSET           (0x1B0)
 
+#define APU_MBOX_TTJ_OFFSET        (0x700)
+#define APU_MBOX_PB_OFFSET         (0x704)
+#define APU_MBOX_TEMP_OFFSET       (0x708)
+#define APU_MBOX_LIMIT_OPP_OFFSET  (0x70C)
+#define APU_MBOX_CUR_OPP_OFFSET    (0x710)
+#define APU_MBOX_EMUL_TEMP_OFFSET  (0x714)
+
 struct headroom_info {
     int temp;
     int predict_temp;
@@ -84,10 +91,12 @@ extern int set_cpu_min_opp(int gear, int opp);
 extern int set_cpu_active_bitmask(int mask);
 extern int get_cpu_temp(int cpu_id);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
-extern void __iomem * thermal_csram_base;
+extern void __iomem *thermal_csram_base;
+extern void __iomem *thermal_apu_mbox_base;
 extern struct fps_cooler_info fps_cooler_data;
 #else
-void __iomem * thermal_csram_base;
+void __iomem *thermal_csram_base;
+void __iomem *thermal_apu_mbox_base;
 struct fps_cooler_info fps_cooler_data;
 #endif
 #endif

@@ -34,24 +34,32 @@ struct therm_intf_info {
 	int sw_ready;
 	unsigned int cpu_cluster_num;
 	struct device *dev;
-	void __iomem *csram_base;
 	struct mutex lock;
 	struct dentry *debug_dir;
 };
 
 static struct therm_intf_info tm_data;
-void __iomem * thermal_csram_base;
+void __iomem *thermal_csram_base;
 EXPORT_SYMBOL(thermal_csram_base);
+void __iomem *thermal_apu_mbox_base;
+EXPORT_SYMBOL(thermal_apu_mbox_base);
 struct fps_cooler_info fps_cooler_data;
 EXPORT_SYMBOL(fps_cooler_data);
 
 static struct md_info md_info_data;
 
-static int  therm_intf_read_csram_s32(int offset)
+static int therm_intf_read_csram_s32(int offset)
 {
-	void __iomem *addr = tm_data.csram_base + offset;
+	void __iomem *addr = thermal_csram_base + offset;
 
 	return sign_extend32(readl(addr), 31);
+}
+
+static int therm_intf_read_apu_mbox_s32(int offset)
+{
+	void __iomem *addr = thermal_apu_mbox_base + offset;
+
+	return (!(thermal_apu_mbox_base) ? -1 : sign_extend32(readl(addr), 31));
 }
 
 int get_thermal_headroom(enum headroom_id id)
@@ -81,7 +89,7 @@ int set_cpu_min_opp(int gear, int opp)
 	if (gear >= tm_data.cpu_cluster_num)
 		return -EINVAL;
 
-	writel(opp, tm_data.csram_base + CPU_MIN_OPP_HINT_OFFSET + 4 * gear);
+	writel(opp, thermal_csram_base + CPU_MIN_OPP_HINT_OFFSET + 4 * gear);
 
 	return 0;
 }
@@ -92,7 +100,7 @@ int set_cpu_active_bitmask(int mask)
 	if (!tm_data.sw_ready)
 		return -ENODEV;
 
-	writel(mask, tm_data.csram_base + CPU_ACTIVE_BITMASK_OFFSET);
+	writel(mask, thermal_csram_base + CPU_ACTIVE_BITMASK_OFFSET);
 
 	return 0;
 }
@@ -132,11 +140,14 @@ static ssize_t headroom_info_show(struct kobject *kobj,
 static void write_ttj(unsigned int cpu_ttj, unsigned int gpu_ttj,
 	unsigned int apu_ttj)
 {
-	void __iomem *addr = tm_data.csram_base + TTJ_OFFSET;
+	void __iomem *addr = thermal_csram_base + TTJ_OFFSET;
 
 	writel(cpu_ttj, addr);
 	writel(gpu_ttj, addr + 4);
 	writel(apu_ttj, addr + 8);
+
+	if (thermal_apu_mbox_base)
+		writel(apu_ttj, (void __iomem *)(thermal_apu_mbox_base + APU_MBOX_TTJ_OFFSET));
 }
 
 static ssize_t ttj_show(struct kobject *kobj,
@@ -175,11 +186,14 @@ static ssize_t ttj_store(struct kobject *kobj,
 static void write_power_budget(unsigned int cpu_pb, unsigned int gpu_pb,
 	unsigned int apu_pb)
 {
-	void __iomem *addr = tm_data.csram_base + POWER_BUDGET_OFFSET;
+	void __iomem *addr = thermal_csram_base + POWER_BUDGET_OFFSET;
 
 	writel(cpu_pb, addr);
 	writel(gpu_pb, addr + 4);
 	writel(apu_pb, addr + 8);
+
+	if (thermal_apu_mbox_base)
+		writel(apu_pb, (void __iomem *)(thermal_apu_mbox_base + APU_MBOX_PB_OFFSET));
 }
 
 static ssize_t power_budget_show(struct kobject *kobj,
@@ -271,10 +285,17 @@ static ssize_t apu_info_show(struct kobject *kobj,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
-		therm_intf_read_csram_s32(APU_TEMP_OFFSET),
-		therm_intf_read_csram_s32(APU_TEMP_OFFSET + 4),
-		therm_intf_read_csram_s32(APU_TEMP_OFFSET + 8));
+	if (thermal_apu_mbox_base) {
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
+			therm_intf_read_apu_mbox_s32(APU_MBOX_TEMP_OFFSET),
+			therm_intf_read_apu_mbox_s32(APU_MBOX_LIMIT_OPP_OFFSET),
+			therm_intf_read_apu_mbox_s32(APU_MBOX_CUR_OPP_OFFSET));
+	} else {
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
+			therm_intf_read_csram_s32(APU_TEMP_OFFSET),
+			therm_intf_read_csram_s32(APU_TEMP_OFFSET + 4),
+			therm_intf_read_csram_s32(APU_TEMP_OFFSET + 8));
+	}
 
 	return len;
 }
@@ -296,8 +317,8 @@ static ssize_t fps_cooler_info_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int target_fps, tpcb, tpcb_slope, ap_headroom, n_sec_to_ttpcb;
-	void __iomem *addr = tm_data.csram_base + AP_NTC_HEADROOM_OFFSET;
-	void __iomem *tpcb_addr = tm_data.csram_base + TPCB_OFFSET;
+	void __iomem *addr = thermal_csram_base + AP_NTC_HEADROOM_OFFSET;
+	void __iomem *tpcb_addr = thermal_csram_base + TPCB_OFFSET;
 
 	if(sscanf(buf, "%d,%d,%d,%d,%d", &target_fps, &tpcb, &tpcb_slope,
 				&ap_headroom, &n_sec_to_ttpcb) == 5)
@@ -341,7 +362,7 @@ static ssize_t target_tpcb_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	int len = 0;
-	void __iomem *target_tpcb_addr = tm_data.csram_base + TARGET_TPCB_OFFSET;
+	void __iomem *target_tpcb_addr = thermal_csram_base + TARGET_TPCB_OFFSET;
 	int target_tpcb = readl(target_tpcb_addr);
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", target_tpcb);
@@ -353,7 +374,7 @@ static ssize_t target_tpcb_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int target_tpcb = 0;
-	void __iomem *target_tpcb_addr = tm_data.csram_base + TARGET_TPCB_OFFSET;
+	void __iomem *target_tpcb_addr = thermal_csram_base + TARGET_TPCB_OFFSET;
 
 	if(sscanf(buf, "%d", &target_tpcb) == 1)
 		writel(target_tpcb, target_tpcb_addr);
@@ -574,7 +595,7 @@ static ssize_t emul_temp_write(struct file *flip,
 	int ret, temp;
 	char *buf;
 	char target[10];
-	void __iomem *addr = tm_data.csram_base + EMUL_TEMP_OFFSET;
+	void __iomem *addr = thermal_csram_base + EMUL_TEMP_OFFSET;
 
 	buf = kzalloc(cnt + 1, GFP_KERNEL);
 	if (buf == NULL)
@@ -592,14 +613,17 @@ static ssize_t emul_temp_write(struct file *flip,
 		goto err;
 	}
 
-	if (strncmp(target, "cpu", 3) == 0)
+	if (strncmp(target, "cpu", 3) == 0) {
 		writel(temp, addr);
-	else if (strncmp(target, "gpu", 3) == 0)
+	} else if (strncmp(target, "gpu", 3) == 0) {
 		writel(temp, addr + 4);
-	else if (strncmp(target, "apu", 3) == 0)
+	} else if (strncmp(target, "apu", 3) == 0) {
 		writel(temp, addr + 8);
-	else if (strncmp(target, "vcore", 5) == 0)
+		if (thermal_apu_mbox_base)
+			writel(temp, thermal_apu_mbox_base + APU_MBOX_EMUL_TEMP_OFFSET);
+	} else if (strncmp(target, "vcore", 5) == 0) {
 		writel(temp, addr + 12);
+	}
 
 	ret = cnt;
 
@@ -625,7 +649,7 @@ static const struct file_operations emul_temp_fops = {
 
 static void therm_intf_debugfs_init(void)
 {
-	void __iomem *addr = tm_data.csram_base + EMUL_TEMP_OFFSET;
+	void __iomem *addr = thermal_csram_base + EMUL_TEMP_OFFSET;
 
 	tm_data.debug_dir = debugfs_create_dir("thermal", NULL);
 	if (!tm_data.debug_dir) {
@@ -639,6 +663,9 @@ static void therm_intf_debugfs_init(void)
 	writel(THERMAL_TEMP_INVALID, addr + 4);
 	writel(THERMAL_TEMP_INVALID, addr + 8);
 	writel(THERMAL_TEMP_INVALID, addr + 12);
+
+	if (thermal_apu_mbox_base)
+		writel(THERMAL_TEMP_INVALID, thermal_apu_mbox_base + APU_MBOX_EMUL_TEMP_OFFSET);
 }
 
 static void therm_intf_debugfs_exit(void)
@@ -660,7 +687,7 @@ MODULE_DEVICE_TABLE(of, therm_intf_of_match);
 static int therm_intf_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *csram;
+	void __iomem *addr;
 	struct device_node *cpu_np;
 	struct of_phandle_args args;
 	unsigned int cpu, max_perf_domain = 0;
@@ -673,13 +700,17 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	tm_data.dev = &pdev->dev;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	csram = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(csram))
-		return PTR_ERR(csram);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "therm_sram");
+	addr = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(addr))
+		return PTR_ERR(addr);
 
-	tm_data.csram_base = csram;
-	thermal_csram_base = csram;
+	thermal_csram_base = addr;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_mbox");
+	addr = ioremap(res->start, res->end - res->start + 1);
+	if (!IS_ERR(addr))
+		thermal_apu_mbox_base = addr;
 
 	/* get CPU cluster num */
 	for_each_possible_cpu(cpu) {
@@ -710,7 +741,7 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	therm_intf_debugfs_init();
 
-	writel(100, tm_data.csram_base + AP_NTC_HEADROOM_OFFSET);
+	writel(100, thermal_csram_base + AP_NTC_HEADROOM_OFFSET);
 	write_ttj(0, 0, 0);
 	write_power_budget(0, 0, 0);
 

@@ -230,16 +230,29 @@ static void get_gpu_info()
 }
 static void get_apu_info()
 {
-	apu_info.ttj = sign_extend32(
-			readl(thermal_csram_base + APU_TTJ_OFFSET), 31);
-	apu_info.limit_powerbudget = sign_extend32(
-			readl(thermal_csram_base + APU_POWERBUDGET_OFFSET), 31);
-	apu_info.temp = sign_extend32(
-			readl(thermal_csram_base + APU_TEMP_OFFSET), 31);
-	apu_info.limit_opp = sign_extend32(
-			readl(thermal_csram_base + APU_LIMIT_OPP_OFFSET), 31);
-	apu_info.cur_opp = sign_extend32(
-			readl(thermal_csram_base + APU_CUR_OPP_OFFSET), 31);
+	if (thermal_apu_mbox_base) {
+		apu_info.ttj = sign_extend32(
+				readl(thermal_apu_mbox_base + APUMBOX_TTJ_OFFSET), 31);
+		apu_info.limit_powerbudget = sign_extend32(
+				readl(thermal_apu_mbox_base + APUMBOX_POWERBUDGET_OFFSET), 31);
+		apu_info.temp = sign_extend32(
+				readl(thermal_apu_mbox_base + APUMBOX_TEMP_OFFSET), 31);
+		apu_info.limit_opp = sign_extend32(
+				readl(thermal_apu_mbox_base + APUMBOX_LIMIT_OPP_OFFSET), 31);
+		apu_info.cur_opp = sign_extend32(
+				readl(thermal_apu_mbox_base + APUMBOX_CUR_OPP_OFFSET), 31);
+	} else {
+		apu_info.ttj = sign_extend32(
+				readl(thermal_csram_base + APU_TTJ_OFFSET), 31);
+		apu_info.limit_powerbudget = sign_extend32(
+				readl(thermal_csram_base + APU_POWERBUDGET_OFFSET), 31);
+		apu_info.temp = sign_extend32(
+				readl(thermal_csram_base + APU_TEMP_OFFSET), 31);
+		apu_info.limit_opp = sign_extend32(
+				readl(thermal_csram_base + APU_LIMIT_OPP_OFFSET), 31);
+		apu_info.cur_opp = sign_extend32(
+				readl(thermal_csram_base + APU_CUR_OPP_OFFSET), 31);
+	}
 }
 
 static enum hrtimer_restart thermal_trace_work(struct hrtimer *timer)
@@ -247,6 +260,9 @@ static enum hrtimer_restart thermal_trace_work(struct hrtimer *timer)
 	ktime_t ktime;
 	int i;
 	struct headroom_info hr_info[NR_CPUS];
+
+	if (!thermal_csram_base)
+		goto skip;
 
 	/* parse hr info */
 	for_each_possible_cpu(i) {
@@ -273,6 +289,7 @@ static enum hrtimer_restart thermal_trace_work(struct hrtimer *timer)
 	trace_thermal_gpu(&gpu_info);
 	trace_thermal_apu(&apu_info);
 
+skip:
 	ktime = ktime_set(0, thermal_trace_data.hr_period);
 	hrtimer_forward_now(timer, ktime);
 

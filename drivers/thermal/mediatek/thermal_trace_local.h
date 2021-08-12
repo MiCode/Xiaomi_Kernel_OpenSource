@@ -31,6 +31,12 @@
 #define APU_LIMIT_OPP_OFFSET (0x194)
 #define APU_CUR_OPP_OFFSET (0x198)
 
+#define APUMBOX_TTJ_OFFSET (0x700)
+#define APUMBOX_POWERBUDGET_OFFSET (0x704)
+#define APUMBOX_TEMP_OFFSET (0x708)
+#define APUMBOX_LIMIT_OPP_OFFSET (0x70C)
+#define APUMBOX_CUR_OPP_OFFSET (0x710)
+
 struct thermal_cpu_info {
 	int ttj;
 	int limit_powerbudget;
