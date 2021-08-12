@@ -185,8 +185,8 @@ void apu_ipi_unregister(struct mtk_apu *apu, u32 id);
 int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		 u32 wait_ms);
 
-int apu_sysfs_init(struct platform_device *pdev);
-void apu_sysfs_remove(struct platform_device *pdev);
+int apu_procfs_init(struct platform_device *pdev);
+void apu_procfs_remove(struct platform_device *pdev);
 int apu_coredump_init(struct mtk_apu *apu);
 void apu_coredump_remove(struct mtk_apu *apu);
 void apu_setup_dump(struct mtk_apu *apu, dma_addr_t da);

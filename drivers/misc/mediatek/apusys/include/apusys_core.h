@@ -32,17 +32,11 @@ int devapc_init(struct apusys_core_info *info);
 void devapc_exit(void);
 int apumem_init(struct apusys_core_info *info);
 void apumem_exit(void);
-
-int sw_logger_init(void);
+int sw_logger_init(struct apusys_core_info *info);
 void sw_logger_exit(void);
-
-int apu_ctrl_rpmsg_init(void);
+int apu_ctrl_rpmsg_init(struct apusys_core_info *info);
 void apu_ctrl_rpmsg_exit(void);
-
-int apu_mailbox_init(void);
-void apu_mailbox_exit(void);
-
-int apu_rproc_init(void);
+int apu_rproc_init(struct apusys_core_info *info);
 void apu_rproc_exit(void);
 
 /*
@@ -50,6 +44,8 @@ void apu_rproc_exit(void);
  * call init function in order at apusys.ko init stage
  */
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
+	apu_ctrl_rpmsg_init,
+	sw_logger_init,
 //	apupwr_init_tags,
 	apu_power_drv_init,
 	devapc_init,
@@ -66,6 +62,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	debug_init,
 #endif
 	mvpu_init,
+	apu_rproc_init,
 };
 
 /*
@@ -73,6 +70,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
  * call exit function in order at apusys.ko exit stage
  */
 static void (*apusys_exit_func[])(void) = {
+	apu_rproc_exit,
 #if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 	mvpu_exit,
 	debug_exit,
@@ -89,5 +87,7 @@ static void (*apusys_exit_func[])(void) = {
 	devapc_exit,
 	apu_power_drv_exit,
 //	apupwr_exit_tags,
+	sw_logger_exit,
+	apu_ctrl_rpmsg_exit,
 };
 #endif

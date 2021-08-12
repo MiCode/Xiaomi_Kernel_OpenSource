@@ -406,7 +406,7 @@ static struct rpmsg_driver apu_ctrl_rpmsg_driver = {
 	.remove	= apu_ctrl_rpmsg_remove,
 };
 
-int apu_ctrl_rpmsg_init(void)
+int apu_ctrl_rpmsg_init(struct apusys_core_info *info)
 {
 	int ret;
 

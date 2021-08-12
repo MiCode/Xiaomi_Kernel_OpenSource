@@ -43,9 +43,6 @@ static int __init apusys_init(void)
 	/* init apusys_dev */
 	create_dbg_root();
 
-	apu_ctrl_rpmsg_init();
-	sw_logger_init();
-
 	/* call init func */
 	for (i = 0; i < func_num; i++) {
 		if (apusys_init_func[i] == NULL)
@@ -64,8 +61,6 @@ static int __init apusys_init(void)
 		}
 	}
 
-	apu_rproc_init();
-
 	return ret;
 }
 
@@ -74,8 +69,6 @@ static void __exit apusys_exit(void)
 	int i = 0;
 	int func_num = sizeof(apusys_init_func)/sizeof(int *);
 
-	apu_rproc_exit();
-
 	/* call release func */
 	for (i = 0; i < func_num; i++) {
 		if (apusys_exit_func[i] == NULL)
@@ -83,9 +76,6 @@ static void __exit apusys_exit(void)
 
 		apusys_exit_func[i]();
 	}
-
-	sw_logger_exit();
-	apu_ctrl_rpmsg_exit();
 
 	destroy_dbg_root();
 }

@@ -24,6 +24,7 @@
 #include "apu.h"
 #include "apu_excep.h"
 #include "apu_config.h"
+#include "apusys_core.h"
 
 static struct platform_device *g_pdev;
 static int drv_param;
@@ -441,9 +442,9 @@ static int apu_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_apu_timesync;
 
-	ret = apu_sysfs_init(pdev);
+	ret = apu_procfs_init(pdev);
 	if (ret)
-		goto remove_apu_sysfs;
+		goto remove_apu_procfs;
 
 	ret = apu_excep_init(pdev, apu);
 	if (ret < 0)
@@ -474,8 +475,8 @@ del_rproc:
 remove_apu_excep:
 	apu_excep_remove(pdev, apu);
 
-remove_apu_sysfs:
-	apu_sysfs_remove(pdev);
+remove_apu_procfs:
+	apu_procfs_remove(pdev);
 
 remove_apu_ipi:
 	apu_ipi_remove(apu);
@@ -517,7 +518,7 @@ static int apu_remove(struct platform_device *pdev)
 	rproc_del(apu->rproc);
 
 	apu_excep_remove(pdev, apu);
-	apu_sysfs_remove(pdev);
+	apu_procfs_remove(pdev);
 	apu_timesync_remove(apu);
 	apu_ipi_remove(apu);
 	apu_dram_boot_remove(apu);
@@ -561,7 +562,7 @@ static struct platform_driver mtk_apu_driver = {
 	},
 };
 
-int apu_rproc_init(void)
+int apu_rproc_init(struct apusys_core_info *info)
 {
 	int ret;
 

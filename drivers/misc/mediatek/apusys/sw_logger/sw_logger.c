@@ -29,6 +29,7 @@
 #include <linux/sched/signal.h>
 
 #include "apu_ctrl_rpmsg.h"
+#include "apusys_core.h"
 #include "sw_logger.h"
 
 #define SW_LOGGER_DEV_NAME "apu_sw_logger"
@@ -840,6 +841,9 @@ static int sw_logger_remove(struct platform_device *pdev)
 	if (!BYPASS_IOMMU) {
 		dma_unmap_single(dev, handle, APU_LOG_SIZE, DMA_FROM_DEVICE);
 		kfree(sw_log_buf);
+	} else {
+		dma_free_coherent(dev, APU_LOG_SIZE,
+			sw_log_buf, handle);
 	}
 
 	return 0;
@@ -861,7 +865,7 @@ static struct platform_driver sw_logger_driver = {
 	}
 };
 
-int sw_logger_init(void)
+int sw_logger_init(struct apusys_core_info *info)
 {
 	int ret = 0;
 
