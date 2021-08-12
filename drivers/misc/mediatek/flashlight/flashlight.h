@@ -38,6 +38,10 @@
 #define FLASHLIGHT_SW_DISABLE_ON	1
 #define FLASHLIGHT_SW_DISABLE_OFF	0
 
+/* torch status*/
+#define FLASHLIGHT_TORCH_ON	1
+#define FLASHLIGHT_TORCH_OFF	0
+
 /* max duty number */
 #define FLASHLIGHT_MAX_DUTY_NUM 40
 

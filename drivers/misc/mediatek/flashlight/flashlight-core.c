@@ -364,6 +364,7 @@ int flashlight_dev_register(
 			fdev->dev_id = flashlight_id[i];
 			fdev->low_pt_level = -1;
 			fdev->charger_status = FLASHLIGHT_CHARGER_READY;
+			fdev->torch_status = FLASHLIGHT_TORCH_OFF;
 			list_add_tail(&fdev->node, &flashlight_list);
 			mutex_unlock(&fl_mutex);
 		}
@@ -447,6 +448,7 @@ int flashlight_dev_register_by_device_id(
 	fdev->dev_id = *dev_id;
 	fdev->low_pt_level = -1;
 	fdev->charger_status = FLASHLIGHT_CHARGER_READY;
+	fdev->torch_status = FLASHLIGHT_TORCH_OFF;
 	list_add_tail(&fdev->node, &flashlight_list);
 	mutex_unlock(&fl_mutex);
 
@@ -1211,6 +1213,135 @@ unlock:
 }
 static DEVICE_ATTR_RW(flashlight_charger);
 
+/* torch status sysfs */
+static ssize_t flashlight_torch_show(
+		struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct flashlight_dev *fdev;
+	char status[FLASHLIGHT_TORCH_STATUS_BUF_SIZE];
+	char status_tmp[FLASHLIGHT_TORCH_STATUS_TMPBUF_SIZE];
+	int ret;
+
+	pr_debug("Torch status show\n");
+
+	memset(status, '\0', FLASHLIGHT_TORCH_STATUS_BUF_SIZE);
+
+	mutex_lock(&fl_mutex);
+	list_for_each_entry(fdev, &flashlight_list, node) {
+		if (!fdev->ops)
+			continue;
+
+		ret = snprintf(status_tmp,
+				FLASHLIGHT_TORCH_STATUS_TMPBUF_SIZE,
+				"%d %d %d %d\n", fdev->dev_id.type,
+				fdev->dev_id.ct, fdev->dev_id.part,
+				fdev->torch_status);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
+
+		strncat(status, status_tmp,
+				FLASHLIGHT_TORCH_STATUS_TMPBUF_SIZE);
+	}
+	mutex_unlock(&fl_mutex);
+
+	return scnprintf(buf, PAGE_SIZE,
+			"[TYPE] [CT] [PART] [TORCH_STATUS]\n%s\n", status);
+}
+
+static ssize_t flashlight_torch_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct flashlight_dev *fdev;
+	struct flashlight_arg fl_arg;
+	int torch_status_tmp = 0;
+	s32 num;
+	int count = 0;
+	char delim[] = " ";
+	char *token, *cur = (char *)buf;
+	int ret;
+
+	pr_debug("Torch status store\n");
+
+	memset(&fl_arg, 0, sizeof(struct flashlight_arg));
+
+	while (cur) {
+		token = strsep(&cur, delim);
+		ret = kstrtos32(token, 10, &num);
+		if (ret) {
+			pr_info("Error arguments\n");
+			goto unlock;
+		}
+
+		if (count == FLASHLIGHT_TORCH_TYPE)
+			fl_arg.type = (int)num;
+		else if (count == FLASHLIGHT_TORCH_CT)
+			fl_arg.ct = (int)num;
+		else if (count == FLASHLIGHT_TORCH_PART)
+			fl_arg.part = (int)num;
+		else if (count == FLASHLIGHT_TORCH_STATUS)
+			torch_status_tmp = (int)num;
+		else {
+			count++;
+			break;
+		}
+
+		count++;
+	}
+
+	/* verify data */
+	if (count != FLASHLIGHT_TORCH_NUM) {
+		pr_info("Error argument number: (%d)\n", count);
+		ret = -1;
+		goto unlock;
+	}
+	if (flashlight_verify_index(fl_arg.type, fl_arg.ct, fl_arg.part)) {
+		pr_info("Error arguments\n");
+		ret = -1;
+		goto unlock;
+	}
+	if (torch_status_tmp < FLASHLIGHT_TORCH_OFF ||
+			torch_status_tmp > FLASHLIGHT_TORCH_ON) {
+		pr_info("Error arguments torch status(%d)\n",
+				torch_status_tmp);
+		ret = -1;
+		goto unlock;
+	}
+
+	pr_debug("(%d, %d, %d), (%d)\n", fl_arg.type, fl_arg.ct, fl_arg.part,
+			torch_status_tmp);
+
+	/* store torch status */
+	mutex_lock(&fl_mutex);
+	fdev = flashlight_find_dev_by_full_index(
+			fl_arg.type, fl_arg.ct, fl_arg.part);
+	mutex_unlock(&fl_mutex);
+	if (!fdev) {
+		pr_info("Find no flashlight device\n");
+		ret = -1;
+		goto unlock;
+	}
+
+	pr_info("torch status:%d\n", fdev->torch_status);
+	if (fdev->ops && (fdev->torch_status != torch_status_tmp)) {
+		if (torch_status_tmp) {
+			fdev->ops->flashlight_open();
+			fdev->ops->flashlight_set_driver(1);
+			fl_enable(fdev, 1);
+		} else {
+			fl_enable(fdev, 0);
+			fdev->ops->flashlight_set_driver(0);
+			fdev->ops->flashlight_release();
+		}
+	}
+	fdev->torch_status = torch_status_tmp;
+
+	ret = size;
+unlock:
+	return ret;
+}
+static DEVICE_ATTR_RW(flashlight_torch);
+
+
 /* flashlight capability sysfs */
 static ssize_t flashlight_capability_show(
 		struct device *dev, struct device_attribute *attr, char *buf)
@@ -1458,7 +1589,7 @@ static ssize_t flashlight_sw_disable_show(
 	char status_tmp[FLASHLIGHT_SW_DISABLE_STATUS_TMPBUF_SIZE];
 	int ret;
 
-	pr_debug("Charger status show\n");
+	pr_debug("Sw disable status show\n");
 
 	memset(status, '\0', FLASHLIGHT_SW_DISABLE_STATUS_BUF_SIZE);
 
@@ -1670,6 +1801,11 @@ static int flashlight_probe(struct platform_device *dev)
 		pr_info("Failed to create device file(sw_disable)\n");
 		goto err_create_sw_disable_device_file;
 	}
+	if (device_create_file(flashlight_device,
+				&dev_attr_flashlight_torch)) {
+		pr_info("Failed to create device file(torch)\n");
+		goto err_create_torch_device_file;
+	}
 
 	/* init flashlight */
 	fl_init();
@@ -1678,6 +1814,8 @@ static int flashlight_probe(struct platform_device *dev)
 
 	return 0;
 
+err_create_torch_device_file:
+	device_remove_file(flashlight_device, &dev_attr_flashlight_torch);
 err_create_sw_disable_device_file:
 	device_remove_file(flashlight_device, &dev_attr_flashlight_sw_disable);
 err_create_fault_device_file:
@@ -1708,6 +1846,7 @@ static int flashlight_remove(struct platform_device *dev)
 	fl_uninit();
 
 	/* remove device file */
+	device_remove_file(flashlight_device, &dev_attr_flashlight_torch);
 	device_remove_file(flashlight_device, &dev_attr_flashlight_sw_disable);
 	device_remove_file(flashlight_device, &dev_attr_flashlight_fault);
 	device_remove_file(flashlight_device, &dev_attr_flashlight_current);

@@ -28,6 +28,17 @@
 	(FLASHLIGHT_TYPE_MAX * FLASHLIGHT_CT_MAX * FLASHLIGHT_PART_MAX * \
 	 FLASHLIGHT_SW_DISABLE_STATUS_TMPBUF_SIZE + 1)
 
+/* sysfs - torch status */
+#define FLASHLIGHT_TORCH_NUM    4
+#define FLASHLIGHT_TORCH_TYPE   0
+#define FLASHLIGHT_TORCH_CT     1
+#define FLASHLIGHT_TORCH_PART   2
+#define FLASHLIGHT_TORCH_STATUS 3
+#define FLASHLIGHT_TORCH_STATUS_TMPBUF_SIZE 9
+#define FLASHLIGHT_TORCH_STATUS_BUF_SIZE \
+	(FLASHLIGHT_TYPE_MAX * FLASHLIGHT_CT_MAX * FLASHLIGHT_PART_MAX * \
+	 FLASHLIGHT_TORCH_STATUS_TMPBUF_SIZE + 1)
+
 /* sysfs - charger status */
 #define FLASHLIGHT_CHARGER_NUM    4
 #define FLASHLIGHT_CHARGER_TYPE   0
@@ -102,6 +113,7 @@ struct flashlight_dev {
 	int low_pt_level;
 	int charger_status;
 	int sw_disable_status;
+	int torch_status;
 };
 
 /* device arguments */
