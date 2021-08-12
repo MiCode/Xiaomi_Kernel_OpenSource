@@ -1080,6 +1080,19 @@ static int mt6375_enable_charging(struct charger_device *chgdev, bool en)
 					 &val);
 }
 
+static int mt6375_is_enabled(struct charger_device *chgdev, bool *en)
+{
+	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
+	int ret = 0;
+	u32 val = 0;
+
+	ret = mt6375_chg_field_get(ddata, F_CHG_EN, &val);
+	if (ret < 0)
+		return ret;
+	*en = val;
+	return 0;
+}
+
 static int mt6375_set_ichg(struct charger_device *chgdev, u32 uA)
 {
 	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
@@ -1202,7 +1215,7 @@ static int mt6375_get_mivr_state(struct charger_device *chgdev, bool *active)
 	return 0;
 }
 
-static int mt6375_get_adc(struct charger_device *chgdev, u32 chan,
+static int mt6375_get_adc(struct charger_device *chgdev, enum adc_channel chan,
 			  int *min, int *max)
 {
 	int ret;
@@ -1393,6 +1406,13 @@ static int mt6375_is_chg_timer_enabled(struct charger_device *chgdev, bool *en)
 		return ret;
 	*en = val;
 	return 0;
+}
+
+static int mt6375_enable_hz(struct charger_device *chgdev, bool en)
+{
+	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
+
+	return mt6375_chg_field_set(ddata, F_HZ, en ? 1 : 0);
 }
 
 static int mt6375_kick_wdt(struct charger_device *chgdev)
@@ -1890,6 +1910,7 @@ static const struct charger_ops mt6375_chg_ops = {
 	.plug_out = mt6375_plug_out,
 	/* enable */
 	.enable = mt6375_enable_charging,
+	.is_enabled = mt6375_is_enabled,
 	/* charging current */
 	.set_charging_current = mt6375_set_ichg,
 	.get_charging_current = mt6375_get_ichg,
@@ -1941,6 +1962,7 @@ static const struct charger_ops mt6375_chg_ops = {
 	.enable_chg_type_det = mt6375_enable_chg_type_det,
 	/* misc */
 	.dump_registers = mt6375_dump_registers,
+	.enable_hz = mt6375_enable_hz,
 	/* event */
 	.event = mt6375_do_event,
 	/* 6pin battery */
