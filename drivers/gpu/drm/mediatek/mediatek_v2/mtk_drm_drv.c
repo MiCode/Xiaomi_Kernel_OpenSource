@@ -3616,7 +3616,7 @@ int mtk_drm_fm_lcm_auto_test(struct drm_device *dev, void *data,
 		DDPPR_ERR("ATA LCM failed\n");
 		*result = 0;
 	} else {
-		DDPPR_ERR("ATA LCM passed\n");
+		DDPMSG("ATA LCM passed\n");
 		*result = 1;
 	}
 	return 0;
