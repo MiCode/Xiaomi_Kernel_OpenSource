@@ -2,6 +2,9 @@
 /*
  * Copyright (C) 2021 MediaTek Inc.
  */
+#ifdef __aarch64__
+#include <asm/pointer_auth.h>
+#endif
 #include <asm/stacktrace.h>
 #include "hang_unwind.h"
 
@@ -33,6 +36,9 @@ unsigned int hang_kernel_trace(struct task_struct *tsk,
 		fp = frame.fp;
 		if (!frame.pc)
 			continue;
+#ifdef __aarch64__
+		frame.pc = ptrauth_strip_insn_pac(frame.pc);
+#endif
 		*(++store) = frame.pc;
 		store_len += 1;
 	}

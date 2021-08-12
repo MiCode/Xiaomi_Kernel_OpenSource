@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
+#include <linux/sched/mm.h>
 #include <linux/sched/rt.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/task.h>
@@ -495,7 +496,7 @@ static void get_kernel_bt(struct task_struct *tsk)
 	int nr_entries;
 	int i;
 
-#if IS_ENABLED(CONFIG_BOOTPARAM_HUNG_TASK_PANIC)
+#ifndef __aarch64__
 	nr_entries = stack_trace_save_tsk(tsk, stacks, ARRAY_SIZE(stacks), 0);
 #else
 	nr_entries = hang_kernel_trace(tsk, stacks, ARRAY_SIZE(stacks));
@@ -602,7 +603,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		return -1;
 	}
 
-	if (!current_task->mm) {
+	if (!get_task_mm(current_task)) {
 		pr_info(" %s,%d:%s: current_task->mm == NULL", __func__, pid,
 				current_task->comm);
 		return -1;
@@ -675,6 +676,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		vma = vma->vm_next;
 		mapcount++;
 	}
+	mmput(current_task->mm);
 
 	return 0;
 }
