@@ -158,6 +158,8 @@
 #define MT6375_MSK_WD12_STFALL	BIT(0)
 #define MT6375_MSK_WD12_STRISE	BIT(1)
 #define MT6375_MSK_WD12_DONE	BIT(2)
+#define MT6375_MSK_WD0_STFALL	BIT(3)
+#define MT6375_MSK_WD0_STRISE	BIT(4)
 /* MT6375_REG_MTST3: 0xA1 */
 #define MT6375_MSK_CABLE_TYPEC	BIT(4)
 #define MT6375_MSK_CABLE_TYPEA	BIT(5)
@@ -552,6 +554,10 @@ static int mt6375_init_vend_mask(struct mt6375_tcpc_data *ddata)
 		mask[MT6375_VEND_INT7] |= MT6375_MSK_WD12_STFALL |
 					  MT6375_MSK_WD12_STRISE |
 					  MT6375_MSK_WD12_DONE;
+
+	if (ddata->tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND)
+		mask[MT6375_VEND_INT7] |= MT6375_MSK_WD0_STFALL |
+					  MT6375_MSK_WD0_STRISE;
 
 	return mt6375_bulk_write(ddata, MT6375_REG_MTMASK1, mask,
 				 MT6375_VEND_INT_NUM);
@@ -1374,7 +1380,6 @@ static int mt6375_floating_ground_evt_process(struct mt6375_tcpc_data *ddata)
 	int ret;
 	bool en;
 	u8 data;
-	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(TYPEC_CC_DRP);
 
 	ret = mt6375_is_floating_ground_enabled(ddata, &en);
 	if (ret < 0 || !en)
@@ -1382,12 +1387,8 @@ static int mt6375_floating_ground_evt_process(struct mt6375_tcpc_data *ddata)
 	ret = mt6375_read8(ddata, MT6375_REG_WD0SET, &data);
 	if (ret < 0)
 		return ret;
-	if (data & MT6375_MSK_WD0PULL_STS) {
-		ret = mt6375_set_cc_toggling(ddata, rp_lvl);
-		if (ret < 0)
-			return ret;
-		return 0;
-	}
+	if (data & MT6375_MSK_WD0PULL_STS)
+		return tcpci_set_cc(ddata->tcpc, TYPEC_CC_DRP);
 #if CONFIG_TCPC_LOW_POWER_MODE
 	tcpci_set_low_power_mode(ddata->tcpc, true, TYPEC_CC_DRP);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
@@ -1652,13 +1653,18 @@ static int mt6375_set_cc(struct tcpc_device *tcpc, int pull)
 	int ret;
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+	bool en;
 
 	MT6375_INFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
 	if (pull == TYPEC_CC_DRP) {
-		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND)
-			ret = mt6375_enable_floating_ground(ddata, true);
-		else
+		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND) {
+			ret = mt6375_is_floating_ground_enabled(ddata, &en);
+			if (!en)
+				ret = mt6375_enable_floating_ground(ddata, true);
+			else
+				ret = mt6375_set_cc_toggling(ddata, pull);
+		} else
 			ret = mt6375_set_cc_toggling(ddata, pull);
 	} else {
 		if (tcpc->tcpc_flags & TCPC_FLAGS_WD_POLLING_ONLY) {
