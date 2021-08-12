@@ -1605,7 +1605,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 		musb->intrtxe &= ~(1 << epnum);
 		musb_writew(musb->mregs, MUSB_INTRTXE, musb->intrtxe);
 #endif
-		csr = MUSB_RXCSR_FLUSHFIFO | MUSB_RXCSR_CLRDATATOG;
+		csr = MUSB_TXCSR_FLUSHFIFO | MUSB_TXCSR_CLRDATATOG;
 		/* set twice in case of double buffering */
 		musb_writew(epio, MUSB_TXCSR, csr);
 		musb_writew(epio, MUSB_TXCSR, csr);
