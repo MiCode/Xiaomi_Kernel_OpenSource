@@ -64,7 +64,8 @@ static atomic_t g_dither_is_clock_on[2] = {
 static DEFINE_SPINLOCK(g_dither_clock_lock);
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
-
+static struct workqueue_struct *dither_pure_detect_wq;
+static struct work_struct dither_pure_detect_task;
 static unsigned int g_dither_mode = 1;
 
 enum COLOR_IOCTL_CMD {
@@ -167,49 +168,32 @@ static void disp_dither_purecolor_detection(struct mtk_ddp_comp *comp)
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	unsigned int clr_det, clr_flag;
-	unsigned long flags;
-	int index = index_of_dither(comp->id);
 
-	DDPDBG("%s @ %d......... [IRQ] spin_trylock_irqsave ++ ",
-		  __func__, __LINE__);
-	if (spin_trylock_irqsave(&g_dither_clock_lock, flags)) {
-		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
-			__func__, __LINE__);
-		if (atomic_read(&g_dither_is_clock_on[index]) != 1) {
-			DDPINFO("%s: clock is off. enabled:%d\n", __func__, 0);
+	clr_det = readl(comp->regs + DISP_DITHER_PURECOLOR0) & 0x1;
+	DDPINFO("%s: clr_det: 0x%x", __func__, clr_det);
 
-			spin_unlock_irqrestore(&g_dither_clock_lock, flags);
-			DDPDBG("%s @ %d......... spin_unlock_irqrestore -- ",
-				__func__, __LINE__);
-			return;
-		}
-		clr_det = readl(comp->regs + DISP_DITHER_PURECOLOR0) & 0xf;
-		DDPINFO("%s: clr_det: 0x%x", __func__, clr_det);
-
-		if (clr_det & 0x1) {	/* pure color detection support */
-			clr_flag = (readl(comp->regs + DISP_DITHER_PURECOLOR0) >> 4) & 0xf;
-			DDPINFO("%s: clr_flag: 0x%x", __func__, clr_flag);
-			if (clr_flag & 0x1) {
-				if (disp_dither_purecolor_devide(comp))
-					disp_dither_set_bypass(crtc, 1);
-				else
-					disp_dither_set_bypass(crtc, 0);
-			} else {
+	if (clr_det) {	/* pure color detection support */
+		clr_flag = (readl(comp->regs + DISP_DITHER_PURECOLOR0) >> 4) & 0x1;
+		DDPINFO("%s: clr_flag: 0x%x", __func__, clr_flag);
+		if (clr_flag) {
+			if (disp_dither_purecolor_devide(comp))
+				disp_dither_set_bypass(crtc, 1);
+			else
 				disp_dither_set_bypass(crtc, 0);
-			}
 		} else {
 			disp_dither_set_bypass(crtc, 0);
-			mtk_disp_dither_set_interrupt(comp, 0);
 		}
-		DDPDBG("%s @ %d......... [IRQ] spin_unlock_irqrestore ++ ",
-			__func__, __LINE__);
-		spin_unlock_irqrestore(&g_dither_clock_lock, flags);
-		DDPDBG("%s @ %d......... [IRQ] spin_unlock_irqrestore -- ",
-			__func__, __LINE__);
 	} else {
-		DDPINFO("%s @ %d......... Failed to spin_trylock_irqsave -- ",
-			__func__, __LINE__);
+		disp_dither_set_bypass(crtc, 0);
+		mtk_disp_dither_set_interrupt(comp, 0);
 	}
+}
+
+static void dither_pure_detect_work(struct work_struct *work_item)
+{
+	if (!default_comp)
+		return;
+	disp_dither_purecolor_detection(default_comp);
 }
 
 static void disp_dither_on_end_of_frame(struct mtk_ddp_comp *comp)
@@ -239,7 +223,8 @@ static void disp_dither_on_end_of_frame(struct mtk_ddp_comp *comp)
 			writel(intsta & ~0x3, comp->regs
 				+ DISP_DITHER_INTSTA);
 
-			disp_dither_purecolor_detection(comp);
+			queue_work(dither_pure_detect_wq,
+				&dither_pure_detect_task);
 		}
 		DDPDBG("%s @ %d......... [IRQ] spin_unlock_irqrestore ++ ",
 			__func__, __LINE__);
@@ -365,6 +350,9 @@ static void mtk_dither_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_DITHER_SIZE,
 		width << 16 | cfg->h, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_DITHER_PURECOLOR0,
+		g_pure_clr_param->pure_clr_det, 0x1);
 
 }
 
@@ -759,6 +747,10 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+	dither_pure_detect_wq =
+		create_singlethread_workqueue("dither_pure_detect_wq");
+	INIT_WORK(&dither_pure_detect_task, dither_pure_detect_work);
+
 	DDPINFO("%s-\n", __func__);
 
 	return ret;
@@ -876,6 +868,7 @@ void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass)
 	int ret;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_DITHER, &bypass);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 
 	DDPINFO("%s : ret = %d", __func__, ret);
 }
