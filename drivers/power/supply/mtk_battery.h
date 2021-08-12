@@ -129,12 +129,22 @@ struct battery_data {
 	int bat_batt_temp;
 };
 
+struct VersionControl {
+	int androidVersion;
+	int daemon_cmds;
+	int kernel_cmds;
+	int custom_data_len;
+	int custom_table_len;
+};
+
 enum fg_daemon_cmds {
 	FG_DAEMON_CMD_PRINT_LOG,
 	FG_DAEMON_CMD_SET_DAEMON_PID,
 	FG_DAEMON_CMD_GET_CUSTOM_SETTING,
 	FG_DAEMON_CMD_GET_CUSTOM_TABLE,
 	FG_DAEMON_CMD_SEND_CUSTOM_TABLE,
+	FG_DAEMON_CMD_SEND_VERSION_CONTROL,
+	FG_DAEMON_CMD_GET_VERSION_CONTROL,
 
 	FG_DAEMON_CMD_IS_BAT_EXIST,
 	FG_DAEMON_CMD_GET_INIT_FLAG,
@@ -1026,6 +1036,11 @@ struct mtk_battery {
 	struct fuel_gauge_custom_data fg_cust_data;
 	struct fuel_gauge_table_custom_data fg_table_cust_data;
 	struct fgd_cmd_param_t_custom fg_data;
+
+	/*daemon version control*/
+	struct VersionControl fg_version;
+	int fg_mode;
+
 	/* hwocv swocv */
 	int ext_hwocv_swocv;
 	int ext_hwocv_swocv_lt;

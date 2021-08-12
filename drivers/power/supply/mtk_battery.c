@@ -332,7 +332,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
 		val->intval =
-			gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT)
+			gauge_get_int_property(GAUGE_PROP_AVERAGE_CURRENT)
 			* 100;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
@@ -991,6 +991,9 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->power_on_car_chr = POWER_ON_CAR_CHR;
 	fg_cust_data->power_on_car_nochr = POWER_ON_CAR_NOCHR;
 	fg_cust_data->shutdown_car_ratio = SHUTDOWN_CAR_RATIO;
+
+	/* log level*/
+	fg_cust_data->daemon_log_level = BMLOG_ERROR_LEVEL;
 
 	/* ZCV update */
 	fg_cust_data->zcv_suspend_time = ZCV_SUSPEND_TIME;
@@ -3335,7 +3338,7 @@ int battery_init(struct platform_device *pdev)
 	else {
 		gm->algo.active = true;
 		battery_algo_init(gm);
-		bm_err("[%s]: kernel mode DONE\n", __func__);
+		bm_err("[%s]: enable Kernel mode Gauge\n", __func__);
 	}
 
 	return 0;

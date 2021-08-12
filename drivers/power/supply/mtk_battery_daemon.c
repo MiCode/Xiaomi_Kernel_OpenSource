@@ -221,7 +221,58 @@ void fg_daemon_send_data(struct mtk_battery *gm,
 				prcv->idx);
 		}
 		break;
+	case FG_DAEMON_CMD_SEND_VERSION_CONTROL:
+		{
+			char *ptr;
 
+			if (sizeof(struct VersionControl)
+				!= prcv->total_size) {
+				bm_err("%s vc size is different %d %d\n",
+				__func__,
+				(int)sizeof(
+				struct VersionControl),
+				prcv->total_size);
+			}
+
+			ptr = (char *)&gm->fg_version;
+			memcpy(&ptr[prcv->idx],
+				prcv->input,
+				prcv->size);
+
+			bm_debug(
+				"VersionControl type:%d size:%d %d idx:%d\n",
+				FG_DAEMON_CMD_SEND_VERSION_CONTROL,
+				prcv->total_size,
+				prcv->size,
+				prcv->idx);
+			bm_debug(
+				"VersionControl %d %d %d %d %d\n",
+				gm->fg_version.androidVersion,
+				gm->fg_version.daemon_cmds,
+				gm->fg_version.kernel_cmds,
+				gm->fg_version.custom_data_len,
+				gm->fg_version.custom_table_len);
+
+			if (gm->fg_version.daemon_cmds != FG_DAEMON_CMD_FROM_USER_NUMBER ||
+				gm->fg_version.kernel_cmds != FG_KERNEL_CMD_FROM_USER_NUMBER ||
+				gm->fg_version.custom_data_len !=
+					sizeof(struct fuel_gauge_custom_data) ||
+				gm->fg_version.custom_table_len !=
+					sizeof(struct fuel_gauge_table_custom_data)) {
+
+				gm->algo.active = true;
+				battery_algo_init(gm);
+				bm_err("[%s]: %d %d,%d %d,%d %d,%d %d, enable Kernel mode Gauge\n",
+					__func__,
+					gm->fg_version.daemon_cmds, FG_DAEMON_CMD_FROM_USER_NUMBER,
+					gm->fg_version.kernel_cmds, FG_KERNEL_CMD_FROM_USER_NUMBER,
+					gm->fg_version.custom_data_len,
+					sizeof(struct fuel_gauge_custom_data),
+					gm->fg_version.custom_table_len,
+					sizeof(struct fuel_gauge_table_custom_data));
+			}
+		}
+		break;
 	default:
 		bm_err("%s bad cmd 0x%x\n",
 			__func__, cmd);
@@ -1955,6 +2006,7 @@ static ssize_t FG_daemon_log_level_store(
 				FG_KERNEL_CMD_CHANG_LOGLEVEL,
 				val
 			);
+			gm->log_level = val;
 		}
 
 		bm_err(
@@ -3520,9 +3572,13 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		bm_err("%s", &msg->fgd_data[0]);
 	}
 	break;
+	case FG_DAEMON_CMD_SEND_VERSION_CONTROL:
+	{
+		bm_err("[K]FG_DAEMON_CMD_SEND_VERSION_CONTROL\n");
+	}
 	case FG_DAEMON_CMD_SEND_CUSTOM_TABLE:
 	{
-		fg_daemon_send_data(gm, FG_DAEMON_CMD_SEND_CUSTOM_TABLE,
+		fg_daemon_send_data(gm, msg->fgd_cmd,
 			&msg->fgd_data[0],
 			&ret_msg->fgd_data[0]);
 	}
@@ -3763,6 +3819,17 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 			sizeof(decimal_rate));
 		bm_debug("[K]FG_DAEMON_CMD_GET_SOC_DECIMAL_RATE %d\n",
 			decimal_rate);
+	}
+	break;
+	case FG_DAEMON_CMD_GET_VERSION_CONTROL:
+	{
+		int mode = gm->algo.active;
+
+		ret_msg->fgd_data_len += sizeof(mode);
+		memcpy(ret_msg->fgd_data, &mode,
+			sizeof(mode));
+		bm_debug("[K]FG_DAEMON_CMD_GET_VERSION_CONTROL %d\n",
+			mode);
 	}
 	break;
 	case FG_DAEMON_CMD_GET_DIFF_SOC_SET:
