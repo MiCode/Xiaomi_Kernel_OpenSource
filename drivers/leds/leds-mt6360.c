@@ -737,9 +737,15 @@ static void mt6360_init_v4l2_flash_config(
 	struct led_flash_setting *torch_intensity = &config->intensity;
 	struct led_classdev *led_cdev = &(mtfled_cdev->fl_cdev.led_cdev);
 	s32 val;
+	int ret = 0;
 
-	snprintf(config->dev_name, sizeof(config->dev_name),
+	ret = snprintf(config->dev_name, sizeof(config->dev_name),
 		 "%s", mtfled_cdev->fl_cdev.led_cdev.name);
+	if ((ret < 0) || (ret >= sizeof(config->dev_name))) {
+		dev_notice(led_cdev->dev, "%s:fail,ret = %d\n", __func__, ret);
+		return;
+	}
+
 	torch_intensity->min = MT6360_TORCHCUR_MIN;
 	torch_intensity->step = MT6360_TORCHCUR_STEP;
 	val = MT6360_TORCHCUR_MIN;
@@ -974,6 +980,11 @@ static ssize_t mt6360_strobe_store(struct flashlight_arg arg)
 {
 	struct led_classdev_flash *flcdev;
 	struct led_classdev *lcdev;
+
+	if (arg.channel < 0 || arg.channel >= MT6360_FLED_MAX) {
+		pr_info("%s: fail, error channel %d\n", __func__, arg.channel);
+		return -EINVAL;
+	}
 
 	flcdev = mt6360_flash_class[arg.channel];
 	lcdev = &flcdev->led_cdev;
