@@ -66,6 +66,8 @@ enum scp_dvfs_err_enum {
 enum scp_cmd_type {
 	VCORE_ACQUIRE,
 	RESOURCE_REQ,
+	ULPOSC2_TURN_ON,
+	ULPOSC2_TURN_OFF,
 };
 
 enum scp_req_r {

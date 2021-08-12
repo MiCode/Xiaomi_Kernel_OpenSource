@@ -1647,26 +1647,55 @@ static int __init ulposc_cali_process(unsigned int cali_idx,
 	return 0;
 }
 
+static int smc_turn_on_ulposc2(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, ULPOSC2_TURN_ON,
+		0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static int smc_turn_off_ulposc2(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, ULPOSC2_TURN_OFF,
+		0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
 static void turn_onoff_ulposc2(enum ulposc_onoff_enum on)
 {
 	if (on) {
 		/* turn on ulposc */
-		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
-			&dvfs.clk_hw->_clk_high_en, on);
-		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
-			&dvfs.clk_hw->_ulposc2_en, !on);
+		if (dvfs.vlp_support) {
+			// In case we can't directly access dvfs.clk_hw->scp_clk_regmap
+			smc_turn_on_ulposc2();
+		} else {
+			scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+				&dvfs.clk_hw->_clk_high_en, on);
+			scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+				&dvfs.clk_hw->_ulposc2_en, !on);
 
-		/* wait settle time */
-		udelay(150);
+			/* wait settle time */
+			udelay(150);
 
-		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
-			&dvfs.clk_hw->_ulposc2_cg, on);
+			scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+				&dvfs.clk_hw->_ulposc2_cg, on);
+		}
 	} else {
-		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
-			&dvfs.clk_hw->_ulposc2_cg, on);
-		udelay(50);
-		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
-			&dvfs.clk_hw->_ulposc2_en, !on);
+		/* turn off ulposc */
+		if (dvfs.vlp_support) {
+			// In case we can't directly access dvfs.clk_hw->scp_clk_regmap
+			smc_turn_off_ulposc2();
+		} else {
+			scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+				&dvfs.clk_hw->_ulposc2_cg, on);
+			udelay(50);
+			scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+				&dvfs.clk_hw->_ulposc2_en, !on);
+		}
 	}
 	udelay(50);
 }
