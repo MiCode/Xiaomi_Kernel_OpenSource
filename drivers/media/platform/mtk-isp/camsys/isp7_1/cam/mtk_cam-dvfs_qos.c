@@ -321,7 +321,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			 fps, height, vblank);
 	}
 	for (i = 0; i < MTKCAM_IPI_RAW_ID_MAX; i++) {
-		if (pipe->enabled_dmas & 1<<i)
+		if (pipe->enabled_dmas & 1ULL<<i)
 			ipi_video_id = i;
 		else
 			continue;
