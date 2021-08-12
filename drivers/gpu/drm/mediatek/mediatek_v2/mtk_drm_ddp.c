@@ -8749,7 +8749,8 @@ void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
 			if (len >= 0)
 				pos += len;
 
-			DDPDUMP("%s\n", clock_on);
+			if ((valid[idx] & (1 << bit)) | (ready[idx] & (1 << bit)))
+				DDPDUMP("%s\n", clock_on);
 		}
 	}
 
