@@ -240,6 +240,12 @@ mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int frame_seq_no)
 	return NULL;
 }
 
+void mtk_cam_req_update_seq(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
+			    int seq)
+{
+	req->p_data[ctx->stream_id].req_seq = seq;
+}
+
 struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 					unsigned int frame_seq_no)
 {
@@ -251,12 +257,6 @@ struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 
 	return req_stream_data->req;
 
-}
-
-static void update_mstream_req_seq(
-	struct mtk_cam_request_stream_data *req_stream_data)
-{
-	req_stream_data->frame_seq_no >>= 1;
 }
 
 static bool finish_cq_buf(struct mtk_cam_request_stream_data *req_stream_data)
@@ -473,7 +473,6 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 					struct mtk_cam_request_stream_data *req_stream_data_mstream
 						= mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 					finish_cq_buf(req_stream_data_mstream);
-					update_mstream_req_seq(req_stream_data);
 				}
 			}
 
@@ -513,7 +512,6 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 					struct mtk_cam_request_stream_data *req_stream_data_mstream
 						= mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 					finish_cq_buf(req_stream_data_mstream);
-					update_mstream_req_seq(req_stream_data);
 				}
 			}
 
@@ -1228,6 +1226,7 @@ int mtk_cam_is_mstream(struct mtk_cam_ctx *ctx)
 		else
 			return 0;
 	} else {
+		pr_debug("not mstream because of used_raw_num=0 !!!\n");
 		return 0;
 	}
 }
@@ -1618,6 +1617,66 @@ static void mtk_cam_req_update_frame_seq_no(struct mtk_cam_device *cam,
 			req_stream_data = mtk_cam_req_get_s_data(req, i, 0);
 			req_stream_data->frame_seq_no =
 				++(cam->ctxs[i].enqueued_frame_seq_no);
+			mtk_cam_req_update_seq(&cam->ctxs[i], req,
+				++(cam->ctxs[i].enqueued_request_cnt));
+		}
+	}
+}
+
+static void mtk_cam_req_work_init(struct mtk_cam_req_work *work,
+				  struct mtk_cam_request_stream_data *s_data)
+{
+	work->s_data = s_data;
+}
+
+static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
+				struct mtk_cam_request *req)
+{
+	struct mtk_cam_req_work *sensor_work, *frame_work, *frame_done_work;
+	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_request_stream_data *req_stream_data_mstream;
+	struct mtk_cam_request_stream_data *pipe_stream_data;
+	unsigned int j;
+
+	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	req_stream_data_mstream =
+		mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+
+	req_stream_data_mstream->frame_seq_no = req_stream_data->frame_seq_no;
+	req_stream_data->frame_seq_no =
+		req_stream_data_mstream->frame_seq_no + 1;
+
+	req_stream_data_mstream->feature.raw_feature =
+		req_stream_data->feature.raw_feature;
+
+	ctx->enqueued_frame_seq_no = req_stream_data->frame_seq_no;
+
+	pr_info("%s: frame_seq:%d, frame_mstream_seq:%d\n",
+		__func__, req_stream_data->frame_seq_no,
+		req_stream_data_mstream->frame_seq_no);
+
+	req_stream_data_mstream->ctx = ctx;
+	req_stream_data_mstream->no_frame_done_cnt = 0;
+	atomic_set(&req_stream_data_mstream->dbg_work.state,
+			MTK_CAM_REQ_DBGWORK_S_INIT);
+	req_stream_data_mstream->dbg_work.dump_flags = 0;
+	atomic_set(&req_stream_data_mstream->dbg_exception_work.state,
+			MTK_CAM_REQ_DBGWORK_S_INIT);
+	req_stream_data_mstream->dbg_exception_work.dump_flags = 0;
+	req_stream_data_mstream->frame_done_queue_work = 0;
+
+	sensor_work = &req_stream_data_mstream->sensor_work;
+	mtk_cam_req_work_init(sensor_work, req_stream_data_mstream);
+	frame_work = &req_stream_data_mstream->frame_work;
+	mtk_cam_req_work_init(frame_work, req_stream_data_mstream);
+
+
+	for (j = 0 ; j < MTKCAM_SUBDEV_MAX ; j++) {
+		if (1 << j & ctx->streaming_pipe) {
+			pipe_stream_data = mtk_cam_req_get_s_data(req, j, 1);
+			frame_done_work = &pipe_stream_data->frame_done_work;
+			mtk_cam_req_work_init(frame_done_work, pipe_stream_data);
+			INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
 		}
 	}
 }
@@ -1715,6 +1774,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 		return;
 
 	/* Initialize ctx related req_stream_data fields */
+	/* updating req_stream_data earlier is better than late */
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req_tmp->pipe_used & (1 << i)) {
 			if (is_raw_subdev(i)) {
@@ -1731,6 +1791,8 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				if (feature_change_is_mstream(feature_change))
 					mstream_seamless_buf_update(ctx, req_tmp, i,
 								previous_feature);
+				if (mtk_cam_is_mstream(ctx))
+					fill_mstream_s_data(ctx, req_tmp);
 
 				running_s_data_num =
 					atomic_inc_return(&cam->ctxs[i].running_s_data_cnt);
@@ -1802,12 +1864,6 @@ static int mtk_cam_req_chk_job_list(struct mtk_cam_device *cam,
 	}
 
 	return 0;
-}
-
-static void mtk_cam_req_work_init(struct mtk_cam_req_work *work,
-				  struct mtk_cam_request_stream_data *s_data)
-{
-	work->s_data = s_data;
 }
 
 static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
@@ -2446,56 +2502,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 #endif
 
-static void fill_mstream_s_data(struct mtk_cam_request *req,
-				struct mtk_cam_ctx *ctx,
-				unsigned int stream_id)
-{
-	struct mtk_cam_req_work *sensor_work, *frame_work, *frame_done_work;
-	struct mtk_cam_request_stream_data *req_stream_data;
-	struct mtk_cam_request_stream_data *req_stream_data_mstream;
-	struct mtk_cam_request_stream_data *pipe_stream_data;
-	unsigned int j;
-
-	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-	req_stream_data_mstream =
-		mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
-
-	req_stream_data_mstream->frame_seq_no = req_stream_data->frame_seq_no;
-	req_stream_data->frame_seq_no =
-		req_stream_data_mstream->frame_seq_no + 1;
-
-	ctx->enqueued_frame_seq_no = req_stream_data->frame_seq_no;
-
-	pr_info("%s: frame_seq:%d, frame_mstream_seq:%d\n",
-		__func__, req_stream_data->frame_seq_no,
-		req_stream_data_mstream->frame_seq_no);
-
-	req_stream_data_mstream->ctx = ctx;
-	req_stream_data_mstream->no_frame_done_cnt = 0;
-	atomic_set(&req_stream_data_mstream->dbg_work.state,
-			MTK_CAM_REQ_DBGWORK_S_INIT);
-	req_stream_data_mstream->dbg_work.dump_flags = 0;
-	atomic_set(&req_stream_data_mstream->dbg_exception_work.state,
-			MTK_CAM_REQ_DBGWORK_S_INIT);
-	req_stream_data_mstream->dbg_exception_work.dump_flags = 0;
-	req_stream_data_mstream->frame_done_queue_work = 0;
-
-	sensor_work = &req_stream_data_mstream->sensor_work;
-	mtk_cam_req_work_init(sensor_work, req_stream_data_mstream);
-	frame_work = &req_stream_data_mstream->frame_work;
-	mtk_cam_req_work_init(frame_work, req_stream_data_mstream);
-
-
-	for (j = 0 ; j < MTKCAM_SUBDEV_MAX ; j++) {
-		if (1 << j & ctx->streaming_pipe) {
-			pipe_stream_data = mtk_cam_req_get_s_data(req, j, 1);
-			frame_done_work = &pipe_stream_data->frame_done_work;
-			mtk_cam_req_work_init(frame_done_work, pipe_stream_data);
-			INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
-		}
-	}
-}
-
 static void isp_tx_frame_worker(struct work_struct *work)
 {
 	struct mtk_cam_req_work *req_work = (struct mtk_cam_req_work *)work;
@@ -2689,7 +2695,9 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
-			if (req_stream_data->frame_seq_no == 1)
+			if (req_stream_data->frame_seq_no == 1 ||
+					(mtk_cam_is_mstream(ctx) &&
+					req_stream_data->frame_seq_no == 2))
 				initial_frame = 1;
 
 			sensor_work = &req_stream_data->sensor_work;
@@ -2716,21 +2724,11 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					(ctx->pipe->res_config.raw_feature &
 					MTK_CAM_FEATURE_STAGGER_M2M_MASK))) {
 				if (mtk_cam_is_mstream(ctx)) {
-					fill_mstream_s_data(req, ctx, stream_id);
 					mtk_cam_mstream_initial_sensor_setup(req, ctx);
 				} else {
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
 			}
-
-			/*
-			 * first frame is use s_data[0] to do the judgement
-			 * mstream s_data shall be updated after original request sequence
-			 * is used because sequence number will be changed after
-			 * fill_mstream_s_data();
-			 */
-			if (mtk_cam_is_mstream(ctx) && !initial_frame)
-				fill_mstream_s_data(req, ctx, stream_id);
 
 			/* Prepare CQ compose work */
 			if (mtk_cam_is_mstream(ctx)) {
@@ -3160,6 +3158,9 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	ctx->enqueued_frame_seq_no = 0;
 	ctx->composed_frame_seq_no = 0;
 	ctx->dequeued_frame_seq_no = 0;
+	ctx->enqueued_request_cnt = 0;
+	ctx->next_sof_mask_frame_seq_no = 0;
+	ctx->working_request_seq = 0;
 	atomic_set(&ctx->running_s_data_cnt, 0);
 
 	if (!cam->composer_cnt) {
@@ -3356,6 +3357,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->seninf = NULL;
 	ctx->prev_seninf = NULL;
 	ctx->enqueued_frame_seq_no = 0;
+	ctx->enqueued_request_cnt = 0;
+	ctx->next_sof_mask_frame_seq_no = 0;
+	ctx->working_request_seq = 0;
 	ctx->composed_frame_seq_no = 0;
 	ctx->used_raw_num = 0;
 	ctx->used_sv_num = 0;

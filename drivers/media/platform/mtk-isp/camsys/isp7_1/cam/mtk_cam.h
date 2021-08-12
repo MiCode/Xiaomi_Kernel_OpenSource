@@ -169,6 +169,7 @@ struct mtk_cam_request_stream_data {
 
 struct mtk_cam_req_pipe {
 	int s_data_num;
+	int req_seq;
 	struct mtk_cam_request_stream_data s_data[MTK_CAM_REQ_MAX_S_DATA];
 };
 
@@ -285,6 +286,11 @@ struct mtk_cam_ctx {
 	unsigned int enqueued_frame_seq_no;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
+
+	/* mstream */
+	unsigned int enqueued_request_cnt;
+	unsigned int next_sof_mask_frame_seq_no;
+	unsigned int working_request_seq;
 
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 
@@ -546,6 +552,9 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 					unsigned int frame_seq_no);
 
+void mtk_cam_req_update_seq(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req,
+			    int seq);
+
 struct mtk_cam_request_stream_data*
 mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int frame_seq_no);
 
@@ -571,6 +580,7 @@ int mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_mstream(struct mtk_cam_ctx *ctx);
+int feature_is_mstream(int feature);
 int feature_change_is_mstream(int feature_change);
 int mtk_cam_node_is_mstream(struct mtk_cam_video_device *node);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
