@@ -34,7 +34,7 @@ TRACE_EVENT(CM_MGR__stall_raio,
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH ./
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE mtk_cm_mgr_events_mt6893
+#define TRACE_INCLUDE_FILE mtk_cm_mgr_events_mt6983
 #include <trace/define_trace.h>
 
 
