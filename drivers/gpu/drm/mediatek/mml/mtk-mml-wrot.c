@@ -1547,7 +1547,6 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	phys_addr_t irot_base;
 
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
@@ -1559,17 +1558,21 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 			/* 2 wrot to 1 disp: wait and trigger 1 wdone */
 			mml_ir_done_2to1(wrot, pkt, ccfg->pipe,
 				wrot_frm->wdone[idx].sram);
+		} else if (!task->config->dual && task->config->disp_dual) {
+			/* 1 wrot to 2 disp: trigger 2 wdone (dual done) */
+			cmdq_pkt_write(pkt, NULL,
+				wrot->irot_base[0] + INLINEROT_WDONE,
+				wrot_frm->wdone[idx].sram, U32_MAX);
+			cmdq_pkt_write(pkt, NULL,
+				wrot->irot_base[1] + INLINEROT_WDONE,
+				wrot_frm->wdone[idx].sram, U32_MAX);
 		} else {
 			/* 1 wrot to 1 disp: trigger 1 wdone (by pipe)
-			 * 1 wrot to 2 disp: trigger 2 wdone (dual done)
 			 * 2 wrot to 2 disp: trigger 2 wdone (by pipe)
+			 * both case set disp wdone for current pipe
 			 */
-			if (!task->config->dual && task->config->disp_dual)
-				irot_base = wrot->irot_base[0];
-			else
-				irot_base = wrot->irot_base[ccfg->pipe];
-			/* set disp wdone for this pipe */
-			cmdq_pkt_write(pkt, NULL, irot_base + INLINEROT_WDONE,
+			cmdq_pkt_write(pkt, NULL,
+				wrot->irot_base[ccfg->pipe] + INLINEROT_WDONE,
 				wrot_frm->wdone[idx].sram, U32_MAX);
 		}
 	}
