@@ -1108,6 +1108,20 @@ void set_crop_request_fd(struct v4l2_selection *crop, s32 request_fd)
 	reserved[0] = request_fd;
 }
 
+int feature_is_mstream(int feature)
+{
+	if (feature == MSTREAM_SE_NE || feature == MSTREAM_NE_SE)
+		return 1;
+	return 0;
+}
+
+int feature_change_is_mstream(int feature_change)
+{
+	if (feature_change & MSTREAM_EXPOSURE_CHANGE)
+		return 1;
+	return 0;
+}
+
 int mtk_cam_get_feature_switch(struct mtk_cam_ctx *ctx,
 			int prev)
 {
@@ -1118,32 +1132,41 @@ int mtk_cam_get_feature_switch(struct mtk_cam_ctx *ctx,
 		return EXPOSURE_CHANGE_NONE;
 	if (cur & MTK_CAM_FEATURE_HDR_MASK ||
 		prev & MTK_CAM_FEATURE_HDR_MASK) {
-		if ((cur == STAGGER_2_EXPOSURE_LE_SE ||
-			cur == STAGGER_2_EXPOSURE_LE_SE) &&
-			(prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
-			prev == STAGGER_3_EXPOSURE_SE_NE_LE))
-			res = EXPOSURE_CHANGE_3_to_2;
-		else if ((prev == STAGGER_2_EXPOSURE_LE_SE ||
-			prev == STAGGER_2_EXPOSURE_SE_LE) &&
-			(cur == STAGGER_3_EXPOSURE_LE_NE_SE ||
-			cur == STAGGER_3_EXPOSURE_SE_NE_LE))
-			res = EXPOSURE_CHANGE_2_to_3;
-		else if ((prev == 0) &&
-			(cur == STAGGER_3_EXPOSURE_LE_NE_SE ||
-			cur == STAGGER_3_EXPOSURE_SE_NE_LE))
-			res = EXPOSURE_CHANGE_1_to_3;
-		else if ((cur == 0) &&
-			(prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
-			prev == STAGGER_3_EXPOSURE_SE_NE_LE))
-			res = EXPOSURE_CHANGE_3_to_1;
-		else if ((prev == 0) &&
-			(cur == STAGGER_2_EXPOSURE_LE_SE ||
-			cur == STAGGER_2_EXPOSURE_SE_LE))
-			res = EXPOSURE_CHANGE_1_to_2;
-		else if ((cur == 0) &&
-			(prev == STAGGER_2_EXPOSURE_LE_SE ||
-			prev == STAGGER_2_EXPOSURE_SE_LE))
-			res = EXPOSURE_CHANGE_2_to_1;
+		if (feature_is_mstream(cur) || feature_is_mstream(prev)) {
+			if ((prev == 0) && feature_is_mstream(cur))
+				res = EXPOSURE_CHANGE_1_to_2 |
+						MSTREAM_EXPOSURE_CHANGE;
+			else if ((cur == 0) && feature_is_mstream(prev))
+				res = EXPOSURE_CHANGE_2_to_1 |
+						MSTREAM_EXPOSURE_CHANGE;
+		} else {
+			if ((cur == STAGGER_2_EXPOSURE_LE_SE ||
+				cur == STAGGER_2_EXPOSURE_LE_SE) &&
+				(prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
+				prev == STAGGER_3_EXPOSURE_SE_NE_LE))
+				res = EXPOSURE_CHANGE_3_to_2;
+			else if ((prev == STAGGER_2_EXPOSURE_LE_SE ||
+				prev == STAGGER_2_EXPOSURE_SE_LE) &&
+				(cur == STAGGER_3_EXPOSURE_LE_NE_SE ||
+				cur == STAGGER_3_EXPOSURE_SE_NE_LE))
+				res = EXPOSURE_CHANGE_2_to_3;
+			else if ((prev == 0) &&
+				(cur == STAGGER_3_EXPOSURE_LE_NE_SE ||
+				cur == STAGGER_3_EXPOSURE_SE_NE_LE))
+				res = EXPOSURE_CHANGE_1_to_3;
+			else if ((cur == 0) &&
+				(prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
+				prev == STAGGER_3_EXPOSURE_SE_NE_LE))
+				res = EXPOSURE_CHANGE_3_to_1;
+			else if ((prev == 0) &&
+				(cur == STAGGER_2_EXPOSURE_LE_SE ||
+				cur == STAGGER_2_EXPOSURE_SE_LE))
+				res = EXPOSURE_CHANGE_1_to_2;
+			else if ((cur == 0) &&
+				(prev == STAGGER_2_EXPOSURE_LE_SE ||
+				prev == STAGGER_2_EXPOSURE_SE_LE))
+				res = EXPOSURE_CHANGE_2_to_1;
+		}
 	}
 	dev_dbg(ctx->cam->dev, "[%s] res:%d\n", __func__, res);
 
@@ -1695,8 +1718,19 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req_tmp->pipe_used & (1 << i)) {
 			if (is_raw_subdev(i)) {
+				struct mtk_cam_ctx *ctx = &cam->ctxs[i];
+				int previous_feature =
+					cam->ctxs[i].pipe->res_config.raw_feature;
+				int feature_change;
+
 				req_stream_data = mtk_cam_req_get_s_data(req_tmp, i, 0);
 				mtk_cam_req_update_ctrl(&cam->ctxs[i], req_stream_data);
+
+				feature_change =
+					req_stream_data->feature.switch_feature_type;
+				if (feature_change_is_mstream(feature_change))
+					mstream_seamless_buf_update(ctx, req_tmp, i,
+								previous_feature);
 
 				running_s_data_num =
 					atomic_inc_return(&cam->ctxs[i].running_s_data_cnt);
@@ -1806,6 +1840,8 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		memset(&req_stream_data->sv_frame_params, 0,
 		       sizeof(req_stream_data->sv_frame_params));
 
+		/* generally is single exposure */
+		req_stream_data->frame_params.raw_param.exposure_num = 1;
 	}
 }
 
@@ -2031,6 +2067,132 @@ static int get_available_sv_pipes(struct mtk_cam_device *cam,
 
 EXIT:
 	return idle_pipes;
+}
+
+void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
+				struct mtk_cam_request *req, int pipe_id,
+				int previous_feature)
+{
+	struct mtk_cam_request_stream_data *req_stream_data =
+		mtk_cam_req_get_s_data_no_chk(req, pipe_id, 0);
+	struct mtkcam_ipi_frame_param *frame_param =
+		&req_stream_data->frame_params;
+	struct mtk_cam_request_stream_data *req_stream_data_mstream =
+		mtk_cam_req_get_s_data_no_chk(req, pipe_id, 1);
+	struct mtkcam_ipi_frame_param *mstream_frame_param =
+		&req_stream_data_mstream->frame_params;
+	int in_node = MTKCAM_IPI_RAW_RAWI_2;
+	int desc_id = MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SOURCE_BEGIN;
+	int current_feature = ctx->pipe->res_config.raw_feature;
+	struct mtk_cam_video_device *vdev;
+	int main_stream_size;
+
+	vdev = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+	main_stream_size = vdev->active_fmt.fmt.pix_mp.plane_fmt[1].sizeimage;
+
+	pr_info("%s cur_feature(%d) prev_feature(%d) main_stream_size(%d)",
+		__func__, current_feature, previous_feature, main_stream_size);
+	if (feature_is_mstream(current_feature)) {
+		/* backup first because main stream buffer is already assigned */
+		__u32 iova = frame_param->img_outs[desc_id].buf[0][0].iova;
+		__u32 ccd_fd = frame_param->img_outs[desc_id].buf[0][0].ccd_fd;
+		__u8 imgo_path_sel = frame_param->raw_param.imgo_path_sel;
+
+		/* init stream data for mstream */
+		mtk_cam_req_s_data_init(req, pipe_id, 2);
+
+		/* recover main stream buffer */
+		frame_param->img_outs[desc_id].buf[0][0].iova = iova;
+		frame_param->img_outs[desc_id].buf[0][0].ccd_fd = ccd_fd;
+		frame_param->raw_param.imgo_path_sel = imgo_path_sel;
+	}
+
+	if (current_feature == MSTREAM_NE_SE) {
+		mstream_frame_param->raw_param.exposure_num = 1;
+		frame_param->raw_param.exposure_num = 2;
+		frame_param->raw_param.hardware_scenario =
+		MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
+	} else if (current_feature == MSTREAM_SE_NE) {
+		mstream_frame_param->raw_param.exposure_num = 1;
+		frame_param->raw_param.exposure_num = 2;
+		frame_param->raw_param.hardware_scenario =
+		MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
+	} else {
+		// normal single exposure
+		mstream_frame_param->raw_param.exposure_num = 0;
+		frame_param->raw_param.exposure_num = 1;
+		frame_param->raw_param.hardware_scenario =
+		MTKCAM_IPI_HW_PATH_ON_THE_FLY;
+	}
+	vdev->raw_feature = current_feature;
+	// imgo mstream buffer layout is fixed plane[0]=NE, plane[1]=SE
+	if (current_feature == MSTREAM_NE_SE) {
+		// Normal single exposure seamless to NE_SE
+		// NE as normal 1 exposure flow, get iova from frame_param
+		mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
+				frame_param->img_outs[desc_id].buf[0][0].iova;
+		pr_info("%s mstream ne_se ne imgo:0x%x\n",
+			__func__,
+			mstream_frame_param->img_outs[desc_id].buf[0][0].iova);
+
+		// SE, in = NE output
+		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.iova = mstream_frame_param->img_outs[desc_id].buf[0][0].iova;
+		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.size = main_stream_size;
+		// out = SE output
+		frame_param->img_outs[desc_id].buf[0][0].iova +=
+			main_stream_size;
+		pr_info("%s mstream ne_se se rawi:0x%x imgo:0x%x\n",
+			__func__,
+			frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
+			frame_param->img_outs[desc_id].buf[0][0].iova);
+	} else if (current_feature == MSTREAM_SE_NE) {
+		// Normal single exposure seamless to NE_SE
+		// SE as normal output SE(plane[1]) first
+		mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
+			frame_param->img_outs[desc_id].buf[0][0].iova +
+			main_stream_size;
+		pr_info("%s mstream se_ne se imgo:0x%x\n",
+			__func__,
+			mstream_frame_param->img_outs[desc_id].buf[0][0].iova);
+
+		// NE,  in = SE output
+		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.iova = mstream_frame_param->img_outs[desc_id].buf[0][0].iova;
+		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.size = main_stream_size;
+		// out = NE out, already configured in normal single exposure
+
+		pr_info("%s mstream se_ne ne rawi:0x%x imgo:0x%x\n",
+			__func__,
+			frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
+			frame_param->img_outs[desc_id].buf[0][0].iova);
+	} else {
+		// M-Stream seamless to normal single exposure
+		// clear mstream mstream_frame_param
+		mstream_frame_param->img_outs[desc_id].buf[0][0].iova = 0;
+
+		// reset frame_param to normal single exposure
+		// if previous is NE_SE, recover imgo
+		if (previous_feature == MSTREAM_NE_SE) {
+			// get NE from rawi
+			frame_param->img_outs[desc_id].buf[0][0].iova =
+			frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.iova;
+		}
+
+		// if previous is SE_NE, imgo iova is already correct
+
+		// clear rawi2
+		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.iova = 0;
+		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
+			.size = 0;
+
+		pr_info("%s normal imgo:0x%x\n", __func__,
+			frame_param->img_outs[desc_id].buf[0][0].iova);
+	}
 }
 
 int get_main_sv_pipe_id(struct mtk_cam_device *cam,
@@ -2298,16 +2460,11 @@ static void fill_mstream_s_data(struct mtk_cam_request *req,
 	req_stream_data_mstream =
 		mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 
-	if (req_stream_data->frame_seq_no <= 1)
-		req_stream_data_mstream->frame_seq_no =
-		req_stream_data->frame_seq_no;
-	else
-		req_stream_data_mstream->frame_seq_no =
-		req_stream_data->frame_seq_no * 2 - 1;
-
+	req_stream_data_mstream->frame_seq_no = req_stream_data->frame_seq_no;
 	req_stream_data->frame_seq_no =
 		req_stream_data_mstream->frame_seq_no + 1;
 
+	ctx->enqueued_frame_seq_no = req_stream_data->frame_seq_no;
 
 	pr_info("%s: frame_seq:%d, frame_mstream_seq:%d\n",
 		__func__, req_stream_data->frame_seq_no,

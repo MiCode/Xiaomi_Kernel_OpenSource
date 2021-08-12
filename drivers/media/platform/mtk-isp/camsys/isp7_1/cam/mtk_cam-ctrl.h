@@ -152,6 +152,8 @@ enum {
 	EXPOSURE_CHANGE_2_to_1,
 	EXPOSURE_CHANGE_1_to_3,
 	EXPOSURE_CHANGE_1_to_2,
+
+	MSTREAM_EXPOSURE_CHANGE = (1 << 4),
 };
 
 struct mtk_camsys_ctrl {

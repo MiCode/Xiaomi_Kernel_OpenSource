@@ -571,7 +571,11 @@ int mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_mstream(struct mtk_cam_ctx *ctx);
+int feature_change_is_mstream(int feature_change);
 int mtk_cam_node_is_mstream(struct mtk_cam_video_device *node);
+void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
+				struct mtk_cam_request *req, int pipe_id,
+				int previous_feature);
 int mtk_cam_is_subsample(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_2_exposure(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx);

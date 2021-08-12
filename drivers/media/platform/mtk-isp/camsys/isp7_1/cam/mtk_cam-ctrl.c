@@ -1004,7 +1004,9 @@ static void mtk_cam_set_sensor(struct mtk_cam_request_stream_data *req_stream_da
 	sensor_ctrl->sensor_request_seq_no = req_stream_data->frame_seq_no;
 	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 
-	if (req_stream_data->feature.switch_feature_type) {
+	if (req_stream_data->feature.switch_feature_type &&
+			!feature_change_is_mstream(
+			req_stream_data->feature.switch_feature_type)) {
 		dev_info(sensor_ctrl->ctx->cam->dev,
 		"[TimerIRQ] switch type:%d request:%d - pass sensor\n",
 		req_stream_data->feature.switch_feature_type,
@@ -1407,7 +1409,9 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		/*handle exposure switch at frame start*/
 		if (state_sensor) {
 			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_sensor);
-			if (req_stream_data->feature.switch_feature_type) {
+			if (req_stream_data->feature.switch_feature_type &&
+					!feature_change_is_mstream(
+					req_stream_data->feature.switch_feature_type)) {
 				mtk_cam_exp_sensor_switch(ctx, req_stream_data);
 				state_transition(state_sensor, E_STATE_READY,
 						 E_STATE_SENSOR);
@@ -2102,7 +2106,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				wmb(); /* TBC */
 			}
 		} else if (req_stream_data->frame_seq_no == frame_seq_no_outer) {
-			if (frame_seq_no_outer > sensor_ctrl->isp_request_seq_no) {
+			if (frame_seq_no_outer > sensor_ctrl->isp_request_seq_no &&
+				!mtk_cam_is_mstream(ctx)) {
 				/**
 				 * outer number is 1 more from last SOF's
 				 * inner number
@@ -2221,8 +2226,19 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 						state_entry->estate, req_stream_data->timestamp);
 				} else {
 					// zero if no frame undone
-					unsigned int frame_undone =
-						req_stream_data->frame_seq_no & 0x1;
+					unsigned int frame_undone;
+					struct mtk_cam_request_stream_data *s_data;
+
+					s_data = mtk_cam_req_get_s_data(
+						state_req,
+						ctx->stream_id, 0);
+
+					if (mtk_cam_is_mstream(ctx) &&
+						req_stream_data->frame_seq_no !=
+						s_data->frame_seq_no)
+						frame_undone = 1;
+					else
+						frame_undone = 0;
 
 					state_transition(state_entry,
 							 E_STATE_INNER_HW_DELAY,
@@ -2392,7 +2408,9 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		req = mtk_cam_get_req(ctx, frame_seq_no + 1);
 		if (req) {
 			req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
-			if (req_stream_data->feature.switch_feature_type) {
+			if (req_stream_data->feature.switch_feature_type &&
+					!feature_change_is_mstream(
+					req_stream_data->feature.switch_feature_type)) {
 				mtk_cam_hdr_switch_toggle(ctx);
 				dev_dbg(ctx->cam->dev,
 					"[SWD] switch req toggle check req:%d type:%d\n",
