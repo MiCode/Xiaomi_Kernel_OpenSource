@@ -642,7 +642,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 		if (ret)
 			return ret;
 		if (idx >= 0 && idx < dvfs.scp_opp_nums
-				&& idx < mt_scp_pll.pll_num)
+				&& mux_idx < mt_scp_pll.pll_num)
 			ret = clk_set_parent(mt_scp_pll.clk_mux,
 					mt_scp_pll.clk_pll[mux_idx]);
 		else {
