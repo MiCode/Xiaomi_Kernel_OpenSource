@@ -90,17 +90,21 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 {
+	#if CMDQ_STOP_FUNC
 	u32 idx = 0;
+	#endif
 
 	dev_info(imgsys_dev->dev, "%s: cmdq stream off (%d)\n", __func__, is_stream_off);
 	is_stream_off = 1;
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
+	#if CMDQ_STOP_FUNC
 	for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
 		cmdq_mbox_stop(imgsys_clt[idx]);
 		dev_info(imgsys_dev->dev,
 			"%s: calling cmdq_mbox_stop(%d, 0x%x)\n",
 			__func__, idx, imgsys_clt[idx]);
 	}
+	#endif
 }
 
 static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
