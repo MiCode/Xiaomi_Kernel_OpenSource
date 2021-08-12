@@ -1265,7 +1265,10 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA1, 1);
 		break;
 	}
+#else
+	pm_runtime_get_sync(&pdev->dev);
 #endif // APU_POWER_BRING_UP
+
 	aputop_dump_pwr_res();
 	return ret;
 }

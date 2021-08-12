@@ -15,7 +15,7 @@
 #define ENABLE_SW_BUCK_CTL	(0)	// 1: enable regulator in rpm resume
 #define ENABLE_SOC_CLK_MUX	(0)	// 1: enable soc clk in rpm resume
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
-#define APMCU_REQ_RPC_SLEEP	(1)	// rpm suspend trigger sleep req to rpc
+#define APMCU_REQ_RPC_SLEEP	(0)	// rpm suspend trigger sleep req to rpc
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
