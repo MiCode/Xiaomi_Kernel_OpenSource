@@ -11431,7 +11431,6 @@
 
 	sound: sound {
 		compatible = "mediatek,mt6983-mt6338-sound";
-		mediatek,snd_audio_dsp = <&snd_audio_dsp>;
 		mediatek,headset-codec = <&mt6338_accdet>;
 		mediatek,platform = <&afe>;
 	};
@@ -11573,7 +11572,7 @@
 		mtk_dsp_voip = <0x1f 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_primary = <0x5 0xffffffff 0xffffffff \
 				   0xffffffff 0x30000>;
-		mtk_dsp_offload = <0x0 0xffffffff 0xffffffff \
+		mtk_dsp_offload = <0x1d 0xffffffff 0xffffffff \
 				   0xffffffff 0x400000>;
 		mtk_dsp_deep = <0x5 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_playback = <0x1 0x4 0xffffffff 0x14 0x30000>;
@@ -11589,6 +11588,10 @@
 		mtk_dsp_ver = <0x1>;
 		swdsp_smartpa_process_enable = <0x5>;
 		mtk_dsp_mem_afe = <0x1 0x40000>;
+	};
+
+	mt_soc_offload_common {
+		compatible = "mediatek,mt_soc_offload_common";
 	};
 
 	pmic-oc-debug {
