@@ -288,6 +288,11 @@ static const struct rdma_data mt6983_rdma_data = {
 	.write_sec_reg = true,
 };
 
+static const struct rdma_data mt6879_rdma_data = {
+	.tile_width = 1440,
+	.write_sec_reg = true,
+};
+
 struct mml_comp_rdma {
 	struct mml_comp comp;
 	const struct rdma_data *data;
@@ -1484,6 +1489,10 @@ const struct of_device_id mml_rdma_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6893-mml_rdma",
 		.data = &mt6893_rdma_data
+	},
+	{
+		.compatible = "mediatek,mt6879-mml_rdma",
+		.data = &mt6879_rdma_data
 	},
 	{},
 };

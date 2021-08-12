@@ -57,6 +57,10 @@ ifneq ($(wildcard $(srctree)/$(src)/mtk-mml-tp-mt6983.c),)
 obj-$(CONFIG_MTK_MML) += mtk-mml-mt6983.o
 mtk-mml-mt6983-objs := mtk-mml-tp-mt6983.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk-mml-tp-mt6879.c),)
+obj-$(CONFIG_MTK_MML) += mtk-mml-mt6879.o
+mtk-mml-mt6879-objs := mtk-mml-tp-mt6879.o
+endif
 
 # for unit test
 mtk-mml-objs += mtk-mml-test.o

@@ -155,6 +155,13 @@ static const struct aal_data mt6983_aal_data = {
 	.min_hist_width = 128,
 };
 
+static const struct aal_data mt6879_aal_data = {
+	.min_tile_width = 50,
+	.tile_width = 1376,
+	.min_hist_width = 128,
+};
+
+
 struct mml_comp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
@@ -640,6 +647,10 @@ const struct of_device_id mml_aal_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6893-mml_aal",
 		.data = &mt6893_aal_data
+	},
+	{
+		.compatible = "mediatek,mt6879-mml_aal",
+		.data = &mt6879_aal_data
 	},
 	{},
 };
