@@ -69,9 +69,6 @@ unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
 #else
 		max_util = max(max_util, uclamp_eff_value(p, UCLAMP_MAX));
 #endif
-	} else {
-		if (idle_cpu(rq->cpu))
-			util = 0;
 	}
 
 	/*
