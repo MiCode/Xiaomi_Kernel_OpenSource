@@ -55,16 +55,21 @@ enum raw_module_id {
 	RAW_B = 1,
 };
 
-#define MTK_CAM_FEATURE_STAGGER_MASK	0x0000000F
+/* feature mask to categorize all raw functions */
+#define MTK_CAM_FEATURE_HDR_MASK	0x0000000F
 #define MTK_CAM_FEATURE_SUBSAMPLE_MASK	0x000000F0
 #define MTK_CAM_FEATURE_STAGGER_M2M_MASK	0x00000F00
 #define MTK_CAM_FEATURE_TIMESHARE_MASK	0x0000F000
 
 enum raw_function_id {
+	/* hdr */
 	STAGGER_2_EXPOSURE_LE_SE	= (1 << 0),
 	STAGGER_2_EXPOSURE_SE_LE	= (2 << 0),
 	STAGGER_3_EXPOSURE_LE_NE_SE	= (3 << 0),
 	STAGGER_3_EXPOSURE_SE_NE_LE	= (4 << 0),
+	MSTREAM_NE_SE			= (5 << 0),
+	MSTREAM_SE_NE			= (6 << 0),
+	/* high fps (subsample) */
 	HIGHFPS_2_SUBSAMPLE		= (1 << 4),
 	HIGHFPS_4_SUBSAMPLE		= (2 << 4),
 	HIGHFPS_8_SUBSAMPLE		= (3 << 4),
@@ -83,6 +88,7 @@ enum hdr_scenario_id {
 	STAGGER_OFFLINE		= (1 << 1),
 	STAGGER_DCIF		= (1 << 2),
 	STAGGER_M2M		= (1 << 3),
+	MSTREAM			= (1 << 4),
 };
 
 #define RAW_STATS_CFG_SIZE \
@@ -190,6 +196,18 @@ struct mtk_cam_resource_config {
 	struct v4l2_mbus_framefmt sink_fmt;
 };
 
+/* exposure for m-stream */
+struct mtk_cam_shutter_gain {
+	__u32 shutter;
+	__u32 gain;
+};
+
+/* multiple exposure for m-stream(2 exposures) */
+struct mtk_cam_mstream_exposure {
+	struct mtk_cam_shutter_gain exposure[2];
+	unsigned int valid;
+};
+
 struct mtk_raw_pad_config {
 	struct v4l2_mbus_framefmt mbus_fmt;
 	struct v4l2_rect crop;
@@ -212,6 +230,8 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_resource_config res_config;
 	struct mtk_cam_resource_config try_res_config;
 	s64 sync_id;
+	/* mstream */
+	struct mtk_cam_mstream_exposure mstream_exposure;
 };
 
 struct mtk_raw_device {

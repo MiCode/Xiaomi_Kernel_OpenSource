@@ -173,6 +173,8 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			 struct mtk_camsys_irq_info *irq_info);
 void mtk_cam_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
+void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *req,
+					struct mtk_cam_ctx *ctx);
 void mtk_cam_req_ctrl_setup(struct mtk_cam_ctx *ctx,
 					struct mtk_cam_request *req);
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */

@@ -29,8 +29,8 @@
 
 /* for cq working buffers */
 #define CQ_BUF_SIZE  0x8000
-#define CAM_CQ_BUF_NUM 8
-#define CAMSV_CQ_BUF_NUM 8
+#define CAM_CQ_BUF_NUM 16
+#define CAMSV_CQ_BUF_NUM 16
 #define IPI_FRAME_BUF_SIZE 0x8000
 
 /* for time-sharing camsv working buffer, (1inner+2backendprogramming+2backup)*/
@@ -128,10 +128,11 @@ struct mtk_cam_req_feature {
 /*
  * struct mtk_cam_request_stream_data - per stream members of a request
  *
- * @pad_fmt: pad format configurtion for sensor switch
+ * @pad_fmt: pad format configurtion for sensor switch.
  * @frame_params: The frame info. & address info. of enabled DMA nodes.
  * @frame_work: work queue entry for frame transmission to SCP.
  * @working_buf: command queue buffer associated to this request
+ * @mtk_cam_exposure: exposure value of sensor of mstream
  *
  */
 struct mtk_cam_request_stream_data {
@@ -163,6 +164,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct mtk_cam_req_feature feature;
 	bool frame_done_queue_work;
+	struct mtk_cam_shutter_gain mtk_cam_exposure;
 };
 
 struct mtk_cam_req_pipe {
@@ -182,7 +184,7 @@ struct mtk_cam_req_pipe {
  * @list: List entry of the object for @struct mtk_cam_device:
  *        pending_job_list or running_job_list.
  * @time_syscall_enque: log the request enqueue time
- * @working_buf: command queue buffer associated to this request
+ * @mtk_cam_request_stream_data: stream context related to the request
  *
  */
 struct mtk_cam_request {
@@ -568,6 +570,8 @@ int PipeIDtoTGIDX(int pipe_id);
 int mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);
+int mtk_cam_is_mstream(struct mtk_cam_ctx *ctx);
+int mtk_cam_node_is_mstream(struct mtk_cam_video_device *node);
 int mtk_cam_is_subsample(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_2_exposure(struct mtk_cam_ctx *ctx);
 int mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx);

@@ -411,6 +411,10 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 	case V4L2_CID_MTK_CAM_SYNC_ID:
 		pipeline->sync_id = *ctrl->p_new.p_s64;
 		break;
+	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
+		pipeline->mstream_exposure = *(struct mtk_cam_mstream_exposure *)ctrl->p_new.p;
+		pipeline->mstream_exposure.valid = 1;
+		break;
 	default:
 		dev_info(dev,
 			 "%s:pipe(%d):ctrl(id:0x%x,val:%d) not handled\n",
@@ -436,6 +440,11 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 
 	}
 
+	// skip control doesn't support try ctrl
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
+		return 0;
+	}
 	return mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id], ctrl,
 				    &pipeline->try_res_config, pipeline->id);
 }
@@ -525,6 +534,7 @@ static const struct v4l2_ctrl_config frz = {
 	.step = 1,
 	.def = 100,
 };
+
 static const struct v4l2_ctrl_config raw_path = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_RAW_PATH_SELECT,
@@ -620,6 +630,17 @@ static struct v4l2_ctrl_config cfg_res_ctrl = {
 	.max = 0xffffffff,
 	.step = 1,
 	.dims = {sizeof(struct mtk_cam_resource)},
+};
+
+static const struct v4l2_ctrl_config mstream_exposure = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE,
+	.name = "mstream exposure",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xFFFFFFFF,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_cam_mstream_exposure)},
 };
 
 void trigger_rawi(struct mtk_raw_device *dev)
@@ -4347,6 +4368,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
+	v4l2_ctrl_new_custom(ctrl_hdlr, &mstream_exposure, NULL);
 	pipe->res_config.hwn_limit = hwn_limit.def;
 	pipe->res_config.frz_limit = frz_limit.def;
 	pipe->res_config.bin_limit = bin_limit.def;
