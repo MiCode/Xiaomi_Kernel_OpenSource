@@ -1730,8 +1730,6 @@ const struct mtk_mmsys_reg_data mt6879_mmsys_reg_data = {
 	.rdma0_sout_color0 = MT6879_DISP_RDMA0_SOUT_COLOR0,
 };
 
-static bool bypass_aal_func_mt6983; //mt6983_workaround
-
 static char *ddp_signal_0_mt6885(int bit)
 {
 	switch (bit) {
@@ -3925,6 +3923,108 @@ static char *ddp_get_mutex_module1_name_mt6885(unsigned int bit)
 		return "rdma4";
 	case 11:
 		return "rdma5";
+	default:
+		break;
+	}
+	return "unknown-mutex";
+}
+
+static char *ddp_get_mutex_module0_name_mt6983(unsigned int bit)
+{
+	switch (bit) {
+	case 0:
+		return "ovl0";
+	case 1:
+		return "ovl0_2l";
+	case 2:
+		return "disp_ovl1_2l";
+	case 3:
+		return "disp_rsz0";
+	case 4:
+		return "disp_rdma0";
+	case 5:
+		return "disp_tdshp0";
+	case 6:
+		return "disp_c3d0";
+	case 7:
+		return "disp_color0";
+	case 8:
+		return "disp_ccorr0";
+	case 9:
+		return "disp_ccorr1";
+	case 10:
+		return "disp_mdp_aal0";
+	case 11:
+		return "disp_aal0";
+	case 12:
+		return "disp_gamma0";
+	case 13:
+		return "disp_postmask0";
+	case 14:
+		return "disp_dither0";
+	case 15:
+		return "disp_chist0";
+	case 16:
+		return "disp_chist1";
+	case 17:
+		return "disp_cm0";
+	case 18:
+		return "disp_spr0";
+	case 19:
+		return "disp_dsc_wrap0_core0";
+	case 20:
+		return "disp_dsc_wrap0_core1";
+	case 21:
+		return "disp_merge0";
+	case 22:
+		return "disp_dsi0";
+	case 23:
+		return "disp_wdma0";
+	case 24:
+		return "disp_ufbc_wdma0";
+	case 25:
+		return "disp_ovl0_2l_nwcg";
+	case 26:
+		return "disp_ovl1_2l_nwcg";
+	case 27:
+		return "disp_rdma1";
+	case 28:
+		return "disp_dp_intf0";
+	case 29:
+		return "disp_dpi0";
+	case 30:
+		return "disp_wdma1";
+	case 31:
+		return "disp_y2r0";
+	default:
+		break;
+	}
+	return "unknown-mutex";
+}
+
+static char *ddp_get_mutex_module1_name_mt6983(unsigned int bit)
+{
+	switch (bit) {
+	case 0:
+		return "inlinerot0";
+	case 1:
+		return "disp_dli_async0";
+	case 2:
+		return "disp_dli_async1";
+	case 3:
+		return "disp_dli_async2";
+	case 4:
+		return "disp_dli_async3";
+	case 5:
+		return "disp_dlo_async0";
+	case 6:
+		return "disp_dlo_async1";
+	case 7:
+		return "disp_dlo_async2";
+	case 8:
+		return "disp_dlo_async3";
+	case 9:
+		return "disp_pwm0";
 	default:
 		break;
 	}
@@ -6277,8 +6377,6 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 		if (value >= 0)
 			writel_relaxed(value, config_regs + addr);
 
-		bypass_aal_func_mt6983 = true; //mt6983_workaround
-
 		break;
 
 	case MMSYS_MT6873:
@@ -6463,8 +6561,6 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 				mtk_crtc->config_regs_pa
 				+ addr, value, ~0);
-
-		bypass_aal_func_mt6983 = true; //mt6983_workaround
 
 		break;
 
@@ -7756,18 +7852,15 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 			mtk_drm_cwb_backup_copy_size();
 #endif
 #ifndef DRM_BYPASS_PQ
-			if (bypass_aal_func_mt6983) {//mt6983_workaround
-				disp_aal_on_start_of_frame();
-				disp_c3d_on_start_of_frame();
-			}
+			disp_aal_on_start_of_frame();
+			disp_c3d_on_start_of_frame();
 #endif
 		}
 		if (val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
 			DDPIRQ("[IRQ] mutex%d eof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 1);
 #ifndef DRM_BYPASS_PQ
-			if (bypass_aal_func_mt6983) //mt6983_workaround
-				disp_c3d_on_end_of_frame_mutex();
+			disp_c3d_on_end_of_frame_mutex();
 #endif
 		}
 	}
@@ -7780,6 +7873,44 @@ out:
 }
 
 void mutex_dump_reg_mt6885(struct mtk_disp_mutex *mutex)
+{
+	struct mtk_ddp *ddp =
+		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
+	void __iomem *module_base = ddp->regs;
+
+	DDPDUMP("== DISP MUTEX REGS ==\n");
+	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0x0, readl_relaxed(module_base + 0x0), 0x4,
+		readl_relaxed(module_base + 0x4), 0x8,
+		readl_relaxed(module_base + 0x8), 0x020,
+		readl_relaxed(module_base + 0x020));
+	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0x028, readl_relaxed(module_base + 0x028), 0x02C,
+		readl_relaxed(module_base + 0x02C), 0x030,
+		readl_relaxed(module_base + 0x030), 0x034,
+		readl_relaxed(module_base + 0x034));
+	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0x040, readl_relaxed(module_base + 0x040), 0x048,
+		readl_relaxed(module_base + 0x048), 0x04C,
+		readl_relaxed(module_base + 0x04C), 0x050,
+		readl_relaxed(module_base + 0x050));
+	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0x054, readl_relaxed(module_base + 0x054), 0x060,
+		readl_relaxed(module_base + 0x060), 0x068,
+		readl_relaxed(module_base + 0x068), 0x06C,
+		readl_relaxed(module_base + 0x06C));
+	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0x070, readl_relaxed(module_base + 0x070), 0x074,
+		readl_relaxed(module_base + 0x074), 0x080,
+		readl_relaxed(module_base + 0x080), 0x088,
+		readl_relaxed(module_base + 0x088));
+	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0x08C, readl_relaxed(module_base + 0x08C), 0x090,
+		readl_relaxed(module_base + 0x090), 0x094,
+		readl_relaxed(module_base + 0x094));
+}
+
+void mutex_dump_reg_mt6983(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
@@ -7912,6 +8043,75 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 			if ((mod1 & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module1_name_mt6885(j));
+
+				if (len < 0) {
+					/* Handle sprintf() error */
+					DDPPR_ERR("sprintf error\n");
+				}
+				p += len;
+			}
+		}
+		DDPDUMP("%s)\n", mutex_module);
+	}
+}
+
+void mutex_dump_analysis_mt6983(struct mtk_disp_mutex *mutex)
+{
+	struct mtk_ddp *ddp =
+		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
+	unsigned int i = 0;
+	unsigned int j = 0;
+	char mutex_module[512] = {'\0'};
+	char *p = NULL;
+	int len = 0;
+	unsigned int val;
+
+	DDPDUMP("== DISP Mutex Analysis ==\n");
+	for (i = 0; i < 5; i++) {
+		unsigned int mod0, mod1;
+
+		p = mutex_module;
+		len = 0;
+		if (readl_relaxed(ddp->regs +
+				  DISP_REG_MUTEX_MOD(ddp->data, i)) == 0)
+			continue;
+
+		val = readl_relaxed(ddp->regs +
+				    DISP_REG_MUTEX_SOF(ddp->data, i));
+
+		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(", i,
+			      mtk_ddp_get_mutex_sof_name(
+				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
+			      mtk_ddp_get_mutex_sof_name(
+				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
+			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
+
+		if (len < 0) {
+			/* Handle sprintf() error */
+			DDPPR_ERR("sprintf error\n");
+		}
+
+		p += len;
+
+		mod0 = readl_relaxed(ddp->regs +
+			DISP_REG_MUTEX_MOD(ddp->data, i));
+		for (j = 0; j < 32; j++) {
+			if ((mod0 & (1 << j))) {
+				len = sprintf(p, "%s,",
+					ddp_get_mutex_module0_name_mt6983(j));
+				if (len < 0) {
+					/* Handle sprintf() error */
+					DDPPR_ERR("sprintf error\n");
+				}
+				p += len;
+			}
+		}
+		mod1 = readl_relaxed(ddp->regs +
+			DISP_REG_MUTEX_MOD2(mutex->id));
+		for (j = 0; j < 32; j++) {
+			if ((mod1 & (1 << j))) {
+				len = sprintf(p, "%s,",
+					ddp_get_mutex_module1_name_mt6983(j));
 
 				if (len < 0) {
 					/* Handle sprintf() error */
@@ -9148,7 +9348,6 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, ddp);
-	bypass_aal_func_mt6983 = 0; //mt6983_workaround
 	DDPINFO("%s-\n", __func__);
 
 	return 0;

@@ -255,7 +255,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		break;
 	case MMSYS_MT6983:
 		mmsys_config_dump_reg_mt6983(mtk_crtc->config_regs);
-		mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
+		mutex_dump_reg_mt6983(mtk_crtc->mutex[0]);
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 			mtk_dump_reg(comp);
 		break;
@@ -379,7 +379,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 				mtk_dump_reg(comp);
 			}
 		}
-		mutex_dump_analysis_mt6885(mtk_crtc->mutex[0]);
+		mutex_dump_analysis_mt6983(mtk_crtc->mutex[0]);
 		break;
 	case MMSYS_MT6873:
 		mmsys_config_dump_analysis_mt6873(mtk_crtc->config_regs);
