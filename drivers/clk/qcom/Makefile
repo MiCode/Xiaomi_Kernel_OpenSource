@@ -87,6 +87,7 @@ obj-$(CONFIG_SM_GCC_KALAMA) += gcc-kalama.o
 obj-$(CONFIG_SM_VIDEOCC_KALAMA) += videocc-kalama.o
 obj-$(CONFIG_SM_CAMCC_KALAMA) += camcc-kalama.o
 obj-$(CONFIG_SM_DISPCC_KALAMA) += dispcc-kalama.o
+obj-$(CONFIG_SM_DEBUGCC_KALAMA) += debugcc-kalama.o
 obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
 obj-$(CONFIG_SM_GPUCC_8250) += gpucc-sm8250.o
 obj-$(CONFIG_SM_VIDEOCC_8150) += videocc-sm8150.o
