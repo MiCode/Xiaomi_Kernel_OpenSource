@@ -129,7 +129,7 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	unsigned int counter = runtime->period_size;
 	unsigned int rate = runtime->rate;
 	int fs;
-	int ret;
+	int ret = 0;
 
 	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
 		 __func__, memif->data->name, cmd, irq_id);
@@ -138,20 +138,17 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 		/* set memif enable */
-		if (memif->vow_barge_in_enable)
-			/* memif will be set by scp */
-			ret = 0;
-		else
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-			/* with dsp enable, not to set when stop_threshold = ~(0U) */
-			if (runtime->stop_threshold == ~(0U))
-				ret = 0;
-			else
-				/* only when adsp enable using hw semaphore to set memif */
-				ret = mtk_dsp_memif_set_enable(afe, id);
-#else
-			ret = mtk_memif_set_enable(afe, id);
-#endif
+		/* If stop_threshold is ULONG_MAX, memif is set in scp or adsp */
+		if (!memif->vow_barge_in_enable &&
+		    runtime->stop_threshold != ULONG_MAX) {
+			ret = mtk_dsp_memif_set_enable(afe, id);
+			if (ret) {
+				dev_err(afe->dev,
+					"%s(), error, id %d, memif enable, ret %d\n",
+					__func__, id, ret);
+				return ret;
+			}
+		}
 
 		/*
 		 * for small latency record
@@ -160,12 +157,6 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			if ((runtime->period_size * 1000) / rate <= 10)
 				udelay(300);
-		}
-
-		if (ret) {
-			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
-				__func__, id, ret);
-			return ret;
 		}
 
 		/* set irq counter */
@@ -179,7 +170,6 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 
 		/* set irq fs */
 		fs = afe->irq_fs(substream, runtime->rate);
-
 		if (fs < 0)
 			return -EINVAL;
 
@@ -187,17 +177,12 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				   irq_data->irq_fs_maskbit
 				   << irq_data->irq_fs_shift,
 				   fs << irq_data->irq_fs_shift);
+
 		/* enable interrupt */
-		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
-		if (runtime->stop_threshold != ~(0U))
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+		/* if stop_threshold is ULONG_MAX, interrupt is set by scp or adsp */
+		if (runtime->stop_threshold != ULONG_MAX)
 			mtk_dsp_irq_set_enable(afe, irq_data, id);
-#else
-			regmap_update_bits(afe->regmap,
-					   irq_data->irq_en_reg,
-					   1 << irq_data->irq_en_shift,
-					   1 << irq_data->irq_en_shift);
-#endif
+
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -214,43 +199,26 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* set memif disable */
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_SUPPORT))  /* TODO: check memif->vow_barge_in_enable */
-		if (runtime->stop_threshold == ~(0U))
-			ret = 0;
-		else
-/* only when adsp enable using hw semaphore to set memif */
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+		/* if stop_threshold is ULONG_MAX, memif is set by scp or adsp */
+		if (runtime->stop_threshold != ULONG_MAX) {
 			ret = mtk_dsp_memif_set_disable(afe, id);
-#else
-			ret = mtk_memif_set_disable(afe, id);
-#endif
-#else
-		ret = mtk_memif_set_disable(afe, id);
-#endif
-		if (ret) {
-			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
-				__func__, id, ret);
+			if (ret) {
+				dev_err(afe->dev,
+					"%s(), error, id %d, memif enable, ret %d\n",
+					__func__, id, ret);
+			}
 		}
 
-		/* disable interrupt */
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-		if (runtime->stop_threshold != ~(0U))
+		/* if stop_threshold is ULONG_MAX, interrupt is set by scp or adsp */
+		if (runtime->stop_threshold != ULONG_MAX) {
+			/* disable interrupt */
 			mtk_dsp_irq_set_disable(afe, irq_data, id);
-#else
-		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
-		if (runtime->stop_threshold != ~(0U))
-			regmap_update_bits(afe->regmap,
-					   irq_data->irq_en_reg,
-					   1 << irq_data->irq_en_shift,
-					   0 << irq_data->irq_en_shift);
 
-#endif
-		/* and clear pending IRQ */
-		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
-		if (runtime->stop_threshold != ~(0U))
+			/* clear pending IRQ */
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
+		}
+
 		return ret;
 	default:
 		return -EINVAL;
