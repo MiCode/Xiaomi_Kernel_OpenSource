@@ -44,6 +44,7 @@ enum {
 };
 
 /* Register */
+#define MT6373_BUCK_TOP_KEY_PROT_LO                 0x142a
 #define MT6373_TOP_CFG_ELR5                         0x147
 #define MT6373_PMIC_RG_BUCK_VBUCK0_EN_ADDR          0x240
 #define MT6373_PMIC_RG_BUCK_VBUCK0_EN_SHIFT         0

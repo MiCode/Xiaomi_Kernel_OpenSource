@@ -231,6 +231,18 @@ static unsigned int mt6373_regulator_get_mode(struct regulator_dev *rdev)
 		return REGULATOR_MODE_NORMAL;
 }
 
+static int mt6373_buck_unlock(struct regmap *map, bool unlock)
+{
+	u8 buf[2];
+
+	if (unlock) {
+		buf[0] = 0x43;
+		buf[1] = 0x55;
+	} else
+		buf[0] = buf[1] = 0;
+	return regmap_bulk_write(map, MT6373_BUCK_TOP_KEY_PROT_LO, buf, 2);
+}
+
 static int mt6373_regulator_set_mode(struct regulator_dev *rdev,
 				     unsigned int mode)
 {
@@ -241,17 +253,25 @@ static int mt6373_regulator_set_mode(struct regulator_dev *rdev,
 	curr_mode = mt6373_regulator_get_mode(rdev);
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
+		ret = mt6373_buck_unlock(rdev->regmap, true);
+		if (ret)
+			return ret;
 		ret = regmap_update_bits(rdev->regmap,
 					 info->modeset_reg,
 					 info->modeset_mask,
 					 info->modeset_mask);
+		ret |= mt6373_buck_unlock(rdev->regmap, false);
 		break;
 	case REGULATOR_MODE_NORMAL:
 		if (curr_mode == REGULATOR_MODE_FAST) {
+			ret = mt6373_buck_unlock(rdev->regmap, true);
+			if (ret)
+				return ret;
 			ret = regmap_update_bits(rdev->regmap,
 						 info->modeset_reg,
 						 info->modeset_mask,
 						 0);
+			ret |= mt6373_buck_unlock(rdev->regmap, false);
 		} else if (curr_mode == REGULATOR_MODE_IDLE) {
 			ret = regmap_update_bits(rdev->regmap,
 						 info->lp_mode_reg,
