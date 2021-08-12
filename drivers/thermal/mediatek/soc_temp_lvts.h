@@ -122,7 +122,7 @@ struct speed_settings {
 };
 
 struct formula_coeff {
-	int a;
+	int a[ALL_SENSING_POINTS];
 	unsigned int golden_temp;
 	enum calibration_mode cali_mode;
 };
@@ -175,11 +175,10 @@ struct platform_ops {
 	int (*device_read_count_rc_n)(struct lvts_data *lvts_data);
 	void (*set_cal_data)(struct lvts_data *lvts_data);
 	void (*init_controller)(struct lvts_data *lvts_data);
-	int (*lvts_raw_to_temp)(struct formula_coeff *co, unsigned int msr_raw);
-	unsigned int (*lvts_temp_to_raw)(struct formula_coeff *co, int temp);
+	int (*lvts_raw_to_temp)(struct formula_coeff *co, unsigned int id, unsigned int msr_raw);
+	unsigned int (*lvts_temp_to_raw)(struct formula_coeff *co, unsigned int id, int temp);
 	void (*check_cal_data)(struct lvts_data *lvts_data);
-	void (*update_hw_reboot_point)(struct lvts_data *lvts_data, int trip_point);
-	int (*get_soc_max_temp)(struct lvts_data *lvts_data);
+	void (*update_coef_data)(struct lvts_data *lvts_data);
 };
 
 struct power_domain {

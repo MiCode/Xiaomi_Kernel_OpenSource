@@ -89,45 +89,50 @@ static unsigned int g_lvts_controller_value_e[LVTS_CONTROLLER_DEBUG_NUM]
  * LVTS local common code
  *==================================================
  */
-static int lvts_raw_to_temp_v1(struct formula_coeff *co, unsigned int msr_raw)
+static int lvts_raw_to_temp_v1(struct formula_coeff *co, unsigned int sensor_id,
+	unsigned int msr_raw)
 {
 	/* This function returns degree mC */
 
 	int temp;
 
-	temp = (co->a * ((unsigned long long)msr_raw)) >> 14;
-	temp = temp + co->golden_temp * 500 - co->a;
+	temp = (co->a[0] * ((unsigned long long)msr_raw)) >> 14;
+	temp = temp + co->golden_temp * 500 - co->a[0];
 
 	return temp;
 }
 
-static unsigned int lvts_temp_to_raw_v1(struct formula_coeff *co, int temp)
+static unsigned int lvts_temp_to_raw_v1(struct formula_coeff *co, unsigned int sensor_id,
+	int temp)
 {
 	unsigned int msr_raw = 0;
 
-	msr_raw = ((long long)((co->golden_temp * 500 - co->a - temp)) << 14)
-		/ (-1 * co->a);
+	msr_raw = ((long long)((co->golden_temp * 500 - co->a[0] - temp)) << 14)
+		/ (-1 * co->a[0]);
 
 	return msr_raw;
 }
 
-static int lvts_raw_to_temp_v2(struct formula_coeff *co, unsigned int msr_raw)
+static int lvts_raw_to_temp_v2(struct formula_coeff *co, unsigned int sensor_id,
+	unsigned int msr_raw)
 {
 	/* This function returns degree mC */
 
 	int temp;
 
-	temp = ((long long)co->a << 14) / msr_raw;
-	temp = temp + co->golden_temp * 500 - co->a;
+	temp = ((long long)co->a[sensor_id] << 14) / msr_raw;
+	temp = temp + co->golden_temp * 500 - co->a[sensor_id];
 
 	return temp;
 }
 
-static unsigned int lvts_temp_to_raw_v2(struct formula_coeff *co, int temp)
+static unsigned int lvts_temp_to_raw_v2(struct formula_coeff *co, unsigned int sensor_id,
+	int temp)
 {
 	unsigned int msr_raw = 0;
 
-	msr_raw = ((long long)co->a << 14) / (temp - (co->golden_temp * 500) + co->a);
+	msr_raw = ((long long)co->a[sensor_id] << 14) / (temp - (co->golden_temp * 500) +
+		co->a[sensor_id]);
 
 	return msr_raw;
 }
@@ -154,7 +159,7 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 			s_index = tc[i].sensor_map[j];
 
 			msr_raw = lvts_read_tc_msr_raw(LVTSMSR0_0 + base + 0x4 * j);
-			current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), msr_raw);
+			current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), j, msr_raw);
 
 			if (msr_raw == 0)
 				current_temp = THERMAL_TEMP_INVALID;
@@ -846,7 +851,7 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 	int trip_point, int tc_id)
 {
 	struct tc_settings *tc = lvts_data->tc;
-	unsigned int msr_raw, temp, config, ts_name, d_index;
+	unsigned int msr_raw, cur_msr_raw, temp, config, ts_name, d_index, i;
 	void __iomem *base;
 	struct platform_ops *ops = &lvts_data->ops;
 
@@ -861,14 +866,20 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 		/* Maximum of 4 sensing points */
 		config = (0x1 << 16);
 		writel(config | temp, LVTSPROTCTL_0 + base);
+		msr_raw = 0;
+		for (i = 0; i < tc[tc_id].num_sensor; i++) {
+			cur_msr_raw = ops->lvts_temp_to_raw(&(tc[tc_id].coeff), i, trip_point);
+			if (msr_raw < cur_msr_raw)
+				msr_raw = cur_msr_raw;
+		}
 	} else {
 		ts_name = tc[tc_id].sensor_map[d_index];
 		/* Select protection sensor */
 		config = ((d_index << 2) + 0x2) << 16;
 		writel(config | temp, LVTSPROTCTL_0 + base);
+		msr_raw = ops->lvts_temp_to_raw(&(tc[tc_id].coeff), d_index, trip_point);
 	}
 
-	msr_raw = ops->lvts_temp_to_raw(&(tc[tc_id].coeff), trip_point);
 //	writel(msr_raw, LVTSPROTTC_0 + base);
 
 	/* high offset INT */
@@ -1212,6 +1223,7 @@ static int of_update_lvts_data(struct lvts_data *lvts_data,
 	struct device *dev = lvts_data->dev;
 	struct power_domain *domain;
 	struct resource *res;
+	struct platform_ops *ops = &lvts_data->ops;
 	unsigned int i;
 	int ret;
 
@@ -1264,6 +1276,9 @@ static int of_update_lvts_data(struct lvts_data *lvts_data,
 	ret = get_calibration_data(lvts_data);
 	if (ret)
 		return ret;
+
+	if (ops->update_coef_data)
+		ops->update_coef_data(lvts_data);
 
 	return 0;
 }
@@ -1825,7 +1840,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1841,7 +1856,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1857,7 +1872,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(5),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1873,7 +1888,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1889,7 +1904,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1905,7 +1920,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(5),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1921,7 +1936,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(6),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1941,7 +1956,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1957,7 +1972,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1973,7 +1988,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -1989,7 +2004,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2005,7 +2020,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.hw_reboot_trip_point = 117000,
 		.irq_bit = BIT(5),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2332,7 +2347,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2348,7 +2363,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2364,7 +2379,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2380,7 +2395,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2396,7 +2411,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2412,7 +2427,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2428,7 +2443,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = -252500,
+			.a = {-252500},
 			.golden_temp = 50,
 			.cali_mode = CALI_NT,
 		},
@@ -2483,11 +2498,18 @@ static struct lvts_data mt6893_lvts_data = {
 #define TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_4 << 8	\
 						| 0xFF)
 
-#define SET_TS_RSV_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_1 << 8 | 0x99)
-#define SET_TS_CHOP_CTRL_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
+#define SET_TS_RSV_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_1 << 8 | 0x94)
+#define SET_TS_CHOP_CTRL_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xB1)
 #define SET_TS_DIV_EN_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF5)
 #define SET_VCO_RST_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xFD)
-#define COFF_A_HT 246740
+#define COF_A_T_SLP_GLD 199410
+#define COF_A_COUNT_R_GLD 12052
+#define COF_A_CONST_OFS 280000
+#define COF_A_OFS (COF_A_T_SLP_GLD - COF_A_CONST_OFS)
+#define COF_A_T_SLP_GLD_HT 254410
+#define COF_A_COUNT_R_GLD_HT 15380
+#define COF_A_CONST_OFS_HT 170000
+#define COF_A_OFS_HT (COF_A_T_SLP_GLD_HT - COF_A_CONST_OFS_HT)
 
 static void mt6983_device_enable_and_init(struct lvts_data *lvts_data)
 {
@@ -2699,15 +2721,10 @@ static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 		tc[i].coeff.golden_temp = cal_data->golden_temp;
 
 	if (cal_data->cali_mode == 1) {
-		tc[MT6983_LVTS_MCU_CTRL0].coeff.a = COFF_A_HT;
-		tc[MT6983_LVTS_MCU_CTRL1].coeff.a = COFF_A_HT;
-		tc[MT6983_LVTS_MCU_CTRL2].coeff.a = COFF_A_HT;
-		tc[MT6983_LVTS_MCU_CTRL0].coeff.golden_temp = cal_data->golden_temp_ht;
-		tc[MT6983_LVTS_MCU_CTRL1].coeff.golden_temp = cal_data->golden_temp_ht;
-		tc[MT6983_LVTS_MCU_CTRL2].coeff.golden_temp = cal_data->golden_temp_ht;
-		tc[MT6983_LVTS_MCU_CTRL0].coeff.cali_mode = CALI_HT;
-		tc[MT6983_LVTS_MCU_CTRL1].coeff.cali_mode = CALI_HT;
-		tc[MT6983_LVTS_MCU_CTRL2].coeff.cali_mode = CALI_HT;
+		for (i = 0; i < 3; i++) {
+			tc[i].coeff.golden_temp = cal_data->golden_temp_ht;
+			tc[i].coeff.cali_mode = CALI_HT;
+		}
 	}
 
 	cal_data->count_r[MT6983_TS1_0] = GET_CAL_DATA_BITMASK(1, 15, 0);
@@ -2794,6 +2811,25 @@ static void mt6983_check_cal_data(struct lvts_data *lvts_data)
 	}
 }
 
+static void mt6983_update_coef_data(struct lvts_data *lvts_data)
+{
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	struct tc_settings *tc = lvts_data->tc;
+	unsigned int i, j, s_index;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		for  (j = 0; j < tc[i].num_sensor; j++) {
+			s_index = tc[i].sensor_map[j];
+			if (tc[i].coeff.cali_mode == CALI_HT)
+				tc[i].coeff.a[j] = COF_A_OFS_HT + (COF_A_CONST_OFS_HT *
+					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD_HT);
+			else
+				tc[i].coeff.a[j] = COF_A_OFS + (COF_A_CONST_OFS *
+					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD);
+		}
+	}
+}
+
 static struct tc_settings mt6983_tc_settings[] = {
 	[MT6983_LVTS_MCU_CTRL0] = {
 		.domain_index = MT6983_MCU_DOMAIN,
@@ -2806,7 +2842,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(1),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -2821,7 +2856,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(2),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -2836,7 +2870,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -2851,7 +2884,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(1),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -2866,7 +2898,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(2),
 		.coeff = {
-			.a = 191740,
 			.golden_temp = 60,
 			.cali_mode = CALI_NT,
 		},
@@ -2882,7 +2913,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -2897,7 +2927,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -2912,7 +2941,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.hw_reboot_trip_point = 114500,
 		.irq_bit = BIT(5),
 		.coeff = {
-			.a = 191740,
 			.cali_mode = CALI_NT,
 		},
 	}
@@ -2933,6 +2961,7 @@ static struct lvts_data mt6983_lvts_data = {
 		.lvts_temp_to_raw = lvts_temp_to_raw_v2,
 		.lvts_raw_to_temp = lvts_raw_to_temp_v2,
 		.check_cal_data = mt6983_check_cal_data,
+		.update_coef_data = mt6983_update_coef_data,
 	},
 	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
 	.num_efuse_addr = 28,
@@ -3227,7 +3256,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -3242,7 +3271,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -3257,7 +3286,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -3272,7 +3301,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -3287,7 +3316,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.cali_mode = CALI_NT,
 		},
 	},
@@ -3302,7 +3331,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(4),
 		.coeff = {
-			.a = -250460,
+			.a = {-250460},
 			.cali_mode = CALI_NT,
 		},
 	}
