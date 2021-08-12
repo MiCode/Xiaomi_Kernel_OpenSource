@@ -194,12 +194,6 @@ struct mtk_camsv_frame_params {
 	struct mtkcam_ipi_img_output img_out;
 };
 
-static inline bool mtk_camsv_is_sv_pipe(int pipe_id)
-{
-	return (pipe_id >= MTKCAM_SUBDEV_CAMSV_START) &&
-		(pipe_id < MTKCAM_SUBDEV_CAMSV_END);
-}
-
 struct mtk_larb;
 int mtk_camsv_setup_dependencies(struct mtk_camsv *sv, struct mtk_larb *larb);
 int mtk_camsv_register_entities(
@@ -247,10 +241,10 @@ int mtk_cam_sv_dmao_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no);
-int mtk_cam_sv_write_rcnt(struct mtk_camsv_device *dev);
 bool mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_find_sv_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx);
+int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx);
 
 extern struct platform_driver mtk_cam_sv_driver;
 

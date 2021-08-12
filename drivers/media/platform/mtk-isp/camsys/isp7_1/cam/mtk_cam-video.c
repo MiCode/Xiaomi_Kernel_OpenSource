@@ -274,8 +274,13 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt)
 		mtk_cam_ctx_stream_off(ctx);
 
-	if (cam->streaming_pipe & (1 << node->uid.pipe_id))
+	if (cam->streaming_pipe & (1 << node->uid.pipe_id)) {
+		/* NOTE: take multi-pipelines case into consideration     */
+		/* Moreover, must clean bit mask before req cleanup       */
+		/* Otherwise, would cause req not removed in pending list */
+		cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
+	}
 
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_ERROR);
 

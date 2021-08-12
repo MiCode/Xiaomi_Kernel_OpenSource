@@ -455,19 +455,18 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			}
 			spin_unlock(&req->done_status_lock);
 
-			if (mtk_camsv_is_sv_pipe(pipe_id)) {
+			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
+				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 				mtk_cam_sv_finish_buf(req_stream_data);
-			} else {
 				finish_cq_buf(req_stream_data);
 				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
-				if (req_stream_data->state.estate ==
-				    E_STATE_DONE_MISMATCH)
-					buf_state = VB2_BUF_STATE_ERROR;
 			}
 
-			if (mtk_cam_update_done_status(ctx, req, pipe_id))
-				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
+			if (req_stream_data->state.estate ==
+				E_STATE_DONE_MISMATCH)
+				buf_state = VB2_BUF_STATE_ERROR;
+
 			result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
 			mtk_cam_dev_job_done(ctx, req, pipe_id, buf_state);
 			break;
@@ -489,16 +488,14 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			}
 			spin_unlock(&req->done_status_lock);
 
-			if (mtk_camsv_is_sv_pipe(pipe_id)) {
+			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
+				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 				mtk_cam_sv_finish_buf(req_stream_data);
-			} else {
 				finish_cq_buf(req_stream_data);
 				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
 			}
 
-			if (mtk_cam_update_done_status(ctx, req, pipe_id))
-				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 			result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
 			dev_dbg(ctx->cam->dev, "req:%d, time:%lld drop, ctx:%d, pipe:%d\n",
 				req_stream_data->frame_seq_no, req_stream_data->timestamp,
@@ -540,7 +537,10 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 
 		/* mark request status to done for release */
 		spin_lock(&req->done_status_lock);
-		done_status = req->done_status |=  1 << ctx->stream_id;
+		req->done_status |=
+			(req->pipe_used & (1 << pipe_id)) ?
+			(1 << pipe_id) : 0;
+		done_status = req->done_status;
 		spin_unlock((&req->done_status_lock));
 
 		mtk_cam_req_pipe_s_data_clean(req, pipe_id);
@@ -2257,11 +2257,13 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 	struct mtk_cam_request_stream_data *ctx_stream_data;
 	struct mtk_cam_request_stream_data *pipe_stream_data;
 	struct mtk_camsv_working_buf_entry *buf_entry;
-	struct device *dev_sv;
-	struct mtk_camsv_device *camsv_dev;
 	bool ret = false;
 
+	if (ctx->used_sv_num == 0)
+		return ret;
+
 	ctx_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	buf_entry = mtk_cam_sv_working_buf_get(ctx);
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		camsv_pipe_id = ctx->sv_pipe[i]->id;
 		if (!(req->pipe_used & 1 << camsv_pipe_id)) {
@@ -2273,27 +2275,31 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 		}
 
 		pipe_stream_data = mtk_cam_req_get_s_data(req, camsv_pipe_id, 0);
-		buf_entry = mtk_cam_sv_working_buf_get(ctx);
-		buf_entry->buffer.used_sv_dev = ctx->used_sv_dev[i];
+
+		buf_entry->buffer.used_sv_dev[i] = ctx->used_sv_dev[i];
 		buf_entry->buffer.frame_seq_no = ctx_stream_data->frame_seq_no;
-		buf_entry->buffer.img_iova =
+		buf_entry->buffer.img_iova[i] =
 			pipe_stream_data->sv_frame_params.img_out.buf[0][0].iova;
 
+		ret = true;
+	}
+	if (ret == false)
+		mtk_cam_sv_working_buf_put(buf_entry);
+	else {
+		spin_lock(&ctx->sv_using_buffer_list.lock);
+		list_add_tail(&buf_entry->list_entry,
+				&ctx->sv_using_buffer_list.list);
+		ctx->sv_using_buffer_list.cnt++;
+		spin_unlock(&ctx->sv_using_buffer_list.lock);
+
 		if (ctx_stream_data->frame_seq_no == 1) {
-			dev_sv = mtk_cam_find_sv_dev(ctx->cam, ctx->used_sv_dev[i]);
-			if (dev_sv == NULL) {
-				dev_dbg(ctx->cam->dev, "camsv device not found\n");
-				return false;
-			}
-			camsv_dev = dev_get_drvdata(dev_sv);
-			mtk_cam_sv_enquehwbuf(camsv_dev,
-				buf_entry->buffer.img_iova,
-				buf_entry->buffer.frame_seq_no);
+			mtk_cam_sv_apply_next_buffer(ctx);
 			/* initial request readout will be delayed 1 frame */
 			if (ctx->used_raw_num && !mtk_cam_is_subsample(ctx) &&
 				!mtk_cam_is_stagger(ctx) && !mtk_cam_is_stagger_m2m(ctx) &&
-				!mtk_cam_is_time_shared(ctx))
-				mtk_cam_sv_write_rcnt(camsv_dev);
+				!mtk_cam_is_time_shared(ctx)) {
+				mtk_cam_sv_write_rcnt(ctx);
+			}
 			if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 				ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
 				if (ctx_stream_data->state.estate == E_STATE_READY ||
@@ -2301,19 +2307,7 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 					ctx_stream_data->state.estate = E_STATE_OUTER;
 				}
 			}
-			spin_lock(&ctx->sv_processing_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-					&ctx->sv_processing_buffer_list.list);
-			ctx->sv_processing_buffer_list.cnt++;
-			spin_unlock(&ctx->sv_processing_buffer_list.lock);
-		} else {
-			spin_lock(&ctx->sv_using_buffer_list.lock);
-			list_add_tail(&buf_entry->list_entry,
-					&ctx->sv_using_buffer_list.list);
-			ctx->sv_using_buffer_list.cnt++;
-			spin_unlock(&ctx->sv_using_buffer_list.lock);
 		}
-		ret = true;
 	}
 	return ret;
 }
@@ -3391,7 +3385,7 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 				   struct v4l2_subdev *seninf)
 {
 	struct media_entity *pipe_entity;
-	unsigned int i;
+	unsigned int i, j;
 	int ret;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
@@ -3435,18 +3429,20 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 			}
 
 #if PDAF_READY
-			ret = media_create_pad_link(&seninf->entity,
-					PAD_SRC_PDAF0,
-					pipe_entity,
-					MTK_CAMSV_SINK,
-					MEDIA_LNK_FL_DYNAMIC);
+			for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF1; j++) {
+				ret = media_create_pad_link(&seninf->entity,
+						j,
+						pipe_entity,
+						MTK_CAMSV_SINK,
+						MEDIA_LNK_FL_DYNAMIC);
 
-			if (ret) {
-				dev_dbg(cam->dev,
-					"failed to create pad link %s %s err:%d\n",
-					seninf->entity.name, pipe_entity->name,
-					ret);
-				return ret;
+				if (ret) {
+					dev_dbg(cam->dev,
+						"failed to create pad link %s %s err:%d\n",
+						seninf->entity.name, pipe_entity->name,
+						ret);
+					return ret;
+				}
 			}
 #endif
 		}

@@ -2271,7 +2271,7 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	}
 	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
-	if (mtk_camsv_is_sv_pipe(pipe_id)) {
+	if (is_camsv_subdev(pipe_id)) {
 		need_dequeue = true;
 	} else {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);

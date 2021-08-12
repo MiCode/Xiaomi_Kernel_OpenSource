@@ -43,6 +43,9 @@
 
 #define MAX_STAGGER_EXP_AMOUNT 3
 
+#define MAX_PIPES_PER_STREAM 5
+#define MAX_SV_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM-1)
+
 struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;
@@ -88,9 +91,9 @@ struct mtk_cam_working_buf_list {
 };
 
 struct mtk_camsv_working_buf {
-	unsigned int used_sv_dev;
+	unsigned int used_sv_dev[MAX_SV_PIPES_PER_STREAM];
+	dma_addr_t img_iova[MAX_SV_PIPES_PER_STREAM];
 	unsigned int frame_seq_no;
-	dma_addr_t img_iova;
 };
 
 struct mtk_camsv_working_buf_entry {
@@ -232,9 +235,6 @@ struct mtk_cam_img_working_buf_pool {
 
 struct mtk_cam_device;
 struct mtk_camsys_ctrl;
-//TODO: modify it to correct value stream amount per pipe
-#define MAX_PIPES_PER_STREAM 5
-#define MAX_SV_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM-1)
 struct mtk_cam_ctx {
 	struct mtk_cam_device *cam;
 	unsigned int stream_id;
