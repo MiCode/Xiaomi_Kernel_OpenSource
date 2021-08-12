@@ -10575,7 +10575,6 @@
 
 	mdla {
 		compatible = "mediatek, mdla-rv";
-		boot-method = "array";
 		core_num = <4>;
 		version = <0x69830300>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
