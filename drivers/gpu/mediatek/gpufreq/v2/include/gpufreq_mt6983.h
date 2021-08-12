@@ -160,8 +160,10 @@
  * Aging Sensor Setting
  **************************************************/
 #define GPUFREQ_ASENSOR_ENABLE          (0)
-#define GPUFREQ_AGING_KEEP_FREQ         (350000)
-#define GPUFREQ_AGING_KEEP_VOLT         (65000)
+#define GPUFREQ_AGING_KEEP_FGPU         (800000)
+#define GPUFREQ_AGING_KEEP_VGPU         (VCORE_LEVEL_3)
+#define GPUFREQ_AGING_KEEP_FSTACK       (586000)
+#define GPUFREQ_AGING_KEEP_VSTACK       (65000)
 #define GPUFREQ_AGING_GAP_MIN           (-3)
 #define GPUFREQ_AGING_GAP_1             (2)
 #define GPUFREQ_AGING_GAP_2             (4)

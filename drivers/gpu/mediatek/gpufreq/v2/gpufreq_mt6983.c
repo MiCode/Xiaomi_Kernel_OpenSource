@@ -63,7 +63,7 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev);
 static void __gpufreq_measure_power(void);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
-static int __gpufreq_pause_dvfs(unsigned int keep_freq, unsigned int keep_volt);
+static int __gpufreq_pause_dvfs(void);
 static void __gpufreq_resume_dvfs(void);
 static void __gpufreq_interpolate_volt(void);
 static void __gpufreq_apply_aging(unsigned int apply_aging);
@@ -3611,11 +3611,17 @@ static void __gpufreq_resume_dvfs(void)
 }
 
 /* API: pause dvfs to given freq and volt */
-static int __gpufreq_pause_dvfs(unsigned int keep_freq, unsigned int keep_volt)
+static int __gpufreq_pause_dvfs(void)
 {
 	int ret = GPUFREQ_SUCCESS;
+	/* STACK */
+	unsigned int cur_fstack = 0, cur_vstack = 0, cur_vsram_stack = 0;
+	unsigned int target_fstack = 0, target_vstack = 0, target_vsram_stack = 0;
+	/* GPU */
+	unsigned int cur_fgpu = 0, cur_vgpu = 0, cur_vsram_gpu = 0;
+	unsigned int target_fgpu = 0, target_vgpu = 0, target_vsram_gpu = 0;
 
-	GPUFREQ_TRACE_START("keep_freq=%d, keep_volt=%d", keep_freq, keep_volt);
+	GPUFREQ_TRACE_START();
 
 	__gpufreq_set_dvfs_state(true, DVFS_AGING_KEEP);
 
@@ -3626,17 +3632,51 @@ static int __gpufreq_pause_dvfs(unsigned int keep_freq, unsigned int keep_volt)
 		goto done;
 	}
 
-	ret = __gpufreq_custom_commit_stack(keep_freq, keep_volt, DVFS_AGING_KEEP);
+	mutex_lock(&gpufreq_lock);
+
+	/* prepare STACK setting */
+	cur_fstack = g_stack.cur_freq;
+	cur_vstack = g_stack.cur_volt;
+	cur_vsram_stack = g_stack.cur_vsram;
+	target_fstack = GPUFREQ_AGING_KEEP_FSTACK;
+	target_vstack = GPUFREQ_AGING_KEEP_VSTACK;
+	target_vsram_stack = VSRAM_LEVEL_0;
+
+	/* prepare GPU setting */
+	cur_fgpu = g_gpu.cur_freq;
+	cur_vgpu = g_gpu.cur_volt;
+	cur_vsram_gpu = g_gpu.cur_vsram;
+	target_fgpu = GPUFREQ_AGING_KEEP_FGPU;
+	target_vgpu = GPUFREQ_AGING_KEEP_VGPU;
+	target_vsram_gpu = VSRAM_LEVEL_0;
+
+	GPUFREQ_LOGD("begin to commit STACK F(%d->%d), V(%d->%d), GPU F(%d->%d), V(%d->%d)",
+		cur_fstack, target_fstack, cur_vstack, target_vstack,
+		cur_fgpu, target_fgpu, cur_vgpu, target_vgpu);
+
+	ret = __gpufreq_generic_scale_gpu(cur_fgpu, target_fgpu,
+		cur_vgpu, target_vgpu, cur_vsram_gpu, target_vsram_gpu);
 	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to commit STACK Freq: %d, Volt: %d (%d)",
-			keep_freq, keep_volt, ret);
-		__gpufreq_set_dvfs_state(false, DVFS_AGING_KEEP);
-		goto done;
+		GPUFREQ_LOGE("fail to scale GPU: Freq(%d->%d), Volt(%d->%d), Vsram(%d->%d)",
+			cur_fgpu, target_fgpu, cur_vgpu, target_vgpu,
+			cur_vsram_gpu, target_vsram_gpu);
+		goto done_unlock;
 	}
 
-	GPUFREQ_LOGD("DVFS state: 0x%x, keep Freq: %d, keep Volt: %d",
-		g_dvfs_state, keep_freq, keep_volt);
+	ret = __gpufreq_generic_scale_stack(cur_fstack, target_fstack,
+		cur_vstack, target_vstack, cur_vsram_stack, target_vsram_stack);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to scale STACK: Freq(%d->%d), Volt(%d->%d), Vsram(%d->%d)",
+			cur_fstack, target_fstack, cur_vstack, target_vstack,
+			cur_vsram_stack, target_vsram_stack);
+		goto done_unlock;
+	}
 
+	GPUFREQ_LOGD("pause DVFS at STACK(%d, %d), GPU(%d, %d), state: 0x%x",
+		target_fstack, target_vstack, target_fgpu, target_vgpu, g_dvfs_state);
+
+done_unlock:
+	mutex_unlock(&gpufreq_lock);
 done:
 	GPUFREQ_TRACE_END();
 
@@ -4015,8 +4055,8 @@ static void __gpufreq_aging_adjustment(void)
 	unsigned int is_efuse_read_success = false;
 
 	if (__gpufreq_dvfs_enable()) {
-		/* park the volt to 0.65V for A sensor working */
-		__gpufreq_pause_dvfs(GPUFREQ_AGING_KEEP_FREQ, GPUFREQ_AGING_KEEP_VOLT);
+		/* keep volt for A sensor working */
+		__gpufreq_pause_dvfs();
 
 		/* get aging efuse data */
 		is_efuse_read_success = __gpufreq_asensor_read_efuse(
