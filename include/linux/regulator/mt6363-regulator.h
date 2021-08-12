@@ -49,6 +49,8 @@ enum {
 #define MTK_REGULATOR_MAX_NR MT6363_MAX_REGULATOR
 
 /* Register */
+#define MT6363_TOP_TRAP                             0x36
+#define MT6363_TOP_TMA_KEY_L                        0x39e
 #define MT6363_BUCK_TOP_KEY_PROT_LO                 0x142a
 #define MT6363_RG_BUCK_VS2_EN_ADDR                  0x240
 #define MT6363_RG_BUCK_VS2_EN_SHIFT                 0

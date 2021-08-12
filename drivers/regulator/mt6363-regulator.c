@@ -21,6 +21,12 @@
 #define DEFAULT_DELAY_MS		10
 
 /*
+ * MT6363 regulator lock register
+ */
+#define MT6363_TMA_UNLOCK_VALUE		0x9c9c
+#define MT6363_BUCK_TOP_UNLOCK_VALUE	0x5543
+
+/*
  * MT6363 regulators' information
  *
  * @desc: standard fields of regulator description.
@@ -109,6 +115,33 @@ struct mt6363_regulator_info {
 		.of_parse_cb = mt6363_of_parse_cb,		\
 		.regulators_node = "regulators",		\
 		.ops = &mt6363_volt_table_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6363_ID_##_name,			\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ARRAY_SIZE(_volt_table),		\
+		.volt_table = _volt_table,			\
+		.enable_reg = _enable_reg,			\
+		.enable_mask = BIT(en_bit),			\
+		.vsel_reg = _vsel_reg,				\
+		.vsel_mask = _vsel_mask,			\
+		.of_map_mode = mt6363_map_mode,			\
+	},							\
+	.vocal_reg = _vocal_reg,				\
+	.vocal_mask = _vocal_mask,				\
+	.lp_mode_reg = _lp_mode_reg,				\
+	.lp_mode_mask = BIT(lp_bit),				\
+}
+
+#define MT6363_LDO_OPS(_name, _ops, _volt_table, _enable_reg, en_bit,	\
+		       _vsel_reg, _vsel_mask, _vocal_reg,	\
+		       _vocal_mask, _lp_mode_reg, lp_bit)	\
+[MT6363_ID_##_name] = {						\
+	.desc = {						\
+		.name = #_name,					\
+		.of_match = of_match_ptr(#_name),		\
+		.of_parse_cb = mt6363_of_parse_cb,		\
+		.regulators_node = "regulators",		\
+		.ops = &_ops,					\
 		.type = REGULATOR_VOLTAGE,			\
 		.id = MT6363_ID_##_name,			\
 		.owner = THIS_MODULE,				\
@@ -216,14 +249,9 @@ static unsigned int mt6363_regulator_get_mode(struct regulator_dev *rdev)
 
 static int mt6363_buck_unlock(struct regmap *map, bool unlock)
 {
-	u8 buf[2];
+	u16 buf = unlock ? MT6363_BUCK_TOP_UNLOCK_VALUE : 0;
 
-	if (unlock) {
-		buf[0] = 0x43;
-		buf[1] = 0x55;
-	} else
-		buf[0] = buf[1] = 0;
-	return regmap_bulk_write(map, MT6363_BUCK_TOP_KEY_PROT_LO, buf, 2);
+	return regmap_bulk_write(map, MT6363_BUCK_TOP_KEY_PROT_LO, &buf, 2);
 }
 
 static int mt6363_regulator_set_mode(struct regulator_dev *rdev,
@@ -281,6 +309,72 @@ static int mt6363_regulator_set_mode(struct regulator_dev *rdev,
 	return ret;
 }
 
+static int mt6363_vemc_set_voltage_sel(struct regulator_dev *rdev, unsigned int sel)
+{
+	int ret;
+	u16 buf = MT6363_TMA_UNLOCK_VALUE;
+	unsigned int val = 0;
+
+	ret = regmap_bulk_write(rdev->regmap, MT6363_TOP_TMA_KEY_L, &buf, 2);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(rdev->regmap, MT6363_TOP_TRAP, &val);
+	if (ret)
+		return ret;
+	switch (val) {
+	case 0:
+		/* If HW trapping is 0, use VEMC_VOSEL_0 */
+		ret = regmap_update_bits(rdev->regmap,
+					 rdev->desc->vsel_reg,
+					 rdev->desc->vsel_mask, sel);
+		break;
+	case 1:
+		/* If HW trapping is 1, use VEMC_VOSEL_1 */
+		ret = regmap_update_bits(rdev->regmap,
+					 rdev->desc->vsel_reg,
+					 rdev->desc->vsel_mask << 4, sel << 4);
+		break;
+	default:
+		break;
+	}
+	if (ret)
+		return ret;
+
+	buf = 0;
+	ret = regmap_bulk_write(rdev->regmap, MT6363_TOP_TMA_KEY_L, &buf, 2);
+	return ret;
+}
+
+static int mt6363_vemc_get_voltage_sel(struct regulator_dev *rdev)
+{
+	int ret;
+	unsigned int val = 0, sel = 0;
+
+	ret = regmap_read(rdev->regmap, rdev->desc->vsel_reg, &sel);
+	if (ret)
+		return ret;
+	ret = regmap_read(rdev->regmap, MT6363_TOP_TRAP, &val);
+	if (ret)
+		return ret;
+	switch (val) {
+	case 0:
+		/* If HW trapping is 0, use VEMC_VOSEL_0 */
+		sel &= rdev->desc->vsel_mask;
+		break;
+	case 1:
+		/* If HW trapping is 1, use VEMC_VOSEL_1 */
+		sel = (sel >> 4) & rdev->desc->vsel_mask;
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (ret)
+		return ret;
+	return sel;
+}
+
+
 static const struct regulator_ops mt6363_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -299,6 +393,19 @@ static const struct regulator_ops mt6363_volt_table_ops = {
 	.map_voltage = regulator_map_voltage_iterate,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = regulator_enable_regmap,
+	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+	.set_mode = mt6363_regulator_set_mode,
+	.get_mode = mt6363_regulator_get_mode,
+};
+
+static const struct regulator_ops mt6363_vemc_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_iterate,
+	.set_voltage_sel = mt6363_vemc_set_voltage_sel,
+	.get_voltage_sel = mt6363_vemc_get_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
@@ -519,14 +626,14 @@ static struct mt6363_regulator_info mt6363_regulators[] = {
 			  MT6363_RG_LDO_VSRAM_APU_VOSEL_MASK,
 			  MT6363_RG_LDO_VSRAM_APU_LP_ADDR,
 			  MT6363_RG_LDO_VSRAM_APU_LP_SHIFT),
-	MT6363_LDO(VEMC, ldo_volt_table0,
-		   MT6363_RG_LDO_VEMC_EN_ADDR, MT6363_RG_LDO_VEMC_EN_SHIFT,
-		   MT6363_RG_VEMC_VOSEL_0_ADDR,
-		   MT6363_RG_VEMC_VOSEL_0_MASK,
-		   MT6363_RG_VEMC_VOCAL_0_ADDR,
-		   MT6363_RG_VEMC_VOCAL_0_MASK,
-		   MT6363_RG_LDO_VEMC_LP_ADDR,
-		   MT6363_RG_LDO_VEMC_LP_SHIFT),
+	MT6363_LDO_OPS(VEMC, mt6363_vemc_ops, ldo_volt_table0,
+		       MT6363_RG_LDO_VEMC_EN_ADDR, MT6363_RG_LDO_VEMC_EN_SHIFT,
+		       MT6363_RG_VEMC_VOSEL_0_ADDR,
+		       MT6363_RG_VEMC_VOSEL_0_MASK,
+		       MT6363_RG_VEMC_VOCAL_0_ADDR,
+		       MT6363_RG_VEMC_VOCAL_0_MASK,
+		       MT6363_RG_LDO_VEMC_LP_ADDR,
+		       MT6363_RG_LDO_VEMC_LP_SHIFT),
 	MT6363_LDO(VCN13, ldo_volt_table1,
 		   MT6363_RG_LDO_VCN13_EN_ADDR, MT6363_RG_LDO_VCN13_EN_SHIFT,
 		   MT6363_RG_VCN13_VOSEL_ADDR,
