@@ -724,6 +724,9 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 	struct scsi_cmnd *cmd = lrbp->cmd;
 	int tag = lrbp->task_tag;
 	unsigned long req_mask;
+	unsigned long outstanding_reqs;
+	unsigned long outstanding_tasks;
+	unsigned long flags;
 
 #if defined(CONFIG_UFSFEATURE)
 	struct utp_upiu_header *header = &lrbp->ucd_rsp_ptr->header;
@@ -736,8 +739,13 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 	if (!cmd)
 		return;
 
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	outstanding_reqs = hba->outstanding_reqs;
+	outstanding_tasks = hba->outstanding_tasks;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 	if (ufs_mtk_is_data_cmd(cmd)) {
-		req_mask = hba->outstanding_reqs & ~(1 << tag);
+		req_mask = outstanding_reqs & ~(1 << tag);
 		ufs_mtk_biolog_transfer_req_compl(tag, req_mask);
 		ufs_mtk_biolog_check(req_mask);
 	}
@@ -776,7 +784,7 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 	}
 #if defined(CONFIG_UFSHID)
 	/* Check if it is the last request to be completed */
-	if (!hba->outstanding_tasks && (hba->outstanding_reqs == (1 << lrbp->task_tag)))
+	if (!outstanding_tasks && (outstanding_reqs == (1 << lrbp->task_tag)))
 		schedule_work(&ufsf->on_idle_work);
 #endif
 #endif
@@ -1929,7 +1937,7 @@ static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 			return;
 
 		ufs_mtk_biolog_send_command(tag, cmd);
-		ufs_mtk_biolog_check(hba->outstanding_reqs | (1 << tag));
+		ufs_mtk_biolog_check(1);
 	}
 }
 
