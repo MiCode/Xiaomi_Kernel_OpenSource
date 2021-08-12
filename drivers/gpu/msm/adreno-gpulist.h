@@ -1714,7 +1714,7 @@ static const struct kgsl_regmap_list c500_gbif_regs[] = {
 	{ GENC_GBIF_QSB_SIDE1, 0x00071620 },
 	{ GENC_GBIF_QSB_SIDE2, 0x00071620 },
 	{ GENC_GBIF_QSB_SIDE3, 0x00071620 },
-	{ GENC_RBBM_GBIF_CLIENT_QOS_CNTL, 0x2120212 },
+	{ GENC_RBBM_GBIF_CLIENT_QOS_CNTL, 0x3 },
 };
 
 static const struct kgsl_regmap_list c500_hwcg_regs[] = {
