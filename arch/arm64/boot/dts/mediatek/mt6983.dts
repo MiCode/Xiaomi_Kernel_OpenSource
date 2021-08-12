@@ -1140,6 +1140,7 @@
 			mediatek,usb3-drd;
 			mediatek,hw-req-ctrl;
 			usb-role-switch;
+			cdp-block;
 			port {
 				mtu3_drd_switch: endpoint@0 {
 					remote-endpoint = <&usb_role>;
