@@ -1877,6 +1877,7 @@
 				 <&infracfg_ao_clk CLK_IFRAO_GCE_26M>;
 			clock-names = "gce", "gce-timer";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_DISP>;
+			notifier-init;
 			mboxes = <&gce 21 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		};
 
