@@ -69,9 +69,10 @@ int mkp_rbtree_insert(struct rb_root *root, struct mkp_rb_node *ins)
 		struct mkp_rb_node *cur = container_of(*new, struct mkp_rb_node, rb_node); // also can use rb_entry
 
 		parent = *new;
-		if (ins->addr > cur->addr)
+		if (ins->addr >= cur->addr + cur->size)
 			new = &((*new)->rb_right);
-		else if (ins->addr + ins->size <= cur->addr)
+		else if (ins->addr + ins->size <= cur->addr &&
+			ins->addr < ins->addr + ins->size)
 			new = &((*new)->rb_left);
 		else {
 			MKP_ERR("Cannot insert node (existing overlapp)\n");
