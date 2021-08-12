@@ -9,13 +9,18 @@
 #include <linux/interrupt.h>
 #include <linux/cdev.h>
 #include <linux/remoteproc/mtk_ccu.h>
+#include <linux/spinlock.h>
 
-#define SECURED_CCU
-#define FPGA_UT
-/* #define CCU1_DEVICE */
+#define SECURE_CCU
 
 #define MTK_CCU_DEV_NAME            "ccu_rproc"
-#define MTK_CCU1_DEV_NAME            "ccu_rproc1"
+#define MTK_CCU1_DEV_NAME           "ccu_rproc1"
+
+#if defined(SECURE_CCU)
+#define CCU_FW_NAME					"lib3a.ccu_dummy"
+#else
+#define CCU_FW_NAME					"lib3a.ccu"
+#endif
 
 #define MTK_CCU_MAGICNO             'c'
 #define MTK_CCU_IOCTL_WAIT_IRQ               _IOW(MTK_CCU_MAGICNO,   0, int)
@@ -107,19 +112,18 @@ struct mtk_ccu {
 	uint32_t ccu_hw_base;
 	uint32_t ccu_hw_size;
 	void __iomem *ccu_base;
-	void __iomem *ccu_main_base;
-	void __iomem *camsys_base;
 	void __iomem *bin_base;
 	void __iomem *dmem_base;
 	void __iomem *pmem_base;
 	void __iomem *ddrmem_base;
 	unsigned int irq_num;
+	struct icc_path *path_ccug;
 	struct icc_path *path_ccuo;
 	struct icc_path *path_ccui;
 	struct mtk_ccu_ipc_data ccu_ipc;
 	struct mtk_ccu_ipc_desc ipc_desc[MTK_CCU_MSG_TO_APMCU_MAX];
 	struct mutex ipc_desc_lock;
-	struct mutex ipc_send_lock;
+	spinlock_t ipc_send_lock;
 	struct clk *ccu_clk_pwr_ctrl[MTK_CCU_CLK_PWR_NUM];
 	struct mtk_ccu_mem_handle buffer_handle[MTK_CCU_BUF_MAX];
 	struct mtk_ccu_mem_handle ext_buf;

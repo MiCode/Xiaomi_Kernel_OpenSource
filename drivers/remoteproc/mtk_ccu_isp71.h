@@ -18,11 +18,7 @@
 #define MTK_CCU_PMEM_BASE  (0x1B000000)
 #define MTK_CCU_DMEM_BASE  (0x1B020000)
 #define MTK_CCU_PMEM_SIZE  (0x20000)
-#if defined(FPGA_UT)
 #define MTK_CCU_DMEM_SIZE  (0x20000)
-#else
-#define MTK_CCU_DMEM_SIZE  (0x1000)
-#endif
 #define MTK_CCU_LOG_SIZE  (0x400)
 #define MTK_CCU_CACHE_SIZE  (0)
 #define MTK_CCU_CACHE_BASE (0x40000000)

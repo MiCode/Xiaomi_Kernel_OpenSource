@@ -9,7 +9,7 @@
 
 #include "mtk_ccu_common.h"
 #include "mtk_ccu_isp71.h"
-#if defined(SECURED_CCU)
+#if defined(SECURE_CCU)
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/arm-smccc.h>
 #endif
@@ -174,7 +174,7 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 	mtk_ccu_ipc_handle_t handler;
 
 	/*clear interrupt status*/
-#if defined(SECURED_CCU)
+#if defined(SECURE_CCU)
 	struct arm_smccc_res res;
 #ifdef CONFIG_ARM64
 	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_CLEAR_INT,
@@ -286,12 +286,12 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 	}
 	LOG_DBG_IPI("ft(%d), msgId(%d)\n", featureType, msgId);
 
-	mutex_lock(&ccu->ipc_send_lock);
+	spin_lock(&ccu->ipc_send_lock);
 
 	//Check if need input data
 	ret = mtk_ccu_copyCmdInData(ccu, inDataPtr, inDataSize);
 	if (ret != 0) {
-		mutex_unlock(&ccu->ipc_send_lock);
+		spin_unlock(&ccu->ipc_send_lock);
 		return -EINVAL;
 	}
 
@@ -302,14 +302,14 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 	ret = mtk_ccu_rproc_ipc_trigger(ccu, &msg);
 	if (ret != 0) {
 		dev_err(ccu->dev, "sendCcuCommnadIpc failed, msgId(%d)", msgId);
-		mutex_unlock(&ccu->ipc_send_lock);
+		spin_unlock(&ccu->ipc_send_lock);
 		return -EINVAL;
 	}
 
 	//check if need to copy output data
 	ret = mtk_ccu_copyCmdOutData(ccu, inDataPtr, inDataSize);
 
-	mutex_unlock(&ccu->ipc_send_lock);
+	spin_unlock(&ccu->ipc_send_lock);
 
 	LOG_DBG_IPI("-");
 	return ret;
