@@ -18,6 +18,10 @@
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
 #include <linux/rcupdate.h>
+#include <linux/sched.h>
+#include <linux/kthread.h>
+#include <linux/sched/signal.h>
+#include <uapi/linux/sched/types.h>
 
 #include <lpm.h>
 #include <lpm_module.h>
@@ -265,11 +269,39 @@ struct lpm_model lpm_model_suspend = {
 };
 
 #if IS_ENABLED(CONFIG_PM)
+#define CPU_NUMBER (NR_CPUS)
+struct mtk_lpm_abort_control {
+	struct task_struct *ts;
+	struct completion lpm_completion;
+};
+static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
+static int mtk_lpm_in_suspend;
+static int mtk_lpm_monitor_thread(void *not_used)
+{
+	struct sched_param param = {.sched_priority = 99 };
+	int cpu;
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+	cpu = smp_processor_id();
+	allow_signal(SIGKILL);
+
+	wait_for_completion(&mtk_lpm_ac[cpu].lpm_completion);
+	msleep_interruptible(5000);
+
+	pm_system_wakeup();
+	if (mtk_lpm_in_suspend == 1)
+		pr_info("[name:spm&][SPM] wakeup system due to not entering suspend(%d)\n", cpu);
+
+	do_exit(0);
+}
+
+static int suspend_online_cpus;
 static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
 	struct timespec64 ts;
 	struct rtc_time tm;
+	int i;
 
 	ktime_get_ts64(&ts);
 	rtc_time64_to_tm(ts.tv_sec, &tm);
@@ -282,8 +314,24 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
+		suspend_online_cpus = num_online_cpus();
+		mtk_lpm_in_suspend = 1;
+		for (i = 0; i < suspend_online_cpus; i++) {
+			init_completion(&mtk_lpm_ac[i].lpm_completion);
+			mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread,
+					NULL, "LPM-%d", i);
+			if (mtk_lpm_ac[i].ts) {
+				kthread_bind(mtk_lpm_ac[i].ts, i);
+				wake_up_process(mtk_lpm_ac[i].ts);
+			}
+		}
+		for (i = 0; i < suspend_online_cpus; i++)
+			complete(&mtk_lpm_ac[i].lpm_completion);
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
+		mtk_lpm_in_suspend = 0;
+		for (i = 0; i < suspend_online_cpus; i++)
+			send_sig(SIGKILL, mtk_lpm_ac[i].ts, 0);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
