@@ -45,6 +45,8 @@
 #include <mt-plat/met_drv.h>
 #endif
 
+#include <trace/hooks/ipv6.h>
+
 struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
 
 /* Time in ns. This number must be less than 500ms. */
@@ -1128,6 +1130,17 @@ const struct header_ops ccmni_eth_header_ops ____cacheline_aligned = {
 };
 #endif
 
+/* vendor hook callback function
+ * used to disable auto generate ipv6 link-local address for ccmni device
+ */
+static void mtk_dis_ipv6_lla(void *ignore, struct net_device *dev, bool *ret)
+{
+	if (!strncmp(dev->name, "ccmni", 5))
+		*ret = true;
+	else
+		*ret = false;
+}
+
 static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 {
 	int i = 0, j = 0, ret = 0;
@@ -1169,6 +1182,12 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 
 	memcpy(ctlb->ccci_ops, ccci_info, sizeof(struct ccmni_ccci_ops));
 
+	ret = register_trace_android_vh_ipv6_gen_linklocal_addr(mtk_dis_ipv6_lla, NULL);
+	if (ret) {
+		pr_debug("register mtk_dis_ipv6_lla failed, ret: %d\n", ret);
+		goto alloc_mem_fail;
+	}
+
 	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++) {
 		/* allocate netdev */
 		if (ctlb->ccci_ops->md_ability & MODEM_CAP_CCMNI_MQ)
@@ -1190,12 +1209,11 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 		/* init net device */
 		ccmni_dev_init(md_id, dev);
 
-		/* used to support auto add ipv6 mroute */
-		/* change ccmni dev->type to ARPHRD_PPP temporary,
-		 * When modem RS/RA solution is ready in Andoird S,
-		 * it can rollback  ARPHRD_RAWIP to support mroute
+		/* The purpose of changing the ccmni device type to ARPHRD_NONE
+		 * is used to support automatically adding an ipv6 mroute and
+		 * support for clat eBPF and tethering eBPF offload
 		 */
-		dev->type = ARPHRD_PPP;//ARPHRD_PUREIP;
+		dev->type = ARPHRD_NONE;
 
 		sprintf(dev->name, "%s%d", ctlb->ccci_ops->name, i);
 
