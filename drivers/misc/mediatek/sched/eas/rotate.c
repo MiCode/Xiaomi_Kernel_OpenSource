@@ -13,6 +13,7 @@
 #include <linux/cpumask.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/timekeeping.h>
 #include <linux/energy_model.h>
 #include <trace/hooks/topology.h>
 #include <trace/hooks/sched.h>
@@ -133,7 +134,7 @@ void task_rotate_init(void)
 
 void task_check_for_rotation(struct rq *src_rq)
 {
-	u64 wait, max_wait = 0, run, max_run = 0;
+	u64 wc, wait, max_wait = 0, run, max_run = 0;
 	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
 	int i, src_cpu = cpu_of(src_rq);
 	struct rq *dst_rq;
@@ -159,6 +160,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	if (heavy_task < HEAVY_TASK_NUM)
 		return;
 
+	wc = ktime_get_ns();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 
@@ -172,8 +174,7 @@ void task_check_for_rotation(struct rq *src_rq)
 			(rq->curr->policy != SCHED_NORMAL))
 			continue;
 
-		wait = (rq->curr->se.sum_exec_runtime) -
-			(rq->curr->se.prev_sum_exec_runtime);
+		wait = wc - rq->curr->android_vendor_data1[3];
 
 		if (wait > max_wait) {
 			max_wait = wait;
@@ -199,8 +200,7 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (rq->nr_running > 1)
 			continue;
 
-		run = (rq->curr->se.sum_exec_runtime) -
-			(rq->curr->se.prev_sum_exec_runtime);
+		run = wc - rq->curr->android_vendor_data1[3];
 
 		if (run < TASK_ROTATION_THRESHOLD_NS)
 			continue;
@@ -258,3 +258,21 @@ void set_big_task_rotation(bool enable)
 	big_task_rotation_enable = enable;
 }
 EXPORT_SYMBOL_GPL(set_big_task_rotation);
+
+void rotat_after_enqueue_task(void __always_unused *data, struct rq *rq,
+				struct task_struct *p)
+{
+	p->android_vendor_data1[3] = ktime_get_ns();
+}
+
+void rotat_task_stats(void __always_unused *data,
+				struct task_struct *p)
+{
+	p->android_vendor_data1[3] = ktime_get_ns();
+}
+
+void rotat_task_newtask(void __always_unused *data,
+				struct task_struct *p, unsigned long clone_flags)
+{
+	p->android_vendor_data1[3] = 0;
+}

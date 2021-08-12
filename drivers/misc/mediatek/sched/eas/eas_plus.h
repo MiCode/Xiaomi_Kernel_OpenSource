@@ -56,5 +56,9 @@ extern int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *
 extern void hook_scheduler_tick(void *data, struct rq *rq);
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
 extern void task_check_for_rotation(struct rq *src_rq);
+extern void rotat_after_enqueue_task(void *data, struct rq *rq, struct task_struct *p);
+extern void rotat_task_stats(void *data, struct task_struct *p);
+extern void rotat_task_newtask(void __always_unused *data, struct task_struct *p,
+				unsigned long clone_flags);
 #endif
 #endif

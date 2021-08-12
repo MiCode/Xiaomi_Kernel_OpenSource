@@ -13,6 +13,7 @@
 #include <linux/seq_file.h>
 #include <linux/energy_model.h>
 #include <trace/events/sched.h>
+#include <trace/events/task.h>
 #include <trace/hooks/sched.h>
 #include <sched/sched.h>
 #include "eas_plus.h"
@@ -176,6 +177,20 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("scheduler: register scheduler_tick hooks failed, returned %d\n", ret);
 
+#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
+	ret = register_trace_android_rvh_after_enqueue_task(rotat_after_enqueue_task, NULL);
+	if (ret)
+		pr_info("register android_rvh_after_enqueue_task failed, returned %d\n", ret);
+
+	ret = register_trace_android_rvh_new_task_stats(rotat_task_stats, NULL);
+	if (ret)
+		pr_info("register android_rvh_new_task_stats failed, returned %d\n", ret);
+
+	ret = register_trace_task_newtask(rotat_task_newtask, NULL);
+	if (ret)
+		pr_info("register trace_task_newtask failed, returned %d\n", ret);
+#endif
+
 	mtk_sched_trace_init();
 
 	return ret;
@@ -186,6 +201,9 @@ static void __exit mtk_scheduler_exit(void)
 {
 	mtk_sched_trace_exit();
 	unregister_trace_android_vh_scheduler_tick(hook_scheduler_tick, NULL);
+#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
+	unregister_trace_task_newtask(rotat_task_newtask, NULL);
+#endif
 	cleanup_sched_common_sysfs();
 }
 
