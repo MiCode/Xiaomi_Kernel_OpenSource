@@ -10890,6 +10890,8 @@
 			    "md32_tcm",
 			    "md32_debug_apb";
 
+		mediatek,apusys_power = <&apu_top_3>;
+
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
 
