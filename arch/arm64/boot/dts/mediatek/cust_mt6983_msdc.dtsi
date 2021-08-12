@@ -15,6 +15,7 @@
 	pinctrl-1 = <&mmc1_pins_uhs>;
 	bus-width = <4>;
 	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
 	cap-sd-highspeed;
 //	cap-mmc-highspeed;
 	sd-uhs-sdr12;
