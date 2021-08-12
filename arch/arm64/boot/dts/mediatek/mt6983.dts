@@ -9174,8 +9174,7 @@
 		comp-names = "mmlsys",
 			"dli0", "dli1",
 			"dlo0", "dlo1",
-			"dli0_sel", "dli1_sel",
-			"dlo0_sout", "dlo1_sout";
+			"dli0_sel", "dli1_sel";
 		mmlsys-clock-names = "apb_bus";
 		dli0-clock-names = "dli0";
 		dli1-clock-names = "dli1";
@@ -9237,7 +9236,8 @@
 		dlo0-dl-relay = /bits/ 16 <DL_OUT_RELAY0_SIZE>;
 		dlo1-dl-relay = /bits/ 16 <DL_OUT_RELAY1_SIZE>;
 		dbg-reg-names = "CG_CON0", "CG_SET0", "CG_CLR0",
-			"SW0_RST_B", "MOUT_RST", "SMI_LARB_GREQ",
+			"SW0_RST_B", "MOUT_RST", "EVENT_GCED_EN",
+			"IN_LINE_READY_SEL", "SMI_LARB_GREQ", "BYPASS_MUX_SHADOW",
 			"DLI0_SEL_IN", "DLI1_SEL_IN",
 			"RDMA0_MOUT_EN", "RDMA1_MOUT_EN",
 			"PQ0_SEL_IN", "PQ1_SEL_IN",
@@ -9256,7 +9256,8 @@
 			"DLO_ASYNC1_STATUS0", "DLO_ASYNC1_STATUS1",
 			"DL_VALID0", "DL_VALID1", "DL_READY0", "DL_READY1";
 		dbg-reg-offsets = <CG_CON0>, <CG_SET0>, <CG_CLR0>,
-			<SW0_RST_B>, <MOUT_RST>, <SMI_LARB_GREQ>,
+			<SW0_RST_B>, <MOUT_RST>, <EVENT_GCED_EN>,
+			<IN_LINE_READY_SEL>, <SMI_LARB_GREQ>, <BYPASS_MUX_SHADOW>,
 			<DLI0_SEL_IN>, <DLI1_SEL_IN>,
 			<RDMA0_MOUT_EN>, <RDMA1_MOUT_EN>,
 			<PQ0_SEL_IN>, <PQ1_SEL_IN>,
