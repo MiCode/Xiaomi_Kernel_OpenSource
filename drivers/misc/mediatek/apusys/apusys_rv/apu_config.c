@@ -15,6 +15,7 @@
 #include "apu_hw.h"
 #include "apu_config.h"
 #include "sw_logger.h"
+#include "mvpu_plat_device.h"
 
 void apu_config_user_ptr_init(const struct mtk_apu *apu)
 {
@@ -105,6 +106,12 @@ int apu_config_setup(struct mtk_apu *apu)
 		goto out;
 	}
 
+	ret = mvpu_config_init(apu);
+	if (ret) {
+		dev_info(apu->dev, "mvpu config init failed\n");
+		goto out;
+	}
+
 	return 0;
 
 out:
@@ -114,6 +121,7 @@ out:
 void apu_config_remove(struct mtk_apu *apu)
 {
 	apu_ipi_config_remove(apu);
+	mvpu_config_remove(apu);
 
 	dma_free_coherent(apu->dev, CONFIG_SIZE,
 		apu->conf_buf, apu->conf_da);

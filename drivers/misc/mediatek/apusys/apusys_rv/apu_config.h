@@ -44,11 +44,10 @@ struct reviser_init_info {
 } __attribute__ ((__packed__));
 
 struct mvpu_preempt_data {
-	uint8_t itcm_0_core_0[128 * 1024];
-	uint8_t l1_0_core_0[512 * 1024];
-
-	uint8_t itcm_0_core_1[128 * 1024];
-	uint8_t l1_0_core_1[512 * 1024];
+	uint32_t itcm_buffer_core_0[5];
+	uint32_t l1_buffer_core_0[5];
+	uint32_t itcm_buffer_core_1[5];
+	uint32_t l1_buffer_core_1[5];
 } __attribute__((__packed__));
 
 enum user_config {

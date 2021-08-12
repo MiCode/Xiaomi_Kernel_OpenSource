@@ -16,6 +16,8 @@ int mdla_init(struct apusys_core_info *info);
 void mdla_exit(void);
 int vpu_init(struct apusys_core_info *info);
 void vpu_exit(void);
+int mvpu_init(struct apusys_core_info *info);
+void mvpu_exit(void);
 int mnoc_init(struct apusys_core_info *info);
 void mnoc_exit(void);
 int apu_power_drv_init(struct apusys_core_info *info);
@@ -63,6 +65,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 #if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 	debug_init,
 #endif
+	mvpu_init,
 };
 
 /*
@@ -71,6 +74,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
  */
 static void (*apusys_exit_func[])(void) = {
 #if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
+	mvpu_exit,
 	debug_exit,
 #endif
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)

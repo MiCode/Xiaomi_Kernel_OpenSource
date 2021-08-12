@@ -221,3 +221,8 @@ apusys-objs += ipi/mtk_apu_rpmsg.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/sw_logger/
 apusys-objs += sw_logger/sw_logger.o
 
+# mvpu
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mvpu/
+apusys-objs += mvpu/mvpu_driver.o
+apusys-objs += mvpu/mvpu_plat_device.o
+
