@@ -85,14 +85,16 @@ int send_new_time_to_new_md(int md_id, int tz)
 	int index;
 	char *name = "ccci_0_202";
 
-	ktime_get_ts64(&tv);
+	ktime_get_real_ts64(&tv);
 	timeinfo[0] = tv.tv_sec;
 	timeinfo[1] = sizeof(tv.tv_sec) > 4 ? tv.tv_sec >> 32 : 0;
 	timeinfo[2] = tz;
 	timeinfo[3] = sys_tz.tz_dsttime;
 
-	snprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
+	scnprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
 			timeinfo[0], timeinfo[1], timeinfo[2], timeinfo[3]);
+	CCCI_NORMAL_LOG(md_id, CHAR, "CTime update: %s\n", ccci_time);
+
 	index = mtk_ccci_request_port(name);
 	ret = mtk_ccci_send_data(index, ccci_time, strlen(ccci_time) + 1);
 
