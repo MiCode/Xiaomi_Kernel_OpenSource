@@ -23,6 +23,9 @@ struct mml_drm_param {
 
 	/* set true if display uses vdo mode, false for cmd mode */
 	bool vdo_mode;
+
+	/* The height of racing mode for each output tile in pixel. */
+	u8 racing_height;
 };
 
 /*

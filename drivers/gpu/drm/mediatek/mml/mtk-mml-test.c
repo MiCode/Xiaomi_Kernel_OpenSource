@@ -207,7 +207,9 @@ static void case_general_submit(struct mml_test *test,
 			check_fence(fences[i], __func__);
 	}
 
+	msleep_interruptible(1000);	/* make sure mml stops */
 	kfree(fences);
+	mml_drm_put_context(mml_ctx);
 	mml_log("%s end", __func__);
 }
 
@@ -816,6 +818,68 @@ static void case_run_yv12_yuyv(struct mml_test *test, struct mml_test_case *cur)
 	case_general_submit(test, cur, setup_yv12_yuyv);
 }
 
+/* setup_write_sram/case_run_write_sram
+ *
+ * format in: MML_FMT_RGB888
+ * format out: MML_FMT_RGB888
+ */
+static void setup_write_sram(struct mml_submit *task, struct mml_test_case *cur)
+{
+	task->info.mode = MML_MODE_RACING;
+	task->buffer.dest[0].flush = false;
+	task->buffer.dest[0].invalid = false;
+}
+
+static void case_run_write_sram(struct mml_test *test, struct mml_test_case *cur)
+{
+	case_general_submit(test, cur, setup_write_sram);
+}
+
+/* setup_read_sram/case_run_read_sram
+ *
+ * format in: MML_FMT_RGB888
+ * format out: MML_FMT_RGB888
+ */
+static void setup_read_sram(struct mml_submit *task, struct mml_test_case *cur)
+{
+	task->info.mode = MML_MODE_SRAM_READ;
+	task->buffer.src.flush = false;
+	task->buffer.src.invalid = false;
+}
+
+static void case_run_read_sram(struct mml_test *test, struct mml_test_case *cur)
+{
+	struct platform_device *mml_pdev;
+	struct device *dev;
+	struct mml_drm_ctx *mml_ctx;
+	struct mml_drm_param disp = {};
+	void *mml;
+	int32_t fd = 0;
+
+	/* create context */
+	mml_pdev = mml_get_plat_device(test->pdev);
+	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
+
+	/* hold sram, for wrot out and rdma in */
+	dev = &mml_pdev->dev;
+	mml = dev_get_drvdata(dev);
+	mml_sram_get(mml);
+
+	/* dram -> sram */
+	swap(fd, cur->fd_out);
+	case_general_submit(test, cur, setup_write_sram);
+
+	/* sram -> dram */
+	cur->fd_out = fd;
+	cur->fd_in = 0;
+	case_general_submit(test, cur, setup_read_sram);
+
+	/* release */
+	mml_sram_put(mml);
+	mml_drm_put_context(mml_ctx);
+}
+
+
 enum mml_ut_case {
 	MML_UT_RGB,		/* 0 */
 	MML_UT_RGB_ROTATE,	/* 1 */
@@ -832,6 +896,8 @@ enum mml_ut_case {
 	MML_UT_2OUT_RCC,	/* 12 */
 	MML_UT_CROP,		/* 13 */
 	MML_UT_YV12_YUYV,	/* 14 */
+	MML_UT_WRITE_SRAM,	/* 15 */
+	MML_UT_READ_SRAM,	/* 16 */
 	MML_UT_TOTAL
 };
 
@@ -895,6 +961,14 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 	[MML_UT_YV12_YUYV] = {
 		.config = case_config_yv12_yuyv,
 		.run = case_run_yv12_yuyv,
+	},
+	[MML_UT_WRITE_SRAM] = {
+		.config = case_config_rgb,
+		.run = case_run_write_sram,
+	},
+	[MML_UT_READ_SRAM] = {
+		.config = case_config_rgb,
+		.run = case_run_read_sram,
 	},
 };
 

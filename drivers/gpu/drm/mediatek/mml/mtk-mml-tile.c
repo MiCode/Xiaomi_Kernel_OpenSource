@@ -92,8 +92,6 @@ static s32 calc_tile_config(struct mml_task *task,
 	}
 
 	tile->tile_no = tile_idx;
-	tile->h_tile_no = tile_idx;
-	tile->v_tile_no = tile_idx;
 	tile->engine_cnt = eng_cnt;
 	return 0;
 }
@@ -189,6 +187,9 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 	stop = false;
 	/* tile calculate */
 	while (tile_state != TILE_DONE) {
+		tiles[tile_cnt].h_tile_no = tile_param->ptr_tile_reg_map->curr_horizontal_tile_no;
+		tiles[tile_cnt].v_tile_no = tile_param->ptr_tile_reg_map->curr_vertical_tile_no;
+
 		result = tile_proc_main_single(tile_reg_map, tile_func,
 			tile_cnt, &stop);
 
@@ -204,6 +205,8 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 	}
 	output->tiles = tiles;
 	output->tile_cnt = tile_cnt;
+	output->h_tile_cnt = tiles[tile_cnt - 1].h_tile_no + 1;
+	output->v_tile_cnt = tiles[tile_cnt - 1].v_tile_no + 1;
 
 	/* put tile_output to task */
 	task->config->tile_output[pipe_idx] = output;

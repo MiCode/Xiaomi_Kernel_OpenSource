@@ -26,6 +26,7 @@ enum mml_mode {
 	MML_MODE_RACING,
 	MML_MODE_MML_DECOUPLE,
 	MML_MODE_MDP_DECOUPLE,
+	MML_MODE_SRAM_READ,
 };
 
 enum mml_orientation {

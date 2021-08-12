@@ -20,7 +20,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek \
              -I$(srctree)/drivers/misc/mediatek/include/mt-plat \
              -I$(srctree)/drivers/iommu \
              -I$(srctree)/drivers/misc/mediatek/mtk-interconnect \
-             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
+             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox \
+             -I$(srctree)/drivers/misc/mediatek/slbc
 
 obj-$(CONFIG_MTK_MML_LEGACY) := mtk-mml-legacy.o
 obj-$(CONFIG_MTK_MML) := mtk-mml.o

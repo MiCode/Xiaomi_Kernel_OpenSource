@@ -418,8 +418,16 @@ static void tp_select_path(struct mml_topology_cache *cache,
 	struct mml_topology_path **path)
 {
 	enum topology_scenario scene[2];
-	bool en_rsz = tp_need_resize(&cfg->info);
+	bool en_rsz;
 
+	if (cfg->info.mode == MML_MODE_RACING) {
+		/* always rdma to wrot for racing case */
+		scene[0] = PATH_MML_NOPQ_P0;
+		scene[1] = PATH_MML_NOPQ_P1;
+		goto done;
+	}
+
+	en_rsz = tp_need_resize(&cfg->info);
 	if (mml_force_rsz)
 		en_rsz = true;
 
@@ -443,6 +451,7 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[1] = PATH_MML_2OUT_P1;
 	}
 
+done:
 	path[0] = &cache->path[scene[0]];
 	path[1] = &cache->path[scene[1]];
 }
@@ -480,9 +489,6 @@ static s32 tp_select(struct mml_topology_cache *cache,
 		cfg->dual = true;
 	else
 		cfg->dual = tp_need_dual(cfg);
-
-	if (!cfg->dual && cfg->info.mode == MML_MODE_RACING)
-		mml_err("[topology]racing mode but not dual may fail mml");
 
 	tp_select_path(cache, cfg, path);
 

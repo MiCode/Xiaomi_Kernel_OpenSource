@@ -337,6 +337,8 @@ struct mml_comp_config_ops {
 		       struct mml_comp_config *priv);
 	s32 (*buf_map)(struct mml_comp *comp, struct mml_task *task,
 		       const struct mml_path_node *node);
+	void (*buf_unmap)(struct mml_comp *comp, struct mml_task *task,
+			  const struct mml_path_node *node);
 	s32 (*buf_prepare)(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg);
 	u32 (*get_label_count)(struct mml_comp *comp, struct mml_task *task,
@@ -351,7 +353,7 @@ struct mml_comp_config_ops {
 	s32 (*mutex)(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *priv);
 	s32 (*wait)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *priv);
+		    struct mml_comp_config *priv, u32 idx);
 	s32 (*post)(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *priv);
 	/* op to make command in reuse case */
@@ -385,6 +387,8 @@ struct mml_comp {
 	phys_addr_t base_pa;
 	struct clk *clks[2];
 	struct device *larb_dev;
+	phys_addr_t smi_base;
+	u32 smi_port;
 	s32 pw_cnt;
 	s32 clk_cnt;
 	struct icc_path *icc_path;
@@ -439,6 +443,8 @@ struct mml_tile_config {
 struct mml_tile_output {
 	/* total how many tiles */
 	u16 tile_cnt;
+	u16 h_tile_cnt;
+	u16 v_tile_cnt;
 	struct mml_tile_config *tiles;
 };
 

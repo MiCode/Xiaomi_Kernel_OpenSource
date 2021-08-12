@@ -5,6 +5,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/atomic.h>
@@ -17,6 +18,7 @@
 
 #include <soc/mediatek/smi.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <slbc_ops.h>
 
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
@@ -36,6 +38,13 @@ struct mml_dev {
 	struct mutex drm_ctx_mutex;
 	struct mml_topology_cache *topology;
 	struct mutex clock_mutex;
+
+	/* sram operation */
+	struct slbc_data sram_data;
+	s32 sram_cnt;
+	struct mutex sram_mutex;
+	/* The height of racing mode for each output tile in pixel. */
+	u8 racing_height;
 };
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
@@ -95,7 +104,7 @@ static void mml_qos_init(struct mml_dev *mml)
 	}
 
 	tp->opp_cnt = (u32)num;
-	if (tp->opp_cnt >= ARRAY_SIZE(tp->opp_speeds)) {
+	if (tp->opp_cnt > ARRAY_SIZE(tp->opp_speeds)) {
 		mml_err("%s opp num more than table size %u %u",
 			__func__, tp->opp_cnt, (u32)ARRAY_SIZE(tp->opp_speeds));
 		tp->opp_cnt = ARRAY_SIZE(tp->opp_speeds);
@@ -379,35 +388,37 @@ EXPORT_SYMBOL_GPL(mml_subcomp_init);
 
 s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 {
-	struct device_node *node;
 	struct platform_device *larb_pdev;
+	struct of_phandle_args larb_args;
+	struct resource res;
 
-	/* get larb node from dts */
-	node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
-	if (!node) {
+	/* parse larb node and port from dts */
+	if (of_parse_phandle_with_fixed_args(dev->of_node, "mediatek,larb",
+		1, 0, &larb_args)) {
 		mml_err("%s fail to parse mediatek,larb", __func__);
 		return 0; /* -ENOENT; for FPGA no smi_larb */
 	}
+	comp->smi_port = larb_args.args[0];
+	if (!of_address_to_resource(larb_args.np, 0, &res))
+		comp->smi_base = res.start;
 
-	larb_pdev = of_find_device_by_node(node);
+	larb_pdev = of_find_device_by_node(larb_args.np);
 	if (WARN_ON(!larb_pdev)) {
-		of_node_put(node);
+		of_node_put(larb_args.np);
 		mml_log("%s no larb and defer", __func__);
 		return -EPROBE_DEFER;
 	}
-	of_node_put(node);
-
+	/* larb dev for smi api */
 	comp->larb_dev = &larb_pdev->dev;
+
+	of_node_put(larb_args.np);
 
 	/* also do mmqos and mmdvfs since dma component do init here */
 	comp->icc_path = of_mtk_icc_get(dev, "mml_dma");
-	if (IS_ERR(comp->icc_path)) {
-		mml_log("%s not support qos", __func__);
+	if (IS_ERR_OR_NULL(comp->icc_path)) {
+		mml_err("%s not support qos", __func__);
 		comp->icc_path = NULL;
 	}
-
-	mml_log("%s dev %p larb dev %p comp %u",
-		__func__, dev, larb_pdev, comp->id);
 
 	return 0;
 }
@@ -547,6 +558,60 @@ static const struct mml_comp_hw_ops mml_hw_ops = {
 	.clk_disable = &mml_comp_clk_disable,
 };
 
+void __iomem *mml_sram_get(struct mml_dev *mml)
+{
+	int ret;
+	void __iomem *sram = NULL;
+
+	mutex_lock(&mml->sram_mutex);
+
+	if (!mml->sram_cnt) {
+		ret = slbc_request(&mml->sram_data);
+		if (ret < 0) {
+			mml_err("%s request slbc fail %d", __func__, ret);
+			goto done;
+		}
+
+		ret = slbc_power_on(&mml->sram_data);
+		if (ret < 0) {
+			mml_err("%s slbc power on fail %d", __func__, ret);
+			goto done;
+		}
+
+		mml_msg("mml sram %#lx", (unsigned long)mml->sram_data.paddr);
+	}
+
+	mml->sram_cnt++;
+	sram = mml->sram_data.paddr;
+
+done:
+	mutex_unlock(&mml->sram_mutex);
+	return sram;
+}
+
+void mml_sram_put(struct mml_dev *mml)
+{
+	mutex_lock(&mml->sram_mutex);
+
+	mml->sram_cnt--;
+	if (!mml->sram_cnt) {
+		slbc_power_off(&mml->sram_data);
+		slbc_release(&mml->sram_data);
+		goto done;
+	} else if (mml->sram_cnt < 0) {
+		mml_err("%s sram slbc count wrong %d", __func__, mml->sram_cnt);
+		goto done;
+	}
+
+done:
+	mutex_unlock(&mml->sram_mutex);
+}
+
+u8 mml_sram_get_racing_height(struct mml_dev *mml)
+{
+	return mml->racing_height;
+}
+
 void mml_clock_lock(struct mml_dev *mml)
 {
 	mutex_lock(&mml->clock_mutex);
@@ -612,7 +677,7 @@ static int mml_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mml_dev *mml;
-	u8 i;
+	u32 i;
 	int ret, thread_cnt;
 
 	mml = devm_kzalloc(dev, sizeof(*mml), GFP_KERNEL);
@@ -622,6 +687,13 @@ static int mml_probe(struct platform_device *pdev)
 	mml->pdev = pdev;
 	mutex_init(&mml->drm_ctx_mutex);
 	mutex_init(&mml->clock_mutex);
+
+	/* init sram request parameters */
+	mutex_init(&mml->sram_mutex);
+	mml->sram_data.uid = UID_MML;
+	mml->sram_data.type = TP_BUFFER;
+	mml->sram_data.flag = FG_POWER;
+
 	ret = comp_master_init(dev, mml);
 	if (ret) {
 		dev_err(dev, "failed to initialize mml component master\n");
@@ -638,6 +710,9 @@ static int mml_probe(struct platform_device *pdev)
 		dev->of_node, "mboxes", "#mbox-cells");
 	if (thread_cnt <= 0 || thread_cnt > MML_MAX_CMDQ_CLTS)
 		thread_cnt = MML_MAX_CMDQ_CLTS;
+
+	if (of_property_read_u8(dev->of_node, "racing_height", &mml->racing_height))
+		mml->racing_height = 64;	/* default height 64px */
 
 	mml->cmdq_base = cmdq_register_device(dev);
 	for (i = 0; i < thread_cnt; i++) {

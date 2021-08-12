@@ -68,6 +68,8 @@ int mml_topology_register_ip(const char *ip, const struct mml_topology_ops *op)
 		return -ENOMEM;
 	}
 
+	mml_log("%s ip %s", __func__, ip);
+
 	INIT_LIST_HEAD(&ip_node->entry);
 	ip_node->ip = ip;
 	ip_node->op = op;
@@ -276,7 +278,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 
 		for (i = 0; i < path->node_cnt; i++) {
 			comp = task_comp(task, pipe, i);
-			call_cfg_op(comp, wait, task, &ccfg[i]);
+			call_cfg_op(comp, wait, task, &ccfg[i], tile);
 		}
 	}
 
@@ -605,6 +607,18 @@ static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe
 	return &tp->path_clts[task->config->path[pipe]->clt_id];
 }
 
+static void core_buffer_unmap(struct mml_task *task)
+{
+	const struct mml_topology_path *path = task->config->path[0];
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_cfg_op(comp, buf_unmap, task, &path->nodes[i]);
+	}
+}
+
 static void core_taskdone(struct mml_task *task, u32 pipe)
 {
 	struct mml_path_client *path_clt;
@@ -649,6 +663,7 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		core_disable(task, 1);
 
 	task->config->task_ops->frame_done(task);
+	core_buffer_unmap(task);
 
 done:
 	mml_trace_end();

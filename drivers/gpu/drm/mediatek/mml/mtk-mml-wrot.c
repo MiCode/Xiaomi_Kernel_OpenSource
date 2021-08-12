@@ -9,6 +9,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/ioport.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -90,6 +91,13 @@
 /* register mask */
 #define VIDO_INT_MASK			0x00000007
 
+/* Inline rot offsets */
+#define INLINEROT_WDONE			0x03C
+
+/* SMI offset */
+#define SMI_LARB_NON_SEC_CON		0x380
+
+
 /* ceil_m and floor_m helper function */
 static u32 ceil_m(u64 n, u64 d)
 {
@@ -153,11 +161,13 @@ static void wrot_update_addr(struct mml_task_reuse *reuse,
 struct wrot_data {
 	u32 fifo;
 	u32 tile_width;
+	u32 sram_size;
 };
 
 static const struct wrot_data mml_wrot_data = {
 	.fifo = 256,
 	.tile_width = 512,
+	.sram_size = 512,
 };
 
 struct mml_comp_wrot {
@@ -166,6 +176,18 @@ struct mml_comp_wrot {
 	struct device *dev;	/* for dmabuf to iova */
 
 	u16 event_eof;	/* wrot frame done */
+	u16 event_pipe_sync;	/* pipe sync in dual wdone */
+
+	/* smi register to config sram/dram mode */
+	phys_addr_t smi_larb_con;
+
+	/* inline rotate base addr */
+	phys_addr_t irot_base[MML_PIPE_CNT];
+
+	u32 sram_size;
+	u32 sram_cnt;
+	u64 sram_pa;
+	struct mutex sram_mutex;
 };
 
 /* meta data for each different frame config */
@@ -204,6 +226,11 @@ struct wrot_frame_data {
 
 	u32 pixel_acc;		/* pixel accumulation */
 	u32 datasize;		/* qos data size in bytes */
+
+	struct {
+		bool eol:1;	/* tile is end of current line */
+		u8 sram:1;	/* sram ping pong idx of this tile */
+	} wdone[256];
 
 	/* array of indices to one of entry in cache entry list,
 	 * use in reuse command
@@ -377,14 +404,22 @@ static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct mml_file_buf *dest_buf = &task->buf.dest[node->out_idx];
-	s32 ret;
+	s32 ret = 0;
 
 	mml_trace_ex_begin("%s", __func__);
 
-	/* get iova */
-	ret = mml_buf_iova_get(wrot->dev, dest_buf);
-	if (ret < 0)
-		mml_err("%s iova fail %d", __func__, ret);
+	if (task->config->info.mode == MML_MODE_RACING) {
+		mutex_lock(&wrot->sram_mutex);
+		if (!wrot->sram_cnt)
+			wrot->sram_pa = (u64)mml_sram_get(task->config->mml);
+		wrot->sram_cnt++;
+		mutex_unlock(&wrot->sram_mutex);
+	} else {
+		/* get iova */
+		ret = mml_buf_iova_get(wrot->dev, dest_buf);
+		if (ret < 0)
+			mml_err("%s iova fail %d", __func__, ret);
+	}
 
 	mml_trace_ex_end();
 
@@ -400,15 +435,35 @@ static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
 	return ret;
 }
 
+static void wrot_buf_unmap(struct mml_comp *comp, struct mml_task *task,
+			   const struct mml_path_node *node)
+{
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+	if (task->config->info.mode == MML_MODE_RACING) {
+		mutex_lock(&wrot->sram_mutex);
+		wrot->sram_cnt--;
+		if (wrot->sram_cnt == 0)
+			mml_sram_put(task->config->mml);
+		mutex_unlock(&wrot->sram_mutex);
+	}
+}
+
 static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct mml_file_buf *dest_buf = &task->buf.dest[wrot_frm->out_idx];
 	u32 i;
 
-	for (i = 0; i < dest_buf->cnt; i++)
-		wrot_frm->iova[i] = dest_buf->dma[i].iova;
+	if (task->config->info.mode == MML_MODE_RACING) {
+		/* assign sram pa directly */
+		wrot_frm->iova[0] = wrot->sram_pa;
+	} else {
+		for (i = 0; i < dest_buf->cnt; i++)
+			wrot_frm->iova[i] = dest_buf->dma[i].iova;
+	}
 
 	return 0;
 }
@@ -692,6 +747,67 @@ static void wrot_calc_hw_buf_setting(struct mml_comp_wrot *wrot,
 	}
 }
 
+static void wrot_config_addr(const struct mml_frame_dest *dest,
+			     const u32 dest_fmt,
+			     const phys_addr_t base_pa,
+			     struct wrot_frame_data *wrot_frm,
+			     struct cmdq_pkt *pkt,
+			     struct mml_task_reuse *reuse,
+			     struct mml_pipe_cache *cache)
+{
+	u64 addr_c, addr_v, addr;
+
+	if (MML_FMT_COMPRESS(dest_fmt)) {
+		/* wrot afbc output case */
+		u32 block_x;
+		u32 frame_size;
+
+		/* Write frame base address */
+		calc_afbc_block(wrot_frm->bbp_y,
+				wrot_frm->y_stride, dest->data.vert_stride,
+				wrot_frm->iova, wrot_frm->plane_offset,
+				&block_x, &addr_c, &addr_v, &addr);
+
+		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
+			frame_size = ((((wrot_frm->out_h + 31) >>
+					 5) << 5) << 16) +
+					 ((block_x << 5) << 0);
+		else
+			frame_size = ((((wrot_frm->out_w + 31) >>
+					 5) << 5) << 16) +
+					 ((block_x << 5) << 0);
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FRAME_SIZE,
+			       frame_size, U32_MAX);
+
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_AFBC_YUVTRANS,
+			       MML_FMT_IS_ARGB(dest_fmt), 0x1);
+	} else {
+		addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
+		addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
+		addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
+
+		mml_msg("%s base %#llx+%u %#llx+%u %#llx+%u",
+			__func__,
+			addr, wrot_frm->plane_offset[0],
+			addr_c, wrot_frm->plane_offset[1],
+			addr_v, wrot_frm->plane_offset[2]);
+	}
+
+	/* Write frame base address */
+	wrot_write_addr(pkt,
+			base_pa + VIDO_BASE_ADDR,
+			base_pa + VIDO_BASE_ADDR_HIGH, addr,
+			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+	wrot_write_addr(pkt,
+			base_pa + VIDO_BASE_ADDR_C,
+			base_pa + VIDO_BASE_ADDR_HIGH_C, addr_c,
+			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+	wrot_write_addr(pkt,
+			base_pa + VIDO_BASE_ADDR_V,
+			base_pa + VIDO_BASE_ADDR_HIGH_V, addr_v,
+			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
+}
+
 static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
@@ -715,7 +831,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const u32 crop_en = 1;		/* always enable crop */
 	const u32 hw_fmt = MML_FMT_HW_FORMAT(dest_fmt);
 
-	u64 addr_c, addr_v, addr;
 	u32 out_swap = MML_FMT_SWAP(dest_fmt);
 	u32 uv_xsel, uv_ysel;
 	u32 filt_v = 0, filt_h = 0;
@@ -773,55 +888,23 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		/* TODO: for secure case setup plane offset and reg */
 	}
 
-	/* DMA_SUPPORT_AFBC */
-	if (MML_FMT_COMPRESS(dest_fmt)) {
-		u32 block_x;
-		u32 frame_size;
+	if (task->config->info.mode == MML_MODE_RACING) {
+		/* inline rotate case always write to sram pa */
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR,
+			wrot->sram_pa, U32_MAX);
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_C,
+			wrot->sram_pa, U32_MAX);
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_V,
+			wrot->sram_pa, U32_MAX);
 
-		/* Write frame base address */
-		calc_afbc_block(wrot_frm->bbp_y,
-				wrot_frm->y_stride, dest->data.vert_stride,
-				wrot_frm->iova, wrot_frm->plane_offset,
-				&block_x, &addr_c, &addr_v, &addr);
-
-		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
-			frame_size = ((((wrot_frm->out_h + 31) >>
-					 5) << 5) << 16) +
-					 ((block_x << 5) << 0);
-		else
-			frame_size = ((((wrot_frm->out_w + 31) >>
-					 5) << 5) << 16) +
-					 ((block_x << 5) << 0);
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FRAME_SIZE,
-			       frame_size, U32_MAX);
-
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_AFBC_YUVTRANS,
-			       MML_FMT_IS_ARGB(dest_fmt), 0x1);
+		/* config smi addr to emi (iova) or sram */
+		cmdq_pkt_write(pkt, NULL, wrot->smi_larb_con,
+			GENMASK(19, 16), GENMASK(19, 16));
 	} else {
-		addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
-		addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
-		addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
-
-		mml_msg("%s base %#llx+%u %#llx+%u %#llx+%u",
-			__func__,
-			addr, wrot_frm->plane_offset[0],
-			addr_c, wrot_frm->plane_offset[1],
-			addr_v, wrot_frm->plane_offset[2]);
+		/* normal dram case config wrot iova with reuse */
+		wrot_config_addr(dest, dest_fmt, base_pa,
+				 wrot_frm, pkt, reuse, cache);
 	}
-
-	/* Write frame base address */
-	wrot_write_addr(pkt,
-			base_pa + VIDO_BASE_ADDR,
-			base_pa + VIDO_BASE_ADDR_HIGH, addr,
-			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
-	wrot_write_addr(pkt,
-			base_pa + VIDO_BASE_ADDR_C,
-			base_pa + VIDO_BASE_ADDR_HIGH_C, addr_c,
-			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
-	wrot_write_addr(pkt,
-			base_pa + VIDO_BASE_ADDR_V,
-			base_pa + VIDO_BASE_ADDR_HIGH_V, addr_v,
-			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
 
 	/* Write frame related registers */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CTRL,
@@ -1006,17 +1089,31 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		__func__, msg, ofst->y, ofst->c, ofst->v);
 }
 
-static void wrot_tile_calc(const struct mml_frame_dest *dest,
-			   const struct wrot_frame_data *wrot_frm,
+static void wrot_tile_calc(const struct mml_task *task,
+			   const struct mml_comp_wrot *wrot,
+			   const struct mml_frame_dest *dest,
+			   const struct mml_tile_output *tout,
 			   const struct mml_tile_engine *tile,
+			   const u32 idx,
+			   const enum mml_mode mode,
+			   struct wrot_frame_data *wrot_frm,
 			   struct wrot_ofst_addr *ofst)
 {
 	/* Following data retrieve from tile calc result */
-	const u64 out_xs = tile->out.xs;
-	const u64 out_ys = tile->out.ys;
+	u64 out_xs = tile->out.xs;
+	u64 out_ys = tile->out.ys;
+	u32 out_w = wrot_frm->out_w;
+	u32 out_h = wrot_frm->out_h;
+	u32 sram_block;		/* buffer block number for sram */
 	const char *msg = "";
+	bool tile_eol;
 
 	if (dest->rotate == MML_ROT_0 && !dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = tout->tiles[idx].v_tile_no & 0x1;
+			out_ys = 0;
+			tile_eol = tout->h_tile_cnt == (tout->tiles[idx].h_tile_no + 1);
+		}
 		/* Target Y offset */
 		ofst->y = out_ys * wrot_frm->y_stride +
 			  (out_xs * wrot_frm->bbp_y >> 3);
@@ -1035,44 +1132,59 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		msg = "No flip and no rotation";
 	} else if (dest->rotate == MML_ROT_0 && dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = tout->tiles[idx].v_tile_no & 0x1;
+			out_ys = 0;
+			tile_eol = tout->h_tile_cnt == (tout->tiles[idx].h_tile_no + 1);
+		}
 		/* Target Y offset */
 		ofst->y = out_ys * wrot_frm->y_stride +
-			  ((wrot_frm->out_w - out_xs) *
+			  ((out_w - out_xs) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
 		/* Target U offset */
 		ofst->c = (out_ys >> wrot_frm->ver_sh_uv) *
 			  wrot_frm->uv_stride +
-			  (((wrot_frm->out_w - out_xs) >>
+			  (((out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
 		ofst->v = (out_ys >> wrot_frm->ver_sh_uv) *
 			  wrot_frm->uv_stride +
-			  (((wrot_frm->out_w - out_xs) >>
+			  (((out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		msg = "Flip without rotation";
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = tout->tiles[idx].h_tile_no & 0x1;
+			out_xs = 0;
+			tile_eol = tout->v_tile_cnt == (tout->tiles[idx].v_tile_no + 1);
+		}
 		/* Target Y offset */
 		ofst->y = out_xs * wrot_frm->y_stride +
-			  ((wrot_frm->out_h - out_ys) *
+			  ((out_h - out_ys) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
 		/* Target U offset */
 		ofst->c = (out_xs >> wrot_frm->ver_sh_uv) *
 			  wrot_frm->uv_stride +
-			  (((wrot_frm->out_h - out_ys) >>
+			  (((out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
 		ofst->v = (out_xs >> wrot_frm->ver_sh_uv) *
 			  wrot_frm->uv_stride +
-			  (((wrot_frm->out_h - out_ys) >>
+			  (((out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		msg = "Rotate 90 degree only";
 	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = tout->tiles[idx].h_tile_no & 0x1;
+			out_xs = 0;
+			tile_eol = tout->v_tile_cnt == (tout->tiles[idx].v_tile_no + 1);
+		}
 		/* Target Y offset */
 		ofst->y = out_xs * wrot_frm->y_stride +
 			  (out_ys * wrot_frm->bbp_y >> 3);
@@ -1091,86 +1203,116 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		msg = "Flip and Rotate 90 degree";
 	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = (tout->v_tile_cnt - tout->tiles[idx].v_tile_no - 1) & 0x1;
+			out_h = out_ys + 1;
+			tile_eol = tout->h_tile_cnt == (tout->tiles[idx].h_tile_no + 1);
+		}
 		/* Target Y offset */
-		ofst->y = (wrot_frm->out_h - out_ys - 1) *
+		ofst->y = (out_h - out_ys - 1) *
 			  wrot_frm->y_stride +
-			  ((wrot_frm->out_w - out_xs) *
+			  ((out_w - out_xs) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
 		/* Target U offset */
-		ofst->c = ((wrot_frm->out_h - out_ys - 1) >>
+		ofst->c = ((out_h - out_ys - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
-			  (((wrot_frm->out_w - out_xs) >>
+			  (((out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
-		ofst->v = ((wrot_frm->out_h - out_ys - 1) >>
+		ofst->v = ((out_h - out_ys - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
-			  (((wrot_frm->out_w - out_xs) >>
+			  (((out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		msg = "Rotate 180 degree only";
 	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = (tout->v_tile_cnt - tout->tiles[idx].v_tile_no - 1) & 0x1;
+			out_h = out_ys + 1;
+			tile_eol = tout->h_tile_cnt == (tout->tiles[idx].h_tile_no + 1);
+		}
 		/* Target Y offset */
-		ofst->y = (wrot_frm->out_h - out_ys - 1) *
+		ofst->y = (out_h - out_ys - 1) *
 			  wrot_frm->y_stride +
 			  (out_xs * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
-		ofst->c = ((wrot_frm->out_h - out_ys - 1) >>
+		ofst->c = ((out_h - out_ys - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		/* Target V offset */
-		ofst->v = ((wrot_frm->out_h - out_ys - 1) >>
+		ofst->v = ((out_h - out_ys - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		msg = "Flip and Rotate 180 degree";
 	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = (tout->h_tile_cnt - tout->tiles[idx].h_tile_no - 1) & 0x1;
+			out_w = out_xs + 1;
+			tile_eol = tout->v_tile_cnt == (tout->tiles[idx].v_tile_no + 1);
+		}
 		/* Target Y offset */
-		ofst->y = (wrot_frm->out_w - out_xs - 1) *
+		ofst->y = (out_w - out_xs - 1) *
 			  wrot_frm->y_stride +
 			  (out_ys * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
-		ofst->c = ((wrot_frm->out_w - out_xs - 1) >>
+		ofst->c = ((out_w - out_xs - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		/* Target V offset */
-		ofst->v = ((wrot_frm->out_w - out_xs - 1) >>
+		ofst->v = ((out_w - out_xs - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		msg = "Rotate 270 degree only";
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
+		if (mode == MML_MODE_RACING) {
+			sram_block = (tout->h_tile_cnt - tout->tiles[idx].h_tile_no - 1) & 0x1;
+			out_w = out_xs + 1;
+			tile_eol = tout->v_tile_cnt == (tout->tiles[idx].v_tile_no + 1);
+		}
 		/* Target Y offset */
-		ofst->y = (wrot_frm->out_w - out_xs - 1) *
+		ofst->y = (out_w - out_xs - 1) *
 			  wrot_frm->y_stride +
-			  ((wrot_frm->out_h - out_ys) *
+			  ((out_h - out_ys) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
 		/* Target U offset */
-		ofst->c = ((wrot_frm->out_w - out_xs - 1) >>
+		ofst->c = ((out_w - out_xs - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
-			  (((wrot_frm->out_h - out_ys) >>
+			  (((out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
-		ofst->v = ((wrot_frm->out_w - out_xs - 1) >>
+		ofst->v = ((out_w - out_xs - 1) >>
 			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
-			  (((wrot_frm->out_h - out_ys) >>
+			  (((out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		msg = "Flip and Rotate 270 degree";
 	}
-	mml_msg("%s %s: offset Y:%#010llx U:%#010llx V:%#010llx",
-		__func__, msg, ofst->y, ofst->c, ofst->v);
+	mml_msg("%s %s: offset Y:%#010llx U:%#010llx V:%#010llx h:%hu/%hu v:%hu/%hu",
+		__func__, msg, ofst->y, ofst->c, ofst->v,
+		tout->tiles[idx].h_tile_no, tout->h_tile_cnt,
+		tout->tiles[idx].v_tile_no, tout->v_tile_cnt);
+
+	if (mode == MML_MODE_RACING) {
+		ofst->y += wrot->data->sram_size * sram_block;
+		ofst->c += wrot->data->sram_size * sram_block;
+		ofst->v += wrot->data->sram_size * sram_block;
+		wrot_frm->wdone[idx].sram = sram_block;
+		wrot_frm->wdone[idx].eol = tile_eol;
+	}
 }
 
 static void wrot_check_buf(const struct mml_frame_dest *dest,
@@ -1289,6 +1431,7 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const u32 dest_fmt = dest->data.format;
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
+	const struct mml_tile_output *tout = cfg->tile_output[ccfg->pipe];
 	/* Following data retrieve from tile result */
 	const u32 in_xs = tile->in.xs;
 	const u32 in_xe = tile->in.xe;
@@ -1312,7 +1455,8 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	if (MML_FMT_COMPRESS(dest_fmt))
 		wrot_tile_calc_comp(dest, wrot_frm, tile, &ofst);
 	else
-		wrot_tile_calc(dest, wrot_frm, tile, &ofst);
+		wrot_tile_calc(task, wrot, dest, tout, tile, idx, cfg->info.mode,
+			       wrot_frm, &ofst);
 
 	/* Write Y pixel offset */
 	wrot_write_ofst(pkt,
@@ -1377,22 +1521,59 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 		wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
 			wrot_tar_xsize, wrot_tar_ysize);
 
-	mml_msg("%s min block width: %u min buf line num: %u\n",
+	mml_msg("%s min block width: %u min buf line num: %u",
 		__func__, setting.main_blk_width, setting.main_buf_line_num);
 
 	return 0;
 }
 
+static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot,
+	struct cmdq_pkt *pkt, u32 pipe, u32 wdone)
+{
+	if (pipe == 0) {
+		/* for pipe 0, wait pipe 1 and trigger wdone */
+		cmdq_pkt_wfe(pkt, wrot->event_pipe_sync);
+		cmdq_pkt_write(pkt, NULL, wrot->irot_base[pipe] + INLINEROT_WDONE,
+			wdone, U32_MAX);
+	} else {
+		/* for pipe 1, trigger sw token to notify pipe 0 */
+		cmdq_pkt_set_event(pkt, wrot->event_pipe_sync);
+	}
+}
+
 static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
-		     struct mml_comp_config *ccfg)
+		     struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	phys_addr_t irot_base;
 
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
 	/* Disable engine */
 	cmdq_pkt_write(pkt, NULL, comp->base_pa + VIDO_ROT_EN, 0, 0x00000001);
+
+	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
+		if (task->config->dual && !task->config->disp_dual) {
+			/* 2 wrot to 1 disp: wait and trigger 1 wdone */
+			mml_ir_done_2to1(wrot, pkt, ccfg->pipe,
+				wrot_frm->wdone[idx].sram);
+		} else {
+			/* 1 wrot to 1 disp: trigger 1 wdone (by pipe)
+			 * 1 wrot to 2 disp: trigger 2 wdone (dual done)
+			 * 2 wrot to 2 disp: trigger 2 wdone (by pipe)
+			 */
+			if (!task->config->dual && task->config->disp_dual)
+				irot_base = wrot->irot_base[0];
+			else
+				irot_base = wrot->irot_base[ccfg->pipe];
+			/* set disp wdone for this pipe */
+			cmdq_pkt_write(pkt, NULL, irot_base + INLINEROT_WDONE,
+				wrot_frm->wdone[idx].sram, U32_MAX);
+		}
+	}
+
 	return 0;
 }
 
@@ -1409,11 +1590,19 @@ static s32 wrot_post(struct mml_comp *comp, struct mml_task *task,
 	mml_msg("%s task %p pipe %hhu data %u pixel %u",
 		__func__, task, ccfg->pipe, wrot_frm->datasize, wrot_frm->pixel_acc);
 
+	if (task->config->info.mode == MML_MODE_RACING) {
+		struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+		/* clear path sel back to dram */
+		cmdq_pkt_write(task->pkts[ccfg->pipe], NULL, wrot->smi_larb_con,
+			0, GENMASK(19, 16));
+	}
+
 	return 0;
 }
 
-static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
-			       struct mml_comp_config *ccfg)
+static s32 update_frame_addr(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
@@ -1461,9 +1650,19 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
+			       struct mml_comp_config *ccfg)
+{
+	/* for reconfig case, no need update addr */
+	if (task->config->info.mode == MML_MODE_RACING)
+		return 0;
+	return update_frame_addr(comp, task, ccfg);
+}
+
 static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.prepare = wrot_config_write,
 	.buf_map = wrot_buf_map,
+	.buf_unmap = wrot_buf_unmap,
 	.buf_prepare = wrot_buf_prepare,
 	.get_label_count = wrot_get_label_count,
 	.frame = wrot_config_frame,
@@ -1625,6 +1824,28 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
+phys_addr_t mml_get_node_base_pa(struct platform_device *pdev, const char *name, u32 idx)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *node;
+	struct resource res;
+	phys_addr_t base_pa = 0;
+
+	node = of_parse_phandle(dev->of_node, name, idx);
+	if (!node)
+		goto done;
+
+	if (of_address_to_resource(node, 0, &res))
+		goto done;
+
+	base_pa = res.start;
+
+done:
+	if (node)
+		of_node_put(node);
+	return base_pa;
+}
+
 static struct mml_comp_wrot *dbg_probed_components[4];
 static int dbg_probed_count;
 
@@ -1661,9 +1882,24 @@ static int probe(struct platform_device *pdev)
 			priv->comp.id, ret);
 	}
 
+	/* store smi larb con register for later use */
+	priv->smi_larb_con = priv->comp.smi_base +
+		SMI_LARB_NON_SEC_CON + priv->comp.smi_port * 4;
+	mutex_init(&priv->sram_mutex);
+	mml_log("comp(wrot) %u smi larb con %#lx", priv->comp.id, priv->smi_larb_con);
+
 	if (of_property_read_u16(dev->of_node, "event_frame_done",
 				 &priv->event_eof))
 		dev_err(dev, "read event frame_done fail\n");
+
+	if (!of_property_read_u16(dev->of_node, "event_pipe_sync",
+				  &priv->event_pipe_sync))
+		mml_log("comp %u (wrot) pipe sync event %hu",
+			priv->comp.id, priv->event_pipe_sync);
+
+	/* parse inline rot node for racing mode */
+	priv->irot_base[0] = mml_get_node_base_pa(pdev, "inlinerot", 0);
+	priv->irot_base[1] = mml_get_node_base_pa(pdev, "inlinerot", 1);
 
 	/* assign ops */
 	priv->comp.tile_ops = &wrot_tile_ops;

@@ -421,10 +421,12 @@ static void task_frame_done(struct mml_task *task)
 		task, task->state, task->job.jobid);
 
 	/* clean up */
-	for (i = 0; i < task->buf.dest_cnt; i++) {
-		mml_msg("[drm]release dest %hhu iova %#011llx",
-			i, task->buf.dest[i].dma[0].iova);
-		mml_buf_put(&task->buf.dest[i]);
+	if (task->config->info.mode != MML_MODE_RACING) {
+		for (i = 0; i < task->buf.dest_cnt; i++) {
+			mml_msg("[drm]release dest %hhu iova %#011llx",
+				i, task->buf.dest[i].dma[0].iova);
+			mml_buf_put(&task->buf.dest[i]);
+		}
 	}
 	mml_msg("[drm]release src iova %#011llx",
 		task->buf.src.dma[0].iova);
@@ -757,6 +759,9 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 		mml_err("[drm]fail to create timeline");
 	else
 		mml_msg("[drm]timeline for mml %p", ctx->timeline);
+
+	/* return info to display */
+	disp->racing_height = mml_sram_get_racing_height(mml);
 
 	return ctx;
 }

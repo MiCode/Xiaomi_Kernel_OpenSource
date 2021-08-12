@@ -56,6 +56,31 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 void mml_comp_qos_clear(struct mml_comp *comp);
 
 /*
+ * mml_sram_get - get sram addr from slbc and power on
+ *
+ * mml:		The mml driver instance
+ *
+ * Return:	The address of sram
+ */
+void __iomem *mml_sram_get(struct mml_dev *mml);
+
+/*
+ * mml_sram_put - power off sram and release slbc object
+ *
+ * mml:		The mml driver instance
+ */
+void mml_sram_put(struct mml_dev *mml);
+
+/*
+ * mml_sram_get_racing_height - get racing height in mml cache
+ *
+ * mml:		The mml driver instance
+ *
+ * Return:	The racing height in pixel.
+ */
+u8 mml_sram_get_racing_height(struct mml_dev *mml);
+
+/*
  * mml_clock_lock - Lock clock mutex before clock counting or call clock api
  *
  * @mml: The mml driver instance

@@ -189,6 +189,9 @@ static const enum cpr_reg_idx lsb_to_msb[CPR_RDMA_COUNT] = {
 	[CPR_RDMA_UFO_DEC_LENGTH_BASE_C] = CPR_RDMA_UFO_DEC_LENGTH_BASE_C_MSB,
 };
 
+/* SMI offset */
+#define SMI_LARB_NON_SEC_CON		0x380
+
 enum rdma_label {
 	RDMA_LABEL_BASE_0 = 0,
 	RDMA_LABEL_BASE_0_MSB,
@@ -299,6 +302,13 @@ struct mml_comp_rdma {
 	struct device *dev;	/* for dmabuf to iova */
 
 	u16 event_eof;
+
+	/* smi register to config sram/dram mode */
+	phys_addr_t smi_larb_con;
+
+	u32 sram_cnt;
+	u64 sram_pa;
+	struct mutex sram_mutex;
 };
 
 struct rdma_frame_data {
@@ -346,14 +356,22 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 			const struct mml_path_node *node)
 {
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
-	s32 ret;
+	s32 ret = 0;
 
 	mml_trace_ex_begin("%s", __func__);
 
-	/* get iova */
-	ret = mml_buf_iova_get(rdma->dev, &task->buf.src);
-	if (ret < 0)
-		mml_err("%s iova fail %d", __func__, ret);
+	if (unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
+		mutex_lock(&rdma->sram_mutex);
+		if (!rdma->sram_cnt)
+			rdma->sram_pa = (u64)mml_sram_get(task->config->mml);
+		rdma->sram_cnt++;
+		mutex_unlock(&rdma->sram_mutex);
+	} else {
+		/* get iova */
+		ret = mml_buf_iova_get(rdma->dev, &task->buf.src);
+		if (ret < 0)
+			mml_err("%s iova fail %d", __func__, ret);
+	}
 
 	mml_trace_ex_end();
 
@@ -367,6 +385,22 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 		task->buf.src.size[2]);
 
 	return ret;
+}
+
+static void rdma_buf_unmap(struct mml_comp *comp, struct mml_task *task,
+			   const struct mml_path_node *node)
+{
+	struct mml_comp_rdma *rdma;
+
+	if (unlikely(task->config->info.mode == MML_MODE_SRAM_READ)) {
+		rdma = comp_to_rdma(comp);
+
+		mutex_lock(&rdma->sram_mutex);
+		rdma->sram_cnt--;
+		if (rdma->sram_cnt == 0)
+			mml_sram_put(task->config->mml);
+		mutex_unlock(&rdma->sram_mutex);
+	}
 }
 
 static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -907,7 +941,15 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       U32_MAX);
 
 	/* Write frame base address */
-	if (rdma_frm->enable_ufo) {
+	if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
+		iova[0] = rdma->sram_pa + src->plane_offset[0];
+		iova[1] = rdma->sram_pa + src->plane_offset[1];
+		iova[2] = rdma->sram_pa + src->plane_offset[2];
+
+		cmdq_pkt_write(pkt, NULL, rdma->smi_larb_con,
+			GENMASK(19, 16), GENMASK(19, 16));
+
+	} else if (rdma_frm->enable_ufo) {
 		if (MML_FMT_10BIT_JUMP(src->format) ||
 			MML_FMT_AUO(src->format)) {
 			iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
@@ -1129,7 +1171,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 }
 
 static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
-		     struct mml_comp_config *ccfg)
+		     struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
@@ -1161,6 +1203,14 @@ static s32 rdma_post(struct mml_comp *comp, struct mml_task *task,
 	mml_msg("%s task %p pipe %hhu data %u pixel %u",
 		__func__, task, ccfg->pipe, rdma_frm->datasize, rdma_frm->pixel_acc);
 
+	/* for sram test rollback smi config */
+	if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
+		struct mml_comp_rdma *rdma = comp_to_rdma(comp);
+
+		cmdq_pkt_write(task->pkts[ccfg->pipe], NULL, rdma->smi_larb_con,
+			0, GENMASK(19, 16));
+	}
+
 	return 0;
 }
 
@@ -1181,6 +1231,11 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 	if (src->secure) {
 		/* TODO: for secure case setup plane offset and reg */
+	}
+
+	if (unlikely(cfg->info.mode == MML_MODE_SRAM_READ)) {
+		/* no need update addr for sram case */
+		return 0;
 	}
 
 	if (rdma_frm->enable_ufo) {
@@ -1236,6 +1291,7 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.prepare = rdma_config_read,
 	.buf_map = rdma_buf_map,
+	.buf_unmap = rdma_buf_unmap,
 	.get_label_count = rdma_get_label_count,
 	.frame = rdma_config_frame,
 	.tile = rdma_config_tile,
@@ -1455,6 +1511,12 @@ static int probe(struct platform_device *pdev)
 		dev_err(dev, "fail to init component %u larb ret %d",
 			priv->comp.id, ret);
 	}
+
+	/* store smi larb con register for later use */
+	priv->smi_larb_con = priv->comp.smi_base +
+		SMI_LARB_NON_SEC_CON + priv->comp.smi_port * 4;
+	mutex_init(&priv->sram_mutex);
+	mml_log("comp(rdma) %u smi larb con %#lx", priv->comp.id, priv->smi_larb_con);
 
 	if (of_property_read_u16(dev->of_node, "event_frame_done",
 				 &priv->event_eof))
