@@ -774,6 +774,14 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.name = "apu",
 		.caps = MTK_SCPD_APU_OPS | MTK_SCPD_BYPASS_INIT_ON,
 	},
+	[MT6983_POWER_DOMAIN_DP_TX] = {
+		.name = "dp_tx",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xE74,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
+	},
 };
 
 static const struct scp_subdomain scp_subdomain_mt6983[] = {
@@ -789,6 +797,7 @@ static const struct scp_subdomain scp_subdomain_mt6983[] = {
 	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_VDE0},
 	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_VEN0},
 	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_MDP0},
+	{MT6983_POWER_DOMAIN_DIS0, MT6983_POWER_DOMAIN_DP_TX},
 	{MT6983_POWER_DOMAIN_VDE0, MT6983_POWER_DOMAIN_VDE1},
 	{MT6983_POWER_DOMAIN_DIS1, MT6983_POWER_DOMAIN_VEN1},
 	{MT6983_POWER_DOMAIN_DIS1, MT6983_POWER_DOMAIN_MDP1},
