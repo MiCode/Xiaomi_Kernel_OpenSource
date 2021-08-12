@@ -29,6 +29,7 @@ enum FS_STATUS {
 	FS_INITIALIZED = 1,
 	FS_WAIT_FOR_SYNCFRAME_START = 2,
 	FS_START_TO_GET_PERFRAME_CTRL = 3,
+	FS_STATUS_UNKNOWN
 };
 
 
@@ -41,6 +42,33 @@ enum FS_SYNC_TYPE {
 	FS_SYNC_TYPE_READOUT_CENTER = 1 << 2,
 	FS_SYNC_TYPE_LE = 1 << 3,
 	FS_SYNC_TYPE_SE = 1 << 4,
+};
+/******************************************************************************/
+
+
+/*******************************************************************************
+ * The Feature mode for FrameSync.
+ ******************************************************************************/
+enum FS_FEATURE_MODE {
+	FS_FT_MODE_NORMAL = 0,
+	FS_FT_MODE_STG_HDR = 1,
+
+	/* N:1 / M-Stream */
+	FS_FT_MODE_FRAME_TAG = 1 << 1, /* (N:1) Not one-to-one sync */
+	FS_FT_MODE_ASSIGN_FRAME_TAG = 1 << 2, /* (M-Stream) Not one-to-one sync */
+
+	FS_FT_MODE_N_1_ON = 1 << 3,
+	FS_FT_MODE_N_1_KEEP = 1 << 4,
+	FS_FT_MODE_N_1_OFF = 1 << 5,
+};
+/******************************************************************************/
+
+
+/*******************************************************************************
+ * The Method for FrameSync standalone (SA) algorithm.
+ ******************************************************************************/
+enum FS_SA_METHOD {
+	FS_SA_ADAPTIVE_MASTER = 0,
 };
 /******************************************************************************/
 
@@ -200,6 +228,22 @@ struct FrameSync {
 	void (*fs_seamless_switch)(unsigned int ident);
 
 
+	/* for choosing FrameSync StandAlone algorithm */
+	void (*fs_set_using_sa_mode)(unsigned int en);
+
+
+	/* for cam-sys assign taget vsync at subsample */
+	/* e.g: SE:0/LE:1, target vsync:0 (in this case is SE) */
+	/* => f_tag:0, 1, 0, 1, ... */
+	void (*fs_set_frame_tag)(unsigned int ident, unsigned int f_tag);
+
+
+	void (*fs_n_1_en)(unsigned int ident, unsigned int n, unsigned int en);
+
+
+	void (*fs_mstream_en)(unsigned int ident, unsigned int en);
+
+
 	/**********************************************************************/
 	/* get frame sync status for this sensor_id */
 	/* return: (0 / 1) => (disable / enable) */
@@ -208,14 +252,19 @@ struct FrameSync {
 };
 
 
-/*******************************************************************************
+#if defined(SUPPORT_FS_NEW_METHOD)
+void fs_sa_request_switch_master(unsigned int idx);
+#endif
+
+
+/*
  * Frame Sync init function.
  *
  *    init FrameSync object.
  *    get FrameSync function for operation.
  *
  *    return: (0 / 1) => (no error / error)
- ******************************************************************************/
+ */
 unsigned int FrameSyncInit(struct FrameSync **framesync);
 
 

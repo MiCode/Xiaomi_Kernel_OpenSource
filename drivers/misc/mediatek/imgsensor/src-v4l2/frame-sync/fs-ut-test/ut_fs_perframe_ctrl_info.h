@@ -140,7 +140,13 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		// .shutter_lc = 0,
 		.hdr_exp.mode_exp_cnt = 2,
 		.hdr_exp.ae_exp_cnt = 2,
-		.hdr_exp.exp_lc = {US_TO_LC(10002, 6879), US_TO_LC(2500, 6879), 0, 0, 0},
+		.hdr_exp.exp_lc = {
+			US_TO_LC(10002, 6879),
+			US_TO_LC(2500, 6879),
+			0,
+			0,
+			0
+		},
 		.flicker_en = 0,
 		.pclk = 1281600000,
 		.linelength = 8816,
@@ -155,7 +161,13 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		// .shutter_lc = 0,
 		.hdr_exp.mode_exp_cnt = 1,
 		.hdr_exp.ae_exp_cnt = 1,
-		.hdr_exp.exp_lc = {US_TO_LC(19997, 6879), 0, 0, 0, 0},
+		.hdr_exp.exp_lc = {
+			US_TO_LC(19997, 6879),
+			0,
+			0,
+			0,
+			0
+		},
 		.flicker_en = 0,
 		.pclk = 1281600000,
 		.linelength = 8816,

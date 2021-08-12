@@ -11,7 +11,6 @@
 
 
 /* utility functions */
-unsigned int calcLineTimeInus(unsigned int pclk, unsigned int linelength);
 unsigned int fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len);
 
 #ifdef FS_UT
@@ -53,6 +52,12 @@ void fs_alg_reset_fs_inst(unsigned int idx);
 void fs_alg_set_frame_record_st_data(
 	unsigned int idx, struct frame_record_st data[]);
 
+void fs_alg_set_frame_cell_size(unsigned int idx, unsigned int size);
+
+void fs_alg_set_frame_tag(unsigned int idx, unsigned int count);
+
+void fs_alg_set_n_1_on_off_flag(unsigned int idx, unsigned int flag);
+
 
 /*******************************************************************************
  * Frame Sync Algorithm function
@@ -62,6 +67,26 @@ void fs_alg_set_frame_record_st_data(
 unsigned int fs_alg_solve_frame_length(
 	unsigned int solveIdxs[],
 	unsigned int framelength[], unsigned int len);
+
+
+#ifdef SUPPORT_FS_NEW_METHOD
+/*
+ * return: (0/1) for (no error/some error happened)
+ *
+ * input:
+ *     idx: standalone instance idx
+ *     m_idx: master instance idx
+ *     valid_sync_bits: all valid for doing frame-sync instance idxs
+ *     sa_method: by default and only is adaptive standalone
+ *
+ * output:
+ *     *fl_lc: pointer for output frame length
+ */
+unsigned int fs_alg_solve_frame_length_sa(
+	unsigned int idx, int m_idx,
+	int valid_sync_bits, int sa_method,
+	unsigned int *fl_lc);
+#endif // SUPPORT_FS_NEW_METHOD
 
 
 #endif

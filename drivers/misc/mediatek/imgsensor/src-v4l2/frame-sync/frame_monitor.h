@@ -12,7 +12,16 @@
 /*******************************************************************************
  * CCU rpmsg data structure
  ******************************************************************************/
+/* Sync To: "ccu_control_extif.h" */
+#define CCU_CAM_TG_MIN 1
 #define CCU_CAM_TG_MAX 4
+
+/* Sync To: "ccu_platform.h" */
+#define CAMSV_MAX       (10)
+#define CAMSV_TG_MIN    (5)
+#define CAMSV_TG_MAX    (CAMSV_TG_MIN+CAMSV_MAX)
+#define FM_TG_CNT       (CAMSV_TG_MAX)
+
 
 /* for per sensor */
 #define VSYNCS_MAX 4
@@ -25,7 +34,7 @@ struct vsync_time {
 
 /* for per Rproc IPC send */
 /* TODO : add a general param for array size, and sync this for fs, algo, fm */
-#define TG_MAX_NUM (CCU_CAM_TG_MAX - 1)
+#define TG_MAX_NUM (CCU_CAM_TG_MAX - CCU_CAM_TG_MIN)
 struct vsync_rec {
 	unsigned int ids;
 	unsigned int cur_tick;
@@ -61,19 +70,16 @@ void frm_reset_frame_info(unsigned int idx);
 void frm_update_tg(unsigned int idx, unsigned int tg);
 
 
-/*******************************************************************************
+/*
+ * return: (0/non 0) for (done/error)
+ *
  * input:
  *     tgs -> all TG you want to get vsync from CCU;
  *     len -> array length;
- *
- * return "0" -> done; "non 0" -> error ?
- *
- ******************************************************************************/
+ */
 unsigned int frm_query_vsync_data(
-	unsigned int tgs[], unsigned int len);
+	unsigned int tgs[], unsigned int len, struct vsync_rec *pData);
 
-
-void frm_get_vsync_data(struct vsync_rec *pData);
 
 void frm_set_frame_measurement(
 	unsigned int idx, unsigned int passed_vsyncs,
@@ -86,6 +92,8 @@ void frm_set_frame_measurement(
  * !!! please only use bellow function on software debug or ut_test !!!
  ******************************************************************************/
 /* only for FrameSync Driver and ut test used */
+int frm_get_instance_idx_by_tg(unsigned int tg);
+
 void frm_update_predicted_curr_fl_us(unsigned int idx, unsigned int fl_us);
 
 void frm_update_next_vts_bias_us(unsigned int idx, unsigned int vts_bias);

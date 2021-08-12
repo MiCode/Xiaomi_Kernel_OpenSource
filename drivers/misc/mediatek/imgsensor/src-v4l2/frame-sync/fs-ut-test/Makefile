@@ -15,11 +15,13 @@ SRCS = ut_fs_test.c \
 	   ../frame_sync.c \
 	   ../frame_sync_algo.c \
 	   ../frame_monitor.c \
+	   ../frame_sync_util.c \
 
 #OBJS = ut_fs_test.o \
 #	   frame_sync.o \
 #	   frame_sync_algo.o \
 #	   frame_monitor.o \
+#	   frame_sync_util.o \
 
 TARGET = ut_fs_test
 
