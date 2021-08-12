@@ -71,6 +71,9 @@ extern int mml_trace;
 		mml_trace_end(); \
 } while (0)
 
+/* mml slt */
+extern int mml_slt;
+
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
 #define MML_MAX_PATH_CACHES	8

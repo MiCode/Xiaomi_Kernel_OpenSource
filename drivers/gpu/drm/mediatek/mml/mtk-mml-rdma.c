@@ -414,9 +414,9 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	data->rdma_data.src_fmt = src->format;
 	data->rdma_data.blk_shift_w =
-		MML_FMT_BLOCK(src->format)? 4: 0;
+		MML_FMT_BLOCK(src->format) ? 4 : 0;
 	data->rdma_data.blk_shift_h =
-		MML_FMT_BLOCK(src->format)? 5: 0;
+		MML_FMT_BLOCK(src->format) ? 5 : 0;
 	data->rdma_data.alpharot = cfg->alpharot;
 	data->rdma_data.max_width = rdma->data->tile_width;
 
@@ -799,7 +799,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 
 	const phys_addr_t base_pa = comp->base_pa;
-	const bool write_sec = rdma->data->write_sec_reg;
+	const bool write_sec = mml_slt ? false : rdma->data->write_sec_reg;
 	u8 simple_mode = 1;
 	u8 filterMode;
 	u8 loose = 0;
@@ -977,24 +977,26 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_msg("%s src %#11llx %#11llx %#11llx",
 		__func__, iova[0], iova[1], iova[2]);
 
-	rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
-			CPR_RDMA_SRC_BASE_0,
-			iova[0],
-			reuse, cache,
-			&rdma_frm->labels[RDMA_LABEL_BASE_0],
-			write_sec);
-	rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
-			CPR_RDMA_SRC_BASE_1,
-			iova[1],
-			reuse, cache,
-			&rdma_frm->labels[RDMA_LABEL_BASE_1],
-			write_sec);
-	rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
-			CPR_RDMA_SRC_BASE_2,
-			iova[2],
-			reuse, cache,
-			&rdma_frm->labels[RDMA_LABEL_BASE_2],
-			write_sec);
+	if (!mml_slt) {
+		rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+				CPR_RDMA_SRC_BASE_0,
+				iova[0],
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_BASE_0],
+				write_sec);
+		rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+				CPR_RDMA_SRC_BASE_1,
+				iova[1],
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_BASE_1],
+				write_sec);
+		rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+				CPR_RDMA_SRC_BASE_2,
+				iova[2],
+				reuse, cache,
+				&rdma_frm->labels[RDMA_LABEL_BASE_2],
+				write_sec);
+	}
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_BYTE,
 		       src->y_stride, U32_MAX);
@@ -1021,7 +1023,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 plane;
 
 	const phys_addr_t base_pa = comp->base_pa;
-	const bool write_sec = rdma->data->write_sec_reg;
+	const bool write_sec = mml_slt ? false : rdma->data->write_sec_reg;
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 

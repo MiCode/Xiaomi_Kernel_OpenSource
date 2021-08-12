@@ -863,19 +863,21 @@ static void wrot_config_addr(const struct mml_frame_dest *dest,
 			addr_v, wrot_frm->plane_offset[2]);
 	}
 
-	/* Write frame base address */
-	wrot_write_addr(pkt,
-			base_pa + VIDO_BASE_ADDR,
-			base_pa + VIDO_BASE_ADDR_HIGH, addr,
-			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
-	wrot_write_addr(pkt,
-			base_pa + VIDO_BASE_ADDR_C,
-			base_pa + VIDO_BASE_ADDR_HIGH_C, addr_c,
-			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
-	wrot_write_addr(pkt,
-			base_pa + VIDO_BASE_ADDR_V,
-			base_pa + VIDO_BASE_ADDR_HIGH_V, addr_v,
-			reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
+	if (!mml_slt) {
+		/* Write frame base address */
+		wrot_write_addr(pkt,
+				base_pa + VIDO_BASE_ADDR,
+				base_pa + VIDO_BASE_ADDR_HIGH, addr,
+				reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+		wrot_write_addr(pkt,
+				base_pa + VIDO_BASE_ADDR_C,
+				base_pa + VIDO_BASE_ADDR_HIGH_C, addr_c,
+				reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+		wrot_write_addr(pkt,
+				base_pa + VIDO_BASE_ADDR_V,
+				base_pa + VIDO_BASE_ADDR_HIGH_V, addr_v,
+				reuse, cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
+	}
 }
 
 static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,

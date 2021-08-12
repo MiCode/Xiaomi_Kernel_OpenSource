@@ -38,6 +38,9 @@ module_param(mml_qos, int, 0644);
 int mml_qos_log;
 module_param(mml_qos_log, int, 0644);
 
+int mml_slt;
+module_param(mml_slt, int, 0644);
+
 #define mml_msg_qos(fmt, args...) \
 do { \
 	if (mml_qos_log) \

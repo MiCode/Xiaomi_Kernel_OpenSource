@@ -38,6 +38,8 @@ enum topology_scenario {
 	PATH_MML_NOPQ_P1,
 	PATH_MML_PQ_P0,
 	PATH_MML_PQ_P1,
+	PATH_MML_PQ_P2,
+	PATH_MML_PQ_P3,
 	PATH_MML_2OUT_P0,
 	PATH_MML_2OUT_P1,
 	PATH_MML_MAX
@@ -69,7 +71,6 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_RDMA1, MML_WROT1,},
 		{MML_WROT1,},
 	},
-
 	[PATH_MML_PQ_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
@@ -95,6 +96,20 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_COLOR1, MML_DLO1_SOUT,},
 		{MML_DLO1_SOUT, MML_WROT1,},
 		{MML_WROT1,},
+	},
+	[PATH_MML_PQ_P2] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA0, MML_RSZ2,},
+		{MML_RSZ2, MML_WROT2,},
+		{MML_WROT2,},
+	},
+	[PATH_MML_PQ_P3] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA1, MML_RSZ3,},
+		{MML_RSZ3, MML_WROT3,},
+		{MML_WROT3,},
 	},
 	[PATH_MML_2OUT_P0] = {
 		{MML_MMLSYS,},
@@ -139,6 +154,8 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P0] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_PQ_P2] = MML_CLT_PIPE0,
+	[PATH_MML_PQ_P3] = MML_CLT_PIPE1,
 	[PATH_MML_2OUT_P0] = MML_CLT_PIPE0,
 	[PATH_MML_2OUT_P1] = MML_CLT_PIPE1,
 };
@@ -160,6 +177,8 @@ static const u8 grp_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MUX_SOF_GRP2,
 	[PATH_MML_PQ_P0] = MUX_SOF_GRP1,
 	[PATH_MML_PQ_P1] = MUX_SOF_GRP2,
+	[PATH_MML_PQ_P2] = MUX_SOF_GRP1,
+	[PATH_MML_PQ_P3] = MUX_SOF_GRP2,
 	[PATH_MML_2OUT_P0] = MUX_SOF_GRP1,
 	[PATH_MML_2OUT_P1] = MUX_SOF_GRP2,
 };
@@ -419,8 +438,13 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[1] = PATH_MML_NOPQ_P1;
 	} else if (en_rsz && cfg->info.dest_cnt == 1) {
 		/* 1 in 1 out with PQs */
-		scene[0] = PATH_MML_PQ_P0;
-		scene[1] = PATH_MML_PQ_P1;
+		if (mml_force_rsz == 2) {
+			scene[0] = PATH_MML_PQ_P2;
+			scene[1] = PATH_MML_PQ_P3;
+		} else {
+			scene[0] = PATH_MML_PQ_P0;
+			scene[1] = PATH_MML_PQ_P1;
+		}
 	} else if (cfg->info.dest_cnt == 2) {
 		scene[0] = PATH_MML_2OUT_P0;
 		scene[1] = PATH_MML_2OUT_P1;
