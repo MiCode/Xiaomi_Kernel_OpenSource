@@ -849,15 +849,6 @@
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 
-		reserve-memory-sspm_share {
-			compatible = "mediatek,reserve-memory-sspm_share";
-			no-map;
-			status = "okay";
-			size = <0 0x510000>; /* 5M + 64K */
-			alignment = <0 0x10000>;
-			alloc-ranges = <0 0x40000000 0 0x60000000>;
-		};
-
 		reserve-memory-gpueb_share {
 			compatible = "mediatek,reserve-memory-gpueb_share";
 			no-map;
@@ -8341,6 +8332,8 @@
 		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		interrupt-names = "ipc";
+		sspm_res_ram_start = <0x0>;
+		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
 	};
 
 	/* Trustonic Mobicore SW IRQ number 713 = 32 + 681 */
