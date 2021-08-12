@@ -788,8 +788,8 @@ static bool is_usb_rdy(struct device *dev)
 
 	node = of_parse_phandle(dev->of_node, "usb", 0);
 	if (node) {
-		ready = of_property_read_bool(node, "gadget-ready");
-		mt_dbg(dev, "gadget-ready = %d\n", ready);
+		ready = !of_property_read_bool(node, "cdp-block");
+		mt_dbg(dev, "usb ready = %d\n", ready);
 	} else
 		dev_warn(dev, "usb node missing or invalid\n");
 	return ready;
@@ -798,22 +798,22 @@ static bool is_usb_rdy(struct device *dev)
 static int mt6375_chg_enable_bc12(struct mt6375_chg_data *ddata, bool en)
 {
 	int i, ret;
-	static const int max_wait_cnt = 100;
+	static const int max_wait_cnt = 250;
 	bool attach;
 
 	mt_dbg(ddata->dev, "en=%d\n", en);
 	if (en) {
 		/* CDP port specific process */
+		dev_info(ddata->dev, "check CDP block\n");
 		for (i = 0; i < max_wait_cnt; i++) {
 			if (is_usb_rdy(ddata->dev))
 				break;
-			dev_info(ddata->dev, "CDP block\n");
 			mutex_lock(&ddata->attach_lock);
 			attach = ddata->attach;
 			mutex_unlock(&ddata->attach_lock);
 			if (!attach)
 				return 0;
-			msleep(20);
+			msleep(100);
 		}
 		if (i == max_wait_cnt)
 			dev_notice(ddata->dev, "CDP timeout\n", __func__);
