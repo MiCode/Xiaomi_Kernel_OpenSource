@@ -338,7 +338,7 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[5] = {
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 		0x00, 0x2b, 0x0FA0, 0x0A28, 0x00, 0x00, 0x0280, 0x0001,
-		0x01, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
+		0x01, 0x2b, 0x01F0, 0x0510, 0x03, 0x00, 0x0000, 0x0000
 	},
 	/* custom1 mode setting 248(pxiel)*1496*/
 	{
@@ -366,7 +366,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 	 .iMirrorFlip = 0,
 	 .i4BlockNumX = 248,
 	 .i4BlockNumY = 187,
-	 .i4Crop = { {0, 0}, {0, 0}, {0, 372}, {0, 0}, {0, 0},
+	 .i4Crop = { {0, 0}, {0, 0}, {0, 200}, {0, 0}, {0, 0},
 				 {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 };
 #endif
@@ -2478,7 +2478,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 			imgsensor_pd_info.i4BlockNumX = 248;
-			imgsensor_pd_info.i4BlockNumY = 141;
+			imgsensor_pd_info.i4BlockNumY = 162;
 			memcpy((void *)PDAFinfo, (void *)&imgsensor_pd_info,
 				sizeof(struct SET_PD_BLOCK_INFO_T));
 			break;
@@ -2583,7 +2583,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 			.channel = 1,
 			.data_type = 0x2b,
 			.hsize = 0x01f0,
-			.vsize = 0x05d8,
+			.vsize = 0x0510,
 			.user_data_desc = VC_PDAF_STATS,
 		},
 	},
