@@ -371,7 +371,6 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 	}
 	mml_trace_ex_end();
 
-	cmdq_util_prebuilt_enable(0);
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 
 	mml_clock_unlock(task->config->mml);
