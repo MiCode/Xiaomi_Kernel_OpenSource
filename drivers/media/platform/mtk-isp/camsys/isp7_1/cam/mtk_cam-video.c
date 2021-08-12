@@ -246,7 +246,8 @@ fail_stop_ctx:
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	mtk_cam_stop_ctx(ctx, entity);
 fail_unlock:
-	mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
+	if (ctx)
+		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
 	mutex_unlock(&cam->op_lock);
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_QUEUED);
 
