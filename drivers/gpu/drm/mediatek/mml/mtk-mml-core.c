@@ -225,9 +225,11 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp_config *ccfg = cache->cfg;
 	const u32 tile_cnt = task->config->tile_output[pipe]->tile_cnt;
+	struct mml_frame_dest dest = task->config->info.dest[0];
+	bool reverse;
 
 	struct mml_comp *comp;
-	u32 i, tile;
+	u32 i, tile, tile_idx;
 	s32 ret;
 
 	if (IS_ERR(pkt)) {
@@ -267,10 +269,15 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		goto err;
 	}
 
+	reverse = task->config->info.mode == MML_MODE_RACING &&
+		  (dest.rotate == MML_ROT_180 || dest.rotate == MML_ROT_270);
+
 	for (tile = 0; tile < tile_cnt; tile++) {
+		tile_idx = reverse ? tile_cnt - 1 - tile : tile;
+
 		for (i = 0; i < path->node_cnt; i++) {
 			comp = path->nodes[i].comp;
-			call_cfg_op(comp, tile, task, &ccfg[i], tile);
+			call_cfg_op(comp, tile, task, &ccfg[i], tile_idx);
 		}
 
 		if (task->config->shadow) {
@@ -278,17 +285,18 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 			if (tile) {
 				for (i = 0; i < path->node_cnt; i++) {
 					comp = path->nodes[i].comp;
-					call_cfg_op(comp, wait, task, &ccfg[i], tile);
+					call_cfg_op(comp, wait, task, &ccfg[i],
+						    tile_idx);
 				}
 			}
 			path->mutex->config_ops->mutex(path->mutex, task,
 						       &ccfg[path->mutex_idx]);
-
-			/* last tile needs wait event again */
+			/* last tile needs wait again */
 			if (tile == tile_cnt - 1) {
 				for (i = 0; i < path->node_cnt; i++) {
 					comp = path->nodes[i].comp;
-					call_cfg_op(comp, wait, task, &ccfg[i], tile);
+					call_cfg_op(comp, wait, task, &ccfg[i],
+						    tile_idx);
 				}
 			}
 		} else {
@@ -296,7 +304,8 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 						       &ccfg[path->mutex_idx]);
 			for (i = 0; i < path->node_cnt; i++) {
 				comp = path->nodes[i].comp;
-				call_cfg_op(comp, wait, task, &ccfg[i], tile);
+				call_cfg_op(comp, wait, task, &ccfg[i],
+					    tile_idx);
 			}
 		}
 	}

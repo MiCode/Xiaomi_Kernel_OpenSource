@@ -136,12 +136,16 @@ enum mml_tile_state {
 	TILE_DONE
 };
 
-#define MAX_TILE_NUM 8
+#define MAX_DECOUPLE_TILE_NUM 8
+#define MAX_RACING_90_270_TILE_NUM 64
+#define MAX_RACING_0_180_TILE_NUM 128
 
 s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 {
 	struct mml_tile_output *output;
 	struct mml_tile_config *tiles;
+	size_t tile_num;
+	struct mml_frame_dest dest = task->config->info.dest[0];
 	const struct mml_topology_path **paths = get_topology_path(task);
 	u32 tile_cnt = 0;
 	struct tile_param *tile_param;
@@ -157,7 +161,19 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 
 	tile_datas = kcalloc(eng_cnt, sizeof(*tile_datas), GFP_KERNEL);
 	output = kzalloc(sizeof(*output), GFP_KERNEL);
-	tiles = kcalloc(MAX_TILE_NUM, sizeof(*tiles), GFP_KERNEL);
+
+	if (task->config->info.mode == MML_MODE_RACING) {
+		if (task->config->info.dest_cnt > 1)
+			mml_err("Racing mode but output count > 1");
+
+		if (dest.rotate == MML_ROT_90 || dest.rotate == MML_ROT_270)
+			tile_num = MAX_RACING_90_270_TILE_NUM;
+		else
+			tile_num = MAX_RACING_0_180_TILE_NUM;
+	} else {
+		tile_num = MAX_DECOUPLE_TILE_NUM;
+	}
+	tiles = kcalloc(tile_num, sizeof(*tiles), GFP_KERNEL);
 
 	/* todo: vmalloc when driver init */
 	tile_param = kzalloc(sizeof(*tile_param), GFP_KERNEL);

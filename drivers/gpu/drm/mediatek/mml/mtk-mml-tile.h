@@ -63,9 +63,10 @@ struct wrot_tile_data {
 	u32 rotate;
 	bool flip;
 	bool alpharot;
-	bool enable_crop;
-	s32 crop_left;
-	s32 crop_width;
+	bool racing;
+	bool enable_x_crop;
+	bool enable_y_crop;
+	struct mml_rect crop;
 	u32 max_width;
 };
 
