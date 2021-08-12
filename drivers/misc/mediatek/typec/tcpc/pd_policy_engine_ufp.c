@@ -106,3 +106,9 @@ void pe_ufp_uvdm_recv_entry(struct pd_port *pd_port)
 }
 
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
+
+void pe_ufp_vdm_send_nak_entry(struct pd_port *pd_port)
+{
+	pd_dpm_ufp_send_svdm_nak(pd_port);
+	VDM_STATE_DPM_INFORMED(pd_port);
+}

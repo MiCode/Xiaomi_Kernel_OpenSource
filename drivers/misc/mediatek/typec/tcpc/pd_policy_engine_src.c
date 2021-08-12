@@ -105,11 +105,13 @@ void pe_src_hard_reset_entry(struct pd_port *pd_port)
 {
 	pd_send_hard_reset(pd_port);
 	pd_enable_timer(pd_port, PD_TIMER_PS_HARD_RESET);
+	pd_enable_timer(pd_port, PD_TIMER_NO_RESPONSE);
 }
 
 void pe_src_hard_reset_received_entry(struct pd_port *pd_port)
 {
 	pd_enable_timer(pd_port, PD_TIMER_PS_HARD_RESET);
+	pd_enable_timer(pd_port, PD_TIMER_NO_RESPONSE);
 }
 
 void pe_src_transition_to_default_entry(struct pd_port *pd_port)
@@ -121,7 +123,6 @@ void pe_src_transition_to_default_entry(struct pd_port *pd_port)
 void pe_src_transition_to_default_exit(struct pd_port *pd_port)
 {
 	pd_set_vconn(pd_port, PD_ROLE_VCONN_ON);
-	pd_enable_timer(pd_port, PD_TIMER_NO_RESPONSE);
 }
 
 void pe_src_get_sink_cap_entry(struct pd_port *pd_port)

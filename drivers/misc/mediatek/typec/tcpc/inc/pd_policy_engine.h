@@ -355,6 +355,8 @@ enum pd_pe_state {
 	PE_DFP_UVDM_NAKED,
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 
+	PE_UFP_VDM_SEND_NAK,
+
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
@@ -834,6 +836,8 @@ void pe_dfp_uvdm_acked_entry(
 void pe_dfp_uvdm_naked_entry(
 	struct pd_port *pd_port);
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
+void pe_ufp_vdm_send_nak_entry(
+	struct pd_port *pd_port);
 
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30

@@ -40,7 +40,7 @@
 
 /* #define DEBUG_GPIO	66 */
 
-#define MT6360_DRV_VERSION	"2.0.6_MTK"
+#define MT6360_DRV_VERSION	"2.0.7_MTK"
 
 #define MT6360_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -2046,6 +2046,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	/* SHIPPING off, AUTOIDLE enable, TIMEOUT = 6.4ms */
 	mt6360_i2c_write8(tcpc, MT6360_REG_MODE_CTRL2,
 			  MT6360_REG_MODE_CTRL2_SET(1, 1, 0));
+	mdelay(1);
 
 	return 0;
 }
@@ -2778,6 +2779,9 @@ MODULE_DESCRIPTION("MT6360 TCPC Driver");
 MODULE_VERSION(MT6360_DRV_VERSION);
 
 /**** Release Note ****
+ * 2.0.7_MTK
+ *	(1) mdelay(1) after SHIPPING_OFF = 1
+ *
  * 2.0.6_MTK
  *	(1) Utilize rt-regmap to reduce I2C accesses
  *	(2) Disable BLEED_DISC and Enable AUTO_DISC_DISCNCT

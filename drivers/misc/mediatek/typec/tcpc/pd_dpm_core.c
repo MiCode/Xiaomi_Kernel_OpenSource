@@ -244,9 +244,9 @@ static int pps_request_thread_fn(void *data)
 	};
 
 	while (true) {
-		wait_event(pd_port->pps_request_wait_que,
-			   atomic_read(&pd_port->pps_request) ||
-			   kthread_should_stop());
+		wait_event_interruptible(pd_port->pps_request_wait_que,
+					 atomic_read(&pd_port->pps_request) ||
+					 kthread_should_stop());
 		if (kthread_should_stop())
 			break;
 		do {
@@ -1455,6 +1455,10 @@ void pd_dpm_dfp_inform_uvdm(struct pd_port *pd_port, bool ack)
 
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
 
+void pd_dpm_ufp_send_svdm_nak(struct pd_port *pd_port)
+{
+	dpm_vdm_reply_svdm_nak(pd_port);
+}
 
 /*
  * DRP : Inform Source/Sink Cap
@@ -1844,7 +1848,7 @@ void pd_dpm_inform_battery_status(struct pd_port *pd_port)
 #endif	/* CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE */
 
 static const struct pd_manufacturer_info c_invalid_mfrs = {
-	.vid = 0, .pid = 0, .mfrs_string = "Not Supported",
+	.vid = 0xFFFF, .pid = 0, .mfrs_string = "Not Supported",
 };
 
 #ifdef CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL
@@ -2300,7 +2304,9 @@ int pd_dpm_core_init(struct pd_port *pd_port)
 	int i, j;
 	bool ret;
 	uint8_t svid_ops_nr = ARRAY_SIZE(svdm_svid_ops);
+#ifdef CONFIG_USB_PD_REV30
 	struct tcpc_device *tcpc = pd_port->tcpc;
+#endif /* CONFIG_USB_PD_REV30 */
 
 	pd_port->svid_data = devm_kzalloc(&pd_port->tcpc->dev,
 		sizeof(struct svdm_svid_data) * svid_ops_nr, GFP_KERNEL);

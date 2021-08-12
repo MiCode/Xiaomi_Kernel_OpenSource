@@ -23,7 +23,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.14_MTK"
+#define TCPC_CORE_VERSION		"2.0.15_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -231,28 +231,21 @@ static ssize_t tcpc_show_property(struct device *dev,
 	return strlen(buf);
 }
 
-static int get_parameters(char *buf, long *param1, int num_of_par)
+static int get_parameters(char *buf, unsigned long *param, int num_of_par)
 {
-	char *token;
-	int base, cnt;
-
-	token = strsep(&buf, " ");
+	int cnt = 0;
+	char *token = strsep(&buf, " ");
 
 	for (cnt = 0; cnt < num_of_par; cnt++) {
-		if (token != NULL) {
-			if ((token[1] == 'x') || (token[1] == 'X'))
-				base = 16;
-			else
-				base = 10;
-
-			if (kstrtoul(token, base, &param1[cnt]) != 0)
+		if (token) {
+			if (kstrtoul(token, 0, &param[cnt]) != 0)
 				return -EINVAL;
 
 			token = strsep(&buf, " ");
-			}
-		else
+		} else
 			return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -960,6 +953,21 @@ MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.15_MTK
+ * (1) undef CONFIG_COMPATIBLE_APPLE_TA
+ * (2) Fix TEST.PD.PROT.ALL.5 Unrecognized Message (PD2)
+ * (3) Fix TEST.PD.PROT.ALL3.3 Invalid Manufacturer Info Target
+ * (4) Fix TEST.PD.PROT.ALL3.4 Invalid Manufacturer Info Ref
+ * (5) Fix TEST.PD.PROT.SRC.11 Unexpected Message Received in Ready State (PD2)
+ * (6) Fix TEST.PD.PROT.SRC.13 PR_Swap - GoodCRC not sent in Response to PS_RDY
+ * (7) Fix TEST.PD.VDM.SRC.2 Invalid Fields - Discover Identity (PD2)
+ * (8) Revise the usages of PD_TIMER_NO_RESPONSE
+ * (9) Retry to send Source_Capabilities after PR_Swap
+ * (10) Fix tcpm_get_remote_power_cap() and __tcpm_inquire_select_source_cap()
+ * (11) Increase the threshold to enter PE_ERROR_RECOVERY_ONCE from 2 to 4
+ * (12) Change wait_event() back to wait_event_interruptible() for not being
+ *	detected as hung tasks
+ *
  * 2.0.14_MTK
  * (1) Move out typec_port registration and operation to rt_pd_manager.c
  * (2) Rename CONFIG_TYPEC_WAIT_BC12 to CONFIG_USB_PD_WAIT_BC12

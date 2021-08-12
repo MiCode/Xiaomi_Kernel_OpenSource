@@ -972,6 +972,9 @@ extern int tcpm_dpm_pd_fast_swap(struct tcpc_device *tcpc,
 	uint8_t role, const struct tcp_dpm_event_cb_data *data);
 extern int tcpm_dpm_pd_get_status(struct tcpc_device *tcpc,
 	const struct tcp_dpm_event_cb_data *data, struct pd_status *status);
+extern int tcpm_dpm_pd_get_pps_status_raw(struct tcpc_device *tcpc,
+	const struct tcp_dpm_event_cb_data *cb_data,
+	struct pd_pps_status_raw *pps_status);
 extern int tcpm_dpm_pd_get_pps_status(struct tcpc_device *tcpc,
 	const struct tcp_dpm_event_cb_data *data,
 	struct pd_pps_status *pps_status);

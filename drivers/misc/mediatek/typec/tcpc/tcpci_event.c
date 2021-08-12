@@ -1303,9 +1303,9 @@ static int tcpc_event_thread_fn(void *data)
 	sched_setscheduler(current, SCHED_FIFO, &sch_param);
 
 	while (true) {
-		wait_event(tcpc->event_wait_que,
-			   atomic_read(&tcpc->pending_event) ||
-			   kthread_should_stop());
+		wait_event_interruptible(tcpc->event_wait_que,
+					 atomic_read(&tcpc->pending_event) ||
+					 kthread_should_stop());
 		if (kthread_should_stop())
 			break;
 		do {

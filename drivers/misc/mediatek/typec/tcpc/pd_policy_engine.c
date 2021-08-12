@@ -216,6 +216,7 @@ static const char *const pe_state_name[] = {
 	"PE_DFP_UVDM_ACKED",
 	"PE_DFP_UVDM_NAKED",
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
+	"PE_UFP_VDM_SEND_NAK",
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
@@ -475,6 +476,7 @@ static const char *const pe_state_name[] = {
 	"D_UVDM_ACKED",
 	"D_UVDM_NAKED",
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
+	"U_SEND_NAK",
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
@@ -744,6 +746,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 	PE_STATE_ACTIONS(pe_dfp_uvdm_acked),
 	PE_STATE_ACTIONS(pe_dfp_uvdm_naked),
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
+	PE_STATE_ACTIONS(pe_ufp_vdm_send_nak),
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE

@@ -41,13 +41,6 @@ static int tcpm_check_pd_attached(struct tcpc_device *tcpc)
 	}
 
 	ret = tcpm_check_typec_attached(tcpc);
-	if (ret != TCPM_SUCCESS)
-		goto unlock_typec_out;
-
-#ifdef CONFIG_TYPEC_CAP_CUSTOM_SRC
-	if (tcpc->typec_attach_old == TYPEC_ATTACHED_CUSTOM_SRC)
-		ret = TCPM_ERROR_CUSTOM_SRC;
-#endif	/* CONFIG_TYPEC_CAP_CUSTOM_SRC */
 
 unlock_typec_out:
 	tcpci_unlock_typec(tcpc);
@@ -653,15 +646,17 @@ int tcpm_get_remote_power_cap(struct tcpc_device *tcpc,
 	int i;
 
 	mutex_lock(&pd_port->pd_lock);
-	remote_cap->selected_cap_idx =
-		tcpc->pd_port.pe_data.remote_selected_cap;
-	remote_cap->nr = tcpc->pd_port.pe_data.remote_src_cap.nr;
+	remote_cap->selected_cap_idx = pd_port->pe_data.remote_selected_cap;
+	remote_cap->nr = pd_port->pe_data.remote_src_cap.nr;
 	for (i = 0; i < remote_cap->nr; i++) {
 		tcpm_extract_power_cap_val(
-			tcpc->pd_port.pe_data.remote_src_cap.pdos[i], &cap);
+			pd_port->pe_data.remote_src_cap.pdos[i], &cap);
 		remote_cap->max_mv[i] = cap.max_mv;
 		remote_cap->min_mv[i] = cap.min_mv;
-		remote_cap->ma[i] = cap.ma;
+		if (cap.type == DPM_PDO_TYPE_BAT)
+			remote_cap->ma[i] = cap.uw / cap.min_mv;
+		else
+			remote_cap->ma[i] = cap.ma;
 		remote_cap->type[i] = cap.type;
 	}
 	mutex_unlock(&pd_port->pd_lock);
@@ -685,7 +680,7 @@ static inline int __tcpm_inquire_select_source_cap(
 		return TCPM_ERROR_POWER_ROLE;
 
 	sel = RDO_POS(pd_port->last_rdo) - 1;
-	if (sel > pe_data->remote_src_cap.nr)
+	if (sel >= pe_data->remote_src_cap.nr)
 		return TCPM_ERROR_NO_SOURCE_CAP;
 
 	if (!tcpm_extract_power_cap_val(

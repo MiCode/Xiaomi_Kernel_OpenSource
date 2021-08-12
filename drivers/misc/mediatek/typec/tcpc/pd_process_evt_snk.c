@@ -50,10 +50,7 @@ static bool pd_process_ctrl_msg_get_source_cap(
 	}
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
-	if (!pd_check_rev30(pd_port)) {
-		PE_TRANSIT_STATE(pd_port, PE_REJECT);
-		return true;
-	}
+	pd_port->curr_unsupported_msg = true;
 
 	return false;
 }

@@ -82,9 +82,9 @@ static inline bool pd_dbg_print_out(void)
 static int print_out_thread_fn(void *data)
 {
 	while (true) {
-		wait_event(print_out_wait_que,
-			   atomic_read(&pending_print_out) ||
-			   kthread_should_stop());
+		wait_event_interruptible(print_out_wait_que,
+					 atomic_read(&pending_print_out) ||
+					 kthread_should_stop());
 		if (kthread_should_stop())
 			break;
 		do {

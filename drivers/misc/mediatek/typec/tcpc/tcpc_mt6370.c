@@ -34,7 +34,7 @@
 
 /* #define DEBUG_GPIO	66 */
 
-#define MT6370_DRV_VERSION	"2.0.5_MTK"
+#define MT6370_DRV_VERSION	"2.0.6_MTK"
 
 #define MT6370_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -771,7 +771,7 @@ static int mt6370_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	 * DRP Duyt Ctrl : dcSRC: /1024
 	 */
 
-	mt6370_i2c_write8(tcpc, MT6370_REG_TTCPC_FILTER, 5);
+	mt6370_i2c_write8(tcpc, MT6370_REG_TTCPC_FILTER, 10);
 	mt6370_i2c_write8(tcpc, MT6370_REG_DRP_TOGGLE_CYCLE, 4);
 	mt6370_i2c_write16(tcpc, MT6370_REG_DRP_DUTY_CTRL, TCPC_NORMAL_RP_DUTY);
 
@@ -1804,6 +1804,9 @@ MODULE_DESCRIPTION("MT6370 TCPC Driver");
 MODULE_VERSION(MT6370_DRV_VERSION);
 
 /**** Release Note ****
+ * 2.0.6_MTK
+ * (1) Update tTCPCfilter to 267us
+ *
  * 2.0.5_MTK
  * (1) Utilize rt-regmap to reduce I2C accesses
  *

@@ -7,6 +7,7 @@
 #include "inc/tcpci_event.h"
 #include "inc/pd_process_evt.h"
 #include "inc/pd_dpm_core.h"
+#include "pd_dpm_prv.h"
 
 /* VDM reactions */
 
@@ -618,10 +619,15 @@ static inline bool pd_process_data_msg(
 
 	print_vdm_msg(pd_port, pd_event);
 
-	if (pd_msg->frame_type == TCPC_TX_SOP_PRIME)
+	if (pd_port->curr_vdm_svid != USB_SID_PD &&
+		!dpm_get_svdm_svid_data(pd_port, pd_port->curr_vdm_svid)) {
+		PE_TRANSIT_STATE(pd_port, PE_UFP_VDM_SEND_NAK);
+		ret = true;
+	} else if (pd_msg->frame_type == TCPC_TX_SOP_PRIME) {
 		ret = pd_process_sop_prime_vdm(pd_port, pd_event);
-	else
+	} else {
 		ret = pd_process_sop_vdm(pd_port, pd_event);
+	}
 
 	return ret;
 }

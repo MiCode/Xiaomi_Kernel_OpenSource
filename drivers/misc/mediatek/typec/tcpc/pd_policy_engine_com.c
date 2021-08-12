@@ -149,9 +149,6 @@ static inline uint8_t pe20_power_ready_entry(struct pd_port *pd_port)
 	if (pd_port->data_role == PD_ROLE_DFP)
 		rx_cap = PD_RX_CAP_PE_READY_DFP;
 
-	pd_port->pe_data.pe_state_flags |=
-		PE_STATE_FLAG_IGNORE_UNKNOWN_EVENT;
-
 	return rx_cap;
 }
 

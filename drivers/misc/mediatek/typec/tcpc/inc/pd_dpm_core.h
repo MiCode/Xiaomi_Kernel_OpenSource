@@ -91,6 +91,8 @@ void pd_dpm_dfp_inform_uvdm(struct pd_port *pd_port, bool ack);
 
 #endif     /* CONFIG_USB_PD_CUSTOM_VDM */
 
+void pd_dpm_ufp_send_svdm_nak(struct pd_port *pd_port);
+
 /* ---- DRP : Inform PowerCap ---- */
 
 void pd_dpm_dr_inform_sink_cap(struct pd_port *pd_port);
