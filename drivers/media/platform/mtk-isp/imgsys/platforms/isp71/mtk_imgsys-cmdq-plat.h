@@ -9,7 +9,7 @@
 #ifndef _MTK_IMGSYS_CMDQ_PLAT_H_
 #define _MTK_IMGSYS_CMDQ_PLAT_H_
 
-#define IMGSYS_DVFS_ENABLE     (0)
+#define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (0)
 
 /* Record info definitions */

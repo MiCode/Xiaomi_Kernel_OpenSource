@@ -13,7 +13,7 @@
 
 #define CMDQ_STOP_FUNC         (0)
 
-#define DVFS_QOS_READY         (0)
+#define DVFS_QOS_READY         (1)
 
 struct mtk_imgsys_cmdq_timestamp {
 	u64 tsReqStart;
