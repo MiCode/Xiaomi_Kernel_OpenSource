@@ -24,7 +24,7 @@
 #include "charger_class.h"
 #include "mtk_charger.h"
 
-static bool dbg_log_en = true;
+static bool dbg_log_en;
 module_param(dbg_log_en, bool, 0644);
 #define mt_dbg(dev, fmt, ...) \
 	do { \
