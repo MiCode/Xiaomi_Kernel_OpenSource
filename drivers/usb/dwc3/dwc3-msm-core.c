@@ -3794,7 +3794,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		clear_bit(B_SUSPEND, &mdwc->inputs);
 	}
 
-	if (mdwc->check_eud_state) {
+	if (mdwc->check_eud_state && mdwc->vbus_active) {
 		mdwc->hs_phy->flags &=
 			~(EUD_SPOOF_CONNECT | EUD_SPOOF_DISCONNECT);
 		dbg_log_string("eud: state:%d active:%d hs_phy_flags:0x%x\n",
