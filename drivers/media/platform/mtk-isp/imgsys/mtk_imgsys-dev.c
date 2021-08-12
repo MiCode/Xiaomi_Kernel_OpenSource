@@ -549,6 +549,12 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		return iova_info->dma_addr;
 	}
 
+	if (IS_ERR(dma_buf)) {
+		dev_dbg(imgsys_dev->dev, "%s: dma_buf 0x%xlx",
+							__func__, dma_buf);
+		return 0;
+	}
+
 	dev = imgsys_dev->dev;
 
 	attach = dma_buf_attach(dma_buf, dev);
@@ -723,6 +729,8 @@ static void mtk_imgsys_desc_fill_dmabuf(struct mtk_imgsys_pipe *pipe,
 			/* get dma_buf first */
 			dbuf = dma_buf_get(plane->m.dma_buf.fd);
 			if (IS_ERR(dbuf)) {
+				plane->reserved[0] = 0;
+				plane->reserved[1] = 0;
 				pr_info("%s: dma_buf %lx", __func__, dbuf);
 				continue;
 			}
