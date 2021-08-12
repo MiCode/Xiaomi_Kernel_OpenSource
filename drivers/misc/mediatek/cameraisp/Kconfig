@@ -29,4 +29,4 @@ source "drivers/misc/mediatek/cameraisp/dpe/Kconfig"
 source "drivers/misc/mediatek/cameraisp/mfb/Kconfig"
 source "drivers/misc/mediatek/cameraisp/fdvt/Kconfig"
 source "drivers/misc/mediatek/cameraisp/dip/Kconfig"
-
+source "drivers/misc/mediatek/cameraisp/pda/Kconfig"
