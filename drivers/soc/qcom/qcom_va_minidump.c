@@ -47,12 +47,193 @@ struct va_minidump_data {
 	struct md_region md_entry;
 	bool in_oops_handler;
 	bool va_md_minidump_reg;
+	bool va_md_init;
+	struct list_head va_md_list;
+	struct kset *va_md_kset;
+};
+
+/*
+ * Incase, client uses stack memory to allocate
+ * notifier block, we have to make a copy.
+ */
+struct notifier_block_list {
+	struct notifier_block nb;
+	struct list_head nb_list;
+};
+
+struct va_md_s_data {
+	struct kobject s_kobj;
+	struct atomic_notifier_head va_md_s_notif_list;
+	struct list_head va_md_s_list;
+	struct list_head va_md_s_nb_list;
+	bool enable;
 };
 
 struct va_minidump_data va_md_data;
+static DEFINE_SPINLOCK(va_md_lock);
 
-ATOMIC_NOTIFIER_HEAD(qcom_va_md_notifier_list);
-EXPORT_SYMBOL(qcom_va_md_notifier_list);
+#define to_va_md_attr(_attr) container_of(_attr, struct va_md_attribute, attr)
+#define to_va_md_s_data(obj) container_of(obj, struct va_md_s_data, s_kobj)
+
+struct va_md_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *kobj, struct attribute *attr,
+					char *buf);
+	ssize_t (*store)(struct kobject *kobj, struct attribute *attr,
+					const char *buf, size_t count);
+};
+
+static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
+							char *buf)
+{
+	struct va_md_attribute *va_md_attr = to_va_md_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (va_md_attr->show)
+		ret = va_md_attr->show(kobj, attr, buf);
+
+	return ret;
+}
+
+static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	struct va_md_attribute *va_md_attr = to_va_md_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (va_md_attr->store)
+		ret = va_md_attr->store(kobj, attr, buf, count);
+
+	return ret;
+}
+
+static const struct sysfs_ops va_md_sysfs_ops = {
+	.show   = attr_show,
+	.store  = attr_store,
+};
+
+static struct kobj_type va_md_kobj_type = {
+	.sysfs_ops      = &va_md_sysfs_ops,
+};
+
+static ssize_t enable_show(struct kobject *kobj, struct attribute *this, char *buf)
+{
+	struct va_md_s_data *vamd_sdata = to_va_md_s_data(kobj);
+
+	return scnprintf(buf, PAGE_SIZE, "enable: %u\n", vamd_sdata->enable);
+}
+
+static ssize_t enable_store(struct kobject *kobj, struct attribute *this,
+				const char *buf, size_t count)
+{
+	struct va_md_s_data *vamd_sdata = to_va_md_s_data(kobj);
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret) {
+		pr_err("Invalid value passed\n");
+		return ret;
+	}
+
+	vamd_sdata->enable = val;
+	return count;
+}
+
+static struct va_md_attribute va_md_s_attr = __ATTR_RW(enable);
+static struct attribute *va_md_s_attrs[] = {
+	&va_md_s_attr.attr,
+	NULL
+};
+
+static struct attribute_group va_md_s_attr_group = {
+	.attrs = va_md_s_attrs,
+};
+
+bool qcom_va_md_enabled(void)
+{
+	/*
+	 * Ensure that minidump is enabled and va-minidump is initialized
+	 * before we start registration.
+	 */
+	return msm_minidump_enabled() && smp_load_acquire(&va_md_data.va_md_init);
+}
+EXPORT_SYMBOL(qcom_va_md_enabled);
+
+int qcom_va_md_register(char *name, struct notifier_block *nb)
+{
+	int ret = 0;
+	struct va_md_s_data *va_md_s_data;
+	struct notifier_block_list *nbl, *temp_nbl;
+	struct kobject *kobj;
+
+	if (!qcom_va_md_enabled()) {
+		pr_err("qcom va minidump driver is not initialized\n");
+		return -ENODEV;
+	}
+
+	nbl = kzalloc(sizeof(struct notifier_block_list), GFP_KERNEL);
+	if (!nbl)
+		return -ENOMEM;
+
+	nbl->nb = *nb;
+	spin_lock(&va_md_lock);
+	kobj = kset_find_obj(va_md_data.va_md_kset, name);
+	if (kobj) {
+		pr_warn("subsystem: %s is already registered\n", name);
+		kobject_put(kobj);
+		va_md_s_data = to_va_md_s_data(kobj);
+		goto register_notifier;
+	}
+
+	va_md_s_data = kzalloc(sizeof(*va_md_s_data), GFP_KERNEL);
+	if (!va_md_s_data) {
+		ret = -ENOMEM;
+		kfree(nbl);
+		goto out;
+	}
+
+	va_md_s_data->s_kobj.kset = va_md_data.va_md_kset;
+	ret = kobject_init_and_add(&va_md_s_data->s_kobj, &va_md_kobj_type,
+				&va_md_data.va_md_kset->kobj, name);
+	if (ret) {
+		pr_err("%s: Error in kobject creation\n", __func__);
+		kobject_put(&va_md_s_data->s_kobj);
+		kfree(nbl);
+		goto out;
+	}
+
+	kobject_uevent(&va_md_s_data->s_kobj, KOBJ_ADD);
+	ret = sysfs_create_group(&va_md_s_data->s_kobj, &va_md_s_attr_group);
+	if (ret) {
+		pr_err("%s: Error in creation sysfs_create_group\n", __func__);
+		kobject_put(&va_md_s_data->s_kobj);
+		kfree(nbl);
+		goto out;
+	}
+
+	ATOMIC_INIT_NOTIFIER_HEAD(&va_md_s_data->va_md_s_notif_list);
+	INIT_LIST_HEAD(&va_md_s_data->va_md_s_nb_list);
+	va_md_s_data->enable = false;
+	list_add_tail(&va_md_s_data->va_md_s_list, &va_md_data.va_md_list);
+
+register_notifier:
+	list_for_each_entry(temp_nbl, &va_md_s_data->va_md_s_nb_list, nb_list) {
+		if (temp_nbl->nb.notifier_call == nbl->nb.notifier_call) {
+			pr_warn("subsystem:%s callback is already registered\n", name);
+			kfree(nbl);
+			ret = -EEXIST;
+			goto out;
+		}
+	}
+
+	atomic_notifier_chain_register(&va_md_s_data->va_md_s_notif_list, &nbl->nb);
+	list_add_tail(&nbl->nb_list, &va_md_s_data->va_md_s_nb_list);
+out:
+	spin_unlock(&va_md_lock);
+	return ret;
+}
+EXPORT_SYMBOL(qcom_va_md_register);
 
 static void va_md_add_entry(struct va_md_entry *entry)
 {
@@ -410,12 +591,19 @@ static int qcom_va_md_panic_handler(struct notifier_block *this,
 				    unsigned long event, void *ptr)
 {
 	unsigned long size;
+	struct va_md_s_data *va_md_s_data;
 
 	if (va_md_data.in_oops_handler)
 		return NOTIFY_DONE;
 
 	va_md_data.in_oops_handler = true;
-	atomic_notifier_call_chain(&qcom_va_md_notifier_list, 0, NULL);
+
+	list_for_each_entry(va_md_s_data, &va_md_data.va_md_list, va_md_s_list) {
+		if (va_md_s_data->enable)
+			atomic_notifier_call_chain(&va_md_s_data->va_md_s_notif_list,
+							0, NULL);
+	}
+
 	if (!va_md_data.num_sections)
 		goto out;
 
@@ -489,6 +677,23 @@ out:
 
 static int qcom_va_md_driver_remove(struct platform_device *pdev)
 {
+	struct va_md_s_data *va_md_s_data;
+	struct notifier_block_list *nbl;
+
+	spin_lock(&va_md_lock);
+	list_for_each_entry(va_md_s_data, &va_md_data.va_md_list, va_md_s_list) {
+		list_for_each_entry(nbl, &va_md_s_data->va_md_s_nb_list, nb_list) {
+			atomic_notifier_chain_unregister(&va_md_s_data->va_md_s_notif_list,
+								&nbl->nb);
+			kfree(nbl);
+		}
+
+		sysfs_remove_group(&va_md_s_data->s_kobj, &va_md_s_attr_group);
+		kobject_put(&va_md_s_data->s_kobj);
+	}
+
+	spin_unlock(&va_md_lock);
+	kset_unregister(va_md_data.va_md_kset);
 	atomic_notifier_chain_unregister(&panic_notifier_list, &qcom_va_md_elf_panic_blk);
 	atomic_notifier_chain_unregister(&panic_notifier_list, &qcom_va_md_panic_blk);
 	vunmap((void *)va_md_data.elf_mem);
@@ -540,6 +745,17 @@ static int qcom_va_md_driver_probe(struct platform_device *pdev)
 	atomic_notifier_chain_register(&panic_notifier_list, &qcom_va_md_panic_blk);
 	atomic_notifier_chain_register(&panic_notifier_list, &qcom_va_md_elf_panic_blk);
 
+	INIT_LIST_HEAD(&va_md_data.va_md_list);
+	va_md_data.va_md_kset = kset_create_and_add("va-minidump", NULL, kernel_kobj);
+	if (!va_md_data.va_md_kset) {
+		dev_err(&pdev->dev, "Failed to create kset for va-minidump\n");
+		vunmap((void *)va_md_data.elf_mem);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* All updates above should be visible, before init completes */
+	smp_store_release(&va_md_data.va_md_init, true);
 out:
 	return ret;
 }

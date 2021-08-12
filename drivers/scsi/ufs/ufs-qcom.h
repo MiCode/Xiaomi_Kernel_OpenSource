@@ -294,6 +294,7 @@ struct qos_cpu_group {
 	struct work_struct vwork;
 	struct ufs_qcom_host *host;
 	unsigned int curr_vote;
+	bool perf_core;
 };
 
 struct ufs_qcom_qos_req {
@@ -404,6 +405,18 @@ struct ufs_qcom_host {
 	bool crash_on_err;
 	atomic_t scale_up;
 	atomic_t clks_on;
+	unsigned long load_delay_ms;
+#define NUM_REQS_HIGH_THRESH 64
+#define NUM_REQS_LOW_THRESH 32
+	atomic_t num_reqs_threshold;
+	bool cur_freq_vote;
+	struct delayed_work fwork;
+	bool cpufreq_dis;
+	unsigned int min_cpu_scale_freq;
+	unsigned int max_cpu_scale_freq;
+	int config_cpu;
+	void *ufs_ipc_log_ctx;
+	bool dbg_en;
 };
 
 static inline u32

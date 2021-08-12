@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
@@ -29,16 +29,38 @@
 	(test_bit(KGSL_MMU_64BIT, &(__mmu)->features) ? \
 		KGSL_IOMMU_GLOBAL_MEM_BASE64 : KGSL_IOMMU_GLOBAL_MEM_BASE32)
 
-#define KGSL_IOMMU_SECURE_SIZE SZ_256M
-#define KGSL_IOMMU_SECURE_END(_mmu) KGSL_IOMMU_GLOBAL_MEM_BASE(_mmu)
-#define KGSL_IOMMU_SECURE_BASE(_mmu)	\
-	(KGSL_IOMMU_GLOBAL_MEM_BASE(_mmu) - KGSL_IOMMU_SECURE_SIZE)
-
 #define KGSL_IOMMU_SVM_BASE32		0x300000
 #define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
 
+/*
+ * Limit secure size to 256MB for 32bit kernels.
+ */
+#define KGSL_IOMMU_SECURE_SIZE32 SZ_256M
+#define KGSL_IOMMU_SECURE_END32(_mmu) KGSL_IOMMU_GLOBAL_MEM_BASE(_mmu)
+#define KGSL_IOMMU_SECURE_BASE32(_mmu)	\
+	(KGSL_IOMMU_GLOBAL_MEM_BASE(_mmu) - KGSL_IOMMU_SECURE_SIZE32)
+
+/*
+ * Try to use maximum allowed secure size i.e 0xFFFFF000
+ * for both 32bit and 64bit secure apps when using 64bit kernel.
+ */
+#define KGSL_IOMMU_SECURE_BASE64	0x0100000000ULL
+#define KGSL_IOMMU_SECURE_END64		0x01FFFFF000ULL
+#define KGSL_IOMMU_SECURE_SIZE64 \
+	(KGSL_IOMMU_SECURE_END64 - KGSL_IOMMU_SECURE_BASE64)
+
+#define KGSL_IOMMU_SECURE_BASE(_mmu) (test_bit(KGSL_MMU_64BIT, \
+			&(_mmu)->features) ? KGSL_IOMMU_SECURE_BASE64 : \
+			KGSL_IOMMU_SECURE_BASE32(_mmu))
+#define KGSL_IOMMU_SECURE_END(_mmu) (test_bit(KGSL_MMU_64BIT, \
+			&(_mmu)->features) ? KGSL_IOMMU_SECURE_END64 : \
+			KGSL_IOMMU_SECURE_END32(_mmu))
+#define KGSL_IOMMU_SECURE_SIZE(_mmu) (test_bit(KGSL_MMU_64BIT, \
+			&(_mmu)->features) ? KGSL_IOMMU_SECURE_SIZE64 : \
+			KGSL_IOMMU_SECURE_SIZE32)
+
 /* The CPU supports 39 bit addresses */
-#define KGSL_IOMMU_SVM_BASE64		0x100000000ULL
+#define KGSL_IOMMU_SVM_BASE64		0x1000000000ULL
 #define KGSL_IOMMU_SVM_END64		0x4000000000ULL
 #define KGSL_IOMMU_VA_BASE64		0x4000000000ULL
 #define KGSL_IOMMU_VA_END64		0x8000000000ULL

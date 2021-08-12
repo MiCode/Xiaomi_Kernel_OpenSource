@@ -1443,6 +1443,7 @@ union mem_buf_ioctl_arg {
 	struct mem_buf_retrieve_ioctl_arg retrieve;
 	struct mem_buf_reclaim_ioctl_arg reclaim;
 	struct mem_buf_share_ioctl_arg share;
+	struct mem_buf_exclusive_owner_ioctl_arg get_ownership;
 };
 
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
@@ -1637,6 +1638,28 @@ static int mem_buf_reclaim_user(struct mem_buf_reclaim_ioctl_arg *uarg)
 	return ret;
 }
 
+static int mem_buf_get_exclusive_ownership(struct mem_buf_exclusive_owner_ioctl_arg *uarg)
+{
+	struct dma_buf *dmabuf;
+	int ret = 0;
+
+	dmabuf = dma_buf_get(uarg->dma_buf_fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	if (IS_ERR(to_mem_buf_vmperm(dmabuf))) {
+		ret = -EINVAL;
+		goto put_dma_buf;
+	}
+
+	uarg->is_exclusive_owner = mem_buf_dma_buf_exclusive_owner(dmabuf);
+
+put_dma_buf:
+	dma_buf_put(dmabuf);
+
+	return ret;
+}
+
 static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 			      unsigned long arg)
 {
@@ -1725,6 +1748,17 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 
 		break;
 	}
+	case MEM_BUF_IOC_EXCLUSIVE_OWNER:
+	{
+		struct mem_buf_exclusive_owner_ioctl_arg *get_ownership = &ioctl_arg.get_ownership;
+		int ret;
+
+		ret = mem_buf_get_exclusive_ownership(get_ownership);
+		if (ret)
+			return ret;
+
+		break;
+	}
 
 	default:
 		return -ENOTTY;
@@ -1741,6 +1775,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 
 static const struct file_operations mem_buf_dev_fops = {
 	.unlocked_ioctl = mem_buf_dev_ioctl,
+	.compat_ioctl = compat_ptr_ioctl,
 };
 
 /*

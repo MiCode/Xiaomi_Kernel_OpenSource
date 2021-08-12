@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_SPCOM_H_
@@ -118,6 +118,11 @@ struct spcom_ion_handle {
 	__s32 fd;		/* File Descriptor associated with the buffer */
 };
 
+struct spcom_rmb_error_info {
+	__u32 rmb_error;
+	__u32 padding;
+} __packed;
+
 /* Command structure between User Space and spcom driver, on write() */
 struct spcom_user_send_modified_command {
 	enum spcom_cmd_id cmd_id;
@@ -130,6 +135,7 @@ struct spcom_user_send_modified_command {
 enum {
 	SPCOM_IONFD_CMD,
 	SPCOM_POLL_CMD,
+	SPCOM_GET_RMB_CMD,
 };
 
 enum spcom_poll_cmd_id {
@@ -152,5 +158,7 @@ struct spcom_poll_param {
 			     struct spcom_ion_handle)
 #define SPCOM_POLL_STATE _IOWR(SPCOM_IOCTL_MAGIC, SPCOM_POLL_CMD, \
 			       struct spcom_poll_param)
+#define SPCOM_GET_RMB_ERROR _IOR(SPCOM_IOCTL_MAGIC, SPCOM_GET_RMB_CMD, \
+			     struct spcom_rmb_error_info)
 
 #endif /* _UAPI_SPCOM_H_ */

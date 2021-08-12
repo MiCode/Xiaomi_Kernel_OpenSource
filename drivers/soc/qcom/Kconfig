@@ -507,6 +507,16 @@ config QCOM_SOC_SLEEP_STATS
 	  various SoC level low power modes statistics and export to debugfs
 	  interface.
 
+config QCOM_ADSP_SLEEPMON
+	tristate "ADSP sleep monitor"
+	depends on QCOM_SMEM
+	help
+	   This driver tracks ADSP sleep statistics while interfacing with
+	   different userspace clients making use of ADSP. Based on the
+	   activity notifications from these userspace clients, the driver
+	   detects and logs sleep violations from ADSP subsystem. The driver
+	   uses master stats from ADSP subsystem stored in SMEM.
+
 config QCOM_WCNSS_CTRL
 	tristate "Qualcomm WCNSS control driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -835,6 +845,15 @@ config QCOM_SUBSYSTEM_SLEEP_STATS
 	  last exited at and accumulated duration can be read from
 	  userspace with ioctl.
 
+config QCOM_SYSMON_SUBSYSTEM_STATS
+	tristate "Qualcomm Technologies SysMon DSP subsystem stats"
+	depends on QCOM_SMEM
+	help
+	  sysMon subsystem stats driver exposes API to query DSP
+	  subsystem's load, power, DDR and Sleep statistics stored in
+	  SMEM region for each DSP subsystem which is updated periodically
+	  by the respective subsystems.
+
 config QTI_SYS_PM_VX
 	tristate "Qualcomm Technologies Inc (QTI) System PM Violators Driver"
 	depends on QCOM_AOSS_QMP
@@ -1129,6 +1148,15 @@ config QCOM_PANEL_EVENT_NOTIFIER
 	  panel events such as panel on , panel off, fps change etc.  Clients
 	  can use these notifications for power saving or align its operations
 	  with display panel power state.
+
+config QCOM_BALANCE_ANON_FILE_RECLAIM
+	bool "During reclaim treat anon and file backed pages equally"
+	depends on SWAP
+	help
+	  When performing memory reclaim treat anonymous and file backed pages
+	  equally.
+	  Swapping anonymous pages out to memory can be efficient enough to justify
+	  treating anonymous and file backed pages equally.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 source "drivers/soc/qcom/sync_fence/Kconfig"

@@ -750,11 +750,6 @@ static int __init qcom_lpm_governor_init(void)
 {
 	int ret;
 
-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "qcom-cpu-lpm",
-				lpm_online_cpu, lpm_offline_cpu);
-	if (ret < 0)
-		return ret;
-
 	ret = create_global_sysfs_nodes();
 	if (ret)
 		goto sysfs_fail;
@@ -767,6 +762,11 @@ static int __init qcom_lpm_governor_init(void)
 	if (ret)
 		goto cpuidle_reg_fail;
 
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "qcom-cpu-lpm",
+				lpm_online_cpu, lpm_offline_cpu);
+	if (ret < 0)
+		goto cpuidle_reg_fail;
+
 	return 0;
 
 cpuidle_reg_fail:
@@ -774,7 +774,6 @@ cpuidle_reg_fail:
 cluster_init_fail:
 	remove_global_sysfs_nodes();
 sysfs_fail:
-	cpuhp_remove_state(CPUHP_AP_ONLINE_DYN);
 
 	return ret;
 }

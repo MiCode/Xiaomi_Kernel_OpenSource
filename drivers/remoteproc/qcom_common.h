@@ -50,7 +50,10 @@ struct qcom_rproc_ssr {
 	struct qcom_ssr_subsystem *info;
 };
 
-void qcom_minidump(struct rproc *rproc, unsigned int minidump_id);
+typedef void (*rproc_dumpfn_t)(struct rproc *rproc, struct rproc_dump_segment *segment,
+			       void *dest, size_t offset, size_t size);
+
+void qcom_minidump(struct rproc *rproc, unsigned int minidump_id, rproc_dumpfn_t dumpfn);
 
 void qcom_add_glink_subdev(struct rproc *rproc, struct qcom_rproc_glink *glink,
 			   const char *ssr_name);
@@ -70,7 +73,9 @@ struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 					   const char *name,
 					   int ssctl_instance);
 void qcom_remove_sysmon_subdev(struct qcom_sysmon *sysmon);
+bool qcom_sysmon_shutdown_acked(struct qcom_sysmon *sysmon);
 uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon);
+int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon, char *buf, size_t len);
 #else
 static inline struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 							 const char *name,
@@ -83,10 +88,18 @@ static inline void qcom_remove_sysmon_subdev(struct qcom_sysmon *sysmon)
 {
 }
 
+static inline bool qcom_sysmon_shutdown_acked(struct qcom_sysmon *sysmon)
+{
+	return false;
+}
+
 static inline uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon)
 {
 	return 0;
 }
+
+int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon, char *buf, size_t len)
+{ return -ENODEV; }
 #endif
 
 #endif

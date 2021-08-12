@@ -18,6 +18,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/qcom_scm.h>
 
 #define MSM_DUMP_TABLE_VERSION		MSM_DUMP_MAKE_VERSION(2, 0)
 
@@ -683,14 +684,10 @@ int msm_dump_data_register_nominidump(enum msm_dump_table_ids id,
 EXPORT_SYMBOL(msm_dump_data_register_nominidump);
 
 #define MSM_DUMP_TOTAL_SIZE_OFFSET	0x724
-static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr,
-					size_t size)
+static int init_memdump_imem_area(size_t size)
 {
-	struct msm_dump_table *table;
-	struct msm_dump_entry entry;
 	struct device_node *np;
 	void __iomem *imem_base;
-	int ret;
 
 	np = of_find_compatible_node(NULL, NULL,
 				     "qcom,msm-imem-mem_dump_table");
@@ -705,9 +702,6 @@ static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr,
 		return -ENOMEM;
 	}
 
-	memdump.table = dump_vaddr;
-	memdump.table->version = MSM_DUMP_TABLE_VERSION;
-	memdump.table_phys = phys_addr;
 	memcpy_toio(imem_base, &memdump.table_phys,
 			sizeof(memdump.table_phys));
 	memcpy_toio(imem_base + MSM_DUMP_TOTAL_SIZE_OFFSET,
@@ -715,9 +709,21 @@ static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr,
 
 	/* Ensure write to imem_base is complete before unmapping */
 	mb();
-	pr_info("MSM Memory Dump base table set up\n");
+	pr_info("MSM Memory Dump base table set up in IMEM\n");
 
 	iounmap(imem_base);
+	return 0;
+}
+
+static int init_memory_dump(void *dump_vaddr, phys_addr_t phys_addr)
+{
+	struct msm_dump_table *table;
+	struct msm_dump_entry entry;
+	int ret;
+
+	memdump.table = dump_vaddr;
+	memdump.table->version = MSM_DUMP_TABLE_VERSION;
+	memdump.table_phys = phys_addr;
 	dump_vaddr +=  sizeof(*table);
 	phys_addr += sizeof(*table);
 	table = dump_vaddr;
@@ -792,7 +798,7 @@ static int mem_dump_alloc(struct platform_device *pdev)
 
 	total_size += (MSM_DUMP_DATA_SIZE * no_of_nodes);
 	total_size = ALIGN(total_size, SZ_4K);
-	dump_vaddr = dma_alloc_coherent(&pdev->dev, total_size,
+	dump_vaddr = dmam_alloc_coherent(&pdev->dev, total_size,
 						&dma_handle, GFP_KERNEL);
 	if (!dump_vaddr)
 		return -ENOMEM;
@@ -802,26 +808,28 @@ static int mem_dump_alloc(struct platform_device *pdev)
 	phys_addr = page_to_phys(sg_page(mem_dump_sgt.sgl));
 	sg_free_table(&mem_dump_sgt);
 
+	memset(dump_vaddr, 0x0, total_size);
 	ret = qtee_shmbridge_register(phys_addr, total_size, ns_vmids,
-		ns_vm_perms, 1, PERM_READ|PERM_WRITE, &shm_bridge_handle);
-
+			ns_vm_perms, 1, PERM_READ|PERM_WRITE, &shm_bridge_handle);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to create shm bridge.ret=%d\n",
-						ret);
-		dma_free_coherent(&pdev->dev, total_size,
-						dump_vaddr, dma_handle);
+		dev_err(&pdev->dev, "Failed to create shm bridge.ret=%d\n", ret);
 		return ret;
 	}
 
-	memset(dump_vaddr, 0x0, total_size);
-
-	ret = init_memory_dump(dump_vaddr, phys_addr, total_size);
+	ret = init_memory_dump(dump_vaddr, phys_addr);
 	if (ret) {
 		dev_err(&pdev->dev, "Memory Dump table set up is failed\n");
 		qtee_shmbridge_deregister(shm_bridge_handle);
-		dma_free_coherent(&pdev->dev, total_size,
-						dump_vaddr, dma_handle);
 		return ret;
+	}
+
+	ret = qcom_scm_assign_dump_table_region(1, phys_addr, total_size);
+	if (ret) {
+		ret = init_memdump_imem_area(total_size);
+		if (ret) {
+			qtee_shmbridge_deregister(shm_bridge_handle);
+			return ret;
+		}
 	}
 
 	mini_dump_vaddr = dump_vaddr;

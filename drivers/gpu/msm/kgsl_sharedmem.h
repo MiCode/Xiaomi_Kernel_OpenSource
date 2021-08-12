@@ -16,6 +16,8 @@
 struct kgsl_device;
 struct kgsl_process_private;
 
+extern bool kgsl_sharedmem_noretry_flag;
+
 #define KGSL_CACHE_OP_INV       0x01
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
@@ -71,6 +73,28 @@ void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 void kgsl_free_secure_page(struct page *page);
 
 struct page *kgsl_alloc_secure_page(void);
+
+/**
+ * kgsl_zero_page() - zero out a page
+ * @p: pointer to the struct page
+ * @order: order of the page
+ * @dev: A &struct device pointer
+ *
+ * Map a page into kernel and zero it out
+ */
+void kgsl_zero_page(struct page *p, unsigned int order,
+		struct device *dev);
+
+/**
+ * kgsl_gfp_mask() - get gfp_mask to be used
+ * @page_order: order of the page
+ *
+ * Get the gfp_mask to be used for page allocation
+ * based on the order of the page
+ *
+ * Return appropriate gfp_mask
+ */
+gfp_t kgsl_gfp_mask(int page_order);
 
 /**
  * kgsl_allocate_user - Allocate user visible GPU memory
@@ -145,6 +169,15 @@ struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
  * after the pagetables have been freed
  */
 void kgsl_free_globals(struct kgsl_device *device);
+
+/**
+ * kgsl_page_sync_for_device - Initialize SG table with page & sync it for device
+ * @dev: A GPU device handle
+ * @page: Pointer to the struct page
+ * @size: Size of the page
+ */
+void kgsl_page_sync_for_device(struct device *dev, struct page *page,
+		size_t size);
 
 /*
  * kgsl_memdesc_get_align - Get alignment flags from a memdesc
@@ -241,6 +274,17 @@ static inline bool kgsl_memdesc_is_secured(const struct kgsl_memdesc *memdesc)
 }
 
 /*
+ * kgsl_memdesc_is_reclaimed - check if a buffer is reclaimed
+ * @memdesc: the memdesc
+ *
+ * Return: true if the memdesc pages were reclaimed, false otherwise
+ */
+static inline bool kgsl_memdesc_is_reclaimed(const struct kgsl_memdesc *memdesc)
+{
+	return memdesc && (memdesc->priv & KGSL_MEMDESC_RECLAIMED);
+}
+
+/*
  * kgsl_memdesc_use_cpu_map - use the same virtual mapping on CPU and GPU?
  * @memdesc: the memdesc
  *
@@ -307,6 +351,25 @@ static inline bool kgsl_cachemode_is_cached(u64 flags)
  * to the memdesc
  */
 void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc);
+
+/**
+ * struct kgsl_process_attribute - basic attribute for a process
+ * @attr: Underlying struct attribute
+ * @show: Attribute show function
+ * @store: Attribute store function
+ */
+struct kgsl_process_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *kobj,
+			struct kgsl_process_attribute *attr, char *buf);
+	ssize_t (*store)(struct kobject *kobj,
+		struct kgsl_process_attribute *attr, const char *buf,
+		ssize_t count);
+};
+
+#define PROCESS_ATTR(_name, _mode, _show, _store) \
+	static struct kgsl_process_attribute attr_##_name = \
+			__ATTR(_name, _mode, _show, _store)
 
 struct kgsl_sharedmem_bind_op_range {
 	u64 start;

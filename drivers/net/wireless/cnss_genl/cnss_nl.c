@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
 
 #include <net/genetlink.h>
 #include <net/cnss_nl.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 #define CLD80211_GENL_NAME "cld80211"
 
@@ -185,8 +186,34 @@ static void __cld80211_exit(void)
 	genl_unregister_family(&cld80211_fam);
 }
 
+/**
+ * cld80211_is_valid_dt_node_found - Check if valid device tree node present
+ *
+ * Valid device tree node means a node with "qcom,wlan" property present and
+ * "status" property not disabled.
+ *
+ * Return: true if valid device tree node found, false if not found
+ */
+static bool cld80211_is_valid_dt_node_found(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_node_with_property(dn, "qcom,wlan") {
+		if (of_device_is_available(dn))
+			break;
+	}
+
+	if (dn)
+		return true;
+
+	return false;
+}
+
 static int __init cld80211_init(void)
 {
+	if (!cld80211_is_valid_dt_node_found())
+		return -ENODEV;
+
 	return __cld80211_init();
 }
 

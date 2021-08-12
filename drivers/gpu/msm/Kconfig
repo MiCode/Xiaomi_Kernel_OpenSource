@@ -79,3 +79,31 @@ config QCOM_KGSL_SORT_POOL
 	  When enabled, the pool page list is sorted based on physical
 	  addresses. This can be turned on for targets where better DDR
 	  efficiency is attained on accesses for adjacent memory.
+
+config QCOM_KGSL_QDSS_STM
+	bool "Enable support for QDSS STM for Adreno GPU"
+	depends on QCOM_KGSL && CORESIGHT
+	help
+	  When enabled, the Adreno GPU QDSS STM support is enabled. GPU QDSS STM
+	  memory will be mapped to GPU and QDSS clock needed to access this memory
+	  is voted. Debug kernels should say 'Y' here.
+
+config QCOM_KGSL_USE_SHMEM
+	bool "Enable using shmem for memory allocations"
+	depends on QCOM_KGSL
+	help
+	  Say 'Y' to enable using shmem for memory allocations. If enabled,
+	  there will be no support for the memory pools and higher order pages.
+	  But using shmem will help in making kgsl pages available for
+	  reclaiming.
+
+config QCOM_KGSL_PROCESS_RECLAIM
+	bool "Make driver pages available for reclaim"
+	depends on QCOM_KGSL
+	select QCOM_KGSL_USE_SHMEM
+	help
+	  Say 'Y' to make driver pages available for reclaiming. If enabled,
+	  shmem will be used for allocation. kgsl would know the process
+	  foreground/background activity through the sysfs entry exposed per
+	  process. Based on this kgsl can unpin given number of pages from
+	  background processes and make them available to the shrinker.

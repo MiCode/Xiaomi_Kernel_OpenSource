@@ -101,4 +101,22 @@ int kgsl_clk_set_rate(struct clk_bulk_data *clks, int num_clks,
  */
 int kgsl_zap_shader_load(struct device *dev, const char *name);
 
+/**
+ * kgsl_add_to_minidump - Add a section to minidump
+ * @name: Name of the section
+ * @virt_addr: Virtual address of the section
+ * @phy_addr: Physical address of the section
+ * @size: Size of the section
+ */
+void kgsl_add_to_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t size);
+
+/**
+ * kgsl_remove_from_minidump - Remove a section from minidump
+ * @name: Name of the section
+ * @virt_addr: Virtual address of the section
+ * @phy_addr: Physical address of the section
+ * @size: Size of the section
+ */
+void kgsl_remove_from_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t size);
+
 #endif

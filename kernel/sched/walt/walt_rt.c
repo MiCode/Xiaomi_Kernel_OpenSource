@@ -23,6 +23,7 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 	bool boost_on_big = rt_boost_on_big();
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
+	bool best_cpu_lt = true;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -33,6 +34,8 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 	rcu_read_lock();
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
+			bool lt;
+
 			trace_sched_cpu_util(cpu);
 
 			if (!cpu_active(cpu))
@@ -46,8 +49,21 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 
 			util = cpu_util(cpu);
 
-			/* Find the least loaded CPU */
-			if (util > best_cpu_util)
+			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
+				walt_nr_rtg_high_prio(cpu));
+
+			/*
+			 * When the best is suitable and the current is not,
+			 * skip it
+			 */
+			if (lt && !best_cpu_lt)
+				continue;
+
+			/*
+			 * Either both are sutilable or unsuitable, load takes
+			 * precedence.
+			 */
+			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
 				continue;
 
 			/*
@@ -80,6 +96,7 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 			best_cpu_util_cum = util_cum;
 			best_cpu_util = util;
 			*best_cpu = cpu;
+			best_cpu_lt = lt;
 		}
 
 		if (*best_cpu != -1)
@@ -110,13 +127,26 @@ static inline bool walt_rt_task_fits_capacity(struct task_struct *p, int cpu)
 }
 #endif
 
+/*
+ * walt specific should_honor_rt_sync (see rt.c).  this will honor
+ * the sync flag regardless of whether the current waker is cfs or rt
+ */
+static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *p,
+					     bool sync)
+{
+	return sync &&
+		p->prio <= rq->rt.highest_prio.next &&
+		rq->rt.rt_nr_running <= 2;
+}
+
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)
 {
 	struct task_struct *curr;
-	struct rq *rq;
+	struct rq *rq, *this_cpu_rq;
 	bool may_not_preempt;
-	int ret, target = -1;
+	bool sync = !!(wake_flags && WF_SYNC);
+	int ret, target = -1, this_cpu;
 	struct cpumask *lowest_mask;
 
 	if (unlikely(walt_disabled))
@@ -125,6 +155,19 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
 		return;
+
+	this_cpu = raw_smp_processor_id();
+	this_cpu_rq = cpu_rq(this_cpu);
+
+	/*
+	 * Respect the sync flag as long as the task can run on this CPU.
+	 */
+	if (sysctl_sched_sync_hint_enable && cpu_active(this_cpu) &&
+	    cpumask_test_cpu(this_cpu, task->cpus_ptr) &&
+	    walt_should_honor_rt_sync(this_cpu_rq, task, sync)) {
+		*new_cpu = this_cpu;
+		return;
+	}
 
 	*new_cpu = cpu; /* previous CPU as back up */
 	rq = cpu_rq(cpu);

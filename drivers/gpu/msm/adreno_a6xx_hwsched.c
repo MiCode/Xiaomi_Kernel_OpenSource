@@ -52,8 +52,16 @@ static void a6xx_hwsched_snapshot_preemption_record(struct kgsl_device *device,
 	u8 *dest = snapshot->ptr + sizeof(*section_header);
 	struct kgsl_snapshot_gpu_object_v2 *header =
 		(struct kgsl_snapshot_gpu_object_v2 *)dest;
-	size_t section_size = sizeof(*section_header) + sizeof(*header) +
-		A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES;
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(ADRENO_DEVICE(device));
+	u64 ctxt_record_size = A6XX_CP_CTXRECORD_SIZE_IN_BYTES;
+	size_t section_size;
+
+	if (a6xx_core->ctxt_record_size)
+		ctxt_record_size = a6xx_core->ctxt_record_size;
+
+	ctxt_record_size = min_t(u64, ctxt_record_size, device->snapshot_ctxt_record_size);
+
+	section_size = sizeof(*section_header) + sizeof(*header) + ctxt_record_size;
 
 	if (snapshot->remain < section_size) {
 		SNAPSHOT_ERR_NOMEM(device, "PREEMPTION RECORD");
@@ -64,7 +72,7 @@ static void a6xx_hwsched_snapshot_preemption_record(struct kgsl_device *device,
 	section_header->id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2;
 	section_header->size = section_size;
 
-	header->size = A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES >> 2;
+	header->size = ctxt_record_size >> 2;
 	header->gpuaddr = md->gpuaddr + offset;
 	header->ptbase =
 		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
@@ -72,8 +80,7 @@ static void a6xx_hwsched_snapshot_preemption_record(struct kgsl_device *device,
 
 	dest += sizeof(*header);
 
-	memcpy(dest, md->hostptr + offset,
-		A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES);
+	memcpy(dest, md->hostptr + offset, ctxt_record_size);
 
 	snapshot->ptr += section_header->size;
 	snapshot->remain -= section_header->size;
@@ -320,8 +327,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Poll to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -383,8 +389,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Poll to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -474,8 +479,7 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Poll to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -679,6 +683,14 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	adreno_get_bus_counters(adreno_dev);
+
+	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
+						 ADRENO_COOP_RESET);
+
+	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
+	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+
 	/*
 	 * There is a possible deadlock scenario during kgsl firmware reading
 	 * (request_firmware) and devfreq update calls. During first boot, kgsl
@@ -691,20 +703,7 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	 * the mutex held by other thread. Enable devfreq updates now as we are
 	 * done reading all firmware files.
 	 */
-	ret = kgsl_pwrscale_enable_devfreq(device, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
-	if (ret) {
-		a6xx_disable_gpu_irq(adreno_dev);
-		a6xx_hwsched_gmu_power_off(adreno_dev);
-		return ret;
-	}
-
-	adreno_get_bus_counters(adreno_dev);
-
-	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
-						 ADRENO_COOP_RESET);
-
-	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
-	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+	device->pwrscale.devfreq_enabled = true;
 
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;

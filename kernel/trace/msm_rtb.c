@@ -53,8 +53,13 @@ struct msm_rtb_layout {
 	uint64_t cycle_count;
 } __attribute__ ((__packed__));
 
+struct rtb_idx {
+	atomic_t idx;
+	char pad[L1_CACHE_BYTES - sizeof(atomic_t)];
+};
 
 struct msm_rtb_state {
+	struct rtb_idx msm_rtb_idx[NR_CPUS];
 	struct msm_rtb_layout *rtb;
 	phys_addr_t phys;
 	int nentries;
@@ -65,24 +70,17 @@ struct msm_rtb_state {
 	int step_size;
 };
 
-#if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)
-DEFINE_PER_CPU(atomic_t, msm_rtb_idx_cpu);
-#else
-static atomic_t msm_rtb_idx;
-#endif
+static struct msm_rtb_state *msm_rtb_ptr;
 
-static struct msm_rtb_state msm_rtb = {
-	.filter = 1 << LOGK_LOGBUF,
-	.enabled = 1,
-};
-
-module_param_named(filter, msm_rtb.filter, uint, 0644);
-module_param_named(enable, msm_rtb.enabled, int, 0644);
+static uint32_t filter = 1 << LOGK_LOGBUF;
+static int enabled = 1;
+module_param_named(filter, filter, uint, 0644);
+module_param_named(enable, enabled, int, 0644);
 
 static int msm_rtb_panic_notifier(struct notifier_block *this,
 					unsigned long event, void *ptr)
 {
-	msm_rtb.enabled = 0;
+	msm_rtb_ptr->enabled = enabled = 0;
 	return NOTIFY_DONE;
 }
 
@@ -93,8 +91,8 @@ static struct notifier_block msm_rtb_panic_blk = {
 
 static int notrace msm_rtb_event_should_log(enum logk_event_type log_type)
 {
-	return msm_rtb.initialized && msm_rtb.enabled &&
-		((1 << (log_type & ~LOGTYPE_NOPC)) & msm_rtb.filter);
+	return msm_rtb_ptr->initialized && enabled &&
+		((1 << (log_type & ~LOGTYPE_NOPC)) & filter);
 }
 
 static inline void msm_rtb_emit_sentinel(struct msm_rtb_layout *start)
@@ -143,8 +141,7 @@ static void uncached_logk_pc_idx(enum logk_event_type log_type, uint64_t caller,
 {
 	struct msm_rtb_layout *start;
 
-	start = &msm_rtb.rtb[idx & (msm_rtb.nentries - 1)];
-
+	start = msm_rtb_ptr->rtb + (idx & (msm_rtb_ptr->nentries - 1));
 	msm_rtb_emit_sentinel(start);
 	msm_rtb_write_type(log_type, start);
 	msm_rtb_write_caller(caller, start);
@@ -166,54 +163,25 @@ static void uncached_logk_timestamp(int idx)
 			(uint64_t)upper_32_bits(timestamp), idx);
 }
 
-#if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)
 static int msm_rtb_get_idx(void)
 {
 	int cpu, i, offset;
-	atomic_t *index;
 
-	/*
-	 * ideally we would use get_cpu but this is a close enough
-	 * approximation for our purposes.
-	 */
 	cpu = raw_smp_processor_id();
+	i = atomic_add_return(msm_rtb_ptr->step_size, &msm_rtb_ptr->msm_rtb_idx[cpu].idx);
+	i -= msm_rtb_ptr->step_size;
 
-	index = &per_cpu(msm_rtb_idx_cpu, cpu);
-
-	i = atomic_add_return(msm_rtb.step_size, index);
-	i -= msm_rtb.step_size;
-
-	/* Check if index has wrapped around */
-	offset = (i & (msm_rtb.nentries - 1)) -
-		 ((i - msm_rtb.step_size) & (msm_rtb.nentries - 1));
+	/* Check for wrapped around */
+	offset = (i & (msm_rtb_ptr->nentries - 1)) -
+		 ((i - msm_rtb_ptr->step_size) & (msm_rtb_ptr->nentries - 1));
 	if (offset < 0) {
 		uncached_logk_timestamp(i);
-		i = atomic_add_return(msm_rtb.step_size, index);
-		i -= msm_rtb.step_size;
+		i = atomic_add_return(msm_rtb_ptr->step_size, &msm_rtb_ptr->msm_rtb_idx[cpu].idx);
+		i -= msm_rtb_ptr->step_size;
 	}
 
 	return i;
 }
-#else
-static int msm_rtb_get_idx(void)
-{
-	int i, offset;
-
-	i = atomic_inc_return(&msm_rtb_idx);
-	i--;
-
-	/* Check if index has wrapped around */
-	offset = (i & (msm_rtb.nentries - 1)) -
-		 ((i - 1) & (msm_rtb.nentries - 1));
-	if (offset < 0) {
-		uncached_logk_timestamp(i);
-		i = atomic_inc_return(&msm_rtb_idx);
-		i--;
-	}
-
-	return i;
-}
-#endif
 
 static noinline void trace_rwmmio_write_cb(void *unused,
 	unsigned long fn, u64 val, u8 width, volatile void __iomem *addr)
@@ -281,82 +249,62 @@ static noinline void trace_pid_cb(void *unused, bool preempt,
 
 static int msm_rtb_probe(struct platform_device *pdev)
 {
-	struct msm_rtb_platform_data *d = pdev->dev.platform_data;
 	struct md_region md_entry;
+	u64 size;
+	dma_addr_t phys_addr;
+	void *vaddr;
 #if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)
 	unsigned int cpu;
 #endif
 	int ret;
 
-	if (!pdev->dev.of_node) {
-		msm_rtb.size = d->size;
-	} else {
-		u64 size;
-		struct device_node *pnode;
-
-		pnode = of_parse_phandle(pdev->dev.of_node,
-						"linux,contiguous-region", 0);
-		if (pnode != NULL) {
-			const u32 *addr;
-
-			addr = of_get_address(pnode, 0, &size, NULL);
-			if (!addr) {
-				of_node_put(pnode);
-				return -EINVAL;
-			}
-			of_node_put(pnode);
-		} else {
-			ret = of_property_read_u32(pdev->dev.of_node,
-					"qcom,rtb-size",
-					(u32 *)&size);
-			if (ret < 0)
-				return ret;
-
-		}
-
-		msm_rtb.size = size;
-	}
-
-	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_1M)
+	if (pdev->dev.of_node) {
+		ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,rtb-size", (u32 *)&size);
+		if (ret < 0)
+			return ret;
+	} else
 		return -EINVAL;
 
-	msm_rtb.rtb = dma_alloc_coherent(&pdev->dev, msm_rtb.size,
-						&msm_rtb.phys,
-						GFP_KERNEL);
+	if (size <= 0 || size > SZ_1M)
+		return -EINVAL;
 
-	if (!msm_rtb.rtb)
+	vaddr = dmam_alloc_coherent(&pdev->dev, size + sizeof(*msm_rtb_ptr),
+					&phys_addr, GFP_KERNEL);
+	if (!vaddr)
 		return -ENOMEM;
 
-	msm_rtb.nentries = msm_rtb.size / sizeof(struct msm_rtb_layout);
-
+	msm_rtb_ptr = vaddr;
+	memset(msm_rtb_ptr, 0, size + sizeof(*msm_rtb_ptr));
+	msm_rtb_ptr->rtb = vaddr + sizeof(*msm_rtb_ptr);
+	msm_rtb_ptr->size = size;
+	msm_rtb_ptr->phys = phys_addr + sizeof(*msm_rtb_ptr);
+	msm_rtb_ptr->nentries = msm_rtb_ptr->size / sizeof(struct msm_rtb_layout);
 	/* Round this down to a power of 2 */
-	msm_rtb.nentries = __rounddown_pow_of_two(msm_rtb.nentries);
-
-	memset(msm_rtb.rtb, 0, msm_rtb.size);
+	msm_rtb_ptr->nentries = __rounddown_pow_of_two(msm_rtb_ptr->nentries);
 
 	strlcpy(md_entry.name, "KRTB_BUF", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t)msm_rtb.rtb;
-	md_entry.phys_addr = msm_rtb.phys;
-	md_entry.size = msm_rtb.size;
+	md_entry.virt_addr = (uintptr_t)msm_rtb_ptr;
+	md_entry.phys_addr = phys_addr;
+	md_entry.size = msm_rtb_ptr->size + sizeof(*msm_rtb_ptr);
 	if (msm_minidump_add_region(&md_entry) < 0)
-		pr_info("Failed to add RTB in Minidump\n");
+		pr_info("Failed to add RTB_BUF in Minidump\n");
 
 #if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)
-	for_each_possible_cpu(cpu) {
-		atomic_t *a = &per_cpu(msm_rtb_idx_cpu, cpu);
+	for_each_possible_cpu(cpu)
+		atomic_set(&msm_rtb_ptr->msm_rtb_idx[cpu].idx, cpu);
 
-		atomic_set(a, cpu);
-	}
-	msm_rtb.step_size = num_possible_cpus();
+	msm_rtb_ptr->step_size = num_possible_cpus();
 #else
-	atomic_set(&msm_rtb_idx, 0);
-	msm_rtb.step_size = 1;
+	atomic_set(&msm_rtb_ptr->msm_rtb_idx[0].idx, 0);
+	msm_rtb_ptr->step_size = 1;
 #endif
 
+	msm_rtb_ptr->enabled = enabled;
+	msm_rtb_ptr->filter = filter;
 	ret = register_trace_irq_handler_entry(trace_irq_handler_entry_cb, NULL);
 	if (ret) {
 		dev_err(&pdev->dev, "irq_handler_entry_cb registration failed\n");
-		dma_free_coherent(&pdev->dev, msm_rtb.size, msm_rtb.rtb, msm_rtb.phys);
 		return -EINVAL;
 	}
 
@@ -364,7 +312,6 @@ static int msm_rtb_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "trace_pid_cb registration failed\n");
 		unregister_trace_irq_handler_entry(trace_irq_handler_entry_cb, NULL);
-		dma_free_coherent(&pdev->dev, msm_rtb.size, msm_rtb.rtb, msm_rtb.phys);
 		return -EINVAL;
 	}
 
@@ -373,7 +320,6 @@ static int msm_rtb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "trace_raw_write_cb registration failed\n");
 		unregister_trace_irq_handler_entry(trace_irq_handler_entry_cb, NULL);
 		unregister_trace_sched_switch(trace_pid_cb, NULL);
-		dma_free_coherent(&pdev->dev, msm_rtb.size, msm_rtb.rtb, msm_rtb.phys);
 		return -EINVAL;
 	}
 
@@ -383,19 +329,18 @@ static int msm_rtb_probe(struct platform_device *pdev)
 		unregister_trace_irq_handler_entry(trace_irq_handler_entry_cb, NULL);
 		unregister_trace_sched_switch(trace_pid_cb, NULL);
 		unregister_trace_rwmmio_write(trace_rwmmio_write_cb, NULL);
-		dma_free_coherent(&pdev->dev, msm_rtb.size, msm_rtb.rtb, msm_rtb.phys);
 		return -EINVAL;
 	}
 
 	atomic_notifier_chain_register(&panic_notifier_list,
 						&msm_rtb_panic_blk);
-	msm_rtb.initialized = 1;
+	msm_rtb_ptr->initialized = 1;
 	return 0;
 }
 
 static int msm_rtb_remove(struct platform_device *pdev)
 {
-	msm_rtb.initialized = 0;
+	msm_rtb_ptr->initialized = 0;
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 						&msm_rtb_panic_blk);
 
@@ -403,7 +348,6 @@ static int msm_rtb_remove(struct platform_device *pdev)
 	unregister_trace_rwmmio_write(trace_rwmmio_write_cb, NULL);
 	unregister_trace_sched_switch(trace_pid_cb, NULL);
 	unregister_trace_irq_handler_entry(trace_irq_handler_entry_cb, NULL);
-	dma_free_coherent(&pdev->dev, msm_rtb.size, msm_rtb.rtb, msm_rtb.phys);
 	return 0;
 }
 

@@ -120,6 +120,11 @@ enum {
 	QCA_MOSELLE_SOC_ID_0110 = 0x40140110,
 };
 
+enum {
+	QCA_HAMILTON_SOC_ID_0100 = 0x40170100,
+	QCA_HAMILTON_SOC_ID_0200 = 0x40170200,
+};
+
 /* Function Prototype */
 
 /*

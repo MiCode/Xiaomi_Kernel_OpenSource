@@ -204,6 +204,7 @@ extern unsigned int __read_mostly sched_load_granule;
 extern unsigned int sysctl_sched_min_task_util_for_boost;
 /* 0.68ms default for 20ms window size scaled to 1024 */
 extern unsigned int sysctl_sched_min_task_util_for_colocation;
+extern unsigned int __read_mostly sysctl_sched_silver_thres;
 extern unsigned int sysctl_sched_busy_hyst_enable_cpus;
 extern unsigned int sysctl_sched_busy_hyst;
 extern unsigned int sysctl_sched_coloc_busy_hyst_enable_cpus;
@@ -900,4 +901,19 @@ struct compute_energy_output {
 	u16		cost[MAX_CLUSTERS];
 	unsigned int	cluster_first_cpu[MAX_CLUSTERS];
 };
+
+extern void walt_task_dump(struct task_struct *p);
+extern void walt_rq_dump(int cpu);
+extern void walt_dump(void);
+extern int in_sched_bug;
+
+#define SCHED_BUG_ON(condition)				\
+({							\
+	if (unlikely(!!(condition)) && !in_sched_bug) {	\
+		in_sched_bug = 1;			\
+		walt_dump();				\
+		BUG_ON(condition);			\
+	}						\
+})
+
 #endif /* _WALT_H */

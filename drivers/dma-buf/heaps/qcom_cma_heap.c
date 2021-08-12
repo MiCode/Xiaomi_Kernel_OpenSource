@@ -81,7 +81,7 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	helper_buffer->uncached = cma_heap->uncached;
 	helper_buffer->free = cma_heap_free;
 
-	cma_pages = cma_alloc(cma_heap->cma, nr_pages, align, false);
+	cma_pages = cma_alloc(cma_heap->cma, nr_pages, align, GFP_KERNEL);
 	if (!cma_pages)
 		goto free_buf;
 

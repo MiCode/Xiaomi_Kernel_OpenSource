@@ -238,7 +238,6 @@ struct kgsl_device {
 		void *ptr;
 		dma_addr_t dma_handle;
 		u32 size;
-		bool in_minidump;
 	} snapshot_memory;
 
 	struct kgsl_snapshot *snapshot;
@@ -259,6 +258,8 @@ struct kgsl_device {
 	bool snapshot_crashdumper;
 	/* Use HOST side register reads to get GPU snapshot*/
 	bool snapshot_legacy;
+	/* Use to dump the context record in bytes */
+	u64 snapshot_ctxt_record_size;
 
 	struct kobject snapshot_kobj;
 
@@ -270,8 +271,6 @@ struct kgsl_device {
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
 	struct kobject gpu_sysfs_kobj;
-	/** @icc_path: Interconnect path for scaling l3 frequency */
-	struct icc_path *l3_icc;
 	unsigned int l3_freq[3];
 	unsigned int num_l3_pwrlevels;
 	/* store current L3 vote to determine if we should change our vote */
@@ -300,6 +299,8 @@ struct kgsl_device {
 	spinlock_t timelines_lock;
 	/** @fence_trace_array: A local trace array for fence debugging */
 	struct trace_array *fence_trace_array;
+	/** @l3_vote: Enable/Disable l3 voting */
+	bool l3_vote;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -424,6 +425,7 @@ struct kgsl_process_private {
 	struct idr mem_idr;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
+	struct list_head reclaim_list;
 	struct kobject kobj;
 	struct dentry *debug_root;
 	struct {
@@ -437,6 +439,26 @@ struct kgsl_process_private {
 	atomic_t ctxt_count;
 	spinlock_t ctxt_count_lock;
 	atomic64_t frame_count;
+	/**
+	 * @state: state consisting KGSL_PROC_STATE and KGSL_PROC_PINNED_STATE
+	 */
+	unsigned long state;
+	/**
+	 * @unpinned_page_count: The number of pages unpinned for reclaim
+	 */
+	atomic_t unpinned_page_count;
+	/**
+	 * @fg_work: Work struct to schedule foreground work
+	 */
+	struct work_struct fg_work;
+	/**
+	 * @reclaim_lock: Mutex lock to protect KGSL_PROC_PINNED_STATE
+	 */
+	struct mutex reclaim_lock;
+	/**
+	 * @cmd_count: The number of cmds that are active for the process
+	 */
+	atomic_t cmd_count;
 };
 
 struct kgsl_device_private {

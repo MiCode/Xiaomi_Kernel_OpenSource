@@ -1661,6 +1661,8 @@ static int __qcom_glink_send(struct glink_channel *channel,
 	req.chunk_size = cpu_to_le32(chunk_size);
 	req.left_size = cpu_to_le32(left_size);
 
+	CH_INFO(channel, "iid:%d chunk_size:%d left_size:%d\n", iid,
+		chunk_size, left_size);
 	ret = qcom_glink_tx(glink, &req, sizeof(req), data, chunk_size, wait);
 
 	/* Mark intent available if we failed */
@@ -1682,6 +1684,8 @@ static int __qcom_glink_send(struct glink_channel *channel,
 		req.chunk_size = cpu_to_le32(chunk_size);
 		req.left_size = cpu_to_le32(left_size);
 
+		CH_INFO(channel, "iid:%d chunk_size:%d left_size:%d\n", iid,
+			chunk_size, left_size);
 		ret = qcom_glink_tx(glink, &req, sizeof(req), data,
 				    chunk_size, wait);
 

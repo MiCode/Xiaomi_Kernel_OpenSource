@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017, 2019 The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2017, 2019, 2021 The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "cnss_utils: " fmt
 
@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <linux/etherdevice.h>
 #include <linux/debugfs.h>
+#include <linux/of.h>
 #include <net/cnss_utils.h>
 
 #define CNSS_MAX_CH_NUM 157
@@ -442,9 +443,35 @@ out:
 	return ret;
 }
 
+/**
+ * cnss_utils_is_valid_dt_node_found - Check if valid device tree node present
+ *
+ * Valid device tree node means a node with "qcom,wlan" property present and
+ * "status" property not disabled.
+ *
+ * Return: true if valid device tree node found, false if not found
+ */
+static bool cnss_utils_is_valid_dt_node_found(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_node_with_property(dn, "qcom,wlan") {
+		if (of_device_is_available(dn))
+			break;
+	}
+
+	if (dn)
+		return true;
+
+	return false;
+}
+
 static int __init cnss_utils_init(void)
 {
 	struct cnss_utils_priv *priv = NULL;
+
+	if (!cnss_utils_is_valid_dt_node_found())
+		return -ENODEV;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)

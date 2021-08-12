@@ -175,7 +175,7 @@ __read_mostly unsigned int walt_scale_demand_divisor;
 #define SCHED_PRINT(arg)	printk_deferred("%s=%llu", #arg, arg)
 #define STRG(arg)		#arg
 
-static inline void walt_task_dump(struct task_struct *p)
+void walt_task_dump(struct task_struct *p)
 {
 	char buff[WALT_NR_CPUS * 16];
 	int i, j = 0;
@@ -216,7 +216,7 @@ static inline void walt_task_dump(struct task_struct *p)
 	SCHED_PRINT(p->on_rq);
 }
 
-static inline void walt_rq_dump(int cpu)
+void walt_rq_dump(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *tsk = cpu_curr(cpu);
@@ -260,7 +260,7 @@ static inline void walt_rq_dump(int cpu)
 	SCHED_PRINT(sched_capacity_margin_down[cpu]);
 }
 
-static inline void walt_dump(void)
+void walt_dump(void)
 {
 	int cpu;
 
@@ -275,15 +275,7 @@ static inline void walt_dump(void)
 	printk_deferred("============ WALT RQ DUMP END ==============\n");
 }
 
-static int in_sched_bug;
-#define SCHED_BUG_ON(condition)				\
-({							\
-	if (unlikely(!!(condition)) && !in_sched_bug) {	\
-		in_sched_bug = 1;			\
-		walt_dump();				\
-		BUG_ON(condition);			\
-	}						\
-})
+int in_sched_bug;
 
 static inline void
 fixup_cumulative_runnable_avg(struct rq *rq,
@@ -2220,6 +2212,7 @@ static void init_new_task_load(struct task_struct *p)
 	wts->prev_window = 0;
 	wts->active_time = 0;
 	wts->prev_on_rq = 0;
+	wts->prev_on_rq_cpu = -1;
 
 	for (i = 0; i < NUM_BUSY_BUCKETS; ++i)
 		wts->busy_buckets[i] = 0;
@@ -3841,6 +3834,15 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 	if (unlikely(walt_disabled))
 		return;
 
+	lockdep_assert_held(&rq->lock);
+
+	if (p->cpu != cpu_of(rq)) {
+		printk_deferred("WALT-BUG enqueuing on rq %d when task->cpu is %d\n",
+				cpu_of(rq), p->cpu);
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+
 	/* catch double enqueue */
 	if (wts->prev_on_rq == 1) {
 		printk_deferred("WALT-BUG double enqueue detected: task_cpu=%d new_cpu=%d\n",
@@ -3849,6 +3851,7 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 		SCHED_BUG_ON(1);
 	}
 	wts->prev_on_rq = 1;
+	wts->prev_on_rq_cpu = cpu_of(rq);
 
 	wts->last_enqueued_ts = wallclock;
 	sched_update_nr_prod(rq->cpu, 1);
@@ -3870,6 +3873,23 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq, struct task_st
 
 	if (unlikely(walt_disabled))
 		return;
+
+	lockdep_assert_held(&rq->lock);
+
+	/*
+	 * a task can be enqueued before walt is started, and dequeued after.
+	 * therefore the check to ensure that prev_on_rq_cpu is needed to prevent
+	 * an invalid failure.
+	 */
+	if (wts->prev_on_rq_cpu >= 0 && wts->prev_on_rq_cpu != cpu_of(rq)) {
+		printk_deferred("WALT-BUG dequeue cpu %d not same as enqueue %d\n",
+				cpu_of(rq), wts->prev_on_rq_cpu);
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+
+	/* no longer on a cpu */
+	wts->prev_on_rq_cpu = -1;
 
 	/* catch double deq */
 	if (wts->prev_on_rq == 2) {

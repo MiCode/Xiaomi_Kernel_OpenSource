@@ -16,6 +16,7 @@
 #include <linux/nvmem-consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/trace.h>
+#include <soc/qcom/dcvs.h>
 
 #include "adreno.h"
 #include "adreno_a3xx.h"
@@ -785,36 +786,45 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 	return -ENODEV;
 }
 
-static void
-l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
+static int register_l3_voter(struct kgsl_device *device)
 {
-	struct device_node *pwrlevel_node, *child;
+	int ret = 0;
 
-	pwrlevel_node = of_find_node_by_name(node, "qcom,l3-pwrlevels");
+	mutex_lock(&device->mutex);
 
-	if (pwrlevel_node == NULL)
-		return;
+	if (!device->l3_vote)
+		goto done;
 
-	for_each_available_child_of_node(pwrlevel_node, child) {
-		unsigned int index;
+	/* This indicates that we are already set up */
+	if (device->num_l3_pwrlevels != 0)
+		goto done;
 
-		if (of_property_read_u32(child, "reg", &index))
-			return;
-		if (index >= ARRAY_SIZE(device->l3_freq))
-			continue;
+	memset(device->l3_freq, 0x0, sizeof(device->l3_freq));
 
-		if (index >= device->num_l3_pwrlevels)
-			device->num_l3_pwrlevels = index + 1;
-
-		of_property_read_u32(child, "qcom,l3-freq",
-				&device->l3_freq[index]);
+	ret = qcom_dcvs_register_voter(KGSL_L3_DEVICE, DCVS_L3, DCVS_SLOW_PATH);
+	if (ret) {
+		dev_err_once(&device->pdev->dev,
+			"Unable to register l3 dcvs voter: %d\n", ret);
+		goto done;
 	}
 
-	device->l3_icc = of_icc_get(&device->pdev->dev, "l3_path");
+	ret = qcom_dcvs_hw_minmax_get(DCVS_L3, &device->l3_freq[1],
+		&device->l3_freq[2]);
+	if (ret) {
+		dev_err_once(&device->pdev->dev,
+			"Unable to get min/max for l3 dcvs: %d\n", ret);
+		qcom_dcvs_unregister_voter(KGSL_L3_DEVICE, DCVS_L3,
+			DCVS_SLOW_PATH);
+		memset(device->l3_freq, 0x0, sizeof(device->l3_freq));
+		goto done;
+	}
 
-	if (IS_ERR(device->l3_icc))
-		dev_err(&device->pdev->dev,
-			"Unable to get the l3 icc path\n");
+	device->num_l3_pwrlevels = 3;
+
+done:
+	mutex_unlock(&device->mutex);
+
+	return ret;
 }
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
@@ -826,8 +836,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	ret = adreno_of_get_pwrlevels(adreno_dev, pdev->dev.of_node);
 	if (ret)
 		return ret;
-
-	l3_pwrlevel_probe(device, pdev->dev.of_node);
 
 	device->pwrctrl.interval_timeout = CONFIG_QCOM_KGSL_IDLE_TIMEOUT;
 
@@ -1266,10 +1274,13 @@ int adreno_device_probe(struct platform_device *pdev,
 
 	adreno_sysfs_init(adreno_dev);
 
-	kgsl_pwrscale_init(device, pdev);
+	kgsl_pwrscale_init(device, pdev, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_L3_VOTE))
+		device->l3_vote = true;
 
 #ifdef CONFIG_INPUT
 
@@ -1355,6 +1366,10 @@ static void adreno_unbind(struct device *dev)
 
 	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
 		component_unbind_all(dev, NULL);
+
+	if (device->num_l3_pwrlevels != 0)
+		qcom_dcvs_unregister_voter(KGSL_L3_DEVICE, DCVS_L3,
+			DCVS_SLOW_PATH);
 
 	clear_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
@@ -1747,22 +1762,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		goto error_pwr_off;
 
 	/*
-	 * There is a possible deadlock scenario during kgsl firmware reading
-	 * (request_firmware) and devfreq update calls. During first boot, kgsl
-	 * device mutex is held and then request_firmware is called for reading
-	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
-	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
-	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
-	 * tries to take kgsl device mutex as part of get_dev_status/target
-	 * calls. This results in deadlock when both thread are unable to acquire
-	 * the mutex held by other thread. Enable devfreq updates now as we are
-	 * done reading all firmware files.
-	 */
-	status = kgsl_pwrscale_enable_devfreq(device, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
-	if (status)
-		goto error_pwr_off;
-
-	/*
 	 * At this point it is safe to assume that we recovered. Setting
 	 * this field allows us to take a new snapshot for the next failure
 	 * if we are prioritizing the first unrecoverable snapshot.
@@ -1776,6 +1775,20 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	device->reset_counter++;
 
 	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
+	/*
+	 * There is a possible deadlock scenario during kgsl firmware reading
+	 * (request_firmware) and devfreq update calls. During first boot, kgsl
+	 * device mutex is held and then request_firmware is called for reading
+	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
+	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
+	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
+	 * tries to take kgsl device mutex as part of get_dev_status/target
+	 * calls. This results in deadlock when both thread are unable to acquire
+	 * the mutex held by other thread. Enable devfreq updates now as we are
+	 * done reading all firmware files.
+	 */
+	device->pwrscale.devfreq_enabled = true;
 
 	return 0;
 
@@ -2180,6 +2193,11 @@ int adreno_set_constraint(struct kgsl_device *device,
 			status = -EFAULT;
 			break;
 		}
+
+		status = register_l3_voter(device);
+		if (status)
+			break;
+
 		if (pwr.level >= KGSL_CONSTRAINT_PWR_MAXLEVELS)
 			pwr.level = KGSL_CONSTRAINT_PWR_MAXLEVELS - 1;
 

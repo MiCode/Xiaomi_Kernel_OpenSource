@@ -282,11 +282,15 @@ static int cluster_power_cb(struct notifier_block *nb,
 			    unsigned long action, void *data)
 {
 	struct lpm_cluster *cluster_gov = container_of(nb, struct lpm_cluster, genpd_nb);
+	struct generic_pm_domain *pd = cluster_gov->genpd;
+	struct genpd_power_state *state = &pd->states[pd->state_idx];
 	struct lpm_cpu *cpu_gov;
 	int cpu;
+	u32 *suspend_param = state->data;
 
 	switch (action) {
 	case GENPD_NOTIFY_ON:
+		trace_cluster_exit(raw_smp_processor_id(), pd->state_idx, *suspend_param);
 		if (cluster_gov->genpd->suspended_count != 0)
 			break;
 
@@ -294,7 +298,6 @@ static int cluster_power_cb(struct notifier_block *nb,
 		clusttimer_cancel(cluster_gov);
 		update_cluster_history(cluster_gov);
 		cluster_predict(cluster_gov);
-		trace_cluster_exit(raw_smp_processor_id());
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
 		if (cluster_gov->genpd->suspended_count != 0) {
@@ -313,6 +316,9 @@ static int cluster_power_cb(struct notifier_block *nb,
 
 		cluster_gov->now = ktime_get();
 		cluster_power_down(cluster_gov);
+		break;
+	case GENPD_NOTIFY_OFF:
+		trace_cluster_enter(raw_smp_processor_id(), pd->state_idx, *suspend_param);
 		break;
 	default:
 		break;

@@ -6,6 +6,8 @@
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -13,6 +15,7 @@
 #include <linux/string.h>
 
 #include <linux/soc/qcom/smem.h>
+#include <soc/qcom/soc_sleep_stats.h>
 #include <clocksource/arm_arch_timer.h>
 
 #define STAT_TYPE_ADDR		0x0
@@ -24,6 +27,12 @@
 
 #define DDR_STATS_MAGIC_KEY	0xA1157A75
 #define DDR_STATS_MAX_NUM_MODES	0x14
+#define MAX_DRV			18
+#define MAX_MSG_LEN		35
+#define DRV_ABSENT		0xdeaddead
+#define DRV_INVALID		0xffffdead
+#define VOTE_MASK		0x3fff
+#define VOTE_X_SHIFT		14
 
 #define DDR_STATS_MAGIC_KEY_ADDR	0x0
 #define DDR_STATS_NUM_MODES_ADDR	0x4
@@ -70,6 +79,15 @@ struct stats_prv_data {
 	void __iomem *reg;
 };
 
+struct ddr_stats_g_data {
+	bool read_vote_info;
+	void __iomem *ddr_reg;
+	u32 entry_count;
+	struct mutex ddr_stats_lock;
+	struct mbox_chan *stats_mbox_ch;
+	struct mbox_client stats_mbox_cl;
+};
+
 struct sleep_stats {
 	u32 stat_type;
 	u32 count;
@@ -82,6 +100,8 @@ struct appended_stats {
 	u32 client_votes;
 	u32 reserved[3];
 };
+
+struct ddr_stats_g_data *ddr_gdata;
 
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
@@ -208,6 +228,65 @@ static int ddr_stats_show(struct seq_file *s, void *d)
 
 DEFINE_SHOW_ATTRIBUTE(ddr_stats);
 
+int ddr_stats_get_ss_count(void)
+{
+	return ddr_gdata->read_vote_info ? MAX_DRV : -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(ddr_stats_get_ss_count);
+
+int ddr_stats_get_ss_vote_info(int ss_count,
+				struct ddr_stats_ss_vote_info *vote_info)
+{
+	char buf[MAX_MSG_LEN] = {};
+	struct qmp_pkt pkt;
+	void __iomem *reg;
+	u32 vote_offset, val[MAX_DRV];
+	int ret, i;
+
+	if (!ddr_gdata->read_vote_info)
+		return -EOPNOTSUPP;
+
+	if (!vote_info || !(ss_count == MAX_DRV) || !ddr_gdata)
+		return -ENODEV;
+
+	mutex_lock(&ddr_gdata->ddr_stats_lock);
+	ret = scnprintf(buf, MAX_MSG_LEN, "{class: ddr, res: drvs_ddr_votes}");
+	pkt.size = (ret + 0x3) & ~0x3;
+	pkt.data = buf;
+
+	ret = mbox_send_message(ddr_gdata->stats_mbox_ch, &pkt);
+	if (ret < 0) {
+		pr_err("Error sending mbox message: %d\n", ret);
+		mutex_unlock(&ddr_gdata->ddr_stats_lock);
+		return ret;
+	}
+
+	vote_offset = sizeof(u32) + sizeof(u32) +
+			(ddr_gdata->entry_count * sizeof(struct stats_entry));
+	reg = ddr_gdata->ddr_reg;
+
+	for (i = 0; i < ss_count; i++, reg += sizeof(u32)) {
+		val[i] = readl_relaxed(reg + vote_offset);
+		if (val[i] == DRV_ABSENT) {
+			vote_info[i].ab = DRV_ABSENT;
+			vote_info[i].ib = DRV_ABSENT;
+			continue;
+		} else if (val[i] == DRV_INVALID) {
+			vote_info[i].ab = DRV_INVALID;
+			vote_info[i].ib = DRV_INVALID;
+			continue;
+		}
+
+		vote_info[i].ab = (val[i] >> VOTE_X_SHIFT) & VOTE_MASK;
+		vote_info[i].ib = val[i] & VOTE_MASK;
+	}
+
+	mutex_unlock(&ddr_gdata->ddr_stats_lock);
+	return 0;
+
+}
+EXPORT_SYMBOL(ddr_stats_get_ss_vote_info);
+
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     void __iomem *ddr_reg,
 					     struct stats_prv_data *prv_data,
@@ -271,7 +350,7 @@ exit:
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *reg, *ddr_reg = NULL;
+	void __iomem *reg;
 	void __iomem *offset_addr;
 	phys_addr_t stats_base;
 	resource_size_t stats_size;
@@ -308,6 +387,11 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	for (i = 0; i < config->num_records; i++)
 		prv_data[i].config = config;
 
+	ddr_gdata = devm_kzalloc(&pdev->dev, sizeof(*ddr_gdata), GFP_KERNEL);
+	if (!ddr_gdata)
+		return -ENOMEM;
+
+	ddr_gdata->read_vote_info = false;
 	if (!config->ddr_offset_addr)
 		goto skip_ddr_stats;
 
@@ -319,12 +403,31 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	stats_base = res->start | readl_relaxed(offset_addr);
 	iounmap(offset_addr);
 
-	ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
-	if (!ddr_reg)
+	ddr_gdata->ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
+	if (!ddr_gdata->ddr_reg)
 		return -ENOMEM;
 
+	mutex_init(&ddr_gdata->ddr_stats_lock);
+
+	ddr_gdata->entry_count = readl_relaxed(ddr_gdata->ddr_reg + DDR_STATS_NUM_MODES_ADDR);
+	if (ddr_gdata->entry_count > DDR_STATS_MAX_NUM_MODES) {
+		pr_err("Invalid entry count\n");
+		goto skip_ddr_stats;
+	}
+
+	ddr_gdata->stats_mbox_cl.dev = &pdev->dev;
+	ddr_gdata->stats_mbox_cl.tx_block = true;
+	ddr_gdata->stats_mbox_cl.tx_tout = 1000;
+	ddr_gdata->stats_mbox_cl.knows_txdone = false;
+
+	ddr_gdata->stats_mbox_ch = mbox_request_channel(&ddr_gdata->stats_mbox_cl, 0);
+	if (IS_ERR(ddr_gdata->stats_mbox_ch))
+		goto skip_ddr_stats;
+
+	ddr_gdata->read_vote_info = true;
+
 skip_ddr_stats:
-	root = create_debugfs_entries(reg, ddr_reg,  prv_data,
+	root = create_debugfs_entries(reg, ddr_gdata->ddr_reg,  prv_data,
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
 

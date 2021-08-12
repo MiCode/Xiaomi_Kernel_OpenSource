@@ -17,6 +17,10 @@
 #include <linux/cpu.h>
 #include <linux/blk-mq.h>
 #include <linux/thermal.h>
+#include <linux/cpufreq.h>
+#include <linux/debugfs.h>
+#include <trace/hooks/ufshcd.h>
+#include <linux/ipc_logging.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -35,11 +39,26 @@
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
 
+#define UFS_QCOM_LOAD_MON_DLY_MS 30
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
 #define	ANDROID_BOOT_DEV_MAX	30
+
+
+/* Max number of log pages */
+#define UFS_QCOM_MAX_LOG_SZ	10
+#define ufs_qcom_log_str(host, fmt, ...)	\
+	do {	\
+		if (host->ufs_ipc_log_ctx && host->dbg_en)	\
+			ipc_log_string(host->ufs_ipc_log_ctx,	\
+					",%d,"fmt, current->cpu, ##__VA_ARGS__);\
+	} while (0)
+
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+
+static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
+static bool no_defer;
 
 enum {
 	TSTBUS_UAWM,
@@ -86,6 +105,31 @@ static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
 					   enum constraint type);
 static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba);
 static void ufs_qcom_parse_g4_workaround_flag(struct ufs_qcom_host *host);
+static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val);
+
+static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err;
+
+	if (host->cpufreq_dis)
+		return;
+
+	cancel_delayed_work_sync(&host->fwork);
+	if (!host->cur_freq_vote)
+		return;
+	atomic_set(&host->num_reqs_threshold, 0);
+
+	err = ufs_qcom_mod_min_cpufreq(host->config_cpu,
+				       host->min_cpu_scale_freq);
+	if (err < 0)
+		dev_err(hba->dev, "fail set cpufreq-fmin_def %d:\n",
+				err);
+	else
+		host->cur_freq_vote = false;
+	dev_dbg(hba->dev, "%s,err=%d\n", __func__, err);
+}
+
 static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 				      struct ufs_pa_layer_attr *dev_max,
 				      struct ufs_pa_layer_attr *agreed_pwr)
@@ -650,6 +694,8 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		err = -EINVAL;
 		break;
 	}
+
+	ufs_qcom_log_str(host, "-,%d,%d\n", status, err);
 	return err;
 }
 
@@ -1016,6 +1062,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	}
 
 out:
+	ufs_qcom_log_str(host, "*,%d,%d\n", status, err);
 	return err;
 }
 
@@ -1092,6 +1139,79 @@ out:
 	return ret;
 }
 
+
+static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val)
+{
+	int ret = 0;
+	struct freq_qos_request *qos_req;
+
+	get_online_cpus();
+	if (cpu_online(cpu)) {
+		qos_req = &per_cpu(qos_min_req, cpu);
+		ret = freq_qos_update_request(qos_req, new_val);
+	}
+	put_online_cpus();
+	return ret;
+}
+
+static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
+					unsigned int cpu)
+{
+	int ret;
+	struct cpufreq_policy *policy;
+	struct freq_qos_request *req;
+
+	policy = cpufreq_cpu_get(cpu);
+	if (!policy) {
+		dev_err(host->hba->dev, "Failed to get cpu(%u)freq policy\n",
+			cpu);
+		return -EINVAL;
+	}
+
+	req = &per_cpu(qos_min_req, cpu);
+	ret = freq_qos_add_request(&policy->constraints, req, FREQ_QOS_MIN,
+				FREQ_QOS_MIN_DEFAULT_VALUE);
+	if (ret < 0)
+		dev_err(host->hba->dev, "Failed to add freq qos req\n");
+	cpufreq_cpu_put(policy);
+
+	return ret;
+}
+
+static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
+{
+	struct ufs_qcom_host *host = container_of(to_delayed_work(work),
+							struct ufs_qcom_host,
+							fwork);
+	unsigned long cur_thres = atomic_read(&host->num_reqs_threshold);
+	unsigned int freq_val = -1;
+	int err = -1;
+
+	atomic_set(&host->num_reqs_threshold, 0);
+
+	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote)
+		freq_val = host->max_cpu_scale_freq;
+	else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote)
+		freq_val = host->min_cpu_scale_freq;
+
+	if (freq_val == -1)
+		goto out;
+
+	err = ufs_qcom_mod_min_cpufreq(host->config_cpu, freq_val);
+	if (err < 0)
+		dev_err(host->hba->dev, "fail set cpufreq-fmin to %d: %u\n",
+				err, freq_val);
+	else if (freq_val == host->max_cpu_scale_freq)
+		host->cur_freq_vote = true;
+	else if (freq_val == host->min_cpu_scale_freq)
+		host->cur_freq_vote = false;
+	dev_dbg(host->hba->dev, "cur_freq_vote=%d,freq_val=%u,cth=%u\n",
+		host->cur_freq_vote, freq_val, cur_thres);
+out:
+	queue_delayed_work(host->ufs_qos->workq, &host->fwork,
+			   msecs_to_jiffies(UFS_QCOM_LOAD_MON_DLY_MS));
+}
+
 static int add_group_qos(struct qos_cpu_group *qcg, enum constraint type)
 {
 	int cpu, err;
@@ -1166,8 +1286,12 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
 		ufs_qcom_device_reset_ctrl(hba, true);
 
+	ufs_qcom_log_str(host, "&,%d,%d,%d,%d,%d,%d\n",
+			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
+			hba->curr_dev_pwr_mode, err);
 	ufs_qcom_ice_disable(host);
 
+	cancel_dwork_unvote_cpufreq(hba);
 	return err;
 }
 
@@ -1188,6 +1312,9 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (err)
 		return err;
 
+	ufs_qcom_log_str(host, "$,%d,%d,%d,%d,%d,%d\n",
+			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
+			hba->curr_dev_pwr_mode, err);
 	return 0;
 }
 
@@ -1704,6 +1831,13 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		break;
 	}
 out:
+	if (dev_req_params)
+		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
+			dev_req_params->gear_rx, dev_req_params->pwr_rx,
+			dev_req_params->hs_rate, ret);
+	else
+		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
+			0, 0, 0, ret);
 	return ret;
 }
 
@@ -1984,6 +2118,9 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			atomic_set(&host->clks_on, on);
 		break;
 	}
+	if (!(!!atomic_read(&host->clks_on)))
+		cancel_dwork_unvote_cpufreq(hba);
+	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
 
 	return err;
 }
@@ -2409,6 +2546,7 @@ static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
 		vote = S32_MAX;
 	else
 		vote = qcg->votes[type];
+
 	dev_dbg(qcg->host->hba->dev, "%s: qcg: 0x%08x | const: %d\n",
 		__func__, qcg, type);
 	if (qcg->curr_vote == vote)
@@ -2444,6 +2582,10 @@ static void ufs_qcom_qos(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
 	if (!qcg)
 		return;
 
+	if (qcg->perf_core && !host->cpufreq_dis &&
+					!!atomic_read(&host->scale_up))
+		atomic_inc(&host->num_reqs_threshold);
+
 	if (qcg->voted) {
 		dev_dbg(qcg->host->hba->dev, "%s: qcg: 0x%08x | Mask: 0x%08x - Already voted - return\n",
 			__func__, qcg, qcg->mask);
@@ -2471,6 +2613,8 @@ static int ufs_qcom_setup_qos(struct ufs_hba *hba)
 	struct device *dev = hba->dev;
 	struct ufs_qcom_qos_req *qr = host->ufs_qos;
 	struct qos_cpu_group *qcg = qr->qcg;
+	struct cpufreq_policy *policy;
+	unsigned int cpu;
 	int i, err;
 
 	for (i = 0; i < qr->num_groups; i++, qcg++) {
@@ -2497,6 +2641,34 @@ static int ufs_qcom_setup_qos(struct ufs_hba *hba)
 			goto free_mem;
 		}
 		INIT_WORK(&qcg->vwork, ufs_qcom_vote_work);
+
+		if (host->cpufreq_dis || qcg->perf_core)
+			continue;
+		/* Bump up the cpufreq of the non-perf group */
+		cpu = cpumask_first((const struct cpumask *)&qcg->mask);
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			dev_err(dev, "Failed cpufreq policy,cpu=%d,mask=0x%08x\n",
+				__func__, cpu, qcg->mask);
+			host->cpufreq_dis = true;
+			host->config_cpu = -1;
+			continue;
+		}
+		host->config_cpu = cpu;
+		host->min_cpu_scale_freq = policy->cpuinfo.min_freq;
+		host->max_cpu_scale_freq = policy->cpuinfo.max_freq;
+		cpufreq_cpu_put(policy);
+	}
+
+	if (!host->cpufreq_dis) {
+		err = ufs_qcom_init_cpu_minfreq_req(host, host->config_cpu);
+		if (err) {
+			dev_err(dev, "Failed to register for freq_qos: %d\n",
+				err);
+			host->cpufreq_dis = true;
+		} else {
+			INIT_DELAYED_WORK(&host->fwork, ufs_qcom_cpufreq_dwork);
+		}
 	}
 	qr->workq = create_singlethread_workqueue("qc_ufs_qos_swq");
 	if (qr->workq)
@@ -2520,6 +2692,7 @@ static void ufs_qcom_qos_init(struct ufs_hba *hba)
 	int i, err, mask = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
+	host->cpufreq_dis = true;
 	qr = kzalloc(sizeof(*qr), GFP_KERNEL);
 	if (!qr)
 		return;
@@ -2546,6 +2719,13 @@ static void ufs_qcom_qos_init(struct ufs_hba *hba)
 		if (!cpumask_subset(&qcg->mask, cpu_possible_mask)) {
 			dev_err(dev, "Invalid group mask\n");
 			goto out_err;
+		}
+
+		if (of_property_read_bool(group_node, "perf")) {
+			qcg->perf_core = true;
+			host->cpufreq_dis = false;
+		} else {
+			qcg->perf_core = false;
 		}
 
 		err = of_property_count_u32_elems(group_node, "vote");
@@ -2708,6 +2888,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	host->hba = hba;
 	ufshcd_set_variant(hba, host);
 	ut = &host->uqt;
+#if defined(CONFIG_UFS_DBG)
+	host->dbg_en = true;
+#endif
 
 	/* Setup the reset control of HCI */
 	host->core_reset = devm_reset_control_get(hba->dev, "rst");
@@ -2906,6 +3089,11 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_save_host_ptr(hba);
 
 	ufs_qcom_qos_init(hba);
+	host->ufs_ipc_log_ctx = ipc_log_context_create(UFS_QCOM_MAX_LOG_SZ,
+							"ufs-qcom", 0);
+	if (!host->ufs_ipc_log_ctx)
+		dev_warn(dev, "IPC Log init - failed\n");
+
 	goto out;
 
 out_disable_vccq_parent:
@@ -3101,13 +3289,21 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 		err = ufshcd_uic_hibern8_enter(hba);
 		if (err)
 			return err;
-		if (scale_up)
+		if (scale_up) {
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
-		else
+			if (!host->cpufreq_dis) {
+				atomic_set(&host->num_reqs_threshold, 0);
+				queue_delayed_work(host->ufs_qos->workq,
+						  &host->fwork,
+					msecs_to_jiffies(
+						UFS_QCOM_LOAD_MON_DLY_MS));
+			}
+		} else {
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
+			cancel_dwork_unvote_cpufreq(hba);
+		}
 		if (err)
 			ufshcd_uic_hibern8_exit(hba);
-
 	} else {
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_post_change(hba);
@@ -3132,6 +3328,10 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 	if (!err)
 		atomic_set(&host->scale_up, scale_up);
 out:
+	if (scale_up)
+		ufs_qcom_log_str(host, "^,%d,%d\n", status, err);
+	else
+		ufs_qcom_log_str(host, "v,%d,%d\n", status, err);
 	return err;
 }
 
@@ -3648,20 +3848,40 @@ static ssize_t err_count_show(struct device *dev,
 
 static DEVICE_ATTR_RO(err_count);
 
+static ssize_t dbg_state_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool v;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &v))
+		return -EINVAL;
+
+	host->dbg_en = v;
+
+	return count;
+}
+
 static ssize_t dbg_state_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	int dbg_en = 0;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 #if defined(CONFIG_UFS_DBG)
-	dbg_en = 1;
+	host->dbg_en = true;
 #endif
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", dbg_en);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", host->dbg_en);
 }
 
 
-static DEVICE_ATTR_RO(dbg_state);
+static DEVICE_ATTR_RW(dbg_state);
 
 static ssize_t crash_on_err_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -3722,6 +3942,100 @@ static int ufs_qcom_init_sysfs(struct ufs_hba *hba)
 	return ret;
 }
 
+static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
+				       struct ufshcd_lrb *lrbp)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
+		int sz = lrbp->cmd->request ?
+				blk_rq_sectors(lrbp->cmd->request) : 0;
+		ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
+				lrbp->cmd->cmnd[0],
+				lrbp->task_tag,
+				ufshcd_readl(hba,
+					REG_UTP_TRANSFER_REQ_DOOR_BELL),
+				sz);
+	}
+}
+
+static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
+				       struct ufshcd_lrb *lrbp)
+{
+
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (lrbp && lrbp->cmd) {
+		int sz = lrbp->cmd->request ?
+				blk_rq_sectors(lrbp->cmd->request) : 0;
+		ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
+				lrbp->cmd->cmnd[0],
+				lrbp->task_tag,
+				ufshcd_readl(hba,
+					REG_UTP_TRANSFER_REQ_DOOR_BELL),
+				sz);
+	}
+}
+
+static void ufs_qcom_hook_send_uic_command(void *param, struct ufs_hba *hba,
+					struct uic_command *ucmd,
+					const char *str)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned int a, b, c, cmd;
+	char ch;
+
+	if (str[0] == 's') {
+		a = ucmd->argument1;
+		b = ucmd->argument2;
+		c = ucmd->argument3;
+		cmd = ucmd->command;
+		ch = '(';
+	} else {
+		a = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
+		b = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
+		c = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3);
+		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
+		ch = ')';
+	}
+	ufs_qcom_log_str(host, "%c,%x,%x,%x,%x\n",
+				ch, cmd, a, b, c);
+}
+
+static void ufs_qcom_hook_send_tm_command(void *param, struct ufs_hba *hba,
+					int tag, const char *str)
+{
+
+}
+
+static void ufs_qcom_hook_check_int_errors(void *param, struct ufs_hba *hba,
+					bool queue_eh_work)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (queue_eh_work)
+		ufs_qcom_log_str(host, "_,%x,%x\n",
+					hba->errors, hba->uic_error);
+}
+
+/*
+ * Refer: common/include/trace/hooks/ufshcd.h for available hooks
+ */
+static void ufs_qcom_register_hooks(void)
+{
+	register_trace_android_vh_ufs_send_command(ufs_qcom_hook_send_command,
+						NULL);
+	register_trace_android_vh_ufs_compl_command(
+				ufs_qcom_hook_compl_command, NULL);
+	register_trace_android_vh_ufs_send_uic_command(
+				ufs_qcom_hook_send_uic_command, NULL);
+	register_trace_android_vh_ufs_send_tm_command(
+				ufs_qcom_hook_send_tm_command, NULL);
+	register_trace_android_vh_ufs_check_int_errors(
+				ufs_qcom_hook_check_int_errors, NULL);
+}
+
+
 /**
  * ufs_qcom_probe - probe routine of the driver
  * @pdev: pointer to Platform device handle
@@ -3733,7 +4047,25 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	int err;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct cpufreq_policy *policy;
 
+	/**
+	 * CPUFreq driver is needed for performance reasons.
+	 * Assumption - cpufreq gets probed the second time.
+	 * If cpufreq is not probed by the time the driver requests for cpu
+	 * policy later on, cpufreq would be disabled and performance would be
+	 * impacted adversly.
+	 */
+	policy = cpufreq_cpu_get(0);
+	if (!policy && !no_defer) {
+		no_defer = true;
+		dev_warn(dev, "cpufreq not probed yet, defer once\n");
+		return -EPROBE_DEFER;
+	} else if (policy) {
+		cpufreq_cpu_put(policy);
+	} else {
+		dev_warn(dev, "cpufreq enable may fail\n");
+	}
 	/*
 	 * On qcom platforms, bootdevice is the primary storage
 	 * device. This device can either be eMMC or UFS.
@@ -3756,6 +4088,7 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	if (err)
 		dev_err(dev, "ufshcd_pltfrm_init() failed %d\n", err);
 
+	ufs_qcom_register_hooks();
 	return err;
 }
 
@@ -3784,7 +4117,9 @@ static void ufs_qcom_shutdown(struct platform_device *pdev)
 {
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
 	struct scsi_device *sdev;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
+	ufs_qcom_log_str(host, "0xdead\n");
 	pm_runtime_get_sync(hba->dev);
 
 	shost_for_each_device(sdev, hba->host) {

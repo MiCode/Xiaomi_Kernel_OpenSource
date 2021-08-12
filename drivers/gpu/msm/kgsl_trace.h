@@ -1172,6 +1172,33 @@ TRACE_EVENT(kgsl_clock_throttling,
 	)
 );
 
+TRACE_EVENT(kgsl_bcl_clock_throttling,
+	TP_PROTO(
+		int crc_25pct,
+		int crc_58pct,
+		int crc_75pct
+	),
+	TP_ARGS(
+		crc_25pct,
+		crc_58pct,
+		crc_75pct
+	),
+	TP_STRUCT__entry(
+		__field(int, crc_25pct)
+		__field(int, crc_58pct)
+		__field(int, crc_75pct)
+	),
+	TP_fast_assign(
+		__entry->crc_25pct = crc_25pct;
+		__entry->crc_58pct = crc_58pct;
+		__entry->crc_75pct = crc_75pct;
+	),
+	TP_printk("crc_25=%d crc_58=%d crc_75=%d",
+		__entry->crc_25pct, __entry->crc_58pct,
+		__entry->crc_75pct
+	)
+);
+
 DECLARE_EVENT_CLASS(gmu_oob_template,
 	TP_PROTO(unsigned int mask),
 	TP_ARGS(mask),
@@ -1412,6 +1439,80 @@ TRACE_EVENT(kgsl_thermal_constraint,
 	),
 	TP_printk("Thermal max freq=%d",
 		__entry->max_freq
+	)
+);
+
+TRACE_EVENT(kgsl_pool_add_page,
+	TP_PROTO(int order, u32 count),
+	TP_ARGS(order, count),
+	TP_STRUCT__entry(
+		__field(int, order)
+		__field(u32, count)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+		__entry->count = count;
+	),
+	TP_printk("order=%d count=%u",
+		__entry->order, __entry->count
+	)
+);
+
+TRACE_EVENT(kgsl_pool_get_page,
+	TP_PROTO(int order, u32 count),
+	TP_ARGS(order, count),
+	TP_STRUCT__entry(
+		__field(int, order)
+		__field(u32, count)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+		__entry->count = count;
+	),
+	TP_printk("order=%d count=%u",
+		__entry->order, __entry->count
+	)
+);
+
+TRACE_EVENT(kgsl_pool_alloc_page_system,
+	TP_PROTO(int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+	),
+	TP_printk("order=%d",
+		__entry->order
+	)
+);
+
+TRACE_EVENT(kgsl_pool_try_page_lower,
+	TP_PROTO(int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+	),
+	TP_printk("order=%d",
+		__entry->order
+	)
+);
+
+TRACE_EVENT(kgsl_pool_free_page,
+	TP_PROTO(int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+	),
+	TP_printk("order=%d",
+		__entry->order
 	)
 );
 

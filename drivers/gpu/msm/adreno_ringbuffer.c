@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interconnect.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
+#include <soc/qcom/dcvs.h>
 
 #include "a3xx_reg.h"
 #include "a5xx_reg.h"
@@ -197,9 +198,9 @@ void adreno_drawobj_set_constraint(struct kgsl_device *device,
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
 			(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
 
-		if (IS_ERR(device->l3_icc)) {
+		if (!device->num_l3_pwrlevels) {
 			dev_err_once(device->dev,
-				"l3_icc path not available\n");
+				"l3 voting not available\n");
 			return;
 		}
 
@@ -208,6 +209,10 @@ void adreno_drawobj_set_constraint(struct kgsl_device *device,
 			unsigned int sub_type;
 			unsigned int new_l3;
 			int ret = 0;
+			struct dcvs_freq freq = {0};
+
+			if (!device->l3_vote)
+				return;
 
 			sub_type = context->l3_pwr_constraint.sub_type;
 
@@ -223,9 +228,10 @@ void adreno_drawobj_set_constraint(struct kgsl_device *device,
 			if (device->cur_l3_pwrlevel == new_l3)
 				return;
 
-			ret = icc_set_bw(device->l3_icc, 0,
-					device->l3_freq[new_l3]);
-
+			freq.ib = device->l3_freq[new_l3];
+			freq.hw_type = DCVS_L3;
+			ret = qcom_dcvs_update_votes(KGSL_L3_DEVICE, &freq, 1,
+				DCVS_SLOW_PATH);
 			if (!ret) {
 				trace_kgsl_constraint(device,
 					KGSL_CONSTRAINT_L3_PWRLEVEL, new_l3, 1);

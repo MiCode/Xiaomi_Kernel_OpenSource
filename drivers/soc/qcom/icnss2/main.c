@@ -44,6 +44,7 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
+#include <linux/soc/qcom/pdr.h>
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
@@ -55,8 +56,8 @@
 #define NUM_LOG_LONG_PAGES		4
 #define ICNSS_MAGIC			0x5abc5abc
 
-#define ICNSS_SERVICE_LOCATION_CLIENT_NAME			"ICNSS-WLAN"
 #define ICNSS_WLAN_SERVICE_NAME					"wlan/fw"
+#define ICNSS_WLANPD_NAME					"msm/modem/wlan_pd"
 #define ICNSS_DEFAULT_FEATURE_MASK 0x01
 
 #define ICNSS_M3_SEGMENT(segment)		"wcnss_"segment
@@ -1754,6 +1755,14 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	priv->is_ssr = true;
 
+	if (notif->crashed) {
+		priv->stats.recovery.root_pd_crash++;
+		priv->root_pd_shutdown = false;
+	} else {
+		priv->stats.recovery.root_pd_shutdown++;
+		priv->root_pd_shutdown = true;
+	}
+
 	icnss_update_state_send_modem_shutdown(priv, data);
 
 	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
@@ -1774,11 +1783,6 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		      priv->state, notif->crashed);
 
 	set_bit(ICNSS_FW_DOWN, &priv->state);
-
-	if (notif->crashed)
-		priv->stats.recovery.root_pd_crash++;
-	else
-		priv->stats.recovery.root_pd_shutdown++;
 
 	icnss_ignore_fw_timeout(true);
 
@@ -1876,221 +1880,100 @@ static int icnss_modem_ssr_unregister_notifier(struct icnss_priv *priv)
 	return 0;
 }
 
-static int icnss_pdr_unregister_notifier(struct icnss_priv *priv)
+static void icnss_pdr_notifier_cb(int state, char *service_path, void *priv_cb)
 {
-	int i;
-
-	if (!test_and_clear_bit(ICNSS_PDR_REGISTERED, &priv->state))
-		return 0;
-
-	for (i = 0; i < priv->total_domains; i++)
-		service_notif_unregister_notifier(
-				priv->service_notifier[i].handle,
-				&priv->service_notifier_nb);
-
-	kfree(priv->service_notifier);
-
-	priv->service_notifier = NULL;
-
-	return 0;
-}
-
-static int icnss_service_notifier_notify(struct notifier_block *nb,
-					 unsigned long notification, void *data)
-{
-	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
-					       service_notifier_nb);
-	enum pd_subsys_state *state = data;
+	struct icnss_priv *priv = priv_cb;
 	struct icnss_event_pd_service_down_data *event_data;
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 	enum icnss_pdr_cause_index cause = ICNSS_ROOT_PD_CRASH;
 
 	icnss_pr_dbg("PD service notification: 0x%lx state: 0x%lx\n",
-		     notification, priv->state);
+		     state, priv->state);
 
-	if (notification != SERVREG_NOTIF_SERVICE_STATE_DOWN_V01)
-		goto done;
+	switch (state) {
+	case SERVREG_SERVICE_STATE_DOWN:
+		event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
-	if (!priv->is_ssr)
-		set_bit(ICNSS_PDR, &priv->state);
+		if (!event_data)
+			return;
 
-	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+		event_data->crashed = true;
 
-	if (event_data == NULL)
-		return notifier_from_errno(-ENOMEM);
-
-	event_data->crashed = true;
-
-	if (state == NULL) {
-		priv->stats.recovery.root_pd_crash++;
-		goto event_post;
-	}
-
-	switch (*state) {
-	case ROOT_PD_WDOG_BITE:
-		priv->stats.recovery.root_pd_crash++;
-		break;
-	case ROOT_PD_SHUTDOWN:
-		cause = ICNSS_ROOT_PD_SHUTDOWN;
-		priv->stats.recovery.root_pd_shutdown++;
-		event_data->crashed = false;
-		break;
-	case USER_PD_STATE_CHANGE:
-		if (test_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state)) {
-			cause = ICNSS_HOST_ERROR;
-			priv->stats.recovery.pdr_host_error++;
-		} else {
-			cause = ICNSS_FW_CRASH;
-			priv->stats.recovery.pdr_fw_crash++;
+		if (!priv->is_ssr) {
+			set_bit(ICNSS_PDR, &penv->state);
+			if (test_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state)) {
+				cause = ICNSS_HOST_ERROR;
+				priv->stats.recovery.pdr_host_error++;
+			} else {
+				cause = ICNSS_FW_CRASH;
+				priv->stats.recovery.pdr_fw_crash++;
+			}
+		} else if (priv->root_pd_shutdown) {
+			cause = ICNSS_ROOT_PD_SHUTDOWN;
+			event_data->crashed = false;
 		}
+
+		icnss_pr_info("PD service down, state: 0x%lx: cause: %s\n",
+			      priv->state, icnss_pdr_cause[cause]);
+
+		if (!test_bit(ICNSS_FW_DOWN, &priv->state)) {
+			set_bit(ICNSS_FW_DOWN, &priv->state);
+			icnss_ignore_fw_timeout(true);
+
+			if (test_bit(ICNSS_FW_READY, &priv->state)) {
+				clear_bit(ICNSS_FW_READY, &priv->state);
+				fw_down_data.crashed = event_data->crashed;
+				icnss_call_driver_uevent(priv,
+							 ICNSS_UEVENT_FW_DOWN,
+							 &fw_down_data);
+			}
+		}
+		clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
+		icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+					ICNSS_EVENT_SYNC, event_data);
+		break;
+	case SERVREG_SERVICE_STATE_UP:
+		clear_bit(ICNSS_FW_DOWN, &priv->state);
 		break;
 	default:
-		priv->stats.recovery.root_pd_crash++;
 		break;
 	}
-	icnss_pr_info("PD service down, pd_state: %d, state: 0x%lx: cause: %s\n",
-		      *state, priv->state, icnss_pdr_cause[cause]);
-event_post:
-	if (!test_bit(ICNSS_FW_DOWN, &priv->state)) {
-		set_bit(ICNSS_FW_DOWN, &priv->state);
-		icnss_ignore_fw_timeout(true);
-
-		if (test_bit(ICNSS_FW_READY, &priv->state)) {
-			clear_bit(ICNSS_FW_READY, &priv->state);
-			fw_down_data.crashed = event_data->crashed;
-			icnss_call_driver_uevent(priv,
-						 ICNSS_UEVENT_FW_DOWN,
-						 &fw_down_data);
-		}
-	}
-
-	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
-	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-				ICNSS_EVENT_SYNC, event_data);
-done:
-	if (notification == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
-		clear_bit(ICNSS_FW_DOWN, &priv->state);
-	return NOTIFY_OK;
+	return;
 }
-
-static int icnss_get_service_location_notify(struct notifier_block *nb,
-					     unsigned long opcode, void *data)
-{
-	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
-					       get_service_nb);
-	struct pd_qmi_client_data *pd = data;
-	int curr_state;
-	int ret;
-	int i;
-	int j;
-	bool duplicate;
-	struct service_notifier_context *notifier;
-
-	icnss_pr_dbg("Get service notify opcode: %lu, state: 0x%lx\n", opcode,
-		     priv->state);
-
-	if (opcode != LOCATOR_UP)
-		return NOTIFY_DONE;
-
-	if (pd->total_domains == 0) {
-		icnss_pr_err("Did not find any domains\n");
-		ret = -ENOENT;
-		goto out;
-	}
-
-	notifier = kcalloc(pd->total_domains,
-				sizeof(struct service_notifier_context),
-				GFP_KERNEL);
-	if (!notifier) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	priv->service_notifier_nb.notifier_call = icnss_service_notifier_notify;
-
-	for (i = 0; i < pd->total_domains; i++) {
-		duplicate = false;
-		for (j = i + 1; j < pd->total_domains; j++) {
-			if (!strcmp(pd->domain_list[i].name,
-			    pd->domain_list[j].name))
-				duplicate = true;
-		}
-
-		if (duplicate)
-			continue;
-
-		icnss_pr_dbg("%d: domain_name: %s, instance_id: %d\n", i,
-			     pd->domain_list[i].name,
-			     pd->domain_list[i].instance_id);
-
-		notifier[i].handle =
-			service_notif_register_notifier(pd->domain_list[i].name,
-				pd->domain_list[i].instance_id,
-				&priv->service_notifier_nb, &curr_state);
-		notifier[i].instance_id = pd->domain_list[i].instance_id;
-		strlcpy(notifier[i].name, pd->domain_list[i].name,
-			QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1);
-
-		if (IS_ERR(notifier[i].handle)) {
-			icnss_pr_err("%d: Unable to register notifier for %s(0x%x)\n",
-				     i, pd->domain_list->name,
-				     pd->domain_list->instance_id);
-			ret = PTR_ERR(notifier[i].handle);
-			goto free_handle;
-		}
-	}
-
-	priv->service_notifier = notifier;
-	priv->total_domains = pd->total_domains;
-
-	set_bit(ICNSS_PDR_REGISTERED, &priv->state);
-
-	icnss_pr_dbg("PD notification registration happened, state: 0x%lx\n",
-		     priv->state);
-
-	return NOTIFY_OK;
-
-free_handle:
-	for (i = 0; i < pd->total_domains; i++) {
-		if (notifier[i].handle)
-			service_notif_unregister_notifier(notifier[i].handle,
-					&priv->service_notifier_nb);
-	}
-	kfree(notifier);
-
-out:
-	icnss_pr_err("PD restart not enabled: %d, state: 0x%lx\n", ret,
-		     priv->state);
-
-	return NOTIFY_OK;
-}
-
 
 static int icnss_pd_restart_enable(struct icnss_priv *priv)
 {
-	int ret;
+	struct pdr_handle *handle = NULL;
+	struct pdr_service *service = NULL;
+	int err = 0;
 
-	if (test_bit(SSR_ONLY, &priv->ctrl_params.quirks)) {
-		icnss_pr_dbg("PDR disabled through module parameter\n");
-		return 0;
-	}
-
-	icnss_pr_dbg("Get service location, state: 0x%lx\n", priv->state);
-
-	priv->get_service_nb.notifier_call = icnss_get_service_location_notify;
-	ret = get_service_location(ICNSS_SERVICE_LOCATION_CLIENT_NAME,
-				   ICNSS_WLAN_SERVICE_NAME,
-				   &priv->get_service_nb);
-	if (ret) {
-		icnss_pr_err("Get service location failed: %d\n", ret);
+	handle = pdr_handle_alloc(icnss_pdr_notifier_cb, priv);
+	if (IS_ERR_OR_NULL(handle)) {
+		err = PTR_ERR(handle);
+		icnss_pr_err("Failed to alloc pdr handle, err %d", err);
 		goto out;
 	}
+	service = pdr_add_lookup(handle, ICNSS_WLAN_SERVICE_NAME, ICNSS_WLANPD_NAME);
+	if (IS_ERR_OR_NULL(service)) {
+		err = PTR_ERR(service);
+		icnss_pr_err("Failed to add lookup, err %d", err);
+		goto out;
+	}
+	priv->pdr_handle = handle;
+	priv->pdr_service = service;
+	set_bit(ICNSS_PDR_REGISTERED, &priv->state);
 
-	return 0;
+	icnss_pr_info("PDR registration happened");
 out:
-	icnss_pr_err("Failed to enable PD restart: %d\n", ret);
-	return ret;
+	return err;
+}
 
+static void icnss_pdr_unregister_notifier(struct icnss_priv *priv)
+{
+	if (!test_and_clear_bit(ICNSS_PDR_REGISTERED, &priv->state))
+		return;
+
+	pdr_handle_release(priv->pdr_handle);
 }
 
 static int icnss_create_ramdump_devices(struct icnss_priv *priv)
@@ -2243,17 +2126,23 @@ static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
 	if (!penv->ops || !penv->ops->set_therm_cdev_state)
 		return 0;
 
+	if (thermal_state > icnss_tcdev->max_thermal_state)
+		return -EINVAL;
+
 	icnss_pr_vdbg("Cooling device set current state: %ld,for cdev id %d",
 		      thermal_state, icnss_tcdev->tcdev_id);
 
 	mutex_lock(&penv->tcdev_lock);
-	icnss_tcdev->curr_thermal_state = thermal_state;
 	ret = penv->ops->set_therm_cdev_state(dev, thermal_state,
 					      icnss_tcdev->tcdev_id);
+	if (!ret)
+		icnss_tcdev->curr_thermal_state = thermal_state;
 	mutex_unlock(&penv->tcdev_lock);
-	if (ret)
+	if (ret) {
 		icnss_pr_err("Setting Current Thermal State Failed: %d,for cdev id %d",
 			     ret, icnss_tcdev->tcdev_id);
+		return ret;
+	}
 
 	return 0;
 }
@@ -2699,10 +2588,17 @@ EXPORT_SYMBOL(icnss_get_mhi_state);
 int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 {
 	int ret;
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
 
 	if (test_bit(ICNSS_FW_DOWN, &penv->state) ||
 	    !test_bit(ICNSS_FW_READY, &penv->state)) {
@@ -2723,10 +2619,12 @@ EXPORT_SYMBOL(icnss_set_fw_log_mode);
 
 int icnss_force_wake_request(struct device *dev)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
@@ -2750,10 +2648,12 @@ EXPORT_SYMBOL(icnss_force_wake_request);
 
 int icnss_force_wake_release(struct device *dev)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
@@ -3112,21 +3012,10 @@ int icnss_trigger_recovery(struct device *dev)
 		goto out;
 	}
 
-	if (!priv->service_notifier || !priv->service_notifier[0].handle) {
-		icnss_pr_err("Invalid handle during recovery, state: 0x%lx\n",
-			     priv->state);
-		ret = -EINVAL;
-		goto out;
-	}
-
 	icnss_pr_warn("Initiate PD restart at WLAN FW, state: 0x%lx\n",
 		      priv->state);
 
-	/*
-	 * Initiate PDR, required only for the first instance
-	 */
-	ret = service_notif_pd_restart(priv->service_notifier[0].name,
-		priv->service_notifier[0].instance_id);
+	ret = pdr_restart_pd(priv->pdr_handle, priv->pdr_service);
 
 	if (!ret)
 		set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
@@ -3325,11 +3214,14 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 	if (of_property_read_u32(priv->pdev->dev.of_node, "qcom,rproc-handle",
 				 &rproc_phandle)) {
 		icnss_pr_err("error reading rproc phandle\n");
+		return;
 	}
 
 	priv->rproc = rproc_get_by_phandle(rproc_phandle);
-	if (IS_ERR(priv->rproc))
-		icnss_pr_err("Failed to load wpss rproc");
+	if (IS_ERR_OR_NULL(priv->rproc)) {
+		icnss_pr_err("rproc not found");
+		return;
+	}
 
 	if (rproc_boot(priv->rproc)) {
 		icnss_pr_err("Failed to boot wpss rproc");

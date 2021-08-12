@@ -385,14 +385,18 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 
 void kgsl_core_debugfs_init(void)
 {
+	struct dentry *debug_dir;
+
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
 	if (IS_ERR_OR_NULL(kgsl_debugfs_dir))
 		return;
 
-	kgsl_driver.debugfs_debug_dir = debugfs_create_dir("debug",
-		kgsl_debugfs_dir);
+	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
 
 	proc_d_debugfs = debugfs_create_dir("proc", kgsl_debugfs_dir);
+
+	debugfs_create_bool("strict_memory", 0644, debug_dir,
+		&kgsl_sharedmem_noretry_flag);
 }
 
 void kgsl_core_debugfs_close(void)

@@ -11,9 +11,6 @@
 #include "genc_reg.h"
 #include "adreno_genc_gmu.h"
 
-/* Snapshot section size of each CP preemption record for GENC */
-#define GENC_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES (64 * 1024)
-
 extern const struct adreno_power_ops genc_gmu_power_ops;
 extern const struct adreno_power_ops genc_hwsched_power_ops;
 extern const struct adreno_perfcounters adreno_genc_perfcounters;
@@ -177,7 +174,6 @@ struct genc_cp_smmu_info {
 #define GENC_HWSCHED_INT_MASK \
 	((1 << GENC_INT_AHBERROR) |			\
 	 (1 << GENC_INT_ATBASYNCFIFOOVERFLOW) |		\
-	 (1 << GENC_INT_GPCERROR) |			\
 	 (1 << GENC_INT_ATBBUSOVERFLOW) |		\
 	 (1 << GENC_INT_OUTOFBOUNDACCESS) |		\
 	 (1 << GENC_INT_UCHETRAPINTERRUPT))
@@ -221,14 +217,9 @@ static inline bool genc_is_smmu_stalled(struct kgsl_device *device)
  * Disable the regulator and wait @timeout milliseconds for it to enter the
  * disabled state.
  *
- * Return: True if the regulator was disabled or false if it timed out
  */
-static inline bool genc_cx_regulator_disable_wait(struct regulator *reg,
-		struct kgsl_device *device, u32 timeout)
-{
-	return adreno_regulator_disable_poll(device, reg,
-		GENC_GPU_CC_CX_GDSCR, timeout);
-}
+void genc_cx_regulator_disable_wait(struct regulator *reg,
+		struct kgsl_device *device, u32 timeout);
 
 /* Preemption functions */
 void genc_preemption_trigger(struct adreno_device *adreno_dev, bool atomic);

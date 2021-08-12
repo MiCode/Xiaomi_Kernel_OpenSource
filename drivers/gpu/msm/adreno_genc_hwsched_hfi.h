@@ -22,8 +22,6 @@ struct genc_hwsched_hfi {
 	struct list_head msglist;
 	/** @f2h_task: Task for processing gmu fw to host packets */
 	struct task_struct *f2h_task;
-	/** @f2h_msglist: List of gmu fw to host packets */
-	struct llist_head f2h_msglist;
 	/** @f2h_wq: Waitqueue for the f2h_task */
 	wait_queue_head_t f2h_wq;
 	/** @big_ib: GMU buffer to hold big IBs */
@@ -145,4 +143,13 @@ u32 genc_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
  * Return: The value of the key or 0 if key is not found
  */
 u32 genc_hwsched_parse_payload(struct payload_section *payload, u32 key);
+
+/**
+ * genc_hwsched_process_msgq - Process hfi msg queue
+ * @adreno_dev: Pointer to adreno device
+ *
+ * Process any pending firmware to host packets in the message
+ * queue
+ */
+void genc_hwsched_process_msgq(struct adreno_device *adreno_dev);
 #endif

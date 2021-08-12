@@ -63,8 +63,7 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	 */
 	if ((!cold_rst->is_nfc_enabled) &&
 			(nfc_dev->interface == PLATFORM_IF_I2C)) {
-		ret = nfc_dev->nfc_read(nfc_dev, rsp_buf, NCI_HDR_LEN,
-						NCI_CMD_RSP_TIMEOUT);
+		ret = i2c_master_recv(nfc_dev->i2c_dev.client, rsp_buf, NCI_HDR_LEN);
 		if (ret <= 0) {
 			dev_err(nfc_dev->nfc_device,
 				"%s: failure to read cold reset rsp header\n",
@@ -153,7 +152,7 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 		return -EFAULT;
 	}
 
-	nfc_dev->cold_reset.arg = kzalloc(ioctl_arg.buf_size,
+	nfc_dev->cold_reset.arg = kzalloc(sizeof(struct ese_cold_reset_arg),
 							GFP_KERNEL);
 	if (!nfc_dev->cold_reset.arg)
 		return -ENOMEM;
@@ -161,7 +160,7 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 	ret = copy_struct_from_user(nfc_dev->cold_reset.arg,
 				sizeof(struct ese_cold_reset_arg),
 				u64_to_user_ptr(ioctl_arg.buf),
-				ioctl_arg.buf_size);
+				sizeof(struct ese_cold_reset_arg));
 	if (ret) {
 		dev_err(nfc_dev->nfc_device,
 			"ese ioctl arg buffer copy from user failed\n");
@@ -257,11 +256,10 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 		goto err;
 	}
 
-	pr_debug("nfc ese cmd hdr 0x%x 0x%x 0x%x , payload byte0 = 0x%x\n",
+	pr_debug("nfc ese cmd hdr 0x%x 0x%x 0x%x\n",
 				nfc_dev->cold_reset.cmd_buf[0],
 				nfc_dev->cold_reset.cmd_buf[1],
-				nfc_dev->cold_reset.cmd_buf[2],
-				nfc_dev->cold_reset.cmd_buf[3]);
+				nfc_dev->cold_reset.cmd_buf[2]);
 
 	ret = send_ese_cmd(nfc_dev);
 	if (ret <= 0) {

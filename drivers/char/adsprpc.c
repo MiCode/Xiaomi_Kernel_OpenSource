@@ -65,7 +65,6 @@
 
 #define FASTRPC_ENOSUCH 39
 #define DEBUGFS_SIZE 3072
-#define UL_SIZE 25
 #define PID_SIZE 10
 
 #define AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME        "qcom,fastrpc-adsp-audio-pdr"
@@ -156,6 +155,8 @@
  * it is sent to DSP. So mask 2 LSBs to retrieve actual context
  */
 #define CONTEXT_PD_CHECK (3)
+
+#define GET_CTXID_FROM_RSP_CTX(rsp_ctx) (rsp_ctx & ~CONTEXT_PD_CHECK)
 
 #define RH_CID ADSP_DOMAIN_ID
 
@@ -795,8 +796,8 @@ static inline int64_t get_timestamp_in_ns(void)
 
 static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t timeout)
 {
-	int ii, jj, err = -EIO;
-	uint32_t sc = ctx->sc;
+	int err = -EIO;
+	uint32_t sc = ctx->sc, ii = 0, jj = 0;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages;
 	uint64_t *fdlist = NULL;
@@ -814,7 +815,7 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 	poll = (uint32_t *)(crclist + M_CRCLIST);
 
 	/* poll on memory for DSP response. Return failure on timeout */
-	for (ii = 0, jj = 0; ii < FASTRPC_POLL_TIME; ii++, jj++) {
+	for (ii = 0, jj = 0; ii < timeout; ii++, jj++) {
 		if (*poll == FASTRPC_EARLY_WAKEUP_POLL) {
 			/* Remote processor sent early response */
 			err = 0;
@@ -3091,6 +3092,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 
 		/* busy poll on memory for actual job done */
 		case EARLY_RESPONSE:
+			trace_fastrpc_msg("early_response: poll_begin");
 			err = poll_for_remote_response(ctx, FASTRPC_POLL_TIME);
 
 			/* Mark job done if poll on memory successful */
@@ -3100,8 +3102,9 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 				*ptr_isworkdone = true;
 				goto bail;
 			}
-			ADSPRPC_INFO("poll timeout for handle 0x%x, sc 0x%x\n",
-				ctx->handle, ctx->sc);
+			trace_fastrpc_msg("early_response: poll_timeout");
+			ADSPRPC_INFO("early rsp poll timeout (%u us) for handle 0x%x, sc 0x%x\n",
+				FASTRPC_POLL_TIME, ctx->handle, ctx->sc);
 			if (async) {
 				spin_lock_irqsave(&ctx->fl->aqlock, flags);
 				if (!ctx->is_work_done) {
@@ -3140,12 +3143,16 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 			}
 			break;
 		case POLL_MODE:
+			trace_fastrpc_msg("poll_mode: begin");
 			err = poll_for_remote_response(ctx, ctx->fl->poll_timeout);
 
 			/* If polling timed out, move to normal response state */
-			if (err)
+			if (err) {
+				trace_fastrpc_msg("poll_mode: timeout");
+				ADSPRPC_INFO("poll mode timeout (%u us) for handle 0x%x, sc 0x%x\n",
+					ctx->fl->poll_timeout, ctx->handle, ctx->sc);
 				ctx->rsp_flags = NORMAL_RESPONSE;
-			else {
+			} else {
 				*ptr_interrupted = 0;
 				*ptr_isworkdone = true;
 			}
@@ -4076,7 +4083,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	int cid = fl->cid;
 	struct fastrpc_apps *me = &gfa;
-	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 
 	VERIFY(err, init->filelen < INIT_FILELEN_MAX
 			&& init->memlen < INIT_MEMLEN_MAX);
@@ -4090,7 +4097,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = -EFBIG;
 		goto bail;
 	}
-
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
+	chan = &me->channel[cid];
 	if (chan->unsigned_support && fl->dev_minor == MINOR_NUM_DEV) {
 		/* Make sure third party applications */
 		/* can spawn only unsigned PD when */
@@ -4161,7 +4173,6 @@ static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
-	fl->pd = 1;
 
 	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_ZERO_PID, &ioctl);
 	if (!err)
@@ -4202,7 +4213,6 @@ static int fastrpc_get_info_from_dsp(struct fastrpc_file *fl,
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
-	fl->pd = 1;
 
 	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_ZERO_PID, &ioctl);
 bail:
@@ -5204,7 +5214,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	ctx = chan->ctxtable[index];
 	VERIFY(err, !IS_ERR_OR_NULL(ctx) &&
-		(ctx->ctxid == (rsp->ctx & ~CONTEXT_PD_CHECK)) &&
+		(ctx->ctxid == GET_CTXID_FROM_RSP_CTX(rsp->ctx)) &&
 		ctx->magic == FASTRPC_CTX_MAGIC);
 	if (err) {
 		/*
@@ -5213,9 +5223,10 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		 * completed processing of context. Ignore the message.
 		 * Also ignore response for a call which was already
 		 * completed by update of poll memory and the context was
-		 * removed from the table.
+		 * removed from the table and possibly reused for another call.
 		 */
-		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx) ? 1 : 0;
+		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx ||
+			(ctx && (ctx->ctxid != GET_CTXID_FROM_RSP_CTX(rsp->ctx)))) ? 1 : 0;
 		goto bail_unlock;
 	}
 
@@ -5234,8 +5245,10 @@ bail:
 			ADSPRPC_ERR(
 				"invalid response data %pK, len %d from remote subsystem err %d\n",
 				data, len, err);
-		else
+		else {
+			err = 0;
 			me->duplicate_rsp_err_cnt++;
+		}
 	}
 
 	trace_fastrpc_msg("rpmsg_callback: end");
@@ -5396,8 +5409,8 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 	unsigned int len = 0;
 	int i, j, sess_used = 0, ret = 0;
 	char *fileinfo = NULL;
-	char single_line[UL_SIZE] = "----------------";
-	char title[UL_SIZE] = "=========================";
+	char single_line[] = "----------------";
+	char title[] = "=========================";
 
 	fileinfo = kzalloc(DEBUGFS_SIZE, GFP_KERNEL);
 	if (!fileinfo) {

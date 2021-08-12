@@ -4,17 +4,21 @@
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
 
+#if IS_ENABLED(CONFIG_ARM) || IS_ENABLED(CONFIG_ARM64)
 #include <asm/arch_timer.h>
+#endif
 #if IS_ENABLED(CONFIG_ESOC)
 #include <linux/esoc_client.h>
 #endif
 #include <linux/etherdevice.h>
+#include <linux/firmware.h>
 #if IS_ENABLED(CONFIG_INTERCONNECT)
 #include <linux/interconnect.h>
 #endif
 #include <linux/mailbox_client.h>
 #include <linux/pm_qos.h>
 #include <linux/platform_device.h>
+#include <linux/time64.h>
 #include <net/cnss2.h>
 #if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 #include <soc/qcom/memory_dump.h>
@@ -346,6 +350,7 @@ enum cnss_bdf_type {
 	CNSS_BDF_BIN,
 	CNSS_BDF_ELF,
 	CNSS_BDF_REGDB = 4,
+	CNSS_BDF_HDS = 6,
 };
 
 enum cnss_cal_status {
@@ -438,6 +443,7 @@ struct cnss_plat_data {
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
 	u8 recovery_enabled;
+	u8 hds_enabled;
 	unsigned long driver_state;
 	struct list_head event_list;
 	spinlock_t event_lock; /* spinlock for driver work event handling */
@@ -509,9 +515,11 @@ struct cnss_plat_data {
 	struct mbox_client mbox_client_data;
 	struct mbox_chan *mbox_chan;
 	const char *vreg_ol_cpr, *vreg_ipa;
+	bool adsp_pc_enabled;
+	u64 feature_list;
 };
 
-#ifdef CONFIG_ARCH_QCOM
+#if IS_ENABLED(CONFIG_ARCH_QCOM)
 static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 {
 	u64 ticks = __arch_counter_get_cntvct();
@@ -523,11 +531,11 @@ static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 #else
 static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 {
-	struct timespec ts;
+	struct timespec64 ts;
 
-	ktime_get_ts(&ts);
+	ktime_get_ts64(&ts);
 
-	return ((u64)ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
+	return (ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
 }
 #endif
 
@@ -578,4 +586,8 @@ int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv);
 int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename);
+int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
+			  enum cnss_feature_v01 feature);
+int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
+			  u64 *feature_list);
 #endif /* _CNSS_MAIN_H */

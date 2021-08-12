@@ -2514,6 +2514,8 @@ bool f2fs_should_update_outplace(struct inode *inode, struct f2fs_io_info *fio)
 		return true;
 	if (f2fs_is_atomic_file(inode))
 		return true;
+	if (is_sbi_flag_set(sbi, SBI_NEED_FSCK))
+		return true;
 
 	/* swap file is migrating in aligned write mode */
 	if (is_inode_flag_set(inode, FI_ALIGNED_WRITE))
@@ -3876,6 +3878,8 @@ int f2fs_migrate_page(struct address_space *mapping,
 		get_page(newpage);
 	}
 
+	/* guarantee to start from no stale private field */
+	set_page_private(newpage, 0);
 	if (PagePrivate(page)) {
 		set_page_private(newpage, page_private(page));
 		SetPagePrivate(newpage);

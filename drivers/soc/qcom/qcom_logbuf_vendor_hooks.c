@@ -19,9 +19,12 @@
 #include "../../../kernel/printk/printk_ringbuffer.h"
 
 #define BOOT_LOG_SIZE    SZ_512K
+#define LOG_NEWLINE          2
+
 char *boot_log_buf;
 unsigned int boot_log_buf_size;
 bool copy_early_boot_log = true;
+static unsigned int off;
 
 static size_t print_time(u64 ts, char *buf, size_t buf_sz)
 {
@@ -58,13 +61,12 @@ static size_t info_print_prefix(const struct printk_info *info, char *buf,
 	return len;
 }
 
-static size_t record_print_text(struct printk_info *pinfo, char *text,
-					size_t buf_size)
+static size_t record_print_text(struct printk_info *pinfo, char *r_text, size_t buf_size)
 {
 	size_t text_len = pinfo->text_len;
 	char prefix[PREFIX_MAX];
-	bool truncated = false;
 	size_t prefix_len;
+	char *text = r_text;
 	size_t line_len;
 	size_t len = 0;
 	char *next;
@@ -79,26 +81,17 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	 */
 	for (;;) {
 		next = memchr(text, '\n', text_len);
-		if (next) {
+		if (next)
 			line_len = next - text;
-		} else {
-			/* Drop truncated line(s). */
-			if (truncated)
-				break;
+		else
 			line_len = text_len;
-		}
 
 		/*
 		 * Truncate the text if there is not enough space to add the
 		 * prefix and a trailing newline and a terminator.
 		 */
-		if (len + prefix_len + text_len + 1 + 1 > buf_size) {
-			if (len + prefix_len + line_len + 1 + 1 > buf_size)
-				break;
-
-			text_len = buf_size - len - prefix_len - 1 - 1;
-			truncated = true;
-		}
+		if ((len + prefix_len + line_len + 1 + 1) > buf_size)
+			break;
 
 		memmove(text + prefix_len, text, text_len);
 		memcpy(text, prefix, prefix_len);
@@ -147,7 +140,7 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	 */
 
 	if (buf_size > 0)
-		text[len] = 0;
+		r_text[len] = 0;
 
 	return len;
 }
@@ -194,6 +187,22 @@ static void register_log_minidump(struct printk_ringbuffer *prb)
 		pr_err("Failed to add log_info entry in minidump table\n");
 }
 
+static void copy_boot_log_pr_cont(void *unused, struct printk_record *r, size_t text_len)
+{
+	if (!r->info->text_len || ((off + r->info->text_len) > boot_log_buf_size))
+		return;
+
+	if (boot_log_buf[off - 1] == '\n')
+		off = off - 1;
+
+	memcpy(&boot_log_buf[off], &r->text_buf[r->info->text_len - text_len], text_len);
+	off += text_len;
+	if (r->info->flags & LOG_NEWLINE) {
+		boot_log_buf[off] = '\n';
+		boot_log_buf[off + 1] = 0;
+		off += 1;
+	}
+}
 
 static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 					struct printk_record *r)
@@ -206,10 +215,8 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	unsigned long did, ind, sv;
 	unsigned int textdata_size = _DATA_SIZE(textdata_ring.size_bits);
 	unsigned long begin, end;
-	static unsigned int off;
 	enum desc_state state;
 	size_t rem_buf_sz;
-	int ret;
 
 	tailid = descring.tail_id;
 	headid = descring.head_id;
@@ -218,20 +225,20 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 		if (!r->info->text_len)
 			return;
 
-		if ((off + r->info->text_len) > boot_log_buf_size)
+		/*
+		 * Check whether remaining buffer has enough space
+		 * for record meta data size + newline + terminator
+		 * if not, let's reject the record.
+		 */
+		if ((off + r->info->text_len + PREFIX_MAX + 1 + 1) > boot_log_buf_size)
 			return;
 
 		rem_buf_sz = boot_log_buf_size - off;
-		if (!rem_buf_sz || rem_buf_sz < sizeof(struct printk_record))
+		if (!rem_buf_sz)
 			return;
 
 		memcpy(&boot_log_buf[off], &r->text_buf[0], r->info->text_len);
-		ret = record_print_text(r->info, &boot_log_buf[off],
-			rem_buf_sz);
-		if (!ret)
-			off += r->info->text_len;
-
-		off += ret;
+		off += record_print_text(r->info, &boot_log_buf[off], rem_buf_sz);
 		return;
 	}
 
@@ -265,20 +272,20 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			if (end - text_start < textlen)
 				textlen = end - text_start;
 
-			if ((off + textlen) > boot_log_buf_size)
+			/*
+			 * Check whether remaining buffer has enough space
+			 * for record meta data size + newline + terminator
+			 * if not, let's reject the record.
+			 */
+			if ((off + textlen + PREFIX_MAX + 1 + 1) > boot_log_buf_size)
 				break;
 
 			rem_buf_sz = boot_log_buf_size - off;
 
-			memcpy(&boot_log_buf[off],
-				&textdata_ring.data[text_start],
-				textlen);
-			ret = record_print_text(&p_infos[ind],
+			memcpy(&boot_log_buf[off], &textdata_ring.data[text_start],
+					textlen);
+			off += record_print_text(&p_infos[ind],
 					&boot_log_buf[off], rem_buf_sz);
-			if (!ret)
-				off += r->info->text_len;
-
-			off += ret;
 		}
 
 		if (did == atomic_long_read(&headid))
@@ -357,6 +364,14 @@ static int logbuf_vendor_hooks_driver_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register android_vh_logbuf hook\n");
 		kfree(boot_log_buf);
+		return ret;
+	}
+
+	ret = register_trace_android_vh_logbuf_pr_cont(copy_boot_log_pr_cont, NULL);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register android_vh_logbuf_pr_cont hook\n");
+		unregister_trace_android_vh_logbuf(copy_boot_log, NULL);
+		kfree(boot_log_buf);
 	}
 
 	return ret;
@@ -364,6 +379,7 @@ static int logbuf_vendor_hooks_driver_probe(struct platform_device *pdev)
 
 static int logbuf_vendor_hooks_driver_remove(struct platform_device *pdev)
 {
+	unregister_trace_android_vh_logbuf_pr_cont(copy_boot_log_pr_cont, NULL);
 	unregister_trace_android_vh_logbuf(copy_boot_log, NULL);
 	release_boot_log_buf();
 	return 0;

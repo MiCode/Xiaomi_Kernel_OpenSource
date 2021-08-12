@@ -95,6 +95,8 @@
 #define ADRENO_APRIV BIT(11)
 /* The GMU supports Battery Current Limiting */
 #define ADRENO_BCL BIT(12)
+/* L3 voting is supported with L3 constraints */
+#define ADRENO_L3_VOTE BIT(13)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds

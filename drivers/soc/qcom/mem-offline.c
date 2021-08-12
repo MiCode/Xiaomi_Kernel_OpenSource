@@ -60,6 +60,7 @@ static u32 offline_granule;
 static bool is_rpm_controller;
 static bool has_pend_offline_req;
 static struct workqueue_struct *migrate_wq;
+static DECLARE_BITMAP(movable_bitmap, 1024);
 #define MODULE_CLASS_NAME	"mem-offline"
 #define MEMBLOCK_NAME		"memory%lu"
 #define SEGMENT_NAME		"segment%lu"
@@ -553,6 +554,7 @@ static int mem_event_callback(struct notifier_block *self,
 		seg_idx = get_segment_addr_to_idx(start_addr);
 		pr_debug("mem-offline: Segment %d memblk_bitmap 0x%lx\n",
 				seg_idx, segment_infos[seg_idx].bitmask_kernel_blk);
+		totalram_pages_add(-(memory_block_size_bytes()/PAGE_SIZE));
 		break;
 	case MEM_GOING_OFFLINE:
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%llx end = 0x%llx\n",
@@ -580,6 +582,7 @@ static int mem_event_callback(struct notifier_block *self,
 		seg_idx = get_segment_addr_to_idx(start_addr);
 		pr_debug("mem-offline: Segment %d memblk_bitmap 0x%lx\n",
 				seg_idx, segment_infos[seg_idx].bitmask_kernel_blk);
+		totalram_pages_add(memory_block_size_bytes()/PAGE_SIZE);
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%llx end = 0x%llx\n",
@@ -597,9 +600,11 @@ static int mem_online_remaining_blocks(void)
 	unsigned long memblock_end_pfn = __phys_to_pfn(memblock_end_of_DRAM());
 	unsigned long ram_end_pfn = __phys_to_pfn(bootmem_dram_end_addr - 1);
 	unsigned long block_size, memblock, pfn;
-	unsigned int nid;
+	unsigned int nid, delta;
 	phys_addr_t phys_addr;
 	int fail = 0;
+
+	pr_debug("mem-offline: memblock_end_of_DRAM 0x%lx\n", memblock_end_of_DRAM());
 
 	block_size = memory_block_size_bytes();
 	sections_per_block = block_size / MIN_MEMORY_BLOCK_SIZE;
@@ -611,8 +616,54 @@ static int mem_online_remaining_blocks(void)
 		pr_info("mem-offline: System booted with no zone movable memory blocks. Cannot perform memory offlining\n");
 		return -EINVAL;
 	}
+
+	if (memblock_end_of_DRAM() % block_size) {
+		delta = block_size - (memblock_end_of_DRAM() % block_size);
+		pr_err("mem-offline: !!ERROR!! memblock end of dram address is not aligned to memory block size!\n");
+		pr_err("mem-offline: memory%lu could be partially available. %lukB of memory will be missing from RAM!\n",
+				start_section_nr, delta / SZ_1K);
+
+		/*
+		 * since this section is partially added during boot, we cannot
+		 * add the remaining part of section using add_memory since it
+		 * won't be size aligned to block size. We have to start the
+		 * offlinable region from the next section onwards.
+		 */
+		start_section_nr += 1;
+
+	}
+
+	if (bootmem_dram_end_addr % block_size) {
+		delta = bootmem_dram_end_addr % block_size;
+		pr_err("mem-offline: !!ERROR!! bootmem end of dram address is not aligned to memory block size!\n");
+		pr_err("mem-offline: memory%lu will not be added. %lukB of memory will be missing from RAM!\n",
+				end_section_nr, delta / SZ_1K);
+
+		/*
+		 * since this section cannot be added, the last section of offlinable
+		 * region will be the previous section.
+		 */
+		end_section_nr -= 1;
+	}
+
+	offlinable_region_start_addr =
+		section_nr_to_pfn(__pfn_to_phys(start_section_nr));
+
+	/*
+	 * below check holds true if there were only one offlinable section
+	 * and that was partially added during boot. In such case, bail out.
+	 */
+	if (start_section_nr > end_section_nr)
+		return 1;
+
+	pr_debug("mem-offline: offlinable_region_start_addr 0X%lx\n",
+		offlinable_region_start_addr);
+
 	for (memblock = start_section_nr; memblock <= end_section_nr;
 			memblock += sections_per_block) {
+		if (!test_bit(memblock - start_section_nr, movable_bitmap))
+			continue;
+
 		pfn = section_nr_to_pfn(memblock);
 		phys_addr = __pfn_to_phys(pfn);
 
@@ -1561,13 +1612,14 @@ static int check_segment_granule_alignment(void)
 	return 0;
 }
 
-static int get_bootmem_dram_end_address(phys_addr_t *bootmem_dram_end_addr)
+static int update_dram_end_address_and_movable_bitmap(phys_addr_t *bootmem_dram_end_addr)
 {
 	struct device_node *node;
 	struct property *prop;
 	int len, num_cells, num_entries;
 	u64 addr = 0, max_base = 0;
-	u64 size, base;
+	u64 size, base, end, section_size;
+	u64 movable_start;
 	int nr_address_cells, nr_size_cells;
 	const __be32 *pos;
 
@@ -1581,11 +1633,18 @@ static int get_bootmem_dram_end_address(phys_addr_t *bootmem_dram_end_addr)
 	nr_size_cells = of_n_size_cells(of_root);
 
 	prop = of_find_property(node, "reg", &len);
+	if (!prop) {
+		pr_err("mem-offine: reg node not found in DT\n");
+		return -EINVAL;
+	}
 
 	num_cells = len / sizeof(__be32);
 	num_entries = num_cells / (nr_address_cells + nr_size_cells);
 
 	pos = prop->value;
+
+	section_size = MIN_MEMORY_BLOCK_SIZE;
+	movable_start = memblock_end_of_DRAM();
 
 	while (num_entries--) {
 		base = of_read_number(pos, nr_address_cells);
@@ -1601,6 +1660,32 @@ static int get_bootmem_dram_end_address(phys_addr_t *bootmem_dram_end_addr)
 	*bootmem_dram_end_addr = addr;
 	pr_debug("mem-offline: bootmem_dram_end_addr 0x%lx\n", *bootmem_dram_end_addr);
 
+	num_entries = num_cells / (nr_address_cells + nr_size_cells);
+	pos = prop->value;
+	while (num_entries--) {
+		u64 new_base, new_end;
+		u64 new_start_bitmap, bitmap_size;
+
+		base = of_read_number(pos, nr_address_cells);
+		size = of_read_number(pos + nr_address_cells, nr_size_cells);
+		pos += nr_address_cells + nr_size_cells;
+		end = base + size;
+
+		if (end <= movable_start)
+			continue;
+
+		if (base < movable_start)
+			new_base = movable_start;
+		else
+			new_base = base;
+		new_end = end;
+
+		new_start_bitmap = (new_base - movable_start) / section_size;
+		bitmap_size = (new_end - new_base) / section_size;
+		bitmap_set(movable_bitmap, new_start_bitmap, bitmap_size);
+	}
+
+	pr_debug("mem-offline: movable_bitmap is %lx\n", *movable_bitmap);
 	return 0;
 }
 
@@ -1614,11 +1699,9 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = get_bootmem_dram_end_address(&bootmem_dram_end_addr);
+	ret = update_dram_end_address_and_movable_bitmap(&bootmem_dram_end_addr);
 	if (ret)
 		return ret;
-
-	offlinable_region_start_addr = memblock_end_of_DRAM();
 
 	ret = mem_online_remaining_blocks();
 	if (ret < 0)
@@ -1626,9 +1709,6 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 
 	if (ret > 0)
 		pr_err("mem-offline: !!ERROR!! Auto onlining some memory blocks failed. System could run with less RAM\n");
-	else
-		pr_debug("mem-offline: offlinable_region_start_addr 0X%lx\n",
-				offlinable_region_start_addr);
 
 	ret = get_ddr_regions_info();
 	if (ret)
@@ -1644,6 +1724,7 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 
 	pr_info("mem-offline: num_ddr_regions %d num_segments %d\n",
 			num_ddr_regions, num_segments);
+
 	total_blks = (end_section_nr - start_section_nr + 1) /
 			sections_per_block;
 	mem_info = kcalloc(total_blks * MAX_STATE, sizeof(*mem_info),

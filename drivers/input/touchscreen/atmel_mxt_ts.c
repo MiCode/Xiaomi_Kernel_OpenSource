@@ -103,6 +103,10 @@
 #define MXT_XVDD_VTG_MIN_UV	2700000
 #define MXT_XVDD_VTG_MAX_UV	10000000
 
+/* recommended load specifications */
+#define MXT_ENABLE_LOAD		10000
+#define MXT_DISABLE_LOAD	0
+
 /* MXT_GEN_MESSAGE_T5 object */
 #define MXT_RPTID_NOMSG		0xff
 
@@ -409,6 +413,8 @@ static size_t mxt_obj_instances(const struct mxt_object *obj)
 {
 	return obj->instances_minus_one + 1;
 }
+
+static int mxt_regulator_configure(struct mxt_data *data, bool enable);
 
 static bool mxt_object_readable(unsigned int type)
 {
@@ -2032,11 +2038,17 @@ static int mxt_regulator_enable(struct mxt_data *data)
 
 	gpiod_set_value(data->reset_gpio, 0);
 
+	error = mxt_regulator_configure(data, true);
+	if (error) {
+		dev_err(&data->client->dev, "Failed to configure regulators on\n");
+		return error;
+	}
+
 	error = regulator_enable(data->reg_avdd);
 	if (error) {
 		dev_err(&data->client->dev,
 			"avdd enable failed, error=%d\n", error);
-		return error;
+		goto err_dis_configure;
 	}
 	usleep_range(10000, 15000);
 
@@ -2068,22 +2080,74 @@ err_dis_vdd:
 	regulator_disable(data->reg_vdd);
 err_dis_avdd:
 	regulator_disable(data->reg_avdd);
+err_dis_configure:
+	mxt_regulator_configure(data, false);
 	return error;
 }
 
 static void mxt_regulator_disable(struct mxt_data *data)
 {
+	int error;
+
 	regulator_disable(data->reg_vdd);
 	regulator_disable(data->reg_avdd);
 	if (!IS_ERR(data->reg_xvdd))
 		regulator_disable(data->reg_xvdd);
+
+	error = mxt_regulator_configure(data, false);
+	if (error)
+		dev_err(&data->client->dev, "Failed to configure regulators off\n");
+
 }
 
-static int mxt_regulator_configure(struct mxt_data *data, bool state)
+static int mxt_regulator_parse(struct mxt_data *data)
 {
 	struct device *dev = &data->client->dev;
 	struct device_node *np = dev->of_node;
 	struct property *prop;
+	int error = 0;
+
+	if (!data->reset_gpio) {
+		dev_warn(dev, "Must have reset GPIO to use regulator support\n");
+		return 0;
+	}
+
+	data->reg_vdd = regulator_get(dev, "vdd");
+	if (IS_ERR(data->reg_vdd)) {
+		error = PTR_ERR(data->reg_vdd);
+		dev_err(dev, "Error %d getting vdd regulator\n", error);
+		return error;
+	}
+
+	data->reg_avdd = regulator_get(dev, "avdd");
+	if (IS_ERR(data->reg_avdd)) {
+		error = PTR_ERR(data->reg_avdd);
+		dev_err(dev, "Error %d getting avdd regulator\n", error);
+		goto fail_put_vdd;
+	}
+
+	data->reg_xvdd = regulator_get(dev, "xvdd");
+	if (IS_ERR(data->reg_xvdd)) {
+		error = PTR_ERR(data->reg_xvdd);
+		prop = of_find_property(np, "xvdd-supply", NULL);
+		if (prop && (error == -EPROBE_DEFER))
+			return -EPROBE_DEFER;
+		dev_dbg(dev, "xvdd regulator is not used\n");
+	}
+
+	data->use_regulator = true;
+
+	dev_err(dev, "Initialised regulators\n");
+	return 0;
+
+fail_put_vdd:
+	regulator_put(data->reg_vdd);
+	return error;
+}
+
+static int mxt_regulator_configure(struct mxt_data *data, bool enable)
+{
+	struct device *dev = &data->client->dev;
 	int error = 0;
 
 	/* According to maXTouch power sequencing specification, RESET line
@@ -2095,72 +2159,92 @@ static int mxt_regulator_configure(struct mxt_data *data, bool state)
 		return 0;
 	}
 
-	if (!state)
-		goto deconfig;
-
-	data->reg_vdd = regulator_get(dev, "vdd");
-	if (IS_ERR(data->reg_vdd)) {
-		error = PTR_ERR(data->reg_vdd);
-		dev_err(dev, "Error %d getting vdd regulator\n", error);
-		return error;
-	}
-
-	if (regulator_count_voltages(data->reg_vdd) > 0) {
-		error = regulator_set_voltage(data->reg_vdd,
-				MXT_VDD_VTG_MIN_UV, MXT_VDD_VTG_MAX_UV);
-		if (error) {
-			dev_err(&data->client->dev,
-				"vdd set_vtg failed err=%d\n", error);
-			goto fail_put_vdd;
-		}
-	}
-
-	data->reg_avdd = regulator_get(dev, "avdd");
-	if (IS_ERR(data->reg_avdd)) {
-		error = PTR_ERR(data->reg_avdd);
-		dev_err(dev, "Error %d getting avdd regulator\n", error);
-		goto fail_put_vdd;
-	}
-
-	if (regulator_count_voltages(data->reg_avdd) > 0) {
-		error = regulator_set_voltage(data->reg_avdd,
-				MXT_AVDD_VTG_MIN_UV, MXT_AVDD_VTG_MAX_UV);
-		if (error) {
-			dev_err(&data->client->dev,
-				"avdd set_vtg failed err=%d\n", error);
-			goto fail_put_avdd;
-		}
-	}
-
-	data->reg_xvdd = regulator_get(dev, "xvdd");
-	if (IS_ERR(data->reg_xvdd)) {
-		error = PTR_ERR(data->reg_xvdd);
-		prop = of_find_property(np, "xvdd-supply", NULL);
-		if (prop && (error == -EPROBE_DEFER))
-			return -EPROBE_DEFER;
-		dev_dbg(dev, "xvdd regulator is not used\n");
-	} else {
-		if (regulator_count_voltages(data->reg_xvdd) > 0) {
-			error = regulator_set_voltage(data->reg_xvdd,
-				MXT_XVDD_VTG_MIN_UV, MXT_XVDD_VTG_MAX_UV);
-			if (error)
+	if (!enable) {
+		if (regulator_count_voltages(data->reg_avdd) > 0) {
+			error = regulator_set_load(data->reg_avdd, MXT_DISABLE_LOAD);
+			if (error) {
 				dev_err(&data->client->dev,
-					"xvdd set_vtg failed err=%d\n", error);
+					"avdd set_load failed err=%d\n", error);
+				return error;
+			}
+		}
+
+		if (regulator_count_voltages(data->reg_vdd) > 0) {
+			error = regulator_set_load(data->reg_vdd, MXT_DISABLE_LOAD);
+			if (error) {
+				dev_err(&data->client->dev,
+					"vdd set_load failed err=%d\n", error);
+				return error;
+			}
+		}
+
+		if (!IS_ERR(data->reg_xvdd)) {
+			if (regulator_count_voltages(data->reg_xvdd) > 0) {
+				error = regulator_set_load(data->reg_xvdd, MXT_DISABLE_LOAD);
+				if (error)
+					dev_err(&data->client->dev,
+						"xvdd set_load failed err=%d\n", error);
+			}
+		}
+	} else {
+		if (regulator_count_voltages(data->reg_vdd) > 0) {
+			error = regulator_set_load(data->reg_vdd, MXT_ENABLE_LOAD);
+			if (error) {
+				dev_err(&data->client->dev,
+					"vdd set_load failed err=%d\n", error);
+				return error;
+			}
+			error = regulator_set_voltage(data->reg_vdd,
+				MXT_VDD_VTG_MIN_UV, MXT_VDD_VTG_MAX_UV);
+			if (error) {
+				dev_err(&data->client->dev,
+					"vdd set_vtg failed err=%d\n", error);
+				goto err_vdd_load;
+			}
+		}
+
+		if (regulator_count_voltages(data->reg_avdd) > 0) {
+			error = regulator_set_load(data->reg_avdd, MXT_ENABLE_LOAD);
+			if (error) {
+				dev_err(&data->client->dev,
+					"avdd set_load failed err=%d\n", error);
+				goto err_vdd_load;
+			}
+			error = regulator_set_voltage(data->reg_avdd,
+				MXT_AVDD_VTG_MIN_UV, MXT_AVDD_VTG_MAX_UV);
+			if (error) {
+				dev_err(&data->client->dev,
+					"avdd set_vtg failed err=%d\n", error);
+				goto err_avdd_load;
+			}
+		}
+
+		if (!IS_ERR(data->reg_xvdd)) {
+			if (regulator_count_voltages(data->reg_xvdd) > 0) {
+				error = regulator_set_load(data->reg_xvdd, MXT_ENABLE_LOAD);
+				if (error) {
+					dev_err(&data->client->dev,
+						"xvdd set_load failed err=%d\n", error);
+					goto err_avdd_load;
+				}
+				error = regulator_set_voltage(data->reg_xvdd,
+					MXT_XVDD_VTG_MIN_UV, MXT_XVDD_VTG_MAX_UV);
+				if (error) {
+					dev_err(&data->client->dev,
+						"xvdd set_vtg failed err=%d\n", error);
+					goto err_xvdd_load;
+				}
+			}
 		}
 	}
+	return error;
 
-	data->use_regulator = true;
-
-	dev_err(dev, "Initialised regulators\n");
-	return 0;
-
-deconfig:
-	if (!IS_ERR(data->reg_xvdd))
-		regulator_put(data->reg_xvdd);
-fail_put_avdd:
-	regulator_put(data->reg_avdd);
-fail_put_vdd:
-	regulator_put(data->reg_vdd);
+err_xvdd_load:
+	regulator_set_load(data->reg_xvdd, MXT_DISABLE_LOAD);
+err_avdd_load:
+	regulator_set_load(data->reg_avdd, MXT_DISABLE_LOAD);
+err_vdd_load:
+	regulator_set_load(data->reg_vdd, MXT_DISABLE_LOAD);
 	return error;
 }
 
@@ -3734,9 +3818,9 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	gpiod_direction_input(data->irq_gpio);
 	gpiod_direction_output(data->reset_gpio, 0);
 
-	error = mxt_regulator_configure(data, true);
+	error = mxt_regulator_parse(data);
 	if (error) {
-		dev_err(&client->dev, "Failed to probe regulators\n");
+		dev_err(&client->dev, "Failed to parse regulators\n");
 		return error;
 	}
 

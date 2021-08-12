@@ -47,6 +47,7 @@ struct adsp_data {
 	int pas_id;
 	bool free_after_auth_reset;
 	unsigned int minidump_id;
+	bool uses_elf64;
 	bool has_aggre2_clk;
 	bool auto_boot;
 
@@ -111,6 +112,24 @@ static ssize_t txn_id_show(struct device *dev, struct device_attribute *attr, ch
 }
 static DEVICE_ATTR_RO(txn_id);
 
+void adsp_segment_dump(struct rproc *rproc, struct rproc_dump_segment *segment,
+		     void *dest, size_t offset, size_t size)
+{
+	struct qcom_adsp *adsp = rproc->priv;
+	int total_offset;
+
+	total_offset = segment->da + segment->offset + offset - adsp->mem_phys;
+	if (total_offset < 0 || total_offset + size > adsp->mem_size) {
+		dev_err(adsp->dev,
+			"invalid copy request for segment %pad with offset %zu and size %zu)\n",
+			&segment->da, offset, size);
+		memset(dest, 0xff, size);
+		return;
+	}
+
+	memcpy_fromio(dest, adsp->mem_region + total_offset, size);
+}
+
 static void adsp_minidump(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
@@ -118,7 +137,7 @@ static void adsp_minidump(struct rproc *rproc)
 	if (rproc->dump_conf == RPROC_COREDUMP_DISABLED)
 		return;
 
-	qcom_minidump(rproc, adsp->minidump_id);
+	qcom_minidump(rproc, adsp->minidump_id, adsp_segment_dump);
 }
 
 static int adsp_toggle_load_state(struct qmp *qmp, const char *name, bool enable)
@@ -366,7 +385,7 @@ static int adsp_stop(struct rproc *rproc)
 	int handover;
 	int ret;
 
-	ret = qcom_q6v5_request_stop(&adsp->q6v5);
+	ret = qcom_q6v5_request_stop(&adsp->q6v5, adsp->sysmon);
 	if (ret == -ETIMEDOUT)
 		dev_err(adsp->dev, "timed out on wait\n");
 
@@ -395,6 +414,9 @@ static void *adsp_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iom
 	if (offset < 0 || offset + len > adsp->mem_size)
 		return NULL;
 
+	if (is_iomem)
+		*is_iomem = true;
+
 	return adsp->mem_region + offset;
 }
 
@@ -418,6 +440,7 @@ static const struct rproc_ops adsp_minidump_ops = {
 	.start = adsp_start,
 	.stop = adsp_stop,
 	.da_to_va = adsp_da_to_va,
+	.parse_fw = qcom_register_dump_segments,
 	.load = adsp_load,
 	.panic = adsp_panic,
 	.coredump = adsp_minidump,
@@ -636,7 +659,10 @@ static int adsp_probe(struct platform_device *pdev)
 
 	rproc->recovery_disabled = true;
 	rproc->auto_boot = desc->auto_boot;
-	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
+	if (desc->uses_elf64)
+		rproc_coredump_set_elf_info(rproc, ELFCLASS64, EM_NONE);
+	else
+		rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
 	adsp = (struct qcom_adsp *)rproc->priv;
 	adsp->dev = &pdev->dev;
@@ -803,6 +829,19 @@ static const struct adsp_data waipio_adsp_resource = {
 	.ssctl_id = 0x14,
 };
 
+static const struct adsp_data diwali_adsp_resource = {
+	.crash_reason_smem = 423,
+	.firmware_name = "adsp.mdt",
+	.pas_id = 1,
+	.minidump_id = 5,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "lpass",
+	.sysmon_name = "adsp",
+	.qmp_name = "adsp",
+	.ssctl_id = 0x14,
+};
+
 static const struct adsp_data msm8998_adsp_resource = {
 		.crash_reason_smem = 423,
 		.firmware_name = "adsp.mdt",
@@ -880,6 +919,19 @@ static const struct adsp_data waipio_cdsp_resource = {
 	.ssctl_id = 0x17,
 };
 
+static const struct adsp_data diwali_cdsp_resource = {
+	.crash_reason_smem = 601,
+	.firmware_name = "cdsp.mdt",
+	.pas_id = 18,
+	.minidump_id = 7,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "cdsp",
+	.sysmon_name = "cdsp",
+	.qmp_name = "cdsp",
+	.ssctl_id = 0x17,
+};
+
 static const struct adsp_data mpss_resource_init = {
 	.crash_reason_smem = 421,
 	.firmware_name = "modem.mdt",
@@ -906,6 +958,21 @@ static const struct adsp_data waipio_mpss_resource = {
 	.pas_id = 4,
 	.free_after_auth_reset = true,
 	.minidump_id = 3,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "mpss",
+	.sysmon_name = "modem",
+	.qmp_name = "modem",
+	.ssctl_id = 0x12,
+};
+
+static const struct adsp_data diwali_mpss_resource = {
+	.crash_reason_smem = 421,
+	.firmware_name = "modem.mdt",
+	.pas_id = 4,
+	.free_after_auth_reset = true,
+	.minidump_id = 3,
+	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
 	.ssr_name = "mpss",
@@ -1025,6 +1092,9 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,waipio-cdsp-pas", .data = &waipio_cdsp_resource},
 	{ .compatible = "qcom,waipio-slpi-pas", .data = &waipio_slpi_resource},
 	{ .compatible = "qcom,waipio-modem-pas", .data = &waipio_mpss_resource},
+	{ .compatible = "qcom,diwali-adsp-pas", .data = &diwali_adsp_resource},
+	{ .compatible = "qcom,diwali-cdsp-pas", .data = &diwali_cdsp_resource},
+	{ .compatible = "qcom,diwali-modem-pas", .data = &diwali_mpss_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);

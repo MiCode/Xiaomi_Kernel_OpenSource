@@ -246,6 +246,7 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx65_info = {
 	.skip_forced_suspend = true,
 	.sfr_support = true,
 	.timesync = true,
+	.drv_support = false,
 };
 
 static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
@@ -260,6 +261,7 @@ static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
 	.skip_forced_suspend = true,
 	.sfr_support = false,
 	.timesync = false,
+	.drv_support = false,
 };
 
 static const struct pci_device_id mhi_pcie_device_id[] = {
@@ -432,7 +434,7 @@ void mhi_deinit_pci_dev(struct pci_dev *pci_dev,
 	mhi_cntrl->irq = NULL;
 	iounmap(mhi_cntrl->regs);
 	mhi_cntrl->regs = NULL;
-	mhi_cntrl->regs_len = 0;
+	mhi_cntrl->reg_len = 0;
 	mhi_cntrl->nr_irqs = 0;
 	pci_clear_master(pci_dev);
 	pci_release_region(pci_dev, dev_info->bar_num);
@@ -471,8 +473,8 @@ static int mhi_init_pci_dev(struct pci_dev *pci_dev,
 	pci_set_master(pci_dev);
 
 	base = pci_resource_start(pci_dev, dev_info->bar_num);
-	mhi_cntrl->regs_len = pci_resource_len(pci_dev, dev_info->bar_num);
-	mhi_cntrl->regs = ioremap(base, mhi_cntrl->regs_len);
+	mhi_cntrl->reg_len = pci_resource_len(pci_dev, dev_info->bar_num);
+	mhi_cntrl->regs = ioremap(base, mhi_cntrl->reg_len);
 	if (!mhi_cntrl->regs) {
 		MHI_CNTRL_ERR("Error ioremap region\n");
 		goto error_ioremap;
@@ -654,9 +656,14 @@ int mhi_system_suspend(struct device *dev)
 {
 	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
 	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
 	int ret;
 
 	MHI_CNTRL_LOG("Entered\n");
+
+	/* No DRV support - use regular suspends */
+	if (!dev_info->drv_support)
+		return mhi_runtime_suspend(dev);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 

@@ -265,9 +265,9 @@ enum arm_smmu_cbar_type {
 /* Implementation Defined Register Space 5 registers*/
 /* Relative to IMPL_DEF5 page */
 #define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x5dc
-#define TBU_SYNC_ACK			GENMASK(25, 17)
+#define TBU_SYNC_ACK			GENMASK(31, 17)
 #define TBU_SYNC_REQ			BIT(16)
-#define TBU_INV_ACK			GENMASK(9, 1)
+#define TBU_INV_ACK			GENMASK(15, 1)
 #define TBU_INV_REQ			BIT(0)
 #define APPS_SMMU_TBU_REG_ACCESS_REQ_NS 0x5f8
 #define APPS_SMMU_TBU_REG_ACCESS_ACK_NS 0x5fc

@@ -3,14 +3,16 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#if IS_ENABLED(CONFIG_MSM_QMP)
+#include <linux/mailbox/qmp.h>
+#endif
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 #if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
 #include <soc/qcom/cmd-db.h>
 #endif
-#include <linux/of_gpio.h>
-#include <linux/mailbox/qmp.h>
 
 #include "main.h"
 #include "debug.h"
@@ -756,6 +758,7 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 							      XO_CLK_GPIO, 0);
 		cnss_pr_dbg("QCA6490 XO_CLK GPIO: %d\n",
 			    pinctrl_info->xo_clk_gpio);
+		cnss_set_feature_list(plat_priv, BOOTSTRAP_CLOCK_SELECT_V01);
 	} else {
 		pinctrl_info->xo_clk_gpio = -EINVAL;
 	}
@@ -1107,6 +1110,7 @@ int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MSM_QMP)
 static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
 				   const char *vreg_name,
 				   enum cnss_vreg_param param,
@@ -1137,6 +1141,15 @@ static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
 
 	return ret;
 }
+#else
+static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
+				   const char *vreg_name,
+				   enum cnss_vreg_param param,
+				   enum cnss_tcs_seq seq, int val)
+{
+	return 0;
+}
+#endif
 
 int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 {

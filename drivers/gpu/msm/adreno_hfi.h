@@ -803,12 +803,20 @@ struct payload_section {
 #define GMU_CP_UCODE_ERROR 607
 /* GPU encountered a CP hw fault error */
 #define GMU_CP_HW_FAULT_ERROR 608
+/* GPU encountered a GPC error */
+#define GMU_CP_GPC_ERROR 609
 /* GPU BV encountered a bad opcode */
-#define GMU_CP_BV_OPCODE_ERROR 609
+#define GMU_CP_BV_OPCODE_ERROR 610
 /* GPU BV encountered protected mode error */
-#define GMU_CP_BV_PROTECTED_ERROR 610
+#define GMU_CP_BV_PROTECTED_ERROR 611
 /* GPU BV encountered a CP hw fault error */
-#define GMU_CP_BV_HW_FAULT_ERROR 611
+#define GMU_CP_BV_HW_FAULT_ERROR 612
+/* GPU BV encountered a CP ucode error */
+#define GMU_CP_BV_UCODE_ERROR 613
+/* GPU BV encountered an illegal instruction */
+#define GMU_CP_BV_ILLEGAL_INST_ERROR 614
+/* GPU encountered an unknown CP error */
+#define GMU_CP_UNKNOWN_ERROR 700
 
 /**
  * hfi_update_read_idx - Update the read index of an hfi queue

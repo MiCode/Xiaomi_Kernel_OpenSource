@@ -40,6 +40,26 @@ static int _isdb_get(void *data, u64 *val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
 
+static int _ctxt_record_size_set(void *data, u64 val)
+{
+	struct kgsl_device *device = data;
+
+	device->snapshot_ctxt_record_size = val;
+
+	return 0;
+}
+
+static int _ctxt_record_size_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+
+	*val = device->snapshot_ctxt_record_size;
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(_ctxt_record_size_fops, _ctxt_record_size_get,
+		_ctxt_record_size_set, "%llu\n");
+
 static int _lm_limit_set(void *data, u64 val)
 {
 	struct kgsl_device *device = data;
@@ -390,4 +410,7 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a5xx(adreno_dev))
 		debugfs_create_file("isdb", 0644, device->d_debugfs,
 			device, &_isdb_fops);
+
+	debugfs_create_file("ctxt_record_size", 0644, snapshot_dir,
+		device, &_ctxt_record_size_fops);
 }

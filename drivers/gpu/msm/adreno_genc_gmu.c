@@ -827,6 +827,20 @@ void genc_gmu_register_config(struct adreno_device *adreno_dev)
 
 	/* Configure power control and bring the GMU out of reset */
 	genc_gmu_power_config(adreno_dev);
+
+	/*
+	 * Enable BCL throttling -
+	 * XOCLK1: countable: 0x13 (25% throttle)
+	 * XOCLK2: countable: 0x17 (58% throttle)
+	 * XOCLK3: countable: 0x19 (75% throttle)
+	 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
+	 * is 8 bits wide.
+	 */
+	if (adreno_dev->bcl_enabled)
+		gmu_core_regrmw(device, GENC_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			0xffffff00, FIELD_PREP(GENMASK(31, 24), 0x19) |
+			FIELD_PREP(GENMASK(23, 16), 0x17) |
+			FIELD_PREP(GENMASK(15, 8), 0x13));
 }
 
 struct kgsl_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
@@ -1122,8 +1136,7 @@ void genc_gmu_suspend(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
 
@@ -1532,6 +1545,9 @@ static int genc_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
+		adreno_dev->bcl_enabled = true;
+
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
@@ -1548,9 +1564,8 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Pool to make sure that the CX is off */
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	/* Poll to make sure that the CX is off */
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	return ret;
 }
@@ -1613,9 +1628,8 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Pool to make sure that the CX is off */
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	/* Poll to make sure that the CX is off */
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	return ret;
 }
@@ -1921,11 +1935,11 @@ int genc_gmu_probe(struct kgsl_device *device,
 
 	/*
 	 * Voting for apb_pclk will enable power and clocks required for
-	 * QDSS path to function. However, if CORESIGHT is not enabled,
+	 * QDSS path to function. However, if QCOM_KGSL_QDSS_STM is not enabled,
 	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
 	 * don't vote for this clock.
 	 */
-	if (!IS_ENABLED(CONFIG_CORESIGHT)) {
+	if (!IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM)) {
 		for (i = 0; i < ret; i++) {
 			if (!strcmp(gmu->clks[i].id, "apb_pclk")) {
 				gmu->clks[i].clk = NULL;
@@ -1958,9 +1972,6 @@ int genc_gmu_probe(struct kgsl_device *device,
 		gmu->idle_level = GPU_HW_IFPC;
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
-		adreno_dev->bcl_enabled = true;
 
 	genc_gmu_acd_probe(device, gmu, pdev->dev.of_node);
 
@@ -2072,9 +2083,8 @@ static int genc_gmu_power_off(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	/* Pool to make sure that the CX is off */
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	/* Poll to make sure that the CX is off */
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	device->state = KGSL_STATE_NONE;
 
@@ -2243,6 +2253,16 @@ static int genc_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	adreno_get_bus_counters(adreno_dev);
+
+	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
+						 ADRENO_COOP_RESET);
+
+	adreno_create_profile_buffer(adreno_dev);
+
+	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
+	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+
 	/*
 	 * There is a possible deadlock scenario during kgsl firmware reading
 	 * (request_firmware) and devfreq update calls. During first boot, kgsl
@@ -2255,22 +2275,7 @@ static int genc_first_boot(struct adreno_device *adreno_dev)
 	 * the mutex held by other thread. Enable devfreq updates now as we are
 	 * done reading all firmware files.
 	 */
-	ret = kgsl_pwrscale_enable_devfreq(device, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
-	if (ret) {
-		genc_disable_gpu_irq(adreno_dev);
-		genc_gmu_power_off(adreno_dev);
-		return ret;
-	}
-
-	adreno_get_bus_counters(adreno_dev);
-
-	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
-						 ADRENO_COOP_RESET);
-
-	adreno_create_profile_buffer(adreno_dev);
-
-	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
-	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+	device->pwrscale.devfreq_enabled = true;
 
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;

@@ -19,14 +19,13 @@ struct gh_hcall_hyp_identify_resp {
 
 static inline int gh_hcall_hyp_identify(struct gh_hcall_hyp_identify_resp *resp)
 {
-	int ret;
 	struct gh_hcall_resp _resp = {0};
 
-	ret = _gh_hcall(0x6000,
+	_gh_hcall(0x6000,
 		(struct gh_hcall_args){ 0 },
 		&_resp);
 
-	if (!ret && resp) {
+	if (resp) {
 		resp->api_info = _resp.resp0;
 		resp->flags[0] = _resp.resp1;
 		resp->flags[1] = _resp.resp2;

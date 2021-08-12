@@ -2,7 +2,6 @@
 /* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
-#include <linux/firmware.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/module.h>
@@ -42,7 +41,8 @@
 #define QCA6390_PATH_PREFIX		"qca6390/"
 #define QCA6490_PATH_PREFIX		"qca6490/"
 #define WCN7850_PATH_PREFIX		"wcn7850/"
-#define DEFAULT_M3_FILE_NAME		"m3.bin"
+#define DEFAULT_PHY_M3_FILE_NAME	"m3.bin"
+#define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
 #define DEVICE_MAJOR_VERSION_MASK	0xF
@@ -193,6 +193,7 @@ static const struct mhi_event_config cnss_mhi_events[] = {
 		.client_managed = false,
 		.offload_channel = false,
 	},
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	{
 		.num_elements = 32,
 		.irq_moderation_ms = 0,
@@ -204,6 +205,7 @@ static const struct mhi_event_config cnss_mhi_events[] = {
 		.client_managed = false,
 		.offload_channel = false,
 	},
+#endif
 };
 
 static const struct mhi_controller_config cnss_mhi_config = {
@@ -218,42 +220,42 @@ static const struct mhi_controller_config cnss_mhi_config = {
 };
 
 static struct cnss_pci_reg ce_src[] = {
-	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
-	{ "SRC_RING_BASE_MSB", QCA6390_CE_SRC_RING_BASE_MSB_OFFSET },
-	{ "SRC_RING_ID", QCA6390_CE_SRC_RING_ID_OFFSET },
-	{ "SRC_RING_MISC", QCA6390_CE_SRC_RING_MISC_OFFSET },
-	{ "SRC_CTRL", QCA6390_CE_SRC_CTRL_OFFSET },
-	{ "SRC_R0_CE_CH_SRC_IS", QCA6390_CE_SRC_R0_CE_CH_SRC_IS_OFFSET },
-	{ "SRC_RING_HP", QCA6390_CE_SRC_RING_HP_OFFSET },
-	{ "SRC_RING_TP", QCA6390_CE_SRC_RING_TP_OFFSET },
+	{ "SRC_RING_BASE_LSB", CE_SRC_RING_BASE_LSB_OFFSET },
+	{ "SRC_RING_BASE_MSB", CE_SRC_RING_BASE_MSB_OFFSET },
+	{ "SRC_RING_ID", CE_SRC_RING_ID_OFFSET },
+	{ "SRC_RING_MISC", CE_SRC_RING_MISC_OFFSET },
+	{ "SRC_CTRL", CE_SRC_CTRL_OFFSET },
+	{ "SRC_R0_CE_CH_SRC_IS", CE_SRC_R0_CE_CH_SRC_IS_OFFSET },
+	{ "SRC_RING_HP", CE_SRC_RING_HP_OFFSET },
+	{ "SRC_RING_TP", CE_SRC_RING_TP_OFFSET },
 	{ NULL },
 };
 
 static struct cnss_pci_reg ce_dst[] = {
-	{ "DEST_RING_BASE_LSB", QCA6390_CE_DEST_RING_BASE_LSB_OFFSET },
-	{ "DEST_RING_BASE_MSB", QCA6390_CE_DEST_RING_BASE_MSB_OFFSET },
-	{ "DEST_RING_ID", QCA6390_CE_DEST_RING_ID_OFFSET },
-	{ "DEST_RING_MISC", QCA6390_CE_DEST_RING_MISC_OFFSET },
-	{ "DEST_CTRL", QCA6390_CE_DEST_CTRL_OFFSET },
-	{ "CE_CH_DST_IS", QCA6390_CE_CH_DST_IS_OFFSET },
-	{ "CE_CH_DEST_CTRL2", QCA6390_CE_CH_DEST_CTRL2_OFFSET },
-	{ "DEST_RING_HP", QCA6390_CE_DEST_RING_HP_OFFSET },
-	{ "DEST_RING_TP", QCA6390_CE_DEST_RING_TP_OFFSET },
-	{ "STATUS_RING_BASE_LSB", QCA6390_CE_STATUS_RING_BASE_LSB_OFFSET },
-	{ "STATUS_RING_BASE_MSB", QCA6390_CE_STATUS_RING_BASE_MSB_OFFSET },
-	{ "STATUS_RING_ID", QCA6390_CE_STATUS_RING_ID_OFFSET },
-	{ "STATUS_RING_MISC", QCA6390_CE_STATUS_RING_MISC_OFFSET },
-	{ "STATUS_RING_HP", QCA6390_CE_STATUS_RING_HP_OFFSET },
-	{ "STATUS_RING_TP", QCA6390_CE_STATUS_RING_TP_OFFSET },
+	{ "DEST_RING_BASE_LSB", CE_DEST_RING_BASE_LSB_OFFSET },
+	{ "DEST_RING_BASE_MSB", CE_DEST_RING_BASE_MSB_OFFSET },
+	{ "DEST_RING_ID", CE_DEST_RING_ID_OFFSET },
+	{ "DEST_RING_MISC", CE_DEST_RING_MISC_OFFSET },
+	{ "DEST_CTRL", CE_DEST_CTRL_OFFSET },
+	{ "CE_CH_DST_IS", CE_CH_DST_IS_OFFSET },
+	{ "CE_CH_DEST_CTRL2", CE_CH_DEST_CTRL2_OFFSET },
+	{ "DEST_RING_HP", CE_DEST_RING_HP_OFFSET },
+	{ "DEST_RING_TP", CE_DEST_RING_TP_OFFSET },
+	{ "STATUS_RING_BASE_LSB", CE_STATUS_RING_BASE_LSB_OFFSET },
+	{ "STATUS_RING_BASE_MSB", CE_STATUS_RING_BASE_MSB_OFFSET },
+	{ "STATUS_RING_ID", CE_STATUS_RING_ID_OFFSET },
+	{ "STATUS_RING_MISC", CE_STATUS_RING_MISC_OFFSET },
+	{ "STATUS_RING_HP", CE_STATUS_RING_HP_OFFSET },
+	{ "STATUS_RING_TP", CE_STATUS_RING_TP_OFFSET },
 	{ NULL },
 };
 
 static struct cnss_pci_reg ce_cmn[] = {
-	{ "GXI_ERR_INTS", QCA6390_CE_COMMON_GXI_ERR_INTS },
-	{ "GXI_ERR_STATS", QCA6390_CE_COMMON_GXI_ERR_STATS },
-	{ "GXI_WDOG_STATUS", QCA6390_CE_COMMON_GXI_WDOG_STATUS },
-	{ "TARGET_IE_0", QCA6390_CE_COMMON_TARGET_IE_0 },
-	{ "TARGET_IE_1", QCA6390_CE_COMMON_TARGET_IE_1 },
+	{ "GXI_ERR_INTS", CE_COMMON_GXI_ERR_INTS },
+	{ "GXI_ERR_STATS", CE_COMMON_GXI_ERR_STATS },
+	{ "GXI_WDOG_STATUS", CE_COMMON_GXI_WDOG_STATUS },
+	{ "TARGET_IE_0", CE_COMMON_TARGET_IE_0 },
+	{ "TARGET_IE_1", CE_COMMON_TARGET_IE_1 },
 	{ NULL },
 };
 
@@ -764,6 +766,101 @@ static int cnss_pci_set_link_down(struct cnss_pci_data *pci_priv)
 }
 #endif /* CONFIG_PCI_MSM */
 
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
+static void cnss_mhi_debug_reg_dump(struct cnss_pci_data *pci_priv)
+{
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+}
+
+static void cnss_mhi_dump_sfr(struct cnss_pci_data *pci_priv)
+{
+	mhi_dump_sfr(pci_priv->mhi_ctrl);
+}
+
+static bool cnss_mhi_scan_rddm_cookie(struct cnss_pci_data *pci_priv,
+				      u32 cookie)
+{
+	return mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, cookie);
+}
+
+static int cnss_mhi_pm_fast_suspend(struct cnss_pci_data *pci_priv,
+				    bool notify_clients)
+{
+	return mhi_pm_fast_suspend(pci_priv->mhi_ctrl, notify_clients);
+}
+
+static int cnss_mhi_pm_fast_resume(struct cnss_pci_data *pci_priv,
+				   bool notify_clients)
+{
+	return mhi_pm_fast_resume(pci_priv->mhi_ctrl, notify_clients);
+}
+
+static void cnss_mhi_set_m2_timeout_ms(struct cnss_pci_data *pci_priv,
+				       u32 timeout)
+{
+	return mhi_set_m2_timeout_ms(pci_priv->mhi_ctrl, timeout);
+}
+
+static int cnss_mhi_device_get_sync_atomic(struct cnss_pci_data *pci_priv,
+					   int timeout_us, bool in_panic)
+{
+	return mhi_device_get_sync_atomic(pci_priv->mhi_ctrl->mhi_dev,
+					  timeout_us, in_panic);
+}
+
+static void
+cnss_mhi_controller_set_bw_scale_cb(struct cnss_pci_data *pci_priv,
+				    int (*cb)(struct mhi_controller *mhi_ctrl,
+					      struct mhi_link_info *link_info))
+{
+	mhi_controller_set_bw_scale_cb(pci_priv->mhi_ctrl, cb);
+}
+#else
+static void cnss_mhi_debug_reg_dump(struct cnss_pci_data *pci_priv)
+{
+}
+
+static void cnss_mhi_dump_sfr(struct cnss_pci_data *pci_priv)
+{
+}
+
+static bool cnss_mhi_scan_rddm_cookie(struct cnss_pci_data *pci_priv,
+				      u32 cookie)
+{
+	return false;
+}
+
+static int cnss_mhi_pm_fast_suspend(struct cnss_pci_data *pci_priv,
+				    bool notify_clients)
+{
+	return -EOPNOTSUPP;
+}
+
+static int cnss_mhi_pm_fast_resume(struct cnss_pci_data *pci_priv,
+				   bool notify_clients)
+{
+	return -EOPNOTSUPP;
+}
+
+static void cnss_mhi_set_m2_timeout_ms(struct cnss_pci_data *pci_priv,
+				       u32 timeout)
+{
+}
+
+static int cnss_mhi_device_get_sync_atomic(struct cnss_pci_data *pci_priv,
+					   int timeout_us, bool in_panic)
+{
+	return -EOPNOTSUPP;
+}
+
+static void
+cnss_mhi_controller_set_bw_scale_cb(struct cnss_pci_data *pci_priv,
+				    int (*cb)(struct mhi_controller *mhi_ctrl,
+					      struct mhi_link_info *link_info))
+{
+}
+#endif /* CONFIG_MHI_BUS_MISC */
+
 int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
@@ -792,6 +889,8 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 
 static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 {
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
 	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
 	u32 window_enable = WINDOW_ENABLE_BIT | window;
 	u32 val;
@@ -810,7 +909,8 @@ static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 	if (val != window_enable) {
 		cnss_pr_err("Failed to config window register to 0x%x, current value: 0x%x\n",
 			    window_enable, val);
-		if (!cnss_pci_check_link_status(pci_priv))
+		if (!cnss_pci_check_link_status(pci_priv) &&
+		    !test_bit(CNSS_IN_PANIC, &plat_priv->driver_state))
 			CNSS_ASSERT(0);
 	}
 }
@@ -990,10 +1090,15 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
-			    u32 *val)
+			    u32 *val, bool raw_access)
 {
 	int ret = 0;
 	bool do_force_wake_put = true;
+
+	if (raw_access) {
+		ret = cnss_pci_reg_read(pci_priv, offset, val);
+		goto out;
+	}
 
 	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
 	if (ret)
@@ -1025,10 +1130,15 @@ out:
 }
 
 int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
-			     u32 val)
+			     u32 val, bool raw_access)
 {
 	int ret = 0;
 	bool do_force_wake_put = true;
+
+	if (raw_access) {
+		ret = cnss_pci_reg_write(pci_priv, offset, val);
+		goto out;
+	}
 
 	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
 	if (ret)
@@ -1304,7 +1414,7 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	mod_timer(&pci_priv->dev_rddm_timer,
 		  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 
 	return 0;
 }
@@ -1480,108 +1590,61 @@ void cnss_pci_unlock_reg_window(struct device *dev, unsigned long *flags)
 EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
 
 /**
- * cnss_pci_dump_qca6390_sram_mem - Dump WLAN FW bootloader debug log
- * @pci_priv: PCI device private data structure of cnss platform driver
+ * cnss_pci_dump_bl_sram_mem - Dump WLAN device bootloader debug log
+ * @pci_priv: driver PCI bus context pointer
  *
- * Dump Primary and secondary bootloader debug log data. For SBL check the
+ * Dump primary and secondary bootloader debug log data. For SBL check the
  * log struct address and size for validity.
- *
- * Supported only on QCA6390
- *
- * Return: None
- */
-static void cnss_pci_dump_qca6390_sram_mem(struct cnss_pci_data *pci_priv)
-{
-	int i;
-	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
-	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-
-	if (plat_priv->device_id != QCA6390_DEVICE_ID)
-		return;
-
-	if (cnss_pci_check_link_status(pci_priv))
-		return;
-
-	cnss_pci_reg_read(pci_priv, QCA6390_TCSR_PBL_LOGGING_REG, &pbl_stage);
-	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_BHI_ERRDBG2_REG,
-			  &sbl_log_start);
-	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_BHI_ERRDBG3_REG,
-			  &sbl_log_size);
-	cnss_pci_reg_read(pci_priv, QCA6390_PBL_WLAN_BOOT_CFG,
-			  &pbl_wlan_boot_cfg);
-	cnss_pci_reg_read(pci_priv, QCA6390_PBL_BOOTSTRAP_STATUS,
-			  &pbl_bootstrap_status);
-	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
-		    pbl_stage, sbl_log_start, sbl_log_size);
-	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x\n",
-		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
-
-	cnss_pr_dbg("Dumping PBL log data\n");
-	/* cnss_pci_reg_read provides 32bit register values */
-	for (i = 0; i < QCA6390_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
-		mem_addr = QCA6390_DEBUG_PBL_LOG_SRAM_START + i;
-		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
-			break;
-		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
-	}
-
-	sbl_log_size = (sbl_log_size > QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
-			QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
-
-	if (sbl_log_start < QCA6390_V2_SBL_DATA_START ||
-	    sbl_log_start > QCA6390_V2_SBL_DATA_END ||
-	    (sbl_log_start + sbl_log_size) > QCA6390_V2_SBL_DATA_END)
-		goto out;
-
-	cnss_pr_dbg("Dumping SBL log data\n");
-	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
-		mem_addr = sbl_log_start + i;
-		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
-			break;
-		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
-	}
-	return;
-out:
-	cnss_pr_err("Invalid SBL log data\n");
-}
-
-/**
- * cnss_pci_dump_bl_sram_mem - Dump WLAN FW bootloader debug log
- * @pci_priv: PCI device private data structure of cnss platform driver
- *
- * Dump Primary and secondary bootloader debug log data. For SBL check the
- * log struct address and size for validity.
- *
- * Supported only on QCA6490
  *
  * Return: None
  */
 static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 {
-	int i;
-	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
-	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	u32 mem_addr, val, pbl_log_max_size, sbl_log_max_size;
+	u32 sbl_log_def_start, sbl_log_def_end;
+	u32 pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
+	u32 pbl_bootstrap_status_reg = PBL_BOOTSTRAP_STATUS;
+	u32 pbl_log_sram_start_reg = DEBUG_PBL_LOG_SRAM_START;
+	int i;
 
-	if (plat_priv->device_id == QCA6390_DEVICE_ID) {
-		cnss_pci_dump_qca6390_sram_mem(pci_priv);
-		return;
-	} else if (plat_priv->device_id != QCA6490_DEVICE_ID) {
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		pbl_log_max_size = QCA6390_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_max_size = QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_def_start = QCA6390_V2_SBL_DATA_START;
+		sbl_log_def_end = QCA6390_V2_SBL_DATA_END;
+	case QCA6490_DEVICE_ID:
+		pbl_log_max_size = QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_max_size = QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
+		if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
+			sbl_log_def_start = QCA6490_V2_SBL_DATA_START;
+			sbl_log_def_end = QCA6490_V2_SBL_DATA_END;
+		} else {
+			sbl_log_def_start = QCA6490_V1_SBL_DATA_START;
+			sbl_log_def_end = QCA6490_V1_SBL_DATA_END;
+		}
+		break;
+	case WCN7850_DEVICE_ID:
+		pbl_bootstrap_status_reg = WCN7850_PBL_BOOTSTRAP_STATUS;
+		pbl_log_sram_start_reg = WCN7850_DEBUG_PBL_LOG_SRAM_START;
+		pbl_log_max_size = WCN7850_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_max_size = WCN7850_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_def_start = WCN7850_SBL_DATA_START;
+		sbl_log_def_end = WCN7850_SBL_DATA_END;
+	default:
 		return;
 	}
 
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
 
-	cnss_pci_reg_read(pci_priv, QCA6490_TCSR_PBL_LOGGING_REG, &pbl_stage);
-	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG2_REG,
-			  &sbl_log_start);
-	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
-			  &sbl_log_size);
-	cnss_pci_reg_read(pci_priv, QCA6490_PBL_WLAN_BOOT_CFG,
-			  &pbl_wlan_boot_cfg);
-	cnss_pci_reg_read(pci_priv, QCA6490_PBL_BOOTSTRAP_STATUS,
+	cnss_pci_reg_read(pci_priv, TCSR_PBL_LOGGING_REG, &pbl_stage);
+	cnss_pci_reg_read(pci_priv, PCIE_BHI_ERRDBG2_REG, &sbl_log_start);
+	cnss_pci_reg_read(pci_priv, PCIE_BHI_ERRDBG3_REG, &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, PBL_WLAN_BOOT_CFG, &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, pbl_bootstrap_status_reg,
 			  &pbl_bootstrap_status);
 	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
 		    pbl_stage, sbl_log_start, sbl_log_size);
@@ -1589,26 +1652,20 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
 
 	cnss_pr_dbg("Dumping PBL log data\n");
-	/* cnss_pci_reg_read provides 32bit register values */
-	for (i = 0; i < QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
-		mem_addr = QCA6490_DEBUG_PBL_LOG_SRAM_START + i;
+	for (i = 0; i < pbl_log_max_size; i += sizeof(val)) {
+		mem_addr = pbl_log_sram_start_reg + i;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
 			break;
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
 
-	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
-			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
-	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-		if (sbl_log_start < QCA6490_V2_SBL_DATA_START ||
-		    sbl_log_start > QCA6490_V2_SBL_DATA_END ||
-		    (sbl_log_start + sbl_log_size) > QCA6490_V2_SBL_DATA_END)
-			goto out;
-	} else {
-		if (sbl_log_start < QCA6490_V1_SBL_DATA_START ||
-		    sbl_log_start > QCA6490_V1_SBL_DATA_END ||
-		    (sbl_log_start + sbl_log_size) > QCA6490_V1_SBL_DATA_END)
-			goto out;
+	sbl_log_size = (sbl_log_size > sbl_log_max_size ?
+			sbl_log_max_size : sbl_log_size);
+	if (sbl_log_start < sbl_log_def_start ||
+	    sbl_log_start > sbl_log_def_end ||
+	    (sbl_log_start + sbl_log_size) > sbl_log_def_end) {
+		cnss_pr_err("Invalid SBL log data\n");
+		return;
 	}
 
 	cnss_pr_dbg("Dumping SBL log data\n");
@@ -1618,9 +1675,6 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 			break;
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
-	return;
-out:
-	cnss_pr_err("Invalid SBL log data\n");
 }
 
 static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
@@ -1629,7 +1683,7 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 
 	cnss_fatal_err("MHI power up returns timeout\n");
 
-	if (mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, DEVICE_RDDM_COOKIE)) {
+	if (cnss_mhi_scan_rddm_cookie(pci_priv, DEVICE_RDDM_COOKIE)) {
 		/* Wait for RDDM if RDDM cookie is set. If RDDM times out,
 		 * PBL/SBL error region may have been erased so no need to
 		 * dump them either.
@@ -1641,7 +1695,7 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 		}
 	} else {
 		cnss_pr_dbg("RDDM cookie is not set\n");
-		mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+		cnss_mhi_debug_reg_dump(pci_priv);
 		/* Dump PBL/SBL error log if RDDM cookie is not set */
 		cnss_pci_dump_bl_sram_mem(pci_priv);
 		return -ETIMEDOUT;
@@ -1797,11 +1851,13 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 		/* Only set img_pre_alloc when power up succeeds */
 		if (!ret && !pci_priv->mhi_ctrl->img_pre_alloc) {
 			cnss_pr_dbg("Notify MHI to use already allocated images\n");
 			pci_priv->mhi_ctrl->img_pre_alloc = true;
 		}
+#endif
 		break;
 	case CNSS_MHI_POWER_OFF:
 		mhi_power_down(pci_priv->mhi_ctrl, true);
@@ -1814,7 +1870,7 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	case CNSS_MHI_SUSPEND:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last)
-			ret = mhi_pm_fast_suspend(pci_priv->mhi_ctrl, true);
+			ret = cnss_mhi_pm_fast_suspend(pci_priv, true);
 		else
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
@@ -1823,7 +1879,7 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last) {
 			cnss_pci_prevent_l1(&pci_priv->pci_dev->dev);
-			ret = mhi_pm_fast_resume(pci_priv->mhi_ctrl, true);
+			ret = cnss_mhi_pm_fast_resume(pci_priv, true);
 			cnss_pci_allow_l1(&pci_priv->pci_dev->dev);
 		} else {
 			ret = mhi_pm_resume(pci_priv->mhi_ctrl);
@@ -1873,6 +1929,13 @@ static int cnss_wlan_adsp_pc_enable(struct cnss_pci_data *pci_priv,
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	int ret = 0;
 	u32 pm_options = PM_OPTIONS_DEFAULT;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	if (plat_priv->adsp_pc_enabled == control) {
+		cnss_pr_dbg("ADSP power collapse already %s\n",
+			    control ? "Enabled" : "Disabled");
+		return 0;
+	}
 
 	if (control)
 		pm_options &= ~MSM_PCIE_CONFIG_NO_DRV_PC;
@@ -1885,6 +1948,7 @@ static int cnss_wlan_adsp_pc_enable(struct cnss_pci_data *pci_priv,
 		return ret;
 
 	cnss_pr_dbg("%s ADSP power collapse\n", control ? "Enable" : "Disable");
+	plat_priv->adsp_pc_enabled = control;
 	return 0;
 }
 #else
@@ -1912,7 +1976,7 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	if (MHI_TIMEOUT_OVERWRITE_MS)
 		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
-	mhi_set_m2_timeout_ms(pci_priv->mhi_ctrl, MHI_M2_TIMEOUT_MS);
+	cnss_mhi_set_m2_timeout_ms(pci_priv, MHI_M2_TIMEOUT_MS);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
@@ -2069,13 +2133,13 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 static void cnss_pci_enable_time_sync_counter(struct cnss_pci_data *pci_priv)
 {
 	cnss_pci_reg_write(pci_priv, WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_ENABLE);
+			   TIME_SYNC_ENABLE);
 }
 
 static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
 {
 	cnss_pci_reg_write(pci_priv, WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_CLEAR);
+			   TIME_SYNC_CLEAR);
 }
 
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
@@ -2119,15 +2183,15 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	low = offset & 0xFFFFFFFF;
 	high = offset >> 32;
 
-	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, low);
-	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
+	cnss_pci_reg_write(pci_priv, PCIE_SHADOW_REG_VALUE_34, low);
+	cnss_pci_reg_write(pci_priv, PCIE_SHADOW_REG_VALUE_35, high);
 
-	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, &low);
-	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, &high);
+	cnss_pci_reg_read(pci_priv, PCIE_SHADOW_REG_VALUE_34, &low);
+	cnss_pci_reg_read(pci_priv, PCIE_SHADOW_REG_VALUE_35, &high);
 
 	cnss_pr_dbg("Updated time sync regs [0x%x] = 0x%x, [0x%x] = 0x%x\n",
-		    QCA6390_PCIE_SHADOW_REG_VALUE_34, low,
-		    QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
+		    PCIE_SHADOW_REG_VALUE_34, low,
+		    PCIE_SHADOW_REG_VALUE_35, high);
 
 force_wake_put:
 	cnss_pci_force_wake_put(pci_priv);
@@ -2466,7 +2530,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	cnss_pr_dbg("Start to dump shadow registers\n");
 
 	for (i = 0; i < SHADOW_REG_COUNT; i++, j++) {
-		reg_offset = QCA6390_PCIE_SHADOW_REG_VALUE_0 + i * 4;
+		reg_offset = PCIE_SHADOW_REG_VALUE_0 + i * 4;
 		pci_priv->debug_reg[j].offset = reg_offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
 				      &pci_priv->debug_reg[j].val))
@@ -2474,7 +2538,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	}
 
 	for (i = 0; i < SHADOW_REG_INTER_COUNT; i++, j++) {
-		reg_offset = QCA6390_PCIE_SHADOW_REG_INTER_0 + i * 4;
+		reg_offset = PCIE_SHADOW_REG_INTER_0 + i * 4;
 		pci_priv->debug_reg[j].offset = reg_offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
 				      &pci_priv->debug_reg[j].val))
@@ -2921,6 +2985,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 	struct cnss_pci_data *pci_priv;
+	const struct pci_device_id *id_table = driver_ops->id_table;
 	unsigned int timeout;
 
 	if (!plat_priv) {
@@ -2944,8 +3009,17 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EINVAL;
 	}
 
-	if (!driver_ops->id_table || !pci_dev_present(driver_ops->id_table)) {
-		cnss_pr_err("PCIe device id is %x, not supported by platform\n",
+	if (!id_table || !pci_dev_present(id_table)) {
+		/* id_table pointer will move from pci_dev_present(),
+		 * so check again using local pointer.
+		 */
+		id_table = driver_ops->id_table;
+		while (id_table->vendor) {
+			cnss_pr_info("Host driver is built for PCIe device ID 0x%x\n",
+				     id_table->device);
+			id_table++;
+		}
+		cnss_pr_err("Enumerated PCIe device id is 0x%x, reject unsupported driver\n",
 			    pci_priv->device_id);
 		return -ENODEV;
 	}
@@ -3085,8 +3159,10 @@ static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 		    drv_supported ? "supported" : "not supported");
 	pci_priv->drv_supported = drv_supported;
 
-	if (drv_supported)
+	if (drv_supported) {
 		plat_priv->cap.cap_flag |= CNSS_HAS_DRV_SUPPORT;
+		cnss_set_feature_list(plat_priv, CNSS_DRV_SUPPORT_V01);
+	}
 
 	return drv_supported;
 }
@@ -3827,8 +3903,8 @@ int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
 
 	if (timeout_us) {
 		/* Busy wait for timeout_us */
-		return mhi_device_get_sync_atomic(mhi_ctrl->mhi_dev,
-						  timeout_us, false);
+		return cnss_mhi_device_get_sync_atomic(pci_priv,
+						       timeout_us, false);
 	} else {
 		/* Sleep wait for mhi_ctrl->timeout_ms */
 		return mhi_device_get_sync(mhi_ctrl->mhi_dev);
@@ -4087,12 +4163,30 @@ int cnss_pci_load_m3(struct cnss_pci_data *pci_priv)
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct cnss_fw_mem *m3_mem = &plat_priv->m3_mem;
 	char filename[MAX_FIRMWARE_NAME_LEN];
+	char *phy_filename = DEFAULT_PHY_UCODE_FILE_NAME;
 	const struct firmware *fw_entry;
 	int ret = 0;
 
+	/* Use forward compatibility here since for any recent device
+	 * it should use DEFAULT_PHY_UCODE_FILE_NAME.
+	 */
+	switch (pci_priv->device_id) {
+	case QCA6174_DEVICE_ID:
+		cnss_pr_err("Invalid device ID (0x%x) to load phy image\n",
+			    pci_priv->device_id);
+		return -EINVAL;
+	case QCA6290_DEVICE_ID:
+	case QCA6390_DEVICE_ID:
+	case QCA6490_DEVICE_ID:
+		phy_filename = DEFAULT_PHY_M3_FILE_NAME;
+		break;
+	default:
+		break;
+	}
+
 	if (!m3_mem->va && !m3_mem->size) {
 		cnss_pci_add_fw_prefix_name(pci_priv, filename,
-					    DEFAULT_M3_FILE_NAME);
+					    phy_filename);
 
 		ret = firmware_request_nowarn(&fw_entry, filename,
 					      &pci_priv->pci_dev->dev);
@@ -4731,15 +4825,29 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 				 enum cnss_ce_index ce)
 {
 	int i;
-	u32 ce_base = ce * QCA6390_CE_REG_INTERVAL;
-	u32 reg_offset, val;
+	u32 ce_base = ce * CE_REG_INTERVAL;
+	u32 reg_offset, src_ring_base, dst_ring_base, cmn_base, val;
+
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		src_ring_base = QCA6390_CE_SRC_RING_REG_BASE;
+		dst_ring_base = QCA6390_CE_DST_RING_REG_BASE;
+		cmn_base = QCA6390_CE_COMMON_REG_BASE;
+		break;
+	case QCA6490_DEVICE_ID:
+		src_ring_base = QCA6490_CE_SRC_RING_REG_BASE;
+		dst_ring_base = QCA6490_CE_DST_RING_REG_BASE;
+		cmn_base = QCA6490_CE_COMMON_REG_BASE;
+		break;
+	default:
+		return;
+	}
 
 	switch (ce) {
 	case CNSS_CE_09:
 	case CNSS_CE_10:
 		for (i = 0; ce_src[i].name; i++) {
-			reg_offset = QCA6390_CE_SRC_RING_REG_BASE +
-				ce_base + ce_src[i].offset;
+			reg_offset = src_ring_base + ce_base + ce_src[i].offset;
 			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
 				return;
 			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
@@ -4747,8 +4855,7 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 		}
 
 		for (i = 0; ce_dst[i].name; i++) {
-			reg_offset = QCA6390_CE_DST_RING_REG_BASE +
-				ce_base + ce_dst[i].offset;
+			reg_offset = dst_ring_base + ce_base + ce_dst[i].offset;
 			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
 				return;
 			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
@@ -4757,8 +4864,7 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_CE_COMMON:
 		for (i = 0; ce_cmn[i].name; i++) {
-			reg_offset = QCA6390_CE_COMMON_REG_BASE +
-				ce_cmn[i].offset;
+			reg_offset = cmn_base  + ce_cmn[i].offset;
 			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
 				return;
 			cnss_pr_dbg("CE_COMMON_%s[0x%x] = 0x%x\n",
@@ -4777,7 +4883,7 @@ static void cnss_pci_dump_debug_reg(struct cnss_pci_data *pci_priv)
 
 	cnss_pr_dbg("Start to dump debug registers\n");
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_COMMON);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_09);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_10);
@@ -4984,7 +5090,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 			return;
 	}
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
@@ -5032,7 +5138,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	dump_data->nentries += rddm_image->entries;
 
-	mhi_dump_sfr(pci_priv->mhi_ctrl);
+	cnss_mhi_dump_sfr(pci_priv);
 
 	cnss_pr_dbg("Collect remote heap dump segment\n");
 
@@ -5222,7 +5328,7 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 	}
 
 	cnss_pr_dbg("FW name is %s, FW fallback name is %s\n",
-		    mhi_ctrl->fw_image, mhi_ctrl->fallback_fw_image);
+		    plat_priv->firmware_name, plat_priv->fw_fallback_name);
 
 	return 0;
 }
@@ -5240,8 +5346,10 @@ static char *cnss_mhi_notify_status_to_str(enum mhi_callback status)
 		return "FATAL_ERROR";
 	case MHI_CB_EE_MISSION_MODE:
 		return "MISSION_MODE";
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	case MHI_CB_FALLBACK_IMG:
 		return "FW_FALLBACK";
+#endif
 	default:
 		return "UNKNOWN";
 	}
@@ -5260,7 +5368,7 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 	if (mhi_get_exec_env(pci_priv->mhi_ctrl) == MHI_EE_PBL)
 		cnss_pr_err("Unable to collect ramdumps due to abrupt reset\n");
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
@@ -5282,12 +5390,12 @@ static void cnss_boot_debug_timeout_hdlr(struct timer_list *t)
 	if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
 		return;
 
-	if (mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, DEVICE_RDDM_COOKIE))
+	if (cnss_mhi_scan_rddm_cookie(pci_priv, DEVICE_RDDM_COOKIE))
 		return;
 
 	cnss_pr_dbg("Dump MHI/PBL/SBL debug data every %ds during MHI power on\n",
 		    BOOT_DEBUG_TIMEOUT_MS / 1000);
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_dump_bl_sram_mem(pci_priv);
 
 	mod_timer(&pci_priv->boot_debug_timer,
@@ -5339,10 +5447,12 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl,
 		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	case MHI_CB_FALLBACK_IMG:
 		plat_priv->use_fw_path_with_prefix = false;
 		cnss_pci_update_fw_name(pci_priv);
 		return;
+#endif
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
@@ -5460,13 +5570,15 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->cntrl_dev = &pci_dev->dev;
 
 	mhi_ctrl->fw_image = plat_priv->firmware_name;
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	mhi_ctrl->fallback_fw_image = plat_priv->fw_fallback_name;
+#endif
 
 	mhi_ctrl->regs = pci_priv->bar;
-	mhi_ctrl->regs_len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
+	mhi_ctrl->reg_len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
 	cnss_pr_dbg("BAR starts at %pa, length is %x\n",
 		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM),
-		    mhi_ctrl->regs_len);
+		    mhi_ctrl->reg_len);
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
@@ -5503,7 +5615,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	}
 
 	/* BW scale CB needs to be set after registering MHI per requirement */
-	mhi_controller_set_bw_scale_cb(mhi_ctrl, cnss_mhi_bw_scale);
+	cnss_mhi_controller_set_bw_scale_cb(pci_priv, cnss_mhi_bw_scale);
 
 	ret = cnss_pci_update_fw_name(pci_priv);
 	if (ret)
@@ -5642,19 +5754,19 @@ static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
 free_irq:
 	free_irq(pci_priv->wake_irq, pci_priv);
 free_gpio:
-	gpio_free(pci_priv->wake_irq);
+	gpio_free(pci_priv->wake_gpio);
 out:
 	return ret;
 }
 
 static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
 {
-	if (pci_priv->wake_irq < 0)
+	if (pci_priv->wake_gpio < 0)
 		return;
 
 	disable_irq_wake(pci_priv->wake_irq);
 	free_irq(pci_priv->wake_irq, pci_priv);
-	gpio_free(pci_priv->wake_irq);
+	gpio_free(pci_priv->wake_gpio;
 }
 #else
 static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)

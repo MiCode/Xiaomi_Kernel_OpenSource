@@ -477,6 +477,8 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 	int ibat = 0, vbat = 0;
 	struct bcl_device *bcl_perph;
 
+	if (!perph_data->tz_dev)
+		return IRQ_HANDLED;
 	bcl_perph = perph_data->dev;
 	bcl_read_register(bcl_perph, BCL_IRQ_STATUS, &irq_status);
 	if (bcl_perph->param[BCL_IBAT_LVL0].tz_dev)

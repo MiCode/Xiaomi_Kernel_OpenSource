@@ -312,6 +312,10 @@ static void walt_find_best_target(struct sched_domain *sd,
 			if (fbt_env->skip_cpu == i)
 				continue;
 
+			if (per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX)
+				continue;
+
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
 			 * so prev_cpu will receive a negative bias due to the double
@@ -385,10 +389,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 			/* skip visiting any more busy if idle was found */
 			if (best_idle_cpu_cluster != -1)
-				continue;
-
-			if (per_task_boost(cpu_rq(i)->curr) ==
-					TASK_BOOST_STRICT_MAX)
 				continue;
 
 			/*
@@ -517,7 +517,7 @@ static inline unsigned long walt_em_cpu_energy(struct em_perf_domain *pd,
 
 	max_util = max_util + (max_util >> 2); /* account  for TARGET_LOAD usually 80 */
 	max_util = max(max_util,
-			(arch_scale_freq_capacity(cpu) * capacity_orig_of(cpu)) >>
+			(arch_scale_freq_capacity(cpu) * scale_cpu) >>
 			SCHED_CAPACITY_SHIFT);
 
 	/*
@@ -670,6 +670,11 @@ static inline bool select_cpu_same_energy(int cpu, int best_cpu, int prev_cpu)
 	return available_idle_cpu(best_cpu);
 }
 
+static inline unsigned int capacity_spare_of(int cpu)
+{
+	return capacity_orig_of(cpu) - cpu_util(cpu);
+}
+
 static DEFINE_PER_CPU(cpumask_t, energy_cpus);
 int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 				     int sync, int sibling_count_hint)
@@ -688,7 +693,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	int task_boost = per_task_boost(p);
 	bool uclamp_boost = walt_uclamp_boosted(p);
 	int start_cpu, order_index, end_index;
-	int max_cap_cpu = -1;
+	int first_cpu;
 	bool energy_eval_needed = true;
 	struct compute_energy_output output;
 
@@ -747,21 +752,27 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (!weight)
 		goto unlock;
 
-	max_cap_cpu = cpumask_first(candidates);
+	first_cpu = cpumask_first(candidates);
 	if (weight == 1) {
-		if (available_idle_cpu(max_cap_cpu) || max_cap_cpu == prev_cpu) {
-			best_energy_cpu = max_cap_cpu;
+		if (available_idle_cpu(first_cpu) || first_cpu == prev_cpu) {
+			best_energy_cpu = first_cpu;
 			goto unlock;
 		}
 	}
 
-	for_each_cpu(cpu, candidates) {
-		if (capacity_orig_of(max_cap_cpu) < capacity_orig_of(cpu))
-			max_cap_cpu = cpu;
+	if (need_idle && available_idle_cpu(first_cpu)) {
+		best_energy_cpu = first_cpu;
+		goto unlock;
 	}
 
 	if (!energy_eval_needed) {
-		best_energy_cpu = max_cap_cpu;
+		int max_spare_cpu = first_cpu;
+
+		for_each_cpu(cpu, candidates) {
+			if (capacity_spare_of(max_spare_cpu) < capacity_spare_of(cpu))
+				max_spare_cpu = cpu;
+		}
+		best_energy_cpu = max_spare_cpu;
 		goto unlock;
 	}
 

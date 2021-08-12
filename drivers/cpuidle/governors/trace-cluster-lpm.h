@@ -66,19 +66,46 @@ TRACE_EVENT(cluster_pred_hist,
 
 TRACE_EVENT(cluster_exit,
 
-	TP_PROTO(int cpu),
+	TP_PROTO(int cpu, u32 idx, u32 suspend_param),
 
-	TP_ARGS(cpu),
+	TP_ARGS(cpu, idx, suspend_param),
 
 	TP_STRUCT__entry(
 		__field(int, cpu)
+		__field(u32, idx)
+		__field(u32, suspend_param)
 	),
 
 	TP_fast_assign(
 		__entry->cpu = cpu;
+		__entry->idx = idx;
+		__entry->suspend_param = suspend_param;
 	),
 
-	TP_printk("first_cpu:%d", __entry->cpu)
+	TP_printk("first cpu:%d idx:%u suspend_param:0x%x", __entry->cpu,
+		  __entry->idx, __entry->suspend_param)
+);
+
+TRACE_EVENT(cluster_enter,
+
+	TP_PROTO(int cpu, u32 idx, u32 suspend_param),
+
+	TP_ARGS(cpu, idx, suspend_param),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(u32, idx)
+		__field(u32, suspend_param)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->idx = idx;
+		__entry->suspend_param = suspend_param;
+	),
+
+	TP_printk("last cpu:%d idx:%u suspend_param:0x%x", __entry->cpu,
+		  __entry->idx, __entry->suspend_param)
 );
 
 #endif /* _TRACE_QCOM_LPM_H */

@@ -295,6 +295,15 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 	return 0x00000000;
 }
 
+void a6xx_cx_regulator_disable_wait(struct regulator *reg,
+				struct kgsl_device *device, u32 timeout)
+{
+	if (!adreno_regulator_disable_poll(device, reg, A6XX_GPU_CC_CX_GDSCR, timeout)) {
+		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
+		/* Dump the cx regulator consumer list */
+		qcom_clk_dump(NULL, reg, false);
+	}
+}
 
 static void set_holi_sptprac_clock(struct kgsl_device *device, bool enable)
 {
@@ -460,7 +469,7 @@ static void a6xx_set_secvid(struct kgsl_device *device)
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
 		upper_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
-		KGSL_IOMMU_SECURE_SIZE);
+		KGSL_IOMMU_SECURE_SIZE(&device->mmu));
 
 	if (ADRENO_QUIRK(ADRENO_DEVICE(device), ADRENO_QUIRK_SECVID_SET_ONCE))
 		set = true;
@@ -1209,10 +1218,9 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	u32 a, b, c;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!adreno_dev->lm_enabled)
+	if (!(adreno_dev->lm_enabled || adreno_dev->bcl_enabled))
 		return 0;
 
-	/* The counters are selected in a6xx_gmu_enable_lm() */
 	a = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
 		&busy->throttle_cycles[0]);
 
@@ -1222,6 +1230,14 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	c = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
 		&busy->throttle_cycles[2]);
 
+	/*
+	 * Currently there are no a6xx targets with both LM and BCL enabled.
+	 * So if BCL is enabled, we can log bcl counters and return.
+	 */
+	if (adreno_dev->bcl_enabled) {
+		trace_kgsl_bcl_clock_throttling(a, b, c);
+		return 0;
+	}
 
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
@@ -2452,16 +2468,16 @@ static void a6xx_power_stats(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	u64 gpu_busy;
-	s64 adj;
+	s64 gpu_busy;
 
 	/* Set the GPU busy counter for frequency scaling */
 	gpu_busy = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
 		&busy->gpu_busy);
 
-	adj = a6xx_read_throttling_counters(adreno_dev);
-	if (adj < 0 || -adj > gpu_busy)
-		gpu_busy += adj;
+	gpu_busy += a6xx_read_throttling_counters(adreno_dev);
+	/* If adjustment cycles are more than busy cycles make gpu_busy zero */
+	if (gpu_busy < 0)
+		gpu_busy = 0;
 
 	stats->busy_time = gpu_busy * 10;
 	do_div(stats->busy_time, 192);

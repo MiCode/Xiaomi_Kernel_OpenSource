@@ -1195,7 +1195,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a640 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A640, 6, 4, 0, ANY_ID),
 		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_IFPC | ADRENO_PREEMPTION,
+			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_L3_VOTE,
 		.gpudev = &adreno_a6xx_gmu_gpudev.base,
 		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
@@ -1275,7 +1275,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A650, 6, 5, 0, 0),
 		.features = ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
-			ADRENO_IFPC | ADRENO_APRIV,
+			ADRENO_IFPC | ADRENO_APRIV | ADRENO_L3_VOTE,
 		.gpudev = &adreno_a6xx_gmu_gpudev.base,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
@@ -1306,7 +1306,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650v2 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A650, 6, 5, 0, ANY_ID),
 		.features = ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
-			ADRENO_LM | ADRENO_APRIV,
+			ADRENO_LM | ADRENO_APRIV | ADRENO_L3_VOTE,
 		.gpudev = &adreno_a6xx_gmu_gpudev.base,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
@@ -1586,7 +1586,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, 0),
 		.features = ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
-				ADRENO_IFPC | ADRENO_PREEMPTION,
+				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_L3_VOTE,
 		.gpudev = &adreno_a6xx_gmu_gpudev.base,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
@@ -1618,7 +1618,8 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660v2 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, ANY_ID),
 		.features = ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
-				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD,
+				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
+				ADRENO_L3_VOTE,
 		.gpudev = &adreno_a6xx_gmu_gpudev.base,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
@@ -1714,7 +1715,7 @@ static const struct kgsl_regmap_list c500_gbif_regs[] = {
 	{ GENC_GBIF_QSB_SIDE1, 0x00071620 },
 	{ GENC_GBIF_QSB_SIDE2, 0x00071620 },
 	{ GENC_GBIF_QSB_SIDE3, 0x00071620 },
-	{ GENC_RBBM_GBIF_CLIENT_QOS_CNTL, 0x3 },
+	{ GENC_RBBM_GBIF_CLIENT_QOS_CNTL, 0x2120212 },
 };
 
 static const struct kgsl_regmap_list c500_hwcg_regs[] = {
@@ -1748,9 +1749,9 @@ static const struct kgsl_regmap_list c500_hwcg_regs[] = {
 	{ GENC_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222 },
 	{ GENC_RBBM_CLOCK_MODE2_GRAS, 0x00000222 },
 	{ GENC_RBBM_CLOCK_MODE_BV_GRAS, 0x00222222 },
-	{ GENC_RBBM_CLOCK_MODE_GPC, 0x02222222 },
+	{ GENC_RBBM_CLOCK_MODE_GPC, 0x02222223 },
 	{ GENC_RBBM_CLOCK_MODE_VFD, 0x00002222 },
-	{ GENC_RBBM_CLOCK_MODE_BV_GPC, 0x00222222 },
+	{ GENC_RBBM_CLOCK_MODE_BV_GPC, 0x00222223 },
 	{ GENC_RBBM_CLOCK_MODE_BV_VFD, 0x00002222 },
 	{ GENC_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000 },
 	{ GENC_RBBM_CLOCK_HYST_GPC, 0x04104004 },
@@ -1822,7 +1823,8 @@ static const struct adreno_genc_core adreno_gpu_core_c500 = {
 		.compatible = "qcom,adreno-gpu-c500",
 		.chipid = 0x07030000,
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
-				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC,
+				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
+				ADRENO_ACD | ADRENO_L3_VOTE,
 		.gpudev = &adreno_genc_gmu_gpudev.base,
 		.perfcounters = &adreno_genc_perfcounters,
 		.gmem_base = 0,
@@ -1849,7 +1851,8 @@ static const struct adreno_genc_core adreno_gpu_core_c500v2 = {
 		.compatible = "qcom,adreno-gpu-c500v2",
 		.chipid = 0x07030001,
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
-				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC,
+				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
+				ADRENO_ACD | ADRENO_L3_VOTE,
 		.gpudev = &adreno_genc_gmu_gpudev.base,
 		.perfcounters = &adreno_genc_perfcounters,
 		.gmem_base = 0,

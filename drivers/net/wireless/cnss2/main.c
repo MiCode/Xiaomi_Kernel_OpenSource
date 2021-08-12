@@ -167,6 +167,26 @@ int cnss_get_mem_segment_info(enum cnss_remote_mem_type type,
 }
 EXPORT_SYMBOL(cnss_get_mem_segment_info);
 
+int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
+			  enum cnss_feature_v01 feature)
+{
+	if (unlikely(!plat_priv || feature >= CNSS_MAX_FEATURE_V01))
+		return -EINVAL;
+
+	plat_priv->feature_list |= 1 << feature;
+	return 0;
+}
+
+int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
+			  u64 *feature_list)
+{
+	if (unlikely(!plat_priv))
+		return -EINVAL;
+
+	*feature_list = plat_priv->feature_list;
+	return 0;
+}
+
 static int cnss_pm_notify(struct notifier_block *b,
 			  unsigned long event, void *p)
 {
@@ -443,6 +463,8 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (ret)
 		goto out;
 
+	if (plat_priv->hds_enabled)
+		cnss_wlfw_bdf_dnld_send_sync(plat_priv, CNSS_BDF_HDS);
 	cnss_wlfw_bdf_dnld_send_sync(plat_priv, CNSS_BDF_REGDB);
 
 	ret = cnss_wlfw_bdf_dnld_send_sync(plat_priv,
@@ -2766,6 +2788,32 @@ void cnss_daemon_connection_update_cb(void *cb_ctx, bool status)
 	}
 }
 
+static ssize_t enable_hds_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	unsigned int enable_hds = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (sscanf(buf, "%du", &enable_hds) != 1) {
+		cnss_pr_err("Invalid enable_hds sysfs command\n");
+		return -EINVAL;
+	}
+
+	if (enable_hds)
+		plat_priv->hds_enabled = true;
+	else
+		plat_priv->hds_enabled = false;
+
+	cnss_pr_dbg("%s HDS file download, count is %zu\n",
+		    plat_priv->hds_enabled ? "Enable" : "Disable", count);
+
+	return count;
+}
+
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -2909,6 +2957,7 @@ static ssize_t hw_trace_override_store(struct device *dev,
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
+static DEVICE_ATTR_WO(enable_hds);
 static DEVICE_ATTR_WO(qdss_trace_start);
 static DEVICE_ATTR_WO(qdss_trace_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
@@ -2918,6 +2967,7 @@ static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
 	&dev_attr_shutdown.attr,
 	&dev_attr_recovery.attr,
+	&dev_attr_enable_hds.attr,
 	&dev_attr_qdss_trace_start.attr,
 	&dev_attr_qdss_trace_stop.attr,
 	&dev_attr_qdss_conf_download.attr,
@@ -3096,6 +3146,10 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
 	plat_priv->ctrl_params.time_sync_period = CNSS_TIME_SYNC_PERIOD_DEFAULT;
+	/* Set adsp_pc_enabled default value to true as ADSP pc is always
+	 * enabled by default
+	 */
+	plat_priv->adsp_pc_enabled = true;
 }
 
 static void cnss_get_pm_domain_info(struct cnss_plat_data *plat_priv)
@@ -3343,9 +3397,35 @@ static struct platform_driver cnss_platform_driver = {
 	},
 };
 
+/**
+ * cnss_is_valid_dt_node_found - Check if valid device tree node present
+ *
+ * Valid device tree node means a node with "compatible" property from the
+ * device match table and "status" property is not disabled.
+ *
+ * Return: true if valid device tree node found, false if not found
+ */
+static bool cnss_is_valid_dt_node_found(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_matching_node(dn, cnss_of_match_table) {
+		if (of_device_is_available(dn))
+			break;
+	}
+
+	if (dn)
+		return true;
+
+	return false;
+}
+
 static int __init cnss_initialize(void)
 {
 	int ret = 0;
+
+	if (!cnss_is_valid_dt_node_found())
+		return -ENODEV;
 
 	cnss_debug_init();
 	ret = platform_driver_register(&cnss_platform_driver);

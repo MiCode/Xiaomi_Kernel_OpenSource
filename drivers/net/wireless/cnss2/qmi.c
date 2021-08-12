@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
 
-#include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
 
@@ -23,6 +22,7 @@
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define BIN_BDF_FILE_NAME_GF_PREFIX	"bdwlang.b"
 #define REGDB_FILE_NAME			"regdb.bin"
+#define HDS_FILE_NAME			"hds.bin"
 #define CHIP_ID_GF_MASK			0x10
 
 #define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
@@ -179,6 +179,33 @@ qmi_registered:
 	return ret;
 }
 
+static void cnss_wlfw_host_cap_parse_mlo(struct cnss_plat_data *plat_priv,
+					 struct wlfw_host_cap_req_msg_v01 *req)
+{
+	if (plat_priv->device_id == WCN7850_DEVICE_ID) {
+		req->mlo_capable_valid = 1;
+		req->mlo_capable = 1;
+		req->mlo_chip_id_valid = 1;
+		req->mlo_chip_id = 0;
+		req->mlo_group_id_valid = 1;
+		req->mlo_group_id = 0;
+		req->max_mlo_peer_valid = 1;
+		/* Max peer number generally won't change for the same device
+		 * but needs to be synced with host driver.
+		 */
+		req->max_mlo_peer = 32;
+		req->mlo_num_chips_valid = 1;
+		req->mlo_num_chips = 1;
+		req->mlo_chip_info_valid = 1;
+		req->mlo_chip_info[0].chip_id = 0;
+		req->mlo_chip_info[0].num_local_links = 2;
+		req->mlo_chip_info[0].hw_link_id[0] = 0;
+		req->mlo_chip_info[0].hw_link_id[1] = 1;
+		req->mlo_chip_info[0].valid_mlo_link_id[0] = 1;
+		req->mlo_chip_info[0].valid_mlo_link_id[1] = 1;
+	}
+}
+
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -187,6 +214,7 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
+	u64 feature_list = 0;
 
 	cnss_pr_dbg("Sending host capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -237,6 +265,15 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	req->host_build_type_valid = 1;
 	req->host_build_type = cnss_get_host_build_type();
 
+	cnss_wlfw_host_cap_parse_mlo(plat_priv, req);
+
+	ret = cnss_get_feature_list(plat_priv, &feature_list);
+	if (!ret) {
+		req->feature_list_valid = 1;
+		req->feature_list = feature_list;
+		cnss_pr_dbg("Sending feature list 0x%llx\n",
+			    req->feature_list);
+	}
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
 	if (ret < 0) {
@@ -556,6 +593,9 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 		break;
 	case CNSS_BDF_REGDB:
 		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
+		break;
+	case CNSS_BDF_HDS:
+		snprintf(filename_tmp, filename_len, HDS_FILE_NAME);
 		break;
 	default:
 		cnss_pr_err("Invalid BDF type: %d\n",

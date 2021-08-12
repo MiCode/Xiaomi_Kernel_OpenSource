@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -282,7 +282,7 @@ struct spcom_device {
 	atomic_t            rx_active_count;
 
 	int32_t nvm_ion_fd;
-	struct mutex ioctl_lock;
+	uint32_t     rmb_error;    /* PBL error value storet here */
 	atomic_t subsys_req;
 	struct rproc *spss_rproc;
 	struct property *rproc_prop;
@@ -693,29 +693,32 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 		return -EINVAL;
 	}
 
-	spcom_pr_dbg("restart - PIL FW loading initiated: preloaded=%d\n",
-		cmd->arg);
-
 	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(spcom_dev->rproc_prop->value));
 	if (!spcom_dev->spss_rproc) {
 		pr_err("rproc device not found\n");
-		return -EFAULT;
+		return -ENODEV;  /* no spss peripheral exist */
 	}
 
 	ret = rproc_boot(spcom_dev->spss_rproc);
-	if (ret) {
-		spcom_pr_err("restart - spss crashed during device bootup\n");
-		if (atomic_cmpxchg(&spcom_dev->subsys_req, 1, 0)) {
-			ret = rproc_boot(spcom_dev->spss_rproc);
-			if (ret) {
-				spcom_pr_err("spss - restart - Failed start\n");
-				return -ENODEV;
-			}
-			spcom_pr_info("restart - spss started.\n");
-		}
+	if (ret == -ETIMEDOUT) {
+		/* userspace handles retry if needed */
+		spcom_pr_err("FW loading process timeout\n");
+	} else if (ret) {
+		/*
+		 *  SPU shutdown. Return value comes from SPU PBL message.
+		 *  The error is not recoverable and userspace handles it
+		 *  by request and analyse rmb_error value
+		 */
+		spcom_dev->rmb_error = (uint32_t)ret;
+
+		spcom_pr_err("spss crashed during device bootup rmb_error[0x%x]\n",
+			     spcom_dev->rmb_error);
+		ret = -ENODEV;
+	} else {
+		spcom_pr_info("FW loading process is complete\n");
 	}
-	spcom_pr_dbg("restart - PIL FW loading process is complete\n");
-	return 0;
+
+	return ret;
 }
 
 /**
@@ -1937,6 +1940,9 @@ static long spcom_device_ioctl(struct file *file,
 	case SPCOM_GET_IONFD:
 		ret = put_user(spcom_dev->nvm_ion_fd, (int32_t *)arg);
 		break;
+	case SPCOM_GET_RMB_ERROR:
+		ret = put_user(spcom_dev->rmb_error, (uint32_t *)arg);
+		break;
 	case SPCOM_POLL_STATE:
 		ret = copy_from_user(&op, argp,
 				     sizeof(struct spcom_poll_param));
@@ -1958,7 +1964,7 @@ static long spcom_device_ioctl(struct file *file,
 		break;
 	default:
 		spcom_pr_err("Unsupported ioctl:%d\n", ioctl);
-		ret = -EINVAL;
+		ret = -ENOIOCTLCMD;
 
 	}
 	return ret;
@@ -2515,7 +2521,7 @@ static int spcom_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&spcom_dev->rx_list_head);
 	spin_lock_init(&spcom_dev->rx_lock);
 	spcom_dev->nvm_ion_fd = -1;
-	mutex_init(&spcom_dev->ioctl_lock);
+	spcom_dev->rmb_error = 0;
 
 	ret = spcom_register_chardev();
 	if (ret) {
@@ -2631,5 +2637,6 @@ static struct platform_driver spcom_driver = {
 };
 
 module_platform_driver(spcom_driver);
+MODULE_SOFTDEP("pre: spss_utils");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Communication");

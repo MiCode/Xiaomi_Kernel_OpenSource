@@ -8,6 +8,7 @@
 #include <linux/limits.h>
 #include <linux/module.h>
 
+#include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
 
@@ -27,7 +28,22 @@
 	(GH_RM_MEM_NOTIFY_RECIPIENT_SHARED |\
 	 GH_RM_MEM_NOTIFY_OWNER_RELEASED | GH_RM_MEM_NOTIFY_OWNER_ACCEPTED)
 
+static DEFINE_SPINLOCK(gh_vm_table_lock);
 static struct gh_vm_property gh_vm_table[GH_VM_MAX];
+
+void gh_init_vm_prop_table(void)
+{
+	size_t vm_name;
+
+	spin_lock(&gh_vm_table_lock);
+
+	gh_vm_table[GH_SELF_VM].vmid = 0;
+
+	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++)
+		gh_vm_table[vm_name].vmid = GH_VMID_INVAL;
+
+	spin_unlock(&gh_vm_table_lock);
+}
 
 int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 			struct gh_vm_property *vm_prop)
@@ -35,8 +51,11 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 	if (vm_prop->vmid < 0)
 		return -EINVAL;
 
-	if (vm_prop->vmid)
+	if (vm_prop->vmid) {
+		spin_lock(&gh_vm_table_lock);
 		gh_vm_table[vm_name].vmid = vm_prop->vmid;
+		spin_unlock(&gh_vm_table_lock);
+	}
 
 	if (vm_prop->guid)
 		gh_vm_table[vm_name].guid = vm_prop->guid;
@@ -51,6 +70,22 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 		gh_vm_table[vm_name].sign_auth = vm_prop->sign_auth;
 
 	return 0;
+}
+
+void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
+{
+	size_t vm_name;
+
+	spin_lock(&gh_vm_table_lock);
+
+	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++) {
+		if (vmid == gh_vm_table[vm_name].vmid) {
+			gh_vm_table[vm_name].vmid = GH_VMID_INVAL;
+			break;
+		}
+	}
+
+	spin_unlock(&gh_vm_table_lock);
 }
 
 /**
@@ -189,6 +224,179 @@ out:
 	kfree(resp_payload);
 	return resp_entries;
 }
+
+/**
+ * gh_rm_vm_get_status: Get the status of a particular VM
+ * @vmid: The vmid of tehe VM. Pass 0 for self.
+ *
+ * The function returns a pointer to gh_vm_status containing
+ * the status of the VM for the requested vmid. The caller
+ * must kfree the memory when done reading the contents.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the
+ * caller is responsible to check it with IS_ERR_OR_NULL().
+ */
+struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
+{
+	struct gh_vm_get_state_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	struct gh_vm_get_state_resp_payload *resp_payload;
+	struct gh_vm_status *gh_vm_status;
+	int err, reply_err_code = 0;
+	size_t resp_payload_size;
+
+	resp_payload = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_GET_STATE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: Failed to call VM_GET_STATE: %d\n",
+			__func__, err);
+		if (resp_payload) {
+			gh_vm_status = ERR_PTR(err);
+			goto out;
+		}
+		return ERR_PTR(err);
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for VM_GET_STATE: %u\n",
+			__func__, resp_payload_size);
+		gh_vm_status = ERR_PTR(-EINVAL);
+		goto out;
+	}
+
+	gh_vm_status = kmemdup(resp_payload, resp_payload_size, GFP_KERNEL);
+	if (!gh_vm_status)
+		gh_vm_status = ERR_PTR(-ENOMEM);
+
+out:
+	kfree(resp_payload);
+	return gh_vm_status;
+}
+EXPORT_SYMBOL(gh_rm_vm_get_status);
+
+/**
+ * gh_rm_vm_set_status: Set the status of this VM
+ * @gh_vm_status: The status to set
+ *
+ * The function sets this VM's status as per gh_vm_status.
+ * It returns 0 upon success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status)
+{
+	struct gh_vm_set_status_req_payload req_payload = {
+		.vm_status = gh_vm_status.vm_status,
+		.os_status = gh_vm_status.os_status,
+		.app_status = gh_vm_status.app_status,
+	};
+	size_t resp_payload_size;
+	int reply_err_code = 0;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_SET_STATUS,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (IS_ERR(resp)) {
+		pr_err("%s: Failed to call VM_SET_STATUS: %d\n",
+			__func__, PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		pr_err("%s: VM_SET_STATUS returned error: %d\n",
+			__func__, reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_SET_STATUS: %u\n",
+			__func__, resp_payload_size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_status);
+
+/**
+ * gh_rm_vm_set_vm_status: Set the vm status
+ * @vm_status: The vm_status to set
+ *
+ * The function returns 0 on success and a negative
+ * error code upon failure.
+ */
+int gh_rm_vm_set_vm_status(u8 vm_status)
+{
+	int ret = 0;
+	struct gh_vm_status *gh_vm_status;
+
+	gh_vm_status = gh_rm_vm_get_status(0);
+	if (IS_ERR_OR_NULL(gh_vm_status))
+		return PTR_ERR(gh_vm_status);
+
+	gh_vm_status->vm_status = vm_status;
+	ret = gh_rm_vm_set_status(*gh_vm_status);
+
+	kfree(gh_vm_status);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_vm_status);
+
+/**
+ * gh_rm_vm_set_os_status: Set the OS status. Once the VM starts booting,
+ * there are various stages during the boot up that status of the
+ * Operating System can be set like early_boot, boot, init, run etc.
+ * @os_status: The os_status to set
+ *
+ * The function returns 0 on success and a negative
+ * error code upon failure.
+ */
+int gh_rm_vm_set_os_status(u8 os_status)
+{
+	int ret = 0;
+	struct gh_vm_status *gh_vm_status;
+
+	gh_vm_status = gh_rm_vm_get_status(0);
+	if (IS_ERR_OR_NULL(gh_vm_status))
+		return PTR_ERR(gh_vm_status);
+
+	gh_vm_status->os_status = os_status;
+	ret = gh_rm_vm_set_status(*gh_vm_status);
+
+	kfree(gh_vm_status);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_os_status);
+
+/**
+ * gh_rm_vm_set_app_status: Set the app status
+ * @app_status: The app_status to set
+ *
+ * The function returns 0 on success and a negative
+ * error code upon failure.
+ */
+int gh_rm_vm_set_app_status(u16 app_status)
+{
+	int ret = 0;
+	struct gh_vm_status *gh_vm_status;
+
+	gh_vm_status = gh_rm_vm_get_status(0);
+	if (IS_ERR_OR_NULL(gh_vm_status))
+		return PTR_ERR(gh_vm_status);
+
+	gh_vm_status->app_status = app_status;
+	ret = gh_rm_vm_set_status(*gh_vm_status);
+
+	kfree(gh_vm_status);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_app_status);
 
 /**
  * gh_rm_vm_get_hyp_res: Get info about a series of resources for this VM
@@ -561,7 +769,8 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	/* Look up for the vm_name<->vmid pair if already present.
 	 * If so, return.
 	 */
-	if (gh_vm_table[vm_name].vmid || vm_name == GH_SELF_VM) {
+	if (gh_vm_table[vm_name].vmid != GH_VMID_INVAL ||
+		vm_name == GH_SELF_VM) {
 		pr_err("%s: VM_ALLOCATE already called for this VM\n",
 			__func__);
 		return -EINVAL;
@@ -605,6 +814,45 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 EXPORT_SYMBOL(gh_rm_vm_alloc_vmid);
 
 /**
+ * gh_rm_vm_dealloc_vmid: Deallocate an already allocated vmid
+ * @vmid: The vmid to deallocate.
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid)
+{
+	struct gh_vm_deallocate_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	size_t resp_payload_size;
+	int err, reply_err_code;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_DEALLOCATE failed with err: %d\n",
+			__func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_DEALLOCATE: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	gh_reset_vm_prop_table_entry(vmid);
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_dealloc_vmid);
+
+/**
  * gh_rm_vm_start: Send a request to Resource Manager VM to start a VM.
  * @vmid: The vmid of the vm to be started.
  *
@@ -638,6 +886,88 @@ int gh_rm_vm_start(int vmid)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_vm_start);
+
+/**
+ * gh_rm_vm_stop: Send a request to Resource Manager VM to stop a VM.
+ * @vmid: The vmid of the vm to be stopped.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
+{
+	struct gh_vm_stop_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	int err, reply_err_code;
+	void *resp;
+
+	if (stop_reason >= GH_VM_STOP_MAX) {
+		pr_err("%s: Invalid stop reason provided for VM_STOP\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	req_payload.vmid = vmid;
+	req_payload.stop_reason = stop_reason;
+	req_payload.flags = flags;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_STOP,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_STOP failed with err: %d\n", __func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_STOP: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_stop);
+
+/**
+ * gh_rm_vm_reset: Send a request to Resource Manager VM to free up all
+ * resources used by the VM.
+ * @vmid: The vmid of the vm to be cleaned up.
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_reset(gh_vmid_t vmid)
+{
+	struct gh_vm_reset_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	size_t resp_payload_size;
+	int err, reply_err_code;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_RESET,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_RESET failed with err: %d\n",
+			__func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_RESET: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_reset);
 
 /**
  * gh_rm_console_open: Open a console with a VM

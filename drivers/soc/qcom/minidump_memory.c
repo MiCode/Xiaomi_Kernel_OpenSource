@@ -238,7 +238,7 @@ bool md_register_memory_dump(int size, char *name)
 	int ret;
 
 	page  = cma_alloc(dma_contiguous_default_area, size >> PAGE_SHIFT,
-			0, false);
+			0, GFP_KERNEL);
 
 	if (!page) {
 		pr_err("Failed to allocate %s minidump, increase cma size\n",

@@ -10,6 +10,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include <linux/msm_kgsl.h>
+#include <soc/qcom/dcvs.h>
 
 #include "kgsl_device.h"
 #include "kgsl_bus.h"
@@ -1431,8 +1432,8 @@ static int _get_clocks(struct kgsl_device *device)
 		for (i = 0; i < KGSL_MAX_CLKS; i++) {
 			if (pwr->grp_clks[i] || strcmp(clocks[i], name))
 				continue;
-			/* apb_pclk should only be enabled if CORESIGHT is enabled */
-			if (!strcmp(name, "apb_pclk") && !IS_ENABLED(CONFIG_CORESIGHT))
+			/* apb_pclk should only be enabled if QCOM_KGSL_QDSS_STM is enabled */
+			if (!strcmp(name, "apb_pclk") && !IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM))
 				continue;
 
 			pwr->grp_clks[i] = devm_clk_get(dev, name);
@@ -1636,8 +1637,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 		dev_pm_qos_remove_request(&pwr->sysfs_thermal_req);
 
 	pm_runtime_disable(&device->pdev->dev);
-
-	icc_put(device->l3_icc);
 }
 
 void kgsl_idle_check(struct work_struct *work)
@@ -1777,11 +1776,15 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 void kgsl_pwrctrl_clear_l3_vote(struct kgsl_device *device)
 {
 	int status;
+	struct dcvs_freq freq = {0};
 
-	if (IS_ERR(device->l3_icc))
+	if (!device->num_l3_pwrlevels)
 		return;
 
-	status = icc_set_bw(device->l3_icc, 0, device->l3_freq[0]);
+	freq.hw_type = DCVS_L3;
+
+	status = qcom_dcvs_update_votes(KGSL_L3_DEVICE, &freq, 1,
+			DCVS_SLOW_PATH);
 	if (!status)
 		device->cur_l3_pwrlevel = 0;
 	else

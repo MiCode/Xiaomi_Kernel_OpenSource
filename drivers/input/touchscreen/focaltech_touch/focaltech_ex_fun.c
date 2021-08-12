@@ -1143,6 +1143,14 @@ static ssize_t trusted_touch_event_store(struct device *dev,
 	return count;
 }
 
+static ssize_t trusted_touch_type_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fts_ts_data *info = fts_data;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", info->vm_info->trusted_touch_type);
+}
+
 #endif
 
 /* get the fw version  example:cat fw_version */
@@ -1172,6 +1180,7 @@ static DEVICE_ATTR(fts_log_level, S_IRUGO | S_IWUSR, fts_log_level_show, fts_log
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 static DEVICE_ATTR_RW(trusted_touch_enable);
 static DEVICE_ATTR_RW(trusted_touch_event);
+static DEVICE_ATTR_RO(trusted_touch_type);
 #endif
 
 /* add your attr in here*/
@@ -1188,6 +1197,7 @@ static struct attribute *fts_attributes[] = {
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 	&dev_attr_trusted_touch_enable.attr,
 	&dev_attr_trusted_touch_event.attr,
+	&dev_attr_trusted_touch_type.attr,
 #endif
 	NULL
 };

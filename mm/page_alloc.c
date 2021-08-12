@@ -2360,6 +2360,13 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 	debug_pagealloc_map_pages(page, 1 << order);
 
 	/*
+	 * Page unpoisoning must happen before memory initialization.
+	 * Otherwise, the poison pattern will be overwritten for __GFP_ZERO
+	 * allocations and the page unpoisoning code will complain.
+	 */
+	kernel_unpoison_pages(page, 1 << order);
+
+	/*
 	 * As memory initialization might be integrated into KASAN,
 	 * kasan_alloc_pages and kernel_init_free_pages must be
 	 * kept together to avoid discrepancies in behavior.
@@ -2375,7 +2382,6 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 					       gfp_flags & __GFP_ZEROTAGS);
 	}
 
-	kernel_unpoison_pages(page, 1 << order);
 	set_page_owner(page, order, gfp_flags);
 }
 
@@ -8547,7 +8553,7 @@ static unsigned long pfn_max_align_down(unsigned long pfn)
 			     pageblock_nr_pages) - 1);
 }
 
-static unsigned long pfn_max_align_up(unsigned long pfn)
+unsigned long pfn_max_align_up(unsigned long pfn)
 {
 	return ALIGN(pfn, max_t(unsigned long, MAX_ORDER_NR_PAGES,
 				pageblock_nr_pages));
@@ -8586,7 +8592,8 @@ static inline void alloc_contig_dump_pages(struct list_head *page_list)
 
 /* [start, end) must belong to a single zone. */
 static int __alloc_contig_migrate_range(struct compact_control *cc,
-					unsigned long start, unsigned long end)
+					unsigned long start, unsigned long end,
+					struct acr_info *info)
 {
 	/* This function is based on compact_zone() from compaction.c. */
 	unsigned int nr_reclaimed;
@@ -8594,6 +8601,7 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 	unsigned int tries = 0;
 	unsigned int max_tries = 5;
 	int ret = 0;
+	struct page *page;
 	struct migration_target_control mtc = {
 		.nid = zone_to_nid(cc->zone),
 		.gfp_mask = GFP_USER | __GFP_MOVABLE | __GFP_RETRY_MAYFAIL,
@@ -8625,10 +8633,16 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 
 		nr_reclaimed = reclaim_clean_pages_from_list(cc->zone,
 							&cc->migratepages);
+		info->nr_reclaimed += nr_reclaimed;
 		cc->nr_migratepages -= nr_reclaimed;
+
+		list_for_each_entry(page, &cc->migratepages, lru)
+			info->nr_mapped += page_mapcount(page);
 
 		ret = migrate_pages(&cc->migratepages, alloc_migration_target,
 				NULL, (unsigned long)&mtc, cc->mode, MR_CONTIG_RANGE);
+		if (!ret)
+			info->nr_migrated += cc->nr_migratepages;
 	}
 
 	lru_cache_enable();
@@ -8637,7 +8651,14 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 			alloc_contig_dump_pages(&cc->migratepages);
 			page_pinner_mark_migration_failed_pages(&cc->migratepages);
 		}
+
+		if (!list_empty(&cc->migratepages)) {
+			page = list_first_entry(&cc->migratepages, struct page , lru);
+			info->failed_pfn = page_to_pfn(page);
+		}
+
 		putback_movable_pages(&cc->migratepages);
+		info->err |= ACR_ERR_MIGRATE;
 		return ret;
 	}
 	return 0;
@@ -8665,7 +8686,8 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
  * need to be freed with free_contig_range().
  */
 int alloc_contig_range(unsigned long start, unsigned long end,
-		       unsigned migratetype, gfp_t gfp_mask)
+		       unsigned migratetype, gfp_t gfp_mask,
+		       struct acr_info *info)
 {
 	unsigned long outer_start, outer_end;
 	unsigned int order;
@@ -8708,9 +8730,14 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	 */
 
 	ret = start_isolate_page_range(pfn_max_align_down(start),
-				       pfn_max_align_up(end), migratetype, 0);
-	if (ret)
+				       pfn_max_align_up(end), migratetype, 0,
+				       &info->failed_pfn);
+	if (ret) {
+		info->err |= ACR_ERR_ISOLATE;
 		return ret;
+	}
+
+	drain_all_pages(cc.zone);
 
 	/*
 	 * In case of -EBUSY, we'd like to know which page causes problem.
@@ -8722,8 +8749,8 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	 * allocated.  So, if we fall through be sure to clear ret so that
 	 * -EBUSY is not accidentally used or returned to caller.
 	 */
-	ret = __alloc_contig_migrate_range(&cc, start, end);
-	if (ret && ret != -EBUSY)
+	ret = __alloc_contig_migrate_range(&cc, start, end, info);
+	if (ret && (ret != -EBUSY || (gfp_mask & __GFP_NORETRY)))
 		goto done;
 	ret =0;
 
@@ -8768,10 +8795,11 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	}
 
 	/* Make sure the range is really isolated. */
-	if (test_pages_isolated(outer_start, end, 0)) {
+	if (test_pages_isolated(outer_start, end, 0, &info->failed_pfn)) {
 		pr_info_ratelimited("%s: [%lx, %lx) PFNs busy\n",
 			__func__, outer_start, end);
 		ret = -EBUSY;
+		info->err |= ACR_ERR_TEST;
 		goto done;
 	}
 
@@ -8798,10 +8826,11 @@ EXPORT_SYMBOL(alloc_contig_range);
 static int __alloc_contig_pages(unsigned long start_pfn,
 				unsigned long nr_pages, gfp_t gfp_mask)
 {
+	struct acr_info dummy;
 	unsigned long end_pfn = start_pfn + nr_pages;
 
 	return alloc_contig_range(start_pfn, end_pfn, MIGRATE_MOVABLE,
-				  gfp_mask);
+				  gfp_mask, &dummy);
 }
 
 static bool pfn_range_valid_contig(struct zone *z, unsigned long start_pfn,

@@ -7,6 +7,7 @@
 #include <linux/bitfield.h>
 #include <linux/ctype.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-map-ops.h>
 #include <linux/fdtable.h>
@@ -18,6 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/pm_runtime.h>
+#include <linux/qcom_dma_heap.h>
 #include <linux/security.h>
 #include <linux/sort.h>
 #include <soc/qcom/of_common.h>
@@ -29,6 +31,7 @@
 #include "kgsl_eventlog.h"
 #include "kgsl_mmu.h"
 #include "kgsl_pool.h"
+#include "kgsl_reclaim.h"
 #include "kgsl_sync.h"
 #include "kgsl_sysfs.h"
 #include "kgsl_trace.h"
@@ -82,7 +85,7 @@ static inline struct kgsl_pagetable *_get_memdesc_pagetable(
 
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
-static const struct file_operations kgsl_fops;
+static const struct vm_operations_struct kgsl_gpumem_vm_ops;
 
 /*
  * The memfree list contains the last N blocks of memory that have been freed.
@@ -521,6 +524,10 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 
 	kgsl_sharedmem_put_gpuaddr(&entry->memdesc);
 
+	if (entry->memdesc.priv & KGSL_MEMDESC_RECLAIMED)
+		atomic_sub(entry->memdesc.page_count,
+					&entry->priv->unpinned_page_count);
+
 	kgsl_process_private_put(entry->priv);
 
 	entry->priv = NULL;
@@ -929,9 +936,15 @@ static struct kgsl_process_private *kgsl_process_private_new(
 	/* Search in the process list */
 	list_for_each_entry(private, &kgsl_driver.process_list, list) {
 		if (private->pid == cur_pid) {
-			if (!kgsl_process_private_get(private)) {
-				private = ERR_PTR(-EINVAL);
-			}
+			if (!kgsl_process_private_get(private))
+				/*
+				 * This will happen only if refcount is zero
+				 * i.e. destroy is triggered but didn't complete
+				 * yet. Return -EEXIST to indicate caller that
+				 * destroy is pending to allow caller to take
+				 * appropriate action.
+				 */
+				private = ERR_PTR(-EEXIST);
 			/*
 			 * We need to hold only one reference to the PID for
 			 * each process struct to avoid overflowing the
@@ -960,6 +973,8 @@ static struct kgsl_process_private *kgsl_process_private_new(
 
 	idr_init(&private->mem_idr);
 	idr_init(&private->syncsource_idr);
+
+	kgsl_reclaim_proc_private_init(private);
 
 	/* Allocate a pagetable for the new process object */
 	private->pagetable = kgsl_mmu_getpagetable(&device->mmu, pid_nr(cur_pid));
@@ -1038,8 +1053,7 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	kgsl_process_private_put(private);
 }
 
-
-static struct kgsl_process_private *kgsl_process_private_open(
+static struct kgsl_process_private *_process_private_open(
 		struct kgsl_device *device)
 {
 	struct kgsl_process_private *private;
@@ -1054,6 +1068,27 @@ static struct kgsl_process_private *kgsl_process_private_open(
 
 done:
 	mutex_unlock(&kgsl_driver.process_mutex);
+	return private;
+}
+
+static struct kgsl_process_private *kgsl_process_private_open(
+		struct kgsl_device *device)
+{
+	struct kgsl_process_private *private;
+	int i;
+
+	private = _process_private_open(device);
+
+	/*
+	 * If we get error and error is -EEXIST that means previous process
+	 * private destroy is triggered but didn't complete. Retry creating
+	 * process private after sometime to allow previous destroy to complete.
+	 */
+	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 5); i++) {
+		usleep_range(10, 100);
+		private = _process_private_open(device);
+	}
+
 	return private;
 }
 
@@ -1753,6 +1788,9 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	if (result == 0)
+		result = kgsl_reclaim_to_pinned_state(dev_priv->process_priv);
+
+	if (result == 0)
 		result = dev_priv->device->ftbl->queue_cmds(dev_priv, context,
 				&drawobj, 1, &param->timestamp);
 
@@ -1859,6 +1897,13 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 		if (cmdobj->profiling_buf_entry == NULL)
 			DRAWOBJ(cmdobj)->flags &=
 				~(unsigned long)KGSL_DRAWOBJ_PROFILING;
+
+		if (type & CMDOBJ_TYPE) {
+			result = kgsl_reclaim_to_pinned_state(
+					dev_priv->process_priv);
+			if (result)
+				goto done;
+		}
 	}
 
 	result = device->ftbl->queue_cmds(dev_priv, context, drawobj,
@@ -1944,6 +1989,13 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 		if (cmdobj->profiling_buf_entry == NULL)
 			DRAWOBJ(cmdobj)->flags &=
 				~(unsigned long)KGSL_DRAWOBJ_PROFILING;
+
+		if (type & CMDOBJ_TYPE) {
+			result = kgsl_reclaim_to_pinned_state(
+					dev_priv->process_priv);
+			if (result)
+				goto done;
+		}
 	}
 
 	result = device->ftbl->queue_cmds(dev_priv, context, drawobj,
@@ -2428,7 +2480,7 @@ static int check_vma(unsigned long hostptr, u64 size)
 			return false;
 
 		/* Don't remap memory that we already own */
-		if (vma->vm_file && vma->vm_file->f_op == &kgsl_fops)
+		if (vma->vm_file && vma->vm_ops == &kgsl_gpumem_vm_ops)
 			return false;
 
 		cur = vma->vm_end;
@@ -2571,8 +2623,6 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 	vma = find_vma(current->mm, hostptr);
 
 	if (vma && vma->vm_file) {
-		int fd;
-
 		ret = check_vma_flags(vma, entry->memdesc.flags);
 		if (ret) {
 			mmap_read_unlock(current->mm);
@@ -2583,7 +2633,7 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 		 * Check to see that this isn't our own memory that we have
 		 * already mapped
 		 */
-		if (vma->vm_file->f_op == &kgsl_fops) {
+		if (vma->vm_ops == &kgsl_gpumem_vm_ops) {
 			mmap_read_unlock(current->mm);
 			return -EFAULT;
 		}
@@ -2593,22 +2643,10 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 			return -ENODEV;
 		}
 
-		fd = get_unused_fd_flags(0);
-		if (fd < 0) {
-			mmap_read_unlock(current->mm);
-			return -ENOSPC;
-		}
+		/* Take a refcount because dma_buf_put() decrements the refcount */
+		get_file(vma->vm_file);
 
-		fd_install(fd, vma->vm_file);
-
-		dmabuf = dma_buf_get(fd);
-
-		put_unused_fd(fd);
-
-		if (IS_ERR(dmabuf)) {
-			mmap_read_unlock(current->mm);
-			return PTR_ERR(dmabuf);
-		}
+		dmabuf = vma->vm_file->private_data;
 	}
 
 	if (!dmabuf) {
@@ -2974,12 +3012,44 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->priv_data = meta;
 	entry->memdesc.sgt = sg_table;
 
-	if ((entry->memdesc.priv & KGSL_MEMDESC_SECURE) &&
-		mem_buf_dma_buf_exclusive_owner(dmabuf)) {
-		ret = -EPERM;
-		goto out;
+	if (entry->memdesc.priv & KGSL_MEMDESC_SECURE) {
+		uint32_t *vmid_list = NULL, *perms_list = NULL;
+		uint32_t nelems = 0;
+		int i;
+
+		if (mem_buf_dma_buf_exclusive_owner(dmabuf)) {
+			ret = -EPERM;
+			goto out;
+		}
+
+		ret = mem_buf_dma_buf_copy_vmperm(dmabuf, (int **)&vmid_list,
+				(int **)&perms_list, (int *)&nelems);
+		if (ret) {
+			ret = 0;
+			dev_info(device->dev, "Skipped access check\n");
+			goto skip_access_check;
+		}
+
+		/* Check if secure buffer is accessible to CP_PIXEL */
+		for (i = 0; i < nelems; i++) {
+			if  (vmid_list[i] == QCOM_DMA_HEAP_FLAG_CP_PIXEL)
+				break;
+		}
+
+		kfree(vmid_list);
+		kfree(perms_list);
+
+		if (i == nelems) {
+			/*
+			 * Secure buffer is not accessible to CP_PIXEL, there is no point
+			 * in importing this buffer.
+			 */
+			ret = -EPERM;
+			goto out;
+		}
 	}
 
+skip_access_check:
 	/* Calculate the size of the memdesc from the sglist */
 	for (s = entry->memdesc.sgt->sgl; s != NULL; s = sg_next(s))
 		entry->memdesc.size += (uint64_t) s->length;
@@ -3067,6 +3137,15 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	if (param->flags & KGSL_MEMFLAGS_SECURE) {
 		if (!check_and_warn_secured(device))
+			return -EOPNOTSUPP;
+
+		/*
+		 * On 64 bit kernel, secure memory region is expanded and
+		 * moved to 64 bit address, 32 bit apps can not access it from
+		 * this IOCTL.
+		 */
+		if (is_compat_task() &&
+				test_bit(KGSL_MMU_64BIT, &device->mmu.features))
 			return -EOPNOTSUPP;
 
 		/* Can't use CPU map with secure buffers */
@@ -3542,6 +3621,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_device *device = dev_priv->device;
+	u32 cachemode;
 
 	/* For 32-bit kernel world nothing to do with this flag */
 	if (BITS_PER_LONG == 32)
@@ -3590,6 +3670,17 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		kgsl_sharedmem_free(&entry->memdesc);
 		goto err;
 	}
+
+	cachemode = kgsl_memdesc_get_cachemode(&entry->memdesc);
+	/*
+	 * Secure buffers cannot be reclaimed. Avoid reclaim of cached buffers
+	 * as we could get request for cache operations on these buffers when
+	 * they are reclaimed.
+	 */
+	if (!(flags & KGSL_MEMFLAGS_SECURE) &&
+			!(cachemode == KGSL_CACHEMODE_WRITEBACK) &&
+			!(cachemode == KGSL_CACHEMODE_WRITETHROUGH))
+		entry->memdesc.priv |= KGSL_MEMDESC_CAN_RECLAIM;
 
 	kgsl_process_add_stats(private,
 			kgsl_memdesc_usermem_type(&entry->memdesc),
@@ -3652,9 +3743,19 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_gpumem_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
+
+	/*
+	 * On 64 bit kernel, secure memory region is expanded and
+	 * moved to 64 bit address, 32 bit apps can not access it from
+	 * this IOCTL.
+	 */
+	if ((param->flags & KGSL_MEMFLAGS_SECURE) && is_compat_task()
+			&& test_bit(KGSL_MMU_64BIT, &device->mmu.features))
+		return -EOPNOTSUPP;
 
 	/* Legacy functions doesn't support these advanced features */
 	flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
@@ -3680,9 +3781,19 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 			unsigned int cmd, void *data)
 {
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_gpumem_alloc_id *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
+
+	/*
+	 * On 64 bit kernel, secure memory region is expanded and
+	 * moved to 64 bit address, 32 bit apps can not access it from
+	 * this IOCTL.
+	 */
+	if ((param->flags & KGSL_MEMFLAGS_SECURE) && is_compat_task()
+			&& test_bit(KGSL_MMU_64BIT, &device->mmu.features))
+		return -EOPNOTSUPP;
 
 	if (is_compat_task())
 		flags |= KGSL_MEMFLAGS_FORCE_32BIT;
@@ -4233,11 +4344,23 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		}
 	}
 
-	vma->vm_file = file;
+	if (entry->memdesc.shmem_filp) {
+		fput(vma->vm_file);
+		vma->vm_file = get_file(entry->memdesc.shmem_filp);
+	}
 
 	atomic64_add(entry->memdesc.size, &entry->priv->gpumem_mapped);
 
 	atomic_inc(&entry->map_count);
+
+	/*
+	 * kgsl gets the entry id or the gpu address through vm_pgoff.
+	 * It is used during mmap and never needed again. But this vm_pgoff
+	 * has different meaning at other parts of kernel. Not setting to
+	 * zero will let way for wrong assumption when tried to unmap a page
+	 * from this vma.
+	 */
+	vma->vm_pgoff = 0;
 
 	trace_kgsl_mem_mmap(entry, vma->vm_start);
 	return 0;
@@ -4473,6 +4596,10 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status != 0)
 		goto error_pwrctrl_close;
 
+	status = kgsl_reclaim_init();
+	if (status)
+		goto error_pwrctrl_close;
+
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
 
@@ -4485,6 +4612,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	/* Set up the GPU events for the device */
 	kgsl_device_events_probe(device);
+
+	/* Initialize common sysfs entries */
+	kgsl_pwrctrl_init_sysfs(device);
 
 	return 0;
 
@@ -4548,6 +4678,8 @@ void kgsl_core_exit(void)
 
 	kgsl_events_exit();
 	kgsl_core_debugfs_close();
+
+	kgsl_reclaim_close();
 
 	/*
 	 * We call device_unregister()

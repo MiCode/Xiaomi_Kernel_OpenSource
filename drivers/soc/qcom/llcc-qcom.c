@@ -212,7 +212,7 @@ static const struct llcc_slice_config shima_data[] =  {
 };
 
 static const struct llcc_slice_config waipio_data[] =  {
-	{LLCC_CPUSS,     1, 2048, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
+	{LLCC_CPUSS,     1, 3072, 1, 0, 0xFFFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
 	{LLCC_MDMHPGRW,  7, 1024, 3, 0, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
@@ -229,12 +229,31 @@ static const struct llcc_slice_config waipio_data[] =  {
 	{LLCC_APTCM,    30, 1024, 3, 1, 0x0,    0xF0,  1, 0, 0, 1, 0, 0, 0 },
 	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
 	{LLCC_CVPFW,    17,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUSS1,    3, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
 	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_CAMEXP1,  27,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_AENPU,     8, 2048, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+};
+
+static const struct llcc_slice_config diwali_data[] =  {
+	{LLCC_CPUSS,     1, 1536, 0, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 1, 0 },
+	{LLCC_VIDSC0,    2,  512, 3, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_MDMHPGRW,  7,  512, 3, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_GPUHTW,   11,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_GPU,      12,  512, 1, 0, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 1, 0 },
+	{LLCC_MMUHWT,   13,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_DISP,     16, 1536, 2, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_MDMPNG,   21, 1024, 0, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_MDMVPE,   29,   64, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_WRTCH,    31,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
+};
+
+static const struct qcom_llcc_config diwali_cfg = {
+	.sct_data       = diwali_data,
+	.size           = ARRAY_SIZE(diwali_data),
 };
 
 static const struct qcom_llcc_config sc7180_cfg = {
@@ -274,7 +293,6 @@ static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
 struct llcc_slice_desc *llcc_slice_getd(u32 uid)
 {
 	const struct llcc_slice_config *cfg;
-	struct llcc_slice_desc *desc;
 	u32 sz, count;
 
 	if (IS_ERR(drv_data))
@@ -287,18 +305,10 @@ struct llcc_slice_desc *llcc_slice_getd(u32 uid)
 		if (cfg->usecase_id == uid)
 			break;
 
-	if (count == sz || !cfg)
+	if (count == sz || !cfg  || IS_ERR_OR_NULL(drv_data->desc))
 		return ERR_PTR(-ENODEV);
 
-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return ERR_PTR(-ENOMEM);
-
-	atomic_set(&desc->refcount, 0);
-	desc->slice_id = cfg->slice_id;
-	desc->slice_size = cfg->max_cap;
-
-	return desc;
+	return &drv_data->desc[count];
 }
 EXPORT_SYMBOL_GPL(llcc_slice_getd);
 
@@ -308,11 +318,9 @@ EXPORT_SYMBOL_GPL(llcc_slice_getd);
  */
 void llcc_slice_putd(struct llcc_slice_desc *desc)
 {
-	if (!IS_ERR_OR_NULL(desc)) {
-		WARN(atomic_read(&desc->refcount), " Slice %d is still active\n",
-					desc->slice_id);
-		kfree(desc);
-	}
+	if (!IS_ERR_OR_NULL(desc))
+		WARN(atomic_read(&desc->refcount), " Slice %d is still active\n", desc->slice_id);
+
 }
 EXPORT_SYMBOL_GPL(llcc_slice_putd);
 
@@ -435,7 +443,7 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 		return ret;
 	}
 
-	atomic_dec_return(&desc->refcount);
+	atomic_set(&desc->refcount, 0);
 	__clear_bit(desc->slice_id, drv_data->bitmap);
 	mutex_unlock(&drv_data->lock);
 
@@ -484,12 +492,18 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 wrcaen = 0;
 	int ret = 0;
 	const struct llcc_slice_config *llcc_table;
-	struct llcc_slice_desc desc;
+	struct llcc_slice_desc *desc;
 	bool cap_based_alloc_and_pwr_collapse =
 		drv_data->cap_based_alloc_and_pwr_collapse;
 
 	sz = drv_data->cfg_size;
 	llcc_table = drv_data->cfg;
+
+	for (i = 0; i < sz; i++) {
+		drv_data->desc[i].slice_id = llcc_table[i].slice_id;
+		drv_data->desc[i].slice_size = llcc_table[i].max_cap;
+		atomic_set(&drv_data->desc[i].refcount, 0);
+	}
 
 	for (i = 0; i < sz; i++) {
 		attr1_cfg = LLCC_TRP_ATTR1_CFGn(llcc_table[i].slice_id);
@@ -562,8 +576,17 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 		}
 
 		if (llcc_table[i].activate_on_init) {
-			desc.slice_id = llcc_table[i].slice_id;
-			ret = llcc_slice_activate(&desc);
+			desc = llcc_slice_getd(llcc_table[i].slice_id);
+			if (PTR_ERR_OR_ZERO(desc)) {
+				dev_err(&pdev->dev,
+					"Failed to get slice=%d\n", llcc_table[i].slice_id);
+				continue;
+			}
+
+			ret = llcc_slice_activate(desc);
+			if (ret)
+				dev_err(&pdev->dev,
+					"Failed to activate slice=%d\n", llcc_table[i].slice_id);
 		}
 	}
 	return ret;
@@ -654,6 +677,12 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	llcc_cfg = cfg->sct_data;
 	sz = cfg->size;
 
+	drv_data->desc = devm_kzalloc(dev, sizeof(struct llcc_slice_desc)*sz, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(drv_data->desc)) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	for (i = 0; i < sz; i++)
 		if (llcc_cfg[i].slice_id > drv_data->max_slices)
 			drv_data->max_slices = llcc_cfg[i].slice_id;
@@ -706,6 +735,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,lahaina-llcc", .data = &lahaina_cfg },
 	{ .compatible = "qcom,shima-llcc", .data = &shima_cfg },
 	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
+	{ .compatible = "qcom,diwali-llcc", .data = &diwali_cfg },
 	{ }
 };
 

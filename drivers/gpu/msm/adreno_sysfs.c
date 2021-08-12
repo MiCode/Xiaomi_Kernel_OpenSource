@@ -22,6 +22,23 @@ static ssize_t gpu_model_show(struct device *dev,
 	return _gpu_model_show(device, buf);
 }
 
+static int _l3_vote_store(struct adreno_device *adreno_dev, bool val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_L3_VOTE))
+		device->l3_vote = val;
+
+	return 0;
+}
+
+static bool _l3_vote_show(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	return device->l3_vote;
+}
+
 static int _ft_policy_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
@@ -270,6 +287,7 @@ static ADRENO_SYSFS_BOOL(ifpc);
 static ADRENO_SYSFS_RO_U32(ifpc_count);
 static ADRENO_SYSFS_BOOL(acd);
 static ADRENO_SYSFS_BOOL(bcl);
+static ADRENO_SYSFS_BOOL(l3_vote);
 
 static DEVICE_ATTR_RO(gpu_model);
 
@@ -290,6 +308,7 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_acd.attr.attr,
 	&adreno_attr_bcl.attr.attr,
 	&dev_attr_gpu_model.attr,
+	&adreno_attr_l3_vote.attr.attr,
 	NULL,
 };
 

@@ -42,10 +42,10 @@
 #define QCOM_IOMMU_ATOS_TRANS_DEFAULT	(0U)
 
 /* Use upstream device's bus attribute */
-#define IOMMU_USE_UPSTREAM_HINT	(IOMMU_SYS_CACHE_ONLY)
+#define IOMMU_USE_UPSTREAM_HINT	(IOMMU_SYS_CACHE)
 
 /* Use upstream device's bus attribute with no write-allocate cache policy */
-#define IOMMU_USE_LLC_NWA	(IOMMU_SYS_CACHE_ONLY_NWA)
+#define IOMMU_USE_LLC_NWA	(IOMMU_SYS_CACHE_NWA)
 
 /* vendor iommu fault flags */
 #define IOMMU_FAULT_TRANSLATION         (1 << 2)

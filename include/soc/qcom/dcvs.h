@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_DCVS_H
@@ -42,6 +42,7 @@ int qcom_dcvs_update_votes(const char *name, struct dcvs_freq *votes,
 			u32 update_mask, enum dcvs_path_type path);
 struct kobject *qcom_dcvs_kobject_get(enum dcvs_hw_type type);
 int qcom_dcvs_hw_minmax_get(enum dcvs_hw_type hw_type, u32 *min, u32 *max);
+struct device_node *qcom_dcvs_get_ddr_child_node(struct device_node *of_parent);
 #else
 static inline int qcom_dcvs_register_voter(const char *name,
 		enum dcvs_hw_type hw_type, enum dcvs_path_type path_type)
@@ -67,6 +68,11 @@ static inline int qcom_dcvs_hw_minmax_get(enum dcvs_hw_type hw_type, u32 *min,
 		u32 *max)
 {
 	return -ENODEV;
+}
+static inline struct device_node *qcom_dcvs_get_ddr_child_node(
+					struct device_node *of_parent)
+{
+	return NULL;
 }
 #endif
 

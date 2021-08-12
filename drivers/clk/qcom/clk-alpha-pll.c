@@ -3510,6 +3510,13 @@ const struct clk_ops clk_alpha_pll_rivian_evo_ops = {
 };
 EXPORT_SYMBOL(clk_alpha_pll_rivian_evo_ops);
 
+const struct clk_ops clk_alpha_pll_postdiv_rivian_evo_ops = {
+	.recalc_rate = clk_alpha_pll_postdiv_fabia_recalc_rate,
+	.round_rate = clk_alpha_pll_postdiv_fabia_round_rate,
+	.set_rate = clk_alpha_pll_postdiv_fabia_set_rate,
+};
+EXPORT_SYMBOL(clk_alpha_pll_postdiv_rivian_evo_ops);
+
 int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
