@@ -301,12 +301,6 @@ static int apu_probe(struct platform_device *pdev)
 	dev_info(dev, "%s: platdata flags=0x%08x\n", __func__, data->flags);
 	hw_ops = &data->ops;
 
-	ret = device_rename(dev, "apusys_rv");
-	if (ret) {
-		dev_info(dev, "unable to modify device name\n");
-		return -ENOMEM;
-	}
-
 	rproc = rproc_alloc(dev,
 						np->name,
 						&apu_ops,
