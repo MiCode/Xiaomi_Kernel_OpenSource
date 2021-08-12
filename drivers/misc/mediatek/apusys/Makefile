@@ -215,7 +215,6 @@ endif
 # ipi
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/ipi/
 ccflags-y += -I$(srctree)/drivers/rpmsg/
-apusys-objs += ipi/apu_ctrl_rpmsg.o
 apusys-objs += ipi/mtk_apu_rpmsg.o
 
 # sw logger

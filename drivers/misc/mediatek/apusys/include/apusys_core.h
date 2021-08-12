@@ -34,8 +34,6 @@ int apumem_init(struct apusys_core_info *info);
 void apumem_exit(void);
 int sw_logger_init(struct apusys_core_info *info);
 void sw_logger_exit(void);
-int apu_ctrl_rpmsg_init(struct apusys_core_info *info);
-void apu_ctrl_rpmsg_exit(void);
 int apu_rproc_init(struct apusys_core_info *info);
 void apu_rproc_exit(void);
 
@@ -44,7 +42,6 @@ void apu_rproc_exit(void);
  * call init function in order at apusys.ko init stage
  */
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
-	apu_ctrl_rpmsg_init,
 	sw_logger_init,
 //	apupwr_init_tags,
 	apu_power_drv_init,
@@ -88,6 +85,5 @@ static void (*apusys_exit_func[])(void) = {
 	apu_power_drv_exit,
 //	apupwr_exit_tags,
 	sw_logger_exit,
-	apu_ctrl_rpmsg_exit,
 };
 #endif

@@ -9,7 +9,6 @@
 #include "reviser_cmn.h"
 #include "reviser_drv.h"
 #include "reviser_remote.h"
-#include <apu_ctrl_rpmsg.h>
 #include "reviser_table_mgt.h"
 #include "reviser_msg.h"
 #include "reviser_remote_cmd.h"

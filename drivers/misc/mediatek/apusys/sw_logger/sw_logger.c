@@ -28,7 +28,6 @@
 #include <linux/spinlock.h>
 #include <linux/sched/signal.h>
 
-#include "apu_ctrl_rpmsg.h"
 #include "apusys_core.h"
 #include "sw_logger.h"
 
