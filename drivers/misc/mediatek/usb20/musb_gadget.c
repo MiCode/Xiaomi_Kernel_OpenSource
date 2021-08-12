@@ -1589,6 +1589,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	struct musb_ep *musb_ep;
 	void __iomem *epio;
 	int status = 0;
+	u16 csr;
 
 	musb_ep = to_musb_ep(ep);
 	musb = musb_ep->musb;
@@ -1604,9 +1605,13 @@ static int musb_gadget_disable(struct usb_ep *ep)
 		musb->intrtxe &= ~(1 << epnum);
 		musb_writew(musb->mregs, MUSB_INTRTXE, musb->intrtxe);
 #endif
+		csr = MUSB_RXCSR_FLUSHFIFO | MUSB_RXCSR_CLRDATATOG;
+		/* set twice in case of double buffering */
+		musb_writew(epio, MUSB_TXCSR, csr);
+		musb_writew(epio, MUSB_TXCSR, csr);
+
 		musb_writew(epio, MUSB_TXMAXP, 0);
 	} else {
-		u16 csr;
 #ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb->intrrxe &= ~(1 << epnum);
 		musb_writew(musb->mregs, MUSB_INTRRXE, musb->intrrxe);

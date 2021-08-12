@@ -11,6 +11,7 @@
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
+#include <linux/iopoll.h>
 
 #ifdef CONFIG_MTK_UAC_POWER_SAVING
 #define USB_AUDIO_DATA_OUT 0
@@ -786,6 +787,10 @@ EXPORT_SYMBOL(mtk_qmu_enable);
 void mtk_qmu_stop(u8 ep_num, u8 isRx)
 {
 	void __iomem *base = qmu_base;
+	int ret;
+	u32 value = 0;
+
+	DBG(4, "ep_num=%d, isRx=%d\n", ep_num, isRx);
 
 	if (!isRx) {
 		if (MGC_ReadQMU16(base,
@@ -794,16 +799,28 @@ void mtk_qmu_stop(u8 ep_num, u8 isRx)
 				MGC_O_QMU_TQCSR(ep_num),
 				DQMU_QUE_STOP);
 			QMU_INFO("Stop TQ %d\n", ep_num);
+
+			ret = readl_poll_timeout_atomic(base+
+				MGC_O_QMU_TQCSR(ep_num), value,
+				!(value & DQMU_QUE_ACTIVE), 1, 1000);
+			if (ret)
+				QMU_ERR("Stop TQ %d failed\n", ep_num);
 		} else {
 			QMU_INFO("TQ %d already inactive\n", ep_num);
 		}
 	} else {
-		if (MGC_ReadQMU16(base
-				, MGC_O_QMU_RQCSR(ep_num)) & DQMU_QUE_ACTIVE) {
-			MGC_WriteQMU32(base
-				, MGC_O_QMU_RQCSR(ep_num)
-				, DQMU_QUE_STOP);
+		if (MGC_ReadQMU16(base,
+				MGC_O_QMU_RQCSR(ep_num)) & DQMU_QUE_ACTIVE) {
+			MGC_WriteQMU32(base,
+				MGC_O_QMU_RQCSR(ep_num),
+				DQMU_QUE_STOP);
 			QMU_INFO("Stop RQ %d\n", ep_num);
+
+			ret = readl_poll_timeout_atomic(base+
+				MGC_O_QMU_RQCSR(ep_num), value,
+				!(value & DQMU_QUE_ACTIVE), 1, 1000);
+			if (ret)
+				QMU_ERR("Stop RQ %d failed\n", ep_num);
 		} else {
 			QMU_INFO("RQ %d already inactive\n", ep_num);
 		}
