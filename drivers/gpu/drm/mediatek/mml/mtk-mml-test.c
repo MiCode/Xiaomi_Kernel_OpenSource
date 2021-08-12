@@ -80,6 +80,9 @@ struct mml_test {
 	struct platform_device *mml_plat_dev;
 	struct mml_drm_ctx *drm_ctx;
 	struct dentry *fs;
+	struct dentry *fs_inst;
+	struct dentry *fs_frame_in;
+	struct dentry *fs_frame_out;
 };
 
 struct test_case_op {
@@ -1041,6 +1044,87 @@ static const struct file_operations test_fops = {
 	.write = test_write,
 };
 
+static int mml_test_inst_print(struct seq_file *seq, void *data)
+{
+	u32 size;
+	char *insts = mml_core_get_dump_inst(&size);
+
+	mml_log("%s dump inst buf size %u", __func__, size);
+
+	seq_printf(seq, "%s\n", insts);
+
+	return 0;
+}
+
+static int mml_test_inst_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mml_test_inst_print, inode->i_private);
+}
+
+static const struct file_operations mml_inst_dump_fops = {
+	.owner = THIS_MODULE,
+	.open = mml_test_inst_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int mml_test_frame_in(struct seq_file *seq, void *data)
+{
+	struct mml_frm_dump_data *frm = mml_core_get_frame_in();
+
+	if (!frm->size) {
+		mml_log("%s no data to dump", __func__);
+		return 0;
+	}
+
+	mml_log("%s dump frame %s size %u", __func__, frm->name, frm->size);
+	seq_write(seq, frm->frame, frm->size);
+
+	return 0;
+}
+
+static int mml_test_frame_in_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mml_test_frame_in, inode->i_private);
+}
+
+static const struct file_operations mml_frame_in_fops = {
+	.owner = THIS_MODULE,
+	.open = mml_test_frame_in_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int mml_test_frame_out(struct seq_file *seq, void *data)
+{
+	struct mml_frm_dump_data *frm = mml_core_get_frame_out();
+
+	if (!frm->size) {
+		mml_log("%s no data to dump", __func__);
+		return 0;
+	}
+
+	mml_log("%s dump frame %s size %u", __func__, frm->name, frm->size);
+	seq_write(seq, frm->frame, frm->size);
+
+	return 0;
+}
+
+static int mml_test_frame_out_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mml_test_frame_out, inode->i_private);
+}
+
+static const struct file_operations mml_frame_out_fops = {
+	.owner = THIS_MODULE,
+	.open = mml_test_frame_out_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int probe(struct platform_device *pdev)
 {
 	struct mml_test *test;
@@ -1066,6 +1150,24 @@ static int probe(struct platform_device *pdev)
 			PTR_ERR(test->fs));
 		return PTR_ERR(test->fs);
 	}
+
+	test->fs_inst = debugfs_create_file(
+		"mml-inst-dump", 0444, dir, test, &mml_inst_dump_fops);
+	if (IS_ERR(test->fs_inst))
+		mml_err("debugfs_create_file mml-inst-dump failed:%ld",
+			PTR_ERR(test->fs_inst));
+
+	test->fs_frame_in = debugfs_create_file(
+		"mml-frame-dump-in", 0444, dir, test, &mml_frame_in_fops);
+	if (IS_ERR(test->fs_frame_in))
+		mml_err("debugfs_create_file mml-frame-dump-in failed:%ld",
+			PTR_ERR(test->fs_frame_in));
+
+	test->fs_frame_out = debugfs_create_file(
+		"mml-frame-dump-out", 0444, dir, test, &mml_frame_out_fops);
+	if (IS_ERR(test->fs_frame_out))
+		mml_err("debugfs_create_file mml-frame-dump-out failed:%ld",
+			PTR_ERR(test->fs_frame_out));
 
 	platform_set_drvdata(pdev, test);
 	mml_log("debugfs_create_file mml-test success");

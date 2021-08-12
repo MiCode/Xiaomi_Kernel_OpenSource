@@ -817,7 +817,9 @@ static struct platform_driver *mml_drivers[] = {
 	&mml_tdshp_driver,
 	&mml_wrot_driver,
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	&mtk_mml_test_drv,
+#endif
 };
 
 static int __init mml_driver_init(void)

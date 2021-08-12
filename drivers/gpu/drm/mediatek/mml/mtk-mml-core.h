@@ -260,6 +260,7 @@ struct mml_dma_buf {
 	struct sg_table* sgt;
 
 	u64 iova;
+	void *va;
 };
 
 struct mml_file_buf {
@@ -461,6 +462,13 @@ struct mml_tile_output {
 	struct mml_tile_config *tiles;
 };
 
+struct mml_frm_dump_data {
+	const char *prefix;
+	char name[50];
+	void *frame;
+	u32 size;
+};
+
 /* config_get_tile - helper inline func which uses tile index to get
  * mml_tile_engine instance inside config.
  *
@@ -515,6 +523,29 @@ struct mml_topology_cache *mml_topology_create(struct mml_dev *mml,
 					       struct platform_device *pdev,
 					       struct cmdq_client **clts,
 					       u32 clts_cnt);
+
+/*
+ * mml_core_get_frame_in - return input frame dump
+ *
+ * Return:	The frame dump instance for input frame
+ */
+struct mml_frm_dump_data *mml_core_get_frame_in(void);
+
+/*
+ * mml_core_get_frame_out - return input frame dump
+ *
+ * Return:	The frame dump instance for output frame
+ */
+struct mml_frm_dump_data *mml_core_get_frame_out(void);
+
+/*
+ * mml_core_get_dump_inst - return debug dump buffer with current buf size
+ *
+ * @size:	buffer size in bytes
+ *
+ * Return:	The inst buffer in string.
+ */
+char *mml_core_get_dump_inst(u32 *size);
 
 /**
  * mml_core_create_task -

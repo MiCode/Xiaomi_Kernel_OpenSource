@@ -138,6 +138,8 @@ extern struct platform_driver mml_tcc_driver;
 extern struct platform_driver mml_tdshp_driver;
 extern struct platform_driver mml_wrot_driver;
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 extern struct platform_driver mtk_mml_test_drv;
+#endif
 
 #endif	/* __MTK_MML_DRIVER_H__ */

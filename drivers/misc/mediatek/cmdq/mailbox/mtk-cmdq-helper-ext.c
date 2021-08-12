@@ -2729,6 +2729,49 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 }
 EXPORT_SYMBOL(cmdq_dump_pkt);
 
+#define CMDQ_INST_STR_SIZE 20
+
+char *cmdq_pkt_parse_buf(struct cmdq_pkt *pkt, u32 *size_out)
+{
+	u32 buf_size = CMDQ_NUM_CMD(pkt->cmd_buf_size) * CMDQ_INST_STR_SIZE + 1;
+	char *insts = kmalloc(buf_size, GFP_KERNEL);
+	u32 cur_buf = 0, cur_inst = 0, size;
+	int len;
+	struct cmdq_pkt_buffer *buf;
+
+	cmdq_msg("dump buffer size %u(%zu) pkt %p inst %p",
+		buf_size, pkt->cmd_buf_size, pkt, insts);
+
+	if (!insts) {
+		*size_out = 0;
+		return NULL;
+	}
+
+	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		if (list_is_last(&buf->list_entry, &pkt->buf))
+			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+		else
+			size = CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE;
+
+		for (cur_inst = 0; cur_inst < CMDQ_NUM_CMD(size) && cur_buf < buf_size;
+			cur_inst++) {
+			len = snprintf(insts + cur_buf, buf_size - cur_buf,
+				"%#018llx,\n", *((u64 *)buf->va_base + cur_inst));
+			if (len != CMDQ_INST_STR_SIZE) {
+				cmdq_err(
+					"%s wrong in dump len %d cur size %u buf size %u inst idx %u",
+					__func__, len, cur_buf, size, cur_inst);
+				break;
+			}
+			cur_buf += len;
+		}
+	}
+
+	*size_out = buf_size;
+	return insts;
+}
+EXPORT_SYMBOL(cmdq_pkt_parse_buf);
+
 void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data)
 {

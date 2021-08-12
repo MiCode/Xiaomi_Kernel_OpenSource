@@ -64,4 +64,6 @@ mtk-mml-mt6879-objs := mtk-mml-tp-mt6879.o
 endif
 
 # for unit test
+ifeq ($(strip $(CONFIG_MTK_MML_DEBUG)),y)
 mtk-mml-objs += mtk-mml-test.o
+endif

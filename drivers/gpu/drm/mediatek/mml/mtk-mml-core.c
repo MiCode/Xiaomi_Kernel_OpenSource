@@ -44,6 +44,18 @@ do { \
 		pr_notice("[mml]" fmt "\n", ##args); \
 } while (0)
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+int mml_frame_dump;
+module_param(mml_frame_dump, int, 0644);
+static struct mml_frm_dump_data mml_frm_dumps[2] = {
+	{.prefix = "in", },
+	{.prefix = "out", },
+};
+
+static char *mml_inst_dump;
+u32 mml_inst_dump_sz;
+#endif	/* CONFIG_MTK_MML_DEBUG */
+
 struct topology_ip_node {
 	struct list_head entry;
 	const struct mml_topology_ops *op;
@@ -651,6 +663,71 @@ static void core_buffer_unmap(struct mml_task *task)
 	}
 }
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
+	struct mml_file_buf *buf, struct mml_frm_dump_data *frm)
+{
+	u32 size = 0, i;
+	void *frame;
+	int ret;
+
+	/* always free previous data */
+	vfree(frm->frame);
+	frm->size = 0;
+
+	/* support only out0 for now, maybe support multi out later */
+	ret = snprintf(frm->name, sizeof(frm->name), "%u_%s_%#x_%u_%u_%u",
+		task->job.jobid, frm->prefix, data->format,
+		data->width, data->height, data->y_stride);
+	if (ret >= sizeof(frm->name))
+		frm->name[sizeof(frm->name)-1] = 0;
+	mml_log("%s size %u name %s", __func__, size, frm->name);
+
+	for (i = 0; i < MML_MAX_PLANES; i++)
+		size += buf->size[i];
+
+	frame = vmalloc(size);
+	if (!frame)
+		return;
+
+	/* support only plane 0 for now, maybe support multi plane later */
+	mml_buf_va_get(buf);
+	if (!buf->dma[0].va) {
+		mml_err("%s dump fail %s no va", __func__, frm->name);
+		vfree(frame);
+		return;
+	}
+
+	memcpy(frame, buf->dma[0].va, size);
+	frm->frame = frame;
+	frm->size = size;
+	mml_log("%s copy frame %s", __func__, frm->name);
+}
+
+struct mml_frm_dump_data *mml_core_get_frame_in(void)
+{
+	return &mml_frm_dumps[0];
+}
+
+struct mml_frm_dump_data *mml_core_get_frame_out(void)
+{
+	return &mml_frm_dumps[1];
+}
+
+static void core_dump_inst(struct cmdq_pkt *pkt)
+{
+	kfree(mml_inst_dump);
+	mml_inst_dump = cmdq_pkt_parse_buf(pkt, &mml_inst_dump_sz);
+}
+
+char *mml_core_get_dump_inst(u32 *size)
+{
+	*size = mml_inst_dump_sz;
+	return mml_inst_dump;
+}
+#endif	/* CONFIG_MTK_MML_DEBUG */
+
+
 static void core_taskdone(struct mml_task *task, u32 pipe)
 {
 	struct mml_path_client *path_clt;
@@ -683,6 +760,14 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 			mml_trace_ex_end();
 		}
 	}
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_frame_dump) {
+		core_dump_buf(task, &task->config->info.dest[0].data,
+			&task->buf.dest[0], &mml_frm_dumps[1]);
+		mml_frame_dump = 0;
+	}
+#endif
 
 	/* before clean up, signal buffer fence */
 	if (task->fence) {
@@ -838,8 +923,13 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 
 	mml_trace_ex_begin("%s", __func__);
 
-	if (mml_pkt_dump)
+	if (mml_pkt_dump == 1)
 		cmdq_pkt_dump_buf(pkt, 0);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_pkt_dump == 2)
+		core_dump_inst(pkt);
+#endif
 
 	/* before flush, wait buffer fence being signaled */
 	wait_dma_fence("src", task->buf.src.fence);
@@ -871,6 +961,15 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 		task->buf.flushed = true;
 	}
 	mutex_unlock(&task->config->pipe_mutex);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	/* buffer dump always do in pipe 0 */
+	if (pipe == 0 && mml_frame_dump > 0) {
+		mml_buf_invalid(&task->buf.src);
+		core_dump_buf(task, &task->config->info.src,
+			&task->buf.src, &mml_frm_dumps[0]);
+	}
+#endif
 
 	/* assign error handler */
 	pkt->err_cb.cb = dump_cbs[pipe];
