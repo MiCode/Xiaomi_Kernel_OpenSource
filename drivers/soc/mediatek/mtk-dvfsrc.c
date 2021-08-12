@@ -627,7 +627,7 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		break;
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 	case MTK_DVFSRC_CMD_FORCEOPP_REQUEST:
-		if (dvfsrc->dvd->set_force_opp_level)
+		if ((dvfsrc->dvd->set_force_opp_level) && dvfsrc->dvfsrc_enable)
 			dvfsrc->dvd->set_force_opp_level(dvfsrc, data);
 		goto out;
 #endif
