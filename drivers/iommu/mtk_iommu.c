@@ -448,9 +448,17 @@ static inline void mtk_iommu_isr_setup(unsigned long enable)
 
 	pr_info("%s, enable:%d\n", __func__, enable);
 	for_each_m4u(data) {
-		if (pm_runtime_get_if_in_use(data->dev) <= 0 &&
-			!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
-			continue;
+		bool has_pm = !!data->dev->pm_domain;
+
+		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
+			if ((data->plat_data->iommu_type == MM_IOMMU &&
+				pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
+				(data->plat_data->iommu_type != MM_IOMMU &&
+				pm_runtime_get_if_in_use(data->dev) <= 0)) {
+				pr_info("%s, power off:%s\n", __func__, dev_name(data->dev));
+				continue;
+			}
+		}
 
 		mtk_iommu_bk0_intr_en(data, enable);
 
@@ -460,7 +468,8 @@ static inline void mtk_iommu_isr_setup(unsigned long enable)
 					data->plat_data->iommu_id, enable);
 #endif
 
-		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
+		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
+			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
 	}
 }
