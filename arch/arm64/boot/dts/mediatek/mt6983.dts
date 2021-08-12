@@ -5677,6 +5677,11 @@
 			opp-microvolt = <500000>;
 		};
 	};
+	gpu_fdvfs@00112000 {
+		compatible = "mediatek,gpu_fdvfs";
+		reg = <0 0x112000 0 0x400>;
+		fdvfs-policy-support = <0>;
+	};
 
 	gpueb: gpueb@13c00000 {
 		compatible = "mediatek,gpueb";
