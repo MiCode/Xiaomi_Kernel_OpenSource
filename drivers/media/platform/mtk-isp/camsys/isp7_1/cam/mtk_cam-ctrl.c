@@ -2106,8 +2106,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				wmb(); /* TBC */
 			}
 		} else if (req_stream_data->frame_seq_no == frame_seq_no_outer) {
-			if (frame_seq_no_outer > sensor_ctrl->isp_request_seq_no &&
-				!mtk_cam_is_mstream(ctx)) {
+			if (frame_seq_no_outer > sensor_ctrl->isp_request_seq_no) {
 				/**
 				 * outer number is 1 more from last SOF's
 				 * inner number
@@ -2120,7 +2119,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				req_stream_data->state.time_irq_outer =
 						ktime_get_boottime_ns() / 1000;
 				type = req_stream_data->feature.switch_feature_type;
-				if (type != 0) {
+				if (type != 0 && !mtk_cam_is_mstream(ctx)) {
 					if (type == EXPOSURE_CHANGE_3_to_1 ||
 						type == EXPOSURE_CHANGE_2_to_1)
 						stagger_disable(raw_dev);
