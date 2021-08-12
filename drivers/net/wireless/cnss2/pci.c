@@ -42,7 +42,7 @@
 #define QCA6490_PATH_PREFIX		"qca6490/"
 #define WCN7850_PATH_PREFIX		"wcn7850/"
 #define DEFAULT_PHY_M3_FILE_NAME	"m3.bin"
-#define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.bin"
+#define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.elf"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
 #define DEVICE_MAJOR_VERSION_MASK	0xF
