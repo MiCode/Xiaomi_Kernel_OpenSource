@@ -509,15 +509,25 @@ wake_up_prev_tile_init_task:
 static struct mml_pq_sub_task *wait_next_sub_task(struct mml_pq_chan *chan)
 {
 	struct mml_pq_sub_task *sub_task = NULL;
+	int wait_result = 0;
 	s32 ret;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called", __func__);
 	for (;;) {
 		mml_pq_msg("start wait event!");
-		wait_event_interruptible(chan->msg_wq,
+		wait_result = wait_event_interruptible(chan->msg_wq,
 			(atomic_read(&chan->msg_cnt) > 0));
-		mml_pq_msg("finish wait event!");
+
+		if (wait_result) {
+			mml_pq_log("%s wakeup wait_result[%d], msg_cnt[%d]",
+				__func__, wait_result, atomic_read(&chan->msg_cnt));
+			return NULL;
+		}
+
+		mml_pq_msg("%s finish wait event! wait_result[%d], msg_cnt[%d]",
+			__func__, wait_result, atomic_read(&chan->msg_cnt));
+
 		ret = dequeue_msg(chan, &sub_task);
 
 		if (unlikely(ret)) {
@@ -562,6 +572,13 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 		handle_tile_init_result(chan, job);
 
 	new_sub_task = wait_next_sub_task(chan);
+
+	if (NULL == new_sub_task) {
+		kfree(job);
+		mml_pq_log("%s Get sub task failed", __func__);
+		return -ERESTARTSYS;
+	}
+
 	new_pq_task = from_tile_init(new_sub_task);
 	job->new_job_id = new_sub_task->job_id;
 	mutex_lock(&new_pq_task->lock);
@@ -761,6 +778,13 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 		handle_comp_config_result(chan, job);
 
 	new_sub_task = wait_next_sub_task(chan);
+
+	if (NULL == new_sub_task) {
+		kfree(job);
+		mml_pq_log("%s Get sub task failed", __func__);
+		return -ERESTARTSYS;
+	}
+
 	new_pq_task = from_comp_config(new_sub_task);
 	job->new_job_id = new_sub_task->job_id;
 	mutex_lock(&new_pq_task->lock);
