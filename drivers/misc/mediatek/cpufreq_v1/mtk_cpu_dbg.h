@@ -61,11 +61,30 @@ struct pll_addr {
 	unsigned int reg_addr[2];
 };
 
+enum {
+	IPI_DVFS_INIT,
+	IPI_SET_VOLT,
+	IPI_SET_FREQ,
+	IPI_GET_VOLT,
+	IPI_GET_FREQ,
+
+	NR_DVFS_IPI,
+};
+
+struct cdvfs_data {
+	unsigned int cmd;
+	union {
+		struct {
+			unsigned int arg[3];
+		} set_fv;
+	} u;
+};
+
 enum mcucfg_ver {
 	MCUCFG_V0, /* armpll in apmixed */
 	MCUCFG_V1, /* armpll in mcusys */
 	MAX_MCUCFG_VERSION,
 };
 
-extern int mtk_eem_init(void);
+extern int mtk_eem_init(struct platform_device *pdev);
 

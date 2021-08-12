@@ -12,8 +12,8 @@ ifeq ($(findstring _mcl,$(PROJECT_DTB_NAMES)),_mcl)
 endif
 
 subdir-ccflags-y += -DEEM_DBG
-cpuhvfs-objs += eem-dbg.o
+cpuhvfs-y += eem-dbg.o
 endif
 endif
-cpuhvfs-objs += cpufreq-dbg.o
+cpuhvfs-y += cpufreq-dbg.o
 

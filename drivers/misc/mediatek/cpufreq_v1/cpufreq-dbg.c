@@ -27,6 +27,8 @@
 #include "mtk_cpu_dbg.h"
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
+#include "../mcupm/include/mcupm_driver.h"
+#include "../mcupm/include/mcupm_ipi_id.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -50,6 +52,7 @@ unsigned int dbg_repo_num;
 unsigned int usram_repo_num;
 unsigned int repo_i_log_s;
 unsigned int repo_i_log_e;
+int dvfs_ackdata;
 
 static DEFINE_MUTEX(cpufreq_mutex);
 static void __iomem *csram_base;
@@ -176,6 +179,31 @@ static unsigned int _cpu_freq_calc(unsigned int con1, unsigned int ckdiv1)
 	};
 
 	return pll_to_clk_wrapper(freq, ckdiv1);
+}
+
+static int cpuhvfs_set_volt(int cluster_id, unsigned int volt)
+{
+	struct cdvfs_data cdvfs_d;
+
+	cdvfs_d.cmd = IPI_SET_VOLT;
+	cdvfs_d.u.set_fv.arg[0] = cluster_id;
+	cdvfs_d.u.set_fv.arg[1] = volt;
+	return mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
+			IPI_SEND_POLLING, &cdvfs_d,
+			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
+}
+
+static int cpuhvfs_set_freq(int cluster_id, unsigned int freq)
+{
+	struct cdvfs_data cdvfs_d;
+
+	cdvfs_d.cmd = IPI_SET_FREQ;
+	cdvfs_d.u.set_fv.arg[0] = cluster_id;
+	cdvfs_d.u.set_fv.arg[1] = freq;
+
+	return mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
+			IPI_SEND_POLLING, &cdvfs_d,
+			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 }
 
 unsigned int get_cur_phy_freq(int cluster)
@@ -362,7 +390,32 @@ static int phyclk_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-PROC_FOPS_RO(phyclk);
+static ssize_t phyclk_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	int cluster = 0, freq = 0;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (copy_from_user(buf, buffer, count)) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%d %d", &cluster, &freq) != 2) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
+	free_page((unsigned long)buf);
+	if (freq <= 0)
+		return -EINVAL;
+
+	cpuhvfs_set_freq(cluster, freq);
+
+	return count;
+}
+
+PROC_FOPS_RW(phyclk);
 
 static int phyvolt_proc_show(struct seq_file *m, void *v)
 {
@@ -379,7 +432,32 @@ static int phyvolt_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-PROC_FOPS_RO(phyvolt);
+static ssize_t phyvolt_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	int cluster = 0, volt = 0;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (copy_from_user(buf, buffer, count)) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%d %d", &cluster, &volt) != 2) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
+	free_page((unsigned long)buf);
+	if (volt <= 0)
+		return -EINVAL;
+
+
+	cpuhvfs_set_volt(cluster, volt);
+
+	return count;
+}
+PROC_FOPS_RW(phyvolt);
 
 static int create_cpufreq_debug_fs(void)
 {
@@ -532,10 +610,12 @@ static int mtk_cpuhvfs_init(void)
 
 	create_cpufreq_debug_fs();
 #ifdef EEM_DBG
-	ret = mtk_eem_init();
+	ret = mtk_eem_init(pdev);
 	if (ret)
 		pr_info("eem dbg init fail: %d\n", ret);
 #endif
+	ret = mtk_ipi_register(get_mcupm_ipidev(), CH_S_CPU_DVFS, NULL, NULL,
+		(void *)&dvfs_ackdata);
 	return 0;
 }
 module_init(mtk_cpuhvfs_init)
