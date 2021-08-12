@@ -555,6 +555,7 @@ static struct fbt_thread_loading *fbt_list_loading_add(int pid,
 	struct fbt_thread_loading *obj;
 	unsigned long flags;
 	atomic_t *loading_cl;
+	int i, err_exit = 0;
 
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
 	if (!obj) {
@@ -566,6 +567,25 @@ static struct fbt_thread_loading *fbt_list_loading_add(int pid,
 	if (!loading_cl) {
 		kfree(obj);
 		FPSGO_LOGE("ERROR OOM\n");
+		return NULL;
+	}
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		obj->lastest_loading_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
+		obj->lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
+		if (!(obj->lastest_loading_cl[i]) || !(obj->lastest_obv_cl[i])) {
+			err_exit = 1;
+			break;
+		}
+	}
+
+	if (err_exit) {
+		for (i = 0; i < LOADING_CNT; i++) {
+			kfree(obj->lastest_loading_cl[i]);
+			kfree(obj->lastest_obv_cl[i]);
+		}
+		kfree(loading_cl);
+		kfree(obj);
 		return NULL;
 	}
 
@@ -3237,6 +3257,103 @@ static int fbt_overest_loading(int blc_wt, unsigned long long running_time,
 	return FPSGO_ADJ_NONE;
 }
 
+static unsigned long long fbt_correct_loading(struct fbt_thread_loading *ploading, int ts,
+	int *cross_idx, int *cross_ts, int *last_ts, int *tmp_ts)
+{
+	unsigned int min_obv;
+	int i, min_idx = -1, min_ts = 0, max_ts = 0;
+	unsigned long long loading_result = 0U;
+	unsigned long long acc_loading = 0U; /* loading belongs to next frame */
+
+	/* subtract the cb which is after ts */
+	for (i = 0; i < LOADING_CNT; i++) {
+		tmp_ts[i] = atomic_read(&(ploading->lastest_ts[i]));
+		if (tmp_ts[i] > ts) {
+			loading_result = atomic_read(&(ploading->lastest_loading[i]));
+			acc_loading += loading_result;
+			atomic_sub_return(loading_result, &(ploading->loading));
+			if (min_idx == -1 || tmp_ts[i] < min_ts) {
+				min_idx = i;
+				min_ts = tmp_ts[i];
+				min_obv = atomic_read(&(ploading->lastest_obv[i]));
+			}
+			/* the lastest timestamp which is after queue end */
+			if (tmp_ts[i] > max_ts)
+				max_ts = tmp_ts[i];
+
+			fpsgo_main_trace(
+				"%s sub idx[%d], queue_end ts:%d, ts:%d, prev_ts:%d, loading:%d",
+				__func__, i, ts, tmp_ts[i],
+				atomic_read(&(ploading->prev_cb_ts[i])),
+				atomic_read(&(ploading->lastest_loading[i])));
+		}
+		atomic_set(&ploading->lastest_loading[i], 0);
+		atomic_set(&ploading->lastest_ts[i], 0);
+		atomic_set(&ploading->lastest_obv[i], 0);
+	}
+
+	/* the index which its interval cross the queue_end */
+	if (min_idx != -1) {
+		loading_result = fbt_est_loading(ts, ploading->prev_cb_ts[min_idx], min_obv);
+		acc_loading -= loading_result;
+		atomic_add_return(loading_result, &ploading->loading);
+		fpsgo_main_trace(
+			"%s add idx[%d], min_obv:%d, loading:%lld, after adjust:%d, acc:%lld",
+			__func__, min_idx, min_obv, loading_result,
+			atomic_read(&ploading->loading), acc_loading);
+	}
+
+	*cross_idx = min_idx;
+	*cross_ts = min_ts;
+	*last_ts = max_ts;
+
+	return acc_loading;
+}
+
+static unsigned long long fbt_correct_cl_loading(struct fbt_thread_loading *ploading,
+	int cl, int ts, int cross_idx, int cross_ts, int *tmp_ts)
+{
+	unsigned int min_obv;
+	int j;
+	unsigned long long loading_result = 0U;
+	unsigned long long acc_loading = 0U; /* loading belongs to next frame */
+
+	/* subtract the cb which is after ts */
+	for (j = 0; j < LOADING_CNT; j++) {
+
+		if (tmp_ts[j] > ts) {
+			loading_result = atomic_read(&(ploading->lastest_loading_cl[j][cl]));
+			acc_loading += loading_result;
+			atomic_sub_return(loading_result, &(ploading->loading_cl[cl]));
+
+			fpsgo_main_trace(
+				"%s sub cl idx[%d], queue_end ts:%d, ts:%d, prev_ts:%d, loading:%d",
+				__func__, j, ts, tmp_ts[j],
+				atomic_read(&(ploading->prev_cb_ts[cl])),
+				atomic_read(&(ploading->lastest_loading_cl[j][cl])));
+		}
+
+		if (j == cross_idx)
+			min_obv = atomic_read(&ploading->lastest_obv_cl[j][cl]);
+
+		atomic_set(&ploading->lastest_loading_cl[j][cl], 0);
+		atomic_set(&ploading->lastest_obv_cl[j][cl], 0);
+	}
+
+	if (cross_idx != -1) {
+		loading_result = fbt_est_loading(ts, ploading->prev_cb_ts[cross_idx], min_obv);
+		acc_loading -= loading_result;
+		atomic_add_return(loading_result, &ploading->loading_cl[cl]);
+		fpsgo_main_trace(
+			"%s add cl idx[%d], min_obv:%d, loading:%lld, after adjust:%d, acc:%lld",
+			__func__, cross_idx, min_obv, loading_result,
+			atomic_read(&ploading->loading_cl[cl]),
+			acc_loading);
+	}
+
+	return acc_loading;
+}
+
 static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 					int adjust)
 {
@@ -3246,7 +3363,8 @@ static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 	unsigned int temp_obv, *temp_obv_cl, *temp_stat_cl;
 	unsigned long long loading_result = 0U;
 	unsigned long flags;
-	int i;
+	int i, cross_idx = -1, cross_ts = 0, last_ts = 0, tmp_ts[LOADING_CNT];
+	unsigned long long tmp_loading = 0U;
 
 	new_ts = nsec_to_100usec(ts);
 
@@ -3274,10 +3392,20 @@ static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 		loading_result = fbt_est_loading(new_ts,
 			thr->pLoading->last_cb_ts, temp_obv);
 		atomic_add_return(loading_result, &thr->pLoading->loading);
-		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
-			atomic_read(&thr->pLoading->loading), "loading");
+		fpsgo_main_trace("%s before adjust:%d",
+			__func__, atomic_read(&thr->pLoading->loading));
+
+		tmp_loading = fbt_correct_loading(thr->pLoading, new_ts, &cross_idx,
+			&cross_ts, &last_ts, tmp_ts);
+
 		loading = atomic_read(&thr->pLoading->loading);
-		atomic_set(&thr->pLoading->loading, 0);
+		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+			loading, "loading");
+
+		/* reset loading */
+		atomic_set(&thr->pLoading->loading, tmp_loading);
+		atomic_set(&thr->pLoading->lastest_idx, 0);
+
 		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
 			atomic_read(&thr->pLoading->loading), "loading");
 
@@ -3292,21 +3420,33 @@ static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 				loading_result = fbt_est_loading(new_ts,
 				thr->pLoading->last_cb_ts, temp_obv_cl[i]);
 				atomic_add_return(loading_result,
-						&thr->pLoading->loading_cl[i]);
+					&thr->pLoading->loading_cl[i]);
 				fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
 				atomic_read(&thr->pLoading->loading_cl[i]),
-					"loading_cl[%d]", i);
+				"loading_cl[%d]", i);
+				fpsgo_main_trace("%s cl[%d] before adjust:%d",
+					__func__, i, atomic_read(&thr->pLoading->loading_cl[i]));
 			}
+
+			if (cross_idx != -1)
+				tmp_loading = fbt_correct_cl_loading(thr->pLoading, i, new_ts,
+					cross_idx, cross_ts, tmp_ts);
+			else
+				tmp_loading = 0;
+
 			loading_cl[i] =
 				atomic_read(&thr->pLoading->loading_cl[i]);
-			atomic_set(&thr->pLoading->loading_cl[i], 0);
+			atomic_set(&thr->pLoading->loading_cl[i], tmp_loading);
 			fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
 				atomic_read(&thr->pLoading->loading_cl[i]),
 				"loading_cl[%d]", i);
 		}
 
 SKIP:
-		atomic_set(&thr->pLoading->last_cb_ts, new_ts);
+		if (last_ts != 0)
+			atomic_set(&thr->pLoading->last_cb_ts, last_ts);
+		else
+			atomic_set(&thr->pLoading->last_cb_ts, new_ts);
 		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
 			atomic_read(&thr->pLoading->last_cb_ts), "last_cb_ts");
 	}
@@ -3560,7 +3700,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 	unsigned int curr_obv = 0U;
 	unsigned long long curr_cb_ts;
 	int new_ts;
-	int i;
+	int i, idx;
 	int opp;
 	unsigned long long loading_result = 0U;
 	struct fbt_thread_loading *pos, *next;
@@ -3592,10 +3732,29 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 	spin_lock_irqsave(&loading_slock, flags2);
 	list_for_each_entry_safe(pos, next, &loading_list, entry) {
 		if (atomic_read(&pos->last_cb_ts) != 0) {
+			//fpsgo_main_trace(
+			//	"%s, last_cb_ts:%d, last_load:%d, ",
+			//	__func__, atomic_read(&pos->last_cb_ts),
+			//	atomic_read(&pos->loading));
+
 			loading_result =
 				fbt_est_loading(new_ts,
 					pos->last_cb_ts, last_obv);
 			atomic_add_return(loading_result, &(pos->loading));
+
+			idx = atomic_read(&(pos->lastest_idx));
+			idx = (idx + 1) >= LOADING_CNT ? 0 : (idx + 1);
+			atomic_set(&(pos->lastest_loading[idx]), loading_result);
+			atomic_set(&(pos->lastest_ts[idx]), new_ts);
+			atomic_set(&(pos->prev_cb_ts[idx]), atomic_read(&pos->last_cb_ts));
+			atomic_set(&(pos->lastest_obv[idx]), last_obv);
+			atomic_set(&(pos->lastest_idx), idx);
+
+			//fpsgo_main_trace(
+			//	"%s, idx:%d, loading:%d, ts:%d, prev_cb:%d, obv:%d",
+			//	__func__, idx, loading_result, new_ts,
+			//	atomic_read(&pos->last_cb_ts), last_obv);
+
 			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
 				atomic_read(&pos->loading), "loading");
 			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
@@ -3619,6 +3778,16 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 					pos->buffer_id,
 					atomic_read(&pos->loading_cl[i]),
 					"loading_cl[%d]", i);
+
+				atomic_set(&(pos->lastest_loading_cl[idx][i]), loading_result);
+				atomic_set(&(pos->lastest_obv_cl[idx][i]), clus_obv[i]);
+
+				//fpsgo_main_trace(
+				//	"%s, idx:%d, cl[%d], loading:%d, ts:%d,
+				//	prev_cb:%d, obv:%d, sum:%d",
+				//	__func__, idx, i, loading_result, new_ts,
+				//	atomic_read(&pos->last_cb_ts), clus_obv[i]);
+				//	atomic_read(&pos->loading_cl[i]));
 			}
 		}
 SKIP:
@@ -3845,6 +4014,7 @@ void fpsgo_base2fbt_item_del(struct fbt_thread_loading *obj,
 		struct render_info *thr)
 {
 	unsigned long flags;
+	int i;
 
 	if (!obj || !pblc)
 		return;
@@ -3852,6 +4022,14 @@ void fpsgo_base2fbt_item_del(struct fbt_thread_loading *obj,
 	spin_lock_irqsave(&loading_slock, flags);
 	list_del(&obj->entry);
 	spin_unlock_irqrestore(&loading_slock, flags);
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		kfree(obj->lastest_loading_cl[i]);
+		obj->lastest_loading_cl[i] = NULL;
+		kfree(obj->lastest_obv_cl[i]);
+		obj->lastest_obv_cl[i] = NULL;
+	}
+
 	kfree(obj->loading_cl);
 	obj->loading_cl = NULL;
 	kfree(obj);
@@ -4437,6 +4615,7 @@ struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
 	struct fbt_thread_loading *obj;
 	unsigned long flags;
 	atomic_t *loading_cl;
+	int i, err_exit = 0;
 
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
 	if (!obj) {
@@ -4448,6 +4627,25 @@ struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
 	if (!loading_cl) {
 		kfree(obj);
 		FPSGO_LOGE("ERROR OOM\n");
+		return NULL;
+	}
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		obj->lastest_loading_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
+		obj->lastest_obv_cl[i] = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
+		if (!(obj->lastest_loading_cl[i]) || !(obj->lastest_obv_cl[i])) {
+			err_exit = 1;
+			break;
+		}
+	}
+
+	if (err_exit) {
+		for (i = 0; i < LOADING_CNT; i++) {
+			kfree(obj->lastest_loading_cl[i]);
+			kfree(obj->lastest_obv_cl[i]);
+		}
+		kfree(loading_cl);
+		kfree(obj);
 		return NULL;
 	}
 
@@ -4475,7 +4673,8 @@ long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsign
 	unsigned int temp_obv, *temp_obv_cl, *temp_stat_cl;
 	unsigned long long loading_result = 0U;
 	unsigned long flags;
-	int i;
+	int i, cross_idx = -1, cross_ts = 0, last_ts = 0, tmp_ts[LOADING_CNT];
+	unsigned long long tmp_loading = 0U;
 
 	new_ts = nsec_to_100usec(ts);
 
@@ -4503,10 +4702,17 @@ long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsign
 		loading_result = fbt_est_loading(new_ts,
 			ploading->last_cb_ts, temp_obv);
 		atomic_add_return(loading_result, &ploading->loading);
+		fpsgo_main_trace("%s before adjust:%d", __func__, atomic_read(&ploading->loading));
+
+		tmp_loading = fbt_correct_loading(
+			ploading, new_ts, &cross_idx, &cross_ts, &last_ts, tmp_ts);
+
 		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
 			atomic_read(&ploading->loading), "loading");
 		loading = atomic_read(&ploading->loading);
-		atomic_set(&ploading->loading, 0);
+
+		atomic_set(&ploading->loading, tmp_loading);
+		atomic_set(&ploading->lastest_idx, 0);
 		//fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
 		//	atomic_read(&ploading->loading), "loading");
 
@@ -4525,16 +4731,26 @@ long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsign
 				atomic_read(&ploading->loading_cl[i]),
 					"loading_cl[%d]", i);
 			}
+
+			if (cross_idx != -1)
+				tmp_loading = fbt_correct_cl_loading(
+					ploading, i, new_ts, cross_idx, cross_ts, tmp_ts);
+			else
+				tmp_loading = 0;
+
 			loading_cl[i] =
 				atomic_read(&ploading->loading_cl[i]);
-			atomic_set(&ploading->loading_cl[i], 0);
+			atomic_set(&ploading->loading_cl[i], tmp_loading);
 			//fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
 			//	atomic_read(&ploading->loading_cl[i]),
 			//	"loading_cl[%d]", i);
 		}
 
 SKIP:
-		atomic_set(&ploading->last_cb_ts, new_ts);
+		if (last_ts != 0)
+			atomic_set(&ploading->last_cb_ts, last_ts);
+		else
+			atomic_set(&ploading->last_cb_ts, new_ts);
 		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
 			atomic_read(&ploading->last_cb_ts), "last_cb_ts");
 
@@ -4554,6 +4770,7 @@ SKIP:
 void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading)
 {
 	unsigned long flags;
+	int i;
 
 	if (!ploading)
 		return;
@@ -4561,6 +4778,14 @@ void fbt_xgff_list_loading_del(struct fbt_thread_loading *ploading)
 	spin_lock_irqsave(&loading_slock, flags);
 	list_del(&ploading->entry);
 	spin_unlock_irqrestore(&loading_slock, flags);
+
+	for (i = 0; i < LOADING_CNT; i++) {
+		kfree(ploading->lastest_loading_cl[i]);
+		ploading->lastest_loading_cl[i] = NULL;
+		kfree(ploading->lastest_obv_cl[i]);
+		ploading->lastest_obv_cl[i] = NULL;
+	}
+
 	kfree(ploading->loading_cl);
 	ploading->loading_cl = NULL;
 	kfree(ploading);
