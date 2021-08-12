@@ -8807,6 +8807,7 @@
 		emi-size = <0x800000>;
 		emi-alignment = <0x100000>;
 		emi-max-addr = <0x90000000>;
+		tcxo_support = "false";
 	};
 
 	vcp: vcp@1ec00000 {

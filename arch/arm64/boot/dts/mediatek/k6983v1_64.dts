@@ -616,6 +616,32 @@
 	};
 };
 
+/* CONNSYS TCXO GPIO start */
+&consys {
+	tcxo_support = "false";
+	pinctrl-names = "default", "conninfra_tcxo_set", "conninfra_tcxo_clr";
+	pinctrl-0 = <&conninfra_pins_default>;
+	pinctrl-1 = <&conninfra_pins_tcxo_set>;
+	pinctrl-2 = <&conninfra_pins_tcxo_clr>;
+	status = "okay";
+};
+
+&pio {
+	conninfra_pins_default: conninfra_pins_default {
+	};
+	conninfra_pins_tcxo_set: conninfra_tcxo_set@gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO159__FUNC_CONN_TCXOENA_REQ>;
+		};
+	};
+	conninfra_pins_tcxo_clr: conninfra_tcxo_clr@gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+		};
+	};
+};
+/* CONNSYS TCXO GPIO end */
+
 #include <k6983v1_64/cust.dtsi>
 #include "mediatek/cust_mt6983_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6983_camera_v4l2.dtsi"
