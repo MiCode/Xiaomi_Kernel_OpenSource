@@ -73,6 +73,7 @@
 #define REG_HALT4_EN					0x035c
 #define REG_HALT5_EN					0x0360
 #define REG_HALT6_EN					0x0364
+#define REG_FLASH					0x03A0
 #define REG_ULTRA_HALT1_EN				0x03c0
 #define REG_ULTRA_HALT2_EN				0x03c4
 #define REG_ULTRA_HALT3_EN				0x03c8
@@ -199,6 +200,16 @@
 #define REG_TG_FRMSIZE_ST_R					0x076C
 #define REG_TG_TIME_STAMP					0x0778
 #define REG_TG_TIME_STAMP_CNT				0x077C
+
+/* tg flash */
+#define	REG_TG_XENON_FLASH_CTL				0x0780
+#define REG_TG_XENON_FLASH_OFFSET			0x0784
+#define REG_TG_XENON_FLASH_HIGH_WIDTH			0x0788
+#define REG_TG_XENON_FLASH_LOW_WIDTH			0x078C
+#define	REG_TG_IR_FLASH_CTL				0x0798
+#define REG_TG_IR_FLASH_OFFSET				0x079C
+#define REG_TG_IR_FLASH_HIGH_WIDTH			0x07A0
+#define REG_TG_IR_FLASH_LOW_WIDTH			0x07A4
 
 /* for raw & yuv's dma top base */
 #define CAMDMATOP_BASE						0x4000

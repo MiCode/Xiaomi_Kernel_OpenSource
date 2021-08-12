@@ -17,6 +17,7 @@
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-sv-regs.h"
+#include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 #include "imgsys/mtk_imgsys-cmdq-ext.h"
@@ -638,6 +639,8 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 #endif
 		}
 	}
+
+	mtk_cam_tg_flash_req_setup(ctx, req_stream_data);
 
 	/* mark pipeline control completed */
 	if (likely(pipe_obj))

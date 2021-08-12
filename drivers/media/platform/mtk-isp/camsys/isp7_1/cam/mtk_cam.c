@@ -34,6 +34,7 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-smem.h"
+#include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
@@ -157,6 +158,9 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			req->ctx_used, pipe_id, req->pipe_used);
 		return;
 	}
+
+	if (is_raw_subdev(pipe_id))
+		mtk_cam_tg_flash_req_done(ctx, req_stream_data);
 
 	/* clean the works of the workqueues if needed */
 	mtk_cam_req_works_clean(req_stream_data_pipe);
@@ -1530,6 +1534,7 @@ static int mtk_cam_req_update_ctrl(struct mtk_cam_ctx *ctx,
 			mtk_cam_get_feature_switch(ctx, raw_fut_pre);
 	}
 	req_stream_data->feature.raw_feature = ctx->pipe->res_config.raw_feature;
+	mtk_cam_tg_flash_req_update(ctx->pipe, req_stream_data);
 
 	return 0;
 }

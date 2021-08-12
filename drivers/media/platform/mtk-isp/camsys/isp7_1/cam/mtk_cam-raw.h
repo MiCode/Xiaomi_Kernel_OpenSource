@@ -226,6 +226,8 @@ struct mtk_raw_pipeline {
 	unsigned long enabled_dmas;
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;
+	bool enqueued_tg_flash_req; /* need a better way to collect the request */
+	struct mtk_cam_tg_flash_config tg_flash_config;
 	/* TODO: merge or integrate with mtk_cam_resource_config */
 	struct mtk_cam_resource user_res;
 	struct mtk_cam_resource_config res_config;

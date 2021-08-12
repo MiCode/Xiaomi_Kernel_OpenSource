@@ -51,6 +51,9 @@ struct mtk_cam_request;
 #define SENSOR_FMT_MASK			0xFFFF
 
 /* flags of mtk_cam_request_stream_data */
+#define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
+
+/* flags of mtk_cam_request_stream_data */
 #define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
 
 struct mtk_cam_working_buf {
@@ -173,6 +176,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_dbg_work dbg_work;
 	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct mtk_cam_req_feature feature;
+	struct mtk_cam_tg_flash_config tg_flash_config;
 	bool frame_done_queue_work;
 	struct mtk_cam_shutter_gain mtk_cam_exposure;
 };

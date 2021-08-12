@@ -27,6 +27,7 @@
 #include "mtk_cam-video.h"
 #include "mtk_cam-meta.h"
 #include "mtk_cam-seninf-if.h"
+#include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
@@ -431,36 +432,53 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_raw_pipeline *pipeline;
 	struct mtk_cam_resource_config res_cfg;
+	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
 
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
-		return mtk_cam_raw_try_res_ctrl(ctrl, &res_cfg);
-
-	}
-
+		ret = mtk_cam_raw_try_res_ctrl(ctrl, &res_cfg);
+		break;
+	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
+		ret = mtk_cam_tg_flash_try_ctrl(ctrl);
+		break;
 	// skip control doesn't support try ctrl
-	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
-		return 0;
+		ret = 0;
+		break;
+	default:
+		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
+					   ctrl, &pipeline->try_res_config,
+					   pipeline->id);
+		break;
 	}
-	return mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id], ctrl,
-				    &pipeline->try_res_config, pipeline->id);
+
+	return ret;
 }
 
 static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_raw_pipeline *pipeline;
+	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
 
-	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE)
-		return mtk_cam_raw_set_res_ctrl(ctrl);
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
+		ret = mtk_cam_raw_set_res_ctrl(ctrl);
+		break;
+	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
+		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
+		break;
+	default:
+		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
+					   ctrl, &pipeline->res_config,
+					   pipeline->id);
+		break;
+	}
 
-
-	return mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id], ctrl,
-				    &pipeline->res_config, pipeline->id);
+	return ret;
 }
 
 static const struct v4l2_ctrl_ops cam_ctrl_ops = {
@@ -641,6 +659,17 @@ static const struct v4l2_ctrl_config mstream_exposure = {
 	.max = 0xFFFFFFFF,
 	.step = 1,
 	.dims = {sizeof_u32(struct mtk_cam_mstream_exposure)},
+};
+
+static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_TG_FLASH_CFG,
+	.name = "Mediatek camsys tg flash",
+	.type = V4L2_CTRL_COMPOUND_TYPES,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof(struct mtk_cam_resource)},
 };
 
 void trigger_rawi(struct mtk_raw_device *dev)
@@ -4441,6 +4470,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
+	/* TG flash ctrls */
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_cam_tg_flash_enable, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mstream_exposure, NULL);
 	pipe->res_config.hwn_limit = hwn_limit.def;
