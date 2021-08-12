@@ -21,7 +21,7 @@ void (*fpsgo_notify_bqid_fp)(int pid, unsigned long long bufID,
 EXPORT_SYMBOL_GPL(fpsgo_notify_bqid_fp);
 void (*fpsgo_notify_vsync_fp)(void);
 EXPORT_SYMBOL_GPL(fpsgo_notify_vsync_fp);
-int (*fpsgo_get_fps_fp)(void);
+void (*fpsgo_get_fps_fp)(int *pid, int *fps);
 EXPORT_SYMBOL_GPL(fpsgo_get_fps_fp);
 void (*fpsgo_get_cmd_fp)(int *cmd, int *value1, int *value2);
 EXPORT_SYMBOL_GPL(fpsgo_get_cmd_fp);
@@ -624,7 +624,7 @@ static long device_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
-	int pwr_cmd = -1, value1 = -1, value2 = -1;
+	int pwr_cmd = -1, value1 = -1, value2 = -1, pwr_pid = -1, pwr_fps = -1;
 	struct _FPSGO_PACKAGE *msgKM = NULL,
 			*msgUM = (struct _FPSGO_PACKAGE *)arg;
 	struct _FPSGO_PACKAGE smsgKM;
@@ -675,21 +675,22 @@ static long device_ioctl(struct file *filp,
 			fpsgo_notify_swap_buffer_fp(msgKM->tid);
 		break;
 	case FPSGO_GET_FPS:
-		if (fpsgo_get_fps_fp)
-			msgKM->fps = fpsgo_get_fps_fp();
-		else
+		if (fpsgo_get_fps_fp) {
+			fpsgo_get_fps_fp(&pwr_pid, &pwr_fps);
+			msgKM->tid = pwr_pid;
+			msgKM->value1 = pwr_fps;
+		} else
 			ret = -1;
 		perfctl_copy_to_user(msgUM, msgKM,
 				sizeof(struct _FPSGO_PACKAGE));
 		break;
 	case FPSGO_GET_CMD:
-		if (fpsgo_get_fps_fp) {
+		if (fpsgo_get_cmd_fp) {
 			fpsgo_get_cmd_fp(&pwr_cmd, &value1, &value2);
 			msgKM->cmd = pwr_cmd;
 			msgKM->value1 = value1;
 			msgKM->value2 = value2;
-		}
-		else
+		} else
 			ret = -1;
 		perfctl_copy_to_user(msgUM, msgKM,
 				sizeof(struct _FPSGO_PACKAGE));

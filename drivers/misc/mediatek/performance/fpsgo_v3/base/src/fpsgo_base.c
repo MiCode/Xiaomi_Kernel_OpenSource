@@ -173,7 +173,7 @@ void fpsgo_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
 	wait_event_interruptible(pwr_queue, condition_get_cmd);
 	mutex_lock(&fpsgo2pwr_lock);
 	if (!list_empty(&head)) {
-		node=list_first_entry(&head,struct k_list ,queue_list);
+		node = list_first_entry(&head, struct k_list, queue_list);
 		*cmd = node->fpsgo2pwr_cmd;
 		*value1 = node->fpsgo2pwr_value1;
 		*value2 = node->fpsgo2pwr_value2;
