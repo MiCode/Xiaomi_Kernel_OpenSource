@@ -10212,7 +10212,6 @@
 #endif
 	};
 
-#if 0
 	cam_raw_c@1a0b0000 {
 		compatible = "mediatek,cam-raw";
 		reg = <0 0x1a0b0000 0 0x8000>,
@@ -10372,7 +10371,6 @@
 				"l30_tncso_r1";
 #endif
 	};
-#endif
 
 	camsv1@1a110000 {
 		compatible = "mediatek,camsv";
