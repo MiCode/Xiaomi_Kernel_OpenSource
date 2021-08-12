@@ -1494,7 +1494,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			mtk_cam_update_s_data_exp(ctx, req, &ctx->pipe->mstream_exposure);
 
 		/* TODO: AFO independent supports TWIN */
-		if (ctx->pipe->res_config.raw_num_used == 1)
+		/* disable until safe work queue ready */
+		if (0 && ctx->pipe->res_config.raw_num_used == 1)
 			req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
 
 		if (req_stream_data->seninf_new)
@@ -2515,6 +2516,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		destroy_workqueue(ctx->frame_done_wq);
 		ctx->composer_wq = NULL;
 		ctx->frame_done_wq = NULL;
+		dev_info(dev, "%s: destroy session", __func__);
 	}
 
 	return 0;

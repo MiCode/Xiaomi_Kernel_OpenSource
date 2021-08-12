@@ -2452,6 +2452,15 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	req = mtk_cam_s_data_get_req(s_data);
 	s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 
+	spin_lock(&ctx->streaming_lock);
+	if (!ctx->streaming) {
+		spin_unlock(&ctx->streaming_lock);
+		dev_info(ctx->cam->dev, "%s: skip for stream off ctx:%d\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+	spin_unlock(&ctx->streaming_lock);
+
 	/* Copy the meta1 output content to user buffer */
 	buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_OUT_1);
 	if (!buf) {
@@ -2463,8 +2472,8 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 
 	vb = &buf->vbb.vb2_buf;
 	node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
-
 	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+
 	memcpy(vaddr, s_data->working_buf->meta_buffer.va,
 	       s_data->working_buf->meta_buffer.size);
 
@@ -2480,8 +2489,8 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 
 	/* Let use get the buffer */
 	vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
-	dev_dbg(ctx->cam->dev, "%s:%s: req(%d) done\n",
-		__func__, req->req.debug_str, s_data->frame_seq_no);
+	dev_info(ctx->cam->dev, "%s:%s: req(%d) done\n",
+		 __func__, req->req.debug_str, s_data->frame_seq_no);
 }
 
 static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
