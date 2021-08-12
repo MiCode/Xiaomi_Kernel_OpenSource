@@ -678,6 +678,7 @@ struct swfrm_info_t {
 	int request_no;
 	int frame_no;
 	uint64_t frm_owner;
+	uint8_t is_secReq;
 	int fps;
 	int cb_frmcnt;
 	int handle;
