@@ -115,6 +115,17 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 	}
 }
 
+static void apu_setup_devapc(struct mtk_apu *apu)
+{
+	int32_t ret;
+	struct device *dev = apu->dev;
+
+	ret = (int32_t)apusys_rv_smc_call(dev,
+		MTK_APUSYS_KERNEL_OP_DEVAPC_INIT_RCX, 0);
+
+	dev_info(dev, "%s: %d\n", __func__, ret);
+}
+
 static void apu_reset_mp(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
@@ -219,6 +230,8 @@ static int mt6983_rproc_start(struct mtk_apu *apu)
 	int ns = 1; /* Non Secure */
 	int domain = 0;
 	int boundary = (u32) upper_32_bits(apu->code_da);
+
+	apu_setup_devapc(apu);
 
 	apu_setup_reviser(apu, boundary, ns, domain);
 
