@@ -39,10 +39,10 @@
 #define MML_ENGINE_TOTAL	29
 
 /* MML component types. See mtk-mml-sys.c */
-#define MML_CT_SYS	1
-#define MML_CT_PATH	2
-#define MML_CT_DL_IN	3
-#define MML_CT_DL_OUT	4
+#define MML_CT_SYS		1
+#define MML_CT_PATH		2
+#define MML_CT_DL_IN		3
+#define MML_CT_DL_OUT		4
 
 /* MML SYS registers */
 #define CG_CON0			0x100
@@ -65,6 +65,12 @@
 #define SW2_RST_B		0x708
 #define SW3_RST_B		0x70c
 #define SW4_RST_B		0x710
+#define EVENT_GCEM_EN		0x7f4
+#define EVENT_GCED_EN		0x7f8
+#define IN_LINE_READY_SEL	0x7fc
+#define SMI_LARB_GREQ		0x8dc
+#define BYPASS_MUX_SHADOW	0xf00
+#define MOUT_RST		0xf04
 /* MML DL IN/OUT registers in mt6983 */
 #define DL_IN_RELAY0_SIZE	0x220
 #define DL_IN_RELAY1_SIZE	0x224
@@ -78,8 +84,7 @@
 #define DLI_ASYNC0_STATUS1	0x244
 #define DLI_ASYNC1_STATUS0	0x248
 #define DLI_ASYNC1_STATUS1	0x24c
-#define SMI_LARB_GREQ		0x8dc
-#define MOUT_RST		0xf04
+/* MML MUX registers in mt6983 */
 #define DLI0_SEL_IN		0xf14
 #define DLI1_SEL_IN		0xf18
 #define RDMA0_MOUT_EN		0xf20
@@ -110,8 +115,8 @@
 #define DL_READY2		0xff8
 
 /* MML SYS mux types. See mtk-mml-sys.c */
-#define MML_MUX_MOUT	1
-#define MML_MUX_SOUT	2
-#define MML_MUX_SLIN	3
+#define MML_MUX_MOUT		1
+#define MML_MUX_SOUT		2
+#define MML_MUX_SLIN		3
 
 #endif	/* _DT_BINDINGS_MML_MT6983_H */
