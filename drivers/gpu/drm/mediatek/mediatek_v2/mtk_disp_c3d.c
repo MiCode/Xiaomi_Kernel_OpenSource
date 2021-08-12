@@ -25,7 +25,16 @@ static struct DISP_C3D_REG_17BIN g_c3d_reg_17bin;
 static struct DISP_C3D_REG_9BIN g_c3d_reg_9bin;
 static unsigned int g_c3d_sram_cfg[DISP_C3D_SRAM_SIZE_17BIN] = { 0 };
 static unsigned int g_c3d_sram_cfg_9bin[DISP_C3D_SRAM_SIZE_9BIN] = { 0 };
-static unsigned int *g_c3d_lut1d[HW_ENGINE_NUM] = { NULL };
+static unsigned int g_c3d_lut1d[HW_ENGINE_NUM][DISP_C3D_1DLUT_SIZE] = {
+	{0, 256, 512, 768, 1024, 1280, 1536, 1792,
+	2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840,
+	4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680,
+	8192, 9216, 10240, 11264, 12288, 13312, 14336, 15360},
+	{0, 256, 512, 768, 1024, 1280, 1536, 1792,
+	2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840,
+	4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680,
+	8192, 9216, 10240, 11264, 12288, 13312, 14336, 15360}
+};
 
 static struct DISP_C3D_LUT c3dIocData;
 
@@ -480,7 +489,7 @@ static int disp_c3d_set_1dlut(struct mtk_ddp_comp *comp,
 	if (lock)
 		mutex_lock(&g_c3d_global_lock);
 
-	lut1d = g_c3d_lut1d[id];
+	lut1d = &g_c3d_lut1d[id][0];
 	if (lut1d == NULL) {
 		pr_notice("%s: table [%d] not initialized, use default config\n", __func__, id);
 		ret = -EFAULT;
@@ -562,7 +571,7 @@ static int disp_c3d_write_1dlut_to_reg(struct mtk_ddp_comp *comp,
 		if (id >= 0 && id < HW_ENGINE_NUM) {
 			mutex_lock(&g_c3d_global_lock);
 
-			g_c3d_lut1d[id] = c3d_lut1d;
+			memcpy(&g_c3d_lut1d[id][0], c3d_lut1d, sizeof(g_c3d_lut1d[id]));
 			ret = disp_c3d_set_1dlut(comp, handle, 0);
 
 			mutex_unlock(&g_c3d_global_lock);
@@ -672,11 +681,11 @@ static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 		// Set reply mode
 		DDPINFO("g_c3d_force_relay\n");
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + C3D_CFG, 0x11, 0x11);
+			comp->regs_pa + C3D_CFG, 0x3, 0x3);
 	} else {
 		// Disable reply mode
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + C3D_CFG, 0x10, 0x11);
+			comp->regs_pa + C3D_CFG, 0x2, 0x3);
 	}
 
 	disp_c3d_set_1dlut(comp, handle, 0);
