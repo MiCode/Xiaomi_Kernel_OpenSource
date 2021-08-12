@@ -34,6 +34,7 @@ static int __init mkp_init(void)
 	/* Good position to call following APIs */
 	/* - mkp_change_policy_action           */
 	/* - mkp_request_new_policy             */
+	/* - mkp_request_new_specified_policy   */
 	/****************************************/
 
 	/* Try to protect per cpu data */

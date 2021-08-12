@@ -122,6 +122,15 @@ int mkp_change_policy_action(uint32_t policy, unsigned long policy_char_action)
 		return -1;
 }
 
+int mkp_request_new_specified_policy(unsigned long policy_char, uint32_t specified_policy)
+{
+	int ret = 0;
+
+	ret = mkp_req_new_specified_policy_hvc_call(policy_char, specified_policy);
+
+	return ret;
+}
+
 uint32_t mkp_create_handle(uint32_t policy, unsigned long ipa, unsigned long size)
 {
 	uint32_t handle = 0;
