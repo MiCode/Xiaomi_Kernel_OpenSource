@@ -23,6 +23,9 @@ static int (*subsys_init[])(struct pll_dts *array) = {
 #ifdef USE_FHCTL_MCUPM
 	&fhctl_mcupm_init,
 #endif
+#ifdef USE_FHCTL_GPUEB
+	&fhctl_gpueb_init,
+#endif
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	&fhctl_debugfs_init,
 #endif

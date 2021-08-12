@@ -1469,5 +1469,14 @@ config COMMON_CLK_MTK_FREQ_HOPPING_MCUPM
 	  Otherwise, say N.
 	  Enabling this config will auto set COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
 
+config COMMON_CLK_MTK_FREQ_HOPPING_GPUEB
+	bool "Mediatek Frequency Hopping controlled by GPUEB"
+	depends on COMMON_CLK_MTK_FREQ_HOPPING && MTK_TINYSYS_GPUEB_SUPPORT
+	select COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+	help
+	  If FREQHOPPING HW is controlled by GPUEB,
+	  say Y here.
+	  Otherwise, say N.
+	  Enabling this config will auto set COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
 
 endmenu
