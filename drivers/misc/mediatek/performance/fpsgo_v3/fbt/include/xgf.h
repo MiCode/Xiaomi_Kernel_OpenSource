@@ -276,12 +276,16 @@ int xgf_get_display_rate(void);
 int xgf_get_process_id(int pid);
 int xgf_check_main_sf_pid(int pid, int process_id);
 int xgf_check_specific_pid(int pid);
+int fpsgo_ko2xgf_get_fps_level(int pid, unsigned long long bufID,
+	int target_fps);
 void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
 	unsigned long long l_runtime, unsigned long long r_runtime);
 void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 	int *l_arr, int l_num, int *r_arr, int r_num,
 	unsigned long long l_start_ts,
 	unsigned long long f_start_ts);
+void xgf_set_timer_info(int pid, unsigned long long bufID,
+	int hrtimer_pid, int hrtimer_flag);
 
 long long xgf_ema2_predict(struct xgf_ema2_predictor *pt, long long X);
 

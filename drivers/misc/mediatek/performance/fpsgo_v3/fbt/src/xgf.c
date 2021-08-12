@@ -340,6 +340,12 @@ int xgf_check_specific_pid(int pid)
 }
 EXPORT_SYMBOL(xgf_check_specific_pid);
 
+int fpsgo_ko2xgf_get_fps_level(int pid, unsigned long long bufID, int target_fps)
+{
+	return -EINVAL;
+}
+EXPORT_SYMBOL(fpsgo_ko2xgf_get_fps_level);
+
 static inline int xgf_is_enable(void)
 {
 	xgf_lockprove(__func__);
@@ -1812,6 +1818,13 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 		l_start_ts, f_start_ts);
 }
 EXPORT_SYMBOL(xgf_set_logical_render_info);
+
+void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag)
+{
+	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_pid, "ctrl_fps_pid");
+	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
+}
+EXPORT_SYMBOL(xgf_set_timer_info);
 
 static ssize_t deplist_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
