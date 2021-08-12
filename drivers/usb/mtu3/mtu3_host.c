@@ -174,6 +174,9 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 			NOISE_STILL_TRANSFER);
 	}
 
+	/* update txdeemph */
+	ssusb_set_txdeemph(ssusb);
+
 	return ret;
 }
 

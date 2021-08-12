@@ -310,6 +310,7 @@ struct ssusb_mtk {
 	bool force_vbus;
 	bool hw_req_ctrl;
 	bool noise_still_tr;
+	bool gen1_txdeemph;
 	/* usb wakeup for host mode */
 	bool uwk_en;
 	struct regmap *uwk;
@@ -477,6 +478,7 @@ int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
 void ssusb_set_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
+void ssusb_set_txdeemph(struct ssusb_mtk *ssusb);
 struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags);
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req);
 void mtu3_req_complete(struct mtu3_ep *mep,
