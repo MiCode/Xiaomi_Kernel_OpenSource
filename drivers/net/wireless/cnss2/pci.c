@@ -4739,6 +4739,7 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
+	case WCN7850_DEVICE_ID:
 		pci_priv->dma_bit_mask = PCI_DMA_MASK_36_BIT;
 		break;
 	default:
@@ -4919,7 +4920,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 
 	if (!cnss_pci_check_link_status(pci_priv))
-		mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+		cnss_mhi_debug_reg_dump(pci_priv);
 
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
@@ -5777,7 +5778,7 @@ static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
 
 	disable_irq_wake(pci_priv->wake_irq);
 	free_irq(pci_priv->wake_irq, pci_priv);
-	gpio_free(pci_priv->wake_gpio;
+	gpio_free(pci_priv->wake_gpio);
 }
 #else
 static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
