@@ -113,6 +113,23 @@ static const struct resource mt6368_accdet_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
 };
 
+static const struct resource mt6368_regulators_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VUSB_OC, "VUSB"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VAUX18_OC, "VAUX18"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VRF13_AIF_OC, "VRF13_AIF"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VRF18_AIF_OC, "VRF18_AIF"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VANT18_OC, "VANT18"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VIBR_OC, "VIBR"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VIO28_OC, "VIO28"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VFP_OC, "VFP"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VTP_OC, "VTP"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VMCH_OC, "VMCH"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VMC_OC, "VMC"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VCN33_1_OC, "VCN33_1"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VCN33_2_OC, "VCN33_2"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VEFUSE_OC, "VEFUSE"),
+};
+
 static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt6363-auxadc",
@@ -152,6 +169,8 @@ static const struct mfd_cell mt6368_devs[] = {
 		.resources = mt6368_accdet_resources,
 	}, {
 		.name = "mt6368-regulator",
+		.num_resources = ARRAY_SIZE(mt6368_regulators_resources),
+		.resources = mt6368_regulators_resources,
 	}, {
 		.name = "mt6368-auxadc",
 		.of_compatible = "mediatek,mt6368-auxadc",
