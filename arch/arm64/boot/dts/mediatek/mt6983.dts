@@ -1350,6 +1350,10 @@
 			compatible = "mediatek,radio_md_cfg";
 		};
 
+		goodix_fp: fingerprint {
+			compatible = "mediatek,goodix-fp";
+		};
+
 	};
 
 	mcupm: mcupm@0c070000 {
