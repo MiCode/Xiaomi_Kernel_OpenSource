@@ -469,7 +469,7 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
 
-				if (mtk_cam_is_mstream(ctx)) {
+				if (feature_is_mstream(req_stream_data->feature.raw_feature)) {
 					struct mtk_cam_request_stream_data *req_stream_data_mstream
 						= mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 					finish_cq_buf(req_stream_data_mstream);
