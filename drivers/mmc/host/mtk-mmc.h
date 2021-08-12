@@ -633,6 +633,7 @@ struct msdc_host {
 	u32 data_timeout_cont; /* data continuous timeout */
 	/* set vcore floor */
 	u32 req_vcore;
+	u32 ocr_volt;
 	struct regulator *dvfsrc_vcore_power;
 };
 

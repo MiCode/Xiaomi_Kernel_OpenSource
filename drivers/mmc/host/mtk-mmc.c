@@ -2364,6 +2364,12 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 	} else
 		pr_info("mmc%d:req-vcore:%d\n", host->id, host->req_vcore);
 
+	if (of_property_read_u32(pdev->dev.of_node, "ocr-voltage", &host->ocr_volt)) {
+		pr_info("mmc%d:failed to get ocr_volt\n", host->id);
+		host->ocr_volt = 0;
+	} else
+		pr_info("mmc%d:ocr-voltage:%d\n", host->id, host->ocr_volt);
+
 	if (of_property_read_bool(pdev->dev.of_node,
 				  "mediatek,hs400-cmd-resp-sel-rising"))
 		host->hs400_cmd_resp_sel_rising = true;
@@ -2508,6 +2514,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host->dev_comp = of_device_get_match_data(&pdev->dev);
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	host->src_clk_freq = clk_get_rate(host->src_clk);
+	/* Because of the chip manufacturing process, the VMC voltage cannot be too high */
+	if (host->ocr_volt != 0)
+		mmc->ocr_avail = host->ocr_volt;
 #else
 	host->src_clk_freq = FPGA_SRC_CLK;
 	mmc->ocr_avail = MSDC_OCR_AVAIL;
