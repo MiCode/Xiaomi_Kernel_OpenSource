@@ -1050,6 +1050,12 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		CMDQ_MSG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");
 		status = mdp_ioctl_read_readback_slots(param);
 		break;
+#ifdef MDP_COMMAND_SIMULATE
+	case CMDQ_IOCTL_SIMULATE:
+		CMDQ_LOG("ioctl CMDQ_IOCTL_SIMULATE\n");
+		status = mdp_ioctl_simulate(param);
+		break;
+#endif
 	default:
 		CMDQ_ERR("unrecognized ioctl 0x%08x\n", code);
 		return -ENOIOCTLCMD;
@@ -1081,6 +1087,7 @@ static long cmdq_ioctl_compat(struct file *pFile, unsigned int code,
 	case CMDQ_IOCTL_ALLOC_READBACK_SLOTS:
 	case CMDQ_IOCTL_FREE_READBACK_SLOTS:
 	case CMDQ_IOCTL_READ_READBACK_SLOTS:
+	case CMDQ_IOCTL_SIMULATE:
 		/* All ioctl structures should be the same size in
 		 * 32-bit and 64-bit linux.
 		 */

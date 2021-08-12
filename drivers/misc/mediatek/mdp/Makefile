@@ -38,6 +38,9 @@ ifeq ($(strip $(CONFIG_MTK_IOMMU)),y)
 #ccflags-y += -DMDP_IOMMU_DEBUG
 endif
 
+# dump mdp command
+#ccflags-y += -DMDP_COMMAND_SIMULATE
+
 # secure path
 ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
