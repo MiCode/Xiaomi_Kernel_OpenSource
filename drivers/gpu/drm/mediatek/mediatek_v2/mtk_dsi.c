@@ -2993,6 +2993,11 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	old_mode = &(mtk_crtc->avail_modes[src_mode_idx]);
 	adjust_mode = &(mtk_crtc->avail_modes[dst_mode_idx]);
 
+	if (adjust_mode == NULL) {
+		DDPINFO("%s %d adjust mode is NULL\n", __func__, __LINE__);
+		mtk_crtc->fps_change_index = fps_chg_index;
+		return -EINVAL;
+	}
 	if (panel_ext && panel_ext->funcs &&
 		panel_ext->funcs->ext_param_set) {
 		DDPINFO("%s, %d ext_param_set\n", __func__, __LINE__);
