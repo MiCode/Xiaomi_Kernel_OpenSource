@@ -407,6 +407,7 @@ static int mtk_usb_extcon_id_pin_init(struct mtk_extcon_info *extcon)
 		extcon->id_gpiod = NULL;
 		return ret;
 	}
+	enable_irq_wake(extcon->id_irq);
 
 	// get id pin value when boot on
 	id = extcon->id_gpiod ?	gpiod_get_value_cansleep(extcon->id_gpiod) : 1;
