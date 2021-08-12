@@ -46,6 +46,7 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 		return -1;
 	}
 
+#if !IPI_TEST
 	// IPI channel - CH_PLATFORM register
 	ret = mtk_ipi_register(&gpueb_ipidev,
 			channel_id,
@@ -54,9 +55,12 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 			(void *)&plat_service_init_ret);
 
 	if (ret != IPI_ACTION_DONE) {
-		gpueb_pr_debug("ipi register fail!");
-		return ret;
+		gpueb_pr_debug("%s: ipi:#%d register fail! ret = %d\n",
+				__func__, channel_id, ret);
+		if (ret != IPI_DUPLEX)
+			return ret;
 	}
+#endif
 
 #if PLAT_IPI_TEST
 	/* Check gpueb alive and IPI is OK */
@@ -84,5 +88,5 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 			__func__, plat_service_init_ret);
 #endif // PLAT_IPI_TEST
 
-	return 0;
+	return ret;
 }

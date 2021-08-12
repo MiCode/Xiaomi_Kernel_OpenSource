@@ -8,6 +8,8 @@
 
 // Common implementation
 #define IPI_TIMEOUT_MS     3000U
+/* GPUEB side set CFG_AP_EB_IPI_TEST=yes to do IPI test */
+#define IPI_TEST           0
 
 extern struct mtk_mbox_device   gpueb_mboxdev;
 extern struct mtk_ipi_device    gpueb_ipidev;
@@ -21,5 +23,9 @@ int gpueb_ipi_init(struct platform_device *pdev);
 int gpueb_get_send_PIN_ID_by_name(char *send_PIN_name);
 int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name);
 void *get_gpueb_ipidev(void);
+
+#if IPI_TEST
+int gpueb_ipi_test(struct platform_device *pdev);
+#endif
 
 #endif /* __GPUEB_IPI_H__ */
