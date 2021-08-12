@@ -44,7 +44,6 @@ DECLARE_HOOK(android_vh_v4l2subdev_set_frame_interval,
 	int *ret),
 	TP_ARGS(sd, fi, ret));
 
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 DECLARE_RESTRICTED_HOOK(android_rvh_v4l2subdev_set_selection,
 	TP_PROTO(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *pad,
 	struct v4l2_subdev_selection *sel, int *ret),
@@ -59,7 +58,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_v4l2subdev_set_frame_interval,
 	TP_PROTO(struct v4l2_subdev *sd, struct v4l2_subdev_frame_interval *fi,
 	int *ret),
 	TP_ARGS(sd, fi, ret), 1);
-#endif
+
 #endif /* _TRACE_HOOK_V4L2CORE_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

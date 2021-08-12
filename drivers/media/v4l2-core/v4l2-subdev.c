@@ -520,10 +520,8 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 			return -EPERM;
 		trace_android_vh_v4l2subdev_set_fmt(sd, subdev_fh->pad,
 					format, &ret);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 		trace_android_rvh_v4l2subdev_set_fmt(sd, subdev_fh->pad,
 					format, &ret);
-#endif
 		if (ret)
 			return ret;
 
@@ -602,9 +600,7 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 		if (ro_subdev)
 			return -EPERM;
 		trace_android_vh_v4l2subdev_set_frame_interval(sd, fi, &ret);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 		trace_android_rvh_v4l2subdev_set_frame_interval(sd, fi, &ret);
-#endif
 		if (ret)
 			return ret;
 
@@ -636,10 +632,8 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 			return -EPERM;
 		trace_android_vh_v4l2subdev_set_selection(sd, subdev_fh->pad,
 					sel, &ret);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 		trace_android_rvh_v4l2subdev_set_selection(sd, subdev_fh->pad,
 					sel, &ret);
-#endif
 		if (ret)
 			return ret;
 

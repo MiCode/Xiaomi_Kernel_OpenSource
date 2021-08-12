@@ -225,9 +225,7 @@ static long media_device_setup_link(struct media_device *mdev, void *arg)
 
 	/* Setup the link on both entities */
 	trace_android_vh_media_device_setup_link(link, linkd, &ret);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 	trace_android_rvh_media_device_setup_link(link, linkd, &ret);
-#endif
 	if (ret)
 		return ret;
 

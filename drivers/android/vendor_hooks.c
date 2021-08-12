@@ -72,6 +72,7 @@
 #include <trace/hooks/ipv6.h>
 #include <trace/hooks/sound.h>
 #include <trace/hooks/snd_compr.h>
+#include <trace/hooks/ipv4.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -331,24 +332,16 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_task_comm);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpufreq_acct_update_power);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_typec_tcpm_log);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_media_device_setup_link);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_media_device_setup_link);
-#endif
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_clear_reserved_fmt_fields);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_fill_ext_fmtdesc);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_clear_mask_adjust);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_v4l2subdev_set_selection);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_v4l2subdev_set_selection);
-#endif
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_v4l2subdev_set_fmt);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_v4l2subdev_set_fmt);
-#endif
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_v4l2subdev_set_frame_interval);
-#ifdef CONFIG_MTK_CAMSYS_VENDOR_HOOK
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_v4l2subdev_set_frame_interval);
-#endif
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_scmi_timeout_sync);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_new_ilb);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_uid);
@@ -378,3 +371,9 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_usb_dev_resume);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipv6_gen_linklocal_addr);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sound_usb_support_cpu_suspend);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_snd_compr_use_pause_in_drain);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_show_max_freq);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_sendmsg_locked);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_recvmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_udp_sendmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_udp_recvmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_recvmsg_stat);
