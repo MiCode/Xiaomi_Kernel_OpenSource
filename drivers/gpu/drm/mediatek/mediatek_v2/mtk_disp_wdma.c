@@ -1159,10 +1159,12 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
-	if (comp->mtk_crtc->sec_on) {
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");
 		return 0;
 	}
+
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -1258,7 +1260,8 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
-	if (comp->mtk_crtc->sec_on) {
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");
 		return 0;
 	}
