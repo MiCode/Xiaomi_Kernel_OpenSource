@@ -169,6 +169,10 @@ enum smi_log_level {
 	log_set_bw,
 };
 
+#define MAX_INIT_POWER_ON_DEV	(3)
+static struct mtk_smi *init_power_on_dev[MAX_INIT_POWER_ON_DEV];
+static unsigned int init_power_on_num;
+
 static struct scmi_tinysys_info_st *tinfo;
 static int feature_id = -1;
 
@@ -205,6 +209,19 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
+
+void mtk_smi_init_power_off(void)
+{
+	int i;
+	struct mtk_smi *smi;
+
+	for (i = 0; i < init_power_on_num; i++) {
+		smi = init_power_on_dev[i];
+		atomic_dec(&smi->ref_count);
+		pm_runtime_put_sync(smi->dev);
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_smi_init_power_off);
 
 static int mtk_smi_clk_enable(const struct mtk_smi *smi)
 {
@@ -1219,6 +1236,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "init-power-on")) {
 		atomic_inc(&larb->smi.ref_count);
 		pm_runtime_get_sync(dev);
+		init_power_on_dev[init_power_on_num++] = &larb->smi;
 	}
 
 	return ret;
@@ -1701,6 +1719,12 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 
 	if (of_parse_phandle(dev->of_node, "mediatek,cmdq", 0))
 		kthr = kthread_run(smi_cmdq, dev, __func__);
+
+	if (of_property_read_bool(dev->of_node, "init-power-on")) {
+		atomic_inc(&common->ref_count);
+		pm_runtime_get_sync(dev);
+		init_power_on_dev[init_power_on_num++] = common;
+	}
 
 	return 0;
 }
