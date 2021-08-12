@@ -21,6 +21,7 @@
 #include "../common/mtk-afe-fe-dai.h"
 #include "../common/mtk-sp-pcm-ops.h"
 #include "../common/mtk-sram-manager.h"
+#include "../common/mtk-mmap-ion.h"
 
 #include "mt6983-afe-common.h"
 #include "mt6983-afe-clk.h"
@@ -34,6 +35,11 @@
 #endif
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
+
+#define AFE_SYS_DEBUG_SIZE (1024 * 32) // 32K
+#define MAX_DEBUG_WRITE_INPUT 256
+
+static ssize_t mt6983_debug_read_reg(char *buffer, int size, struct mtk_base_afe *afe);
 
 static const struct snd_pcm_hardware mt6983_afe_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP |
@@ -1090,6 +1096,144 @@ static int mt6983_adsp_mem_set(struct snd_kcontrol *kcontrol,
 }
 #endif
 
+static int mt6983_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6983_afe_private *afe_priv = afe->platform_priv;
+
+	ucontrol->value.integer.value[0] = afe_priv->mmap_playback_state;
+	return 0;
+}
+
+static int mt6983_mmap_dl_scene_set(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6983_afe_private *afe_priv = afe->platform_priv;
+	int memif_num = MT6983_MMAP_DL_MEMIF;
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	afe_priv->mmap_playback_state = ucontrol->value.integer.value[0];
+
+	if (afe_priv->mmap_playback_state == 1) {
+		unsigned long phy_addr;
+		void *vir_addr;
+
+		mtk_get_mmap_dl_buffer(&phy_addr, &vir_addr);
+
+		if (phy_addr != 0x0 && vir_addr)
+			memif->use_mmap_share_mem = 1;
+	} else {
+		memif->use_mmap_share_mem = 0;
+	}
+
+	dev_info(afe->dev, "%s(), state %d, mem %d\n", __func__,
+		 afe_priv->mmap_playback_state, memif->use_mmap_share_mem);
+	return 0;
+}
+
+static int mt6983_mmap_ul_scene_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6983_afe_private *afe_priv = afe->platform_priv;
+
+	ucontrol->value.integer.value[0] = afe_priv->mmap_record_state;
+	return 0;
+}
+
+static int mt6983_mmap_ul_scene_set(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6983_afe_private *afe_priv = afe->platform_priv;
+	int memif_num = MT6983_MMAP_UL_MEMIF;
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	afe_priv->mmap_record_state = ucontrol->value.integer.value[0];
+
+	if (afe_priv->mmap_record_state == 1) {
+		unsigned long phy_addr;
+		void *vir_addr;
+
+		mtk_get_mmap_ul_buffer(&phy_addr, &vir_addr);
+
+		if (phy_addr != 0x0 && vir_addr)
+			memif->use_mmap_share_mem = 2;
+	} else {
+		memif->use_mmap_share_mem = 0;
+	}
+
+	dev_info(afe->dev, "%s(), state %d, mem %d\n", __func__,
+		 afe_priv->mmap_record_state, memif->use_mmap_share_mem);
+	return 0;
+}
+
+static int mt6983_mmap_ion_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int mt6983_mmap_ion_set(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(afe->dev, "%s()\n", __func__);
+	mtk_exporter_init(afe->dev);
+	return 0;
+}
+
+static int mt6983_dl_mmap_fd_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_num = MT6983_MMAP_DL_MEMIF;
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 1) ?
+					    mtk_get_mmap_dl_fd() : 0;
+	dev_info(afe->dev, "%s, fd %ld\n", __func__,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mt6983_dl_mmap_fd_set(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int mt6983_ul_mmap_fd_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_num = MT6983_MMAP_UL_MEMIF;
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 2) ?
+					    mtk_get_mmap_ul_fd() : 0;
+	dev_info(afe->dev, "%s, fd %ld\n", __func__,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mt6983_ul_mmap_fd_set(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
 static const struct snd_kcontrol_new mt6983_pcm_kcontrols[] = {
 	SOC_SINGLE_EXT("Audio IRQ1 CNT", SND_SOC_NOPM, 0, 0x3ffff, 0,
 		       mt6983_irq_cnt1_get, mt6983_irq_cnt1_set),
@@ -1163,6 +1307,22 @@ static const struct snd_kcontrol_new mt6983_pcm_kcontrols[] = {
 		       mt6983_adsp_mem_get,
 		       mt6983_adsp_mem_set),
 #endif
+	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6983_mmap_dl_scene_get, mt6983_mmap_dl_scene_set),
+	SOC_SINGLE_EXT("mmap_record_scenario", SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6983_mmap_ul_scene_get, mt6983_mmap_ul_scene_set),
+	SOC_SINGLE_EXT("aaudio_ion",
+		       SND_SOC_NOPM, 0, 0xffffffff, 0,
+		       mt6983_mmap_ion_get,
+		       mt6983_mmap_ion_set),
+	SOC_SINGLE_EXT("aaudio_dl_mmap_fd",
+		       SND_SOC_NOPM, 0, 0xffffffff, 0,
+		       mt6983_dl_mmap_fd_get,
+		       mt6983_dl_mmap_fd_set),
+	SOC_SINGLE_EXT("aaudio_ul_mmap_fd",
+		       SND_SOC_NOPM, 0, 0xffffffff, 0,
+		       mt6983_ul_mmap_fd_get,
+		       mt6983_ul_mmap_fd_set),
 };
 
 static int ul_tinyconn_event(struct snd_soc_dapm_widget *w,
@@ -3030,6 +3190,9 @@ static bool mt6983_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_DOMAIN_SIDEBAND0_MON:
 	case AFE_DOMAIN_SIDEBAND1_MON:
 	case AFE_DOMAIN_SIDEBAND2_MON:
+	case AFE_ADDA_MTKAIFV4_MON0:
+	case AFE_ADDA_MTKAIFV4_MON1:
+	case AFE_ADDA6_MTKAIFV4_MON0:
 	case AFE_DOMAIN_SIDEBAND3_MON:
 	case AFE_APLL1_TUNER_CFG:	/* [20:31] is monitor */
 	case AFE_APLL2_TUNER_CFG:	/* [20:31] is monitor */
@@ -3068,7 +3231,7 @@ static irqreturn_t mt6983_afe_irq_handler(int irq_id, void *dev)
 	struct mtk_base_afe_irq *irq;
 	unsigned int status = 0;
 	unsigned int status_mcu;
-	unsigned int mcu_en;
+	unsigned int mcu_en = 0;
 	int ret;
 	int i;
 
@@ -3310,10 +3473,130 @@ static const struct mtk_audio_sram_ops mt6983_sram_ops = {
 	.set_sram_mode = mt6983_set_sram_mode,
 };
 
+static u32 copy_from_buffer_request(void *dest, size_t destsize, const void *src,
+				    size_t srcsize, u32 offset, size_t request)
+{
+	/* if request == -1, offset == 0, copy full srcsize */
+	if (offset + request > srcsize)
+		request = srcsize - offset;
+
+	/* if destsize == -1, don't check the request size */
+	if (!dest || destsize < request) {
+		pr_info("%s, buffer null or not enough space", __func__);
+		return 0;
+	}
+
+	memcpy(dest, src + offset, request);
+	return request;
+}
+
+/*
+ * sysfs bin_attribute node
+ */
+
+static ssize_t afe_sysfs_debug_read(struct file *filep, struct kobject *kobj,
+				    struct bin_attribute *attr,
+				    char *buf, loff_t offset, size_t size)
+{
+	size_t read_size, ceil_size, page_mask;
+	ssize_t ret;
+	struct mtk_base_afe *afe = (struct mtk_base_afe *)attr->private;
+	char *buffer = NULL; /* for reduce kernel stack */
+
+	buffer = kmalloc(AFE_SYS_DEBUG_SIZE, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
+
+	// sys fs op align with page size
+	read_size = mt6983_debug_read_reg(buffer, AFE_SYS_DEBUG_SIZE, afe);
+	page_mask = ~(PAGE_SIZE-1);
+	ceil_size = (read_size&page_mask) + PAGE_SIZE;
+
+	ret = copy_from_buffer_request(buf, -1, buffer, ceil_size, offset, size);
+	kfree(buffer);
+
+	return ret;
+}
+
+/*
+ * sysfs bin_attribute node
+ */
+static ssize_t afe_sysfs_debug_write(struct file *filep, struct kobject *kobj,
+				     struct bin_attribute *attr,
+				     char *buf, loff_t offset, size_t size)
+{
+	struct mtk_base_afe *afe = (struct mtk_base_afe *)attr->private;
+
+	char input[MAX_DEBUG_WRITE_INPUT];
+	char *temp, *command, *str_begin;
+	char delim[] = " ,";
+
+	if (!size) {
+		dev_info(afe->dev, "%s(), count is 0, return directly\n",
+			 __func__);
+		goto exit;
+	}
+
+	if (size > MAX_DEBUG_WRITE_INPUT)
+		size = MAX_DEBUG_WRITE_INPUT;
+
+	memset((void *)input, 0, MAX_DEBUG_WRITE_INPUT);
+	memcpy(input, buf, size);
+
+	str_begin = kstrndup(input, MAX_DEBUG_WRITE_INPUT - 1,
+			     GFP_KERNEL);
+
+	if (!str_begin) {
+		dev_info(afe->dev, "%s(), kstrdup fail\n", __func__);
+		goto exit;
+	}
+	temp = str_begin;
+
+	command = strsep(&temp, delim);
+
+	if (strcmp("write_reg", command) == 0)
+		mtk_afe_write_reg(afe, (void *)temp);
+exit:
+
+	return size;
+}
+
+struct bin_attribute bin_attr_afe_dump = {
+	.attr = {
+		.name = "mtk_afe_node",
+		.mode = 0444,
+	},
+	.size = AFE_SYS_DEBUG_SIZE,
+	.read = afe_sysfs_debug_read,
+	.write = afe_sysfs_debug_write,
+};
+
+static struct bin_attribute *afe_bin_attrs[] = {
+	&bin_attr_afe_dump,
+	NULL,
+};
+
+struct attribute_group afe_bin_attr_group = {
+	.name = "mtk_afe_attrs",
+	.bin_attrs = afe_bin_attrs,
+};
+
 static int mt6983_afe_component_probe(struct snd_soc_component *component)
 {
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	struct snd_soc_card *sndcard = component->card;
+	struct snd_card *card = sndcard->snd_card;
+	int ret = 0;
+
 	mtk_afe_add_sub_dai_control(component);
 	mt6983_add_misc_control(component);
+
+	if (component) {
+		bin_attr_afe_dump.private = (void *)afe;
+		ret = snd_card_add_dev_attr(card, &afe_bin_attr_group);
+		if (ret)
+			pr_info("snd_card_add_dev_attr fail\n");
+	}
 	return 0;
 }
 
@@ -3322,24 +3605,17 @@ static const struct snd_soc_component_driver mt6983_afe_component = {
 	.probe = mt6983_afe_component_probe,
 	.pcm_construct = mtk_afe_pcm_new,
 	.pcm_destruct = mtk_afe_pcm_free,
+	.open = mtk_afe_pcm_open,
 	.pointer = mtk_afe_pcm_pointer,
 	.copy_user = mtk_afe_pcm_copy_user,
 };
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-static ssize_t mt6983_debugfs_read(struct file *file, char __user *buf,
-				   size_t count, loff_t *pos)
+static ssize_t mt6983_debug_read_reg(char *buffer, int size, struct mtk_base_afe *afe)
 {
-	struct mtk_base_afe *afe = file->private_data;
-	struct mt6983_afe_private *afe_priv = afe->platform_priv;
-	const int size = 32768;
-	char *buffer = NULL; /* for reduce kernel stack */
-	int n = 0;
-	int ret = 0;
+	int n = 0, i = 0;
 	unsigned int value;
-	int i;
+	struct mt6983_afe_private *afe_priv = afe->platform_priv;
 
-	buffer = kmalloc(size, GFP_KERNEL);
 	if (!buffer)
 		return -ENOMEM;
 
@@ -6714,6 +6990,23 @@ static ssize_t mt6983_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe->regmap, AFE_AGENT_ON_CLR, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "AFE_AGENT_ON_CLR = 0x%x\n", value);
+	return n;
+}
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+static ssize_t mt6983_debugfs_read(struct file *file, char __user *buf,
+				   size_t count, loff_t *pos)
+{
+	struct mtk_base_afe *afe = file->private_data;
+	const int size = AFE_SYS_DEBUG_SIZE;
+	char *buffer = NULL; /* for reduce kernel stack */
+	int n = 0, ret = 0;
+
+	buffer = kmalloc(size, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
+
+	n = mt6983_debug_read_reg(buffer, size, afe);
 
 	ret = simple_read_from_buffer(buf, count, pos, buffer, n);
 	kfree(buffer);
