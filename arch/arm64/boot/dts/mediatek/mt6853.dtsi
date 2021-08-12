@@ -1587,7 +1587,7 @@
 			mediatek,ap_plat_info = <6853>;
 			mediatek,md_generation = <6297>;
 			mediatek,offset_apon_md1 = <0x2844>;
-			mediatek,cldma_capability = <6>;
+			mediatek,cldma_capability = <14>;
 			/* bit0~1: srcclkena|srclken_o1_on */
 			mediatek,srclkena_setting = <3>;
 			/* srclken_o1 set value |= 1<<21 */
