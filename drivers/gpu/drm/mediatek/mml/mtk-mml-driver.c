@@ -278,7 +278,7 @@ static void comp_master_deinit(struct device *dev)
 
 static const char *comp_clock_names = "comp-clock-names";
 
-static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
+static s32 comp_init(struct platform_device *pdev, struct mml_comp *comp,
 	const char *clkpropname)
 {
 	struct device *dev = &pdev->dev;
@@ -288,12 +288,11 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 	const char *clkname;
 	int i, ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	comp->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 	if (!res) {
 		dev_err(dev, "failed to get resource\n");
 		return -EINVAL;
 	}
-	comp->base = devm_ioremap_resource(dev, res);
 	comp->base_pa = res->start;
 
 	/* ignore clks if clkpropname is null as subcomponent */
@@ -322,7 +321,7 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 		}
 		if (i < ARRAY_SIZE(comp->clks))
 			comp->clks[i] = ERR_PTR(-ENOENT);
-	} else if (clkpropname == comp_clock_names) {
+	} else if (!comp->sub_idx) {
 		/* get all clks as component */
 		for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
 			comp->clks[i] = of_clk_get(node, i);
@@ -332,6 +331,7 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 		if (!i)
 			dev_info(dev, "no clks in node %s\n", node->full_name);
 	} else {
+		/* no named clks as subcomponent */
 		dev_info(dev, "no %s property in node %s\n",
 			 clkpropname, node->full_name);
 	}
@@ -352,7 +352,7 @@ s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 		return -EINVAL;
 	}
 	comp->id = comp_id;
-	return __comp_init(comp_pdev, comp, comp_clock_names);
+	return comp_init(comp_pdev, comp, comp_clock_names);
 }
 EXPORT_SYMBOL_GPL(mml_comp_init);
 
@@ -383,8 +383,10 @@ s32 mml_subcomp_init(struct platform_device *comp_pdev,
 			name[sizeof(name) - 1] = '\0';
 		}
 		name_ptr = name;
+	} else if (!comp->sub_idx) {
+		name_ptr = comp_clock_names;
 	}
-	return __comp_init(comp_pdev, comp, name_ptr);
+	return comp_init(comp_pdev, comp, name_ptr);
 }
 EXPORT_SYMBOL_GPL(mml_subcomp_init);
 
@@ -405,15 +407,13 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 		comp->smi_base = res.start;
 
 	larb_pdev = of_find_device_by_node(larb_args.np);
+	of_node_put(larb_args.np);
 	if (WARN_ON(!larb_pdev)) {
-		of_node_put(larb_args.np);
 		mml_log("%s no larb and defer", __func__);
 		return -EPROBE_DEFER;
 	}
 	/* larb dev for smi api */
 	comp->larb_dev = &larb_pdev->dev;
-
-	of_node_put(larb_args.np);
 
 	/* also do mmqos and mmdvfs since dma component do init here */
 	comp->icc_path = of_mtk_icc_get(dev, "mml_dma");
@@ -653,7 +653,7 @@ void mml_unregister_comp(struct device *master, struct mml_comp *comp)
 }
 EXPORT_SYMBOL_GPL(mml_unregister_comp);
 
-static int comp_bind(struct device *dev, struct device *master, void *data)
+static int sys_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_dev *mml = dev_get_drvdata(dev);
 	struct mtk_mml_sys *sys = mml->sys;
@@ -661,7 +661,7 @@ static int comp_bind(struct device *dev, struct device *master, void *data)
 	return mml_sys_bind(dev, master, sys);
 }
 
-static void comp_unbind(struct device *dev, struct device *master, void *data)
+static void sys_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_dev *mml = dev_get_drvdata(dev);
 	struct mtk_mml_sys *sys = mml->sys;
@@ -670,8 +670,8 @@ static void comp_unbind(struct device *dev, struct device *master, void *data)
 }
 
 static const struct component_ops sys_comp_ops = {
-	.bind	= comp_bind,
-	.unbind = comp_unbind,
+	.bind	= sys_bind,
+	.unbind = sys_unbind,
 };
 
 static bool dbg_probed;
@@ -699,7 +699,7 @@ static int mml_probe(struct platform_device *pdev)
 	ret = comp_master_init(dev, mml);
 	if (ret) {
 		dev_err(dev, "failed to initialize mml component master\n");
-		goto err_init_comp;
+		goto err_init_master;
 	}
 	mml->sys = mml_sys_create(pdev, &sys_comp_ops);
 	if (IS_ERR(mml->sys)) {
@@ -745,7 +745,7 @@ err_mbox_create:
 		}
 err_sys_add:
 	comp_master_deinit(dev);
-err_init_comp:
+err_init_master:
 	devm_kfree(dev, mml);
 	return ret;
 }

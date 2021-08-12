@@ -203,8 +203,8 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 	stop = false;
 	/* tile calculate */
 	while (tile_state != TILE_DONE) {
-		tiles[tile_cnt].h_tile_no = tile_param->ptr_tile_reg_map->curr_horizontal_tile_no;
-		tiles[tile_cnt].v_tile_no = tile_param->ptr_tile_reg_map->curr_vertical_tile_no;
+		tiles[tile_cnt].h_tile_no = tile_reg_map->curr_horizontal_tile_no;
+		tiles[tile_cnt].v_tile_no = tile_reg_map->curr_vertical_tile_no;
 
 		result = tile_proc_main_single(tile_reg_map, tile_func,
 			tile_cnt, &stop);

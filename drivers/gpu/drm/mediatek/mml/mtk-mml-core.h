@@ -452,9 +452,11 @@ struct mml_tile_config {
 };
 
 struct mml_tile_output {
-	/* total how many tiles */
+	/* total tile number */
 	u16 tile_cnt;
+	/* total horizontal tile number */
 	u16 h_tile_cnt;
+	/* total vertical tile number */
 	u16 v_tile_cnt;
 	struct mml_tile_config *tiles;
 };
