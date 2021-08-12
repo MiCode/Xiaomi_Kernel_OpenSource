@@ -317,11 +317,15 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 	{0, 0, 0, 0} };
 /* (128-bits ALIGN work-around)*/
 #define fld_blink_weight_size 6528 //6416 +(128-(6416%128))%128
+#define fld_blink_weight_size_non_align 6416
 #define fld_cv_size 1280
 #define fld_cv_size_00 1536
+#define fld_cv_size_00_non_align 1472
 #define fld_fp_size 5376 //5344+(128-(5344%128))%128
+#define fld_fp_size_non_align 5344
 #define fld_leafnode_size 307200
 #define fld_tree_size 8064 //8000 +(128-(8000%128))%128
+#define fld_tree_size_non_align 8000
 #define fld_result_size 112
 #define fld_forest 14
 #define fld_point 500
@@ -2225,8 +2229,8 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	dev_info(fd->dev, "aie_load_fw FLD!\n");
 
 	memcpy(fd->dma_para->fld_blink_weight_va, &fdvt_fld_blink_weight_forest14[0],
-						fld_blink_weight_size);
-	memcpy(fd->dma_para->fld_cv_va[0], &fdvt_fld_cv_forest00_iom3, fld_cv_size_00);
+						fld_blink_weight_size_non_align);
+	memcpy(fd->dma_para->fld_cv_va[0], &fdvt_fld_cv_forest00_iom3, fld_cv_size_00_non_align);
 	memcpy(fd->dma_para->fld_cv_va[1], &fdvt_fld_cv_forest01_iom3, fld_cv_size);
 	memcpy(fd->dma_para->fld_cv_va[2], &fdvt_fld_cv_forest02_iom3, fld_cv_size);
 	memcpy(fd->dma_para->fld_cv_va[3], &fdvt_fld_cv_forest03_iom3, fld_cv_size);
@@ -2242,21 +2246,21 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	memcpy(fd->dma_para->fld_cv_va[13], &fdvt_fld_cv_forest13_iom3, fld_cv_size);
 	memcpy(fd->dma_para->fld_cv_va[14], &fdvt_fld_cv_forest14_iom3, fld_cv_size);
 
-	memcpy(fd->dma_para->fld_fp_va[0], &fdvt_fld_fp_forest00_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[1], &fdvt_fld_fp_forest01_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[2], &fdvt_fld_fp_forest02_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[3], &fdvt_fld_fp_forest03_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[4], &fdvt_fld_fp_forest04_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[5], &fdvt_fld_fp_forest05_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[6], &fdvt_fld_fp_forest06_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[7], &fdvt_fld_fp_forest07_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[8], &fdvt_fld_fp_forest08_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[9], &fdvt_fld_fp_forest09_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[10], &fdvt_fld_fp_forest10_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[11], &fdvt_fld_fp_forest11_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[12], &fdvt_fld_fp_forest12_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[13], &fdvt_fld_fp_forest13_om45, fld_fp_size);
-	memcpy(fd->dma_para->fld_fp_va[14], &fdvt_fld_fp_forest14_om45, fld_fp_size);
+	memcpy(fd->dma_para->fld_fp_va[0], &fdvt_fld_fp_forest00_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[1], &fdvt_fld_fp_forest01_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[2], &fdvt_fld_fp_forest02_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[3], &fdvt_fld_fp_forest03_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[4], &fdvt_fld_fp_forest04_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[5], &fdvt_fld_fp_forest05_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[6], &fdvt_fld_fp_forest06_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[7], &fdvt_fld_fp_forest07_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[8], &fdvt_fld_fp_forest08_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[9], &fdvt_fld_fp_forest09_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[10], &fdvt_fld_fp_forest10_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[11], &fdvt_fld_fp_forest11_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[12], &fdvt_fld_fp_forest12_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[13], &fdvt_fld_fp_forest13_om45, fld_fp_size_non_align);
+	memcpy(fd->dma_para->fld_fp_va[14], &fdvt_fld_fp_forest14_om45, fld_fp_size_non_align);
 
 	memcpy(fd->dma_para->fld_leafnode_va[0], &fdvt_fld_leafnode_forest00, fld_leafnode_size);
 	memcpy(fd->dma_para->fld_leafnode_va[1], &fdvt_fld_leafnode_forest01, fld_leafnode_size);
@@ -2274,37 +2278,67 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	memcpy(fd->dma_para->fld_leafnode_va[13], &fdvt_fld_leafnode_forest13, fld_leafnode_size);
 	memcpy(fd->dma_para->fld_leafnode_va[14], &fdvt_fld_leafnode_forest14, fld_leafnode_size);
 
-	memcpy(fd->dma_para->fld_tree13_va[0], &fdvt_fld_tree_forest00_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[1], &fdvt_fld_tree_forest01_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[2], &fdvt_fld_tree_forest02_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[3], &fdvt_fld_tree_forest03_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[4], &fdvt_fld_tree_forest04_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[5], &fdvt_fld_tree_forest05_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[6], &fdvt_fld_tree_forest06_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[7], &fdvt_fld_tree_forest07_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[8], &fdvt_fld_tree_forest08_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[9], &fdvt_fld_tree_forest09_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[10], &fdvt_fld_tree_forest10_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[11], &fdvt_fld_tree_forest11_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[12], &fdvt_fld_tree_forest12_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[13], &fdvt_fld_tree_forest13_km13, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree13_va[14], &fdvt_fld_tree_forest14_km13, fld_tree_size);
+	memcpy(fd->dma_para->fld_tree13_va[0], &fdvt_fld_tree_forest00_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[1], &fdvt_fld_tree_forest01_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[2], &fdvt_fld_tree_forest02_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[3], &fdvt_fld_tree_forest03_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[4], &fdvt_fld_tree_forest04_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[5], &fdvt_fld_tree_forest05_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[6], &fdvt_fld_tree_forest06_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[7], &fdvt_fld_tree_forest07_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[8], &fdvt_fld_tree_forest08_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[9], &fdvt_fld_tree_forest09_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[10], &fdvt_fld_tree_forest10_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[11], &fdvt_fld_tree_forest11_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[12], &fdvt_fld_tree_forest12_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[13], &fdvt_fld_tree_forest13_km13,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree13_va[14], &fdvt_fld_tree_forest14_km13,
+								fld_tree_size_non_align);
 
-	memcpy(fd->dma_para->fld_tree02_va[0], &fdvt_fld_tree_forest00_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[1], &fdvt_fld_tree_forest01_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[2], &fdvt_fld_tree_forest02_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[3], &fdvt_fld_tree_forest03_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[4], &fdvt_fld_tree_forest04_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[5], &fdvt_fld_tree_forest05_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[6], &fdvt_fld_tree_forest06_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[7], &fdvt_fld_tree_forest07_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[8], &fdvt_fld_tree_forest08_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[9], &fdvt_fld_tree_forest09_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[10], &fdvt_fld_tree_forest10_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[11], &fdvt_fld_tree_forest11_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[12], &fdvt_fld_tree_forest12_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[13], &fdvt_fld_tree_forest13_km02, fld_tree_size);
-	memcpy(fd->dma_para->fld_tree02_va[14], &fdvt_fld_tree_forest14_km02, fld_tree_size);
+	memcpy(fd->dma_para->fld_tree02_va[0], &fdvt_fld_tree_forest00_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[1], &fdvt_fld_tree_forest01_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[2], &fdvt_fld_tree_forest02_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[3], &fdvt_fld_tree_forest03_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[4], &fdvt_fld_tree_forest04_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[5], &fdvt_fld_tree_forest05_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[6], &fdvt_fld_tree_forest06_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[7], &fdvt_fld_tree_forest07_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[8], &fdvt_fld_tree_forest08_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[9], &fdvt_fld_tree_forest09_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[10], &fdvt_fld_tree_forest10_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[11], &fdvt_fld_tree_forest11_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[12], &fdvt_fld_tree_forest12_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[13], &fdvt_fld_tree_forest13_km02,
+								fld_tree_size_non_align);
+	memcpy(fd->dma_para->fld_tree02_va[14], &fdvt_fld_tree_forest14_km02,
+								fld_tree_size_non_align);
 
 #if CHECK_SERVICE_0
 	u8 i, j;
