@@ -685,7 +685,7 @@
 				set_aod_light;
 
 				ata_id_value_length = <3>;
-				ata_id_value_data = <0x0 0x0 0x0>;
+				ata_id_value_data = <0x40 0x0 0x0>;
 				ata_check_size = <1>;
 				ata_check_table =
 					<MTK_LCM_CMD_TYPE_READ_CMD 3 0 3 0x4>,
