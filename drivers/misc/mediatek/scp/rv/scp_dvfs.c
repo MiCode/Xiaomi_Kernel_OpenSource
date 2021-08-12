@@ -131,7 +131,7 @@ struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
 	[ULPOSC_VER_2] = { /* Suppose VLP_CKSYS is from 0x1C013000 */
 		REG_DEFINE(con0, 0x210, REG_MAX_MASK, 0)
 		REG_DEFINE(cali_ext, 0x210, GENMASK(CAL_EXT_BITS, 0), 7)
-		REG_DEFINE_WITH_INIT(cali, 0x210, GENMASK(CAL_BITS, 0), 0, 0, 0x40)
+		REG_DEFINE_WITH_INIT(cali, 0x210, GENMASK(CAL_BITS, 0), 0, 0x40, 0)
 		REG_DEFINE(con1, 0x214, REG_MAX_MASK, 0)
 		REG_DEFINE(con2, 0x218, REG_MAX_MASK, 0)
 	},
@@ -1581,6 +1581,7 @@ static int __init ulposc_cali_process_vlp(unsigned int cali_idx,
 			dvfs.ulposc_hw.cali_freq[cali_idx]);
 		*cali_res1 = 0;
 		*cali_res2 = 0;
+		WARN_ON(1);
 		return -ESCP_DVFS_CALI_FAILED;
 	}
 
@@ -1636,6 +1637,7 @@ static int __init ulposc_cali_process(unsigned int cali_idx,
 			__func__,
 			dvfs.ulposc_hw.cali_freq[cali_idx]);
 		*cali_res = 0;
+		WARN_ON(1);
 		return -ESCP_DVFS_CALI_FAILED;
 	}
 

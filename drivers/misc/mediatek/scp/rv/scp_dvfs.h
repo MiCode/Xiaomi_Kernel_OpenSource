@@ -25,7 +25,7 @@
 #define CAL_BITS			(7)
 #define CAL_MIN_VAL			(0)
 #define CAL_MAX_VAL			(0x7F)
-#define CALI_MIS_RATE			(300) //Workaround: 4% -> 30%
+#define CALI_MIS_RATE			(40)
 #define CALI_DIV_VAL			(512)
 
 #define REG_DEFINE_WITH_INIT(reg, offset, mask, shift, init, set_clr)	\
