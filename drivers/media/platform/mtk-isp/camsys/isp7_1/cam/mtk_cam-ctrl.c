@@ -1090,7 +1090,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 	if (req_stream_data) {
 		req = mtk_cam_s_data_get_req(req_stream_data);
 		if (req_stream_data->state.estate == E_STATE_SENINF &&
-			!req->seninf_changed) {
+			!(req->flags & MTK_CAM_REQ_FLAG_SENINF_CHANGED)) {
 			dev_info(ctx->cam->dev,
 				"[TimerIRQ] wrong state:%d (seninf change delay)\n",
 				state_entry->estate);
@@ -1774,8 +1774,11 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 
-	if (dequeue_result)
+	if (dequeue_result) {
+		mutex_lock(&ctx->cam->op_lock);
 		mtk_cam_dev_req_try_queue(ctx->cam);
+		mutex_unlock(&ctx->cam->op_lock);
+	}
 }
 
 static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
@@ -1996,7 +1999,7 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 	if (!(req->ctx_used & cam->streaming_ctx & req->ctx_link_update))
 		return;
 
-	if (req->seninf_changed) {
+	if (req->flags & MTK_CAM_REQ_FLAG_SENINF_CHANGED) {
 		for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++) {
 			if ((1 << i) & req->ctx_link_update) {
 				raw_dev = get_master_raw_dev(ctx->cam, cam->ctxs[i].pipe);
@@ -2428,14 +2431,15 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 		return;
 
 	dev_info(ctx->cam->dev, "[%s] job done ctx-%d:pipe-%d:req(%d)\n",
-			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
+		 __func__, ctx->stream_id, pipe_id, frame_seq_no);
 	if (mtk_cam_dequeue_req_frame(ctx, frame_seq_no, pipe_id)) {
+		mutex_lock(&ctx->cam->op_lock);
 		mtk_cam_dev_req_try_queue(ctx->cam);
-		if (is_raw_subdev(pipe_id)) {
+		mutex_unlock(&ctx->cam->op_lock);
+		if (is_raw_subdev(pipe_id))
 			mtk_camsys_raw_change_pipeline(raw_dev, ctx,
-									&ctx->sensor_ctrl,
-									frame_seq_no);
-		}
+						       &ctx->sensor_ctrl,
+						       frame_seq_no);
 	}
 }
 

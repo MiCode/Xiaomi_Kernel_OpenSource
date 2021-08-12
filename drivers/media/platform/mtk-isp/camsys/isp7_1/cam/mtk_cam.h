@@ -50,10 +50,14 @@ struct mtk_cam_request;
 
 #define SENSOR_FMT_MASK			0xFFFF
 
+/* flags of mtk_cam_request */
+#define MTK_CAM_REQ_FLAG_SENINF_CHANGED			BIT(0)
+
+#define MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE	BIT(1)
+
 /* flags of mtk_cam_request_stream_data */
 #define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
 
-/* flags of mtk_cam_request_stream_data */
 #define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
 
 struct mtk_cam_working_buf {
@@ -192,6 +196,7 @@ struct mtk_cam_req_pipe {
  *
  * @req: Embedded struct media request.
  * @ctx_used: conctext used in this request
+ * @ctx_link_update: contexts have update link
  * @pipe_used: pipe used in this request. Two or more pipes may share
  * the same context.
  * @frame_params: The frame info. & address info. of enabled DMA nodes.
@@ -204,10 +209,10 @@ struct mtk_cam_req_pipe {
  */
 struct mtk_cam_request {
 	struct media_request req;
-	unsigned int ctx_used;
 	unsigned int pipe_used;
+	unsigned int ctx_used;
 	unsigned int ctx_link_update;
-	bool seninf_changed;
+	unsigned int flags;
 	unsigned int done_status;
 	spinlock_t done_status_lock;
 	unsigned int fs_on_cnt; /*0:init X:sensor_fs_on*/

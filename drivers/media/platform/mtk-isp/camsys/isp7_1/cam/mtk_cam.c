@@ -1739,24 +1739,6 @@ static int mtk_cam_dev_req_is_stream_on(struct mtk_cam_device *cam,
 	return (req->pipe_used & cam->streaming_pipe) == req->pipe_used;
 }
 
-/* workaroud before the refactored request/steam data enqueue*/
-static void mtk_cam_req_update_frame_seq_no(struct mtk_cam_device *cam,
-					    struct mtk_cam_request *req)
-{
-	struct mtk_cam_request_stream_data *req_stream_data;
-	int i;
-
-	for (i = 0; i < cam->max_stream_num; i++) {
-		if (req->pipe_used & (1 << i)) {
-			req_stream_data = mtk_cam_req_get_s_data(req, i, 0);
-			req_stream_data->frame_seq_no =
-				++(cam->ctxs[i].enqueued_frame_seq_no);
-			mtk_cam_req_update_seq(&cam->ctxs[i], req,
-				++(cam->ctxs[i].enqueued_request_cnt));
-		}
-	}
-}
-
 static void mtk_cam_req_work_init(struct mtk_cam_req_work *work,
 				  struct mtk_cam_request_stream_data *s_data)
 {
@@ -1820,15 +1802,14 @@ static void mtk_cam_link_change_worker(struct work_struct *work)
 	struct mtk_cam_request *req =
 		container_of(work, struct mtk_cam_request, link_work);
 	mtk_cam_req_seninf_change(req);
-	req->seninf_changed = true;
+	req->flags |= MTK_CAM_REQ_FLAG_SENINF_CHANGED;
 }
 
-static bool
+static void
 immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
 			  int running_s_data_num,
 			  struct mtk_cam_request_stream_data *s_data)
 {
-	bool change_seninf = false;
 	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
 
 	if (req->ctx_link_update && (!s_data->seninf_new || !s_data->seninf_old)) {
@@ -1852,7 +1833,7 @@ immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no, running_s_data_num);
 			s_data->state.estate = E_STATE_SENINF;
-			change_seninf = true;
+			req->flags |= MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE;
 		} else {
 			dev_info(cam->dev,
 				 "%s:req(%s):pipe(%d):link change after last p1 done: seq(%d), running_s_data_num(%d)\n",
@@ -1861,96 +1842,104 @@ immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
 		}
 
 	}
-
-	return change_seninf;
 }
 
+/* Please hold mtk_cam_device's op_lock when calling this function */
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
-	struct mtk_cam_request *req, *req_prev, *req_tmp;
-	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request *req, *req_prev;
+	struct mtk_cam_request_stream_data *s_data;
 	unsigned long flags;
-	int i;
-	int running_s_data_num;
-	bool change_seninf = false;
+	int i, enqueue_idx;
+	int feature_change, previous_feature;
+	int enqueue_req_cnt, job_count, s_data_cnt;
+	struct list_head equeue_list;
 
 	if (!cam->streaming_ctx) {
 		dev_dbg(cam->dev, "streams are off\n");
 		return;
 	}
-	req_tmp = NULL;
+
+	INIT_LIST_HEAD(&equeue_list);
+
+	enqueue_req_cnt = 0;
+
+	spin_lock(&cam->running_job_lock);
+	job_count = cam->running_job_count;
+	spin_unlock(&cam->running_job_lock);
+
+	/* Pick up requests which are runnable */
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
 		if (likely(mtk_cam_dev_req_is_stream_on(cam, req))) {
-			spin_lock(&cam->running_job_lock);
-			if (cam->running_job_count >=
+			if (job_count + enqueue_req_cnt >=
 			    2 * MTK_CAM_MAX_RUNNING_JOBS) {
 				dev_dbg(cam->dev, "jobs are full, job cnt(%d)\n",
 					cam->running_job_count);
-				spin_unlock(&cam->running_job_lock);
 				break;
 			}
-			dev_dbg(cam->dev,
-				"%s job cnt(%d), allow req_enqueue(%s)\n",
-				__func__, cam->running_job_count, req->req.debug_str);
-			cam->running_job_count++;
-			/* Accumulated frame sequence number */
-			mtk_cam_req_update_frame_seq_no(cam, req);
+			enqueue_req_cnt++;
 			list_del(&req->list);
-			list_add_tail(&req->list, &cam->running_job_list);
-			spin_unlock(&cam->running_job_lock);
-			req_tmp = req;
-			break;
+			list_add_tail(&req->list, &equeue_list);
 		}
 	}
 	spin_unlock_irqrestore(&cam->pending_job_lock, flags);
-	if (!req_tmp)
+
+	if (!enqueue_req_cnt)
 		return;
 
-	/* Initialize ctx related req_stream_data fields */
-	/* updating req_stream_data earlier is better than late */
-	for (i = 0; i < cam->max_stream_num; i++) {
-		if (req_tmp->pipe_used & (1 << i)) {
+	enqueue_idx = 0;
+	list_for_each_entry(req, &equeue_list, list) {
+		dev_dbg(cam->dev, "%s job cnt(%d), allow req_enqueue(%s)\n",
+			__func__, job_count + enqueue_idx, req->req.debug_str);
+
+		for (i = 0; i < cam->max_stream_num; i++) {
+			if (!(req->pipe_used & 1 << i))
+				continue;
+
+			/* Initialize ctx related s_data fields */
+			ctx = &cam->ctxs[i];
+			/* Update frame_seq_no */
+			s_data = mtk_cam_req_get_s_data(req, i, 0);
+			s_data->frame_seq_no = ++(ctx->enqueued_frame_seq_no);
+			mtk_cam_req_update_seq(ctx, req,
+					       ++(ctx->enqueued_request_cnt));
 			if (is_raw_subdev(i)) {
-				struct mtk_cam_ctx *ctx = &cam->ctxs[i];
-				int previous_feature =
-					cam->ctxs[i].pipe->res_config.raw_feature;
-				int feature_change;
+				previous_feature = ctx->pipe->res_config.raw_feature;
 
-				req_stream_data = mtk_cam_req_get_s_data(req_tmp, i, 0);
-				mtk_cam_req_update_ctrl(&cam->ctxs[i], req_stream_data);
-
-				feature_change =
-					req_stream_data->feature.switch_feature_type;
+				/* Apply raw subdev's ctrl */
+				mtk_cam_req_update_ctrl(ctx, s_data);
+				feature_change = s_data->feature.switch_feature_type;
 				if (feature_change_is_mstream(feature_change))
-					mstream_seamless_buf_update(ctx, req_tmp, i,
-								previous_feature);
+					mstream_seamless_buf_update(ctx, req, i,
+								    previous_feature);
 				if (mtk_cam_is_mstream(ctx))
-					fill_mstream_s_data(ctx, req_tmp);
+					fill_mstream_s_data(ctx, req);
 
-				running_s_data_num =
-					atomic_inc_return(&cam->ctxs[i].running_s_data_cnt);
-				if (immediate_link_update_chk(cam, i, running_s_data_num,
-								  req_stream_data))
-					change_seninf = true;
+				s_data_cnt =
+					atomic_inc_return(&ctx->running_s_data_cnt);
+				immediate_link_update_chk(cam, i, s_data_cnt,
+							  s_data);
 			}
 		}
+
+		if (mtk_cam_req_update(cam, req)) {
+			dev_info(cam->dev,
+				 "%s:req(%s): invalid req settings which can't be recovered\n",
+				 __func__, req->req.debug_str);
+			WARN_ON(1);
+			return;
+		}
+
+		mtk_cam_dev_req_enqueue(cam, req);
+		enqueue_idx++;
 	}
 
-	if (mtk_cam_req_update(cam, req_tmp)) {
-		dev_dbg(cam->dev,
-			"%s:req(%s): invalid req settings which can't be recovered\n",
-			__func__, req_tmp->req.debug_str);
-		WARN_ON(1);
-		return;
-	}
-
-	if (change_seninf) {
-		INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
-		queue_work(cam->link_change_wq, &req->link_work);
-	}
-
-	mtk_cam_dev_req_enqueue(cam, req_tmp);
+	spin_lock_irqsave(&cam->running_job_lock, flags);
+	cam->running_job_count += enqueue_req_cnt;
+	list_splice_tail(&equeue_list, &cam->running_job_list);
+	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 }
 
 static struct media_request *mtk_cam_req_alloc(struct media_device *mdev)
@@ -2096,6 +2085,8 @@ static void mtk_cam_req_queue(struct media_request *req)
 	cam_req->done_status = 0;
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);
 	cam_req->fs_on_cnt = 0;
+	cam_req->flags = 0;
+
 
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
@@ -2831,6 +2822,11 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			     struct mtk_cam_request *req)
 {
 	unsigned int i, j;
+
+	if (req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE) {
+		INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
+		queue_work(cam->link_change_wq, &req->link_work);
+	}
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->pipe_used & (1 << i)) {
