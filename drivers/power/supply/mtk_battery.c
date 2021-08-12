@@ -1368,13 +1368,20 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 
 	bm_err("%s\n", __func__);
 
-	fg_read_dts_val(np, "fg_swocv_v", &(lk_v), 1);
-	fg_read_dts_val(np, "fg_swocv_i", &(lk_i), 1);
-	fg_read_dts_val(np, "shutdown_time", &(shuttime), 1);
+	if (gm->ptim_lk_v == 0) {
+		fg_read_dts_val(np, "fg_swocv_v", &(lk_v), 1);
+		gm->ptim_lk_v = lk_v;
+	}
 
-	gm->ptim_lk_v = lk_v;
-	gm->ptim_lk_i = lk_i;
-	gm->pl_shutdown_time = shuttime;
+	if (gm->ptim_lk_i == 0) {
+		fg_read_dts_val(np, "fg_swocv_i", &(lk_i), 1);
+		gm->ptim_lk_i = lk_i;
+	}
+
+	if (gm->pl_shutdown_time == 0) {
+		fg_read_dts_val(np, "shutdown_time", &(shuttime), 1);
+		gm->pl_shutdown_time = shuttime;
+	}
 
 	bm_err("%s swocv_v:%d swocv_i:%d shutdown_time:%d\n",
 		__func__, gm->ptim_lk_v, gm->ptim_lk_i, gm->pl_shutdown_time);
@@ -3214,6 +3221,58 @@ void fg_check_bootmode(struct device *dev,
 	}
 }
 
+void fg_check_lk_swocv(struct device *dev,
+	struct mtk_battery *gm)
+{
+	struct device_node *boot_node = NULL;
+	int len = 0;
+	char temp[10];
+	int *prop;
+
+	boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
+	if (!boot_node)
+		bm_err("%s: failed to get boot mode phandle\n", __func__);
+	else {
+		prop = (void *)of_get_property(
+			boot_node, "atag,fg_swocv_v", &len);
+
+		if (prop == NULL) {
+			bm_err("fg_swocv_v prop == NULL, len=%d\n", len);
+		} else {
+			snprintf(temp, (len + 1), "%s", prop);
+			kstrtoint(temp, 10, &gm->ptim_lk_v);
+			bm_err("temp %s gm->ptim_lk_v=%d\n",
+				temp, gm->ptim_lk_v);
+		}
+
+		prop = (void *)of_get_property(
+			boot_node, "atag,fg_swocv_i", &len);
+
+		if (prop == NULL) {
+			bm_err("fg_swocv_i prop == NULL, len=%d\n", len);
+		} else {
+			snprintf(temp, (len + 1), "%s", prop);
+			kstrtoint(temp, 10, &gm->ptim_lk_i);
+			bm_err("temp %s gm->ptim_lk_i=%d\n",
+				temp, gm->ptim_lk_i);
+		}
+		prop = (void *)of_get_property(
+			boot_node, "atag,shutdown_time", &len);
+
+		if (prop == NULL) {
+			bm_err("shutdown_time prop == NULL, len=%d\n", len);
+		} else {
+			snprintf(temp, (len + 1), "%s", prop);
+			kstrtoint(temp, 10, &gm->pl_shutdown_time);
+			bm_err("temp %s gm->pl_shutdown_time=%d\n",
+				temp, gm->pl_shutdown_time);
+		}
+	}
+
+	bm_err("%s swocv_v:%d swocv_i:%d shutdown_time:%d\n",
+		__func__, gm->ptim_lk_v, gm->ptim_lk_i, gm->pl_shutdown_time);
+}
+
 int battery_init(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3231,6 +3290,7 @@ int battery_init(struct platform_device *pdev)
 	init_waitqueue_head(&gm->wait_que);
 
 	fg_check_bootmode(&pdev->dev, gm);
+	fg_check_lk_swocv(&pdev->dev, gm);
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 	gauge_coulomb_service_init(gm);
