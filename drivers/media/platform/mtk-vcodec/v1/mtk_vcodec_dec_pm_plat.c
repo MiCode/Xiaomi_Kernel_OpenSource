@@ -14,6 +14,16 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
+#ifdef DEC_DVFS
+#undef DEC_DVFS
+#endif
+#define DEC_DVFS 0
+
+#ifdef DEC_EMI_BW
+#undef DEC_EMI_BW
+#endif
+#define DEC_EMI_BW 0
+
 #if DEC_DVFS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
