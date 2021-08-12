@@ -308,7 +308,7 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 			apu->conf_buf->ramdump_module = 0;
 		}
 		apusys_rv_aee_warn(apusys_assert_module_name[apu->conf_buf->ramdump_module],
-			"APUSYS_RV EXCEPTION");
+			"APUSYS_RV_EXCEPTION");
 		if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
 			apusys_rv_smc_call(dev,
 				MTK_APUSYS_KERNEL_OP_APUSYS_RV_COREDUMP_SHADOW_COPY, 0);
@@ -455,7 +455,7 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 		dsb(SY); /* may take lots of time */
 	}
 
-	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV TIMEOUT");
+	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_TIMEOUT");
 	dev_info(dev, "%s: done\n", __func__);
 }
 
