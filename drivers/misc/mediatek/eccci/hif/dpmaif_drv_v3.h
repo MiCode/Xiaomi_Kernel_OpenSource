@@ -39,7 +39,7 @@ int drv3_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt);
 #define drv3_dpmaif_get_ul_isr_event() \
 	DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0)
 #define  drv3_dpmaif_get_dl_interrupt_mask() \
-	DPMA_READ_PD_MISC(DPMAIF_PD_AP_DL_L2TIMR0)
+	DPMA_READ_AO_UL(DPMAIF_PD_AP_DL_L2TIMR0)
 
 /* use ao domain:
  * (DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES)&DPMAIF_AO_DL_ISR_MSK)

@@ -3249,17 +3249,17 @@ static void dpmaif_hw_reset(void)
 
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
-	/* reset dpmaif hw: AO Domain */
+	/* reset dpmaif hw: PD Domain */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_RST0_REG_AO, DPMAIF_AO_RST_MASK);
-
+			INFRA_RST0_REG_PD, DPMAIF_PD_RST_MASK);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 
 	udelay(500);
 
-	/* reset dpmaif hw: PD Domain */
+	/* reset dpmaif hw: AO Domain */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_RST0_REG_PD, DPMAIF_PD_RST_MASK);
+			INFRA_RST0_REG_AO, DPMAIF_AO_RST_MASK);
+
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 
 	udelay(500);
@@ -3270,6 +3270,8 @@ static void dpmaif_hw_reset(void)
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	udelay(500);
+
+	drv3_dpmaif_set_axi_out_gated();
 
 	/* reset dpmaif clr */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
