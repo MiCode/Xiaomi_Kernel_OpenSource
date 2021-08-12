@@ -49,7 +49,7 @@ int mtk_scp_ultra_reserved_dram_init(void)
 	memset_io((void *)ultra_resv_mem->vir_addr, 0, ultra_resv_mem->size);
 
 	dev_info(scp_ultra->dev,
-		 "%s(), sce reserve mem pa=0x%llx, va=%p, size=0x%llx\n",
+		 "%s(), sce reserve mem pa=0x%llx, va=0x%llx, size=0x%llx\n",
 		 __func__,
 		 ultra_resv_mem->phy_addr,
 		 ultra_resv_mem->vir_addr,
@@ -76,7 +76,7 @@ int mtk_scp_ultra_reserved_dram_init(void)
 		return -1;
 	}
 	dev_info(scp_ultra->dev,
-		 "%s(), dump pa=0x%llx, va=%p, size=0x%llx\n",
+		 "%s(), dump pa=0x%llx, va=0x%llx, size=0x%llx\n",
 		 __func__,
 		 dump_resv_mem->phy_addr,
 		 dump_resv_mem->vir_addr,

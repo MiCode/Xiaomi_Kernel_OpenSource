@@ -11,7 +11,6 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 snd-soc-mtk-scp-ultra-objs := \
 	mtk-scp-ultra-pcm.o \
 	mtk-scp-ultra-mem-control.o \
-	mtk-scp-ultra_dump.o \
 	mtk-scp-ultra-platform-driver.o \
 	mtk-scp-ultra-common.o \
 	ultra_ipi.o

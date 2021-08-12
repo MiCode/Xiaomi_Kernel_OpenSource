@@ -20,7 +20,9 @@
 #include "mtk-scp-ultra-common.h"
 #include "mtk-base-afe.h"
 #include "ultra_ipi.h"
+#ifdef ULTRA_PCM_DUMP
 #include "mtk-scp-ultra_dump.h"
+#endif
 #include <linux/pm_wakeup.h>
 #include "mtk-scp-ultra.h"
 #include "scp.h"
@@ -92,7 +94,9 @@ void ultra_ipi_rx_internal(unsigned int msg_id, void *msg_data)
 {
 	switch (msg_id) {
 	case AUDIO_TASK_USND_MSG_ID_PCMDUMP_OK: {
+#ifdef ULTRA_PCM_DUMP
 		ultra_dump_message(msg_data);
+#endif
 		break;
 	}
 	case AUDIO_TASK_USND_MSG_ID_DEBUG:
@@ -341,7 +345,7 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 			afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable =
 				false;
 			scp_deregister_feature(ULTRA_FEATURE_ID);
-			aud_wake_unlock(&ultra_suspend_lock);
+			aud_wake_unlock(ultra_suspend_lock);
 			return -1;
 		}
 		return 0;
@@ -358,38 +362,43 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	case SCP_ULTRA_STATE_START:
+		pm_runtime_get_sync(afe->dev);
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_START,
 					false,
 					0,
 					NULL,
 					ULTRA_IPI_NEED_ACK);
+		pm_runtime_put(afe->dev);
 		return 0;
 	case SCP_ULTRA_STATE_STOP:
+		pm_runtime_get_sync(afe->dev);
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_STOP,
 					false,
 					0,
 					NULL,
 					ULTRA_IPI_NEED_ACK);
+		pm_runtime_put(afe->dev);
 		return 0;
 	case SCP_ULTRA_STATE_RECOVERY:
-		pm_runtime_get_sync(afe->dev);
 		if (old_usnd_state == SCP_ULTRA_STATE_OFF ||
 		    old_usnd_state == SCP_ULTRA_STATE_IDLE ||
 		    old_usnd_state == SCP_ULTRA_STATE_RECOVERY)
 			return 0;
-		if (old_usnd_state == SCP_ULTRA_STATE_START)
+		if (old_usnd_state == SCP_ULTRA_STATE_START) {
+			pm_runtime_get_sync(afe->dev);
 			ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_STOP,
 				       false,
 				       0,
 				       NULL,
 				       ULTRA_IPI_NEED_ACK);
+			pm_runtime_put(afe->dev);
+		}
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_OFF,
 			       false,
 			       0,
 			       NULL,
 			       ULTRA_IPI_NEED_ACK);
 		scp_deregister_feature(ULTRA_FEATURE_ID);
-		pm_runtime_put(afe->dev);
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	default:
@@ -419,7 +428,7 @@ static const struct snd_kcontrol_new ultra_platform_kcontrols[] = {
 };
 
 static int mtk_scp_ultra_pcm_open(struct snd_soc_component *component,
-								struct snd_pcm_substream *substream)
+				  struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct mtk_base_scp_ultra *scp_ultra =
@@ -452,13 +461,15 @@ static int mtk_scp_ultra_pcm_open(struct snd_soc_component *component,
 		/* scp ultra dump buffer use dram */
 		if (afe->request_dram_resource)
 			afe->request_dram_resource(afe->dev);
+#ifdef ULTRA_PCM_DUMP
 		ultra_start_engine_thread();
+#endif
 		pcm_dump_on = true;
 	}
 	return 0;
 }
 static int mtk_scp_ultra_pcm_start(struct snd_soc_component *component,
-								struct snd_pcm_substream *substream)
+				   struct snd_pcm_substream *substream)
 {
 	struct mtk_base_scp_ultra *scp_ultra =
 		snd_soc_component_get_drvdata(component);
@@ -542,7 +553,7 @@ static int mtk_scp_ultra_pcm_start(struct snd_soc_component *component,
 }
 
 static int mtk_scp_ultra_pcm_stop(struct snd_soc_component *component,
-								struct snd_pcm_substream *substream)
+				  struct snd_pcm_substream *substream)
 {
 	struct mtk_base_scp_ultra *scp_ultra =
 		snd_soc_component_get_drvdata(component);
@@ -605,14 +616,16 @@ static int mtk_scp_ultra_pcm_stop(struct snd_soc_component *component,
 	return 0;
 }
 static int mtk_scp_ultra_pcm_close(struct snd_soc_component *component,
-								struct snd_pcm_substream *substream)
+				   struct snd_pcm_substream *substream)
 {
 	struct mtk_base_afe *afe = get_afe_base();
 	if (pcm_dump_on) {
 		/* scp ultra dump buffer use dram */
 		if (afe->release_dram_resource)
 			afe->release_dram_resource(afe->dev);
+#ifdef ULTRA_PCM_DUMP
 		ultra_stop_engine_thread();
+#endif
 		pcm_dump_on = false;
 	}
 	return 0;
@@ -625,8 +638,8 @@ static void mtk_scp_ultra_pcm_hw_params_dl(struct snd_pcm_substream *substream,
 }
 
 static int mtk_scp_ultra_pcm_hw_params(struct snd_soc_component *component,
-						struct snd_pcm_substream *substream,
-				        struct snd_pcm_hw_params *params)
+				       struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params)
 {
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		mtk_scp_ultra_pcm_hw_params_dl(substream, params);
@@ -635,14 +648,20 @@ static int mtk_scp_ultra_pcm_hw_params(struct snd_soc_component *component,
 
 
 static int mtk_scp_ultra_pcm_hw_prepare(struct snd_soc_component *component,
-										struct snd_pcm_substream *substream)
+					struct snd_pcm_substream *substream)
 {
+	/* The data type of stop_threshold in userspace is unsigned int.
+	 * However its data type in kernel space is unsigned long.
+	 * It needs to convert to ULONG_MAX in kernel space
+	 */
+	if (substream->runtime->stop_threshold == ~(0U))
+		substream->runtime->stop_threshold = ULONG_MAX;
 	return 0;
 }
 
 static int mtk_scp_ultra_pcm_hw_trigger(struct snd_soc_component *component,
-										struct snd_pcm_substream *substream,
-										int cmd)
+					struct snd_pcm_substream *substream,
+					int cmd)
 {
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -673,8 +692,9 @@ static int mtk_scp_ultra_pcm_new(struct snd_soc_component *component)
 		return ret;
 	}
 	ultra_ipi_register(ultra_ipi_rx_internal, ultra_ipi_rceive_ack);
+#ifdef ULTRA_PCM_DUMP
 	audio_ipi_client_ultra_init();
-
+#endif
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	scp_A_register_notify(&usnd_scp_recover_notifier);
 #endif
@@ -686,6 +706,7 @@ static int mtk_scp_ultra_pcm_new(struct snd_soc_component *component)
 }
 
 const struct snd_soc_component_driver mtk_scp_ultra_pcm_platform = {
+	.name = ULTRA_PCM_NAME,
 	.probe = mtk_scp_ultra_pcm_new,
 	.open = mtk_scp_ultra_pcm_open,
 	.close = mtk_scp_ultra_pcm_close,
