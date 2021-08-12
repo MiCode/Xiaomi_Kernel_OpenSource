@@ -71,10 +71,16 @@ ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6983.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6983.o
 endif
 
+ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6879.c),)
+obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6879.o
+endif
+
 mdp_drv_mt6873-objs := mdp_drv.o mdp_mt6873.o
 mdp_drv_mt6853-objs := mdp_drv.o mdp_mt6853.o
 mdp_drv_mt6893-objs := mdp_drv.o mdp_mt6893.o
 mdp_drv_mt6983-objs := mdp_drv.o mdp_mt6983.o
+mdp_drv_mt6879-objs := mdp_drv.o mdp_mt6879.o
+
 
 mdp_drv-objs := mdp_driver.o \
 	mdp_ioctl_ex.o \
