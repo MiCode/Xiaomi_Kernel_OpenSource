@@ -87,7 +87,7 @@ struct clk_bulk_data ipesys_isp7_aie_clks[] = {
 	{ .id = "MAIN_GALS" },
 	{ .id = "IMG_IPE" },
 	{ .id = "IPE_FDVT" },
-	{ .id = "IPE_FDVT1" },
+	/*{ .id = "IPE_FDVT1" },*/
 	{ .id = "IPE_TOP" },
 	{ .id = "IPE_SMI_LARB12" },
 };
@@ -377,13 +377,13 @@ static int mtk_aie_ccf_enable(struct device *dev)
 		dev_info(dev, "Failed to open ipe_fdvt clk:%d\n", ret);
 		return ret;
 	}
-
+#if CHECK_SERVICE_0
 	ret = clk_prepare_enable(fd->ipe_fdvt1);
 	if (ret) {
 		dev_info(dev, "Failed to open ipe_fdvt1 clk:%d\n", ret);
 		return ret;
 	}
-
+#endif
 	ret = clk_prepare_enable(fd->ipe_smi_larb12);
 	if (ret) {
 		dev_info(dev, "Failed to open ipe_smi_larb12 clk:%d\n", ret);
@@ -1732,13 +1732,13 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		dev_info(dev, "Failed to get ipe_fdvt clock\n");
 		return PTR_ERR(fd->ipe_fdvt);
 	}
-
+#if CHECK_SERVICE_0
 	fd->ipe_fdvt1 = devm_clk_get(dev, "IPE_FDVT1");
 	if (IS_ERR(fd->ipe_fdvt1)) {
 		dev_info(dev, "Failed to get ipe_fdvt1 clock\n");
 		return PTR_ERR(fd->ipe_fdvt1);
 	}
-
+#endif
 	fd->ipe_smi_larb12 = devm_clk_get(dev, "IPE_SMI_LARB12");
 	if (IS_ERR(fd->ipe_smi_larb12)) {
 		dev_info(dev, "Failed to get ipe_smi_larb12 clock\n");
