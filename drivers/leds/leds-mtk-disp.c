@@ -10,9 +10,12 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-
 #include <leds-mtk.h>
+#include "../drivers/gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.h"
+
+extern int __attribute__ ((weak)) mtk_drm_gateic_set_backlight(unsigned int level, char func);
 extern int __attribute__ ((weak)) _gate_ic_backlight_set(unsigned int brightness);
+
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 
@@ -111,18 +114,22 @@ static int __maybe_unused led_disp_set(struct mt_led_data *mdev,
 	pr_debug("set brightness %d", brightness);
 	return mtkfb_set_backlight_level(brightness);
 }
+
 static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
 		       int brightness)
 {
-	pr_debug("set brightness %d", brightness);
+	int version = mtk_drm_get_lcm_version();
 
-#if IS_ENABLED(CONFIG_RT4831A_I2C)
-	return _gate_ic_backlight_set(brightness);
-#else
+	pr_debug("set brightness %d, version:%d", brightness, version);
+	if (version == MTK_COMMON_LCM_DRV)
+		return mtk_drm_gateic_set_backlight(brightness, 2);
+	else if (version == MTK_LEGACY_LCM_DRV)
+		return _gate_ic_backlight_set(brightness);
+
+	pr_notice("%s,gate ic is not ready yet\n", __func__);
 	return 0;
-#endif
-
 }
+
 static int __maybe_unused led_set_virtual(struct mt_led_data *mdev,
 		       int brightness)
 {
