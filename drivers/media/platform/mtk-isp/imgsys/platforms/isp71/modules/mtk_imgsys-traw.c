@@ -23,7 +23,7 @@
 /********************************************************************
  * Global Define
  ********************************************************************/
-#define TRAW_INIT_ARRAY_COUNT	10
+#define TRAW_INIT_ARRAY_COUNT	1
 
 #define TRAW_CTL_ADDR_OFST	0x330
 #define TRAW_DMA_ADDR_OFST	0x4000
@@ -42,16 +42,6 @@
 const struct mtk_imgsys_init_array
 			mtk_imgsys_traw_init_ary[TRAW_INIT_ARRAY_COUNT] = {
 	{0x00A0, 0x80000000}, /* TRAWCTL_INT1_EN */
-	{0x4120, 0x10000200}, /* IMGI_T1A_REG_ORIRDMA_CON0 */
-	{0x4124, 0x12000200}, /* IMGI_T1A_REG_ORIRDMA_CON1 */
-	{0x4128, 0x12000200}, /* IMGI_T1A_REG_ORIRDMA_CON2 */
-	{0x4200, 0x100001C0}, /* IMGBI_T1A_REG_ORIRDMA_CON0 */
-	{0x4204, 0x11C001C0}, /* IMGBI_T1A_REG_ORIRDMA_CON1 */
-	{0x4208, 0x11C001C0}, /* IMGBI_T1A_REG_ORIRDMA_CON2 */
-	{0x4270, 0x10000100}, /* IMGCI_T1A_REG_ORIRDMA_CON0 */
-	{0x4274, 0x11000100}, /* IMGCI_T1A_REG_ORIRDMA_CON1 */
-	{0x4278, 0x11000100}, /* IMGCI_T1A_REG_ORIRDMA_CON2 */
-
 };
 
 static struct TRAWDmaDebugInfo g_DMADbgIfo[] = {
