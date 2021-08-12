@@ -131,8 +131,9 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	int fs;
 	int ret = 0;
 
-	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
-		 __func__, memif->data->name, cmd, irq_id);
+	if (!in_interrupt())
+		dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
+			 __func__, memif->data->name, cmd, irq_id);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -3038,6 +3039,9 @@ static bool mt6983_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_IRQ_MCU_EN:
 	case AFE_IRQ_MCU_DSP_EN:
 	case AFE_IRQ_MCU_SCP_EN:
+	case AFE_AGENT_ON:
+	case AFE_AGENT_ON_SET:
+	case AFE_AGENT_ON_CLR:
 		return true;
 	default:
 		return false;
@@ -6855,6 +6859,9 @@ static int mt6983_afe_pcm_dev_probe(struct platform_device *pdev)
 	afe->memif_size = MT6983_MEMIF_NUM;
 	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
 				  GFP_KERNEL);
+
+	/* support memif bit banding */
+	afe->is_bit_banding = 1;
 
 	if (!afe->memif)
 		return -ENOMEM;

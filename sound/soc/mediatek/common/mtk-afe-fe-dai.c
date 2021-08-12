@@ -41,6 +41,8 @@
 
 
 #define AFE_BASE_END_OFFSET 8
+#define AFE_AGENT_SET_OFFSET 4
+#define AFE_AGENT_CLR_OFFSET 8
 
 static int mtk_regmap_update_bits(struct regmap *map, int reg,
 			   unsigned int mask,
@@ -547,13 +549,20 @@ EXPORT_SYMBOL_GPL(mtk_afe_resume);
 int mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
+	int reg = 0;
 
 	if (memif->data->enable_shift < 0) {
 		dev_warn(afe->dev, "%s(), error, id %d, enable_shift < 0\n",
 			 __func__, id);
 		return 0;
 	}
-	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
+
+	if (afe->is_bit_banding)
+		reg = memif->data->enable_reg + AFE_AGENT_SET_OFFSET;
+	else
+		reg = memif->data->enable_reg;
+
+	return mtk_regmap_update_bits(afe->regmap, reg,
 				      1, 1, memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_enable);
@@ -561,14 +570,21 @@ EXPORT_SYMBOL_GPL(mtk_memif_set_enable);
 int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
+	int reg = 0;
 
 	if (memif->data->enable_shift < 0) {
 		dev_warn(afe->dev, "%s(), error, id %d, enable_shift < 0\n",
 			 __func__, id);
 		return 0;
 	}
-	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
-				      1, 0, memif->data->enable_shift);
+
+	if (afe->is_bit_banding)
+		reg = memif->data->enable_reg + AFE_AGENT_CLR_OFFSET;
+	else
+		reg = memif->data->enable_reg;
+
+	return mtk_regmap_update_bits(afe->regmap, reg,
+				      1, 1, memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
 
