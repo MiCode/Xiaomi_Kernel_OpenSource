@@ -629,31 +629,19 @@ void dcm_mcusys_top_mcu_cbip_dcm(int on)
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG0_MASK ((0x1 << 0) | \
 			(0x1 << 4) | \
 			(0x1 << 8) | \
-			(0x1 << 12) | \
-			(0x1 << 16) | \
-			(0x1 << 20) | \
-			(0x1 << 24) | \
-			(0x1 << 28))
+			(0x1 << 12))
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG1_MASK ((0x1 << 0) | \
 			(0x1 << 4))
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG0_ON ((0x1 << 0) | \
 			(0x1 << 4) | \
 			(0x1 << 8) | \
-			(0x1 << 12) | \
-			(0x1 << 16) | \
-			(0x1 << 20) | \
-			(0x1 << 24) | \
-			(0x1 << 28))
+			(0x1 << 12))
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG1_ON ((0x1 << 0) | \
 			(0x1 << 4))
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG0_OFF ((0x0 << 0) | \
 			(0x0 << 4) | \
 			(0x0 << 8) | \
-			(0x0 << 12) | \
-			(0x0 << 16) | \
-			(0x0 << 20) | \
-			(0x0 << 24) | \
-			(0x0 << 28))
+			(0x0 << 12))
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG1_OFF ((0x0 << 0) | \
 			(0x0 << 4))
 
