@@ -25,6 +25,7 @@
 
 #include "page_pool.h"
 #include "deferred-free-helper.h"
+#include <uapi/linux/dma-buf.h>
 
 static struct dma_heap *sys_heap;
 static struct dma_heap *sys_uncached_heap;
@@ -595,5 +596,24 @@ static int system_heap_create(void)
 
 	return 0;
 }
+
+/* ref code: dma_buf.c, dma_buf_set_name */
+long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf)
+{
+	char *name = kstrndup(buf, DMA_BUF_NAME_LEN, GFP_KERNEL);
+	long ret = 0;
+
+	if (IS_ERR(name))
+		return PTR_ERR(name);
+
+	/* different with dma_buf.c, always enable setting name */
+	spin_lock(&dmabuf->name_lock);
+	kfree(dmabuf->name);
+	dmabuf->name = name;
+	spin_unlock(&dmabuf->name_lock);
+
+	return ret;
+} EXPORT_SYMBOL_GPL(mtk_dma_buf_set_name);
+
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");
