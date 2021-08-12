@@ -13,13 +13,15 @@
 
 #define pr_fmt(fmt) "dma_heap: mtk_mm "fmt
 
+#include <linux/module.h>
+
+#ifdef __MTK_MM_HEAP_FILE_ENABLE__
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-heap.h>
 #include <linux/err.h>
 #include <linux/highmem.h>
 #include <linux/mm.h>
-#include <linux/module.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -824,6 +826,14 @@ int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(is_mtk_mm_heap_dmabuf);
+#else
+static int mtk_mm_heap_create(void)
+{
+	pr_info("%s init!\n", __func__);
+
+	return 0;
+}
+#endif
 
 module_init(mtk_mm_heap_create);
 MODULE_LICENSE("GPL v2");
