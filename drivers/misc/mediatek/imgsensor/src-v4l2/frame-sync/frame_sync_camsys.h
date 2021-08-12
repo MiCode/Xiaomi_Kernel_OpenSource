@@ -12,6 +12,6 @@
  *     flag:"non 0" -> Start sync frame;
  *              "0" -> End sync frame;
  ******************************************************************************/
-extern unsigned int fs_sync_frame(unsigned int flag);
+unsigned int fs_sync_frame(unsigned int flag);
 
 #endif

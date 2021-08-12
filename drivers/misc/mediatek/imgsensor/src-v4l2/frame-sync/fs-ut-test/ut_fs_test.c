@@ -8,13 +8,22 @@
 #include <stdbool.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>    /* Needed by sleep() function */
 
-#include "ut_fs_platform_arg.h"
+#include "ut_fs_streaming_info.h"
 #include "ut_fs_perframe_ctrl_info.h"
+#include "ut_fs_test_config.h"
+
+#include "ut_fs_perframe_ctrl_sample_main_0.h"
+#include "ut_fs_perframe_ctrl_sample_main_1.h"
+#include "ut_fs_perframe_ctrl_sample_main_2.h"
+
 #include "../frame_monitor.h"
 
 
-/* CMD printf color */
+/******************************************************************************/
+// CMD printf color
+/******************************************************************************/
 #define NONE "\033[m"
 #define RED "\033[0;32;31m"
 #define LIGHT_RED "\033[1;31m"
@@ -31,25 +40,33 @@
 #define YELLOW "\033[1;33m"
 #define LIGHT_GRAY "\033[0;37m"
 #define WHITE "\033[1;37m"
+/******************************************************************************/
 
 
-// #define MANUALLY_SET_CURRENT_TIMESTAMP
+/******************************************************************************/
+#define SHOW_TEXT() \
+({ \
+	printf(LIGHT_CYAN \
+		">=============================================================================<\n"\
+		NONE); \
+	printf(LIGHT_CYAN \
+		"!!!                        FrameSync UT Test Program                        !!!\n"\
+		NONE); \
+	printf(LIGHT_CYAN \
+		">=============================================================================<\n"\
+		NONE); \
+})
+/******************************************************************************/
 
 
 static struct FrameSync *frameSync;
 
 
 /******************************************************************************/
-struct UT_Timestamp {
-	unsigned int idx;
-	unsigned int timestamp[VSYNCS_MAX];
-};
-
-
-static struct UT_Timestamp ut_vts[SENSOR_MAX_NUM];
-
-
+// about sensor data
+/******************************************************************************/
 static unsigned int set_synced_sensors[SENSOR_MAX_NUM] = {0};
+static unsigned int g_sync_tag;
 
 static struct ut_fs_streaming_sensor_list
 			streaming_sensors[SENSOR_MAX_NUM] = {0};
@@ -57,17 +74,61 @@ static struct ut_fs_streaming_sensor_list
 static struct ut_fs_perframe_sensor_mode_list
 			streaming_sensors_modes_list[SENSOR_MAX_NUM] = {0};
 
+static unsigned int sensor_mode[SENSOR_MAX_NUM] = {0};
+
+
+/* EXT CTRL config */
+static struct ut_fs_test_ext_ctrl_cfg
+			ext_ctrls[SENSOR_MAX_NUM] = {0};
+/******************************************************************************/
+
+
+/******************************************************************************/
+// about timestamp
+/******************************************************************************/
+struct UT_Timestamp {
+	unsigned int idx;
+	unsigned int timestamp[VSYNCS_MAX];
+
+	unsigned int curr_bias;
+	unsigned int next_bias;
+};
+static struct UT_Timestamp ut_vts[SENSOR_MAX_NUM] = {0};
 
 #define VDIFF_SYNC_SUCCESS_TH 1000
 static unsigned int vdiff_sync_success_th;
 
+// #define MANUALLY_SET_CURRENT_TIMESTAMP
+
 static struct vsync_rec v_rec = {0};
 /******************************************************************************/
 
-/* AE shutter value */
+
+/******************************************************************************/
+// about per-frame ctrl and AE shutter
+/******************************************************************************/
+static unsigned int g_auto_run;
+static unsigned int g_run_times;
+
+// static unsigned int g_trigger_ext_fl = 0;
+// static unsigned int g_trigger_seamless_switch = 0;
+
+
+/* auto-run shutter */
+static unsigned int g_shutter;
+static unsigned int g_hdr_shutter[FS_HDR_MAX] = {0};
+static const unsigned int g_hdr_divided_ratio[FS_HDR_MAX] = {
+	1,
+	2,
+	4,
+	5,
+	6,
+};
+
+static unsigned int lock_exp;
+
 #define EXP_TABLE_SIZE 6
 static unsigned int exp_table_idx;
-static unsigned int lock_exp_table_idx;
 static const unsigned int exp_table[EXP_TABLE_SIZE] = {
 	10002,
 	19997,
@@ -76,11 +137,10 @@ static const unsigned int exp_table[EXP_TABLE_SIZE] = {
 	50004,
 	60002,
 };
-static unsigned int lock_exp;
-static unsigned int lock_flk;
 
 
 /* flicker enable table */
+static unsigned int lock_flk;
 static const unsigned int flk_en_table[10] = {1, 1, 0, 0, 0, 0, 0, 0, 0, 0};
 static unsigned int flk_en_table_idx;
 
@@ -88,6 +148,13 @@ static unsigned int flk_en_table_idx;
 static unsigned int simulation_passed_vsyncs;
 static unsigned int passed_vsyncs_ratio;
 static unsigned int max_pass_cnt;
+/******************************************************************************/
+
+
+/******************************************************************************/
+// about FrameSync Algorithm stability test
+/******************************************************************************/
+static unsigned int g_fs_alg_stability_test_flag;
 /******************************************************************************/
 
 
@@ -100,7 +167,6 @@ static unsigned int max_pass_cnt;
 static void test_fs_register_sensor_behavior(void)
 {
 	/* Test fs_register_sensor -> fs_push_sensor */
-	printf("\n");
 	printf(
 		"/*************************************************************/\n"
 		);
@@ -112,8 +178,11 @@ static void test_fs_register_sensor_behavior(void)
 	{
 		printf("/* [--- REGISTER_BY_SENSOR_ID ---] */\n\n");
 
-		struct fs_streaming_st push_sensor[5];
+		struct fs_streaming_st *push_sensor;
 		struct fs_streaming_st clear_st = {0};
+
+		push_sensor = calloc(SENSOR_MAX_NUM,
+					sizeof(struct fs_streaming_st));
 
 
 		for (int run = 0; run < 2; ++run) {
@@ -159,6 +228,9 @@ static void test_fs_register_sensor_behavior(void)
 			clear_st.sensor_id = i;
 			frameSync->fs_streaming(0, &clear_st);
 		}
+
+
+		free(push_sensor);
 	}
 		break;
 
@@ -342,6 +414,15 @@ static void test_syncFrame_behavior(void)
 
 void run_fs_control_test(void)
 {
+	unsigned int ret = 0;
+
+	ret = FrameSyncInit(&frameSync);
+	if (ret != 0) {
+		printf(RED ">>> frameSync Init failed !\n" NONE);
+		return;
+	}
+
+
 	printf("\n");
 	printf(
 		"/*************************************************************/\n"
@@ -366,47 +447,56 @@ void run_fs_control_test(void)
 /******************************************************************************/
 
 
-void *processing(void *ut_fs_argument)
+void *ut_set_fs_streaming_and_synced(void *ut_fs_test_sensor_cfg)
 {
-	struct ut_fs_argument *arg = (struct ut_fs_argument *)ut_fs_argument;
-
 	unsigned int ret;
+	unsigned int sync_tag = 0;
+	struct ut_fs_test_sensor_cfg *sensor_cfg =
+		(struct ut_fs_test_sensor_cfg *)ut_fs_test_sensor_cfg;
+	struct fs_streaming_st s_sensor = {0};
+
 
 	ret = FrameSyncInit(&frameSync);
-	printf("***### frameSync addr = %p (sensor_idx=%2d) ###***\n",
+	if (ret != 0) {
+		printf(RED ">>> frameSync Init failed !\n" NONE);
+		pthread_exit(NULL);
+	}
+
+	printf(GREEN
+		">>> frameSync addr = %p (sensor_idx=%2d)\n"
+		NONE,
 		frameSync,
-		arg->sensor_idx);
+		sensor_cfg->sensor_idx);
 
-	//frameSync->fs_streaming(arg->sensor_idx, 1, (arg->sensor));
-	frameSync->fs_streaming(1, (arg->sensor));
 
+	/* 0. setup ut streaming data */
+	s_sensor = *sensor_cfg->sensor;
+	s_sensor.sensor_idx = sensor_cfg->sensor_idx;
+	s_sensor.tg = sensor_cfg->tg;
+
+
+	/* 1. call fs_streaming() */
+	frameSync->fs_streaming(1, &s_sensor);
+
+
+	/* 2. call fs_set_sync() */
+	sync_tag = g_sync_tag;
+	set_synced_sensors[sensor_cfg->sensor_idx] = 1;
 
 	switch (REGISTER_METHOD) {
 	case BY_SENSOR_ID:
-		ret = frameSync->fs_is_set_sync(arg->sensor->sensor_id);
-		if (ret == 0)
-			frameSync->fs_set_sync(arg->sensor->sensor_id, 1);
-
-		ret = frameSync->fs_is_set_sync(arg->sensor->sensor_id);
-
+		frameSync->fs_set_sync(s_sensor.sensor_id, sync_tag);
+		// ret = frameSync->fs_is_set_sync(s_sensor.sensor_id);
 		break;
 
 	case BY_SENSOR_IDX:
-		ret = frameSync->fs_is_set_sync(arg->sensor->sensor_idx);
-		if (ret == 0)
-			frameSync->fs_set_sync(arg->sensor->sensor_idx, 1);
-
-		ret = frameSync->fs_is_set_sync(arg->sensor->sensor_idx);
-
+		frameSync->fs_set_sync(s_sensor.sensor_idx, sync_tag);
+		// ret = frameSync->fs_is_set_sync(s_sensor.sensor_idx);
 		break;
 
 	default:
-		ret = frameSync->fs_is_set_sync(arg->sensor->sensor_idx);
-		if (ret == 0)
-			frameSync->fs_set_sync(arg->sensor->sensor_idx, 1);
-
-		ret = frameSync->fs_is_set_sync(arg->sensor->sensor_idx);
-
+		frameSync->fs_set_sync(s_sensor.sensor_idx, sync_tag);
+		// ret = frameSync->fs_is_set_sync(s_sensor.sensor_idx);
 		break;
 	}
 
@@ -465,8 +555,13 @@ static void get_ut_timestamps_pf(
 	frm_get_predicted_fl_us(idx, fl_us, &sensor_curr_fl_us);
 
 
-	// for debug
-	// printf("UT get predicted fl( 0:%u, 1:%u )\n", fl_us[0], fl_us[1]);
+	ut_vts[idx].curr_bias = ut_vts[idx].next_bias;
+	frm_get_next_vts_bias_us(idx, &ut_vts[idx].next_bias);
+
+
+	//  for debug
+	//  printf("UT get predicted fl(c:%u, n:%u), vts_bias(c:%u, n:%u)\n",
+	//  fl_us[0], fl_us[1],	ut_vts[idx].curr_bias, ut_vts[idx].next_bias);
 
 
 	for (i = 0; i < vsyncs; ++i) {
@@ -488,8 +583,8 @@ static void get_ut_timestamps_pf(
 	}
 
 
-	// for debug
-	// printf("UT dump timestamp(%u/%u/%u/%u)\n",
+	//  for debug
+	//  printf("UT dump timestamp(%u/%u/%u/%u)\n",
 	//	ut_vts[idx].timestamp[0],
 	//	ut_vts[idx].timestamp[1],
 	//	ut_vts[idx].timestamp[2],
@@ -524,13 +619,16 @@ static void set_pf_ctrl_s_mode(
 
 
 
-static unsigned int get_shutter_value(void)
+static void generate_shutter_value(void)
 {
+	unsigned int i = 0;
+
 	/* 0 => idx-- ; 1 => idx++ ; 2 => idx+0 */
 	unsigned int exp_table_idx_dir = 0;
 
+
 	if (lock_exp)
-		return exp_table[lock_exp_table_idx];
+		goto SETUP_AUTO_TEST_EXP;
 
 
 	exp_table_idx_dir = rand() % 3;
@@ -548,7 +646,16 @@ static unsigned int get_shutter_value(void)
 	}
 
 
-	return exp_table[exp_table_idx];
+SETUP_AUTO_TEST_EXP:
+	/* for normal sensor auto-run shutter value*/
+	g_shutter = exp_table[exp_table_idx];
+
+
+	/* for hdr auto-run shutter values */
+	for (i = 0; i < FS_HDR_MAX; ++i) {
+		g_hdr_shutter[i] =
+			exp_table[exp_table_idx] / g_hdr_divided_ratio[i];
+	}
 }
 
 
@@ -603,7 +710,7 @@ print_and_select_s_mode(
 			.mode_list[i].sensor_id != 0; ++i) {
 
 		printf(GREEN
-			"[%d] ID:%#x (sidx:%u), margin_lc:%3u, lineTimeInNs:%7u, pclk:%10u, linelength:%6u\n"
+			"[%d] ID:%#x (sidx:%u), margin_lc:%3u, lineTimeInNs:%7u, pclk:%10u, linelength:%6u, hdr_exp.mode_exp_cnt:%u\n"
 			NONE,
 			i,
 			streaming_sensors_modes_list[idx]
@@ -617,7 +724,9 @@ print_and_select_s_mode(
 			streaming_sensors_modes_list[idx]
 					.mode_list[i].pclk,
 			streaming_sensors_modes_list[idx]
-					.mode_list[i].linelength);
+					.mode_list[i].linelength,
+			streaming_sensors_modes_list[idx]
+					.mode_list[i].hdr_exp.mode_exp_cnt);
 	}
 
 	/* select sensor mode */
@@ -642,30 +751,70 @@ print_and_select_s_mode(
 }
 
 
+static void reset_ut_test_variables(void)
+{
+	unsigned int i = 0, j = 0;
+
+	struct ut_fs_streaming_sensor_list s_sensor_clear_st = {0};
+	struct ut_fs_perframe_sensor_mode_list s_sensor_mode_clear_st = {0};
+
+
+	for (i = 0; i < SENSOR_MAX_NUM; ++i) {
+		set_synced_sensors[i] = 0;
+
+		streaming_sensors[i] = s_sensor_clear_st;
+		streaming_sensors_modes_list[i] = s_sensor_mode_clear_st;
+
+		sensor_mode[i] = 0;
+
+
+		ut_vts[i].idx = 0;
+		for (j = 0; j < VSYNCS_MAX; ++j)
+			ut_vts[i].timestamp[j] = 0;
+		ut_vts[i].curr_bias = 0;
+		ut_vts[i].next_bias = 0;
+	}
+}
+
+
 static bool ut_check_pf_sync_result(struct vsync_rec *(p_v_rec))
 {
 	unsigned int i = 0, biggest_vts = 0;
+	unsigned int vts[TG_MAX_NUM] = {0};
 	unsigned int vdiff[SENSOR_MAX_NUM] = {0};
 	bool is_success = true;
 
 
+	/* 0. prepare vsync timestamp data for using */
+	for (i = 0; i < TG_MAX_NUM; ++i) {
+		vts[i] =
+			p_v_rec->recs[i].timestamps[0] +
+			ut_vts[i].curr_bias;
+	}
+
+
 	/* 1. find out lastest vsync timestamp */
 	for (i = 0; i < TG_MAX_NUM; ++i)
-		if (p_v_rec->recs[i].timestamps[0] > biggest_vts)
-			biggest_vts = p_v_rec->recs[i].timestamps[0];
+		if (vts[i] > biggest_vts)
+			biggest_vts = vts[i];
 
 
 	/* 2. check each vsync timestamp diff and */
 	/*    check if sync successfully */
 	for (i = 0; i < TG_MAX_NUM; ++i) {
-		if (p_v_rec->recs[i].timestamps[0] == 0)
+		if (vts[i] == 0)
 			continue;
 
-		vdiff[i] = biggest_vts - p_v_rec->recs[i].timestamps[0];
+		vdiff[i] = biggest_vts - vts[i];
 
-	// for debug
-	//	printf(RED ">>> UT: [%u] vdiff:%u, biggest_vts:%u, vts:%u\n\n\n" NONE,
-	//			i, vdiff[i], biggest_vts, p_v_rec->recs[i].timestamps[0]);
+	//  for debug
+	//  printf(RED
+	//  ">>> UT: [%u] vdiff:%u, biggest_vts:%u, vts:%u, bias(c:%u, n:%u)\n\n\n"
+	//  NONE,
+	//  i, vdiff[i], biggest_vts,
+	//  p_v_rec->recs[i].timestamps[0],
+	//  ut_vts[i].curr_bias,
+	//  ut_vts[i].next_bias);
 
 		if (vdiff[i] > vdiff_sync_success_th)
 			is_success = false;
@@ -680,13 +829,15 @@ static bool ut_check_pf_sync_result(struct vsync_rec *(p_v_rec))
 
 		for (i = 0; i < TG_MAX_NUM; ++i) {
 			printf(RED
-				">>> UT: [%u] tg:%u, vsyncs:%u, vdiff:%u, vts:%u\n"
+				">>> UT: [%u] tg:%u, vsyncs:%u, vdiff:%u, vts:%u, bias(c:%u, n:%u)\n"
 				NONE,
 				i,
 				p_v_rec->recs[i].id,
 				p_v_rec->recs[i].vsyncs,
 				vdiff[i],
-				p_v_rec->recs[i].timestamps[0]);
+				p_v_rec->recs[i].timestamps[0],
+				ut_vts[i].curr_bias,
+				ut_vts[i].next_bias);
 		}
 		printf("\n\n\n");
 	}
@@ -847,7 +998,7 @@ ut_generate_vsync_data_manually(
 	/* (biggest_vts + 1) => prevent overflow */
 	v_rec.cur_tick = (biggest_vts + 1) * v_rec.tick_factor;
 
-#endif
+#endif // MANUALLY_SET_CURRENT_TIMESTAMP
 
 	printf("[0] tg:%u, [1] tg:%u, [2] tg:%u\n",
 		v_rec.recs[0].id,
@@ -1052,13 +1203,345 @@ static void ut_set_fs_set_sync(void)
 }
 
 
-static void ut_trigger_pf_ctrl_manually(void)
+static inline void
+ut_set_fs_update_auto_flicker_mode(struct fs_perframe_st *pf_ctrl)
 {
-	int select = 2147483647, input;
+	switch (REGISTER_METHOD) {
+	case BY_SENSOR_ID:
+		frameSync->fs_update_auto_flicker_mode(
+				pf_ctrl->sensor_id,
+				pf_ctrl->flicker_en);
 
+		break;
+
+	case BY_SENSOR_IDX:
+		frameSync->fs_update_auto_flicker_mode(
+				pf_ctrl->sensor_idx,
+				pf_ctrl->flicker_en);
+
+		break;
+
+	default:
+		frameSync->fs_update_auto_flicker_mode(
+				pf_ctrl->sensor_idx,
+				pf_ctrl->flicker_en);
+
+		break;
+	}
+}
+
+
+static inline void
+ut_set_fs_update_min_framelength_lc(struct fs_perframe_st *pf_ctrl)
+{
+	switch (REGISTER_METHOD) {
+	case BY_SENSOR_ID:
+		frameSync->fs_update_min_framelength_lc(
+				pf_ctrl->sensor_id,
+				pf_ctrl->min_fl_lc);
+
+		break;
+
+	case BY_SENSOR_IDX:
+		frameSync->fs_update_min_framelength_lc(
+				pf_ctrl->sensor_idx,
+				pf_ctrl->min_fl_lc);
+
+		break;
+
+	default:
+		frameSync->fs_update_min_framelength_lc(
+				pf_ctrl->sensor_idx,
+				pf_ctrl->min_fl_lc);
+
+		break;
+	}
+}
+
+
+static void ut_auto_set_anti_flicker(struct fs_perframe_st *pf_ctrl)
+{
+	if ((pf_ctrl->sensor_idx == 0) && (!lock_flk)) {
+		// only main cam
+		pf_ctrl->flicker_en =
+			flk_en_table[flk_en_table_idx];
+
+		flk_en_table_idx = (flk_en_table_idx + 1) % 10;
+	} else
+		pf_ctrl->flicker_en = 0;
+}
+
+
+/******************************************************************************/
+// return:
+//     1: continue
+//    -1: break
+//     0: do nothing
+/******************************************************************************/
+static int ut_set_fs_set_shutter_select_sensor_manually(int *select)
+{
+	unsigned int input = 0;
+
+
+	/* select a sensor which you will set it in bellow flow */
+	/* print sensor which you can select */
+	printf(GREEN
+		"Please select bellow sensors for \"setting shutter (perframe_st)\"\n"
+		NONE);
+
+	/* using CLI for choise */
+	*select = print_and_select_sensor(streaming_sensors);
+
+	/* all fs_shutter() has been set, call fs_sync_frame(0) */
+	if (*select < 0) {
+		printf(LIGHT_PURPLE
+			"FrameSync per-frame ctrl process, framesync sync frame(0)...\n\n\n"
+			NONE);
+
+		frameSync->fs_sync_frame(0);
+
+		printf("\n\n");
+
+
+
+		/* check if you want to go next run */
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) Next run? (Yes:1 / No:0) : "
+			NONE);
+		scanf("%d", &input);
+
+		/* need not to go for next run, so break the for loop */
+		if (input == 0)
+			return -1;
+
+
+		/* generate vsync data */
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) generate vsync data \"pf auto:1\" OR \"manually:0\" : "
+			NONE);
+		scanf("%d", &input);
+
+		if (input > 0) {
+			ut_generate_vsync_data_pf_auto(
+				&v_rec);
+		} else {
+			v_rec = ut_generate_vsync_data_manually(
+				streaming_sensors,
+				streaming_sensors_modes_list);
+		}
+
+		printf(GREEN
+			">>> FrameSync per-frame ctrl process, framesync sync frame(1)...\n\n\n"
+			NONE);
+
+		frameSync->fs_sync_frame(1);
+
+		printf("\n\n");
+
+		return 1;
+	}
+
+	printf("\n\n");
+	return 0;
+}
+
+
+static void ut_set_fs_set_shutter(void)
+{
+	int select = 2147483647, input = 0;
+	unsigned int i = 0;
+	unsigned int hdr_mode = 0, ae_exp_cnt = 0, exp_i = 0;
+
+
+	for (i = 0; ; ++i) {
+		if (g_auto_run && streaming_sensors[i].sensor == NULL)
+			break;
+
+
+		struct fs_perframe_st pf_ctrl = {0};
+
+
+		/* 1. set sensor mode */
+		/*    => setup some perframe_st data */
+		if (!g_auto_run) {
+			unsigned int ret = 0;
+
+			ret = ut_set_fs_set_shutter_select_sensor_manually(
+				&select);
+
+			if (ret == 1)
+				continue;
+			else if (ret == -1)
+				break;
+
+
+			/* print sensor mode which you can select */
+			printf(GREEN
+				"Please select a sensor mode bellow :\n"
+				NONE);
+
+			/* using CLI for choise */
+			input = print_and_select_s_mode(
+					streaming_sensors_modes_list,
+					select);
+
+			set_pf_ctrl_s_mode(&pf_ctrl, select, input);
+		} else {
+			/* auto run will use mode data have been prepared */
+			set_pf_ctrl_s_mode(&pf_ctrl, i, sensor_mode[i]);
+		}
+
+
+		/* 2. set anti-flicker */
+		if (!g_auto_run) {
+			printf(LIGHT_PURPLE
+				">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"flicker_en\" : "
+				NONE,
+				select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+			scanf("%d", &input);
+
+			pf_ctrl.flicker_en = input;
+		} else {
+			/* TODO: let the behavior of auto set anti flicker like ISP7 */
+			ut_auto_set_anti_flicker(&pf_ctrl);
+		}
+
+
+		/* 3. set min framelength */
+		if (!g_auto_run) {
+			printf(LIGHT_PURPLE
+				">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"min_fl (us)\" : "
+				NONE,
+				select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+			scanf("%d", &input);
+
+			pf_ctrl.min_fl_lc =
+				US_TO_LC(input, pf_ctrl.lineTimeInNs);
+		} else {
+			// hardcode min framelength to 33350 us
+			;
+		}
+
+
+		/* 4. set shutter time (us) */
+		if (!g_auto_run) {
+			printf(LIGHT_PURPLE
+				">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"shutter (us)\" : "
+				NONE,
+				select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+			scanf("%d", &input);
+
+			pf_ctrl.shutter_lc =
+				US_TO_LC(input, pf_ctrl.lineTimeInNs);
+		} else {
+			pf_ctrl.shutter_lc =
+				US_TO_LC(g_shutter, pf_ctrl.lineTimeInNs);
+		}
+
+
+		/* 5. set hdr shutter time (us) */
+		if (!g_auto_run) {
+			hdr_mode = streaming_sensors_modes_list[select]
+					.mode_list->hdr_exp.mode_exp_cnt;
+
+			printf(GREEN
+				">>> HDR:exp[] => LE:[0] / ME:[1] / SE:[2] / SSE:[3] / SSSE:[4], mode_exp_cnt:%u\n"
+				NONE,
+				hdr_mode);
+
+			printf(GREEN
+				">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"AE exp cnt\" : "
+				NONE,
+				select, pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
+			scanf("%u", &ae_exp_cnt);
+		} else {
+			hdr_mode = streaming_sensors_modes_list[i]
+					.mode_list->hdr_exp.mode_exp_cnt;
+
+			ae_exp_cnt = streaming_sensors_modes_list[i]
+					.mode_list->hdr_exp.ae_exp_cnt;
+		}
+
+		for (exp_i = 0; exp_i < ae_exp_cnt; ++exp_i) {
+			int hdr_idx = 0;
+
+			hdr_idx = hdr_exp_idx_map[ae_exp_cnt][exp_i];
+
+			if (!g_auto_run) {
+				printf(LIGHT_PURPLE
+					">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"HDR exp[%u] (us)\" : "
+					NONE,
+					select, pf_ctrl.sensor_id,
+					pf_ctrl.sensor_idx, exp_i);
+				scanf("%d", &input);
+
+				pf_ctrl.hdr_exp.exp_lc[hdr_idx] =
+					US_TO_LC(input, pf_ctrl.lineTimeInNs);
+			} else {
+				pf_ctrl.hdr_exp.exp_lc[hdr_idx] =
+					US_TO_LC(g_hdr_shutter[hdr_idx],
+						pf_ctrl.lineTimeInNs);
+			}
+			// printf("hdr_idx:%u, exp:%u\n", hdr_idx, pf_ctrl.hdr_exp.exp_lc[hdr_idx]);
+		}
+
+
+		/* N. call fs_set_shutter() */
+		if (!g_auto_run)
+			printf("\n\n");
+
+		frameSync->fs_set_shutter(&pf_ctrl);
+
+		if (!g_auto_run)
+			printf("\n\n");
+
+
+		/* N+1. call fs_update_auto_flicker_mode() */
+		ut_set_fs_update_auto_flicker_mode(&pf_ctrl);
+
+
+		/* N+2. call fs_update_min_framelength_lc() */
+		ut_set_fs_update_min_framelength_lc(&pf_ctrl);
+	}
+}
+
+
+static void ut_trigger_ext_ctrl(unsigned int run_times)
+{
 	unsigned int i = 0;
 
+	for (i = 0;
+		(ext_ctrls[i].do_ext_fl_at_n_run != 0 &&
+		ext_ctrls[i].do_seamless_switch_at_n_run != 0); ++i) {
 
+		// printf("ext_ctrls.ext_at:%u/seamless_at:%u\n",
+		//	ext_ctrls[i].do_ext_fl_at_n_run,
+		//	ext_ctrls[i].do_seamless_switch_at_n_run);
+
+		switch (REGISTER_METHOD) {
+		case BY_SENSOR_IDX:
+		default:
+			if (ext_ctrls[i].do_ext_fl_at_n_run == run_times) {
+				frameSync->fs_set_extend_framelength(
+						ext_ctrls[i].sensor_idx,
+						0,
+						ext_ctrls[i].ext_fl_us);
+			}
+
+
+			if (ext_ctrls[i].do_seamless_switch_at_n_run == run_times) {
+				frameSync->fs_seamless_switch(
+						ext_ctrls[i].sensor_idx);
+			}
+
+			break;
+		}
+	}
+}
+
+
+static void ut_trigger_pf_ctrl_manually(void)
+{
 	/* for trigger frame sync PF CTRL */
 	printf(GREEN
 		">>> FrameSync per-frame ctrl process, framesync sync frame(1)...\n\n\n"
@@ -1068,181 +1551,14 @@ static void ut_trigger_pf_ctrl_manually(void)
 
 	printf("\n\n\n");
 
-
-	for (i = 0; ; ++i) {
-		struct fs_perframe_st pf_ctrl = {0};
-
-		/* 1. select a sensor which you will set it in bellow flow */
-		/* print sensor which you can select */
-		printf(GREEN
-			"Please select bellow sensors for \"setting shutter (perframe_st)\"\n"
-			NONE);
-
-		/* using CLI for choise */
-		select = print_and_select_sensor(streaming_sensors);
-
-		/* all fs_shutter() has been set, call fs_sync_frame(0) */
-		if (select < 0) {
-			printf(LIGHT_PURPLE
-				"FrameSync per-frame ctrl process, framesync sync frame(0)...\n\n\n"
-				NONE);
-
-			frameSync->fs_sync_frame(0);
-
-			printf("\n\n\n");
-
-
-
-			/* check if you want to go next run */
-			printf(LIGHT_PURPLE
-				">>> (Input 1 integer) Next run? (Yes:1 / No:0) : "
-				NONE);
-			scanf("%d", &input);
-
-			/* need not to go for next run, so break the for loop */
-			if (input <= 0)
-				break;
-
-
-			/* 6. generate vsync data */
-			printf(LIGHT_PURPLE
-				">>> (Input 1 integer) generate vsync data \"pf auto:1\" OR \"manually:0\" : "
-				NONE);
-			scanf("%d", &input);
-
-			if (input > 0) {
-				ut_generate_vsync_data_pf_auto(
-					&v_rec);
-			} else {
-				v_rec = ut_generate_vsync_data_manually(
-					streaming_sensors,
-					streaming_sensors_modes_list);
-			}
-
-			printf(GREEN
-				">>> FrameSync per-frame ctrl process, framesync sync frame(1)...\n\n\n"
-				NONE);
-
-			frameSync->fs_sync_frame(1);
-
-			printf("\n\n\n");
-
-			continue;
-		}
-
-		printf("\n\n\n");
-
-
-		/* 2. select the sensor's mode */
-		/* print sensor mode which you can select */
-		printf(GREEN
-			"Please select a sensor mode bellow :\n"
-			NONE);
-
-		/* using CLI for choise */
-		input = print_and_select_s_mode(
-				streaming_sensors_modes_list,
-				select);
-
-		set_pf_ctrl_s_mode(&pf_ctrl, select, input);
-
-
-		/* 3. set anti-flicker or not */
-		printf(LIGHT_PURPLE
-			">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"flicker_en\" : "
-			NONE,
-			select,	pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
-		scanf("%d", &input);
-
-		pf_ctrl.flicker_en = input;
-
-
-		// hardcode min framelength to 33350 us
-		// printf(LIGHT_PURPLE
-		//	">>> (Input one integers) [%d] ID:%#x (sidx:%u), set \"min_fl us\" : "
-		//	NONE,
-		//	select,	pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
-		// scanf("%d", &input);
-
-		// pf_ctrl.min_fl_lc = US_TO_LC(input, pf_ctrl.lineTimeInNs);
-
-
-		/* 4. set shutter time (us) */
-		printf(LIGHT_PURPLE
-			">>> (Input 1 integers) [%d] ID:%#x (sidx:%u), set \"shutter (us)\" : "
-			NONE,
-			select,	pf_ctrl.sensor_id, pf_ctrl.sensor_idx);
-		scanf("%d", &input);
-
-		pf_ctrl.shutter_lc = US_TO_LC(input, pf_ctrl.lineTimeInNs);
-
-
-		/* 5. call fs_set_shutter() */
-		printf(GREEN
-			">>> framesync set shutter, call fs_set_shutter()...\n\n"
-			NONE);
-
-		frameSync->fs_set_shutter(&pf_ctrl);
-
-
-		/* 6. call fs_update_auto_flicker_mode() */
-		switch (REGISTER_METHOD) {
-		case BY_SENSOR_ID:
-			frameSync->fs_update_auto_flicker_mode(
-					pf_ctrl.sensor_id,
-					pf_ctrl.flicker_en);
-
-			break;
-
-		case BY_SENSOR_IDX:
-			frameSync->fs_update_auto_flicker_mode(
-					pf_ctrl.sensor_idx,
-					pf_ctrl.flicker_en);
-
-			break;
-
-		default:
-			frameSync->fs_update_auto_flicker_mode(
-					pf_ctrl.sensor_idx,
-					pf_ctrl.flicker_en);
-			break;
-		}
-
-
-		/* 7. call fs_update_min_framelength_lc() */
-		switch (REGISTER_METHOD) {
-		case BY_SENSOR_ID:
-			frameSync->fs_update_min_framelength_lc(
-					pf_ctrl.sensor_id,
-					pf_ctrl.min_fl_lc);
-
-			break;
-
-		case BY_SENSOR_IDX:
-			frameSync->fs_update_min_framelength_lc(
-					pf_ctrl.sensor_idx,
-					pf_ctrl.min_fl_lc);
-
-			break;
-
-		default:
-			frameSync->fs_update_min_framelength_lc(
-					pf_ctrl.sensor_idx,
-					pf_ctrl.min_fl_lc);
-
-			break;
-		}
-
-
-		printf("\n\n\n");
-	}
+	/* ut call fs_set_shutter() */
+	ut_set_fs_set_shutter();
 }
 
 
 static void ut_trigger_pf_ctrl_auto_run_normal(void)
 {
-	unsigned int i = 0, counter = 0, run_times = 0;
-	unsigned int s_mode[SENSOR_MAX_NUM] = {0};
+	unsigned int i = 0, counter = 0;
 
 	bool first_sync = false, break_sync = false, re_sync = false;
 	bool pf_result = false;
@@ -1252,24 +1568,38 @@ static void ut_trigger_pf_ctrl_auto_run_normal(void)
 	bool is_ut_pass = false;
 
 
+	if (g_fs_alg_stability_test_flag)
+		goto RUN_PF_CTRL_AUTO_NORMAL;
+
+
 	/* set auto run times */
 	printf(LIGHT_PURPLE
 		">>> (Input 1 integers) auto run times (suggest min:10000) : "
 		NONE);
-	scanf("%u", &run_times);
+	scanf("%u", &g_run_times);
 
-	while (run_times < 0) {
+	while (g_run_times < 0) {
 		printf(RED
-			">>> run_times is a negative value, please input it again !\n"
+			">>> g_run_times is a negative value, please input it again !\n"
 			NONE);
 
 		/* set auto run times */
 		printf(LIGHT_PURPLE
 			">>> (Input 1 integers) auto run times (suggest min:10000) : "
 			NONE);
-		scanf("%u", &run_times);
+		scanf("%u", &g_run_times);
 	}
 	// printf("\n\n\n");
+
+
+	/* set vdiff sync success threshold */
+	printf(LIGHT_PURPLE
+		">>> (Input 1 integers) \"set sync helper TH\" (determin sync successfully or not, def:1000) : "
+		NONE);
+	scanf("%u", &vdiff_sync_success_th);
+	vdiff_sync_success_th = (vdiff_sync_success_th > 0)
+		? vdiff_sync_success_th
+		: VDIFF_SYNC_SUCCESS_TH;
 
 
 	/* set simulation for passed more than one vsync */
@@ -1305,15 +1635,15 @@ static void ut_trigger_pf_ctrl_auto_run_normal(void)
 		printf(LIGHT_PURPLE
 			">>> (Input 1 integers) lock shutter at idx (0:10002 / 1:19997 / 2:29996 / 3:40005 / 4:50004 / 5:60002) : "
 			NONE);
-		scanf("%u", &lock_exp_table_idx);
+		scanf("%u", &exp_table_idx);
 
-		if (lock_exp_table_idx >= EXP_TABLE_SIZE) {
-			lock_exp_table_idx = EXP_TABLE_SIZE - 1;
+		if (exp_table_idx >= EXP_TABLE_SIZE) {
+			exp_table_idx = EXP_TABLE_SIZE - 1;
 
 			printf(LIGHT_PURPLE
 				">>> set non valid value, lock shutter at idx:%u automatically\n"
 				NONE,
-				lock_exp_table_idx);
+				exp_table_idx);
 		}
 	}
 
@@ -1331,7 +1661,7 @@ static void ut_trigger_pf_ctrl_auto_run_normal(void)
 			"Please select bellow sensor's MODE for auto run using :\n"
 			NONE);
 
-		s_mode[i] = print_and_select_s_mode(
+		sensor_mode[i] = print_and_select_s_mode(
 					streaming_sensors_modes_list,
 					i);
 
@@ -1339,102 +1669,24 @@ static void ut_trigger_pf_ctrl_auto_run_normal(void)
 	}
 
 
-	/* auto run pf ctrl test */
-	while (counter++ < run_times) {
-		unsigned int shutter = 0;
+RUN_PF_CTRL_AUTO_NORMAL:
 
-		/* 0. get shutter for AE exp sync */
-		shutter = get_shutter_value();
+	/* auto run pf ctrl test */
+	while (++counter < g_run_times) {
+		/* 0. generate shutter for AE exp sync */
+		generate_shutter_value();
 
 
 		/* 1. start => same request ID settings will be set */
 		frameSync->fs_sync_frame(1);
 
 
-		/* 2. call fs_set_shutter() all sensor */
-		for (i = 0; streaming_sensors[i].sensor != NULL; ++i) {
-			struct fs_perframe_st pf_ctrl = {0};
-
-			/* 2-1. set sensor mode */
-			set_pf_ctrl_s_mode(&pf_ctrl, i, s_mode[i]);
+		/* 2. ut call fs_set_shutter() */
+		ut_set_fs_set_shutter();
 
 
-			/* 2-2. set anti-flicker or not */
-			// TODO:
-			//    flicker enable/disable automatically for auto test
-			//    current case is disable for all.
-			if ((pf_ctrl.sensor_idx == 0) && (!lock_flk)) {
-				// only main cam
-				pf_ctrl.flicker_en =
-					flk_en_table[flk_en_table_idx];
-
-				flk_en_table_idx = (flk_en_table_idx + 1) % 10;
-			} else
-				pf_ctrl.flicker_en = 0;
-
-
-			// hardcode min framelength to 33350 us
-			// pf_ctrl.min_fl_lc = US_TO_LC(input, pf_ctrl.lineTimeInNs);
-
-
-			/* 2-3. set shutter time (us) */
-			pf_ctrl.shutter_lc =
-					US_TO_LC(shutter, pf_ctrl.lineTimeInNs);
-
-
-			/* 2-4. call fs_set_shutter() */
-			frameSync->fs_set_shutter(&pf_ctrl);
-
-
-			/* 2-5. call fs_update_auto_flicker_mode() */
-			switch (REGISTER_METHOD) {
-			case BY_SENSOR_ID:
-				frameSync->fs_update_auto_flicker_mode(
-						pf_ctrl.sensor_id,
-						pf_ctrl.flicker_en);
-
-				break;
-
-			case BY_SENSOR_IDX:
-				frameSync->fs_update_auto_flicker_mode(
-						pf_ctrl.sensor_idx,
-						pf_ctrl.flicker_en);
-
-				break;
-
-			default:
-				frameSync->fs_update_auto_flicker_mode(
-						pf_ctrl.sensor_idx,
-						pf_ctrl.flicker_en);
-
-				break;
-			}
-
-
-			/* 2-6. call fs_update_min_framelength_lc() */
-			switch (REGISTER_METHOD) {
-			case BY_SENSOR_ID:
-				frameSync->fs_update_min_framelength_lc(
-						pf_ctrl.sensor_id,
-						pf_ctrl.min_fl_lc);
-
-				break;
-
-			case BY_SENSOR_IDX:
-				frameSync->fs_update_min_framelength_lc(
-						pf_ctrl.sensor_idx,
-						pf_ctrl.min_fl_lc);
-
-				break;
-
-			default:
-				frameSync->fs_update_min_framelength_lc(
-						pf_ctrl.sensor_idx,
-						pf_ctrl.min_fl_lc);
-
-				break;
-			}
-		}
+		/* 2.x do ext ctrl if needed */
+		ut_trigger_ext_ctrl(counter);
 
 
 		/* 3. end => end this request ID settings */
@@ -1493,7 +1745,7 @@ static void ut_trigger_pf_ctrl_auto_run_normal(void)
 		RED
 		">>> UT Result: FAIL (Run %u times, Broken %u times ! first_sync:%s, break_sync:%s, re_sync:%s)\n"
 		NONE,
-		counter-1, break_sync_count,
+		counter, break_sync_count,
 		(first_sync) ? "true" : "false",
 		(break_sync) ? "true" : "false",
 		(re_sync) ? "true" : "false");
@@ -1502,15 +1754,6 @@ static void ut_trigger_pf_ctrl_auto_run_normal(void)
 
 static void ut_trigger_pf_ctrl_auto_run(void)
 {
-	unsigned int input = 0;
-
-	printf(LIGHT_PURPLE
-		">>> (Input 1 integers) \"set sync helper TH\" (determin sync successfully or not, def:1000) : "
-		NONE);
-	scanf("%u", &input);
-	vdiff_sync_success_th = (input > 0) ? input : VDIFF_SYNC_SUCCESS_TH;
-
-
 	/* for shutter automatically generated */
 	srand(time(NULL));
 
@@ -1521,9 +1764,6 @@ static void ut_trigger_pf_ctrl_auto_run(void)
 
 static void ut_trigger_pf_ctrl(void)
 {
-	unsigned int input = 0;
-
-
 	printf(LIGHT_CYAN
 		"\n\n\n>>> UT Trigger FrameSync PF CTRL <<<\n\n\n"
 		NONE);
@@ -1533,9 +1773,9 @@ static void ut_trigger_pf_ctrl(void)
 	printf(LIGHT_PURPLE
 		">>> (Input 1 integers) PF CTRL with \"Auto run:1\" OR \"Manually set:0\" : "
 		NONE);
-	scanf("%u", &input);
+	scanf("%u", &g_auto_run);
 
-	if (input > 0)
+	if (g_auto_run > 0)
 		ut_trigger_pf_ctrl_auto_run();
 	else {
 		printf("\n\n\n");
@@ -1563,6 +1803,10 @@ static void test_frame_sync_proc(void)
 		printf(RED ">>> frameSync Init failed !\n" NONE);
 		return;
 	}
+
+
+	/* 0. reset ut test variable before using */
+	reset_ut_test_variables();
 
 
 	/* 1. fs_streaming() */
@@ -1593,16 +1837,287 @@ static void test_frame_sync_proc(void)
 }
 
 
-int main(void)
+static void setup_ut_streaming_data(
+	unsigned int i,
+	struct ut_fs_test_sensor_cfg *p_sensor_cfg)
 {
-	printf(LIGHT_CYAN ">===================================<\n" NONE);
-	printf(LIGHT_CYAN "!!!   FrameSync UT Test Program   !!!\n" NONE);
-	printf(LIGHT_CYAN ">===================================<\n" NONE);
+	streaming_sensors[i].sensor_name =
+		p_sensor_cfg[i].sensor_name;
+
+	streaming_sensors[i].sensor_idx =
+		p_sensor_cfg[i].sensor_idx;
+
+	streaming_sensors[i].tg =
+		p_sensor_cfg[i].tg;
+
+	streaming_sensors[i].sensor = p_sensor_cfg[i].sensor;
+
+
+	streaming_sensors_modes_list[i].sensor_name =
+		p_sensor_cfg[i].sensor_name;
+
+	streaming_sensors_modes_list[i].sensor_idx =
+		p_sensor_cfg[i].sensor_idx;
+
+	streaming_sensors_modes_list[i].mode_list =
+		p_sensor_cfg[i].mode;
+
+	streaming_sensors_modes_list[i]
+		.mode_list[p_sensor_cfg[i].mode_idx]
+		.sensor_idx = p_sensor_cfg[i].sensor_idx;
+
+
+	sensor_mode[i] = p_sensor_cfg[i].mode_idx;
+}
+
+
+static void setup_ext_ctrl_cfg(
+	struct ut_fs_test_ext_ctrl_cfg *ctrls)
+{
+	unsigned int i = 0;
+
+	if (ctrls == NULL) {
+		struct ut_fs_test_ext_ctrl_cfg clear_st = {0};
+
+		for (i = 0; i < SENSOR_MAX_NUM; ++i)
+			ext_ctrls[i] = clear_st;
+
+		return;
+	}
+
+	for (i = 0;
+		(ctrls[i].do_ext_fl_at_n_run != 0 &&
+		ctrls[i].do_seamless_switch_at_n_run != 0); ++i) {
+
+		ext_ctrls[i] = ctrls[i];
+	}
+}
+
+
+static void setup_fs_alg_stability_test_env_cfg(unsigned int test_id)
+{
+	g_run_times = test_list[test_id].env_cfg->run_times;
+	vdiff_sync_success_th = test_list[test_id].env_cfg->sync_th;
+	simulation_passed_vsyncs = test_list[test_id].env_cfg->passed_vsync;
+	passed_vsyncs_ratio = test_list[test_id].env_cfg->passed_vsync_ratio;
+	max_pass_cnt = test_list[test_id].env_cfg->passed_vsync_max_cnt;
+	lock_exp = test_list[test_id].env_cfg->lock_exp;
+	exp_table_idx = test_list[test_id].env_cfg->lock_exp_table_idx;
+	lock_flk = test_list[test_id].env_cfg->lock_flk;
+
+	/* EXT CTRL */
+	setup_ext_ctrl_cfg(test_list[test_id].env_cfg->ext_ctrls);
+}
+
+
+static void exe_fs_alg_stability_test_item(unsigned int test_id)
+{
+	unsigned int i = 0;
+	struct ut_fs_test_sensor_cfg *p_sensor_cfg = NULL;
+	unsigned int biggest_vts = 0;
+
+	pthread_t thread[SENSOR_MAX_NUM];
+
+	printf(GREEN
+		"\n\n\n>>> Execute FS alg stability Test, Test_ID:%u!\n\n\n<<<\n"
+		NONE,
+		test_id);
+
+
+	g_sync_tag = test_list[test_id].sync_tag;
+
+
+	/* 1. call fs_streaming() with fs_set_sync(), by multi-thread */
+	p_sensor_cfg = test_list[test_id].sensor_cfg;
+
+	for (i = 0; p_sensor_cfg[i].sensor != NULL; ++i) {
+		pthread_create(&thread[i], NULL,
+			ut_set_fs_streaming_and_synced,
+			(void *)&p_sensor_cfg[i]);
+
+
+		setup_ut_streaming_data(i, p_sensor_cfg);
+
+
+		/* 1.2 setup initial ut timestamp data */
+		/* TODO : non-hardcode */
+		v_rec.recs[i].id =
+			streaming_sensors[i].tg;
+
+		v_rec.recs[i].vsyncs = 1;
+
+		v_rec.recs[i].timestamps[0] = p_sensor_cfg[i].first_vts_value;
+		ut_vts[i].timestamp[0] = p_sensor_cfg[i].first_vts_value;
+
+		if (p_sensor_cfg[i].first_vts_value > biggest_vts)
+			biggest_vts = p_sensor_cfg[i].first_vts_value;
+	}
+
+	for (i = 0; p_sensor_cfg[i].sensor != NULL; ++i)
+		pthread_join(thread[i], NULL);
+
+
+	/* 1.3 setup initial ut timestamp data */
+	v_rec.tick_factor = TICK_FACTOR;
+	v_rec.cur_tick = (biggest_vts + 1) * v_rec.tick_factor;
+
+
+	// printf("[0] tg:%u, [1] tg:%u, [2] tg:%u\n",
+	// v_rec.recs[0].id,
+	// v_rec.recs[1].id,
+	// v_rec.recs[2].id);
+
+
+	/* 2. check if in stability test mode */
+	if (g_fs_alg_stability_test_flag) {
+		/* 2.1 copy fs test env cfg settings */
+		setup_fs_alg_stability_test_env_cfg(test_id);
+
+
+		/* 2.2 call frm API set vsync data */
+		frm_debug_set_last_vsync_data(&v_rec);
+
+
+		/* 2.3 pf ctrl auto run */
+		ut_trigger_pf_ctrl_auto_run();
+	}
+
+
+	printf(GREEN
+		"\n\n\n>>> END Execute FS alg stability Test, Test_ID:%u! <<<\n\n\n"
+		NONE,
+		test_id);
+
+	printf(LIGHT_CYAN
+		"\n\n\n>>> Test PASS : %s <<<\n\n\n\n\n\n"
+		NONE,
+		test_list[test_id].test_name);
+
+	for (i = 0; i < 4; ++i) {
+		printf(GREEN
+			"waiting for running next test case... %u(4)\n"
+			NONE, i);
+
+		sleep(5);
+	}
+
+	printf("\n\n\n");
+}
+
+
+static void exe_fs_alg_stability_test(void)
+{
+	unsigned int i = 0;
+	int select = 1;
+
+	g_fs_alg_stability_test_flag = 1;
+	g_auto_run = 1;
+
+
+	while (true) {
+		printf(GREEN
+				"\n\n\n>>> Please choose FrameSync algorithm stability test case bellow! <<<\n"
+				NONE);
+		printf(GREEN "[ 0] Run all case\n" NONE);
+		for (i = 0; test_list[i].sensor_cfg != NULL; ++i) {
+			printf(GREEN "[%2u] %s\n" NONE,
+				i + 1,
+				test_list[i].test_name);
+		}
+		printf(GREEN "[-1] End FrameSync algorithm stability test\n" NONE);
+
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) \"select a case\" : "
+			NONE);
+		scanf("%d", &select);
+
+		if (select <= 0)
+			break;
+
+
+		reset_ut_test_variables();
+
+		exe_fs_alg_stability_test_item(select-1);
+	}
+
+	if (select < 0) {
+		printf("\n\n\n");
+
+		g_fs_alg_stability_test_flag = 0;
+		g_auto_run = 0;
+
+		return;
+	}
+
+
+	for (i = 0; test_list[i].sensor_cfg != NULL; ++i) {
+		if (test_list[i].exe_all_skip_ext_ctrl_test == 1)
+			continue;
+
+		reset_ut_test_variables();
+
+		exe_fs_alg_stability_test_item(i);
+	}
+
 	printf("\n\n\n");
 
 
-	/* run test processing */
-	test_frame_sync_proc();
+	g_fs_alg_stability_test_flag = 0;
+	g_auto_run = 0;
+}
+
+
+int main(void)
+{
+	unsigned int select_ut_case = 0, terminated = 0;
+
+
+	while (!terminated) {
+		SHOW_TEXT();
+
+		printf(GREEN
+			"\n\n\n>>> Please choose FrameSync UT Test case bellow! <<<\n"
+			NONE);
+		printf(GREEN
+			">>> Run : [1] FrameSync algorithm stability test\n"
+			NONE);
+		printf(GREEN
+			">>> Run : [2] FrameSync processing test\n"
+			NONE);
+		printf(GREEN
+			">>> Run : [3] FrameSync control flow test\n"
+			NONE);
+		printf(GREEN
+			">>> Run : [X] End UT test\n"
+			NONE);
+
+		printf(LIGHT_PURPLE
+			">>> (Input 1 integer) \"select a case id in []\" : "
+			NONE);
+		scanf("%u", &select_ut_case);
+
+
+		switch (select_ut_case) {
+		case 1:
+			/* run fs algorithm stability test */
+			exe_fs_alg_stability_test();
+			break;
+
+		case 2:
+			/* run test fs processing */
+			test_frame_sync_proc();
+			break;
+
+		case 3:
+			/* run fs control test */
+			run_fs_control_test();
+			break;
+
+		default:
+			terminated = 1;
+			break;
+		}
+	}
 
 
 	return 0;

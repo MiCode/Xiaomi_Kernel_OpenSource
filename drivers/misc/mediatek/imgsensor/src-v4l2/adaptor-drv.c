@@ -536,6 +536,25 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static u32 get_sensor_sync_mode(struct adaptor_ctx *ctx)
+{
+	u32 sync_mode = 0;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_SENSOR_SYNC_MODE,
+		para.u8, &len);
+
+	sync_mode = para.u32[0];
+
+	dev_info(ctx->dev, "sync mode = %u\n", sync_mode);
+
+	return sync_mode;
+}
+
 /* notify frame-sync streaming ON/OFF and set sensor info to frame-sync */
 static void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx,
 				unsigned int flag)
@@ -556,6 +575,9 @@ static void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx,
 	/*     for any settings before streaming on */
 	streaming_sensor_info.def_fl_lc = ctx->subctx.frame_length;
 	streaming_sensor_info.max_fl_lc = ctx->subctx.max_frame_length;
+
+	/* frame sync sensor operate mode. none/master/slave */
+	streaming_sensor_info.sync_mode = get_sensor_sync_mode(ctx);
 
 
 	/* using ctx->subctx.shutter instead of ctx->subctx.exposure_def */

@@ -9,7 +9,7 @@ INCS = -I ../ \
 
 LIBS = -lpthread
 
-$(info INCS = $(INCS))
+# $(info INCS = $(INCS))
 
 SRCS = ut_fs_test.c \
 	   ../frame_sync.c \
@@ -25,8 +25,11 @@ TARGET = ut_fs_test
 
 all: $(OPTS) $(TARGET)
 
+debug: DEBUG_FLAGS = -g
+debug: ut_fs_test
+
 ut_fs_test: $(SRCS)
-	gcc $(LDFLAGS) $(CFLAGS) $(INCS) $^ -o $@ $(LIBS)
+	gcc $(LDFLAGS) $(CFLAGS) $(DEBUG_FLAGS) $(INCS) $^ -o $@ $(LIBS)
 
 # ut_fs_test: $(OBJS)
 #	gcc $(LDFLAGS) $(INCS) -o $(LIBS) $@ $^

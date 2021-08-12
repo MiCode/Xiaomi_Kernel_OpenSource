@@ -39,6 +39,13 @@ struct FrameSyncInst {
 	unsigned int sensor_idx;        // main1 -> 0; sub1 -> 1;
 					// main2 -> 2; sub2 -> 3; main3 -> 4;
 
+//----------------------------------------------------------------------------//
+
+	enum FS_SYNC_TYPE sync_type;
+	unsigned int custom_bias_us;    // for sync with diff
+
+//----------------------------------------------------------------------------//
+
 //---------------------------- fs_streaming_st -------------------------------//
 	/* know TG when streaming */
 	unsigned int tg;                // Not used if ISP7 uses sensor_idx
@@ -59,6 +66,11 @@ struct FrameSyncInst {
 	unsigned int min_fl_lc;         // dynamic FPS using
 	unsigned int shutter_lc;
 
+	/* current/previous multi exposure settings */
+	/*    because exp is N+1 delay, so just keep previous settings */
+	struct fs_hdr_exp_st hdr_exp;
+	struct fs_hdr_exp_st prev_hdr_exp;
+
 	/* on-the-fly sensor mode change */
 	unsigned int margin_lc;
 	unsigned int pclk;
@@ -71,6 +83,12 @@ struct FrameSyncInst {
 //----------------------------------------------------------------------------//
 
 //---------------------------- private member --------------------------------//
+	/* for STG sensor using FDOL mode like DOL mode */
+	/* when doing STG seamless switch */
+	unsigned int extend_fl_lc;
+	unsigned int extend_fl_us;
+
+
 	/* predicted frame length, current:0, next:1 */
 	/* must be updated when getting new frame record data / vsync data */
 	unsigned int predicted_fl_us[2];
@@ -87,6 +105,10 @@ struct FrameSyncInst {
 	unsigned int vdiff;
 };
 static struct FrameSyncInst fs_inst[SENSOR_MAX_NUM];
+
+
+/* fps sync result */
+static unsigned int target_min_fl_us;
 
 
 /* frame monitor data */
@@ -138,25 +160,6 @@ calcLineTimeInNs(unsigned int pclk, unsigned int linelength)
 }
 
 
-inline unsigned int
-convert2TotalTime(unsigned int lineTimeInNs, unsigned int lc)
-{
-	if (lineTimeInNs == 0)
-		return 0;
-
-	return (unsigned int)((unsigned long long)(lc)
-				* lineTimeInNs / 1000);
-}
-
-
-inline unsigned int
-convert2LineCount(unsigned int lineTimeInNs, unsigned int val)
-{
-	return ((1000 * (unsigned long long)val) / lineTimeInNs) +
-		((1000 * (unsigned long long)val) % lineTimeInNs ? 1 : 0);
-}
-
-
 static unsigned int get_anti_flicker_fl(unsigned int framelength)
 {
 	unsigned int i = 0;
@@ -198,7 +201,7 @@ static void check_fl_boundary(unsigned int idx)
 
 
 		/* log warning (this case will break sync) */
-		LOG_INF(
+		LOG_PR_WARN(
 			"WARNING: [%u] ID:%#x(sidx:%u), set fl:%u(%u), but reaches max_fl:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
@@ -226,7 +229,7 @@ static unsigned int check_vsync_valid(unsigned int solveIdxs[], unsigned int len
 		if (fs_inst[idx].last_vts == 0) {
 			ret = 0;
 
-			LOG_INF(
+			LOG_PR_ERR(
 				"ERROR: [%u] ID:%#x(sidx:%u), last vts:%u\n",
 				idx,
 				fs_inst[idx].sensor_id,
@@ -303,9 +306,41 @@ calc_min_fl_lc(unsigned int idx, unsigned int min_fl_lc)
 		output_fl_lc = min_fl_lc;
 
 
+	/* check extend frame length had been set */
+	if (fs_inst[idx].extend_fl_lc != 0) {
+		output_fl_lc += fs_inst[idx].extend_fl_lc;
+
+		LOG_INF(
+			"[%u] ID:%#x(sidx:%u), set fl to %u(%u) due to ext_fl:%u(%u))\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			convert2TotalTime(
+				fs_inst[idx].lineTimeInNs,
+				output_fl_lc),
+			output_fl_lc,
+			fs_inst[idx].extend_fl_us,
+			fs_inst[idx].extend_fl_lc);
+	}
+
+
 	/* framelength boundary check */
-	if (output_fl_lc > fs_inst[idx].max_fl_lc)
+	if (output_fl_lc > fs_inst[idx].max_fl_lc) {
+		LOG_INF("WARNING: [%u] ID:%#x(sidx:%u), set fl:%u(%u), but reaches max_fl:%u(%u)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			convert2TotalTime(
+				fs_inst[idx].lineTimeInNs,
+				output_fl_lc),
+			output_fl_lc,
+			convert2TotalTime(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].max_fl_lc),
+			fs_inst[idx].max_fl_lc);
+
 		output_fl_lc = fs_inst[idx].max_fl_lc;
+	}
 
 
 	return output_fl_lc;
@@ -392,7 +427,7 @@ set_valid_for_using_vsyncs_recs_data(unsigned int idx, unsigned int flag)
 static void calibrate_recs_data_by_vsyncs(unsigned int idx)
 {
 	if (!check_valid_for_using_vsyncs_recs_data(idx)) {
-		LOG_INF(
+		LOG_PR_WARN(
 			"[%u] ID:%#x(sidx:%u), calibrate recs failed, update vsyncs data first\n",
 			idx,
 			fs_inst[idx].sensor_id,
@@ -446,7 +481,7 @@ static void calc_predicted_frame_length(unsigned int idx)
 	for (i = 0; i < 2; ++i) {
 		if (fs_inst[idx].fl_active_delay < 2) {
 			/* error handle show msg */
-			LOG_INF(
+			LOG_PR_WARN(
 				"ERROR: fl_active_delay is not valid, fdelay:%u\n",
 				fs_inst[idx].fl_active_delay);
 
@@ -477,6 +512,105 @@ static void calc_predicted_frame_length(unsigned int idx)
 		}
 	}
 }
+
+
+static unsigned int calc_vts_sync_bias(unsigned int idx)
+{
+	unsigned int vts_exp_bias = 0, vts_signal_bias = 0, total_bias = 0;
+	unsigned int margin_lc_per_exp = 0;
+
+
+	if (fs_inst[idx].hdr_exp.mode_exp_cnt > 1) {
+		/* for exp sync type (sync on SE) */
+		margin_lc_per_exp =
+			fs_inst[idx].margin_lc /
+			fs_inst[idx].hdr_exp.mode_exp_cnt;
+
+		if (fs_inst[idx].sync_type & FS_SYNC_TYPE_SE) {
+			if (fs_inst[idx].hdr_exp.mode_exp_cnt == 2) {
+				/* LE / SE */
+				vts_exp_bias =
+					margin_lc_per_exp +
+					fs_inst[idx].hdr_exp.exp_lc[FS_HDR_SE];
+
+			} else if (fs_inst[idx].hdr_exp.mode_exp_cnt == 3) {
+				/* LE / ME / SE */
+				vts_exp_bias =
+					margin_lc_per_exp +
+					fs_inst[idx].hdr_exp.exp_lc[FS_HDR_ME] +
+					margin_lc_per_exp +
+					fs_inst[idx].hdr_exp.exp_lc[FS_HDR_SE];
+			}
+		}
+	}
+
+
+	/* for signal sync type (vsync / readout center) */
+	if (fs_inst[idx].sync_type & FS_SYNC_TYPE_READOUT_CENTER) {
+		// TODO: calculate by add a variable of sensor readout time
+		vts_signal_bias = 0;
+	} else if (fs_inst[idx].sync_type & FS_SYNC_TYPE_VSYNC)
+		vts_signal_bias = 0;
+
+
+#ifndef REDUCE_FS_ALGO_LOG
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), vts_exp_bias:%u, margin_lc/exp_cnt:%u, vts_signal_bias:%u\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		vts_exp_bias,
+		margin_lc_per_exp,
+		vts_signal_bias);
+#endif
+
+	total_bias = (vts_exp_bias + vts_signal_bias);
+
+	if (fs_inst[idx].custom_bias_us != 0) {
+		total_bias += convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].custom_bias_us);
+
+		LOG_INF(
+			"WARNING: [%u] ID:%#x(sidx:%u), set custom_bias:%u(%u)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].custom_bias_us,
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].custom_bias_us));
+	}
+
+
+	return total_bias;
+}
+
+
+/**
+ * check pf ctrl trigger in critical section of timestamp.
+ * next timestamp of one sensor is coming soon.
+ * if it is sync, pred_vdiff almost equal to target_min_fl_us.
+ *
+ * return:
+ * @1: trigger in ts critaical section
+ * @0: not trigger in ts critical section
+ */
+static inline unsigned int check_timing_critical_section(
+	unsigned int pred_vdiff, unsigned int target_min_fl_us)
+{
+	unsigned int threshold = 0, delta = 0;
+
+	threshold = FS_TOLERANCE / 2;
+	delta = threshold / 10;
+	threshold += delta;
+
+
+	if (pred_vdiff > target_min_fl_us)
+		return (((pred_vdiff - target_min_fl_us) < threshold) ? 1 : 0);
+	else
+		return (((target_min_fl_us - pred_vdiff) < threshold) ? 1 : 0);
+}
 /******************************************************************************/
 
 
@@ -489,7 +623,7 @@ static void calc_predicted_frame_length(unsigned int idx)
 static inline void fs_alg_dump_streaming_data(unsigned int idx)
 {
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), tg:%u, fl_delay:%u, fl_lc(def/max):%u/%u, def_shut_lc:%u\n",
+		"[%u] ID:%#x(sidx:%u), tg:%u, fl_delay:%u, fl_lc(def/max):%u/%u, def_shut_lc:%u, hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), cnt:(mode/ae)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -497,14 +631,28 @@ static inline void fs_alg_dump_streaming_data(unsigned int idx)
 		fs_inst[idx].fl_active_delay,
 		fs_inst[idx].def_min_fl_lc,
 		fs_inst[idx].max_fl_lc,
-		fs_inst[idx].def_shutter_lc);
+		fs_inst[idx].def_shutter_lc,
+		fs_inst[idx].hdr_exp.exp_lc[0],
+		fs_inst[idx].hdr_exp.exp_lc[1],
+		fs_inst[idx].hdr_exp.exp_lc[2],
+		fs_inst[idx].hdr_exp.exp_lc[3],
+		fs_inst[idx].hdr_exp.exp_lc[4],
+		fs_inst[idx].hdr_exp.mode_exp_cnt,
+		fs_inst[idx].hdr_exp.ae_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.exp_lc[0],
+		fs_inst[idx].prev_hdr_exp.exp_lc[1],
+		fs_inst[idx].prev_hdr_exp.exp_lc[2],
+		fs_inst[idx].prev_hdr_exp.exp_lc[3],
+		fs_inst[idx].prev_hdr_exp.exp_lc[4],
+		fs_inst[idx].prev_hdr_exp.mode_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.ae_exp_cnt);
 }
 
 
 static inline void fs_alg_dump_perframe_data(unsigned int idx)
 {
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), flk_en:%u, min_fl:%u(%u), shutter:%u(%u), margin:%u(%u), lineTime(ns):%u(%u/%u)\n",
+		"[%u] ID:%#x(sidx:%u), flk_en:%u, min_fl:%u(%u), shutter:%u(%u), margin:%u(%u), lineTime(ns):%u(%u/%u), hdr_exp: c(%u(%u)/%u(%u)/%u(%u)/%u(%u)/%u(%u), %u/%u), prev(%u(%u)/%u(%u)/%u(%u)/%u(%u)/%u(%u), %u/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -523,7 +671,51 @@ static inline void fs_alg_dump_perframe_data(unsigned int idx)
 		fs_inst[idx].margin_lc,
 		fs_inst[idx].lineTimeInNs,
 		fs_inst[idx].linelength,
-		fs_inst[idx].pclk);
+		fs_inst[idx].pclk,
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].hdr_exp.exp_lc[0]),
+		fs_inst[idx].hdr_exp.exp_lc[0],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].hdr_exp.exp_lc[1]),
+		fs_inst[idx].hdr_exp.exp_lc[1],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].hdr_exp.exp_lc[2]),
+		fs_inst[idx].hdr_exp.exp_lc[2],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].hdr_exp.exp_lc[3]),
+		fs_inst[idx].hdr_exp.exp_lc[3],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].hdr_exp.exp_lc[4]),
+		fs_inst[idx].hdr_exp.exp_lc[4],
+		fs_inst[idx].hdr_exp.mode_exp_cnt,
+		fs_inst[idx].hdr_exp.ae_exp_cnt,
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].prev_hdr_exp.exp_lc[0]),
+		fs_inst[idx].prev_hdr_exp.exp_lc[0],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].prev_hdr_exp.exp_lc[1]),
+		fs_inst[idx].prev_hdr_exp.exp_lc[1],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].prev_hdr_exp.exp_lc[2]),
+		fs_inst[idx].prev_hdr_exp.exp_lc[2],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].prev_hdr_exp.exp_lc[3]),
+		fs_inst[idx].prev_hdr_exp.exp_lc[3],
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].prev_hdr_exp.exp_lc[4]),
+		fs_inst[idx].prev_hdr_exp.exp_lc[4],
+		fs_inst[idx].prev_hdr_exp.mode_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.ae_exp_cnt);
 }
 
 
@@ -551,6 +743,30 @@ void fs_alg_dump_all_fs_inst_data(void)
 /******************************************************************************/
 // fs algo operation functions (set information data)
 /******************************************************************************/
+void fs_alg_set_sync_type(unsigned int idx, unsigned int type)
+{
+	fs_inst[idx].sync_type = type;
+
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), set sync type:%u (V:%u, C:%u, L:%u, S:%u)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		fs_inst[idx].sync_type,
+		fs_inst[idx].sync_type & FS_SYNC_TYPE_VSYNC,
+		fs_inst[idx].sync_type & FS_SYNC_TYPE_READOUT_CENTER,
+		fs_inst[idx].sync_type & FS_SYNC_TYPE_LE,
+		fs_inst[idx].sync_type & FS_SYNC_TYPE_SE);
+
+
+#if defined(SYNC_WITH_CUSTOM_DIFF)
+	if (fs_inst[idx].sensor_idx == CUSTOM_DIFF_SENSOR_IDX)
+		fs_alg_set_sync_with_diff(idx, CUSTOM_DIFF_US);
+#endif
+}
+
+
 void fs_alg_set_anti_flicker(unsigned int idx, unsigned int flag)
 {
 	fs_inst[idx].flicker_en = flag;
@@ -563,6 +779,79 @@ void fs_alg_set_anti_flicker(unsigned int idx, unsigned int flag)
 		fs_inst[idx].sensor_idx,
 		fs_inst[idx].flicker_en);
 #endif
+}
+
+
+void fs_alg_set_extend_framelength(unsigned int idx,
+	unsigned int ext_fl_lc, unsigned int ext_fl_us)
+{
+	if (ext_fl_lc == 0 && ext_fl_us == 0) {
+		/* clear/exit extend framelength stage */
+		fs_inst[idx].extend_fl_lc = ext_fl_lc;
+		fs_inst[idx].extend_fl_us = ext_fl_us;
+
+	} else if (ext_fl_lc != 0 && ext_fl_us == 0) {
+		fs_inst[idx].extend_fl_lc = ext_fl_lc;
+		fs_inst[idx].extend_fl_us =
+			convert2TotalTime(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].extend_fl_lc);
+
+	} else if (ext_fl_lc == 0 && ext_fl_us != 0) {
+		fs_inst[idx].extend_fl_us = ext_fl_us;
+		fs_inst[idx].extend_fl_lc =
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].extend_fl_us);
+
+	} else { // both have non zero value
+		unsigned int tmp_ext_fl_lc = 0;
+
+		tmp_ext_fl_lc =
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				ext_fl_us);
+
+		fs_inst[idx].extend_fl_lc = (ext_fl_lc > tmp_ext_fl_lc)
+			? ext_fl_lc : tmp_ext_fl_lc;
+
+		fs_inst[idx].extend_fl_us =
+			convert2TotalTime(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].extend_fl_lc);
+
+
+		LOG_INF(
+			"WARNING: [%u] ID:%#x(sidx:%u), both set value, ext_fl_lc:%u, ext_fl_us:%u\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			ext_fl_lc,
+			ext_fl_us);
+	}
+
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), setup extend_framelength:%u(%u) us(lc)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		fs_inst[idx].extend_fl_us,
+		fs_inst[idx].extend_fl_lc);
+}
+
+
+void fs_alg_seamless_switch(unsigned int idx)
+{
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), sensor seamless switch\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx);
+
+
+	/* 1. clear/exit extend framelength stage */
+	fs_alg_set_extend_framelength(idx, 0, 0);
 }
 
 
@@ -598,6 +887,259 @@ void fs_alg_update_min_fl_lc(unsigned int idx, unsigned int min_fl_lc)
 }
 
 
+static unsigned int fs_alg_get_hdr_equivalent_exp_lc(unsigned int idx)
+{
+	unsigned int i = 0;
+
+	unsigned int exp_lc = 0;
+	unsigned int result_1 = 0, result_2 = 0;
+	unsigned int mode_exp_cnt_1 = fs_inst[idx].hdr_exp.mode_exp_cnt;
+	unsigned int mode_exp_cnt_2 = fs_inst[idx].prev_hdr_exp.mode_exp_cnt;
+
+
+	/* calc. method 1. */
+	for (i = 0; i < mode_exp_cnt_1; ++i) {
+		int hdr_idx = hdr_exp_idx_map[mode_exp_cnt_1][i];
+
+		if (hdr_idx < 0) {
+			LOG_INF(
+				"ERROR: [%u] ID:%#x(sidx:%u), hdr_exp_idx_map[%u][%u] = %d\n",
+				idx,
+				fs_inst[idx].sensor_id,
+				fs_inst[idx].sensor_idx,
+				mode_exp_cnt_1,
+				i,
+				hdr_idx);
+
+			return 0;
+		}
+
+		result_1 += fs_inst[idx].hdr_exp.exp_lc[hdr_idx];
+	}
+
+
+	/* calc. method 2. */
+	result_2 += fs_inst[idx].hdr_exp.exp_lc[0];
+	for (i = 1; i < mode_exp_cnt_2; ++i) {
+		int hdr_idx = hdr_exp_idx_map[mode_exp_cnt_2][i];
+
+		if (hdr_idx < 0) {
+			LOG_INF(
+				"ERROR: [%u] ID:%#x(sidx:%u), hdr_exp_idx_map[%u][%u] = %d\n",
+				idx,
+				fs_inst[idx].sensor_id,
+				fs_inst[idx].sensor_idx,
+				mode_exp_cnt_2,
+				i,
+				hdr_idx);
+
+			return 0;
+		}
+
+		result_2 += fs_inst[idx].prev_hdr_exp.exp_lc[hdr_idx];
+	}
+
+
+	exp_lc = (result_1 > result_2) ? result_1 : result_2;
+
+
+#ifndef REDUCE_FS_ALGO_LOG
+	LOG_INF("[%u] ID:%#x(sidx:%u), equiv_exp_lc:%u(%u/%u)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		exp_lc,
+		result_1,
+		result_2);
+#endif
+
+
+	return exp_lc;
+}
+
+
+static void
+fs_alg_set_hdr_exp_st_data(unsigned int idx,
+	unsigned int *shutter_lc,
+	struct fs_hdr_exp_st *p_hdr_exp)
+{
+	unsigned int i = 0;
+	unsigned int valid_exp_idx[FS_HDR_MAX] = {0};
+
+
+	/* boundary ckeck */
+	if (p_hdr_exp->ae_exp_cnt == 0)
+		return;
+
+	if (p_hdr_exp->ae_exp_cnt > FS_HDR_MAX ||
+		p_hdr_exp->mode_exp_cnt > FS_HDR_MAX) {
+
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), hdr_exp: cnt:(mode:%u/ae:%u)), set to max:%u\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_hdr_exp->mode_exp_cnt,
+			p_hdr_exp->ae_exp_cnt,
+			FS_HDR_MAX);
+
+		if (p_hdr_exp->mode_exp_cnt > FS_HDR_MAX)
+			p_hdr_exp->mode_exp_cnt = FS_HDR_MAX;
+
+		if (p_hdr_exp->ae_exp_cnt > FS_HDR_MAX)
+			p_hdr_exp->ae_exp_cnt = FS_HDR_MAX;
+	}
+
+
+	/* sensor is NOT at STG mode */
+	if (p_hdr_exp->mode_exp_cnt == 0) {
+		/* NOT STG mode => get first EXP and overwrite shutter_lc data */
+		fs_inst[idx].shutter_lc = p_hdr_exp->exp_lc[0];
+		*shutter_lc = fs_inst[idx].shutter_lc;
+
+
+		/* NOT STG mode and ae_exp_cnt == 1 => fine, return */
+		if (p_hdr_exp->ae_exp_cnt == 1)
+			return;
+
+		LOG_INF(
+			"WARNING: [%u] ID:%#x(sidx:%u), Not HDR mode, set shutter:%u(%u) (hdr_exp: ctrl(%u/%u/%u/%u/%u, %u/%u) cnt:(mode/ae))\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			convert2TotalTime(
+				fs_inst[idx].lineTimeInNs,
+				*shutter_lc),
+			fs_inst[idx].shutter_lc,
+			p_hdr_exp->exp_lc[0],
+			p_hdr_exp->exp_lc[1],
+			p_hdr_exp->exp_lc[2],
+			p_hdr_exp->exp_lc[3],
+			p_hdr_exp->exp_lc[4],
+			p_hdr_exp->mode_exp_cnt,
+			p_hdr_exp->ae_exp_cnt);
+
+		return;
+	}
+
+
+	/* for sensor is at STG mode */
+	fs_inst[idx].prev_hdr_exp = fs_inst[idx].hdr_exp;
+
+
+	/* 1. update multi-exp value to hdr_exp.exp array */
+	fs_inst[idx].hdr_exp.mode_exp_cnt = p_hdr_exp->mode_exp_cnt;
+	fs_inst[idx].hdr_exp.ae_exp_cnt = p_hdr_exp->ae_exp_cnt;
+
+	for (i = 0; i < p_hdr_exp->ae_exp_cnt; ++i) {
+		int hdr_idx = hdr_exp_idx_map[p_hdr_exp->ae_exp_cnt][i];
+
+		if (hdr_idx < 0) {
+			LOG_INF(
+				"ERROR: [%u] ID:%#x(sidx:%u), hdr_exp_idx_map[%u] = %d\n",
+				idx,
+				fs_inst[idx].sensor_id,
+				fs_inst[idx].sensor_idx,
+				i,
+				hdr_idx);
+
+			return;
+		}
+
+		fs_inst[idx].hdr_exp.exp_lc[hdr_idx] =
+						p_hdr_exp->exp_lc[hdr_idx];
+
+
+#ifndef REDUCE_FS_ALGO_LOG
+		LOG_INF("[%u] ID:%#x(sidx:%u), exp_lc[%u] = %u / %u, i = %u\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			hdr_idx,
+			fs_inst[idx].hdr_exp.exp_lc[idx],
+			p_hdr_exp->exp_lc[idx],
+			i);
+#endif
+	}
+
+
+	/* 2. clear non exp value in non valid idx */
+	/* 2.1 generate valid_exp_idx array for clear data using */
+	for (i = 0; i < p_hdr_exp->mode_exp_cnt; ++i)
+		valid_exp_idx[hdr_exp_idx_map[p_hdr_exp->mode_exp_cnt][i]] = 1;
+
+
+#ifndef REDUCE_FS_ALGO_LOG
+	LOG_INF("[%u] ID:%#x(sidx:%u), valid_idx:%u/%u/%u/%u/%u\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		valid_exp_idx[0],
+		valid_exp_idx[1],
+		valid_exp_idx[2],
+		valid_exp_idx[3],
+		valid_exp_idx[4]);
+#endif
+
+
+	/* 2.2 clear the data in non valid idx */
+	for (i = 0 ; i < FS_HDR_MAX; ++i) {
+		if (valid_exp_idx[i] == 0) // 0 => non valid
+			fs_inst[idx].hdr_exp.exp_lc[i] = 0;
+	}
+
+
+	/* 3. calc. equivalent exp lc */
+	/*    and overwrite shutter_lc data */
+	fs_inst[idx].shutter_lc = fs_alg_get_hdr_equivalent_exp_lc(idx);
+	*shutter_lc = fs_inst[idx].shutter_lc;
+
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), ctrl(%u/%u/%u/%u/%u, %u/%u) cnt:(mode/ae), shutter:%u(%u) (equiv)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		fs_inst[idx].hdr_exp.exp_lc[0],
+		fs_inst[idx].hdr_exp.exp_lc[1],
+		fs_inst[idx].hdr_exp.exp_lc[2],
+		fs_inst[idx].hdr_exp.exp_lc[3],
+		fs_inst[idx].hdr_exp.exp_lc[4],
+		fs_inst[idx].hdr_exp.mode_exp_cnt,
+		fs_inst[idx].hdr_exp.ae_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.exp_lc[0],
+		fs_inst[idx].prev_hdr_exp.exp_lc[1],
+		fs_inst[idx].prev_hdr_exp.exp_lc[2],
+		fs_inst[idx].prev_hdr_exp.exp_lc[3],
+		fs_inst[idx].prev_hdr_exp.exp_lc[4],
+		fs_inst[idx].prev_hdr_exp.mode_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.ae_exp_cnt,
+		p_hdr_exp->exp_lc[0],
+		p_hdr_exp->exp_lc[1],
+		p_hdr_exp->exp_lc[2],
+		p_hdr_exp->exp_lc[3],
+		p_hdr_exp->exp_lc[4],
+		p_hdr_exp->mode_exp_cnt,
+		p_hdr_exp->ae_exp_cnt,
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			*shutter_lc),
+		*shutter_lc);
+}
+
+
+void fs_alg_set_sync_with_diff(unsigned int idx, unsigned int diff_us)
+{
+	fs_inst[idx].custom_bias_us = diff_us;
+
+	LOG_INF("WARNING: [%u] ID:%#x(sidx:%u), set sync with diff:%u (us)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		fs_inst[idx].custom_bias_us);
+}
+
+
 void
 fs_alg_set_streaming_st_data(unsigned int idx, struct fs_streaming_st (*pData))
 {
@@ -608,6 +1150,25 @@ fs_alg_set_streaming_st_data(unsigned int idx, struct fs_streaming_st (*pData))
 	fs_inst[idx].def_min_fl_lc = pData->def_fl_lc;
 	fs_inst[idx].max_fl_lc = pData->max_fl_lc;
 	fs_inst[idx].def_shutter_lc = pData->def_shutter_lc;
+
+
+	if (fs_inst[idx].fl_active_delay < 2
+		|| fs_inst[idx].fl_active_delay > 3) {
+
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), get non valid frame_time_delay_frame:%u (must be 2 or 3)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].fl_active_delay);
+	}
+
+
+	/* for first run, assume the hdr exp not be changed */
+	fs_inst[idx].hdr_exp = pData->hdr_exp;
+
+	/* hdr exp settings, overwrite shutter_lc value (equivalent shutter) */
+	fs_alg_set_hdr_exp_st_data(idx, &pData->def_shutter_lc, &pData->hdr_exp);
 
 
 	fs_alg_dump_streaming_data(idx);
@@ -626,6 +1187,19 @@ fs_alg_set_perframe_st_data(unsigned int idx, struct fs_perframe_st (*pData))
 	fs_inst[idx].pclk = pData->pclk;
 	fs_inst[idx].linelength = pData->linelength;
 	fs_inst[idx].lineTimeInNs = pData->lineTimeInNs;
+
+
+	/* hdr exp settings, overwrite shutter_lc value (equivalent shutter) */
+	fs_alg_set_hdr_exp_st_data(idx, &pData->shutter_lc, &pData->hdr_exp);
+
+
+	if (fs_inst[idx].margin_lc == 0) {
+		LOG_INF("WARNING: [%u] ID:%#x(sidx:%u), margin_lc:%u\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].margin_lc);
+	}
 
 
 #ifndef REDUCE_FS_ALGO_LOG
@@ -723,7 +1297,7 @@ fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len)
 
 	/* call Frame Monitor API to get vsync data from CCU */
 	if (frm_query_vsync_data(monitorSensor, len)) {
-		LOG_INF("ERROR: query vsync data from CCU error\n");
+		LOG_PR_WARN("ERROR: query vsync data from CCU error\n");
 		return 1;
 	}
 	frm_get_vsync_data(&vsync_recs);
@@ -744,7 +1318,7 @@ fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len)
 	/* keep vsync and last_vts data */
 	for (i = 0; i < len; ++i) {
 		if (fs_inst[solveIdxs[i]].tg != vsync_recs.recs[i].id) {
-			LOG_INF(
+			LOG_PR_WARN(
 				"ERROR: [%u].tg:%u not sync to v_recs[%u].tg:%u\n",
 				solveIdxs[i],
 				fs_inst[solveIdxs[i]].tg,
@@ -800,7 +1374,7 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 #endif // FS_UT
 
 	if (log_buf == NULL) {
-		LOG_INF("ERROR: log_buf allocate memory failed\n");
+		LOG_PR_ERR("ERROR: log_buf allocate memory failed\n");
 
 		return;
 	}
@@ -849,6 +1423,8 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 		set_fl_us(idx, target_fl_us);
 	}
 
+	target_min_fl_us = target_fl_us;
+
 
 	ret = snprintf(log_buf + strlen(log_buf),
 		LOG_BUF_STR_LEN - strlen(log_buf),
@@ -876,6 +1452,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 	unsigned int min_vtick_diff = (0 - 1);    // 0xffffffff
 	unsigned int target_vts = 0;
+	unsigned int pf_ctrl_timing_issue[SENSOR_MAX_NUM] = {0};
 
 	unsigned int anti_flicker_en = 0;
 	unsigned int flicker_vdiff[SENSOR_MAX_NUM] = {0};
@@ -897,7 +1474,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 #endif // FS_UT
 
 		if (log_buf[idx] == NULL) {
-			LOG_INF(
+			LOG_PR_ERR(
 				"ERROR: [%u] log_buf allocate memory failed\n",
 				idx);
 
@@ -910,7 +1487,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 	/* 0. check vsync timestamp (preventing last vts is "0") */
 	if (check_vsync_valid(solveIdxs, len) == 0) {
-		LOG_INF(
+		LOG_PR_WARN(
 			"ERROR: Incorrect vsync timestamp detected, not adjust vsync diff\n"
 			);
 
@@ -962,23 +1539,35 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 
 	/* 2. predict current and next vsync timestamp */
+	/*    and calculate vsync timestamp bias */
 	for (i = 0; i < len; ++i) {
 		unsigned int idx = solveIdxs[i];
 		unsigned int *predicted_fl_us = fs_inst[idx].predicted_fl_us;
+		unsigned int vts_bias = 0, vts_bias_us = 0;
 
 		calc_predicted_frame_length(idx);
 
 		fs_inst[idx].vdiff += predicted_fl_us[0] + predicted_fl_us[1];
 
 
+		vts_bias = calc_vts_sync_bias(idx);
+		vts_bias_us =
+			convert2TotalTime(fs_inst[idx].lineTimeInNs, vts_bias);
+
+		fs_inst[idx].vdiff += vts_bias_us;
+
+
 		ret = snprintf(log_buf[idx] + strlen(log_buf[idx]),
 			LOG_BUF_STR_LEN - strlen(log_buf[idx]),
-			"pred_fl(curr:%u(%u), next:%u(%u)), fdelay:%u, ",
+			"pred_fl(c:%u(%u), n:%u(%u)), fdelay:%u, bias(%u(%u), opt:%u), ",
 			predicted_fl_us[0],
 			fs_inst[idx].predicted_fl_lc[0],
 			predicted_fl_us[1],
 			fs_inst[idx].predicted_fl_lc[1],
-			fs_inst[idx].fl_active_delay);
+			fs_inst[idx].fl_active_delay,
+			vts_bias_us,
+			vts_bias,
+			fs_inst[idx].sync_type);
 
 		if (ret < 0)
 			LOG_INF("ERROR: LOG encoding error, ret:%d\n", ret);
@@ -987,6 +1576,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 #ifdef FS_UT
 		/* update frame monitor current predicted framelength data */
 		frm_update_predicted_curr_fl_us(idx, predicted_fl_us[0]);
+		frm_update_next_vts_bias_us(idx, vts_bias_us);
 #endif
 	}
 
@@ -1002,20 +1592,54 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 	/* 3.2 extend frame length to align target timestamp */
 	for (i = 0; i < len; ++i) {
 		unsigned int idx = solveIdxs[i];
+		unsigned int pred_vdiff = 0;
 		unsigned int fl_lc = 0;
+
+
+		/* detect pf ctrl timing error */
+		pred_vdiff = target_vts - fs_inst[idx].vdiff;
+		if (check_timing_critical_section(
+				pred_vdiff, target_min_fl_us)) {
+
+			/* pf ctrl trigger in critiacal section */
+			/* maybe the coming soon timestamp is in sync */
+			/* => Do not adjust vdiff, only use fps sync result */
+
+			pf_ctrl_timing_issue[idx] = 1UL << 1;
+			pred_vdiff = 0;
+
+#ifndef REDUCE_FS_ALGO_LOG
+			LOG_INF(
+				"WARNING: [%u] ID:%#x(sidx:%u), in timing_cs, coming Vsync is in sync, set pred_vdiff:%u\n",
+				idx,
+				fs_inst[idx].sensor_id,
+				fs_inst[idx].sensor_idx,
+				pred_vdiff);
+#endif
+		} else {
+			if (pred_vdiff >= target_min_fl_us) {
+				/* pf ctrl timing error */
+				/* prevent framelength getting bigger */
+				/* => Do not adjust vdiff, only use fps sync result */
+
+				pf_ctrl_timing_issue[idx] = 1;
+				pred_vdiff = 0;
+			}
+		}
+
 
 		/* add diff and set framelength */
 		/* all framelength operation must use this API */
-		fl_lc = fs_inst[idx].output_fl_us +
-				target_vts - fs_inst[idx].vdiff;
+		fl_lc = fs_inst[idx].output_fl_us + pred_vdiff;
 
 		set_fl_us(idx, fl_lc);
 
 
 		ret = snprintf(log_buf[idx] + strlen(log_buf[idx]),
 			LOG_BUF_STR_LEN - strlen(log_buf[idx]),
-			"pred_vdiff:%u, flk_en:%u, out_fl:%u(%u)",
+			"pred_vdiff:%u(t_issue:%u), flk_en:%u, out_fl:%u(%u)",
 			target_vts - fs_inst[idx].vdiff,
+			pf_ctrl_timing_issue[idx],
 			fs_inst[idx].flicker_en,
 			fs_inst[idx].output_fl_us,
 			fs_inst[idx].output_fl_lc);
@@ -1145,7 +1769,7 @@ unsigned int fs_alg_solve_frame_length(
 
 	/* 1. get Vsync data by Frame Monitor */
 	if (fs_alg_get_vsync_data(solveIdxs, len)) {
-		LOG_INF("Get Vsync data ERROR\n");
+		LOG_PR_WARN("Get Vsync data ERROR\n");
 		return 1;
 	}
 

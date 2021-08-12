@@ -11,6 +11,7 @@
 #include "frame_sync_camsys.h"
 #include "frame_sync_algo.h"
 #include "frame_monitor.h"
+#include "hw_sensor_sync_algo.h"
 
 
 /******************************************************************************/
@@ -457,7 +458,7 @@ static unsigned int fs_register_sensor(
 
 	/* 1. check error sensor id */
 	if (method == BY_SENSOR_ID && sensor_info->sensor_id == 0) {
-		LOG_INF("ERROR: sensor ID is %#x\n", sensor_info->sensor_id);
+		LOG_PR_WARN("ERROR: sensor ID is %#x\n", sensor_info->sensor_id);
 		return 0xffffffff;
 	}
 
@@ -478,7 +479,7 @@ static unsigned int fs_register_sensor(
 				idx,
 				REG_INFO);
 		} else
-			LOG_INF("ERROR: Reach max sensor capacity\n");
+			LOG_PR_WARN("ERROR: Reach max sensor capacity\n");
 
 	} else {
 		/* 2-2. this sensor has been registered, do nothing */
@@ -611,6 +612,42 @@ static inline void frec_dump_recorder(unsigned int idx)
 }
 
 
+static inline void
+frec_reset_recorder(unsigned int idx)
+{
+	unsigned int i = 0;
+
+	struct FrameRecord clear_st = {0};
+	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
+
+#ifndef REDUCE_FS_DRV_LOG
+	struct SensorInfo info = {0}; // for log using
+#endif
+
+
+	/* all FrameRecorder member variables set to 0 */
+	pFrameRecord->init = 0;
+	pFrameRecord->depthIdx = 0;
+
+	for (i = 0; i < RECORDER_DEPTH; ++i)
+		pFrameRecord->frame_recs[i] = clear_st;
+
+
+#ifndef REDUCE_FS_DRV_LOG
+	/* log print info */
+	info = fs_get_reg_sensor_info(idx);
+	LOG_INF("[%u] ID:%#x(sidx:%u) init:%u, depthIdx:%u, recs[]:%u/%u\n",
+		idx,
+		info.sensor_id,
+		info.sensor_idx,
+		pFrameRecord->init,
+		pFrameRecord->depthIdx,
+		pFrameRecord->frame_recs[0].framelength_lc,
+		pFrameRecord->frame_recs[0].shutter_lc);
+#endif // REDUCE_FS_DRV_LOG
+}
+
+
 /*******************************************************************************
  * Notify fs algo and frame monitor the data in the frame recorder have been
  * updated
@@ -704,6 +741,43 @@ frec_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
 #endif // FS_SENSOR_CCU_IT
 
 
+static inline void frec_push_def_shutter_fl_lc(
+	unsigned int idx,
+	unsigned int shutter_lc, unsigned int fl_lc)
+{
+#ifndef REDUCE_FS_DRV_LOG
+	struct SensorInfo info = {0}; // for log using
+#endif
+
+
+	unsigned int i = 0;
+
+	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
+
+	for (i = 0; i < RECORDER_DEPTH; ++i) {
+		pFrameRecord->frame_recs[i].shutter_lc = shutter_lc;
+		pFrameRecord->frame_recs[i].framelength_lc = fl_lc;
+	}
+
+	pFrameRecord->init = 1;
+
+
+#ifndef REDUCE_FS_DRV_LOG
+	/* log print info */
+	info = fs_get_reg_sensor_info(idx);
+	LOG_INF("[%u] ID:%#x(sidx:%u) frame recorder initialized:%u\n",
+		idx,
+		info.sensor_id,
+		info.sensor_idx,
+		pFrameRecord->init);
+#endif // REDUCE_FS_DRV_LOG
+
+
+	/* set the results to fs algo and frame monitor */
+	frec_notify_setting_frame_record_st_data(idx);
+}
+
+
 static inline void frec_push_shutter_fl_lc(
 	unsigned int idx,
 	unsigned int shutter_lc, unsigned int fl_lc)
@@ -742,113 +816,11 @@ static inline void frec_push_shutter_fl_lc(
 }
 
 
-/* abort */
-static inline void
-frec_push_def_framelength_lc(unsigned int idx, unsigned int val)
-{
-	unsigned int i = 0;
-
-	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
-
-	for (i = 0; i < RECORDER_DEPTH; ++i)
-		pFrameRecord->frame_recs[i].framelength_lc = val;
-}
-
-
-static inline void frec_push_def_shutter_fl_lc(
-	unsigned int idx,
-	unsigned int shutter_lc, unsigned int fl_lc)
-{
-#ifndef REDUCE_FS_DRV_LOG
-	struct SensorInfo info = {0}; // for log using
-#endif
-
-
-	unsigned int i = 0;
-
-	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
-
-	for (i = 0; i < RECORDER_DEPTH; ++i) {
-		pFrameRecord->frame_recs[i].shutter_lc = shutter_lc;
-		pFrameRecord->frame_recs[i].framelength_lc = fl_lc;
-	}
-
-	pFrameRecord->init = 1;
-
-
-#ifndef REDUCE_FS_DRV_LOG
-	/* log print info */
-	info = fs_get_reg_sensor_info(idx);
-	LOG_INF("[%u] ID:%#x(sidx:%u) frame recorder initialized:%u\n",
-		idx,
-		info.sensor_id,
-		info.sensor_idx,
-		pFrameRecord->init);
-#endif // REDUCE_FS_DRV_LOG
-
-
-	/* set the results to fs algo and frame monitor */
-	frec_notify_setting_frame_record_st_data(idx);
-}
-
-
-/* abort, init proc in frec_push_def_shutter_fl_lc function */
-static inline void frec_init_recorder(unsigned int idx)
-{
-	struct SensorInfo info = {0}; // for log using
-	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
-
-	pFrameRecord->init = 1;
-
-	/* log print info */
-	info = fs_get_reg_sensor_info(idx);
-	LOG_INF("[%u] ID:%#x(sidx:%u) init:%u\n",
-		idx,
-		info.sensor_id,
-		info.sensor_idx,
-		pFrameRecord->init);
-}
-
-
-/* abort */
-static inline void
-frec_init_recorder_val(unsigned int idx, unsigned int lineTimeInNs)
-{
-	unsigned int i = 0;
-
-	struct SensorInfo info = {0}; // for log using
-	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
-
-	/* convert fl_lc to framelength (us) and set init to true */
-	unsigned int val = convert2TotalTime(
-				lineTimeInNs,
-				pFrameRecord->frame_recs[0].framelength_lc);
-
-	for (i = 0; i < RECORDER_DEPTH; ++i)
-		pFrameRecord->frame_recs[i].framelength_lc = val;
-
-	pFrameRecord->init = 1;
-
-
-	/* log print info */
-	info = fs_get_reg_sensor_info(idx);
-	LOG_INF("[%u] ID:%#x(sidx:%u) init:%u, def_framelength:%u (us)\n",
-		idx,
-		info.sensor_id,
-		info.sensor_idx,
-		pFrameRecord->init,
-		val);
-}
-
-
 static inline void frec_push_record(
 	unsigned int idx,
 	unsigned int shutter_lc, unsigned int framelength_lc)
 {
 	if (fs_mgr.frm_recorder[idx].init == 0) {
-		// frec_init_recorder_val(idx, frameCtrl->lineTimeInNs);
-		// frec_init_recorder(idx);
-
 		// TODO : add error handle ?
 
 		/* log print info */
@@ -868,42 +840,6 @@ static inline void frec_push_record(
 #ifndef REDUCE_FS_DRV_LOG
 	/* log */
 	frec_dump_recorder(idx);
-#endif // REDUCE_FS_DRV_LOG
-}
-
-
-static inline void
-frec_reset_recorder(unsigned int idx)
-{
-	unsigned int i = 0;
-
-	struct FrameRecord clear_st = {0};
-	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
-
-#ifndef REDUCE_FS_DRV_LOG
-	struct SensorInfo info = {0}; // for log using
-#endif
-
-
-	/* all FrameRecorder member variables set to 0 */
-	pFrameRecord->init = 0;
-	pFrameRecord->depthIdx = 0;
-
-	for (i = 0; i < RECORDER_DEPTH; ++i)
-		pFrameRecord->frame_recs[i] = clear_st;
-
-
-#ifndef REDUCE_FS_DRV_LOG
-	/* log print info */
-	info = fs_get_reg_sensor_info(idx);
-	LOG_INF("[%u] ID:%#x(sidx:%u) init:%u, depthIdx:%u, recs[]:%u/%u\n",
-		idx,
-		info.sensor_id,
-		info.sensor_idx,
-		pFrameRecord->init,
-		pFrameRecord->depthIdx,
-		pFrameRecord->frame_recs[0].framelength_lc,
-		pFrameRecord->frame_recs[0].shutter_lc);
 #endif // REDUCE_FS_DRV_LOG
 }
 /******************************************************************************/
@@ -937,7 +873,7 @@ static void fs_single_cam_IT(unsigned int idx, unsigned int line_time_ns)
 
 	/* get Vsync data by calling fs_algo func to call Frame Monitor */
 	if (fs_alg_get_vsync_data(idxs, 1))
-		LOG_INF("Get Vsync data ERROR\n");
+		LOG_PR_WARN("Get Vsync data ERROR\n");
 
 
 	/* 2. set FL regularly for testing */
@@ -1087,7 +1023,6 @@ static inline void fs_set_stream(unsigned int idx, unsigned int flag)
 static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 {
 	struct SensorInfo info = {0}; // for log using
-
 	info = fs_get_reg_sensor_info(idx);
 
 
@@ -1150,18 +1085,26 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 }
 
 
+static inline void fs_set_sync_idx(unsigned int idx, unsigned int flag)
+{
+	fs_set_sync_status(idx, flag);
+
+	fs_alg_set_sync_type(idx, flag);
+}
+
+
 void fs_set_sync(unsigned int ident, unsigned int flag)
 {
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [%u] %s is not register, ident:%u\n",
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident);
 
 		return;
 	}
 
-	fs_set_sync_status(idx, flag);
+	fs_set_sync_idx(idx, flag);
 }
 
 
@@ -1173,7 +1116,7 @@ unsigned int fs_is_set_sync(unsigned int ident)
 	idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [%u] %s is not register, ident:%u\n",
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident);
 
 		return 0;
@@ -1194,6 +1137,37 @@ unsigned int fs_is_set_sync(unsigned int ident)
 
 
 	return result;
+}
+
+
+void fs_set_extend_framelength(unsigned int ident,
+	unsigned int ext_fl_lc, unsigned int ext_fl_us)
+{
+	unsigned int idx = fs_get_reg_sensor_pos(ident);
+
+	if (check_sensorIdx(idx) == 0) {
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
+			idx, REG_INFO, ident);
+
+		return;
+	}
+
+	fs_alg_set_extend_framelength(idx, ext_fl_lc, ext_fl_us);
+}
+
+
+void fs_seamless_switch(unsigned int ident)
+{
+	unsigned int idx = fs_get_reg_sensor_pos(ident);
+
+	if (check_sensorIdx(idx) == 0) {
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
+			idx, REG_INFO, ident);
+
+		return;
+	}
+
+	fs_alg_seamless_switch(idx);
 }
 
 
@@ -1219,7 +1193,7 @@ static inline void fs_notify_sensor_ctrl_setup_complete(
 static inline void fs_reset_idx_ctx(unsigned int idx)
 {
 	/* 1. unset sync */
-	fs_set_sync_status(idx, 0);
+	fs_set_sync_idx(idx, 0);
 
 	/* 2. reset frm frame info data */
 	frm_reset_frame_info(idx);
@@ -1251,7 +1225,7 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 
 
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [%u] %s is not register, ident:%u\n",
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident);
 
 		return;
@@ -1261,7 +1235,7 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 	is_streaming = check_bit(idx, fs_mgr.streaming_bits);
 
 	if (!is_streaming) {
-		LOG_INF(
+		LOG_PR_WARN(
 			"WARNING: [%u] ID:%#x(sidx:%u) is not streaming ON. set TG:%u. (TG maybe overwrite when fs_streaming(1))\n",
 			idx,
 			info.sensor_id,
@@ -1273,6 +1247,21 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 	/* 1. update the fs_streaming_st data */
 	fs_alg_update_tg(idx, tg);
 	frm_update_tg(idx, tg);
+
+
+#ifdef USING_CCU
+	/* 2. on the fly change cam_mux/tg */
+	/*    => reset/re-init frame info data for after using */
+	if (check_bit(idx, fs_mgr.power_on_ccu_bits)) {
+		// frm_reset_frame_info(idx);
+
+		// frm_init_frame_info_st_data(idx,
+		//	info.sensor_id, info.sensor_idx,
+		//	tg);
+
+		frm_reset_ccu_vsync_timestamp(idx);
+	}
+#endif
 }
 
 
@@ -1301,7 +1290,7 @@ fs_streaming(unsigned int flag, struct fs_streaming_st (*sensor_info))
 	/* register this sensor and check return idx/position value */
 	idx = fs_register_sensor(&info, REGISTER_METHOD);
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [idx:%u] ID:%#x(sidx:%u)\n",
+		LOG_PR_WARN("ERROR: [idx:%u] ID:%#x(sidx:%u)\n",
 			idx, info.sensor_id, info.sensor_idx);
 
 		/* TODO: return a special error number ? */
@@ -1353,7 +1342,7 @@ fs_streaming(unsigned int flag, struct fs_streaming_st (*sensor_info))
 			sensor_info->tg);
 
 		fs_alg_set_streaming_st_data(idx, sensor_info);
-		//frec_push_def_framelength_lc(idx, sensor_info->def_fl_lc);
+		hw_fs_alg_set_streaming_st_data(idx, sensor_info);
 
 		frec_push_def_shutter_fl_lc(
 				idx,
@@ -1441,7 +1430,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 	if (flag > 0) {
 		/* check status is ready for starting sync frame or not */
 		if (status < FS_WAIT_FOR_SYNCFRAME_START) {
-			LOG_INF(
+			LOG_PR_WARN(
 				"[Start:%u] ERROR: stat:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u(last:%u), setup_complete:%u(last:%u)\n",
 				flag,
 				status,
@@ -1485,7 +1474,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 	} else {
 		/* 1. check fs status */
 		if (status != FS_START_TO_GET_PERFRAME_CTRL) {
-			LOG_INF(
+			LOG_PR_WARN(
 				"[Start:%u] ERROR: stat:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u(%u), setup_complete:%u(%u)\n",
 				flag,
 				status,
@@ -1556,7 +1545,7 @@ void fs_update_auto_flicker_mode(unsigned int ident, unsigned int en)
 
 
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [%u] %s is not register, ident:%u\n",
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident);
 
 		return;
@@ -1566,7 +1555,7 @@ void fs_update_auto_flicker_mode(unsigned int ident, unsigned int en)
 	is_streaming = check_bit(idx, fs_mgr.streaming_bits);
 
 	if (!is_streaming) {
-		LOG_INF(
+		LOG_PR_WARN(
 			"WARNING: [%u] ID:%#x(sidx:%u) is not streaming ON. (set flicker_en:%u)\n",
 			idx,
 			info.sensor_id,
@@ -1599,7 +1588,7 @@ void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 
 
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [%u] %s is not register, ident:%u\n",
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident);
 
 		return;
@@ -1609,7 +1598,7 @@ void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 	is_streaming = check_bit(idx, fs_mgr.streaming_bits);
 
 	if (!is_streaming) {
-		LOG_INF(
+		LOG_PR_WARN(
 			"WARNING: [%u] ID:%#x(sidx:%u) is not streaming ON. (set min_fl_lc:%u)\n",
 			idx,
 			info.sensor_id,
@@ -1620,6 +1609,7 @@ void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 
 	/* 1. update the fs_perframe_st data in fs algo */
 	fs_alg_update_min_fl_lc(idx, min_fl_lc);
+	hw_fs_alg_update_min_fl_lc(idx, min_fl_lc);
 
 
 #ifndef USING_V4L2_CTRL_REQUEST_SETUP
@@ -1647,7 +1637,7 @@ static void fs_set_sensor_driver_framelength_lc(
 			ret = cb_func(p_cb->p_ctx, p_cb->cmd_id, fl_lc);
 
 		if (ret != 0) {
-			LOG_INF(
+			LOG_PR_WARN(
 				"ERROR: [%u] ID:%#x(sidx:%u), set fl_lc:%u failed, p_ctx:%p\n",
 				idx,
 				info.sensor_id,
@@ -1656,7 +1646,7 @@ static void fs_set_sensor_driver_framelength_lc(
 				fs_mgr.cb_data[idx].p_ctx);
 		}
 	} else
-		LOG_INF("ERROR: [%u] ID:%#x(sidx:%u), func_ptr is NULL\n",
+		LOG_PR_WARN("ERROR: [%u] ID:%#x(sidx:%u), func_ptr is NULL\n",
 			idx,
 			info.sensor_id,
 			info.sensor_idx);
@@ -1702,12 +1692,18 @@ static inline unsigned int fs_run_frame_sync_proc(
 {
 	unsigned int ret = 0;
 
-
-	/* run frame sync method */
-	/* ex: */
-	/*     1. software frame sync */
-	/*        call fs algo API to solve framelength */
-	ret = fs_alg_solve_frame_length(solveIdxs, framelength, len);
+	/*
+	 * run frame sync method
+	 * ex:
+	 *     1. hardware sensor frame sync
+	 *        call hw fs algo API to solve framelength
+	 *     2. software frame sync
+	 *        call fs algo API to solve framelength
+	 */
+	if (handle_by_hw_sensor_sync(solveIdxs, len))
+		ret = hw_fs_alg_solve_frame_length(solveIdxs, framelength, len);
+	else
+		ret = fs_alg_solve_frame_length(solveIdxs, framelength, len);
 
 	return ret;
 }
@@ -1797,7 +1793,7 @@ fs_check_frame_sync_ctrl(unsigned int idx, struct fs_perframe_st (*frameCtrl))
 	if (ret == 0) {
 
 #ifndef REDUCE_FS_DRV_LOG
-		LOG_INF(
+		LOG_PR_WARN(
 			"WARNING: Not valid for doing sync. [%u] ID:%#x\n",
 			idx,
 			frameCtrl->sensor_id);
@@ -1810,7 +1806,7 @@ fs_check_frame_sync_ctrl(unsigned int idx, struct fs_perframe_st (*frameCtrl))
 	/* 2. check this perframe ctrl is valid or not */
 	ret = check_bit(idx, fs_mgr.pf_ctrl_bits);
 	if (ret == 1) {
-		LOG_INF(
+		LOG_PR_WARN(
 			"WARNING: Set same sensor, return. [%u] ID:%#x  [pf_ctrl_bits:%u]\n",
 			idx,
 			frameCtrl->sensor_id,
@@ -1867,7 +1863,7 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 	idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_sensorIdx(idx) == 0) {
-		LOG_INF("ERROR: [%u] %s is not register, ident:%u\n",
+		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident);
 
 		return;
@@ -1875,7 +1871,7 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 
 	/* check streaming status, due to maybe calling by non-sync flow */
 	if (check_bit(idx, fs_mgr.streaming_bits) == 0) {
-		LOG_INF("ERROR: [%u] is stream off. ID:%#x(sidx:%u)\n",
+		LOG_PR_WARN("ERROR: [%u] is stream off. ID:%#x(sidx:%u)\n",
 			idx,
 			frameCtrl->sensor_id,
 			frameCtrl->sensor_idx);
@@ -1889,6 +1885,7 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 
 	/* 1. set perframe ctrl data to fs algo */
 	fs_alg_set_perframe_st_data(idx, frameCtrl);
+	hw_fs_alg_set_perframe_st_data(idx, frameCtrl);
 	/* TODO: anti flicker flow may not be in here */
 	// fs_alg_set_anti_flicker(idx, frameCtrl->flicker_en);
 
@@ -1933,6 +1930,8 @@ static struct FrameSync frameSync = {
 	fs_update_tg,
 	fs_update_auto_flicker_mode,
 	fs_update_min_framelength_lc,
+	fs_set_extend_framelength,
+	fs_seamless_switch,
 	fs_is_set_sync
 };
 

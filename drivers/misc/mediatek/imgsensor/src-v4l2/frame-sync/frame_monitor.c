@@ -82,6 +82,7 @@ struct FrameInfo {
 	unsigned int predicted_curr_fl_us; /* current predicted framelength (us) */
 	unsigned int predicted_next_fl_us; /* next predicted framelength (us) */
 	unsigned int sensor_curr_fl_us;    /* current framelength set to sensor */
+	unsigned int next_vts_bias;        /* next vsync timestamp bias / shift */
 #endif
 };
 
@@ -199,13 +200,13 @@ static unsigned int get_ccu_device(void)
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
 	if (!node) {
-		LOG_INF("ERROR: find mediatek,camera_fsync_ccu failed!!!\n");
+		LOG_PR_ERR("ERROR: find mediatek,camera_fsync_ccu failed!!!\n");
 		return 1;
 	}
 
 	ret = of_property_read_u32(node, "mediatek,ccu_rproc", &handle);
 	if (ret < 0) {
-		LOG_INF("ERROR: ccu_rproc of_property_read_u32:%d\n", ret);
+		LOG_PR_ERR("ERROR: ccu_rproc of_property_read_u32:%d\n", ret);
 		return ret;
 	}
 
@@ -214,7 +215,7 @@ static unsigned int get_ccu_device(void)
 		frm_inst.ccu_pdev = of_find_device_by_node(rproc_np);
 
 		if (!frm_inst.ccu_pdev) {
-			LOG_INF("ERROR: failed to find ccu rproc pdev\n");
+			LOG_PR_ERR("ERROR: failed to find ccu rproc pdev\n");
 			frm_inst.ccu_pdev = NULL;
 			return ret;
 		}
@@ -261,7 +262,7 @@ static unsigned int query_ccu_vsync_data(struct vsync_rec (*pData))
 #endif
 
 	if (ret != 0)
-		LOG_INF("ERROR: query CCU vsync data, ret:%d\n", ret);
+		LOG_PR_ERR("ERROR: query CCU vsync data, ret:%d\n", ret);
 
 
 #ifndef REDUCE_FRM_LOG
@@ -504,7 +505,7 @@ void frm_set_frame_measurement(
 	if (!frm_inst.info[idx].wait_for_setting_predicted_fl) {
 
 #ifndef REDUCE_FRM_LOG
-		LOG_INF("Error: not wait for setting predicted fl, return\n");
+		LOG_PR_WARN("Error: not wait for setting predicted fl, return\n");
 #endif
 
 		return;
@@ -591,7 +592,7 @@ void frm_power_on_ccu(unsigned int flag)
 	ccu_rproc = rproc_get_by_phandle(frm_inst.handle);
 
 	if (ccu_rproc == NULL) {
-		LOG_INF("ERROR: ccu rproc_get_by_phandle failed, NULL ptr\n");
+		LOG_PR_ERR("ERROR: ccu rproc_get_by_phandle failed, NULL ptr\n");
 		return;
 	}
 
@@ -601,7 +602,7 @@ void frm_power_on_ccu(unsigned int flag)
 		ret = rproc_boot(ccu_rproc);
 
 		if (ret != 0) {
-			LOG_INF("ERROR: ccu rproc_boot failed!\n");
+			LOG_PR_ERR("ERROR: ccu rproc_boot failed!\n");
 			return;
 		}
 
@@ -654,7 +655,7 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx)
 #endif
 
 	if (ret != 0)
-		LOG_INF("ERROR: call CCU reset tg:%u (selbits:%u) vsync data\n",
+		LOG_PR_ERR("ERROR: call CCU reset tg:%u (selbits:%u) vsync data\n",
 			tg, selbits);
 	else
 		LOG_INF("called CCU reset tg:%u (selbits:%u) vsync data\n",
@@ -761,8 +762,10 @@ frm_query_vsync_data(unsigned int tgs[], unsigned int len)
 {
 	unsigned int i = 0;
 
-	//only for migration test, Baron
-	// unsigned int ret = 0;
+#if defined(USING_CCU) || defined(USING_N3D)
+	unsigned int ret = 0;
+#endif
+
 	struct vsync_rec vsyncs_data = {0};
 
 
@@ -774,7 +777,7 @@ frm_query_vsync_data(unsigned int tgs[], unsigned int len)
 	/* boundary checking */
 	//if (len > SENSOR_MAX_NUM)
 	if (len > TG_MAX_NUM) {
-		LOG_INF("ERROR: too many TGs. (bigger than CCU TG_MAX)\n");
+		LOG_PR_WARN("ERROR: too many TGs. (bigger than CCU TG_MAX)\n");
 		return 1;
 	}
 
@@ -798,7 +801,7 @@ frm_query_vsync_data(unsigned int tgs[], unsigned int len)
 	/* 2. get vsync data from CCU using rproc ipc send */
 	ret = query_ccu_vsync_data(&vsyncs_data);
 	if (ret != 0) {
-		LOG_INF("ERROR: at querying vsync data from CCU\n");
+		LOG_PR_WARN("ERROR: at querying vsync data from CCU\n");
 		return 1;
 	}
 #endif // USING_CCU
@@ -808,7 +811,7 @@ frm_query_vsync_data(unsigned int tgs[], unsigned int len)
 	/* 2. get vsync data from CCU using rproc ipc send */
 	ret = query_n3d_vsync_data(&vsyncs_data);
 	if (ret != 0) {
-		LOG_INF("ERROR: at querying vsync data from N3D\n");
+		LOG_PR_WARN("ERROR: at querying vsync data from N3D\n");
 		return 1;
 	}
 #endif // USING_N3D
@@ -875,6 +878,23 @@ void frm_update_predicted_curr_fl_us(unsigned int idx, unsigned int fl_us)
 }
 
 
+void frm_update_next_vts_bias_us(unsigned int idx, unsigned int vts_bias)
+{
+	frm_inst.info[idx].next_vts_bias = vts_bias;
+
+
+#ifndef REDUCE_FRM_LOG
+	/* log */
+	LOG_INF(
+		"[%u] ID:%#x (sidx:%u), next_vts_bias:%u (us)\n",
+		idx,
+		frm_inst.info[idx].sensor_id,
+		frm_inst.info[idx].sensor_idx,
+		frm_inst.info[idx].next_vts_bias);
+#endif
+}
+
+
 void frm_set_sensor_curr_fl_us(unsigned int idx, unsigned int fl_us)
 {
 	frm_inst.info[idx].sensor_curr_fl_us = fl_us;
@@ -925,6 +945,12 @@ void frm_get_predicted_fl_us(
 	fl_us[0] = frm_inst.info[idx].predicted_curr_fl_us;
 	fl_us[1] = frm_inst.info[idx].predicted_next_fl_us;
 	*sensor_curr_fl_us = frm_inst.info[idx].sensor_curr_fl_us;
+}
+
+
+void frm_get_next_vts_bias_us(unsigned int idx, unsigned int *vts_bias)
+{
+	*vts_bias = frm_inst.info[idx].next_vts_bias;
 }
 
 

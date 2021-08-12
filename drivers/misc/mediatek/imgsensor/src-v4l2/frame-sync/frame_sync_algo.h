@@ -7,12 +7,11 @@
 #define _FRAME_SYNC_ALG_H
 
 #include "frame_sync.h"
+#include "frame_sync_util.h"
 
 
 /* utility functions */
 unsigned int calcLineTimeInus(unsigned int pclk, unsigned int linelength);
-unsigned int convert2TotalTime(unsigned int lineTimeInus, unsigned int time);
-unsigned int convert2LineCount(unsigned int lineTimeInNs, unsigned int val);
 unsigned int fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len);
 
 #ifdef FS_UT
@@ -28,11 +27,20 @@ void fs_alg_dump_all_fs_inst_data(void);
 /*******************************************************************************
  * fs algo operation functions (set information data)
  ******************************************************************************/
+void fs_alg_set_sync_type(unsigned int idx, unsigned int type);
+
 void fs_alg_set_anti_flicker(unsigned int idx, unsigned int flag);
+
+void fs_alg_set_extend_framelength(unsigned int idx,
+	unsigned int ext_fl_lc, unsigned int ext_fl_us);
+
+void fs_alg_seamless_switch(unsigned int idx);
 
 void fs_alg_update_tg(unsigned int idx, unsigned int tg);
 
 void fs_alg_update_min_fl_lc(unsigned int idx, unsigned int min_fl_lc);
+
+void fs_alg_set_sync_with_diff(unsigned int idx, unsigned int diff_us);
 
 void fs_alg_set_streaming_st_data(
 	unsigned int idx, struct fs_streaming_st *pData);

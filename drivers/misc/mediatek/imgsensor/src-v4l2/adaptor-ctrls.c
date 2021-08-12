@@ -85,13 +85,11 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 	ctx->subctx.frame_length = framelength;
 
 	switch (cmd) {
-	/* for set_shutter_frame_length() */
-	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
-		para.u64[0] = ctx->subctx.shutter;
-		para.u64[1] = ctx->subctx.frame_length;
-		para.u64[2] = 1; // auto_extend ON
+	/* for set_frame_length() */
+	case SENSOR_FEATURE_SET_FRAMELENGTH:
+		para.u64[0] = ctx->subctx.frame_length;
 		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME,
+			SENSOR_FEATURE_SET_FRAMELENGTH,
 			para.u8, &len);
 		break;
 
@@ -138,10 +136,39 @@ static void notify_fsync_mgr_update_min_fl(struct adaptor_ctx *ctx)
 		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
+/* notify frame-sync extend framelength value */
+static void notify_fsync_mgr_set_extend_framelength(struct adaptor_ctx *ctx,
+							u64 ext_fl)
+{
+	unsigned int ext_fl_us = 0;
+
+	/* ext_fl (input) is ns */
+	ext_fl_us = ext_fl / 1000;
+
+	/* call frame-sync fs_set_extend_framelength() */
+	if (ctx->fsync_mgr != NULL) {
+		/* args:(ident / ext_fl_lc / ext_fl_us) */
+		ctx->fsync_mgr->fs_set_extend_framelength(
+					ctx->idx,
+					0, ext_fl_us);
+	} else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
+/* notify frame-sync sensor seamless switch of sensor */
+static void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx)
+{
+	/* call frame-sync fs_seamless_switch() */
+	if (ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_seamless_switch(ctx->idx);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
 /* notify frame-sync set_shutter(), bind all SENSOR_FEATURE_SET_ESHUTTER CMD */
 static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 					enum ACDK_SENSOR_FEATURE_ENUM cmd,
-					u64 shutter)
+					u32 ae_exp_cnt, u32 *ae_exp_arr)
 {
 	struct fs_perframe_st pf_ctrl = {0};
 
@@ -149,16 +176,24 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	pf_ctrl.sensor_idx = ctx->idx;
 
 	pf_ctrl.min_fl_lc = ctx->subctx.min_frame_length;
-	pf_ctrl.shutter_lc = shutter;
+	pf_ctrl.shutter_lc =
+		(ae_exp_cnt == 1 && ae_exp_arr != NULL)
+		? *(ae_exp_arr + 0) : 0;
 	pf_ctrl.margin_lc = ctx->subctx.margin;
 	pf_ctrl.flicker_en = ctx->subctx.autoflicker_en;
 	pf_ctrl.out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
 
-	pf_ctrl.pclk = ctx->cur_mode->pclk;
-	pf_ctrl.linelength = ctx->cur_mode->llp;
-	pf_ctrl.lineTimeInNs = ctx->cur_mode->linetime_in_ns;
+	fsync_setup_hdr_exp_data(ctx, &pf_ctrl.hdr_exp, ae_exp_cnt, ae_exp_arr);
+
+	/* preventing issue (seamless switch not update ctx->cur_mode data) */
+	pf_ctrl.pclk = ctx->subctx.pclk;
+	pf_ctrl.linelength = ctx->subctx.line_length;
+	pf_ctrl.lineTimeInNs =
+		((u64)pf_ctrl.linelength * 1000000 + (pf_ctrl.pclk / 1000 - 1))
+		/ (pf_ctrl.pclk / 1000);
 
 	pf_ctrl.cmd_id = (unsigned int)cmd;
+
 
 	/* call frame-sync fs_set_shutter() */
 	if (ctx->fsync_mgr != NULL)
@@ -178,6 +213,10 @@ static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_HDR_TRI_SHUTTER,
 		para.u8, &len);
+
+	notify_fsync_mgr_set_shutter(ctx,
+		SENSOR_FEATURE_SET_FRAMELENGTH,
+		3, info->arr);
 
 	return 0;
 }
@@ -207,6 +246,10 @@ static int set_hdr_exposure_dual(struct adaptor_ctx *ctx, struct mtk_hdr_exposur
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_HDR_SHUTTER,
 		para.u8, &len);
+
+	notify_fsync_mgr_set_shutter(ctx,
+		SENSOR_FEATURE_SET_FRAMELENGTH,
+		2, info->arr);
 
 	return 0;
 }
@@ -266,13 +309,16 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	case 1:
 	default:
 	{
+		u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
 		para.u64[0] = ae_ctrl->exposure.le_exposure;
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_ESHUTTER,
 					para.u8, &len);
 
+		fsync_exp[0] = (u32)para.u64[0];
 		notify_fsync_mgr_set_shutter(ctx,
-			SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME, para.u64[0]);
+					SENSOR_FEATURE_SET_FRAMELENGTH,
+					1, fsync_exp);
 
 		para.u64[0] = ae_ctrl->gain.le_gain;
 		subdrv_call(ctx, feature_control,
@@ -287,6 +333,8 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
 					para.u8, &len);
+
+		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
 
 	ctx->exposure->val = ae_ctrl->exposure.le_exposure;
@@ -325,6 +373,43 @@ static int g_volatile_temperature(struct adaptor_ctx *ctx,
 
 	return 0;
 }
+
+void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
+		struct fs_hdr_exp_st *p_hdr_exp,
+		u32 ae_exp_cnt, u32 *ae_exp_arr)
+{
+	int ret = 0;
+	unsigned int i = 0;
+	struct mtk_stagger_info info = {0};
+
+	if (ae_exp_cnt == 0
+		/*|| ae_exp_cnt > MAX_NUM_OF_EXPOSURE*/
+		|| ae_exp_arr == NULL) {
+
+		dev_info(ctx->dev,
+			"WARNING: ID:%#x(sidx:%u) fsync_setup_hdr_exp with ae_exp_cnt:%u (min:1, max:), *ae_exp_arr:%p, return\n",
+			ctx->idx, ctx->subdrv->id,
+			ae_exp_cnt/*, MAX_NUM_OF_EXPOSURE*/,
+			ae_exp_arr);
+
+		return;
+	}
+
+	/* for hdr-exp settings, e.g. STG sensor */
+	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
+	if (!ret) {
+		p_hdr_exp->mode_exp_cnt = info.count;
+		p_hdr_exp->ae_exp_cnt = ae_exp_cnt;
+
+		for (i = 0; i < ae_exp_cnt; ++i) {
+			int idx = hdr_exp_idx_map[ae_exp_cnt][i];
+
+			if (idx >= 0)
+				p_hdr_exp->exp_lc[idx] = ae_exp_arr[i];
+		}
+	}
+}
+
 static int _get_frame_desc(struct adaptor_ctx *ctx, unsigned int pad,
 		struct mtk_mbus_frame_desc *fd)
 {
@@ -520,31 +605,45 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u8, &len);
 		break;
 	case V4L2_CID_EXPOSURE:
-		para.u64[0] = ctrl->val;
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_ESHUTTER,
-			para.u8, &len);
-		notify_fsync_mgr_set_shutter(ctx,
-			SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME, (u64)ctrl->val);
+		{
+			u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
+
+			para.u64[0] = ctrl->val;
+			subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_ESHUTTER,
+				para.u8, &len);
+
+			fsync_exp[0] = (u32)para.u64[0];
+			notify_fsync_mgr_set_shutter(ctx,
+				SENSOR_FEATURE_SET_FRAMELENGTH,
+				1, fsync_exp);
+		}
 		break;
 	case V4L2_CID_MTK_STAGGER_AE_CTRL:
 		s_ae_ctrl(ctrl);
 		break;
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
-		para.u64[0] = ctrl->val * 100000;
-		do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_ESHUTTER,
-			para.u8, &len);
-		notify_fsync_mgr_set_shutter(ctx,
-			SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME, (u64)ctrl->val);
+		{
+			u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
+
+			para.u64[0] = ctrl->val * 100000;
+			do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
+			subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_ESHUTTER,
+				para.u8, &len);
+
+			fsync_exp[0] = (u32)para.u64[0];
+			notify_fsync_mgr_set_shutter(ctx,
+				SENSOR_FEATURE_SET_FRAMELENGTH,
+				1, fsync_exp);
+		}
 		break;
 	case V4L2_CID_VBLANK:
 		para.u64[0] = ctx->exposure->val;
 		para.u64[1] = ctx->cur_mode->height + ctrl->val;
 		para.u64[2] = 0;
 		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME,
+			SENSOR_FEATURE_SET_FRAMELENGTH,
 			para.u8, &len);
 		break;
 	case V4L2_CID_TEST_PATTERN:
@@ -588,14 +687,18 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_SHUTTER_GAIN_SYNC:
 		{
 			struct mtk_shutter_gain_sync *info = ctrl->p_new.p;
+			u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
 
 			para.u64[0] = info->shutter;
 			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_ESHUTTER,
 				para.u8, &len);
+
+			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx,
-				SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME,
-				(u64)ctrl->val);
+				SENSOR_FEATURE_SET_FRAMELENGTH,
+				1, fsync_exp);
+
 			para.u64[0] = info->gain / 16;
 			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_GAIN,
@@ -639,9 +742,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->shutter;
 			para.u64[1] = info->frame_length;
 			para.u64[2] = info->auto_extend_en;
-			subdrv_call(ctx, feature_control,
-				SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME,
-				para.u8, &len);
+
+			// TODO: remove CID
 		}
 		break;
 	case V4L2_CID_MTK_PDFOCUS_AREA:
@@ -735,6 +837,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SEAMLESS_SWITCH,
 				para.u8, &len);
+
+			notify_fsync_mgr_seamless_switch(ctx);
 		}
 		break;
 #ifdef IMGSENSOR_DEBUG
