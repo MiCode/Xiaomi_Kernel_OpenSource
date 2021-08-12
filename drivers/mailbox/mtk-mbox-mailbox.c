@@ -52,9 +52,8 @@ static irqreturn_t tinysys_mbox_rx_interrupt(int irq, void *p)
 	if (!val)
 		return IRQ_NONE;
 
-	mbox_chan_received_data(chan, (void *)&val);
-	smp_mb();
 	writel_relaxed(1, mlink->rx_reg + INTR_CLR_OFS);
+	mbox_chan_received_data(chan, (void *)&val);
 
 	return IRQ_HANDLED;
 }
