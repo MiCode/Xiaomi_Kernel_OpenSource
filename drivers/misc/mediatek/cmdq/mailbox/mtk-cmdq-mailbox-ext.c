@@ -1264,7 +1264,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u32 warn_rst, en, suspend, status, irq, irq_en, curr_pa, end_pa, cnt,
 		wait_token, cfg, prefetch, pri = 0;
 	size_t size = 0;
-	u64 *end_va, *curr_va = NULL, inst = 0, last_inst[2] = {0};
+	u64 *end_va, *curr_va = NULL, inst = 0, last_inst = 0;
 	void *va_base = NULL;
 	dma_addr_t pa_base;
 	bool empty = true;
@@ -1314,9 +1314,8 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 		buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 		end_va = (u64 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE -
-			pkt->avail_buf_size - CMDQ_INST_SIZE * 2);
-		last_inst[0] = *end_va;
-		last_inst[1] = *++end_va;
+			pkt->avail_buf_size - CMDQ_INST_SIZE);
+		last_inst = *end_va;
 		break;
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
@@ -1333,8 +1332,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		cmdq_util_user_msg(chan,
 			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 			pkt, size, va_base, &pa_base, pri);
-		cmdq_util_user_msg(chan, "last inst %#018llx %#018llx",
-			last_inst[0], last_inst[1]);
+		cmdq_util_user_msg(chan, "last inst %#018llx", last_inst);
 
 		if (cl_pkt && cl_pkt != pkt) {
 			buf = list_first_entry(&cl_pkt->buf, typeof(*buf),
