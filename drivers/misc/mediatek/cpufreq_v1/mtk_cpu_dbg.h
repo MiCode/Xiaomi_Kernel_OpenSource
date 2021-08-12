@@ -51,6 +51,15 @@ static const struct proc_ops name ## _proc_fops = {		\
 #define _GET_BITS_VAL_(_bits_, _val_)   \
 (((_val_) & (_BITMASK_(_bits_))) >> ((0) ? _bits_))
 
+#define OFFS_CCI_TBL_USER    0x0F94
+#define OFFS_CCI_TOGGLE_BIT  0x0F98
+#define OFFS_CCI_TBL_MODE 0x0F9C
+#define OFFS_CCI_IDX      0x0550
+enum dsu_user {
+	DSU_CMD,
+	SWPM,
+	FPS_PERF,
+};
 
 struct pll_addr_offs {
 	unsigned int armpll_con;

@@ -48,6 +48,10 @@
 
 #define ENTRY_EACH_LOG	5
 
+
+#ifdef DSU_DVFS_ENABLE
+unsigned int force_disable;
+#endif
 unsigned int dbg_repo_num;
 unsigned int usram_repo_num;
 unsigned int repo_i_log_s;
@@ -63,6 +67,8 @@ static void __iomem *mcucfg_base;
 u32 *g_dbg_repo;
 u32 *g_usram_repo;
 u32 *g_cpufreq_debug;
+u32 *g_cpufreq_cci_mode;
+u32 *g_cpufreq_cci_idx;
 u32 *g_phyclk;
 u32 *g_phyvolt;
 u32 *g_C0_opp_idx;
@@ -237,6 +243,27 @@ unsigned int get_cur_phy_freq(int cluster)
 	return cur_khz;
 }
 
+void update_cci_mode(unsigned int mode, unsigned int use_id)
+{
+	/* mode = 0(Normal as 50%) mode = 1(Perf as 70%) */
+#ifdef DSU_DVFS_ENABLE
+	if (use_id == FPS_PERF && force_disable)
+		return;
+	if (!use_id) {
+		if (mode == PERF) {
+			swpm_pmu_enable(0);
+			force_disable = 1;
+		} else {
+			swpm_pmu_enable(1);
+			force_disable = 0;
+		}
+	}
+#endif
+	csram_write(OFFS_CCI_TBL_USER, use_id);
+	csram_write(OFFS_CCI_TBL_MODE, mode);
+	csram_write(OFFS_CCI_TOGGLE_BIT, 1);
+}
+
 static int dbg_repo_proc_show(struct seq_file *m, void *v)
 {
 	int i;
@@ -334,6 +361,59 @@ static int usram_repo_proc_show(struct seq_file *m, void *v)
 
 PROC_FOPS_RO(usram_repo);
 
+static int cpufreq_cci_mode_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int mode;
+
+	mode = csram_read(OFFS_CCI_TBL_MODE);
+
+	if (mode == 0)
+		seq_puts(m, "cci_mode as Normal mode 0\n");
+	else if (mode == 1)
+		seq_puts(m, "cci_mode as Perf mode 1\n");
+	else
+		seq_puts(m, "cci_mode as Unknown mode 2\n");
+
+	return 0;
+}
+
+static ssize_t cpufreq_cci_mode_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int mode;
+	unsigned int rc;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (copy_from_user(buf, buffer, count)) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &mode);
+
+	if (rc < 0)
+		tag_pr_info(
+		"Usage: echo <mode>(0:Nom 1:Perf)\n");
+	else
+		update_cci_mode(mode, 0);
+
+	free_page((unsigned long)buf);
+	return count;
+
+}
+PROC_FOPS_RW(cpufreq_cci_mode);
+
+static int cpufreq_cci_idx_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cci_idx;
+
+	cci_idx = csram_read(OFFS_CCI_IDX);
+
+	seq_printf(m, "DSU OPP IDX %4d\n", cci_idx);
+
+	return 0;
+}
+PROC_FOPS_RO(cpufreq_cci_idx);
 static int opp_idx_show(struct seq_file *m, void *v, u32 pos)
 {
 	u32 *repo = m->private;
@@ -475,6 +555,8 @@ static int create_cpufreq_debug_fs(void)
 		PROC_ENTRY_DATA(cpufreq_debug),
 		PROC_ENTRY_DATA(phyclk),
 		PROC_ENTRY_DATA(phyvolt),
+		PROC_ENTRY_DATA(cpufreq_cci_mode),
+		PROC_ENTRY_DATA(cpufreq_cci_idx),
 		PROC_ENTRY_DATA(usram_repo),
 	};
 	const struct pentry clusters[MAX_CLUSTER_NRS] = {
