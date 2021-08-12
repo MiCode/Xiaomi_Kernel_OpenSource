@@ -172,7 +172,7 @@ static void CamMem_EnableLarb(bool En)
 		if (G_u4EnableLarbCount == 0) {
 			spin_unlock(&(CamMemInfo.SpinLock_Larb));
 
-			LOG_INF("G_u4EnableLarbCount aleady be 0, do nothing\n");
+			LOG_DBG("G_u4EnableLarbCount aleady be 0, do nothing\n");
 
 			return;
 		}

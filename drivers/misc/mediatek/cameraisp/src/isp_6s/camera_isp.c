@@ -6238,20 +6238,27 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	set_detect_count(pr_detect_count);
 #endif
 	/*      */
-	LOG_DBG("Curr UserCount(%d), (process, pid, tgid)="
-		"(%s, %d, %d), log_limit_line(%d),	last user",
+	LOG_DBG("Curr UserCount(%d), (proc,pid,tgid)=(%s,%d,%d), log_limit_line(%d), last user\n",
 		IspInfo.UserCount, current->comm, current->pid, current->tgid,
 		pr_detect_count);
 
 	for (i = ISP_CAM_A_IDX; i < ISP_CAMSV_START_IDX; i++) {
+		int clkcnt = 0;
+		int j = 0;
+
 		spin_lock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount[i] == 0) {
 			spin_unlock(&(IspInfo.SpinLockClock));
-			LOG_INF(
-			"G_u4EnableClockCount aleady be 0, cannot read/write reg\n");
+			LOG_INF("G_u4EnableClockCount[%d] already be 0, cannot r/w reg\n", i);
 			continue;
 		}
+		clkcnt = G_u4EnableClockCount[i];
 		spin_unlock(&(IspInfo.SpinLockClock));
+
+		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
+		for (j = 0; j < clkcnt; j++)
+			ISP_EnableClock(i, MFALSE);
+
 		/* Close VF when ISP_release */
 		/* reason of close vf is to make sure */
 		/* camera can serve regular after previous abnormal exit */
@@ -6280,14 +6287,22 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	}
 
 	for (i = RUNTIME_ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++) {
+		int clkcnt = 0;
+		int j = 0;
+
 		spin_lock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount[i] == 0) {
 			spin_unlock(&(IspInfo.SpinLockClock));
-			LOG_INF(
-			"G_u4EnableClockCount aleady be 0, cannot read/write reg\n");
+			LOG_INF("G_u4EnableClockCount[%d] already be 0, cannot r/w reg\n", i);
 			continue;
 		}
+		clkcnt = G_u4EnableClockCount[i];
 		spin_unlock(&(IspInfo.SpinLockClock));
+
+		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
+		for (j = 0; j < clkcnt; j++)
+			ISP_EnableClock(i, MFALSE);
+
 		Reg = ISP_RD32(CAMSV_REG_TG_VF_CON(i));
 		Reg &= 0xfffffffE; /* close Vfinder */
 		ISP_WR32(CAMSV_REG_TG_VF_CON(i), Reg);
