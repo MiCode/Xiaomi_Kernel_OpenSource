@@ -575,7 +575,7 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd)
 		pr_info(
 		"%s: POLL with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n", __func__,
 						cmd->u.address, cmd->u.value, cmd->u.mask);
-		cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, cmd->u.mask, 1);
+		cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, cmd->u.mask, CMDQ_GPR_R15);
 		break;
 	case IMGSYS_CMD_WAIT:
 		pr_debug(
