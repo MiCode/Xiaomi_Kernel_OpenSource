@@ -7941,6 +7941,16 @@
 		interrupts = <GIC_SPI 681 IRQ_TYPE_EDGE_RISING 0>;
 	};
 
+	/* Microtrust SW IRQ number 683(715 - 32) ~ 684(716 - 32) */
+	utos {
+		compatible = "microtrust,utos";
+		interrupts = <GIC_SPI 684 IRQ_TYPE_EDGE_RISING 0>;
+	};
+
+	utos_tester {
+		compatible = "microtrust,tester-v1";
+	};
+
 	ssram1@1C350000 {
 		compatible = "mmio-sram_1";
 		reg = <0x0 0x1C350000 0x0 0x80>;
