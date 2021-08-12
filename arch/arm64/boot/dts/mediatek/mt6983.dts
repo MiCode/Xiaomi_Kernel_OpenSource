@@ -54,6 +54,13 @@
 		rdma0 = &disp_rdma0;
 		dsi0 = &dsi0;
 		scp_i2c1 = &scp_i2c1;
+		mtksmmu0 = &disp_iommu;
+		mtksmmu1 = &mdp_iommu;
+		mtksmmu2 = &apu_iommu0;
+		mtksmmu3 = &apu_iommu1;
+		mtksmmu4 = &peri_iommu_m4;
+		mtksmmu5 = &peri_iommu_m6;
+		mtksmmu6 = &peri_iommu_m7;
 		tdshp0 = &disp_tdshp0;
 		color0 = &disp_color0;
 		ccorr0 = &disp_ccorr0_0;
