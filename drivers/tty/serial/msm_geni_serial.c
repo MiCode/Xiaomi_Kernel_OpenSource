@@ -2417,12 +2417,24 @@ static irqreturn_t msm_geni_wakeup_isr(int isr, void *dev)
 
 	if (port->wakeup_byte && (port->edge_count == 2)) {
 		tty = uport->state->port.tty;
-		tty_insert_flip_char(tty->port, port->wakeup_byte, TTY_NORMAL);
-		PRINT_LOG(6, LOG_LEVEL, port->ipc_log_rx, __func__,
+		/* uport->state->port.tty pointer initialized as part of
+		 * UART port_open. Adding null check to ensure tty should
+		 * have a valid value before dereference it in wakeup_isr.
+		 */
+		if (!tty) {
+			PRINT_LOG(6, LOG_LEVEL, port->ipc_log_rx, __func__,
+				INT, "Unexpected wakeup ISR", port->edge_count);
+			WARN_ON(1);
+		} else {
+			tty_insert_flip_char(tty->port,
+					port->wakeup_byte, TTY_NORMAL);
+			PRINT_LOG(6, LOG_LEVEL, port->ipc_log_rx, __func__,
 					HEX, "Inject", port->wakeup_byte);
-		port->edge_count = 0;
-		tty_flip_buffer_push(tty->port);
-		__pm_wakeup_event(port->geni_wake, WAKEBYTE_TIMEOUT_MSEC);
+			port->edge_count = 0;
+			tty_flip_buffer_push(tty->port);
+			__pm_wakeup_event(port->geni_wake,
+						WAKEBYTE_TIMEOUT_MSEC);
+		}
 	} else if (port->edge_count < 2) {
 		port->edge_count++;
 	}
