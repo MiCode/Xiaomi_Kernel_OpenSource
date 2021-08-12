@@ -66,6 +66,7 @@ struct mml_pq_task {
 	struct mml_task *task;
 	atomic_t ref_cnt;
 	struct mutex lock;
+	struct mutex init_pq_sub_task_lock;
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
 };

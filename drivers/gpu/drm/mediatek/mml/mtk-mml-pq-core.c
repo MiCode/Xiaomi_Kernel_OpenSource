@@ -126,8 +126,8 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 
 	mutex_lock(&chan->job_lock);
 	list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
-		mml_pq_msg("%s sub_task[%p] chan->job_list[%p]\n", __func__,
-				sub_task, chan->job_list);
+		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]\n", __func__,
+				sub_task, chan->job_list, sub_task->job_id);
 		if (sub_task->job_id == job_id) {
 			*out_sub_task = sub_task;
 			mml_pq_msg("%s find sub_task:%p id:%llx",
@@ -160,6 +160,7 @@ static s32 create_pq_task(struct mml_task *task)
 	pq_task->task = task;
 	atomic_set(&pq_task->ref_cnt, 1);
 	mutex_init(&pq_task->lock);
+	mutex_init(&pq_task->init_pq_sub_task_lock);
 	pq_task->tile_init.inited = false;
 	pq_task->comp_config.inited = false;
 	task->pq_task = pq_task;
@@ -277,6 +278,7 @@ static void dump_tile_result(void *data)
 int mml_pq_tile_init(struct mml_task *task)
 {
 	s32 ret;
+	bool inited = false;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s job_id[%d] called", __func__, task->job.jobid);
@@ -288,7 +290,11 @@ int mml_pq_tile_init(struct mml_task *task)
 	if (unlikely(ret))
 		return ret;
 
-	if (init_pq_sub_task(&task->pq_task->tile_init))
+	mutex_lock(&task->pq_task->init_pq_sub_task_lock);
+	inited = init_pq_sub_task(&task->pq_task->tile_init);
+	mutex_unlock(&task->pq_task->init_pq_sub_task_lock);
+
+	if (inited)
 		queue_msg(&pq_mbox->tile_init_chan, &task->pq_task->tile_init);
 
 	mml_pq_msg("%s job_id[%d] end\n", __func__, task->job.jobid);
