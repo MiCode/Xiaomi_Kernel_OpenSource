@@ -755,20 +755,6 @@ static void mrdump_mini_build_elf_misc(void)
 	mrdump_mini_add_misc(misc.vaddr, misc.size, 0, "_VERSION_BR");
 }
 
-static void mrdump_mini_clear_loads(void)
-{
-	struct elf_phdr *phdr;
-	int i;
-
-	for (i = 0; i < MRDUMP_MINI_NR_SECTION; i++) {
-		phdr = &mrdump_mini_ehdr->phdrs[i];
-		if (phdr->p_type == PT_NULL)
-			continue;
-		if (phdr->p_type == PT_LOAD)
-			phdr->p_type = PT_NULL;
-	}
-}
-
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size)
 {
 	pr_notice("mrdump: hang data 0x%lx size:0x%lx\n", vaddr, size);
@@ -776,9 +762,8 @@ void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size)
 		pr_notice("mrdump: ehdr invalid");
 		return;
 	}
-	mrdump_mini_add_misc(vaddr, size, 0, "_HANG_DETECT_");
-	/* hang only remove mini rdump loads info to save storage space */
-	mrdump_mini_clear_loads();
+	mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
+				size, 0, "_HANG_DETECT_");
 }
 EXPORT_SYMBOL(mrdump_mini_add_hang_raw);
 

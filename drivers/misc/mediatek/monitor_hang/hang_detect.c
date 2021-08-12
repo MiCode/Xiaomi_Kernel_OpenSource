@@ -477,8 +477,6 @@ void trigger_hang_db(void)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-		mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
-			MaxHangInfoSize);
 		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 		"	Hang Detect", NULL);
 #else
@@ -497,7 +495,7 @@ static void get_kernel_bt(struct task_struct *tsk)
 	int nr_entries;
 	int i;
 
-#ifndef __aarch64__
+#if IS_ENABLED(CONFIG_BOOTPARAM_HUNG_TASK_PANIC)
 	nr_entries = stack_trace_save_tsk(tsk, stacks, ARRAY_SIZE(stacks), 0);
 #else
 	nr_entries = hang_kernel_trace(tsk, stacks, ARRAY_SIZE(stacks));
@@ -1389,6 +1387,10 @@ static int __init monitor_hang_init(void)
 	Hang_Info = kmalloc(MAX_HANG_INFO_SIZE, GFP_KERNEL);
 	if (Hang_Info == NULL)
 		return 1;
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
+			MaxHangInfoSize);
+#endif
 #endif
 
 	err = misc_register(&Hang_Monitor_dev);
