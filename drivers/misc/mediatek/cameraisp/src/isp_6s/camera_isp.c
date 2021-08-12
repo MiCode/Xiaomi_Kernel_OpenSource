@@ -2201,7 +2201,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module, unsigned int ErrSt
 			for (i = 0 ; i < twin_status.Bits.SLAVE_CAM_NUM ; i++) {
 				switch (i) {
 				case 0:
-					LOG_INF("1st slave%d cam:%d\n", i,
+					IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+						"1st slave%d cam:%d\n", i,
 						twin_status.Bits.TWIN_MODULE);
 					if (twin_status.Bits.TWIN_MODULE ==
 									CAM_B)
@@ -2214,7 +2215,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module, unsigned int ErrSt
 					dumpAllRegs(innerRegModule);
 					break;
 				case 1:
-					LOG_INF("2nd slave%d cam:%d\n", i,
+					IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+						"2nd slave%d cam:%d\n", i,
 						twin_status.Bits.TRIPLE_MODULE);
 					innerRegModule = ISP_CAM_C_INNER_IDX;
 					dumpAllRegs(innerRegModule);
@@ -2588,7 +2590,7 @@ EXPORT_SYMBOL(ISP_Halt_Mask);
 static void ISP_ConfigDMAControl(enum ISP_DEV_NODE_ENUM module)
 {
 	if (module >= ISP_CAMSV_START_IDX) {
-		LOG_NOTICE("+ unsupport module:%d", module);
+		LOG_DBG("+ unsupport module:%d", module);
 		return;
 	}
 
@@ -2888,7 +2890,7 @@ static inline void ISP_Reset(int module)
 		}
 	}
 
-	LOG_INF(" Reset module(%d)\n", module);
+	LOG_DBG(" Reset module(%d)\n", module);
 
 	switch (module) {
 	case ISP_CAM_A_IDX:
@@ -3561,7 +3563,7 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
 	}
 
 	spin_unlock((spinlock_t *)(&SpinLock_UserKey));
-	LOG_INF("User(%s)key(%d)\n", userName, key);
+	LOG_DBG("User(%s)key(%d)\n", userName, key);
 	return key;
 }
 
@@ -4889,7 +4891,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						    DebugFlag[1])) &
 					    0x10);
 
-				LOG_INF("CAMSV_%d:[DMA_EN]:0x%x\n", module,
+				LOG_DBG("CAMSV_%d:[DMA_EN]:0x%x\n", module,
 					cam_dmao);
 
 				vf = ISP_RD32(
@@ -6249,7 +6251,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		spin_lock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount[i] == 0) {
 			spin_unlock(&(IspInfo.SpinLockClock));
-			LOG_INF("G_u4EnableClockCount[%d] already be 0, cannot r/w reg\n", i);
+			LOG_DBG("G_u4EnableClockCount[%d] already be 0, cannot r/w reg\n", i);
 			continue;
 		}
 		clkcnt = G_u4EnableClockCount[i];
@@ -6293,7 +6295,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		spin_lock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount[i] == 0) {
 			spin_unlock(&(IspInfo.SpinLockClock));
-			LOG_INF("G_u4EnableClockCount[%d] already be 0, cannot r/w reg\n", i);
+			LOG_DBG("G_u4EnableClockCount[%d] already be 0, cannot r/w reg\n", i);
 			continue;
 		}
 		clkcnt = G_u4EnableClockCount[i];
