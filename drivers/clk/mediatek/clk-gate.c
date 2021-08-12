@@ -151,6 +151,13 @@ static void mtk_cg_disable_unused_inv_no_setclr(struct clk_hw *hw)
 	mtk_cg_clr_bit_no_setclr(hw);
 }
 
+const struct clk_ops mtk_clk_gate_ops_setclr_dummy = {
+	.is_enabled	= mtk_cg_bit_is_cleared,
+	.enable		= mtk_cg_enable,
+	.disable_unused = mtk_cg_disable_unused,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_dummy);
+
 const struct clk_ops mtk_clk_gate_ops_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,
 	.enable		= mtk_cg_enable,

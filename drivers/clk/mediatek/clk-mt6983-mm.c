@@ -47,6 +47,14 @@ static const struct mtk_gate_regs mminfra_config_1_cg_regs = {
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_setclr,			\
 	}
+#define GATE_MMINFRA_CONFIG_0_DUMMY(_id, _name, _parent, _shift) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &mminfra_config_0_cg_regs,			\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,			\
+	}
 #define GATE_MMINFRA_CONFIG_1(_id, _name, _parent, _shift) {		\
 		.id = _id,						\
 		.name = _name,						\
@@ -62,7 +70,7 @@ static struct mtk_gate mminfra_config_clks[] = {
 	GATE_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_M /* CLK ID */,
 		"mminfra_config_gce_m" /* name */,
 		"fmminfra_ck" /* parent */, 1 /* bit */),
-	GATE_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_SMI /* CLK ID */,
+	GATE_MMINFRA_CONFIG_0_DUMMY(CLK_MMINFRA_CONFIG_SMI /* CLK ID */,
 		"mminfra_config_smi" /* name */,
 		"fmminfra_ck" /* parent */, 2 /* bit */),
 	GATE_MMINFRA_CONFIG_1(CLK_MMINFRA_CONFIG_GCE_26M /* CLK ID */,
