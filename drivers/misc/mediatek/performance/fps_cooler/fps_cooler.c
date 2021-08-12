@@ -22,9 +22,11 @@
 struct _EARA_THRM_PACKAGE {
 	__s32 type;
 	__s32 request;
+	__s32 is_camera;
 	__s32 pair_pid[EARA_MAX_COUNT];
 	__u64 pair_bufid[EARA_MAX_COUNT];
 	__s32 pair_tfps[EARA_MAX_COUNT];
+	__s32 pair_rfps[EARA_MAX_COUNT];
 	__s32 pair_diff[EARA_MAX_COUNT];
 	char proc_name[EARA_MAX_COUNT][EARA_PROC_NAME_LEN];
 };
@@ -106,7 +108,8 @@ int pre_change_event(void)
 	}
 	mutex_unlock(&pre_lock);
 	memset(&change_msg, 0, sizeof(struct _EARA_THRM_PACKAGE));
-	eara2fstb_get_tfps(EARA_MAX_COUNT, change_msg.pair_pid, change_msg.pair_bufid, change_msg.pair_tfps,
+	eara2fstb_get_tfps(EARA_MAX_COUNT, &(change_msg.is_camera), change_msg.pair_pid,
+			change_msg.pair_bufid, change_msg.pair_tfps, change_msg.pair_rfps,
 			change_msg.proc_name);
 	ret = eara_nl_send_to_user((void *)&change_msg, sizeof(struct _EARA_THRM_PACKAGE));
 

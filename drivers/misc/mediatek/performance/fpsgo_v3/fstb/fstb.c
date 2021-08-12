@@ -726,14 +726,15 @@ static int get_gpu_frame_time(struct FSTB_FRAME_INFO *iter)
 
 }
 
-void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
-				int *tfps, char name[][16])
+void eara2fstb_get_tfps(int max_cnt, int *is_camera, int *pid, unsigned long long *buf_id,
+				int *tfps, int *rfps, char name[][16])
 {
 	int count = 0;
 	struct FSTB_FRAME_INFO *iter;
 	struct hlist_node *n;
 
 	mutex_lock(&fstb_lock);
+	*is_camera = fstb_is_cam_active;
 
 	hlist_for_each_entry_safe(iter, n, &fstb_frame_infos, hlist) {
 		if (count == max_cnt)
@@ -744,6 +745,7 @@ void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
 
 		pid[count] = iter->pid;
 		buf_id[count] = iter->bufid;
+		rfps[count] = iter->queue_fps;
 		if (!iter->target_fps_notifying
 			|| iter->target_fps_notifying == -1)
 			tfps[count] = iter->target_fps;
