@@ -679,8 +679,8 @@ enum MTK_DRM_CHIST_CALLER {
 	MTK_DRM_CHIST_CALLER_PQ,
 	MTK_DRM_CHIST_CALLER_HWC,
 	MTK_DRM_CHIST_CALLER_UNKONW
-
 };
+
 struct mtk_drm_disp_caps_info {
 	unsigned int hw_ver;
 	unsigned int disp_feature_flag;
@@ -910,7 +910,7 @@ struct drm_mtk_channel_hist {
 };
 
 struct drm_mtk_chist_info {
-	int present_fence;
+	unsigned int present_fence;
 	unsigned int device_id;
 	enum MTK_DRM_CHIST_CALLER caller;
 	unsigned int get_channel_count;
@@ -933,7 +933,7 @@ struct drm_mtk_channel_config {
 struct drm_mtk_chist_caps {
 	unsigned int device_id;
 	unsigned int support_color;
-	unsigned int drm_mtk_channel_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
+	struct drm_mtk_channel_config chist_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
 };
 
 struct drm_mtk_chist_config {

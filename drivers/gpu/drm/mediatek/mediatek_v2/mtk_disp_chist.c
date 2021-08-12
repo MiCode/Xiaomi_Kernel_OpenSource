@@ -153,7 +153,7 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 		index_end = DISP_CHIST_PQ_CHANNEL_INDEX + DISP_CHIST_CHANNEL_COUNT;
 	}
 	for (i = index_start; i < index_end; i++) {
-		memcpy(&(caps_info->drm_mtk_channel_config[i % DISP_CHIST_CHANNEL_COUNT]),
+		memcpy(&(caps_info->chist_config[i % DISP_CHIST_CHANNEL_COUNT]),
 			&g_chist_config[i], sizeof(g_chist_config[i]));
 	}
 	return 0;
