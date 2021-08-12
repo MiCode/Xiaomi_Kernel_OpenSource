@@ -537,7 +537,7 @@ static void vow_service_Init(void)
 		vowserv.mtkif_type = 0;
 		//set default value to platform identifier and version
 		memset(vowserv.google_engine_arch, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
-		sprintf(vowserv.google_engine_arch, "32fe89be-5205-3d4b-b8cf-55d650d9d20");
+		sprintf(vowserv.google_engine_arch, "32fe89be-5205-3d4b-b8cf-55d650d9d200");
 		vowserv.google_engine_version = DEFAULT_GOOGLE_ENGINE_VER;
 		memset(vowserv.alexa_engine_version, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
 	} else {
