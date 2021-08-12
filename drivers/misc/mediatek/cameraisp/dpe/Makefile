@@ -35,7 +35,9 @@ camera_dpe_isp70-objs += isp_70/engine_request.o
 camera_dpe_isp70-objs  += isp_70/camera_dpe.o
 camera_dpe_isp70-objs += isp_70/videobuf2-dma-contig.o
 
-else
+endif
+
+ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP6S),m)
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP6S) += camera_dpe_isp60.o
 
 camera_dpe_isp60-objs += isp_60/engine_request.o

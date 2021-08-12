@@ -3348,7 +3348,7 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 			DPEInfo.WriteReqIdx, DPEInfo.ReadReqIdx);
 		if (WaitIrq->bDumpReg) {
 			DPE_DumpReg();
-			dpe_request_dump(&dpe_reqs);
+			dpe_request_dump_isp6(&dpe_reqs);
 		}
 		Ret = -EFAULT;
 		goto EXIT;
@@ -3687,7 +3687,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				kDpeReq.m_ReqNum = dpe_DpeReq.m_ReqNum;
 				kDpeReq.m_pDpeConfig =
 					g_DpeEnqueReq_Struct.DpeFrameConfig;
-				enqnum = dpe_enque_request(&dpe_reqs,
+				enqnum = dpe_enque_request_isp6(&dpe_reqs,
 				kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
 				spin_unlock_irqrestore(
 				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -3697,9 +3697,9 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				 * HW CMDQ request consuming speed from being
 				 * faster than SW frame-queue update speed.
 				 */
-				if (!dpe_request_running(&dpe_reqs)) {
+				if (!dpe_request_running_isp6(&dpe_reqs)) {
 					LOG_DBG("direct request_handler\n");
-					dpe_request_handler(&dpe_reqs,
+					dpe_request_handler_isp6(&dpe_reqs,
 					&(DPEInfo.SpinLockIrq[
 					DPE_IRQ_TYPE_INT_DVP_ST]));
 				}
@@ -3825,7 +3825,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						  flags);
 				kDpeReq.m_pDpeConfig =
 					g_DpeDequeReq_Struct.DpeFrameConfig;
-				dpe_deque_request(&dpe_reqs, &kDpeReq.m_ReqNum,
+				dpe_deque_request_isp6(&dpe_reqs, &kDpeReq.m_ReqNum,
 								&kDpeReq);
 				dequeNum = kDpeReq.m_ReqNum;
 				dpe_DpeReq.m_ReqNum = dequeNum;
@@ -4149,8 +4149,8 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		for (i = 0; i < IRQ_USER_NUM_MAX; i++)
 			DPEInfo.IrqInfo.DpeIrqCnt[i] = 0;
 		/*  */
-		dpe_register_requests(&dpe_reqs, sizeof(struct DPE_Config));
-		dpe_set_engine_ops(&dpe_reqs, &dpe_ops);
+		dpe_register_requests_isp6(&dpe_reqs, sizeof(struct DPE_Config));
+		dpe_set_engine_ops_isp6(&dpe_reqs, &dpe_ops);
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
@@ -4195,7 +4195,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		goto EXIT;
 	} else {
 		spin_unlock(&(DPEInfo.SpinLockDPERef));
-		dpe_unregister_requests(&dpe_reqs);
+		dpe_unregister_requests_isp6(&dpe_reqs);
 	}
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
@@ -4406,15 +4406,15 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	mutex_lock(&gDpeMutex);	/* Protect the Multi Process */
 	spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 			       flags);
-	dpe_enque_request(&dpe_reqs, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
+	dpe_enque_request_isp6(&dpe_reqs, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
 	spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 			       flags);
 	/* Use a workqueue to set CMDQ to prevent HW CMDQ request
 	 *  consuming speed from being faster than SW frame-queue update speed.
 	 */
-	if (!dpe_request_running(&dpe_reqs)) {
+	if (!dpe_request_running_isp6(&dpe_reqs)) {
 		LOG_DBG("direct request_handler\n");
-		dpe_request_handler(&dpe_reqs,
+		dpe_request_handler_isp6(&dpe_reqs,
 		&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 	}
 	mutex_unlock(&gDpeMutex);
@@ -4437,7 +4437,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 				flags);
 		kreq.m_pDpeConfig = cfgs;
-		dpe_deque_request(&dpe_reqs, &kreq.m_ReqNum, &kreq);
+		dpe_deque_request_isp6(&dpe_reqs, &kreq.m_ReqNum, &kreq);
 spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 				flags);
 		mutex_unlock(&gDpeDequeMutex);
@@ -5292,7 +5292,7 @@ int32_t DPE_DumpCallback(uint64_t engineFlag, int level)
 {
 	LOG_DBG("DPE DumpCallback");
 	DPE_DumpReg();
-	dpe_request_dump(&dpe_reqs);
+	dpe_request_dump_isp6(&dpe_reqs);
 	return 0;
 }
 int32_t DPE_ResetCallback(uint64_t engineFlag)
@@ -5428,9 +5428,9 @@ static void __exit DPE_Exit(void)
 void DPE_ScheduleWork(struct work_struct *data)
 {
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)
-	dpe_request_handler(&dpe_reqs,
+		dpe_request_handler_isp6(&dpe_reqs,
 			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
-	if (!dpe_request_running(&dpe_reqs))
+	if (!dpe_request_running_isp6(&dpe_reqs))
 		LOG_DBG("[%s]no more requests", __func__);
 }
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
@@ -5458,7 +5458,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_begin("dpe_irq");
 #endif
-		if (dpe_update_request(&dpe_reqs, &ProcessID) == 0)
+		if (dpe_update_request_isp6(&dpe_reqs, &ProcessID) == 0)
 			bResulst = MTRUE;
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
@@ -5541,7 +5541,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_begin("dpe_irq");
 #endif
-		if (dpe_update_request(&dpe_reqs, &ProcessID) == 0)
+		if (dpe_update_request_isp6(&dpe_reqs, &ProcessID) == 0)
 			bResulst = MTRUE;
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION

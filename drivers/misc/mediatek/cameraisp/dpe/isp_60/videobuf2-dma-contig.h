@@ -18,10 +18,10 @@ vb2_dma_contig_plane_dma_addr(struct vb2_buffer *vb, unsigned int plane_no)
 	return *addr;
 }
 
-int vb2_dpe_dma_contig_set_max_seg_size(struct device *dev, unsigned int size);
-void vb2_dpe_dma_contig_clear_max_seg_size(struct device *dev);
+int vb2_dpe_dma_contig_set_max_seg_size_isp6(struct device *dev, unsigned int size);
+void vb2_dpe_dma_contig_clear_max_seg_size_isp6(struct device *dev);
 
-extern const struct vb2_mem_ops vb2_dpe_dma_contig_memops;
+extern const struct vb2_mem_ops vb2_dpe_dma_contig_memops_isp6;
 void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
 			  unsigned long size, enum dma_data_direction dma_dir,
 			  gfp_t gfp_flags);
