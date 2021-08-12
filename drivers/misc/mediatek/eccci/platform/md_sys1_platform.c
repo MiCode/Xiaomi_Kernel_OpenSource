@@ -226,7 +226,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	md_cd_plat_val_ptr.infra_ao_base =
 			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
 			"ccci-infracfg");
-	if (!md_cd_plat_val_ptr.infra_ao_base) {
+	if (IS_ERR(md_cd_plat_val_ptr.infra_ao_base)) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
 			"infra_ao fail: NULL!\n");
 		return -1;
@@ -251,7 +251,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	md_cd_plat_val_ptr.topckgen_clk_base =
 			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
 			"ccci-topckgen");
-	if (!md_cd_plat_val_ptr.topckgen_clk_base) {
+	if (IS_ERR(md_cd_plat_val_ptr.topckgen_clk_base)) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
 			"topckgen_clk_base fail: NULL!\n");
 		return -1;
@@ -302,7 +302,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	md_cd_plat_val_ptr.spm_sleep_base =
 			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
 			"ccci_spmsleep");
-	if (!md_cd_plat_val_ptr.spm_sleep_base)
+	if (IS_ERR(md_cd_plat_val_ptr.spm_sleep_base))
 		CCCI_ERROR_LOG(0, TAG,
 			"%s: get spm_sleep_base reg failed\n",
 			__func__);
@@ -731,7 +731,7 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER ON]%s: set srclken_o1_on start\n", __func__);
 
-	if (!md_cd_plat_val_ptr.spm_sleep_base) {
+	if (IS_ERR(md_cd_plat_val_ptr.spm_sleep_base)) {
 		ret = -1;
 		goto SRC_CLK_O1_DONE;
 	}

@@ -1949,7 +1949,7 @@ static void ccif_set_clk_off(unsigned char hif_id)
 
 	if (ccif_ctrl->plat_val.md_gen <= 6297) {
 		/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
-		if (ccif_ctrl->pericfg_base) {
+		if (!IS_ERR(ccif_ctrl->pericfg_base)) {
 			CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:pericfg_base:0x%p\n",
 				__func__, ccif_ctrl->pericfg_base);
 			regmap_write(ccif_ctrl->pericfg_base, 0x30c, 0x0);
@@ -2104,7 +2104,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		return ret;
 	}
 
-	if (!md_ctrl->plat_val.infra_ao_base) {
+	if (IS_ERR(md_ctrl->plat_val.infra_ao_base)) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
 		ret = -4;
 		return ret;
@@ -2174,7 +2174,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	/* Get pericfg base(0x10003000) for ccif4,5 */
 	md_ctrl->pericfg_base = syscon_regmap_lookup_by_phandle(dev->of_node,
 		"ccif-pericfg");
-	if (!md_ctrl->pericfg_base)
+	if (IS_ERR(md_ctrl->pericfg_base))
 		CCCI_ERROR_LOG(-1, TAG,
 			"%s: get ccif-pericfg failed\n", __func__);
 
@@ -2246,6 +2246,11 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 	md_ctrl->plat_val.infra_ao_base =
 		syscon_regmap_lookup_by_phandle(node_md,
 		"ccci-infracfg");
+	if (IS_ERR(md_ctrl->plat_val.infra_ao_base)) {
+		CCCI_ERROR_LOG(-1, TAG, "infra_ao_base get fail\n");
+		return -2;
+	}
+
 	atomic_set(&md_ctrl->reset_on_going, 1);
 	md_ctrl->wakeup_ch = 0;
 	atomic_set(&md_ctrl->ccif_irq_enabled, 1);

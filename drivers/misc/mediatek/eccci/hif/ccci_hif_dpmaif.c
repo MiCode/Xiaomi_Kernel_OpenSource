@@ -3283,7 +3283,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 	if (ret < 0)
 		goto DPMAIF_INIT_FAIL;
 
-	if (!dpmaif_ctrl->plat_val.infra_ao_base) {
+	if (IS_ERR(dpmaif_ctrl->plat_val.infra_ao_base)) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
 		ret = -4;
 		goto DPMAIF_INIT_FAIL;
