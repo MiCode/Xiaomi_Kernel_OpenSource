@@ -81,6 +81,9 @@
 			compatible = "mediatek,mt6368-efuse";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			mt6368_thermal_efuse: mt6368_e_data {
+				reg = <0x52 8>;
+			};
 		};
 
 		mt6368_consys: mt6368-consys {
