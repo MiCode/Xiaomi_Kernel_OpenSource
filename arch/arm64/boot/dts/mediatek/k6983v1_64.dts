@@ -594,6 +594,19 @@
 			};
 		};
 	};
+	panel3@0 {
+		compatible = "tianma,nt36672e,vdo,120hz";
+		reg = <2>;
+		pm-enable-gpios = <&pio 68 0>;
+		reset-gpios = <&pio 86 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in3: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
 	ports {
 		port {
 			dsi_out: endpoint {
