@@ -96,13 +96,40 @@ static struct raw_mmqos raw_qos[] = {
 			"l27_aao_r1",
 			"l27_tsfso_r1",
 			"l27_flko_r1",
-			"l28_yuvo_r1",
-			"l28_yuvo_r3",
-			"l28_yuvco_r1",
-			"l28_yuvo_r2",
-			"l28_rzh1n2to_r1",
-			"l28_drzs4no_r1",
-			"l28_tncso_r1"
+			"l29_yuvo_r1",
+			"l29_yuvo_r3",
+			"l29_yuvco_r1",
+			"l29_yuvo_r2",
+			"l29_rzh1n2to_r1",
+			"l29_drzs4no_r1",
+			"l29_tncso_r1"
+		},
+	},
+	[RAW_C] = {
+		.port = {
+			"l28_imgo_r1",
+			"l28_cqi_r1",
+			"l28_cqi_r2",
+			"l28_bpci_r1",
+			"l28_lsci_r1",
+			"l28_rawi_r2",
+			"l28_rawi_r3",
+			"l28_ufdi_r2",
+			"l28_ufdi_r3",
+			"l28_rawi_r4",
+			"l28_rawi_r5",
+			"l28_aai_r1",
+			"l28_fho_r1",
+			"l28_aao_r1",
+			"l28_tsfso_r1",
+			"l28_flko_r1",
+			"l30_yuvo_r1",
+			"l30_yuvo_r3",
+			"l30_yuvco_r1",
+			"l30_yuvo_r2",
+			"l30_rzh1n2to_r1",
+			"l30_drzs4no_r1",
+			"l30_tncso_r1"
 		},
 	},
 };
@@ -181,11 +208,16 @@ void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
 
-	mtk_cam_dvfs_enumget_clktarget(cam);
-	mtk_cam_dvfs_get_clkidx(cam);
-	dev_dbg(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
-		dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
-	regulator_set_voltage(dvfs->reg, dvfs->voltlv[dvfs->clklv_idx], INT_MAX);
+	if (dvfs->clklv_num) {
+		mtk_cam_dvfs_enumget_clktarget(cam);
+		mtk_cam_dvfs_get_clkidx(cam);
+		dev_dbg(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
+			dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
+		if (dvfs->reg_vmm) {
+			regulator_set_voltage(dvfs->reg_vmm,
+				dvfs->voltlv[dvfs->clklv_idx], INT_MAX);
+		}
+	}
 }
 
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
@@ -208,14 +240,15 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 	dvfs_info->dev = cam->dev;
 	ret = dev_pm_opp_of_add_table(dvfs_info->dev);
 	if (ret < 0) {
-		dev_dbg(dvfs_info->dev, "fail to init opp table: %d\n", ret);
-		return;
+		dev_info(dvfs_info->dev, "fail to init opp table: %d\n", ret);
+		goto opp_default_table;
 	}
-	dvfs_info->reg = devm_regulator_get_optional(dvfs_info->dev, "dvfsrc-vcore");
-	if (IS_ERR(dvfs_info->reg)) {
-		dev_dbg(dvfs_info->dev, "can't get dvfsrc-vcore\n");
-		return;
+	dvfs_info->reg_vmm = devm_regulator_get_optional(dvfs_info->dev, "dvfs-vmm");
+	if (IS_ERR(dvfs_info->reg_vmm)) {
+		dev_info(dvfs_info->dev, "can't get dvfsrc-vcore\n");
+		goto opp_default_table;
 	}
+
 	clk_num = dev_pm_opp_get_opp_count(dvfs_info->dev);
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dvfs_info->dev, &freq))) {
 		dvfs_info->clklv[i] = freq;
@@ -232,6 +265,16 @@ void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 			 __func__, i, dvfs_info->clklv[i], dvfs_info->voltlv[i]);
 	}
 	mtk_cam_qos_init(cam);
+
+	return;
+
+opp_default_table:
+	/* TODO: need to get from CCF or others api */
+	dvfs_info->voltlv[0] = 650000;
+	dvfs_info->clklv[0] = 546000000;
+	dvfs_info->clklv_target = 546000000;
+	dvfs_info->clklv_num = 1;
+
 }
 
 #define MTK_CAM_QOS_LSCI_TABLE_MAX_SIZE (32768)
@@ -534,10 +577,10 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			dev_info(cam->dev, "[%s] port idx/name:%2d/%16s BW(kB/s):%lu\n",
 				__func__, i, raw_mmqos->port[i % raw_qos_port_num],
 				BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[i]));
-#if DVFS_READY
-			mtk_icc_set_bw(dvfs_info->qos_req[i],
-				kBps_to_icc(BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[i])), 0);
-#endif
+			if (dvfs_info->qos_req[i])
+				mtk_icc_set_bw(dvfs_info->qos_req[i],
+					kBps_to_icc(BW_B2KB_WITH_RATIO(
+						dvfs_info->qos_bw_avg[i])), 0);
 		}
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
@@ -545,10 +588,10 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			dev_info(cam->dev, "[%s] port idx:%2d BW(kB/s):%lu\n",
 				__func__, i,
 				BW_B2KB_WITH_RATIO(dvfs_info->sv_qos_bw_avg[i]));
-#if DVFS_READY
-			mtk_icc_set_bw(dvfs_info->sv_qos_req[i],
-				kBps_to_icc(BW_B2KB_WITH_RATIO(dvfs_info->sv_qos_bw_avg[i])), 0);
-#endif
+			if (dvfs_info->sv_qos_req[i])
+				mtk_icc_set_bw(dvfs_info->sv_qos_req[i],
+					kBps_to_icc(BW_B2KB_WITH_RATIO(
+						dvfs_info->sv_qos_bw_avg[i])), 0);
 		}
 	}
 }
@@ -582,16 +625,12 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		for (port_id = 0; port_id < raw_qos_port_num; port_id++) {
 			if (port_id < yuvo_r1) {
 				raw_dev = dev_get_drvdata(engineraw_dev);
-#if DVFS_READY
 				dvfs_info->qos_req[i] =
 					of_mtk_icc_get(raw_dev->dev, raw_mmqos->port[port_id]);
-#endif
 			} else {
 				yuv_dev = dev_get_drvdata(engineyuv_dev);
-#if DVFS_READY
 				dvfs_info->qos_req[i] =
 					of_mtk_icc_get(yuv_dev->dev, raw_mmqos->port[port_id]);
-#endif
 			}
 			i++;
 		}
@@ -604,10 +643,8 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		enginesv_dev = cam->sv.devs[engine_id];
 		for (port_id = 0; port_id < sv_qos_port_num; port_id++) {
 			sv_dev = dev_get_drvdata(enginesv_dev);
-#if DVFS_READY
 			dvfs_info->sv_qos_req[i] =
 				of_mtk_icc_get(sv_dev->dev, sv_mmqos->port[port_id]);
-#endif
 			i++;
 		}
 		dev_info(sv_dev->dev, "[%s] sv_engine_id=%d, port_num=%d\n",
@@ -622,15 +659,13 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_device *cam)
 
 	for (i = 0; i < MTK_CAM_RAW_PORT_NUM; i++) {
 		dvfs_info->qos_bw_avg[i] = 0;
-#if DVFS_READY
-		mtk_icc_set_bw(dvfs_info->qos_req[i], 0, 0);
-#endif
+		if (dvfs_info->qos_req[i])
+			mtk_icc_set_bw(dvfs_info->qos_req[i], 0, 0);
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
 		dvfs_info->sv_qos_bw_avg[i] = 0;
-#if DVFS_READY
-		mtk_icc_set_bw(dvfs_info->sv_qos_req[i], 0, 0);
-#endif
+		if (dvfs_info->sv_qos_req[i])
+			mtk_icc_set_bw(dvfs_info->sv_qos_req[i], 0, 0);
 	}
 
 	dev_info(cam->dev, "[%s]\n", __func__);

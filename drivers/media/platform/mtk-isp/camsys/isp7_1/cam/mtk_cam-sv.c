@@ -1727,10 +1727,8 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#if CCF_READY
 	unsigned int i;
-#endif
-	int irq, ret;
+	int irq, clks, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
 						       &sv->id);
@@ -1795,20 +1793,18 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-	sv->num_clks = 0;
-#if CCF_READY
-	sv->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+	clks  = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
-	dev_info(dev, "clk_num:%d\n", sv->num_clks);
-	if (!sv->num_clks) {
-		dev_dbg(dev, "no clock\n");
-		return -ENODEV;
-	}
 
-	sv->clks = devm_kcalloc(dev, sv->num_clks, sizeof(*sv->clks),
-				 GFP_KERNEL);
-	if (!sv->clks)
-		return -ENOMEM;
+	sv->num_clks = (clks == -ENOENT) ? 0:clks;
+	dev_info(dev, "clk_num:%d\n", sv->num_clks);
+
+	if (sv->num_clks) {
+		sv->clks = devm_kcalloc(dev, sv->num_clks, sizeof(*sv->clks),
+					 GFP_KERNEL);
+		if (!sv->clks)
+			return -ENOMEM;
+	}
 
 	for (i = 0; i < sv->num_clks; i++) {
 		sv->clks[i] = of_clk_get(pdev->dev.of_node, i);
@@ -1818,7 +1814,6 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		}
 	}
 
-#endif
 	return 0;
 }
 
@@ -2013,29 +2008,24 @@ static int mtk_camsv_pm_resume(struct device *dev)
 
 static int mtk_camsv_runtime_suspend(struct device *dev)
 {
-#if CCF_READY
 	struct mtk_camsv_device *camsv_dev = dev_get_drvdata(dev);
 	int i;
-#endif
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
-#if CCF_READY
+
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-#endif
 
 	return 0;
 }
 
 static int mtk_camsv_runtime_resume(struct device *dev)
 {
-#if CCF_READY
 	struct mtk_camsv_device *camsv_dev = dev_get_drvdata(dev);
 	int i, ret;
-#endif
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
-#if CCF_READY
+
 	for (i = 0; i < camsv_dev->num_clks; i++) {
 		ret = clk_prepare_enable(camsv_dev->clks[i]);
 		if (ret) {
@@ -2049,7 +2039,6 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 		}
 	}
 	sv_reset(camsv_dev);
-#endif
 
 	return 0;
 }

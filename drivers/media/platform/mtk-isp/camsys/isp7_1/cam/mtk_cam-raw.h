@@ -53,6 +53,7 @@
 enum raw_module_id {
 	RAW_A = 0,
 	RAW_B = 1,
+	RAW_C = 2,
 };
 
 /* feature mask to categorize all raw functions */
@@ -236,12 +237,12 @@ struct mtk_raw_pipeline {
 
 struct mtk_raw_device {
 	struct device *dev;
+	struct device *larb;
 	struct mtk_cam_device *cam;
 	unsigned int id;
 	void __iomem *base;
 	void __iomem *base_inner;
 	void __iomem *yuv_base;
-	void __iomem *top_base;
 	unsigned int num_clks;
 	struct clk **clks;
 	struct mtk_raw_pipeline *pipeline;
@@ -259,9 +260,9 @@ struct mtk_raw_device {
 
 struct mtk_yuv_device {
 	struct device *dev;
+	struct device *larb;
 	unsigned int id;
 	void __iomem *base;
-	void __iomem *top_base;
 	unsigned int num_clks;
 	struct clk **clks;
 };

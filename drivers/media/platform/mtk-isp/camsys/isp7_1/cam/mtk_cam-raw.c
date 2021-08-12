@@ -1763,10 +1763,10 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#if CCF_READY
+	struct platform_device *larb_pdev;
+	struct device_node *node;
 	unsigned int i;
-#endif
-	int irq, ret;
+	int irq, clks, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
@@ -1818,20 +1818,18 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#if CCF_READY
-	raw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
+
+	raw->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", raw->num_clks);
 
-	if (!raw->num_clks) {
-		dev_dbg(dev, "no clock\n");
-		return -ENODEV;
+	if (raw->num_clks) {
+		raw->clks = devm_kcalloc(dev, raw->num_clks, sizeof(*raw->clks),
+					 GFP_KERNEL);
+		if (!raw->clks)
+			return -ENOMEM;
 	}
-
-	raw->clks = devm_kcalloc(dev, raw->num_clks, sizeof(*raw->clks),
-				 GFP_KERNEL);
-	if (!raw->clks)
-		return -ENOMEM;
 
 	for (i = 0; i < raw->num_clks; i++) {
 		raw->clks[i] = of_clk_get(pdev->dev.of_node, i);
@@ -1840,7 +1838,22 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-#endif
+
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", 0);
+	if (!node) {
+		dev_info(dev, "failed to get larb id\n");
+	} else {
+		larb_pdev = of_find_device_by_node(node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(node);
+			dev_info(dev, "failed to get larb pdev\n");
+			return -EINVAL;
+		}
+		of_node_put(node);
+
+		raw->larb = &larb_pdev->dev;
+	}
+
 	return 0;
 }
 
@@ -4672,30 +4685,27 @@ static int mtk_raw_pm_resume(struct device *dev)
 
 static int mtk_raw_runtime_suspend(struct device *dev)
 {
-#if CCF_READY
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i;
-#endif
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
-#if CCF_READY
+	if (drvdata->larb)
+		mtk_smi_larb_put(drvdata->larb);
+
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-#endif
+
 	return 0;
 }
 
 static int mtk_raw_runtime_resume(struct device *dev)
 {
-#if CCF_READY
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
-#endif
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
-#if CCF_READY
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -4708,8 +4718,15 @@ static int mtk_raw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+
+	if (drvdata->larb) {
+		ret = mtk_smi_larb_get(drvdata->larb);
+		if (ret)
+			dev_info(drvdata->dev, "mtk_smi_larb_get fail %d\n", ret);
+	}
+
 	reset(drvdata);
-#endif
+
 	return 0;
 }
 
@@ -4794,10 +4811,10 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#if CCF_READY
+	struct platform_device *larb_pdev;
+	struct device_node *node;
 	unsigned int i;
-#endif
-	int irq, ret;
+	int irq, clks, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &drvdata->id);
@@ -4833,21 +4850,20 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
-#if CCF_READY
-	drvdata->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+
+	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
+
+	drvdata->num_clks  = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
 
-	if (!drvdata->num_clks) {
-		dev_dbg(dev, "no clock\n");
-		return -ENODEV;
+	if (drvdata->num_clks) {
+		drvdata->clks = devm_kcalloc(dev,
+					     drvdata->num_clks, sizeof(*drvdata->clks),
+					     GFP_KERNEL);
+		if (!drvdata->clks)
+			return -ENOMEM;
 	}
-
-	drvdata->clks = devm_kcalloc(dev,
-				     drvdata->num_clks, sizeof(*drvdata->clks),
-				     GFP_KERNEL);
-	if (!drvdata->clks)
-		return -ENOMEM;
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		drvdata->clks[i] = of_clk_get(pdev->dev.of_node, i);
@@ -4856,7 +4872,22 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-#endif
+
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", 0);
+	if (!node) {
+		dev_info(dev, "failed to get larb id\n");
+	} else {
+		larb_pdev = of_find_device_by_node(node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(node);
+			dev_info(dev, "failed to get larb pdev\n");
+			return -EINVAL;
+		}
+		of_node_put(node);
+
+		drvdata->larb = &larb_pdev->dev;
+	}
+
 	return 0;
 }
 
@@ -4937,31 +4968,33 @@ static int mtk_yuv_pm_resume(struct device *dev)
 /* driver for yuv part */
 static int mtk_yuv_runtime_suspend(struct device *dev)
 {
-#if CCF_READY
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i;
-#endif
 
 	dev_info(dev, "%s:disable clock\n", __func__);
 
-#if CCF_READY
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-#endif
+
+	if (drvdata->larb)
+		mtk_smi_larb_put(drvdata->larb);
 
 	return 0;
 }
 
 static int mtk_yuv_runtime_resume(struct device *dev)
 {
-#if CCF_READY
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
-#endif
 
 	dev_info(dev, "%s:enable clock\n", __func__);
 
-#if CCF_READY
+	if (drvdata->larb) {
+		ret = mtk_smi_larb_get(drvdata->larb);
+		if (ret)
+			dev_info(drvdata->dev, "mtk_smi_larb_get fail %d\n", ret);
+	}
+
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -4974,7 +5007,6 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-#endif
 
 	return 0;
 }

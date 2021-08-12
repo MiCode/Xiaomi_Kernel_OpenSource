@@ -18,7 +18,7 @@ struct mtk_cam_ctx;
 
 struct mtk_camsys_dvfs {
 	struct device *dev;
-	struct regulator *reg;
+	struct regulator *reg_vmm;
 	unsigned int clklv_num;
 	unsigned int clklv[ISP_CLK_LEVEL_CNT];
 	unsigned int voltlv[ISP_CLK_LEVEL_CNT];
