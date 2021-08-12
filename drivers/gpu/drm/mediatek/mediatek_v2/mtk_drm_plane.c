@@ -15,7 +15,6 @@
 #include "mtk_drm_fb.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_plane.h"
-#include "cmdq-sec.h"
 
 #define MTK_DRM_PLANE_SCALING_MIN 16
 #define MTK_DRM_PLANE_SCALING_MAX (1 << 16)

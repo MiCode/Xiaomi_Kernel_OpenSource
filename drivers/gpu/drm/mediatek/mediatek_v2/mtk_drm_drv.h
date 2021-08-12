@@ -180,9 +180,6 @@ struct mtk_drm_private {
 	bool need_cwb_path_disconnect;
 	bool cwb_is_preempted;
 
-	/* Due to 2nd display share 1 secure gce client, need store here */
-	struct cmdq_client *ext_sec_client;
-
 	bool dma_parms_allocated;
 
 	bool already_first_config;

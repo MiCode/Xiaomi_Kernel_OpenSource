@@ -29,7 +29,6 @@
 #ifdef IF_ZERO
 #include "mtk_iommu_ext.h"
 #endif
-#include "cmdq-sec.h"
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
@@ -277,8 +276,6 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define FBDC_8XE_MODE BIT(24)
 #define FBDC_FILTER_EN BIT(28)
 
-#define OVL_SECURE(module) ((module)->data->ovl_secure)
-
 #define EXT_SECURE_OFFSET 4
 
 #define OVL_RDMA_DEBUG_OFFSET (0x4)
@@ -315,6 +312,13 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define AFBC_V1_2_TILE_H (8)
 #define AFBC_V1_2_HEADER_ALIGN_BYTES (1024)
 #define AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES (16)
+
+
+/* AID offset in mmsys config */
+#define MT6983_OVL0_AID_SEL	(0xB00UL)
+#define MT6983_OVL1_2L_AID_SEL	(0xB08UL)
+#define MT6983_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
+#define MT6983_OVL1_2L_NWCG_AID_SEL (0xB10UL)
 
 enum GS_OVL_FLD {
 	GS_OVL_RDMA_ULTRA_TH = 0,
@@ -397,8 +401,8 @@ struct mtk_disp_ovl_data {
 	unsigned int issue_req_th_dl;
 	unsigned int issue_req_th_urg_dl;
 	unsigned int greq_num_dl;
-	unsigned int ovl_secure;
 	bool is_support_34bits;
+	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
 };
 
 #define MAX_LAYER_NUM 4
@@ -447,6 +451,28 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 		return -1;
 	}
 	return 0;
+}
+
+unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+		return MT6983_OVL0_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L:
+		/* in MT6983 DDP_component_ovl0_2l use ovl1_2l HW*/
+		return MT6983_OVL1_2L_AID_SEL;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
+int mtk_ovl_aid_bit(struct mtk_ddp_comp *comp, bool is_ext, int id)
+{
+	if (is_ext)
+		return mtk_ovl_layer_num(comp) + id;
+	else
+		return id;
 }
 
 static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
@@ -1304,7 +1330,6 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       struct cmdq_pkt *handle)
 {
 	struct mtk_plane_pending_state *pending = &state->pending;
-	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	dma_addr_t addr = pending->addr;
 	unsigned int fmt = pending->format;
 	unsigned int pitch = pending->pitch & 0xffff;
@@ -1319,6 +1344,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int clip = 0;
 	unsigned int buf_size = 0;
 	int rotate = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	unsigned int aid_sel_offset = 0;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
+	int sec_bit;
 
 	if (fmt == DRM_FORMAT_YUYV || fmt == DRM_FORMAT_YVYU ||
 	    fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_VYUY) {
@@ -1355,6 +1385,10 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	buf_size = (dst_h - 1) * pending->pitch +
 		dst_w * mtk_drm_format_plane_cpp(fmt, 0);
+
+	if (ovl->data->aid_sel_mapping)
+		aid_sel_offset = ovl->data->aid_sel_mapping(comp);
+
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
@@ -1364,49 +1398,21 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
 			pitch, ~0);
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type;
 
-			size = buf_size;
-			if (state->pending.is_sec && pending->addr) {
-				meta_type = CMDQ_IWC_H_2_MVA;
-//TODO:34-bit addrssing
-				cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_EL_ADDR(ovl, id),
-					pending->addr, meta_type,
-					offset, size, 0);
+		if (aid_sel_offset) {
+			sec_bit = mtk_ovl_aid_bit(comp, true, id);
+			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					BIT(id + EXT_SECURE_OFFSET),
-					BIT(id + EXT_SECURE_OFFSET));
-
-				DDPDBG("%s:%d, addr:(%pad,0x%x), size:%d\n",
-					__func__, __LINE__,
-					&pending->addr,
-					offset,
-					size);
-			} else {
-				write_ext_layer_addr_cmdq(comp, handle, id,
-							addr);
-
-				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
-					__func__, __LINE__,
-					addr,
-					size);
+					mmsys_reg + aid_sel_offset,
+					BIT(sec_bit), BIT(sec_bit));
+			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					0, BIT(id + EXT_SECURE_OFFSET));
-			}
-		} else  {
-#endif
-			write_ext_layer_addr_cmdq(comp, handle, id, addr);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + OVL_SECURE(ovl),
-				0, BIT(id + EXT_SECURE_OFFSET));
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+					comp->regs_pa + aid_sel_offset,
+					0, BIT(sec_bit));
 		}
-#endif
+
+		write_ext_layer_addr_cmdq(comp, handle, id, addr);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
 			src_size, ~0);
@@ -1420,43 +1426,21 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			pitch, ~0);
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type;
 
-			size = buf_size;
-
-			if (state->pending.is_sec && pending->addr) {
-				meta_type = CMDQ_IWC_H_2_MVA;
-//TODO:34-bit addrssing
-				cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_ADDR(ovl, lye_idx),
-					pending->addr, meta_type,
-					offset, size, 0);
+		if (aid_sel_offset) {
+			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
+			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:(%pad,0x%x), size:%d\n",
-					__func__, __LINE__,
-					&pending->addr,
-					offset,
-					size);
-			} else {
-				write_phy_layer_addr_cmdq(comp, handle,
-							lye_idx, addr);
+					mmsys_reg + aid_sel_offset,
+					BIT(sec_bit), BIT(sec_bit));
+			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					0, BIT(lye_idx));
-			}
-		} else {
-#endif
-			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + OVL_SECURE(ovl),
-				0, BIT(lye_idx));
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+					mmsys_reg + aid_sel_offset,
+					0, BIT(sec_bit));
 		}
-#endif
+
+		write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
 			src_size, ~0);
@@ -1668,7 +1652,6 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 {
 	/* input config */
 	struct mtk_plane_pending_state *pending = &state->pending;
-	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	dma_addr_t addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
 	unsigned int vpitch = pending->prop_val[PLANE_PROP_VPITCH];
@@ -1692,6 +1675,12 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	unsigned int src_buf_tile_num = 0;
 	unsigned int buf_size = 0;
 	unsigned int buf_total_size = 0;
+
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	unsigned int aid_sel_offset = 0;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
+	int sec_bit;
 
 	/* variable to config into register */
 	unsigned int lx_fbdc_en;
@@ -1805,44 +1794,27 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	buf_size = (dst_h - 1) * pending->pitch +
 		dst_w * mtk_drm_format_plane_cpp(fmt, 0);
 	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
+
+	if (ovl->data->aid_sel_mapping)
+		aid_sel_offset = ovl->data->aid_sel_mapping(comp);
+
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type;
-
-			if (state->pending.is_sec && pending->addr) {
-				size = buf_size;
-				meta_type = CMDQ_IWC_H_2_MVA;
-//TODO:34-bit addrssing
-				cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_EL_ADDR(ovl, id),
-					pending->addr, meta_type, 0, size, 0);
+		if (aid_sel_offset) {
+			sec_bit = mtk_ovl_aid_bit(comp, true, id);
+			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					BIT(id + EXT_SECURE_OFFSET),
-					BIT(id + EXT_SECURE_OFFSET));
-				DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
-					&pending->addr,
-					size);
-			} else {
-				write_ext_layer_addr_cmdq(comp, handle,
-							id, lx_addr);
+					mmsys_reg + aid_sel_offset,
+					BIT(sec_bit), BIT(sec_bit));
+			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					0, BIT(id + EXT_SECURE_OFFSET));
-			}
-		} else {
-#endif
-			write_ext_layer_addr_cmdq(comp, handle, id, lx_addr);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + OVL_SECURE(ovl),
-				0, BIT(id + EXT_SECURE_OFFSET));
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+					mmsys_reg + aid_sel_offset,
+					0, BIT(sec_bit));
 		}
-#endif
+
+		write_ext_layer_addr_cmdq(comp, handle, id, lx_addr);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa +
 				       DISP_REG_OVL_EL_PITCH(id),
@@ -1861,41 +1833,19 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
 			       lx_hdr_pitch, ~0);
 	} else {
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type;
-
-			if (state->pending.is_sec && pending->addr) {
-				size = buf_size;
-				meta_type = CMDQ_IWC_H_2_MVA;
-//TODO:34-bit addrssing
-				cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_ADDR(ovl, lye_idx),
-					pending->addr, meta_type, 0, size, 0);
+		if (aid_sel_offset) {
+			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
+			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
-					&pending->addr,
-					size);
-			} else {
-				write_phy_layer_addr_cmdq(comp, handle,
-							lye_idx, lx_addr);
+					mmsys_reg + aid_sel_offset,
+					BIT(sec_bit), BIT(sec_bit));
+			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					0, BIT(lye_idx));
-			}
-		} else {
-#endif
-			write_phy_layer_addr_cmdq(comp, handle, lye_idx,
-						lx_addr);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + OVL_SECURE(ovl),
-				0, BIT(lye_idx));
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+					mmsys_reg + aid_sel_offset,
+					0, BIT(sec_bit));
 		}
-#endif
+
+		write_phy_layer_addr_cmdq(comp, handle, lye_idx, lx_addr);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			       lx_pitch, 0xffff);
@@ -1922,7 +1872,6 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 {
 	/* input config */
 	struct mtk_plane_pending_state *pending = &state->pending;
-	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	dma_addr_t addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
 	unsigned int vpitch = pending->prop_val[PLANE_PROP_VPITCH];
@@ -1958,6 +1907,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	unsigned int lx_clip, lx_src_size;
 	unsigned int lx_2nd_subbuf = 0;
 	unsigned int lx_pitch_msb = 0;
+
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	unsigned int aid_sel_offset = 0;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
+	int sec_bit;
 
 	DDPDBG("%s:%d, addr:0x%x, pitch:%d, vpitch:%d\n",
 		__func__, __LINE__, addr,
@@ -2089,110 +2044,58 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	/* 7. config register */
 	buf_size = (dst_h - 1) * pitch + dst_w * Bpp;
 	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
+
+	if (ovl->data->aid_sel_mapping)
+		aid_sel_offset = ovl->data->aid_sel_mapping(comp);
+
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on && state->pending.is_sec) {
-			u32 size, meta_type;
-			u32 addr_offset;
-
-			size = buf_size;
-			meta_type = CMDQ_IWC_H_2_MVA;
-			addr_offset = header_offset + tile_offset *
-				tile_body_size;
-//TODO:34-bit addrssing
-			cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_EL_ADDR(ovl, id),
-					pending->addr, meta_type, addr_offset,
-					size, 0);
-			addr_offset = tile_offset *
-				AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
-			cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_ELX_HDR_ADDR(id),
-					pending->addr, meta_type, addr_offset,
-					size, 0);
-
-			cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					BIT(id + EXT_SECURE_OFFSET),
-					BIT(id + EXT_SECURE_OFFSET));
-			DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
-					&pending->addr,
-					size);
-		} else {
-#endif
-			write_ext_layer_addr_cmdq(comp, handle, id, lx_addr);
-
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + OVL_SECURE(ovl),
-				0, BIT(id + EXT_SECURE_OFFSET));
-			write_ext_layer_hdr_addr_cmdq(comp, handle, id,
-						lx_hdr_addr);
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (aid_sel_offset) {
+			sec_bit = mtk_ovl_aid_bit(comp, true, id);
+			if (state->pending.is_sec)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					mmsys_reg + aid_sel_offset,
+					BIT(sec_bit), BIT(sec_bit));
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					mmsys_reg + aid_sel_offset,
+					0, BIT(sec_bit));
 		}
-#endif
+
+		write_ext_layer_addr_cmdq(comp, handle, id, lx_addr);
+		write_ext_layer_hdr_addr_cmdq(comp, handle, id, lx_hdr_addr);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
-			DISP_REG_OVL_EL_PITCH_MSB(id),
+			comp->regs_pa + DISP_REG_OVL_EL_PITCH_MSB(id),
 			lx_pitch_msb, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
-			DISP_REG_OVL_EL_PITCH(id),
+			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
 			lx_pitch, 0xffff);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
-			DISP_REG_OVL_EL_SRC_SIZE(id),
+			comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
 			lx_src_size, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
-			DISP_REG_OVL_EL_CLIP(id),
+			comp->regs_pa + DISP_REG_OVL_EL_CLIP(id),
 			lx_clip, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
-			DISP_REG_OVL_ELX_HDR_PITCH(id),
+			comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
 			lx_hdr_pitch, ~0);
 	} else {
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on && state->pending.is_sec) {
-			u32 size, meta_type, addr_offset;
-
-			size = buf_size;
-			meta_type = CMDQ_IWC_H_2_MVA;
-			addr_offset = header_offset + tile_offset *
-				tile_body_size;
-//TODO:34-bit addrssing
-			cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_ADDR(ovl, lye_idx),
-					pending->addr, meta_type, addr_offset,
-					size, 0);
-			addr_offset = tile_offset *
-				AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
-			cmdq_sec_pkt_write_reg(handle, comp->regs_pa +
-					DISP_REG_OVL_LX_HDR_ADDR(lye_idx),
-					pending->addr, meta_type, addr_offset,
-					size, 0);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_SECURE(ovl),
-					BIT(lye_idx), BIT(lye_idx));
-			DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
-					&pending->addr,
-					size);
-		} else {
-#endif
-			write_phy_layer_addr_cmdq(comp, handle, lye_idx,
-						lx_addr);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + OVL_SECURE(ovl),
-				0, BIT(lye_idx));
-			write_phy_layer_hdr_addr_cmdq(comp, handle, lye_idx,
-				      lx_hdr_addr);
-
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (aid_sel_offset) {
+			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
+			if (state->pending.is_sec)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					mmsys_reg + aid_sel_offset,
+					BIT(sec_bit), BIT(sec_bit));
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					mmsys_reg + aid_sel_offset,
+					0, BIT(sec_bit));
 		}
-#endif
+
+		write_phy_layer_addr_cmdq(comp, handle, lye_idx, lx_addr);
+		write_phy_layer_hdr_addr_cmdq(comp, handle, lye_idx,
+					lx_hdr_addr);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_PITCH_MSB(lye_idx),
 			lx_pitch_msb, ~0);
@@ -3547,7 +3450,6 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.fmt_yuyv = 8U << 12,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 
@@ -3565,7 +3467,6 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.compr_info = &compr_info_mt6779,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 
@@ -3588,7 +3489,6 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.issue_req_th_dl = 255,
 	.issue_req_th_urg_dl = 127,
 	.greq_num_dl = 0x7777,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 
@@ -3611,8 +3511,8 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.issue_req_th_dl = 255,
 	.issue_req_th_urg_dl = 127,
 	.greq_num_dl = 0x7777,
-	.ovl_secure = 0xfe0,
 	.is_support_34bits = true,
+	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
 };
 
 
@@ -3635,7 +3535,6 @@ static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.issue_req_th_dl = 191,
 	.issue_req_th_urg_dl = 95,
 	.greq_num_dl = 0x5555,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 
@@ -3658,7 +3557,6 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.issue_req_th_dl = 191,
 	.issue_req_th_urg_dl = 95,
 	.greq_num_dl = 0x5555,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 
@@ -3681,7 +3579,6 @@ static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
 	.issue_req_th_dl = 191,
 	.issue_req_th_urg_dl = 95,
 	.greq_num_dl = 0x5555,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 
@@ -3705,7 +3602,6 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.issue_req_th_dl = 191,
 	.issue_req_th_urg_dl = 95,
 	.greq_num_dl = 0x5555,
-	.ovl_secure = 0xfe0,
 	.is_support_34bits = true,
 };
 
@@ -3717,7 +3613,6 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.fmt_yuyv = 5U << 12,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
-	.ovl_secure = 0xfc0,
 	.is_support_34bits = false,
 };
 

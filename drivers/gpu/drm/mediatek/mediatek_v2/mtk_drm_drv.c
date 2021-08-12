@@ -538,10 +538,9 @@ static void mtk_atomic_check_plane_sec_state(struct drm_device *dev,
 	int sec_on[MAX_CRTC] = {0};
 	struct drm_plane *plane;
 	struct drm_plane_state *new_plane_state;
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state;
-#endif
+
 	for_each_old_plane_in_state(new_state, plane, new_plane_state, i) {
 		if (plane->state->crtc) {
 			struct mtk_drm_crtc *mtk_crtc =
@@ -555,7 +554,6 @@ static void mtk_atomic_check_plane_sec_state(struct drm_device *dev,
 		}
 	}
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	for_each_old_crtc_in_state(new_state, crtc, new_crtc_state, i) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
@@ -576,7 +574,6 @@ static void mtk_atomic_check_plane_sec_state(struct drm_device *dev,
 
 		mtk_crtc->sec_on = sec_on[i];
 	}
-#endif
 }
 
 static bool mtk_atomic_need_force_doze_switch(struct drm_crtc *crtc)
@@ -3662,8 +3659,6 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_SIZE, mtk_drm_ioctl_aal_get_size,
 			  DRM_UNLOCKED),
-	DRM_IOCTL_DEF_DRV(MTK_SEC_HND_TO_GEM_HND, mtk_drm_sec_hnd_to_gem_hnd,
-			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_DEV_INFO, mtk_drm_dp_get_dev_info,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),

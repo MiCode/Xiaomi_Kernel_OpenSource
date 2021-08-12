@@ -24,7 +24,6 @@
 #include "mtk_drm_fb.h"
 #include "mtk_drm_trace.h"
 #include "mtk_drm_drv.h"
-#include "cmdq-sec.h"
 
 #define DISP_REG_WDMA_INTEN 0x0000
 #define INTEN_FLD_FME_CPL_INTEN REG_FLD_MSB_LSB(0, 0)
@@ -769,26 +768,6 @@ static dma_addr_t read_dst_addr(struct mtk_ddp_comp *comp, int id)
 	return addr;
 }
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-static void write_dst_addr_sec(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
-				int id, int offset, int size, dma_addr_t addr)
-{
-	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
-
-
-	cmdq_sec_pkt_write_reg(handle,
-			comp->regs_pa + DISP_REG_WDMA_DST_ADDRX(id),
-			addr, CMDQ_IWC_H_2_MVA,
-			offset, size, 0);
-
-	if(wdma->data->is_support_34bits)
-		cmdq_sec_pkt_write_reg(handle,
-			comp->regs_pa + DISP_REG_WDMA_DST_ADDRX_MSB(id),
-			(addr >> 32), CMDQ_IWC_H_2_MVA,
-			offset, size, 0);
-}
-#endif
-
 static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 			      uint32_t fmt, unsigned int dstPitch,
 			      unsigned int Height, dma_addr_t dstAddress,
@@ -822,20 +801,10 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		has_v = 0;
 	}
 
-	if (!sec) {
-		write_dst_addr(comp, handle, 1, dstAddress + u_off);
+	write_dst_addr(comp, handle, 1, dstAddress + u_off);
+	if (has_v)
+		write_dst_addr(comp, handle, 2, dstAddress + v_off);
 
-		if (has_v)
-			write_dst_addr(comp, handle, 2, dstAddress + v_off);
-	} else {
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		write_dst_addr_sec(comp, handle, 1, u_off, u_size, dstAddress);
-
-		if (has_v)
-			write_dst_addr_sec(comp, handle, 1, v_off, u_size,
-					dstAddress);
-#endif
-	}
 	mtk_ddp_write_mask(comp, u_stride,
 			DISP_REG_WDMA_DST_UV_PITCH, 0xFFFF, handle);
 	return 0;
@@ -871,7 +840,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
 	int clip_w, clip_h;
 	struct golden_setting_context *gsc;
-	u32 sec, buffer_size;
+	u32 sec;
 	unsigned int frame_cnt = cfg_info->count + 1;
 	struct drm_crtc_state *crtc_state = comp->mtk_crtc->base.state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
@@ -948,14 +917,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
 
-	if (!sec) {
-		write_dst_addr(comp, handle, 0, addr);
-	} else {
-		buffer_size = clip_w * comp->fb->pitches[0];
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		write_dst_addr_sec(comp, handle, 0, 0, buffer_size, addr);
-#endif
-	}
+	write_dst_addr(comp, handle, 0, addr);
+
 	mtk_ddp_write(comp, frame_cnt, DISP_REG_WDMA_DUMMY, handle);
 
 	gsc = cfg->p_golden_setting_context;

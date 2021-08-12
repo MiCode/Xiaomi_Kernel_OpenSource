@@ -199,6 +199,11 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 	size += cmd->offsets[0];
 
 	mtk_gem = to_mtk_gem_obj(gem);
+
+	if (cmd->modifier[0] & MTK_FMT_SECURE)
+		mtk_gem->sec = true;
+
+	//TO-DO: should need remove "!mtk_gem->sec"
 	if (gem->size < size && !mtk_gem->sec) {
 		DRM_ERROR("%s:%d, size:(%ld,%d), sec:%d\n",
 			__func__, __LINE__,

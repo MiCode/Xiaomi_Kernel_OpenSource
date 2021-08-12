@@ -616,36 +616,6 @@ int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
-int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
-		struct drm_file *file_priv)
-{
-	struct drm_mtk_sec_gem_hnd *args = data;
-	struct mtk_drm_gem_obj *mtk_gem_obj;
-
-	DDPDBG("%s:%d dev:0x%p, data:0x%p, priv:0x%p +\n",
-		  __func__, __LINE__,
-		  dev,
-		  data,
-		  file_priv);
-
-	mtk_gem_obj = kzalloc(sizeof(*mtk_gem_obj), GFP_KERNEL);
-	if (!mtk_gem_obj)
-		return -ENOMEM;
-
-	mtk_gem_obj->sec = true;
-	mtk_gem_obj->dma_addr = args->sec_hnd;
-	drm_gem_private_object_init(dev, &mtk_gem_obj->base, 0);
-	drm_gem_handle_create(file_priv, &mtk_gem_obj->base, &args->gem_hnd);
-
-	DDPDBG("%s:%d obj:0x%p, sec:%d, addr:0x%llx -\n",
-		  __func__, __LINE__,
-		  mtk_gem_obj,
-		  mtk_gem_obj->sec,
-		  mtk_gem_obj->dma_addr);
-
-	return 0;
-}
-
 //To-Do: need to be remove
 void print_mml_frame_buffer(struct mml_frame_buffer frame_buf)
 {
