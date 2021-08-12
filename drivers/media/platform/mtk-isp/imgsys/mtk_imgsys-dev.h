@@ -28,7 +28,7 @@
 #include "mtk_imgsys-module.h"
 #include "mtkdip.h"
 #include "mtk-interconnect.h"
-
+#include "mtk_imgsys-worker.h"
 
 #define MTK_IMGSYS_PIPE_ID_PREVIEW				0
 #define MTK_IMGSYS_PIPE_ID_CAPTURE				1
@@ -242,6 +242,11 @@ struct mtk_imgsys_qos {
 	struct mtk_imgsys_qos_path *qos_path;
 };
 
+struct gce_work {
+	struct imgsys_work work;
+	struct mtk_imgsys_request *req;
+	void *req_sbuf_kva;
+};
 #define RUNNER_WQ_NR (4)
 typedef void (*debug_dump)(struct mtk_imgsys_dev *imgsys_dev, 		\
 	const struct module_ops *imgsys_modules, int imgsys_module_num,	\
@@ -260,6 +265,7 @@ struct mtk_imgsys_dev {
 	struct workqueue_struct *enqueue_wq;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *mdp_wq[RUNNER_WQ_NR];
+	struct imgsys_queue runnerque;
 	wait_queue_head_t flushing_waitq;
 	atomic_t num_composing;	/* increase after ipi */
 	/*MDP/GCE callback workqueue */

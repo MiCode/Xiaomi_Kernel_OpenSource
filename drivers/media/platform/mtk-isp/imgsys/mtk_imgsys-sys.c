@@ -1122,12 +1122,14 @@ static void dip_runner_func_batch(struct work_struct *work)
 }
 #endif
 #endif
-static void imgsys_runner_func(struct work_struct *work)
+
+static void imgsys_runner_func(void *data)
 {
-	struct mtk_imgsys_request *req = mtk_imgsys_hw_mdp_work_to_req(work);
+	struct imgsys_work *iwork = (struct imgsys_work *) data;
+	struct gce_work *work = container_of(iwork, struct gce_work, work);
+	struct mtk_imgsys_request *req = work->req;
 	struct mtk_imgsys_dev *imgsys_dev = req->imgsys_pipe->imgsys_dev;
 	struct swfrm_info_t *frm_info;
-	struct scp_work *swork = NULL;
 	int swfrm_cnt, stime;
 	int ret;
 
@@ -1136,8 +1138,7 @@ static void imgsys_runner_func(struct work_struct *work)
 	/* get corresponding setting, adopt is_sent to judge different frames
 	 * in same package/mtk_dip_request
 	 */
-	swork = container_of(work, struct scp_work, work);
-	frm_info = (struct swfrm_info_t *)(swork->req_sbuf_kva);
+	frm_info = (struct swfrm_info_t *)(work->req_sbuf_kva);
 	frm_info->is_sent = true;
 	/*
 	 * Call MDP/GCE API to do HW excecution
@@ -1166,7 +1167,7 @@ static void imgsys_runner_func(struct work_struct *work)
 			"%s: imgsys_cmdq_sendtask fail(%d)\n", __func__, ret);
 	}
 
-	vfree(swork);
+	vfree(work);
 }
 
 static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
@@ -1178,10 +1179,10 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	struct mtk_imgsys_dev *imgsys_dev = (struct mtk_imgsys_dev *)priv;
 	struct img_sw_buffer *swbuf_data = NULL;
 	struct swfrm_info_t *swfrm_info = NULL;
-	struct scp_work *swork = NULL;
+	struct gce_work *gwork;
 	int swfrm_cnt;
 	u64 time_local_reddonescpStart = 0;
-	int i = 0, chan = 0;
+	int i = 0;
 
 	if (!data) {
 		WARN_ONCE(!data, "%s: failed due to NULL data\n", __func__);
@@ -1339,14 +1340,12 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	/**/
 	if (!swfrm_info->user_info[0].subfrm_idx)
 		req->tstate.time_qw2runner = ktime_get_boottime_ns()/1000;
-	swork = vzalloc(sizeof(struct scp_work));
-	swork->req = req;
-	swork->req_sbuf_kva = (void *)swfrm_info;
-	INIT_WORK(&swork->work, imgsys_runner_func);
-	if ((swfrm_info->chan_id < RUNNER_WQ_NR) && swfrm_info->chan_id >= 0)
-		chan = swfrm_info->chan_id;
-	queue_work(imgsys_dev->mdp_wq[chan], &swork->work);
 
+	gwork = vzalloc(sizeof(struct gce_work));
+	gwork->req = req;
+	gwork->req_sbuf_kva = (void *)swfrm_info;
+	gwork->work.run = imgsys_runner_func;
+	imgsys_queue_add(&imgsys_dev->runnerque, &gwork->work);
 	IMGSYS_SYSTRACE_END();
 
 }
@@ -1746,6 +1745,8 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
 
 			return ret;
 		}
+		imgsys_queue_init(&imgsys_dev->runnerque, imgsys_dev->dev, "runner");
+		imgsys_queue_enable(&imgsys_dev->runnerque);
 	}
 	count = imgsys_dev->imgsys_stream_cnt++;
 	atomic_set(&imgsys_dev->num_composing, 0);
@@ -1799,8 +1800,10 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 	if (!imgsys_dev->imgsys_stream_cnt) {
 		mtk_imgsys_hw_disconnect(imgsys_dev);
 
-		dev_dbg(imgsys_dev->dev, "%s: dip_hw disconnected, stream cnt(%d)\n",
+		dev_info(imgsys_dev->dev, "%s: dip_hw disconnected, stream cnt(%d)\n",
 			__func__, imgsys_dev->imgsys_stream_cnt);
+		imgsys_queue_disable(&imgsys_dev->runnerque);
+
 		flush_fd_kva_list(imgsys_dev);
 
 		list_for_each_entry_safe(iova_info, tmp,
