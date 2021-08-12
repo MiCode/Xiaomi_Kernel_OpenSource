@@ -439,6 +439,7 @@ struct dwc3_msm {
 	struct clk		*core_clk;
 	long			core_clk_rate;
 	long			core_clk_rate_hs;
+	long			core_clk_rate_disconnected;
 	struct clk		*iface_clk;
 	struct clk		*sleep_clk;
 	struct clk		*utmi_clk;
@@ -3652,13 +3653,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->iface_clk);
 	clk_prepare_enable(mdwc->noc_aggr_clk);
 
-	core_clk_rate = mdwc->core_clk_rate;
-	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH) {
+	core_clk_rate = mdwc->core_clk_rate_disconnected;
+	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH)
 		core_clk_rate = mdwc->core_clk_rate_hs;
-		dev_dbg(mdwc->dev, "%s: set hs core clk rate %ld\n", __func__,
-			core_clk_rate);
-	}
+	else if (!(mdwc->lpm_flags & MDWC3_POWER_COLLAPSE))
+		core_clk_rate = mdwc->core_clk_rate;
 
+	dev_dbg(mdwc->dev, "%s: set core clk rate %ld\n", __func__,
+		core_clk_rate);
 	clk_set_rate(mdwc->core_clk, core_clk_rate);
 	clk_prepare_enable(mdwc->core_clk);
 
@@ -4071,15 +4073,22 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 							mdwc->core_clk_rate);
 	dev_dbg(mdwc->dev, "USB core frequency = %ld\n",
 						mdwc->core_clk_rate);
-	ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-	if (ret)
-		dev_err(mdwc->dev, "fail to set core_clk freq:%d\n", ret);
 
 	if (of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate-hs",
 				(u32 *)&mdwc->core_clk_rate_hs)) {
 		dev_dbg(mdwc->dev, "USB core-clk-rate-hs is not present\n");
 		mdwc->core_clk_rate_hs = mdwc->core_clk_rate;
 	}
+
+	if (of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate-disconnected",
+				(u32 *)&mdwc->core_clk_rate_disconnected)) {
+		dev_dbg(mdwc->dev, "USB core-clk-rate-disconnected is not present\n");
+		mdwc->core_clk_rate_disconnected = mdwc->core_clk_rate;
+	}
+
+	ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate_disconnected);
+	if (ret)
+		dev_err(mdwc->dev, "fail to set core_clk freq:%d\n", ret);
 
 	mdwc->sleep_clk = devm_clk_get(mdwc->dev, "sleep_clk");
 	if (IS_ERR(mdwc->sleep_clk)) {
@@ -5422,6 +5431,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&mdwc->dev->power.usage_count));
 		redriver_notify_connect(mdwc->ss_redriver_node);
+		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 		dwc3_msm_set_clk_sel(mdwc);
 		if (dwc->maximum_speed >= USB_SPEED_SUPER) {
 			mdwc->ss_phy->flags |= PHY_HOST_MODE;
@@ -5595,6 +5605,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
 		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
 					    PM_QOS_DEFAULT_VALUE);
+		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 		/* start in perf mode for better performance initially */
 		msm_dwc3_perf_vote_update(mdwc, true);
 		schedule_delayed_work(&mdwc->perf_vote_work,
