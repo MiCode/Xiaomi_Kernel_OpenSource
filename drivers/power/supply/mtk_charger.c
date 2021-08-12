@@ -2509,12 +2509,12 @@ static enum alarmtimer_restart
 
 	info->timer_cb_duration[0] = ktime_get_boottime();
 	if (info->is_suspend == false) {
-		chr_err("%s: not suspend, wake up charger\n", __func__);
+		chr_debug("%s: not suspend, wake up charger\n", __func__);
 		info->timer_cb_duration[1] = ktime_get_boottime();
 		_wake_up_charger(info);
 		info->timer_cb_duration[6] = ktime_get_boottime();
 	} else {
-		chr_err("%s: alarm timer timeout\n", __func__);
+		chr_debug("%s: alarm timer timeout\n", __func__);
 		__pm_stay_awake(info->charger_wakelock);
 	}
 
