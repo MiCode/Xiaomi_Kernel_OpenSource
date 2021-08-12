@@ -4487,8 +4487,80 @@ static ssize_t crash_on_err_store(struct device *dev,
 	return count;
 }
 
-
 static DEVICE_ATTR_RW(crash_on_err);
+
+static ssize_t clk_mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	static const char * const mode[] = {
+				"LOW_SVS",
+				"NORM",
+				"TURBO",
+				"TURBO_L1",
+				"INVAL_MODE",
+		};
+
+	/* Print current clk mode info */
+	return sysfs_emit(buf,
+		"Clk_mode: %s ,turbo_enabled: %d, axi_freq:%ld,unipro_freq:%ld, ice_freq: %ld\n",
+		mode[host->clk_curr_mode], host->is_turbo_enabled,
+		host->curr_axi_freq,
+		host->curr_unipro_freq,
+		host->curr_ice_freq);
+}
+
+static DEVICE_ATTR_RO(clk_mode);
+
+static ssize_t turbo_support_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	/* Print whether turbo support is enabled or not */
+	return sysfs_emit(buf, "%d\n", host->ml_scale_sup);
+}
+
+static ssize_t turbo_support_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool value;
+	int ret = 0;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &value))
+		return -EINVAL;
+
+	down_read(&hba->clk_scaling_lock);
+	if (host->clk_curr_mode == TURBO) {
+		/*
+		 * Since curr_mode is turbo, turbo support
+		 * can't be enabled/disabled
+		 */
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (host->ml_scale_sup == value)
+		goto out;
+
+	host->ml_scale_sup = value;
+	if (atomic_read(&host->scale_up))
+		host->clk_curr_mode = NOM;
+	else
+		host->clk_curr_mode = LOW_SVS;
+out:
+	up_read(&hba->clk_scaling_lock);
+	return ret ? ret : count;
+}
+static DEVICE_ATTR_RW(turbo_support);
 
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
@@ -4498,6 +4570,8 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_count.attr,
 	&dev_attr_dbg_state.attr,
 	&dev_attr_crash_on_err.attr,
+	&dev_attr_clk_mode.attr,
+	&dev_attr_turbo_support.attr,
 	NULL
 };
 
