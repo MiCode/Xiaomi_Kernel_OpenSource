@@ -6912,7 +6912,8 @@
 				 <&smi_larb15>,
 				 <&smi_larb22>,
 				 <&smi_larb23>,
-				 <&smi_larb18>;
+				 <&smi_larb18>,
+				 <&smi_larb12>;
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
@@ -7366,7 +7367,11 @@
 			 <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_DIP_NR>,
 			 <&wpe1_dip1_clk CLK_WPE1_DIP1_WPE>,
 			 <&wpe2_dip1_clk CLK_WPE2_DIP1_WPE>,
-			 <&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>;
+			 <&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
+			 <&ipesys_clk CLK_IPESYS_IPESYS_TOP>,
+			 <&ipesys_clk CLK_IPESYS_ME>,
+			 <&ipesys_clk CLK_IPESYS_SMI_LARB12>;
 		clock-names = "IMGSYS_CG_IMG_TRAW0",
 			      "IMGSYS_CG_IMG_TRAW1",
 			      "IMGSYS_CG_IMG_VCORE_GALS",
@@ -7382,7 +7387,11 @@
 			      "DIP_NR_DIP_NR",
 			      "WPE1_CG_DIP1_WPE",
 			      "WPE2_CG_DIP1_WPE",
-			      "WPE3_CG_DIP1_WPE";
+			      "WPE3_CG_DIP1_WPE",
+			      "ME_CG_IPE",
+			      "ME_CG_IPE_TOP",
+			      "ME_CG",
+			      "ME_CG_LARB12";
 		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 		dvfsrc-vmm-supply = <&vmm_proxy_label>;
 		interconnects =
