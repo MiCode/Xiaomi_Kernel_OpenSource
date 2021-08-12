@@ -239,8 +239,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return -ENODEV;
 	if (freq == NULL)
 		return -EINVAL;
-	if (!device->pwrscale.devfreq_enabled)
-		return -EPROTO;
 
 	pwr = &device->pwrctrl;
 
@@ -298,8 +296,6 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 		return -ENODEV;
 	if (stat == NULL)
 		return -EINVAL;
-	if (!device->pwrscale.devfreq_enabled)
-		return -EPROTO;
 
 	pwrscale = &device->pwrscale;
 	pwrctrl = &device->pwrctrl;
@@ -368,8 +364,6 @@ int kgsl_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 		return -ENODEV;
 	if (freq == NULL)
 		return -EINVAL;
-	if (!device->pwrscale.devfreq_enabled)
-		return -EPROTO;
 
 	mutex_lock(&device->mutex);
 	*freq = kgsl_pwrctrl_active_freq(&device->pwrctrl);
@@ -390,10 +384,6 @@ int kgsl_busmon_get_dev_status(struct device *dev,
 			struct devfreq_dev_status *stat)
 {
 	struct xstats *b;
-	struct kgsl_device *device = dev_get_drvdata(dev);
-
-	if (!device->pwrscale.devfreq_enabled)
-		return -EPROTO;
 
 	stat->total_time = last_status.total_time;
 	stat->busy_time = last_status.busy_time;
@@ -457,8 +447,6 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 		return -EINVAL;
 	if (!device->pwrscale.enabled)
 		return 0;
-	if (!device->pwrscale.devfreq_enabled)
-		return -EPROTO;
 
 	pwr = &device->pwrctrl;
 
