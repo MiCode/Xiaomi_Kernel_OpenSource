@@ -1209,7 +1209,7 @@ same with 6873
 	#define MT6879_DISP_RSZ0_MOUT_TO_DISP_UFBC_WDMA0_SEL   BIT(3)
 	#define MT6879_DISP_RSZ0_MOUT_TO_DISP_PQ0_SEL          BIT(2)
 
-#define MT6879_DISP_RDMA0_POS_MOUT_EN                          0xFD8
+#define MT6879_DISP_RDMA0_POS_MOUT_EN                          0xFDC
 	#define MT6879_DISP_RDMA0_POS_MOUT_TO_DISP_RDMA0_POS_SEL   BIT(0)
 	#define MT6879_DISP_RDMA0_POS_MOUT_TO_DISP_RDMA0_SEL       BIT(1)
 	#define MT6879_DISP_RDMA0_POS_MOUT_TO_DISP_CHIST0_SEL      BIT(2)
@@ -6265,7 +6265,7 @@ static int mtk_ddp_sel_in_MT6879(const struct mtk_mmsys_reg_data *data,
 	} else if (cur == DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL &&
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6879_DISP_RDMA0_SEL;
-		value = MT6879_DISP_RDMA0_FROM_DISP_RDMA0_POS_MOUT;
+		value = MT6879_DISP_RDMA0_FROM_DISP_RDMA0_SOUT;
 	} else if (cur == DDP_COMPONENT_RDMA0 &&
 		next == DDP_COMPONENT_DSI0) {
 		*addr = MT6879_DISP_DSI0_SEL;
