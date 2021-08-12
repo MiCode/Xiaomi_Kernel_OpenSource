@@ -214,9 +214,6 @@ void scp_do_regdump(uint32_t *out, uint32_t *out_end)
 	uint32_t *buf = out;
 	int size_limit = sizeof(reg_save_list) / sizeof(struct reg_save_st);
 
-	/* last addr is infra */
-	for (i = 0; i < size_limit - 1; i++)
-		reg_save_list[i].addr += scp_reg_base_phy;
 
 	for (i = 0; i < size_limit; i++) {
 		if (((void *)buf + reg_save_list[i].size
@@ -731,8 +728,14 @@ struct bin_attribute bin_attr_scp_dump = {
 int scp_excep_init(void)
 {
 	int dram_size = 0;
+	int i;
+	int size_limit = sizeof(reg_save_list) / sizeof(struct reg_save_st);
 
 	mutex_init(&scp_excep_mutex);
+
+	/* last addr is infra */
+	for (i = 0; i < size_limit - 1; i++)
+		reg_save_list[i].addr |= scp_reg_base_phy;
 
 	/* alloc dump memory */
 	scp_dump.detail_buff = vmalloc(SCP_AED_STR_LEN);
