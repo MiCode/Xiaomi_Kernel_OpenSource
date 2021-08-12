@@ -55,6 +55,7 @@ enum headroom_id {
 };
 
 struct fps_cooler_info {
+	int activated;
 	int target_fps;
 	int tpcb;
 	int tpcb_slope;

@@ -305,10 +305,10 @@ static ssize_t fps_cooler_info_show(struct kobject *kobj,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d,%d,%d\n",
-		fps_cooler_data.target_fps, fps_cooler_data.tpcb,
-		fps_cooler_data.tpcb_slope, fps_cooler_data.ap_headroom,
-		fps_cooler_data.n_sec_to_ttpcb);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d,%d,%d,%d\n",
+		fps_cooler_data.activated, fps_cooler_data.target_fps,
+		fps_cooler_data.tpcb, fps_cooler_data.tpcb_slope,
+		fps_cooler_data.ap_headroom, fps_cooler_data.n_sec_to_ttpcb);
 
 	return len;
 }
@@ -316,12 +316,12 @@ static ssize_t fps_cooler_info_show(struct kobject *kobj,
 static ssize_t fps_cooler_info_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	int target_fps, tpcb, tpcb_slope, ap_headroom, n_sec_to_ttpcb;
+	int act, target_fps, tpcb, tpcb_slope, ap_headroom, n_sec_to_ttpcb;
 	void __iomem *addr = thermal_csram_base + AP_NTC_HEADROOM_OFFSET;
 	void __iomem *tpcb_addr = thermal_csram_base + TPCB_OFFSET;
 
-	if(sscanf(buf, "%d,%d,%d,%d,%d", &target_fps, &tpcb, &tpcb_slope,
-				&ap_headroom, &n_sec_to_ttpcb) == 5)
+	if (sscanf(buf, "%d,%d,%d,%d,%d,%d", &act, &target_fps, &tpcb,
+				&tpcb_slope, &ap_headroom, &n_sec_to_ttpcb) == 6)
 	{
 		if ((ap_headroom >= -100) && (ap_headroom <= 100))
 		{
@@ -333,6 +333,7 @@ static ssize_t fps_cooler_info_store(struct kobject *kobj,
 		}
 
 		writel(tpcb, tpcb_addr);
+		fps_cooler_data.activated = act;
 		fps_cooler_data.tpcb = tpcb;
 		fps_cooler_data.target_fps = target_fps;
 		fps_cooler_data.tpcb_slope = tpcb_slope;
