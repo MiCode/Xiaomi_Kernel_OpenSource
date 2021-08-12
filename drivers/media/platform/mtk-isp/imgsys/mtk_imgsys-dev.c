@@ -142,6 +142,12 @@ void mtk_imgsys_pipe_remove_job(struct mtk_imgsys_request *req)
 {
 	unsigned long flag;
 
+	if ((req->list.next == LIST_POISON1) ||
+					(req->list.prev == LIST_POISON2)) {
+		dev_info(req->imgsys_pipe->imgsys_dev->dev, "%s: req-fd %d already removed",
+						__func__, req->tstate.req_fd);
+		return;
+	}
 	spin_lock_irqsave(&req->imgsys_pipe->running_job_lock, flag);
 	list_del(&req->list);
 	req->imgsys_pipe->num_jobs = req->imgsys_pipe->num_jobs - 1;
