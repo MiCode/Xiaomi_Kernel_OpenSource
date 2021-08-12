@@ -353,6 +353,7 @@
 	bias-gpios = <&pio 28 0>,
 		<&pio 29 0>;
 	pinctrl-names = "default";
+	panel-list = "default";
 };
 
 &dsi0 {
