@@ -6,10 +6,12 @@
 #include <linux/completion.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
+#include <linux/sched/clock.h>
 
 #include <linux/delay.h>
 
 #include "apu.h"
+#include "apu_config.h"
 #include "mdw_export.h"
 #include "mtk_apu_rpmsg.h"
 
@@ -77,6 +79,7 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 			__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
 
 		dev_info(apu->dev, "%s: power on apu top\n", __func__);
+		apu->conf_buf->time_offset = sched_clock();
 		pm_runtime_get(apu->dev);
 
 		dev_info(dev, "mbox dummy= 0x%08x 0x%08x 0x%08x 0x%08x\n",
