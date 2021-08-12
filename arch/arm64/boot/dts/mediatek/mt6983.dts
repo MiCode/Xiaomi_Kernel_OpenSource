@@ -10156,6 +10156,13 @@
 		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
 	};
 
+	mvpu {
+		compatible = "mediatek, mt6983-mvpu";
+		core_num = <2>;
+		version = <0x0>;
+		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
+	};
+
 	camera_fsync_ccu {
 		compatible = "mediatek,camera_fsync_ccu";
 		mediatek,ccu_rproc = <&ccu_rproc>;
