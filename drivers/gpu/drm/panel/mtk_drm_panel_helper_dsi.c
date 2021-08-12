@@ -671,7 +671,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 
 	len = of_property_count_strings(np, "pinctrl-names");
 	if (len > 0) {
-		LCM_KZALLOC(params->lcm_pinctrl_name, (len + 1) *
+		LCM_KZALLOC(params->lcm_pinctrl_name, len *
 				MTK_LCM_NAME_LENGTH, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(params->lcm_pinctrl_name)) {
 			DDPPR_ERR("%s, %d, failed to allocate lcm_pinctrl_names\n",
@@ -679,7 +679,6 @@ int parse_lcm_params_dsi(struct device_node *np,
 			return -ENOMEM;
 		}
 
-		memset(params->lcm_pinctrl_name, 0, len * MTK_LCM_NAME_LENGTH);
 		len = of_property_read_string_array(np, "pinctrl-names",
 				params->lcm_pinctrl_name, len);
 		if (len < 0) {

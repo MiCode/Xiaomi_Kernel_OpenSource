@@ -359,6 +359,21 @@ static int rt4831a_set_voltage(unsigned int level)
 	return ret;
 }
 
+static int rt4831a_match_lcm_list(const char *lcm_name)
+{
+	if (atomic_read(&ctx_rt4831a.init) != 1) {
+		DDPPR_ERR("%s gate ic is not initialized\n", __func__);
+		return 0;
+	}
+
+	if (mtk_gateic_match_lcm_list(lcm_name, ctx_rt4831a.lcm_list,
+		ctx_rt4831a.lcm_count, "rt4831a") == true) {
+		return 1;
+	}
+
+	return 0;
+}
+
 static struct mtk_gateic_funcs rt4831a_ops = {
 	.reset = rt4831a_reset,
 	.power_on = rt4831a_power_on,
@@ -367,12 +382,13 @@ static struct mtk_gateic_funcs rt4831a_ops = {
 	.set_backlight = rt4831a_set_backlight,
 	.enable_backlight = rt4831a_enable_backlight,
 	.set_backlight = rt4831a_set_backlight,
+	.match_lcm_list = rt4831a_match_lcm_list,
 };
 
 static int rt4831a_drv_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0;
+	int ret = 0, len = 0, i = 0;
 
 	if (atomic_read(&ctx_rt4831a.init) == 1)
 		return 0;
@@ -380,11 +396,41 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 	DDPMSG("%s++\n", __func__);
 	ctx_rt4831a.dev = dev;
 
+	len = of_property_count_strings(dev->of_node, "panel-list");
+	if (len > 0) {
+		DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
+		ctx_rt4831a.lcm_list = kcalloc(len, sizeof(char *), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ctx_rt4831a.lcm_list)) {
+			DDPPR_ERR("%s, %d, failed to allocate lcm list, len:%d\n",
+				__func__, __LINE__, len);
+			return -ENOMEM;
+		}
+		DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
+		len = of_property_read_string_array(dev->of_node, "panel-list",
+				ctx_rt4831a.lcm_list, len);
+		if (len < 0) {
+			DDPPR_ERR("%s, %d, failed to get panel-list, len:%d\n",
+				__func__, __LINE__, len);
+			ret = -EINVAL;
+			goto error;
+		}
+		ctx_rt4831a.lcm_count = (unsigned int)len;
+		for (i = 0; i < len; i++) {
+			DDPMSG("%s, lcm%u, \"%s\"\n", __func__, i,
+				*(ctx_rt4831a.lcm_list + i));
+		}
+	} else {
+		DDPPR_ERR("%s, %d, failed to get lcm_pinctrl_names, %d\n",
+			__func__, __LINE__, len);
+		return -EFAULT;
+	}
+
 	ctx_rt4831a.reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx_rt4831a.reset_gpio)) {
 		dev_err(dev, "%s: cannot get reset-gpios %ld\n",
 			__func__, PTR_ERR(ctx_rt4831a.reset_gpio));
-		return PTR_ERR(ctx_rt4831a.reset_gpio);
+		ret = PTR_ERR(ctx_rt4831a.reset_gpio);
+		goto error;
 	}
 	devm_gpiod_put(dev, ctx_rt4831a.reset_gpio);
 
@@ -392,7 +438,8 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 	if (IS_ERR(ctx_rt4831a.bias_pos_gpio)) {
 		dev_err(dev, "%s: cannot get bias pos gpio %ld\n",
 			__func__, PTR_ERR(ctx_rt4831a.bias_pos_gpio));
-		return PTR_ERR(ctx_rt4831a.bias_pos_gpio);
+		ret = PTR_ERR(ctx_rt4831a.bias_pos_gpio);
+		goto error;
 	}
 	devm_gpiod_put(dev, ctx_rt4831a.bias_pos_gpio);
 
@@ -409,8 +456,15 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 	atomic_set(&ctx_rt4831a.ref, 1);
 	atomic_set(&ctx_rt4831a.init, 1);
 
-	ret = mtk_drm_gateic_set(&rt4831a_ops, MTK_LCM_FUNC_DSI);
+	ret = mtk_drm_gateic_register(&rt4831a_ops, MTK_LCM_FUNC_DSI);
 	DDPMSG("%s--, %d, backlight mode:%u\n", __func__, ret, ctx_rt4831a.backlight_mode);
+
+	return ret;
+
+error:
+	if (ctx_rt4831a.lcm_list != NULL)
+		kfree(ctx_rt4831a.lcm_list);
+	ctx_rt4831a.lcm_count = 0;
 
 	return ret;
 }

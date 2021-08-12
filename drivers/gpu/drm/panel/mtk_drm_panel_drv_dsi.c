@@ -1302,6 +1302,8 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	dsi->format = dsi_params->format;
 	dsi->mode_flags = dsi_params->mode_flags;
 
+	mtk_drm_gateic_select(ctx_dsi->panel_resource->params.name,
+			MTK_LCM_FUNC_DSI);
 	mipi_dsi_set_drvdata(dsi, ctx_dsi);
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);

@@ -5,9 +5,61 @@
 
 #include "mtk_drm_gateic.h"
 
+static struct list_head dbi_gateic_list;
+static struct list_head dpi_gateic_list;
+static struct list_head dsi_gateic_list;
 static struct mtk_gateic_funcs *mtk_gateic_dbi_ops;
 static struct mtk_gateic_funcs *mtk_gateic_dpi_ops;
 static struct mtk_gateic_funcs *mtk_gateic_dsi_ops;
+
+bool mtk_gateic_match_lcm_list(const char *lcm_name,
+	const char **list, unsigned int count, const char *gateic_name)
+{
+	unsigned int i = 0, ret = 0;
+	char owner[MTK_LCM_NAME_LENGTH] = "unknown";
+
+	if (count == 0 || IS_ERR_OR_NULL(list)) {
+		DDPPR_ERR("%s, invalid list\n", __func__);
+		return false;
+	}
+
+	if (IS_ERR_OR_NULL(gateic_name) == false)
+		ret = snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "%s", gateic_name);
+	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
+		DDPMSG("%s, snprintf failed:%d\n", __func__, ret);
+
+	if (count == 1 &&
+	    strcmp(*list, "default") == 0) {
+		DDPMSG("%s, use default gateic:\"%s\"\n",
+			__func__, owner);
+		return true;
+	}
+
+	for (i = 0; i < count; i++) {
+		if (strcmp(*(list + i), lcm_name) == 0) {
+			DDPMSG("%s, lcm%d:\"%s\" of gateic:\"%s\" matched\n",
+				__func__, i, *(list + i), owner);
+			return true;
+		}
+	}
+	DDPMSG("%s, gateic:\"%s\" doesn't support lcm:\"%s\", count:%u\n",
+		__func__, owner, lcm_name, count);
+	return false;
+}
+
+static struct mtk_gateic_funcs *mtk_drm_gateic_match_lcm_list(
+		struct list_head *gateic_list, const char *lcm_name)
+{
+	struct mtk_gateic_funcs *ops = NULL;
+
+	list_for_each_entry(ops, gateic_list, list) {
+		if (ops->match_lcm_list != NULL) {
+			if (ops->match_lcm_list(lcm_name) != 0)
+				return ops;
+		}
+	}
+	return NULL;
+}
 
 struct mtk_gateic_funcs *mtk_drm_gateic_get_ops(char func)
 {
@@ -32,35 +84,22 @@ struct mtk_gateic_funcs *mtk_drm_gateic_get_ops(char func)
 	return ops;
 }
 
-int mtk_drm_gateic_set(struct mtk_gateic_funcs *gateic_ops,
-		char func)
+int mtk_drm_gateic_register(struct mtk_gateic_funcs *ops, char func)
 {
 	int ret = 0;
 
-	if (IS_ERR_OR_NULL(gateic_ops))
+	if (IS_ERR_OR_NULL(ops))
 		return -EFAULT;
 
 	switch (func) {
 	case MTK_LCM_FUNC_DBI:
-		if (mtk_gateic_dbi_ops != NULL) {
-			DDPMSG("%s, DBI gateic repeat settings\n", __func__);
-			return -EEXIST;
-		}
-		mtk_gateic_dbi_ops = gateic_ops;
+		list_add_tail(&ops->list, &dbi_gateic_list);
 		break;
 	case MTK_LCM_FUNC_DPI:
-		if (mtk_gateic_dpi_ops != NULL) {
-			DDPMSG("%s, DPI gateic repeat settings\n", __func__);
-			return -EEXIST;
-		}
-		mtk_gateic_dpi_ops = gateic_ops;
+		list_add_tail(&ops->list, &dpi_gateic_list);
 		break;
 	case MTK_LCM_FUNC_DSI:
-		if (mtk_gateic_dsi_ops != NULL) {
-			DDPMSG("%s, DSI gateic repeat settings\n", __func__);
-			return -EEXIST;
-		}
-		mtk_gateic_dsi_ops = gateic_ops;
+		list_add_tail(&ops->list, &dsi_gateic_list);
 		break;
 	default:
 		DDPMSG("%s: invalid func:%d\n", __func__, func);
@@ -70,7 +109,55 @@ int mtk_drm_gateic_set(struct mtk_gateic_funcs *gateic_ops,
 
 	return ret;
 }
-EXPORT_SYMBOL(mtk_drm_gateic_set);
+EXPORT_SYMBOL(mtk_drm_gateic_register);
+
+int mtk_drm_gateic_select(const char *lcm_name, char func)
+{
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(lcm_name))
+		return -EFAULT;
+
+	switch (func) {
+	case MTK_LCM_FUNC_DBI:
+		if (mtk_gateic_dbi_ops != NULL) {
+			DDPMSG("%s, DBI gateic repeat settings\n", __func__);
+			return -EEXIST;
+		}
+		mtk_gateic_dbi_ops = mtk_drm_gateic_match_lcm_list(
+				&dbi_gateic_list, lcm_name);
+		if (mtk_gateic_dbi_ops == NULL)
+			ret = EFAULT;
+		break;
+	case MTK_LCM_FUNC_DPI:
+		if (mtk_gateic_dpi_ops != NULL) {
+			DDPMSG("%s, DPI gateic repeat settings\n", __func__);
+			return -EEXIST;
+		}
+		mtk_gateic_dpi_ops = mtk_drm_gateic_match_lcm_list(
+				&dpi_gateic_list, lcm_name);
+		if (mtk_gateic_dpi_ops == NULL)
+			ret = EFAULT;
+		break;
+	case MTK_LCM_FUNC_DSI:
+		if (mtk_gateic_dsi_ops != NULL) {
+			DDPMSG("%s, DSI gateic repeat settings\n", __func__);
+			return -EEXIST;
+		}
+		mtk_gateic_dsi_ops = mtk_drm_gateic_match_lcm_list(
+				&dsi_gateic_list, lcm_name);
+		if (mtk_gateic_dsi_ops == NULL)
+			ret = EFAULT;
+		break;
+	default:
+		DDPMSG("%s: invalid func:%d\n", __func__, func);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(mtk_drm_gateic_select);
 
 struct mtk_gateic_funcs *mtk_drm_gateic_get(char func)
 {
@@ -173,6 +260,10 @@ static int __init mtk_drm_gateic_init(void)
 	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
+	INIT_LIST_HEAD(&dbi_gateic_list);
+	INIT_LIST_HEAD(&dpi_gateic_list);
+	INIT_LIST_HEAD(&dsi_gateic_list);
+
 	for (i = 0; (unsigned int)i < ARRAY_SIZE(mtk_drm_gateic_drivers); i++) {
 		ret = platform_driver_register(mtk_drm_gateic_drivers[i]);
 		if (ret < 0) {

@@ -6,7 +6,6 @@
 #ifndef _MTK_DRM_PANEL_HELPER_H_
 #define _MTK_DRM_PANEL_HELPER_H_
 
-#include <linux/list.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_print.h>
 #include <drm/drm_mipi_dsi.h>
@@ -21,38 +20,8 @@
 
 extern unsigned long long mtk_lcm_total_size;
 
-#define MTK_LCM_NAME_LENGTH (128)
 #define MTK_LCM_MODE_UNIT (4)
 #define MTK_LCM_DEBUG_DUMP (0)
-
-#define DO_LCM_KZALLOC(buf, size, flag, debug) \
-do { \
-	buf = kzalloc(roundup(size, 4), flag); \
-	if (buf != NULL) \
-		mtk_lcm_total_size += size; \
-	if (debug == 1 && buf != NULL) \
-		pr_notice("%s, %d, buf:0x%lx, size:%u, align:%u, flag:0x%x\n", \
-			__func__, __LINE__, (unsigned long)buf, \
-			(unsigned int)size, (unsigned int)roundup(size, 4), \
-			(unsigned int)flag); \
-} while (0)
-
-#define LCM_KZALLOC(buf, size, flag) DO_LCM_KZALLOC(buf, size, flag, 0)
-
-#define DO_LCM_KFREE(buf, size, debug) \
-do { \
-	if (debug == 1) \
-		pr_notice("%s, %d, size:%u\n", \
-			__func__, __LINE__, (unsigned int)roundup(size, 4)); \
-	if (mtk_lcm_total_size >= roundup(size, 4)) \
-		mtk_lcm_total_size -= roundup(size, 4); \
-	else \
-		mtk_lcm_total_size = 0; \
-	kfree(buf); \
-	buf = NULL; \
-} while (0)
-
-#define LCM_KFREE(buf, size) DO_LCM_KFREE(buf, size, 0)
 
 struct mtk_lcm_params_dbi {
 	unsigned int dbi_private_data;
