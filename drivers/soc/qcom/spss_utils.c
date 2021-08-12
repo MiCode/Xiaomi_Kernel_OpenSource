@@ -697,6 +697,15 @@ static int get_pil_size(phys_addr_t base_addr)
 	pil_size = readl_relaxed(spss_code_size_reg);
 	iounmap(spss_code_size_reg);
 
+	/* Since there are only 20 bits in the code size register, if the size is 1MB
+	 * or bigger then the register is set to 1MB-1, which isn't 4KB aligned, so
+	 * it's corrected below to 1MB
+	 */
+	if (pil_size == SZ_1M - 1) {
+		pr_warn("pil_size is corrected to 1MB\n");
+		pil_size = SZ_1M;
+	}
+
 	if (pil_size % SZ_4K) {
 		pr_err("pil_size [0x%08x] is not 4K aligned.\n", pil_size);
 		return -EFAULT;
