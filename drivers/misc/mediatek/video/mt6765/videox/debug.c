@@ -1762,23 +1762,23 @@ void DBG_Init(void)
 	struct dentry *d_file;
 
 	mtkfb_dbgfs = debugfs_create_file("mtkfb",
-		S_IFREG | 0444, NULL, (void *)0, &debug_fops);
+		S_IFREG | 0440, NULL, (void *)0, &debug_fops);
 
 	d_folder = debugfs_create_dir("displowpower", NULL);
 	if (d_folder) {
 		d_file = debugfs_create_file("kickdump",
-			S_IFREG | 0444, d_folder, NULL, &kickidle_fops);
+			S_IFREG | 0440, d_folder, NULL, &kickidle_fops);
 		d_file = debugfs_create_file("partial",
-			S_IFREG | 0444, d_folder, NULL, &partial_fops);
+			S_IFREG | 0440, d_folder, NULL, &partial_fops);
 		d_file = debugfs_create_file("idletime",
-			S_IFREG | 0666, d_folder, NULL, &idletime_fops);
+			S_IFREG | 0440, d_folder, NULL, &idletime_fops);
 		d_file = debugfs_create_file("idlevfp",
-			S_IFREG | 0666, d_folder, NULL, &idlevfp_fops);
+			S_IFREG | 0440, d_folder, NULL, &idlevfp_fops);
 	}
 #endif
 
 #if IS_ENABLED(CONFIG_PROC_FS)
-	mtkfb_procfs = proc_create("mtkfb", S_IFREG | 0444,
+	mtkfb_procfs = proc_create("mtkfb", S_IFREG | 0440,
 				NULL,
 				&debug_fops);
 	if (!mtkfb_procfs) {
@@ -1794,28 +1794,28 @@ void DBG_Init(void)
 		goto out;
 	}
 
-	if (!proc_create("kickdump", S_IFREG | 0444,
+	if (!proc_create("kickdump", S_IFREG | 0440,
 		disp_lowpower_proc, &kickidle_fops)) {
 		pr_info("[%s %d]failed to create kickdump in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
-	if (!proc_create("partial", S_IFREG | 0444,
+	if (!proc_create("partial", S_IFREG | 0440,
 		disp_lowpower_proc, &partial_fops)) {
 		pr_info("[%s %d]failed to create partial in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
-	if (!proc_create("idletime", S_IFREG | 0444,
+	if (!proc_create("idletime", S_IFREG | 0440,
 		disp_lowpower_proc, &idletime_fops)) {
 		pr_info("[%s %d]failed to create idletime in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
-	if (!proc_create("idlevfp", S_IFREG | 0444,
+	if (!proc_create("idlevfp", S_IFREG | 0440,
 		disp_lowpower_proc, &idlevfp_fops)) {
 		pr_info("[%s %d]failed to create idlevfp in /proc/displowpower\n",
 			__func__, __LINE__);

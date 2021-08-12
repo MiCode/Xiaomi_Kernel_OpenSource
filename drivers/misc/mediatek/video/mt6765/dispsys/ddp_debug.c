@@ -782,7 +782,7 @@ void ddp_debug_init(void)
 
 	debug_init = 1;
 	debugfs = debugfs_create_file("dispsys",
-		S_IFREG | 0444, NULL, (void *)0, &debug_fops);
+		S_IFREG | 0440, NULL, (void *)0, &debug_fops);
 
 
 	debugDir = debugfs_create_dir("disp", NULL);
@@ -790,8 +790,8 @@ void ddp_debug_init(void)
 		return;
 
 	debugfs_dump = debugfs_create_file("dump",
-		S_IFREG | 0444, debugDir, NULL, &debug_fops_dump);
-	d = debugfs_create_file("lowpowermode", S_IFREG | 0444,
+		S_IFREG | 0440, debugDir, NULL, &debug_fops_dump);
+	d = debugfs_create_file("lowpowermode", S_IFREG | 0440,
 		debugDir, NULL, &low_power_cust_fops);
 #endif
 
@@ -801,7 +801,7 @@ void ddp_debug_init(void)
 	debug_procfs_init = 1;
 
 	dispsys_procfs = proc_create("dispsys",
-				S_IFREG | 0444,
+				S_IFREG | 0440,
 				NULL,
 				&debug_fops);
 	if (!dispsys_procfs) {
@@ -818,7 +818,7 @@ void ddp_debug_init(void)
 	}
 
 	disp_dump_procfs = proc_create("dump",
-				S_IFREG | 0444,
+				S_IFREG | 0440,
 				disp_dir_procfs,
 				&debug_fops_dump);
 	if (!disp_dump_procfs) {
@@ -828,7 +828,7 @@ void ddp_debug_init(void)
 	}
 
 	disp_lpmode_procfs = proc_create("lowpowermode",
-				S_IFREG | 0444,
+				S_IFREG | 0440,
 				disp_dir_procfs,
 				&low_power_cust_fops);
 	if (!disp_lpmode_procfs) {
