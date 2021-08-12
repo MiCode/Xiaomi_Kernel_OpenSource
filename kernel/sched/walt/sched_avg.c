@@ -139,7 +139,7 @@ void sched_update_hyst_times(void)
 
 #define BUSY_NR_RUN		3
 #define BUSY_LOAD_FACTOR	10
-static inline void update_busy_hyst_end_time(int cpu, int enq,
+static inline void update_busy_hyst_end_time(int cpu, bool dequeue,
 				unsigned long prev_nr_run, u64 curr_time)
 {
 	bool nr_run_trigger = false;
@@ -148,7 +148,6 @@ static inline void update_busy_hyst_end_time(int cpu, int enq,
 	bool util_load_trigger = false;
 	int i;
 	bool hyst_trigger, coloc_trigger;
-	bool dequeue = (enq < 0);
 
 	if (!per_cpu(hyst_time, cpu) && !per_cpu(coloc_hyst_time, cpu) &&
 	    !per_cpu(util_hyst_time, cpu))
@@ -214,7 +213,7 @@ int sched_busy_hyst_handler(struct ctl_table *table, int write,
 /**
  * sched_update_nr_prod
  * @cpu: The core id of the nr running driver.
- * @enq: enqueue/dequeue/misfit happening on this CPU.
+ * @enq: enqueue/dequeue happening on this CPU.
  * @return: N/A
  *
  * Update average with latest nr_running value for CPU
@@ -236,9 +235,7 @@ void sched_update_nr_prod(int cpu, int enq)
 	if (per_cpu(nr, cpu) > per_cpu(nr_max, cpu))
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
 
-	/* Don't update hyst time for misfit tasks */
-	if (enq)
-		update_busy_hyst_end_time(cpu, enq, nr_running, curr_time);
+	update_busy_hyst_end_time(cpu, !enq, nr_running, curr_time);
 
 	per_cpu(nr_prod_sum, cpu) += nr_running * diff;
 	per_cpu(nr_big_prod_sum, cpu) += walt_big_tasks(cpu) * diff;
