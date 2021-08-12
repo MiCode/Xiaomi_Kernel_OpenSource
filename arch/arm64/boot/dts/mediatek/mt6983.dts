@@ -5761,7 +5761,7 @@
 			"pd_mfg17",
 			"pd_mfg18";
 		_vcore-supply = <&mt6363_vbuck2>;
-		// _dvfsrc-supply = <&dvfsrc_vcore>;
+		_dvfsrc-supply = <&dvfsrc_vcore>;
 		_vstack-supply = <&mt6373_vbuck2>;
 		_vsram-supply = <&mt6363_vbuck4>;
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
