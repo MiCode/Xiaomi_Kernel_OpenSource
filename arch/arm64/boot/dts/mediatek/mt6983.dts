@@ -6291,10 +6291,6 @@
 			opp-hz = /bits/ 64 <624000000>;
 			opp-microvolt = <725000>;
 		};
-		opp-4 {
-			opp-hz = /bits/ 64 <624000000>;
-			opp-microvolt = <750000>;
-		};
 	};
 
 	opp_table_vdec: opp-table-vdec {
@@ -8282,6 +8278,14 @@
 				 <&disp_iommu M4U_PORT_L7_JPGENC_C_RDMA_DISP>,
 				 <&disp_iommu M4U_PORT_L7_JPGENC_Q_TABLE_DISP>,
 				 <&disp_iommu M4U_PORT_L7_JPGENC_BSDMA_DISP>;
+		interconnects = <&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Y_RDMA_DISP)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_C_RDMA_DISP)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Q_TABLE_DISP)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Q_TABLE_DISP)
+				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "path_jpegenc_y_rdma",
 				"path_jpegenc_c_rmda",
 				"path_jpegenc_q_table",
@@ -8335,6 +8339,14 @@
 				 <&mdp_iommu M4U_PORT_L8_JPGENC_C_RDMA_MDP>,
 				 <&mdp_iommu M4U_PORT_L8_JPGENC_Q_TABLE_MDP>,
 				 <&mdp_iommu M4U_PORT_L8_JPGENC_BSDMA_MDP>;
+		interconnects = <&mmqos MASTER_LARB_PORT(M4U_PORT_L8_JPGENC_Y_RDMA_MDP)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L8_JPGENC_C_RDMA_MDP)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L8_JPGENC_Q_TABLE_MDP)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L8_JPGENC_BSDMA_MDP)
+				&mmqos SLAVE_COMMON(1)>;
 		interconnect-names = "path_jpegenc_y_rdma",
 				"path_jpegenc_c_rmda",
 				"path_jpegenc_q_table",
