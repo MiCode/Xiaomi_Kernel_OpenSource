@@ -6,6 +6,7 @@
 #include <linux/vmalloc.h>      /* needed by vmalloc */
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/sched/clock.h>
 #include "adsp_core.h"
 #include "adsp_platform.h"
 #include "adsp_mbox.h"
@@ -25,11 +26,13 @@ struct adsp_ipi_desc {
 static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 			    unsigned int len);
 
+static void adsp_ipi_cb(struct mtk_mbox_pin_recv *pin, void *priv);
+
 struct mtk_mbox_info adsp_mbox_table[ADSP_IPI_CH_CNT] = {
 	{ .opt = MBOX_OPT_QUEUE_DIR, .is64d = true},
+	{ .opt = MBOX_OPT_DIRECT, .is64d = true},
 	{ .opt = MBOX_OPT_QUEUE_DIR, .is64d = true},
-	{ .opt = MBOX_OPT_QUEUE_DIR, .is64d = true},
-	{ .opt = MBOX_OPT_QUEUE_DIR, .is64d = true},
+	{ .opt = MBOX_OPT_DIRECT, .is64d = true},
 };
 
 struct mtk_mbox_pin_send adsp_mbox_pin_send[ADSP_TOTAL_SEND_PIN] = {
@@ -51,6 +54,7 @@ struct mtk_mbox_pin_recv adsp_mbox_pin_recv[ADSP_TOTAL_RECV_PIN] = {
 	{
 		.mbox = ADSP_MBOX1_CH_ID,
 		.offset = ADSP_MBOX_RECV_SLOT_OFFSET,
+		.cb_ctx_opt = MBOX_CB_IN_PROCESS,
 		.msg_size = ADSP_MBOX_SLOT_COUNT,
 		.pin_index = 0,
 		.mbox_pin_cb = adsp_mbox_pin_cb,
@@ -58,6 +62,7 @@ struct mtk_mbox_pin_recv adsp_mbox_pin_recv[ADSP_TOTAL_RECV_PIN] = {
 	{
 		.mbox = ADSP_MBOX3_CH_ID,
 		.offset = ADSP_MBOX_RECV_SLOT_OFFSET,
+		.cb_ctx_opt = MBOX_CB_IN_PROCESS,
 		.msg_size = ADSP_MBOX_SLOT_COUNT,
 		.pin_index = 0,
 		.mbox_pin_cb = adsp_mbox_pin_cb,
@@ -72,6 +77,7 @@ struct mtk_mbox_device adsp_mboxdev = {
 	.count = ADSP_IPI_CH_CNT,
 	.recv_count = ADSP_TOTAL_RECV_PIN,
 	.send_count = ADSP_TOTAL_SEND_PIN,
+	.ipi_cb = adsp_ipi_cb,
 	/*.post_cb = adsp_post_cb, */
 };
 
@@ -208,6 +214,24 @@ static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 	}
 
 	return ADSP_IPI_DONE;
+}
+
+static void adsp_ipi_cb(struct mtk_mbox_pin_recv *pin, void *priv)
+{
+	struct mtk_ipi_msg *ipimsg;
+	void *buf;
+
+	if (pin->cb_ctx_opt == MBOX_CB_IN_PROCESS) {
+		ipimsg = (struct mtk_ipi_msg *)pin->pin_buf;
+		buf = pin->pin_buf + sizeof(struct mtk_ipi_msg_hd);
+
+		pin->recv_record.pre_timestamp = cpu_clock(0);
+		pin->mbox_pin_cb(ipimsg->ipihd.id,
+				 pin->prdata, buf,
+				 (unsigned int)ipimsg->ipihd.len);
+		pin->recv_record.post_timestamp = cpu_clock(0);
+		pin->recv_record.cb_count++;
+	}
 }
 
 int adsp_mbox_probe(struct platform_device *pdev)

@@ -118,6 +118,10 @@ int adsp_core0_suspend(void)
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
+		if (!ret) {
+			ret = -ETIMEDOUT;
+			goto ERROR;
+		}
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
@@ -199,6 +203,10 @@ int adsp_core1_suspend(void)
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
+		if (!ret) {
+			ret = -ETIMEDOUT;
+			goto ERROR;
+		}
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
