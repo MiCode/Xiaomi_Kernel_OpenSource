@@ -6516,6 +6516,10 @@
 		reg = <0 0x14016000 0 0x1000>;
 	};
 
+	gateic0: gateic@0 {
+		compatible = "mediatek,mtk-drm-gateic-drv";
+	};
+
 	dsi0: dsi@14017000 {
 		compatible = "mediatek,dsi0",
 					"mediatek,mt6983-dsi";
@@ -11709,6 +11713,13 @@
 	gate_ic: gate_ic@11 {
 		compatible = "mediatek,gate-ic-i2c";
 		gate-power-gpios = <&pio 68 0>;
+		reg = <0x11>;
+		id = <6>;
+		status = "okay";
+	};
+
+	i2c_lcd_bias_mtk:i2c_lcd_bias@11 {
+		compatible = "mediatek,i2c_lcd_bias";
 		reg = <0x11>;
 		id = <6>;
 		status = "okay";
