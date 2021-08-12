@@ -8622,7 +8622,8 @@
 				  <4 200>, /* speaker */
 				  <5 77>,  /* vcore */
 				  <6 200>, /* barge in */
-				  <7 10>;  /* vow dump */
+				  <7 10>,  /* vow dump */
+				  <13 200>; /* ultrasound */
 
 		secure_dump = "disable";   /* enable dump via secure world*/
 		secure_dump_size = <0x380000>;
@@ -8633,6 +8634,7 @@
 			      <2 0x100000>, /* sensor main*/
 			      <3 0x180000>, /* logger */
 			      <4 0x19000>, /* audio */
+			      <7 0x19000>, /* ultrasound*/
 			      <8 0x10000>, /* sensor supper*/
 			      <9 0x1000>, /* sensor list */
 			      <10 0x2000>, /* sensor debug */
@@ -11486,6 +11488,12 @@
 			"top_apll12_div9",
 			"top_mux_audio_h",
 			"top_clk26m_clk";
+	};
+
+	snd_scp_ultra: snd_scp_ultra {
+		compatible = "mediatek,snd_scp_ultra";
+		scp_ultra_dl_memif_id = <0x7>;
+		scp_ultra_ul_memif_id = <0xf>;
 	};
 
 	audio_sram@1e102000 {
