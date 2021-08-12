@@ -2422,38 +2422,42 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 	return ret;
 }
-
-static int mtk_cam_seninf_vsync_irq_handler(unsigned int vsync_irq_status, void *data)
-{
-	int i = 0;
-	struct seninf_core *core = (struct seninf_core *)data;
-
-	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++) {
-		if (vsync_irq_status & (1 << SENINF_CAM_MUX0)) {
-			dev_info(core->dev, "%s vsync for SENINF_CAM_MUX%d\n",
-				__func__, i);
-		}
-	}
-	return 0;
-}
+/*
+ *static int mtk_cam_seninf_vsync_irq_handler(unsigned int vsync_irq_status, void *data)
+ *{
+ *	int i = 0;
+ *	struct seninf_core *core = (struct seninf_core *)data;
+ *
+ *	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++) {
+ *		if (vsync_irq_status & (1 << SENINF_CAM_MUX0)) {
+ *			dev_info(core->dev, "%s vsync for SENINF_CAM_MUX%d\n",
+ *				__func__, i);
+ *		}
+ *	}
+ *	return 0;
+ *}
+ */
 static int mtk_cam_seninf_irq_handler(int irq, void *data)
 {
-	unsigned long flags = 0;
-	unsigned int vsync_irq_status;
-	unsigned int global_drop_status;
-	struct seninf_core *core = (struct seninf_core *)data;
-	void *cam_mux_base = core->reg_if + 0x400;
-
-	spin_lock_irqsave(&core->spinlock_irq, flags);
-	vsync_irq_status = SENINF_READ_REG(cam_mux_base, SENINF_CAM_MUX_VSYNC_IRQ_STS);
-	SENINF_WRITE_REG(cam_mux_base, SENINF_CAM_MUX_VSYNC_IRQ_STS, vsync_irq_status);
-
-	global_drop_status = SENINF_READ_REG(cam_mux_base, SENINF_CAM_MUX_IRQ_STATUS);
-	spin_unlock_irqrestore(&core->spinlock_irq, flags);
-
-	dev_info(core->dev, "%s SENINF_CAM_MUX_VSYNC_IRQ_STS 0x%x , SENINF_CAM_MUX_IRQ_STATUS 0x%x\n",
-		__func__, vsync_irq_status, global_drop_status);
-	mtk_cam_seninf_vsync_irq_handler(vsync_irq_status, data);
+/*
+ *	unsigned long flags = 0;
+ *	unsigned int vsync_irq_status;
+ *	unsigned int global_drop_status;
+ *	struct seninf_core *core = (struct seninf_core *)data;
+ *	void *cam_mux_base = core->reg_if + 0x400;
+ *
+ *	spin_lock_irqsave(&core->spinlock_irq, flags);
+ *	vsync_irq_status = SENINF_READ_REG(cam_mux_base, SENINF_CAM_MUX_VSYNC_IRQ_STS);
+ *	SENINF_WRITE_REG(cam_mux_base, SENINF_CAM_MUX_VSYNC_IRQ_STS, vsync_irq_status);
+ *
+ *	global_drop_status = SENINF_READ_REG(cam_mux_base, SENINF_CAM_MUX_IRQ_STATUS);
+ *	spin_unlock_irqrestore(&core->spinlock_irq, flags);
+ *
+ *	dev_info(core->dev,
+ *		"%s SENINF_CAM_MUX_VSYNC_IRQ_STS 0x%x , SENINF_CAM_MUX_IRQ_STATUS 0x%x\n",
+ *		__func__, vsync_irq_status, global_drop_status);
+ *	mtk_cam_seninf_vsync_irq_handler(vsync_irq_status, data);
+ */
 	return 0;
 }
 
