@@ -27,6 +27,7 @@
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 #include <linux/msm_gpi.h>
+#include <linux/delay.h>
 #include "../dmaengine.h"
 #include "../virt-dma.h"
 #include "msm_gpi_mmio.h"
@@ -593,6 +594,7 @@ struct gpii {
 	bool reg_table_dump;
 	u32 dbg_gpi_irq_cnt;
 	bool unlock_tre_set;
+	bool dual_ee_sync_flag;
 };
 
 struct gpi_desc {
@@ -1346,6 +1348,7 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 	u32 gpii_id = gpii->gpii_id;
 
 	GPII_VERB(gpii, GPI_DBG_COMMON, "enter\n");
+	gpii->dual_ee_sync_flag = true;
 
 	read_lock_irqsave(&gpii->pm_lock, flags);
 
@@ -1437,7 +1440,7 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 exit_irq:
 	read_unlock_irqrestore(&gpii->pm_lock, flags);
 	GPII_VERB(gpii, GPI_DBG_COMMON, "exit\n");
-
+	gpii->dual_ee_sync_flag = false;
 	return IRQ_HANDLED;
 }
 
@@ -2341,7 +2344,8 @@ static int gpi_pause(struct dma_chan *chan)
 	void *rp, *rp1;
 	union gpi_event *gpi_event;
 	u32 chid, type;
-
+	int iter = 0;
+	unsigned long total_iter = 1000; //waiting10ms 1000*udelay(10)
 	GPII_INFO(gpii, gpii_chan->chid, "Enter\n");
 	mutex_lock(&gpii->ctrl_lock);
 
@@ -2409,6 +2413,17 @@ static int gpi_pause(struct dma_chan *chan)
 	}
 
 	mutex_unlock(&gpii->ctrl_lock);
+
+	if (gpii->dual_ee_sync_flag) {
+		while (iter < total_iter) {
+			iter++;
+			/* Ensure ISR completed, so no more activity from GSI pending */
+			if (!gpii->dual_ee_sync_flag)
+				break;
+			udelay(10);
+		}
+	}
+
 	return 0;
 }
 
