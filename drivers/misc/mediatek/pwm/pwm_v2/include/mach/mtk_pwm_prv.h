@@ -71,4 +71,5 @@ extern struct remap *pwm_infracfg_base;
 #define PWM_26M_CLK   (26UL*1000*1000)
 
 void mt_pwm_platform_init(struct platform_device *pdev);
+void mt_get_pwm_version(void);
 #endif

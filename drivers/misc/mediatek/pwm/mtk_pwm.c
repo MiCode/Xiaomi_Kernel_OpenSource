@@ -1911,6 +1911,8 @@ static int mt_pwm_probe(struct platform_device *pdev)
 	if (ret != 0)
 		pr_err(T "[%s]: clk get Fail :%d\n", __func__, ret);
 
+	mt_get_pwm_version();
+
 	platform_set_drvdata(pdev, pwm_dev);
 
 	ret = device_create_file(&pdev->dev, &dev_attr_pwm_debug);

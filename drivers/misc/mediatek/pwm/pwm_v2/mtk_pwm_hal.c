@@ -75,7 +75,7 @@ const char *pwm_clk_name[] = {
 enum {
 	PWM_V_NONE,
 	PWM_V0, //reserve for 26MHz clk source in pwm domain not INFRA
-	PWM_V1, //pwm channel base: 0x10,0x50,0x090,0xdo,0x110,0x150
+	PWM_V1, //pwm channel base: 0x10,0x50,0x090,0xd0,0x110,0x150
 	PWM_V2, //pwm channel base: 0x80,0xc0,0x100,0x140,0x180,0x1c0
 };
 
@@ -646,7 +646,6 @@ void mt_pwm_clk_sel_hal(u32 pwm_no, u32 clk_src)
 
 void mt_pwm_platform_init(struct platform_device *pdev)
 {
-	unsigned long reg_con, reg_val;
 	int ret = 0;
 
 	pwm_infracfg_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
@@ -672,15 +671,6 @@ void mt_pwm_platform_init(struct platform_device *pdev)
 			pwm_bclk_sw_ctrl_offset);
 	else
 		return;
-
-	if (pwm_version == PWM_V_NONE) {
-		reg_con = (unsigned long)pwm_base + 0x0010;
-		reg_val = INREG32(reg_con);
-		if (reg_val != 0)
-			pwm_version = PWM_V1; /*PWM0_CON!=0*/
-		else
-			pwm_version = PWM_V2; /*PWM_INT_STATUS_UDF=0*/
-	}
 }
 
 int mt_get_pwm_clk_src(struct platform_device *pdev)
@@ -697,3 +687,22 @@ int mt_get_pwm_clk_src(struct platform_device *pdev)
 	return 0;
 }
 
+void mt_get_pwm_version(void)
+{
+	unsigned long power_flag = 0;
+	unsigned long reg_con, reg_val;
+
+	mt_pwm_power_on_hal(0, 0, &power_flag);
+
+	if (pwm_version == PWM_V_NONE) {
+		reg_con = (unsigned long)pwm_base + 0x0010;
+		reg_val = INREG32(reg_con);
+		if (reg_val != 0)
+			pwm_version = PWM_V1; /*PWM0_CON!=0*/
+		else
+			pwm_version = PWM_V2; /*PWM_INT_STATUS_UDF=0*/
+	}
+
+	mt_pwm_power_off_hal(0, 0, &power_flag);
+	pr_info("pwm_version is: 0x%x\n", pwm_version);
+}
