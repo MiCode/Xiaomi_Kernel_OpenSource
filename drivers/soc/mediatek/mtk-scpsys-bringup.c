@@ -9,14 +9,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 
-static const struct of_device_id scpsys_bring_up_id_table[] = {
-	{ .compatible = "mediatek,scpsys-bringup",},
-	{ .compatible = "mediatek,scpsys-bring-up",},
-	{ },
-};
-MODULE_DEVICE_TABLE(of, scpsys_bring_up_id_table);
-
-static int scpsys_bring_up_probe(struct platform_device *pdev)
+static int pd_bring_up_probe(struct platform_device *pdev)
 {
 	pm_runtime_enable(&pdev->dev);
 
@@ -24,6 +17,59 @@ static int scpsys_bring_up_probe(struct platform_device *pdev)
 	pm_runtime_get_sync(&pdev->dev);
 
 	return 0;
+}
+
+static int pd_post_ao_probe(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	u32 enabled;
+
+	of_property_read_u32(node, "mediatek,post_ao", &enabled);
+
+	pm_runtime_enable(&pdev->dev);
+
+	if (enabled != 1) {
+		pr_notice("btypass_pd_post_ao\n");
+		return 0;
+	}
+
+	/* always enabled in lifetime */
+	pm_runtime_get_sync(&pdev->dev);
+
+	return 0;
+}
+
+static const struct of_device_id scpsys_bring_up_id_table[] = {
+	{
+		.compatible = "mediatek,scpsys-bringup",
+		.data = pd_bring_up_probe,
+	}, {
+		.compatible = "mediatek,scpsys-bring-up",
+		.data = pd_bring_up_probe,
+	}, {
+		.compatible = "mediatek,scpsys-post-ao",
+		.data = pd_post_ao_probe,
+	}, {
+		/* sentinel */
+	}
+};
+
+static int scpsys_bring_up_probe(struct platform_device *pdev)
+{
+	int (*pd_probe)(struct platform_device *pd);
+	int r;
+
+	pd_probe = of_device_get_match_data(&pdev->dev);
+	if (!pd_probe)
+		return -EINVAL;
+
+	r = pd_probe(pdev);
+	if (r)
+		dev_err(&pdev->dev,
+			"could not register power-domain provider: %s: %d\n",
+			pdev->name, r);
+
+	return r;
 }
 
 static int scpsys_bring_up_remove(struct platform_device *pdev)
