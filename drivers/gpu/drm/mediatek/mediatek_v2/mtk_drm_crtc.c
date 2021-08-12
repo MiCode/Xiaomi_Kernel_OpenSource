@@ -254,7 +254,10 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		break;
 	case MMSYS_MT6983:
 		mmsys_config_dump_reg_mt6983(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs)
+			mmsys_config_dump_reg_mt6983(mtk_crtc->side_config_regs);
 		mutex_dump_reg_mt6983(mtk_crtc->mutex[0]);
+
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 			mtk_dump_reg(comp);
 		break;
@@ -370,15 +373,18 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		break;
 	case MMSYS_MT6983:
 		mmsys_config_dump_analysis_mt6983(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("DUMP DISPSYS1\n");
+			mmsys_config_dump_analysis_mt6983(mtk_crtc->side_config_regs);
+		}
+		mutex_dump_analysis_mt6983(mtk_crtc->mutex[0]);
 		if (mtk_crtc->is_dual_pipe) {
 			DDPDUMP("anlysis dual pipe\n");
-			mtk_ddp_dual_pipe_dump(mtk_crtc);
 			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 				mtk_dump_analysis(comp);
 				mtk_dump_reg(comp);
 			}
 		}
-		mutex_dump_analysis_mt6983(mtk_crtc->mutex[0]);
 		break;
 	case MMSYS_MT6873:
 		mmsys_config_dump_analysis_mt6873(mtk_crtc->config_regs);
@@ -1195,7 +1201,8 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
 			return;
 		}
-		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL) {
+		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL ||
+			mtk_ddp_comp_get_type(comp_id) == MTK_DISP_PWM) {
 			struct mtk_ddp_comp *comp;
 
 			comp = kzalloc(sizeof(*comp), GFP_KERNEL);
@@ -2071,7 +2078,7 @@ static void mtk_crtc_free_lyeblob_ids(struct drm_crtc *crtc,
 	}
 }
 
-unsigned int dual_pipe_comp_mapping(unsigned int comp_id)
+static unsigned int dual_comp_map_mt6885(unsigned int comp_id)
 {
 	unsigned int ret = 0;
 
@@ -2084,7 +2091,7 @@ unsigned int dual_pipe_comp_mapping(unsigned int comp_id)
 		break;
 	case DDP_COMPONENT_OVL2_2L:
 		ret = DDP_COMPONENT_OVL3_2L;
-
+		break;
 	case DDP_COMPONENT_AAL0:
 		ret = DDP_COMPONENT_AAL1;
 		break;
@@ -2093,6 +2100,57 @@ unsigned int dual_pipe_comp_mapping(unsigned int comp_id)
 		break;
 	default:
 		DDPMSG("unknown comp %u for %s\n", comp_id, __func__);
+	}
+
+	return ret;
+}
+
+static unsigned int dual_comp_map_mt6983(unsigned int comp_id)
+{
+	unsigned int ret = 0;
+
+	switch (comp_id) {
+	case DDP_COMPONENT_OVL0:
+		ret = DDP_COMPONENT_OVL1;
+		break;
+	case DDP_COMPONENT_OVL0_2L:
+		ret = DDP_COMPONENT_OVL2_2L;
+		break;
+	case DDP_COMPONENT_OVL1_2L:
+		ret = DDP_COMPONENT_OVL3_2L;
+		break;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		ret = DDP_COMPONENT_OVL2_2L_NWCG;
+		break;
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+		ret = DDP_COMPONENT_OVL3_2L_NWCG;
+		break;
+	case DDP_COMPONENT_AAL0:
+		ret = DDP_COMPONENT_AAL1;
+		break;
+	case DDP_COMPONENT_WDMA0:
+		ret = DDP_COMPONENT_WDMA2;
+		break;
+	default:
+		DDPMSG("unknown comp %u for %s\n", comp_id, __func__);
+	}
+
+	return ret;
+}
+
+unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id)
+{
+	unsigned int ret = 0;
+
+	switch (mmsys_id) {
+	case MMSYS_MT6983:
+		ret = dual_comp_map_mt6983(comp_id);
+		break;
+	case MMSYS_MT6885:
+		ret = dual_comp_map_mt6885(comp_id);
+		break;
+	default:
+		DDPMSG("unknown mmsys %x for %s\n", mmsys_id, __func__);
 	}
 
 	return ret;
@@ -2132,7 +2190,7 @@ static void mtk_crtc_get_plane_comp_state(struct drm_crtc *crtc,
 
 					comp = priv->ddp_comp
 						[dual_pipe_comp_mapping
-						(comp_state->comp_id)];
+						(priv->data->mmsys_id, comp_state->comp_id)];
 					mtk_ddp_comp_layer_off(
 							comp,
 							comp_state->lye_id,
@@ -4249,9 +4307,10 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
 			mtk_disp_mutex_add_comp(mtk_crtc->mutex[0], comp->id);
 
-		if (drm_crtc_index(crtc) == 0)
-			mtk_disp_mutex_add_comp
-				(mtk_crtc->mutex[0], DDP_COMPONENT_DSI1);
+		/* TODO: should check DUAL port DSI */
+		//if (drm_crtc_index(crtc) == 0)
+		//	mtk_disp_mutex_add_comp
+		//		(mtk_crtc->mutex[0], DDP_COMPONENT_DSI1);
 	}
 
 	/* set mutex sof, eof */
@@ -4303,14 +4362,14 @@ void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_plane_state plane_state_r;
 	struct mtk_ddp_comp *p_comp;
 
-	mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
+	mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
 		&plane_state_l, &plane_state_r,
 		crtc->state->adjusted_mode.hdisplay);
 
 	if (plane_state->comp_state.comp_id == 0)
 		plane_state_r.comp_state.comp_id = 0;
 
-	p_comp = priv->ddp_comp[dual_pipe_comp_mapping(comp->id)];
+	p_comp = priv->ddp_comp[dual_pipe_comp_mapping(priv->data->mmsys_id, comp->id)];
 	mtk_ddp_comp_layer_config(p_comp, idx,
 				&plane_state_r, cmdq_handle);
 	DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
@@ -6222,6 +6281,7 @@ end:
 }
 
 void mtk_drm_layer_dispatch_to_dual_pipe(
+	unsigned int mmsys_id,
 	struct mtk_plane_state *plane_state,
 	struct mtk_plane_state *plane_state_l,
 	struct mtk_plane_state *plane_state_r,
@@ -6281,7 +6341,7 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 	/*right path*/
 
 	plane_state_r->comp_state.comp_id =
-		dual_pipe_comp_mapping(plane_state->comp_state.comp_id);
+		dual_pipe_comp_mapping(mmsys_id, plane_state->comp_state.comp_id);
 	plane_state_r->pending.width +=
 		plane_state_r->pending.dst_x - (roi_w - right_bg);
 
@@ -6358,7 +6418,11 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 
 		if (comp_state->comp_id) {
 			if (mtk_crtc->is_dual_pipe) {
-				comp = priv->ddp_comp[dual_pipe_comp_mapping(comp_state->comp_id)];
+				unsigned int comp_id;
+
+				comp_id = dual_pipe_comp_mapping(priv->data->mmsys_id,
+						comp_state->comp_id);
+				comp = priv->ddp_comp[comp_id];
 				/* disable right pipe's layer */
 				mtk_ddp_comp_layer_off(comp, comp_state->lye_id,
 						comp_state->ext_lye_id, cmdq_handle);
@@ -6379,7 +6443,8 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 					struct mtk_ddp_comp *comp_r;
 					unsigned int comp_r_id;
 
-					comp_r_id = dual_pipe_comp_mapping(comp->id);
+					comp_r_id = dual_pipe_comp_mapping(priv->data->mmsys_id,
+								comp->id);
 					comp_r = priv->ddp_comp[comp_r_id];
 					mtk_ddp_comp_layer_off(comp_r, plane->index,
 							0, cmdq_handle);
@@ -6462,7 +6527,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			if (plane_state->comp_state.comp_id == 0)
 				plane_state->comp_state.comp_id = comp->id;
 
-			mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
+			mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
 				&plane_state_l, &plane_state_r,
 				crtc->state->adjusted_mode.hdisplay);
 
@@ -7800,7 +7865,7 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);
 	mtk_ddp_comp_io_cmd(comp, handle, WDMA_WRITE_DST_ADDR0, &addr);
 	if (mtk_crtc->is_dual_pipe) {
-		comp = priv->ddp_comp[dual_pipe_comp_mapping(comp->id)];
+		comp = priv->ddp_comp[dual_pipe_comp_mapping(priv->data->mmsys_id, comp->id)];
 		mtk_ddp_comp_io_cmd(comp, handle, WDMA_WRITE_DST_ADDR0, &addr);
 	}
 	cb_data->cmdq_handle = handle;
@@ -8082,6 +8147,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mutex_init(&mtk_crtc->cwb_lock);
 	mtk_crtc->config_regs = priv->config_regs;
 	mtk_crtc->config_regs_pa = priv->config_regs_pa;
+	mtk_crtc->dispsys_num = priv->dispsys_num;
+	mtk_crtc->side_config_regs = priv->side_config_regs;
+	mtk_crtc->side_config_regs_pa = priv->side_config_regs_pa;
 	mtk_crtc->mmsys_reg_data = priv->reg_data;
 	mtk_crtc->path_data = path_data;
 	mtk_crtc->is_dual_pipe = false;

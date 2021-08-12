@@ -701,6 +701,9 @@ struct mtk_drm_crtc {
 
 	void __iomem *config_regs;
 	resource_size_t config_regs_pa;
+	unsigned int dispsys_num;
+	void __iomem *side_config_regs;
+	resource_size_t side_config_regs_pa;
 	const struct mtk_mmsys_reg_data *mmsys_reg_data;
 	struct mtk_crtc_ddp_ctx ddp_ctx[DDP_MODE_NR];
 	struct mtk_disp_mutex *mutex[DDP_PATH_NR];
@@ -960,6 +963,7 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc);
 void trigger_without_cmdq(struct drm_crtc *crtc);
 void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc);
 void mtk_drm_layer_dispatch_to_dual_pipe(
+	unsigned int mmsys_id,
 	struct mtk_plane_state *plane_state,
 	struct mtk_plane_state *plane_state_l,
 	struct mtk_plane_state *plane_state_r,
@@ -967,7 +971,7 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle);
-unsigned int dual_pipe_comp_mapping(unsigned int comp_id);
+unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id);
 
 int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en);
 int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);

@@ -1396,14 +1396,24 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_dual_main[] = {
-	DDP_COMPONENT_OVL0_2L, /*DDP_COMPONENT_OVL1_2L,*/
-	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
-	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
-	DDP_COMPONENT_RDMA0_OUT_RELAY,
+	/* Can't enable dual pipe with bypass PQ */
+	DDP_COMPONENT_OVL2_2L, /*DDP_COMPONENT_OVL3_2L,*/
+	DDP_COMPONENT_OVL1, DDP_COMPONENT_OVL1_VIRTUAL0,
+	DDP_COMPONENT_OVL1_VIRTUAL1, DDP_COMPONENT_RDMA2,
+	DDP_COMPONENT_TDSHP1,	 DDP_COMPONENT_COLOR1,
+	DDP_COMPONENT_CCORR2,	 DDP_COMPONENT_CCORR3,
+	DDP_COMPONENT_C3D1,	 DDP_COMPONENT_DMDP_AAL1,
+	DDP_COMPONENT_AAL1,	 DDP_COMPONENT_GAMMA1,
+	DDP_COMPONENT_POSTMASK1, DDP_COMPONENT_DITHER1,
+	DDP_COMPONENT_CM1,		 DDP_COMPONENT_SPR1,
+	DDP_COMPONENT_PQ1_VIRTUAL, DDP_COMPONENT_DLO_ASYNC4,
+	DDP_COMPONENT_DLI_ASYNC0,
+
+	DDP_COMPONENT_PWM1, /* This PWM is for connect CHIST */
 #ifndef DRM_BYPASS_PQ
-	// todo ..
+	/* the chist connect by customer config*/
+	DDP_COMPONENT_CHIST2,	 DDP_COMPONENT_CHIST3,
 #endif
-	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main_wb_path[] = {
@@ -1413,14 +1423,9 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main_wb_path[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext[] = {
-	DDP_COMPONENT_OVL0_2L, /*DDP_COMPONENT_OVL1_2L,*/
-	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
-	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
-	DDP_COMPONENT_RDMA0_OUT_RELAY,
-#ifndef DRM_BYPASS_PQ
-	// todo ..
-#endif
-	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
+	DDP_COMPONENT_OVL2_2L_NWCG, DDP_COMPONENT_RDMA3,
+//	DDP_COMPONENT_MAIN1_VIRTUAL,
+//	DDP_COMPONENT_DSI1,
 };
 
 static const enum mtk_ddp_comp_id mt6983_dual_data_ext[] = {
@@ -3229,7 +3234,7 @@ int mtk_drm_disp_test_show(struct drm_crtc *crtc, bool enable)
 		if (plane_state->comp_state.comp_id == 0)
 			plane_state->comp_state.comp_id = ovl_comp->id;
 
-		mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
+		mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
 			&plane_state_l, &plane_state_r,
 			crtc->state->adjusted_mode.hdisplay);
 
@@ -4098,7 +4103,11 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_DSC},
 	{.compatible = "mediatek,mt6885-disp-merge",
 	 .data = (void *)MTK_DISP_MERGE},
-	 {.compatible = "mediatek,mt6885-dp_tx",
+	{.compatible = "mediatek,mt6983-disp-merge",
+	 .data = (void *)MTK_DISP_MERGE},
+	{.compatible = "mediatek,mt6885-dp_tx",
+	 .data = (void *)MTK_DISP_DPTX},
+	{.compatible = "mediatek,mt6983-dp_tx",
 	 .data = (void *)MTK_DISP_DPTX},
 	{.compatible = "mediatek,mt6879-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
@@ -4185,6 +4194,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct device_node *node;
 	struct component_match *match = NULL;
+	unsigned int dispsys_num = 0;
 	int ret;
 	int i;
 	struct device *larb_dev = NULL;
@@ -4210,6 +4220,15 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	mutex_init(&private->commit.lock);
 	INIT_WORK(&private->commit.work, mtk_atomic_work);
 
+	ret = of_property_read_u32(dev->of_node,
+				"dispsys_num", &dispsys_num);
+	if (ret) {
+		dev_err(dev,
+			"no dispsys_config dispsys_num\n", ret);
+		dispsys_num = 1;
+	}
+
+	private->dispsys_num = dispsys_num;
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	private->config_regs = devm_ioremap_resource(dev, mem);
 	if (IS_ERR(private->config_regs)) {
@@ -4218,8 +4237,24 @@ static int mtk_drm_probe(struct platform_device *pdev)
 			ret);
 		return ret;
 	}
-
 	private->config_regs_pa = mem->start;
+
+	if (dispsys_num <= 1)
+		goto SKIP_SIDE_DISP;
+
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (mem) {
+		private->side_config_regs = devm_ioremap_resource(dev, mem);
+		if (IS_ERR(private->side_config_regs)) {
+			ret = PTR_ERR(private->side_config_regs);
+			dev_err(dev, "Failed to ioremap mmsys-config resource: %d\n",
+				ret);
+			return ret;
+		}
+		private->side_config_regs_pa = mem->start;
+	}
+
+SKIP_SIDE_DISP:
 	private->mmsys_dev = dev;
 
 	if (private->data->bypass_infra_ddr_control) {

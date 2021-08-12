@@ -100,57 +100,91 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_OVL3_2L)                                         \
 /*35*/	EXPR(DDP_COMPONENT_OVL0_2L_NWCG)                                    \
 	EXPR(DDP_COMPONENT_OVL1_2L_NWCG)                                    \
+	EXPR(DDP_COMPONENT_OVL2_2L_NWCG)                                         \
+	EXPR(DDP_COMPONENT_OVL3_2L_NWCG)                                         \
 	EXPR(DDP_COMPONENT_OVL0_2L_VIRTUAL0)                                \
-	EXPR(DDP_COMPONENT_OVL1_2L_VIRTUAL0)                                \
+/*40*/	EXPR(DDP_COMPONENT_OVL1_2L_VIRTUAL0)                                \
+	EXPR(DDP_COMPONENT_OVL2_2L_VIRTUAL0)                                \
 	EXPR(DDP_COMPONENT_OVL0_VIRTUAL0)                                   \
-/*40*/	EXPR(DDP_COMPONENT_OVL0_VIRTUAL1)                                   \
+	EXPR(DDP_COMPONENT_OVL0_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_OVL1_VIRTUAL0)                                   \
+/*45*/	EXPR(DDP_COMPONENT_OVL1_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_OVL0_OVL0_2L_VIRTUAL0)                           \
 	EXPR(DDP_COMPONENT_PWM0)                                            \
 	EXPR(DDP_COMPONENT_PWM1)                                            \
-/*45*/	EXPR(DDP_COMPONENT_PWM2)                                            \
-	EXPR(DDP_COMPONENT_RDMA0)                                           \
+	EXPR(DDP_COMPONENT_PWM2)                                            \
+/*50*/	EXPR(DDP_COMPONENT_RDMA0)                                           \
 	EXPR(DDP_COMPONENT_RDMA1)                                           \
 	EXPR(DDP_COMPONENT_RDMA2)                                           \
 	EXPR(DDP_COMPONENT_RDMA3)                                           \
-/*50*/	EXPR(DDP_COMPONENT_RDMA4)                                           \
-	EXPR(DDP_COMPONENT_RDMA5)                                           \
+	EXPR(DDP_COMPONENT_RDMA4)                                           \
+/*55*/	EXPR(DDP_COMPONENT_RDMA5)                                           \
 	EXPR(DDP_COMPONENT_RDMA0_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RDMA1_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RDMA2_VIRTUAL0)                                  \
-/*55*/	EXPR(DDP_COMPONENT_RSZ0)                                            \
-	EXPR(DDP_COMPONENT_RSZ1)                                            \
+	EXPR(DDP_COMPONENT_RSZ0)                                            \
+/*60*/	EXPR(DDP_COMPONENT_RSZ1)                                            \
 	EXPR(DDP_COMPONENT_UFOE)                                            \
 	EXPR(DDP_COMPONENT_WDMA0)                                           \
 	EXPR(DDP_COMPONENT_WDMA1)                                           \
-/*60*/	EXPR(DDP_COMPONENT_UFBC_WDMA0)                                      \
+	EXPR(DDP_COMPONENT_WDMA2)                                           \
+/*65*/	EXPR(DDP_COMPONENT_WDMA3)                                           \
+	EXPR(DDP_COMPONENT_UFBC_WDMA0)                                      \
 	EXPR(DDP_COMPONENT_WDMA_VIRTUAL0)                                   \
 	EXPR(DDP_COMPONENT_WDMA_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_POSTMASK0)                                       \
-	EXPR(DDP_COMPONENT_POSTMASK1)                                       \
-/*65*/	EXPR(DDP_COMPONENT_DMDP_RDMA0)                                      \
+/*70*/	EXPR(DDP_COMPONENT_POSTMASK1)                                       \
+	EXPR(DDP_COMPONENT_DMDP_RDMA0)                                      \
 	EXPR(DDP_COMPONENT_DMDP_HDR0)                                       \
 	EXPR(DDP_COMPONENT_DMDP_AAL0)                                       \
 	EXPR(DDP_COMPONENT_DMDP_RSZ0)                                       \
-	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
-/*70*/	EXPR(DDP_COMPONENT_DMDP_RDMA1)                                      \
+/*80*/	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
+	EXPR(DDP_COMPONENT_DMDP_RDMA1)                                      \
 	EXPR(DDP_COMPONENT_DMDP_HDR1)                                       \
 	EXPR(DDP_COMPONENT_DMDP_AAL1)                                       \
 	EXPR(DDP_COMPONENT_DMDP_RSZ1)                                       \
-	EXPR(DDP_COMPONENT_DMDP_TDSHP1)                                     \
-/*75*/	EXPR(DDP_COMPONENT_CM0)                                             \
+/*85*/	EXPR(DDP_COMPONENT_DMDP_TDSHP1)                                     \
+	EXPR(DDP_COMPONENT_CM0)                                             \
+	EXPR(DDP_COMPONENT_CM1)                                             \
 	EXPR(DDP_COMPONENT_SPR0)                                            \
-	EXPR(DDP_COMPONENT_DSC0)                                            \
+	EXPR(DDP_COMPONENT_SPR1)                                            \
+/*90*/	EXPR(DDP_COMPONENT_DSC0)                                            \
+	EXPR(DDP_COMPONENT_DSC1)                                            \
+	EXPR(DDP_COMPONENT_DLO_ASYNC0)                                      \
+	EXPR(DDP_COMPONENT_DLO_ASYNC1)                                      \
+	EXPR(DDP_COMPONENT_DLO_ASYNC2)                                      \
+/*95*/	EXPR(DDP_COMPONENT_DLO_ASYNC3)                                      \
+	EXPR(DDP_COMPONENT_DLO_ASYNC4)                                      \
+	EXPR(DDP_COMPONENT_DLO_ASYNC5)                                      \
+	EXPR(DDP_COMPONENT_DLO_ASYNC6)                                      \
+	EXPR(DDP_COMPONENT_DLO_ASYNC7)                                      \
+/*100*/	EXPR(DDP_COMPONENT_DLI_ASYNC0)                                      \
+	EXPR(DDP_COMPONENT_DLI_ASYNC1)                                      \
+	EXPR(DDP_COMPONENT_DLI_ASYNC2)                                      \
+	EXPR(DDP_COMPONENT_DLI_ASYNC3)                                      \
+	EXPR(DDP_COMPONENT_DLI_ASYNC4)                                      \
+/*105*/	EXPR(DDP_COMPONENT_DLI_ASYNC5)                                      \
+	EXPR(DDP_COMPONENT_DLI_ASYNC6)                                      \
+	EXPR(DDP_COMPONENT_DLI_ASYNC7)                                      \
 	EXPR(DDP_COMPONENT_MERGE0)                                          \
 	EXPR(DDP_COMPONENT_DPTX)                                            \
-/*80*/	EXPR(DDP_COMPONENT_DP_INTF0)                                        \
+/*110*/	EXPR(DDP_COMPONENT_DP_INTF0)                                        \
 	EXPR(DDP_COMPONENT_RDMA4_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RDMA5_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_MERGE1)                                          \
 	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
-/*85*/	EXPR(DDP_COMPONENT_RDMA0_OUT_RELAY)                                 \
+/*115*/	EXPR(DDP_COMPONENT_RDMA0_OUT_RELAY)                                 \
+	EXPR(DDP_COMPONENT_RDMA2_OUT_RELAY)                                 \
 	EXPR(DDP_COMPONENT_PQ0_VIRTUAL)                                     \
+	EXPR(DDP_COMPONENT_PQ1_VIRTUAL)                                     \
+	EXPR(DDP_COMPONENT_TV0_VIRTUAL)                                     \
+/*120*/	EXPR(DDP_COMPONENT_TV1_VIRTUAL)                                     \
 	EXPR(DDP_COMPONENT_MAIN0_VIRTUAL)                                   \
+	EXPR(DDP_COMPONENT_MAIN1_VIRTUAL)                                   \
+	EXPR(DDP_COMPONENT_SUB0_VIRTUAL0)                                   \
+	EXPR(DDP_COMPONENT_SUB1_VIRTUAL0)                                   \
+/*125*/	EXPR(DDP_COMPONENT_SUB0_VIRTUAL1)                                   \
+	EXPR(DDP_COMPONENT_SUB1_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL)                           \
 	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL)                       \
 	EXPR(DDP_COMPONENT_ID_MAX)

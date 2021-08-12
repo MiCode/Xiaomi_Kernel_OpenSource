@@ -33,6 +33,7 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL1:
 	case DDP_COMPONENT_OVL0_2L:
 	case DDP_COMPONENT_OVL1_2L:
 	case DDP_COMPONENT_OVL2_2L:

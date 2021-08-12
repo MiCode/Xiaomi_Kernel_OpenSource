@@ -113,8 +113,11 @@ struct mtk_drm_private {
 
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
+	unsigned int dispsys_num;
 	void __iomem *config_regs;
 	resource_size_t config_regs_pa;
+	void __iomem *side_config_regs;
+	resource_size_t side_config_regs_pa;
 	void __iomem *infra_regs;
 	resource_size_t infra_regs_pa;
 	const struct mtk_mmsys_reg_data *reg_data;

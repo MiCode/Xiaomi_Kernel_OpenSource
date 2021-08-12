@@ -459,8 +459,10 @@ unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL1:
 		return MT6983_OVL0_AID_SEL;
 	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL2_2L:
 		/* in MT6983 DDP_component_ovl0_2l use ovl1_2l HW*/
 		return MT6983_OVL1_2L_AID_SEL;
 	default:
@@ -2214,7 +2216,8 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 			    enum mtk_ddp_comp_id next)
 {
 	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L ||
-		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L)
+		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L ||
+		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L)
 		mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
 				       DISP_OVL_BGCLR_IN_SEL,
 				       DISP_OVL_BGCLR_IN_SEL);

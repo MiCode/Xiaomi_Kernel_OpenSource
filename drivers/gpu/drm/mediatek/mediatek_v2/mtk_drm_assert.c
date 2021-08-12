@@ -299,9 +299,10 @@ static void disable_attached_layer(struct drm_crtc *crtc, struct mtk_ddp_comp *o
 			struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 			struct mtk_ddp_comp *r_comp;
 			unsigned int comp_id = plane_state->comp_state.comp_id;
+			unsigned int r_comp_id;
 
-
-			r_comp = priv->ddp_comp[dual_pipe_comp_mapping(comp_id)];
+			r_comp_id = dual_pipe_comp_mapping(priv->data->mmsys_id, comp_id);
+			r_comp = priv->ddp_comp[r_comp_id];
 			mtk_ddp_comp_layer_off(r_comp, layer_id,
 						ext_lye_id, cmdq_handle);
 		}

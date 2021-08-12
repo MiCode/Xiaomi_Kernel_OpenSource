@@ -156,7 +156,7 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 	}
 
 	/* has memory session. need disconnect wdma from cwb*/
-	session_id = mtk_get_session_id(private->crtc[2]);
+	session_id = (private->crtc[2]) ? mtk_get_session_id(private->crtc[2]) : -1;
 	if (session_id != -1)
 		mtk_crtc_cwb_path_disconnect(private->crtc[0]);
 
