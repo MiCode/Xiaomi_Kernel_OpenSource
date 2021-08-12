@@ -10,6 +10,7 @@
 #include "reviser_drv.h"
 #include "reviser_remote.h"
 #include <apu_ctrl_rpmsg.h>
+#include "reviser_table_mgt.h"
 #include "reviser_msg.h"
 #include "reviser_remote_cmd.h"
 
@@ -316,6 +317,7 @@ int reviser_remote_print_table_vlm(void *drvinfo, uint32_t ctx)
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
+	int widx = 0;
 
 
 	DEBUG_TAG;
@@ -337,7 +339,7 @@ int reviser_remote_print_table_vlm(void *drvinfo, uint32_t ctx)
 
 	req.cmd = REVISER_CMD_TABLE_VLM;
 	req.option = REVISER_OPTION_PRINT;
-	req.data[0] = ctx;
+	RVR_RPMSG_write(&ctx, req.data, sizeof(ctx), widx);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -359,6 +361,7 @@ int reviser_remote_set_dbg_loglevel(void *drvinfo, uint32_t level)
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
+	int widx = 0;
 
 	DEBUG_TAG;
 
@@ -380,7 +383,7 @@ int reviser_remote_set_dbg_loglevel(void *drvinfo, uint32_t level)
 	req.cmd = REVISER_CMD_DBG_LOGLEVEL;
 	req.option = REVISER_OPTION_SET;
 
-	req.data[0] = level;
+	RVR_RPMSG_write(&level, req.data, sizeof(level), widx);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -402,6 +405,7 @@ int reviser_remote_get_dbg_loglevel(void *drvinfo, uint32_t *level)
 	struct reviser_msg req, reply;
 	uint32_t value = 0;
 	int ret = 0;
+	int ridx = 0;
 
 	DEBUG_TAG;
 
@@ -434,7 +438,7 @@ int reviser_remote_get_dbg_loglevel(void *drvinfo, uint32_t *level)
 		LOG_ERR("Check Msg Fail %d\n", ret);
 		goto out;
 	}
-	value = reply.data[0];
+	RVR_RPMSG_RAED(&value, reply.data, sizeof(value), ridx);
 
 	*level = value;
 out:
@@ -490,7 +494,7 @@ int reviser_remote_handshake(void *drvinfo, void *remote)
 {
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
-
+	int ridx = 0;
 	int ret = 0;
 
 	DEBUG_TAG;
@@ -527,9 +531,10 @@ int reviser_remote_handshake(void *drvinfo, void *remote)
 		goto out;
 	}
 	//Init Remote Info
-	rdv->remote.hw_ver = reply.data[0];
-	rdv->remote.dram_max = reply.data[1];
+	RVR_RPMSG_RAED(&rdv->remote.hw_ver, reply.data, sizeof(rdv->remote.hw_ver), ridx);
+	RVR_RPMSG_RAED(&rdv->remote.dram_max, reply.data, sizeof(rdv->remote.dram_max), ridx);
 	rdv->plat.dram_max = rdv->remote.dram_max;
+
 
 	reviser_remote_sync_sn(drvinfo, reply.sn);
 
@@ -544,6 +549,7 @@ int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iov
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
+	int widx = 0;
 
 	DEBUG_TAG;
 
@@ -565,8 +571,8 @@ int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iov
 	req.cmd = REVISER_CMD_HW_DEFAULT_IOVA;
 	req.option = REVISER_OPTION_SET;
 
-	req.data[0] = ctx;
-	memcpy(req.data + 1, &iova, sizeof(iova));
+	RVR_RPMSG_write(&ctx, req.data, sizeof(ctx), widx);
+	RVR_RPMSG_write(&iova, req.data, sizeof(iova), widx);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -579,15 +585,19 @@ int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iov
 		goto out;
 	}
 out:
-	return 0;
+	return ret;
 }
 
-int reviser_remote_alloc_mem(void *drvinfo, uint32_t type, uint32_t size, uint64_t session)
+int reviser_remote_alloc_mem(void *drvinfo,
+		uint32_t type, uint32_t size,
+		uint64_t session, uint32_t *sid)
 {
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	int index = 0;
+	uint32_t id = 0, mem_op = 0;
+	int widx = 0;
+	int ridx = 0;
 
 	DEBUG_TAG;
 
@@ -609,14 +619,12 @@ int reviser_remote_alloc_mem(void *drvinfo, uint32_t type, uint32_t size, uint64
 	req.cmd = REVISER_CMD_SYSTEM_RAM;
 	req.option = REVISER_OPTION_SET;
 
-	req.data[index] = REVISER_MEM_ALLOC;
-	index++;
-	req.data[index] = type;
-	index = index + sizeof(type)/sizeof(req.data[0]);
-	req.data[index] = size;
-	index = index + sizeof(size)/sizeof(req.data[0]);
-	memcpy(req.data + index, &session, sizeof(session));
-	index = index + sizeof(session)/sizeof(req.data[0]);
+	mem_op = REVISER_MEM_ALLOC;
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
+	RVR_RPMSG_write(&size, req.data, sizeof(size), widx);
+	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -628,16 +636,21 @@ int reviser_remote_alloc_mem(void *drvinfo, uint32_t type, uint32_t size, uint64
 		LOG_ERR("Check Msg Fail %d\n", ret);
 		goto out;
 	}
+
+	RVR_RPMSG_RAED(&id, reply.data, sizeof(id), ridx);
+	*sid = id;
+
 out:
-	return 0;
+	return ret;
 }
 
-int reviser_remote_free_mem(void *drvinfo, uint64_t session)
+int reviser_remote_free_mem(void *drvinfo, uint64_t session, uint32_t sid, uint32_t type)
 {
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	int index = 0;
+	int widx = 0;
+	uint32_t mem_op = 0;
 
 	DEBUG_TAG;
 
@@ -659,10 +672,16 @@ int reviser_remote_free_mem(void *drvinfo, uint64_t session)
 	req.cmd = REVISER_CMD_SYSTEM_RAM;
 	req.option = REVISER_OPTION_SET;
 
-	req.data[index] = REVISER_MEM_FREE;
-	index++;
-	memcpy(req.data + index, &session, sizeof(session));
-	index = index + sizeof(session)/sizeof(req.data[0]);
+
+	mem_op = REVISER_MEM_FREE;
+
+
+	LOG_INFO("session %x free sid %x\n", session, sid);
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
+	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
+	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -675,5 +694,88 @@ int reviser_remote_free_mem(void *drvinfo, uint64_t session)
 		goto out;
 	}
 out:
-	return 0;
+	return ret;
+}
+
+
+int reviser_remote_get_mem_info(void *drvinfo, uint32_t type)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	uint32_t pool_id = 0;
+	int widx = 0;
+	int ridx = 0;
+	uint32_t mem_op = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (type >= REVSIER_POOL_MAX) {
+		LOG_ERR("invalid type %d\n", type);
+		return -EINVAL;
+	}
+
+	ret = reviser_table_get_pool_index(type, &pool_id);
+	if (ret) {
+		LOG_ERR("get pool index Fail %d\n", ret);
+		goto out;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	mem_op = REVISER_MEM_INFO;
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+
+	RVR_RPMSG_RAED(&rdv->remote.pool_type[pool_id],
+			reply.data, sizeof(rdv->remote.pool_type[pool_id]), ridx);
+	RVR_RPMSG_RAED(&rdv->remote.pool_base[pool_id],
+			reply.data, sizeof(rdv->remote.pool_base[pool_id]), ridx);
+	RVR_RPMSG_RAED(&rdv->remote.pool_step[pool_id],
+			reply.data, sizeof(rdv->remote.pool_step[pool_id]), ridx);
+	RVR_RPMSG_RAED(&rdv->remote.pool_size[pool_id],
+			reply.data, sizeof(rdv->remote.pool_size[pool_id]), ridx);
+	RVR_RPMSG_RAED(&rdv->remote.pool_bank_max[pool_id],
+			reply.data, sizeof(rdv->remote.pool_bank_max[pool_id]), ridx);
+	RVR_RPMSG_RAED(&rdv->remote.pool_addr[pool_id],
+			reply.data, sizeof(rdv->remote.pool_addr[pool_id]), ridx);
+
+	/* update platform info*/
+	rdv->plat.pool_type[pool_id] = rdv->remote.pool_type[pool_id];
+	rdv->plat.pool_base[pool_id] = rdv->remote.pool_base[pool_id];
+	rdv->plat.pool_step[pool_id] = rdv->remote.pool_step[pool_id];
+	rdv->plat.pool_size[pool_id] = rdv->remote.pool_size[pool_id];
+	rdv->plat.pool_bank_max[pool_id] = rdv->remote.pool_bank_max[pool_id];
+	rdv->plat.pool_addr[pool_id] = rdv->remote.pool_addr[pool_id];
+
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+out:
+	return ret;
 }

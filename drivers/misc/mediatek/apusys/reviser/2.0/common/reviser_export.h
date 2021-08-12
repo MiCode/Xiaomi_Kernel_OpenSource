@@ -18,7 +18,7 @@ int reviser_set_context(int type,
 int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size);
 int reviser_set_manual_vlm(uint32_t session, uint32_t size);
 int reviser_clear_manual_vlm(uint32_t session);
-int reviser_alloc_pool(uint32_t type, uint32_t session, uint32_t size);
-int reviser_free_pool(uint32_t session);
+int reviser_alloc_pool(uint32_t type, uint64_t session, uint32_t size, uint32_t *sid);
+int reviser_free_pool(uint64_t session, uint32_t sid, uint32_t type);
 int reviser_get_pool_size(uint32_t type, uint32_t *size);
 #endif

@@ -91,4 +91,6 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctx);
 /* init all table*/
 int reviser_table_init(void *drvinfo);
 int reviser_table_uninit(void *drvinfo);
+
+int reviser_table_get_pool_index(uint32_t type, uint32_t *index);
 #endif

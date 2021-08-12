@@ -20,9 +20,6 @@ struct reviser_remote_lock {
 	wait_queue_head_t wait_rx;
 };
 
-
-
-
 struct reviser_msg_mgr {
 	struct reviser_remote_lock lock;
 	struct reviser_remote_info info;

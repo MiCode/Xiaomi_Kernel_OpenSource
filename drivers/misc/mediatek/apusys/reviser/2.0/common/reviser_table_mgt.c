@@ -1295,3 +1295,26 @@ int reviser_table_uninit(void *drvinfo)
 out:
 	return ret;
 }
+
+int reviser_table_get_pool_index(uint32_t type, uint32_t *index)
+{
+	int ret = 0;
+	uint32_t id = 0;
+
+	switch (type) {
+	case REVISER_MEM_TYPE_TCM:
+		id = REVSIER_POOL_TCM;
+		break;
+	case REVISER_MEM_TYPE_SLBS:
+		id = REVSIER_POOL_SLBS;
+		break;
+	default:
+		LOG_ERR("type not found %u\n", type);
+		ret = -EINVAL;
+		break;
+	}
+
+	*index = id;
+
+	return ret;
+}

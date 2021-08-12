@@ -26,6 +26,8 @@
 #include "reviser_remote_cmd.h"
 #include "reviser_export.h"
 
+#define REVISER_SESSION_TEST (0x5566)
+
 static struct dentry *reviser_dbg_root;
 //hw
 static struct dentry *reviser_dbg_hw;
@@ -55,7 +57,7 @@ static struct dentry *reviser_dbg_err_info;
 static struct dentry *reviser_dbg_err_reg;
 static struct dentry *reviser_dbg_err_debug;
 
-
+static uint32_t g_sid;
 uint32_t g_rvr_klog;
 static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
@@ -531,34 +533,24 @@ static int reviser_dbg_read_debug_op(void *data, u64 *val)
 
 static int reviser_dbg_write_debug_op(void *data, u64 val)
 {
-	struct reviser_dev_info *rdv = data;
 	int ret = 0;
 //	uint32_t i;
-	uint32_t type, size, session;
+	uint32_t type, size;
+
+	uint64_t session;
 
 	g_rvr_debug_op = val;
 
 	switch (g_rvr_debug_op) {
 	case 0:
-		LOG_INFO("SLB Handshake Alloc\n");
-		type = REVISER_MEM_TYPE_VLM;
-		size = 0x600000;
-		session = 0x5566;
-		ret = reviser_remote_alloc_mem(rdv, type, size, session);
-		if (ret)
-			LOG_ERR("Remote Handshake fail %d\n", ret);
-		break;
-	case 1:
-		LOG_INFO("SLB Handshake Free\n");
-		session = 0x5566;
-		ret = reviser_remote_free_mem(rdv, session);
-		if (ret)
-			LOG_ERR("Remote Handshake fail %d\n", ret);
-		break;
-	case 2:
 		LOG_INFO("SLB allocate\n");
-		session = 0x5566;
+		session = REVISER_SESSION_TEST;
 		type = REVISER_MEM_TYPE_SLBS;
+		if (g_sid) {
+			LOG_ERR("Double Allocate fail %x\n", g_sid);
+			ret = -EINVAL;
+			break;
+		}
 
 		ret = reviser_get_pool_size(type, &size);
 		if (ret) {
@@ -568,17 +560,33 @@ static int reviser_dbg_write_debug_op(void *data, u64 val)
 
 		LOG_INFO("Pool[%u] allocate size %x\n", type, size);
 
-		ret = reviser_alloc_pool(type, session, size);
+		ret = reviser_alloc_pool(type, session, size, &g_sid);
 		if (ret) {
 			LOG_ERR("Alloc Session[%x] %u/%x fail %d\n", session, type, size, ret);
 			goto out;
 		}
 
-		ret = reviser_free_pool(session);
+		LOG_INFO("[%u]%x allocate (%x/%x)\n", type, session, size, g_sid);
+
+
+		break;
+	case 1:
+		LOG_INFO("SLB Free\n");
+		if (!g_sid) {
+			LOG_ERR("double Free fail %x\n", g_sid);
+			ret = -EINVAL;
+			break;
+		}
+		session = REVISER_SESSION_TEST;
+		type = REVISER_MEM_TYPE_SLBS;
+
+		ret = reviser_free_pool(session, g_sid, type);
 		if (ret) {
-			LOG_ERR("Free Session[%x] fail %d\n", session, ret);
+			LOG_ERR("Free Session[%x][%u] fail %d\n", session, type, ret);
 			goto out;
 		}
+		LOG_INFO("Pool[%u] session %x free sid %x\n", type, session, g_sid);
+		g_sid = 0;
 		break;
 	default:
 		ret = -EINVAL;
@@ -686,6 +694,7 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	g_reviser_mem_dram_bank = 0;
 	g_reviser_mem_dram_ctx = 0;
 	g_rvr_debug_op = 0;
+	g_sid = 0;
 
 	reviser_dbg_root = debugfs_create_dir(REVISER_DBG_DIR, apu_dbg_root);
 	reviser_dbg_table = debugfs_create_dir(REVISER_DBG_SUBDIR_TABLE,

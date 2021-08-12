@@ -151,7 +151,7 @@ int reviser_clear_manual_vlm(uint32_t session)
 	return ret;
 }
 
-int reviser_alloc_pool(uint32_t type, uint32_t session, uint32_t size)
+int reviser_alloc_pool(uint32_t type, uint64_t session, uint32_t size, uint32_t *sid)
 {
 	int ret = 0;
 
@@ -161,14 +161,14 @@ int reviser_alloc_pool(uint32_t type, uint32_t session, uint32_t size)
 		return ret;
 	}
 
-	ret = reviser_remote_alloc_mem(g_rdv, type, size, session);
+	ret = reviser_remote_alloc_mem(g_rdv, type, size, session, sid);
 	if (ret)
 		LOG_ERR("Remote Handshake fail %d\n", ret);
 
 	return ret;
 }
 
-int reviser_free_pool(uint32_t session)
+int reviser_free_pool(uint64_t session, uint32_t sid, uint32_t type)
 {
 	int ret = 0;
 
@@ -178,7 +178,7 @@ int reviser_free_pool(uint32_t session)
 		return ret;
 	}
 
-	ret = reviser_remote_free_mem(g_rdv, session);
+	ret = reviser_remote_free_mem(g_rdv, session, sid, type);
 	if (ret)
 		LOG_ERR("Remote Handshake fail %d\n", ret);
 
@@ -195,6 +195,10 @@ int reviser_get_pool_size(uint32_t type, uint32_t *size)
 		ret = -EINVAL;
 		return ret;
 	}
+
+	ret = reviser_remote_get_mem_info(g_rdv, type);
+	if (ret)
+		LOG_ERR("Remote Handshake fail %d\n", ret);
 
 	switch (type) {
 	case REVISER_MEM_TYPE_TCM:
@@ -214,3 +218,6 @@ int reviser_get_pool_size(uint32_t type, uint32_t *size)
 
 	return ret;
 }
+
+
+

@@ -360,7 +360,7 @@ static int reviser_map_dts(struct platform_device *pdev)
 	if (slb_node) {
 		of_property_read_u32(slb_node,
 					"apu", &slb_size);
-		rdv->rsc.pool[REVSIER_POOL_SLBS].size = slb_size * 1024; //KB to Bytes
+		rdv->rsc.pool[REVSIER_POOL_SLBS].size = slb_size;
 		rdv->plat.pool_type[REVSIER_POOL_SLBS] = REVISER_MEM_TYPE_SLBS;
 		rdv->plat.pool_size[REVSIER_POOL_SLBS] = rdv->rsc.pool[REVSIER_POOL_SLBS].size;
 		rdv->plat.pool_max++;
