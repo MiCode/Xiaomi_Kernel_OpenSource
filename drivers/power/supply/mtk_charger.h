@@ -259,6 +259,8 @@ struct mtk_charger {
 	struct power_supply_config psy_dvchg_cfg2;
 	struct power_supply *psy_dvchg2;
 
+	struct power_supply  *chg_psy;
+	struct power_supply  *bat_psy;
 	struct adapter_device *pd_adapter;
 	struct notifier_block pd_nb;
 	struct mutex pd_lock;

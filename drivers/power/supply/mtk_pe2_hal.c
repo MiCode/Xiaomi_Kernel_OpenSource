@@ -130,10 +130,16 @@ int pe2_hal_get_uisoc(struct chg_alg_device *alg)
 		return -EINVAL;
 
 	pe2 = dev_get_drvdata(&alg->dev);
-	bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev,
-						       "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
-		pe2_err("%s Couldn't get bat_psy\n", __func__);
+	bat_psy = pe2->bat_psy;
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s retry to get pe2->bat_psy\n", __func__);
+		bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev, "gauge");
+		pe2->bat_psy = bat_psy;
+	}
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
 	} else {
 		ret = power_supply_get_property(bat_psy,
@@ -348,10 +354,16 @@ int pe2_hal_get_vbat(struct chg_alg_device *alg)
 
 	pe2 = dev_get_drvdata(&alg->dev);
 
-	bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev,
-						       "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
-		pe2_err("%s Couldn't get bat_psy\n", __func__);
+	bat_psy = pe2->bat_psy;
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s retry to get pe2->bat_psy\n", __func__);
+		bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev, "gauge");
+		pe2->bat_psy = bat_psy;
+	}
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 3999;
 	} else {
 		ret = power_supply_get_property(bat_psy,
@@ -375,10 +387,16 @@ int pe2_hal_get_ibat(struct chg_alg_device *alg)
 		return -EINVAL;
 
 	pe2 = dev_get_drvdata(&alg->dev);
-	bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev,
-						       "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
-		pe2_err("%s Couldn't get bat_psy\n", __func__);
+	bat_psy = pe2->bat_psy;
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s retry to get pe2->bat_psy\n", __func__);
+		bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev, "gauge");
+		pe2->bat_psy = bat_psy;
+	}
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 0;
 	} else {
 		ret = power_supply_get_property(bat_psy,
