@@ -229,6 +229,7 @@ extern int (*fpsgo_xgf2ko_calculate_target_fps_fp)(int pid,
 extern void (*fpsgo_xgf2ko_do_recycle_fp)(int pid,
 	unsigned long long bufID);
 extern long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
+extern void (*xgf_ema2_init_fp)(struct xgf_ema2_predictor *pt);
 
 void xgf_lockprove(const char *tag);
 void xgf_trace(const char *fmt, ...);
@@ -288,6 +289,7 @@ void xgf_set_timer_info(int pid, unsigned long long bufID,
 	int hrtimer_pid, int hrtimer_flag);
 
 long long xgf_ema2_predict(struct xgf_ema2_predictor *pt, long long X);
+void xgf_ema2_init(struct xgf_ema2_predictor *pt);
 
 enum XGF_EVENT {
 	SCHED_SWITCH,

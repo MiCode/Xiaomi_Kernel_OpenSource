@@ -99,6 +99,8 @@ EXPORT_SYMBOL(xgff_update_start_prev_index_fp);
 
 long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
 EXPORT_SYMBOL(xgf_ema2_predict_fp);
+void (*xgf_ema2_init_fp)(struct xgf_ema2_predictor *pt);
+EXPORT_SYMBOL(xgf_ema2_init_fp);
 
 void xgff_clean_deps_list(struct xgf_render *render, int pos)
 {
