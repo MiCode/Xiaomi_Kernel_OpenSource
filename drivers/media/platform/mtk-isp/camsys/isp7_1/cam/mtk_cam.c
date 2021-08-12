@@ -3836,7 +3836,7 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 			}
 
 #if PDAF_READY
-			for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF1; j++) {
+			for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF5; j++) {
 				ret = media_create_pad_link(&seninf->entity,
 						j,
 						pipe_entity,
