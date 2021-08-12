@@ -107,12 +107,14 @@ struct mtk_ipi_device  {
 
 #define IPI_ACTION_DONE		0
 #define IPI_DEV_ILLEGAL		-1 /* ipi device is not initial */
-#define IPI_DUPLEX			-2 /* the ipi has be registered */
+#define IPI_DUPLEX		-2 /* the ipi has be registered */
 #define IPI_UNAVAILABLE		-3 /* can't find this ipi pin define */
 #define IPI_NO_MSGBUF		-4 /* receiver doesn't has message buffer */
 #define IPI_NO_MEMORY		-5 /* message length is large than defined */
 #define IPI_PIN_BUSY		-6 /* send message timeout */
 #define IPI_COMPL_TIMEOUT	-7 /* polling or wait for ack ipi timeout */
+#define IPI_PRE_CB_FAIL		-8 /* pre-callback fail */
+#define IPI_POST_CB_FAIL	-9 /* post-callback fail */
 #define IPI_RPMSG_ERR		-99 /* some error from rpmsg layer */
 
 

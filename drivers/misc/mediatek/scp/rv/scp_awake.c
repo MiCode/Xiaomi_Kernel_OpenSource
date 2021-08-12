@@ -119,7 +119,6 @@ int scp_awake_lock(void *_scp_id)
 		pr_notice("%s: awake %s fail..\n", __func__, core_id);
 		WARN_ON(1);
 #if SCP_RECOVERY_SUPPORT
-		/* avoid scp just wake up and halt to reset again */
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
 			pr_notice("%s: start to reset scp...\n", __func__);
 
@@ -218,6 +217,31 @@ int scp_awake_unlock(void *_scp_id)
 		if (*scp_awake_count > 0)
 			*scp_awake_count = *scp_awake_count - 1;
 	}
+
+	if (ret == -1) {
+		pr_notice("%s: awake %s fail..\n", __func__, core_id);
+		WARN_ON(1);
+#if SCP_RECOVERY_SUPPORT
+		if (scp_set_reset_status() == RESET_STATUS_STOP) {
+			pr_notice("%s: start to reset scp...\n", __func__);
+
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+			if (scpreg.secure_dump) {
+				scp_do_halt_set();
+			} else {
+#else
+			{
+#endif
+			/* trigger halt isr, force scp enter wfi */
+			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
+			}
+
+			scp_send_reset_wq(RESET_TYPE_AWAKE);
+		} else
+			pr_notice("%s: scp resetting\n", __func__);
+#endif
+	}
+
 
 	/* spinlock context safe */
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
