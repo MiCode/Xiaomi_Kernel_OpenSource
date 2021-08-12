@@ -235,6 +235,13 @@ static int lm3644_enable_ctrl(struct lm3644_flash *flash,
 	int rval;
 
 	pr_info("%s %d enable:%d", __func__, led_no, on);
+
+	flashlight_kicker_pbm(on);
+	if (flashlight_pt_is_low()) {
+		pr_info("pt is low\n");
+		return 0;
+	}
+
 	if (led_no == LM3644_LED0) {
 		if (on)
 			rval = regmap_update_bits(flash->regmap,
