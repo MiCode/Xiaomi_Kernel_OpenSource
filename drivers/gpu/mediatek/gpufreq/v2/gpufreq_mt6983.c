@@ -4056,7 +4056,10 @@ static void __gpufreq_aging_adjustment(void)
 
 	if (__gpufreq_dvfs_enable()) {
 		/* keep volt for A sensor working */
-		__gpufreq_pause_dvfs();
+		if (__gpufreq_pause_dvfs()) {
+			GPUFREQ_LOGE("fail to pause DVFS for Aging Sensor");
+			return;
+		}
 
 		/* get aging efuse data */
 		is_efuse_read_success = __gpufreq_asensor_read_efuse(
