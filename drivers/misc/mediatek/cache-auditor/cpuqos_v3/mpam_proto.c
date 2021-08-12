@@ -19,6 +19,13 @@
 
 #define CREATE_TRACE_POINTS
 #include <cpuqos_v3_trace.h>
+#undef CREATE_TRACE_POINTS
+#undef TRACE_INCLUDE_PATH
+
+#define CREATE_TRACE_POINTS
+#include <met_mpam_events.h>
+#undef CREATE_TRACE_POINTS
+#undef TRACE_INCLUDE_PATH
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jing-Ting Wu");
@@ -200,8 +207,22 @@ static void mpam_sync_task(struct task_struct *p)
  */
 static void mpam_sync_current(void *task)
 {
+	int prev_partid;
+	int next_partid;
+
 	if (task && task != current)
 		return;
+
+	if (trace_MPAM_CT_task_enter_enabled() && trace_MPAM_CT_task_leave_enabled()) {
+		prev_partid = this_cpu_read(mpam_local_partid);
+		next_partid = mpam_map_task_partid(current);
+
+		if ((prev_partid == CT_PARTID) && (next_partid == NCT_PARTID))
+			trace_MPAM_CT_task_leave(current->pid, current->comm);
+
+		if (next_partid == CT_PARTID)
+			trace_MPAM_CT_task_enter(current->pid, current->comm);
+	}
 
 	mpam_sync_task(current);
 }
@@ -481,6 +502,20 @@ static void mpam_hook_attach(void __always_unused *data,
 static void mpam_hook_switch(void __always_unused *data,
 			     struct task_struct *prev, struct task_struct *next)
 {
+	int prev_partid;
+	int next_partid;
+
+	if (trace_MPAM_CT_task_enter_enabled() && trace_MPAM_CT_task_leave_enabled()) {
+		prev_partid = this_cpu_read(mpam_local_partid);
+		next_partid = mpam_map_task_partid(next);
+
+		if (prev && (prev_partid == CT_PARTID))
+			trace_MPAM_CT_task_leave(prev->pid, prev->comm);
+
+		if (next && (next_partid == CT_PARTID))
+			trace_MPAM_CT_task_enter(next->pid, next->comm);
+	}
+
 	mpam_sync_task(next);
 }
 
