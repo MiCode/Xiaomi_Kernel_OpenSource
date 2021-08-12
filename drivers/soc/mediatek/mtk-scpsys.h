@@ -57,7 +57,9 @@ struct scp_domain_data {
 	int extb_iso_offs;
 	u32 extb_iso_bits;
 	const char *basic_clk_name[MAX_CLKS];
+	const char *basic_lp_clk_name[MAX_CLKS];
 	const char *subsys_clk_prefix;
+	const char *subsys_lp_clk_prefix;
 	u16 caps;
 	struct bus_prot bp_table[MAX_STEPS];
 	struct sram_ctl sram_table[MAX_SRAM_STEPS];
@@ -69,7 +71,9 @@ struct scp_domain {
 	struct generic_pm_domain genpd;
 	struct scp *scp;
 	struct clk *clk[MAX_CLKS];
+	struct clk *lp_clk[MAX_CLKS];
 	struct clk *subsys_clk[MAX_SUBSYS_CLKS];
+	struct clk *subsys_lp_clk[MAX_SUBSYS_CLKS];
 	const struct scp_domain_data *data;
 	struct regulator *supply;
 };

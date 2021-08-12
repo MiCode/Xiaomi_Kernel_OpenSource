@@ -507,6 +507,10 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret)
 		goto err_clk;
 
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_clk;
+
 	/* subsys power on */
 	val = readl(ctl_addr);
 	val |= PWR_ON_BIT;
@@ -537,6 +541,10 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
+	ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	if (ret < 0)
+		goto err_pwr_ack;
+
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
 		ret = scpsys_sram_table_enable(scpd);
 		if (ret < 0)
@@ -550,6 +558,10 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	ret = scpsys_bus_protect_disable(scpd);
 	if (ret < 0)
 		goto err_sram;
+
+	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
 	return 0;
 
@@ -573,6 +585,14 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	u32 val;
 	int ret, tmp;
 
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
+
+	ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	if (ret < 0)
+		goto err_subsys_lp_clk;
+
 	ret = scpsys_bus_protect_enable(scpd);
 	if (ret < 0)
 		goto out;
@@ -588,6 +608,8 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 		goto out;
 
 	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+
+	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
 
 	/* subsys power off */
 	val = readl(ctl_addr);
@@ -618,12 +640,18 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+
 	ret = scpsys_regulator_disable(scpd);
 	if (ret < 0)
 		goto out;
 
 	return 0;
 
+err_subsys_lp_clk:
+	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+err_lp_clk:
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 out:
 	dev_err(scp->dev, "Failed to power off domain %s\n", genpd->name);
 
@@ -958,11 +986,26 @@ struct scp *init_scp(struct platform_device *pdev,
 		ret = init_basic_clks(pdev, scpd->clk, data->basic_clk_name);
 		if (ret)
 			return ERR_PTR(ret);
+		ret = init_basic_clks(pdev, scpd->lp_clk, data->basic_lp_clk_name);
+		if (ret)
+			return ERR_PTR(ret);
 
 		if (data->subsys_clk_prefix) {
 			ret = init_subsys_clks(pdev,
 					data->subsys_clk_prefix,
 					scpd->subsys_clk);
+			if (ret < 0) {
+				dev_notice(&pdev->dev,
+					"%s: subsys clk unavailable\n",
+					data->name);
+				return ERR_PTR(ret);
+			}
+		}
+
+		if (data->subsys_lp_clk_prefix) {
+			ret = init_subsys_clks(pdev,
+					data->subsys_lp_clk_prefix,
+					scpd->subsys_lp_clk);
 			if (ret < 0) {
 				dev_notice(&pdev->dev,
 					"%s: subsys clk unavailable\n",
