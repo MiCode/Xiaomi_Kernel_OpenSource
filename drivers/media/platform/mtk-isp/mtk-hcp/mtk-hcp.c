@@ -1672,32 +1672,55 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
-			/* case IMG_MEM_G_ID: */
-#ifdef USE_ION
-				if (hcp_dev->pIonClient != NULL) {
-					pIonHandle = _imgsys_ion_alloc(hcp_dev->pIonClient,
-						ION_HEAP_MULTIMEDIA_MASK, 0,
-						(size_t)mtk_hcp_reserve_mblock[id].size, true);
-					if (pIonHandle != NULL) {
-						fd = ion_share_dma_buf_fd(hcp_dev->pIonClient,
-							pIonHandle);
-						mtk_hcp_reserve_mblock[id].start_virt =
-							ion_map_kernel(hcp_dev->pIonClient,
-							pIonHandle);
-						mtk_hcp_reserve_mblock[id].fd = fd;
-						mtk_hcp_reserve_mblock[id].pIonHandle = pIonHandle;
-						pr_info("%s: pIonClient:%x, pIonHandle:%x, mblock[%d].size:%x, fd:%x\n",
-						__func__, hcp_dev->pIonClient,
-						pIonHandle, id,
-						mtk_hcp_reserve_mblock[id].size, fd);
-					} else {
-						pr_info("pIonHandle is NULL!! in %s[%d]",
-							__func__, id);
-					}
-				} else {
-					pr_info("State machine is wrong, Because pIonClient is NULL!!");
+			case IMG_MEM_G_ID:
+				/* all supported heap name you can find with cmd */
+				/* (ls /dev/dma_heap/) in shell */
+				pdma_heap = dma_heap_find("mtk_mm");
+				if (!pdma_heap) {
+					pr_info("pdma_heap find fail\n");
+					return -1;
 				}
-#endif
+				mtk_hcp_reserve_mblock[id].d_buf = dma_heap_buffer_alloc(
+					pdma_heap,
+					mtk_hcp_reserve_mblock[id].size, O_RDWR | O_CLOEXEC,
+					DMA_HEAP_VALID_HEAP_FLAGS);
+				if (IS_ERR(mtk_hcp_reserve_mblock[id].d_buf)) {
+					pr_info("dma_heap_buffer_alloc fail :%lld\n",
+					PTR_ERR(mtk_hcp_reserve_mblock[id].d_buf));
+					return -1;
+				}
+
+				mtk_hcp_reserve_mblock[id].attach = dma_buf_attach(
+				mtk_hcp_reserve_mblock[id].d_buf, hcp_dev->dev);
+				attach = mtk_hcp_reserve_mblock[id].attach;
+				if (IS_ERR(attach)) {
+					pr_info("dma_buf_attach fail :%lld\n",
+					PTR_ERR(attach));
+					return -1;
+				}
+
+				mtk_hcp_reserve_mblock[id].sgt = dma_buf_map_attachment(attach,
+				DMA_TO_DEVICE);
+				sgt = mtk_hcp_reserve_mblock[id].sgt;
+				if (IS_ERR(sgt)) {
+					dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf, attach);
+					pr_info("dma_buf_map_attachment fail sgt:%lld\n",
+					PTR_ERR(sgt));
+					return -1;
+				}
+				mtk_hcp_reserve_mblock[id].start_phys = sg_dma_address(sgt->sgl);
+				mtk_hcp_reserve_mblock[id].start_dma =
+				mtk_hcp_reserve_mblock[id].start_phys;
+				buf_ptr = dma_buf_vmap(mtk_hcp_reserve_mblock[id].d_buf);
+				if (!buf_ptr) {
+					pr_info("sg_dma_address fail\n");
+					return -1;
+				}
+				mtk_hcp_reserve_mblock[id].start_virt = buf_ptr;
+				mtk_hcp_reserve_mblock[id].fd =
+				dma_buf_fd(mtk_hcp_reserve_mblock[id].d_buf,
+				O_RDWR | O_CLOEXEC);
+				dma_buf_get(mtk_hcp_reserve_mblock[id].fd);
 				break;
 			default:
 
