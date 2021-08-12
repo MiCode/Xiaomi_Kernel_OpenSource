@@ -359,7 +359,7 @@ static int iova_is_secure(struct mtk_iommu_data *data, unsigned long iova, size_
 {
 	int i;
 	const struct mtk_iommu_iova_region *region;
-	unsigned long iova_end = iova + size;
+	unsigned long iova_end = iova + size - 1;
 
 	for (i = 0; i < data->plat_data->iova_region_nr; i++) {
 		region = &data->plat_data->iova_region[i];
