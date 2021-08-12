@@ -6124,6 +6124,13 @@
 		reg = <0 0x1400e000 0 0x1000>;
 		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_GAMMA0>;
+		gamma_data_mode = <2>;
+		color_protect_red = <0>;
+		color_protect_green = <0>;
+		color_protect_blue = <0>;
+		color_protect_white = <0>;
+		color_protect_black = <0>;
+		color_protect_lsb = <0>;
 	};
 
 	disp_postmask0: disp_postmask0@1400f000 {
@@ -6140,6 +6147,15 @@
 		reg = <0 0x14010000 0 0x1000>;
 		interrupts = <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DITHER0>;
+		pure_clr_det = <0>;
+		pure_clr_num = <7>;
+		pure_clr_rgb = <255 0 0
+			0 255 0
+			0 0 255
+			255 255 0
+			255 0 255
+			0 255 255
+			255 255 255>;
 	};
 
 	opp_table_disp0: opp-table-disp0 {
