@@ -8,6 +8,7 @@
 
 #include <drm/drm_panel.h>
 #include <drm/drm_modes.h>
+#include <drm/mediatek_drm.h>
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
@@ -282,6 +283,77 @@ struct dynamic_fps_params {
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
 };
 
+/* M-SYNC2.0 */
+#define MSYNC_MAX_CMD_NUM 20
+#define MSYNC_MAX_LEVEL 20
+
+enum TE_TYPE {
+	NORMAL_TE = 0,
+	REQUEST_TE = 1,
+	MULTI_TE = 2,
+	TRIGGER_LEVEL_TE = 4,
+};
+
+struct msync_cmd_list {
+	unsigned int cmd_num;
+	__u8 para_list[64];
+};
+
+struct msync_request_te_level {
+	unsigned int id;
+	unsigned int level_fps;
+	unsigned int max_fps;
+	unsigned int min_fps;
+	struct msync_cmd_list cmd_list[MSYNC_MAX_CMD_NUM];
+};
+
+struct msync_request_te_table {
+	unsigned char msync_ctrl_idx;
+	unsigned char msync_rte_idx;
+	unsigned char msync_valid_te_idx;
+	unsigned char msync_max_vfp_idx;
+	unsigned char msync_en_byte;
+	unsigned char msync_en_mask;
+	unsigned char delay_mode_byte;
+	unsigned char delay_mode_mask;
+	unsigned char valid_te_start_1_byte;
+	unsigned char valid_te_start_1_mask;
+	unsigned char valid_te_start_2_byte;
+	unsigned char valid_te_start_2_mask;
+	unsigned char valid_te_end_1_byte;
+	unsigned char valid_te_end_1_mask;
+	unsigned char valid_te_end_2_byte;
+	unsigned char valid_te_end_2_mask;
+	struct msync_cmd_list rte_cmd_list[MSYNC_MAX_CMD_NUM];
+	struct msync_request_te_level request_te_level[MSYNC_MAX_LEVEL];
+};
+
+struct msync_multi_te_table {
+	struct msync_level_table multi_te_level[MSYNC_MAX_LEVEL];
+};
+
+struct msync_trigger_level_te {
+	unsigned int id;
+	unsigned int level_fps;
+	unsigned int max_fps;
+	unsigned int min_fps;
+	struct msync_cmd_list cmd_list[MSYNC_MAX_CMD_NUM];
+};
+
+struct msync_trigger_level_te_table {
+	struct msync_trigger_level_te trigger_level_te_level[MSYNC_MAX_LEVEL];
+};
+
+struct msync_cmd_table {
+	unsigned int te_type;
+	unsigned int msync_max_fps;
+	unsigned int msync_min_fps;
+	unsigned int msync_level_num;
+	struct msync_request_te_table request_te_tb;
+	struct msync_multi_te_table multi_te_tb;
+	struct msync_trigger_level_te_table trigger_level_te_tb;
+};
+
 struct mtk_panel_params {
 	unsigned int pll_clk;
 	unsigned int data_rate;
@@ -329,6 +401,7 @@ struct mtk_panel_params {
 	/*Msync 2.0*/
 	unsigned int msync2_enable;
 	unsigned int max_vfp_for_msync;
+	struct msync_cmd_table msync_cmd_table;
 
 	struct mtk_panel_cm_params cm_params;
 	struct mtk_panel_spr_params spr_params;
@@ -362,6 +435,8 @@ struct mtk_panel_funcs {
 	int (*mode_switch)(struct drm_panel *panel,
 		struct drm_connector *connector, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
+	int (*msync_te_level_switch)(struct drm_panel *panel, unsigned int te_level);
+	int (*msync_cmd_set_min_fps)(struct drm_panel *panel, unsigned int flag);
 	int (*get_virtual_heigh)(void);
 	int (*get_virtual_width)(void);
 	/**

@@ -2473,7 +2473,7 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 				       unsigned long *prate)
 {
-	return clamp_val(rate, 50000000, 1250000000);
+	return clamp_val(rate, 50000000, 3000000000);
 }
 
 static int mtk_mipi_tx_pll_set_rate(struct clk_hw *hw, unsigned long rate,

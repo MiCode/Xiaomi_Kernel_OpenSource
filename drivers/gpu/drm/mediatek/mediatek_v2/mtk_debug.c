@@ -2085,6 +2085,33 @@ static void process_dbg_opt(const char *opt)
 		mtk_drm_set_idlemgr(crtc, 0, 1);
 		fake_engine(crtc, idx, en, wr_en, rd_en, wr_pat1, wr_pat2,
 			latency, preultra_cnt, ultra_cnt);
+	} else if (!strncmp(opt, "set_msync_cmd_level_tb:", 23)) {
+		unsigned int level_id, level_fps, max_fps, min_fps;
+		int ret = 0;
+
+		ret = sscanf(opt, "set_msync_cmd_level_tb:%d,%d,%d,%d\n",
+				&level_id, &level_fps, &max_fps, &min_fps);
+
+		DDPINFO("ret:%d level_id;%d, level_fps:%d, max_fps:%d, min_fps:%d\n",
+				ret, level_id, level_fps, max_fps, min_fps);
+		if (ret != 4) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+					__LINE__, opt);
+			return;
+		}
+
+		mtk_drm_set_msync_cmd_level_table(
+				level_id, level_fps, max_fps, min_fps);
+	} else if (!strncmp(opt, "get_msync_cmd_level_tb", 22)) {
+
+		DDPINFO("get_msync_cmd_level_tb cmd\n");
+		mtk_drm_get_msync_cmd_level_table();
+
+	} else if (!strncmp(opt, "clear_msync_cmd_level_tb", 24)) {
+
+		DDPINFO("clear_msync_cmd_level_tb cmd\n");
+		mtk_drm_clear_msync_cmd_level_table();
+
 	} else if (strncmp(opt, "checkt", 6) == 0) { /* check trigger */
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;

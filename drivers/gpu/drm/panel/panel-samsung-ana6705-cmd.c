@@ -709,6 +709,42 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 	},
+
+	.msync2_enable = 1,
+	.msync_cmd_table = {
+		.te_type = MULTI_TE,
+		.msync_max_fps = 120,
+		.msync_min_fps = 20,
+		.msync_level_num = 20,
+		.multi_te_tb = {
+			/* Multi-TE level */
+			.multi_te_level[0] = {
+				.level_id = 0,
+				.level_fps = 60,
+				.max_fps = 60,
+				.min_fps = 40,
+			},
+			.multi_te_level[1] = {
+				.level_id = 1,
+				.level_fps = 72,
+				.max_fps = 72,
+				.min_fps = 45,
+			},
+			.multi_te_level[2] = {
+				.level_id = 2,
+				.level_fps = 90,
+				.max_fps = 90,
+				.min_fps = 51,
+			},
+			.multi_te_level[3] = {
+				.level_id = 3,
+				.level_fps = 120,
+				.max_fps = 120,
+				.min_fps = 60,
+			},
+		},
+	},
+
 };
 
 static struct mtk_panel_params ext_params_120hz = {
@@ -757,6 +793,42 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 	},
+
+	.msync2_enable = 1,
+	.msync_cmd_table = {
+		.te_type = MULTI_TE,
+		.msync_max_fps = 120,
+		.msync_min_fps = 20,
+		.msync_level_num = 20,
+		.multi_te_tb = {
+			/* Multi-TE level */
+			.multi_te_level[0] = {
+				.level_id = 0,
+				.level_fps = 60,
+				.max_fps = 60,
+				.min_fps = 40,
+			},
+			.multi_te_level[1] = {
+				.level_id = 1,
+				.level_fps = 72,
+				.max_fps = 72,
+				.min_fps = 45,
+			},
+			.multi_te_level[2] = {
+				.level_id = 2,
+				.level_fps = 90,
+				.max_fps = 90,
+				.min_fps = 51,
+			},
+			.multi_te_level[3] = {
+				.level_id = 3,
+				.level_fps = 120,
+				.max_fps = 120,
+				.min_fps = 60,
+			},
+		},
+	},
+
 };
 
 struct drm_display_mode *get_mode_by_id(struct drm_connector *connector,
@@ -1220,6 +1292,528 @@ static int mode_switch(struct drm_panel *panel,
 	return ret;
 }
 
+
+static int msync_te_level_switch(struct drm_panel *panel, unsigned int fps_level)
+{
+	int ret = 0;
+	struct lcm *ctx = panel_to_lcm(panel);
+
+
+	DDPINFO("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
+	if (fps_level <= MODE_0_FPS) { /*switch to 60 */
+		DDPINFO("%s:%d switch to 60fps\n", __func__, __LINE__);
+		/* CASET/PASET Setting */
+		lcm_dcs_write_seq_static(ctx, 0x2A, 0x00, 0x00, 0x05, 0x9F);
+		lcm_dcs_write_seq_static(ctx, 0x2B, 0x00, 0x00, 0x0C, 0x8F);
+
+		/* Scaler Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xC3, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC1 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x22, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0xA1, 0xB1);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3A, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x05);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x26, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC3 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x24, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x21);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x38, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x05);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x2A, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* OPLUS ADFR On */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xFD, 0x4A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0xF2);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x1B, 0x50);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x74, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x78);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x01, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x08);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x10, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0xAA);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3F, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x45, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6C, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x80);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6F, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x45, 0x65, 0x65, 0x65);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x06, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0A, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0E, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x13, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		/* oplus adfr -> max:min */
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x03);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x04, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x02, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x1C);
+		/* Frame Compensation 82:off 02:on */
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x21, 0x82);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Open Multi-TE */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Min FPS */
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		/* min fps 40fps */
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x06);
+
+	} else if (fps_level <= MODE_1_FPS) { /*switch to 72 */
+		DDPINFO("%s:%d switch to 72fps\n", __func__, __LINE__);
+		/* CASET/PASET Setting */
+		lcm_dcs_write_seq_static(ctx, 0x2A, 0x00, 0x00, 0x05, 0x9F);
+		lcm_dcs_write_seq_static(ctx, 0x2B, 0x00, 0x00, 0x0C, 0x8F);
+
+		/* Scaler Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xC3, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC1 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x22, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0xA1, 0xB1);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3A, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x04);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x26, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC3 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x24, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x21);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x38, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x04);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x2A, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* OPLUS ADFR On */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xFD, 0x4A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0xF2);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x1B, 0x50);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x74, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x78);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x01, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x08);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x10, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0xAA);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3F, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x45, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6C, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x80);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6F, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x45, 0x65, 0x65, 0x65);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x06, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0A, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0E, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x13, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		/* oplus adfr -> max:min */
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x04, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x02, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x1C);
+		/* Frame Compensation 82:off 02:on */
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x21, 0x82);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Open Multi-TE */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Min FPS */
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x05);
+
+	} else if (fps_level <= MODE_2_FPS) { /*switch to 90 */
+		DDPINFO("%s:%d switch to 90fps\n", __func__, __LINE__);
+		/* CASET/PASET Setting */
+		lcm_dcs_write_seq_static(ctx, 0x2A, 0x00, 0x00, 0x05, 0x9F);
+		lcm_dcs_write_seq_static(ctx, 0x2B, 0x00, 0x00, 0x0C, 0x8F);
+
+		/* Scaler Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xC3, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC1 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x22, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0xA1, 0xB1);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3A, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x03);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x26, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC3 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x24, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x21);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x38, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x03);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x2A, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* OPLUS ADFR On */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xFD, 0x4A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0xF2);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x1B, 0x50);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x74, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x78);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x01, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x08);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x10, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0xAA);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3F, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x45, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6C, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x80);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6F, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x45, 0x65, 0x65, 0x65);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x06, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0A, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0E, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x13, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		/* oplus adfr -> max:min */
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x01);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x04, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x02, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x1C);
+		/* Frame Compensation 82:off 02:on */
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x21, 0x82);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Open Multi-TE */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Min FPS */
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x04);
+
+	} else if (fps_level <= MODE_3_FPS) { /*switch to 120 */
+		DDPINFO("%s:%d switch to 120fps\n", __func__, __LINE__);
+		/* CASET/PASET Setting */
+		lcm_dcs_write_seq_static(ctx, 0x2A, 0x00, 0x00, 0x05, 0x9F);
+		lcm_dcs_write_seq_static(ctx, 0x2B, 0x00, 0x00, 0x0C, 0x8F);
+
+		/* Scaler Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xC3, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC1 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x22, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0xA1, 0xB1);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3A, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x26, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* TSP_SYNC3 Fixed Setting */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x24, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x21);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x38, 0xB9);
+		/* TSP_VSYNC Fixed TE 02:120 03:90 05:60 */
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x2A, 0xB9);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* OPLUS ADFR On */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x02);
+		lcm_dcs_write_seq_static(ctx, 0xFD, 0x4A);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0xF2);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x1B, 0x50);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x74, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x78);
+		lcm_dcs_write_seq_static(ctx, 0xF2, 0x01, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x08);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x10, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0xAA);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x3F, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x45, 0xF6);
+		lcm_dcs_write_seq_static(ctx, 0xF6, 0x1F);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6C, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x80);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x6F, 0xBD);
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x45, 0x65, 0x65, 0x65);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x06, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0A, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x0E, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x13, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0xFF, 0x00, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		/* oplus adfr -> max:min */
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x04, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x02, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x1C);
+		/* Frame Compensation 82:off 02:on */
+		lcm_dcs_write_seq_static(ctx, 0xBD, 0x21, 0x82);
+		lcm_dcs_write_seq_static(ctx, 0xF7, 0x0F);
+		lcm_dcs_write_seq_static(ctx, 0xFC, 0xA5, 0xA5);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Open Multi-TE */
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0x5A, 0x5A);
+		lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
+		lcm_dcs_write_seq_static(ctx, 0xB9, 0x0A);
+		lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
+
+		/* Min FPS */
+		lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+		lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x03);
+
+	} else
+		ret = 1;
+
+	return ret;
+}
+
+int msync_cmd_set_min_fps(struct drm_panel *panel, unsigned int flag)
+{
+	int ret = 0;
+	struct lcm *ctx = panel_to_lcm(panel);
+	unsigned int fps_level = (flag & 0xFFFF0000) >> 16;
+	unsigned int min_fps = flag & 0xFFFF;
+
+	DDPINFO("%s:%d flag:0x%08x, fps_level:%u min_fps:%u\n",
+			__func__, __LINE__, flag, fps_level, min_fps);
+	if (fps_level <= MODE_0_FPS) { /*switch to 60 */
+		if (min_fps >= 60) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x03);
+		} else if (min_fps >= 51) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x04);
+		} else if (min_fps >= 45) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x05);
+		} else if (min_fps >= 40) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x06);
+		} else if (min_fps >= 36) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x07);
+		} else if (min_fps >= 33) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x08);
+		} else if (min_fps >= 30) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x09);
+		} else if (min_fps >= 28) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x0A);
+		} else if (min_fps >= 26) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x0B);
+		} else if (min_fps >= 24) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x0C);
+		} else if (min_fps >= 23) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x0C, 0x0D);
+		}
+
+	} else if (fps_level <= MODE_1_FPS) { /*switch to 72 */
+		if (min_fps >= 72) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x03);
+		} else if (min_fps >= 60) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x03);
+		} else if (min_fps >= 51) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x04);
+		} else if (min_fps >= 45) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x05);
+		} else if (min_fps >= 40) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x06);
+		} else if (min_fps >= 36) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x07);
+		} else if (min_fps >= 33) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x08);
+		} else if (min_fps >= 30) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x09);
+		} else if (min_fps >= 28) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x0A);
+		} else if (min_fps >= 26) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x0B);
+		} else if (min_fps >= 24) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x08, 0x0C);
+		}
+
+	} else if (fps_level <= MODE_2_FPS) { /*switch to 90 */
+		if (min_fps >= 90) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x01);
+		} else if (min_fps >= 72) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x02);
+		} else if (min_fps >= 60) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x03);
+		} else if (min_fps >= 51) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x04);
+		} else if (min_fps >= 45) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x05);
+		} else if (min_fps >= 40) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x06);
+		} else if (min_fps >= 36) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x07);
+		} else if (min_fps >= 33) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x08);
+		} else if (min_fps >= 30) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x09);
+		} else if (min_fps >= 28) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x0A);
+		} else if (min_fps >= 24) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x04, 0x0C);
+		}
+
+	} else if (fps_level <= MODE_3_FPS) { /*switch to 120 */
+		if (min_fps >= 120) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x00);
+		} else if (min_fps >= 90) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x01);
+		} else if (min_fps >= 72) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x02);
+		} else if (min_fps >= 60) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x03);
+		} else if (min_fps >= 51) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x04);
+		} else if (min_fps >= 45) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x05);
+		} else if (min_fps >= 40) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x06);
+		} else if (min_fps >= 36) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x07);
+		} else if (min_fps >= 33) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x08);
+		} else if (min_fps >= 30) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x09);
+		} else if (min_fps >= 24) {
+			lcm_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x18, 0x60);
+			lcm_dcs_write_seq_static(ctx, 0x60, 0x00, 0x0C);
+		}
+
+	} else
+		ret = 1;
+
+	return ret;
+}
+
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
@@ -1227,6 +1821,8 @@ static struct mtk_panel_funcs ext_funcs = {
 	.ext_param_set = mtk_panel_ext_param_set,
 	.ext_param_get = mtk_panel_ext_param_get,
 	.mode_switch = mode_switch,
+	.msync_te_level_switch = msync_te_level_switch,
+	.msync_cmd_set_min_fps = msync_cmd_set_min_fps,
 };
 #endif
 

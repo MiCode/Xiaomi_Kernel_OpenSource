@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <drm/drm_crtc.h>
 #include <linux/kmemleak.h>
+#include <linux/time.h>
 
 #ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -5988,6 +5989,225 @@ static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 	 */
 #endif
 }
+
+static struct msync_parameter_table msync_params_tb;
+static struct msync_level_table msync_level_tb[MSYNC_MAX_LEVEL];
+unsigned int msync_cmd_level_tb_dirty;
+
+int (*mtk_drm_get_target_fps_fp)(unsigned int vrefresh, unsigned int atomic_fps);
+EXPORT_SYMBOL(mtk_drm_get_target_fps_fp);
+
+int (*mtk_sync_multi_te_level_decision_fp)(void *level_tb,
+	unsigned int target_fps, unsigned int *fps_level, unsigned int *min_fps);
+EXPORT_SYMBOL(mtk_sync_multi_te_level_decision_fp);
+
+void mtk_drm_sort_msync_level_table(void)
+{
+	struct msync_level_table tmp = {0};
+	int i = 0;
+	int j = 0;
+
+	for (i = MSYNC_MAX_LEVEL - 1; i >= 0; --i) {
+		for (j = 0; j < MSYNC_MAX_LEVEL - 1; ++j) {
+			if ((msync_level_tb[j].level_id == 0) ||
+				(msync_level_tb[j+1].level_id == 0))
+				continue;
+			if (msync_level_tb[j].level_fps >
+					msync_level_tb[j+1].level_fps) {
+				tmp.level_fps = msync_level_tb[j].level_fps;
+				msync_level_tb[j].level_fps = msync_level_tb[j+1].level_fps;
+				msync_level_tb[j+1].level_fps = tmp.level_fps;
+
+				tmp.max_fps = msync_level_tb[j].max_fps;
+				msync_level_tb[j].max_fps = msync_level_tb[j+1].max_fps;
+				msync_level_tb[j+1].max_fps = tmp.max_fps;
+
+				tmp.min_fps = msync_level_tb[j].min_fps;
+				msync_level_tb[j].min_fps = msync_level_tb[j+1].min_fps;
+				msync_level_tb[j+1].min_fps = tmp.min_fps;
+			}
+		}
+	}
+}
+
+int mtk_drm_set_msync_cmd_level_table(unsigned int level_id, unsigned int level_fps,
+		unsigned int max_fps, unsigned int min_fps)
+{
+	struct msync_level_table *level_tb = NULL;
+	int i = 0;
+
+	DDPINFO("msync_level_tb_set: set level_id;%d, level_fps:%d, max_fps:%d, min_fps:%d\n",
+			level_id, level_fps, max_fps, min_fps);
+
+	if (level_id > MSYNC_MAX_LEVEL) {
+		DDPINFO("msync_level_tb_set: ERROR level out of max_level\n");
+		return 0;
+	}
+
+	if (level_id <= 0) {
+		DDPINFO("msync_level_tb_set: ERROR level must start from level 1\n");
+		return 0;
+	}
+
+	for (i = 0; i < MSYNC_MAX_LEVEL - 1; i++) {
+		if (msync_level_tb[i].level_id == 0)
+			if (level_id > (i+1)) {
+				DDPINFO("msync_level_tb_set: ERROR next level must be %d\n", i+1);
+				return 0;
+			}
+	}
+
+	level_tb = &msync_level_tb[level_id-1];
+
+	level_tb->level_id = level_id;
+	level_tb->level_fps = level_fps;
+	level_tb->max_fps = max_fps;
+	level_tb->min_fps = min_fps;
+
+	mtk_drm_sort_msync_level_table();
+	msync_cmd_level_tb_dirty = 1;
+	DDPINFO("msync_level_tb_set: Set Successful!\n");
+
+	return 0;
+}
+
+void mtk_drm_clear_msync_cmd_level_table(void)
+{
+	int i = 0;
+	struct msync_level_table *level_tb = NULL;
+
+	for (i = 0; i < MSYNC_MAX_LEVEL; i++) {
+		level_tb = &msync_level_tb[i];
+
+		level_tb->level_id = 0;
+		level_tb->level_fps = 0;
+		level_tb->max_fps = 0;
+		level_tb->min_fps = 0;
+	}
+
+	DDPINFO("========clear msync_level_tb done========\n");
+
+	msync_cmd_level_tb_dirty = 0;
+}
+
+void mtk_drm_get_msync_cmd_level_table(void)
+{
+	int i = 0;
+	struct msync_level_table *level_tb = NULL;
+
+	DDPINFO("========msync_level_tb_get start========\n");
+	for (i = 0; i < MSYNC_MAX_LEVEL; i++) {
+		level_tb = &msync_level_tb[i];
+		DDPINFO("msync_level_tb_get:level%u level_fps:%u max_fps:%u min_fps:%u\n",
+		level_tb->level_id, level_tb->level_fps,
+		level_tb->max_fps, level_tb->min_fps);
+	}
+	DDPINFO("========msync_level_tb_get end========\n");
+}
+
+int mtk_drm_get_atomic_fps(void)
+{
+	struct timespec64 tval;
+	static unsigned long sec;
+	static unsigned long usec;
+	static unsigned long sec1;
+	static unsigned long usec1;
+	unsigned long x_time = 0;
+	static int count;
+	unsigned int target_fps = 0;
+
+	/* TODO: add err handle */
+	if (count == 0) {
+		ktime_get_real_ts64(&tval);
+		sec = tval.tv_sec;
+		usec = tval.tv_nsec/1000;
+		count++;
+	} else {
+		ktime_get_real_ts64(&tval);
+		sec1 = tval.tv_sec - sec;
+		usec1 = tval.tv_nsec/1000 - usec;
+		x_time = sec1 * 1000000 + usec1;
+
+		target_fps = 1000000/x_time;
+		sec = tval.tv_sec;
+		usec = tval.tv_nsec/1000;
+	}
+
+	return target_fps;
+}
+
+static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned int target_fps)
+{
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct mtk_panel_params *params = mtk_drm_get_lcm_ext_params(crtc);
+	unsigned int fps_level = 0;
+	unsigned int min_fps = 0;
+
+	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
+
+	if (!params || !state || !mtk_crtc || !comp) {
+		DDPPR_ERR("[Msync2.0] Some pointer is NULL\n");
+		return;
+	}
+
+	if (!mtk_drm_get_target_fps_fp) {
+		DDPPR_ERR("[Msync2.0] mtk_drm_get_target_fps_fp is NULL\n");
+		return;
+	}
+
+	/* If need request TE, to do it here */
+	if (params->msync_cmd_table.te_type == REQUEST_TE) {
+		/* TODO: Add Request Te */
+
+	} else if (params->msync_cmd_table.te_type == MULTI_TE) {
+		struct msync_multi_te_table *mte_tb =
+			&params->msync_cmd_table.multi_te_tb;
+		static unsigned int fps_level_old;
+		static unsigned int min_fps_old;
+
+		DDPMSG("[Msync2.0] M-TE\n");
+
+		if (mtk_sync_multi_te_level_decision_fp) {
+			mtk_sync_multi_te_level_decision_fp((void *)mte_tb->multi_te_level,
+				target_fps, &fps_level, &min_fps);
+
+			if (msync_cmd_level_tb_dirty)
+				mtk_sync_multi_te_level_decision_fp((void *)msync_level_tb,
+					target_fps, &fps_level, &min_fps);
+		} else {
+			DDPMSG("[Msync2.0] Not have level decision function\n");
+			return;
+		}
+
+		DDPMSG("[Msync2.0] M-TE target_fps:%u fps_level:%u dirty:%u min_fps:%u\n",
+			target_fps, fps_level, msync_cmd_level_tb_dirty, min_fps);
+
+		/* Switch msync TE level */
+		if (fps_level != fps_level_old) {
+			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+					DSI_MSYNC_SWITCH_TE_LEVEL, &fps_level);
+			fps_level_old = fps_level;
+		}
+
+		/* Set min fps */
+		if (msync_cmd_level_tb_dirty && (min_fps != min_fps_old)) {
+			unsigned int flag = 0;
+
+			flag = (fps_level << 16) | min_fps;
+			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+					DSI_MSYNC_CMD_SET_MIN_FPS, &flag);
+			min_fps_old = min_fps;
+		}
+
+	} else if (params->msync_cmd_table.te_type == TRIGGER_LEVEL_TE) {
+		/* TODO: Add Trigger Level Te */
+
+	} else {
+		DDPPR_ERR("%s:%d No TE Type\n", __func__, __LINE__);
+	}
+}
 /******************Msync 2.0 function end**********************/
 
 static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
@@ -6006,6 +6226,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		to_mtk_crtc_state(old_crtc_state);
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
+	unsigned int target_fps = 0;
+	unsigned int atomic_fps = 0;
 
 	/* When open VDS path switch feature, we will resume VDS crtc
 	 * in it's second atomic commit, and the crtc will be resumed
@@ -6057,6 +6279,21 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			state, old_mtk_state)) {
 		mtk_crtc_msync2_add_cmds_bef_cfg(crtc, old_mtk_state, state,
 				state->cmdq_handle);
+	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
+			msync_is_on(priv, params, crtc_id,
+				state, old_mtk_state) && (index == 0)) {
+
+		/* Get target fps for msync2.0 */
+		atomic_fps = mtk_drm_get_atomic_fps();
+		WARN_ON(!mtk_drm_get_target_fps_fp);
+		if (mtk_drm_get_target_fps_fp)
+			target_fps = mtk_drm_get_target_fps_fp(
+				drm_mode_vrefresh(&crtc->state->adjusted_mode),
+				atomic_fps);
+		else
+			target_fps = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+
+		mtk_crtc_msync2_send_cmds_bef_cfg(crtc, target_fps);
 	}
 
 #ifdef MTK_DRM_ADVANCE
@@ -8216,6 +8453,149 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 	DDPMSG("%s-CRTC%d create successfully\n", __func__,
 		priv->num_pipes - 1);
+
+	return 0;
+}
+
+int mtk_drm_set_msync_cmd_table(struct drm_device *dev,
+		struct msync_parameter_table *config_dst)
+{
+	struct msync_parameter_table *config_src = &msync_params_tb;
+
+	DDPMSG("%s:%d +++\n", __func__, __LINE__);
+	config_src->level_tb = msync_level_tb;
+
+	config_src->msync_max_fps = config_dst->msync_max_fps;
+	config_src->msync_min_fps = config_dst->msync_min_fps;
+	config_src->msync_level_num = config_dst->msync_level_num;
+
+	if (config_src->msync_level_num > MSYNC_MAX_LEVEL) {
+		DDPPR_ERR("msync level num out of max level\n");
+		return -EFAULT;
+	}
+
+	if (config_dst->level_tb != NULL) {
+		if (copy_from_user(config_src->level_tb,
+					config_dst->level_tb,
+					sizeof(struct msync_parameter_table) *
+					config_src->msync_level_num)) {
+			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					config_src->level_tb,
+					config_dst->level_tb,
+					sizeof(struct msync_parameter_table) *
+					config_src->msync_level_num);
+			return -EFAULT;
+		}
+	}
+
+	DDPMSG("%s:%d ---\n", __func__, __LINE__);
+	return 0;
+}
+
+int check_msync_config_info(struct msync_parameter_table *config)
+{
+	unsigned int msync_level_num = config->msync_level_num;
+	struct msync_level_table *level_tb = config->level_tb;
+	int i = 0;
+
+	if (!level_tb) {
+		DDPPR_ERR("%s:%d The level table pointer is NULL !!!\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+
+	if ((msync_level_num <= 0) ||
+			(msync_level_num > MSYNC_MAX_LEVEL)) {
+		DDPPR_ERR("%s:%d The level num is error!!!\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+
+	if (level_tb[0].level_id != 1) {
+		DDPPR_ERR("%s:%d Level must start from level 1!!!\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+
+	for (i = 0; i < msync_level_num - 1; i++) {
+		if (level_tb[i+1].level_id != (level_tb[i].level_id + 1)) {
+			DDPPR_ERR("%s:%d Level must set like 1,2,3 ... !!!\n",
+					__func__, __LINE__);
+			return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
+int mtk_drm_set_msync_params_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct msync_parameter_table *config = data;
+
+	DDPMSG("%s:%d +++\n", __func__, __LINE__);
+
+	if (!config) {
+		DDPPR_ERR("%s:%d The data pointer is NULL !!!\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+
+	if (check_msync_config_info(config) < 0) {
+		DDPPR_ERR("check msync config info fail!\n");
+		return -EFAULT;
+	}
+
+	mtk_drm_clear_msync_cmd_level_table();
+
+	ret = mtk_drm_set_msync_cmd_table(dev, config);
+	if (ret != 0) {
+		DDPPR_ERR("%s:%d copy failed!!!\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+
+	mtk_drm_sort_msync_level_table();
+	msync_cmd_level_tb_dirty = 1;
+	DDPMSG("%s:%d ---\n", __func__, __LINE__);
+	return 0;
+}
+
+int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv)
+{
+	struct msync_parameter_table *config = data;
+	struct msync_parameter_table *config_dst = &msync_params_tb;
+
+	DDPMSG("%s:%d +++\n", __func__, __LINE__);
+	if (!config) {
+		DDPPR_ERR("%s:%d The data pointer is NULL !!!\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+
+	config->msync_max_fps = config_dst->msync_max_fps;
+	config->msync_min_fps = config_dst->msync_min_fps;
+	config->msync_level_num = MSYNC_MAX_LEVEL;
+	config_dst->level_tb = msync_level_tb;
+
+	if (config_dst->level_tb != NULL) {
+		if (copy_to_user(config->level_tb,
+					config_dst->level_tb,
+					sizeof(struct msync_parameter_table) *
+					config->msync_level_num)) {
+			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					config->level_tb,
+					config_dst->level_tb,
+					sizeof(struct msync_parameter_table) *
+					config->msync_level_num);
+			return -EFAULT;
+		}
+	}
+	DDPMSG("%s:%d ---\n", __func__, __LINE__);
 
 	return 0;
 }

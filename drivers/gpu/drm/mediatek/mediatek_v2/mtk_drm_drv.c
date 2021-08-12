@@ -2839,9 +2839,12 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	/* Msync 2.0
 	 * according to panel*/
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_MSYNC2_0)) {
-		if (params && params->msync2_enable)
+		if (params && params->msync2_enable) {
 			caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_MSYNC2_0;
+			caps_info->msync_level_num =
+				params->msync_cmd_table.msync_level_num;
+		}
 	}
 
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
@@ -3591,6 +3594,12 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_CRTC_GETSFFENCE,
 			  mtk_drm_crtc_get_sf_fence_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_SET_MSYNC_PARAMS,
+			  mtk_drm_set_msync_params_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_GET_MSYNC_PARAMS,
+			  mtk_drm_get_msync_params_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_WAIT_REPAINT, mtk_drm_wait_repaint_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),

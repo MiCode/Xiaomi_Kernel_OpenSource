@@ -5870,6 +5870,36 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		return mtk_mipi_dsi_read_gce(dsi, handle, crtc, cmd_msg);
 	}
 		break;
+	case DSI_MSYNC_SWITCH_TE_LEVEL:
+	{
+		unsigned int *fps_level = (unsigned int *)params;
+
+
+		if (dsi->ext && dsi->ext->funcs &&
+				dsi->ext->funcs->msync_te_level_switch)
+			dsi->ext->funcs->msync_te_level_switch(dsi->panel, *fps_level);
+	}
+		break;
+	case DSI_MSYNC_CMD_SET_MIN_FPS:
+	{
+		unsigned int *min_fps = (unsigned int *)params;
+
+
+		if (dsi->ext && dsi->ext->funcs &&
+				dsi->ext->funcs->msync_cmd_set_min_fps)
+			dsi->ext->funcs->msync_cmd_set_min_fps(dsi->panel, *min_fps);
+	}
+		break;
+
+	case DSI_MSYNC_SEND_DDIC_CMD:
+	{
+		struct msync_cmd_list *rte_cmdl =
+			(struct msync_cmd_list *)params;
+
+		mipi_dsi_dcs_write_gce_dyn(dsi, handle,
+				rte_cmdl->para_list, rte_cmdl->cmd_num);
+	}
+		break;
 	case DSI_GET_VIRTUAL_HEIGH:
 	{
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;

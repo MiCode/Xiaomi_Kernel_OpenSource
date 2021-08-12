@@ -881,6 +881,14 @@ void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
 int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle);
 /*Msync 2.0*/
+int mtk_drm_set_msync_cmd_level_table(unsigned int level_id, unsigned int level_fps,
+		unsigned int max_fps, unsigned int min_fps);
+void mtk_drm_get_msync_cmd_level_table(void);
+void mtk_drm_clear_msync_cmd_level_table(void);
+int mtk_drm_set_msync_params_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv);
+int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv);
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 						struct drm_crtc_state *old_crtc_state,
 						struct mtk_crtc_state *crtc_state);
