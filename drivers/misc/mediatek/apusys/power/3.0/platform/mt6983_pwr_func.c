@@ -34,7 +34,10 @@ static struct cluster_dev_opp_info opp_limit_tbl[CLUSTER_NUM] = {
 
 static inline int over_range_check(int opp)
 {
-	if (opp < USER_MAX_OPP_VAL)
+	// we treat opp -1 as a special hint regard to unlimit opp !
+	if (opp == -1)
+		return -1;
+	else if (opp < USER_MAX_OPP_VAL)
 		return USER_MAX_OPP_VAL;
 	else if (opp > USER_MIN_OPP_VAL)
 		return USER_MIN_OPP_VAL;
