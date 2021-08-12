@@ -16,6 +16,7 @@
 #include <trace/events/task.h>
 #include <trace/hooks/sched.h>
 #include <sched/sched.h>
+#include "common.h"
 #include "eas_plus.h"
 #include "sched_sys_common.h"
 
@@ -71,17 +72,25 @@ static int enqueue;
 static int dequeue;
 static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct *p, int flags)
 {
+	int cpu = rq->cpu;
+	int type = *(int *)data;
 	if (trace_sched_queue_task_enabled()) {
-		int cpu = rq->cpu;
 		unsigned long util = READ_ONCE(rq->cfs.avg.util_avg);
 
 		util = max_t(unsigned long, util,
 			     READ_ONCE(rq->cfs.avg.util_est.enqueued));
 
-		trace_sched_queue_task(cpu, p->pid, *(int *)data, util,
+		trace_sched_queue_task(cpu, p->pid, type, util,
 				rq->uclamp[UCLAMP_MIN].value, rq->uclamp[UCLAMP_MAX].value,
 				p->uclamp[UCLAMP_MIN].value, p->uclamp[UCLAMP_MAX].value);
 	}
+
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+	if ((type == dequeue) && dequeue_idle_cpu(cpu))
+		per_cpu(cpufreq_idle_cpu, cpu) = 1;
+	else
+		per_cpu(cpufreq_idle_cpu, cpu) = 0;
+#endif
 }
 
 static void mtk_sched_trace_init(void)

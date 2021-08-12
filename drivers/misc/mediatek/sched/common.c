@@ -31,6 +31,30 @@ int idle_cpu(int cpu)
 	return 1;
 }
 
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+/**
+ * dequeue_idle_cpu - is a given CPU idle currently?
+ * this function is used in after_dequeue  the curr task
+ * does not switch to rq->idle
+ * @cpu: the processor in question.
+ *
+ * Return: 1 if the CPU is currently idle. 0 otherwise.
+ */
+int dequeue_idle_cpu(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+#ifdef CONFIG_SMP
+	if (rq->ttwu_pending)
+		return 0;
+#endif
+	if (rq->nr_running == 1)
+		return 1;
+
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_UCLAMP_TASK
 /**
  * uclamp_rq_util_with - clamp @util with @rq and @p effective uclamp values.

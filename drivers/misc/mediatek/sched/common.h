@@ -13,9 +13,11 @@ extern void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq
 #endif /* CONFIG_NONLINEAR_FREQ_CTL */
 
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+DECLARE_PER_CPU(int, cpufreq_idle_cpu);
 unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 				unsigned long max, enum schedutil_type type,
 				struct task_struct *p);
+int dequeue_idle_cpu(int cpu);
 #endif
 __always_inline
 unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
