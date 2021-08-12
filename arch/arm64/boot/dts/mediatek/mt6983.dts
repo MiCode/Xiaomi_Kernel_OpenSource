@@ -11153,6 +11153,10 @@
 		compatible = "mediatek,drm_wv";
 		status = "okay";
 	};
+
+	mtee_svp: mtee_svp {
+		compatible = "medaitek,svp";
+	};
 };
 
 &i2c6 {
