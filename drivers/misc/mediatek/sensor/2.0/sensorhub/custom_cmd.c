@@ -115,7 +115,7 @@ static int custom_cmd_slow_comm(int sensor_type, struct custom_cmd *cust_cmd)
 		sizeof(shm_cmd.data) != sizeof(cust_cmd->data) ||
 		offsetof(typeof(shm_cmd), data) !=
 		offsetof(typeof(*cust_cmd), data)) {
-		pr_err("type %u cmd %u struct not match\n",
+		pr_err("%u %u struct not match\n",
 			sensor_type, cust_cmd->command);
 		return -EINVAL;
 	}
@@ -133,13 +133,13 @@ static int custom_cmd_slow_comm(int sensor_type, struct custom_cmd *cust_cmd)
 	mutex_unlock(&bus_user_lock);
 
 	if (ret < 0) {
-		pr_err("type %u cmd %u comm fail %d\n",
+		pr_err("%u %u comm fail %d\n",
 			sensor_type, cust_cmd->command, ret);
 		return ret;
 	}
 	if (shm_cmd.command != cust_cmd->command ||
 		shm_cmd.rx_len > sizeof(shm_cmd.data)) {
-		pr_err("type %u cmd %u param error\n",
+		pr_err("%u %u param error\n",
 			sensor_type, cust_cmd->command);
 		return -EINVAL;
 	}
@@ -218,7 +218,7 @@ static int custom_cmd_fast_comm(int sensor_type, struct custom_cmd *cust_cmd)
 	mutex_unlock(&bus_user_lock);
 
 	if (ret < 0)
-		pr_err("type %u cmd %u fast comm fail %d\n",
+		pr_err("%u %u fast comm fail %d\n",
 			sensor_type, cust_cmd->command, ret);
 
 	return ret;

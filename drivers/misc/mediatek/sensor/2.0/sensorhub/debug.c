@@ -44,7 +44,7 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 
 	ret = share_mem_read_reset(&debug_shm_reader);
 	if (ret < 0) {
-		pr_err("reset fail %d\n", ret);
+		pr_err("%u reset fail %d\n", sensor_type, ret);
 		return ret;
 	}
 
@@ -68,14 +68,14 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	ctrl->data[0] = atomic_inc_return(&debug_sequence);
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	if (ret < 0) {
-		pr_err("send fail %d\n", ret);
+		pr_err("%u send fail %d\n", sensor_type, ret);
 		goto out1;
 	}
 
 	timeout = wait_for_completion_timeout(&debug_done,
 		msecs_to_jiffies(100));
 	if (!timeout) {
-		pr_err("wait completion timeout\n");
+		pr_err("%u wait completion timeout\n", sensor_type);
 		ret = -ETIMEDOUT;
 		goto out1;
 	}
@@ -84,7 +84,7 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	if (rx_notify.sequence != ctrl->data[0] &&
 	    rx_notify.sensor_type != ctrl->sensor_type &&
 	    rx_notify.command != ctrl->command) {
-		pr_err("reply fail\n");
+		pr_err("%u reply fail\n", sensor_type);
 		spin_unlock_irqrestore(&rx_notify_lock, flags);
 		ret = -EREMOTEIO;
 		goto out1;
@@ -94,16 +94,16 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 
 	ret = share_mem_seek(&debug_shm_reader, write_position);
 	if (ret < 0) {
-		pr_err("seek fail %d\n", ret);
+		pr_err("%u seek fail %d\n", sensor_type, ret);
 		goto out1;
 	}
 	shm_debug = kzalloc(sizeof(*shm_debug), GFP_KERNEL);
 	ret = share_mem_read(&debug_shm_reader, shm_debug, sizeof(*shm_debug));
 	if (ret < 0) {
-		pr_err("read fail %d\n", ret);
+		pr_err("%u read fail %d\n", sensor_type, ret);
 		goto out2;
 	} else if (ret != sizeof(*shm_debug)) {
-		pr_err("size fail %d\n", ret);
+		pr_err("%u size fail %d\n", sensor_type, ret);
 		ret = -EPROTO;
 		goto out2;
 	}
