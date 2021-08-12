@@ -211,7 +211,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
 	} else if ((g_hang_detected == 0) &&
 		    ((local_bit & get_check_bit()) != get_check_bit()) &&
-		    (sched_clock() - wk_lasthpg_t[cpu] > curInterval)) {
+		    (sched_clock() - wk_lasthpg_t[cpu] >
+		     curInterval * 1000 * 1000 * 1000)) {
 		g_hang_detected = 1;
 		dump_timeout = 1;
 	}
@@ -232,8 +233,10 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	kick_bit = local_bit;
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-	aee_rr_rec_kick(('D' << 24) | local_bit);
-	aee_rr_rec_check(('B' << 24) | get_check_bit());
+	if (!dump_timeout) {
+		aee_rr_rec_kick(('D' << 24) | local_bit);
+		aee_rr_rec_check(('B' << 24) | get_check_bit());
+	}
 #endif
 
 	spin_unlock(&lock);
