@@ -255,8 +255,8 @@ static void slbc_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 
 	cmd = report->p1;
 	arg = report->p2;
-	pr_info("#@# %s(%d) report 0x%x 0x%x 0x%x 0x%x\n", __func__, __LINE__,
-			report->p1, report->p2, report->p3, report->p4);
+	/* pr_info("#@# %s(%d) report 0x%x 0x%x 0x%x 0x%x\n", __func__, __LINE__, */
+			/* report->p1, report->p2, report->p3, report->p4); */
 
 	switch (cmd) {
 	case IPI_SLBC_SYNC_TO_AP:

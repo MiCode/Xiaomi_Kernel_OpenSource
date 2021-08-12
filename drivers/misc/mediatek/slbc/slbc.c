@@ -25,7 +25,7 @@ EXPORT_SYMBOL_GPL(slbc_enable);
 
 struct slbc_common_ops *common_ops;
 
-/* need to modify enum slbc_uid  */
+/* need to modify enum slbc_uid */
 char *slbc_uid_str[UID_MAX] = {
 	"UID_ZERO",
 	"UID_MM_VENC",

@@ -30,7 +30,7 @@
 	 ((_val_ << _name_##_SHIFT) & (_name_##_MASK)))
 
 #define SLBC_UID_USED                   0x0
-#define SLBC_SID_MASK                   0x4
+#define SLBC_UID_MASK                   0x4
 #define SLBC_SID_REQ_Q                  0x8
 #define SLBC_SID_REL_Q                  0xC
 #define SLBC_SLOT_USED                  0x10
@@ -59,10 +59,10 @@
 #define SLBC_UID_USED_STA_LSB           SLBC_BIT(0)
 #define SLBC_UID_USED_STA_SHIFT         0
 #define SLBC_UID_USED_STA_MASK          SLBC_BITMASK(31:0)
-/* SLBC_SID_MASK */
-#define SLBC_SID_MASK_STA_LSB           SLBC_BIT(0)
-#define SLBC_SID_MASK_STA_SHIFT         0
-#define SLBC_SID_MASK_STA_MASK          SLBC_BITMASK(31:0)
+/* SLBC_UID_MASK */
+#define SLBC_UID_MASK_STA_LSB           SLBC_BIT(0)
+#define SLBC_UID_MASK_STA_SHIFT         0
+#define SLBC_UID_MASK_STA_MASK          SLBC_BITMASK(31:0)
 /* SLBC_SID_REQ_Q */
 #define SLBC_SID_REQ_Q_STA_LSB          SLBC_BIT(0)
 #define SLBC_SID_REQ_Q_STA_SHIFT        0

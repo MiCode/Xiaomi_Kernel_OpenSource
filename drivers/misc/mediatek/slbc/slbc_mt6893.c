@@ -65,7 +65,7 @@ static DEFINE_MUTEX(slbc_ops_lock);
 /* 1 in bit is from request done to relase done */
 static unsigned long slbc_uid_used;
 /* 1 in bit is for mask */
-static unsigned long slbc_sid_mask;
+static unsigned long slbc_uid_mask;
 /* 1 in bit is under request flow */
 static unsigned long slbc_sid_req_q;
 /* 1 int bit is under release flow */
@@ -94,7 +94,7 @@ static int slbc_check_mmsram(void)
 	if (!mmsram.size) {
 		mmsram_get_info(&mmsram);
 		if (!mmsram.size) {
-			pr_info("#@# %s(%d) mmsram is wrong !!!\n",
+			pr_info("#@# %s(%d) mmsram is wrong!\n",
 					__func__, __LINE__);
 
 			mmsram.paddr = 0;
@@ -202,7 +202,7 @@ static void slbc_deactivate_timer_fn(struct timer_list *timer)
 			if (test_bit(uid, &slbc_uid_used)) {
 				ref++;
 
-				pr_info("#@# %s(%d) %s not released !!!\n",
+				pr_info("#@# %s(%d) %s not released!\n",
 						__func__, __LINE__,
 						slbc_uid_str[uid]);
 			} else {
@@ -210,7 +210,7 @@ static void slbc_deactivate_timer_fn(struct timer_list *timer)
 				slbc_debug_log("%s: slbc_sid_rel_q %lx",
 						__func__, slbc_sid_rel_q);
 
-				pr_info("#@# %s(%d) %s released !!!\n",
+				pr_info("#@# %s(%d) %s released!\n",
 						__func__, __LINE__,
 						slbc_uid_str[uid]);
 			}
@@ -247,19 +247,19 @@ int slbc_activate(struct slbc_data *d)
 	if (ops && ops->activate) {
 		ret = slbc_request(d);
 		if (ret) {
-			pr_info("#@# %s(%d) %s request fail !!!\n",
+			pr_info("#@# %s(%d) %s request fail!\n",
 					__func__, __LINE__, slbc_uid_str[uid]);
 
 			return ret;
 		}
 
 		if (ops->activate(d) == CB_DONE) {
-			pr_info("#@# %s(%d) %s activate fail !!!\n",
+			pr_info("#@# %s(%d) %s activate fail!\n",
 					__func__, __LINE__, slbc_uid_str[uid]);
 
 			ret = slbc_release(d);
 			if (ret) {
-				pr_info("#@# %s(%d) %s release fail !!!\n",
+				pr_info("#@# %s(%d) %s release fail!\n",
 						__func__, __LINE__,
 						slbc_uid_str[uid]);
 
@@ -276,7 +276,7 @@ int slbc_activate(struct slbc_data *d)
 		return 0;
 	}
 
-	pr_info("#@# %s(%d) %s data not found !!!\n",
+	pr_info("#@# %s(%d) %s data not found!\n",
 			__func__, __LINE__, slbc_uid_str[uid]);
 
 	return -EFAULT;
@@ -325,7 +325,7 @@ int slbc_deactivate(struct slbc_data *d)
 		return 0;
 	}
 
-	pr_info("#@# %s(%d) %s data not found !!!\n",
+	pr_info("#@# %s(%d) %s data not found!\n",
 			__func__, __LINE__, slbc_uid_str[uid]);
 
 	return -EFAULT;
@@ -520,7 +520,7 @@ static int slbc_debug_all(void)
 
 	pr_info("slbc_enable %x\n", slbc_enable);
 	pr_info("slbc_uid_used %lx\n", slbc_uid_used);
-	pr_info("slbc_sid_mask %lx\n", slbc_sid_mask);
+	pr_info("slbc_uid_mask %lx\n", slbc_uid_mask);
 	pr_info("slbc_sid_req_q %lx\n", slbc_sid_req_q);
 	pr_info("slbc_sid_rel_q %lx\n", slbc_sid_rel_q);
 	pr_info("slbc_slot_used %lx\n", slbc_slot_used);
@@ -647,7 +647,7 @@ int slbc_request(struct slbc_data *d)
 		d->sid = sid;
 		d->config = &p_config[sid];
 	} else {
-		pr_info("#@# %s(%d) %s sid is wrong !!!\n",
+		pr_info("#@# %s(%d) %s sid is wrong!\n",
 				__func__, __LINE__, slbc_uid_str[uid]);
 
 		ret = -EINVAL;
@@ -663,8 +663,8 @@ int slbc_request(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_sid_mask %lx", __func__, slbc_sid_mask);
-	if (test_bit(uid, &slbc_sid_mask)) {
+	slbc_debug_log("%s: slbc_uid_mask %lx", __func__, slbc_uid_mask);
+	if (test_bit(uid, &slbc_uid_mask)) {
 		ret = -EREQ_MASKED;
 		goto error;
 	}
@@ -851,7 +851,7 @@ int slbc_release(struct slbc_data *d)
 		d->sid = sid;
 		d->config = &p_config[sid];
 	} else {
-		pr_info("#@# %s(%d) %s sid is wrong !!!\n",
+		pr_info("#@# %s(%d) %s sid is wrong!\n",
 				__func__, __LINE__, slbc_uid_str[uid]);
 
 		ret = -EINVAL;
@@ -859,7 +859,7 @@ int slbc_release(struct slbc_data *d)
 	}
 
 	if (!uid_ref[uid]) {
-		pr_info("#@# %s(%d) %s uid_ref[%d] is zero !!!\n",
+		pr_info("#@# %s(%d) %s uid_ref[%d] is zero!\n",
 				__func__, __LINE__, slbc_uid_str[uid], uid);
 
 		ret = -EINVAL;
@@ -875,8 +875,8 @@ int slbc_release(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_sid_mask %lx", __func__, slbc_sid_mask);
-	if (test_bit(uid, &slbc_sid_mask)) {
+	slbc_debug_log("%s: slbc_uid_mask %lx", __func__, slbc_uid_mask);
+	if (test_bit(uid, &slbc_uid_mask)) {
 		ret = -EREQ_MASKED;
 		goto error;
 	}
@@ -948,7 +948,7 @@ release_done1:
 	}
 
 	WARN((d->ref < 0) || (uid_ref[uid] < 0),
-			"%s: release %s fail !!! %d %d\n",
+			"%s: release %s fail! %d %d\n",
 			__func__, slbc_uid_str[uid], d->ref, uid_ref[uid]);
 
 error:
@@ -1111,7 +1111,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 
 	seq_printf(m, "slbc_enable %x\n", slbc_enable);
 	seq_printf(m, "slbc_uid_used 0x%lx\n", slbc_uid_used);
-	seq_printf(m, "slbc_sid_mask 0x%lx\n", slbc_sid_mask);
+	seq_printf(m, "slbc_uid_mask 0x%lx\n", slbc_uid_mask);
 	seq_printf(m, "slbc_sid_req_q 0x%lx\n", slbc_sid_req_q);
 	seq_printf(m, "slbc_sid_rel_q 0x%lx\n", slbc_sid_rel_q);
 	seq_printf(m, "slbc_slot_used 0x%lx\n", slbc_slot_used);
@@ -1187,8 +1187,8 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		}
 	} else if (!strcmp(cmd, "slbc_uid_used"))
 		slbc_uid_used = val_1;
-	else if (!strcmp(cmd, "slbc_sid_mask"))
-		slbc_sid_mask = val_1;
+	else if (!strcmp(cmd, "slbc_uid_mask"))
+		slbc_uid_mask = val_1;
 	else if (!strcmp(cmd, "slbc_sid_req_q"))
 		slbc_sid_req_q = val_1;
 	else if (!strcmp(cmd, "slbc_sid_rel_q"))
