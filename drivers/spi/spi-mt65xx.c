@@ -43,7 +43,7 @@
 #define SPI_CFG1_CS_IDLE_OFFSET           0
 #define SPI_CFG1_PACKET_LOOP_OFFSET       8
 #define SPI_CFG1_PACKET_LENGTH_OFFSET     16
-#define SPI_CFG1_GET_TICK_DLY_OFFSET      29
+#define SPI_CFG1_GET_TICK_DLY_OFFSET      30
 
 #define SPI_CFG1_CS_IDLE_MASK             0xff
 #define SPI_CFG1_PACKET_LOOP_MASK         0xff00
@@ -457,14 +457,15 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 	mtk_spi_prepare_transfer(master, xfer);
 	mtk_spi_setup_packet(master);
 
-	cnt = xfer->len / 4;
-	iowrite32_rep(mdata->base + SPI_TX_DATA_REG, xfer->tx_buf, cnt);
-
-	remainder = xfer->len % 4;
-	if (remainder > 0) {
-		reg_val = 0;
-		memcpy(&reg_val, xfer->tx_buf + (cnt * 4), remainder);
-		writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+	if (xfer->tx_buf) {
+		cnt = xfer->len / 4;
+		iowrite32_rep(mdata->base + SPI_TX_DATA_REG, xfer->tx_buf, cnt);
+		remainder = xfer->len % 4;
+		if (remainder > 0) {
+			reg_val = 0;
+			memcpy(&reg_val, xfer->tx_buf + (cnt * 4), remainder);
+			writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+		}
 	}
 
 	mtk_spi_enable_transfer(master);
@@ -833,12 +834,6 @@ static int mtk_spi_probe(struct platform_device *pdev)
 
 	cpu_latency_qos_add_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
 
-	ret = devm_spi_register_master(&pdev->dev, master);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
-		goto err_put_master;
-	}
-
 	if (mdata->dev_comp->need_pad_sel) {
 		if (mdata->pad_num != master->num_chipselect) {
 			dev_err(&pdev->dev,
@@ -877,6 +872,12 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	if (ret)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
 			   addr_bits, ret);
+
+	ret = devm_spi_register_master(&pdev->dev, master);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
+		goto err_put_master;
+	}
 
 	return 0;
 
