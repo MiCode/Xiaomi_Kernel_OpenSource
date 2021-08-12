@@ -19,6 +19,8 @@ static struct mvpu_plat_drv mt6983_drv = { .sw_preemption_level = 1, };
 
 static struct mvpu_plat_drv mt8139_drv = { .sw_preemption_level = 1, };
 
+static struct mvpu_plat_drv mt6879_drv = { .sw_preemption_level = 1, };
+
 static const struct of_device_id mvpu_of_match[] = {
 	{
 	.compatible = "mediatek, mt6983-mvpu",
@@ -27,6 +29,10 @@ static const struct of_device_id mvpu_of_match[] = {
 	{
 	.compatible = "mediatek, mt8139-mvpu",
 	.data = &mt8139_drv
+	},
+	{
+	.compatible = "mediatek, mt6879-mvpu",
+	.data = &mt6879_drv
 	},
 	{
 	/* end of list */
