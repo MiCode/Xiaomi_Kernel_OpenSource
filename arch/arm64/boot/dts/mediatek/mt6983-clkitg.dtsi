@@ -452,14 +452,4 @@
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MDP1>;
 	};
-
-	bring-up-pd-mfg0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG0_DORMANT>;
-	};
-
-	bring-up-pd-mfg1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG1>;
-	};
 };

@@ -5621,7 +5621,6 @@
 			"clk_sc_sub_parent",
 			"subsys_mfg_cg";
 		power-domains =
-			<&scpsys MT6983_POWER_DOMAIN_MFG1>,
 			<&scpsys MT6983_POWER_DOMAIN_MFG2>,
 			<&scpsys MT6983_POWER_DOMAIN_MFG3>,
 			<&scpsys MT6983_POWER_DOMAIN_MFG4>,
@@ -5640,7 +5639,6 @@
 			<&scpsys MT6983_POWER_DOMAIN_MFG17>,
 			<&scpsys MT6983_POWER_DOMAIN_MFG18>;
 		power-domain-names =
-			"pd_mfg1",
 			"pd_mfg2",
 			"pd_mfg3",
 			"pd_mfg4",
