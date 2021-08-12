@@ -316,6 +316,9 @@ static int reviser_map_dts(struct platform_device *pdev)
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_vlm;
+	} else {
+		ret = 0;
+		LOG_INFO("TCM Empty\n");
 	}
 
 	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
