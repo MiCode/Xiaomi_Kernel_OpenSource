@@ -445,6 +445,8 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL1_2L:
 	case DDP_COMPONENT_OVL2_2L:
 	case DDP_COMPONENT_OVL3_2L:
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+	case DDP_COMPONENT_OVL1_2L_NWCG:
 		return 2;
 	default:
 		DDPPR_ERR("invalid ovl module=%d\n", comp->id);

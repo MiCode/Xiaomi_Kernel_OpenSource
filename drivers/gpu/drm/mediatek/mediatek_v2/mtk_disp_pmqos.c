@@ -68,6 +68,16 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 			return DISP_PMQOS_OVL3_2L_FBDC_BW;
 		else
 			return DISP_PMQOS_OVL3_2L_BW;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL0_2L_NWCG_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL0_2L_NWCG_BW;
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL1_2L_NWCG_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL1_2L_NWCG_BW;
 	case DDP_COMPONENT_RDMA0:
 		return DISP_PMQOS_RDMA0_BW;
 	case DDP_COMPONENT_RDMA1:

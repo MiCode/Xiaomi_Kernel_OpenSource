@@ -37,6 +37,8 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL1_2L:
 	case DDP_COMPONENT_OVL2_2L:
 	case DDP_COMPONENT_OVL3_2L:
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+	case DDP_COMPONENT_OVL1_2L_NWCG:
 		mtk_ovl_dump(comp);
 		break;
 	case DDP_COMPONENT_RDMA0:
@@ -131,6 +133,8 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL1_2L:
 	case DDP_COMPONENT_OVL2_2L:
 	case DDP_COMPONENT_OVL3_2L:
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+	case DDP_COMPONENT_OVL1_2L_NWCG:
 		mtk_ovl_analysis(comp);
 		break;
 	case DDP_COMPONENT_RDMA0:
