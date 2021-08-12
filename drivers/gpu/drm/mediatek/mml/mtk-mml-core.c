@@ -463,10 +463,11 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	mml_trace_ex_begin("%s", __func__);
 
 	ktime_get_real_ts64(&curr_time);
-	mml_msg_qos("task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu",
+	mml_msg_qos("task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu clt id %hhu",
 		task, pipe,
 		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
-		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000));
+		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000),
+		task->config->path[pipe]->clt_id);
 
 	/* do not append to list and no qos/dvfs for this task */
 	if (!mml_qos)
@@ -536,10 +537,11 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	mml_trace_ex_begin("%s", __func__);
 
 	ktime_get_real_ts64(&curr_time);
-	mml_msg_qos("task dvfs end %p pipe %u cur %2u.%03llu end %2u.%03llu",
+	mml_msg_qos("task dvfs end %p pipe %u cur %2u.%03llu end %2u.%03llu clt id %hhu",
 		task, pipe,
 		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
-		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000));
+		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000),
+		task->config->path[pipe]->clt_id);
 
 	if (list_empty(&task->pipe[pipe].entry_clt)) {
 		/* task may already removed from other config (thread),

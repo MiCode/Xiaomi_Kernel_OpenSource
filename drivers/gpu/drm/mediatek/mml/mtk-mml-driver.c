@@ -146,6 +146,8 @@ void mml_qos_update_tput(struct mml_dev *mml)
 	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 	if (ret)
 		mml_err("%s fail to set volt %d", __func__, volt);
+	else
+		mml_msg("%s volt %d (%u) tput %u", __func__, volt, i, tput);
 }
 
 

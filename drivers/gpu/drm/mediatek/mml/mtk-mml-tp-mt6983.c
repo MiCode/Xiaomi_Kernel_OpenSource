@@ -358,14 +358,14 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 
 		tp_parse_path(mml, path, path_map[i]);
 		if (mtk_mml_msg) {
-			mml_log("[topology]dump path %hhu count %u",
-				i, path->node_cnt);
+			mml_log("[topology]dump path %hhu count %u clt id %hhu",
+				i, path->node_cnt, clt_dispatch[i]);
 			tp_dump_path(path);
 		}
 
 		/* now dispatch cmdq client (channel) to path */
 		path->clt = clts[clt_dispatch[i]];
-
+		path->clt_id = clt_dispatch[i];
 		path->mux_group = grp_dispatch[i];
 	}
 
