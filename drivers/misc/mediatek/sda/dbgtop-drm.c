@@ -24,7 +24,7 @@ int mtk_dbgtop_mfg_pwr_on(int value)
 	unsigned int tmp;
 
 	if (!global_dbgtop_drm)
-		return -1;
+		return -EINVAL;
 
 	drm = global_dbgtop_drm;
 
@@ -40,7 +40,7 @@ int mtk_dbgtop_mfg_pwr_on(int value)
 		tmp |= MTK_DBGTOP_MFG_REG_KEY;
 		writel(tmp, drm->base + MTK_DBGTOP_MFG_REG);
 	} else
-		return -1;
+		return -EINVAL;
 
 	pr_info("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
 			readl(drm->base + MTK_DBGTOP_MFG_REG));
@@ -55,7 +55,7 @@ int mtk_dbgtop_mfg_pwr_en(int value)
 	unsigned int tmp;
 
 	if (!global_dbgtop_drm)
-		return -1;
+		return -EINVAL;
 
 	drm = global_dbgtop_drm;
 
@@ -71,7 +71,7 @@ int mtk_dbgtop_mfg_pwr_en(int value)
 		tmp |= MTK_DBGTOP_MFG_REG_KEY;
 		writel(tmp, drm->base + MTK_DBGTOP_MFG_REG);
 	} else
-		return -1;
+		return -EINVAL;
 
 	pr_info("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
 		readl(drm->base + MTK_DBGTOP_MFG_REG));
@@ -90,7 +90,7 @@ int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal)
 	unsigned int tmp;
 
 	if (!global_dbgtop_drm)
-		return -1;
+		return -EINVAL;
 
 	drm = global_dbgtop_drm;
 
@@ -119,7 +119,6 @@ static int mtk_dbgtop_drm_probe(struct platform_device *pdev)
 {
 	struct dbgtop_drm *drm;
 	struct device_node *node = pdev->dev.of_node;
-	int ret;
 
 	dev_info(&pdev->dev, "driver probed\n");
 
@@ -134,17 +133,9 @@ static int mtk_dbgtop_drm_probe(struct platform_device *pdev)
 	if (IS_ERR(drm->base))
 		return PTR_ERR(drm->base);
 
-	ret = of_property_read_u32(node, "mode_offset", &drm->mode_offset);
-	if (ret) {
-		dev_info(&pdev->dev, "No mode_offset\n");
-		drm->mode_offset = DRMDRM_MODE_OFFSET;
-	}
-
 	global_dbgtop_drm = drm;
 
-	dev_info(&pdev->dev,
-		"base %p, mode_offset 0x%x\n",
-		drm->base, drm->mode_offset);
+	dev_info(&pdev->dev, "base %p\n", drm->base);
 
 	return 0;
 }

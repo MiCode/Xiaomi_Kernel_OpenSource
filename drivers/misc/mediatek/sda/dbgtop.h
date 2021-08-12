@@ -8,11 +8,7 @@
 
 struct dbgtop_drm {
 	void __iomem *base;
-
-	unsigned int mode_offset;
 };
-
-#define DRMDRM_MODE_OFFSET			(0x00000000)
 
 #define MTK_DBGTOP_DFD_TIMEOUT_SHIFT		(0)
 #define MTK_DBGTOP_DFD_TIMEOUT_MASK \
@@ -23,7 +19,6 @@ struct dbgtop_drm {
 #define MTK_DBGTOP_LATCH_CTL2			(0x00000044)
 
 #define DRMDRM_MODE_KEY				(0x22000000)
-#define DRMDRM_MODE_DDR_RESERVE			(0x00000001)
 
 /* DBGTOP_MFG_REG */
 #define MTK_DBGTOP_MFG_REG			(0x00000060)
