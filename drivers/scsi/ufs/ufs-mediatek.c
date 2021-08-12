@@ -1697,6 +1697,8 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 
 	ufs_mtk_setup_clk_gating(hba);
 
+	device_enable_async_suspend(hba->dev);
+
 	return 0;
 }
 
