@@ -768,7 +768,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	}
 	__gpufreq_footprint_power_count(g_stack.power_count);
 
-	if (power == POWER_ON) {
+	if (power == POWER_ON && g_stack.power_count == 1) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_01);
 
 		/* control Buck */
@@ -839,13 +839,13 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpudfd_config_dfd(true);
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
 
-		if (g_stack.power_count == 1)
-			g_dvfs_state &= ~DVFS_POWEROFF;
-	} else {
+		/* free DVFS when power on */
+		g_dvfs_state &= ~DVFS_POWEROFF;
+	} else if (power == POWER_OFF && g_stack.power_count == 0) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0D);
 
-		if (g_stack.power_count == 0)
-			g_dvfs_state |= DVFS_POWEROFF;
+		/* freeze DVFS when power off */
+		g_dvfs_state |= DVFS_POWEROFF;
 
 		/* control DFD */
 		__gpudfd_config_dfd(false);
