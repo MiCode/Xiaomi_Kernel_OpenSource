@@ -16,6 +16,7 @@
 #define MTK_VDEC_MAX_LARB_COUNT 2
 
 #define MTK_MAX_VDEC_CLK_COUNT 10
+#define MTK_MAX_VDEC_CLK_SOC_COUNT 3
 #define MTK_MAX_VDEC_CLK_CORE_COUNT 3
 #define MTK_MAX_VDEC_CLK_LAT_COUNT 3
 #define MTK_MAX_VDEC_CLK_MAIN_COUNT 4
@@ -24,6 +25,7 @@
 // to distingush clock type, the clock name in dts should start with these prefix
 #define MTK_VDEC_CLK_LAT_PREFIX		"LAT"
 #define MTK_VDEC_CLK_CORE_PREFIX	"CORE"
+#define MTK_VDEC_CLK_SOC_PREFIX		"SOC"
 #define MTK_VDEC_CLK_MAIN_PREFIX	"MAIN"
 
 #define MTK_MAX_VENC_CLK_COUNT 2
@@ -47,6 +49,8 @@ struct mtk_vcodec_parent_clk {
 struct mtk_vdec_clks_data {
 	struct mtk_vcodec_clk			main_clks[MTK_MAX_VDEC_CLK_MAIN_COUNT];
 	unsigned int					main_clks_len;
+	struct mtk_vcodec_clk			soc_clks[MTK_MAX_VDEC_CLK_SOC_COUNT];
+	unsigned int					soc_clks_len;
 	struct mtk_vcodec_clk			lat_clks[MTK_MAX_VDEC_CLK_LAT_COUNT];
 	unsigned int					lat_clks_len;
 	struct mtk_vcodec_clk			core_clks[MTK_MAX_VDEC_CLK_CORE_COUNT];

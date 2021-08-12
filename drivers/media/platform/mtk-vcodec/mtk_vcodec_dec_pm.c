@@ -87,6 +87,10 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 			clks_data->main_clks[clks_data->main_clks_len].clk_id = clk_id;
 			clks_data->main_clks[clks_data->main_clks_len].clk_name = clk_name;
 			clks_data->main_clks_len++;
+		} else if (IS_SPECIFIC_CLK_TYPE(clk_name, MTK_VDEC_CLK_SOC_PREFIX)) {
+			clks_data->soc_clks[clks_data->soc_clks_len].clk_id = clk_id;
+			clks_data->soc_clks[clks_data->soc_clks_len].clk_name = clk_name;
+			clks_data->soc_clks_len++;
 		} else if (IS_SPECIFIC_CLK_TYPE(clk_name, MTK_VDEC_CLK_CORE_PREFIX)) {
 			clks_data->core_clks[clks_data->core_clks_len].clk_id = clk_id;
 			clks_data->core_clks[clks_data->core_clks_len].clk_name = clk_name;
@@ -104,6 +108,11 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 	for (i = 0; i < clks_data->main_clks_len; i++) {
 		mtk_v4l2_debug(8, "main_clks id: %d, name: %s",
 			clks_data->main_clks[i].clk_id, clks_data->main_clks[i].clk_name);
+	}
+	// dump soc clocks
+	for (i = 0; i < clks_data->soc_clks_len; i++) {
+		mtk_v4l2_debug(8, "core_clks id: %d, name: %s",
+			clks_data->soc_clks[i].clk_id, clks_data->soc_clks[i].clk_name);
 	}
 	// dump core clocks
 	for (i = 0; i < clks_data->core_clks_len; i++) {
@@ -363,6 +372,16 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 				clk_id, clks_data->main_clks[j].clk_name, ret);
 	}
 
+	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_LAT) {
+		// enable soc clocks
+		for (j = 0; j < clks_data->soc_clks_len; j++) {
+			clk_id = clks_data->soc_clks[j].clk_id;
+			ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
+			if (ret)
+				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+					clk_id, clks_data->soc_clks[j].clk_name, ret);
+		}
+	}
 	if (hw_id == MTK_VDEC_CORE) {
 		// enable core clocks
 		for (j = 0; j < clks_data->core_clks_len; j++) {
@@ -480,6 +499,15 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	dev->dec_is_power_on[hw_id] = false;
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 
+	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_LAT) {
+		// disable soc clocks
+		if (clks_data->soc_clks_len > 0) {
+			for (i = clks_data->soc_clks_len - 1; i >= 0; i--) {
+				clk_id = clks_data->soc_clks[i].clk_id;
+				clk_disable_unprepare(pm->vdec_clks[clk_id]);
+			}
+		}
+	}
 	if (hw_id == MTK_VDEC_CORE) {
 		// disable core clocks
 		if (clks_data->core_clks_len > 0) {
