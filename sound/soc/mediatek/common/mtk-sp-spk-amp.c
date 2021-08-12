@@ -42,7 +42,7 @@
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
 
 static unsigned int mtk_spk_type;
-static int mtk_spk_i2s_out, mtk_spk_i2s_in;
+static int mtk_spk_i2s_out = MTK_SPK_I2S_3, mtk_spk_i2s_in = MTK_SPK_I2S_0;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 	[MTK_SPK_NOT_SMARTPA] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
