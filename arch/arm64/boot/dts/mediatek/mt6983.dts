@@ -6383,8 +6383,8 @@
 		reg = <0 0x1401f000 0 0x1000>;
 	};
 
-	inlinerot0@14020000 {
-		compatible = "mediatek,inlinerot0";
+	inlinerot0: inlinerot@14020000 {
+		compatible = "mediatek,inlinerot";
 		reg = <0 0x14020000 0 0x1000>;
 	};
 
@@ -6608,8 +6608,8 @@
 		reg = <0 0x1441f000 0 0x1000>;
 	};
 
-	inlinerot0@14420000 {
-		compatible = "mediatek,inlinerot0";
+	inlinerot1: inlinerot@14420000 {
+		compatible = "mediatek,inlinerot";
 		reg = <0 0x14420000 0 0x1000>;
 	};
 
@@ -8775,6 +8775,8 @@
 			<DLO_ASYNC0_STATUS0>, <DLO_ASYNC0_STATUS1>,
 			<DLO_ASYNC1_STATUS0>, <DLO_ASYNC1_STATUS1>,
 			<DL_VALID0>, <DL_VALID1>, <DL_READY0>, <DL_READY1>;
+			operating-points-v2 = <&opp_table_mdp1>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	mdp_mutex0@1f801000 {
@@ -8855,7 +8857,7 @@
 		reg = <0 0x1f803000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RDMA0>;
 		clock-names = "rdma0";
-		mediatek,larb = <&smi_larb3>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_RDMA1)>;
 		comp-ids = <MML_RDMA0>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
@@ -8863,6 +8865,10 @@
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_FRAME_DONE>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA1>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA1)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "mml_dma";
 	};
 
 	mdp_rdma1@1f804000 {
@@ -8870,7 +8876,7 @@
 		reg = <0 0x1f804000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_RDMA1>;
 		clock-names = "rdma1";
-		mediatek,larb = <&smi_larb3>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_RDMA3)>;
 		comp-ids = <MML_RDMA1>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
@@ -8878,6 +8884,10 @@
 			<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_FRAME_DONE>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_RDMA3>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_RDMA3)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "mml_dma";
 	};
 
 	mdp_hdr0@1f805000 {
@@ -8965,14 +8975,20 @@
 		reg = <0 0x1f80f000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT0>;
 		clock-names = "wrot0";
-		mediatek,larb = <&smi_larb3>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WROT1)>;
 		comp-ids = <MML_WROT0>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
 		event_frame_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT0_FRAME_DONE>;
+		event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WROT1>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WROT1)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "mml_dma";
+		inlinerot = <&inlinerot0>, <&inlinerot1>;
 	};
 
 	mdp_wrot1@1f810000 {
@@ -8980,14 +8996,20 @@
 		reg = <0 0x1f810000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT1>;
 		clock-names = "wrot1";
-		mediatek,larb = <&smi_larb3>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WROT3)>;
 		comp-ids = <MML_WROT1>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT1_SW_RST_DONE_ENG_EVENT>;
 		event_frame_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT1_FRAME_DONE>;
+		event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WROT3>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WROT3)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "mml_dma";
+		inlinerot = <&inlinerot0>, <&inlinerot1>;
 	};
 
 	mdp_rsz2@1f813000 {
@@ -9011,7 +9033,7 @@
 		reg = <0 0x1f815000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT2>;
 		clock-names = "wrot2";
-		mediatek,larb = <&smi_larb3>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WDMA1)>;
 		comp-ids = <MML_WROT2>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT2_SW_RST_DONE_ENG_EVENT>;
@@ -9019,6 +9041,10 @@
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT2_FRAME_DONE>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WDMA1>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WDMA1)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "mml_dma";
 	};
 
 	mdp_wrot3@1f816000 {
@@ -9026,7 +9052,7 @@
 		reg = <0 0x1f816000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT3>;
 		clock-names = "wrot3";
-		mediatek,larb = <&smi_larb3>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_WDMA3)>;
 		comp-ids = <MML_WROT3>;
 		event_sw_rst_done = /bits/ 16
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT3_SW_RST_DONE_ENG_EVENT>;
@@ -9034,6 +9060,10 @@
 			<CMDQ_EVENT_MDPSYS1_MDP_WROT3_FRAME_DONE>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L3_MDP_WDMA3>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L3_MDP_WDMA3)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "mml_dma";
 	};
 
 	hre_top_mdpsys@1f817000 {
