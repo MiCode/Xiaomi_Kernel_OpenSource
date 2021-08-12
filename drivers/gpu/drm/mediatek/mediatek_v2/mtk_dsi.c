@@ -894,6 +894,9 @@ static int mtk_dsi_is_LFR_Enable(struct mtk_dsi *dsi)
 	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	struct mtk_drm_private *priv = NULL;
 
+	if (mtk_dbg_get_lfr_dbg_value() != 0)
+		return 0;
+
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
