@@ -1434,14 +1434,7 @@ static const enum mtk_ddp_comp_id mt6983_dual_data_ext[] = {
 	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
 };
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_third[] = {
-	DDP_COMPONENT_OVL0_2L, /*DDP_COMPONENT_OVL1_2L,*/
-	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
-	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
-	DDP_COMPONENT_RDMA0_OUT_RELAY,
-#ifndef DRM_BYPASS_PQ
-	// todo ..
-#endif
-	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
+	DDP_COMPONENT_OVL1_2L_NWCG, DDP_COMPONENT_WDMA1,
 };
 
 static const struct mtk_addon_module_data addon_rsz_data[] = {
@@ -1461,6 +1454,10 @@ static const struct mtk_addon_module_data addon_wdma0_data[] = {
 
 static const struct mtk_addon_module_data addon_wdma1_data[] = {
 	{DISP_WDMA1, ADDON_AFTER, DDP_COMPONENT_DITHER1},
+};
+
+static const struct mtk_addon_module_data mt6983_addon_wdma0_data[] = {
+	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0},
 };
 
 
@@ -1567,8 +1564,8 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[WDMA_WRITE_BACK] = {
-				.module_num = ARRAY_SIZE(addon_wdma0_data),
-				.module_data = addon_wdma0_data,
+				.module_num = ARRAY_SIZE(mt6983_addon_wdma0_data),
+				.module_data = mt6983_addon_wdma0_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
@@ -3850,6 +3847,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_WDMA},
 	{.compatible = "mediatek,mt6879-disp-wdma",
 	 .data = (void *)MTK_DISP_WDMA},
+	{.compatible = "mediatek,mt6983-disp-wdma",
+	 .data = (void *)MTK_DISP_WDMA},
 	{.compatible = "mediatek,mt6779-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6885-disp-ccorr",
@@ -4015,6 +4014,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	{.compatible = "mediatek,mt6833-disp-rsz",
 	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6879-disp-rsz",
+	 .data = (void *)MTK_DISP_RSZ},
+	{.compatible = "mediatek,mt6983-disp-rsz",
 	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6779-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},

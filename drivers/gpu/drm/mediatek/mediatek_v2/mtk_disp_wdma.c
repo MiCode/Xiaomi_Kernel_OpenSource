@@ -1541,6 +1541,19 @@ static const struct mtk_disp_wdma_data mt6879_wdma_driver_data = {
 
 };
 
+static const struct mtk_disp_wdma_data mt6983_wdma_driver_data = {
+	.fifo_size_1plane = 905,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 599,
+	.fifo_size_uv_2plane = 299,
+	.fifo_size_3plane = 596,
+	.fifo_size_uv_3plane = 148,
+	.sodi_config = mt6983_mtk_sodi_config,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = false,
+};
+
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-wdma"},
 	{.compatible = "mediatek,mt6779-disp-wdma",
@@ -1556,6 +1569,8 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	 .data = &mt6833_wdma_driver_data},
 	{.compatible = "mediatek,mt6879-disp-wdma",
 	 .data = &mt6879_wdma_driver_data},
+	{.compatible = "mediatek,mt6983-disp-wdma",
+	 .data = &mt6983_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);
