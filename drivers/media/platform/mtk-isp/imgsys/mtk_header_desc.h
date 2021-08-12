@@ -346,6 +346,94 @@ struct singlenode_desc_norm {
 /* 16  Y/CbCr 4:2:2 10 bits packed */
 #define V4L2_PIX_FMT_MTISP_NV61_10P v4l2_fourcc('6', '1', 'A', 'P')
 /* 16  Y/CrCb 4:2:2 10 bits packed */
+#define V4L2_PIX_FMT_MTISP_SBGGRU14  v4l2_fourcc('M', 'b', 'B', 'E')
+	/* Bayer-14bit-Unpacked, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRGU14  v4l2_fourcc('M', 'b', 'G', 'E')
+	/* Bayer-14bit-Unpacked, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBGU14  v4l2_fourcc('M', 'b', 'g', 'E')
+	/* Bayer-14bit-Unpacked, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGBU14  v4l2_fourcc('M', 'b', 'R', 'E')
+	/* Bayer-14bit-Unpacked, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_MTISP_SBGGRU15  v4l2_fourcc('M', 'b', 'B', 'F')
+	/* Bayer-15bit-Unpacked, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRGU15  v4l2_fourcc('M', 'b', 'G', 'F')
+	/* Bayer-15bit-Unpacked, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBGU15  v4l2_fourcc('M', 'b', 'g', 'F')
+	/* Bayer-15bit-Unpacked, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGBU15  v4l2_fourcc('M', 'b', 'R', 'F')
+	/* Bayer-15bit-Unpacked, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_MTISP_SBGGR16  v4l2_fourcc('M', 'B', 'B', 'G')
+	/* Bayer-16bit-Packed, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRG16  v4l2_fourcc('M', 'B', 'G', 'G')
+	/* Bayer-16bit-Packed, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBG16  v4l2_fourcc('M', 'B', 'g', 'G')
+	/* Bayer-16bit-Packed, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGB16  v4l2_fourcc('M', 'B', 'R', 'G')
+	/* Bayer-16bit-Packed, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_MTISP_SBGGR22  v4l2_fourcc('M', 'B', 'B', 'M')
+	/* Bayer-22bit-Packed, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRG22  v4l2_fourcc('M', 'B', 'G', 'M')
+	/* Bayer-22bit-Packed, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBG22  v4l2_fourcc('M', 'B', 'g', 'M')
+	/* Bayer-22bit-Packed, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGB22  v4l2_fourcc('M', 'B', 'R', 'M')
+	/* Bayer-22bit-Packed, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_UFBC_NV12    v4l2_fourcc('U', 'F', '2', '8')
+	/* YUV-8bit UFBC packed 4:2:0 2plane, (Y)(UV)  */
+#define V4L2_PIX_FMT_UFBC_NV21    v4l2_fourcc('V', 'F', '2', '8')
+	/* YUV-8bit UFBC packed 4:2:0 2plane, (Y)(VU)  */
+#define V4L2_PIX_FMT_UFBC_YUV_2P010P    v4l2_fourcc('U', 'F', '2', 'A')
+	/* YUV-10bit UFBC packed 4:2:0 2plane, (Y)(UV)  */
+#define V4L2_PIX_FMT_UFBC_YVU_2P010P    v4l2_fourcc('V', 'F', '2', 'A')
+	/* YUV-10bit UFBC packed 4:2:0 2plane, (Y)(VU)  */
+#define V4L2_PIX_FMT_UFBC_YUV_2P012P    v4l2_fourcc('U', 'F', '2', 'C')
+	/* YUV-12bit UFBC packed 4:2:0 2plane, (Y)(UV)  */
+#define V4L2_PIX_FMT_UFBC_YVU_2P012P    v4l2_fourcc('V', 'F', '2', 'C')
+	/* YUV-12bit UFBC packed 4:2:0 2plane, (Y)(VU)  */
+#define V4L2_PIX_FMT_MTISP_UFBC_SBGGR8 v4l2_fourcc('U', 'B', 'B', '8')
+	/* UFBC Bayer format, 8 bits, 1 plane, may be (BGGR) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGBRG8 v4l2_fourcc('U', 'B', 'G', '8')
+	/* UFBC Bayer format, 8 bits, 1 plane, may be (GBRG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGRBG8 v4l2_fourcc('U', 'B', 'g', '8')
+	/* UFBC Bayer format, 8 bits, 1 plane, may be (GRBG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SRGGB8 v4l2_fourcc('U', 'B', 'R', '8')
+	/* UFBC Bayer format, 8 bits, 1 plane, may be (RGGB) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SBGGR10 v4l2_fourcc('U', 'B', 'B', 'A')
+	/* UFBC Bayer format, 10 bits, 1 plane, may be (BGGR) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGBRG10 v4l2_fourcc('U', 'B', 'G', 'A')
+	/* UFBC Bayer format, 10 bits, 1 plane, may be (GBRG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGRBG10 v4l2_fourcc('U', 'B', 'g', 'A')
+	/* UFBC Bayer format, 10 bits, 1 plane, may be (GRBG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SRGGB10 v4l2_fourcc('U', 'B', 'R', 'A')
+	/* UFBC Bayer format, 10 bits, 1 plane, may be (RGGB) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SBGGR12 v4l2_fourcc('U', 'B', 'B', 'C')
+	/* UFBC Bayer format, 12 bits, 1 plane, may be (BGGR) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGBRG12 v4l2_fourcc('U', 'B', 'G', 'C')
+	/* UFBC Bayer format, 12 bits, 1 plane, may be (GBRG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGRBG12 v4l2_fourcc('U', 'B', 'g', 'C')
+	/* UFBC Bayer format, 12 bits, 1 plane, may be (GRBG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SRGGB12 v4l2_fourcc('U', 'B', 'R', 'C')
+	/* UFBC Bayer format, 12 bits, 1 plane, may be (RGGB) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SBGGR14 v4l2_fourcc('U', 'B', 'B', 'E')
+	/* UFBC Bayer format, 14 bits, 1 plane, may be (BGGR) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGBRG14 v4l2_fourcc('U', 'B', 'G', 'E')
+	/* UFBC Bayer format, 14 bits, 1 plane, may be (GBRG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SGRBG14 v4l2_fourcc('U', 'B', 'g', 'E')
+	/* UFBC Bayer format, 14 bits, 1 plane, may be (GRBG) */
+#define V4L2_PIX_FMT_MTISP_UFBC_SRGGB14 v4l2_fourcc('U', 'B', 'R', 'E')
+	/* UFBC Bayer format, 14 bits, 1 plane, may be (RGGB) */
+#define V4L2_PIX_FMT_AFBC_RGBA32 v4l2_fourcc('A', 'F', 'R', '8')
+	/* RGB-8bit AFBC packed, (R)(G)(B)(A) */
+#define V4L2_PIX_FMT_AFBC_BGRA32 v4l2_fourcc('A', 'F', 'B', '8')
+	/* RGB-8bit AFBC packed, (B)(G)(R)(A) */
+#define V4L2_PIX_FMT_AFBC_NV12 v4l2_fourcc('A', 'F', 'U', '8')
+	/* YUV-8bit AFBC packed 4:2:0 2plane, (Y)(UV) */
+#define V4L2_PIX_FMT_AFBC_NV21 v4l2_fourcc('A', 'F', 'V', '8')
+	/* YUV-8bit AFBC packed 4:2:0 2plane, (Y)(VU) */
+#define V4L2_PIX_FMT_AFBC_YUV_2P010P v4l2_fourcc('A', 'F', 'U', 'A')
+	/* YUV-10bit AFBC packed 4:2:0 2plane, (Y)(UV) */
+#define V4L2_PIX_FMT_AFBC_YVU_2P010P v4l2_fourcc('A', 'F', 'V', 'A')
+	/* YUV-10bit AFBC packed 4:2:0 2plane, (Y)(VU) */
 
 /* Vendor specific - Mediatek ISP parameters for firmware */
 #define V4L2_META_FMT_MTISP_PARAMS v4l2_fourcc('M', 'T', 'f', 'p')
