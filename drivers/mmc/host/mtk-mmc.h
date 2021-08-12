@@ -72,6 +72,7 @@
 #define SDC_RESP2        0x48
 #define SDC_RESP3        0x4c
 #define SDC_BLK_NUM      0x50
+#define SDC_VOL_CHG      0x54
 #define SDC_ADV_CFG0     0x64
 #define EMMC_IOCON       0x7c
 #define SDC_ACMD_RESP    0x80
@@ -461,6 +462,11 @@
 	| MMC_VDD_31_32 | MMC_VDD_32_33)
 #define FPGA_SRC_CLK		10000000
 #endif
+
+#define VOL_CHG_CNT_DEFAULT_VAL		0x1F4 /* =500 */
+#define SDC_CMD_VOLSWTH			(0x1 << 30) /* RW */
+#define SDC_VOL_CHG_CNT			(0xffff << 0) /* RW  */
+
 /*--------------------------------------------------------------------------*/
 /* Descriptor Structure                                                     */
 /*--------------------------------------------------------------------------*/

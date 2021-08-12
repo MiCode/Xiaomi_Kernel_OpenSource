@@ -488,7 +488,6 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();
-	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
 	mmc->actual_clock = sclk;
 	host->mclk = hz;
 	host->timing = timing;
@@ -1057,6 +1056,7 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret;
+	unsigned int value = 0, status = 0;
 
 	if (!IS_ERR(mmc->supply.vqmmc)) {
 		if (ios->signal_voltage != MMC_SIGNAL_VOLTAGE_330 &&
@@ -1077,6 +1077,41 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 			pinctrl_select_state(host->pinctrl, host->pins_uhs);
 		else
 			pinctrl_select_state(host->pinctrl, host->pins_default);
+
+		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+			/* Clock is gated by HW after CMD11,
+			 * Must keep clock gate 5ms before switch voltage
+			 */
+			usleep_range(10000, 10500);
+
+			/* set as 500T -> 1.25ms for 400KHz or 1.9ms for 260KHz */
+			sdr_set_field(host->base + SDC_VOL_CHG, SDC_VOL_CHG_CNT,
+				VOL_CHG_CNT_DEFAULT_VAL);
+
+			/* CMD11 will enable SWITCH detect while mmc core layer trriger
+			 * switch voltage flow without cmd11 for somecase,so also enable switch
+			 * detect before switch.Otherwise will hang in this func.
+			 */
+			sdr_get_field(host->base + SDC_CMD, SDC_CMD_VOLSWTH, &value);
+			if (!value)
+				sdr_set_bits(host->base + SDC_CMD, SDC_CMD_VOLSWTH);
+			/* start to provide clock to device */
+			sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_BV18SDT);
+
+			/* Delay 1ms wait HW to finish voltage switch */
+			usleep_range(1000, 1500);
+
+			while ((status =
+				readl(host->base + MSDC_CFG)) & MSDC_CFG_BV18SDT)
+				;
+			if (status & MSDC_CFG_BV18PSS)
+				return 0;
+
+			pr_notice(
+			"msdc%d: 1.8V regulator output did not became stable\n",
+				host->id);
+			return -EAGAIN;
+		}
 	}
 #endif
 	return 0;
@@ -1249,8 +1284,8 @@ static void msdc_init_hw(struct msdc_host *host)
 		reset_control_deassert(host->reset);
 	}
 
-	/* Configure to MMC/SD mode, clock free running */
-	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_MODE | MSDC_CFG_CKPDN);
+	/* Configure to MMC/SD mode */
+	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_MODE);
 
 	/* Reset */
 	msdc_reset_hw(host);
