@@ -988,7 +988,7 @@ void cmdq_mdp_dump_fg(const unsigned long base, const char *label)
 
 int32_t cmdqMdpClockOn(uint64_t engineFlag)
 {
-	CMDQ_LOG("Enable MDP(0x%llx) clock begin\n", engineFlag);
+	CMDQ_MSG("%s: Enable MDP(0x%llx) clock begin\n", __func__, engineFlag);
 #ifdef CMDQ_PWR_AWARE
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_RDMA0);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_RDMA1);
@@ -1015,15 +1015,14 @@ int32_t cmdqMdpClockOn(uint64_t engineFlag)
 
 #endif				/* #ifdef CMDQ_PWR_AWARE */
 
-	CMDQ_MSG("%s: cmdq_util_prebuilt_enable(0)\n", __func__);
-	cmdq_util_prebuilt_enable(0);
+	CMDQ_MSG("%s: cmdq_util_prebuilt_init(0)\n", __func__);
 	cmdq_util_prebuilt_init(0);
 
 	CMDQ_MSG("%s: set BYPASS_MUX_SHADOW bit0 as 0x1\n", __func__);
 	CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0xF00, 0x1);
 
 
-	CMDQ_MSG("Enable MDP(0x%llx) clock end\n", engineFlag);
+	CMDQ_MSG("%s: Enable MDP(0x%llx) clock end\n", __func__, engineFlag);
 	return 0;
 }
 
@@ -1264,7 +1263,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 
 #ifdef CMDQ_PWR_AWARE
 
-	CMDQ_LOG("%s, Disable MDP(0x%llx) clock begin\n", __func__, engineFlag);
+	CMDQ_MSG("%s: Disable MDP(0x%llx) clock begin\n", __func__, engineFlag);
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) {
 		cmdq_mdp_loop_off(CMDQ_ENG_MDP_WROT0,
 			MDP_WROT0_BASE + 0X010, MDP_WROT0_BASE + 0X014,
@@ -1401,7 +1400,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 		}
 	}
 
-	CMDQ_MSG("Disable MDP(0x%llx) clock end\n", engineFlag);
+	CMDQ_MSG("%s: Disable MDP(0x%llx) clock end\n", __func__, engineFlag);
 #endif				/* #ifdef CMDQ_PWR_AWARE */
 
 	return 0;
