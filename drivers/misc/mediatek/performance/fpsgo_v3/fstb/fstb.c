@@ -90,7 +90,7 @@ static int nr_fps_levels = MAX_NR_FPS_LEVELS;
 static int fstb_fps_klog_on;
 static int fstb_enable, fstb_active, fstb_active_dbncd, fstb_idle_cnt;
 static int fstb_hrtimer_ctrl_fps_enable = 1;
-static int fstb_camera_flag;
+static int fstb_is_cam_active;
 static long long last_update_ts;
 
 static void reset_fps_level(void);
@@ -952,7 +952,7 @@ out:
 	/* parse cpu time of each frame to ged_kpi */
 	iter->cpu_time = cpu_time_ns;
 
-	if (fstb_camera_flag || (iter->hwui_flag == 1) || !fstb_hrtimer_ctrl_fps_enable) {
+	if (fstb_is_cam_active || (iter->hwui_flag == 1) || !fstb_hrtimer_ctrl_fps_enable) {
 		eara_fps = iter->target_fps;
 		if (iter->target_fps && iter->target_fps != -1 && iter->target_fps_diff
 			&& !iter->target_fps_margin && !iter->target_fps_margin_gpu) {
@@ -1069,7 +1069,7 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 			break;
 	}
 
-	if ((iter == NULL) || fstb_camera_flag ||
+	if ((iter == NULL) || fstb_is_cam_active ||
 		(iter->hwui_flag == 1) || !fstb_hrtimer_ctrl_fps_enable)
 		goto out;
 
@@ -1089,6 +1089,37 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 out:
 	mutex_unlock(&fstb_lock);
 	return 0;
+}
+
+int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID, int target_fps)
+{
+	int i, ret_fps = -1;
+	struct FSTB_FRAME_INFO *iter;
+	struct FSTB_RENDER_TARGET_FPS *rtfiter;
+
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid == pid && iter->bufid == bufID)
+			break;
+	}
+
+	if (iter == NULL)
+		return ret_fps;
+
+	hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
+		if (!strncmp(iter->proc_name, rtfiter->process_name, 16)
+			|| rtfiter->pid == iter->pid) {
+			for (i = rtfiter->nr_level - 1; i >= 0; i--) {
+				if (rtfiter->level[i].start >= target_fps) {
+					ret_fps = rtfiter->level[i].start;
+					break;
+				}
+			}
+			if (ret_fps < 0)
+				ret_fps = dfps_ceiling;
+		}
+	}
+
+	return ret_fps;
 }
 
 static long long get_cpu_frame_time(struct FSTB_FRAME_INFO *iter)
@@ -1139,7 +1170,6 @@ static long long get_cpu_frame_time(struct FSTB_FRAME_INFO *iter)
  * if yes, apply g block c boost
  */
 long long fstb_cam_active_ts;
-int fstb_is_cam_active;
 void fpsgo_comp2fstb_camera_active(int pid)
 {
 	mutex_lock(&fstb_cam_active_time);
@@ -1155,13 +1185,8 @@ static void fstb_set_cam_active(int active)
 	if (fstb_is_cam_active == active)
 		return;
 
-	if (active)
-		fstb_camera_flag = 1;
-	else
-		fstb_camera_flag = 0;
-
 	fstb_is_cam_active = active;
-	fpsgo_fstb2xgf_set_camera_flag(fstb_camera_flag);
+	fpsgo_fstb2xgf_set_camera_flag(fstb_is_cam_active);
 }
 
 static void fstb_check_cam_status(void)
@@ -1735,7 +1760,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		(*quantile_cpu_time) = iter->quantile_cpu_time;
 		(*quantile_gpu_time) = iter->quantile_gpu_time;
 
-		if (fstb_camera_flag || (iter->hwui_flag == 1) ||
+		if (fstb_is_cam_active || (iter->hwui_flag == 1) ||
 			!fstb_hrtimer_ctrl_fps_enable) {
 			if (iter->target_fps && iter->target_fps != -1
 				&& iter->target_fps_diff
@@ -2681,7 +2706,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter) {
-			if (fstb_camera_flag || (iter->hwui_flag == 1) ||
+			if (fstb_is_cam_active || (iter->hwui_flag == 1) ||
 				!fstb_hrtimer_ctrl_fps_enable) {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
@@ -2698,7 +2723,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->hwui_flag);
 			} else {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,

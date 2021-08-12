@@ -29,6 +29,7 @@
 #include "fpsgo_base.h"
 #include "fpsgo_sysfs.h"
 #include "fpsgo_usedext.h"
+#include "fstb.h"
 
 static DEFINE_MUTEX(xgf_main_lock);
 static int xgf_enable;
@@ -346,6 +347,16 @@ int xgf_check_specific_pid(int pid)
 	return ret;
 }
 EXPORT_SYMBOL(xgf_check_specific_pid);
+
+int fpsgo_ko2xgf_get_fps_level(int pid, unsigned long long bufID, int target_fps)
+{
+	int ret_fps;
+
+	ret_fps = fpsgo_xgf2fstb_get_fps_level(pid, bufID, target_fps);
+
+	return ret_fps;
+}
+EXPORT_SYMBOL(fpsgo_ko2xgf_get_fps_level);
 
 void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps)
 {
@@ -2598,7 +2609,7 @@ void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
 	}
 
 	fpsgo_main_trace("[fstb][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
-		r->raw_l_runtime, r->raw_r_runtime, ret);
+		l_runtime, r_runtime, ret);
 	fpsgo_systrace_c_fbt(pid, bufID, l_runtime, "raw_t_cpu_logical");
 	fpsgo_systrace_c_fbt(pid, bufID, r_runtime, "raw_t_cpu_render");
 }
@@ -2645,6 +2656,13 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 		l_start_ts, f_start_ts);
 }
 EXPORT_SYMBOL(xgf_set_logical_render_info);
+
+void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag)
+{
+	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_pid, "ctrl_fps_pid");
+	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
+}
+EXPORT_SYMBOL(xgf_set_timer_info);
 
 struct xgff_frame {
 	struct hlist_node hlist;

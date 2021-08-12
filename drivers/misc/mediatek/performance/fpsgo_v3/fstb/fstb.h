@@ -16,6 +16,8 @@ int fpsgo_comp2fstb_enq_end(int pid,
 	unsigned long long bufID, unsigned long long enq);
 int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_queue_end_ts);
+int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID,
+	int target_fps);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
 int fpsgo_ctrl2fstb_get_fps(void);
 void fpsgo_comp2fstb_camera_active(int pid);
