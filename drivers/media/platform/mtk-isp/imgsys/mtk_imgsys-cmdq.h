@@ -125,5 +125,6 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
 #endif
 

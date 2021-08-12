@@ -9,6 +9,7 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-cmdq.h"
@@ -1212,6 +1213,22 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 		}
 	}
 	#endif
+
+}
+
+void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
+{
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
+
+	dev_info(dvfs_info->dev, "[%s] isPowerOn(%d)\n", __func__, isPowerOn);
+
+	if (isPowerOn) {
+		regulator_enable(dvfs_info->reg);
+		pm_runtime_get_sync(imgsys_dev->dev);
+	} else {
+		pm_runtime_put_sync(imgsys_dev->dev);
+		regulator_disable(dvfs_info->reg);
+	}
 
 }
 #endif

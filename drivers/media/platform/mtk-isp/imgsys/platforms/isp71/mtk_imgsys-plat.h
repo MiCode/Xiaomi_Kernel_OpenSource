@@ -59,6 +59,18 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 	},
 	{
 		.id = "WPE3_CG_DIP1_WPE",
+	},
+	{
+		.id = "ME_CG_IPE"
+	},
+	{
+		.id = "ME_CG_IPE_TOP"
+	},
+	{
+		.id = "ME_CG"
+	},
+	{
+		.id = "ME_CG_LARB12"
 	}
 };
 

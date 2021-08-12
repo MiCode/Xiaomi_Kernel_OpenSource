@@ -1591,7 +1591,11 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	int fd;
 #endif
 
+	#if DVFS_QOS_READY
+	mtk_imgsys_power_ctrl(imgsys_dev, true);
+	#else
 	pm_runtime_get_sync(imgsys_dev->dev);
+	#endif
 
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
@@ -1717,8 +1721,12 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	}
 	mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
 
-	pm_runtime_mark_last_busy(imgsys_dev->dev);
-	pm_runtime_put_autosuspend(imgsys_dev->dev);
+	#if DVFS_QOS_READY
+	mtk_imgsys_power_ctrl(imgsys_dev, false);
+	#else
+	pm_runtime_put_sync(imgsys_dev->dev);
+	#endif
+
 }
 
 int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
