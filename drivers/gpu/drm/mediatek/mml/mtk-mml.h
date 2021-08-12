@@ -157,6 +157,11 @@ struct mml_frame_info {
 	uint8_t layer_id;
 };
 
+struct mml_frame_size {
+	uint32_t width;
+	uint32_t height;
+};
+
 struct mml_buffer {
 	int32_t fd[MML_MAX_PLANES];
 	uint32_t size[MML_MAX_PLANES];

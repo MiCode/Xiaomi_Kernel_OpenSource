@@ -214,6 +214,7 @@ struct mml_pipe_cache {
 struct mml_frame_config {
 	struct list_head entry;
 	struct mml_frame_info info;
+	struct mml_frame_size frame_out[MML_MAX_OUTPUTS];
 	struct mutex task_mutex;
 	struct list_head tasks;
 	struct list_head await_tasks;
