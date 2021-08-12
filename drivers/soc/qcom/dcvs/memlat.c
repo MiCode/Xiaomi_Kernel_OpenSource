@@ -103,7 +103,6 @@ struct memlat_mon {
 	u32				ipm_ceil;
 	u32				stall_floor;
 	u32				freq_scale_pct;
-	u32				freq_scale_limit_mhz;
 	u32				wb_pct_thres;
 	u32				wb_filter_ipm;
 	u32				min_freq;
@@ -299,8 +298,6 @@ show_attr(wb_pct_thres);
 store_attr(wb_pct_thres, 0U, 100U);
 show_attr(wb_filter_ipm);
 store_attr(wb_filter_ipm, 0U, 50000U);
-store_attr(freq_scale_limit_mhz, 0U, 5000U);
-show_attr(freq_scale_limit_mhz);
 
 MEMLAT_ATTR_RW(sample_ms);
 
@@ -313,7 +310,6 @@ MEMLAT_ATTR_RW(stall_floor);
 MEMLAT_ATTR_RW(freq_scale_pct);
 MEMLAT_ATTR_RW(wb_pct_thres);
 MEMLAT_ATTR_RW(wb_filter_ipm);
-MEMLAT_ATTR_RW(freq_scale_limit_mhz);
 
 static struct attribute *memlat_settings_attr[] = {
 	&sample_ms.attr,
@@ -330,7 +326,6 @@ static struct attribute *memlat_mon_attr[] = {
 	&freq_scale_pct.attr,
 	&wb_pct_thres.attr,
 	&wb_filter_ipm.attr,
-	&freq_scale_limit_mhz.attr,
 	NULL,
 };
 
@@ -536,14 +531,9 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 		else if (stats->ipm[hw] <= mon->ipm_ceil) {
 			ipm_diff = mon->ipm_ceil - stats->ipm[hw];
 			max_cpufreq_scaled = stats->freq_mhz;
-			if (mon->freq_scale_pct && stats->freq_mhz &&
-			    (stats->freq_mhz < mon->freq_scale_limit_mhz) &&
-			    (stats->stall_pct > mon->stall_floor)) {
+			if (stats->freq_mhz && stats->stall_pct > mon->stall_floor)
 				max_cpufreq_scaled += (stats->freq_mhz * ipm_diff *
 					mon->freq_scale_pct) / (mon->ipm_ceil * 100);
-				max_cpufreq_scaled = min(mon->freq_scale_limit_mhz,
-							 max_cpufreq_scaled);
-			}
 			set_higher_freq(&max_cpu, cpu, &max_cpufreq,
 					max_cpufreq_scaled);
 		}
@@ -1200,7 +1190,6 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	mon->freq_scale_pct = 0;
 	mon->wb_pct_thres = 100;
 	mon->wb_filter_ipm = 25000;
-	mon->freq_scale_limit_mhz = 1881; /* Change to INT_MAX once QGPE changes are in */
 
 	if (of_parse_phandle(dev->of_node, COREDEV_TBL_PROP, 0))
 		of_node = of_parse_phandle(dev->of_node, COREDEV_TBL_PROP, 0);
