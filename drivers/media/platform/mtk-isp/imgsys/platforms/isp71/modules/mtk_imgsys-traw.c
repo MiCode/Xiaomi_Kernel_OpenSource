@@ -540,46 +540,6 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 }
 
-static void imgsys_traw_hw_reset(struct mtk_imgsys_dev *imgsys_dev)
-{
-	void __iomem *WpeRegBA = 0L;
-	void __iomem *Wpe1BA = 0L, *Wpe2BA = 0L, *Wpe3BA = 0L;
-	void __iomem *pWpeCtrl = 0L;
-	unsigned int WpeMacroReg = WPE_MACRO_LARB11_RST | WPE_MACRO_WPE_RST;
-	unsigned int HwIdx = 0;
-
-	/* Iomap */
-	Wpe1BA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE1_DIP1);
-	Wpe2BA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE2_DIP1);
-	Wpe3BA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_WPE3_DIP1);
-
-	for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
-		if (HwIdx == 0)
-			WpeRegBA = Wpe1BA;
-		else if (HwIdx == 1)
-			WpeRegBA = Wpe2BA;
-		else
-			WpeRegBA = Wpe3BA;
-
-		if (WpeRegBA) {
-			/* Wpe Macro HW Reset */
-			pWpeCtrl = (void *)(WpeRegBA + WPE_MACRO_SW_RST);
-			iowrite32(WpeMacroReg, pWpeCtrl);
-			/* Clear HW Reset */
-			iowrite32(0x0, pWpeCtrl);
-		}
-	}
-
-	/* Ioumap */
-	if (Wpe1BA)
-		iounmap(Wpe1BA);
-	if (Wpe2BA)
-		iounmap(Wpe2BA);
-	if (Wpe3BA)
-		iounmap(Wpe3BA);
-}
-
-
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -593,8 +553,6 @@ void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	g_trawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TRAW);
 	g_ltrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_LTRAW);
 	g_xtrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_XTRAW);
-
-	imgsys_traw_hw_reset(imgsys_dev);
 
 	for (HwIdx = 0; HwIdx < TRAW_HW_SET; HwIdx++) {
 		if (HwIdx == 0)
