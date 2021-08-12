@@ -115,7 +115,7 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_PMU_COUNT,     14, 0x4, 0660,            "c14",            &C14_fops, 0},
 	{MDLA_IPI_PMU_COUNT,     15, 0x4, 0660,            "c15",            &C15_fops, 0},
 	{MDLA_IPI_PREEMPT_CNT,    0, 0xC, 0660,  "preempt_times",  &preempt_times_fops, 0},
-	{MDLA_IPI_FORCE_PWR_ON,   0, 0x8, 0660,   "force_pwr_on",   &force_pwr_on_fops, 0},
+	{MDLA_IPI_FORCE_PWR_ON,   0, 0xC, 0660,   "force_pwr_on",   &force_pwr_on_fops, 0},
 	{MDLA_IPI_PROFILE_EN,     0, 0x8, 0660,      "profiling",      &profiling_fops, 0},
 	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0xC, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
 	{MDLA_IPI_INFO,           0, 0xC, 0660,           "info",           &info_fops, 0},
@@ -155,7 +155,13 @@ static void mdla_plat_v2_dbgfs_usage(struct seq_file *s, void *data)
 	seq_printf(s, "\tMDLA_DBG_PERF        = 0x%x\n", 1U << V2_DBG_PERF);
 	seq_printf(s, "\tMDLA_DBG_TIMEOUT     = 0x%x\n", 1U << V2_DBG_TIMEOUT);
 	seq_printf(s, "\tMDLA_DBG_PWR         = 0x%x\n", 1U << V2_DBG_PWR);
+	seq_printf(s, "\tMDLA_DBG_MEM         = 0x%x\n", 1U << V2_DBG_MEM);
 	seq_printf(s, "\tMDLA_DBG_IPI         = 0x%x\n", 1U << V2_DBG_IPI);
+
+	seq_puts(s, "\n--------------- power control ---------------\n");
+	seq_printf(s, "echo [0|1] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_FORCE_PWR_ON));
+	seq_puts(s, "\t0: force power down\n");
+	seq_puts(s, "\t1: force power up\n");
 
 	seq_puts(s, "\n------------- show information ------------------\n");
 	seq_printf(s, "echo [item] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_INFO));
