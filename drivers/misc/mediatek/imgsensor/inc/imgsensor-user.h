@@ -10,6 +10,28 @@
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
+#define DEFAULT_WIDTH 1600
+#define DEFAULT_HEIGHT 1200
+
+enum {
+	PAD_SINK = 0,
+	PAD_SRC_RAW0,
+	PAD_SRC_RAW1,
+	PAD_SRC_RAW2,
+	PAD_SRC_PDAF0,
+	PAD_SRC_PDAF1,
+	PAD_SRC_PDAF2,
+	PAD_SRC_PDAF3,
+	PAD_SRC_PDAF4,
+	PAD_SRC_PDAF5,
+	PAD_SRC_PDAF6,
+	PAD_SRC_HDR0,
+	PAD_SRC_HDR1,
+	PAD_SRC_HDR2,
+	PAD_MAXCNT,
+	PAD_ERR = 0xffff,
+};
+
 struct mtk_awb_gain {
 	__u32 abs_gain_gr;
 	__u32 abs_gain_r;

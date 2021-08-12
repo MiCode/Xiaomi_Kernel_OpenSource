@@ -18,7 +18,7 @@
 #include "mtk_cam-sv.h"
 #include "mtk_cam_pm.h"
 #include "mtk_cam-ipi.h"
-#include "mtk_cam-seninf-def.h"
+#include "imgsensor-user.h"
 #include "mtk_cam-seninf-drv.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-ctrl.h"

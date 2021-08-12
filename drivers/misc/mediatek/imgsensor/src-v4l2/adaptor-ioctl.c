@@ -117,6 +117,24 @@ static enum VC_FEATURE fd_desc_to_vc_feature(
 	case VC_STAGGER_SE:
 		ret = VC_STAGGER_SE;
 		break;
+	case VC_PDAF_STATS_PIX_1:
+		ret = VC_PDAF_STATS_PIX_1;
+		break;
+	case VC_PDAF_STATS_PIX_2:
+		ret = VC_PDAF_STATS_PIX_2;
+		break;
+	case VC_PDAF_STATS_ME_PIX_1:
+		ret = VC_PDAF_STATS_ME_PIX_1;
+		break;
+	case VC_PDAF_STATS_ME_PIX_2:
+		ret = VC_PDAF_STATS_ME_PIX_2;
+		break;
+	case VC_PDAF_STATS_SE_PIX_1:
+		ret = VC_PDAF_STATS_SE_PIX_1;
+		break;
+	case VC_PDAF_STATS_SE_PIX_2:
+		ret = VC_PDAF_STATS_SE_PIX_2;
+		break;
 	default:
 		ret = VC_NONE;
 		break;
@@ -143,7 +161,6 @@ static void frame_desc_to_vcinfo2(
 	for (i = 0; i < fd->num_entries; i++) {
 		vc = &vcinfo2->vc_info[i];
 		entry = &fd->entry[i].bus.csi2;
-
 		vc->VC_FEATURE = fd_desc_to_vc_feature(entry->user_data_desc);
 		vc->VC_ID = entry->channel;
 		vc->VC_DataType = entry->data_type;
@@ -230,6 +247,74 @@ static void vcinfo_to_vcinfo2(
 	}
 }
 #endif /* IMGSENSOR_VC_ROUTING */
+
+static void vcinfo2_fill_pad(
+		struct SENSOR_VC_INFO2_STRUCT *vcinfo2)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vcinfo2->vc_info); i++) {
+		switch (vcinfo2->vc_info[i].VC_FEATURE) {
+		case VC_3HDR_Y:
+			vcinfo2->vc_info[i].pad = PAD_SRC_HDR0;
+			break;
+		case VC_3HDR_AE:
+			vcinfo2->vc_info[i].pad = PAD_SRC_HDR1;
+			break;
+		case VC_3HDR_FLICKER:
+			vcinfo2->vc_info[i].pad = PAD_SRC_HDR2;
+			break;
+		case VC_PDAF_STATS:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF0;
+			break;
+		case VC_PDAF_STATS_PIX_1:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF1;
+			break;
+		case VC_PDAF_STATS_PIX_2:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF2;
+			break;
+		case VC_PDAF_STATS_ME_PIX_1:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF3;
+			break;
+		case VC_PDAF_STATS_ME_PIX_2:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF4;
+			break;
+		case VC_PDAF_STATS_SE_PIX_1:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF5;
+			break;
+		case VC_PDAF_STATS_SE_PIX_2:
+			vcinfo2->vc_info[i].pad = PAD_SRC_PDAF6;
+			break;
+		case VC_STAGGER_NE:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW0;
+			break;
+		case VC_STAGGER_ME:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW1;
+			break;
+		case VC_STAGGER_SE:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW2;
+			break;
+		default:
+			vcinfo2->vc_info[i].pad = PAD_ERR;
+			break;
+		}
+		// #if 0
+		// if (((vcinfo2->vc_info[i].VC_FEATURE >= VC_MIN_NUM) &&
+		//     (vcinfo2->vc_info[i].VC_FEATURE < VC_RAW_DATA_MAX)) ||
+		//     ((vcinfo2->vc_info[i].VC_FEATURE >= VC_STAGGER_NE) &&
+		//     (vcinfo2->vc_info[i].VC_FEATURE < VC_STAGGER_MAX_NUM))) {
+			// /* image raw */
+			// vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = fmt;
+		// } else {
+			// /* stat data */
+			// vcinfo2->vc_info[i].VC_OUTPUT_FORMAT =
+				// (vcinfo2->vc_info[i].VC_DataType == 0x2b) ?
+				// SENSOR_OUTPUT_FORMAT_RAW_B :
+				// SENSOR_OUTPUT_FORMAT_RAW8_B;
+		// }
+		// #endif
+	}
+}
 
 static void vcinfo2_fill_output_format(
 		struct SENSOR_VC_INFO2_STRUCT *vcinfo2,
@@ -412,6 +497,7 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 #endif
 
 	vcinfo2_fill_output_format(&vcinfo2, sinfo.SensorOutputDataFormat);
+	vcinfo2_fill_pad(&vcinfo2);
 
 	if (copy_to_user((void *)info->p_vcinfo, &vcinfo2, sizeof(vcinfo2)))
 		return -EFAULT;

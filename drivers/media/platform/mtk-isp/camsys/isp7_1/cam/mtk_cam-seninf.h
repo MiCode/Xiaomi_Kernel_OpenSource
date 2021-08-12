@@ -9,6 +9,7 @@
 #include <media/v4l2-fwnode.h>
 
 #include "mtk_cam-seninf-def.h"
+#include "imgsensor-user.h"
 
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define SENINF_VC_ROUTING
