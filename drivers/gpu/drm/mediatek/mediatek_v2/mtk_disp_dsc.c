@@ -708,6 +708,8 @@ static int mtk_disp_dsc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
+
 	platform_set_drvdata(pdev, priv);
 
 	ret = devm_request_irq(dev, irq, mtk_dsc_irq_handler,
@@ -779,8 +781,6 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6853_dsc_driver_data},
 	{ .compatible = "mediatek,mt6879-disp-dsc",
 	  .data = &mt6879_dsc_driver_data},
-	{ .compatible = "mediatek,mt6983-disp-dsc",
-	  .data = &mt6983_dsc_driver_data},
 	{},
 };
 

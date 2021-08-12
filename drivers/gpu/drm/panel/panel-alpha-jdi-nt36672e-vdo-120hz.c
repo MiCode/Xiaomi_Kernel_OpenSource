@@ -160,6 +160,8 @@ struct jdi {
 	bool prepared;
 	bool enabled;
 
+	unsigned int gate_ic;
+
 	int error;
 };
 
@@ -762,18 +764,19 @@ static int jdi_unprepare(struct drm_panel *panel)
 	 * gpiod_set_value(ctx->reset_gpio, 0);
 	 * devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 	 */
-	ctx->bias_neg =
-		devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_neg, 0);
-	devm_gpiod_put(ctx->dev, ctx->bias_neg);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_neg =
+			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_neg, 0);
+		devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
-	usleep_range(2000, 2001);
+		usleep_range(2000, 2001);
 
-	ctx->bias_pos =
-		devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_pos, 0);
-	devm_gpiod_put(ctx->dev, ctx->bias_pos);
-
+		ctx->bias_pos =
+			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_pos, 0);
+		devm_gpiod_put(ctx->dev, ctx->bias_pos);
+	}
 	ctx->error = 0;
 	ctx->prepared = false;
 
@@ -798,16 +801,18 @@ static int jdi_prepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->reset_gpio, 1);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 	// end
-	ctx->bias_pos =
-		devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_pos, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_pos);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_pos =
+			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_pos, 1);
+		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
-	usleep_range(2000, 2001);
-	ctx->bias_neg =
-		devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_neg, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_neg);
+		usleep_range(2000, 2001);
+		ctx->bias_neg =
+			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
+		gpiod_set_value(ctx->bias_neg, 1);
+		devm_gpiod_put(ctx->dev, ctx->bias_neg);
+	}
 #ifndef BYPASSI2C
 	_lcm_i2c_write_bytes(0x0, 0xf);
 	_lcm_i2c_write_bytes(0x1, 0xf);
@@ -1356,6 +1361,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	struct device *dev = &dsi->dev;
 	struct jdi *ctx;
 	struct device_node *backlight;
+	unsigned int value;
 	int ret;
 
 	pr_info("%s+\n", __func__);
@@ -1371,6 +1377,12 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
 			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET |
 			MIPI_DSI_CLOCK_NON_CONTINUOUS;
+
+	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
+	if (ret < 0)
+		value = 0;
+	else
+		ctx->gate_ic = value;
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (backlight) {
@@ -1388,21 +1400,23 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
-	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_pos)) {
-		dev_info(dev, "cannot get bias-gpios 0 %ld\n",
-			 PTR_ERR(ctx->bias_pos));
-		return PTR_ERR(ctx->bias_pos);
-	}
-	devm_gpiod_put(dev, ctx->bias_pos);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_pos)) {
+			dev_info(dev, "cannot get bias-gpios 0 %ld\n",
+				 PTR_ERR(ctx->bias_pos));
+			return PTR_ERR(ctx->bias_pos);
+		}
+		devm_gpiod_put(dev, ctx->bias_pos);
 
-	ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_neg)) {
-		dev_info(dev, "cannot get bias-gpios 1 %ld\n",
-			 PTR_ERR(ctx->bias_neg));
-		return PTR_ERR(ctx->bias_neg);
+		ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_neg)) {
+			dev_info(dev, "cannot get bias-gpios 1 %ld\n",
+				 PTR_ERR(ctx->bias_neg));
+			return PTR_ERR(ctx->bias_neg);
+		}
+		devm_gpiod_put(dev, ctx->bias_neg);
 	}
-	devm_gpiod_put(dev, ctx->bias_neg);
 	ctx->prepared = true;
 	ctx->enabled = true;
 	drm_panel_init(&ctx->panel, dev, &jdi_drm_funcs, DRM_MODE_CONNECTOR_DSI);
