@@ -468,7 +468,6 @@ static int apu_probe(struct platform_device *pdev)
 	ret = rproc_add(rproc);
 	if (ret < 0) {
 		dev_info(dev, "boot fail ret:%d\n", ret);
-		rproc_del(rproc);
 		goto remove_apu_excep;
 	}
 

@@ -405,7 +405,7 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 			udelay(10);
 			/* Read DBG STATUS Register */
 			status = dbg_apb_dr(apu, DBG_STATUS_REG_INSTR);
-			if (timeout++ > 100000) {
+			if (timeout++ > 100) {
 				dev_info(dev, "%s: timeout\n", __func__);
 				break;
 			}
