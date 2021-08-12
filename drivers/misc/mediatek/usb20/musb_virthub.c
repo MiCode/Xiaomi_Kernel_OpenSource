@@ -26,6 +26,7 @@ static void musb_host_check_disconnect(struct musb *musb)
 	if (opstate == MUSB_OPSTATE_HOST_WAIT_DEV && is_con) {
 		DBG(0, "disconnect when suspend");
 		musb->int_usb |= MUSB_INTR_DISCONNECT;
+		musb->xceiv->otg->state = OTG_STATE_A_HOST;
 		musb_interrupt(musb);
 	}
 }
@@ -362,10 +363,8 @@ int musb_hub_control(struct usb_hcd *hcd,
 			usb_hcd_poll_rh_status(musb_to_hcd(musb));
 			/* NOTE: it might really be A_WAIT_BCON ... */
 			musb->xceiv->otg->state = OTG_STATE_A_HOST;
-
-			musb_host_check_disconnect(musb);
 		}
-
+		musb_host_check_disconnect(musb);
 		put_unaligned(cpu_to_le32(musb->port1_status
 					  & ~MUSB_PORT_STAT_RESUME),
 					  (__le32 *) buf);

@@ -359,6 +359,10 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 		tmp = musb_readw(musb->mregs, RESREG);
 		tmp &= ~HSTPWRDWN_OPT;
 		musb_writew(musb->mregs, RESREG, tmp);
+		if (is_con && !musb->is_active) {
+			DBG(0, "resume with device connected\n");
+			musb->is_active = 1;
+		}
 	}
 }
 
