@@ -9,7 +9,6 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 #include <linux/delay.h>
-#include <linux/time.h>
 #include <linux/ktime.h>
 #include <linux/module.h>
 
@@ -1102,20 +1101,10 @@ void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 
 int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
-	unsigned int suspend_block_cnt = 0;
 	int ret = -1;
 
 	if (hw_id >= MTK_VDEC_HW_NUM)
 		return -1;
-
-	while (ctx->dev->is_codec_suspending == 1) {
-		suspend_block_cnt++;
-		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-			mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
-			suspend_block_cnt = 0;
-		}
-		usleep_range(10000, 20000);
-	}
 
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
@@ -2627,8 +2616,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
-
-	ctx->dec_flush_buf->lastframe = NON_EOS;
+;
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->state >= MTK_STATE_HEADER) {
 			src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -2644,6 +2632,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
 				if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb)
 						v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+		ctx->dec_flush_buf->lastframe = NON_EOS;
 		return;
 	}
 

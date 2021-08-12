@@ -169,6 +169,7 @@ void vcp_reset_wait_timeout(void);
 /* vcp irq */
 extern irqreturn_t vcp_A_irq_handler(int irq, void *dev_id);
 extern void vcp_A_irq_init(void);
+extern void wait_vcp_wdt_irq_done(void);
 
 /* vcp helper */
 extern void vcp_schedule_work(struct vcp_work_struct *vcp_ws);

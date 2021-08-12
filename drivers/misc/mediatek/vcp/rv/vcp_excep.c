@@ -159,6 +159,7 @@ void vcp_dump_last_regs(void)
 
 void vcp_do_regdump(uint32_t *out, uint32_t *out_end)
 {
+#if VCP_RECOVERY_SUPPORT
 	int i = 0;
 	void *from;
 	uint32_t *buf = out;
@@ -178,6 +179,7 @@ void vcp_do_regdump(uint32_t *out, uint32_t *out_end)
 		memcpy_from_vcp(buf, from, reg_save_list[i].size);
 		buf += (reg_save_list[i].size / sizeof(uint32_t));
 	}
+#endif
 }
 
 void vcp_do_l1cdump(uint32_t *out, uint32_t *out_end)
@@ -319,8 +321,10 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
 {
 	unsigned int vcp_dump_size;
 	unsigned int vcp_awake_fail_flag;
+#if VCP_RECOVERY_SUPPORT
 	uint32_t dram_start = 0;
 	uint32_t dram_size = 0;
+#endif
 
 	/*flag use to indicate vcp awake success or not*/
 	vcp_awake_fail_flag = 0;
@@ -344,6 +348,7 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
 	vcp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_L1C_SIZE
 		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
 
+#if VCP_RECOVERY_SUPPORT
 	/* dram support? */
 	if ((int)(vcp_region_info_copy.ap_dram_size) <= 0) {
 		pr_notice("[vcp] ap_dram_size <=0\n");
@@ -355,6 +360,7 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
 			vcp_ap_dram_virt, dram_size);
 		vcp_dump_size += roundup(dram_size, 4);
 	}
+#endif
 
 	dsb(SY); /* may take lot of time */
 
@@ -538,18 +544,12 @@ struct bin_attribute bin_attr_vcp_dump = {
  */
 int vcp_excep_init(void)
 {
-	int dram_size = 0;
-
 	mutex_init(&vcp_excep_mutex);
 
 	/* alloc dump memory */
 	vcp_dump.detail_buff = vmalloc(VCP_AED_STR_LEN);
 	if (!vcp_dump.detail_buff)
 		return -1;
-
-	/* support L1C or not? */
-	if ((int)(vcp_region_info->ap_dram_size) > 0)
-		dram_size = vcp_region_info->ap_dram_size;
 
 	vcp_dump.ramdump = vmalloc(sizeof(struct MemoryDump));
 	if (!vcp_dump.ramdump)
@@ -596,9 +596,11 @@ int vcp_excep_init(void)
  *****************************************************************************/
 void vcp_ram_dump_init(void)
 {
+#if VCP_RECOVERY_SUPPORT
 	vcp_A_task_context_addr = vcp_region_info->TaskContext_ptr;
 	pr_debug("[VCP] get vcp_A_task_context_addr: 0x%x\n",
 		vcp_A_task_context_addr);
+#endif
 }
 
 

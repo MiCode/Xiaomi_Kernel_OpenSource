@@ -8,6 +8,7 @@
 #include <linux/interrupt.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <linux/delay.h>
 #include <media/v4l2-mem2mem.h>
 #include <linux/mtk_vcu_controls.h>
 #include "mtk_vcodec_dec_pm.h"
@@ -311,10 +312,20 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 	int err;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
+	unsigned int suspend_block_cnt = 0;
 
 	mtk_vcodec_debug(vcu, "id=%X", *(uint32_t *)msg);
 	if (vcu->abort)
 		return -EIO;
+
+	while (vcu->ctx->dev->is_codec_suspending == 1) {
+		suspend_block_cnt++;
+		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+			mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
+			suspend_block_cnt = 0;
+		}
+		usleep_range(10000, 20000);
+	}
 
 	vcu_get_file_lock();
 	vcu_get_task(&task, &f, 0);

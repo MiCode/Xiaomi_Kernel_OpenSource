@@ -601,9 +601,10 @@ DEVICE_ATTR_WO(log_filter);
 static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 {
 	unsigned long flags;
+	phys_addr_t dma_addr;
 
-	pr_debug("[VCP]vcp_get_reserve_mem_phys=%llx\n",
-		(uint64_t)vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID));
+	dma_addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
+	pr_debug("[VCP]vcp_get_reserve_mem_phys=%llx\n", (uint64_t)dma_addr);
 	spin_lock_irqsave(&vcp_A_log_buf_spinlock, flags);
 	/* sync vcp last log information*/
 	last_log_info.vcp_log_dram_addr = log_info->vcp_log_dram_addr;
@@ -632,7 +633,7 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 
 	/* setting dram ctrl config to vcp*/
 	/* vcp side get wakelock, AP to write info to vcp sram*/
-	mt_reg_sync_writel(vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID),
+	mt_reg_sync_writel((uint32_t)(dma_addr | ((dma_addr >> 32) & 0xF)),  /* 36bits IOVA */
 			(VCP_TCM + last_log_info.vcp_log_dram_addr));
 	/* set init flag here*/
 	vcp_A_logger_inited = 1;
@@ -686,10 +687,12 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 	int ret;
 	unsigned int vcp_ipi_id;
 	struct vcp_logger_ctrl_msg msg;
+	phys_addr_t dma_addr;
 
 	vcp_ipi_id = IPI_OUT_LOGGER_CTRL;
 	msg.cmd = VCP_LOGGER_IPI_INIT;
-	msg.u.init.addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
+	dma_addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
+	msg.u.init.addr = (uint32_t)(dma_addr | ((dma_addr >> 32) & 0xF));  /* 36bits IOVA */
 	msg.u.init.size = vcp_get_reserve_mem_size(VCP_A_LOGGER_MEM_ID);
 
 	pr_notice("[VCP] %s: id=%u\n", __func__, vcp_ipi_id);

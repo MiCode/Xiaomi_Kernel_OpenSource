@@ -172,6 +172,7 @@ void vcp_enable_sram(void)
  */
 int vcp_sys_full_reset(void)
 {
+#if VCP_RECOVERY_SUPPORT
 	void *tmp;
 
 	pr_notice("[VCP] %s\n", __func__);
@@ -195,6 +196,7 @@ int vcp_sys_full_reset(void)
 		memcpy(vcp_ap_dram_virt, tmp,
 			vcp_region_info_copy.ap_dram_size);
 	}
+#endif
 	return 0;
 }
 

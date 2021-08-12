@@ -31,7 +31,7 @@ static void vcp_A_wdt_handler(void)
 #endif
 }
 
-static void wait_vcp_wdt_irq_done(void)
+void wait_vcp_wdt_irq_done(void)
 {
 	int retry = 0;
 	unsigned long c0, c1;
@@ -53,9 +53,9 @@ static void wait_vcp_wdt_irq_done(void)
 		pr_debug("[VCP] VCP wakeup timeout c0:%x c1:%x\n", c0, c1);
 
 	udelay(10);
-
-
 }
+EXPORT_SYMBOL_GPL(wait_vcp_wdt_irq_done);
+
 /*
  * dispatch vcp irq
  * reset vcp and generate exception if needed

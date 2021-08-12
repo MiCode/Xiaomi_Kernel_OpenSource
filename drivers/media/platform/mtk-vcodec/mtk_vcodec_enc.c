@@ -1946,9 +1946,9 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 			if (src_vb2_v4l2 != &ctx->enc_flush_buf->vb)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
+		ctx->enc_flush_buf->lastframe = NON_EOS;
 	}
 
-	ctx->enc_flush_buf->lastframe = NON_EOS;
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 	     vb2_is_streaming(&ctx->m2m_ctx->out_q_ctx.q)) ||
 	    (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
@@ -3141,20 +3141,10 @@ void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 
 void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
-	unsigned int suspend_block_cnt = 0;
 	int ret = -1;
 
 	if (hw_id >= MTK_VENC_HW_NUM)
 		return;
-
-	while (ctx->dev->is_codec_suspending == 1) {
-		suspend_block_cnt++;
-		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-			mtk_v4l2_debug(4, "VENC blocked by suspend\n");
-			suspend_block_cnt = 0;
-		}
-		usleep_range(10000, 20000);
-	}
 
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);

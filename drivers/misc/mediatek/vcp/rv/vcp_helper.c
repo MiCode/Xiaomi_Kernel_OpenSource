@@ -26,9 +26,13 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 //#include <mt-plat/sync_write.h>
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
@@ -106,6 +110,8 @@ phys_addr_t vcp_mem_base_phys;
 phys_addr_t vcp_mem_base_virt;
 phys_addr_t vcp_mem_size;
 struct vcp_regs vcpreg;
+struct clk *vcpclk;
+struct clk *vcppll;
 
 unsigned char *vcp_send_buff[VCP_CORE_TOTAL];
 unsigned char *vcp_recv_buff[VCP_CORE_TOTAL];
@@ -583,10 +589,9 @@ int reset_vcp(int reset)
 		 */
 		writel((unsigned int)vcp_mem_base_phys, DRAM_RESV_ADDR_REG);
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
-#if VCP_IOMMU_ENABLE
-		writel(readl(VCP_GCE_MMU) | B_MMU_EN, VCP_GCE_MMU);
-#endif
 		writel(1, R_CORE0_SW_RSTN_CLR);  /* release reset */
+
+		pr_debug("[VCP] %s: R_CORE0_SW_RSTN_CLR%x\n", __func__, R_CORE0_SW_RSTN_CLR);
 		dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
 		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
@@ -597,15 +602,50 @@ int reset_vcp(int reset)
 	return 0;
 }
 
-/*
- * TODO: what should we do when hibernation ?
- */
 static int vcp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
 	int retval;
 
 	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		pr_debug("PM_SUSPEND_PREPARE entered\n");
+
+		/* trigger halt isr, force scp enter wfi */
+		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
+		wait_vcp_wdt_irq_done();
+
+		// SMC call to TFA / DEVAPC
+		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
+		// 0, 0, 0, 0, 0, 0, &res);
+		clk_disable_unprepare(vcppll);
+		clk_disable_unprepare(vcpclk);
+		retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+		if (retval)
+			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
+
+		return NOTIFY_OK;
+	case PM_POST_SUSPEND:
+		//dev->is_codec_suspending = 0;
+		return NOTIFY_OK;
+	case PM_RESTORE_PREPARE:
+		retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+		if (retval)
+			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
+		retval = clk_prepare_enable(vcpclk);
+		if (retval)
+			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+		retval  = clk_prepare_enable(vcppll);
+		if (retval)
+			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+
+		// SMC call to TFA / DEVAPC
+		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
+		// 0, 0, 0, 0, 0, 0, &res);
+
+		pr_debug("PM_RESTORE_PREPARE ok\n");
+
+		return NOTIFY_OK;
 	case PM_POST_HIBERNATION:
 		pr_debug("[VCP] %s: reboot\n", __func__);
 		retval = reset_vcp(VCP_ALL_REBOOT);
@@ -1445,6 +1485,31 @@ void vcp_awake_init(void)
 	vcp_reset_awake_counts();
 }
 
+void vcp_reset_wait_timeout(void)
+{
+	uint32_t core0_halt = 0;
+	uint32_t core1_halt = 0;
+	/* make sure vcp is in idle state */
+	int timeout = 50; /* max wait 1s */
+
+	while (timeout--) {
+		core0_halt = readl(R_CORE0_STATUS) & B_CORE_HALT;
+		core1_halt = (vcpreg.core_nums == 2) ?
+			(readl(R_CORE1_STATUS) & B_CORE_HALT) : 1;
+		if (core0_halt && core1_halt) {
+			/* VCP stops any activities
+			 * and parks at wfi
+			 */
+			break;
+		}
+		mdelay(20);
+	}
+
+	if (timeout == 0)
+		pr_notice("[VCP] reset timeout, still reset vcp\n");
+
+}
+
 #if VCP_RECOVERY_SUPPORT
 /*
  * vcp_set_reset_status, set and return vcp reset status function
@@ -1501,30 +1566,6 @@ void print_clk_registers(void)
 		value = (unsigned int)readl(cfg_core1 + offset);
 		pr_notice("[VCP] cfg_core1[0x%04x]: 0x%08x\n", offset, value);
 	}
-
-}
-
-void vcp_reset_wait_timeout(void)
-{
-	uint32_t core0_halt = 0;
-	uint32_t core1_halt = 0;
-	/* make sure vcp is in idle state */
-	int timeout = 50; /* max wait 1s */
-
-	while (timeout--) {
-		core0_halt = readl(R_CORE0_STATUS) & B_CORE_HALT;
-		core1_halt = vcpreg.core_nums == 2? readl(R_CORE1_STATUS) & B_CORE_HALT: 1;
-		if (core0_halt && core1_halt) {
-			/* VCP stops any activities
-			 * and parks at wfi
-			 */
-			break;
-		}
-		mdelay(20);
-	}
-
-	if (timeout == 0)
-		pr_notice("[VCP] reset timeout, still reset vcp\n");
 
 }
 
@@ -1917,6 +1958,10 @@ static int vcp_device_probe(struct platform_device *pdev)
 	const char *core_status = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
+	const char *clk_name;
+	struct device_link	*link;
+	struct device_node	*smi_node;
+	struct platform_device	*psmi_com_dev;
 
 	pr_debug("[VCP] %s", __func__);
 
@@ -2116,7 +2161,6 @@ static int vcp_device_probe(struct platform_device *pdev)
 		pr_notice("[VCP] ipi_dev_register fail, ret %d\n", ret);
 
 #if VCP_RESERVED_MEM && defined(CONFIG_OF)
-
 	/*vcp resvered memory*/
 	pr_notice("[VCP] vcp_reserve_memory_ioremap\n");
 	ret = vcp_reserve_memory_ioremap(pdev);
@@ -2125,13 +2169,47 @@ static int vcp_device_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
+	/* device link to SMI for iommu */
+	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
+	psmi_com_dev = of_find_device_by_node(smi_node);
+	if (psmi_com_dev) {
+		link = device_link_add(dev, &psmi_com_dev->dev,
+				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+		if (!link) {
+			dev_info(dev, "Unable to link %s.\n",
+				dev_name(&psmi_com_dev->dev));
+			ret = -EINVAL;
+			return ret;
+		}
+	}
+
+	pm_runtime_enable(&pdev->dev);
+	ret = of_property_read_string_index(
+				pdev->dev.of_node, "clock-names", 0, &clk_name);
+	vcpclk = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcpclk)) {
+		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
+			0, clk_name);
+		return PTR_ERR(vcpclk);
+	}
+	ret = of_property_read_string_index(
+				pdev->dev.of_node, "clock-names", 1, &clk_name);
+	vcppll = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcppll)) {
+		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
+			1, clk_name);
+		return PTR_ERR(vcppll);
+	}
+
 	pr_info("[VCP] %s done\n", __func__);
 
 	return ret;
 }
 
-static int vcp_device_remove(struct platform_device *dev)
+static int vcp_device_remove(struct platform_device *pdev)
 {
+	pm_runtime_disable(&pdev->dev);
+
 	if (vcp_mbox_info) {
 		kfree(vcp_mbox_info);
 		vcp_mbox_info = NULL;
@@ -2148,6 +2226,23 @@ static int vcp_device_remove(struct platform_device *dev)
 	return 0;
 }
 
+static int mtk_vcp_suspend(struct device *pdev)
+{
+	pr_notice("%s done", __func__);
+	return 0;
+}
+
+static int mtk_vcp_resume(struct device *pdev)
+{
+	pr_notice("%s done", __func__);
+	return 0;
+}
+
+static const struct dev_pm_ops mtk_vcp_pm_ops = {
+	.suspend = mtk_vcp_suspend,
+	.resume = mtk_vcp_resume,
+};
+
 static const struct dev_pm_ops vcp_ipi_dbg_pm_ops = {
 	.resume_noirq = vcp_ipi_dbg_resume_noirq,
 };
@@ -2163,6 +2258,7 @@ static struct platform_driver mtk_vcp_device = {
 	.driver = {
 		.name = "vcp",
 		.owner = THIS_MODULE,
+		.pm = &mtk_vcp_pm_ops,
 		.of_match_table = vcp_of_ids,
 		.pm = &vcp_ipi_dbg_pm_ops,
 	},
@@ -2271,6 +2367,16 @@ static int __init vcp_init(void)
 		pr_notice("[VCP]Excep Init Fail\n");
 		goto err;
 	}
+
+	ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+	if (ret)
+		pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
+	ret = clk_prepare_enable(vcpclk);
+	if (ret)
+		pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+	ret = clk_prepare_enable(vcppll);
+	if (ret)
+		pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 
 	INIT_WORK(&vcp_A_notify_work.work, vcp_A_notify_ws);
 

@@ -90,6 +90,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	int ret, ipi_size;
 	unsigned long timeout;
 	struct share_obj obj;
+	unsigned int suspend_block_cnt = 0;
 
 	if (!is_vcp_ready(VCP_A_ID))
 		mtk_vcodec_err(inst, "VCP_A_ID not ready");
@@ -97,6 +98,15 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	if (len > sizeof(struct share_obj)) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
 		return -EIO;
+	}
+
+	while (inst->ctx->dev->is_codec_suspending == 1) {
+		suspend_block_cnt++;
+		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+			mtk_v4l2_debug(4, "VENC blocked by suspend\n");
+			suspend_block_cnt = 0;
+		}
+		usleep_range(10000, 20000);
 	}
 
 	if (!is_ack)
