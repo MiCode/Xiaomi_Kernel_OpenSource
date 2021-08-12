@@ -454,6 +454,7 @@ struct icnss_priv {
 	u32 hw_trc_override;
 	struct icnss_dms_data dms;
 	u8 use_nv_mac;
+	u32 wlan_en_delay_ms;
 };
 
 struct icnss_reg_info {
