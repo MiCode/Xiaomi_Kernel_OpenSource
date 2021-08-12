@@ -622,8 +622,9 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	} else {
 		task->job.fence = -1;
 	}
-	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p",
-		task->job.jobid, task->job.fence, task, task->fence, cfg);
+	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu",
+		task->job.jobid, task->job.fence, task, task->fence, cfg,
+		cfg->info.mode);
 
 	/* copy pq parameters */
 	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)

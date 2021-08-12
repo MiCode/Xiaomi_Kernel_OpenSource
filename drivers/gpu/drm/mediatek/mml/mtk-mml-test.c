@@ -412,7 +412,7 @@ static void case_run_nv12(struct mml_test *test, struct mml_test_case *cur)
 /* case_config_yuyv_down2
  * test format yuyv (1 plane yuv422)
  *
- * format in: YUYV
+ * format in: RGB888
  * format out: YUYV
  */
 static void case_config_yuyv_down2(void)
@@ -879,6 +879,21 @@ static void case_run_read_sram(struct mml_test *test, struct mml_test_case *cur)
 	mml_drm_put_context(mml_ctx);
 }
 
+/* case_config_rgb_down2
+ * test format rgb888 scale down 2
+ *
+ * format in: RGB888
+ * format out: RGB888
+ */
+static void case_config_rgb_down2(void)
+{
+	the_case.cfg_src_format = MML_FMT_RGB888;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
+	the_case.cfg_dest_format = MML_FMT_RGB888;
+	the_case.cfg_dest_w = mml_test_w / 2;
+	the_case.cfg_dest_h = mml_test_h / 2;
+}
 
 enum mml_ut_case {
 	MML_UT_RGB,		/* 0 */
@@ -898,6 +913,7 @@ enum mml_ut_case {
 	MML_UT_YV12_YUYV,	/* 14 */
 	MML_UT_WRITE_SRAM,	/* 15 */
 	MML_UT_READ_SRAM,	/* 16 */
+	MML_UT_RGB_DOWN2,	/* 17 */
 	MML_UT_TOTAL
 };
 
@@ -969,6 +985,10 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 	[MML_UT_READ_SRAM] = {
 		.config = case_config_rgb,
 		.run = case_run_read_sram,
+	},
+	[MML_UT_RGB_DOWN2] = {
+		.config = case_config_rgb_down2,
+		.run = case_run_general,
 	},
 };
 

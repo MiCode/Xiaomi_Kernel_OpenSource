@@ -30,6 +30,9 @@ enum topology_dual {
 int mml_dual;
 module_param(mml_dual, int, 0644);
 
+int mml_path_swap;
+module_param(mml_path_swap, int, 0644);
+
 enum topology_scenario {
 	PATH_MML_NOPQ_P0 = 0,
 	PATH_MML_NOPQ_P1,
@@ -253,6 +256,11 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			continue;
 		}
 
+		if (eng == MML_RDMA0)
+			path->hw_pipe = 0;
+		else if (eng == MML_RDMA1)
+			path->hw_pipe = 1;
+
 		/* check cursor for 2 out and link if id match */
 		if (!connect_eng[0] && next0) {
 			/* First engine case, set current out 0 to this engine.
@@ -421,6 +429,9 @@ static void tp_select_path(struct mml_topology_cache *cache,
 done:
 	path[0] = &cache->path[scene[0]];
 	path[1] = &cache->path[scene[1]];
+
+	if (mml_path_swap)
+		swap(path[0], path[1]);
 }
 
 static inline bool tp_need_dual(struct mml_frame_config *cfg)

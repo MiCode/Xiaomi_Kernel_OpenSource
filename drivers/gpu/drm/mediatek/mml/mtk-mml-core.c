@@ -456,7 +456,7 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
 	struct mml_path_client *path_clt =
 		&tp->path_clts[task->config->path[pipe]->clt_id];
-	struct mml_task *task_tmp;
+	struct mml_task_pipe *task_pipe_tmp;
 	struct timespec64 curr_time;
 	u32 throughput;
 	u32 max_pixel = task->config->cache[pipe].max_pixel;
@@ -477,12 +477,13 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 		task->end_time = curr_time;
 
 	if (!list_empty(&path_clt->tasks))
-		task_tmp = list_last_entry(&path_clt->tasks, typeof(*task_tmp),
-			entry_clt[pipe]);
+		task_pipe_tmp = list_last_entry(&path_clt->tasks,
+			typeof(*task_pipe_tmp), entry_clt);
 	else
-		task_tmp = NULL;
-	if (task_tmp && timespec64_compare(&task_tmp->end_time, &curr_time) >= 0)
-		task->submit_time = task_tmp->end_time;
+		task_pipe_tmp = NULL;
+
+	if (task_pipe_tmp && timespec64_compare(&task_pipe_tmp->task->end_time, &curr_time) >= 0)
+		task->submit_time = task_pipe_tmp->task->end_time;
 	else
 		task->submit_time = curr_time;
 
@@ -492,9 +493,9 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 			time_dur_us(&task->end_time, &task->submit_time));
 
 		throughput = task->throughput;
-		list_for_each_entry(task_tmp, &path_clt->tasks, entry_clt[pipe]) {
+		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
 			/* find the max throughput (frequency) between tasks on same client */
-			throughput = max(throughput, task_tmp->throughput);
+			throughput = max(throughput, task_pipe_tmp->task->throughput);
 		}
 	} else {
 		/* there is no time for this task, use mas throughput */
@@ -508,14 +509,15 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	}
 
 	/* now append at tail, this order should same as cmdq exec order */
-	list_add_tail(&task->entry_clt[pipe], &path_clt->tasks);
+	list_add_tail(&task->pipe[pipe].entry_clt, &path_clt->tasks);
 
 	path_clt->throughput = throughput;
 	mml_qos_update_tput(task->config->mml);
 
 	/* note the running task not always current begin task */
-	task_tmp = list_first_entry(&path_clt->tasks, typeof(*task_tmp), entry_clt[pipe]);
-	mml_core_qos_set(task_tmp, pipe, throughput);
+	task_pipe_tmp = list_first_entry_or_null(&path_clt->tasks,
+		typeof(*task_pipe_tmp), entry_clt);
+	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput);
 
 	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) pixel %u",
 		task, pipe, throughput, task->throughput, max_pixel);
@@ -528,7 +530,7 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
 	struct mml_path_client *path_clt =
 		&tp->path_clts[task->config->path[pipe]->clt_id];
-	struct mml_task *task_cur, *task_tmp;
+	struct mml_task_pipe *task_pipe_cur, *task_pipe_tmp;
 	struct timespec64 curr_time;
 	u32 throughput = 0, max_pixel = 0;
 
@@ -540,48 +542,50 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
 		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000));
 
-	if (list_empty(&task->entry_clt[pipe])) {
+	if (list_empty(&task->pipe[pipe].entry_clt)) {
 		/* task may already removed from other config (thread),
 		 * so safe to leave directly.
 		 */
 		goto exit;
 	}
 
-	list_for_each_entry_safe(task_cur, task_tmp, &path_clt->tasks, entry_clt[pipe]) {
+	list_for_each_entry_safe(task_pipe_cur, task_pipe_tmp, &path_clt->tasks,
+		entry_clt) {
 		/* remove task from list include tasks before current
 		 * ending task, since cmdq already finish them, too.
 		 */
-		list_del_init(&task->entry_clt[pipe]);
+		list_del_init(&task_pipe_cur->entry_clt);
 
 		/* clear port qos */
-		mml_core_qos_clear(task, pipe);
+		mml_core_qos_clear(task_pipe_cur->task, pipe);
 
-		if (task == task_cur) {
+		if (task == task_pipe_cur->task) {
 			/* found ending one, stops delete */
 			break;
 		}
 
-		mml_msg_qos("task dvfs end %p pipe %u clear qos (pre-end)", task, pipe);
+		mml_msg_qos("task dvfs end %p pipe %u clear qos (pre-end)",
+			task_pipe_cur->task, pipe);
 	}
 
-	task_cur = list_first_entry_or_null(&path_clt->tasks, typeof(*task_cur),
-		entry_clt[pipe]);
-	if (task_cur) {
-		if (timespec64_compare(&curr_time, &task_cur->end_time) >= 0) {
+	task_pipe_cur = list_first_entry_or_null(&path_clt->tasks, typeof(*task_pipe_cur),
+		entry_clt);
+	if (task_pipe_cur) {
+		if (timespec64_compare(&curr_time, &task_pipe_cur->task->end_time) >= 0) {
 			/* this task must done right now, skip all compare */
 			throughput = tp->freq_max;
 			goto done;
 		}
 
 		/* calculate remaining time to complete pixels */
-		max_pixel = task_cur->config->cache[pipe].max_pixel;
-		task_cur->throughput = (u32)div_u64(max_pixel,
+		max_pixel = task_pipe_cur->task->config->cache[pipe].max_pixel;
+		task_pipe_cur->task->throughput = (u32)div_u64(max_pixel,
 			time_dur_us(&curr_time, &task->end_time));
 
 		throughput = 0;
-		list_for_each_entry(task_tmp, &path_clt->tasks, entry_clt[pipe]) {
+		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
 			/* find the max throughput (frequency) between tasks on same client */
-			throughput = max(throughput, task_tmp->throughput);
+			throughput = max(throughput, task_pipe_tmp->task->throughput);
 		}
 	} else {
 		/* no task anymore, clear */
@@ -590,12 +594,12 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 
 done:
 	mml_msg_qos("task dvfs end update new task %p throughput %u pixel %u",
-		task_cur, throughput, max_pixel);
+		task_pipe_cur ? task_pipe_cur->task : NULL, throughput, max_pixel);
 	path_clt->throughput = throughput;
 	mml_qos_update_tput(task->config->mml);
 
 	if (throughput)
-		mml_core_qos_set(task_cur, pipe, throughput);
+		mml_core_qos_set(task_pipe_cur->task, pipe, throughput);
 exit:
 	mml_trace_ex_end();
 }
@@ -662,8 +666,8 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	if (task->config->dual)
 		core_disable(task, 1);
 
-	task->config->task_ops->frame_done(task);
 	core_buffer_unmap(task);
+	task->config->task_ops->frame_done(task);
 
 done:
 	mml_trace_end();
@@ -992,13 +996,15 @@ struct mml_task *mml_core_create_task(void)
 	if (IS_ERR(task))
 		return task;
 	INIT_LIST_HEAD(&task->entry);
-	INIT_LIST_HEAD(&task->entry_clt[0]);
-	INIT_LIST_HEAD(&task->entry_clt[1]);
+	INIT_LIST_HEAD(&task->pipe[0].entry_clt);
+	INIT_LIST_HEAD(&task->pipe[1].entry_clt);
 	INIT_WORK(&task->work_config[0], core_config_thread);
 	INIT_WORK(&task->work_config[1], core_init_pipe1);
 	INIT_WORK(&task->work_wait[0], core_taskdone0);
 	INIT_WORK(&task->work_wait[1], core_taskdone1);
 	kref_init(&task->ref);
+	task->pipe[0].task = task;
+	task->pipe[1].task = task;
 	return task;
 }
 

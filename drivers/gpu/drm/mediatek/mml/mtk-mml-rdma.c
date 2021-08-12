@@ -206,34 +206,34 @@ enum rdma_label {
 	RDMA_LABEL_TOTAL
 };
 
-static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 		      enum cpr_reg_idx idx, u32 value, bool write_sec)
 {
 	if (write_sec) {
 		return cmdq_pkt_assign_command(pkt,
-			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML, pipe, idx), value);
+			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML, hw_pipe, idx), value);
 	}
 	/* else */
 	return cmdq_pkt_write(pkt, NULL,
 		base_pa + reg_idx_to_ofst[idx], value, U32_MAX);
 }
 
-static s32 rdma_write_ofst(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+static s32 rdma_write_ofst(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 			   enum cpr_reg_idx lsb_idx, u64 value, bool write_sec)
 {
 	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
 	s32 ret;
 
-	ret = rdma_write(pkt, base_pa, pipe,
+	ret = rdma_write(pkt, base_pa, hw_pipe,
 			 lsb_idx, value & GENMASK_ULL(31, 0), write_sec);
 	if (ret)
 		return ret;
-	ret = rdma_write(pkt, base_pa, pipe,
+	ret = rdma_write(pkt, base_pa, hw_pipe,
 			 msb_idx, value >> 32, write_sec);
 	return ret;
 }
 
-static s32 rdma_write_reuse(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+static s32 rdma_write_reuse(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 			    enum cpr_reg_idx idx, u32 value,
 			    struct mml_task_reuse *reuse,
 			    struct mml_pipe_cache *cache,
@@ -241,7 +241,7 @@ static s32 rdma_write_reuse(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
 {
 	if (write_sec) {
 		return mml_assign(pkt,
-			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML, pipe, idx), value,
+			CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML, hw_pipe, idx), value,
 			reuse, cache, label_idx);
 	}
 	/* else */
@@ -250,7 +250,7 @@ static s32 rdma_write_reuse(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
 		reuse, cache, label_idx);
 }
 
-static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
+static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 			   enum cpr_reg_idx lsb_idx, u64 value,
 			   struct mml_task_reuse *reuse,
 			   struct mml_pipe_cache *cache,
@@ -259,12 +259,12 @@ static s32 rdma_write_addr(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 pipe,
 	enum cpr_reg_idx msb_idx = lsb_to_msb[lsb_idx];
 	s32 ret;
 
-	ret = rdma_write_reuse(pkt, base_pa, pipe,
+	ret = rdma_write_reuse(pkt, base_pa, hw_pipe,
 			       lsb_idx, value & GENMASK_ULL(31, 0),
 			       reuse, cache, label_idx, write_sec);
 	if (ret)
 		return ret;
-	ret = rdma_write_reuse(pkt, base_pa, pipe,
+	ret = rdma_write_reuse(pkt, base_pa, hw_pipe,
 			       msb_idx, value >> 32,
 			       reuse, cache, label_idx + 1, write_sec);
 	return ret;
@@ -776,11 +776,11 @@ static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
 	}
 }
 
-static void rdma_cpr_trigger(struct cmdq_pkt *pkt, u8 pipe)
+static void rdma_cpr_trigger(struct cmdq_pkt *pkt, u8 hw_pipe)
 {
 	cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_MML_LOCK);
 	cmdq_pkt_assign_command(pkt, CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MML),
-				pipe);
+				hw_pipe);
 	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_MML_WAIT);
 	cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_MML_SET);
 	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_MML_LOCK);
@@ -911,14 +911,14 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
-		rdma_write_addr(pkt, base_pa, ccfg->pipe,
+		rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 				CPR_RDMA_UFO_DEC_LENGTH_BASE_Y,
 				ufo_dec_length_y,
 				reuse, cache,
 				&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
 				write_sec);
 
-		rdma_write_addr(pkt, base_pa, ccfg->pipe,
+		rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 				CPR_RDMA_UFO_DEC_LENGTH_BASE_C,
 				ufo_dec_length_c,
 				reuse, cache,
@@ -971,19 +971,19 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_msg("%s src %#11llx %#11llx %#11llx",
 		__func__, iova[0], iova[1], iova[2]);
 
-	rdma_write_addr(pkt, base_pa, ccfg->pipe,
+	rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 			CPR_RDMA_SRC_BASE_0,
 			iova[0],
 			reuse, cache,
 			&rdma_frm->labels[RDMA_LABEL_BASE_0],
 			write_sec);
-	rdma_write_addr(pkt, base_pa, ccfg->pipe,
+	rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 			CPR_RDMA_SRC_BASE_1,
 			iova[1],
 			reuse, cache,
 			&rdma_frm->labels[RDMA_LABEL_BASE_1],
 			write_sec);
-	rdma_write_addr(pkt, base_pa, ccfg->pipe,
+	rdma_write_addr(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 			CPR_RDMA_SRC_BASE_2,
 			iova[2],
 			reuse, cache,
@@ -995,7 +995,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SF_BKGD_SIZE_IN_BYTE,
 		       src->uv_stride, U32_MAX);
 
-	rdma_write(pkt, base_pa, ccfg->pipe, CPR_RDMA_TRANSFORM_0,
+	rdma_write(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe, CPR_RDMA_TRANSFORM_0,
 		   (rdma_frm->matrix_sel << 23) +
 		   (rdma_frm->color_tran << 16),
 		   write_sec);
@@ -1053,9 +1053,11 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	if (MML_FMT_COMPRESS(src->format)) {
-		rdma_write(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_WP,
+		rdma_write(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+			   CPR_RDMA_SRC_OFFSET_WP,
 			   in_xs, write_sec);
-		rdma_write(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_HP,
+		rdma_write(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+			   CPR_RDMA_SRC_OFFSET_HP,
 			   in_ys, write_sec);
 	}
 
@@ -1097,11 +1099,11 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 		/* Set 10bit UFO mode */
 		if (MML_FMT_10BIT_PACKED(src->format) && rdma_frm->enable_ufo) {
-			rdma_write(pkt, base_pa, ccfg->pipe,
+			rdma_write(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 				   CPR_RDMA_SRC_OFFSET_WP,
 				   (src_offset_0 << 2) / 5,
 				   write_sec);
-			rdma_write(pkt, base_pa, ccfg->pipe,
+			rdma_write(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
 				   CPR_RDMA_SRC_OFFSET_HP,
 				   0, write_sec);
 		}
@@ -1135,12 +1137,12 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		mf_offset_h_1 = (out_ys - in_ys) << rdma_frm->field;
 	}
 
-	rdma_write_ofst(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_0,
-			src_offset_0, write_sec);
-	rdma_write_ofst(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_1,
-			src_offset_1, write_sec);
-	rdma_write_ofst(pkt, base_pa, ccfg->pipe, CPR_RDMA_SRC_OFFSET_2,
-			src_offset_2, write_sec);
+	rdma_write_ofst(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+			CPR_RDMA_SRC_OFFSET_0, src_offset_0, write_sec);
+	rdma_write_ofst(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+			CPR_RDMA_SRC_OFFSET_1, src_offset_1, write_sec);
+	rdma_write_ofst(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+			CPR_RDMA_SRC_OFFSET_2, src_offset_2, write_sec);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_SRC_SIZE,
 		       (mf_src_h << 16) + mf_src_w, U32_MAX);
@@ -1166,7 +1168,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 			mf_src_w, mf_src_h);
 
 	if (write_sec)
-		rdma_cpr_trigger(pkt, ccfg->pipe);
+		rdma_cpr_trigger(pkt, cfg->path[ccfg->pipe]->hw_pipe);
 	return 0;
 }
 

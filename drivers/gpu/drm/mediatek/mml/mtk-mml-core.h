@@ -123,6 +123,9 @@ struct mml_topology_path {
 	struct mml_path_node nodes[MML_MAX_PATH_NODES];
 	u8 node_cnt;
 
+	/* sw workaround, cmdq use pipe to decide which hardware to be config */
+	u8 hw_pipe;
+
 	/* special ptr for mmlsys and mutex */
 	struct mml_comp *mmlsys;
 	u8 mmlsys_idx;
@@ -289,6 +292,12 @@ struct mml_task_reuse {
 	u32 label_idx;
 };
 
+/* pipe info for mml_task */
+struct mml_task_pipe {
+	struct mml_task *task;	/* back to task */
+	struct list_head entry_clt;
+};
+
 struct mml_task {
 	struct list_head entry;
 	struct mml_job job;
@@ -300,7 +309,7 @@ struct mml_task {
 	struct dma_fence *fence;
 	enum mml_task_state state;
 	struct kref ref;
-	struct list_head entry_clt[MML_PIPE_CNT];
+	struct mml_task_pipe pipe[MML_PIPE_CNT];
 
 	u32 throughput;
 
