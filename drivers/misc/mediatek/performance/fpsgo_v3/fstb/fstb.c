@@ -31,6 +31,10 @@
 #include "utch/utch.h"
 
 
+int (*fpsgo2msync_hint_frameinfo_fp)(unsigned int render_tid, unsigned int reader_bufID,
+		unsigned int target_fps, unsigned long q2q_time, unsigned long q2q_time2);
+EXPORT_SYMBOL(fpsgo2msync_hint_frameinfo_fp);
+
 #define API_READY 0
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "ged_kpi.h"
@@ -796,6 +800,7 @@ void (*eara_thrm_frame_start_fp)(int pid, unsigned long long bufID,
 	int AI_cross_vpu, int AI_cross_mdla, int AI_bg_vpu,
 	int AI_bg_mdla, ktime_t cur_time);
 
+
 int fpsgo_fbt2fstb_update_cpu_frame_info(
 		int pid,
 		unsigned long long bufID,
@@ -805,7 +810,9 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		long long Runnging_time,
 		unsigned int Curr_cap,
 		unsigned int Max_cap,
-		unsigned long long mid)
+		unsigned long long mid,
+		unsigned long long enqueue_length,
+		unsigned long long dequeue_length)
 {
 	long long cpu_time_ns = (long long)Runnging_time;
 	unsigned int max_current_cap = Curr_cap;
@@ -977,6 +984,10 @@ out:
 	}
 	ged_kpi_set_target_FPS_margin(iter->bufid, eara_fps, tolerence_fps,
 		iter->target_fps_diff, iter->cpu_time);
+
+	if (fpsgo2msync_hint_frameinfo_fp)
+		fpsgo2msync_hint_frameinfo_fp((unsigned int)iter->pid, iter->bufid,
+			iter->target_fps, Q2Q_time, Q2Q_time - enqueue_length - dequeue_length);
 
 	fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)cpu_time_ns, "t_cpu");
 	fpsgo_systrace_c_fstb(pid, iter->bufid, (int)max_current_cap,

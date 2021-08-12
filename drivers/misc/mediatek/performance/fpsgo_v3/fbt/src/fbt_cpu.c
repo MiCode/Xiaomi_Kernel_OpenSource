@@ -3501,7 +3501,7 @@ EXIT:
 	fpsgo_fbt2fstb_update_cpu_frame_info(thr->pid, thr->buffer_id,
 		thr->tgid, thr->frame_type,
 		thr->Q2Q_time, runtime,
-		blc_wt, limited_cap, thr->mid);
+		blc_wt, limited_cap, thr->mid, thr->enqueue_length, thr->dequeue_length);
 }
 
 static void fbt_setting_reset(int reset_idleprefer)
