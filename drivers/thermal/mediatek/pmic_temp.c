@@ -37,6 +37,7 @@ struct pmic_tz_data {
 	int o_slope;
 	int o_slope_sign;
 	int id;
+	int pullup_volt;
 	int sensor_num;
 	struct pmic_tz_cali_data *cali_data;
 	int (*get_cali_data)(struct device *dev,
@@ -46,7 +47,11 @@ struct pmic_tz_data {
 struct pmic_temp_info {
 	struct device *dev;
 	struct pmic_tz_data *efuse_data;
+};
+
+struct pmic_temp_tz {
 	int tz_id;
+	struct pmic_temp_info *pmic_tz_info;
 };
 
 /*=============================================================*/
@@ -82,8 +87,7 @@ static void pmic_get_temp_convert_params(struct pmic_temp_info *data)
 		else
 			cali[i].slope2 = -(factor - tz_data->o_slope);
 
-		vbe_t = (-1) * ((((cali[i].o_vts) * 1800)) / 4096) * 1000;
-
+		vbe_t = (-1) * ((((cali[i].o_vts) * tz_data->pullup_volt)) / 4096) * 1000;
 
 		if (tz_data->o_slope_sign == 0)
 			cali[i].intercept = (vbe_t * 1000) / (-(factor + tz_data->o_slope * 10));
@@ -101,11 +105,12 @@ static int pmic_get_temp(void *data, int *temp)
 {
 	int val = 0;
 	int ret;
-	struct pmic_temp_info *temp_info = (struct pmic_temp_info *)data;
+	struct pmic_temp_tz *pmic_tz = (struct pmic_temp_tz *)data;
+	struct pmic_temp_info *temp_info = pmic_tz->pmic_tz_info;
 	struct pmic_tz_data *tz_data = temp_info->efuse_data;
 	struct pmic_tz_cali_data *cali_data = tz_data->cali_data;
 
-	ret = iio_read_channel_processed(cali_data[temp_info->tz_id].iio_chan, &val);
+	ret = iio_read_channel_processed(cali_data[pmic_tz->tz_id].iio_chan, &val);
 	if (ret < 0) {
 		pr_notice("pmic_chip_temp read fail, ret=%d\n", ret);
 		*temp = THERMAL_TEMP_INVALID;
@@ -113,7 +118,7 @@ static int pmic_get_temp(void *data, int *temp)
 		return -EINVAL;
 	}
 
-	*temp = pmic_raw_to_temp(cali_data, temp_info->tz_id, val);
+	*temp = pmic_raw_to_temp(cali_data, pmic_tz->tz_id, val);
 
 	return 0;
 }
@@ -146,19 +151,24 @@ static int pmic_register_thermal_zones(struct pmic_temp_info *pmic_info)
 	struct pmic_tz_data *tz_data = pmic_info->efuse_data;
 	struct thermal_zone_device *tzdev;
 	struct device *dev = pmic_info->dev;
+	struct pmic_temp_tz *pmic_tz;
 	int i, ret;
 
 	for (i = 0; i < tz_data->sensor_num; i++) {
-		pmic_info->tz_id = i;
+		pmic_tz = devm_kzalloc(dev, sizeof(*pmic_tz), GFP_KERNEL);
+		if (!pmic_tz)
+			return -ENOMEM;
 
-		tzdev = devm_thermal_zone_of_sensor_register(dev, pmic_info->tz_id,
-				pmic_info, &pmic_temp_ops);
+		pmic_tz->tz_id = i;
+		pmic_tz->pmic_tz_info = pmic_info;
+		tzdev = devm_thermal_zone_of_sensor_register(dev, pmic_tz->tz_id,
+				pmic_tz, &pmic_temp_ops);
 
 		if (IS_ERR(tzdev)) {
 			ret = PTR_ERR(tzdev);
 			dev_info(dev,
 				"Error: Failed to register pmic tz %d, ret = %d\n",
-				pmic_info->tz_id, ret);
+				pmic_tz->tz_id, ret);
 			return ret;
 		}
 
@@ -277,7 +287,7 @@ static int mt6363_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	if (len != 8)
 		return -EINVAL;
 
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6));
+	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6)) >> 6;
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
@@ -330,7 +340,7 @@ static int mt6368_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	if (len != 8)
 		return -EINVAL;
 
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(14));
+	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6)) >> 6;
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
@@ -338,7 +348,7 @@ static int mt6368_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 		| ((efuse_buff[1] & GENMASK(4, 0)) << 8);
 	cali_data[1].o_vts = ((efuse_buff[1] & GENMASK(15, 8)) >> 8)
 		| (((efuse_buff[1] & GENMASK(7, 5)) >> 5) << 8)
-		| (((efuse_buff[2] & GENMASK(14, 13)) >> 5) << 11);
+		| (((efuse_buff[2] & GENMASK(14, 13)) >> 13) << 11);
 	cali_data[2].o_vts = efuse_buff[2] & GENMASK(12, 0);
 	cali_data[3].o_vts = efuse_buff[3] & GENMASK(12, 0);
 
@@ -384,7 +394,7 @@ static int mt6373_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	if (len != 10)
 		return -EINVAL;
 
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(14));
+	tz_data->adc_cali_en = (efuse_buff[0] & BIT(14)) >> 14;
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
@@ -429,7 +439,7 @@ static int mt6338_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	}
 
 	nvmem_device_read(nvmem_dev, 0x1c, 1, &efuse_buff);
-	tz_data->adc_cali_en = (efuse_buff & BIT(6));
+	tz_data->adc_cali_en = (efuse_buff & BIT(6)) >> 6;
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
@@ -563,6 +573,7 @@ static struct pmic_tz_data mt6359_pmic_tz_data = {
 	.o_slope_sign = 0,
 	.id = 0,
 	.sensor_num = 4,
+	.pullup_volt = 1800,
 	.cali_data = mt6359_cali_data,
 	.get_cali_data = mt6359_get_cali_data,
 };
@@ -574,6 +585,7 @@ static struct pmic_tz_data mt6363_pmic_tz_data = {
 	.o_slope_sign = 0,
 	.id = 0,
 	.sensor_num = 4,
+	.pullup_volt = 1840,
 	.cali_data = mt6363_cali_data,
 	.get_cali_data = mt6363_get_cali_data,
 };
@@ -585,6 +597,7 @@ static struct pmic_tz_data mt6368_pmic_tz_data = {
 	.o_slope_sign = 0,
 	.id = 0,
 	.sensor_num = 4,
+	.pullup_volt = 1840,
 	.cali_data = mt6368_cali_data,
 	.get_cali_data = mt6368_get_cali_data,
 };
@@ -596,6 +609,7 @@ static struct pmic_tz_data mt6373_pmic_tz_data = {
 	.o_slope_sign = 0,
 	.id = 0,
 	.sensor_num = 4,
+	.pullup_volt = 1840,
 	.cali_data = mt6373_cali_data,
 	.get_cali_data = mt6373_get_cali_data,
 };
@@ -607,6 +621,7 @@ static struct pmic_tz_data mt6338_pmic_tz_data = {
 	.o_slope_sign = 0,
 	.id = 0,
 	.sensor_num = 1,
+	.pullup_volt = 1800,
 	.cali_data = mt6338_cali_data,
 	.get_cali_data = mt6338_get_cali_data,
 };
