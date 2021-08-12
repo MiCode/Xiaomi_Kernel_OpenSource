@@ -11158,19 +11158,20 @@
 				"CLK_CCU_AHB",
 				"CLK_CCUSYS_CCU0";
 		mediatek,ccu_rproc1 = <&ccu_rproc1>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L19_CAM_CCUO>,
 			 <&mdp_iommu M4U_PORT_L19_CAM_CCUI>;
-#if 0
 		interconnects =
+		<&mmqos SLAVE_LARB(32) &mmqos SLAVE_COMMON(1)>,
 		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CAM_CCUO)
 			&mmqos SLAVE_COMMON(1)>,
 		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CAM_CCUI)
 			&mmqos SLAVE_COMMON(1)>;
 		interconnect-names =
-			"larb_ccuo",
-			"larb_ccui";
-#endif
-		secured = "no";
+			"ccu_g",
+			"ccu_o",
+			"ccu_i";
+		secured = "yes";
 		ccu_sramSize = <0x00020000>;
 		ccu_sramOffset = <0x00020000>;
 		ccu_dramSize = <0x00400000>;
@@ -11333,6 +11334,7 @@
 
 	ccu_rproc1: ccu_rproc1 {
 		compatible = "mediatek,ccu_rproc1";
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L19_CAM_CCUO2>,
 			<&mdp_iommu M4U_PORT_L19_CAM_CCUI2>;
 	};
