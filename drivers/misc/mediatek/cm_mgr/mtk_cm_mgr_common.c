@@ -113,6 +113,8 @@ int cm_mgr_use_cpu_to_dram_map;
 static int cm_mgr_use_cpu_to_dram_map_new;
 int cpu_power_bcpu_weight_max = 100;
 int cpu_power_bcpu_weight_min = 100;
+int cpu_power_bbcpu_weight_max = 100;
+int cpu_power_bbcpu_weight_min = 100;
 int cm_mgr_cpu_map_dram_enable = 1;
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
@@ -467,6 +469,10 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 				cpu_power_bcpu_weight_max);
 		len += cm_mgr_print("cpu_power_bcpu_weight_min %d\n",
 				cpu_power_bcpu_weight_min);
+		len += cm_mgr_print("cpu_power_bbcpu_weight_max %d\n",
+				cpu_power_bbcpu_weight_max);
+		len += cm_mgr_print("cpu_power_bbcpu_weight_min %d\n",
+				cpu_power_bbcpu_weight_min);
 	}
 
 	len += cm_mgr_print("debounce_times_up_adb");
@@ -597,6 +603,22 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
 					val_1);
 		}
+	} else if (!strcmp(cmd, "cpu_power_bbcpu_weight_max")) {
+		if (cpu_power_bbcpu_weight_max < cpu_power_bbcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bbcpu_weight_max = val_1;
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET,
+					val_1);
+		}
+	} else if (!strcmp(cmd, "cpu_power_bbcpu_weight_min")) {
+		if (cpu_power_bbcpu_weight_max < cpu_power_bbcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bbcpu_weight_min = val_1;
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET,
+					val_1);
+		}
 	} else if (!strcmp(cmd, "debounce_times_perf_down")) {
 		debounce_times_perf_down = val_1;
 	} else if (!strcmp(cmd, "debounce_times_perf_force_down")) {
@@ -670,7 +692,11 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 	if (opp_count > 0)
 		cm_mgr_cpu_opp_size = opp_count;
 	else
+#ifndef CPU_OPP_NUM
 		cm_mgr_cpu_opp_size = 16;
+#else
+		cm_mgr_cpu_opp_size = CPU_OPP_NUM;
+#endif
 
 	cm_mgr_cpu_opp_to_dram = devm_kzalloc(dev,
 			sizeof(int) * cm_mgr_cpu_opp_size, GFP_KERNEL);
@@ -729,19 +755,36 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 	pr_info("#@# %s(%d) cm_mgr_use_cpu_to_dram_map_new %d\n",
 			__func__, __LINE__, cm_mgr_use_cpu_to_dram_map_new);
 
+	/* get bcpu weight from dts */
 	ret = of_property_read_s32(node, "cpu_power_bcpu_weight_max",
 			&cpu_power_bcpu_weight_max);
-	if (!ret)
+	if (ret)
 		cpu_power_bcpu_weight_max = 100;
 	pr_info("#@# %s(%d) cpu_power_bcpu_weight_max %d\n",
 			__func__, __LINE__, cpu_power_bcpu_weight_max);
 
 	ret = of_property_read_s32(node, "cpu_power_bcpu_weight_min",
 			&cpu_power_bcpu_weight_min);
-	if (!ret)
+	if (ret)
 		cpu_power_bcpu_weight_min = 100;
 	pr_info("#@# %s(%d) cpu_power_bcpu_weight_min %d\n",
 			__func__, __LINE__, cpu_power_bcpu_weight_min);
+
+	/* get bbcpu weight from dts */
+	ret = of_property_read_s32(node, "cpu_power_bbcpu_weight_max",
+			&cpu_power_bbcpu_weight_max);
+	if (ret)
+		cpu_power_bbcpu_weight_max = 100;
+
+	pr_info("#@# %s(%d) cpu_power_bbcpu_weight_max %d\n",
+			__func__, __LINE__, cpu_power_bbcpu_weight_max);
+
+	ret = of_property_read_s32(node, "cpu_power_bbcpu_weight_min",
+			&cpu_power_bbcpu_weight_min);
+	if (ret)
+		cpu_power_bbcpu_weight_min = 100;
+	pr_info("#@# %s(%d) cpu_power_bbcpu_weight_min %d\n",
+			__func__, __LINE__, cpu_power_bbcpu_weight_min);
 
 	/* cm_mgr args */
 	cm_mgr_buf = devm_kzalloc(dev, sizeof(int) * 6 * cm_mgr_num_array,
@@ -771,6 +814,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			vcore_power_ratio_down, cm_mgr_num_array);
 	ret = of_property_read_u32_array(node, "cm_mgr,vp_up",
 			vcore_power_ratio_up, cm_mgr_num_array);
+
 
 	return 0;
 
@@ -984,6 +1028,12 @@ fail_reg_cpu_frequency_entry:
 
 		cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
 				cpu_power_bcpu_weight_min);
+
+		cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET,
+				cpu_power_bbcpu_weight_max);
+
+		cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET,
+				cpu_power_bbcpu_weight_min);
 	}
 
 	if (cm_mgr_use_cpu_to_dram_map) {

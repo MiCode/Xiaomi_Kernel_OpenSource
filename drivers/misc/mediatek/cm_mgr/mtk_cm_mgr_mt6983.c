@@ -37,14 +37,14 @@
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 #include "dvfsrc-exp.h"
 #endif /* CONFIG_MTK_DVFSRC */
-#include "mtk_cm_mgr_mt6893.h"
+#include "mtk_cm_mgr_mt6983.h"
 #include "mtk_cm_mgr_common.h"
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
 #include "mtk_cm_ipi.h"
 #endif /* CONFIG_MTK_CM_IPI */
 
 /* #define CREATE_TRACE_POINTS */
-/* #include "mtk_cm_mgr_events_mt6893.h" */
+/* #include "mtk_cm_mgr_events_mt6983.h" */
 #define trace_CM_MGR__perf_hint(idx, en, opp, base, hint, force_hint)
 
 #include <linux/pm_qos.h>
@@ -61,13 +61,13 @@ static int cm_mgr_init_done;
 static int cm_mgr_idx = -1;
 spinlock_t cm_mgr_lock;
 
-u32 cm_mgr_get_perfs_mt6893(int num)
+u32 cm_mgr_get_perfs_mt6983(int num)
 {
 	if (num < 0 || num >= cm_mgr_get_num_perf())
 		return 0;
 	return cm_mgr_perfs[num];
 }
-EXPORT_SYMBOL_GPL(cm_mgr_get_perfs_mt6893);
+EXPORT_SYMBOL_GPL(cm_mgr_get_perfs_mt6983);
 
 static int cm_mgr_check_dram_type(void)
 {
@@ -129,7 +129,7 @@ static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
 #define PERF_TIME 100
 
 static ktime_t perf_now;
-void cm_mgr_perf_platform_set_status_mt6893(int enable)
+void cm_mgr_perf_platform_set_status_mt6983(int enable)
 {
 	unsigned long expires;
 	int down_local;
@@ -203,7 +203,7 @@ trace:
 			debounce_times_perf_down_local_get(),
 			debounce_times_perf_down_force_local_get());
 }
-EXPORT_SYMBOL_GPL(cm_mgr_perf_platform_set_status_mt6893);
+EXPORT_SYMBOL_GPL(cm_mgr_perf_platform_set_status_mt6983);
 
 static void cm_mgr_perf_platform_set_force_status(int enable)
 {
@@ -275,7 +275,7 @@ static void cm_mgr_perf_platform_set_force_status(int enable)
 			debounce_times_perf_down_force_local_get());
 }
 
-void cm_mgr_perf_set_status_mt6893(int enable)
+void cm_mgr_perf_set_status_mt6983(int enable)
 {
 	if (cm_mgr_get_disable_fb() == 1 && cm_mgr_get_blank_status() == 1)
 		enable = 0;
@@ -285,11 +285,11 @@ void cm_mgr_perf_set_status_mt6893(int enable)
 	if (cm_mgr_get_perf_force_enable())
 		return;
 
-	cm_mgr_perf_platform_set_status_mt6893(enable);
+	cm_mgr_perf_platform_set_status_mt6983(enable);
 }
-EXPORT_SYMBOL_GPL(cm_mgr_perf_set_status_mt6893);
+EXPORT_SYMBOL_GPL(cm_mgr_perf_set_status_mt6983);
 
-void cm_mgr_perf_set_force_status_mt6893(int enable)
+void cm_mgr_perf_set_force_status_mt6983(int enable)
 {
 	if (enable != cm_mgr_get_perf_force_enable()) {
 		cm_mgr_set_perf_force_enable(enable);
@@ -297,9 +297,9 @@ void cm_mgr_perf_set_force_status_mt6893(int enable)
 			cm_mgr_perf_platform_set_force_status(enable);
 	}
 }
-EXPORT_SYMBOL_GPL(cm_mgr_perf_set_force_status_mt6893);
+EXPORT_SYMBOL_GPL(cm_mgr_perf_set_force_status_mt6983);
 
-void check_cm_mgr_status_mt6893(unsigned int cluster, unsigned int freq,
+void check_cm_mgr_status_mt6983(unsigned int cluster, unsigned int freq,
 		unsigned int idx)
 {
 	unsigned int bcpu_opp_max;
@@ -321,7 +321,7 @@ void check_cm_mgr_status_mt6893(unsigned int cluster, unsigned int freq,
 	spin_unlock_irqrestore(&cm_mgr_lock, spinlock_save_flag);
 	cm_mgr_update_dram_by_cpu_opp(bcpu_opp_max);
 }
-EXPORT_SYMBOL_GPL(check_cm_mgr_status_mt6893);
+EXPORT_SYMBOL_GPL(check_cm_mgr_status_mt6983);
 
 static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
@@ -371,7 +371,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 				dvfsrc_get_required_opp_peak_bw(node, i);
 		}
 #endif /* CONFIG_MTK_DVFSRC */
-		cm_mgr_set_num_array(ret - 2);
+		cm_mgr_set_num_array(ret - 1);
 	} else
 		cm_mgr_set_num_array(0);
 	pr_info("#@# %s(%d) cm_mgr_num_array %d\n",
@@ -388,15 +388,15 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 			0);
 
 	local_hk.cm_mgr_get_perfs =
-		cm_mgr_get_perfs_mt6893;
+		cm_mgr_get_perfs_mt6983;
 	local_hk.cm_mgr_perf_set_force_status =
-		cm_mgr_perf_set_force_status_mt6893;
+		cm_mgr_perf_set_force_status_mt6983;
 	local_hk.check_cm_mgr_status =
-		check_cm_mgr_status_mt6893;
+		check_cm_mgr_status_mt6983;
 	local_hk.cm_mgr_perf_platform_set_status =
-		cm_mgr_perf_platform_set_status_mt6893;
+		cm_mgr_perf_platform_set_status_mt6983;
 	local_hk.cm_mgr_perf_set_status =
-		cm_mgr_perf_set_status_mt6893;
+		cm_mgr_perf_set_status_mt6983;
 
 	cm_mgr_register_hook(&local_hk);
 
@@ -425,12 +425,12 @@ static int platform_cm_mgr_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id platform_cm_mgr_of_match[] = {
-	{ .compatible = "mediatek,mt6893-cm_mgr", },
+	{ .compatible = "mediatek,mt6983-cm_mgr", },
 	{},
 };
 
 static const struct platform_device_id platform_cm_mgr_id_table[] = {
-	{ "mt6893-cm_mgr", 0},
+	{ "mt6983-cm_mgr", 0},
 	{ },
 };
 
@@ -438,7 +438,7 @@ static struct platform_driver mtk_platform_cm_mgr_driver = {
 	.probe = platform_cm_mgr_probe,
 	.remove	= platform_cm_mgr_remove,
 	.driver = {
-		.name = "mt6893-cm_mgr",
+		.name = "mt6983-cm_mgr",
 		.owner = THIS_MODULE,
 		.of_match_table = platform_cm_mgr_of_match,
 	},

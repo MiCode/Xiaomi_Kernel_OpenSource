@@ -32,6 +32,7 @@
 #undef CM_MGR_BASE
 #define CM_MGR_BASE cm_mgr_base
 
+
 #define STALL_INFO_CONF(x) (CM_MGR_BASE + 0x800 * (x) + 0x238)
 
 #define CPU_AVG_STALL_RATIO(x) (CM_MGR_BASE + 0x800 * (x) + 0x700)
