@@ -35,60 +35,10 @@ struct conn_scp_dev {
 	struct cdev chdev;
 };
 
-
-static int conn_scp_dev_open(struct inode *inode, struct file *file);
-static int conn_scp_dev_close(struct inode *inode, struct file *file);
-static ssize_t conn_scp_dev_read(struct file *filp, char __user *buf,
-				size_t count, loff_t *f_pos);
-static ssize_t conn_scp_dev_write(struct file *filp,
-				const char __user *buf, size_t count,
-				loff_t *f_pos);
-static long conn_scp_dev_unlocked_ioctl(
-		struct file *filp, unsigned int cmd, unsigned long arg);
-
-
 struct conn_scp_dev *g_conn_scp_dev;
 
 const struct file_operations g_conn_scp_dev_fops = {
-	.open = conn_scp_dev_open,
-	.release = conn_scp_dev_close,
-	.read = conn_scp_dev_read,
-	.write = conn_scp_dev_write,
-	.unlocked_ioctl = conn_scp_dev_unlocked_ioctl,
 };
-
-int conn_scp_dev_open(struct inode *inode, struct file *file)
-{
-	pr_info("open major %d minor %d (pid %d)\n",
-			imajor(inode), iminor(inode), current->pid);
-
-	return 0;
-}
-
-int conn_scp_dev_close(struct inode *inode, struct file *file)
-{
-	pr_info("close major %d minor %d (pid %d)\n",
-			imajor(inode), iminor(inode), current->pid);
-
-	return 0;
-}
-
-ssize_t conn_scp_dev_read(struct file *filp, char __user *buf,
-					size_t count, loff_t *f_pos)
-{
-	return 0;
-}
-
-ssize_t conn_scp_dev_write(struct file *filp,
-			const char __user *buf, size_t count, loff_t *f_pos)
-{
-	return 0;
-}
-
-static long conn_scp_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-	return 0;
-}
 
 int conn_scp_init(void)
 {
@@ -134,7 +84,6 @@ int conn_scp_init(void)
 								PTR_ERR(g_conn_scp_dev->dev));
 		goto err_out;
 	}
-
 	pr_info("CONN SCP device init Done\n");
 
 	/*****************************************/
@@ -184,6 +133,6 @@ void conn_scp_exit(void)
 module_init(conn_scp_init);
 module_exit(conn_scp_exit);
 MODULE_AUTHOR("Willy Yu <Willy.Yu@mediatek.com>");
-MODULE_DESCRIPTION("Conn SCP  dev");
+MODULE_DESCRIPTION("Conn SCP Bridge dev");
 MODULE_LICENSE("GPL");
 
