@@ -12,13 +12,12 @@
 #include "dvfsrc-exp.h"
 #include "fpsgo_base.h"
 
-#define API_READY 0
-
-static struct cpumask mask[FPSGO_PREFER_TOTAL];
 static int mask_int[FPSGO_PREFER_TOTAL];
 static int mask_done;
-struct icc_path *bw_path;
-unsigned int peak_bw;
+static struct icc_path *bw_path;
+static struct device_node *node;
+static unsigned int peak_bw;
+static int plat_gcc_enable;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -28,17 +27,33 @@ void fbt_notify_CM_limit(int reach_limit)
 	fpsgo_systrace_c_fbt_gm(-100, 0, reach_limit, "notify_cm");
 }
 
+static int generate_cpu_mask(void);
 static int platform_fpsgo_probe(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
+	int ret = 0, retval = 0;
+
+	node = pdev->dev.of_node;
+
+	FPSGO_LOGE("%s\n", __func__);
 
 	bw_path = of_icc_get(&pdev->dev, "fpsgo-perf-bw");
-	if (IS_ERR(bw_path))
+	if (IS_ERR(bw_path)) {
 		dev_info(&pdev->dev, "get cm-perf_bw fail\n");
+		FPSGO_LOGE("%s unable to get bw_path\n", __func__);
+	}
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 		peak_bw = dvfsrc_get_required_opp_peak_bw(node, 0);
 #endif /* CONFIG_MTK_DVFSRC */
+
+	ret = of_property_read_u32(node,
+			 "gcc_enable", &retval);
+	if (!ret)
+		plat_gcc_enable = retval;
+	else
+		FPSGO_LOGE("%s unable to get plat_gcc_enable\n", __func__);
+
+	generate_cpu_mask();
 
 	return 0;
 }
@@ -51,12 +66,12 @@ static int platform_fpsgo_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id platform_fpsgo_of_match[] = {
-	{ .compatible = "mediatek,mt6893-fpsgo", },
+	{ .compatible = "mediatek,fpsgo", },
 	{},
 };
 
 static const struct platform_device_id platform_fpsgo_id_table[] = {
-	{ "mt6893-fpsgo", 0},
+	{ "fpsgo", 0},
 	{ },
 };
 
@@ -64,19 +79,19 @@ static struct platform_driver mtk_platform_fpsgo_driver = {
 	.probe = platform_fpsgo_probe,
 	.remove	= platform_fpsgo_remove,
 	.driver = {
-		.name = "mt6893-fpsgo",
+		.name = "fpsgo",
 		.owner = THIS_MODULE,
 		.of_match_table = platform_fpsgo_of_match,
 	},
 	.id_table = platform_fpsgo_id_table,
 };
 
-void init_fbt_dram_boost(void)
+void init_fbt_platform(void)
 {
 	platform_driver_register(&mtk_platform_fpsgo_driver);
 }
 
-void exit_fbt_dram_boost(void)
+void exit_fbt_platform(void)
 {
 	platform_driver_unregister(&mtk_platform_fpsgo_driver);
 }
@@ -169,33 +184,20 @@ out:
 	fpsgo_systrace_c_fbt_gm(pid, 0, attr.sched_util_max, "max_cap");
 }
 
-static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask, int *cpu_mask_int)
+static int generate_cpu_mask(void)
 {
-	if (prefer_type == FPSGO_PREFER_LITTLE) {
-		cpumask_setall(cpu_mask);
-		cpumask_clear_cpu(4, cpu_mask);
-		cpumask_clear_cpu(5, cpu_mask);
-		cpumask_clear_cpu(6, cpu_mask);
-		cpumask_clear_cpu(7, cpu_mask);
-		*cpu_mask_int = 15;
-	} else if (prefer_type == FPSGO_PREFER_NONE) {
-		cpumask_setall(cpu_mask);
-		*cpu_mask_int = 255;
-	}
-	else if (prefer_type == FPSGO_PREFER_BIG) {
-		cpumask_clear(cpu_mask);
-		cpumask_set_cpu(7, cpu_mask);
-		*cpu_mask_int = 128;
-	} else if (prefer_type == FPSGO_PREFER_L_M) {
-		cpumask_setall(cpu_mask);
-		cpumask_clear_cpu(7, cpu_mask);
-		*cpu_mask_int = 127;
-	} else
-		return -1;
+	int i, ret;
 
-	mask_done = 1;
+	ret = of_property_read_u32_array(node, "fbt_cpu_mask",
+			mask_int, FPSGO_PREFER_TOTAL);
 
-	return 0;
+	for (i = 0; i < FPSGO_PREFER_TOTAL; i++)
+		FPSGO_LOGE("%s i:%d mask:%d\n", __func__, i, mask_int[i]);
+
+	if (!ret)
+		mask_done = 1;
+
+	return ret;
 }
 
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
@@ -203,22 +205,13 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 	long ret = 0;
 
 	if (!mask_done) {
-		generate_cpu_mask(FPSGO_PREFER_LITTLE,
-			&mask[FPSGO_PREFER_LITTLE], &mask_int[FPSGO_PREFER_LITTLE]);
-		generate_cpu_mask(FPSGO_PREFER_NONE,
-			&mask[FPSGO_PREFER_NONE], &mask_int[FPSGO_PREFER_NONE]);
-		generate_cpu_mask(FPSGO_PREFER_BIG,
-			&mask[FPSGO_PREFER_BIG], &mask_int[FPSGO_PREFER_BIG]);
-		generate_cpu_mask(FPSGO_PREFER_L_M,
-			&mask[FPSGO_PREFER_L_M], &mask_int[FPSGO_PREFER_L_M]);
+		ret = -100;
+		goto out;
 	}
 
-#if API_READY
-	ret = sched_setaffinity(pid, &mask[prefer_type]);
-#else
 	fpsgo_sentcmd(FPSGO_SET_AFFINITY, pid, mask_int[prefer_type]);
-#endif
 
+out:
 	if (ret != 0) {
 		fpsgo_systrace_c_fbt(pid, 0, ret, "setaffinity fail");
 		fpsgo_systrace_c_fbt(pid, 0, 0, "setaffinity fail");
@@ -281,7 +274,7 @@ int fbt_get_default_qr_enable(void)
 
 int fbt_get_default_gcc_enable(void)
 {
-	return 1;
+	return plat_gcc_enable;
 }
 
 int fbt_get_l_min_bhropp(void)

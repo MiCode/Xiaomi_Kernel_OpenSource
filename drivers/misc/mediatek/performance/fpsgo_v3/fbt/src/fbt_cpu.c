@@ -5476,11 +5476,13 @@ void __exit fbt_cpu_exit(void)
 	kfree(limit_clus_ceil);
 
 	fbt_cpu_ctrl_exit();
-	exit_fbt_dram_boost();
+	exit_fbt_platform();
 }
 
 int __init fbt_cpu_init(void)
 {
+	init_fbt_platform();
+
 	bhr = 0;
 	bhr_opp = 0;
 	bhr_opp_l = fbt_get_l_min_bhropp();
@@ -5631,7 +5633,6 @@ int __init fbt_cpu_init(void)
 	thrm_aware_init(fbt_kobj);
 	fbt_reg_dram_request(1);
 	fbt_cpu_ctrl_init();
-	init_fbt_dram_boost();
 
 	return 0;
 }

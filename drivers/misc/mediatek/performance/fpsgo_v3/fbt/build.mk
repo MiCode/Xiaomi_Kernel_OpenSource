@@ -4,7 +4,7 @@ mtk_fpsgo_fbt_objs += \
 	src/xgf.o \
 	src/uboost.o \
 	src/thermal_aware.o \
-	platform/mtxxxx/fbt_cpu_platform.o \
+	platform/fbt_cpu_platform.o \
 	src/mini_top.o
 
 
