@@ -10,6 +10,7 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/dma-mapping.h>
+#include <linux/delay.h>
 
 #include <common/mdla_power_ctrl.h>
 
@@ -293,16 +294,14 @@ static int mdla_rv_dbg_mem_open(struct inode *inode, struct file *file)
 
 static int mdla_plat_send_addr_info(void *arg)
 {
-#if !LK_BOOT_RDY
+	msleep(1000);
+
 	if (cfg0 && cfg1) {
 		mdla_verbose("%s(): send ipi for fw addr(0x%08x, 0x%08x)\n", __func__,
 				cfg0, cfg1);
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BOOT, (u64)cfg0);
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_MAIN, (u64)cfg1);
-	} else {
-		mdla_err("Config data isn't ready yet\n");
 	}
-#endif
 
 	if (backup_mem.da) {
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA, (u64)backup_mem.da);
@@ -332,16 +331,6 @@ static ssize_t mdla_rv_dbg_mem_write(struct file *flip,
 
 	if (kstrtouint(buf, 10, &size) != 0) {
 		count = -EINVAL;
-		goto out;
-	}
-
-	if (size == 1) {
-		struct task_struct *ipi_task;
-
-		ipi_task = kthread_run(mdla_plat_send_addr_info, NULL, "mdla uP init");
-		if (IS_ERR(ipi_task))
-			mdla_err("create uP init thread failed\n");
-
 		goto out;
 	}
 
@@ -401,14 +390,12 @@ static void mdla_plat_memory_show(struct seq_file *s)
 
 void mdla_plat_up_init(void)
 {
-#if LK_BOOT_RDY
 	struct task_struct *init_task;
 
 	init_task = kthread_run(mdla_plat_send_addr_info, NULL, "mdla uP init");
 
 	if (IS_ERR(init_task))
 		mdla_err("create uP init thread failed\n");
-#endif
 }
 
 /* platform public functions */
