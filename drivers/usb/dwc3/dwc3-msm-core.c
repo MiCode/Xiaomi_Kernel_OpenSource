@@ -4883,6 +4883,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 	INIT_DELAYED_WORK(&mdwc->perf_vote_work, msm_dwc3_perf_vote_work);
 
+	dwc3_msm_debug_init(mdwc);
+
 	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
 	if (!mdwc->dwc3_wq) {
 		pr_err("%s: Unable to create workqueue dwc3_wq\n", __func__);
@@ -5204,7 +5206,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_bus_vote);
 
 	dwc3_msm_kretprobe_init();
-	dwc3_msm_debug_init(mdwc);
 	return 0;
 
 put_dwc3:
