@@ -669,6 +669,21 @@ static struct match mt6885_match = {
 		.offset_dvfs = 0xc,					\
 		.offset_mon = 0x10,					\
 	}
+//TINYSYS no slope1, map to slope0 for compatibility
+#define REG_6895_TINYSYS_CONVERT(_fhctl, _con_pcw) {	\
+		.offset_fhctl = _fhctl,				\
+		.offset_con_pcw = _con_pcw,			\
+		.offset_hp_en = 0x0,				\
+		.offset_clk_con = 0x8,				\
+		.offset_rst_con = 0xc,				\
+		.offset_slope0 = 0x10,				\
+		.offset_slope1 = 0x10,				\
+		.offset_cfg = 0x0,					\
+		.offset_updnlmt = 0x4,				\
+		.offset_dds = 0x8,					\
+		.offset_dvfs = 0xc,					\
+		.offset_mon = 0x10,					\
+	}
 static struct fh_pll_data mt6895_top_data[] = {
 	DATA_6895_CONVERT("armpll_ll"),
 	DATA_6895_CONVERT("armpll_bl"),
@@ -716,7 +731,7 @@ static struct fh_pll_data mt6895_apu0_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_apu0_offset[SIZE_6895_APU0] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_apu0_regs[SIZE_6895_APU0];
@@ -734,7 +749,7 @@ static struct fh_pll_data mt6895_apu1_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_apu1_offset[SIZE_6895_APU1] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_apu1_regs[SIZE_6895_APU1];
@@ -752,7 +767,7 @@ static struct fh_pll_data mt6895_apu2_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_apu2_offset[SIZE_6895_APU2] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_apu2_regs[SIZE_6895_APU2];
@@ -769,7 +784,7 @@ static struct fh_pll_data mt6895_apu3_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_apu3_offset[SIZE_6895_APU3] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_apu3_regs[SIZE_6895_APU3];
@@ -787,7 +802,7 @@ static struct fh_pll_data mt6895_gpu0_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_gpu0_offset[SIZE_6895_GPU0] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_gpu0_regs[SIZE_6895_GPU0];
@@ -805,7 +820,7 @@ static struct fh_pll_data mt6895_gpu1_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_gpu1_offset[SIZE_6895_GPU1] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_gpu1_regs[SIZE_6895_GPU1];
@@ -823,7 +838,7 @@ static struct fh_pll_data mt6895_gpu2_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_gpu2_offset[SIZE_6895_GPU2] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_gpu2_regs[SIZE_6895_GPU2];
@@ -840,7 +855,7 @@ static struct fh_pll_data mt6895_gpu3_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6895_gpu3_offset[SIZE_6895_GPU3] = {
-	REG_6895_CONVERT(0x14, 0xC),
+	REG_6895_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6895_gpu3_regs[SIZE_6895_GPU3];
