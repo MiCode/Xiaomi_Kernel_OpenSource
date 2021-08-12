@@ -1733,7 +1733,7 @@ static const struct mtk_device_info mt6983_devices_mminfra[] = {
 
 	{-1, -1, 452, "Decode_error", true},
 	{-1, -1, 453, "Decode_error", true},
-	{-1, -1, 454, "Decode_error", true},
+	{-1, -1, 454, "Decode_error", false},
 	{-1, -1, 455, "Decode_error", true},
 	{-1, -1, 456, "Decode_error", true},
 
