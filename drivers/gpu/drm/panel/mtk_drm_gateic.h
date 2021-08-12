@@ -16,7 +16,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/delay.h>
-#include "dt-bindings/lcm/mtk_lcm_settings.h"
+#include "mtk_drm_panel_common.h"
 #include "../mediatek/mediatek_v2/mtk_log.h"
 
 #define MTK_LCM_NAME_LENGTH (128)
@@ -122,18 +122,6 @@ int mtk_drm_gateic_select(const char *lcm_name, char func);
  */
 struct mtk_gateic_funcs *mtk_drm_gateic_get(char func);
 
-/* function: panel power on
- * input: func: DBI, DPI, DSI
- * output: 0 for success; !0 for failed
- */
-int mtk_drm_gateic_power_on(char func);
-
-/* function: panel power off
- * input: func: DBI, DPI, DSI
- * output: 0 for success; !0 for failed
- */
-int mtk_drm_gateic_power_off(char func);
-
 /* function: set panel power voltage
  * input: func: DBI, DPI, DSI
  * output: 0 for success; !0 for failed
@@ -145,20 +133,6 @@ int mtk_drm_gateic_set_voltage(unsigned int level, char func);
  * output: 0 for success; !0 for failed
  */
 int mtk_drm_gateic_reset(int on, char func);
-
-/* function: set backlight
- * input: func: DBI, DPI, DSI, brightness level
- * output: 0 for success; !0 for failed
- */
-int mtk_drm_gateic_set_backlight(unsigned int level, char func);
-
-/* function: enable backlight
- * input: func: DBI, DPI, DSI,
- *		enable: 1 for enable, 0 for disable
- *		pwm_enable: set backlight by pwm or not
- * output: 0 for success; !0 for failed
- */
-int mtk_drm_gateic_enable_backlight(char func);
 
 /* function: write i2c data
  * input: addr: i2c address, value: i2c value
@@ -203,31 +177,5 @@ int mtk_drm_gateic_write_multiple_bytes(unsigned char addr,
  */
 bool mtk_gateic_match_lcm_list(const char *lcm_name,
 	const char **list, unsigned int count, const char *gateic_name);
-
-/*********** led interfaces define **********/
-#define _gate_ic_i2c_write_bytes(addr, value) \
-	mtk_drm_gateic_write_bytes(addr, value, MTK_LCM_FUNC_DSI)
-
-#define _gate_ic_i2c_read_bytes(addr, value) \
-	mtk_drm_gateic_read_bytes(addr, value, MTK_LCM_FUNC_DSI)
-
-#define _gate_ic_i2c_write_regs(addr, value, size) \
-	mtk_drm_gateic_write_multiple_bytes(addr, value, size, \
-				MTK_LCM_FUNC_DSI)
-
-/*do nothing just combine the legacy interfaces
- * all the actions has been moved to power_on/off callback
- */
-#define _gate_ic_i2c_panel_bias_enable(power_status) { }
-
-#define _gate_ic_Power_on() \
-	mtk_drm_gateic_power_on(MTK_LCM_FUNC_DSI)
-
-#define _gate_ic_Power_off() \
-	mtk_drm_gateic_power_off(MTK_LCM_FUNC_DSI)
-
-#define _gate_ic_i2c_backight_level_set(level) \
-	mtk_drm_gateic_set_backlight(level, MTK_LCM_FUNC_DSI)
-/************************************/
 
 #endif

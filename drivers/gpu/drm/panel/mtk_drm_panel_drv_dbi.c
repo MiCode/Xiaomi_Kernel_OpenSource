@@ -4,7 +4,6 @@
  */
 
 #include "mtk_drm_panel_drv.h"
-#include "mtk_drm_gateic.h"
 
 //static struct mtk_panel_context *ctx_dbi;
 

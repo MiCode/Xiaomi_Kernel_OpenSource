@@ -99,8 +99,6 @@ static int rt4831a_update_backlight_table(unsigned int level, unsigned char *tab
 }
 
 
-static int rt4831a_enable_backlight(void);
-
 static int rt4831a_set_backlight(unsigned int level)
 {
 	int ret = 0;
@@ -111,12 +109,16 @@ static int rt4831a_set_backlight(unsigned int level)
 	unsigned int unit = ARRAY_SIZE(table[0]);
 	unsigned int size = sizeof(table) / unit;
 
-	DDPMSG("%s+ size:%u, unit:%u\n", __func__, size, unit);
-
-	if (ctx_rt4831a.backlight_level == 0 && level != 0) {
-		ctx_rt4831a.backlight_level = level;
-		return rt4831a_enable_backlight();
+	if (atomic_read(&ctx_rt4831a.init) != 1) {
+		DDPPR_ERR("%s gate ic is not initialized\n", __func__);
+		return -1;
 	}
+
+	if (ctx_rt4831a.backlight_mode != BL_I2C_MODE) {
+		DDPPR_ERR("%s do not support I2C mode\n", __func__);
+		return -1;
+	}
+
 	rt4831a_update_backlight_table(level, &table[0][0], size, unit);
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
@@ -140,7 +142,7 @@ static int rt4831a_enable_backlight(void)
 	unsigned int unit = ARRAY_SIZE(table[0]);
 	unsigned int size = sizeof(table) / unit;
 
-	DDPMSG("%s+\n", __func__);
+	//DDPMSG("%s+\n", __func__);
 	switch (ctx_rt4831a.backlight_mode) {
 	case BL_PWM_MODE:
 		ret = mtk_panel_i2c_write_bytes(ADDR_BACKLIGHT_CONFIG1, 0x6B);
@@ -161,13 +163,12 @@ static int rt4831a_enable_backlight(void)
 		return ret;
 	}
 
-	DDPMSG("%s, %d, %d, size:%u, unit:%u\n", __func__, __LINE__, ret, size, unit);
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
 		DDPMSG("%s, failed to push backlight table, mode:%u, ret:%d",
 			__func__, ctx_rt4831a.backlight_mode, ret);
 
-	DDPMSG("%s--, %d\n", __func__, ret);
+	//DDPMSG("%s--, %d\n", __func__, ret);
 	return ret;
 }
 
@@ -250,17 +251,17 @@ static int rt4831a_power_on(void)
 
 	DDPMSG("%s++ size:%u, unit:%u, backlight status:%d\n", __func__,
 		size, unit, atomic_read(&ctx_rt4831a.backlight_status));
-	ctx_rt4831a.bias_pos_gpio = devm_gpiod_get_index(ctx_rt4831a.dev,
-		"bias", 0, GPIOD_OUT_HIGH);
+	ctx_rt4831a.bias_pos_gpio = devm_gpiod_get(ctx_rt4831a.dev,
+		"pm-enable", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx_rt4831a.bias_pos_gpio)) {
-		dev_err(ctx_rt4831a.dev, "%s: cannot get bias_pos %ld\n",
+		dev_err(ctx_rt4831a.dev, "%s: cannot get pm-enable:%ld\n",
 			__func__, PTR_ERR(ctx_rt4831a.bias_pos_gpio));
 		return PTR_ERR(ctx_rt4831a.bias_pos_gpio);
 	}
 	gpiod_set_value(ctx_rt4831a.bias_pos_gpio, 1);
 	devm_gpiod_put(ctx_rt4831a.dev, ctx_rt4831a.bias_pos_gpio);
 	atomic_inc(&ctx_rt4831a.ref);
-	DDPMSG("%s, %d\n", __func__, __LINE__);
+
 	ret = rt4831a_enable_backlight();
 	if (ret < 0)
 		DDPMSG("%s, failed to enable backlight, ret:%d",
@@ -270,7 +271,7 @@ static int rt4831a_power_on(void)
 	if (ret < 0)
 		DDPMSG("%s, failed to push power on table, ret:%d",
 			__func__, ret);
-	DDPMSG("%s--\n", __func__);
+	//DDPMSG("%s--\n", __func__);
 
 	return 0;
 }
@@ -303,10 +304,10 @@ static int rt4831a_power_off(void)
 		if (ret < 0)
 			DDPMSG("%s, %d, failed of i2c write\n", __func__, __LINE__);
 
-		ctx_rt4831a.bias_pos_gpio = devm_gpiod_get_index(ctx_rt4831a.dev,
-			"bias", 0, GPIOD_OUT_HIGH);
+		ctx_rt4831a.bias_pos_gpio = devm_gpiod_get(ctx_rt4831a.dev,
+			"pm-enable", GPIOD_OUT_HIGH);
 		if (IS_ERR(ctx_rt4831a.bias_pos_gpio)) {
-			dev_err(ctx_rt4831a.dev, "%s: cannot get bias_pos %ld\n",
+			dev_err(ctx_rt4831a.dev, "%s: cannot get pm-enable:%ld\n",
 				__func__, PTR_ERR(ctx_rt4831a.bias_pos_gpio));
 			return PTR_ERR(ctx_rt4831a.bias_pos_gpio);
 		}
@@ -379,7 +380,6 @@ static struct mtk_gateic_funcs rt4831a_ops = {
 	.power_on = rt4831a_power_on,
 	.power_off = rt4831a_power_off,
 	.set_voltage = rt4831a_set_voltage,
-	.set_backlight = rt4831a_set_backlight,
 	.enable_backlight = rt4831a_enable_backlight,
 	.set_backlight = rt4831a_set_backlight,
 	.match_lcm_list = rt4831a_match_lcm_list,
@@ -388,7 +388,7 @@ static struct mtk_gateic_funcs rt4831a_ops = {
 static int rt4831a_drv_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0, len = 0, i = 0;
+	int ret = 0, len = 0;
 
 	if (atomic_read(&ctx_rt4831a.init) == 1)
 		return 0;
@@ -398,14 +398,14 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 
 	len = of_property_count_strings(dev->of_node, "panel-list");
 	if (len > 0) {
-		DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
+		//DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
 		ctx_rt4831a.lcm_list = kcalloc(len, sizeof(char *), GFP_KERNEL);
 		if (IS_ERR_OR_NULL(ctx_rt4831a.lcm_list)) {
 			DDPPR_ERR("%s, %d, failed to allocate lcm list, len:%d\n",
 				__func__, __LINE__, len);
 			return -ENOMEM;
 		}
-		DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
+
 		len = of_property_read_string_array(dev->of_node, "panel-list",
 				ctx_rt4831a.lcm_list, len);
 		if (len < 0) {
@@ -415,10 +415,6 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 			goto error;
 		}
 		ctx_rt4831a.lcm_count = (unsigned int)len;
-		for (i = 0; i < len; i++) {
-			DDPMSG("%s, lcm%u, \"%s\"\n", __func__, i,
-				*(ctx_rt4831a.lcm_list + i));
-		}
 	} else {
 		DDPPR_ERR("%s, %d, failed to get lcm_pinctrl_names, %d\n",
 			__func__, __LINE__, len);
@@ -434,9 +430,9 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 	}
 	devm_gpiod_put(dev, ctx_rt4831a.reset_gpio);
 
-	ctx_rt4831a.bias_pos_gpio = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
+	ctx_rt4831a.bias_pos_gpio = devm_gpiod_get(dev, "pm-enable", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx_rt4831a.bias_pos_gpio)) {
-		dev_err(dev, "%s: cannot get bias pos gpio %ld\n",
+		dev_err(dev, "%s: cannot get pm-enable:%ld\n",
 			__func__, PTR_ERR(ctx_rt4831a.bias_pos_gpio));
 		ret = PTR_ERR(ctx_rt4831a.bias_pos_gpio);
 		goto error;
@@ -450,6 +446,7 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 		ctx_rt4831a.backlight_mode = BL_PWM_MODE;
 	}
 
+	ctx_rt4831a.backlight_level = 2047;
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	mtk_leds_register_notifier(&rt4831a_leds_init_notifier);
 #endif

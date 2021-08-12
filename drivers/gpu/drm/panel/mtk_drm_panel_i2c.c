@@ -24,8 +24,9 @@ int mtk_panel_i2c_write_bytes(unsigned char addr, unsigned char value)
 		return 0;
 	}
 
-	DDPMSG("%s: name=%s addr=0x%x, write:0x%x, value:0x%x\n", __func__, client->name,
-		 client->addr, addr, value);
+	/*DDPMSG("%s: name=%s addr=0x%x, write:0x%x, value:0x%x\n", __func__, client->name,
+	 *	 client->addr, addr, value);
+	 */
 	write_data[0] = addr;
 	write_data[1] = value;
 	ret = i2c_master_send(client, write_data, 2);

@@ -4,7 +4,6 @@
  */
 
 #include "mtk_drm_panel_drv.h"
-#include "mtk_drm_gateic.h"
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 #include "../mediatek/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
@@ -1087,6 +1086,11 @@ static struct drm_display_mode *mtk_panel_get_default_mode(struct drm_panel *pan
 	return mode;
 }
 
+static enum mtk_lcm_version mtk_panel_get_lcm_version(void)
+{
+	return MTK_COMMON_LCM_DRV;
+}
+
 static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.set_backlight_cmdq = mtk_panel_set_backlight_cmdq,
 	.set_aod_light_mode = mtk_panel_set_aod_light_mode,
@@ -1110,6 +1114,7 @@ static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.hbm_set_wait_state = mtk_panel_hbm_set_wait_state,
 	.lcm_dump = mtk_panel_dump,
 	.get_default_mode = mtk_panel_get_default_mode,
+	.get_lcm_version = mtk_panel_get_lcm_version,
 };
 
 static void mtk_drm_update_disp_mode_params(struct drm_display_mode *mode)

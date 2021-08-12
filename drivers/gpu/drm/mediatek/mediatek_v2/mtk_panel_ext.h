@@ -419,6 +419,12 @@ struct mtk_panel_ctx {
 	struct list_head list;
 };
 
+enum mtk_lcm_version {
+	MTK_NULL_LCM_DRV,
+	MTK_LEGACY_LCM_DRV,
+	MTK_COMMON_LCM_DRV,
+};
+
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
@@ -501,6 +507,7 @@ struct mtk_panel_funcs {
 	void (*lcm_dump)(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag);
 	struct drm_display_mode *(*get_default_mode)(struct drm_panel *panel,
 		struct drm_connector *connector);
+	enum mtk_lcm_version (*get_lcm_version)(void);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
@@ -517,5 +524,6 @@ int mtk_panel_ext_create(struct device *dev,
 int mtk_panel_tch_handle_reg(struct drm_panel *panel);
 void **mtk_panel_tch_handle_init(void);
 int mtk_panel_tch_rst(struct drm_panel *panel);
+enum mtk_lcm_version mtk_drm_get_lcm_version(void);
 
 #endif

@@ -189,7 +189,7 @@ static struct mtk_gateic_funcs rt4801h_ops = {
 static int rt4801h_drv_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0, len = 0, i = 0;
+	int ret = 0, len = 0;
 
 	if (atomic_read(&ctx_rt4801h.init) == 1)
 		return 0;
@@ -199,14 +199,14 @@ static int rt4801h_drv_probe(struct platform_device *pdev)
 
 	len = of_property_count_strings(dev->of_node, "panel-list");
 	if (len > 0) {
-		DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
+		//DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
 		ctx_rt4801h.lcm_list = kcalloc(len, sizeof(char *), GFP_KERNEL);
 		if (IS_ERR_OR_NULL(ctx_rt4801h.lcm_list)) {
 			DDPPR_ERR("%s, %d, failed to allocate lcm list, len:%d\n",
 				__func__, __LINE__, len);
 			return -ENOMEM;
 		}
-		DDPMSG("%s, %d, len:%d\n", __func__, __LINE__, len);
+
 		len = of_property_read_string_array(dev->of_node, "panel-list",
 				ctx_rt4801h.lcm_list, len);
 		if (len < 0) {
@@ -216,10 +216,6 @@ static int rt4801h_drv_probe(struct platform_device *pdev)
 			goto error;
 		}
 		ctx_rt4801h.lcm_count = (unsigned int)len;
-		for (i = 0; i < len; i++) {
-			DDPMSG("%s, lcm%u, \"%s\"\n", __func__, i,
-				*(ctx_rt4801h.lcm_list + i));
-		}
 	} else {
 		DDPPR_ERR("%s, %d, failed to get lcm_pinctrl_names, %d\n",
 			__func__, __LINE__, len);
