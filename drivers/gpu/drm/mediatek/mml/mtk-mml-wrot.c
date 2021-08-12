@@ -852,6 +852,12 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	mml_msg("use config %p wrot %p", cfg, wrot);
 
+	/* Enable engine */
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN, 0x01, 0x00000001);
+
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SHADOW_CTRL, 0x1, U32_MAX);
+
 	if (h_subsample == 1) {    /* YUV422/420 out */
 		filt_v = MML_FMT_V_SUBSAMPLE(src_fmt) ||
 			 MML_FMT_GROUP(src_fmt) == 2 ?
@@ -1501,11 +1507,9 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	/* Set wrot interrupt bit for debug,
 	 * this bit will clear to 0 after wrot done.
+	 *
+	 * cmdq_pkt_write(pkt, NULL, base_pa + VIDO_INT, 0x1, U32_MAX);
 	 */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_INT, 0x1, U32_MAX);
-
-	/* Enable engine */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN, 0x01, 0x00000001);
 
 	/* qos accumulate tile pixel */
 	wrot_frm->pixel_acc += wrot_tar_xsize * wrot_tar_ysize;
@@ -1550,8 +1554,6 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
-	/* Disable engine */
-	cmdq_pkt_write(pkt, NULL, comp->base_pa + VIDO_ROT_EN, 0, 0x00000001);
 
 	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
 		if (task->config->dual && !task->config->disp_dual) {
@@ -1708,11 +1710,17 @@ static void wrot_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
 	u32 value[33];
-	u32 debug[34];
+	u32 debug[33];
 	u32 dbg_id = 0, state;
+	u32 shadow_ctrl;
 	u32 i;
 
 	mml_err("wrot component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + VIDO_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + VIDO_SHADOW_CTRL);
 
 	value[0] = readl(base + VIDO_CTRL);
 	value[1] = readl(base + VIDO_DMA_PERF);
@@ -1748,10 +1756,10 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	value[31] = readl(base + VIDO_BASE_ADDR_HIGH_V);
 	value[32] = readl(base + VIDO_BASE_ADDR_V);
 
-	/* debug id from 0x0100 ~ 0x2100, count 34 which is debug array size */
+	/* debug id from 0x0100 ~ 0x2100, count 33 which is debug array size */
 	for (i = 0; i < ARRAY_SIZE(debug); i++) {
 		dbg_id += 0x100;
-		writel(dbg_id, (volatile void *)base + VIDO_INT_EN);
+		writel(dbg_id, base + VIDO_INT_EN);
 		debug[i] = readl(base + VIDO_DEBUG);
 	}
 
@@ -1784,12 +1792,12 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	mml_err("VIDO_BASE ADDR_HIGH_V %#010x ADDR_V %#010x",
 		value[31], value[32]);
 
-	for (i = 0; i < ARRAY_SIZE(debug) / 3; i++)
-		mml_err("ROT_DEBUG_%x %#010x ROT_DEBUG_%x %#010x ROT_DEBUG_%x %#010x",
+	for (i = 0; i < ARRAY_SIZE(debug) / 3; i++) {
+		mml_err("VIDO_DEBUG %02X %#010x VIDO_DEBUG %02X %#010x VIDO_DEBUG %02X %#010x",
 			i * 3 + 1, debug[i * 3],
 			i * 3 + 2, debug[i * 3 + 1],
 			i * 3 + 3, debug[i * 3 + 2]);
-	mml_err("ROT_DEBUG_34 %#010x", debug[33]);
+	}
 
 	/* parse state */
 	state = debug[3] & 0x1;

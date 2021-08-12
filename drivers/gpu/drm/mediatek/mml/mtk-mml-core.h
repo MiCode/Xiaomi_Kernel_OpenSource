@@ -224,6 +224,7 @@ struct mml_frame_config {
 	u8 done_task_cnt;
 	bool dual;
 	bool alpharot;
+	bool shadow;
 	bool disp_dual;
 	struct mutex pipe_mutex;
 
@@ -458,21 +459,15 @@ struct mml_tile_output {
 	struct mml_tile_config *tiles;
 };
 
-/* task_comp - helper inline func which use pipe id and node index to get
- * mml_comp instance inside topology.
+/* config_get_tile - helper inline func which uses tile index to get
+ * mml_tile_engine instance inside config.
  *
- * @task:	The mml_task contains frame config.
- * @pipe:	Pipe ID, 0 or 1.
- * @node_idx:	Node index to mml_topology_path->nodes array.
+ * @cfg:	The mml_frame_config contains tile output.
+ * @ccfg:	The mml_comp_config of which tile engine.
+ * @idx:	Tile index to mml_tile_output->tiles array.
  *
- * Return:	mml_comp struct pointer to related engine
+ * Return:	mml_tile_engine struct pointer to related tile and engine.
  */
-static inline struct mml_comp *task_comp(struct mml_task *task, u32 pipe,
-					 u32 node_idx)
-{
-	return task->config->path[pipe]->nodes[node_idx].comp;
-}
-
 static inline struct mml_tile_engine *config_get_tile(
 	struct mml_frame_config *cfg, struct mml_comp_config *ccfg, u32 idx)
 {

@@ -466,6 +466,8 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	else /* (mml_dual == MML_DUAL_NORMAL) */
 		cfg->dual = tp_need_dual(cfg);
 
+	cfg->shadow = true;
+
 	tp_select_path(cache, cfg, path);
 
 	if (!path[0])

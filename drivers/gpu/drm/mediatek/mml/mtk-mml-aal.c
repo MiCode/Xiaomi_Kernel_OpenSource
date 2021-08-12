@@ -287,8 +287,10 @@ static s32 aal_init(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_EN, 0x1, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_EN, 0x1, U32_MAX);
 
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + AAL_SHADOW_CTRL, 0x2, U32_MAX);
 	return 0;
 }
 
@@ -518,8 +520,14 @@ static void aal_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
 	u32 value[9];
+	u32 shadow_ctrl;
 
 	mml_err("aal component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + AAL_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + AAL_SHADOW_CTRL);
 
 	value[0] = readl(base + AAL_INTSTA);
 	value[1] = readl(base + AAL_STATUS);

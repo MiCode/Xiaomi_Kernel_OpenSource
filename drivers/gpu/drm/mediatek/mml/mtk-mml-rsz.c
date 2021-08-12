@@ -52,6 +52,7 @@
 #define RSZ_DEMO_IN_VMASK		0x074
 #define RSZ_DEMO_OUT_HMASK		0x078
 #define RSZ_DEMO_OUT_VMASK		0x07c
+#define RSZ_SHADOW_CTRL			0x0f0
 #define RSZ_ATPG			0x0fc
 #define RSZ_PAT1_GEN_SET		0x100
 #define RSZ_PAT1_GEN_FRM_SIZE		0x104
@@ -276,9 +277,10 @@ static s32 rsz_init(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0x10000, 0x00010000);
-	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, 0x00010000);
-	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0x1, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0x1, U32_MAX);
+
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_SHADOW_CTRL, 0x2, U32_MAX);
 	return 0;
 }
 
@@ -299,7 +301,7 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	if (rsz_relay_mode) {
 		/* relay mode */
-		cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, 0x00000001);
+		cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, U32_MAX);
 		return 0;
 	}
 
@@ -435,8 +437,14 @@ static void rsz_debug_dump(struct mml_comp *comp)
 	u32 debug[8];
 	u32 state;
 	u32 request[4];
+	u32 shadow_ctrl;
 
 	mml_err("rsz component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + RSZ_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + RSZ_SHADOW_CTRL);
 
 	value[0] = readl(base + RSZ_ENABLE);
 	value[1] = readl(base + RSZ_CON_1);
@@ -469,21 +477,21 @@ static void rsz_debug_dump(struct mml_comp *comp)
 	value[28] = readl(base + RSZ_ETC_SIM_PROT_GAINCON_3);
 	value[29] = readl(base + RSZ_ETC_BLEND);
 
-	writel(0x1, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0x1, base + RSZ_DEBUG_SEL);
 	debug[0] = readl(base + RSZ_DEBUG);
-	writel(0x2, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0x2, base + RSZ_DEBUG_SEL);
 	debug[1] = readl(base + RSZ_DEBUG);
-	writel(0x3, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0x3, base + RSZ_DEBUG_SEL);
 	debug[2] = readl(base + RSZ_DEBUG);
-	writel(0x9, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0x9, base + RSZ_DEBUG_SEL);
 	debug[3] = readl(base + RSZ_DEBUG);
-	writel(0xa, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0xa, base + RSZ_DEBUG_SEL);
 	debug[4] = readl(base + RSZ_DEBUG);
-	writel(0xb, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0xb, base + RSZ_DEBUG_SEL);
 	debug[5] = readl(base + RSZ_DEBUG);
-	writel(0xd, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0xd, base + RSZ_DEBUG_SEL);
 	debug[6] = readl(base + RSZ_DEBUG);
-	writel(0xe, (volatile void *)base + RSZ_DEBUG_SEL);
+	writel(0xe, base + RSZ_DEBUG_SEL);
 	debug[7] = readl(base + RSZ_DEBUG);
 
 	mml_err("RSZ_ENABLE %#010x RSZ_CON_1 %#010x RSZ_CON_2 %#010x RSZ_INT_FLAG %#010x",

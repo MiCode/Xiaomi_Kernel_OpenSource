@@ -824,6 +824,12 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	mml_msg("use config %p rdma %p", cfg, rdma);
 
+	/* Enable engine */
+	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_EN, 0x1, 0x00000001);
+
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SHADOW_CTRL, 0x1, U32_MAX);
+
 	rdma_color_fmt(cfg, rdma_frm);
 
 	if (MML_FMT_V_SUBSAMPLE(src->format) &&
@@ -1041,8 +1047,6 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const u32 crop_ofst_x = tile->luma.x;
 	const u32 crop_ofst_y = tile->luma.y;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_EN, 0x1, 0x00000001);
-
 	if (rdma_frm->blk) {
 		/* Alignment X left in block boundary */
 		in_xs = ((in_xs >> rdma_frm->vdo_blk_shift_w) <<
@@ -1180,8 +1184,6 @@ static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
 
 	/* wait rdma frame done */
 	cmdq_pkt_wfe(pkt, rdma->event_eof);
-	/* Disable engine */
-	cmdq_pkt_write(pkt, NULL, comp->base_pa + RDMA_EN, 0x0, 0x00000001);
 	return 0;
 }
 
@@ -1356,9 +1358,15 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	u32 value[30];
 	u32 mon[29];
 	u32 state, greq;
+	u32 shadow_ctrl;
 	u32 i;
 
 	mml_err("rdma component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + RDMA_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + RDMA_SHADOW_CTRL);
 
 	if (rdma->data->write_sec_reg)
 		cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MML_WAIT);
@@ -1431,12 +1439,14 @@ static void rdma_debug_dump(struct mml_comp *comp)
 			value[29]);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++)
-		mml_err("RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x",
+	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++) {
+		mml_err("RDMA_MON_STA_%-2u %#010x RDMA_MON_STA_%-2u %#010x RDMA_MON_STA_%-2u %#010x",
 			i * 3, mon[i * 3],
 			i * 3 + 1, mon[i * 3 + 1],
 			i * 3 + 2, mon[i * 3 + 2]);
-	mml_err("RDMA_MON_STA_28 %#010x", mon[28]);
+	}
+	mml_err("RDMA_MON_STA_27 %#010x RDMA_MON_STA_28 %#010x",
+		mon[27], mon[28]);
 
 	/* parse state */
 	mml_err("RDMA ack:%u req:%d ufo:%u",

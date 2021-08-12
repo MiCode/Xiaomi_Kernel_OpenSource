@@ -180,6 +180,7 @@ static void core_prepare(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	struct mml_comp *comp;
 	u32 i;
 
 	mml_trace_ex_begin("%s_%u", __func__, pipe);
@@ -194,8 +195,7 @@ static void core_prepare(struct mml_task *task, u32 pipe)
 	}
 
 	for (i = 0; i < path->node_cnt; i++) {
-		struct mml_comp *comp = path->nodes[i].comp;
-
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
 		call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
 	}
@@ -207,11 +207,11 @@ static void core_reuse(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	struct mml_comp *comp;
 	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
-		struct mml_comp *comp = path->nodes[i].comp;
-
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
 	}
 }
@@ -224,6 +224,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp_config *ccfg = cache->cfg;
+	const u32 tile_cnt = task->config->tile_output[pipe]->tile_cnt;
 
 	struct mml_comp *comp;
 	u32 i, tile;
@@ -239,7 +240,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	/* get total label count to create label array */
 	cache->label_cnt = 0;
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		cache->label_cnt += call_cfg_op(comp, get_label_count, task, &ccfg[i]);
 	}
 
@@ -252,11 +253,11 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 
 	/* call all component init and frame op, include mmlsys and mutex */
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, init, task, &ccfg[i]);
 	}
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, frame, task, &ccfg[i]);
 	}
 
@@ -266,24 +267,42 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		goto err;
 	}
 
-	for (tile = 0; tile < task->config->tile_output[pipe]->tile_cnt;
-		tile++) {
+	for (tile = 0; tile < tile_cnt; tile++) {
 		for (i = 0; i < path->node_cnt; i++) {
-			comp = task_comp(task, pipe, i);
+			comp = path->nodes[i].comp;
 			call_cfg_op(comp, tile, task, &ccfg[i], tile);
 		}
 
-		path->mutex->config_ops->mutex(path->mutex, task,
-					       &ccfg[path->mutex_idx]);
+		if (task->config->shadow) {
+			/* skip first tile wait */
+			if (tile) {
+				for (i = 0; i < path->node_cnt; i++) {
+					comp = path->nodes[i].comp;
+					call_cfg_op(comp, wait, task, &ccfg[i], tile);
+				}
+			}
+			path->mutex->config_ops->mutex(path->mutex, task,
+						       &ccfg[path->mutex_idx]);
 
-		for (i = 0; i < path->node_cnt; i++) {
-			comp = task_comp(task, pipe, i);
-			call_cfg_op(comp, wait, task, &ccfg[i], tile);
+			/* last tile needs wait event again */
+			if (tile == tile_cnt - 1) {
+				for (i = 0; i < path->node_cnt; i++) {
+					comp = path->nodes[i].comp;
+					call_cfg_op(comp, wait, task, &ccfg[i], tile);
+				}
+			}
+		} else {
+			path->mutex->config_ops->mutex(path->mutex, task,
+						       &ccfg[path->mutex_idx]);
+			for (i = 0; i < path->node_cnt; i++) {
+				comp = path->nodes[i].comp;
+				call_cfg_op(comp, wait, task, &ccfg[i], tile);
+			}
 		}
 	}
 
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, post, task, &ccfg[i]);
 	}
 
@@ -304,12 +323,11 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, reframe, task, &ccfg[i]);
 	}
-
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, repost, task, &ccfg[i]);
 	}
 
@@ -335,7 +353,7 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 		cnt, task, pipe, task->config);
 
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_dbg_op(comp, dump);
 	}
 }
@@ -352,7 +370,7 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 
 	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_hw_op(comp, pw_enable);
 	}
 	mml_trace_ex_end();
@@ -366,7 +384,7 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 	for (i = 0; i < path->node_cnt; i++) {
 		if (i == path->mmlsys_idx || i == path->mutex_idx)
 			continue;
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_hw_op(comp, clk_enable);
 	}
 	mml_trace_ex_end();
@@ -394,7 +412,7 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	for (i = 0; i < path->node_cnt; i++) {
 		if (i == path->mmlsys_idx || i == path->mutex_idx)
 			continue;
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_hw_op(comp, clk_disable);
 	}
 
@@ -406,7 +424,7 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 
 	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_hw_op(comp, pw_disable);
 	}
 	mml_trace_ex_end();
@@ -426,7 +444,7 @@ static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput)
 	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_hw_op(comp, qos_set, task, &cache->cfg[i], throughput);
 	}
 }
@@ -438,7 +456,7 @@ static void mml_core_qos_clear(struct mml_task *task, u32 pipe)
 	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
-		comp = task_comp(task, pipe, i);
+		comp = path->nodes[i].comp;
 		call_hw_op(comp, qos_clear);
 	}
 }
@@ -885,13 +903,13 @@ static void core_init_pipe1(struct work_struct *work)
 static void core_buffer_map(struct mml_task *task)
 {
 	const struct mml_topology_path *path = task->config->path[0];
+	struct mml_comp *comp;
 	u32 i;
 
 	mml_trace_begin("%s", __func__);
 
 	for (i = 0; i < path->node_cnt; i++) {
-		struct mml_comp *comp = path->nodes[i].comp;
-
+		comp = path->nodes[i].comp;
 		call_cfg_op(comp, buf_map, task, &path->nodes[i]);
 	}
 

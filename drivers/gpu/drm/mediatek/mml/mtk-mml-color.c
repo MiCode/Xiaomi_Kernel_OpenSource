@@ -244,8 +244,10 @@ static s32 color_init(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 3, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM1_EN, 0, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM2_EN, 0, 0x00000001);
-	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CFG_MAIN, 1 << 7, 0x0000000f);
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CFG_MAIN, 0, 0x0000000f);
 
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_SHADOW_CTRL, 0x2, U32_MAX);
 	return 0;
 }
 
@@ -286,8 +288,14 @@ static void color_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
 	u32 value[13];
+	u32 shadow_ctrl;
 
 	mml_err("color component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + COLOR_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + COLOR_SHADOW_CTRL);
 
 	value[0] = readl(base + COLOR_CFG_MAIN);
 	value[1] = readl(base + COLOR_PXL_CNT_MAIN);

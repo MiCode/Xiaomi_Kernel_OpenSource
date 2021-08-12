@@ -230,8 +230,8 @@ static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x1, 0x00000001);
-
+	/* Enable engine and shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x100001, 0x00308001);
 	return 0;
 }
 
@@ -257,7 +257,7 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 			1 << 28, 0x30000000);
 
 	/* relay mode */
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, U32_MAX);
 
 	return 0;
 }
@@ -308,8 +308,14 @@ static void hdr_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
 	u32 value[16];
+	u32 hdr_top;
 
 	mml_err("hdr component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	hdr_top = readl(base + HDR_TOP);
+	hdr_top |= 0x8000;
+	writel(hdr_top, base + HDR_TOP);
 
 	value[0] = readl(base + HDR_TOP);
 	value[1] = readl(base + HDR_RELAY);

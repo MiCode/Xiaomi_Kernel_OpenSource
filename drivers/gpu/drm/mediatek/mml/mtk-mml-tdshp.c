@@ -69,8 +69,6 @@
 #define Y_FTN_17_16_MAIN	0x0dc
 #define C_BOOST_MAIN		0x0e0
 #define C_BOOST_MAIN_2		0x0e4
-#define TDSHP_C_BOOST_MAIN	0x0e8
-#define TDSHP_C_BOOST_MAIN_2	0x0ec
 #define TDSHP_ATPG		0x0fc
 #define TDSHP_CTRL		0x100
 #define TDSHP_INTEN		0x104
@@ -84,8 +82,6 @@
 #define TDSHP_OUTPUT_OFFSET	0x124
 #define TDSHP_OUTPUT_SIZE	0x128
 #define TDSHP_BLANK_WIDTH	0x12c
-#define TDSHP_DEMO_HMASK	0x130
-#define TDSHP_DEMO_VMASK	0x134
 #define TDSHP_DUMMY_REG		0x14c
 #define LUMA_HIST_INIT_00	0x200
 #define LUMA_HIST_INIT_01	0x204
@@ -106,8 +102,6 @@
 #define LUMA_HIST_INIT_16	0x240
 #define LUMA_SUM_INIT		0x244
 #define DC_DBG_CFG_MAIN		0x250
-#define DC_WIN_X_MAIN		0x254
-#define DC_WIN_Y_MAIN		0x258
 #define DC_TWO_D_W1		0x25c
 #define DC_TWO_D_W1_RESULT_INIT	0x260
 #define DC_TWO_D_W1_RESULT	0x264
@@ -115,7 +109,6 @@
 #define EDF_GAIN_01		0x304
 #define EDF_GAIN_02		0x308
 #define EDF_GAIN_03		0x30c
-#define EDF_GAIN_04		0x310
 #define EDF_GAIN_05		0x314
 #define TDSHP_10		0x320
 #define TDSHP_11		0x324
@@ -140,7 +133,6 @@
 #define BITPLUS_00		0x38c
 #define BITPLUS_01		0x390
 #define BITPLUS_02		0x394
-#define DC_SKIN_RANGE0		0x420
 #define CONTOUR_HIST_INIT_00	0x398
 #define CONTOUR_HIST_INIT_01	0x39c
 #define CONTOUR_HIST_INIT_02	0x3a0
@@ -175,6 +167,7 @@
 #define CONTOUR_HIST_14		0x414
 #define CONTOUR_HIST_15		0x418
 #define CONTOUR_HIST_16		0x41c
+#define DC_SKIN_RANGE0		0x420
 #define DC_SKIN_RANGE1		0x424
 #define DC_SKIN_RANGE2		0x428
 #define DC_SKIN_RANGE3		0x42c
@@ -185,34 +178,7 @@
 #define POST_YLEV_02		0x488
 #define POST_YLEV_03		0x48c
 #define POST_YLEV_04		0x490
-#define HFG_CTRL		0x500
-#define HFG_RAN_0		0x504
-#define HFG_RAN_1		0x508
-#define HFG_RAN_2		0x50c
-#define HFG_RAN_3		0x510
-#define HFG_RAN_4		0x514
-#define HFG_CROP_X		0x518
-#define HFG_CROP_Y		0x51c
-#define HFC_CON_0		0x524
-#define HFC_LUMA_0		0x528
-#define HFC_LUMA_1		0x52c
-#define HFC_LUMA_2		0x530
-#define HFC_SL2_0		0x534
-#define HFC_SL2_1		0x538
-#define HFC_SL2_2		0x53c
-#define SL2_CEN			0x544
-#define SL2_RR_CON0		0x548
-#define SL2_RR_CON1		0x54c
-#define SL2_GAIN		0x550
-#define SL2_RZ			0x554
-#define SL2_XOFF		0x558
-#define SL2_YOFF		0x55c
-#define SL2_SLP_CON0		0x560
-#define SL2_SLP_CON1		0x564
-#define SL2_SLP_CON2		0x568
-#define SL2_SLP_CON3		0x66c
-#define SL2_SIZE		0x670
-#define HFG_OUTPUT_COUNT	0x678
+#define TDSHP_SHADOW_CTRL	0x67c
 
 struct tdshp_data {
 	u32 tile_width;
@@ -310,6 +276,9 @@ static s32 tdshp_init(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 1, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x2, 0x00000002);
 
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_SHADOW_CTRL, 0x2, U32_MAX);
+
 	/* reset luma hist */
 	return 0;
 }
@@ -328,7 +297,6 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* relay mode */
 	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x1, 0x00000001);
-	cmdq_pkt_write(pkt, NULL, base_pa + HFG_CTRL, 0, 0x00000101);
 
 	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0, 0x00000004);
@@ -396,9 +364,15 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 static void tdshp_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[12];
+	u32 value[11];
+	u32 shadow_ctrl;
 
 	mml_err("tdshp component %u dump:", comp->id);
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + TDSHP_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + TDSHP_SHADOW_CTRL);
 
 	value[0] = readl(base + TDSHP_CTRL);
 	value[1] = readl(base + TDSHP_INTEN);
@@ -411,7 +385,6 @@ static void tdshp_debug_dump(struct mml_comp *comp)
 	value[8] = readl(base + TDSHP_OUTPUT_OFFSET);
 	value[9] = readl(base + TDSHP_OUTPUT_SIZE);
 	value[10] = readl(base + TDSHP_BLANK_WIDTH);
-	value[11] = readl(base + HFG_CTRL);
 
 	mml_err("TDSHP_CTRL %#010x TDSHP_INTEN %#010x TDSHP_INTSTA %#010x TDSHP_STATUS %#010x",
 		value[0], value[1], value[2], value[3]);
@@ -419,7 +392,7 @@ static void tdshp_debug_dump(struct mml_comp *comp)
 		value[4], value[5], value[6]);
 	mml_err("TDSHP_INPUT_SIZE %#010x TDSHP_OUTPUT_OFFSET %#010x TDSHP_OUTPUT_SIZE %#010x",
 		value[7], value[8], value[9]);
-	mml_err("TDSHP_BLANK_WIDTH %#010x HFG_CTRL %#010x", value[10], value[11]);
+	mml_err("TDSHP_BLANK_WIDTH %#010x", value[10]);
 }
 
 static const struct mml_comp_debug_ops tdshp_debug_ops = {
