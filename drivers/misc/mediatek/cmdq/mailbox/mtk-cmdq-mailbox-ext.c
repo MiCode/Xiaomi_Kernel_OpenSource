@@ -169,9 +169,11 @@ struct cmdq {
 	dma_addr_t		init_cmds;
 	bool			sw_ddr_en;
 	bool			outpin_en;
-	struct notifier_block	prebuilt_notifier;
+	bool			prebuilt_enable;
 	struct cmdq_client	*prebuilt_clt;
-	u64			prebuilt_time[2];
+	struct notifier_block	notifier;
+	atomic_t		notifier_count;
+	u64			notifier_time[2];
 };
 
 struct gce_plat {
@@ -287,6 +289,11 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 	unsigned long flags;
 
 	cmdq_trace_ex_begin("%s", __func__);
+
+	usage = atomic_read(&cmdq->notifier_count);
+	if (!usage)
+		cmdq_msg("%s: pa:%pa hwid:%hu count:%d PM OFF",
+			__func__, &cmdq->base_pa, cmdq->hwid, usage);
 
 	spin_lock_irqsave(&cmdq->lock, flags);
 
@@ -1210,9 +1217,9 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
 
 	cmdq_util_user_msg(chan,
-		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x prebuilt_time:%#llx:%#llx",
+		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x notifier_time:%#llx:%#llx",
 		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en,
-		cmdq->prebuilt_time[0], cmdq->prebuilt_time[1]);
+		cmdq->notifier_time[0], cmdq->notifier_time[1]);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_util_controller->dump_dbg_reg(chan);
 #endif
@@ -1613,51 +1620,43 @@ static int cmdq_resume(struct device *dev)
 	return 0;
 }
 
-static int cmdq_prebuilt_resume(struct device *dev)
+static inline s32 cmdq_notifier_callback_impl(struct cmdq *cmdq,
+	const unsigned long action)
 {
-	struct cmdq *cmdq = dev_get_drvdata(dev);
+	s32 count = atomic_read(&cmdq->notifier_count);
 
-	cmdq_log("%s: hwid:%u", __func__, cmdq->hwid);
+	cmdq_log("%s: pa:%pa hwid:%hu action:%lu count:%d",
+		__func__, &cmdq->base_pa, cmdq->hwid, action, count);
 
-	WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
-	WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
+	if (action == GENPD_NOTIFY_PRE_OFF && !count) {
+		cmdq_msg("%s: pa:%pa hwid:%hu action:%lu count:%d PM OFF",
+			__func__, &cmdq->base_pa, cmdq->hwid, action, count);
+		return NOTIFY_DONE;
+	}
 
-	cmdq->prebuilt_time[0] = sched_clock();
-	cmdq_util_prebuilt_enable(cmdq->hwid);
-	return 0;
-}
-
-static int cmdq_prebuilt_suspend(struct device *dev)
-{
-	struct cmdq *cmdq = dev_get_drvdata(dev);
-
-	cmdq->prebuilt_time[1] = sched_clock();
-
-	clk_disable_unprepare(cmdq->clock_timer);
-	clk_disable_unprepare(cmdq->clock);
-
-	cmdq_log("%s: hwid:%u", __func__, cmdq->hwid);
-	return 0;
-}
-
-static int cmdq_prebuilt_notifier_callback(struct notifier_block *nb,
-	unsigned long action, void *data)
-{
-	struct cmdq *cmdq = container_of(nb, typeof(*cmdq), prebuilt_notifier);
-
-	cmdq_log("%s: pa:%pa hwid:%u action:%lu",
-		__func__, &cmdq->base_pa, cmdq->hwid, action);
-#ifdef CMDQ_GENPD_NOTIFY
 	if (action == GENPD_NOTIFY_ON) {
 		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
 		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
-		cmdq_util_prebuilt_enable(cmdq->hwid);
+		if (cmdq->prebuilt_enable)
+			cmdq_util_prebuilt_enable(cmdq->hwid);
+		cmdq->notifier_time[1] = sched_clock();
+		atomic_inc(&cmdq->notifier_count);
 	} else if (action == GENPD_NOTIFY_PRE_OFF) {
+		atomic_dec(&cmdq->notifier_count);
+		cmdq->notifier_time[0] = sched_clock();
 		clk_disable_unprepare(cmdq->clock_timer);
 		clk_disable_unprepare(cmdq->clock);
 	}
-#endif
+
 	return NOTIFY_OK;
+}
+
+static int cmdq_notifier_callback(struct notifier_block *nb,
+	unsigned long action, void *data)
+{
+	struct cmdq *cmdq = container_of(nb, typeof(*cmdq), notifier);
+
+	return cmdq_notifier_callback_impl(cmdq, action);
 }
 
 static int cmdq_remove(struct platform_device *pdev)
@@ -1913,6 +1912,12 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq->clock_timer = NULL;
 	}
 
+	cmdq->prebuilt_enable =
+		of_property_read_bool(dev->of_node, "prebuilt-enable");
+
+	if (of_property_read_bool(dev->of_node, "notifier-init"))
+		cmdq_notifier_callback_impl(cmdq, GENPD_NOTIFY_ON);
+
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
 					sizeof(*cmdq->mbox.chans), GFP_KERNEL);
@@ -1973,16 +1978,13 @@ static int cmdq_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq->hwid = cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
-	cmdq->prebuilt_notifier.notifier_call = cmdq_prebuilt_notifier_callback;
-	err = dev_pm_genpd_add_notifier(dev, &cmdq->prebuilt_notifier);
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
+	cmdq->notifier.notifier_call = cmdq_notifier_callback;
+	err = dev_pm_genpd_add_notifier(dev, &cmdq->notifier);
 	return 0;
 }
 
 static const struct dev_pm_ops cmdq_pm_ops = {
-	SET_RUNTIME_PM_OPS(cmdq_prebuilt_suspend, cmdq_prebuilt_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(
-		pm_runtime_force_suspend, pm_runtime_force_resume)
 	.suspend = cmdq_suspend,
 	.resume = cmdq_resume,
 };
@@ -2113,7 +2115,6 @@ s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
 	if (!cmdq)
 		return -EINVAL;
 	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
-	cmdq->prebuilt_notifier.priority = cmdq->hwid;
 	cmdq_util_prebuilt_set_client(cmdq->hwid, cmdq->prebuilt_clt);
 	return 0;
 }

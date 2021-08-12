@@ -430,7 +430,7 @@ void cmdq_util_prebuilt_init(const u16 mod)
 {
 	struct arm_smccc_res res;
 
-	cmdq_msg("%s: mod:%u", __func__, mod);
+	cmdq_log("%s: mod:%u", __func__, mod);
 	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_INIT, mod,
 		0, 0, 0, 0, 0, &res);
 }
