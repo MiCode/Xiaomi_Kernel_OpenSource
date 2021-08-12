@@ -2648,8 +2648,10 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 void disp_aal_on_start_of_frame(void)
 {
 	unsigned long flags;
-	struct mtk_disp_aal *aal_data = comp_to_aal(default_comp);
+	struct mtk_disp_aal *aal_data;
 
+	if (!default_comp)
+		return;
 	if (!g_aal_fo->mtk_dre30_support)
 		return;
 	if (atomic_read(&g_aal_force_relay) == 1 &&
@@ -2661,6 +2663,7 @@ void disp_aal_on_start_of_frame(void)
 	if (aal_sram_method != AAL_SRAM_SOF)
 		return;
 
+	aal_data = comp_to_aal(default_comp);
 	AALIRQ_LOG("[SRAM] g_aal_dre_config(%d) in SOF",
 			atomic_read(&g_aal_dre_config));
 	spin_lock_irqsave(&g_aal_clock_lock, flags);
@@ -2766,7 +2769,7 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 		AALERR("Failed to initialize component: %d\n", ret);
 		return ret;
 	}
-	if (!default_comp)
+	if (!default_comp && comp_id == DDP_COMPONENT_AAL0)
 		default_comp = &priv->ddp_comp;
 
 	if (!aal1_default_comp && comp_id == DDP_COMPONENT_AAL1)
