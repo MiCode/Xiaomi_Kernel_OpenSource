@@ -247,6 +247,7 @@
 #include "mediatek/cust_mt6893_touch_1080x2300.dtsi"
 
 &chosen {
+	bootargs_ext = "androidboot.hardware=mt6893";
 	atag,videolfb-fb_base_l = <0x7e605000>;
 	atag,videolfb-fb_base_h = <0x0>;
 	atag,videolfb-islcmfound = <1>;
