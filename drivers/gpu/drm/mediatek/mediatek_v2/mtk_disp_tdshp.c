@@ -335,9 +335,6 @@ static int mtk_disp_tdshp_set_reg(struct mtk_ddp_comp *comp,
 			DDPPR_ERR("%s: invalid ID = %d\n", __func__, comp->id);
 			ret = -EFAULT;
 		}
-
-		if (tdshp_regs != NULL)
-			kfree(tdshp_regs);
 	}
 
 	return ret;

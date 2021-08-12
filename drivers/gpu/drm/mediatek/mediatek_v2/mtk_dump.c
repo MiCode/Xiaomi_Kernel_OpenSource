@@ -62,6 +62,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 		mtk_dp_intf_dump(comp);
 		break;
 #endif
+	case DDP_COMPONENT_TDSHP0:
+	case DDP_COMPONENT_TDSHP1:
+		mtk_disp_tdshp_dump(comp);
+		break;
 	case DDP_COMPONENT_COLOR0:
 	case DDP_COMPONENT_COLOR1:
 	case DDP_COMPONENT_COLOR2:
@@ -70,6 +74,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_CCORR0:
 	case DDP_COMPONENT_CCORR1:
 		mtk_ccorr_dump(comp);
+		break;
+	case DDP_COMPONENT_C3D0:
+	case DDP_COMPONENT_C3D1:
+		mtk_c3d_dump(comp);
 		break;
 	case DDP_COMPONENT_AAL0:
 	case DDP_COMPONENT_AAL1:

@@ -340,6 +340,9 @@ int mtk_drm_ioctl_c3d_eventctl(struct drm_device *dev, void *data,
 	atomic_set(&g_c3d_eventctl, *enabled);
 	pr_notice("%d\n", atomic_read(&g_c3d_eventctl));
 
+	if (atomic_read(&g_c3d_eventctl) == 1)
+		wake_up_interruptible(&g_c3d_get_irq_wq);
+
 	if (*enabled)
 		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
 
