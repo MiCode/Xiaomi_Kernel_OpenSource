@@ -30,6 +30,8 @@
 #define DEV_CLASS_NAME_FMT "camera_eepromdrv%u"
 #define EEPROM_DEVICE_NNUMBER 255
 
+#include "cam_cal_config.h"
+
 static struct EEPROM_DRV ginst_drv[MAX_EEPROM_NUMBER];
 
 static struct stCAM_CAL_LIST_STRUCT *get_list(struct CAM_CAL_SENSOR_INFO *sinfo)
@@ -225,6 +227,7 @@ static loff_t eeprom_seek(struct file *a_file, loff_t offset, int whence)
 static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 			 unsigned long a_param)
 {
+	unsigned int ret;
 	void *pBuff = NULL;
 	struct EEPROM_DRV_FD_DATA *pdata =
 		(struct EEPROM_DRV_FD_DATA *) a_file->private_data;
@@ -256,6 +259,19 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 		pr_debug("sensor id = 0x%x\n",
 		       pdata->sensor_info.sensor_id);
 		break;
+	case CAM_CALIOC_G_GKI_QUERY:
+		pr_debug("QUERY\n");
+		break;
+	case CAM_CALIOC_G_GKI_READ:
+		ret = get_cal_data(pdata, (unsigned int *)pBuff);
+		if (ret == CAM_CAL_ERR_NO_ERR) {
+			if (copy_to_user((u8 __user *) a_param, (u8 *) pBuff, _IOC_SIZE(a_cmd))) {
+				kfree(pBuff);
+				return CAM_CAL_ERR_NO_DEVICE;
+			}
+		}
+		kfree(pBuff);
+		return ret;
 	default:
 		kfree(pBuff);
 		pr_debug("No such command %d\n", a_cmd);
