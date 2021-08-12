@@ -328,6 +328,7 @@ struct mtk_vcu {
 	struct vcu_run run;
 	struct vcu_ipi_desc ipi_desc[IPI_MAX];
 	struct device *dev;
+	struct device *dev_io_enc;
 	struct mutex vcu_mutex[VCU_CODEC_MAX];
 	struct mutex vcu_gce_mutex[VCU_CODEC_MAX];
 	struct mutex ctx_ipi_binding[VCU_CODEC_MAX];
@@ -335,6 +336,7 @@ struct mtk_vcu {
 	struct mutex vcu_share;
 	struct file *file;
 	struct iommu_domain *io_domain;
+	struct iommu_domain *io_domain_enc;
 	bool   iommu_padding;
 	/* temp for 33bits larb adding bits "1" iommu */
 	struct map_hw_reg map_base[VCU_MAP_HW_REG_NUM];
@@ -1672,8 +1674,10 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
 
-	vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev,
-		NULL);
+	if (strcmp(current->comm, "vdec_srv") == 0)
+		vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev, NULL);
+	else
+		vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev_io_enc, NULL);
 
 	if (vcu_queue == NULL)
 		return -ENOMEM;
@@ -1809,10 +1813,16 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 	struct mem_obj mem_buff_data;
 	struct vb2_buffer *src_vb, *dst_vb;
 	void *ret = NULL;
+	struct iommu_domain *io_domain;
 
 	vcu_dev = (struct mtk_vcu *)vcu_queue->vcu;
 	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx\n",
 		 __func__, vma->vm_start, vma->vm_end, vma->vm_pgoff);
+
+	if (vcu_queue->dev == vcu_dev->dev_io_enc)
+		io_domain = vcu_dev->io_domain_enc;
+	else
+		io_domain = vcu_dev->io_domain;
 
 	// First handle map pa case, because maybe pa will smaller than
 	// MAP_PA_BASE_1GB in 32bit project
@@ -1886,7 +1896,7 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		}
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 		while (length > 0) {
-			vma->vm_pgoff = iommu_iova_to_phys(vcu_dev->io_domain,
+			vma->vm_pgoff = iommu_iova_to_phys(io_domain,
 				(pa_start + pos));
 			if (vma->vm_pgoff == 0) {
 				dev_info(vcu_dev->dev, "[VCU] iommu_iova_to_phys fail vcu_ptr->iommu_padding = %d pa_start = 0x%lx\n",
@@ -2411,11 +2421,14 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "[VCU] initialization\n");
 
 	dev = &pdev->dev;
-	vcu = devm_kzalloc(dev, sizeof(*vcu), GFP_KERNEL);
-	if (vcu == NULL)
-		return -ENOMEM;
+	if (vcu_ptr == NULL) {
+		vcu = devm_kzalloc(dev, sizeof(*vcu), GFP_KERNEL);
+		if (vcu == NULL)
+			return -ENOMEM;
+		vcu_ptr = vcu;
+	} else
+		vcu = vcu_ptr;
 
-	vcu_ptr = vcu;
 	ret = of_property_read_u32(dev->of_node, "mediatek,vcuid", &vcuid);
 	if (ret != 0) {
 		dev_info(dev, "[VCU] failed to find mediatek,vcuid\n");
@@ -2691,7 +2704,112 @@ static struct platform_driver mtk_vcu_driver = {
 	},
 };
 
-module_platform_driver(mtk_vcu_driver);
+
+static int mtk_vcu_io_probe(struct platform_device *pdev)
+{
+	struct mtk_vcu *vcu;
+	struct device *dev;
+	int ret = 0;
+	unsigned int vcuid;
+
+	dev_dbg(&pdev->dev, "[VCU][IO] initialization\n");
+
+	dev = &pdev->dev;
+	if (vcu_ptr == NULL) {
+		vcu = devm_kzalloc(dev, sizeof(*vcu), GFP_KERNEL);
+		if (vcu == NULL)
+			return -ENOMEM;
+		vcu_ptr = vcu;
+	} else
+		vcu = vcu_ptr;
+	vcu->dev_io_enc = &pdev->dev;
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,vcuid", &vcuid);
+	if (ret != 0) {
+		dev_info(dev, "[VCU][IO] failed to find mediatek,vcuid\n");
+		return ret;
+	}
+	vcu_mtkdev[vcuid] = vcu;
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
+	vcu_mtkdev[vcuid]->io_domain_enc = iommu_get_domain_for_dev(dev);
+	if (vcu_mtkdev[vcuid]->io_domain_enc == NULL) {
+		dev_info(dev,
+			"[VCU][IO] vcuid: %d get io_domain_enc fail !!\n", vcuid);
+		return -EPROBE_DEFER;
+	}
+	dev_dbg(dev, "vcu io_domain: %p,vcuid:%d\n",
+		vcu_mtkdev[vcuid]->io_domain_enc, vcuid);
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	if (ret) {
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+		if (ret) {
+			dev_info(dev, "64-bit DMA enable failed\n");
+			return ret;
+		}
+	}
+#endif
+
+	dev_dbg(dev, "[VCU][IO] initialization completed\n");
+	return 0;
+}
+
+static const struct of_device_id mtk_vcu_io_match[] = {
+	{.compatible = "mediatek,vcu-io-venc",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, mtk_vcu_io_match);
+
+static int mtk_vcu_io_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct platform_driver mtk_vcu_io_driver = {
+	.probe  = mtk_vcu_io_probe,
+	.remove = mtk_vcu_io_remove,
+	.driver = {
+		.name   = "mtk_vcu_io",
+		.owner  = THIS_MODULE,
+		.pm = &mtk_vcu_pm_ops,
+		.of_match_table = mtk_vcu_io_match,
+	},
+};
+
+
+/*
+ * driver initialization entry point
+ */
+static int __init mtk_vcu_driver_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&mtk_vcu_driver);
+	if (ret) {
+		pr_info("[VCU] mtk_vcu_driver probe fail\n");
+		return ret;
+	}
+	ret = platform_driver_register(&mtk_vcu_io_driver);
+	if (ret) {
+		pr_info("[VCU] mtk_vcu_io_driver probe fail\n");
+		return ret;
+	}
+	return ret;
+}
+
+module_init(mtk_vcu_driver_init);
+
+/*
+ * driver exit point
+ */
+static void __exit mtk_vcu_driver_exit(void)
+{
+	platform_driver_unregister(&mtk_vcu_driver);
+	platform_driver_unregister(&mtk_vcu_io_driver);
+}
+
+module_exit(mtk_vcu_driver_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Mediatek Video Communication And Controller Unit driver");
