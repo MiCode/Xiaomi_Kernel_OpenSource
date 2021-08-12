@@ -1717,10 +1717,10 @@
 		mediatek,smi = <&smi_disp_common>;
 		mediatek,common-id = <15>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>;
-		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>;
+		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_DIP0>,
+				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE0>,
+				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE2>,
+				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE2>;
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
 
@@ -1731,9 +1731,9 @@
 		mediatek,smi = <&smi_mdp_common>;
 		mediatek,common-id = <16>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>;
-		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
+		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE1>,
 				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
+				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE1>,
 				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>;
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
@@ -1832,7 +1832,7 @@
 		mediatek,smi = <&smi_img_subcommon0>;
 		mediatek,larb-id = <10>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
-		clocks = <&dip_top_dip1_clk CLK_DIP_TOP_DIP1_LARB10>,
+		clocks = <&dip_top_dip1_clk CLK_DIP_TOP_DIP1_DIP_TOP>,
 				 <&dip_top_dip1_clk CLK_DIP_TOP_DIP1_LARB10>;
 		clock-names = "apb", "smi";
 	};
@@ -1850,7 +1850,7 @@
 		mediatek,smi = <&smi_img_subcommon1>;
 		mediatek,larb-id = <15>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
-		clocks = <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_LARB15>,
+		clocks = <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_DIP_NR>,
 				 <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_LARB15>;
 		clock-names = "apb", "smi";
 	};
@@ -1868,7 +1868,7 @@
 		mediatek,smi = <&smi_img_subcommon0>;
 		mediatek,larb-id = <11>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
-		clocks = <&wpe1_dip1_clk CLK_WPE1_DIP1_LARB11>,
+		clocks = <&wpe1_dip1_clk CLK_WPE1_DIP1_WPE>,
 				 <&wpe1_dip1_clk CLK_WPE1_DIP1_LARB11>;
 		clock-names = "apb", "smi";
 	};
@@ -1886,7 +1886,7 @@
 		mediatek,smi = <&smi_img_subcommon1>;
 		mediatek,larb-id = <12>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_IPE>;
-		clocks = <&ipesys_clk CLK_IPESYS_SMI_LARB12>,
+		clocks = <&ipesys_clk CLK_IPESYS_IPESYS_TOP>,
 				 <&ipesys_clk CLK_IPESYS_SMI_LARB12>;
 		clock-names = "apb", "smi";
 	};
@@ -1904,7 +1904,7 @@
 		mediatek,smi = <&smi_img_subcommon1>;
 		mediatek,larb-id = <22>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
-		clocks = <&wpe2_dip1_clk CLK_WPE2_DIP1_LARB11>,
+		clocks = <&wpe2_dip1_clk CLK_WPE2_DIP1_WPE>,
 				 <&wpe2_dip1_clk CLK_WPE2_DIP1_LARB11>;
 		clock-names = "apb", "smi";
 	};
@@ -1922,7 +1922,7 @@
 		mediatek,smi = <&smi_img_subcommon0>;
 		mediatek,larb-id = <23>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
-		clocks = <&wpe3_dip1_clk CLK_WPE3_DIP1_LARB11>,
+		clocks = <&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>,
 				 <&wpe3_dip1_clk CLK_WPE3_DIP1_LARB11>;
 		clock-names = "apb", "smi";
 	};
@@ -1998,7 +1998,7 @@
 		mediatek,smi = <&smi_cam_mm_subcommon0>;
 		mediatek,larb-id = <25>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
-		clocks = <&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_MRAW_CG_CON>,
 				 <&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2010,7 +2010,7 @@
 		mediatek,smi = <&smi_cam_mdp_subcommon1>;
 		mediatek,larb-id = <26>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
-		clocks = <&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_MRAW_CG_CON>,
 				 <&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2022,7 +2022,7 @@
 		mediatek,smi = <&smi_cam_mdp_subcommon1 &smi_cam_sys_subcommon1>;
 		mediatek,larb-id = <16>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBA>;
-		clocks = <&camsys_rawa_clk CLK_CAM_RA_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBA_CG_CON>,
 				 <&camsys_rawa_clk CLK_CAM_RA_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2034,7 +2034,7 @@
 		mediatek,smi = <&smi_cam_mdp_subcommon1>;
 		mediatek,larb-id = <17>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBA>;
-		clocks = <&camsys_yuva_clk CLK_CAMSYS_YUVA_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBA_CG_CON>,
 				 <&camsys_yuva_clk CLK_CAMSYS_YUVA_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2046,7 +2046,7 @@
 		mediatek,smi = <&smi_cam_mm_subcommon0 &smi_cam_sys_subcommon1>;
 		mediatek,larb-id = <27>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBB>;
-		clocks = <&camsys_rawb_clk CLK_CAM_RB_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBB_CG_CON>,
 				 <&camsys_rawb_clk CLK_CAM_RB_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2058,7 +2058,7 @@
 		mediatek,smi = <&smi_cam_mm_subcommon0>;
 		mediatek,larb-id = <29>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBB>;
-		clocks = <&camsys_yuvb_clk CLK_CAMSYS_YUVB_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBB_CG_CON>,
 				 <&camsys_yuvb_clk CLK_CAMSYS_YUVB_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2070,7 +2070,7 @@
 		mediatek,smi = <&smi_cam_mdp_subcommon1 &smi_cam_sys_subcommon1>;
 		mediatek,larb-id = <28>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBC>;
-		clocks = <&camsys_rawc_clk CLK_CAM_RC_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBC_CG_CON>,
 				 <&camsys_rawc_clk CLK_CAM_RC_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2082,7 +2082,7 @@
 		mediatek,smi = <&smi_cam_mm_subcommon0>;
 		mediatek,larb-id = <30>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_SUBC>;
-		clocks = <&camsys_yuvc_clk CLK_CAMSYS_YUVC_LARBX>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBC_CG_CON>,
 				 <&camsys_yuvc_clk CLK_CAMSYS_YUVC_LARBX>;
 		clock-names = "apb", "smi";
 	};
@@ -2272,7 +2272,7 @@
 		mediatek,smi = <&smi_cam_mdp_subcommon1>;
 		mediatek,larb-id = <19>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&ccu_main_clk CLK_CCU_MAIN_LARB19>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_MRAW_CG_CON>,
 				 <&ccu_main_clk CLK_CCU_MAIN_LARB19>;
 		clock-names = "apb", "smi";
 	};
