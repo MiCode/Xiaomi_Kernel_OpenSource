@@ -11259,7 +11259,9 @@
 		mt6685_consys: mt6685_consys {
 			compatible = "mediatek,mt6685-consys";
 		};
-
+		mt6685_audclk: mt6685_audclk {
+			compatible = "mediatek,mt6685_audclk";
+		};
 		mt6685_clock_buffer: mt6685_clock_buffer {
 			compatible = "mediatek,clock_buffer";
 			mediatek,xo-mode-num = <3>;
