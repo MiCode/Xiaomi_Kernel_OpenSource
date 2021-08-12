@@ -3684,6 +3684,23 @@
 		nvmem-cell-names = "e_data1","e_data2","e_data3";
 	};
 
+	ktf_lvts: ktf_lvts@10315000 {
+		compatible = "mediatek,ktf-lvts-test";
+		#thermal-sensor-cells = <1>;
+		reg = <0 0x10315000 0 0x1000>,
+		      <0 0x10316000 0 0x1000>;
+		interrupts = <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH 0>;
+
+		clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_THERM_CG>;
+		clock-names = "lvts_clk";
+		resets = <&infracfg_rst 0>,
+			 <&infracfg_rst 1>;
+
+		nvmem-cells = <&lvts_e_data1 &lvts_e_data2 &lvts_e_data3>;
+		nvmem-cell-names = "e_data1","e_data2","e_data3";
+	};
+
 	tboard_thermistor1: thermal-ntc1 {
 		compatible = "mediatek,mt6983-board-ntc";
 		#thermal-sensor-cells = <0>;
