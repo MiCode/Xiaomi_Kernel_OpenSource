@@ -745,6 +745,42 @@ void reset(struct mtk_raw_device *dev)
 	dev_dbg(dev->dev, "%s: hw timeout\n", __func__);
 }
 
+static void reset_reg(struct mtk_raw_device *dev)
+{
+	int cq_en, sw_done, sw_sub_ctl;
+
+	dev_info(dev->dev,
+			 "[%s++] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
+			 __func__,
+			 readl_relaxed(dev->base_inner + REG_CQ_EN),
+			 readl_relaxed(dev->base_inner + REG_CTL_SW_SUB_CTL),
+			 readl_relaxed(dev->base_inner + REG_CTL_SW_PASS1_DONE),
+			 readl_relaxed(dev->base + REG_CQ_EN),
+			 readl_relaxed(dev->base + REG_CTL_SW_SUB_CTL),
+			 readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
+	cq_en = readl_relaxed(dev->base_inner + REG_CQ_EN);
+	sw_done = readl_relaxed(dev->base_inner + REG_CTL_SW_PASS1_DONE);
+	sw_sub_ctl = readl_relaxed(dev->base_inner + REG_CTL_SW_SUB_CTL);
+	writel_relaxed(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base_inner + REG_CQ_EN);
+	writel_relaxed(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base + REG_CQ_EN);
+	wmb(); /* TBC */
+	writel_relaxed(sw_done & (~SW_DONE_SAMPLE_EN), dev->base_inner + REG_CTL_SW_PASS1_DONE);
+	writel_relaxed(sw_done & (~SW_DONE_SAMPLE_EN), dev->base + REG_CTL_SW_PASS1_DONE);
+	wmb(); /* TBC */
+	writel_relaxed(0, dev->base_inner + REG_CTL_SW_SUB_CTL);
+	writel_relaxed(0, dev->base + REG_CTL_SW_SUB_CTL);
+	wmb(); /* TBC */
+	dev_info(dev->dev,
+			 "[%s--] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
+			 __func__,
+			 readl_relaxed(dev->base_inner + REG_CQ_EN),
+			 readl_relaxed(dev->base_inner + REG_CTL_SW_SUB_CTL),
+			 readl_relaxed(dev->base_inner + REG_CTL_SW_PASS1_DONE),
+			 readl_relaxed(dev->base + REG_CQ_EN),
+			 readl_relaxed(dev->base + REG_CTL_SW_SUB_CTL),
+			 readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
+}
+
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
 	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
 	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
@@ -1111,6 +1147,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 				//writel_relaxed(0x0, dev->base + REG_TG_SEN_MODE);
 				//wmb(); /* TBC */
 				reset(dev);
+				reset_reg(dev);
 				break;
 			}
 			usleep_range(10, 20);

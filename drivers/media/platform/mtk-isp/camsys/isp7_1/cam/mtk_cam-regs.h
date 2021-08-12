@@ -100,6 +100,8 @@
 #define CTL_DB_EN						BIT(4) //
 
 #define REG_CTL_SW_CTL					0x00C4
+
+
 #define REG_CTL_START					0x00B0
 
 #define REG_CTL_RAW_INT_STAT			0x0104
@@ -146,6 +148,7 @@
 
 #define REG_CTL_SW_PASS1_DONE			0x00c8
 #define SW_DONE_SAMPLE_EN				BIT(8)
+#define REG_CTL_SW_SUB_CTL					0x00cc
 
 #define REG_CQ_THR0_BASEADDR				0x0414
 #define REG_CQ_THR0_BASEADDR_MSB			0x0418
