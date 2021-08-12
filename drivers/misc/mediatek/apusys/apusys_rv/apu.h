@@ -27,7 +27,7 @@ struct mtk_apu_hw_ops {
 };
 
 #define F_PRELOAD_FIRMWARE	BIT(0)
-#define F_IS_BRINGUP		BIT(1)
+#define F_AUTO_BOOT			BIT(1)
 #define F_BYPASS_IOMMU		BIT(2)
 #define F_SECURE_BOOT		BIT(3)
 #define F_SECURE_COREDUMP	BIT(4)

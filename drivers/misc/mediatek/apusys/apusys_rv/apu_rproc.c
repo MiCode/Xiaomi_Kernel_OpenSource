@@ -211,7 +211,8 @@ static int apu_dram_boot_init(struct mtk_apu *apu)
 		}
 	}
 
-	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE &&
+		(apu->platdata->flags & F_BYPASS_IOMMU) == 0) {
 		apu->code_buf = (void *) apu->apu_sec_mem_base +
 			apu->apusys_sec_info->up_code_buf_ofs;
 		apu->code_da = APU_SEC_FW_IOVA;
@@ -320,7 +321,7 @@ static int apu_probe(struct platform_device *pdev)
 	 * use below command to run uP:
 	 * echo start > /sys/class/remoteproc/remoteproc0/state
 	 */
-	if (data->flags & F_IS_BRINGUP)
+	if (data->flags & F_AUTO_BOOT)
 		rproc->auto_boot = true;
 	else
 		rproc->auto_boot = false;
