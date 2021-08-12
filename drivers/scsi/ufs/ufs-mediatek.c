@@ -808,7 +808,8 @@ static void ufs_mtk_trace_vh_update_sdev(void *data, struct scsi_device *sdev)
 	struct ufs_hba *hba = shost_priv(sdev->host);
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 
-	ufsf_slave_configure(ufsf, sdev);
+	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_SAMSUNG)
+		ufsf_slave_configure(ufsf, sdev);
 #endif
 }
 
