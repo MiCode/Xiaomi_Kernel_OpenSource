@@ -8,6 +8,7 @@
 #include "adaptor-i2c.h"
 #include "adaptor-ctrls.h"
 #include "adaptor-common-ctrl.h"
+#include "adaptor-hw.h"
 
 #define ctrl_to_ctx(ctrl) \
 	container_of(ctrl->handler, struct adaptor_ctx, ctrls)
@@ -741,6 +742,13 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		proc_debug_cmd(ctx, ctrl->p_new.p_char);
 		break;
 #endif
+	case V4L2_CID_MTK_SENSOR_POWER:
+		dev_info(dev, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
+		if (ctrl->val)
+			adaptor_hw_power_on(ctx);
+		else
+			adaptor_hw_power_off(ctx);
+		break;
 	}
 
 	pm_runtime_put(dev);
@@ -1065,6 +1073,16 @@ static const struct v4l2_ctrl_config cfg_debug_cmd = {
 };
 #endif
 
+static const struct v4l2_ctrl_config cfg_sensor_power = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_POWER,
+	.name = "sensor_power",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 1,
+	.step = 1,
+};
+
 void restore_ae_ctrl(struct adaptor_ctx *ctx)
 {
 	if (!ctx->ae_memento.exposure.le_exposure ||
@@ -1289,6 +1307,8 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);
 #endif
+
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_power, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
