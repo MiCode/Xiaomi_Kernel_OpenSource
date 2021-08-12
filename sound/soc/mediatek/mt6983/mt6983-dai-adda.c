@@ -555,7 +555,8 @@ static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 					 afe_priv->mtkaif_chosen_phase[1]);
 				break;
 			} else if (strcmp(w->name, "ADDA6_MTKAIF_CFG") == 0 &&
-				   afe_priv->mtkaif_chosen_phase[2] < 0) {
+				   afe_priv->mtkaif_chosen_phase[2] < 0 &&
+				   mt6983_afe_gpio_is_prepared(MT6983_AFE_GPIO_DAT_MISO2_ON)) {
 				AUDIO_AEE("adda6 mtkaif calib fail");
 				dev_warn(afe->dev,
 					 "%s(), check adda6 mtkaif_chosen_phase[2]:%d\n",
@@ -1456,7 +1457,7 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 			/* AFE_ADDA_MTKAIFV4_RX_CFG0 */
 			regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIFV4_RX_CFG0,
 					MTKAIFV4_RXIF_FOUR_CHANNEL_MASK_SFT,
-					0x0 << MTKAIFV4_RXIF_FOUR_CHANNEL_SFT);
+					0x1 << MTKAIFV4_RXIF_FOUR_CHANNEL_SFT);
 			regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIFV4_RX_CFG0,
 					MTKAIFV4_ADDA_IN_EN_SEL_MASK_SFT,
 					0x1 << MTKAIFV4_ADDA_IN_EN_SEL_SFT);

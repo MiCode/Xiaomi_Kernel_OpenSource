@@ -22310,6 +22310,10 @@ enum {
 	AUDIO_ANALOG_VOLUME_MICAMP2,
 	AUDIO_ANALOG_VOLUME_MICAMP3,
 	AUDIO_ANALOG_VOLUME_MICAMP4,
+	AUDIO_ANALOG_NEG_VOLUME_MICAMP1,
+	AUDIO_ANALOG_NEG_VOLUME_MICAMP2,
+	AUDIO_ANALOG_NEG_VOLUME_MICAMP3,
+	AUDIO_ANALOG_NEG_VOLUME_MICAMP4,
 	AUDIO_ANALOG_VOLUME_TYPE_MAX
 };
 
@@ -22571,7 +22575,7 @@ enum {
 	PGA_MUX_AIN0 = 0,
 	PGA_MUX_AIN1,
 	PGA_MUX_AIN2,
-	PGA_MUX_NONE
+	PGA_MUX_NONE,
 };
 
 enum {
@@ -22579,7 +22583,6 @@ enum {
 	PGA_3_MUX_AIN2,
 	PGA_3_MUX_AIN3,
 	PGA_3_MUX_AIN5,
-	PGA_3_MUX_NONE
 };
 
 enum {
@@ -22587,7 +22590,6 @@ enum {
 	PGA_4_MUX_AIN3,
 	PGA_4_MUX_AIN4,
 	PGA_4_MUX_AIN6,
-	PGA_4_MUX_NONE
 };
 
 enum {
@@ -22718,6 +22720,7 @@ struct mt6338_priv {
 	int hp_plugged;
 	int mtkaif_protocol;
 	int dmic_one_wire_mode;
+	int mic_hifi_mode;
 
 	/* dc trim */
 	struct dc_trim_data dc_trim;
