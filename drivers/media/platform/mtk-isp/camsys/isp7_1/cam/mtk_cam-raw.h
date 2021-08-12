@@ -10,7 +10,7 @@
 #include "mtk_cam-video.h"
 #include "mtk_camera-v4l2-controls.h"
 
-#define RAW_PIPELINE_NUM 2
+#define RAW_PIPELINE_NUM 3
 #define SCQ_DEADLINE_MS  15 // ~1/2 frame length
 #define SCQ_DEFAULT_CLK_RATE 208 // default 208MHz
 #define USINGSCQ 1

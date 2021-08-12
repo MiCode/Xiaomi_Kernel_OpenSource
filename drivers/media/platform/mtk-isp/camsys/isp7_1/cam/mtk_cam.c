@@ -3964,7 +3964,8 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 	int ret;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
-		if (i >= MTKCAM_SUBDEV_RAW_START && i < MTKCAM_SUBDEV_RAW_2) {
+		if (i >= MTKCAM_SUBDEV_RAW_START &&
+			i < (MTKCAM_SUBDEV_RAW_START + cam->num_raw_drivers)) {
 			pipe_entity = &cam->raw.pipelines[i].subdev.entity;
 
 			dev_info(cam->dev, "create pad link %s %s\n",

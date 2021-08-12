@@ -1926,10 +1926,12 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 
 static int mtk_raw_available_resource(struct mtk_raw *raw)
 {
+	struct device *dev = raw->cam_dev;
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	int res_status = 0;
 	int i, j;
 
-	for (i = 0; i < RAW_PIPELINE_NUM; i++) {
+	for (i = 0; i < cam_dev->num_raw_drivers; i++) {
 		struct mtk_raw_pipeline *pipe = raw->pipelines + i;
 
 		for (j = 0; j < ARRAY_SIZE(raw->devs); j++) {
@@ -3921,6 +3923,8 @@ static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUE
 	 "mtk-cam raw-0 rawi-3", "mtk-cam raw-0 rawi-4"},
 	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2",
 	 "mtk-cam raw-1 rawi-3", "mtk-cam raw-1 rawi-4"},
+	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2",
+	 "mtk-cam raw-2 rawi-3", "mtk-cam raw-2 rawi-4"},
 };
 
 struct mtk_cam_pad_ops source_pad_ops_default = {
@@ -4333,6 +4337,15 @@ static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_Q
 	 "mtk-cam raw-1 rzh1n2to-1", "mtk-cam raw-1 rzh1n2to-2", "mtk-cam raw-1 rzh1n2to-3",
 	 "mtk-cam raw-1 partial-meta-0", "mtk-cam raw-1 partial-meta-1",
 	 "mtk-cam raw-1 partial-meta-2"},
+
+	{"mtk-cam raw-2 main-stream",
+	 "mtk-cam raw-2 yuvo-1", "mtk-cam raw-2 yuvo-2",
+	 "mtk-cam raw-2 yuvo-3", "mtk-cam raw-2 yuvo-4",
+	 "mtk-cam raw-2 yuvo-5",
+	 "mtk-cam raw-2 drzs4no-1", "mtk-cam raw-2 drzs4no-2", "mtk-cam raw-2 drzs4no-3",
+	 "mtk-cam raw-2 rzh1n2to-1", "mtk-cam raw-2 rzh1n2to-2", "mtk-cam raw-2 rzh1n2to-3",
+	 "mtk-cam raw-2 partial-meta-0", "mtk-cam raw-2 partial-meta-1",
+	 "mtk-cam raw-2 partial-meta-2"},
 };
 
 /* The helper to configure the device context */
@@ -4537,13 +4550,14 @@ static void mtk_raw_pipeline_unregister(struct mtk_raw_pipeline *pipe)
 int mtk_raw_setup_dependencies(struct mtk_raw *raw)
 {
 	struct device *dev = raw->cam_dev;
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	struct device *consumer, *supplier;
 	struct device_link *link;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_yuv_device *yuv_dev;
 	int i;
 
-	for (i = 0; i < RAW_PIPELINE_NUM; i++) {
+	for (i = 0; i < cam_dev->num_raw_drivers; i++) {
 		consumer = raw->devs[i];
 		supplier = raw->yuvs[i];
 		if (!consumer || !supplier) {
@@ -4570,10 +4584,12 @@ int mtk_raw_setup_dependencies(struct mtk_raw *raw)
 
 int mtk_raw_register_entities(struct mtk_raw *raw, struct v4l2_device *v4l2_dev)
 {
+	struct device *dev = raw->cam_dev;
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	unsigned int i;
 	int ret;
 
-	for (i = 0; i < RAW_PIPELINE_NUM; i++) {
+	for (i = 0; i < cam_dev->num_raw_drivers; i++) {
 		struct mtk_raw_pipeline *pipe = raw->pipelines + i;
 
 		pipe->raw = raw;
@@ -4589,9 +4605,11 @@ int mtk_raw_register_entities(struct mtk_raw *raw, struct v4l2_device *v4l2_dev)
 
 void mtk_raw_unregister_entities(struct mtk_raw *raw)
 {
+	struct device *dev = raw->cam_dev;
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	unsigned int i;
 
-	for (i = 0; i < RAW_PIPELINE_NUM; i++)
+	for (i = 0; i < cam_dev->num_raw_drivers; i++)
 		mtk_raw_pipeline_unregister(raw->pipelines + i);
 }
 

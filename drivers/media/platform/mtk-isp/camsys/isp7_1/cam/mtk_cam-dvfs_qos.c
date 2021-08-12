@@ -607,7 +607,7 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 	struct device *engineraw_dev;
 	struct device *engineyuv_dev;
 	struct device *enginesv_dev;
-	int i, port_id, engine_id;
+	int i, raw_num, port_id, engine_id;
 
 	for (i = 0; i < MTK_CAM_RAW_PORT_NUM; i++) {
 		dvfs_info->qos_req[i] = 0;
@@ -618,7 +618,8 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		dvfs_info->sv_qos_bw_avg[i] = 0;
 	}
 	i = 0;
-	for (engine_id = RAW_A; engine_id <= RAW_B; engine_id++) {
+	for (raw_num = 0; raw_num < cam->num_raw_drivers; raw_num++) {
+		engine_id = RAW_A + raw_num;
 		raw_mmqos = raw_qos + engine_id;
 		engineraw_dev = cam->raw.devs[engine_id];
 		engineyuv_dev = cam->raw.yuvs[engine_id];
