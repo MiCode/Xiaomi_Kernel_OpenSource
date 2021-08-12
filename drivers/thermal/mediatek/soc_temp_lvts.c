@@ -198,6 +198,7 @@ static void lvts_write_device(struct lvts_data *lvts_data, unsigned int data,
 
 	writel(data, LVTS_CONFIG_0 + base);
 
+	udelay(5);
 	ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
 				 !(data & DEVICE_ACCESS_STARTUS),
 				 2, 200);
@@ -1579,7 +1580,10 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 
 			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(j), i);
 			lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_V4, i);
+			udelay(10);
+
 			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
+			udelay(30);
 
 			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
 				!(data & DEVICE_SENSING_STATUS),
@@ -1666,7 +1670,6 @@ static void init_controller_v4(struct lvts_data *lvts_data)
 		set_polling_speed(lvts_data, i);
 		set_hw_filter(lvts_data, i);
 	}
-
 }
 
 /*==================================================
@@ -2150,7 +2153,10 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 			lvts_write_device(lvts_data, SET_TS_EN_6893, i);
 			lvts_write_device(lvts_data, TOGGLE_RG_TSV2F_VCO_RST1_V4, i);
 			lvts_write_device(lvts_data, SET_TS_EN_6893, i);
+			udelay(10);
+
 			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
+			udelay(30);
 
 			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
 				!(data & DEVICE_SENSING_STATUS),
@@ -2160,6 +2166,7 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 					"Error: LVTS %d DEVICE_SENSING_STATUS didn't ready\n", i);
 
 			data = lvts_read_device(lvts_data, 0x00, i);
+			udelay(5);
 
 			rc_data = (data & GENMASK(23, 0));
 
@@ -2939,6 +2946,396 @@ static struct lvts_data mt6983_lvts_data = {
 	.init_done = false,
 };
 
+
+
+
+/*==================================================
+ * LVTS MT6879
+ *==================================================
+ */
+#define TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6879 (DEVICE_WRITE | RG_TSV2F_CTRL_4 << 8	\
+						| 0xFC)
+#define TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6879 (DEVICE_WRITE | RG_TSV2F_CTRL_2 << 8	\
+						| 0x8C)
+#define SET_TS_EN_6879 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
+
+#define SET_LANTENCY_6879 (DEVICE_WRITE | RG_TSFM_CTRL_4 << 8 | 0xA6)
+
+#define SET_LVTS_MANUAL_RCK_OPERATION_6879 (DEVICE_WRITE | RG_TSV2F_CTRL_6 << 8 | 0x00)
+
+#define SET_DEVICE_SINGLE_MODE_6879 (DEVICE_WRITE | RG_TSFM_CTRL_3 << 8 | 0xf8)
+
+
+#define SET_TS_DIS_6879 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
+
+static void mt6879_device_enable_and_init(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		lvts_write_device(lvts_data, STOP_COUNTING_V4, i);//0300
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US2_V4, i); //0420
+		lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US1_V4, i); //0500
+		lvts_write_device(lvts_data, SET_RG_TSFM_LPDLY_V4, i);//07A6
+		lvts_write_device(lvts_data, TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6879, i);//0CFC
+		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_6879, i);//0A8C
+		lvts_write_device(lvts_data, SET_TS_RSV_V4, i); //098D
+		lvts_write_device(lvts_data, SET_TS_EN_6879, i);//08F1
+	}
+
+	lvts_data->counting_window_us = 20;
+}
+
+
+static int mt6879_device_read_count_rc_n(struct lvts_data *lvts_data)
+{
+
+	/* Resistor-Capacitor Calibration */
+	/* count_RC_N: count RC now */
+	struct device *dev = lvts_data->dev;
+	struct tc_settings *tc = lvts_data->tc;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+	unsigned int offset, size, s_index, data;
+	void __iomem *base;
+	int ret, i, j;
+	char buffer[512];
+	unsigned int  rc_data;
+	int refine_data_idx[4] = {0};
+	int count_rc_delta = 0;
+
+	if (lvts_data->init_done) {
+
+		for (i = 0; i < lvts_data->num_tc; i++)
+			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+
+		return 0;
+	}
+
+
+	cal_data->count_rc_now =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->count_rc_now), GFP_KERNEL);
+
+	cal_data->efuse_data =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->efuse_data), GFP_KERNEL);
+
+	if ((!cal_data->count_rc_now) || (!cal_data->efuse_data))
+		return -ENOMEM;
+
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+		lvts_write_device(lvts_data, SET_LVTS_MANUAL_RCK_OPERATION_6879, i);
+
+		for (j = 0; j < tc[i].num_sensor; j++) {
+			refine_data_idx[j] = 0xff;
+			s_index = tc[i].sensor_map[j];
+
+			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(j), i);
+			lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_6879, i);
+
+			lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US1_V4, i);
+			lvts_write_device(lvts_data, SET_COUNTING_WINDOW_20US2_V4, i);
+
+
+			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
+			udelay(50);
+
+			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				!(data & DEVICE_SENSING_STATUS),
+				2, 200);
+			if (ret)
+				dev_info(dev,
+					"Error: LVTS %d DEVICE_SENSING_STATUS didn't ready\n", i);
+
+			/* Get RCK count data (sensor-N) */
+			data = lvts_read_device(lvts_data, 0x00, i);
+			udelay(5);
+
+			rc_data = (data & GENMASK(23, 0));
+
+			if (rc_data == 0) {
+				refine_data_idx[j] = s_index;
+				dev_info(dev, "rc_data %d, data_idx[%d]=%d\n", rc_data, j,
+					s_index);
+			} else {
+				if (cal_data->count_rc[i] > rc_data)
+					count_rc_delta = (cal_data->count_rc[i] * 1000) / rc_data;
+				else
+					count_rc_delta = (rc_data * 1000) / cal_data->count_rc[i];
+
+				if (count_rc_delta > 1061) {
+					refine_data_idx[j] = s_index;
+					dev_info(dev,
+						"delta %d, data_idx[%d]=%d\n",
+						count_rc_delta, j, s_index);
+				}
+			}
+
+			/* Disable TS_EN */
+			lvts_write_device(lvts_data, SET_TS_DIS_6879, i);
+			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
+				!(data & DEVICE_ACCESS_STARTUS),
+				2, 200);
+			if (ret)
+				dev_info(dev,
+					"Error: LVTS %d DEVICE_ACCESS_START didn't ready\n",
+					i);
+
+			if (refine_data_idx[j] != 0xff) {
+				dev_info(dev, "refine_data_idx[%d]=%d\n", j, refine_data_idx[j]);
+				cal_data->count_rc_now[s_index] = cal_data->count_rc[i];
+			} else
+				cal_data->count_rc_now[s_index] = (rc_data & GENMASK(23, 0));
+
+			/*count data here that want to set to efuse later*/
+			cal_data->efuse_data[s_index] = (((unsigned long long)
+				cal_data->count_rc_now[s_index]) *
+				cal_data->count_r[s_index]) >> 14;
+		}
+
+		/* Recover Setting for Normal Access on
+		 * temperature fetch
+		 */
+		/* Select Sensor-N without RCK */
+		lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+	}
+
+
+	size = sizeof(buffer);
+	offset = snprintf(buffer, size, "[COUNT_RC_NOW] ");
+	for (i = 0; i < lvts_data->num_sensor; i++)
+		offset += snprintf(buffer + offset, size - offset, "%d:%d ",
+				i, cal_data->count_rc_now[i]);
+
+	buffer[offset] = '\0';
+	dev_info(dev, "%s\n", buffer);
+
+	return 0;
+}
+
+#define MT6879_NUM_LVTS (ARRAY_SIZE(mt6879_tc_settings))
+
+enum mt6879_lvts_domain {
+	MT6879_AP_DOMAIN,
+	MT6879_MCU_DOMAIN,
+	MT6879_NUM_DOMAIN
+};
+
+enum mt6879_lvts_sensor_enum {
+	MT6879_TS1_0,//(CPU_6_B)
+	MT6879_TS1_1,//(CPU_7_B)
+	MT6879_TS2_0,//(CPU_5_L)
+	MT6879_TS2_1,//(CPU_0_L,CPU_1_L)
+	MT6879_TS2_2,//(CPU_2_L,CPU-3_L)
+	MT6879_TS2_3,//(CPU_4_L,CPU_7_B)
+	MT6879_TS3_0,//(GPU)
+	MT6879_TS3_1,//(GPU)
+	MT6879_TS4_0,//(APU)
+	MT6879_TS4_1,//(APU)
+	MT6879_TS5_0,//(SOC_CAM)
+	MT6879_TS5_1,//(SOC_DRAMC)
+	MT6879_TS5_2,//(SOC_VLP)
+	MT6879_TS5_3,//(SOC_CONNSYS)
+	MT6879_TS6_0,//(MD)
+	MT6879_TS6_1,//(MD)
+	MT6879_TS6_2,//(MD)
+	MT6879_TS6_3,//(MD)
+	MT6879_NUM_TS
+
+};
+
+
+enum mt6879_lvts_controller_enum {
+	MT6879_LVTS_MCU_CTRL0,
+	MT6879_LVTS_MCU_CTRL1,
+	MT6879_LVTS_AP_CTRL0,
+	MT6879_LVTS_AP_CTRL1,
+	MT6879_LVTS_AP_CTRL2,
+	MT6879_LVTS_AP_CTRL3,
+	MT6879_LVTS_CTRL_NUM
+};
+
+static void mt6879_efuse_to_cal_data(struct lvts_data *lvts_data)
+{
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+
+	cal_data->golden_temp = GET_CAL_DATA_BITMASK(0, 31, 24);
+	cal_data->count_r[MT6879_TS1_0] = GET_CAL_DATA_BITMASK(1, 23, 0);
+	cal_data->count_r[MT6879_TS1_1] = GET_CAL_DATA_BITMASK(2, 23, 0);
+
+	cal_data->count_r[MT6879_TS2_0] = GET_CAL_DATA_BITMASK(3, 23, 0);
+	cal_data->count_r[MT6879_TS2_1] = GET_CAL_DATA_BITMASK(4, 23, 0);
+	cal_data->count_r[MT6879_TS2_2] = GET_CAL_DATA_BITMASK(5, 23, 0);
+	cal_data->count_r[MT6879_TS2_3] = GET_CAL_DATA_BITMASK(6, 23, 0);
+
+	cal_data->count_r[MT6879_TS3_0] = GET_CAL_DATA_BITMASK(7, 23, 0);
+	cal_data->count_r[MT6879_TS3_1] = GET_CAL_DATA_BITMASK(8, 23, 0);
+
+	cal_data->count_r[MT6879_TS4_0] = GET_CAL_DATA_BITMASK(9, 23, 0);
+	cal_data->count_r[MT6879_TS4_1] = GET_CAL_DATA_BITMASK(10, 23, 0);
+
+	cal_data->count_r[MT6879_TS5_0] = GET_CAL_DATA_BITMASK(11, 23, 0);
+	cal_data->count_r[MT6879_TS5_1] = GET_CAL_DATA_BITMASK(12, 23, 0);
+	cal_data->count_r[MT6879_TS5_2] = GET_CAL_DATA_BITMASK(13, 23, 0);
+	cal_data->count_r[MT6879_TS5_3] = GET_CAL_DATA_BITMASK(14, 23, 0);
+
+	cal_data->count_r[MT6879_TS6_0] = GET_CAL_DATA_BITMASK(15, 23, 0);
+	cal_data->count_r[MT6879_TS6_1] = GET_CAL_DATA_BITMASK(16, 23, 0);
+	cal_data->count_r[MT6879_TS6_2] = GET_CAL_DATA_BITMASK(17, 23, 0);
+	cal_data->count_r[MT6879_TS6_3] = GET_CAL_DATA_BITMASK(18, 23, 0);
+
+
+	cal_data->count_rc[MT6879_LVTS_MCU_CTRL0] = GET_CAL_DATA_BITMASK(23, 23, 0);
+
+	cal_data->count_rc[MT6879_LVTS_MCU_CTRL1] =
+		(GET_CAL_DATA_BITMASK(1, 31, 24) << 16) +
+		(GET_CAL_DATA_BITMASK(2, 31, 24) << 8) +
+		 GET_CAL_DATA_BITMASK(3, 31, 24);
+
+	cal_data->count_rc[MT6879_LVTS_AP_CTRL0] =
+		(GET_CAL_DATA_BITMASK(4, 31, 24) << 16) +
+		(GET_CAL_DATA_BITMASK(5, 31, 24) << 8) +
+		GET_CAL_DATA_BITMASK(6, 31, 24);
+
+	cal_data->count_rc[MT6879_LVTS_AP_CTRL1] =
+		(GET_CAL_DATA_BITMASK(7, 31, 24) << 16) +
+		(GET_CAL_DATA_BITMASK(8, 31, 24) << 8) +
+		GET_CAL_DATA_BITMASK(9, 31, 24);
+
+	cal_data->count_rc[MT6879_LVTS_AP_CTRL2] =
+		(GET_CAL_DATA_BITMASK(10, 31, 24) << 16) +
+		(GET_CAL_DATA_BITMASK(11, 31, 24) << 8) +
+		GET_CAL_DATA_BITMASK(12, 31, 24);
+
+	cal_data->count_rc[MT6879_LVTS_AP_CTRL3] =
+		(GET_CAL_DATA_BITMASK(13, 31, 24) << 16) +
+		(GET_CAL_DATA_BITMASK(14, 31, 24) << 8) +
+		GET_CAL_DATA_BITMASK(15, 31, 24);
+}
+
+static struct tc_settings mt6879_tc_settings[] = {
+	[MT6879_LVTS_MCU_CTRL0] = {
+		.domain_index = MT6879_MCU_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 2,
+		.sensor_map = {MT6879_TS1_0, MT6893_TS1_1},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 113500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.a = -250460,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6879_LVTS_MCU_CTRL1] = {
+		.domain_index = MT6879_MCU_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 4,
+		.sensor_map = {MT6879_TS2_0, MT6879_TS2_1, MT6879_TS2_2, MT6879_TS2_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT2,
+		.hw_reboot_trip_point = 113500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.a = -250460,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6879_LVTS_AP_CTRL0] = {
+		.domain_index = MT6879_AP_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 2,
+		.sensor_map = {MT6879_TS3_0, MT6879_TS3_1},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 113500,
+		.irq_bit = BIT(1),
+		.coeff = {
+			.a = -250460,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6879_LVTS_AP_CTRL1] = {
+		.domain_index = MT6879_AP_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 2,
+		.sensor_map = {MT6879_TS4_0, MT6879_TS4_1},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 113500,
+		.irq_bit = BIT(2),
+		.coeff = {
+			.a = -250460,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6879_LVTS_AP_CTRL2] = {
+		.domain_index = MT6879_AP_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 4,
+		.sensor_map = {MT6879_TS5_0, MT6879_TS5_1, MT6879_TS5_2, MT6879_TS5_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT1,
+		.hw_reboot_trip_point = 113500,
+		.irq_bit = BIT(3),
+		.coeff = {
+			.a = -250460,
+			.cali_mode = CALI_NT,
+		},
+	},
+	[MT6879_LVTS_AP_CTRL3] = {
+		.domain_index = MT6879_AP_DOMAIN,
+		.addr_offset = 0x300,
+		.num_sensor = 4,
+		.sensor_map = {MT6879_TS6_0, MT6879_TS6_1, MT6879_TS6_2, MT6879_TS6_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 113500,
+		.irq_bit = BIT(4),
+		.coeff = {
+			.a = -250460,
+			.cali_mode = CALI_NT,
+		},
+	}
+};
+
+static struct lvts_data mt6879_lvts_data = {
+	.num_domain = MT6879_NUM_DOMAIN,
+	.num_tc = MT6879_LVTS_CTRL_NUM,
+	.tc = mt6879_tc_settings,
+	.num_sensor = MT6879_NUM_TS,
+	.ops = {
+		.efuse_to_cal_data = mt6879_efuse_to_cal_data,
+		.device_enable_and_init = mt6879_device_enable_and_init,
+		.device_enable_auto_rck = device_enable_auto_rck_v4,
+		.device_read_count_rc_n = mt6879_device_read_count_rc_n,
+		.set_cal_data = set_calibration_data_v4,
+		.init_controller = init_controller_v4,
+		.lvts_temp_to_raw = lvts_temp_to_raw_v1,
+		.lvts_raw_to_temp = lvts_raw_to_temp_v1,
+		.check_cal_data = check_cal_data_v1,
+	},
+	.feature_bitmap = 0,
+	.num_efuse_addr = 23,
+	.num_efuse_block = 2,
+	.cal_data = {
+		.default_golden_temp = 50,
+		.default_count_r = 35000,
+		.default_count_rc = 2750,
+	},
+	.init_done = false,
+};
+
+
 /*==================================================
  * Support chips
  *==================================================
@@ -2964,6 +3361,10 @@ static const struct of_device_id lvts_of_match[] = {
 	{
 		.compatible = "mediatek,mt6983-lvts",
 		.data = (void *)&mt6983_lvts_data,
+	},
+	{
+		.compatible = "mediatek,mt6879-lvts",
+		.data = (void *)&mt6879_lvts_data,
 	},
 	{
 	},
