@@ -88,7 +88,7 @@ static int nr_fps_levels = MAX_NR_FPS_LEVELS;
 
 static int fstb_fps_klog_on;
 static int fstb_enable, fstb_active, fstb_active_dbncd, fstb_idle_cnt;
-static int fstb_hrtimer_ctrl_fps_enable = 1;
+static int fstb_self_ctrl_fps_enable = 1;
 static int fstb_is_cam_active;
 static long long last_update_ts;
 
@@ -952,7 +952,7 @@ out:
 	/* parse cpu time of each frame to ged_kpi */
 	iter->cpu_time = cpu_time_ns;
 
-	if (fstb_is_cam_active || (iter->hwui_flag == 1) || !fstb_hrtimer_ctrl_fps_enable) {
+	if (fstb_is_cam_active || (iter->hwui_flag == 1) || !fstb_self_ctrl_fps_enable) {
 		eara_fps = iter->target_fps;
 		if (iter->target_fps && iter->target_fps != -1 && iter->target_fps_diff
 			&& !iter->target_fps_margin && !iter->target_fps_margin_gpu) {
@@ -1041,7 +1041,7 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	}
 
 	if ((iter == NULL) || fstb_is_cam_active ||
-		(iter->hwui_flag == 1) || !fstb_hrtimer_ctrl_fps_enable)
+		(iter->hwui_flag == 1) || !fstb_self_ctrl_fps_enable)
 		goto out;
 
 	iter->target_fps_v2 = fpsgo_fstb2xgf_get_target_fps(pid, bufID, &iter->target_fps_margin_v2,
@@ -1739,7 +1739,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		(*quantile_gpu_time) = iter->quantile_gpu_time;
 
 		if (fstb_is_cam_active || (iter->hwui_flag == 1) ||
-			!fstb_hrtimer_ctrl_fps_enable) {
+			!fstb_self_ctrl_fps_enable) {
 			if (iter->target_fps && iter->target_fps != -1
 				&& iter->target_fps_diff
 				&& !iter->target_fps_margin
@@ -2730,7 +2730,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter) {
 			if (fstb_is_cam_active || (iter->hwui_flag == 1) ||
-				!fstb_hrtimer_ctrl_fps_enable) {
+				!fstb_self_ctrl_fps_enable) {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
 						iter->pid,
@@ -2765,7 +2765,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	mutex_unlock(&fstb_lock);
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"fstb_hrtimer_ctrl_fps_enable:%d\n", fstb_hrtimer_ctrl_fps_enable);
+			"fstb_self_ctrl_fps_enable:%d\n", fstb_self_ctrl_fps_enable);
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -2781,14 +2781,14 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 }
 static KOBJ_ATTR_ROO(fpsgo_status);
 
-static ssize_t fstb_hrtimer_ctrl_fps_enable_show(struct kobject *kobj,
+static ssize_t fstb_self_ctrl_fps_enable_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fstb_hrtimer_ctrl_fps_enable);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fstb_self_ctrl_fps_enable);
 }
 
-static ssize_t fstb_hrtimer_ctrl_fps_enable_store(struct kobject *kobj,
+static ssize_t fstb_self_ctrl_fps_enable_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -2799,7 +2799,7 @@ static ssize_t fstb_hrtimer_ctrl_fps_enable_store(struct kobject *kobj,
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0) {
 				mutex_lock(&fstb_lock);
-				fstb_hrtimer_ctrl_fps_enable = !!arg;
+				fstb_self_ctrl_fps_enable = !!arg;
 				mutex_unlock(&fstb_lock);
 			}
 		}
@@ -2808,7 +2808,7 @@ static ssize_t fstb_hrtimer_ctrl_fps_enable_store(struct kobject *kobj,
 	return count;
 }
 
-static KOBJ_ATTR_RW(fstb_hrtimer_ctrl_fps_enable);
+static KOBJ_ATTR_RW(fstb_self_ctrl_fps_enable);
 
 int mtk_fstb_init(void)
 {
@@ -2853,7 +2853,7 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_max_fps);
 		fpsgo_sysfs_create_file(fstb_kobj,
-				&kobj_attr_fstb_hrtimer_ctrl_fps_enable);
+				&kobj_attr_fstb_self_ctrl_fps_enable);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_no_ctrl);
 	}
@@ -2916,7 +2916,7 @@ int __exit mtk_fstb_exit(void)
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_max_fps);
 	fpsgo_sysfs_remove_file(fstb_kobj,
-			&kobj_attr_fstb_hrtimer_ctrl_fps_enable);
+			&kobj_attr_fstb_self_ctrl_fps_enable);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_no_ctrl);
 

@@ -125,6 +125,8 @@ EXPORT_SYMBOL(xgff_update_start_prev_index_fp);
 
 long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
 EXPORT_SYMBOL(xgf_ema2_predict_fp);
+void (*xgf_ema2_init_fp)(struct xgf_ema2_predictor *pt);
+EXPORT_SYMBOL(xgf_ema2_init_fp);
 
 static inline void xgf_lock(const char *tag)
 {
@@ -1143,76 +1145,28 @@ static int xgf_hw_event_collect(int event_type, int tid,
 	return ret;
 }
 
-static struct xgf_ema2_predictor *xgf_ema2_get_pred(void)
-{
-	struct xgf_ema2_predictor *pt = kzalloc(sizeof(*pt), GFP_KERNEL);
-
-	pt->learn_rate = 12;
-	pt->beta = 3686;
-	pt->alpha = 2048;
-	pt->one = 4096;
-
-	pt->ar_error_diff = 1024;
-	pt->ar_coeff_sum = 2867;
-
-	if (EMA_DIVIDEND == 5) {
-		pt->L[0] = 2048;
-		pt->L[1] = 1024;
-		pt->L[2] = 512;
-		pt->L[3] = 256;
-		pt->L[4] = 128;
-		pt->L[5] = 64;
-		pt->L[6] = 32;
-		pt->L[7] = 16;
-	} else {
-		pt->L[0] = 2867;
-		pt->L[1] = 860;
-		pt->L[2] = 258;
-		pt->L[3] = 77;
-		pt->L[4] = 23;
-		pt->L[5] = 7;
-		pt->L[6] = 2;
-		pt->L[7] = 1;
-	}
-
-	pt->W[0] = 115;
-	pt->W[1] = 191;
-	pt->W[2] = 319;
-	pt->W[3] = 531;
-	pt->W[4] = 885;
-	pt->W[5] = 1475;
-	pt->W[6] = 2458;
-	pt->W[7] = 4096;
-
-	pt->coeff_shift = 12;
-	pt->epsilon = 1;
-	pt->mu = 0;
-
-	pt->acc_x = 0;
-	pt->record_idx = 0;
-	pt->acc_idx = 0;
-	pt->ar_coeff_enable = true;
-	pt->ar_coeff_frames = 200;
-
-	pt->t = 0;
-	pt->order = 8;
-	pt->ar_coeff_valid = 0;
-
-	pt->invalid_input_cnt = 0;
-	pt->invalid_negative_output_cnt = 0;
-	pt->invalid_th = 5;
-	pt->skip_grad_update_cnt = N;
-	pt->err_code = 0;
-	pt->xt_last = 0;
-	pt->xt_last_valid = 0;
-	pt->rmsprop_initialized = false;
-	pt->x_record_initialized = false;
-	return pt;
-}
-
 static void xgf_ema2_free(struct xgf_ema2_predictor *pt)
 {
 	kfree(pt);
+}
+
+static struct xgf_ema2_predictor *xgf_ema2_get_pred(void)
+{
+	struct xgf_ema2_predictor *pt = kzalloc(sizeof(*pt), GFP_KERNEL);
+	WARN_ON(!xgf_ema2_init_fp);
+	if (xgf_ema2_init_fp)
+		xgf_ema2_init_fp(pt);
+	else {
+		if (pt) {
+			xgf_ema2_free(pt);
+			pt = 0;
+		}
+	}
+
+	if (!pt)
+		return 0;
+
+	return pt;
 }
 
 static void xgf_ema2_dump_rho(struct xgf_ema2_predictor *pt, char *buffer)
@@ -1306,7 +1260,6 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 	hlist_add_head(&iter->hlist, &xgf_renders);
 
 	iter->ema2_pt = xgf_ema2_get_pred();
-	iter->ema2_pt->ar_coeff_enable = 1;
 
 	if (ret)
 		*ret = iter;
@@ -2422,7 +2375,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long tmp_runtime = 0;
 	unsigned long long delta = 0;
 	unsigned long long time_scale = 1000;
-	char buf[255] = {0};
+	char buf[256] = {0};
 
 	if (rpid <= 0 || ts == 0)
 		return XGF_PARAM_ERR;
@@ -2494,25 +2447,28 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 				raw_runtime = q2q_time;
 
 			if (xgf_ema2_enable && !xgf_camera_flag && (r->hwui_flag == 2)) {
+				if (!r->ema2_pt)
+					r->ema2_pt = xgf_ema2_get_pred();
+
 				//calculate mse
 				delta = abs((long long)(raw_runtime/time_scale) -
 					(long long)(r->ema_runtime/time_scale));
 				xgf_ema_mse += delta*delta;
 
-				delta = abs((long long)(raw_runtime/time_scale) -
-					(long long)(r->ema2_pt->xt_last));
+				if (r->ema2_pt)
+					delta = abs((long long)(raw_runtime/time_scale) -
+						(long long)(r->ema2_pt->xt_last));
 				xgf_ema2_mse += delta*delta;
 
 				//predict next frame
 				r->ema_runtime = xgf_ema_cal(raw_runtime, r->ema_runtime);
 				WARN_ON(!xgf_ema2_predict_fp);
-				if (xgf_ema2_predict_fp) {
+				if (xgf_ema2_predict_fp && r->ema2_pt) {
 					tmp_runtime =
 						xgf_ema2_predict_fp(r->ema2_pt,
 							raw_runtime/time_scale)
 						* time_scale;
-
-					xgf_trace("[ t:%d err:%d ei:%d eo:%d i:%d-%d ]",
+					xgf_trace("xgf ema2 sts t:%d err:%d ei:%d eo:%d i:%d-%d",
 						r->ema2_pt->t, r->ema2_pt->err_code,
 						r->ema2_pt->invalid_input_cnt,
 						r->ema2_pt->invalid_negative_output_cnt,
@@ -2520,6 +2476,9 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 						r->ema2_pt->x_record_initialized);
 					xgf_trace("xgf ema2 raw_t:%llu alpha:%llu ema2:%lld",
 						raw_runtime, r->ema_runtime, tmp_runtime);
+
+					if (tmp_runtime <= 0)
+						tmp_runtime = r->ema_runtime;
 
 					if (r->ema2_pt->acc_idx == 1) {
 						xgf_ema2_dump_rho(r->ema2_pt, buf);
