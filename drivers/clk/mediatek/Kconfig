@@ -596,15 +596,6 @@ config COMMON_CLK_MT6879_MFG
 	  If you wish to use clock resources from the mfg device,
 	  say Y. Otherwise, say N.
 
-config COMMON_CLK_MT6879_DPMAIF
-	tristate "Clock driver for MediaTek MT6879 dpmaif"
-	depends on COMMON_CLK_MT6879
-	help
-	  This driver supports MediaTek MT6879 dpmaif clocks,
-	  which is used to control dpmaif clock output.
-	  If you wish to use clock resources from the dpmaif device,
-	  say Y. Otherwise, say N.
-
 config COMMON_CLK_MT6879_VCODEC
 	tristate "Clock driver for MediaTek MT6879 vcodec"
 	depends on COMMON_CLK_MT6879

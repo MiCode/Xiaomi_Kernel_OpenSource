@@ -78,7 +78,6 @@ obj-$(CONFIG_COMMON_CLK_MT6879_PERI) += clk-mt6879-peri.o
 obj-$(CONFIG_COMMON_CLK_MT6879_BUS) += clk-mt6879-bus.o
 obj-$(CONFIG_COMMON_CLK_MT6879_MDPSYS) += clk-mt6879-mdp.o
 obj-$(CONFIG_COMMON_CLK_MT6879_MFG) += clk-mt6879-mfgcfg.o
-obj-$(CONFIG_COMMON_CLK_MT6879_DPMAIF) += clk-mt6879-dpma.o
 obj-$(CONFIG_COMMON_CLK_MT6879_VCODEC) += clk-mt6879-vcodec.o
 endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6893.c),)
