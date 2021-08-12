@@ -203,6 +203,9 @@
 /* for raw & yuv's dma top base */
 #define CAMDMATOP_BASE						0x4000
 
+#define REG_DMA_SOFT_RST_STAT               0x4068
+#define REG_DMA_SOFT_RST_STAT2              0x406C
+
 /* use spare register FH_SPARE_5 */
 
 #define REG_FRAME_SEQ_NUM					0x4994

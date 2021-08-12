@@ -728,11 +728,14 @@ void reset(struct mtk_raw_device *dev)
 		}
 
 		dev_info(dev->dev,
-			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, ctl_sw_ctl:0x%x,frame_no:0x%x\n",
+			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, ctl_sw_ctl:0x%x,frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
 			 readl(dev->base + REG_TG_SEN_MODE),
 			 readl(dev->base + REG_CTL_EN),
 			 readl(dev->base + REG_CTL_SW_CTL),
-			 readl(dev->base + REG_FRAME_SEQ_NUM));
+			 readl(dev->base + REG_FRAME_SEQ_NUM),
+			 readl(dev->base + REG_DMA_SOFT_RST_STAT),
+			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
+			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
 		usleep_range(10, 20);
 	}
 
