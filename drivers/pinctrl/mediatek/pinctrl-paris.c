@@ -1159,6 +1159,7 @@ int mt63xx_hw_set_value(struct mtk_pinctrl *hw, unsigned int pin,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt63xx_hw_set_value);
 
 static int mt63xx_hw_get_value(struct mtk_pinctrl *hw, unsigned int pin,
 			int field, int *value)
@@ -1404,31 +1405,50 @@ static int mt63xx_pconf_group_set(struct pinctrl_dev *pctldev, unsigned int grou
 ssize_t mt63xx_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	unsigned int gpio, char *buf, unsigned int bufLen)
 {
-	int pinmux, dir, dout, di, smt, drv, pullen, pullsel;
-	int len = 0;
+	int len = 0, val = 0;
 
+	/*
+	 * Normally, we shall check >= hw->soc->npins.
+	 * However, when pin number starting index is 1, instead of 0,
+	 *  we shall check > hw->soc->npins.
+	 */
 	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_MODE, &pinmux);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DIR, &dir);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DO, &dout);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DI, &di);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DRV, &drv);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_SMT, &smt);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLEN, &pullen);
-	mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLSEL, &pullsel);
-	len += snprintf(buf + len, bufLen - len,
-			"%02d: %1d%1d%1d%1d%02d%1d%1d%1d",
-			gpio,
-			pinmux,
-			dir,
-			dout,
-			di,
-			drv,
-			smt,
-			pullen,
-			pullsel);
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_MODE, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len,
+			"%02d: %1d", gpio, val);
+	else
+		len += snprintf(buf + len, bufLen - len,
+			"%02d: X", gpio);
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DIR, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DO, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DI, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "XX");
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_DRV, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%02d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_SMT, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLEN, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+	if (mt63xx_hw_get_value(hw, gpio, PINCTRL_PIN_REG_PULLSEL, &val) >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
 
 	return len;
 }
@@ -1439,9 +1459,8 @@ static void mt63xx_pctrl_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *
 	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
 	char buf[PIN_DBG_BUF_SZ];
 
-	(void)mt63xx_pctrl_show_one_pin(hw, gpio, buf, PIN_DBG_BUF_SZ);
-
-	seq_printf(s, "%s", buf);
+	if (mt63xx_pctrl_show_one_pin(hw, gpio, buf, PIN_DBG_BUF_SZ) > 0)
+		seq_printf(s, "%s", buf);
 }
 
 static const struct pinctrl_ops mt63xx_pctlops = {
@@ -1546,7 +1565,7 @@ static int mt6373_build_gpiochip(struct mtk_pinctrl *hw, struct device_node *np)
 	struct gpio_chip *chip = &hw->chip;
 	int ret;
 
-	chip->label             = "mt6373";
+	chip->label             = MTK_PINCTRL_DEV;
 	chip->parent            = hw->dev;
 	chip->request           = gpiochip_generic_request;
 	chip->free              = gpiochip_generic_free;
