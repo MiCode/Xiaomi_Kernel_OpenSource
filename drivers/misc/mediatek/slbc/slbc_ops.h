@@ -141,9 +141,7 @@ extern int slbc_secure_off(struct slbc_data *d);
 extern void slbc_update_mm_bw(unsigned int bw);
 extern void slbc_update_mic_num(unsigned int num);
 extern void slbc_update_inner(unsigned int inner);
-extern void slbc_update_stall_offset(unsigned int offset);
-extern void slbc_update_stall_thr(unsigned int thr);
-extern void slbc_update_stall_hist(unsigned int hist);
+extern void slbc_update_outer(unsigned int outer);
 #else
 __attribute__ ((weak)) int slbc_request(struct slbc_data *d)
 {
@@ -172,9 +170,7 @@ __attribute__ ((weak)) int slbc_secure_off(struct slbc_data *d)
 __attribute__ ((weak)) void slbc_update_mm_bw(unsigned int bw) {}
 __attribute__ ((weak)) void slbc_update_mic_num(unsigned int num) {}
 __attribute__ ((weak)) void slbc_update_inner(unsigned int inner) {}
-__attribute__ ((weak)) void slbc_update_stall_offset(unsigned int offset) {}
-__attribute__ ((weak)) void slbc_update_stall_thr(unsigned int thr) {}
-__attribute__ ((weak)) void slbc_update_stall_hist(unsigned int hist) {}
+__attribute__ ((weak)) void slbc_update_outer(unsigned int outer) {}
 #endif /* CONFIG_MTK_SLBC */
 
 #endif /* _SLBC_OPS_H_ */

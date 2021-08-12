@@ -59,9 +59,7 @@ static int debug_level;
 static int uid_ref[UID_MAX];
 static int slbc_mic_num = 3;
 static int slbc_inner = 5;
-static int slbc_stall_offset = 5;
-static int slbc_stall_thr = 40;
-static unsigned int slbc_stall_hist = 0x100001;
+static int slbc_outer = 5;
 static struct slbc_data test_d;
 
 static LIST_HEAD(slbc_ops_list);
@@ -550,22 +548,10 @@ void slbc_update_inner(unsigned int inner)
 	slbc_inner_cmd(inner);
 }
 
-void slbc_update_stall_offset(unsigned int offset)
+void slbc_update_outer(unsigned int outer)
 {
-	slbc_stall_offset = offset;
-	slbc_stall_offset_cmd(offset);
-}
-
-void slbc_update_stall_thr(unsigned int thr)
-{
-	slbc_stall_thr = thr;
-	slbc_stall_thr_cmd(thr);
-}
-
-void slbc_update_stall_hist(unsigned int hist)
-{
-	slbc_stall_hist = hist;
-	slbc_stall_hist_cmd(hist);
+	slbc_outer = outer;
+	slbc_outer_cmd(outer);
 }
 
 static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
@@ -641,9 +627,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "slbc_cache_used %x\n", slbc_cache_used);
 	seq_printf(m, "mic_num %x\n", slbc_mic_num);
 	seq_printf(m, "inner %x\n", slbc_inner);
-	seq_printf(m, "stall_offset %x\n", slbc_stall_offset);
-	seq_printf(m, "stall_thr %x\n", slbc_stall_thr);
-	seq_printf(m, "stall_hist %x\n", slbc_stall_hist);
+	seq_printf(m, "outer %x\n", slbc_outer);
 
 	for (i = 0; i < UID_MAX; i++) {
 		sid = slbc_get_sid_by_uid(i);
@@ -753,12 +737,8 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		slbc_update_mic_num(val_1);
 	} else if (!strcmp(cmd, "inner")) {
 		slbc_update_inner(val_1);
-	} else if (!strcmp(cmd, "stall_offset")) {
-		slbc_update_stall_offset(val_1);
-	} else if (!strcmp(cmd, "stall_thr")) {
-		slbc_update_stall_thr(val_1);
-	} else if (!strcmp(cmd, "stall_hist")) {
-		slbc_update_stall_hist(val_1);
+	} else if (!strcmp(cmd, "outer")) {
+		slbc_update_outer(val_1);
 	} else if (!strcmp(cmd, "debug_level")) {
 		debug_level = val_1;
 	} else if (!strcmp(cmd, "sram")) {

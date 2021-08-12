@@ -79,38 +79,16 @@ void slbc_inner_cmd(unsigned int inner)
 }
 EXPORT_SYMBOL_GPL(slbc_inner_cmd);
 
-void slbc_stall_offset_cmd(unsigned int offset)
+void slbc_outer_cmd(unsigned int outer)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
-	slbc_ipi_d.cmd = IPI_SLBC_STALL_OFFSET;
-	slbc_ipi_d.arg = offset;
+	slbc_ipi_d.cmd = IPI_SLBC_OUTER;
+	slbc_ipi_d.arg = outer;
 
 	slbc_scmi_set(&slbc_ipi_d, 2);
 }
-EXPORT_SYMBOL_GPL(slbc_stall_offset_cmd);
-
-void slbc_stall_thr_cmd(unsigned int thr)
-{
-	struct slbc_ipi_data slbc_ipi_d;
-
-	slbc_ipi_d.cmd = IPI_SLBC_STALL_THR;
-	slbc_ipi_d.arg = thr;
-
-	slbc_scmi_set(&slbc_ipi_d, 2);
-}
-EXPORT_SYMBOL_GPL(slbc_stall_thr_cmd);
-
-void slbc_stall_hist_cmd(unsigned int hist)
-{
-	struct slbc_ipi_data slbc_ipi_d;
-
-	slbc_ipi_d.cmd = IPI_SLBC_STALL_HIST;
-	slbc_ipi_d.arg = hist;
-
-	slbc_scmi_set(&slbc_ipi_d, 2);
-}
-EXPORT_SYMBOL_GPL(slbc_stall_hist_cmd);
+EXPORT_SYMBOL_GPL(slbc_outer_cmd);
 
 void slbc_suspend_resume_notify(int suspend)
 {

@@ -28,9 +28,7 @@ enum {
 	IPI_SLBC_FORCE,
 	IPI_SLBC_MIC_NUM,
 	IPI_SLBC_INNER,
-	IPI_SLBC_STALL_OFFSET,
-	IPI_SLBC_STALL_THR,
-	IPI_SLBC_STALL_HIST,
+	IPI_SLBC_OUTER,
 	IPI_SLBC_MEM_BARRIER,
 	NR_IPI_SLBC,
 };
@@ -62,9 +60,7 @@ extern void slbc_set_scmi_enable(int enable);
 extern void slbc_force_scmi_cmd(unsigned int force);
 extern void slbc_mic_num_cmd(unsigned int num);
 extern void slbc_inner_cmd(unsigned int inner);
-extern void slbc_stall_offset_cmd(unsigned int num);
-extern void slbc_stall_thr_cmd(unsigned int num);
-extern void slbc_stall_hist_cmd(unsigned int num);
+extern void slbc_outer_cmd(unsigned int outer);
 extern int _slbc_request_cache_scmi(void *ptr);
 extern int _slbc_release_cache_scmi(void *ptr);
 extern int _slbc_request_buffer_scmi(void *ptr);
@@ -80,9 +76,7 @@ __attribute__ ((weak)) void slbc_set_scmi_enable(int enable) {}
 __attribute__ ((weak)) void slbc_force_scmi_cmd(unsigned int force) {}
 __attribute__ ((weak)) void slbc_mic_num_cmd(unsigned int num) {}
 __attribute__ ((weak)) void slbc_inner_cmd(unsigned int inner) {}
-__attribute__ ((weak)) void slbc_stall_offset_cmd(unsigned int num) {}
-__attribute__ ((weak)) void slbc_stall_thr_cmd(unsigned int num) {}
-__attribute__ ((weak)) void slbc_stall_hist_cmd(unsigned int num) {}
+__attribute__ ((weak)) void slbc_outer_cmd(unsigned int outer) {}
 __attribute__ ((weak)) int _slbc_request_cache_scmi(void *ptr) {}
 __attribute__ ((weak)) int _slbc_release_cache_scmi(void *ptr) {}
 __attribute__ ((weak)) int _slbc_request_buffer_scmi(void *ptr) {}
