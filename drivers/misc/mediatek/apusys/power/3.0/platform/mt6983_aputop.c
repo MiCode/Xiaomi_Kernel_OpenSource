@@ -1092,6 +1092,11 @@ static int init_plat_chip_data(struct platform_device *pdev)
 	plat_cfg.aging_flag = (aging_attr & 0xf);
 	plat_cfg.hw_id = 0x0;
 
+	pr_info("%s 0x%08x 0x%08x 0x%08x\n", __func__,
+		plat_cfg.aging_flag,
+		plat_cfg.hw_id,
+		aging_attr);
+
 	return mt6983_chip_data_remote_sync(&plat_cfg);
 }
 
@@ -1342,6 +1347,9 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 		break;
 	case APUTOP_FUNC_OPP_LIMIT_DBG:
 		mt6983_aputop_opp_limit(aputop, OPP_LIMIT_DEBUG);
+		break;
+	case APUTOP_FUNC_DRV_CFG:
+		mt6983_drv_cfg_remote_sync(aputop);
 		break;
 	case APUTOP_FUNC_DUMP_REG:
 		aputop_dump_pwr_res();

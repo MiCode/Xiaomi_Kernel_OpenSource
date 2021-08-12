@@ -196,13 +196,6 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 // spm offset define
 #define APUSYS_BUCK_ISOLATION		(0x39C)
 
-// mbox offset define (for data exchange with remote)
-#define SPARE0_MBOX_DUMMY_0_ADDR        0x640	// mbox6_dummy0
-#define SPARE0_MBOX_DUMMY_1_ADDR        0x644	// mbox6_dummy1
-#define SPARE0_MBOX_DUMMY_2_ADDR        0x648	// mbox6_dummy2
-#define SPARE0_MBOX_DUMMY_3_ADDR        0x64C	// mbox6_dummy3
-#define SPARE0_MBOX_DUMMY_4_ADDR	0x740	// mbox7_dummy0
-
 // PCU initial data
 #define APU_PCUTOP_CTRL_SET	0x0
 

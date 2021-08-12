@@ -9,11 +9,20 @@
 #include "apu_top.h"
 #include "mt6983_apupwr.h"
 
+// mbox offset define (for data exchange with remote)
+#define SPARE0_MBOX_DUMMY_0_ADDR        0x640	// mbox6_dummy0
+#define SPARE0_MBOX_DUMMY_1_ADDR        0x644	// mbox6_dummy1
+#define SPARE0_MBOX_DUMMY_2_ADDR        0x648	// mbox6_dummy2
+#define SPARE0_MBOX_DUMMY_3_ADDR        0x64C	// mbox6_dummy3
+#define SPARE0_MBOX_DUMMY_4_ADDR	0x740	// mbox7_dummy0
+#define SPARE0_MBOX_DUMMY_5_ADDR	0x744   // mbox7_dummy1
+
 #define ACX0_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_0_ADDR
 #define ACX1_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_1_ADDR
 #define DEV_OPP_SYNC_REG        SPARE0_MBOX_DUMMY_2_ADDR
 #define HW_RES_SYNC_REG         SPARE0_MBOX_DUMMY_3_ADDR
 #define PLAT_CFG_SYNC_REG	SPARE0_MBOX_DUMMY_4_ADDR
+#define DRV_CFG_SYNC_REG	SPARE0_MBOX_DUMMY_5_ADDR
 
 enum {
 	APUPWR_DBG_DEV_CTL = 0,
@@ -27,6 +36,11 @@ enum apu_opp_limit_type {
 	OPP_LIMIT_THERMAL = 0,	// limit by power API
 	OPP_LIMIT_HAL,		// limit by i/o ctl
 	OPP_LIMIT_DEBUG,	// limit by i/o ctl
+};
+
+struct drv_cfg_data {
+	int8_t log_level;
+	int8_t dvfs_debounce; // ms
 };
 
 struct plat_cfg_data {
@@ -98,6 +112,7 @@ ssize_t mt6983_apu_top_dbg_write(
 #endif
 
 int mt6983_init_remote_data_sync(void __iomem *reg_base);
+int mt6983_drv_cfg_remote_sync(struct aputop_func_param *aputop);
 int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg);
 int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src);
 

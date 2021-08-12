@@ -427,6 +427,22 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	return ret;
 }
 
+int mt6983_drv_cfg_remote_sync(struct aputop_func_param *aputop)
+{
+	struct drv_cfg_data cfg;
+	uint32_t reg_data = 0x0;
+
+	cfg.log_level = aputop->param1 & 0xf;
+	cfg.dvfs_debounce = aputop->param2 & 0xf;
+
+	reg_data = cfg.log_level | (cfg.dvfs_debounce << 8);
+
+	pr_info("%s 0x%08x\n", __func__, reg_data);
+	apu_writel(reg_data, spare_reg_base + DRV_CFG_SYNC_REG);
+
+	return 0;
+}
+
 int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 {
 	uint32_t reg_data = 0x0;
@@ -434,6 +450,7 @@ int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 	reg_data = (plat_cfg->aging_flag & 0xf)
 		| ((plat_cfg->hw_id & 0xf) << 4);
 
+	pr_info("%s 0x%08x\n", __func__, reg_data);
 	apu_writel(reg_data, spare_reg_base + PLAT_CFG_SYNC_REG);
 
 	return 0;
