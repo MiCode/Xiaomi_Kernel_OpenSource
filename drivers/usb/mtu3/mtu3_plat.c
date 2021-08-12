@@ -420,6 +420,8 @@ get_phy:
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
 	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
 	ssusb->hw_req_ctrl = of_property_read_bool(node, "mediatek,hw-req-ctrl");
+	ssusb->noise_still_tr =
+		of_property_read_bool(node, "mediatek,noise-still-tr");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)

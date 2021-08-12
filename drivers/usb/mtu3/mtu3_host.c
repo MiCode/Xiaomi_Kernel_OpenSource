@@ -134,6 +134,7 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 	int u3_ports_disabed;
 	u32 check_clk;
 	u32 value;
+	int ret;
 	int i;
 
 	/* power on host ip */
@@ -165,7 +166,15 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 	if (num_u3p > u3_ports_disabed)
 		check_clk = SSUSB_U3_MAC_RST_B_STS;
 
-	return ssusb_check_clocks(ssusb, check_clk);
+	ret =  ssusb_check_clocks(ssusb, check_clk);
+
+	/* set noise still transfer */
+	if (ssusb->noise_still_tr) {
+		mtu3_setbits(ssusb->mac_base, U3D_USB_BUS_PERFORMANCE,
+			NOISE_STILL_TRANSFER);
+	}
+
+	return ret;
 }
 
 int ssusb_host_disable(struct ssusb_mtk *ssusb, bool suspend)
