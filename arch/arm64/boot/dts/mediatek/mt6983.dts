@@ -1130,6 +1130,8 @@
 			mediatek,clk-mgr;
 			mediatek,usb3-drd;
 			mediatek,hw-req-ctrl;
+			mediatek,noise-still-tr;
+			mediatek,gen1-txdeemph;
 			usb-role-switch;
 			cdp-block;
 			port {
@@ -1170,6 +1172,7 @@
 			mediatek,clk-mgr;
 			mediatek,usb3-drd;
 			mediatek,hw-req-ctrl;
+			mediatek,noise-still-tr;
 			usb-role-switch;
 			port {
 				mtu3_drd_switch1: endpoint@0 {
@@ -3388,7 +3391,7 @@
 			};
 
 			u2_phy_data: u2_phy_data {
-				reg = <0x1a0 0x4>;
+				reg = <0x1b0 0x4>;
 			};
 
 			lvts_e_data1: data1 {
