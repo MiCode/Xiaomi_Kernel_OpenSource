@@ -10,7 +10,6 @@
 #include <linux/suspend.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "vdec_fmt_driver.h"
 #include "vdec_fmt_dmabuf.h"
 #include "vdec_fmt_pm.h"
@@ -141,12 +140,12 @@ static void fmt_clear_gce_task(unsigned int taskid)
 }
 
 static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
-	unsigned char cmd,
-	u64 addr, u64 data, u32 mask, u32 gpr, struct dmabuf_info *iinfo, struct dmabuf_info *oinfo,
-	struct dmabufmap map[])
+	unsigned char cmd, u64 addr, u64 data, u32 mask, u32 gpr, unsigned int idx,
+	struct dmabuf_info *iinfo, struct dmabuf_info *oinfo, struct dmabufmap map[])
 {
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 	int type;
+	u64 iova = 0;
 
 	switch (cmd) {
 	case CMD_READ:
@@ -164,6 +163,25 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 			fmt_err("CMD_WRITE wrong addr: 0x%x 0x%x 0x%x",
 				addr, data, mask);
 	break;
+	case CMD_WRITE_RDMA:
+		fmt_debug(3, "CMD_WRITE_RDMA cpridx %d data 0x%x offset 0x%x", addr, data, mask);
+		if (addr == CPR_IDX_FMT_RDMA_PIPE_IDX) {
+			fmt_debug(3, "cmdq_pkt_assign_command idx %d cpr %d value 0x%x",
+					idx, addr, data);
+			cmdq_pkt_assign_command(pkt,
+					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_VFMT),
+					idx);
+		} else if (addr >= CPR_IDX_FMT_RDMA_SRC_OFFSET_0
+			&& addr <= CPR_IDX_FMT_RDMA_AFBC_PAYLOAD_OST) {
+			fmt_debug(3, "cmdq_pkt_assign_command idx %d cpr %d value 0x%x",
+					idx, addr, data);
+			cmdq_pkt_assign_command(pkt,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_VFMT, idx, addr),
+					data);
+		} else {
+			fmt_err("invalid GCE cpr index %d", addr);
+		}
+	break;
 	case CMD_POLL_REG:
 		fmt_debug(3, "CMD_POLL_REG addr 0x%x data 0x%x mask 0x%x", addr, data, mask);
 		if (fmt_check_reg_base(fmt, addr, 4) >= 0)
@@ -173,9 +191,58 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 				addr, data, mask);
 	break;
 	case CMD_WAIT_EVENT:
-		if (data < GCE_EVENT_MAX) {
+		if (data < GCE_EVENT_MAX) { // fmt hw event
 			fmt_debug(3, "CMD_WAIT_EVENT eid %d", fmt->gce_codec_eid[data]);
 			cmdq_pkt_wfe(pkt, fmt->gce_codec_eid[data]);
+		} else if (data >= SYNC_TOKEN_PREBUILT_VFMT_WAIT // rdma sw wa sync event
+					&& data <= SYNC_TOKEN_PREBUILT_VFMT_LOCK) {
+			switch (data) {
+			case SYNC_TOKEN_PREBUILT_VFMT_WAIT:
+				fmt_debug(3, "cmdq_pkt_wfe %d",
+					CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+				cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+			break;
+			case SYNC_TOKEN_PREBUILT_VFMT_SET:
+				fmt_debug(3, "cmdq_pkt_wfe %d",
+					CMDQ_TOKEN_PREBUILT_VFMT_SET);
+				cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_VFMT_SET);
+			break;
+			case SYNC_TOKEN_PREBUILT_VFMT_LOCK:
+				fmt_debug(3, "cmdq_pkt_wfe %d",
+					CMDQ_TOKEN_PREBUILT_VFMT_LOCK);
+				cmdq_pkt_wfe(pkt, CMDQ_TOKEN_PREBUILT_VFMT_LOCK);
+			break;
+			default:
+			break;
+			}
+			fmt_debug(3, "CMD_WAIT_EVENT %d", data);
+		} else
+			fmt_err("CMD_WAIT_EVENT got wrong eid %llu",
+				data);
+	break;
+	case CMD_SET_EVENT:
+		if (data >= SYNC_TOKEN_PREBUILT_VFMT_WAIT // rdma sw wa sync event
+			&& data <= SYNC_TOKEN_PREBUILT_VFMT_LOCK) {
+			switch (data) {
+			case SYNC_TOKEN_PREBUILT_VFMT_WAIT:
+				fmt_debug(3, "cmdq_pkt_set_event %d",
+					CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+				cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+			break;
+			case SYNC_TOKEN_PREBUILT_VFMT_SET:
+				fmt_debug(3, "cmdq_pkt_set_event %d",
+					CMDQ_TOKEN_PREBUILT_VFMT_SET);
+				cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_VFMT_SET);
+			break;
+			case SYNC_TOKEN_PREBUILT_VFMT_LOCK:
+				fmt_debug(3, "cmdq_pkt_set_event %d",
+					CMDQ_TOKEN_PREBUILT_VFMT_LOCK);
+				cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_VFMT_LOCK);
+			break;
+			default:
+			break;
+			}
+			fmt_debug(3, "CMD_SET_EVENT %d", data);
 		} else
 			fmt_err("CMD_WAIT_EVENT got wrong eid %llu",
 				data);
@@ -192,17 +259,60 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 		fmt_debug(3, "CMD_WRITE_FD addr 0x%x fd 0x%x offset 0x%x", addr, data, mask);
 		type = fmt_check_reg_base(fmt, addr, 4);
 		if (type >= 0) {
-			if (type % 2 == 0)
-				cmdq_pkt_write(pkt, fmt->clt_base, addr,
-					fmt_translate_fd(data, mask, map, fmt->dev,
-					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt), ~0);
-			else
-				cmdq_pkt_write(pkt, fmt->clt_base, addr,
-					fmt_translate_fd(data, mask, map, fmt->dev,
-					&oinfo->dbuf, &oinfo->attach, &oinfo->sgt), ~0);
+			if (type % 2 == 0) {
+				iova = fmt_translate_fd(data, mask, map, fmt->dev,
+					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt);
+				if (addr - fmt->map_base[type].base >= 0xf30) { // rdma 34bit
+					fmt_debug(3, "cmdq_pkt_write base: 0x%x addr:0x%x value:0x%x",
+						fmt->map_base[type].base, addr, (iova >> 32));
+					cmdq_pkt_write(pkt, fmt->clt_base, addr,
+						(iova >> 32), ~0);
+				} else {
+					fmt_debug(3, "cmdq_pkt_write base: 0x%x addr:0x%x value:0x%x",
+							fmt->map_base[type].base, addr, iova);
+					cmdq_pkt_write(pkt, fmt->clt_base, addr,
+						iova, ~0);
+				}
+			} else {
+				iova = fmt_translate_fd(data, mask, map, fmt->dev,
+						&oinfo->dbuf, &oinfo->attach, &oinfo->sgt);
+				if (addr - fmt->map_base[type].base >= 0xf34) { // wrot 34bit
+					fmt_debug(3, "cmdq_pkt_write base: 0x%x addr:0x%x value:0x%x",
+						fmt->map_base[type].base, addr, (iova >> 32));
+					cmdq_pkt_write(pkt, fmt->clt_base, addr,
+						(iova >> 32), ~0);
+				} else {
+					fmt_debug(3, "cmdq_pkt_write base: 0x%x addr:0x%x value:0x%x",
+							fmt->map_base[type].base, addr, iova);
+					cmdq_pkt_write(pkt, fmt->clt_base, addr,
+						iova, ~0);
+				}
+			}
 		} else
 			fmt_err("CMD_WRITE_FD wrong addr: 0x%x 0x%x 0x%x",
 				addr, data, mask);
+	break;
+	case CMD_WRITE_FD_RDMA:
+		fmt_debug(3, "CMD_WRITE_FD_RDMA cpridx %d fd 0x%x offset 0x%x", addr, data, mask);
+		iova = fmt_translate_fd(data, mask, map, fmt->dev,
+					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt);
+		if (addr >= CPR_IDX_FMT_RDMA_SRC_OFFSET_0
+			&& addr <= CPR_IDX_FMT_RDMA_UFO_DEC_LENGTH_BASE_C) {
+			fmt_debug(3, "cmdq_pkt_assign_command idx %d cpr %d value 0x%x",
+						idx, addr, iova);
+			cmdq_pkt_assign_command(pkt,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_VFMT, idx, addr),
+					iova);
+		} else if (addr >= CPR_IDX_FMT_RDMA_SRC_BASE_0_MSB
+					&& addr <= CPR_IDX_FMT_RDMA_SRC_OFFSET_2_MSB){ // 34bit msb
+			fmt_debug(3, "cmdq_pkt_assign_command idx %d cpr %d value 0x%x",
+						idx, addr, (iova >> 32));
+			cmdq_pkt_assign_command(pkt,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_VFMT, idx, addr),
+					(iova >> 32));
+		} else {
+			fmt_err("invalid GCE cpr index %d", addr);
+		}
 	break;
 	default:
 		fmt_err("unknown GCE cmd %d", cmd);
@@ -335,7 +445,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	for (i = 0; i < cmds->cmd_cnt; i++) {
 		fmt_set_gce_cmd(pkt_ptr, cmds->cmd[i],
 			cmds->addr[i], cmds->data[i],
-			cmds->mask[i], fmt->gce_gpr[identifier], &iinfo, &oinfo, map);
+			cmds->mask[i], fmt->gce_gpr[identifier], identifier, &iinfo, &oinfo, map);
 	}
 
 	mutex_unlock(&fmt->mux_gce_th[identifier]);
@@ -363,6 +473,55 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 	return ret;
 }
+
+#ifdef MTK_VDEC_FMT_DUMP_REG
+static void fmt_dump_addr_reg(void)
+{
+	int i, idx;
+	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
+
+	if (fmt->dtsInfo.RDMA_needWA)
+		cmdq_util_prebuilt_dump(1, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+	for (idx = 0; idx < fmt->dtsInfo.pipeNum; idx++) {
+		for (i = 0x0; i <= 0xF0; i += 4) {
+			if (i == 0x14)
+				continue; // MDP_RDMA_SECURE_DISABLE
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		}
+		for (i = 0x118; i <= 0x200; i += 4) {
+			if (fmt->dtsInfo.RDMA_needWA)
+				continue; // cannot dump in normal world
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		}
+		for (i = 0x240; i <= 0x4E0; i += 4)
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		for (i = 0xF00; i <= 0xF50; i += 4) {
+			if (fmt->dtsInfo.RDMA_needWA)
+				continue; // cannot dump in normal world
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		}
+		fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + 0xF54,
+					FMT_GET32(fmt->map_base[0+idx*2].va + 0xF54));
+		for (i = 0x0; i <= 0xF0; i += 4)
+			fmt_debug(0, "FMT WROT%d(0x%x) 0x%x", idx,
+					fmt->map_base[1+idx*2].base + i,
+					FMT_GET32(fmt->map_base[1+idx*2].va + i));
+		for (i = 0xF00; i <= 0xF48; i += 4)
+			fmt_debug(0, "FMT WROT%d(0x%x) 0x%x", idx,
+					fmt->map_base[1+idx*2].base + i,
+					FMT_GET32(fmt->map_base[1+idx*2].va + i));
+	}
+}
+#endif
 
 static int fmt_gce_wait_callback(unsigned long arg)
 {
@@ -427,6 +586,21 @@ static int fmt_gce_wait_callback(unsigned long arg)
 	return ret;
 }
 
+static int fmt_get_platform_dts(unsigned long arg)
+{
+	struct dts_info *dts;
+	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
+
+	dts = &fmt->dtsInfo;
+
+	if (copy_to_user((void *)arg, dts, sizeof(*dts))) {
+		fmt_err("Copy dts to user space failed\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int vdec_fmt_open(struct inode *inode, struct file *file)
 {
 	fmt_debug(1, "tid:%d", current->pid);
@@ -454,8 +628,12 @@ static long vdec_fmt_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	case FMT_GCE_WAIT_CALLBACK:
 		ret = fmt_gce_wait_callback(arg);
 		break;
+	case FMT_GET_PLATFORM_DTS:
+		ret = fmt_get_platform_dts(arg);
+		break;
 	default:
-		fmt_err("Unknown cmd");		break;
+		fmt_err("Unknown cmd");
+		break;
 	}
 
 	return ret;
@@ -565,6 +743,7 @@ static long compat_vdec_fmt_ioctl(struct file *file, unsigned int cmd,
 				(unsigned long)data);
 	}
 	case FMT_GCE_WAIT_CALLBACK:
+	case FMT_GET_PLATFORM_DTS:
 		return file->f_op->unlocked_ioctl(file, cmd, arg);
 	default:
 		fmt_err("Unknown cmd");
@@ -651,7 +830,7 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev;
 	int ret = 0;
-	int i;
+	int i, rdma_swwa;
 
 	fmt_debug(0, "initialization");
 
@@ -681,6 +860,10 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 		fmt->map_base[i].base = res->start;
 		fmt->map_base[i].len = resource_size(res);
 		fmt->map_base[i].va = (unsigned long)of_iomap(dev->of_node, i);
+		if (i == 0)
+			fmt->dtsInfo.RDMA_baseAddr = fmt->map_base[i].base;
+		else if (i == 1)
+			fmt->dtsInfo.WROT_baseAddr = fmt->map_base[i].base;
 		fmt_debug(0, "base[%d]: pa:0x%lx va:0x%lx 0x%lx",
 			i, fmt->map_base[i].base, fmt->map_base[i].va,
 			fmt->map_base[i].len);
@@ -726,7 +909,15 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,fmt_gce_th_num",
 						&fmt->gce_th_num);
+	fmt->dtsInfo.pipeNum = fmt->gce_th_num;
 	fmt_debug(0, "gce_th_num %d", fmt->gce_th_num);
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,fmt_rdma_swwa",
+						&rdma_swwa);
+	fmt_debug(0, "rdma_swwa %d", rdma_swwa);
+	fmt->dtsInfo.RDMA_needWA = (bool) rdma_swwa;
+	if (fmt->dtsInfo.RDMA_needWA)
+		fmt_debug(0, "RDMA need software workaround");
 
 	if (ret != 0 || fmt->gce_th_num > FMT_CORE_NUM)
 		fmt->gce_th_num = 1;

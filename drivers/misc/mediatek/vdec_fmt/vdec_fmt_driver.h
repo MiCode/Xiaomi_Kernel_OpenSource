@@ -8,6 +8,8 @@
 #include <linux/mutex.h>
 #include <linux/semaphore.h>
 #include <linux/notifier.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <cmdq-util.h>
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #include <linux/compat.h>
@@ -85,15 +87,49 @@ struct gce_cmdq_task {
 	struct dmabuf_info oinfo;
 };
 
+struct dts_info {
+	u32 pipeNum;
+	u32 RDMA_baseAddr;
+	u32 WROT_baseAddr;
+	bool RDMA_needWA;
+};
+
 enum gce_cmd_id {
 	CMD_READ = 0,   /* read register */
 	CMD_WRITE,      /* write register */
 	/* polling register until get some value (no timeout, blocking wait) */
 	CMD_POLL_REG,
 	CMD_WAIT_EVENT, /* gce wait HW done event & clear */
+	CMD_SET_EVENT, /* gce set event */
 	CMD_CLEAR_EVENT, /* gce clear HW done event */
 	CMD_WRITE_FD,   /* write file descriptor */
+	CMD_WRITE_RDMA,   /* write register (RDMA SW Workaround, write to CPR) */
+	CMD_WRITE_FD_RDMA,   /* write file descriptor (RDMA SW Workaround, write to CPR) */
 	CMD_MAX
+};
+
+enum FmtRDMASecureRegIdx {
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_0 = 0,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_1,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_2,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_WP,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_HP,
+	CPR_IDX_FMT_RDMA_TRANSFORM_0,
+	CPR_IDX_FMT_RDMA_SRC_BASE_0,
+	CPR_IDX_FMT_RDMA_SRC_BASE_1,
+	CPR_IDX_FMT_RDMA_SRC_BASE_2,
+	CPR_IDX_FMT_RDMA_UFO_DEC_LENGTH_BASE_Y,
+	CPR_IDX_FMT_RDMA_UFO_DEC_LENGTH_BASE_C,
+	CPR_IDX_FMT_RDMA_SRC_BASE_0_MSB,
+	CPR_IDX_FMT_RDMA_SRC_BASE_1_MSB,
+	CPR_IDX_FMT_RDMA_SRC_BASE_2_MSB,
+	CPR_IDX_FMT_RDMA_UFO_DEC_LENGTH_BASE_Y_MSB,
+	CPR_IDX_FMT_RDMA_UFO_DEC_LENGTH_BASE_C_MSB,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_0_MSB,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_1_MSB,
+	CPR_IDX_FMT_RDMA_SRC_OFFSET_2_MSB,
+	CPR_IDX_FMT_RDMA_AFBC_PAYLOAD_OST,
+	CPR_IDX_FMT_RDMA_PIPE_IDX = 20,
 };
 
 enum gce_event_id {
@@ -105,6 +141,9 @@ enum gce_event_id {
 	FMT_RDMA1_TILE_DONE,
 	FMT_WDMA1_SW_RST_DONE_ENG,
 	FMT_WDMA1_TILE_DONE,
+	SYNC_TOKEN_PREBUILT_VFMT_WAIT,
+	SYNC_TOKEN_PREBUILT_VFMT_SET,
+	SYNC_TOKEN_PREBUILT_VFMT_LOCK,
 };
 
 enum fmt_gce_status {
@@ -143,10 +182,12 @@ struct mtk_vdec_fmt {
 	unsigned long fmt_freqs[MAX_FREQ_STEP];
 	struct regulator *fmt_reg;
 	struct icc_path *fmt_qos_req[FMT_PORT_NUM];
+	struct dts_info dtsInfo;
 };
 
 #define FMT_GCE_SET_CMD_FLUSH _IOW('f', 0, struct gce_cmdq_obj)
 #define FMT_GCE_WAIT_CALLBACK _IOW('f', 1, unsigned int)
+#define FMT_GET_PLATFORM_DTS  _IOW('f', 2, struct dts_info)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_FMT_GCE_SET_CMD_FLUSH _IOW('f', 0, struct compat_gce_cmdq_obj)

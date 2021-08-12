@@ -47,7 +47,7 @@ int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
 	ret = clk_prepare_enable(fmt->clk_VDEC);
 	if (ret)
 		fmt_debug(0, "clk_prepare_enable VDEC_SOC failed %d", ret);
-
+	cmdq_util_prebuilt_init(CMDQ_PREBUILT_VFMT);
 	return ret;
 }
 
