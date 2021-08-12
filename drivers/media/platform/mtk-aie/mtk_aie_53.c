@@ -1369,6 +1369,7 @@ static void mtk_aie_device_run(void *priv)
 	struct fd_enq_param fd_param;
 	void *plane_vaddr;
 	unsigned long long img_y = 0;
+	unsigned long long img_uv = 0;
 	unsigned int img_msb = 0;
 	unsigned int set_msb_bit = 0;
 	int ret = 0;
@@ -1376,13 +1377,14 @@ static void mtk_aie_device_run(void *priv)
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 
-	fd_param.src_img[0].dma_addr =
-		vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+	img_y = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+	fd_param.src_img[0].dma_addr = img_y & 0xffffffff;
 
 	if (ctx->src_fmt.num_planes == 2) {
-		fd_param.src_img[1].dma_addr =
-			vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+		img_uv = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+		fd_param.src_img[1].dma_addr = img_uv & 0xffffffff;
 	}
+	fd->img_msb = (img_y & 0Xf00000000) >> 32;
 
 	vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
 #if CHECK_SERVICE_0 //Remove CID
@@ -1437,8 +1439,7 @@ static void mtk_aie_device_run(void *priv)
 		ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
 	} else {
 
-		img_y = fd->aie_cfg->src_img_addr;
-		img_msb = (img_y & 0Xf00000000) >> 32;  //MASK MSB-BIT
+		img_msb = fd->img_msb;  //MASK MSB-BIT
 		set_msb_bit = img_msb | img_msb << 4 | img_msb << 8 | img_msb << 12;
 		set_msb_bit = set_msb_bit | set_msb_bit << 16;
 

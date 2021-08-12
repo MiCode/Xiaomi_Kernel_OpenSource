@@ -1200,6 +1200,7 @@ struct mtk_aie_dev {
 	struct imem_buf_info fld_output_hw;
 
 	/*MSB*/
+	unsigned int img_msb;
 	unsigned int rs_out_msb;
 	unsigned int fd_dma_msb;
 	unsigned int kernel_dma_msb;

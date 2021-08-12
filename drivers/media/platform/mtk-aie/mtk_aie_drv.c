@@ -2600,7 +2600,6 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	u16 stride_pym0_out_w = 0;
 	u16 src_crop_w = 0;
 	u16 src_crop_h = 0;
-	unsigned long long img_y_addr = 0;
 	unsigned int img_msb_bit = 0;
 	unsigned int y2r_msb_bit = 0;
 
@@ -2858,8 +2857,7 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	yuv2rgb_cfg[Y2R_IN_1] = srcbuf_UV;
 
 
-	img_y_addr = fd->aie_cfg->src_img_addr;
-	img_msb_bit = (img_y_addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+	img_msb_bit = fd->img_msb; //MASK MSB-BIT
 	y2r_msb_bit = img_msb_bit | img_msb_bit << 8;
 
 
