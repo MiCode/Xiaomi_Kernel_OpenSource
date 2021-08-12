@@ -12,7 +12,6 @@
  * Definition
  **************************************************/
 #define GPUFREQ_UNREFERENCED(param)     ((void)(param))
-#define GPUFREQ_GPUEB_ENABLE            (0)
 #define GPUFREQ_DEBUG_ENABLE            (0)
 #define GPUFREQ_TRACE_ENABLE            (0)
 #define GPUFERQ_TAG                     "[GPU/FREQ]"
