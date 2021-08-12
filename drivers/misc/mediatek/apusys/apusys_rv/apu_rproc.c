@@ -412,13 +412,16 @@ static int apu_probe(struct platform_device *pdev)
 	g_pdev = pdev;
 	pm_runtime_get_sync(&pdev->dev);
 
-	ret = apu_deepidle_init(apu);
-	if (ret < 0)
-		goto remove_apu_deepidle;
+	if (data->flags & F_AUTO_BOOT) {
+		ret = apu_deepidle_init(apu);
+		if (ret < 0)
+			goto remove_apu_deepidle;
+	}
 
 	if (!hw_ops->apu_memmap_init) {
 		pm_runtime_put_sync(&pdev->dev);
-		pm_runtime_put_sync(apu->power_dev);
+		if (data->flags & F_AUTO_BOOT)
+			pm_runtime_put_sync(apu->power_dev);
 		WARN_ON(1);
 		goto remove_apu_deepidle;
 	}
@@ -476,7 +479,8 @@ static int apu_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_put_sync(apu->power_dev);
+	if (data->flags & F_AUTO_BOOT)
+		pm_runtime_put_sync(apu->power_dev);
 
 	return 0;
 
@@ -510,7 +514,8 @@ remove_apu_mem:
 
 remove_apu_memmap:
 	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_put_sync(apu->dev);
+	if (data->flags & F_AUTO_BOOT)
+		pm_runtime_put_sync(apu->power_dev);
 	if (!hw_ops->apu_memmap_remove) {
 		WARN_ON(1);
 		return -EINVAL;
