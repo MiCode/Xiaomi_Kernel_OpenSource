@@ -468,6 +468,9 @@ void mdw_rv_dev_deinit(struct mdw_device *mdev)
 {
 	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
 
+	if (mrdev == NULL)
+		return;
+
 	rpmsg_destroy_ept(mrdev->ept);
 	kvfree(mrdev);
 	mdev->dev_specific = NULL;
