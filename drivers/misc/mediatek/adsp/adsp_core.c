@@ -209,6 +209,10 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 		return ADSP_IPI_ERROR;
 	}
 
+	/* system is going to suspend, reject the following msg */
+	if (id == ADSP_IPI_DVFS_SUSPEND)
+		set_adsp_state(pdata, ADSP_SUSPENDING);
+
 	msg.ipihd.id = id;
 	msg.ipihd.len = len;
 	msg.ipihd.options = 0xffff0000;
