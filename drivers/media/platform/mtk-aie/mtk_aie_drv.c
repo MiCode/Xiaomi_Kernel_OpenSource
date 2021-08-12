@@ -656,12 +656,22 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	int ret;
 	u8 i;
 	u32 alloc_size;
+	unsigned long long addr = 0;
+	unsigned int msb_bit = 0;
 
 	/* RS DRAM */
 	alloc_size = fd->fd_rs_cfg_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->rs_cfg_data);
+
 	if (ret)
 		goto free_rs;
+
+	addr = fd->rs_cfg_data.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+
+	dev_info(fd->dev, "RS_CON_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
+	writel(msb_bit, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
+
 	/* FD MODE */
 	fd->base_para->fd_rs_cfg_pa = fd->rs_cfg_data.pa;
 	fd->base_para->fd_rs_cfg_va = fd->rs_cfg_data.va;
@@ -670,8 +680,16 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	alloc_size =
 		fd->fd_fd_cfg_size + fd->attr_fd_cfg_size * MAX_ENQUE_FRAME_NUM;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_cfg_data);
+
 	if (ret)
 		goto free_fd;
+
+	addr = fd->fd_cfg_data.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+
+	dev_info(fd->dev, "FD_CON_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
+	writel(msb_bit, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
+
 	/* FD MODE */
 	fd->base_para->fd_fd_cfg_pa = fd->fd_cfg_data.pa;
 	fd->base_para->fd_fd_cfg_va = fd->fd_cfg_data.va;
@@ -694,8 +712,17 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	alloc_size = fd->fd_yuv2rgb_cfg_size +
 		     fd->attr_yuv2rgb_cfg_size * MAX_ENQUE_FRAME_NUM;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->yuv2rgb_cfg_data);
+
 	if (ret)
 		goto free_yuv2rgb;
+
+	addr = fd->yuv2rgb_cfg_data.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+
+	dev_info(fd->dev, "Y2R_CON_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
+	writel(msb_bit, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
+
+
 	/* FD MODE */
 	fd->base_para->fd_yuv2rgb_cfg_pa = fd->yuv2rgb_cfg_data.pa;
 	fd->base_para->fd_yuv2rgb_cfg_va = fd->yuv2rgb_cfg_data.va;
@@ -730,11 +757,20 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 	int ret;
 	u32 alloc_size = 0;
 	int i, j, pa_off = 0, va_off = 0;
+	unsigned long long addr = 0;
+	unsigned int msb_bit = 0;
+
 
 	for (i = 0; i < PYM_NUM; i++)
 		alloc_size += fd->rs_pym_out_size[i] * 3;
 
 	ret = aie_imem_alloc(fd, alloc_size, &fd->rs_output_hw);
+
+	addr = fd->rs_output_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+
+	fd->rs_out_msb = msb_bit;
+
 	if (ret)
 		return ret;
 
@@ -783,26 +819,44 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 {
 	int ret;
 	u32 alloc_size;
+	unsigned long long addr = 0;
+	unsigned int msb_bit = 0;
 
 	alloc_size = fd->fd_dma_max_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_hw);
 	if (ret)
 		return ret;
 
+	addr = fd->fd_dma_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+	fd->fd_dma_msb = msb_bit;
+
 	alloc_size = fd->fd_fd_kernel_size + fd->fd_attr_kernel_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_kernel_hw);
 	if (ret)
 		goto free_kernel;
+
+	addr = fd->fd_kernel_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+	fd->kernel_dma_msb = msb_bit;
 
 	alloc_size = fd->fd_attr_dma_max_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_attr_dma_hw);
 	if (ret)
 		goto free_attr_dma;
 
+	addr = fd->fd_attr_dma_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+	fd->attr_dma_msb = msb_bit;
+
 	alloc_size = fd->fd_dma_rst_max_size + fd->fd_attr_dma_rst_max_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_result_hw);
 	if (ret)
 		goto free_dma_result_hw;
+
+	addr = fd->fd_dma_result_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+	fd->rst_dma_msb = msb_bit;
 
 	return 0;
 
@@ -822,40 +876,114 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 {
 	int ret;
 	u32 alloc_size;
+	unsigned long long addr = 0;
+	unsigned int msb_bit = 0;
+	unsigned int set_msb_bit = 0;
 
 	alloc_size = fld_blink_weight_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_blink_weight_hw);
 	if (ret)
 		return ret;
 
+	addr = fd->fld_blink_weight_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 8; //MASK MSB-BIT
+	dev_info(fd->dev, "BK_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
+	writel(msb_bit, fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB);
+
+
 	alloc_size = fld_fp_size * FLD_MAX_INPUT;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_fp_hw);
 	if (ret)
 		goto free_fld_fp_hw;
+
+	addr = fd->fld_fp_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32;
+	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
+	set_msb_bit = set_msb_bit | set_msb_bit << 16;
+	dev_info(fd->dev, "FP MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB);
+
+	set_msb_bit = set_msb_bit & 0xfffffff;
+	dev_info(fd->dev, "FP MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB);
+
 
 	alloc_size = (fld_cv_size * (FLD_MAX_INPUT-1)) + fld_cv_size_00;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_cv_hw);
 	if (ret)
 		goto free_fld_cv_hw;
 
+	addr = fd->fld_cv_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32;
+	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
+	set_msb_bit = set_msb_bit | set_msb_bit << 16;
+	dev_info(fd->dev, "CV MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB);
+
+	set_msb_bit = set_msb_bit & 0xfffffff;
+	dev_info(fd->dev, "CV MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
+
+
 	alloc_size = fld_leafnode_size * FLD_MAX_INPUT;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_leafnode_hw);
 	if (ret)
 		goto free_fld_leafnode_hw;
+
+	addr = fd->fld_leafnode_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32;
+	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
+	set_msb_bit = set_msb_bit | set_msb_bit << 16;
+	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
+
+	set_msb_bit = set_msb_bit & 0xfffffff;
+	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
 
 	alloc_size = fld_tree_size * FLD_MAX_INPUT;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_02_hw);
 	if (ret)
 		goto free_fld_tree_02_hw;
 
+	addr = fd->fld_tree_02_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32;
+	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
+	set_msb_bit = set_msb_bit | set_msb_bit << 16;
+	dev_info(fd->dev, "T02 MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
+
+	set_msb_bit = set_msb_bit & 0xfffffff;
+	dev_info(fd->dev, "T02: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
+
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_13_hw);
 	if (ret)
 		goto free_fld_tree_13_hw;
+
+	addr = fd->fld_tree_13_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32;
+	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
+	set_msb_bit = set_msb_bit | set_msb_bit << 16;
+	dev_info(fd->dev, "T02 MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
+
+	set_msb_bit = set_msb_bit & 0xfffffff;
+	dev_info(fd->dev, "T02: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
 
 	alloc_size = fld_result_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_output_hw);
 	if (ret)
 		goto free_fld_output_hw;
+
+	addr = fd->fld_output_hw.pa;
+	msb_bit = (addr & 0Xf00000000) >> 32;
+	dev_info(fd->dev, "OUT MSB: %llx\n", msb_bit);
+	writel(msb_bit, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0_MSB);
+
+	dev_info(fd->dev, "OUT: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
+	writel(msb_bit, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0_MSB);
 
 	return 0;
 
@@ -2438,6 +2566,9 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	u16 stride_pym0_out_w = 0;
 	u16 src_crop_w = 0;
 	u16 src_crop_h = 0;
+	unsigned long long img_y_addr = 0;
+	unsigned int img_msb_bit = 0;
+	unsigned int y2r_msb_bit = 0;
 
 	if (aie_cfg->en_roi == false) {
 		img_off = 0;
@@ -2692,8 +2823,16 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	yuv2rgb_cfg[Y2R_IN_0] = srcbuf;
 	yuv2rgb_cfg[Y2R_IN_1] = srcbuf_UV;
 
-	yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)0x00000303;
-	yuv2rgb_cfg[POS_Y2RCON_OUT_BA_MSB] = (u32)0x00030303;
+
+	img_y_addr = fd->aie_cfg->src_img_addr;
+	img_msb_bit = (img_y_addr & 0Xf00000000) >> 32; //MASK MSB-BIT
+	y2r_msb_bit = img_msb_bit | img_msb_bit << 8;
+
+
+	//yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)0x00000303; //for UT
+	yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)y2r_msb_bit;
+	yuv2rgb_cfg[POS_Y2RCON_OUT_BA_MSB] = (u32)(fd->rs_out_msb | fd->rs_out_msb << 8 |
+						fd->rs_out_msb << 16);//0x00030303
 
 
 	yuv2rgb_cfg[Y2R_OUT_0] = (u32)fd->base_para->rs_pym_rst_pa[0][0];
@@ -2755,8 +2894,10 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	for (i = 0; i < 2; i++) {
 		rs_tbl[i] = rs_cfg + RS_CONFIG_SIZE * i;
-		rs_tbl[i][POS_RSCON_IN_BA_MSB] = (u32)0x00030303;
-		rs_tbl[i][POS_RSCON_OUT_BA_MSB] = (u32)0x00030303;
+		rs_tbl[i][POS_RSCON_IN_BA_MSB] = (u32)(fd->rs_out_msb | fd->rs_out_msb << 8 |
+								fd->rs_out_msb << 16); //0x00030303
+		rs_tbl[i][POS_RSCON_OUT_BA_MSB] = (u32)(fd->rs_out_msb | fd->rs_out_msb << 8 |
+								fd->rs_out_msb << 16); //0x00030303
 
 		rs_tbl[i][RS_IN_0] = (u32)fd->base_para->rs_pym_rst_pa[i][0];
 		rs_tbl[i][RS_IN_1] = (u32)fd->base_para->rs_pym_rst_pa[i][1];
@@ -2866,18 +3007,30 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		fd_cur_cfg[FD_INPUT_ROTATE] =
 			(fd_cur_cfg[FD_INPUT_ROTATE] & 0xFFFF0FFF) |
 			((aie_cfg->rotate_degree << 12) & 0x3000);
-		fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)0x03030303;
-		fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)0x03030303;
-		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)0x00000303;
+
+		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)(fd->kernel_dma_msb |
+							fd->kernel_dma_msb << 8); //0x00000303
 
 
-		if (i == 0)
+		if (i == 0) {
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
+						fd->rs_out_msb << 8 | fd->rs_out_msb << 16 |
+						fd->rs_out_msb << 24); //pyramid: 0x03030303
 			input_height = pyramid2_out_h;
-		else if (i == (rpn2_loop_num + 1))
+		} else if (i == (rpn2_loop_num + 1)) {
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
+						fd->rs_out_msb << 8 |  fd->rs_out_msb << 16 |
+						fd->rs_out_msb << 24); //pyramid: 0x03030303
 			input_height = pyramid1_out_h;
-		else if (i == (rpn1_loop_num + 1))
+		} else if (i == (rpn1_loop_num + 1)) {
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
+						fd->rs_out_msb << 8 |  fd->rs_out_msb << 16 |
+						fd->rs_out_msb << 24); //pyramid: 0x03030303
 			input_height = pyramid0_out_h;
-		else {
+		} else {
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->fd_dma_msb |
+						fd->fd_dma_msb << 8 |  fd->fd_dma_msb << 16 |
+						fd->fd_dma_msb << 24); //fd_dma: 0x03030303
 			if (fd_out_stride2_in[i] == 0)
 				input_height = out_height;
 			else
@@ -2967,12 +3120,17 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 			}
 		}
 
-		if (i == rpn0_loop_num || i == rpn1_loop_num ||
-		    i == rpn2_loop_num) {
+		if (i == rpn0_loop_num || i == rpn1_loop_num || i == rpn2_loop_num) {
+			fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
+						fd->rst_dma_msb << 8 |  fd->rst_dma_msb << 16 |
+						fd->rst_dma_msb << 24); //result: 0x03030303
 			fd_cur_cfg[FD_RPN_SET] =
 				aie_combine_u16(fd_cur_cfg[FD_RPN_SET],
 						fd->base_para->rpn_anchor_thrd);
-		}
+		} else
+			fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->fd_dma_msb |
+						fd->fd_dma_msb << 8 | fd->fd_dma_msb << 16 |
+						fd->fd_dma_msb << 24); //fd_dma: 0x03030303
 
 		if (i == rpn0_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
@@ -3084,13 +3242,24 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 			(fd_cur_cfg[FD_INPUT_ROTATE] & 0xFFFF0FFF) |
 			((aie_cfg->rotate_degree << 12) & 0x3000);
 
-		fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)0x03030303;
-		fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)0x03030303;
-		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)0x00000303;
+		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)(fd->kernel_dma_msb |
+							fd->kernel_dma_msb << 8); //0x00000303
+		fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->attr_dma_msb |
+							fd->attr_dma_msb << 8 |
+							fd->attr_dma_msb << 16 |
+							fd->attr_dma_msb << 24); //0x03030303
 
-		if (i == 0)
+		if (i == 0) {
 			fd_input_ht = pyramid0_out_h;
-		else {
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
+							fd->rs_out_msb << 8 |
+							fd->rs_out_msb << 16 |
+							fd->rs_out_msb << 24); //pyramid: 03030303
+		} else {
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->attr_dma_msb |
+							fd->attr_dma_msb << 8 |
+							fd->attr_dma_msb << 16 |
+							fd->attr_dma_msb << 24); //fd_dram: 03030303
 			if (attr_out_stride2_as_in[i] == 0)
 				fd_input_ht = fd_output_ht;
 			else if (attr_out_stride2_as_in[i] == 1)
@@ -3169,27 +3338,44 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 		for (j = 0; j < output_WDMA_WRA_num; j++) {
 			if (attr_wdma_en[i][j]) {
 				uidx = fd->attr_para->w_idx;
-				if (i == age_out_rgs && j == 0)
+				if (i == age_out_rgs && j == 0) {
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
+							fd->rst_dma_msb << 8 |
+							fd->rst_dma_msb << 16 |
+							fd->rst_dma_msb << 24); //result: 0x03030303
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para
 							->age_out_hw_pa[uidx]);
-				else if (i == gender_out_rgs && j == 0)
+				} else if (i == gender_out_rgs && j == 0) {
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
+							fd->rst_dma_msb << 8 |
+							fd->rst_dma_msb << 16 |
+							fd->rst_dma_msb << 24);//result: 0x03030303
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para->gender_out_hw_pa
 							[uidx]);
-				else if (i == indian_out_rgs && j == 0)
+				} else if (i == indian_out_rgs && j == 0) {
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
+							fd->rst_dma_msb << 8 |
+							fd->rst_dma_msb << 16 |
+							fd->rst_dma_msb << 24); //result: 0x03030303
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para->isIndian_out_hw_pa
 							[uidx]);
-				else if (i == race_out_rgs && j == 0)
+				} else if (i == race_out_rgs && j == 0) {
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
+							fd->rst_dma_msb << 8 |
+							fd->rst_dma_msb << 16 |
+							fd->rst_dma_msb << 24); //result: 0x03030303
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para
 							->race_out_hw_pa[uidx]);
-				else
+				} else {
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para
 							->attr_out_hw_pa[i][j]);
 			}
+		}
 		}
 
 		/* KERNEL_BASE_ADR */
@@ -3247,15 +3433,15 @@ int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 		       fd->base_para->max_pyramid_height);
 	aie_get_data_size(fd, fd->base_para->max_img_width,
 				      fd->base_para->max_img_height);
-	ret = aie_alloc_dram_buf(fd);
+	ret = aie_alloc_dram_buf(fd); //config
 	if (ret)
 		goto dram_fail;
 
-	ret = aie_alloc_output_buf(fd);
+	ret = aie_alloc_output_buf(fd); //pyramid
 	if (ret)
 		goto output_fail;
 
-	ret = aie_alloc_fddma_buf(fd);
+	ret = aie_alloc_fddma_buf(fd); //inter-production
 	if (ret)
 		goto fddma_fail;
 #ifdef FLD

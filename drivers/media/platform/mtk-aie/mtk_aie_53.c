@@ -435,34 +435,6 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 	dev_info(fd->dev, "mtk_aie_hw_connect start!: %x %x\n", fd->map_count, fd->fd_stream_count);
 	mtk_aie_ccf_enable((fd->dev));
 
-	dev_info(fd->dev, "%s Setting MSB\n ", __func__);
-	writel(0x00000003, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
-	writel(0x00000003, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
-	writel(0x00000003, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
-
-	writel(0x03000000, fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB);
-
-	writel(0x33333333, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
-	writel(0x03333333, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
-	writel(0x00000003, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0_MSB);
-	writel(0x00000003, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0_MSB);
-
-
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
 		dev_info(fd->dev, "mtk_aie_hw_enable:  %x %x\n", fd->map_count,
@@ -1396,6 +1368,9 @@ static void mtk_aie_device_run(void *priv)
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	struct fd_enq_param fd_param;
 	void *plane_vaddr;
+	unsigned long long img_y = 0;
+	unsigned int img_msb = 0;
+	unsigned int set_msb_bit = 0;
 	int ret = 0;
 
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
@@ -1461,6 +1436,21 @@ static void mtk_aie_device_run(void *priv)
 	if (!(fd->aie_cfg->sel_mode == 3)) {
 		ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
 	} else {
+
+		img_y = fd->aie_cfg->src_img_addr;
+		img_msb = (img_y & 0Xf00000000) >> 32;  //MASK MSB-BIT
+		set_msb_bit = img_msb | img_msb << 4 | img_msb << 8 | img_msb << 12;
+		set_msb_bit = set_msb_bit | set_msb_bit << 16;
+
+		dev_info(fd->dev, "Y: %llx, set_msb_bit: %llx\n", img_y, set_msb_bit);
+		writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
+		set_msb_bit = set_msb_bit & 0xfffffff;
+		dev_info(fd->dev, "Y: %llx, set_msb_bit: %llx\n", img_y, set_msb_bit);
+		writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
+		//for UT
+		//writel(0x33333333, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
+		//writel(0x03333333, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
+
 		fd->fld_para->sel_mode = fd->aie_cfg->sel_mode;
 		fd->fld_para->img_height = fd->aie_cfg->src_img_height;
 		fd->fld_para->img_width = fd->aie_cfg->src_img_width;

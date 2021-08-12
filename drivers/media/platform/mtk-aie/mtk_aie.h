@@ -1199,6 +1199,13 @@ struct mtk_aie_dev {
 	struct imem_buf_info fld_blink_weight_hw;
 	struct imem_buf_info fld_output_hw;
 
+	/*MSB*/
+	unsigned int rs_out_msb;
+	unsigned int fd_dma_msb;
+	unsigned int kernel_dma_msb;
+	unsigned int attr_dma_msb;
+	unsigned int rst_dma_msb;
+
 	/* DRAM Buffer Size */
 	unsigned int fd_rs_cfg_size;
 	unsigned int fd_fd_cfg_size;
