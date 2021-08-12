@@ -103,10 +103,12 @@
 #define DSC_FORCE_COMMIT	BIT(0)
 #define DSC_BYPASS_SHADOW	BIT(1)
 #define DSC_READ_WORKING	BIT(2)
+#define MT6983_DISP_REG_SHADOW_CTRL		0x0228
 
 struct mtk_disp_dsc_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
+	bool need_obuf_sw;
 };
 
 
@@ -210,13 +212,20 @@ static void mtk_dsc_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
+	struct drm_crtc *crtc = &(comp->mtk_crtc->base);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	mtk_ddp_comp_clk_prepare(comp);
 
 	/* Bypass shadow register and read shadow register */
-	if (dsc->data->need_bypass_shadow)
-		mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
-			DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
+	if (dsc->data->need_bypass_shadow) {
+		if (priv->data->mmsys_id == MMSYS_MT6983)
+			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
+				MT6983_DISP_REG_SHADOW_CTRL, DSC_BYPASS_SHADOW);
+		else
+			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
+				DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
+	}
 }
 
 static void mtk_dsc_unprepare(struct mtk_ddp_comp *comp)
@@ -382,6 +391,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			enc_slice_width = slice_width;
 		}
 		enc_pic_width = enc_slice_width * (dsc_params->slice_mode + 1);
+		if (dsc->data->need_obuf_sw && enc_pic_width < 1440) {
+			mtk_ddp_write_relaxed(comp,
+				0x800002d9, DISP_REG_DSC_OBUF, handle);
+		}
 		pad_num = (chrunk_size + 2)/3*3 - chrunk_size;
 		mtk_ddp_write_relaxed(comp,
 			enc_pic_width << 16 | enc_slice_width,
@@ -737,6 +750,7 @@ static const struct mtk_disp_dsc_data mt6885_dsc_driver_data = {
 static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
+	.need_obuf_sw = true,
 };
 
 static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
@@ -765,6 +779,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6853_dsc_driver_data},
 	{ .compatible = "mediatek,mt6879-disp-dsc",
 	  .data = &mt6879_dsc_driver_data},
+	{ .compatible = "mediatek,mt6983-disp-dsc",
+	  .data = &mt6983_dsc_driver_data},
 	{},
 };
 
