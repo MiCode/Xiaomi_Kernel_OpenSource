@@ -15,9 +15,9 @@
 #include "mtk_imgsys-debug.h"
 
 #define DL_CHECK_ENG_NUM 11
-#define WPE_HW_SET		3
-#define SW_RST	 (0x000C)
-
+#define WPE_HW_SET    3
+#define ADL_HW_SET    2
+#define SW_RST   (0x000C)
 
 struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_WPE_EIS, "WPE_EIS"},
@@ -39,12 +39,18 @@ void __iomem *wpedip2RegBA;
 void __iomem *wpedip3RegBA;
 void __iomem *dipRegBA;
 void __iomem *dip1RegBA;
+void __iomem *adlARegBA;
+void __iomem *adlBRegBA;
 
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 {
 	void __iomem *WpeRegBA = 0L;
+	void __iomem *ADLRegBA = 0L;
 	void __iomem *pWpeCtrl = 0L;
 	unsigned int HwIdx = 0;
+	uint32_t count;
+	uint32_t value;
+
 	pr_info("%s: +.\n", __func__);
 	imgsysmainRegBA = 0L;
 	wpedip1RegBA = 0L;
@@ -107,6 +113,24 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		return;
 	}
 
+	adlARegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
+	if (!adlARegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap adl a registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
+	adlBRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
+	if (!adlARegBA) {
+		dev_info(imgsys_dev->dev, "%s Unable to ioremap adl b registers\n",
+								__func__);
+		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+				__func__, imgsys_dev->dev->of_node->name);
+		return;
+	}
+
 	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
 	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
 
@@ -123,6 +147,30 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(0xFFFFFFFF, pWpeCtrl);
 		/* Clear HW Reset */
 		iowrite32(0x0, pWpeCtrl);
+	}
+
+	/* Reset ADL A */
+	for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
+		if (HwIdx == 0)
+			ADLRegBA = adlARegBA;
+		else if (HwIdx == 1)
+			ADLRegBA = adlBRegBA;
+
+		value = ioread32((void *)(ADLRegBA + 0x300));
+		value |= ((0x1 << 8) | (0x1 << 9));
+		iowrite32(value, (ADLRegBA + 0x300));
+
+		count = 0;
+		while (count < 1000000) {
+			value = ioread32((void *)(ADLRegBA + 0x300));
+			if ((value & 0x3) == 0x3)
+				break;
+			count++;
+		}
+
+		value = ioread32((void *)(ADLRegBA + 0x300));
+		value &= ~((0x1 << 8) | (0x1 << 9));
+		iowrite32(value, (ADLRegBA + 0x300));
 	}
 
 	iowrite32(0xFFFFFFFF, (void *)(imgsysmainRegBA + SW_RST));
@@ -146,9 +194,32 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(0x0, pWpeCtrl);
 	}
 
+	/* Reset ADL */
+	for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
+		if (HwIdx == 0)
+			ADLRegBA = adlARegBA;
+		else if (HwIdx == 1)
+			ADLRegBA = adlBRegBA;
+
+		value = ioread32((void *)(ADLRegBA + 0x300));
+		value |= ((0x1 << 8) | (0x1 << 9));
+		iowrite32(value, (ADLRegBA + 0x300));
+
+		count = 0;
+		while (count < 1000000) {
+			value = ioread32((void *)(ADLRegBA + 0x300));
+			if ((value & 0x3) == 0x3)
+				break;
+			count++;
+		}
+
+		value = ioread32((void *)(ADLRegBA + 0x300));
+		value &= ~((0x1 << 8) | (0x1 << 9));
+		iowrite32(value, (ADLRegBA + 0x300));
+	}
+
 	iowrite32(0xFFFFFFFF, (void *)(imgsysmainRegBA + SW_RST));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
-
 
 	pr_info("%s: -.\n", __func__);
 }
@@ -185,6 +256,16 @@ void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 	if (!dip1RegBA) {
 		iounmap(dip1RegBA);
 		dip1RegBA = 0L;
+	}
+
+	if (!adlARegBA) {
+		iounmap(adlARegBA);
+		adlARegBA = 0L;
+	}
+
+	if (!adlBRegBA) {
+		iounmap(adlBRegBA);
+		adlBRegBA = 0L;
 	}
 
 	pr_info("%s: -.\n", __func__);
@@ -610,10 +691,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -622,10 +703,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -647,10 +728,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -659,10 +740,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -710,10 +791,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_TRAW_DIP;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_TRAW_DIP;
 		snprintf(logBuf_inport, log_length, "%s",
 			"TRAW");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -722,10 +803,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -734,10 +815,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -761,10 +842,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_WPET_DIP;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_WPET_DIP;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_TNR");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -773,10 +854,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -785,10 +866,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -815,10 +896,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			__func__);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_TRAW_DIP;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_TRAW_DIP;
 		snprintf(logBuf_inport, log_length, "%s",
 			"TRAW");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -827,10 +908,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -839,10 +920,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -866,10 +947,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_WPET_DIP;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_WPET_DIP;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_TNR");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -878,10 +959,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -890,10 +971,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -927,10 +1008,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPA;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPA;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -939,10 +1020,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -962,10 +1043,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
 		memset((char *)logBuf_inport, 0x0, log_length);
-	    logBuf_inport[strlen(logBuf_inport)] = '\0';
-	    memset((char *)logBuf_outport, 0x0, log_length);
-	    logBuf_outport[strlen(logBuf_outport)] = '\0';
-	    dl_path = IMGSYS_DL_DIP_PQDIPB;
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, log_length);
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_PQDIPB;
 		snprintf(logBuf_inport, log_length, "%s",
 			"DIP");
 		snprintf(logBuf_outport, log_length, "%s",
@@ -980,7 +1061,7 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		 * snprintf(logBuf_inport, log_length, "%s", "ADL");
 		 * snprintf(logBuf_outport, log_length, "%s", "XTRAW");
 		 * imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
-		 *	logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		 *  logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		 */
 		dev_info(imgsys_dev->dev,
 			"%s: we dont have checksum for ADL DL XTRAW\n",
