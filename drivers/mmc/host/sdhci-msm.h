@@ -322,6 +322,7 @@ struct sdhci_msm_host {
 	u32 ice_clk_rate;
 	bool debug_mode_enabled;
 	bool reg_store;
+	bool vbias_skip_wa;
 	struct reset_control *core_reset;
 	u32 minor;
 };
