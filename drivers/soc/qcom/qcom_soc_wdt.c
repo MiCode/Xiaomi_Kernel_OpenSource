@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -107,8 +107,8 @@ static int qcom_soc_wdt_probe(struct platform_device *pdev)
 
 static const struct dev_pm_ops qcom_soc_dev_pm_ops = {
 #ifdef CONFIG_PM_SLEEP
-	.suspend_late = qcom_wdt_pet_suspend,
-	.resume_early = qcom_wdt_pet_resume,
+	.suspend_noirq = qcom_wdt_pet_suspend,
+	.resume_noirq = qcom_wdt_pet_resume,
 #endif
 };
 
