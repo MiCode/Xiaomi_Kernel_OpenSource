@@ -3374,17 +3374,19 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 
 	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
-	/*
-	 * release wakeup source with timeout to defer system suspend to
-	 * handle case where on USB cable disconnect, SUSPEND and DISCONNECT
-	 * event is received.
-	 */
-	if (mdwc->lpm_to_suspend_delay) {
-		dev_dbg(mdwc->dev, "defer suspend with %d(msecs)\n",
-					mdwc->lpm_to_suspend_delay);
-		pm_wakeup_event(mdwc->dev, mdwc->lpm_to_suspend_delay);
-	} else {
-		pm_relax(mdwc->dev);
+	if (!mdwc->in_restart) {
+		/*
+		 * release wakeup source with timeout to defer system suspend to
+		 * handle case where on USB cable disconnect, SUSPEND and DISCONNECT
+		 * event is received.
+		 */
+		if (mdwc->lpm_to_suspend_delay) {
+			dev_dbg(mdwc->dev, "defer suspend with %d(msecs)\n",
+						mdwc->lpm_to_suspend_delay);
+			pm_wakeup_event(mdwc->dev, mdwc->lpm_to_suspend_delay);
+		} else {
+			pm_relax(mdwc->dev);
+		}
 	}
 
 	atomic_set(&dwc->in_lpm, 1);

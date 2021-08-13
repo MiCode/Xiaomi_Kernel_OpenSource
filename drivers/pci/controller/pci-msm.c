@@ -879,6 +879,8 @@ struct msm_pcie_dev_t {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
+	bool config_recovery;
+	struct work_struct link_recover_wq;
 
 	struct msm_pcie_drv_info *drv_info;
 	struct work_struct drv_enable_pc_work;
@@ -2967,6 +2969,17 @@ static int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 			"RC%d %d:0x%02x + 0x%04x[%d] <- 0x%08x; rd 0x%08x val 0x%08x\n",
 			rc_idx, bus->number, devfn, where, size,
 			wr_val, rd_val, *val);
+	}
+
+	if (rd_val == PCIE_LINK_DOWN &&
+	   (readl_relaxed(config_base) == PCIE_LINK_DOWN)) {
+		if (dev->config_recovery) {
+			PCIE_ERR(dev,
+				"RC%d link recovery schedule\n",
+				rc_idx);
+			dev->cfg_access = false;
+			schedule_work(&dev->link_recover_wq);
+		}
 	}
 
 unlock:
@@ -5095,6 +5108,16 @@ static struct pci_dev *find_pci_dev_from_bdf(u16 bdf, int domain)
 		return NULL;
 
 	return pci_get_slot(bus, devfn);
+
+}
+
+static void handle_link_recover(struct work_struct *work)
+{
+	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
+					link_recover_wq);
+	PCIE_DBG(dev, "PCIe: link recover start for RC%d\n", dev->rc_idx);
+
+	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINK_RECOVER);
 }
 
 static irqreturn_t handle_aer_irq(int irq, void *data)
@@ -6243,6 +6266,15 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		goto decrease_rc_num;
 	}
 
+	pcie_dev->config_recovery = of_property_read_bool(of_node,
+					 "qcom,config-recovery");
+	if (pcie_dev->config_recovery) {
+		PCIE_DUMP(pcie_dev,
+			"PCIe RC%d config space recovery enabled\n",
+			pcie_dev->rc_idx);
+		INIT_WORK(&pcie_dev->link_recover_wq, handle_link_recover);
+	}
+
 	pcie_dev->drv_supported = of_property_read_bool(of_node,
 							"qcom,drv-supported");
 	if (pcie_dev->drv_supported) {
@@ -7225,6 +7257,15 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	pcie_dev->suspending = true;
 	spin_unlock_irqrestore(&pcie_dev->irq_lock, irqsave_flags);
 
+	if (pcie_dev->config_recovery) {
+		if (work_pending(&pcie_dev->link_recover_wq)) {
+			PCIE_DBG(pcie_dev,
+				"RC%d: cancel link_recover_wq at pm suspend\n",
+				pcie_dev->rc_idx);
+			cancel_work_sync(&pcie_dev->link_recover_wq);
+		}
+	}
+
 	if (!pcie_dev->power_on) {
 		PCIE_DBG(pcie_dev,
 			"PCIe: power of RC%d has been turned off.\n",
@@ -7234,24 +7275,37 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 
 	if (dev) {
 		if (msm_pcie_confirm_linkup(pcie_dev, true, true, dev)) {
+			PCIE_DBG(pcie_dev, "PCIe: RC%d: save config space\n",
+					 pcie_dev->rc_idx);
 			ret = pci_save_state(dev);
 			if (ret) {
 				PCIE_ERR(pcie_dev,
-					 "PCIe: RC%d: fail to save state of RC%d:%d.\n",
+					 "PCIe: RC%d: fail to save state:%d.\n",
 					 pcie_dev->rc_idx, ret);
 				pcie_dev->suspending = false;
 				return ret;
 			}
 
-			pcie_dev->saved_state = pci_store_saved_state(dev);
 		} else {
-			pci_load_and_free_saved_state(dev,
-						      &pcie_dev->saved_state);
-			pcie_dev->saved_state = pcie_dev->default_state;
+			kfree(pcie_dev->saved_state);
+			pcie_dev->saved_state = NULL;
+
 			PCIE_DBG(pcie_dev,
-				 "PCIe: RC%d: saved default config space\n",
+				 "PCIe: RC%d: load default config space\n",
 				 pcie_dev->rc_idx);
+			ret = pci_load_saved_state(dev, pcie_dev->default_state);
+			if (ret) {
+				PCIE_ERR(pcie_dev,
+					 "PCIe: RC%d: fail to load default state:%d.\n",
+					 pcie_dev->rc_idx, ret);
+				pcie_dev->suspending = false;
+				return ret;
+			}
 		}
+
+		PCIE_DBG(pcie_dev, "PCIe: RC%d: store saved state\n",
+							 pcie_dev->rc_idx);
+		pcie_dev->saved_state = pci_store_saved_state(dev);
 	}
 
 	spin_lock_irqsave(&pcie_dev->cfg_lock,

@@ -694,6 +694,15 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
 		device->snapshot_memory_atomic.ptr = devm_kzalloc(&device->pdev->dev,
 				device->snapshot_memory_atomic.size, GFP_ATOMIC);
 
+		/* If we fail to allocate more than 1MB fall back to 1MB */
+		if ((!device->snapshot_memory_atomic.ptr) &&
+			device->snapshot_memory_atomic.size > SZ_1M) {
+			dev_err(device->dev, "Retrying atomic snapshot with 1MB\n");
+			device->snapshot_memory_atomic.size = SZ_1M;
+			device->snapshot_memory_atomic.ptr = devm_kzalloc(&device->pdev->dev,
+				device->snapshot_memory_atomic.size, GFP_ATOMIC);
+		}
+
 		if (!device->snapshot_memory_atomic.ptr) {
 			dev_err(device->dev,
 				"KGSL failed to allocate memory for atomic snapshot\n");

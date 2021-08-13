@@ -519,12 +519,6 @@ static int mhi_sm_prepare_resume(void)
 			}
 		}
 
-		res = mhi_dev_resume(mhi_sm_ctx->mhi_dev);
-		if (res) {
-			MHI_SM_ERR("Failed resuming mhi core: %d", res);
-			goto exit;
-		}
-
 		res = ipa_mhi_resume();
 		if (res) {
 			MHI_SM_ERR("Failed resuming ipa_mhi:%d", res);
@@ -544,11 +538,27 @@ static int mhi_sm_prepare_resume(void)
 		/* Send state change notification only if we were in M3 state */
 		res = mhi_dev_send_state_change_event(mhi_sm_ctx->mhi_dev,
 				MHI_DEV_M0_STATE);
-	if (res) {
-		MHI_SM_ERR("Failed to send event %s to host, returned %d\n",
-			mhi_sm_dev_event_str(MHI_DEV_EVENT_M0_STATE), res);
-		goto exit;
+		if (res) {
+			MHI_SM_ERR("Failed to send event %s to host, ret =%d\n",
+				mhi_sm_dev_event_str(MHI_DEV_EVENT_M0_STATE),
+				res);
+			goto exit;
+		}
 	}
+
+	/*
+	 * Defer mhi resume till M0 ack is notified to host.
+	 * This is to ensure no outstanding transfer completion events are send
+	 * to host before M0 ack.
+	 */
+	if ((old_state == MHI_DEV_M3_STATE) ||
+		(old_state == MHI_DEV_M2_STATE)) {
+		res = mhi_dev_resume(mhi_sm_ctx->mhi_dev);
+		if (res) {
+			MHI_SM_ERR("Failed resuming mhi core, returned %d",
+				res);
+			goto exit;
+		}
 	}
 
 	if (old_state == MHI_DEV_READY_STATE) {
