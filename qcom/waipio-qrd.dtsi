@@ -283,5 +283,5 @@
 };
 
 &ibat_lvl1 {
-	temperature = <9500>;
+	temperature = <10000>;
 };
