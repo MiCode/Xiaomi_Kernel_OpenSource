@@ -1738,20 +1738,20 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_SUSPEND:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
+retry:
 		if (pci_priv->drv_connected_last) {
 			ret = mhi_pm_fast_suspend(pci_priv->mhi_ctrl, true);
 		} else {
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
-			/* in some corner case, when cnss try to suspend,
-			 * there is still packets pending in mhi layer,
-			 * so retry suspend to save roll back effort.
-			 */
-			while (ret == -EBUSY && retry < MHI_SUSPEND_RETRY_CNT) {
-				usleep_range(5000, 6000);
-				retry++;
-				cnss_pr_err("mhi is busy, retry #%u", retry);
-				ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
-			}
+		}
+		/* in some corner case, when cnss try to suspend,
+		 * there is still packets pending in mhi layer,
+		 * so retry suspend to save roll back effort.
+		 */
+		if (ret == -EBUSY && retry++ < MHI_SUSPEND_RETRY_CNT) {
+			usleep_range(5000, 6000);
+			cnss_pr_err("mhi is busy, retry #%u", retry);
+			goto retry;
 		}
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
