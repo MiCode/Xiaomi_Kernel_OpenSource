@@ -26,7 +26,9 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases { };
+	aliases {
+		serial0 = &qupv3_se5_2uart;
+	 };
 
 	firmware: firmware { };
 
@@ -1289,10 +1291,15 @@
 	};
 };
 
+#include "diwali-qupv3.dtsi"
 #include "diwali-pinctrl.dtsi"
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 #include "ipcc-test-diwali.dtsi"
+
+&qupv3_se5_2uart {
+	status = "ok";
+};
 
 &cam_cc_bps_gdsc {
 	clocks = <&gcc GCC_CAMERA_AHB_CLK>;

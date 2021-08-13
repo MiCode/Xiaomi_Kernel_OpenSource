@@ -91,3 +91,8 @@
 		<&sleep_clk>,
 		<&gcc GCC_CAMERA_AHB_CLK>;
 };
+
+/* Debug UART Console */
+&qupv3_se5_2uart {
+	qcom,rumi_platform;
+};

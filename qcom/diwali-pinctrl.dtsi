@@ -1,1 +1,29 @@
-&tlmm { };
+&tlmm {
+	qupv3_se5_2uart_pins: qupv3_se5_2uart_pins {
+		qupv3_se5_2uart_active: qupv3_se5_2uart_active {
+			mux {
+				pins = "gpio22", "gpio23";
+				function = "qup0_se5";
+			};
+
+			config {
+				pins = "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+	qupv3_se5_2uart_sleep: qupv3_se5_2uart_sleep {
+			mux {
+				pins = "gpio22", "gpio23";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};
