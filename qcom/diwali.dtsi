@@ -953,6 +953,17 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_wlan_1_in: qcom,smp2p-wlan-1-in {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		smp2p_wlan_1_out: qcom,smp2p-wlan-1-out {
+			qcom,entry-name = "wlan";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
 	qcom,glinkpkt {
@@ -1256,6 +1267,60 @@
 		/* Outputs to wpss */
 		qcom,smem-states = <&wpss_smp2p_out 0>;
 		qcom,smem-state-names = "stop";
+	};
+
+	icnss2: qcom,wcn6750 {
+		compatible = "qcom,wcn6750";
+		reg = <0x17110040 0x0>,
+		      <0xb0000000 0x10000>;
+		reg-names = "msi_addr", "smmu_iova_ipa";
+		qcom,rproc-handle = <&wpss_pas>;
+		interrupts = <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 769 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 770 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 771 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 772 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 773 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 774 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 775 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 776 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 777 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 778 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 779 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 780 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 781 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 782 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 783 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 784 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 785 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 786 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 787 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 788 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 789 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 790 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 791 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 792 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 793 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 794 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 795 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 796 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 797 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 798 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 799 IRQ_TYPE_EDGE_RISING>;
+
+		qcom,iommu-dma = "bypass";
+		qcom,fw-prefix;
+		qcom,wlan;
+		qcom,wlan-msa-fixed-region = <&wlan_fw_mem>;
+		qcom,smem-states = <&smp2p_wlan_1_out 0>;
+		qcom,smem-state-names = "wlan-smp2p-out";
+
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
 	};
 
 	eud: qcom,msm-eud@88e0000 {
