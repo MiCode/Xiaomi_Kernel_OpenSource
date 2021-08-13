@@ -4,6 +4,10 @@
 	status = "disabled";
 };
 
+&bluetooth {
+	status = "disabled";
+};
+
 &soc {
 	wlan_wcn7850: qcom,cnss-wcn7850@b0000000 {
 		compatible = "qcom,cnss-wcn7850";
@@ -67,6 +71,25 @@
 		<100000 1804800>,
 		<175000 6220800>,
 		<7500 2188800>;
+	};
+
+	bt_hmt: bt_wcn7850 {
+		compatible = "qcom,wcn7850";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
+		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
+
+		qcom,bt-vdd-aon-supply = <&S11B>;
+		qcom,bt-vdd-dig-supply = <&S11B>;
+		qcom,bt-vdd-rfa1-supply = <&S1C>;
+		qcom,bt-vdd-rfa2-supply = <&S12B>;
+
+		qcom,bt-vdd-aon-config = <950000 950000 0 1>;
+		qcom,bt-vdd-dig-config = <950000 950000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1900000 1900000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
 	};
 };
 
