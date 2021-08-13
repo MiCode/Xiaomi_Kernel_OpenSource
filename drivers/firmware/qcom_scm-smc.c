@@ -167,6 +167,12 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 		res->result[2] = smc_res.a3;
 	}
 
-	return (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
+	if (smc_res.a0 == QCOM_SCM_WAITQ_SLEEP ||
+			smc_res.a0 == QCOM_SCM_WAITQ_WAKE) {
+		/* Atomic calls should not wait */
+		BUG_ON(call_type == QCOM_SCM_CALL_ATOMIC);
+		return qcom_scm_handle_wait(dev, smc_res.a0, res);
+	}
 
+	return (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
 }
