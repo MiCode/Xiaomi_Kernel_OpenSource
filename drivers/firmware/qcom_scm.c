@@ -2,6 +2,8 @@
 /* Copyright (c) 2010,2015,2019,2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
+#define pr_fmt(fmt)     "qcom-scm: %s: " fmt, __func__
+
 #include <linux/platform_device.h>
 #include <linux/init.h>
 #include <linux/cpumask.h>
@@ -12,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/qcom_scm.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/reboot.h>
@@ -20,6 +23,10 @@
 #include <linux/arm-smccc.h>
 #include <soc/qcom/qseecom_scm.h>
 #include <linux/delay.h>
+#include <linux/idr.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/ktime.h>
 
 #include "qcom_scm.h"
 #include "qtee_shmbridge_internal.h"
@@ -36,6 +43,12 @@ module_param(pas_shutdown_retry_max, uint, 0644);
 #define SCM_HAS_IFACE_CLK	BIT(1)
 #define SCM_HAS_BUS_CLK		BIT(2)
 
+struct qcom_scm_waitq {
+	struct idr idr;
+	spinlock_t idr_lock;
+	struct work_struct scm_irq_work;
+};
+
 struct qcom_scm {
 	struct device *dev;
 	struct clk *core_clk;
@@ -43,6 +56,7 @@ struct qcom_scm {
 	struct clk *bus_clk;
 	struct reset_controller_dev reset;
 	struct notifier_block restart_nb;
+	struct qcom_scm_waitq waitq;
 
 	u64 dload_mode_addr;
 };
@@ -56,6 +70,9 @@ struct qcom_scm {
 #define QCOM_SCM_FLAG_WARMBOOT_CPU1	0x02
 #define QCOM_SCM_FLAG_WARMBOOT_CPU2	0x10
 #define QCOM_SCM_FLAG_WARMBOOT_CPU3	0x40
+
+#define QCOM_SMC_WAITQ_FLAG_WAKE_ONE	BIT(0)
+#define QCOM_SMC_WAITQ_FLAG_WAKE_ALL	BIT(1)
 
 struct qcom_scm_wb_entry {
 	int flag;
@@ -2556,11 +2573,97 @@ static int qcom_scm_do_restart(struct notifier_block *this, unsigned long event,
 	return NOTIFY_OK;
 }
 
+struct completion *qcom_scm_lookup_wq(struct qcom_scm *scm, u32 wq_ctx)
+{
+	struct completion *wq = NULL;
+	u32 wq_ctx_idr = wq_ctx;
+	unsigned long flags;
+	int err;
+
+	spin_lock_irqsave(&scm->waitq.idr_lock, flags);
+	wq = idr_find(&scm->waitq.idr, wq_ctx);
+	if (wq)
+		goto out;
+
+	wq = devm_kzalloc(scm->dev, sizeof(*wq), GFP_ATOMIC);
+	if (!wq) {
+		wq = ERR_PTR(-ENOMEM);
+		goto out;
+	}
+
+	init_completion(wq);
+
+	err = idr_alloc_u32(&scm->waitq.idr, wq, &wq_ctx_idr,
+			    (wq_ctx_idr < U32_MAX ? : U32_MAX), GFP_ATOMIC);
+	if (err < 0) {
+		devm_kfree(scm->dev, wq);
+		wq = ERR_PTR(err);
+	}
+
+out:
+	spin_unlock_irqrestore(&scm->waitq.idr_lock, flags);
+	return wq;
+}
+
+void scm_waitq_flag_handler(struct completion *wq, u32 flags)
+{
+	switch (flags) {
+	case QCOM_SMC_WAITQ_FLAG_WAKE_ONE:
+		complete(wq);
+		break;
+	case QCOM_SMC_WAITQ_FLAG_WAKE_ALL:
+		complete_all(wq);
+		break;
+	default:
+		pr_err("invalid flags: %u\n", flags);
+	}
+}
+
+static void scm_irq_work(struct work_struct *work)
+{
+	int ret;
+	u32 wq_ctx, flags, more_pending = 0;
+	struct completion *wq_to_wake;
+	struct qcom_scm_waitq *w = container_of(work, struct qcom_scm_waitq, scm_irq_work);
+	struct qcom_scm *scm = container_of(w, struct qcom_scm, waitq);
+
+	if (qcom_scm_convention != SMC_CONVENTION_ARM_64) {
+		/* Unsupported */
+		return;
+	}
+
+	do {
+		ret = scm_get_wq_ctx(&wq_ctx, &flags, &more_pending);
+		if (ret) {
+			pr_err("GET_WQ_CTX SMC call failed: %d\n", ret);
+			return;
+		}
+
+		wq_to_wake = qcom_scm_lookup_wq(scm, wq_ctx);
+		if (IS_ERR_OR_NULL(wq_to_wake)) {
+			pr_err("No waitqueue found for wq_ctx %d: %d\n",
+					wq_ctx, PTR_ERR(wq_to_wake));
+			return;
+		}
+
+		scm_waitq_flag_handler(wq_to_wake, flags);
+	} while (more_pending);
+}
+
+static irqreturn_t qcom_scm_irq_handler(int irq, void *p)
+{
+	struct qcom_scm *scm = p;
+
+	schedule_work(&scm->waitq.scm_irq_work);
+
+	return IRQ_HANDLED;
+}
+
 static int qcom_scm_probe(struct platform_device *pdev)
 {
 	struct qcom_scm *scm;
 	unsigned long clks;
-	int ret;
+	int irq, ret;
 
 	scm = devm_kzalloc(&pdev->dev, sizeof(*scm), GFP_KERNEL);
 	if (!scm)
@@ -2627,8 +2730,29 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	platform_set_drvdata(pdev, scm);
+
 	__scm = scm;
 	__scm->dev = &pdev->dev;
+
+	spin_lock_init(&__scm->waitq.idr_lock);
+	idr_init(&__scm->waitq.idr);
+	if (of_device_is_compatible(__scm->dev->of_node, "qcom,scm-v1.1")) {
+		INIT_WORK(&__scm->waitq.scm_irq_work, scm_irq_work);
+
+		irq = platform_get_irq(pdev, 0);
+		if (irq < 0) {
+			pr_err("IRQ not specified: %d\n", irq);
+			return irq;
+		}
+
+		ret = devm_request_threaded_irq(__scm->dev, irq, NULL,
+			qcom_scm_irq_handler, IRQF_ONESHOT, "qcom-scm", __scm);
+		if (ret < 0) {
+			pr_err("Failed to request qcom-scm irq: %d\n", ret);
+			return ret;
+		}
+	}
 
 	__get_convention();
 
@@ -2649,6 +2773,7 @@ static int qcom_scm_probe(struct platform_device *pdev)
 
 static void qcom_scm_shutdown(struct platform_device *pdev)
 {
+	idr_destroy(&__scm->waitq.idr);
 	qcom_scm_disable_sdi();
 	qcom_scm_halt_spmi_pmic_arbiter();
 	/* Clean shutdown, disable download mode to allow normal restart */
@@ -2681,6 +2806,7 @@ static const struct of_device_id qcom_scm_dt_match[] = {
 	{ .compatible = "qcom,scm-msm8994" },
 	{ .compatible = "qcom,scm-msm8996" },
 	{ .compatible = "qcom,scm" },
+	{ .compatible = "qcom,scm-v1.1" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qcom_scm_dt_match);
