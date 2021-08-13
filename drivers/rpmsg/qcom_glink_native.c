@@ -1241,25 +1241,25 @@ static int qcom_glink_handle_signals(struct qcom_glink *glink,
 	return 0;
 }
 
-static irqreturn_t qcom_glink_native_intr(int irq, void *data)
+static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 {
-	struct qcom_glink *glink = data;
 	struct glink_msg msg;
 	unsigned int param1;
 	unsigned int param2;
 	unsigned int avail;
 	unsigned int cmd;
 	int ret = 0;
+	int i;
 
 	if (should_wake) {
-		pr_info("%s: %d triggered %s\n", __func__, irq, glink->irqname);
+		pr_info("%s: wakeup %s\n", __func__, glink->irqname);
 		glink_resume_pkt = true;
 		pm_system_wakeup();
 	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 
-	for (;;) {
+	for (i = 0; i < iterations || !iterations; i++) {
 		avail = qcom_glink_rx_avail(glink);
 		if (avail < sizeof(msg))
 			break;
@@ -1323,6 +1323,25 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 		if (ret)
 			break;
 	}
+
+	return qcom_glink_rx_avail(glink);
+}
+
+static irqreturn_t qcom_glink_native_intr(int irq, void *data)
+{
+	struct qcom_glink *glink = data;
+	int ret;
+
+	ret = qcom_glink_native_rx(glink, 10);
+
+	return (ret) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t qcom_glink_native_thread_intr(int irq, void *data)
+{
+	struct qcom_glink *glink = data;
+
+	qcom_glink_native_rx(glink, 0);
 
 	return IRQ_HANDLED;
 }
@@ -2157,10 +2176,11 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
 
 	irq = of_irq_get(dev->of_node, 0);
-	ret = devm_request_irq(dev, irq,
-			       qcom_glink_native_intr,
-			       IRQF_NO_SUSPEND | IRQF_SHARED,
-			       glink->irqname, glink);
+	ret = devm_request_threaded_irq(dev, irq,
+					qcom_glink_native_intr,
+					qcom_glink_native_thread_intr,
+					IRQF_NO_SUSPEND | IRQF_ONESHOT,
+					glink->irqname, glink);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ\n");
 		return ERR_PTR(ret);
