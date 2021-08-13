@@ -120,6 +120,8 @@ its hardware characteristcs.
 
 	* port or ports: see "Graph bindings for Coresight" below.
 
+	* coresight-name: Unique name to describe the coresight component.
+
 * Additional required property for coresight-tgu devices:
 	* tgu-steps: must be present. Indicates number of steps supported
 	  by the TGU.
