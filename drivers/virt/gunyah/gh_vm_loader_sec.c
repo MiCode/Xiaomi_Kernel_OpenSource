@@ -42,7 +42,6 @@ struct gh_sec_vm_dev {
 struct gh_sec_vm_struct {
 	struct gh_vm_struct *vm_struct;
 	struct gh_sec_vm_dev *vm_dev;
-	struct mutex vm_lock;
 	int vmid;
 	struct gh_vm_status vm_status;
 	wait_queue_head_t vm_status_wait;
@@ -51,6 +50,8 @@ struct gh_sec_vm_struct {
 	wait_queue_head_t vm_exited_wait;
 	u32 exit_type;
 	u32 restart_level;
+	bool destroy_vm;
+	struct completion vm_destroy;
 };
 
 #define GH_VM_LOADER_SEC_STATUS_TIMEOUT_MS 5000
@@ -252,19 +253,45 @@ gh_vm_loader_handle_shutdown(struct gh_sec_vm_struct *sec_vm_struct,
 }
 
 static void
-gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
+gh_vm_loader_sec_destroy_vm(struct gh_sec_vm_struct *sec_vm_struct)
+{
+	struct gh_vm_struct *vm_struct = sec_vm_struct->vm_struct;
+
+	mutex_lock(&vm_struct->vm_lock);
+	gh_vm_loader_set_loader_data(vm_struct, NULL);
+	kfree(sec_vm_struct);
+	mutex_unlock(&vm_struct->vm_lock);
+
+	/* vm_struct should not be accessed after this */
+	gh_vm_loader_destroy_vm(vm_struct);
+}
+
+static void
+gh_vm_loader_sec_notif_vm_exited(struct gh_vm_struct *vm_struct,
 			struct gh_rm_notif_vm_exited_payload *vm_exited)
 {
-	struct device *dev = sec_vm_struct->vm_dev->dev;
+	struct gh_sec_vm_struct *sec_vm_struct;
+	struct device *dev;
 	u32 ioc_exit_reason = GH_VM_EXIT_REASON_UNKNOWN;
+
+	mutex_lock(&vm_struct->vm_lock);
+	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
+	if (!sec_vm_struct) {
+		pr_err("sec_vm_struct not available to honor vm_exited: %d\n",
+				vm_exited->exit_type);
+		mutex_unlock(&vm_struct->vm_lock);
+		return;
+	}
+
+	dev = sec_vm_struct->vm_dev->dev;
 
 	if (sec_vm_struct->vmid != vm_exited->vmid) {
 		dev_warn(dev, "VM_EXITED:%d notif not for this vm\n",
 				vm_exited->exit_type);
+		mutex_unlock(&vm_struct->vm_lock);
 		return;
 	}
 
-	mutex_lock(&sec_vm_struct->vm_lock);
 
 	sec_vm_struct->exit_type = vm_exited->exit_type;
 	wake_up_interruptible(&sec_vm_struct->vm_exited_wait);
@@ -298,17 +325,28 @@ gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 
 	sec_vm_struct->ioc_exit_reason = ioc_exit_reason;
 	complete(&sec_vm_struct->ioc_vm_exit_wait);
+	if (sec_vm_struct->destroy_vm)
+		complete(&sec_vm_struct->vm_destroy);
 
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 }
 
 static void
-gh_vm_loader_sec_notif_vm_status(struct gh_sec_vm_struct *sec_vm_struct,
+gh_vm_loader_sec_notif_vm_status(struct gh_vm_struct *vm_struct,
 				struct gh_rm_notif_vm_status_payload *vm_status)
 {
-	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
-	struct device *dev = vm_dev->dev;
-	int vmid = sec_vm_struct->vmid;
+	struct gh_sec_vm_struct *sec_vm_struct;
+	struct gh_sec_vm_dev *vm_dev;
+	struct device *dev;
+	int vmid;
+
+	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
+	if (!sec_vm_struct)
+		return;
+
+	vm_dev = sec_vm_struct->vm_dev;
+	dev = vm_dev->dev;
+	vmid = sec_vm_struct->vmid;
 
 	if (vmid != vm_status->vmid) {
 		dev_warn(dev, "VM_STATUS:%d notif not for this vm\n",
@@ -346,18 +384,12 @@ gh_vm_loader_sec_notif_vm_status(struct gh_sec_vm_struct *sec_vm_struct,
 static void gh_vm_loader_sec_rm_notifier(struct gh_vm_struct *vm_struct,
 					unsigned long cmd, void *data)
 {
-	struct gh_sec_vm_struct *sec_vm_struct;
-
-	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
-	if (!sec_vm_struct)
-		return;
-
 	switch (cmd) {
 	case GH_RM_NOTIF_VM_STATUS:
-		gh_vm_loader_sec_notif_vm_status(sec_vm_struct, data);
+		gh_vm_loader_sec_notif_vm_status(vm_struct, data);
 		break;
 	case GH_RM_NOTIF_VM_EXITED:
-		gh_vm_loader_sec_notif_vm_exited(sec_vm_struct, data);
+		gh_vm_loader_sec_notif_vm_exited(vm_struct, data);
 		break;
 	}
 }
@@ -403,14 +435,16 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	struct device *dev;
 	int ret, vmid;
 
+	mutex_lock(&vm_struct->vm_lock);
+
 	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
-	if (!sec_vm_struct)
-		return -EINVAL;
+	if (!sec_vm_struct) {
+		ret = -EINVAL;
+		goto err_unlock;
+	}
 
 	vm_dev = sec_vm_struct->vm_dev;
 	dev = vm_dev->dev;
-
-	mutex_lock(&sec_vm_struct->vm_lock);
 
 	if (sec_vm_struct->vm_status.vm_status != GH_RM_VM_STATUS_INIT) {
 		dev_err(dev, "VM already loaded\n");
@@ -428,7 +462,7 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 			if (IS_ERR_OR_NULL(gh_vm_status)) {
 				dev_err(dev, "Failed to get vm status: %d\n", ret);
 				ret = PTR_ERR(gh_vm_status);
-				goto err_unlock;
+				goto err_notify;
 			}
 			if (gh_vm_status->vm_status == GH_RM_VM_STATUS_RUNNING) {
 				dev_info(dev, "VM %d already running\n", vm_dev->vmid);
@@ -438,7 +472,7 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 			}
 		}
 		dev_err(dev, "Failed to obtain the vmid: %d\n", ret);
-		goto err_unlock;
+		goto err_notify;
 	}
 	vmid = vm_dev->vmid;
 	sec_vm_struct->vmid = vmid;
@@ -467,29 +501,29 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	ret = gh_vm_loader_wait_for_vm_status(sec_vm_struct,
 						GH_RM_VM_STATUS_RUNNING);
 	if (ret)
-		goto err_reset_vm;
+		goto err_unpopulate_hyp_res;
 
 	ret = gh_vm_loader_wait_for_os_status(sec_vm_struct,
 						GH_RM_OS_STATUS_BOOT);
 	if (ret)
-		goto err_reset_vm;
+		goto err_unpopulate_hyp_res;
 
 power_up_success:
 	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_AFTER_POWERUP);
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 	return 0;
 
-err_reset_vm:
-	gh_rm_vm_reset(vmid);
 err_unpopulate_hyp_res:
 	gh_rm_unpopulate_hyp_res(vmid, vm_dev->vm_name);
+	gh_rm_vm_reset(vmid);
 err_unload:
 	qcom_scm_pas_shutdown(vm_dev->pas_id);
 err_dealloc_vmid:
 	gh_rm_vm_dealloc_vmid(vmid);
-err_unlock:
+err_notify:
 	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_POWERUP_FAIL);
-	mutex_unlock(&sec_vm_struct->vm_lock);
+err_unlock:
+	mutex_unlock(&vm_struct->vm_lock);
 	return ret;
 }
 
@@ -508,17 +542,19 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	if (wait_status < 0)
 		return -EINVAL;
 
+	mutex_lock(&vm_struct->vm_lock);
 	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
-	if (!sec_vm_struct)
+	if (!sec_vm_struct) {
+		mutex_unlock(&vm_struct->vm_lock);
 		return -EINVAL;
+	}
 
 	vm_dev = sec_vm_struct->vm_dev;
 	dev = vm_dev->dev;
 
-	mutex_lock(&sec_vm_struct->vm_lock);
 	if (sec_vm_struct->vm_status.vm_status <= GH_RM_VM_STATUS_INIT) {
 		dev_err(dev, "VM not started\n");
-		mutex_unlock(&sec_vm_struct->vm_lock);
+		mutex_unlock(&vm_struct->vm_lock);
 		return -ENODEV;
 	}
 
@@ -535,7 +571,7 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 		goto err_unlock;
 	}
 
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 
 	ret = gh_vm_loader_wait_for_vm_exited(sec_vm_struct, wait_status);
 	if (ret && wait_status != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED) {
@@ -550,7 +586,7 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	return 0;
 
 err_unlock:
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 err_notify_fail:
 	if (wait_status != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED)
 		gh_vm_loader_notify_clients(vm_struct,
@@ -569,21 +605,26 @@ gh_vm_loader_wait_for_exit(struct gh_vm_struct *vm_struct, void __user *argp)
 	if (!sec_vm_struct)
 		return -EINVAL;
 
-	mutex_lock(&sec_vm_struct->vm_lock);
+	mutex_lock(&vm_struct->vm_lock);
 	if (sec_vm_struct->vm_status.vm_status != GH_RM_VM_STATUS_RUNNING) {
 		dev_err(sec_vm_struct->vm_dev->dev, "VM not started\n");
-		mutex_unlock(&sec_vm_struct->vm_lock);
+		mutex_unlock(&vm_struct->vm_lock);
 		return -ENODEV;
 	}
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 
 	if (wait_for_completion_interruptible(&sec_vm_struct->ioc_vm_exit_wait))
 		return -ERESTARTSYS;
 
-	mutex_lock(&sec_vm_struct->vm_lock);
+	mutex_lock(&vm_struct->vm_lock);
+	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
+	if (!sec_vm_struct) {
+		mutex_unlock(&vm_struct->vm_lock);
+		return -EINVAL;
+	}
 	reinit_completion(&sec_vm_struct->ioc_vm_exit_wait);
 	exit_status.reason = sec_vm_struct->ioc_exit_reason;
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 
 	if (copy_to_user(argp, &exit_status, sizeof(exit_status)))
 		return -EFAULT;
@@ -603,9 +644,9 @@ static int gh_vm_loader_set_restart_level(struct gh_vm_struct *vm_struct,
 	if (!sec_vm_struct)
 		return -EINVAL;
 
-	mutex_lock(&sec_vm_struct->vm_lock);
+	mutex_lock(&vm_struct->vm_lock);
 	sec_vm_struct->restart_level = arg;
-	mutex_unlock(&sec_vm_struct->vm_lock);
+	mutex_unlock(&vm_struct->vm_lock);
 
 	return 0;
 }
@@ -637,18 +678,33 @@ static int gh_vm_loader_sec_release(struct inode *inode, struct file *file)
 {
 	struct gh_vm_struct *vm_struct = file->private_data;
 	struct gh_sec_vm_struct *sec_vm_struct;
+	struct gh_sec_vm_dev *vm_dev;
+	int ret = 0;
 
 	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
-	if (sec_vm_struct) {
-		gh_vm_loader_set_loader_data(vm_struct, NULL);
-		mutex_destroy(&sec_vm_struct->vm_lock);
-		kfree(sec_vm_struct);
+
+	if (!sec_vm_struct) {
+		gh_vm_loader_destroy_vm(vm_struct);
+		return 0;
 	}
 
-	/* vm_struct should not be accessed after this */
-	gh_vm_loader_destroy_vm(vm_struct);
-
-	return 0;
+	sec_vm_struct->destroy_vm = true;
+	vm_dev = sec_vm_struct->vm_dev;
+	mutex_lock(&vm_struct->vm_lock);
+	if (sec_vm_struct->vm_status.vm_status == GH_RM_VM_STATUS_INIT) {
+		mutex_unlock(&vm_struct->vm_lock);
+	} else {
+		mutex_unlock(&vm_struct->vm_lock);
+		ret = gh_vm_loader_sec_stop(vm_struct, GH_VM_STOP_RESTART, 0);
+		if (ret) {
+			dev_err(sec_vm_struct->vm_dev->dev, "Failed to stop VM %d\n", ret);
+			ret = -EBUSY;
+		}
+		if (!vm_dev->always_on_vm)
+			wait_for_completion_interruptible(&sec_vm_struct->vm_destroy);
+	}
+	gh_vm_loader_sec_destroy_vm(sec_vm_struct);
+	return ret;
 }
 
 static const struct file_operations gh_vm_loader_sec_fops = {
@@ -675,9 +731,9 @@ static int gh_vm_loader_sec_vm_init(struct gh_vm_struct *vm_struct)
 	if (!sec_vm_struct)
 		return -ENOMEM;
 
-	mutex_init(&sec_vm_struct->vm_lock);
 	init_waitqueue_head(&sec_vm_struct->vm_status_wait);
 	init_completion(&sec_vm_struct->ioc_vm_exit_wait);
+	init_completion(&sec_vm_struct->vm_destroy);
 	init_waitqueue_head(&sec_vm_struct->vm_exited_wait);
 
 	sec_vm_struct->vm_struct = vm_struct;

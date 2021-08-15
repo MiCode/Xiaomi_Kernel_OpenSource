@@ -24,13 +24,7 @@ struct gh_vm_loader_name_map {
 	const char *str;
 };
 
-struct gh_vm_struct {
-	u16 type;
-	struct gh_vm_loader_info *loader_info;
-	void *loader_data;
-	struct gh_vm_loader_name_map *name_map;
-	struct notifier_block rm_nb;
-};
+struct gh_vm_struct vm_struct_ptr[GH_VM_MAX];
 
 SRCU_NOTIFIER_HEAD_STATIC(gh_vm_loader_notifier);
 
@@ -104,6 +98,19 @@ void *gh_vm_loader_get_loader_data(struct gh_vm_struct *vm_struct)
 	return vm_struct->loader_data;
 }
 
+static void gh_vm_loader_init_vm_struct(struct gh_vm_struct *vm_struct)
+{
+	if (!vm_struct)
+		return;
+
+	mutex_lock(&vm_struct->vm_lock);
+	vm_struct->vm_created = false;
+	vm_struct->type = GH_VM_TYPES_MAX;
+	vm_struct->loader_info = NULL;
+	vm_struct->name_map = NULL;
+	mutex_unlock(&vm_struct->vm_lock);
+}
+
 static int gh_vm_loader_rm_notifer_fn(struct notifier_block *nb,
 					unsigned long cmd, void *data)
 {
@@ -139,7 +146,7 @@ void gh_vm_loader_destroy_vm(struct gh_vm_struct *vm_struct)
 		return;
 
 	gh_rm_unregister_notifier(&vm_struct->rm_nb);
-	kfree(vm_struct);
+	gh_vm_loader_init_vm_struct(vm_struct);
 }
 
 static struct gh_vm_struct *gh_vm_loader_create_vm(unsigned long arg)
@@ -173,9 +180,17 @@ static struct gh_vm_struct *gh_vm_loader_create_vm(unsigned long arg)
 		return ERR_PTR(-EINVAL);
 	}
 
-	vm_struct = kzalloc(sizeof(*vm_struct), GFP_KERNEL);
-	if (!vm_struct)
-		return ERR_PTR(-ENOMEM);
+	vm_struct = &vm_struct_ptr[name_map->val];
+	mutex_lock(&vm_struct->vm_lock);
+
+	if (!vm_struct->vm_created) {
+		vm_struct->vm_created = true;
+	} else {
+		pr_err("VM %s already created\n", vm_create.name);
+		ret = -EBUSY;
+		mutex_unlock(&vm_struct->vm_lock);
+		return ERR_PTR(ret);
+	}
 
 	vm_struct->type = vm_create.type;
 	vm_struct->loader_info = loader_info;
@@ -183,13 +198,16 @@ static struct gh_vm_struct *gh_vm_loader_create_vm(unsigned long arg)
 
 	vm_struct->rm_nb.notifier_call = gh_vm_loader_rm_notifer_fn;
 	ret = gh_rm_register_notifier(&vm_struct->rm_nb);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&vm_struct->vm_lock);
 		goto err_free_vm_struct;
+	}
 
+	mutex_unlock(&vm_struct->vm_lock);
 	return vm_struct;
 
 err_free_vm_struct:
-	kfree(vm_struct);
+	gh_vm_loader_init_vm_struct(vm_struct);
 	return ERR_PTR(ret);
 }
 
@@ -336,7 +354,7 @@ static void gh_vm_loader_exit_loaders(void)
 
 static int __init gh_vm_loader_init(void)
 {
-	int ret;
+	int ret, map;
 
 	ret = gh_vm_loader_init_loaders();
 	if (ret) {
@@ -347,6 +365,11 @@ static int __init gh_vm_loader_init(void)
 	ret = misc_register(&gh_vm_loader_dev);
 	if (ret)
 		goto err_exit_loaders;
+
+	for (map = 0; map < GH_VM_MAX; map++) {
+		mutex_init(&vm_struct_ptr[map].vm_lock);
+		gh_vm_loader_init_vm_struct(&vm_struct_ptr[map]);
+	}
 
 	return 0;
 
