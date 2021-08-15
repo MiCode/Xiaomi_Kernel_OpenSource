@@ -22,21 +22,6 @@
 
 	pm8350b-bcl-lvl0 {
 		cooling-maps {
-			vbat_cpu_5 {
-				trip = <&b_bcl_lvl0>;
-				cooling-device = <&cpu5_pause 1 1>;
-			};
-
-			vbat_gpu0 {
-				trip = <&b_bcl_lvl0>;
-				cooling-device = <&msm_gpu 2 2>;
-			};
-
-			vbat_cdsp0 {
-				trip = <&b_bcl_lvl0>;
-				cooling-device = <&cdsp_sw 2 2>;
-			};
-
 			vbat_lte0 {
 				trip = <&b_bcl_lvl0>;
 				cooling-device = <&modem_lte_dsc 255 255>;
@@ -46,11 +31,31 @@
 				trip = <&b_bcl_lvl0>;
 				cooling-device = <&modem_nr_scg_dsc 255 255>;
 			};
+
+			vbat_cdsp0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vbat_cpu_5 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu5_pause 1 1>;
+			};
+
+			vbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 		};
 	};
 
 	pm8350b-bcl-lvl1 {
 		cooling-maps {
+			vbat_cdsp1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
 			vbat_cpu_6_7 {
 				trip = <&b_bcl_lvl1>;
 				cooling-device = <&cpu_6_7_pause 1 1>;
@@ -60,45 +65,25 @@
 				trip = <&b_bcl_lvl1>;
 				cooling-device = <&msm_gpu 4 4>;
 			};
-
-			vbat_cdsp1 {
-				trip = <&b_bcl_lvl1>;
-				cooling-device = <&cdsp_sw 4 4>;
-			};
 		};
 	};
 
 	pm8350b-bcl-lvl2 {
 		cooling-maps {
-			vbat_gpu2 {
-				trip = <&b_bcl_lvl2>;
-				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
-			};
-
 			vbat_cdsp2 {
 				trip = <&b_bcl_lvl2>;
 				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			vbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
 
 	pm8350c-bcl-lvl0 {
 		cooling-maps {
-			vph_cpu_5 {
-				trip = <&c_bcl_lvl0>;
-				cooling-device = <&cpu5_pause 1 1>;
-			};
-
-			vph_gpu0 {
-				trip = <&c_bcl_lvl0>;
-				cooling-device = <&msm_gpu 2 2>;
-			};
-
-			vph_cdsp0 {
-				trip = <&c_bcl_lvl0>;
-				cooling-device = <&cdsp_sw 2 2>;
-			};
-
 			vph_lte0 {
 				trip = <&c_bcl_lvl0>;
 				cooling-device = <&modem_lte_dsc 255 255>;
@@ -108,11 +93,31 @@
 				trip = <&c_bcl_lvl0>;
 				cooling-device = <&modem_nr_scg_dsc 255 255>;
 			};
+
+			vph_cdsp0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vph_cpu_5 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&cpu5_pause 1 1>;
+			};
+
+			vph_gpu0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 		};
 	};
 
 	pm8350c-bcl-lvl1 {
 		cooling-maps {
+			vph_cdsp1 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
 			vph_cpu_6_7 {
 				trip = <&c_bcl_lvl1>;
 				cooling-device = <&cpu_6_7_pause 1 1>;
@@ -122,24 +127,19 @@
 				trip = <&c_bcl_lvl1>;
 				cooling-device = <&msm_gpu 4 4>;
 			};
-
-			vph_cdsp1 {
-				trip = <&c_bcl_lvl1>;
-				cooling-device = <&cdsp_sw 4 4>;
-			};
 		};
 	};
 
 	pm8350c-bcl-lvl2 {
 		cooling-maps {
-			vph_gpu2 {
-				trip = <&c_bcl_lvl2>;
-				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
-			};
-
 			vph_cdsp2 {
 				trip = <&c_bcl_lvl2>;
 				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			vph_gpu2 {
+				trip = <&c_bcl_lvl2>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
