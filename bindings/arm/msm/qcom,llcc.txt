@@ -34,6 +34,22 @@ Properties:
 	Definition: The interrupt is associated with the llcc edac device.
 			It's used for llcc cache single and double bit error detection
 			and reporting.
+Example:
+
+	cache-controller@1100000 {
+		compatible = "qcom,sdm845-llcc";
+		reg = <0x1100000 0x200000>, <0x1300000 0x50000> ;
+		reg-names = "llcc_base", "llcc_broadcast_base";
+		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+LLCC Performance Monitor
+===
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,llcc-perfom"
 
 - clocks:
 	Usage: required
@@ -50,10 +66,11 @@ Properties:
 Example:
 
 	cache-controller@1100000 {
-		compatible = "qcom,sdm845-llcc";
-		reg = <0x1100000 0x200000>, <0x1300000 0x50000> ;
-		reg-names = "llcc_base", "llcc_broadcast_base";
-		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "qdss_clk";
+		...
+		llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+			clocks = <&aoss_qmp QDSS_CLK>;
+			clock-names = "qdss_clk";
+		};
+		...
 	};
