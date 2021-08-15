@@ -171,8 +171,15 @@ struct microdump_data {
 	/* struct notifier_block microdump_modem_panic_notifier; */
 };
 
+static int enable_microdump;
+module_param(enable_microdump, int, 0644);
+
+static int start_qcomdump;
+module_param(start_qcomdump, int, 0644);
+
 static struct microdump_data *drv;
-int microdump_crash_collection(void)
+
+static int microdump_crash_collection(void)
 {
 	int ret;
 	size_t size_reason = 0, size_data = 0;
@@ -218,10 +225,17 @@ int microdump_crash_collection(void)
 	segment[1].size = size_reason;
 	list_add(&segment[1].node, &head);
 
+	if (!enable_microdump) {
+		pr_err("%s: enable_microdump is false\n", __func__);
+		goto out;
+	}
+
+	start_qcomdump = 1;
 	ret = qcom_dump(&head, drv->microdump_dev);
 	if (ret)
 		pr_err("%s: qcom_dump() failed\n", __func__);
 
+	start_qcomdump = 0;
 out:
 	return NOTIFY_OK;
 }
