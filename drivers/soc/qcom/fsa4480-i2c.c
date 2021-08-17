@@ -196,6 +196,18 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 
 	dev_dbg(fsa_priv->dev, "%s: registered notifier for %s\n",
 		__func__, node->name);
+	if (rc)
+		return rc;
+
+	/*
+	 * as part of the init sequence check if there is a connected
+	 * USB C analog adapter
+	 */
+	if (atomic_read(&(fsa_priv->usbc_mode)) == TYPEC_ACCESSORY_AUDIO) {
+		dev_dbg(fsa_priv->dev, "%s: analog adapter already inserted\n",
+			__func__);
+		rc = fsa4480_usbc_analog_setup_switches(fsa_priv);
+	}
 
 	return rc;
 }
