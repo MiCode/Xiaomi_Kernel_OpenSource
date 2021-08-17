@@ -3207,13 +3207,9 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_event_work;
 
-	ret = cnss_dms_init(plat_priv);
-	if (ret)
-		goto deinit_qmi;
-
 	ret = cnss_debugfs_create(plat_priv);
 	if (ret)
-		goto deinit_dms;
+		goto deinit_qmi;
 
 	ret = cnss_misc_init(plat_priv);
 	if (ret)
@@ -3241,6 +3237,10 @@ retry:
 		}
 	}
 
+	ret = cnss_dms_init(plat_priv);
+	if (ret)
+		goto deinit_bus;
+
 	cnss_register_coex_service(plat_priv);
 	cnss_register_ims_service(plat_priv);
 
@@ -3252,6 +3252,9 @@ retry:
 
 	return 0;
 
+deinit_bus:
+	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
+		cnss_bus_deinit(plat_priv);
 power_off:
 	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
 		cnss_power_off_device(plat_priv);
@@ -3259,8 +3262,6 @@ deinit_misc:
 	cnss_misc_deinit(plat_priv);
 destroy_debugfs:
 	cnss_debugfs_destroy(plat_priv);
-deinit_dms:
-	cnss_dms_deinit(plat_priv);
 deinit_qmi:
 	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
@@ -3287,10 +3288,10 @@ static int cnss_remove(struct platform_device *plat_dev)
 	cnss_genl_exit();
 	cnss_unregister_ims_service(plat_priv);
 	cnss_unregister_coex_service(plat_priv);
+	cnss_dms_deinit(plat_priv);
 	cnss_bus_deinit(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
-	cnss_dms_deinit(plat_priv);
 	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
 	cnss_remove_sysfs(plat_priv);
