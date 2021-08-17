@@ -14,6 +14,8 @@
 		reg = <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_ipa";
 		wlan-en-gpio = <&tlmm 80 0>;
+		wlan-host-sol-gpio = <&tlmm 48 0>;
+		wlan-dev-sol-gpio = <&tlmm 50 0>;
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
