@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -51,7 +51,7 @@
 #define TSENS_TM_0C_THR_OFFSET			12
 #define TSENS_TM_CODE_SIGN_BIT			0x800
 #define TSENS_TM_SCALE_DECI_MILLIDEG		100
-#define TSENS_DEBUG_WDOG_TRIGGER_COUNT		5
+#define TSENS_DEBUG_WDOG_TRIGGER_COUNT		100
 #define TSENS_TM_WATCHDOG_LOG(n)		((n) + 0x13c)
 #define TSENS_TM_WATCHDOG_LOG_v23(n)		((n) + 0x170)
 #define TSENS_EN				BIT(0)
@@ -515,7 +515,7 @@ fail:
 static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 {
 	struct tsens_device *tm = data;
-	unsigned int i, status, wd_log, wd_mask;
+	unsigned int i, status, wd_log, wd_mask, wd_status;
 	unsigned long flags;
 	void __iomem *sensor_status_addr, *sensor_int_mask_addr;
 	void __iomem *sensor_critical_addr;
@@ -532,6 +532,8 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		wd_log_addr = TSENS_TM_WATCHDOG_LOG_v23(tm->tsens_tm_addr);
 	else
 		wd_log_addr = TSENS_TM_WATCHDOG_LOG(tm->tsens_tm_addr);
+	wd_status = readl_relaxed(wd_critical_addr);
+	TSENS_DBG(tm, "Critical irq status:%d\n", wd_status);
 
 	if (tm->ctrl_data->wd_bark) {
 		wd_mask = readl_relaxed(wd_critical_addr);
