@@ -18,6 +18,7 @@ phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs.ko
 pinctrl-kalama.ko
 pinctrl-msm.ko
+qcom-dload-mode.ko
 qcom-pdc.ko
 qcom-scm.ko
 qcom_dma_heaps.ko
