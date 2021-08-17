@@ -1299,6 +1299,8 @@ int adreno_device_probe(struct platform_device *pdev,
 	}
 #endif
 
+	kgsl_qcom_va_md_register(device);
+
 	return 0;
 err:
 	device->pdev = NULL;

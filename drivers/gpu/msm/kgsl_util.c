@@ -18,6 +18,7 @@
 #include <linux/string.h>
 #include <soc/qcom/minidump.h>
 
+#include "adreno.h"
 #include "kgsl_util.h"
 
 bool kgsl_regulator_disable_wait(struct regulator *reg, u32 timeout)
@@ -243,5 +244,70 @@ void kgsl_remove_from_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t s
 	ret = msm_minidump_remove_region(&md_entry);
 	if (ret < 0 && ret != -ENOENT)
 		pr_err("kgsl: Failed to remove %s from minidump\n", name);
+}
 
+int kgsl_add_va_to_minidump(struct device *dev, const char *name, void *ptr,
+		size_t size)
+{
+	struct va_md_entry entry = {0};
+	int ret;
+
+	scnprintf(entry.owner, sizeof(entry.owner), name);
+	entry.vaddr = (u64)(ptr);
+	entry.size = size;
+	ret = qcom_va_md_add_region(&entry);
+	if (ret < 0)
+		dev_err(dev, "Failed to register %s with va_minidump: %d\n", name,
+				ret);
+
+	return ret;
+}
+
+static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
+{
+	int ret;
+
+	ret = kgsl_add_va_to_minidump(device->dev, KGSL_DRIVER,
+			(void *)(&kgsl_driver), sizeof(struct kgsl_driver));
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(device->dev, KGSL_SCRATCH_ENTRY,
+			device->scratch->hostptr, device->scratch->size);
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(device->dev, KGSL_MEMSTORE_ENTRY,
+			device->memstore->hostptr, device->memstore->size);
+
+	return ret;
+}
+
+static int kgsl_va_minidump_callback(struct notifier_block *nb,
+		unsigned long action, void *unused)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(kgsl_driver.devp[0]);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (kgsl_add_driver_data_to_va_minidump(kgsl_driver.devp[0]))
+		return NOTIFY_BAD;
+
+	if (gpudev->add_to_va_minidump(adreno_dev))
+		return NOTIFY_BAD;
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block kgsl_va_minidump_nb = {
+	.priority = INT_MAX,
+	.notifier_call = kgsl_va_minidump_callback,
+};
+
+void kgsl_qcom_va_md_register(struct kgsl_device *device)
+{
+	if (!qcom_va_md_enabled())
+		return;
+
+	if (qcom_va_md_register("KGSL", &kgsl_va_minidump_nb))
+		dev_err(device->dev, "Failed to register notifier with va_minidump\n");
 }

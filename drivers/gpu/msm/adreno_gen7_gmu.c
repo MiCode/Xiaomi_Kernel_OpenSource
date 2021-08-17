@@ -2617,6 +2617,28 @@ int gen7_gmu_hfi_probe(struct adreno_device *adreno_dev)
 	return hfi->irq < 0 ? hfi->irq : 0;
 }
 
+int gen7_gmu_add_to_minidump(struct adreno_device *adreno_dev)
+{
+	struct gen7_device *gen7_dev = container_of(adreno_dev,
+					struct gen7_device, adreno_dev);
+	int ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GEN7_DEVICE,
+			(void *)(gen7_dev), sizeof(struct gen7_device));
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GMU_LOG_ENTRY,
+			gen7_dev->gmu.gmu_log->hostptr, gen7_dev->gmu.gmu_log->size);
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_HFIMEM_ENTRY,
+			gen7_dev->gmu.hfi.hfi_mem->hostptr, gen7_dev->gmu.hfi.hfi_mem->size);
+
+	return ret;
+}
+
 static int gen7_gmu_bind(struct device *dev, struct device *master, void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);

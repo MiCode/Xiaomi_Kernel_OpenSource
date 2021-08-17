@@ -1135,3 +1135,27 @@ int gen7_hwsched_probe(struct platform_device *pdev,
 
 	return adreno_hwsched_init(adreno_dev, &gen7_hwsched_ops);
 }
+
+int gen7_hwsched_add_to_minidump(struct adreno_device *adreno_dev)
+{
+	struct gen7_device *gen7_dev = container_of(adreno_dev,
+					struct gen7_device, adreno_dev);
+	struct gen7_hwsched_device *gen7_hwsched = container_of(gen7_dev,
+					struct gen7_hwsched_device, gen7_dev);
+	int ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_HWSCHED_DEVICE,
+			(void *)(gen7_hwsched), sizeof(struct gen7_hwsched_device));
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GMU_LOG_ENTRY,
+			gen7_dev->gmu.gmu_log->hostptr, gen7_dev->gmu.gmu_log->size);
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_HFIMEM_ENTRY,
+			gen7_dev->gmu.hfi.hfi_mem->hostptr, gen7_dev->gmu.hfi.hfi_mem->size);
+
+	return ret;
+}
