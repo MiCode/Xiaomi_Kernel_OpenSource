@@ -49,6 +49,7 @@ struct mml_pq_video_param {
 	uint32_t  time_stamp;
 	bool ishdr2sdr:1;
 	uint32_t param_table;
+	uint32_t xml_mode_id;
 };
 
 struct mml_pq_config {
