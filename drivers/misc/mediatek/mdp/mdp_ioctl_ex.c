@@ -16,6 +16,7 @@
 #include "mdp_def.h"
 #include "mdp_common.h"
 #include "mdp_driver.h"
+#include "mdp_pmqos.h"
 #else
 #include "cmdq_def.h"
 #include "cmdq_mdp_common.h"
@@ -597,6 +598,8 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 				struct task_private *desc_private,
 				struct cmdqRecStruct *handle)
 {
+	u32 iprop_size = sizeof(struct mdp_pmqos);
+
 	handle->engineFlag = user_job->engine_flag;
 	handle->pkt->priority = user_job->priority;
 	handle->user_debug_str = NULL;
@@ -606,11 +609,11 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 
 	if (user_job->prop_size && user_job->prop_addr &&
 		user_job->prop_size < CMDQ_MAX_USER_PROP_SIZE) {
-		handle->prop_addr = kzalloc(user_job->prop_size, GFP_KERNEL);
-		handle->prop_size = user_job->prop_size;
+		handle->prop_addr = kzalloc(iprop_size, GFP_KERNEL);
+		handle->prop_size = iprop_size;
 		if (copy_from_user(handle->prop_addr,
 				CMDQ_U32_PTR(user_job->prop_addr),
-				user_job->prop_size)) {
+				iprop_size)) {
 			CMDQ_ERR("copy prop_addr from user fail\n");
 			return -EINVAL;
 		}
