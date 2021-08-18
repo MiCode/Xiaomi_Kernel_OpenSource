@@ -447,6 +447,8 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL3_2L:
 	case DDP_COMPONENT_OVL0_2L_NWCG:
 	case DDP_COMPONENT_OVL1_2L_NWCG:
+	case DDP_COMPONENT_OVL2_2L_NWCG:
+	case DDP_COMPONENT_OVL3_2L_NWCG:
 		return 2;
 	default:
 		DDPPR_ERR("invalid ovl module=%d\n", comp->id);
@@ -465,6 +467,12 @@ unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL2_2L:
 		/* in MT6983 DDP_component_ovl0_2l use ovl1_2l HW*/
 		return MT6983_OVL1_2L_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+	case DDP_COMPONENT_OVL2_2L_NWCG:
+		return MT6983_OVL0_2L_NWCG_AID_SEL;
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+	case DDP_COMPONENT_OVL3_2L_NWCG:
+		return MT6983_OVL1_2L_NWCG_AID_SEL;
 	default:
 		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
 		return 0;
