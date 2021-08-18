@@ -1013,11 +1013,13 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 		ts_curr = curr_time.tv_sec * 1000000 + curr_time.tv_usec;
 		ts_eq = frm_info->eqtime.tv_sec * 1000000 + frm_info->eqtime.tv_usec;
 		ts_sw = ts_curr - ts_eq;
-		ts_fps = 1000000 / fps;
-		if (ts_fps > ts_sw)
-			ts_hw = ts_fps - ts_sw;
-		else
-			ts_hw = 0;
+		if (fps != 0) {
+			ts_fps = 1000000 / fps;
+			if (ts_fps > ts_sw)
+				ts_hw = ts_fps - ts_sw;
+			else
+				ts_hw = 0;
+		}
 
 		if ((fps == 0) || (ts_hw == 0)) {
 			freq = 650000000; /* Forcing highest frequency if fps is 0 */
