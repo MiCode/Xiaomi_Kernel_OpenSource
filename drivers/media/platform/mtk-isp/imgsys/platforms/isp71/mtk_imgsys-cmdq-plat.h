@@ -13,8 +13,8 @@
 #define IMGSYS_QOS_ENABLE      (0)
 
 /* Record info definitions */
-#define GCE_REC_MAX_FRAME_BLOCK     (32)
-#define GCE_REC_MAX_TILE_BLOCK      (2048)
+#define GCE_REC_MAX_FRAME_BLOCK     (6)
+#define GCE_REC_MAX_TILE_BLOCK      (40)
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
