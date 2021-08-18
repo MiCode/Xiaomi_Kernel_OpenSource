@@ -168,8 +168,8 @@ static void trusted_mem_manual_cmd_invoke(u64 cmd, u64 param1, u64 param2,
 #endif
 		break;
 	case TMEM_SECMEM_FR_DUMP_INFO:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		secmem_fr_dump_info();
 #endif
 		break;

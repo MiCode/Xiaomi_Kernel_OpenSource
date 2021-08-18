@@ -69,8 +69,8 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.mtee_chunks_id = MTEE_MCHUNKS_PROT,
 		.ssmr_feature_id = SSMR_FEAT_PROT_REGION,
 		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT_REGION},
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.notify_remote = true,
 		.notify_remote_fn = secmem_fr_set_prot_shared_region,
 #else

@@ -239,11 +239,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "2d_fr",
 		.cmd_online = "2d_fr=on",
 		.cmd_offline = "2d_fr=off",
-#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-		.enable = "on",
-#else
 		.enable = "off",
-#endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,

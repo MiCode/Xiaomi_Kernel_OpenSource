@@ -65,7 +65,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 	},
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_2D_FR,
 		.tee_smem_type = TEE_SMEM_2D_FR,
