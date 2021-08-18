@@ -1842,7 +1842,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	struct cmdq *cmdq;
 	int err, i;
 	struct gce_plat *plat_data;
-
+	static u8 hwid;
 
 	cmdq = devm_kzalloc(dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
@@ -1910,6 +1910,7 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq->clock_timer = NULL;
 	}
 
+	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
 
@@ -1973,9 +1974,6 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq_mmp_init();
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq->hwid = cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
-#endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
 	cmdq->notifier.notifier_call = cmdq_notifier_callback;
 	err = dev_pm_genpd_add_notifier(dev, &cmdq->notifier);
