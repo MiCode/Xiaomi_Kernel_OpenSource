@@ -469,7 +469,7 @@ int isp71_get_init_info(struct img_init_info *info)
 	}
 
 	info->hw_buf = isp71_get_reserve_mem_phys(DIP_MEM_FOR_HW_ID);
-	/*WPE:0, TRAW:1, DIP:2, PQDIP:3, ADL:4 */
+	/*WPE:0, ADL:1, TRAW:2, DIP:3, PQDIP:4 */
 	info->module_info[0].c_wbuf =
 				isp71_get_reserve_mem_phys(WPE_MEM_C_ID);
 	info->module_info[0].c_wbuf_dma =
@@ -487,76 +487,77 @@ int isp71_get_init_info(struct img_init_info *info)
 	info->module_info[0].t_wbuf_fd =
 				isp71_get_reserve_mem_fd(WPE_MEM_T_ID);
 
-	// TRAW
+  // ADL
 	info->module_info[1].c_wbuf =
-				isp71_get_reserve_mem_phys(TRAW_MEM_C_ID);
+				isp71_get_reserve_mem_phys(ADL_MEM_C_ID);
 	info->module_info[1].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(TRAW_MEM_C_ID);
+				isp71_get_reserve_mem_dma(ADL_MEM_C_ID);
 	info->module_info[1].c_wbuf_sz =
-				isp71_get_reserve_mem_size(TRAW_MEM_C_ID);
+				isp71_get_reserve_mem_size(ADL_MEM_C_ID);
 	info->module_info[1].c_wbuf_fd =
-				isp71_get_reserve_mem_fd(TRAW_MEM_C_ID);
+				isp71_get_reserve_mem_fd(ADL_MEM_C_ID);
 	info->module_info[1].t_wbuf =
-				isp71_get_reserve_mem_phys(TRAW_MEM_T_ID);
+				isp71_get_reserve_mem_phys(ADL_MEM_T_ID);
 	info->module_info[1].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(TRAW_MEM_T_ID);
+				isp71_get_reserve_mem_dma(ADL_MEM_T_ID);
 	info->module_info[1].t_wbuf_sz =
-				isp71_get_reserve_mem_size(TRAW_MEM_T_ID);
+				isp71_get_reserve_mem_size(ADL_MEM_T_ID);
 	info->module_info[1].t_wbuf_fd =
+				isp71_get_reserve_mem_fd(ADL_MEM_T_ID);
+
+	// TRAW
+	info->module_info[2].c_wbuf =
+				isp71_get_reserve_mem_phys(TRAW_MEM_C_ID);
+	info->module_info[2].c_wbuf_dma =
+				isp71_get_reserve_mem_dma(TRAW_MEM_C_ID);
+	info->module_info[2].c_wbuf_sz =
+				isp71_get_reserve_mem_size(TRAW_MEM_C_ID);
+	info->module_info[2].c_wbuf_fd =
+				isp71_get_reserve_mem_fd(TRAW_MEM_C_ID);
+	info->module_info[2].t_wbuf =
+				isp71_get_reserve_mem_phys(TRAW_MEM_T_ID);
+	info->module_info[2].t_wbuf_dma =
+				isp71_get_reserve_mem_dma(TRAW_MEM_T_ID);
+	info->module_info[2].t_wbuf_sz =
+				isp71_get_reserve_mem_size(TRAW_MEM_T_ID);
+	info->module_info[2].t_wbuf_fd =
 				isp71_get_reserve_mem_fd(TRAW_MEM_T_ID);
 
 		// DIP
-	info->module_info[2].c_wbuf =
+	info->module_info[3].c_wbuf =
 				isp71_get_reserve_mem_phys(DIP_MEM_C_ID);
-	info->module_info[2].c_wbuf_dma =
+	info->module_info[3].c_wbuf_dma =
 				isp71_get_reserve_mem_dma(DIP_MEM_C_ID);
-	info->module_info[2].c_wbuf_sz =
+	info->module_info[3].c_wbuf_sz =
 				isp71_get_reserve_mem_size(DIP_MEM_C_ID);
-	info->module_info[2].c_wbuf_fd =
+	info->module_info[3].c_wbuf_fd =
 				isp71_get_reserve_mem_fd(DIP_MEM_C_ID);
-	info->module_info[2].t_wbuf =
+	info->module_info[3].t_wbuf =
 				isp71_get_reserve_mem_phys(DIP_MEM_T_ID);
-	info->module_info[2].t_wbuf_dma =
+	info->module_info[3].t_wbuf_dma =
 				isp71_get_reserve_mem_dma(DIP_MEM_T_ID);
-	info->module_info[2].t_wbuf_sz =
+	info->module_info[3].t_wbuf_sz =
 				isp71_get_reserve_mem_size(DIP_MEM_T_ID);
-	info->module_info[2].t_wbuf_fd =
+	info->module_info[3].t_wbuf_fd =
 				isp71_get_reserve_mem_fd(DIP_MEM_T_ID);
 
 	// PQDIP
-	info->module_info[3].c_wbuf =
-				isp71_get_reserve_mem_phys(PQDIP_MEM_C_ID);
-	info->module_info[3].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(PQDIP_MEM_C_ID);
-	info->module_info[3].c_wbuf_sz =
-				isp71_get_reserve_mem_size(PQDIP_MEM_C_ID);
-	info->module_info[3].c_wbuf_fd =
-			isp71_get_reserve_mem_fd(PQDIP_MEM_C_ID);
-	info->module_info[3].t_wbuf =
-				isp71_get_reserve_mem_phys(PQDIP_MEM_T_ID);
-	info->module_info[3].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(PQDIP_MEM_T_ID);
-	info->module_info[3].t_wbuf_sz =
-				isp71_get_reserve_mem_size(PQDIP_MEM_T_ID);
-	info->module_info[3].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(PQDIP_MEM_T_ID);
-
 	info->module_info[4].c_wbuf =
-				isp71_get_reserve_mem_phys(ADL_MEM_C_ID);
+				isp71_get_reserve_mem_phys(PQDIP_MEM_C_ID);
 	info->module_info[4].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(ADL_MEM_C_ID);
+				isp71_get_reserve_mem_dma(PQDIP_MEM_C_ID);
 	info->module_info[4].c_wbuf_sz =
-				isp71_get_reserve_mem_size(ADL_MEM_C_ID);
+				isp71_get_reserve_mem_size(PQDIP_MEM_C_ID);
 	info->module_info[4].c_wbuf_fd =
-				isp71_get_reserve_mem_fd(ADL_MEM_C_ID);
+			isp71_get_reserve_mem_fd(PQDIP_MEM_C_ID);
 	info->module_info[4].t_wbuf =
-				isp71_get_reserve_mem_phys(ADL_MEM_T_ID);
+				isp71_get_reserve_mem_phys(PQDIP_MEM_T_ID);
 	info->module_info[4].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(ADL_MEM_T_ID);
+				isp71_get_reserve_mem_dma(PQDIP_MEM_T_ID);
 	info->module_info[4].t_wbuf_sz =
-				isp71_get_reserve_mem_size(ADL_MEM_T_ID);
+				isp71_get_reserve_mem_size(PQDIP_MEM_T_ID);
 	info->module_info[4].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(ADL_MEM_T_ID);
+				isp71_get_reserve_mem_fd(PQDIP_MEM_T_ID);
 
 	/*common*/
 	/* info->g_wbuf_fd = isp71_get_reserve_mem_fd(IMG_MEM_G_ID); */
