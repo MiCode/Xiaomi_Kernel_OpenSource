@@ -2025,8 +2025,8 @@
 		/* Microtrust SW IRQ number 506(538) ~ 511(543) */
 		utos {
 			compatible = "microtrust,utos";
-			interrupts = <GIC_SPI 506 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 507 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 506 IRQ_TYPE_EDGE_RISING 0>,
+				<GIC_SPI 507 IRQ_TYPE_EDGE_RISING 0>;
 		};
 
 		utos_tester {
