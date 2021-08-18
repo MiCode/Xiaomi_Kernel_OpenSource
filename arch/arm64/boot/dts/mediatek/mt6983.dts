@@ -12242,7 +12242,7 @@
 						<0 1 0> /* RFCK1 */,
 						<1 0 0> /* RFCK2 */,
 						<0 0> /* CONCK */;
-			mediatek,xo-buf-allow-control = <0 1 1 1 0>,
+			mediatek,xo-buf-allow-control = <0 1 1 1 1>,
 						<1 1 1>,
 						<1 1 1>,
 						<1 1>;
