@@ -5683,7 +5683,8 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	/*Msync 2.0 change to check vfp period token instead of EOF*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
 			msync_is_on(priv, params, crtc_id,
-				crtc_state, old_mtk_state)) {
+				crtc_state, old_mtk_state) &&
+			!mtk_crtc->msync2.msync_disabled) {
 		/* Msync 2.0 ToDo, consider move into mtk_crtc_wait_frame_done?
 		 * if Msync on, change to wait vfp period token,instead of eof
 		 * if 0->1 enable Msync at current frame
@@ -5909,6 +5910,8 @@ static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 			DDPINFO("[Msync] msync_disabled = false\n");
 		}
 	}
+	if (mtk_crtc->msync2.msync_disabled)
+		return;
 
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
