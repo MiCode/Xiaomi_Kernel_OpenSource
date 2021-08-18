@@ -1442,6 +1442,11 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		mtkbuf->flags |= NO_CAHCE_INVALIDATE;
 	}
 
+	mtkbuf->frm_buf.has_qpmap = 0;
+	mtkbuf->frm_buf.has_meta = 0;
+	mtkbuf->frm_buf.qpmap_dma = 0;
+	mtkbuf->frm_buf.metabuffer_dma = 0;
+
 	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved != 0) {
 		mtkbuf->frm_buf.has_meta = 1;
 		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved);
@@ -1470,8 +1475,6 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			ctx->id, buf->index, mtkbuf, buf->reserved);
 	}
 
-	mtkbuf->frm_buf.has_qpmap = 0;
-	mtkbuf->frm_buf.qpmap_dma = 0;
 	if (buf->flags & V4L2_BUF_FLAG_QP_META &&
 		buf->reserved > 0 &&
 		buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -1481,7 +1484,6 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		if (IS_ERR(mtkbuf->frm_buf.qpmap_dma)) {
 			mtk_v4l2_err("%s qpmap_dma is err 0x%p.\n", __func__,
 				mtkbuf->frm_buf.qpmap_dma);
-
 			mtk_venc_queue_error_event(ctx);
 			return -EINVAL;
 		}
@@ -1508,6 +1510,145 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		mtkbuf->frm_buf.has_qpmap = 1;
 		mtk_v4l2_debug(1, "[%d] Have Qpmap fd, buf->index:%d, qpmap_dma:%p, fd:%u",
 			ctx->id, buf->index, mtkbuf->frm_buf.qpmap_dma, buf->reserved);
+	}
+
+	if (buf->flags & V4L2_BUF_FLAG_HAS_META &&
+		buf->reserved > 0 &&
+		buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		struct dma_buf_attachment *meta_buf_att;
+		struct sg_table *meta_sgt;
+		struct metadata_info *meta_info;
+		void *meta_va = NULL;
+		int index = 0;
+		struct meta_describe meta_desc;
+		struct device *dev = NULL;
+
+		mtkbuf->frm_buf.metabuffer_dma = dma_buf_get(buf->reserved);
+		if (IS_ERR(mtkbuf->frm_buf.metabuffer_dma)) {
+			mtk_v4l2_err("%s metabuffer_dma is err 0x%p.\n", __func__,
+				mtkbuf->frm_buf.metabuffer_dma);
+			mtk_venc_queue_error_event(ctx);
+			return -EINVAL;
+		}
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+		dev	= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+		if (!dev)
+			dev = &ctx->dev->plat_dev->dev;
+#endif
+#else
+		dev	= &ctx->dev->plat_dev->dev;
+#endif
+		meta_buf_att = dma_buf_attach(mtkbuf->frm_buf.metabuffer_dma,
+			dev);
+		meta_sgt = dma_buf_map_attachment(meta_buf_att, DMA_TO_DEVICE);
+		if (IS_ERR_OR_NULL(meta_sgt)) {
+			mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", meta_sgt);
+			dma_buf_detach(mtkbuf->frm_buf.metabuffer_dma, meta_buf_att);
+			dma_buf_put(mtkbuf->frm_buf.metabuffer_dma);
+			return -EINVAL;
+		}
+
+		mtkbuf->frm_buf.metabuffer_addr = sg_dma_address(meta_sgt->sgl);
+		//check required size before doing va mapping
+		if (mtkbuf->frm_buf.metabuffer_dma->size < sizeof(struct metadata_info)) {
+			mtk_v4l2_err("V4L2_BUF_FLAG_HAS_META dma size check failed");
+			dma_buf_unmap_attachment(meta_buf_att, meta_sgt, DMA_TO_DEVICE);
+			dma_buf_detach(mtkbuf->frm_buf.metabuffer_dma, meta_buf_att);
+			dma_buf_put(mtkbuf->frm_buf.metabuffer_dma);
+			return -EINVAL;
+		}
+		meta_va = dma_buf_vmap(mtkbuf->frm_buf.metabuffer_dma);
+
+		mtk_v4l2_debug(2, "V4L2_BUF_FLAG_HAS_META  buf->reserved:%d dma_buf=%p, DMA=%lx",
+			buf->reserved, mtkbuf->frm_buf.metabuffer_dma,
+			(unsigned long)mtkbuf->frm_buf.metabuffer_addr);
+
+		if (meta_va) {
+			meta_info = (struct metadata_info *)meta_va;
+		} else {
+			mtk_v4l2_err("V4L2_BUF_FLAG_HAS_META meta_va is NULL");
+			dma_buf_unmap_attachment(meta_buf_att, meta_sgt, DMA_TO_DEVICE);
+			dma_buf_detach(mtkbuf->frm_buf.metabuffer_dma, meta_buf_att);
+			dma_buf_put(mtkbuf->frm_buf.metabuffer_dma);
+			return -EINVAL;
+		}
+
+		for (; index < MTK_MAX_METADATA_NUM; index++) {
+			memset(&meta_desc, 0, sizeof(meta_desc));
+			meta_desc.invalid = meta_info->metadata_dsc[index].invalid;
+			if (!meta_desc.invalid)
+				break;
+
+			meta_desc.fd_flag = meta_info->metadata_dsc[index].fd_flag;
+			meta_desc.type = meta_info->metadata_dsc[index].type;
+			meta_desc.size = meta_info->metadata_dsc[index].size;
+			meta_desc.value = meta_info->metadata_dsc[index].value;
+
+			mtk_v4l2_debug(1, "meta data info,index:%d fd_flag:%u type:%u size:%u val:%u)",
+				index, meta_desc.fd_flag, meta_desc.type,
+				meta_desc.size, meta_desc.value);
+
+			if (meta_desc.type == METADATA_QPMAP && !meta_desc.fd_flag) {
+				mtk_v4l2_err("qpmap should provide buffer fd");
+				continue;
+			} else if (meta_desc.type == METADATA_HDR && meta_desc.fd_flag) {
+				mtk_v4l2_err("hdr should not provide buffer fd");
+				continue;
+			}
+
+			if (meta_desc.fd_flag) {
+				if (meta_desc.type == METADATA_QPMAP) {
+					struct dma_buf_attachment *qpmap_buf_att;
+					struct sg_table *qpmap_meta_sgt;
+
+					mtkbuf->frm_buf.qpmap_dma = dma_buf_get(meta_desc.value);
+
+					if (IS_ERR(mtkbuf->frm_buf.qpmap_dma)) {
+						mtk_v4l2_err("%s qpmap_dma is err 0x%p.\n",
+							__func__, mtkbuf->frm_buf.qpmap_dma);
+						mtk_venc_queue_error_event(ctx);
+						continue;
+					}
+
+					qpmap_buf_att = dma_buf_attach(mtkbuf->frm_buf.qpmap_dma,
+						dev);
+					qpmap_meta_sgt = dma_buf_map_attachment(qpmap_buf_att,
+						DMA_TO_DEVICE);
+					if (IS_ERR_OR_NULL(qpmap_meta_sgt)) {
+						mtk_v4l2_err("dma_buf_map_attachment fail %d.\n",
+							qpmap_meta_sgt);
+						dma_buf_detach(mtkbuf->frm_buf.qpmap_dma,
+							qpmap_buf_att);
+						dma_buf_put(mtkbuf->frm_buf.qpmap_dma);
+						continue;
+					}
+					mtkbuf->frm_buf.qpmap_dma_addr =
+						sg_dma_address(qpmap_meta_sgt->sgl);
+					mtkbuf->frm_buf.has_qpmap = 1;
+					dma_buf_unmap_attachment(qpmap_buf_att,
+						qpmap_meta_sgt, DMA_TO_DEVICE);
+					dma_buf_detach(mtkbuf->frm_buf.qpmap_dma, qpmap_buf_att);
+					mtk_v4l2_debug(2, "[%d] Have Qpmap fd, buf->index:%d. qpmap_dma:%p, fd:%u",
+						ctx->id, buf->index,
+						mtkbuf->frm_buf.qpmap_dma, meta_desc.value);
+				}
+			} else {
+				if (meta_desc.type == METADATA_HDR) {
+					mtkbuf->frm_buf.has_meta = 1;
+					mtkbuf->frm_buf.meta_dma = mtkbuf->frm_buf.metabuffer_dma;
+					mtkbuf->frm_buf.meta_addr =
+						mtkbuf->frm_buf.metabuffer_addr + meta_desc.value;
+					//vpud use fd to get va and pa,we should add a
+					//offset to get real address of hdr
+					mtkbuf->frm_buf.meta_offset = meta_desc.value;
+				}
+			}
+		}
+		dma_buf_vunmap(mtkbuf->frm_buf.metabuffer_dma, meta_va);
+		dma_buf_unmap_attachment(meta_buf_att, meta_sgt, DMA_TO_DEVICE);
+		dma_buf_detach(mtkbuf->frm_buf.metabuffer_dma, meta_buf_att);
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
@@ -1776,7 +1917,7 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 		}
 	}
 
-	if (mtkbuf->frm_buf.meta_dma != 0) {
+	if (mtkbuf->frm_buf.metabuffer_dma == 0 && mtkbuf->frm_buf.meta_dma != 0) {
 		mtk_v4l2_debug(4,
 			"dma_buf_put dma_buf=%p, DMA=%lx",
 			mtkbuf->frm_buf.meta_dma,
@@ -1788,14 +1929,25 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 		mtkbuf->frm_buf.meta_dma = 0;
 	}
 
+	if (mtkbuf->frm_buf.metabuffer_dma != 0) {
+		mtk_v4l2_debug(2,
+			"dma_buf_put dma_buf=%p, DMA=%lx",
+			mtkbuf->frm_buf.metabuffer_dma,
+			(unsigned long)mtkbuf->frm_buf.metabuffer_addr);
+		dma_buf_put(mtkbuf->frm_buf.metabuffer_dma);
+		mtkbuf->frm_buf.metabuffer_dma = 0;
+	}
+
 	if (mtkbuf->frm_buf.qpmap_dma != 0) {
-		mtk_v4l2_debug(4,
+		mtk_v4l2_debug(2,
 			"dma_buf_put qpmap_dma=%p, DMA=%lx",
 			mtkbuf->frm_buf.qpmap_dma,
 			(unsigned long)mtkbuf->frm_buf.qpmap_dma_addr);
-		dma_buf_unmap_attachment(mtkbuf->frm_buf.qpmap_dma_att,
+		if (mtkbuf->frm_buf.qpmap_sgt != NULL) {
+			dma_buf_unmap_attachment(mtkbuf->frm_buf.qpmap_dma_att,
 			mtkbuf->frm_buf.qpmap_sgt, DMA_TO_DEVICE);
-		dma_buf_detach(mtkbuf->frm_buf.qpmap_dma, mtkbuf->frm_buf.qpmap_dma_att);
+			dma_buf_detach(mtkbuf->frm_buf.qpmap_dma, mtkbuf->frm_buf.qpmap_dma_att);
+		}
 		dma_buf_put(mtkbuf->frm_buf.qpmap_dma);
 		mtkbuf->frm_buf.qpmap_dma = 0;
 	}

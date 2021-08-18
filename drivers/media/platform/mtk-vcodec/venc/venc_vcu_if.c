@@ -550,8 +550,8 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		if (frm_buf->has_meta) {
 			vsi->meta_addr = frm_buf->meta_addr;
 			vsi->meta_size = sizeof(struct mtk_hdr_dynamic_info);
+			vsi->meta_offset = frm_buf->meta_offset;
 		} else {
-			vsi->meta_fd = 0;
 			vsi->meta_size = 0;
 			vsi->meta_addr = 0;
 		}
@@ -564,10 +564,10 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			vsi->qpmap_size = 0;
 		}
 
-		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%d), meta fd %d size %d %llx",
+		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%d), size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
+			out.input_fd[0], vsi->meta_size,
 			vsi->meta_addr);
 		mtk_vcodec_debug(vcu, "vsi qpmap addr %llx size%d",
 			vsi->meta_addr, vsi->qpmap_size);

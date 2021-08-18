@@ -44,6 +44,7 @@
 #define MAX_CODEC_FREQ_STEP	10
 #define MTK_VDEC_PORT_NUM	25
 #define MTK_VENC_PORT_NUM	40
+#define MTK_MAX_METADATA_NUM    8
 
 #define DEBUG_GKI 1
 
@@ -342,11 +343,31 @@ struct venc_frm_buf {
 	struct dma_buf_attachment *buf_att;
 	struct sg_table *sgt;
 	dma_addr_t meta_addr;
+	struct dma_buf_attachment *qpmap_dma_att;
+	struct sg_table *qpmap_sgt;
+	unsigned int meta_offset;
 	bool has_qpmap;
 	struct dma_buf *qpmap_dma;
 	dma_addr_t qpmap_dma_addr;
-	struct dma_buf_attachment *qpmap_dma_att;
-	struct sg_table *qpmap_sgt;
+	struct dma_buf *metabuffer_dma;
+	dma_addr_t metabuffer_addr;
+};
+
+enum metadata_type {
+	METADATA_HDR               = 0,
+	METADATA_QPMAP             = 1
+};
+
+struct meta_describe {
+	uint8_t invalid;  //1: valid 0:invalid
+	uint8_t fd_flag;  //whether pass with fd - 1:yes 0:no
+	uint32_t type;
+	uint32_t size;  //size of metadata (total in 32 bits length)
+	uint32_t value; //fd number or memory offset from the begginning of metadata buffer
+};
+
+struct metadata_info {
+	struct meta_describe metadata_dsc[MTK_MAX_METADATA_NUM];
 };
 
 /**
@@ -686,6 +707,7 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 #define V4L2_BUF_FLAG_ROI					0x00400000
 #define V4L2_BUF_FLAG_HDR_META			0x00800000
 #define V4L2_BUF_FLAG_QP_META			0x01000000
+#define V4L2_BUF_FLAG_HAS_META			0x4000000
 
 #define V4L2_EVENT_MTK_VCODEC_START	(V4L2_EVENT_PRIVATE_START + 0x00002000)
 #define V4L2_EVENT_MTK_VDEC_ERROR	(V4L2_EVENT_MTK_VCODEC_START + 1)

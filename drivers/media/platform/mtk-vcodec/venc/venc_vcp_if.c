@@ -620,7 +620,6 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 			vsi->meta_size = sizeof(struct mtk_hdr_dynamic_info);
 			vsi->meta_addr = frm_buf->meta_addr;
 		} else {
-			vsi->meta_fd = 0;
 			vsi->meta_size = 0;
 			vsi->meta_addr = 0;
 		}
@@ -633,10 +632,10 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 			vsi->qpmap_size = 0;
 		}
 
-		mtk_vcodec_debug(inst, " num_planes = %d input (dmabuf:%lx fd:%d), meta fd %d size %d %llx",
+		mtk_vcodec_debug(inst, " num_planes = %d input (dmabuf:%lx fd:%d), size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
+			out.input_fd[0], vsi->meta_size,
 			vsi->meta_addr);
 		mtk_vcodec_debug(inst, "vsi qpmap addr %llx size%d",
 			vsi->qpmap_addr, vsi->qpmap_size);
@@ -656,10 +655,6 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 		mtk_vcodec_err(inst, "AP_IPIMSG_ENC_ENCODE %d fail %d",
 					   bs_mode, ret);
 		return ret;
-	}
-
-	if (frm_buf && frm_buf->has_meta) {
-		dma_buf_put(frm_buf->meta_dma);
 	}
 
 	mtk_vcodec_debug(inst, "bs_mode %d size %d key_frm %d <-",
