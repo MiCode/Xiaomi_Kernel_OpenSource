@@ -32,6 +32,8 @@
 
 #include "private/ut_cmd.h"
 #include "tee_impl/tee_invoke.h"
+#include "public/mtee_regions.h"
+#include "mtee_impl/tmem_carveout_heap.h"
 
 #include "memory_ssmr.h"
 #include "memory_ssheap.h"
@@ -293,6 +295,9 @@ static int trusted_mem_init(struct platform_device *pdev)
 #ifdef MTEE_DEVICES_SUPPORT
 	mtee_mchunks_init();
 #endif
+
+	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR))
+		tmem_carveout_init();
 
 	trusted_mem_create_proc_entry();
 

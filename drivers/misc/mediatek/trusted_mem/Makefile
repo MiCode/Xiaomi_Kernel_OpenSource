@@ -78,6 +78,7 @@ endif
 ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 trusted_mem-y += mtee_impl/mtee_ops.o
 trusted_mem-y += mtee_impl/mtee_invoke.o
+trusted_mem-y += mtee_impl/tmem_carveout_heap.o
 endif
 endif # !CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 
