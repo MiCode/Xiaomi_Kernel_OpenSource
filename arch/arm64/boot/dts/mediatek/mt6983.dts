@@ -352,7 +352,7 @@
 				<&pericfg_ao_clk CLK_PERICFG_AO_PERI_APDMA_CG>;
 		clock-names = "main", "dma";
 		clock-div = <1>;
-		clk_src_in_hz = <62500000>;
+		clk_src_in_hz = <130000000>;
 		ch_offset_i2c = <0x200>;
 		ch_offset_dma = <0x80>;
 	};
