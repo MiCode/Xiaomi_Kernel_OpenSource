@@ -42,8 +42,17 @@ static int mtk_dai_hostless_startup(struct snd_pcm_substream *substream,
 	return snd_soc_set_runtime_hwparams(substream, afe->mtk_afe_hardware);
 }
 
+static int mtk_dai_hostless_prepare(struct snd_pcm_substream *substream,
+				    struct snd_soc_dai *dai)
+{
+	if (substream->runtime->stop_threshold == ~(0U))
+		substream->runtime->stop_threshold = ULONG_MAX;
+	return 0;
+}
+
 static const struct snd_soc_dai_ops mtk_dai_hostless_ops = {
 	.startup = mtk_dai_hostless_startup,
+	.prepare = mtk_dai_hostless_prepare,
 };
 
 /* dai driver */
