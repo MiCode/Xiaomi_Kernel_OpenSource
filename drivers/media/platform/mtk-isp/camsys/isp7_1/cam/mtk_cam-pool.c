@@ -121,6 +121,8 @@ void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 		dev_dbg(ctx->cam->dev,
 			"%s:ctx(%d):meta buffers[%d] release, mem iova(%pad), sz(%d)\n",
 			__func__, ctx->stream_id, i, &smem.iova, smem.len);
+
+		buf->meta_buffer.size = 0;
 	}
 
 	/* msg buffer */

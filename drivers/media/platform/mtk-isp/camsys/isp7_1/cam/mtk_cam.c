@@ -548,15 +548,44 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	return result;
 }
 
+static void
+mtk_cam_get_meta1_work(struct mtk_cam_request *req, struct mtk_cam_ctx *ctx,
+		       int pipe_id, struct list_head *meta1_list)
+{
+	struct mtk_cam_request_stream_data *s_data;
+	int i, cnt, is_queued, ctx_matched;
+	int num_s_data = mtk_cam_req_get_num_s_data(req, pipe_id);
+
+	cnt = 0;
+
+	for (i = 0; i < num_s_data; i++) {
+		s_data = mtk_cam_req_get_s_data(req, pipe_id, i);
+		if (s_data) {
+			ctx_matched = s_data->ctx->stream_id == ctx->stream_id ? 1 : 0;
+			is_queued = atomic_read(&s_data->meta1_done_work.is_queued);
+			if (ctx_matched && is_queued) {
+				list_add_tail(&s_data->meta1_done_work.list,
+					      meta1_list);
+				cnt++;
+			}
+		}
+	}
+	dev_dbg(ctx->cam->dev, "%s: get %d queued work in req(%s)/ctx(%d)",
+		__func__, cnt, req->req.debug_str, ctx->stream_id);
+}
+
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req, *req_prev;
+	struct mtk_cam_req_work *wk, *wk_prev;
 	unsigned long flags;
 	unsigned int done_status;
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head *running = &cam->running_job_list;
+	struct list_head meta1_working_list;
 
+	INIT_LIST_HEAD(&meta1_working_list);
 
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, pending, list) {
@@ -575,6 +604,11 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		if (!(req->pipe_used & ctx->streaming_pipe))
 			continue;
 
+		/* handle the non-stop work queue */
+		if (ctx->frame_done_wq)
+			mtk_cam_get_meta1_work(req, ctx, pipe_id,
+					       &meta1_working_list);
+
 		/* mark request status to done for release */
 		spin_lock(&req->done_status_lock);
 		req->done_status |=
@@ -588,10 +622,18 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		if (req->pipe_used == done_status) {
 			list_del(&req->list);
 			mtk_cam_req_clean(req);
-			media_request_put(&req->req);
+			media_request_put(&req->req);  // leave running list
 		}
 	}
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+
+	if (ctx->frame_done_wq) {
+		list_for_each_entry_safe(wk, wk_prev, &meta1_working_list, list) {
+			cancel_work_sync(&wk->work);
+			list_del(&wk->list);
+			dev_dbg(cam->dev, "%s: cancel meta1 work", __func__);
+		}
+	}
 
 	dev_dbg(cam->dev,
 		"%s: cleanup all stream off req, streaming ctx:0x%x, streaming pipe:0x%x)\n",
@@ -1619,8 +1661,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			mtk_cam_update_s_data_exp(ctx, req, &ctx->pipe->mstream_exposure);
 
 		/* TODO: AFO independent supports TWIN */
-		/* disable until safe work queue ready */
-		if (0 && ctx->pipe->res_config.raw_num_used == 1)
+		if (ctx->pipe->res_config.raw_num_used == 1)
 			req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
 
 		if (req_stream_data->seninf_new)
@@ -2864,6 +2905,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					INIT_WORK(&done_work->work, mtk_cam_frame_done_work);
 
 					done_work = &pipe_stream_data->meta1_done_work;
+					atomic_set(&done_work->is_queued, 0);
 					INIT_WORK(&done_work->work, mtk_cam_meta1_done_work);
 				}
 			}

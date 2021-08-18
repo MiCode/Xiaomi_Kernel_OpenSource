@@ -2459,6 +2459,8 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	req = mtk_cam_s_data_get_req(s_data);
 	s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 
+	dev_dbg(ctx->cam->dev, "%s: ctx:%d\n", __func__, ctx->stream_id);
+
 	spin_lock(&ctx->streaming_lock);
 	if (!ctx->streaming) {
 		spin_unlock(&ctx->streaming_lock);
@@ -2467,6 +2469,13 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 		return;
 	}
 	spin_unlock(&ctx->streaming_lock);
+
+	if (!s_data) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get s_data\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
 
 	/* Copy the meta1 output content to user buffer */
 	buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_OUT_1);
@@ -2478,8 +2487,29 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	}
 
 	vb = &buf->vbb.vb2_buf;
+	if (!vb) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get vb2 buf\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
 	node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+
 	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+	if (!vaddr) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get plane_vadd\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	if (!s_data->working_buf->meta_buffer.size) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get s_data working buf\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
 
 	memcpy(vaddr, s_data->working_buf->meta_buffer.va,
 	       s_data->working_buf->meta_buffer.size);
@@ -2494,8 +2524,12 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	/* clean the stream data for req reinit case */
 	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);
 
-	/* Let use get the buffer */
+	/* Let user get the buffer */
 	vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
+
+	/* clear workstate*/
+	atomic_set(&meta1_done_work->is_queued, 0);
+
 	dev_info(ctx->cam->dev, "%s:%s: req(%d) done\n",
 		 __func__, req->req.debug_str, s_data->frame_seq_no);
 }
@@ -2517,7 +2551,12 @@ static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 	}
 
 	req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
-	/* TODO: null check */
+	if (!req_stream_data) {
+		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:s_data not found!\n",
+			 __func__, ctx->stream_id, pipe_id);
+		return;
+	}
+
 	if (!(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT))
 		return;
 
@@ -2532,6 +2571,7 @@ static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 	}
 
 	meta1_done_work = &req_stream_data->meta1_done_work;
+	atomic_set(&meta1_done_work->is_queued, 1);
 	queue_work(ctx->frame_done_wq, &meta1_done_work->work);
 }
 

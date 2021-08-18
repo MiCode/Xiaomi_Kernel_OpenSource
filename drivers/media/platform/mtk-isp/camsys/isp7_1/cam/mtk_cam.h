@@ -127,6 +127,8 @@ struct mtk_camsv_working_buf_list {
 struct mtk_cam_req_work {
 	struct work_struct work;
 	struct mtk_cam_request_stream_data *s_data;
+	struct list_head list;
+	atomic_t is_queued;
 };
 
 static inline struct mtk_cam_request_stream_data*
