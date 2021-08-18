@@ -1674,7 +1674,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
 
-	if (strcmp(current->comm, "vdec_srv") == 0)
+	if (strcmp(current->comm, "vdec_srv") == 0 || vcu_mtkdev[vcuid]->dev_io_enc == NULL)
 		vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev, NULL);
 	else
 		vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev_io_enc, NULL);
