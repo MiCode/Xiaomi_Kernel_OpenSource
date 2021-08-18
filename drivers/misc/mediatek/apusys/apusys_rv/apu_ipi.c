@@ -301,6 +301,11 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	if (hdr.serial_no != rx_serial_no) {
 		dev_info(apu->dev, "unmatched serial_no: curr=%u, recv=%u\n",
 			rx_serial_no, hdr.serial_no);
+		dev_info(apu->dev, "outbox irq=%x\n", ioread32(apu->apu_mbox + 0xc4));
+		if (ioread32(apu->apu_mbox + 0xc4) == 0) {
+			dev_info(apu->dev, "abnormal isr call, skip\n");
+			goto ack_irq;
+		}
 	}
 	rx_serial_no++;
 

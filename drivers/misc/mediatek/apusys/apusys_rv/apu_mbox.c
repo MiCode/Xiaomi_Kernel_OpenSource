@@ -26,6 +26,7 @@ void apu_mbox_ack_outbox(struct mtk_apu *apu)
 {
 	iowrite32(ioread32(_OUTBOX_IRQ(apu)),
 		  _OUTBOX_IRQ(apu));
+	dev_info(apu->dev, "%s: mbox irq=%x\n", __func__, ioread32(_OUTBOX_IRQ(apu)));
 }
 
 void apu_mbox_read_outbox(struct mtk_apu *apu, struct apu_mbox_hdr *hdr)
