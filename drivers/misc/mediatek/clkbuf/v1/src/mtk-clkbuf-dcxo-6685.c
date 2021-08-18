@@ -113,7 +113,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK5_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK5_BBLPM_EN_MASK)
 		.xo_en_auxout_sel = 15,
-		.in_use = 0,
+		.in_use = 1,
 	},
 	[5] = {
 		MT6685_SET_REG_BY_NAME(xo_mode, XO_RFCK1A_MODE)
@@ -176,7 +176,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_CONCK1_RSEL)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_CONCK1_VOTE_L)
 		.xo_en_auxout_sel = 15,
-		.in_use = 0,
+		.in_use = 1,
 	},
 	[12] = {
 		MT6685_SET_REG_BY_NAME(xo_mode, XO_CONCK2_MODE)
