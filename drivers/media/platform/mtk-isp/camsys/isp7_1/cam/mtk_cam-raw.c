@@ -1916,7 +1916,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		}
 	}
 
-	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", 0);
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
 	if (!node) {
 		dev_info(dev, "failed to get larb id\n");
 	} else {
@@ -4976,7 +4976,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		}
 	}
 
-	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", 0);
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
 	if (!node) {
 		dev_info(dev, "failed to get larb id\n");
 	} else {
