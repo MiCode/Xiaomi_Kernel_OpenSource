@@ -252,8 +252,7 @@ EXPORT_SYMBOL(mem_buf_unmap_mem_s1);
 int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
-			      struct mem_buf_lend_kernel_arg *arg,
-			      bool *has_lookup_sgl)
+			      struct mem_buf_lend_kernel_arg *arg)
 {
 	int ret, i;
 	struct gh_sgl_desc *gh_sgl;
@@ -293,29 +292,17 @@ int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
 	}
 
-	/*
-	 * gh_rm_mem_qcom_lookup_sgl is no longer supported and is replaced with
-	 * gh_rm_mem_share. To ease this transition, fall back to the later on error.
-	 */
-	*has_lookup_sgl = true;
-	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL, arg->label,
-					gh_acl, gh_sgl, NULL,
-					&arg->memparcel_hdl);
-	trace_lookup_sgl(gh_sgl, ret, arg->memparcel_hdl);
-	if (ret) {
-		*has_lookup_sgl = false;
-		pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
-		if (is_lend)
-			ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
-					     arg->label, gh_acl, gh_sgl,
-					     NULL /* Default memory attributes */,
-					     &arg->memparcel_hdl);
-		else
-			ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
-					     arg->label, gh_acl, gh_sgl,
-					     NULL /* Default memory attributes */,
-					     &arg->memparcel_hdl);
-	}
+	pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
+	if (is_lend)
+		ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+				     arg->label, gh_acl, gh_sgl,
+				     NULL /* Default memory attributes */,
+				     &arg->memparcel_hdl);
+	else
+		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+				     arg->label, gh_acl, gh_sgl,
+				     NULL /* Default memory attributes */,
+				     &arg->memparcel_hdl);
 	if (ret < 0) {
 		pr_err("%s: Gunyah lend/share failed rc:%d\n",
 		       __func__, ret);
