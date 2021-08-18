@@ -11462,13 +11462,16 @@
 		};
 	};
 
-	apusys_sw_logger {
-		compatible = "mediatek,apusys_sw_logger";
+	apusys_hw_logger:apusys_hw_logger {
+		compatible = "mediatek,apusys_hw_logger";
 		status = "okay";
 
-		reg = <0 0x190e1000 0 0x1000>;
-		reg-names = "apu_mbox";
-
+		reg = <0 0x19024000 0 0x1000>,
+			<0 0x1d080000 0 0x1000>;
+		reg-names = "apu_logtop",
+				"apu_logd";
+		interrupts = <GIC_SPI 636 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names = "apu_logtop";
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 		iommus = <&apu_iommu1 M4U_PORT_L34_APU_CODE>;
 	};
