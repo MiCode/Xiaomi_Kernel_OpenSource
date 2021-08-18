@@ -20,9 +20,9 @@ struct mdw_rv_dev {
 	struct mutex msg_mtx;
 	struct mutex mtx;
 
-	struct list_head c_list; // for cmd
-	atomic_t clock_flag;
-	struct work_struct c_wk; // for re-trigger cmd after unlock
+	//struct list_head c_list; // for cmd
+	//atomic_t clock_flag;
+	//struct work_struct c_wk; // for re-trigger cmd after unlock
 
 	struct work_struct init_wk;
 
@@ -37,7 +37,7 @@ struct mdw_rv_cmd {
 	struct mdw_cmd *c;
 	struct mdw_mem *cb;
 	struct list_head u_item; // to usr list
-	struct list_head d_item; // to dev list
+	//struct list_head d_item; // to dev list
 	struct mdw_ipi_msg_sync s_msg; // for ipi
 	uint64_t start_ts_ns; // create time at ap
 };
@@ -93,8 +93,6 @@ struct mdw_rv_msg_cb {
 int mdw_rv_dev_init(struct mdw_device *mdev);
 void mdw_rv_dev_deinit(struct mdw_device *mdev);
 int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
-int mdw_rv_dev_lock(struct mdw_rv_dev *mrdev);
-int mdw_rv_dev_unlock(struct mdw_rv_dev *mrdev);
 int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, uint32_t idx, uint32_t val);
 uint32_t mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, uint32_t idx);
 

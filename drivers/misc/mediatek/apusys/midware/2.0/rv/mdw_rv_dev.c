@@ -52,18 +52,33 @@ static struct mdw_ipi_msg_sync *mdw_rv_dev_get_msg(struct mdw_rv_dev *mrdev, uin
 static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync *s_msg)
 {
 	int ret = 0;
+	uint32_t cnt = 50, i = 0;
 
 	s_msg->msg.sync_id = (uint64_t)s_msg;
 	mdw_drv_debug("sync id(0x%llx)\n", s_msg->msg.sync_id);
 
+	/* insert to msg list */
 	mutex_lock(&mrdev->msg_mtx);
 	list_add_tail(&s_msg->ud_item, &mrdev->s_list);
 	mutex_unlock(&mrdev->msg_mtx);
 
-	/* send */
-	mdw_trace_begin("%s ipi", __func__);
-	ret = rpmsg_send(mrdev->ept, &s_msg->msg, sizeof(s_msg->msg));
-	mdw_trace_end("%s ipi", __func__);
+	/* send & retry */
+	for (i = 0; i < cnt; i++) {
+		mdw_trace_begin("%s ipi", __func__);
+		ret = rpmsg_send(mrdev->ept, &s_msg->msg, sizeof(s_msg->msg));
+		mdw_trace_end("%s ipi", __func__);
+
+		/* send busy, retry */
+		if (ret == -EBUSY) {
+			if (!(i % 5))
+				mdw_drv_info("re-send ipi(%u/%u)\n", i, cnt);
+			msleep(20);
+			continue;
+		}
+
+		break;
+	}
+
 	if (ret) {
 		mdw_drv_err("send msg(0x%llx) fail\n", s_msg->msg.sync_id);
 		mutex_lock(&mrdev->msg_mtx);
@@ -189,88 +204,14 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 	mdw_drv_debug("run rc(0%llx)\n", (uint64_t)rc);
 	mutex_lock(&mrdev->mtx);
-	if (atomic_read(&mrdev->clock_flag))
-		list_add_tail(&rc->d_item, &mrdev->c_list);
-	else {
-		ret = mdw_rv_dev_send_cmd(mrdev, rc);
-		if (ret)
-			mdw_rv_cmd_delete(rc);
-	}
+	ret = mdw_rv_dev_send_cmd(mrdev, rc);
+	if (ret)
+		mdw_rv_cmd_delete(rc);
 	mutex_unlock(&mrdev->mtx);
 
 out:
 	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, kid, uid);
 	return ret;
-}
-
-int mdw_rv_dev_lock(struct mdw_rv_dev *mrdev)
-{
-	int ret = 0;
-
-	mutex_lock(&mrdev->mtx);
-	/* check flag */
-	if (atomic_read(&mrdev->clock_flag)) {
-		mdw_drv_err("md_msg lock twice\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	/* check msg list empty */
-	mutex_lock(&mrdev->msg_mtx);
-	if (!list_empty_careful(&mrdev->s_list))
-		ret = -EBUSY;
-	else
-		atomic_set(&mrdev->clock_flag, 1);
-	mutex_unlock(&mrdev->msg_mtx);
-
-out:
-	mutex_unlock(&mrdev->mtx);
-	return ret;
-}
-
-int mdw_rv_dev_unlock(struct mdw_rv_dev *mrdev)
-{
-	int ret = 0;
-
-	mutex_lock(&mrdev->mtx);
-	/* check flag */
-	if (!atomic_read(&mrdev->clock_flag)) {
-		mdw_drv_err("md msg unlock twice\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	atomic_set(&mrdev->clock_flag, 0);
-	schedule_work(&mrdev->c_wk);
-
-out:
-	mutex_unlock(&mrdev->mtx);
-	return ret;
-}
-
-static void mdw_rv_dev_unlock_func(struct work_struct *wk)
-{
-	struct mdw_rv_cmd *rc = NULL;
-	struct mdw_rv_dev *mrdev = container_of(wk, struct mdw_rv_dev, c_wk);
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-
-	mutex_lock(&mrdev->mtx);
-
-	if (atomic_read(&mrdev->clock_flag))
-		goto out;
-
-	list_for_each_safe(list_ptr, tmp, &mrdev->c_list) {
-		rc = list_entry(list_ptr, struct mdw_rv_cmd, d_item);
-
-		mdw_flw_debug("re-trigger cmd(0x%llx)\n", rc->c->kid);
-		if (mdw_rv_dev_send_cmd(mrdev, rc))
-			mdw_drv_err("send cmd(0x%llx) fail\n", rc->c->kid);
-		else
-			list_del(&rc->d_item);
-	}
-
-out:
-	mutex_unlock(&mrdev->mtx);
 }
 
 static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
@@ -468,10 +409,7 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 	/* init up dev */
 	mutex_init(&mrdev->msg_mtx);
 	mutex_init(&mrdev->mtx);
-	atomic_set(&mrdev->clock_flag, 0);
 	INIT_LIST_HEAD(&mrdev->s_list);
-	INIT_LIST_HEAD(&mrdev->c_list);
-	INIT_WORK(&mrdev->c_wk, &mdw_rv_dev_unlock_func);
 	INIT_WORK(&mrdev->init_wk, &mdw_rv_dev_init_func);
 
 	schedule_work(&mrdev->init_wk);

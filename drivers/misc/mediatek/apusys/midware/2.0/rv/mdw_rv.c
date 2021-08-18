@@ -111,16 +111,12 @@ static int mdw_rv_ucmd(struct mdw_device *mdev,
 
 static int mdw_rv_lock(struct mdw_device *mdev)
 {
-	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
-
-	return mdw_rv_dev_lock(mrdev);
+	return 0;
 }
 
 static int mdw_rv_unlock(struct mdw_device *mdev)
 {
-	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
-
-	return mdw_rv_dev_unlock(mrdev);
+	return 0;
 }
 
 static int mdw_rv_set_param(struct mdw_device *mdev,

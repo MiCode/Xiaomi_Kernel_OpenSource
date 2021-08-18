@@ -419,8 +419,8 @@ static void mdw_cmd_delete(struct mdw_cmd *c)
 
 	mdw_cmd_delete_infos(c->mpriv, c);
 	mdw_cmd_put_mem(c->mpriv, c->exec_infos);
-	kvfree(c->ksubcmds);
 	kvfree(c->adj_matrix);
+	kvfree(c->ksubcmds);
 	kvfree(c->subcmds);
 	mutex_lock(&mpriv->mtx);
 	list_del(&c->u_item);
@@ -630,13 +630,13 @@ delete_infos:
 put_execinfo:
 	mdw_cmd_put_mem(mpriv, c->exec_infos);
 free_adj:
-	vfree(c->adj_matrix);
+	kvfree(c->adj_matrix);
 free_ksubcmds:
-	vfree(c->ksubcmds);
+	kvfree(c->ksubcmds);
 free_subcmds:
-	vfree(c->subcmds);
+	kvfree(c->subcmds);
 free_cmd:
-	vfree(c);
+	kvfree(c);
 	c = NULL;
 out:
 	mdw_trace_end("%s", __func__);
