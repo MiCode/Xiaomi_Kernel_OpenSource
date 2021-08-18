@@ -284,35 +284,7 @@ static const struct mtk_iommu_iova_region mt6873_multi_dom[] = {
 };
 
 /*
- * 0,NORMAL:         0x2000_0000~0x3FFF_FFFF & 0x2_0000_0000~0x3_FFFF_FFFF
- * 1,APU_SECURE:     0x1000~0x1FFF_FFFF
- * 2,APU_CODE:       0x4000_0000~0xFFFF_FFFF
- * 3,VIDEO:          0x1_0000_0000~0x1_05FF_FFFF & 0x1_7000_0000~0x1_FFFF_FFFF
- * 4,LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF
- * 5,CCU0:           0x1_0800_0000~0x1_0BFF_FFFF
- * 6,CCU1:           0x1_0C00_0000~0x1_0FFF_FFFF
- * 7,VDO_UP_512MB_1: 0x1_1000_0000~0x1_2FFF_FFFF
- * 8,VDO_UP_512MB_2: 0x1_3000_0000~0x1_4FFF_FFFF
- * 9,VDO_UP_256MB_1: 0x1_5000_0000~0x1_5FFF_FFFF
- * 10,VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
-
- */
-static const struct mtk_iommu_iova_region mt6879_multi_dom[] = {
-	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL}, /* 0,NORMAL:512MB+8GB */
-	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = SECURE}, /* 1,APU_SECURE:512M */
-	{ .iova_base = SZ_1G, .size = 0xc0000000, .type = NORMAL}, /* 2,APU_CODE/APU_DATA: 3GB */
-	{ .iova_base = SZ_4G, .size = SZ_4G, .type = NORMAL}, /* 3,VIDEO: 2400M */
-	{ .iova_base = 0x106000000ULL, .size = 0x2000000, .type = PROTECTED}, /* 4,LK_RESV:32MB */
-	{ .iova_base = 0x108000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 5,CCU0:64MB */
-	{ .iova_base = 0x10C000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 6,CCU1:64MB */
-	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 7,VDO_UP_512MB_1 */
-	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 8,VDO_UP_512MB_2 */
-	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 9,VDO_UP_256MB_1 */
-	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 10,VDO_UP_256MB_1 */
-};
-
-/*
- * 0,NORMAL: 0x2000_0000~0x3FFF_FFFF & 0x1_0800_0000~0x1_0FFF_FFFF & 0x1_7000_0000~0x3_FFFF_FFFF
+ * 0,NORMAL: 0x2000_0000~0x3FFF_FFFF & 0x1_0000_0000~0x1_05FF_FFFF & 0x2_0000_0000~0x3_FFFF_FFFF
  * 1,APU_SECURE:     0x1000~0x1FFF_FFFF
  * 2,APU_CODE:       0x4000_0000~0xFFFF_FFFF
  * 3,LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF
@@ -322,9 +294,10 @@ static const struct mtk_iommu_iova_region mt6879_multi_dom[] = {
  * 7,VDO_UP_512MB_2: 0x1_3000_0000~0x1_4FFF_FFFF
  * 8,VDO_UP_256MB_1: 0x1_5000_0000~0x1_5FFF_FFFF
  * 9,VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
+ * 10,VDEC:          0x1_7000_0000~0x1_FFFF_FFFF
  */
 static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
-	 /* 0, NORMAL:512MB+128MB+10.25GB */
+	/* 0, NORMAL:512MB+96MB+8GB */
 	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL},
 	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = SECURE}, /* 1,APU_SECURE:512M */
 	{ .iova_base = SZ_1G, .size = 0xc0000000, .type = NORMAL}, /* 2,APU_CODE:3GB */
@@ -2096,8 +2069,8 @@ static const struct mtk_iommu_plat_data mt6879_data_disp = {
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6879_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.iova_region    = mt6983_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2110,8 +2083,8 @@ static const struct mtk_iommu_plat_data mt6879_data_apu0 = {
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6879_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.iova_region    = mt6983_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2125,8 +2098,8 @@ static const struct mtk_iommu_plat_data mt6879_data_peri_m4 = {
 	.iommu_id	= PERI_IOMMU_M4,
 	.iommu_type     = PERI_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6879_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.iova_region    = mt6983_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2140,8 +2113,8 @@ static const struct mtk_iommu_plat_data mt6879_data_peri_m6 = {
 	.iommu_id	= PERI_IOMMU_M6,
 	.iommu_type     = PERI_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6879_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.iova_region    = mt6983_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2153,8 +2126,8 @@ static const struct mtk_iommu_plat_data mt6879_data_peri_m7 = {
 	.iommu_id	= PERI_IOMMU_M7,
 	.iommu_type     = PERI_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6879_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.iova_region    = mt6983_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
 };
 
