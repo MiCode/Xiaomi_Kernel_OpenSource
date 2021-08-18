@@ -5,6 +5,7 @@
  */
 #include <linux/pm_domain.h>
 
+#define CLK_NULL		0
 #define PD_NULL		-1
 #define VCORE_NULL	-1
 
@@ -60,6 +61,7 @@ struct regbase {
 	void __iomem *virt;
 	const char *name;
 	int pg;
+	const char *pn;
 };
 
 struct regname {

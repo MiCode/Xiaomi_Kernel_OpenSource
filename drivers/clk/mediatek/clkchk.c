@@ -292,6 +292,9 @@ bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck)
 		if (IS_ERR_OR_NULL(hw))
 			return false;
 
+		if (!clk_hw_is_enabled(clk_hw_get_parent(hw)))
+			return false;
+
 		return clk_hw_is_enabled(hw);
 	}
 

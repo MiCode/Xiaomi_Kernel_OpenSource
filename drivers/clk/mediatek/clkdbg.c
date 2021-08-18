@@ -1979,6 +1979,8 @@ static int clkdbg_suspend_set_ops(struct seq_file *s, void *v)
 static void seq_print_reg(const struct regname *rn, void *data)
 {
 	struct seq_file *s = data;
+	const char *pn = rn->base->pn;
+	bool is_clk_enable = true;
 	bool is_pwr_on = true;
 #if CLKDBG_PM_DOMAIN
 	struct generic_pm_domain *pd;
@@ -1996,7 +1998,10 @@ static void seq_print_reg(const struct regname *rn, void *data)
 	}
 #endif
 
-	if (is_pwr_on)
+	if (pn)
+		is_clk_enable = __clk_is_enabled(__clk_dbg_lookup(rn->base->pn));
+
+	if (is_pwr_on && is_clk_enable)
 		seq_printf(s, "%-21s: [0x%08x][0x%p] = 0x%08x\n",
 			rn->name, PHYSADDR(rn), ADDR(rn), clk_readl(ADDR(rn)));
 	else
