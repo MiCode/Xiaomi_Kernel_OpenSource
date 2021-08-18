@@ -25,6 +25,7 @@
 	sd-uhs-ddr50;
 //	mmc-ddr-1_8v;
 //	mmc-hs200-1_8v;
+	cd-debounce-delay-ms = <0>;
 	cd-gpios = <&pio 11 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt6373_vmch>;
 	vqmmc-supply = <&mt6373_vmc>;
