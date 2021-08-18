@@ -573,7 +573,7 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 
 	new_sub_task = wait_next_sub_task(chan);
 
-	if (NULL == new_sub_task) {
+	if (!new_sub_task) {
 		kfree(job);
 		mml_pq_log("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
@@ -779,7 +779,7 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 
 	new_sub_task = wait_next_sub_task(chan);
 
-	if (NULL == new_sub_task) {
+	if (!new_sub_task) {
 		kfree(job);
 		mml_pq_log("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
