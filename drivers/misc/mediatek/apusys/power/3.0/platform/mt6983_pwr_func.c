@@ -177,6 +177,16 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 			ret = -EINVAL;
 		}
 		break;
+	case APUPWR_DBG_PROFILING:
+		if (argc == 1) {
+			rpmsg_data.cmd = APUTOP_PWR_PROFILING;
+			rpmsg_data.data0 = args[0]; // 1:begin , 0:end
+			aputop_send_rpmsg(&rpmsg_data, 100);
+		} else {
+			pr_info("%s invalid param num:%d\n", __func__, argc);
+			ret = -EINVAL;
+		}
+		break;
 	default:
 		pr_info("%s unsupport the pwr param:%d\n", __func__, param);
 		ret = -EINVAL;
@@ -370,6 +380,8 @@ ssize_t mt6983_apu_top_dbg_write(
 		param = APUPWR_DBG_DUMP_OPP_TBL;
 	else if (!strcmp(token, "curr_status"))
 		param = APUPWR_DBG_CURR_STATUS;
+	else if (!strcmp(token, "pwr_profiling"))
+		param = APUPWR_DBG_PROFILING;
 	else {
 		ret = -EINVAL;
 		pr_info("no power param[%s]!\n", token);
@@ -400,6 +412,7 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	switch ((enum aputop_rpmsg_cmd)cmd) {
 	case APUTOP_DEV_CTL:
 	case APUTOP_DEV_SET_OPP:
+	case APUTOP_PWR_PROFILING:
 		// do nothing
 		break;
 	case APUTOP_DUMP_OPP_TBL:

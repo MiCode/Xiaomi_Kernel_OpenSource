@@ -10,19 +10,19 @@
 #include "mt6983_apupwr.h"
 
 // mbox offset define (for data exchange with remote)
-#define SPARE0_MBOX_DUMMY_0_ADDR        0x640	// mbox6_dummy0
-#define SPARE0_MBOX_DUMMY_1_ADDR        0x644	// mbox6_dummy1
-#define SPARE0_MBOX_DUMMY_2_ADDR        0x648	// mbox6_dummy2
-#define SPARE0_MBOX_DUMMY_3_ADDR        0x64C	// mbox6_dummy3
-#define SPARE0_MBOX_DUMMY_4_ADDR	0x740	// mbox7_dummy0
-#define SPARE0_MBOX_DUMMY_5_ADDR	0x744   // mbox7_dummy1
+#define SPARE_DBG_REG10		0x428	// mbox4_dummy10
+#define SPARE_DBG_REG11		0x42C	// mbox4_dummy11
+#define SPARE_DBG_REG12		0x430	// mbox4_dummy12
+#define SPARE_DBG_REG13		0x434	// mbox4_dummy13
+#define SPARE_DBG_REG14		0x438	// mbox4_dummy14
+#define SPARE_DBG_REG15		0x43C	// mbox4_dummy15
 
-#define ACX0_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_0_ADDR
-#define ACX1_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_1_ADDR
-#define DEV_OPP_SYNC_REG        SPARE0_MBOX_DUMMY_2_ADDR
-#define HW_RES_SYNC_REG         SPARE0_MBOX_DUMMY_3_ADDR
-#define PLAT_CFG_SYNC_REG	SPARE0_MBOX_DUMMY_4_ADDR
-#define DRV_CFG_SYNC_REG	SPARE0_MBOX_DUMMY_5_ADDR
+#define ACX0_LIMIT_OPP_REG      SPARE_DBG_REG10
+#define ACX1_LIMIT_OPP_REG      SPARE_DBG_REG11
+#define DEV_OPP_SYNC_REG        SPARE_DBG_REG12
+#define HW_RES_SYNC_REG         SPARE_DBG_REG13
+#define PLAT_CFG_SYNC_REG	SPARE_DBG_REG14
+#define DRV_CFG_SYNC_REG	SPARE_DBG_REG15
 
 enum {
 	APUPWR_DBG_DEV_CTL = 0,
@@ -30,6 +30,7 @@ enum {
 	APUPWR_DBG_DVFS_DEBUG,
 	APUPWR_DBG_DUMP_OPP_TBL,
 	APUPWR_DBG_CURR_STATUS,
+	APUPWR_DBG_PROFILING,
 };
 
 enum apu_opp_limit_type {
