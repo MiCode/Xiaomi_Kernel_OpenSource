@@ -1,0 +1,38 @@
+#include <dt-bindings/interconnect/qcom,neo.h>
+
+&soc {
+	/* QUPv3_1 wrapper instance */
+	qupv3_1: qcom,qupv3_1_geni_se@ac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xac0000 0x2000>;
+		qcom,msm-bus,num-paths = <3>;
+		interconnect-names = "qup-core", "snoc-llcc", "qup-ddr";
+		interconnects =
+		<&clk_virt MASTER_QUP_CORE_1 &clk_virt SLAVE_QUP_CORE_1>,
+		<&system_noc MASTER_A2NOC_SNOC &gem_noc SLAVE_LLCC>,
+		<&system_noc MASTER_QUP_1 &mc_virt SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x0003 0x0>;
+		qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+		qcom,iommu-geometry = <0x40000000 0x10000000>;
+		qcom,iommu-dma = "fastmap";
+		dma-coherent;
+		status = "ok";
+	};
+
+	/* Debug UART Instance */
+	qupv3_se11_2uart: qcom,qup_uart@a94000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0xa94000 0x4000>;
+		reg-names = "se_phys";
+		interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&gcc GCC_QUPV3_WRAP1_S5_CLK>,
+			<&gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se11_2uart_active>;
+		pinctrl-1 = <&qupv3_se11_2uart_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
+};
