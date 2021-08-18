@@ -20,5 +20,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 mtk-ipesys-me-objs :=\
 mtk-ipesys-me.o
 
-obj-m += mtk-ipesys-me.o
+obj-${CONFIG_VIDEO_MTK_ISP_IPESYS} += mtk-ipesys-me.o
 

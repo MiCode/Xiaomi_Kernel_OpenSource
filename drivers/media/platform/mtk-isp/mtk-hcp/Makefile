@@ -35,4 +35,4 @@ mem/hcp_videobuf2-memops.o \
 mem/hcp_videobuf2-vmalloc.o \
 mem/hcp_videobuf2-dma-contig.o
 
-obj-m += mtk_hcp.o
+obj-${CONFIG_VIDEO_MTK_ISP_HCP} += mtk_hcp.o

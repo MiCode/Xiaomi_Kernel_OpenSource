@@ -35,6 +35,6 @@ mtk_imgsys_v4l2-objs :=\
 mtk_imgsys_util.o \
 mtk_imgsys_hw_isp71.o
 
-obj-m += mtk_imgsys_v4l2.o
+obj-${CONFIG_VIDEO_MTK_ISP_IMGSYS} += mtk_imgsys_v4l2.o
 obj-n += mtk_imgsys-cmdq.o
 obj-n += mtk_imgsys-trace.o
