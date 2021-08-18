@@ -60,6 +60,7 @@ static unsigned long g_nxtKickTime;
 static int g_hang_detected;
 static void __iomem *toprgu_base;
 static unsigned int cpus_kick_bit;
+static atomic_t plug_mask = ATOMIC_INIT(0xFF);
 
 static unsigned int get_check_bit(void)
 {
@@ -148,11 +149,12 @@ void kicker_cpu_bind(int cpu)
 	}
 }
 
-void wk_cpu_update_bit_flag(int cpu, int plug_status)
+void wk_cpu_update_bit_flag(int cpu, int plug_status, int set_check)
 {
 	if (plug_status == 1) {	/* plug on */
 		spin_lock(&lock);
-		cpus_kick_bit |= (1 << cpu);
+		if (set_check)
+			cpus_kick_bit |= (1 << cpu);
 		lasthpg_cpu = cpu;
 		lasthpg_act = plug_status;
 		lasthpg_t = sched_clock();
@@ -203,6 +205,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
 	unsigned int dump_timeout = 0;
+	int i = 0;
 
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
@@ -219,13 +222,16 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,&=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
-	 cpu, local_bit, get_check_bit(), local_bit & get_check_bit(), lasthpg_cpu,
+	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
+	 cpu, local_bit, get_check_bit(),
+	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
 	 lasthpg_act, lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
 	 curInterval);
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		msg_buf[5] = 'k';
+		g_hang_detected = 0;
+		dump_timeout = 0;
 		local_bit = 0;
 		kwdt_time_sync();
 	}
@@ -239,19 +245,39 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 #endif
 
+	for (i = 0; i < CPU_NR; i++) {
+		if ((atomic_read(&plug_mask) & (1 << i)) || (i == cpu))
+			cpus_kick_bit |= (1 << i);
+	}
+
 	spin_unlock(&lock);
 
 	pr_info("%s", msg_buf);
 
 	if (dump_timeout) {
-		dump_wdk_bind_info();
-		mrdump_mini_add_extra_misc();
+		int dump = 0;
+
+		for (i = 0; i < 2000; i++) {
+			mdelay(1);
+			spin_lock(&lock);
+			if (!g_hang_detected) {
+				spin_unlock(&lock);
+				dump = 0;
+				break;
+			}
+			dump = 1;
+			spin_unlock(&lock);
+		}
+
+		if (dump) {
+			dump_wdk_bind_info();
+			mrdump_mini_add_extra_misc();
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
-		if (p_mt_aee_dump_irq_info)
-			p_mt_aee_dump_irq_info();
+			if (p_mt_aee_dump_irq_info)
+				p_mt_aee_dump_irq_info();
 #endif
-		sysrq_sched_debug_show_at_AEE();
-		//panic("cpu hang detected!\n");
+			sysrq_sched_debug_show_at_AEE();
+		}
 	}
 }
 
@@ -289,7 +315,7 @@ static int kwdt_thread(void *arg)
 			 * if thread-x is on cpu-x
 			 */
 			if (wk_tsk[cpu]->pid == current->pid) {
-				if (kick_bit == 0) {
+				if ((kick_bit & get_check_bit()) == 0) {
 					g_nxtKickTime =
 						ktime_to_us(ktime_get())
 						+ g_kinterval*1000*1000;
@@ -343,9 +369,9 @@ static int start_kicker(void)
 
 static int wk_cpu_callback_online(unsigned int cpu)
 {
-	wk_cpu_update_bit_flag(cpu, 1);
+	wk_cpu_update_bit_flag(cpu, 1, 0);
 	wk_lasthpg_t[cpu] = sched_clock();
-	kick_bit |= (1 << cpu);
+	atomic_or(1 << cpu, &plug_mask);
 	/*
 	 * Bind WDK thread to this CPU.
 	 * NOTE: Thread binding must be executed after CPU is ready
@@ -361,8 +387,9 @@ static int wk_cpu_callback_online(unsigned int cpu)
 
 static int wk_cpu_callback_offline(unsigned int cpu)
 {
-	wk_cpu_update_bit_flag(cpu, 0);
+	wk_cpu_update_bit_flag(cpu, 0, 1);
 
+	atomic_andnot(1 << cpu, &plug_mask);
 	return 0;
 }
 
@@ -385,10 +412,10 @@ static void wdk_work_callback(struct work_struct *work)
 
 	for (i = 0; i < CPU_NR; i++) {
 		if (cpu_online(i)) {
-			wk_cpu_update_bit_flag(i, 1);
+			wk_cpu_update_bit_flag(i, 1, 1);
 			pr_debug("[wdk]init cpu online %d\n", i);
 		} else {
-			wk_cpu_update_bit_flag(i, 0);
+			wk_cpu_update_bit_flag(i, 0, 1);
 			pr_debug("[wdk]init cpu offline %d\n", i);
 		}
 	}
@@ -428,7 +455,7 @@ static int __init init_wk_check_bit(void)
 
 	pr_debug("[wdk]arch init check_bit=0x%x+++++\n", cpus_kick_bit);
 	for (i = 0; i < CPU_NR; i++)
-		wk_cpu_update_bit_flag(i, 1);
+		wk_cpu_update_bit_flag(i, 1, 1);
 
 	pr_debug("[wdk]arch init check_bit=0x%x-----\n", cpus_kick_bit);
 	return 0;
