@@ -492,6 +492,14 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				cmd_idx++;
 				if (ret == IMGSYS_CMD_STOP)
 					break;
+				else if (ret < 0) {
+					pr_info(
+						"%s: [ERROR] parsing idx(%d) with cmd(%d) in block(%d) for frm(%d/%d) fail\n",
+						__func__, cmd_idx, cmd[cmd_idx].opcode,
+						blk_idx, frm_idx, frm_num);
+					cmdq_pkt_destroy(pkt);
+					goto sendtask_done;
+				}
 			} while (cmd_idx < cmd_num);
 			IMGSYS_SYSTRACE_END();
 
@@ -550,6 +558,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		}
 	}
 
+sendtask_done:
 	return ret;
 }
 
