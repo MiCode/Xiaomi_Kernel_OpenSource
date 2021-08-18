@@ -643,7 +643,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 
 		if (pad_id == PAD_SRC_RAW0) {
 			// notify vc->cam
-			notify_fsync_cammux_usage_with_wq(ctx);
+			notify_fsync_cammux_usage_with_kthread(ctx);
 		}
 
 		dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d\n",
@@ -751,22 +751,14 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 }
 
 
-static inline struct  mtk_sensor_work*
-_work_to_sensor_work(struct work_struct *work)
+static void mtk_notify_vsync_fn(struct kthread_work *work)
 {
-	struct mtk_sensor_work *sensor_work;
-
-	sensor_work = (struct mtk_sensor_work *)work;
-	return sensor_work;
-}
-
-static void mtk_sensor_worker(struct work_struct *work)
-{
-	struct mtk_sensor_work *sensor_work = _work_to_sensor_work(work);
-	struct seninf_ctx *ctx = sensor_work->ctx;
+	struct mtk_seninf_work *seninf_work =
+		container_of(work, struct mtk_seninf_work, work);
+	struct seninf_ctx *ctx = seninf_work->ctx;
 	struct v4l2_ctrl *ctrl;
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
-	unsigned int sof_cnt = sensor_work->data.sof;
+	unsigned int sof_cnt = seninf_work->data.sof;
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 				V4L2_CID_VSYNC_NOTIFY);
@@ -783,7 +775,7 @@ static void mtk_sensor_worker(struct work_struct *work)
 //		sof_cnt);
 	v4l2_ctrl_s_ctrl(ctrl, sof_cnt);
 
-	kfree(work);
+	kfree(seninf_work);
 }
 
 
@@ -792,29 +784,20 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 {
 	struct v4l2_subdev *sd = param->sd;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
-	struct mtk_sensor_work *sensor_work = NULL;
+	struct mtk_seninf_work *seninf_work = NULL;
 
-	//spin_lock(&ctx->spinlock_sensor_work);
-	if (0) {
-	//ctx->sensor_wq && ctx->streaming) {
-		sensor_work = NULL;
-		//kmalloc(sizeof(struct mtk_sensor_work),
-		//		GFP_KERNEL);
-		if (sensor_work) {
-			INIT_WORK(&sensor_work->work, mtk_sensor_worker);
-			sensor_work->ctx = ctx;
-			sensor_work->data.sof = param->sof_cnt;
-			queue_work(ctx->sensor_wq, &sensor_work->work);
+	if (ctx->streaming) {
+		seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
+				GFP_KERNEL);
+		if (seninf_work) {
+			kthread_init_work(&seninf_work->work,
+					mtk_notify_vsync_fn);
+			seninf_work->ctx = ctx;
+			seninf_work->data.sof = param->sof_cnt;
+			kthread_queue_work(&ctx->core->seninf_worker,
+					&seninf_work->work);
 		}
-	//	else {
-	//		dev_info(ctx->dev,
-	//			"%s, sensor work alloc failed\n", __func__);
-	//	}
 	}
-	//else
-	//	dev_info(ctx->dev, "%s, ctx->sensor_wq = NULL || ctx->streaming = %d\n",
-	//		__func__, ctx->streaming);
-	//spin_unlock(&ctx->spinlock_sensor_work);
 }
 
 int notify_fsync_cammux_usage(struct seninf_ctx *ctx)
@@ -841,37 +824,36 @@ int notify_fsync_cammux_usage(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static void mtk_notify_fsync_worker(struct work_struct *work)
+static void mtk_notify_cammux_usage_fn(struct kthread_work *work)
 {
-	struct mtk_sensor_work *sensor_work = _work_to_sensor_work(work);
-	struct seninf_ctx *ctx = sensor_work->ctx;
+	struct mtk_seninf_work *seninf_work = NULL;
+	struct seninf_ctx *ctx = NULL;
 
-	notify_fsync_cammux_usage(ctx);
+	seninf_work = container_of(work, struct mtk_seninf_work, work);
 
-	kfree(work);
+	if (seninf_work) {
+		ctx = seninf_work->ctx;
+		if (ctx)
+			notify_fsync_cammux_usage(ctx);
+
+		kfree(seninf_work);
+	}
 }
 
-void notify_fsync_cammux_usage_with_wq(struct seninf_ctx *ctx)
+void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
 {
-	struct mtk_sensor_work *sensor_work = NULL;
+	struct mtk_seninf_work *seninf_work = NULL;
 
-	//spin_lock(&ctx->spinlock_sensor_work);
-	if (0) {
-	//ctx->sensor_wq && ctx->streaming) {
-		sensor_work = kmalloc(sizeof(struct mtk_sensor_work),
+	if (ctx->streaming) {
+		seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
 					GFP_KERNEL);
-		if (sensor_work) {
-			INIT_WORK(&sensor_work->work, mtk_notify_fsync_worker);
-			sensor_work->ctx = ctx;
-			queue_work(ctx->sensor_wq, &sensor_work->work);
-		} else {
-			dev_info(ctx->dev,
-				"%s, sensor work alloc failed\n", __func__);
+		if (seninf_work) {
+			kthread_init_work(&seninf_work->work,
+					mtk_notify_cammux_usage_fn);
+			seninf_work->ctx = ctx;
+			kthread_queue_work(&ctx->core->seninf_worker,
+					&seninf_work->work);
 		}
-	} else
-		dev_info(ctx->dev,
-			"%s, sensor_wq is null or streaming = %d\n",
-			__func__, ctx->streaming);
-	//spin_unlock(&ctx->spinlock_sensor_work);
+	}
 }
 

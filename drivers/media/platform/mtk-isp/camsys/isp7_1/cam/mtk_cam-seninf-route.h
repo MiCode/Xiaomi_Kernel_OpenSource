@@ -24,7 +24,7 @@ int mtk_cam_seninf_is_vc_enabled(struct seninf_ctx *ctx,
 int mtk_cam_seninf_is_di_enabled(struct seninf_ctx *ctx, u8 ch, u8 dt);
 
 int notify_fsync_cammux_usage(struct seninf_ctx *ctx);
-void notify_fsync_cammux_usage_with_wq(struct seninf_ctx *ctx);
+void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx);
 
 #ifdef SENINF_DEBUG
 void mtk_cam_seninf_alloc_cam_mux(struct seninf_ctx *ctx);

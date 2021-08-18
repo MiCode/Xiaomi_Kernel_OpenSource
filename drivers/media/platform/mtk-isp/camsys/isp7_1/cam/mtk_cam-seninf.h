@@ -4,6 +4,7 @@
 #ifndef __MTK_CAM_SENINF_H__
 #define __MTK_CAM_SENINF_H__
 
+#include <linux/kthread.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
@@ -55,6 +56,15 @@ struct seninf_dfs {
 	int cnt;
 };
 
+struct mtk_seninf_work {
+	struct kthread_work work;
+	struct seninf_ctx *ctx;
+	union work_data_t {
+		unsigned int sof;
+		void *data_ptr;
+	} data;
+};
+
 struct seninf_core {
 	struct device *dev;
 	int pm_domain_cnt;
@@ -80,17 +90,9 @@ struct seninf_core {
 	int hs_trail_parameter;
 
 	spinlock_t spinlock_irq;
-};
 
-
-
-struct mtk_sensor_work {
-	struct work_struct work;
-	struct seninf_ctx *ctx;
-	union work_data_t {
-		unsigned int sof;
-		void *data_ptr;
-	} data;
+	struct kthread_worker seninf_worker;
+	struct task_struct *seninf_kworker_task;
 };
 
 struct seninf_ctx {
@@ -156,10 +158,6 @@ struct seninf_ctx {
 	unsigned int streaming:1;
 
 	int seninf_dphy_settle_delay_dt;
-
-	struct workqueue_struct *sensor_wq;
-	spinlock_t spinlock_sensor_work;
-
 };
 
 #endif

@@ -380,6 +380,15 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	seninf_core_pm_runtime_enable(core);
 
+	kthread_init_worker(&core->seninf_worker);
+	core->seninf_kworker_task = kthread_run(kthread_worker_fn,
+				&core->seninf_worker, "seninf_worker");
+	if (IS_ERR(core->seninf_kworker_task)) {
+		dev_info(dev, "%s: failed to start seninf kthread worker\n",
+			__func__);
+		core->seninf_kworker_task = NULL;
+	}
+
 	dev_info(dev, "%s\n", __func__);
 
 	return 0;
@@ -394,6 +403,9 @@ static int seninf_core_remove(struct platform_device *pdev)
 	of_platform_depopulate(dev);
 	seninf_core_pm_runtime_disable(core);
 	device_remove_file(dev, &dev_attr_status);
+
+	if (core->seninf_kworker_task)
+		kthread_stop(core->seninf_kworker_task);
 
 	dev_info(dev, "%s\n", __func__);
 
@@ -1363,7 +1375,6 @@ static int seninf_probe(struct platform_device *pdev)
 	list_add(&ctx->list, &core->list);
 	INIT_LIST_HEAD(&ctx->list_mux);
 	INIT_LIST_HEAD(&ctx->list_cam_mux);
-	spin_lock_init(&ctx->spinlock_sensor_work);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {
@@ -1402,9 +1413,6 @@ static int seninf_probe(struct platform_device *pdev)
 		goto err_free_handler;
 	}
 
-
-	ctx->sensor_wq = NULL;
-	//alloc_ordered_workqueue(dev_name(ctx->dev), WQ_HIGHPRI | WQ_FREEZABLE);
 
 	pm_runtime_enable(dev);
 
@@ -1487,11 +1495,6 @@ static int seninf_remove(struct platform_device *pdev)
 	component_del(dev, &seninf_comp_ops);
 
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
-	spin_lock(&ctx->spinlock_sensor_work);
-	destroy_workqueue(ctx->sensor_wq);
-	drain_workqueue(ctx->sensor_wq);
-	ctx->sensor_wq = NULL;
-	spin_unlock(&ctx->spinlock_sensor_work);
 
 	dev_info(dev, "%s\n", __func__);
 
