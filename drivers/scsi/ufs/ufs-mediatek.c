@@ -203,6 +203,10 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 			hba->capabilities &= ~MASK_AUTO_HIBERN8_SUPPORT;
 			hba->ahit = 0;
 		}
+
+		ufshcd_writel(hba,
+			(ufshcd_readl(hba, REG_UFS_XOUFS_CTRL) | 0x80),
+			REG_UFS_XOUFS_CTRL);
 	}
 
 	return 0;
