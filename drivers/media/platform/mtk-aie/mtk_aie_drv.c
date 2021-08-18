@@ -354,11 +354,14 @@ static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
 
 static void aie_imem_free(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
-	dev_dbg(fd->dev, "%s: vAddr(0x%p)(0x%llx), pAddr(0x%p), size(%d)\n",
+	dev_info(fd->dev, "%s: vAddr(0x%p)(0x%llx), pAddr(0x%p), size(%d)\n",
 		__func__, bufinfo->va, (u64 *)bufinfo->va, bufinfo->pa,
 		bufinfo->size);
 
-	dma_free_coherent(fd->dev, bufinfo->size, bufinfo->va, bufinfo->pa);
+	if (bufinfo->size != 0) {
+		dma_free_coherent(fd->dev, bufinfo->size, bufinfo->va, bufinfo->pa);
+		bufinfo->size = 0;
+	}
 }
 
 static void aie_init_table(struct mtk_aie_dev *fd, u16 pym_width,
