@@ -15,7 +15,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		0, "GPIO0",
 		MTK_EINT_FUNCTION(0, 0),
 		MTK_FUNCTION(0, "GPIO0"),
-		MTK_FUNCTION(2, "TDMIN_LRCK"),
 		MTK_FUNCTION(3, "VOW_CLK_MISO"),
 		MTK_FUNCTION(5, "SRCLKENAI1"),
 		MTK_FUNCTION(6, "TP_GPIO0_AO"),
@@ -25,7 +24,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		1, "GPIO1",
 		MTK_EINT_FUNCTION(0, 1),
 		MTK_FUNCTION(0, "GPIO1"),
-		MTK_FUNCTION(2, "TDMOUT_BCK"),
 		MTK_FUNCTION(3, "EXT_FRAME_SYNC"),
 		MTK_FUNCTION(4, "GPS_L1_ELNA_EN"),
 		MTK_FUNCTION(5, "SRCLKENAI0"),
@@ -37,7 +35,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_EINT_FUNCTION(0, 2),
 		MTK_FUNCTION(0, "GPIO2"),
 		MTK_FUNCTION(1, "PWM_VLP"),
-		MTK_FUNCTION(2, "TDMOUT_LRCK"),
 		MTK_FUNCTION(3, "AGPS_SYNC"),
 		MTK_FUNCTION(4, "GPS_L5_ELNA_EN"),
 		MTK_FUNCTION(5, "I2S1_MCK"),
@@ -98,7 +95,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_EINT_FUNCTION(NO_EINT_SUPPORT, NO_EINT_SUPPORT),
 		MTK_FUNCTION(0, "GPIO8"),
 		MTK_FUNCTION(1, "SCL1"),
-		MTK_FUNCTION(2, "ANT_SEL7"),
 		MTK_FUNCTION(3, "SCP_SCL5"),
 		MTK_FUNCTION(4, "CONN_BGF_UART0_RXD")
 	),
@@ -107,7 +103,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_EINT_FUNCTION(NO_EINT_SUPPORT, NO_EINT_SUPPORT),
 		MTK_FUNCTION(0, "GPIO9"),
 		MTK_FUNCTION(1, "SDA1"),
-		MTK_FUNCTION(2, "ANT_SEL8"),
 		MTK_FUNCTION(3, "SCP_SDA5"),
 		MTK_FUNCTION(4, "CONN_BGF_UART0_TXD")
 	),
@@ -212,7 +207,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_FUNCTION(0, "GPIO19"),
 		MTK_FUNCTION(2, "SCP_SPI1_B_CK"),
 		MTK_FUNCTION(4, "ANT_SEL15"),
-		MTK_FUNCTION(5, "GPS_PPS"),
 		MTK_FUNCTION(6, "GPS_L1_ELNA_EN")
 	),
 	MTK_PIN_NODRV(
@@ -311,8 +305,7 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_EINT_FUNCTION(NO_EINT_SUPPORT, NO_EINT_SUPPORT),
 		MTK_FUNCTION(0, "GPIO29"),
 		MTK_FUNCTION(1, "SCL7"),
-		MTK_FUNCTION(2, "SCP_SCL4"),
-		MTK_FUNCTION(3, "ANT_SEL10")
+		MTK_FUNCTION(2, "SCP_SCL4")
 	),
 	MTK_PIN_NODRV(
 		30, "GPIO30",
@@ -1241,7 +1234,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_FUNCTION(1, "SCP_SPI0_A_CS"),
 		MTK_FUNCTION(2, "SPI6_A_CSB"),
 		MTK_FUNCTION(3, "MRG_SYNC"),
-		MTK_FUNCTION(5, "ANT_SEL6"),
 		MTK_FUNCTION(6, "PWM_1")
 	),
 	MTK_PIN_NODRV(
@@ -1251,7 +1243,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_FUNCTION(1, "SCP_SPI0_A_MI"),
 		MTK_FUNCTION(2, "SPI6_A_MI"),
 		MTK_FUNCTION(3, "MRG_DI"),
-		MTK_FUNCTION(5, "ANT_SEL7"),
 		MTK_FUNCTION(6, "PWM_2")
 	),
 	MTK_PIN_NODRV(
@@ -1261,7 +1252,6 @@ static const struct mtk_pin_desc mtk_pins_mt6895[] = {
 		MTK_FUNCTION(1, "SCP_SPI0_A_MO"),
 		MTK_FUNCTION(2, "SPI6_A_MO"),
 		MTK_FUNCTION(3, "MRG_DO"),
-		MTK_FUNCTION(5, "ANT_SEL8"),
 		MTK_FUNCTION(6, "PWM_3")
 	),
 	MTK_PIN_NODRV(
