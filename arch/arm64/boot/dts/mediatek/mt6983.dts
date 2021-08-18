@@ -12170,13 +12170,6 @@
 		id = <6>;
 		status = "okay";
 	};
-
-	i2c_lcd_bias_mtk:i2c_lcd_bias@11 {
-		compatible = "mediatek,i2c_lcd_bias";
-		reg = <0x11>;
-		id = <6>;
-		status = "okay";
-	};
 };
 
 &spmi {
