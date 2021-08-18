@@ -2872,54 +2872,48 @@ static int m4u_debug_set(void *data, u64 val)
 		report_custom_iommu_fault(0, 0, 0x102, PERI_IOMMU, 0);
 		break;
 	case 5:
-		mtk_iommu_dump_bank_base();
-		break;
-	case 6:
-		mtk_iommu_dump_bk0_val(MM_IOMMU, DISP_IOMMU);
-		break;
-	case 7:
 		mtk_iommu_sec_bk_init_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
-	case 8:
+	case 6:
 		mtk_iommu_sec_bk_irq_en_by_atf(MM_IOMMU, DISP_IOMMU, 1);
 		break;
-	case 9:
+	case 7:
 		mtk_iommu_secure_bk_backup_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
-	case 10:
+	case 8:
 		mtk_iommu_secure_bk_restore_by_atf(MM_IOMMU, DISP_IOMMU);
 		break;
-	case 11:
+	case 9:
 		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 1);
 		break;
-	case 12:
+	case 10:
 		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);
 		break;
-	case 13:	/* enable trace log */
+	case 11:	/* enable trace log */
 		event_mgr[IOMMU_ALLOC].dump_log = 1;
 		event_mgr[IOMMU_FREE].dump_log = 1;
 		event_mgr[IOMMU_MAP].dump_log = 1;
 		event_mgr[IOMMU_UNMAP].dump_log = 1;
 		break;
-	case 14:	/* disable trace log */
+	case 12:	/* disable trace log */
 		event_mgr[IOMMU_ALLOC].dump_log = 0;
 		event_mgr[IOMMU_FREE].dump_log = 0;
 		event_mgr[IOMMU_MAP].dump_log = 0;
 		event_mgr[IOMMU_UNMAP].dump_log = 0;
 		break;
-	case 15:	/* enable trace dump */
+	case 13:	/* enable trace dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 1;
 		event_mgr[IOMMU_FREE].dump_trace = 1;
 		event_mgr[IOMMU_MAP].dump_trace = 1;
 		event_mgr[IOMMU_UNMAP].dump_trace = 1;
 		break;
-	case 16:	/* disable trace dump */
+	case 14:	/* disable trace dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 0;
 		event_mgr[IOMMU_FREE].dump_trace = 0;
 		event_mgr[IOMMU_MAP].dump_trace = 0;
 		event_mgr[IOMMU_UNMAP].dump_trace = 0;
 		break;
-	case 17:	/* reset to default trace log & dump */
+	case 15:	/* reset to default trace log & dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 1;
 		event_mgr[IOMMU_FREE].dump_trace = 1;
 		event_mgr[IOMMU_MAP].dump_trace = 0;
@@ -2929,15 +2923,27 @@ static int m4u_debug_set(void *data, u64 val)
 		event_mgr[IOMMU_MAP].dump_log = 0;
 		event_mgr[IOMMU_UNMAP].dump_log = 0;
 		break;
-	case 18:	/* dump iova trace */
+	case 16:	/* dump iova trace */
 		mtk_iommu_trace_dump(NULL);
 		break;
-	case 19:	/* dump iova alloc list */
+	case 17:	/* dump iova alloc list */
 		mtk_iommu_iova_alloc_dump(NULL, NULL);
 		break;
-	case 20:	/* dump iova map list */
+	case 18:	/* dump iova map list */
 		mtk_iommu_iova_map_dump(NULL, 0);
 		break;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
+	case 19:
+		mtk_iommu_dump_bank_base();
+		break;
+	case 20:
+		mtk_iommu_dump_bk0_val(MM_IOMMU, DISP_IOMMU);
+		break;
+	case 21:	/* dump DISP_IOMMU bank1 pagetable */
+		mtk_iommu_sec_bk_pgtable_dump(MM_IOMMU, DISP_IOMMU,
+				IOMMU_BK1, 0);
+		break;
+#endif
 	default:
 		pr_err("%s error,val=%llu\n", __func__, val);
 		break;

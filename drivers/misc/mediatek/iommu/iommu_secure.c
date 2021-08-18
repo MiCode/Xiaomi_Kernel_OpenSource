@@ -48,12 +48,15 @@ enum iommu_atf_cmd {
 	SECURE_BANK_RESTORE,
 	SECURITY_DBG_SWITCH,
 	IOMMU_TF_DUMP,
+	/* test cmd */
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
+	DUMP_PGTABLE_SEC,
+	DUMP_BANK_BASE,
+	DUMP_BANK_VAL,
+#endif
 	COPY_ENTRY_TO_SECURE,
 	CLEAN_SECURE_ENTRY,
 	DUMP_SECURE_ENTRY,
-	/* test cmd */
-	DUMP_BANK_BASE,
-	DUMP_BANK_VAL,
 	CMD_NUM
 };
 
@@ -232,15 +235,15 @@ mtk_iommu_secure_bk_tf_dump(uint32_t type, uint32_t id, uint32_t bank,
 
 	ret = mtk_iommu_hw_is_valid(type, id, bank);
 	if (ret) {
-		pr_err("%s, IOMMU HW type is invalid, type:%u, id:%u\n",
-		       __func__, type, id);
+		pr_err("%s, IOMMU HW type is invalid, type:%u, id:%u, bk:%u\n",
+		       __func__, type, id, bank);
 		return SMC_IOMMU_FAIL;
 	}
 
 	ret = mtk_iommu_dump_sec_bank(cmd, 0, 0, 0, 0, 0, 0, iova, pa, fault_id);
 	if (ret) {
-		pr_err("%s, iommu call is fail, type:%u, id:%u, cmd:0x%lx\n",
-			__func__, type, id, cmd);
+		pr_err("%s, iommu call is fail, type:%u, id:%u, bk:%u, cmd:0x%lx\n",
+			__func__, type, id, bank, cmd);
 		return SMC_IOMMU_FAIL;
 	}
 
@@ -296,6 +299,7 @@ int mtk_iommu_dump_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, siz
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_dump_secure_entry);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 void mtk_iommu_dump_bank_base(void)
 {
 	int i, j, ret;
@@ -354,6 +358,31 @@ int mtk_iommu_dump_bk0_val(uint32_t type, uint32_t id)
 	return SMC_IOMMU_SUCCESS;
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_dump_bk0_val);
+
+int mtk_iommu_sec_bk_pgtable_dump(uint32_t type, uint32_t id, uint32_t bank,
+		u64 iova)
+{
+	int ret;
+	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, bank, DUMP_PGTABLE_SEC);
+
+	ret = mtk_iommu_hw_is_valid(type, id, bank);
+	if (ret) {
+		pr_err("%s, IOMMU HW type is invalid, type:%u, id:%u, bk:%u\n",
+		       __func__, type, id, bank);
+		return SMC_IOMMU_FAIL;
+	}
+
+	ret = mtk_iommu_atf_call(type, id, bank, cmd, iova, 0, 0, 0, 0, 0);
+	if (ret) {
+		pr_err("%s, iommu call is fail, type:%u, id:%u, bk:%u, cmd:0x%lx\n",
+			__func__, type, id, bank, cmd);
+		return SMC_IOMMU_FAIL;
+	}
+
+	return SMC_IOMMU_SUCCESS;
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_sec_bk_pgtable_dump);
+#endif
 
 static int mtk_iommu_sec_probe(struct platform_device *pdev)
 {

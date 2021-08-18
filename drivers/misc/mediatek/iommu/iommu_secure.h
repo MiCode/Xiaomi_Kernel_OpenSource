@@ -21,8 +21,12 @@ int mtk_iommu_copy_to_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, 
 int mtk_iommu_dump_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, size_t size);
 int mtk_iommu_clean_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, size_t size);
 /* test cmd */
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 void mtk_iommu_dump_bank_base(void);
 int mtk_iommu_dump_bk0_val(uint32_t type, uint32_t id);
+int mtk_iommu_sec_bk_pgtable_dump(uint32_t type, uint32_t id, uint32_t bank,
+		u64 iova);
+#endif
 #else
 int mtk_iommu_sec_bk_init_by_atf(uint32_t type, uint32_t id)
 {
@@ -89,6 +93,7 @@ int mtk_iommu_clean_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, si
 }
 
 /* test cmd */
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 void mtk_iommu_dump_bank_base(void)
 {
 	pr_warn("mtk_iommu: secure warning, %s is not support\n", __func__);
@@ -100,6 +105,15 @@ int mtk_iommu_dump_bk0_val(uint32_t type, uint32_t id)
 
 	return 0;
 }
+
+int mtk_iommu_sec_bk_pgtable_dump(uint32_t type, uint32_t id, uint32_t bank,
+		u64 iova)
+{
+	pr_warn("mtk_iommu: secure warning, %s is not support\n", __func__);
+
+	return 0;
+}
+#endif
 #endif
 
 #endif
