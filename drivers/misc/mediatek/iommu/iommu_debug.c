@@ -2506,7 +2506,7 @@ static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova)
 	if (!iova) {
 		for (i = 0; i < MTK_IOVA_SPACE_NUM; i++) {
 			list_for_each_entry_safe(plist, n, &map_list.head[i], list_node)
-				iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
+				iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %u.%06u\n",
 					i, plist->iova,
 					plist->size,
 					plist->time_high,
@@ -2519,7 +2519,7 @@ static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova)
 	list_for_each_entry_safe(plist, n, &map_list.head[id], list_node)
 		if (iova <= (plist->iova + SZ_4M) &&
 		    iova >= (plist->iova - SZ_4M))
-			iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %llu.%06llus\n",
+			iommu_dump(s, "%-4u 0x%-12llx 0x%-8zx %u.%06u\n",
 				id, plist->iova,
 				plist->size,
 				plist->time_high,
@@ -2553,7 +2553,7 @@ static void mtk_iommu_trace_dump(struct seq_file *s)
 				iommu_globals.record[i].data2 - 1;
 
 		iommu_dump(s,
-			"%-8s %-4lu 0x%-12lx 0x%-10zx 0x%-12lx %llu.%06llu %s\n",
+			"%-8s %-4lu 0x%-12lx 0x%-10zx 0x%-12lx %u.%06u %s\n",
 			event_mgr[event_id].name,
 			iommu_globals.record[i].data3,
 			iommu_globals.record[i].data1,
