@@ -60,6 +60,18 @@ enum qmi_ts_sensor {
 	QMI_TS_MMW2,
 	QMI_TS_MMW3,
 	QMI_TS_MMW_IFIC0,
+	QMI_TS_SUB1_MODEM_CFG,
+	QMI_TS_SUB1_LTE_CC,
+	QMI_TS_SUB1_MCG_FR1_CC,
+	QMI_TS_SUB1_MCG_FR2_CC,
+	QMI_TS_SUB1_SCG_FR1_CC,
+	QMI_TS_SUB1_SCG_FR2_CC,
+	QMI_TS_SUB2_MODEM_CFG,
+	QMI_TS_SUB2_LTE_CC,
+	QMI_TS_SUB2_MCG_FR1_CC,
+	QMI_TS_SUB2_MCG_FR2_CC,
+	QMI_TS_SUB2_SCG_FR1_CC,
+	QMI_TS_SUB2_SCG_FR2_CC,
 	QMI_TS_MAX_NR
 };
 
@@ -115,6 +127,18 @@ static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
 	{"mmw2"},
 	{"mmw3"},
 	{"mmw_ific0"},
+	{"sub1_modem_cfg"},
+	{"sub1_lte_cc"},
+	{"sub1_mcg_fr1_cc"},
+	{"sub1_mcg_fr2_cc"},
+	{"sub1_scg_fr1_cc"},
+	{"sub1_scg_fr2_cc"},
+	{"sub2_modem_cfg"},
+	{"sub2_lte_cc"},
+	{"sub2_mcg_fr1_cc"},
+	{"sub2_mcg_fr2_cc"},
+	{"sub2_scg_fr1_cc"},
+	{"sub2_scg_fr2_cc"},
 };
 
 #endif /* __QMI_SENSORS_H__ */
