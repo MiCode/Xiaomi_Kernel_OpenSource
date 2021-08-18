@@ -599,6 +599,7 @@ TZ_RESULT KREE_AllocSecuremem(KREE_SESSION_HANDLE session,
 		alignment, size, "KREE Alloc Secure mem");
 	return ret;
 }
+EXPORT_SYMBOL(KREE_AllocSecuremem);
 
 TZ_RESULT KREE_ZallocSecuremem(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size)
@@ -619,6 +620,7 @@ TZ_RESULT KREE_ZallocSecurememWithTag(KREE_SESSION_HANDLE session,
 		alignment, size, "KREE_ZallocSecurememWithTag");
 	return ret;
 }
+EXPORT_SYMBOL(KREE_ZallocSecurememWithTag);
 
 TZ_RESULT KREE_ReferenceSecuremem(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE mem_handle)
@@ -629,6 +631,7 @@ TZ_RESULT KREE_ReferenceSecuremem(KREE_SESSION_HANDLE session,
 		"KREE_ReferenceSecuremem");
 	return ret;
 }
+EXPORT_SYMBOL(KREE_ReferenceSecuremem);
 
 TZ_RESULT KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE mem_handle)
@@ -641,6 +644,7 @@ TZ_RESULT KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
 	KREE_DEBUG("[%s] unref count = 0x%x\n", __func__, count);
 	return ret;
 }
+EXPORT_SYMBOL(KREE_UnreferenceSecuremem);
 
 #endif
 
@@ -950,6 +954,7 @@ TZ_RESULT KREE_ION_AccessChunkmem(KREE_SESSION_HANDLE session,
 
 	return TZ_RESULT_SUCCESS;
 }
+EXPORT_SYMBOL(KREE_ION_AccessChunkmem);
 
 /*only for debug: copy chm data to shm.*/
 TZ_RESULT KREE_ION_CP_Chm2Shm(KREE_SESSION_HANDLE session,
@@ -972,6 +977,7 @@ TZ_RESULT KREE_ION_CP_Chm2Shm(KREE_SESSION_HANDLE session,
 		param[3].value.a);
 	return param[3].value.a;
 }
+EXPORT_SYMBOL(KREE_ION_CP_Chm2Shm);
 
 TZ_RESULT KREE_ION_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE secmHandle, uint32_t cmd)

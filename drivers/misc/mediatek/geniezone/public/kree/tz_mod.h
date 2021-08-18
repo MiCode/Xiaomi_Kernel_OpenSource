@@ -51,7 +51,8 @@
 	_IO(MTEE_IOC_MAGIC, 17)
 #define MTEE_CMD_ADJUST_WQ_ATTR                                                \
 	_IOW(MTEE_IOC_MAGIC, 21, char *)
-
+#define MTEE_CMD_GET_CHM_HANDLE                                               \
+	_IOWR(MTEE_IOC_MAGIC, 22, struct user_chm_fd_to_hd_param)
 
 #define DEV_IOC_MAXNR (10)
 
@@ -109,5 +110,9 @@ struct kree_user_sc_param {
 	struct kree_user_test_chm_param chmp;
 };
 
+struct user_chm_fd_to_hd_param {
+	uint32_t secm_handle;
+	int buf_fd;
+};
 
 #endif /* end of DEVFINO_H */

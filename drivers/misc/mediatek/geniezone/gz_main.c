@@ -33,6 +33,8 @@
 #include <tz_cross/ta_test.h>
 #include <tz_cross/trustzone.h>
 #include <linux/vmalloc.h>
+#include <linux/dma-buf.h>
+#include <mtk_heap.h>
 
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
@@ -1225,6 +1227,29 @@ TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
 	return gz_adjust_task_attr(&manual_task_attr);
 }
 
+static TZ_RESULT DMAFd2MemHandle(int buf_fd,
+	KREE_SECUREMEM_HANDLE *mem_handle)
+{
+	struct dma_buf *dbuf = NULL;
+	uint32_t secure_handle = 0;
+
+	dbuf = dma_buf_get(buf_fd);
+	if (!dbuf || IS_ERR(dbuf)) {
+		KREE_ERR("dma_buf_get error\n");
+		return TZ_RESULT_ERROR_ITEM_NOT_FOUND;
+	}
+
+	secure_handle = dmabuf_to_secure_handle(dbuf);
+	if (!secure_handle) {
+		KREE_ERR("dmabuf_to_secure_handle failed!\n");
+		*mem_handle = 0;
+		return TZ_RESULT_ERROR_GENERIC;
+	}
+
+	*mem_handle = secure_handle;
+	return TZ_RESULT_SUCCESS;
+}
+
 static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	unsigned int compat)
 {
@@ -1232,6 +1257,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	TZ_RESULT ret = 0;
 	char __user *user_req;
 	struct user_shm_param shm_data;
+	struct user_chm_fd_to_hd_param cparam;
 	KREE_SHAREDMEM_HANDLE shm_handle = 0;
 
 	if (_IOC_TYPE(cmd) != MTEE_IOC_MAGIC)
@@ -1320,6 +1346,32 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_SC_TEST_UPT_CHMDATA(0x%x)\n",
 			__func__, cmd);
 		return _sc_test_upt_chmdata(filep, arg);
+
+	case MTEE_CMD_GET_CHM_HANDLE:
+		KREE_DEBUG("[%s]cmd=MTEE_CMD_GET_CHM_HANDLE(0x%x)\n", __func__,
+			cmd);
+		err = copy_from_user(&cparam, user_req, sizeof(cparam));
+		if (err) {
+			KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
+				err);
+			return err;
+		}
+		ret =
+			DMAFd2MemHandle(cparam.buf_fd,
+			&(cparam.secm_handle));
+		if (ret != TZ_RESULT_SUCCESS) {
+			KREE_ERR("[%s]DMAFd2MemHandle fail(0x%x)\n",
+				__func__, ret);
+			return ret;
+		}
+		err = copy_to_user(user_req, &cparam, sizeof(cparam));
+		if (err) {
+			KREE_ERR("[%s]copy_to_user fail(0x%x)\n", __func__,
+				err);
+			return err;
+		}
+		ret = err;
+		break;
 
 #ifndef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case MTEE_CMD_FOD_TEE_SHM_ON:
