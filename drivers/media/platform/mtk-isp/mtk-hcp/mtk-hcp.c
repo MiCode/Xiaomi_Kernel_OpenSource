@@ -98,7 +98,7 @@
 
 static struct mtk_hcp *hcp_mtkdev;
 
-#define IPI_MAX_BUFFER_COUNT    (4)
+#define IPI_MAX_BUFFER_COUNT    (8)
 
 struct packet {
 	int32_t module;
@@ -125,7 +125,7 @@ struct msg {
 	struct list_head entry;
 	struct share_buf user_obj;
 };
-#define  MSG_NR (64)
+#define  MSG_NR (96)
 /**
  * struct my_wq_t - work struct to handle daemon notification
  *
@@ -1334,13 +1334,13 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 			spin_lock_irqsave(&hcp_dev->msglock, flag);
 			list_add_tail(&msg->entry, &hcp_dev->msg_list);
 			spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+			wake_up(&hcp_dev->msg_wq);
 		}
 
 		put_user(index, (int32_t *)(arg + offsetof(struct packet, count)));
 		ret = chan_pool_available(hcp_dev, MODULE_IMG);
 		put_user(ret, (bool *)(arg + offsetof(struct packet, more)));
 		//ret = mtk_hcp_get_data(hcp_dev, arg);
-	  wake_up(&hcp_dev->msg_wq);
 
 		ret = 0;
 		// pr_info("[HCP] HCP_GET_OBJECT-: %d", index);
