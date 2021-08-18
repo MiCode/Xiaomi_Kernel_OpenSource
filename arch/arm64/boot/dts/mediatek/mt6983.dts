@@ -5899,21 +5899,16 @@
 	dispsys_config: dispsys_config@14000000 {
 		compatible = "mediatek,mt6983-disp";
 		mediatek,mml = <&mmlsys_config>;
-		dispsys_num = <2>;
-		reg = <0 0x14000000 0 0x1000>,
-		      <0 0x14400000 0 0x1000>;
+		reg = <0 0x14000000 0 0x1000>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_0>;
 		mediatek,larb = <&smi_larb0>;
 		fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
 				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
 		#clock-cells = <1>;
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS0>,
-				<&scpsys MT6983_POWER_DOMAIN_DIS1>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS0>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>,
-			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>,
-			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_APB_BUS>,
-			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_APB_BUS>;
-		clock-num = <4>;
+			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_APB_BUS>;
+		clock-num = <2>;
 		operating-points-v2 = <&opp_table_disp0>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
@@ -6086,13 +6081,9 @@
 		compatible = "mediatek,disp_mutex0",
 					"mediatek,mt6983-disp-mutex";
 		mediatek,mml = <&mmlsys_config>;
-		dispsys_num = <2>;
-		reg = <0 0x14001000 0 0x1000>,
-		      <0 0x14401000 0 0x1000>;
-		interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>,
-			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>;
+		reg = <0 0x14001000 0 0x1000>;
+		interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>;
 	};
 
 	disp_ovl0: disp_ovl@14002000 {
