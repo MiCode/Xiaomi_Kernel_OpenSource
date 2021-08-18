@@ -24,6 +24,8 @@ struct mdw_rv_dev {
 	atomic_t clock_flag;
 	struct work_struct c_wk; // for re-trigger cmd after unlock
 
+	struct work_struct init_wk;
+
 	/* rv information */
 	uint32_t rv_version;
 	unsigned long dev_mask[BITS_TO_LONGS(MDW_DEV_MAX)];

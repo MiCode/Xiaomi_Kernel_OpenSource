@@ -82,6 +82,8 @@ static int mdw_ap_late_init(struct mdw_device *mdev)
 		goto rsc_deinit;
 	}
 
+	mdev->inited = true;
+
 	goto out;
 
 rsc_deinit:

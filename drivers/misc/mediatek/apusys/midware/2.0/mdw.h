@@ -100,6 +100,8 @@ struct mdw_device {
 	struct device *dev;
 	struct miscdevice *misc_dev;
 
+	bool inited;
+
 	uint64_t vlm_start;
 	uint32_t vlm_size;
 

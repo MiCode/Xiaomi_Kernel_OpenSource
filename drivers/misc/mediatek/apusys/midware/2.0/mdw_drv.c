@@ -46,8 +46,13 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 
 	if (!mdw_dev) {
-		mdw_drv_err("apu mdw dev not init\n");
+		pr_info("apusys/mdw: apu mdw no dev\n");
 		return -ENODEV;
+	}
+
+	if (mdw_dev->inited == false) {
+		mdw_drv_warn("apu mdw dev not init");
+		return -EBUSY;
 	}
 
 	mpriv = kzalloc(sizeof(*mpriv), GFP_KERNEL);
@@ -132,16 +137,10 @@ static int mdw_platform_probe(struct platform_device *pdev)
 	mdev->misc_dev = &mdw_misc_dev;
 	mdw_dev = mdev;
 	platform_set_drvdata(pdev, mdev);
-	dev_set_drvdata(mdev->misc_dev->this_device, mdev);
-
-	/* init mdw device */
-	ret = mdw_dev_init(mdev);
-	if (ret)
-		goto delete_mdw_dev;
 
 	ret = mdw_mem_init(mdev);
 	if (ret)
-		goto deinit_mdev;
+		goto delete_mdw_dev;
 
 	ret = mdw_sysfs_init(mdev);
 	if (ret)
@@ -149,14 +148,19 @@ static int mdw_platform_probe(struct platform_device *pdev)
 
 	mdw_dbg_init(g_info);
 
+	ret = mdw_dev_init(mdev);
+	if (ret)
+		goto deinit_dbg;
+
 	pr_info("%s done\n", __func__);
 
 	goto out;
 
+deinit_dbg:
+	mdw_dbg_deinit();
+	mdw_sysfs_deinit(mdev);
 deinit_mem:
 	mdw_mem_deinit(mdev);
-deinit_mdev:
-	mdw_dev_deinit(mdev);
 delete_mdw_dev:
 	kfree(mdev);
 	mdw_dev = NULL;
@@ -169,10 +173,10 @@ static int mdw_platform_remove(struct platform_device *pdev)
 	struct mdw_device *mdev = platform_get_drvdata(pdev);
 
 	mdev->dev_funcs->sw_deinit(mdev);
+	mdw_dev_deinit(mdev);
 	mdw_dbg_deinit();
 	mdw_sysfs_deinit(mdev);
 	mdw_mem_deinit(mdev);
-	mdw_dev_deinit(mdev);
 	kfree(mdev);
 	mdw_dev = NULL;
 	pr_info("%s done\n", __func__);
@@ -223,16 +227,10 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	mdev->misc_dev = &mdw_misc_dev;
 	mdw_dev = mdev;
 	dev_set_drvdata(dev, mdev);
-	dev_set_drvdata(mdev->misc_dev->this_device, mdev);
-
-	/* init mdw device */
-	ret = mdw_dev_init(mdev);
-	if (ret)
-		goto delete_mdw_dev;
 
 	ret = mdw_mem_init(mdev);
 	if (ret)
-		goto deinit_mdev;
+		goto delete_mdw_dev;
 
 	ret = mdw_sysfs_init(mdev);
 	if (ret)
@@ -240,14 +238,19 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 
 	mdw_dbg_init(g_info);
 
+	ret = mdw_dev_init(mdev);
+	if (ret)
+		goto deinit_dbg;
+
 	pr_info("%s done\n", __func__);
 
 	goto out;
 
+deinit_dbg:
+	mdw_dbg_deinit();
+	mdw_sysfs_deinit(mdev);
 deinit_mem:
 	mdw_mem_deinit(mdev);
-deinit_mdev:
-	mdw_dev_deinit(mdev);
 delete_mdw_dev:
 	kfree(mdev);
 	mdw_dev = NULL;
@@ -260,10 +263,10 @@ static void mdw_rpmsg_remove(struct rpmsg_device *rpdev)
 	struct mdw_device *mdev = dev_get_drvdata(&rpdev->dev);
 
 	mdev->dev_funcs->sw_deinit(mdev);
+	mdw_dev_deinit(mdev);
 	mdw_dbg_deinit();
 	mdw_sysfs_deinit(mdev);
 	mdw_mem_deinit(mdev);
-	mdw_dev_deinit(mdev);
 	kfree(mdev);
 	mdw_dev = NULL;
 	pr_info("%s done\n", __func__);

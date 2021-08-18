@@ -241,7 +241,7 @@ int mdw_rv_dev_unlock(struct mdw_rv_dev *mrdev)
 	}
 
 	atomic_set(&mrdev->clock_flag, 0);
-	schedule_work(&(mrdev->c_wk));
+	schedule_work(&mrdev->c_wk);
 
 out:
 	mutex_unlock(&mrdev->mtx);
@@ -417,6 +417,23 @@ out:
 	return ret;
 }
 
+static void mdw_rv_dev_init_func(struct work_struct *wk)
+{
+	struct mdw_rv_dev *mrdev = container_of(wk, struct mdw_rv_dev, init_wk);
+	struct mdw_device *mdev = mrdev->mdev;
+	int ret = 0;
+
+	ret = mdw_rv_dev_handshake(mrdev);
+	if (ret) {
+		mdw_drv_err("handshake fail(%d)\n", ret);
+		return;
+	}
+
+	memcpy(mdev->dev_mask, mrdev->dev_mask, sizeof(mrdev->dev_mask));
+	mdev->inited = true;
+	mdw_drv_info("late init done\n");
+}
+
 int mdw_rv_dev_init(struct mdw_device *mdev)
 {
 	struct rpmsg_channel_info chinfo = {};
@@ -454,19 +471,13 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 	atomic_set(&mrdev->clock_flag, 0);
 	INIT_LIST_HEAD(&mrdev->s_list);
 	INIT_LIST_HEAD(&mrdev->c_list);
-	INIT_WORK(&(mrdev->c_wk), &mdw_rv_dev_unlock_func);
+	INIT_WORK(&mrdev->c_wk, &mdw_rv_dev_unlock_func);
+	INIT_WORK(&mrdev->init_wk, &mdw_rv_dev_init_func);
 
-	ret = mdw_rv_dev_handshake(mrdev);
-	if (ret) {
-		mdw_drv_err("handshake fail(%d)\n", ret);
-		goto destroy_ept;
-	}
+	schedule_work(&mrdev->init_wk);
 
-	memcpy(mdev->dev_mask, mrdev->dev_mask, sizeof(mrdev->dev_mask));
 	goto out;
 
-destroy_ept:
-	rpmsg_destroy_ept(mrdev->ept);
 free_mrdev:
 	kvfree(mrdev);
 	mdev->dev_specific = NULL;

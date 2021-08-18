@@ -16,7 +16,7 @@ static uint32_t g_sched_plcy_show;
 static ssize_t dsp_task_num_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	int ret = 0;
 	uint32_t num = 0;
 
@@ -40,7 +40,7 @@ static DEVICE_ATTR_RO(dsp_task_num);
 static ssize_t dla_task_num_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	int ret = 0;
 	uint32_t num = 0;
 
@@ -64,7 +64,7 @@ static DEVICE_ATTR_RO(dla_task_num);
 static ssize_t dma_task_num_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	int ret = 0;
 	uint32_t num = 0;
 
@@ -149,7 +149,7 @@ static struct attribute_group mdw_mem_attr_group = {
 static ssize_t ulog_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	int ret = 0;
 	uint32_t log_lv = 0;
 
@@ -172,7 +172,7 @@ static ssize_t ulog_store(struct device *dev,
 	struct device_attribute *attr, const char *buf,
 	size_t count)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	uint32_t val = 0;
 
 	if (!mdev) {
@@ -192,7 +192,7 @@ static DEVICE_ATTR_RW(ulog);
 static ssize_t klog_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	int ret = 0;
 	uint32_t log_lv = 0;
 
@@ -215,7 +215,7 @@ static ssize_t klog_store(struct device *dev,
 	struct device_attribute *attr, const char *buf,
 	size_t count)
 {
-	struct mdw_device *mdev = dev_get_drvdata(dev);
+	struct mdw_device *mdev = mdw_dev;
 	uint32_t val = 0;
 
 	if (!mdev) {
