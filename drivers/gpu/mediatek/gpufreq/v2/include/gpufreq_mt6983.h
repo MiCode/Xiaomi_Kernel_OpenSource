@@ -26,7 +26,6 @@
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* misc setting control */
 #define GPUFREQ_VCORE_DVFS_ENABLE       (1)
-#define GPUFREQ_FORCE_4_CORES           (0)
 #define GPUFREQ_MFG1_CONTROL_ENABLE     (0)
 #define GPUFREQ_CG_CONTROL_ENABLE       (0)
 
@@ -68,7 +67,7 @@
 /**************************************************
  * Power Domain Setting
  **************************************************/
-#define GPUFREQ_PDCv2_ENABLE            (0)
+#define GPUFREQ_PDCv2_ENABLE            (1)
 #define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (0)
 #define PWR_STATUS_OFS                  (0xF3C)
 #define PWR_STATUS_2ND_OFS              (0xF40)
