@@ -3,6 +3,7 @@
 
 #include "waipio-mtp.dtsi"
 #include "waipio-pm8010-spmi.dtsi"
+#include "waipio-kiwi.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio with Kiwi";
