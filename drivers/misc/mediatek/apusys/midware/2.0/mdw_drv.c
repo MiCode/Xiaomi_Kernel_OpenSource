@@ -45,8 +45,10 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	struct mdw_fpriv *mpriv = NULL;
 	int ret = 0;
 
-	if (!mdw_dev)
+	if (!mdw_dev) {
+		mdw_drv_err("apu mdw dev not init\n");
 		return -ENODEV;
+	}
 
 	mpriv = kzalloc(sizeof(*mpriv), GFP_KERNEL);
 	if (!mpriv)

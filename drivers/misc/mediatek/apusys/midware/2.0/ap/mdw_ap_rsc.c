@@ -422,17 +422,8 @@ static int mdw_rsc_pwr_off(struct mdw_dev_info *d)
 static int mdw_rsc_fw(struct mdw_dev_info *d, uint32_t magic, const char *name,
 	uint64_t kva, uint32_t iova, uint32_t size, int op)
 {
-	struct apusys_firmware_hnd h;
-
-	memset(&h, 0, sizeof(h));
-	h.magic = magic;
-	h.kva = kva;
-	h.iova = iova;
-	h.size = size;
-	h.op = op;
-	strncpy(h.name, name, sizeof(h.name)-1);
-
-	return d->dev->send_cmd(APUSYS_CMD_FIRMWARE, &h, d->dev);
+	mdw_drv_err("not support fw(%s-#%u)\n", d->name, d->idx);
+	return -EINVAL;
 }
 
 static int mdw_rsc_ucmd(struct mdw_dev_info *d,

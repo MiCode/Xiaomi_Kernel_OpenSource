@@ -5,6 +5,7 @@
 
 #include <linux/rpmsg.h>
 #include "mdw_cmn.h"
+#include "mdw_trace.h"
 #include "mdw_rv.h"
 #include "mdw_rv_msg.h"
 #include "mdw_rv_tag.h"
@@ -60,7 +61,9 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 	mutex_unlock(&mrdev->msg_mtx);
 
 	/* send */
+	mdw_trace_begin("%s ipi", __func__);
 	ret = rpmsg_send(mrdev->ept, &s_msg->msg, sizeof(s_msg->msg));
+	mdw_trace_end("%s ipi", __func__);
 	if (ret) {
 		mdw_drv_err("send msg(0x%llx) fail\n", s_msg->msg.sync_id);
 		mutex_lock(&mrdev->msg_mtx);
@@ -174,10 +177,15 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mpriv->mdev->dev_specific;
 	struct mdw_rv_cmd *rc = NULL;
 	int ret = 0;
+	uint64_t kid = c->kid, uid = c->uid;
+
+	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, kid, uid);
 
 	rc = mdw_rv_cmd_create(mpriv, c);
-	if (!rc)
-		return -EINVAL;
+	if (!rc) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	mdw_drv_debug("run rc(0%llx)\n", (uint64_t)rc);
 	mutex_lock(&mrdev->mtx);
@@ -190,6 +198,8 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	}
 	mutex_unlock(&mrdev->mtx);
 
+out:
+	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, kid, uid);
 	return ret;
 }
 
@@ -274,7 +284,7 @@ static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
 
 	s_msg = mdw_rv_dev_get_msg(mrdev, msg->sync_id);
 	if (!s_msg) {
-		mdw_drv_err("get msg fail(0x%llx)\n", msg->sync_id);
+		mdw_exception("get msg fail(0x%llx)", msg->sync_id);
 	} else {
 		memcpy(&s_msg->msg, msg, sizeof(*msg));
 		mutex_lock(&mrdev->msg_mtx);

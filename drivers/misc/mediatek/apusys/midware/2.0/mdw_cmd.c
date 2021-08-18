@@ -434,8 +434,19 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 {
 	struct dma_fence *f = &c->fence->base_fence;
 
-	mdw_flw_debug("cmd(%p/0x%llx) ret(%d) complete, pid(%d/%d)(%d)\n",
-		c->mpriv, c->kid, ret, c->pid, c->tgid, current->pid);
+	mdw_flw_debug("cmd(%p/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
+		c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+		c->pid, c->tgid, current->pid);
+
+	/* check subcmds return value */
+	if (c->einfos->c.sc_rets) {
+		mdw_exception("pid(%d/%d) cmd(%p/0x%llx) fail(%d/0x%llx)\n",
+			c->pid, c->tgid, c->mpriv,
+			c->kid, ret, c->einfos->c.sc_rets);
+
+		if (!ret)
+			ret = -EFAULT;
+	}
 
 	mdw_cmd_put_cmdbufs(c->mpriv, c);
 	if (ret)
@@ -516,6 +527,8 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 {
 	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
 	struct mdw_cmd *c = NULL;
+
+	mdw_trace_begin("%s", __func__);
 
 	/* check num subcmds maximum */
 	if (in->exec.num_subcmds > MDW_SUBCMD_MAX) {
@@ -626,6 +639,7 @@ free_cmd:
 	vfree(c);
 	c = NULL;
 out:
+	mdw_trace_end("%s", __func__);
 	return c;
 }
 

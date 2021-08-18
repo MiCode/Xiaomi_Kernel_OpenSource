@@ -377,15 +377,3 @@ int apusys_mem_invalidate_kva(void *kva, uint32_t size)
 	mdw_mem_debug("\n");
 	return 0;
 }
-
-int apusys_mem_flush(struct apusys_kmem *mem)
-{
-	mdw_mem_debug("\n");
-	return -EINVAL;
-}
-
-int apusys_mem_invalidate(struct apusys_kmem *mem)
-{
-	mdw_mem_debug("\n");
-	return -EINVAL;
-}

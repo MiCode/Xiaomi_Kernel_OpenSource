@@ -5,6 +5,7 @@
 
 #include "mdw_rv.h"
 #include "mdw_cmn.h"
+#include "mdw_trace.h"
 
 #define MDW_IS_HIGHADDR(addr) ((addr & 0xffffffff00000000) ? true : false)
 
@@ -62,17 +63,19 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
 
+	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
+
 	/* check mem address for rv */
 	if (MDW_IS_HIGHADDR(c->exec_infos->device_va) ||
 		MDW_IS_HIGHADDR(c->cmdbufs->device_va)) {
 		mdw_drv_err("rv dva high addr(0x%llx/0x%llx)\n",
 			c->cmdbufs->device_va, c->exec_infos->device_va);
-		return NULL;
+		goto out;
 	}
 
 	rc = vzalloc(sizeof(*rc));
 	if (!rc)
-		return NULL;
+		goto out;
 
 	init_completion(&rc->s_msg.cmplt);
 
@@ -167,6 +170,7 @@ free_rc:
 	vfree(rc);
 	rc = NULL;
 out:
+	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
 	return rc;
 }
 
@@ -188,16 +192,8 @@ void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
 	/* invalidate */
 	apusys_mem_invalidate_kva(rc->cb->vaddr, rc->cb->size);
 	apusys_mem_invalidate_kva(c->exec_infos->vaddr, c->exec_infos->size);
-	mdw_flw_debug("cmd(0x%llx) complete(0x%llx)\n",
-		c->kid, c->einfos->c.sc_rets);
 
-	if (!ret && c->einfos->c.sc_rets)
-		ret = -EFAULT;
-
-	if (ret)
-		mdw_drv_err("cmd(0x%llx) complete, ret(0x%llx)\n",
-		c->kid, c->einfos->c.sc_rets);
-
+	/* delete rv cmd and complete */
 	mdw_rv_cmd_delete(rc);
 	c->complete(c, ret);
 }

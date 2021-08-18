@@ -200,6 +200,19 @@ struct mdw_dev_func {
 	uint32_t (*get_info)(struct mdw_device *mdev, enum mdw_info_type type);
 };
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#define mdw_exception(format, args...) \
+	do { \
+		pr_info("apusys mdw:" format, ##args); \
+		aee_kernel_warning("APUSYS_AP_EXCEPTION_APUSYS_MIDDLEWARE", \
+			"\nCRDISPATCH_KEY:APUSYS_MIDDLEWARE\n" format, \
+			##args); \
+	} while (0)
+#else
+#define mdw_exception(format, args...)
+#endif
+
 void mdw_ap_set_func(struct mdw_device *mdev);
 void mdw_rv_set_func(struct mdw_device *mdev);
 
@@ -224,7 +237,6 @@ void mdw_sysfs_deinit(struct mdw_device *mdev);
 
 int mdw_dbg_init(struct apusys_core_info *info);
 void mdw_dbg_deinit(void);
-void mdw_dbg_aee(char *name);
 
 int mdw_dev_init(struct mdw_device *mdev);
 void mdw_dev_deinit(struct mdw_device *mdev);

@@ -259,8 +259,6 @@ static void mdw_ap_cmd_done(struct kref *ref)
 		mdw_drv_warn("cmd(0x%llx) abort\n", ac->c->kid);
 		mdw_ap_cmd_delete(ac);
 	} else {
-		mdw_flw_debug("cmd(0x%llx) complete(0x%llx)\n",
-			ac->c->kid, c->einfos->c.sc_rets);
 		mdw_ap_cmd_delete(ac);
 		apusys_mem_flush_kva(c->exec_infos->vaddr, c->exec_infos->size);
 		if (c->einfos->c.sc_rets)

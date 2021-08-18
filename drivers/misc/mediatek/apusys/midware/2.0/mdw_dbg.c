@@ -10,9 +10,6 @@
 #include <linux/debugfs.h>
 #include <linux/errno.h>
 #include <linux/uaccess.h>
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-#include <aee.h>
-#endif
 
 #include "mdw_cmn.h"
 
@@ -24,17 +21,6 @@ u32 g_mdw_klog;
 u8 cfg_apusys_trace;
 
 //----------------------------------------------
-
-void mdw_dbg_aee(char *name)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_kernel_warning("VPU", "\nCRDISPATCH_KEY:APUSYS_MIDDLEWARE\n",
-		name);
-#else
-	mdw_drv_info("not support aee\n");
-#endif
-}
-
 int mdw_dbg_init(struct apusys_core_info *info)
 {
 	g_mdw_klog = 0;
