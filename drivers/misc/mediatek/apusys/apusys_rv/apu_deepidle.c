@@ -81,7 +81,7 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 
 		dev_info(apu->dev, "%s: power on apu top\n", __func__);
 		apu->conf_buf->time_offset = sched_clock();
-		pm_runtime_get(apu->dev);
+		pm_runtime_get_sync(apu->dev);
 
 		hw_logger_deep_idle_leave();
 
@@ -151,7 +151,7 @@ static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t ack)
 static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)priv;
-	int ret;
+	int ret, timeout;
 
 	dev_info(apu->dev, "%s: entering deep idle\n", __func__);
 
@@ -170,6 +170,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		apu_deepidle_send_ack(apu, DPIDLE_MDW_LOCK_FAIL);
 		return;
 	}
+	dev_info(apu->dev, "%s: take mdw lock done\n", __func__);
 
 	ret = apu_ipi_lock(apu);
 	if (ret) {
@@ -177,10 +178,10 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		apu_deepidle_send_ack(apu, DPIDLE_IPI_LOCK_FAIL);
 		goto unlock_mdw;
 	}
+	dev_info(apu->dev, "%s: take inbound IPI lock done\n", __func__);
 
 	hw_logger_deep_idle_enter();
 
-	dev_info(apu->dev, "%s: take mdw lock done\n", __func__);
 	ret = apu_deepidle_send_ack(apu, DPIDLE_OK);
 	if (ret)
 		goto unlock_ipi;
@@ -192,7 +193,18 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		goto unlock_ipi;
 	}
 
-	dev_info(apu->dev, "%s: power off done\n", __func__);
+	dev_info(apu->dev, "%s: start polling power off\n", __func__);
+
+	timeout = 50;
+	while (!pm_runtime_suspended(apu->power_dev) && timeout-- > 0)
+		msleep(20);
+
+	if (timeout <= 0) {
+		dev_info(apu->dev, "%s: polling power off timeout!!\n", __func__);
+		goto unlock_ipi;
+	}
+
+	dev_info(apu->dev, "%s: power off done, timeout=%d\n", __func__, timeout);
 
 unlock_ipi:
 	apu_ipi_unlock(apu);
