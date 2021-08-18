@@ -288,7 +288,7 @@ struct share_buf {
  * @ current_task        hcp current task struct
  */
 struct mtk_hcp {
-	bool have_slb;
+	atomic_t have_slb;
 	struct hcp_mem extmem;
 	struct hcp_desc hcp_desc_table[HCP_MAX_ID];
 	struct device *dev;

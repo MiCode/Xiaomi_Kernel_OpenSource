@@ -108,6 +108,13 @@ struct packet {
 	struct share_buf *buffer[IPI_MAX_BUFFER_COUNT];
 };
 
+#define CTRL_ID_SLB_BASE        (0x01)
+
+struct ctrl_data {
+	uint32_t id;
+	uintptr_t value;
+} __attribute__ ((__packed__));
+
 #define HCP_INIT                _IOWR('H', 0, struct share_buf)
 #define HCP_GET_OBJECT          _IOWR('H', 1, struct share_buf)
 #define HCP_NOTIFY              _IOWR('H', 2, struct share_buf)
@@ -473,9 +480,11 @@ static int hcp_send_internal(struct platform_device *pdev,
 
 		// Bypass sequeunce check for the following commands
 		if ((id == HCP_IMGSYS_IOVA_FDS_ADD_ID) ||
-			(id == HCP_IMGSYS_IOVA_FDS_DEL_ID) ||
-			(id == HCP_IMGSYS_UVA_FDS_ADD_ID) ||
-			(id == HCP_IMGSYS_UVA_FDS_DEL_ID)) {
+				(id == HCP_IMGSYS_IOVA_FDS_DEL_ID) ||
+				(id == HCP_IMGSYS_UVA_FDS_ADD_ID) ||
+				(id == HCP_IMGSYS_UVA_FDS_DEL_ID) ||
+				(id == HCP_IMGSYS_SET_CONTROL_ID) ||
+				(id == HCP_IMGSYS_GET_CONTROL_ID)) {
 			no = 0;
 		} else {
 			no = atomic_inc_return(&hcp_dev->seq);
@@ -553,30 +562,50 @@ EXPORT_SYMBOL(mtk_hcp_send_async);
 int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 	int32_t value, size_t size)
 {
-	//struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
-	//struct slbc_data slb;
-	//struct ctrl_info ctrl;
-	//int ret;
+	struct slbc_data slb;
+	struct ctrl_data ctrl;
+	int ret;
 
-	//if (hcp_dev->have_slb == false && *((uint64_t *)data)) {
-		//slb.uid = UID_SH_P2;
-		//slb.type = TP_BUFFER;
-		//ret = slbc_request(&slb);
-		//if (ret < 0) {
-		//	dev_info(hcp_dev->dev, "%s: Failed to allocate SLB buffer", __func__);
-		//	return -1;
-		//}
+	if (value) {
+		if (atomic_inc_return(&(hcp_dev->have_slb)) == 1) {
+			slb.uid = UID_SH_P2;
+			slb.type = TP_BUFFER;
+			ret = slbc_request(&slb);
+			if (ret < 0) {
+				dev_info(hcp_dev->dev, "%s: Failed to allocate SLB buffer",
+					__func__);
+				return -1;
+			}
 
-		//hcp_dev->have_slb = true;
+			dev_info(hcp_dev->dev, "%s: SLB buffer base(%p), size(%ld): %x",
+				__func__, slb.paddr, slb.size);
 
-		//ctrl.id    = 0x1;
-		//ctrl.size  = sizeof(slb.paddr);
-		//ctrl.value = (uint64_t)slb.paddr;
+			ctrl.id    = CTRL_ID_SLB_BASE;
+			ctrl.value = ((slb.size << 32) |
+				((uintptr_t)slb.paddr & 0x0FFFFFFFFULL));
 
-		//return hcp_send_internal(pdev,
-		//	HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
-	//}
+			return hcp_send_internal(pdev,
+				HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
+		}
+	} else {
+		if (atomic_dec_return(&(hcp_dev->have_slb)) == 0) {
+			slb.uid  = UID_SH_P2;
+			slb.type = TP_BUFFER;
+			ret = slbc_release(&slb);
+			if (ret < 0) {
+				dev_info(hcp_dev->dev, "Failed to release SLB buffer");
+				return -1;
+			}
+
+			ctrl.id    = CTRL_ID_SLB_BASE;
+			ctrl.value = 0;
+
+			return hcp_send_internal(pdev,
+				HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
+		}
+	}
 
 	return 0;
 }
@@ -589,7 +618,6 @@ struct platform_device *mtk_hcp_get_plat_device(struct platform_device *pdev)
 	struct platform_device *hcp_pdev;
 
 	dev_dbg(&pdev->dev, "- E. hcp get platform device.\n");
-
 
 	hcp_node = of_parse_phandle(dev->of_node, "mediatek,hcp", 0);
 	if (hcp_node == NULL) {
@@ -1085,22 +1113,9 @@ static int mtk_hcp_release(struct inode *inode, struct file *file)
 {
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
 
-	//struct slbc_data data;
-	//int ret;
-
 	dev_dbg(hcp_dev->dev, "- E. hcp release.\n");
 
 	hcp_dev->is_open = false;
-
-	//if (hcp_dev->have_slb) {
-	//	data.uid  = UID_SH_P2;
-	//	data.type = TP_BUFFER;
-	//	ret = slbc_release(&data);
-	//	if (ret < 0) {
-	//		dev_info(hcp_dev->dev, "Failed to release SLB buffer");
-	//		return -1;
-	//	}
-	//}
 
 	kfree(hcp_dev->extmem.d_va);
 	return 0;
@@ -1717,7 +1732,7 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34)))
 		dev_info(&pdev->dev, "%s:No DMA available\n", __func__);
 
-	hcp_dev->have_slb = false;
+	atomic_set(&(hcp_dev->have_slb), 0);
 
 	hcp_dev->is_open = false;
 	for (i = 0; i < MODULE_MAX_ID; i++) {
