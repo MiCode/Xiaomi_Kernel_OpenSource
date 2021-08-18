@@ -212,6 +212,9 @@ int hw_logger_config_init(struct mtk_apu *apu)
 		return -EINVAL;
 	}
 
+	if (!apu_logtop || !hw_log_buf || !local_log_buf)
+		return 0;
+
 	st_logger_init_info = (struct logger_init_info *)
 		get_apu_config_user_ptr(apu->conf_buf, eLOGGER_INIT_INFO);
 
@@ -255,7 +258,7 @@ static int apu_logtop_copy_buf(void)
 	unsigned int log_w_ofs, log_ov_flg;
 	bool ovwrite_flg;
 
-	if (!hw_log_buf || !local_log_buf)
+	if (!apu_logtop || !hw_log_buf || !local_log_buf)
 		return 0;
 
 	ovwrite_flg = get_ov_flag();
@@ -374,7 +377,8 @@ int hw_logger_deep_idle_leave(void)
 	apu_toplog_deep_idle = false;
 
 	/* clear read pointer */
-	set_r_ptr(get_st_addr());
+	if (apu_logtop)
+		set_r_ptr(get_st_addr());
 
 	mutex_unlock(&hw_logger_mutex);
 
