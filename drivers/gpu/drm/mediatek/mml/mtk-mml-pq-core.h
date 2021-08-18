@@ -54,19 +54,18 @@ struct mml_task;
 
 struct mml_pq_sub_task {
 	struct mutex lock;
+	atomic_t queue_cnt;
 	void *result;
 	struct wait_queue_head wq;
 	struct list_head mbox_list;
 	bool job_cancelled;
 	u64 job_id;
-	bool inited;
 };
 
 struct mml_pq_task {
 	struct mml_task *task;
 	atomic_t ref_cnt;
 	struct mutex lock;
-	struct mutex init_pq_sub_task_lock;
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
 };
@@ -75,6 +74,15 @@ struct mml_pq_task {
  * mml_pq_core_init - Initialize PQ core
  */
 void mml_pq_core_init(void);
+
+/*
+ * mml_pq_task_create - create and initial pq task
+ *
+ * @task:	task data, include pq parameters and frame info
+ *
+ * Return:	if value < 0, create pq task failed should debug
+ */
+s32 mml_pq_task_create(struct mml_task *task);
 
 /*
  * destroy_pq_task - for adaptor to call before destroy mml_task

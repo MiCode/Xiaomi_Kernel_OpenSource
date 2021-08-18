@@ -61,7 +61,7 @@ static void queue_msg(struct mml_pq_chan *chan,
 			struct mml_pq_sub_task *sub_task)
 {
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s sub_task[%p] sub_task->mbox_list[%d] chan[%p] chan->msg_list[%p]\n",
+	mml_pq_msg("%s sub_task[%p] sub_task->mbox_list[%d] chan[%p] chan->msg_list[%p]",
 		__func__, sub_task, &sub_task->mbox_list, chan, &chan->msg_list);
 
 	mutex_lock(&chan->msg_lock);
@@ -69,7 +69,7 @@ static void queue_msg(struct mml_pq_chan *chan,
 	atomic_inc(&chan->msg_cnt);
 	mutex_unlock(&chan->msg_lock);
 
-	mml_pq_msg("%s wake up channel message queue\n", __func__);
+	mml_pq_msg("%s wake up channel message queue", __func__);
 	wake_up_interruptible(&chan->msg_wq);
 
 	mml_pq_trace_ex_end();
@@ -81,7 +81,7 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 	struct mml_pq_sub_task *temp = NULL;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s chan[%p] chan->msg_list[%p]\n", __func__, chan, &chan->msg_list);
+	mml_pq_msg("%s chan[%p] chan->msg_list[%p]", __func__, chan, &chan->msg_list);
 
 	mutex_lock(&chan->msg_lock);
 	temp = list_first_entry_or_null(&chan->msg_list,
@@ -92,18 +92,18 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 	mutex_unlock(&chan->msg_lock);
 
 	if (!temp) {
-		mml_pq_err("%s temp is null\n", __func__);
+		mml_pq_err("%s temp is null", __func__);
 		return -ENOENT;
 	}
 
 	if (temp->result) {
-		mml_pq_log("%s result is exit\n", __func__);
+		mml_pq_log("%s result is exit", __func__);
 		return -EFAULT;
 	}
 
-	mml_pq_msg("%s temp[%p] temp->result[%p] sub_task->job_id[%d] chan[%p] chan_job_id[%d]\n",
+	mml_pq_msg("%s temp[%p] temp->result[%p] sub_task->job_id[%d] chan[%p] chan_job_id[%d]",
 		__func__, temp, temp->result, temp->job_id, chan, chan->job_idx);
-	mml_pq_msg("%s chan_job_id[%d] temp->mbox_list[%p] chan->job_list[%p]\n", __func__,
+	mml_pq_msg("%s chan_job_id[%d] temp->mbox_list[%p] chan->job_list[%p]", __func__,
 			chan->job_idx, &temp->mbox_list, &chan->job_list);
 
 	mutex_lock(&chan->job_lock);
@@ -122,11 +122,11 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 	struct mml_pq_sub_task *sub_task = NULL, *tmp = NULL;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s chan[%p] job_id[%d]\n", __func__, chan, job_id);
+	mml_pq_msg("%s chan[%p] job_id[%d]", __func__, chan, job_id);
 
 	mutex_lock(&chan->job_lock);
 	list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
-		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]\n", __func__,
+		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]", __func__,
 				sub_task, chan->job_list, sub_task->job_id);
 		if (sub_task->job_id == job_id) {
 			*out_sub_task = sub_task;
@@ -142,28 +142,47 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 	return 0;
 }
 
-static s32 create_pq_task(struct mml_task *task)
+static void init_pq_sub_task(struct mml_pq_sub_task *sub_task)
+{
+	mml_pq_trace_ex_begin("%s", __func__);
+
+	mml_pq_msg("%s", __func__);
+	mutex_init(&sub_task->lock);
+	sub_task->result = NULL;
+	init_waitqueue_head(&sub_task->wq);
+	INIT_LIST_HEAD(&sub_task->mbox_list);
+	atomic_set(&sub_task->queue_cnt, 0);
+	sub_task->job_cancelled = false;
+	sub_task->job_id = 0;
+
+	mml_pq_trace_ex_end();
+}
+
+s32 mml_pq_task_create(struct mml_task *task)
 {
 	struct mml_pq_task *pq_task;
 
-	mml_pq_trace_ex_begin("%s", __func__);
-	if (likely(task->pq_task))
+	if (likely(task->pq_task)) {
+		mml_pq_msg("%s pq_task has created", __func__);
 		return 0;
+	}
+
+	mml_pq_trace_ex_begin("%s", __func__);
 
 	pq_task = kmalloc(sizeof(*pq_task), GFP_KERNEL);
 
 	if (unlikely(!pq_task)) {
-		mml_pq_err("%s create pq_task failed\n", __func__);
+		mml_pq_err("%s create pq_task failed", __func__);
 		return -ENOMEM;
 	}
-	mml_pq_msg("%s create pq_task\n", __func__);
+	mml_pq_msg("%s create pq_task", __func__);
 	pq_task->task = task;
 	atomic_set(&pq_task->ref_cnt, 1);
 	mutex_init(&pq_task->lock);
-	mutex_init(&pq_task->init_pq_sub_task_lock);
-	pq_task->tile_init.inited = false;
-	pq_task->comp_config.inited = false;
 	task->pq_task = pq_task;
+
+	init_pq_sub_task(&pq_task->tile_init);
+	init_pq_sub_task(&pq_task->comp_config);
 
 	mml_pq_trace_ex_end();
 	return 0;
@@ -184,26 +203,6 @@ void destroy_pq_task(struct mml_task *task)
 	mutex_unlock(&pq_task->lock);
 
 	mml_pq_trace_ex_end();
-}
-
-static bool init_pq_sub_task(struct mml_pq_sub_task *sub_task)
-{
-	if (likely(sub_task->inited))
-		return false;
-
-	mml_pq_trace_ex_begin("%s", __func__);
-
-	mml_pq_msg("%s\n", __func__);
-	mutex_init(&sub_task->lock);
-	sub_task->result = NULL;
-	init_waitqueue_head(&sub_task->wq);
-	INIT_LIST_HEAD(&sub_task->mbox_list);
-	sub_task->job_cancelled = false;
-	sub_task->job_id = 0;
-	sub_task->inited = true;
-
-	mml_pq_trace_ex_end();
-	return true;
 }
 
 static struct mml_pq_task *from_tile_init(struct mml_pq_sub_task *sub_task)
@@ -267,9 +266,9 @@ static void dump_tile_result(void *data)
 				result->rsz_param[i].ver_dir_scale);
 		mml_pq_dump("[tile][%u] ver_algorithm=%u", i,
 				result->rsz_param[i].ver_algorithm);
-		mml_pq_dump("[tile][%u] vertical_first=%u\n", i,
+		mml_pq_dump("[tile][%u] vertical_first=%u", i,
 				result->rsz_param[i].vertical_first);
-		mml_pq_dump("[tile][%u] ver_cubic_trunc=%u\n", i,
+		mml_pq_dump("[tile][%u] ver_cubic_trunc=%u", i,
 				result->rsz_param[i].ver_cubic_trunc);
 	}
 	mml_pq_dump("[tile] count=%u", result->rsz_reg_cnt);
@@ -277,30 +276,27 @@ static void dump_tile_result(void *data)
 
 int mml_pq_tile_init(struct mml_task *task)
 {
-	s32 ret;
-	bool inited = false;
+	int ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
+
+	if (unlikely(!task) || unlikely(!task->pq_task)) {
+		mml_pq_err("%s task or pq_task is null", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
 	mml_pq_msg("%s job_id[%d] called", __func__, task->job.jobid);
-	if (unlikely(!task))
-		return -EINVAL;
 
 	dump_pq_param(&task->pq_param[0]);
-	ret = create_pq_task(task);
-	if (unlikely(ret))
-		return ret;
 
-	mutex_lock(&task->pq_task->init_pq_sub_task_lock);
-	inited = init_pq_sub_task(&task->pq_task->tile_init);
-	mutex_unlock(&task->pq_task->init_pq_sub_task_lock);
-
-	if (inited)
+	if (!atomic_fetch_add_unless(&task->pq_task->tile_init.queue_cnt, 1, 1))
 		queue_msg(&pq_mbox->tile_init_chan, &task->pq_task->tile_init);
 
-	mml_pq_msg("%s job_id[%d] end\n", __func__, task->job.jobid);
-	mml_pq_trace_ex_end();
+	mml_pq_msg("%s job_id[%d] end", __func__, task->job.jobid);
 
-	return 0;
+exit:
+	mml_pq_trace_ex_end();
+	return ret;
 }
 
 int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
@@ -311,7 +307,7 @@ int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s job_id[%d] called, %d", __func__, task->job.jobid, timeout_ms);
 	if (unlikely(!task || !task->pq_task ||
-		!task->pq_task->tile_init.inited))
+		!atomic_read(&task->pq_task->tile_init.queue_cnt)))
 		return -EINVAL;
 
 	sub_task = &task->pq_task->tile_init;
@@ -357,26 +353,26 @@ static void dump_comp_config(void *data)
 
 int mml_pq_comp_config(struct mml_task *task)
 {
-	s32 ret;
+	int ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called", __func__);
-	if (unlikely(!task))
-		return -EINVAL;
-
-	dump_pq_param(&task->pq_param[0]);
-	if (!task->pq_task) {
-		ret = create_pq_task(task);
-		if (unlikely(ret))
-			return ret;
+	if (unlikely(!task) || unlikely(!task->pq_task)) {
+		mml_pq_err("%s task or pq_task is null", __func__);
+		ret = -EINVAL;
+		goto exit;
 	}
 
-	if (init_pq_sub_task(&task->pq_task->comp_config))
+	dump_pq_param(&task->pq_param[0]);
+
+	if (!atomic_fetch_add_unless(&task->pq_task->comp_config.queue_cnt, 1, 1))
 		queue_msg(&pq_mbox->comp_config_chan, &task->pq_task->comp_config);
+
 	mml_pq_msg("%s end", __func__);
 
+exit:
 	mml_pq_trace_ex_end();
-	return 0;
+	return ret;
 }
 
 int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms)
@@ -387,7 +383,7 @@ int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms)
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called, %d", __func__, timeout_ms);
 	if (unlikely(!task || !task->pq_task ||
-		!task->pq_task->comp_config.inited))
+		!atomic_read(&task->pq_task->comp_config.queue_cnt)))
 		return -EINVAL;
 
 	sub_task = &task->pq_task->comp_config;

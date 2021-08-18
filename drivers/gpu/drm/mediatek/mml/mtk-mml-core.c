@@ -15,6 +15,7 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-tile.h"
+#include "mtk-mml-pq-core.h"
 
 #define MML_TRACE_MSG_LEN	1024
 
@@ -1135,6 +1136,8 @@ struct mml_task *mml_core_create_task(void)
 	kref_init(&task->ref);
 	task->pipe[0].task = task;
 	task->pipe[1].task = task;
+
+	mml_pq_task_create(task);
 	return task;
 }
 
