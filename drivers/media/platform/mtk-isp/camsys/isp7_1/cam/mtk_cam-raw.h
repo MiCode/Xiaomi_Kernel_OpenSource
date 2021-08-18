@@ -235,6 +235,7 @@ struct mtk_raw_pipeline {
 	s64 sync_id;
 	/* mstream */
 	struct mtk_cam_mstream_exposure mstream_exposure;
+	enum hdr_scenario_id stagger_path;
 };
 
 struct mtk_raw_device {
@@ -291,7 +292,7 @@ int mtk_raw_setup_dependencies(struct mtk_raw *raw);
 int mtk_raw_register_entities(struct mtk_raw *raw,
 			      struct v4l2_device *v4l2_dev);
 void mtk_raw_unregister_entities(struct mtk_raw *raw);
-int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
+int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
 bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev);
 
@@ -320,6 +321,8 @@ bool
 mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_format *fmt,
 			  struct mtk_cam_resource *res);
+unsigned int mtk_raw_get_hdr_scen_id(
+	struct mtk_cam_ctx *ctx);
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
 

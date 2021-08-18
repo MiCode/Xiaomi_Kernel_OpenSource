@@ -602,8 +602,8 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		if (req_stream_data->frame_seq_no == 1 &&
 			raw_dev->vf_en == 0 && ctx->sensor_ctrl.initial_cq_done == 1) {
-			unsigned int hw_scen =
-				(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
+
 			stream_on(raw_dev, 1);
 			for (i = 0; i < ctx->used_sv_num; i++)
 				mtk_cam_sv_dev_stream_on(ctx, i, 1, 1);
@@ -2106,8 +2106,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 		sensor_ctrl->initial_cq_done = 1;
 		if (req_stream_data->state.estate >= E_STATE_SENSOR ||
 			!ctx->sensor) {
-			unsigned int hw_scen =
-				(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+			unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
 
 			spin_lock(&ctx->streaming_lock);
 			if (ctx->streaming) {
@@ -2972,44 +2971,35 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			CAMSYS_ENGINE_CAMSV_BEGIN];
 		if (camsv_dev->pipeline->hw_scen &
 			MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
-			// first exposure camsv's SOF
-			if (camsv_dev->pipeline->is_first_expo) {
-				if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START)) {
-					struct mtk_raw_pipeline *pipeline = &cam->raw
-					.pipelines[camsv_dev->pipeline->master_pipe_id];
-					struct mtk_raw_device *raw_dev =
-						get_master_raw_dev(cam, pipeline);
-					struct mtk_cam_ctx *ctx =
-						mtk_cam_find_ctx(cam, &pipeline->subdev.entity);
+			struct mtk_raw_pipeline *pipeline = &cam->raw
+			.pipelines[camsv_dev->pipeline->master_pipe_id];
+			struct mtk_raw_device *raw_dev =
+				get_master_raw_dev(cam, pipeline);
+			struct mtk_cam_ctx *ctx =
+				mtk_cam_find_ctx(cam, &pipeline->subdev.entity);
 
-					dev_dbg(camsv_dev->dev, "SOF+raw_frame_start %d/%d/%d\n",
-						camsv_dev->pipeline->master_pipe_id,
-						raw_dev->id, ctx->stream_id);
+			dev_dbg(camsv_dev->dev, "sv special hw scenario: %d/%d/%d\n",
+				camsv_dev->pipeline->master_pipe_id,
+				raw_dev->id, ctx->stream_id);
+
+			// first exposure camsv's SOF
+			if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+				if (camsv_dev->pipeline->exp_order == 0)
 					mtk_camsys_raw_frame_start(raw_dev, ctx,
 						   irq_info->frame_inner_idx);
-				}
+				else if (camsv_dev->pipeline->exp_order == 2)
+					mtk_cam_hdr_last_frame_start(raw_dev, ctx,
+						   irq_info->frame_inner_idx);
 			}
 			// time sharing - camsv write DRAM mode
 			if (camsv_dev->pipeline->hw_scen &
 				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M)) {
 				if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
-					struct mtk_raw_pipeline *pipeline = &cam->raw
-					.pipelines[camsv_dev->pipeline->master_pipe_id];
-					struct mtk_cam_ctx *ctx =
-						mtk_cam_find_ctx(cam, &pipeline->subdev.entity);
-					struct mtk_raw_device *raw_dev =
-						get_master_raw_dev(ctx->cam, ctx->pipe);
-					dev_info(camsv_dev->dev, "[TS-SV-SWD] ctx:%d, req:%d\n",
-						ctx->stream_id, irq_info->frame_inner_idx);
 					mtk_camsys_ts_sv_done(ctx, irq_info->frame_inner_idx);
 					mtk_camsys_ts_raw_try_set(
 						raw_dev, ctx, ctx->dequeued_frame_seq_no + 1);
 				}
 				if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START)) {
-					struct mtk_raw_pipeline *pipeline = &cam->raw
-					.pipelines[camsv_dev->pipeline->master_pipe_id];
-					struct mtk_cam_ctx *ctx =
-						mtk_cam_find_ctx(cam, &pipeline->subdev.entity);
 					mtk_camsys_ts_frame_start(ctx, irq_info->frame_inner_idx);
 				}
 			}

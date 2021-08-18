@@ -17,12 +17,17 @@
 /* [23:20]: exposure order               */
 #define CAMSV_GROUP_SHIFT 16
 #define CAMSV_EXP_ORDER_SHIFT 20
+#define CAMSV_GROUP_AMOUNT 4
 
 #define MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO	(\
 			(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) |\
-			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) |\
 			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) |\
+			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) |\
 			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M))
+#define MTK_CAMSV_SUPPORTED_STAGGER_SCENARIO	(\
+			(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) |\
+			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) |\
+			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER))
 
 #define CAMSV_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
 	union RegName reg;\
@@ -165,7 +170,7 @@ struct mtk_camsv_pipeline {
 	unsigned int cammux_id;
 	unsigned int hw_scen;
 	unsigned int master_pipe_id;
-	unsigned int is_first_expo;
+	unsigned int exp_order;
 	unsigned int is_occupied;
 };
 
@@ -212,7 +217,7 @@ struct device *mtk_cam_find_sv_dev(
 	struct mtk_cam_device *cam, unsigned int sv_mask);
 int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx, unsigned int hw_scen,
-	unsigned int is_first_expo);
+	unsigned int exp_order);
 int mtk_cam_sv_dev_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int idx,
 	unsigned int streaming, unsigned int hw_scen);

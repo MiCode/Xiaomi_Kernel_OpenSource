@@ -680,8 +680,8 @@ int mtk_cam_sv_tg_config(struct mtk_camsv_device *dev, struct mtkcam_ipi_input_p
 	}
 
 	if (dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER)) {
-		if (dev->pipeline->is_first_expo) {
+		MTK_CAMSV_SUPPORTED_STAGGER_SCENARIO) {
+		if (dev->pipeline->exp_order == 0) {
 			CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_SEN_MODE,
 				CAMSV_TG_SEN_MODE, STAGGER_EN, 0);
 			CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_PATH_CFG,
@@ -775,15 +775,7 @@ int mtk_cam_sv_top_config(
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
 		CAMSV_MODULE_EN, DB_EN, 0);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
-		CAMSV_MODULE_EN, DB_LOAD_SRC, SV_DB_SRC_SOF);
-	if (dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER)) {
-		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
-			CAMSV_MODULE_EN, DB_LOAD_SRC, SV_DB_SRC_SUB_SOF);
-	} else {
-		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
-			CAMSV_MODULE_EN, DB_LOAD_SRC, SV_DB_SRC_SUB_SOF);
-	}
+		CAMSV_MODULE_EN, DB_LOAD_SRC, SV_DB_SRC_SUB_SOF);
 
 	/* central sub en */
 	if (cfg_in_param->subsample > 0)
@@ -797,8 +789,10 @@ int mtk_cam_sv_top_config(
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_DCIF_SET,
 		CAMSV_DCIF_SET, MASK_DB_LOAD, 0);
 
-	if (dev->pipeline->hw_scen &
-		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER)) {
+	if ((dev->pipeline->hw_scen &
+		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER)) ||
+		(dev->pipeline->hw_scen &
+		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER))) {
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_DCIF_SET,
 			CAMSV_DCIF_SET, FOR_DCIF_SUBSAMPLE_EN, 1);
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_DCIF_SET,
@@ -1249,7 +1243,7 @@ int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx,
 	unsigned int hw_scen,
-	unsigned int is_first_expo)
+	unsigned int exp_order)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1305,7 +1299,7 @@ int mtk_cam_sv_dev_config(
 		camsv_dev->pipeline = &cam->sv.pipelines[idx];
 		camsv_dev->pipeline->hw_scen = hw_scen;
 		camsv_dev->pipeline->master_pipe_id = ctx->pipe->id;
-		camsv_dev->pipeline->is_first_expo = is_first_expo;
+		camsv_dev->pipeline->exp_order = exp_order;
 	} else {
 		dev_sv = mtk_cam_find_sv_dev(cam, ctx->used_sv_dev[idx]);
 		if (dev_sv == NULL) {
@@ -1320,7 +1314,7 @@ int mtk_cam_sv_dev_config(
 			}
 		camsv_dev->pipeline->hw_scen = hw_scen;
 		camsv_dev->pipeline->master_pipe_id = 0;
-		camsv_dev->pipeline->is_first_expo = 0;
+		camsv_dev->pipeline->exp_order = 0;
 	}
 
 	mtk_cam_sv_tg_config(camsv_dev, &cfg_in_param);

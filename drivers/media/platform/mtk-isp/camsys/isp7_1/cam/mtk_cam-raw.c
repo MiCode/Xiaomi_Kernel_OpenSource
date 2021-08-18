@@ -150,6 +150,67 @@ static const struct cam_resource_plan raw_resource_strategy_plan[] = {
 			E_RES_HWN1, E_RES_HWN2, E_RES_FRZ1, E_RES_BIN1} },
 };
 
+/* stagger raw select and mode decision preference */
+#define STAGGER_MAX_STREAM_NUM 4
+
+struct cam_stagger_select {
+	int raw_select;
+	int mode_decision;
+};
+
+struct cam_stagger_order {
+	struct cam_stagger_select stagger_select[STAGGER_MAX_STREAM_NUM];
+};
+
+enum cam_stagger_stream_mode_plan {
+	STAGGER_STREAM_PLAN_OTF_ALL = 0,
+	STAGGER_STREAM_PLAN_OFF_ALL,
+	STAGGER_STREAM_PLAN_OTF_DCIF_OFF_2EXP,
+	STAGGER_STREAM_PLAN_OTF_DCIF_OFF_3EXP,
+	STAGGER_STREAM_PLAN_NUM_MAX
+};
+
+enum cam_stagger_raw_select {
+	RAW_SELECTION_A = 1 << MTKCAM_PIPE_RAW_A,
+	RAW_SELECTION_B = 1 << MTKCAM_PIPE_RAW_B,
+	RAW_SELECTION_C = 1 << MTKCAM_PIPE_RAW_C,
+	RAW_SELECTION_AB_AUTO =
+	(1 << MTKCAM_PIPE_RAW_A | 1 << MTKCAM_PIPE_RAW_B),
+	RAW_SELECTION_AUTO =
+	(1 << MTKCAM_PIPE_RAW_A | 1 << MTKCAM_PIPE_RAW_B | 1 << MTKCAM_PIPE_RAW_C),
+};
+
+static const struct cam_stagger_order stagger_mode_plan[] = {
+	[STAGGER_STREAM_PLAN_OTF_ALL] = {
+		.stagger_select = {
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY}
+			} },
+	[STAGGER_STREAM_PLAN_OFF_ALL] = {
+		.stagger_select = {
+			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE}
+			} },
+	[STAGGER_STREAM_PLAN_OTF_DCIF_OFF_2EXP] = {
+		.stagger_select = {
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_DCIF},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE}
+			} },
+	[STAGGER_STREAM_PLAN_OTF_DCIF_OFF_3EXP] = {
+		.stagger_select = {
+			{.raw_select = RAW_SELECTION_AB_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_DCIF},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE}
+			} },
+};
+
 static const struct v4l2_mbus_framefmt mfmt_default = {
 	.code = MEDIA_BUS_FMT_SBGGR10_1X10,
 	.width = DEFAULT_WIDTH,
@@ -1977,9 +2038,75 @@ static int mtk_raw_available_resource(struct mtk_raw *raw)
 	return res_status;
 }
 
-int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
+int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
+			struct mtk_raw_pipeline *pipe, int raw_status)
+{
+	struct mtk_cam_device *cam = ctx->cam;
+	struct cam_stagger_order stagger_order;
+	struct cam_stagger_select stagger_select;
+	struct mtk_cam_ctx *ctx_chk;
+	int i, m;
+	int stagger_ctx_num = 0, mode = 0;
+	int stagger_plan = STAGGER_STREAM_PLAN_OTF_ALL;
+	int stagger_order_mask[STAGGER_MAX_STREAM_NUM] = {0};
+	int mask = 0x0;
+	bool selected = false;
+
+	stagger_order = stagger_mode_plan[stagger_plan];
+	/* check how many stagger sensors are running, */
+	/* this will affect the decision of which mode */
+	/* to run for following stagger sensor         */
+	for (i = 0;  i < cam->max_stream_num; i++) {
+		ctx_chk = &cam->ctxs[i];
+		if (ctx_chk->streaming && mtk_cam_is_stagger(ctx_chk)) {
+			for (m = 0; m < STAGGER_MAX_STREAM_NUM; m++) {
+				mode = stagger_order.stagger_select[m].mode_decision;
+				dev_info(cam->dev, "[%s:stagger check] i:%d/m:%d; mode:%d\n",
+				__func__, i, m, mode);
+				if (mode == ctx_chk->pipe->stagger_path) {
+					stagger_order_mask[m] = 1;
+					break;
+				}
+			}
+			stagger_ctx_num++;
+		}
+	}
+	dev_info(cam->dev, "[%s:counter] num:%d; this ctx order is :%d (%d/%d/%d/%d)\n",
+		__func__, stagger_ctx_num, stagger_ctx_num + 1,
+		stagger_order_mask[0], stagger_order_mask[1],
+		stagger_order_mask[2], stagger_order_mask[3]);
+	/*check this ctx should use which raw_select_mask and mode*/
+	for (i = 0; i < stagger_ctx_num + 1; i++) {
+		if (stagger_order_mask[i] == 0) {
+			stagger_select = stagger_order.stagger_select[i];
+			ctx->pipe->stagger_path = stagger_select.mode_decision;
+			dev_info(cam->dev, "[%s:plan:%d] raw_status 0x%x, stagger_select_raw_mask:0x%x mode:0x%x\n",
+				__func__, i, raw_status, stagger_select.raw_select,
+				stagger_select.mode_decision);
+		}
+	}
+	for (m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
+		mask = 1 << m;
+		if (stagger_select.raw_select & mask) { /*check stagger raw select mask*/
+			if (!(raw_status & mask)) { /*check available raw select mask*/
+				pipe->enabled_raw |= mask;
+				selected = true;
+				break;
+			}
+		} else {
+			dev_info(cam->dev, "[%s:select] traversed current raw %d/0x%x, stagger_select_raw_mask:0x%x\n",
+				__func__, m, mask, stagger_select.raw_select);
+		}
+	}
+
+	return selected;
+}
+
+int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param)
 {
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_raw_pipeline *pipe = ctx->pipe;
 	struct mtk_raw_pipeline *pipe_chk;
 	int raw_status = 0;
 	int mask = 0x0;
@@ -1989,14 +2116,16 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 	pipe->enabled_raw = 0;
 	raw_status = mtk_raw_available_resource(pipe->raw);
 
-	if (pipe->res_config.raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK) {
+	if (mtk_cam_is_stagger(ctx)) {
+		selected = mtk_cam_raw_stagger_select(ctx, pipe, raw_status);
+	} else if (pipe->res_config.raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK) {
 		int ts_id, ts_id_chk;
 		/*First, check if group ID used in every pipeline*/
 		/*if yes , use same engine*/
 		for (m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
 			pipe_chk = pipe->raw->pipelines + m;
-			pr_info("[%s] checking idx:%d pipe_id:%d pipe_chk_id:%d\n", __func__,
-				m, pipe->id, pipe_chk->id);
+			dev_info(cam->dev, "[%s] checking idx:%d pipe_id:%d pipe_chk_id:%d\n",
+				__func__, m, pipe->id, pipe_chk->id);
 			if (pipe->id != pipe_chk->id) {
 				ts_id = pipe->res_config.raw_feature &
 						MTK_CAM_FEATURE_TIMESHARE_MASK;
@@ -2012,7 +2141,7 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 			}
 		}
 		if (selected) {
-			pr_info("[%s] Timeshared (%d)- enabled_raw:0x%x as pipe:%d enabled_raw:0x%x\n",
+			dev_info(cam->dev, "[%s] Timeshared (%d)- enabled_raw:0x%x as pipe:%d enabled_raw:0x%x\n",
 				__func__, ts_id >> 8, pipe->enabled_raw,
 				pipe_chk->id, pipe_chk->enabled_raw);
 		} else {
@@ -2856,6 +2985,22 @@ int mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
 	}
 
 	return 0;
+}
+
+unsigned int mtk_raw_get_hdr_scen_id(
+	struct mtk_cam_ctx *ctx)
+{
+	unsigned int hw_scen =
+		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+
+	if (ctx->pipe->stagger_path == STAGGER_ON_THE_FLY)
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+	else if (ctx->pipe->stagger_path == STAGGER_DCIF)
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+	else if (ctx->pipe->stagger_path == STAGGER_OFFLINE)
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+
+	return hw_scen;
 }
 
 static int mtk_cam_media_link_setup(struct media_entity *entity,
