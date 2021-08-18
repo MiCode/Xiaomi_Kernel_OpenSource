@@ -9,16 +9,16 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
+struct device *dev;
+struct regulator *reg;
+
 static int mmdvfs_debug_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
-	struct regulator *reg = NULL;
 	int volt_cnt, volt;
-	struct device_node *disp_node;
-	struct platform_device *disp_dev;
-	unsigned int force_step0 = 0, release_step0 = 0;
+	unsigned int force_step0 = 0;
 
+	dev = &pdev->dev;
  	of_property_read_u32(node, "force-step0", &force_step0);
 
 	if (force_step0 == 0) {
@@ -47,28 +47,21 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		regulator_set_voltage(reg, volt, INT_MAX);
 	}
 
-	/* Return -EPROBE_DEFFER until display is probed */
-	disp_node = of_parse_phandle(node, "disp-dev", 0);
+	return 0;
+}
 
-	if (!disp_node) {
-		pr_notice("disp-dev phandle is not found\n");
-		return -EINVAL;
-	}
-	disp_dev = of_find_device_by_node(disp_node);
-	of_node_put(disp_node);
-	if (!disp_dev || !disp_dev->dev.driver) {
-		pr_notice("disp-dev driver is not ready\n");
-		return -EPROBE_DEFER;
-	}
+void mtk_mmdvfs_debug_release_step0(void)
+{
+	struct device_node *node = dev->of_node;
+	unsigned int release_step0 = 0;
 
 	of_property_read_u32(node, "release-step0", &release_step0);
-	if (release_step0) {
+	if (release_step0 && reg) {
 		regulator_set_voltage(reg, 0, INT_MAX);
 		pr_notice("%s: set vcore voltage(%d)\n", __func__, 0);
 	}
-
-	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_debug_release_step0);
 
 static const struct of_device_id of_mmdvfs_debug_match_tbl[] = {
 	{

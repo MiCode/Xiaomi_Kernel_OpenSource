@@ -5,9 +5,12 @@
  */
 #include <linux/module.h>
 #include "mmqos-mtk.h"
+#include "mtk-mmdvfs-debug.h"
 #define MULTIPLY_W_DRAM_WEIGHT(value) ((value)*6/5)
 
 struct mmqos_hrt *mmqos_hrt;
+static bool disp_report_bw;
+
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 {
 	u32 i, used_bw = 0;
@@ -74,6 +77,11 @@ s32 mtk_mmqos_set_hrt_bw(enum hrt_type type, u32 bw)
 		mmqos_hrt->hrt_bw[type] = bw;
 		pr_notice("%s: type=%d bw=%d\n", __func__, type, bw);
 	}
+	if (unlikely(!disp_report_bw) && type == HRT_DISP) {
+		disp_report_bw = true;
+		mtk_mmdvfs_debug_release_step0();
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_set_hrt_bw);

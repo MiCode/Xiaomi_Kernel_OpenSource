@@ -2,5 +2,9 @@
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
+#ifndef MTK_MMDVFS_DEBUG_H
+#define MTK_MMDVFS_DEBUG_H
 
- void mmdvfs_debug_late_init(void);
+void mtk_mmdvfs_debug_release_step0(void);
+
+#endif
