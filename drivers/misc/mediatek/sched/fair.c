@@ -267,9 +267,9 @@ static void attach_one_task(struct rq *rq, struct task_struct *p)
 
 void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_cpu, int sync, int *new_cpu)
 {
-	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX, best_delta_active = ULONG_MAX;
+	unsigned long best_delta = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
-	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
+	int best_idle_cpu = -1;
 	long sys_max_spare_cap = LONG_MIN, idle_max_spare_cap = LONG_MIN;
 	int sys_max_spare_cap_cpu = -1;
 	int idle_max_spare_cap_cpu = -1;
@@ -277,7 +277,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	unsigned long cpu_cap, util, base_energy = 0;
 	bool latency_sensitive = false;
 	unsigned int min_exit_lat = UINT_MAX;
-	int cpu, best_energy_cpu = prev_cpu;
+	int cpu, best_energy_cpu = -1;
 	struct cpuidle_state *idle;
 	struct perf_domain *pd;
 	int select_reason = -1;
@@ -311,13 +311,12 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	}
 
 	for (; pd; pd = pd->next) {
+		unsigned long base_energy_pd;
 		long cur_delta;
 		long spare_cap, max_spare_cap = LONG_MIN;
-		unsigned long base_energy_pd;
-		unsigned long max_spare_cap_ls_idle = 0, max_spare_cap_ls_active = 0;
+		unsigned long max_spare_cap_ls_idle = 0;
 		int max_spare_cap_cpu = -1;
 		int max_spare_cap_cpu_ls_idle = -1;
-		int max_spare_cap_cpu_ls_active = -1;
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 		int cpu_order[NR_CPUS], cnt, i;
 #endif
@@ -371,13 +370,6 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			if (!fits_capacity(util, cpu_cap))
 				continue;
 
-			/* Always use prev_cpu as a candidate. */
-			if (!latency_sensitive && cpu == prev_cpu) {
-				prev_delta = compute_energy(p, prev_cpu, pd);
-				prev_delta -= base_energy_pd;
-				best_delta = min(best_delta, prev_delta);
-			}
-
 			/*
 			 * Find the CPU with the maximum spare capacity in
 			 * the performance domain
@@ -412,17 +404,11 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 				max_spare_cap_ls_idle = spare_cap;
 				target_cap = cpu_cap;
 				max_spare_cap_cpu_ls_idle = cpu;
-			} else {
-				if (spare_cap < max_spare_cap_ls_active)
-					continue;
-				max_spare_cap_ls_active = spare_cap;
-				max_spare_cap_cpu_ls_active = cpu;
 			}
 		}
 
 		/* Evaluate the energy impact of using this CPU. */
-		if (!latency_sensitive && max_spare_cap_cpu >= 0 &&
-						max_spare_cap_cpu != prev_cpu) {
+		if (!latency_sensitive && max_spare_cap_cpu >= 0) {
 			cur_delta = compute_energy(p, max_spare_cap_cpu, pd);
 			cur_delta -= base_energy_pd;
 			if (cur_delta < best_delta) {
@@ -440,48 +426,33 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 					best_idle_cpu = max_spare_cap_cpu_ls_idle;
 				}
 			}
-			if (max_spare_cap_cpu_ls_active >= 0) {
-				cur_delta = compute_energy(p, max_spare_cap_cpu_ls_active, pd);
-				cur_delta -= base_energy_pd;
-				if (cur_delta < best_delta_active) {
-					best_delta_active = cur_delta;
-					max_spare_cap_cpu_ls = max_spare_cap_cpu_ls_active;
-				}
-			}
 		}
 	}
 unlock:
 	rcu_read_unlock();
 
 	if (latency_sensitive){
-		if (best_idle_cpu >= 0)
+		if (best_idle_cpu >= 0) {
 			*new_cpu = best_idle_cpu;
-		else if (idle_max_spare_cap_cpu >= 0)
+			select_reason = LB_LATENCY_SENSITIVE_BEST_IDLE_CPU;
+		} else if (idle_max_spare_cap_cpu >= 0) {
 			*new_cpu = idle_max_spare_cap_cpu;
-		else
+			select_reason = LB_LATENCY_SENSITIVE_IDLE_MAX_SPARE_CPU;
+		} else {
 			*new_cpu = sys_max_spare_cap_cpu;
-		select_reason = LB_LATENCY_SENSITIVE;
+			select_reason = LB_LATENCY_SENSITIVE_MAX_SPARE_CPU;
+		}
 		goto done;
 	}
 
-	/*
-	 * Pick the best CPU if prev_cpu cannot be used, or if it saves at
-	 * least 6% of the energy used by prev_cpu.
-	 */
-	if (prev_delta == ULONG_MAX){
-		/* All cpu failed on !fit_capacity, use sys_max_spare_cap_cpu */
-		if (best_energy_cpu == prev_cpu)
-			*new_cpu = sys_max_spare_cap_cpu;
-		else
-			*new_cpu = best_energy_cpu;
-		select_reason = LB_NOT_PREV;
-		goto done;
-
-	}
-
-	if (prev_delta > best_delta){
+	/* All cpu failed on !fit_capacity, use sys_max_spare_cap_cpu */
+	if (best_energy_cpu != -1) {
 		*new_cpu = best_energy_cpu;
 		select_reason = LB_BEST_ENERGY_CPU;
+		goto done;
+	} else {
+		*new_cpu = sys_max_spare_cap_cpu;
+		select_reason = LB_MAX_SPARE_CPU;
 		goto done;
 	}
 
@@ -495,8 +466,8 @@ fail:
 
 	*new_cpu = -1;
 done:
-	trace_sched_find_energy_efficient_cpu(prev_delta, best_delta, best_energy_cpu,
-			best_idle_cpu, max_spare_cap_cpu_ls, sys_max_spare_cap_cpu);
+	trace_sched_find_energy_efficient_cpu(best_delta, best_energy_cpu,
+			best_idle_cpu, idle_max_spare_cap_cpu, sys_max_spare_cap_cpu);
 	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
 			task_util(p), task_util_est(p), uclamp_task_util(p),
 			latency_sensitive , sync);

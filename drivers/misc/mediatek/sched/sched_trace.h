@@ -11,13 +11,15 @@
 #include <linux/types.h>
 #include <linux/tracepoint.h>
 
-#define LB_FAIL                   (0x01)
-#define LB_SYNC                   (0x02)
-#define LB_ZERO_UTIL              (0x04)
-#define LB_PREV                   (0x08)
-#define LB_LATENCY_SENSITIVE      (0x10)
-#define LB_NOT_PREV               (0x20)
-#define LB_BEST_ENERGY_CPU        (0x40)
+#define LB_FAIL		(0x01)
+#define LB_SYNC		(0x02)
+#define LB_ZERO_UTIL	(0x04)
+#define LB_PREV		(0x08)
+#define LB_LATENCY_SENSITIVE_BEST_IDLE_CPU	(0x10)
+#define LB_LATENCY_SENSITIVE_IDLE_MAX_SPARE_CPU (0x20)
+#define LB_LATENCY_SENSITIVE_MAX_SPARE_CPU	(0x40)
+#define LB_BEST_ENERGY_CPU	(0x100)
+#define LB_MAX_SPARE_CPU	(0x200)
 
 TRACE_EVENT(sched_select_task_rq,
 
@@ -135,37 +137,34 @@ TRACE_EVENT(sched_energy_util,
 
 TRACE_EVENT(sched_find_energy_efficient_cpu,
 
-	TP_PROTO(unsigned long prev_delta, unsigned long best_delta,
-		int best_energy_cpu, int best_idle_cpu, int max_spare_cap_cpu_ls,
+	TP_PROTO(unsigned long best_delta,
+		int best_energy_cpu, int best_idle_cpu, int idle_max_spare_cap_cpu,
 		int sys_max_spare_cap_cpu),
 
-	TP_ARGS(prev_delta, best_delta, best_energy_cpu, best_idle_cpu,
-		max_spare_cap_cpu_ls, sys_max_spare_cap_cpu),
+	TP_ARGS(best_delta, best_energy_cpu, best_idle_cpu,
+		idle_max_spare_cap_cpu, sys_max_spare_cap_cpu),
 
 	TP_STRUCT__entry(
-		__field(unsigned long, prev_delta)
 		__field(unsigned long, best_delta)
 		__field(int, best_energy_cpu)
 		__field(int, best_idle_cpu)
-		__field(int, max_spare_cap_cpu_ls)
+		__field(int, idle_max_spare_cap_cpu)
 		__field(int, sys_max_spare_cap_cpu)
 		),
 
 	TP_fast_assign(
-		__entry->prev_delta      = prev_delta;
 		__entry->best_delta      = best_delta;
 		__entry->best_energy_cpu = best_energy_cpu;
 		__entry->best_idle_cpu   = best_idle_cpu;
-		__entry->max_spare_cap_cpu_ls = max_spare_cap_cpu_ls;
+		__entry->idle_max_spare_cap_cpu = idle_max_spare_cap_cpu;
 		__entry->sys_max_spare_cap_cpu = sys_max_spare_cap_cpu;
 		),
 
-	TP_printk("prev_delta=%lu best_delta=%lu best_energy_cpu=%d best_idle_cpu=%d max_spare_cap_cpu_ls=%d sys_max_spare_cpu=%d",
-		__entry->prev_delta,
+	TP_printk("best_delta=%lu best_energy_cpu=%d best_idle_cpu=%d idle_max_spare_cap_cpu=%d sys_max_spare_cpu=%d",
 		__entry->best_delta,
 		__entry->best_energy_cpu,
 		__entry->best_idle_cpu,
-		__entry->max_spare_cap_cpu_ls,
+		__entry->idle_max_spare_cap_cpu,
 		__entry->sys_max_spare_cap_cpu)
 );
 
