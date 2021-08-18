@@ -9,6 +9,7 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/pinctrl/mt6895-pinfunc.h>
 
 / {
 	model = "MT6895";
@@ -282,41 +283,6 @@
 			reg = <0 0x10002000 0 0x1000>;
 		};
 
-		iocfg_0@10002000 {
-			compatible = "mediatek,iocfg_0";
-			reg = <0 0x10002000 0 0x200>;
-		};
-
-		iocfg_1@10002200 {
-			compatible = "mediatek,iocfg_1";
-			reg = <0 0x10002200 0 0x200>;
-		};
-
-		iocfg_2@10002400 {
-			compatible = "mediatek,iocfg_2";
-			reg = <0 0x10002400 0 0x200>;
-		};
-
-		iocfg_3@10002600 {
-			compatible = "mediatek,iocfg_3";
-			reg = <0 0x10002600 0 0x200>;
-		};
-
-		iocfg_4@10002800 {
-			compatible = "mediatek,iocfg_4";
-			reg = <0 0x10002800 0 0x200>;
-		};
-
-		iocfg_5@10002a00 {
-			compatible = "mediatek,iocfg_5";
-			reg = <0 0x10002a00 0 0x200>;
-		};
-
-		iocfg_6@10002c00 {
-			compatible = "mediatek,iocfg_6";
-			reg = <0 0x10002c00 0 0x200>;
-		};
-
 		pericfg@10003000 {
 			compatible = "mediatek,pericfg";
 			reg = <0 0x10003000 0 0x1000>;
@@ -325,6 +291,106 @@
 		gpio: gpio@10005000 {
 			compatible = "mediatek,gpio";
 			reg = <0 0x10005000 0 0x1000>;
+		};
+
+		iocfg_rm: iocfg_rm@11c20000 {
+			compatible = "mediatek,iocfg_rm";
+			reg = <0 0x11c20000 0 0x1000>;
+		};
+
+		iocfg_rt: iocfg_rt@11c30000 {
+			compatible = "mediatek,iocfg_rt";
+			reg = <0 0x11c30000 0 0x1000>;
+		};
+
+		iocfg_rmm: iocfg_rmm@11c40000 {
+			compatible = "mediatek,iocfg_rmm";
+			reg = <0 0x11c40000 0 0x1000>;
+		};
+
+		iocfg_bl: iocfg_bl@11d10000 {
+			compatible = "mediatek,iocfg_bl";
+			reg = <0 0x11d10000 0 0x1000>;
+		};
+
+		iocfg_bm: iocfg_bm@11d30000 {
+			compatible = "mediatek,iocfg_bm";
+			reg = <0 0x11d30000 0 0x1000>;
+		};
+
+		iocfg_br: iocfg_br@11d40000 {
+			compatible = "mediatek,iocfg_br";
+			reg = <0 0x11d40000 0 0x1000>;
+		};
+
+		iocfg_brr: iocfg_brr@11d50000 {
+			compatible = "mediatek,iocfg_brr";
+			reg = <0 0x11d50000 0 0x1000>;
+		};
+
+		iocfg_lb: iocfg_lb@11d60000 {
+			compatible = "mediatek,iocfg_lb";
+			reg = <0 0x11d60000 0 0x1000>;
+		};
+
+		iocfg_lm: iocfg_lm@11e10000 {
+			compatible = "mediatek,iocfg_lm";
+			reg = <0 0x11e10000 0 0x1000>;
+		};
+
+		iocfg_rtt: iocfg_rtt@11ea0000 {
+			compatible = "mediatek,iocfg_rtt";
+			reg = <0 0x11ea0000 0 0x1000>;
+		};
+
+		iocfg_tr: iocfg_tr@11eb0000 {
+			compatible = "mediatek,iocfg_tr";
+			reg = <0 0x11eb0000 0 0x1000>;
+		};
+
+		iocfg_tl: iocfg_tl@11f20000 {
+			compatible = "mediatek,iocfg_tl";
+			reg = <0 0x11f20000 0 0x1000>;
+		};
+
+		iocfg_lt: iocfg_lt@11f30000 {
+			compatible = "mediatek,iocfg_lt";
+			reg = <0 0x11f30000 0 0x1000>;
+		};
+
+		pio: pinctrl {
+			compatible = "mediatek,mt6895-pinctrl";
+			reg = <0 0x10005000 0 0x1000>,
+			      <0 0x11c20000 0 0x1000>,
+			      <0 0x11c30000 0 0x1000>,
+			      <0 0x11c40000 0 0x1000>,
+			      <0 0x11d10000 0 0x1000>,
+			      <0 0x11d30000 0 0x1000>,
+			      <0 0x11d40000 0 0x1000>,
+			      <0 0x11d50000 0 0x1000>,
+			      <0 0x11d60000 0 0x1000>,
+			      <0 0x11e10000 0 0x1000>,
+			      <0 0x11ea0000 0 0x1000>,
+			      <0 0x11eb0000 0 0x1000>,
+			      <0 0x11f20000 0 0x1000>,
+			      <0 0x11f30000 0 0x1000>;
+			reg-names = "gpio",
+				    "iocfg_rm",
+				    "iocfg_rt",
+				    "iocfg_rmm",
+				    "iocfg_bl",
+				    "iocfg_bm",
+				    "iocfg_br",
+				    "iocfg_brr",
+				    "iocfg_lb",
+				    "iocfg_lm",
+				    "iocfg_rtt",
+				    "iocfg_tr",
+				    "iocfg_tl",
+				    "iocfg_lt";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pio 0 0 227>;
 		};
 
 		toprgu@10007000 {
