@@ -1029,9 +1029,6 @@ same with 6873
 #define MT6879_DISP_OVL0_MOUT_EN 0xF08
 #define MT6879_DISP_RDMA0_SOUT_COLOR0 0x1
 
-#define MT6879_BYPASS_MUX_SHADOW 0xF00
-	#define MT6879_DISP_BYPASS_MUX_SHADOW       BIT(0)
-
 #define MT6879_MMSYS_OVL_CON 0xF08
 	#define MT6879_DISP_OVL0_GO_BLEND       BIT(0)
 	#define MT6879_DISP_OVL0_GO_BG          BIT(1)
@@ -6578,10 +6575,6 @@ static int mtk_ddp_mout_en_MT6879(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL) {
 		*addr = MT6879_DISP_OVL0_BLEND_MOUT_EN;
 		value = MT6879_DISP_OVL0_MOUT_TO_DISP_MAIN_OVL_DISP_PQ0_SEL;
-	} else if (cur == DDP_COMPONENT_OVL0 &&
-		next == DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL) {
-		*addr = MT6879_DISP_OVL0_BLEND_MOUT_EN;
-		value = MT6879_DISP_OVL0_MOUT_TO_DISP_MAIN_OVL_DISP_WDMA_SEL;
 	} else if (cur == DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL &&
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6879_DISP_RDMA0_POS_MOUT_EN;
@@ -6610,10 +6603,6 @@ static int mtk_ddp_sel_in_MT6879(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL) {
 		*addr = MT6879_DISP_MAIN_OVL_DISP_PQ0_SEL;
 		value = MT6879_DISP_MAIN_OVL_DISP_PQ0_FROM_DISP_OVL0_BLEND_MOUT;
-	}  else if (cur == DDP_COMPONENT_OVL0 &&
-		next == DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL) {
-		*addr = MT6879_DISP_MAIN_OVL_DISP_WDMA_SEL;
-		value = MT6879_DISP_MAIN_OVL_DISP_WDMA_FROM_DISP_OVL0_BLEND_MOUT;
 	} else if (cur == DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL &&
 		next == DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL) {
 		*addr = MT6879_DISP_PQ0_SEL;
@@ -6622,10 +6611,6 @@ static int mtk_ddp_sel_in_MT6879(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6879_DISP_RDMA0_SEL;
 		value = MT6879_DISP_RDMA0_FROM_DISP_RDMA0_SOUT;
-	} else if (cur == DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL &&
-		next == DDP_COMPONENT_WDMA0) {
-		*addr = MT6879_DISP_WDMA0_SEL;
-		value = MT6879_DISP_WDMA0_FROM_DISP_MAIN_OVL_DISP_WDMA_SEL;
 	} else if (cur == DDP_COMPONENT_RDMA0 &&
 		next == DDP_COMPONENT_DSI0) {
 		*addr = MT6879_DISP_DSI0_SEL;
@@ -6691,11 +6676,11 @@ static int mtk_ddp_ovl_bg_blend_en_MT6879(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6879_MMSYS_OVL_CON;
 		value = MT6879_DISP_OVL0_GO_BLEND;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
-		next == DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL) {
+		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6879_MMSYS_OVL_CON;
 		value = MT6879_DISP_OVL0_GO_BLEND;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
-		next == DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL) {
+		next == DDP_COMPONENT_WDMA0) {
 		*addr = MT6879_MMSYS_OVL_CON;
 		value = MT6879_DISP_OVL0_GO_BLEND;
 	/*No cur or next component*/
