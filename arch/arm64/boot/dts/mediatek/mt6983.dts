@@ -3036,10 +3036,10 @@
 			<GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH 0>; /* mminfra */
 	};
 
-	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
+	md1_sim1_hot_plug_eint:MD1_SIM1_HOT_PLUG_EINT {
 	};
 
-	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
+	md1_sim2_hot_plug_eint:MD1_SIM2_HOT_PLUG_EINT {
 	};
 
 	bus_dbg@10208000 {
