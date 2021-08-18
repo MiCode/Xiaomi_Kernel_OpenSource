@@ -162,12 +162,19 @@ static inline void mtk_iommu_unbind(struct device *dev)
 
 int dev_is_normal_region(struct device *dev);
 
+void mtk_dump_reg_for_hang_issue(uint32_t type);
+
 #else
 
 int dev_is_normal_region(struct device *dev)
 {
 	return 0;
 }
+
+void mtk_dump_reg_for_hang_issue(uint32_t type)
+{
+}
+
 #endif
 
 #endif

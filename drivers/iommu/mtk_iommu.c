@@ -46,6 +46,8 @@
 #define REG_MMU_PT_BASE_ADDR			0x000
 #define MMU_PT_ADDR_MASK			GENMASK(31, 7)
 
+#define REG_MMU_STA				0x008
+
 #define REG_MMU_INVALIDATE			0x020
 #define F_ALL_INVLD				0x2
 #define F_MMU_INV_RANGE				0x1
@@ -58,6 +60,8 @@
 #define F_INVLD_EN0				BIT(0)
 #define F_INVLD_EN1				BIT(1)
 
+#define REG_MMU_DUMMY				0x044
+
 #define REG_MMU_MISC_CTRL			0x048
 #define F_MMU_IN_ORDER_WR_EN_MASK		(BIT(1) | BIT(17))
 #define F_MMU_STANDARD_AXI_MODE_MASK		(BIT(3) | BIT(19))
@@ -65,6 +69,8 @@
 #define REG_MMU_DCM_DIS				0x050
 #define REG_MMU_WR_LEN_CTRL			0x054
 #define F_MMU_WR_THROT_DIS_MASK			(BIT(5) | BIT(21))
+
+#define REG_MMU_DBG(index)			(0x060 + index * 4)
 
 #define REG_MMU_TBW_ID				0xa0
 
@@ -150,6 +156,13 @@
 #define F_MMU_INT_ID_SUB_COMM_ID(a)		(((a) >> 7) & 0x3)
 #define F_MMU_INT_ID_LARB_ID(a)			(((a) >> 7) & 0x7)
 #define F_MMU_INT_ID_PORT_ID(a)			(((a) >> 2) & 0x1f)
+
+#define REG_MMU_RS_VA(MMU, RS)			(0x380 + MMU * 0x300 + RS * 0x10)
+
+/* iommu hw register define */
+#define MTK_IOMMU_DEBUG_REG_NR			(7)
+#define MTK_IOMMU_MMU_COUNT			(2)
+#define MTK_IOMMU_RS_COUNT			(16)
 
 #define MTK_PROTECT_PA_ALIGN			256
 
@@ -1984,6 +1997,151 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+static int mtk_dump_reg(const struct mtk_iommu_data *data,
+	unsigned int start, unsigned int length)
+{
+	int i = 0;
+	void __iomem *base = data->base;
+
+	for (i = 0; i < length; i += 4) {
+		if (length - i == 1)
+			pr_info("0x%x=0x%x\n",
+				start + 4 * i,
+				readl_relaxed(base + start + 4 * i));
+		else if (length - i == 2)
+			pr_info("0x%x=0x%x, 0x%x=0x%x\n",
+				start + 4 * i,
+				readl_relaxed(base + start + 4 * i),
+				start + 4 * (i + 1),
+				readl_relaxed(base + start + 4 * (i + 1)));
+		else if (length - i == 3)
+			pr_info("0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
+				start + 4 * i,
+				readl_relaxed(base + start + 4 * i),
+				start + 4 * (i + 1),
+				readl_relaxed(base + start + 4 * (i + 1)),
+				start + 4 * (i + 2),
+				readl_relaxed(base + start + 4 * (i + 2)));
+		else if (length - i >= 4)
+			pr_info("0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
+				start + 4 * i,
+				readl_relaxed(base + start + 4 * i),
+				start + 4 * (i + 1),
+				readl_relaxed(base + start + 4 * (i + 1)),
+				start + 4 * (i + 2),
+				readl_relaxed(base + start + 4 * (i + 2)),
+				start + 4 * (i + 3),
+				readl_relaxed(base + start + 4 * (i + 3)));
+	}
+
+	return 0;
+}
+
+static int mtk_dump_debug_reg_info(const struct mtk_iommu_data *data)
+{
+	pr_info("---- iommu(%d, %d) debug register ----\n",
+		data->plat_data->iommu_type, data->plat_data->iommu_id);
+	return mtk_dump_reg(data, REG_MMU_DBG(0), MTK_IOMMU_DEBUG_REG_NR);
+}
+
+static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
+{
+	pr_info("---- iommu(%d, %d) mmu%d: RS status register ----\n",
+		data->plat_data->iommu_type, data->plat_data->iommu_id, mmu);
+
+	pr_info("--<0x0>iova/bank --<0x4>descriptor --<0x8>2nd-base --<0xc>status\n");
+	return mtk_dump_reg(data,
+			    REG_MMU_RS_VA(mmu, 0),
+			    MTK_IOMMU_RS_COUNT * 4);
+}
+#endif
+
+static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
+{
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+	int cnt, ret, i;
+#endif
+	void __iomem *base = data->base;
+
+	if (data->base == NULL) {
+		pr_err("%s, base is NULL\n",  __func__);
+		return;
+	}
+
+	base = data->base;
+
+	/* control register */
+	pr_info("REG_MMU_PT_BASE_ADDR(0x000)	   = 0x%x\n",
+		readl_relaxed(base + REG_MMU_PT_BASE_ADDR));
+	pr_info("REG_MMU_IVRP_PADDR(0x114)	   = 0x%x\n",
+		readl_relaxed(base + REG_MMU_IVRP_PADDR));
+	pr_info("REG_MMU_DUMMY(0x044)	   = 0x%x\n",
+		readl_relaxed(base + REG_MMU_DUMMY));
+	pr_info("REG_MMU_MISC_CTRL(0x048)   = 0x%x\n",
+		readl_relaxed(base + REG_MMU_MISC_CTRL));
+	pr_info("REG_MMU_DCM_DIS(0x050)	 = 0x%x\n",
+		readl_relaxed(base + REG_MMU_DCM_DIS));
+	pr_info("REG_MMU_WR_LEN_CTRL(0x054) = 0x%x\n",
+		readl_relaxed(base + REG_MMU_WR_LEN_CTRL));
+	pr_info("REG_MMU_TBW_ID(0x0A0)	  = 0x%x\n",
+		readl_relaxed(base + REG_MMU_TBW_ID));
+	pr_info("REG_MMU_CTRL_REG(0x110)   = 0x%x\n",
+		readl_relaxed(base + REG_MMU_CTRL_REG));
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+	ret = ao_secure_dbg_switch_by_atf(data->plat_data->iommu_type,
+			data->plat_data->iommu_id, 1);
+	if (ret) {
+		pr_err("%s, failed to enable secure debug\n", __func__);
+		return;
+	}
+
+	for (cnt = 0; cnt < 3; cnt++) {
+		pr_info("===== the %d time: REG_MMU_STA(0x008) = 0x%x =====\n",
+			cnt, readl_relaxed(base + REG_MMU_STA));
+		mtk_dump_debug_reg_info(data);
+		for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
+			mtk_dump_rs_sta_info(data, i);
+	}
+
+	pr_info("===== dump hang reg end =====\n");
+
+	ret = ao_secure_dbg_switch_by_atf(data->plat_data->iommu_type,
+			data->plat_data->iommu_id, 0);
+	if (ret)
+		pr_err("%s, failed to disable secure debug\n", __func__);
+#endif
+}
+
+void mtk_dump_reg_for_hang_issue(uint32_t type)
+{
+	struct mtk_iommu_data *data;
+
+	for_each_m4u(data) {
+		if (data->plat_data->iommu_type == type) {
+			bool has_pm = !!data->dev->pm_domain;
+
+			if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
+				if ((data->plat_data->iommu_type == MM_IOMMU &&
+					pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
+					(data->plat_data->iommu_type != MM_IOMMU &&
+					pm_runtime_get_if_in_use(data->dev) <= 0)) {
+					continue;
+				}
+			}
+
+			__mtk_dump_reg_for_hang_issue(data);
+
+			if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
+				data->plat_data->iommu_type != MM_IOMMU)
+				pm_runtime_put(data->dev);
+		}
+	}
+
+}
+EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
 
 static const struct dev_pm_ops mtk_iommu_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_iommu_runtime_suspend, mtk_iommu_runtime_resume, NULL)
