@@ -6,7 +6,7 @@
 #include <dt-bindings/spmi/spmi.h>
 
 &spmi {
-	pmic@4 {
+	main_pmic: pmic@4 {
 		compatible = "mediatek,mt6363";
 		reg = <0x4 SPMI_USID>;
 		interrupts = <4>;

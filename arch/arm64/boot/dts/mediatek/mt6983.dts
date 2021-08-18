@@ -12145,6 +12145,9 @@
 
 	pmic-oc-debug {
 		compatible = "mediatek,mt6983-oc-debug";
+		interrupt-parent = <&main_pmic>;
+		interrupts = <54 IRQ_TYPE_NONE>, <55 IRQ_TYPE_NONE>;
+		interrupt-names = "LVSYS_R", "LVSYS_F";
 		status = "okay";
 	};
 
