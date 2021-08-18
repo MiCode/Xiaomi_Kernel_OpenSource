@@ -22,8 +22,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <swpm_tracker_trace.h>
-EXPORT_TRACEPOINT_SYMBOL(swpm_power);
-EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx);
+//EXPORT_TRACEPOINT_SYMBOL(swpm_power);
+//EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx);
 
 #include <mtk_swpm_common_sysfs.h>
 #include <mtk_swpm_sysfs.h>
