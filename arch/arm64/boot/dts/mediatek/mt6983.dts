@@ -5507,9 +5507,14 @@
 		reg = <0 0x11fab000 0 0x1000>;
 	};
 
+	mgm: mgm {
+		compatible = "arm,physical-memory-group-manager";
+	};
+
 	mali: mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x480000>;
+		physical-memory-group-manager = <&mgm>;
 		interrupts =
 			<GIC_SPI 544 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_SPI 545 IRQ_TYPE_LEVEL_HIGH 0>,
