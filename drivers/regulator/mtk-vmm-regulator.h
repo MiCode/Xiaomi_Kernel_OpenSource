@@ -37,6 +37,7 @@ struct dvfs_driver_data {
 	struct dvfs_clk_data muxes[MAX_MUX_NUM];
 	struct dvfs_table opp_table;
 	struct dvfs_info current_dvfs;
+	u32 support_aging;
 };
 
 struct dvfs_ipc_info {

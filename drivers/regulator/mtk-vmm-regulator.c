@@ -26,6 +26,7 @@ static struct dentry *ispdvfs_debugfs_dir;
 static struct regulator *vmm_reg;
 
 #define REGULATOR_ID_VMM 0
+#define AGING_MARGIN_MICROVOLT 12500
 
 int mtk_ispdvfs_dbg_level;
 EXPORT_SYMBOL(mtk_ispdvfs_dbg_level);
@@ -35,7 +36,7 @@ module_param(mtk_ispdvfs_dbg_level, int, 0644);
 #define ISP_LOGD(fmt, args...) \
 	do { \
 		if (mtk_ispdvfs_dbg_level) \
-			pr_debug("[ISPDVFS] %s(): " fmt "\n",\
+			pr_notice("[ISPDVFS] %s(): " fmt "\n",\
 				__func__, ##args); \
 	} while (0)
 #else
@@ -200,6 +201,7 @@ static int apmcu_set_voltage(struct regulator_dev *rdev,
 	struct dvfs_driver_data *drv_data;
 	struct dvfs_info *current_info;
 	struct dvfs_table *table;
+	int target_voltage = min_uV;
 	u32 cur_opp_idx = 0, prev_opp_idx = 0;
 	u32 i;
 
@@ -229,18 +231,21 @@ static int apmcu_set_voltage(struct regulator_dev *rdev,
 	}
 	prev_opp_idx = current_info->opp_level;
 
+	if (drv_data->support_aging)
+		target_voltage -= AGING_MARGIN_MICROVOLT;
+
 	if (cur_opp_idx < prev_opp_idx) {
 		/* Upldate Frequency firstly */
 		set_all_muxes(drv_data, cur_opp_idx);
 
 		/* Then update voltage */
-		regulator_set_voltage(vmm_reg, min_uV, INT_MAX);
+		regulator_set_voltage(vmm_reg, target_voltage, INT_MAX);
 		current_info->voltage_target = min_uV;
 		current_info->opp_level = cur_opp_idx;
 		mutex_unlock(&current_info->voltage_mutex);
 	} else {
 		/* Update voltage firstly */
-		regulator_set_voltage(vmm_reg, min_uV, INT_MAX);
+		regulator_set_voltage(vmm_reg, target_voltage, INT_MAX);
 		current_info->voltage_target = min_uV;
 		current_info->opp_level = cur_opp_idx;
 		mutex_unlock(&current_info->voltage_mutex);
@@ -248,6 +253,8 @@ static int apmcu_set_voltage(struct regulator_dev *rdev,
 		/* Then update frequency */
 		set_all_muxes(drv_data, cur_opp_idx);
 	}
+
+	ISP_LOGD("VMM update voltage(%d)", target_voltage);
 
 	return ret;
 }
@@ -376,6 +383,7 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	struct dvfs_table *opp_table;
 	struct dvfs_info *current_dvfs;
 	int support_micro_processor = 0;
+	u32 simulate_aging = 0;
 	struct property *mux_prop, *clksrc_prop;
 	const char *mux_name, *clksrc_name;
 	u32 num_mux = 0;
@@ -439,6 +447,10 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	of_property_read_u32(dev->of_node,
 		"mediatek,support_micro_processor",
 		&support_micro_processor);
+	of_property_read_u32(dev->of_node,
+		"simulate_aging",
+		&simulate_aging);
+	dvfs_data->support_aging = simulate_aging;
 
 	regulator = (struct vmm_regulator *)(match->data);
 	regulator->dvfs_data = dvfs_data;
