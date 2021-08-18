@@ -233,7 +233,7 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 		temp /= 1000;
 
 		cpu_static_pwr = mtk_get_leakage(cpu, opp, temp);
-		static_pwr += cpu_static_pwr >> 10;
+		static_pwr += cpu_static_pwr;
 
 		trace_sched_leakage(cpu, opp, temp, cpu_static_pwr, static_pwr);
 	}
@@ -282,7 +282,7 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 	 *                  scale_cpu
 	 */
 
-	dyn_pwr = (ps->cost * sum_util / scale_cpu);
+	dyn_pwr = (ps->cost * 1000 * sum_util / scale_cpu);
 	*energy = dyn_pwr + static_pwr;
 
 	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
