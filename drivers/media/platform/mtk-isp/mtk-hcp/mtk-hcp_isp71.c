@@ -3,11 +3,13 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/slab.h>
+#include "mtk_heap.h"
 #include "mtk-hcp_isp71.h"
 
 struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 	{
 		/*share buffer for frame setting, to be sw usage*/
+		.name = "IMG_MEM_FOR_HW_ID",
 		.num = IMG_MEM_FOR_HW_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -23,6 +25,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "WPE_MEM_C_ID",
 		.num = WPE_MEM_C_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -38,6 +41,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "WPE_MEM_T_ID",
 		.num = WPE_MEM_T_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -53,6 +57,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "TRAW_MEM_C_ID",
 		.num = TRAW_MEM_C_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -68,6 +73,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "TRAW_MEM_T_ID",
 		.num = TRAW_MEM_T_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -83,6 +89,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "DIP_MEM_C_ID",
 		.num = DIP_MEM_C_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -98,6 +105,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "DIP_MEM_T_ID",
 		.num = DIP_MEM_T_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -113,6 +121,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "PQDIP_MEM_C_ID",
 		.num = PQDIP_MEM_C_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -128,6 +137,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "PQDIP_MEM_T_ID",
 		.num = PQDIP_MEM_T_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -143,6 +153,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.sgt = NULL
 	},
 	{
+		.name = "ADL_MEM_C_ID",
 		.num = ADL_MEM_C_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -156,6 +167,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.pIonHandle = NULL
 	},
 	{
+		.name = "ADL_MEM_T_ID",
 		.num = ADL_MEM_T_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -169,6 +181,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.pIonHandle = NULL
 	},
 	{
+		.name = "IMG_MEM_G_ID",
 		.num = IMG_MEM_G_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
@@ -287,6 +300,8 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev)
 					return -1;
 				}
 
+				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
+
 				mblock[id].attach = dma_buf_attach(
 				mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;
@@ -337,6 +352,8 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev)
 					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
+
+				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
 
 				mblock[id].attach = dma_buf_attach(
 				mblock[id].d_buf, hcp_dev->dev);

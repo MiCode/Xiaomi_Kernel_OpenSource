@@ -27,6 +27,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
              -I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
              -I$(srctree)/drivers/misc/mediatek/include/ \
              -I$(srctree)/drivers/misc/mediatek/slbc/ \
+             -I$(srctree)/drivers/dma-buf/heaps/ \
              -I$(srctree)/drivers/iommu
 mtk_hcp-objs := \
 mtk-hcp.o \

@@ -49,6 +49,7 @@
 #include "m4u_port.h"
 #endif
 
+#include "mtk_heap.h"
 #include "slbc_ops.h"
 
 #include <linux/dma-heap.h>
@@ -1463,47 +1464,48 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 					pr_info("pdma_heap find fail\n");
 					return -1;
 				}
-				mtk_hcp_reserve_mblock[id].d_buf = dma_heap_buffer_alloc(
+				mblock[id].d_buf = dma_heap_buffer_alloc(
 					pdma_heap,
-					mtk_hcp_reserve_mblock[id].size, O_RDWR | O_CLOEXEC,
+					mblock[id].size, O_RDWR | O_CLOEXEC,
 					DMA_HEAP_VALID_HEAP_FLAGS);
-				if (IS_ERR(mtk_hcp_reserve_mblock[id].d_buf)) {
+				if (IS_ERR(mblock[id].d_buf)) {
 					pr_info("dma_heap_buffer_alloc fail :%lld\n",
-					PTR_ERR(mtk_hcp_reserve_mblock[id].d_buf));
+					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
+				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
 
-				mtk_hcp_reserve_mblock[id].attach = dma_buf_attach(
-				mtk_hcp_reserve_mblock[id].d_buf, hcp_dev->dev);
-				attach = mtk_hcp_reserve_mblock[id].attach;
+				mblock[id].attach = dma_buf_attach(
+				mblock[id].d_buf, hcp_dev->dev);
+				attach = mblock[id].attach;
 				if (IS_ERR(attach)) {
 					pr_info("dma_buf_attach fail :%lld\n",
 					PTR_ERR(attach));
 					return -1;
 				}
 
-				mtk_hcp_reserve_mblock[id].sgt = dma_buf_map_attachment(attach,
+				mblock[id].sgt = dma_buf_map_attachment(attach,
 				DMA_TO_DEVICE);
-				sgt = mtk_hcp_reserve_mblock[id].sgt;
+				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
-					dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf, attach);
+					dma_buf_detach(mblock[id].d_buf, attach);
 					pr_info("dma_buf_map_attachment fail sgt:%lld\n",
 					PTR_ERR(sgt));
 					return -1;
 				}
-				mtk_hcp_reserve_mblock[id].start_phys = sg_dma_address(sgt->sgl);
-				mtk_hcp_reserve_mblock[id].start_dma =
-				mtk_hcp_reserve_mblock[id].start_phys;
-				buf_ptr = dma_buf_vmap(mtk_hcp_reserve_mblock[id].d_buf);
+				mblock[id].start_phys = sg_dma_address(sgt->sgl);
+				mblock[id].start_dma =
+				mblock[id].start_phys;
+				buf_ptr = dma_buf_vmap(mblock[id].d_buf);
 				if (!buf_ptr) {
 					pr_info("sg_dma_address fail\n");
 					return -1;
 				}
-				mtk_hcp_reserve_mblock[id].start_virt = buf_ptr;
-				mtk_hcp_reserve_mblock[id].fd =
-				dma_buf_fd(mtk_hcp_reserve_mblock[id].d_buf,
+				mblock[id].start_virt = buf_ptr;
+				mblock[id].fd =
+				dma_buf_fd(mblock[id].d_buf,
 				O_RDWR | O_CLOEXEC);
-				dma_buf_get(mtk_hcp_reserve_mblock[id].fd);
+				dma_buf_get(mblock[id].fd);
 				break;
 			default:
 
@@ -1523,7 +1525,7 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 					PTR_ERR(mblock[id].d_buf));
 					return -1;
 				}
-
+				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
 				mblock[id].attach = dma_buf_attach(
 				mblock[id].d_buf, hcp_dev->dev);
 				attach = mblock[id].attach;

@@ -345,6 +345,7 @@ struct mtk_hcp_data {
  * @fd:         buffer fd
  */
 struct mtk_hcp_reserve_mblock {
+	const char *name;
 	unsigned int num;
 	phys_addr_t start_phys;
 	void *start_virt;
