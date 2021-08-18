@@ -123,8 +123,7 @@ static int custom_cmd_slow_comm(int sensor_type, struct custom_cmd *cust_cmd)
 	shm_cmd.command = cust_cmd->command;
 	shm_cmd.tx_len = cust_cmd->tx_len;
 	shm_cmd.rx_len = cust_cmd->rx_len;
-	memcpy(shm_cmd.data, cust_cmd->data,
-		min(sizeof(shm_cmd.data), sizeof(cust_cmd->data)));
+	memcpy(shm_cmd.data, cust_cmd->data, shm_cmd.tx_len);
 
 	mutex_lock(&bus_user_lock);
 	do {
