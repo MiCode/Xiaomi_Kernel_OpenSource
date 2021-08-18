@@ -60,6 +60,16 @@ static int uid_ref[UID_MAX];
 static int slbc_mic_num = 3;
 static int slbc_inner = 5;
 static int slbc_outer = 5;
+
+static int req_val_count;
+static int rel_val_count;
+static u64 req_val_min;
+static u64 req_val_max;
+static u64 req_val_total;
+static u64 rel_val_min;
+static u64 rel_val_max;
+static u64 rel_val_total;
+
 static struct slbc_data test_d;
 
 static LIST_HEAD(slbc_ops_list);
@@ -275,6 +285,9 @@ int slbc_request(struct slbc_data *d)
 {
 	int ret = 0;
 	struct slbc_config *config;
+	u64 begin, val;
+
+	begin = ktime_get_ns();
 
 	if ((d->type) == TP_BUFFER) {
 		ret = slbc_request_buffer(d);
@@ -302,6 +315,15 @@ int slbc_request(struct slbc_data *d)
 		slbc_ref++;
 #endif /* CONFIG_MTK_SLBC_IPI */
 	}
+
+	val = (ktime_get_ns() - begin) / 1000000;
+	req_val_count++;
+	req_val_total += val;
+	req_val_max = max(val, req_val_max);
+	if (!req_val_min)
+		req_val_min = val;
+	else
+		req_val_min = min(val, req_val_min);
 
 	return ret;
 }
@@ -380,6 +402,9 @@ static int slbc_release_acp(void *ptr)
 int slbc_release(struct slbc_data *d)
 {
 	int ret = 0;
+	u64 begin, val;
+
+	begin = ktime_get_ns();
 
 	if ((d->type) == TP_BUFFER) {
 		ret = slbc_release_buffer(d);
@@ -403,6 +428,15 @@ int slbc_release(struct slbc_data *d)
 		slbc_ref--;
 #endif /* CONFIG_MTK_SLBC_IPI */
 	}
+
+	val = (ktime_get_ns() - begin) / 1000000;
+	rel_val_count++;
+	rel_val_total += val;
+	rel_val_max = max(val, rel_val_max);
+	if (!rel_val_min)
+		rel_val_min = val;
+	else
+		rel_val_min = min(val, rel_val_min);
 
 	return ret;
 }
@@ -643,6 +677,11 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 		slbc_dump_data(m, d);
 	}
 	mutex_unlock(&slbc_ops_lock);
+
+	seq_printf(m, "stat req count:%ld min:%lld avg:%lld max:%lld\n",
+			req_val_count, req_val_min, req_val_total / req_val_count, req_val_max);
+	seq_printf(m, "stat rel count:%ld min:%lld avg:%lld max:%lld\n",
+			rel_val_count, rel_val_min, rel_val_total / rel_val_count, rel_val_max);
 
 	seq_puts(m, "\n");
 
