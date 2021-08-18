@@ -1013,6 +1013,8 @@ static int mt6983_apu_top_off(struct device *dev)
 #if APMCU_REQ_RPC_SLEEP
 	// backup solution : send request for RPC sleep from APMCU
 	__apu_sleep_rpc_rcx(dev);
+#else
+	mt6983_pwr_flow_remote_sync(1); // tell remote side I am ready to off
 #endif
 	// blocking until sleep success or timeout
 	ret = readl_relaxed_poll_timeout_atomic(

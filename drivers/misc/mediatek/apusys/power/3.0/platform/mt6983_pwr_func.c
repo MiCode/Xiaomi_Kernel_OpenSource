@@ -443,6 +443,21 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	return ret;
 }
 
+int mt6983_pwr_flow_remote_sync(uint32_t cfg)
+{
+	uint32_t reg_data = 0x0;
+
+	reg_data = (cfg & 0x1);
+
+	apu_writel(reg_data, spare_reg_base + PWR_FLOW_SYNC_REG);
+
+	pr_info("%s write 0x%08x, readback:0x%08x\n",
+			__func__, reg_data,
+			apu_readl(spare_reg_base + PWR_FLOW_SYNC_REG));
+
+	return 0;
+}
+
 int mt6983_drv_cfg_remote_sync(struct aputop_func_param *aputop)
 {
 	struct drv_cfg_data cfg;

@@ -16,6 +16,7 @@
 #define SPARE_DBG_REG13		0x434	// mbox4_dummy13
 #define SPARE_DBG_REG14		0x438	// mbox4_dummy14
 #define SPARE_DBG_REG15		0x43C	// mbox4_dummy15
+#define SPARE_DBG_REG16		0x440	// mbox4_dummy16
 
 #define ACX0_LIMIT_OPP_REG      SPARE_DBG_REG10
 #define ACX1_LIMIT_OPP_REG      SPARE_DBG_REG11
@@ -23,6 +24,8 @@
 #define HW_RES_SYNC_REG         SPARE_DBG_REG13
 #define PLAT_CFG_SYNC_REG	SPARE_DBG_REG14
 #define DRV_CFG_SYNC_REG	SPARE_DBG_REG15
+
+#define PWR_FLOW_SYNC_REG	SPARE_DBG_REG16
 
 enum {
 	APUPWR_DBG_DEV_CTL = 0,
@@ -116,5 +119,6 @@ int mt6983_init_remote_data_sync(void __iomem *reg_base);
 int mt6983_drv_cfg_remote_sync(struct aputop_func_param *aputop);
 int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg);
 int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src);
+int mt6983_pwr_flow_remote_sync(uint32_t cfg);
 
 #endif
