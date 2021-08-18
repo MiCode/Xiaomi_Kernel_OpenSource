@@ -88,6 +88,7 @@ obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += selinux_warning/
 obj-$(CONFIG_INTERCONNECT_MTK_EXTENSION) += mtk-interconnect/
 obj-$(CONFIG_MTK_MMDVFS) += mmdvfs/
+obj-$(CONFIG_MTK_MMINFRA) += mminfra/
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_USB_BOOST) += usb_boost/
 obj-$(CONFIG_MTK_USB_META) += usb_meta/

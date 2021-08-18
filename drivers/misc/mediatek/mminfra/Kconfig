@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_MMINFRA
+	tristate "MediaTek MMInfra driver"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	help
+	  This driver is for the Multimedia Infrastructure in MediaTek SoCs.
+	  The MMINFRA driver mainly help control power, clock and security setting
+	  for the bus of multimedia users, such as display, camera, mdp and video
+	  codec. The MMINFRA driver also provide backup and restore function for
+	  registers located in the same power domain.
