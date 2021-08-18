@@ -82,7 +82,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			mt6368_thermal_efuse: mt6368_e_data {
-				reg = <0x52 8>;
+				reg = <0x52 10>;
 			};
 		};
 
