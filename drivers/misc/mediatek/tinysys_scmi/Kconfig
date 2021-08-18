@@ -2,7 +2,6 @@
 
 config MTK_TINYSYS_SCMI
 	tristate "Specify TINYSYS SCMI Interface Support"
-	default m
 	help
 	  TINYSYS SCMI is for MediaTek in-house power protocol
 	  Set Y to enable this feature.
