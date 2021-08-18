@@ -56,6 +56,9 @@ Optional properties :
 - qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
   after USB is kept into LPM.
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
+- qcom,core-clk-rate-disconnected: If present, then this dictates the default core_clk rate
+  when DWC3 doesn't have host or peripheral mode active.  This is to help ensure lower VDD
+  profiles can be voted for during PM resume w/ no USB cable connected.
 - qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
 - qcom,core-clk-rate-hs: If present, indicates min core clock frequency required to support
   hs speed.
