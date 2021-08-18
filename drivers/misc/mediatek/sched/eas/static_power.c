@@ -29,6 +29,7 @@
 struct leakage_data {
 	void __iomem *base;
 	struct cpufreq_policy *policy[8];
+	int instance[8];
 	int clusters;
 	int init;
 };
@@ -63,6 +64,7 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 	a = a & 0xFFF;
 	c = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8 + 4));
 	power = (temperature*temperature*a - b*temperature+c)/10;
+	power = power / info.instance[i];
 
 	return power;
 }
@@ -108,13 +110,16 @@ static int leakage_trial_proc_show(struct seq_file *m, void *v)
 {
 	int power, a, b, c;
 	u32 *repo = m->private;
+	if (cpu >= info.clusters)
+		return 0;
 
 	a = repo[144+cpu*72+opp*2];
 	b = ((a >> 12) & 0xFFFFF);
 	a = a & 0xFFF;
 	c = repo[144+cpu*72+opp*2+1];
 	power = (temp*temp*a - b*temp+c)/10;
-	seq_printf(m, "power: %d, a, b, c = (%d %d %d)\n", power, a, b, c);
+	power = power / info.instance[cpu];
+	seq_printf(m, "power: %d, a, b, c = (%d %d %d) %d\n", power, a, b, c, info.instance[cpu]);
 
 	return 0;
 }
@@ -171,6 +176,7 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 {
 	int cpu;
 	struct cpufreq_policy *tP;
+	int cpu_no;
 #if __LKG_DEBUG__
 	unsigned int i, power;
 #endif
@@ -184,11 +190,15 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 	if (tP) {
 		info.policy[0] = tP;
 		cpufreq_cpu_put(tP);
-
+		cpu_no = 0;
 		for_each_possible_cpu(cpu) {
 			tP = cpufreq_cpu_get(cpu);
-			if (tP != info.policy[info.clusters])
+			if (tP != info.policy[info.clusters]) {
+				info.instance[info.clusters] = cpu_no;
 				info.policy[++info.clusters] = tP;
+				cpu_no = 0;
+			}
+			cpu_no++;
 			cpufreq_cpu_put(tP);
 		}
 	} else {
@@ -196,6 +206,7 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 		pr_info("cannot get policy, no available static power");
 		return 0;
 	}
+	info.instance[info.clusters] = cpu_no;
 	info.clusters++;
 
 	create_spower_debug_fs();
