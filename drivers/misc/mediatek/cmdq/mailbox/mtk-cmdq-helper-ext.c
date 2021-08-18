@@ -2117,14 +2117,11 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	unsigned long ret;
 	int cnt = 0;
 	u32 timeout_ms = cmdq_mbox_get_thread_timeout((void *)client->chan);
-	bool skip = false;
+	bool skip = false, clock = false;
 
 #if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	cmdq_mmp_wait(client->chan, pkt);
 #endif
-
-	/* make sure gce won't turn off during dump */
-	cmdq_mbox_enable(client->chan);
 
 	while (!pkt->task_alloc) {
 		ret = wait_for_completion_timeout(&pkt->cmplt,
@@ -2149,6 +2146,11 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 		if (ret)
 			break;
 
+		if (!clock)   {
+			cmdq_mbox_enable(client->chan);
+			clock = true;
+		}
+
 		cmdq_util_helper->dump_lock();
 		cmdq_util_user_msg(client->chan,
 			"===== SW timeout Pre-dump %u =====", cnt++);
@@ -2157,7 +2159,9 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	}
 
 	pkt->task_alloc = false;
-	cmdq_mbox_disable(client->chan);
+
+	if (clock)
+		cmdq_mbox_disable(client->chan);
 
 	return item->err;
 }
