@@ -791,36 +791,29 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	pr_info(PFX "%s:%d\n", "vio_trigger_times",
 			mtk_devapc_ctx->soc->vio_info->vio_trigger_times++);
 
-	/* Dispatch slave owner if APMCU access. Others, dispatch master */
-	if (!strncmp(vio_master, "APMCU", 5))
-		strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
-				slave_type, vio_index, vio_addr),
-				sizeof(dispatch_key) - 1);
-	else
-		strncpy(dispatch_key, vio_master, sizeof(dispatch_key) - 1);
+	/* Dispatch slave owner for all master */
+	strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
+			slave_type, vio_index, vio_addr),
+			sizeof(dispatch_key) - 1);
 
 	dispatch_key[sizeof(dispatch_key) - 1] = '\0';
 
 	/* Callback func for vio master */
-	if (!strncasecmp(vio_master, "MD", 2)) {
+	if (!strncasecmp(vio_master, "MD", 2))
 		id = INFRA_SUBSYS_MD;
-		strncpy(dispatch_key, "MD", sizeof(dispatch_key) - 1);
 
-	} else if (!strncasecmp(vio_master, "CONN", 4) ||
-			!strncasecmp(dispatch_key, "CONN", 4)) {
+	else if (!strncasecmp(vio_master, "CONN", 4) ||
+			!strncasecmp(dispatch_key, "CONN", 4))
 		id = INFRA_SUBSYS_CONN;
-		strncpy(dispatch_key, "CONNSYS", sizeof(dispatch_key) - 1);
 
-	} else if (!strncasecmp(vio_master, "TINYSYS", 7)) {
+	else if (!strncasecmp(vio_master, "TINYSYS", 7))
 		id = INFRA_SUBSYS_ADSP;
-		strncpy(dispatch_key, "TINYSYS", sizeof(dispatch_key) - 1);
 
-	} else if (!strncasecmp(vio_master, "GCE", 3) ||
-			!strncasecmp(dispatch_key, "GCE", 3)) {
+	else if (!strncasecmp(vio_master, "GCE", 3) ||
+			!strncasecmp(dispatch_key, "GCE", 3))
 		id = INFRA_SUBSYS_GCE;
-		strncpy(dispatch_key, "GCE", sizeof(dispatch_key) - 1);
 
-	} else if (!strncasecmp(vio_master, "APMCU", 5))
+	else if (!strncasecmp(vio_master, "APMCU", 5))
 		if (vio_info->domain_id == 0)
 			id = INFRA_SUBSYS_APMCU;
 		else
