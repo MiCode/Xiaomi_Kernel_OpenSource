@@ -337,22 +337,24 @@ static int mt6368_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 
 	if (IS_ERR(efuse_buff))
 		return PTR_ERR(efuse_buff);
-	if (len != 8)
+
+
+	if (len != 10)
 		return -EINVAL;
 
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6)) >> 6;
+	tz_data->adc_cali_en = (efuse_buff[0] & BIT(14)) >> 14;
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
-	cali_data[0].o_vts = ((efuse_buff[0] & GENMASK(15, 8)) >> 8)
-		| ((efuse_buff[1] & GENMASK(4, 0)) << 8);
-	cali_data[1].o_vts = ((efuse_buff[1] & GENMASK(15, 8)) >> 8)
-		| (((efuse_buff[1] & GENMASK(7, 5)) >> 5) << 8)
-		| (((efuse_buff[2] & GENMASK(14, 13)) >> 13) << 11);
-	cali_data[2].o_vts = efuse_buff[2] & GENMASK(12, 0);
-	cali_data[3].o_vts = efuse_buff[3] & GENMASK(12, 0);
-
-	tz_data->degc_cali = (efuse_buff[0] & GENMASK(5, 0));
+	cali_data[0].o_vts = efuse_buff[1] & GENMASK(12, 0);
+	cali_data[1].o_vts = (efuse_buff[2] & GENMASK(7, 0))
+		| (((efuse_buff[1] & GENMASK(15, 13)) >> 13) << 8)
+		| (((efuse_buff[3] & GENMASK(6, 5)) >> 5) << 11);
+	cali_data[2].o_vts = ((efuse_buff[2] & GENMASK(15, 8)) >> 8)
+		| ((efuse_buff[3] & GENMASK(4, 0)) << 8);
+	cali_data[3].o_vts = ((efuse_buff[3] & GENMASK(15, 8)) >> 8)
+		| ((efuse_buff[4] & GENMASK(4, 0)) << 8);
+	tz_data->degc_cali = ((efuse_buff[0] & GENMASK(13, 8)) >> 8);
 
 	if (tz_data->degc_cali < 38 || tz_data->degc_cali > 60)
 		tz_data->degc_cali = 53;
