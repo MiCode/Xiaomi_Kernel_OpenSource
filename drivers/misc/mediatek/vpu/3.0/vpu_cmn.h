@@ -28,6 +28,7 @@ struct vpu_device {
 	struct device *dev[MTK_VPU_CORE+3];
 	bool vpu_hw_support[MTK_VPU_CORE];
 	struct dentry *debug_root;
+	struct proc_dir_entry *proc_root;
 	unsigned long vpu_syscfg_base;
 	unsigned long vpu_adlctrl_base;
 	unsigned long vpu_vcorecfg_base;
