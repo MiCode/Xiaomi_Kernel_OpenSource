@@ -370,7 +370,7 @@
 			swiotlb=noforce \
 			initcall_debug=1 cma=64M \
 			allow_mismatched_32bit_el0 \
-			firmware_class.path=/vendor/firmware";
+			firmware_class.path=/vendor/firmware pelt=8";
 			kaslr-seed = <0 0>;
 	};
 
