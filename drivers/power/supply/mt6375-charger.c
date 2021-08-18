@@ -920,6 +920,8 @@ static enum power_supply_property mt6375_chg_psy_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 static int mt6375_chg_property_is_writeable(struct power_supply *psy,
@@ -989,6 +991,14 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 		mutex_lock(&ddata->attach_lock);
 		val->intval = ddata->psy_usb_type;
 		mutex_unlock(&ddata->attach_lock);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (ddata->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 500000;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (ddata->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 5000000;
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = ddata->psy_desc.type;
