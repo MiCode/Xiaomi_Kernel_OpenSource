@@ -1498,7 +1498,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
 		&rop);
 
-	cmdq_pkt_sleep(pkt, CMDQ_POLL_TICK, reg_gpr);
+	if (!of_property_read_bool(pkt->dev->of_node, "skip-poll-sleep"))
+		cmdq_pkt_sleep(pkt, CMDQ_POLL_TICK, reg_gpr);
 
 	/* loop to begin */
 	if (absolute) {
