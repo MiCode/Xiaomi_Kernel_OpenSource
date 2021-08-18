@@ -9233,10 +9233,12 @@
 			<0 0x1c007000 0 0x51c>; /* 23. 0x1c00_7000 top_rgu, sz=0x51c */
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CONN>;
 		emi-addr = <0>;
-		emi-size = <0x800000>;
+		emi-size = <0x7e0000>;
 		emi-alignment = <0x100000>;
 		emi-max-addr = <0x90000000>;
 		tcxo_support = "false";
+		scp-shm-addr = <0>;
+		scp-shm-size = <0x20000>;
 	};
 
 	vcp: vcp@1ec00000 {
