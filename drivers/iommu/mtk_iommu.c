@@ -103,16 +103,36 @@
 #define REG_MMU_CPE_DONE			0x12C
 
 #define REG_MMU_FAULT_ST0			0x130
-#define F_REG_TBW_FAULT_MASK			BIT(1)
+#define F_INT_MHIT_ERR				BIT(0)
+#define F_INT_TBW_FAULT				BIT(1)
+#define F_INT_PFQ_FIFO_FULL			BIT(2)
+#define F_INT_MQ_FIFO_FULL			BIT(3)
+#define F_INT_INVLDT_DONE			BIT(4)
+#define F_INT_PFQ_OUT_FIFO_ERR			BIT(5)
+#define F_INT_PFQ_IN_FIFO_ERR			BIT(6)
+#define F_INT_MQ_OUT_FIFO_ERR			BIT(7)
+#define F_INT_MQ_IN_FIFO_ERR			BIT(8)
+#define F_INT_CDB_SLICE_ERR			BIT(9)
 
 #define REG_MMU_FAULT_ST1			0x134
+#define F_INT_MMU_TF_ERR(MMU)			BIT(0+(MMU)*7)
+#define F_INT_MMU_MHIT_ERR(MMU)			BIT(1+(MMU)*7)
+#define F_INT_MMU_INV_PA_ERR(MMU)		BIT(2+(MMU)*7)
+#define F_INT_MMU_ENTR_REP_ERR(MMU)		BIT(3+(MMU)*7)
+#define F_INT_MMU_TLBM_ERR(MMU)			BIT(4+(MMU)*7)
+#define F_INT_MMU_MQ_OVF_ERR(MMU)		BIT(5+(MMU)*7)
+#define F_INT_MMU_PFQ_OVF_ERR(MMU)		BIT(6+(MMU)*7)
+
 #define F_REG_MMU0_INV_PA_MASK			BIT(0)
 #define F_REG_MMU0_TF_MASK			BIT(2)
 #define F_REG_MMU0_MAU_INT_MASK			GENMASK(10, 7)
 #define F_REG_MMU0_FAULT_MASK			GENMASK(6, 0)
 #define F_REG_MMU1_FAULT_MASK			GENMASK(13, 7)
 
-#define REG_MMU_TBW_FAULT_VA			0x138
+#define REG_MMU_TBWALK_FAULT_VA			0x138
+#define F_L2_TBWALK_FAULT_VA_31_12_MASK		GENMASK(31, 12)
+#define F_L2_TBWALK_FAULT_VA_33_32_MASK		GENMASK(10, 9)
+#define F_L2_TBWALK_FAULT_PAGE_LAYER_BIT	BIT(0)
 
 #define REG_MMU0_FAULT_VA			0x13c
 #define F_MMU_INVAL_VA_31_12_MASK		GENMASK(31, 12)
@@ -726,8 +746,8 @@ static void peri_iommu_read_data(void __iomem *base, enum peri_iommu iommu_id)
 		return;
 	}
 
-	if (int_state0 & F_REG_TBW_FAULT_MASK) {
-		regval = readl_relaxed(base + REG_MMU_TBW_FAULT_VA);
+	if (int_state0 & F_INT_TBW_FAULT) {
+		regval = readl_relaxed(base + REG_MMU_TBWALK_FAULT_VA);
 		pr_err("%s err, peri_iommu_%d table walk fault, reg:0x%x\n",
 		       __func__, iommu_id, regval);
 		return;
@@ -792,6 +812,100 @@ void mtk_peri_iommu_isr(u32 bus_id)
 	mtk_iommu_isr_record(data);
 }
 
+static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
+				u32 int_state0, u32 int_state1)
+{
+	enum mtk_iommu_type type = data->plat_data->iommu_type;
+	int id = data->plat_data->iommu_id;
+	void __iomem *base = data->base;
+	struct device *dev = data->dev;
+	u32 va_33_32;
+	u64 fault_iova;
+	unsigned int layer;
+	int slave_id;
+
+	if (!int_state0 && !int_state1) {
+		pr_info("%s, iommu:(%d, %d) no error\n", __func__, type, id);
+		return;
+	}
+
+	/* MMU Interrupt Status0 For L2 Related Interrupt Status */
+	if (int_state0 & F_INT_MHIT_ERR)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MHIT_ERR);
+
+	/* L2 table walk fault */
+	if (int_state0 & F_INT_TBW_FAULT) {
+		fault_iova = readl_relaxed(base + REG_MMU_TBWALK_FAULT_VA);
+		layer = fault_iova & F_L2_TBWALK_FAULT_PAGE_LAYER_BIT;
+
+		if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN)) {
+			va_33_32 = FIELD_GET(F_L2_TBWALK_FAULT_VA_33_32_MASK, fault_iova);
+			fault_iova = fault_iova & F_L2_TBWALK_FAULT_VA_31_12_MASK;
+			fault_iova |= (u64)va_33_32 << 32;
+		}
+
+		dev_warn(dev, "L2 table walk fault: iova=0x%lx, layer=%d\n",
+				fault_iova, layer);
+	}
+
+	if (int_state0 & F_INT_PFQ_FIFO_FULL)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_PFQ_FIFO_FULL);
+
+	if (int_state0 & F_INT_MQ_FIFO_FULL)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MQ_FIFO_FULL);
+
+	if (int_state0 & F_INT_INVLDT_DONE)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_INVLDT_DONE);
+
+	if (int_state0 & F_INT_PFQ_OUT_FIFO_ERR)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_PFQ_OUT_FIFO_ERR);
+
+	if (int_state0 & F_INT_PFQ_IN_FIFO_ERR)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_PFQ_IN_FIFO_ERR);
+
+	if (int_state0 & F_INT_MQ_OUT_FIFO_ERR)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MQ_OUT_FIFO_ERR);
+
+	if (int_state0 & F_INT_MQ_IN_FIFO_ERR)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MQ_IN_FIFO_ERR);
+
+	if (int_state0 & F_INT_CDB_SLICE_ERR)
+		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_CDB_SLICE_ERR);
+
+	/* MMU Interrupt Status1 for MTLB and MAU Related Interrupt Status */
+	if (int_state1 & F_REG_MMU0_FAULT_MASK)
+		slave_id = 0;
+	else if (int_state1 & F_REG_MMU1_FAULT_MASK)
+		slave_id = 1;
+	else
+		slave_id = 0;
+
+	if (int_state1 & F_INT_MMU_MHIT_ERR(slave_id))
+		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
+				F_INT_MMU_MHIT_ERR(slave_id));
+
+	if (int_state1 & F_INT_MMU_INV_PA_ERR(slave_id))
+		if (!(int_state1 & F_INT_MMU_TF_ERR(slave_id)))
+			pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
+					F_INT_MMU_INV_PA_ERR(slave_id));
+
+	if (int_state1 & F_INT_MMU_ENTR_REP_ERR(slave_id))
+		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
+				F_INT_MMU_ENTR_REP_ERR(slave_id));
+
+	if (int_state1 & F_INT_MMU_TLBM_ERR(slave_id))
+		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
+				F_INT_MMU_TLBM_ERR(slave_id));
+
+	if (int_state1 & F_INT_MMU_MQ_OVF_ERR(slave_id))
+		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
+				F_INT_MMU_MQ_OVF_ERR(slave_id));
+
+	if (int_state1 & F_INT_MMU_PFQ_OVF_ERR(slave_id))
+		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
+				F_INT_MMU_PFQ_OVF_ERR(slave_id));
+}
+
 static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
 					  dma_addr_t iova);
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
@@ -799,7 +913,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	struct mtk_iommu_data *data = dev_id;
 	void __iomem *base = data->base; /* bank0 base */
 	struct device *dev = data->dev; /* bank0 dev */
-	u32 int_state, regval, va34_32, pa34_32, table_base;
+	u32 int_state0, int_state1, regval, va34_32, pa34_32, table_base;
 	u64 fault_iova, fault_pa;
 	bool layer, write;
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
@@ -823,8 +937,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		data->plat_data->iommu_type, data->plat_data->iommu_id);
 	table_base = readl_relaxed(base + REG_MMU_PT_BASE_ADDR);
 	/* Read error info from registers */
-	int_state = readl_relaxed(base + REG_MMU_FAULT_ST1);
-	if (int_state & F_REG_MMU0_FAULT_MASK) {
+	int_state0 = readl_relaxed(base + REG_MMU_FAULT_ST0);
+	int_state1 = readl_relaxed(base + REG_MMU_FAULT_ST1);
+	if (int_state1 & F_REG_MMU0_FAULT_MASK) {
 		regval = readl_relaxed(base + REG_MMU0_INT_ID);
 		fault_iova = readl_relaxed(base + REG_MMU0_FAULT_VA);
 		fault_pa = readl_relaxed(base + REG_MMU0_INVLD_PA);
@@ -836,16 +951,16 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 
-	pr_info("%s, reg_raw_data: int_status:0x%x, int_id:0x%x, int_va:0x%llx, int_pa:0x%llx\n",
-	       __func__, int_state, regval, fault_iova, fault_pa);
+	pr_info("%s, reg_raw_data: int_status:0x%x,0x%x, int_id:0x%x, int_va:0x%llx, int_pa:0x%llx\n",
+	       __func__, int_state0, int_state1, regval, fault_iova, fault_pa);
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN)) {
 		va34_32 = FIELD_GET(F_MMU_INVAL_VA_34_32_MASK, fault_iova);
 		fault_iova = fault_iova & F_MMU_INVAL_VA_31_12_MASK;
 		fault_iova |= (u64)va34_32 << 32;
 	}
-		pa34_32 = FIELD_GET(F_MMU_INVAL_PA_34_32_MASK, fault_iova);
-		fault_pa |= (u64)pa34_32 << 32;
+	pa34_32 = FIELD_GET(F_MMU_INVAL_PA_34_32_MASK, fault_iova);
+	fault_pa |= (u64)pa34_32 << 32;
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
@@ -862,7 +977,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		mtk_iova_map_dump(fault_iova);
 	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 	pr_info("%s base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
-		dev_name(dev), table_base, int_state, fault_iova, fault_pa,
+		dev_name(dev), table_base, int_state1, fault_iova, fault_pa,
 		layer, write ? "write" : "read");
 #else
 	fault_port = F_MMU_INT_ID_PORT_ID(regval);
@@ -879,10 +994,12 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		dev_err_ratelimited(
 			dev,
 			"fault type=0x%x iova=0x%llx pa=0x%llx larb=%d port=%d layer=%d %s\n",
-			int_state, fault_iova, fault_pa, fault_larb, fault_port,
+			int_state1, fault_iova, fault_pa, fault_larb, fault_port,
 			layer, write ? "write" : "read");
 	}
 #endif
+
+	mtk_iommu_isr_other(data, int_state0, int_state1);
 
 	/* Interrupt clear */
 	regval = readl_relaxed(base + REG_MMU_INT_CONTROL0);
