@@ -68,8 +68,8 @@
 #define SENINF_HS_TRAIL_PARAMETER 0x30
 #endif
 
-/* under 800Mbps, trail should be enable */
-#define SENINF_HS_TRAIL_EN_CONDITION 800000000
+/* under 14.5 Gbps, trail should be enable */
+#define SENINF_HS_TRAIL_EN_CONDITION 1450000000
 
 #define SENSOR_CLOCK_POLARITY_HIGH	0
 #define SENSOR_CLOCK_POLARITY_LOW	1

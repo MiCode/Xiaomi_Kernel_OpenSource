@@ -1388,13 +1388,34 @@ static int seninf_probe(struct platform_device *pdev)
 	init_fmt(ctx);
 
 	/* default platform properties */
-	ctx->seninf_dphy_settle_delay_dt = 0;
+	//ctx->seninf_dphy_settle_delay_dt = 0;
 
 	/* read platform properties from device tree */
-	of_property_read_u32(dev->of_node, "seninf_dphy_settle_delay_dt",
-		&ctx->seninf_dphy_settle_delay_dt);
-	dev_info(dev, "seninf dphy settle delay dt = %u\n",
-		 ctx->seninf_dphy_settle_delay_dt);
+	//of_property_read_u32(dev->of_node, "seninf_dphy_settle_delay_dt",
+	//	&ctx->seninf_dphy_settle_delay_dt);
+	//dev_info(dev, "seninf dphy settle delay dt = %u\n",
+	//	 ctx->seninf_dphy_settle_delay_dt);
+
+	ctx->cphy_settle_delay_dt = ctx->core->cphy_settle_delay_dt;
+	ctx->dphy_settle_delay_dt = ctx->core->dphy_settle_delay_dt;
+	ctx->settle_delay_ck = ctx->core->settle_delay_ck;
+	ctx->hs_trail_parameter = ctx->core->hs_trail_parameter;
+
+	of_property_read_u32(dev->of_node, "cphy_settle_delay_dt",
+		&ctx->cphy_settle_delay_dt);
+	of_property_read_u32(dev->of_node, "dphy_settle_delay_dt",
+		&ctx->dphy_settle_delay_dt);
+	of_property_read_u32(dev->of_node, "settle_delay_ck",
+		&ctx->settle_delay_ck);
+	of_property_read_u32(dev->of_node, "hs_trail_parameter",
+		&ctx->hs_trail_parameter);
+
+	dev_info(dev,
+		"seninf d_settlte/d_settle_ck/d_trail/c_settle= %u/%u/%u/%u\n",
+		ctx->seninf_dphy_settle_delay_dt,
+		ctx->settle_delay_ck,
+		ctx->hs_trail_parameter,
+		ctx->cphy_settle_delay_dt);
 
 #ifdef CSI_EFUSE_SET
 	ret = dev_read_csi_efuse(ctx);

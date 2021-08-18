@@ -1154,8 +1154,8 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	int bit_per_pixel;
 	u64 data_rate;
 
-	settle_delay_dt = ctx->is_cphy ? ctx->core->cphy_settle_delay_dt :
-		ctx->core->dphy_settle_delay_dt;
+	settle_delay_dt = ctx->is_cphy ? ctx->cphy_settle_delay_dt :
+		ctx->dphy_settle_delay_dt;
 
 	if (ctx->seninf_dphy_settle_delay_dt)
 		settle_delay_dt = ctx->seninf_dphy_settle_delay_dt;
@@ -1173,7 +1173,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		    RG_CDPHY_RX_LD3_TRIO3_HS_SETTLE_PARAMETER,
 		    settle_delay_dt);
 
-	settle_delay_ck = ctx->core->settle_delay_ck;
+	settle_delay_ck = ctx->settle_delay_ck;
 
 	SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER,
@@ -1192,7 +1192,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 		    RG_CDPHY_RX_LD3_TRIO3_HS_PREPARE_PARAMETER, 2);
 
-	hs_trail = ctx->core->hs_trail_parameter;
+	hs_trail = ctx->hs_trail_parameter;
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, hs_trail);

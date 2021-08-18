@@ -158,6 +158,11 @@ struct seninf_ctx {
 	unsigned int streaming:1;
 
 	int seninf_dphy_settle_delay_dt;
+	int cphy_settle_delay_dt;
+	int dphy_settle_delay_dt;
+	int settle_delay_ck;
+	int hs_trail_parameter;
+
 };
 
 #endif

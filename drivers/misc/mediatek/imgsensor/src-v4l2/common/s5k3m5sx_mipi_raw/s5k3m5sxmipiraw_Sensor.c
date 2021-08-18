@@ -4650,15 +4650,13 @@ static struct subdrv_ops ops = {
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_MCLK, 24, 0},
-	{HW_ID_PDN, 0, 0},
 	{HW_ID_RST, 0, 1},
-	{HW_ID_AVDD, 2800000, 0},
-	{HW_ID_AFVDD, 2800000, 0},
-	{HW_ID_DVDD, 1100000, 0},
+	{HW_ID_DVDD, 1100000, 1},
+	{HW_ID_AVDD, 2800000, 1},
+//	{HW_ID_AFVDD, 2800000, 0},
 	{HW_ID_DOVDD, 1800000, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1},
-	{HW_ID_PDN, 1, 0},
 	{HW_ID_RST, 1, 2},
+	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1},
 };
 
 const struct subdrv_entry s5k3m5sx_mipi_raw_entry = {
