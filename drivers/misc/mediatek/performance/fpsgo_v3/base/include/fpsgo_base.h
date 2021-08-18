@@ -222,8 +222,8 @@ struct gbe_runtime {
 #define FPSGO_CONTAINER_OF(ptr, type, member) \
 	((type *)(((char *)ptr) - offsetof(type, member)))
 
-struct task_struct *find_task_by_vpid(pid_t vnr);
 long long fpsgo_task_sched_runtime(struct task_struct *p);
+long fpsgo_sched_setaffinity(pid_t pid, const struct cpumask *in_mask);
 void *fpsgo_alloc_atomic(int i32Size);
 void fpsgo_free(void *pvBuf, int i32Size);
 unsigned long long fpsgo_get_time(void);

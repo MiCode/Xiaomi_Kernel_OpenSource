@@ -13,6 +13,7 @@
 #include "fpsgo_base.h"
 
 static int mask_int[FPSGO_PREFER_TOTAL];
+static struct cpumask mask[FPSGO_PREFER_TOTAL];
 static int mask_done;
 static struct icc_path *bw_path;
 static struct device_node *node;
@@ -94,6 +95,7 @@ static struct platform_driver mtk_platform_fpsgo_driver = {
 
 void init_fbt_platform(void)
 {
+	FPSGO_LOGE("%s\n", __func__);
 	platform_driver_register(&mtk_platform_fpsgo_driver);
 }
 
@@ -192,13 +194,22 @@ out:
 
 static int generate_cpu_mask(void)
 {
-	int i, ret;
+	int i, ret, cpu;
+	int temp_mask = 0;
 
 	ret = of_property_read_u32_array(node, "fbt_cpu_mask",
 			mask_int, FPSGO_PREFER_TOTAL);
 
-	for (i = 0; i < FPSGO_PREFER_TOTAL; i++)
-		FPSGO_LOGE("%s i:%d mask:%d\n", __func__, i, mask_int[i]);
+	for (i = 0; i < FPSGO_PREFER_TOTAL; i++) {
+		cpumask_clear(&mask[i]);
+		temp_mask = mask_int[i];
+		for_each_possible_cpu(cpu) {
+			if (temp_mask & (1 << cpu))
+				cpumask_set_cpu(cpu, &mask[i]);
+		}
+		FPSGO_LOGE("%s i:%d mask:%d %*pbl\n",
+			__func__, i, mask_int[i], cpumask_pr_args(&mask[i]));
+	}
 
 	if (!ret)
 		mask_done = 1;
@@ -215,7 +226,7 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 		goto out;
 	}
 
-	fpsgo_sentcmd(FPSGO_SET_AFFINITY, pid, mask_int[prefer_type]);
+	ret = fpsgo_sched_setaffinity(pid, &mask[prefer_type]);
 
 out:
 	if (ret != 0) {

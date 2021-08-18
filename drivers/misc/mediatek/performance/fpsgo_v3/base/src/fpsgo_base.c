@@ -63,6 +63,36 @@ long long fpsgo_task_sched_runtime(struct task_struct *p)
 	return p->se.sum_exec_runtime;
 }
 
+long fpsgo_sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
+{
+	struct task_struct *p;
+	int retval;
+
+	rcu_read_lock();
+
+	p = find_task_by_vpid(pid);
+	if (!p) {
+		rcu_read_unlock();
+		return -ESRCH;
+	}
+
+	/* Prevent p going away */
+	get_task_struct(p);
+	rcu_read_unlock();
+
+	if (p->flags & PF_NO_SETAFFINITY) {
+		retval = -EINVAL;
+		goto out_put_task;
+	}
+	retval = -EPERM;
+
+	retval = set_cpus_allowed_ptr(p, in_mask);
+out_put_task:
+	put_task_struct(p);
+	return retval;
+}
+
+
 void *fpsgo_alloc_atomic(int i32Size)
 {
 	void *pvBuf;
