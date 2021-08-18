@@ -610,11 +610,11 @@ static int vcp_pm_event(struct notifier_block *notifier
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		pr_debug("PM_SUSPEND_PREPARE entered\n");
-
-		/* trigger halt isr, force scp enter wfi */
-		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
-		wait_vcp_wdt_irq_done();
-
+		if (is_vcp_ready(VCP_A_ID)) {
+			/* trigger halt isr, force vcp enter wfi */
+			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
+			wait_vcp_wdt_irq_done();
+		}
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);
