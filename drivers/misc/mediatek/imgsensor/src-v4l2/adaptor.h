@@ -122,7 +122,6 @@ struct adaptor_ctx {
 	unsigned int is_sensor_scenario_inited:1;
 
 	int power_refcnt;
-	int open_refcnt;
 };
 
 #endif
