@@ -6417,6 +6417,12 @@
 			interconnect-names = "icc-bw", "icc-hrt-bw";
 	};
 
+	mminfra-debug {
+		compatible = "mediatek,mminfra-debug";
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
+		mminfra-bkrs = <1>;
+	};
+
 	mmdvfs-debug {
 		compatible = "mediatek,mmdvfs-debug";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
