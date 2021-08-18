@@ -9830,8 +9830,8 @@
 			<DLO_ASYNC0_STATUS0>, <DLO_ASYNC0_STATUS1>,
 			<DLO_ASYNC1_STATUS0>, <DLO_ASYNC1_STATUS1>,
 			<DL_VALID0>, <DL_VALID1>, <DL_READY0>, <DL_READY1>;
-			operating-points-v2 = <&opp_table_mdp1>;
-			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		operating-points-v2 = <&opp_table_mdp1>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		aid-sel = <
 			MML_RDMA0 0
 			MML_RDMA1 1
@@ -9839,6 +9839,9 @@
 			MML_WROT1 3
 			MML_WROT2 4
 			MML_WROT3 5>;
+		event_ir_disp_eof = /bits/ 16 <CMDQ_EVENT_MMSYS_DISP_OVL0_FRAME_DONE>;
+		event_ir_mml_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
+		event_ir_disp_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
 	};
 
 	mdp_mutex0@1f801000 {
