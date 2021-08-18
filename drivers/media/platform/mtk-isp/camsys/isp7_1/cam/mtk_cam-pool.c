@@ -343,7 +343,7 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	spin_lock_init(&ctx->buf_pool.sv_freelist.lock);
 	ctx->buf_pool.sv_freelist.cnt = 0;
 
-	for (i = 0; i < CAMSV_CQ_BUF_NUM; i++) {
+	for (i = 0; i < CAMSV_WORKING_BUF_NUM; i++) {
 		struct mtk_camsv_working_buf_entry *buf = &ctx->buf_pool.sv_working_buf[i];
 		buf->ctx = ctx;
 

@@ -2051,6 +2051,8 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->meta1_done_work,
 				      req_stream_data);
+		mtk_cam_req_work_init(&req_stream_data->sv_work,
+				      req_stream_data);
 		/**
 		 * clean the param structs since we support req reinit.
 		 * the mtk_cam_request may not be "zero" when it is
@@ -2661,8 +2663,11 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		destroy_workqueue(ctx->composer_wq);
 		drain_workqueue(ctx->frame_done_wq);
 		destroy_workqueue(ctx->frame_done_wq);
+		drain_workqueue(ctx->sv_wq);
+		destroy_workqueue(ctx->sv_wq);
 		ctx->composer_wq = NULL;
 		ctx->frame_done_wq = NULL;
+		ctx->sv_wq = NULL;
 		dev_info(dev, "%s: destroy session", __func__);
 	}
 
@@ -2798,63 +2803,38 @@ static void isp_tx_frame_worker(struct work_struct *work)
 
 bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req)
 {
-	unsigned int i;
-	int camsv_pipe_id;
+	unsigned int i, pipe_id;
 	struct mtk_cam_request_stream_data *ctx_stream_data;
 	struct mtk_cam_request_stream_data *pipe_stream_data;
 	struct mtk_camsv_working_buf_entry *buf_entry;
-	bool ret = false;
+	bool ret = true;
 
 	if (ctx->used_sv_num == 0)
 		return ret;
 
 	ctx_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-	buf_entry = mtk_cam_sv_working_buf_get(ctx);
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
-		camsv_pipe_id = ctx->sv_pipe[i]->id;
-		if (!(req->pipe_used & 1 << camsv_pipe_id)) {
-			dev_info(ctx->cam->dev,
-				"%s:ctx(%d):pipe(%d):req(%d) no sv buffer enqueued\n",
-				__func__, ctx->stream_id, camsv_pipe_id,
-				ctx_stream_data->frame_seq_no);
-			continue;
-		}
-
-		pipe_stream_data = mtk_cam_req_get_s_data(req, camsv_pipe_id, 0);
-
-		buf_entry->buffer.used_sv_dev[i] = ctx->used_sv_dev[i];
-		buf_entry->buffer.frame_seq_no = ctx_stream_data->frame_seq_no;
-		buf_entry->buffer.img_iova[i] =
-			pipe_stream_data->sv_frame_params.img_out.buf[0][0].iova;
-
-		ret = true;
-	}
-	if (ret == false)
-		mtk_cam_sv_working_buf_put(buf_entry);
-	else {
-		spin_lock(&ctx->sv_using_buffer_list.lock);
+		pipe_id = ctx->sv_pipe[i]->id;
+		buf_entry = mtk_cam_sv_working_buf_get(ctx);
+		pipe_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
+		mtk_cam_sv_wbuf_set_s_data(buf_entry, pipe_stream_data);
+		spin_lock(&ctx->sv_using_buffer_list[i].lock);
 		list_add_tail(&buf_entry->list_entry,
-				&ctx->sv_using_buffer_list.list);
-		ctx->sv_using_buffer_list.cnt++;
-		spin_unlock(&ctx->sv_using_buffer_list.lock);
-
-		if (ctx_stream_data->frame_seq_no == 1) {
-			mtk_cam_sv_apply_next_buffer(ctx);
-			/* initial request readout will be delayed 1 frame */
-			if (ctx->used_raw_num && !mtk_cam_is_subsample(ctx) &&
-				!mtk_cam_is_stagger(ctx) && !mtk_cam_is_stagger_m2m(ctx) &&
-				!mtk_cam_is_time_shared(ctx)) {
-				mtk_cam_sv_write_rcnt(ctx);
-			}
-			if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
-				ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
-				if (ctx_stream_data->state.estate == E_STATE_READY ||
-					ctx_stream_data->state.estate == E_STATE_SENSOR) {
-					ctx_stream_data->state.estate = E_STATE_OUTER;
-				}
+				&ctx->sv_using_buffer_list[i].list);
+		ctx->sv_using_buffer_list[i].cnt++;
+		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+	}
+	if (ctx_stream_data->frame_seq_no == 1) {
+		mtk_cam_sv_apply_next_buffer(ctx);
+		if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
+			ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
+			if (ctx_stream_data->state.estate == E_STATE_READY ||
+				ctx_stream_data->state.estate == E_STATE_SENSOR) {
+				ctx_stream_data->state.estate = E_STATE_OUTER;
 			}
 		}
 	}
+
 	return ret;
 }
 
@@ -2871,7 +2851,8 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->pipe_used & (1 << i)) {
 			unsigned int stream_id = i;
-			struct mtk_cam_req_work *sensor_work, *frame_work, *done_work;
+			struct mtk_cam_req_work *sensor_work, *frame_work;
+			struct mtk_cam_req_work *done_work, *sv_work;
 			struct mtk_cam_request_stream_data *req_stream_data;
 			struct mtk_cam_request_stream_data *pipe_stream_data;
 			struct mtk_cam_ctx *ctx = &cam->ctxs[stream_id];
@@ -2907,6 +2888,9 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					done_work = &pipe_stream_data->meta1_done_work;
 					atomic_set(&done_work->is_queued, 0);
 					INIT_WORK(&done_work->work, mtk_cam_meta1_done_work);
+
+					sv_work = &pipe_stream_data->sv_work;
+					INIT_WORK(&sv_work->work, mtk_cam_sv_work);
 				}
 			}
 
@@ -2918,8 +2902,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			}
 
 			if (ctx->sensor && (initial_frame ||
-					(ctx->pipe->res_config.raw_feature &
-					MTK_CAM_FEATURE_STAGGER_M2M_MASK))) {
+					mtk_cam_is_stagger_m2m(ctx))) {
 				if (mtk_cam_is_mstream(ctx)) {
 					mtk_cam_mstream_initial_sensor_setup(req, ctx);
 				} else {
@@ -3422,6 +3405,14 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		goto fail_uninit_composer_wq;
 	}
 
+	ctx->sv_wq =
+			alloc_ordered_workqueue(dev_name(cam->dev),
+						WQ_HIGHPRI | WQ_FREEZABLE);
+	if (!ctx->sv_wq) {
+		dev_dbg(cam->dev, "failed to alloc sv workqueue\n");
+		goto fail_uninit_frame_done_wq;
+	}
+
 	mtk_cam_sv_working_buf_pool_init(ctx);
 
 	ret = media_pipeline_start(entity, &ctx->pipeline);
@@ -3429,7 +3420,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		dev_info(cam->dev,
 			 "%s:pipe(%d):failed in media_pipeline_start:%d\n",
 			 __func__, node->uid.pipe_id, ret);
-		goto fail_uninit_frame_done_wq;
+		goto fail_uninit_sv_wq;
 	}
 
 	/* traverse to update used subdevs & number of nodes */
@@ -3479,6 +3470,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 fail_stop_pipeline:
 	media_pipeline_stop(entity);
+fail_uninit_sv_wq:
+	destroy_workqueue(ctx->sv_wq);
 fail_uninit_frame_done_wq:
 	destroy_workqueue(ctx->frame_done_wq);
 fail_uninit_composer_wq:
@@ -3575,8 +3568,10 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->processing_buffer_list.list);
 
-	INIT_LIST_HEAD(&ctx->sv_using_buffer_list.list);
-	INIT_LIST_HEAD(&ctx->sv_processing_buffer_list.list);
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
+		INIT_LIST_HEAD(&ctx->sv_using_buffer_list[i].list);
+		INIT_LIST_HEAD(&ctx->sv_processing_buffer_list[i].list);
+	}
 
 	INIT_LIST_HEAD(&ctx->processing_img_buffer_list.list);
 	for (i = 0; i < MAX_PIPES_PER_STREAM; i++)
@@ -4293,7 +4288,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	ctx->composed_buffer_list.cnt = 0;
 
 	ctx->used_sv_num = 0;
-	for (i = 0 ; i < MAX_SV_PIPES_PER_STREAM ; i++) {
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
 		ctx->sv_pipe[i] = NULL;
 		ctx->used_sv_dev[i] = 0;
 		ctx->sv_dequeued_frame_seq_no[i] = 0;
@@ -4302,14 +4297,18 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->processing_buffer_list.list);
-	INIT_LIST_HEAD(&ctx->sv_using_buffer_list.list);
-	INIT_LIST_HEAD(&ctx->sv_processing_buffer_list.list);
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
+		INIT_LIST_HEAD(&ctx->sv_using_buffer_list[i].list);
+		INIT_LIST_HEAD(&ctx->sv_processing_buffer_list[i].list);
+	}
 	INIT_LIST_HEAD(&ctx->processing_img_buffer_list.list);
 	spin_lock_init(&ctx->using_buffer_list.lock);
 	spin_lock_init(&ctx->composed_buffer_list.lock);
 	spin_lock_init(&ctx->processing_buffer_list.lock);
-	spin_lock_init(&ctx->sv_using_buffer_list.lock);
-	spin_lock_init(&ctx->sv_processing_buffer_list.lock);
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
+		spin_lock_init(&ctx->sv_using_buffer_list[i].lock);
+		spin_lock_init(&ctx->sv_processing_buffer_list[i].lock);
+	}
 	spin_lock_init(&ctx->streaming_lock);
 	spin_lock_init(&ctx->m2m_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);

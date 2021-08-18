@@ -153,7 +153,7 @@ enum mtkcam_ipi_raw_video_id {
 
 enum mtkcam_ipi_camsv_video_id {
 	MTKCAM_IPI_CAMSV_ID_UNKNOWN	= 0,
-	MTKCAM_IPI_CAMSV_MAIN_OUT = 0x30,	/* imgo */
+	MTKCAM_IPI_CAMSV_MAIN_OUT = MTKCAM_IPI_RAW_ID_MAX,	/* imgo */
 
 	MTKCAM_IPI_CAMSV_ID_MAX,
 };

@@ -57,7 +57,8 @@ struct mtk_cam_request;
 struct mtk_cam_request_stream_data;
 
 enum camsv_module_id {
-	CAMSV_0 = 0,
+	CAMSV_START = 0,
+	CAMSV_0 = CAMSV_START,
 	CAMSV_1 = 1,
 	CAMSV_2 = 2,
 	CAMSV_3 = 3,
@@ -73,6 +74,7 @@ enum camsv_module_id {
 	CAMSV_13 = 13,
 	CAMSV_14 = 14,
 	CAMSV_15 = 15,
+	CAMSV_END
 };
 
 enum camsv_db_load_src {
@@ -244,7 +246,7 @@ int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 bool mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_find_sv_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx);
-int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx);
+int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 
 extern struct platform_driver mtk_cam_sv_driver;
 

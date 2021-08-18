@@ -1164,25 +1164,19 @@ int mtk_cam_sv_enquehwbuf(
 	return ret;
 }
 
-int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx)
+int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 {
-	int ret = 0, i;
+	int ret = 0;
 	union CAMSV_TOP_FBC_CNT_SET reg;
 	struct device *dev_sv;
 	struct mtk_camsv_device *camsv_dev;
 
-	for (i = 0; i < ctx->used_sv_num; i++) {
-		dev_sv = mtk_cam_find_sv_dev(ctx->cam, ctx->used_sv_dev[i]);
-		if (dev_sv == NULL) {
-			dev_info(ctx->cam->dev, "camsv device not found\n");
-			return -1;
-		}
-		camsv_dev = dev_get_drvdata(dev_sv);
+	dev_sv = ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
+	camsv_dev = dev_get_drvdata(dev_sv);
 
-		reg.Raw = 0;
-		reg.Bits.RCNT_INC1 = 1;
-		CAMSV_WRITE_REG(camsv_dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
-	}
+	reg.Raw = 0;
+	reg.Bits.RCNT_INC1 = 1;
+	CAMSV_WRITE_REG(camsv_dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
 
 	return ret;
 }
@@ -1203,40 +1197,51 @@ int mtk_cam_find_sv_dev_index(
 
 int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 {
-	unsigned int seq_no, used_sv_dev;
+	unsigned int seq_no, pipe_id;
 	dma_addr_t base_addr;
 	struct mtk_camsv_working_buf_entry *buf_entry;
 	struct device *dev_sv;
 	struct mtk_camsv_device *camsv_dev;
 	int i;
 
-	spin_lock(&ctx->sv_using_buffer_list.lock);
-	if (list_empty(&ctx->sv_using_buffer_list.list)) {
-		spin_unlock(&ctx->sv_using_buffer_list.lock);
-		return 0;
-	}
-	buf_entry = list_first_entry(&ctx->sv_using_buffer_list.list,
-			struct mtk_camsv_working_buf_entry, list_entry);
-	list_del(&buf_entry->list_entry);
-	ctx->sv_using_buffer_list.cnt--;
-	spin_unlock(&ctx->sv_using_buffer_list.lock);
-	spin_lock(&ctx->sv_processing_buffer_list.lock);
-	list_add_tail(&buf_entry->list_entry,
-			&ctx->sv_processing_buffer_list.list);
-	ctx->sv_processing_buffer_list.cnt++;
-	spin_unlock(&ctx->sv_processing_buffer_list.lock);
 	for (i = 0; i < ctx->used_sv_num; i++) {
-		used_sv_dev = buf_entry->buffer.used_sv_dev[i];
-		seq_no = buf_entry->buffer.frame_seq_no;
-		base_addr = buf_entry->buffer.img_iova[i];
-		dev_sv = mtk_cam_find_sv_dev(ctx->cam, used_sv_dev);
-		if (dev_sv == NULL) {
-			dev_dbg(ctx->cam->dev, "camsv device not found\n");
+		spin_lock(&ctx->sv_using_buffer_list[i].lock);
+		if (list_empty(&ctx->sv_using_buffer_list[i].list)) {
+			spin_unlock(&ctx->sv_using_buffer_list[i].lock);
 			return 0;
 		}
-		camsv_dev = dev_get_drvdata(dev_sv);
-		mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
+				struct mtk_camsv_working_buf_entry, list_entry);
+		list_del(&buf_entry->list_entry);
+		ctx->sv_using_buffer_list[i].cnt--;
+		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+		spin_lock(&ctx->sv_processing_buffer_list[i].lock);
+		list_add_tail(&buf_entry->list_entry,
+				&ctx->sv_processing_buffer_list[i].list);
+		ctx->sv_processing_buffer_list[i].cnt++;
+		spin_unlock(&ctx->sv_processing_buffer_list[i].lock);
+
+		pipe_id = ctx->sv_pipe[i]->id;
+		if (buf_entry->s_data->req->pipe_used & (1 << pipe_id)) {
+			if (buf_entry->s_data->frame_seq_no == 1) {
+				seq_no = buf_entry->s_data->frame_seq_no;
+				base_addr =
+					buf_entry->s_data->sv_frame_params.img_out.buf[0][0].iova;
+				dev_sv = ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
+				camsv_dev = dev_get_drvdata(dev_sv);
+				mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+
+				/* initial request readout will be delayed 1 frame */
+				if (ctx->used_raw_num && !mtk_cam_is_subsample(ctx) &&
+					!mtk_cam_is_stagger(ctx) && !mtk_cam_is_stagger_m2m(ctx) &&
+					!mtk_cam_is_time_shared(ctx))
+					mtk_cam_sv_write_rcnt(ctx, pipe_id);
+			} else {
+				queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
+			}
+		}
 	}
+
 	return 1;
 }
 
@@ -1699,25 +1704,28 @@ mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 	bool result = false;
 	struct mtk_camsv_working_buf_entry *sv_buf_entry, *sv_buf_entry_prev;
 	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
+	int i;
 
 	if (!ctx->used_sv_num)
 		return false;
 
-	spin_lock(&ctx->sv_processing_buffer_list.lock);
-	list_for_each_entry_safe(sv_buf_entry, sv_buf_entry_prev,
-				 &ctx->sv_processing_buffer_list.list,
-				 list_entry) {
-		if (sv_buf_entry->buffer.frame_seq_no ==
-		    req_stream_data->frame_seq_no) {
-			list_del(&sv_buf_entry->list_entry);
-			mtk_cam_sv_wbuf_set_s_data(sv_buf_entry, NULL);
-			mtk_cam_sv_working_buf_put(sv_buf_entry);
-			ctx->sv_processing_buffer_list.cnt--;
-			result = true;
-			break;
+	for (i = 0; i < ctx->used_sv_num; i++) {
+		spin_lock(&ctx->sv_processing_buffer_list[i].lock);
+		list_for_each_entry_safe(sv_buf_entry, sv_buf_entry_prev,
+					 &ctx->sv_processing_buffer_list[i].list,
+					 list_entry) {
+			if (sv_buf_entry->s_data->frame_seq_no ==
+				req_stream_data->frame_seq_no) {
+				list_del(&sv_buf_entry->list_entry);
+				mtk_cam_sv_wbuf_set_s_data(sv_buf_entry, NULL);
+				mtk_cam_sv_working_buf_put(sv_buf_entry);
+				ctx->sv_processing_buffer_list[i].cnt--;
+				result = true;
+				break;
+			}
 		}
+		spin_unlock(&ctx->sv_processing_buffer_list[i].lock);
 	}
-	spin_unlock(&ctx->sv_processing_buffer_list.lock);
 
 	return result;
 }

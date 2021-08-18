@@ -30,7 +30,7 @@
 /* for cq working buffers */
 #define CQ_BUF_SIZE  0x8000
 #define CAM_CQ_BUF_NUM 16
-#define CAMSV_CQ_BUF_NUM 16
+#define CAMSV_WORKING_BUF_NUM 64
 #define IPI_FRAME_BUF_SIZE 0x8000
 
 /* for time-sharing camsv working buffer, (1inner+2backendprogramming+2backup)*/
@@ -105,16 +105,9 @@ struct mtk_cam_working_buf_list {
 	spinlock_t lock; /* protect the list and cnt */
 };
 
-struct mtk_camsv_working_buf {
-	unsigned int used_sv_dev[MAX_SV_PIPES_PER_STREAM];
-	dma_addr_t img_iova[MAX_SV_PIPES_PER_STREAM];
-	unsigned int frame_seq_no;
-};
-
 struct mtk_camsv_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
-	struct mtk_camsv_working_buf buffer;
 	struct list_head list_entry;
 };
 
@@ -175,6 +168,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_work sensor_work;
 	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
+	struct mtk_cam_req_work sv_work;
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	unsigned int no_frame_done_cnt;
@@ -242,7 +236,7 @@ struct mtk_cam_working_buf_pool {
 	struct mtk_cam_working_buf_entry working_buf[CAM_CQ_BUF_NUM];
 	struct mtk_cam_working_buf_list cam_freelist;
 
-	struct mtk_camsv_working_buf_entry sv_working_buf[CAMSV_CQ_BUF_NUM];
+	struct mtk_camsv_working_buf_entry sv_working_buf[CAMSV_WORKING_BUF_NUM];
 	struct mtk_camsv_working_buf_list sv_freelist;
 };
 
@@ -287,6 +281,7 @@ struct mtk_cam_ctx {
 
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
+	struct workqueue_struct *sv_wq;
 
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;
@@ -297,8 +292,8 @@ struct mtk_cam_ctx {
 	struct mtk_cam_working_buf_list composed_buffer_list;
 	struct mtk_cam_working_buf_list processing_buffer_list;
 
-	struct mtk_camsv_working_buf_list sv_using_buffer_list;
-	struct mtk_camsv_working_buf_list sv_processing_buffer_list;
+	struct mtk_camsv_working_buf_list sv_using_buffer_list[MAX_SV_PIPES_PER_STREAM];
+	struct mtk_camsv_working_buf_list sv_processing_buffer_list[MAX_SV_PIPES_PER_STREAM];
 
 	/* sensor image buffer pool handling from kernel */
 	struct mtk_cam_img_working_buf_pool img_buf_pool;

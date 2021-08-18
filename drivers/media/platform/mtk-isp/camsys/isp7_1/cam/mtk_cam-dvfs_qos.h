@@ -14,7 +14,7 @@ struct mtk_cam_ctx;
 
 #define ISP_CLK_LEVEL_CNT 10
 #define MTK_CAM_RAW_PORT_NUM 69
-#define MTK_CAM_SV_PORT_NUM 6
+#define MTK_CAM_SV_PORT_NUM 16
 
 struct mtk_camsys_dvfs {
 	struct device *dev;

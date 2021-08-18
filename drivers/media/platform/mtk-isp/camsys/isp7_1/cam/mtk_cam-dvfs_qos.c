@@ -142,27 +142,77 @@ static struct sv_mmqos sv_qos[] = {
 	},
 	[CAMSV_1] = {
 		.port = {
-			"l14_imgo_a1"
+			"l13_imgo_a1"
 		},
 	},
 	[CAMSV_2] = {
 		.port = {
-			"l13_imgo_b0"
+			"l14_imgo_b0"
 		},
 	},
 	[CAMSV_3] = {
 		.port = {
-			"l13_imgo_b1"
+			"l14_imgo_b1"
 		},
 	},
 	[CAMSV_4] = {
 		.port = {
-			"l14_imgo_c0"
+			"l13_imgo_c0"
 		},
 	},
 	[CAMSV_5] = {
 		.port = {
-			"l14_imgo_c1"
+			"l13_imgo_c1"
+		},
+	},
+	[CAMSV_6] = {
+		.port = {
+			"l14_imgo_d0"
+		},
+	},
+	[CAMSV_7] = {
+		.port = {
+			"l14_imgo_d1"
+		},
+	},
+	[CAMSV_8] = {
+		.port = {
+			"l13_imgo_e0"
+		},
+	},
+	[CAMSV_9] = {
+		.port = {
+			"l13_imgo_e1"
+		},
+	},
+	[CAMSV_10] = {
+		.port = {
+			"l14_imgo_f0"
+		},
+	},
+	[CAMSV_11] = {
+		.port = {
+			"l14_imgo_f1"
+		},
+	},
+	[CAMSV_12] = {
+		.port = {
+			"l13_imgo_g0"
+		},
+	},
+	[CAMSV_13] = {
+		.port = {
+			"l13_imgo_g1"
+		},
+	},
+	[CAMSV_14] = {
+		.port = {
+			"l14_imgo_h0"
+		},
+	},
+	[CAMSV_15] = {
+		.port = {
+			"l14_imgo_h1"
 		},
 	},
 };
@@ -560,7 +610,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 		qos_port_id = ((ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START)
 						* sv_qos_port_num)
 						+ sv_imgo;
-		sv_mmqos = sv_qos + ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START;
+		sv_mmqos = &sv_qos[ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START];
 		vdev = &ctx->sv_pipe[i]->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM];
 		ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
 		pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
@@ -639,7 +689,7 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 			 __func__, engine_id, i);
 	}
 	i = 0;
-	for (engine_id = CAMSV_0; engine_id <= CAMSV_5; engine_id++) {
+	for (engine_id = CAMSV_START; engine_id < CAMSV_END; engine_id++) {
 		sv_mmqos = sv_qos + engine_id;
 		enginesv_dev = cam->sv.devs[engine_id];
 		for (port_id = 0; port_id < sv_qos_port_num; port_id++) {
