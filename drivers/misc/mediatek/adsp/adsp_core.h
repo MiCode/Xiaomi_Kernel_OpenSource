@@ -19,6 +19,13 @@ enum ADSP_CORE_STATE {
 	ADSP_SUSPENDING  = 4,
 };
 
+enum adsp_smc_ops {
+	MTK_ADSP_SMC_OP_INIT = 0,
+	MTK_ADSP_SMC_OP_ENTER_LP,
+	MTK_ADSP_SMC_OP_LEAVE_LP,
+	MTK_ADSP_SMC_OP_NUM
+};
+
 struct adsp_priv;
 struct adspsys_priv;
 

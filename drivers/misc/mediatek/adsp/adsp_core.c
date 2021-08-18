@@ -337,9 +337,14 @@ static int adsp_pm_suspend_prepare(void)
 		adsp_timesync_suspend(APTIME_FREEZE);
 		pr_info("%s, time sync freeze", __func__);
 
-		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-			      MTK_AUDIO_SMC_OP_ADSP_REQUEST,
-			      0, 0, 0, 0, 0, 0, &res);
+		if (adspsys->desc->version == 1)
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				      MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+				      0, 0, 0, 0, 0, 0, &res);
+		else /* version = 2 */
+			arm_smccc_smc(MTK_SIP_KERNEL_ADSP_CONTROL,
+				      MTK_ADSP_SMC_OP_ENTER_LP,
+				      0, 0, 0, 0, 0, 0, &res);
 	}
 
 	return NOTIFY_DONE;
@@ -353,9 +358,14 @@ static int adsp_pm_post_suspend(void)
 		adsp_timesync_resume();
 		pr_info("%s, time sync unfreeze", __func__);
 
-		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-			      MTK_AUDIO_SMC_OP_ADSP_RELEASE,
-			      0, 0, 0, 0, 0, 0, &res);
+		if (adspsys->desc->version == 1)
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				      MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+				      0, 0, 0, 0, 0, 0, &res);
+		else /* version = 2 */
+			arm_smccc_smc(MTK_SIP_KERNEL_ADSP_CONTROL,
+				      MTK_ADSP_SMC_OP_LEAVE_LP,
+				      0, 0, 0, 0, 0, 0, &res);
 	}
 
 	return NOTIFY_DONE;
