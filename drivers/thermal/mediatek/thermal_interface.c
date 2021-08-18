@@ -793,10 +793,6 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	therm_intf_debugfs_init();
 
-	therm_intf_write_csram(100, AP_NTC_HEADROOM_OFFSET);
-	write_ttj(0, 0, 0);
-	write_power_budget(0, 0, 0);
-
 	mutex_init(&tm_data.lock);
 
 	tm_data.sw_ready = 1;
