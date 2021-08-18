@@ -14,7 +14,7 @@
 #include <linux/pm_qos.h>
 #include <linux/module.h>
 #include <linux/cpufreq.h>
-
+#include <mt-plat/fpsgo_common.h>
 #include "fpsgo_base.h"
 #include "fpsgo_cpu_policy.h"
 #include "fbt_cpu_ctrl.h"
@@ -92,37 +92,6 @@ static struct cpu_info *cur_wall_time, *cur_idle_time,
 
 /*--------------------INIT------------------------*/
 /* local function */
-static noinline int tracing_mark_write(const char *buf)
-{
-	trace_printk(buf);
-	return 0;
-}
-
-static void __cpu_ctrl_systrace(int val, const char *fmt, ...)
-{
-	char log[256];
-	va_list args;
-	int len;
-	char buf2[256];
-
-	memset(log, ' ', sizeof(log));
-	va_start(args, fmt);
-	len = vsnprintf(log, sizeof(log), fmt, args);
-	va_end(args);
-
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		log[255] = '\0';
-
-	len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", powerhal_tid, log, val);
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		buf2[255] = '\0';
-	tracing_mark_write(buf2);
-}
-
 static void __cpu_ctrl_freq_systrace(int policy, int freq)
 {
 	if (policy == 0)

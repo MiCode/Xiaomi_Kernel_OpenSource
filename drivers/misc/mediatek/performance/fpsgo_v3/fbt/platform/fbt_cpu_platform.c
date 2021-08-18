@@ -26,7 +26,7 @@ void fbt_notify_CM_limit(int reach_limit)
 #if IS_ENABLED(CONFIG_MTK_CM_MGR)
 	cm_mgr_perf_set_status(reach_limit);
 #endif
-	fpsgo_systrace_c_fbt_gm(-100, 0, reach_limit, "notify_cm");
+	fpsgo_systrace_c_fbt_debug(-100, 0, reach_limit, "notify_cm");
 }
 
 static int generate_cpu_mask(void);
@@ -115,20 +115,20 @@ void fbt_boost_dram(int boost)
 	else
 		icc_set_bw(bw_path, 0, 0);
 
-	fpsgo_systrace_c_fbt_gm(-100, 0, boost, "dram_boost");
+	fpsgo_systrace_c_fbt_debug(-100, 0, boost, "dram_boost");
 }
 
 void fbt_set_boost_value(unsigned int base_blc)
 {
 	base_blc = clamp(base_blc, 1U, 100U);
 	fpsgo_sentcmd(FPSGO_SET_BOOST_TA, base_blc, -1);
-	fpsgo_systrace_c_fbt_gm(-100, 0, base_blc, "TA_cap");
+	fpsgo_systrace_c_fbt_debug(-100, 0, base_blc, "TA_cap");
 }
 
 void fbt_clear_boost_value(void)
 {
 	fpsgo_sentcmd(FPSGO_SET_BOOST_TA, -1, -1);
-	fpsgo_systrace_c_fbt_gm(-100, 0, 0, "TA_cap");
+	fpsgo_systrace_c_fbt_debug(-100, 0, 0, "TA_cap");
 
 	fbt_notify_CM_limit(0);
 	fbt_boost_dram(0);
@@ -188,8 +188,8 @@ out:
 		return;
 	}
 
-	fpsgo_systrace_c_fbt_gm(pid, 0, attr.sched_util_min, "min_cap");
-	fpsgo_systrace_c_fbt_gm(pid, 0, attr.sched_util_max, "max_cap");
+	fpsgo_systrace_c_fbt_debug(pid, 0, attr.sched_util_min, "min_cap");
+	fpsgo_systrace_c_fbt_debug(pid, 0, attr.sched_util_max, "max_cap");
 }
 
 static int generate_cpu_mask(void)

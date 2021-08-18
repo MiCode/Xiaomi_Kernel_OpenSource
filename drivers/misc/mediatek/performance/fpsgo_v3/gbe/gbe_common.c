@@ -18,6 +18,7 @@
 #include <linux/miscdevice.h>   /* for misc_register, and SYNTH_MINOR */
 #include <linux/proc_fs.h>
 
+
 #include <linux/workqueue.h>
 #include <linux/unistd.h>
 #include <linux/module.h>
@@ -46,12 +47,6 @@ enum GBE_BOOST_DEVICE {
 	GBE_BOOST_NUM = 7,
 };
 
-static noinline int tracing_mark_write(const char *buf)
-{
-	trace_printk(buf);
-	return 0;
-}
-
 void gbe_trace_printk(int pid, char *module, char *string)
 {
 	int len;
@@ -65,38 +60,6 @@ void gbe_trace_printk(int pid, char *module, char *string)
 		buf2[255] = '\0';
 
 	trace_printk(buf2);
-}
-
-void gbe_trace_count(int tid, unsigned long long bufID,
-	int val, const char *fmt, ...)
-{
-	char log[256];
-	va_list args;
-	int len;
-	char buf2[256];
-
-	memset(log, ' ', sizeof(log));
-	va_start(args, fmt);
-	len = vsnprintf(log, sizeof(log), fmt, args);
-	va_end(args);
-
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		log[255] = '\0';
-
-	if (!bufID)
-		len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", tid, log, val);
-	else
-		len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d|0x%llx\n", tid,
-			log, val, bufID);
-
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		buf2[255] = '\0';
-	
-	tracing_mark_write(buf2);
 }
 
 struct k_list {

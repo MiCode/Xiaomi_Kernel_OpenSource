@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include "mt-plat/fpsgo_common.h"
 #include "gbe1_usedext.h"
 #include "fstb_usedext.h"
 #include "gbe_common.h"

@@ -19,6 +19,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
+#include "mt-plat/fpsgo_common.h"
 #include "gbe2_usedext.h"
 #include "gbe_common.h"
 #include "gbe_sysfs.h"

@@ -15,29 +15,31 @@ ccflags-y += \
         -I$(srctree)/include/ \
         -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
         -I$(srctree)/drivers/gpu/mediatek/ged/include/ \
+        -I$(FPSGO_TOP)/mt-plat/ \
         -I$(BASE_TOP)/include/ \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
-				-I$(srctree)/kernel/ \
-				-I$(srctree)/drivers/misc/mediatek/sched/ \
-				-I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
-				-I$(UTCH_TOP)/ \
-				-I$(GBE_TOP)/ \
+        -I$(srctree)/kernel/ \
+        -I$(srctree)/drivers/misc/mediatek/sched/ \
+        -I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
+        -I$(UTCH_TOP)/ \
+        -I$(GBE_TOP)/ \
 
 subdir-ccflags-y += \
         -I$(srctree)/include/ \
         -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
         -I$(srctree)/drivers/gpu/mediatek/ged/include/ \
+        -I$(FPSGO_TOP)/mt-plat/ \
         -I$(BASE_TOP)/include/ \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
-				-I$(srctree)/kernel/ \
-				-I$(srctree)/drivers/misc/mediatek/sched/ \
-				-I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
-				-I$(UTCH_TOP)/ \
-				-I$(GBE_TOP)/ \
+        -I$(srctree)/kernel/ \
+        -I$(srctree)/drivers/misc/mediatek/sched/ \
+        -I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
+        -I$(UTCH_TOP)/ \
+        -I$(GBE_TOP)/ \
 
 
 #fpsgo_main

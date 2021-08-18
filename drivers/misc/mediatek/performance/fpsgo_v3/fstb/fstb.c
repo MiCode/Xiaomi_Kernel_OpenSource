@@ -49,10 +49,6 @@ EXPORT_SYMBOL(fpsgo2msync_hint_frameinfo_fp);
 			pr_debug("[FSTB]" fmt, ##args); \
 	} while (0)
 
-#define fpsgo_systrace_c_fstb_man(pid, val, fmt...) \
-	fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, pid, val, fmt)
-
-
 static struct kobject *fstb_kobj;
 static int max_fps_limit = DEFAULT_DFPS;
 static int dfps_ceiling = DEFAULT_DFPS;

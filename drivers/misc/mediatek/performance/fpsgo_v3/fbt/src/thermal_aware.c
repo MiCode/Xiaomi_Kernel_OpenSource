@@ -47,7 +47,7 @@ static DECLARE_WORK(thrm_aware_work, (void *) thrm_check_status);
 #define fpsgo_systrace_c_thrm(val, fmt...) \
 	do { \
 		if (cur_pid > 0) \
-			fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, \
+			fpsgo_systrace_c_fbt( \
 					cur_pid, 0, val, fmt); \
 	} while (0)
 

@@ -21,8 +21,6 @@ enum {
 	CFP_KIR_MAX_NUM,
 };
 
-extern int powerhal_tid;
-
 int fbt_cpu_ctrl_init(void);
 int fbt_cpu_ctrl_exit(void);
 int fbt_set_cpu_freq_ceiling(int num, int *freq);

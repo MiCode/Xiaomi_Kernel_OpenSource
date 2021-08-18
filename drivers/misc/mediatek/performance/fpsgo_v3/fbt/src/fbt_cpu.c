@@ -701,7 +701,7 @@ static void fbt_set_cap_margin_locked(int set)
 		return;
 
 	fpsgo_main_trace("fpsgo set margin %d", set?1024:def_capacity_margin);
-	fpsgo_systrace_c_fbt_gm(-100, 0, set?1024:def_capacity_margin,
+	fpsgo_systrace_c_fbt_debug(-100, 0, set?1024:def_capacity_margin,
 					"cap_margin");
 
 #if IS_ENABLED(CONFIG_MTK_SCHED_EXTENSION)
@@ -953,8 +953,8 @@ static void fbt_set_task_policy(struct fpsgo_loading *fl,
 
 	fl->prefer_type = prefer_type;
 	fl->policy = policy;
-	fpsgo_systrace_c_fbt_gm(fl->pid, 0, prefer_type, "prefer_type");
-	fpsgo_systrace_c_fbt_gm(fl->pid, 0, policy, "task_policy");
+	fpsgo_systrace_c_fbt_debug(fl->pid, 0, prefer_type, "prefer_type");
+	fpsgo_systrace_c_fbt_debug(fl->pid, 0, policy, "task_policy");
 }
 
 static void fbt_reset_task_setting(struct fpsgo_loading *fl, int reset_boost)
@@ -1325,13 +1325,13 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			continue;
 
 		if (loading_th || boost_affinity) {
-			fpsgo_systrace_c_fbt_gm(fl->pid, thr->buffer_id,
+			fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
 				fl->loading, "dep-loading");
 
 			if (fl->loading == 0 || fl->loading == -1) {
 				fl->loading = fpsgo_fbt2minitop_query_single(
 					fl->pid);
-				fpsgo_systrace_c_fbt_gm(fl->pid, thr->buffer_id,
+				fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
 					fl->loading, "dep-loading");
 			}
 		}
@@ -1860,7 +1860,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 	thr->boost_info.cur_stage = FPSGO_JERK_SECOND;
 
 	max_blc_stage = FPSGO_JERK_SECOND;
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 
 	kfree(pld);
 
@@ -1930,7 +1930,7 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 		thr->boost_info.cur_stage = FPSGO_JERK_FIRST;
 		if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 			max_blc_stage = FPSGO_JERK_FIRST;
-			fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+			fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 		}
 		break;
 	case FPSGO_JERK_NEED:
@@ -1943,7 +1943,7 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 		thr->boost_info.cur_stage = FPSGO_JERK_FIRST;
 		if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 			max_blc_stage = FPSGO_JERK_FIRST;
-			fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+			fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 		}
 		break;
 	case FPSGO_JERK_POSTPONE:
@@ -2374,7 +2374,7 @@ static void fbt_clear_state(struct render_info *thr)
 	if (temp_blc)
 		fbt_do_boost(temp_blc, temp_blc_pid, temp_blc_buffer_id);
 
-	fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id, temp_blc_pid, "reset");
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, temp_blc_pid, "reset");
 }
 
 static void fbt_set_limit(unsigned int blc_wt,
@@ -2405,7 +2405,7 @@ static void fbt_set_limit(unsigned int blc_wt,
 		if (blc_wt && temp_blc > blc_wt && temp_blc_pid
 			&& (temp_blc_pid != pid ||
 				temp_blc_buffer_id != buffer_id)) {
-			fpsgo_systrace_c_fbt_gm(pid, buffer_id,
+			fpsgo_systrace_c_fbt_debug(pid, buffer_id,
 						temp_blc_pid, "replace");
 
 			final_blc = temp_blc;
@@ -2445,10 +2445,10 @@ EXIT:
 	max_blc_pid = final_blc_pid;
 	max_blc_buffer_id = final_blc_buffer_id;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc, "max_blc");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_pid, "max_blc_pid");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_buffer_id, "max_blc_buffer_id");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc, "max_blc");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id, "max_blc_buffer_id");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 }
 
 static unsigned int fbt_get_max_userlimit_freq(void)
@@ -2481,9 +2481,9 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 	}
 
 	for (i = 0 ; i < cluster_num; i++)
-		fpsgo_systrace_c_fbt_gm(-100, 0, clus_max_cap[i],
+		fpsgo_systrace_c_fbt_debug(-100, 0, clus_max_cap[i],
 				"cluster%d max cap", i);
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_cluster, "max_cluster");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_cluster, "max_cluster");
 
 	max_cap = clus_max_cap[max_cluster];
 	mutex_unlock(&fbt_mlock);
@@ -2996,7 +2996,7 @@ static int fbt_boost_policy(
 
 	xgf_trace("perf_index=%d aa=%lld run=%llu target=%llu Q2Q=%llu",
 		blc_wt, aa, t1, t2, t_Q2Q);
-	fpsgo_systrace_c_fbt_gm(pid, buffer_id, aa, "aa");
+	fpsgo_systrace_c_fbt_debug(pid, buffer_id, aa, "aa");
 
 	fbt_check_var(aa, target_fps, nsec_to_usec(target_time),
 		&(boost_info->f_iter),
@@ -3146,7 +3146,7 @@ static int fbt_boost_policy(
 				fpsgo_main_trace("%s t2wnt:%lld > FBTCPU_SEC_DIVIDER",
 					__func__, t2wnt);
 				t2wnt = FBTCPU_SEC_DIVIDER;
-				fpsgo_systrace_c_fbt_gm(pid, buffer_id, t2wnt,
+				fpsgo_systrace_c_fbt_debug(pid, buffer_id, t2wnt,
 					"t2wnt");
 			}
 
@@ -3210,11 +3210,11 @@ static void fbt_check_max_blc_locked(void)
 	max_blc_pid = temp_blc_pid;
 	max_blc_buffer_id = temp_blc_buffer_id;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc, "max_blc");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_pid, "max_blc_pid");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_buffer_id,
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc, "max_blc");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id,
 		"max_blc_buffer_id");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 
 	if (max_blc == 0 && max_blc_pid == 0 && max_blc_buffer_id == 0) {
 		if (boost_ta || boosted_group) {
@@ -3399,14 +3399,14 @@ static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 			&cross_ts, &last_ts, tmp_ts);
 
 		loading = atomic_read(&thr->pLoading->loading);
-		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 			loading, "loading");
 
 		/* reset loading */
 		atomic_set(&thr->pLoading->loading, tmp_loading);
 		atomic_set(&thr->pLoading->lastest_idx, 0);
 
-		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 			atomic_read(&thr->pLoading->loading), "loading");
 
 		if (!adjust_loading || cluster_num == 1
@@ -3421,7 +3421,7 @@ static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 				thr->pLoading->last_cb_ts, temp_obv_cl[i]);
 				atomic_add_return(loading_result,
 					&thr->pLoading->loading_cl[i]);
-				fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+				fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 				atomic_read(&thr->pLoading->loading_cl[i]),
 				"loading_cl[%d]", i);
 				fpsgo_main_trace("%s cl[%d] before adjust:%d",
@@ -3437,7 +3437,7 @@ static int fbt_adjust_loading(struct render_info *thr, unsigned long long ts,
 			loading_cl[i] =
 				atomic_read(&thr->pLoading->loading_cl[i]);
 			atomic_set(&thr->pLoading->loading_cl[i], tmp_loading);
-			fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+			fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 				atomic_read(&thr->pLoading->loading_cl[i]),
 				"loading_cl[%d]", i);
 		}
@@ -3447,7 +3447,7 @@ SKIP:
 			atomic_set(&thr->pLoading->last_cb_ts, last_ts);
 		else
 			atomic_set(&thr->pLoading->last_cb_ts, new_ts);
-		fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+		fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 			atomic_read(&thr->pLoading->last_cb_ts), "last_cb_ts");
 	}
 	spin_unlock_irqrestore(&loading_slock, flags);
@@ -3570,13 +3570,13 @@ static long fbt_get_loading(struct render_info *thr, unsigned long long ts)
 				boost->loading_weight, "weight");
 	}
 
-	fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		boost->weight_cnt, "weight_cnt");
-	fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		boost->hit_cnt, "hit_cnt");
-	fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		boost->deb_cnt, "deb_cnt");
-	fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		boost->hit_cluster, "hit_cluster");
 
 SKIP:
@@ -3648,7 +3648,7 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 		targettime, "target_time");
 
 	loading = fbt_get_loading(thr, ts);
-	fpsgo_systrace_c_fbt_gm(thr->pid, thr->buffer_id,
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		loading, "compute_loading");
 
 	/* unreliable targetfps */
@@ -3727,16 +3727,11 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 		return;
 	}
 
-	fpsgo_systrace_c_fbt_gm(-100, 0, freq, "curr_freq[%d]", cid);
+	fpsgo_systrace_c_fbt_debug(-100, 0, freq, "curr_freq[%d]", cid);
 
 	spin_lock_irqsave(&loading_slock, flags2);
 	list_for_each_entry_safe(pos, next, &loading_list, entry) {
 		if (atomic_read(&pos->last_cb_ts) != 0) {
-			//fpsgo_main_trace(
-			//	"%s, last_cb_ts:%d, last_load:%d, ",
-			//	__func__, atomic_read(&pos->last_cb_ts),
-			//	atomic_read(&pos->loading));
-
 			loading_result =
 				fbt_est_loading(new_ts,
 					pos->last_cb_ts, last_obv);
@@ -3750,14 +3745,9 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 			atomic_set(&(pos->lastest_obv[idx]), last_obv);
 			atomic_set(&(pos->lastest_idx), idx);
 
-			//fpsgo_main_trace(
-			//	"%s, idx:%d, loading:%d, ts:%d, prev_cb:%d, obv:%d",
-			//	__func__, idx, loading_result, new_ts,
-			//	atomic_read(&pos->last_cb_ts), last_obv);
-
-			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+			fpsgo_systrace_c_fbt_debug(pos->pid, pos->buffer_id,
 				atomic_read(&pos->loading), "loading");
-			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+			fpsgo_systrace_c_fbt_debug(pos->pid, pos->buffer_id,
 				pos->ext_id, "ext_id");
 
 			if (!pos->ext_id &&
@@ -3774,7 +3764,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 					pos->last_cb_ts, clus_obv[i]);
 				atomic_add_return(loading_result,
 					&(pos->loading_cl[i]));
-				fpsgo_systrace_c_fbt_gm(pos->pid,
+				fpsgo_systrace_c_fbt_debug(pos->pid,
 					pos->buffer_id,
 					atomic_read(&pos->loading_cl[i]),
 					"loading_cl[%d]", i);
@@ -3792,7 +3782,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 		}
 SKIP:
 		atomic_set(&pos->last_cb_ts, new_ts);
-		fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+		fpsgo_systrace_c_fbt_debug(pos->pid, pos->buffer_id,
 			atomic_read(&pos->last_cb_ts), "last_cb_ts");
 	}
 	spin_unlock_irqrestore(&loading_slock, flags2);
@@ -3803,7 +3793,7 @@ SKIP:
 		clus_status[i] = fbt_is_cl_isolated(i);
 
 		if (clus_status[i]) {
-			fpsgo_systrace_c_fbt_gm(-100, 0, i, "clus_iso");
+			fpsgo_systrace_c_fbt_debug(-100, 0, i, "clus_iso");
 			continue;
 		}
 
@@ -3811,7 +3801,7 @@ SKIP:
 			curr_obv = clus_obv[i];
 	}
 	last_obv = curr_obv;
-	fpsgo_systrace_c_fbt_gm(-100, 0, last_obv, "last_obv");
+	fpsgo_systrace_c_fbt_debug(-100, 0, last_obv, "last_obv");
 
 	spin_unlock_irqrestore(&freq_slock, flags);
 }
@@ -3937,7 +3927,7 @@ void fpsgo_comp2fbt_bypass_enq(void)
 		bypass_flag = 1;
 		fbt_set_idleprefer_locked(1);
 
-		fpsgo_systrace_c_fbt_gm(-100, 0, bypass_flag, "bypass_flag");
+		fpsgo_systrace_c_fbt_debug(-100, 0, bypass_flag, "bypass_flag");
 	}
 	mutex_unlock(&fbt_mlock);
 }
@@ -3953,7 +3943,7 @@ void fpsgo_base2fbt_set_bypass(int has_bypass)
 
 	if (bypass_flag != has_bypass) {
 		bypass_flag = has_bypass;
-		fpsgo_systrace_c_fbt_gm(-100, 0, bypass_flag, "bypass_flag");
+		fpsgo_systrace_c_fbt_debug(-100, 0, bypass_flag, "bypass_flag");
 	}
 	mutex_unlock(&fbt_mlock);
 }
@@ -4095,11 +4085,11 @@ void fpsgo_base2fbt_no_one_render(void)
 	max_blc_buffer_id = 0;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
 	memset(base_opp, 0, cluster_num * sizeof(unsigned int));
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc, "max_blc");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_pid, "max_blc_pid");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_buffer_id,
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc, "max_blc");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id,
 		"max_blc_buffer_id");
-	fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 
 	fbt_setting_reset(1);
 
@@ -4213,7 +4203,7 @@ void fpsgo_uboost2fbt_uboost(struct render_info *thr)
 
 		if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 			max_blc_stage = FPSGO_JERK_UBOOST;
-			fpsgo_systrace_c_fbt_gm(-100, 0, max_blc_stage, "max_blc_stage");
+			fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
 		}
 	}
 
@@ -4585,7 +4575,7 @@ static void fbt_xgff_loading_reset_impl(struct fbt_thread_loading *ploading,
 	new_ts = nsec_to_100usec(ts);
 
 	atomic_set(&ploading->loading, 0);
-	fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+	fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
 			atomic_read(&ploading->loading), "loading");
 
 	atomic_set(&ploading->last_cb_ts, new_ts);
@@ -4593,7 +4583,7 @@ static void fbt_xgff_loading_reset_impl(struct fbt_thread_loading *ploading,
 	for (i = 0; i < cluster_num; i++) {
 		atomic_set(&ploading->loading_cl[i], 0);
 
-		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
 				atomic_read(&ploading->loading_cl[i]),
 				"loading_cl[%d]", i);
 	}
@@ -4707,14 +4697,12 @@ long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsign
 		tmp_loading = fbt_correct_loading(
 			ploading, new_ts, &cross_idx, &cross_ts, &last_ts, tmp_ts);
 
-		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
 			atomic_read(&ploading->loading), "loading");
 		loading = atomic_read(&ploading->loading);
 
 		atomic_set(&ploading->loading, tmp_loading);
 		atomic_set(&ploading->lastest_idx, 0);
-		//fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
-		//	atomic_read(&ploading->loading), "loading");
 
 		if (/*!adjust_loading || */cluster_num == 1
 			|| !ploading->loading_cl) {
@@ -4727,7 +4715,7 @@ long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsign
 				ploading->last_cb_ts, temp_obv_cl[i]);
 				atomic_add_return(loading_result,
 						&ploading->loading_cl[i]);
-				fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+				fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
 				atomic_read(&ploading->loading_cl[i]),
 					"loading_cl[%d]", i);
 			}
@@ -4741,9 +4729,6 @@ long fbt_xgff_get_loading_by_cluster(struct fbt_thread_loading *ploading, unsign
 			loading_cl[i] =
 				atomic_read(&ploading->loading_cl[i]);
 			atomic_set(&ploading->loading_cl[i], tmp_loading);
-			//fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
-			//	atomic_read(&ploading->loading_cl[i]),
-			//	"loading_cl[%d]", i);
 		}
 
 SKIP:
@@ -4751,10 +4736,10 @@ SKIP:
 			atomic_set(&ploading->last_cb_ts, last_ts);
 		else
 			atomic_set(&ploading->last_cb_ts, new_ts);
-		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
 			atomic_read(&ploading->last_cb_ts), "last_cb_ts");
 
-		fpsgo_systrace_c_fbt_gm(ploading->pid, ploading->buffer_id,
+		fpsgo_systrace_c_fbt_debug(ploading->pid, ploading->buffer_id,
 			loading_cl[prefer_cluster], "compute_loading");
 	}
 	spin_unlock_irqrestore(&loading_slock, flags);

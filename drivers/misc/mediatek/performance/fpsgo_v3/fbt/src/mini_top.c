@@ -526,10 +526,10 @@ static int minitop_has_heavy(void)
 	}
 
 	if (heavy)
-		fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, curr_tid, 0, 1,
+		fpsgo_systrace_c_fbt(curr_tid, 0, 1,
 				 "minitop_free_ceiling");
 	else if (last_tid) {
-		fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, last_tid, 0, 0,
+		fpsgo_systrace_c_fbt(last_tid, 0, 0,
 				 "minitop_free_ceiling");
 		last_tid = 0;
 	}
