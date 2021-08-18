@@ -34,6 +34,8 @@ int apumem_init(struct apusys_core_info *info);
 void apumem_exit(void);
 int sw_logger_init(struct apusys_core_info *info);
 void sw_logger_exit(void);
+int hw_logger_init(struct apusys_core_info *info);
+void hw_logger_exit(void);
 int apu_rproc_init(struct apusys_core_info *info);
 void apu_rproc_exit(void);
 
@@ -43,6 +45,7 @@ void apu_rproc_exit(void);
  */
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	sw_logger_init,
+	hw_logger_init,
 //	apupwr_init_tags,
 	apu_power_drv_init,
 	devapc_init,
@@ -84,6 +87,7 @@ static void (*apusys_exit_func[])(void) = {
 	devapc_exit,
 	apu_power_drv_exit,
 //	apupwr_exit_tags,
+	hw_logger_exit,
 	sw_logger_exit,
 };
 #endif

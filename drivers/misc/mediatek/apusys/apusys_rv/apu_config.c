@@ -15,6 +15,7 @@
 #include "apu_hw.h"
 #include "apu_config.h"
 #include "sw_logger.h"
+#include "hw_logger.h"
 #include "mvpu_plat_device.h"
 
 void apu_config_user_ptr_init(const struct mtk_apu *apu)
@@ -103,6 +104,12 @@ int apu_config_setup(struct mtk_apu *apu)
 	ret = sw_logger_config_init(apu);
 	if (ret) {
 		dev_info(dev, "sw logger config init failed\n");
+		goto out;
+	}
+
+	ret = hw_logger_config_init(apu);
+	if (ret) {
+		dev_info(apu->dev, "hw logger config init failed\n");
 		goto out;
 	}
 

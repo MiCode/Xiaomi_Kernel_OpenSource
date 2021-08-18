@@ -16,6 +16,7 @@
 #include "mtk_apu_rpmsg.h"
 
 #include "apu_hw.h"
+#include "hw_logger.h"
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 int apu_keep_awake;
@@ -81,6 +82,8 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 		dev_info(apu->dev, "%s: power on apu top\n", __func__);
 		apu->conf_buf->time_offset = sched_clock();
 		pm_runtime_get(apu->dev);
+
+		hw_logger_deep_idle_leave();
 
 		dev_info(dev, "mbox dummy= 0x%08x 0x%08x 0x%08x 0x%08x\n",
 			ioread32(apu->apu_mbox + 0x40),
@@ -174,6 +177,8 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		apu_deepidle_send_ack(apu, DPIDLE_IPI_LOCK_FAIL);
 		goto unlock_mdw;
 	}
+
+	hw_logger_deep_idle_enter();
 
 	dev_info(apu->dev, "%s: take mdw lock done\n", __func__);
 	ret = apu_deepidle_send_ack(apu, DPIDLE_OK);
