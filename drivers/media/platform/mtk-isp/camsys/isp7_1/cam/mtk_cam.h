@@ -419,6 +419,11 @@ mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 	return mtk_cam_req_get_s_data_no_chk(req, pipe_id, idx);
 }
 
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_wbuf_get_s_data(struct mtk_cam_working_buf_entry *buf_entry)
+{
+	return buf_entry->s_data;
+}
 
 static inline void
 mtk_cam_img_wbuf_set_s_data(struct mtk_cam_img_working_buf_entry *buf_entry,
@@ -579,6 +584,11 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			  enum vb2_buffer_state state);
 
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe);
+
+int mtk_cam_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
 
 struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 					unsigned int frame_seq_no);

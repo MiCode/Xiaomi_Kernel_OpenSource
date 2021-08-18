@@ -1851,7 +1851,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data;
 	unsigned long flags;
-	int i, enqueue_idx;
+	int i;
 	int feature_change, previous_feature;
 	int enqueue_req_cnt, job_count, s_data_cnt;
 	struct list_head equeue_list;
@@ -1863,13 +1863,12 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 	INIT_LIST_HEAD(&equeue_list);
 
-	enqueue_req_cnt = 0;
-
-	spin_lock(&cam->running_job_lock);
+	spin_lock_irqsave(&cam->running_job_lock, flags);
 	job_count = cam->running_job_count;
-	spin_unlock(&cam->running_job_lock);
+	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 
 	/* Pick up requests which are runnable */
+	enqueue_req_cnt = 0;
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
 		if (likely(mtk_cam_dev_req_is_stream_on(cam, req))) {
@@ -1879,6 +1878,9 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					cam->running_job_count);
 				break;
 			}
+			dev_dbg(cam->dev, "%s job cnt(%d), allow req_enqueue(%s)\n",
+				__func__, job_count + enqueue_req_cnt, req->req.debug_str);
+
 			enqueue_req_cnt++;
 			list_del(&req->list);
 			list_add_tail(&req->list, &equeue_list);
@@ -1889,11 +1891,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	if (!enqueue_req_cnt)
 		return;
 
-	enqueue_idx = 0;
-	list_for_each_entry(req, &equeue_list, list) {
-		dev_dbg(cam->dev, "%s job cnt(%d), allow req_enqueue(%s)\n",
-			__func__, job_count + enqueue_idx, req->req.debug_str);
-
+	list_for_each_entry_safe(req, req_prev, &equeue_list, list) {
 		for (i = 0; i < cam->max_stream_num; i++) {
 			if (!(req->pipe_used & 1 << i))
 				continue;
@@ -1932,14 +1930,14 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			return;
 		}
 
-		mtk_cam_dev_req_enqueue(cam, req);
-		enqueue_idx++;
-	}
+		spin_lock_irqsave(&cam->running_job_lock, flags);
+		cam->running_job_count++;
+		list_del(&req->list);
+		list_add_tail(&req->list, &cam->running_job_list);
+		spin_unlock_irqrestore(&cam->running_job_lock, flags);
 
-	spin_lock_irqsave(&cam->running_job_lock, flags);
-	cam->running_job_count += enqueue_req_cnt;
-	list_splice_tail(&equeue_list, &cam->running_job_list);
-	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+		mtk_cam_dev_req_enqueue(cam, req);
+	}
 }
 
 static struct media_request *mtk_cam_req_alloc(struct media_device *mdev)
@@ -2470,7 +2468,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 	struct mtkcam_ipi_event *ipi_msg;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_working_buf_entry *buf_entry;
-	struct mtk_cam_request_stream_data *stream_data;
+	struct mtk_cam_request_stream_data *s_data;
 	unsigned long flags;
 	unsigned long m2m_flags;
 	bool is_m2m_apply_cq = false;
@@ -2494,20 +2492,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		spin_lock(&ctx->using_buffer_list.lock);
 
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
-		stream_data = mtk_cam_get_req_s_data(ctx,
-			ctx->stream_id, ctx->composed_frame_seq_no);
-		if (!stream_data) {
-			dev_dbg(dev, "ctx:%d no req for ack frame_num:%d\n",
-				ctx->stream_id, ctx->composed_frame_seq_no);
-			spin_unlock(&ctx->using_buffer_list.lock);
-			return -EINVAL;
-		}
-
-		/* Do nothing if the user doesn't enable force dump */
-		mtk_cam_req_dump(stream_data,
-				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
-		stream_data->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
-
 		if (mtk_cam_is_mstream(ctx)) {
 			dev_dbg(dev, "[mstream] ctx:%d ack frame_num:%d\n",
 				ctx->stream_id, ctx->composed_frame_seq_no);
@@ -2521,11 +2505,22 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			spin_unlock(&ctx->using_buffer_list.lock);
 			return -EINVAL;
 		}
+
 		buf_entry = list_first_entry(&ctx->using_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
 		list_del(&buf_entry->list_entry);
 		ctx->using_buffer_list.cnt--;
+
+		s_data = mtk_cam_wbuf_get_s_data(buf_entry);
+		if (!s_data) {
+			dev_dbg(dev, "ctx:%d no req for ack frame_num:%d\n",
+				ctx->stream_id, ctx->composed_frame_seq_no);
+			spin_unlock(&ctx->using_buffer_list.lock);
+			return -EINVAL;
+		}
+
+		s_data->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		buf_entry->cq_desc_offset =
 			ipi_msg->ack_data.frame_result.cq_desc_offset;
 		buf_entry->cq_desc_size =
@@ -2534,11 +2529,11 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ipi_msg->ack_data.frame_result.sub_cq_desc_offset;
 		buf_entry->sub_cq_desc_size =
 			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
+
 		if (mtk_cam_is_stagger_m2m(ctx))
 			spin_lock_irqsave(&ctx->m2m_lock, m2m_flags);
 
 		if (mtk_cam_is_stagger_m2m(ctx)) {
-
 			spin_lock_irqsave(&ctx->composed_buffer_list.lock, flags);
 			dev_dbg(dev, "%s ctx->composed_buffer_list.cnt %d\n", __func__,
 				ctx->composed_buffer_list.cnt);
@@ -2585,16 +2580,16 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			if (mtk_cam_is_stagger_m2m(ctx)) {
 				dev_dbg(dev, "%s M2M apply_cq, composed_buffer_list.cnt %d frame_seq_no %d\n",
 					__func__, ctx->composed_buffer_list.cnt,
-					stream_data->frame_seq_no);
-				mtk_cam_m2m_enter_cq_state(&stream_data->state);
+					s_data->frame_seq_no);
+				mtk_cam_m2m_enter_cq_state(&s_data->state);
 			}
 			apply_cq(raw_dev,
 				buf_entry->buffer.iova, buf_entry->cq_desc_size,
 				buf_entry->cq_desc_offset, 1, buf_entry->sub_cq_desc_size,
 				buf_entry->sub_cq_desc_offset);
-			stream_data->timestamp = ktime_get_boottime_ns();
-			stream_data->timestamp_mono = ktime_get_ns();
-			stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
+			s_data->timestamp = ktime_get_boottime_ns();
+			s_data->timestamp_mono = ktime_get_ns();
+			s_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 
 			if (mtk_cam_is_stagger_m2m(ctx))
 				spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
@@ -2615,6 +2610,10 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 		if (mtk_cam_is_stagger_m2m(ctx))
 			spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
+
+		/* Do nothing if the user doesn't enable force dump */
+		mtk_cam_req_dump(s_data,
+				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		drain_workqueue(ctx->composer_wq);
@@ -4272,6 +4271,27 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	spin_lock_init(&ctx->streaming_lock);
 	spin_lock_init(&ctx->m2m_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
+}
+
+int mtk_cam_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt)
+{
+	struct device *dev;
+	int ret = 0;
+
+	dev = sd->v4l2_dev->dev;
+
+	ret = v4l2_subdev_link_validate_default(sd, link, source_fmt, sink_fmt);
+	if (ret)
+		dev_info(dev, "%s: link validate failed pad/code/w/h: SRC(%d/0x%x/%d/%d), SINK(%d:0x%x/%d/%d)\n",
+			 sd->name, source_fmt->pad, source_fmt->format.code,
+			 source_fmt->format.width, source_fmt->format.height,
+			 sink_fmt->pad, sink_fmt->format.code,
+			 sink_fmt->format.width, sink_fmt->format.height);
+
+	return ret;
 }
 
 static int mtk_cam_debug_fs_init(struct mtk_cam_device *cam)
