@@ -266,9 +266,16 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	int cpu = cpumask_first(cpus);
 	int opp;
 	unsigned long cap, max_cap;
+	struct cpufreq_policy *policy;
 
-	opp = pd_freq_to_opp(cpu, freq);
+	policy = cpufreq_cpu_get(cpu);
+	if (policy == NULL) {
+		cpufreq_cpu_put(policy);
+		return;
+	}
 
+	opp = cpufreq_frequency_table_get_index(policy, freq);
+	cpufreq_cpu_put(policy);
 	if (opp < 0)
 		return;
 
