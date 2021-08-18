@@ -2740,7 +2740,7 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
 		AS_UINT32(t0), ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
-		0x2, ~0);
+		0x2, CMDQ_SIZE);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
 		0x0, ~0);
@@ -2956,10 +2956,10 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("- DSI CMD REGS -\n");
 	for (k = 0; k < 32; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
-			readl(dsi->regs + 0x200 + k),
-			readl(dsi->regs + 0x200 + k + 0x4),
-			readl(dsi->regs + 0x200 + k + 0x8),
-			readl(dsi->regs + 0x200 + k + 0xc));
+			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k),
+			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k + 0x4),
+			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k + 0x8),
+			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k + 0xc));
 	}
 
 	mtk_mipi_tx_dump(dsi->phy);
@@ -3230,10 +3230,13 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
 
-		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x200,
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
 			       0x002c3909, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, 1,
-			       ~0);
+			       0x1);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, CMDQ_SIZE_SEL,
+			       CMDQ_SIZE_SEL);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 0, ~0);
@@ -3693,6 +3696,7 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 
 	mtk_dsi_mask(dsi, dsi->driver_data->reg_cmdq0_ofs, cmdq_mask, reg_val);
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE, cmdq_size);
+	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, CMDQ_SIZE_SEL);
 }
 
 static void build_vm_cmdq(struct mtk_dsi *dsi,
@@ -3809,6 +3813,8 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 			cmdq_mask);
 	mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_size,
 				DSI_CMDQ_SIZE, CMDQ_SIZE, handle);
+	mtk_ddp_write_mask(&dsi->ddp_comp, CMDQ_SIZE_SEL,
+				DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, handle);
 	DDPINFO("set cmdqaddr %u, val:%x, mask %x\n", DSI_CMDQ_SIZE, cmdq_size,
 			CMDQ_SIZE);
 }
@@ -4423,7 +4429,7 @@ static void _mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
 		AS_UINT32(&t1), ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
-		0x2, ~0);
+		0x2, CMDQ_SIZE);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
 		0x0, ~0);
