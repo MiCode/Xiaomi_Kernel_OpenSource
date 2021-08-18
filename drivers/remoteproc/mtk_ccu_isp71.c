@@ -700,9 +700,9 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	}
 
 #if defined(CCU_SET_MMQOS)
-	ccu->path_ccug = of_mtk_icc_get(ccu->dev, "larb_ccug");
-	ccu->path_ccuo = of_mtk_icc_get(ccu->dev, "larb_ccuo");
-	ccu->path_ccui = of_mtk_icc_get(ccu->dev, "larb_ccui");
+	ccu->path_ccug = of_mtk_icc_get(ccu->dev, "ccu_g");
+	ccu->path_ccuo = of_mtk_icc_get(ccu->dev, "ccu_o");
+	ccu->path_ccui = of_mtk_icc_get(ccu->dev, "ccu_i");
 #endif
 
 #if defined(CCU1_DEVICE)
