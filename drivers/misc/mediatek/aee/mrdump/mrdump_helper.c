@@ -235,6 +235,37 @@ static void print_pstate(struct pt_regs *regs)
 	}
 }
 
+#define MEM_FMT "%04lx: %08x %08x %08x %08x %08x %08x %08x %08x\n"
+#define MEM_RANGE (128)
+static void show_data(unsigned long addr, int nbytes, const char *name)
+{
+	int i, j, invalid, nlines;
+	u32 *p, data[8] = {0};
+
+	if (addr < (UL(0xffffffffffffffff) - (UL(1) << VA_BITS) + 1) ||
+			addr > UL(0xFFFFFFFFFFFFF000))
+		return;
+
+	pr_info("%s: %#lx:\n", name, addr);
+	addr -= MEM_RANGE;
+	p = (u32 *)(addr & (~0xfUL));
+	nbytes += (addr & 0xf);
+	nlines = (nbytes + 31) / 32;
+	for (i = 0; i < nlines; i++, p += 8) {
+		for (j = invalid = 0; j < 8; j++) {
+			if (copy_from_kernel_nofault(&data[j], &p[j],
+						     sizeof(data[0]))) {
+				data[j] = 0x12345678;
+				invalid++;
+			}
+		}
+		if (invalid != 8)
+			pr_info(MEM_FMT, (unsigned long)p & 0xffff,
+				data[0], data[1], data[2], data[3],
+				data[4], data[5], data[6], data[7]);
+	}
+}
+
 void aee_show_regs(struct pt_regs *regs)
 {
 	int i, top_reg;
@@ -253,8 +284,8 @@ void aee_show_regs(struct pt_regs *regs)
 	print_pstate(regs);
 
 	if (!user_mode(regs)) {
-		pr_info("pc : %pS\n", (void *)regs->pc);
-		pr_info("lr : %pS\n", (void *)lr);
+		pr_info("pc : [0x%lx] %pS\n", regs->pc, (void *)regs->pc);
+		pr_info("lr : [0x%lx] %pS\n", lr, (void *)lr);
 	} else {
 		pr_info("pc : %016llx\n", regs->pc);
 		pr_info("lr : %016llx\n", lr);
@@ -267,17 +298,29 @@ void aee_show_regs(struct pt_regs *regs)
 
 	i = top_reg;
 
-	while (i >= 0) {
-		pr_info("x%-2d: %016llx ", i, regs->regs[i]);
-		i--;
-
-		if (i % 2 == 0) {
-			pr_cont("x%-2d: %016llx ", i, regs->regs[i]);
-			i--;
-		}
-
-		pr_cont("\n");
+	while (i >= 1) {
+		pr_info("x%-2d: %016llx x%-2d: %016llx\n",
+			i, regs->regs[i], i - 1, regs->regs[i - 1]);
+		i -= 2;
 	}
+	if (!user_mode(regs)) {
+		mm_segment_t fs;
+		unsigned int i;
+
+		fs = get_fs();
+		set_fs(KERNEL_DS);
+		show_data(regs->pc, MEM_RANGE * 2, "PC");
+		show_data(regs->regs[30], MEM_RANGE * 2, "LR");
+		show_data(regs->sp, MEM_RANGE * 2, "SP");
+		for (i = 0; i < 30; i++) {
+			char name[4];
+
+			if (snprintf(name, sizeof(name), "X%u", i) > 0)
+				show_data(regs->regs[i], MEM_RANGE * 2, name);
+		}
+		set_fs(fs);
+	}
+	pr_info("\n");
 }
 #else
 void aee_show_regs(struct pt_regs *regs)
