@@ -788,7 +788,7 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 
 	if (ctx->streaming) {
 		seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
-				GFP_KERNEL);
+				GFP_ATOMIC);
 		if (seninf_work) {
 			kthread_init_work(&seninf_work->work,
 					mtk_notify_vsync_fn);
@@ -846,7 +846,7 @@ void notify_fsync_cammux_usage_with_kthread(struct seninf_ctx *ctx)
 
 	if (ctx->streaming) {
 		seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
-					GFP_KERNEL);
+					GFP_ATOMIC);
 		if (seninf_work) {
 			kthread_init_work(&seninf_work->work,
 					mtk_notify_cammux_usage_fn);
