@@ -1554,9 +1554,10 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 		goto done;
 	}
 
-	GPUFREQ_LOGD("send IPI command: %s", gpufreq_ipi_cmd_name[data.cmd_id]);
+	GPUFREQ_LOGD("send IPI command: %s (%d)",
+		gpufreq_ipi_cmd_name[data.cmd_id], data.cmd_id);
 
-	ret = mtk_ipi_send(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_WAIT,
+	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_POLLING,
 		(void *)&data, GPUFREQ_IPI_DATA_LEN, IPI_TIMEOUT_MS);
 	if (unlikely(ret != IPI_ACTION_DONE)) {
 		GPUFREQ_LOGE("fail to send IPI command: %s (%d)",
@@ -1564,10 +1565,10 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 		goto done;
 	}
 
-	mtk_ipi_recv(get_gpueb_ipidev(), g_ipi_channel);
 	ret = GPUFREQ_SUCCESS;
 
-	GPUFREQ_LOGD("receive IPI command: %s", gpufreq_ipi_cmd_name[g_recv_msg.cmd_id]);
+	GPUFREQ_LOGD("receive IPI command: %s (%d)",
+		gpufreq_ipi_cmd_name[g_recv_msg.cmd_id], g_recv_msg.cmd_id);
 
 done:
 	return ret;
@@ -1735,15 +1736,15 @@ static int gpufreq_gpueb_init(void)
 	}
 
 	send_msg.cmd_id = CMD_INIT_SHARED_MEM;
-	send_msg.u.addr.base = shared_mem_phy;
-	send_msg.u.addr.size = shared_mem_size;
+	send_msg.u.addr.base = (uint32_t)shared_mem_phy;
+	send_msg.u.addr.size = (uint32_t)shared_mem_size;
 	ret = gpufreq_ipi_to_gpueb(send_msg);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpufreq shared memory (EINVAL)");
 		ret = GPUFREQ_EINVAL;
 	}
 
-	GPUFREQ_LOGI("IPI channel: %d, shared memory phy_addr: 0x%x, virt_addr: 0x%x, size: 0x%x",
+	GPUFREQ_LOGI("IPI channel: %d, shared memory phy_addr: 0x%x, virt_addr: 0x%llx, size: 0x%x",
 		g_ipi_channel, shared_mem_phy, g_gpueb_shared_mem, shared_mem_size);
 
 done:

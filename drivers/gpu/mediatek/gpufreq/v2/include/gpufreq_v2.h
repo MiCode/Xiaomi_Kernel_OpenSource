@@ -131,7 +131,7 @@ struct gpufreq_sb_info {
 
 struct gpuppm_limit_info {
 	unsigned int limiter;
-	char *name;
+	char name[20];
 	unsigned int priority;
 	int ceiling;
 	unsigned int c_enable;
