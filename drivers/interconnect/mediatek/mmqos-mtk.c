@@ -20,6 +20,7 @@
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
 #define icc_to_MBps(x)	((x) / 1000)
 #define MASK_8(a) ((a) & 0xff)
+#define MULTIPLY_RATIO(value) ((value)*1000)
 
 struct common_port_node {
 	struct mmqos_base_node *base;
@@ -209,7 +210,9 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			break;
 		mutex_lock(&comm_port_node->bw_lock);
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
-		comm_port_node->latest_peak_bw = dst->peak_bw;
+		comm_port_node->latest_peak_bw = MULTIPLY_RATIO(dst->peak_bw)
+						/ mtk_mmqos_get_hrt_ratio(
+						comm_port_node->hrt_type);
 		comm_port_node->latest_avg_bw = dst->avg_bw;
 		mmqos_update_comm_bw(comm_port_node->larb_dev,
 			MASK_8(dst->id), comm_port_node->common->freq,

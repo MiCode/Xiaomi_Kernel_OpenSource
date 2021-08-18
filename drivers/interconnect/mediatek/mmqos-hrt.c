@@ -7,6 +7,8 @@
 #include "mmqos-mtk.h"
 #include "mtk-mmdvfs-debug.h"
 #define MULTIPLY_W_DRAM_WEIGHT(value) ((value)*6/5)
+#define MULTIPLY_RATIO(value) ((value)*1000)
+#define DIVIDE_RATIO(value) ((value)/1000)
 
 struct mmqos_hrt *mmqos_hrt;
 static bool disp_report_bw;
@@ -14,17 +16,28 @@ static bool disp_report_bw;
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 {
 	u32 i, used_bw = 0;
+	u32 result = 0;
 
 	if (!mmqos_hrt)
 		return -ENOENT;
 	for (i = 0; i < HRT_TYPE_NUM; i++) {
 		if (i != type)
-			used_bw += mmqos_hrt->hrt_bw[i];
+			used_bw += (MULTIPLY_RATIO(mmqos_hrt->hrt_bw[i])
+				/ mmqos_hrt->hrt_ratio[i]);
 	}
 	if (type != HRT_CAM && mmqos_hrt->cam_max_bw)
-		used_bw = used_bw - mmqos_hrt->hrt_bw[HRT_CAM]
-				+ mmqos_hrt->cam_max_bw;
-	return (mmqos_hrt->hrt_total_bw - used_bw);
+		used_bw = used_bw - (MULTIPLY_RATIO(mmqos_hrt->hrt_bw[HRT_CAM])
+					/ mmqos_hrt->hrt_ratio[HRT_CAM])
+					+ (MULTIPLY_RATIO(mmqos_hrt->cam_max_bw)
+					/ mmqos_hrt->hrt_ratio[HRT_CAM]);
+
+	result = DIVIDE_RATIO(mmqos_hrt->hrt_total_bw
+			* mmqos_hrt->emi_ratio)
+			- used_bw;
+
+	result = DIVIDE_RATIO(result * mmqos_hrt->hrt_ratio[type]);
+
+	return result;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_get_avail_hrt_bw);
 
@@ -85,6 +98,15 @@ s32 mtk_mmqos_set_hrt_bw(enum hrt_type type, u32 bw)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_set_hrt_bw);
+
+s32 mtk_mmqos_get_hrt_ratio(enum hrt_type type)
+{
+	if (type >= HRT_TYPE_NUM)
+		return 1000;
+
+	return mmqos_hrt->hrt_ratio[type];
+}
+EXPORT_SYMBOL_GPL(mtk_mmqos_get_hrt_ratio);
 
 static void notify_bw_throttle(enum hrt_scen scen, bool is_start)
 {
