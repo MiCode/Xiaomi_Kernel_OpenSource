@@ -1217,7 +1217,7 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
 
 	cmdq_util_user_msg(chan,
-		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x notifier_time:%#llx:%#llx",
+		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x notifier_time:%llu:%llu",
 		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en,
 		cmdq->notifier_time[0], cmdq->notifier_time[1]);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)

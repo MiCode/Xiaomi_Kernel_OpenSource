@@ -1034,14 +1034,14 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	}
 
 	list_for_each_entry_safe(buf, tmp, &dst->buf, list_entry) {
-		cmdq_log("%s: buf:%p va:%p pa:%pa tmp:%p",
-			__func__, buf, buf->va_base, &buf->pa_base, tmp);
+		cmdq_log("%s: buf:%p va:%p pa:%pa iova_base:%pa tmp:%p",
+			__func__, buf, buf->va_base, &buf->pa_base, &buf->iova_base, tmp);
 
 		if (!list_is_last(&buf->list_entry, &dst->buf)) {
 			va = buf->va_base + CMDQ_CMD_BUFFER_SIZE -
 				CMDQ_INST_SIZE;
 			*va = ((u64)(CMDQ_CODE_JUMP << 24 | 1) << 32) |
-				CMDQ_REG_SHIFT_ADDR(tmp->pa_base);
+				CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(tmp));
 			cmdq_log("%s: va:%p inst:%#llx", __func__, va, *va);
 		}
 	}
