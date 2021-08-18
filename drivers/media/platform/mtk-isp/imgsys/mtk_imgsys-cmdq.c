@@ -645,14 +645,16 @@ void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	memset((void *)dvfs_info, 0x0, sizeof(struct mtk_imgsys_dvfs));
 	dvfs_info->dev = imgsys_dev->dev;
+	dvfs_info->reg = NULL;
 	ret = dev_pm_opp_of_add_table(dvfs_info->dev);
 	if (ret < 0) {
-		dev_dbg(dvfs_info->dev, "fail to init opp table: %d\n", ret);
+		dev_info(dvfs_info->dev,
+			"%s: [ERROR] fail to init opp table: %d\n", __func__, ret);
 		return;
 	}
 	dvfs_info->reg = devm_regulator_get(dvfs_info->dev, "dvfsrc-vmm");
-	if (IS_ERR(dvfs_info->reg)) {
-		dev_dbg(dvfs_info->dev, "can't get dvfsrc-vmm\n");
+	if (IS_ERR_OR_NULL(dvfs_info->reg)) {
+		dev_info(dvfs_info->dev, "%s: [ERROR] can't get dvfsrc-vmm\n", __func__);
 		return;
 	}
 
@@ -661,7 +663,7 @@ void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 		&it, ret, dvfs_info->dev->of_node, "operating-points-v2", NULL, 0) {
 		np = of_node_get(it.node);
 		if (!np) {
-			dev_dbg(dvfs_info->dev, "of_node_get fail\n");
+			dev_info(dvfs_info->dev, "%s: [ERROR] of_node_get fail\n", __func__);
 			return;
 		}
 
@@ -705,7 +707,10 @@ void mtk_imgsys_mmdvfs_uninit(struct mtk_imgsys_dev *imgsys_dev)
 
 	dvfs_info->cur_volt = volt;
 
-	ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
+	if (IS_ERR_OR_NULL(dvfs_info->reg))
+		dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+	else
+		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
 
 }
 
@@ -720,24 +725,28 @@ void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 
 	freq = dvfs_info->freq;
 
-	/* Choose for IPESYS */
-	if (hw_comb & IMGSYS_ENG_ME)
-		opp_idx = 1;
+	if (IS_ERR_OR_NULL(dvfs_info->reg))
+		dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+	else {
+		/* Choose for IPESYS */
+		if (hw_comb & IMGSYS_ENG_ME)
+			opp_idx = 1;
 
-	for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
-		if (freq <= dvfs_info->clklv[opp_idx][idx])
-			break;
-	}
-	if (idx == dvfs_info->clklv_num[opp_idx])
-		idx--;
-	volt = dvfs_info->voltlv[opp_idx][idx];
+		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
+			if (freq <= dvfs_info->clklv[opp_idx][idx])
+				break;
+		}
+		if (idx == dvfs_info->clklv_num[opp_idx])
+			idx--;
+		volt = dvfs_info->voltlv[opp_idx][idx];
 
-	if (dvfs_info->cur_volt != volt) {
-		dev_info(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
-			__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
-			dvfs_info->voltlv[opp_idx][idx]);
-		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
-		dvfs_info->cur_volt = volt;
+		if (dvfs_info->cur_volt != volt) {
+			dev_info(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
+				__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
+				dvfs_info->voltlv[opp_idx][idx]);
+			ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
+			dvfs_info->cur_volt = volt;
+		}
 	}
 }
 
@@ -769,8 +778,8 @@ void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev)
 	int idx = 0;
 
 	for (idx = 0; idx < IMGSYS_M4U_PORT_MAX; idx++) {
-		if (qos_info->qos_path[idx].path == NULL) {
-			dev_info(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
+		if (IS_ERR_OR_NULL(qos_info->qos_path[idx].path)) {
+			dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
 			continue;
 		}
 		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d\n",
@@ -802,7 +811,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_WPE_EIS_START;
 		port_num = WPE_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -817,7 +826,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_WPE_TNR_START;
 		port_num = WPE_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -832,7 +841,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_TRAW_START;
 		port_num = TRAW_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -847,7 +856,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_LTRAW_START;
 		port_num = LTRAW_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -862,7 +871,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_DIP_START;
 		port_num = DIP_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -877,7 +886,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_PQDIP_A_START;
 		port_num = PQ_DIP_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -892,7 +901,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_PQDIP_B_START;
 		port_num = PQ_DIP_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -907,7 +916,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		port_st = IMGSYS_M4U_PORT_ME_START;
 		port_num = ME_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (qos_info->qos_path[port_idx].path == NULL) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 					__func__, port_idx);
 				continue;
@@ -1223,11 +1232,17 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	dev_info(dvfs_info->dev, "[%s] isPowerOn(%d)\n", __func__, isPowerOn);
 
 	if (isPowerOn) {
-		regulator_enable(dvfs_info->reg);
+		if (IS_ERR_OR_NULL(dvfs_info->reg))
+			dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+		else
+			regulator_enable(dvfs_info->reg);
 		pm_runtime_get_sync(imgsys_dev->dev);
 	} else {
 		pm_runtime_put_sync(imgsys_dev->dev);
-		regulator_disable(dvfs_info->reg);
+		if (IS_ERR_OR_NULL(dvfs_info->reg))
+			dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+		else
+			regulator_disable(dvfs_info->reg);
 	}
 
 }
