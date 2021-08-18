@@ -24,6 +24,9 @@
 #if IS_ENABLED(CONFIG_SND_SOC_MT6368_ACCDET)
 #include "mt6368-accdet.h"
 #endif
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+#include <linux/mfd/mt6685-audclk.h>
+#endif
 
 #define MAX_DEBUG_WRITE_INPUT 256
 #define CODEC_SYS_DEBUG_SIZE (1024 * 32)
@@ -141,16 +144,6 @@ static void mt6368_reset_vow_gpio(struct mt6368_priv *priv)
 			   0x1 << 0, 0x0);
 }
 
-/* use only when not govern by DAPM */
-static void mt6368_set_dcxo(struct mt6368_priv *priv, bool enable)
-{
-#ifndef NO_DCXO
-	regmap_update_bits(priv->regmap, MT6685_DCXO_EXTBUF5_CW0,
-			   0x1 << RG_XO_BBCK5_EN_M_SFT,
-			   (enable ? 1 : 0) << RG_XO_BBCK5_EN_M_SFT);
-#endif
-}
-
 /* use only when doing mtkaif calibraiton at the boot time */
 static void mt6368_set_clksq(struct mt6368_priv *priv, bool enable)
 {
@@ -246,7 +239,10 @@ void mt6368_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 	mt6368_set_capture_gpio(priv);
 	mt6368_mtkaif_tx_enable(priv);
 
-	mt6368_set_dcxo(priv, true);
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
+#endif
 	mt6368_set_aud_global_bias(priv, true);
 	mt6368_set_clksq(priv, true);
 	mt6368_set_topck(priv, true);
@@ -282,8 +278,10 @@ void mt6368_mtkaif_calibration_disable(struct snd_soc_component *cmpnt)
 	mt6368_set_topck(priv, false);
 	mt6368_set_clksq(priv, false);
 	mt6368_set_aud_global_bias(priv, false);
-	mt6368_set_dcxo(priv, false);
-
+	/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(false);
+#endif
 	mt6368_mtkaif_tx_disable(priv);
 	mt6368_reset_playback_gpio(priv);
 	mt6368_reset_capture_gpio(priv);
@@ -978,6 +976,35 @@ static SOC_VALUE_ENUM_SINGLE_DECL(pga_3_mux_map_enum,
 
 static const struct snd_kcontrol_new pga_3_mux_control =
 	SOC_DAPM_ENUM("PGA 3 Select", pga_3_mux_map_enum);
+
+static int mt_dcxo_event(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol,
+			  int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+		mt6685_set_dcxo(true);
+#endif
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+		mt6685_set_dcxo(false);
+#endif
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
 
 static int mt_sgen_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol,
@@ -3018,8 +3045,9 @@ static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 	/* Global Supply*/
 	SND_SOC_DAPM_SUPPLY_S("CLK_BUF", SUPPLY_SEQ_CLK_BUF,
-			      MT6685_DCXO_EXTBUF5_CW0,
-			      RG_XO_BBCK5_EN_M_SFT, 0, NULL, 0),
+			      SND_SOC_NOPM, 0, 0,
+			      mt_dcxo_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_REGULATOR_SUPPLY("vaud18", 0, 0),
 	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
 			      MT6368_AUDDEC_ANA_CON26,
@@ -3052,8 +3080,8 @@ static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 			      MT6368_AUDENC_ANA_CON23,
 			      RG_AUDIO_VOW_EN_SFT, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("VOW_CLK", SUPPLY_SEQ_VOW_CLK,
-			      MT6685_DCXO_EXTBUF5_CW0,
-			      RG_XO_BBCK5_EN_M_SFT, 0, NULL, 0),
+			      SND_SOC_NOPM,
+			      0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("VOW_LDO", SUPPLY_SEQ_VOW_LDO,
 			      MT6368_AUDENC_ANA_CON47,
 			      RG_CLKSQ_EN_VOW_SFT, 0, NULL, 0),
@@ -3936,8 +3964,10 @@ static void start_trim_hardware(struct mt6368_priv *priv)
 	/* Pull-down HPL/R to AVSS30_AUD */
 	hp_pull_down(priv, true);
 
-	/* XO_AUDIO_EN_M Enable */
-	mt6368_set_dcxo(priv, true);
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
+#endif
 
 	/* Enable CLKSQ */
 	/* audio clk source from internal dcxo */
@@ -4183,8 +4213,10 @@ static void stop_trim_hardware(struct mt6368_priv *priv)
 	/* Disable CLKSQ */
 	mt6368_set_clksq(priv, false);
 
-	/* XO_AUDIO_EN_M Disable */
-	mt6368_set_dcxo(priv, false);
+	/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(false);
+#endif
 
 	/* Disable Pull-down HPL/R to AVSS30_AUD  */
 	hp_pull_down(priv, false);
@@ -5204,10 +5236,9 @@ static int mt6368_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 	mt6368_set_playback_gpio(priv);
 	regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON26,
 			   RG_AUDGLB_PWRDN_VA32_MASK_SFT, 0x0);
-#ifndef NO_DCXO
-	regmap_update_bits(priv->regmap, MT6685_DCXO_EXTBUF5_CW0,
-			   0x1 << RG_XO_BBCK5_EN_M_SFT,
-			   0x1 << RG_XO_BBCK5_EN_M_SFT);
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
 #endif
 	/* audio clk source from internal dcxo */
 	regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON47,
@@ -5394,11 +5425,9 @@ static int mt6368_codec_init_reg(struct snd_soc_component *cmpnt)
 	unsigned int value = 0;
 
 	dev_info(priv->dev, "+%s()\n", __func__);
-#ifndef NO_DCXO
 	/* enable clk buf */
-	regmap_update_bits(priv->regmap, MT6685_DCXO_EXTBUF5_CW0,
-			   0x1 << RG_XO_BBCK5_EN_M_SFT,
-			   0x1 << RG_XO_BBCK5_EN_M_SFT);
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
 #endif
 
 	/* set those not controlled by dapm widget */
@@ -5422,7 +5451,6 @@ static int mt6368_codec_init_reg(struct snd_soc_component *cmpnt)
 	regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON11,
 			   RG_AUDHSSCDISABLE_VAUDP32_MASK_SFT,
 			   0x1 << RG_AUDHSSCDISABLE_VAUDP32_SFT);
-	dev_info(priv->dev, "%s()5\n", __func__);
 	/* disable LO buffer left short circuit protection */
 	regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON13,
 			   RG_AUDLOLSCDISABLE_VAUDP32_MASK_SFT,
@@ -5449,12 +5477,8 @@ static int mt6368_codec_init_reg(struct snd_soc_component *cmpnt)
 	zcd_disable(priv);
 
 	/* disable clk buf */
-#ifndef NO_DCXO
-	/* enable clk buf */
-	regmap_update_bits(priv->regmap, MT6685_DCXO_EXTBUF5_CW0,
-			   0x1 << RG_XO_BBCK5_EN_M_SFT,
-			   0x0);
-
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(false);
 #endif
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
@@ -5613,11 +5637,6 @@ static ssize_t mt6368_codec_read(struct mt6368_priv *priv, char *buffer, size_t 
 	regmap_read(priv->regmap, MT6368_GPIO_MODE9, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "[0x%x] MT6368_GPIO_MODE9 = 0x%x\n", MT6368_GPIO_MODE9, value);
-#ifndef NO_DCXO
-	regmap_read(priv->regmap, MT6685_DCXO_EXTBUF5_CW0, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "0x%x MT6685_DCXO_EXTBUF5_CW0 = 0x%x\n", MT6685_DCXO_EXTBUF5_CW0, value);
-#endif
 	regmap_read(priv->regmap, MT6368_AUXADC_AVG_CON8, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "[0x%x] MT6368_AUXADC_AVG_CON8 = 0x%x\n", MT6368_AUXADC_AVG_CON8, value);
