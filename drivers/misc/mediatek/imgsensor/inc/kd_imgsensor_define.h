@@ -1013,7 +1013,7 @@ struct SET_PD_BLOCK_INFO_T {
 	MUINT32 i4BlockNumY;
 	/* 1: 1st line is long exposure, 0: 1st line is short exposure*/
 	MUINT32 i4LeFirst;
-	MUINT32 i4Crop[10][2]; /* [scenario][crop] -> (xcrop, ycrop) */
+	MUINT32 i4Crop[20][2]; /* [scenario][crop] -> (xcrop, ycrop) */
 };
 
 enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM {
