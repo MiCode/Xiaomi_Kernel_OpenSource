@@ -622,13 +622,10 @@ static int vcp_pm_event(struct notifier_block *notifier
 		clk_disable_unprepare(vcpclk);
 		retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (retval)
-			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
+			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
-		//dev->is_codec_suspending = 0;
-		return NOTIFY_OK;
-	case PM_RESTORE_PREPARE:
 		retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (retval)
 			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
@@ -655,7 +652,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 		}
 		return NOTIFY_DONE;
 	}
-	return NOTIFY_OK;
+	return NOTIFY_DONE;
 }
 
 static struct notifier_block vcp_pm_notifier_block = {
