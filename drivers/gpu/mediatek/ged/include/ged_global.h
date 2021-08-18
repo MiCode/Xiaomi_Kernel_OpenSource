@@ -47,4 +47,10 @@ extern unsigned long g_ulPreCalResetTS_us;
 // last frame half, t0
 extern unsigned long g_ulWorkingPeriod_us;
 
+extern unsigned int g_fastdvfs_mode;
+extern unsigned int ged_is_gpueb_support(void);
+extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
+	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
+extern int mtk_gpueb_sysram_batch_read(int max_read_count,
+	char *batch_string, int batch_str_size);
 #endif

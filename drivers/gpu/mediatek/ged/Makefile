@@ -14,6 +14,7 @@
 GED_TOP = $(srctree)/drivers/gpu/mediatek/ged
 MTK_TOP = $(srctree)/drivers/misc/mediatek/
 GPU_TOP = $(srctree)/drivers/gpu/mediatek/
+VIDEOX_TOP = $(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox
 
 subdir-ccflags-y += -Wno-error
 
@@ -51,10 +52,14 @@ ccflags-y += \
 	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/ \
 		 -I$(srctree)/drivers/gpu/mediatek/gpufreq/v1/include/ \
 		 -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/ \
-	     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3
+	     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3 \
+	     -I$(VIDEOX_TOP)/ \
+	     -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
+	     -I$(srctree)/drivers/gpu/mediatek/gpueb/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v3
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 
@@ -88,6 +93,7 @@ ged-y += \
 	src/ged_ge.o \
 	src/ged_dvfs.o \
 	src/ged_gpu_tuner.o \
-	src/ged_kpi.o
+	src/ged_kpi.o \
+	src/ged_eb.o
 
 ged-$(CONFIG_SYNC_FILE) += src/ged_sync.o

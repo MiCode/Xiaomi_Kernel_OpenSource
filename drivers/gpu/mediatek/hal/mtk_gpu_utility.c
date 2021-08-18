@@ -568,6 +568,34 @@ bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode)
 }
 EXPORT_SYMBOL(mtk_get_dvfs_loading_mode);
 
+void (*mtk_set_fastdvfs_mode_fp)(unsigned int u32Mode) = NULL;
+EXPORT_SYMBOL(mtk_set_fastdvfs_mode_fp);
+
+bool mtk_set_fastdvfs_mode(unsigned int u32Mode)
+{
+	if (mtk_set_fastdvfs_mode_fp != NULL) {
+		mtk_set_fastdvfs_mode_fp(u32Mode);
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_set_fastdvfs_mode);
+
+unsigned int (*mtk_get_fastdvfs_mode_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_fastdvfs_mode_fp);
+
+bool mtk_get_fastdvfs_mode(unsigned int *pui32Mode)
+{
+	if ((mtk_get_fastdvfs_mode_fp != NULL) &&
+		(pui32Mode != NULL)) {
+
+		*pui32Mode = mtk_get_fastdvfs_mode_fp();
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_fastdvfs_mode);
+
 /* -----------------------------gpu pmu fp--------------------------------- */
 void (*mtk_ltr_gpu_pmu_start_fp)(unsigned int interval_ns) = NULL;
 EXPORT_SYMBOL(mtk_ltr_gpu_pmu_start_fp);

@@ -78,6 +78,8 @@ bool mtk_timer_base_dvfs_margin(int i32MarginValue);
 bool mtk_get_timer_base_dvfs_margin(int *pi32MaginValue);
 bool mtk_dvfs_loading_mode(int i32LoadingMode);
 bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode);
+bool mtk_set_fastdvfs_mode(unsigned int u32Mode);
+bool mtk_get_fastdvfs_mode(unsigned int *pui32Mode);
 
 /* GPU PMU should be implemented by GPU IP-dep code */
 struct GPU_PMU {

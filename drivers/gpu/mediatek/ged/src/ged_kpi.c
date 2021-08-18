@@ -40,6 +40,9 @@
 #include "mtk_cpufreq_common_api.h"
 #endif /* MTK_CPUFREQ */
 
+#include "ged_global.h"
+#include "ged_eb.h"
+
 #ifdef MTK_GED_KPI
 
 #define GED_KPI_TAG "[GED_KPI]"
@@ -276,6 +279,8 @@ static unsigned int gx_response_time_avg;
 static unsigned int gx_gpu_remained_time_avg;
 static unsigned int gx_cpu_remained_time_avg;
 static unsigned int gx_gpu_freq_avg;
+
+unsigned int g_eb_workload;
 
 /* ------------------------------------------------------------------- */
 void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu, unsigned int cur_freq
@@ -1179,6 +1184,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					psKPI->t_gpu =
 							psHead->t_gpu_latest =
 							time_spent;
+					if (ged_is_gpueb_support())
+						mtk_gpueb_dvfs_set_frag_done_interval(
+							psKPI->gpu_done_interval);
 
 				} else {
 					psKPI->t_gpu
@@ -1210,8 +1218,14 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			((((unsigned long) ged_get_dvfs_margin_mode()) & 0xFF)
 				<< 16);
 
-			if (!g_force_gpu_dvfs_fallback)
+			if (!g_force_gpu_dvfs_fallback) {
 				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
+				if (ged_is_gpueb_support())
+					mtk_gpueb_dvfs_set_frame_base_dvfs(1);
+			} else {
+				if (ged_is_gpueb_support())
+					mtk_gpueb_dvfs_set_frame_base_dvfs(0);
+			}
 
 			if (main_head == psHead)
 				gpu_freq_pre = ged_kpi_gpu_dvfs(
@@ -1601,6 +1615,10 @@ void ged_kpi_gpu_3d_fence_sync_cb(struct dma_fence *sFence,
 	ged_kpi_time2(psMonitor->pid, psMonitor->ullWdnd,
 		psMonitor->i32FrameID);
 
+	// Hint frame boundary
+	if (ged_is_gpueb_support())
+		g_eb_workload = mtk_gpueb_dvfs_set_frame_done();
+
 	dma_fence_put(psMonitor->psSyncFence);
 	ged_free(psMonitor, sizeof(struct GED_KPI_GPU_TS));
 }
@@ -1827,6 +1845,7 @@ GED_ERROR ged_kpi_system_init(void)
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 	is_GED_KPI_enabled = ged_gpufreq_bringup() ? 0 : 1;
+	g_eb_workload = 0;
 
 	g_psGIFT = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
 		ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));

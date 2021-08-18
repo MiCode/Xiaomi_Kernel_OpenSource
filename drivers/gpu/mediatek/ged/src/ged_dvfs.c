@@ -24,6 +24,7 @@
 #include "ged_log.h"
 #include "ged_base.h"
 #include "ged_global.h"
+#include "ged_eb.h"
 
 #define MTK_DEFER_DVFS_WORK_MS          10000
 #define MTK_DVFS_SWITCH_INTERVAL_MS     50
@@ -134,6 +135,19 @@ static unsigned int g_minfreq;
 static unsigned int g_maxfreq;
 static int g_minfreq_idx;
 static int g_maxfreq_idx;
+
+/* need to sync to EB */
+#define BATCH_MAX_READ_COUNT 32
+/* formatted pattern |xxx|xxx 4x2 */
+#define BATCH_PATTERN_LEN 8
+#define BATCH_STR_SIZE (BATCH_PATTERN_LEN*BATCH_MAX_READ_COUNT)
+char batch_freq[BATCH_STR_SIZE];
+int avg_freq;
+
+#define GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM 4
+#define GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT 70
+static int is_fb_dvfs_triggered;
+static int is_fallback_mode_triggered;
 
 void ged_dvfs_last_and_target_cb(int t_gpu_target, int boost_accum_gpu)
 {
@@ -367,9 +381,21 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 				g_ui32PreFreqID = ui32CurFreqID;
 			}
 		}
-		ged_log_perf_trace_counter("gpu_freq",
-			(long long)(ged_get_cur_freq() / 1000),
-			5566, 0, 0);
+
+		if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode) {
+
+			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
+						batch_freq, BATCH_STR_SIZE);
+
+			ged_log_perf_trace_batch_counter("avg_gpu_freq",
+				(long long)(avg_freq),
+				5566, 0, 0, batch_freq);
+		} else {
+			ged_log_perf_trace_counter("gpu_freq",
+				(long long)(ged_get_cur_freq() / 1000),
+				5566, 0, 0);
+		}
+
 		ged_log_perf_trace_counter("gpu_freq_max",
 			(long long)(ged_get_freq_by_idx(
 			ged_get_cur_limit_idx_ceil())/1000),
@@ -500,7 +526,7 @@ GED_ERROR ged_dvfs_vsync_offset_event_switch(
 
 CHECK_OUT:
 	mutex_unlock(&gsVSyncOffsetLock);
-	return ret;	
+	return ret;
 }
 
 void ged_dvfs_vsync_offset_level_set(int i32level)
@@ -658,10 +684,6 @@ static int dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
 static int dvfs_margin_low_bound = 1; /* 1% headroom */
 
 module_param(gx_fb_dvfs_margin, int, 0644);
-#define GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM 4
-#define GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT 70
-static int is_fb_dvfs_triggered;
-static int is_fallback_mode_triggered;
 
 static int ged_dvfs_is_fallback_mode_triggered(void)
 {
@@ -773,7 +795,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 			t_gpu_target_hd = (t_gpu_target_hd != 0) ?
 				t_gpu_target_hd : 1;
 			temp = (gx_fb_dvfs_margin*(t_gpu-t_gpu_target_hd))
-			 	/ t_gpu_target_hd;
+				/ t_gpu_target_hd;
 
 			if (temp < dvfs_min_margin_inc_step*10)
 				temp = dvfs_min_margin_inc_step*10;
@@ -831,7 +853,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
 
-	busy_cycle_cur = t_gpu * gpu_freq_pre;
+	if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode)
+		busy_cycle_cur = g_eb_workload / 100;
+	else
+		busy_cycle_cur = t_gpu * gpu_freq_pre;
+
 	busy_cycle[cur_frame_idx] = busy_cycle_cur;
 	if (num_pre_frames != GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM - 1) {
 		gpu_busy_cycle = busy_cycle[cur_frame_idx];
@@ -847,6 +873,10 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		gpu_freq_tar = (gpu_busy_cycle / t_gpu_target);
 	else
 		gpu_freq_tar = gpu_freq_pre;
+
+	// Hint target frame time
+	if (ged_is_gpueb_support())
+		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target);
 
 	if (gpu_freq_tar * 100
 		< GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT * gpu_freq_pre) {
@@ -1269,6 +1299,7 @@ static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 static unsigned int ged_dvfs_get_bottom_gpu_freq(void)
 {
 	unsigned int ui32MaxLevel = g_minfreq_idx;
+
 	return ui32MaxLevel - g_bottom_freq_id;
 }
 
@@ -1505,6 +1536,23 @@ void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex)
 		sizeof(struct GpuUtilization_Ex));
 }
 
+static void ged_set_fastdvfs_mode(unsigned int u32ModeValue)
+{
+	mutex_lock(&gsDVFSLock);
+	g_fastdvfs_mode = u32ModeValue;
+	mtk_gpueb_dvfs_set_mode(g_fastdvfs_mode);
+	mutex_unlock(&gsDVFSLock);
+}
+
+static unsigned int ged_get_fastdvfs_mode(void)
+{
+	mutex_lock(&gsDVFSLock);
+	mtk_gpueb_dvfs_get_mode(&g_fastdvfs_mode);
+	mutex_unlock(&gsDVFSLock);
+
+	return g_fastdvfs_mode;
+}
+
 /* Need spinlocked */
 void ged_dvfs_save_loading_page(void)
 {
@@ -1602,7 +1650,7 @@ void ged_dvfs_sw_vsync_query_data(struct GED_DVFS_UM_QUERY_PACK *psQueryData)
 	psQueryData->ui32GPULoading = gpu_loading;
 
 	psQueryData->ui32GPUFreqID = ged_get_cur_oppidx();
-	psQueryData->gpu_cur_freq = 
+	psQueryData->gpu_cur_freq =
 		ged_get_freq_by_idx(psQueryData->ui32GPUFreqID);
 	psQueryData->gpu_pre_freq = ged_get_freq_by_idx(g_ui32PreFreqID);
 
@@ -1820,6 +1868,11 @@ GED_ERROR ged_dvfs_system_init(void)
 
 	mtk_dvfs_loading_mode_fp = ged_dvfs_loading_mode;
 	mtk_get_dvfs_loading_mode_fp = ged_get_dvfs_loading_mode;
+
+	if (ged_is_gpueb_support()) {
+		mtk_set_fastdvfs_mode_fp = ged_set_fastdvfs_mode;
+		mtk_get_fastdvfs_mode_fp = ged_get_fastdvfs_mode;
+	}
 
 	spin_lock_init(&g_sSpinLock);
 

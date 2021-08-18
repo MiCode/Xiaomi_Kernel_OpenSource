@@ -25,6 +25,8 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 #ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
@@ -39,6 +41,9 @@
 #include "ged_kpi.h"
 #include "ged_ge.h"
 #include "ged_gpu_tuner.h"
+#include "ged_eb.h"
+#include "ged_global.h"
+#include "mtk_drm_arr.h"
 
 /**
  * ===============================================
@@ -116,6 +121,12 @@ static const struct proc_ops ged_proc_fops = {
 	.proc_compat_ioctl = ged_ioctl_compat,
 #endif
 };
+
+static unsigned int g_ged_gpueb_support;
+static unsigned int g_ged_fdvfs_support;
+unsigned int g_fastdvfs_mode;
+#define GED_TARGET_UNLIMITED_FPS 240
+unsigned int vGed_Tmp;
 
 /******************************************************************************
  * GED File operations
@@ -401,6 +412,63 @@ unlock_and_return:
 }
 #endif
 
+unsigned int ged_is_gpueb_support(void)
+{
+	// Todo: Check more conditions
+	return (g_ged_gpueb_support && g_ged_fdvfs_support && ged_kpi_enabled());
+}
+EXPORT_SYMBOL(ged_is_gpueb_support);
+
+
+GED_ERROR check_eb_config(void)
+{
+	struct device_node *gpueb_node, *fdvfs_node;
+	int ret = GED_OK;
+
+	gpueb_node = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
+	if (!gpueb_node) {
+		GED_LOGE("No gpueb node.");
+		g_ged_gpueb_support = 0;
+	} else {
+		ret = of_property_read_u32(gpueb_node, "gpueb-support",
+			&g_ged_gpueb_support);
+		if (unlikely(ret))
+			GED_LOGE("fail to read gpueb-support (%d)", ret);
+	}
+
+	fdvfs_node = of_find_compatible_node(NULL, NULL, "mediatek,gpu_fdvfs");
+	if (!fdvfs_node) {
+		GED_LOGE("No fdvfs node.");
+		g_ged_fdvfs_support = 0;
+	} else {
+		of_property_read_u32(fdvfs_node, "fdvfs-policy-support",
+				&g_ged_fdvfs_support);
+		if (unlikely(ret))
+			GED_LOGE("fail to read fdvfs-policy-support (%d)", ret);
+	}
+
+	if (g_ged_gpueb_support && g_ged_fdvfs_support)
+		g_fastdvfs_mode = 1;
+
+	GED_LOGI("%s. gpueb_support: %d, fdvfs_support: %d, fastdvfs_mode: %d",
+		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, g_fastdvfs_mode);
+
+done:
+
+	return ret;
+}
+
+void ged_dfrc_fps_limit_cb(unsigned int fps_limit)
+{
+	vGed_Tmp = GED_TARGET_UNLIMITED_FPS;
+
+	if (fps_limit > 0 && fps_limit <= GED_TARGET_UNLIMITED_FPS)
+		vGed_Tmp = fps_limit;
+
+	GED_LOGI("[GED_CTRL] dfrc_fps %d\n", vGed_Tmp);
+
+}
+
 /******************************************************************************
  * Module related
  *****************************************************************************/
@@ -418,6 +486,21 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		err = GED_ERROR_FAIL;
 		GED_LOGE("Failed to register ged proc entry!\n");
 		goto ERROR;
+	}
+
+	g_ged_gpueb_support = 0;
+	g_ged_fdvfs_support = 0;
+	g_fastdvfs_mode		= 0;
+	err = check_eb_config();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to check ged config!\n");
+		goto ERROR;
+	}
+
+	if (ged_is_gpueb_support()) {
+		fastdvfs_proc_init();
+		fdvfs_init();
+		GED_LOGI("@%s: fdvfs init done\n", __func__);
 	}
 
 	err = ged_sysfs_init();
@@ -476,6 +559,18 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
+	/* Delegate to DCS commit */
+	/*
+	 * if (ged_is_gpueb_support()) {
+	 *	ged_dvfs_gpu_freq_commit_fp = mtk_gpueb_dvfs_commit;
+	 *	GED_LOGI("%s @ %d. GPUEB version commit\n", __func__, __LINE__);
+	 *}
+	 */
+
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	drm_register_fps_chg_callback(ged_dfrc_fps_limit_cb);
+#endif
+
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
 		GED_LOG_BUF_TYPE_RINGBUFFER, "GPU_FENCE", NULL);
@@ -530,6 +625,9 @@ static int ged_pdrv_remove(struct platform_device *pdev)
 	ged_log_buf_free(ghLogBuf_DVFS);
 	ghLogBuf_DVFS = 0;
 #endif
+
+	if (ged_is_gpueb_support())
+		fastdvfs_proc_exit();
 
 	ged_log_buf_free(ghLogBuf_ftrace);
 	ghLogBuf_ftrace = 0;
