@@ -114,13 +114,6 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 	}
 	memset(params, 0x0, sizeof(struct mtk_lcm_params));
 
-	LCM_KZALLOC(params->name, MTK_LCM_NAME_LENGTH, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(params->name)) {
-		DDPPR_ERR("%s, %d, failed to allocate lcm_name\n",
-			__func__, __LINE__);
-		return -ENOMEM;
-	}
-
 	ret = of_property_read_string(np, "lcm-params-name",
 			&params->name);
 	DDPMSG("%s, lcm name:%s\n", __func__, params->name);
@@ -140,7 +133,6 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 		for_each_available_child_of_node(np, type_np) {
 			if (of_device_is_compatible(type_np,
 					"mediatek,lcm-params-dbi")) {
-				DDPMSG("%s, LCM parse dbi params\n", __func__);
 				ret = parse_lcm_params_dbi(type_np,
 						&params->dbi_params);
 				if (ret >= 0)
@@ -154,7 +146,6 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 		for_each_available_child_of_node(np, type_np) {
 			if (of_device_is_compatible(type_np,
 					"mediatek,lcm-params-dpi")) {
-				DDPMSG("%s, LCM parse dpi params\n", __func__);
 				ret = parse_lcm_params_dpi(type_np,
 						&params->dpi_params);
 				if (ret >= 0)
@@ -168,7 +159,6 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 		for_each_available_child_of_node(np, type_np) {
 			if (of_device_is_compatible(type_np,
 					"mediatek,lcm-params-dsi")) {
-				DDPMSG("%s, LCM parse dsi params\n", __func__);
 				ret = parse_lcm_params_dsi(type_np,
 						&params->dsi_params);
 				if (ret >= 0)
@@ -643,9 +633,11 @@ int parse_lcm_ops_func(struct device_node *np,
 				return 0;
 			}
 		} else {
+#if MTK_LCM_DEBUG_DUMP
 			DDPMSG("[%s+%d] >>>func:%u,type:%u skipped:0x%x,phase:0x%x\n",
 				func, i, table[i].func, table[i].type,
 				phase_skip_flag, phase);
+#endif
 			table[i].func = 0;
 			table[i].type = 0;
 			table[i].size = 0;
@@ -774,8 +766,6 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 	}
 
 	mtk_lcm_dts_read_u32(lcm_np, "lcm-version", &data->version);
-	DDPMSG("%s ++, version:%u, total_size:%lluByte\n",
-		__func__, data->version, mtk_lcm_total_size);
 
 	/* Load LCM parameters from DT */
 	for_each_available_child_of_node(lcm_np, np) {

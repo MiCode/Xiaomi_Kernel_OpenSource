@@ -15,7 +15,7 @@
 static const struct mtk_lcm_rc_pattern mtk_lcm_rc_pattern_list[] = {
 	/* nt36672c_fhdp_sc*/
 	{
-		.index			= MTK_LCM_RC_NT36672C_FHDP_TIANMA,
+		.name			= "NT36672C_FHDP_SHENCHAO_RC",
 		.left_top		= {864, nt36672c_fhdp_sc_left_top_pattern},
 		.left_top_left	= {0, NULL},
 		.left_top_right	= {0, NULL},
@@ -37,7 +37,7 @@ static void lcm_rc_check_size(unsigned int *src, unsigned int dst)
 		*src = dst;
 }
 
-void *mtk_lcm_get_rc_addr(unsigned char index, enum mtk_lcm_rc_locate locate,
+void *mtk_lcm_get_rc_addr(const char *name, enum mtk_lcm_rc_locate locate,
 		unsigned int *size)
 {
 	unsigned int i = 0, dst_size = 0;
@@ -45,13 +45,14 @@ void *mtk_lcm_get_rc_addr(unsigned char index, enum mtk_lcm_rc_locate locate,
 	unsigned int count = sizeof(mtk_lcm_rc_pattern_list) /
 			sizeof(struct mtk_lcm_rc_pattern);
 
-	if (size == NULL || *size == 0)
+	if (IS_ERR_OR_NULL(size) || *size == 0 || IS_ERR_OR_NULL(name))
 		return NULL;
 
 	for (i = 0; i < count; i++) {
-		if (mtk_lcm_rc_pattern_list[i].index == index)
+		if (strcmp(mtk_lcm_rc_pattern_list[i].name, name) == 0)
 			break;
 	}
+
 	if (i == count) {
 		pr_info("%s, %d, failed to find pattern\n", __func__, __LINE__);
 		return NULL;
@@ -89,11 +90,11 @@ void *mtk_lcm_get_rc_addr(unsigned char index, enum mtk_lcm_rc_locate locate,
 
 	if (dst_size > 0 && addr != NULL) {
 		lcm_rc_check_size(size, dst_size);
-		pr_info("%s, %d, pattern id:%u, locate:%d, addr=0x%lx,size=%u\n",
-			__func__, __LINE__, index, locate, (unsigned long)addr, *size);
+		pr_info("%s, %d, pattern name:%s, locate:%d, addr=0x%lx,size=%u\n",
+			__func__, __LINE__, name, locate, (unsigned long)addr, *size);
 	} else {
-		pr_info("%s, %d, pattern id:%u, locate:%d, empty pattern\n",
-			__func__, __LINE__, index, locate);
+		pr_info("%s, %d, pattern name:%s, locate:%d, empty pattern\n",
+			__func__, __LINE__, name, locate);
 	}
 
 	return addr;

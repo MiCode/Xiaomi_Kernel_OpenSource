@@ -323,7 +323,7 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			struct mtk_panel_params *ext_param)
 {
 	char prop[128] = { 0 };
-	unsigned int pattern_id = 0;
+	const char *pattern;
 	u8 temp[RT_MAX_NUM * 2 + 2] = {0};
 	unsigned int i = 0, j = 0;
 	int len = 0, ret = 0;
@@ -380,24 +380,25 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 				"lcm-params-dsi-corner_pattern_tp_size_right",
 				&ext_param->corner_pattern_tp_size_r);
 
-		mtk_lcm_dts_read_u32(np, "lcm-params-dsi-corner_pattern_name",
-				&pattern_id);
-		if (pattern_id >= MTK_LCM_ROUND_CORNER_COUNT) {
-			DDPMSG("%s,%d: invalid pattern id:%u\n",
-				__func__, __LINE__, pattern_id);
+		ret = of_property_read_string(np, "lcm-params-dsi-corner_pattern_name",
+				&pattern);
+		if (ret < 0 || strlen(pattern) == 0) {
+			DDPMSG("%s,%d: invalid pattern, ret:%d\n",
+				__func__, __LINE__, ret);
 			return;
 		}
 
+		DDPMSG("%s, %d, rc pattern:%s\n", __func__, __LINE__, pattern);
 		ext_param->corner_pattern_lt_addr =
-			mtk_lcm_get_rc_addr(pattern_id,
+			mtk_lcm_get_rc_addr(pattern,
 				RC_LEFT_TOP, &ext_param->corner_pattern_tp_size);
 
 		ext_param->corner_pattern_lt_addr_l =
-			mtk_lcm_get_rc_addr(pattern_id,
+			mtk_lcm_get_rc_addr(pattern,
 				RC_LEFT_TOP_LEFT, &ext_param->corner_pattern_tp_size_l);
 
 		ext_param->corner_pattern_lt_addr_r =
-			mtk_lcm_get_rc_addr(pattern_id,
+			mtk_lcm_get_rc_addr(pattern,
 				RC_LEFT_TOP_RIGHT, &ext_param->corner_pattern_tp_size_r);
 
 	}
@@ -518,7 +519,6 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-voltage",
 			&mode_node->voltage);
-	DDPMSG("%s, voltage:%u\n", __func__, mode_node->voltage);
 	parse_lcm_dsi_fps_mode(np, mode);
 	parse_lcm_dsi_fps_ext_param(np, ext_param);
 

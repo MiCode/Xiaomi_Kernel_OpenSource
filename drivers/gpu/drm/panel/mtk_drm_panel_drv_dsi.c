@@ -1173,10 +1173,6 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 			break;
 
 		mode_src = &mode_node->mode;
-		DDPMSG("%s, %d, id:%u, fps:%u-%u\n",
-			__func__, __LINE__, mode_node->id, mode_node->fps,
-			drm_mode_vrefresh(mode_src));
-
 		mtk_drm_update_disp_mode_params(mode_src);
 
 		mode = drm_mode_duplicate(connector->dev, mode_src);

@@ -6,6 +6,7 @@
 #ifndef _MTK_DRM_ROUND_CORNER_H_
 #define _MTK_DRM_ROUND_CORNER_H_
 
+#include "../mtk_drm_gateic.h"
 #include "dt-bindings/lcm/mtk_lcm_settings.h"
 
 struct rc_pattern {
@@ -14,7 +15,7 @@ struct rc_pattern {
 };
 
 struct mtk_lcm_rc_pattern {
-	unsigned char index;
+	char name[MTK_LCM_NAME_LENGTH];
 	struct rc_pattern left_top;
 	struct rc_pattern left_top_left;
 	struct rc_pattern left_top_right;
@@ -39,6 +40,6 @@ enum mtk_lcm_rc_locate {
  *   size: rc pattern data size
  * output: round corner pattern address
  */
-void *mtk_lcm_get_rc_addr(unsigned char index, enum mtk_lcm_rc_locate locate,
+void *mtk_lcm_get_rc_addr(const char *name, enum mtk_lcm_rc_locate locate,
 		unsigned int *size);
 #endif
