@@ -37,6 +37,8 @@
 #define PQDIP_DMA_REG_CNT		0x260
 #define PQDIP_WROT1_REG_CNT		0x100
 #define PQDIP_WROT2_REG_CNT		0x50
+#define PQDIP_ALL_REG_CNT		0x6000
+#define DUMP_PQ_ALL
 
 /********************************************************************
  * Global Variable
@@ -133,7 +135,16 @@ void imgsys_pqdip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
 		/* iomap registers */
 		pqdipRegBA = gpqdipRegBA[hw_idx];
-
+#ifdef DUMP_PQ_ALL
+		for (i = 0x0; i < PQDIP_ALL_REG_CNT; i += 0x10) {
+			dev_info(imgsys_dev->dev, "%s:  [0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+			__func__, (unsigned int)(PQDIP_BASE_ADDR + (PQDIP_OFST * hw_idx) + i),
+			(unsigned int)ioread32((void *)(pqdipRegBA + i + 0x00)),
+			(unsigned int)ioread32((void *)(pqdipRegBA + i + 0x04)),
+			(unsigned int)ioread32((void *)(pqdipRegBA + i + 0x08)),
+			(unsigned int)ioread32((void *)(pqdipRegBA + i + 0x0c)));
+		}
+#else
 		/* PQ_DIP control registers */
 		for (i = 0x0; i < PQDIP_CTL_REG_CNT; i += 0x10) {
 			dev_info(imgsys_dev->dev, "%s:  [0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
@@ -187,6 +198,7 @@ void imgsys_pqdip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 			(unsigned int)ioread32((void *)(pqdipRegBA + PQDIP_WROT2_OFST + i + 0x08)),
 			(unsigned int)ioread32((void *)(pqdipRegBA + PQDIP_WROT2_OFST + i + 0x0c)));
 		}
+#endif
 	}
 
 	dev_info(imgsys_dev->dev, "%s: -\n", __func__);
