@@ -70,8 +70,10 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	}
 
 	if (MML_FMT_10BIT_PACKED(data->src_fmt) &&
-	    !MML_FMT_COMPRESS(data->src_fmt)) {
-		/* 10-bit packed */
+	    !MML_FMT_COMPRESS(data->src_fmt) &&
+	    !MML_FMT_IS_RGB(data->src_fmt) &&
+	    !MML_FMT_BLOCK(data->src_fmt)) {
+		/* 10-bit packed, not compress, not rgb, not blk */
 		ptr_func->in_const_x = 4;
 	}
 
