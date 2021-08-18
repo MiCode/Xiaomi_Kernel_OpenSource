@@ -37,6 +37,10 @@
 #include "../ultrasound/ultra_common/mtk-scp-ultra.h"
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
+
 #include "mtk-mmap-ion.h"
 
 
@@ -743,6 +747,18 @@ int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 	int msb_at_bit33 = upper_32_bits(dma_addr) ? 1 : 0;
 	unsigned int phys_buf_addr = lower_32_bits(dma_addr);
 	unsigned int phys_buf_addr_upper_32 = upper_32_bits(dma_addr);
+	unsigned int value;
+
+	/* check the memif already disable */
+	regmap_read(afe->regmap, memif->data->enable_reg, &value);
+	if (value & 0x1 << memif->data->enable_shift) {
+		mtk_memif_set_disable(afe, id);
+		pr_info("%s memif[%d] is enabled before set_addr, en:0x%x",
+			__func__, id, value);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_exception("[Audio]", "Error: AFE memif enable before set_addr");
+#endif
+	}
 
 	memif->dma_area = dma_area;
 	memif->dma_addr = dma_addr;
