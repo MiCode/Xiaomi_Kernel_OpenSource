@@ -517,6 +517,9 @@ static unsigned int do_2a_gain_s5k3m5sx(struct EEPROM_DRV_FD_DATA *pdata,
 			show_cmd_error_log(pCamCalData->Command);
 		}
 
+		AFInf = AFInf >> 2;
+		AFMacro = AFMacro >> 2;
+
 		pCamCalData->Single2A.S2aAf[0] = AFInf;
 		pCamCalData->Single2A.S2aAf[1] = AFMacro;
 
