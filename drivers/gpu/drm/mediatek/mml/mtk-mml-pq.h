@@ -60,6 +60,10 @@ struct mml_pq_aal_config_param {
 
 struct mml_pq_comp_config_result {
 	u8 param_cnt;
+	u32 hdr_reg_cnt;
+	struct mml_pq_reg *hdr_regs;
+	u32 *hdr_curve;
+	bool is_hdr_need_readback;
 	struct mml_pq_aal_config_param *aal_param;
 	u32 aal_reg_cnt;
 	struct mml_pq_reg *aal_regs;
