@@ -999,9 +999,8 @@ static int notify_fsync_mgr(struct adaptor_ctx *ctx)
 		ctx->idx, seninf_port, seninf_idx);
 
 	/* frame-sync init */
-	// ret = FrameSyncInit(&ctx->fsync_mgr);// need Check, Baron
-	// if (ret != 0) {// need Check, Baron
-	if (1) {
+	ret = FrameSyncInit(&ctx->fsync_mgr);
+	if (ret != 0) {
 		dev_info(ctx->dev, "frame-sync init failed !\n");
 		ctx->fsync_mgr = NULL;
 	}
