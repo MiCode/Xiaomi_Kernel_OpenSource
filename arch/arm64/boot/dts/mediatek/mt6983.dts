@@ -1360,7 +1360,7 @@
 				<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
-			feature_control_bits = <0xa703ff>;
+			feature_control_bits = <0xe703ff>;
 		};
 
 		adsp_core1: adsp_core1@1e090000 {
@@ -12144,6 +12144,12 @@
 
 	mt_soc_offload_common {
 		compatible = "mediatek,mt_soc_offload_common";
+	};
+
+	/* feature: $enable */
+	speech_usip_mem: speech_usip_mem {
+		compatible = "mediatek,speech_usip_mem";
+		adsp_phone_call_enh_enable = <0x0>;
 	};
 
 	pmic-oc-debug {
