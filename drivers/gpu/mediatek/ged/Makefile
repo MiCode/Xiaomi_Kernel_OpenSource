@@ -28,6 +28,7 @@ ccflags-y += -DMTK_GPUFREQ_V2
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
 ccflags-y += -DGED_DVFS_DEBUG_BUF
+ccflags-y += -DMTK_GPU_BM_2
 
 ifeq ($(CONFIG_MTK_ENABLE_GMO), y)
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
@@ -56,12 +57,14 @@ ccflags-y += \
 	     -I$(VIDEOX_TOP)/ \
 	     -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
 	     -I$(srctree)/drivers/gpu/mediatek/gpueb/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v3
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb
-
-obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
+ccflags-y += \
+		-I$(srctree)/drivers/misc/mediatek/sspm/ \
+		-I$(srctree)/drivers/misc/mediatek/sspm/v2 \
+		-I$(srctree)/drivers/misc/mediatek/qos/ \
+		-I$(srctree)/drivers/gpu/mediatek/gpu_bm/
 
 ifeq ($(CONFIG_DEBUG_FS),y)
 ccflags-y += -DGED_DEBUG_FS
@@ -69,7 +72,6 @@ ged-y += \
 	src/ged_debugFS.o
 endif
 
-# $(info $ [Hans1]CONFIG_MTK_GPUFREQ_V2 is [${CONFIG_MTK_GPUFREQ_V2}])
 ifeq ($(CONFIG_MTK_GPUFREQ_V2),y)
 ged-y += \
 	src/ged_gpufreq_v2.o
@@ -94,6 +96,9 @@ ged-y += \
 	src/ged_dvfs.o \
 	src/ged_gpu_tuner.o \
 	src/ged_kpi.o \
-	src/ged_eb.o
+	src/ged_eb.o \
+	src/ged_gpu_bm.o
 
 ged-$(CONFIG_SYNC_FILE) += src/ged_sync.o
+
+obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o

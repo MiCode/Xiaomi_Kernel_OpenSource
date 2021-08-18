@@ -12,7 +12,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-
 #if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 #include <mtk_qos_ipi.h>
 #endif /* CONFIG_MTK_QOS_FRAMEWORK */
@@ -27,7 +26,7 @@ struct v1_data {
 	unsigned int freq;
 };
 struct v1_data *gpu_info_buf;
-//uint32_t __iomem *gpu_info_buf;
+static int gpu_bm_inited;
 
 static void _mgq_proc_show_v1(struct seq_file *m)
 {
@@ -103,29 +102,32 @@ static void setupfw_work_handler(struct work_struct *work)
 	qos_d.u.gpu_info.size = (unsigned int)setupfw_data.size;
 
 #ifdef MTK_SCMI
-	pr_debug("%s: MTK_SCMI defined!\n", __func__);
-
 	ret = qos_ipi_to_sspm_scmi_command(qos_d.cmd,
 		qos_d.u.gpu_info.addr,
 		qos_d.u.gpu_info.addr_hi,
 		qos_d.u.gpu_info.size, QOS_IPI_SCMI_SET);
-#else
-	pr_debug("%s: MTK_SCMI not defined! \n", __func__);
-	ret = qos_ipi_to_sspm_command(&qos_d, 4);
-#endif /* MTK_SCMI */
 
+	if (ret)
+		pr_info("%s: sspm_ipi_to_scmi fail (%d)\n", __func__, ret);
+	else
+		pr_info("%s: sspm_ipi_to_scmi success! (%d)\n", __func__, ret);
+
+#else
+	ret = qos_ipi_to_sspm_command(&qos_d, 4);
+
+	if (ret == 1)
+		pr_info("%s: sspm_ipi success! (%d)\n", __func__, ret);
+	else
+		pr_info("%s: sspm_ipi fail (%d)\n", __func__, ret);
+
+#endif /* MTK_SCMI */
+	gpu_bm_inited = 1;
 	pr_debug("%s: addr:0x%x, addr_hi:0x%x, ret:%d\n",
 		__func__,
 		qos_d.u.gpu_info.addr,
 		qos_d.u.gpu_info.addr_hi,
 		ret);
 
-	if (ret == 1) {
-		pr_debug("%s: sspm_ipi success! (%d)\n", __func__, ret);
-	} else {
-		pr_debug("%s: sspm_ipi fail (%d)\n", __func__, ret);
-		schedule_delayed_work(&g_setupfw_work, 5 * HZ);
-	}
 #else
 	pr_debug("%s: sspm_ipi is not support!\n", __func__);
 #endif /* MTK_QOS_FRAMEWORK */
@@ -169,7 +171,6 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 		else
 			gpu_info_buf->freq = 0;
 	}
-
 }
 
 void MTKGPUQoS_setup(struct v1_data *v1, phys_addr_t phyaddr, size_t size)
@@ -182,6 +183,12 @@ void MTKGPUQoS_setup(struct v1_data *v1, phys_addr_t phyaddr, size_t size)
 	mtk_register_gpu_power_change("qpu_qos", bw_v1_gpu_power_change_notify);
 }
 EXPORT_SYMBOL(MTKGPUQoS_setup);
+
+int MTKGPUQoS_is_inited(void)
+{
+	return gpu_bm_inited;
+}
+EXPORT_SYMBOL(MTKGPUQoS_is_inited);
 
 uint32_t MTKGPUQoS_getBW(uint32_t offset)
 {
@@ -207,4 +214,3 @@ module_exit(mtk_gpu_qos_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek GPU QOS");
 MODULE_AUTHOR("MediaTek Inc.");
-

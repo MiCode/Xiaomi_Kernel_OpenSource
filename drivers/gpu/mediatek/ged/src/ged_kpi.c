@@ -43,6 +43,10 @@
 #include "ged_global.h"
 #include "ged_eb.h"
 
+#if defined(MTK_GPU_BM_2)
+#include <ged_gpu_bm.h>
+#endif /* MTK_GPU_BM_2 */
+
 #ifdef MTK_GED_KPI
 
 #define GED_KPI_TAG "[GED_KPI]"
@@ -1612,6 +1616,12 @@ void ged_kpi_gpu_3d_fence_sync_cb(struct dma_fence *sFence,
 	psMonitor =
 	GED_CONTAINER_OF(waiter, struct GED_KPI_GPU_TS, sSyncWaiter);
 
+#if defined(MTK_GPU_BM_2)
+	mtk_bandwidth_update_info(psMonitor->pid,
+		qos_inc_frame_nr(),
+		qos_get_frame_nr());
+#endif /* MTK_GPU_BM_2 */
+
 	ged_kpi_time2(psMonitor->pid, psMonitor->ullWdnd,
 		psMonitor->i32FrameID);
 
@@ -1650,6 +1660,11 @@ GED_ERROR ged_kpi_dequeue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 {
 #ifdef MTK_GED_KPI
 	int ret;
+
+#if defined(MTK_GPU_BM_2)
+	mtk_bandwidth_check_SF(pid, isSF);
+#endif /* MTK_GPU_BM_2 */
+
 	/* For kernel 5.4, pre_fence_sync_cb will cause deadlock
 	 * due to refcount = 0 after calling dma_fence_put().
 	 * We remove this fence callback usage since linux community
