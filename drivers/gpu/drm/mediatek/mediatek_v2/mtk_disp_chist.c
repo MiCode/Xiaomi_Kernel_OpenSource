@@ -119,24 +119,13 @@ struct mtk_disp_block_config {
 };
 
 static struct mtk_disp_block_config g_chist_block_config[DISP_CHIST_CHANNEL_COUNT * 2];
-
 static struct drm_mtk_channel_config g_chist_config[DISP_CHIST_CHANNEL_COUNT * 2];
-
 static struct drm_mtk_channel_hist g_disp_hist[DISP_CHIST_CHANNEL_COUNT * 2];
+unsigned int present_fence;
 
 static unsigned int g_pipe_width;
-
-struct mtk_disp_chist_data {
-	bool support_shadow;
-	unsigned int module_count;
-};
-
-struct mtk_disp_chist {
-	struct mtk_ddp_comp ddp_comp;
-	struct drm_crtc *crtc;
-	const struct mtk_disp_chist_data *data;
-};
-
+static unsigned int g_frame_width;
+static unsigned int g_frame_height;
 
 int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
@@ -145,7 +134,7 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 	struct drm_mtk_chist_caps *caps_info = data;
 	int index_start = 0, i;
 	int index_end = DISP_CHIST_HWC_CHANNEL_INDEX;
-	//DDPINFO("%s chist id:%d\n", __func__, caps_info->chist_id);
+	DDPINFO("%s chist id:%d\n", __func__, caps_info->device_id);
 
 	caps_info->support_color = DISP_CHIST_COLOR_FORMAT;
 	if (DISP_CHIST_PQ_CHANNEL_INDEX) {
@@ -155,7 +144,9 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 	for (i = index_start; i < index_end; i++) {
 		memcpy(&(caps_info->chist_config[i % DISP_CHIST_CHANNEL_COUNT]),
 			&g_chist_config[i], sizeof(g_chist_config[i]));
+		caps_info->chist_config[i % DISP_CHIST_CHANNEL_COUNT].channel_id = i;
 	}
+	DDPINFO("%s --\n", __func__);
 	return 0;
 }
 
@@ -168,6 +159,9 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc = private->crtc[0];
 	int i = 0;
 
+	DDPINFO("%s  chist id:%d, caller:%d, config count:%d\n", __func__,
+		config->device_id, config->caller, config->config_channel_count);
+
 	if (config->caller == MTK_DRM_CHIST_CALLER_HWC) {
 		unsigned int channel_id = DISP_CHIST_HWC_CHANNEL_INDEX;
 
@@ -179,6 +173,7 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	} else if (DISP_CHIST_PQ_CHANNEL_INDEX == DISP_CHIST_CHANNEL_COUNT) {
 		comp = private->ddp_comp[DDP_COMPONENT_CHIST1];
 	}
+	DDPINFO("%s --\n", __func__);
 
 	return mtk_crtc_user_cmd(crtc, comp, CHIST_CONFIG, data);
 }
@@ -208,14 +203,18 @@ static int disp_chist_copy_hist_to_user(struct drm_device *dev,
 	for (; i < hist->get_channel_count; i++) {
 		unsigned int channel_id = hist->channel_hist[i].channel_id;
 
-		if (g_chist_config[channel_id].enabled) {
+		if (channel_id < DISP_CHIST_CHANNEL_COUNT * 2 &&
+			g_chist_config[channel_id].enabled) {
 			memcpy(&(hist->channel_hist[i]),
 				&g_disp_hist[channel_id], sizeof(g_disp_hist[channel_id]));
 		}
 	}
 
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
-	hist->present_fence = atomic_read(&private->crtc_present[0]);
+	hist->present_fence = present_fence;
+
+	if (debug_dump_hist)
+		mtk_chist_dump(private->ddp_comp[DDP_COMPONENT_CHIST0]);
 
 	return ret;
 }
@@ -227,6 +226,11 @@ void mtk_chist_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	mtk_cust_dump_reg(baddr, DISP_CHIST_EN, DISP_CHIST_CFG, DISP_CHIST_SIZE,
 					DISP_CHIST_SHADOW_CTRL);
+
+	mtk_cust_dump_reg(baddr, DISP_CHIST_CH0_WIN_X_MAIN, DISP_CHIST_CH0_WIN_Y_MAIN,
+					DISP_CHIST_HIST_CH_CFG2, DISP_CHIST_HIST_CH_CFG3);
+	mtk_cust_dump_reg(baddr, DISP_CHIST_HIST_CH_CFG1, DISP_CHIST_CH0_BLOCK_INFO,
+					DISP_CHIST_CH0_BLOCK_CROP, DISP_CHIST_HIST_CH_CFG4);
 }
 
 int mtk_chist_analysis(struct mtk_ddp_comp *comp)
@@ -243,6 +247,9 @@ int mtk_drm_ioctl_get_chist(struct drm_device *dev, void *data,
 	//struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	struct drm_mtk_chist_info *hist = data;
 	int i = 0;
+
+	DDPINFO("%s chist id:%d, get count:%d\n", __func__,
+		hist->device_id, hist->get_channel_count);
 
 	if (hist == NULL) {
 		DDPPR_ERR("%s drm_mtk_hist_info is NULL\n", __func__);
@@ -265,8 +272,7 @@ int mtk_drm_ioctl_get_chist(struct drm_device *dev, void *data,
 
 	if (disp_chist_copy_hist_to_user(dev, hist) < 0)
 		return -EFAULT;
-	if (debug_dump_hist)
-		mtk_chist_dump(data);
+	DDPINFO("%s --\n", __func__);
 
 	return 0;
 }
@@ -310,10 +316,10 @@ static void mtk_chist_channel_enabled(unsigned int channel,
 	unsigned int real_channel = channel % DISP_CHIST_CHANNEL_COUNT;
 	unsigned long flags;
 	int i = 0;
-
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_CHIST_HIST_CH_CFG1,
-		(enabled  ? 1 : 0) << real_channel, 1 << real_channel);
+	if (real_channel < DISP_CHIST_CHANNEL_COUNT)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_CHIST_HIST_CH_CFG1,
+			(enabled  ? 1 : 0) << real_channel, 1 << real_channel);
 
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 	g_chist_config[channel].enabled = enabled;
@@ -325,13 +331,31 @@ static void mtk_chist_channel_enabled(unsigned int channel,
 		if (g_chist_config[i].enabled)
 			break;
 	}
-	if ((i % DISP_CHIST_CHANNEL_COUNT) == DISP_CHIST_CHANNEL_COUNT)
-		mtk_chist_bypass(comp, 1, handle);
-	else
-		mtk_chist_start(comp, handle);
+
+	mtk_chist_start(comp, handle);
 
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
 
+}
+
+static unsigned int mtk_chist_bin_count_regs(unsigned int bin_count)
+{
+	switch (bin_count) {
+	case 256:
+		return 0;
+	case 128:
+		return 1;
+	case 64:
+		return 2;
+	case 32:
+		return 3;
+	case 16:
+		return 4;
+	case 8:
+		return 5;
+	default:
+		return 5;
+	}
 }
 
 static void mtk_chist_channel_config(unsigned int channel,
@@ -339,13 +363,17 @@ static void mtk_chist_channel_config(unsigned int channel,
 	struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	unsigned int real_channel = channel % DISP_CHIST_CHANNEL_COUNT;
+	unsigned int roi_end_x, roi_end_y;
+
 	// roi
+	roi_end_x = config->roi_end_x ? config->roi_end_x : g_frame_width - 1;
+	roi_end_y = config->roi_end_y ? config->roi_end_y : g_frame_height - 1;
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_CHIST_CH0_WIN_X_MAIN + real_channel * 0x10,
-		(config->roi_end_x << 16) | config->roi_start_x, ~0);
+		(roi_end_x << 16) | config->roi_start_x, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_CHIST_CH0_WIN_Y_MAIN + real_channel * 0x10,
-		(config->roi_end_y << 16) | config->roi_start_y, ~0);
+		(roi_end_y << 16) | config->roi_start_y, ~0);
 
 	// block
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -363,7 +391,7 @@ static void mtk_chist_channel_config(unsigned int channel,
 	// bin count, 0:256,1:128,2:64,3:32,4:16,5:8
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_CHIST_HIST_CH_CFG3,
-		(DISP_CHIST_MAX_BIN / config->bin_count - 1) << real_channel * 4,
+		mtk_chist_bin_count_regs(config->bin_count) << real_channel * 4,
 		0x07 << real_channel * 4);
 
 	// (HS)V = max(R G B)
@@ -527,6 +555,9 @@ static void mtk_chist_config(struct mtk_ddp_comp *comp,
 	unsigned int width;
 	int i = 0;
 
+	g_frame_width = cfg->w;
+	g_frame_height = cfg->h;
+
 	if (comp->mtk_crtc->is_dual_pipe) {
 		width = cfg->w / 2;
 		g_pipe_width = width;
@@ -617,6 +648,7 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp, int i, int sum_bin
 
 	writel(0x10 & (i % DISP_CHIST_CHANNEL_COUNT),
 		chist1->regs + DISP_CHIST_APB_READ);
+
 	for (; j < sum_bins; j++) {
 		if (g_chist_config[i].roi_start_x >= g_pipe_width) {
 			g_disp_hist[i].hist[j] = readl(chist1->regs + DISP_CHIST_SRAM_R_IF);
@@ -654,8 +686,11 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp, int i, int sum_bin
 static void mtk_get_chist(struct mtk_ddp_comp *comp)
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *private = mtk_crtc->base.dev->dev_private;
 	unsigned long flags;
 	int i = 0;
+
+	present_fence = atomic_read(&private->crtc_present[0]);
 
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 	for (; i < DISP_CHIST_CHANNEL_COUNT * 2; i++) {
@@ -667,17 +702,17 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 			g_disp_hist[i].color_format = g_chist_config[i].color_format;
 
 			// select channel id
-			writel(0x10 & (i % DISP_CHIST_CHANNEL_COUNT),
+			writel(0x30 | (i % DISP_CHIST_CHANNEL_COUNT),
 				comp->regs + DISP_CHIST_APB_READ);
 
 			if (mtk_crtc->is_dual_pipe)
 				mtk_get_hist_dual_pipe(comp, i, sum_bins);
 			else {
 				int j = 0;
-
-				for (; j < sum_bins; j++)
+				for (; j < sum_bins; j++) {
 					g_disp_hist[i].hist[j] = readl(comp->regs
-						+ DISP_CHIST_SRAM_R_IF);
+						+ DISP_CHIST_SRAM_R_IF) >> 5;
+				}
 			}
 		}
 	}
@@ -755,18 +790,19 @@ static int mtk_disp_chist_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, priv);
 	ret = devm_request_irq(dev, priv->ddp_comp.irq, mtk_disp_chist_irq_handler,
 		IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev), priv);
 	if (ret)
 		dev_err(dev, "devm_request_irq fail: %d\n", ret);
 
-	pm_runtime_enable(dev);
+	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
 	ret = component_add(dev, &mtk_disp_chist_component_ops);
 	if (ret != 0) {
 		dev_err(dev, "Failed to add component: %d\n", ret);
-		pm_runtime_disable(dev);
+		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 
 	kthread_run(mtk_chist_read_kthread,
@@ -778,15 +814,20 @@ static int mtk_disp_chist_probe(struct platform_device *pdev)
 
 static int mtk_disp_chist_remove(struct platform_device *pdev)
 {
+	struct mtk_disp_chist *priv = dev_get_drvdata(&pdev->dev);
+
 	component_del(&pdev->dev, &mtk_disp_chist_component_ops);
 
-	pm_runtime_disable(&pdev->dev);
+	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	return 0;
 }
 
 static const struct mtk_disp_chist_data mt6983_chist_driver_data = {
 	.support_shadow = true,
 	.module_count = 2,
+	.color_format = 0x3FF,
+	.max_channel = 3,
+	.max_bin = 128,
 };
 
 static const struct of_device_id mtk_disp_chist_driver_dt_match[] = {

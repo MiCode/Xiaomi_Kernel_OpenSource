@@ -2787,6 +2787,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	struct mtk_drm_disp_caps_info *caps_info = data;
 	struct mtk_panel_params *params =
 		mtk_drm_get_lcm_ext_params(private->crtc[0]);
+	struct mtk_ddp_comp *ddp_comp;
 
 	memset(caps_info, 0, sizeof(*caps_info));
 
@@ -2850,11 +2851,16 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_MML_PRIMARY;
 
-#ifdef MTK_COLOR_HISTOGRAM
-	caps_info->color_format = 0x1FF;
-	caps_info->max_channel = 3;
-	caps_info->max_bin = 128;
-#endif
+	ddp_comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
+	if (ddp_comp) {
+		struct mtk_disp_chist *chist_data = comp_to_chist(ddp_comp);
+
+		if (chist_data && chist_data->data) {
+			caps_info->color_format = chist_data->data->color_format;
+			caps_info->max_channel = chist_data->data->max_channel;
+			caps_info->max_bin = chist_data->data->max_bin;
+		}
+	}
 	return ret;
 }
 
