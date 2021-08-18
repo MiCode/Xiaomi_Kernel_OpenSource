@@ -4752,10 +4752,37 @@ static char *ddp_clock_1_mt6983(int bit)
 {
 	switch (bit) {
 	case 0:
-		return "smi_iommu, ";
+		return "disp_dp_intf0, ";
+	case 1:
+		return "apb_bus, ";
+	case 2:
+		return "disp_tdshp0, ";
+	case 3:
+		return "disp_c3d0, ";
+	case 4:
+		return "disp_y2r0, ";
+	case 5:
+		return "disp_mdp_aal0, ";
+	case 6:
+		return "disp_chist0, ";
+	case 7:
+		return "disp_chist1, ";
+	case 8:
+		return "disp_ovl0_2l, ";
+	case 9:
+		return "disp_dli_async3, ";
+	case 10:
+		return "disp_dl0_async3, ";
+	case 12:
+		return "disp_ovl1_2l, ";
+	case 16:
+		return "disp_ovl1_2l_nwcg, ";
+	case 20:
+		return "smi_sub_comm, ";
 	default:
 		return NULL;
 	}
+
 }
 
 static char *ddp_clock_0_mt6873(int bit)

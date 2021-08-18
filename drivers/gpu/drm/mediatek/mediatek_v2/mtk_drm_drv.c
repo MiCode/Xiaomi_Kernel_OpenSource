@@ -3544,6 +3544,15 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 
 	mtk_drm_first_enable(drm);
 
+	if (private->data->mmsys_id == MMSYS_MT6983) {
+		/*
+		 * When kernel init, SMI larb will get once for keeping
+		 * MTCMOS on. Then, this keeping will be released after
+		 * display keep MTCMOS by itself.
+		 */
+		mtk_smi_init_power_off();
+	}
+
 	return 0;
 
 err_unset_dma_parms:
@@ -4402,14 +4411,16 @@ SKIP_SIDE_DISP:
 	memcpy(&mydev, pdev, sizeof(mydev));
 #endif
 
-	/*
-	 * When kernel init, SMI larb will get once for keeping
-	 * MTCMOS on. Then, this keeping will be released after
-	 * display keep MTCMOS by itself.
-	 */
-	larb_dev = mtk_drm_get_larb(dev);
-	if (larb_dev)
-		mtk_smi_larb_put(larb_dev);
+	if (private->data->mmsys_id != MMSYS_MT6983) {
+		/*
+		 * When kernel init, SMI larb will get once for keeping
+		 * MTCMOS on. Then, this keeping will be released after
+		 * display keep MTCMOS by itself.
+		 */
+		larb_dev = mtk_drm_get_larb(dev);
+		if (larb_dev)
+			mtk_smi_larb_put(larb_dev);
+	}
 
 	return 0;
 

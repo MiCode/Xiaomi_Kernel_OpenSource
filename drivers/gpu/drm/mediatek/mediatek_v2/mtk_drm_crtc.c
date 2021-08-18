@@ -96,6 +96,7 @@ static const char * const crtc_gce_client_str[] = {
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
 #define DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL 0x308
+#define DISP_REG_CONFIG_BYPASS_MUX_SHADOW 0xf00
 
 struct drm_crtc *_get_context(void)
 {
@@ -4687,6 +4688,10 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+
+		/*Set BYPASS_MUX_SHADOW*/
+		writel(0x1, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
 	}
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
@@ -5310,6 +5315,10 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+
+		/*Set BYPASS_MUX_SHADOW*/
+		writel(0x1, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
 	}
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
