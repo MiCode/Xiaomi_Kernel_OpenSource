@@ -120,6 +120,7 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 			struct mml_pq_sub_task **out_sub_task)
 {
 	struct mml_pq_sub_task *sub_task = NULL, *tmp = NULL;
+	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s chan[%p] job_id[%d]", __func__, chan, job_id);
@@ -136,10 +137,12 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 			break;
 		}
 	}
+	if (!(*out_sub_task))
+		ret = -ENOENT;
 	mutex_unlock(&chan->job_lock);
 
 	mml_pq_trace_ex_end();
-	return 0;
+	return ret;
 }
 
 static void init_pq_sub_task(struct mml_pq_sub_task *sub_task)
