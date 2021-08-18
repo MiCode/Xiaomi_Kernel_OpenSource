@@ -187,6 +187,7 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_SUB1_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL)                           \
 	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL)                       \
+	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL)                       \
 	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,
