@@ -7,7 +7,7 @@
 		seninf_csi_port_0: seninf_csi_port_0 {
 			compatible = "mediatek,seninf";
 			csi-port = "0";
-			seninf_dphy_settle_delay_dt = <17>;
+			dphy_settle_delay_dt = <17>;
 #if 0
 			nvmem-cells = <&csi_efuse0>;
 			nvmem-cell-names = "rg_csi";
@@ -22,6 +22,7 @@
 		seninf_csi_port_1: seninf_csi_port_1 {
 			compatible = "mediatek,seninf";
 			csi-port = "1";
+			hs_trail_parameter = <0x20>;
 #if 0
 			nvmem-cells = <&csi_efuse1>;
 			nvmem-cell-names = "rg_csi";
@@ -36,6 +37,7 @@
 		seninf_csi_port_2: seninf_csi_port_2 {
 			compatible = "mediatek,seninf";
 			csi-port = "2";
+			hs_trail_parameter = <0x20>;
 #if 0
 			nvmem-cells = <&csi_efuse2>;
 			nvmem-cell-names = "rg_csi";
