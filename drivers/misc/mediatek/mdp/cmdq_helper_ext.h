@@ -968,7 +968,7 @@ s32 cmdq_pkt_flush_async_ex(struct cmdqRecStruct *handle,
 s32 cmdq_pkt_stop(struct cmdqRecStruct *handle);
 
 /* mailbox helper functions */
-
+struct device *cmdq_mbox_dev_get(void);
 s32 cmdq_helper_mbox_register(struct device *dev);
 struct cmdq_client *cmdq_helper_mbox_client(u32 idx);
 struct cmdq_base *cmdq_helper_mbox_base(void);

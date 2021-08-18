@@ -70,6 +70,10 @@ static BLOCKING_NOTIFIER_HEAD(cmdq_status_dump_notifier);
 
 static struct cmdq_client *cmdq_entry;
 static struct cmdq_base *cmdq_client_base;
+
+/* cmdq mbox device */
+struct device *mbox_dev;
+
 static atomic_t cmdq_thread_usage;
 static atomic_t cmdq_thread_usage_clk;
 static wait_queue_head_t *cmdq_wait_queue; /* task done notify */
@@ -4385,6 +4389,16 @@ s32 cmdq_pkt_stop(struct cmdqRecStruct *handle)
 
 /* mailbox helper functions */
 
+
+struct device *cmdq_mbox_dev_get(void)
+{
+	if (mbox_dev)
+		return mbox_dev;
+
+	CMDQ_ERR("mbox device not exist\n");
+	return NULL;
+}
+
 s32 cmdq_helper_mbox_register(struct device *dev)
 {
 	u32 i;
@@ -4394,7 +4408,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 
 	thread_cnt = of_count_phandle_with_args(
 		dev->of_node, "mboxes", "#mbox-cells");
-	CMDQ_LOG("thread count:%d\n", thread_cnt);
+	CMDQ_MSG("thread count:%d\n", thread_cnt);
 	if (thread_cnt <= 0)
 		thread_cnt = CMDQ_MAX_THREAD_COUNT;
 
@@ -4421,6 +4435,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 			cmdq_entry = clt;
 	}
 
+	mbox_dev = cmdq_clients[chan_id]->chan->mbox->dev;
 	cmdq_client_base = cmdq_register_device(dev);
 
 	/* for mm like mdp set large pool count */
@@ -4533,7 +4548,7 @@ void cmdq_core_initialize(void)
 
 	cmdq_ctx.enableProfile = 1 << CMDQ_PROFILE_EXEC;
 
-	mdp_rb_pool = dma_pool_create("mdp_rb", cmdq_dev_get(),
+	mdp_rb_pool = dma_pool_create("mdp_rb", cmdq_mbox_dev_get(),
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
 	atomic_set(&mdp_rb_pool_cnt, 0);
 

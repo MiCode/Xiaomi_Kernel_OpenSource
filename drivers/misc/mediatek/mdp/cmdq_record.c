@@ -487,7 +487,7 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 		if (last_buf) {
 			va = (u32 *)(last_buf->va_base + CMDQ_CMD_BUFFER_SIZE -
 				CMDQ_INST_SIZE);
-			va[0] = CMDQ_REG_SHIFT_ADDR(new_buf->pa_base);
+			va[0] = CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(new_buf));
 		}
 		last_buf = new_buf;
 	}
@@ -1142,7 +1142,7 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 
 	/* assign cmdq dev to pkt which may use in dma alloc */
 	if (!handle->pkt->dev)
-		handle->pkt->dev = cmdq_dev_get();
+		handle->pkt->dev = cmdq_mbox_dev_get();
 
 	/* assign handle to pkt */
 	handle->pkt->user_data = (void *)handle;

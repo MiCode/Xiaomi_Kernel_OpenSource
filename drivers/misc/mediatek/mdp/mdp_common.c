@@ -1634,7 +1634,7 @@ static void cmdq_mdp_pool_create(void)
 		return;
 	}
 
-	mdp_pool.pool = dma_pool_create("mdp", cmdq_dev_get(),
+	mdp_pool.pool = dma_pool_create("mdp", cmdq_mbox_dev_get(),
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
 	atomic_set(mdp_pool.cnt, 0);
 }
