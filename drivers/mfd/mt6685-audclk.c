@@ -11,7 +11,6 @@
 #include <linux/regmap.h>
 #include <linux/mfd/mt6685-audclk.h>
 
-
 /* PMIC EFUSE registers definition */
 #define MT6685_DCXO_EXTBUF5_CW0	0x79e
 /* offset mask of OTP_CON0 */
@@ -37,26 +36,13 @@ struct mt6685_clk {
 struct mt6685_clk *clk;
 void mt6685_set_dcxo(bool enable)
 {
-	unsigned int value;
-
 	if (enable) {
-		regmap_read(clk->regmap, MT6685_DCXO_EXTBUF5_CW0, &value);
-		dev_info(clk->dev, "%s() MT6685_DCXO_EXTBUF5_CW0 = 0x%x",
-			 __func__, value);
-
-		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
-				XO_BBCK5_EN_M_MSK_SFT,	0x1 << XO_BBCK5_MODE_SFT);
 		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
 				XO_BBCK5_EN_M_MSK_SFT,	0x1 << XO_BBCK5_EN_M_SFT);
-
-	    regmap_read(clk->regmap, MT6685_DCXO_EXTBUF5_CW0, &value);
-		dev_info(clk->dev, "%s() MT6685_DCXO_EXTBUF5_CW0 = 0x%x",
-			 __func__, value);
+		usleep_range(400, 420);
 	} else {
 		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
-				XO_BBCK5_EN_M_MSK_SFT,	0x1 << XO_BBCK5_MODE_SFT);
-		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
-				XO_BBCK5_EN_M_MSK_SFT,	0x1 << XO_BBCK5_EN_M_SFT);
+				XO_BBCK5_EN_M_MSK_SFT,	0x0 << XO_BBCK5_EN_M_SFT);
 	}
 }
 EXPORT_SYMBOL(mt6685_set_dcxo);
