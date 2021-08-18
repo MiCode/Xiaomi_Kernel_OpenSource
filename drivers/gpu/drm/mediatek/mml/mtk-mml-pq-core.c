@@ -432,7 +432,7 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 		goto wake_up_prev_tile_init_task;
 	}
 
-	result = kmalloc(sizeof(result), GFP_KERNEL);
+	result = kmalloc(sizeof(*result), GFP_KERNEL);
 	if (unlikely(!result)) {
 		mml_pq_err("err: create result failed");
 		goto wake_up_prev_tile_init_task;
@@ -653,7 +653,7 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto wake_up_prev_comp_config_task;
 	}
 
-	result = kmalloc(sizeof(result), GFP_KERNEL);
+	result = kmalloc(sizeof(*result), GFP_KERNEL);
 	if (unlikely(!result)) {
 		mml_pq_err("err: create result failed");
 		goto wake_up_prev_comp_config_task;
