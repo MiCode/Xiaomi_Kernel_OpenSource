@@ -9217,7 +9217,7 @@
 		interrupts = <GIC_SPI 791 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
-	btif@1100c000 {
+	btif: btif@1100c000 {
 		compatible = "mediatek,btif";
 		reg = <0 0x1100c000 0 0x100>, /*btif base*/
 			<0 0x11301400 0 0x80>,/*btif tx dma base*/
@@ -11971,7 +11971,8 @@
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
 
-		irq-remain = <&edge_keypad>;
+		irq-remain = <&edge_keypad>,
+				<&level_btif_tx &level_btif_rx &level_bt>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -12004,6 +12005,18 @@
 			edge_keypad: edge_keypad {
 				target = <&keypad>;
 				value = <1 0 0 0x04>;
+			};
+			level_bt: level_bt {
+				target = <&bt>;
+				value = <0 0 0 0>;
+			};
+			level_btif_tx: level_btif_tx {
+				target = <&btif>;
+				value = <0 1 0 0>;
+			};
+			level_btif_rx: level_btif_rx {
+				target = <&btif>;
+				value = <0 2 0 0>;
 			};
 		};
 		resource-ctrl-list {
