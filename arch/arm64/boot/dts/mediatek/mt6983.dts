@@ -11645,7 +11645,7 @@
 		};
 	};
 
-	ispdvfs {
+	ispdvfs: ispdvfs {
 		compatible = "mediatek,ispdvfs";
 		mediatek,ccu_rproc = <&ccu_rproc>;
 		mediatek,support_micro_processor = <1>;
