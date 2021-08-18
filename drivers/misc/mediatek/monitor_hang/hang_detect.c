@@ -1403,7 +1403,7 @@ static int __init monitor_hang_init(void)
 	hang_detect_init();
 
 #ifdef CONFIG_MTK_HANG_PROC
-	pe = proc_create("monitor_hang", 0664, NULL, &monitor_hang_fops);
+	pe = proc_create("monitor_hang", 0660, NULL, &monitor_hang_fops);
 	if (!pe)
 		return -ENOMEM;
 #endif
