@@ -445,6 +445,8 @@ int mtk_afe_fe_prepare(struct snd_pcm_substream *substream,
 	 */
 	if (substream->runtime->stop_threshold == ~(0U))
 		substream->runtime->stop_threshold = ULONG_MAX;
+	if (substream->runtime->stop_threshold == S32_MAX)
+		substream->runtime->stop_threshold = LONG_MAX;
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_PREPARE,
