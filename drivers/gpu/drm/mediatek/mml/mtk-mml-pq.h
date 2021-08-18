@@ -69,6 +69,10 @@ struct mml_pq_comp_config_result {
 	struct mml_pq_reg *aal_regs;
 	u32 *aal_curve;
 	bool is_aal_need_readback;
+	u32 ds_reg_cnt;
+	struct mml_pq_reg *ds_regs;
+	u32 color_reg_cnt;
+	struct mml_pq_reg *color_regs;
 };
 
 struct mml_pq_comp_config_job {
