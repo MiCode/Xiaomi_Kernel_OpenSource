@@ -7,6 +7,7 @@
 #include <linux/notifier.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <aee.h>
 #include <mtk_ccci_common.h>
@@ -197,6 +198,121 @@ static int register_oc_notifier(struct platform_device *pdev,
 	return 0;
 }
 
+struct vio18_ctrl_t {
+	struct regmap *main_regmap;
+	struct regmap *second_regmap;
+	unsigned int main_switch;
+	unsigned int second_switch;
+};
+
+static irqreturn_t lvsys_f_irq_handler(int irq, void *data)
+{
+	int ret;
+	struct vio18_ctrl_t *vio18_ctrl = (struct vio18_ctrl_t *)data;
+
+	ret = regmap_write(vio18_ctrl->main_regmap, vio18_ctrl->main_switch, 0);
+	if (ret)
+		pr_notice("Failed to set main vio18_switch, ret=%d\n", ret);
+
+	ret = regmap_write(vio18_ctrl->second_regmap, vio18_ctrl->second_switch, 0);
+	if (ret)
+		pr_notice("Failed to set second vio18_switch, ret=%d\n", ret);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t lvsys_r_irq_handler(int irq, void *data)
+{
+	int ret;
+	struct vio18_ctrl_t *vio18_ctrl = (struct vio18_ctrl_t *)data;
+
+	ret = regmap_write(vio18_ctrl->main_regmap, vio18_ctrl->main_switch, 1);
+	if (ret)
+		pr_notice("Failed to set main vio18_switch, ret=%d\n", ret);
+
+	ret = regmap_write(vio18_ctrl->second_regmap, vio18_ctrl->second_switch, 1);
+	if (ret)
+		pr_notice("Failed to set second vio18_switch, ret=%d\n", ret);
+
+	return IRQ_HANDLED;
+}
+
+static struct regmap *vio18_switch_get_regmap(const char *name)
+{
+	struct device_node *np;
+	struct platform_device *pdev;
+
+	np = of_find_node_by_name(NULL, name);
+	if (!np)
+		return NULL;
+
+	pdev = of_find_device_by_node(np->child);
+	if (!pdev)
+		return NULL;
+
+	return dev_get_regmap(pdev->dev.parent, NULL);
+}
+
+static int vio18_switch(struct platform_device *pdev, struct oc_debug_info *info)
+{
+	int ret;
+	int irq_f, irq_r;
+	struct vio18_ctrl_t *vio18_ctrl;
+
+	vio18_ctrl = devm_kzalloc(&pdev->dev, sizeof(*vio18_ctrl), GFP_KERNEL);
+	if (!vio18_ctrl)
+		return -ENOMEM;
+
+	vio18_ctrl->main_switch = 0x53;
+	vio18_ctrl->main_regmap = vio18_switch_get_regmap("pmic");
+	if (!vio18_ctrl->main_regmap)
+		return -EINVAL;
+
+	if (info == &mt6983_debug_info) {
+		vio18_ctrl->second_switch = 0x58;
+		vio18_ctrl->second_regmap = vio18_switch_get_regmap("second_pmic");
+		if (!vio18_ctrl->second_regmap)
+			return -EINVAL;
+	}
+
+	irq_f = platform_get_irq_byname_optional(pdev, "LVSYS_F");
+	if (irq_f < 0)
+		return irq_f;
+	irq_r = platform_get_irq_byname_optional(pdev, "LVSYS_R");
+	if (irq_r < 0)
+		return irq_r;
+
+	ret = devm_request_threaded_irq(&pdev->dev, irq_f, NULL,
+					lvsys_f_irq_handler, IRQF_ONESHOT,
+					"vio18_switch", vio18_ctrl);
+	if (ret < 0)
+		return ret;
+	ret = devm_request_threaded_irq(&pdev->dev, irq_r, NULL,
+					lvsys_r_irq_handler, IRQF_ONESHOT,
+					"vio18_switch", vio18_ctrl);
+	if (ret < 0)
+		return ret;
+
+	/* RG_LVSYS_INT_VTHL = 0x9 (3.4V) */
+	ret = regmap_write(vio18_ctrl->main_regmap, 0xA8B, 0x9);
+	if (ret) {
+		dev_notice(&pdev->dev, "Failed to set LVSYS_INT_VTHL, ret=%d\n", ret);
+		return ret;
+	}
+	/* RG_LVSYS_INT_VTHH = 0x9 (3.5V) */
+	ret = regmap_write(vio18_ctrl->main_regmap, 0xA8C, 0x9);
+	if (ret) {
+		dev_notice(&pdev->dev, "Failed to set LVSYS_INT_VTHH, ret=%d\n", ret);
+		return ret;
+	}
+	/* RG_LVSYS_INT_EN = 0x1 */
+	ret = regmap_update_bits(vio18_ctrl->main_regmap, 0xA18, 1, 1);
+	if (ret)
+		dev_notice(&pdev->dev, "Failed to enable LVSYS_INT, ret=%d\n", ret);
+
+	return ret;
+}
+
 static int pmic_oc_debug_probe(struct platform_device *pdev)
 {
 	struct oc_debug_info *info;
@@ -206,6 +322,8 @@ static int pmic_oc_debug_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "this chip no need to enable OC debug\n");
 		return 0;
 	}
+	if (vio18_switch(pdev, info) != 0)
+		dev_info(&pdev->dev, "vio18_switch init failed\n");
 	return register_oc_notifier(pdev, info->oc_debug, info->oc_debug_num);
 }
 
