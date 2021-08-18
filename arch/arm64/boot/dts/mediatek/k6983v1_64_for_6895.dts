@@ -75,7 +75,9 @@
 			<&wlan7207h &wlan7205c>,	/* [5]ePA/eLNA - Closed-Loop + BT Bypass */
 			<&wlan7207h &wlan7205c>;	/* [6]ePA/eLNA - Open Loop + BT Bypass */
 
-		hwid = <&pio 203 0x00>;
+		hwid {
+			gpio = <&pio 203 0x0>;
+		};
 
 		wifi {
 			flags-1 {
