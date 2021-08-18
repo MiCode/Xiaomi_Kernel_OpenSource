@@ -5892,8 +5892,10 @@
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_DIS0>,
 				<&scpsys MT6983_POWER_DOMAIN_DIS1>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>,
-			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>;
-		clock-num = <2>;
+			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>,
+			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_APB_BUS>,
+			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_APB_BUS>;
+		clock-num = <4>;
 		operating-points-v2 = <&opp_table_disp0>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
