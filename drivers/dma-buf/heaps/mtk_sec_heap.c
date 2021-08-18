@@ -1206,7 +1206,7 @@ static int sec_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 	return 0;
 }
 
-static const struct mtk_heap_priv_info mtk_sec_heap_priv = {
+static struct mtk_heap_priv_info mtk_sec_heap_priv = {
 	.buf_priv_dump = sec_heap_buf_priv_dump,
 };
 
