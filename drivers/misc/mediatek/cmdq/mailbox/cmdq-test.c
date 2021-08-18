@@ -1060,6 +1060,55 @@ static void cmdq_test_mbox_prebuilt(struct cmdq_test *test, const u16 mod,
 		__func__, event, cpu[0], cpu[1], pa, val, ans);
 }
 
+static void cmdq_test_mbox_tzmp(struct cmdq_test *test, const s32 secure,
+	const bool timeout)
+{
+	unsigned long	va = (unsigned long)
+		CMDQ_GPR_R32(test->gce.va, CMDQ_GPR_DEBUG_DUMMY);
+	unsigned long	pa =
+		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+	const u32	ans = 0xbeafdead, event = 678;
+	struct cmdq_client	*clt = test->clt, *sec = test->sec;
+	struct cmdq_pkt		*pkt, *pkt2;
+	s32			val;
+
+	if (clk_prepare_enable(test->gce.clk)) {
+		cmdq_err("clk fail");
+		return;
+	}
+
+	writel(0x12345678, (void *)va);
+
+	/* trigger secure loop */
+	pkt2 = cmdq_pkt_create(sec);
+#ifdef CMDQ_SECURE_SUPPORT
+	if (secure) {
+		cmdq_sec_pkt_set_data(pkt2, 0, 0, CMDQ_SEC_DEBUG,
+			CMDQ_METAEX_TZMP);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		if (!~secure)
+			cmdq_sec_pkt_set_mtee(pkt2, true);
+#endif
+	}
+#endif
+	cmdq_pkt_finalize_loop(pkt2);
+	cmdq_pkt_flush_threaded(pkt2, cmdq_test_mbox_cb_destroy, (void *)pkt2);
+
+	/* trigger normal */
+	pkt = cmdq_pkt_create(clt);
+	cmdq_pkt_write(pkt, NULL, pa, ans, UINT_MAX);
+	if (!timeout)
+		cmdq_pkt_set_event(pkt, event);
+	cmdq_pkt_wfe(pkt, event + 1);
+	cmdq_pkt_flush(pkt);
+
+	val = readl((void *)va);
+	cmdq_msg("%s: val:%#x ans:%#x", __func__, val, ans);
+	cmdq_pkt_dump_buf(pkt, 0);
+	cmdq_pkt_destroy(pkt);
+	clk_disable_unprepare(test->gce.clk);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
@@ -1152,6 +1201,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 0, false);
 		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 1, false);
 		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 1, true);
+		break;
+	case 20:
+		cmdq_test_mbox_tzmp(test, sec, false);
 		break;
 	default:
 		break;

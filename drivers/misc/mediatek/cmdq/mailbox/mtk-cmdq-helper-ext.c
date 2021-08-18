@@ -16,9 +16,9 @@
 #include "cmdq-util.h"
 struct cmdq_util_helper_fp *cmdq_util_helper;
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 #include "cmdq-sec.h"
+struct cmdq_sec_helper_fp *cmdq_sec_helper;
 #endif
 
 #endif
@@ -613,9 +613,9 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	cmdq_sec_pkt_free_data(pkt);
+#ifdef CMDQ_SECURE_SUPPORT
+	if (pkt->sec_data)
+		cmdq_sec_helper->sec_pkt_free_data_fp(pkt);
 #endif
 #endif
 	kfree(pkt);
@@ -1418,8 +1418,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 		absolute = false;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data)
 		absolute = false;
 #endif
@@ -1701,10 +1700,9 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 	if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
 		cmdq_pkt_perf_end(pkt);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data) {
-		err = cmdq_sec_insert_backup_cookie(pkt);
+		err = cmdq_sec_helper->sec_insert_backup_cookie_fp(pkt);
 		if (err)
 			return err;
 	}
@@ -1942,13 +1940,13 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	cmdq_dump_core(client->chan);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	/* for secure path dump more detail */
 	if (pkt->sec_data) {
 		cmdq_util_msg("thd:%d Hidden thread info since it's secure",
 			thread_id);
-		cmdq_sec_err_dump(pkt, client, (u64 **)&inst, &mod);
+		cmdq_sec_helper->sec_err_dump_fp(
+			pkt, client, (u64 **)&inst, &mod);
 	} else {
 		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 	}
@@ -1986,8 +1984,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	cmdq_dump_pkt(pkt, pc, true);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (!pkt->sec_data)
 		cmdq_util_helper->dump_smi();
 #else
@@ -2021,8 +2018,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			"DISPATCH:%s(%s) unknown instruction thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 done:
 #endif
 
@@ -2179,10 +2175,9 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 	pkt->rec_wait = sched_clock();
 	cmdq_trace_begin("%s", __func__);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data)
-		cmdq_sec_pkt_wait_complete(pkt);
+		cmdq_sec_helper->sec_pkt_wait_complete_fp(pkt);
 	else
 		cmdq_pkt_wait_complete_loop(pkt);
 #else
@@ -2791,6 +2786,14 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util)
 	cmdq_util_helper = cust_cmdq_util;
 }
 EXPORT_SYMBOL(cmdq_helper_set_fp);
+
+#ifdef CMDQ_SECURE_SUPPORT
+void cmdq_sec_helper_set_fp(struct cmdq_sec_helper_fp *cust_cmdq_sec)
+{
+	cmdq_sec_helper = cust_cmdq_sec;
+}
+EXPORT_SYMBOL(cmdq_sec_helper_set_fp);
+#endif
 #endif
 
 int cmdq_helper_init(void)

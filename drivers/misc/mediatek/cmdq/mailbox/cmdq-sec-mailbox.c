@@ -169,6 +169,13 @@ static const s32 cmdq_max_task_in_secure_thread[
 static const s32 cmdq_tz_cmd_block_size[CMDQ_MAX_SECURE_THREAD_COUNT] = {
 	4 << 12, 4 << 12, 20 << 12, 4 << 12, 4 << 12};
 
+struct cmdq_sec_helper_fp helper_fp = {
+	.sec_insert_backup_cookie_fp = cmdq_sec_insert_backup_cookie,
+	.sec_pkt_wait_complete_fp = cmdq_sec_pkt_wait_complete,
+	.sec_pkt_free_data_fp = cmdq_sec_pkt_free_data,
+	.sec_err_dump_fp = cmdq_sec_err_dump,
+};
+
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	const u32 iwc_cmd, const u32 thrd_idx, void *data, bool mtee);
@@ -189,7 +196,7 @@ cmdq_sec_setup_tee_context_base(struct cmdq_sec_context *context)
 static inline s32
 cmdq_sec_init_context_base(struct cmdq_sec_context *context)
 {
-	s32 status;
+	s32 status = 0;
 
 #ifdef CMDQ_GP_SUPPORT
 	status = cmdq_sec_init_context(&context->tee);
@@ -360,7 +367,6 @@ static u32 cmdq_sec_get_cookie(struct cmdq_sec *cmdq, u32 idx)
 	return *(u32 *)(cmdq->shared_mem->va +
 		CMDQ_SEC_SHARED_THR_CNT_OFFSET + idx * sizeof(u32));
 }
-EXPORT_SYMBOL(cmdq_sec_get_cookie);
 
 s32 cmdq_sec_get_secure_thread_exec_counter(struct mbox_chan *chan)
 {
@@ -1582,7 +1588,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->clock = devm_clk_get(&pdev->dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
 		cmdq_err("gce devm_clk_get failed:%ld", PTR_ERR(cmdq->clock));
-		return PTR_ERR(cmdq->clock);
+		cmdq->clock = NULL;
 	}
 
 	cmdq->mbox.chans = devm_kcalloc(&pdev->dev, CMDQ_THR_MAX_COUNT,
@@ -1635,6 +1641,9 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 		cmdq, cmdq->hwid, cmdq->base, &cmdq->base_pa);
 
 	g_cmdq[g_cmdq_cnt++] = cmdq;
+#ifdef CMDQ_SECURE_SUPPORT
+	cmdq_sec_helper_set_fp(&helper_fp);
+#endif
 	return 0;
 }
 

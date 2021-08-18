@@ -11,6 +11,19 @@
 
 #include "cmdq-sec-iwc-common.h"
 
+typedef s32 (*sec_insert_backup_cookie)(struct cmdq_pkt *pkt);
+typedef int (*sec_pkt_wait_complete)(struct cmdq_pkt *pkt);
+typedef void (*sec_pkt_free_data)(struct cmdq_pkt *pkt);
+typedef void (*sec_err_dump)(struct cmdq_pkt *pkt,
+	struct cmdq_client *client, u64 **inst, const char **dispatch);
+struct cmdq_sec_helper_fp {
+	sec_insert_backup_cookie sec_insert_backup_cookie_fp;
+	sec_pkt_wait_complete sec_pkt_wait_complete_fp;
+	sec_pkt_free_data sec_pkt_free_data_fp;
+	sec_err_dump sec_err_dump_fp;
+};
+void cmdq_sec_helper_set_fp(struct cmdq_sec_helper_fp *cust_cmdq_sec);
+
 enum CMDQ_SEC_SCENARIO {
 	CMDQ_SEC_PRIMARY_DISP = 1,
 	CMDQ_SEC_SUB_DISP = 4,

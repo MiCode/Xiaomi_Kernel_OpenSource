@@ -290,6 +290,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	unsigned long ret;
 	u8 cnt = 0;
 	s32 thread_id = cmdq_sec_mbox_chan_id(client->chan);
+	u32 timeout_ms = cmdq_mbox_get_thread_timeout((void *)client->chan);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	cmdq_sec_mmp_wait(client->chan, pkt);
@@ -298,6 +299,12 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	cmdq_sec_mbox_enable(client->chan);
 
 	do {
+		if (timeout_ms == CMDQ_NO_TIMEOUT) {
+			cmdq_msg("%s: timeout:%u", __func__, timeout_ms);
+			wait_for_completion(&pkt->cmplt);
+			break;
+		}
+
 		ret = wait_for_completion_timeout(&pkt->cmplt,
 			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
 		if (ret)
