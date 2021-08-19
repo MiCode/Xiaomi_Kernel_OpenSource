@@ -266,6 +266,11 @@ int kgsl_add_va_to_minidump(struct device *dev, const char *name, void *ptr,
 static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 {
 	int ret;
+	char name[32];
+	struct kgsl_pagetable *pt;
+	struct adreno_context *ctxt;
+	struct kgsl_process_private *p;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	ret = kgsl_add_va_to_minidump(device->dev, KGSL_DRIVER,
 			(void *)(&kgsl_driver), sizeof(struct kgsl_driver));
@@ -279,6 +284,38 @@ static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 
 	ret = kgsl_add_va_to_minidump(device->dev, KGSL_MEMSTORE_ENTRY,
 			device->memstore->hostptr, device->memstore->size);
+	if (ret)
+		return ret;
+
+	spin_lock(&adreno_dev->active_list_lock);
+	list_for_each_entry(ctxt, &adreno_dev->active_list, active_node) {
+		snprintf(name, sizeof(name), "kgsl_adreno_ctx_%d", ctxt->base.id);
+		ret = kgsl_add_va_to_minidump(device->dev, name,
+				(void *)(ctxt), sizeof(struct adreno_context));
+		if (ret)
+			break;
+	}
+	spin_unlock(&adreno_dev->active_list_lock);
+
+	read_lock(&kgsl_driver.proclist_lock);
+	list_for_each_entry(p, &kgsl_driver.process_list, list) {
+		snprintf(name, sizeof(name), "kgsl_proc_priv_%d", pid_nr(p->pid));
+		ret = kgsl_add_va_to_minidump(device->dev, name,
+				(void *)(p), sizeof(struct kgsl_process_private));
+		if (ret)
+			break;
+	}
+	read_unlock(&kgsl_driver.proclist_lock);
+
+	spin_lock(&kgsl_driver.ptlock);
+	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
+		snprintf(name, sizeof(name), "kgsl_pgtable_%d", pt->name);
+		ret = kgsl_add_va_to_minidump(device->dev, name,
+				(void *)(pt), sizeof(struct kgsl_pagetable));
+		if (ret)
+			break;
+	}
+	spin_unlock(&kgsl_driver.ptlock);
 
 	return ret;
 }
