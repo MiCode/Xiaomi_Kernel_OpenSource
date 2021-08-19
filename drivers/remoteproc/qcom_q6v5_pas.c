@@ -958,6 +958,7 @@ static const struct adsp_data waipio_mpss_resource = {
 	.pas_id = 4,
 	.free_after_auth_reset = true,
 	.minidump_id = 3,
+	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
 	.ssr_name = "mpss",
