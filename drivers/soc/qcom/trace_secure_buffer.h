@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -59,29 +59,29 @@ TRACE_EVENT(hyp_assign_batch_start,
 	TP_STRUCT__entry(
 		__field(int, info_nelems)
 		__field(u64, batch_size)
-		__dynamic_array(phys_addr_t, addrs, info_nelems)
+		__dynamic_array(u64, addrs, info_nelems)
 		__dynamic_array(u64, sizes, info_nelems)
 	),
 
 	TP_fast_assign(
 		unsigned int i;
-		phys_addr_t *addr_arr_ptr = __get_dynamic_array(addrs);
+		u64 *addr_arr_ptr = __get_dynamic_array(addrs);
 		u64 *sizes_arr_ptr = __get_dynamic_array(sizes);
 
 		__entry->info_nelems = info_nelems;
 		__entry->batch_size = 0;
 
 		for (i = 0; i < info_nelems; i++) {
-			addr_arr_ptr[i] = info[i].mem_addr;
-			sizes_arr_ptr[i] = info[i].mem_size;
-			__entry->batch_size += info[i].mem_size;
+			addr_arr_ptr[i] = le64_to_cpu(info[i].mem_addr);
+			sizes_arr_ptr[i] = le64_to_cpu(info[i].mem_size);
+			__entry->batch_size += le64_to_cpu(info[i].mem_size);
 		}
 	),
 
 	TP_printk("num entries: %d batch size: %llu phys addrs: %s sizes: %s",
 		  __entry->info_nelems, __entry->batch_size,
 		  __print_array(__get_dynamic_array(addrs),
-				__entry->info_nelems, sizeof(phys_addr_t)),
+				__entry->info_nelems, sizeof(u64)),
 		  __print_array(__get_dynamic_array(sizes),
 				__entry->info_nelems, sizeof(u64))
 	)
