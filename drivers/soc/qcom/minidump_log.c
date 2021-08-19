@@ -1242,7 +1242,7 @@ static void register_pstore_info(void)
 	struct md_region md_entry;
 
 	node = of_find_compatible_node(NULL, NULL, "ramoops");
-	if (IS_ERR(node)) {
+	if (IS_ERR_OR_NULL(node)) {
 		pr_err("Failed to get pstore node\n");
 		return;
 	}
