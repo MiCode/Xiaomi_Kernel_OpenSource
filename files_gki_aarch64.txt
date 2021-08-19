@@ -1464,6 +1464,7 @@ drivers/scsi/ufs/ufshci-dwc.h
 drivers/scsi/ufs/ufshci.h
 drivers/scsi/ufs/ufs-hisi.c
 drivers/scsi/ufs/ufs-hisi.h
+drivers/scsi/ufs/ufshpb.c
 drivers/scsi/ufs/ufshpb.h
 drivers/scsi/ufs/ufs_quirks.h
 drivers/scsi/ufs/ufs-sysfs.c
@@ -3683,6 +3684,7 @@ include/net/netprio_cgroup.h
 include/net/net_ratelimit.h
 include/net/netrom.h
 include/net/nexthop.h
+include/net/nfc/nfc.h
 include/net/nl802154.h
 include/net/p8022.h
 include/net/page_pool.h
@@ -4247,6 +4249,7 @@ include/uapi/linux/net_namespace.h
 include/uapi/linux/netrom.h
 include/uapi/linux/net_tstamp.h
 include/uapi/linux/nexthop.h
+include/uapi/linux/nfc.h
 include/uapi/linux/nfs2.h
 include/uapi/linux/nfs3.h
 include/uapi/linux/nfs4.h
@@ -5525,6 +5528,15 @@ net/netlink/af_netlink.c
 net/netlink/af_netlink.h
 net/netlink/genetlink.c
 net/netlink/policy.c
+net/nfc/af_nfc.c
+net/nfc/core.c
+net/nfc/llcp_commands.c
+net/nfc/llcp_core.c
+net/nfc/llcp.h
+net/nfc/llcp_sock.c
+net/nfc/netlink.c
+net/nfc/nfc.h
+net/nfc/rawsock.c
 net/packet/af_packet.c
 net/packet/internal.h
 net/rfkill/core.c
