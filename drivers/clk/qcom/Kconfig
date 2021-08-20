@@ -640,4 +640,49 @@ config SM_DEBUGCC_KALAMA
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
 
+config MSM_GCC_WAIPIO
+          tristate "WAIPIO Global Clock Controller"
+	  depends on COMMON_CLK_QCOM
+	  help
+	    Support for the global clock controller on Qualcomm Technologies, Inc
+	    WAIPIO devices.
+	    Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	    USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_VIDEOCC_WAIPIO
+	tristate "WAIPIO Video Clock Controller"
+	select MSM_GCC_WAIPIO
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  WAIPIO devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config MSM_GPUCC_WAIPIO
+	tristate "Waipio Graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  WAIPIO devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config MSM_DISPCC_WAIPIO
+	tristate "WAIPIO Display Clock Controller"
+	select MSM_GCC_WAIPIO
+	help
+	Support for the display clock controller on Qualcomm Technologies, Inc
+	Waipio devices.
+	Say Y if you want to support display devices and functionality such as
+	splash screen.
+
+config MSM_DEBUGCC_WAIPIO
+	tristate "WAIPIO Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  Waipio devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
