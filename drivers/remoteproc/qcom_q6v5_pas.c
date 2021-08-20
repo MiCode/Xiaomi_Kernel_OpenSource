@@ -226,6 +226,34 @@ static void scm_pas_disable_bw(void)
 	mutex_unlock(&scm_pas_bw_mutex);
 }
 
+static void adsp_recalibrate_phys_addrs(struct qcom_adsp *adsp, const struct firmware *fw)
+{
+	struct rproc *rproc = adsp->rproc;
+	struct rproc_dump_segment *entry;
+	struct elf32_hdr *ehdr = (struct elf32_hdr *)fw->data;
+	struct elf32_phdr *phdr, *phdrs = (struct elf32_phdr *)(fw->data + ehdr->e_phoff);
+	uint32_t elf_min_addr = U32_MAX;
+	bool relocatable = false;
+	int i;
+
+	for (i = 0; i < ehdr->e_phnum; i++) {
+		phdr = &phdrs[i];
+		if (phdr->p_type != PT_LOAD)
+			continue;
+
+		if (phdr->p_flags & QCOM_MDT_RELOCATABLE)
+			relocatable = true;
+
+		elf_min_addr = min(phdr->p_paddr, elf_min_addr);
+	}
+
+	list_for_each_entry(entry, &rproc->dump_segments, node)
+		entry->da = adsp->mem_phys + entry->da - elf_min_addr;
+
+	if (relocatable)
+		adsp->mem_reloc = adsp->mem_phys + adsp->mem_reloc - elf_min_addr;
+}
+
 static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
@@ -240,6 +268,8 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 		return ret;
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
+
+	adsp_recalibrate_phys_addrs(adsp, fw);
 
 	return 0;
 }
