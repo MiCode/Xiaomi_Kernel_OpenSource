@@ -1,4 +1,4 @@
-	#include <dt-bindings/clock/qcom,camcc-diwali.h>
+#include <dt-bindings/clock/qcom,camcc-diwali.h>
 #include <dt-bindings/clock/qcom,dispcc-diwali.h>
 #include <dt-bindings/clock/qcom,gcc-diwali.h>
 #include <dt-bindings/clock/qcom,gpucc-diwali.h>
@@ -20,7 +20,9 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
-	chosen: chosen { };
+	chosen: chosen {
+		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none";
+	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
@@ -739,6 +741,10 @@
 		compatible = "qcom,cpu-vendor-hooks";
 	};
 
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
+	};
+
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";
@@ -1042,6 +1048,9 @@
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		reg-names = "cx", "mx";
 
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "crypto_ddr";
+
 		qcom,qmp = <&aoss_qmp>;
 		memory-region = <&adsp_mem>;
 
@@ -1096,6 +1105,10 @@
 		mx-supply = <&VDD_MXA_LEVEL>;
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx","mx";
+
+		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>,
+				<&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "rproc_ddr", "crypto_ddr";
 
 		qcom,qmp = <&aoss_qmp>;
 		memory-region = <&cdsp_mem>;
@@ -1153,6 +1166,9 @@
 		mx-supply = <&VDD_MODEM_LEVEL>;
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx", "mx";
+
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "crypto_ddr";
 
 		qcom,qmp = <&aoss_qmp>;
 		memory-region = <&mpss_mem>;
