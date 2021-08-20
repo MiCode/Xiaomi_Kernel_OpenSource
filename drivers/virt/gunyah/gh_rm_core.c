@@ -355,6 +355,8 @@ struct gh_rm_connection *gh_rm_process_notif(void *recv_buff, size_t recv_buff_s
 	 * fragments to follow.
 	 */
 	validate_work = kzalloc(sizeof(*validate_work), GFP_KERNEL);
+	if (validate_work == NULL)
+		return ERR_PTR(-ENOMEM);
 	validate_work->recv_buff = recv_buff;
 	validate_work->recv_buff_size = recv_buff_size;
 	validate_work->payload = payload;
@@ -468,6 +470,8 @@ static int gh_rm_process_cont(struct gh_rm_connection *connection,
 		case GH_RM_RPC_TYPE_NOTIF:
 			validate_work = kzalloc(sizeof(*validate_work),
 						GFP_KERNEL);
+			if (validate_work == NULL)
+				return -ENOMEM;
 			validate_work->recv_buff = recv_buff;
 			validate_work->recv_buff_size =
 					connection->recv_buff_size;
