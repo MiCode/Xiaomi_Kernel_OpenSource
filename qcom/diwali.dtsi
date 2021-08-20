@@ -1,4 +1,4 @@
-	#include <dt-bindings/clock/qcom,camcc-diwali.h>
+#include <dt-bindings/clock/qcom,camcc-diwali.h>
 #include <dt-bindings/clock/qcom,dispcc-diwali.h>
 #include <dt-bindings/clock/qcom,gcc-diwali.h>
 #include <dt-bindings/clock/qcom,gpucc-diwali.h>
@@ -1313,6 +1313,7 @@
 
 #include "diwali-qupv3.dtsi"
 #include "diwali-debug.dtsi"
+#include "diwali-coresight.dtsi"
 #include "diwali-pinctrl.dtsi"
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
