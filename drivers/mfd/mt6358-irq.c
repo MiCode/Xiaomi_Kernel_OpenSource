@@ -5,8 +5,8 @@
 #include <linux/interrupt.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6358/registers.h>
-#include <linux/mfd/mt6359p/core.h>
-#include <linux/mfd/mt6359p/registers.h>
+#include <linux/mfd/mt6359/core.h>
+#include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -14,7 +14,6 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
-#include <linux/wakeup_reason.h>
 
 #define MTK_PMIC_REG_WIDTH 16
 
@@ -29,15 +28,15 @@ static const struct irq_top_t mt6358_ints[] = {
 	MT6358_TOP_GEN(MISC),
 };
 
-static struct irq_top_t mt6359p_ints[] = {
-	MT6359P_TOP_GEN(BUCK),
-	MT6359P_TOP_GEN(LDO),
-	MT6359P_TOP_GEN(PSC),
-	MT6359P_TOP_GEN(SCK),
-	MT6359P_TOP_GEN(BM),
-	MT6359P_TOP_GEN(HK),
-	MT6359P_TOP_GEN(AUD),
-	MT6359P_TOP_GEN(MISC),
+static const struct irq_top_t mt6359_ints[] = {
+	MT6359_TOP_GEN(BUCK),
+	MT6359_TOP_GEN(LDO),
+	MT6359_TOP_GEN(PSC),
+	MT6359_TOP_GEN(SCK),
+	MT6359_TOP_GEN(BM),
+	MT6359_TOP_GEN(HK),
+	MT6359_TOP_GEN(AUD),
+	MT6359_TOP_GEN(MISC),
 };
 
 static struct pmic_irq_data mt6358_irqd = {
@@ -47,11 +46,11 @@ static struct pmic_irq_data mt6358_irqd = {
 	.pmic_ints = mt6358_ints,
 };
 
-static struct pmic_irq_data mt6359p_irqd = {
-	.num_top = ARRAY_SIZE(mt6359p_ints),
-	.num_pmic_irqs = MT6359P_IRQ_NR,
-	.top_int_status_reg = MT6359P_TOP_INT_STATUS0,
-	.pmic_ints = mt6359p_ints,
+static struct pmic_irq_data mt6359_irqd = {
+	.num_top = ARRAY_SIZE(mt6359_ints),
+	.num_pmic_irqs = MT6359_IRQ_NR,
+	.top_int_status_reg = MT6359_TOP_INT_STATUS0,
+	.pmic_ints = mt6359_ints,
 };
 
 static void pmic_irq_enable(struct irq_data *data)
@@ -149,15 +148,8 @@ static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 				MTK_PMIC_REG_WIDTH * i + j;
 
 			virq = irq_find_mapping(chip->irq_domain, hwirq);
-
-			log_threaded_irq_wakeup_reason(virq, chip->irq);
-
 			if (virq)
 				handle_nested_irq(virq);
-			dev_info(chip->dev,
-				"Reg[0x%x]=0x%x,hwirq=%d,type=%d\n",
-				sta_reg, irq_status, hwirq,
-				irq_get_trigger_type(virq));
 
 			status &= ~BIT(j);
 		} while (status);
@@ -223,8 +215,8 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 		chip->irq_data = &mt6358_irqd;
 		break;
 
-	case MT6359P_CHIP_ID:
-		chip->irq_data = &mt6359p_irqd;
+	case MT6359_CHIP_ID:
+		chip->irq_data = &mt6359_irqd;
 		break;
 
 	default:

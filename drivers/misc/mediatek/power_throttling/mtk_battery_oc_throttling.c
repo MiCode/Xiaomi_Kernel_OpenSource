@@ -180,7 +180,7 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 
 	/* Get DEFAULT_RFG/UNIT_FGCURRENT from pre-defined MACRO */
 	switch (pmic->chip_id) {
-	case MT6359P_CHIP_ID:
+	case MT6359_CHIP_ID:
 		priv->default_rfg = MT6359P_DEFAULT_RFG;
 		priv->unit_fg_cur = MT6359P_UNIT_FGCURRENT;
 		break;
