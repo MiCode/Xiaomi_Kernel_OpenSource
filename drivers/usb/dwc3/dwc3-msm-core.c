@@ -5361,6 +5361,8 @@ static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
 static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	int timeout = 10;
+	int ret;
 
 	pm_runtime_get_sync(mdwc->dev);
 	dbg_event(0xFF, "StrtGdgt gsync",
@@ -5429,11 +5431,24 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 		dwc3_override_vbus_status(mdwc, false);
-
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 				DWC3_GUSB3PIPECTL_SUSPHY, 0);
 
-		pm_runtime_put(&mdwc->dwc3->dev);
+		/*
+		 * DWC3 core runtime PM may return an error during the put sync
+		 * and nothing else can trigger idle after this point.  If EBUSY
+		 * is detected (i.e. dwc->connected == TRUE) then wait for the
+		 * connected flag to turn FALSE (set to false during disconnect
+		 * or pullup disable), and retry suspend again.
+		 */
+		ret = pm_runtime_put_sync(&mdwc->dwc3->dev);
+		if (ret == -EBUSY) {
+			while (--timeout && dwc->connected)
+				msleep(20);
+			dbg_event(0xFF, "StopGdgt connected", dwc->connected);
+			pm_runtime_suspend(&mdwc->dwc3->dev);
+		}
+
 		/* wait for LPM, to ensure h/w is reset after stop_peripheral */
 		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
 	}
