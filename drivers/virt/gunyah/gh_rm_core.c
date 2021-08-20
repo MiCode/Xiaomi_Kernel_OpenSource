@@ -971,7 +971,7 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 	struct gh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	gh_label_t label;
 	u32 n_res, i;
-	int ret = 0, irq;
+	int ret = 0, irq = -1;
 
 	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
@@ -1018,7 +1018,9 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 		if (ret < 0)
 			goto out;
 
-		gh_rm_put_irq(&res_entries[i], irq);
+		if (irq >= 0)
+			gh_rm_put_irq(&res_entries[i], irq);
+
 	}
 
 out:
