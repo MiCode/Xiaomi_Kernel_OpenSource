@@ -681,8 +681,15 @@
 	};
 
 	dispcc: clock-controller@af00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+		compatible = "qcom,diwali-dispcc", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-name = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&rpmhcc RPMH_CXO_CLK_A>,
+			<&sleep_clk>,
+			<&gcc GCC_DISP_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk", "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1970,10 +1977,16 @@
 };
 
 &disp_cc_mdss_core_gdsc {
+	clocks = <&gcc GCC_DISP_AHB_CLK>;
+	clock-names = "ahb_clk";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &disp_cc_mdss_core_int2_gdsc {
+	clocks = <&gcc GCC_DISP_AHB_CLK>;
+	clock-names = "ahb_clk";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 

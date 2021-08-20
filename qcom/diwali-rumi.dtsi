@@ -193,3 +193,10 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "rpmhcc_clocks";
 };
+
+&dispcc {
+	clocks = <&bi_tcxo>,
+		<&bi_tcxo_ao>,
+		<&sleep_clk>,
+		<&gcc GCC_DISP_AHB_CLK>;
+};
