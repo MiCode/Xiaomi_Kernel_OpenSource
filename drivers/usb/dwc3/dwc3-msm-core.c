@@ -4171,15 +4171,6 @@ static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 		return 0;
 	}
 
-	if (mdwc->ss_release_called) {
-		flush_delayed_work(&mdwc->sm_work);
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		if (role == USB_ROLE_NONE) {
-			dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
-			mdwc->ss_release_called = false;
-		}
-	}
-
 	dwc3_ext_event_notify(mdwc);
 	return 0;
 }
@@ -4469,6 +4460,21 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 	return 0;
 }
 
+static void dwc3_msm_clear_dp_only_params(struct dwc3_msm *mdwc)
+{
+	mdwc->ss_release_called = false;
+	mdwc->ss_phy->flags &= ~PHY_DP_MODE;
+	dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
+}
+
+static void dwc3_msm_set_dp_only_params(struct dwc3_msm *mdwc)
+{
+	/* restart USB host mode into high speed */
+	mdwc->ss_release_called = true;
+	dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
+	mdwc->ss_phy->flags |= PHY_DP_MODE;
+}
+
 int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
@@ -4479,11 +4485,26 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		return -EAGAIN;
 	}
 
+	/* flush any pending work */
+	flush_work(&mdwc->resume_work);
+	flush_workqueue(mdwc->sm_usb_wq);
+
 	if (!dp_connected) {
 		dbg_event(0xFF, "DP not connected", 0);
-		mdwc->ss_phy->flags &= ~(PHY_DP_MODE|PHY_USB_DP_CONCURRENT_MODE);
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
+		/*
+		 * Special case for HOST mode, as we need to ensure that the DWC3
+		 * max speed is set before moving back into gadget/device mode.
+		 * This is because, dwc3_gadget_init() will set the max speed
+		 * for the USB gadget driver.
+		 */
+		if (mdwc->drd_state == DRD_STATE_HOST)
+			dwc3_start_stop_host(mdwc, false);
+		else
+			dwc3_msm_clear_dp_only_params(mdwc);
+
+		mdwc->ss_phy->flags &= ~PHY_USB_DP_CONCURRENT_MODE;
 		mdwc->ss_release_called = false;
+
 		return 0;
 	}
 
@@ -4501,16 +4522,13 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 	flush_workqueue(mdwc->sm_usb_wq);
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
-	mdwc->ss_release_called = true;
 	if (mdwc->id_state == DWC3_ID_GROUND) {
 		/* stop USB host mode */
 		ret = dwc3_start_stop_host(mdwc, false);
 		if (ret)
 			return ret;
 
-		/* restart USB host mode into high speed */
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
+		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_host(mdwc, true);
 	} else if (mdwc->vbus_active) {
 		/* stop USB device mode */
@@ -4518,14 +4536,11 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		if (ret)
 			return ret;
 
-		/* restart USB device mode into high speed */
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
+		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_device(mdwc, true);
 	} else {
 		dbg_log_string("USB is not active.\n");
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
+		dwc3_msm_set_dp_only_params(mdwc);
 	}
 
 	return 0;
@@ -5333,6 +5348,14 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
+
+		/*
+		 * Able to set max speed back to UNKNOWN as clk mux still set to
+		 * UTMI during dwc3_msm_resume().  Need to ensure max speed is
+		 * reset before dwc3_gadget_init() is called.  Otherwise, USB
+		 * gadget will be set to HS only.
+		 */
+		dwc3_msm_clear_dp_only_params(mdwc);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
