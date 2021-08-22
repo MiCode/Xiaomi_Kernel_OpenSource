@@ -268,11 +268,6 @@ struct kgsl_mem_entry {
 	char metadata[KGSL_GPUOBJ_ALLOC_METADATA_MAX + 1];
 	struct work_struct work;
 	/**
-	 * @mapped: The number of bytes in this entry that are mapped to
-	 * userspace
-	 */
-	u64 mapped;
-	/**
 	 * @map_count: Count how many vmas this object is mapped in - used for
 	 * debugfs accounting
 	 */
