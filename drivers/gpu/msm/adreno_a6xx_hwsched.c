@@ -940,6 +940,8 @@ static void scale_gmu_frequency(struct adreno_device *adreno_dev, int buslevel)
 		return;
 	}
 
+	a6xx_rdpm_cx_freq_update(gmu, freq / 1000);
+
 	trace_kgsl_gmu_pwrlevel(freq, prev_freq);
 
 	prev_freq = freq;
