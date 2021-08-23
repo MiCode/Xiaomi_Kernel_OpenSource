@@ -26,6 +26,73 @@ bool kgsl_sharedmem_noretry_flag;
 
 static DEFINE_MUTEX(kernel_map_global_lock);
 
+#define MEMTYPE(_type, _name) \
+	static struct kgsl_memtype memtype_##_name = { \
+	.type = _type, \
+	.attr = { .name = __stringify(_name), .mode = 0444 } \
+}
+
+struct kgsl_memtype {
+	unsigned int type;
+	struct attribute attr;
+};
+
+/* We can not use macro MEMTYPE for "any(0)" because of special characters */
+static struct kgsl_memtype memtype_any0 = {
+	.type = KGSL_MEMTYPE_OBJECTANY,
+	.attr = { .name = "any(0)", .mode = 0444 },
+};
+
+MEMTYPE(KGSL_MEMTYPE_FRAMEBUFFER, framebuffer);
+MEMTYPE(KGSL_MEMTYPE_RENDERBUFFER, renderbuffer);
+MEMTYPE(KGSL_MEMTYPE_ARRAYBUFFER, arraybuffer);
+MEMTYPE(KGSL_MEMTYPE_ELEMENTARRAYBUFFER, elementarraybuffer);
+MEMTYPE(KGSL_MEMTYPE_VERTEXARRAYBUFFER, vertexarraybuffer);
+MEMTYPE(KGSL_MEMTYPE_TEXTURE, texture);
+MEMTYPE(KGSL_MEMTYPE_SURFACE, surface);
+MEMTYPE(KGSL_MEMTYPE_EGL_SURFACE, egl_surface);
+MEMTYPE(KGSL_MEMTYPE_GL, gl);
+MEMTYPE(KGSL_MEMTYPE_CL, cl);
+MEMTYPE(KGSL_MEMTYPE_CL_BUFFER_MAP, cl_buffer_map);
+MEMTYPE(KGSL_MEMTYPE_CL_BUFFER_NOMAP, cl_buffer_nomap);
+MEMTYPE(KGSL_MEMTYPE_CL_IMAGE_MAP, cl_image_map);
+MEMTYPE(KGSL_MEMTYPE_CL_IMAGE_NOMAP, cl_image_nomap);
+MEMTYPE(KGSL_MEMTYPE_CL_KERNEL_STACK, cl_kernel_stack);
+MEMTYPE(KGSL_MEMTYPE_COMMAND, command);
+MEMTYPE(KGSL_MEMTYPE_2D, 2d);
+MEMTYPE(KGSL_MEMTYPE_EGL_IMAGE, egl_image);
+MEMTYPE(KGSL_MEMTYPE_EGL_SHADOW, egl_shadow);
+MEMTYPE(KGSL_MEMTYPE_MULTISAMPLE, egl_multisample);
+MEMTYPE(KGSL_MEMTYPE_KERNEL, kernel);
+
+static struct attribute *memtype_attrs[] = {
+	&memtype_any0.attr,
+	&memtype_framebuffer.attr,
+	&memtype_renderbuffer.attr,
+	&memtype_arraybuffer.attr,
+	&memtype_elementarraybuffer.attr,
+	&memtype_vertexarraybuffer.attr,
+	&memtype_texture.attr,
+	&memtype_surface.attr,
+	&memtype_egl_surface.attr,
+	&memtype_gl.attr,
+	&memtype_cl.attr,
+	&memtype_cl_buffer_map.attr,
+	&memtype_cl_buffer_nomap.attr,
+	&memtype_cl_image_map.attr,
+	&memtype_cl_image_nomap.attr,
+	&memtype_cl_kernel_stack.attr,
+	&memtype_command.attr,
+	&memtype_2d.attr,
+	&memtype_egl_image.attr,
+	&memtype_egl_shadow.attr,
+	&memtype_egl_multisample.attr,
+	&memtype_kernel.attr,
+	NULL,
+};
+
+ATTRIBUTE_GROUPS(memtype);
+
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
 	struct kgsl_process_attribute attr;
@@ -63,6 +130,51 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 
 	return pattr->show(priv, pattr->memtype, buf);
 }
+
+static ssize_t memtype_sysfs_show(struct kobject *kobj,
+	struct attribute *attr, char *buf)
+{
+	struct kgsl_process_private *priv;
+	struct kgsl_memtype *memtype;
+	struct kgsl_mem_entry *entry;
+	u64 size = 0;
+	int id = 0;
+
+	priv = container_of(kobj, struct kgsl_process_private, kobj_memtype);
+	memtype = container_of(attr, struct kgsl_memtype, attr);
+
+	spin_lock(&priv->mem_lock);
+	for (entry = idr_get_next(&priv->mem_idr, &id); entry;
+		id++, entry = idr_get_next(&priv->mem_idr, &id)) {
+		struct kgsl_memdesc *memdesc;
+		unsigned int type;
+
+		if (!kgsl_mem_entry_get(entry))
+			continue;
+		spin_unlock(&priv->mem_lock);
+
+		memdesc = &entry->memdesc;
+		type = kgsl_memdesc_get_memtype(memdesc);
+
+		if (type == memtype->type)
+			size += memdesc->size;
+
+		kgsl_mem_entry_put(entry);
+		spin_lock(&priv->mem_lock);
+	}
+	spin_unlock(&priv->mem_lock);
+
+	return scnprintf(buf, PAGE_SIZE, "%llu\n", size);
+}
+
+static const struct sysfs_ops memtype_sysfs_ops = {
+	.show = memtype_sysfs_show,
+};
+
+static struct kobj_type ktype_memtype = {
+	.sysfs_ops = &memtype_sysfs_ops,
+	.default_groups = memtype_groups,
+};
 
 static ssize_t
 imported_mem_show(struct kgsl_process_private *priv,
@@ -246,6 +358,12 @@ void kgsl_process_init_sysfs(struct kgsl_device *device,
 	}
 
 	kgsl_reclaim_proc_sysfs_init(private);
+
+	if (kobject_init_and_add(&private->kobj_memtype, &ktype_memtype,
+		&private->kobj, "memtype")) {
+		dev_err(device->dev, "Unable to add memtype sysfs for process %d\n",
+			pid_nr(private->pid));
+	}
 }
 
 static ssize_t memstat_show(struct device *dev,
@@ -793,41 +911,21 @@ kgsl_sharedmem_writeq(const struct kgsl_memdesc *memdesc,
 	wmb();
 }
 
-static const char * const memtype_str[] = {
-	[KGSL_MEMTYPE_OBJECTANY] = "any(0)",
-	[KGSL_MEMTYPE_FRAMEBUFFER] = "framebuffer",
-	[KGSL_MEMTYPE_RENDERBUFFER] = "renderbuffer",
-	[KGSL_MEMTYPE_ARRAYBUFFER] = "arraybuffer",
-	[KGSL_MEMTYPE_ELEMENTARRAYBUFFER] = "elementarraybuffer",
-	[KGSL_MEMTYPE_VERTEXARRAYBUFFER] = "vertexarraybuffer",
-	[KGSL_MEMTYPE_TEXTURE] = "texture",
-	[KGSL_MEMTYPE_SURFACE] = "surface",
-	[KGSL_MEMTYPE_EGL_SURFACE] = "egl_surface",
-	[KGSL_MEMTYPE_GL] = "gl",
-	[KGSL_MEMTYPE_CL] = "cl",
-	[KGSL_MEMTYPE_CL_BUFFER_MAP] = "cl_buffer_map",
-	[KGSL_MEMTYPE_CL_BUFFER_NOMAP] = "cl_buffer_nomap",
-	[KGSL_MEMTYPE_CL_IMAGE_MAP] = "cl_image_map",
-	[KGSL_MEMTYPE_CL_IMAGE_NOMAP] = "cl_image_nomap",
-	[KGSL_MEMTYPE_CL_KERNEL_STACK] = "cl_kernel_stack",
-	[KGSL_MEMTYPE_COMMAND] = "command",
-	[KGSL_MEMTYPE_2D] = "2d",
-	[KGSL_MEMTYPE_EGL_IMAGE] = "egl_image",
-	[KGSL_MEMTYPE_EGL_SHADOW] = "egl_shadow",
-	[KGSL_MEMTYPE_MULTISAMPLE] = "egl_multisample",
-	/* KGSL_MEMTYPE_KERNEL handled below, to avoid huge array */
-};
-
 void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 {
 	unsigned int type = FIELD_GET(KGSL_MEMTYPE_MASK, memflags);
+	struct kgsl_memtype *memtype;
+	int i;
 
-	if (type == KGSL_MEMTYPE_KERNEL)
-		strlcpy(name, "kernel", name_size);
-	else if (type < ARRAY_SIZE(memtype_str) && memtype_str[type] != NULL)
-		strlcpy(name, memtype_str[type], name_size);
-	else
-		snprintf(name, name_size, "VK/others(%3d)", type);
+	for (i = 0; i < ARRAY_SIZE(memtype_attrs); i++) {
+		memtype = container_of(memtype_attrs[i], struct kgsl_memtype, attr);
+		if (memtype->type == type) {
+			strlcpy(name, memtype->attr.name, name_size);
+			return;
+		}
+	}
+
+	snprintf(name, name_size, "VK/others(%3d)", type);
 }
 
 int kgsl_memdesc_sg_dma(struct kgsl_memdesc *memdesc,

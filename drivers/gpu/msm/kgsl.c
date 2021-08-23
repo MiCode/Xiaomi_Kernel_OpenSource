@@ -874,6 +874,7 @@ static void kgsl_destroy_process_private(struct kref *kref)
 
 	mutex_lock(&kgsl_driver.process_mutex);
 	debugfs_remove_recursive(private->debug_root);
+	kobject_put(&private->kobj_memtype);
 	kobject_put(&private->kobj);
 
 	/* When using global pagetables, do not detach global pagetable */
