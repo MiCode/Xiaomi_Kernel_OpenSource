@@ -49,6 +49,8 @@ struct guestvm_loader_private {
 	int pas_id;
 	int vmid;
 	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
 };
 
 static struct timer_list guestvm_cpu_isolate_timer;
@@ -101,6 +103,7 @@ static void guestvm_unisolate_work(struct work_struct *work)
 
 static void guestvm_timer_callback(struct timer_list *t)
 {
+	pr_err("%s: expired: VM app status not set\n", __func__);
 	complete(&isolation_done);
 }
 
@@ -121,6 +124,8 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	struct guestvm_loader_private *priv;
 	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
+	u8 os_status = vm_status_payload->os_status;
+	u16 app_status = vm_status_payload->app_status;
 	int ret;
 
 	priv = container_of(this, struct guestvm_loader_private, guestvm_nb);
@@ -163,6 +168,29 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	default:
 		dev_err(priv->dev, "Unknown notification receieved for vmid = %d vm_status = %d\n",
 				vm_status_payload->vmid, vm_status);
+	}
+
+	if (priv->os_status != os_status) {
+		if (os_status == GH_RM_OS_STATUS_BOOT) {
+			if (priv->iso_needed) {
+				INIT_WORK(&unisolation_work, guestvm_unisolate_work);
+				schedule_work(&unisolation_work);
+				guestvm_isolate_cpu();
+				mod_timer(&guestvm_cpu_isolate_timer, jiffies +
+					msecs_to_jiffies(guestvm_unisolate_timeout));
+			}
+			priv->os_status = os_status;
+			dev_info(priv->dev, "VM with vmid %d booted\n", priv->vmid);
+		}
+	}
+
+	if (priv->app_status != app_status) {
+		if (app_status == GH_RM_APP_STATUS_TUI_SERVICE_BOOT) {
+			priv->app_status = app_status;
+			dev_info(priv->dev, "Unisolating cpus: VM app status = %d\n",
+				app_status);
+			complete(&isolation_done);
+		}
 	}
 
 	return NOTIFY_DONE;
@@ -276,14 +304,6 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 		}
 
 		priv->vm_status = GH_RM_VM_STATUS_RUNNING;
-
-		if (priv->iso_needed) {
-			INIT_WORK(&unisolation_work, guestvm_unisolate_work);
-			schedule_work(&unisolation_work);
-			guestvm_isolate_cpu();
-			mod_timer(&guestvm_cpu_isolate_timer, jiffies +
-				msecs_to_jiffies(guestvm_unisolate_timeout));
-		}
 
 		ret = gh_rm_vm_start(priv->vmid);
 		if (ret)
