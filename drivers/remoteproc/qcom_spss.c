@@ -72,20 +72,13 @@ struct qcom_spss {
 	u32 bits_arr[2];
 };
 
-static int glink_spss_subdev_prepare(struct rproc_subdev *subdev)
+static int glink_spss_subdev_start(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
 
 	glink->edge = qcom_glink_spss_register(glink->dev, glink->node);
 
 	return PTR_ERR_OR_ZERO(glink->edge);
-}
-
-static int glink_spss_subdev_start(struct rproc_subdev *subdev)
-{
-	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
-
-	return qcom_glink_spss_start(glink->edge);
 }
 
 static void glink_spss_subdev_stop(struct rproc_subdev *subdev, bool crashed)
@@ -125,7 +118,6 @@ static void qcom_add_glink_spss_subdev(struct rproc *rproc,
 
 	glink->dev = dev;
 	glink->subdev.start = glink_spss_subdev_start;
-	glink->subdev.prepare = glink_spss_subdev_prepare;
 	glink->subdev.stop = glink_spss_subdev_stop;
 	glink->subdev.unprepare = glink_spss_subdev_unprepare;
 
