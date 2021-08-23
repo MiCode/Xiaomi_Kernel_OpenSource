@@ -565,6 +565,10 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	rproc->recovery_disabled = true;
 	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
+	ret = device_init_wakeup(spss->dev, true);
+	if (ret)
+		goto free_rproc;
+
 	ret = qcom_spss_init_mmio(pdev, spss);
 	if (ret)
 		goto free_rproc;
