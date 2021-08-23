@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -104,8 +104,6 @@ struct sdhci_msm_slot_reg_data {
 	struct sdhci_msm_reg_data *vdd_data;
 	 /* keeps VDD IO regulator info */
 	struct sdhci_msm_reg_data *vdd_io_data;
-	 /* Keeps VDD IO parent regulator info*/
-	struct sdhci_msm_reg_data *vdd_io_bias_data;
 };
 
 struct sdhci_msm_gpio {
@@ -324,6 +322,7 @@ struct sdhci_msm_host {
 	u32 ice_clk_rate;
 	bool debug_mode_enabled;
 	bool reg_store;
+	bool vbias_skip_wa;
 	struct reset_control *core_reset;
 	u32 minor;
 };

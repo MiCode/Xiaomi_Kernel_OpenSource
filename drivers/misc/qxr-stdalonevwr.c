@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -15,7 +15,8 @@
 struct qxr_stdalonevwr {
 	struct platform_device *pdev;
 	struct regulator *reg_imu;
-	int ndi_5v_en;
+	struct regulator *reg_dmic;
+	/*int ndi_5v_en;*/
 	bool initDone;
 };
 
@@ -24,7 +25,6 @@ static struct qxr_stdalonevwr *pdata;
 static int qxr_stdalonevwr_allocate_res(void)
 {
 	int rc = -EINVAL;
-	bool gpioEnabled = false;
 
 	if (pdata->initDone) {
 		pr_debug("%s init is done already\n", __func__);
@@ -35,27 +35,20 @@ static int qxr_stdalonevwr_allocate_res(void)
 	if (!IS_ERR(pdata->reg_imu)) {
 		regulator_set_load(pdata->reg_imu, 600000);
 		rc = regulator_enable(pdata->reg_imu);
-		if (rc < 0) {
+		if (rc < 0)
 			pr_err("%s IMU rail pm8150a_l11 failed\n", __func__);
-			devm_regulator_put(pdata->reg_imu);
-		}
 	}
 
-	if (gpio_is_valid(pdata->ndi_5v_en)) {
-		rc = gpio_request(pdata->ndi_5v_en, "ndi_5v_en");
-		if (!rc) {
-			rc = gpio_direction_output(pdata->ndi_5v_en, 0);
-			if (!rc) {
-				gpio_set_value(pdata->ndi_5v_en, 1);
-				gpioEnabled = true;
-				msleep(20);
-			}
-		}
+	/* Oracle MIC BIAS Voltage regulator */
+	pdata->reg_dmic = devm_regulator_get(&pdata->pdev->dev, "pm8150_l10");
+	if (!IS_ERR(pdata->reg_dmic)) {
+		regulator_set_load(pdata->reg_dmic, 600000);
+		rc = regulator_enable(pdata->reg_dmic);
+		if (rc < 0)
+			pr_err("%s Oracle MIC BIAS reg pm8150_l10 failed\n",
+					 __func__);
 	}
-	if (!gpioEnabled) {
-		pr_err("%s NDI_5V_EN gpio failed to allocate\n", __func__);
-		gpio_free(pdata->ndi_5v_en);
-	}
+
 	pdata->initDone = true;
 	pr_debug("%s rc:%d\n", __func__, rc);
 	return rc;
@@ -64,11 +57,10 @@ static int qxr_stdalonevwr_allocate_res(void)
 static void qxr_stdalonevwr_free_res(void)
 {
 	if (pdata->initDone) {
-		if (pdata->reg_imu) {
+		if (pdata->reg_imu)
 			regulator_disable(pdata->reg_imu);
-			devm_regulator_put(pdata->reg_imu);
-		}
-		gpio_free(pdata->ndi_5v_en);
+		if (pdata->reg_dmic)
+			regulator_disable(pdata->reg_dmic);
 		pdata->initDone = false;
 	}
 	pr_debug("%s initDone:%d\n", __func__, pdata->initDone);
@@ -82,7 +74,7 @@ static int qxr_stdalonevwr_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pdata->pdev = pdev;
-	pdata->ndi_5v_en = 1237;
+	/*pdata->ndi_5v_en = 1237;*/
 	pdata->initDone = false;
 	qxr_stdalonevwr_allocate_res();
 	pr_info("%s done\n", __func__);
