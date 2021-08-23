@@ -939,7 +939,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 
 			mclk_freq = ROUND(dll_clock * cycle_cnt, TCXO_FREQ);
 
-			if (dll_clock < 192000000)
+			if (dll_clock < 100000000)
 				pr_err("%s: %s: Non standard clk freq =%u\n",
 				mmc_hostname(mmc), __func__, dll_clock);
 
