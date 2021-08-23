@@ -1395,7 +1395,7 @@ static void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 static void msm_pcie_write_reg_field(void __iomem *base, u32 offset,
 	const u32 mask, u32 val)
 {
-	u32 shift = find_first_bit((void *)&mask, 32);
+	u32 shift = __ffs(mask);
 	u32 tmp = readl_relaxed(base + offset);
 
 	tmp &= ~mask; /* clear written bits */
@@ -5117,7 +5117,7 @@ static void handle_link_recover(struct work_struct *work)
 					link_recover_wq);
 	PCIE_DBG(dev, "PCIe: link recover start for RC%d\n", dev->rc_idx);
 
-	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINKDOWN);
+	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINK_RECOVER);
 }
 
 static irqreturn_t handle_aer_irq(int irq, void *data)

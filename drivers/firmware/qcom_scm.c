@@ -160,6 +160,14 @@ int qcom_scm_sec_wdog_trigger(void)
 }
 EXPORT_SYMBOL(qcom_scm_sec_wdog_trigger);
 
+#ifdef CONFIG_TLB_CONF_HANDLER
+int qcom_scm_tlb_conf_handler(unsigned long addr)
+{
+	return __qcom_scm_tlb_conf_handler(__scm->dev, addr);
+}
+EXPORT_SYMBOL(qcom_scm_tlb_conf_handler);
+#endif
+
 /**
  * qcom_scm_disable_sdi() - Disable SDI
  */

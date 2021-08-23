@@ -3206,6 +3206,7 @@ enum ipacm_hw_index_counter_virtual_type {
  * @pdn_cfg_type: type of the pdn config applied.
  * @enable: enable/disable pdn config type.
  * @u.collison_cfg.pdn_ip_addr: pdn_ip_address used in collision config.
+ * @u.collison_cfg.vlan_id; VLAN ID of the client.
  * @u.passthrough_cfg.pdn_ip_addr: pdn_ip_address used in passthrough config.
  * @u.passthrough_cfg.device_type: Device type of the client.
  * @u.passthrough_cfg.vlan_id: VLAN ID of the client.
@@ -3221,6 +3222,7 @@ struct ipa_ioc_pdn_config {
 	union {
 		struct ipa_pdn_ip_collision_cfg {
 			__u32 pdn_ip_addr;
+			__u16 vlan_id;
 		} collison_cfg;
 
 		struct ipa_pdn_ip_passthrough_cfg {
