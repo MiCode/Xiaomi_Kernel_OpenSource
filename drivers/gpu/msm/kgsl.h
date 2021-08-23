@@ -561,6 +561,13 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
 
+/**
+ * kgsl_mem_entry_put_deferred() - use a worker to put the refcount
+ * on mem entry from a sysfs handler or debugfs handler.
+ * @entry - The memory entry
+ */
+void kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry);
+
 /*
  * kgsl_addr_range_overlap() - Checks if 2 ranges overlap
  * @gpuaddr1: Start of first address range
