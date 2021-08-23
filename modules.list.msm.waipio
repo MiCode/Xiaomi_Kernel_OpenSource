@@ -41,7 +41,7 @@ mem-hooks.ko
 memory_dump_v2.ko
 minidump.ko
 msm_dma_iommu_mapping.ko
-qcom-msm-pinctrl.ko
+pinctrl-waipio.ko
 qnoc-waipio.ko
 qti-fixed-regulator.ko
 reboot-mode.ko
