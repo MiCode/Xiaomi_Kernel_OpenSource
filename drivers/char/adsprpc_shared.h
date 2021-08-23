@@ -156,17 +156,17 @@ do {\
 	} while (0)
 
 #define ADSPRPC_ERR(fmt, args...)\
-	pr_err("Error: adsprpc (%d): %s: %s: " fmt, __LINE__,\
-	current->comm, __func__, ##args)
+	pr_err("Error: adsprpc (%d): %d: %d: %s: %s: " fmt, __LINE__,\
+	current->tgid, current->pid, current->comm, __func__, ##args)
 #define ADSPRPC_INFO(fmt, args...)\
-	pr_info("Info: adsprpc (%d): %s: %s: " fmt, __LINE__,\
-	current->comm, __func__, ##args)
+	pr_info("Info: adsprpc (%d): %d: %d: %s: %s: " fmt, __LINE__,\
+	current->tgid, current->pid, current->comm, __func__, ##args)
 #define ADSPRPC_WARN(fmt, args...)\
-	pr_warn("Warning: adsprpc (%d): %s: %s: " fmt, __LINE__,\
-	current->comm, __func__, ##args)
+	pr_warn("Warning: adsprpc (%d): %d: %d: %s: %s: " fmt, __LINE__,\
+	current->tgid, current->pid, current->comm, __func__, ##args)
 #define ADSPRPC_DEBUG(fmt, args...)\
-	pr_debug("Debug: adsprpc (%d): %s: %s: " fmt, __LINE__,\
-	current->comm, __func__, ##args)
+	pr_debug("Debug: adsprpc (%d):%d: %d: %s: %s: " fmt, __LINE__,\
+	current->tgid, current->pid, current->comm, __func__, ##args)
 
 #define DEBUG_PRINT_SIZE_LIMIT (512*1024)
 
