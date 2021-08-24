@@ -604,7 +604,7 @@
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
-		size = <0x0 0x1800000>;
+		size = <0x0 0x2000000>;
 	};
 
 	audio_cma_mem: audio_cma_region {
@@ -858,6 +858,11 @@
 
 		scmi_memlat: protocol@80 {
 			reg = <0x80>;
+			#clock-cells = <1>;
+		};
+
+		scmi_plh: protocol@81 {
+			reg = <0x81>;
 			#clock-cells = <1>;
 		};
 
@@ -1496,8 +1501,12 @@
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 		cap-based-alloc-and-pwr-collapse;
-		clocks = <&aoss_qmp QDSS_CLK>;
-		clock-names = "qdss_clk";
+
+		llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+			clocks = <&aoss_qmp QDSS_CLK>;
+			clock-names = "qdss_clk";
+		};
 	};
 
 	hyp_core_ctl: qcom,hyp-core-ctl {
@@ -3036,6 +3045,7 @@
 			< 0x0008 0xFF 0x02 0xFF >,
 			< 0x0011 0xFF 0x01 0xFF >,
 			< 0x0023 0xFF 0xFF 0xFF >,
+			< 0x4005 0xFF 0x03 0xFF >,
 			< 0x0017 0xFF 0xFF 0xFF >,
 			< 0x002A 0xFF 0xFF 0xFF >,
 			< 0x1000 0xFF 0xFF 0xFF >;
@@ -3149,7 +3159,8 @@
 
 	qcom_memlat: qcom,memlat {
 		compatible = "qcom,memlat";
-		qcom,stall-ev = <0x23>;
+		qcom,be-stall-ev = <0x4005>;
+		qcom,fe-stall-ev = <0x23>;
 
 		ddr {
 			compatible = "qcom,memlat-grp";

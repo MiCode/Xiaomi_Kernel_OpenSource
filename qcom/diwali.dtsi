@@ -26,7 +26,9 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases { };
+	aliases {
+		serial0 = &qupv3_se5_2uart;
+	 };
 
 	firmware: firmware { };
 
@@ -708,9 +710,17 @@
 		#reset-cells = <1>;
 	};
 
-	videocc: clock-controller@abf0000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+	videocc: clock-controller@aaf0000 {
+		compatible = "qcom,diwali-videocc", "syscon";
+		reg = <0xaaf0000 0x10000>;
+		reg-name = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&rpmhcc RPMH_CXO_CLK_A>,
+			<&sleep_clk>,
+			<&gcc GCC_VIDEO_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk", "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -807,6 +817,11 @@
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 		cap-based-alloc-and-pwr-collapse;
+	};
+
+	qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
+		qcom,vmid-cp-camera-preview-ro;
 	};
 
 	tcsr_mutex_block: syscon@1f40000 {
@@ -1287,12 +1302,25 @@
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
+
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x280000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
 };
 
+#include "diwali-qupv3.dtsi"
 #include "diwali-pinctrl.dtsi"
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 #include "ipcc-test-diwali.dtsi"
+#include "msm-arm-smmu-diwali.dtsi"
+
+&qupv3_se5_2uart {
+	status = "ok";
+};
 
 &cam_cc_bps_gdsc {
 	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
