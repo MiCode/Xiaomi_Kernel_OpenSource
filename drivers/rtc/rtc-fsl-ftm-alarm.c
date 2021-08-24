@@ -316,6 +316,7 @@ static const struct of_device_id ftm_rtc_match[] = {
 	{ .compatible = "fsl,lx2160a-ftm-alarm", },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, ftm_rtc_match);
 
 static struct platform_driver ftm_rtc_driver = {
 	.probe		= ftm_rtc_probe,

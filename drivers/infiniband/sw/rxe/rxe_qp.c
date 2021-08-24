@@ -152,7 +152,6 @@ static void free_rd_atomic_resources(struct rxe_qp *qp)
 void free_rd_atomic_resource(struct rxe_qp *qp, struct resp_res *res)
 {
 	if (res->type == RXE_ATOMIC_MASK) {
-		rxe_drop_ref(qp);
 		kfree_skb(res->atomic.skb);
 	} else if (res->type == RXE_READ_MASK) {
 		if (res->read.mr)
@@ -260,6 +259,7 @@ static int rxe_qp_init_req(struct rxe_dev *rxe, struct rxe_qp *qp,
 	if (err) {
 		vfree(qp->sq.queue->buf);
 		kfree(qp->sq.queue);
+		qp->sq.queue = NULL;
 		return err;
 	}
 
@@ -313,6 +313,7 @@ static int rxe_qp_init_resp(struct rxe_dev *rxe, struct rxe_qp *qp,
 		if (err) {
 			vfree(qp->rq.queue->buf);
 			kfree(qp->rq.queue);
+			qp->rq.queue = NULL;
 			return err;
 		}
 	}
@@ -373,6 +374,11 @@ int rxe_qp_from_init(struct rxe_dev *rxe, struct rxe_qp *qp, struct rxe_pd *pd,
 err2:
 	rxe_queue_cleanup(qp->sq.queue);
 err1:
+	qp->pd = NULL;
+	qp->rcq = NULL;
+	qp->scq = NULL;
+	qp->srq = NULL;
+
 	if (srq)
 		rxe_drop_ref(srq);
 	rxe_drop_ref(scq);

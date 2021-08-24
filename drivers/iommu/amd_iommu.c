@@ -1469,14 +1469,14 @@ static bool increase_address_space(struct protection_domain *domain,
 	bool ret = false;
 	u64 *pte;
 
+	pte = (void *)get_zeroed_page(gfp);
+	if (!pte)
+		return false;
+
 	spin_lock_irqsave(&domain->lock, flags);
 
 	if (address <= PM_LEVEL_SIZE(domain->mode) ||
 	    WARN_ON_ONCE(domain->mode == PAGE_MODE_6_LEVEL))
-		goto out;
-
-	pte = (void *)get_zeroed_page(gfp);
-	if (!pte)
 		goto out;
 
 	*pte             = PM_LEVEL_PDE(domain->mode,
@@ -1484,10 +1484,12 @@ static bool increase_address_space(struct protection_domain *domain,
 	domain->pt_root  = pte;
 	domain->mode    += 1;
 
+	pte = NULL;
 	ret = true;
 
 out:
 	spin_unlock_irqrestore(&domain->lock, flags);
+	free_page((unsigned long)pte);
 
 	return ret;
 }

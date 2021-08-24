@@ -132,6 +132,9 @@ static void neigh_update_gc_list(struct neighbour *n)
 	write_lock_bh(&n->tbl->lock);
 	write_lock(&n->lock);
 
+	if (n->dead)
+		goto out;
+
 	/* remove from the gc list if new state is permanent or if neighbor
 	 * is externally learned; otherwise entry should be on the gc list
 	 */
@@ -148,6 +151,7 @@ static void neigh_update_gc_list(struct neighbour *n)
 		atomic_inc(&n->tbl->gc_entries);
 	}
 
+out:
 	write_unlock(&n->lock);
 	write_unlock_bh(&n->tbl->lock);
 }
@@ -235,6 +239,7 @@ static int neigh_forced_gc(struct neigh_table *tbl)
 
 			write_lock(&n->lock);
 			if ((n->nud_state == NUD_FAILED) ||
+			    (n->nud_state == NUD_NOARP) ||
 			    time_after(tref, n->updated))
 				remove = true;
 			write_unlock(&n->lock);
@@ -1242,13 +1247,14 @@ static int __neigh_update(struct neighbour *neigh, const u8 *lladdr,
 	old    = neigh->nud_state;
 	err    = -EPERM;
 
+	if (neigh->dead) {
+		NL_SET_ERR_MSG(extack, "Neighbor entry is now dead");
+		new = old;
+		goto out;
+	}
 	if (!(flags & NEIGH_UPDATE_F_ADMIN) &&
 	    (old & (NUD_NOARP | NUD_PERMANENT)))
 		goto out;
-	if (neigh->dead) {
-		NL_SET_ERR_MSG(extack, "Neighbor entry is now dead");
-		goto out;
-	}
 
 	ext_learn_change = neigh_update_ext_learned(neigh, flags, &notify);
 
@@ -1376,7 +1382,7 @@ static int __neigh_update(struct neighbour *neigh, const u8 *lladdr,
 			 * we can reinject the packet there.
 			 */
 			n2 = NULL;
-			if (dst) {
+			if (dst && dst->obsolete != DST_OBSOLETE_DEAD) {
 				n2 = dst_neigh_lookup_skb(dst, skb);
 				if (n2)
 					n1 = n2;

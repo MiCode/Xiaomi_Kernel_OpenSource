@@ -1513,7 +1513,7 @@ int kvmppc_handle_vmx_load(struct kvm_run *run, struct kvm_vcpu *vcpu,
 	return emulated;
 }
 
-int kvmppc_get_vmx_dword(struct kvm_vcpu *vcpu, int index, u64 *val)
+static int kvmppc_get_vmx_dword(struct kvm_vcpu *vcpu, int index, u64 *val)
 {
 	union kvmppc_one_reg reg;
 	int vmx_offset = 0;
@@ -1531,7 +1531,7 @@ int kvmppc_get_vmx_dword(struct kvm_vcpu *vcpu, int index, u64 *val)
 	return result;
 }
 
-int kvmppc_get_vmx_word(struct kvm_vcpu *vcpu, int index, u64 *val)
+static int kvmppc_get_vmx_word(struct kvm_vcpu *vcpu, int index, u64 *val)
 {
 	union kvmppc_one_reg reg;
 	int vmx_offset = 0;
@@ -1549,7 +1549,7 @@ int kvmppc_get_vmx_word(struct kvm_vcpu *vcpu, int index, u64 *val)
 	return result;
 }
 
-int kvmppc_get_vmx_hword(struct kvm_vcpu *vcpu, int index, u64 *val)
+static int kvmppc_get_vmx_hword(struct kvm_vcpu *vcpu, int index, u64 *val)
 {
 	union kvmppc_one_reg reg;
 	int vmx_offset = 0;
@@ -1567,7 +1567,7 @@ int kvmppc_get_vmx_hword(struct kvm_vcpu *vcpu, int index, u64 *val)
 	return result;
 }
 
-int kvmppc_get_vmx_byte(struct kvm_vcpu *vcpu, int index, u64 *val)
+static int kvmppc_get_vmx_byte(struct kvm_vcpu *vcpu, int index, u64 *val)
 {
 	union kvmppc_one_reg reg;
 	int vmx_offset = 0;

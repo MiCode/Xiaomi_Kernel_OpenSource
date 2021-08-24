@@ -714,7 +714,7 @@ static int mtk_hsdma_probe(struct platform_device *pdev)
 	ret = dma_async_device_register(dd);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register dma device\n");
-		return ret;
+		goto err_uninit_hsdma;
 	}
 
 	ret = of_dma_controller_register(pdev->dev.of_node,
@@ -730,6 +730,8 @@ static int mtk_hsdma_probe(struct platform_device *pdev)
 
 err_unregister:
 	dma_async_device_unregister(dd);
+err_uninit_hsdma:
+	mtk_hsdma_uninit(hsdma);
 	return ret;
 }
 
@@ -749,7 +751,7 @@ static struct platform_driver mtk_hsdma_driver = {
 	.probe = mtk_hsdma_probe,
 	.remove = mtk_hsdma_remove,
 	.driver = {
-		.name = "hsdma-mt7621",
+		.name = KBUILD_MODNAME,
 		.of_match_table = mtk_hsdma_of_match,
 	},
 };

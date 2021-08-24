@@ -809,6 +809,71 @@ static void enetc_of_put_phy(struct enetc_ndev_priv *priv)
 		of_node_put(priv->phy_node);
 }
 
+/* Initialize the entire shared memory for the flow steering entries
+ * of this port (PF + VFs)
+ */
+static int enetc_init_port_rfs_memory(struct enetc_si *si)
+{
+	struct enetc_cmd_rfse rfse = {0};
+	struct enetc_hw *hw = &si->hw;
+	int num_rfs, i, err = 0;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC_PRFSCAPR);
+	num_rfs = ENETC_PRFSCAPR_GET_NUM_RFS(val);
+
+	for (i = 0; i < num_rfs; i++) {
+		err = enetc_set_fs_entry(si, &rfse, i);
+		if (err)
+			break;
+	}
+
+	return err;
+}
+
+static int enetc_init_port_rss_memory(struct enetc_si *si)
+{
+	struct enetc_hw *hw = &si->hw;
+	int num_rss, err;
+	int *rss_table;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC_PRSSCAPR);
+	num_rss = ENETC_PRSSCAPR_GET_NUM_RSS(val);
+	if (!num_rss)
+		return 0;
+
+	rss_table = kcalloc(num_rss, sizeof(*rss_table), GFP_KERNEL);
+	if (!rss_table)
+		return -ENOMEM;
+
+	err = enetc_set_rss_table(si, rss_table, num_rss);
+
+	kfree(rss_table);
+
+	return err;
+}
+
+static void enetc_init_unused_port(struct enetc_si *si)
+{
+	struct device *dev = &si->pdev->dev;
+	struct enetc_hw *hw = &si->hw;
+	int err;
+
+	si->cbd_ring.bd_count = ENETC_CBDR_DEFAULT_SIZE;
+	err = enetc_alloc_cbdr(dev, &si->cbd_ring);
+	if (err)
+		return;
+
+	enetc_setup_cbdr(hw, &si->cbd_ring);
+
+	enetc_init_port_rfs_memory(si);
+	enetc_init_port_rss_memory(si);
+
+	enetc_clear_cbdr(hw);
+	enetc_free_cbdr(dev, &si->cbd_ring);
+}
+
 static int enetc_pf_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *ent)
 {
@@ -817,11 +882,6 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 	struct enetc_si *si;
 	struct enetc_pf *pf;
 	int err;
-
-	if (pdev->dev.of_node && !of_device_is_available(pdev->dev.of_node)) {
-		dev_info(&pdev->dev, "device is disabled, skipping\n");
-		return -ENODEV;
-	}
 
 	err = enetc_pci_probe(pdev, KBUILD_MODNAME, sizeof(*pf));
 	if (err) {
@@ -834,6 +894,13 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 		err = -ENODEV;
 		dev_err(&pdev->dev, "could not map PF space, probing a VF?\n");
 		goto err_map_pf_space;
+	}
+
+	if (pdev->dev.of_node && !of_device_is_available(pdev->dev.of_node)) {
+		enetc_init_unused_port(si);
+		dev_info(&pdev->dev, "device is disabled, skipping\n");
+		err = -ENODEV;
+		goto err_device_disabled;
 	}
 
 	pf = enetc_si_priv(si);
@@ -863,6 +930,24 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 		goto err_alloc_si_res;
 	}
 
+	err = enetc_init_port_rfs_memory(si);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to initialize RFS memory\n");
+		goto err_init_port_rfs;
+	}
+
+	err = enetc_init_port_rss_memory(si);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to initialize RSS memory\n");
+		goto err_init_port_rss;
+	}
+
+	err = enetc_configure_si(priv);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to configure SI\n");
+		goto err_config_si;
+	}
+
 	err = enetc_alloc_msix(priv);
 	if (err) {
 		dev_err(&pdev->dev, "MSIX alloc failed\n");
@@ -888,12 +973,16 @@ err_reg_netdev:
 	enetc_mdio_remove(pf);
 	enetc_of_put_phy(priv);
 	enetc_free_msix(priv);
+err_config_si:
+err_init_port_rss:
+err_init_port_rfs:
 err_alloc_msix:
 	enetc_free_si_resources(priv);
 err_alloc_si_res:
 	si->ndev = NULL;
 	free_netdev(ndev);
 err_alloc_netdev:
+err_device_disabled:
 err_map_pf_space:
 	enetc_pci_remove(pdev);
 

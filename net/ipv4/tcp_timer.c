@@ -40,6 +40,24 @@ static u32 tcp_clamp_rto_to_user_timeout(const struct sock *sk)
 	return min_t(u32, icsk->icsk_rto, msecs_to_jiffies(remaining));
 }
 
+u32 tcp_clamp_probe0_to_user_timeout(const struct sock *sk, u32 when)
+{
+	struct inet_connection_sock *icsk = inet_csk(sk);
+	u32 remaining;
+	s32 elapsed;
+
+	if (!icsk->icsk_user_timeout || !icsk->icsk_probes_tstamp)
+		return when;
+
+	elapsed = tcp_jiffies32 - icsk->icsk_probes_tstamp;
+	if (unlikely(elapsed < 0))
+		elapsed = 0;
+	remaining = msecs_to_jiffies(icsk->icsk_user_timeout) - elapsed;
+	remaining = max_t(u32, remaining, TCP_TIMEOUT_MIN);
+
+	return min_t(u32, remaining, when);
+}
+
 /**
  *  tcp_write_err() - close socket and save error info
  *  @sk:  The socket the error has appeared on.
@@ -344,6 +362,7 @@ static void tcp_probe_timer(struct sock *sk)
 
 	if (tp->packets_out || !skb) {
 		icsk->icsk_probes_out = 0;
+		icsk->icsk_probes_tstamp = 0;
 		return;
 	}
 
@@ -355,13 +374,12 @@ static void tcp_probe_timer(struct sock *sk)
 	 * corresponding system limit. We also implement similar policy when
 	 * we use RTO to probe window in tcp_retransmit_timer().
 	 */
-	if (icsk->icsk_user_timeout) {
-		u32 elapsed = tcp_model_timeout(sk, icsk->icsk_probes_out,
-						tcp_probe0_base(sk));
-
-		if (elapsed >= icsk->icsk_user_timeout)
-			goto abort;
-	}
+	if (!icsk->icsk_probes_tstamp)
+		icsk->icsk_probes_tstamp = tcp_jiffies32;
+	else if (icsk->icsk_user_timeout &&
+		 (s32)(tcp_jiffies32 - icsk->icsk_probes_tstamp) >=
+		 msecs_to_jiffies(icsk->icsk_user_timeout))
+		goto abort;
 
 	max_probes = sock_net(sk)->ipv4.sysctl_tcp_retries2;
 	if (sock_flag(sk, SOCK_DEAD)) {

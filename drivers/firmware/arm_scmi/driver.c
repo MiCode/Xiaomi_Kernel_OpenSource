@@ -370,6 +370,10 @@ static void scmi_rx_callback(struct mbox_client *cl, void *m)
 
 	xfer = &minfo->xfer_block[xfer_id];
 
+	/* rx.len could be shrunk in the sync do_xfer, so reset to maxsz */
+	if (msg_type == MSG_TYPE_DELAYED_RESP)
+		xfer->rx.len = info->desc->max_msg_size;
+
 	scmi_dump_header_dbg(dev, &xfer->hdr);
 
 	scmi_fetch_response(xfer, mem);
