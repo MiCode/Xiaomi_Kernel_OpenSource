@@ -14,10 +14,6 @@
  */
 #define DMA_ATTR_NO_DELAYED_UNMAP	(1UL << 13)
 /*
- * DMA_ATTR_EXEC_MAPPING: The mapping has executable permissions.
- */
-#define DMA_ATTR_EXEC_MAPPING		(1UL << 14)
-/*
  * When passed to a DMA map call the DMA_ATTR_FORCE_COHERENT DMA
  * attribute can be used to force a buffer to be mapped as IO coherent.
  */
