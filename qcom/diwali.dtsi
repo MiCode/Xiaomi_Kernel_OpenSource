@@ -1466,6 +1466,7 @@
 };
 
 #include "diwali-qupv3.dtsi"
+#include "diwali-debug.dtsi"
 #include "diwali-pinctrl.dtsi"
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"

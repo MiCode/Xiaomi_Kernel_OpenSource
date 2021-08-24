@@ -1,0 +1,585 @@
+#include <dt-bindings/soc/qcom,dcc_v2.h>
+
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	dump_mem: mem_dump_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0 0x3400000>;
+	};
+};
+
+&soc {
+	dcc: dcc_v2@100ff000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x100ff000 0x1000>,
+			<0x10080000 0x18000>;
+
+		qcom,transaction_timeout = <0>;
+
+		reg-names = "dcc-base", "dcc-ram-base";
+		dcc-ram-offset = <0>;
+		status = "disabled";
+	};
+
+	mem_dump {
+		compatible = "qcom,mem-dump";
+		memory-region = <&dump_mem>;
+
+		c0_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x0>;
+		};
+
+		c100_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x1>;
+		};
+
+		c200_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x2>;
+		};
+
+		c300_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x3>;
+		};
+
+		c400_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x4>;
+		};
+
+		c500_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x5>;
+		};
+
+		c600_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x6>;
+		};
+
+		c700_context {
+			qcom,dump-size = <0x800>;
+			qcom,dump-id = <0x7>;
+		};
+
+		complex0_scan {
+			qcom,dump-size = <0x4a100>;
+			qcom,dump-id = <0x130>;
+		};
+
+		complex1_scan {
+			qcom,dump-size = <0x4a100>;
+			qcom,dump-id = <0x131>;
+		};
+
+		gold0_scan {
+			qcom,dump-size = <0x5f700>;
+			qcom,dump-id = <0x132>;
+		};
+
+		gold1_scan {
+			qcom,dump-size = <0x5f700>;
+			qcom,dump-id = <0x133>;
+		};
+
+		gold2_scan {
+			qcom,dump-size = <0x5f700>;
+			qcom,dump-id = <0x134>;
+		};
+
+		gold3_scan {
+			qcom,dump-size = <0x81100>;
+			qcom,dump-id = <0x135>;
+		};
+
+		l3slice0scan {
+			qcom,dump-size = <0x4cd00>;
+			qcom,dump-id = <0x136>;
+		};
+
+		l3slice1scan {
+			qcom,dump-size = <0x14e00>;
+			qcom,dump-id = <0x137>;
+		};
+
+		l3slice2scan {
+			qcom,dump-size = <0x14e00>;
+			qcom,dump-id = <0x138>;
+		};
+
+		l3slice3scan {
+			qcom,dump-size = <0x14e00>;
+			qcom,dump-id = <0x139>;
+		};
+
+		mhm_scan {
+			qcom,dump-size = <0x5a700>;
+			qcom,dump-id = <0x161>;
+		};
+
+		l1_icache0 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x60>;
+		};
+
+		l1_icache100 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x61>;
+		};
+
+		l1_icache200 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x62>;
+		};
+
+		l1_icache300 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x63>;
+		};
+
+		l1_icache400 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x64>;
+		};
+
+		l1_icache500 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x65>;
+		};
+
+		l1_icache600 {
+			qcom,dump-size = <0x11100>;
+			qcom,dump-id = <0x66>;
+		};
+
+		l1_icache700 {
+			qcom,dump-size = <0x22100>;
+			qcom,dump-id = <0x67>;
+		};
+
+		l1_dcache0 {
+			qcom,dump-size = <0x9100>;
+			qcom,dump-id = <0x80>;
+		};
+
+		l1_dcache100 {
+			qcom,dump-size = <0x9100>;
+			qcom,dump-id = <0x81>;
+		};
+
+		l1_dcache200 {
+			qcom,dump-size = <0x9100>;
+			qcom,dump-id = <0x82>;
+		};
+
+		l1_dcache300 {
+			qcom,dump-size = <0x9100>;
+			qcom,dump-id = <0x83>;
+		};
+
+		l1_dcache400 {
+			qcom,dump-size = <0xd100>;
+			qcom,dump-id = <0x84>;
+		};
+
+		l1_dcache500 {
+			qcom,dump-size = <0xd100>;
+			qcom,dump-id = <0x85>;
+		};
+
+		l1_dcache600 {
+			qcom,dump-size = <0xd100>;
+			qcom,dump-id = <0x86>;
+		};
+
+		l1_dcache700 {
+			qcom,dump-size = <0x1a100>;
+			qcom,dump-id = <0x87>;
+		};
+
+		l1_itlb400 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x24>;
+		};
+
+		l1_itlb500 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x25>;
+		};
+
+		l1_itlb600 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x26>;
+		};
+
+		l1_itlb700 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x27>;
+		};
+
+		l1_dtlb400 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x44>;
+		};
+
+		l1_dtlb500 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x45>;
+		};
+
+		l1_dtlb600 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x46>;
+		};
+
+		l1_dtlb700 {
+			qcom,dump-size = <0x600>;
+			qcom,dump-id = <0x47>;
+		};
+
+		l2_cache0 {
+			qcom,dump-size = <0x24100>;
+			qcom,dump-id = <0xc0>;
+		};
+
+		l2_cache100 {
+			qcom,dump-size = <0x24100>;
+			qcom,dump-id = <0xc1>;
+		};
+
+		l2_cache200 {
+			qcom,dump-size = <0x24100>;
+			qcom,dump-id = <0xc2>;
+		};
+
+		l2_cache300 {
+			qcom,dump-size = <0x24100>;
+			qcom,dump-id = <0xc3>;
+		};
+
+		l2_cache400 {
+			qcom,dump-size = <0xd0100>;
+			qcom,dump-id = <0xc4>;
+		};
+
+		l2_cache500 {
+			qcom,dump-size = <0xd0100>;
+			qcom,dump-id = <0xc5>;
+		};
+
+		l2_cache600 {
+			qcom,dump-size = <0xd0100>;
+			qcom,dump-id = <0xc6>;
+		};
+
+		l2_cache700 {
+			qcom,dump-size = <0x1a0100>;
+			qcom,dump-id = <0xc7>;
+		};
+
+		l2_tlb0 {
+			qcom,dump-size = <0xf700>;
+			qcom,dump-id = <0x120>;
+		};
+
+		l2_tlb100 {
+			qcom,dump-size = <0xf700>;
+			qcom,dump-id = <0x121>;
+		};
+
+		l2_tlb200 {
+			qcom,dump-size = <0xf700>;
+			qcom,dump-id = <0x122>;
+		};
+
+		l2_tlb300 {
+			qcom,dump-size = <0xf700>;
+			qcom,dump-id = <0x123>;
+		};
+
+		l2_tlb400 {
+			qcom,dump-size = <0xc100>;
+			qcom,dump-id = <0x124>;
+		};
+
+		l2_tlb500 {
+			qcom,dump-size = <0xc100>;
+			qcom,dump-id = <0x125>;
+		};
+
+		l2_tlb600 {
+			qcom,dump-size = <0xc100>;
+			qcom,dump-id = <0x126>;
+		};
+
+		l2_tlb700 {
+			qcom,dump-size = <0xc100>;
+			qcom,dump-id = <0x127>;
+		};
+
+		l1dcdirty0 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x170>;
+		};
+
+		l1dcdirty100 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x171>;
+		};
+
+		l1dcdirty200 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x172>;
+		};
+
+		l1dcdirty300 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x173>;
+		};
+
+		l1dcmte0 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x180>;
+		};
+
+		l1dcmte100 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x181>;
+		};
+
+		l1dcmte200 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x182>;
+		};
+
+		l1dcmte300 {
+			qcom,dump-size = <0x1100>;
+			qcom,dump-id = <0x183>;
+		};
+
+		l2dcmte0 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x190>;
+		};
+
+		l2dcmte100 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x191>;
+		};
+
+		l2dcmte200 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x192>;
+		};
+
+		l2dcmte300 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x193>;
+		};
+
+		l0mopca400 {
+			qcom,dump-size = <0x6100>;
+			qcom,dump-id = <0x1a4>;
+		};
+
+		l0mopca500 {
+			qcom,dump-size = <0x6100>;
+			qcom,dump-id = <0x1a5>;
+		};
+
+		l0mopca600 {
+			qcom,dump-size = <0x6100>;
+			qcom,dump-id = <0x1a6>;
+		};
+
+		l0mopca700 {
+			qcom,dump-size = <0xc100>;
+			qcom,dump-id = <0x1a7>;
+		};
+
+		l1btb400 {
+			qcom,dump-size = <0x10100>;
+			qcom,dump-id = <0x1b4>;
+		};
+
+		l1btb500 {
+			qcom,dump-size = <0x10100>;
+			qcom,dump-id = <0x1b5>;
+		};
+
+		l1btb600 {
+			qcom,dump-size = <0x10100>;
+			qcom,dump-id = <0x1b6>;
+		};
+
+		l1btb700 {
+			qcom,dump-size = <0x10100>;
+			qcom,dump-id = <0x1b7>;
+		};
+
+		l1ghb400 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x1c4>;
+		};
+
+		l1ghb500 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x1c5>;
+		};
+
+		l1ghb600 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x1c6>;
+		};
+
+		l1ghb700 {
+			qcom,dump-size = <0x8100>;
+			qcom,dump-id = <0x1c7>;
+		};
+
+		l1bim400 {
+			qcom,dump-size = <0x2100>;
+			qcom,dump-id = <0x1d4>;
+		};
+
+		l1bim500 {
+			qcom,dump-size = <0x2100>;
+			qcom,dump-id = <0x1d5>;
+		};
+
+		l1bim600 {
+			qcom,dump-size = <0x2100>;
+			qcom,dump-id = <0x1d6>;
+		};
+
+		l1bim700 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x1d7>;
+		};
+
+		l2victim400 {
+			qcom,dump-size = <0x2100>;
+			qcom,dump-id = <0x1e4>;
+		};
+
+		l2victim500 {
+			qcom,dump-size = <0x2100>;
+			qcom,dump-id = <0x1e5>;
+		};
+
+		l2victim600 {
+			qcom,dump-size = <0x2100>;
+			qcom,dump-id = <0x1e6>;
+		};
+
+		l2victim700 {
+			qcom,dump-size = <0x4100>;
+			qcom,dump-id = <0x1e7>;
+		};
+
+		cpuss_reg {
+			qcom,dump-size = <0x30000>;
+			qcom,dump-id = <0xef>;
+		};
+
+		gemnoc {
+			qcom,dump-size = <0x100000>;
+			qcom,dump-id = <0x162>;
+		};
+
+		rpmh {
+			qcom,dump-size = <0x2000000>;
+			qcom,dump-id = <0xec>;
+		};
+
+		rpm_sw {
+			qcom,dump-size = <0x28000>;
+			qcom,dump-id = <0xea>;
+		};
+
+		pmic {
+			qcom,dump-size = <0x200000>;
+			qcom,dump-id = <0xe4>;
+		};
+
+		fcm {
+			qcom,dump-size = <0x8400>;
+			qcom,dump-id = <0xee>;
+		};
+
+		etf_swao {
+			qcom,dump-size = <0x10000>;
+			qcom,dump-id = <0xf1>;
+		};
+
+		etr_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x100>;
+		};
+
+		etfswao_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x102>;
+		};
+
+		etr1_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x105>;
+		};
+
+		misc_data {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0xe8>;
+		};
+
+		etf_slpi {
+			qcom,dump-size = <0x4000>;
+			qcom,dump-id = <0xf3>;
+		};
+
+		etfslpi_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x103>;
+		};
+
+		etf_lpass {
+			qcom,dump-size = <0x4000>;
+			qcom,dump-id = <0xf4>;
+		};
+
+		etflpass_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x104>;
+		};
+
+		llcc1dc {
+			qcom,dump-size = <0x171000>;
+			qcom,dump-id = <0x140>;
+		};
+
+		llcc2dc {
+			qcom,dump-size = <0x171000>;
+			qcom,dump-id = <0x141>;
+		};
+
+		llcc3dc {
+			qcom,dump-size = <0x171000>;
+			qcom,dump-id = <0x142>;
+		};
+
+		llcc4dc {
+			qcom,dump-size = <0x171000>;
+			qcom,dump-id = <0x143>;
+		};
+	};
+};
+
