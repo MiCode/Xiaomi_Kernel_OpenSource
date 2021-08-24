@@ -4,10 +4,6 @@
  */
 
 /*
- * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
- */
-#define DMA_ATTR_SKIP_ZEROING		(1UL << 12)
-/*
  * DMA_ATTR_NO_DELAYED_UNMAP: Used by msm specific lazy mapping to indicate
  * that the mapping can be freed on unmap, rather than when the ion_buffer
  * is freed.
