@@ -748,11 +748,13 @@ int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon, char *buf, size_t len)
 	char req = 0;
 	struct qmi_ssctl_get_failure_reason_resp_msg resp;
 	struct qmi_txn txn;
-	const char *dest_ss = sysmon->name;
+	const char *dest_ss;
 	int ret;
 
 	if (sysmon == NULL || buf == NULL || len == 0)
 		return -EINVAL;
+
+	dest_ss = sysmon->name;
 
 	ret = qmi_txn_init(&sysmon->qmi, &txn, qmi_ssctl_get_failure_reason_resp_msg_ei,
 			   &resp);
