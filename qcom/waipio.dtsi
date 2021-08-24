@@ -1236,7 +1236,7 @@
 	tlmm-vm-mem-access {
 		compatible = "qcom,tlmm-vm-mem-access";
 		qcom,master;
-		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388>;
+		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388 317 318 319 320 321 322>;
 	};
 
 	qcom,gh_vm_loader_sec@e0b00000 {
