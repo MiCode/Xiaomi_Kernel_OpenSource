@@ -3025,7 +3025,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		 * so check again using local pointer.
 		 */
 		id_table = driver_ops->id_table;
-		while (id_table->vendor) {
+		while (id_table && id_table->vendor) {
 			cnss_pr_info("Host driver is built for PCIe device ID 0x%x\n",
 				     id_table->device);
 			id_table++;
