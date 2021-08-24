@@ -4426,6 +4426,8 @@ static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 			msleep(20);
 
 		dbg_log_string("stop_host_mode completed");
+		if (mdwc->id_state == DWC3_ID_GROUND)
+			return -EBUSY;
 	}
 
 	return 0;
@@ -4462,6 +4464,8 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 			msleep(20);
 
 		dbg_log_string("stop_device_mode completed");
+		if (mdwc->vbus_active)
+			return -EBUSY;
 	}
 
 	return 0;
@@ -4546,6 +4550,9 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_device(mdwc, true);
 	} else {
+		if (mdwc->in_host_mode || mdwc->in_device_mode)
+			return -EBUSY;
+
 		dbg_log_string("USB is not active.\n");
 		dwc3_msm_set_dp_only_params(mdwc);
 	}
