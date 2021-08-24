@@ -139,6 +139,9 @@ DECLARE_HOOK(android_vh_rmqueue,
 		unsigned int alloc_flags, int migratetype),
 	TP_ARGS(preferred_zone, zone, order,
 		gfp_flags, alloc_flags, migratetype));
+DECLARE_HOOK(android_vh_kmalloc_slab,
+	TP_PROTO(unsigned int index, gfp_t flags, struct kmem_cache **s),
+	TP_ARGS(index, flags, s));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
