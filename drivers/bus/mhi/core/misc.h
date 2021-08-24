@@ -8,11 +8,14 @@
 #define _MHI_CORE_MISC_H_
 
 #include <linux/mhi_misc.h>
+#include <linux/msm_pcie.h>
 
 #define MHI_FORCE_WAKE_DELAY_US (100)
 #define MHI_IPC_LOG_PAGES (100)
 #define MAX_RDDM_TABLE_SIZE (7)
 #define MHI_REG_SIZE (SZ_4K)
+
+#define REG_WRITE_QUEUE_LEN 512
 
 /* MHI misc capability registers */
 #define MISC_OFFSET (0x24)
@@ -150,6 +153,19 @@ struct file_info {
 };
 
 /**
+ * struct reg_write_info - offload reg write info
+ * @reg_addr - register address
+ * @val - value to be written to register
+ * @chan - channel number
+ * @valid - entry is valid or not
+ */
+struct reg_write_info {
+	void __iomem *reg_addr;
+	u32 val;
+	bool valid;
+};
+
+/**
  * struct mhi_private - For private variables of an MHI controller
  */
 struct mhi_private {
@@ -168,6 +184,12 @@ struct mhi_private {
 	u32 bw_response;
 	struct mhi_sfr_info *sfr_info;
 	struct mhi_timesync *timesync;
+
+	/* reg write offload */
+	struct work_struct reg_write_work;
+	struct reg_write_info *reg_write_q;
+	atomic_t write_idx;
+	u32 read_idx;
 };
 
 /**
@@ -239,6 +261,9 @@ void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
 			    u32 *dword1);
 void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
 			     unsigned int type, unsigned int ccs);
+void mhi_write_offload_wakedb(struct mhi_controller *mhi_cntrl, int db_val);
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl);
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl);
 #else
 static inline void mhi_misc_init(void)
 {
@@ -296,6 +321,19 @@ static inline void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
 
 static inline void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
 					   unsigned int type, unsigned int ccs)
+{
+}
+
+static inline void mhi_write_offload_wakedb(struct mhi_controller *mhi_cntrl,
+					    int db_val)
+{
+}
+
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl)
+{
+}
+
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl)
 {
 }
 #endif
