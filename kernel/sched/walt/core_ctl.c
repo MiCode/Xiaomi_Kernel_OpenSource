@@ -842,8 +842,8 @@ static bool eval_need(struct cluster_data *cluster)
 		 */
 		if (new_need == last_need && new_need == cluster->active_cpus) {
 			cluster->need_ts = now;
-			spin_unlock_irqrestore(&state_lock, flags);
-			return 0;
+			ret = 0;
+			goto unlock;
 		}
 
 		elapsed =  now - cluster->need_ts;
@@ -854,8 +854,11 @@ static bool eval_need(struct cluster_data *cluster)
 		cluster->need_ts = now;
 		cluster->need_cpus = new_need;
 	}
+
+unlock:
 	trace_core_ctl_eval_need(cluster->first_cpu, last_need, new_need,
-				 ret && need_flag);
+				 cluster->active_cpus, ret, need_flag,
+				 ret && need_flag, cluster->need_ts);
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	return ret && need_flag;
