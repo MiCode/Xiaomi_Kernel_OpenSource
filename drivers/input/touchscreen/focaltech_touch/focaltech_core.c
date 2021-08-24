@@ -64,6 +64,7 @@
 #include "linux/gunyah/gh_msgq.h"
 #include "linux/gunyah/gh_rm_drv.h"
 #include <linux/sort.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 #endif
 
 /*****************************************************************************
@@ -184,56 +185,104 @@ static struct gh_sgl_desc *fts_ts_vm_get_sgl(
 	return sgl_desc;
 }
 
-static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
+static int fts_ts_populate_vm_info_iomem(struct fts_ts_data *fts_data)
 {
-	int rc = 0;
-	struct trusted_touch_vm_info *vm_info;
+	int i, gpio, rc = 0;
+	int num_regs, num_sizes, num_gpios, list_size;
+	struct resource res;
 	struct device_node *np = fts_data->dev->of_node;
-	int num_regs, num_sizes = 0;
+	struct trusted_touch_vm_info *vm_info = fts_data->vm_info;
 
-	vm_info = kzalloc(sizeof(struct trusted_touch_vm_info), GFP_KERNEL);
-	if (!vm_info) {
-		rc = -ENOMEM;
-		goto error;
-	}
-
-	fts_data->vm_info = vm_info;
-	vm_info->vm_name = GH_TRUSTED_VM;
-	rc = of_property_read_u32(np, "focaltech,trusted-touch-spi-irq",
-			&vm_info->hw_irq);
-	if (rc) {
-		pr_err("Failed to read trusted touch SPI irq:%d\n", rc);
-		goto vm_error;
-	}
-	num_regs = of_property_count_u32_elems(np,
-			"focaltech,trusted-touch-io-bases");
+	num_regs = of_property_count_u32_elems(np, "focaltech,trusted-touch-io-bases");
 	if (num_regs < 0) {
-		pr_err("Invalid number of IO regions specified\n");
-		rc = -EINVAL;
-		goto vm_error;
+		FTS_ERROR("Invalid number of IO regions specified\n");
+		return -EINVAL;
 	}
 
-	num_sizes = of_property_count_u32_elems(np,
-			"focaltech,trusted-touch-io-sizes");
+	num_sizes = of_property_count_u32_elems(np, "focaltech,trusted-touch-io-sizes");
 	if (num_sizes < 0) {
-		pr_err("Invalid number of IO regions specified\n");
-		rc = -EINVAL;
-		goto vm_error;
+		FTS_ERROR("Invalid number of IO regions specified\n");
+		return -EINVAL;
 	}
 
 	if (num_regs != num_sizes) {
-		pr_err("IO bases and sizes doe not match\n");
-		rc = -EINVAL;
-		goto vm_error;
+		FTS_ERROR("IO bases and sizes array lengths mismatch\n");
+		return -EINVAL;
 	}
 
-	vm_info->iomem_list_size = num_regs;
+	num_gpios = of_gpio_named_count(np, "focaltech,trusted-touch-vm-gpio-list");
+	if (num_gpios < 0) {
+		dev_warn(fts_data->dev, "Ignoring invalid trusted gpio list: %d\n", num_gpios);
+		num_gpios = 0;
+	}
 
-	vm_info->iomem_bases = kcalloc(num_regs, sizeof(*vm_info->iomem_bases),
-								GFP_KERNEL);
-	if (!vm_info->iomem_bases) {
-		rc = -ENOMEM;
-		goto vm_error;
+	list_size = num_regs + num_gpios;
+	vm_info->iomem_list_size = list_size;
+	vm_info->iomem_bases = devm_kcalloc(fts_data->dev, list_size, sizeof(*vm_info->iomem_bases),
+			GFP_KERNEL);
+	if (!vm_info->iomem_bases)
+		return -ENOMEM;
+
+	vm_info->iomem_sizes = devm_kcalloc(fts_data->dev, list_size, sizeof(*vm_info->iomem_sizes),
+			GFP_KERNEL);
+	if (!vm_info->iomem_sizes)
+		return -ENOMEM;
+
+	for (i = 0; i < num_gpios; ++i) {
+		gpio = of_get_named_gpio(np, "focaltech,trusted-touch-vm-gpio-list", i);
+		if (gpio < 0 || !gpio_is_valid(gpio)) {
+			FTS_ERROR("Invalid gpio %d at position %d\n", gpio, i);
+			return gpio;
+		}
+
+		if (!msm_gpio_get_pin_address(gpio, &res)) {
+			FTS_ERROR("Failed to retrieve gpio-%d resource\n", gpio);
+			return -ENODATA;
+		}
+
+		vm_info->iomem_bases[i] = res.start;
+		vm_info->iomem_sizes[i] = resource_size(&res);
+	}
+
+	rc = of_property_read_u32_array(np, "focaltech,trusted-touch-io-bases",
+			&vm_info->iomem_bases[i], list_size - i);
+	if (rc) {
+		FTS_ERROR("Failed to read trusted touch io bases:%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32_array(np, "focaltech,trusted-touch-io-sizes",
+			&vm_info->iomem_sizes[i], list_size - i);
+	if (rc) {
+		FTS_ERROR("Failed to read trusted touch io sizes:%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
+{
+	int rc;
+	struct trusted_touch_vm_info *vm_info;
+	struct device_node *np = fts_data->dev->of_node;
+
+	vm_info = devm_kzalloc(fts_data->dev, sizeof(struct trusted_touch_vm_info), GFP_KERNEL);
+	if (!vm_info)
+		return -ENOMEM;
+
+	fts_data->vm_info = vm_info;
+	vm_info->vm_name = GH_TRUSTED_VM;
+	rc = of_property_read_u32(np, "focaltech,trusted-touch-spi-irq", &vm_info->hw_irq);
+	if (rc) {
+		pr_err("Failed to read trusted touch SPI irq:%d\n", rc);
+		return rc;
+	}
+
+	rc = fts_ts_populate_vm_info_iomem(fts_data);
+	if (rc) {
+		pr_err("Failed to read trusted touch mmio ranges:%d\n", rc);
+		return rc;
 	}
 
 	rc = of_property_read_string(np, "focaltech,trusted-touch-type",
@@ -251,41 +300,7 @@ static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
 		vm_info->irq_label = GH_IRQ_LABEL_TRUSTED_TOUCH_SECONDARY;
 	}
 
-	rc = of_property_read_string(np, "focaltech,trusted-touch-type",
-						&vm_info->trusted_touch_type);
-	if (rc)
-		pr_warn("%s: No trusted touch type selection made\n", __func__);
-
-	rc = of_property_read_u32_array(np, "focaltech,trusted-touch-io-bases",
-			vm_info->iomem_bases, vm_info->iomem_list_size);
-	if (rc) {
-		pr_err("Failed to read trusted touch io bases:%d\n", rc);
-		goto io_bases_error;
-	}
-
-	vm_info->iomem_sizes = kzalloc(
-			sizeof(*vm_info->iomem_sizes) * num_sizes, GFP_KERNEL);
-	if (!vm_info->iomem_sizes) {
-		rc = -ENOMEM;
-		goto io_bases_error;
-	}
-
-	rc = of_property_read_u32_array(np, "focaltech,trusted-touch-io-sizes",
-			vm_info->iomem_sizes, vm_info->iomem_list_size);
-	if (rc) {
-		pr_err("Failed to read trusted touch io sizes:%d\n", rc);
-		goto io_sizes_error;
-	}
-	return rc;
-
-io_sizes_error:
-	kfree(vm_info->iomem_sizes);
-io_bases_error:
-	kfree(vm_info->iomem_bases);
-vm_error:
-	kfree(vm_info);
-error:
-	return rc;
+	return 0;
 }
 
 static void fts_ts_destroy_vm_info(struct fts_ts_data *fts_data)
