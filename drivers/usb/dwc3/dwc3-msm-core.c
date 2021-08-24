@@ -4418,7 +4418,7 @@ static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 		pm_runtime_get(&mdwc->dwc3->dev);
 
 		flush_work(&mdwc->resume_work);
-		drain_workqueue(mdwc->sm_usb_wq);
+		flush_workqueue(mdwc->sm_usb_wq);
 
 		pm_runtime_put(&mdwc->dwc3->dev);
 		while (test_bit(WAIT_FOR_LPM, &mdwc->inputs))
@@ -4453,7 +4453,7 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 		pm_runtime_get(&mdwc->dwc3->dev);
 
 		flush_work(&mdwc->resume_work);
-		drain_workqueue(mdwc->sm_usb_wq);
+		flush_workqueue(mdwc->sm_usb_wq);
 
 		pm_runtime_put(&mdwc->dwc3->dev);
 
@@ -4492,8 +4492,7 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 	/* flush any pending work */
 	flush_work(&mdwc->resume_work);
-	drain_workqueue(mdwc->sm_usb_wq);
-
+	flush_workqueue(mdwc->sm_usb_wq);
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
 	mdwc->ss_release_called = true;
