@@ -3714,7 +3714,14 @@ static void dwc3_resume_work(struct work_struct *w)
 			goto skip_update;
 	}
 
-	dwc3_msm_set_max_speed(mdwc, mdwc->max_hw_supp_speed);
+	/*
+	 * Do not override speed for consistency as if not present, then
+	 * there is a chance w/ 4LN DP USB data disable case for the DCFG
+	 * programmed w/ SSUSB w/o QMP PHY initialized.  Functionally
+	 * DP mode will still operate as should.
+	 */
+	if (!mdwc->ss_release_called)
+		dwc3_msm_set_max_speed(mdwc, mdwc->max_hw_supp_speed);
 	if (edev && extcon_get_state(edev, extcon_id)) {
 		ret = extcon_get_property(edev, extcon_id,
 				EXTCON_PROP_USB_SS, &val);
