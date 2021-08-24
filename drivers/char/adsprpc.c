@@ -1314,7 +1314,7 @@ static int fastrpc_mmap_create_remote_heap(struct fastrpc_file *fl,
 
 	map->apps = me;
 	map->fl = NULL;
-	map->attr |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+	map->attr |= DMA_ATTR_NO_KERNEL_MAPPING;
 	err = fastrpc_alloc_cma_memory(&region_phys, &region_vaddr,
 				len, (unsigned long) map->attr);
 	if (err)
@@ -7495,7 +7495,6 @@ static int __init fastrpc_device_init(void)
 							&me->channel[i].nb);
 		if (i == CDSP_DOMAIN_ID) {
 			me->channel[i].dev = me->non_secure_dev;
-			attr |= DMA_ATTR_SKIP_ZEROING;
 			err = fastrpc_alloc_cma_memory(&region_phys,
 								&region_vaddr,
 								MINI_DUMP_DBG_SIZE,
