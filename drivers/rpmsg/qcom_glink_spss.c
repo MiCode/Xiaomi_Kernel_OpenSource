@@ -45,6 +45,14 @@ struct glink_spss_pipe {
 
 #define to_spss_pipe(p) container_of(p, struct glink_spss_pipe, native)
 
+static void glink_spss_reset(struct qcom_glink_pipe *np)
+{
+	struct glink_spss_pipe *pipe = to_spss_pipe(np);
+
+	*pipe->head = cpu_to_le32(0);
+	*pipe->tail = cpu_to_le32(0);
+}
+
 static size_t glink_spss_rx_avail(struct qcom_glink_pipe *np)
 {
 	struct glink_spss_pipe *pipe = to_spss_pipe(np);
@@ -291,10 +299,12 @@ struct qcom_glink *qcom_glink_spss_register(struct device *parent,
 	rx_pipe->native.avail = glink_spss_rx_avail;
 	rx_pipe->native.peak = glink_spss_rx_peak;
 	rx_pipe->native.advance = glink_spss_rx_advance;
+	rx_pipe->native.reset = glink_spss_reset;
 	rx_pipe->remote_pid = remote_pid;
 
 	tx_pipe->native.avail = glink_spss_tx_avail;
 	tx_pipe->native.write = glink_spss_tx_write;
+	tx_pipe->native.reset = glink_spss_reset;
 	tx_pipe->remote_pid = remote_pid;
 
 	*rx_pipe->tail = 0;
@@ -313,6 +323,10 @@ struct qcom_glink *qcom_glink_spss_register(struct device *parent,
 		goto err_put_dev;
 	}
 
+	ret = qcom_glink_native_start(glink);
+	if (ret)
+		goto err_put_dev;
+
 	return glink;
 
 err_put_dev:
@@ -321,12 +335,6 @@ err_put_dev:
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(qcom_glink_spss_register);
-
-int qcom_glink_spss_start(struct qcom_glink *glink)
-{
-	return qcom_glink_native_start(glink);
-}
-EXPORT_SYMBOL(qcom_glink_spss_start);
 
 void qcom_glink_spss_unregister(struct qcom_glink *glink)
 {
