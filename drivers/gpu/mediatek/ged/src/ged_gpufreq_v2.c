@@ -93,7 +93,7 @@ unsigned int ged_get_opp_num(void)
 
 unsigned int ged_get_freq_by_idx(int oppidx)
 {
-	if (oppidx <= 0 || oppidx >= g_working_oppnum)
+	if (oppidx < 0 || oppidx >= g_working_oppnum)
 		return 0;
 
 	if (g_working_table == NULL)
@@ -104,7 +104,7 @@ unsigned int ged_get_freq_by_idx(int oppidx)
 
 unsigned int ged_get_power_by_idx(int oppidx)
 {
-	if (oppidx <= 0 || oppidx >= g_working_oppnum)
+	if (oppidx < 0 || oppidx >= g_working_oppnum)
 		return 0;
 
 	if (g_working_table == NULL)

@@ -71,6 +71,8 @@ int mtk_bandwidth_resource_init(void)
 
 		MTKGPUQoS_setup(v1, addr.phyaddr, rec_size);
 		is_gpu_bm_inited = 1;
+
+		return err;
 #endif
 		return -1;
 }
