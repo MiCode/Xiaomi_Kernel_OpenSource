@@ -277,11 +277,32 @@ static s32 color_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static s32 color_post(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
+{
+	if (!task && !task->pq_task)
+		atomic_set(&task->pq_task->comp_config.queue_cnt, 0);
+
+	return 0;
+}
+
+static s32 color_repost(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
+{
+	if (!task && !task->pq_task)
+		atomic_set(&task->pq_task->comp_config.queue_cnt, 0);
+
+	return 0;
+}
+
+
 static const struct mml_comp_config_ops color_cfg_ops = {
 	.prepare = color_prepare,
 	.init = color_init,
 	.frame = color_config_frame,
 	.tile = color_config_tile,
+	.post = color_post,
+	.repost = color_repost,
 };
 
 static void color_debug_dump(struct mml_comp *comp)

@@ -373,8 +373,12 @@ int mml_pq_comp_config(struct mml_task *task)
 
 	dump_pq_param(&task->pq_param[0]);
 
-	if (!atomic_fetch_add_unless(&task->pq_task->comp_config.queue_cnt, 1, 1))
+	if (!atomic_fetch_add_unless(&task->pq_task->comp_config.queue_cnt, 1, 1)) {
+		task->pq_task->comp_config.result = NULL;
+		task->pq_task->comp_config.job_cancelled = false;
+		task->pq_task->comp_config.job_id = 0;
 		queue_msg(&pq_mbox->comp_config_chan, &task->pq_task->comp_config);
+	}
 
 	mml_pq_msg("%s end", __func__);
 
