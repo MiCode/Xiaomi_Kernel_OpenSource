@@ -3129,14 +3129,18 @@
 	};
 
 	emicen: emicen@10219000 {
-		compatible = "mediatek,mt6983-emicen";
+		compatible = "mediatek,mt6877-emicen",
+			     "mediatek,common-emicen";
 		reg = <0 0x10219000 0 0x1000>,
 			<0 0x1021d000 0 0x1000>;
 		mediatek,emi-reg = <&emichn>;
+		a2d_hash = <1>;
+		a2d_disph = <2>;
 	};
 
 	emichn: emichn@10235000 {
-		compatible = "mediatek,mt6983-emichn";
+		compatible = "mediatek,mt6877-emichn",
+			     "mediatek,common-emichn";
 		reg = <0 0x10235000 0 0x1000>,
 			<0 0x10245000 0 0x1000>,
 			<0 0x10255000 0 0x1000>,
