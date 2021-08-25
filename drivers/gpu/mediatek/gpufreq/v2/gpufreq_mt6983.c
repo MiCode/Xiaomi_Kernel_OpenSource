@@ -737,6 +737,10 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	if (power == POWER_ON && g_stack.power_count == 1) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_01);
 
+		/* control AOC after MFG_0 on */
+		__gpufreq_aoc_control(POWER_ON);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_02);
+
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_ON);
 		if (unlikely(ret)) {
@@ -744,10 +748,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_02);
-
-		/* control AOC after MFG_0 on */
-		__gpufreq_aoc_control(POWER_ON);
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_03);
 
 		/* control MTCMOS */
@@ -825,10 +825,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		}
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0F);
 
-		/* control AOC before MFG_0 off */
-		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_10);
-
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
 		if (unlikely(ret)) {
@@ -836,6 +832,10 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_10);
+
+		/* control AOC before MFG_0 off */
+		__gpufreq_aoc_control(POWER_OFF);
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_11);
 	}
 
@@ -3045,29 +3045,45 @@ static void __gpufreq_acp_control(void)
 	val |= (1UL << 3);
 	writel(val, g_mfg_top_base + 0x168);
 
-	/* MFG_1TO2AXI_CON_00 0x13FBF8E0 [23:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
-	writel(0x855, g_mfg_top_base + 0x8E0);
+	/* MFG_1TO2AXI_CON_00 0x13FBF8E0 [11:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
+	val = readl(g_mfg_top_base + 0x8E0);
+	val |= 0x855;
+	writel(val, g_mfg_top_base + 0x8E0);
 
-	/* MFG_1TO2AXI_CON_02 0x13FBF8E8 [23:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
-	writel(0x855, g_mfg_top_base + 0x8E8);
+	/* MFG_1TO2AXI_CON_02 0x13FBF8E8 [11:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
+	val = readl(g_mfg_top_base + 0x8E8);
+	val |= 0x855;
+	writel(val, g_mfg_top_base + 0x8E8);
 
-	/* MFG_1TO2AXI_CON_04 0x13FBF910 [23:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
-	writel(0x855, g_mfg_top_base + 0x910);
+	/* MFG_1TO2AXI_CON_04 0x13FBF910 [11:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
+	val = readl(g_mfg_top_base + 0x910);
+	val |= 0x855;
+	writel(val, g_mfg_top_base + 0x910);
 
-	/* MFG_1TO2AXI_CON_06 0x13FBF918 [23:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
-	writel(0x855, g_mfg_top_base + 0x918);
+	/* MFG_1TO2AXI_CON_06 0x13FBF918 [11:0] mfg_axi1to2_R_dispatch_mode = 0x855 */
+	val = readl(g_mfg_top_base + 0x918);
+	val |= 0x855;
+	writel(val, g_mfg_top_base + 0x918);
 
-	/* MFG_OUT_1TO2AXI_CON_00 0x13FBF900 [23:0] mfg_axi1to2_R_dispatch_mode = 0x55 */
-	writel(0x55, g_mfg_top_base + 0x900);
+	/* MFG_OUT_1TO2AXI_CON_00 0x13FBF900 [11:0] mfg_axi1to2_R_dispatch_mode = 0x055 */
+	val = readl(g_mfg_top_base + 0x900);
+	val |= 0x055;
+	writel(val, g_mfg_top_base + 0x900);
 
-	/* MFG_OUT_1TO2AXI_CON_02 0x13FBF908 [23:0] mfg_axi1to2_R_dispatch_mode = 0x55 */
-	writel(0x55, g_mfg_top_base + 0x908);
+	/* MFG_OUT_1TO2AXI_CON_02 0x13FBF908 [11:0] mfg_axi1to2_R_dispatch_mode = 0x055 */
+	val = readl(g_mfg_top_base + 0x908);
+	val |= 0x055;
+	writel(val, g_mfg_top_base + 0x908);
 
-	/* MFG_OUT_1TO2AXI_CON_04 0x13FBF920 [23:0] mfg_axi1to2_R_dispatch_mode = 0x55 */
-	writel(0x55, g_mfg_top_base + 0x920);
+	/* MFG_OUT_1TO2AXI_CON_04 0x13FBF920 [11:0] mfg_axi1to2_R_dispatch_mode = 0x055 */
+	val = readl(g_mfg_top_base + 0x920);
+	val |= 0x055;
+	writel(val, g_mfg_top_base + 0x920);
 
-	/* MFG_OUT_1TO2AXI_CON_06 0x13FBF928 [23:0] mfg_axi1to2_R_dispatch_mode = 0x55 */
-	writel(0x55, g_mfg_top_base + 0x928);
+	/* MFG_OUT_1TO2AXI_CON_06 0x13FBF928 [11:0] mfg_axi1to2_R_dispatch_mode = 0x055 */
+	val = readl(g_mfg_top_base + 0x928);
+	val |= 0x055;
+	writel(val, g_mfg_top_base + 0x928);
 }
 
 /* GPM1.0: di/dt reduction by slowing down speed of frequency scaling up or down */
