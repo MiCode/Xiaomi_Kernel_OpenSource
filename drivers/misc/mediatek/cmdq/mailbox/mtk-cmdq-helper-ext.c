@@ -1728,8 +1728,17 @@ EXPORT_SYMBOL(cmdq_pkt_finalize);
 
 s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 {
+	struct cmdq_pkt_buffer *buf;
+	struct cmdq_instruction *inst;
+
+	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+	inst = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size - CMDQ_INST_SIZE;
+	if (inst->op != CMDQ_CODE_JUMP || inst->arg_a != 1)
+		return 0;
+
 	pkt->cmd_buf_size -= CMDQ_INST_SIZE;
 	pkt->avail_buf_size += CMDQ_INST_SIZE;
+
 	return cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
 }
 EXPORT_SYMBOL(cmdq_pkt_refinalize);
