@@ -3158,7 +3158,8 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR_MSTREAM;
 		dev_dbg(dev, "%s sw_feature:%d", __func__, config_param.sw_feature);
 	} else {
-		config_param.sw_feature = (mtk_cam_is_stagger(ctx) == 1) ?
+		config_param.sw_feature = (mtk_cam_is_stagger(ctx) == 1 ||
+			mtk_cam_is_stagger_m2m(ctx) == 1) ?
 			MTKCAM_IPI_SW_FEATURE_VHDR_STAGGER : MTKCAM_IPI_SW_FEATURE_NORMAL;
 	}
 
