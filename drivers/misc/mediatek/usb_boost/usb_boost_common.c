@@ -177,7 +177,6 @@ void register_usb_boost_act(int type_id, int action_id,
 {
 	boost_inst[type_id].ops.act[action_id] = func;
 }
-EXPORT_SYMBOL(register_usb_boost_act);
 
 static void __request_it(int id)
 {
@@ -613,7 +612,6 @@ int usb_boost_init(void)
 
 	return 0;
 }
-EXPORT_SYMBOL(usb_boost_init);
 module_param(trigger_cnt_disabled, int, 0400);
 module_param(enabled, int, 0400);
 module_param(inited, int, 0400);

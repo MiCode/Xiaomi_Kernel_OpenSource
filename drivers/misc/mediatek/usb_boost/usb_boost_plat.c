@@ -42,7 +42,7 @@ static int freq_hold(struct act_arg_obj *arg)
 			if (!policy)
 				continue;
 
-			USB_BOOST_NOTICE("%s, policy: first:%d, min:%d, max:%d",
+			USB_BOOST_DBG("%s, policy: first:%d, min:%d, max:%d",
 				__func__, policy->cpu, policy->min, policy->max);
 
 			req_policy = kzalloc(sizeof(*req_policy), GFP_KERNEL);
@@ -106,6 +106,8 @@ static int core_release(struct act_arg_obj *arg)
 
 static int vcorefs_hold(struct act_arg_obj *arg)
 {
+	USB_BOOST_DBG("\n");
+
 	if (usb_icc_path)
 		icc_set_bw(usb_icc_path, 0, peak_bw);
 
@@ -114,6 +116,8 @@ static int vcorefs_hold(struct act_arg_obj *arg)
 
 static int vcorefs_release(struct act_arg_obj *arg)
 {
+	USB_BOOST_DBG("\n");
+
 	if (usb_icc_path)
 		icc_set_bw(usb_icc_path, 0, 0);
 
@@ -125,6 +129,19 @@ static int usb_boost_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 
 	USB_BOOST_NOTICE("\n");
+
+	/* mandatory, related resource inited*/
+	usb_boost_init();
+
+	/* mandatory, hook callback depends on platform */
+	register_usb_boost_act(TYPE_CPU_FREQ, ACT_HOLD, freq_hold);
+	register_usb_boost_act(TYPE_CPU_FREQ, ACT_RELEASE, freq_release);
+	register_usb_boost_act(TYPE_CPU_CORE, ACT_HOLD, core_hold);
+	register_usb_boost_act(TYPE_CPU_CORE, ACT_RELEASE, core_release);
+	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_HOLD, vcorefs_hold);
+	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_RELEASE, vcorefs_release);
+
+	cpu_latency_qos_add_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
 
 	usb_icc_path = of_icc_get(&pdev->dev, "icc-bw");
 	if (!usb_icc_path) {
@@ -169,19 +186,6 @@ static struct platform_driver usb_boost_driver = {
 static int __init usbboost(void)
 {
 	USB_BOOST_NOTICE("\n");
-
-	/* mandatory, related resource inited*/
-	usb_boost_init();
-
-	/* mandatory, hook callback depends on platform */
-	register_usb_boost_act(TYPE_CPU_FREQ, ACT_HOLD, freq_hold);
-	register_usb_boost_act(TYPE_CPU_FREQ, ACT_RELEASE, freq_release);
-	register_usb_boost_act(TYPE_CPU_CORE, ACT_HOLD, core_hold);
-	register_usb_boost_act(TYPE_CPU_CORE, ACT_RELEASE, core_release);
-	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_HOLD, vcorefs_hold);
-	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_RELEASE, vcorefs_release);
-
-	cpu_latency_qos_add_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
 
 	platform_driver_register(&usb_boost_driver);
 
