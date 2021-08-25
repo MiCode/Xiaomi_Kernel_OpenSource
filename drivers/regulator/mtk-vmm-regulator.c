@@ -193,6 +193,14 @@ static void set_all_muxes(struct dvfs_driver_data *drv_data, u32 opp_level)
 	}
 }
 
+static int ccu_set_voltage(struct regulator_dev *rdev,
+		int min_uV, int max_uV, unsigned int *selector)
+{
+
+	ISP_LOGI("CCU VMM set voltage (%d)", min_uV);
+	return 0;
+}
+
 static int apmcu_set_voltage(struct regulator_dev *rdev,
 		int min_uV, int max_uV, unsigned int *selector)
 {
@@ -357,6 +365,15 @@ static const struct regulator_ops vmm_apmcu_ops = {
 	.is_enabled = vmm_is_enabled,
 };
 
+static const struct regulator_ops vmm_ccu_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.set_voltage = ccu_set_voltage,
+	.get_voltage = vmm_get_voltage,
+	.enable = vmm_enable_regulator,
+	.disable = vmm_disable_regulator,
+	.is_enabled = vmm_is_enabled,
+};
+
 static struct vmm_regulator platform_regulators = {
 	CREATE_REGULATOR("vmm-proxy", VMM),
 };
@@ -456,6 +473,8 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	regulator->dvfs_data = dvfs_data;
 	regulator->desc.n_voltages = ARRAY_SIZE(opp_table->voltage);
 	regulator->desc.volt_table = opp_table->voltage;
+	if (support_micro_processor)
+		regulator->desc.ops = &vmm_ccu_ops;
 	regulator->is_enable = 0;
 
 	config.dev = dev;

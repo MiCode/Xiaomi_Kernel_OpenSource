@@ -41,7 +41,9 @@ struct dvfs_driver_data {
 };
 
 struct dvfs_ipc_info {
-	int voltage;
+	u32 maxOppIdx;
+	u32 minOppIdx;
+	u32 curTickCnt;
 };
 
 #endif
