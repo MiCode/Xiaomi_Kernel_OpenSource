@@ -686,11 +686,18 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp, int i, int sum_bin
 static void mtk_get_chist(struct mtk_ddp_comp *comp)
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	struct mtk_drm_private *private = mtk_crtc->base.dev->dev_private;
+	struct drm_crtc *crtc = NULL;
+	struct mtk_drm_private *priv = NULL;
 	unsigned long flags;
 	int i = 0;
 
-	present_fence = atomic_read(&private->crtc_present[0]);
+	if (mtk_crtc == NULL)
+		return;
+
+	crtc = &mtk_crtc->base;
+	priv = crtc->dev->dev_private;
+
+	present_fence = atomic_read(&priv->crtc_present[0]);
 
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 	for (; i < DISP_CHIST_CHANNEL_COUNT * 2; i++) {
