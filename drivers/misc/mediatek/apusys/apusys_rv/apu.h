@@ -203,6 +203,7 @@ extern int reviser_set_init_info(struct mtk_apu *apu);
 extern int vpu_set_init_info(struct mtk_apu *apu);
 extern int power_set_chip_info(struct mtk_apu *apu);
 
+extern int apu_get_power_dev(struct mtk_apu *apu);
 extern int apu_deepidle_init(struct mtk_apu *apu);
 extern void apu_deepidle_exit(struct mtk_apu *apu);
 #endif /* APU_H */

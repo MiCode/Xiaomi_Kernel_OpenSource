@@ -213,12 +213,11 @@ unlock_mdw:
 	mdw_dev_unlock();
 }
 
-int apu_deepidle_init(struct mtk_apu *apu)
+int apu_get_power_dev(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 	struct device_node *np;
 	struct platform_device *pdev;
-	int ret;
 
 	np = of_parse_phandle(dev->of_node, "mediatek,apusys_power", 0);
 	if (!np) {
@@ -244,6 +243,13 @@ int apu_deepidle_init(struct mtk_apu *apu)
 	apu->power_dev = &pdev->dev;
 	of_node_put(np);
 
+	return 0;
+}
+
+int apu_deepidle_init(struct mtk_apu *apu)
+{
+	struct device *dev = apu->dev;
+	int ret;
 
 	ret = apu_ipi_register(apu, APU_IPI_DEEP_IDLE,
 			       apu_deepidle_ipi_handler, apu);

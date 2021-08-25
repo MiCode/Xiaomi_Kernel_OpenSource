@@ -415,6 +415,14 @@ static int apu_probe(struct platform_device *pdev)
 	g_pdev = pdev;
 	pm_runtime_get_sync(&pdev->dev);
 
+	if (data->flags & F_AUTO_BOOT) {
+		ret = apu_get_power_dev(apu);
+		if (ret) {
+			pm_runtime_put_sync(&pdev->dev);
+			goto out_free_rproc;
+		}
+	}
+
 	if (!hw_ops->apu_memmap_init) {
 		pm_runtime_put_sync(&pdev->dev);
 		if (data->flags & F_AUTO_BOOT)
