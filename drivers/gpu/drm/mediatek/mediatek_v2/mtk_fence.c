@@ -657,6 +657,8 @@ int mtk_fence_get_sf_present_timeline_id(unsigned int session_id)
 {
 	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
 		return MTK_TIMELINE_SF_PRIMARY_PRESENT_TIMELINE_ID;
+	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_EXTERNAL)
+		return MTK_TIMELINE_SECONDARY_PRESENT_TIMELINE_ID;
 
 	DDPFENCE("session id is wrong, session=0x%x!!\n", session_id);
 	return -1;
