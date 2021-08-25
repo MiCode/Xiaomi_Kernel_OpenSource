@@ -3024,7 +3024,8 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 			i = 0;
 			j = 0;
 			for_each_comp_in_dual_pipe(comp_ccorr, mtk_crtc, i, j) {
-				if (comp_ccorr->id == DDP_COMPONENT_CCORR1) {
+				if (comp_ccorr->id == DDP_COMPONENT_CCORR1 ||
+					comp_ccorr->id == DDP_COMPONENT_CCORR2) {
 					disp_ccorr_set_color_matrix(comp_ccorr, cmdq_handle,
 								ccorr_matrix, mode, false);
 					set = true;
@@ -6834,7 +6835,8 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 		i = 0;
 		j = 0;
 		for_each_comp_in_dual_pipe(comp_ccorr, mtk_crtc, i, j) {
-			if (comp_ccorr->id == DDP_COMPONENT_CCORR1) {
+			if (comp_ccorr->id == DDP_COMPONENT_CCORR1 ||
+				comp_ccorr->id == DDP_COMPONENT_CCORR2) {
 				disp_ccorr_set_color_matrix(comp_ccorr, cmdq_handle,
 						ccorr_config->color_matrix,
 						ccorr_config->mode, ccorr_config->featureFlag);

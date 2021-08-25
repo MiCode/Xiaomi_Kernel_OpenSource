@@ -117,6 +117,7 @@ enum CCORR_IOCTL_CMD {
 struct mtk_disp_ccorr_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
+	int single_pipe_ccorr_num;
 };
 
 struct mtk_disp_ccorr {
@@ -1007,6 +1008,7 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 	case SET_CCORR:
 	{
 		struct DRM_DISP_CCORR_COEF_T *config = data;
+		struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
 
 		if (disp_ccorr_set_coef(config,
 			comp, handle) < 0) {
@@ -1018,6 +1020,8 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+			if (ccorr->data->single_pipe_ccorr_num == 2)
+				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
 
 			if (disp_ccorr_set_coef(config, comp_ccorr1, handle) < 0) {
 				DDPPR_ERR("DISP_IOCTL_SET_CCORR: failed\n");
@@ -1248,36 +1252,43 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 static const struct mtk_disp_ccorr_data mt6779_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
+	.single_pipe_ccorr_num = 1,
 };
 
 static const struct mtk_disp_ccorr_data mt6885_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
+	.single_pipe_ccorr_num = 1,
 };
 
 static const struct mtk_disp_ccorr_data mt6873_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_ccorr_num = 1,
 };
 
 static const struct mtk_disp_ccorr_data mt6853_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_ccorr_num = 2,
 };
 
 static const struct mtk_disp_ccorr_data mt6833_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_ccorr_num = 1,
 };
 
 static const struct mtk_disp_ccorr_data mt6983_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_ccorr_num = 2,
 };
 
 static const struct mtk_disp_ccorr_data mt6879_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.single_pipe_ccorr_num = 2,
 };
 
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
