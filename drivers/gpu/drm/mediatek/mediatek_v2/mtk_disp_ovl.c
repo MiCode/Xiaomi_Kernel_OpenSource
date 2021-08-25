@@ -2183,7 +2183,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 		_ovl_UFOd_in(comp, 0, handle);
 
 	if (prev == DDP_COMPONENT_OVL0 || prev == DDP_COMPONENT_OVL0_2L ||
-		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L)
+		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L ||
+		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       DISP_OVL_BGCLR_IN_SEL, DISP_OVL_BGCLR_IN_SEL);
@@ -2209,7 +2210,8 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 {
 	if ((addon_config->config_type.module == DISP_RSZ ||
 		addon_config->config_type.module == DISP_RSZ_v2 ||
-		addon_config->config_type.module == DISP_RSZ_v3) &&
+		addon_config->config_type.module == DISP_RSZ_v3 ||
+		addon_config->config_type.module == DISP_RSZ_v4) &&
 		addon_config->config_type.type == ADDON_BETWEEN) {
 		struct mtk_addon_rsz_config *config =
 			&addon_config->addon_rsz_config;

@@ -32,6 +32,7 @@ enum addon_module {
 	DISP_RSZ,
 	DISP_RSZ_v2,
 	DISP_RSZ_v3,
+	DISP_RSZ_v4,
 	DISP_WDMA0,
 	DISP_WDMA1,
 	DMDP_PQ_WITH_RDMA,
