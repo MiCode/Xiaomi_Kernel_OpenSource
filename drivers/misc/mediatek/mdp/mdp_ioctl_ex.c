@@ -476,7 +476,7 @@ static s32 translate_meta(struct op_meta *meta,
 		cmdq_handle_flush_cmd_buf(handle, cmd_buf);
 
 		cmdq_mdp_op_readback(handle, meta->engine,
-			dram_addr + offset * sizeof(u32), meta->mask);
+			dram_addr + offset * sizeof(u32) + gce_mminfra, meta->mask);
 		break;
 	}
 	case CMDQ_MOP_POLL:
