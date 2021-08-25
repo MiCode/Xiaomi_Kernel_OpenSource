@@ -2,16 +2,16 @@
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
-#ifndef __ADRENO_GENC_GMU_H
-#define __ADRENO_GENC_GMU_H
+#ifndef __ADRENO_GEN7_GMU_H
+#define __ADRENO_GEN7_GMU_H
 
 #include <linux/mailbox_client.h>
 
-#include "adreno_genc_hfi.h"
+#include "adreno_gen7_hfi.h"
 #include "kgsl_gmu_core.h"
 
 /**
- * struct genc_gmu_device - GMU device structure
+ * struct gen7_gmu_device - GMU device structure
  * @ver: GMU Version information
  * @irq: GMU interrupt number
  * @fw_image: GMU FW image
@@ -34,7 +34,7 @@
  * @mailbox: Messages to AOP for ACD enable/disable go through this
  * @log_wptr_retention: Store the log wptr offset on slumber
  */
-struct genc_gmu_device {
+struct gen7_gmu_device {
 	struct {
 		u32 core;
 		u32 core_dev;
@@ -47,7 +47,7 @@ struct genc_gmu_device {
 	const struct firmware *fw_image;
 	struct kgsl_memdesc *dump_mem;
 	struct kgsl_memdesc *gmu_log;
-	struct genc_hfi hfi;
+	struct gen7_hfi hfi;
 	/** @pwrlevels: Array of GMU power levels */
 	struct regulator *cx_gdsc;
 	struct regulator *gx_gdsc;
@@ -87,15 +87,15 @@ struct genc_gmu_device {
 	u32 perf_ddr_bw;
 };
 
-/* Helper function to get to genc gmu device from adreno device */
-struct genc_gmu_device *to_genc_gmu(struct adreno_device *adreno_dev);
+/* Helper function to get to gen7 gmu device from adreno device */
+struct gen7_gmu_device *to_gen7_gmu(struct adreno_device *adreno_dev);
 
-/* Helper function to get to adreno device from genc gmu device */
-struct adreno_device *genc_gmu_to_adreno(struct genc_gmu_device *gmu);
+/* Helper function to get to adreno device from gen7 gmu device */
+struct adreno_device *gen7_gmu_to_adreno(struct gen7_gmu_device *gmu);
 
 /**
- * genc_reserve_gmu_kernel_block() - Allocate a gmu buffer
- * @gmu: Pointer to the genc gmu device
+ * gen7_reserve_gmu_kernel_block() - Allocate a gmu buffer
+ * @gmu: Pointer to the gen7 gmu device
  * @addr: Desired gmu virtual address
  * @size: Size of the buffer in bytes
  * @vma_id: Target gmu vma where this buffer should be mapped
@@ -105,83 +105,83 @@ struct adreno_device *genc_gmu_to_adreno(struct genc_gmu_device *gmu);
  *
  * Return: Pointer to the memory descriptor or error pointer on failure
  */
-struct kgsl_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
+struct kgsl_memdesc *gen7_reserve_gmu_kernel_block(struct gen7_gmu_device *gmu,
 		u32 addr, u32 size, u32 vma_id);
 
 /**
- * genc_build_rpmh_tables - Build the rpmh tables
+ * gen7_build_rpmh_tables - Build the rpmh tables
  * @adreno_dev: Pointer to the adreno device
  *
  * This function creates the gpu dcvs and bw tables
  *
  * Return: 0 on success and negative error on failure
  */
-int genc_build_rpmh_tables(struct adreno_device *adreno_dev);
+int gen7_build_rpmh_tables(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_gx_is_on - Check if GX is on
+ * gen7_gmu_gx_is_on - Check if GX is on
  * @device: Pointer to KGSL device
  *
  * This function reads pwr status registers to check if GX
  * is on or off
  */
-bool genc_gmu_gx_is_on(struct kgsl_device *device);
+bool gen7_gmu_gx_is_on(struct kgsl_device *device);
 
 /**
- * genc_gmu_device_snapshot - GENC GMU snapshot function
+ * gen7_gmu_device_snapshot - GEN7 GMU snapshot function
  * @device: Device being snapshotted
  * @snapshot: Pointer to the snapshot instance
  *
- * This is where all of the GENC GMU specific bits and pieces are grabbed
+ * This is where all of the GEN7 GMU specific bits and pieces are grabbed
  * into the snapshot memory
  */
-void genc_gmu_device_snapshot(struct kgsl_device *device,
+void gen7_gmu_device_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot);
 
 /**
- * genc_gmu_device_probe - GENC GMU snapshot function
+ * gen7_gmu_device_probe - GEN7 GMU snapshot function
  * @pdev: Pointer to the platform device
  * @chipid: Chipid of the target
  * @gpucore: Pointer to the gpucore
  *
- * The target specific probe function for gmu based genc targets.
+ * The target specific probe function for gmu based gen7 targets.
  */
-int genc_gmu_device_probe(struct platform_device *pdev,
+int gen7_gmu_device_probe(struct platform_device *pdev,
 		u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * genc_gmu_reset - Reset and restart the gmu
+ * gen7_gmu_reset - Reset and restart the gmu
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_reset(struct adreno_device *adreno_dev);
+int gen7_gmu_reset(struct adreno_device *adreno_dev);
 
 /**
- * genc_enable_gpu_irq - Enable gpu interrupt
+ * gen7_enable_gpu_irq - Enable gpu interrupt
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_enable_gpu_irq(struct adreno_device *adreno_dev);
+void gen7_enable_gpu_irq(struct adreno_device *adreno_dev);
 
 /**
- * genc_disable_gpu_irq - Disable gpu interrupt
+ * gen7_disable_gpu_irq - Disable gpu interrupt
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_disable_gpu_irq(struct adreno_device *adreno_dev);
+void gen7_disable_gpu_irq(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_snapshot- Take snapshot for gmu targets
+ * gen7_gmu_snapshot- Take snapshot for gmu targets
  * @adreno_dev: Pointer to the adreno device
  * @snapshot: Pointer to the snapshot structure
  *
  * Send an NMI to gmu if we hit a gmu fault. Then take gmu
- * snapshot and carry on with rest of the genc snapshot
+ * snapshot and carry on with rest of the gen7 snapshot
  */
-void genc_gmu_snapshot(struct adreno_device *adreno_dev,
+void gen7_gmu_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 
 /**
- * genc_gmu_probe - Probe genc gmu resources
+ * gen7_gmu_probe - Probe gen7 gmu resources
  * @device: Pointer to the kgsl device
  * @pdev: Pointer to the gmu platform device
  *
@@ -189,117 +189,117 @@ void genc_gmu_snapshot(struct adreno_device *adreno_dev,
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_probe(struct kgsl_device *device,
+int gen7_gmu_probe(struct kgsl_device *device,
 		struct platform_device *pdev);
 
 /**
- * genc_gmu_parse_fw - Parse the gmu fw binary
+ * gen7_gmu_parse_fw - Parse the gmu fw binary
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_parse_fw(struct adreno_device *adreno_dev);
+int gen7_gmu_parse_fw(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_memory_init - Allocate gmu memory
+ * gen7_gmu_memory_init - Allocate gmu memory
  * @adreno_dev: Pointer to the adreno device
  *
  * Allocates the gmu log buffer and others if ndeeded.
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_memory_init(struct adreno_device *adreno_dev);
+int gen7_gmu_memory_init(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_aop_send_acd_state - Enable or disable acd feature in aop
- * @gmu: Pointer to the genc gmu device
+ * gen7_gmu_aop_send_acd_state - Enable or disable acd feature in aop
+ * @gmu: Pointer to the gen7 gmu device
  * @flag: Boolean to enable or disable acd in aop
  *
  * This function enables or disables gpu acd feature using mailbox
  */
-void genc_gmu_aop_send_acd_state(struct genc_gmu_device *gmu, bool flag);
+void gen7_gmu_aop_send_acd_state(struct gen7_gmu_device *gmu, bool flag);
 
 /**
- * genc_gmu_enable_clocks - Enable gmu clocks
+ * gen7_gmu_enable_clocks - Enable gmu clocks
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_enable_gdsc(struct adreno_device *adreno_dev);
+int gen7_gmu_enable_gdsc(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_load_fw - Load gmu firmware
+ * gen7_gmu_load_fw - Load gmu firmware
  * @adreno_dev: Pointer to the adreno device
  *
  * Loads the gmu firmware binary into TCMs and memory
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_load_fw(struct adreno_device *adreno_dev);
+int gen7_gmu_load_fw(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_device_start - Bring gmu out of reset
+ * gen7_gmu_device_start - Bring gmu out of reset
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_device_start(struct adreno_device *adreno_dev);
+int gen7_gmu_device_start(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_hfi_start - Indicate hfi start to gmu
+ * gen7_gmu_hfi_start - Indicate hfi start to gmu
  * @device: Pointer to the kgsl device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_hfi_start(struct adreno_device *adreno_dev);
+int gen7_gmu_hfi_start(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_itcm_shadow - Create itcm shadow copy for snapshot
+ * gen7_gmu_itcm_shadow - Create itcm shadow copy for snapshot
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_itcm_shadow(struct adreno_device *adreno_dev);
+int gen7_gmu_itcm_shadow(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_register_config - gmu register configuration
+ * gen7_gmu_register_config - gmu register configuration
  * @adreno_dev: Pointer to the adreno device
  *
  * Program gmu regsiters based on features
  */
-void genc_gmu_register_config(struct adreno_device *adreno_dev);
+void gen7_gmu_register_config(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_version_info - Get gmu firmware version
+ * gen7_gmu_version_info - Get gmu firmware version
  * @adreno_dev: Pointer to the adreno device
  *
  * Program gmu regsiters based on features
  */
-void genc_gmu_version_info(struct adreno_device *adreno_dev);
+void gen7_gmu_version_info(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_irq_enable - Enable gmu interrupts
+ * gen7_gmu_irq_enable - Enable gmu interrupts
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_gmu_irq_enable(struct adreno_device *adreno_dev);
+void gen7_gmu_irq_enable(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_irq_disable - Disaable gmu interrupts
+ * gen7_gmu_irq_disable - Disaable gmu interrupts
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_gmu_irq_disable(struct adreno_device *adreno_dev);
+void gen7_gmu_irq_disable(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_suspend - Hard reset the gpu and gmu
+ * gen7_gmu_suspend - Hard reset the gpu and gmu
  * @adreno_dev: Pointer to the adreno device
  *
  * In case we hit a gmu fault, hard reset the gpu and gmu
  * to recover from the fault
  */
-void genc_gmu_suspend(struct adreno_device *adreno_dev);
+void gen7_gmu_suspend(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_oob_set - send gmu oob request
+ * gen7_gmu_oob_set - send gmu oob request
  * @device: Pointer to the kgsl device
  * @req: Type of oob request as defined in enum oob_request
  *
@@ -307,54 +307,54 @@ void genc_gmu_suspend(struct adreno_device *adreno_dev);
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_oob_set(struct kgsl_device *device, enum oob_request oob);
+int gen7_gmu_oob_set(struct kgsl_device *device, enum oob_request oob);
 
 /**
- * genc_gmu_oob_clear - clear an asserted oob request
+ * gen7_gmu_oob_clear - clear an asserted oob request
  * @device: Pointer to the kgsl device
  * @req: Type of oob request as defined in enum oob_request
  *
  * Clear a previously requested oob so that gmu can power
  * collapse the gpu
  */
-void genc_gmu_oob_clear(struct kgsl_device *device, enum oob_request oob);
+void gen7_gmu_oob_clear(struct kgsl_device *device, enum oob_request oob);
 
 /**
- * genc_gmu_wait_for_lowest_idle - wait for gmu to complete ifpc
+ * gen7_gmu_wait_for_lowest_idle - wait for gmu to complete ifpc
  * @adreno_dev: Pointer to the adreno device
  *
  * If ifpc is enabled, wait for gmu to put gpu into ifpc.
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev);
+int gen7_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_wait_for_idle - Wait for gmu to become idle
+ * gen7_gmu_wait_for_idle - Wait for gmu to become idle
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_wait_for_idle(struct adreno_device *adreno_dev);
+int gen7_gmu_wait_for_idle(struct adreno_device *adreno_dev);
 
 /**
- * genc_rscc_sleep_sequence - Trigger rscc sleep sequence
+ * gen7_rscc_sleep_sequence - Trigger rscc sleep sequence
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_rscc_sleep_sequence(struct adreno_device *adreno_dev);
+int gen7_rscc_sleep_sequence(struct adreno_device *adreno_dev);
 
 /**
- * genc_rscc_wakeup_sequence - Trigger rscc wakeup sequence
+ * gen7_rscc_wakeup_sequence - Trigger rscc wakeup sequence
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_rscc_wakeup_sequence(struct adreno_device *adreno_dev);
+int gen7_rscc_wakeup_sequence(struct adreno_device *adreno_dev);
 
 /**
- * genc_halt_gbif - Halt CX and GX requests in GBIF
+ * gen7_halt_gbif - Halt CX and GX requests in GBIF
  * @adreno_dev: Pointer to the adreno device
  *
  * Clear any pending GX or CX transactions in GBIF and
@@ -362,55 +362,61 @@ int genc_rscc_wakeup_sequence(struct adreno_device *adreno_dev);
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_halt_gbif(struct adreno_device *adreno_dev);
+int gen7_halt_gbif(struct adreno_device *adreno_dev);
 
 /**
- * genc_load_pdc_ucode - Load and enable pdc sequence
+ * gen7_load_pdc_ucode - Load and enable pdc sequence
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_load_pdc_ucode(struct adreno_device *adreno_dev);
+int gen7_load_pdc_ucode(struct adreno_device *adreno_dev);
 
 /**
- * genc_load_rsc_ucode - Load rscc sequence
+ * gen7_load_rsc_ucode - Load rscc sequence
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_load_rsc_ucode(struct adreno_device *adreno_dev);
+void gen7_load_rsc_ucode(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_remove - Clean up gmu probed resources
+ * gen7_gmu_remove - Clean up gmu probed resources
  * @device: Pointer to the kgsl device
  */
-void genc_gmu_remove(struct kgsl_device *device);
+void gen7_gmu_remove(struct kgsl_device *device);
 
 /**
- * genc_gmu_enable_clks - Enable gmu clocks
+ * gen7_gmu_enable_clks - Enable gmu clocks
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_enable_clks(struct adreno_device *adreno_dev);
+int gen7_gmu_enable_clks(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_enable_gdsc - Enable gmu gdsc
+ * gen7_gmu_enable_gdsc - Enable gmu gdsc
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_enable_gdsc(struct adreno_device *adreno_dev);
+int gen7_gmu_enable_gdsc(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_handle_watchdog - Handle watchdog interrupt
+ * gen7_gmu_handle_watchdog - Handle watchdog interrupt
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_gmu_handle_watchdog(struct adreno_device *adreno_dev);
+void gen7_gmu_handle_watchdog(struct adreno_device *adreno_dev);
 
 /**
- * genc_gmu_send_nmi - Send NMI to GMU
+ * gen7_gmu_send_nmi - Send NMI to GMU
  * @adreno_dev: Pointer to the adreno device
  * @force: Boolean to forcefully send NMI irrespective of GMU state
  */
-void genc_gmu_send_nmi(struct adreno_device *adreno_dev, bool force);
+void gen7_gmu_send_nmi(struct adreno_device *adreno_dev, bool force);
+
+/**
+ * gen7_gmu_add_to_minidump - Register gen7_device with va minidump
+ * @adreno_dev: Pointer to the adreno device
+ */
+int gen7_gmu_add_to_minidump(struct adreno_device *adreno_dev);
 
 #endif

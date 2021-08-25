@@ -1269,8 +1269,10 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 {
 	int result = 0;
 	struct llcc_perfmon_private *llcc_priv;
-	struct llcc_drv_data *llcc_driv_data = pdev->dev.platform_data;
+	struct llcc_drv_data *llcc_driv_data;
 	uint32_t val, offset;
+
+	llcc_driv_data = dev_get_drvdata(pdev->dev.parent);
 
 	llcc_priv = devm_kzalloc(&pdev->dev, sizeof(*llcc_priv), GFP_KERNEL);
 	if (llcc_priv == NULL)
@@ -1297,7 +1299,7 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	for (val = 0; val < llcc_priv->num_banks; val++)
 		llcc_priv->bank_off[val] = llcc_driv_data->offsets[val];
 
-	llcc_priv->clock = devm_clk_get(pdev->dev.parent, "qdss_clk");
+	llcc_priv->clock = devm_clk_get(&pdev->dev, "qdss_clk");
 	if (IS_ERR_OR_NULL(llcc_priv->clock)) {
 		pr_err("failed to get clock node\n");
 		return PTR_ERR(llcc_priv->clock);
@@ -1351,11 +1353,20 @@ static int llcc_perfmon_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_llcc_perfmon[] = {
+	{
+		.compatible = "qcom,llcc-perfmon",
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, of_match_llcc_perfmon);
+
 static struct platform_driver llcc_perfmon_driver = {
 	.probe = llcc_perfmon_probe,
 	.remove	= llcc_perfmon_remove,
 	.driver	= {
 		.name = LLCC_PERFMON_NAME,
+		.of_match_table = of_match_llcc_perfmon,
 	}
 };
 module_platform_driver(llcc_perfmon_driver);

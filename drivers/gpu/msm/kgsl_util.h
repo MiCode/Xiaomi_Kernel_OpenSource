@@ -6,6 +6,18 @@
 #ifndef _KGSL_UTIL_H_
 #define _KGSL_UTIL_H_
 
+#define KGSL_DRIVER "kgsl_driver"
+#define KGSL_ADRENO_DEVICE "kgsl_adreno_device"
+#define KGSL_A6XX_DEVICE "kgsl_a6xx_device"
+#define KGSL_GEN7_DEVICE "kgsl_gen7_device"
+#define KGSL_HWSCHED_DEVICE "kgsl_hwsched_device"
+
+#define KGSL_SCRATCH_ENTRY "kgsl_scratch"
+#define KGSL_MEMSTORE_ENTRY "kgsl_memstore"
+#define KGSL_GMU_LOG_ENTRY "kgsl_gmu_log"
+#define KGSL_HFIMEM_ENTRY "kgsl_hfi_mem"
+#define KGSL_GMU_DUMPMEM_ENTRY "kgsl_gmu_dump_mem"
+
 struct regulator;
 struct clk_bulk_data;
 
@@ -102,7 +114,7 @@ int kgsl_clk_set_rate(struct clk_bulk_data *clks, int num_clks,
 int kgsl_zap_shader_load(struct device *dev, const char *name);
 
 /**
- * kgsl_add_to_minidump - Add a section to minidump
+ * kgsl_add_to_minidump - Add a physically contiguous section to minidump
  * @name: Name of the section
  * @virt_addr: Virtual address of the section
  * @phy_addr: Physical address of the section
@@ -111,12 +123,28 @@ int kgsl_zap_shader_load(struct device *dev, const char *name);
 void kgsl_add_to_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t size);
 
 /**
- * kgsl_remove_from_minidump - Remove a section from minidump
+ * kgsl_remove_from_minidump - Remove a contiguous section from minidump
  * @name: Name of the section
  * @virt_addr: Virtual address of the section
  * @phy_addr: Physical address of the section
  * @size: Size of the section
  */
 void kgsl_remove_from_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t size);
+
+/**
+ * kgsl_add_va_to_minidump - Add a physically non-contiguous section to minidump
+ * @dev: Pointer to the struct device for the GPU platform device
+ * @name: Name of the section
+ * @ptr: Virtual address of the section
+ * @size: Size of the section
+ */
+int kgsl_add_va_to_minidump(struct device *dev, const char *name, void *ptr,
+		size_t size);
+
+/**
+ * kgsl_qcom_va_md_register - Register driver with va-minidump
+ * @device: Pointer to kgsl device
+ */
+void kgsl_qcom_va_md_register(struct kgsl_device *device);
 
 #endif

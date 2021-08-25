@@ -544,6 +544,8 @@ void tmc_etr_bam_disable(struct tmc_usb_data *usb_data)
 	bamdata->enable = false;
 }
 
+
+
 void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 		  struct usb_qdss_ch *ch)
 {
@@ -551,15 +553,23 @@ void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 	unsigned long flags;
 	int ret = 0;
 
-	if (drvdata->out_mode != TMC_ETR_OUT_MODE_USB
-			|| drvdata->mode == CS_MODE_DISABLED) {
+	if (!drvdata)
+		return;
+
+	if (drvdata->out_mode != TMC_ETR_OUT_MODE_USB) {
 		dev_err(&drvdata->csdev->dev,
-		"%s: ETR is not USB mode, or ETR is disabled.\n", __func__);
+		"%s: ETR is not USB mode.\n", __func__);
 		return;
 	}
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
+		if (drvdata->mode == CS_MODE_DISABLED) {
+			dev_err_ratelimited(&drvdata->csdev->dev,
+				"%s: ETR is disabled.\n", __func__);
+			return;
+		}
+
 		if (drvdata->usb_data->usb_mode ==
 						TMC_ETR_USB_BAM_TO_BAM) {
 			ret = tmc_etr_fill_usb_bam_data(drvdata->usb_data);
@@ -585,6 +595,12 @@ void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 		break;
 
 	case USB_QDSS_DISCONNECT:
+		if (drvdata->mode == CS_MODE_DISABLED) {
+			dev_err_ratelimited(&drvdata->csdev->dev,
+				 "%s: ETR is disabled.\n", __func__);
+			return;
+		}
+
 		if (drvdata->usb_data->usb_mode ==
 						TMC_ETR_USB_BAM_TO_BAM) {
 			spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -629,9 +645,9 @@ int tmc_usb_enable(struct tmc_usb_data *usb_data)
 
 	tmcdrvdata = usb_data->tmcdrvdata;
 	if (usb_data->usb_mode == TMC_ETR_USB_BAM_TO_BAM)
-		usb_data->usbch = usb_qdss_open("qdss", tmcdrvdata, usb_notifier);
+		usb_data->usbch = usb_qdss_open(USB_QDSS_CH_MSM, tmcdrvdata, usb_notifier);
 	else if (usb_data->usb_mode == TMC_ETR_USB_SW)
-		usb_data->usbch = usb_qdss_open("qdss_mdm", tmcdrvdata, usb_notifier);
+		usb_data->usbch = usb_qdss_open(USB_QDSS_CH_SW, tmcdrvdata, usb_notifier);
 
 	if (IS_ERR_OR_NULL(usb_data->usbch)) {
 		dev_err(&tmcdrvdata->csdev->dev, "usb_qdss_open failed for qdss.\n");

@@ -199,8 +199,9 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			(task_util(p) >= MIN_UTIL_FOR_ENERGY_EVAL) &&
 			!(p->in_iowait && task_in_related_thread_group(p)) &&
 			!walt_get_rtg_status(p) &&
-			!(sched_boost_type == CONSERVATIVE_BOOST && task_sched_boost(p))
-			)
+			!(sched_boost_type == CONSERVATIVE_BOOST && task_sched_boost(p)) &&
+			!sysctl_sched_suppress_region2
+		)
 		*end_index = 1;
 
 	if (p->in_iowait && task_in_related_thread_group(p))
@@ -939,13 +940,14 @@ static void binder_restore_priority_hook(void *data,
  */
 static inline int walt_get_mvp_task_prio(struct task_struct *p)
 {
-	if ((per_task_boost(p) == TASK_BOOST_STRICT_MAX) ||
-		task_rtg_high_prio(p) ||
-		walt_procfs_low_latency_task(p))
-		return WALT_RTG_MVP;
+	if (per_task_boost(p) == TASK_BOOST_STRICT_MAX)
+		return WALT_TASK_BOOST_MVP;
 
 	if (walt_binder_low_latency_task(p))
 		return WALT_BINDER_MVP;
+
+	if (task_rtg_high_prio(p) || walt_procfs_low_latency_task(p))
+		return WALT_RTG_MVP;
 
 	return WALT_NOT_MVP;
 }
@@ -988,15 +990,6 @@ static void walt_cfs_deactivate_mvp_task(struct task_struct *p)
 
 	list_del_init(&wts->mvp_list);
 	wts->mvp_prio = WALT_NOT_MVP;
-
-	/*
-	 * Reset the exec time during sleep so that it starts
-	 * from scratch upon next wakeup. total_exec should
-	 * be preserved when task is enq/deq while it is on
-	 * runqueue.
-	 */
-	if (p->state != TASK_RUNNING)
-		wts->total_exec = 0;
 }
 
 /*
@@ -1092,6 +1085,15 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p)
 
 	if (!list_empty(&wts->mvp_list))
 		walt_cfs_deactivate_mvp_task(p);
+
+	/*
+	 * Reset the exec time during sleep so that it starts
+	 * from scratch upon next wakeup. total_exec should
+	 * be preserved when task is enq/deq while it is on
+	 * runqueue.
+	 */
+	if (p->state != TASK_RUNNING)
+		wts->total_exec = 0;
 }
 
 void walt_cfs_tick(struct rq *rq)
@@ -1188,6 +1190,13 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	if (unlikely(walt_disabled))
 		return;
 
+	if ((*p) && (*p) != prev && ((*p)->on_cpu == 1 || (*p)->on_rq == 0 ||
+				     (*p)->on_rq == TASK_ON_RQ_MIGRATING ||
+				     (*p)->cpu != cpu_of(rq)))
+		WALT_BUG(*p, "picked %s(%d) on_cpu=%d on_rq=%d p->cpu=%d cpu_of(rq)=%d kthread=%d\n",
+			 (*p)->comm, (*p)->pid, (*p)->on_cpu,
+			 (*p)->on_rq, (*p)->cpu, cpu_of(rq), ((*p)->flags & PF_KTHREAD));
+
 	/* We don't have MVP tasks queued */
 	if (list_empty(&wrq->mvp_tasks))
 		return;
@@ -1199,6 +1208,13 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	*p = mvp;
 	*se = &mvp->se;
 	*repick = true;
+
+	if ((*p) && (*p) != prev && ((*p)->on_cpu == 1 || (*p)->on_rq == 0 ||
+				     (*p)->on_rq == TASK_ON_RQ_MIGRATING ||
+				     (*p)->cpu != cpu_of(rq)))
+		WALT_BUG(*p, "picked %s(%d) on_cpu=%d on_rq=%d p->cpu=%d cpu_of(rq)=%d kthread=%d\n",
+			 (*p)->comm, (*p)->pid, (*p)->on_cpu,
+			 (*p)->on_rq, (*p)->cpu, cpu_of(rq), ((*p)->flags & PF_KTHREAD));
 
 	trace_walt_cfs_mvp_pick_next(mvp, wts, walt_cfs_mvp_task_limit(mvp));
 }

@@ -89,4 +89,11 @@ int a6xx_rgmu_reset(struct adreno_device *adreno_dev);
  */
 void a6xx_rgmu_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
+
+/**
+ * a6xx_rgmu_add_to_minidump - Register a6xx_device with va minidump
+ * @adreno_dev: Pointer to the adreno device
+ */
+int a6xx_rgmu_add_to_minidump(struct adreno_device *adreno_dev);
+
 #endif

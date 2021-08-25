@@ -177,8 +177,15 @@ static void tmc_pages_free(struct tmc_pages *tmc_pages,
 			__free_page(tmc_pages->pages[i]);
 	}
 
-	kfree(tmc_pages->pages);
-	kfree(tmc_pages->daddrs);
+	if (is_vmalloc_addr(tmc_pages->pages))
+		vfree(tmc_pages->pages);
+	else
+		kfree(tmc_pages->pages);
+
+	if (is_vmalloc_addr(tmc_pages->daddrs))
+		vfree(tmc_pages->daddrs);
+	else
+		kfree(tmc_pages->daddrs);
 	tmc_pages->pages = NULL;
 	tmc_pages->daddrs = NULL;
 	tmc_pages->nr_pages = 0;
@@ -204,14 +211,24 @@ static int tmc_pages_alloc(struct tmc_pages *tmc_pages,
 	nr_pages = tmc_pages->nr_pages;
 	tmc_pages->daddrs = kcalloc(nr_pages, sizeof(*tmc_pages->daddrs),
 					 GFP_KERNEL);
-	if (!tmc_pages->daddrs)
-		return -ENOMEM;
+	if (!tmc_pages->daddrs) {
+		tmc_pages->daddrs = vmalloc(sizeof(*tmc_pages->daddrs) * nr_pages);
+		if (!tmc_pages->daddrs)
+			return -ENOMEM;
+	}
+
 	tmc_pages->pages = kcalloc(nr_pages, sizeof(*tmc_pages->pages),
 					 GFP_KERNEL);
 	if (!tmc_pages->pages) {
-		kfree(tmc_pages->daddrs);
-		tmc_pages->daddrs = NULL;
-		return -ENOMEM;
+		tmc_pages->pages = vmalloc(sizeof(*tmc_pages->pages) * nr_pages);
+		if (!tmc_pages->pages) {
+			if (is_vmalloc_addr(tmc_pages->daddrs))
+				vfree(tmc_pages->daddrs);
+			else
+				kfree(tmc_pages->daddrs);
+			tmc_pages->daddrs = NULL;
+			return -ENOMEM;
+		}
 	}
 
 	for (i = 0; i < nr_pages; i++) {
@@ -1228,7 +1245,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 	if (drvdata->reading || drvdata->mode == CS_MODE_PERF) {
 		ret = -EBUSY;
-		goto out;
+		goto unlock_out;
 	}
 
 	/*
@@ -1238,7 +1255,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 */
 	if (drvdata->mode == CS_MODE_SYSFS) {
 		atomic_inc(csdev->refcnt);
-		goto out;
+		goto unlock_out;
 	}
 
 	/*
@@ -1257,43 +1274,33 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
 		if (ret)
-			goto out;
+			goto unlock_out;
+	}
 
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-			spin_unlock_irqrestore(&drvdata->spinlock, flags);
-			ret = tmc_usb_enable(drvdata->usb_data);
-			if (ret) {
-				spin_lock_irqsave(&drvdata->spinlock, flags);
-				goto out;
-			}
-			spin_lock_irqsave(&drvdata->spinlock, flags);
-		}
+	drvdata->mode = CS_MODE_SYSFS;
+	atomic_inc(csdev->refcnt);
 
-
-	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
-		&& drvdata->usb_data->usb_mode == TMC_ETR_USB_BAM_TO_BAM) {
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 		ret = tmc_usb_enable(drvdata->usb_data);
 		if (ret) {
-			spin_lock_irqsave(&drvdata->spinlock, flags);
-			goto out;
+			atomic_dec(csdev->refcnt);
+			drvdata->mode = CS_MODE_DISABLED;
 		}
-		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
+	goto out;
 
-	if (!ret) {
-		drvdata->mode = CS_MODE_SYSFS;
-		atomic_inc(csdev->refcnt);
-	}
-out:
+unlock_out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
+out:
 	/* Free memory outside the spinlock if need be */
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
 	if (!ret) {
-		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 		dev_dbg(&csdev->dev, "TMC-ETR enabled\n");
 	}
 

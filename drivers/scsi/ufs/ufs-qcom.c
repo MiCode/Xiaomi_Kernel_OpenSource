@@ -2002,9 +2002,10 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 		UFSHCD_CAP_RPM_AUTOSUSPEND;
 		hba->caps |= UFSHCD_CAP_WB_EN;
-		hba->caps |= UFSHCD_CAP_CRYPTO;
 		hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
 	}
+
+	hba->caps |= UFSHCD_CAP_CRYPTO;
 
 	if (host->hw_ver.major >= 0x2)
 		host->caps = UFS_QCOM_CAP_QUNIPRO |
@@ -3834,7 +3835,7 @@ static ssize_t err_count_show(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 
 	return scnprintf(buf, PAGE_SIZE,
-			 "%s: %d\n%s: %d\n%s: %d\n",
+			 "%s: %d\n%s: %d\n%s: %d\n%s: %d\n",
 			 "pa_err_cnt_total",
 			 ufs_qcom_gec(hba, UFS_EVT_PA_ERR,
 				      "pa_err_cnt_total"),
@@ -3843,7 +3844,10 @@ static ssize_t err_count_show(struct device *dev,
 				      "dl_err_cnt_total"),
 			 "dme_err_cnt",
 			 ufs_qcom_gec(hba, UFS_EVT_DME_ERR,
-				      "dme_err_cnt"));
+				      "dme_err_cnt"),
+			 "req_abort_cnt",
+			  hba->req_abort_count);
+
 }
 
 static DEVICE_ATTR_RO(err_count);

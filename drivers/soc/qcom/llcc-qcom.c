@@ -623,7 +623,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	u32 num_banks;
 	struct device *dev = &pdev->dev;
 	int ret, i;
-	struct platform_device *llcc_edac, *llcc_perfmon;
+	struct platform_device *llcc_edac;
 	const struct qcom_llcc_config *cfg;
 	const struct llcc_slice_config *llcc_cfg;
 	u32 sz;
@@ -717,11 +717,8 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	if (IS_ERR(llcc_edac))
 		dev_err(dev, "Failed to register llcc edac driver\n");
 
-	llcc_perfmon = platform_device_register_data(&pdev->dev,
-					"qcom_llcc_perfmon", -1,
-					drv_data, sizeof(*drv_data));
-	if (IS_ERR(llcc_perfmon))
-		dev_err(dev, "Failed to register llcc perfmon device\n");
+	if (of_platform_populate(dev->of_node, NULL, NULL, dev) < 0)
+		dev_err(dev, "llcc populate failed!!\n");
 
 	return 0;
 err:

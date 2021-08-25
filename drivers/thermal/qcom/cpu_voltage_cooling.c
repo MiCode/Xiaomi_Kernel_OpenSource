@@ -281,8 +281,7 @@ static int cc_init(struct device_node *np, int *cpus)
 		}
 	}
 	snprintf(cc_cdev->cdev_name, THERMAL_NAME_LENGTH,
-			"thermal-cluster-%d-%d", cc_cdev->cpu_map[0],
-			cc_cdev->cpu_map[1]);
+			"thermal-cluster-%d-%d", cpus[0], cpus[1]);
 	cc_cdev->cdev = thermal_of_cooling_device_register(
 					np, cc_cdev->cdev_name, cc_cdev,
 					&cc_cooling_ops);

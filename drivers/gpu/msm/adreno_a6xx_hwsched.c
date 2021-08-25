@@ -1146,3 +1146,33 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	return adreno_hwsched_init(adreno_dev, &a6xx_hwsched_ops);
 }
+
+int a6xx_hwsched_add_to_minidump(struct adreno_device *adreno_dev)
+{
+	struct a6xx_device *a6xx_dev = container_of(adreno_dev,
+					struct a6xx_device, adreno_dev);
+	struct a6xx_hwsched_device *a6xx_hwsched = container_of(a6xx_dev,
+					struct a6xx_hwsched_device, a6xx_dev);
+	int ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_HWSCHED_DEVICE,
+			(void *)(a6xx_hwsched), sizeof(struct a6xx_hwsched_device));
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GMU_LOG_ENTRY,
+			a6xx_dev->gmu.gmu_log->hostptr, a6xx_dev->gmu.gmu_log->size);
+	if (ret)
+		return ret;
+
+	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_HFIMEM_ENTRY,
+			a6xx_dev->gmu.hfi.hfi_mem->hostptr, a6xx_dev->gmu.hfi.hfi_mem->size);
+	if (ret)
+		return ret;
+
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev))
+		ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GMU_DUMPMEM_ENTRY,
+				a6xx_dev->gmu.dump_mem->hostptr, a6xx_dev->gmu.dump_mem->size);
+
+	return ret;
+}

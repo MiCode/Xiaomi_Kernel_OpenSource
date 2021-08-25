@@ -2539,6 +2539,12 @@ static int a6xx_setproperty(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+static int a6xx_dev_add_to_minidump(struct adreno_device *adreno_dev)
+{
+	return kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_ADRENO_DEVICE,
+				(void *)(adreno_dev), sizeof(struct adreno_device));
+}
+
 static int a619_holi_sptprac_enable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -2618,6 +2624,7 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.is_hw_collapsible = adreno_isidle,
 	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
+	.add_to_va_minidump = a6xx_dev_add_to_minidump,
 };
 
 const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2638,6 +2645,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
 		.hw_isidle = a6xx_hw_isidle,
+		.add_to_va_minidump = a6xx_hwsched_add_to_minidump,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
 	.hfi_remove = a6xx_hwsched_hfi_remove,
@@ -2668,6 +2676,7 @@ const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
 		.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
+		.add_to_va_minidump = a6xx_gmu_add_to_minidump,
 	},
 	.hfi_probe = a6xx_gmu_hfi_probe,
 	.handle_watchdog = a6xx_gmu_handle_watchdog,
@@ -2696,6 +2705,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
+	.add_to_va_minidump = a6xx_rgmu_add_to_minidump,
 };
 
 /* This is a non GMU/RGMU part */
@@ -2730,6 +2740,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.is_hw_collapsible = adreno_isidle,
 	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
+	.add_to_va_minidump = a6xx_dev_add_to_minidump,
 };
 
 const struct a6xx_gpudev adreno_a630_gpudev = {
@@ -2756,6 +2767,7 @@ const struct a6xx_gpudev adreno_a630_gpudev = {
 		.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
+		.add_to_va_minidump = a6xx_gmu_add_to_minidump,
 	},
 	.hfi_probe = a6xx_gmu_hfi_probe,
 	.handle_watchdog = a6xx_gmu_handle_watchdog,

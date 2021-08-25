@@ -9,7 +9,7 @@
 #include <soc/qcom/tcs.h>
 
 #include "adreno.h"
-#include "adreno_genc.h"
+#include "adreno_gen7.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 
@@ -258,7 +258,7 @@ static struct rpmh_bw_votes *build_rpmh_bw_votes(struct bcm *bcms,
  * This function initializes the cx votes for all gmu frequencies
  * for gmu dcvs
  */
-static int setup_cx_arc_votes(struct genc_hfi *hfi,
+static int setup_cx_arc_votes(struct gen7_hfi *hfi,
 	struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail)
 {
 	/* Hardcoded values of GMU CX voltage levels */
@@ -300,7 +300,7 @@ static int setup_gx_arc_votes(struct adreno_device *adreno_dev,
 	struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct hfi_dcvstable_cmd *table = &gmu->hfi.dcvs_table;
 	u32 index;
@@ -343,8 +343,8 @@ static int setup_gx_arc_votes(struct adreno_device *adreno_dev,
 
 static int build_dcvs_table(struct adreno_device *adreno_dev)
 {
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct genc_hfi *hfi = &gmu->hfi;
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct gen7_hfi *hfi = &gmu->hfi;
 	struct rpmh_arc_vals gx_arc, cx_arc, mx_arc;
 	int ret;
 
@@ -375,14 +375,14 @@ static int build_dcvs_table(struct adreno_device *adreno_dev)
  * List of Bus Control Modules (BCMs) that need to be configured for the GPU
  * to access DDR. For each bus level we will generate a vote each BC
  */
-static struct bcm genc_ddr_bcms[] = {
+static struct bcm gen7_ddr_bcms[] = {
 	{ .name = "SH0", .buswidth = 16 },
 	{ .name = "MC0", .buswidth = 4 },
 	{ .name = "ACV", .fixed = true },
 };
 
 /* Same as above, but for the CNOC BCMs */
-static struct bcm genc_cnoc_bcms[] = {
+static struct bcm gen7_cnoc_bcms[] = {
 	{ .name = "CN0", .buswidth = 4 },
 };
 
@@ -418,7 +418,7 @@ static void build_bw_table_cmd(struct hfi_bwtable_cmd *cmd,
 
 static int build_bw_table(struct adreno_device *adreno_dev)
 {
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct rpmh_bw_votes *ddr, *cnoc = NULL;
@@ -426,7 +426,7 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 	u32 count;
 	int ret;
 
-	ddr = build_rpmh_bw_votes(genc_ddr_bcms, ARRAY_SIZE(genc_ddr_bcms),
+	ddr = build_rpmh_bw_votes(gen7_ddr_bcms, ARRAY_SIZE(gen7_ddr_bcms),
 		pwr->ddr_table, pwr->ddr_table_count);
 	if (IS_ERR(ddr))
 		return PTR_ERR(ddr);
@@ -435,8 +435,8 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 		&count);
 
 	if (count > 0)
-		cnoc = build_rpmh_bw_votes(genc_cnoc_bcms,
-			ARRAY_SIZE(genc_cnoc_bcms), cnoc_table, count);
+		cnoc = build_rpmh_bw_votes(gen7_cnoc_bcms,
+			ARRAY_SIZE(gen7_cnoc_bcms), cnoc_table, count);
 
 	kfree(cnoc_table);
 
@@ -457,7 +457,7 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-int genc_build_rpmh_tables(struct adreno_device *adreno_dev)
+int gen7_build_rpmh_tables(struct adreno_device *adreno_dev)
 {
 	int ret;
 

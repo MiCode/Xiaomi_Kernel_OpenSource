@@ -3114,8 +3114,10 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	ret = cnss_plat_ipc_register(cnss_daemon_connection_update_cb,
 				     plat_priv);
 	if (ret)
-		cnss_pr_err("QMI IPC connection call back register failed\n");
-	return ret;
+		cnss_pr_err("QMI IPC connection call back register failed, err = %d\n",
+			    ret);
+
+	return 0;
 }
 
 static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)

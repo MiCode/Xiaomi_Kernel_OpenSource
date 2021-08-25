@@ -1132,7 +1132,7 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 }
 
 static const struct of_device_id adreno_gmu_match[] = {
-	{ .compatible = "qcom,genc-gmu" },
+	{ .compatible = "qcom,gen7-gmu" },
 	{ .compatible = "qcom,gpu-gmu" },
 	{ .compatible = "qcom,gpu-rgmu" },
 	{},
@@ -1196,7 +1196,7 @@ int adreno_device_probe(struct platform_device *pdev,
 		kgsl_mmu_set_feature(device, KGSL_MMU_64BIT);
 
 	/*
-	 * Set the SMMU aperture on A6XX/GenC targets to use per-process
+	 * Set the SMMU aperture on A6XX/Gen7 targets to use per-process
 	 * pagetables.
 	 */
 	if (ADRENO_GPUREV(adreno_dev) >= 600)
@@ -1299,6 +1299,8 @@ int adreno_device_probe(struct platform_device *pdev,
 	}
 #endif
 
+	kgsl_qcom_va_md_register(device);
+
 	return 0;
 err:
 	device->pdev = NULL;
@@ -1315,13 +1317,22 @@ static int adreno_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	const struct adreno_gpu_core *gpucore;
+	int ret;
 	u32 chipid;
 
 	gpucore = adreno_identify_gpu(pdev, &chipid);
 	if (IS_ERR(gpucore))
 		return PTR_ERR(gpucore);
 
-	return gpucore->gpudev->probe(pdev, chipid, gpucore);
+	ret = gpucore->gpudev->probe(pdev, chipid, gpucore);
+
+	if (!ret) {
+		struct kgsl_device *device = dev_get_drvdata(dev);
+
+		device->pdev_loaded = true;
+	}
+
+	return ret;
 }
 
 static void adreno_unbind(struct device *dev)
@@ -1333,6 +1344,8 @@ static void adreno_unbind(struct device *dev)
 	device = dev_get_drvdata(dev);
 	if (!device)
 		return;
+
+	device->pdev_loaded = false;
 
 	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -1548,6 +1561,9 @@ static int adreno_first_open(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
 
+	if (!device->pdev_loaded)
+		return -ENODEV;
+
 	return ops->first_open(adreno_dev);
 }
 
@@ -1661,7 +1677,7 @@ void adreno_get_bus_counters(struct adreno_device *adreno_dev)
 		&adreno_dev->starved_ram_lo, NULL);
 
 	/* Target has GBIF */
-	if (adreno_is_genc(adreno_dev) ||
+	if (adreno_is_gen7(adreno_dev) ||
 		(adreno_is_a6xx(adreno_dev) && !adreno_is_a630(adreno_dev))) {
 		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,

@@ -1086,7 +1086,14 @@ static int __functional_dma_api_va_test(struct seq_file *s)
 	 * also can't hold a reference to its name by caching the result of
 	 * dev_name() initially.
 	 */
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->test_dev) {
+		mutex_unlock(&ddev->state_lock);
+		return -ENODEV;
+	}
+
 	usecase_name = kstrdup(dev_name(ddev->test_dev), GFP_KERNEL);
+	mutex_unlock(&ddev->state_lock);
 	if (!usecase_name)
 		return -ENOMEM;
 

@@ -3,14 +3,14 @@
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
-#include "genc_reg.h"
+#include "gen7_reg.h"
 #include "adreno.h"
-#include "adreno_genc.h"
-#include "adreno_genc_gmu.h"
+#include "adreno_gen7.h"
+#include "adreno_gen7_gmu.h"
 #include "adreno_snapshot.h"
 #include "kgsl_device.h"
 
-static const u32 genc_gmu_registers[] = {
+static const u32 gen7_gmu_registers[] = {
 	0x10001, 0x10001, 0x10003, 0x10003, 0x10401, 0x10401, 0x10403, 0x10403,
 	0x10801, 0x10801, 0x10803, 0x10803, 0x10c01, 0x10c01, 0x10c03, 0x10c03,
 	0x11001, 0x11001, 0x11003, 0x11003, 0x11401, 0x11401, 0x11403, 0x11403,
@@ -41,9 +41,9 @@ static const u32 genc_gmu_registers[] = {
 	0x23b20, 0x23b20, 0x23b28, 0x23b28, 0x23b30, 0x23b30,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_gmu_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_gmu_registers), 8));
 
-static const u32 genc_gmu_gx_registers[] = {
+static const u32 gen7_gmu_gx_registers[] = {
 	0x1a400, 0x1a41f, 0x1a440, 0x1a45f, 0x1a480, 0x1a49f, 0x1a4c0, 0x1a4df,
 	0x1a500, 0x1a51f, 0x1a540, 0x1a55f, 0x1a580, 0x1a59f, 0x1a5c0, 0x1a5df,
 	0x1a780, 0x1a781, 0x1a783, 0x1a785, 0x1a787, 0x1a789, 0x1a78b, 0x1a78d,
@@ -57,9 +57,9 @@ static const u32 genc_gmu_gx_registers[] = {
 	0x1a900, 0x1a92b, 0x1a940, 0x1a940,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_gmu_gx_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_gmu_gx_registers), 8));
 
-static const u32 genc_rscc_registers[] = {
+static const u32 gen7_rscc_registers[] = {
 	0x14000, 0x14036, 0x14040, 0x14042, 0x14080, 0x14084, 0x14089, 0x1408c,
 	0x14091, 0x14094, 0x14099, 0x1409c, 0x140a1, 0x140a4, 0x140a9, 0x140ac,
 	0x14100, 0x14102, 0x14114, 0x14119, 0x14124, 0x1412e, 0x14140, 0x14143,
@@ -71,14 +71,14 @@ static const u32 genc_rscc_registers[] = {
 	0x1492c, 0x1492f, 0x14934, 0x1495b, 0x14f51, 0x14f54,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_rscc_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_rscc_registers), 8));
 
 struct gmu_mem_type_desc {
 	struct kgsl_memdesc *memdesc;
 	u32 type;
 };
 
-static size_t genc_snapshot_gmu_mem(struct kgsl_device *device,
+static size_t gen7_snapshot_gmu_mem(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_gmu_mem *mem_hdr =
@@ -104,12 +104,12 @@ static size_t genc_snapshot_gmu_mem(struct kgsl_device *device,
 	return desc->memdesc->size + sizeof(*mem_hdr);
 }
 
-static size_t genc_gmu_snapshot_dtcm(struct kgsl_device *device,
+static size_t gen7_gmu_snapshot_dtcm(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_gmu_mem *mem_hdr =
 		(struct kgsl_snapshot_gmu_mem *)buf;
-	struct genc_gmu_device *gmu = (struct genc_gmu_device *)priv;
+	struct gen7_gmu_device *gmu = (struct gen7_gmu_device *)priv;
 	u32 *data = (u32 *)(buf + sizeof(*mem_hdr));
 	u32 i;
 
@@ -124,18 +124,18 @@ static size_t genc_gmu_snapshot_dtcm(struct kgsl_device *device,
 	mem_hdr->gpuaddr = 0;
 
 	for (i = 0; i < (gmu->vma[GMU_DTCM].size >> 2); i++)
-		gmu_core_regread(device, GENC_GMU_CM3_DTCM_START + i, data++);
+		gmu_core_regread(device, GEN7_GMU_CM3_DTCM_START + i, data++);
 
 	return gmu->vma[GMU_DTCM].size + sizeof(*mem_hdr);
 }
 
-static size_t genc_gmu_snapshot_itcm(struct kgsl_device *device,
+static size_t gen7_gmu_snapshot_itcm(struct kgsl_device *device,
 	u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_gmu_mem *mem_hdr =
 			(struct kgsl_snapshot_gmu_mem *)buf;
 	void *dest = buf + sizeof(*mem_hdr);
-	struct genc_gmu_device *gmu = (struct genc_gmu_device *)priv;
+	struct gen7_gmu_device *gmu = (struct gen7_gmu_device *)priv;
 
 	if (!gmu->itcm_shadow) {
 		dev_err(&gmu->pdev->dev, "No memory allocated for ITCM shadow capture\n");
@@ -157,8 +157,8 @@ static size_t genc_gmu_snapshot_itcm(struct kgsl_device *device,
 	return gmu->vma[GMU_ITCM].size + sizeof(*mem_hdr);
 }
 
-static void genc_gmu_snapshot_memories(struct kgsl_device *device,
-	struct genc_gmu_device *gmu, struct kgsl_snapshot *snapshot)
+static void gen7_gmu_snapshot_memories(struct kgsl_device *device,
+	struct gen7_gmu_device *gmu, struct kgsl_snapshot *snapshot)
 {
 	struct gmu_mem_type_desc desc;
 	struct kgsl_memdesc *md;
@@ -182,7 +182,7 @@ static void genc_gmu_snapshot_memories(struct kgsl_device *device,
 
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
-			snapshot, genc_snapshot_gmu_mem, &desc);
+			snapshot, gen7_snapshot_gmu_mem, &desc);
 	}
 }
 
@@ -191,7 +191,7 @@ struct kgsl_snapshot_gmu_version {
 	u32 value;
 };
 
-static size_t genc_snapshot_gmu_version(struct kgsl_device *device,
+static size_t gen7_snapshot_gmu_version(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
@@ -211,8 +211,8 @@ static size_t genc_snapshot_gmu_version(struct kgsl_device *device,
 	return DEBUG_SECTION_SZ(1);
 }
 
-static void genc_gmu_snapshot_versions(struct kgsl_device *device,
-		struct genc_gmu_device *gmu,
+static void gen7_gmu_snapshot_versions(struct kgsl_device *device,
+		struct gen7_gmu_device *gmu,
 		struct kgsl_snapshot *snapshot)
 {
 	int i;
@@ -232,20 +232,20 @@ static void genc_gmu_snapshot_versions(struct kgsl_device *device,
 
 	for (i = 0; i < ARRAY_SIZE(gmu_vers); i++)
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-				snapshot, genc_snapshot_gmu_version,
+				snapshot, gen7_snapshot_gmu_version,
 				&gmu_vers[i]);
 }
 
 #define RSCC_OFFSET_DWORDS 0x14000
 
-static size_t genc_snapshot_rscc_registers(struct kgsl_device *device, u8 *buf,
+static size_t gen7_snapshot_rscc_registers(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
 	const u32 *regs = priv;
 	unsigned int *data = (unsigned int *)buf;
 	int count = 0, k;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 
 	/* Figure out how many registers we are going to dump */
 	count = adreno_snapshot_regs_count(regs);
@@ -276,45 +276,45 @@ static size_t genc_snapshot_rscc_registers(struct kgsl_device *device, u8 *buf,
 }
 
 /*
- * genc_gmu_device_snapshot() - GENC GMU snapshot function
+ * gen7_gmu_device_snapshot() - GEN7 GMU snapshot function
  * @device: Device being snapshotted
  * @snapshot: Pointer to the snapshot instance
  *
- * This is where all of the GENC GMU specific bits and pieces are grabbed
+ * This is where all of the GEN7 GMU specific bits and pieces are grabbed
  * into the snapshot memory
  */
-void genc_gmu_device_snapshot(struct kgsl_device *device,
+void gen7_gmu_device_snapshot(struct kgsl_device *device,
 	struct kgsl_snapshot *snapshot)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
-		snapshot, genc_gmu_snapshot_itcm, gmu);
+		snapshot, gen7_gmu_snapshot_itcm, gmu);
 
-	genc_gmu_snapshot_versions(device, gmu, snapshot);
+	gen7_gmu_snapshot_versions(device, gmu, snapshot);
 
-	genc_gmu_snapshot_memories(device, gmu, snapshot);
-
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2, snapshot,
-		adreno_snapshot_registers_v2, (void *) genc_gmu_registers);
+	gen7_gmu_snapshot_memories(device, gmu, snapshot);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2, snapshot,
-		genc_snapshot_rscc_registers, (void *) genc_rscc_registers);
+		adreno_snapshot_registers_v2, (void *) gen7_gmu_registers);
 
-	if (!genc_gmu_gx_is_on(device))
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2, snapshot,
+		gen7_snapshot_rscc_registers, (void *) gen7_rscc_registers);
+
+	if (!gen7_gmu_gx_is_on(device))
 		goto dtcm;
 
 	/* Set fence to ALLOW mode so registers can be read */
-	kgsl_regwrite(device, GENC_GMU_AO_AHB_FENCE_CTRL, 0);
+	kgsl_regwrite(device, GEN7_GMU_AO_AHB_FENCE_CTRL, 0);
 	/* Make sure the previous write posted before reading */
 	wmb();
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2, snapshot,
-		adreno_snapshot_registers_v2, (void *) genc_gmu_gx_registers);
+		adreno_snapshot_registers_v2, (void *) gen7_gmu_gx_registers);
 
 	/* A stalled SMMU can lead to NoC timeouts when host accesses DTCM */
-	if (genc_is_smmu_stalled(device)) {
+	if (gen7_is_smmu_stalled(device)) {
 		dev_err(&gmu->pdev->dev,
 			"Not dumping dtcm because SMMU is stalled\n");
 		return;
@@ -322,5 +322,5 @@ void genc_gmu_device_snapshot(struct kgsl_device *device,
 
 dtcm:
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
-		snapshot, genc_gmu_snapshot_dtcm, gmu);
+		snapshot, gen7_gmu_snapshot_dtcm, gmu);
 }

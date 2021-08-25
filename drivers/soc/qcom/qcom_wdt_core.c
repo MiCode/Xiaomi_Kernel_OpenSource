@@ -25,7 +25,6 @@
 #include <uapi/linux/sched/types.h>
 #include <linux/sched/clock.h>
 #include <linux/irq.h>
-#include <linux/syscore_ops.h>
 #include <linux/sort.h>
 #include <linux/kernel_stat.h>
 #include <linux/irq_cpustat.h>
@@ -244,19 +243,27 @@ static void compute_irq_stat(struct work_struct *work) { }
 
 #ifdef CONFIG_PM_SLEEP
 /**
- *  qcom_wdt_suspend() - Suspends qcom watchdog functionality.
+ *  qcom_wdt_pet_suspend() - Suspends qcom watchdog functionality.
  *
  *  @dev: qcom watchdog device structure
  *
  *  All watchdogs should have the ability to be suspended, this
- *  will cause the watchdog counter to be frozen.
+ *  will cause the watchdog counter to reset and HW counter will
+ *  freeze when deepest low power mode is entered.
  *
  */
-static int qcom_wdt_suspend(void)
+int qcom_wdt_pet_suspend(struct device *dev)
 {
+	struct msm_watchdog_data *wdog_data =
+			(struct msm_watchdog_data *)dev_get_drvdata(dev);
+
 	if (!wdog_data)
 		return 0;
 
+	if (wdog_data->user_pet_enabled)
+		del_timer_sync(&wdog_data->user_pet_timer);
+
+	wdog_data->freeze_in_progress = true;
 	wdog_data->ops->reset_wdt(wdog_data);
 	if (wdog_data->wakeup_irq_enable) {
 		wdog_data->last_pet = sched_clock();
@@ -268,9 +275,10 @@ static int qcom_wdt_suspend(void)
 	wdog_data->last_pet = sched_clock();
 	return 0;
 }
+EXPORT_SYMBOL(qcom_wdt_pet_suspend);
 
 /**
- *  qcom_wdt_resume() - Resumes qcom watchdog after a suspend.
+ *  qcom_wdt_pet_resume() - Resumes qcom watchdog after a suspend.
  *
  *  @dev: qcom watchdog device structure
  *
@@ -278,77 +286,36 @@ static int qcom_wdt_suspend(void)
  *  This will cause the watchdog counter to be reset and resumed.
  *
  */
-static void qcom_wdt_resume(void)
+int qcom_wdt_pet_resume(struct device *dev)
 {
-	if (!wdog_data)
-		return;
+	struct msm_watchdog_data *wdog_data =
+			(struct msm_watchdog_data *)dev_get_drvdata(dev);
+	unsigned long delay_time = 0;
 
+	if (!wdog_data)
+		return 0;
+
+	if (wdog_data->user_pet_enabled) {
+		delay_time = msecs_to_jiffies(wdog_data->bark_time + 3 * 1000);
+		wdog_data->user_pet_timer.expires = jiffies + delay_time;
+		add_timer(&wdog_data->user_pet_timer);
+	}
+
+	wdog_data->freeze_in_progress = false;
 	if (wdog_data->wakeup_irq_enable) {
 		wdog_data->ops->reset_wdt(wdog_data);
 		wdog_data->last_pet = sched_clock();
-		return;
+		return 0;
 	}
 
 	wdog_data->ops->enable_wdt(1, wdog_data);
 	wdog_data->ops->reset_wdt(wdog_data);
 	wdog_data->enabled = true;
 	wdog_data->last_pet = sched_clock();
-	return;
-}
-
-int qcom_wdt_pet_suspend(struct device *dev)
-{
-	struct msm_watchdog_data *wdog_dd =
-			(struct msm_watchdog_data *)dev_get_drvdata(dev);
-
-	if (!wdog_dd)
-		return 0;
-
-	wdog_dd->ops->reset_wdt(wdog_dd);
-	wdog_dd->last_pet = sched_clock();
-	spin_lock(&wdog_dd->freeze_lock);
-	wdog_dd->freeze_in_progress = true;
-	spin_unlock(&wdog_dd->freeze_lock);
-	del_timer_sync(&wdog_dd->pet_timer);
-	if (wdog_dd->user_pet_enabled)
-		del_timer_sync(&wdog_dd->user_pet_timer);
-	return 0;
-}
-EXPORT_SYMBOL(qcom_wdt_pet_suspend);
-
-int qcom_wdt_pet_resume(struct device *dev)
-{
-	struct msm_watchdog_data *wdog_dd =
-			(struct msm_watchdog_data *)dev_get_drvdata(dev);
-	unsigned long delay_time = 0;
-
-	if (!wdog_dd)
-		return 0;
-
-	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
-	wdog_dd->ops->reset_wdt(wdog_dd);
-	wdog_dd->last_pet = sched_clock();
-	spin_lock(&wdog_dd->freeze_lock);
-	wdog_dd->pet_timer.expires = jiffies + delay_time;
-	add_timer(&wdog_dd->pet_timer);
-	if (wdog_dd->user_pet_enabled) {
-		delay_time = msecs_to_jiffies(wdog_dd->bark_time + 3 * 1000);
-		wdog_dd->user_pet_timer.expires = jiffies + delay_time;
-		add_timer(&wdog_dd->user_pet_timer);
-	}
-	wdog_dd->freeze_in_progress = false;
-	spin_unlock(&wdog_dd->freeze_lock);
 	return 0;
 }
 EXPORT_SYMBOL(qcom_wdt_pet_resume);
 #endif
-
-static struct syscore_ops qcom_wdt_syscore_ops = {
-#ifdef CONFIG_PM_SLEEP
-	.suspend = qcom_wdt_suspend,
-	.resume = qcom_wdt_resume,
-#endif
-};
 
 static void qcom_wdt_reset_on_oops(struct msm_watchdog_data *wdog_dd,
 			int timeout)
@@ -566,6 +533,39 @@ static ssize_t qcom_wdt_pet_time_get(struct device *dev,
 
 static DEVICE_ATTR(pet_time, 0400, qcom_wdt_pet_time_get, NULL);
 
+static ssize_t wakeup_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", wdog_dd->wakeup_irq_enable);
+}
+static ssize_t wakeup_enable_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+	u8 enable;
+	int ret;
+
+	ret = kstrtou8(buf, 10, &enable);
+	if (ret || enable > 1) {
+		dev_err(wdog_dd->dev, "invalid user input\n");
+		return ret ? : -EINVAL;
+	}
+	mutex_lock(&wdog_dd->disable_lock);
+	/* echo 1 > wakeup_enable means wakeup irq is enabled */
+	wdog_dd->wakeup_irq_enable = enable;
+	if (wdog_dd->enabled) {
+		u8 val = BIT(EN);
+
+		if (wdog_dd->wakeup_irq_enable)
+			val |= BIT(UNMASKED_INT_EN);
+		wdog_dd->ops->enable_wdt(val, wdog_dd);
+	}
+	mutex_unlock(&wdog_dd->disable_lock);
+	return count;
+}
+static DEVICE_ATTR_ADMIN_RW(wakeup_enable);
+
 static void qcom_wdt_keep_alive_response(void *info)
 {
 	struct msm_watchdog_data *wdog_dd = info;
@@ -653,13 +653,8 @@ static __ref int qcom_wdt_kthread(void *arg)
 		/* Check again before scheduling
 		 * Could have been changed on other cpu
 		 */
-		if (!kthread_should_stop()) {
-			spin_lock(&wdog_dd->freeze_lock);
-			if (!wdog_dd->freeze_in_progress)
-				mod_timer(&wdog_dd->pet_timer,
-					  jiffies + delay_time);
-			spin_unlock(&wdog_dd->freeze_lock);
-		}
+		if (!kthread_should_stop())
+			mod_timer(&wdog_dd->pet_timer, jiffies + delay_time);
 
 		queue_irq_counts_work(&wdog_dd->irq_counts_work);
 	}
@@ -701,7 +696,6 @@ int qcom_wdt_remove(struct platform_device *pdev)
 {
 	struct msm_watchdog_data *wdog_dd = platform_get_drvdata(pdev);
 
-	unregister_syscore_ops(&qcom_wdt_syscore_ops);
 	if (!IPI_CORES_IN_LPM)
 		cpu_pm_unregister_notifier(&wdog_dd->wdog_cpu_pm_nb);
 
@@ -792,6 +786,7 @@ static int qcom_wdt_init_sysfs(struct msm_watchdog_data *wdog_dd)
 	int error = 0;
 
 	error |= device_create_file(wdog_dd->dev, &dev_attr_disable);
+	error |= device_create_file(wdog_dd->dev, &dev_attr_wakeup_enable);
 	if (QCOM_WATCHDOG_USERSPACE_PET) {
 		error |= device_create_file(wdog_dd->dev, &dev_attr_pet_time);
 		error |= device_create_file(wdog_dd->dev,
@@ -965,8 +960,6 @@ int qcom_wdt_register(struct platform_device *pdev,
 	md_entry.size = sizeof(*wdog_dd);
 	if (msm_minidump_add_region(&md_entry) < 0)
 		dev_err(wdog_dd->dev, "Failed to add Wdt data in Minidump\n");
-
-	register_syscore_ops(&qcom_wdt_syscore_ops);
 
 	return 0;
 err:

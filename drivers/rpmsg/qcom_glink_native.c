@@ -45,7 +45,7 @@ do {									     \
 	if (ch->glink) {						     \
 		ipc_log_string(ch->glink->ilc, "%s[%d:%d] %s: "x, ch->name,  \
 			       ch->lcid, ch->rcid, __func__, ##__VA_ARGS__); \
-		dev_err(ch->glink->dev, "[%s]: "x, __func__, ##__VA_ARGS__); \
+		dev_err_ratelimited(ch->glink->dev, "[%s]: "x, __func__, ##__VA_ARGS__); \
 	}								     \
 } while (0)
 
@@ -376,15 +376,6 @@ static void qcom_glink_tx_write(struct qcom_glink *glink,
 				const void *data, size_t dlen)
 {
 	glink->tx_pipe->write(glink->tx_pipe, hdr, hlen, data, dlen);
-}
-
-static void qcom_glink_pipe_reset(struct qcom_glink *glink)
-{
-	if (glink->tx_pipe->reset)
-		glink->tx_pipe->reset(glink->tx_pipe);
-
-	if (glink->rx_pipe->reset)
-		glink->rx_pipe->reset(glink->rx_pipe);
 }
 
 static void qcom_glink_send_read_notify(struct qcom_glink *glink)
@@ -1070,7 +1061,7 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
 
-			if (ret < 0) {
+			if (ret < 0 && ret != -ENODEV) {
 				CH_ERR(channel,
 					"callback error ret = %d\n", ret);
 				ret = 0;
@@ -2163,11 +2154,6 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		return ERR_CAST(glink->task);
 	}
 
-	ret = subsys_register_early_notifier(glink->name, XPORT_LAYER_NOTIF,
-					     qcom_glink_notif_reset, glink);
-	if (ret)
-		dev_err(dev, "failed to register early notif %d\n", ret);
-
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
 
 	irq = of_irq_get(dev->of_node, 0);
@@ -2177,7 +2163,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 			       glink->irqname, glink);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ\n");
-		goto unregister;
+		return ERR_PTR(ret);
 	}
 
 	glink->irq = irq;
@@ -2187,7 +2173,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		arr = kmalloc_array(size, sizeof(u32), GFP_KERNEL);
 		if (!arr) {
 			ret = -ENOMEM;
-			goto unregister;
+			return ERR_PTR(ret);
 		}
 		ret = of_property_read_u32_array(dev->of_node, "cpu-affinity",
 						 arr, size);
@@ -2195,26 +2181,29 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 			qcom_glink_set_affinity(glink, arr, size);
 		kfree(arr);
 	}
+	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
+
+	return glink;
+}
+EXPORT_SYMBOL(qcom_glink_native_probe);
+
+int qcom_glink_native_start(struct qcom_glink *glink)
+{
+	int ret;
 
 	ret = qcom_glink_send_version(glink);
 	if (ret) {
-		dev_err(dev, "failed to send version %d\n", ret);
-		goto unregister;
+		dev_err(glink->dev, "failed to send version: %d\n", ret);
+		return ret;
 	}
 
 	ret = qcom_glink_create_chrdev(glink);
 	if (ret)
 		dev_err(glink->dev, "failed to register chrdev\n");
 
-	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
-
-	return glink;
-
-unregister:
-	subsys_unregister_early_notifier(glink->name, XPORT_LAYER_NOTIF);
-	return ERR_PTR(ret);
+	return 0;
 }
-EXPORT_SYMBOL_GPL(qcom_glink_native_probe);
+EXPORT_SYMBOL(qcom_glink_native_start);
 
 static int qcom_glink_remove_device(struct device *dev, void *data)
 {
@@ -2229,7 +2218,6 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	int cid;
 	int ret;
 
-	subsys_unregister_early_notifier(glink->name, XPORT_LAYER_NOTIF);
 	qcom_glink_notif_reset(glink);
 	disable_irq(glink->irq);
 	qcom_glink_cancel_rx_work(glink);
@@ -2259,7 +2247,6 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 
 	kthread_flush_worker(&glink->kworker);
 	kthread_stop(glink->task);
-	qcom_glink_pipe_reset(glink);
 	mbox_free_channel(glink->mbox_chan);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_remove);

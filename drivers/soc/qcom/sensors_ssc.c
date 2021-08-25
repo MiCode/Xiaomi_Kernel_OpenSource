@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -181,10 +181,10 @@ static ssize_t slpi_ssr_store(struct kobject *kobj,
 	if (!sns_dev)
 		return -EINVAL;
 
-	dev_err(&pdev->dev, "Something went wrong with SLPI, restarting\n");
+	dev_err(&pdev->dev, "requesting for SLPI restart\n");
 
-	/* subsystem_restart_dev has worker queue to handle */
-	rproc_report_crash(sns_dev, RPROC_FATAL_ERROR);
+	rproc_shutdown(sns_dev);
+	slpi_loader_do(pdev);
 
 	dev_dbg(&pdev->dev, "SLPI restarted\n");
 	return count;

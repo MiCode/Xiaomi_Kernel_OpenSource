@@ -1338,6 +1338,15 @@ int a6xx_rgmu_device_probe(struct platform_device *pdev,
 	return 0;
 }
 
+int a6xx_rgmu_add_to_minidump(struct adreno_device *adreno_dev)
+{
+	struct a6xx_device *a6xx_dev = container_of(adreno_dev,
+					struct a6xx_device, adreno_dev);
+
+	return kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_A6XX_DEVICE,
+				(void *)(a6xx_dev), sizeof(struct a6xx_device));
+}
+
 /* Do not access any RGMU registers in RGMU probe function */
 static int a6xx_rgmu_probe(struct kgsl_device *device,
 		struct platform_device *pdev)

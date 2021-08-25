@@ -238,8 +238,8 @@ struct gmu_core_device {
 extern struct platform_driver a6xx_gmu_driver;
 extern struct platform_driver a6xx_rgmu_driver;
 extern struct platform_driver a6xx_hwsched_driver;
-extern struct platform_driver genc_gmu_driver;
-extern struct platform_driver genc_hwsched_driver;
+extern struct platform_driver gen7_gmu_driver;
+extern struct platform_driver gen7_hwsched_driver;
 
 /* GMU core functions */
 

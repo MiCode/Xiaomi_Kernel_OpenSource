@@ -230,6 +230,7 @@ extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
 extern __read_mostly unsigned int sysctl_sched_force_lb_enable;
 extern const int sched_user_hint_max;
 extern unsigned int sysctl_sched_dynamic_tp_enable;
+extern unsigned int sysctl_panic_on_walt_bug;
 extern int sched_dynamic_tp_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 
@@ -285,6 +286,7 @@ extern unsigned int sysctl_sched_task_unfilter_period;
 extern unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
 extern unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
 extern unsigned int sysctl_sched_sync_hint_enable;
+extern unsigned int sysctl_sched_suppress_region2;
 extern struct ctl_table walt_table[];
 extern struct ctl_table walt_base_table[];
 extern void walt_tunables(void);
@@ -882,6 +884,7 @@ static inline bool walt_fair_task(struct task_struct *p)
 
 #define WALT_RTG_MVP		0
 #define WALT_BINDER_MVP		1
+#define WALT_TASK_BOOST_MVP	2
 
 #define WALT_NOT_MVP		-1
 
@@ -907,13 +910,29 @@ extern void walt_rq_dump(int cpu);
 extern void walt_dump(void);
 extern int in_sched_bug;
 
-#define SCHED_BUG_ON(condition)				\
+#define WALT_PANIC(condition)				\
 ({							\
 	if (unlikely(!!(condition)) && !in_sched_bug) {	\
 		in_sched_bug = 1;			\
 		walt_dump();				\
 		BUG_ON(condition);			\
 	}						\
+})
+
+#define WALT_PANIC_SENTINEL 0x4544DEAD
+
+/*
+ * crash if walt bugs are fatal, otherwise return immediately.
+ * output format and arguments to console
+ */
+#define WALT_BUG(p, format, args...)					\
+({									\
+	if (unlikely(sysctl_panic_on_walt_bug == WALT_PANIC_SENTINEL)) {\
+		printk_deferred("WALT-BUG " format, args);		\
+		if (p)							\
+			walt_task_dump(p);				\
+		WALT_PANIC(1);						\
+	}								\
 })
 
 #endif /* _WALT_H */

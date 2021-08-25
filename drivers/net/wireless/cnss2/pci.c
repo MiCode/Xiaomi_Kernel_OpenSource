@@ -42,7 +42,7 @@
 #define QCA6490_PATH_PREFIX		"qca6490/"
 #define WCN7850_PATH_PREFIX		"wcn7850/"
 #define DEFAULT_PHY_M3_FILE_NAME	"m3.bin"
-#define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.bin"
+#define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.elf"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
 #define DEVICE_MAJOR_VERSION_MASK	0xF
@@ -77,6 +77,9 @@ static DEFINE_SPINLOCK(time_sync_lock);
 
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
 #define LINK_TRAINING_RETRY_DELAY_MS		500
+
+#define MHI_SUSPEND_RETRY_MAX_TIMES		3
+#define MHI_SUSPEND_RETRY_DELAY_US		5000
 
 #define BOOT_DEBUG_TIMEOUT_MS			7000
 
@@ -1321,6 +1324,9 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 			cnss_pr_err("Failed to set D3Hot, err =  %d\n", ret);
 	}
 
+	/* Always do PCIe L2 suspend during power off/PCIe link recovery */
+	pci_priv->drv_connected_last = 0;
+
 	ret = cnss_set_pci_link(pci_priv, PCI_LINK_DOWN);
 	if (ret)
 		goto out;
@@ -1398,8 +1404,6 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	 */
 	msleep(WAKE_EVENT_TIMEOUT);
 
-	/* Always do PCIe L2 suspend/resume during link down recovery */
-	pci_priv->drv_connected_last = 0;
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
@@ -1824,7 +1828,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 				  enum cnss_mhi_state mhi_state)
 {
-	int ret = 0;
+	int ret = 0, retry = 0;
 
 	if (pci_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
@@ -1868,12 +1872,19 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		ret = 0;
 		break;
 	case CNSS_MHI_SUSPEND:
+retry_mhi_suspend:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last)
 			ret = cnss_mhi_pm_fast_suspend(pci_priv, true);
 		else
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
+		if (ret == -EBUSY && retry++ < MHI_SUSPEND_RETRY_MAX_TIMES) {
+			cnss_pr_dbg("Retry MHI suspend #%d\n", retry);
+			usleep_range(MHI_SUSPEND_RETRY_DELAY_US,
+				     MHI_SUSPEND_RETRY_DELAY_US + 1000);
+			goto retry_mhi_suspend;
+		}
 		break;
 	case CNSS_MHI_RESUME:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
@@ -1904,8 +1915,8 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	return 0;
 
 out:
-	cnss_pr_err("Failed to set MHI state: %s(%d)\n",
-		    cnss_mhi_state_to_str(mhi_state), mhi_state);
+	cnss_pr_err("Failed to set MHI state: %s(%d), err = %d\n",
+		    cnss_mhi_state_to_str(mhi_state), mhi_state, ret);
 	return ret;
 }
 
@@ -4728,6 +4739,7 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
+	case WCN7850_DEVICE_ID:
 		pci_priv->dma_bit_mask = PCI_DMA_MASK_36_BIT;
 		break;
 	default:
@@ -4908,7 +4920,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 
 	if (!cnss_pci_check_link_status(pci_priv))
-		mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+		cnss_mhi_debug_reg_dump(pci_priv);
 
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
@@ -5766,7 +5778,7 @@ static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
 
 	disable_irq_wake(pci_priv->wake_irq);
 	free_irq(pci_priv->wake_irq, pci_priv);
-	gpio_free(pci_priv->wake_gpio;
+	gpio_free(pci_priv->wake_gpio);
 }
 #else
 static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)

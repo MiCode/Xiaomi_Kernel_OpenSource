@@ -906,19 +906,19 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 	c += print_blk_residency_times(buf + c, sz - c,
 			tot_blks, total_time, MEMORY_OFFLINE);
 
-	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
 
-	c += scnprintf(buf + c, sz, "\n");
-	c += scnprintf(buf + c, sz, "\tOnline %%:\t");
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tOnline %%:\t");
 	c += print_blk_residency_percentage(buf + c, sz - c,
 			tot_blks, total_time, MEMORY_ONLINE);
 
-	c += scnprintf(buf + c, sz, "\n");
-	c += scnprintf(buf + c, sz, "\tOffline %%:\t");
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tOffline %%:\t");
 	c += print_blk_residency_percentage(buf + c, sz - c,
 			tot_blks, total_time, MEMORY_OFFLINE);
-	c += scnprintf(buf + c, sz, "\n");
-	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
 
 	for (i = 0; i <= tot_blks; i++)
 		total = ktime_add(total,
@@ -931,14 +931,14 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 
 	total_offline = ktime_sub(total, total_online);
 
-	c += scnprintf(buf + c, sz,
+	c += scnprintf(buf + c, sz - c,
 					"\tAvg Online %%:\t%d%%\n",
 					((int)total_online * 100) / total);
-	c += scnprintf(buf + c, sz,
+	c += scnprintf(buf + c, sz - c,
 					"\tAvg Offline %%:\t%d%%\n",
 					((int)total_offline * 100) / total);
 
-	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz - c, "\n");
 	kfree(total_time);
 	return c;
 }
@@ -1027,7 +1027,7 @@ static void prepare_fc(struct movable_zone_fill_control *fc)
 
 	zone = &(NODE_DATA(0)->node_zones[ZONE_MOVABLE]);
 	fc->zone = zone;
-	fc->start_pfn = zone->zone_start_pfn;
+	fc->start_pfn = ALIGN(zone->zone_start_pfn, pageblock_nr_pages);
 	fc->end_pfn = zone_end_pfn(zone);
 	fc->limit = atomic64_read(&zone->managed_pages);
 	INIT_LIST_HEAD(&fc->freepages);
@@ -1051,6 +1051,10 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 	unsigned long start_pfn = fc->start_pfn;
 	unsigned long end_pfn = fc->end_pfn;
 	LIST_HEAD(tmp);
+	struct zone *dst_zone = page_zone(pfn_to_page(start_pfn));
+
+	if (zone_page_state(dst_zone, NR_FREE_PAGES) < high_wmark_pages(dst_zone))
+		return;
 
 	spin_lock_irqsave(&fc->zone->lock, flags);
 	for (; start_pfn < end_pfn; start_pfn++) {
@@ -1083,6 +1087,11 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 
 		INIT_LIST_HEAD(&tmp);
 		isolated = isolate_and_split_free_page(page, &tmp);
+		if (!isolated) {
+			fc->start_pfn = ALIGN(fc->start_pfn, pageblock_nr_pages);
+			goto out;
+		}
+
 		list_splice(&tmp, &fc->freepages);
 		fc->nr_free_pages += isolated;
 		start_pfn += isolated - 1;
@@ -1098,6 +1107,7 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 			break;
 	}
 	fc->start_pfn = start_pfn + 1;
+out:
 	spin_unlock_irqrestore(&fc->zone->lock, flags);
 }
 
