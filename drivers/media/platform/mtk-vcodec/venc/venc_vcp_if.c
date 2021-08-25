@@ -162,7 +162,7 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		msg->mem.va = (__u64)vcp_get_reserve_mem_virt(VENC_MEM_ID);
 		msg->mem.pa = (__u64)vcp_get_reserve_mem_phys(VENC_MEM_ID);
 		msg->mem.len = (__u64)vcp_get_reserve_mem_size(VENC_MEM_ID);
-		msg->mem.iova = 0;
+		msg->mem.iova = msg->mem.pa;
 
 		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d size of %d %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type, sizeof(msg->mem), sizeof(*msg));
@@ -820,12 +820,6 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	mtk_vcodec_debug_enter(inst);
 	init_waitqueue_head(&inst->vcu_inst.wq_hd);
 
-	memset(&out, 0, sizeof(out));
-	out.msg_id = AP_IPIMSG_ENC_INIT;
-	out.venc_inst = (unsigned long)&inst->vcu_inst;
-	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
-	inst->vsi = (struct venc_vsi *)inst->vcu_inst.vsi;
-
 	inst->vcu_inst.ctx_ipi_lock = kzalloc(sizeof(struct mutex),
 		GFP_KERNEL);
 	if (!inst->vcu_inst.ctx_ipi_lock) {
@@ -835,6 +829,12 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	}
 	mutex_init(inst->vcu_inst.ctx_ipi_lock);
 	INIT_LIST_HEAD(&inst->vcu_inst.bufs);
+
+	memset(&out, 0, sizeof(out));
+	out.msg_id = AP_IPIMSG_ENC_INIT;
+	out.venc_inst = (unsigned long)&inst->vcu_inst;
+	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
+	inst->vsi = (struct venc_vsi *)inst->vcu_inst.vsi;
 
 	mtk_vcodec_debug_leave(inst);
 

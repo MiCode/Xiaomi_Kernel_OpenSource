@@ -488,6 +488,7 @@ static void vcp_wait_ready_timeout(struct timer_list *t)
 #endif
 	vcp_timeout_times++;
 	pr_notice("[VCP] vcp_timeout_times=%x\n", vcp_timeout_times);
+	vcp_dump_last_regs();
 }
 #endif
 
@@ -587,11 +588,13 @@ int reset_vcp(int reset)
 		/* write vcp reserved memory address/size to GRP1/GRP2
 		 * to let vcp setup MPU
 		 */
-		writel((unsigned int)vcp_mem_base_phys, DRAM_RESV_ADDR_REG);
+		writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
 		writel(1, R_CORE0_SW_RSTN_CLR);  /* release reset */
 
-		pr_debug("[VCP] %s: R_CORE0_SW_RSTN_CLR%x\n", __func__, R_CORE0_SW_RSTN_CLR);
+		pr_debug("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x\n", __func__,
+			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
+			readl(R_CORE0_SW_RSTN_CLR));
 		dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
 		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
@@ -599,6 +602,7 @@ int reset_vcp(int reset)
 #endif
 	}
 	pr_debug("[VCP] %s: done\n", __func__);
+
 	return 0;
 }
 
@@ -1138,7 +1142,10 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 	unsigned int vcp_mem_num = 0;
 	unsigned int i, m_idx, m_size;
 	int ret;
-#if (!VCP_IOMMU_ENABLE)
+#if VCP_IOMMU_ENABLE
+	uint64_t iova_upper = 0;
+	uint64_t iova_lower = 0xFFFFFFFFFFFFFFFF;
+#else
 	struct device_node *rmem_node;
 	struct reserved_mem *rmem;
 	const char *mem_key;
@@ -1197,7 +1204,6 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		(uint64_t)vcp_mem_base_phys, (uint64_t)vcp_mem_size);
 	pr_debug("[VCP] rsrv_vir_base = 0x%llx, len:0x%llx\n",
 		(uint64_t)vcp_mem_base_virt, (uint64_t)vcp_mem_size);
-
 #endif	//(!VCP_IOMMU_ENABLE)
 
 	/* Set reserved memory table */
@@ -1251,11 +1257,21 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 				&vcp_reserve_mblock[id].start_phys,
 				GFP_KERNEL);
 		accumlate_memory_size += vcp_reserve_mblock[id].size;
+
+		if (vcp_reserve_mblock[id].start_phys < iova_lower)
+			iova_lower = vcp_reserve_mblock[id].start_phys;
+		if ((vcp_reserve_mblock[id].start_phys +  vcp_reserve_mblock[id].size) > iova_upper)
+			iova_upper = vcp_reserve_mblock[id].start_phys +
+				vcp_reserve_mblock[id].size;
+
 		pr_debug("[VCP] [%d] iova:0x%llx, virt:0x%llx, len:0x%llx\n",
 			id, (uint64_t)vcp_reserve_mblock[id].start_phys,
 			(uint64_t)vcp_reserve_mblock[id].start_virt,
 			(uint64_t)vcp_reserve_mblock[id].size);
+
 	}
+	vcp_mem_base_phys = (phys_addr_t)iova_lower;
+	vcp_mem_size = (phys_addr_t)iova_upper - iova_lower;
 #else
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		vcp_reserve_mblock[id].start_phys = vcp_mem_base_phys +
@@ -1647,7 +1663,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 
 	/* Setup dram reserved address and size for vcp*/
-	writel((unsigned int)vcp_mem_base_phys, DRAM_RESV_ADDR_REG);
+	writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 	writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
 	/* start vcp */
 	pr_notice("[VCP] start vcp\n");

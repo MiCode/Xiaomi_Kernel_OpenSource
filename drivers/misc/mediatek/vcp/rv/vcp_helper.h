@@ -48,6 +48,11 @@ struct VCP_IRQ_AST_INFO {
 #define VCP_ALL_ENABLE	0x00
 #define VCP_ALL_REBOOT	0x01
 
+#define VCP_PACK_IOVA(addr)     ((uint32_t)((addr) | (((addr) >> 32) & 0xF)))
+#define VCP_UNPACK_IOVA(addr)   \
+	((uint64_t)(addr & 0xFFFFFFF0) | (((uint64_t)(addr) & 0xF) << 32))
+
+
 /* vcp semaphore definition*/
 enum SEMAPHORE_FLAG {
 	SEMAPHORE_CLK_CFG_5 = 0,

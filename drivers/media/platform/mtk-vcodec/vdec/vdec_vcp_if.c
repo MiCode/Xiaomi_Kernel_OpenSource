@@ -227,7 +227,7 @@ static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 		msg->mem.va = (__u64)vcp_get_reserve_mem_virt(VDEC_MEM_ID);
 		msg->mem.pa = (__u64)vcp_get_reserve_mem_phys(VDEC_MEM_ID);
 		msg->mem.len = (__u64)vcp_get_reserve_mem_size(VDEC_MEM_ID);
-		msg->mem.iova = 0;
+		msg->mem.iova = msg->mem.pa;
 		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d size of %d %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type, sizeof(msg->mem), sizeof(*msg));
 	} else {
@@ -636,6 +636,13 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	if (ctx->dec_params.svp_mode)
 		msg.reserved = ctx->dec_params.svp_mode;
 
+	inst->vcu.ctx_ipi_lock = kzalloc(sizeof(struct mutex),
+		GFP_KERNEL);
+	if (!inst->vcu.ctx_ipi_lock)
+		goto error_free_inst;
+	mutex_init(inst->vcu.ctx_ipi_lock);
+	INIT_LIST_HEAD(&inst->vcu.bufs);
+
 	mtk_vcodec_debug(inst, "vdec_inst=%p svp_mode=%d", &inst->vcu, msg.reserved);
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 
@@ -649,13 +656,6 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->input_driven = inst->vsi->input_driven;
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
-
-	inst->vcu.ctx_ipi_lock = kzalloc(sizeof(struct mutex),
-		GFP_KERNEL);
-	if (!inst->vcu.ctx_ipi_lock)
-		goto error_free_inst;
-	mutex_init(inst->vcu.ctx_ipi_lock);
-	INIT_LIST_HEAD(&inst->vcu.bufs);
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 

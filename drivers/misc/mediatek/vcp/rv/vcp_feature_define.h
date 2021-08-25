@@ -9,7 +9,7 @@
 #include "vcp.h"
 
 /* vcp platform configs*/
-#define VCP_BOOT_TIME_OUT_MONITOR        (0)
+#define VCP_BOOT_TIME_OUT_MONITOR        (1)
 #define VCP_RESERVED_MEM                 (1)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_LOGGER_SUPPORT)
 #define VCP_LOGGER_ENABLE                (1)

@@ -360,7 +360,7 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev)
 			return -ENOMEM;
 		else {
 			mem->iova = (__u64)dma_addr;
-			mem->pa = 0;
+			mem->pa = (__u64)dma_addr;
 		}
 	} else if (mem->type == MEM_TYPE_FOR_SEC) {
 		// TODO: alloc secure memory

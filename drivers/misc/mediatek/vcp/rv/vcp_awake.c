@@ -74,25 +74,8 @@ int vcp_awake_lock(void *_vcp_id)
 	}
 
 	/* vcp lock awake success*/
-	if (ret != -1)
-		*vcp_awake_count = *vcp_awake_count + 1;
-
-	if (ret == -1) {
-		pr_notice("%s: awake %s fail..\n", __func__, core_id);
-		WARN_ON(1);
-#if VCP_RECOVERY_SUPPORT
-		/* avoid vcp just wake up and halt to reset again */
-		if (vcp_set_reset_status() == RESET_STATUS_STOP && is_vcp_ready(vcp_id) == 0) {
-			pr_notice("%s: start to reset vcp...\n", __func__);
-
-			/* trigger halt isr, force vcp enter wfi */
-			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
-
-			vcp_send_reset_wq(RESET_TYPE_AWAKE);
-		} else
-			pr_notice("%s: vcp resetting\n", __func__);
-#endif
-	}
+	*vcp_awake_count = *vcp_awake_count + 1;
+	ret = 0;
 
 	spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 
@@ -136,14 +119,14 @@ int vcp_awake_unlock(void *_vcp_id)
 	}
 
 	/* vcp unlock awake success*/
-	if (ret != -1) {
-		if (*vcp_awake_count <= 0)
-			pr_info("%s:%s awake_count=%d NOT SYNC!\n", __func__,
-			core_id, *vcp_awake_count);
+	if (*vcp_awake_count <= 0)
+		pr_info("%s:%s awake_count=%d NOT SYNC!\n", __func__,
+		core_id, *vcp_awake_count);
 
-		if (*vcp_awake_count > 0)
-			*vcp_awake_count = *vcp_awake_count - 1;
-	}
+	if (*vcp_awake_count > 0)
+		*vcp_awake_count = *vcp_awake_count - 1;
+
+	ret = 0;
 
 	/* spinlock context safe */
 	spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
