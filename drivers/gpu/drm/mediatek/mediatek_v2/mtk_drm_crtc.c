@@ -4023,6 +4023,7 @@ void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc)
 
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->trig_loop_cmdq_handle);
+	mtk_crtc->trig_loop_cmdq_handle = NULL;
 }
 
 /* sw workaround to fix gce hw bug */
