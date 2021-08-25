@@ -1674,6 +1674,10 @@
 		};
 	};
 
+	qcom,glink {
+		compatible = "qcom,glink";
+	};
+
 	qcom,qsee_ipc_irq_bridge {
 		compatible = "qcom,qsee-ipc-irq-bridge";
 
