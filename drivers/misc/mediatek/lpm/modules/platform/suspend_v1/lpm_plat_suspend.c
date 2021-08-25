@@ -21,6 +21,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/sched/signal.h>
+#include <linux/spinlock.h>
 #include <uapi/linux/sched/types.h>
 
 #include <lpm.h>
@@ -36,6 +37,8 @@
 
 unsigned int lpm_suspend_status;
 struct cpumask s2idle_cpumask;
+static struct cpumask abort_cpumask;
+static DEFINE_SPINLOCK(lpm_abort_locker);
 
 long long before_md_sleep_time;
 long long after_md_sleep_time;
@@ -292,6 +295,10 @@ static int mtk_lpm_monitor_thread(void *not_used)
 	if (mtk_lpm_in_suspend == 1)
 		pr_info("[name:spm&][SPM] wakeup system due to not entering suspend(%d)\n", cpu);
 
+	spin_lock(&lpm_abort_locker);
+	cpumask_clear_cpu(cpu, &abort_cpumask);
+	spin_unlock(&lpm_abort_locker);
+
 	do_exit(0);
 }
 
@@ -315,8 +322,10 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
 		suspend_online_cpus = num_online_cpus();
+		cpumask_clear(&abort_cpumask);
 		mtk_lpm_in_suspend = 1;
 		for (i = 0; i < suspend_online_cpus; i++) {
+			cpumask_set_cpu(i, &abort_cpumask);
 			init_completion(&mtk_lpm_ac[i].lpm_completion);
 			mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread,
 					NULL, "LPM-%d", i);
@@ -330,8 +339,10 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		mtk_lpm_in_suspend = 0;
-		for (i = 0; i < suspend_online_cpus; i++)
-			send_sig(SIGKILL, mtk_lpm_ac[i].ts, 0);
+		for (i = 0; i < suspend_online_cpus; i++) {
+			if (cpumask_test_cpu(i, &abort_cpumask))
+				send_sig(SIGKILL, mtk_lpm_ac[i].ts, 0);
+		}
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
