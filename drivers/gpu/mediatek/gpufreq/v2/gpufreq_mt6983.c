@@ -4318,7 +4318,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	/* init OPP segment range */
 	segment_id = g_stack.segment_id;
 	if (segment_id == MT6983_SEGMENT)
-		g_stack.segment_upbound = 8;
+		g_stack.segment_upbound = 0;
 	else
 		g_stack.segment_upbound = 0;
 	g_stack.segment_lowbound = SIGNED_OPP_STACK_NUM - 1;
