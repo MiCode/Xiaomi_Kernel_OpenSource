@@ -541,9 +541,11 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
-	ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
-	if (ret < 0)
-		goto err_pwr_ack;
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_PWRON_NO_SUBSYS_CLK)) {
+		ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+		if (ret < 0)
+			goto err_pwr_ack;
+	}
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
 		ret = scpsys_sram_table_enable(scpd);
@@ -559,7 +561,8 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_sram;
 
-	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_PWRON_NO_SUBSYS_CLK))
+		scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
 
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
