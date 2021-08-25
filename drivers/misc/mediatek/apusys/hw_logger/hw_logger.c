@@ -58,7 +58,7 @@ static char *hw_log_buf;
 static dma_addr_t hw_log_buf_addr;
 
 /* local buffer related */
-static struct mutex hw_logger_mutex;
+DEFINE_MUTEX(hw_logger_mutex);
 DEFINE_SPINLOCK(hw_logger_spinlock);
 static char *local_log_buf;
 
@@ -212,7 +212,7 @@ int hw_logger_config_init(struct mtk_apu *apu)
 		return -EINVAL;
 	}
 
-	if (!apu_logtop || !hw_log_buf || !local_log_buf)
+	if (!apu_logtop)
 		return 0;
 
 	st_logger_init_info = (struct logger_init_info *)
@@ -227,8 +227,6 @@ int hw_logger_config_init(struct mtk_apu *apu)
 	g_log_ov_flg_l = 0;
 	g_dump_log_r_ofs = U32_MAX;
 
-	/* set virtual hw logger read pointer */
-	set_r_ptr(get_st_addr());
 	__loc_log_sz = 0;
 
 	apu_toplog_deep_idle = false;
@@ -268,6 +266,9 @@ static int apu_logtop_copy_buf(void)
 		APU_LOGTOP_CON_FLAG);
 #endif
 
+	if (get_r_ptr() == 0)
+		set_r_ptr(get_st_addr());
+
 	/* offset,size is only 32bit width */
 	w_ofs = get_w_ptr() - get_st_addr();
 	r_ofs = get_r_ptr() - get_st_addr();
@@ -297,6 +298,16 @@ static int apu_logtop_copy_buf(void)
 	log_w_ofs = __loc_log_w_ofs;
 	log_ov_flg = __loc_log_ov_flg;
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
+
+	if (w_ofs >= t_size || r_ofs >= t_size || t_size == 0) {
+		HWLOGR_WARN("w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n", w_ofs, r_ofs, t_size);
+		return 0;
+	}
+
+	if (log_w_ofs >= LOCAL_LOG_SIZE) {
+		HWLOGR_WARN("log_w_ofs = 0x%x\n", log_w_ofs);
+		return 0;
+	}
 
 	/* invalidate hw logger buf */
 	hw_logger_buf_invalidate();
@@ -340,6 +351,9 @@ int hw_logger_copy_buf(void)
 {
 	HWLOGR_DBG("in\n");
 
+	if (!apu_logtop)
+		return 0;
+
 	mutex_lock(&hw_logger_mutex);
 
 	if (apu_toplog_deep_idle)
@@ -355,7 +369,10 @@ out:
 
 int hw_logger_deep_idle_enter(void)
 {
-	HWLOGR_INFO("in\n");
+	HWLOGR_DBG("in\n");
+
+	if (!apu_logtop)
+		return 0;
 
 	mutex_lock(&hw_logger_mutex);
 
@@ -370,15 +387,17 @@ int hw_logger_deep_idle_enter(void)
 
 int hw_logger_deep_idle_leave(void)
 {
-	HWLOGR_INFO("in\n");
+	HWLOGR_DBG("in\n");
+
+	if (!apu_logtop)
+		return 0;
 
 	mutex_lock(&hw_logger_mutex);
 
 	apu_toplog_deep_idle = false;
 
 	/* clear read pointer */
-	if (apu_logtop)
-		set_r_ptr(get_st_addr());
+	set_r_ptr(get_st_addr());
 
 	mutex_unlock(&hw_logger_mutex);
 
