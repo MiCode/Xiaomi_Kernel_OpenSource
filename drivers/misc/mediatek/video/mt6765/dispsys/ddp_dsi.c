@@ -2897,6 +2897,7 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 	} else {
 		DISPERR("[dsi_dsi.c] PLL clock should not be 0!\n");
 		ASSERT(0);
+		return;
 	}
 
 #define NS_TO_CYCLE(n, c)	((n) / (c))
