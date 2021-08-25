@@ -12315,6 +12315,7 @@
 };
 
 &i2c5 {
+	clock-frequency = <1000000>;
 	mt6375: mt6375@34 {
 		compatible = "mediatek,mt6375";
 		reg = <0x34>;
