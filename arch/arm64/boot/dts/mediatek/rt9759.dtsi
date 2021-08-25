@@ -41,7 +41,7 @@
 			/* tsbusotp_dis; */
 			/* tsbatotp_dis; */
 			/* tdieotp_dis; */
-			reg_en;
+			/* reg_en; */
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -81,7 +81,7 @@
 			/* tsbusotp_dis; */
 			/* tsbatotp_dis; */
 			/* tdieotp_dis; */
-			reg_en;
+			/* reg_en; */
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -129,7 +129,7 @@
 			/* tsbusotp_dis; */
 			/* tsbatotp_dis; */
 			/* tdieotp_dis; */
-			reg_en;
+			/* reg_en; */
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
@@ -169,7 +169,7 @@
 			tsbusotp_dis;
 			tsbatotp_dis;
 			/* tdieotp_dis; */
-			reg_en;
+			/* reg_en; */
 			/* voutovp_dis; */
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */

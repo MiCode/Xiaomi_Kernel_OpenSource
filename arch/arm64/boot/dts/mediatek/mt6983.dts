@@ -4950,7 +4950,6 @@
 		power_path_support;
 		max_charger_voltage = <6500000>;
 		fast_charge_voltage = <3000000>;
-		boot_battery_voltage = <3600000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
@@ -5120,7 +5119,7 @@
 		ifod_threshold = <200>;
 		rsw_min = <20>;
 		ircmp_rbat = <40>;
-		ircmp_vclamp = <80>;
+		ircmp_vclamp = <0>;
 		vta_cap_min = <6800>;
 		vta_cap_max = <11000>;
 		ita_cap_min = <1000>;
