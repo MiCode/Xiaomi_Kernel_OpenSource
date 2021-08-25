@@ -18,7 +18,14 @@ unsigned int ged_get_cur_volt(void)
 
 int ged_get_cur_oppidx(void)
 {
-	return gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+	int oppidx;
+
+	oppidx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+
+	if (oppidx >= 0 && oppidx < gpufreq_get_opp_num(TARGET_DEFAULT))
+		return oppidx;
+	else
+		return -1;
 }
 
 int ged_get_max_oppidx(void)

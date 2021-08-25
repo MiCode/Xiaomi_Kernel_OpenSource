@@ -210,8 +210,9 @@ static void _init_loading_ud_table(void)
 		int a = loading_ud_table[i].freq;
 		int b = loading_ud_table[i+1].freq;
 
-		loading_ud_table[i].down
-			= ((100 - gx_tb_dvfs_margin_cur - temp) * b) / a;
+		if (a != 0)
+			loading_ud_table[i].down
+				= ((100 - gx_tb_dvfs_margin_cur - temp) * b) / a;
 	}
 
 	if (num >= 2)
@@ -331,9 +332,12 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 {
 	int bCommited = false;
 
-	unsigned long ui32CurFreqID, ui32CeilingID, ui32FloorID;
+	int ui32CurFreqID, ui32CeilingID, ui32FloorID;
 
 	ui32CurFreqID = ged_get_cur_oppidx();
+
+	if (ui32CurFreqID == -1)
+		return bCommited;
 
 	if (eCommitType == GED_DVFS_DEFAULT_COMMIT)
 		g_last_def_commit_freq_id = ui32NewFreqID;
@@ -542,11 +546,11 @@ int ged_dvfs_vsync_offset_level_get(void)
 GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 {
 #ifdef ENABLE_COMMON_DVFS
-	unsigned int ui32NewFreqID;
 	int i;
+	int ui32CurFreqID;
+	unsigned int ui32NewFreqID;
 	unsigned long gpu_freq;
 	unsigned int sentinalLoading = 0;
-	unsigned int ui32CurFreqID;
 
 	unsigned long ui32IRQFlags;
 
@@ -958,6 +962,9 @@ static bool ged_dvfs_policy(
 	unsigned long ui32IRQFlags;
 
 	int loading_mode;
+
+	if (ui32GPUFreq == -1)
+		return GED_FALSE;
 
 	g_um_gpu_tar_freq = 0;
 	if (bRefreshed == false) {
