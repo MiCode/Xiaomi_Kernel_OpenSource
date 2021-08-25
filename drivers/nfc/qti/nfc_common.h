@@ -48,7 +48,7 @@
 #define DEV_COUNT            1
 
 // NFC device class
-#define CLASS_NAME           "nfc"
+#define CLASS_NAME           "qti-nfc"
 
 //  NFC character device name, this will be in /dev/
 #define NFC_CHAR_DEV_NAME	 "nq-nci"
