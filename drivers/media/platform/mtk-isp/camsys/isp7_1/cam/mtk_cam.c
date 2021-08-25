@@ -1589,7 +1589,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			mtk_cam_update_s_data_exp(ctx, req, &ctx->pipe->mstream_exposure);
 
 		/* TODO: AFO independent supports TWIN */
-		if (ctx->pipe->res_config.raw_num_used == 1)
+		if (ctx->used_raw_num && ctx->pipe->res_config.raw_num_used == 1)
 			req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
 
 		if (req_stream_data->seninf_new)

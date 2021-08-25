@@ -2816,20 +2816,29 @@ static int mtk_camsys_camsv_state_handle(
 static void mtk_camsys_camsv_check_frame_done(struct mtk_cam_ctx *ctx,
 	unsigned int dequeued_frame_seq_no, unsigned int pipe_id)
 {
+#define CHECK_STATE_DEPTH 3
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_temp;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	unsigned long flags;
+	unsigned int seqList[CHECK_STATE_DEPTH];
+	unsigned int cnt = 0;
+	int i;
 
 	if (ctx->sensor) {
 		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 						state_element) {
 			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
-			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no)
-				mtk_camsys_frame_done(ctx, req_stream_data->frame_seq_no, pipe_id);
+			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no) {
+				seqList[cnt++] = req_stream_data->frame_seq_no;
+				if (cnt == CHECK_STATE_DEPTH)
+					break;
+			}
 		}
 		spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
+		for (i = 0; i < cnt; i++)
+			mtk_camsys_frame_done(ctx, seqList[i], pipe_id);
 	}
 }
 
