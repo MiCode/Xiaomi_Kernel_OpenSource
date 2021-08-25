@@ -278,6 +278,7 @@
 	lm3644:lm3644@63 {
 		compatible = "mediatek,lm3644";
 		reg = <0x63>;
+		#cooling-cells = <2>;
 		pinctrl-names = "default", "hwen_high", "hwen_low";
 		pinctrl-0 = <&lm3644_pins_default>;
 		pinctrl-1 = <&lm3644_pins_hwen_high>;
