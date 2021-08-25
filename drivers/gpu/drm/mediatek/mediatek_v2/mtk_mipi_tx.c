@@ -563,8 +563,8 @@ int mtk_mipi_tx_cphy_lane_config_mt6983(struct phy *phy,
 
 	/*set lane swap*/
 	if (!mtk_panel->params->lane_swap_en) {
-		writel(0x65432101, mipi_tx->regs + MIPITX_PHY_SEL0_MT6983);
-		writel(0x24210987, mipi_tx->regs + MIPITX_PHY_SEL1_MT6983);
+		writel(0x76543210, mipi_tx->regs + MIPITX_PHY_SEL0_MT6983);
+		writel(0xA4210098, mipi_tx->regs + MIPITX_PHY_SEL1_MT6983);
 		writel(0x68543102, mipi_tx->regs + MIPITX_PHY_SEL2_MT6983);
 		writel(0x00000007, mipi_tx->regs + MIPITX_PHY_SEL3);
 		return 0;
@@ -1480,6 +1480,7 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6983(struct clk_hw *hw)
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
+	unsigned int fbksel;
 
 	DDPDBG("%s+\n", __func__);
 
@@ -1493,23 +1494,23 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6983(struct clk_hw *hw)
 			mipi_tx->data_rate / 1000000;
 
 	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
-	if (rate >= 2000) {
+	if (rate >= 6000) {
 		txdiv = 1;
 		txdiv0 = 0;
 		txdiv1 = 0;
-	} else if (rate >= 1000) {
+	} else if (rate >= 3000) {
 		txdiv = 2;
 		txdiv0 = 1;
 		txdiv1 = 0;
-	} else if (rate >= 500) {
+	} else if (rate >= 1500) {
 		txdiv = 4;
 		txdiv0 = 2;
 		txdiv1 = 0;
-	} else if (rate > 250) {
+	} else if (rate >= 750) {
 		txdiv = 8;
 		txdiv0 = 3;
 		txdiv1 = 0;
-	} else if (rate >= 125) {
+	} else if (rate >= 430) {
 		txdiv = 16;
 		txdiv0 = 4;
 		txdiv1 = 0;
@@ -1543,6 +1544,10 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6983(struct clk_hw *hw)
 	usleep_range(30, 100);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
 				FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
+
+	fbksel = ((rate >> 1) * txdiv) >= 3800 ? 2 : 1;
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+			FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
 
 	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
 	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);

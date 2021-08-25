@@ -160,6 +160,9 @@
 #define CMDQ_SIZE 0x3f
 #define CMDQ_SIZE_SEL BIT(15)
 
+#define DSI_CMD_TYPE1_HS 0x6c
+#define CMD_CPHY_6BYTE_EN BIT(18)
+
 #define DSI_HSTX_CKL_WC 0x64
 
 #define DSI_RX_DATA0 0x74
@@ -584,7 +587,7 @@ CONFIG_REG:
 		lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
 		hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
 		hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
-		da_hs_exit = (da_hs_exit % 2) ? da_hs_exit + 1 : da_hs_exit; //must be odd
+		da_hs_exit = (da_hs_exit % 2) ? da_hs_exit : da_hs_exit + 1; //must be odd
 	}
 
 	value = REG_FLD_VAL(FLD_LPX, lpx)
@@ -646,7 +649,7 @@ static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	DDPINFO("%s+\n", __func__);
 	DDPMSG("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
 	ui = 1000 / dsi->data_rate + 0x01;
-	cycle_time = 8000 / dsi->data_rate + 0x01;
+	cycle_time = 7000 / dsi->data_rate + 0x01;
 
 	lpx = NS_TO_CYCLE(dsi->data_rate * 0x4B, 0x1B58) + 0x1;
 	hs_prpr = NS_TO_CYCLE(NS_TO_CYCLE(dsi->data_rate, 2) * 101,
@@ -697,7 +700,7 @@ CONFIG_REG:
 		lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
 		hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
 		hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
-		da_hs_exit = (da_hs_exit % 2) ? da_hs_exit + 1 : da_hs_exit; //must be odd
+		da_hs_exit = (da_hs_exit % 2) ? da_hs_exit : da_hs_exit + 1; //must be odd
 	}
 
 	dsi->data_phy_cycle = hs_prpr + hs_zero + da_hs_exit + lpx + 5;
@@ -1313,6 +1316,12 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 
 	/* need to config for cmd mode to transmit frame data to DDIC */
 	writel(DSI_WMEM_CONTI, dsi->regs + DSI_MEM_CONTI);
+}
+
+static void mtk_dsi_cmd_type1_hs(struct mtk_dsi *dsi)
+{
+	if (dsi->ext->params->is_cphy)
+		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS, CMD_CPHY_6BYTE_EN, 0);
 }
 
 static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
@@ -2044,6 +2053,7 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 	mtk_dsi_phy_timconfig(dsi, NULL);
 
 	mtk_dsi_rxtx_control(dsi);
+	mtk_dsi_cmd_type1_hs(dsi);
 	mtk_dsi_ps_control_vact(dsi);
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_set_vm_cmd(dsi);
@@ -3362,6 +3372,7 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	mtk_dsi_phy_timconfig(dsi, NULL);
 
 	mtk_dsi_rxtx_control(dsi);
+	mtk_dsi_cmd_type1_hs(dsi);
 	mtk_dsi_ps_control_vact(dsi);
 	mtk_dsi_cmdq_size_sel(dsi);
 	mtk_dsi_set_interrupt_enable(dsi);
