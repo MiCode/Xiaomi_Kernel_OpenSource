@@ -261,7 +261,15 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 	bool id_event, vbus_event;
 	static bool first_init = true;
 
-	dev_info(dev, "role_sx_set role %d\n", role);
+	dev_info(dev, "role_sx_set role %d, latest_role: %d\n",
+		role, otg_sx->latest_role);
+
+	/* Avoid transit from HOST -> DEV with NONE state */
+	if ((role == USB_ROLE_DEVICE && otg_sx->latest_role == USB_ROLE_HOST) ||
+		(role == USB_ROLE_HOST && otg_sx->latest_role == USB_ROLE_DEVICE)) {
+		DBG(0, "force USB_ROLE_NONE transit state.\n");
+		mt_usb_role_sx_set(dev, USB_ROLE_NONE);
+	}
 
 	otg_sx->latest_role = role;
 
