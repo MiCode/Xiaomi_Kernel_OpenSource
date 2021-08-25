@@ -195,7 +195,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 
 	dev_info(apu->dev, "%s: start polling power off\n", __func__);
 
-	timeout = 50;
+	timeout = 500;
 	while (!pm_runtime_suspended(apu->power_dev) && timeout-- > 0)
 		msleep(20);
 
