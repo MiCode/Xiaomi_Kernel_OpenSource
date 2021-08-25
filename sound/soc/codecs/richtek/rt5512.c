@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/pm_runtime.h>
 
 #include "rt5512.h"
 
@@ -356,34 +357,6 @@ static inline void generic_debugfs_exit(struct dbg_info *di) {}
 #endif /* CONFIG_DEBUG_FS */
 #endif /* GENERIC_DEBUGFS */
 
-static inline int rt5512_chip_power_on(struct rt5512_chip *chip, int on_off)
-{
-	int ret = 0;
-
-	mutex_lock(&chip->var_lock);
-	if (on_off) {
-		if (chip->pwr_cnt++ == 0) {
-			ret = regmap_write_bits(chip->regmap,
-						RT5512_REG_SYSTEM_CTRL,
-						0xffff, 0x0000);
-		}
-	} else {
-		if (--chip->pwr_cnt == 0) {
-			ret = regmap_write_bits(chip->regmap,
-						RT5512_REG_SYSTEM_CTRL,
-						0xffff, 0x0001);
-		}
-		if (chip->pwr_cnt < 0) {
-			dev_warn(chip->dev, "not paired on/off\n");
-			chip->pwr_cnt = 0;
-		}
-	}
-	mutex_unlock(&chip->var_lock);
-	if (ret)
-		return ret;
-	return 0;
-}
-
 static int rt5512_codec_dac_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -510,60 +483,6 @@ static const struct snd_soc_dapm_route rt5512_component_dapm_routes[] = {
 	{ "AIF1 Capture", NULL, "VI ADC" },
 };
 
-static int rt5512_codec_get_volsw(struct snd_kcontrol *kcontrol,
-				  struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component =
-		snd_soc_kcontrol_component(kcontrol);
-	struct rt5512_chip *chip = snd_soc_component_get_drvdata(component);
-	int ret;
-
-	ret = rt5512_chip_power_on(chip, 1);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
-
-	ret = snd_soc_get_volsw(kcontrol, ucontrol);
-	if (ret < 0) {
-		dev_err(component->dev, "%s get volsw fail\n", __func__);
-		return ret;
-	}
-
-	ret = rt5512_chip_power_on(chip, 0);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power off fail\n", __func__);
-		return ret;
-	}
-	return ret;
-}
-
-static int rt5512_codec_put_volsw(struct snd_kcontrol *kcontrol,
-				  struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component =
-		snd_soc_kcontrol_component(kcontrol);
-	struct rt5512_chip *chip = snd_soc_component_get_drvdata(component);
-	int ret = 0, put_ret = 0;
-
-	ret = rt5512_chip_power_on(chip, 1);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
-	put_ret = snd_soc_put_volsw(kcontrol, ucontrol);
-	if (put_ret < 0) {
-		dev_err(component->dev, "%s put volsw fail\n", __func__);
-		return put_ret;
-	}
-	ret = rt5512_chip_power_on(chip, 0);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power off fail\n", __func__);
-		return ret;
-	}
-	return put_ret;
-}
-
 static int rt5512_component_get_t0(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -617,14 +536,9 @@ static int rt5512_codec_put_istcbypass(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *component =
 		snd_soc_kcontrol_component(kcontrol);
-	struct rt5512_chip *chip = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	ret = rt5512_chip_power_on(chip, 1);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
+	pm_runtime_get_sync(component->dev);
 	if (ucontrol->value.integer.value[0]) {
 		ret = snd_soc_component_update_bits(component,
 						    RT5512_REG_PATH_BYPASS,
@@ -634,14 +548,9 @@ static int rt5512_codec_put_istcbypass(struct snd_kcontrol *kcontrol,
 						    RT5512_REG_PATH_BYPASS,
 						    0x0004, 0x0000);
 	}
-	if (ret) {
+	if (ret)
 		dev_err(component->dev, "%s set CC Max Failed\n", __func__);
-		return ret;
-	}
-	ret = rt5512_chip_power_on(chip, 0);
-	if (ret < 0)
-		dev_err(component->dev, "%s power on fail\n", __func__);
-
+	pm_runtime_put_sync(component->dev);
 	return ret;
 }
 
@@ -650,28 +559,47 @@ static int rt5512_codec_get_istcbypass(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *component =
 		snd_soc_kcontrol_component(kcontrol);
-	struct rt5512_chip *chip = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	ret = rt5512_chip_power_on(chip, 1);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
-
+	pm_runtime_get_sync(component->dev);
 	ret = snd_soc_component_read(component, RT5512_REG_PATH_BYPASS);
 
 	if (ret > 0 && ret&0x0004)
 		ucontrol->value.integer.value[0] = 1;
 	else
 		ucontrol->value.integer.value[0] = 0;
-
-	ret = rt5512_chip_power_on(chip, 0);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
+	pm_runtime_put_sync(component->dev);
 	return 0;
+}
+
+static int rt5512_codec_get_volsw(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	int ret;
+
+	pm_runtime_get_sync(component->dev);
+	ret = snd_soc_get_volsw(kcontrol, ucontrol);
+	if (ret < 0)
+		dev_err(component->dev, "%s get volsw fail\n", __func__);
+	pm_runtime_put_sync(component->dev);
+	return ret;
+}
+
+static int rt5512_codec_put_volsw(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	int  put_ret = 0;
+
+	pm_runtime_get_sync(component->dev);
+	put_ret = snd_soc_put_volsw(kcontrol, ucontrol);
+	if (put_ret < 0)
+		dev_err(component->dev, "%s put volsw fail\n", __func__);
+	pm_runtime_put_sync(component->dev);
+	return put_ret;
 }
 
 static const DECLARE_TLV_DB_SCALE(vol_ctl_tlv, -1155, 5, 0);
@@ -822,57 +750,15 @@ static int rt5512_component_setting(struct snd_soc_component *component)
 	return 0;
 }
 
-static int rt5512_component_set_bias_level(struct snd_soc_component *component,
-					   enum snd_soc_bias_level level)
-{
-	struct snd_soc_dapm_context *dapm =
-		snd_soc_component_get_dapm(component);
-	struct rt5512_chip *chip = snd_soc_component_get_drvdata(component);
-	int ret = 0;
-
-	dev_info(component->dev, "%s start\n", __func__);
-	if (dapm->bias_level == level) {
-		dev_warn(component->dev, "%s: repeat level change\n", __func__);
-		goto level_change_skip;
-	}
-	switch (level) {
-	case SND_SOC_BIAS_ON:
-	case SND_SOC_BIAS_PREPARE:
-		break;
-	case SND_SOC_BIAS_STANDBY:
-		if (dapm->bias_level != SND_SOC_BIAS_OFF)
-			break;
-		dev_info(component->dev, "exit low power mode\n");
-		ret = rt5512_chip_power_on(chip, 1);
-		if (ret < 0)
-			dev_err(component->dev, "power on fail\n");
-		break;
-	case SND_SOC_BIAS_OFF:
-		dev_info(component->dev, "enter low power mode\n");
-		ret = rt5512_chip_power_on(chip, 0);
-		if (ret < 0)
-			dev_err(component->dev, "power off fail\n");
-		break;
-	default:
-		return -EINVAL;
-	}
-	dapm->bias_level = level;
-	dev_info(component->dev, "c bias_level = %d\n", level);
-level_change_skip:
-	return 0;
-}
-
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 static int rt5512_spm_pre_calib(struct richtek_spm_classdev *ptc)
 {
 	struct rt5512_chip *chip = container_of(ptc, struct rt5512_chip, spm);
 	int ret = 0;
 
-	ret |= rt5512_chip_power_on(chip, 1);
-	ret |= snd_soc_component_update_bits(chip->component,
-					     RT5512_REG_PATH_BYPASS, 0x0004,
-					     0x0004);
-	ret |= rt5512_chip_power_on(chip, 0);
+	ret = snd_soc_component_update_bits(chip->component,
+					    RT5512_REG_PATH_BYPASS, 0x0004,
+					    0x0004);
 	return ret;
 }
 
@@ -881,11 +767,9 @@ static int rt5512_spm_post_calib(struct richtek_spm_classdev *ptc)
 	struct rt5512_chip *chip = container_of(ptc, struct rt5512_chip, spm);
 	int ret = 0;
 
-	ret |= rt5512_chip_power_on(chip, 1);
-	ret |= snd_soc_component_update_bits(chip->component,
-					     RT5512_REG_PATH_BYPASS, 0x0004,
-					     0x00);
-	ret |= rt5512_chip_power_on(chip, 0);
+	ret = snd_soc_component_update_bits(chip->component,
+					    RT5512_REG_PATH_BYPASS, 0x0004,
+					    0x00);
 
 	return ret;
 }
@@ -895,9 +779,7 @@ static int rt5512_spm_pre_vvalid(struct richtek_spm_classdev *ptc)
 	struct rt5512_chip *chip = container_of(ptc, struct rt5512_chip, spm);
 	int ret = 0;
 
-	ret |= rt5512_chip_power_on(chip, 1);
-	ret |= snd_soc_component_write(chip->component, 0x4d, 0x00);
-	ret |= rt5512_chip_power_on(chip, 0);
+	ret = snd_soc_component_write(chip->component, 0x4d, 0x00);
 	mdelay(5);
 	return ret;
 }
@@ -907,9 +789,7 @@ static int rt5512_spm_post_vvalid(struct richtek_spm_classdev *ptc)
 	struct rt5512_chip *chip = container_of(ptc, struct rt5512_chip, spm);
 	int ret = 0;
 
-	ret |= rt5512_chip_power_on(chip, 1);
-	ret |= snd_soc_component_write(chip->component, 0x4d, chip->ff_gain);
-	ret |= rt5512_chip_power_on(chip, 0);
+	ret = snd_soc_component_write(chip->component, 0x4d, chip->ff_gain);
 	return ret;
 }
 
@@ -927,26 +807,15 @@ static int rt5512_component_probe(struct snd_soc_component *component)
 	int ret = 0;
 
 	dev_info(chip->dev, "%s\n", __func__);
+	pm_runtime_get_sync(component->dev);
 
 	chip->component = component;
 	snd_soc_component_init_regmap(component, chip->regmap);
 
-	ret = rt5512_component_set_bias_level(component, SND_SOC_BIAS_STANDBY);
-	if (ret < 0) {
-		dev_err(component->dev, "config bias standby fail\n");
-		return ret;
-	}
-
 	ret = rt5512_component_setting(component);
 	if (ret < 0) {
 		dev_err(chip->dev, "rt5512 component setting failed\n");
-		return -EINVAL;
-	}
-
-	ret = rt5512_component_set_bias_level(component, SND_SOC_BIAS_OFF);
-	if (ret < 0) {
-		dev_err(component->dev, "config bias off fail\n");
-		return ret;
+		goto component_probe_fail;
 	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
@@ -955,11 +824,11 @@ static int rt5512_component_probe(struct snd_soc_component *component)
 	chip->spm.id = chip->dev_cnt;
 	chip->spm.ops = &rt5512_spm_ops;
 	ret = richtek_spm_classdev_register(component->dev, &chip->spm);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(component->dev, "spm class register failed\n");
-		return ret;
-	}
 #endif
+component_probe_fail:
+	pm_runtime_put_sync(component->dev);
 	return ret;
 }
 
@@ -984,8 +853,7 @@ static const struct snd_soc_component_driver rt5512_component_driver = {
 	.dapm_routes = rt5512_component_dapm_routes,
 	.num_dapm_routes = ARRAY_SIZE(rt5512_component_dapm_routes),
 
-	.set_bias_level = rt5512_component_set_bias_level,
-	.idle_bias_on = 1,
+	.idle_bias_on = false,
 };
 
 static int rt5512_component_aif_hw_params(struct snd_pcm_substream *substream,
@@ -1058,22 +926,7 @@ static int rt5512_component_aif_hw_free(struct snd_pcm_substream *substream,
 	return snd_soc_dapm_sync(dapm);
 }
 
-static int rt5512_codec_aif_startup(struct snd_pcm_substream *substream,
-	struct snd_soc_dai *dai)
-{
-	struct snd_soc_dapm_context *dapm =
-				snd_soc_component_get_dapm(dai->component);
-	int ret = 0;
-
-	dev_info(dai->dev, "%s\n", __func__);
-	if (dapm->bias_level == SND_SOC_BIAS_OFF)
-		ret = rt5512_component_set_bias_level(dai->component,
-						      SND_SOC_BIAS_STANDBY);
-	return ret;
-}
-
 static const struct snd_soc_dai_ops rt5512_component_aif_ops = {
-	.startup = rt5512_codec_aif_startup,
 	.hw_params = rt5512_component_aif_hw_params,
 	.hw_free = rt5512_component_aif_hw_free,
 };
@@ -1313,6 +1166,32 @@ int rt5512_i2c_remove(struct i2c_client *client)
 }
 EXPORT_SYMBOL(rt5512_i2c_remove);
 
+static int __maybe_unused rt5512_i2c_runtime_suspend(struct device *dev)
+{
+	struct rt5512_chip *chip = dev_get_drvdata(dev);
+
+	dev_info(dev, "enter low power mode\n");
+	return regmap_write_bits(chip->regmap,
+		RT5512_REG_SYSTEM_CTRL, 0xffff, 0x0001);
+}
+
+static int __maybe_unused rt5512_i2c_runtime_resume(struct device *dev)
+{
+	struct rt5512_chip *chip = dev_get_drvdata(dev);
+	int ret = 0;
+
+	dev_info(dev, "exit low power mode\n");
+	ret = regmap_write_bits(chip->regmap,
+		RT5512_REG_SYSTEM_CTRL, 0xffff, 0x0000);
+	mdelay(2);
+	return ret;
+}
+
+static const struct dev_pm_ops rt5512_dev_pm_ops = {
+	SET_RUNTIME_PM_OPS(rt5512_i2c_runtime_suspend,
+			   rt5512_i2c_runtime_resume, NULL)
+};
+
 static const struct of_device_id __maybe_unused rt5512_of_id[] = {
 	{ .compatible = "richtek,rt5512",},
 	{},
@@ -1329,6 +1208,7 @@ static struct i2c_driver rt5512_i2c_driver = {
 	.driver = {
 		.name = "rt5512",
 		.of_match_table = of_match_ptr(rt5512_of_id),
+		.pm = &rt5512_dev_pm_ops,
 	},
 	.probe = rt5512_i2c_probe,
 	.remove = rt5512_i2c_remove,
@@ -1339,4 +1219,4 @@ module_i2c_driver(rt5512_i2c_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5512 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("2.0.1_M");
+MODULE_VERSION("2.0.2_M");
