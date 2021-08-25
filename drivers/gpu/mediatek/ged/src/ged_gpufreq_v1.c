@@ -3,7 +3,17 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 #include <mtk_gpufreq_v1.h>
+#include <ged_base.h>
 
+GED_ERROR ged_gpufreq_init(void)
+{
+	return GED_OK;
+}
+
+void ged_gpufreq_exit(void)
+{
+	/* Do nothing */
+}
 
 unsigned int ged_get_cur_freq(void)
 {

@@ -44,6 +44,11 @@
 #include "ged_eb.h"
 #include "ged_global.h"
 #include "mtk_drm_arr.h"
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+#include <ged_gpufreq_v2.h>
+#else
+#include <ged_gpufreq_v1.h>
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 
 /**
  * ===============================================
@@ -559,6 +564,12 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
+	err = ged_gpufreq_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init GPU Freq!\n");
+		goto ERROR;
+	}
+
 	/* Delegate to DCS commit */
 	/*
 	 * if (ged_is_gpueb_support()) {
@@ -660,6 +671,8 @@ static int ged_pdrv_remove(struct platform_device *pdev)
 #endif
 
 	ged_sysfs_exit();
+
+	ged_gpufreq_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
 

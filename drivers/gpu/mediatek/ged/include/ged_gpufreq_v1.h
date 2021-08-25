@@ -5,6 +5,11 @@
 #ifndef __GED_GPUFREQ_V1_H__
 #define __GED_GPUFREQ_V1_H__
 
+#include "ged_type.h"
+
+GED_ERROR ged_gpufreq_init(void);
+void ged_gpufreq_exit(void);
+
 unsigned int ged_get_cur_freq(void);
 unsigned int ged_get_cur_volt(void);
 int ged_get_cur_oppidx(void);
