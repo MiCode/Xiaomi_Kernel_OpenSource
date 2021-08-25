@@ -70,14 +70,6 @@ static unsigned int __loc_log_sz;
 /* for hw buffer tracking */
 static unsigned int __hw_log_r_ofs;
 
-/* for procfs normal dump */
-static unsigned int g_log_w_ofs;
-static unsigned int g_log_r_ofs;
-static unsigned int g_log_ov_flg;
-/* for procfs lock dump */
-static unsigned int g_log_w_ofs_l;
-static unsigned int g_log_r_ofs_l;
-static unsigned int g_log_ov_flg_l;
 /* for sysfs normal dump */
 static unsigned int g_dump_log_r_ofs;
 
@@ -87,7 +79,16 @@ struct hw_logger_seq_data {
 	unsigned int w_ptr;
 	unsigned int r_ptr;
 	unsigned int ov_flg;
+	unsigned int not_rd_sz;
+	bool nonblock;
 };
+
+/* for procfs normal dump */
+static struct hw_logger_seq_data g_log;
+/* for procfs lock dump */
+static struct hw_logger_seq_data g_log_l;
+/* for procfs mobile logger lock dump */
+static struct hw_logger_seq_data g_log_lm;
 
 static void hw_logger_buf_invalidate(void)
 {
@@ -219,12 +220,15 @@ int hw_logger_config_init(struct mtk_apu *apu)
 		get_apu_config_user_ptr(apu->conf_buf, eLOGGER_INIT_INFO);
 
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
-	g_log_w_ofs = 0;
-	g_log_w_ofs_l = 0;
-	g_log_r_ofs = U32_MAX;
-	g_log_r_ofs_l = U32_MAX;
-	g_log_ov_flg = 0;
-	g_log_ov_flg_l = 0;
+	g_log.w_ptr = 0;
+	g_log.r_ptr = U32_MAX;
+	g_log.ov_flg = 0;
+	g_log_l.w_ptr = 0;
+	g_log_l.r_ptr = U32_MAX;
+	g_log_l.ov_flg = 0;
+	g_log_lm.w_ptr = 0;
+	g_log_lm.r_ptr = U32_MAX;
+	g_log_lm.ov_flg = 0;
 	g_dump_log_r_ofs = U32_MAX;
 
 	__loc_log_sz = 0;
@@ -255,6 +259,7 @@ static int apu_logtop_copy_buf(void)
 	unsigned int r_size;
 	unsigned int log_w_ofs, log_ov_flg;
 	bool ovwrite_flg;
+	int ret = 0;
 
 	if (!apu_logtop || !hw_log_buf || !local_log_buf)
 		return 0;
@@ -294,17 +299,20 @@ static int apu_logtop_copy_buf(void)
 	if (r_size >= t_size)
 		r_size = t_size;
 
+	ret = r_size;
+
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
 	log_w_ofs = __loc_log_w_ofs;
 	log_ov_flg = __loc_log_ov_flg;
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
-	if (w_ofs >= t_size || r_ofs >= t_size || t_size == 0) {
+	if (w_ofs + HWLOG_LINE_MAX_LENS > t_size ||
+		r_ofs + HWLOG_LINE_MAX_LENS > t_size || t_size == 0) {
 		HWLOGR_WARN("w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n", w_ofs, r_ofs, t_size);
 		return 0;
 	}
 
-	if (log_w_ofs >= LOCAL_LOG_SIZE) {
+	if (log_w_ofs + HWLOG_LINE_MAX_LENS > LOCAL_LOG_SIZE) {
 		HWLOGR_WARN("log_w_ofs = 0x%x\n", log_w_ofs);
 		return 0;
 	}
@@ -337,6 +345,8 @@ static int apu_logtop_copy_buf(void)
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
 	__loc_log_w_ofs = log_w_ofs;
 	__loc_log_ov_flg = log_ov_flg;
+	g_log_l.not_rd_sz += ret;
+	g_log_lm.not_rd_sz += ret;
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
 	/* set read pointer */
@@ -344,11 +354,13 @@ static int apu_logtop_copy_buf(void)
 
 out:
 
-	return 0;
+	return ret;
 }
 
 int hw_logger_copy_buf(void)
 {
+	int ret = 0;
+
 	HWLOGR_DBG("in\n");
 
 	if (!apu_logtop)
@@ -359,12 +371,12 @@ int hw_logger_copy_buf(void)
 	if (apu_toplog_deep_idle)
 		goto out;
 
-	apu_logtop_copy_buf();
+	ret = apu_logtop_copy_buf();
 
 out:
 	mutex_unlock(&hw_logger_mutex);
 
-	return 0;
+	return ret;
 }
 
 int hw_logger_deep_idle_enter(void)
@@ -455,11 +467,16 @@ static ssize_t show_debuglv(struct file *filp, char __user *buffer,
 		"__loc_log_w_ofs = %d,__loc_log_ov_flg = %d __loc_log_sz = %d\n",
 		__loc_log_w_ofs, __loc_log_ov_flg, __loc_log_sz);
 	len += scnprintf(buf + len, sizeof(buf) - len,
-		"g_log_w_ofs = %d,g_log_r_ofs = %d g_log_ov_flg = %d\n",
-		g_log_w_ofs, g_log_r_ofs, g_log_ov_flg);
+		"g_log: w_ptr = %d, r_ptr = %d, ov_flg = %d\n",
+		g_log.w_ptr, g_log.r_ptr, g_log_l.ov_flg);
 	len += scnprintf(buf + len, sizeof(buf) - len,
-		"g_log_w_ofs_l = %d,g_log_r_ofs_l = %d g_log_ov_flg_l = %d\n",
-		g_log_w_ofs_l, g_log_r_ofs_l, g_log_ov_flg_l);
+		"g_log_l: w_ptr = %d, r_ptr = %d, ov_flg = %d, not_rd_sz = %d\n",
+		g_log_l.w_ptr, g_log_l.r_ptr,
+		g_log_l.ov_flg, g_log_l.not_rd_sz);
+	len += scnprintf(buf + len, sizeof(buf) - len,
+		"g_log_lm: w_ptr = %d, r_ptr = %d, ov_flg = %d, not_rd_sz = %d\n",
+		g_log_lm.w_ptr, g_log_lm.r_ptr,
+		g_log_lm.ov_flg, g_log_lm.not_rd_sz);
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
 	return simple_read_from_buffer(buffer, count, ppos, buf, len);
@@ -531,30 +548,54 @@ static ssize_t show_debugAttr(struct file *filp, char __user *buffer,
 		sizeof(buf) - len,
 		"__loc_log_sz = %d\n",
 		__loc_log_sz);
+
 	len += scnprintf(buf + len,
 		sizeof(buf) - len,
-		"g_log_w_ofs = %d\n",
-		g_log_w_ofs);
+		"g_log.w_ptr = %d\n",
+		g_log.w_ptr);
 	len += scnprintf(buf + len,
 		sizeof(buf) - len,
-		"g_log_r_ofs = %d\n",
-		g_log_r_ofs);
+		"g_log.r_ptr = %d\n",
+		g_log.r_ptr);
 	len += scnprintf(buf + len,
 		sizeof(buf) - len,
-		"g_log_ov_flg = %d\n",
-		g_log_ov_flg);
+		"g_log.ov_flg = %d\n",
+		g_log.ov_flg);
+
 	len += scnprintf(buf + len,
 		sizeof(buf) - len,
-		"g_log_w_ofs_l = %d\n",
-		g_log_w_ofs_l);
+		"g_log_l.w_ptr = %d\n",
+		g_log_l.w_ptr);
 	len += scnprintf(buf + len,
 		sizeof(buf) - len,
-		"g_log_r_ofs_l = %d\n",
-		g_log_r_ofs_l);
+		"g_log_l.r_ptr = %d\n",
+		g_log_l.r_ptr);
 	len += scnprintf(buf + len,
 		sizeof(buf) - len,
-		"g_log_ov_flg_l = %d\n",
-		g_log_ov_flg_l);
+		"g_log_l.ov_flg = %d\n",
+		g_log_l.ov_flg);
+	len += scnprintf(buf + len,
+		sizeof(buf) - len,
+		"g_log_l.not_rd_sz = %d\n",
+		g_log_l.not_rd_sz);
+
+	len += scnprintf(buf + len,
+		sizeof(buf) - len,
+		"g_log_lm.w_ptr = %d\n",
+		g_log_lm.w_ptr);
+	len += scnprintf(buf + len,
+		sizeof(buf) - len,
+		"g_log_lm.r_ptr = %d\n",
+		g_log_lm.r_ptr);
+	len += scnprintf(buf + len,
+		sizeof(buf) - len,
+		"g_log_lm.ov_flg = %d\n",
+		g_log_lm.ov_flg);
+	len += scnprintf(buf + len,
+		sizeof(buf) - len,
+		"g_log_lm.not_rd_sz = %d\n",
+		g_log_lm.not_rd_sz);
+
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
 	len += scnprintf(buf + len,
@@ -580,7 +621,7 @@ static const struct proc_ops hw_logger_attr_fops = {
 static void *seq_start(struct seq_file *s, loff_t *pos)
 {
 	struct hw_logger_seq_data *pSData;
-	unsigned int w_ptr, r_ptr, ov_flg;
+	unsigned int w_ptr, r_ptr, ov_flg = 0;
 	unsigned long flags;
 
 	HWLOGR_DBG("in");
@@ -588,20 +629,20 @@ static void *seq_start(struct seq_file *s, loff_t *pos)
 	hw_logger_copy_buf();
 
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
-	if (g_log_r_ofs == U32_MAX) {
+	if (g_log.r_ptr == U32_MAX) {
 		w_ptr = __loc_log_w_ofs;
 		ov_flg = __loc_log_ov_flg;
-		g_log_w_ofs = w_ptr;
-		g_log_ov_flg = ov_flg;
+		g_log.w_ptr = w_ptr;
+		g_log.ov_flg = ov_flg;
 		if (ov_flg)
 			/* avoid stuck at while loop move one forward */
 			r_ptr = (w_ptr + HWLOG_LINE_MAX_LENS) % HWLOGR_LOG_SIZE;
 		else
 			r_ptr = 0;
-		g_log_r_ofs = r_ptr;
+		g_log.r_ptr = r_ptr;
 	} else {
-		w_ptr = g_log_w_ofs;
-		r_ptr = g_log_r_ofs;
+		w_ptr = g_log.w_ptr;
+		r_ptr = g_log.r_ptr;
 	}
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
@@ -610,7 +651,7 @@ static void *seq_start(struct seq_file *s, loff_t *pos)
 
 	if (w_ptr == r_ptr) {
 		spin_lock_irqsave(&hw_logger_spinlock, flags);
-		g_log_r_ofs = U32_MAX;
+		g_log.r_ptr = U32_MAX;
 		spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 		return NULL;
 	}
@@ -637,7 +678,7 @@ static void *seq_start(struct seq_file *s, loff_t *pos)
 static void *seq_startl(struct seq_file *s, loff_t *pos)
 {
 	uint32_t w_ptr, r_ptr, ov_flg;
-	struct hw_logger_seq_data *pSData;
+	struct hw_logger_seq_data *pSData, *gpSData;
 	unsigned long flags;
 
 	HWLOGR_DBG("in");
@@ -647,21 +688,34 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 	if (!pSData)
 		return NULL;
 
+	if (s->file &&
+		s->file->f_flags & O_NONBLOCK) {
+		pSData->nonblock = true;
+		gpSData = &g_log_lm;
+	} else {
+		pSData->nonblock = false;
+		gpSData = &g_log_l;
+	}
+
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
-	if (g_log_r_ofs_l == U32_MAX) {
-		w_ptr = __loc_log_w_ofs;
+	w_ptr = __loc_log_w_ofs;
+	gpSData->w_ptr = w_ptr;
+	if (gpSData->r_ptr == U32_MAX) {
 		ov_flg = __loc_log_ov_flg;
-		g_log_w_ofs_l = w_ptr;
-		g_log_ov_flg_l = ov_flg;
+		gpSData->ov_flg = ov_flg;
 		if (ov_flg)
 			/* avoid stuck at while loop move one forward */
 			r_ptr = (w_ptr + HWLOG_LINE_MAX_LENS) % HWLOGR_LOG_SIZE;
 		else
 			r_ptr = 0;
-		g_log_r_ofs_l = r_ptr;
+		gpSData->r_ptr = r_ptr;
 	} else {
-		w_ptr = g_log_w_ofs_l;
-		r_ptr = g_log_r_ofs_l;
+		r_ptr = gpSData->r_ptr;
+		/* check if overflow occurs */
+		if (gpSData->not_rd_sz >= LOCAL_LOG_SIZE - HWLOG_LINE_MAX_LENS) {
+			r_ptr = (w_ptr + HWLOG_LINE_MAX_LENS) % HWLOGR_LOG_SIZE;
+			gpSData->not_rd_sz = LOCAL_LOG_SIZE - HWLOG_LINE_MAX_LENS;
+		}
 	}
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
@@ -674,6 +728,15 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 		w_ptr = __loc_log_w_ofs;
 		ov_flg = __loc_log_ov_flg;
 		spin_unlock_irqrestore(&hw_logger_spinlock, flags);
+
+		if (w_ptr != r_ptr)
+			break;
+		 /* return if file is open as non blocking mode */
+		else if (pSData->nonblock) {
+			/* free here and return NULL, seq will stop */
+			kfree(pSData);
+			return NULL;
+		}
 		msleep_interruptible(100);
 	} while (!signal_pending(current) && w_ptr == r_ptr);
 
@@ -688,8 +751,10 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 		HWLOGR_DBG("BREAK w_ptr = %d, r_ptr = %d, ov_flg = %d\n",
 			w_ptr, r_ptr, ov_flg);
 		spin_lock_irqsave(&hw_logger_spinlock, flags);
-		g_log_r_ofs_l = U32_MAX;
+		gpSData->r_ptr = U32_MAX;
 		spin_unlock_irqrestore(&hw_logger_spinlock, flags);
+		/* free here and return NULL, seq will stop */
+		kfree(pSData);
 		return NULL;
 	}
 
@@ -711,7 +776,7 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 
 	pSData->r_ptr = (pSData->r_ptr + HWLOG_LINE_MAX_LENS) % LOCAL_LOG_SIZE;
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
-	g_log_r_ofs = pSData->r_ptr;
+	g_log.r_ptr = pSData->r_ptr;
 	/* just prevent warning */
 	*pos = pSData->r_ptr + 1;
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
@@ -720,26 +785,33 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 		return pSData;
 
 	HWLOGR_DBG(
-		"END g_log_w_ofs = %d, g_log_r_ofs = %d, g_log_ov_flg = %d\n",
-		g_log_w_ofs, g_log_r_ofs,
-		g_log_ov_flg);
+		"END g_log.w_ptr = %d, g_log.r_ptr = %d, g_log_l.ov_flg = %d\n",
+		g_log.w_ptr, g_log.r_ptr,
+		g_log_l.ov_flg);
 
+	kfree(pSData);
 	return NULL;
 }
 
 static void *seq_nextl(struct seq_file *s, void *v, loff_t *pos)
 {
-	struct hw_logger_seq_data *pSData = v;
+	struct hw_logger_seq_data *pSData = v, *gpSData;
 	unsigned long flags;
 
+	if (pSData->nonblock)
+		gpSData = &g_log_lm;
+	else
+		gpSData = &g_log_l;
+
 	HWLOGR_DBG(
-		"w_ptr = %d, r_ptr = %d, ov_flg = %d, *pos = %d\n",
+		"w_ptr = %d, r_ptr = %d, ov_flg = %d, nonblock = %d, *pos = %d\n",
 		pSData->w_ptr, pSData->r_ptr,
-		pSData->ov_flg, (unsigned int)*pos);
+		pSData->ov_flg, pSData->nonblock, (unsigned int)*pos);
 
 	pSData->r_ptr = (pSData->r_ptr + HWLOG_LINE_MAX_LENS) % LOCAL_LOG_SIZE;
 	spin_lock_irqsave(&hw_logger_spinlock, flags);
-	g_log_r_ofs_l = pSData->r_ptr;
+	gpSData->r_ptr = pSData->r_ptr;
+	gpSData->not_rd_sz -= HWLOG_LINE_MAX_LENS;
 	/* just prevent warning */
 	*pos = pSData->r_ptr + 1;
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
@@ -748,10 +820,11 @@ static void *seq_nextl(struct seq_file *s, void *v, loff_t *pos)
 		return pSData;
 
 	HWLOGR_DBG(
-		"END g_log_w_ofs_l = %d, g_log_r_ofs_l = %d, g_log_ov_flg_l = %d\n",
-		g_log_w_ofs_l, g_log_r_ofs_l,
-		g_log_ov_flg_l);
+		"END gpSData w_ptr = %d, r_ptr = %d, nonblock = %d, ov_flg = %d\n",
+		gpSData->w_ptr, gpSData->r_ptr, gpSData->nonblock,
+		gpSData->ov_flg);
 
+	kfree(pSData);
 	return NULL;
 }
 
@@ -861,7 +934,7 @@ static ssize_t apusys_log_dump(struct file *filep,
 		length += (print_sz + 1); /* include '\n' */
 		pr_ptr = (pr_ptr + HWLOG_LINE_MAX_LENS) % LOCAL_LOG_SIZE;
 		spin_lock_irqsave(&hw_logger_spinlock, flags);
-		g_log_r_ofs = pr_ptr;
+		g_log.r_ptr = pr_ptr;
 		spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 	} while (pr_ptr != w_ptr);
 

@@ -52,6 +52,9 @@ static struct kobject *root_dir;
 static dma_addr_t handle;
 static char *sw_log_buf;
 
+static unsigned int g_log_r_ptr;
+static unsigned int g_log_l_r_ptr;
+
 static void *apu_mbox;
 
 #define APU_MBOX_BASE (0x19000000)
@@ -198,6 +201,8 @@ int sw_logger_config_init(struct mtk_apu *apu)
 	iowrite32(0, LOG_W_PTR);
 	iowrite32(0, LOG_R_PTR);
 	iowrite32(0, LOG_OV_FLG);
+	g_log_r_ptr = U32_MAX;
+	g_log_l_r_ptr = U32_MAX;
 	spin_unlock_irqrestore(&sw_logger_spinlock, flags);
 
 	st_logger_init_info = (struct logger_init_info *)
@@ -309,8 +314,20 @@ static void *seq_start(struct seq_file *s, loff_t *pos)
 
 	spin_lock_irqsave(&sw_logger_spinlock, flags);
 	w_ptr = ioread32(LOG_W_PTR);
-	r_ptr = ioread32(LOG_R_PTR);
-	overflow_flg = ioread32(LOG_OV_FLG);
+	if (g_log_r_ptr == U32_MAX) {
+		/*
+		 * We don't read from the, r_ptr = ioread32(LOG_R_PTR);
+		 * Just move r_ptr next to w_ptr, force dump full log
+		 */
+		r_ptr = (w_ptr + LOG_LINE_MAX_LENS) % APU_LOG_SIZE;
+	} else {
+		r_ptr = g_log_r_ptr;
+	}
+	/*
+	 * Since we dump full log,
+	 * skip overflow_flg = ioread32(LOG_OV_FLG);
+	 */
+	overflow_flg = 0;
 	spin_unlock_irqrestore(&sw_logger_spinlock, flags);
 
 	sw_logger_buf_invalidate();
@@ -318,8 +335,10 @@ static void *seq_start(struct seq_file *s, loff_t *pos)
 	LOGGER_INFO("w_ptr = %d, r_ptr = %d, overflow_flg = %d\n",
 		w_ptr, r_ptr, overflow_flg);
 
-	if (w_ptr == r_ptr && overflow_flg == 0)
+	if (w_ptr == r_ptr && overflow_flg == 0) {
+		g_log_r_ptr = U32_MAX;
 		return NULL;
+	}
 
 	if (pSeqData == NULL) {
 		pSeqData = kzalloc(sizeof(struct sw_logger_seq_data),
@@ -349,14 +368,29 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 	uint32_t w_ptr, r_ptr, overflow_flg;
 	struct sw_logger_seq_data *pSeqData_lock = &pSeqData_lock_obj;
 	unsigned long flags;
+	bool nonblock = false;
 
 	if (sw_log_buf == NULL)
 		return NULL;
 
+	if (s->file &&
+		s->file->f_flags & O_NONBLOCK)
+		nonblock = true;
+
 	spin_lock_irqsave(&sw_logger_spinlock, flags);
 	w_ptr = ioread32(LOG_W_PTR);
-	r_ptr = ioread32(LOG_R_PTR);
-	overflow_flg = ioread32(LOG_OV_FLG);
+	/* mobile logger */
+	if (nonblock) {
+		r_ptr = ioread32(LOG_R_PTR);
+		overflow_flg = ioread32(LOG_OV_FLG);
+	} else {
+	/* cat */
+		if (g_log_l_r_ptr == U32_MAX)
+			r_ptr = (w_ptr + LOG_LINE_MAX_LENS) % APU_LOG_SIZE;
+		else
+			r_ptr = g_log_l_r_ptr;
+		overflow_flg = 0;
+	}
 	spin_unlock_irqrestore(&sw_logger_spinlock, flags);
 
 	sw_logger_buf_invalidate();
@@ -366,12 +400,19 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 
 	/* for ctrl-c to force exit the loop */
 	while (!signal_pending(current) && w_ptr == r_ptr) {
+		/* return for mobile logger if nothing to read */
+		if (w_ptr == r_ptr && nonblock)
+			return NULL;
+
 		usleep_range(10000, 12000);
 
 		spin_lock_irqsave(&sw_logger_spinlock, flags);
 		w_ptr = ioread32(LOG_W_PTR);
-		r_ptr = ioread32(LOG_R_PTR);
-		overflow_flg = ioread32(LOG_OV_FLG);
+		/* mobile logger */
+		if (nonblock) {
+			r_ptr = ioread32(LOG_R_PTR);
+			overflow_flg = ioread32(LOG_OV_FLG);
+		}
 		spin_unlock_irqrestore(&sw_logger_spinlock, flags);
 
 		sw_logger_buf_invalidate();
@@ -391,8 +432,11 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 		pSeqData_lock->i = r_ptr;
 	}
 
-	if (signal_pending(current))
+	if (signal_pending(current)) {
 		startl_first_enter_session = true;
+		g_log_l_r_ptr = U32_MAX;
+		return NULL;
+	}
 
 	LOGGER_INFO("%s v = 0x%x\n", __func__, pSeqData_lock);
 
@@ -417,6 +461,7 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 		pSData->overflow_flg);
 
 	pSData->i = (pSData->i + LOG_LINE_MAX_LENS) % APU_LOG_SIZE;
+	g_log_r_ptr = pSData->i;
 
 	/* prevent kernel warning */
 	*pos = pSData->i;
@@ -434,11 +479,16 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
 static void *seq_next_lock(struct seq_file *s, void *v, loff_t *pos)
 {
 	struct sw_logger_seq_data *pSData = v;
+	bool nonblock = false;
 
 	if (pSData == NULL) {
 		LOGGER_ERR("%s: pSData == NULL\n", __func__);
 		return NULL;
 	}
+
+	if (s->file &&
+		s->file->f_flags & O_NONBLOCK)
+		nonblock = true;
 
 	LOGGER_INFO(
 		"%s in, w_ptr = %d, r_ptr = %d, i = %d, overflow_flg = %d\n",
@@ -446,14 +496,18 @@ static void *seq_next_lock(struct seq_file *s, void *v, loff_t *pos)
 		pSData->overflow_flg);
 
 	pSData->i = (pSData->i + LOG_LINE_MAX_LENS) % APU_LOG_SIZE;
-
+	/* cat */
+	if (!nonblock)
+		g_log_l_r_ptr = pSData->i;
 	/* prevent kernel warning */
 	*pos = pSData->i;
 
 	if (pSData->i != pSData->w_ptr)
 		return v;
 
-	iowrite32(pSData->i, LOG_R_PTR);
+	/* mobile logger */
+	if (nonblock)
+		iowrite32(pSData->i, LOG_R_PTR);
 	return NULL;
 }
 
