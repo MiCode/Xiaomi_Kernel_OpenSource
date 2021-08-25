@@ -414,6 +414,7 @@ static void task_frame_done(struct mml_task *task)
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_config *cfg_tmp;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_dev *mml = cfg->mml;
 	u8 i;
 
 	mml_trace_ex_begin("%s", __func__);
@@ -476,7 +477,7 @@ static void task_frame_done(struct mml_task *task)
 done:
 	mutex_unlock(&ctx->config_mutex);
 
-	mml_lock_wake_lock(task->config->mml, false);
+	mml_lock_wake_lock(mml, false);
 
 	mml_trace_ex_end();
 }
