@@ -31,8 +31,8 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
-	void *md_img_addr = NULL;
-	int md_img_len = 0;
+	void *md_dump_addr = NULL;
+	int md_dump_len = 0;
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -44,6 +44,7 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
@@ -79,6 +80,10 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_MEM) {
 		ex_log_addr = mdss_dbg->base_ap_view_vir;
 		ex_log_len = mdss_dbg->size;
+		if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+			md_dump_addr = md->hw_info->md_l2sram_base;
+			md_dump_len = MD_L2SRAM_SIZE;
+		}
 	}
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)dumper->ex_pl_info;
@@ -87,22 +92,30 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (buff == NULL) {
 		fsm_sys_mdee_info_notify(aed_str);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		if (md_dump_len)
+			md_cd_lock_modem_clock_src(1);
 		if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
-				md_img_addr, md_img_len, buf_fail, db_opt);
+				md_dump_addr, md_dump_len, buf_fail, db_opt);
 		else
-			aed_md_exception_api(NULL, 0, md_img_addr,
-				md_img_len, buf_fail, db_opt);
+			aed_md_exception_api(NULL, 0, md_dump_addr,
+				md_dump_len, buf_fail, db_opt);
+		if (md_dump_len)
+			md_cd_lock_modem_clock_src(0);
 #endif
 	} else {
 		fsm_sys_mdee_info_notify(aed_str);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		if (md_dump_len)
+			md_cd_lock_modem_clock_src(1);
 		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
-				md_img_addr, md_img_len, buff, db_opt);
+				md_dump_addr, md_dump_len, buff, db_opt);
 		else
-			aed_md_exception_api(NULL, 0, md_img_addr,
-				md_img_len, buff, db_opt);
+			aed_md_exception_api(NULL, 0, md_dump_addr,
+				md_dump_len, buff, db_opt);
+		if (md_dump_len)
+			md_cd_lock_modem_clock_src(0);
 #endif
 		kfree(buff);
 	}
@@ -226,6 +239,7 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 	int dump_flag = 0;
 	char *i_bit_ex_info = NULL;
 	char buf_fail[] = "Fail alloc mem for exception\n";
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 	struct mdee_dumper_v3 *dumper = mdee->dumper_obj;
 	struct debug_info_t *debug_info = &dumper->debug_info;
 	struct ccci_smem_region *mdccci_dbg =
@@ -295,6 +309,14 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 			mdccci_dbg->base_ap_view_vir, mdccci_dbg->size);
 		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 			mdss_dbg->base_ap_view_vir, mdss_dbg->size);
+		if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+			md_cd_lock_modem_clock_src(1);
+
+			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+				md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE);
+
+			md_cd_lock_modem_clock_src(0);
+		}
 	}
 
 err_exit:
@@ -729,6 +751,7 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 {
 	struct mdee_dumper_v3 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 	struct ccci_smem_region *mdccci_dbg =
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDCCCI_DBG);
@@ -761,6 +784,14 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 					mdss_dbg->base_ap_view_vir,
 						mdss_dbg->size);
+				if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+					md_cd_lock_modem_clock_src(1);
+
+					ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+						md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE);
+
+					md_cd_lock_modem_clock_src(0);
+				}
 			}
 
 			ccci_aed_v3(mdee,
@@ -774,6 +805,14 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 				mdccci_dbg->base_ap_view_vir, mdccci_dbg->size);
 			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 				mdss_dbg->base_ap_view_vir, mdss_dbg->size);
+			if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+				md_cd_lock_modem_clock_src(1);
+
+				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+					md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE);
+
+				md_cd_lock_modem_clock_src(0);
+			}
 		}
 		/*dump md register on no response EE*/
 		if (more_info == MD_EE_CASE_NO_RESPONSE)

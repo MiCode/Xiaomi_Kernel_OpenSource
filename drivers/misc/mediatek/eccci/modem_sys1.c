@@ -1359,8 +1359,6 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 		return -1;
 	}
 	/* Copy HW info */
-	md_info->ap_ccif_base = (void __iomem *)md_hw->ap_ccif_base;
-	md_info->md_ccif_base = (void __iomem *)md_hw->md_ccif_base;
 	md_info->ap_ccif_irq_id = md_hw->ap_ccif_irq1_id;
 	md_info->channel_id = 0;
 	atomic_set(&md_info->ccif_irq_enabled, 1);

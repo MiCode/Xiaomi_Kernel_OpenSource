@@ -56,15 +56,13 @@ struct md_hw_info {
 	unsigned long md_boot_slave_Vector;
 	unsigned long md_boot_slave_Key;
 	unsigned long md_boot_slave_En;
-	unsigned long ap_ccif_base;
-	unsigned long md_ccif_base;
 	unsigned int sram_size;
 
 	/* HW info - Interrutpt ID */
 	unsigned int ap_ccif_irq1_id;
 	unsigned int md_wdt_irq_id;
-	unsigned int ap2md_bus_timeout_irq_id;
-	void __iomem *md_pcore_pccif_base;
+	unsigned int md_epon_offset;
+	void __iomem *md_l2sram_base;
 
 	/* HW info - Interrupt flags */
 	unsigned long ap_ccif_irq1_flags;
@@ -87,10 +85,6 @@ enum {
 	SRCLKEN_O1_BIT,
 };
 
-int md_cd_pccif_send(struct ccci_modem *md, int channel_id);
-#ifndef CCCI_KMODULE_ENABLE
-void md_cd_dump_pccif_reg(struct ccci_modem *md);
-#endif
 
 /* ADD_SYS_CORE */
 int ccci_modem_syssuspend(void);

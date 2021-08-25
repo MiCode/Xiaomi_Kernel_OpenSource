@@ -20,6 +20,8 @@
 
 #include "ccci_fsm_internal.h"
 #include "ccci_platform.h"
+#include "md_sys1_platform.h"
+#include "modem_sys.h"
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -530,44 +532,49 @@ success:
 	fsm_finish_command(ctl, cmd, 1);
 }
 
+static int ccci_md_epon_set(int md_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_smem_region *mdss_dbg
+			= ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_MDSS_DBG);
+	int ret = 0, in_md_l2sram = 0;
+
+	switch (md_id) {
+	case MD_SYS1:
+		if (!md || !md->hw_info) {
+			CCCI_NORMAL_LOG(md_id, FSM, "%s, NULL!!!\n");
+			break;
+		}
+		if (md->hw_info->md_l2sram_base) {
+			ret = *((int *)(md->hw_info->md_l2sram_base
+				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
+			in_md_l2sram = 1;
+		} else if (mdss_dbg && mdss_dbg->base_ap_view_vir)
+			ret = *((int *)(mdss_dbg->base_ap_view_vir
+				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
+		break;
+	case MD_SYS3:
+		ret = *((int *)(mdss_dbg->base_ap_view_vir
+			+ CCCI_EE_OFFSET_EPON_MD3))
+				== 0xBAEBAE10;
+		break;
+	}
+	CCCI_NORMAL_LOG(md_id, FSM, "reset MD after WDT, %s, 0x%x\n",
+		(in_md_l2sram?"l2sram":"mdssdbg"), ret);
+	return ret;
+}
+
 static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
-	int reset_md = 0, ret;
+	int reset_md = 0;
 	int is_epon_set = 0;
-	struct device_node *node;
-	unsigned int offset_apon_md1 = 0;
-	struct ccci_smem_region *mdss_dbg
-		= ccci_md_get_smem_by_user_id(ctl->md_id,
-			SMEM_USER_RAW_MDSS_DBG);
 
-	node = of_find_compatible_node(NULL, NULL,
-			"mediatek,mddriver");
-	if (node) {
-		ret = of_property_read_u32(node,
-			"mediatek,offset_apon_md1", &offset_apon_md1);
-		if (ret < 0)
-			CCCI_NORMAL_LOG(ctl->md_id, FSM,
-				"[%s] not found: mediatek,offset_apon_md1\n",
-				__func__);
-	} else
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"[%s] not found: mediatek,mddriver\n", __func__);
+	is_epon_set = ccci_md_epon_set(ctl->md_id);
 
-	if (ctl->md_id == MD_SYS1)
-		is_epon_set =
-			*((int *)(mdss_dbg->base_ap_view_vir
-				+ offset_apon_md1)) == 0xBAEBAE10;
-	else if (ctl->md_id == MD_SYS3)
-		is_epon_set = *((int *)(mdss_dbg->base_ap_view_vir
-			+ CCCI_EE_OFFSET_EPON_MD3))
-				== 0xBAEBAE10;
-
-	if (is_epon_set) {
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"reset MD after WDT\n");
+	if (is_epon_set)
 		reset_md = 1;
-	} else {
+	else {
 		if (ccci_port_get_critical_user(ctl->md_id,
 				CRIT_USR_MDLOG) == 0) {
 			CCCI_NORMAL_LOG(ctl->md_id, FSM,

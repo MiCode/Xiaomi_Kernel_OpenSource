@@ -92,8 +92,6 @@ struct ccci_modem_ops {
 };
 
 struct md_sys1_info {
-		void __iomem *ap_ccif_base;
-		void __iomem *md_ccif_base;
 		int channel_id;		/* CCIF channel */
 		atomic_t ccif_irq_enabled;
 		unsigned int ap_ccif_irq_id;

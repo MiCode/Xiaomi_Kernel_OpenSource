@@ -143,7 +143,7 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	return 0;
 }
 
-static void md_cd_lock_modem_clock_src(int locked)
+void md_cd_lock_modem_clock_src(int locked)
 {
 	int settle = -1;
 	struct arm_smccc_res res = {0};
@@ -245,41 +245,6 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 
 }
 
-#ifndef CCCI_KMODULE_ENABLE
-void md_cd_dump_pccif_reg(struct ccci_modem *md)
-{
-	struct md_hw_info *hw_info = md->hw_info;
-
-	md_cd_lock_modem_clock_src(1);
-
-	CCCI_MEM_LOG_TAG(md->index, TAG,
-		"AP_CON(%p)=%x\n",
-		hw_info->md_pcore_pccif_base + APCCIF_CON,
-		ccif_read32(hw_info->md_pcore_pccif_base, APCCIF_CON));
-	CCCI_MEM_LOG_TAG(md->index, TAG,
-		"AP_BUSY(%p)=%x\n",
-		hw_info->md_pcore_pccif_base + APCCIF_BUSY,
-		ccif_read32(hw_info->md_pcore_pccif_base, APCCIF_BUSY));
-	CCCI_MEM_LOG_TAG(md->index, TAG,
-		"AP_START(%p)=%x\n",
-		hw_info->md_pcore_pccif_base + APCCIF_START,
-		ccif_read32(hw_info->md_pcore_pccif_base, APCCIF_START));
-	CCCI_MEM_LOG_TAG(md->index, TAG,
-		"AP_TCHNUM(%p)=%x\n",
-		hw_info->md_pcore_pccif_base + APCCIF_TCHNUM,
-		ccif_read32(hw_info->md_pcore_pccif_base, APCCIF_TCHNUM));
-	CCCI_MEM_LOG_TAG(md->index, TAG,
-		"AP_RCHNUM(%p)=%x\n",
-		hw_info->md_pcore_pccif_base + APCCIF_RCHNUM,
-		ccif_read32(hw_info->md_pcore_pccif_base, APCCIF_RCHNUM));
-	CCCI_MEM_LOG_TAG(md->index, TAG,
-		"AP_ACK(%p)=%x\n",
-		hw_info->md_pcore_pccif_base + APCCIF_ACK,
-		ccif_read32(hw_info->md_pcore_pccif_base, APCCIF_ACK));
-
-	md_cd_lock_modem_clock_src(0);
-}
-#endif
 static void md_cd_check_emi_state(struct ccci_modem *md, int polling)
 {
 }
@@ -928,22 +893,26 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			__func__);
 		return -1;
 	}
-
-
-	hw_info->ap_ccif_base =
-	 (unsigned long)of_iomap(dev_ptr->dev.of_node, 0);
-	hw_info->md_ccif_base =
-	 (unsigned long)of_iomap(dev_ptr->dev.of_node, 1);
+	ret = of_property_read_u32(dev_ptr->dev.of_node,
+		"mediatek,offset_epon_md1", &hw_info->md_epon_offset);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:mediatek,offset_epon_md1 fail\n",
+			__func__);
+		hw_info->md_epon_offset = 0;
+	}
+	ret = of_property_read_u32_index(dev_ptr->dev.of_node,
+			"mediatek,offset_epon_md1", 1, &retval);
+	if (ret < 0)
+		hw_info->md_l2sram_base = NULL;
+	else
+		hw_info->md_l2sram_base = of_iomap(dev_ptr->dev.of_node, 0);
+	CCCI_NORMAL_LOG(0, TAG, "%s, val: %s, 0x%x\n", __func__,
+		hw_info->md_l2sram_base?"l2sram":"mddbgss", hw_info->md_epon_offset);
 
 	hw_info->md_wdt_irq_id =
 	 irq_of_parse_and_map(dev_ptr->dev.of_node, 0);
 	hw_info->ap_ccif_irq1_id =
 	 irq_of_parse_and_map(dev_ptr->dev.of_node, 2);
-
-	hw_info->md_pcore_pccif_base =
-	 ioremap_wc(MD_PCORE_PCCIF_BASE, 0x20);
-	CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
-	 "pccif:%x\n", MD_PCORE_PCCIF_BASE);
 
 	/* Device tree using none flag to register irq,
 	 * sensitivity has set at "irq_of_parse_and_map"
@@ -1021,15 +990,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			"%s:srclken_o1_bit=0x%x\n",
 			__func__, md_cd_plat_val_ptr.srclken_o1_bit);
 
-	if (hw_info->ap_ccif_base == 0 ||
-		hw_info->md_ccif_base == 0) {
-		CCCI_ERROR_LOG(dev_cfg->index, TAG,
-			"ap_ccif_base:0x%p, md_ccif_base:0x%p\n",
-			(void *)hw_info->ap_ccif_base,
-			(void *)hw_info->md_ccif_base);
-		return -1;
-	}
-
 	if (hw_info->ap_ccif_irq1_id == 0 ||
 		hw_info->md_wdt_irq_id == 0) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
@@ -1053,11 +1013,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"dev_major:%d,minor_base:%d,capability:%d\n",
 		dev_cfg->major, dev_cfg->minor_base, dev_cfg->capability);
-
-	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
-		"ap_ccif_base:0x%p, md_ccif_base:0x%p\n",
-					(void *)hw_info->ap_ccif_base,
-					(void *)hw_info->md_ccif_base);
 
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"ccif_irq1:%d,md_wdt_irq:%d\n",
