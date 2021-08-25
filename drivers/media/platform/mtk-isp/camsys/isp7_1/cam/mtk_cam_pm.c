@@ -20,6 +20,8 @@
 
 #define LARB_ID_13  13
 #define LARB_ID_14  14
+#define LARB_ID_25  25
+#define LARB_ID_26  26
 
 struct mtk_cam_larb_device {
 	unsigned int	larb_id;
@@ -37,10 +39,20 @@ static int mtk_cam_pm_component_bind(struct device *dev, struct device *master,
 	dev_info(dev, "%s: dev:0x%x, id=%d\n", __func__, dev, larb_dev->larb_id);
 
 	larb_dev->cam = cam_dev;
-	if (larb_dev->larb_id == LARB_ID_13)
+	switch (larb_dev->larb_id) {
+	case LARB_ID_13:
 		larb->devs[CAMSYS_LARB_13] = dev;
-	else if (larb_dev->larb_id == LARB_ID_14)
+		break;
+	case LARB_ID_14:
 		larb->devs[CAMSYS_LARB_14] = dev;
+		break;
+	case LARB_ID_25:
+		larb->devs[CAMSYS_LARB_25] = dev;
+		break;
+	case LARB_ID_26:
+		larb->devs[CAMSYS_LARB_26] = dev;
+		break;
+	}
 
 	larb->cam_dev = cam_dev->dev;
 	return 0;
@@ -55,11 +67,20 @@ static void mtk_cam_pm_component_unbind(struct device *dev, struct device *maste
 
 	dev_info(dev, "%s id=%d\n", __func__, larb_dev->larb_id);
 
-	larb_dev->cam = NULL;
-	if (larb_dev->larb_id == LARB_ID_13)
+	switch (larb_dev->larb_id) {
+	case LARB_ID_13:
 		larb->devs[CAMSYS_LARB_13] = NULL;
-	else if (larb_dev->larb_id == LARB_ID_14)
+		break;
+	case LARB_ID_14:
 		larb->devs[CAMSYS_LARB_14] = NULL;
+		break;
+	case LARB_ID_25:
+		larb->devs[CAMSYS_LARB_25] = NULL;
+		break;
+	case LARB_ID_26:
+		larb->devs[CAMSYS_LARB_26] = NULL;
+		break;
+	}
 }
 
 static const struct component_ops mtk_cam_pm_component_ops = {

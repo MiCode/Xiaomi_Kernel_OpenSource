@@ -185,9 +185,24 @@ struct cam_camsv_params {
 	/* sth here */
 } __attribute__ ((__packed__));
 
-/* TODO: support MRAW */
-struct cam_mraw_params {
-	/* sth here */
+#define MRAW_MAX_IMAGE_OUTPUT (3)
+
+struct mtkcam_ipi_mraw_frame_param {
+	__u8 pixel_mode;
+
+	__u32 tg_pos_x;
+	__u32 tg_pos_y;
+	__u32 tg_size_w;
+	__u32 tg_size_h;
+	__u32 tg_fmt;
+
+	__u32 crop_pos_x;
+	__u32 crop_pos_y;
+	__u32 crop_size_w;
+	__u32 crop_size_h;
+
+	struct mtkcam_ipi_meta_input mraw_meta_inputs;
+	struct mtkcam_ipi_img_output mraw_img_outputs[MRAW_MAX_IMAGE_OUTPUT];
 } __attribute__ ((__packed__));
 
 struct mtkcam_ipi_session_cookie {
@@ -227,18 +242,19 @@ struct mtkcam_ipi_config_param {
 #define CAM_MAX_IMAGE_OUTPUT	(15)
 #define CAM_MAX_META_OUTPUT	(4)
 #define CAM_MAX_PIPE_USED	(4)
+#define MRAW_MAX_PIPE_USED  (4)
 
 struct mtkcam_ipi_frame_param {
-	__u32	cur_workbuf_offset;
-	__u32	cur_workbuf_size;
+	__u32 cur_workbuf_offset;
+	__u32 cur_workbuf_size;
 
-	struct mtkcam_ipi_raw_frame_param	raw_param;
-	/* TODO: other cam_xxx_param */
+	struct mtkcam_ipi_raw_frame_param raw_param;
+	struct mtkcam_ipi_mraw_frame_param mraw_param[MRAW_MAX_PIPE_USED];
 
-	struct mtkcam_ipi_img_input	img_ins[CAM_MAX_IMAGE_INPUT];
-	struct mtkcam_ipi_img_output	img_outs[CAM_MAX_IMAGE_OUTPUT];
-	struct mtkcam_ipi_meta_output	meta_outputs[CAM_MAX_META_OUTPUT];
-	struct mtkcam_ipi_meta_input	meta_inputs[CAM_MAX_PIPE_USED];
+	struct mtkcam_ipi_img_input img_ins[CAM_MAX_IMAGE_INPUT];
+	struct mtkcam_ipi_img_output img_outs[CAM_MAX_IMAGE_OUTPUT];
+	struct mtkcam_ipi_meta_output meta_outputs[CAM_MAX_META_OUTPUT];
+	struct mtkcam_ipi_meta_input meta_inputs[CAM_MAX_PIPE_USED];
 } __attribute__ ((__packed__));
 
 struct mtkcam_ipi_frame_info {
@@ -249,8 +265,10 @@ struct mtkcam_ipi_frame_info {
 struct mtkcam_ipi_frame_ack_result {
 	__u32 cq_desc_offset;
 	__u32 sub_cq_desc_offset;
+	__u32 mraw_cq_desc_offset[MRAW_MAX_PIPE_USED];
 	__u32 cq_desc_size;
 	__u32 sub_cq_desc_size;
+	__u32 mraw_cq_desc_size[MRAW_MAX_PIPE_USED];
 } __attribute__ ((__packed__));
 
 struct mtkcam_ipi_ack_info {

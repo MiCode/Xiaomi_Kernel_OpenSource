@@ -866,7 +866,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct device *dev = cam->dev;
 	unsigned long flags;
 	unsigned int desc_id;
-	unsigned int dma_port = node->desc.dma_port;
+	unsigned int dma_port;
 	unsigned int width, height, stride;
 	void *vaddr;
 	int i;
@@ -1132,6 +1132,16 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_cam_sv_set_meta_stats_info(node->desc.dma_port, vaddr, width, height, stride);
 #endif
 		break;
+#if MRAW_READY
+	case MTKCAM_IPI_MRAW_META_STATS_CFG:
+		vaddr = vb2_plane_vaddr(vb, 0);
+		mtk_cam_mraw_handle_enque(vb);
+		break;
+	case MTKCAM_IPI_MRAW_META_STATS_0:
+		vaddr = vb2_plane_vaddr(vb, 0);
+		mtk_cam_mraw_handle_enque(vb);
+		break;
+#endif
 	default:
 		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",
 			__func__, pipe_id, dma_port);
@@ -1865,6 +1875,17 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 				q->dev = find_larb(&cam->larb, 14);
 				break;
 			}
+		} else if (video->uid.pipe_id >= MTKCAM_SUBDEV_MRAW_START &&
+			video->uid.pipe_id < MTKCAM_SUBDEV_MRAW_END) {
+			switch (video->uid.pipe_id) {
+			case MTKCAM_SUBDEV_MRAW_0:
+			case MTKCAM_SUBDEV_MRAW_2:
+				q->dev = find_larb(&cam->larb, 25);
+				break;
+			default:
+				q->dev = find_larb(&cam->larb, 26);
+				break;
+			}
 		} else {
 			switch (video->desc.id) {
 			case MTK_RAW_YUVO_1_OUT:
@@ -2288,27 +2309,37 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	struct mtk_cam_dev_node_desc *desc = &node->desc;
 	const struct v4l2_format *default_fmt =
 		&desc->fmts[desc->default_fmt_idx].vfmt;
-	struct mtk_raw_pde_config *pde_cfg =
-		&cam->raw.pipelines[node->uid.pipe_id].pde_config;
-	struct mtk_cam_pde_info *pde_info = &pde_cfg->pde_info;
+	struct mtk_raw_pde_config *pde_cfg;
+	struct mtk_cam_pde_info *pde_info;
 
-	mutex_lock(&pde_cfg->pde_info_lock);
-	if (pde_info->pd_table_offset) {
-		if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
+		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
+		pde_info = &pde_cfg->pde_info;
+		mutex_lock(&pde_cfg->pde_info_lock);
+		if (pde_info->pd_table_offset) {
 			node->active_fmt.fmt.meta.buffersize =
 				default_fmt->fmt.meta.buffersize
 				+ pde_info->pdi_max_size;
+			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
+				node->desc.dma_port,
+				node->active_fmt.fmt.meta.buffersize);
 		}
-		if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
+		mutex_unlock(&pde_cfg->pde_info_lock);
+	}
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
+		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
+		pde_info = &pde_cfg->pde_info;
+		mutex_lock(&pde_cfg->pde_info_lock);
+		if (pde_info->pd_table_offset) {
 			node->active_fmt.fmt.meta.buffersize =
 				default_fmt->fmt.meta.buffersize
 				+ pde_info->pdo_max_size;
+			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
+				node->desc.dma_port,
+				node->active_fmt.fmt.meta.buffersize);
 		}
-		dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-			node->desc.dma_port,
-			node->active_fmt.fmt.meta.buffersize);
+		mutex_unlock(&pde_cfg->pde_info_lock);
 	}
-	mutex_unlock(&pde_cfg->pde_info_lock);
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
 

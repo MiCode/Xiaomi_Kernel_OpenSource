@@ -16,6 +16,7 @@
 
 #include "mtk_cam-raw.h"
 #include "mtk_cam-sv.h"
+#include "mtk_cam-mraw.h"
 #include "mtk_cam_pm.h"
 #include "mtk_cam-ipi.h"
 #include "imgsensor-user.h"
@@ -28,10 +29,10 @@
 #define MTK_CAM_REQ_MAX_S_DATA	2
 
 /* for cq working buffers */
-#define CQ_BUF_SIZE  0x8000
+#define CQ_BUF_SIZE  0x10000
 #define CAM_CQ_BUF_NUM 16
 #define CAMSV_WORKING_BUF_NUM 64
-#define IPI_FRAME_BUF_SIZE 0x8000
+#define IPI_FRAME_BUF_SIZE 0x10000
 
 /* for time-sharing camsv working buffer, (1inner+2backendprogramming+2backup)*/
 #define CAM_IMG_BUF_NUM (5)
@@ -112,6 +113,28 @@ struct mtk_camsv_working_buf_entry {
 };
 
 struct mtk_camsv_working_buf_list {
+	struct list_head list;
+	u32 cnt;
+	spinlock_t lock; /* protect the list and cnt */
+};
+
+struct mtk_mraw_working_buf {
+	void *va;
+	dma_addr_t iova;
+	int size;
+	unsigned int frame_seq_no;
+};
+
+struct mtk_mraw_working_buf_entry {
+	struct mtk_mraw_working_buf buffer;
+	struct mtk_cam_request_stream_data *s_data;
+	struct list_head list_entry;
+	int mraw_cq_desc_offset[MAX_MRAW_PIPES_PER_STREAM];
+	int mraw_cq_desc_size[MAX_MRAW_PIPES_PER_STREAM];
+	struct mtk_cam_ctx *ctx;
+};
+
+struct mtk_mraw_working_buf_list {
 	struct list_head list;
 	u32 cnt;
 	spinlock_t lock; /* protect the list and cnt */
@@ -239,6 +262,9 @@ struct mtk_cam_working_buf_pool {
 
 	struct mtk_camsv_working_buf_entry sv_working_buf[CAMSV_WORKING_BUF_NUM];
 	struct mtk_camsv_working_buf_list sv_freelist;
+
+	struct mtk_mraw_working_buf_entry mraw_working_buf[CAM_CQ_BUF_NUM];
+	struct mtk_mraw_working_buf_list mraw_freelist;
 };
 
 struct mtk_cam_img_working_buf_pool {
@@ -262,9 +288,12 @@ struct mtk_cam_ctx {
 	struct media_pipeline pipeline;
 	struct mtk_raw_pipeline *pipe;
 	struct mtk_camsv_pipeline *sv_pipe[MAX_SV_PIPES_PER_STREAM];
+	struct mtk_mraw_pipeline *mraw_pipe[MAX_MRAW_PIPES_PER_STREAM];
 	unsigned int enabled_node_cnt;
 	unsigned int streaming_pipe;
 	unsigned int streaming_node_cnt;
+	unsigned int is_first_cq_done;
+	unsigned int cq_done_status;
 	atomic_t running_s_data_cnt;
 	struct v4l2_subdev *sensor;
 	struct v4l2_subdev *prev_sensor;
@@ -279,6 +308,9 @@ struct mtk_cam_ctx {
 
 	unsigned int used_sv_num;
 	unsigned int used_sv_dev[MAX_SV_PIPES_PER_STREAM];
+
+	unsigned int used_mraw_num;
+	unsigned int used_mraw_dev[MAX_MRAW_PIPES_PER_STREAM];
 
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
@@ -296,6 +328,10 @@ struct mtk_cam_ctx {
 	struct mtk_camsv_working_buf_list sv_using_buffer_list[MAX_SV_PIPES_PER_STREAM];
 	struct mtk_camsv_working_buf_list sv_processing_buffer_list[MAX_SV_PIPES_PER_STREAM];
 
+	struct mtk_mraw_working_buf_list mraw_using_buffer_list;
+	struct mtk_mraw_working_buf_list mraw_composed_buffer_list;
+	struct mtk_mraw_working_buf_list mraw_processing_buffer_list;
+
 	/* sensor image buffer pool handling from kernel */
 	struct mtk_cam_img_working_buf_pool img_buf_pool;
 	struct mtk_cam_working_buf_list processing_img_buffer_list;
@@ -311,8 +347,13 @@ struct mtk_cam_ctx {
 
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 
+	unsigned int mraw_enqueued_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
+	unsigned int mraw_composed_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
+	unsigned int mraw_dequeued_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
+
 	spinlock_t streaming_lock;
 	spinlock_t m2m_lock;
+	spinlock_t first_cq_lock;
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;
@@ -339,10 +380,12 @@ struct mtk_cam_device {
 	unsigned int num_raw_drivers;
 	unsigned int num_larb_drivers;
 	unsigned int num_camsv_drivers;
+	unsigned int num_mraw_drivers;
 
 	struct mtk_raw raw;
 	struct mtk_larb larb;
 	struct mtk_camsv sv;
+	struct mtk_mraw mraw;
 
 	//TODO: mraw
 	//int mraw_num;
@@ -437,6 +480,13 @@ mtk_cam_sv_wbuf_set_s_data(struct mtk_camsv_working_buf_entry *buf_entry,
 	buf_entry->s_data = s_data;
 }
 
+static inline void
+mtk_cam_mraw_wbuf_set_s_data(struct mtk_mraw_working_buf_entry *buf_entry,
+			   struct mtk_cam_request_stream_data *s_data)
+
+{
+	buf_entry->s_data = s_data;
+}
 
 static inline struct mtk_cam_ctx*
 mtk_cam_s_data_get_ctx(struct mtk_cam_request_stream_data *s_data)
@@ -468,6 +518,10 @@ mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 	if (s_data->pipe_id >= MTKCAM_SUBDEV_CAMSV_START &&
 		s_data->pipe_id < MTKCAM_SUBDEV_CAMSV_END)
 		return  node_id - MTK_CAMSV_SINK_NUM;
+
+	if (s_data->pipe_id >= MTKCAM_SUBDEV_MRAW_START &&
+		s_data->pipe_id < MTKCAM_SUBDEV_MRAW_END)
+		return  node_id - MTK_MRAW_SINK_NUM;
 
 	return -1;
 }

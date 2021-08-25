@@ -77,6 +77,12 @@ static inline int is_camsv_subdev(unsigned char subdev_id)
 		subdev_id < MTKCAM_SUBDEV_CAMSV_END);
 }
 
+static inline int is_mraw_subdev(unsigned char subdev_id)
+{
+	return (subdev_id >= MTKCAM_SUBDEV_MRAW_START &&
+		subdev_id < MTKCAM_SUBDEV_MRAW_END);
+}
+
 enum mtkcam_pipe_dev {
 	MTKCAM_PIPE_RAW_A	= 0,
 	MTKCAM_PIPE_RAW_B,
@@ -160,9 +166,9 @@ enum mtkcam_ipi_camsv_video_id {
 
 enum mtkcam_ipi_mraw_video_id {
 	MTKCAM_IPI_MRAW_ID_UNKNOWN	= 0,
-	MTKCAM_IPI_MRAW_MAIN_OUT,	/* imgo */
-	MTKCAM_IPI_MRAW_STATISTICS, /* all statistics */
-
+	MTKCAM_IPI_MRAW_ID_START = MTKCAM_IPI_CAMSV_ID_MAX,
+	MTKCAM_IPI_MRAW_META_STATS_CFG = MTKCAM_IPI_MRAW_ID_START,
+	MTKCAM_IPI_MRAW_META_STATS_0,
 	MTKCAM_IPI_MRAW_ID_MAX,
 };
 

@@ -608,6 +608,8 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 			stream_on(raw_dev, 1);
 			for (i = 0; i < ctx->used_sv_num; i++)
 				mtk_cam_sv_dev_stream_on(ctx, i, 1, 1);
+			for (i = 0; i < ctx->used_mraw_num; i++)
+				mtk_cam_mraw_dev_stream_on(ctx, i, 1, 0);
 			for (i = MTKCAM_SUBDEV_CAMSV_END - 1;
 				i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
 				if (mtk_cam_is_stagger(ctx) &&
@@ -1942,6 +1944,10 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		if (mtk_cam_sv_apply_next_buffer(ctx) == 0)
 			dev_info(raw_dev->dev, "sv apply next buffer failed");
 	}
+	if (ctx->used_mraw_num && is_apply) {
+		if (mtk_cam_mraw_apply_next_buffer(ctx) == 0)
+			dev_info(raw_dev->dev, "mraw apply next buffer failed");
+	}
 }
 
 int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
@@ -2128,7 +2134,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				stream_on(raw_dev, 1);
 				for (i = 0; i < ctx->used_sv_num; i++)
 					mtk_cam_sv_dev_stream_on(ctx, i, 1, 1);
-
+				for (i = 0; i < ctx->used_mraw_num; i++)
+					mtk_cam_mraw_dev_stream_on(ctx, i, 1, 0);
 				for (i = MTKCAM_SUBDEV_CAMSV_END - 1;
 					i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
 					if (mtk_cam_is_stagger(ctx) &&
@@ -2459,7 +2466,7 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	}
 	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
-	if (is_camsv_subdev(pipe_id)) {
+	if (is_camsv_subdev(pipe_id) || is_mraw_subdev(pipe_id)) {
 		need_dequeue = true;
 	} else {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
@@ -2939,15 +2946,106 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	}
 }
 
+static void mtk_camsys_mraw_check_frame_done(struct mtk_cam_ctx *ctx,
+	unsigned int dequeued_frame_seq_no, unsigned int pipe_id)
+{
+#define CHECK_STATE_DEPTH 3
+	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
+	struct mtk_camsys_ctrl_state *state_temp;
+	struct mtk_cam_request_stream_data *req_stream_data;
+	unsigned long flags;
+	unsigned int seqList[CHECK_STATE_DEPTH];
+	unsigned int cnt = 0;
+	int i;
+
+	if (ctx->sensor) {
+		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
+		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
+						state_element) {
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
+			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no) {
+				seqList[cnt++] = req_stream_data->frame_seq_no;
+				if (cnt == CHECK_STATE_DEPTH)
+					break;
+			}
+		}
+		spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
+		for (i = 0; i < cnt; i++)
+			mtk_camsys_frame_done(ctx, seqList[i], pipe_id);
+	}
+}
+
+static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
+	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no)
+{
+	int mraw_dev_index;
+
+	/* inner register dequeue number */
+	mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
+	if (mraw_dev_index == -1) {
+		dev_dbg(mraw_dev->dev, "cannot find mraw_dev_index(%d)", mraw_dev->id);
+		return;
+	}
+	ctx->mraw_dequeued_frame_seq_no[mraw_dev_index] = dequeued_frame_seq_no;
+
+	/* Prevent losting seq_num when the SW performance is bad */
+	mtk_camsys_mraw_check_frame_done(ctx, dequeued_frame_seq_no,
+		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
+
+	/* Update CQ base address if needed */
+	if (ctx->mraw_composed_frame_seq_no[mraw_dev_index] <=
+		dequeued_frame_seq_no) {
+		dev_info(mraw_dev->dev,
+			"SOF[ctx:%d-#%d], CQ isn't updated [mraw_composed_frame_deq (%d) ]\n",
+			ctx->stream_id, dequeued_frame_seq_no,
+			ctx->mraw_composed_frame_seq_no[mraw_dev_index]);
+		return;
+	}
+}
+
+static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
+	unsigned int pipe_id)
+{
+	unsigned int all_subdevs = 0;
+	bool ret = false;
+	int i;
+
+	spin_lock(&ctx->first_cq_lock);
+	if (ctx->is_first_cq_done) {
+		ret = true;
+		spin_unlock(&ctx->first_cq_lock);
+		goto EXIT;
+	}
+
+	// update cq done status
+	ctx->cq_done_status |= (1 << pipe_id);
+
+	// check cq done status
+	if (ctx->used_raw_num)
+		all_subdevs |= (1 << ctx->pipe->id);
+	for (i = 0; i < ctx->used_mraw_num; i++)
+		all_subdevs |= (1 << ctx->mraw_pipe[i]->id);
+	if ((ctx->cq_done_status & all_subdevs) == all_subdevs) {
+		ctx->is_first_cq_done = 1;
+		ret = true;
+	}
+	spin_unlock(&ctx->first_cq_lock);
+
+EXIT:
+	return ret;
+}
+
 int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			 struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *camsv_dev;
+	struct mtk_mraw_device *mraw_dev;
 	struct mtk_cam_ctx *ctx;
 	int sub_engine_type = irq_info->engine_id & MTK_CAMSYS_ENGINE_IDXMASK;
 	int ret = 0;
 	int sv_dev_index;
+	int mraw_dev_index;
 	unsigned int stream_id;
 	unsigned int seq;
 
@@ -2983,8 +3081,10 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			if (ctx->pipe->feature_active & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
 				mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 				mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
-			} else
-				mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
+			} else {
+				if (mtk_camsys_is_all_cq_done(ctx, raw_dev->id))
+					mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
+			}
 		}
 		/* raw's subsample sensor setting */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET))
@@ -3017,7 +3117,39 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 		}
 		break;
 	case MTK_CAMSYS_ENGINE_MRAW_TAG:
-		/* struct mtk_mraw_device *mraw_dev; */
+		mraw_dev = cam->camsys_ctrl.mraw_dev[irq_info->engine_id -
+			CAMSYS_ENGINE_MRAW_BEGIN];
+		ctx = mtk_cam_find_ctx(cam, &mraw_dev->pipeline->subdev.entity);
+		if (!ctx) {
+			dev_dbg(mraw_dev->dev, "cannot find ctx\n");
+			ret = -EINVAL;
+			break;
+		}
+		stream_id = irq_info->engine_id - CAMSYS_ENGINE_MRAW_BEGIN +
+			MTKCAM_SUBDEV_MRAW_START;
+		/* mraw's SW done */
+		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+			mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
+			if (mraw_dev_index == -1) {
+				dev_dbg(mraw_dev->dev,
+					"cannot find mraw_dev_index(%d)", mraw_dev->id);
+				ret = -EINVAL;
+				break;
+			}
+			seq = ctx->mraw_dequeued_frame_seq_no[mraw_dev_index];
+			mtk_camsys_frame_done(ctx, seq, stream_id);
+		}
+		/* mraw's SOF */
+		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
+			mtk_camsys_mraw_frame_start(mraw_dev, ctx,
+				irq_info->frame_inner_idx);
+		/* mraw's CQ done */
+		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
+			if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {
+				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+				mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
+			}
+		}
 		break;
 	case MTK_CAMSYS_ENGINE_CAMSV_TAG:
 		camsv_dev = cam->camsys_ctrl.camsv_dev[irq_info->engine_id -
@@ -3228,6 +3360,14 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			dev_get_drvdata(ctx->cam->sv.devs[ctx->sv_pipe[i]->id -
 			MTKCAM_SUBDEV_CAMSV_START]);
 	}
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		camsys_ctrl->mraw_dev[ctx->mraw_pipe[i]->id -
+			MTKCAM_SUBDEV_MRAW_START] =
+			dev_get_drvdata(ctx->cam->mraw.devs[ctx->mraw_pipe[i]->id -
+			MTKCAM_SUBDEV_MRAW_START]);
+	}
+
 	camsys_sensor_ctrl->ctx = ctx;
 	camsys_sensor_ctrl->sensor_request_seq_no = 0;
 	camsys_sensor_ctrl->isp_request_seq_no = 0;

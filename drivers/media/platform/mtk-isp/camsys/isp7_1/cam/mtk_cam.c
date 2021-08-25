@@ -510,6 +510,7 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
 				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 				mtk_cam_sv_finish_buf(req_stream_data);
+				mtk_cam_mraw_finish_buf(req_stream_data);
 				finish_cq_buf(req_stream_data);
 				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
@@ -551,6 +552,7 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
 				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 				mtk_cam_sv_finish_buf(req_stream_data);
+				mtk_cam_mraw_finish_buf(req_stream_data);
 				finish_cq_buf(req_stream_data);
 				if (mtk_cam_is_time_shared(ctx))
 					finish_img_buf(req_stream_data);
@@ -1435,7 +1437,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 					return ret;
 			}
 			break;
-
 		default:
 			/* Do nothing for the ports not related to crop settings */
 			break;
@@ -2231,10 +2232,12 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 	struct mtkcam_ipi_event *ipi_msg;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_working_buf_entry *buf_entry;
+	struct mtk_mraw_working_buf_entry *mraw_buf_entry;
 	struct mtk_cam_request_stream_data *s_data;
 	unsigned long flags;
 	unsigned long m2m_flags;
 	bool is_m2m_apply_cq = false;
+	int i;
 
 	ipi_msg = (struct mtkcam_ipi_event *)data;
 	if (!ipi_msg)
@@ -2255,6 +2258,8 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		spin_lock(&ctx->using_buffer_list.lock);
 
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
+		for (i = 0; i < ctx->used_mraw_num; i++)
+			ctx->mraw_composed_frame_seq_no[i] = ipi_msg->cookie.frame_no;
 		if (mtk_cam_is_mstream(ctx)) {
 			dev_dbg(dev, "[mstream] ctx:%d ack frame_num:%d\n",
 				ctx->stream_id, ctx->composed_frame_seq_no);
@@ -2269,6 +2274,13 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			return -EINVAL;
 		}
 
+		if (ctx->used_mraw_num > 0
+			&& list_empty(&ctx->mraw_using_buffer_list.list)) {
+			spin_unlock(&ctx->using_buffer_list.lock);
+			return -EINVAL;
+		}
+
+		/* assign raw using buf */
 		buf_entry = list_first_entry(&ctx->using_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
@@ -2292,6 +2304,24 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ipi_msg->ack_data.frame_result.sub_cq_desc_offset;
 		buf_entry->sub_cq_desc_size =
 			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
+
+		/* assign mraw using buf */
+		if (ctx->used_mraw_num > 0) {
+			spin_lock_irqsave(&ctx->mraw_using_buffer_list.lock, flags);
+			mraw_buf_entry = list_first_entry(&ctx->mraw_using_buffer_list.list,
+							struct mtk_mraw_working_buf_entry,
+							list_entry);
+			list_del(&mraw_buf_entry->list_entry);
+			ctx->mraw_using_buffer_list.cnt--;
+			spin_unlock_irqrestore(&ctx->mraw_using_buffer_list.lock, flags);
+			mraw_buf_entry->buffer.iova = buf_entry->buffer.iova;
+			for (i = 0; i < ctx->used_mraw_num; i++) {
+				mraw_buf_entry->mraw_cq_desc_offset[i] =
+					ipi_msg->ack_data.frame_result.mraw_cq_desc_offset[i];
+				mraw_buf_entry->mraw_cq_desc_size[i] =
+					ipi_msg->ack_data.frame_result.mraw_cq_desc_size[i];
+			}
+		}
 
 		if (mtk_cam_is_stagger_m2m(ctx))
 			spin_lock_irqsave(&ctx->m2m_lock, m2m_flags);
@@ -2321,8 +2351,9 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		if ((ctx->composed_frame_seq_no == 1 && !mtk_cam_is_time_shared(ctx))
 			|| is_m2m_apply_cq) {
 			struct mtk_raw_device *raw_dev;
+			struct mtk_mraw_device *mraw_dev;
 			struct device *dev;
-
+			/* apply raw CQ */
 			spin_lock_irqsave(&ctx->processing_buffer_list.lock,
 					  flags);
 			list_add_tail(&buf_entry->list_entry,
@@ -2330,6 +2361,17 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ctx->processing_buffer_list.cnt++;
 			spin_unlock_irqrestore
 				(&ctx->processing_buffer_list.lock, flags);
+
+			if (ctx->used_mraw_num > 0) {
+				spin_lock_irqsave(&ctx->mraw_processing_buffer_list.lock,
+						flags);
+				list_add_tail(&mraw_buf_entry->list_entry,
+						&ctx->mraw_processing_buffer_list.list);
+				ctx->mraw_processing_buffer_list.cnt++;
+				spin_unlock_irqrestore
+					(&ctx->mraw_processing_buffer_list.lock, flags);
+			}
+
 			spin_unlock(&ctx->using_buffer_list.lock);
 
 			dev = mtk_cam_find_raw_dev(cam, ctx->pipe->enabled_raw);
@@ -2350,6 +2392,22 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				buf_entry->buffer.iova, buf_entry->cq_desc_size,
 				buf_entry->cq_desc_offset, 1, buf_entry->sub_cq_desc_size,
 				buf_entry->sub_cq_desc_offset);
+
+			/* apply mraw CQ for all stream */
+			for (i = 0; i < ctx->used_mraw_num; i++) {
+				dev = mtk_cam_find_mraw_dev(cam,
+					ctx->mraw_pipe[i]->enabled_mraw);
+				if (!dev) {
+					dev_info(dev, "frm#1 mraw device not found\n");
+					return -EINVAL;
+				}
+				mraw_dev = dev_get_drvdata(dev);
+				apply_mraw_cq(mraw_dev,
+					mraw_buf_entry->buffer.iova,
+					mraw_buf_entry->mraw_cq_desc_size[i],
+					mraw_buf_entry->mraw_cq_desc_offset[i], 1);
+			}
+
 			s_data->timestamp = ktime_get_boottime_ns();
 			s_data->timestamp_mono = ktime_get_ns();
 			s_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
@@ -2369,6 +2427,16 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 					__func__, ctx->composed_buffer_list.cnt);
 		}
 		spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
+
+		if (ctx->used_mraw_num > 0) {
+			spin_lock_irqsave(&ctx->mraw_composed_buffer_list.lock,
+					flags);
+			list_add_tail(&mraw_buf_entry->list_entry,
+					&ctx->mraw_composed_buffer_list.list);
+			ctx->mraw_composed_buffer_list.cnt++;
+			spin_unlock_irqrestore(&ctx->mraw_composed_buffer_list.lock, flags);
+		}
+
 		spin_unlock(&ctx->using_buffer_list.lock);
 
 		if (mtk_cam_is_stagger_m2m(ctx))
@@ -2405,12 +2473,16 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_frame_param *frame_data, *frame_param;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_request_stream_data *req_stream_data_mraw;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
+	struct mtk_mraw_working_buf_entry *mraw_buf_entry;
+	int mraw_subdev_id;
 	unsigned long flags;
 	struct mtkcam_ipi_meta_output *meta_1_out;
 	struct mtk_cam_buffer *meta1_buf;
+	int i;
 
 	req_stream_data = mtk_cam_req_work_get_s_data(req_work);
 	if (!req_stream_data) {
@@ -2452,7 +2524,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	memset(&event, 0, sizeof(event));
 	event.cmd_id = CAM_CMD_FRAME;
 	session->session_id = ctx->stream_id;
-	/* prepare working buffer */
+	/* prepare raw working buffer */
 	buf_entry = mtk_cam_working_buf_get(ctx);
 	if (!buf_entry) {
 		dev_info(cam->dev, "%s: No CQ buf availablle: req:%d(%s)\n",
@@ -2462,7 +2534,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		return;
 	}
 	mtk_cam_s_data_set_wbuf(req_stream_data, buf_entry);
-	/* put to using list */
+	/* put to raw using list */
 	spin_lock(&ctx->using_buffer_list.lock);
 	list_add_tail(&buf_entry->list_entry, &ctx->using_buffer_list.list);
 	ctx->using_buffer_list.cnt++;
@@ -2483,6 +2555,46 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mtk_cam_set_meta_stats_info(MTKCAM_IPI_RAW_META_STATS_1,
 					    buf_entry->meta_buffer.va,
 					    NULL);
+	}
+
+	if (ctx->used_mraw_num > 0) {
+		/* prepare mraw working buffer */
+		mraw_buf_entry = mtk_cam_mraw_working_buf_get(ctx);
+		if (!mraw_buf_entry) {
+			dev_info(cam->dev, "%s: No CQ buf availablle: req:%d(%s)\n",
+				__func__, req_stream_data->frame_seq_no,
+				req->req.debug_str);
+			WARN_ON(1);
+			return;
+		}
+
+		mtk_cam_mraw_wbuf_set_s_data(mraw_buf_entry, req_stream_data);
+		mraw_buf_entry->ctx = ctx;
+
+		/* put to mraw using list */
+		spin_lock(&ctx->mraw_using_buffer_list.lock);
+		list_add_tail(&mraw_buf_entry->list_entry,
+			&ctx->mraw_using_buffer_list.list);
+		ctx->mraw_using_buffer_list.cnt++;
+		spin_unlock(&ctx->mraw_using_buffer_list.lock);
+	}
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		/* Copy mraw's frame_param to raw's */
+		mraw_subdev_id = ctx->mraw_pipe[i]->id;
+		req_stream_data_mraw = mtk_cam_req_get_s_data(req, mraw_subdev_id, 0);
+		req_stream_data->frame_params.mraw_param[i]
+			= req_stream_data_mraw->frame_params.mraw_param[0];
+
+		/* Assign mraw's pixel_mode to raw's frame_param */
+		req_stream_data->frame_params.mraw_param[i].pixel_mode
+			= ctx->mraw_pipe[i]->res_config.pixel_mode;
+
+		dev_dbg(cam->dev, "%s: mraw subdev_id:%d tg_size_w:%d pixel_mode:%d\n",
+			__func__,
+			mraw_subdev_id,
+			req_stream_data->frame_params.mraw_param[i].tg_size_w,
+			req_stream_data->frame_params.mraw_param[i].pixel_mode);
 	}
 
 	/* Prepare rp message */
@@ -3160,6 +3272,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 	mtk_cam_sv_working_buf_pool_init(ctx);
 
+	mtk_cam_mraw_working_buf_pool_init(ctx);
+
 	ret = media_pipeline_start(entity, &ctx->pipeline);
 	if (ret) {
 		dev_info(cam->dev,
@@ -3294,6 +3408,15 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		}
 	}
 
+	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
+		for (j = 0 ; j < cam->max_stream_num ; j++) {
+			if (ctx->mraw_pipe[i]->id == cam->ctxs[j].stream_id) {
+				cam->ctxs[j].enqueued_frame_seq_no = 0;
+				break;
+			}
+		}
+	}
+
 	ctx->enabled_node_cnt = 0;
 	ctx->streaming_node_cnt = 0;
 	ctx->streaming_pipe = 0;
@@ -3306,8 +3429,11 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;
 	ctx->composed_frame_seq_no = 0;
+	ctx->is_first_cq_done = 0;
+	ctx->cq_done_status = 0;
 	ctx->used_raw_num = 0;
 	ctx->used_sv_num = 0;
+	ctx->used_mraw_num = 0;
 
 	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
@@ -3318,6 +3444,10 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		INIT_LIST_HEAD(&ctx->sv_processing_buffer_list[i].list);
 	}
 
+	INIT_LIST_HEAD(&ctx->mraw_using_buffer_list.list);
+	INIT_LIST_HEAD(&ctx->mraw_composed_buffer_list.list);
+	INIT_LIST_HEAD(&ctx->mraw_processing_buffer_list.list);
+
 	INIT_LIST_HEAD(&ctx->processing_img_buffer_list.list);
 	for (i = 0; i < MAX_PIPES_PER_STREAM; i++)
 		ctx->pipe_subdevs[i] = NULL;
@@ -3325,6 +3455,11 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
 		ctx->sv_pipe[i] = NULL;
 		ctx->used_sv_dev[i] = 0;
+	}
+
+	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
+		ctx->mraw_pipe[i] = NULL;
+		ctx->used_mraw_dev[i] = 0;
 	}
 
 	isp_composer_uninit_wait(ctx);
@@ -3515,6 +3650,23 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (ret)
 				goto fail_pipe_off;
 		}
+
+		for (i = 0 ; i < ctx->used_mraw_num ; i++) {
+			/* use 1-pixel mode as default */
+			ctx->mraw_pipe[i]->res_config.pixel_mode = 1;
+			mtk_cam_seninf_set_pixelmode(ctx->seninf,
+				ctx->mraw_pipe[i]->seninf_padidx, 0);
+			mtk_cam_seninf_set_camtg(ctx->seninf, ctx->mraw_pipe[i]->seninf_padidx,
+				ctx->mraw_pipe[i]->cammux_id);
+
+			dev_dbg(cam->dev, "Set mraw pad(%d) to pixel_mode(%d)\n",
+				ctx->mraw_pipe[i]->seninf_padidx,
+				ctx->mraw_pipe[i]->res_config.pixel_mode);
+			ret = mtk_cam_mraw_dev_config(ctx, i, 0);
+			if (ret)
+				goto fail_pipe_off;
+		}
+
 		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
 		if (ret) {
 			dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
@@ -3722,6 +3874,13 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			}
 		}
 	}
+
+	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
+		ret = mtk_cam_mraw_dev_stream_on(ctx, i, 0, 0);
+		if (ret)
+			return ret;
+	}
+
 	/* reset dvfs/qos */
 	if (ctx->used_raw_num) {
 		mtk_cam_dvfs_update_clk(ctx->cam);
@@ -3819,6 +3978,28 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 				}
 			}
 #endif
+		} else if (i >= MTKCAM_SUBDEV_MRAW_START && i < MTKCAM_SUBDEV_MRAW_END) {
+			pipe_entity =
+				&cam->mraw.pipelines[i - MTKCAM_SUBDEV_MRAW_START].subdev.entity;
+
+			dev_info(cam->dev, "create pad link %s %s\n",
+				seninf->entity.name, pipe_entity->name);
+
+			for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF5; j++) {
+				ret = media_create_pad_link(&seninf->entity,
+						j,
+						pipe_entity,
+						MTK_MRAW_SINK,
+						MEDIA_LNK_FL_DYNAMIC);
+
+				if (ret) {
+					dev_dbg(cam->dev,
+						"failed to create pad link %s %s err:%d\n",
+						seninf->entity.name, pipe_entity->name,
+						ret);
+					return ret;
+				}
+			}
 		}
 	}
 
@@ -3892,6 +4073,12 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_remove_dependencies;
 	}
 
+	ret = mtk_mraw_setup_dependencies(&cam_dev->mraw, &cam_dev->larb);
+	if (ret) {
+		dev_dbg(dev, "Failed to mtk_mraw_setup_dependencies: %d\n", ret);
+		goto fail_remove_dependencies;
+	}
+
 	ret = mtk_raw_register_entities(&cam_dev->raw, &cam_dev->v4l2_dev);
 	if (ret) {
 		dev_dbg(dev, "Failed to init raw subdevs: %d\n", ret);
@@ -3904,20 +4091,27 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_unreg_raw_entities;
 	}
 
-	/* TODO: bind mraw ? */
+	ret = mtk_mraw_register_entities(&cam_dev->mraw, &cam_dev->v4l2_dev);
+	if (ret) {
+		dev_dbg(dev, "Failed to init mraw subdevs: %d\n", ret);
+		goto fail_unreg_camsv_entities;
+	}
 
 	mtk_cam_create_links(cam_dev);
 	/* Expose all subdev's nodes */
 	ret = v4l2_device_register_subdev_nodes(&cam_dev->v4l2_dev);
 	if (ret) {
 		dev_dbg(dev, "Failed to register subdev nodes\n");
-		goto fail_unreg_camsv_entities;
+		goto fail_unreg_mraw_entities;
 	}
 
 	mtk_cam_dvfs_init(cam_dev);
 
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
+
+fail_unreg_mraw_entities:
+	mtk_mraw_unregister_entities(&cam_dev->mraw);
 
 fail_unreg_camsv_entities:
 	mtk_camsv_unregister_entities(&cam_dev->sv);
@@ -4007,17 +4201,21 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 	cam_dev->num_camsv_drivers =
 		add_match_by_driver(dev, &match, &mtk_cam_sv_driver);
 
+	cam_dev->num_mraw_drivers =
+		add_match_by_driver(dev, &match, &mtk_cam_mraw_driver);
+
 	cam_dev->num_seninf_drivers =
 		add_match_by_driver(dev, &match, &seninf_pdrv);
 
 	if (IS_ERR(match))
 		mtk_cam_match_remove(dev);
 
-	dev_info(dev, "#: raw %d, yuv %d, larb %d, sv %d, seninf %d\n",
+	dev_info(dev, "#: raw %d, yuv %d, larb %d, sv %d, seninf %d, mraw %d\n",
 		 cam_dev->num_raw_drivers, yuv_num,
 		 cam_dev->num_larb_drivers,
 		 cam_dev->num_camsv_drivers,
-		 cam_dev->num_seninf_drivers);
+		 cam_dev->num_seninf_drivers,
+		 cam_dev->num_mraw_drivers);
 
 	return match ? match : ERR_PTR(-ENODEV);
 }
@@ -4047,12 +4245,23 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	ctx->used_raw_dmas = 0;
 	ctx->processing_buffer_list.cnt = 0;
 	ctx->composed_buffer_list.cnt = 0;
+	ctx->is_first_cq_done = 0;
+	ctx->cq_done_status = 0;
 
 	ctx->used_sv_num = 0;
 	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
 		ctx->sv_pipe[i] = NULL;
 		ctx->used_sv_dev[i] = 0;
 		ctx->sv_dequeued_frame_seq_no[i] = 0;
+	}
+
+	ctx->used_mraw_num = 0;
+	ctx->mraw_processing_buffer_list.cnt = 0;
+	ctx->mraw_composed_buffer_list.cnt = 0;
+	for (i = 0 ; i < MAX_MRAW_PIPES_PER_STREAM ; i++) {
+		ctx->mraw_pipe[i] = NULL;
+		ctx->used_mraw_dev[i] = 0;
+		ctx->mraw_dequeued_frame_seq_no[i] = 0;
 	}
 
 	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
@@ -4062,6 +4271,9 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 		INIT_LIST_HEAD(&ctx->sv_using_buffer_list[i].list);
 		INIT_LIST_HEAD(&ctx->sv_processing_buffer_list[i].list);
 	}
+	INIT_LIST_HEAD(&ctx->mraw_using_buffer_list.list);
+	INIT_LIST_HEAD(&ctx->mraw_composed_buffer_list.list);
+	INIT_LIST_HEAD(&ctx->mraw_processing_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->processing_img_buffer_list.list);
 	spin_lock_init(&ctx->using_buffer_list.lock);
 	spin_lock_init(&ctx->composed_buffer_list.lock);
@@ -4070,8 +4282,12 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 		spin_lock_init(&ctx->sv_using_buffer_list[i].lock);
 		spin_lock_init(&ctx->sv_processing_buffer_list[i].lock);
 	}
+	spin_lock_init(&ctx->mraw_using_buffer_list.lock);
+	spin_lock_init(&ctx->mraw_composed_buffer_list.lock);
+	spin_lock_init(&ctx->mraw_processing_buffer_list.lock);
 	spin_lock_init(&ctx->streaming_lock);
 	spin_lock_init(&ctx->m2m_lock);
+	spin_lock_init(&ctx->first_cq_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
 }
 
@@ -4171,6 +4387,12 @@ static int register_sub_drivers(struct device *dev)
 		goto REGISTER_CAMSV_FAIL;
 	}
 
+	ret = platform_driver_register(&mtk_cam_mraw_driver);
+	if (ret) {
+		dev_info(dev, "%s mtk_cam_mraw_driver fail\n", __func__);
+		goto REGISTER_MRAW_FAIL;
+	}
+
 	ret = platform_driver_register(&mtk_cam_raw_driver);
 	if (ret) {
 		dev_info(dev, "%s mtk_cam_raw_driver fail\n", __func__);
@@ -4205,6 +4427,9 @@ REGISTER_YUV_FAIL:
 	platform_driver_unregister(&mtk_cam_raw_driver);
 
 REGISTER_RAW_FAIL:
+	platform_driver_unregister(&mtk_cam_mraw_driver);
+
+REGISTER_MRAW_FAIL:
 	platform_driver_unregister(&mtk_cam_sv_driver);
 
 REGISTER_CAMSV_FAIL:
@@ -4328,6 +4553,7 @@ static int mtk_cam_remove(struct platform_device *pdev)
 
 	destroy_workqueue(cam_dev->link_change_wq);
 
+	platform_driver_unregister(&mtk_cam_mraw_driver);
 	platform_driver_unregister(&mtk_cam_sv_driver);
 	platform_driver_unregister(&mtk_cam_raw_driver);
 	platform_driver_unregister(&mtk_cam_larb_driver);

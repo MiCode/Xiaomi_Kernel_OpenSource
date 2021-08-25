@@ -11,6 +11,8 @@
 enum CAMSYS_LARB_IDX {
 	CAMSYS_LARB_13 = 0,
 	CAMSYS_LARB_14,
+	CAMSYS_LARB_25,
+	CAMSYS_LARB_26,
 	CAMSYS_LARB_NUM
 };
 
@@ -23,10 +25,17 @@ extern struct platform_driver mtk_cam_larb_driver;
 
 static inline struct device *find_larb(struct mtk_larb *larb, int larb_id)
 {
-	if (larb_id == 13)
+	switch (larb_id) {
+	case 13:
 		return larb->devs[CAMSYS_LARB_13];
-	else if (larb_id == 14)
+	case 14:
 		return larb->devs[CAMSYS_LARB_14];
+	case 25:
+		return larb->devs[CAMSYS_LARB_25];
+	case 26:
+		return larb->devs[CAMSYS_LARB_26];
+	}
+
 	return NULL;
 }
 

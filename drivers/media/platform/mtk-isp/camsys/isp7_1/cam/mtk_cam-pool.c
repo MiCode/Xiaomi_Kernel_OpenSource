@@ -415,3 +415,82 @@ mtk_cam_sv_working_buf_get(struct mtk_cam_ctx *ctx)
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 	return buf_entry;
 }
+
+int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+{
+	int i;
+	const int working_buf_size = round_up(CQ_BUF_SIZE, PAGE_SIZE);
+
+	INIT_LIST_HEAD(&ctx->buf_pool.mraw_freelist.list);
+	spin_lock_init(&ctx->buf_pool.mraw_freelist.lock);
+	ctx->buf_pool.mraw_freelist.cnt = 0;
+
+	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
+		struct mtk_mraw_working_buf_entry *buf
+				= &ctx->buf_pool.mraw_working_buf[i];
+		int offset;
+
+		offset = i * working_buf_size;
+
+		/* Note: buf_pool is initailized when raw_working_buf_pool init */
+		buf->buffer.va = ctx->buf_pool.working_buf_va + offset;
+		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
+		buf->buffer.size = working_buf_size;
+		buf->s_data = NULL;
+		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
+			__func__, ctx->stream_id, i, &buf->buffer.iova);
+
+		list_add_tail(&buf->list_entry,
+			      &ctx->buf_pool.mraw_freelist.list);
+		ctx->buf_pool.mraw_freelist.cnt++;
+	}
+
+	dev_info(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d)\n", __func__,
+		 ctx->stream_id, ctx->buf_pool.mraw_freelist.cnt);
+
+	return 0;
+}
+
+void mtk_cam_mraw_working_buf_put(struct mtk_cam_ctx *ctx,
+			     struct mtk_mraw_working_buf_entry *buf_entry)
+{
+	unsigned long flags;
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
+
+	if (!buf_entry)
+		return;
+
+	spin_lock_irqsave(&ctx->buf_pool.mraw_freelist.lock, flags);
+	list_add_tail(&buf_entry->list_entry,
+		      &ctx->buf_pool.mraw_freelist.list);
+	ctx->buf_pool.mraw_freelist.cnt++;
+	spin_unlock_irqrestore(&ctx->buf_pool.mraw_freelist.lock, flags);
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
+}
+
+struct mtk_mraw_working_buf_entry*
+mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_mraw_working_buf_entry *buf_entry;
+	unsigned long flags;
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
+
+	spin_lock_irqsave(&ctx->buf_pool.mraw_freelist.lock, flags);
+	if (list_empty(&ctx->buf_pool.mraw_freelist.list)) {
+		spin_unlock_irqrestore(&ctx->buf_pool.mraw_freelist.lock, flags);
+		return NULL;
+	}
+
+	buf_entry = list_first_entry(&ctx->buf_pool.mraw_freelist.list,
+				     struct mtk_mraw_working_buf_entry,
+				     list_entry);
+	list_del(&buf_entry->list_entry);
+	ctx->buf_pool.mraw_freelist.cnt--;
+	spin_unlock_irqrestore(&ctx->buf_pool.mraw_freelist.lock, flags);
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
+	return buf_entry;
+}

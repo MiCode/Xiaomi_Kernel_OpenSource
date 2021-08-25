@@ -163,6 +163,8 @@ struct mtk_camsys_ctrl {
 		CAMSYS_ENGINE_RAW_BEGIN]; /* per hw */
 	struct mtk_camsv_device *camsv_dev[CAMSYS_ENGINE_CAMSV_END -
 		CAMSYS_ENGINE_CAMSV_BEGIN]; /* per hw */
+	struct mtk_mraw_device *mraw_dev[CAMSYS_ENGINE_MRAW_END -
+		CAMSYS_ENGINE_MRAW_BEGIN]; /* per hw */
 	/* resource ctrl */
 	struct mtk_camsys_dvfs dvfs_info;
 };
