@@ -12,11 +12,17 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 
-//#define WPE_TF_DUMP           (1)
-#ifdef WPE_TF_DUMP
-#include <dt-bindings/memory/mt6983-larb-port.h>
 #include "iommu_debug.h"
+#ifdef WPE_TF_DUMP_71_1
+#include <dt-bindings/memory/mt6983-larb-port.h>
+
+#elif defined(WPE_TF_DUMP_71_2)
+#include <dt-bindings/memory/mt6879-larb-port.h>
 #endif
+
+#define M4U_PORT_DUMMY_EIS  (0)
+#define M4U_PORT_DUMMY_TNR  (1)
+#define M4U_PORT_DUMMY_LITE (2)
 
 #include "mtk_imgsys-wpe.h"
 
@@ -97,7 +103,6 @@ const struct imgsys_reg_range wpe_regs[] = {
 
 void __iomem *gWpeRegBA[WPE_HW_NUM] = {0L};
 
-#ifdef WPE_TF_DUMP
 int imgsys_wpe_tfault_callback(int port,
 	dma_addr_t mva, void *data)
 {
@@ -108,12 +113,8 @@ int imgsys_wpe_tfault_callback(int port,
 
 	pr_debug("%s: +\n", __func__);
 
-	if (data == NULL) {
-		pr_info("%s: pull data pointer!\n", __func__);
-		return 0;
-	}
-
 	switch (port) {
+#ifdef WPE_TF_DUMP_71_1
 	case M4U_PORT_L11_IMG2_WPE_RDMA0:
 	case M4U_PORT_L11_IMG2_WPE_RDMA1:
 	case M4U_PORT_L11_IMG2_WPE_RDMA_4P0:
@@ -122,8 +123,21 @@ int imgsys_wpe_tfault_callback(int port,
 	case M4U_PORT_L11_IMG2_WPE_WDMA_4P0:
 	case M4U_PORT_L11_IMG2_WPE_CQ0:
 	case M4U_PORT_L11_IMG2_WPE_CQ1:
+#elif defined(WPE_TF_DUMP_71_2)
+	case M4U_LARB11_PORT0:
+	case M4U_LARB11_PORT1:
+	case M4U_LARB11_PORT2:
+	case M4U_LARB11_PORT3:
+	case M4U_LARB11_PORT18:
+	case M4U_LARB11_PORT19:
+	case M4U_LARB11_PORT4:
+	case M4U_LARB11_PORT5:
+#else
+	case M4U_PORT_DUMMY_EIS:
+#endif
 		engine = REG_MAP_E_WPE_EIS;
 		break;
+#ifdef WPE_TF_DUMP_71_1
 	case M4U_PORT_L22_IMG2_WPE_RDMA0:
 	case M4U_PORT_L22_IMG2_WPE_RDMA1:
 	case M4U_PORT_L22_IMG2_WPE_RDMA_4P0:
@@ -132,8 +146,21 @@ int imgsys_wpe_tfault_callback(int port,
 	case M4U_PORT_L22_IMG2_WPE_WDMA_4P0:
 	case M4U_PORT_L22_IMG2_WPE_CQ0:
 	case M4U_PORT_L22_IMG2_WPE_CQ1:
+#elif defined(WPE_TF_DUMP_71_2)
+	case M4U_LARB22_PORT0:
+	case M4U_LARB22_PORT1:
+	case M4U_LARB22_PORT2:
+	case M4U_LARB22_PORT3:
+	case M4U_LARB22_PORT18:
+	case M4U_LARB22_PORT19:
+	case M4U_LARB22_PORT4:
+	case M4U_LARB22_PORT5:
+#else
+	case M4U_PORT_DUMMY_TNR:
+#endif
 		engine = REG_MAP_E_WPE_TNR;
 		break;
+#ifdef WPE_TF_DUMP_71_1
 	case M4U_PORT_L23_IMG2_WPE_RDMA0:
 	case M4U_PORT_L23_IMG2_WPE_RDMA1:
 	case M4U_PORT_L23_IMG2_WPE_RDMA_4P0:
@@ -142,6 +169,18 @@ int imgsys_wpe_tfault_callback(int port,
 	case M4U_PORT_L23_IMG2_WPE_WDMA_4P0:
 	case M4U_PORT_L23_IMG2_WPE_CQ0:
 	case M4U_PORT_L23_IMG2_WPE_CQ1:
+#elif defined(WPE_TF_DUMP_71_2)
+	case M4U_LARB23_PORT0:
+	case M4U_LARB23_PORT1:
+	case M4U_LARB23_PORT2:
+	case M4U_LARB23_PORT3:
+	case M4U_LARB23_PORT18:
+	case M4U_LARB23_PORT19:
+	case M4U_LARB23_PORT4:
+	case M4U_LARB23_PORT5:
+#else
+	case M4U_PORT_DUMMY_LITE:
+#endif
 		engine = REG_MAP_E_WPE_LITE;
 		break;
 	default:
@@ -174,7 +213,6 @@ int imgsys_wpe_tfault_callback(int port,
 
 	return 1;
 }
-#endif
 
 void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
@@ -200,7 +238,7 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-#ifdef WPE_TF_DUMP
+#ifdef WPE_TF_DUMP_71_1
 	//wpe_eis
 	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
@@ -211,7 +249,7 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA_4P0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA_4P1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, 0);
 	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_WDMA0,
@@ -236,7 +274,7 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA_4P0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA_4P1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
 	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_WDMA0,
@@ -274,6 +312,82 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
 	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_CQ1,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+#elif defined(WPE_TF_DUMP_71_2)
+	//wpe_eis
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT0,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT1,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT2,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT3,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, 0);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT18,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, 0);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT19,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, 0);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT4,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB11_PORT5,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	//wpe_tnr
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT0,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT1,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT2,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT3,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT18,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT19,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT4,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB22_PORT5,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	//wpe_lite
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT0,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT1,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT2,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT23,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT18,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT19,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT4,
+			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
+			NULL, false);
+	mtk_iommu_register_fault_callback(M4U_LARB23_PORT5,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
 #endif
@@ -325,11 +439,14 @@ void imgsys_wpe_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT));
 
 	dev_info(imgsys_dev->dev,
-	  "%s: [0x%x]dbg_sel,[0x%x]REQ/RDY: PQDIP[0x%x]%d/%d, DIP[0x%x]%d/%d, TRAW[0x%x]%d/%d",
+	  "%s: [0x%x]dbg_sel,[0x%x]val/REQ/RDY: PQDIP[0x%x]0x%x/%d/%d, DIP[0x%x]0x%x/%d/%d, TRAW[0x%x]0x%x/%d/%d",
 	  __func__, WPE_REG_DBG_SET, WPE_REG_DBG_PORT,
-	  sel_value[0], ((debug_value[0] >> 24) & 0x1), ((debug_value[0] >> 23) & 0x1),
-	  sel_value[1], ((debug_value[1] >> 24) & 0x1), ((debug_value[1] >> 23) & 0x1),
-	  sel_value[2], ((debug_value[2] >> 24) & 0x1), ((debug_value[2] >> 23) & 0x1));
+	  sel_value[0], debug_value[0],
+	   ((debug_value[0] >> 24) & 0x1), ((debug_value[0] >> 23) & 0x1),
+	  sel_value[1], debug_value[1],
+	   ((debug_value[1] >> 24) & 0x1), ((debug_value[1] >> 23) & 0x1),
+	  sel_value[2], debug_value[2],
+	   ((debug_value[2] >> 24) & 0x1), ((debug_value[2] >> 23) & 0x1));
 }
 EXPORT_SYMBOL(imgsys_wpe_set_initial_value);
 
@@ -387,7 +504,7 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int i, j, ctl_en;
 	unsigned int hw_idx = 0, ofst_idx;
 	unsigned int wpeBase = 0;
-	unsigned int startHw = REG_MAP_E_WPE_EIS, endHW = REG_MAP_E_WPE_LITE;
+	unsigned int startHw = REG_MAP_E_WPE_EIS, endHW = REG_MAP_E_WPE_TNR;
 
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
@@ -395,10 +512,10 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		endHW = REG_MAP_E_WPE_EIS;
 
 	if (!(engine & IMGSYS_ENG_WPE_EIS) && (engine & IMGSYS_ENG_WPE_TNR))
-		startHw = endHW = REG_MAP_E_WPE_TNR;
+		startHw = REG_MAP_E_WPE_TNR;
 
 	if ((engine & IMGSYS_ENG_WPE_LITE))
-		startHw = REG_MAP_E_WPE_LITE;
+		startHw = endHW = REG_MAP_E_WPE_LITE;
 
 
 	/* iomap registers */

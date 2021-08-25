@@ -12,6 +12,14 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 
+
+ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
+  subdir-ccflags-y += -DWPE_TF_DUMP_71_1
+else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6879-larb-port.h),)
+  subdir-ccflags-y += -DWPE_TF_DUMP_71_2
+endif
+$(info "imgsys, subdir-ccflags-y = $(subdir-ccflags-y)")
+
 # Utilities to provide frame-based streaming model
 # with v4l2 user interfaces and alloc context managing
 # memory shared between ISP and coprocessor
