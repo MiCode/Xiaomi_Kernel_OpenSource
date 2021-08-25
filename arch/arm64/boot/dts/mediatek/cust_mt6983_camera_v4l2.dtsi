@@ -382,6 +382,10 @@
 };
 
 &i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	camera_af_main_two@0e {
 		compatible = "mediatek,gt9772b";
 		reg = <0x0e>;
@@ -444,6 +448,10 @@
 };
 
 &i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	camera_af_main_two@0d {
 		compatible = "mediatek,gt9772a";
 		reg = <0x0d>;
@@ -577,6 +585,10 @@
 };
 
 &i2c8 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	camera_af_main@72 {
 		compatible = "mediatek,lc898229";
 		reg = <0x72>;
