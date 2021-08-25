@@ -34,6 +34,7 @@ enum {
 enum {
 	CUST_CMD_CALI = 0,
 	/* Add custom cmd action here! */
+	CUST_CMD_TEST = 1,
 	MAX_CUST_CMD,
 };
 
