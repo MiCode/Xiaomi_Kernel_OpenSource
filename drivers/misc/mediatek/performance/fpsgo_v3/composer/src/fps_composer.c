@@ -198,6 +198,7 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 {
 	struct render_info *f_render;
 	int xgf_ret = 0;
+	int xgff_ret = 0;
 	int check_render;
 	int ret;
 
@@ -266,6 +267,10 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_START, NULL, NULL,
 					enqueue_start_time, f_render->hwui);
+		xgff_ret =
+			xgff_frame_startend_fp(1, pid, f_render->buffer_id,
+			0, NULL, NULL, NULL, NULL);
+
 		break;
 	case BY_PASS_TYPE:
 		f_render->t_enqueue_start = enqueue_start_time;
@@ -289,6 +294,11 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	struct render_info *f_render;
 	struct hwui_info *h_info;
 	int xgf_ret = 0;
+	int xgff_ret = 0;
+	unsigned long long queue_cpu_time = 0;
+	unsigned int queue_area = 0;
+	unsigned int queue_dep_size = 20;
+	unsigned int queue_dep[20];
 	int check_render;
 	unsigned long long running_time = 0;
 	unsigned long long mid = 0;
@@ -355,6 +365,15 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_END, &running_time, &mid,
 					enqueue_end_time, f_render->hwui);
+		xgff_ret =
+			xgff_frame_startend_fp(0, pid, f_render->buffer_id,
+			0, &queue_cpu_time, &queue_area, &queue_dep_size, queue_dep);
+		f_render->enqueue_length_real = f_render->enqueue_length > queue_cpu_time ?
+			f_render->enqueue_length - queue_cpu_time : 0;
+		fpsgo_systrace_c_fbt_debug(pid, f_render->buffer_id,
+			queue_cpu_time, "queue_cpu_time");
+		fpsgo_systrace_c_fbt_debug(pid, f_render->buffer_id,
+			f_render->enqueue_length_real, "enq_length_real");
 		if (running_time != 0)
 			f_render->running_time = running_time;
 		f_render->mid = mid;

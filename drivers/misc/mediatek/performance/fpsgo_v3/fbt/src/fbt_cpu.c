@@ -361,6 +361,7 @@ static unsigned long long vsync_time;
 static unsigned long long vsync_duration_us_90;
 static unsigned long long vsync_duration_us_60;
 static unsigned long long vsync_duration_us_120;
+static unsigned long long vsync_duration_us_144;
 
 static int vsync_period;
 static int _gdfrc_fps_limit;
@@ -2615,6 +2616,8 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		target_time = max(target_time, (long long)vsync_duration_us_90);
 	if (!gcc_fps_margin && target_fps == 120)
 		target_time = max(target_time, (long long)vsync_duration_us_120);
+	if (!gcc_fps_margin && target_fps == 144)
+		target_time = max(target_time, (long long)vsync_duration_us_144);
 
 	s32_target_time = target_time;
 	window_cnt = target_fps * gcc_window_size;
@@ -2775,6 +2778,8 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		target_time = vsync_duration_us_90;
 	if (!gcc_fps_margin && target_fps == 120)
 		target_time = vsync_duration_us_120;
+	if (!gcc_fps_margin && target_fps == 144)
+		target_time = vsync_duration_us_144;
 
 	gcc_down_window = target_fps * gcc_down_sec_pct;
 	do_div(gcc_down_window, 100);
@@ -3023,7 +3028,7 @@ static int fbt_boost_policy(
 		int s32_target_time = update_quota(boost_info,
 				target_fps,
 				thread_info->Q2Q_time,
-				thread_info->enqueue_length,
+				thread_info->enqueue_length_real,
 				thread_info->dequeue_length,
 				target_fpks);
 
@@ -3226,6 +3231,9 @@ static void fbt_check_max_blc_locked(void)
 			fbt_boost_dram(0);
 		memset(base_opp, 0, cluster_num * sizeof(unsigned int));
 		fbt_notify_CM_limit(0);
+		fbt_set_idleprefer_locked(0);
+		fbt_set_down_throttle_locked(-1);
+		fbt_set_sync_flag_locked(-1);
 	} else
 		fbt_set_limit(max_blc, max_blc_pid, max_blc_buffer_id, NULL, 0);
 }
@@ -3658,6 +3666,10 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 		goto EXIT;
 	}
 
+	fbt_set_idleprefer_locked(1);
+	fbt_set_down_throttle_locked(0);
+	fbt_set_sync_flag_locked(0);
+
 	blc_wt = fbt_boost_policy(runtime,
 			targettime, targetfps, fps_margin,
 			thr, ts, loading, targetfpks);
@@ -3820,6 +3832,7 @@ void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 	if (_gdfrc_fps_limit == 60) {
 		vsync_duration_us_90 = 0;
 		vsync_duration_us_120 = 0;
+		vsync_duration_us_144 = 0;
 		if (vsync_duration_us_60 == 0)
 			vsync_duration_us_60 = 1000000 / 60;
 		else {
@@ -3833,6 +3846,7 @@ void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 	} else if (_gdfrc_fps_limit == 90) {
 		vsync_duration_us_60 = 0;
 		vsync_duration_us_120 = 0;
+		vsync_duration_us_144 = 0;
 		if (vsync_duration_us_90 == 0)
 			vsync_duration_us_90 = 1000000 / 90;
 		else {
@@ -3845,6 +3859,7 @@ void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 	} else if (_gdfrc_fps_limit == 120) {
 		vsync_duration_us_60 = 0;
 		vsync_duration_us_90 = 0;
+		vsync_duration_us_144 = 0;
 		if (vsync_duration_us_120 == 0)
 			vsync_duration_us_120 = 1000000 / 120;
 		else {
@@ -3854,15 +3869,29 @@ void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 				(vsync_duration * 3 + vsync_duration_us_120 * 7) / 10 :
 				vsync_duration_us_120;
 		}
+	}  else if (_gdfrc_fps_limit == 144) {
+		vsync_duration_us_60 = 0;
+		vsync_duration_us_90 = 0;
+		vsync_duration_us_120 = 0;
+		if (vsync_duration_us_144 == 0)
+			vsync_duration_us_144 = 1000000 / 144;
+		else {
+			vsync_duration_us_144 =
+				vsync_duration < 1000000 / 144 * 15 / 10 &&
+				vsync_duration > 1000000 / 144 / 2 ?
+				(vsync_duration * 3 + vsync_duration_us_144 * 7) / 10 :
+				vsync_duration_us_144;
+		}
 	}
 
 	vsync_time = ts;
 	xgf_trace(
-		"vsync_time=%llu, vsync_duration=%llu, vsync_duration_60=%llu, vsync_duration_90=%llu, vsync_duration_120=%llu",
+		"vsync_time=%llu, vsync_duration=%llu, vsync_duration_60=%llu, vsync_duration_90=%llu, vsync_duration_120=%llu, vsync_duration_144=%llu",
 		nsec_to_usec(vsync_time), vsync_duration,
 		vsync_duration_us_60,
 		vsync_duration_us_90,
-		vsync_duration_us_120);
+		vsync_duration_us_120,
+		vsync_duration_us_144);
 
 	mutex_unlock(&fbt_mlock);
 }
@@ -3885,11 +3914,6 @@ void fpsgo_comp2fbt_frame_start(struct render_info *thr,
 		return;
 	}
 
-	mutex_lock(&fbt_mlock);
-	fbt_set_idleprefer_locked(1);
-	fbt_set_down_throttle_locked(0);
-	fbt_set_sync_flag_locked(0);
-	mutex_unlock(&fbt_mlock);
 
 	fbt_frame_start(thr, ts);
 }
@@ -3925,7 +3949,6 @@ void fpsgo_comp2fbt_bypass_enq(void)
 
 	if (!bypass_flag) {
 		bypass_flag = 1;
-		fbt_set_idleprefer_locked(1);
 
 		fpsgo_systrace_c_fbt_debug(-100, 0, bypass_flag, "bypass_flag");
 	}
