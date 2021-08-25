@@ -3162,10 +3162,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video encode max qp";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
@@ -3174,10 +3174,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video encode min qp";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
@@ -3186,10 +3186,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video encode ip qp delta";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
@@ -3198,10 +3198,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video encode frame level qp";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
