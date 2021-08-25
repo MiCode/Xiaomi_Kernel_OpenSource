@@ -2753,21 +2753,30 @@ char *cmdq_pkt_parse_buf(struct cmdq_pkt *pkt, u32 *size_out)
 		else
 			size = CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE;
 
-		for (cur_inst = 0; cur_inst < CMDQ_NUM_CMD(size) && cur_buf < buf_size;
+		if (buf == list_first_entry(&pkt->buf, typeof(*buf), list_entry)) {
+			cur_inst = 0;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+			if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+				cur_inst = 2;
+#endif
+		}
+
+		for (; cur_inst < CMDQ_NUM_CMD(size) && cur_buf < buf_size;
 			cur_inst++) {
 			len = snprintf(insts + cur_buf, buf_size - cur_buf,
 				"%#018llx,\n", *((u64 *)buf->va_base + cur_inst));
+			if (len > 0)
+				cur_buf += len;
 			if (len != CMDQ_INST_STR_SIZE) {
 				cmdq_err(
 					"%s wrong in dump len %d cur size %u buf size %u inst idx %u",
 					__func__, len, cur_buf, size, cur_inst);
 				break;
 			}
-			cur_buf += len;
 		}
 	}
 
-	*size_out = buf_size;
+	*size_out = cur_buf + 1;
 	return insts;
 }
 EXPORT_SYMBOL(cmdq_pkt_parse_buf);
