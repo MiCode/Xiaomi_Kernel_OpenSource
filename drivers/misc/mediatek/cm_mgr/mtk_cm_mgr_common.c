@@ -878,8 +878,11 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
-	if (cpu_id != cpumask_first(policy->related_cpus))
+	if (cpu_id != cpumask_first(policy->related_cpus)) {
+		cpufreq_cpu_put(policy);
 		return;
+	}
+	cpufreq_cpu_put(policy);
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
@@ -890,6 +893,7 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 			break;
 		cpu = cpumask_last(policy->related_cpus);
 		cluster++;
+		cpufreq_cpu_put(policy);
 	}
 
 	if (policy) {
@@ -897,7 +901,9 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 				CPUFREQ_RELATION_L);
 		if (hk.check_cm_mgr_status)
 			hk.check_cm_mgr_status(cluster, frequency, idx);
+		cpufreq_cpu_put(policy);
 	}
+
 }
 
 struct tracepoints_table cm_mgr_tracepoints[] = {
