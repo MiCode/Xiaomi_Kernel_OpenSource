@@ -22,6 +22,14 @@
 #define MASK_8(a) ((a) & 0xff)
 #define MULTIPLY_RATIO(value) ((value)*1000)
 
+enum mmqos_state_level {
+	MMQOS_DISABLE = 0,
+	OSTD_ENABLE,
+	BWL_ENABLE,
+	MMQOS_ENABLE,
+};
+static u8 mmqos_state = MMQOS_ENABLE;
+
 struct common_port_node {
 	struct mmqos_base_node *base;
 	struct common_node *common;
@@ -214,11 +222,13 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 						/ mtk_mmqos_get_hrt_ratio(
 						comm_port_node->hrt_type);
 		comm_port_node->latest_avg_bw = dst->avg_bw;
-		mmqos_update_comm_bw(comm_port_node->larb_dev,
-			MASK_8(dst->id), comm_port_node->common->freq,
-			icc_to_MBps(comm_port_node->latest_mix_bw),
-			icc_to_MBps(comm_port_node->latest_peak_bw),
-			mmqos->qos_bound);
+		if (mmqos_state & BWL_ENABLE) {
+			mmqos_update_comm_bw(comm_port_node->larb_dev,
+				MASK_8(dst->id), comm_port_node->common->freq,
+				icc_to_MBps(comm_port_node->latest_mix_bw),
+				icc_to_MBps(comm_port_node->latest_peak_bw),
+				mmqos->qos_bound);
+		}
 		mutex_unlock(&comm_port_node->bw_lock);
 		if (comm_port_node->hrt_type == HRT_CAM)
 			mtk_mmqos_wait_throttle_done();
@@ -234,9 +244,11 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 				larb_port_node->bw_ratio);
 		if (value > mmqos->max_ratio)
 			value = mmqos->max_ratio;
-		mtk_smi_larb_bw_set(
-			larb_node->larb_dev,
-			MTK_M4U_TO_PORT(src->id), value);
+		if (mmqos_state & OSTD_ENABLE) {
+			mtk_smi_larb_bw_set(
+				larb_node->larb_dev,
+				MTK_M4U_TO_PORT(src->id), value);
+		}
 		if (log_level & 1 << log_bw)
 			dev_notice(larb_node->larb_dev,
 				"larb=%d port=%d avg_bw:%d peak_bw:%d ostd=%#x\n",
@@ -547,6 +559,13 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 
 	mmqos->max_ratio = mmqos_desc->max_ratio;
+
+	pr_notice("[mmqos] mmqos probe state: %d", mmqos_state);
+	if (of_property_read_bool(pdev->dev.of_node, "disable-mmqos")) {
+		mmqos_state = MMQOS_DISABLE;
+		pr_notice("[mmqos] mmqos init disable: %d", mmqos_state);
+	}
+
 	/*
 	mmqos->wq = create_singlethread_workqueue("mmqos_work_queue");
 	if (!mmqos->wq) {
@@ -598,6 +617,27 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 
 module_param(log_level, uint, 0644);
 MODULE_PARM_DESC(log_level, "mmqos log level");
+
+int mmqos_enabled_set(const char *val, const struct kernel_param *kp)
+{
+
+	int	result;
+
+	result = kstrtou8(val, 0, &mmqos_state);
+	if (result) {
+		pr_notice("[mmqos] mmqos enable failed: %d\n", result);
+		return result;
+	}
+	pr_notice("[mmqos] mmqos setting: %d\n", mmqos_state);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmqos_enabled_ops = {
+	.set = mmqos_enabled_set,
+};
+module_param_cb(mmqos_state, &mmqos_enabled_ops, NULL, 0644);
+MODULE_PARM_DESC(mmqos_state, "mmqos_enabled_set");
 
 EXPORT_SYMBOL_GPL(mtk_mmqos_remove);
 MODULE_LICENSE("GPL v2");
