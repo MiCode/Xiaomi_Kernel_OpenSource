@@ -20,6 +20,10 @@
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
 
+#undef pr_fmt
+#define pr_fmt(fmt) "[mml_pq_tdshp]" fmt
+
+
 #define TDSHP_00		0x000
 #define TDSHP_01		0x004
 #define TDSHP_02		0x008
@@ -179,6 +183,10 @@
 #define POST_YLEV_03		0x48c
 #define POST_YLEV_04		0x490
 #define TDSHP_SHADOW_CTRL	0x67c
+#define HFG_CTRL	        0x500
+
+#define TDSHP_WAIT_TIMEOUT_MS (50)
+
 
 struct tdshp_data {
 	u32 tile_width;
@@ -219,14 +227,25 @@ static inline struct mml_comp_tdshp *comp_to_tdshp(struct mml_comp *comp)
 static s32 tdshp_prepare(struct mml_comp *comp, struct mml_task *task,
 			 struct mml_comp_config *ccfg)
 {
-	struct tdshp_frame_data *tdshp_frm;
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = NULL;
+	s32 ret = 0;
 
+	mml_pq_trace_ex_begin("%s", __func__);
 	tdshp_frm = kzalloc(sizeof(*tdshp_frm), GFP_KERNEL);
 	ccfg->data = tdshp_frm;
 	/* cache out index for easy use */
 	tdshp_frm->out_idx = ccfg->node->out_idx;
+	dest = &cfg->info.dest[tdshp_frm->out_idx];
 
-	return 0;
+	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc) {
+		mml_pq_trace_ex_end();
+		return ret;
+	}
+
+	ret = mml_pq_comp_config(task);
+	return ret;
 }
 
 static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -283,6 +302,20 @@ static s32 tdshp_init(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static struct mml_pq_comp_config_result *get_tdshp_comp_config_result(
+	struct mml_task *task)
+{
+	struct mml_pq_sub_task *sub_task = NULL;
+
+	if (task->pq_task)
+		sub_task = &task->pq_task->comp_config;
+	if (sub_task)
+		return (struct mml_pq_comp_config_result *)sub_task->result;
+	else
+		return NULL;
+}
+
+
 static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 			      struct mml_comp_config *ccfg)
 {
@@ -294,9 +327,17 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_dest *dest = &cfg->info.dest[tdshp_frm->out_idx];
 
 	const phys_addr_t base_pa = comp->base_pa;
+	struct mml_pq_comp_config_result *result = NULL;
+	s32 ret = 0;
+
+	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc) {
+		/* relay mode */
+		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x1, 0x00000001);
+	}
 
 	/* relay mode */
 	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x1, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + HFG_CTRL, 0, 0x00000101);
 
 	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0, 0x00000004);
@@ -304,7 +345,34 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL,
 			1 << 2, 0x00000004);
 
-	return 0;
+	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc)
+		return ret;
+
+	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
+	if (!ret) {
+		result = get_tdshp_comp_config_result(task);
+		if (result) {
+			s32 i;
+			struct mml_pq_reg *regs = result->ds_regs;
+			//TODO: use different regs
+			mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
+			for (i = 0; i < result->ds_reg_cnt; i++) {
+				cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
+					regs[i].value, regs[i].mask);
+				mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
+					regs[i].offset, regs[i].value, regs[i].mask);
+			}
+
+		} else {
+			mml_pq_err("%s: not get result from user lib", __func__);
+		}
+	} else {
+		mml_pq_err("get ds param timeout: %d in %dms",
+			ret, TDSHP_WAIT_TIMEOUT_MS);
+	}
+
+
+	return ret;
 }
 
 static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,

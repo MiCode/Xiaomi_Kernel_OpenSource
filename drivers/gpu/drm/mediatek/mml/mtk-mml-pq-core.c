@@ -680,6 +680,7 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 	struct mml_pq_aal_config_param *aal_param = NULL;
 	struct mml_pq_reg *aal_regs = NULL;
 	struct mml_pq_reg *hdr_regs = NULL;
+	struct mml_pq_reg *ds_regs = NULL;
 	u32 *aal_curve = NULL;
 	u32 *hdr_curve = NULL;
 	s32 ret = 0;
@@ -791,11 +792,27 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_hdr_curve;
 	}
 
+	ds_regs = kmalloc(result->ds_reg_cnt*sizeof(*ds_regs),
+			GFP_KERNEL);
+	if (unlikely(!ds_regs)) {
+		mml_pq_err("err: create ds_regs failed, size:%d\n",
+			result->ds_reg_cnt);
+		goto free_aal_curve;
+	}
+
+	ret = copy_from_user(ds_regs, result->ds_regs,
+		result->ds_reg_cnt*sizeof(*ds_regs));
+	if (unlikely(ret)) {
+		mml_pq_err("copy ds config failed!: %d\n", ret);
+		goto free_ds_regs;
+	}
+
 	result->aal_param = aal_param;
 	result->aal_regs = aal_regs;
 	result->aal_curve = aal_curve;
 	result->hdr_regs = hdr_regs;
 	result->hdr_curve = hdr_curve;
+	result->ds_regs = ds_regs;
 	mutex_lock(&sub_task->lock);
 	sub_task->result = result;
 	mutex_unlock(&sub_task->lock);
@@ -806,6 +823,8 @@ free_hdr_curve:
 	kfree(hdr_curve);
 free_hdr_regs:
 	kfree(hdr_regs);
+free_ds_regs:
+	kfree(ds_regs);
 free_aal_curve:
 	kfree(aal_curve);
 free_aal_regs:
