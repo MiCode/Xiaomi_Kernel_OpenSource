@@ -574,6 +574,11 @@ struct msdc_delay_phase {
 	u8 final_phase;
 };
 
+struct reg_oc_msdc {
+	struct notifier_block nb;
+	struct work_struct work;
+};
+
 struct msdc_host {
 	struct device *dev;
 	const struct mtk_mmc_compatible *dev_comp;
@@ -624,6 +629,7 @@ struct msdc_host {
 	struct msdc_tune_para def_tune_para; /* default tune setting */
 	struct msdc_tune_para saved_tune_para; /* tune result of CMD21/CMD19 */
 	struct cqhci_host *cq_host;
+	struct reg_oc_msdc sd_oc;
 	/* autok */
 	int	id;		/* host id */
 	bool tuning_in_progress;

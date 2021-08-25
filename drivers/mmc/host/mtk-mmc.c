@@ -1521,6 +1521,12 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				dev_err(host->dev, "Failed to set vmmc power!\n");
 				return;
 			}
+			/* There is a pulse signal in some case,
+			 * so add delay to avoid false alarm when vmmc power up
+			 */
+			mdelay(3);
+			devm_regulator_register_notifier(mmc->supply.vmmc,
+				&host->sd_oc.nb);
 		}
 		break;
 	case MMC_POWER_ON:
@@ -1533,6 +1539,8 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		break;
 	case MMC_POWER_OFF:
+		devm_regulator_unregister_notifier(mmc->supply.vmmc,
+			&host->sd_oc.nb);
 		if (!IS_ERR(mmc->supply.vmmc))
 			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
 
@@ -2462,6 +2470,50 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 }
 #endif
 
+void msdc_sd_power_off(struct msdc_host *host)
+{
+	struct mmc_host *mmc = mmc_from_priv(host);
+
+	if (mmc) {
+		pr_notice("VMMC OC,Power Off SD card\n");
+		if (!IS_ERR(mmc->supply.vmmc))
+			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
+
+		if (!IS_ERR(mmc->supply.vqmmc) && host->vqmmc_enabled) {
+			regulator_disable(mmc->supply.vqmmc);
+			host->vqmmc_enabled = false;
+		}
+
+		msdc_set_bad_card_and_remove(host);
+	}
+}
+
+static int msdc_sd_event(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct msdc_host *host =
+		container_of(nb, struct msdc_host, sd_oc.nb);
+
+	switch (event) {
+	case REGULATOR_EVENT_OVER_CURRENT:
+	case REGULATOR_EVENT_FAIL:
+		schedule_work(&host->sd_oc.work);
+		break;
+	default:
+		break;
+	};
+
+	return NOTIFY_OK;
+}
+
+static void sdcard_oc_handler(struct work_struct *work)
+{
+	struct msdc_host *host =
+		container_of(work, struct msdc_host, sd_oc.work);
+
+	msdc_sd_power_off(host);
+}
+
 static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -2544,6 +2596,11 @@ static int msdc_drv_probe(struct platform_device *pdev)
 #endif
 
 	msdc_of_property_parse(pdev, host);
+
+	if (host->id == MSDC_SD) {
+		host->sd_oc.nb.notifier_call = msdc_sd_event;
+		INIT_WORK(&host->sd_oc.work, sdcard_oc_handler);
+	}
 
 	host->dev = &pdev->dev;
 	host->dev_comp = of_device_get_match_data(&pdev->dev);
