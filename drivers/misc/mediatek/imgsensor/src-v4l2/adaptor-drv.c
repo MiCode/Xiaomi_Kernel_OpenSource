@@ -943,8 +943,10 @@ static int imgsensor_get_temp(void *data, int *temperature)
 #else
 	*temperature = 0;
 #endif
-
-	subdrv_call(ctx, get_temp, temperature);
+	if (ctx->is_streaming)
+		subdrv_call(ctx, get_temp, temperature);
+	else
+		*temperature = THERMAL_TEMP_INVALID;
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_put(ctx->dev);
