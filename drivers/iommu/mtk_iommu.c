@@ -190,6 +190,7 @@
 #define IOMMU_NO_IRQ			BIT(17)
 #define GET_DOM_ID_LEGACY		BIT(18)
 #define HAS_SMI_SUB_COMM		BIT(19)
+#define SAME_SUBSYS			BIT(20)
 
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
@@ -1908,8 +1909,16 @@ skip_smi:
 		mtk_pd_notifiers[iommu_id].priority = iommu_id;
 
 		/* defaut power on,if larbs has the node "init-power-on" */
-		if (disp_power_on)
-			pd_sta[iommu_id] = POWER_ON_STA;
+		if (disp_power_on) {
+			if (MTK_IOMMU_HAS_FLAG(data->plat_data, SAME_SUBSYS)) {
+				pd_sta[DISP_IOMMU] = POWER_ON_STA;
+				pd_sta[MDP_IOMMU] = POWER_ON_STA;
+				pr_info("%s, config power on, (%d,%d)\n", __func__,
+					data->plat_data->iommu_type, data->plat_data->iommu_id);
+			} else {
+				pd_sta[iommu_id] = POWER_ON_STA;
+			}
+		}
 
 		r = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifiers[iommu_id]);
 		tlb_locks[iommu_id] = data->tlb_lock;
@@ -2478,7 +2487,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN |
-			  HAS_BCLK | HAS_SMI_SUB_COMM,
+			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
@@ -2498,7 +2507,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN |
-			  HAS_BCLK | HAS_SMI_SUB_COMM,
+			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
 	.iommu_type     = MM_IOMMU,
