@@ -26,6 +26,7 @@
 #include <linux/sysfs.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
+#include <linux/workqueue.h>
 
 #include "apusys_core.h"
 #include "hw_logger.h"
@@ -73,7 +74,7 @@ static unsigned int __hw_log_r_ofs;
 /* for sysfs normal dump */
 static unsigned int g_dump_log_r_ofs;
 
-static bool apu_toplog_deep_idle;
+atomic_t apu_toplog_deep_idle;
 
 struct hw_logger_seq_data {
 	unsigned int w_ptr;
@@ -89,6 +90,12 @@ static struct hw_logger_seq_data g_log;
 static struct hw_logger_seq_data g_log_l;
 /* for procfs mobile logger lock dump */
 static struct hw_logger_seq_data g_log_lm;
+
+static struct workqueue_struct *apusys_hwlog_wq;
+static struct work_struct apusys_hwlog_task;
+static unsigned int wq_w_ofs, wq_r_ofs, wq_t_size;
+
+#define APUSYS_HWLOG_WQ_NAME "apusys_hwlog_wq"
 
 static void hw_logger_buf_invalidate(void)
 {
@@ -146,12 +153,14 @@ out:
 	return ret;
 }
 
+#ifdef HW_LOG_ISR
 static bool get_ov_flag(void)
 {
 	unsigned int intrs = GET_MASK_BITS(APU_LOGTOP_CON_FLAG);
 
 	return !!(intrs & OVWRITE_FLAG);
 }
+#endif
 
 static unsigned long long get_st_addr(void)
 {
@@ -233,7 +242,7 @@ int hw_logger_config_init(struct mtk_apu *apu)
 
 	__loc_log_sz = 0;
 
-	apu_toplog_deep_idle = false;
+	atomic_set(&apu_toplog_deep_idle, 0);
 
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
@@ -252,37 +261,22 @@ int hw_logger_config_init(struct mtk_apu *apu)
 }
 EXPORT_SYMBOL(hw_logger_config_init);
 
-static int apu_logtop_copy_buf(void)
+static int __apu_logtop_copy_buf(unsigned int w_ofs,
+	unsigned int r_ofs, unsigned int t_size)
 {
 	unsigned long flags;
-	unsigned int w_ofs, r_ofs, t_size;
 	unsigned int r_size;
 	unsigned int log_w_ofs, log_ov_flg;
-	bool ovwrite_flg;
 	int ret = 0;
 
 	if (!apu_logtop || !hw_log_buf || !local_log_buf)
 		return 0;
-
-	ovwrite_flg = get_ov_flag();
 
 #ifdef HW_LOG_ISR
 	SET_MASK_BITS(GET_MASK_BITS(APU_LOGTOP_CON_FLAG),
 		APU_LOGTOP_CON_FLAG);
 #endif
 
-	if (get_r_ptr() == 0)
-		set_r_ptr(get_st_addr());
-
-	/* offset,size is only 32bit width */
-	w_ofs = get_w_ptr() - get_st_addr();
-	r_ofs = get_r_ptr() - get_st_addr();
-	t_size = get_t_size();
-
-	HWLOGR_DBG("get_w_ptr() = 0x%llx, get_r_ptr() = 0x%llx\n",
-		get_w_ptr(), get_r_ptr());
-	HWLOGR_DBG("get_st_addr() = 0x%llx, get_t_size() = 0x%x\n",
-		get_st_addr(), get_t_size());
 	HWLOGR_DBG("w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n",
 		w_ofs, r_ofs, t_size);
 
@@ -321,11 +315,12 @@ static int apu_logtop_copy_buf(void)
 	hw_logger_buf_invalidate();
 
 	while (r_size > 0) {
+#ifdef HW_LOG_DEBUG
 		HWLOGR_DBG("(%x)(%03x):(%d) %s",
 			r_ofs, r_size, (int)strlen(hw_log_buf + r_ofs), hw_log_buf + r_ofs);
 		if (DBG_ON())
 			hwlogr_hex_dump(" ", hw_log_buf + r_ofs, HWLOG_LINE_MAX_LENS);
-
+#endif
 		/* copy hw logger buffer to local buffer */
 		memcpy(local_log_buf + log_w_ofs,
 			hw_log_buf + r_ofs, HWLOG_LINE_MAX_LENS);
@@ -353,8 +348,58 @@ static int apu_logtop_copy_buf(void)
 	set_r_ptr(get_st_addr() + r_ofs);
 
 out:
-
 	return ret;
+}
+
+static void __get_r_w_sz(unsigned int *w_ofs,
+	unsigned int *r_ofs, unsigned int *t_size)
+{
+	HWLOGR_DBG("get_w_ptr() = 0x%llx, get_r_ptr() = 0x%llx\n",
+		get_w_ptr(), get_r_ptr());
+	HWLOGR_DBG("get_st_addr() = 0x%llx, get_t_size() = 0x%x\n",
+		get_st_addr(), get_t_size());
+
+	if (get_r_ptr() == 0)
+		set_r_ptr(get_st_addr());
+
+	/* offset,size is only 32bit width */
+	*w_ofs = get_w_ptr() - get_st_addr();
+	*r_ofs = get_r_ptr() - get_st_addr();
+	*t_size = get_t_size();
+}
+
+static int apu_logtop_copy_buf(void)
+{
+	unsigned int w_ofs, r_ofs, t_size;
+
+	__get_r_w_sz(&w_ofs, &r_ofs, &t_size);
+
+	/*
+	 * Check again here. If deep idle is
+	 * entered, the w_ofs, r_ofs, t_size
+	 * can not be trusted.
+	 */
+	if (atomic_read(&apu_toplog_deep_idle))
+		return 0;
+
+	return __apu_logtop_copy_buf(w_ofs,
+		r_ofs, t_size);
+}
+
+static void apu_logtop_copy_buf_wq(struct work_struct *work)
+{
+	HWLOGR_DBG("in\n");
+
+	HWLOGR_DBG("wq_w_ofs = 0x%x, wq_r_ofs = 0x%x, wq_t_size = 0x%x\n",
+		wq_w_ofs, wq_r_ofs, wq_t_size);
+	mutex_lock(&hw_logger_mutex);
+	__apu_logtop_copy_buf(wq_w_ofs,
+		wq_r_ofs, wq_t_size);
+	/* force set 0 here to prevent racing between power up */
+	set_r_ptr(0);
+	mutex_unlock(&hw_logger_mutex);
+
+	HWLOGR_DBG("out\n");
 }
 
 int hw_logger_copy_buf(void)
@@ -366,16 +411,15 @@ int hw_logger_copy_buf(void)
 	if (!apu_logtop)
 		return 0;
 
-	mutex_lock(&hw_logger_mutex);
-
-	if (apu_toplog_deep_idle)
+	if (atomic_read(&apu_toplog_deep_idle))
 		goto out;
 
+	mutex_lock(&hw_logger_mutex);
 	ret = apu_logtop_copy_buf();
-
-out:
 	mutex_unlock(&hw_logger_mutex);
 
+out:
+	/* return copied size */
 	return ret;
 }
 
@@ -386,13 +430,11 @@ int hw_logger_deep_idle_enter(void)
 	if (!apu_logtop)
 		return 0;
 
-	mutex_lock(&hw_logger_mutex);
+	atomic_set(&apu_toplog_deep_idle, 1);
 
-	apu_logtop_copy_buf();
+	__get_r_w_sz(&wq_w_ofs, &wq_r_ofs, &wq_t_size);
 
-	apu_toplog_deep_idle = true;
-
-	mutex_unlock(&hw_logger_mutex);
+	queue_work(apusys_hwlog_wq, &apusys_hwlog_task);
 
 	return 0;
 }
@@ -404,14 +446,10 @@ int hw_logger_deep_idle_leave(void)
 	if (!apu_logtop)
 		return 0;
 
-	mutex_lock(&hw_logger_mutex);
-
-	apu_toplog_deep_idle = false;
-
 	/* clear read pointer */
 	set_r_ptr(get_st_addr());
 
-	mutex_unlock(&hw_logger_mutex);
+	atomic_set(&apu_toplog_deep_idle, 0);
 
 	return 0;
 }
@@ -427,7 +465,7 @@ static irqreturn_t apu_logtop_irq_handler(int irq, void *priv)
 	HWLOGR_DBG("intrs = 0x%x\n", intrs);
 
 	lbc_full_flg = !!(intrs & LBC_FULL_FLAG);
-	ovwrite_flg = !!(intrs & OVWRITE_FLAG);
+	ovwrite_flg = get_ov_flag();
 
 	if (!lbc_full_flg && !ovwrite_flg)
 		HWLOGR_WARN("intr status = 0x%x should not occur\n", intrs);
@@ -843,12 +881,24 @@ static void seq_stop(struct seq_file *s, void *v)
 static int seq_show(struct seq_file *s, void *v)
 {
 	struct hw_logger_seq_data *pSData = v;
+	static unsigned int prevIsBinary;
 
+#ifdef HW_LOG_DEBUG
 	HWLOGR_DBG("(%04d)(%d) %s", pSData->r_ptr,
 		(int)strlen(local_log_buf + pSData->r_ptr), local_log_buf + pSData->r_ptr);
+#endif
 
-	seq_printf(s, "%s",
-		local_log_buf + pSData->r_ptr);
+	if ((local_log_buf[pSData->r_ptr] == 0xA5) &&
+		(local_log_buf[pSData->r_ptr+1] == 0xA5)) {
+		prevIsBinary = 1;
+		seq_write(s, local_log_buf + pSData->r_ptr, HWLOG_LINE_MAX_LENS);
+	} else {
+		if (prevIsBinary)
+			seq_puts(s, "\n");
+		prevIsBinary = 0;
+		seq_printf(s, "%s",
+			local_log_buf + pSData->r_ptr);
+	}
 
 	return 0;
 }
@@ -933,9 +983,6 @@ static ssize_t apusys_log_dump(struct file *filep,
 			break;
 		length += (print_sz + 1); /* include '\n' */
 		pr_ptr = (pr_ptr + HWLOG_LINE_MAX_LENS) % LOCAL_LOG_SIZE;
-		spin_lock_irqsave(&hw_logger_spinlock, flags);
-		g_log.r_ptr = pr_ptr;
-		spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 	} while (pr_ptr != w_ptr);
 
 	g_dump_log_r_ofs = pr_ptr;
@@ -1124,6 +1171,11 @@ static int hw_logger_probe(struct platform_device *pdev)
 		goto remove_hw_log_buf;
 	}
 #endif
+
+	/* Used for deep idle enter */
+	apusys_hwlog_wq = create_workqueue(APUSYS_HWLOG_WQ_NAME);
+	INIT_WORK(&apusys_hwlog_task, apu_logtop_copy_buf_wq);
+
 	HWLOGR_INFO("hw_logger probe done\n");
 
 	return 0;
