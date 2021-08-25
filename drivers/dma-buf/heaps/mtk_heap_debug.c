@@ -166,7 +166,7 @@ unsigned long long get_current_time_ms(void)
 }
 
 /* common function */
-int is_dmabuf_from_heap(struct dma_buf *dmabuf, struct dma_heap *heap)
+int is_dmabuf_from_heap(const struct dma_buf *dmabuf, struct dma_heap *heap)
 {
 
 	struct sys_heap_buf_debug_use *heap_buf;
@@ -204,7 +204,7 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	if (ret)
 		return 0;
 
-	dmabuf_dump(s, "\tinode:%-8d size:0x%-8lx count:%-2ld cache_sg:%-1d exp:%s\tname:%s\n",
+	dmabuf_dump(s, "\tinode:%-8d size:%-8ld count:%-2ld cache_sg:%-1d exp:%s\tname:%s\n",
 		    file_inode(dmabuf->file)->i_ino,
 		    dmabuf->size,
 		    file_count(dmabuf->file),
@@ -271,13 +271,10 @@ static int dma_heap_total_cb(const struct dma_buf *dmabuf,
 			     void *priv)
 {
 	struct mtk_heap_dump_s *dump_info = (typeof(dump_info))priv;
-	const char *d_heap_name = dma_heap_get_name(dump_info->heap);
+	struct dma_heap *heap = dump_info->heap;
 
-	/* not match */
-	if (strncmp(dmabuf->exp_name, d_heap_name, strlen(d_heap_name)))
-		return 0;
-
-	dump_info->ret += dmabuf->size;
+	if (is_dmabuf_from_heap(dmabuf, heap))
+		dump_info->ret += dmabuf->size;
 
 	return 0;
 }
