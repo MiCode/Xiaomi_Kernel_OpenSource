@@ -8459,6 +8459,8 @@ void mtk_disp_mutex_enable_cmdq(struct mtk_disp_mutex *mutex,
 		cmdq_pkt_write(cmdq_handle, cmdq_base,
 		       ddp->side_regs_pa + DISP_REG_MUTEX_CFG, 0, ~0);
 		cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->side_regs_pa + DISP_REG_MUTEX_EN(mutex->id), 0, ~0);
+		cmdq_pkt_write(cmdq_handle, cmdq_base,
 		       ddp->side_regs_pa + DISP_REG_MUTEX_EN(mutex->id), 1, ~0);
 	}
 
