@@ -41,6 +41,8 @@
 #include "ccci_platform.h"
 #include "md_sys1_platform.h"
 #include "modem_reg_base.h"
+#include "modem_secure_base.h"
+
 #include "ccci_debug.h"
 #include "hif/ccci_hif_cldma.h"
 #include "hif/ccci_hif_ccif.h"
@@ -53,8 +55,18 @@ static void debug_in_flight_mode(struct ccci_modem *md);
 #ifdef CCCI_KMODULE_ENABLE
 bool spm_is_md1_sleep(void)
 {
-	pr_notice("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+		MD_GET_SLEEP_MODE, 0, 0, 0, 0, 0, &res);
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] flag_1=%llx, flag_2=%llx, flag_3=%llx, flag_4=%llx\n",
+		__func__, res.a0, res.a1, res.a2, res.a3);
+	if (res.a0 == 0)
+		return res.a1; /* 1-md is sleep, 0 - is not */
+	else
+		return 2; /* not support, no wait */
 }
 
 #endif
@@ -586,6 +598,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 				md1_sleep_timeout_proc();
 			break;
 		}
+		msleep(1000);
 	}
 }
 static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
