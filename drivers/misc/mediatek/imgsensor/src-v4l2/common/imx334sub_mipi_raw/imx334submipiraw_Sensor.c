@@ -159,7 +159,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 #endif
 	.margin = 10,
 	.min_shutter = 3,
-	.min_gain = 64,
+	.min_gain = BASEGAIN,
 	.max_gain = 254788,
 	.min_gain_iso = 100,
 	.exp_step = 2,
@@ -588,6 +588,40 @@ kal_uint32 imx334SUBMIPI_sensorGainMapping[IMX334SUBMIPI_MaxGainIndex][2] = {
 	{254788, 240},
 };
 
+kal_uint32 imx334MIPIsub_sensorGain[IMX334MIPI_MaxGainIndex] = {
+	64*16, 66*16, 68*16, 70*16, 73*16, 76*16, 78*16, 81*16, 84*16, 87*16,
+	90*16, 93*16, 96*16, 100*16, 103*16, 107*16, 111*16, 115*16, 119*16,
+	123*16, 127*16, 132*16, 136*16, 141*16, 146*16, 151*16, 157*16, 162*16,
+	168*16, 174*16, 180*16, 186*16, 193*16, 200*16, 207*16, 214*16, 221*16,
+	229*16, 237*16, 246*16, 254*16, 263*16, 273*16, 282*16, 292*16, 302*16,
+	313*16, 324*16, 335*16, 347*16, 359*16, 372*16, 385*16, 399*16, 413*16,
+	427*16, 442*16, 458*16, 474*16, 491*16, 508*16, 526*16, 544*16, 563*16,
+	583*16, 604*16, 625*16, 647*16, 670*16, 693*16, 718*16, 743*16, 769*16,
+	796*16, 824*16, 853*16, 883*16, 914*16, 946*16, 979*16, 1014*16,
+	1049*16, 1086*16, 1125*16, 1164*16, 1205*16, 1247*16, 1291*16, 1337*16,
+	1384*16, 1432*16, 1483*16, 1535*16, 1589*16, 1645*16, 1702*16, 1762*16,
+	1824*16, 1888*16, 1955*16, 2023*16, 2094*16, 2168*16, 2244*16, 2323*16,
+	2405*16, 2489*16, 2577*16, 2667*16, 2761*16, 2858*16, 2959*16, 3063*16,
+	3170*16, 3282*16, 3397*16, 3517*16, 3640*16, 3768*16, 3901*16, 4038*16,
+	4180*16, 4326*16, 4478*16, 4636*16, 4799*16, 4967*16, 5142*16, 5323*16,
+	5510*16, 5704*16, 5904*16, 6111*16, 6326*16, 6549*16, 6779*16, 7017*16,
+	7264*16, 7519*16, 7783*16, 8057*16, 8340*16, 8633*16, 8936*16, 9250*16,
+	9575*16, 9912*16, 10260*16, 10621*16, 10994*16, 11380*16, 11780*16,
+	12194*16, 12623*16, 13067*16, 13526*16, 14001*16, 14493*16, 15003*16,
+	15530*16, 16076*16, 16641*16, 17225*16, 17831*16, 18457*16, 19106*16,
+	19777*16, 20472*16, 21192*16, 21937*16, 22708*16, 23506*16, 24332*16,
+	25187*16, 26072*16, 26988*16, 27937*16, 28918*16, 29935*16, 30987*16,
+	32075*16, 33203*16, 34370*16, 35577*16, 36828*16, 38122*16, 39462*16,
+	40848*16, 42284*16, 43770*16, 45308*16, 46900*16, 48548*16, 50255*16,
+	52021*16, 53849*16, 55741*16, 57700*16, 59728*16, 61827*16, 64000*16,
+	66249*16, 68577*16, 70987*16, 73481*16, 76064*16, 78737*16, 81504*16,
+	84368*16, 87333*16, 90402*16, 93579*16, 96867*16, 100272*16, 103795*16,
+	107443*16, 111219*16, 115127*16, 119173*16, 123361*16, 127696*16,
+	132184*16, 136829*16, 141638*16, 146615*16, 151767*16, 157101*16,
+	162622*16, 168337*16, 174252*16, 180376*16, 186715*16, 193276*16,
+	200069*16, 207099*16, 214377*16, 221911*16, 229710*16, 237782*16,
+	246138*16, 254788*16,
+};
 static void set_dummy(struct subdrv_ctx *ctx)
 {
 	LOG_INF("frame_length = %d, line_length = %d\n",
@@ -801,7 +835,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 
 	kal_uint16 reg_gain;
@@ -3436,6 +3470,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 				(UINT16)*(feature_data+2));
 		else
 			LOG_INF("Value Violation : feature_data<1");
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(imx334MIPIsub_sensorGain);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)imx334MIPIsub_sensorGain,
+			sizeof(imx334MIPIsub_sensorGain));
+		}
+		break;
 		break;
 	default:
 		break;
@@ -3447,9 +3491,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
+	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_max = 254788,
-	.ana_gain_min = 64,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xfff0,
@@ -3460,7 +3504,7 @@ static const struct subdrv_ctx defctx = {
 	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0,	/* current shutter */
-	.gain = 0x100,		/* current gain */
+	.gain = BASEGAIN * 4,		/* current gain */
 	.dummy_pixel = 0,	/* current dummypixel */
 	.dummy_line = 0,	/* current dummyline */
 	/* full size current fps : 24fps for PIP, 30fps for Normal or ZSD */

@@ -38,6 +38,7 @@
 #include "kd_imgsensor_errcode.h"
 
 #include "imx576mipiraw_Sensor.h"
+#include "imx576_ana_gain_table.h"
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
@@ -177,8 +178,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.margin = 61,
 	.min_shutter = 6,
-	.min_gain = 64, /*1x gain*/
-	.max_gain = 1024, /*16x gain*/
+	.min_gain = BASEGAIN, /*1x gain*/
+	.max_gain = BASEGAIN * 16, /*16x gain*/
 	.min_gain_iso = 100,
 	.gain_step = 1,
 	.gain_type = 0,
@@ -366,7 +367,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 	write_shutter(ctx, shutter);
 }	/*	set_shutter */
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -418,7 +419,7 @@ static void feedback_awbgain(struct subdrv_ctx *ctx,
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -2136,6 +2137,16 @@ static int feature_control(
 
 	/*LOG_INF("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(imx576_ana_gain_table);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)imx576_ana_gain_table,
+			sizeof(imx576_ana_gain_table));
+		}
+		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
 		*(feature_data + 2) = imgsensor_info.max_gain;
@@ -2249,7 +2260,7 @@ static int feature_control(
 	     /* night_mode((BOOL) *feature_data); */
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) *feature_data);
+		set_gain(ctx, (UINT32) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;
@@ -2644,9 +2655,9 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
-	.ana_gain_max = 1024,
-	.ana_gain_min = 64,
+	.ana_gain_def = BASEGAIN * 4,
+	.ana_gain_max = BASEGAIN * 16,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xffff - 61,
@@ -2663,7 +2674,7 @@ static const struct subdrv_ctx defctx = {
 	 */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0, /* current shutter */
-	.gain = 0x100, /* current gain */
+	.gain = BASEGAIN * 4, /* current gain */
 	.dummy_pixel = 0, /* current dummypixel */
 	.dummy_line = 0, /* current dummyline */
 	.current_fps = 0,

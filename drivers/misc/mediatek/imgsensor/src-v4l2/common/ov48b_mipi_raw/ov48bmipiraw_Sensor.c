@@ -557,7 +557,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	write_shutter(ctx, shutter);
 }
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint16 iReg = 0x0000;
 
@@ -566,9 +566,10 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
 	return iReg;		/* sensorGlobalGain */
 }
 
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
-	kal_uint16 reg_gain, max_gain = imgsensor_info.max_gain;
+	kal_uint16 reg_gain;
+	kal_uint32 max_gain = imgsensor_info.max_gain;
 
 	if (gain < imgsensor_info.min_gain || gain > max_gain) {
 		pr_debug("Error gain setting");
@@ -2202,7 +2203,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	    night_mode(ctx, (BOOL) * feature_data);
 	break;
 	case SENSOR_FEATURE_SET_GAIN:
-	    set_gain(ctx, (UINT16) *feature_data);
+	    set_gain(ctx, (UINT32) * feature_data);
 	break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 	break;
@@ -2782,7 +2783,7 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = BASEGAIN,
+	.ana_gain_def = 4 * BASEGAIN,
 	.ana_gain_max = 15.5 * BASEGAIN,
 	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 4,
@@ -2797,7 +2798,7 @@ static const struct subdrv_ctx defctx = {
 	.mirror = IMAGE_NORMAL,
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0,
-	.gain = 0x100,
+	.gain = 4 * BASEGAIN,
 	.dummy_pixel = 0,
 	.dummy_line = 0,
 	.current_fps = 300,

@@ -39,6 +39,7 @@
 #include "kd_imgsensor_errcode.h"
 
 #include "imx499mipiraw_Sensor.h"
+#include "imx499_ana_gain_table.h"
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
@@ -176,8 +177,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.margin = 18,		/* sensor framelength & shutter margin */
 	.min_shutter = 1,	/* min shutter */
-	.min_gain = 64,
-	.max_gain = 1024,
+	.min_gain = BASEGAIN,
+	.max_gain = BASEGAIN * 16,
 	.min_gain_iso = 100,
 	.gain_step = 1,
 	.gain_type = 0,
@@ -915,13 +916,13 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 
 
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint16 iI;
 
 	pr_debug("[IMX499MIPI]enter IMX499MIPIGain2Reg function\n");
 	for (iI = 0; iI < IMX499MIPI_MaxGainIndex; iI++) {
-		if (gain <= IMX499MIPI_sensorGainMapping[iI][0])
+		if (gain <= IMX499MIPI_sensorGainMapping[iI][0] * 16)
 			return IMX499MIPI_sensorGainMapping[iI][1];
 
 
@@ -938,7 +939,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
  *    This function is to set global gain to sensor.
  *
  * PARAMETERS
- *    iGain : sensor global gain(base: 0x40)
+ *    iGain : sensor global gain(base: 0x400)
  *
  * RETURNS
  *    the actually gain set to sensor.
@@ -946,7 +947,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
  * GLOBALS AFFECTED
  *
  ************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -2376,6 +2377,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 	/*pr_debug("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(imx499_ana_gain_table);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)imx499_ana_gain_table,
+			sizeof(imx499_ana_gain_table));
+		}
+		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
 		*(feature_data + 2) = imgsensor_info.max_gain;
@@ -2459,7 +2470,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		night_mode(ctx, (BOOL) (*feature_data));
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) (*feature_data));
+		set_gain(ctx, (UINT32) (*feature_data));
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;
@@ -2714,9 +2725,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
-	.ana_gain_max = 1024,
-	.ana_gain_min = 64,
+	.ana_gain_def = BASEGAIN * 4,
+	.ana_gain_max = BASEGAIN * 16,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xffff - 18,
@@ -2735,7 +2746,7 @@ static const struct subdrv_ctx defctx = {
 #endif
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0,	/* current shutter */
-	.gain = 0x100,		/* current gain */
+	.gain = BASEGAIN * 4,		/* current gain */
 	.dummy_pixel = 0,	/* current dummypixel */
 	.dummy_line = 0,	/* current dummyline */
 

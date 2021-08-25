@@ -801,9 +801,10 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
-	kal_uint16 reg_gain, max_gain, min_gain;
+	kal_uint16 reg_gain, min_gain;
+	kal_uint32 max_gain;
 
 	max_gain = imgsensor_info.max_gain;//setuphere for mode use
 	min_gain = imgsensor_info.min_gain;//setuphere for mode use
@@ -4385,7 +4386,7 @@ static int feature_control(
 		break;
 	#endif
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) *feature_data);
+		set_gain(ctx, (UINT32) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;

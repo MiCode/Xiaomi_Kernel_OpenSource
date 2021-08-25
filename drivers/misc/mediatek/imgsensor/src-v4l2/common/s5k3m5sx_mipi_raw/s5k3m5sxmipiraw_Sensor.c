@@ -163,7 +163,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.min_gain = BASEGAIN,
 	.max_gain = 16*BASEGAIN,
 	.min_gain_iso = 100,
-	.gain_step = 1,
+	.gain_step = 32,
 	.gain_type = 2,
 	.max_frame_length = 0xffff,
 	.ae_shut_delay_frame = 0,
@@ -2875,7 +2875,7 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx, kal_uint32 shutter,
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -3166,7 +3166,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->autoflicker_en = KAL_FALSE;
 	ctx->sensor_mode = IMGSENSOR_MODE_INIT;
 	ctx->shutter = 0x3D0;
-	ctx->gain = 0x100;
+	ctx->gain = 0x1000;
 	ctx->pclk = imgsensor_info.pre.pclk;
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->line_length = imgsensor_info.pre.linelength;
@@ -4061,7 +4061,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		/* night_mode((BOOL) *feature_data); */
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) *feature_data);
+		set_gain(ctx, (UINT32) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;
@@ -4591,7 +4591,7 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x1000,
+	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_max = BASEGAIN * 16,
 	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
@@ -4606,7 +4606,7 @@ static const struct subdrv_ctx defctx = {
 	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0,	/* current shutter */
-	.gain = 0x100,		/* current gain */
+	.gain = BASEGAIN * 4,		/* current gain */
 	.dummy_pixel = 0,	/* current dummypixel */
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,

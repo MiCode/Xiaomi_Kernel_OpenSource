@@ -17,6 +17,7 @@
 #include "kd_imgsensor_errcode.h"
 
 #include "imx214mipiraw_Sensor.h"
+#include "imx214_ana_gain_table.h"
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
@@ -131,8 +132,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.margin = 10,
 	.min_shutter = 1,
-	.min_gain = 64,
-	.max_gain = 1024,
+	.min_gain = BASEGAIN,
+	.max_gain = BASEGAIN * 16,
 	.min_gain_iso = 100,
 	.exp_step = 2,
 	.gain_step = 1,
@@ -520,19 +521,19 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 	write_shutter(ctx, shutter);
 } /* set_shutter */
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint8 iI;
 	kal_uint16 reg_gain = 0x0;
 
-	if (gain <= 512) { //< 8x gain
+	if (gain <= 512*16) { //< 8x gain
 		for (iI = 0; iI < (MIPI_MaxGainIndex-1); iI++) {
-			if (gain <= sensorGainMapping[iI][0])
+			if (gain <= sensorGainMapping[iI][0]*16)
 				break;
 		}
 		reg_gain = sensorGainMapping[iI][1];
 	} else
-		reg_gain = 512 - (512*64)/gain;
+		reg_gain = 512 - (512*BASEGAIN)/gain;
 
 	return (kal_uint16) reg_gain;
 }
@@ -553,7 +554,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -2439,6 +2440,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		 (MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(imx214_ana_gain_table);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)imx214_ana_gain_table,
+			sizeof(imx214_ana_gain_table));
+		}
+		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
 		*(feature_data + 2) = imgsensor_info.max_gain;
@@ -2468,7 +2479,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		night_mode(ctx, (BOOL) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) *feature_data);
+		set_gain(ctx, (UINT32) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;
@@ -2830,9 +2841,9 @@ static int vsync_notify(struct subdrv_ctx *ctx, unsigned int sof_cnt)
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
-	.ana_gain_max = 1024,
-	.ana_gain_min = 64,
+	.ana_gain_def = BASEGAIN * 4,
+	.ana_gain_max = BASEGAIN * 16,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xffff - 10,
@@ -2845,7 +2856,7 @@ static const struct subdrv_ctx defctx = {
 	//such as: INIT, Preview, Capture, Video,High Speed Video, Slim Video
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0,//current shutter
-	.gain = 0x100,//current gain
+	.gain = BASEGAIN * 4,//current gain
 	.dummy_pixel = 0,//current dummypixel
 	.dummy_line = 0,  //current dummyline
 	//full size current fps : 24fps for PIP, 30fps for Normal or ZSD

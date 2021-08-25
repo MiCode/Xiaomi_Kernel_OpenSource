@@ -1073,7 +1073,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bool gph)
+static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bool gph)
 {
 	kal_uint16 reg_gain;
 
@@ -1100,7 +1100,7 @@ static kal_uint16 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bo
 	return gain;
 }
 
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	return set_gain_w_gph(ctx, gain, KAL_TRUE);
 } /* set_gain */
@@ -3104,7 +3104,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_SET_NIGHTMODE:
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT32) *feature_data);
+		set_gain(ctx, (UINT32) * (feature_data));
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;

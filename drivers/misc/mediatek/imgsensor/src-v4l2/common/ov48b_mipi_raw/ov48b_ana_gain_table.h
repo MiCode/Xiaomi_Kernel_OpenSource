@@ -4,7 +4,8 @@
  */
 
 /*****************************************************************************/
-
+#ifndef __OV48B_ANA_GAIN_TABLE_H__
+#define __OV48B_ANA_GAIN_TABLE_H__
 static kal_uint32 ov48b_ana_gain_table[] = {
 	1024,
 	1088,
@@ -71,4 +72,4 @@ static kal_uint32 ov48b_ana_gain_table[] = {
 	15360,
 	15872,
 };
-
+#endif

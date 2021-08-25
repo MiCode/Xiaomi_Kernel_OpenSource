@@ -40,6 +40,7 @@
 
 #include "imx258mipiraw_Sensor.h"
 #include "imx258_pdafotp.h"
+#include "imx258_ana_gain_table.h"
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
@@ -737,15 +738,15 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 }	/* set_shutter_frame_length */
 
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint8 i;
 
 	for (i = 0; i < IMX258MIPI_MaxGainIndex; i++) {
-		if (gain <= IMX258MIPI_sensorGainMapping[i][0])
+		if (gain <= IMX258MIPI_sensorGainMapping[i][0]*16)
 			break;
 	}
-	if (gain != IMX258MIPI_sensorGainMapping[i][0])
+	if (gain != IMX258MIPI_sensorGainMapping[i][0]*16)
 		LOG_INF("Gain mapping don't correctly:%d %d\n", gain,
 			IMX258MIPI_sensorGainMapping[i][0]);
 	return IMX258MIPI_sensorGainMapping[i][1];
@@ -767,7 +768,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -799,7 +800,7 @@ static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
 }				/*      set_gain  */
 
 static void ihdr_write_shutter_gain(struct subdrv_ctx *ctx,
-				kal_uint16 le, kal_uint16 se, kal_uint16 gain)
+				kal_uint16 le, kal_uint16 se, kal_uint32 gain)
 {
 
 	kal_uint16 realtime_fps = 0;
@@ -2491,7 +2492,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->autoflicker_en = KAL_FALSE;
 	ctx->sensor_mode = IMGSENSOR_MODE_INIT;
 	ctx->shutter = 0x3D0;
-	ctx->gain = 0x100;
+	ctx->gain = BASEGAIN * 4;
 	ctx->pclk = imgsensor_info.pre.pclk;
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->line_length = imgsensor_info.pre.linelength;
@@ -3104,7 +3105,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
 	if (enable)
-		write_cmos_sensor(ctx, 0x0100, 0X01);
+		write_cmos_sensor(ctx, 0x0100, 0x01);
 	else
 		write_cmos_sensor(ctx, 0x0100, 0x00);
 	mdelay(10);
@@ -3136,6 +3137,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	/* LOG_INF("feature_id = %d\n", feature_id); */
 
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(imx258_ana_gain_table);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)imx258_ana_gain_table,
+			sizeof(imx258_ana_gain_table));
+		}
+		break;
 	case SENSOR_FEATURE_GET_PERIOD:
 		*feature_return_para_16++ = ctx->line_length;
 		*feature_return_para_16 = ctx->frame_length;
@@ -3152,7 +3163,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		night_mode(ctx, (BOOL)*feature_data);
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) *feature_data);
+		set_gain(ctx, (UINT32) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;
@@ -3472,9 +3483,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
-	.ana_gain_max = 1024,
-	.ana_gain_min = 64,
+	.ana_gain_def = BASEGAIN * 4,
+	.ana_gain_max = BASEGAIN * 16,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3d0,
 	.exposure_max = 0x7fff - 4,
@@ -3487,7 +3498,7 @@ static const struct subdrv_ctx defctx = {
 	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3d0,	/* current shutter */
-	.gain = 0x100,		/* current gain */
+	.gain = BASEGAIN * 4,		/* current gain */
 	.dummy_pixel = 0,	/* current dummypixel */
 	.dummy_line = 0,	/* current dummyline */
 

@@ -162,7 +162,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.margin = 13,
 	.min_shutter = 3,
-	.min_gain = 64,
+	.min_gain = BASEGAIN,
 	.max_gain = 254788,
 	.min_gain_iso = 100,
 	.exp_step = 4,
@@ -4907,9 +4907,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
+	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_max = 254788,
-	.ana_gain_min = 64,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xfff0,
@@ -4920,7 +4920,7 @@ static const struct subdrv_ctx defctx = {
 	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
 	.shutter = 0x3D0,	/* current shutter */
-	.gain = 0x100,		/* current gain */
+	.gain = BASEGAIN * 4,		/* current gain */
 	.dummy_pixel = 0,	/* current dummypixel */
 	.dummy_line = 0,	/* current dummyline */
 	/* full size current fps : 24fps for PIP, 30fps for Normal or ZSD */

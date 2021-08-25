@@ -344,11 +344,11 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 
 }
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint16 reg_gain = 0x0;
 
-	reg_gain = gain / BASEGAIN * 32;
+	reg_gain = gain * 32 / BASEGAIN;
 	return (kal_uint16)reg_gain;
 }
 
@@ -370,7 +370,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
  *
  ************************************************************************
  */
-static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint16 gain)
+static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
 	kal_uint16 reg_gain;
 
@@ -1318,7 +1318,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		/*night_mode(ctx, (BOOL) *feature_data);*/
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT16) *feature_data);
+		set_gain(ctx, (UINT32) * feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;

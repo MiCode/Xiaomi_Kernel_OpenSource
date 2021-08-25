@@ -4,7 +4,8 @@
  */
 
 /*****************************************************************************/
-
+#ifndef __IMX481_ANA_GAIN_TABLE_H__
+#define __IMX481_ANA_GAIN_TABLE_H__
 static kal_uint32 imx481_ana_gain_table[] = {
 	1024,
 	1025,
@@ -881,4 +882,4 @@ static kal_uint32 imx481_ana_gain_table[] = {
 	16131,
 	16384,
 };
-
+#endif
