@@ -28,7 +28,7 @@
 
 struct leakage_data {
 	void __iomem *base;
-	struct cpufreq_policy *policy[8];
+	int policy[8];
 	int instance[8];
 	int clusters;
 	int init;
@@ -38,8 +38,7 @@ struct leakage_data info;
 
 unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature)
 {
-	struct cpufreq_policy *tP = cpufreq_cpu_get(cpu);
-	int i;
+	int i, j;
 	int power, a, b, c;
 
 	if (info.init != 0x5A5A) {
@@ -47,17 +46,15 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 		return 0;
 	}
 
-	if (!tP) {
+	j = 1 << cpu;
+	for (i = 0; i < info.clusters; i++) {
+		if (j & info.policy[i])
+			break;
+	}
+	if (i >= info.clusters) {
 		pr_info("[leakage] not support cpu %d!\n", cpu);
 		return 0;
 	}
-
-	for (i = 0; i < info.clusters; i++) {
-		if (tP == info.policy[i])
-			break;
-	}
-
-	cpufreq_cpu_put(tP);
 
 	a = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8));
 	b = ((a >> 12) & 0xFFFFF);
@@ -175,7 +172,7 @@ static int create_spower_debug_fs(void)
 static int mtk_static_power_probe(struct platform_device *pdev)
 {
 	int cpu;
-	struct cpufreq_policy *tP;
+	struct cpufreq_policy *tP, *pre_tP;
 	int cpu_no;
 #if __LKG_DEBUG__
 	unsigned int i, power;
@@ -187,17 +184,20 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 
 	info.clusters = 0;
 	tP = cpufreq_cpu_get(0);
+	pre_tP = tP;
 	if (tP) {
-		info.policy[0] = tP;
+		info.policy[0] = 1;
 		cpufreq_cpu_put(tP);
 		cpu_no = 0;
 		for_each_possible_cpu(cpu) {
 			tP = cpufreq_cpu_get(cpu);
-			if (tP != info.policy[info.clusters]) {
+			if (tP != pre_tP) {
 				info.instance[info.clusters] = cpu_no;
-				info.policy[++info.clusters] = tP;
+				info.policy[++info.clusters] = 0;
 				cpu_no = 0;
+				pre_tP = tP;
 			}
+			info.policy[info.clusters] |= (1 << cpu);
 			cpu_no++;
 			cpufreq_cpu_put(tP);
 		}
