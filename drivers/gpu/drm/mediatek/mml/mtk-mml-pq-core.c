@@ -292,8 +292,10 @@ int mml_pq_tile_init(struct mml_task *task)
 
 	dump_pq_param(&task->pq_param[0]);
 
-	if (!atomic_fetch_add_unless(&task->pq_task->tile_init.queue_cnt, 1, 1))
+	if (!atomic_fetch_add_unless(&task->pq_task->tile_init.queue_cnt, 1, 1)) {
+		mml_pq_log("%s job_id[%d] queue_msg", __func__, task->job.jobid);
 		queue_msg(&pq_mbox->tile_init_chan, &task->pq_task->tile_init);
+	}
 
 	mml_pq_msg("%s job_id[%d] end", __func__, task->job.jobid);
 
