@@ -51,7 +51,7 @@
 #define RTC_AL_HOU_H                    0x25
 #define RTC_AL_DOM                      0x26
 #define RTC_AL_DOW                      0x28
-#define RTC_AL_DOW_H                    0x27
+#define RTC_AL_DOW_H                    0x29
 #define RTC_AL_MTH                      0x2a
 #define RTC_AL_MTH_H                    0x2b
 #define RTC_AL_YEA                      0x2c
@@ -133,7 +133,12 @@
 #define RTC_RG_FG2                      0x54
 #define RTC_RG_FG3                      0x56
 
-#define SCK_TOP_CKPDN_CON0_L            MT6685_SCK_TOP_CKPDN_CON0_L
+#define TOP_RTC_EOSC32_CK_PDN           MT6685_SCK_TOP_CKPDN_CON0_L
+#define TOP_RTC_EOSC32_CK_PDN_MASK      (MT6685_RG_RTC_EOSC32_CK_PDN_MASK \
+						<< MT6685_RG_RTC_EOSC32_CK_PDN_SHIFT)
+
+#define EOSC_CALI_TD					RTC_AL_DOW_H
+#define EOSC_CALI_TD_MASK               MT6685_RG_EOSC_CALI_TD_MASK
 
 #define TOP_DIG_WPK                     MT6685_TOP_DIG_WPK
 #define DIG_WPK_KEY_MASK        (MT6685_DIG_WPK_KEY_MASK << MT6685_DIG_WPK_KEY_SHIFT)
@@ -196,13 +201,6 @@ enum rtc_eosc_cali_td {
 	EOSC_CALI_TD_04_SEC,
 	EOSC_CALI_TD_08_SEC,
 	EOSC_CALI_TD_16_SEC,
-};
-
-enum cali_field_enum {
-	RTC_EOSC32_CK_PDN,
-	EOSC_CALI_TD,
-	RTC_K_EOSC_RSV,
-	CALI_RG_MAX
 };
 
 #endif

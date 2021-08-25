@@ -119,12 +119,6 @@ static unsigned int rtc_spare_reg[SPARE_RG_MAX][3] = {
 #endif
 };
 
-static unsigned int mt6685_cali_reg[CALI_RG_MAX][3] = {
-	{SCK_TOP_CKPDN_CON0_L, 0x1, 2},
-	{RTC_AL_DOW_H, 0x7, 0},
-	{RTC_AL_YEA_H, 0xff, 0},
-};
-
 static int rtc_field_read(struct mt6685_rtc *rtc, enum mtk_rtc_spare_enum cmd)
 {
 	unsigned int tmp_val = 0;
@@ -144,32 +138,6 @@ static int rtc_field_read(struct mt6685_rtc *rtc, enum mtk_rtc_spare_enum cmd)
 				rtc_spare_reg[cmd][RTC_MASK],
 				rtc_spare_reg[cmd][RTC_SHIFT], tmp_val);
 		return tmp_val;
-	}
-	return 0;
-}
-
-static int rtc_cali_field_write(struct mt6685_rtc *rtc,
-				enum cali_field_enum cmd, unsigned int val)
-{
-	unsigned int tmp_val = 0;
-
-	if (cmd >= 0 && cmd < CALI_RG_MAX) {
-		pr_info("%s: cmd[%d], set rg[0x%x, 0x%x , %d] = 0x%x\n",
-				__func__, cmd,
-				mt6685_cali_reg[cmd][RTC_REG],
-				mt6685_cali_reg[cmd][RTC_MASK],
-				mt6685_cali_reg[cmd][RTC_SHIFT], val);
-
-		rtc_read(rtc, rtc->addr_base + mt6685_cali_reg[cmd][RTC_REG], &tmp_val);
-
-		tmp_val = tmp_val & ~(mt6685_cali_reg[cmd][RTC_MASK] <<
-					mt6685_cali_reg[cmd][RTC_SHIFT]);
-
-		rtc_write(rtc, rtc->addr_base + mt6685_cali_reg[cmd][RTC_REG],
-					tmp_val | ((val & mt6685_cali_reg[cmd][RTC_MASK]) <<
-						mt6685_cali_reg[cmd][RTC_SHIFT]));
-
-		mtk_rtc_write_trigger(rtc);
 	}
 	return 0;
 }
@@ -238,7 +206,7 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 		return;
 
 	/* Truning on eosc cali mode clock */
-	rtc_cali_field_write(rtc, RTC_EOSC32_CK_PDN, 0);
+	rtc_update_bits(rtc, TOP_RTC_EOSC32_CK_PDN, TOP_RTC_EOSC32_CK_PDN_MASK, 0);
 
 	if (rtc_eosc_cali_td) {
 		dev_notice(dev, "%s: rtc_eosc_cali_td = %d\n",
@@ -261,7 +229,8 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 			break;
 		}
 
-		rtc_cali_field_write(rtc, EOSC_CALI_TD, td);
+		rtc_update_bits(rtc, rtc->addr_base + EOSC_CALI_TD, EOSC_CALI_TD_MASK, td);
+		mtk_rtc_write_trigger(rtc);
 	}
 }
 #endif
@@ -1238,6 +1207,10 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	};
 
 	enable_irq_wake(rtc->irq);
+
+#ifdef SUPPORT_EOSC_CALI
+	rtc->cali_is_supported = true;
+#endif
 
 	power_down_mclk(rtc);
 	return 0;
