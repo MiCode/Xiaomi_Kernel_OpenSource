@@ -40,7 +40,7 @@ static struct pm_qos_request slbc_qos_request;
 #endif /* CONFIG_MTK_L3C_PART */
 
 /* #define SLBC_TRACE */
-/* #define ENABLE_SLBC */
+#define ENABLE_SLBC
 
 static struct mtk_slbc *slbc;
 
