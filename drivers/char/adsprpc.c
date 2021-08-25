@@ -1493,7 +1493,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 		}
 
 		map->attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
-		map->attach->dma_map_attrs |= DMA_ATTR_EXEC_MAPPING;
 
 		/*
 		 * Skip CPU sync if IO Cohernecy is not supported
@@ -3837,9 +3836,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	if (uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)
 		dsp_userpd_memlen += 2*one_mb;
 	memlen = ALIGN(max(dsp_userpd_memlen, init->filelen * 4), one_mb);
-	imem_dma_attr = DMA_ATTR_EXEC_MAPPING |
-					DMA_ATTR_DELAYED_UNMAP |
-					DMA_ATTR_NO_KERNEL_MAPPING;
+	imem_dma_attr = DMA_ATTR_DELAYED_UNMAP | DMA_ATTR_NO_KERNEL_MAPPING;
 	err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0,
 				INITMEM_BUF, &imem);
 	if (err)
@@ -4973,9 +4970,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	mutex_lock(&fl->internal_map_mutex);
 	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||
 	    (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)) {
-		dma_attr = DMA_ATTR_EXEC_MAPPING |
-					DMA_ATTR_DELAYED_UNMAP |
-					DMA_ATTR_NO_KERNEL_MAPPING;
+		dma_attr = DMA_ATTR_DELAYED_UNMAP | DMA_ATTR_NO_KERNEL_MAPPING;
 		if (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)
 			dma_attr |= DMA_ATTR_SYS_CACHE_ONLY;
 		err = fastrpc_buf_alloc(fl, ud->size, dma_attr, ud->flags,
