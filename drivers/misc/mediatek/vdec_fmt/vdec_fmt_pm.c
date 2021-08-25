@@ -30,6 +30,8 @@ void fmt_init_pm(struct mtk_vdec_fmt *fmt)
 	fmt_debug(0, "+");
 	fmt_get_module_clock_by_name(fmt, "MT_CG_VDEC",
 		&fmt->clk_VDEC);
+	fmt_get_module_clock_by_name(fmt, "MT_CG_MINI_MDP",
+		&fmt->clk_MINI_MDP);
 }
 
 int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
@@ -47,12 +49,16 @@ int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
 	ret = clk_prepare_enable(fmt->clk_VDEC);
 	if (ret)
 		fmt_debug(0, "clk_prepare_enable VDEC_SOC failed %d", ret);
+	ret = clk_prepare_enable(fmt->clk_MINI_MDP);
+	if (ret)
+		fmt_debug(0, "clk_prepare_enable VDEC_MINI_MDP failed %d", ret);
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_VFMT);
 	return ret;
 }
 
 int32_t fmt_clock_off(struct mtk_vdec_fmt *fmt)
 {
+	clk_disable_unprepare(fmt->clk_MINI_MDP);
 	clk_disable_unprepare(fmt->clk_VDEC);
 	if (fmt->fmtLarb)
 		mtk_smi_larb_put(fmt->fmtLarb);

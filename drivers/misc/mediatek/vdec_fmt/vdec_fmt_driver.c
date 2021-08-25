@@ -320,14 +320,63 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 	}
 }
 
+static void fmt_dump_addr_reg(void)
+{
+	int i, idx;
+	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
+
+	if (fmt->dtsInfo.RDMA_needWA)
+		cmdq_util_prebuilt_dump(1, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
+	for (idx = 0; idx < fmt->dtsInfo.pipeNum; idx++) {
+		for (i = 0x0; i <= 0xF0; i += 4) {
+			if (i == 0x14)
+				continue; // MDP_RDMA_SECURE_DISABLE
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		}
+		for (i = 0x118; i <= 0x200; i += 4) {
+			if (fmt->dtsInfo.RDMA_needWA)
+				continue; // cannot dump in normal world
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		}
+		for (i = 0x240; i <= 0x4E0; i += 4)
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		for (i = 0xF00; i <= 0xF50; i += 4) {
+			if (fmt->dtsInfo.RDMA_needWA)
+				continue; // cannot dump in normal world
+			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + i,
+					FMT_GET32(fmt->map_base[0+idx*2].va + i));
+		}
+		fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
+					fmt->map_base[0+idx*2].base + 0xF54,
+					FMT_GET32(fmt->map_base[0+idx*2].va + 0xF54));
+		for (i = 0x0; i <= 0xF0; i += 4)
+			fmt_debug(0, "FMT WROT%d(0x%x) 0x%x", idx,
+					fmt->map_base[1+idx*2].base + i,
+					FMT_GET32(fmt->map_base[1+idx*2].va + i));
+		for (i = 0xF00; i <= 0xF48; i += 4)
+			fmt_debug(0, "FMT WROT%d(0x%x) 0x%x", idx,
+					fmt->map_base[1+idx*2].base + i,
+					FMT_GET32(fmt->map_base[1+idx*2].va + i));
+	}
+}
+
 static void fmt_gce_flush_callback(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt_ptr;
 
 	pkt_ptr = (struct cmdq_pkt *)data.data;
 
-	if (data.err < 0)
+	if (data.err < 0) {
 		fmt_err("pkt_ptr %p", pkt_ptr);
+		fmt_dump_addr_reg();
+	}
 }
 
 static int fmt_gce_cmd_flush(unsigned long arg)
@@ -473,55 +522,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 	return ret;
 }
-
-#ifdef MTK_VDEC_FMT_DUMP_REG
-static void fmt_dump_addr_reg(void)
-{
-	int i, idx;
-	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
-
-	if (fmt->dtsInfo.RDMA_needWA)
-		cmdq_util_prebuilt_dump(1, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
-	for (idx = 0; idx < fmt->dtsInfo.pipeNum; idx++) {
-		for (i = 0x0; i <= 0xF0; i += 4) {
-			if (i == 0x14)
-				continue; // MDP_RDMA_SECURE_DISABLE
-			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
-					fmt->map_base[0+idx*2].base + i,
-					FMT_GET32(fmt->map_base[0+idx*2].va + i));
-		}
-		for (i = 0x118; i <= 0x200; i += 4) {
-			if (fmt->dtsInfo.RDMA_needWA)
-				continue; // cannot dump in normal world
-			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
-					fmt->map_base[0+idx*2].base + i,
-					FMT_GET32(fmt->map_base[0+idx*2].va + i));
-		}
-		for (i = 0x240; i <= 0x4E0; i += 4)
-			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
-					fmt->map_base[0+idx*2].base + i,
-					FMT_GET32(fmt->map_base[0+idx*2].va + i));
-		for (i = 0xF00; i <= 0xF50; i += 4) {
-			if (fmt->dtsInfo.RDMA_needWA)
-				continue; // cannot dump in normal world
-			fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
-					fmt->map_base[0+idx*2].base + i,
-					FMT_GET32(fmt->map_base[0+idx*2].va + i));
-		}
-		fmt_debug(0, "FMT RDMA%d(0x%x) 0x%x", idx,
-					fmt->map_base[0+idx*2].base + 0xF54,
-					FMT_GET32(fmt->map_base[0+idx*2].va + 0xF54));
-		for (i = 0x0; i <= 0xF0; i += 4)
-			fmt_debug(0, "FMT WROT%d(0x%x) 0x%x", idx,
-					fmt->map_base[1+idx*2].base + i,
-					FMT_GET32(fmt->map_base[1+idx*2].va + i));
-		for (i = 0xF00; i <= 0xF48; i += 4)
-			fmt_debug(0, "FMT WROT%d(0x%x) 0x%x", idx,
-					fmt->map_base[1+idx*2].base + i,
-					FMT_GET32(fmt->map_base[1+idx*2].va + i));
-	}
-}
-#endif
 
 static int fmt_gce_wait_callback(unsigned long arg)
 {

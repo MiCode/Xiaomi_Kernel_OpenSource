@@ -175,6 +175,7 @@ struct mtk_vdec_fmt {
 	struct semaphore fmt_sem[FMT_CORE_NUM];
 	struct notifier_block pm_notifier;
 	struct clk *clk_VDEC;
+	struct clk *clk_MINI_MDP;
 	enum fmt_gce_status gce_status[FMT_CORE_NUM];
 	atomic_t gce_job_cnt[FMT_CORE_NUM];
 	struct device *fmtLarb;
