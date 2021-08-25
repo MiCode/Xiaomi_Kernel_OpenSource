@@ -655,6 +655,20 @@ static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe
 	return &tp->path_clts[task->config->path[pipe]->clt_id];
 }
 
+static void core_task_comp_done(struct mml_task *task, u32 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	struct mml_comp_config *ccfg = cache->cfg;
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_hw_op(comp, task_done, task, &ccfg[i]);
+	}
+}
+
 static void core_buffer_unmap(struct mml_task *task)
 {
 	const struct mml_topology_path *path = task->config->path[0];
@@ -778,6 +792,10 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		dma_fence_signal(task->fence);
 		dma_fence_put(task->fence);
 	}
+
+	core_task_comp_done(task, 0);
+	if (task->config->dual)
+		core_task_comp_done(task, 1);
 
 	core_disable(task, 0);
 	if (task->config->dual)

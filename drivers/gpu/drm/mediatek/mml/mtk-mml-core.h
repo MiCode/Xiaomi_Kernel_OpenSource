@@ -388,6 +388,8 @@ struct mml_comp_hw_ops {
 	void (*qos_set)(struct mml_comp *comp, struct mml_task *task,
 			struct mml_comp_config *ccfg, u32 throughput);
 	void (*qos_clear)(struct mml_comp *comp);
+	void (*task_done)(struct mml_comp *comp, struct mml_task *task,
+			  struct mml_comp_config *ccfg);
 };
 
 struct mml_comp_debug_ops {
