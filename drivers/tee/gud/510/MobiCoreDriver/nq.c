@@ -52,7 +52,7 @@
 #define DEFAULT_TIMEOUT_MS	20000	/* We do nothing on timeout anyway */
 
 #if !defined(NQ_TEE_WORKER_THREADS)
-#define NQ_TEE_WORKER_THREADS	1
+#define NQ_TEE_WORKER_THREADS	4
 #endif
 
 static struct {
