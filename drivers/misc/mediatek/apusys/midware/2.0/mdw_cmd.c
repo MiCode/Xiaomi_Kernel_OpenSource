@@ -380,6 +380,7 @@ static int mdw_fence_init(struct mdw_cmd *c)
 	if (!c->fence)
 		return -ENOMEM;
 
+	c->fence->mdev = c->mpriv->mdev;
 	dma_fence_init(&c->fence->base_fence, &mdw_fence_ops,
 		&c->fence->lock, 0, 0);
 	spin_lock_init(&c->fence->lock);
@@ -599,7 +600,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 		GFP_KERNEL);
 	if (!c->ksubcmds)
 		goto free_subcmds;
-
 
 	/* adj matrix */
 	c->adj_matrix = kvzalloc(c->num_subcmds *
