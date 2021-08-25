@@ -496,6 +496,7 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	case VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP:
 		out.data_item = 1;
 		out.data[0] = enc_param->framelvl_qp;
+		break;
 	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
 		out.data_item = 1;
 		out.data[0] = enc_param->dummynal;
