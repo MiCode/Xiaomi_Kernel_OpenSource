@@ -108,6 +108,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_FRAMELVLQP = (1 << 21),
 	MTK_ENCODE_PARAM_IP_QPDELTA = (1 << 22),
 	MTK_ENCODE_PARAM_QP_CTRL_MODE = (1 << 23),
+	MTK_ENCODE_PARAM_DUMMY_NAL = (1 << 24),
 };
 
 /*
@@ -268,6 +269,7 @@ struct mtk_enc_params {
 	unsigned int	framelvl_qp;
 	unsigned int	ip_qpdelta;
 	unsigned int	qp_control_mode;
+	unsigned int	dummynal;
 };
 
 /*
@@ -327,6 +329,7 @@ struct venc_enc_param {
 	unsigned int framelvl_qp;
 	unsigned int qp_control_mode;
 	unsigned int ip_qpdelta;
+	unsigned int dummynal;
 };
 
 /*
@@ -802,5 +805,7 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 
 #define V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY \
 	(V4L2_CID_MPEG_MTK_BASE+45)
+#define V4L2_CID_MPEG_MTK_ENCODE_ENABLE_DUMMY_NAL \
+	(V4L2_CID_MPEG_MTK_BASE+47)
 
 #endif /* _MTK_VCODEC_DRV_H_ */

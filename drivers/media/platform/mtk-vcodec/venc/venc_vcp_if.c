@@ -1128,6 +1128,9 @@ int vcp_enc_set_param(struct venc_inst *inst,
 	case VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP:
 		out.data_item = 1;
 		out.data[0] = enc_param->framelvl_qp;
+	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
+		out.data_item = 1;
+		out.data[0] = enc_param->dummynal;
 		break;
 	default:
 		mtk_vcodec_err(inst, "id %d not supported", id);
@@ -1191,6 +1194,7 @@ static int venc_vcp_set_param(unsigned long handle,
 		inst->vsi->config.i_p_qp_delta = enc_prm->ip_qpdelta;
 		inst->vsi->config.qp_control_mode = enc_prm->qp_control_mode;
 		inst->vsi->config.frame_level_qp = enc_prm->framelvl_qp;
+		inst->vsi->config.dummynal = enc_prm->dummynal;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,

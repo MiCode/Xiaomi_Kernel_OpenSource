@@ -109,6 +109,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_ADJUST_I_P_QP_DELTA,
 	VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP,
 	VENC_SET_PARAM_ENABLE_HIGHQUALITY,
+	VENC_SET_PARAM_ENABLE_DUMMY_NAL,
 };
 
 /**
@@ -440,6 +441,7 @@ struct venc_vcu_config {
 	__u32 qp_control_mode;
 	__u32 frame_level_qp;
 	__u32 highquality;
+	__u32 dummynal;
 };
 
 /**

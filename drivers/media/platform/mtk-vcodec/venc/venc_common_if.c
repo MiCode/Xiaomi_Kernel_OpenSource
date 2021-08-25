@@ -494,6 +494,7 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.i_p_qp_delta = enc_prm->ip_qpdelta;
 		inst->vsi->config.qp_control_mode = enc_prm->qp_control_mode;
 		inst->vsi->config.frame_level_qp = enc_prm->framelvl_qp;
+		inst->vsi->config.dummynal = enc_prm->dummynal;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,
