@@ -1262,7 +1262,7 @@ static irqreturn_t mtk_jpeg_enc_done(struct mtk_jpeg_dev *jpeg)
 		return IRQ_HANDLED;
 	}
 
-	mtk_jpeg_end_bw_request(ctx);
+
 	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 
@@ -1275,7 +1275,6 @@ static irqreturn_t mtk_jpeg_enc_done(struct mtk_jpeg_dev *jpeg)
 	v4l2_m2m_buf_done(src_buf, buf_state);
 	v4l2_m2m_buf_done(dst_buf, buf_state);
 	v4l2_m2m_job_finish(jpeg->m2m_dev, ctx->fh.m2m_ctx);
-	pm_runtime_put(ctx->jpeg->dev);
 	return IRQ_HANDLED;
 }
 
@@ -1438,9 +1437,11 @@ static int mtk_jpeg_release(struct file *file)
 	struct mtk_jpeg_dev *jpeg = video_drvdata(file);
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(file->private_data);
 
-	if (ctx->state == MTK_JPEG_RUNNING)
+	if (ctx->state == MTK_JPEG_RUNNING) {
 		mtk_jpeg_dvfs_end(ctx);
-
+		mtk_jpeg_end_bw_request(ctx);
+		pm_runtime_put(ctx->jpeg->dev);
+	}
 	mutex_lock(&jpeg->lock);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
