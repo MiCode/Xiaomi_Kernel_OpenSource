@@ -1237,6 +1237,8 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "register rtc device failed\n");
 	};
 
+	enable_irq_wake(rtc->irq);
+
 	power_down_mclk(rtc);
 	return 0;
 }
@@ -1248,31 +1250,6 @@ static void mtk_rtc_shutdown(struct platform_device *pdev)
 	mtk_rtc_enable_k_eosc(&pdev->dev);
 #endif
 }
-
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-static int mt6685_rtc_suspend(struct device *dev)
-{
-	struct mt6685_rtc *rtc = dev_get_drvdata(dev);
-
-	if (device_may_wakeup(dev))
-		enable_irq_wake(rtc->irq);
-
-	return 0;
-}
-
-static int mt6685_rtc_resume(struct device *dev)
-{
-	struct mt6685_rtc *rtc = dev_get_drvdata(dev);
-
-	if (device_may_wakeup(dev))
-		disable_irq_wake(rtc->irq);
-
-	return 0;
-}
-#endif
-
-static SIMPLE_DEV_PM_OPS(mt6685_pm_ops, mt6685_rtc_suspend,
-			mt6685_rtc_resume);
 
 static const struct mtk_rtc_data mt6685_rtc_data = {
 	.wrtgr = RTC_WRTGR_MT6685,
@@ -1289,7 +1266,6 @@ static struct platform_driver mtk_rtc_driver = {
 	.driver = {
 		.name = "mt6685-rtc",
 		.of_match_table = mt6685_rtc_of_match,
-		.pm = &mt6685_pm_ops,
 	},
 	.probe	= mtk_rtc_probe,
 	.shutdown = mtk_rtc_shutdown,
