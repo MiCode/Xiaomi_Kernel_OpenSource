@@ -2123,7 +2123,9 @@ static inline int cs_type(struct sk_buff *skb)
 
 	packet_type = skb->data[0] & 0xF0;
 	if (packet_type == IPV6_VERSION) {
-		if (skb->ip_summed == CHECKSUM_NONE)
+		if (skb->ip_summed == CHECKSUM_NONE ||
+			skb->ip_summed == CHECKSUM_UNNECESSARY ||
+			skb->ip_summed == CHECKSUM_COMPLETE)
 			return 0;
 		else if (skb->ip_summed == CHECKSUM_PARTIAL)
 			return 2;
@@ -2138,7 +2140,9 @@ static inline int cs_type(struct sk_buff *skb)
 		if (iph->check == 0)
 			return 0; /* No HW check sum */
 
-		if (skb->ip_summed == CHECKSUM_NONE)
+		if (skb->ip_summed == CHECKSUM_NONE ||
+			skb->ip_summed == CHECKSUM_UNNECESSARY ||
+			skb->ip_summed == CHECKSUM_COMPLETE)
 			return 0;
 		else if (skb->ip_summed == CHECKSUM_PARTIAL)
 			return 1;
