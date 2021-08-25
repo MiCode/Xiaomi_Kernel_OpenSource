@@ -21,6 +21,7 @@
 #define MT6375_SLAVEID_BM	0x1A
 #define MT6375_SLAVEID_HK1	0x4A
 #define MT6375_SLAVEID_HK2	0x64
+#define MT6375_SLAVEID_TM	0x3F
 
 #define MT6375_VID		0x70
 #define MT6375_REGADDR_SIZE	2
@@ -45,6 +46,7 @@ enum {
 	MT6375_SLAVE_BM,
 	MT6375_SLAVE_HK1,
 	MT6375_SLAVE_HK2,
+	MT6375_SLAVE_TM,
 	MT6375_SLAVE_MAX,
 };
 
@@ -65,6 +67,7 @@ static const u8 mt6375_slave_addr[MT6375_SLAVE_MAX] = {
 	MT6375_SLAVEID_BM,
 	MT6375_SLAVEID_HK1,
 	MT6375_SLAVEID_HK2,
+	MT6375_SLAVEID_TM
 };
 
 static inline struct i2c_client *bank_to_i2c(struct mt6375_data *ddata, u8 bank)
