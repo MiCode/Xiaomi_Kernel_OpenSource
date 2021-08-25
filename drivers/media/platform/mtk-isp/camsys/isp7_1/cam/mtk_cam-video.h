@@ -130,7 +130,6 @@ struct mtk_cam_video_device {
 	/* Lock used to protect  buffer list */
 	spinlock_t buf_list_lock;
 	struct list_head buf_list;
-	int raw_feature;
 };
 
 struct mtk_format_info {
@@ -146,6 +145,12 @@ struct mtk_format_info {
 	u8 bit_r_den;
 };
 
+int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp);
+void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_feature);
+int mtk_cam_fmt_get_request(struct v4l2_pix_format_mplane *fmt_mp);
+void mtk_cam_fmt_set_request(struct v4l2_pix_format_mplane *fmt_mp, int request_fd);
+int mtk_cam_selection_get_request(struct v4l2_selection *crop);
+void mtk_cam_selection_set_request(struct v4l2_selection *crop, s32 request_fd);
 int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			   struct v4l2_device *v4l2_dev);
 void mtk_cam_video_unregister(struct mtk_cam_video_device *video);
@@ -190,8 +195,6 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f);
 
-int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f);
-
 int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 				 struct v4l2_fmtdesc *f);
 
@@ -214,5 +217,7 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
 
 void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr,
 				 struct mtk_raw_pde_config *pde_cfg);
+
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, bool active);
 
 #endif /*__MTK_CAM_VIDEO_H*/

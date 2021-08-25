@@ -222,6 +222,24 @@ struct mtk_raw_pad_config {
 	struct v4l2_rect crop;
 };
 
+/*
+ * struct mtk_raw_pipeline - sub dev to use raws.
+ *
+ * @feature_pending: keep the user value of S_CTRL V4L2_CID_MTK_CAM_FEATURE.
+ *		     It it safe save to be used in mtk_cam_vidioc_s_fmt,
+ *		     mtk_cam_vb2_queue_setup and mtk_cam_vb2_buf_queue
+ *		     But considering that we can't when the user calls S_CTRL,
+ *		     please use mtk_cam_request_stream_data's
+ *		     feature.raw_feature field
+ *		     to avoid the CTRL value change tming issue.
+ * @feature_pending_try: keep the user value of set CTRL
+ *			 V4L2_CID_MTK_CAM_FEATURE. It is only for some woraround
+ *			 to check valid set CTRL call and should be phase out
+ *			 after the issue is fixed.
+ * @feature_active: The active feature during streaming. It can't be changed
+ *		    during streaming and can only be used after streaming on.
+ *
+ */
 struct mtk_raw_pipeline {
 	unsigned int id;
 	struct v4l2_subdev subdev;
@@ -234,6 +252,9 @@ struct mtk_raw_pipeline {
 	unsigned long enabled_dmas;
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;
+	int feature_pending;
+	int feature_pending_try;
+	int feature_active;
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
 	struct mtk_cam_tg_flash_config tg_flash_config;
 	/* TODO: merge or integrate with mtk_cam_resource_config */
@@ -333,6 +354,7 @@ mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 			  struct mtk_cam_resource *res);
 unsigned int mtk_raw_get_hdr_scen_id(
 	struct mtk_cam_ctx *ctx);
+bool mtk_raw_is_fmt_nego_enabled(void);
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
 

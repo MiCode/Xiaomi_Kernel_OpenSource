@@ -22,6 +22,7 @@
 #include <soc/mediatek/smi.h>
 
 #include "mtk_cam.h"
+#include "mtk_cam-feature.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-video.h"
@@ -221,6 +222,11 @@ static const struct v4l2_mbus_framefmt mfmt_default = {
 	.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT,
 	.quantization = V4L2_QUANTIZATION_DEFAULT,
 };
+
+bool mtk_raw_is_fmt_nego_enabled(void)
+{
+	return en_fmt;
+}
 
 static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 				  struct mtk_cam_resource_config *res,
@@ -467,9 +473,6 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 	case V4L2_CID_MTK_CAM_PIXEL_RATE:
 		res_cfg->sensor_pixel_rate = *ctrl->p_new.p_s64;
 		break;
-	case V4L2_CID_MTK_CAM_FEATURE:
-		res_cfg->raw_feature = ctrl->val;
-		break;
 	case V4L2_CID_MTK_CAM_SYNC_ID:
 		pipeline->sync_id = *ctrl->p_new.p_s64;
 		break;
@@ -491,11 +494,13 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
+	struct device *dev;
 	struct mtk_raw_pipeline *pipeline;
 	struct mtk_cam_resource_config res_cfg;
 	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
@@ -508,9 +513,18 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
 		ret = 0;
 		break;
+	case V4L2_CID_MTK_CAM_FEATURE:
+		pipeline->feature_pending_try = ctrl->val;
+		dev_dbg(dev,
+			"%s:pipe(%d): feature_pending_try(0x%x)\n",
+			__func__, pipeline->id,
+			pipeline->feature_pending_try);
+		ret = 0;
+		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
-					   ctrl, &pipeline->try_res_config,
+					   ctrl,
+					   &pipeline->try_res_config,
 					   pipeline->id);
 		break;
 	}
@@ -520,10 +534,12 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 
 static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	struct device *dev;
 	struct mtk_raw_pipeline *pipeline;
 	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
@@ -531,6 +547,15 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
+		break;
+	case V4L2_CID_MTK_CAM_FEATURE:
+		pipeline->feature_pending = ctrl->val;
+
+		dev_dbg(dev,
+			"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
+			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
+			pipeline->feature_pending, pipeline->feature_active);
+		ret = 0;
 		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
@@ -815,7 +840,7 @@ static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0xffffffff,
 	.step = 1,
-	.dims = {sizeof(struct mtk_cam_resource)},
+	.dims = {sizeof(struct mtk_cam_tg_flash_config)},
 };
 
 static const struct v4l2_ctrl_config cfg_pde_info = {
@@ -1207,7 +1232,7 @@ void subsample_enable(struct mtk_raw_device *dev)
 {
 	u32 val;
 	u32 sub_ratio = mtk_cam_get_subsample_ratio(
-			dev->pipeline->res_config.raw_feature);
+			dev->pipeline->feature_active);
 
 	val = readl_relaxed(dev->base + REG_CQ_EN);
 	writel_relaxed(val | SCQ_SUBSAMPLE_EN, dev->base + REG_CQ_EN);
@@ -1269,10 +1294,13 @@ void stream_on(struct mtk_raw_device *dev, int on)
 	u32 chk_val;
 	u32 cfg_val;
 	unsigned long end;
+	struct mtk_raw_pipeline *pipe;
 	u32 fps_ratio = 1;
+	int feature;
 
 	dev_dbg(dev->dev, "raw %d %s %d\n", dev->id, __func__, on);
-
+	pipe = dev->pipeline;
+	feature = pipe->feature_active;
 	if (on) {
 #if USINGSCQ
 		val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
@@ -1295,8 +1323,8 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		 * mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
 		 *                             TG_OVERRUN);
 		 */
-		if (dev->pipeline->res_config.raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
-			dev->pipeline->res_config.raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+		if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
+		    feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
 			dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
 		} else {
 			val = readl_relaxed(dev->base + REG_TG_VF_CON);
@@ -1665,7 +1693,7 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 	bool res = false;
 
 	sub_overori_cnt = mtk_cam_get_subsample_ratio(
-				dev->pipeline->res_config.raw_feature) - 1;
+				dev->pipeline->feature_active) - 1;
 	sub_overori_time = ktime_get_boottime_ns() /
 				1000 - dev->sof_time;
 	fps = dev->pipeline->res_config.interval.denominator /
@@ -1777,16 +1805,16 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->vsync_ori_count = 0;
 	}
 #else
-	if ((!raw_dev->pipeline->res_config.raw_feature) && (irq_status & SOF_INT_ST)) {
+	if (!raw_dev->pipeline->feature_active && (irq_status & SOF_INT_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw_dev->sof_count++;
-	} else if ((raw_dev->pipeline->res_config.raw_feature) && (irq_status & VS_INT_ST)) {
+	} else if ((raw_dev->pipeline->feature_active) && (irq_status & VS_INT_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw_dev->sof_count++;
 	}
 #endif
 	if (irq_status & TG_VS_INT_ORG_ST &&
-		raw_dev->pipeline->res_config.raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
+		raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
 		if (is_sub_sample_sensor_timing(raw_dev))
 			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
 	}
@@ -1900,7 +1928,7 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
 	mtk_cam_raw_dump_dma_err_st(raw_dev->dev, raw_dev->base);
 	mtk_cam_yuv_dump_dma_err_st(raw_dev->dev, raw_dev->yuv_base);
 
-	if (raw_dev->pipeline->res_config.raw_feature)
+	if (raw_dev->pipeline->feature_active)
 		mtk_cam_dump_dma_debug(raw_dev->dev,
 				       raw_dev->base + CAMDMATOP_BASE,
 				       "RAWI_R2",
@@ -2234,7 +2262,7 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 
 	if (mtk_cam_is_stagger(ctx)) {
 		selected = mtk_cam_raw_stagger_select(ctx, pipe, raw_status);
-	} else if (pipe->res_config.raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK) {
+	} else if (pipe->feature_pending & MTK_CAM_FEATURE_TIMESHARE_MASK) {
 		int ts_id, ts_id_chk;
 		/*First, check if group ID used in every pipeline*/
 		/*if yes , use same engine*/
@@ -2243,9 +2271,9 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 			dev_info(cam->dev, "[%s] checking idx:%d pipe_id:%d pipe_chk_id:%d\n",
 				__func__, m, pipe->id, pipe_chk->id);
 			if (pipe->id != pipe_chk->id) {
-				ts_id = pipe->res_config.raw_feature &
+				ts_id = pipe->feature_active &
 						MTK_CAM_FEATURE_TIMESHARE_MASK;
-				ts_id_chk = pipe_chk->res_config.raw_feature &
+				ts_id_chk = pipe_chk->feature_active &
 							MTK_CAM_FEATURE_TIMESHARE_MASK;
 				if (ts_id == ts_id_chk &&
 					pipe_chk->enabled_raw != 0) {
@@ -2324,7 +2352,7 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		pipe->enabled_dmas = 0;
 		ctx->pipe = pipe;
 		ctx->used_raw_num++;
-
+		pipe->feature_active = pipe->feature_pending;
 		for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++) {
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
@@ -2338,6 +2366,7 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 				pm_runtime_put(raw->devs[i]);
 			}
 		}
+		pipe->feature_active = 0;
 	}
 
 	dev_info(raw->cam_dev, "%s:raw-%d: en %d, dev 0x%x dmas 0x%x\n",
@@ -2388,11 +2417,6 @@ static int mtk_raw_try_fmt(struct v4l2_subdev *sd,
 		unsigned int img_fmt, i;
 		struct mtk_cam_video_device *node =
 			&pipe->vdev_nodes[fmt->pad - MTK_RAW_SINK_NUM];
-		if (fmt->pad < MTK_RAW_META_OUT_BEGIN &&
-				fmt->pad >= MTK_RAW_META_IN)
-			node->raw_feature = pipe->res_config.raw_feature;
-		dev_dbg(raw->cam_dev, "node:%s num_fmts:%d feature:0x%x",
-			node->desc.name, node->desc.num_fmts, node->raw_feature);
 		for (i = 0; i < node->desc.num_fmts; i++) {
 			img_fmt = mtk_cam_get_img_fmt
 				(node->desc.fmts[i].vfmt.fmt.pix_mp.pixelformat);
@@ -2963,6 +2987,7 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 					res_cfg->interval.denominator,
 					res_cfg->interval.numerator,
 					res_cfg->sensor_pixel_rate);
+			pipe->try_res_config.raw_feature = pipe->feature_pending_try;
 			ret = mtk_raw_resource_calc(cam, &pipe->try_res_config,
 						    prate, res_cfg->res_plan,
 						    mf->width, mf->height,
@@ -2974,6 +2999,7 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 			 * be decoupled with format negociation flow
 			 * like the updated V4L2_SUBDEV_FORMAT_TRY flow.
 			 */
+			pipe->res_config.raw_feature = pipe->feature_pending;
 			ret = mtk_raw_resource_calc_set(pipe, mf->width,
 							mf->height, &w, &h);
 		}
@@ -4746,7 +4772,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->res_config.frz_limit = frz_limit.def;
 	pipe->res_config.bin_limit = bin_limit.def;
 	pipe->res_config.res_plan = res_plan_policy.def;
-	pipe->res_config.raw_feature = mtk_feature.def;
+	pipe->feature_pending = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
 	pipe->pde_config.pde_info.pdo_max_size = cfg_pde_info.def;
 	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;

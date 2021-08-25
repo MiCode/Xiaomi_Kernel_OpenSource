@@ -179,8 +179,8 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
 void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
-void mtk_cam_req_ctrl_setup(struct mtk_cam_ctx *ctx,
-					struct mtk_cam_request *req);
+void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
+			    struct mtk_cam_request *req);
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */
 void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx); /* ctx_stream_off */
 void mtk_cam_req_seninf_change(struct mtk_cam_request *req);

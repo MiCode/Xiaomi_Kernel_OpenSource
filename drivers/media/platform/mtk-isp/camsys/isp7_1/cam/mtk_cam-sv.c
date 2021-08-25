@@ -20,6 +20,7 @@
 #include <media/v4l2-subdev.h>
 
 #include "mtk_cam.h"
+#include "mtk_cam-feature.h"
 #include "mtk_cam_pm.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-sv-regs.h"

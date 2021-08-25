@@ -7,6 +7,7 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "mtk_cam.h"
+#include "mtk_cam-feature.h"
 #include "mtk_cam-video.h"
 #include "mtk_cam-meta.h"
 #include "mtk_camera-v4l2-controls.h"
@@ -61,7 +62,9 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int sizes[],
 				   struct device *alloc_devs[])
 {
+	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
+	struct mtk_raw_pipeline *raw_pipeline;
 	unsigned int max_buffer_count = node->desc.max_buf_count;
 	const struct v4l2_format *fmt = &node->active_fmt;
 	unsigned int size;
@@ -88,7 +91,10 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 		if (sizes[0] < size || *num_planes != 1)
 			return -EINVAL;
 	} else {
-		if (node->raw_feature && fmt->fmt.pix_mp.num_planes > 1) {
+		/* TBC: subsampling configuration */
+		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+		if (raw_pipeline && raw_pipeline->feature_pending &&
+		    fmt->fmt.pix_mp.num_planes > 1) {
 			*num_planes = fmt->fmt.pix_mp.num_planes;
 			for (i = 0; i < *num_planes; i++)
 				sizes[i] = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
@@ -701,7 +707,10 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 
 int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 		enum hdr_scenario_id scenario,
-		struct mtk_cam_request *req, unsigned int pipe_id)
+			   struct mtk_cam_request *req,
+			   unsigned int pipe_id,
+			   struct mtk_raw_pipeline *raw_pipline)
+
 {
 	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
@@ -721,8 +730,8 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 	for (i = 0 ; i < vb->num_planes; i++) {
 		vb->planes[i].data_offset =
 			i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
-		if (node->raw_feature == MSTREAM_NE_SE ||
-				node->raw_feature == MSTREAM_SE_NE) {
+		if (raw_pipline->feature_pending == MSTREAM_NE_SE ||
+		    raw_pipline->feature_pending == MSTREAM_SE_NE) {
 			struct mtk_cam_request_stream_data *req_stream_data_mstream =
 				mtk_cam_req_get_s_data(req, pipe_id, 1);
 			struct mtkcam_ipi_frame_param *mstream_frame_param =
@@ -735,7 +744,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 				pr_debug("mstream buffer plane over 2\n");
 				break;
 			}
-			if (node->raw_feature == MSTREAM_NE_SE)
+			if (raw_pipline->feature_pending == MSTREAM_NE_SE)
 				frame_param->raw_param.hardware_scenario =
 				MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
 			else
@@ -743,7 +752,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 				MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
 
 			// imgo mstream buffer layout is fixed plane[0]=NE, plane[1]=SE
-			if (node->raw_feature == MSTREAM_NE_SE) {
+			if (raw_pipline->feature_pending == MSTREAM_NE_SE) {
 				if (i == 0) { // normal output NE(plane[0]) first
 					// as normal 1 exposure flow
 					mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
@@ -791,7 +800,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 						frame_param->img_outs[desc_id].buf[0][0].iova);
 				}
 			}
-		} else if (mtk_cam_get_sensor_exposure_num(node->raw_feature) == 3) {
+		} else if (mtk_cam_get_sensor_exposure_num(raw_pipline->feature_pending) == 3) {
 			if (i == 0) { /* camsv1*/
 				int in_node = MTKCAM_IPI_RAW_RAWI_2;
 
@@ -819,7 +828,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 						buf->daddr + vb->planes[i].data_offset;
 				}
 			}
-		} else if (mtk_cam_get_sensor_exposure_num(node->raw_feature) == 2) {
+		} else if (mtk_cam_get_sensor_exposure_num(raw_pipline->feature_pending) == 2) {
 			if (i == 0) { /* camsv1*/
 				int in_node = MTKCAM_IPI_RAW_RAWI_2;
 
@@ -862,13 +871,15 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	void *vaddr;
 	int i;
 	unsigned int pixelformat;
-	struct v4l2_format *f = &node->active_fmt;
+	struct v4l2_format *f;
+	struct v4l2_selection *s;
 	struct mtkcam_ipi_img_output *img_out;
 	struct mtkcam_ipi_frame_param *frame_param;
 	struct mtkcam_ipi_meta_input *meta_in;
 	struct mtkcam_ipi_meta_output *meta_out;
 	struct mtk_camsv_frame_params *sv_frame_params;
 	struct mtk_raw_pipeline *raw_pipline;
+	int raw_feature;
 
 	dma_port = node->desc.dma_port;
 	pipe_id = node->uid.pipe_id;
@@ -878,9 +889,54 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
 	mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id);
 
-	dev_dbg(dev, "%s: node:%d fd:%d idx:%d\n", __func__,
-		node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index);
-	/* TODO: add vdev_node.enabled check to prevent an useless buffer */
+	if (raw_pipline)
+		raw_feature = raw_pipline->feature_pending;
+	else
+		raw_feature = 0;
+
+	dev_dbg(dev, "%s: node:%d fd:%d idx:%d, raw_feature:0x%x\n", __func__,
+		node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index,
+		raw_feature);
+
+	f = mtk_cam_s_data_get_vfmt(req_stream_data, node->desc.id);
+	if (!f) {
+		dev_info(cam->dev,
+			 "%s:%s:pipe(%d):%s: can't find the vfmt field to save\n",
+			 __func__, req->req.debug_str, node->uid.pipe_id, node->desc.name);
+		return;
+	}
+
+	if (req_stream_data->vdev_fmt_update & (1 << node->desc.id)) {
+		mtk_cam_video_set_fmt(node, f, true);
+		node->active_fmt = *f;
+	} else {
+		*f = node->active_fmt;
+		dev_dbg(cam->dev,
+			"%s:%s:pipe(%d):%s:save v4l2 fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
+			__func__, req->req.debug_str, node->uid.pipe_id, node->desc.name,
+			f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.width,
+			f->fmt.pix_mp.height);
+	}
+
+	s = mtk_cam_s_data_get_vsel(req_stream_data, node->desc.id);
+	if (!s) {
+		dev_info(cam->dev,
+			 "%s:%s:pipe(%d):%s: can't find the vsel field to save\n",
+			 __func__, req->req.debug_str, node->uid.pipe_id,
+			 node->desc.name);
+		return;
+	}
+
+	if (req_stream_data->vdev_selection_update & (1 << node->desc.id)) {
+		node->pending_crop = *s;
+		dev_dbg(cam->dev,
+			"%s:%s:pipe(%d):%s: apply pending vidioc_s_selection (%d,%d,%d,%d)\n",
+			__func__, req->req.debug_str, node->uid.pipe_id, node->desc.name,
+			node->pending_crop.r.left, node->pending_crop.r.top,
+			node->pending_crop.r.width, node->pending_crop.r.height);
+	} else {
+		*s = node->pending_crop;
+	}
 
 	/* added the buffer into the tracking list */
 	spin_lock_irqsave(&node->buf_list_lock, flags);
@@ -890,13 +946,13 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	/* update buffer internal address */
 	switch (dma_port) {
 	case MTKCAM_IPI_RAW_RAWI_2:
-		if (node->raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+		if (raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
 			mtk_cam_hdr_buf_update(vb, STAGGER_M2M,
-						req, pipe_id);
+						req, pipe_id, raw_pipline);
 			frame_param->raw_param.hardware_scenario =
 				MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER;
 			frame_param->raw_param.exposure_num =
-				mtk_cam_get_sensor_exposure_num(node->raw_feature);
+				mtk_cam_get_sensor_exposure_num(raw_feature);
 		} else {
 			desc_id = node->desc.id - MTK_RAW_RAWI_2_IN;
 			frame_param->img_ins[desc_id].buf[0].iova = buf->daddr;
@@ -924,22 +980,20 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			img_out = &frame_param->img_outs[desc_id];
 			mtk_cam_fill_img_buf(img_out, f, buf->daddr);
 		}
-
-		if (node->raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
-			int raw_feature =
-				node->raw_feature & MTK_CAM_FEATURE_HDR_MASK;
+		if (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
+			int feature =
+				raw_feature & MTK_CAM_FEATURE_HDR_MASK;
 			enum hdr_scenario_id scenario;
 
-			if (raw_feature == MSTREAM_NE_SE ||
-					raw_feature == MSTREAM_SE_NE)
+			if (feature == MSTREAM_NE_SE ||
+			    feature == MSTREAM_SE_NE)
 				scenario = MSTREAM;
 			else
 				scenario = STAGGER_ON_THE_FLY;
 
-			mtk_cam_hdr_buf_update(vb, scenario, req, pipe_id);
+			mtk_cam_hdr_buf_update(vb, scenario, req, pipe_id, raw_pipline);
 		}
-
-		if (node->raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
+		if (raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
 			for (i = 0 ; i < vb->num_planes; i++) {
 				vb->planes[i].data_offset =
 					i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
@@ -947,12 +1001,12 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 					buf->daddr + vb->planes[i].data_offset;
 			}
 			/*FOR 16 subsample ratios - FIXME*/
-			if (node->raw_feature == HIGHFPS_16_SUBSAMPLE)
+			if (raw_feature == HIGHFPS_16_SUBSAMPLE)
 				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 16; i++)
 					frame_param->img_outs[desc_id].buf[i][0].iova =
 					buf->daddr + i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
 			/*FOR 32 subsample ratios - FIXME*/
-			if (node->raw_feature == HIGHFPS_32_SUBSAMPLE)
+			if (raw_feature == HIGHFPS_32_SUBSAMPLE)
 				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++)
 					frame_param->img_outs[desc_id].buf[i][0].iova =
 					buf->daddr + i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
@@ -974,7 +1028,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		img_out = &frame_param->img_outs[desc_id];
 		img_out->buf[0][0].ccd_fd = vb->planes[0].m.fd;
 		mtk_cam_fill_img_buf(img_out, f, buf->daddr);
-		if (node->raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
+		if (raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
 			int comp_planes = 1;
 
 			if (is_mtk_format(f->fmt.pix_mp.pixelformat)) {
@@ -1004,7 +1058,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 				}
 			}
 			/*FOR 16 subsample ratios - FIXME*/
-			if (node->raw_feature == HIGHFPS_16_SUBSAMPLE) {
+			if (raw_feature == HIGHFPS_16_SUBSAMPLE) {
 				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 16; i++) {
 					int p;
 					unsigned int oft =
@@ -1021,7 +1075,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 				}
 			}
 			/*FOR 32 subsample ratios - FIXME*/
-			if (node->raw_feature == HIGHFPS_32_SUBSAMPLE)
+			if (raw_feature == HIGHFPS_32_SUBSAMPLE)
 				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++) {
 					int p;
 					unsigned int oft =
@@ -1993,19 +2047,19 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 	struct mtk_cam_request *cam_req;
 	struct media_request *req;
+	struct v4l2_format *vfmt;
 	struct mtk_cam_request_stream_data *stream_data;
 	s32 fd;
 
 	if (!vb2_is_busy(node->vdev.queue)) {
-
 		/* Get the valid format */
-		mtk_cam_vidioc_try_fmt(file, fh, f);
+		mtk_cam_video_set_fmt(node, f, true);
 		/* Configure to video device */
 		node->active_fmt = *f;
 		return 0;
 	}
 
-	fd = get_format_request_fd(&f->fmt.pix_mp);
+	fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	if (fd < 0)
 		return -EINVAL;
 
@@ -2026,21 +2080,65 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 
 	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
 	stream_data->vdev_fmt_update |= (1 << node->desc.id);
-	stream_data->vdev_fmt[node->desc.id] = *f;
+	vfmt = mtk_cam_s_data_get_vfmt(stream_data, node->desc.id);
+	*vfmt = *f;
 	media_request_put(req);
 
 	return 0;
 }
 
-int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, bool active)
 {
 	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
+	struct mtk_raw_pipeline *raw_pipeline;
 	const struct v4l2_format *dev_fmt;
 	struct v4l2_format try_fmt;
 	s32 request_fd, i;
 	u32 bytesperline, sizeimage;
+	int raw_feature = 0;
 
-	request_fd = get_format_request_fd(&f->fmt.pix_mp);
+	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+	if (raw_pipeline) {
+		if (active) {
+			/* set format */
+			raw_feature = raw_pipeline->feature_pending;
+			dev_dbg(cam->dev,
+				"%s:pipe(%d) read feature(0x%x) from pending\n",
+				__func__, raw_pipeline->id, raw_feature);
+		} else {
+			/* try format */
+			if (mtk_raw_is_fmt_nego_enabled()) {
+				/* read feature flgas from v4l2_format.fmt.pix_mp */
+				raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
+				dev_dbg(cam->dev,
+					"%s:pipe(%d) read feature(0x%x) from pix_mp\n",
+					__func__, raw_pipeline->id, raw_feature);
+			} else {
+				/* Workaround before the user pass feature in v4l2_format */
+				if (raw_pipeline->subdev.entity.stream_count > 0) {
+					/**
+					 * Use the locked feature_active if it is streaming
+					 * since feature_pending may be changed per request
+					 * during streaming and we always use the worst case
+					 * of num of planes or the input to determine it
+					 * during format negotiation.
+					 */
+					raw_feature = raw_pipeline->feature_active;
+					dev_dbg(cam->dev,
+						"%s:pipe(%d) read feature(0x%x) from active\n",
+						__func__, raw_pipeline->id, raw_feature);
+
+				} else {
+					raw_feature = raw_pipeline->feature_pending;
+					dev_dbg(cam->dev,
+						"%s:pipe(%d) read feature(0x%x) from pending\n",
+						__func__, raw_pipeline->id, raw_feature);
+				}
+			}
+		}
+	}
+
+	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));
 	try_fmt.type = f->type;
 
@@ -2064,8 +2162,8 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 	try_fmt.fmt.pix_mp.num_planes = 1;
 	/* support 1/2/3 plane */
 	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
-		(node->raw_feature & MTK_CAM_FEATURE_HDR_MASK)) {
-		switch (node->raw_feature) {
+		(raw_feature & MTK_CAM_FEATURE_HDR_MASK)) {
+		switch (raw_feature) {
 		case STAGGER_2_EXPOSURE_LE_SE:
 		case STAGGER_2_EXPOSURE_SE_LE:
 		case MSTREAM_NE_SE:
@@ -2080,8 +2178,8 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 			try_fmt.fmt.pix_mp.num_planes = 1;
 		}
 	} else if (node->desc.id == MTK_RAW_RAWI_2_IN &&
-		(node->raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK)) {
-		switch (node->raw_feature) {
+		(raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK)) {
+		switch (raw_feature) {
 		case STAGGER_M2M_2_EXPOSURE_LE_SE:
 		case STAGGER_M2M_2_EXPOSURE_SE_LE:
 			try_fmt.fmt.pix_mp.num_planes = 2;
@@ -2107,8 +2205,8 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 	/* subsample */
 	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
 		node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
-		(node->raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK)) {
-		switch (node->raw_feature) {
+		(raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK)) {
+		switch (raw_feature) {
 		case HIGHFPS_2_SUBSAMPLE:
 			try_fmt.fmt.pix_mp.num_planes = 2;
 			break;
@@ -2133,9 +2231,9 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 			try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
 				sizeimage;
 		}
-		dev_info(cam->dev, "%s id:%d raw_feature:%d stride:%d size:%d\n",
-			__func__, node->desc.id, node->raw_feature,
-			bytesperline, sizeimage);
+		dev_info(cam->dev, "%s id:%d raw_feature:0x%x stride:%d size:%d\n",
+			 __func__, node->desc.id, raw_feature,
+			 bytesperline, sizeimage);
 	}
 	/* TODO: support camsv meta header */
 #if PDAF_READY
@@ -2153,7 +2251,7 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 	try_fmt.fmt.pix_mp.xfer_func = V4L2_XFER_FUNC_SRGB;
 
 	*f = try_fmt;
-	set_format_request_fd(&f->fmt.pix_mp, request_fd);
+	mtk_cam_fmt_set_request(&f->fmt.pix_mp, request_fd);
 
 	return 0;
 }
@@ -2163,7 +2261,7 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 
-	video_try_fmt(node, f);
+	mtk_cam_video_set_fmt(node, f, false);
 	return 0;
 }
 
@@ -2225,9 +2323,10 @@ int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 	struct mtk_cam_request_stream_data *stream_data;
 	struct mtk_cam_request *cam_req;
 	struct media_request *req;
+	struct v4l2_selection *vsel;
 	s32 fd;
 
-	fd = get_crop_request_fd(s);
+	fd = mtk_cam_selection_get_request(s);
 	if (fd < 0)
 		return -EINVAL;
 
@@ -2251,7 +2350,8 @@ int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 	cam_req = to_mtk_cam_req(req);
 	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
 	stream_data->vdev_selection_update |= (1 << node->desc.id);
-	stream_data->vdev_selection[node->desc.id] = *s;
+	vsel = mtk_cam_s_data_get_vsel(stream_data, node->desc.id);
+	*vsel = *s;
 	dev_dbg(cam->dev,
 		"%s:%s:pipe(%d):%s:pending vidioc_s_selection (%d,%d,%d,%d)\n",
 		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
@@ -2260,5 +2360,72 @@ int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 	media_request_put(req);
 
 	return 0;
+}
+
+void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_feature)
+{
+	u8 *reserved = fmt_mp->reserved;
+
+	fmt_mp->flags = raw_feature & 0x000000FF;
+	reserved[1] = (raw_feature & 0x0000FF00) >> 8;
+	reserved[2] = (raw_feature & 0x00FF0000) >> 16;
+	reserved[3] = (raw_feature & 0xFF000000) >> 24;
+}
+
+int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp)
+{
+	int raw_feature = fmt_mp->flags;
+
+	/**
+	 * Current 8 bits flag is not enough so we also use the reserved[4-6] to
+	 * save the feature flags.
+	 */
+	raw_feature |= ((unsigned int)fmt_mp->reserved[5]) << 8 & 0x0000FF00;
+	raw_feature |= ((unsigned int)fmt_mp->reserved[6]) << 16 & 0x00FF0000;
+	raw_feature |= ((unsigned int)fmt_mp->reserved[7]) << 24 & 0xFF000000;
+
+	return raw_feature;
+}
+
+int mtk_cam_fmt_get_request(struct v4l2_pix_format_mplane *fmt_mp)
+{
+	int field;
+	int reserved_fields = 4;
+	s32 request_fd = 0;
+
+	for (field = 0; field < reserved_fields; field++) {
+		request_fd +=
+			fmt_mp->reserved[field] << BITS_PER_BYTE * field;
+		fmt_mp->reserved[field] = 0;
+	}
+
+	return request_fd;
+}
+
+void mtk_cam_fmt_set_request(struct v4l2_pix_format_mplane *fmt_mp, int request_fd)
+{
+	u8 *reserved = fmt_mp->reserved;
+
+	reserved[0] = request_fd & 0x000000FF;
+	reserved[1] = (request_fd & 0x0000FF00) >> 8;
+	reserved[2] = (request_fd & 0x00FF0000) >> 16;
+	reserved[3] = (request_fd & 0xFF000000) >> 24;
+}
+
+int mtk_cam_selection_get_request(struct v4l2_selection *crop)
+{
+	s32 request_fd = 0;
+
+	request_fd = crop->reserved[0];
+	crop->reserved[0] = 0;
+
+	return request_fd;
+}
+
+void mtk_cam_selection_set_request(struct v4l2_selection *crop, int request_fd)
+{
+	u32 *reserved = crop->reserved;
+
+	reserved[0] = request_fd;
 }
 

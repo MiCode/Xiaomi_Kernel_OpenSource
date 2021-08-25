@@ -132,6 +132,7 @@ mtk_cam_req_work_get_s_data(struct mtk_cam_req_work *work)
 
 struct mtk_cam_req_feature {
 	int raw_feature;
+	int prev_feature;
 	int switch_feature_type;
 };
 
@@ -471,26 +472,45 @@ mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 	return -1;
 }
 
-
 static inline void
 mtk_cam_s_data_set_vbuf(struct mtk_cam_request_stream_data *s_data,
-			struct mtk_cam_buffer *buf, int node_id)
+			struct mtk_cam_buffer *buf,
+			int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
-
 	if (idx >= 0)
 		s_data->bufs[idx] = buf;
 }
 
 
 static inline struct mtk_cam_buffer*
-mtk_cam_s_data_get_vbuf(struct mtk_cam_request_stream_data *s_data,
-			int node_id)
+mtk_cam_s_data_get_vbuf(struct mtk_cam_request_stream_data *s_data, int node_id)
+{
+	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
+	if (idx >= 0)
+		return s_data->bufs[idx];
+
+	return NULL;
+}
+
+static inline struct v4l2_format*
+mtk_cam_s_data_get_vfmt(struct mtk_cam_request_stream_data *s_data, int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
 
 	if (idx >= 0)
-		return s_data->bufs[idx];
+		return &s_data->vdev_fmt[idx];
+
+	return NULL;
+}
+
+static inline struct v4l2_selection*
+mtk_cam_s_data_get_vsel(struct mtk_cam_request_stream_data *s_data, int node_id)
+{
+	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
+
+	if (idx >= 0)
+		return &s_data->vdev_selection[idx];
 
 	return NULL;
 }
@@ -499,7 +519,6 @@ static inline void
 mtk_cam_s_data_reset_vbuf(struct mtk_cam_request_stream_data *s_data, int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
-
 	if (idx >= 0)
 		s_data->bufs[idx] = NULL;
 }
@@ -611,25 +630,8 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 void isp_composer_create_session(struct mtk_cam_ctx *ctx);
-s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp);
-void set_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp, s32 request_fd);
-s32 get_crop_request_fd(struct v4l2_selection *crop);
-void set_crop_request_fd(struct v4l2_selection *crop, s32 request_fd);
-
 int PipeIDtoTGIDX(int pipe_id);
-int mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
-int mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
-int mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);
-int mtk_cam_is_mstream(struct mtk_cam_ctx *ctx);
-int feature_is_mstream(int feature);
-int feature_change_is_mstream(int feature_change);
-int mtk_cam_node_is_mstream(struct mtk_cam_video_device *node);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req, int pipe_id,
 				int previous_feature);
-int mtk_cam_is_subsample(struct mtk_cam_ctx *ctx);
-int mtk_cam_is_2_exposure(struct mtk_cam_ctx *ctx);
-int mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx);
-int mtk_cam_get_sensor_exposure_num(u32 raw_feature);
-
 #endif /*__MTK_CAM_H*/

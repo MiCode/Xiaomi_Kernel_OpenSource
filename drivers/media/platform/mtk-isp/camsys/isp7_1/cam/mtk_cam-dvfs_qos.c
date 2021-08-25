@@ -7,6 +7,7 @@
 
 #include "mtk-interconnect.h"
 #include "mtk_cam.h"
+#include "mtk_cam-feature.h"
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-meta.h"
 

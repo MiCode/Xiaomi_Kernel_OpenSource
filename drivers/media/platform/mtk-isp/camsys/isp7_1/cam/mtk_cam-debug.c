@@ -1022,6 +1022,7 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 		return;
 
 	if (s_data->state.estate == E_STATE_CQ ||
+	    s_data->state.estate == E_STATE_OUTER ||
 	    s_data->state.estate == E_STATE_INNER_HW_DELAY)
 		s_data->no_frame_done_cnt++;
 
