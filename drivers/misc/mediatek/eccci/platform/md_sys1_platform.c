@@ -440,21 +440,21 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
  */
 int md1_revert_sequencer_setting(struct ccci_modem *md)
 {
-	void __iomem *reg;
+	void __iomem *reg = NULL;
 	int count = 0;
 
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER OFF] revert sequencer setting to AOC1.0 start\n");
 
-	reg = ioremap_wc(0x1002B000, 0x1000);
+	reg = ioremap_wc(0x1C803000, 0x1000);
 	if (reg == NULL) {
 		CCCI_ERROR_LOG(md->index, TAG,
-			"[POWER OFF] ioremap 0x100 bytes from 0x1002B000 fail\n");
+			"[POWER OFF] ioremap 0x100 bytes from 0x1C803000 fail\n");
 		return -1;
 	}
 
 	/* disable sequencer */
-	ccci_write32(reg, 0x0, 0x0);
+	ccci_write32(reg, 0x204, 0x0);
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER OFF] disable sequencer done\n");
 	udelay(1000);
@@ -469,6 +469,7 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 		if (count == 10) {
 			CCCI_ERROR_LOG(md->index, TAG,
 				"[POWER OFF] wait sequencer fail\n");
+			iounmap(reg);
 			return -2;
 		}
 	}
@@ -548,14 +549,13 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 
 	/* modem topclkgen off setting */
 	md_cd_topclkgen_off(md);
-	/*
-	 * if (md_cd_plat_val_ptr.md_gen >= 6298) {
-	 * revert sequencer setting to AOC1.0 for gen98
-	 *	ret = md1_revert_sequencer_setting(md);
-	 *	if (ret)
-	 *		return ret;
-	 *}
-	 */
+
+	/* revert sequencer setting to AOC1.0 for gen98 */
+	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+		ret = md1_revert_sequencer_setting(md);
+		if (ret)
+			return ret;
+	}
 
 	/* 5. DLPT */
 #if IS_ENABLED(CONFIG_MTK_PBM)

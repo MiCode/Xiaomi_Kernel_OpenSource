@@ -1984,6 +1984,7 @@ static void ccif_set_clk_off(unsigned char hif_id)
 			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 		}
 	} else if (ccif_ctrl->plat_val.md_gen >= 6298) {
+		/* write 1 clear register */
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
 			0xBF0, 0xF7FF);
 		devapc_check_flag = 0;
