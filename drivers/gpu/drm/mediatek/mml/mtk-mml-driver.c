@@ -45,6 +45,11 @@ struct mml_dev {
 	struct mutex sram_mutex;
 	/* The height of racing mode for each output tile in pixel. */
 	u8 racing_height;
+
+	/* wack lock to prevent system off */
+	struct wakeup_source *wake_lock;
+	s32 wake_ref;
+	struct mutex wake_ref_mutex;
 };
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
@@ -624,6 +629,24 @@ void mml_clock_unlock(struct mml_dev *mml)
 	mutex_unlock(&mml->clock_mutex);
 }
 
+void mml_lock_wake_lock(struct mml_dev *mml, bool lock)
+{
+	mutex_lock(&mml->wake_ref_mutex);
+	if (lock) {
+		mml->wake_ref++;
+		if (mml->wake_ref == 1)
+			__pm_stay_awake(mml->wake_lock);
+	} else {
+		mml->wake_ref--;
+		if (mml->wake_ref == 0)
+			__pm_relax(mml->wake_lock);
+
+		if (mml->wake_ref < 0)
+			mml_err("%s wake_ref < 0", __func__);
+	}
+	mutex_unlock(&mml->wake_ref_mutex);
+}
+
 s32 mml_register_comp(struct device *master, struct mml_comp *comp)
 {
 	struct mml_dev *mml = dev_get_drvdata(master);
@@ -689,6 +712,7 @@ static int mml_probe(struct platform_device *pdev)
 	mml->pdev = pdev;
 	mutex_init(&mml->drm_ctx_mutex);
 	mutex_init(&mml->clock_mutex);
+	mutex_init(&mml->wake_ref_mutex);
 
 	/* init sram request parameters */
 	mutex_init(&mml->sram_mutex);
@@ -734,6 +758,8 @@ static int mml_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mml);
 	dbg_probed = true;
+
+	mml->wake_lock = wakeup_source_register(dev, "mml_pm_lock");
 	return 0;
 
 err_mbox_create:
@@ -758,6 +784,8 @@ static int mml_remove(struct platform_device *pdev)
 	mml_sys_destroy(pdev, mml->sys, &sys_comp_ops);
 	comp_master_deinit(dev);
 	devm_kfree(dev, mml);
+
+	wakeup_source_unregister(mml->wake_lock);
 	return 0;
 }
 

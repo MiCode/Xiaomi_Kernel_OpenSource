@@ -475,6 +475,8 @@ static void task_frame_done(struct mml_task *task)
 done:
 	mutex_unlock(&ctx->config_mutex);
 
+	mml_lock_wake_lock(task->config->mml, false);
+
 	mml_trace_ex_end();
 }
 
@@ -629,6 +631,9 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	/* copy pq parameters */
 	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)
 		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(struct mml_pq_param));
+
+	/* wack lock */
+	mml_lock_wake_lock(task->config->mml, true);
 
 	/* submit to core */
 	mml_core_submit_task(cfg, task);

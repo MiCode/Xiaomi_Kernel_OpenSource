@@ -94,6 +94,13 @@ void mml_clock_lock(struct mml_dev *mml);
  */
 void mml_clock_unlock(struct mml_dev *mml);
 
+/*
+ * mml_lock_wake_lock - wake lock to prevent system off
+ *
+ * @mml: The mml driver instance
+ */
+void mml_lock_wake_lock(struct mml_dev *mml, bool lock);
+
 s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	int subcomponent, struct mml_comp *comp);
 s32 mml_register_comp(struct device *master, struct mml_comp *comp);
