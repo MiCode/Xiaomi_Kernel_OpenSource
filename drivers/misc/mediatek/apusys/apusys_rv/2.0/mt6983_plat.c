@@ -139,7 +139,9 @@ static void apu_reset_mp(struct mtk_apu *apu)
 		/* reset uP */
 		iowrite32(0, apu->md32_sysctrl + MD32_SYS_CTRL);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
-		mdelay(100);
+
+		udelay(10);
+
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* md32_g2b_cg_en | md32_dbg_en | md32_soft_rstn */
 		iowrite32(0xc01, apu->md32_sysctrl + MD32_SYS_CTRL);
@@ -215,12 +217,14 @@ static void apu_start_mp(struct mtk_apu *apu)
 		iowrite32(0x0, apu->apu_ao_ctl + MD32_RUNSTALL);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
 
-		usleep_range(0, 1000);
-		for (i = 0; i < 20; i++) {
-			dev_info(dev, "apu boot: pc=%08x, sp=%08x\n",
-			ioread32(apu->md32_sysctrl + 0x838),
-					ioread32(apu->md32_sysctrl+0x840));
+		if ((apu->platdata->flags & F_PRELOAD_FIRMWARE) == 0) {
 			usleep_range(0, 1000);
+			for (i = 0; i < 20; i++) {
+				dev_info(dev, "apu boot: pc=%08x, sp=%08x\n",
+				ioread32(apu->md32_sysctrl + 0x838),
+						ioread32(apu->md32_sysctrl+0x840));
+				usleep_range(0, 1000);
+			}
 		}
 	}
 }
