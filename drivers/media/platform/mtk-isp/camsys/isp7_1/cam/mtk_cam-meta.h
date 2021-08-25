@@ -93,6 +93,10 @@ struct mtk_cam_uapi_ae_param {
 	__u8  aai_r1_enable;
 	__u8  aai_roi_map[MTK_CAM_UAPI_ROI_MAP_BLK_NUM];
 	__u16 hdr_ratio; /* base 1 x= 1000 */
+	__u32 act_win_x_start;
+	__u32 act_win_x_end;
+	__u32 act_win_y_start;
+	__u32 act_win_y_end;
 };
 
 /**
@@ -299,10 +303,6 @@ struct mtk_cam_uapi_pde_param {
 };
 
 /**
- * Common stuff for all statistics
- */
-
-/**
  * struct mtk_cam_uapi_meta_hw_buf - hardware buffer info
  *
  * @offset: offset from the start of the device memory associated to the
@@ -317,6 +317,172 @@ struct mtk_cam_uapi_meta_hw_buf {
 	__u32 offset;
 	__u32 size;
 };
+
+/**
+ * struct mtk_cam_uapi_pdp_stats - statistics of pd
+ *
+ * @stats_src:     source width and heitgh of the statistics.
+ * @stride:     stride value used by
+ * @pdo_buf:     The buffer for PD statistic hardware output.
+ *
+ * This is the PD statistic returned to user.
+ */
+struct mtk_cam_uapi_pdp_stats {
+	struct  mtk_cam_uapi_meta_size stats_src;
+	__u32   stride;
+	struct  mtk_cam_uapi_meta_hw_buf pdo_buf;
+};
+
+/**
+ * struct mtk_cam_uapi_cpi_stats - statistics of pd
+ *
+ * @stats_src:     source width and heitgh of the statistics.
+ * @stride:     stride value used by
+ * @pdo_buf:     The buffer for PD statistic hardware output.
+ *
+ * This is the PD statistic returned to user.
+ */
+struct mtk_cam_uapi_cpi_stats {
+	struct  mtk_cam_uapi_meta_size stats_src;
+	__u32   stride;
+	struct  mtk_cam_uapi_meta_hw_buf cpio_buf;
+};
+
+/*
+ * struct mtk_cam_uapi_mqe_param
+ *
+ * @mqe_mode:
+ */
+struct mtk_cam_uapi_mqe_param {
+	__u32 mqe_mode;
+};
+
+/*
+ * struct mtk_cam_uapi_mobc_param
+ *
+ *
+ */
+struct mtk_cam_uapi_mobc_param {
+	__u32 mobc_offst0;
+	__u32 mobc_offst1;
+	__u32 mobc_offst2;
+	__u32 mobc_offst3;
+	__u32 mobc_gain0;
+	__u32 mobc_gain1;
+	__u32 mobc_gain2;
+	__u32 mobc_gain3;
+};
+
+/*
+ * struct mtk_cam_uapi_lsc_param
+ *
+ *
+ */
+struct mtk_cam_uapi_lsc_param {
+	__u32 lsc_ctl1;
+	__u32 lsc_ctl2;
+	__u32 lsc_ctl3;
+	__u32 lsc_lblock;
+	__u32 lsc_fblock;
+	__u32 lsc_ratio;
+	__u32 lsc_tpipe_ofst;
+	__u32 lsc_tpipe_size;
+};
+
+/*
+ * struct mtk_cam_uapi_sgg_param
+ *
+ *
+ */
+struct mtk_cam_uapi_sgg_param {
+	__u32 sgg_pgn;
+	__u32 sgg_gmrc_1;
+	__u32 sgg_gmrc_2;
+};
+
+/*
+ * struct mtk_cam_uapi_mbn_param
+ *
+ *
+ */
+struct mtk_cam_uapi_mbn_param {
+	__u32 mbn_pow;
+	__u32 mbn_dir;
+	__u32 mbn_spar_hei;
+	__u32 mbn_spar_pow;
+	__u32 mbn_spar_fac;
+	__u32 mbn_spar_con1;
+	__u32 mbn_spar_con0;
+};
+
+/*
+ * struct mtk_cam_uapi_cpi_param
+ *
+ *
+ */
+struct mtk_cam_uapi_cpi_param {
+	__u32 cpi_th;
+	__u32 cpi_pow;
+	__u32 cpi_dir;
+	__u32 cpi_spar_hei;
+	__u32 cpi_spar_pow;
+	__u32 cpi_spar_fac;
+	__u32 cpi_spar_con1;
+	__u32 cpi_spar_con0;
+};
+
+/*
+ * struct mtk_cam_uapi_lsci_param
+ *
+ *
+ */
+struct mtk_cam_uapi_lsci_param {
+	__u32 lsci_xsize;
+	__u32 lsci_ysize;
+};
+
+/*
+ *  struct mtk_cam_uapi_meta_mraw_stats_cfg
+ *
+ */
+struct mtk_cam_uapi_meta_mraw_stats_cfg {
+	__s8 mqe_enable;
+	__s8 mobc_enable;
+	__s8 lsc_enable;
+	__s8 lsci_enable;
+
+	struct mtk_cam_uapi_mqe_param mqe_param;
+	struct mtk_cam_uapi_mobc_param mobc_param;
+	struct mtk_cam_uapi_lsc_param lsc_param;
+	struct mtk_cam_uapi_sgg_param sgg_param;
+	struct mtk_cam_uapi_mbn_param mbn_param;
+	struct mtk_cam_uapi_cpi_param cpi_param;
+	struct mtk_cam_uapi_lsci_param lsci_param;
+
+	// __u8 bytes[1024 * 94]; //lsci table(todo: size)
+};
+
+/**
+ * struct mtk_cam_uapi_meta_mraw_stats_0 - capture buffer returns from
+ *   camsys's mraw module after the frame is done. The buffer are
+ *   not be pushed the other driver such as dip.
+ *
+ * @stats_enabled:   indicate that stats is ready or not in
+ *       this buffer
+ */
+struct mtk_cam_uapi_meta_mraw_stats_0 {
+	__u8   pdp_0_stats_enabled;
+	__u8   pdp_1_stats_enabled;
+	__u8   cpi_stats_enabled;
+
+	struct mtk_cam_uapi_pdp_stats pdp_0_stats;
+	struct mtk_cam_uapi_pdp_stats pdp_1_stats;
+	struct mtk_cam_uapi_cpi_stats cpi_stats;
+};
+
+/**
+ * Common stuff for all statistics
+ */
 
 #define MTK_CAM_UAPI_MAX_CORE_NUM (2)
 
@@ -676,7 +842,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 2
+#define MTK_CAM_META_VERSION_MINOR 3
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6983"
 
