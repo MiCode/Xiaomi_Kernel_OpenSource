@@ -15,6 +15,9 @@
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/devapc_public.h>
+#ifdef CONFIG_MTK_SERROR_HOOK
+#include <trace/hooks/traps.h>
+#endif
 #include "devapc-mtk-multi-ao.h"
 
 static struct mtk_devapc_context {
@@ -854,6 +857,85 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 }
 
 /*
+ * devapc_slave_error - the devapc will dump violation information
+ *			  including which master violates access slave.
+ */
+#ifdef CONFIG_MTK_SERROR_HOOK
+static void devapc_slave_error(void)
+{
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	const struct mtk_device_info **device_info;
+	struct mtk_devapc_vio_info *vio_info;
+	int slave_type, vio_idx, index;
+	const char *vio_master;
+	uint8_t perm;
+
+	print_vio_mask_sta(true);
+
+	device_info = mtk_devapc_ctx->soc->device_info;
+	vio_info = mtk_devapc_ctx->soc->vio_info;
+	vio_idx = index = -1;
+
+	/* There are multiple DEVAPC_PD */
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+
+		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
+			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
+						&index))
+				continue;
+
+		/* Ensure that violation info are written before
+		 * further operations
+		 */
+		smp_mb();
+
+		mask_module_irq(slave_type, vio_idx, true);
+
+		if (clear_vio_status(slave_type, vio_idx))
+			pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+					"clear vio status failed",
+					"slave_type", slave_type,
+					"vio_index", vio_idx);
+
+		perm = get_permission(slave_type, index, vio_info->domain_id);
+
+		vio_master = mtk_devapc_ctx->soc->master_get(
+				vio_info->master_id,
+				vio_info->vio_addr,
+				slave_type,
+				vio_info->shift_sta_bit,
+				vio_info->domain_id);
+
+		if (!vio_master) {
+			pr_warn(PFX "master_get failed\n");
+			vio_master = "UNKNOWN_MASTER";
+		}
+
+		pr_info(PFX "%s - %s:0x%x, %s:0x%x, %s:0x%x, %s:0x%x\n",
+				"Violation", "slave_type", slave_type,
+				"sys_index",
+				device_info[slave_type][index].sys_index,
+				"ctrl_index",
+				device_info[slave_type][index].ctrl_index,
+				"vio_index",
+				device_info[slave_type][index].vio_index);
+
+		pr_info(PFX "%s %s %s %s\n",
+				"Violation - master:", vio_master,
+				"access violation slave:",
+				device_info[slave_type][index].device);
+
+		devapc_vio_reason(perm);
+
+		devapc_extra_handler(slave_type, vio_master, vio_idx,
+				vio_info->vio_addr);
+
+		mask_module_irq(slave_type, vio_idx, false);
+	}
+}
+#endif
+
+/*
  * devapc_violation_irq - the devapc Interrupt Service Routine (ISR) will dump
  *			  violation information including which master violates
  *			  access slave.
@@ -882,6 +964,13 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		if (irq_number == mtk_devapc_ctx->devapc_irq[irq_type])
 			pr_info(PFX "irq_type: %d\n", irq_type);
 	}
+
+#ifdef CONFIG_MTK_SERROR_HOOK
+	if (mtk_devapc_ctx->soc->slave_error) {
+		spin_unlock_irqrestore(&devapc_lock, flags);
+		return IRQ_HANDLED;
+	}
+#endif
 
 	print_vio_mask_sta(true);
 
@@ -1324,6 +1413,18 @@ static ssize_t set_swp_addr_store(struct device_driver *driver,
 static DRIVER_ATTR_RW(set_swp_addr);
 #endif /* CONFIG_DEVAPC_SWP_SUPPORT */
 
+#ifdef CONFIG_MTK_SERROR_HOOK
+static void devapc_arm64_serror_panic_hook(void *data,
+		struct pt_regs *regs, unsigned int esr)
+{
+	pr_info(PFX "serror panic hook\n");
+
+	mtk_devapc_ctx->soc->slave_error = true;
+	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
+	devapc_slave_error();
+}
+#endif
+
 int mtk_devapc_probe(struct platform_device *pdev,
 		struct mtk_devapc_soc *soc)
 {
@@ -1336,6 +1437,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	int ret;
 
 	pr_info(PFX "driver registered\n");
+
+#ifdef CONFIG_MTK_SERROR_HOOK
+	ret = register_trace_android_rvh_arm64_serror_panic(
+			devapc_arm64_serror_panic_hook, NULL);
+	if (ret)
+		pr_info(PFX "register android_rvh_arm64_serror_panic failed!\n");
+#endif
 
 	if (IS_ERR(node)) {
 		pr_err(PFX "cannot find device node\n");
