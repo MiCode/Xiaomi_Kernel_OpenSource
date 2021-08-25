@@ -1839,6 +1839,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *current_state;
 	dma_addr_t base_addr;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
+	bool is_apply = false;
 
 	/* inner register dequeue number */
 	if (!mtk_cam_is_stagger(ctx))
@@ -1888,10 +1889,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no);
 		spin_unlock(&ctx->composed_buffer_list.lock);
 	} else {
-		if (ctx->used_sv_num) {
-			if (mtk_cam_sv_apply_next_buffer(ctx) == 0)
-				dev_info(raw_dev->dev, "sv apply next buffer failed");
-		}
+		is_apply = true;
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
@@ -1926,6 +1924,10 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			ctx->composed_frame_seq_no, base_addr, req_stream_data->timestamp,
 			req_stream_data->timestamp_mono);
 		}
+	}
+	if (ctx->used_sv_num && is_apply) {
+		if (mtk_cam_sv_apply_next_buffer(ctx) == 0)
+			dev_info(raw_dev->dev, "sv apply next buffer failed");
 	}
 }
 
@@ -2619,7 +2621,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	struct mtk_raw_device *raw_dev;
 	int i;
 
-	if (mtk_cam_is_stagger(ctx)) {
+	if (mtk_cam_is_stagger(ctx) && is_raw_subdev(pipe_id)) {
 		req = mtk_cam_get_req(ctx, frame_seq_no + 1);
 		if (req) {
 			req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
@@ -2651,7 +2653,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	if (req_stream_data) {
 		req = mtk_cam_s_data_get_req(req_stream_data);
 	} else {
-		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
+		dev_dbg(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
 			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
 		return;
 	}
@@ -2851,7 +2853,8 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_sv_event_frame_sync(camsv_dev, dequeued_frame_seq_no);
 
-	mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no, camsv_dev->id);
+	mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no,
+		camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START);
 
 	if (ctx->sensor &&
 		(ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&

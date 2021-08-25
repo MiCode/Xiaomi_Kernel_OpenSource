@@ -836,7 +836,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 					MTKCAM_IPI_RAW_RAWI_5};
 
 	for (i = 0; i < cam->max_stream_num; i++) {
-		if (cam_req->pipe_used & (1 << i)) {
+		if (cam_req->pipe_used & (1 << i) && is_raw_subdev(i)) {
 			ctx = &cam->ctxs[i];
 			req = mtk_cam_req_get_s_data(cam_req, ctx->stream_id, 0);
 			if (ctx->pipe->stagger_path == STAGGER_ON_THE_FLY) {
