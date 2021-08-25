@@ -424,7 +424,7 @@ static const struct irq_domain_ops pmic_irq_domain_ops = {
 static int mtk_spmi_pmic_irq_init(struct pmic_core *core)
 {
 	int i, j, ret;
-	unsigned int en_reg;
+	unsigned int en_reg, sta_reg;
 	const struct mtk_spmi_pmic_data *chip_data = core->chip_data;
 
 	mutex_init(&core->irqlock);
@@ -446,6 +446,9 @@ static int mtk_spmi_pmic_irq_init(struct pmic_core *core)
 			en_reg = chip_data->pmic_ints[i].en_reg +
 				chip_data->pmic_ints[i].en_reg_shift * j;
 			regmap_write(core->regmap, en_reg, 0);
+			sta_reg = chip_data->pmic_ints[i].sta_reg +
+				chip_data->pmic_ints[i].sta_reg_shift * j;
+			regmap_write(core->regmap, sta_reg, 0xFF);
 		}
 	}
 	regmap_write(core->regmap, RCS_INT_DONE, 1);
