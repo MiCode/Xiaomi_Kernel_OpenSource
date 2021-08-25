@@ -233,15 +233,6 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON |
 							MTK_SCPD_BYPASS_INIT_ON,
 	},
-	[MT6983_POWER_DOMAIN_ADSP_AO] = {
-		.name = "adsp_ao",
-		.sta_mask = GENMASK(31, 30),
-		.ctl_offs = 0xE20,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.basic_clk_name = {"adsp_ao_0"},
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
-	},
 	[MT6983_POWER_DOMAIN_MM_INFRA] = {
 		.name = "mm_infra",
 		.sta_mask = GENMASK(31, 30),
@@ -375,7 +366,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.name = "cam_vcore",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE58,
-		.basic_clk_name = {"cam_vcore_0"},
+		.basic_clk_name = {"cam_vcore_0", "cam_vcore_1", "cam_vcore_2"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				CAM_VCORE_PROT_STEP1_0_MASK),
