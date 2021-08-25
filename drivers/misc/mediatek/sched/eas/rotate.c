@@ -160,7 +160,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	if (heavy_task < HEAVY_TASK_NUM)
 		return;
 
-	wc = ktime_get_ns();
+	wc = ktime_get_raw_ns();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 
@@ -262,13 +262,13 @@ EXPORT_SYMBOL_GPL(set_big_task_rotation);
 void rotat_after_enqueue_task(void __always_unused *data, struct rq *rq,
 				struct task_struct *p)
 {
-	p->android_vendor_data1[3] = ktime_get_ns();
+	p->android_vendor_data1[3] = ktime_get_raw_ns();
 }
 
 void rotat_task_stats(void __always_unused *data,
 				struct task_struct *p)
 {
-	p->android_vendor_data1[3] = ktime_get_ns();
+	p->android_vendor_data1[3] = ktime_get_raw_ns();
 }
 
 void rotat_task_newtask(void __always_unused *data,
