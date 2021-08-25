@@ -328,6 +328,7 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
+	int skip_cache_sync = 0;
 
 	mutex_lock(&buffer->lock);
 
@@ -335,12 +336,22 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	if (!buffer->uncached) {
+		skip_cache_sync = 1;
 		list_for_each_entry(a, &buffer->attachments, list) {
 			if (!a->mapped)
 				continue;
 			dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
+			skip_cache_sync = 0;
 		}
 	}
+
+	if (skip_cache_sync)
+		pr_info_ratelimited("%s [%s]: inode:%ld name:%s dir:%d %s\n",
+				    __func__, dma_heap_get_name(buffer->heap),
+				    file_inode(dmabuf->file)->i_ino,
+				    dmabuf->name, direction,
+				    "skip cache sync because no iova");
+
 	mutex_unlock(&buffer->lock);
 
 	return 0;
@@ -351,6 +362,7 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
+	int skip_cache_sync = 0;
 
 	mutex_lock(&buffer->lock);
 
@@ -358,12 +370,22 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	if (!buffer->uncached) {
+		skip_cache_sync = 1;
 		list_for_each_entry(a, &buffer->attachments, list) {
 			if (!a->mapped)
 				continue;
 			dma_sync_sgtable_for_device(a->dev, a->table, direction);
+			skip_cache_sync = 0;
 		}
 	}
+
+	if (skip_cache_sync)
+		pr_info_ratelimited("%s [%s]: inode:%ld name:%s dir:%d %s\n",
+				    __func__, dma_heap_get_name(buffer->heap),
+				    file_inode(dmabuf->file)->i_ino,
+				    dmabuf->name, direction,
+				    "skip cache sync because no iova");
+
 	mutex_unlock(&buffer->lock);
 
 	return 0;
