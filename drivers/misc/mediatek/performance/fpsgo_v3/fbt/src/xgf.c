@@ -43,7 +43,6 @@ static int xgf_spid_sub = XGF_DO_SP_SUB;
 static int xgf_ema_dividend = EMA_DIVIDEND;
 static int xgf_spid_ck_period = NSEC_PER_SEC;
 static int xgf_sp_name_id;
-static int display_rate;
 int fstb_frame_num;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr;
@@ -264,81 +263,25 @@ static inline int xgf_ko_is_ready(void)
 
 int xgf_get_display_rate(void)
 {
-	return display_rate;
+	return 0;
 }
 EXPORT_SYMBOL(xgf_get_display_rate);
 
 int xgf_get_process_id(int pid)
 {
-	int process_id = -1;
-	struct task_struct *tsk;
-
-	rcu_read_lock();
-	tsk = find_task_by_vpid(pid);
-	if (tsk) {
-		get_task_struct(tsk);
-		process_id = tsk->tgid;
-		put_task_struct(tsk);
-	}
-	rcu_read_unlock();
-
-	return process_id;
+	return -EINVAL;
 }
 EXPORT_SYMBOL(xgf_get_process_id);
 
 int xgf_check_main_sf_pid(int pid, int process_id)
 {
-	int ret = 0;
-	int hrtimer_process_id;
-	char hrtimer_process_name[16];
-	struct task_struct *gtsk;
-
-	hrtimer_process_id = xgf_get_process_id(pid);
-	if (hrtimer_process_id < 0)
-		return ret;
-
-	rcu_read_lock();
-	gtsk = find_task_by_vpid(hrtimer_process_id);
-	if (gtsk) {
-		get_task_struct(gtsk);
-		strncpy(hrtimer_process_name, gtsk->comm, 16);
-		hrtimer_process_name[15] = '\0';
-		put_task_struct(gtsk);
-	} else
-		hrtimer_process_name[0] = '\0';
-	rcu_read_unlock();
-
-	if ((hrtimer_process_id == process_id) ||
-		strstr(hrtimer_process_name, "surfaceflinger"))
-		ret = 1;
-
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(xgf_check_main_sf_pid);
 
 int xgf_check_specific_pid(int pid)
 {
-	int ret = 0;
-	char thread_name[16];
-	struct task_struct *tsk;
-
-	rcu_read_lock();
-	tsk = find_task_by_vpid(pid);
-	if (tsk) {
-		get_task_struct(tsk);
-		strncpy(thread_name, tsk->comm, 16);
-		thread_name[15] = '\0';
-		put_task_struct(tsk);
-	} else
-		thread_name[0] = '\0';
-	rcu_read_unlock();
-
-	if (strstr(thread_name, "mali-") || strstr(thread_name, "Binder:"))
-		ret = 1;
-	else if (strstr(thread_name, "UnityMain"))
-		ret = 2;
-
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(xgf_check_specific_pid);
 
@@ -1769,63 +1712,18 @@ qudeq_notify_err:
 }
 
 void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
-	unsigned long long l_runtime, unsigned long long r_runtime)
-{
-	int ret = 0;
-	struct xgf_render *r, **rrender;
-
-	rrender = &r;
-	if (!xgf_get_render(pid, bufID, rrender, 0))
-		ret = 1;
-
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
-		l_runtime, r_runtime, ret);
-	fpsgo_systrace_c_fbt(pid, bufID, l_runtime, "raw_t_cpu_logical");
-	fpsgo_systrace_c_fbt(pid, bufID, r_runtime, "raw_t_cpu_render");
-}
+	unsigned long long l_runtime, unsigned long long r_runtime) { }
 EXPORT_SYMBOL(xgf_set_logical_render_runtime);
 
 void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 	int *l_arr, int l_num, int *r_arr, int r_num,
 	unsigned long long l_start_ts,
-	unsigned long long f_start_ts)
-{
-	char l_dep_str[100] = "";
-	char r_dep_str[100] = "";
-	int i, length, pos = 0;
-
-	for (i = 0; i < l_num; i++) {
-		if (i == 0)
-			length = scnprintf(l_dep_str + pos, 100 - pos,
-				"%d", l_arr[i]);
-		else
-			length = scnprintf(l_dep_str + pos, 100 - pos,
-				",%d", l_arr[i]);
-		pos += length;
-	}
-	pos = 0;
-	for (i = 0; i < r_num; i++) {
-		if (i == 0)
-			length = scnprintf(r_dep_str + pos, 100 - pos,
-				"%d", r_arr[i]);
-		else
-			length = scnprintf(r_dep_str + pos, 100 - pos,
-				",%d", r_arr[i]);
-		pos += length;
-	}
-
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | l_deplist:[%s]", pid, bufID, l_dep_str);
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | r_deplist:[%s]", pid, bufID, r_dep_str);
-	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | logical_start=%llu, frame_start=%llu", pid, bufID,
-		l_start_ts, f_start_ts);
-}
+	unsigned long long f_start_ts) { }
 EXPORT_SYMBOL(xgf_set_logical_render_info);
 
-void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag)
-{
-	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_pid, "ctrl_fps_pid");
-	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
-}
+void xgf_set_timer_info(int pid, unsigned long long bufID,
+	int hrtimer_pid, int hrtimer_flag)
+{ }
 EXPORT_SYMBOL(xgf_set_timer_info);
 
 static ssize_t deplist_show(struct kobject *kobj,
