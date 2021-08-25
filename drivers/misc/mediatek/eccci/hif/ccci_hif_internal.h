@@ -97,6 +97,7 @@ struct ccci_hif_ops {
 	int (*clear)(unsigned char hif_id);
 	void (*set_clk_cg)(unsigned char md_id, unsigned int on);
 	void (*hw_reset)(unsigned char md_id);
+	int (*empty_query)(int qno);
 };
 
 enum RX_COLLECT_RESULT {

@@ -14,6 +14,17 @@
 void *ccci_hif[CCCI_HIF_NUM];
 struct ccci_hif_ops *ccci_hif_op[CCCI_HIF_NUM];
 
+int ccci_dpmaif_empty_query(int qno)
+{
+	int ret = 0;
+
+	if (ccci_hif[DPMAIF_HIF_ID] && ccci_hif_op[DPMAIF_HIF_ID]->empty_query)
+		ret |= ccci_hif_op[DPMAIF_HIF_ID]->empty_query(qno);
+	else
+		CCCI_ERROR_LOG(-1, TAG, "empty_query is null\n");
+
+	return ret;
+}
 
 void ccci_hif_set_clk_cg(unsigned int hif_flag,
 		unsigned char md_id, unsigned int on)

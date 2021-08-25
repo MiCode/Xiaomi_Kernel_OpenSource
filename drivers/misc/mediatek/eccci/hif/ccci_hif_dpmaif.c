@@ -1575,13 +1575,13 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 	return idx;
 }
 
-int hif_empty_query(int qno)
+int dpmaif_empty_query_v2(int qno)
 {
 	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
 
 	if (txq == NULL) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-			"query dpmaif empty fail for NULL txq\n");
+			"%s:fail NULL txq\n", __func__);
 		return 0;
 	}
 	return atomic_read(&txq->tx_budget) >
@@ -3288,6 +3288,7 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.pre_stop = &dpmaif_pre_stop,
 	.stop = &dpmaif_stop,
 	.debug = &dpmaif_debug,
+	.empty_query = dpmaif_empty_query_v2,
 };
 
 static void dpmaif_total_spd_cb(u64 total_speed)
