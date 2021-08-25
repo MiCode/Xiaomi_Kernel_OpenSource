@@ -2597,6 +2597,8 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 					   sizeof(*priv->top_clk), GFP_KERNEL);
 
 	pm_runtime_get_sync(dev);
+	if (priv->side_mmsys_dev)
+		pm_runtime_get_sync(priv->side_mmsys_dev);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		clk = of_clk_get(node, i);
 
@@ -2641,6 +2643,8 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 
 	//set_swpm_disp_active(true);
 	pm_runtime_get_sync(priv->mmsys_dev);
+	if (priv->side_mmsys_dev)
+		pm_runtime_get_sync(priv->side_mmsys_dev);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -2695,6 +2699,8 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 	}
 
 	pm_runtime_put_sync(priv->mmsys_dev);
+	if (priv->side_mmsys_dev)
+		pm_runtime_put_sync(priv->side_mmsys_dev);
 }
 
 bool mtk_drm_top_clk_isr_get(char *master)
@@ -4216,6 +4222,9 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	unsigned int dispsys_num = 0;
 	int ret;
 	int i;
+	struct platform_device *side_pdev;
+	struct device *side_dev = NULL;
+	struct device_node *side_node = NULL;
 
 	disp_dbg_probe();
 	PanelMaster_probe();
@@ -4271,6 +4280,20 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		}
 		private->side_config_regs_pa = mem->start;
 	}
+	/* tricky method to handle dispsys1 power domain */
+	side_node = of_find_compatible_node(NULL, NULL, "mediatek,disp_mutex0");
+	if (side_node) {
+		side_pdev = of_find_device_by_node(side_node);
+		if (!side_pdev)
+			DDPPR_ERR("can't get side_mmsys_dev\n");
+		else
+			side_dev = get_device(&side_pdev->dev);
+	} else {
+		DDPPR_ERR("can't find side_mmsys node");
+	}
+	of_node_put(side_node);
+
+	private->side_mmsys_dev = side_dev;
 
 SKIP_SIDE_DISP:
 	private->mmsys_dev = dev;
@@ -4307,6 +4330,8 @@ SKIP_SIDE_DISP:
 	}
 
 	pm_runtime_enable(dev);
+	if (side_dev)
+		pm_runtime_enable(side_dev);
 
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
@@ -4422,6 +4447,8 @@ SKIP_SIDE_DISP:
 
 err_pm:
 	pm_runtime_disable(dev);
+	if (side_dev)
+		pm_runtime_disable(side_dev);
 err_node:
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
@@ -4452,6 +4479,8 @@ static int mtk_drm_remove(struct platform_device *pdev)
 
 	component_master_del(&pdev->dev, &mtk_drm_ops);
 	pm_runtime_disable(&pdev->dev);
+	if (private->side_mmsys_dev)
+		pm_runtime_disable(private->side_mmsys_dev);
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
 		of_node_put(private->comp_node[i]);

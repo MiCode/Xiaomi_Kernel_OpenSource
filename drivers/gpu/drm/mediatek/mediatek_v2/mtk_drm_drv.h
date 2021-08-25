@@ -101,6 +101,7 @@ struct mtk_drm_private {
 	struct drm_device *drm;
 	struct device *dma_dev;
 	struct device *mmsys_dev;
+	struct device *side_mmsys_dev;
 
 	struct drm_crtc *crtc[MAX_CRTC];
 	unsigned int num_pipes;
