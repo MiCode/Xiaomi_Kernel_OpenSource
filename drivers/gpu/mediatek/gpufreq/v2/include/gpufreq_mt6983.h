@@ -346,8 +346,8 @@ struct gpufreq_opp_info g_default_stack[] = {
 		.vaging = _vaging,             \
 	}
 
-#define SEGMENT_ADJ_STACK_1_NUM         ARRAY_SIZE(g_segment_adj_stack_1)
-struct gpufreq_adj_info g_segment_adj_stack_1[] = {
+#define SEGMENT_ADJ_NUM                 ARRAY_SIZE(g_segment_adj)
+struct gpufreq_adj_info g_segment_adj[] = {
 	ADJOP(25, 0, 65000, 0, 0), /* sign off */
 	ADJOP(26, 0, 64375, 0, 0),
 	ADJOP(27, 0, 64375, 0, 0),
@@ -364,6 +364,52 @@ struct gpufreq_adj_info g_segment_adj_stack_1[] = {
 	ADJOP(38, 0, 60625, 0, 0),
 	ADJOP(39, 0, 60625, 0, 0),
 	ADJOP(40, 0, 60000, 0, 0), /* sign off */
+};
+
+/* MCL50 flavor load */
+#define MCL50_ADJ_NUM                   ARRAY_SIZE(g_mcl50_adj)
+struct gpufreq_adj_info g_mcl50_adj[] = {
+	ADJOP(0,  0, 66875, 0, 0), /*  0 sign off */
+	ADJOP(1,  0, 66875, 0, 0),
+	ADJOP(2,  0, 66250, 0, 0),
+	ADJOP(3,  0, 66250, 0, 0),
+	ADJOP(4,  0, 65625, 0, 0),
+	ADJOP(5,  0, 65625, 0, 0),
+	ADJOP(6,  0, 65000, 0, 0),
+	ADJOP(7,  0, 65000, 0, 0),
+	ADJOP(8,  0, 64375, 0, 0), /*  8 sign off */
+	ADJOP(9,  0, 64375, 0, 0),
+	ADJOP(10, 0, 63750, 0, 0),
+	ADJOP(11, 0, 63125, 0, 0),
+	ADJOP(12, 0, 62500, 0, 0),
+	ADJOP(13, 0, 61875, 0, 0),
+	ADJOP(14, 0, 61250, 0, 0),
+	ADJOP(15, 0, 60625, 0, 0),
+	ADJOP(16, 0, 60000, 0, 0), /* 16 sign off */
+	ADJOP(17, 0, 60000, 0, 0),
+	ADJOP(18, 0, 59375, 0, 0),
+	ADJOP(19, 0, 58750, 0, 0),
+	ADJOP(20, 0, 58125, 0, 0),
+	ADJOP(21, 0, 57500, 0, 0),
+	ADJOP(22, 0, 56875, 0, 0),
+	ADJOP(23, 0, 56250, 0, 0),
+	ADJOP(24, 0, 55625, 0, 0),
+	ADJOP(25, 0, 55000, 0, 0),
+	ADJOP(26, 0, 54375, 0, 0),
+	ADJOP(27, 0, 53750, 0, 0),
+	ADJOP(28, 0, 53125, 0, 0),
+	ADJOP(29, 0, 52500, 0, 0),
+	ADJOP(30, 0, 51875, 0, 0),
+	ADJOP(31, 0, 51250, 0, 0),
+	ADJOP(32, 0, 50625, 0, 0), /* 32 sign off */
+	ADJOP(33, 0, 50625, 0, 0),
+	ADJOP(34, 0, 50000, 0, 0),
+	ADJOP(35, 0, 50000, 0, 0),
+	ADJOP(36, 0, 49375, 0, 0),
+	ADJOP(37, 0, 49375, 0, 0),
+	ADJOP(38, 0, 48750, 0, 0),
+	ADJOP(39, 0, 48750, 0, 0),
+	ADJOP(40, 0, 48125, 0, 0), /* 40 sign off */
 };
 
 /**************************************************

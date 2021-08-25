@@ -140,6 +140,7 @@ static void __gpufreq_slc_control(void);
 /* init function */
 static void __gpufreq_init_shader_present(void);
 static void __gpufreq_segment_adjustment(struct platform_device *pdev);
+static void __gpufreq_custom_adjustment(void);
 static void __gpufreq_avs_adjustment(void);
 static void __gpufreq_aging_adjustment(void);
 static int __gpufreq_init_opp_idx(void);
@@ -197,6 +198,7 @@ static unsigned int g_shader_present;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
 static unsigned int g_aging_load;
+static unsigned int g_mcl50_load;
 static unsigned int g_gpm_enable;
 static unsigned int g_gpueb_support;
 static unsigned int g_dvfs_timing_park_volt;
@@ -4201,6 +4203,19 @@ static void __gpufreq_avs_adjustment(void)
 #endif /* GPUFREQ_AVS_ENABLE */
 }
 
+static void __gpufreq_custom_adjustment(void)
+{
+	struct gpufreq_adj_info *custom_adj;
+	int adj_num = 0;
+
+	if (g_mcl50_load) {
+		custom_adj = g_mcl50_adj;
+		adj_num = MCL50_ADJ_NUM;
+		__gpufreq_apply_adjust(TARGET_STACK, custom_adj, adj_num);
+		GPUFREQ_LOGI("MCL50 flavor load");
+	}
+}
+
 static void __gpufreq_segment_adjustment(struct platform_device *pdev)
 {
 	struct gpufreq_adj_info *segment_adj;
@@ -4209,8 +4224,8 @@ static void __gpufreq_segment_adjustment(struct platform_device *pdev)
 
 	switch (efuse_id) {
 	case 0x2:
-		segment_adj = g_segment_adj_stack_1;
-		adj_num = SEGMENT_ADJ_STACK_1_NUM;
+		segment_adj = g_segment_adj;
+		adj_num = SEGMENT_ADJ_NUM;
 		__gpufreq_apply_adjust(TARGET_STACK, segment_adj, adj_num);
 		break;
 	default:
@@ -4325,6 +4340,9 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	__gpufreq_avs_adjustment();
 	/* apply aging adjustment to STACK signed table */
 	__gpufreq_aging_adjustment();
+	/* apply custom adjustment to STACK signed table */
+	__gpufreq_custom_adjustment();
+
 	/* after these, signed table is settled down */
 
 	/* init working table, based on signed table */
@@ -4720,6 +4738,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 
 	/* ignore return error and use default value if property doesn't exist */
 	of_property_read_u32(gpufreq_dev->of_node, "aging-load", &g_aging_load);
+	of_property_read_u32(gpufreq_dev->of_node, "mcl50-load", &g_mcl50_load);
 	of_property_read_u32(of_wrapper, "gpueb-support", &g_gpueb_support);
 
 	/* 0x13FA0000 */
