@@ -256,10 +256,8 @@ extern struct platform_driver mtk_disp_cm_driver;
 extern struct platform_driver mtk_disp_spr_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 extern struct platform_driver mtk_disp_merge_driver;
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 extern struct platform_driver mtk_dp_tx_driver;
 extern struct platform_driver mtk_dp_intf_driver;
-#endif
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);

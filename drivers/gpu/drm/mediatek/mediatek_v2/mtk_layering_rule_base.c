@@ -1219,7 +1219,6 @@ static int get_layer_weight(int disp_idx,
 		bpp = mtk_get_format_bpp(layer_info->src_fmt);
 	else
 		bpp = HRT_UINT_BOUND_BPP;
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 	if (disp_idx == HRT_SECONDARY) {
 		/* To Be Impl */
 #ifdef IF_ZERO
@@ -1241,7 +1240,6 @@ static int get_layer_weight(int disp_idx,
 		return weight * bpp;
 #endif
 	}
-#endif
 
 	weight = HRT_UINT_WEIGHT;
 

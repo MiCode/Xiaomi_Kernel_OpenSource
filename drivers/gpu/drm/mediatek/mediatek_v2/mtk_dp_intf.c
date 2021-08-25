@@ -25,7 +25,6 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
-#include "mt-plat/sync_write.h"
 #include "mtk_dp.h"
 
 #define DP_EN                             0x0000
@@ -113,6 +112,11 @@ struct mtk_dp_intf_driver_data {
 		struct cmdq_pkt *handle);
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
 };
+#define mt_reg_sync_writel(v, a) \
+	do {    \
+		__raw_writel((v), (void __force __iomem *)((a)));   \
+		mb();  /*make sure register access in order */ \
+	} while (0)
 
 #define DISP_REG_SET(handle, reg32, val) \
 	do { \
@@ -313,7 +317,7 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 		break;
 	case SINK_1920_1080: /* pix clk: 37.125M, dpi clk: 37.125*4M */
 		clksrc = TVDPLL_D16;
-		con1 = 0x8216D89D;
+		con1 = 0x8416D89D;
 		break;
 	case SINK_1080_2460: /* pix clk: 43.5275M, dpi clk: 43.5275*4M */
 		clksrc = TVDPLL_D16;
@@ -340,7 +344,7 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 	}
 
 	if (clk_apmixed_base == NULL) {
-		node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+		node = of_find_compatible_node(NULL, NULL, "mediatek,mt6893-apmixedsys");
 		if (!node)
 			pr_info("dp_intf [CLK_APMIXED] find node failed\n");
 			clk_apmixed_base = of_iomap(node, 0);
@@ -380,13 +384,13 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 {
 	/*u32 reg_val;*/
 	struct mtk_dp_intf *dp_intf = comp_to_dp_intf(comp);
-	unsigned int hsize, vsize;
-	unsigned int hpw;
-	unsigned int hfp, hbp;
-	unsigned int vpw;
-	unsigned int vfp, vbp;
-	unsigned int bg_left, bg_right;
-	unsigned int bg_top, bg_bot;
+	unsigned int hsize = 0, vsize = 0;
+	unsigned int hpw = 0;
+	unsigned int hfp = 0, hbp = 0;
+	unsigned int vpw = 0;
+	unsigned int vfp = 0, vbp = 0;
+	unsigned int bg_left = 0, bg_right = 0;
+	unsigned int bg_top = 0, bg_bot = 0;
 
 	pr_info("%s w %d, h, %d, fps %d!\n",
 			__func__, cfg->w, cfg->h, cfg->vrefresh);

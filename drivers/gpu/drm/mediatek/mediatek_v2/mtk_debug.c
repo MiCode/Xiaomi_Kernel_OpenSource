@@ -34,9 +34,7 @@
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_disp_aal.h"
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 #include "mtk_dp_debug.h"
-#endif
 #include "mtk_drm_arr.h"
 #include "mtk_drm_graphics_base.h"
 
@@ -2371,7 +2369,6 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 		gCaptureWDMAEn = dump_en;
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 	} else if (strncmp(opt, "dptx:", 5) == 0) {
 		mtk_dp_debug(opt + 5);
 	} else if (strncmp(opt, "dpintf_dump:", 12) == 0) {
@@ -2394,7 +2391,6 @@ static void process_dbg_opt(const char *opt)
 			comp = mtk_ddp_comp_request_output(mtk_crtc);
 			mtk_dp_intf_dump(comp);
 		}
-#endif
 	} else if (strncmp(opt, "arr4_enable", 11) == 0) {
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
@@ -3196,9 +3192,7 @@ void disp_dbg_probe(void)
 	}
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_HDMI_SUPPORT)
 	mtk_dp_debugfs_init();
-#endif
 
 out:
 	return;
@@ -3228,9 +3222,7 @@ void disp_dbg_deinit(void)
 		disp_lowpower_proc = NULL;
 	}
 #endif
-#if IS_ENABLED(CONFIG_MTK_HDMI_SUPPORT)
 	mtk_dp_debugfs_deinit();
-#endif
 }
 
 void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,

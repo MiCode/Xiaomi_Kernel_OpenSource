@@ -23,9 +23,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 #include "mtk_dp_api.h"
-#endif
 
 #define DISP_REG_DSC_CON			0x0000
 	#define DSC_EN BIT(0)
@@ -233,7 +231,6 @@ static void mtk_dsc_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 struct mtk_panel_dsc_params *mtk_dsc_default_setting(void)
 {
 	u8 dsc_cap[16];
@@ -280,7 +277,6 @@ struct mtk_panel_dsc_params *mtk_dsc_default_setting(void)
 	return &dsc_params;
 }
 EXPORT_SYMBOL(mtk_dsc_default_setting);
-#endif
 
 //extern void mtk_dp_dsc_pps_send(u8 *PPS);
 u8 PPS[128] = {
@@ -323,11 +319,8 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
 	dsc_params =
-#ifndef CONFIG_MTK_HDMI_SUPPORT
 	 &comp->mtk_crtc->panel_ext->params->dsc_params;
-#else
-	mtk_dsc_default_setting();
-#endif
+//	mtk_dsc_default_setting();
 
 
 	dsc_params = &comp->mtk_crtc->panel_ext->params->dsc_params;

@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
-
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
@@ -24,6 +23,7 @@
 #include <../../../extcon/extcon.h>
 #include <linux/kthread.h>
 #include <linux/errno.h>
+#include <linux/pm_runtime.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
@@ -31,6 +31,8 @@
 #include <drm/drm_edid.h>
 #include <drm/drm_dp_helper.h>
 #include <drm/mediatek_drm.h>
+#include <drm/drm_probe_helper.h>
+#include <drm/drm_modes.h>
 
 #include "mtk_dp.h"
 #include "mtk_dp_hal.h"
@@ -365,7 +367,7 @@ void mdrv_DPTx_deinit(struct mtk_dp *mtk_dp)
 	mdrv_DPTx_VideoMute(mtk_dp, true);
 	mdrv_DPTx_AudioMute(mtk_dp, true);
 	mhal_DPTx_VideoMuteSW(mtk_dp, true);
-	cancel_work(&mtk_dp->hdcp_work);
+	cancel_work_sync(&mtk_dp->hdcp_work);
 
 	mtk_dp->training_info.ucCheckCapTimes = 0;
 	mtk_dp->video_enable = false;
@@ -1458,7 +1460,7 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 			} else
 				DPTXMSG("Skip uevent(0)\n");
 
-			cancel_work(&mtk_dp->hdcp_work);
+			cancel_work_sync(&mtk_dp->hdcp_work);
 
 #ifdef DPTX_HDCP_ENABLE
 			if (mtk_dp->info.hdcp2_info.bEnable)
@@ -1477,7 +1479,7 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 			mhal_DPTx_AnalogPowerOnOff(mtk_dp, false);
 
 			DPTXMSG("Power OFF %d", mtk_dp->bPowerOn);
-			clk_disable_unprepare(mtk_dp->dp_tx_clk);
+			pm_runtime_put_sync(mtk_dp->dev);
 			if (mtk_dp->info.bPatternGen)
 				mhal_DPTx_VideoClock(false,
 					mtk_dp->info.resolution);
@@ -3221,12 +3223,7 @@ static int mtk_dp_dt_parse_pdata(struct mtk_dp *mtk_dp,
 		dev->of_node->full_name);
 
 	mtk_dp->regs = of_iomap(dev->of_node, 0);
-	mtk_dp->dp_tx_clk = devm_clk_get(dev, "dp_tx_faxi");
-	if (IS_ERR(mtk_dp->dp_tx_clk)) {
-		ret = PTR_ERR(mtk_dp->dp_tx_clk);
-		dev_err(dev, "Failed to get dptx clock: %d\n", ret);
-		goto error;
-	}
+	pm_runtime_enable(dev);
 
 	ret = of_property_read_u32_array(dev->of_node, "dptx,phy_params",
 		phy_params_dts, ARRAY_SIZE(phy_params_dts));
@@ -3238,8 +3235,6 @@ static int mtk_dp_dt_parse_pdata(struct mtk_dp *mtk_dp,
 		mtk_dp_phy_param_init(mtk_dp,
 			phy_params_dts, ARRAY_SIZE(phy_params_dts));
 
-	DPTXMSG("reg and clock get success!\n");
-error:
 	return 0;
 }
 
@@ -3313,15 +3308,15 @@ static int mtk_dp_conn_get_modes(struct drm_connector *conn)
 	}
 
 	if (mtk_dp->edid) {
-		drm_mode_connector_update_edid_property(&mtk_dp->conn,
+		drm_connector_update_edid_property(&mtk_dp->conn,
 			mtk_dp->edid);
 		ret = drm_add_edid_modes(&mtk_dp->conn, mtk_dp->edid);
-		drm_edid_to_eld(&mtk_dp->conn, mtk_dp->edid);
+		//drm_edid_to_eld(&mtk_dp->conn, mtk_dp->edid);
 		DPTXMSG("%s modes = %d\n", __func__, ret);
 		if (ret)
 			return ret;
 	} else {
-		drm_mode_connector_update_edid_property(&mtk_dp->conn, NULL);
+		drm_connector_update_edid_property(&mtk_dp->conn, NULL);
 		DPTXMSG("%s NULL EDID\n", __func__);
 	}
 
@@ -3413,7 +3408,13 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 			drm_mode_vrefresh(mode),
 			mode->clock);
 
-	return drm_mode_validate_size(mode, 0x1fff, 0x1fff);
+	if (0x1fff > 0 && mode->hdisplay > 0x1fff)
+		return MODE_VIRTUAL_X;
+
+	if (0x1fff > 0 && mode->vdisplay > 0x1fff)
+		return MODE_VIRTUAL_Y;
+
+	return MODE_OK;
 }
 
 static const struct drm_connector_helper_funcs mtk_dp_connector_helper_funcs = {
@@ -3667,12 +3668,7 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 		|| (bstatus == HPD_INT_EVNET && g_mtk_dp->bPowerOn)) {
 
 		if (bstatus == HPD_CONNECT) {
-			int ret;
-
-			ret = clk_prepare_enable(g_mtk_dp->dp_tx_clk);
-			if (ret < 0)
-				DPTXERR("Fail to enable dptx clock: %d\n", ret);
-
+			pm_runtime_get_sync(g_mtk_dp->dev);
 			mdrv_DPTx_InitPort(g_mtk_dp);
 			mhal_DPTx_USBC_HPD(g_mtk_dp, true);
 			g_mtk_dp->bPowerOn = true;
@@ -3683,7 +3679,6 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 		return;
 	}
 }
-
 void mtk_dp_SWInterruptSet(int bstatus)
 {
 	mutex_lock(&dp_lock);
@@ -3705,7 +3700,7 @@ void mtk_dp_SWInterruptSet(int bstatus)
 
 	mutex_unlock(&dp_lock);
 }
-
+EXPORT_SYMBOL_GPL(mtk_dp_SWInterruptSet);
 void mtk_dp_poweroff(void)
 {
 	DPTXFUNC();
@@ -3854,7 +3849,6 @@ static int mtk_drm_dp_probe(struct platform_device *pdev)
 
 	DPTXMSG("comp_id %d, type %d, irq %d\n", comp_id,
 		MTK_DISP_DPTX, irq_num);
-
 	irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
 	ret = devm_request_irq(&pdev->dev, irq_num, mtk_dp_hpd_event,
 			IRQ_TYPE_LEVEL_HIGH, dev_name(&pdev->dev), mtk_dp);
@@ -3862,37 +3856,29 @@ static int mtk_drm_dp_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to request mediatek dptx irq\n");
 		return -EPROBE_DEFER;
 	}
-
 	dptx_notify_data.name = "hdmi";  // now hwc not support DP
 	dptx_notify_data.index = 0;
 	dptx_notify_data.state = DPTX_STATE_NO_DEVICE;
 	ret = dptx_uevent_dev_register(&dptx_notify_data);
 	if (ret)
 		DPTXERR("switch_dev_register failed, returned:%d!\n", ret);
-
 	dptx_extcon = devm_extcon_dev_allocate(&pdev->dev, dptx_cable);
 	if (IS_ERR(dptx_extcon)) {
 		DPTXERR("Couldn't allocate dptx extcon device\n");
 		return PTR_ERR(dptx_extcon);
 	}
-
 	dptx_extcon->dev.init_name = "dp_audio";
 	ret = devm_extcon_dev_register(&pdev->dev, dptx_extcon);
 	if (ret) {
 		pr_debug("failed to register dptx extcon: %d\n", ret);
 		return ret;
 	}
-
 	g_mtk_dp = mtk_dp;
 	mutex_init(&dp_lock);
-
 	platform_set_drvdata(pdev, mtk_dp);
-
 	mtk_dp->control_task = kthread_run(mtk_dp_control_kthread,
 		(void *)mtk_dp, "mtk_dp_video_trigger");
-
 	mtk_dp_create_workqueue(mtk_dp);
-
 	return component_add(&pdev->dev, &mtk_dp_component_ops);
 
 error:
@@ -3941,7 +3927,7 @@ static SIMPLE_DEV_PM_OPS(mtk_dp_pm_ops,
 
 
 static const struct of_device_id mtk_dp_of_match[] = {
-	{ .compatible = "mediatek,mt6885-dp_tx", },
+	{ .compatible = "mediatek,dp_tx", },
 	{ },
 };
 

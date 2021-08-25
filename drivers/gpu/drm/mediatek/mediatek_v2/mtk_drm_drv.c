@@ -56,9 +56,7 @@
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 #include "mtk_dp_api.h"
-#endif
 //#include "swpm_me.h"
 //#include "include/pmic_api_buck.h"
 #include <../drivers/gpu/drm/mediatek/mml/mtk-mml.h>
@@ -3358,11 +3356,9 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 	if (s_type == MTK_SESSION_PRIMARY) {
 		ret = mtk_drm_primary_get_info(dev, info);
 		return ret;
-#if (defined CONFIG_MTK_HDMI_SUPPORT)
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
 		ret = mtk_drm_dp_get_info(dev, info);
 		return ret;
-#endif
 	} else if (s_type == MTK_SESSION_MEMORY) {
 		return ret;
 	}
@@ -3727,7 +3723,6 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_SIZE, mtk_drm_ioctl_aal_get_size,
 			  DRM_UNLOCKED),
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_DEV_INFO, mtk_drm_dp_get_dev_info,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_HDMI_AUDIO_ENABLE, mtk_drm_dp_audio_enable,
@@ -3736,7 +3731,6 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_CAPABILITY, mtk_drm_dp_get_cap,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-#endif
 	DRM_IOCTL_DEF_DRV(MTK_MML_GEM_SUBMIT, mtk_drm_ioctl_mml_gem_submit,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_SET_DISP_TDSHP_REG, mtk_drm_ioctl_tdshp_set_reg,
@@ -4379,9 +4373,7 @@ SKIP_SIDE_DISP:
 		    comp_type == MTK_DISP_CM || comp_type == MTK_DISP_SPR ||
 		    comp_type == MTK_DMDP_AAL
 #endif
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
-#endif
 		    ) {
 			dev_info(dev, "Adding component match for %s, comp_id:%d\n",
 				 node->full_name, comp_id);
@@ -4601,9 +4593,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_rsz_driver,
 	&mtk_mipi_tx_driver,
 	&mtk_dsi_driver,
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 	&mtk_dp_intf_driver,
-#endif
 #ifdef CONFIG_DRM_MEDIATEK_HDMI
 	&mtk_dpi_driver,
 	&mtk_lvds_driver,
@@ -4612,9 +4602,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_cm_driver,
 	&mtk_disp_spr_driver,
 	&mtk_disp_dsc_driver,
-#ifdef CONFIG_MTK_HDMI_SUPPORT
 	&mtk_dp_tx_driver,
-#endif
 	&mtk_disp_merge_driver
 };
 

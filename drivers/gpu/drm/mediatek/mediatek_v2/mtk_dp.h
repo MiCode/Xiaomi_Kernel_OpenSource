@@ -277,6 +277,6 @@ int mtk_dp_phy_getInfo(char *buffer, int size);
 void mdrv_DPTx_reAuthentication(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_PatternSet(bool enable, int resolution);
 void mdrv_DPTx_set_maxlinkrate(bool enable, int maxlinkrate);
+void mtk_dp_SWInterruptSet(int bstatus);
 extern void mhal_DPTx_VideoClock(bool enable, int resolution);
-
 #endif //__MTK_DP__H__

@@ -54,8 +54,7 @@ ifeq ($(CONFIG_DRM_MEDIATEK_DEBUG_FS),y)
 mediatek-drm-y += mtk_drm_debugfs.o
 endif
 
-ifeq ($(CONFIG_MTK_HDMI_SUPPORT), y)
-obj-y += mtk_dp_intf.o \
+mediatek-drm-y += mtk_dp_intf.o \
 	mtk_dp.o \
 	mtk_dp_hal.o \
 	mtk_dp_debug.o
@@ -65,8 +64,6 @@ obj-y += ca/
 ccflags-y += -DDPTX_HDCP_ENABLE
 obj-y += mtk_dp_hdcp1x.o \
 	mtk_dp_hdcp2.o
-endif
-
 endif
 
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o

@@ -11,8 +11,11 @@
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "mtk_dp_reg.h"
-#include "mtk_devinfo.h"
-
+/* TODO: porting*/
+/* #include "mtk_devinfo.h" */
+/* display port control related SMC call */
+#define MTK_SIP_DP_CONTROL \
+	(0x82000523 | 0x40000000)
 
 u32 mtk_dp_read(struct mtk_dp *mtk_dp, u32 offset)
 {
@@ -155,7 +158,8 @@ void mhal_DPTx_DataLanePNSwap(struct mtk_dp *mtk_dp, bool bENABLE)
 
 void mhal_DPTx_Set_Efuse_Value(struct mtk_dp *mtk_dp)
 {
-	u32 efuse = get_devinfo_with_index(114);
+	u32 efuse = 0;
+	//get_devinfo_with_index(114);
 
 	DPTXMSG("DPTX Efuse(0x11C101B8) = 0x%x\n", efuse);
 

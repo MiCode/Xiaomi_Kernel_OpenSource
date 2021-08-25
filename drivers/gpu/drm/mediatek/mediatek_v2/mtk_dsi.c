@@ -2998,6 +2998,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 		mtk_crtc->fps_change_index = fps_chg_index;
 		return -EINVAL;
 	}
+
 	if (panel_ext && panel_ext->funcs &&
 		panel_ext->funcs->ext_param_set) {
 		DDPINFO("%s, %d ext_param_set\n", __func__, __LINE__);
