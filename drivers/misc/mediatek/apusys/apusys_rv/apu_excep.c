@@ -178,6 +178,8 @@ enum apusys_assert_module {
 	assert_apusys_mvpu,
 	assert_apusys_reviser,
 	assert_apusys_devapc,
+	assert_apusys_mnoc,
+	assert_apusys_qos,
 
 	assert_module_max,
 };
@@ -191,6 +193,8 @@ static const char * const apusys_assert_module_name[assert_module_max] = {
 	"APUSYS_MVPU",
 	"APUSYS_REVISER",
 	"APUSYS_DEVAPC",
+	"APUSYS_MNOC",
+	"APUSYS_QOS",
 };
 
 struct apu_coredump_work_struct {
@@ -465,6 +469,7 @@ static irqreturn_t apu_wdt_isr(int irq, void *private_data)
 	struct mtk_apu *apu = (struct mtk_apu *) private_data;
 	struct device *dev = apu->dev;
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+	uint32_t val;
 
 	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
 		apusys_rv_smc_call(dev,
@@ -473,6 +478,12 @@ static irqreturn_t apu_wdt_isr(int irq, void *private_data)
 		apusys_rv_smc_call(dev,
 			MTK_APUSYS_KERNEL_OP_APUSYS_RV_DISABLE_WDT_ISR, 0);
 	} else {
+		val = ioread32(apu->apu_wdt);
+		if (val != 0x1) {
+			dev_info(dev, "%s: skip abnormal isr call(status = 0x%x)\n",
+				__func__, val);
+			return IRQ_HANDLED;
+		}
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* freeze md32 by turn off cg */
 		if (!hw_ops->cg_gating) {
