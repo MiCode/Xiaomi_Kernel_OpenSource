@@ -1,0 +1,66 @@
+Qualcomm Technologies, Inc. CPUFREQ Hardware Debug Trace Bindings
+--------------------------------------------------------------------
+
+CPUFREQ Trace provide the support to capture CPUFREQ_HW debug and trace.
+
+CPUFREQ HW debug and trace is used by Qualcomm Technologies, Inc. (QTI)  to
+capture trace packets from various clock domains. If applicable trace mode
+could be set to periodic or xor. Also, it enables the print for CPUFREQ_HW debug
+registers.
+
+Required Properties:
+- compatible: shall contain the following:
+		"qcom,cpufreq-hw-debug-trace" or "qcom,cpufreq-hw-debug"
+		 or "qcom,cpufreq-hw-epss-debug".
+- reg: shall contain base register location and length.
+- reg-names: shall contain the frequency domain name.
+
+Optional Properties:
+- qcom,freq-hw-domain: phandle to the frequency domain device node.
+
+Usage :
+The following debug node would get created under qcom-cpufreq-hw directory.
+
+== Trace Enable/Debug ==
+
+- clock_domain_packet_sel
+Function:	Set and clear clock domain and trace packet
+Input:		echo 1 2 1 > clock_domain_packet_sel (domain 1, packet 2, set)
+		echo 1 2 1 > clock_domain_packet_sel (domain 1, packet 2, clear)
+
+- clock_timer
+Function:	Enable/Disable Clock Timer
+Input:		echo 0 > clk_timer;
+		echo 1 > clk_timer;
+		cat clk_timer;
+
+- trace_enable
+Function:	Enable and disable global trace
+Input:		echo 1 > trace_enable
+		echo 0 > trace_enable
+		cat trace_enable
+
+- trace_type
+Function:	Set trace type to XOR or PERIODIC
+Input:		echo xor >  trace_type;
+		echo periodic >  trace_type;
+		cat trace_type;
+
+- print_cpufreq_trace_regs
+Function:	Print cpufreq hw trace registers
+Input:		cat print_cpufreq_trace_regs
+
+== CPUFREQ-HW Register ==
+
+- print_cpufreq_debug_regs
+Function:	Print cpufreq hardware debug registers
+Input:		cat print_cpufreq_debug_regs
+
+Example:
+	cpufreq_hw_trace: qcom,cpufreq-hw-trace {
+		compatible = "qcom,cpufreq-hw-trace";
+		reg = <0x18320000 0x800>;
+		reg-names = "domain-top";
+		qcom,freq-hw-domain = <&cpufreq_hw 0>, <&cpufreq_hw 1>,
+					<&cpufreq_hw 2>;
+	};

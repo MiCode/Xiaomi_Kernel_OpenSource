@@ -15,6 +15,9 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spmi.h>
+#include <linux/power_debug.h>
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
@@ -1173,6 +1176,76 @@ static const struct irq_domain_ops pmic_arb_irq_domain_ops = {
 	.activate	= qpnpint_irq_domain_activate,
 };
 
+static int  spmi_pmic_arb_check_interrupt(struct spmi_pmic_arb *pmic_arb, u16 apid)
+{
+	unsigned int irq;
+	u32 status, id;
+	u8 sid = (pmic_arb->apid_data[apid].ppid >> 8) & 0xF;
+	u8 per = pmic_arb->apid_data[apid].ppid & 0xFF;
+	struct irq_desc *desc;
+	const char *name = "null";
+
+	status = readl_relaxed(pmic_arb->ver_ops->irq_status(pmic_arb, apid));
+	while (status) {
+		id = ffs(status) - 1;
+		status &= ~BIT(id);
+		irq = irq_find_mapping(pmic_arb->domain,
+					spec_to_hwirq(sid, per, id, apid));
+		if (irq == 0) {
+			cleanup_irq(pmic_arb, apid, id);
+			continue;
+		}
+
+		desc = irq_to_desc(irq);
+		if (desc == NULL)
+			name = "stray irq";
+		else if (desc->action && desc->action->name)
+			name = desc->action->name;
+
+		pr_warn("%s: interrupt %d\n", __func__, irq);
+		log_wakeup_reason(irq);
+	}
+
+	return 0;
+}
+
+static bool spmi_pmic_arb_check_wakeup_device(void *data)
+{
+	struct spmi_pmic_arb *pmic_arb = (struct spmi_pmic_arb *)(data);
+	const struct pmic_arb_ver_ops *ver_ops = pmic_arb->ver_ops;
+	int first = pmic_arb->min_apid >> 5;
+	int last = pmic_arb->max_apid >> 5;
+	u8 ee = pmic_arb->ee;
+	u32 status, enable;
+	int i, id, apid;
+
+	for (i = first; i <= last; ++i) {
+		status = readl_relaxed(
+				ver_ops->owner_acc_status(pmic_arb, ee, i));
+		while (status) {
+			id = ffs(status) - 1;
+			status &= ~BIT(id);
+			apid = id + i * 32;
+			if (apid < pmic_arb->min_apid || apid > pmic_arb->max_apid) {
+				WARN_ONCE(true, "spurious spmi irq received for apid=%d\n", apid);
+				continue;
+			}
+
+			enable = readl_relaxed(
+					ver_ops->acc_enable(pmic_arb, apid));
+			if (enable & SPMI_PIC_ACC_ENABLE_BIT)
+				spmi_pmic_arb_check_interrupt(pmic_arb, apid);
+		}
+	}
+
+	return true;
+}
+
+static struct wakeup_device spmi_pmic_arb_wakeup_device = {
+	.name = "spmi-pmic-arb",
+	.check_wakeup_event = spmi_pmic_arb_check_wakeup_device,
+};
+
 static int spmi_pmic_arb_probe(struct platform_device *pdev)
 {
 	struct spmi_pmic_arb *pmic_arb;
@@ -1334,6 +1407,9 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	err = spmi_controller_add(ctrl);
 	if (err)
 		goto err_domain_remove;
+
+	spmi_pmic_arb_wakeup_device.data = pmic_arb;
+	pm_register_wakeup_device(&spmi_pmic_arb_wakeup_device);
 
 	return 0;
 

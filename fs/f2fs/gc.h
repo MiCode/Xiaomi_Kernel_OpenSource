@@ -3,6 +3,7 @@
  * fs/f2fs/gc.h
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.samsung.com/
  */
 #define GC_THREAD_MIN_WB_PAGES		1	/*
@@ -11,11 +12,13 @@
 						 * or not
 						 */
 #define DEF_GC_THREAD_URGENT_SLEEP_TIME	500	/* 500 ms */
-#define DEF_GC_THREAD_MIN_SLEEP_TIME	30000	/* milliseconds */
+#define DEF_GC_THREAD_MIN_SLEEP_TIME	10000	/* milliseconds */
 #define DEF_GC_THREAD_MAX_SLEEP_TIME	60000
 #define DEF_GC_THREAD_NOGC_SLEEP_TIME	300000	/* wait 5 min */
 #define LIMIT_INVALID_BLOCK	40 /* percentage over total user space */
 #define LIMIT_FREE_BLOCK	40 /* percentage over invalid + free space */
+#define MAX_GC_COUNT		64 /* max # of recycle section once */
+#define TOPLIMIT_FREE_SEGMENT(sbi)	(reserved_segments(sbi) * 4)
 
 #define DEF_GC_FAILED_PINNED_FILES	2048
 
@@ -107,4 +110,34 @@ static inline bool has_enough_invalid_blocks(struct f2fs_sb_info *sbi)
 			free_user_blocks(sbi) < limit_free_user_blocks(sbi))
 		return true;
 	return false;
+}
+
+static inline void calculate_sleep_time(struct f2fs_sb_info *sbi,
+			struct f2fs_gc_kthread *gc_th, unsigned int *wait)
+{
+	unsigned int free = free_user_blocks(sbi) >> sbi->log_blocks_per_seg;
+	unsigned int wait_time = gc_th->min_sleep_time;
+
+	if (wait == NULL)
+		return;
+
+	if (free > TOPLIMIT_FREE_SEGMENT(sbi))
+		wait_time = gc_th->max_sleep_time;
+	else
+		wait_time += (unsigned int)div_u64(
+			(gc_th->max_sleep_time - gc_th->min_sleep_time) * free,
+			TOPLIMIT_FREE_SEGMENT(sbi));
+
+	*wait = wait_time;
+}
+
+static inline unsigned int get_gc_count(struct f2fs_sb_info *sbi)
+{
+	block_t invalid_user_blocks = sbi->user_block_count -
+			written_block_count(sbi) - free_user_blocks(sbi);
+	unsigned int gc_count = (unsigned int)div_u64(
+			MAX_GC_COUNT * invalid_user_blocks,
+			sbi->user_block_count);
+
+	return gc_count ? gc_count : 1;
 }

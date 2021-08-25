@@ -1,0 +1,17 @@
+QMP debugfs client:
+-----------------
+
+QTI Messaging Protocol(QMP) debugfs client is an interface for clients to
+send data to the Always on processor using QMP.
+
+Required properties :
+- compatible : must be "qcom,debugfs-qmp-client"
+- mboxes : list of QMP mailbox phandle and channel identifier tuples.
+- mbox-names : names of the listed mboxes
+
+Example :
+	qcom,qmp-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};

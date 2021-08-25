@@ -4,6 +4,7 @@
 #include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
+#include <soc/qcom/socinfo.h>
 
 #include "bus.h"
 #include "debug.h"
@@ -14,10 +15,14 @@
 #define WLFW_CLIENT_ID			0x4b4e454c
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
+#define ELF_BDF_FILE_NAME_K81            "bd_k81.elf"
+#define ELF_BDF_FILE_NAME_K81A           "bd_k81a.elf"
+
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
+#define REGDB_FILE_NAME_J11		"regdb_j11.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
@@ -475,11 +480,25 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 {
 	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
 	int ret = 0;
+	int hw_platform_ver = -1;
+	uint32_t hw_country_ver = 0;
 
+	hw_platform_ver = get_hw_version_platform();
+	hw_country_ver = get_hw_country_version();
+
+        cnss_pr_dbg("hw_platform_ver is %d\n", hw_platform_ver);
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+		if (plat_priv->board_info.board_id == 0xFF) {
+			if (hw_platform_ver == HARDWARE_PLATFORM_ENUMA) {
+				snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K81);
+			} else if (hw_platform_ver == HARDWARE_PLATFORM_ELISH) {
+				snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K81A);
+			}
+			else {
+				snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+			}
+		}
 		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename_tmp, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
@@ -504,7 +523,10 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				 plat_priv->board_info.board_id & 0xFF);
 		break;
 	case CNSS_BDF_REGDB:
-		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
+		if (hw_platform_ver == HARDWARE_PLATFORM_LMI)
+			snprintf(filename_tmp, filename_len, REGDB_FILE_NAME_J11);
+		else
+			snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
 		break;
 	case CNSS_BDF_DUMMY:
 		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");

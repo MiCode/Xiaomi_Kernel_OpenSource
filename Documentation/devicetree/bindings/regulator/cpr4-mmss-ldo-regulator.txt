@@ -1,0 +1,321 @@
+Qualcomm Technologies, Inc. CPR4 Regulator - MMSS LDO Specific Bindings
+
+MMSS LDO CPR4 controllers each support one CPR thread that monitors the voltage
+of the graphics processor (MMSS) supply regulator.  The CPR open-loop voltages
+are stored in hardware fuses for MMSS CPR4 controllers.  However, the CPR target
+quotients must be defined in device tree.
+
+This document describes the MMSS LDO specific CPR4 bindings.
+
+=======================
+Required Node Structure
+=======================
+
+CPR3 regulators must be described in three levels of devices nodes.  The first
+level describes the CPR3 controller.  The second level describes exacly one
+hardware thread managed by the controller.  The third level describes one or
+more logical regulators handled by the CPR thread.
+
+All platform independent cpr3-regulator binding guidelines defined in
+cpr3-regulator.txt also apply to cpr4-mmss-ldo-regulator devices.
+
+====================================
+First Level Nodes - CPR3 Controllers
+====================================
+
+MMSS LDO specific properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be the following:
+		    "qcom,cpr4-sdm660-mmss-ldo-regulator".
+
+- clocks
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of clock tuples in which each tuple consists of a
+		    phandle to a clock device and a clock ID number.  The
+		    following clocks must be specified: MMSS RBCPR and MMSS
+		    RBCPR AHB.
+
+- clock-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Clock names.  This list must match up 1-to-1 with the clocks
+		    specified in the 'clocks' property. "core_clk", and "bus_clk"
+		    must be specified.
+
+- qcom,cpr-step-quot-fixed
+	Usage:      Optional
+	Value type: <u32>
+	Definition: Fixed step quotient value used by controller for applying
+		    the SDELTA margin adjustments on the programmed target
+		    quotient values. The step quotient is the number of
+		    additional ring oscillator ticks observed for each
+		    qcom,voltage-step increase in vdd-supply output voltage.
+		    Supported values: 0 - 63.
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+MMSS specific properties:
+N/A
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+MMSS specific properties:
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners. This value must be 6
+		    for sdm660 GFX LDO. These fuse corners are: MinSVS,
+		    LowSVS, SVS, SVSP, NOM and NOMP. The open-loop voltage fuses
+		    are allocated for LowSVS, SVS, NOM and NOMP corners. The
+		    open-loop voltages for MinSVS and SVSP are derived by
+		    applying fixed offset from LowSVS and NOM open-loop voltages
+		    respectively. The closed-loop offset voltage fuses are
+		    allocated for LowSVS, SVS, NOM and NOMP corners. The MinSVS
+		    and SVSP corners use the closed-loop offset voltage fuses of
+		    LowSVS and NOM corners respectively.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  For MMSS the maximum
+		    supported value is 8.  These combos correspond to CPR
+		    revision fuse values from 0 to 7 in order.
+
+- qcom,mem-acc-voltage
+	Usage:      required if mem-acc-supply is specified for the CPR3 controller
+		    containing this CPR3 regulator
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the mem-acc-supply
+		    corner for each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+- qcom,cpr-target-quotients
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists.  Each tuple defines the
+		    CPR target quotient for each ring oscillator (RO) for a
+		    given corner.  Since CPR3 supports exactly 16 ROs, each
+		    tuple must contain 16 elements corresponding to RO0 through
+		    RO15 in order.  If a given RO is unused for a corner, then
+		    its target quotient should be specified as 0.
+
+		    Each tuple list in the grouping must meet the same size
+		    requirements as those specified for qcom,mem-acc-voltage
+		    above. The tuples in a given list are ordered from the
+		    lowest corner to the highest corner.
+
+- qcom,cpr-ro-scaling-factor
+	Usage:      required if qcom,cpr-closed-loop-voltage-adjustment is
+		    specified
+	Value type: <prop-encoded-array>
+	Definition: The common definition of this property in cpr3-regulator.txt
+		    is accurate for MMSS CPR3 controllers except for this
+		    modification:
+
+		    Each tuple list must contain the number of tuples defined in
+		    the corresponding element of the qcom,cpr-corners property
+		    or the qcom,cpr-speed-bins property as opposed to the value
+		    of the qcom,cpr-fuse-corners property.
+
+- qcom,cpr-fused-closed-loop-voltage-adjustment-map
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR fused
+		    corner closed-loop offset adjustment fuse to utilize for
+		    each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+		    Each tuple element must be either 0 or in the range 1 to
+		    qcom,cpr-fuse-corners.  A value of 0 signifies that no fuse
+		    based adjustment should be applied to the fuse corner.
+		    Values 1 to qcom,cpr-fuse-corners denote the specific fuse
+		    corner that should be used by a given voltage corner.
+
+- qcom,cpr-corner-allow-ldo-mode
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the LDO mode
+		    allowed state for each voltage corner in order from lowest
+		    to highest. Each element in the tuple should be either
+		    0 (LDO mode not allowed) or 1 (LDO mode allowed).
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bin-corners property.  A single tuple may
+		    only be specified if all of the corner counts in
+		    qcom,cpr-corners are the same.
+
+- qcom,cpr-corner-allow-closed-loop
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR
+		    closed-loop operation allowed state for each voltage corner
+		    in order from lowest to highest. Each element in the tuple
+		    should be either 0 (CPR closed-loop operation not allowed)
+		    or 1 (CPR closed-loop operation allowed).
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bin-corners property.  A single tuple may
+		    only be specified if all of the corner counts in
+		    qcom,cpr-corners are the same.
+
+Note that the qcom,cpr-closed-loop-voltage-fuse-adjustment property is not
+meaningful for MMSS LDO CPR3 regulator nodes since target quotients are not
+defined in fuses.
+
+=======
+Example
+=======
+
+gfx_cpr: cpr4-ctrl@05061000 {
+	compatible = "qcom,cpr4-sdm660-mmss-ldo-regulator";
+	reg = <0x05061000 0x4000>, <0x00784000 0x1000>;
+	reg-names = "cpr_ctrl", "fuse_base";
+	interrupts = <GIC_SPI 285 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "cpr";
+	qcom,cpr-ctrl-name = "gfx";
+
+	qcom,cpr-sensor-time = <1000>;
+	qcom,cpr-loop-time = <5000000>;
+	qcom,cpr-idle-cycles = <15>;
+	qcom,cpr-step-quot-init-min = <8>;
+	qcom,cpr-step-quot-init-max = <12>;
+	qcom,cpr-count-mode = <0>;		/* All at once */
+
+	vdd-supply = <&gfx_stub_vreg>;
+	mem-acc-supply = <&gfx_mem_acc_vreg>;
+	system-supply = <&pm660l_s3_level>; /* vdd_cx */
+	qcom,voltage-step = <5000>;
+	vdd-thread0-ldo-supply = <&gfx_ldo_vreg>;
+
+	qcom,cpr-enable;
+
+	thread@0 {
+		qcom,cpr-thread-id = <0>;
+		qcom,cpr-consecutive-up = <0>;
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
+
+		gfx_vreg_corner: regulator {
+			regulator-name = "gfx_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+
+			qcom,cpr-fuse-corners = <6>;
+			qcom,cpr-fuse-combos = <8>;
+			qcom,cpr-corners = <7>;
+
+			qcom,cpr-corner-fmax-map = <1 2 3 4 5 6>;
+
+			qcom,cpr-voltage-ceiling =
+				<584000  644000  724000  788000
+				 868000  924000 1068000>;
+			qcom,cpr-voltage-floor =
+				<504000  504000  596000  652000
+				 712000  744000 1068000>;
+
+			qcom,mem-acc-voltage = <1 1 1 2 2 2 2>;
+			qcom,system-voltage =
+				<RPM_SMD_REGULATOR_LEVEL_MIN_SVS>,
+				<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
+				<RPM_SMD_REGULATOR_LEVEL_SVS>,
+				<RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
+				<RPM_SMD_REGULATOR_LEVEL_NOM>,
+				<RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+			qcom,corner-frequencies =
+				<160000000 266000000 370000000
+				 465000000 588000000 647000000
+				 800000000>;
+
+			qcom,cpr-target-quotients =
+				<0    0    0    0     0    0  185  179
+				291  299  304  319    0    0    0    0>,
+				<0    0    0    0     0    0  287  273
+				425  426  443  453    0    0    0    0>,
+				<0    0    0    0     0    0  414  392
+				584  576  608  612    0    0    0    0>,
+				<0    0    0    0     0    0  459  431
+				684  644  692  679    0    0    0    0>,
+				<0    0    0    0     0    0  577  543
+				798  768  823  810    0    0    0    0>,
+				<0    0    0    0     0    0  669  629
+				886  864  924  911    0    0    0    0>,
+				<0    0    0    0     0    0    0    0
+				 0    0    0    0     0    0    0    0>;
+
+			qcom,cpr-ro-scaling-factor =
+				<  0    0    0    0   0    0 2035 1917
+				1959 2131 2246 2253   0    0    0    0>,
+				<  0    0    0    0   0    0 2035 1917
+				1959 2131 2246 2253   0    0    0    0>,
+				<  0    0    0    0   0    0 2035 1917
+				1959 2131 2246 2253   0    0    0    0>,
+				<  0    0    0    0   0    0 2035 1917
+				1959 2131 2246 2253   0    0    0    0>,
+				<  0    0    0    0   0    0 2035 1917
+				1959 2131 2246 2253   0    0    0    0>,
+				<  0    0    0    0   0    0 2035 1917
+				1959 2131 2246 2253   0    0    0    0>,
+				<  0    0    0    0   0    0    0    0
+				   0    0    0    0   0    0    0    0>;
+
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+			qcom,cpr-corner-ldo-mode-allowed =
+				<1 1 1 1 1 1 0>;
+			qcom,cpr-corner-use-closed-loop =
+				<1 1 1 1 1 1 0>;
+		};
+	};
+};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/cpufreq.h>
@@ -150,6 +151,8 @@ static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c,
 		else
 			freq = policy->cpuinfo.max_freq;
 	}
+
+	freq = U32_MAX;   //Fix me! This is WA here！
 
 	sched_update_cpu_freq_min_max(&c->related_cpus, 0, freq);
 	trace_dcvsh_freq(cpumask_first(&c->related_cpus), freq);

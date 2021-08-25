@@ -2,6 +2,7 @@
  * Packet matching code.
  *
  * Copyright (C) 1999 Paul `Rusty' Russell & Michael J. Neuling
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2000-2005 Netfilter Core Team <coreteam@netfilter.org>
  * Copyright (c) 2006-2010 Patrick McHardy <kaber@trash.net>
  *
@@ -787,25 +788,6 @@ get_counters(const struct xt_table_info *t,
 	}
 }
 
-static void get_old_counters(const struct xt_table_info *t,
-			     struct xt_counters counters[])
-{
-	struct ip6t_entry *iter;
-	unsigned int cpu, i;
-
-	for_each_possible_cpu(cpu) {
-		i = 0;
-		xt_entry_foreach(iter, t->entries, t->size) {
-			const struct xt_counters *tmp;
-
-			tmp = xt_get_per_cpu_counter(&iter->counters, cpu);
-			ADD_COUNTER(counters[i], tmp->bcnt, tmp->pcnt);
-			++i;
-		}
-		cond_resched();
-	}
-}
-
 static struct xt_counters *alloc_counters(const struct xt_table *table)
 {
 	unsigned int countersize;
@@ -1096,7 +1078,8 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
 	    (newinfo->number <= oldinfo->initial_entries))
 		module_put(t->me);
 
-	get_old_counters(oldinfo, counters);
+	/* Get the old counters, and synchronize with replace */
+	get_counters(oldinfo, counters);
 
 	/* Decrease module usage counts and free resource */
 	xt_entry_foreach(iter, oldinfo->entries, oldinfo->size)

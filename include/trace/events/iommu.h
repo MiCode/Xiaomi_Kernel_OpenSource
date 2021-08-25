@@ -3,6 +3,7 @@
  * iommu trace points
  *
  * Copyright (C) 2013 Shuah Khan <shuah.kh@samsung.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 #undef TRACE_SYSTEM
@@ -165,6 +166,60 @@ TRACE_EVENT(map_sg,
 	TP_printk("IOMMU:%s iova=0x%016llx size=0x%zx prot=0x%x",
 			__get_str(name), __entry->iova, __entry->size,
 			__entry->prot
+	)
+);
+
+TRACE_EVENT(io_pgtable_free,
+
+	TP_PROTO(u64 *table_base, u64 *pudp, u64 pud, unsigned long iova, int block),
+
+	TP_ARGS(table_base, pudp, pud, iova, block),
+
+	TP_STRUCT__entry(
+		__field(u64*, table_base)
+		__field(u64*, pudp)
+		__field(u64, pud)
+		__field(u64, iova)
+		__field(int, block)
+	),
+
+	TP_fast_assign(
+		__entry->table_base = table_base;
+		__entry->pudp = pudp;
+		__entry->pud = pud;
+		__entry->iova = iova;
+		__entry->block = block;
+	),
+
+	TP_printk("IOMMU: Freeing %s io-pgtable at 0x%lx pud=0x%lx *pud=0x%lx iova=0x%lx blk=%d",
+			__entry->block ? "block" : "", __entry->table_base, __entry->pudp,
+			__entry->pud, __entry->iova, __entry->block
+	)
+);
+
+TRACE_EVENT(io_pgtable_install,
+
+	TP_PROTO(u64 *table_base, u64 *pudp, u64 pud, int block),
+
+	TP_ARGS(table_base, pudp, pud, block),
+
+	TP_STRUCT__entry(
+		__field(u64*, table_base)
+		__field(u64*, pudp)
+		__field(u64, pud)
+		__field(int, block)
+	),
+
+	TP_fast_assign(
+		__entry->table_base = table_base;
+		__entry->pudp = pudp;
+		__entry->pud = pud;
+		__entry->block = block;
+	),
+
+	TP_printk("IOMMU: Installed %s io-pgtable at 0x%lx pud=0x%lx *pud=0x%lx blk=%d",
+			__entry->block ? "block" : "", __entry->table_base, __entry->pudp,
+			__entry->pud, __entry->block
 	)
 );
 

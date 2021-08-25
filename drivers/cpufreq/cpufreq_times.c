@@ -1,6 +1,7 @@
 /* drivers/cpufreq/cpufreq_times.c
  *
  * Copyright (C) 2018 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,12 +26,19 @@
 #include <linux/spinlock.h>
 #include <linux/threads.h>
 
+#ifndef SYSTEM_UID
+#define SYSTEM_UID 1000
+#endif
+#define MAX_TASK_COMM_LEN 16
+
 #define UID_HASH_BITS 10
 
 static DECLARE_HASHTABLE(uid_hash_table, UID_HASH_BITS);
+static DECLARE_HASHTABLE(sys_app_hash_table, UID_HASH_BITS);
 
 static DEFINE_SPINLOCK(task_time_in_state_lock); /* task->time_in_state */
 static DEFINE_SPINLOCK(uid_lock); /* uid_hash_table */
+static DEFINE_SPINLOCK(pid_lock); /* sys_app_hash_table */
 
 struct concurrent_times {
 	atomic64_t active[NR_CPUS];
@@ -44,6 +52,17 @@ struct uid_entry {
 	struct rcu_head rcu;
 	struct concurrent_times *concurrent_times;
 	u64 time_in_state[0];
+};
+
+struct pid_entry {
+	u64 hash_code;
+	char *package;
+	pid_t pid;
+	struct concurrent_times *concurrent_times;
+	struct hlist_node hash;
+	unsigned int max_state;
+	u64 time_in_state[0];
+	struct rcu_head rcu;
 };
 
 /**
@@ -135,6 +154,143 @@ static struct uid_entry *find_or_register_uid_locked(uid_t uid)
 	hash_add_rcu(uid_hash_table, &uid_entry->hash, uid);
 
 	return uid_entry;
+}
+
+/*
+ * simple hash function for a string,
+ * http://www.cse.yorku.ca/~oz/hash.html
+ */
+static u64 hash_string(const char *str)
+{
+	u64 hash = 5381;
+	int c;
+
+	while ((c = *str++))
+		hash = ((hash << 5) + hash) + c;
+
+	return hash;
+}
+
+/* Caller must hold rcu_read_lock() */
+static struct pid_entry *find_pid_entry_rcu(u64 hash_code)
+{
+	struct pid_entry *pid_entry;
+
+	hash_for_each_possible_rcu(sys_app_hash_table, pid_entry, hash, hash_code) {
+		if (pid_entry->hash_code == hash_code)
+			return pid_entry;
+	}
+	return NULL;
+}
+
+/* Caller must hold pid lock */
+static struct pid_entry *find_pid_entry_locked(u64 hash_code)
+{
+	struct pid_entry *pid_entry;
+
+	hash_for_each_possible(sys_app_hash_table, pid_entry, hash, hash_code) {
+		if (pid_entry->hash_code == hash_code)
+			return pid_entry;
+	}
+	return NULL;
+}
+
+/* Caller must hold pid lock */
+static struct pid_entry *find_or_register_pid_locked(u64 hash_code,
+						     const char *package, pid_t pid)
+{
+	struct pid_entry *pid_entry, *temp;
+	struct concurrent_times *times;
+	unsigned int max_state = READ_ONCE(next_offset);
+	size_t alloc_size = sizeof(*pid_entry) + max_state *
+		sizeof(pid_entry->time_in_state[0]);
+	pid_entry = find_pid_entry_locked(hash_code);
+	if (pid_entry) {
+		if (pid_entry->max_state == max_state)
+			return pid_entry;
+		temp = __krealloc(pid_entry, alloc_size, GFP_ATOMIC);
+		if (!temp)
+			return pid_entry;
+		temp->max_state = max_state;
+		memset(temp->time_in_state + pid_entry->max_state, 0,
+		       (max_state - pid_entry->max_state) *
+		       sizeof(pid_entry->time_in_state[0]));
+		if (temp != pid_entry) {
+			hlist_replace_rcu(&pid_entry->hash, &temp->hash);
+			kfree_rcu(pid_entry, rcu);
+		}
+		return temp;
+	}
+
+	pid_entry = kzalloc(alloc_size, GFP_ATOMIC);
+	if (!pid_entry)
+		return NULL;
+	times = kzalloc(sizeof(*times), GFP_ATOMIC);
+	if (!times) {
+		kfree(pid_entry);
+		return NULL;
+	}
+	pid_entry->package = kzalloc(MAX_TASK_COMM_LEN, GFP_ATOMIC);
+        if (!pid_entry->package) {
+		kfree(pid_entry);
+		return NULL;
+        }
+
+	strncpy(pid_entry->package, package, MAX_TASK_COMM_LEN);
+	pid_entry->hash_code = hash_string(pid_entry->package);
+	pid_entry->pid = pid;
+	pid_entry->concurrent_times = times;
+
+	hash_add_rcu(sys_app_hash_table, &pid_entry->hash, hash_code);
+
+	return pid_entry;
+}
+
+static void *pid_seq_start(struct seq_file *seq, loff_t *pos)
+{
+	if (*pos >= HASH_SIZE(sys_app_hash_table))
+		return NULL;
+
+	return &sys_app_hash_table[*pos];
+}
+
+static void *pid_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+{
+	do {
+		(*pos)++;
+
+		if (*pos >= HASH_SIZE(sys_app_hash_table))
+			return NULL;
+	} while (hlist_empty(&sys_app_hash_table[*pos]));
+
+	return &sys_app_hash_table[*pos];
+}
+
+static void pid_seq_stop(struct seq_file *seq, void *v){ }
+
+static int sys_app_concurrent_time_seq_show(struct seq_file *m, void *v,
+	atomic64_t *(*get_times)(struct concurrent_times *))
+{
+	struct pid_entry *pid_entry;
+	int i, num_possible_cpus = num_possible_cpus();
+	rcu_read_lock();
+
+	hlist_for_each_entry_rcu(pid_entry, (struct hlist_head *)v, hash) {
+		atomic64_t *times = get_times(pid_entry->concurrent_times);
+
+		seq_puts(m, pid_entry->package);
+		seq_putc(m, ':');
+
+		for (i = 0; i < num_possible_cpus; ++i) {
+			u64 time = nsec_to_clock_t(atomic64_read(&times[i]));
+
+			seq_put_decimal_ull(m, " ", time);
+		}
+		seq_putc(m, '\n');
+	}
+	rcu_read_unlock();
+
+	return 0;
 }
 
 static int single_uid_time_in_state_show(struct seq_file *m, void *ptr)
@@ -273,6 +429,89 @@ static inline atomic64_t *get_policy_times(struct concurrent_times *times)
 	return times->policy;
 }
 
+static int sys_app_time_in_state_seq_show(struct seq_file *m, void *v)
+{
+	struct pid_entry *pid_entry;
+	struct cpu_freqs *freqs, *last_freqs = NULL;
+	int i, cpu;
+
+	if (v == sys_app_hash_table) {
+		seq_puts(m, "sys_app:");
+		for_each_possible_cpu(cpu) {
+			freqs = all_freqs[cpu];
+			if (!freqs || freqs == last_freqs)
+				continue;
+			last_freqs = freqs;
+			for (i = 0; i < freqs->max_state; i++) {
+				seq_put_decimal_ull(m, " ",
+						    freqs->freq_table[i]);
+			}
+		}
+		seq_putc(m, '\n');
+	}
+
+	rcu_read_lock();
+
+	hlist_for_each_entry_rcu(pid_entry, (struct hlist_head *)v, hash) {
+		if (pid_entry->max_state) {
+			seq_puts(m, pid_entry->package);
+			seq_putc(m, ':');
+		}
+		for (i = 0; i < pid_entry->max_state; ++i) {
+			u64 time = nsec_to_clock_t(pid_entry->time_in_state[i]);
+			seq_put_decimal_ull(m, " ", time);
+		}
+		if (pid_entry->max_state)
+			seq_putc(m, '\n');
+	}
+
+	rcu_read_unlock();
+	return 0;
+}
+
+static int sys_app_concurrent_active_time_seq_show(struct seq_file *m, void *v)
+{
+	if (v == sys_app_hash_table) {
+		seq_put_decimal_ull(m, "cpus: ", num_possible_cpus());
+		seq_putc(m, '\n');
+	}
+
+	return sys_app_concurrent_time_seq_show(m, v, get_active_times);
+}
+
+static int sys_app_concurrent_policy_time_seq_show(struct seq_file *m, void *v)
+{
+	int i;
+	struct cpu_freqs *freqs, *last_freqs = NULL;
+
+	if (v == sys_app_hash_table) {
+		int cnt = 0;
+
+		for_each_possible_cpu(i) {
+			freqs = all_freqs[i];
+			if (!freqs)
+				continue;
+			if (freqs != last_freqs) {
+				if (last_freqs) {
+					seq_put_decimal_ull(m, ": ", cnt);
+					seq_putc(m, ' ');
+					cnt = 0;
+				}
+				seq_put_decimal_ull(m, "policy", i);
+
+				last_freqs = freqs;
+			}
+			cnt++;
+		}
+		if (last_freqs) {
+			seq_put_decimal_ull(m, ": ", cnt);
+			seq_putc(m, '\n');
+		}
+	}
+
+	return sys_app_concurrent_time_seq_show(m, v, get_policy_times);
+}
+
 static int concurrent_policy_time_seq_show(struct seq_file *m, void *v)
 {
 	int i;
@@ -406,6 +645,10 @@ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime)
 	struct cpufreq_policy *policy;
 	uid_t uid = from_kuid_munged(current_user_ns(), task_uid(p));
 	int cpu = 0;
+	pid_t pid;
+        u64 tmp_hash;
+        struct pid_entry *pid_entry;
+        const char *package_name;
 
 	if (!freqs || is_idle_task(p) || p->flags & PF_EXITING)
 		return;
@@ -423,6 +666,17 @@ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime)
 	if (uid_entry && state < uid_entry->max_state)
 		uid_entry->time_in_state[state] += cputime;
 	spin_unlock_irqrestore(&uid_lock, flags);
+
+	if (uid == SYSTEM_UID) {
+		spin_lock_irqsave(&pid_lock, flags);
+		pid = p->tgid;
+        	package_name = p->group_leader->comm;
+        	tmp_hash = hash_string(package_name);
+        	pid_entry = find_or_register_pid_locked(tmp_hash, package_name, pid);
+		if (pid_entry && state < pid_entry->max_state)
+			pid_entry->time_in_state[state] += cputime;
+		spin_unlock_irqrestore(&pid_lock, flags);
+	}
 
 	rcu_read_lock();
 	uid_entry = find_uid_entry_rcu(uid);
@@ -458,6 +712,16 @@ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime)
 	atomic64_add(cputime,
 		     &uid_entry->concurrent_times->policy[policy_first_cpu +
 							  policy_cpu_cnt - 1]);
+	if (uid == SYSTEM_UID) {
+		pid_entry = find_pid_entry_rcu(tmp_hash);
+		if (pid_entry) {
+			atomic64_add(cputime,
+                		     &pid_entry->concurrent_times->active[active_cpu_cnt - 1]);
+                	atomic64_add(cputime,
+                        	     &pid_entry->concurrent_times->policy[policy_first_cpu +
+                                     					  policy_cpu_cnt - 1]);
+		}
+	}
 	rcu_read_unlock();
 }
 
@@ -616,6 +880,63 @@ static const struct file_operations concurrent_policy_time_fops = {
 	.release	= seq_release,
 };
 
+static const struct seq_operations sys_app_time_in_state_seq_ops = {
+	.start = pid_seq_start,
+	.next = pid_seq_next,
+	.stop = pid_seq_stop,
+	.show = sys_app_time_in_state_seq_show,
+};
+
+static int sys_app_time_in_state_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &sys_app_time_in_state_seq_ops);
+}
+
+static const struct file_operations sys_app_time_in_state_fops = {
+	.open		= sys_app_time_in_state_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static const struct seq_operations sys_app_concurrent_active_time_seq_ops = {
+	.start = pid_seq_start,
+	.next = pid_seq_next,
+	.stop = pid_seq_stop,
+	.show = sys_app_concurrent_active_time_seq_show,
+};
+
+static int sys_app_concurrent_active_time_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &sys_app_concurrent_active_time_seq_ops);
+}
+
+static const struct file_operations sys_app_concurrent_active_time_fops = {
+	.open		= sys_app_concurrent_active_time_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static const struct seq_operations sys_app_concurrent_policy_time_seq_ops = {
+	.start = pid_seq_start,
+	.next = pid_seq_next,
+	.stop = pid_seq_stop,
+	.show = sys_app_concurrent_policy_time_seq_show,
+};
+
+static int sys_app_concurrent_policy_time_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &sys_app_concurrent_policy_time_seq_ops);
+}
+
+static const struct file_operations sys_app_concurrent_policy_time_fops = {
+	.open		= sys_app_concurrent_policy_time_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static int __init cpufreq_times_init(void)
 {
 	proc_create_data("uid_time_in_state", 0444, NULL,
@@ -626,6 +947,15 @@ static int __init cpufreq_times_init(void)
 
 	proc_create_data("uid_concurrent_policy_time", 0444, NULL,
 			 &concurrent_policy_time_fops, NULL);
+
+	proc_create_data("sys_app_time_in_state", 0444, NULL,
+			 &sys_app_time_in_state_fops, NULL);
+
+	proc_create_data("sys_app_concurrent_active_time", 0444, NULL,
+			 &sys_app_concurrent_active_time_fops, NULL);
+
+	proc_create_data("sys_app_concurrent_policy_time", 0444, NULL,
+			 &sys_app_concurrent_policy_time_fops, NULL);
 
 	return 0;
 }

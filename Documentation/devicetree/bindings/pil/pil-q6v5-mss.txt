@@ -1,0 +1,142 @@
+Qualcomm Technologies, Inc. MSS QDSP6v5 Peripheral Image Loader
+
+pil-qdsp6v5-mss is a peripheral image loader (PIL) driver. It is used for
+loading QDSP6v5 (Hexagon) firmware images for modem subsystems into memory and
+preparing the subsystem's processor to execute code. It's also responsible for
+shutting down the processor when it's not needed.
+
+Required properties:
+- compatible:	      Must be "qcom,pil-q6v5-mss" or "qcom,pil-q6v55-mss" or
+			"qcom,pil-q6v56-mss".
+- reg:		      Pairs of physical base addresses and region sizes of
+		      memory mapped registers.
+- reg-names:	      Names of the bases for the above registers. "qdsp6_base",
+		      "rmb_base", "restart_reg" or "restart_reg_sec"(optional
+		      for secure mode) are expected.
+		      If "halt_base" is in same 4K pages this register then
+		      this will be defined else "halt_q6", "halt_modem",
+		      "halt_nc" is required.
+- interrupts:         The modem watchdog interrupt
+- vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
+- vdd_cx-voltage:     Voltage corner/level(max) for cx rail.
+- vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
+- vdd_mx-uV:          Voltage setting for the mx rail.
+- qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
+
+Optional properties:
+- vdd_mss-supply:     Reference to the regulator that supplies the processor.
+		      This may be a shared regulator that is already voted
+		      on in the PIL proxy voting code (and also managed by the
+		      modem on its own), hence we mark it as as optional.
+- vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
+- qcom,vdd_pll:       Voltage to be set for the PLL's rail.
+- reg-names:          "cxrail_bhs_reg" - control register for modem power
+		      domain.
+- clocks:	      Array of <clock_controller_phandle clock_reference> listing
+		      all the clocks that are accesed by this subsystem.
+- qcom,proxy-clock-names:  Names of the clocks that need to be turned on/off during
+			   proxy voting/unvoting.
+- qcom,active-clock-names: Names of the clocks that need to be turned on for the
+			   subsystem to run. Turned off when the subsystem is shutdown.
+- clock-names:		   Names of all the clocks that are accessed by the subsystem.
+- qcom,is-not-loadable: Boolean- Present if the image does not need to
+			be loaded.
+- qcom,pil-self-auth: Boolean- True if authentication is required.
+- qcom,mem-protect-id: Virtual ID used by PIL to call into TZ/HYP to protect/unprotect
+			subsystem related memory.
+- qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
+- qcom,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
+- qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
+  the apps.
+- qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
+- qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
+		      to the apps.
+- qcom,gpio-ramdump-disable: GPIO used by the modem to inform the apps that ramdump
+			     collection should be disabled.
+- qcom,gpio-shutdown-ack: GPIO used by the modem to indicate that it has done the
+			  necessary cleanup and that the apps can move forward with
+			  the shutdown sequence.
+- qcom,restart-group: List of subsystems that will need to restart together.
+- qcom,mba-image-is-not-elf:	Boolean- Present if MBA image doesn't use the ELF
+				format.
+- qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL
+			  service.
+- qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
+- qcom,override-acc: Boolean- Present if we need to override the default ACC settings
+- qcom,ahb-clk-vote: Boolean- Present if we need to remove the vote for the mss_cfg_ahb
+		     clock after the modem boots up
+- qcom,pnoc-clk-vote: Boolean- Present if the modem needs the PNOC bus to be
+		      clocked before it boots up
+- qcom,qdsp6v56-1-3: Boolean- Present if the qdsp version is v56 1.3
+- qcom,qdsp6v56-1-5: Boolean- Present if the qdsp version is v56 1.5
+- qcom,edge:		GLINK logical name of the remote subsystem
+- qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
+                           on behalf of the subsystem driver.
+- qcom,pil-mss-memsetup: Boolean - True if TZ need to be informed of modem start address and size.
+- qcom,pas-id:	      pas_id of the subsystem.
+- qcom,qdsp6v56-1-8: Boolean- Present if the qdsp version is v56 1.8
+- qcom,qdsp6v56-1-8-inrush-current: Boolean- Present if the qdsp version is V56 1.8 and has in-rush
+				    current issue.
+- qcom,qdsp6v61-1-1: Boolean- Present if the qdsp version is v61 1.1
+- qcom,qdsp6v62-1-2: Boolean- Present if the qdsp version is v62 1.2
+- qcom,qdsp6v62-1-4: Boolean- Present if the qdsp version is v62 1.4
+- qcom,qdsp6v62-1-5: Boolean- Present if the qdsp version is v62 1.5
+- qcom,mx-spike-wa: Boolean- Present if we need to assert QDSP6 I/O clamp, memory
+		    wordline clamp, and compiler memory clamp during MSS restart.
+- qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
+- qcom,override-acc-1: Override the default ACC settings with this value if present.
+- qcom,minidump-id: Unique id for each subsystem
+- qcom,reset-clk: Enable clock after MSS restart
+
+One child node to represent the MBA image may be specified, when the MBA image
+needs to be loaded in a specifically carved out memory region.
+
+Required properties:
+- compatible: Must be "qcom,pil-mba-mem"
+- memory-region: A phandle that points to a reserved memory where the MBA image will be loaded.
+
+Example:
+	qcom,mss@fc880000 {
+		compatible = "qcom,pil-q6v5-mss";
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x020>,
+		      <0xfc401680 0x004>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base",
+			    "restart_reg";
+		interrupts = <0 24 1>;
+		vdd_mss-supply = <&pm8841_s3>;
+		vdd_cx-supply = <&pm8841_s2>;
+		vdd_cx-voltage = <7>;
+		vdd_mx-supply = <&pm8841_s1>;
+		vdd_mx-uV = <105000>;
+
+		clocks = <&clock_rpm clk_xo_pil_mss_clk>,
+			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
+			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>;
+		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk";
+		qcom,proxy-clock-names = "xo";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk";
+
+		qcom,is-not-loadable;
+		qcom,firmware-name = "mba";
+		qcom,pil-self-auth;
+		qcom,mba-image-is-not-elf;
+		qcom,override-acc;
+
+		/* GPIO inputs from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qcom,ssctl-instance-id = <12>;
+		qcom,sysmon-id = <0>;
+
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&peripheral_mem>;
+		};
+	};

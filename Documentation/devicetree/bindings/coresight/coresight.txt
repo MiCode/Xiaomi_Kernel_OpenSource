@@ -1,0 +1,435 @@
+* CoreSight Components
+
+CoreSight components are compliant with the ARM CoreSight architecture
+specification and can be connected in various topologies to suite a particular
+SoCs tracing needs. These trace components can generally be classified as sinks,
+links and sources. Trace data produced by one or more sources flows through the
+intermediate links connecting the source to the currently selected sink. Each
+CoreSight component device should use these properties to describe its hardware
+characteristcs.
+
+Required properties:
+
+- compatible : name of the component used for driver matching, should be one of
+	the following:
+	"arm,coresight-tmc" for coresight tmc-etr or tmc-etf device,
+	"arm,coresight-tpiu" for coresight tpiu device,
+	"qcom,coresight-replicator" for coresight replicator device,
+	"arm,coresight-funnel" for coresight funnel devices,
+	"qcom,coresight-tpda" for coresight tpda device,
+	"qcom,coresight-tpdm" for coresight tpdm device,
+	"qcom,coresight-dbgui" for coresight dbgui device
+	"arm,coresight-stm" for coresight stm trace device,
+	"arm,coresight-etm" for coresight etm trace devices,
+	"arm,coresight-etmv4" for coresight etmv4 trace devices,
+	"qcom,coresight-csr" for coresight csr device,
+	"arm,coresight-cti" for coresight cti devices,
+	"qcom,coresight-hwevent" for coresight hardware event devices
+	"arm,coresight-fuse" for coresight fuse v1 device,
+	"arm,coresight-fuse-v2" for coresight fuse v2 device,
+	"arm,coresight-fuse-v3" for coresight fuse v3 device,
+	"qcom,coresight-remote-etm" for coresight remote processor etm trace device,
+	"qcom,coresight-qpdi" for coresight qpdi device
+- reg : physical base address and length of the register set(s) of the component.
+	Not required for the following compatible string:
+	- "qcom,coresight-remote-etm"
+- reg-names : names corresponding to each reg property value.
+	Not required for the following compatible string:
+	- "qcom,coresight-remote-etm"
+	The reg-names that need to be used with corresponding compatible string
+	for a coresight device are:
+	- for coresight tmc-etr or tmc-etf device:
+		compatible : should be "arm,coresight-tmc"
+		reg-names  : should be:
+			"tmc-base" - physical base address of tmc configuration
+				registers
+			"bam-base" - physical base address of tmc-etr bam registers
+	- for coresight tpiu device:
+		compatible : should be "arm,coresight-tpiu"
+		reg-names  : should be:
+			"tpiu-base" - physical base address of tpiu registers
+	- for coresight replicator device
+		compatible : should be "qcom,coresight-replicator"
+		reg-names  : should be:
+			"replicator-base" - physical base address of replicator
+				registers
+	- for coresight funnel devices
+		compatible : should be "arm,coresight-funnel"
+		reg-names  : should be:
+			"funnel-base" - physical base address of funnel registers
+	- for coresight tpda trace device
+		compatible : should be "qcom,coresight-tpda"
+		reg-names  : should be:
+			"tpda-base" - physical base address of tpda registers
+	- for coresight tpdm trace device
+		compatible : should be "qcom,coresight-tpdm"
+		reg-names  : should be:
+			"tpdm-base" - physical base address of tpdm registers
+	- for coresight dbgui device:
+		compatible : should be "qcom,coresight-dbgui"
+		reg-names  : should be:
+			"dbgui-base" - physical base address of dbgui registers
+	- for coresight stm trace device
+		compatible : should be "arm,coresight-stm"
+		reg-names  : should be:
+			"stm-base" - physical base address of stm configuration
+				registers
+			"stm-data-base" - physical base address of stm data registers
+	- for coresight etm trace devices
+		compatible : should be "arm,coresight-etm"
+		reg-names  : should be:
+			"etm-base" - physical base address of etm registers
+	- for coresight etmv4 trace devices
+		compatible : should be "arm,coresight-etmv4"
+		reg-names  : should be:
+			"etm-base" - physical base address of etmv4 registers
+	- for coresight csr device:
+		compatible : should be "qcom,coresight-csr"
+		reg-names  : should be:
+			"csr-base" - physical base address of csr registers
+	- for coresight cti devices:
+		compatible : should be "arm,coresight-cti"
+		reg-names  : should be:
+			"cti<num>-base" - physical base address of cti registers
+	- for coresight hardware event devices:
+		compatible : should be "qcom,coresight-hwevent"
+		reg-names  : should be:
+			"<ss-mux>" - physical base address of hardware event mux
+				control registers where <ss-mux> is subsystem mux it
+				represents
+	- for coresight fuse device:
+		compatible : should be "arm,coresight-fuse"
+		reg-names  : should be:
+			"fuse-base" - physical base address of fuse registers
+			"nidnt-fuse-base" - physical base address of nidnt fuse registers
+			"qpdi-fuse-base" - physical base address of qpdi fuse registers
+	- for coresight qpdi device:
+		compatible : should be "qcom,coresight-qpdi"
+		reg-names  : should be:
+			"qpdi-base" - physical base address of qpdi registers
+- coresight-id : unique integer identifier for the component
+- coresight-name : unique descriptive name of the component
+- coresight-nr-inports : number of input ports on the component
+
+Optional properties:
+
+- coresight-outports : list of output port numbers of this component
+- coresight-child-list : list of phandles pointing to the children of this
+			 component
+- coresight-child-ports : list of input port numbers of the children
+- coresight-default-sink : represents the default compile time CoreSight sink
+- coresight-ctis : list of ctis that this component interacts with
+- qcom,cti-save : boolean, indicating cti context needs to be saved and restored
+- qcom,cti-hwclk : boolean, indicating support of hardware clock to access cti
+		   registers to be saved and restored
+- qcom,cti-gpio-trigin : cti trigger input driven by gpio
+- qcom,cti-gpio-trigout : cti trigger output sent to gpio
+- qcom,pc-save : program counter save implemented
+- qcom,blk-size : block size for tmc-etr to usb transfers
+- qcom,memory-size : size of coherent memory to be allocated for tmc-etr buffer
+- qcom,round-robin : indicates if per core etms are allowed round-robin access
+		     by the funnel
+- qcom,write-64bit : only 64bit data writes supported by stm
+- qcom,data-barrier : barrier required for every stm data write to channel space
+- <supply-name>-supply: phandle to the regulator device tree node. The required
+			<supply-name> is "vdd" for SD card and "vdd-io" for SD
+			I/O supply. Used for tpiu component
+- qcom,<supply>-voltage-level : specifies voltage level for vdd supply. Should
+				be specified in pairs (min, max) with units
+				being uV. Here <supply> can be "vdd" for SD card
+				vdd supply or "vdd-io" for SD I/O vdd supply.
+- qcom,<supply>-current-level : specifies current load levels for vdd supply.
+				Should be specified in pairs (lpm, hpm) with
+				units being uA. Here <supply> can be "vdd" for
+				SD card vdd supply or "vdd-io" for SD I/O vdd
+				supply.
+- qcom,hwevent-clks : list of clocks required by hardware event driver
+- qcom,hwevent-regs : list of regulators required by hardware event driver
+- qcom,byte-cntr-absent : specifies if the byte counter feature is absent on
+			  the device. Only relevant in case of tmc-etr device.
+- interrupts : <a b c> where a is 0 or 1 depending on if the interrupt is
+		spi/ppi, b is the interrupt number and c is the mask,
+- interrupt-names : a list of strings that map in order to the list of
+		    interrupts specified in the 'interrupts' property.
+- qcom,sg-enable : indicates whether scatter gather feature is supported for TMC
+		   ETR configuration.
+- qcom,force-reg-dump : boolean, indicate whether TMC register need to be dumped.
+			Used for TMC component
+- qcom,nidntsw : boolean, indicating NIDnT software debug or trace support
+		 present. Used for tpiu component
+- qcom,nidnthw : boolean, indicating NIDnT hardware sensing support present.
+		 Used for tpiu component
+  qcom,nidntsw and qcom,nidnthw are mutually exclusive properties, either of
+  these may specified for tpiu component
+- qcom,nidnt-swduart : boolean, indicating NIDnT swd uart support present. Used
+		       for tpiu component
+- qcom,nidnt-swdtrc : boolean, indicating NIDnT swd trace support present. Used
+		      for tpiu component
+- qcom,nidnt-jtag : boolean, indicating NIDnT jtag debug support present. Used
+		    for tpiu component
+- qcom,nidnt-spmi : boolean, indicating NIDnT spmi debug support present. Used
+		    for tpiu component
+- nidnt-gpio : specifies gpio for NIDnT hardware detection
+- nidnt-gpio-polarity : specifies gpio polarity for NIDnT hardware detection
+- pinctrl-names : names corresponding to the numbered pinctrl. The allowed
+		  names are subset of the following: cti-trigin-pctrl,
+		  cti-trigout-pctrl. Used for cti component
+- pinctrl-<n>: list of pinctrl phandles for the different pinctrl states. Refer
+	       to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt".
+- qcom,funnel-save-restore : boolean, indicating funnel port needs to be disabled
+			     for the ETM whose CPU is being powered down. The port
+			     state is restored when CPU is powered up. Used for
+			     funnel component.
+- qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
+			     powering down CPU. Used for TMC component.
+- qcom,bc-elem-size : specifies the BC element size supported by each monitor
+		      connected to the aggregator on each port. Should be specified
+		      in pairs (port, bc element size).
+- qcom,tc-elem-size : specifies the TC element size supported by each monitor
+		      connected to the aggregator on each port. Should be specified
+		      in pairs (port, tc element size).
+- qcom,dsb-elem-size : specifies the DSB element size supported by each monitor
+		       connected to the aggregator on each port. Should be specified
+		       in pairs (port, dsb element size).
+- qcom,cmb-elem-size : specifies the CMB element size supported by each monitor
+		       connected to the aggregator on each port. Should be specified
+		       in pairs (port, cmb element size).
+- qcom,clk-enable: specifies whether additional clock bit needs to be set for
+		   M4M TPDM.
+- qcom,tpda-atid : specifies the ATID for TPDA.
+- qcom,inst-id : QMI instance id for remote ETMs.
+- qcom,noovrflw-enable : boolean, indicating whether no overflow bit needs to be
+			 set in ETM stall control register.
+- coresight-cti-cpu : cpu phandle for cpu cti, required when qcom,cti-save is true
+- coresight-etm-cpu : specifies phandle for the cpu associated with the ETM device
+- qcom,dbgui-addr-offset : indicates the offset of dbgui address registers
+- qcom,dbgui-data-offset : indicates the offset of dbgui data registers
+- qcom,dbgui-size : indicates the size of dbgui address and data registers
+- qcom,pmic-carddetect-gpio : indicates the hotplug capabilities of the qpdi driver
+- qcom,cpuss-debug-cgc: debug clock gating phandle for etm
+	reg : the clock gating register for each cluster
+	cluster : indicate the cluster number
+
+coresight-outports, coresight-child-list and coresight-child-ports lists will
+be of the same length and will have a one to one correspondence among the
+elements at the same list index.
+
+coresight-default-sink must be specified for one of the sink devices that is
+intended to be made the default sink. Other sink devices must not have this
+specified. Not specifying this property on any of the sinks is invalid.
+
+Examples:
+
+1. Sinks
+	tmc_etr: tmc@fc322000 {
+		compatible = "arm,coresight-tmc";
+		reg = <0xfc322000 0x1000>,
+		      <0xfc37c000 0x3000>;
+		reg-names = "tmc-base", "bam-base";
+
+		interrupts = <0 166 0>;
+		interrupt-names = "byte-cntr-irq";
+
+		qcom,byte-cntr-absent;
+		qcom,memory-size = <0x100000>;
+
+		coresight-id = <0>;
+		coresight-name = "coresight-tmc-etr";
+		coresight-nr-inports = <1>;
+		coresight-default-sink;
+	};
+
+	tpiu: tpiu@fc318000 {
+		compatible = "arm,coresight-tpiu";
+		reg = <0xfc318000 0x1000>;
+		reg-names = "tpiu-base";
+
+		coresight-id = <1>;
+		coresight-name = "coresight-tpiu";
+		coresight-nr-inports = <1>;
+
+		qcom,nidnt;
+		qcom,nidnthw;
+		nidnt-gpio = <38>;
+		nidnt-gpio-polarity = <1>;
+
+		vdd-supply = <&pm8941_l21>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+	};
+
+2. Links
+	funnel_merg: funnel@fc31b000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc31b000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <4>;
+		coresight-name = "coresight-funnel-merg";
+		coresight-nr-inports = <2>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tmc_etf>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_in0: funnel@fc319000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc319000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <5>;
+		coresight-name = "coresight-funnel-in0";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_merg>;
+		coresight-child-ports = <0>;
+	};
+
+	tpda_lmh: tpda@fbb91000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0xfbb91000x1000>;
+		reg-names = "tpda-base";
+
+		coresight-id = <7>;
+		coresight-name = "coresight-tpda-lmh";
+		coresight-nr-inports = <32>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <4>;
+		qcom,cmb-elem-size = <0 64>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+3. Sources
+	tpdm_lmh: tpdm@fbb90000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0xfbb90000x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-id = <8>;
+		coresight-name = "coresight-tpdm-lmh";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tpda_lmh>;
+		coresight-child-ports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	dbgui: dbgui@86d000 {
+		compatible = "qcom,coresight-dbgui";
+		reg = <0x86d000 0x1000>;
+		reg-names = "dbgui-base";
+
+		coresight-id = <11>;
+		coresight-name = "coresight-dbgui";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in3>;
+		coresight-child-ports = <2>;
+
+		qcom,dbgui-addr-offset = <0x30>;
+		qcom,dbgui-data-offset = <0xB0>;
+		qcom,dbgui-size = <32>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	stm: stm@fc321000 {
+		compatible = "arm,coresight-stm";
+		reg = <0xfc321000 0x1000>,
+		      <0xfa280000 0x180000>;
+		reg-names = "stm-base", "stm-data-base";
+
+		coresight-id = <9>;
+		coresight-name = "coresight-stm";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <7>;
+	};
+
+	etm0: etm@fc33c000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc33c000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <10>;
+		coresight-name = "coresight-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
+		qcom,cpuss-debug-cgc = <&CGC_0>;
+
+		qcom,pc-save;
+		qcom,round-robin;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		CGC_0: cluster-cgc {
+			reg = <0xb011088 0x4>;
+			cluster = <1>;
+		};
+	};
+
+4. Miscellaneous
+	cti0: cti@fc308000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc308000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <15>;
+		coresight-name = "coresight-cti0";
+		coresight-nr-inports = <0>;
+
+		qcom,cti-gpio-trigout = <1>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
+	};
+
+	cti1: cti@fc309000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc309000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <16>;
+		coresight-name = "coresight-cti1";
+		coresight-nr-inports = <0>;
+	};
+
+	hwevent: hwevent@fdf30018 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0xfdf30018 0x80>,
+		      <0xf9011080 0x80>,
+		      <0xfd4ab160 0x80>,
+		      <0xfc401600 0x80>;
+		reg-names = "mmss-mux", "apcs-mux", "ppss-mux", "gcc-mux";
+
+		coresight-id = <29>;
+		coresight-name = "coresight-hwevent";
+		coresight-nr-inports = <0>;
+
+		qcom,hwevent-clks = "core_mmss_clk";
+		qcom,hwevent-regs = "gdsc_ufs";
+	};
+
+	fuse: fuse@fc4be024 {
+		compatible = "arm,coresight-fuse";
+		reg = <0xfc4be024 0x8>
+			   <0x58040 0x4>;
+		reg-names = "fuse-base", "nidnt-fuse-base";
+
+		coresight-id = <30>;
+		coresight-name = "coresight-fuse";
+		coresight-nr-inports = <0>;
+	};

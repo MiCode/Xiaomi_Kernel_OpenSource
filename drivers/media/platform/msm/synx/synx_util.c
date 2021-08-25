@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -70,8 +71,8 @@ int synx_init_object(struct synx_table_row *table,
 	list_add(&obj_node->list, &row->synx_obj_list);
 	if (name)
 		strlcpy(row->name, name, sizeof(row->name));
-	mutex_unlock(&synx_dev->row_locks[idx]);
 
+	mutex_unlock(&synx_dev->row_locks[idx]);
 	pr_debug("synx obj init: id:0x%x state:%u fence: 0x%pK\n",
 		synx_status(row), fence);
 

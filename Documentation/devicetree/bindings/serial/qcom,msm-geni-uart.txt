@@ -1,0 +1,43 @@
+* MSM Serial UART for GENI based cores.
+
+The MSM serial UART driver supports low speed and high speed use-cases.
+This is meant only for QUPv3 GENI based cores and isn't backwards compatible.
+There is support for console usecases and for higher speed usecases that need
+DMA.
+
+Required properties:
+- compatible: should contain "qcom,msm-geni-uart, qcom,msm-geni-console"
+  for UART console usecases, "qcom,msm-geni-uart, qcom,msm-geni-serial-hs"
+  for High Speed (HS) usecases.
+- reg: Should contain UART register location and length.
+- interrupts: Should contain UART core interrupts.
+- clocks: clocks needed for UART, includes the core and AHB clock.
+- pinctrl-names/pinctrl-0/1/2: The GPIOs assigned to this core. The names
+  Should be "default", "active" and "sleep" for the pin confuguration.
+  It should be in "default" for the default pin configuration during probe,
+  in "active" when core is active or in "sleep" when entering in sleep state.
+- qcom,wrapper-core: Wrapper QUPv3 core containing this UART controller.
+
+Optional properties:
+- qcom,wakeup-byte: Byte to be injected in the tty layer during wakeup isr.
+- qcom,change-sampling-rate: This is a boolean parameter and use this to decide
+  the samping rate at which sequencer engine runs.
+
+Example:
+qupv3_uart11: qcom,qup_uart@0xa88000 {
+	compatible = "qcom,msm-geni-uart";
+	reg = <0xa88000 0x7000>;
+	reg-names = "se_phys";
+	clock-names = "se-clk", "m-ahb", "s-ahb";
+	clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+		<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+		<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+	pinctrl-names = "default", "active", "sleep";
+	pinctrl-0 = <&qup_1_uart_3_default>;
+	pinctrl-1 = <&qup_1_uart_3_active>;
+	pinctrl-2 = <&qup_1_uart_3_sleep>;
+	interrupts = <0 355 0>;
+	qcom,wrapper-core = <&qupv3_0>;
+	qcom,change-sampling-rate;
+	qcom,wakeup-byte = <0xFF>;
+};

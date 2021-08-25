@@ -1,0 +1,47 @@
+Qualcomm Technologies, Inc. CPUfreq device
+
+msm-cpufreq is a device that represents the list of usable CPU frequencies
+and provides a device handle for the CPUfreq driver to get the CPU and cache
+clocks.
+
+Required properties:
+- compatible:		Must be "qcom,msm-cpufreq"
+- qcom,cpufreq-table, or qcom,cpufreq-table-<X>:
+			A list of usable CPU frequencies (KHz).
+			Use "qcom,cpufreq-table" if all CPUs in the system
+			should share same list of frequencies.
+			Use "qcom,cpufreq-table-<cpuid>" to describe
+			different CPU freq tables for different CPUs.
+			The table should be listed only for the first CPU
+			if multiple CPUs are synchronous.
+
+Optional properties:
+- clock-names:		When DT based binding of clock is available, this
+			provides a list of CPU subsystem clocks.
+			"cpuX_clk" for every CPU that's present.
+			"l2_clk" when an async cache/CCI is present.
+
+Optional properties:
+- qcom,governor-per-policy:	This property denotes that governor tunables
+				should be associated with each cpufreq policy
+				group instead of being global.
+
+Example:
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpufreq-table =
+			<  300000 >,
+			<  422400 >,
+			<  652800 >,
+			<  729600 >,
+			<  883200 >,
+			<  960000 >,
+			< 1036800 >,
+			< 1190400 >,
+			< 1267200 >,
+			< 1497600 >,
+			< 1574400 >,
+			< 1728000 >,
+			< 1958400 >,
+			< 2265600 >;
+	};

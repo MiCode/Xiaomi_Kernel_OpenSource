@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>        /* Just for modules */
@@ -3080,7 +3081,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		tsif_debugfs_init(&device->tsif[i], i);
 
-	wakeup_source_init(&device->ws, dev_name(&pdev->dev));
+	//wakeup_source_init(&device->ws, dev_name(&pdev->dev));
 
 	/* set up pointers to ram-based 'registers' */
 	device->filters[0] = device->base + TSPP_PID_FILTER_TABLE0;
@@ -3192,7 +3193,7 @@ static int msm_tspp_remove(struct platform_device *pdev)
 	if (device->tsif_bus_client)
 		msm_bus_scale_unregister_client(device->tsif_bus_client);
 
-	wakeup_source_trash(&device->ws);
+	//wakeup_source_trash(&device->ws);
 	if (device->req_irqs)
 		msm_tspp_free_irqs(device);
 

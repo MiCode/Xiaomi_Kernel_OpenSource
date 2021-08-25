@@ -54,6 +54,12 @@ config ANDROID_BINDER_IPC_SELFTEST
 	  exhaustively with combinations of various buffer sizes and
 	  alignments.
 
+config BINDER_OPT
+	bool "critical task opt of binder"
+	default y
+	---help---
+	  Mark important binder calls from ui thread.
+
 endif # if ANDROID
 
 endmenu

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CRYPTO_QTI_COMMON_H
@@ -53,7 +54,7 @@ static inline int crypto_qti_enable(void *priv_data)
 }
 static inline void crypto_qti_disable(void *priv_data)
 {
-	return 0;
+	return;
 }
 static inline int crypto_qti_resume(void *priv_data)
 {

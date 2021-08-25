@@ -943,6 +943,9 @@ gen_headers_out_arm64 = [
     "linux/netfilter/ipset/ip_set_bitmap.h",
     "linux/netfilter/ipset/ip_set_hash.h",
     "linux/netfilter/ipset/ip_set_list.h",
+    "linux/drv8846.h",
+    "linux/millet.h",
+    "linux/akm09970.h",
 
     // From arch/arm64/include/uapi/**/*.h
 
@@ -975,15 +978,12 @@ gen_headers_out_arm64 = [
     "media/cam_icp.h",
     "media/cam_isp.h",
     "media/cam_isp_ife.h",
-    "media/cam_isp_tfe.h",
     "media/cam_isp_vfe.h",
     "media/cam_jpeg.h",
     "media/cam_lrme.h",
-    "media/cam_ope.h",
     "media/cam_req_mgr.h",
     "media/cam_sensor.h",
     "media/cam_sync.h",
-    "media/cam_tfe.h",
 ]
 
 genrule {

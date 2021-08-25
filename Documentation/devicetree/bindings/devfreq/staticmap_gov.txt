@@ -1,0 +1,30 @@
+MSM Static Map governor
+
+static map governor is a device that registers with a clock notifier
+of the master port and votes for the slave port using the core-dev freq
+mapping table. The idea behind the governor is to match the voltage corners
+of the master and slave ports when voting for the bandwidth.
+
+Required properties:
+- compatible:		Must be "qcom,static-map"
+- clocks:		The phandles for clock specified in "clock-names" property
+- clock-names:		Names of the clocks for registering a notifier
+- qcom,dev-clk:		Names of the clocks for registering a notifier
+- qcom,target-dev:	The DT device that corresponds to this master port
+- qcom,core-dev-table:		A mapping table of core frequency to a required
+				bandwidth vote at the given core frequency.
+Example:
+	npu_staticmap_mon: qcom,npu-staticmap-mon {
+		compatible = "qcom,static-map";
+		qcom,target-dev = <&npu_ddr_static>;
+		clocks = <&clock_npucc NPU_CC_CAL_HM0_CLK>;
+		clock-names = "cal_hm0_clk";
+		qcom,dev_clk = "cal_hm0_clk";
+		qcom,core-dev-table =
+				<       0 MHZ_TO_MBPS(    0, 4) >,
+				<  200000 MHZ_TO_MBPS(  451, 4) >,
+				<  466000 MHZ_TO_MBPS(  768, 4) >,
+				<  533000 MHZ_TO_MBPS( 1017, 4) >,
+				<  850000 MHZ_TO_MBPS( 1555, 4) >,
+				< 1000000 MHZ_TO_MBPS( 2736, 4) >;
+	};

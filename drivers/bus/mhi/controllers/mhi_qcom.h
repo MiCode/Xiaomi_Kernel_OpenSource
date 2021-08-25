@@ -121,6 +121,10 @@ static inline int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
 	return 0;
 }
 
+static inline void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+{
+}
+
 #endif
 
 #endif /* _MHI_QCOM_ */

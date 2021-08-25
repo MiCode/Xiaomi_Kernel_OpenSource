@@ -1,0 +1,183 @@
+Qualcomm Technologies, Inc. Standard Secure Digital Host Controller (SDHC)
+
+Secure Digital Host Controller provides standard host interface to SD/MMC/SDIO cards.
+
+Required properties:
+  - compatible : should be "qcom,sdhci-msm"
+		For SDCC version 5.0.0, MCI registers are removed from SDCC interface
+		and some registers are moved to HC. New compatible string is added to
+		support this change - "qcom,sdhci-msm-v5".
+		To support SDCC version 4.0.0, compatible string is "qcom,sdhci-msm-v4"
+  - reg : should contain SDHC, SD Core register map.
+  - compatible: "qcom,sdhci-msm-cqe" - Optional in case the controller support CQE.
+  - reg-names : indicates various resources passed to driver (via reg proptery) by name.
+		Required "reg-names" are "hc_mem" and "core_mem"
+		optional ones are "tlmm_mem"
+  - interrupts : should contain SDHC interrupts.
+  - interrupt-names : indicates interrupts passed to driver (via interrupts property) by name.
+		      Required "interrupt-names" are "hc_irq" and "pwr_irq".
+  - <supply-name>-supply: phandle to the regulator device tree node
+			  Required "supply-name" are "vdd" and "vdd-io".
+
+Required alias:
+- The slot number is specified via an alias with the following format
+	'sdhc{n}' where n is the slot number.
+
+Optional Properties:
+	- interrupt-names - "status_irq". This status_irq will be used for card
+			     detection.
+	- qcom,bus-width - defines the bus I/O width that controller supports.
+			   Units - number of bits. The valid bus-width values are
+			   1, 4 and 8.
+	- qcom,nonremovable - specifies whether the card in slot is
+			      hot pluggable or hard wired.
+	- qcom,nonhotplug - specifies the card in slot is not hot pluggable.
+			    if card lost or removed manually at runtime, don't retry
+			    to redetect it until next reboot probe.
+	- qcom,bus-speed-mode - specifies supported bus speed modes by host.
+				The supported bus speed modes are :
+				"HS200_1p8v" - indicates that host can support HS200 at 1.8v.
+				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
+				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
+				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
+	  - qcom,bus-aggr-clk-rates: this is an array that specifies the frequency for
+				the bus-aggr-clk which should be set corresponding to the
+				frequency used from clk-rate. The Frequency of this clock
+				should be decided based on the power mode in which the
+				apps clk would run with frequency in clk-rates.
+	- qcom,devfreq,freq-table - specifies supported frequencies for clock scaling.
+				    Clock scaling logic shall toggle between these frequencies based
+				    on card load. In case the defined frequencies are over or below
+				    the supported card frequencies, they will be overridden
+				    during card init. In case this entry is not supplied,
+				    the driver will construct one based on the card
+				    supported max and min frequencies.
+				    The frequencies must be ordered from lowest to highest.
+	- qcom,pm-qos-irq-type - the PM QoS request type to be used for IRQ voting.
+	  Can be either "affine_cores" or "affine_irq". If not specified, will default
+	  to "affine_cores". Use "affine_irq" setting in case an IRQ balancer is active,
+	  and IRQ affinity changes during runtime.
+	- qcom,pm-qos-irq-cpu - specifies the CPU for which IRQ voting shall be done.
+	  If "affine_cores" was specified for property 'qcom,pm-qos-irq-type'
+	  then this property must be defined, and is not relevant otherwise.
+	- qcom,pm-qos-irq-latency - a tuple defining two latency values with which
+	  PM QoS IRQ voting shall be done. The first value is the latecy to be used
+	  when load is high (performance mode) and the second is for low loads
+	  (power saving mode).
+	- qcom,pm-qos-cpu-groups - defines cpu groups mapping.
+	  Each cell represnets a group, which is a cpu bitmask defining which cpus belong
+	  to that group.
+	- qcom,pm-qos-<mode>-latency-us - where <mode> is either "cmdq" or "legacy".
+	  An array of latency value tuples, each tuple corresponding to a cpu group in the order
+	  defined in property 'qcom,pm-qos-cpu-groups'. The first value is the latecy to be used
+	  when load is high (performance mode) and the second is for low loads
+	  (power saving mode). These values will be used for cpu group voting for
+	  command-queueing mode or legacy respectively.
+	- qcom,core_3_0v_support: an optional property that is used to fake
+	  3.0V support for SDIO devices.
+	- qcom,scaling-lower-bus-speed-mode:	specifies the lower bus speed mode to be used
+						during clock scaling. If this property is not
+						defined, then it falls back to the default HS
+						bus speed mode to maintain backward compatibility.
+	- qcom,sdr104-wa: On Certain chipsets, SDR104 mode might be unstable causing CRC errors
+			  on the interface. So there is a workaround implemented to skip printing
+			  register dumps on CRC errors and also downgrade bus speed mode to
+			  SDR50/DDR50 in case of continuous CRC errors. Set this flag to enable
+			  this workaround.
+	- qcom,restore-after-cx-collapse - specifies whether the SDCC registers contents need
+	  to be saved and restored by software when the CX Power Collapse feature is enabled.
+	  On certain chipsets, coming out of the CX Power Collapse event, the SDCC registers
+	  contents will not be retained. It is software responsibility to restore the
+	  SDCC registers before resuming to normal operation.
+	- qcom,force-sdhc1-probe: Force probing sdhc1 even if it is not the boot device.
+	- qcom,dll-hsr-list: List of DLL-HSR values which are tuned for given process-node
+			 and platform. The sequence of values in this list must follow the
+			 sequence listed in sdhci_msm_dll_hsr data structure.
+In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
+	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
+	- qcom,<supply>-lpm_sup - specifies whether supply can be kept in low power mode (lpm).
+	- qcom,<supply>-voltage_level - specifies voltage levels for supply. Should be
+					specified in pairs (min, max), units uV.
+	- qcom,<supply>-current_level - specifies load levels for supply in lpm or
+					high power mode (hpm). Should be specified in
+					pairs (lpm, hpm), units uA.
+
+	- gpios - specifies gpios assigned for sdhc slot.
+	- qcom,gpio-names -  a list of strings that map in order to the list of gpios
+
+	Tlmm pins are specified as <clk cmd data> and starting with eMMC5.0 as
+	<clk cmd data rclk>
+
+	- Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+	  for following optional properties:
+		- pinctrl-names
+		- pinctrl-0, pinctrl-1,.. pinctrl-n
+
+	- qcom,large-address-bus - specifies whether the soc is capable of
+				 supporting larger than 32 bit address bus width.
+
+	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
+	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
+
+	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
+	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
+
+Example:
+
+	aliases {
+		sdhc1 = &sdhc_1;
+	};
+
+	sdhc_1: qcom,sdhc@f9824900 {
+		compatible = "qcom,sdhci-msm";
+                reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
+                reg-names = "hc_mem", "core_mem";
+                interrupts = <0 123 0>, <0 138 0>;
+                interrupt-names = "hc_irq", "pwr_irq";
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_l13>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-lpm-sup;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <6 22000>;
+
+		qcom,devfreq,freq-table = <52000000 200000000>;
+
+		qcom,devfreq,freq-table = <52000000 200000000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_on &sdc1_data_on>;
+
+
+                qcom,bus-width = <4>;
+		qcom,nonremovable;
+		qcom,large-address-bus;
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
+		gpios = <&msmgpio 40 0>, /* CLK */
+			<&msmgpio 39 0>, /* CMD */
+			<&msmgpio 38 0>, /* DATA0 */
+			<&msmgpio 37 0>, /* DATA1 */
+			<&msmgpio 36 0>, /* DATA2 */
+			<&msmgpio 35 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,pm-qos-irq-type = "affine_cores";
+		qcom,pm-qos-irq-cpu = <0>;
+		qcom,pm-qos-irq-latency = <500 100>;
+		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
+		qcom,pm-qos-cmdq-latency-us = <50 100>, <50 100>;
+		qcom,pm-qos-legacy-latency-us = <50 100>, <50 100>;
+	};
+
+	sdhc_2: qcom,sdhc@f98a4900 {
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <120 200>;
+	};

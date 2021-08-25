@@ -1,0 +1,34 @@
+* ARM Cortex A53 / A57 cache error reporting driver
+
+Required properties:
+- compatible: Should be "arm,arm64-cpu-erp"
+- interrupts: List of hardware interrupts that may indicate an error condition
+  in the CPU subsystem, or in the L1 / L2 caches. At least one interrupt entry
+  is required.
+- interrupt-names: Must contain one or more of the following IRQ types:
+	"pri-dbe-irq" - double-bit error interrupt for primary cluster
+	"sec-dbe-irq" - double-bit error interrupt for secondary cluster
+	"pri-ext-irq" - external bus error interrupt for primary cluster
+	"sec-ext-irq" - external bus error interrupt for secondary cluster
+	"cci-irq"     - CCI error interrupt. If this property is present, having
+			the 'cci' reg-base defined using the 'reg' property is
+			recommended.
+	At least one irq entry is required.
+
+Optional properties:
+- reg: Should contain physical address of the CCI register space
+- reg-names: Should contain 'cci'. Must be present if 'reg' property is present
+- poll-delay-msec: Indicates how often the edac check callback should be called. Time in msec.
+
+Example:
+	cpu_cache_erp {
+		compatible = "arm,arm64-cpu-erp";
+		interrupt-names = "pri-dbe-irq",
+				  "sec-dbe-irq",
+				  "pri-ext-irq",
+				  "sec-ext-irq";
+		interrupts = <0 92 0>,
+			     <0 91 0>,
+			     <0 96 0>,
+			     <0 95 0>;
+	};

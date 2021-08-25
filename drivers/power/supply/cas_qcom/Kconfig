@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "Qualcomm Technologies, Inc. Charger and Fuel Gauge support"
+
+config QPNP_SMB5_CAS
+	tristate "SMB5 Battery Charger"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y to enables support for the SMB5 charging peripheral.
+	  The QPNP SMB5 charger driver supports the charger peripheral
+	  present in the chip.
+	  The power supply framework is used to communicate battery and
+	  usb properties to userspace and other driver consumers such
+	  as fuel gauge, USB, and USB-PD.
+	  VBUS and VCONN regulators are registered for supporting OTG,
+	  and powered Type-C cables respectively.
+
+config SMB1398_CHARGER
+        tristate "SMB1398 power supply framework based driver"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y to include the support of SMB1398 Charge driver based on power
+	  supply framework.
+	  SMB1398 is a combo charger chip which can work in different modes:
+	  (1) DIV2 charge pump mode to work as a companion charger to be paired
+	  with Qualcomm Technologies, Inc.â<80><99>s family of standalone chargers;
+	  (2) DIV2 and 3-level buck combo mode to regulate the output power from
+	  wireless charger receiver and provide the input for downstream
+	  chargers.
+
+config CHARGER_BQ25790
+	tristate "TI BQ25790 battery charger driver"
+	depends on I2C
+	help
+	  Say Y to enable support for TI bq2588x charger driver
+
+config FUEL_GAUGE_BQ28Z610
+	tristate "TI bq28z610 battery gauge driver"
+	help
+	  Say Y to enable support for TI bq27z561 fuel gauge driver
+
+config WATCHDOG_MAX28200
+	tristate "maxim watch dog max28200 driver"
+	help
+	  Say Y to enable support for maxim max28200 driver
+
+config CP_MAX77932
+	tristate "maxim charger pump max77932 driver"
+	help
+	  Say Y to enable support for charger pump driver
+
+config IDT_P9415_CAS
+	tristate "idtp9415 wireless Charger"
+	depends on I2C
+	help
+	  Say Y to include support for idtp9415 wireless Charger.
+	  idtp9415 is a wireless battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls idtp9415 via I2C and
+	  supports device-tree interface.
+
+config RX1619_TRIM_CAS
+	tristate "RX1619 TRIM"
+	depends on I2C
+	help
+	  Say Y to include support for rx1619 wireless Charger.
+	  RX1619 is a wireless battery charger chip.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls rx1619 via I2C and
+	  supports device-tree interface.
+
+config RX1619_CAS
+	tristate "RX1619 wireless Charger"
+	depends on I2C
+	help
+	  Say Y to include support for rx1619 wireless Charger.
+	  RX1619 is a wireless battery charger chip.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls rx1619 via I2C and
+	  supports device-tree interface.
+endmenu

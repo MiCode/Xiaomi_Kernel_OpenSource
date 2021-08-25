@@ -1,0 +1,36 @@
+Qualcomm Technologies, Inc. NPU Clock & Reset Controller Bindings
+-----------------------------------------------------------------
+
+Required properties:
+- compatible:		Should be "qcom,npucc-kona",
+				  "qcom,npucc-kona-v2",
+				  "qcom,lito-npucc",
+				  "qcom,lito-npucc-v2",
+				  "qcom,lagoon-npucc".
+- reg:			Shall contain base register addresses and sizes.
+- reg-names:		Names of the register bases listed in the same order as
+			in the reg property.  Shall include: "cc", "qdsp6ss",
+			and "qdsp6ss_pll".
+- vdd_cx-supply:	Phandle of the VDD_CX regulator supply rail that needs
+			to be voted on behalf of the NPU CC clocks.
+- #clock-cells:		Shall contain 1.
+- #reset-cells:		Shall contain 1.
+
+Optional properties:
+- nvmem-cells: list of phandle to the nvmem data cells.
+- nvmem-cell-names: names for the each nvmem-cells specified.
+
+Example:
+
+clock_npucc: qcom,npucc@9980000 {
+	compatible = "qcom,npucc-kona";
+	reg = <0x9980000 0x10000>,
+		<0x9800000 0x10000>,
+		<0x9810000 0x10000>;
+	reg-names = "cc", "qdsp6ss", "qdsp6ss_pll";
+	vdd_cx-supply = <&VDD_CX_LEVEL>;
+	nvmem-cells = <&npu_efuse>;
+	nvmem-cell-names = "npu-bin";
+	#clock-cells = <1>;
+	#reset-cells = <1>;
+};

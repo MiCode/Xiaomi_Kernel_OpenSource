@@ -631,6 +631,7 @@ struct ravg {
 	u32 coloc_demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
+	u64 proc_load;
 	u32 curr_window, prev_window;
 	u32 pred_demand;
 	u8 busy_buckets[NUM_BUSY_BUCKETS];
@@ -1371,6 +1372,12 @@ struct task_struct {
 	 */
 	u64				timer_slack_ns;
 	u64				default_timer_slack_ns;
+	unsigned int			top_app;
+	unsigned int			inherit_top_app;
+#ifdef CONFIG_PERF_HUMANTASK
+	unsigned int                    human_task;
+	unsigned int			cpux;
+#endif
 
 #ifdef CONFIG_KASAN
 	unsigned int			kasan_depth;
@@ -1470,6 +1477,14 @@ struct task_struct {
 #ifdef CONFIG_SECURITY
 	/* Used by LSM modules for access restriction: */
 	void				*security;
+#endif
+#ifdef CONFIG_KPERFEVENTS
+	/* lock to protect kperfevents */
+	rwlock_t kperfevents_lock;
+	/* perfevents of current task, only effective for group leader.
+	 * accessible for all tasks in one group.
+	 */
+	void *kperfevents;
 #endif
 
 	/*
@@ -2214,4 +2229,14 @@ static inline void set_wake_up_idle(bool enabled)
 		current->flags &= ~PF_WAKE_UP_IDLE;
 }
 
+extern inline bool is_critical_task(struct task_struct *p);
+
+extern inline bool is_top_app(struct task_struct *p);
+
+extern inline bool is_inherit_top_app(struct task_struct *p);
+
+#define INHERIT_DEPTH 2
+extern inline void set_inherit_top_app(struct task_struct *p,
+					struct task_struct *from);
+extern inline void restore_inherit_top_app(struct task_struct *p);
 #endif

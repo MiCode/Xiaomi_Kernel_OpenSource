@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "sched.h"
@@ -16,10 +17,11 @@
  * boost is responsible for disabling it as well.
  */
 
+unsigned int mi_sched_boost;
 unsigned int sysctl_sched_boost; /* To/from userspace */
+unsigned int sysctl_sched_boost_top_app;
 unsigned int sched_boost_type; /* currently activated sched boost */
 enum sched_boost_policy boost_policy;
-
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
 
@@ -56,11 +58,16 @@ static void set_boost_policy(int type)
 
 static bool verify_boost_params(int type)
 {
-	return type >= RESTRAINED_BOOST_DISABLE && type <= RESTRAINED_BOOST;
+	return type >= RESTRAINED_BOOST_DISABLE && type <= MI_BOOST;
 }
 
 static void sched_no_boost_nop(void)
 {
+}
+
+static bool verify_boost_top_app_params(int type)
+{
+	return type >= 0;
 }
 
 static void sched_full_throttle_boost_enter(void)
@@ -207,6 +214,13 @@ static void sched_boost_disable_all(void)
 
 static void _sched_set_boost(int type)
 {
+
+	if (MI_BOOST == type) {
+		type = FULL_THROTTLE_BOOST;
+		mi_sched_boost = MI_BOOST;
+	}else if(FULL_THROTTLE_BOOST + type == NO_BOOST){
+		mi_sched_boost = NO_BOOST;
+	}
 	if (type == 0)
 		sched_boost_disable_all();
 	else if (type > 0)
@@ -225,6 +239,10 @@ static void _sched_set_boost(int type)
 	sysctl_sched_boost = sched_boost_type;
 	set_boost_policy(sysctl_sched_boost);
 	trace_sched_set_boost(sysctl_sched_boost);
+}
+
+static void sched_set_boost_top_app(int type) {
+	sysctl_sched_boost_top_app = type;
 }
 
 void sched_boost_parse_dt(void)
@@ -279,4 +297,34 @@ int sched_boost_handler(struct ctl_table *table, int write,
 done:
 	mutex_unlock(&boost_mutex);
 	return ret;
+}
+
+int sched_boost_top_app_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp,
+		loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+
+	mutex_lock(&boost_mutex);
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (ret || !write)
+		goto done;
+
+	if (verify_boost_top_app_params(*data))
+		sched_set_boost_top_app(*data);
+	else
+		ret = -EINVAL;
+
+done:
+	mutex_unlock(&boost_mutex);
+	return ret;
+}
+
+bool sched_boost_top_app(void)
+{
+	bool res = sysctl_sched_boost_top_app > 0 &&  mi_sched_boost == MI_BOOST;
+	return  res;
 }
