@@ -48,6 +48,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 int adsp_get_feature_index(const char *str)
 {
 	int i = 0;
+	size_t len = strlen(str);
 	struct adsp_feature_tb *unit;
 
 	if (!str)
@@ -55,9 +56,9 @@ int adsp_get_feature_index(const char *str)
 
 	for (i = 0; i < ADSP_NUM_FEATURE_ID; i++) {
 		unit = &feature_table[i];
-		if (!unit->name)
+		if (!unit->name || strlen(unit->name) != len)
 			continue;
-		if (strncmp(unit->name, str, strlen(unit->name)) == 0)
+		if (strncmp(unit->name, str, len) == 0)
 			break;
 	}
 
