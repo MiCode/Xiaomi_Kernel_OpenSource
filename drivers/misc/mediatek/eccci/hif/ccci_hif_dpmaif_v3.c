@@ -32,6 +32,8 @@
 #endif
 #include <linux/clk.h>
 #include <linux/atomic.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
 
 #ifndef CCCI_KMODULE_ENABLE
 #include "ccci_core.h"
@@ -429,6 +431,52 @@ static inline void dpmaif_lro_update_gro_info(
 	skb_shinfo(skb)->gso_segs = gro_skb_num;
 }
 
+static inline void dpmaif_handle_wakeup(struct dpmaif_rx_queue *rxq,
+		struct sk_buff *skb)
+{
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct tcphdr *tcph = NULL;
+	struct udphdr *udph = NULL;
+	int ip_offset = 0;
+	u32 version  = 0;
+	u32 protocol = 0;
+	u32 src_port = 0;
+	u32 dst_port = 0;
+	u32 skb_len  = 0;
+
+	if (!skb)
+		goto err;
+
+	skb_len = skb->len;
+	version = iph->version;
+	if (version == 4) {
+		protocol = iph->protocol;
+		ip_offset = (iph->ihl << 2);
+	} else if (version == 6) {
+		protocol = ip6h->nexthdr;
+		ip_offset = 40;
+	} else
+		goto err;
+	if (protocol == IPPROTO_TCP) {
+		tcph = (struct tcphdr *)((void *)iph + ip_offset);
+		src_port = ntohs(tcph->source);
+		dst_port = ntohs(tcph->dest);
+	} else if (protocol == IPPROTO_UDP) {
+		udph = (struct udphdr *)((void *)iph + ip_offset);
+		src_port = ntohs(udph->source);
+		dst_port = ntohs(udph->dest);
+	} else
+		goto err;
+
+err:
+	CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+		"[%s] ver: %u; pro: %u; spt: %u; dpt: %u; len: %u\n",
+		__func__, version, protocol,
+		src_port, dst_port, skb_len);
+
+}
+
 static inline int dpmaif_rxq_lro_end(struct dpmaif_rx_queue *rxq)
 {
 	struct lhif_header *lhif_h = NULL;
@@ -516,6 +564,13 @@ gro_too_much_skb:
 		dpmaif_lro_update_gro_info(skb0, total_len, lro_num);
 
 lro_end:
+	if (atomic_cmpxchg(&dpmaif_ctrl->wakeup_src, 1, 0) == 1) {
+		CCCI_NOTICE_LOG(dpmaif_ctrl->md_id, TAG,
+			"DPMA_MD wakeup source:(%d/%d)\n",
+			rxq->index, rxq->cur_chn_idx);
+		dpmaif_handle_wakeup(rxq, skb0);
+	}
+
 	lhif_h = (struct lhif_header *)(skb_push(skb0,
 			sizeof(struct lhif_header)));
 	lhif_h->netif = rxq->cur_chn_idx;
@@ -1128,12 +1183,6 @@ static inline void dpmaif_rx_msg_pit(struct dpmaif_rx_queue *rxq,
 		"rxq%d received a message pkt: channel=%d, checksum=%d\n",
 		rxq->index, rxq->cur_chn_idx, rxq->check_sum);
 #endif
-	/* check wakeup source */
-	if (atomic_cmpxchg(&dpmaif_ctrl->wakeup_src, 1, 0) == 1)
-		CCCI_NOTICE_LOG(dpmaif_ctrl->md_id, TAG,
-			"DPMA_MD wakeup source:(%d/%d/%x)\n",
-			rxq->index, msg_pit->channel_id,
-			msg_pit->network_type);
 }
 
 #ifdef HW_FRG_FEATURE_ENABLE
@@ -1308,6 +1357,13 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	if (rxq->pit_dp) {
 		dev_kfree_skb_any(new_skb);
 		goto END;
+	}
+
+	if (atomic_cmpxchg(&dpmaif_ctrl->wakeup_src, 1, 0) == 1) {
+		CCCI_NOTICE_LOG(dpmaif_ctrl->md_id, TAG,
+			"DPMA_MD wakeup source:(%d/%d)\n",
+			rxq->index, rxq->cur_chn_idx);
+		dpmaif_handle_wakeup(rxq, new_skb);
 	}
 
 	/* md put the ccmni_index to the msg pkt,
