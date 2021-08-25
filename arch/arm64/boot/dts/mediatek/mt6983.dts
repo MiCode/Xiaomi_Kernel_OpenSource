@@ -9070,7 +9070,7 @@
 				  <7 10>,  /* vow dump */
 				  <13 200>; /* ultrasound */
 
-		secure_dump = "disable";   /* enable dump via secure world*/
+		secure_dump = "enable";   /* enable dump via secure world*/
 		secure_dump_size = <0x380000>;
 
 		scp_mem_key = "mediatek,reserve-memory-scp_share";
