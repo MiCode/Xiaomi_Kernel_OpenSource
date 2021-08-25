@@ -57,7 +57,7 @@ static int *fbt_cur_ceiling;
 static int *fbt_final_ceiling;
 static int *fbt_cur_floor;
 
-static struct mutex cpu_ctrl_lock;
+static DEFINE_MUTEX(cpu_ctrl_lock);
 
 static int cfp_onoff;
 static int cfp_polling_ms;
@@ -529,8 +529,6 @@ int fbt_cpu_ctrl_init(void)
 
 	if (fbt_cpu_topo_info() < 0)
 		return -EFAULT;
-
-	mutex_init(&cpu_ctrl_lock);
 
 	g_psCpuLoadingWorkQueue =
 		create_singlethread_workqueue("fpt_cpu_load_wq");
