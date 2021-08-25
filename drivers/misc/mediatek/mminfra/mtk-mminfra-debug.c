@@ -4,6 +4,7 @@
  * Author: Anthony Huang <anthony.huang@mediatek.com>
  */
 
+#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -13,9 +14,12 @@
 #include <linux/slab.h>
 #include "tinysys-scmi.h"
 
+#define MMINFRA_MAX_CLK_NUM	(4)
+
 static struct notifier_block mtk_pd_notifier;
 static struct scmi_tinysys_info_st *tinfo;
 static int feature_id;
+static struct clk *mminfra_clk[MMINFRA_MAX_CLK_NUM];
 
 
 static bool mminfra_check_scmi_status(void)
@@ -54,13 +58,45 @@ static void do_mminfra_bkrs(bool is_restore)
 	}
 }
 
+static void mminfra_clk_set(bool is_enable)
+{
+	int err = 0;
+	int i, j;
+
+	if (is_enable) {
+		for (i = 0; i < MMINFRA_MAX_CLK_NUM; i++) {
+			if (mminfra_clk[i])
+				err = clk_prepare_enable(mminfra_clk[i]);
+			else
+				break;
+
+			if (err) {
+				pr_notice("mminfra clk(%d) enable fail:%d\n", i, err);
+				for (j = i - 1; j >= 0; j--)
+					clk_disable_unprepare(mminfra_clk[j]);
+				return;
+			}
+		}
+	} else {
+		for (i = MMINFRA_MAX_CLK_NUM - 1; i >= 0; i--) {
+			if (mminfra_clk[i])
+				clk_disable_unprepare(mminfra_clk[i]);
+			else
+				break;
+		}
+	}
+}
+
 static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
-	if (flags == GENPD_NOTIFY_ON)
+	if (flags == GENPD_NOTIFY_ON) {
+		mminfra_clk_set(true);
 		do_mminfra_bkrs(true);
-	else if (flags == GENPD_NOTIFY_PRE_OFF)
+	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
 		do_mminfra_bkrs(false);
+		mminfra_clk_set(false);
+	}
 
 	return NOTIFY_OK;
 }
@@ -107,8 +143,11 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
+	struct property *prop;
+	const char *name;
+	struct clk *clk;
 	u32 mminfra_bkrs = 0;
-	int ret = 0;
+	int ret = 0, i = 0;
 
 	of_property_read_u32(node, "mminfra-bkrs", &mminfra_bkrs);
 
@@ -118,6 +157,22 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	if (mminfra_bkrs == 1) {
 		mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
 		ret = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifier);
+
+		of_property_for_each_string(node, "clock-names", prop, name) {
+			clk = devm_clk_get(dev, name);
+			if (IS_ERR(clk)) {
+				dev_notice(dev, "%s: clks of %s init failed\n",
+					__func__, name);
+				ret = PTR_ERR(clk);
+				break;
+			}
+			if (i == MMINFRA_MAX_CLK_NUM) {
+				dev_notice(dev, "%s: clk num is wrong\n", __func__);
+				ret = -EINVAL;
+				break;
+			}
+			mminfra_clk[i++] = clk;
+		}
 	}
 	return ret;
 }
