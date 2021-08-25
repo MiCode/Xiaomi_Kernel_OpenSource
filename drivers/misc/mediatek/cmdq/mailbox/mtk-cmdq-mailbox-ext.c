@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
+#include <linux/suspend.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 
@@ -1621,43 +1622,38 @@ static int cmdq_resume(struct device *dev)
 	return 0;
 }
 
-static inline s32 cmdq_notifier_callback_impl(struct cmdq *cmdq,
-	const unsigned long action)
+static s32 cmdq_notifier_call_impl(struct cmdq *cmdq, unsigned long action)
 {
-	s32 count = atomic_read(&cmdq->notifier_count);
+	cmdq_msg("%s action:%d", __func__, action);
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		atomic_dec(&cmdq->notifier_count);
+		cmdq->notifier_time[0] = sched_clock();
+		clk_disable_unprepare(cmdq->clock_timer);
+		clk_disable_unprepare(cmdq->clock);
+		pm_runtime_put_sync(cmdq->mbox.dev);
+		return NOTIFY_OK;
 
-	cmdq_log("%s: pa:%pa hwid:%hu action:%lu count:%d",
-		__func__, &cmdq->base_pa, cmdq->hwid, action, count);
-
-	if (action == GENPD_NOTIFY_PRE_OFF && !count) {
-		cmdq_msg("%s: pa:%pa hwid:%hu action:%lu count:%d PM OFF",
-			__func__, &cmdq->base_pa, cmdq->hwid, action, count);
-		return NOTIFY_DONE;
-	}
-
-	if (action == GENPD_NOTIFY_ON) {
+	case PM_POST_SUSPEND:
+		pm_runtime_get_sync(cmdq->mbox.dev);
 		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
 		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
 		if (cmdq->prebuilt_enable)
 			cmdq_util_prebuilt_enable(cmdq->hwid);
 		cmdq->notifier_time[1] = sched_clock();
 		atomic_inc(&cmdq->notifier_count);
-	} else if (action == GENPD_NOTIFY_PRE_OFF) {
-		atomic_dec(&cmdq->notifier_count);
-		cmdq->notifier_time[0] = sched_clock();
-		clk_disable_unprepare(cmdq->clock_timer);
-		clk_disable_unprepare(cmdq->clock);
+		return NOTIFY_OK;
 	}
 
-	return NOTIFY_OK;
+	return NOTIFY_DONE;
 }
 
-static int cmdq_notifier_callback(struct notifier_block *nb,
-	unsigned long action, void *data)
+static int cmdq_notifier_call(struct notifier_block *nb, unsigned long action,
+	void *data)
 {
 	struct cmdq *cmdq = container_of(nb, typeof(*cmdq), notifier);
 
-	return cmdq_notifier_callback_impl(cmdq, action);
+	return cmdq_notifier_call_impl(cmdq, action);
 }
 
 static int cmdq_remove(struct platform_device *pdev)
@@ -1840,6 +1836,9 @@ static void cmdq_config_init_buf(struct device *dev, struct cmdq *cmdq)
 
 static int cmdq_probe(struct platform_device *pdev)
 {
+	struct device_node *node;
+	struct platform_device *smi;
+	struct device_link *link;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct cmdq *cmdq;
@@ -1913,12 +1912,23 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq->clock_timer = NULL;
 	}
 
+	node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
+	if (!node)
+		cmdq_msg("failed to get mediatek,smi");
+
+	smi = of_find_device_by_node(node);
+	if (!smi)
+		cmdq_msg("failed to find smi node");
+	else {
+		link = device_link_add(dev, &smi->dev,
+			DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			cmdq_msg("failed to create device link with smi");
+	}
+
 	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
-
-	if (of_property_read_bool(dev->of_node, "notifier-init"))
-		cmdq_notifier_callback_impl(cmdq, GENPD_NOTIFY_ON);
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
@@ -1964,6 +1974,8 @@ static int cmdq_probe(struct platform_device *pdev)
 		"cmdq_timeout_handler");
 
 	pm_runtime_enable(dev);
+	if (of_property_read_bool(dev->of_node, "notifier-init"))
+		cmdq_notifier_call_impl(cmdq, PM_POST_SUSPEND);
 	platform_set_drvdata(pdev, cmdq);
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 	WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
@@ -1978,8 +1990,8 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq_mmp_init();
 
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
-	cmdq->notifier.notifier_call = cmdq_notifier_callback;
-	err = dev_pm_genpd_add_notifier(dev, &cmdq->notifier);
+	cmdq->notifier.notifier_call = cmdq_notifier_call;
+	err = register_pm_notifier(&cmdq->notifier);
 	return 0;
 }
 
