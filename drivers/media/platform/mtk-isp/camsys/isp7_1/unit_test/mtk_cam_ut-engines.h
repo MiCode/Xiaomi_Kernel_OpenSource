@@ -42,6 +42,7 @@ enum RAW_STREAMON_TYPE {
 struct mtk_ut_raw_initial_params {
 	int subsample;
 	int streamon_type;
+	int hardware_scenario;
 };
 
 struct mtk_ut_raw_device {
@@ -62,6 +63,7 @@ struct mtk_ut_raw_device {
 	int is_subsample;
 	int is_initial_cq;
 	int cq_done_mask; /* [0]: main, [1]: sub */
+	int hardware_scenario;
 
 };
 

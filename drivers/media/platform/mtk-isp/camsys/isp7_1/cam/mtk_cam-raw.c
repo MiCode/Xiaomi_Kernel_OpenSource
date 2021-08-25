@@ -1542,8 +1542,8 @@ bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
 		return (raw_dev_slave == raw_dev);
 	}
 	if (raw_dev->pipeline->res_config.raw_num_used == 3) {
-		//dev_slave = raw_dev->cam->raw.devs[RAW_B];
-		//dev_slave2 = raw_dev->cam->raw.devs[RAW_C];
+		dev_slave = raw_dev->cam->raw.devs[RAW_B];
+		dev_slave2 = raw_dev->cam->raw.devs[RAW_C];
 		raw_dev_slave = dev_get_drvdata(dev_slave);
 		raw_dev_slave2 = dev_get_drvdata(dev_slave2);
 		return (raw_dev_slave == raw_dev) || (raw_dev_slave2 == raw_dev);

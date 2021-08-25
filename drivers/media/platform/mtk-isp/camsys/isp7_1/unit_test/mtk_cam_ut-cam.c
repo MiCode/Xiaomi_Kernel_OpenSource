@@ -134,6 +134,7 @@ static int ut_raw_initialize(struct device *dev, void *ext_params)
 	set_steamon_handle(dev, p->streamon_type);
 
 	raw->is_subsample = p->subsample;
+	raw->hardware_scenario = p->hardware_scenario;
 	raw->is_initial_cq = 1;
 	raw->cq_done_mask = 0;
 
@@ -495,7 +496,12 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 			cmd->dump_tg_err = 1;
 	}
 
-	if (raw->id != 0)
+	/* modify for master raw B or C */
+	if (raw->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
+		if (raw->id != 1)
+			event->mask = 0;
+		/* do not mask master rawb */
+	} else if (raw->id != 0)
 		event->mask = 0;
 
 	if (event->mask || cmd->any_debug) {

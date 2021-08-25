@@ -225,6 +225,8 @@ enum mtkcam_ipi_hw_path_control {
 	MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER			= 5,  /* offline stagger */
 	MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER		= 6,  /* SRT direct couple */
 	MTKCAM_IPI_HW_PATH_OFFLINE_M2M				= 7,  /* SW trigger rawi */
+	/* TG direct link, for RAW_BC or single B */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB			= 8,
 };
 
 enum mtkcam_ipi_meta_valid_num_control {

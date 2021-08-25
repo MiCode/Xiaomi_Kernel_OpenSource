@@ -76,12 +76,21 @@ static int apply_next_req(struct mtk_cam_ut *ut)
 	ut->enque_list.cnt--;
 	spin_unlock_irqrestore(&ut->enque_list.lock, flags);
 
-	CALL_RAW_OPS(ut->raw[0], apply_cq,
-		     buf_entry->cq_buf.iova,
-		     buf_entry->cq_buf.size,
-		     buf_entry->cq_offset,
-		     buf_entry->sub_cq_size,
-		     buf_entry->sub_cq_offset);
+	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
+		CALL_RAW_OPS(ut->raw[1], apply_cq,
+			     buf_entry->cq_buf.iova,
+			     buf_entry->cq_buf.size,
+			     buf_entry->cq_offset,
+			     buf_entry->sub_cq_size,
+			     buf_entry->sub_cq_offset);
+	} else {
+		CALL_RAW_OPS(ut->raw[0], apply_cq,
+			     buf_entry->cq_buf.iova,
+			     buf_entry->cq_buf.size,
+			     buf_entry->cq_offset,
+			     buf_entry->sub_cq_size,
+			     buf_entry->sub_cq_offset);
+	}
 
 	spin_lock_irqsave(&ut->processing_list.lock, flags);
 	list_add_tail(&buf_entry->list_entry, &ut->processing_list.list);
@@ -142,9 +151,11 @@ static int apply_req_on_composed_once(struct mtk_cam_ut *ut)
 
 	raw_params.subsample = ut->subsample;
 	raw_params.streamon_type = STREAM_FROM_TG;
+	raw_params.hardware_scenario = ut->hardware_scenario;
 
 	CALL_RAW_OPS(ut->raw[0], initialize, &raw_params);
 	CALL_RAW_OPS(ut->raw[1], initialize, &raw_params);
+	CALL_RAW_OPS(ut->raw[2], initialize, &raw_params);
 
 	ut->hdl.on_ipi_composed = on_ipi_composed;
 	return apply_next_req(ut);
@@ -177,6 +188,7 @@ static int apply_req_on_composed_m2m_once(struct mtk_cam_ut *ut)
 
 	CALL_RAW_OPS(ut->raw[0], initialize, &raw_params);
 	CALL_RAW_OPS(ut->raw[1], initialize, &raw_params);
+	CALL_RAW_OPS(ut->raw[2], initialize, &raw_params);
 
 	ut->hdl.on_ipi_composed = apply_next_req;
 	return apply_next_req(ut);
@@ -186,8 +198,11 @@ static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 {
 	int i;
 
-	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)
-		CALL_RAW_OPS(ut->raw[0], s_stream, 1);
+	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB)
+		CALL_RAW_OPS(ut->raw[1], s_stream, 1)
+	else if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)
+		CALL_RAW_OPS(ut->raw[0], s_stream, 1)
+
 	for (i = ut->is_dcif_camsv - 1; i >= 0; i--)
 		CALL_CAMSV_OPS(ut->camsv[i], s_stream, 1);
 
@@ -498,6 +513,13 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 					   pixel_mode, testmdl.pattern,
 					   seninf_0, camsv_tg_0);
 			}
+		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
+			if (ut->with_testmdl == 1) {
+				CALL_SENINF_OPS(ut->seninf, set_size,
+					   testmdl.width, testmdl.height,
+					   pixel_mode, testmdl.pattern,
+					   seninf_0, raw_tg_1);
+			}
 		} else {
 			if (ut->with_testmdl == 1) {
 				CALL_SENINF_OPS(ut->seninf, set_size,
@@ -608,8 +630,14 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (ut->with_testmdl) {
 			for (i = 0; i < ut->is_dcif_camsv; i++)
 				CALL_CAMSV_OPS(ut->camsv[i], s_stream, 0);
-			if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)
+
+			if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
 				CALL_RAW_OPS(ut->raw[0], s_stream, 0);
+				/* stream off rawb for bc case(or any case)
+				 * w/o send hardware_scenario
+				 */
+				CALL_RAW_OPS(ut->raw[1], s_stream, 0);
+			}
 		}
 
 		smem.va = ut->mem->va;
