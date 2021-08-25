@@ -141,11 +141,11 @@ static bool __check_mtcmos_off(int *pd_id, bool dump_en)
 		if (!pdchk_pd_is_on(*pd_id))
 			continue;
 
-		pr_notice("suspend warning[0m: %s is on\n", pds[*pd_id]->name);
-
 		if (dump_en) {
 			/* dump devicelist belongs to current power domain */
 			if (pdchk_suspend_is_in_usage(pds[*pd_id]) > 0) {
+				pr_notice("suspend warning[0m: %s is on\n", pds[*pd_id]->name);
+
 				pdchk_dump_enabled_power_domain(pds[*pd_id]);
 				valid++;
 			}
