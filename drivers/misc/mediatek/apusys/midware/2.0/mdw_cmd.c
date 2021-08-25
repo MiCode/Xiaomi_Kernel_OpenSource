@@ -439,11 +439,6 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	c->einfos->c.total_us +=
 		((c->end_ts.tv_nsec - c->start_ts.tv_nsec) / 1000);
 
-	mdw_flw_debug("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)(%d)\n",
-		c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
-		c->einfos->c.total_us,
-		c->pid, c->tgid, current->pid);
-
 	/* check subcmds return value */
 	if (c->einfos->c.sc_rets) {
 		mdw_exception("pid(%d/%d) cmd(%p/0x%llx) fail(%d/0x%llx)\n",
@@ -452,8 +447,17 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 
 		if (!ret)
 			ret = -EFAULT;
+	}
+	c->einfos->c.ret = ret;
+
+	if (ret) {
+		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d))\n",
+			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+			c->einfos->c.total_us, c->pid, c->tgid);
 	} else {
-		c->einfos->c.ret = ret;
+		mdw_flw_debug("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
+			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+			c->einfos->c.total_us, c->pid, c->tgid);
 	}
 
 	mdw_cmd_put_cmdbufs(c->mpriv, c);

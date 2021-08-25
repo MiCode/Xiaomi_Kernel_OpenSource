@@ -148,20 +148,30 @@ static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
 	int ret = 0;
 	struct mdw_rv_cmd *rc =
 		container_of(s_msg, struct mdw_rv_cmd, s_msg);
+	struct mdw_cmd *c = rc->c;
 
 	switch (s_msg->msg.ret) {
 	case MDW_IPI_MSG_STATUS_BUSY:
 		ret = -EBUSY;
 		break;
+
 	case MDW_IPI_MSG_STATUS_ERR:
 		ret = -EREMOTEIO;
 		break;
+
+	case MDW_IPI_MSG_STATUS_TIMEOUT:
+		ret = -ETIME;
+		break;
+
 	default:
 		break;
 	}
 
-	mdw_flw_debug("cmd(0x%llx) ret(%d/%d)\n",
-		rc->c->kid, ret, s_msg->msg.ret);
+	if (ret)
+		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
+			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+			c->einfos->c.total_us, c->pid, c->tgid);
+
 	mdw_rv_dev_trace(rc, true);
 	mdw_rv_cmd_done(rc, ret);
 }
