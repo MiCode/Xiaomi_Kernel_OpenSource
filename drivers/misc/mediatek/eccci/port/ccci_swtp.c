@@ -26,7 +26,8 @@ const struct of_device_id swtp_of_match[] = {
 	{ .compatible = SWTP1_COMPATIBLE_DEVICE_ID,},
 	{ .compatible = SWTP2_COMPATIBLE_DEVICE_ID,},
 	{ .compatible = SWTP3_COMPATIBLE_DEVICE_ID,},
-	{ .compatible = SWTP4_COMPATIBLE_DEVICE_ID,}
+	{ .compatible = SWTP4_COMPATIBLE_DEVICE_ID,},
+	{},
 };
 
 static const char irq_name[][16] = {
@@ -34,7 +35,8 @@ static const char irq_name[][16] = {
 	"swtp1-eint",
 	"swtp2-eint",
 	"swtp3-eint",
-	"swtp4-eint"
+	"swtp4-eint",
+	"",
 };
 
 #define SWTP_MAX_SUPPORT_MD 1
@@ -213,8 +215,8 @@ static void swtp_init_delayed_work(struct work_struct *work)
 	}
 
 	if (ARRAY_SIZE(swtp_of_match) != ARRAY_SIZE(irq_name) ||
-		ARRAY_SIZE(swtp_of_match) > MAX_PIN_NUM ||
-		ARRAY_SIZE(irq_name) > MAX_PIN_NUM) {
+		ARRAY_SIZE(swtp_of_match) > MAX_PIN_NUM + 1 ||
+		ARRAY_SIZE(irq_name) > MAX_PIN_NUM + 1) {
 		ret = -3;
 		CCCI_LEGACY_ERR_LOG(-1, SYS,
 			"%s: invalid array count = %d(of_match), %d(irq_name)\n",
