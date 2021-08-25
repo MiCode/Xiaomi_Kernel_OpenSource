@@ -112,8 +112,14 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 	val = (width << 16) | height;
 
 	DDPINFO("%s: 0x%08x\n", __func__, val);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
-			0, 1);
+
+	if (g_dre30_support == 0)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_CFG, 1, 0x1);
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_CFG, 0, 0x1);
+
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_SIZE,
 			val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
