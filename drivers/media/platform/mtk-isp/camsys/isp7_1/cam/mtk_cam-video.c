@@ -853,8 +853,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
-	struct mtk_raw_pde_config *pde_cfg =
-		&cam->raw.pipelines[node->uid.pipe_id].pde_config;
+	struct mtk_raw_pde_config *pde_cfg;
 	struct device *dev = cam->dev;
 	unsigned long flags;
 	unsigned int desc_id;
@@ -1053,6 +1052,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	case MTKCAM_IPI_RAW_META_STATS_0:
 	case MTKCAM_IPI_RAW_META_STATS_1:
 	case MTKCAM_IPI_RAW_META_STATS_2:
+		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
 		desc_id = node->desc.id-MTK_RAW_META_OUT_BEGIN;
 		meta_out = &frame_param->meta_outputs[desc_id];
 		meta_out->buf.ccd_fd = vb->planes[0].m.fd;
