@@ -1377,6 +1377,10 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_ext[] = {
 	DDP_COMPONENT_OVL2_2L,
 	DDP_COMPONENT_RDMA4,
 	DDP_COMPONENT_DP_INTF0,
+// path to DSI1
+//	DDP_COMPONENT_OVL1_2L,		DDP_COMPONENT_OVL1,
+//	DDP_COMPONENT_OVL1_VIRTUAL0,	DDP_COMPONENT_RDMA1,
+//	DDP_COMPONENT_RDMA1_VIRTUAL0, DDP_COMPONENT_DSI1
 };
 
 static const enum mtk_ddp_comp_id mt6885_dual_data_ext[] = {
@@ -1441,7 +1445,8 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main_wb_path[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext[] = {
-	DDP_COMPONENT_OVL2_2L_NWCG, DDP_COMPONENT_RDMA3,
+	DDP_COMPONENT_OVL2_2L_NWCG,
+	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
 //	DDP_COMPONENT_MAIN1_VIRTUAL,
 //	DDP_COMPONENT_DSI1,
 };
