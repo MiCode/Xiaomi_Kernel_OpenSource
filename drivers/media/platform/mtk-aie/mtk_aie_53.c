@@ -922,6 +922,7 @@ static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
 	if (fd->dmabuf->vmap_ptr != NULL) {
 		dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 		dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+		dma_buf_put(fd->dmabuf);
 		fd->map_count--;
 	}
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
