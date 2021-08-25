@@ -2427,11 +2427,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 				msecs_to_jiffies(DWC3_PULL_UP_TIMEOUT));
 		if (ret == 0) {
 			dev_err(dwc->dev, "timed out waiting for SETUP phase\n");
-			spin_lock_irqsave(&dwc->lock, flags);
-			dwc3_ep0_end_control_data(dwc, dwc->eps[0]);
-			dwc3_ep0_end_control_data(dwc, dwc->eps[1]);
-			dwc3_ep0_stall_and_restart(dwc);
-			spin_unlock_irqrestore(&dwc->lock, flags);
+			return -ETIMEDOUT;
 		}
 	}
 
