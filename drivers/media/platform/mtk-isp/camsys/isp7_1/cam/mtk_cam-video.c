@@ -309,7 +309,8 @@ static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 	*offset += size;
 }
 
-void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
+void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr,
+				 struct mtk_raw_pde_config *pde_cfg)
 {
 	struct mtk_cam_uapi_meta_raw_stats_0 *stats0;
 	struct mtk_cam_uapi_meta_raw_stats_1 *stats1;
@@ -327,6 +328,15 @@ void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
 		set_payload(&stats0->tsf_stats.tsfo_r1_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 		set_payload(&stats0->tsf_stats.tsfo_r2_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 		set_payload(&stats0->tncy_stats.tncsyo_buf, MTK_CAM_UAPI_TNCSYO_SIZE, &offset);
+		if (pde_cfg) {
+			mutex_lock(&pde_cfg->pde_info_lock);
+			if (pde_cfg->pde_info.pd_table_offset) {
+				set_payload(&stats0->pde_stats.pdo_buf,
+					    pde_cfg->pde_info.pdo_max_size,
+					    &offset);
+			}
+			mutex_unlock(&pde_cfg->pde_info_lock);
+		}
 		break;
 	case MTKCAM_IPI_RAW_META_STATS_1:
 		stats1 = (struct mtk_cam_uapi_meta_raw_stats_1 *)vaddr;
@@ -843,6 +853,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_raw_pde_config *pde_cfg =
+		&cam->raw.pipelines[node->uid.pipe_id].pde_config;
 	struct device *dev = cam->dev;
 	unsigned long flags;
 	unsigned int desc_id;
@@ -1048,7 +1060,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		meta_out->buf.iova = buf->daddr;
 		meta_out->uid.id = dma_port;
 		vaddr = vb2_plane_vaddr(vb, 0);
-		mtk_cam_set_meta_stats_info(dma_port, vaddr);
+		mtk_cam_set_meta_stats_info(dma_port, vaddr, pde_cfg);
 		break;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
 		/* TODO: support multiple vc and meta header  */
@@ -2173,11 +2185,32 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
+	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-//	struct mtk_cam_dev_node_desc *desc = &node->desc;
-//	const struct v4l2_format *default_fmt =
-//		&desc->fmts[desc->default_fmt_idx].vfmt;
+	struct mtk_cam_dev_node_desc *desc = &node->desc;
+	const struct v4l2_format *default_fmt =
+		&desc->fmts[desc->default_fmt_idx].vfmt;
+	struct mtk_raw_pde_config *pde_cfg =
+		&cam->raw.pipelines[node->uid.pipe_id].pde_config;
+	struct mtk_cam_pde_info *pde_info = &pde_cfg->pde_info;
 
+	mutex_lock(&pde_cfg->pde_info_lock);
+	if (pde_info->pd_table_offset) {
+		if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
+			node->active_fmt.fmt.meta.buffersize =
+				default_fmt->fmt.meta.buffersize
+				+ pde_info->pdi_max_size;
+		}
+		if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
+			node->active_fmt.fmt.meta.buffersize =
+				default_fmt->fmt.meta.buffersize
+				+ pde_info->pdo_max_size;
+		}
+		dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
+			node->desc.dma_port,
+			node->active_fmt.fmt.meta.buffersize);
+	}
+	mutex_unlock(&pde_cfg->pde_info_lock);
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
 

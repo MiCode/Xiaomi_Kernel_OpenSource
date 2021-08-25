@@ -94,6 +94,8 @@ enum hdr_scenario_id {
 
 #define RAW_STATS_CFG_SIZE \
 	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_cfg), SZ_1K)
+/* max(pdi_table1, pdi_table2, ...) */
+#define RAW_STATS_CFG_VARIOUS_SIZE ALIGN(0x7500, SZ_1K)
 
 /* meta out max size include 1k meta info and dma buffer size */
 #define RAW_STATS_0_SIZE \
@@ -172,6 +174,12 @@ struct mtk_cam_ctx;
  *	void (*frame_done)(struct raw_device *raw);
  * };
  */
+
+struct mtk_raw_pde_config {
+	struct mutex pde_info_lock;  /* To protect the pde information */
+	struct mtk_cam_pde_info pde_info;
+};
+
 struct mtk_cam_resource_config {
 	struct v4l2_subdev *seninf;
 	struct mutex resource_lock;
@@ -236,6 +244,8 @@ struct mtk_raw_pipeline {
 	/* mstream */
 	struct mtk_cam_mstream_exposure mstream_exposure;
 	enum hdr_scenario_id stagger_path;
+	/* pde module */
+	struct mtk_raw_pde_config pde_config;
 };
 
 struct mtk_raw_device {

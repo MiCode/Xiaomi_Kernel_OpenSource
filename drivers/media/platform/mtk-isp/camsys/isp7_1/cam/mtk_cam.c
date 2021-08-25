@@ -2725,7 +2725,8 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		meta_1_out->buf.iova = buf_entry->meta_buffer.iova;
 		meta_1_out->uid.id = MTKCAM_IPI_RAW_META_STATS_1;
 		mtk_cam_set_meta_stats_info(MTKCAM_IPI_RAW_META_STATS_1,
-					    buf_entry->meta_buffer.va);
+					    buf_entry->meta_buffer.va,
+					    NULL);
 	}
 
 	/* Prepare rp message */
@@ -4348,6 +4349,7 @@ static int mtk_cam_debug_fs_init(struct mtk_cam_device *cam)
 	int dump_mem_size = MTK_CAM_DEBUG_DUMP_HEADER_MAX_SIZE +
 			    CQ_BUF_SIZE +
 			    RAW_STATS_CFG_SIZE +
+			    RAW_STATS_CFG_VARIOUS_SIZE +
 			    sizeof(struct mtkcam_ipi_frame_param) +
 			    sizeof(struct mtkcam_ipi_config_param) *
 			    RAW_PIPELINE_NUM;

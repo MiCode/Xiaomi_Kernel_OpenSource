@@ -548,6 +548,89 @@ static const struct v4l2_ctrl_ops cam_ctrl_ops = {
 	.try_ctrl = mtk_raw_try_ctrl,
 };
 
+static int mtk_raw_pde_get_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_raw_pde_config *pde_cfg;
+	struct mtk_cam_pde_info *pde_info_p;
+	struct device *dev;
+	int ret = 0;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	pde_cfg = &pipeline->pde_config;
+	pde_info_p = ctrl->p_new.p;
+	dev = pipeline->raw->devs[pipeline->id];
+
+	mutex_lock(&pde_cfg->pde_info_lock);
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_PDE_INFO:
+		pde_info_p->pdo_max_size = pde_cfg->pde_info.pdo_max_size;
+		pde_info_p->pdi_max_size = pde_cfg->pde_info.pdi_max_size;
+		pde_info_p->pd_table_offset = pde_cfg->pde_info.pd_table_offset;
+		break;
+	default:
+		dev_info(dev, "%s(id:0x%x,val:%d) is not handled\n",
+			 __func__, ctrl->id, ctrl->val);
+		ret = -EINVAL;
+	}
+	mutex_unlock(&pde_cfg->pde_info_lock);
+
+	return ret;
+}
+
+static int mtk_raw_pde_set_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_raw_pde_config *pde_cfg;
+	struct mtk_cam_pde_info *pde_info_p;
+	struct device *dev;
+	int ret = 0;
+	struct mtk_cam_video_device *node;
+	struct mtk_cam_dev_node_desc *desc;
+	const struct v4l2_format *default_fmt;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	pde_cfg = &pipeline->pde_config;
+	pde_info_p = ctrl->p_new.p;
+	dev = pipeline->raw->devs[pipeline->id];
+
+	node = &pipeline->vdev_nodes[MTK_RAW_META_IN - MTK_RAW_SINK_NUM];
+	desc = &node->desc;
+	default_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
+
+	mutex_lock(&pde_cfg->pde_info_lock);
+	switch (ctrl->id) {
+	case V4L2_CID_MTK_CAM_PDE_INFO:
+		if (!pde_info_p->pdo_max_size || !pde_info_p->pdi_max_size) {
+			dev_info(dev,
+				 "%s:pdo_max_sz(%d)/pdi_max_sz(%d) cannot be 0\n",
+				 __func__, pde_info_p->pdo_max_size,
+				 pde_info_p->pdi_max_size);
+			ret = -EINVAL;
+			break;
+		}
+
+		pde_cfg->pde_info.pdo_max_size = pde_info_p->pdo_max_size;
+		pde_cfg->pde_info.pdi_max_size = pde_info_p->pdi_max_size;
+		pde_cfg->pde_info.pd_table_offset =
+			default_fmt->fmt.meta.buffersize;
+		break;
+	default:
+		dev_info(dev, "%s(id:0x%x,val:%d) is not handled\n",
+			 __func__, ctrl->id, ctrl->val);
+		ret = -EINVAL;
+	}
+	mutex_unlock(&pde_cfg->pde_info_lock);
+
+	return ret;
+}
+
+static const struct v4l2_ctrl_ops cam_pde_ctrl_ops = {
+	.g_volatile_ctrl = mtk_raw_pde_get_ctrl,
+	.s_ctrl = mtk_raw_pde_set_ctrl,
+	.try_ctrl = mtk_raw_pde_set_ctrl,
+};
+
 static const struct v4l2_ctrl_config hwn_limit = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_USED_ENGINE_LIMIT,
@@ -657,6 +740,7 @@ static const struct v4l2_ctrl_config frz_try = {
 	.step = 1,
 	.def = 100,
 };
+
 static const struct v4l2_ctrl_config res_plan_policy = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_RESOURCE_PLAN_POLICY,
@@ -678,6 +762,7 @@ static const struct v4l2_ctrl_config res_pixel_rate = {
 	.step = 1,
 	.def = 0,
 };
+
 static const struct v4l2_ctrl_config frame_sync_id = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_SYNC_ID,
@@ -731,6 +816,19 @@ static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
 	.max = 0xffffffff,
 	.step = 1,
 	.dims = {sizeof(struct mtk_cam_resource)},
+};
+
+static const struct v4l2_ctrl_config cfg_pde_info = {
+	.ops = &cam_pde_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_PDE_INFO,
+	.name = "pde information",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.min = 0,
+	.max = 0x1fffffff,
+	.step = 1,
+	.def = 0,
+	.dims = {sizeof_u32(struct mtk_cam_pde_info)},
 };
 
 void trigger_rawi(struct mtk_raw_device *dev)
@@ -955,6 +1053,7 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	set_fifo_threshold(dev->base + REG_PDO_R1_BASE);
 	set_fifo_threshold(dev->base + REG_AAO_R1_BASE);
 	set_fifo_threshold(dev->base + REG_AFO_R1_BASE);
+	set_fifo_threshold(dev->base + REG_PDO_R1_BASE);
 
 	set_fifo_threshold(dev->yuv_base + REG_YUVO_R1_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R1_BASE);
@@ -1807,6 +1906,23 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
 				       "RAWI_R2",
 				       dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
 
+	if (raw_dev->pipeline->pde_config.pde_info.pd_table_offset) {
+		dev_dbg_ratelimited(raw_dev->dev,
+				    "DMA_ERR:%x,PDI_R1:%x,PDO_R1:%x\n",
+			readl_relaxed(raw_dev->base + 0x4060),
+			readl_relaxed(raw_dev->base + REG_PDI_R1_BASE + DMA_OFFSET_ERR_STAT),
+			readl_relaxed(raw_dev->base + REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT)
+			);
+		dev_dbg_ratelimited(raw_dev->dev,
+				    "TG_FRMSIZE_ST:%x,TG_FRMSIZE_ST_R:%x\n",
+			readl_relaxed(raw_dev->base + 0x0738),
+			readl_relaxed(raw_dev->base + 0x076c)
+			);
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				       "PDO_R1", dbg_PDO_R1, ARRAY_SIZE(dbg_PDO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				       "PDI_R1", dbg_PDI_R1, ARRAY_SIZE(dbg_PDI_R1));
+	}
 	/*
 	 * mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
 	 *                        "IMGO_R1", dbg_IMGO_R1, ARRAY_SIZE(dbg_IMGO_R1));
@@ -4610,6 +4726,10 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	v4l2_ctrl_new_std(ctrl_hdlr, &cam_ctrl_ops,
 				    V4L2_CID_VBLANK, 0, 65535, 1, 0);
 
+	// PDE
+	mutex_init(&pipe->pde_config.pde_info_lock);
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
+
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_ctrl, NULL);
 	if (ctrl)
@@ -4628,6 +4748,9 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->res_config.res_plan = res_plan_policy.def;
 	pipe->res_config.raw_feature = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
+	pipe->pde_config.pde_info.pdo_max_size = cfg_pde_info.def;
+	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;
+	pipe->pde_config.pde_info.pd_table_offset = cfg_pde_info.def;
 	pipe->subdev.ctrl_handler = ctrl_hdlr;
 }
 

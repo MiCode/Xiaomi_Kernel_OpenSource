@@ -59,8 +59,10 @@
 	(V4L2_CID_USER_MTK_CAM_BASE + 12)
 #define V4L2_CID_MTK_CAM_SYNC_ID \
 	(V4L2_CID_USER_MTK_CAM_BASE + 13)
-#define V4L2_CID_MTK_CAM_RAW_PATH_SELECT\
+#define V4L2_CID_MTK_CAM_RAW_PATH_SELECT \
 	(V4L2_CID_USER_MTK_CAM_BASE + 14)
+#define V4L2_CID_MTK_CAM_PDE_INFO \
+	(V4L2_CID_USER_MTK_CAM_BASE + 16)
 #define V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE \
 	(V4L2_CID_USER_MTK_CAM_BASE + 17)
 #define V4L2_CID_MTK_CAM_RAW_RESOURCE \
@@ -202,6 +204,19 @@ struct mtk_cam_resource {
 	struct mtk_cam_resource_sensor sensor_res;
 	struct mtk_cam_resource_raw raw_res;
 	__u8 status;
+};
+
+/**
+ * struct mtk_cam_pde_info - PDE module information for raw
+ *
+ * @pdo_max_size: the max pdo size of pde sensor.
+ * @pdi_max_size: the max pdi size of pde sensor or max pd table size.
+ * @pd_table_offset: the offest of meta config for pd table content.
+ */
+struct mtk_cam_pde_info {
+	__u32 pdo_max_size;
+	__u32 pdi_max_size;
+	__u32 pd_table_offset;
 };
 
 /* I M G S Y S */
