@@ -6,6 +6,7 @@
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
 #include "../core/card.h"
+#include "../core/core.h"
 #include <linux/regulator/consumer.h>
 #include <mt-plat/mtk_blocktag.h>
 
@@ -409,7 +410,6 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 		dev_dbg(host->dev, "set mclk to 0\n");
 		host->mclk = 0;
 		mmc->actual_clock = 0;
-		sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
 		return;
 	}
 
@@ -464,15 +464,14 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 			sclk = (host->src_clk_freq >> 2) / div;
 		}
 	}
-	sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
 	/*
 	 * As src_clk/HCLK use the same bit to gate/ungate,
 	 * So if want to only gate src_clk, need gate its parent(mux).
 	 */
 	if (host->src_clk_cg)
-		clk_disable_unprepare(host->src_clk_cg);
+		clk_disable(host->src_clk_cg);
 	else
-		clk_disable_unprepare(clk_get_parent(host->src_clk));
+		clk_disable(clk_get_parent(host->src_clk));
 	if (host->dev_comp->clk_div_bits == 8)
 		sdr_set_field(host->base + MSDC_CFG,
 			      MSDC_CFG_CKMOD | MSDC_CFG_CKDIV,
@@ -482,9 +481,9 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 			      MSDC_CFG_CKMOD_EXTRA | MSDC_CFG_CKDIV_EXTRA,
 			      (mode << 12) | div);
 	if (host->src_clk_cg)
-		clk_prepare_enable(host->src_clk_cg);
+		clk_enable(host->src_clk_cg);
 	else
-		clk_prepare_enable(clk_get_parent(host->src_clk));
+		clk_enable(clk_get_parent(host->src_clk));
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();
@@ -1056,7 +1055,6 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret;
-	unsigned int value = 0, status = 0;
 
 	if (!IS_ERR(mmc->supply.vqmmc)) {
 		if (ios->signal_voltage != MMC_SIGNAL_VOLTAGE_330 &&
@@ -1073,45 +1071,23 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 
 		/* Apply different pinctrl settings for different signal voltage */
-		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)
-			pinctrl_select_state(host->pinctrl, host->pins_uhs);
-		else
-			pinctrl_select_state(host->pinctrl, host->pins_default);
-
 		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
-			/* Clock is gated by HW after CMD11,
-			 * Must keep clock gate 5ms before switch voltage
-			 */
-			usleep_range(10000, 10500);
-
-			/* set as 500T -> 1.25ms for 400KHz or 1.9ms for 260KHz */
-			sdr_set_field(host->base + SDC_VOL_CHG, SDC_VOL_CHG_CNT,
-				VOL_CHG_CNT_DEFAULT_VAL);
-
-			/* CMD11 will enable SWITCH detect while mmc core layer trriger
-			 * switch voltage flow without cmd11 for somecase,so also enable switch
-			 * detect before switch.Otherwise will hang in this func.
-			 */
-			sdr_get_field(host->base + SDC_CMD, SDC_CMD_VOLSWTH, &value);
-			if (!value)
-				sdr_set_bits(host->base + SDC_CMD, SDC_CMD_VOLSWTH);
-			/* start to provide clock to device */
-			sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_BV18SDT);
-
-			/* Delay 1ms wait HW to finish voltage switch */
-			usleep_range(1000, 1500);
-
-			while ((status =
-				readl(host->base + MSDC_CFG)) & MSDC_CFG_BV18SDT)
-				;
-			if (status & MSDC_CFG_BV18PSS)
-				return 0;
-
-			pr_notice(
-			"msdc%d: 1.8V regulator output did not became stable\n",
-				host->id);
-			return -EAGAIN;
-		}
+			pinctrl_select_state(host->pinctrl, host->pins_uhs);
+			if (host->id == MSDC_SD) {
+				/* Keep clock gated for 10 ms, though spec only says 5 ms */
+				mmc_delay(10);
+				sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+				mmc_delay(1);
+				sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+				if (readl(host->base + MSDC_PS) & (0xf << 16))
+					return 0;
+				pr_notice(
+				"msdc%d: 1.8V regulator output did not became stable\n",
+					host->id);
+				return -EAGAIN;
+			}
+		} else
+			pinctrl_select_state(host->pinctrl, host->pins_default);
 	}
 #endif
 	return 0;
