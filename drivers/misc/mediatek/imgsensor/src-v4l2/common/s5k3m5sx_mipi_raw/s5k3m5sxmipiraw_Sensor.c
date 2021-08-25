@@ -2915,7 +2915,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 static void check_streamoff(struct subdrv_ctx *ctx)
 {
 	unsigned int i = 0, framecnt = 0;
-	int timeout = (10000/ctx->current_fps)+1;
+	int timeout = ctx->current_fps ? (10000 / ctx->current_fps) + 1 : 101;
 
 	for (i = 0; i < timeout; i++) {
 		framecnt = read_cmos_sensor_8(ctx, 0x0005);

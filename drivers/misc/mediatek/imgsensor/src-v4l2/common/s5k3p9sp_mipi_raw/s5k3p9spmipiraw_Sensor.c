@@ -394,7 +394,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	int timeout = (10000 / ctx->current_fps) + 1;
+	int timeout = ctx->current_fps ? (10000 / ctx->current_fps) + 1 : 101;
 	int i = 0;
 	int framecnt = 0;
 

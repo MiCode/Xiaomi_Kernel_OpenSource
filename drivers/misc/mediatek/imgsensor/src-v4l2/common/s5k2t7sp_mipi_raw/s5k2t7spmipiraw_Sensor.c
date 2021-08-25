@@ -483,7 +483,7 @@ static void set_mirror_flip(struct subdrv_ctx *ctx, kal_uint8 image_mirror)
 static void check_streamoff(struct subdrv_ctx *ctx)
 {
 	unsigned int i = 0;
-	int timeout = (10000 / ctx->current_fps) + 1;
+	int timeout = ctx->current_fps ? (10000 / ctx->current_fps) + 1 : 101;
 
 	mdelay(3);
 	for (i = 0; i < timeout; i++) {
