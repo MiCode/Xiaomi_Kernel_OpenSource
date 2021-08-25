@@ -14,6 +14,14 @@ config DEVAPC_ARCH_MULTI
 	  architecture version 2.
 	  This architecture supports multiple Infra AO.
 
+config MTK_SERROR_HOOK
+	bool "Mediatek Slave Error Dump Hook Support"
+	help
+	  Say yes here to enable support Mediatek
+	  slave error dump which can see Device APC driver
+	  violation log in case of slave error happened.
+	  This is for debug purpose.
+
 config DEVAPC_MT6853
 	tristate "Mediatek MT6853 Device APC driver"
 	select MTK_DEVAPC
