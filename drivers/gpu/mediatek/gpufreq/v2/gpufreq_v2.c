@@ -76,7 +76,8 @@ static struct platform_driver g_gpufreq_wrapper_pdrv = {
 static int g_ipi_channel;
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
-static phys_addr_t g_gpueb_shared_mem;
+static phys_addr_t g_status_shared_mem_va;
+static phys_addr_t g_debug_shared_mem_va;
 static struct gpufreq_platform_fp *gpufreq_fp;
 static struct gpuppm_platform_fp *gpuppm_fp;
 static struct gpufreq_ipi_data g_recv_msg;
@@ -114,12 +115,24 @@ EXPORT_SYMBOL(gpufreq_bringup);
  ***********************************************************************************/
 unsigned int gpufreq_power_ctrl_enable(void)
 {
-	if (gpufreq_fp && gpufreq_fp->power_ctrl_enable)
-		return gpufreq_fp->power_ctrl_enable();
-	else {
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-		return false;
+	struct gpufreq_shared_status *shared_status = NULL;
+	unsigned int power_control = false;
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
+
+		if (shared_status)
+			power_control = shared_status->power_control;
+	/* implement on AP */
+	} else {
+		if (gpufreq_fp && gpufreq_fp->power_ctrl_enable)
+			power_control = gpufreq_fp->power_ctrl_enable();
+		else
+			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 	}
+
+	return power_control;
 }
 EXPORT_SYMBOL(gpufreq_power_ctrl_enable);
 
@@ -132,15 +145,17 @@ EXPORT_SYMBOL(gpufreq_power_ctrl_enable);
  ***********************************************************************************/
 unsigned int gpufreq_get_power_state(void)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	enum gpufreq_power_state power_state = POWER_OFF;
+	int power_count = 0;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_POWER_STATE;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			power_state = g_recv_msg.u.power_state;
+		if (shared_status)
+			power_count = shared_status->power_count;
+		power_state = power_count > 0 ? POWER_ON : POWER_OFF;
 	/* implement on AP */
 	} else {
 		if (gpufreq_fp && gpufreq_fp->get_power_state)
@@ -152,7 +167,6 @@ unsigned int gpufreq_get_power_state(void)
 	return power_state;
 }
 
-
 /***********************************************************************************
  * Function Name      : gpufreq_get_shader_present
  * Inputs             : -
@@ -163,15 +177,15 @@ unsigned int gpufreq_get_power_state(void)
  ***********************************************************************************/
 unsigned int gpufreq_get_shader_present(void)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int shader_present = 0;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_SHADER_PRESENT;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			shader_present = g_recv_msg.u.shader_present;
+		if (shared_status)
+			shader_present = shared_status->shader_present;
 	/* implement on AP */
 	} else {
 		if (gpufreq_fp && gpufreq_fp->get_shader_present)
@@ -244,7 +258,7 @@ EXPORT_SYMBOL(gpufreq_dump_infra_status);
  ***********************************************************************************/
 unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int freq = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -252,11 +266,12 @@ unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_FREQ;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			freq = g_recv_msg.u.freq;
+		if (target == TARGET_STACK && shared_status)
+			freq = shared_status->cur_fstack;
+		else if (target == TARGET_GPU && shared_status)
+			freq = shared_status->cur_fgpu;
 		goto done;
 	}
 
@@ -286,7 +301,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_freq);
  ***********************************************************************************/
 unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int volt = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -294,11 +309,12 @@ unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_VOLT;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			volt = g_recv_msg.u.volt;
+		if (target == TARGET_STACK && shared_status)
+			volt = shared_status->cur_vstack;
+		else if (target == TARGET_GPU && shared_status)
+			volt = shared_status->cur_vgpu;
 		goto done;
 	}
 
@@ -328,7 +344,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_volt);
  ***********************************************************************************/
 unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int vsram = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -336,11 +352,12 @@ unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_VSRAM;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			vsram = g_recv_msg.u.volt;
+		if (target == TARGET_STACK && shared_status)
+			vsram = shared_status->cur_vsram_stack;
+		else if (target == TARGET_GPU && shared_status)
+			vsram = shared_status->cur_vsram_gpu;
 		goto done;
 	}
 
@@ -370,7 +387,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_vsram);
  ***********************************************************************************/
 unsigned int gpufreq_get_cur_power(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int power = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -378,11 +395,12 @@ unsigned int gpufreq_get_cur_power(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_POWER;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			power = g_recv_msg.u.power;
+		if (target == TARGET_STACK && shared_status)
+			power = shared_status->cur_power_stack;
+		else if (target == TARGET_GPU && shared_status)
+			power = shared_status->cur_power_gpu;
 		goto done;
 	}
 
@@ -412,7 +430,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_power);
  ***********************************************************************************/
 unsigned int gpufreq_get_max_power(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int power = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -420,11 +438,12 @@ unsigned int gpufreq_get_max_power(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MAX_POWER;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			power = g_recv_msg.u.power;
+		if (target == TARGET_STACK && shared_status)
+			power = shared_status->max_power_stack;
+		else if (target == TARGET_GPU && shared_status)
+			power = shared_status->max_power_gpu;
 		goto done;
 	}
 
@@ -454,7 +473,7 @@ EXPORT_SYMBOL(gpufreq_get_max_power);
  ***********************************************************************************/
 unsigned int gpufreq_get_min_power(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int power = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -462,11 +481,12 @@ unsigned int gpufreq_get_min_power(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_MIN_POWER;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			power = g_recv_msg.u.power;
+		if (target == TARGET_STACK && shared_status)
+			power = shared_status->min_power_stack;
+		else if (target == TARGET_GPU && shared_status)
+			power = shared_status->min_power_gpu;
 		goto done;
 	}
 
@@ -496,7 +516,7 @@ EXPORT_SYMBOL(gpufreq_get_min_power);
  ***********************************************************************************/
 int gpufreq_get_cur_oppidx(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	int oppidx = -1;
 
 	if (gpufreq_validate_target(&target))
@@ -504,11 +524,12 @@ int gpufreq_get_cur_oppidx(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_OPPIDX;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			oppidx = g_recv_msg.u.oppidx;
+		if (target == TARGET_STACK && shared_status)
+			oppidx = shared_status->cur_oppidx_stack;
+		else if (target == TARGET_GPU && shared_status)
+			oppidx = shared_status->cur_oppidx_gpu;
 		goto done;
 	}
 
@@ -538,7 +559,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_oppidx);
  ***********************************************************************************/
 int gpufreq_get_opp_num(enum gpufreq_target target)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	int opp_num = -1;
 
 	if (gpufreq_validate_target(&target))
@@ -546,11 +567,12 @@ int gpufreq_get_opp_num(enum gpufreq_target target)
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_OPP_NUM;
-		send_msg.target = target;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			opp_num = g_recv_msg.u.opp_num;
+		if (target == TARGET_STACK && shared_status)
+			opp_num = shared_status->opp_num_stack;
+		else if (target == TARGET_GPU && shared_status)
+			opp_num = shared_status->opp_num_gpu;
 		goto done;
 	}
 
@@ -760,23 +782,10 @@ EXPORT_SYMBOL(gpufreq_get_leakage_power);
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt)
 {
-	struct gpufreq_ipi_data send_msg = {};
 	unsigned int p_dynamic = 0;
 
 	if (gpufreq_validate_target(&target))
 		goto done;
-
-	/* implement on EB */
-	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_DYNAMIC_POWER;
-		send_msg.target = target;
-		send_msg.u.dyn.freq = freq;
-		send_msg.u.dyn.volt = volt;
-
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			p_dynamic = g_recv_msg.u.power;
-		goto done;
-	}
 
 	/* implement on AP */
 	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_dyn_pstack)
@@ -987,7 +996,7 @@ EXPORT_SYMBOL(gpufreq_set_limit);
  ***********************************************************************************/
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type limit)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	int limit_idx = -1;
 
 	if (gpufreq_validate_target(&target))
@@ -1000,12 +1009,19 @@ int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_LIMIT_IDX;
-		send_msg.target = target;
-		send_msg.u.limit_type = limit;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			limit_idx = g_recv_msg.u.limit_idx;
+		if (target == TARGET_STACK && shared_status) {
+			if (limit == GPUPPM_CEILING)
+				limit_idx = shared_status->cur_ceiling_stack;
+			else if (limit == GPUPPM_FLOOR)
+				limit_idx = shared_status->cur_floor_stack;
+		} else if (target == TARGET_GPU && shared_status) {
+			if (limit == GPUPPM_CEILING)
+				limit_idx = shared_status->cur_ceiling_gpu;
+			else if (limit == GPUPPM_FLOOR)
+				limit_idx = shared_status->cur_floor_gpu;
+		}
 		goto done;
 	}
 
@@ -1046,7 +1062,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_limit_idx);
  ***********************************************************************************/
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	unsigned int limiter = 0;
 
 	if (gpufreq_validate_target(&target))
@@ -1059,12 +1075,19 @@ unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_lim
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_CUR_LIMITER;
-		send_msg.target = target;
-		send_msg.u.limit_type = limit;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			limiter = g_recv_msg.u.limiter;
+		if (target == TARGET_STACK && shared_status) {
+			if (limit == GPUPPM_CEILING)
+				limiter = shared_status->cur_c_limiter_stack;
+			else if (limit == GPUPPM_FLOOR)
+				limiter = shared_status->cur_f_limiter_stack;
+		} else if (target == TARGET_GPU && shared_status) {
+			if (limit == GPUPPM_CEILING)
+				limiter = shared_status->cur_c_limiter_gpu;
+			else if (limit == GPUPPM_FLOOR)
+				limiter = shared_status->cur_f_limiter_gpu;
+		}
 		goto done;
 	}
 
@@ -1101,6 +1124,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_limiter);
  ***********************************************************************************/
 struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target target)
 {
+	struct gpufreq_shared_status *shared_status = NULL;
 	struct gpufreq_ipi_data send_msg = {};
 	struct gpufreq_debug_opp_info opp_info = {};
 
@@ -1109,11 +1133,16 @@ struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target tar
 
 	/* implement on EB */
 	if (g_gpueb_support) {
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 		send_msg.cmd_id = CMD_GET_DEBUG_OPP_INFO;
 		send_msg.target = target;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			opp_info = g_recv_msg.u.opp_info;
+		if (!gpufreq_ipi_to_gpueb(send_msg)) {
+			if (target == TARGET_STACK && shared_status)
+				opp_info = shared_status->opp_info_stack;
+			else if (target == TARGET_GPU && shared_status)
+				opp_info = shared_status->opp_info_gpu;
+		}
 		goto done;
 	}
 
@@ -1135,6 +1164,7 @@ done:
  ***********************************************************************************/
 struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target target)
 {
+	struct gpufreq_shared_status *shared_status = NULL;
 	struct gpufreq_ipi_data send_msg = {};
 	struct gpufreq_debug_limit_info limit_info = {};
 
@@ -1143,11 +1173,16 @@ struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target
 
 	/* implement on EB */
 	if (g_gpueb_support) {
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 		send_msg.cmd_id = CMD_GET_DEBUG_LIMIT_INFO;
 		send_msg.target = target;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			limit_info = g_recv_msg.u.limit_info;
+		if (!gpufreq_ipi_to_gpueb(send_msg)) {
+			if (target == TARGET_STACK && shared_status)
+				limit_info = shared_status->limit_info_stack;
+			else if (target == TARGET_GPU && shared_status)
+				limit_info = shared_status->limit_info_gpu;
+		}
 		goto done;
 	}
 
@@ -1184,7 +1219,7 @@ const struct gpufreq_opp_info *gpufreq_get_working_table(enum gpufreq_target tar
 		if (!gpufreq_ipi_to_gpueb(send_msg))
 			ret = g_recv_msg.u.return_value;
 		if (!ret)
-			opp_table = (struct gpufreq_opp_info *)(uintptr_t)g_gpueb_shared_mem;
+			opp_table = (struct gpufreq_opp_info *)(uintptr_t)g_debug_shared_mem_va;
 		goto done;
 	}
 
@@ -1199,6 +1234,7 @@ const struct gpufreq_opp_info *gpufreq_get_working_table(enum gpufreq_target tar
 done:
 	return opp_table;
 }
+EXPORT_SYMBOL(gpufreq_get_working_table);
 
 /***********************************************************************************
  * Function Name      : gpufreq_get_signed_table
@@ -1221,7 +1257,7 @@ const struct gpufreq_opp_info *gpufreq_get_signed_table(enum gpufreq_target targ
 		if (!gpufreq_ipi_to_gpueb(send_msg))
 			ret = g_recv_msg.u.return_value;
 		if (!ret)
-			opp_table = (struct gpufreq_opp_info *)(uintptr_t)g_gpueb_shared_mem;
+			opp_table = (struct gpufreq_opp_info *)(uintptr_t)g_debug_shared_mem_va;
 		goto done;
 	}
 
@@ -1258,7 +1294,7 @@ const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target targ
 		if (!gpufreq_ipi_to_gpueb(send_msg))
 			ret = g_recv_msg.u.return_value;
 		if (!ret)
-			limit_table = (struct gpuppm_limit_info *)(uintptr_t)g_gpueb_shared_mem;
+			limit_table = (struct gpuppm_limit_info *)(uintptr_t)g_debug_shared_mem_va;
 		goto done;
 	}
 
@@ -1520,15 +1556,15 @@ int gpufreq_set_gpm_mode(unsigned int mode)
  ***********************************************************************************/
 struct gpufreq_asensor_info gpufreq_get_asensor_info(void)
 {
-	struct gpufreq_ipi_data send_msg = {};
+	struct gpufreq_shared_status *shared_status = NULL;
 	struct gpufreq_asensor_info asensor_info = {};
 
-		/* implement on EB */
+	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_GET_ASENSOR_INFO;
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			asensor_info = g_recv_msg.u.asensor_info;
+		if (shared_status)
+			asensor_info = shared_status->asensor_info;
 	/* implement on AP */
 	} else {
 		if (gpufreq_fp && gpufreq_fp->get_asensor_info)
@@ -1554,8 +1590,8 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 		goto done;
 	}
 
-	GPUFREQ_LOGD("send IPI command: %s (%d)",
-		gpufreq_ipi_cmd_name[data.cmd_id], data.cmd_id);
+	GPUFREQ_LOGD("channel: %d send IPI command: %s (%d)",
+		g_ipi_channel, gpufreq_ipi_cmd_name[data.cmd_id], data.cmd_id);
 
 	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_POLLING,
 		(void *)&data, GPUFREQ_IPI_DATA_LEN, IPI_TIMEOUT_MS);
@@ -1567,8 +1603,8 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 
 	ret = GPUFREQ_SUCCESS;
 
-	GPUFREQ_LOGD("receive IPI command: %s (%d)",
-		gpufreq_ipi_cmd_name[g_recv_msg.cmd_id], g_recv_msg.cmd_id);
+	GPUFREQ_LOGD("channel: %d receive IPI command: %s (%d)",
+		g_ipi_channel, gpufreq_ipi_cmd_name[g_recv_msg.cmd_id], g_recv_msg.cmd_id);
 
 done:
 	return ret;
@@ -1702,8 +1738,9 @@ EXPORT_SYMBOL(gpufreq_register_gpuppm_fp);
 static int gpufreq_gpueb_init(void)
 {
 	struct gpufreq_ipi_data send_msg = {};
-	phys_addr_t shared_mem_phy = 0;
-	phys_addr_t shared_mem_size = 0;
+	phys_addr_t shared_mem_pa = 0, shared_mem_va = 0, shared_mem_size = 0;
+	phys_addr_t status_shared_mem_pa = 0, status_shared_mem_size = 0;
+	phys_addr_t debug_shared_mem_pa = 0, debug_shared_mem_size = 0;
 	int ret = GPUFREQ_SUCCESS;
 
 	/* init ipi channel */
@@ -1716,14 +1753,14 @@ static int gpufreq_gpueb_init(void)
 	mtk_ipi_register(get_gpueb_ipidev(), g_ipi_channel, NULL, NULL, (void *)&g_recv_msg);
 
 	/* init shared memory */
-	g_gpueb_shared_mem = gpueb_get_reserve_mem_virt_by_name("MEM_ID_GPUFREQ");
-	if (!g_gpueb_shared_mem) {
+	shared_mem_va = gpueb_get_reserve_mem_virt_by_name("MEM_ID_GPUFREQ");
+	if (!shared_mem_va) {
 		GPUFREQ_LOGE("fail to get gpufreq reserved memory virtual addr (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	shared_mem_phy = gpueb_get_reserve_mem_phys_by_name("MEM_ID_GPUFREQ");
-	if (!shared_mem_phy) {
+	shared_mem_pa = gpueb_get_reserve_mem_phys_by_name("MEM_ID_GPUFREQ");
+	if (!shared_mem_pa) {
 		GPUFREQ_LOGE("fail to get gpufreq reserved memory physical addr (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
@@ -1735,17 +1772,29 @@ static int gpufreq_gpueb_init(void)
 		goto done;
 	}
 
+	g_status_shared_mem_va = shared_mem_va;
+	status_shared_mem_pa = shared_mem_pa;
+	status_shared_mem_size = 0x400; // 1KB
+
+	g_debug_shared_mem_va = shared_mem_va + 0x400;
+	debug_shared_mem_pa = shared_mem_pa + 0x400;
+	debug_shared_mem_size = shared_mem_size - status_shared_mem_size; // 4KB - 1KB
+
 	send_msg.cmd_id = CMD_INIT_SHARED_MEM;
-	send_msg.u.addr.base = (uint32_t)shared_mem_phy;
-	send_msg.u.addr.size = (uint32_t)shared_mem_size;
+	send_msg.u.addr.status_base = (uint32_t)status_shared_mem_pa;
+	send_msg.u.addr.status_size = (uint32_t)status_shared_mem_size;
+	send_msg.u.addr.debug_base = (uint32_t)debug_shared_mem_pa;
+	send_msg.u.addr.debug_size = (uint32_t)debug_shared_mem_size;
 	ret = gpufreq_ipi_to_gpueb(send_msg);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpufreq shared memory (EINVAL)");
 		ret = GPUFREQ_EINVAL;
 	}
 
-	GPUFREQ_LOGI("IPI channel: %d, shared memory phy_addr: 0x%x, virt_addr: 0x%llx, size: 0x%x",
-		g_ipi_channel, shared_mem_phy, g_gpueb_shared_mem, shared_mem_size);
+	GPUFREQ_LOGI("status shared memory phy_addr: 0x%x, virt_addr: 0x%llx, size: 0x%x",
+		status_shared_mem_pa, g_status_shared_mem_va, status_shared_mem_size);
+	GPUFREQ_LOGI("debug shared memory phy_addr: 0x%x, virt_addr: 0x%llx, size: 0x%x",
+		debug_shared_mem_pa, g_debug_shared_mem_va, debug_shared_mem_size);
 
 done:
 	return ret;

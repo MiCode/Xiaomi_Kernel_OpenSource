@@ -261,10 +261,11 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 
 static struct gpufreq_platform_fp platform_eb_fp = {
 	.bringup = __gpufreq_bringup,
-	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
+	.get_dyn_pgpu = __gpufreq_get_dyn_pgpu,
+	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
 };
 
 /**
@@ -435,7 +436,6 @@ const struct gpufreq_opp_info *__gpufreq_get_signed_table_stack(void)
 struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 {
 	struct gpufreq_debug_opp_info opp_info = {};
-	int ret = GPUFREQ_SUCCESS;
 
 	mutex_lock(&gpufreq_lock);
 	opp_info.cur_oppidx = g_gpu.cur_oppidx;
@@ -453,25 +453,19 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
 	opp_info.gpm_enable = g_gpm_enable;
-	mutex_unlock(&gpufreq_lock);
-
-	/* power on at here to read Reg and avoid increasing power count */
-	ret = __gpufreq_power_control(POWER_ON);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
-		goto done;
+	if (__gpufreq_get_power_state()) {
+		opp_info.fmeter_freq = __gpufreq_get_fmeter_fgpu();
+		opp_info.con1_freq = __gpufreq_get_real_fgpu();
+		opp_info.regulator_volt = __gpufreq_get_real_vgpu();
+		opp_info.regulator_vsram = __gpufreq_get_real_vsram();
+	} else {
+		opp_info.fmeter_freq = 0;
+		opp_info.con1_freq = 0;
+		opp_info.regulator_volt = 0;
+		opp_info.regulator_vsram = 0;
 	}
-
-	mutex_lock(&gpufreq_lock);
-	opp_info.fmeter_freq = __gpufreq_get_fmeter_fgpu();
-	opp_info.con1_freq = __gpufreq_get_real_fgpu();
-	opp_info.regulator_volt = __gpufreq_get_real_vgpu();
-	opp_info.regulator_vsram = __gpufreq_get_real_vsram();
 	mutex_unlock(&gpufreq_lock);
 
-	__gpufreq_power_control(POWER_OFF);
-
-done:
 	return opp_info;
 }
 
@@ -479,7 +473,6 @@ done:
 struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
 {
 	struct gpufreq_debug_opp_info opp_info = {};
-	int ret = GPUFREQ_SUCCESS;
 
 	mutex_lock(&gpufreq_lock);
 	opp_info.cur_oppidx = g_stack.cur_oppidx;
@@ -497,25 +490,20 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
 	opp_info.gpm_enable = g_gpm_enable;
-	mutex_unlock(&gpufreq_lock);
-
-	/* power on at here to read Reg and avoid increasing power count */
-	ret = __gpufreq_power_control(POWER_ON);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
-		goto done;
+	opp_info.gpm_enable = g_gpm_enable;
+	if (__gpufreq_get_power_state()) {
+		opp_info.fmeter_freq = __gpufreq_get_fmeter_fstack();
+		opp_info.con1_freq = __gpufreq_get_real_fstack();
+		opp_info.regulator_volt = __gpufreq_get_real_vstack();
+		opp_info.regulator_vsram = __gpufreq_get_real_vsram();
+	} else {
+		opp_info.fmeter_freq = 0;
+		opp_info.con1_freq = 0;
+		opp_info.regulator_volt = 0;
+		opp_info.regulator_vsram = 0;
 	}
-
-	mutex_lock(&gpufreq_lock);
-	opp_info.fmeter_freq = __gpufreq_get_fmeter_fstack();
-	opp_info.con1_freq = __gpufreq_get_real_fstack();
-	opp_info.regulator_volt = __gpufreq_get_real_vstack();
-	opp_info.regulator_vsram = __gpufreq_get_real_vsram();
 	mutex_unlock(&gpufreq_lock);
 
-	__gpufreq_power_control(POWER_OFF);
-
-done:
 	return opp_info;
 }
 
@@ -525,30 +513,9 @@ struct gpufreq_asensor_info __gpufreq_get_asensor_info(void)
 	struct gpufreq_asensor_info asensor_info = {};
 
 #if GPUFREQ_ASENSOR_ENABLE
-	asensor_info.aging_table_idx_choosed = g_asensor_info.aging_table_idx_choosed;
-	asensor_info.aging_table_idx_most_agrresive = g_asensor_info.aging_table_idx_most_agrresive;
-	asensor_info.efuse_val1_addr = g_asensor_info.efuse_val1_addr;
-	asensor_info.efuse_val1 = g_asensor_info.efuse_val1;
-	asensor_info.efuse_val2_addr = g_asensor_info.efuse_val2_addr;
-	asensor_info.efuse_val2 = g_asensor_info.efuse_val2;
-	asensor_info.efuse_val3_addr = g_asensor_info.efuse_val3_addr;
-	asensor_info.efuse_val3 = g_asensor_info.efuse_val3;
-	asensor_info.efuse_val4_addr = g_asensor_info.efuse_val4_addr;
-	asensor_info.efuse_val4 = g_asensor_info.efuse_val4;
-	asensor_info.a_t0_lvt_rt = g_asensor_info.a_t0_lvt_rt;
-	asensor_info.a_t0_ulvt_rt = g_asensor_info.a_t0_ulvt_rt;
-	asensor_info.a_t0_ulvtll_rt = g_asensor_info.a_t0_ulvtll_rt;
-	asensor_info.a_tn_lvt_cnt = g_asensor_info.a_tn_lvt_cnt;
-	asensor_info.a_tn_ulvt_cnt = g_asensor_info.a_tn_ulvt_cnt;
-	asensor_info.a_tn_ulvtll_cnt = g_asensor_info.a_tn_ulvtll_cnt;
-	asensor_info.lvts5_0_y_temperature = g_asensor_info.lvts5_0_y_temperature;
-	asensor_info.tj1 = g_asensor_info.tj1;
-	asensor_info.tj2 = g_asensor_info.tj2;
-	asensor_info.adiff1 = g_asensor_info.adiff1;
-	asensor_info.adiff2 = g_asensor_info.adiff2;
-	asensor_info.adiff3 = g_asensor_info.adiff3;
-	asensor_info.leakage_power = g_asensor_info.leakage_power;
-#endif
+	asensor_info = g_asensor_info;
+#endif /* GPUFREQ_ASENSOR_ENABLE */
+
 	return asensor_info;
 }
 
