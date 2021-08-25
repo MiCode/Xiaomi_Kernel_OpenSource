@@ -297,27 +297,27 @@ EXPORT_SYMBOL(xgf_get_process_id);
 int xgf_check_main_sf_pid(int pid, int process_id)
 {
 	int ret = 0;
-	int hrtimer_process_id;
-	char hrtimer_process_name[16];
+	int tmp_process_id;
+	char tmp_process_name[16];
 	struct task_struct *gtsk;
 
-	hrtimer_process_id = xgf_get_process_id(pid);
-	if (hrtimer_process_id < 0)
+	tmp_process_id = xgf_get_process_id(pid);
+	if (tmp_process_id < 0)
 		return ret;
 
 	rcu_read_lock();
-	gtsk = find_task_by_vpid(hrtimer_process_id);
+	gtsk = find_task_by_vpid(tmp_process_id);
 	if (gtsk) {
 		get_task_struct(gtsk);
-		strncpy(hrtimer_process_name, gtsk->comm, 16);
-		hrtimer_process_name[15] = '\0';
+		strncpy(tmp_process_name, gtsk->comm, 16);
+		tmp_process_name[15] = '\0';
 		put_task_struct(gtsk);
 	} else
-		hrtimer_process_name[0] = '\0';
+		tmp_process_name[0] = '\0';
 	rcu_read_unlock();
 
-	if ((hrtimer_process_id == process_id) ||
-		strstr(hrtimer_process_name, "surfaceflinger"))
+	if ((tmp_process_id == process_id) ||
+		strstr(tmp_process_name, "surfaceflinger"))
 		ret = 1;
 
 	return ret;
@@ -2446,6 +2446,17 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			if (q2q_time && raw_runtime > q2q_time)
 				raw_runtime = q2q_time;
 
+			if (fstb_separate_runtime_enable == 1) {
+				if (r->raw_l_runtime >= r->raw_r_runtime)
+					raw_runtime = r->raw_l_runtime;
+				else
+					raw_runtime = r->raw_r_runtime;
+
+				xgf_trace("[fstb][%d][0x%llx] | separate:(%llu,%llu)->%llu",
+					r->render, r->bufID,
+					r->raw_l_runtime, r->raw_r_runtime, raw_runtime);
+			}
+
 			if (xgf_ema2_enable && !xgf_camera_flag && (r->hwui_flag == 2)) {
 				if (!r->ema2_pt)
 					r->ema2_pt = xgf_ema2_get_pred();
@@ -2558,13 +2569,17 @@ void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
 	unsigned long long l_runtime, unsigned long long r_runtime)
 {
 	int ret = 0;
-	struct xgf_render *r, **rrender;
+	struct xgf_render *render_iter;
+	struct hlist_node *n;
 
-	rrender = &r;
-	if (!xgf_get_render(pid, bufID, rrender, 0, 0)) {
+	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
+		if (render_iter->render == pid && render_iter->bufID == bufID)
+			break;
+	}
+	if (render_iter) {
 		ret = 1;
-		r->raw_l_runtime = l_runtime;
-		r->raw_r_runtime = r_runtime;
+		render_iter->raw_l_runtime = l_runtime;
+		render_iter->raw_r_runtime = r_runtime;
 	}
 
 	fpsgo_main_trace("[fstb][%d][0x%llx] | raw_runtime=(%llu,%llu)(%d)", pid, bufID,
@@ -2618,8 +2633,10 @@ EXPORT_SYMBOL(xgf_set_logical_render_info);
 
 void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag)
 {
-	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_pid, "ctrl_fps_pid");
-	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
+	fpsgo_main_trace("[fstb][%d][0x%llx] | ctrl_fps_tid:%d(%d)", pid, bufID,
+		hrtimer_pid, hrtimer_flag);
+	fpsgo_systrace_c_xgf(pid, bufID, hrtimer_pid, "ctrl_fps_pid");
+	fpsgo_systrace_c_xgf(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
 }
 EXPORT_SYMBOL(xgf_set_timer_info);
 
@@ -3476,16 +3493,9 @@ static void xgf_hrtimer_expire_entry_tracer(void *ignore,
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
 	int c_pid = xgf_get_task_pid(current);
-	int length = -1;
-	char func_name[100];
 
-	length = scnprintf(func_name, 100, "%ps", hrtimer->function);
-	if (length >= 0) {
-		if (strncmp(func_name, "shader_tick_timer_callback", 26) &&
-			strncmp(func_name, "tick_sched_timer", 16))
-			fstb_buffer_record_waking_switch_timer(c_wake_cpu, HRTIMER_ENTRY, 0,
-				c_pid, 512, ts);
-	}
+	fstb_buffer_record_waking_switch_timer(c_wake_cpu, HRTIMER_ENTRY, 0,
+		c_pid, 512, ts);
 }
 
 static void xgf_hrtimer_expire_exit_tracer(void *ignore, struct hrtimer *hrtimer)
@@ -3493,16 +3503,9 @@ static void xgf_hrtimer_expire_exit_tracer(void *ignore, struct hrtimer *hrtimer
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
 	int c_pid = xgf_get_task_pid(current);
-	int length = -1;
-	char func_name[100];
 
-	length = scnprintf(func_name, 100, "%ps", hrtimer->function);
-	if (length >= 0) {
-		if (strncmp(func_name, "shader_tick_timer_callback", 26) &&
-			strncmp(func_name, "tick_sched_timer", 16))
-			fstb_buffer_record_waking_switch_timer(c_wake_cpu, HRTIMER_EXIT, 0,
-				c_pid, 512, ts);
-	}
+	fstb_buffer_record_waking_switch_timer(c_wake_cpu, HRTIMER_EXIT, 0,
+		c_pid, 512, ts);
 }
 
 struct tracepoints_table {
