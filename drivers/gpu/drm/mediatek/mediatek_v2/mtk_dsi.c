@@ -5586,13 +5586,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mode = (struct drm_display_mode **)params;
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
-		if (panel_ext && panel_ext->funcs &&
-			panel_ext->funcs->get_default_mode) {
-			*mode = panel_ext->funcs->get_default_mode(dsi->panel, &dsi->conn);
-		} else {
-			*mode = list_first_entry(&dsi->conn.modes,
-					struct drm_display_mode, head);
-		}
+		*mode = list_first_entry(&dsi->conn.modes,
+				struct drm_display_mode, head);
 		break;
 
 	case DSI_GET_MODE_BY_MAX_VREFRESH:

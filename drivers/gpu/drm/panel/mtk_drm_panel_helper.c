@@ -560,88 +560,88 @@ int parse_lcm_ops_check(struct mtk_lcm_ops_data *ops, u8 *dts,
 
 u8 table_dts_buf[MTK_PANEL_TABLE_OPS_COUNT * 1024];
 int parse_lcm_ops_func(struct device_node *np,
-		struct mtk_lcm_ops_data *table,
-		char *func, unsigned int size,
+		struct mtk_lcm_ops_table *table, char *func,
 		unsigned int panel_type,
 		struct mtk_panel_cust *cust, unsigned int phase)
 {
-	unsigned int i = 0, count = 0, skip_count = 0;
+	unsigned int i = 0, skip_count = 0;
 	u8 *tmp;
 	int len = 0, tmp_len = 0, ret = 0;
 	int phase_skip_flag = 0;
+	struct mtk_lcm_ops_data *op = NULL;
 
 	if (IS_ERR_OR_NULL(func) ||
 	    IS_ERR_OR_NULL(table) ||
 	    panel_type >= MTK_LCM_FUNC_END) {
 		DDPMSG("%s:%d: invalid parameters\n", __func__, __LINE__);
-		return 0;
-	}
-
-	if (size > MTK_PANEL_TABLE_OPS_COUNT) {
-		DDPMSG("%s:%d: too big table size:%u\n",
-			__func__, __LINE__, size);
-		return 0;
+		return -EFAULT;
 	}
 
 	memset(table_dts_buf, 0, sizeof(table_dts_buf));
 	len = mtk_lcm_dts_read_u8_array(np,
 				func, &table_dts_buf[0], 0, sizeof(table_dts_buf));
 	if (len <= 0) {
-		DDPMSG("%s:%d: Cannot find table of %s,len:%d\n",
-			__func__, __LINE__, func, len);
 		return 0;
 	} else if ((unsigned int)len < sizeof(table_dts_buf)) {
 		table_dts_buf[len] = '\0';
-		DDPINFO("%s: start to parse:%s, table_size:%u, dts_len:%u, phase:0x%x\n",
-			__func__, func, size, len, phase);
+		DDPINFO("%s: start to parse:%s, dts_len:%u, phase:0x%x\n",
+			__func__, func, len, phase);
 	} else {
 		table_dts_buf[ARRAY_SIZE(table_dts_buf) - 1] = '\0';
 		DDPMSG("%s: start to parse:%s, len:%u has out of size, %s\n",
 			__func__, func, len, table_dts_buf);
 	}
 
+	INIT_LIST_HEAD(&table->list);
 	tmp = &table_dts_buf[0];
-	for (i = 0; i < size; i++) {
-		table[i].func = panel_type;
-		table[i].type = tmp[0];
-		if (table[i].type == MTK_LCM_TYPE_END) {
+	while (len > MTK_LCM_DATA_OFFSET) {
+		LCM_KZALLOC(op, sizeof(struct mtk_lcm_ops_data), GFP_KERNEL);
+		if (op == NULL) {
+			DDPPR_ERR("%s, %d, failed to allocate op\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+
+		op->func = panel_type;
+		op->type = tmp[0];
+		if (op->type == MTK_LCM_TYPE_END) {
 			len = len - 1;
 			DDPINFO("%s: parsing end of %s, len:%d\n", __func__, func, len);
 			break;
 		}
 
-		table[i].size = tmp[1];
-		tmp_len = MTK_LCM_DATA_OFFSET + table[i].size;
-		phase_skip_flag = parse_lcm_ops_check(&table[i],
+		op->size = tmp[1];
+		tmp_len = MTK_LCM_DATA_OFFSET + op->size;
+		phase_skip_flag = parse_lcm_ops_check(op,
 					tmp, len, phase_skip_flag, phase);
 
 		if (phase_skip_flag == 0 &&
-		    table[i].type != MTK_LCM_PHASE_TYPE_START &&
-		    table[i].type != MTK_LCM_PHASE_TYPE_END) {
-			ret = parse_lcm_ops_basic(&table[i], tmp, cust, len);
+		    op->type != MTK_LCM_PHASE_TYPE_START &&
+		    op->type != MTK_LCM_PHASE_TYPE_END) {
+			ret = parse_lcm_ops_basic(op, tmp, cust, len);
 #if MTK_LCM_DEBUG_DUMP
 			DDPMSG(
 				"[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,op:%u,ret:%d,phase:0x%x,skip:%d\n",
-				func, i, table[i].func, table[i].type,
-				table[i].size, len, tmp_len, ret,
+				func, i, op->func, op->type,
+				op->size, len, tmp_len, ret,
 				phase, phase_skip_flag);
 #endif
 			if (ret < 0) {
 				DDPMSG("[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,fail:%d\n",
-					func, i, table[i].func, table[i].type,
-					table[i].size, len, ret);
-				return 0;
+					func, i, op->func, op->type,
+					op->size, len, ret);
+				return ret;
 			}
+			list_add_tail(&op->node, &table->list);
+			table->size++;
 		} else {
 #if MTK_LCM_DEBUG_DUMP
 			DDPMSG("[%s+%d] >>>func:%u,type:%u skipped:0x%x,phase:0x%x\n",
-				func, i, table[i].func, table[i].type,
+				func, i, op->func, op->type,
 				phase_skip_flag, phase);
 #endif
-			table[i].func = 0;
-			table[i].type = 0;
-			table[i].size = 0;
-			i--;
+			op->func = 0;
+			op->type = 0;
+			op->size = 0;
 			skip_count++;
 		}
 
@@ -653,15 +653,14 @@ int parse_lcm_ops_func(struct device_node *np,
 				__func__, func, len, tmp_len);
 			break;
 		}
+		i++;
 	}
 
-	count = i;
-	if (count + skip_count != size || len > 1)
-		DDPMSG("%s:%d: warning:%s+%u,skip:%u,expect:%u:dts:%u,last%u\n",
-			__func__, __LINE__, func, count,
-			skip_count, size, len, tmp_len);
+	DDPMSG("%s:%d: %s, total:%u,parsing:%u,skip:%u,last_dts:%u,last_ops%u\n",
+		__func__, __LINE__, func, i, table->size,
+		skip_count, len, tmp_len);
 
-	return count;
+	return table->size;
 }
 EXPORT_SYMBOL(parse_lcm_ops_func);
 
@@ -732,7 +731,6 @@ static int parse_lcm_ops_dt_node(struct device_node *np,
 					DDPMSG("%s, %d, failed\n", __func__, __LINE__);
 					return -ENOMEM;
 				}
-				DDPMSG("%s, LCM parse dsi ops\n", __func__);
 				ret = parse_lcm_ops_dsi(type_np,
 						ops->dsi_ops, &params->dsi_params, cust);
 				if (ret >= 0)
@@ -1192,8 +1190,7 @@ static void dump_lcm_ops_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 	}
 }
 
-void dump_lcm_ops_func(struct mtk_lcm_ops_data *table,
-		unsigned int size,
+void dump_lcm_ops_func(struct mtk_lcm_ops_table *table,
 		struct mtk_panel_cust *cust,
 		const char *owner)
 {
@@ -1209,20 +1206,14 @@ void dump_lcm_ops_func(struct mtk_lcm_ops_data *table,
 	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
 		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
-	if (IS_ERR_OR_NULL(table) || size == 0) {
+	if (IS_ERR_OR_NULL(table) || table->size == 0) {
 		DDPDUMP("%s: \"%s\" is empty\n", __func__, owner_tmp);
 		return;
 	}
 
 	DDPDUMP("-------------%s(%u): 0x%lx-----------\n",
-		owner_tmp, size, (unsigned long)table);
-	for (i = 0; i < size; i++) {
-		lcm_op = &table[i];
-		if (IS_ERR_OR_NULL(lcm_op)) {
-			DDPMSG("%s: table:%s, size:%u, ops:%u is null\n",
-				__func__, owner_tmp, size, i);
-			break;
-		}
+		owner_tmp, table->size, (unsigned long)table);
+	list_for_each_entry(lcm_op, &table->list, node) {
 		if (lcm_op->type > MTK_LCM_UTIL_TYPE_START &&
 		    lcm_op->type < MTK_LCM_UTIL_TYPE_END)
 			dump_lcm_ops_func_util(lcm_op, owner_tmp, i);
@@ -1244,6 +1235,7 @@ void dump_lcm_ops_func(struct mtk_lcm_ops_data *table,
 		} else
 			DDPDUMP("[%s-%d]: invalid func:%u\n",
 				owner, i, lcm_op->func);
+		i++;
 	}
 }
 EXPORT_SYMBOL(dump_lcm_ops_func);
@@ -1696,7 +1688,7 @@ int mtk_is_lcm_read_ops(unsigned int type)
 EXPORT_SYMBOL(mtk_is_lcm_read_ops);
 
 int mtk_panel_execute_operation(void *dev,
-		struct mtk_lcm_ops_data *table, unsigned int table_size,
+		struct mtk_lcm_ops_table *table,
 		const struct mtk_panel_resource *panel_resource,
 		struct mtk_lcm_ops_input_packet *input,
 		char *owner)
@@ -1716,15 +1708,13 @@ int mtk_panel_execute_operation(void *dev,
 		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
 	if (IS_ERR_OR_NULL(dev) || IS_ERR_OR_NULL(table) ||
-	    table_size == 0 ||
-	    table_size >= MTK_PANEL_TABLE_OPS_COUNT) {
+	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
 		DDPPR_ERR("%s: \"%s\" is empty, size:%u\n",
-			__func__, owner_tmp, table_size);
+			__func__, owner_tmp, table->size);
 		return 0;
 	}
 
-	for (i = 0; i < table_size; i++) {
-		op = &table[i];
+	list_for_each_entry(op, &table->list, node) {
 		if (IS_ERR_OR_NULL(op)) {
 			DDPMSG("%s: owner:%s, invalid op\n",
 				__func__, owner_tmp);
@@ -1778,6 +1768,7 @@ int mtk_panel_execute_operation(void *dev,
 				type_name, op->type, ret);
 			break;
 		}
+		i++;
 	}
 
 	return ret;
@@ -1886,21 +1877,18 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 	}
 }
 
-void free_lcm_ops_table(struct mtk_lcm_ops_data *table,
-		unsigned int table_size)
+void free_lcm_ops_table(struct mtk_lcm_ops_table *table)
 {
-	struct mtk_lcm_ops_data *op = NULL;
-	unsigned int i = 0;
+	struct mtk_lcm_ops_data *op = NULL, *tmp = NULL;
 
-	if (table == NULL || table_size == 0)
+	if (table == NULL || table->size == 0)
 		return;
 
-	for (i = 0; i < table_size; i++) {
-		op = &table[i];
-		if (op == NULL)
-			break;
+	list_for_each_entry_safe(op, tmp, &table->list, node) {
+		list_del(&op->node);
 		free_lcm_ops_data(op);
 	}
+	table->size = 0;
 }
 
 static void free_lcm_params_basic(struct mtk_lcm_params *params)

@@ -698,6 +698,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 			&default_mode);
 	mtk_lcm_dts_read_u32(np, "lcm-params-dsi-mode_count",
 			(u32 *) (&params->mode_count));
+
 	INIT_LIST_HEAD(&params->mode_list);
 	if (params->mode_count == 0) {
 		DDPMSG("%s, invalid mode count:%u\n", __func__, params->mode_count);
@@ -732,7 +733,6 @@ int parse_lcm_params_dsi(struct device_node *np,
 			if (of_device_is_compatible(mode_np, mode_name)) {
 				struct mtk_lcm_mode_dsi *mode_node = NULL;
 
-				DDPMSG("parsing LCM fps mode: %s\n", mode_name);
 				LCM_KZALLOC(mode_node,
 					sizeof(struct mtk_lcm_mode_dsi),
 					GFP_KERNEL);
@@ -771,442 +771,189 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	}
 	memset(ops, 0, sizeof(struct mtk_lcm_ops_dsi));
 
-	mtk_lcm_dts_read_u32(np, "prepare_size",
-				&ops->prepare_size);
-	if (ops->prepare_size > 0) {
-		LCM_KZALLOC(ops->prepare, sizeof(struct mtk_lcm_ops_data) *
-				ops->prepare_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->prepare)) {
-			DDPMSG("%s,%d: failed to allocate table\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->prepare_size = parse_lcm_ops_func(np,
-					ops->prepare, "prepare_table",
-					ops->prepare_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->prepare_size == 0) {
-			LCM_KFREE(ops->prepare, sizeof(struct mtk_lcm_ops_data) *
-				ops->prepare_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->prepare, "prepare_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing prepare_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "unprepare_size",
-				&ops->unprepare_size);
-	if (ops->unprepare_size > 0) {
-		LCM_KZALLOC(ops->unprepare, sizeof(struct mtk_lcm_ops_data) *
-				ops->unprepare_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->unprepare)) {
-			DDPMSG("%s,%d: failed to allocate table\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->unprepare_size = parse_lcm_ops_func(np,
-					ops->unprepare, "unprepare_table",
-					ops->unprepare_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->unprepare_size == 0) {
-			LCM_KFREE(ops->unprepare, sizeof(struct mtk_lcm_ops_data) *
-				ops->unprepare_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->unprepare, "unprepare_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing unprepare_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
-	mtk_lcm_dts_read_u32(np, "compare_id_size",
-				&ops->compare_id_size);
-	if (ops->compare_id_size > 0) {
-		mtk_lcm_dts_read_u32(np, "compare_id_value_length",
-				&ops->compare_id_value_length);
-
-		if (ops->compare_id_value_length > 0 &&
-		    ops->compare_id_value_length <= MTK_PANEL_COMPARE_ID_LENGTH) {
-			LCM_KZALLOC(ops->compare_id_value_data,
-				ops->compare_id_value_length, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
-				DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
-					__func__, __LINE__);
-				return -ENOMEM;
-			}
-			len = mtk_lcm_dts_read_u8_array(np,
+	mtk_lcm_dts_read_u32(np, "compare_id_value_length",
+			&ops->compare_id_value_length);
+	if (ops->compare_id_value_length > 0 &&
+	    ops->compare_id_value_length <= MTK_PANEL_COMPARE_ID_LENGTH) {
+		LCM_KZALLOC(ops->compare_id_value_data,
+			ops->compare_id_value_length, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
+			DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		len = mtk_lcm_dts_read_u8_array(np,
 					"compare_id_value_data",
 					&ops->compare_id_value_data[0], 0,
 					ops->compare_id_value_length);
-			if (len != ops->compare_id_value_length) {
-				DDPPR_ERR("%s,%d: warn parse compare id data, len:%d, expect:%u\n",
-					__func__, __LINE__, len, ops->compare_id_value_length);
-			}
+		if (len != ops->compare_id_value_length)
+			DDPPR_ERR("%s,%d: warn parse compare id data, len:%d, expect:%u\n",
+				__func__, __LINE__, len, ops->compare_id_value_length);
 
-			LCM_KZALLOC(ops->compare_id, sizeof(struct mtk_lcm_ops_data) *
-					ops->compare_id_size, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(ops->compare_id)) {
-				DDPMSG("%s,%d: failed to allocate table\n",
-					__func__, __LINE__);
-				return -ENOMEM;
-			}
-			ops->compare_id_size = parse_lcm_ops_func(np,
-						ops->compare_id, "compare_id_table",
-						ops->compare_id_size,
-						MTK_LCM_FUNC_DSI,  cust,
+		ret = parse_lcm_ops_func(np,
+					&ops->compare_id, "compare_id_table",
+					MTK_LCM_FUNC_DSI,  cust,
 					MTK_LCM_PHASE_KERNEL);
-			if (ops->compare_id_size == 0) {
-				LCM_KFREE(ops->compare_id, sizeof(struct mtk_lcm_ops_data) *
-					ops->compare_id_size);
-				DDPMSG("%s, %d failed to parsing operation\n",
-					__func__, __LINE__);
-				ret = -EFAULT;
-			}
-		}
+		if (ret < 0)
+			DDPMSG("%s, %d failed to parsing compare_id_table, ret:%d\n",
+				__func__, __LINE__, ret);
 	}
 #endif
 
 	mtk_lcm_dts_read_u32(np, "set_backlight_mask",
 				&ops->set_backlight_mask);
+	ret = parse_lcm_ops_func(np,
+				&ops->set_backlight_cmdq,
+				"set_backlight_cmdq_table",
+				MTK_LCM_FUNC_DSI,  cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing set_backlight_cmdq_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "set_backlight_cmdq_size",
-				&ops->set_backlight_cmdq_size);
-	if (ops->set_backlight_cmdq_size > 0) {
-		LCM_KZALLOC(ops->set_backlight_cmdq, sizeof(struct mtk_lcm_ops_data) *
-				ops->set_backlight_cmdq_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->set_backlight_cmdq)) {
-			DDPMSG("%s,%d: failed to allocate table\n",
+	ret = parse_lcm_ops_func(np,
+				&ops->set_backlight_grp_cmdq,
+				"set_backlight_grp_cmdq_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing set_backlight_grp_cmdq_table, ret:%d\n",
+			__func__, __LINE__, ret);
+
+	mtk_lcm_dts_read_u32(np, "ata_id_value_length",
+			&ops->ata_id_value_length);
+	if (ops->ata_id_value_length > 0 &&
+	    ops->ata_id_value_length <= MTK_PANEL_ATA_ID_LENGTH) {
+		LCM_KZALLOC(ops->ata_id_value_data,
+				ops->ata_id_value_length, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
+			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
-		ops->set_backlight_cmdq_size = parse_lcm_ops_func(np,
-					ops->set_backlight_cmdq,
-					"set_backlight_cmdq_table",
-					ops->set_backlight_cmdq_size,
-					MTK_LCM_FUNC_DSI,  cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->set_backlight_cmdq_size == 0) {
-			LCM_KFREE(ops->set_backlight_cmdq,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_backlight_cmdq_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
-
-	mtk_lcm_dts_read_u32(np, "set_backlight_grp_cmdq_size",
-				&ops->set_backlight_grp_cmdq_size);
-	if (ops->set_backlight_grp_cmdq_size > 0) {
-		LCM_KZALLOC(ops->set_backlight_grp_cmdq, sizeof(struct mtk_lcm_ops_data) *
-				ops->set_backlight_grp_cmdq_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->set_backlight_grp_cmdq)) {
-			DDPMSG("%s,%d: failed to allocate table\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->set_backlight_grp_cmdq_size = parse_lcm_ops_func(np,
-					ops->set_backlight_grp_cmdq,
-					"set_backlight_grp_cmdq_table",
-					ops->set_backlight_grp_cmdq_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->set_backlight_grp_cmdq_size == 0) {
-			LCM_KFREE(ops->set_backlight_grp_cmdq,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_backlight_grp_cmdq_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
-
-	mtk_lcm_dts_read_u32(np, "ata_check_size",
-				&ops->ata_check_size);
-	if (ops->ata_check_size > 0) {
-		mtk_lcm_dts_read_u32(np, "ata_id_value_length",
-				&ops->ata_id_value_length);
-		if (ops->ata_id_value_length > 0 &&
-		    ops->ata_id_value_length <= MTK_PANEL_ATA_ID_LENGTH) {
-			LCM_KZALLOC(ops->ata_id_value_data,
-					ops->ata_id_value_length, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
-				DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-					__func__, __LINE__);
-				return -ENOMEM;
-			}
-			len = mtk_lcm_dts_read_u8_array(np,
+		len = mtk_lcm_dts_read_u8_array(np,
 					"ata_id_value_data",
 					&ops->ata_id_value_data[0], 0,
 					ops->ata_id_value_length);
-			if (len != ops->ata_id_value_length) {
-				DDPPR_ERR("%s,%d: failed to parse ata id data, len:%d, expect:%u\n",
-					__func__, __LINE__, len,
-					ops->ata_id_value_length);
-				ret = -EFAULT;
-			}
+		if (len != ops->ata_id_value_length)
+			DDPPR_ERR("%s,%d: failed to parse ata id data, len:%d, expect:%u\n",
+				__func__, __LINE__, len,
+				ops->ata_id_value_length);
 
-			LCM_KZALLOC(ops->ata_check, sizeof(struct mtk_lcm_ops_data) *
-					ops->ata_check_size, GFP_KERNEL);
-			if (IS_ERR_OR_NULL(ops->ata_check)) {
-				DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-					__func__, __LINE__);
-				return -ENOMEM;
-			}
-			ops->ata_check_size = parse_lcm_ops_func(np,
-						ops->ata_check, "ata_check_table",
-						ops->ata_check_size,
-						MTK_LCM_FUNC_DSI, cust,
-						MTK_LCM_PHASE_KERNEL);
-			if (ops->ata_check_size == 0) {
-				LCM_KFREE(ops->ata_check,
-					sizeof(struct mtk_lcm_ops_data) *
-					ops->ata_check_size);
-				DDPMSG("%s, %d failed to parsing operation\n",
-					__func__, __LINE__);
-				ret = -EFAULT;
-			}
-		}
+		ret = parse_lcm_ops_func(np,
+					&ops->ata_check, "ata_check_table",
+					MTK_LCM_FUNC_DSI, cust,
+					MTK_LCM_PHASE_KERNEL);
+		if (ret < 0)
+			DDPMSG("%s, %d failed to parsing ata_check_table, ret:%d\n",
+				__func__, __LINE__, ret);
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_mask",
 				&ops->set_aod_light_mask);
+	ret = parse_lcm_ops_func(np,
+				&ops->set_aod_light,
+				"set_aod_light",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing set_aod_light, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "set_aod_light_size",
-				&ops->set_aod_light_size);
-	if (ops->set_aod_light_size > 0) {
-		LCM_KZALLOC(ops->set_aod_light, sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->set_aod_light)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->set_aod_light_size = parse_lcm_ops_func(np,
-					ops->set_aod_light,
-					"set_aod_light",
-					ops->set_aod_light_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->set_aod_light_size == 0) {
-			LCM_KFREE(ops->set_aod_light,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->doze_enable,
+				"doze_enable_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing doze_enable_table, ret:%d\n",
+				__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "doze_enable_size",
-				&ops->doze_enable_size);
-	if (ops->doze_enable_size > 0) {
-		LCM_KZALLOC(ops->doze_enable, sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_enable_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->doze_enable)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->doze_enable_size = parse_lcm_ops_func(np,
-					ops->doze_enable,
-					"doze_enable_table",
-					ops->doze_enable_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->doze_enable_size == 0) {
-			LCM_KFREE(ops->doze_enable,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_enable_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->doze_disable,
+				"doze_disable_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing doze_disable_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "doze_disable_size",
-				&ops->doze_disable_size);
-	if (ops->doze_disable_size > 0) {
-		LCM_KZALLOC(ops->doze_disable, sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_disable_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->doze_disable)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->doze_disable_size = parse_lcm_ops_func(np,
-					ops->doze_disable,
-					"doze_disable_table",
-					ops->doze_disable_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->doze_disable_size == 0) {
-			LCM_KFREE(ops->doze_disable,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_disable_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->doze_enable_start,
+				"doze_enable_start_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing doze_enable_start_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "doze_enable_start_size",
-				&ops->doze_enable_start_size);
-	if (ops->doze_enable_start_size > 0) {
-		LCM_KZALLOC(ops->doze_enable_start, sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_enable_start_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->doze_enable_start)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->doze_enable_start_size = parse_lcm_ops_func(np,
-					ops->doze_enable_start,
-					"doze_enable_start_table",
-					ops->doze_enable_start_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->doze_enable_start_size == 0) {
-			LCM_KFREE(ops->doze_enable_start,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_enable_start_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->doze_area, "doze_area_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing doze_area_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "doze_area_size",
-				&ops->doze_area_size);
-	if (ops->doze_area_size > 0) {
-		LCM_KZALLOC(ops->doze_area, sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_area_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->doze_area)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->doze_area_size = parse_lcm_ops_func(np,
-					ops->doze_area, "doze_area_table",
-					ops->doze_area_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->doze_area_size == 0) {
-			LCM_KFREE(ops->doze_area,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_area_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	ret = parse_lcm_ops_func(np,
+				&ops->doze_post_disp_on,
+				"doze_post_disp_on_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing doze_post_disp_on_table, ret:%d\n",
+			__func__, __LINE__, ret);
 
-	mtk_lcm_dts_read_u32(np, "doze_post_disp_on_size",
-				&ops->doze_post_disp_on_size);
-	if (ops->doze_post_disp_on_size > 0) {
-		LCM_KZALLOC(ops->doze_post_disp_on, sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_post_disp_on_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->doze_post_disp_on)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->doze_post_disp_on_size = parse_lcm_ops_func(np,
-					ops->doze_post_disp_on,
-					"doze_post_disp_on_table",
-					ops->doze_post_disp_on_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->doze_post_disp_on_size == 0) {
-			LCM_KFREE(ops->doze_post_disp_on,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_post_disp_on_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
-
-	mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_size",
-				&ops->hbm_set_cmdq_size);
-	if (ops->hbm_set_cmdq_size > 0) {
-		mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_switch_on",
-					&ops->hbm_set_cmdq_switch_on);
-		mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_switch_off",
-					&ops->hbm_set_cmdq_switch_off);
-
-		LCM_KZALLOC(ops->hbm_set_cmdq, sizeof(struct mtk_lcm_ops_data) *
-				ops->hbm_set_cmdq_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->hbm_set_cmdq)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->hbm_set_cmdq_size = parse_lcm_ops_func(np,
-					ops->hbm_set_cmdq, "hbm_set_cmdq_table",
-					ops->hbm_set_cmdq_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->hbm_set_cmdq_size == 0) {
-			LCM_KFREE(ops->hbm_set_cmdq,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->hbm_set_cmdq_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_switch_on",
+				&ops->hbm_set_cmdq_switch_on);
+	mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_switch_off",
+				&ops->hbm_set_cmdq_switch_off);
+	ret = parse_lcm_ops_func(np,
+				&ops->hbm_set_cmdq, "hbm_set_cmdq_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0)
+		DDPMSG("%s, %d failed to parsing operation, ret:%d\n",
+			__func__, __LINE__, ret);
 
 	for_each_available_child_of_node(np, mode_np) {
 		if (of_device_is_compatible(mode_np,
 				"mediatek,lcm-ops-dsi-fps-switch-before-powerdown")) {
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				ret = snprintf(mode_name, sizeof(mode_name),
-					"fps-switch-%u-%u-%u-%u_size",
+					"fps-switch-%u-%u-%u-%u_table",
 					mode_node->id, mode_node->width,
 					mode_node->height, mode_node->fps);
 				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
-					DDPMSG("%s, %d, snprintf failed\n",
-						__func__, __LINE__);
-				mtk_lcm_dts_read_u32(mode_np, mode_name,
-						&mode_node->fps_switch_bfoff_size);
+					DDPMSG("%s, %d, snprintf failed, ret:%d\n",
+						__func__, __LINE__, ret);
 
-				if (mode_node->fps_switch_bfoff_size > 0) {
-					ret = snprintf(mode_name, sizeof(mode_name),
-						"fps-switch-%u-%u-%u-%u_table",
-						mode_node->id, mode_node->width,
-						mode_node->height, mode_node->fps);
-					if (ret < 0 || (size_t)ret >= sizeof(mode_name))
-						DDPMSG("%s, %d, snprintf failed\n",
-							__func__, __LINE__);
-
-					LCM_KZALLOC(mode_node->fps_switch_bfoff,
-							sizeof(struct mtk_lcm_ops_data) *
-							mode_node->fps_switch_bfoff_size,
-							GFP_KERNEL);
-					if (IS_ERR_OR_NULL(mode_node->fps_switch_bfoff)) {
-						DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-							__func__, __LINE__);
-						return -ENOMEM;
-					}
-					DDPMSG("parsing LCM fps switch before power down ops: %s\n",
-						mode_name);
-					mode_node->fps_switch_bfoff_size =
-							parse_lcm_ops_func(mode_np,
-							mode_node->fps_switch_bfoff, mode_name,
-							mode_node->fps_switch_bfoff_size,
-							MTK_LCM_FUNC_DSI, cust,
-							MTK_LCM_PHASE_KERNEL);
-					if (mode_node->fps_switch_bfoff_size == 0) {
-						LCM_KFREE(mode_node->fps_switch_bfoff,
-							sizeof(struct mtk_lcm_ops_data) *
-							mode_node->fps_switch_bfoff_size);
-						DDPMSG("%s, %d failed to parsing operation\n",
-							__func__, __LINE__);
-						ret = -EFAULT;
-					}
-				}
+				DDPMSG("parsing LCM fps switch before power down ops: %s\n",
+					mode_name);
+				ret = parse_lcm_ops_func(mode_np,
+						&mode_node->fps_switch_bfoff, mode_name,
+						MTK_LCM_FUNC_DSI, cust,
+						MTK_LCM_PHASE_KERNEL);
+				if (ret < 0)
+					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
+						__func__, __LINE__, mode_name, ret);
 			}
 		}
 
@@ -1214,78 +961,25 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				"mediatek,lcm-ops-dsi-fps-switch-after-poweron")) {
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				ret = snprintf(mode_name, sizeof(mode_name),
-					"fps-switch-%u-%u-%u-%u_size",
+					"fps-switch-%u-%u-%u-%u_table",
 					mode_node->id, mode_node->width,
 					mode_node->height, mode_node->fps);
 				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
-					DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-				mtk_lcm_dts_read_u32(mode_np, mode_name,
-						&mode_node->fps_switch_afon_size);
+					DDPMSG("%s, %d, snprintf failed, ret:%d\n",
+						__func__, __LINE__, ret);
 
-				if (mode_node->fps_switch_afon_size > 0) {
-					ret = snprintf(mode_name, sizeof(mode_name),
-						"fps-switch-%u-%u-%u-%u_table",
-						mode_node->id, mode_node->width,
-						mode_node->height, mode_node->fps);
-					if (ret < 0 || (size_t)ret >= sizeof(mode_name))
-						DDPMSG("%s, %d, snprintf failed\n",
-							__func__, __LINE__);
-					LCM_KZALLOC(mode_node->fps_switch_afon,
-						sizeof(struct mtk_lcm_ops_data) *
-						mode_node->fps_switch_afon_size,
-						GFP_KERNEL);
-					if (IS_ERR_OR_NULL(mode_node->fps_switch_afon)) {
-						DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-							__func__, __LINE__);
-						return -ENOMEM;
-					}
-					DDPMSG("parsing LCM fps switch after power on ops: %s\n",
-						mode_name);
-					mode_node->fps_switch_afon_size =
-							parse_lcm_ops_func(mode_np,
-							mode_node->fps_switch_afon, mode_name,
-							mode_node->fps_switch_afon_size,
-							MTK_LCM_FUNC_DSI, cust,
-							MTK_LCM_PHASE_KERNEL);
-					if (mode_node->fps_switch_afon_size == 0) {
-						LCM_KFREE(mode_node->fps_switch_afon,
-							sizeof(struct mtk_lcm_ops_data) *
-							mode_node->fps_switch_afon_size);
-						DDPMSG("%s, %d failed to parsing operation\n",
-							__func__, __LINE__);
-						ret = -EFAULT;
-					}
-				}
+				DDPMSG("parsing LCM fps switch after power on ops: %s\n",
+					mode_name);
+				ret = parse_lcm_ops_func(mode_np,
+						&mode_node->fps_switch_afon, mode_name,
+						MTK_LCM_FUNC_DSI, cust,
+						MTK_LCM_PHASE_KERNEL);
+				if (ret < 0)
+					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
+						__func__, __LINE__, mode_name, ret);
 			}
 		}
 	}
-
-#if MTK_LCM_DEBUG_DUMP
-	mtk_lcm_dts_read_u32(np, "gpio_test_size",
-				&ops->gpio_test_size);
-	if (ops->gpio_test_size > 0) {
-		LCM_KZALLOC(ops->gpio_test, sizeof(struct mtk_lcm_ops_data) *
-				ops->gpio_test_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->gpio_test)) {
-			DDPMSG("%s,%d: failed to allocate table\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->gpio_test_size = parse_lcm_ops_func(np,
-					ops->gpio_test, "gpio_test_table",
-					ops->gpio_test_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->gpio_test_size == 0) {
-			LCM_KFREE(ops->gpio_test,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->gpio_test_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
-#endif
 
 	return ret;
 }
@@ -1549,8 +1243,10 @@ void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 	for (i = 0; i < params->lcm_pinctrl_count; i++)
 		DDPDUMP(" pinctrl%d: %s\n", i, params->lcm_pinctrl_name[i]);
 
-	list_for_each_entry(mode_node, &params->mode_list, list)
-		dump_lcm_dsi_fps_settings(mode_node);
+	if (params->mode_count > 0) {
+		list_for_each_entry(mode_node, &params->mode_list, list)
+			dump_lcm_dsi_fps_settings(mode_node);
+	}
 	DDPDUMP("=============================================\n");
 
 	if (IS_ERR_OR_NULL(cust) ||
@@ -1579,20 +1275,13 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 
 	DDPDUMP("=========== LCM DUMP of DSI ops:0x%lx-0x%lx ==============\n",
 		(unsigned long)ops, (unsigned long)params);
-	dump_lcm_ops_func(ops->prepare,
-		ops->prepare_size, cust, "prepare");
-	dump_lcm_ops_func(ops->unprepare,
-		ops->unprepare_size, cust, "unprepare");
-	dump_lcm_ops_func(ops->enable,
-		ops->enable_size, cust, "enable");
-	dump_lcm_ops_func(ops->disable,
-		ops->disable_size, cust, "disable");
-
-	dump_lcm_ops_func(ops->set_backlight_cmdq,
-		ops->set_backlight_cmdq_size,
+	dump_lcm_ops_func(&ops->prepare, cust, "prepare");
+	dump_lcm_ops_func(&ops->unprepare, cust, "unprepare");
+	dump_lcm_ops_func(&ops->enable, cust, "enable");
+	dump_lcm_ops_func(&ops->disable, cust, "disable");
+	dump_lcm_ops_func(&ops->set_backlight_cmdq,
 		cust, "set_backlight_cmdq");
-	dump_lcm_ops_func(ops->set_backlight_grp_cmdq,
-		ops->set_backlight_grp_cmdq_size,
+	dump_lcm_ops_func(&ops->set_backlight_grp_cmdq,
 		cust, "set_backlight_grp_cmdq");
 
 	DDPDUMP("ata_id_value_length=%u\n",
@@ -1604,8 +1293,7 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 			ops->ata_id_value_data[i + 1],
 			ops->ata_id_value_data[i + 2],
 			ops->ata_id_value_data[i + 3]);
-	dump_lcm_ops_func(ops->ata_check,
-		ops->ata_check_size, cust, "ata_check");
+	dump_lcm_ops_func(&ops->ata_check, cust, "ata_check");
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	DDPDUMP("compare_id_value_length=%u\n",
@@ -1614,36 +1302,30 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	for (i = 0; i < ops->compare_id_value_length; i++)
 		DDPDUMP("%u,", ops->compare_id_value_data[i]);
 	DDPDUMP("\n");
-	dump_lcm_ops_func(ops->compare_id,
-		ops->compare_id_size, cust, "compare_id");
+	dump_lcm_ops_func(&ops->compare_id, cust, "compare_id");
 #endif
 
-	dump_lcm_ops_func(ops->doze_enable_start,
-		ops->doze_enable_start_size, cust, "doze_enable_start");
-	dump_lcm_ops_func(ops->doze_enable,
-		ops->doze_enable_size, cust, "doze_enable");
-	dump_lcm_ops_func(ops->doze_disable,
-		ops->doze_disable_size, cust, "doze_disable");
-	dump_lcm_ops_func(ops->doze_area,
-		ops->doze_area_size, cust, "doze_area");
-	dump_lcm_ops_func(ops->doze_post_disp_on,
-		ops->doze_post_disp_on_size, cust, "doze_post_disp_on");
+	dump_lcm_ops_func(&ops->doze_enable_start,
+		cust, "doze_enable_start");
+	dump_lcm_ops_func(&ops->doze_enable, cust, "doze_enable");
+	dump_lcm_ops_func(&ops->doze_disable, cust, "doze_disable");
+	dump_lcm_ops_func(&ops->doze_area, cust, "doze_area");
+	dump_lcm_ops_func(&ops->doze_post_disp_on,
+		cust, "doze_post_disp_on");
 
 	DDPDUMP("hbm_set_cmdq_switch: on=0x%x,off=0x%x\n",
 		ops->hbm_set_cmdq_switch_on,
 		ops->hbm_set_cmdq_switch_off);
-	dump_lcm_ops_func(ops->hbm_set_cmdq,
-		ops->hbm_set_cmdq_size, cust, "hbm_set_cmdq");
+	dump_lcm_ops_func(&ops->hbm_set_cmdq, cust, "hbm_set_cmdq");
 
-	if (params != NULL) {
+	if (params != NULL && params->mode_count > 0) {
 		list_for_each_entry(mode_node, &params->mode_list, list) {
 			ret = snprintf(mode_name, sizeof(mode_name),
 				 "fps_switch_bfoff_%u_%u_%u", mode_node->width,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-			dump_lcm_ops_func(mode_node->fps_switch_bfoff,
-				mode_node->fps_switch_bfoff_size,
+			dump_lcm_ops_func(&mode_node->fps_switch_bfoff,
 				cust, mode_name);
 
 			ret = snprintf(mode_name, sizeof(mode_name),
@@ -1651,17 +1333,10 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-			dump_lcm_ops_func(mode_node->fps_switch_afon,
-				mode_node->fps_switch_afon_size,
+			dump_lcm_ops_func(&mode_node->fps_switch_afon,
 				cust, mode_name);
 		}
 	}
-
-#if MTK_LCM_DEBUG_DUMP
-	dump_lcm_ops_func(ops->gpio_test,
-			ops->gpio_test_size,
-			cust, "gpio_test");
-#endif
 
 	DDPDUMP("=============================================\n");
 }
@@ -1669,29 +1344,19 @@ EXPORT_SYMBOL(dump_lcm_ops_dsi);
 
 void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 {
-	struct mtk_lcm_mode_dsi *mode_node;
+	struct mtk_lcm_mode_dsi *mode_node = NULL, *tmp = NULL;
 
-	if (IS_ERR_OR_NULL(params)) {
+	if (IS_ERR_OR_NULL(params) || params->mode_count == 0) {
 		DDPPR_ERR("%s:%d, ERROR: invalid params/ops\n",
 			__FILE__, __LINE__);
 		return;
 	}
 
-	list_for_each_entry(mode_node, &params->mode_list, list) {
-		if (mode_node->fps_switch_bfoff_size > 0 &&
-		    mode_node->fps_switch_bfoff != NULL) {
-			LCM_KFREE(mode_node->fps_switch_bfoff,
-					sizeof(struct mtk_lcm_ops_data) *
-					mode_node->fps_switch_bfoff_size);
-			mode_node->fps_switch_bfoff_size = 0;
-		}
-		if (mode_node->fps_switch_afon_size > 0 &&
-		    mode_node->fps_switch_afon != NULL) {
-			LCM_KFREE(mode_node->fps_switch_afon,
-					sizeof(struct mtk_lcm_ops_data) *
-					mode_node->fps_switch_afon_size);
-			mode_node->fps_switch_afon_size = 0;
-		}
+	list_for_each_entry_safe(mode_node, tmp, &params->mode_list, list) {
+		if (mode_node->fps_switch_bfoff.size > 0)
+			free_lcm_ops_table(&mode_node->fps_switch_bfoff);
+		if (mode_node->fps_switch_afon.size > 0)
+			free_lcm_ops_table(&mode_node->fps_switch_afon);
 		list_del(&mode_node->list);
 		LCM_KFREE(mode_node, sizeof(struct mtk_lcm_mode_dsi));
 	}
@@ -1714,23 +1379,8 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 	DDPMSG("%s: LCM free dsi ops:0x%lx\n",
 		__func__, (unsigned long)ops);
 
-	if (ops->prepare_size > 0 && ops->prepare != NULL) {
-		free_lcm_ops_table(ops->prepare,
-			ops->prepare_size);
-		LCM_KFREE(ops->prepare,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->prepare_size);
-		ops->prepare_size = 0;
-	}
-
-	if (ops->unprepare_size > 0 && ops->unprepare != NULL) {
-		free_lcm_ops_table(ops->unprepare,
-			ops->unprepare_size);
-		LCM_KFREE(ops->unprepare,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->unprepare_size);
-		ops->unprepare_size = 0;
-	}
+	free_lcm_ops_table(&ops->prepare);
+	free_lcm_ops_table(&ops->unprepare);
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	if (ops->compare_id_value_length > 0 &&
@@ -1740,124 +1390,25 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 		ops->compare_id_value_length = 0;
 	}
 
-	if (ops->compare_id_size > 0 &&
-	    ops->compare_id != NULL) {
-		free_lcm_ops_table(ops->compare_id,
-			ops->compare_id_size);
-		LCM_KFREE(ops->compare_id,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->compare_id_size);
-		ops->compare_id_size = 0;
-	}
+	free_lcm_ops_table(&ops->compare_id);
 #endif
 
-	if (ops->set_backlight_cmdq_size > 0 &&
-	    ops->set_backlight_cmdq != NULL) {
-		free_lcm_ops_table(ops->set_backlight_cmdq,
-			ops->set_backlight_cmdq_size);
-		LCM_KFREE(ops->set_backlight_cmdq,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_backlight_cmdq_size);
-		ops->set_backlight_cmdq_size = 0;
-	}
-	if (ops->set_backlight_grp_cmdq_size > 0 &&
-	    ops->set_backlight_grp_cmdq != NULL) {
-		free_lcm_ops_table(ops->set_backlight_grp_cmdq,
-			ops->set_backlight_grp_cmdq_size);
-		LCM_KFREE(ops->set_backlight_grp_cmdq,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_backlight_grp_cmdq_size);
-		ops->set_backlight_grp_cmdq_size = 0;
-	}
+	free_lcm_ops_table(&ops->set_backlight_cmdq);
+	free_lcm_ops_table(&ops->set_backlight_grp_cmdq);
 	if (ops->ata_id_value_length > 0 &&
 	    ops->ata_id_value_data != NULL) {
 		LCM_KFREE(ops->ata_id_value_data,
 				ops->ata_id_value_length);
 		ops->ata_id_value_length = 0;
 	}
-	if (ops->ata_check_size > 0 &&
-	    ops->ata_check != NULL) {
-		free_lcm_ops_table(ops->ata_check,
-			ops->ata_check_size);
-		LCM_KFREE(ops->ata_check,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->ata_check_size);
-		ops->ata_check_size = 0;
-	}
-	if (ops->set_aod_light_size > 0 &&
-	    ops->set_aod_light != NULL) {
-		free_lcm_ops_table(ops->set_aod_light,
-			ops->set_aod_light_size);
-		LCM_KFREE(ops->set_aod_light,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_size);
-		ops->set_aod_light_size = 0;
-	}
-	if (ops->doze_enable_size > 0 &&
-	    ops->doze_enable != NULL) {
-		free_lcm_ops_table(ops->doze_enable,
-			ops->doze_enable_size);
-		LCM_KFREE(ops->doze_enable,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_enable_size);
-		ops->doze_enable_size = 0;
-	}
-	if (ops->doze_disable_size > 0 &&
-	    ops->doze_disable != NULL) {
-		free_lcm_ops_table(ops->doze_disable,
-			ops->doze_disable_size);
-		LCM_KFREE(ops->doze_disable,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_disable_size);
-		ops->doze_disable_size = 0;
-	}
-	if (ops->doze_enable_start_size > 0 &&
-	    ops->doze_enable_start != NULL) {
-		free_lcm_ops_table(ops->doze_enable_start,
-			ops->doze_enable_start_size);
-		LCM_KFREE(ops->doze_enable_start,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_enable_start_size);
-		ops->doze_enable_start_size = 0;
-	}
-	if (ops->doze_area_size > 0 &&
-	    ops->doze_area != NULL) {
-		free_lcm_ops_table(ops->doze_area,
-			ops->doze_area_size);
-		LCM_KFREE(ops->doze_area,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_area_size);
-		ops->doze_area_size = 0;
-	}
-	if (ops->doze_post_disp_on_size > 0 &&
-	    ops->doze_post_disp_on != NULL) {
-		free_lcm_ops_table(ops->doze_post_disp_on,
-			ops->doze_post_disp_on_size);
-		LCM_KFREE(ops->doze_post_disp_on,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->doze_post_disp_on_size);
-		ops->doze_post_disp_on_size = 0;
-	}
-	if (ops->hbm_set_cmdq_size > 0 &&
-	    ops->hbm_set_cmdq != NULL) {
-		free_lcm_ops_table(ops->hbm_set_cmdq,
-			ops->hbm_set_cmdq_size);
-		LCM_KFREE(ops->hbm_set_cmdq,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->hbm_set_cmdq_size);
-		ops->hbm_set_cmdq_size = 0;
-	}
-#if MTK_LCM_DEBUG_DUMP
-	if (ops->gpio_test_size > 0 &&
-	    ops->gpio_test != NULL) {
-		free_lcm_ops_table(ops->gpio_test,
-			ops->gpio_test_size);
-		LCM_KFREE(ops->gpio_test,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->gpio_test_size);
-		ops->gpio_test_size = 0;
-	}
-#endif
+	free_lcm_ops_table(&ops->ata_check);
+	free_lcm_ops_table(&ops->set_aod_light);
+	free_lcm_ops_table(&ops->doze_enable);
+	free_lcm_ops_table(&ops->doze_disable);
+	free_lcm_ops_table(&ops->doze_enable_start);
+	free_lcm_ops_table(&ops->doze_area);
+	free_lcm_ops_table(&ops->doze_post_disp_on);
+	free_lcm_ops_table(&ops->hbm_set_cmdq);
 
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dsi));
 }

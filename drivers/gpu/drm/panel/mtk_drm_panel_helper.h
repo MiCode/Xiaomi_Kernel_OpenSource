@@ -23,6 +23,16 @@ extern unsigned long long mtk_lcm_total_size;
 #define MTK_LCM_MODE_UNIT (4)
 #define MTK_LCM_DEBUG_DUMP (0)
 
+/* mtk_lcm_ops_table
+ * used to store the lcm operation commands
+ * list: operation command list
+ * size: operation command count
+ */
+struct mtk_lcm_ops_table {
+	struct list_head list;
+	unsigned int size;
+};
+
 struct mtk_lcm_params_dbi {
 	unsigned int dbi_private_data;
 };
@@ -43,10 +53,8 @@ struct mtk_lcm_mode_dsi {
 	struct drm_display_mode mode;
 	struct mtk_panel_params ext_param;
 /* ops */
-	unsigned int fps_switch_bfoff_size;
-	unsigned int fps_switch_afon_size;
-	struct mtk_lcm_ops_data *fps_switch_bfoff;
-	struct mtk_lcm_ops_data *fps_switch_afon;
+	struct mtk_lcm_ops_table fps_switch_bfoff;
+	struct mtk_lcm_ops_table fps_switch_afon;
 
 };
 
@@ -163,6 +171,7 @@ union mtk_lcm_ops_data_params {
  * param: the parsing result of lcm operation params
  */
 struct mtk_lcm_ops_data {
+	struct list_head node;
 	unsigned int func;
 	unsigned int type;
 	unsigned int size;
@@ -185,66 +194,49 @@ struct mtk_lcm_ops_dpi {
 
 /* mtk_lcm_ops_dsi
  * used to save the dsi operation list
- * xx_size: the operation count of xx function
  * xx: the operation data list of xx function
  */
 struct mtk_lcm_ops_dsi {
 	/* panel init & deinit */
-	unsigned int prepare_size;
-	struct mtk_lcm_ops_data *prepare;
-	unsigned int unprepare_size;
-	struct mtk_lcm_ops_data *unprepare;
-	unsigned int enable_size;
-	struct mtk_lcm_ops_data *enable;
-	unsigned int disable_size;
-	struct mtk_lcm_ops_data *disable;
+	struct mtk_lcm_ops_table prepare;
+	struct mtk_lcm_ops_table unprepare;
+	struct mtk_lcm_ops_table enable;
+	struct mtk_lcm_ops_table disable;
 
 	/* panel backlight update*/
 	unsigned int set_backlight_mask;
-	unsigned int set_backlight_cmdq_size;
-	struct mtk_lcm_ops_data *set_backlight_cmdq;
-	unsigned int set_backlight_grp_cmdq_size;
-	struct mtk_lcm_ops_data *set_backlight_grp_cmdq;
+	struct mtk_lcm_ops_table set_backlight_cmdq;
+	struct mtk_lcm_ops_table set_backlight_grp_cmdq;
 
 	unsigned int set_aod_light_mask;
-	unsigned int set_aod_light_size;
-	struct mtk_lcm_ops_data *set_aod_light;
+	struct mtk_lcm_ops_table set_aod_light;
 
 	/* panel aod check*/
-	unsigned int ata_check_size;
 	unsigned int ata_id_value_length;
 	u8 *ata_id_value_data;
-	struct mtk_lcm_ops_data *ata_check;
+	struct mtk_lcm_ops_table ata_check;
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	/* panel compare id check*/
-	unsigned int compare_id_size;
 	unsigned int compare_id_value_length;
 	u8 *compare_id_value_data;
-	struct mtk_lcm_ops_data *compare_id;
+	struct mtk_lcm_ops_table compare_id;
 #endif
 
 	/* doze feature support*/
-	unsigned int doze_enable_start_size;
-	struct mtk_lcm_ops_data *doze_enable_start;
-	unsigned int doze_enable_size;
-	struct mtk_lcm_ops_data *doze_enable;
-	unsigned int doze_disable_size;
-	struct mtk_lcm_ops_data *doze_disable;
-	unsigned int doze_area_size;
-	struct mtk_lcm_ops_data *doze_area;
-	unsigned int doze_post_disp_on_size;
-	struct mtk_lcm_ops_data *doze_post_disp_on;
+	struct mtk_lcm_ops_table doze_enable_start;
+	struct mtk_lcm_ops_table doze_enable;
+	struct mtk_lcm_ops_table doze_disable;
+	struct mtk_lcm_ops_table doze_area;
+	struct mtk_lcm_ops_table doze_post_disp_on;
 
 	/* hight backligth mode feature support*/
-	unsigned int hbm_set_cmdq_size;
 	unsigned int hbm_set_cmdq_switch_on;
 	unsigned int hbm_set_cmdq_switch_off;
-	struct mtk_lcm_ops_data *hbm_set_cmdq;
+	struct mtk_lcm_ops_table hbm_set_cmdq;
 
 #if MTK_LCM_DEBUG_DUMP
-	unsigned int gpio_test_size;
-	struct mtk_lcm_ops_data *gpio_test;
+	struct mtk_lcm_ops_table gpio_test;
 #endif
 };
 
@@ -305,14 +297,12 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 		struct mtk_panel_resource *data);
 
 int parse_lcm_ops_func(struct device_node *np,
-		struct mtk_lcm_ops_data *table,
-		char *func, unsigned int size,
+		struct mtk_lcm_ops_table *table, char *func,
 		unsigned int panel_type,
 		struct mtk_panel_cust *cust, unsigned int phase);
 
 /* function: execute lcm operations
  * input: table: lcm operation list
- *        table_size: lcm operation count
  *        panel_resource: lcm parameters
  *        data: the private data buffer of lcm operation
  *        size: the private data buffer size of lcm operation
@@ -320,7 +310,7 @@ int parse_lcm_ops_func(struct device_node *np,
  * output: 0 for success, else of failed
  */
 int mtk_panel_execute_operation(void *dev,
-		struct mtk_lcm_ops_data *table, unsigned int table_size,
+		struct mtk_lcm_ops_table *table,
 		const struct mtk_panel_resource *panel_resource,
 		struct mtk_lcm_ops_input_packet *input, char *owner);
 
@@ -372,8 +362,7 @@ void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops);
 void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops);
 
 /* function: dump dts settings of lcm driver*/
-void dump_lcm_ops_func(struct mtk_lcm_ops_data *table,
-		unsigned int size,
+void dump_lcm_ops_func(struct mtk_lcm_ops_table *table,
 		struct mtk_panel_cust *cust,
 		const char *owner);
 void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode);
@@ -418,8 +407,7 @@ int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi,
 /* function: free lcm operation data
  * input: operation cmd list, and size
  */
-void free_lcm_ops_table(struct mtk_lcm_ops_data *table,
-		unsigned int table_size);
+void free_lcm_ops_table(struct mtk_lcm_ops_table *table);
 void free_lcm_resource(char func, struct mtk_panel_resource *data);
 
 /* function: create an input package
