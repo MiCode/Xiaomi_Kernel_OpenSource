@@ -89,4 +89,8 @@
 #define V4L2_PIX_FMT_MTISP_BAYER10_UFBC v4l2_fourcc('M', 'B', 'A', 'U')
 #define V4L2_PIX_FMT_MTISP_BAYER12_UFBC v4l2_fourcc('M', 'B', 'C', 'U')
 #define V4L2_PIX_FMT_MTISP_BAYER14_UFBC v4l2_fourcc('M', 'B', 'E', 'U')
+
+/* To be upstream */
+#define V4L2_BUF_FLAG_TIMESTAMP_BOOT		0x00008000
+
 #endif /* _MTK_CAMERA_VIDEODEV2_H */

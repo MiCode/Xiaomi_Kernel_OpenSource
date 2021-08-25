@@ -1849,10 +1849,19 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 
 	/* initialize vb2_queue */
 	q->type = video->desc.buf_type;
+	q->io_modes = VB2_MMAP | VB2_DMABUF;
+
 	if (q->type == V4L2_BUF_TYPE_META_OUTPUT)
-		q->io_modes = VB2_MMAP | VB2_DMABUF;
+		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	else
-		q->io_modes = VB2_MMAP | VB2_DMABUF;
+		/**
+		 *  Actually we want to configure it as boot time but
+		 *  there is no such option now. We will upstream
+		 *  a new flag such as V4L2_BUF_FLAG_TIMESTAMP_BOOT
+		 *  and use that in the future.
+		 */
+		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_BOOT;
+
 	if (video->desc.smem_alloc) {
 		q->bidirectional = 1;
 		/* q->dev = cam->smem_dev; FIXME impl for real SCP */
