@@ -6,7 +6,8 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
 	     -I$(srctree)/drivers/misc/mediatek/mtk-interconnect \
 	     -I$(srctree)/drivers/misc/mediatek/imgsensor/src-v4l2/frame-sync/ \
-	     -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/
+	     -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/ \
+	     -I$(srctree)/drivers/dma-buf/heaps/
 
 MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1/cam
 

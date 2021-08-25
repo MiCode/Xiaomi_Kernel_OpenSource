@@ -17,6 +17,7 @@
 #include "mtk_cam-smem.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-meta.h"
+#include "mtk_heap.h"
 
 #ifndef CONFIG_MTK_SCP
 #include <linux/platform_data/mtk_ccd.h>
@@ -32,6 +33,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	struct mtk_ccd *ccd;
 	void *mem_priv;
 	int dmabuf_fd;
+	struct dma_buf *dbuf;
 	const int working_buf_size = round_up(CQ_BUF_SIZE, PAGE_SIZE);
 	const int msg_buf_size = round_up(IPI_FRAME_BUF_SIZE, PAGE_SIZE);
 
@@ -46,6 +48,9 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	smem.len = ctx->buf_pool.working_buf_size;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
+	if (dbuf)
+		mtk_dma_buf_set_name(dbuf, "CAM_MEM_CQ_ID");
 	ctx->buf_pool.working_buf_va = smem.va;
 	ctx->buf_pool.working_buf_iova = smem.iova;
 	ctx->buf_pool.working_buf_fd = dmabuf_fd;
@@ -54,6 +59,9 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	smem.len = ctx->buf_pool.msg_buf_size;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
+	if (dbuf)
+		mtk_dma_buf_set_name(dbuf, "CAM_MEM_MSG_ID");
 	ctx->buf_pool.msg_buf_va = smem.va;
 	ctx->buf_pool.msg_buf_fd = dmabuf_fd;
 
@@ -79,6 +87,9 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		smem.len = RAW_STATS_1_SIZE;
 		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+		dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
+		if (dbuf)
+			mtk_dma_buf_set_name(dbuf, "CAM_MEM_META_ID");
 		buf->meta_buffer.va = smem.va;
 		buf->meta_buffer.iova = smem.iova;
 		buf->meta_buffer.size = smem.len;
@@ -219,6 +230,7 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
 	void *mem_priv;
 	int dmabuf_fd;
 	int working_buf_size;
+	struct dma_buf *dbuf;
 
 	vdev = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 	working_buf_size = vdev->active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
@@ -232,7 +244,9 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
 	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
-
+	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
+	if (dbuf)
+		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
 	ctx->img_buf_pool.working_img_buf_va = smem.va;
 	ctx->img_buf_pool.working_img_buf_iova = smem.iova;
 	ctx->img_buf_pool.working_img_buf_fd = dmabuf_fd;

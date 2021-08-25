@@ -173,4 +173,6 @@ int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv, int ori_fd);
 int mtk_ccd_put_buffer_fd(struct mtk_ccd *ccd,
 			struct mem_obj *mem_buff_data,
 unsigned int target_fd);
+struct dma_buf *mtk_ccd_get_buffer_dmabuf(struct mtk_ccd *ccd,
+			void *mem_priv);
 #endif /* _MTK_CCD_H */

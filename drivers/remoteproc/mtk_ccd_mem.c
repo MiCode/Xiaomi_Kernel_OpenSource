@@ -352,6 +352,19 @@ static struct dma_buf *mtk_ccd_get_dmabuf(struct mtk_ccd_buf *buf, unsigned long
 	return dbuf;
 }
 
+struct dma_buf *mtk_ccd_get_buffer_dmabuf(struct mtk_ccd *ccd, void *mem_priv)
+{
+	struct mtk_ccd_buf *buf = mem_priv;
+
+	if (ccd == NULL || buf == NULL) {
+		pr_info("mtk_ccd or mem_priv is NULL\n");
+		return NULL;
+	}
+
+	return buf->dbuf;
+}
+EXPORT_SYMBOL_GPL(mtk_ccd_get_buffer_dmabuf);
+
 struct mtk_ccd_memory *mtk_ccd_mem_init(struct device *dev)
 {
 	struct mtk_ccd_memory *ccd_memory;
