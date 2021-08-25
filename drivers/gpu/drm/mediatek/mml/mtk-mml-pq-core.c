@@ -679,7 +679,9 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 	struct mml_pq_comp_config_result *result = NULL;
 	struct mml_pq_aal_config_param *aal_param = NULL;
 	struct mml_pq_reg *aal_regs = NULL;
+	struct mml_pq_reg *hdr_regs = NULL;
 	u32 *aal_curve = NULL;
+	u32 *hdr_curve = NULL;
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
@@ -759,15 +761,51 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_aal_curve;
 	}
 
+	hdr_regs = kmalloc(result->hdr_reg_cnt*sizeof(*hdr_regs),
+			GFP_KERNEL);
+	if (unlikely(!hdr_regs)) {
+		mml_pq_err("err: create hdr_regs failed, size:%d\n",
+			result->hdr_reg_cnt);
+		goto free_aal_curve;
+	}
+
+	ret = copy_from_user(hdr_regs, result->hdr_regs,
+		result->hdr_reg_cnt*sizeof(*hdr_regs));
+	if (unlikely(ret)) {
+		mml_pq_err("copy aal config failed!: %d\n", ret);
+		goto free_hdr_regs;
+	}
+
+	hdr_curve = kmalloc(HDR_CURVE_NUM*sizeof(u32),
+			GFP_KERNEL);
+	if (unlikely(!hdr_curve)) {
+		mml_pq_err("err: create hdr_curve failed, size:%d\n",
+			HDR_CURVE_NUM);
+		goto free_hdr_regs;
+	}
+
+	ret = copy_from_user(hdr_curve, result->hdr_curve,
+		HDR_CURVE_NUM*sizeof(u32));
+	if (unlikely(ret)) {
+		mml_pq_err("copy hdr curve failed!: %d\n", ret);
+		goto free_hdr_curve;
+	}
+
 	result->aal_param = aal_param;
 	result->aal_regs = aal_regs;
 	result->aal_curve = aal_curve;
+	result->hdr_regs = hdr_regs;
+	result->hdr_curve = hdr_curve;
 	mutex_lock(&sub_task->lock);
 	sub_task->result = result;
 	mutex_unlock(&sub_task->lock);
 	mml_pq_msg("%s result end, result_id[%d] sub_task[%p]",
 		__func__, job->result_job_id, sub_task);
 	goto wake_up_prev_comp_config_task;
+free_hdr_curve:
+	kfree(hdr_curve);
+free_hdr_regs:
+	kfree(hdr_regs);
 free_aal_curve:
 	kfree(aal_curve);
 free_aal_regs:

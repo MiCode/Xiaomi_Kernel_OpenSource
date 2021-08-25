@@ -13,6 +13,7 @@
 
 #include "mtk-mml-core.h"
 
+#define HDR_CURVE_NUM (1024)
 #define AAL_CURVE_NUM (544)
 #define AAL_HIST_NUM (768)
 #define AAL_DUAL_INFO_NUM (16)

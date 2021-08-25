@@ -20,6 +20,10 @@
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
 
+#undef pr_fmt
+#define pr_fmt(fmt) "[mml_pq_hdr]" fmt
+
+
 #define HDR_TOP			0x000
 #define HDR_RELAY		0x004
 #define HDR_INTERR		0x008
@@ -136,6 +140,8 @@
 #define HDR_DUMMY2		0x1d0
 #define HDR_HLG_SG		0x1d4
 
+#define HDR_WAIT_TIMEOUT_MS (50)
+
 struct hdr_data {
 	u32 min_tile_width;
 };
@@ -154,6 +160,9 @@ struct mml_comp_hdr {
 /* meta data for each different frame config */
 struct hdr_frame_data {
 	u8 out_idx;
+	u32 out_hist_xs;
+	u16 labels[HDR_CURVE_NUM];
+	bool is_hdr_need_readback;
 };
 
 #define hdr_frm_data(i)	((struct hdr_frame_data *)(i->data))
@@ -175,6 +184,20 @@ static s32 hdr_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 }
+
+static s32 hdr_buf_prepare(struct mml_comp *comp, struct mml_task *task,
+		struct mml_comp_config *ccfg)
+{
+	s32 ret = 0;
+
+	mml_pq_msg("%s engine_id[%d]", __func__, comp->id);
+	ret = mml_pq_comp_config(task);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
 
 static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg,
@@ -222,6 +245,22 @@ static const struct mml_comp_tile_ops hdr_tile_ops = {
 	.prepare = hdr_tile_prepare,
 };
 
+static u32 hdr_get_label_count(struct mml_comp *comp, struct mml_task *task,
+			struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
+		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
+
+	if (!dest->pq_config.en_hdr)
+		return 0;
+
+	return HDR_CURVE_NUM;
+}
+
 static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg)
 {
@@ -235,18 +274,37 @@ static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static struct mml_pq_comp_config_result *get_hdr_comp_config_result(
+	struct mml_task *task)
+{
+	struct mml_pq_sub_task *sub_task = NULL;
+
+	if (task->pq_task)
+		sub_task = &task->pq_task->comp_config;
+	if (sub_task)
+		return (struct mml_pq_comp_config_result *)sub_task->result;
+	else
+		return NULL;
+}
+
+
 static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
-	const struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_data *src = &cfg->info.src;
 	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
+	struct mml_pq_comp_config_result *result = NULL;
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+	s32 ret = 0;
 
-	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] 12345 en_hdr[%d]", __func__,
+		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
 
 	if (MML_FMT_10BIT(src->format) ||
 	    MML_FMT_10BIT(dest->data.format))
@@ -256,8 +314,49 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP,
 			1 << 28, 0x30000000);
 
-	/* relay mode */
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, U32_MAX);
+	if (!dest->pq_config.en_hdr) {
+		/* relay mode */
+		cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, 0x00000001);
+		return ret;
+	}
+
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x0, 0x00000001);
+
+	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
+	if (!ret) {
+		result = get_hdr_comp_config_result(task);
+		if (result) {
+			s32 i;
+			struct mml_pq_reg *regs = result->hdr_regs;
+			u32 *curve = result->hdr_curve;
+			//TODO: use different regs
+			mml_pq_msg("%s:config hdr regs, count: %d", __func__, result->hdr_reg_cnt);
+			for (i = 0; i < result->hdr_reg_cnt; i++) {
+				cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
+					regs[i].value, regs[i].mask);
+				mml_pq_msg("[hdr][config][%x] = %#x mask(%#x)",
+					regs[i].offset, regs[i].value, regs[i].mask);
+			}
+			i = 0;
+			while (i < HDR_CURVE_NUM) {
+				mml_write(pkt, base_pa + HDR_GAIN_TABLE_1, curve[i], U32_MAX,
+					reuse, cache, &hdr_frm->labels[i]);
+				mml_write(pkt, base_pa + HDR_GAIN_TABLE_2, curve[i+1], U32_MAX,
+					reuse, cache, &hdr_frm->labels[i+1]);
+				i = i+2;
+			}
+			cmdq_pkt_write(pkt, NULL, base_pa + HDR_GAIN_TABLE_0,
+					1 << 11, 1 << 11);
+			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
+				result->is_hdr_need_readback);
+			hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
+		} else {
+			mml_pq_err("%s: not get result from user lib", __func__);
+		}
+	} else {
+		mml_pq_err("get hdr param timeout: %d in %dms",
+			ret, HDR_WAIT_TIMEOUT_MS);
+	}
 
 	return 0;
 }
@@ -268,16 +367,24 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 
+	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
+	u16 tile_cnt = cfg->tile_output[ccfg->pipe]->tile_cnt;
 	u32 hdr_input_w;
 	u32 hdr_input_h;
 	u32 hdr_crop_xs;
 	u32 hdr_crop_xe;
 	u32 hdr_crop_ye;
+	u32 hdr_hist_left_start = 0;
+	u32 hdr_hist_begin_x = 0;
+	u32 hdr_hist_end_x = 0;
+	u32 hdr_first_tile = 0;
+	u32 hdr_last_tile = 0;
 
-	mml_pq_msg("%s pipe_id[%d] engine_id[%d] idx[%d]", __func__,
-			ccfg->pipe, comp->id, idx);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
+		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
 
 	hdr_input_w = tile->in.xe - tile->in.xs + 1;
 	hdr_input_h = tile->in.ye - tile->in.ys + 1;
@@ -294,14 +401,101 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_SIZE_2,
 		hdr_crop_ye << 16, U32_MAX);
 
+	mml_pq_msg("%s %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, tile->in.xs, tile->in.xe, tile->in.ys, tile->in.ye);
+	mml_pq_msg("%s %d: [output] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, idx, tile->out.xs, tile->out.xe, tile->out.ys,
+			tile->out.ye);
+
+	if (!dest->pq_config.en_hdr)
+		return 0;
+
+	hdr_hist_left_start =
+		(tile->out.xs > hdr_frm->out_hist_xs) ? tile->out.xs : hdr_frm->out_hist_xs;
+	hdr_hist_begin_x = hdr_hist_left_start - tile->in.xs;
+	hdr_hist_end_x = tile->out.xe - tile->in.xs;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_0, hdr_hist_begin_x, 0x00003FFF);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_1, hdr_hist_end_x, 0x00003FFF);
+
+	if (!idx) {
+		hdr_frm->out_hist_xs = tile->out.xe+1;
+		hdr_first_tile = 1;
+		hdr_last_tile = 0;
+	} else if (idx+1 >= tile_cnt) {
+		hdr_frm->out_hist_xs = 0;
+		hdr_first_tile = 0;
+		hdr_last_tile = 1;
+	} else {
+		hdr_frm->out_hist_xs = tile->out.xe+1;
+		hdr_first_tile = 0;
+		hdr_last_tile = 0;
+	}
+
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, (hdr_first_tile << 5) | (hdr_last_tile << 6),
+		0x00000060);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_ADDR, (1 << 9), 0x00000200);
+
+	mml_pq_msg("%s %d: hdr_hist_begin_x[%d] hdr_hist_end_x[%d] out_hist_xs[%d]",
+		__func__, idx, hdr_hist_begin_x, hdr_hist_end_x,
+		hdr_frm->out_hist_xs);
+	mml_pq_msg("%s %d: hdr_first_tile[%d] hdr_last_tile[%d] out_hist_xs[%d]",
+		__func__, idx, hdr_first_tile, hdr_last_tile,
+		hdr_frm->out_hist_xs);
+
+	return 0;
+}
+
+static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+	struct mml_pq_comp_config_result *result = NULL;
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+
+	s32 ret = 0;
+
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
+		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
+
+	if (!dest->pq_config.en_hdr)
+		return ret;
+
+	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
+	if (!ret) {
+		result = get_hdr_comp_config_result(task);
+		if (result) {
+			s32 i = 0;
+			u32 *curve = result->hdr_curve;
+
+			while (i < HDR_CURVE_NUM) {
+				mml_update(reuse, hdr_frm->labels[i], curve[i]);
+				mml_update(reuse, hdr_frm->labels[i+1], curve[i+1]);
+				i = i+2;
+			}
+			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
+				result->is_hdr_need_readback);
+			hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
+		} else {
+			mml_pq_err("%s: not get result from user lib", __func__);
+		}
+	} else {
+		mml_pq_err("get aal param timeout: %d in %dms",
+			ret, HDR_WAIT_TIMEOUT_MS);
+	}
 	return 0;
 }
 
 static const struct mml_comp_config_ops hdr_cfg_ops = {
 	.prepare = hdr_prepare,
+	.buf_prepare = hdr_buf_prepare,
+	.get_label_count = hdr_get_label_count,
 	.init = hdr_init,
 	.frame = hdr_config_frame,
 	.tile = hdr_config_tile,
+	.reframe = hdr_reconfig_frame,
 };
 
 static void hdr_debug_dump(struct mml_comp *comp)
