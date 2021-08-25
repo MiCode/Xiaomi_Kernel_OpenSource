@@ -14,6 +14,7 @@
 
 ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek \
              -I$(srctree)/drivers/devfreq \
+             -I$(srctree)/drivers/dma-buf/heaps/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs \
              -I$(srctree)/drivers/misc/mediatek/smi \
              -I$(srctree)/drivers/misc/mediatek/include \

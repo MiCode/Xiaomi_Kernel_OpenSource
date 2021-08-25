@@ -1032,12 +1032,72 @@ static void core_buffer_map(struct mml_task *task)
 	mml_trace_end();
 }
 
+static void get_color_fmt_str(char *fmt, size_t sz, u32 format)
+{
+	snprintf(fmt, sz, "%s%s%s%s%s%s%s",
+		MML_FMT_SWAP(format) ? "s" : "",
+		MML_FMT_BLOCK(format) ? "b" : "",
+		MML_FMT_INTERLACED(format) ? "i" : "",
+		MML_FMT_UFO(format) ? "u" : "",
+		MML_FMT_10BIT_TILE(format) ? "t" :
+		MML_FMT_10BIT_PACKED(format) ? "p" :
+		MML_FMT_10BIT_LOOSE(format) ? "l" : "",
+		MML_FMT_10BIT_JUMP(format) ? "j" : "",
+		MML_FMT_COMPRESS(format) ? "c" : "");
+}
+
+static void dump_inout(struct mml_task *task)
+{
+	u32 i;
+	char fmt[11];
+
+	get_color_fmt_str(fmt, sizeof(fmt), task->config->info.src.format);
+	mml_log("in:%u %u f:%#010x(%s) stride %u %u fence:%s plane:%hhu%s",
+		task->config->info.src.width,
+		task->config->info.src.height,
+		task->config->info.src.format,
+		fmt,
+		task->config->info.src.y_stride,
+		task->config->info.src.uv_stride,
+		task->buf.src.fence ? "true" : "false",
+		task->buf.src.cnt,
+		task->buf.src.flush ? " flush" : "");
+	for (i = 0; i < task->config->info.dest_cnt; i++) {
+		get_color_fmt_str(fmt, sizeof(fmt),
+			task->config->info.dest[i].data.format);
+		mml_log(
+			"out %u:%u %u f:%#010x(%s) stride %u %u rot:%hu f:%hhu fence:%s plane:%hhu%s%s",
+			i,
+			task->config->info.dest[i].data.width,
+			task->config->info.dest[i].data.height,
+			task->config->info.dest[i].data.format,
+			fmt,
+			task->config->info.dest[i].data.y_stride,
+			task->config->info.dest[i].data.uv_stride,
+			task->config->info.dest[i].rotate,
+			(u8)task->config->info.dest[i].flip,
+			task->buf.dest[i].fence ? "true" : "false",
+			task->buf.dest[i].cnt,
+			task->buf.dest[i].flush ? " flush" : "",
+			task->buf.dest[i].invalid ? " invalid" : "");
+		mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
+			i,
+			task->config->info.dest[i].crop.r.left,
+			task->config->info.dest[i].crop.r.top,
+			task->config->info.dest[i].crop.r.width,
+			task->config->info.dest[i].crop.r.height,
+			task->config->info.dest[i].compose.left,
+			task->config->info.dest[i].compose.top,
+			task->config->info.dest[i].compose.width,
+			task->config->info.dest[i].compose.height);
+	}
+}
+
 static void core_config_thread(struct work_struct *work)
 {
 	struct mml_task *task;
 	struct mml_path_client *path_clt;
 	s32 err;
-	u32 i;
 
 	mml_trace_begin("%s", __func__);
 
@@ -1048,41 +1108,7 @@ static void core_config_thread(struct work_struct *work)
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
-		mml_log("in:%u %u f:%#010x stride %u %u fence:%s plane:%hhu%s",
-			task->config->info.src.width,
-			task->config->info.src.height,
-			task->config->info.src.format,
-			task->config->info.src.y_stride,
-			task->config->info.src.uv_stride,
-			task->buf.src.fence ? "true" : "false",
-			task->buf.src.cnt,
-			task->buf.src.flush ? " flush" : "");
-		for (i = 0; i < task->config->info.dest_cnt; i++) {
-			mml_log(
-				"out %u:%u %u f:%#010x stride %u %u rot:%hu f:%hhu fence:%s plane:%hhu%s%s",
-				i,
-				task->config->info.dest[i].data.width,
-				task->config->info.dest[i].data.height,
-				task->config->info.dest[i].data.format,
-				task->config->info.dest[i].data.y_stride,
-				task->config->info.dest[i].data.uv_stride,
-				task->config->info.dest[i].rotate,
-				(u8)task->config->info.dest[i].flip,
-				task->buf.dest[i].fence ? "true" : "false",
-				task->buf.dest[i].cnt,
-				task->buf.dest[i].flush ? " flush" : "",
-				task->buf.dest[i].invalid ? " invalid" : "");
-			mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
-				i,
-				task->config->info.dest[i].crop.r.left,
-				task->config->info.dest[i].crop.r.top,
-				task->config->info.dest[i].crop.r.width,
-				task->config->info.dest[i].crop.r.height,
-				task->config->info.dest[i].compose.left,
-				task->config->info.dest[i].compose.top,
-				task->config->info.dest[i].compose.width,
-				task->config->info.dest[i].compose.height);
-		}
+		dump_inout(task);
 
 		/* topology will fill in path instance */
 		err = topology_select_path(task->config);

@@ -12,8 +12,9 @@
 #include "mtk-mml.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-core.h"
+#include "mtk_heap.h"
 
-void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt)
+void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *name)
 {
 	u32 i;
 	struct dma_buf *dmabuf;
@@ -23,13 +24,14 @@ void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt)
 			continue;
 
 		dmabuf = dma_buf_get(fd[i]);
-		if (!dmabuf || IS_ERR(dmabuf)) {
+		if (IS_ERR_OR_NULL(dmabuf)) {
 			mml_err("%s fail to get dma_buf %u by fd %d err %ld",
 				__func__, i, fd[i], PTR_ERR(dmabuf));
 			continue;
 		}
 
 		buf->dma[i].dmabuf = dmabuf;
+		mtk_dma_buf_set_name(dmabuf, name);
 	}
 }
 
@@ -38,8 +40,7 @@ inline static int dmabuf_to_iova(struct device *dev, struct mml_dma_buf *dma)
 	int err;
 
 	dma->attach = dma_buf_attach(dma->dmabuf, dev);
-
-	if (IS_ERR(dma->attach)) {
+	if (IS_ERR_OR_NULL(dma->attach)) {
 		err = PTR_ERR(dma->attach);
 		mml_err("%s attach fail buf %p dev %p err %d",
 			__func__, dma->dmabuf, dev, err);
@@ -48,7 +49,7 @@ inline static int dmabuf_to_iova(struct device *dev, struct mml_dma_buf *dma)
 
 	dma->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 	dma->sgt = dma_buf_map_attachment(dma->attach, DMA_TO_DEVICE);
-	if (IS_ERR(dma->sgt)) {
+	if (IS_ERR_OR_NULL(dma->sgt)) {
 		err = PTR_ERR(dma->sgt);
 		mml_err("%s map failed err %d attach %p dev %p",
 			__func__, err, dma->attach, dev);
@@ -56,6 +57,11 @@ inline static int dmabuf_to_iova(struct device *dev, struct mml_dma_buf *dma)
 	}
 
 	dma->iova = sg_dma_address(dma->sgt->sgl);
+	if (!dma->iova) {
+		mml_err("%s iova map fail dev %p", __func__, dev);
+		err = -ENOMEM;
+		goto err_detach;
+	}
 	return 0;
 
 err_detach:

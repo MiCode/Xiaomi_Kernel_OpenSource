@@ -313,11 +313,12 @@ static struct mml_frame_config *frame_config_create(
 }
 
 static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
-				  struct mml_buffer *fdbuf)
+				  struct mml_buffer *fdbuf,
+				  const char *name)
 {
 	u8 i;
 
-	mml_buf_get(fbuf, fdbuf->fd, fdbuf->cnt);
+	mml_buf_get(fbuf, fdbuf->fd, fdbuf->cnt, name);
 
 	/* also copy size for later use */
 	for (i = 0; i < fdbuf->cnt; i++)
@@ -609,11 +610,12 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	task->end_time.tv_nsec = submit->end.nsec;
 	/* give default time if empty */
 	frame_check_end_time(&task->end_time);
-	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src);
+	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "mml_rdma");
 	task->buf.dest_cnt = submit->buffer.dest_cnt;
 	for (i = 0; i < submit->buffer.dest_cnt; i++)
 		frame_buf_to_task_buf(&task->buf.dest[i],
-				      &submit->buffer.dest[i]);
+				      &submit->buffer.dest[i],
+				      "mml_wrot");
 
 	/* create fence for this task */
 	fence.value = task->job.jobid;
