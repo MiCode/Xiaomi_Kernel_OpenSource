@@ -47,21 +47,6 @@ static struct pd_capacity_info *pd_capacity_tbl;
 static int pd_count;
 static int entry_count;
 
-int pd_freq_to_opp(int cpu, unsigned long freq)
-{
-	int idx;
-	struct em_perf_domain *pd;
-
-	pd = em_cpu_get(cpu);
-	for (idx = 0; idx < pd->nr_perf_states; idx++) {
-		if (pd->table[idx].frequency == freq)
-			return idx;
-	}
-
-	return -1;
-}
-EXPORT_SYMBOL_GPL(pd_freq_to_opp);
-
 unsigned long pd_get_opp_capacity(int cpu, int opp)
 {
 	int i;

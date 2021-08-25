@@ -32,7 +32,6 @@ extern int set_sched_capacity_margin_dvfs(unsigned int capacity_margin);
 extern unsigned int get_sched_capacity_margin_dvfs(void);
 #endif
 
-extern int pd_freq_to_opp(int cpu, unsigned long freq);
 extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 #endif
 
