@@ -11,6 +11,7 @@
 #include "apusys_power.h"
 #include "apusys_secure.h"
 #include "../apu.h"
+#include "../apu_debug.h"
 #include "../apu_config.h"
 #include "../apu_hw.h"
 
@@ -68,16 +69,19 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 			apu->apu_sctrl_reviser + UP_PRI_DOMAIN_NS);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
 
-		dev_info(dev, "%s: UP_NORMAL_DOMAIN_NS = 0x%x\n",
+		apu_drv_debug("%s: UP_IOMMU_CTRL = 0x%x\n",
+			__func__,
+			ioread32(apu->apu_sctrl_reviser + UP_IOMMU_CTRL));
+		apu_drv_debug("%s: UP_NORMAL_DOMAIN_NS = 0x%x\n",
 			__func__,
 			ioread32(apu->apu_sctrl_reviser + UP_NORMAL_DOMAIN_NS));
-		dev_info(dev, "%s: UP_PRI_DOMAIN_NS = 0x%x\n",
+		apu_drv_debug("%s: UP_PRI_DOMAIN_NS = 0x%x\n",
 			__func__,
 			ioread32(apu->apu_sctrl_reviser + UP_PRI_DOMAIN_NS));
-		dev_info(dev, "%s: USERFW_CTXT = 0x%x\n",
+		apu_drv_debug("%s: USERFW_CTXT = 0x%x\n",
 			__func__,
 			ioread32(apu->apu_sctrl_reviser + USERFW_CTXT));
-		dev_info(dev, "%s: SECUREFW_CTXT = 0x%x\n",
+		apu_drv_debug("%s: SECUREFW_CTXT = 0x%x\n",
 			__func__,
 			ioread32(apu->apu_sctrl_reviser + SECUREFW_CTXT));
 
@@ -99,16 +103,16 @@ static void apu_setup_reviser(struct mtk_apu *apu, int boundary, int ns, int dom
 				apu->apu_sctrl_reviser + UP_CORE0_MVABASE1);
 			spin_unlock_irqrestore(&apu->reg_lock, flags);
 
-			dev_info(dev, "%s: UP_CORE0_VABASE0 = 0x%x\n",
+			apu_drv_debug("%s: UP_CORE0_VABASE0 = 0x%x\n",
 				__func__,
 				ioread32(apu->apu_sctrl_reviser + UP_CORE0_VABASE0));
-			dev_info(dev, "%s: UP_CORE0_MVABASE0 = 0x%x\n",
+			apu_drv_debug("%s: UP_CORE0_MVABASE0 = 0x%x\n",
 				__func__,
 				ioread32(apu->apu_sctrl_reviser + UP_CORE0_MVABASE0));
-			dev_info(dev, "%s: UP_CORE0_VABASE1 = 0x%x\n",
+			apu_drv_debug("%s: UP_CORE0_VABASE1 = 0x%x\n",
 				__func__,
 				ioread32(apu->apu_sctrl_reviser + UP_CORE0_VABASE1));
-			dev_info(dev, "%s: UP_CORE0_MVABASE1 = 0x%x\n",
+			apu_drv_debug("%s: UP_CORE0_MVABASE1 = 0x%x\n",
 				__func__,
 				ioread32(apu->apu_sctrl_reviser + UP_CORE0_MVABASE1));
 		}
@@ -146,7 +150,7 @@ static void apu_reset_mp(struct mtk_apu *apu)
 		/* md32_g2b_cg_en | md32_dbg_en | md32_soft_rstn */
 		iowrite32(0xc01, apu->md32_sysctrl + MD32_SYS_CTRL);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
-		dev_info(dev, "%s: MD32_SYS_CTRL = 0x%x\n",
+		apu_drv_debug("%s: MD32_SYS_CTRL = 0x%x\n",
 			__func__, ioread32(apu->md32_sysctrl + MD32_SYS_CTRL));
 
 		spin_lock_irqsave(&apu->reg_lock, flags);
@@ -155,9 +159,9 @@ static void apu_reset_mp(struct mtk_apu *apu)
 		/* set up_wake_host_mask0 for wdt/mbox irq */
 		iowrite32(0x1c0001, apu->md32_sysctrl + UP_WAKE_HOST_MASK0);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
-		dev_info(dev, "%s: MD32_CLK_EN = 0x%x\n",
+		apu_drv_debug("%s: MD32_CLK_EN = 0x%x\n",
 			__func__, ioread32(apu->md32_sysctrl + MD32_CLK_EN));
-		dev_info(dev, "%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
+		apu_drv_debug("%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
 			__func__, ioread32(apu->md32_sysctrl + UP_WAKE_HOST_MASK0));
 	}
 }
@@ -190,14 +194,14 @@ static void apu_setup_boot(struct mtk_apu *apu)
 			iowrite32((u32)CODE_BUF_DA | boot_from_tcm,
 				apu->apu_ao_ctl + MD32_BOOT_CTRL);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
-		dev_info(dev, "%s: MD32_BOOT_CTRL = 0x%x\n",
+		apu_drv_debug("%s: MD32_BOOT_CTRL = 0x%x\n",
 			__func__, ioread32(apu->apu_ao_ctl + MD32_BOOT_CTRL));
 
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* set predefined MPU region for cache access */
 		iowrite32(0xAB, apu->apu_ao_ctl + MD32_PRE_DEFINE);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
-		dev_info(dev, "%s: MD32_PRE_DEFINE = 0x%x\n",
+		apu_drv_debug("%s: MD32_PRE_DEFINE = 0x%x\n",
 			__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
 	}
 }

@@ -22,11 +22,14 @@
 #include <linux/pm_runtime.h>
 
 #include "apu.h"
+#include "apu_debug.h"
 #include "apu_excep.h"
 #include "apu_config.h"
 #include "apusys_core.h"
 
 
+struct mtk_apu *g_apu_struct;
+uint32_t g_apu_log;
 static struct platform_device *g_pdev;
 static int drv_param;
 
@@ -73,11 +76,11 @@ static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iome
 
 	if (da >= DRAM_OFFSET && da < DRAM_OFFSET + CODE_BUF_SIZE) {
 		ptr = apu->code_buf + (da - DRAM_OFFSET);
-		pr_info("%s(DRAM): da = 0x%llx, len = 0x%x\n",
+		dev_info(apu->dev, "%s: (DRAM): da = 0x%llx, len = 0x%x\n",
 			__func__, da, len);
 	} else if (da >= TCM_OFFSET && da < TCM_OFFSET + TCM_SIZE) {
 		ptr = apu->md32_tcm + (da - TCM_OFFSET);
-		pr_info("%s(TCM): da = 0x%llx, len = 0x%x\n",
+		dev_info(apu->dev, "%s: (TCM): da = 0x%llx, len = 0x%x\n",
 			__func__, da, len);
 	}
 	return ptr;
@@ -226,11 +229,11 @@ static int apu_dram_boot_init(struct mtk_apu *apu)
 				apu->apusys_sec_mem_start,
 				apu->apusys_sec_mem_size, IOMMU_READ|IOMMU_WRITE);
 		if (ret) {
-			pr_info("%s: iommu_map fail(%d)\n", __func__, ret);
+			dev_info(dev, "%s: iommu_map fail(%d)\n", __func__, ret);
 			return ret;
 		}
 
-		pr_info("%s: iommu_map done\n", __func__);
+		dev_info(dev, "%s: iommu_map done\n", __func__);
 		return ret;
 	}
 
@@ -331,7 +334,13 @@ static int apu_probe(struct platform_device *pdev)
 	else
 		rproc->auto_boot = false;
 
+	if (data->flags & F_DEBUG_LOG_ON)
+		g_apu_log = 1;
+	else
+		g_apu_log = 0;
+
 	apu = (struct mtk_apu *)rproc->priv;
+	g_apu_struct = apu;
 	dev_info(dev, "%s: apu=%p\n", __func__, apu);
 	apu->rproc = rproc;
 	apu->pdev = pdev;
@@ -346,7 +355,7 @@ static int apu_probe(struct platform_device *pdev)
 			apusys_sec_mem_node = of_find_compatible_node(NULL, NULL,
 				"mediatek,apu_apusys-rv_secure");
 			if (!apusys_sec_mem_node) {
-				pr_info("DT,mediatek,apu_apusys-rv_secure not found\n");
+				apu_drv_debug("DT,mediatek,apu_apusys-rv_secure not found\n");
 				ret = -EINVAL;
 				goto out_free_rproc;
 			}
@@ -354,7 +363,7 @@ static int apu_probe(struct platform_device *pdev)
 				&(apu->apusys_sec_mem_start));
 			of_property_read_u32_index(apusys_sec_mem_node, "reg", 3,
 				&(apu->apusys_sec_mem_size));
-			pr_info("%s: start = 0x%x, size = 0x%x\n",
+			apu_drv_debug("%s: start = 0x%x, size = 0x%x\n",
 				apusys_sec_mem_node->full_name, apu->apusys_sec_mem_start,
 				apu->apusys_sec_mem_size);
 			apu->apu_sec_mem_base = memremap(apu->apusys_sec_mem_start,
@@ -371,11 +380,11 @@ static int apu_probe(struct platform_device *pdev)
 			apu->apusys_sec_info = (struct apusys_secure_info_t *)
 				(apu->apu_sec_mem_base + up_code_buf_sz);
 
-			dev_info(dev, "up_fw_ofs = 0x%x, up_fw_sz = 0x%x\n",
+			apu_drv_debug("up_fw_ofs = 0x%x, up_fw_sz = 0x%x\n",
 				apu->apusys_sec_info->up_fw_ofs,
 				apu->apusys_sec_info->up_fw_sz);
 
-			dev_info(dev, "up_xfile_ofs = 0x%x, up_xfile_sz = 0x%x\n",
+			apu_drv_debug("up_xfile_ofs = 0x%x, up_xfile_sz = 0x%x\n",
 				apu->apusys_sec_info->up_xfile_ofs,
 				apu->apusys_sec_info->up_xfile_sz);
 		}
@@ -383,7 +392,7 @@ static int apu_probe(struct platform_device *pdev)
 		apusys_aee_coredump_mem_node = of_find_compatible_node(NULL, NULL,
 			"mediatek,apu_apusys-rv_aee-coredump");
 		if (!apusys_aee_coredump_mem_node) {
-			pr_info("DT,mediatek,apu_apusys-rv_aee-coredump not found\n");
+			dev_info(dev, "DT,mediatek,apu_apusys-rv_aee-coredump not found\n");
 			ret = -EINVAL;
 			goto out_free_rproc;
 		}
@@ -391,7 +400,7 @@ static int apu_probe(struct platform_device *pdev)
 			&(apu->apusys_aee_coredump_mem_start));
 		of_property_read_u32_index(apusys_aee_coredump_mem_node, "reg", 3,
 			&(apu->apusys_aee_coredump_mem_size));
-		pr_info("%s: start = 0x%x, size = 0x%x\n",
+		apu_drv_debug("%s: start = 0x%x, size = 0x%x\n",
 			apusys_aee_coredump_mem_node->full_name,
 			apu->apusys_aee_coredump_mem_start,
 			apu->apusys_aee_coredump_mem_size);
@@ -403,7 +412,7 @@ static int apu_probe(struct platform_device *pdev)
 			apu->apu_aee_coredump_mem_base;
 	}
 
-	dev_info(dev, "%s %d\n", __func__, __LINE__);
+	apu_drv_debug("before pm_runtime_enable\n");
 	pm_runtime_enable(&pdev->dev);
 
 	/*
