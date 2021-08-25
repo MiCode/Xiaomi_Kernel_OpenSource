@@ -11539,6 +11539,16 @@
 			mtk,rpmsg-name = "apu-reviser-rpmsg";
 		};
 
+		apu_edma {
+			compatible = "mediatek,apu-edma-rpmsg";
+			mtk,rpmsg-name = "apu-edma-rpmsg";
+		};
+
+		apu_mnoc {
+			compatible = "mediatek,apu-mnoc-rpmsg";
+			mtk,rpmsg-name = "apu-mnoc-rpmsg";
+		};
+
 		mdla_tx_rpmsg {
 			compatible = "mediatek,mdla-tx-rpmsg";
 			mtk,rpmsg-name = "mdla-tx-rpmsg";
