@@ -40,8 +40,10 @@ static unsigned char g_hw_logger_log_lv = DBG_LOG_INFO;
 #define HW_LOGGER_DEV_NAME "apu_hw_logger"
 static struct device *hw_logger_dev;
 
+#ifdef HW_LOG_SYSFS_BIN
 /* sysfs related */
 static struct kobject *root_dir;
+#endif
 
 /* procfs related */
 static struct proc_dir_entry *log_root;
@@ -941,6 +943,7 @@ static const struct proc_ops hw_loggerSeqLogL_ops = {
 	.proc_release = seq_release
 };
 
+#ifdef HW_LOG_SYSFS_BIN
 static ssize_t apusys_log_dump(struct file *filep,
 		struct kobject *kobj, struct bin_attribute *attr,
 		char *buf, loff_t offset, size_t size)
@@ -1027,6 +1030,7 @@ static void hw_logger_remove_sysfs(struct device *dev)
 {
 	sysfs_remove_bin_file(root_dir, &bin_attr_apusys_hwlog);
 }
+#endif
 
 static void hw_logger_remove_procfs(struct device *dev)
 {
@@ -1131,12 +1135,9 @@ static int hw_logger_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 
-	HWLOGR_INFO("hw_logger probe start\n");
+	HWLOGR_INFO("start\n");
 
 	hw_logger_dev = dev;
-
-	spin_lock_init(&hw_logger_spinlock);
-	mutex_init(&hw_logger_mutex);
 
 	ret = hw_logger_create_procfs(dev);
 	if (ret) {
@@ -1144,11 +1145,13 @@ static int hw_logger_probe(struct platform_device *pdev)
 		goto remove_procfs;
 	}
 
+#ifdef HW_LOG_SYSFS_BIN
 	ret = hw_logger_create_sysfs(dev);
 	if (ret) {
 		HWLOGR_ERR("hw_logger_create_sysfs fail\n");
 		goto remove_sysfs;
 	}
+#endif
 
 	ret = hw_logger_memmap(pdev);
 	if (ret) {
@@ -1176,7 +1179,7 @@ static int hw_logger_probe(struct platform_device *pdev)
 	apusys_hwlog_wq = create_workqueue(APUSYS_HWLOG_WQ_NAME);
 	INIT_WORK(&apusys_hwlog_task, apu_logtop_copy_buf_wq);
 
-	HWLOGR_INFO("hw_logger probe done\n");
+	HWLOGR_INFO("end\n");
 
 	return 0;
 
@@ -1192,8 +1195,10 @@ remove_ioremap:
 	if (apu_logd)
 		iounmap(apu_logd);
 
+#ifdef HW_LOG_SYSFS_BIN
 remove_sysfs:
 	hw_logger_remove_sysfs(dev);
+#endif
 
 remove_procfs:
 	hw_logger_remove_procfs(dev);
@@ -1207,13 +1212,15 @@ static int hw_logger_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	destroy_workqueue(apusys_hwlog_wq);
 	hw_logger_remove_procfs(dev);
+#ifdef HW_LOG_SYSFS_BIN
 	hw_logger_remove_sysfs(dev);
+#endif
 	dma_unmap_single(dev, hw_log_buf_addr, HWLOGR_LOG_SIZE, DMA_FROM_DEVICE);
 	kfree(hw_log_buf);
-#ifdef HW_LOG_ISR
 	kfree(local_log_buf);
-#endif
+
 	return 0;
 }
 
