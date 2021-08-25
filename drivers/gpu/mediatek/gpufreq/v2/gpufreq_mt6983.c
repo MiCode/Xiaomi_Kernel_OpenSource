@@ -3091,23 +3091,23 @@ static void __gpufreq_acp_control(void)
 /* GPM1.0: di/dt reduction by slowing down speed of frequency scaling up or down */
 static void __gpufreq_gpm_control(void)
 {
-	/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20700316 */
-	writel(0x20700316, g_mfg_top_base + 0xF60);
+	/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20300316 */
+	writel(0x20300316, g_mfg_top_base + 0xF60);
 
 	/* MFG_I2M_PROTECTOR_CFG_01 0x13FBFF64 = 0x1800000C */
 	writel(0x1800000C, g_mfg_top_base + 0xF64);
 
 	/* MFG_I2M_PROTECTOR_CFG_02 0x13FBFF68 = 0x01010802 */
-	writel(0x01011002, g_mfg_top_base + 0xF68);
+	writel(0x01010802, g_mfg_top_base + 0xF68);
 
-	/* MFG_I2M_PROTECTOR_CFG_03 0x13FBFFA8 = 0x01010802 */
-	writel(0x00030FF1, g_mfg_top_base + 0xFA8);
+	/* MFG_I2M_PROTECTOR_CFG_03 0x13FBFFA8 = 0x00030FF3 */
+	writel(0x00030FF3, g_mfg_top_base + 0xFA8);
 
 	/* wait 1us */
 	udelay(1);
 
-	/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20700317 */
-	writel(0x20700317, g_mfg_top_base + 0xF60);
+	/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20300317 */
+	writel(0x20300317, g_mfg_top_base + 0xF60);
 }
 
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
