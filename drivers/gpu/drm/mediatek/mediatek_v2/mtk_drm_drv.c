@@ -783,6 +783,16 @@ static void mtk_atomit_doze_bypass_pq(struct drm_crtc *crtc)
 			}
 		}
 
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && (comp->id == DDP_COMPONENT_AAL1 ||
+					comp->id == DDP_COMPONENT_CCORR1)) {
+					if (comp->funcs && comp->funcs->bypass)
+						mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
+				}
+			}
+		}
+
 		if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
 			DDPPR_ERR("failed to flush user_cmd\n");
 	}
@@ -832,6 +842,16 @@ static void mtk_atomit_doze_enable_pq(struct drm_crtc *crtc)
 				comp->id == DDP_COMPONENT_CCORR0)) {
 				if (comp->funcs && comp->funcs->bypass)
 					mtk_ddp_comp_bypass(comp, 0, cmdq_handle);
+			}
+		}
+
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && (comp->id == DDP_COMPONENT_AAL1 ||
+					comp->id == DDP_COMPONENT_CCORR1)) {
+					if (comp->funcs && comp->funcs->bypass)
+						mtk_ddp_comp_bypass(comp, 0, cmdq_handle);
+				}
 			}
 		}
 
