@@ -109,6 +109,10 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 
 	mutex_lock(&apu->send_lock);
 
+	dev_info(dev,
+		 "%s: ipi_id=%d, len=%d, serial_no=%d ++\n",
+		 __func__, id, len, tx_serial_no);
+
 	if (ipi_attrs[id].direction == IPI_HOST_INITIATE &&
 	    apu->ipi_inbound_locked == IPI_LOCKED && !bypass_check(id)) {
 		dev_info(dev, "%s: ipi locked, ipi=%d\n", __func__, id);
@@ -165,7 +169,7 @@ unlock_mutex:
 	ts = timespec64_sub(te, ts);
 
 	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld\n",
+		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld --\n",
 		 __func__, id, len, hdr.csum, hdr.serial_no,
 		 timespec64_to_ns(&ts));
 
@@ -178,7 +182,8 @@ int apu_ipi_lock(struct mtk_apu *apu)
 	int i;
 	bool ready_to_lock = true;
 
-	mutex_lock(&apu->send_lock);
+	if (mutex_trylock(&apu->send_lock) == 0)
+		return -EBUSY;
 
 	if (apu->ipi_inbound_locked == IPI_LOCKED) {
 		dev_info(apu->dev, "%s: ipi already locked\n", __func__);
@@ -296,6 +301,10 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	id = hdr.id;
 	len = hdr.len;
 
+	dev_info(apu->dev,
+		 "%s: ipi_id=%d, len=%d, serial_no=%d ++\n",
+		 __func__, id, len, hdr.serial_no);
+
 	ipi = &apu->ipi_desc[id];
 
 	if (hdr.serial_no != rx_serial_no) {
@@ -354,7 +363,7 @@ ack_irq:
 	ts = timespec64_sub(te, ts);
 
 	dev_info(apu->dev,
-		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld\n",
+		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld --\n",
 		 __func__, id, len, hdr.csum, hdr.serial_no,
 		 timespec64_to_ns(&ts));
 
