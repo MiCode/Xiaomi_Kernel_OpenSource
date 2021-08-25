@@ -5923,7 +5923,9 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		if (dsi->ext && dsi->ext->funcs &&
 				dsi->ext->funcs->msync_te_level_switch)
-			dsi->ext->funcs->msync_te_level_switch(dsi->panel, *fps_level);
+			dsi->ext->funcs->msync_te_level_switch(dsi,
+					mipi_dsi_dcs_write_gce,
+					handle, *fps_level);
 	}
 		break;
 	case DSI_MSYNC_CMD_SET_MIN_FPS:
@@ -5933,7 +5935,9 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		if (dsi->ext && dsi->ext->funcs &&
 				dsi->ext->funcs->msync_cmd_set_min_fps)
-			dsi->ext->funcs->msync_cmd_set_min_fps(dsi->panel, *min_fps);
+			dsi->ext->funcs->msync_cmd_set_min_fps(dsi,
+					mipi_dsi_dcs_write_gce,
+					handle, *min_fps);
 	}
 		break;
 
