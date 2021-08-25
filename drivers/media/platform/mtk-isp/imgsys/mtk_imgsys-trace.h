@@ -10,20 +10,15 @@
 
 #include <linux/kernel.h>
 #include <linux/trace_events.h>
-
+#define IMGSYS_FTRACE
 #ifdef IMGSYS_FTRACE
 
 #define IMGSYS_TRACE_FORCE_BEGIN(fmt, args...) do { \
-	preempt_disable(); \
-	event_trace_printk(imgsys_get_tracing_mark(), \
-		"B|%d|"fmt, current->tgid, ##args); \
-	preempt_enable();\
+	__imgsys_systrace_b(current->tgid, fmt, ##args); \
 } while (0)
 
 #define IMGSYS_TRACE_FORCE_END() do { \
-	preempt_disable(); \
-	event_trace_printk(imgsys_get_tracing_mark(), "E\n"); \
-	preempt_enable(); \
+	__imgsys_systrace_e(); \
 } while (0)
 
 
@@ -40,7 +35,8 @@
 } while (0)
 
 bool imgsys_core_ftrace_enabled(void);
-unsigned long imgsys_get_tracing_mark(void);
+void __imgsys_systrace_b(pid_t tgid, const char *fmt, ...);
+void __imgsys_systrace_e(void);
 
 #else
 

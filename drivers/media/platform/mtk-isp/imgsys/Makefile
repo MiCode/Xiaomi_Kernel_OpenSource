@@ -29,7 +29,8 @@ mtk_imgsys-dev.o \
 mtk_imgsys-of.o \
 mtk_imgsys-sys.o \
 mtk_imgsys-worker.o \
-mtk_imgsys-cmdq.o
+mtk_imgsys-cmdq.o \
+mtk_imgsys-trace.o
 
 mtk_imgsys_hw_isp71-objs := \
 platforms/isp71/mtk_imgsys-debug.o \
@@ -44,5 +45,3 @@ mtk_imgsys_util.o \
 mtk_imgsys_hw_isp71.o
 
 obj-${CONFIG_VIDEO_MTK_ISP_IMGSYS} += mtk_imgsys_v4l2.o
-obj-n += mtk_imgsys-cmdq.o
-obj-n += mtk_imgsys-trace.o
