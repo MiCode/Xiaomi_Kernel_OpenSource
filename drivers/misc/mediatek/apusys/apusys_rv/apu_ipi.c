@@ -104,8 +104,6 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	    (len > APU_SHARE_BUFFER_SIZE) || (!data))
 		return -EINVAL;
 
-	apu_deepidle_power_on_aputop(apu);
-
 	dev = apu->dev;
 	ipi = &apu->ipi_desc[id];
 
@@ -117,6 +115,8 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		mutex_unlock(&apu->send_lock);
 		return -EBUSY;
 	}
+
+	apu_deepidle_power_on_aputop(apu);
 
 	ret = apu_mbox_wait_inbox(apu);
 	if (ret) {
@@ -189,9 +189,9 @@ int apu_ipi_lock(struct mtk_apu *apu)
 	for (i = 0; i < APU_IPI_MAX; i++) {
 		ipi = &apu->ipi_desc[i];
 
-		if (ipi_attrs[i].direction == IPI_HOST_INITIATE &&
-		    ipi_attrs[i].ack == IPI_WITH_ACK &&
-		    atomic_read(&ipi->usage_cnt) != 0) {
+		if (ipi_attrs[i].ack == IPI_WITH_ACK &&
+		    atomic_read(&ipi->usage_cnt) != 0 &&
+		    bypass_check(i)) {
 			dev_info(apu->dev, "%s: ipi %d is still in use %d\n",
 				 __func__, i, ipi->usage_cnt);
 			ready_to_lock = false;

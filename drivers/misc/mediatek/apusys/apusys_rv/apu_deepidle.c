@@ -47,7 +47,7 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 	struct device *dev = apu->dev;
 	int i;
 
-	if (!pm_runtime_active(apu->dev)) {
+	if (pm_runtime_suspended(apu->dev)) {
 		dev_info(apu->dev, "apu boot: pc=%08x, sp=%08x\n",
 			ioread32(apu->md32_sysctrl + 0x838),
 			ioread32(apu->md32_sysctrl+0x840));
