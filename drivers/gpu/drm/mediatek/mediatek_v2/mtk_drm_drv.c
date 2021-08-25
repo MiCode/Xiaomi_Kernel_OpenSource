@@ -3356,15 +3356,15 @@ found:
 #endif
 }
 
-int mtk_drm_primary_get_info(struct drm_device *dev,
-			     struct drm_mtk_session_info *info)
+int mtk_drm_get_panel_info(struct drm_device *dev,
+			     struct drm_mtk_session_info *info, unsigned int crtc_id)
 {
 	int ret = 0;
 	unsigned int vramsize = 0, fps = 0;
 	phys_addr_t fb_base = 0;
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_panel_params *params =
-		mtk_drm_get_lcm_ext_params(private->crtc[0]);
+		mtk_drm_get_lcm_ext_params(private->crtc[crtc_id]);
 
 	if (params) {
 		info->physicalWidthUm = params->physical_width_um;
@@ -3372,7 +3372,7 @@ int mtk_drm_primary_get_info(struct drm_device *dev,
 	} else
 		DDPPR_ERR("Cannot get lcm_ext_params\n");
 
-	info->vsyncFPS = lcm_fps_ctx_get(0);
+	info->vsyncFPS = lcm_fps_ctx_get(crtc_id);
 	if (!info->vsyncFPS) {
 		_parse_tag_videolfb(&vramsize, &fb_base, &fps);
 		info->vsyncFPS = fps;
@@ -3389,10 +3389,13 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 	int s_type = MTK_SESSION_TYPE(info->session_id);
 
 	if (s_type == MTK_SESSION_PRIMARY) {
-		ret = mtk_drm_primary_get_info(dev, info);
+		ret = mtk_drm_get_panel_info(dev, info, 0);
 		return ret;
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
-		ret = mtk_drm_dp_get_info(dev, info);
+		if (MTK_SESSION_DEV(info->session_id) == 1)
+			ret = mtk_drm_get_panel_info(dev, info, 1);
+		else
+			ret = mtk_drm_dp_get_info(dev, info);
 		return ret;
 	} else if (s_type == MTK_SESSION_MEMORY) {
 		return ret;
