@@ -14,6 +14,7 @@
 #include "apu_excep.h"
 #include "apu_config.h"
 #include "apusys_secure.h"
+#include "hw_logger.h"
 
 static const uint32_t TaskContext[] = {
 	0x0, // GPR
@@ -311,14 +312,16 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 				__func__, apu->conf_buf->ramdump_module, assert_module_max);
 			apu->conf_buf->ramdump_module = 0;
 		}
-		apusys_rv_aee_warn(apusys_assert_module_name[apu->conf_buf->ramdump_module],
-			"APUSYS_RV_EXCEPTION");
 		if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
 			apusys_rv_smc_call(dev,
 				MTK_APUSYS_KERNEL_OP_APUSYS_RV_COREDUMP_SHADOW_COPY, 0);
 			apusys_rv_smc_call(dev,
 				MTK_APUSYS_KERNEL_OP_APUSYS_RV_CLEAR_WDT_ISR, 0);
 		}
+
+		hw_logger_copy_buf();
+		apusys_rv_aee_warn(apusys_assert_module_name[apu->conf_buf->ramdump_module],
+			"APUSYS_RV_EXCEPTION");
 		dev_info(dev, "%s: done\n", __func__);
 		return;
 	}
@@ -459,6 +462,7 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 		dsb(SY); /* may take lots of time */
 	}
 
+	hw_logger_copy_buf();
 	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_TIMEOUT");
 	dev_info(dev, "%s: done\n", __func__);
 }
