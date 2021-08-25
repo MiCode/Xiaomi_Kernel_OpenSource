@@ -53,6 +53,8 @@ static int gpufreq_gpueb_init(void);
 static void gpufreq_init_external_callback(void);
 static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data);
 static int gpufreq_validate_target(unsigned int *target);
+static void gpufreq_dump_dvfs_status(void);
+static void gpufreq_abort(void);
 
 /**
  * ===============================================
@@ -241,6 +243,8 @@ EXPORT_SYMBOL(gpufreq_check_bus_idle);
  ***********************************************************************************/
 void gpufreq_dump_infra_status(void)
 {
+	gpufreq_dump_dvfs_status();
+
 	/* implement on AP */
 	if (gpufreq_fp && gpufreq_fp->dump_infra_status)
 		gpufreq_fp->dump_infra_status();
@@ -1596,8 +1600,9 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_POLLING,
 		(void *)&data, GPUFREQ_IPI_DATA_LEN, IPI_TIMEOUT_MS);
 	if (unlikely(ret != IPI_ACTION_DONE)) {
-		GPUFREQ_LOGE("fail to send IPI command: %s (%d)",
+		GPUFREQ_LOGE("[ABORT] fail to send IPI command: %s (%d)",
 			gpufreq_ipi_cmd_name[data.cmd_id], ret);
+		gpufreq_abort();
 		goto done;
 	}
 
@@ -1630,6 +1635,45 @@ static int gpufreq_validate_target(unsigned int *target)
 	}
 
 	return GPUFREQ_SUCCESS;
+}
+
+/***********************************************************************************
+ * Function Name      : gpufreq_dump_dvfs_status
+ * Description        : Dump DVFS status from shared memory
+ ***********************************************************************************/
+static void gpufreq_dump_dvfs_status(void)
+{
+	struct gpufreq_shared_status *shared_status = NULL;
+
+	shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
+	if (shared_status) {
+		GPUFREQ_LOGI("== [GPUFREQ DVFS STATUS: 0x%llx] ==", shared_status);
+		GPUFREQ_LOGI("GPU[%d] Freq: %d, Volt: %d, Vsram: %d",
+			shared_status->cur_oppidx_gpu, shared_status->cur_fgpu,
+			shared_status->cur_vgpu, shared_status->cur_vsram_gpu);
+		GPUFREQ_LOGI("STACK[%d] Freq: %d, Volt: %d, Vsram: %d",
+			shared_status->cur_oppidx_stack, shared_status->cur_fstack,
+			shared_status->cur_vstack, shared_status->cur_vsram_stack);
+		GPUFREQ_LOGI("GPU Ceiling/Floor: %d/%d, Limiter: %d/%d",
+			shared_status->cur_ceiling_gpu, shared_status->cur_floor_gpu,
+			shared_status->cur_c_limiter_gpu, shared_status->cur_f_limiter_gpu);
+		GPUFREQ_LOGI("STACK Ceiling/Floor: %d/%d, Limiter: %d/%d",
+			shared_status->cur_ceiling_stack, shared_status->cur_floor_stack,
+			shared_status->cur_c_limiter_stack, shared_status->cur_f_limiter_stack);
+		GPUFREQ_LOGI("Power Count: %d, Aging Enable: %d",
+			shared_status->power_count, shared_status->aging_enable);
+	}
+}
+
+/***********************************************************************************
+ * Function Name      : gpufreq_abort
+ * Description        : Trigger BUG ON when fatal error and dump DVFS status
+ ***********************************************************************************/
+static void gpufreq_abort(void)
+{
+	gpufreq_dump_dvfs_status();
+
+	BUG_ON(1);
 }
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
