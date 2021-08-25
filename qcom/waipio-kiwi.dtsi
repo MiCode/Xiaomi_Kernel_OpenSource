@@ -8,6 +8,34 @@
 	status = "disabled";
 };
 
+&cnss_pins {
+	cnss_host_sol_default: cnss_host_sol_default {
+		mux {
+			pins = "gpio48";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio48";
+			drive-strength = <4>;
+			bias-pull-down;
+		};
+	};
+
+	cnss_dev_sol_default: cnss_dev_sol_default {
+		mux {
+			pins = "gpio50";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio50";
+			drive-strength = <4>;
+			bias-pull-down;
+		};
+	};
+};
+
 &soc {
 	wlan_wcn7850: qcom,cnss-wcn7850@b0000000 {
 		compatible = "qcom,cnss-wcn7850";
@@ -16,9 +44,11 @@
 		wlan-en-gpio = <&tlmm 80 0>;
 		wlan-host-sol-gpio = <&tlmm 48 0>;
 		wlan-dev-sol-gpio = <&tlmm 50 0>;
-		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep",
+				"sol_default";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		pinctrl-2 = <&cnss_host_sol_default &cnss_dev_sol_default>;
 		qcom,wlan;
 		qcom,wlan-rc-num = <1>;
 		qcom,wlan-ramdump-dynamic = <0x780000>;
