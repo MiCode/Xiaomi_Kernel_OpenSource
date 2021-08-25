@@ -116,7 +116,7 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 	struct aputop_rpmsg_data rpmsg_data;
 
 	for (i = 0 ; i < argc ; i++) {
-		if (args[i] < 0 || args[i] > 255) {
+		if (args[i] < -1 || args[i] >= INT_MAX) {
 			pr_info("%s invalid args[%d]\n", __func__, i);
 			return -EINVAL;
 		}
@@ -178,9 +178,10 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 		}
 		break;
 	case APUPWR_DBG_PROFILING:
-		if (argc == 1) {
+		if (argc == 2) {
 			rpmsg_data.cmd = APUTOP_PWR_PROFILING;
-			rpmsg_data.data0 = args[0]; // 1:begin , 0:end
+			rpmsg_data.data0 = args[0]; // 0:clean, 1:result, 2:mask
+			rpmsg_data.data1 = args[1]; // allow bitmask
 			aputop_send_rpmsg(&rpmsg_data, 100);
 		} else {
 			pr_info("%s invalid param num:%d\n", __func__, argc);
