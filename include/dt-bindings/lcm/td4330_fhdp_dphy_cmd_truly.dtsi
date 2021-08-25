@@ -74,7 +74,6 @@
 				lcm-params-dsi-need_fake_resolution;
 				lcm-params-dsi-fake_resolution = <1080 2280>;
 
-				lcm_gpio_size = <3>;
 				lcm_gpio_list = <&pio 42 0>, /* gpio list*/
 					<&pio 28 0>,
 					<&pio 29 0>;
@@ -366,7 +365,6 @@
 
 			lcm-ops-dsi {
 				compatible = "mediatek,lcm-ops-dsi";
-				prepare_size = <67>;
 				prepare_table = <MTK_LCM_UTIL_TYPE_RESET 1 MTK_LCM_UTIL_RESET_LOW>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 15>,
 					<MTK_LCM_UTIL_TYPE_RESET 1 MTK_LCM_UTIL_RESET_HIGH>,
@@ -600,14 +598,12 @@
 						<MTK_LCM_PHASE_KERNEL MTK_LCM_PHASE_LK>,
 					<MTK_LCM_TYPE_END>;
 
-				unprepare_size = <4>;
 				unprepare_table = <MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x28>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 50>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x10>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 150>,
 					<MTK_LCM_TYPE_END>;
 
-				set_display_on_size = <5>;
 				set_display_on_table =
 					<MTK_LCM_PHASE_TYPE_START 2>,
 						<MTK_LCM_PHASE_LK>,
@@ -620,32 +616,26 @@
 						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
 					<MTK_LCM_TYPE_END>;
 
-				lcm_update_size = <0>;
 				lcm_update_table;
 
 				set_backlight_mask = <0xff>;
-				set_backlight_cmdq_size = <1>;
 				set_backlight_cmdq_table =
 					<MTK_LCM_CB_TYPE_RUNTIME_INPUT 3 1 0x51 0xFF>,
 					<MTK_LCM_TYPE_END>;
 
-				set_backlight_grp_cmdq_size = <0>;
 				set_backlight_grp_cmdq_table;
 
 				set_aod_light_mask = <0xff>;
-				set_aod_light_size = <0>;
 				set_aod_light;
 
 				ata_id_value_length = <3>;
 				ata_id_value_data = <0x0 0x0 0x0>;
-				ata_check_size = <1>;
 				ata_check_table =
 					<MTK_LCM_CMD_TYPE_READ_CMD 3 0 3 0x4>,
 					<MTK_LCM_TYPE_END>;
 
 				compare_id_value_length = <1>;
 				compare_id_value_data = <0x2>;
-				compare_id_size = <9>;
 				compare_id_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
 					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 1>,
@@ -657,28 +647,21 @@
 					<MTK_LCM_CMD_TYPE_READ_BUFFER 3 0 1 0xBF>,
 					<MTK_LCM_TYPE_END>;
 
-				doze_enable_start_size = <0>;
 				doze_enable_start_table;
 
-				doze_enable_size = <0>;
 				doze_enable_table;
 
-				doze_disable_size = <0>;
 				doze_disable_table;
 
-				doze_area_size = <0>;
 				doze_area_table;
 
-				doze_post_disp_on_size = <0>;
 				doze_post_disp_on_table;
 
-				hbm_set_cmdq_size = <0>;
 				hbm_set_cmdq_switch_id;
 				hbm_set_cmdq_switch_on;
 				hbm_set_cmdq_switch_off;
 				hbm_set_cmdq_table;
 
-				gpio_test_size = <3>;
 				gpio_test_table = <MTK_LCM_GPIO_TYPE_MODE 2 1 2>,
 					<MTK_LCM_GPIO_TYPE_DIR_OUTPUT 2 1 1>,
 					<MTK_LCM_GPIO_TYPE_OUT 2 1 1>,
@@ -688,14 +671,12 @@
 				lcm-ops-dsi-fps-switch-after-poweron {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
-					fps-switch-0-1080-2280-60_size = <0>;
 					fps-switch-0-1080-2280-60_table;
 				};
 
 				lcm-ops-dsi-fps-switch-before-powerdown {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-before-powerdown";
-					fps-switch-0-1080-2280-60_size = <0>;
 					fps-switch-0-1080-2280-60_table;
 				};
 			};
