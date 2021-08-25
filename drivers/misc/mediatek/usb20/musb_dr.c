@@ -98,6 +98,7 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	struct mt_usb_glue *glue =
 		container_of(otg_sx, struct mt_usb_glue, otg_sx);
 	struct musb *musb = glue->mtk_musb;
+	int i;
 
 	dev_info(musb->controller, "mailbox %s\n", mailbox_state_string(status));
 	switch (status) {
@@ -110,6 +111,12 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	case MUSB_ID_FLOAT:
 		mt_usb_host_disconnect(0);
 		musb->is_ready = false;
+		/* turn off VBUS until do_host_work switch to DEV mode */
+		for (i = 0; i < 6; i++) {
+			if (!musb->is_host)
+				break;
+			mdelay(50);
+		}
 		mt_usb_set_vbus(otg_sx, 0);
 		otg_sx->sw_state &= ~MUSB_ID_GROUND;
 		break;
@@ -238,11 +245,9 @@ void mt_usb_mode_switch(struct musb *musb, int to_host)
 	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
 
 	if (to_host) {
-		musb_platform_set_mode(musb, MUSB_HOST);
 		mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
 		mt_usb_set_mailbox(otg_sx, MUSB_ID_GROUND);
 	} else {
-		musb_platform_set_mode(musb, MUSB_PERIPHERAL);
 		mt_usb_set_mailbox(otg_sx, MUSB_ID_FLOAT);
 		mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
 	}
@@ -253,7 +258,6 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 {
 	struct mt_usb_glue *glue = dev_get_drvdata(dev);
 	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
-	struct musb *musb = glue->mtk_musb;
 	bool id_event, vbus_event;
 	static bool first_init = true;
 
@@ -297,7 +301,6 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 			dev_info(dev, "%s: if id_event true\n", __func__);
 
 			phy_power_on(glue->phy);
-			musb_platform_set_mode(musb, MUSB_HOST);
 
 			/* PHY mode will be set in host_connect work */
 			mt_usb_set_mailbox(otg_sx, MUSB_ID_GROUND);
@@ -314,8 +317,6 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 			/* PHY mode will be set in host_disconnect work */
 			mt_usb_set_mailbox(otg_sx, MUSB_ID_FLOAT);
 			phy_power_off(glue->phy);
-
-			musb_platform_set_mode(musb, MUSB_PERIPHERAL);
 		}
 	}
 
