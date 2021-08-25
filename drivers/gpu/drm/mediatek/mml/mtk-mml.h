@@ -41,7 +41,8 @@ enum mml_pq_scenario
 	MML_PQ_MEDIA_UNKNOWN = 0x0,
 	MML_PQ_MEDIA_VIDEO = 0x101,
 	MML_PQ_MEDIA_GAME_NORMAL = 0x1001,
-	MML_PQ_MEDIA_GAME_HDR = 0x1002
+	MML_PQ_MEDIA_GAME_HDR = 0x1002,
+	MML_PQ_MEDIA_ISP_PREVIEW = 0x10001
 };
 
 struct mml_pq_video_param {
@@ -109,6 +110,7 @@ struct mml_pq_param {
 	uint32_t src_gamut;
 	uint32_t dst_gamut;
 	uint32_t src_hdr_video_mode;
+	uint32_t metadata_mem_id;
 	struct mml_pq_video_param video_param;
 	uint32_t user_info;
 };
