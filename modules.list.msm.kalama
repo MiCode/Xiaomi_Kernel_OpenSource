@@ -20,6 +20,7 @@ pinctrl-kalama.ko
 pinctrl-msm.ko
 qcom-dload-mode.ko
 qcom-pdc.ko
+qcom-reboot-reason.ko
 qcom-scm.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
