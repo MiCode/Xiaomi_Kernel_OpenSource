@@ -1339,6 +1339,8 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
 			& (~sodi_req_mask));
 		v += (sodi_req_val & sodi_req_mask);
+		/* TODO: HARD CODE for RDMA0 scenario */
+		v = 0xF502;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
 
 		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
@@ -1346,8 +1348,11 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		v += (emi_req_val & emi_req_mask);
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 	} else {
+		/* TODO: HARD CODE for RDMA0 scenario */
+		// cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+		//	MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+			MMSYS_SODI_REQ_MASK, 0xf502, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
 	}
