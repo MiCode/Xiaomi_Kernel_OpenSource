@@ -6748,6 +6748,7 @@
 		bootmode = <&chosen>;
 
 		mediatek,ufs-qos;
+		mediatek,ufs-delay-after-vcc-off;
 	};
 
 	ufs_ao_cfg: ufs_ao_cfg@112b8000 {
