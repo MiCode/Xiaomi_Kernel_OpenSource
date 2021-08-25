@@ -8577,6 +8577,7 @@
 				<&disp_iommu M4U_PORT_L6_VDEC_MINI_MDP_R1_EXT>,
 				<&disp_iommu M4U_PORT_L6_VDEC_MINI_MDP_W1_EXT>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_VDE0>;
 		mediatek,larbs = <&smi_larb6>;
 		operating-points-v2 = <&opp_table_vdec>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
