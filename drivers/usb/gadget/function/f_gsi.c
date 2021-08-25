@@ -207,11 +207,11 @@ static struct f_gsi *get_connected_gsi(void)
 	int i;
 
 	for (i = 0; i < IPA_USB_MAX_TETH_PROT_SIZE; i++) {
-		if (inst_status[i].opts)
+		if (inst_status[i].opts) {
 			connected_gsi = inst_status[i].opts->gsi;
-
-		if (connected_gsi && atomic_read(&connected_gsi->connected))
-			return connected_gsi;
+			if (connected_gsi && atomic_read(&connected_gsi->connected))
+				return connected_gsi;
+		}
 	}
 
 	return NULL;
