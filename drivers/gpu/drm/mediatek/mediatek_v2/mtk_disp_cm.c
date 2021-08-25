@@ -366,11 +366,18 @@ static const struct mtk_disp_cm_data mt6983_cm_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_cm_data mt6879_cm_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
 static const struct of_device_id mtk_disp_cm_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6853-disp-cm",
 	  .data = &mt6853_cm_driver_data},
 	{ .compatible = "mediatek,mt6983-disp-cm",
 	  .data = &mt6983_cm_driver_data},
+	{ .compatible = "mediatek,mt6879-disp-cm",
+	  .data = &mt6879_cm_driver_data},
 	{},
 };
 

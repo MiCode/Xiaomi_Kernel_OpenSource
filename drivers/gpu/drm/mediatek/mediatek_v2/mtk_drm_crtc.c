@@ -266,8 +266,8 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	case MMSYS_MT6853:
 	case MMSYS_MT6833:
 	case MMSYS_MT6879:
-		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
-		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
+		mmsys_config_dump_reg_mt6879(mtk_crtc->config_regs);
+		mutex_dump_reg_mt6879(mtk_crtc->mutex[0]);
 		break;
 	default:
 		pr_info("%s mtk drm not support mmsys id %d\n",
