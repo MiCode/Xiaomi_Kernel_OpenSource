@@ -1,0 +1,22 @@
+config MTK_USB_CONFIGFS_RNDIS
+	tristate "MTK RNDIS"
+	depends on USB_CONFIGFS
+	depends on NET
+	select MTK_USB_U_ETHER
+	select MTK_USB_F_RNDIS
+	help
+	   MTK RNDIS -
+	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
+	   and Microsoft provides redistributable binary RNDIS drivers for
+	   older versions of Windows.
+
+	   To make MS-Windows work with this, use Documentation/usb/linux.inf
+	   as the "driver info file".  For versions of MS-Windows older than
+	   XP, you'll need to download drivers from Microsoft's website; a URL
+	   is given in comments found in that info file.
+
+config MTK_USB_U_ETHER
+	tristate
+
+config MTK_USB_F_RNDIS
+	tristate
