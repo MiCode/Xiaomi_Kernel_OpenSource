@@ -304,14 +304,17 @@ exit:
 
 int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
 {
-	struct mml_pq_sub_task *sub_task;
-	s32 ret;
+	struct mml_pq_sub_task *sub_task = NULL;
+	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s job_id[%d] called, %d", __func__, task->job.jobid, timeout_ms);
 	if (unlikely(!task || !task->pq_task ||
-		!atomic_read(&task->pq_task->tile_init.queue_cnt)))
+		!atomic_read(&task->pq_task->tile_init.queue_cnt))) {
+		mml_pq_log("%s task/pq_task/ is null or queue_cnt is 0, check queue_msg flow",
+			__func__);
 		return -EINVAL;
+	}
 
 	sub_task = &task->pq_task->tile_init;
 	mml_pq_msg("begin wait for tile init result");

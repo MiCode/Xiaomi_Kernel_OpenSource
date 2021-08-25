@@ -175,8 +175,10 @@ static struct mml_pq_tile_init_result *get_init_result(struct mml_task *task)
 		sub_task = &task->pq_task->tile_init;
 	if (sub_task)
 		return (struct mml_pq_tile_init_result *)sub_task->result;
-	else
+	else {
+		mml_log("%s pq_task is null, need to check pq_task create flow", __func__);
 		return NULL;
+	}
 }
 
 static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -201,8 +203,9 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	ret = mml_pq_get_tile_init_result(task, RSZ_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_init_result(task);
-		if (rsz_frm->out_idx < result->rsz_param_cnt) {
-			mml_log("read rsz param index: %d", rsz_frm->out_idx);
+		if (result && rsz_frm->out_idx < result->rsz_param_cnt) {
+			mml_log("%s read rsz param index: %d", __func__,
+				rsz_frm->out_idx);
 			init_param = &(result->rsz_param[rsz_frm->out_idx]);
 			data->rsz_data.coeff_step_x = init_param->coeff_step_x;
 			data->rsz_data.coeff_step_y = init_param->coeff_step_y;
@@ -218,10 +221,11 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			data->rsz_data.ver_algo = init_param->ver_algorithm;
 			data->rsz_data.ver_first = init_param->vertical_first;
 			data->rsz_data.ver_cubic_trunc = init_param->ver_cubic_trunc;
-			mml_log("read rsz param index: %d done", rsz_frm->out_idx);
+			mml_log("%s read rsz param index: %d done",
+				__func__, rsz_frm->out_idx);
 		} else {
-			mml_err("read rsz param index: %d out of count",
-				rsz_frm->out_idx, result->rsz_param_cnt);
+			mml_err("%s read rsz param index: %d out of count %d",
+				__func__, rsz_frm->out_idx, result->rsz_param_cnt);
 		}
 	} else {
 		mml_err("get rsz param timeout: %d in %dms",
