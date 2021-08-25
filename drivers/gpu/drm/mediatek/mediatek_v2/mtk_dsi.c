@@ -2589,6 +2589,7 @@ static int mtk_dsi_create_connector(struct drm_device *drm, struct mtk_dsi *dsi)
 static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 {
 	int ret;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 
 	ret = drm_encoder_init(drm, &dsi->encoder, &mtk_dsi_encoder_funcs,
 			       DRM_MODE_ENCODER_DSI, NULL);
@@ -2602,7 +2603,10 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 	 * Currently display data paths are statically assigned to a crtc each.
 	 * crtc 0 is OVL0 -> COLOR0 -> AAL -> OD -> RDMA0 -> UFOE -> DSI0
 	 */
-	dsi->encoder.possible_crtcs = 1;
+	if (comp && comp->id == DDP_COMPONENT_DSI0)
+		dsi->encoder.possible_crtcs = BIT(0);
+	else
+		dsi->encoder.possible_crtcs = BIT(1);
 
 	/* If there's a bridge, attach to it and let it create the connector */
 	ret = mtk_drm_attach_bridge(dsi->bridge, &dsi->encoder);
@@ -6481,19 +6485,22 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	/* set ccf reference cnt = 1 */
 	pm_runtime_get_sync(dev);
 
-	phy_power_on(dsi->phy);
-	ret = clk_prepare_enable(dsi->engine_clk);
-	if (ret < 0)
-		pr_info("%s Failed to enable engine clock: %d\n",
-			__func__, ret);
+	/* Assume DSI0 enable already in LK */
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+		phy_power_on(dsi->phy);
+		ret = clk_prepare_enable(dsi->engine_clk);
+		if (ret < 0)
+			pr_info("%s Failed to enable engine clock: %d\n",
+				__func__, ret);
 
-	ret = clk_prepare_enable(dsi->digital_clk);
-	if (ret < 0)
-		pr_info("%s Failed to enable digital clock: %d\n",
-			__func__, ret);
+		ret = clk_prepare_enable(dsi->digital_clk);
+		if (ret < 0)
+			pr_info("%s Failed to enable digital clock: %d\n",
+				__func__, ret);
 #endif
-	dsi->output_en = true;
-	dsi->clk_refcnt = 1;
+		dsi->output_en = true;
+		dsi->clk_refcnt = 1;
+	}
 #endif
 	platform_set_drvdata(pdev, dsi);
 

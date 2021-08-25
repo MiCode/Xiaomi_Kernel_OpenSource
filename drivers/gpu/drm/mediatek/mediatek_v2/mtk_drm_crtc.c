@@ -2708,6 +2708,9 @@ bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 		return false;
 	}
 
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DSI)
+		return mtk_dsi_is_cmd_mode(priv->ddp_comp[comp->id]);
+
 	if (comp->id == DDP_COMPONENT_DP_INTF0 ||
 		comp->id == DDP_COMPONENT_DPI0 ||
 		comp->id == DDP_COMPONENT_DPI1) {
@@ -3908,7 +3911,10 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 
 		} else if (crtc_id == 1)
 			cmdq_pkt_wfe(cmdq_handle,
-					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+//workaround, need fix for DSI/DP
+//			cmdq_pkt_wfe(cmdq_handle,
+//					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 
 		/* sw workaround to fix gce hw bug */
 		if (mtk_crtc_with_sodi_loop(crtc)) {
