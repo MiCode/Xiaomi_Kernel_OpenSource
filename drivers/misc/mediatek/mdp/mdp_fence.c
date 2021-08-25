@@ -172,11 +172,14 @@ static void timeline_fence_release(struct dma_fence *dma_fence)
 {
 	struct sync_pt *pt = fence_to_sync_pt(dma_fence);
 	struct sync_timeline *parent = fence_parent(dma_fence);
+	unsigned long flags;
 
+	spin_lock_irqsave(dma_fence->lock, flags);
 	if (!list_empty(&pt->link)) {
 		list_del(&pt->link);
 		rb_erase(&pt->node, &parent->pt_tree);
 	}
+	spin_unlock_irqrestore(dma_fence->lock, flags);
 
 	sync_timeline_put(parent);
 	dma_fence_free(dma_fence);
