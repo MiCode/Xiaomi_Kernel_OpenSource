@@ -55,7 +55,7 @@ struct pmic_auxadc_data {
 	unsigned int num_of_pullup_r_type;
 	int (*pullup_r_calibration)(struct device *dev,
 				struct pmic_auxadc_data *adc_data);
-	unsigned int (*adc2volt)(unsigned int adc_raw);
+	unsigned long long (*adc2volt)(unsigned int adc_raw);
 	struct tia_data *tia_param;
 };
 
@@ -87,9 +87,9 @@ unsigned int tia2_rc_sel_to_value(unsigned int sel)
 	return resistance;
 }
 
-unsigned int mt6685_adc2volt(unsigned int adc_raw)
+unsigned long long mt6685_adc2volt(unsigned int adc_raw)
 {
-	return ((adc_raw * 1840) >> 15);
+	return ((unsigned long long)adc_raw * 184000) >> 15;
 }
 
 static struct tia_data tia2_data = {
@@ -100,7 +100,7 @@ static struct tia_data tia2_data = {
 };
 
 static struct pmic_auxadc_data mt6685_pmic_auxadc_data = {
-	.default_pullup_v = 1800,
+	.default_pullup_v = 184000,
 	.num_of_pullup_r_type = 3,
 	.pullup_r_calibration = NULL,
 	.adc2volt = mt6685_adc2volt,
@@ -150,7 +150,7 @@ static int board_ntc_r_to_temp(struct board_ntc_info *ntc_info,
 	return temp;
 }
 
-static unsigned int calculate_r_ntc(unsigned int v_in,
+static unsigned int calculate_r_ntc(unsigned long long v_in,
 				unsigned int pullup_r, unsigned int pullup_v)
 {
 	unsigned int r_ntc;
@@ -158,8 +158,7 @@ static unsigned int calculate_r_ntc(unsigned int v_in,
 	if (v_in >= pullup_v)
 		return 0;
 
-	r_ntc = (unsigned int)((unsigned long)v_in * (unsigned long)pullup_r)
-		/ (pullup_v - v_in);
+	r_ntc = (unsigned int)(v_in * pullup_r / (pullup_v - v_in));
 
 	return r_ntc;
 }
@@ -169,7 +168,8 @@ static int board_ntc_get_temp(void *data, int *temp)
 	struct board_ntc_info *ntc_info = (struct board_ntc_info *)data;
 	struct pmic_auxadc_data *adc_data = ntc_info->adc_data;
 	struct tia_data *tia_param = ntc_info->adc_data->tia_param;
-	unsigned int val, v_in, r_type, r_ntc;
+	unsigned int val, r_type, r_ntc;
+	unsigned long long v_in;
 
 	val = readl(ntc_info->data_reg);
 	r_type = get_tia_rc_sel(val, tia_param->rc_offset, tia_param->rc_mask);
