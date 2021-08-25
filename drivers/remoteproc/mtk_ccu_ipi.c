@@ -193,6 +193,9 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 		if (mb_cnt == 0)
 			goto ISR_EXIT;
 
+		if (msg.msg_id >= MTK_CCU_MSG_TO_APMCU_MAX)
+			continue;
+
 		mutex_lock(&ccu->ipc_desc_lock);
 		handler = ccu->ipc_desc[msg.msg_id].handler;
 		mutex_unlock(&ccu->ipc_desc_lock);
