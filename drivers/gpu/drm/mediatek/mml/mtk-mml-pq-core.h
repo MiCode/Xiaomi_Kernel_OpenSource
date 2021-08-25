@@ -14,6 +14,8 @@
 #include "mtk-mml-core.h"
 
 #define AAL_CURVE_NUM (544)
+#define AAL_HIST_NUM (768)
+#define AAL_DUAL_INFO_NUM (16)
 
 extern int mml_pq_msg;
 
@@ -56,6 +58,8 @@ struct mml_pq_sub_task {
 	struct mutex lock;
 	atomic_t queue_cnt;
 	void *result;
+	u32 *pipe0_hist;
+	u32 *pipe1_hist;
 	struct wait_queue_head wq;
 	struct list_head mbox_list;
 	bool job_cancelled;
@@ -68,6 +72,7 @@ struct mml_pq_task {
 	struct mutex lock;
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
+	struct mml_pq_sub_task aal_readback;
 };
 
 /*
@@ -130,5 +135,18 @@ int mml_pq_comp_config(struct mml_task *task);
  * Return:	if value < 0, means PQ update failed should debug
  */
 int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
+
+/*
+ * mml_pq_aal_readback - noify from MML core through MML PQ driver
+ *   to update histogram
+ *
+ * @task:	task data, include pq parameters and frame info
+ * @pipe:   pipe id
+ * @phist:  Histogram result
+ *
+ * Return:	if value < 0, means PQ update failed should debug
+ */
+
+int mml_pq_aal_readback(struct mml_task *task, u8 pipe, u32 *phist);
 
 #endif	/* __MTK_MML_PQ_CORE_H__ */

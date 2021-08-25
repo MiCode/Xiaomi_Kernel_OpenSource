@@ -8,6 +8,8 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
+#include <linux/clk.h>
 
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
@@ -16,6 +18,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-pq-core.h"
 
+#include "mtk-mml-driver.h"
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
@@ -141,6 +144,11 @@
 #define AAL_DRE_BILATERAL_BLENDING	0x564
 
 #define AAL_WAIT_TIMEOUT_MS	(50)
+#define AAL_MIN_WIDTH (50)
+
+
+#define AAL_POLL_SLEEP_TIME_US	(10)
+#define AAL_MAX_POLL_TIME_US	(1000)
 
 struct aal_data {
 	u32 min_tile_width;
@@ -175,6 +183,7 @@ struct mml_comp_aal {
 
 	u8 gpr_poll;
 	u32 sram_curve_start;
+	u32 sram_hist_start;
 };
 
 /* meta data for each different frame config */
@@ -343,7 +352,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id, dest->pq_config.en_dre);
-	if (!dest->pq_config.en_dre) {
+	if (!dest->pq_config.en_dre || dest->crop.r.width < AAL_MIN_WIDTH) {
 		/* relay mode */
 		cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG, 0x1, 0x00000001);
 		goto exit;
@@ -576,10 +585,10 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 			__func__, idx, last_tile_x_flag, last_tile_y_flag);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_00,
-		(act_win_x_end << 16) | act_win_x_start, 0x3FFF3FFF);
+		(act_win_x_end << 16) | act_win_x_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_07, (act_win_y_end << 16) |
-		act_win_y_start, 0x3FFF3FFF);
+		act_win_y_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_00, (save_first_blk_col_flag << 23) |
 		(save_last_blk_col_flag << 22) | (last_tile_x_flag << 21) |
@@ -588,22 +597,22 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		blk_num_y_start, 0x00FFFFFF);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_01, (blk_cnt_x_end << 16) |
-		blk_cnt_x_start, 0x3FFF3FFF);
+		blk_cnt_x_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_02, (blk_cnt_y_end << 16) |
-		blk_cnt_y_start, 0x3FFF3FFF);
+		blk_cnt_y_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_ROI_00, (roi_x_end << 16) |
-		roi_x_start, 0x3FFF3FFF);
+		roi_x_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_ROI_01, (roi_y_end << 16) |
-		roi_y_start, 0x3FFF3FFF);
+		roi_y_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_WIN_X_MAIN, (win_x_end << 16) |
-		win_x_start, 0x3FFF3FFF);
+		win_x_start, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_WIN_Y_MAIN, (win_y_end << 16) |
-		win_y_start, 0x3FFF3FFF);
+		win_y_start, U32_MAX);
 
 exit:
 	mml_pq_trace_ex_end();
@@ -653,7 +662,6 @@ exit:
 	return ret;
 }
 
-
 static const struct mml_comp_config_ops aal_cfg_ops = {
 	.prepare = aal_prepare,
 	.buf_prepare = aal_buf_prepare,
@@ -662,6 +670,97 @@ static const struct mml_comp_config_ops aal_cfg_ops = {
 	.frame = aal_config_frame,
 	.tile = aal_config_tile,
 	.reframe = aal_reconfig_frame,
+};
+
+static inline bool aal_reg_poll(struct mml_comp *comp, u32 addr, u32 value, u32 mask)
+{
+	bool return_value = false;
+	u32 reg_value = 0;
+	u32 polling_time = 0;
+	void __iomem *base = comp->base;
+
+	do {
+		reg_value = readl(base + addr);
+
+		if ((reg_value & mask) == value) {
+			return_value = true;
+			break;
+		}
+
+		udelay(AAL_POLL_SLEEP_TIME_US);
+		polling_time += AAL_POLL_SLEEP_TIME_US;
+	} while (polling_time < AAL_MAX_POLL_TIME_US);
+
+	return return_value;
+}
+
+static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
+					 struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+
+	mml_pq_trace_ex_begin("%s", __func__);
+	mml_pq_msg("%s is_aal_need_readback[%d] id[%d] en_dre[%d]", __func__,
+			aal_frm->is_aal_need_readback, comp->id, dest->pq_config.en_dre);
+
+	if (!dest->pq_config.en_dre)
+		goto exit;
+
+	if (aal_frm->is_aal_need_readback) {
+		u32 addr = aal->sram_hist_start;
+		void __iomem *base = comp->base;
+		s32 i;
+		s32 dual_info_start = AAL_HIST_NUM;
+		u32 *phist = kmalloc((AAL_HIST_NUM+AAL_DUAL_INFO_NUM)*sizeof(u32),
+			GFP_KERNEL);
+
+		for (i = 0; i < AAL_HIST_NUM; i++) {
+			if (aal_reg_poll(comp, AAL_INTSTA, (0x1 << 1), (0x1 << 1))) {
+				do {
+					writel(addr, base + AAL_SRAM_RW_IF_2);
+
+					if (aal_reg_poll(comp, AAL_SRAM_STATUS,
+							(0x1 << 17), (0x1 << 17)) != true) {
+						mml_pq_log("%s idx[%d]", __func__, i);
+						break;
+					}
+					phist[i] = readl(base + AAL_SRAM_RW_IF_3);
+				} while (0);
+				addr = addr + 4;
+			}
+		}
+		if (task->config->dual) {
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_00);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_01);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_02);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_03);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_04);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_05);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_06);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_07);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_08);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_09);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_10);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_11);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_12);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_13);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_14);
+			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_15);
+		}
+		mml_pq_aal_readback(task, ccfg->pipe, phist);
+	}
+
+exit:
+	mml_pq_trace_ex_end();
+}
+
+static const struct mml_comp_hw_ops aal_hw_ops = {
+	.clk_enable = &mml_comp_clk_enable,
+	.clk_disable = &mml_comp_clk_disable,
+	.task_done = aal_task_done_readback,
 };
 
 static void aal_debug_dump(struct mml_comp *comp)
@@ -779,9 +878,13 @@ static int probe(struct platform_device *pdev)
 	if (of_property_read_u32(dev->of_node, "sram_curve_base", &priv->sram_curve_start))
 		dev_err(dev, "read curve base fail\n");
 
+	if (of_property_read_u32(dev->of_node, "sram_his_base", &priv->sram_hist_start))
+		dev_err(dev, "read his base fail\n");
+
 	/* assign ops */
 	priv->comp.tile_ops = &aal_tile_ops;
 	priv->comp.config_ops = &aal_cfg_ops;
+	priv->comp.hw_ops = &aal_hw_ops;
 	priv->comp.debug_ops = &aal_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
