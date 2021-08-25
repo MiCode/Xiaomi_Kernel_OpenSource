@@ -446,12 +446,12 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 			c->kid, ret, c->einfos->c.sc_rets);
 
 		if (!ret)
-			ret = -EFAULT;
+			ret = -EIO;
 	}
 	c->einfos->c.ret = ret;
 
 	if (ret) {
-		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d))\n",
+		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
 			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
 	} else {
@@ -553,6 +553,8 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	if (!c)
 		goto out;
 
+	c->mpriv = mpriv;
+
 	/* setup cmd info */
 	c->pid = current->pid;
 	c->tgid = current->tgid;
@@ -626,7 +628,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 		goto delete_infos;
 	}
 	mutex_init(&c->mtx);
-	c->mpriv = mpriv;
 	c->mpriv->get(c->mpriv);
 	c->complete = mdw_cmd_complete;
 	INIT_WORK(&c->t_wk, &mdw_cmd_trigger_func);
