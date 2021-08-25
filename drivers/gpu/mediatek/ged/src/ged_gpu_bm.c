@@ -17,6 +17,7 @@ struct v1_data *gpu_info_ref;
 static struct job_status_qos addr;
 static struct v1_data *v1;
 static int sf_pid;
+static int is_gpu_bm_inited;
 
 static unsigned int qos_frame_nr;
 #endif /* MTK_GPU_BM_2 */
@@ -69,6 +70,7 @@ int mtk_bandwidth_resource_init(void)
 		addr.phyaddr = rec_phys_addr;
 
 		MTKGPUQoS_setup(v1, addr.phyaddr, rec_size);
+		is_gpu_bm_inited = 1;
 #endif
 		return -1;
 }
@@ -76,7 +78,7 @@ EXPORT_SYMBOL(mtk_bandwidth_resource_init);
 
 void mtk_bandwidth_update_info(int pid, int frame_nr, int job_id)
 {
-	if (pid == sf_pid || !MTKGPUQoS_is_inited())
+	if (pid == sf_pid || !is_gpu_bm_inited)
 		return;
 
 	v1->ctx = (u32)pid;
