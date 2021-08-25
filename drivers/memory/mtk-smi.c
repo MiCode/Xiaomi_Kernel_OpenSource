@@ -209,7 +209,6 @@ void mtk_smi_init_power_off(void)
 
 	for (i = 0; i < init_power_on_num; i++) {
 		smi = init_power_on_dev[i];
-		atomic_dec(&smi->ref_count);
 		pm_runtime_put_sync(smi->dev);
 	}
 }
@@ -266,14 +265,15 @@ int mtk_smi_larb_get(struct device *larbdev)
 	if (unlikely(!larb))
 		return -ENODEV;
 
-	atomic_inc(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d get ref_count:%d\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
-
 	ret = pm_runtime_resume_and_get(larbdev);
-	if (ret < 0)
-		atomic_dec(&larb->smi.ref_count);
+	if (ret < 0) {
+		dev_notice(larbdev, "Unable to enable SMI LARB%d. ret:%d\n",
+			larb->larbid, ret);
+		pm_runtime_put_sync(larbdev);
+	}
 
 	return (ret < 0) ? ret : 0;
 }
@@ -290,7 +290,6 @@ void mtk_smi_larb_put(struct device *larbdev)
 	if (unlikely(!larb))
 		return;
 
-	atomic_dec(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d put ref_count:%d\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
@@ -1226,9 +1225,13 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	of_property_read_u32(dev->of_node, "mediatek,larb-id", &larb->larbid);
 
 	if (of_property_read_bool(dev->of_node, "init-power-on")) {
-		atomic_inc(&larb->smi.ref_count);
-		pm_runtime_get_sync(dev);
+		ret = pm_runtime_get_sync(dev);
 		init_power_on_dev[init_power_on_num++] = &larb->smi;
+		if (ret < 0) {
+			dev_notice(dev, "Unable to enable SMI LARB%d. ret:%d\n",
+				larb->larbid, ret);
+			pm_runtime_put_sync(dev);
+		}
 	}
 
 	return ret;
@@ -1246,6 +1249,11 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
 	int ret;
+
+	atomic_inc(&larb->smi.ref_count);
+	if (log_level & 1 << log_config_bit)
+		pr_info("[SMI]larb:%d callback get ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count));
 
 	ret = mtk_smi_clk_enable(&larb->smi);
 	if (ret < 0) {
@@ -1266,11 +1274,14 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	int larb_ref_count = atomic_read(&larb->smi.ref_count);
 
-	if (larb_ref_count) {
+	atomic_dec(&larb->smi.ref_count);
+	if (log_level & 1 << log_config_bit)
+		pr_info("[SMI]larb:%d callback put ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count));
+	if (atomic_read(&larb->smi.ref_count)) {
 		dev_notice(dev, "Error: larb(%d) ref count=%d on suspend\n",
-			larb->larbid, larb_ref_count);
+			larb->larbid, atomic_read(&larb->smi.ref_count));
 		//WARN_ON(1);
 	}
 
@@ -1712,9 +1723,13 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 		kthr = kthread_run(smi_cmdq, dev, __func__);
 
 	if (of_property_read_bool(dev->of_node, "init-power-on")) {
-		atomic_inc(&common->ref_count);
-		pm_runtime_get_sync(dev);
+		ret = pm_runtime_get_sync(dev);
 		init_power_on_dev[init_power_on_num++] = common;
+		if (ret < 0) {
+			dev_notice(dev, "Unable to enable SMI COMM%d. ret:%d\n",
+				common->commid, ret);
+			pm_runtime_put_sync(dev);
+		}
 	}
 
 	return 0;
