@@ -3566,14 +3566,12 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 
 	mtk_drm_first_enable(drm);
 
-	if (private->data->mmsys_id == MMSYS_MT6983) {
-		/*
-		 * When kernel init, SMI larb will get once for keeping
-		 * MTCMOS on. Then, this keeping will be released after
-		 * display keep MTCMOS by itself.
-		 */
-		mtk_smi_init_power_off();
-	}
+	/*
+	 * When kernel init, SMI larb will get once for keeping
+	 * MTCMOS on. Then, this keeping will be released after
+	 * display keep MTCMOS by itself.
+	 */
+	mtk_smi_init_power_off();
 
 	return 0;
 
@@ -4208,24 +4206,6 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 }
 #endif
 
-static struct device *mtk_drm_get_larb(struct device *dev)
-{
-	struct device_node *larb_node = NULL;
-	struct platform_device *larb_pdev = NULL;
-	struct device *larb_dev = NULL;
-
-	larb_node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
-
-	if (larb_node) {
-		larb_pdev = of_find_device_by_node(larb_node);
-		if (larb_pdev)
-			larb_dev = &larb_pdev->dev;
-		of_node_put(larb_node);
-	}
-
-	return larb_dev;
-}
-
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -4236,7 +4216,6 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	unsigned int dispsys_num = 0;
 	int ret;
 	int i;
-	struct device *larb_dev = NULL;
 
 	disp_dbg_probe();
 	PanelMaster_probe();
@@ -4438,17 +4417,6 @@ SKIP_SIDE_DISP:
 #ifdef CONFIG_MTK_DISPLAY_M4U
 	memcpy(&mydev, pdev, sizeof(mydev));
 #endif
-
-	if (private->data->mmsys_id != MMSYS_MT6983) {
-		/*
-		 * When kernel init, SMI larb will get once for keeping
-		 * MTCMOS on. Then, this keeping will be released after
-		 * display keep MTCMOS by itself.
-		 */
-		larb_dev = mtk_drm_get_larb(dev);
-		if (larb_dev)
-			mtk_smi_larb_put(larb_dev);
-	}
 
 	return 0;
 

@@ -6631,8 +6631,8 @@ static int mtk_ddp_sel_in_MT6879(const struct mtk_mmsys_reg_data *data,
 		value = MT6879_DISP_DSI0_FROM_DISP_RDMA0_OUT_RELAY;
 	}  else if (cur == DDP_COMPONENT_RDMA0 &&
 		next == DDP_COMPONENT_TDSHP0) {
-		*addr = MT6879_DISP_RDMA0_SEL;
-		value = MT6879_DISP_RDMA0_FROM_DISP_RDMA0_SOUT;
+		*addr = MT6879_DISP_RDMA0_POS_SEL;
+		value = MT6879_DISP_RDMA0_POS_FROM_DISP_MAIN_OVL_DISP_PQ0_SEL;
 	} else if (cur == DDP_COMPONENT_TDSHP0 &&
 		next == DDP_COMPONENT_COLOR0) {
 		*addr = MT6879_DISP_COLOR0_SEL;
