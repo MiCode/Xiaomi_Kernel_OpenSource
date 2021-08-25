@@ -12,7 +12,6 @@
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 
-static struct dentry *mmdvfs_debugfs_dir;
 #define MMDVFS_DBG
 #define MAX_OPP_NUM (6)
 #define MAX_MUX_NUM (10)
@@ -217,9 +216,126 @@ static const struct of_device_id of_mmdvfs_match_tbl[] = {
 	{}
 };
 
+#ifdef MMDVFS_DBG
+struct mmdvfs_dbg_data {
+	struct mmdvfs_drv_data *drv_data;
+	struct regulator *reg;
+	s32 force_step;
+	s32 vote_step;
+	bool is_notifier_registered;
+};
+
+struct mmdvfs_dbg_data *dbg_data;
+
+int mmdvfs_dbg_clk_set(int step, bool is_force)
+{
+	struct mmdvfs_drv_data *drv_data;
+	s32 ret = 0;
+	u64 volt = 0;
+
+	if (!dbg_data) {
+		pr_notice("%s: dbg_data is not ready!\n", __func__);
+		return -EINVAL;
+	}
+	drv_data = dbg_data->drv_data;
+
+	if (!drv_data) {
+		pr_notice("%s: drv_data is not ready!\n", __func__);
+		return -EINVAL;
+	}
+
+	if (step >= (int)drv_data->num_voltages) {
+		pr_notice("%s: invalid force_step(%d)\n", __func__, step);
+		return -EINVAL;
+	}
+
+	if (is_force)
+		dbg_data->force_step = step;
+	else
+		dbg_data->vote_step = step;
+
+	if (step < 0) {
+		if (is_force && !dbg_data->is_notifier_registered) {
+			ret = devm_regulator_register_notifier(
+					dbg_data->reg, &drv_data->nb);
+			dbg_data->is_notifier_registered = true;
+			if (ret)
+				pr_notice("%s: failed to register notifier(%d)\n",
+					__func__, ret);
+		}
+
+		regulator_set_voltage(dbg_data->reg, 0, INT_MAX);
+	} else {
+		volt = drv_data->voltages[drv_data->num_voltages-1-step];
+		if (is_force) {
+			if (dbg_data->is_notifier_registered) {
+				devm_regulator_unregister_notifier(
+						dbg_data->reg, &drv_data->nb);
+				dbg_data->is_notifier_registered = false;
+			}
+			if (step > drv_data->request_voltage) {
+				regulator_set_voltage(
+					dbg_data->reg, volt, INT_MAX);
+				set_all_clk(drv_data, volt, true);
+			} else {
+				set_all_clk(drv_data, volt, false);
+				regulator_set_voltage(
+					dbg_data->reg, volt, INT_MAX);
+			}
+		} else {
+			regulator_set_voltage(dbg_data->reg, volt, INT_MAX);
+		}
+	}
+	pr_notice("%s: step=%d volt=%llu is_force=%d\n", __func__, step, volt, is_force);
+	return ret;
+}
+
+int set_force_step(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	int new_force_step;
+
+	result = kstrtoint(val, 0, &new_force_step);
+	if (result) {
+		pr_notice("mmdvfs set force step failed: %d\n", result);
+		return result;
+	}
+	return mmdvfs_dbg_clk_set(new_force_step, true);
+}
+
+static struct kernel_param_ops set_force_step_ops = {
+	.set = set_force_step,
+};
+module_param_cb(force_step, &set_force_step_ops, NULL, 0644);
+MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
+
+int set_vote_step(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	int vote_step;
+
+	result = kstrtoint(val, 0, &vote_step);
+	if (result) {
+		pr_notice("mmdvfs set vote step failed: %d\n", result);
+		return result;
+	}
+
+	return mmdvfs_dbg_clk_set(vote_step, false);
+}
+
+static struct kernel_param_ops set_vote_step_ops = {
+	.set = set_vote_step,
+};
+module_param_cb(vote_step, &set_vote_step_ops, NULL, 0644);
+MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
+
+module_param(log_level, uint, 0644);
+MODULE_PARM_DESC(log_level, "mmdvfs log level");
+#endif /* MMDVFS_DBG */
+
 #define MAX_DUMP (PAGE_SIZE - 1)
 struct mmdvfs_drv_data *drv_data;
-int setting_show(char *buf, const struct kernel_param *kp)
+int dump_setting(char *buf, const struct kernel_param *kp)
 {
 	u32 i, j;
 	int length = 0;
@@ -262,75 +378,21 @@ int setting_show(char *buf, const struct kernel_param *kp)
 		"\n");
 	length += snprintf(buf + length, MAX_DUMP  - length,
 		"request voltage:%d\n", drv_data->request_voltage);
+#ifdef MMDVFS_DBG
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"force_step:%d\n", dbg_data->force_step);
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"vote_step:%d\n", dbg_data->vote_step);
+#endif
 	if (length >= MAX_DUMP)
 		length = MAX_DUMP - 1;
 
 	return length;
 }
 
-static struct kernel_param_ops dump_param_ops = {.get = setting_show};
-module_param_cb(setting_show, &dump_param_ops, NULL, 0444);
-MODULE_PARM_DESC(setting_show, "dump mmdvfs current setting");
-
-#ifdef MMDVFS_DBG
-struct mmdvfs_dbg_data {
-	struct mmdvfs_drv_data *drv_data;
-	struct regulator *reg;
-	u32 max_voltage;
-};
-
-struct mmdvfs_dbg_data *dbg_data;
-
-int force_clk_set(u64 val)
-{
-	struct mmdvfs_drv_data *drv_data = dbg_data->drv_data;
-	s32 ret;
-
-	if (val == 0) {
-		ret = devm_regulator_register_notifier(
-				dbg_data->reg, &drv_data->nb);
-		if (ret)
-			pr_notice("Failed to register notifier: %d\n", ret);
-		regulator_set_voltage(dbg_data->reg, 0, dbg_data->max_voltage);
-	} else {
-		devm_regulator_unregister_notifier(
-				dbg_data->reg, &drv_data->nb);
-		if (val > drv_data->request_voltage) {
-			regulator_set_voltage(
-				dbg_data->reg, val, dbg_data->max_voltage);
-			set_all_clk(drv_data, val, true);
-		} else {
-			set_all_clk(drv_data, val, false);
-			regulator_set_voltage(
-				dbg_data->reg, val, dbg_data->max_voltage);
-		}
-	}
-	pr_notice("%s: val=%llu\n", __func__, val);
-	return 0;
-}
-
-int set_force_step(const char *val, const struct kernel_param *kp)
-{
-	int result;
-	u64 new_force_step;
-
-	result = kstrtou64(val, 0, &new_force_step);
-	if (result) {
-		pr_notice("force set step failed: %d\n", result);
-		return result;
-	}
-	return force_clk_set(new_force_step);
-}
-
-static struct kernel_param_ops set_force_step_ops = {
-	.set = set_force_step,
-};
-module_param_cb(force_step, &set_force_step_ops, NULL, 0644);
-MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
-
-module_param(log_level, uint, 0644);
-MODULE_PARM_DESC(log_level, "mmdvfs log level");
-#endif /* MMDVFS_DBG */
+static struct kernel_param_ops dump_param_ops = {.get = dump_setting};
+module_param_cb(dump_setting, &dump_param_ops, NULL, 0444);
+MODULE_PARM_DESC(dump_setting, "dump mmdvfs current setting");
 
 static int mmdvfs_probe(struct platform_device *pdev)
 {
@@ -421,7 +483,9 @@ static int mmdvfs_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	dbg_data->drv_data = drv_data;
 	dbg_data->reg = reg;
-	dbg_data->max_voltage = drv_data->voltages[drv_data->num_voltages-1];
+	dbg_data->force_step = -1;
+	dbg_data->vote_step = -1;
+	dbg_data->is_notifier_registered = true;
 #endif
 	drv_data->nb.notifier_call = regulator_event_notify;
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);
@@ -453,7 +517,6 @@ static int __init mtk_mmdvfs_init(void)
 static void __exit mtk_mmdvfs_exit(void)
 {
 	platform_driver_unregister(&mmdvfs_drv);
-	debugfs_remove_recursive(mmdvfs_debugfs_dir);
 }
 
 module_init(mtk_mmdvfs_init);
