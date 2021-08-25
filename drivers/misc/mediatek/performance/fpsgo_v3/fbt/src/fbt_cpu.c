@@ -147,6 +147,12 @@ enum FPSGO_LIMIT_POLICY {
 	FPSGO_LIMIT_MAX,
 };
 
+enum FPSGO_CEILING_KICKER {
+	FPSGO_CEILING_PROCFS = 0,
+	FPSGO_CEILING_LIMIT_FREQ,
+	FPSGO_CEILING_KICKER_MAX,
+};
+
 enum FPSGO_ADJ_STATE {
 	FPSGO_ADJ_NONE = 0,
 	FPSGO_ADJ_LITTLE,
@@ -5393,7 +5399,7 @@ static ssize_t enable_ceiling_show(struct kobject *kobj,
 	val = enable_ceiling;
 	mutex_unlock(&fbt_mlock);
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+	return scnprintf(buf, PAGE_SIZE, "%x\n", val);
 }
 
 static ssize_t enable_ceiling_store(struct kobject *kobj,
@@ -5414,13 +5420,33 @@ static ssize_t enable_ceiling_store(struct kobject *kobj,
 	}
 
 	mutex_lock(&fbt_mlock);
-	enable_ceiling = !!val;
+	if (val)
+		enable_ceiling |= (1 << FPSGO_CEILING_PROCFS);
+	else
+		enable_ceiling &= ~(1 << FPSGO_CEILING_PROCFS);
 	mutex_unlock(&fbt_mlock);
 
 	return count;
 }
 
 static KOBJ_ATTR_RW(enable_ceiling);
+
+static void update_cfreq_rfreq_status_locked(void)
+{
+	int i, enable = 0;
+
+	for (i = 0; i < cluster_num; i++) {
+		if (limit_clus_ceil[i].cfreq > 0 || limit_clus_ceil[i].rfreq > 0) {
+			enable = 1;
+			break;
+		}
+	}
+
+	if (enable)
+		enable_ceiling |= (1 << FPSGO_CEILING_LIMIT_FREQ);
+	else
+		enable_ceiling &= ~(1 << FPSGO_CEILING_LIMIT_FREQ);
+}
 
 static ssize_t limit_cfreq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -5490,6 +5516,7 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 	limit_policy = FPSGO_LIMIT_CAPACITY;
 
 EXIT:
+	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
 	return count;
@@ -5566,6 +5593,7 @@ static ssize_t limit_cfreq_m_store(struct kobject *kobj,
 	limit_cap = check_limit_cap(0);
 
 EXIT:
+	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
 	return count;
@@ -5639,6 +5667,7 @@ static ssize_t limit_rfreq_store(struct kobject *kobj,
 	limit_rcap = check_limit_cap(1);
 
 EXIT:
+	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
 	return count;
@@ -5715,6 +5744,7 @@ static ssize_t limit_rfreq_m_store(struct kobject *kobj,
 	limit_rcap = check_limit_cap(1);
 
 EXIT:
+	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
 	return count;
