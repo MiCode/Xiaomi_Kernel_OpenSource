@@ -72,6 +72,11 @@ static const struct {
 		.direction = IPI_APU_INITIATE,
 		.ack = IPI_WITH_ACK,
 	},
+	[APU_IPI_TIMESYNC] = { // 10
+		.name = "timesync",
+		.direction = IPI_APU_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
 };
 
 

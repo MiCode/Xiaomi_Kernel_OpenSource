@@ -347,7 +347,8 @@ static int apu_probe(struct platform_device *pdev)
 				"mediatek,apu_apusys-rv_secure");
 			if (!apusys_sec_mem_node) {
 				pr_info("DT,mediatek,apu_apusys-rv_secure not found\n");
-				return -EINVAL;
+				ret = -EINVAL;
+				goto out_free_rproc;
 			}
 			of_property_read_u32_index(apusys_sec_mem_node, "reg", 1,
 				&(apu->apusys_sec_mem_start));
@@ -363,7 +364,8 @@ static int apu_probe(struct platform_device *pdev)
 						   &up_code_buf_sz);
 			if (ret) {
 				dev_info(dev, "parsing up_code_buf_sz error: %d\n", ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto out_free_rproc;
 			}
 
 			apu->apusys_sec_info = (struct apusys_secure_info_t *)
@@ -382,7 +384,8 @@ static int apu_probe(struct platform_device *pdev)
 			"mediatek,apu_apusys-rv_aee-coredump");
 		if (!apusys_aee_coredump_mem_node) {
 			pr_info("DT,mediatek,apu_apusys-rv_aee-coredump not found\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out_free_rproc;
 		}
 		of_property_read_u32_index(apusys_aee_coredump_mem_node, "reg", 1,
 			&(apu->apusys_aee_coredump_mem_start));
@@ -412,18 +415,12 @@ static int apu_probe(struct platform_device *pdev)
 	g_pdev = pdev;
 	pm_runtime_get_sync(&pdev->dev);
 
-	if (data->flags & F_AUTO_BOOT) {
-		ret = apu_deepidle_init(apu);
-		if (ret < 0)
-			goto remove_apu_deepidle;
-	}
-
 	if (!hw_ops->apu_memmap_init) {
 		pm_runtime_put_sync(&pdev->dev);
 		if (data->flags & F_AUTO_BOOT)
 			pm_runtime_put_sync(apu->power_dev);
 		WARN_ON(1);
-		goto remove_apu_deepidle;
+		goto out_free_rproc;
 	}
 
 	ret = hw_ops->apu_memmap_init(apu);
@@ -449,6 +446,12 @@ static int apu_probe(struct platform_device *pdev)
 	ret = apu_ipi_init(pdev, apu);
 	if (ret)
 		goto remove_apu_ipi;
+
+	if (data->flags & F_AUTO_BOOT) {
+		ret = apu_deepidle_init(apu);
+		if (ret < 0)
+			goto remove_apu_deepidle;
+	}
 
 	ret = apu_timesync_init(apu);
 	if (ret)
@@ -496,6 +499,9 @@ remove_apu_procfs:
 remove_apu_timesync:
 	apu_timesync_remove(apu);
 
+remove_apu_deepidle:
+	apu_deepidle_exit(apu);
+
 remove_apu_ipi:
 	apu_ipi_remove(apu);
 
@@ -521,9 +527,7 @@ remove_apu_memmap:
 	}
 	hw_ops->apu_memmap_remove(apu);
 
-remove_apu_deepidle:
-	apu_deepidle_exit(apu);
-
+out_free_rproc:
 	rproc_free(rproc);
 
 	return ret;
