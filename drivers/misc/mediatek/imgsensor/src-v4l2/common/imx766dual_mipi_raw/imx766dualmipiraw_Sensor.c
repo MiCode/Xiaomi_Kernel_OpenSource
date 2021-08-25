@@ -3464,12 +3464,12 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_DUAL_GAIN://for 2EXP
 		LOG_INF("SENSOR_FEATURE_SET_DUAL_GAIN LE=%d, SE=%d\n",
-				(UINT16) *feature_data, (UINT16) *(feature_data + 1));
+				(UINT32)*feature_data, (UINT32)*(feature_data + 1));
 		// implement write gain for NE/SE
 		hdr_write_tri_gain(ctx,
-				(UINT32) * feature_data,
+				(UINT32)*feature_data,
 				0,
-				(UINT32) * (feature_data+1));
+				(UINT32)*(feature_data+1));
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_SHUTTER://for 3EXP
 		LOG_INF("SENSOR_FEATURE_SET_HDR_TRI_SHUTTER LE=%d, ME=%d, SE=%d\n",
