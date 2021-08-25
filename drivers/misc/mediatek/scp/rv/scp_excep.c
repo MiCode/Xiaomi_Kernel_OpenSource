@@ -608,8 +608,6 @@ end:
 
 	/*prepare scp A db file*/
 	scp_dump.ramdump_length = 0;
-	memset(scp_dump.ramdump, 0x0, get_MDUMP_size_accumulate(MDUMP_DRAM));
-	pr_notice("[SCP] %s cleaned ramdump\n", __func__);
 	scp_dump.ramdump_length = scp_crash_dump(SCP_A_ID);
 
 	pr_notice("[SCP] %s ends, @%p, size = %x\n", __func__,
@@ -695,9 +693,14 @@ static ssize_t scp_A_dump_show(struct file *filep,
 
 		memcpy(buf, scp_dump.ramdump + offset, size);
 		length = size;
-		if (scp_dump.ramdump_length == 0)
-			pr_notice("[SCP] %s ramdump length=0 at of:0x%x sz:0x%x\n", __func__,
+
+		/* clean the buff after readed */
+		memset(scp_dump.ramdump + offset, 0x0, size);
+		/* log for the first and latest cleanup */
+		if (offset == 0 || size == (scp_dump.ramdump_length - offset))
+			pr_notice("[SCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
 				offset, size);
+
 		/* the last time read scp_dump buffer has done
 		 * so the next coredump flow can be continued
 		 */
@@ -707,14 +710,6 @@ static ssize_t scp_A_dump_show(struct file *filep,
 				atomic_read(&coredumping));
 			complete(&scp_coredump_comp);
 		}
-		/* clean the buff after readed */
-		/* memset(scp_dump.ramdump + offset, 0x0, size); */
-		/* log for the first and latest cleanup */
-		/*
-		 * if (offset == 0 || offset > (scp_dump.ramdump_length - 0x1000))
-		 *         pr_notice("[SCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
-		 *                 offset, size);
-		 */
 	}
 
 
@@ -770,6 +765,8 @@ int scp_excep_init(void)
 	if (!scp_dump.ramdump)
 		return -1;
 	}
+	memset(scp_dump.ramdump, 0x0, get_MDUMP_size_accumulate(MDUMP_DRAM));
+	pr_notice("[SCP] %s cleaned ramdump\n", __func__);
 
 	/* scp_status_reg init */
 	c0_m = vmalloc(sizeof(struct scp_status_reg));
