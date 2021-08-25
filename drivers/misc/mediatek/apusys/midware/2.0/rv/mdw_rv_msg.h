@@ -39,7 +39,6 @@ struct mdw_ipi_apu_cmd {
 	uint64_t start_ts_ns; // cmd time
 	uint64_t iova;
 	uint32_t size;
-	uint32_t status;
 };
 
 struct mdw_ipi_handshake {

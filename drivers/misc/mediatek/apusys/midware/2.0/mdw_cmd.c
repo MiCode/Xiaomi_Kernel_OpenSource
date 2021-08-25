@@ -55,7 +55,6 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 	/* flush cmdbufs and execinfos */
 	apusys_mem_invalidate_kva(c->cmdbufs->vaddr, c->cmdbufs->size);
-	apusys_mem_invalidate_kva(c->exec_infos->vaddr, c->exec_infos->size);
 
 	for (i = 0; i < c->num_subcmds; i++) {
 		ksubcmd = &c->ksubcmds[i];
@@ -203,7 +202,7 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 {
 	unsigned int i = 0, j = 0, total_size = 0;
 	struct mdw_subcmd_exec_info *sc_einfo = NULL;
-	int ret = 0;
+	int ret = -ENOMEM;
 
 	c->einfos = c->exec_infos->vaddr;
 	if (!c->einfos) {
@@ -302,7 +301,6 @@ free_cmdbufs:
 		}
 	}
 
-	ret = -EINVAL;
 out:
 	return ret;
 }
@@ -395,6 +393,7 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	int ret = 0;
 
 	mdw_cmd_show(c, mdw_cmd_debug);
+	ktime_get_ts64(&c->start_ts);
 	ret = mdev->dev_funcs->run_cmd(mpriv, c);
 	if (ret) {
 		mdw_drv_err("run cmd(%p/0x%llx) fail(%d)\n",
@@ -434,8 +433,15 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 {
 	struct dma_fence *f = &c->fence->base_fence;
 
-	mdw_flw_debug("cmd(%p/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
+	ktime_get_ts64(&c->end_ts);
+	c->einfos->c.total_us =
+		(c->end_ts.tv_sec - c->start_ts.tv_sec) * 1000000;
+	c->einfos->c.total_us +=
+		((c->end_ts.tv_nsec - c->start_ts.tv_nsec) / 1000);
+
+	mdw_flw_debug("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)(%d)\n",
 		c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+		c->einfos->c.total_us,
 		c->pid, c->tgid, current->pid);
 
 	/* check subcmds return value */
@@ -446,6 +452,8 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 
 		if (!ret)
 			ret = -EFAULT;
+	} else {
+		c->einfos->c.ret = ret;
 	}
 
 	mdw_cmd_put_cmdbufs(c->mpriv, c);

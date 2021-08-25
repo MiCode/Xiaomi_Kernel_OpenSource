@@ -80,7 +80,8 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 	}
 
 	if (ret) {
-		mdw_drv_err("send msg(0x%llx) fail\n", s_msg->msg.sync_id);
+		mdw_drv_err("send ipi msg(0x%llx) fail(%d)\n",
+			s_msg->msg.sync_id, ret);
 		mutex_lock(&mrdev->msg_mtx);
 		list_del(&s_msg->ud_item);
 		mutex_unlock(&mrdev->msg_mtx);
@@ -159,6 +160,8 @@ static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
 		break;
 	}
 
+	mdw_flw_debug("cmd(0x%llx) ret(%d/%d)\n",
+		rc->c->kid, ret, s_msg->msg.ret);
 	mdw_rv_dev_trace(rc, true);
 	mdw_rv_cmd_done(rc, ret);
 }

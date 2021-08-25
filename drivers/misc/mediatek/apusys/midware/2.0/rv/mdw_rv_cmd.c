@@ -162,7 +162,12 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		acc_cb += c->subcmds[i].num_cmdbufs;
 	}
 
+	/* clear exec ret */
+	c->einfos->c.ret = 0;
+	c->einfos->c.sc_rets = 0;
+
 	apusys_mem_flush_kva(rc->cb->vaddr, rc->cb->size);
+	apusys_mem_flush_kva(c->exec_infos->vaddr, c->exec_infos->size);
 
 	goto out;
 

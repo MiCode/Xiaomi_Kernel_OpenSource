@@ -151,6 +151,9 @@ struct mdw_subcmd_exec_info {
 
 struct mdw_cmd_exec_info {
 	uint64_t sc_rets;
+	int64_t ret;
+	uint64_t total_us;
+	uint64_t reserved;
 };
 
 struct mdw_subcmd_cmdbuf {

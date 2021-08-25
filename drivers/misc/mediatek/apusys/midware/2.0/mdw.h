@@ -179,6 +179,9 @@ struct mdw_cmd {
 	struct mutex mtx;
 	struct list_head u_item;
 
+	struct timespec64 start_ts;
+	struct timespec64 end_ts;
+
 	struct mdw_fpriv *mpriv;
 	int (*complete)(struct mdw_cmd *c, int ret);
 
