@@ -89,6 +89,13 @@ static bool ufs_mtk_is_broken_vcc(struct ufs_hba *hba)
 	return !!(host->caps & UFS_MTK_CAP_BROKEN_VCC);
 }
 
+static bool ufs_mtk_is_delay_after_vcc_off(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	return !!(host->caps & UFS_MTK_CAP_DEALY_AFTER_VCC_OFF);
+}
+
 static void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 {
 	u32 tmp;
@@ -617,6 +624,9 @@ static void ufs_mtk_init_host_caps(struct ufs_hba *hba)
 
 	if (of_property_read_bool(np, "mediatek,ufs-broken-vcc"))
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
+
+	if (of_property_read_bool(np, "mediatek,ufs-delay-after-vcc-off"))
+		host->caps |= UFS_MTK_CAP_DEALY_AFTER_VCC_OFF;
 
 	dev_info(hba->dev, "caps: 0x%x", host->caps);
 
@@ -1909,6 +1919,13 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 {
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
+
+	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
+		/*
+		 * Always delay 5ms after VCC off.
+		 */
+		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_AFTER_LPM;
+	}
 
 	if (ufs_mtk_is_broken_vcc(hba) && hba->vreg_info.vcc &&
 	    (hba->dev_quirks & UFS_DEVICE_QUIRK_DELAY_AFTER_LPM)) {
