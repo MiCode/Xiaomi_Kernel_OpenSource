@@ -252,10 +252,8 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
 		struct sg_table *table = buffer->mapped_table[i];
 		struct mtk_heap_dev_info dev_info = buffer->dev_info[i];
-		unsigned long attrs = dev_info.map_attrs;
+		unsigned long attrs = dev_info.map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
-		if(buffer->uncached)
-			attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		if (!buffer->mapped[i] || dev_is_normal_region(dev_info.dev))
 			continue;
 		pr_info("%s: free dom:%d iova:0x%lx, dev:%s\n", __func__,
@@ -309,10 +307,8 @@ static int page_base_free(struct secure_heap_page *sec_heap, struct mtk_sec_heap
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
 		struct sg_table *table = buffer->mapped_table[i];
 		struct mtk_heap_dev_info dev_info = buffer->dev_info[i];
-		unsigned long attrs = dev_info.map_attrs;
+		unsigned long attrs = dev_info.map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
-		if(buffer->uncached)
-			attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		if (!buffer->mapped[i])
 			continue;
 		pr_info("%s: free region:%d iova:0x%lx, dev:%s\n", __func__,
@@ -548,12 +544,9 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 	struct secure_heap_page *sec_heap;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
 	int dom_id = BUF_PRIV_MAX_CNT;
-	int attr = attachment->dma_map_attrs;
+	int attr = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
 	//pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
-
-	if (a->uncached)
-		attr |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	/* non-iommu master */
 	if (!fwspec) {
@@ -638,12 +631,10 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 	int ret;
 	dma_addr_t dma_address;
 	uint64_t phy_addr = 0;
-	int attr = attachment->dma_map_attrs;
+	/* for iommu mapping, should be skip cache sync */
+	int attr = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
 	//pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
-
-	if (a->uncached)
-		attr |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	/* non-iommu master */
 	if (!fwspec) {
@@ -765,15 +756,12 @@ static void mtk_sec_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				       enum dma_data_direction direction)
 {
 	struct dma_heap_attachment *a = attachment->priv;
-	int attr = attachment->dma_map_attrs;
+	int attr = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
-
-	if (a->uncached)
-		attr |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	if (!fwspec) {
 		pr_info("%s, non-iommu-dev unmap, dev:%s\n", __func__, dev_name(attachment->dev));
-		dma_unmap_sgtable(attachment->dev, table, direction, 0);
+		dma_unmap_sgtable(attachment->dev, table, direction, attr);
 	}
 	a->mapped = false;
 }
