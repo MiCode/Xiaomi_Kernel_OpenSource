@@ -142,25 +142,34 @@ enum mml_tile_state {
 
 s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 {
-	struct mml_tile_output *output;
-	struct mml_tile_config *tiles;
+	struct mml_tile_output *output = NULL;
+	struct mml_tile_config *tiles = NULL;
 	size_t tile_num;
 	struct mml_frame_dest dest = task->config->info.dest[0];
 	const struct mml_topology_path **paths = get_topology_path(task);
 	u32 tile_cnt = 0;
-	struct tile_param *tile_param;
-	struct tile_reg_map *tile_reg_map;
-	struct func_description *tile_func;
+	struct tile_param *tile_param = NULL;
+	struct tile_reg_map *tile_reg_map = NULL;
+	struct func_description *tile_func = NULL;
 	enum isp_tile_message result = ISP_MESSAGE_TILE_OK;
 	bool stop = false;
 	enum mml_tile_state tile_state = TILE_CALC;
-	union mml_tile_data *tile_datas;
+	union mml_tile_data *tile_datas = NULL;
 	u32 eng_cnt = paths[pipe_idx]->tile_engine_cnt;
+	s32 ret;
 
 	mml_msg("%s task %p pipe %u", __func__, task, pipe_idx);
 
 	tile_datas = kcalloc(eng_cnt, sizeof(*tile_datas), GFP_KERNEL);
+	if (!tile_datas) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	output = kzalloc(sizeof(*output), GFP_KERNEL);
+	if (!output) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	if (task->config->info.mode == MML_MODE_RACING) {
 		if (task->config->info.dest_cnt > 1)
@@ -174,11 +183,27 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 		tile_num = MAX_DECOUPLE_TILE_NUM;
 	}
 	tiles = kcalloc(tile_num, sizeof(*tiles), GFP_KERNEL);
+	if (!tiles) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	/* todo: vmalloc when driver init */
 	tile_param = kzalloc(sizeof(*tile_param), GFP_KERNEL);
+	if (!tile_param) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	tile_reg_map = kzalloc(sizeof(*tile_reg_map), GFP_KERNEL);
+	if (!tile_reg_map) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	tile_func = kzalloc(sizeof(*tile_func), GFP_KERNEL);
+	if (!tile_func) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	tile_param->ptr_tile_reg_map = tile_reg_map;
 	tile_param->ptr_tile_func_param = tile_func;
@@ -232,6 +257,15 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 	kfree(tile_reg_map);
 	kfree(tile_func);
 	return 0;
+
+err:
+	kfree(tile_datas);
+	kfree(output);
+	kfree(tiles);
+	kfree(tile_param);
+	kfree(tile_reg_map);
+	kfree(tile_func);
+	return ret;
 }
 
 static struct mml_tile_output *get_tile_output(
