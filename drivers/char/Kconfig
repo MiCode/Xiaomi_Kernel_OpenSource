@@ -633,6 +633,10 @@ config MSM_RDBG
 	  for a debugger running on a host PC to communicate with a remote
 	  stub running on peripheral subsystems such as the ADSP, MODEM etc.
 
+config XLOGCHAR
+	tristate "xlogchar driver"
+	help
+	  Implements a high performance log driver
 endmenu
 
 config OKL4_PIPE

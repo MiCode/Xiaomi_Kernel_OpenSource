@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2003-2006, Cluster File Systems, Inc, info@clusterfs.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by Alex Tomas <alex@clusterfs.com>
  *
  * Architecture independence:
@@ -4407,7 +4408,8 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 		/* Update hole_len to reflect hole size after map->m_lblk */
 		if (hole_start != map->m_lblk)
 			hole_len -= map->m_lblk - hole_start;
-		map->m_pblk = 0;
+		if (!(flags & EXT4_GET_BLOCKS_USED_EXTENTS))
+			map->m_pblk = 0;
 		map->m_len = min_t(unsigned int, map->m_len, hole_len);
 
 		goto out2;
@@ -4475,7 +4477,11 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 
 	/* allocate new block */
 	ar.inode = inode;
-	ar.goal = ext4_ext_find_goal(inode, path, map->m_lblk);
+	if (flags & EXT4_GET_BLOCKS_USED_EXTENTS)
+		ar.goal = map->m_pblk;
+	else
+		ar.goal = ext4_ext_find_goal(inode, path, map->m_lblk);
+
 	ar.logical = map->m_lblk;
 	/*
 	 * We calculate the offset from the beginning of the cluster
@@ -4500,11 +4506,18 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 		ar.flags |= EXT4_MB_DELALLOC_RESERVED;
 	if (flags & EXT4_GET_BLOCKS_METADATA_NOFAIL)
 		ar.flags |= EXT4_MB_USE_RESERVED;
+	if (flags & EXT4_GET_BLOCKS_USED_EXTENTS)
+		ar.flags |= EXT4_MB_USED_EXTENTS;
 	newblock = ext4_mb_new_blocks(handle, &ar, &err);
 	if (!newblock)
 		goto out2;
-	ext_debug("allocate new block: goal %llu, found %llu/%u\n",
-		  ar.goal, newblock, allocated);
+	if (flags & EXT4_GET_BLOCKS_USED_EXTENTS) {
+		ext_debug("ext_map:allocate new block: goal %llu, found %llu/%u, err %d\n",
+		  ar.goal, newblock, allocated, err);
+	} else {
+		ext_debug("allocate new block: goal %llu, found %llu/%u, err %d\n",
+		  ar.goal, newblock, allocated, err);
+	}
 	free_on_err = 1;
 	allocated_clusters = ar.len;
 	ar.len = EXT4_C2B(sbi, ar.len) - offset;
@@ -4680,9 +4693,9 @@ retry:
 	return ext4_ext_remove_space(inode, last_block, EXT_MAX_BLOCKS - 1);
 }
 
-static int ext4_alloc_file_blocks(struct file *file, ext4_lblk_t offset,
+static int ext4_alloc_file_blocks_with_pa_reserve(struct file *file, ext4_lblk_t offset,
 				  ext4_lblk_t len, loff_t new_size,
-				  int flags)
+				  int flags, struct pa_address *pa_addr)
 {
 	struct inode *inode = file_inode(file);
 	handle_t *handle;
@@ -4693,6 +4706,12 @@ static int ext4_alloc_file_blocks(struct file *file, ext4_lblk_t offset,
 	struct ext4_map_blocks map;
 	unsigned int credits;
 	loff_t epos;
+	struct super_block *sb = inode->i_sb;
+
+	if (flags & EXT4_GET_BLOCKS_USED_EXTENTS) {
+		map.m_pblk = ext4_group_first_block_no(sb, pa_addr->pa_group) + (ext4_lblk_t)(pa_addr->pa_offset);
+		ext_debug("ext_map:m_pblk %llu, pa_offset %u m_len %lu\n", map.m_pblk, (ext4_lblk_t)pa_addr->pa_offset, (unsigned long)len);
+	}
 
 	BUG_ON(!ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS));
 	map.m_lblk = offset;
@@ -4764,6 +4783,17 @@ retry:
 	}
 
 	return ret > 0 ? ret2 : ret;
+}
+
+static int ext4_alloc_file_blocks(struct file *file, ext4_lblk_t offset,
+							ext4_lblk_t len, loff_t new_size,
+							int flags)
+{
+	int ret = 0;
+
+	ret = ext4_alloc_file_blocks_with_pa_reserve(file, offset, len, new_size, flags, NULL);
+
+	return ret;
 }
 
 static long ext4_zero_range(struct file *file, loff_t offset,
@@ -4933,6 +4963,15 @@ out_mutex:
  */
 long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 {
+	int ret = 0;
+
+	ret = ext4_fallocate_with_pa_reserve(file, mode, offset, len, NULL);
+
+	return ret;
+}
+
+long ext4_fallocate_with_pa_reserve(struct file *file, int mode, loff_t offset, loff_t len, struct pa_address *pa_addr)
+{
 	struct inode *inode = file_inode(file);
 	loff_t new_size = 0;
 	unsigned int max_blocks;
@@ -4959,7 +4998,7 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	/* Return error if mode is not supported */
 	if (mode & ~(FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE |
 		     FALLOC_FL_COLLAPSE_RANGE | FALLOC_FL_ZERO_RANGE |
-		     FALLOC_FL_INSERT_RANGE))
+		     FALLOC_FL_INSERT_RANGE | FALLOC_FL_RESERVE_RANGE))
 		return -EOPNOTSUPP;
 
 	if (mode & FALLOC_FL_PUNCH_HOLE)
@@ -4986,6 +5025,8 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	if (mode & FALLOC_FL_KEEP_SIZE)
 		flags |= EXT4_GET_BLOCKS_KEEP_SIZE;
 
+	if (mode & FALLOC_FL_RESERVE_RANGE)
+		flags |= EXT4_GET_BLOCKS_USED_EXTENTS;
 	inode_lock(inode);
 
 	/*
@@ -5009,7 +5050,7 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	ext4_inode_block_unlocked_dio(inode);
 	inode_dio_wait(inode);
 
-	ret = ext4_alloc_file_blocks(file, lblk, max_blocks, new_size, flags);
+	ret = ext4_alloc_file_blocks_with_pa_reserve(file, lblk, max_blocks, new_size, flags, pa_addr);
 	ext4_inode_resume_unlocked_dio(inode);
 	if (ret)
 		goto out;
@@ -5041,23 +5082,13 @@ int ext4_convert_unwritten_extents(handle_t *handle, struct inode *inode,
 	int ret = 0;
 	int ret2 = 0;
 	struct ext4_map_blocks map;
-	unsigned int credits, blkbits = inode->i_blkbits;
+	unsigned int blkbits = inode->i_blkbits;
+	unsigned int credits = 0;
 
 	map.m_lblk = offset >> blkbits;
 	max_blocks = EXT4_MAX_BLOCKS(len, offset, blkbits);
 
-	/*
-	 * This is somewhat ugly but the idea is clear: When transaction is
-	 * reserved, everything goes into it. Otherwise we rather start several
-	 * smaller transactions for conversion of each extent separately.
-	 */
-	if (handle) {
-		handle = ext4_journal_start_reserved(handle,
-						     EXT4_HT_EXT_CONVERT);
-		if (IS_ERR(handle))
-			return PTR_ERR(handle);
-		credits = 0;
-	} else {
+	if (!handle) {
 		/*
 		 * credits to insert 1 extent into extent tree
 		 */
@@ -5088,9 +5119,38 @@ int ext4_convert_unwritten_extents(handle_t *handle, struct inode *inode,
 		if (ret <= 0 || ret2)
 			break;
 	}
-	if (!credits)
-		ret2 = ext4_journal_stop(handle);
 	return ret > 0 ? ret2 : ret;
+}
+
+int ext4_convert_unwritten_io_end_vec(handle_t *handle, ext4_io_end_t *io_end)
+{
+	int ret, err = 0;
+	struct ext4_io_end_vec *io_end_vec;
+
+	/*
+	 * This is somewhat ugly but the idea is clear: When transaction is
+	 * reserved, everything goes into it. Otherwise we rather start several
+	 * smaller transactions for conversion of each extent separately.
+	 */
+	if (handle) {
+		handle = ext4_journal_start_reserved(handle,
+						     EXT4_HT_EXT_CONVERT);
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+	}
+
+	list_for_each_entry(io_end_vec, &io_end->list_vec, list) {
+		ret = ext4_convert_unwritten_extents(handle, io_end->inode,
+						     io_end_vec->offset,
+						     io_end_vec->size);
+		if (ret)
+			break;
+	}
+
+	if (handle)
+		err = ext4_journal_stop(handle);
+
+	return ret < 0 ? ret : err;
 }
 
 /*

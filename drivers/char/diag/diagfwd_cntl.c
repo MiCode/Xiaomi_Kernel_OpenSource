@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1142,6 +1143,8 @@ void diag_real_time_work_fn(struct work_struct *work)
 
 		if (peripheral > NUM_PERIPHERALS)
 			peripheral = diag_search_peripheral_by_pd(i);
+		if (peripheral  < 0 || peripheral > NUM_PERIPHERALS)
+			continue;
 
 		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
 			continue;

@@ -2,6 +2,7 @@
  * kernel userspace event delivery
  *
  * Copyright (C) 2004 Red Hat, Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004 Novell, Inc.  All rights reserved.
  * Copyright (C) 2004 IBM, Inc. All rights reserved.
  *
@@ -14,6 +15,7 @@
  *	Greg Kroah-Hartman	<greg@kroah.com>
  */
 
+#define CONFIG_UEVENTS_RECORD
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/kobject.h>
@@ -27,7 +29,34 @@
 #include <linux/ctype.h>
 #include <net/sock.h>
 #include <net/net_namespace.h>
+#ifdef CONFIG_UEVENTS_RECORD
+#include <linux/proc_fs.h>
+#include <linux/rtc.h>
 
+#define UEVENT_RECORD_MAX	2048
+static DEFINE_SPINLOCK(uevent_lock);
+struct uevent_info {
+	const char *action;
+	const char *path;
+	const char *subsystem;
+	const char *firmware;
+	const char *partition_name;
+	const char *device_name;
+	int partition_num;
+	int major;
+	int minor;
+};
+
+struct uevent_buff {
+	char event_msg[250];
+	struct timespec uevent_report_time;
+};
+
+static struct uevent_buff uevents_buff[UEVENT_RECORD_MAX];
+static u32 uevent_num = 0;
+static u32 index_head = 0;
+static u32 index_tail = 0;
+#endif
 
 u64 uevent_seqnum;
 #ifdef CONFIG_UEVENT_HELPER
@@ -294,6 +323,89 @@ static void cleanup_uevent_env(struct subprocess_info *info)
 }
 #endif
 
+#ifdef CONFIG_UEVENTS_RECORD
+static void parse_event(struct kobj_uevent_env *uevent_env, struct uevent_info *uevent)
+{
+        char *msg;
+
+        uevent->action = "";
+        uevent->path = "";
+        uevent->subsystem = "";
+        uevent->firmware = "";
+        uevent->major = -1;
+        uevent->minor = -1;
+        uevent->partition_name = NULL;
+        uevent->partition_num = -1;
+        uevent->device_name = NULL;
+
+        msg = uevent_env->buf;
+
+        /* currently ignoring SEQNUM */
+        while(*msg) {
+                if(!strncmp(msg, "ACTION=", 7)) {
+                        msg += 7;
+                        uevent->action = msg;
+                } else if(!strncmp(msg, "DEVPATH=", 8)) {
+                        msg += 8;
+                        uevent->path = msg;
+                } else if(!strncmp(msg, "SUBSYSTEM=", 10)) {
+                        msg += 10;
+                        uevent->subsystem = msg;
+                } else if(!strncmp(msg, "FIRMWARE=", 9)) {
+                        msg += 9;
+                        uevent->firmware = msg;
+                } else if(!strncmp(msg, "MAJOR=", 6)) {
+                        msg += 6;
+                } else if(!strncmp(msg, "MINOR=", 6)) {
+                        msg += 6;
+                } else if(!strncmp(msg, "PARTN=", 6)) {
+                        msg += 6;
+                } else if(!strncmp(msg, "PARTNAME=", 9)) {
+                        msg += 9;
+                        uevent->partition_name = msg;
+                } else if(!strncmp(msg, "DEVNAME=", 8)) {
+                        msg += 8;
+                        uevent->device_name = msg;
+                }
+
+                /* advance to after the next \0 */
+                while(*msg++)
+                        ;
+        }
+}
+
+static void uevents_collect(struct kobj_uevent_env *uevent_env)
+{
+        static int m = 0;
+        struct uevent_info uevent;
+
+        if (!spin_trylock(&uevent_lock))
+                return;
+
+        if (uevent_env->buflen > 0) {
+                index_tail = m;
+                parse_event(uevent_env, &uevent);                                                          
+                pr_debug("Event { %s', '%s', '%s', '%s'}\n", uevent.action, uevent.path, uevent.subsystem, uevent.device_name);
+                getnstimeofday(&uevents_buff[m].uevent_report_time);
+                sprintf(uevents_buff[m++].event_msg, "%s, %s, %s, %s", uevent.action, uevent.path, uevent.subsystem, uevent.device_name);
+
+                if(m >= UEVENT_RECORD_MAX) {
+                        m = 0;
+                }
+
+                uevent_num++;
+                if (uevent_num >= UEVENT_RECORD_MAX) {
+                        uevent_num = UEVENT_RECORD_MAX;
+                        index_head = index_tail + 1;
+                        if (index_head >= UEVENT_RECORD_MAX)
+                                index_head = 0;
+                }
+        }
+        spin_unlock(&uevent_lock);
+}
+#endif
+
+
 static void zap_modalias_env(struct kobj_uevent_env *env)
 {
 	static const char modalias_prefix[] = "MODALIAS=";
@@ -532,6 +644,10 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 	}
 #endif
 
+#ifdef CONFIG_UEVENTS_RECORD
+	uevents_collect(env);
+#endif
+
 exit:
 	kfree(devpath);
 	kfree(env);
@@ -589,10 +705,59 @@ int add_uevent_var(struct kobj_uevent_env *env, const char *format, ...)
 }
 EXPORT_SYMBOL_GPL(add_uevent_var);
 
+#ifdef CONFIG_UEVENTS_RECORD
+static int uevents_seq_show(struct seq_file *seq, void *v)
+{
+	struct rtc_time tm;
+	int i = 0;
+
+	spin_lock(&uevent_lock);
+	if (uevent_num < UEVENT_RECORD_MAX) {
+		for (i = 0; i < uevent_num; i++) {
+			rtc_time_to_tm(uevents_buff[i].uevent_report_time.tv_sec, &tm);
+			seq_printf(seq, "%d-%02d-%02d %02d:%02d:%02d UTC - Uevent { %s }\n",
+					tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+					uevents_buff[i].event_msg);
+		}
+	} else {
+		for (i = index_head; i < UEVENT_RECORD_MAX; i++) {
+			rtc_time_to_tm(uevents_buff[i].uevent_report_time.tv_sec, &tm);
+			seq_printf(seq, "%d-%02d-%02d %02d:%02d:%02d UTC - Uevent { %s }\n",
+					tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+					uevents_buff[i].event_msg);
+		}
+
+		for (i = 0; i<= index_tail; i++) {
+			rtc_time_to_tm(uevents_buff[i].uevent_report_time.tv_sec, &tm);
+			seq_printf(seq, "%d-%02d-%02d %02d:%02d:%02d UTC - Uevent { %s }\n",
+					tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+					uevents_buff[i].event_msg);
+		}
+	}
+	spin_unlock(&uevent_lock);
+	return 0;
+}
+
+static int uevents_record_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, uevents_seq_show, NULL);
+}
+
+static const struct file_operations uevents_records_fileops = {
+	.open           = uevents_record_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+#endif
+
 #if defined(CONFIG_NET)
 static int uevent_net_init(struct net *net)
 {
 	struct uevent_sock *ue_sk;
+#ifdef CONFIG_UEVENTS_RECORD
+	struct proc_dir_entry *entry;
+#endif
 	struct netlink_kernel_cfg cfg = {
 		.groups	= 1,
 		.flags	= NL_CFG_F_NONROOT_RECV,
@@ -612,6 +777,12 @@ static int uevent_net_init(struct net *net)
 	mutex_lock(&uevent_sock_mutex);
 	list_add_tail(&ue_sk->list, &uevent_sock_list);
 	mutex_unlock(&uevent_sock_mutex);
+#ifdef CONFIG_UEVENTS_RECORD
+	entry = proc_create("uevents_records", 0, NULL, &uevents_records_fileops);
+	if (!entry)
+		printk(KERN_ERR
+		       "kobject_uevent: unable to create uevents_records!\n");
+#endif
 	return 0;
 }
 
@@ -619,6 +790,9 @@ static void uevent_net_exit(struct net *net)
 {
 	struct uevent_sock *ue_sk;
 
+#ifdef CONFIG_UEVENTS_RECORD
+	remove_proc_entry("uevents_records", NULL);
+#endif
 	mutex_lock(&uevent_sock_mutex);
 	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
 		if (sock_net(ue_sk->sk) == net)

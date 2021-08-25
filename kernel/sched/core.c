@@ -3143,6 +3143,15 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 
 unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+void (*adjust_task_pred_demand)(int cpuid, struct task_struct *p,
+		struct rq *rq, int event) = NULL;
+EXPORT_SYMBOL(adjust_task_pred_demand);
+DEFINE_PER_CPU(unsigned long[PID_MAX_DEFAULT], task_hist_nivcsw) = {
+	[0 ... PID_MAX_DEFAULT-1] = 0};
+EXPORT_SYMBOL(task_hist_nivcsw);
+#endif
+
 /*
  * This function gets called by the timer code, with HZ frequency.
  * We call it with interrupts disabled.
@@ -3177,6 +3186,13 @@ void scheduler_tick(void)
 	if (early_notif)
 		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
 
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+	if (adjust_task_pred_demand != NULL) {
+		adjust_task_pred_demand(cpu, rq->curr, rq,
+				TASK_UPDATE);
+		per_cpu(task_hist_nivcsw, cpu)[curr->pid] = curr->nivcsw;
+	}
+#endif
 	cpufreq_update_util(rq, flag);
 	rq_unlock(rq, &rf);
 

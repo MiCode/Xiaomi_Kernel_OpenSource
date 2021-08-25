@@ -1,0 +1,249 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_nt36860_dsc_cmd: qcom,mdss_dsi_nt36860_dsc_cmd {
+		qcom,mdss-dsi-panel-name =
+			"nt36860 wqhd cmd mode dsi panel with DSC";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_event";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 100>, <0 100>, <1 100>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,adjust-timer-wakeup-ms = <1>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-wd;
+		qcom,panel-cphy-mode;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0{
+				qcom,mdss-dsi-panel-clockrate = <350000000>;
+				qcom,mdss-dsi-panel-width = <1440>;
+				qcom,mdss-dsi-panel-height = <2560>;
+				qcom,mdss-dsi-h-front-porch = <152>;
+				qcom,mdss-dsi-h-back-porch = <32>;
+				qcom,mdss-dsi-h-pulse-width = <16>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <9>;
+				qcom,mdss-dsi-v-front-porch = <10>;
+				qcom,mdss-dsi-v-pulse-width = <1>;
+				qcom,mdss-dsi-panel-framerate = <57>;
+				qcom,mdss-dsi-on-command = [
+					15 01 00 00 00 00 02 ff d0
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 ab 70
+					15 01 00 00 00 00 02 c0 70
+					15 01 00 00 00 00 02 c1 31
+					15 01 00 00 00 00 02 c8 40
+					15 01 00 00 00 00 02 c9 44
+					15 01 00 00 00 00 02 ff e0
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 18 00
+					15 01 00 00 00 00 02 ae 09
+					15 01 00 00 00 00 02 53 22
+					15 01 00 00 00 00 02 ff f0
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 8d 00
+					15 01 00 00 00 00 02 ce 0a
+					15 01 00 00 00 00 02 ff 20
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 00 01
+					15 01 00 00 00 00 02 01 55
+					15 01 00 00 00 00 02 02 45
+					15 01 00 00 00 00 02 05 40
+					15 01 00 00 00 00 02 06 19
+					15 01 00 00 00 00 02 07 23
+					15 01 00 00 00 00 02 97 73
+					15 01 00 00 00 00 02 98 73
+					15 01 00 00 00 00 02 99 73
+					15 01 00 00 00 00 02 9a 73
+					15 01 00 00 00 00 02 ff 20
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 0e b0
+					15 01 00 00 00 00 02 0f b3
+					15 01 00 00 00 00 02 11 b8
+					15 01 00 00 00 00 02 13 00
+					15 01 00 00 00 00 02 ff 24
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 19 05
+					15 01 00 00 00 00 02 1a 01
+					15 01 00 00 00 00 02 1b 01
+					15 01 00 00 00 00 02 1c 01
+					15 01 00 00 00 00 02 1d 68
+					15 01 00 00 00 00 02 1e 6d
+					15 01 00 00 00 00 02 1f 01
+					15 01 00 00 00 00 02 20 68
+					15 01 00 00 00 00 02 2a 2b
+					15 01 00 00 00 00 02 2b 02
+					15 01 00 00 00 00 02 2d 02
+					15 01 00 00 00 00 02 2f 00
+					15 01 00 00 00 00 02 30 13
+					15 01 00 00 00 00 02 31 00
+					15 01 00 00 00 00 02 32 02
+					15 01 00 00 00 00 02 33 64
+					15 01 00 00 00 00 02 35 2d
+					15 01 00 00 00 00 02 36 08
+					15 01 00 00 00 00 02 37 02
+					15 01 00 00 00 00 02 38 64
+					15 01 00 00 00 00 02 59 c4
+					15 01 00 00 00 00 02 5a c0
+					15 01 00 00 00 00 02 5d 05
+					15 01 00 00 00 00 02 5e 14
+					15 01 00 00 00 00 02 61 01
+					15 01 00 00 00 00 02 63 07
+					15 01 00 00 00 00 02 9c 2a
+					15 01 00 00 00 00 02 9d 0a
+					15 01 00 00 00 00 02 9e 45
+					15 01 00 00 00 00 02 a6 f3
+					15 01 00 00 00 00 02 b3 00
+					15 01 00 00 00 00 02 b5 53
+					15 01 00 00 00 00 02 b6 22
+					15 01 00 00 00 00 02 b7 06
+					15 01 00 00 00 00 02 b8 17
+					15 01 00 00 00 00 02 b9 64
+					15 01 00 00 00 00 02 bb 03
+					15 01 00 00 00 00 02 bc 17
+					15 01 00 00 00 00 02 bd 64
+					15 01 00 00 00 00 02 bf 02
+					15 01 00 00 00 00 02 c0 02
+					15 01 00 00 00 00 02 c3 05
+					15 01 00 00 00 00 02 c4 00
+					15 01 00 00 00 00 02 c5 00
+					15 01 00 00 00 00 02 c6 00
+					15 01 00 00 00 00 02 c7 f0
+					15 01 00 00 00 00 02 ca 60
+					15 01 00 00 00 00 02 cd 5b
+					15 01 00 00 00 00 02 d1 00
+					15 01 00 00 00 00 02 d8 00
+					15 01 00 00 00 00 02 d9 00
+					15 01 00 00 00 00 02 da 00
+					15 01 00 00 00 00 02 db 02
+					15 01 00 00 00 00 02 dc 01
+					15 01 00 00 00 00 02 dd 0f
+					15 01 00 00 00 00 02 de 0f
+					15 01 00 00 00 00 02 df 33
+					15 01 00 00 00 00 02 e2 30
+					15 01 00 00 00 00 02 e5 8b
+					15 01 00 00 00 00 02 eb 10
+					15 01 00 00 00 00 02 f8 00
+					15 01 00 00 00 00 02 ff 25
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 00 00
+					15 01 00 00 00 00 02 01 03
+					15 01 00 00 00 00 02 02 05
+					15 01 00 00 00 00 02 03 00
+					15 01 00 00 00 00 02 04 00
+					15 01 00 00 00 00 02 05 0b
+					15 01 00 00 00 00 02 06 0c
+					15 01 00 00 00 00 02 07 01
+					15 01 00 00 00 00 02 08 00
+					15 01 00 00 00 00 02 09 00
+					15 01 00 00 00 00 02 0a 00
+					15 01 00 00 00 00 02 0b 00
+					15 01 00 00 00 00 02 0c 00
+					15 01 00 00 00 00 02 0d 17
+					15 01 00 00 00 00 02 0e 15
+					15 01 00 00 00 00 02 0f 13
+					15 01 00 00 00 00 02 12 00
+					15 01 00 00 00 00 02 13 04
+					15 01 00 00 00 00 02 14 06
+					15 01 00 00 00 00 02 15 00
+					15 01 00 00 00 00 02 16 00
+					15 01 00 00 00 00 02 17 00
+					15 01 00 00 00 00 02 18 0f
+					15 01 00 00 00 00 02 19 01
+					15 01 00 00 00 00 02 1a 10
+					15 01 00 00 00 00 02 1b 90
+					15 01 00 00 00 00 02 1c 00
+					15 01 00 00 00 00 02 1d 00
+					15 01 00 00 00 00 02 1e 00
+					15 01 00 00 00 00 02 1f 17
+					15 01 00 00 00 00 02 20 15
+					15 01 00 00 00 00 02 21 13
+					15 01 00 00 00 00 02 26 34
+					15 01 00 00 00 00 02 27 12
+					15 01 00 00 00 00 02 28 21
+					15 01 00 00 00 00 02 29 44
+					15 01 00 00 00 00 02 c0 00
+					15 01 00 00 00 00 02 c2 00
+					15 01 00 00 00 00 02 c3 6a
+					15 01 00 00 00 00 02 c6 6a
+					15 01 00 00 00 00 02 c9 00
+					15 01 00 00 00 00 02 ca 0a
+					15 01 00 00 00 00 02 cb 00
+					15 01 00 00 00 00 02 cc 0a
+					15 01 00 00 00 00 02 d8 90
+					15 01 00 00 00 00 02 da 90
+					15 01 00 00 00 00 02 ff 21
+					15 01 00 00 00 00 02 fb 01
+					39 01 00 00 00 00 0d
+						e0 22 04 0a 00 06 08
+						03 05 0b 01 07 09
+					15 01 00 00 00 00 02 ff d0
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 97 04
+					15 01 00 00 00 00 02 c7 00
+					15 01 00 00 00 00 02 c8 40
+					15 01 00 00 00 00 02 c9 44
+					15 01 00 00 00 00 02 90 1f
+					15 01 00 00 00 00 02 ff 10
+					15 01 00 00 00 00 02 fb 01
+					15 01 00 00 00 00 02 ba 03
+					15 01 00 00 00 00 02 35 00
+					39 01 00 00 00 00 03 44 05 00
+					15 01 00 00 00 00 02 bb 10
+					39 01 00 00 00 00 05 3b 00 0a 00 0a
+					15 01 00 00 00 00 02 c0 03
+					39 01 00 00 00 00 11
+						c1 ab 28 00 20 02 00
+						02 68 03 87 00 0a 03
+						19 02 63
+					39 01 00 00 00 00 03 c2 10 f0
+					05 01 00 00 78 00 02 11 00
+					15 01 00 00 00 00 02 51 ff
+					15 01 00 00 00 00 02 53 20
+					15 01 00 00 00 00 02 ff 10
+					05 01 00 00 78 00 02 29 00
+					];
+				qcom,mdss-dsi-off-command = [05 01 00 00 78 00
+					02 28 00 05 01 00 00 78 00 02 10 00];
+
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <32>;
+				qcom,mdss-dsc-slice-width = <720>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};

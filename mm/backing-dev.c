@@ -846,6 +846,7 @@ static int bdi_init(struct backing_dev_info *bdi)
 	INIT_LIST_HEAD(&bdi->bdi_list);
 	INIT_LIST_HEAD(&bdi->wb_list);
 	init_waitqueue_head(&bdi->wb_waitq);
+	mi_throttle_init(&bdi->mi_throttle);
 
 	ret = cgwb_bdi_init(bdi);
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Linaro Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Rob Herring <robh@kernel.org>
  *
  * Based on 8250 earlycon:
@@ -209,6 +210,10 @@ int __init setup_earlycon(char *buf)
  */
 bool earlycon_init_is_deferred __initdata;
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+bool is_early_cons_enabled;
+#endif
+
 /* early_param wrapper for setup_earlycon() */
 static int __init param_setup_earlycon(char *buf)
 {
@@ -230,6 +235,11 @@ static int __init param_setup_earlycon(char *buf)
 	err = setup_earlycon(buf);
 	if (err == -ENOENT || err == -EALREADY)
 		return 0;
+
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	is_early_cons_enabled = true;
+#endif
+
 	return err;
 }
 early_param("earlycon", param_setup_earlycon);

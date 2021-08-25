@@ -2,6 +2,7 @@
  * CPUFreq governor based on scheduler-provided CPU utilization data.
  *
  * Copyright (C) 2016, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -297,6 +298,11 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	return cpufreq_driver_resolve_freq(policy, freq);
 }
 
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+DEFINE_PER_CPU(int, sched_load_usf);
+EXPORT_SYMBOL(sched_load_usf);
+#endif
+
 static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -312,8 +318,7 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 }
 
 static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
-				   unsigned int flags)
-{
+				   unsigned int flags){
 	if (flags & SCHED_CPUFREQ_IOWAIT) {
 		if (sg_cpu->iowait_boost_pending)
 			return;

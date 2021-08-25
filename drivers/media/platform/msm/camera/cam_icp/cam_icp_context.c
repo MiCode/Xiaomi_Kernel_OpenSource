@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +29,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 
-static const char icp_dev_name[] = "cam-icp";
+static const char icp_dev_name[] = "icp";
 
 static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 	uint32_t buf_info)
@@ -45,10 +46,12 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 		return -EINVAL;
 	}
 
-	if (ctx->state < CAM_CTX_READY || ctx->state > CAM_CTX_ACTIVATED) {
+	mutex_lock(&ctx->ctx_mutex);
+
+	if (ctx->state < CAM_CTX_ACQUIRED || ctx->state > CAM_CTX_ACTIVATED) {
 		CAM_ERR(CAM_ICP, "Invalid state icp ctx %d state %d",
 			ctx->ctx_id, ctx->state);
-		return -EINVAL;
+		goto end;
 	}
 
 	CAM_INFO(CAM_ICP, "iommu fault for icp ctx %d state %d",
@@ -69,6 +72,8 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 				req->request_id, rc);
 	}
 
+end:
+	mutex_unlock(&ctx->ctx_mutex);
 	return rc;
 }
 
@@ -110,18 +115,6 @@ static int __cam_icp_start_dev_in_acquired(struct cam_context *ctx,
 		ctx->state = CAM_CTX_READY;
 		trace_cam_context_state("ICP", ctx);
 	}
-
-	return rc;
-}
-
-static int __cam_icp_dump_dev_in_ready(struct cam_context *ctx,
-	struct cam_dump_req_cmd *cmd)
-{
-	int rc;
-
-	rc = cam_context_dump_dev_to_hw(ctx, cmd);
-	if (rc)
-		CAM_ERR(CAM_ICP, "Failed to dump device");
 
 	return rc;
 }
@@ -237,7 +230,6 @@ static struct cam_ctx_ops
 			.start_dev = __cam_icp_start_dev_in_acquired,
 			.config_dev = __cam_icp_config_dev_in_ready,
 			.flush_dev = __cam_icp_flush_dev_in_ready,
-			.dump_dev = __cam_icp_dump_dev_in_ready,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_icp_handle_buf_done_in_ready,
@@ -250,7 +242,6 @@ static struct cam_ctx_ops
 			.release_dev = __cam_icp_release_dev_in_ready,
 			.config_dev = __cam_icp_config_dev_in_ready,
 			.flush_dev = __cam_icp_flush_dev_in_ready,
-			.dump_dev = __cam_icp_dump_dev_in_ready,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_icp_handle_buf_done_in_ready,
@@ -277,7 +268,7 @@ int cam_icp_context_init(struct cam_icp_context *ctx,
 	}
 
 	rc = cam_context_init(ctx->base, icp_dev_name, CAM_ICP, ctx_id,
-		NULL, hw_intf, ctx->req_base, CAM_ICP_CTX_REQ_MAX);
+		NULL, hw_intf, ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "Camera Context Base init failed");
 		goto err;

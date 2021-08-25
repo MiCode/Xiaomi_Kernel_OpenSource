@@ -1,0 +1,19 @@
+menu "TI Technologies, Inc. Charger support"
+
+config BQ2597X_CHARGE_PUMP
+	tristate "BQ2597X power supply framework based driver"
+	depends on I2C
+	help
+	  Say Y to include support for BQ2597X Charge Pump driver based on
+	  power supply framework.
+	  BQ2597X is a div2 charge pump capable of delivering 8A charge current
+	  with very high efficiency.
+
+config CHARGER_LN8000
+	tristate "LionSemi LN8000 Battery Charger"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say Y to enable support for the LN8000 charger
+
+endmenu

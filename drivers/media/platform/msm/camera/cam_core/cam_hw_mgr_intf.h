@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +36,13 @@ typedef int (*cam_hw_event_cb_func)(void *context, uint32_t evt_id,
 /* hardware page fault callback function type */
 typedef int (*cam_hw_pagefault_cb_func)(void *context, unsigned long iova,
 	uint32_t buf_info);
+
+
+#define DMI_BL 1
+#define CMD_BL 2
+#define IOCFG_BL 3
+#define CHNG_BASE_BL 4
+#define REG_UPD_BL 5
 
 /**
  * struct cam_hw_update_entry - Entry for hardware config
@@ -144,11 +152,11 @@ struct cam_hw_stop_args {
  * struct cam_hw_mgr_dump_pf_data - page fault debug data
  *
  * packet:     pointer to packet
- * ctx:        pointer to cam context
+ * ctx_id:     context id
  */
 struct cam_hw_mgr_dump_pf_data {
-	void *packet;
-	void *ctx;
+	void    *packet;
+	uint32_t ctx_id;
 };
 
 /**
@@ -211,7 +219,6 @@ struct cam_hw_stream_setttings {
  * @num_out_map_entries:   Number of out map entries
  * @priv:                  Private pointer
  * @request_id:            Request ID
- * @reapply                True if reapplying after bubble
  *
  */
 struct cam_hw_config_args {
@@ -223,7 +230,7 @@ struct cam_hw_config_args {
 	void                           *priv;
 	uint64_t                        request_id;
 	bool                            init_packet;
-	bool                            reapply;
+	bool				reapply;
 };
 
 /**
@@ -235,8 +242,6 @@ struct cam_hw_config_args {
  * @num_req_active:        Num request to flush, valid when flush type is REQ
  * @flush_req_active:      Request active pointers to flush
  * @flush_type:            The flush type
- * @last_flush_req:        last flush req_id notified to hw_mgr for the
- *                         given stream
  *
  */
 struct cam_hw_flush_args {
@@ -246,7 +251,6 @@ struct cam_hw_flush_args {
 	uint32_t                        num_req_active;
 	void                           *flush_req_active[20];
 	enum flush_type_t               flush_type;
-	uint32_t                        last_flush_req;
 };
 
 /**
@@ -265,31 +269,6 @@ struct cam_hw_dump_pf_args {
 	unsigned long                   iova;
 	uint32_t                        buf_info;
 	bool                           *mem_found;
-};
-
-/**
- * struct cam_hw_reset_args -hw reset arguments
- *
- * @ctxt_to_hw_map:        HW context from the acquire
- *
- */
-struct cam_hw_reset_args {
-	void                           *ctxt_to_hw_map;
-};
-
-/**
- * struct cam_hw_dump_args - Dump arguments
- *
- * @request_id:            request_id
- * @buf_handle:            Buffer handle
- * @offset:                Buffer offset. This is updated by the drivers.
- * @ctxt_to_hw_map:        HW context from the acquire
- */
-struct cam_hw_dump_args {
-	uint64_t          request_id;
-	uint32_t          buf_handle;
-	int32_t           offset;
-	void             *ctxt_to_hw_map;
 };
 
 /* enum cam_hw_mgr_command - Hardware manager command type */
@@ -343,8 +322,6 @@ struct cam_hw_cmd_args {
  * @hw_open:                   Function pointer for HW init
  * @hw_close:                  Function pointer for HW deinit
  * @hw_flush:                  Function pointer for HW flush
- * @hw_reset:                  Function pointer for HW reset
- * @hw_dump:                   Function pointer for HW dump
  *
  */
 struct cam_hw_mgr_intf {
@@ -365,8 +342,6 @@ struct cam_hw_mgr_intf {
 	int (*hw_open)(void *hw_priv, void *fw_download_args);
 	int (*hw_close)(void *hw_priv, void *hw_close_args);
 	int (*hw_flush)(void *hw_priv, void *hw_flush_args);
-	int (*hw_reset)(void *hw_priv, void *hw_reset_args);
-	int (*hw_dump)(void *hw_priv, void *hw_dump_args);
 };
 
 #endif /* _CAM_HW_MGR_INTF_H_ */

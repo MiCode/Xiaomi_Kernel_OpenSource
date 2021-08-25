@@ -1,0 +1,7 @@
+menuconfig XIAOMI_SOLUTION
+	bool "XiaoMi Properitary Configuration"
+	help
+	  Check this to enable XiaoMi properity configuration.
+if XIAOMI_SOLUTION
+source "drivers/misc/xiaomi/sched/Kconfig"
+endif

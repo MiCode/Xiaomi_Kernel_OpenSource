@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -471,6 +472,8 @@ static int32_t cam_cci_calc_cmd_len(struct cci_device *cci_dev,
 		for (i = 0; i < pack_max_len;) {
 			if (cmd->delay || ((cmd - i2c_cmd) >= (cmd_size - 1)))
 				break;
+			/* delete for E5G ois setting write */
+#ifndef CONFIG_USE_ROHM_BU64753
 			if (cmd->reg_addr + 1 ==
 				(cmd+1)->reg_addr) {
 				len += data_len;
@@ -479,7 +482,9 @@ static int32_t cam_cci_calc_cmd_len(struct cci_device *cci_dev,
 					break;
 				}
 				(*pack)++;
-			} else {
+			}
+#endif
+			else {
 				break;
 			}
 			i += data_len;

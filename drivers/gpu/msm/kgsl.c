@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -541,6 +542,52 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	entry->priv = NULL;
 }
 
+#ifdef CONFIG_QCOM_KGSL_CONTEXT_DEBUG
+static void kgsl_context_debug_info(struct kgsl_device *device)
+{
+       struct kgsl_context *context;
+       struct kgsl_process_private *p;
+       int next;
+       /*
+       * Keep an interval between consecutive logging to avoid
+       * flooding the kernel log
+       */
+       static DEFINE_RATELIMIT_STATE(_rs, 10 * HZ, 1);
+
+       if (!__ratelimit(&_rs))
+                return;
+
+       dev_info(device->dev, "KGSL active contexts:\n");
+       dev_info(device->dev, "pid      process         total    attached   detached\n");
+
+       mutex_lock(&kgsl_driver.process_mutex);
+       read_lock(&device->context_lock);
+
+       list_for_each_entry(p, &kgsl_driver.process_list, list) {
+                int total_contexts = 0, num_detached = 0;
+
+                idr_for_each_entry(&device->context_idr, context, next) {
+                        if (context->proc_priv == p) {
+                                 total_contexts++;
+                                 if (kgsl_context_detached(context))
+                                         num_detached++;
+                        }
+                }
+
+                dev_info(device->dev, "%-8u %-15.15s %-8d %-10d %-10d\n",
+                                 (int)(p->pid), p->comm, total_contexts,
+                                 total_contexts - num_detached, num_detached);
+       }
+
+       read_unlock(&device->context_lock);
+       mutex_unlock(&kgsl_driver.process_mutex);
+}
+#else
+static void kgsl_context_debug_info(struct kgsl_device *device)
+{
+}
+#endif
+
 /**
  * kgsl_context_dump() - dump information about a draw context
  * @device: KGSL device that owns the context
@@ -615,6 +662,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 			"Per process context limit reached for pid %u",
 			dev_priv->process_priv->pid);
 		spin_unlock(&proc_priv->ctxt_count_lock);
+		kgsl_context_debug_info(device);
 		return -ENOSPC;
 	}
 
@@ -634,10 +682,12 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	}
 
 	if (id < 0) {
-		if (id == -ENOSPC)
+		if (id == -ENOSPC) {
 			KGSL_DRV_INFO(device,
 				"cannot have more than %zu contexts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
+			kgsl_context_debug_info(device);
+		}
 		atomic_dec(&proc_priv->ctxt_count);
 		return id;
 	}
@@ -2278,14 +2328,6 @@ long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 	return ret;
 }
 
-static inline int _check_region(unsigned long start, unsigned long size,
-				uint64_t len)
-{
-	uint64_t end = ((uint64_t) start) + size;
-
-	return (end > len);
-}
-
 static int check_vma_flags(struct vm_area_struct *vma,
 		unsigned int flags)
 {
@@ -2300,23 +2342,27 @@ static int check_vma_flags(struct vm_area_struct *vma,
 	return -EFAULT;
 }
 
-static int check_vma(struct vm_area_struct *vma, struct file *vmfile,
-		struct kgsl_memdesc *memdesc)
+static int check_vma(unsigned long hostptr, u64 size)
 {
-	if (vma == NULL || vma->vm_file != vmfile)
-		return -EINVAL;
+	struct vm_area_struct *vma;
+	unsigned long cur = hostptr;
 
-	/* userspace may not know the size, in which case use the whole vma */
-	if (memdesc->size == 0)
-		memdesc->size = vma->vm_end - vma->vm_start;
-	/* range checking */
-	if (vma->vm_start != memdesc->useraddr ||
-		(memdesc->useraddr + memdesc->size) != vma->vm_end)
-		return -EINVAL;
-	return check_vma_flags(vma, memdesc->flags);
+	while (cur < (hostptr + size)) {
+		vma = find_vma(current->mm, cur);
+		if (!vma)
+			return false;
+
+		/* Don't remap memory that we already own */
+		if (vma->vm_file && vma->vm_file->f_op == &kgsl_fops)
+			return false;
+
+		cur = vma->vm_end;
+	}
+
+	return true;
 }
 
-static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
+static int memdesc_sg_virt(struct kgsl_memdesc *memdesc)
 {
 	int ret = 0;
 	long npages = 0, i;
@@ -2339,18 +2385,17 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 	}
 
 	down_read(&current->mm->mmap_sem);
-	/* If we have vmfile, make sure we map the correct vma and map it all */
-	if (vmfile != NULL)
-		ret = check_vma(find_vma(current->mm, memdesc->useraddr),
-				vmfile, memdesc);
-
-	if (ret == 0) {
-		npages = get_user_pages(memdesc->useraddr,
-					sglen, write, pages, NULL);
-		ret = (npages < 0) ? (int)npages : 0;
+	if (!check_vma(memdesc->useraddr, memdesc->size)) {
+		up_read(&current->mm->mmap_sem);
+		ret = -EFAULT;
+		goto out;
 	}
+
+	npages = get_user_pages(memdesc->useraddr,
+				sglen, write, pages, NULL);
 	up_read(&current->mm->mmap_sem);
 
+	ret = (npages < 0) ? (int)npages : 0;
 	if (ret)
 		goto out;
 
@@ -2379,6 +2424,8 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 {
 	/* Map an anonymous memory chunk */
 
+	int ret;
+
 	if (size == 0 || offset != 0 ||
 		!IS_ALIGNED(size, PAGE_SIZE))
 		return -EINVAL;
@@ -2389,7 +2436,6 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 	entry->memdesc.flags |= (uint64_t)KGSL_MEMFLAGS_USERMEM_ADDR;
 
 	if (kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
-		int ret;
 
 		/* Register the address in the database */
 		ret = kgsl_mmu_set_svm_region(pagetable,
@@ -2401,7 +2447,12 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 		entry->memdesc.gpuaddr = (uint64_t)  entry->memdesc.useraddr;
 	}
 
-	return memdesc_sg_virt(&entry->memdesc, NULL);
+	ret = memdesc_sg_virt(&entry->memdesc);
+
+	if (ret && kgsl_memdesc_use_cpu_map(&entry->memdesc))
+		kgsl_mmu_put_gpuaddr(&entry->memdesc);
+
+	return ret;
 }
 
 #ifdef CONFIG_DMA_SHARED_BUFFER

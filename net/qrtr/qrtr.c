@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -135,6 +136,15 @@ static DECLARE_RWSEM(qrtr_node_lock);
 static DEFINE_IDR(qrtr_ports);
 static DEFINE_MUTEX(qrtr_port_lock);
 
+/* backup buffers */
+#define QRTR_BACKUP_HI_NUM	5
+#define QRTR_BACKUP_HI_SIZE	SZ_16K
+#define QRTR_BACKUP_LO_NUM	20
+#define QRTR_BACKUP_LO_SIZE	SZ_1K
+static struct sk_buff_head qrtr_backup_lo;
+static struct sk_buff_head qrtr_backup_hi;
+static struct work_struct qrtr_backup_work;
+
 /**
  * struct qrtr_node - endpoint node
  * @ep_lock: lock for endpoint management and callbacks
@@ -151,7 +161,6 @@ static DEFINE_MUTEX(qrtr_port_lock);
  * @kworker: worker thread for recv work
  * @task: task to run the worker thread
  * @read_data: scheduled work for recv work
- * @say_hello: scheduled work for initiating hello
  * @ws: wakeupsource avoid system suspend
  * @ilc: ipc logging context reference
  */
@@ -162,7 +171,6 @@ struct qrtr_node {
 	unsigned int nid;
 	unsigned int net_id;
 	atomic_t hello_sent;
-	atomic_t hello_rcvd;
 
 	struct radix_tree_root qrtr_tx_flow;
 	struct wait_queue_head resume_tx;
@@ -532,10 +540,6 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 		kfree_skb(skb);
 		return rc;
 	}
-	if (atomic_read(&node->hello_sent) && type == QRTR_TYPE_HELLO) {
-		kfree_skb(skb);
-		return 0;
-	}
 
 	/* If sk is null, this is a forwarded packet and should not wait */
 	if (!skb->sk) {
@@ -694,6 +698,58 @@ int qrtr_peek_pkt_size(const void *data)
 }
 EXPORT_SYMBOL(qrtr_peek_pkt_size);
 
+static void qrtr_alloc_backup(struct work_struct *work)
+{
+	struct sk_buff *skb;
+	int errcode;
+	while (skb_queue_len(&qrtr_backup_lo) < QRTR_BACKUP_LO_NUM) {
+		skb = alloc_skb_with_frags(sizeof(struct qrtr_hdr_v1),
+					   QRTR_BACKUP_LO_SIZE, 0, &errcode,
+					   GFP_KERNEL);
+		if (!skb)
+			break;
+		skb_queue_tail(&qrtr_backup_lo, skb);
+	}
+	while (skb_queue_len(&qrtr_backup_hi) < QRTR_BACKUP_HI_NUM) {
+		skb = alloc_skb_with_frags(sizeof(struct qrtr_hdr_v1),
+					   QRTR_BACKUP_HI_SIZE, 0, &errcode,
+					   GFP_KERNEL);
+		if (!skb)
+			break;
+		skb_queue_tail(&qrtr_backup_hi, skb);
+	}
+}
+
+static struct sk_buff *qrtr_get_backup(size_t len)
+{
+	struct sk_buff *skb = NULL;
+
+	if (len < QRTR_BACKUP_LO_SIZE)
+		skb = skb_dequeue(&qrtr_backup_lo);
+	else if (len < QRTR_BACKUP_HI_SIZE)
+		skb = skb_dequeue(&qrtr_backup_hi);
+
+	if (skb)
+		queue_work(system_unbound_wq, &qrtr_backup_work);
+
+	return skb;
+}
+
+static void qrtr_backup_init(void)
+{
+	skb_queue_head_init(&qrtr_backup_lo);
+	skb_queue_head_init(&qrtr_backup_hi);
+	INIT_WORK(&qrtr_backup_work, qrtr_alloc_backup);
+	queue_work(system_unbound_wq, &qrtr_backup_work);
+}
+
+static void qrtr_backup_deinit(void)
+{
+	cancel_work_sync(&qrtr_backup_work);
+	skb_queue_purge(&qrtr_backup_lo);
+	skb_queue_purge(&qrtr_backup_hi);
+}
+
 /**
  * qrtr_endpoint_post() - post incoming data
  * @ep: endpoint handle
@@ -718,8 +774,13 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		return -EINVAL;
 
 	skb = alloc_skb_with_frags(sizeof(*v1), len, 0, &errcode, GFP_ATOMIC);
-	if (!skb)
-		return -ENOMEM;
+	if (!skb) {
+		skb = qrtr_get_backup(len);
+		if (!skb) {
+			pr_err("qrtr: Unable to get skb with len:%lu\n", len);
+			return -ENOMEM;
+		}
+	}
 
 	skb_reserve(skb, sizeof(*v1));
 	cb = (struct qrtr_cb *)skb->cb;
@@ -913,30 +974,6 @@ static void qrtr_fwd_pkt(struct sk_buff *skb, struct qrtr_cb *cb)
 	qrtr_node_enqueue(node, skb, cb->type, &from, &to, 0);
 	qrtr_node_release(node);
 }
-
-static void qrtr_sock_queue_skb(struct qrtr_node *node, struct sk_buff *skb,
-				struct qrtr_sock *ipc)
-{
-	struct qrtr_cb *cb = (struct qrtr_cb *)skb->cb;
-	int rc;
-
-	/* Don't queue HELLO if control port already received */
-	if (cb->type == QRTR_TYPE_HELLO) {
-		if (atomic_read(&node->hello_rcvd)) {
-			kfree_skb(skb);
-			return;
-		}
-		atomic_inc(&node->hello_rcvd);
-	}
-
-	rc = sock_queue_rcv_skb(&ipc->sk, skb);
-	if (rc) {
-		pr_err("%s: qrtr pkt dropped flow[%d] rc[%d]\n",
-		       __func__, cb->confirm_rx, rc);
-		kfree_skb(skb);
-	}
-}
-
 /* Handle and route a received packet.
  *
  * This will auto-reply with resume-tx packet as necessary.
@@ -981,7 +1018,12 @@ static void qrtr_node_rx_work(struct kthread_work *work)
 			if (!ipc) {
 				kfree_skb(skb);
 			} else {
-				qrtr_sock_queue_skb(node, skb, ipc);
+				if (sock_queue_rcv_skb(&ipc->sk, skb)) {
+					pr_err("%s qrtr pkt dropped flow[%d]\n",
+					       __func__, cb->confirm_rx);
+					kfree_skb(skb);
+				}
+
 				qrtr_port_put(ipc);
 			}
 		}
@@ -1058,7 +1100,6 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	node->nid = QRTR_EP_NID_AUTO;
 	node->ep = ep;
 	atomic_set(&node->hello_sent, 0);
-	atomic_set(&node->hello_rcvd, 0);
 
 	kthread_init_work(&node->read_data, qrtr_node_rx_work);
 	kthread_init_work(&node->say_hello, qrtr_hello_work);
@@ -1083,7 +1124,6 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	up_write(&qrtr_node_lock);
 	ep->node = node;
 
-	kthread_queue_work(&node->kworker, &node->say_hello);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(qrtr_endpoint_register);
@@ -1365,17 +1405,6 @@ static int __qrtr_bind(struct socket *sock,
 		qrtr_reset_ports();
 	mutex_unlock(&qrtr_port_lock);
 
-	if (port == QRTR_PORT_CTRL) {
-		struct qrtr_node *node;
-
-		down_write(&qrtr_node_lock);
-		list_for_each_entry(node, &qrtr_all_epts, item) {
-			atomic_set(&node->hello_sent, 0);
-			atomic_set(&node->hello_rcvd, 0);
-		}
-		up_write(&qrtr_node_lock);
-	}
-
 	/* unbind previous, if any */
 	if (!zapped)
 		qrtr_port_remove(ipc);
@@ -1475,7 +1504,7 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 
 	down_read(&qrtr_node_lock);
 	list_for_each_entry(node, &qrtr_all_epts, item) {
-		if (node->nid == QRTR_EP_NID_AUTO && type != QRTR_TYPE_HELLO)
+		if (node->nid == QRTR_EP_NID_AUTO)
 			continue;
 		skbn = skb_clone(skb, GFP_KERNEL);
 		if (!skbn)
@@ -1951,7 +1980,10 @@ static int __init qrtr_proto_init(void)
 
 	rtnl_register(PF_QIPCRTR, RTM_NEWADDR, qrtr_addr_doit, NULL, 0);
 
+	qrtr_backup_init();
+
 	return 0;
+
 }
 postcore_initcall(qrtr_proto_init);
 
@@ -1960,6 +1992,8 @@ static void __exit qrtr_proto_fini(void)
 	rtnl_unregister(PF_QIPCRTR, RTM_NEWADDR);
 	sock_unregister(qrtr_family.family);
 	proto_unregister(&qrtr_proto);
+
+	qrtr_backup_deinit();
 }
 module_exit(qrtr_proto_fini);
 

@@ -9,6 +9,25 @@
  * Blame Andrew Morton for all this.
  */
 
+#ifdef CONFIG_TASK_XACCT
+typedef struct task_mi_io_accounting {
+	u64 rtime;
+	u64 wtime;
+	u64 rchar;
+	u64 wchar;
+	u64 rbw_char;
+	u64 wbw_char;
+#ifdef MI_IOAC_EXTENTED
+	u64 crtime;
+	u64 cwtime;
+	u64 cstime;
+	u64 syscr;
+	u64 syscw;
+	u64 syscfs;
+#endif
+} task_mi_io_accounting_t;
+#endif
+
 struct task_io_accounting {
 #ifdef CONFIG_TASK_XACCT
 	/* bytes read */
@@ -21,6 +40,7 @@ struct task_io_accounting {
 	u64 syscw;
 	/* # of fsync syscalls */
 	u64 syscfs;
+	task_mi_io_accounting_t last_ioac;
 #endif /* CONFIG_TASK_XACCT */
 
 #ifdef CONFIG_TASK_IO_ACCOUNTING

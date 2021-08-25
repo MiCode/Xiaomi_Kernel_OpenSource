@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,9 +13,6 @@
 
 #ifndef _CAM_CDM_UTIL_H_
 #define _CAM_CDM_UTIL_H_
-
-/* Max len for tag name for header while dumping cmd buffer*/
-#define CAM_CDM_CMD_TAG_MAX_LEN 32
 
 enum cam_cdm_command {
 	CAM_CDM_CMD_UNUSED = 0x0,
@@ -155,34 +153,6 @@ void (*cdm_write_genirq)(
 };
 
 /**
- * struct cam_cdm_cmd_buf_dump_info; - Camera CDM dump info
- * @src_start:       source start address
- * @src_end:         source end   address
- * @dst_start:       dst start address
- * @dst_offset:      dst offset
- * @dst_max_size     max size of destination buffer
- */
-struct cam_cdm_cmd_buf_dump_info {
-	uint32_t *src_start;
-	uint32_t *src_end;
-	uintptr_t dst_start;
-	uint32_t  dst_offset;
-	uint32_t  dst_max_size;
-};
-
-/**
- * struct cam_cdm_cmd_dump_header- Camera CDM dump header
- * @tag:       tag name for header
- * @size:      size of data
- * @word_size: size of each word
- */
-struct cam_cdm_cmd_dump_header {
-	char      tag[CAM_CDM_CMD_TAG_MAX_LEN];
-	uint64_t  size;
-	uint32_t  word_size;
-};
-
-/**
  * cam_cdm_util_log_cmd_bufs()
  *
  * @brief:            Util function to log cdm command buffers
@@ -194,17 +164,6 @@ struct cam_cdm_cmd_dump_header {
 void cam_cdm_util_dump_cmd_buf(
 	uint32_t *cmd_buffer_start, uint32_t *cmd_buffer_end);
 
-/**
- * cam_cdm_util_dump_cmd_bufs_v2()
- *
- * @brief:        Util function to log cdm command buffers
- *                to a buffer
- *
- * @dump_info:    Information about source and destination buffers
- *
- */
-void cam_cdm_util_dump_cmd_bufs_v2(
-	struct cam_cdm_cmd_buf_dump_info *dump_info);
 
 
 #endif /* _CAM_CDM_UTIL_H_ */

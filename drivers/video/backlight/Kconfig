@@ -450,6 +450,13 @@ config BACKLIGHT_AS3711
 	  If you have an Austrian Microsystems AS3711 say Y to enable the
 	  backlight driver.
 
+config BACKLIGHT_KTZ8866
+	tristate "KTZ8866 Backlight"
+	depends on I2C && BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a KTZ8866 say Y to enable the backlight driver.
+
 config BACKLIGHT_GPIO
 	tristate "Generic GPIO based Backlight Driver"
 	depends on GPIOLIB || COMPILE_TEST

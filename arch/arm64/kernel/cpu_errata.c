@@ -2,6 +2,7 @@
  * Contains CPU specific errata definitions
  *
  * Copyright (C) 2014 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -729,7 +730,7 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 	},
 #endif
 	{
-	}
+	},
 };
 
 ssize_t cpu_show_spectre_v1(struct device *dev, struct device_attribute *attr,

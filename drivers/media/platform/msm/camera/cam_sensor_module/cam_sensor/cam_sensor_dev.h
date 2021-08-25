@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +33,6 @@
 #include <cam_subdev.h>
 #include <cam_sensor_io.h>
 #include "cam_debug_util.h"
-#include "cam_context.h"
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
@@ -75,7 +75,6 @@ struct intf_params {
 
 /**
  * struct cam_sensor_ctrl_t: Camera control structure
- * @device_name: Sensor device name
  * @pdev: Platform device
  * @cam_sensor_mutex: Sensor mutex
  * @sensordata: Sensor board Information
@@ -91,6 +90,7 @@ struct intf_params {
  * @i2c_data: Sensor I2C register settings
  * @sensor_info: Sensor query cap structure
  * @bridge_intf: Bridge interface structure
+ * @device_name: Sensor device structure
  * @streamon_count: Count to hold the number of times stream on called
  * @streamoff_count: Count to hold the number of times stream off called
  * @bob_reg_index: Hold to BoB regulator index
@@ -99,7 +99,6 @@ struct intf_params {
  * @pipeline_delay: Sensor pipeline delay
  */
 struct cam_sensor_ctrl_t {
-	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct platform_device *pdev;
 	struct cam_hw_soc_info soc_info;
 	struct mutex cam_sensor_mutex;
@@ -117,6 +116,7 @@ struct cam_sensor_ctrl_t {
 	struct i2c_data_settings i2c_data;
 	struct  cam_sensor_query_cap sensor_info;
 	struct intf_params bridge_intf;
+	char device_name[20];
 	uint32_t streamon_count;
 	uint32_t streamoff_count;
 	int bob_reg_index;

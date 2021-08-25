@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -35,6 +36,9 @@ struct input_value {
 	__u16 code;
 	__s32 value;
 };
+
+
+
 
 /**
  * struct input_dev - represents an input device
@@ -187,7 +191,10 @@ struct input_dev {
 	struct input_value *vals;
 
 	bool devres_managed;
+
+
 };
+
 #define to_input_dev(d) container_of(d, struct input_dev, dev)
 
 /*

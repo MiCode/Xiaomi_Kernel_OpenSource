@@ -1,0 +1,136 @@
+
+qcom,3811462_xiaomi_bm3gcos_3700mah_slave_jan3rd2019 {
+	qcom,profile-revision = <24>;
+	/* #3811462_Xiaomi_BM3Gcos_3700mAh_Slave_Jan3rd2019*/
+        qcom,fastchg-current-ma = <3700>;
+        qcom,jeita-fcc-ranges = <0  50  370000
+                                51  100  1110000
+                                101 150  1850000
+                                151 450  3700000
+                                451 580  1850000>;
+        qcom,jeita-fv-ranges = <0   50  4450000
+                                51  100  4450000
+                                101 150  4450000
+                                151 450  4450000
+                                451 580  4100000>;
+	qcom,max-voltage-uv = <4450000>;
+	qcom,fg-cc-cv-threshold-mv = <4440>;
+	qcom,nom-batt-capacity-mah = <3800>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <4250>;
+	qcom,therm-room-temp = <100000>;
+	qcom,battery-type = "e5g_cos";
+	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
+	qcom,therm-center-offset = <0x70>;
+	qcom,therm-pull-up = <100>;
+	qcom,rslow-normal-coeffs = <0x4a 0x15 0x95 0x12>;
+	qcom,rslow-low-coeffs = <0x9f 0x06 0x70 0x1a>;
+	qcom,checksum = <0xB9FD>;
+	qcom,gui-version = "PM855GUI - 1.0.0.13";
+	qcom,fg-profile-data = [
+		 09 00 99 EA
+		 EF ED 05 F2
+		 B6 07 00 00
+		 69 BD 45 83
+		 01 80 15 8C
+		 8C 80 09 80
+		 13 00 4A 15
+		 95 12 1B 06
+		 EB F3 CE 07
+		 32 00 76 EA
+		 01 E4 5B DA
+		 D1 02 95 E5
+		 67 BD 1E 2A
+		 26 0B 64 D3
+		 60 00 4C 00
+		 4F 00 43 00
+		 2F 00 31 00
+		 35 00 3E 00
+		 40 00 48 00
+		 43 00 60 00
+		 42 00 4F 00
+		 58 00 52 00
+		 4F 00 9C 00
+		 6C 64 5B 00
+		 5E 00 74 00
+		 60 F0 57 00
+		 5F 00 83 10
+		 67 10 67 00
+		 AD 20 76 40
+		 68 60 64 09
+		 71 00 D8 00
+		 C3 1E 6D 0E
+		 C1 03 23 04
+		 82 1C 36 0B
+		 8E 0D F4 22
+		 E4 1A 5B 42
+		 23 5C 46 02
+		 5A 11 33 1F
+		 ED 05 61 0A
+		 6C FE C8 1C
+		 49 FA 24 05
+		 69 03 2B 17
+		 FE 23 76 44
+		 26 52 6A 13
+		 40 1F F7 ED
+		 4C E2 0F ED
+		 DE 1C 4D E3
+		 FB 04 C5 BB
+		 A7 17 66 83
+		 37 85 1F A3
+		 7C A8 09 80
+		 54 FA BF 0D
+		 8F FA 91 04
+		 00 00 D7 D5
+		 66 EA 02 10
+		 5D E2 7B CC
+		 41 01 0F F0
+		 BF BC 91 03
+		 CD 04 E6 00
+		 CE 07 32 00
+		 81 01 A3 02
+		 2F 05 29 02
+		 F7 02 F3 05
+		 C3 06 AA 02
+		 F0 03 50 00
+		 3F 00 41 00
+		 40 64 40 00
+		 3D 08 40 10
+		 3C 08 3F 00
+		 54 00 79 08
+		 5C 08 48 00
+		 58 28 58 50
+		 61 70 6F 07
+		 4F 00 57 00
+		 57 08 67 00
+		 FF 00 57 00
+		 51 10 5F 10
+		 61 00 78 28
+		 91 48 5D 58
+		 5D 0D 50 00
+		 5B 00 FF 08
+		 D8 00 B5 22
+		 03 05 BD 12
+		 A2 15 3F 1D
+		 60 22 F4 4C
+		 6D 5B 93 18
+		 D0 03 03 04
+		 D6 02 7D 0E
+		 3F 0A 43 20
+		 D8 04 34 03
+		 96 05 D3 1C
+		 04 03 E9 05
+		 58 02 74 18
+		 0A 02 AF 05
+		 A5 03 6B 00
+		 A0 1F 54 05
+		 16 03 80 05
+		 A6 1C 56 03
+		 7F 05 03 03
+		 7E 18 C6 03
+		 F2 05 1D 03
+		 5F 00 88 01
+		 C0 00 FA 00
+		 67 0F 00 00
+	];
+};

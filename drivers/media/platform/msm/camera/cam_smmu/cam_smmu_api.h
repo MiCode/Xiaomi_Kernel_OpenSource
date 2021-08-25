@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -387,17 +388,5 @@ int cam_smmu_alloc_qdss(int32_t smmu_hdl,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_dealloc_qdss(int32_t smmu_hdl);
-
-/**
- * @brief Get start addr & len of I/O region for a given cb
- *
- * @param smmu_hdl: SMMU handle identifying the context bank
- * @param iova: IOVA address of allocated I/O region
- * @param len: Length of allocated I/O memory
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_smmu_get_io_region_info(int32_t smmu_hdl,
-	dma_addr_t *iova, size_t *len);
 
 #endif /* _CAM_SMMU_API_H_ */

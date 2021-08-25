@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spmi.h>
+#include <linux/syscore_ops.h>
+#include <linux/wakeup_reason.h>
 
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
@@ -168,6 +171,10 @@ struct spmi_pmic_arb {
 	u16			last_apid;
 	struct apid_data	apid_data[PMIC_ARB_MAX_PERIPHS];
 };
+
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+static struct spmi_pmic_arb *the_pa;
+#endif
 
 /**
  * pmic_arb_ver: version dependent functionality.
@@ -442,6 +449,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	pmic_arb_base_write(pmic_arb, offset + PMIC_ARB_CMD, cmd);
 	rc = pmic_arb_wait_for_done(ctrl, pmic_arb->wr_base, sid, addr,
 				    PMIC_ARB_CHANNEL_RW);
+
 	raw_spin_unlock_irqrestore(&pmic_arb->lock, flags);
 
 	return rc;
@@ -526,39 +534,40 @@ static void periph_interrupt(struct spmi_pmic_arb *pmic_arb, u16 apid)
 static void pmic_arb_chained_irq(struct irq_desc *desc)
 {
 	struct spmi_pmic_arb *pmic_arb = irq_desc_get_handler_data(desc);
-	const struct pmic_arb_ver_ops *ver_ops = pmic_arb->ver_ops;
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	int first = pmic_arb->min_apid >> 5;
-	int last = pmic_arb->max_apid >> 5;
-	u8 ee = pmic_arb->ee;
-	u32 status, enable;
-	int i, id, apid;
-	/* status based dispatch */
-	bool acc_valid = false;
-	u32 irq_status = 0;
+        const struct pmic_arb_ver_ops *ver_ops = pmic_arb->ver_ops;
+        struct irq_chip *chip = irq_desc_get_chip(desc);
+        int first = pmic_arb->min_apid >> 5;
+        int last = pmic_arb->max_apid >> 5;
+        u8 ee = pmic_arb->ee;
+        u32 status, enable;
+        int i, id, apid;
+        /* status based dispatch */
+        bool acc_valid = false;
+        u32 irq_status = 0;
 
-	chained_irq_enter(chip, desc);
+        chained_irq_enter(chip, desc);
 
-	for (i = first; i <= last; ++i) {
-		status = readl_relaxed(
-				ver_ops->owner_acc_status(pmic_arb, ee, i));
-		if (status)
-			acc_valid = true;
+        for (i = first; i <= last; ++i) {
+                status = readl_relaxed(
+                                ver_ops->owner_acc_status(pmic_arb, ee, i));
+                if (status)
+                        acc_valid = true;
 
-		while (status) {
-			id = ffs(status) - 1;
-			status &= ~BIT(id);
-			apid = id + i * 32;
-			if (apid < pmic_arb->min_apid
-			    || apid > pmic_arb->max_apid) {
-				WARN_ONCE(true, "spurious spmi irq received for apid=%d\n",
-					apid);
-				continue;
-			}
-			enable = readl_relaxed(
-					ver_ops->acc_enable(pmic_arb, apid));
-			if (enable & SPMI_PIC_ACC_ENABLE_BIT)
-				periph_interrupt(pmic_arb, apid);
+                while (status) {
+                        id = ffs(status) - 1;
+                        status &= ~BIT(id);
+                        apid = id + i * 32;
+                        if (apid < pmic_arb->min_apid
+                            || apid > pmic_arb->max_apid) {
+                                WARN_ONCE(true, "spurious spmi irq received for apid=%d\n",
+                                        apid);
+                                continue;
+                        }
+                        enable = readl_relaxed(
+                                        ver_ops->acc_enable(pmic_arb, apid));
+                        if (enable & SPMI_PIC_ACC_ENABLE_BIT)
+                                periph_interrupt(pmic_arb, apid);
+
 		}
 	}
 
@@ -1180,6 +1189,77 @@ static const struct irq_domain_ops pmic_arb_irq_domain_ops = {
 	.activate	= qpnpint_irq_domain_activate,
 };
 
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+extern int msm_show_resume_irq_mask;
+
+static void periph_interrupt_show(struct spmi_pmic_arb *pa, u16 apid)
+{
+	unsigned int irq;
+	u32 status;
+	int id;
+	u8 sid = (pa->apid_data[apid].ppid >> 8) & 0xF;
+	u8 per = pa->apid_data[apid].ppid & 0xFF;
+	struct irq_desc *desc;
+        const char *name = "null";
+
+	status = readl_relaxed(pa->ver_ops->irq_status(pa, apid));
+	while (status) {
+		id = ffs(status) - 1;
+		status &= ~BIT(id);
+		irq = irq_find_mapping(pa->domain,
+					spec_to_hwirq(sid, per, id, apid));
+		if (irq == 0) {
+			cleanup_irq(pa, apid, id);
+			continue;
+		}
+
+		desc = irq_to_desc(irq);
+		if (desc == NULL)
+			name = "stray irq";
+		else if (desc->action && desc->action->name)
+			name = desc->action->name;
+
+		pr_warn("spmi_show_resume_irq: %d triggered [0x%01x, 0x%02x, 0x%01x] %s\n",
+			irq, sid, per, id, name);
+		log_irq_wakeup_reason(irq);
+	}
+}
+
+static void __pmic_arb_chained_irq_show(struct spmi_pmic_arb *pa)
+{
+	int first = pa->min_apid >> 5;
+	int last = pa->max_apid >> 5;
+	u32 status, enable;
+	int i, id, apid;
+	u8 ee = pa->ee;
+	const struct pmic_arb_ver_ops *ver_ops = pa->ver_ops;
+	
+	for (i = first; i <= last; ++i) {
+		status = readl_relaxed(
+				ver_ops->owner_acc_status(pa, ee, i));
+		
+		while (status) {
+			id = ffs(status) - 1;
+			status &= ~BIT(id);
+			apid = id + i * 32;
+			enable = readl_relaxed(	ver_ops->acc_enable(pa, apid));
+			if (enable & SPMI_PIC_ACC_ENABLE_BIT)
+				periph_interrupt_show(pa, apid);
+		}
+	}
+}
+
+static void spmi_pmic_arb_resume(void)
+{
+	if (msm_show_resume_irq_mask)
+		__pmic_arb_chained_irq_show(the_pa);
+}
+
+static struct syscore_ops spmi_pmic_arb_syscore_ops = {
+	.resume = spmi_pmic_arb_resume,
+};
+#endif
+
 static int spmi_pmic_arb_probe(struct platform_device *pdev)
 {
 	struct spmi_pmic_arb *pmic_arb;
@@ -1344,6 +1424,10 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 
 	return 0;
 
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+	the_pa = pmic_arb;
+	register_syscore_ops(&spmi_pmic_arb_syscore_ops);
+#endif
 err_domain_remove:
 	irq_set_chained_handler_and_data(pmic_arb->irq, NULL, NULL);
 	irq_domain_remove(pmic_arb->domain);
@@ -1358,6 +1442,10 @@ static int spmi_pmic_arb_remove(struct platform_device *pdev)
 	struct spmi_pmic_arb *pmic_arb = spmi_controller_get_drvdata(ctrl);
 	spmi_controller_remove(ctrl);
 	irq_set_chained_handler_and_data(pmic_arb->irq, NULL, NULL);
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+	unregister_syscore_ops(&spmi_pmic_arb_syscore_ops);
+	the_pa = NULL;
+#endif
 	irq_domain_remove(pmic_arb->domain);
 	spmi_controller_put(ctrl);
 	return 0;

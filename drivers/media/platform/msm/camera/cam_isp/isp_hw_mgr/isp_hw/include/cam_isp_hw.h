@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,24 +21,17 @@
 #include "cam_irq_controller.h"
 #include <uapi/media/cam_isp.h>
 
-#define CAM_ISP_FPS_60                           60
-
-/* Maximum length of tag while dumping */
-#define CAM_ISP_HW_DUMP_TAG_MAX_LEN 32
-
 /*
  * struct cam_isp_timestamp:
  *
  * @mono_time:          Monotonic boot time
  * @vt_time:            AV Timer time
  * @ticks:              Qtimer ticks
- * @time_usecs:         time in micro seconds
  */
 struct cam_isp_timestamp {
 	struct timeval          mono_time;
 	struct timeval          vt_time;
 	uint64_t                ticks;
-	uint64_t                time_usecs;
 };
 
 /*
@@ -112,10 +106,6 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_FE_UPDATE_IN_RD,
 	CAM_ISP_HW_CMD_FE_UPDATE_BUS_RD,
 	CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP,
-	CAM_ISP_HW_CMD_FPS_CONFIG,
-	CAM_ISP_HW_CMD_DUMP_HW,
-	CAM_ISP_HW_CMD_SET_STATS_DMI_DUMP,
-	CAM_ISP_HW_CMD_GET_RDI_IRQ_MASK,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -257,40 +247,5 @@ struct cam_isp_hw_dual_isp_update_args {
 	enum cam_isp_hw_split_id         split_id;
 	struct cam_isp_resource_node    *res;
 	struct cam_isp_dual_config      *dual_cfg;
-};
-
-/*
- * struct cam_isp_hw_dump_args:
- *
- * @Brief:        isp hw dump args
- *
- * @ req_id:         request id
- * @ cpu_addr:       cpu address
- * @ buf_len:        buf len
- * @ offset:         offset of buffer
- * @ ctxt_to_hw_map: ctx to hw map
- */
-struct cam_isp_hw_dump_args {
-	uint64_t                req_id;
-	uintptr_t               cpu_addr;
-	size_t                  buf_len;
-	uint32_t                offset;
-	void                    *ctxt_to_hw_map;
-};
-
-/**
- * struct cam_isp_hw_dump_header - ISP context dump header
- *
- * @Brief:        isp hw dump header
- *
- * @tag:       Tag name for the header
- * @word_size: Size of word
- * @size:      Size of data
- *
- */
-struct cam_isp_hw_dump_header {
-	char      tag[CAM_ISP_HW_DUMP_TAG_MAX_LEN];
-	uint64_t  size;
-	uint32_t  word_size;
 };
 #endif /* _CAM_ISP_HW_H_ */

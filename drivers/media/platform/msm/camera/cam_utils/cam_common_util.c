@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,22 +56,3 @@ uint32_t cam_common_util_remove_duplicate_arr(int32_t *arr, uint32_t num)
 
 	return wr_idx;
 }
-
-uint64_t cam_common_util_get_time_diff(struct timeval *t1, struct timeval *t2)
-{
-	uint64_t diff = 0;
-
-	diff = (t1->tv_sec - t2->tv_sec) * 1000000 +
-		    (t1->tv_usec - t2->tv_usec);
-	return diff;
-}
-
-void cam_common_util_get_curr_timestamp(struct timeval *time_stamp)
-{
-	struct timespec ts;
-
-	get_monotonic_boottime(&ts);
-	time_stamp->tv_sec    = ts.tv_sec;
-	time_stamp->tv_usec   = ts.tv_nsec/1000;
-}
-

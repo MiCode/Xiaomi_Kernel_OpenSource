@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,10 @@
 #include <crypto/algapi.h>
 #include <linux/platform_device.h>
 #include <linux/crypto-qti-common.h>
-
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+#include <crypto/ice.h>
+#include <linux/blkdev.h>
+#endif
 #include "ufshcd-crypto-qti.h"
 
 #define MINIMUM_DUN_SIZE 512
@@ -30,6 +34,7 @@ static struct ufs_hba_crypto_variant_ops ufshcd_crypto_qti_variant_ops = {
 	.disable = ufshcd_crypto_qti_disable,
 	.resume = ufshcd_crypto_qti_resume,
 	.debug = ufshcd_crypto_qti_debug,
+	.prepare_lrbp_crypto = ufshcd_crypto_qti_prep_lrbp_crypto,
 };
 
 static uint8_t get_data_unit_size_mask(unsigned int data_unit_size)
@@ -287,6 +292,65 @@ int ufshcd_crypto_qti_init_crypto(struct ufs_hba *hba,
 					__func__, err);
 	}
 	return err;
+}
+
+int ufshcd_crypto_qti_prep_lrbp_crypto(struct ufs_hba *hba,
+				       struct scsi_cmnd *cmd,
+				       struct ufshcd_lrb *lrbp)
+{
+	struct bio_crypt_ctx *bc;
+	int ret = 0;
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+	struct ice_data_setting setting;
+	bool bypass = true;
+	short key_index = 0;
+#endif
+	struct request *req;
+
+	lrbp->crypto_enable = false;
+	req = cmd->request;
+	if (!req || !req->bio)
+		return ret;
+
+	if (!bio_crypt_should_process(req)) {
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+		ret = qcom_ice_config_start(req, &setting);
+		if (!ret) {
+			key_index = setting.crypto_data.key_index;
+			bypass = (rq_data_dir(req) == WRITE) ?
+				 setting.encr_bypass : setting.decr_bypass;
+			lrbp->crypto_enable = !bypass;
+			lrbp->crypto_key_slot = key_index;
+			lrbp->data_unit_num = req->bio->bi_iter.bi_sector >>
+					      ICE_CRYPTO_DATA_UNIT_4_KB;
+		} else {
+			pr_err("%s crypto config failed err = %d\n", __func__,
+			       ret);
+		}
+#endif
+		return ret;
+	}
+	bc = req->bio->bi_crypt_context;
+
+	if (WARN_ON(!ufshcd_is_crypto_enabled(hba))) {
+		/*
+		 * Upper layer asked us to do inline encryption
+		 * but that isn't enabled, so we fail this request.
+		 */
+		return -EINVAL;
+	}
+	if (!ufshcd_keyslot_valid(hba, bc->bc_keyslot))
+		return -EINVAL;
+
+	lrbp->crypto_enable = true;
+	lrbp->crypto_key_slot = bc->bc_keyslot;
+	if (bc->is_ext4) {
+		lrbp->data_unit_num = (u64)cmd->request->bio->bi_iter.bi_sector;
+		lrbp->data_unit_num >>= 3;
+	} else {
+		lrbp->data_unit_num = bc->bc_dun[0];
+	}
+	return 0;
 }
 
 int ufshcd_crypto_qti_debug(struct ufs_hba *hba)

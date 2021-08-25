@@ -290,6 +290,17 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
 				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
 
+# Make sure the kernel could be compiled successfully
+LINK_DUM :=$(shell if [ ! -L "$(abspath $(srctree))/include/linux/rtmm.h" ]; then \
+		ln -s -f $(abspath $(srctree))/include/dum/rtmm.h $(abspath $(srctree))/include/linux/rtmm.h; \
+		ln -s -f $(abspath $(srctree))/include/dum/ktrace.h $(abspath $(srctree))/include/linux/ktrace.h; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/rtmm; \
+		touch $(abspath $(srctree))/drivers/staging/rtmm/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/rtmm/Makefile; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/ktrace; \
+		touch $(abspath $(srctree))/drivers/staging/ktrace/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/ktrace/Makefile; fi;)
+
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #

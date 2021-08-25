@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3173,16 +3174,19 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		mgr->ops_hw_init = sde_rotator_r3_init;
 		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
 
-		/*
-		 * on platforms where the maxlinewidth is greater than
-		 * default we need to have a max clock rate check to
-		 * ensure we do not cross the max allowed clock for rotator
-		 */
-		if (IS_SDE_MAJOR_SAME(mdata->mdss_version,
+		if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_500) ||
 			IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_620))
-			mgr->max_rot_clk = ROT_R3_MAX_ROT_CLK;
+			mgr->max_rot_clk = 460000000UL;
+			else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_520))
+			mgr->max_rot_clk = 430000000UL;
+			else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_530) ||
+			IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_540))
+			mgr->max_rot_clk = 307200000UL;
 
 		if (!(IS_SDE_MAJOR_SAME(mdata->mdss_version,
 					SDE_MDP_HW_REV_500) ||

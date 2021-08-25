@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +25,7 @@
 
 #define ESOC_MAX_PON_TRIES	5
 
-#define BOOT_FAIL_ACTION_DEF BOOT_FAIL_ACTION_PANIC
+#define BOOT_FAIL_ACTION_DEF BOOT_FAIL_ACTION_S3_RESET
 
 enum esoc_pon_state {
 	PON_INIT,
@@ -382,7 +383,7 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 	if (*pon_trial == atomic_read(&mdm_drv->n_pon_tries)) {
 		esoc_mdm_log("Reached max. number of boot trials\n");
 		atomic_set(&mdm_drv->boot_fail_action,
-					BOOT_FAIL_ACTION_PANIC);
+					BOOT_FAIL_ACTION_S3_RESET);
 	}
 
 	switch (atomic_read(&mdm_drv->boot_fail_action)) {
@@ -438,7 +439,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 								subsys);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
-	int timeout = INT_MAX;
+	int timeout = 30*HZ;
 	u8 pon_trial = 0;
 
 	esoc_mdm_log("Powerup request from SSR\n");

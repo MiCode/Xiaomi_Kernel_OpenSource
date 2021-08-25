@@ -1,0 +1,27 @@
+config BATT_VERIFY_BY_DS28E16
+	bool
+	prompt "Support ds28e16 as encryption IC."
+	default n
+	help
+		It needs a onewire physical controller to work.
+
+config ONEWIRE_GPIO
+	bool
+	prompt "Support Onewire Driver."
+	default n
+	help
+		It's an onewire driver.
+
+config BATT_VERIFY_BY_DS28E16_NABU
+        bool
+        prompt "Support ds28e16 as encryption IC."
+        default n
+        help
+                It needs a onewire physical controller to work.
+
+config ONEWIRE_GPIO_NABU
+        bool
+        prompt "Support Onewire Driver."
+        default n
+        help
+                It's an onewire driver.

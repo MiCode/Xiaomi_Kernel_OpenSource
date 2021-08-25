@@ -1,4 +1,5 @@
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -317,13 +318,11 @@ static long cam_hyp_intf_ioctl(struct file *filp, unsigned int cmd,
 
 	if (!(_IOC_TYPE(cmd) == MSM_CAM_HYP_INTF_IOCTL_MAGIC &&
 		_IOC_NR(cmd) <= MSM_CAM_HYP_INTF_IOCTL_MAX)) {
-		CAM_ERR(CAM_HYP, "Invalid command %d", cmd);
+		CAM_ERR(CAM_HYP, "Invalid command");
 		rc = -EINVAL;
 		goto err;
 	}
 
-	switch (cmd) {
-	case MSM_CAM_HYP_INTF_IOCTL_GET_HYP_HANDLE:
 	dir = _IOC_DIR(cmd);
 	if (dir & _IOC_WRITE) {
 		if (copy_from_user(&data,
@@ -341,30 +340,30 @@ static long cam_hyp_intf_ioctl(struct file *filp, unsigned int cmd,
 	cam_hyp_intf_dev = filp->private_data;
 	mutex_lock(&cam_hyp_intf_dev->hyp_intf_lock);
 
+	switch (cmd) {
+	case MSM_CAM_HYP_INTF_IOCTL_GET_HYP_HANDLE:
 	rc = cam_hyp_intf_get_mem_handle(cam_hyp_intf_dev,
 		data.hyp_handle.fd, &(data.hyp_handle.handle));
 
 	if (rc < 0) {
 		CAM_ERR(CAM_HYP, "Failed in hyp calls(rc %ld)", rc);
-		mutex_unlock(&cam_hyp_intf_dev->hyp_intf_lock);
 		goto err;
 	}
 	if (copy_to_user((void __user *)arg, &data,
 		_IOC_SIZE(cmd))) {
 		CAM_ERR(CAM_HYP, "Failed to copy to user");
 		rc = -EFAULT;
-		mutex_unlock(&cam_hyp_intf_dev->hyp_intf_lock);
 		goto err;
 	}
-	mutex_unlock(&cam_hyp_intf_dev->hyp_intf_lock);
 	break;
 
 	default:
-		CAM_ERR(CAM_HYP, "Invalid command %d", cmd);
+		CAM_ERR(CAM_HYP, "invalid command");
 		rc = -EINVAL;
 	}
 
 err:
+	mutex_unlock(&cam_hyp_intf_dev->hyp_intf_lock);
 	return rc;
 }
 

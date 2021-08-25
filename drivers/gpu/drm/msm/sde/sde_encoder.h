@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -349,4 +350,10 @@ int sde_encoder_in_cont_splash(struct drm_encoder *enc);
  */
 int sde_encoder_get_ctlstart_timeout_state(struct drm_encoder *enc);
 
+/**
+ * sde_encoder_vid_wait_for_active - wait Vactive region for some mark region
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:     non zero value if wait timeout occurred
+ */
+int sde_encoder_vid_wait_for_active(struct drm_encoder *enc);
 #endif /* __SDE_ENCODER_H__ */

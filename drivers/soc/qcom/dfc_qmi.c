@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1358,7 +1359,6 @@ static void dfc_svc_init(struct work_struct *work)
 				  data->svc.instance,
 				  data->svc.ep_type,
 				  data->svc.iface_id);
-
 	rtnl_unlock();
 
 	pr_info("Connection established with the DFC Service\n");

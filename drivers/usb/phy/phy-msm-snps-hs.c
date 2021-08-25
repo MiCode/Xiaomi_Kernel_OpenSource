@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,10 +132,17 @@ struct msm_hsphy {
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
 
-	/* debugfs entries */
+	/*xiaomi: debug fs for param_override_x0 to x3*/
 	struct dentry		*root;
+	u8			param_override_x0;
+	u8			param_override_x1;
+	u8			param_override_x2;
+	u8			param_override_x3;
+
+	/* debugfs entries */
 	u8			txvref_tune0;
 	u8			pre_emphasis;
+
 	u8			param_ovrd0;
 	u8			param_ovrd1;
 	u8			param_ovrd2;
@@ -339,7 +347,7 @@ static void hsusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 
 	pr_debug("Seq count:%d\n", cnt);
 	for (i = 0; i < cnt; i = i+2) {
-		pr_debug("write 0x%02x to 0x%02x\n", seq[i], seq[i+1]);
+		pr_info("write 0x%02x to 0x%02x\n", seq[i], seq[i+1]);
 		writel_relaxed(seq[i], base + seq[i+1]);
 		if (delay)
 			usleep_range(delay, (delay + 2000));
@@ -418,6 +426,27 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	if (phy->param_override_seq)
 		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
+
+	/* xiaomi: debug fs for override param_override_x0 to x3 */
+	if (phy->param_override_x0) {
+		writel_relaxed(phy->param_override_x0, phy->base + 0x6c);
+		pr_info("write 0x%02x to 0x6c(x0)\n", phy->param_override_x0);
+	}
+
+	if (phy->param_override_x1) {
+		writel_relaxed(phy->param_override_x1, phy->base + 0x70);
+		pr_info("write 0x%02x to 0x70(x1)\n", phy->param_override_x1);
+	}
+
+	if (phy->param_override_x2) {
+		writel_relaxed(phy->param_override_x2, phy->base + 0x74);
+		pr_info("write 0x%02x to 0x74(x2)\n", phy->param_override_x2);
+	}
+
+	if (phy->param_override_x3) {
+		writel_relaxed(phy->param_override_x3, phy->base + 0x78);
+		pr_info("write 0x%02x to 0x78(x3)\n", phy->param_override_x3);
+	}
 
 	if (phy->pre_emphasis) {
 		u8 val = TXPREEMPAMPTUNE0(phy->pre_emphasis) &
@@ -740,11 +769,22 @@ static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
 	return 0;
 }
 
+
 static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
 {
 	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
 	debugfs_create_x8("pre_emphasis", 0644, phy->root, &phy->pre_emphasis);
 	debugfs_create_x8("txvref_tune0", 0644, phy->root, &phy->txvref_tune0);
+	
+	/*xiaomi: debug fs for param_override_x */
+	debugfs_create_x8("param_override_x0", 0644, phy->root,
+						&phy->param_override_x0);
+	debugfs_create_x8("param_override_x1", 0644, phy->root,
+						&phy->param_override_x1);
+	debugfs_create_x8("param_override_x2", 0644, phy->root,
+						&phy->param_override_x2);
+	debugfs_create_x8("param_override_x3", 0644, phy->root,
+						&phy->param_override_x3);
 	debugfs_create_x8("param_ovrd0", 0644, phy->root, &phy->param_ovrd0);
 	debugfs_create_x8("param_ovrd1", 0644, phy->root, &phy->param_ovrd1);
 	debugfs_create_x8("param_ovrd2", 0644, phy->root, &phy->param_ovrd2);
@@ -984,6 +1024,9 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	msm_hsphy_enable_clocks(phy, false);
 	msm_hsphy_enable_power(phy, false);
+
+	kfree(phy);
+
 	return 0;
 }
 

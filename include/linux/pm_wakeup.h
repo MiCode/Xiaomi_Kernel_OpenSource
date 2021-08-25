@@ -27,6 +27,7 @@
 #endif
 
 #include <linux/types.h>
+#include <linux/sched.h>
 
 struct wake_irq;
 
@@ -74,6 +75,7 @@ struct wakeup_source {
 	struct device		*dev;
 	bool			active:1;
 	bool			autosleep_enabled:1;
+	char comm[TASK_COMM_LEN];
 };
 
 #ifdef CONFIG_PM_SLEEP

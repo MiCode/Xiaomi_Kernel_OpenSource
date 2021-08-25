@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -856,7 +857,7 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 	struct qmi_uaudio_stream_ind_msg_v01 disconnect_ind = {0};
 
-	uaudio_dbg("for card# %d\n", card_num);
+	uaudio_err("for card# %d\n", card_num);
 
 	if (card_num >=  SNDRV_CARDS) {
 		uaudio_err("invalid card number\n");
@@ -910,7 +911,7 @@ static void uaudio_dev_release(struct kref *kref)
 {
 	struct uaudio_dev *dev = container_of(kref, struct uaudio_dev, kref);
 
-	uaudio_dbg("for dev %pK\n", dev);
+	uaudio_err("for dev %pK\n", dev);
 
 	atomic_set(&dev->in_use, 0);
 
@@ -1206,7 +1207,7 @@ static void uaudio_qmi_disconnect_work(struct work_struct *w)
 							&chip,
 							uaudio_disconnect_cb);
 			if (!subs || !chip || atomic_read(&chip->shutdown)) {
-				uaudio_dbg("no subs for c#%u, dev#%u dir%u\n",
+				uaudio_err("no subs for c#%u, dev#%u dir%u\n",
 						info->pcm_card_num,
 						info->pcm_dev_num,
 						info->direction);
@@ -1215,6 +1216,14 @@ static void uaudio_qmi_disconnect_work(struct work_struct *w)
 			snd_usb_enable_audio_stream(subs, -EINVAL, 0);
 		}
 		atomic_set(&uadev[idx].in_use, 0);
+		if (!chip) {
+			/* info is not null, continue may cause memory leak */
+			pr_err("%s idx %d, if_idx %d\n",
+					__func__, idx, if_idx);
+			if (uadev[idx].info)
+				panic("chip is null but has valid info\n");
+			continue;
+		}
 		mutex_lock(&chip->dev_lock);
 		uaudio_dev_cleanup(&uadev[idx]);
 		mutex_unlock(&chip->dev_lock);

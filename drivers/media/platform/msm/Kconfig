@@ -57,6 +57,10 @@ if MSMB_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA
 
+config USE_ROHM_BU64753
+        bool "use ROHM BU64753 acculator"
+        default n
+
 source "drivers/media/platform/msm/vidc_3x/Kconfig"
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
@@ -64,3 +68,4 @@ source "drivers/media/platform/msm/npu/Kconfig"
 source "drivers/media/platform/msm/npu_v2/Kconfig"
 source "drivers/media/platform/msm/dvb/Kconfig"
 source "drivers/media/platform/msm/broadcast/Kconfig"
+source "drivers/media/platform/msm/camera/Kconfig"

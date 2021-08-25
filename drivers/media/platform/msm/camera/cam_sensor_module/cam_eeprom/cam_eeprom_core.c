@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,7 +114,7 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 				emap[j].mem.addr_type,
 				emap[j].mem.data_type,
 				emap[j].mem.valid_size);
-			if (rc < 0) {
+			if (rc) {
 				CAM_ERR(CAM_EEPROM, "read failed rc %d",
 					rc);
 				return rc;
@@ -223,6 +224,7 @@ static int cam_eeprom_power_down(struct cam_eeprom_ctrl_t *e_ctrl)
 		CAM_ERR(CAM_EEPROM, "failed: power_info %pK", power_info);
 		return -EINVAL;
 	}
+
 	rc = cam_sensor_util_power_down(power_info, soc_info);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "power down the core is failed:%d", rc);
@@ -439,8 +441,7 @@ static int32_t cam_eeprom_parse_memory_map(
 		validate_size = sizeof(struct cam_cmd_unconditional_wait);
 
 	if (remain_buf_len < validate_size ||
-	    *num_map >= (MSM_EEPROM_MAX_MEM_MAP_CNT *
-		MSM_EEPROM_MEMORY_MAP_MAX_SIZE)) {
+	    *num_map >= MSM_EEPROM_MAX_MEM_MAP_CNT) {
 		CAM_ERR(CAM_EEPROM, "not enough buffer");
 		return -EINVAL;
 	}
@@ -450,9 +451,7 @@ static int32_t cam_eeprom_parse_memory_map(
 
 		if (i2c_random_wr->header.count == 0 ||
 		    i2c_random_wr->header.count >= MSM_EEPROM_MAX_MEM_MAP_CNT ||
-		    (size_t)*num_map >= ((MSM_EEPROM_MAX_MEM_MAP_CNT *
-				MSM_EEPROM_MEMORY_MAP_MAX_SIZE) -
-				i2c_random_wr->header.count)) {
+		    (size_t)*num_map > U16_MAX - i2c_random_wr->header.count) {
 			CAM_ERR(CAM_EEPROM, "OOB Error");
 			return -EINVAL;
 		}
@@ -892,7 +891,13 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM,
-				"read_eeprom_memory failed");
+				"read_eeprom_memory failed, rc = %d", rc);
+			cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+
+			e_ctrl->bridge_intf.device_hdl = -1;
+			e_ctrl->bridge_intf.link_hdl = -1;
+			e_ctrl->bridge_intf.session_hdl = -1;
 			goto power_down;
 		}
 
@@ -932,7 +937,7 @@ error:
 	vfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
-	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 release_buf:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
 		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
@@ -1015,7 +1020,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			&eeprom_cap,
 			sizeof(struct cam_eeprom_query_cap_t))) {
 			CAM_ERR(CAM_EEPROM, "Failed Copy to User");
-			rc = -EFAULT;
+			return -EFAULT;
 			goto release_mutex;
 		}
 		CAM_DBG(CAM_EEPROM, "eeprom_cap: ID: %d", eeprom_cap.slot_info);
@@ -1057,7 +1062,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	case CAM_CONFIG_DEV:
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);
 		if (rc) {
-			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing");
+			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing, rc %d", rc);
 			goto release_mutex;
 		}
 		break;

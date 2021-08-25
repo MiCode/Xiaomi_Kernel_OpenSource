@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,7 +431,7 @@ csiphy_reg_t csiphy_3ph_v1_2_reg[MAX_LANES][MAX_SETTINGS_PER_LANE] = {
 	},
 };
 
-struct data_rate_settings_t data_rate_delta_table_1_2 = {
+struct data_rate_settings_t data_rate_delta_table = {
 	.num_data_rate_settings = 3,
 	.data_rate_settings = {
 		{

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1070,11 +1071,15 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	 * the rsp is the rsp length (write_len) + dci response packet header
 	 * length (sizeof(struct diag_dci_pkt_rsp_header_t))
 	 */
+	if (rsp_buf->data_len > rsp_buf->capacity) {
+		rsp_buf->capacity = rsp_buf->data_len;
+	}
+
 	if ((rsp_buf->data_len + header_len + rsp_len) > rsp_buf->capacity) {
 		pr_alert("diag: create capacity for pkt rsp\n");
 		temp_buf = vzalloc(rsp_buf->capacity + header_len + rsp_len);
 		if (!temp_buf) {
-			pr_err("diag: DCI realloc failed\n");
+			pr_err("diag: DCI vzalloc failed\n");
 			mutex_unlock(&rsp_buf->data_mutex);
 			mutex_unlock(&entry->buffers[data_source].buf_mutex);
 			mutex_unlock(&driver->dci_mutex);

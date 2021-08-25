@@ -18,6 +18,7 @@
  * and processes may not get killed until the normal oom killer is triggered.
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -480,8 +481,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	int other_free;
 	int other_file;
 	bool lock_required = true;
+	unsigned long kernel_misc_reclaimable = 0;
 
 	other_free = global_zone_page_state(NR_FREE_PAGES) - totalreserve_pages;
+        kernel_misc_reclaimable = global_node_page_state(NR_KERNEL_MISC_RECLAIMABLE);
 
 	if (global_node_page_state(NR_SHMEM) + total_swapcache_pages() +
 			global_node_page_state(NR_UNEVICTABLE) <
@@ -489,7 +492,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		other_file = global_node_page_state(NR_FILE_PAGES) -
 					global_node_page_state(NR_SHMEM) -
 					global_node_page_state(NR_UNEVICTABLE) -
-					total_swapcache_pages();
+					total_swapcache_pages() + kernel_misc_reclaimable;
 	else
 		other_file = 0;
 
@@ -517,17 +520,17 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	ret = adjust_minadj(&min_score_adj);
 
-	lowmem_print(3, "%s %lu, %x, ofree %d %d, ma %hd\n",
+	lowmem_print(3, "%s %lu, %x, ofree %d %d, ma %hd, kernel_misc_reclaimable %lu\n",
 		     __func__, sc->nr_to_scan, sc->gfp_mask, other_free,
-		     other_file, min_score_adj);
+		     other_file, min_score_adj, kernel_misc_reclaimable);
 
-	if (min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
+	if (min_score_adj == OOM_SCORE_ADJ_MAX + 1 || (ret == VMPRESSURE_ADJUST_ENCROACH)) {
 		trace_almk_shrink(0, ret, other_free, other_file, 0);
 		lowmem_print(5, "%s %lu, %x, return 0\n",
 			     __func__, sc->nr_to_scan, sc->gfp_mask);
 		if (lock_required)
 			mutex_unlock(&scan_mutex);
-		return 0;
+		return SHRINK_STOP;
 	}
 
 	selected_oom_score_adj = min_score_adj;
@@ -616,6 +619,13 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 		}
 
+		if (selected_oom_score_adj == 0) {
+			printk("KERNEL_MISC_RECLAIMABLE:%lu\n", kernel_misc_reclaimable);
+			show_mem(SHOW_MEM_FILTER_NODES, NULL);
+			show_mem_call_notifiers();
+			dump_tasks(NULL, NULL);
+		}
+
 		task_lock(selected);
 		send_sig(SIGKILL, selected, 0);
 		if (selected->mm) {
@@ -653,12 +663,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			(long)(PAGE_SIZE / 1024),
 			sc->gfp_mask);
 
-		if (lowmem_debug_level >= 2 && selected_oom_score_adj == 0) {
-			show_mem(SHOW_MEM_FILTER_NODES, NULL);
-			show_mem_call_notifiers();
-			dump_tasks(NULL, NULL);
-		}
-
 		lowmem_deathpending_timeout = jiffies + HZ;
 		rem += selected_tasksize;
 		rcu_read_unlock();
@@ -682,7 +686,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		     __func__, sc->nr_to_scan, sc->gfp_mask, rem);
 	if (lock_required)
 		mutex_unlock(&scan_mutex);
-	return rem;
+	if (rem == 0)
+		return SHRINK_STOP;
+	else
+		return rem;
 }
 
 static int lmk_hotplug_callback(struct notifier_block *self,

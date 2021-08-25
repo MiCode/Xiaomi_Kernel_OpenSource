@@ -19,6 +19,16 @@ config QPNP_FG_GEN4
 	  reported through a BMS power supply property and also sends uevents
 	  when the capacity is updated.
 
+config QPNP_FG_GEN4_NABU
+        tristate "QPNP GEN4 fuel gauge driver"
+        depends on MFD_SPMI_PMIC
+        help
+          Say Y here to enable the GEN4 Fuel Gauge driver. This adds support
+          for battery fuel gauging and state of charge of battery connected to
+          the device that has QTI PMICs like PM8150B. The state of charge is
+          reported through a BMS power supply property and also sends uevents
+          when the capacity is updated.
+
 config QPNP_QG
 	bool "QPNP Qgauge driver"
 	depends on MFD_SPMI_PMIC
@@ -47,6 +57,70 @@ config SMB1355_SLAVE_CHARGER
 	  The driver supports charger enable/disable.
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
+config IDT_P9220
+	tristate "idtp9220 wireless Charger"
+	depends on I2C
+	help
+	  Say Y to include support for idtp9220 wireless Charger.
+	  idtp9220 is a wireless battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls idtp9220 via I2C and
+	  supports device-tree interface.
+config LN8282
+	tristate "LN8282 Charge Pump"
+	depends on I2C
+	help
+	  Say Y to include support for LN8282 charger pump.
+	  LN8282 is a charger pump chip.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls 8282 via I2C and
+	  supports device-tree interface.
+
+config HALO_7221
+	tristate "HALO7221 Charge Pump"
+	depends on I2C
+	help
+	  Say Y to include support for HALO 7221 charger pump.
+	  HALO 7221 is a charger pump chip.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls 7221 via I2C and
+	  supports device-tree interface.
+
+config IDT_P9418
+	tristate "idtp9418 wireless Charger"
+	depends on I2C
+	help
+	  Say Y to include support for idtp9418 wireless Charger.
+	  idtp9418 is a wireless battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls idtp9418 via I2C and
+	  supports device-tree interface.
+
+config RX1619_TRIM
+	tristate "RX1619 TRIM"
+	depends on I2C
+	help
+	  Say Y to include support for rx1619 wireless Charger.
+	  RX1619 is a wireless battery charger chip.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls rx1619 via I2C and
+	  supports device-tree interface.
+
+config RX1619
+	tristate "RX1619 wireless Charger"
+	depends on I2C
+	help
+	  Say Y to include support for rx1619 wireless Charger.
+	  RX1619 is a wireless battery charger chip.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls rx1619 via I2C and
+	  supports device-tree interface.
 
 config QPNP_SMB2
 	tristate "SMB2 Battery Charger"
@@ -74,6 +148,19 @@ config QPNP_SMB5
 	  VBUS and VCONN regulators are registered for supporting OTG,
 	  and powered Type-C cables respectively.
 
+config QPNP_SMB5_NABU
+        tristate "SMB5 Battery Charger"
+        depends on MFD_SPMI_PMIC
+        help
+          Say Y to enables support for the SMB5 charging peripheral.
+          The QPNP SMB5 charger driver supports the charger peripheral
+          present in the chip.
+          The power supply framework is used to communicate battery and
+          usb properties to userspace and other driver consumers such
+          as fuel gauge, USB, and USB-PD.
+          VBUS and VCONN regulators are registered for supporting OTG,
+          and powered Type-C cables respectively.
+
 config SMB138X_CHARGER
 	tristate "SMB138X Battery Charger"
 	depends on MFD_I2C_PMIC
@@ -95,13 +182,13 @@ config QPNP_QNOVO
 	  and current measured during certain phases of the pulses.
 
 config QPNP_QNOVO5
-	bool "QPNP QNOVO5 driver"
-	depends on MFD_SPMI_PMIC
-	help
-	  Say Y here to enable the Qnovo5 PBS-based pulse charging engine.
-	  Qnovo5 driver accepts pulse parameters via sysfs entries and programs
-	  the hardware module. It also allows userspace code to read diagnostics
-	  of voltage and current measured during certain phases of the pulses.
+        bool "QPNP QNOVO5 driver"
+        depends on MFD_SPMI_PMIC
+        help
+          Say Y here to enable the Qnovo5 PBS-based pulse charging engine.
+          Qnovo5 driver accepts pulse parameters via sysfs entries and programs
+          the hardware module. It also allows userspace code to read diagnostics
+          of voltage and current measured during certain phases of the pulses.
 
 config SMB1390_CHARGE_PUMP
 	tristate "SMB1390 Charge Pump"
@@ -119,6 +206,10 @@ config SMB1390_CHARGE_PUMP_PSY
 	  power supply framework.
 	  SMB1390 is a div2 charge pump capable of delivering 6A charge current
 	  with very high efficiency.
+config FUEL_GAUGE_BQ27Z561
+	tristate "TI bq27z561 battery gauge driver"
+	help
+	  Say Y to enable support for TI bq27z561 fuel gauge driver
 
 config SMB1398_CHARGER
 	tristate "SMB1398 power supply framework based driver"

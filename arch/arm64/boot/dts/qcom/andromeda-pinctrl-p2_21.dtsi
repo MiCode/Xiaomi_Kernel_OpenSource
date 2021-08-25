@@ -1,0 +1,2 @@
+/*for E5 5G pinctrl*/
+#include "andromeda-pinctrl-p2.dtsi"

@@ -2,6 +2,7 @@
  * Created: Tue Feb  2 08:37:54 1999 by faith@valinux.com
  *
  * Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
  * All Rights Reserved.
  *
@@ -164,6 +165,8 @@ static int drm_new_set_master(struct drm_device *dev, struct drm_file *fpriv)
 
 	if (old_master)
 		drm_master_put(&old_master);
+
+	pr_info("%s: pid=%d, task_name=%s\n", __func__, task_pid_nr(current), current->comm);
 
 	return 0;
 

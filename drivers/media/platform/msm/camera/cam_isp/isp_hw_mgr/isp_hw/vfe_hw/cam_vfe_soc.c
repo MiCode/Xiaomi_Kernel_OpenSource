@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,7 +236,6 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 
 	axi_vote.compressed_bw   = 10640000000L;
-	axi_vote.compressed_bw_ab   = 10640000000L;
 	axi_vote.uncompressed_bw = 10640000000L;
 
 	rc = cam_cpas_start(soc_private->cpas_handle[0], &ahb_vote, &axi_vote);

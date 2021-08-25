@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +90,6 @@ struct ctx_base_info {
  * @enable_recovery:           enable recovery
  * @enable_diag_sensor_status: enable sensor diagnosis status
  * @enable_reg_dump:           enable register dump on error
- * @enable_dmi_dump:           enable stats dmi and cfg reg dump
  *
  */
 struct cam_ife_hw_mgr_debug {
@@ -98,7 +98,6 @@ struct cam_ife_hw_mgr_debug {
 	uint32_t       enable_recovery;
 	uint32_t       camif_debug;
 	uint32_t       enable_reg_dump;
-	uint32_t       enable_dmi_dump;
 };
 
 /**

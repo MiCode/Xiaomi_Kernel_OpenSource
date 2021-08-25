@@ -3,6 +3,7 @@
  * fs/f2fs/gc.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.samsung.com/
  */
 #include <linux/fs.h>
@@ -20,12 +21,24 @@
 #include "gc.h"
 #include <trace/events/f2fs.h>
 
+static inline bool should_break_gc(struct f2fs_sb_info *sbi)
+{
+	if (freezing(current) || kthread_should_stop())
+		return true;
+
+	if (sbi->gc_mode == GC_URGENT)
+		return false;
+
+	return !is_idle(sbi, GC_TIME);
+}
+
 static int gc_thread_func(void *data)
 {
 	struct f2fs_sb_info *sbi = data;
 	struct f2fs_gc_kthread *gc_th = sbi->gc_thread;
 	wait_queue_head_t *wq = &sbi->gc_thread->gc_wait_queue_head;
-	unsigned int wait_ms;
+	unsigned int wait_ms, gc_count, i;
+	bool boost;
 
 	wait_ms = gc_th->min_sleep_time;
 
@@ -65,6 +78,8 @@ static int gc_thread_func(void *data)
 			continue;
 		}
 
+		boost = sbi->gc_booster;
+
 		/*
 		 * [GC triggering condition]
 		 * 0. GC is not conducted currently.
@@ -96,18 +111,40 @@ static int gc_thread_func(void *data)
 			goto next;
 		}
 
-		if (has_enough_invalid_blocks(sbi))
-			decrease_sleep_time(gc_th, &wait_ms);
-		else
-			increase_sleep_time(gc_th, &wait_ms);
+		if (boost)
+			calculate_sleep_time(sbi, gc_th, &wait_ms);
+		else {
+			if (has_enough_invalid_blocks(sbi))
+				decrease_sleep_time(gc_th, &wait_ms);
+			else
+				increase_sleep_time(gc_th, &wait_ms);
+		}
 do_gc:
-		stat_inc_bggc_count(sbi->stat_info);
+		gc_count = boost ? get_gc_count(sbi) : 1;
 
-		sync_mode = F2FS_OPTION(sbi).bggc_mode == BGGC_MODE_SYNC;
+		for (i = 0; i < gc_count; i++) {
+			/*
+			 * f2fs_gc will release gc_lock before return,
+			 * so we need to relock it before calling f2fs_gc.
+			 */
+			if (i && !down_write_trylock(&sbi->gc_lock)) {
+				stat_other_skip_bggc_count(sbi);
+				break;
+			}
 
-		/* if return value is not zero, no victim was selected */
-		if (f2fs_gc(sbi, sync_mode, true, NULL_SEGNO))
-			wait_ms = gc_th->no_gc_sleep_time;
+			stat_inc_bggc_count(sbi->stat_info);
+
+			sync_mode = F2FS_OPTION(sbi).bggc_mode == BGGC_MODE_SYNC;
+
+			/* if return value is not 0, no victim was selected */
+			if (f2fs_gc(sbi, sync_mode, true, NULL_SEGNO)) {
+				wait_ms = gc_th->no_gc_sleep_time;
+				break;
+			}
+
+			if (should_break_gc(sbi))
+				break;
+		}
 
 		trace_f2fs_background_gc(sbi->sb, wait_ms,
 				prefree_segments(sbi), free_segments(sbi));

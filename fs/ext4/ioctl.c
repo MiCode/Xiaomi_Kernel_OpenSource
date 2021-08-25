@@ -3,11 +3,13 @@
  * linux/fs/ext4/ioctl.c
  *
  * Copyright (C) 1993, 1994, 1995
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Remy Card (card@masi.ibp.fr)
  * Laboratoire MASI - Institut Blaise Pascal
  * Universite Pierre et Marie Curie (Paris VI)
  */
 
+#include <linux/security.h>
 #include <linux/fs.h>
 #include <linux/capability.h>
 #include <linux/time.h>
@@ -987,6 +989,85 @@ resizefs_out:
 		return err;
 	}
 
+	case EXT4_IOC_DEFRAG_RANGE:
+	{
+		struct defrag_range range;
+		int ret = 0;
+
+		if (copy_from_user(&range, (struct defrag_range __user *)arg,
+			sizeof(range)))
+			return -EFAULT;
+
+		ret = ext4_defrag_range(sb, &range);
+		if (ret < 0)
+			return ret;
+
+		if (copy_to_user((struct defrag_range __user *)arg, &range,
+			sizeof(range)))
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case EXT4_IOC_FALLOCATE_RESERVE:
+	{
+		struct fallocate_reserved_range range;
+		int ret = 0;
+		struct inode *inode = file_inode(filp);
+
+		if (!(filp->f_mode & FMODE_WRITE))
+			return -EBADF;
+
+		if (IS_IMMUTABLE(inode))
+			return -EPERM;
+
+		/*
+		 * We cannot allow any fallocate operation on an active swapfile
+		 */
+		if (IS_SWAPFILE(inode))
+			return -ETXTBSY;
+
+		/*
+		 * Revalidate the write permissions, in case security policy has
+		 * changed since the files were opened.
+		 */
+		ret = security_file_permission(filp, MAY_WRITE);
+		if (ret)
+			return ret;
+
+		if (S_ISFIFO(inode->i_mode))
+			return -ESPIPE;
+
+		if (S_ISDIR(inode->i_mode))
+			return -EISDIR;
+
+		/*
+		 * Let individual file system decide if it supports preallocation
+		 * for directories or not.
+		 */
+		if (!S_ISREG(inode->i_mode) && !S_ISBLK(inode->i_mode))
+			return -ENODEV;
+
+		if (copy_from_user(&range, (struct fallocate_reserved_range __user *)arg,
+			sizeof(range)))
+			return -EFAULT;
+
+		ext4_debug("ext_map:fallocate mode %x, offset %lld, len %lld, pa_group %d, pa_offset %d\n",
+					range.mode, range.offset, range.len, range.pa_addr.pa_group, range.pa_addr.pa_offset);
+
+		/* Check for wrap through zero too */
+		if (((range.offset + range.len) > inode->i_sb->s_maxbytes) || ((range.offset + range.len) < 0))
+			return -EFBIG;
+
+		file_start_write(filp);
+		ret = ext4_fallocate_with_pa_reserve(filp, range.mode, range.offset, range.len, &range.pa_addr);
+		file_end_write(filp);
+		if (ret < 0)
+			return ret;
+
+		return 0;
+	}
+
 	case FITRIM:
 	{
 		struct request_queue *q = bdev_get_queue(sb->s_bdev);
@@ -1104,6 +1185,27 @@ resizefs_out:
 		if (!ext4_has_feature_encrypt(sb))
 			return -EOPNOTSUPP;
 		return fscrypt_ioctl_get_nonce(filp, (void __user *)arg);
+	case EXT4_IOC_DECRYPT_FNAME_V1: {
+#ifdef CONFIG_FS_ENCRYPTION
+		if (!ext4_has_feature_encrypt(sb))
+			return -EOPNOTSUPP;
+
+		return fscrypt_ioctl_decrypt_filename_v1(filp, (void __user *)arg);
+#else
+		return -EOPNOTSUPP;
+#endif
+	}
+
+	case EXT4_IOC_DECRYPT_FNAME_V2: {
+#ifdef CONFIG_FS_ENCRYPTION
+		if (!ext4_has_feature_encrypt(sb))
+			return -EOPNOTSUPP;
+
+		return fscrypt_ioctl_decrypt_filename_v2(filp, (void __user *)arg);
+#else
+		return -EOPNOTSUPP;
+#endif
+	}
 
 	case EXT4_IOC_FSGETXATTR:
 	{

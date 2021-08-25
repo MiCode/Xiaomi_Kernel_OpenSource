@@ -1753,6 +1753,14 @@ config SERIAL_OWL_CONSOLE
 	  Say 'Y' here if you wish to use Actions Semiconductor S500/S900 UART
 	  as the system console.
 
+config FASTBOOT_CMD_CTRL_UART
+	bool "support fastboot oem uart-enable cmd"
+	depends on SERIAL_EARLYCON && SERIAL_MSM_GENI_CONSOLE && !CONSOLE_POLL
+	default n
+	help
+	  Say 'Y' here if you wish to use 'fastboot oem uart-enable' cmd to
+	  enable console in user build
+
 endmenu
 
 config SERIAL_MCTRL_GPIO

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,11 @@
 #include "cam_jpeg_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
-#include "cam_jpeg_dma_hw_info_ver_4_2_0.h"
+
+static struct cam_jpeg_dma_device_hw_info cam_jpeg_dma_hw_info = {
+	.reserved = 0,
+};
+EXPORT_SYMBOL(cam_jpeg_dma_hw_info);
 
 static int cam_jpeg_dma_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_jpeg_dma_device_core_info *core_info,
@@ -138,9 +143,6 @@ static int cam_jpeg_dma_probe(struct platform_device *pdev)
 	jpeg_dma_dev_intf->hw_priv = jpeg_dma_dev;
 	jpeg_dma_dev_intf->hw_ops.init = cam_jpeg_dma_init_hw;
 	jpeg_dma_dev_intf->hw_ops.deinit = cam_jpeg_dma_deinit_hw;
-	jpeg_dma_dev_intf->hw_ops.start = cam_jpeg_dma_start_hw;
-	jpeg_dma_dev_intf->hw_ops.stop = cam_jpeg_dma_stop_hw;
-	jpeg_dma_dev_intf->hw_ops.reset = cam_jpeg_dma_reset_hw;
 	jpeg_dma_dev_intf->hw_ops.process_cmd = cam_jpeg_dma_process_cmd;
 	jpeg_dma_dev_intf->hw_type = CAM_JPEG_DEV_DMA;
 
@@ -185,11 +187,13 @@ static int cam_jpeg_dma_probe(struct platform_device *pdev)
 	mutex_init(&jpeg_dma_dev->hw_mutex);
 	spin_lock_init(&jpeg_dma_dev->hw_lock);
 	init_completion(&jpeg_dma_dev->hw_complete);
-	CAM_DBG(CAM_JPEG, "JPEG-DMA component bound successfully");
+
+	CAM_DBG(CAM_JPEG, " hwidx %d", jpeg_dma_dev_intf->hw_idx);
+
 	return rc;
 
 error_reg_cpas:
-	cam_soc_util_release_platform_resource(&jpeg_dma_dev->soc_info);
+	rc = cam_soc_util_release_platform_resource(&jpeg_dma_dev->soc_info);
 error_init_soc:
 	mutex_destroy(&core_info->core_mutex);
 error_match_dev:

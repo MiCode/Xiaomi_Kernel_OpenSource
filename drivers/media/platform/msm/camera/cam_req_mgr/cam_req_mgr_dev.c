@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -473,31 +474,6 @@ static long cam_private_ioctl(struct file *file, void *fh,
 			rc = -EINVAL;
 		}
 		break;
-
-	case CAM_REQ_MGR_REQUEST_DUMP: {
-		struct cam_dump_req_cmd cmd;
-
-		if (k_ioctl->size != sizeof(cmd))
-			return -EINVAL;
-
-		if (copy_from_user(&cmd,
-			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_dump_req_cmd))) {
-			rc = -EFAULT;
-			break;
-		}
-
-		rc = cam_req_mgr_dump_request(&cmd);
-		if (!rc)
-			if (copy_to_user(
-				u64_to_user_ptr(k_ioctl->handle),
-				&cmd, sizeof(struct cam_dump_req_cmd))) {
-				rc = -EFAULT;
-				break;
-			}
-		}
-		break;
-
 	default:
 		return -ENOIOCTLCMD;
 	}

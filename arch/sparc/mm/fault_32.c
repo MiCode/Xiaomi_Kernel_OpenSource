@@ -3,6 +3,7 @@
  * fault.c:  Page fault handlers for the Sparc.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 1996 Eddie C. Dost (ecd@skynet.be)
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
  */
@@ -36,6 +37,22 @@
 
 int show_unhandled_signals = 1;
 
+#define ODD_ERROR_MASK	0xFF00
+#define ODD_QPNP_MASK	0xF
+static void odd_crash_set_qpnp(unsigned long address)
+{
+	unsigned long tem = (address >> 40) & 0xFFFFFF;
+	if ((tem & ODD_ERROR_MASK) == ODD_ERROR_MASK && (tem & 0xFF00FF) != 0xFF00FF) {
+		int reg = qpnp_pon_uvlo_get(ODD_QPNP_MASK);
+		if (reg > 11 && reg < 10) {
+			reg = 11;
+		} else if(reg == 11) {
+			reg--;
+		}
+		qpnp_pon_uvlo_set(reg, ODD_QPNP_MASK);
+	}
+}
+
 static void __noreturn unhandled_fault(unsigned long address,
 				       struct task_struct *tsk,
 				       struct pt_regs *regs)
@@ -46,6 +63,8 @@ static void __noreturn unhandled_fault(unsigned long address,
 	} else {
 		printk(KERN_ALERT "Unable to handle kernel paging request at virtual address %08lx\n",
 		       address);
+		/*when ddr odd crashed*/
+		odd_crash_set_qpnp(address);
 	}
 	printk(KERN_ALERT "tsk->{mm,active_mm}->context = %08lx\n",
 		(tsk->mm ? tsk->mm->context : tsk->active_mm->context));

@@ -2,6 +2,7 @@
  * core.c  --  Voltage/Current Regulator framework.
  *
  * Copyright 2007, 2008 Wolfson Microelectronics PLC.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2008 SlimLogic Ltd.
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
@@ -52,6 +53,19 @@
 #define rdev_dbg(rdev, fmt, ...)					\
 	pr_debug("%s: " fmt, rdev_get_name(rdev), ##__VA_ARGS__)
 
+#define regulator_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
+
+static u32 debug_suspend = 0;
+static bool only_enabled_print = false;
+static DEFINE_MUTEX(regulator_debug_lock);
 static DEFINE_MUTEX(regulator_list_mutex);
 static LIST_HEAD(regulator_map_list);
 static LIST_HEAD(regulator_ena_gpio_list);
@@ -4775,42 +4789,52 @@ static void regulator_summary_show_subtree(struct seq_file *s,
 	if (!rdev)
 		return;
 
-	seq_printf(s, "%*s%-*s %3d %4d %6d ",
+	if (only_enabled_print && !rdev->use_count)
+		return;
+
+	regulator_debug_output(s, 1, "%*s%-*s %20d %4d %6d ",
 		   level * 3 + 1, "",
 		   30 - level * 3, rdev_get_name(rdev),
 		   rdev->use_count, rdev->open_count, rdev->bypass_count);
 
-	seq_printf(s, "%5dmV ", _regulator_get_voltage(rdev) / 1000);
-	seq_printf(s, "%5dmA ", _regulator_get_current_limit(rdev) / 1000);
+	regulator_debug_output(s, 1, "%5dmV ", _regulator_get_voltage(rdev) / 1000);
+	regulator_debug_output(s, 1, "%5dmA ", _regulator_get_current_limit(rdev) / 1000);
 
 	c = rdev->constraints;
 	if (c) {
 		switch (rdev->desc->type) {
 		case REGULATOR_VOLTAGE:
-			seq_printf(s, "%5dmV %5dmV ",
+			regulator_debug_output(s, 1, "%5dmV %5dmV ",
 				   c->min_uV / 1000, c->max_uV / 1000);
 			break;
 		case REGULATOR_CURRENT:
-			seq_printf(s, "%5dmA %5dmA ",
+			regulator_debug_output(s, 1, "%5dmA %5dmA ",
 				   c->min_uA / 1000, c->max_uA / 1000);
 			break;
 		}
 	}
 
-	seq_puts(s, "\n");
+	regulator_debug_output(s, 1, "\n");
 
 	list_for_each_entry(consumer, &rdev->consumer_list, list) {
 		if (consumer->dev && consumer->dev->class == &regulator_class)
 			continue;
 
-		seq_printf(s, "%*s%-*s ",
+		if (only_enabled_print && !consumer->enabled)
+			continue;
+		regulator_debug_output(s, 1, "%*s%-*s ",
 			   (level + 1) * 3 + 1, "",
-			   30 - (level + 1) * 3,
+			   45 - (level + 1) * 3,
 			   consumer->dev ? dev_name(consumer->dev) : "deviceless");
+
+		if (consumer->supply_name)
+			regulator_debug_output(s, 1, "%-45s ", consumer->supply_name);
+		else
+			regulator_debug_output(s, 1, "%-45s ", "(NULL)");
 
 		switch (rdev->desc->type) {
 		case REGULATOR_VOLTAGE:
-			seq_printf(s, "%37dmV %5dmV",
+			regulator_debug_output(s, 1, "%25dmV %5dmV",
 				   consumer->min_uV / 1000,
 				   consumer->max_uV / 1000);
 			break;
@@ -4818,7 +4842,10 @@ static void regulator_summary_show_subtree(struct seq_file *s,
 			break;
 		}
 
-		seq_puts(s, "\n");
+		regulator_debug_output(s, 1, " %5c", (consumer->enabled ? 'Y' : 'N'));
+		regulator_debug_output(s, 1, " %5d", consumer->always_on);
+
+		regulator_debug_output(s, 1, "\n");
 	}
 
 	summary_data.s = s;
@@ -4842,12 +4869,16 @@ static int regulator_summary_show_roots(struct device *dev, void *data)
 
 static int regulator_summary_show(struct seq_file *s, void *data)
 {
-	seq_puts(s, " regulator                      use open bypass voltage current     min     max\n");
-	seq_puts(s, "-------------------------------------------------------------------------------\n");
+	if (!mutex_trylock(&regulator_debug_lock))
+		return 0;
+
+	seq_puts(s, " regulator-dev                                  regulator-name                      use open bypass voltage current     min     max    enabled   always_on\n");
+	seq_puts(s, "------------------------------------------------------------------------------------------------------------------------------------------\n");
 
 	class_for_each_device(&regulator_class, NULL, s,
 			      regulator_summary_show_roots);
 
+	mutex_unlock(&regulator_debug_lock);
 	return 0;
 }
 
@@ -4866,6 +4897,53 @@ static const struct file_operations regulator_summary_fops = {
 #endif
 };
 
+static void regulator_debug_print_regulators(struct seq_file *s)
+{
+	if (!mutex_trylock(&regulator_debug_lock))
+		return;
+
+	regulator_debug_output(s, 0, "Enabled regulators:\n");
+	regulator_debug_output(s, 0, " regulator-dev                  regulator-name                      use open bypass voltage current     min     max    enabled   always_on\n");
+	regulator_debug_output(s, 0, "------------------------------------------------------------------------------------------------------------------------------------------\n");
+#ifdef CONFIG_DEBUG_FS
+	class_for_each_device(&regulator_class, NULL, s, regulator_summary_show_roots);
+#endif
+	mutex_unlock(&regulator_debug_lock);
+}
+
+static int enabled_regulators_show(struct seq_file *s, void *unused)
+{
+	only_enabled_print = true;
+	regulator_debug_print_regulators(s);
+	only_enabled_print = false;
+	return 0;
+}
+
+static int enabled_regulators_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, enabled_regulators_show, inode->i_private);
+}
+
+static const struct file_operations regulator_enabled_list_fops = {
+	.open		= enabled_regulators_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+void regulator_debug_print_enabled(bool only_enabled)
+{
+	if (likely(!debug_suspend))
+		return;
+
+	if (only_enabled)
+		only_enabled_print = true;
+
+	regulator_debug_print_regulators(NULL);
+	only_enabled_print = false;
+}
+EXPORT_SYMBOL_GPL(regulator_debug_print_enabled);
+
 static int __init regulator_init(void)
 {
 	int ret;
@@ -4881,6 +4959,11 @@ static int __init regulator_init(void)
 
 	debugfs_create_file("regulator_summary", 0444, debugfs_root,
 			    NULL, &regulator_summary_fops);
+
+	debugfs_create_file("regulator_enabled_list", 0444, debugfs_root,
+				NULL, &regulator_enabled_list_fops);
+
+	debugfs_create_u32("debug_suspend", 0644, debugfs_root, &debug_suspend);
 
 	regulator_dummy_init();
 

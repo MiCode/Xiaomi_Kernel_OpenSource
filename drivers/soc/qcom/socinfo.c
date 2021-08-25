@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +72,8 @@ enum {
 	HW_PLATFORM_HDK = 31,
 	HW_PLATFORM_IOT = 32,
 	HW_PLATFORM_IDP = 34,
+	HW_PLATFORM_J20S = 47,
+	HW_PLATFORM_K82 = 48,
 	HW_PLATFORM_INVALID
 };
 
@@ -95,7 +98,9 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_TTP] = "TTP",
 	[HW_PLATFORM_HDK] = "HDK",
 	[HW_PLATFORM_IOT] = "IOT",
-	[HW_PLATFORM_IDP] = "IDP"
+	[HW_PLATFORM_IDP] = "IDP",
+	[HW_PLATFORM_J20S] = "VAYU",
+	[HW_PLATFORM_K82] = "NABU"
 };
 
 enum {
@@ -1814,6 +1819,66 @@ static void socinfo_select_format(void)
 		socinfo_format = socinfo->v0_1.format;
 	}
 }
+
+const char *product_name_get(void)
+{
+	char *product_name = NULL;
+	size_t size;
+	uint32_t hw_type;
+
+	hw_type = socinfo_get_platform_type();
+
+	product_name = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_ID_VENDOR1, &size);
+	if (IS_ERR_OR_NULL(product_name)) {
+		pr_warn("Can't find SMEM_ID_VENDOR1; falling back on dummy values.\n");
+		return hw_platform[hw_type];
+	}
+
+	return product_name;
+}
+
+EXPORT_SYMBOL(product_name_get);
+
+uint32_t get_hw_country_version(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_COUNTRY_VERSION_MASK) >> HW_COUNTRY_VERSION_SHIFT;
+}
+
+EXPORT_SYMBOL(get_hw_country_version);
+
+uint32_t get_hw_version_platform(void)
+{
+	uint32_t hw_type = socinfo_get_platform_type();
+	if (hw_type == HW_PLATFORM_J20S)
+		return HARDWARE_PLATFORM_VAYU;
+	else if (hw_type == HW_PLATFORM_K82)
+		return HARDWARE_PLATFORM_NABU;
+	else
+		return HARDWARE_PLATFORM_UNKNOWN;
+}
+EXPORT_SYMBOL(get_hw_version_platform);
+
+uint32_t get_hw_version_major(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MAJOR_VERSION_MASK) >> HW_MAJOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_major);
+
+uint32_t get_hw_version_minor(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MINOR_VERSION_MASK) >> HW_MINOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_minor);
+
+uint32_t get_hw_version_build(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_BUILD_VERSION_MASK) >> HW_BUILD_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_build);
 
 int __init socinfo_init(void)
 {

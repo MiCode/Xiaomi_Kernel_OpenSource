@@ -1,0 +1,128 @@
+&soc {
+	dsi_j2a_38_0c_0a_dsc_cmd: qcom,mdss_dsi_j2a_38_0c_0a_dsc_cmd {
+		qcom,mdss-dsi-panel-name = "xiaomi 38 0c 0a cmd mode dsc dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <0 1>, <1 10>;
+		qcom,mdss-pan-physical-width-dimension = <68>;
+		qcom,mdss-pan-physical-height-dimension = <147>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-te-using-wd;
+		qcom,mdss-dsi-lp11-init;
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+			17000 15500 30000 8000 3000>;
+		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+		qcom,mdss-dsi-panel-blackness-level = <3230>;
+		qcom,mdss-dsi-bl-dcs-type-ss;
+		qcom,bl-update-flag = "delay_until_first_frame";
+
+		qcom,mdss-dsi-display-timings {
+			timing@0{
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <2340>;
+				qcom,mdss-dsi-h-front-porch = <64>;
+				qcom,mdss-dsi-h-back-porch = <64>;
+				qcom,mdss-dsi-h-pulse-width = <20>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <64>;
+				qcom,mdss-dsi-v-front-porch = <64>;
+				qcom,mdss-dsi-v-pulse-width = <20>;
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-jitter = <0x5 0x1>;
+				qcom,mdss-dsi-on-command = [
+					/* 1 DSC Setting */
+					07 01 00 00 00 00 01 01    /* Compression Enable */
+					39 01 00 00 00 00 5A 0A    /* PPS Setting */
+					11 00 00 89 30 80 09 24
+					04 38 00 41 02 1C 02 1C
+					02 00 02 0E 00 20 06 50
+					00 07 00 0C 01 80 01 91
+					18 00 10 F0 03 0C 20 00
+					06 0B 0B 33 0E 1C 2A 38
+					46 54 62 69 70 77 79 7B
+					7D 7E 01 02 01 00 09 40
+					09 BE 19 FC 19 FA 19 F8
+					1A 38 1A 78 1A B6 2A F6
+					2B 34 2B 74 3B 74 6B F4
+					00
+					/* 2 Sleep Out */
+					05 01 00 00 14 00 02 11 00   /* Sleep Out */
+					/* 3 Common Setting */
+					/* 3.1 TE(Vsync) On/Off */
+					15 01 00 00 00 00 02 35 00   /* TE On(Vsync) */
+					/* 3.2 CASET/PASET Setting */
+					39 01 00 00 00 00 05 2A 00 00 04 37 /* CASET */
+					39 01 00 00 00 00 05 2B 00 00 09 23 /* PASET */
+					/* 3.3 TSP SYNC Setting */
+					39 01 00 00 00 00 03 F0 5A 5A
+					39 01 00 00 00 00 0A B9 00 00 14 18 00 00 00 11 03 /* SYNC ENABLE */
+					39 01 00 00 00 00 03 F0 A5 A5
+					/* 3.4 ESD ERR_FG Setting */
+					39 01 00 00 00 00 03 F0 5A 5A
+					39 01 00 00 00 00 03 ED 04 01
+					39 01 00 00 00 00 03 F0 A5 A5
+					/* 3.5 Dither IP Setting */
+					39 01 00 00 00 00 03 FC 5A 5A
+					15 01 00 00 00 00 02 B0 86   /* Global para */
+					15 01 00 00 00 00 02 EB 01   /* Dither IP Setting */
+					39 01 00 00 3C 00 03 FC A5 A5
+					/* 4 Brightness Control */
+					39 01 00 00 00 00 03 F0 5A 5A
+					39 01 00 00 00 00 03 B0 34 B1  /* Global para */
+					15 01 00 00 00 00 02 B1 5D   /* 11Bit Dimming On*/
+					15 01 00 00 00 00 02 B0 05   /* Global para */
+					15 01 00 00 00 00 02 B1 01   /* Dimming Speed Setting : 0x01 : 1Frame*/
+					15 01 00 00 00 00 02 B0 02   /* Global para */
+					15 01 00 00 00 00 02 B5 D3   /* 0xD3 : ELVSS DIM ON */
+					15 01 00 00 00 00 02 53 20   /* 0x20 Normal transition(60Hz) */
+					39 01 00 00 00 00 03 51 00 00  /* Write Display Brightness */
+					39 01 00 00 00 00 03 F0 A5 A5
+					/* 5 Display On */
+					05 01 00 00 00 00 02 29 00];
+
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 0A 00 02 28 00
+					05 01 00 00 78 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <65>;
+				qcom,mdss-dsc-slice-width = <540>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};
+

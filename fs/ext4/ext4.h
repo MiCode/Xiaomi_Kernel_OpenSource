@@ -3,6 +3,7 @@
  *  ext4.h
  *
  * Copyright (C) 1992, 1993, 1994, 1995
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Remy Card (card@masi.ibp.fr)
  * Laboratoire MASI - Institut Blaise Pascal
  * Universite Pierre et Marie Curie (Paris VI)
@@ -140,6 +141,7 @@ enum SHIFT_DIRECTION {
 #define EXT4_MB_USE_ROOT_BLOCKS		0x1000
 /* Use blocks from reserved pool */
 #define EXT4_MB_USE_RESERVED		0x2000
+#define EXT4_MB_USED_EXTENTS		0x4000
 
 struct ext4_allocation_request {
 	/* target inode for block we're allocating */
@@ -188,6 +190,12 @@ struct ext4_map_blocks {
  */
 #define	EXT4_IO_END_UNWRITTEN	0x0001
 
+struct ext4_io_end_vec {
+	struct list_head list;		/* list of io_end_vec */
+	loff_t offset;			/* offset in the file */
+	ssize_t size;			/* size of the extent */
+};
+
 /*
  * For converting unwritten extents on a work queue. 'handle' is used for
  * buffered writeback.
@@ -201,8 +209,7 @@ typedef struct ext4_io_end {
 						 * bios covering the extent */
 	unsigned int		flag;		/* unwritten or not */
 	atomic_t		count;		/* reference counter */
-	loff_t			offset;		/* offset in the file */
-	ssize_t			size;		/* size of the extent */
+	struct list_head	list_vec;	/* list of ext4_io_end_vec */
 } ext4_io_end_t;
 
 struct ext4_io_submit {
@@ -602,6 +609,7 @@ enum {
 	/* Caller will submit data before dropping transaction handle. This
 	 * allows jbd2 to avoid submitting data before commit. */
 #define EXT4_GET_BLOCKS_IO_SUBMIT		0x0400
+#define EXT4_GET_BLOCKS_USED_EXTENTS		0x0800
 
 /*
  * The bit position of these flags must not overlap with any of the
@@ -649,6 +657,12 @@ enum {
 #define EXT4_IOC_SET_ENCRYPTION_POLICY	FS_IOC_SET_ENCRYPTION_POLICY
 #define EXT4_IOC_GET_ENCRYPTION_PWSALT	FS_IOC_GET_ENCRYPTION_PWSALT
 #define EXT4_IOC_GET_ENCRYPTION_POLICY	FS_IOC_GET_ENCRYPTION_POLICY
+#define EXT4_IOC_DEFRAG_RANGE		_IOWR('f', 22, struct defrag_range)
+#define EXT4_IOC_FALLOCATE_RESERVE	_IOW('f', 23, struct fallocate_reserved_range)
+
+/* ioctl command used to decrypt encrypted filename, storage compact will use it */
+#define EXT4_IOC_DECRYPT_FNAME_V1 		_IOWR('f', 28, struct encrypt_fname_v1)
+#define EXT4_IOC_DECRYPT_FNAME_V2 		_IOWR('f', 29, struct encrypt_fname_v2)
 
 #ifndef FS_IOC_FSGETXATTR
 /* Until the uapi changes get merged for project quota... */
@@ -1156,6 +1170,7 @@ struct ext4_inode_info {
 #define EXT4_MOUNT_JOURNAL_CHECKSUM	0x800000 /* Journal checksums */
 #define EXT4_MOUNT_JOURNAL_ASYNC_COMMIT	0x1000000 /* Journal Async Commit */
 #define EXT4_MOUNT_INLINECRYPT		0x4000000 /* Inline encryption support */
+#define EXT4_MOUNT_ASYNC_FSYNC 		0x2000000 /* Tune fsync according to calling process's uid/gid */
 #define EXT4_MOUNT_DELALLOC		0x8000000 /* Delalloc support */
 #define EXT4_MOUNT_DATA_ERR_ABORT	0x10000000 /* Abort on file data write */
 #define EXT4_MOUNT_BLOCK_VALIDITY	0x20000000 /* Block validity checking */
@@ -1468,6 +1483,9 @@ struct ext4_sb_info {
 
 	/* tunables */
 	unsigned long s_stripe;
+#ifdef CONFIG_EXT4_FS_ES_BARRIER
+	unsigned int s_esb;  /* efficent safe barrier */
+#endif
 	unsigned int s_mb_stream_request;
 	unsigned int s_mb_max_to_scan;
 	unsigned int s_mb_min_to_scan;
@@ -1525,6 +1543,12 @@ struct ext4_sb_info {
 
 	/* record the last minlen when FITRIM is called. */
 	atomic_t s_last_trim_minblks;
+
+	/* # of issued fsync/fdatasync */
+	atomic_t s_total_fsync;
+
+	/* # of issued fsync/fdatasync which don't need to wait transaction to complete */
+	atomic_t s_async_fsync;
 
 	/* Reference to checksum algorithm driver via cryptoapi */
 	struct crypto_shash *s_chksum_driver;
@@ -2292,6 +2316,45 @@ struct mmpd_data {
  */
 #define EXT4_MMP_MAX_CHECK_INTERVAL	300UL
 
+
+/*
+ * Minimum free blocks required for block group defrag.
+ */
+#define EXT4_LOW_FREE_BLOCKS_THRESHOLD_FOR_DEFRAG	256UL
+
+/*
+ * Minimum fragments required for block group defrag.
+ */
+#define EXT4_LOW_FRAGS_THRESHOLD_FOR_DEFRAG		4UL
+
+/*
+ * If free blocks length larger than 512k, don't touch it
+ */
+#define EXT4_MAX_FREE_BLOCKS_LENGTH	128UL
+
+
+struct defrag_range {
+	__u64 free_start;
+	__u64 free_end;
+	__u64 used_start;
+	__u64 used_end;
+	unsigned long length;
+	unsigned int group;
+};
+
+struct pa_address {
+	int pa_group;
+	int pa_offset;
+};
+
+struct fallocate_reserved_range {
+	int mode;
+	loff_t offset;
+	loff_t len;
+	struct pa_address pa_addr;
+};
+
+
 /*
  * Function prototypes
  */
@@ -2567,6 +2630,8 @@ extern int ext4_mb_add_groupinfo(struct super_block *sb,
 extern int ext4_group_add_blocks(handle_t *handle, struct super_block *sb,
 				ext4_fsblk_t block, unsigned long count);
 extern int ext4_trim_fs(struct super_block *, struct fstrim_range *);
+extern int ext4_defrag_range(struct super_block *sb, struct defrag_range *range);
+
 extern void ext4_process_freed_data(struct super_block *sb, tid_t commit_tid);
 
 /* inode.c */
@@ -3274,8 +3339,12 @@ extern void ext4_ext_init(struct super_block *);
 extern void ext4_ext_release(struct super_block *);
 extern long ext4_fallocate(struct file *file, int mode, loff_t offset,
 			  loff_t len);
+extern long ext4_fallocate_with_pa_reserve(struct file *file, int mode, loff_t offset,
+			loff_t len, struct pa_address *pa_addr);
 extern int ext4_convert_unwritten_extents(handle_t *handle, struct inode *inode,
 					  loff_t offset, ssize_t len);
+extern int ext4_convert_unwritten_io_end_vec(handle_t *handle,
+					     ext4_io_end_t *io_end);
 extern int ext4_map_blocks(handle_t *handle, struct inode *inode,
 			   struct ext4_map_blocks *map, int flags);
 extern int ext4_ext_calc_metadata_amount(struct inode *inode,
@@ -3334,6 +3403,8 @@ extern int ext4_bio_write_page(struct ext4_io_submit *io,
 			       int len,
 			       struct writeback_control *wbc,
 			       bool keep_towrite);
+extern struct ext4_io_end_vec *ext4_alloc_io_end_vec(ext4_io_end_t *io_end);
+extern struct ext4_io_end_vec *ext4_last_io_end_vec(ext4_io_end_t *io_end);
 
 /* mmp.c */
 extern int ext4_multi_mount_protect(struct super_block *, ext4_fsblk_t);

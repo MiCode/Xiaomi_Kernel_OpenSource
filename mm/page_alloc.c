@@ -69,6 +69,7 @@
 #include <linux/lockdep.h>
 #include <linux/nmi.h>
 #include <linux/psi.h>
+#include <linux/delayacct.h>
 
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
@@ -78,6 +79,8 @@
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
 #define MIN_PERCPU_PAGELIST_FRACTION	(8)
+
+#define TRACE_SLOWPATH_THRESHOLD (50)
 
 #ifdef CONFIG_USE_PERCPU_NUMA_NODE_ID
 DEFINE_PER_CPU(int, numa_node);
@@ -2030,7 +2033,8 @@ static void change_pageblock_range(struct page *pageblock_page,
  * is worse than movable allocations stealing from unmovable and reclaimable
  * pageblocks.
  */
-static bool can_steal_fallback(unsigned int order, int start_mt)
+static bool can_steal_fallback(unsigned int order, int start_mt, int fallback_type,
+                                                           unsigned int start_order)
 {
 	/*
 	 * Leaving this order check is intended, although there is
@@ -2042,11 +2046,16 @@ static bool can_steal_fallback(unsigned int order, int start_mt)
 	if (order >= pageblock_order)
 		return true;
 
-	if (order >= pageblock_order / 2 ||
-		start_mt == MIGRATE_RECLAIMABLE ||
-		start_mt == MIGRATE_UNMOVABLE ||
-		page_group_by_mobility_disabled)
-		return true;
+        /* don't let unmovable allocations cause migrations simply because of free pages */
+	if ((start_mt != MIGRATE_UNMOVABLE && order >= pageblock_order / 2) ||
+	/* only steal reclaimable page blocks for unmovable allocations */
+	(start_mt == MIGRATE_UNMOVABLE && fallback_type != MIGRATE_MOVABLE && order >= pageblock_order / 2) ||
+	/* reclaimable can steal aggressively */
+	start_mt == MIGRATE_RECLAIMABLE ||
+	/* allow unmovable allocs up to 64K without migrating blocks */
+	(start_mt == MIGRATE_UNMOVABLE && start_order >= 5) ||
+	page_group_by_mobility_disabled)
+	        return true;
 
 	return false;
 }
@@ -2136,7 +2145,7 @@ single_page:
  * fragmentation due to mixed migratetype pages in one pageblock.
  */
 int find_suitable_fallback(struct free_area *area, unsigned int order,
-			int migratetype, bool only_stealable, bool *can_steal)
+			int migratetype, bool only_stealable, bool *can_steal, unsigned int start_order)
 {
 	int i;
 	int fallback_mt;
@@ -2153,7 +2162,7 @@ int find_suitable_fallback(struct free_area *area, unsigned int order,
 		if (list_empty(&area->free_list[fallback_mt]))
 			continue;
 
-		if (can_steal_fallback(order, migratetype))
+		if (can_steal_fallback(order, migratetype, fallback_mt, start_order))
 			*can_steal = true;
 
 		if (!only_stealable)
@@ -2314,7 +2323,7 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 				--current_order) {
 		area = &(zone->free_area[current_order]);
 		fallback_mt = find_suitable_fallback(area, current_order,
-				start_migratetype, false, &can_steal);
+				start_migratetype, false, &can_steal, order);
 		if (fallback_mt == -1)
 			continue;
 
@@ -2340,7 +2349,7 @@ find_smallest:
 							current_order++) {
 		area = &(zone->free_area[current_order]);
 		fallback_mt = find_suitable_fallback(area, current_order,
-				start_migratetype, false, &can_steal);
+				start_migratetype, false, &can_steal, order);
 		if (fallback_mt != -1)
 			break;
 	}
@@ -4365,6 +4374,9 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 	struct page *page;
 	unsigned int alloc_flags = ALLOC_WMARK_LOW;
 	gfp_t alloc_mask; /* The gfp_t that was actually used for allocation */
+	unsigned long start_time;
+	u64 start_running;
+	u64 start_runnable;
 	struct alloc_context ac = { };
 
 	/*
@@ -4404,7 +4416,34 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 	if (unlikely(ac.nodemask != nodemask))
 		ac.nodemask = nodemask;
 
+	start_time = jiffies;
+	start_runnable = current->sched_info.run_delay;
+	start_running = current->se.sum_exec_runtime;
+	delayacct_slowpath_start();
 	page = __alloc_pages_slowpath(alloc_mask, order, &ac);
+	delayacct_slowpath_end();
+
+	if (jiffies != start_time) {
+		unsigned long duration;
+		unsigned int duration_ms;
+		duration = (jiffies > start_time) ? (jiffies - start_time) :
+			(jiffies + (MAX_JIFFY_OFFSET - start_time) + 1);
+		duration_ms = jiffies_to_msecs(duration);
+
+		if (duration_ms > TRACE_SLOWPATH_THRESHOLD) {
+			trace_printk("tracing_mark_write: B|%d|slowpath.duration(%dms)\n",
+				current->tgid, duration_ms);
+			pr_info("slowpath: %d(%s)(priority %d/%d) order=%d mask=0x%x"
+				" duration=%dms duration_runnable = %lldns"
+				" duration_running=%lldns\n",
+				current->pid, current->comm,
+				current->policy, PRIO_TO_NICE(current->static_prio),
+				order, gfp_mask, duration_ms,
+				current->sched_info.run_delay - start_runnable,
+				current->se.sum_exec_runtime - start_running);
+			trace_printk("tracing_mark_write: E\n");
+		}
+	}
 
 out:
 	if (memcg_kmem_enabled() && (gfp_mask & __GFP_ACCOUNT) && page &&

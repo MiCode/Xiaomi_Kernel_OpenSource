@@ -1,6 +1,7 @@
 /* drivers/misc/uid_sys_stats.c
  *
  * Copyright (C) 2014 - 2015 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -29,11 +30,16 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
+#ifndef SYSTEM_UID
+#define SYSTEM_UID 1000
+#endif
 
 #define UID_HASH_BITS	10
 DECLARE_HASHTABLE(hash_table, UID_HASH_BITS);
+DECLARE_HASHTABLE(app_hash_table, UID_HASH_BITS);
 
 static DEFINE_RT_MUTEX(uid_lock);
+static DEFINE_RT_MUTEX(pid_lock);
 static struct proc_dir_entry *cpu_parent;
 static struct proc_dir_entry *io_parent;
 static struct proc_dir_entry *proc_parent;
@@ -77,6 +83,32 @@ struct uid_entry {
 	DECLARE_HASHTABLE(task_entries, UID_HASH_BITS);
 #endif
 };
+
+struct pid_entry {
+	u64 hash_code;
+	char package[MAX_TASK_COMM_LEN];
+	pid_t pid;
+	u64 utime;
+	u64 stime;
+	u64 active_utime;
+	u64 active_stime;
+	struct hlist_node hash;
+};
+
+/*
+ * simple hash function for a string,
+ * http://www.cse.yorku.ca/~oz/hash.html
+ */
+u64 hash_string(const char *str)
+{
+	u64 hash = 5381;
+	int c;
+
+	while ((c = *str++))
+		hash = ((hash << 5) + hash) + c;
+
+	return hash;
+}
 
 static u64 compute_write_bytes(struct task_struct *task)
 {
@@ -329,6 +361,38 @@ static struct uid_entry *find_or_register_uid(uid_t uid)
 	return uid_entry;
 }
 
+static struct pid_entry *find_pid_entry(u64 hash_code)
+{
+	struct pid_entry *pid_entry;
+
+	hash_for_each_possible(app_hash_table, pid_entry, hash, hash_code) {
+		if (pid_entry->hash_code == hash_code)
+			return pid_entry;
+	}
+	return NULL;
+}
+
+static struct pid_entry *find_or_register_pid(u64 hash_code,
+					      const char *package, pid_t pid)
+{
+	struct pid_entry *pid_entry;
+
+	pid_entry = find_pid_entry(hash_code);
+	if (pid_entry)
+		return pid_entry;
+
+	pid_entry = kzalloc(sizeof(struct pid_entry), GFP_ATOMIC);
+	if (!pid_entry)
+		return NULL;
+
+	memcpy(pid_entry->package, package, MAX_TASK_COMM_LEN);
+	pid_entry->hash_code = hash_string(pid_entry->package);
+	pid_entry->pid = pid;
+	hash_add(app_hash_table, &pid_entry->hash, hash_code);
+
+	return pid_entry;
+}
+
 static int uid_cputime_show(struct seq_file *m, void *v)
 {
 	struct uid_entry *uid_entry = NULL;
@@ -387,6 +451,81 @@ static int uid_cputime_open(struct inode *inode, struct file *file)
 
 static const struct file_operations uid_cputime_fops = {
 	.open		= uid_cputime_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int sys_app_cputime_show(struct seq_file *m, void *v)
+{
+	struct pid_entry *pid_entry = NULL;
+	struct task_struct *task, *temp;
+	struct user_namespace *user_ns = current_user_ns();
+	unsigned long bkt;
+	uid_t uid;
+	u64 sum_utime;
+	u64 sum_stime;
+	u64 utime;
+	u64 stime;
+	pid_t pid;
+	const char *package_name;
+	u64 tmp_hash;
+
+	rt_mutex_lock(&pid_lock);
+
+	hash_for_each(app_hash_table, bkt, pid_entry, hash) {
+		pid_entry->active_stime = 0;
+		pid_entry->active_utime = 0;
+	}
+
+	read_lock(&tasklist_lock);
+	do_each_thread(temp, task) {
+		uid = from_kuid_munged(user_ns, task_uid(task));
+		package_name = task->group_leader->comm;
+		tmp_hash = hash_string(package_name);
+		pid = task->tgid;
+		if (uid == SYSTEM_UID) {
+			if (!pid_entry || pid_entry->hash_code != tmp_hash)
+				pid_entry = find_or_register_pid(tmp_hash,
+							package_name, pid);
+			if (!pid_entry) {
+				read_unlock(&tasklist_lock);
+				rt_mutex_unlock(&pid_lock);
+				pr_err("%s: failed to the pid_entry for pid %d\n",
+					__func__, pid);
+				break;
+			}
+			task_cputime_adjusted(task, &utime, &stime);
+			pid_entry->active_utime += utime;
+			pid_entry->active_stime += stime;
+		}
+	} while_each_thread(temp, task);
+	read_unlock(&tasklist_lock);
+	sum_utime = 0;
+	sum_stime = 0;
+	hash_for_each(app_hash_table, bkt, pid_entry, hash) {
+		u64 total_utime = pid_entry->utime +
+						pid_entry->active_utime;
+		u64 total_stime = pid_entry->stime +
+						pid_entry->active_stime;
+		seq_printf(m, "%s %llu %llu\n", pid_entry->package,
+			   ktime_to_ms(total_utime), ktime_to_ms(total_stime));
+		sum_utime += total_utime;
+		sum_stime += total_stime;
+	}
+	seq_printf(m, "total %llu %llu\n",
+			ktime_to_ms(sum_utime), ktime_to_ms(sum_stime));
+	rt_mutex_unlock(&pid_lock);
+	return 0;
+}
+
+static int sys_app_cputime_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sys_app_cputime_show, PDE_DATA(inode));
+}
+
+static const struct file_operations sys_app_cputime_fops = {
+	.open		= sys_app_cputime_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -633,6 +772,10 @@ static int process_notifier(struct notifier_block *self,
 	struct uid_entry *uid_entry;
 	u64 utime, stime;
 	uid_t uid;
+	pid_t pid;
+	u64 tmp_hash;
+	struct pid_entry *pid_entry;
+	const char *package_name;
 
 	if (!task)
 		return NOTIFY_OK;
@@ -651,6 +794,27 @@ static int process_notifier(struct notifier_block *self,
 
 	add_uid_io_stats(uid_entry, task, UID_STATE_DEAD_TASKS);
 
+	rt_mutex_lock(&pid_lock);
+	uid = from_kuid_munged(current_user_ns(), task_uid(task));
+	pid = task->tgid;
+
+	if (uid == SYSTEM_UID) {
+		package_name = task->group_leader->comm;
+		tmp_hash = hash_string(package_name);
+		pid_entry = find_or_register_pid(tmp_hash, package_name, pid);
+		if (!pid_entry) {
+			pr_err("%s: failed to find pid %d\n",
+				__func__, task->tgid);
+			goto pid_exit;
+		}
+
+		pid_entry->utime += utime;
+		pid_entry->stime += stime;
+	}
+
+pid_exit:
+	rt_mutex_unlock(&pid_lock);
+
 exit:
 	rt_mutex_unlock(&uid_lock);
 	return NOTIFY_OK;
@@ -663,7 +827,7 @@ static struct notifier_block process_notifier_block = {
 static int __init proc_uid_sys_stats_init(void)
 {
 	hash_init(hash_table);
-
+	hash_init(app_hash_table);
 	cpu_parent = proc_mkdir("uid_cputime", NULL);
 	if (!cpu_parent) {
 		pr_err("%s: failed to create uid_cputime proc entry\n",
@@ -675,6 +839,8 @@ static int __init proc_uid_sys_stats_init(void)
 		&uid_remove_fops, NULL);
 	proc_create_data("show_uid_stat", 0444, cpu_parent,
 		&uid_cputime_fops, NULL);
+	proc_create_data("show_sys_app_stat", 0444, cpu_parent,
+		&sys_app_cputime_fops, NULL);
 
 	io_parent = proc_mkdir("uid_io", NULL);
 	if (!io_parent) {

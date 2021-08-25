@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1721,24 +1722,3 @@ int cam_soc_util_reg_dump(struct cam_hw_soc_info *soc_info,
 	return 0;
 }
 
-uint32_t cam_soc_util_get_vote_level(struct cam_hw_soc_info *soc_info,
-	uint64_t clock_rate)
-{
-	int i = 0;
-
-	if (!clock_rate)
-		return CAM_SVS_VOTE;
-
-	for (i = 0; i < CAM_MAX_VOTE; i++) {
-		if (soc_info->clk_level_valid[i] &&
-			soc_info->clk_rate[i][soc_info->src_clk_idx] >=
-			clock_rate) {
-			CAM_DBG(CAM_UTIL,
-				"Clock rate %lld, selected clock level %d",
-				clock_rate, i);
-			return i;
-		}
-	}
-
-	return CAM_TURBO_VOTE;
-}

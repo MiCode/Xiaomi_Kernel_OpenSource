@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,8 +216,11 @@
 				 &cam_sensor_active_front>;
 		pinctrl-1 = <&cam_sensor_mclk2_suspend
 				 &cam_sensor_suspend_front>;
+		/*
 		gpios = <&tlmm 15 0>,
 			<&tlmm 12 0>;
+		*/
+		gpios = <&tlmm 15 0>;
 		gpio-reset = <1>;
 		gpio-req-tbl-num = <0 1>;
 		gpio-req-tbl-flags = <1 0>;
@@ -352,8 +356,11 @@
 				 &cam_sensor_active_front>;
 		pinctrl-1 = <&cam_sensor_mclk2_suspend
 				 &cam_sensor_suspend_front>;
+		/*
 		gpios = <&tlmm 15 0>,
 			<&tlmm 12 0>;
+		*/
+		gpios = <&tlmm 15 0>;
 		gpio-reset = <1>;
 		gpio-req-tbl-num = <0 1>;
 		gpio-req-tbl-flags = <1 0>;

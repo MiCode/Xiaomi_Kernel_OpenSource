@@ -2,6 +2,7 @@
  * Driver for keys on GPIO lines capable of generating interrupts.
  *
  * Copyright 2005 Phil Blundell
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2010, 2011 David Jander <david@protonic.nl>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -385,6 +386,19 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 	struct gpio_button_data *bdata =
 		container_of(work, struct gpio_button_data, work.work);
 
+	if (bdata->button->level_trigger) {
+		unsigned int trigger =
+			irq_get_trigger_type(bdata->irq) & ~IRQF_TRIGGER_MASK;
+		int state = gpiod_get_value_cansleep(bdata->gpiod);
+		if (state)
+			trigger |= IRQF_TRIGGER_HIGH;
+		else
+			trigger |= IRQF_TRIGGER_LOW;
+
+		irq_set_irq_type(bdata->irq, trigger);
+		enable_irq(bdata->irq);
+		printk("storm state:%d, trigger:%x\n", state, trigger);
+	}
 	gpio_keys_gpio_report_event(bdata);
 
 	if (bdata->button->wakeup)
@@ -397,12 +411,16 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 
 	BUG_ON(irq != bdata->irq);
 
+	if (bdata->button->level_trigger)
+		disable_irq_nosync(bdata->irq);
+
 	if (bdata->button->wakeup) {
 		const struct gpio_keys_button *button = bdata->button;
 
 		pm_stay_awake(bdata->input->dev.parent);
 		if (bdata->suspended  &&
-		    (button->type == 0 || button->type == EV_KEY)) {
+		    (button->type == 0 || button->type == EV_KEY) &&
+			(button->code != KEY_AI)) {
 			/*
 			 * Simulate wakeup key press in case the key has
 			 * already released by the time we got interrupt
@@ -566,7 +584,12 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		INIT_DELAYED_WORK(&bdata->work, gpio_keys_gpio_work_func);
 
 		isr = gpio_keys_gpio_isr;
-		irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+		if (bdata->button->level_trigger) {
+			irqflags = gpiod_is_active_low(bdata->gpiod) ?
+				IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH;
+		} else {
+			irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+		}
 
 	} else {
 		if (!button->irq) {
@@ -721,6 +744,9 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 
 		button->can_disable =
 			fwnode_property_read_bool(child, "linux,can-disable");
+
+		button->level_trigger =
+			fwnode_property_read_bool(child, "gpio-key,level-trigger");
 
 		if (fwnode_property_read_u32(child, "debounce-interval",
 					 &button->debounce_interval))

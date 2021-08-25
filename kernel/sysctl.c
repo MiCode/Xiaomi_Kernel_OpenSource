@@ -66,6 +66,7 @@
 #include <linux/kexec.h>
 #include <linux/bpf.h>
 #include <linux/mount.h>
+#include <linux/mi_sysctl.h>
 
 #include <linux/uaccess.h>
 #include <asm/processor.h>
@@ -99,6 +100,9 @@
 
 /* External variables not in a header file. */
 extern int suid_dumpable;
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+extern int jbd2_bar;
+#endif
 #ifdef CONFIG_COREDUMP
 extern int core_uses_pid;
 extern char core_pattern[];
@@ -369,7 +373,23 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= sched_boost_handler,
 		.extra1		= &neg_three,
-		.extra2		= &three,
+		.extra2		= &four,
+	},
+        {
+		.procname	= "sched_boost_top_app",
+		.data		= &sysctl_sched_boost_top_app,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_boost_top_app_handler,
+		.extra1		= &zero,
+		.extra2		= &one,
+	},
+	{
+		.procname	= "mi_iolimit",
+		.data		= &sysctl_mi_iolimit,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= mi_iolimit_handler,
 	},
 	{
 		.procname	= "sched_conservative_pl",
@@ -1950,6 +1970,15 @@ static struct ctl_table fs_table[] = {
 	{
 		.procname	= "leases-enable",
 		.data		= &leases_enable,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+	{
+		.procname	= "jbd2b",
+		.data		= &jbd2_bar,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,

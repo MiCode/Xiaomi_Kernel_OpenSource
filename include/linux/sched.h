@@ -600,6 +600,7 @@ struct ravg {
 	u32 coloc_demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
+	u64 proc_load;
 	u32 curr_window, prev_window;
 	u16 active_windows;
 	u32 pred_demand;
@@ -779,7 +780,6 @@ struct task_struct {
 	struct sched_entity		se;
 	struct sched_rt_entity		rt;
 	u64				 last_sleep_ts;
-
 	int				boost;
 	u64				boost_period;
 	u64				boost_expires;
@@ -1255,6 +1255,11 @@ struct task_struct {
 	int				nr_dirtied_pause;
 	/* Start of a write-and-pause period: */
 	unsigned long			dirty_paused_when;
+	int					nr_access;
+	bool				read_throttling;
+	bool				write_throttling;
+
+
 
 #ifdef CONFIG_LATENCYTOP
 	int				latency_record_count;
@@ -1266,6 +1271,7 @@ struct task_struct {
 	 */
 	u64				timer_slack_ns;
 	u64				default_timer_slack_ns;
+	unsigned int			top_app;
 
 #ifdef CONFIG_KASAN
 	unsigned int			kasan_depth;

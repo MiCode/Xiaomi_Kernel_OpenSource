@@ -599,4 +599,9 @@ config PRIME_NUMBERS
 config STRING_SELFTEST
 	bool "Test string functions"
 
+config CJSON
+	bool "Lightweight JSON in ANSI C"
+	help
+	  Kernel config option to enable cJSON library
+
 endmenu

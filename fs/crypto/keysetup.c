@@ -3,6 +3,7 @@
  * Key setup facility for FS encryption support.
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Originally written by Michael Halcrow, Ildar Muslukhov, and Uday Savagaonkar.
  * Heavily modified since then.
@@ -58,7 +59,7 @@ struct fscrypt_mode fscrypt_modes[] = {
 
 static DEFINE_MUTEX(fscrypt_mode_key_setup_mutex);
 
-static struct fscrypt_mode *
+struct fscrypt_mode *
 select_encryption_mode(const union fscrypt_policy *policy,
 		       const struct inode *inode)
 {
@@ -370,7 +371,7 @@ static int fscrypt_setup_v2_file_key(struct fscrypt_info *ci,
  * to create an fscrypt_info for the same inode), and to synchronize the master
  * key being removed with a new inode starting to use it.
  */
-static int setup_file_encryption_key(struct fscrypt_info *ci,
+int setup_file_encryption_key(struct fscrypt_info *ci,
 				     struct key **master_key_ret)
 {
 	struct key *key;
@@ -468,7 +469,7 @@ out_release_key:
 	return err;
 }
 
-static void put_crypt_info(struct fscrypt_info *ci)
+void put_crypt_info(struct fscrypt_info *ci)
 {
 	struct key *key;
 
@@ -477,9 +478,18 @@ static void put_crypt_info(struct fscrypt_info *ci)
 
 	if (ci->ci_direct_key)
 		fscrypt_put_direct_key(ci->ci_direct_key);
-	else if (ci->ci_owns_key)
-		fscrypt_destroy_prepared_key(&ci->ci_key);
-
+	else if (ci->ci_owns_key) {
+		if (fscrypt_policy_contents_mode(&ci->ci_policy) !=
+		    FSCRYPT_MODE_PRIVATE) {
+			fscrypt_destroy_prepared_key(&ci->ci_key);
+		} else {
+			crypto_free_skcipher(ci->ci_key.tfm);
+#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+			if (ci->ci_key.blk_key)
+				kzfree(ci->ci_key.blk_key);
+#endif
+		}
+	}
 	key = ci->ci_master_key;
 	if (key) {
 		struct fscrypt_master_key *mk = key->payload.data[0];

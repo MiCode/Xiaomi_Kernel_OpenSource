@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,43 +243,6 @@ fw_download_failed:
 	return rc;
 }
 
-static int cam_a5_fw_dump(struct cam_icp_hw_dump_args *dump_args,
-	struct cam_a5_device_core_info *core_info)
-{
-	u8 *dest;
-	u8 *src;
-	uint64_t size_required = 0;
-	struct cam_icp_dump_header *hdr;
-
-	if (!core_info || !dump_args) {
-		CAM_ERR(CAM_ICP, "invalid params %pK %pK",
-		    core_info, dump_args);
-		return -EINVAL;
-	}
-	if (!core_info->fw_kva_addr || !dump_args->cpu_addr) {
-		CAM_ERR(CAM_ICP, "invalid params %pK, 0x%zx",
-		    core_info->fw_kva_addr, dump_args->cpu_addr);
-		return -EINVAL;
-	}
-	size_required = core_info->fw_buf_len +
-		sizeof(struct cam_icp_dump_header);
-	if ((dump_args->buf_len - dump_args->offset) < size_required) {
-		CAM_WARN(CAM_ICP, "Dump buffer exhaust %lld %lld",
-		    size_required, core_info->fw_buf_len);
-		return 0;
-	}
-	dest = (u8 *)dump_args->cpu_addr + dump_args->offset;
-	hdr = (struct cam_icp_dump_header *)dest;
-	snprintf(hdr->tag, CAM_ICP_DUMP_TAG_MAX_LEN, "ICP_FW:");
-	hdr->word_size = sizeof(u8);
-	hdr->size = core_info->fw_buf_len;
-	src = (u8 *)core_info->fw_kva_addr;
-	dest = (u8 *)dest + sizeof(struct cam_icp_dump_header);
-	memcpy_fromio(dest, src, core_info->fw_buf_len);
-	dump_args->offset += hdr->size + sizeof(struct cam_icp_dump_header);
-	return 0;
-}
-
 int cam_a5_init_hw(void *device_priv,
 	void *init_hw_args, uint32_t arg_size)
 {
@@ -305,7 +269,6 @@ int cam_a5_init_hw(void *device_priv,
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
-	cpas_vote.axi_vote.compressed_bw_ab = CAM_ICP_A5_BW_BYTES_VOTE;
 	cpas_vote.axi_vote.uncompressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
@@ -501,11 +464,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 
 	case CAM_ICP_A5_CMD_CPAS_STOP:
 		if (core_info->cpas_start) {
-			rc = cam_cpas_stop(core_info->cpas_handle);
-			if (rc) {
-				CAM_ERR(CAM_ICP, "cpas stop failed %d", rc);
-				return rc;
-			}
+			cam_cpas_stop(core_info->cpas_handle);
 			core_info->cpas_start = false;
 		}
 		break;
@@ -517,12 +476,6 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		rc = hfi_cmd_ubwc_config(a5_soc->ubwc_cfg);
 		break;
-	case CAM_ICP_A5_CMD_HW_DUMP: {
-		struct cam_icp_hw_dump_args *dump_args = cmd_args;
-
-		rc = cam_a5_fw_dump(dump_args, core_info);
-		break;
-	}
 	default:
 		break;
 	}

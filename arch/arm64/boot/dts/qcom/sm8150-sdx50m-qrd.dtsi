@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +86,19 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&key_home_default>;
 		qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
+	};
+
+	display_panel_avdd_eldo: display-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_avdd_eldo";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 130 0>;
+		enable-active-high;
+		regulator-boot-on;
+		pinctrl-names = "default";
+		pintctrl-0 = <&display_panel_avdd_eldo_default>;
 	};
 };
 
@@ -179,6 +193,21 @@
 
 &dsi_sw43404_amoled_cmd_display {
 	qcom,dsi-display-active;
+};
+
+&tlmm {
+	display_panel_avdd_eldo_default: display_panel_avdd_eldo_default {
+		mux {
+			pins = "gpio130";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio130";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-high;
+		};
+	};
 };
 
 &sde_dsi {

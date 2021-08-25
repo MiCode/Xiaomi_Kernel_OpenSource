@@ -4,6 +4,7 @@
  * Written by Stephen C. Tweedie <sct@redhat.com>, 1999
  *
  * Copyright 1999 Red Hat Software --- All Rights Reserved
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is part of the Linux kernel and is made available under
  * the terms of the GNU General Public License, version 2, or at your
@@ -25,6 +26,10 @@
 #include <linux/blkdev.h>
 #include <trace/events/jbd2.h>
 
+
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+extern int jbd2_bar;
+#endif
 /*
  * Unlink a buffer from a transaction checkpoint list.
  *
@@ -404,7 +409,11 @@ int jbd2_cleanup_journal_tail(journal_t *journal)
 	 * need this to guarantee correctness.  Fortunately
 	 * jbd2_cleanup_journal_tail() doesn't get called all that often.
 	 */
+#ifdef CONFIG_EXT4_FS_DYN_BARRIER
+	if ((journal->j_flags & JBD2_BARRIER) && jbd2_bar)
+#else
 	if (journal->j_flags & JBD2_BARRIER)
+#endif
 		blkdev_issue_flush(journal->j_fs_dev, GFP_NOFS, NULL);
 
 	return __jbd2_update_log_tail(journal, first_tid, blocknr);

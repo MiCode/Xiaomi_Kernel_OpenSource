@@ -1,4 +1,5 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,7 +102,6 @@ int cam_vfe_camif_lite_ver2_acquire_resource(
 	acquire_data = (struct cam_vfe_acquire_args *)acquire_param;
 
 	camif_lite_data->sync_mode   = acquire_data->vfe_in.sync_mode;
-	camif_lite_res->rdi_only_ctx = 0;
 
 	CAM_DBG(CAM_ISP, "hw id:%d sync_mode=%d",
 		camif_lite_res->hw_intf->hw_idx,

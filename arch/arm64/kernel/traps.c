@@ -2,6 +2,7 @@
  * Based on arch/arm/kernel/traps.c
  *
  * Copyright (C) 1995-2009 Russell King
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -52,6 +53,7 @@
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
 #include <trace/events/exception.h>
+#include <linux/workqueue.h>
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -61,6 +63,7 @@ static const char *handler[]= {
 };
 
 int show_unhandled_signals = 0;
+
 
 static void dump_backtrace_entry(unsigned long where)
 {
@@ -119,6 +122,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	if (!tsk)
 		tsk = current;
 
+	if (tsk->state == TASK_DEAD)
+		return;
+
 	if (!try_get_task_stack(tsk))
 		return;
 
@@ -156,6 +162,11 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 			|| cur_fp != thread_saved_fp(tsk))) {
 			printk("The task:%s had been rescheduled!\n",
 				tsk->comm);
+			break;
+		}
+		/* do not dump_backtrace current task on other cpu, frame is the last info */
+		if (tsk != current && tsk->on_cpu == 1) {
+			printk("The task:%s is running on other cpu currently!\n", tsk->comm);
 			break;
 		}
 		/* skip until specified stack frame */
@@ -218,6 +229,26 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 
 static DEFINE_RAW_SPINLOCK(die_lock);
 
+#define FS_SYNC_TIMEOUT_MS 2000
+static struct work_struct fs_sync_work;
+static DECLARE_COMPLETION(sync_compl);
+static void fs_sync_work_func(struct work_struct *work)
+{
+	pr_emerg("sys_sync:syncing fs\n");
+	sys_sync();
+	complete(&sync_compl);
+}
+
+void exec_fs_sync_work(void)
+{
+	INIT_WORK(&fs_sync_work, fs_sync_work_func);
+	reinit_completion(&sync_compl);
+	schedule_work(&fs_sync_work);
+	if (wait_for_completion_timeout(&sync_compl, msecs_to_jiffies(FS_SYNC_TIMEOUT_MS)) == 0)
+		pr_emerg("sys_sync:wait complete timeout\n");
+}
+EXPORT_SYMBOL(exec_fs_sync_work);
+
 /*
  * This function is protected against re-entrancy.
  */
@@ -226,6 +257,11 @@ void die(const char *str, struct pt_regs *regs, int err)
 	int ret;
 	unsigned long flags;
 
+	if (!in_atomic())
+	{
+		pr_emerg("sys_sync:try sys sync in die\n");
+		exec_fs_sync_work();
+	}
 	raw_spin_lock_irqsave(&die_lock, flags);
 
 	oops_enter();

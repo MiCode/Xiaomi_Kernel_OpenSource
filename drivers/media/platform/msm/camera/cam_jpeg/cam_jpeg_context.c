@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +23,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 
-static const char jpeg_dev_name[] = "cam-jpeg";
+static const char jpeg_dev_name[] = "jpeg";
 
 static int cam_jpeg_context_dump_active_request(void *data, unsigned long iova,
 	uint32_t buf_info)
@@ -91,18 +92,6 @@ static int __cam_jpeg_ctx_release_dev_in_acquired(struct cam_context *ctx,
 	return rc;
 }
 
-static int __cam_jpeg_ctx_dump_dev_in_acquired(struct cam_context *ctx,
-	struct cam_dump_req_cmd *cmd)
-{
-	int rc;
-
-	rc = cam_context_dump_dev_to_hw(ctx, cmd);
-	if (rc)
-		CAM_ERR(CAM_ICP, "Failed to dump device, rc=%d", rc);
-
-	return rc;
-}
-
 static int __cam_jpeg_ctx_flush_dev_in_acquired(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
@@ -165,7 +154,6 @@ static struct cam_ctx_ops
 			.config_dev = __cam_jpeg_ctx_config_dev_in_acquired,
 			.stop_dev = __cam_jpeg_ctx_stop_dev_in_acquired,
 			.flush_dev = __cam_jpeg_ctx_flush_dev_in_acquired,
-			.dump_dev = __cam_jpeg_ctx_dump_dev_in_acquired,
 		},
 		.crm_ops = { },
 		.irq_ops = __cam_jpeg_ctx_handle_buf_done_in_acquired,

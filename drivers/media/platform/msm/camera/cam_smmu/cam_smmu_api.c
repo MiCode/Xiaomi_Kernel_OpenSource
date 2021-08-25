@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,7 +190,7 @@ static struct cam_iommu_cb_set iommu_cb_set;
 
 static struct dentry *smmu_dentry;
 
-static bool smmu_fatal_flag = true;
+static bool smmu_fatal_flag;
 
 static enum dma_data_direction cam_smmu_translate_dir(
 	enum cam_smmu_map_dir dir);
@@ -379,7 +380,7 @@ static uint32_t cam_smmu_find_closest_mapping(int idx, void *vaddr)
 	list_for_each_entry(mapping,
 			&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
 		start_addr = (unsigned long)mapping->paddr;
-		end_addr = (unsigned long)mapping->paddr + mapping->len;
+		end_addr = (unsigned long)mapping->paddr + mapping->len - 1;
 
 		if (start_addr <= current_addr && current_addr <= end_addr) {
 			closest_mapping = mapping;
@@ -410,11 +411,10 @@ end:
 	if (closest_mapping) {
 		buf_handle = GET_MEM_HANDLE(idx, closest_mapping->ion_fd);
 		CAM_INFO(CAM_SMMU,
-			"Closest map fd %d 0x%lx %llu-%llu 0x%lx-0x%lx buf=%pK mem %0x",
+			"Closest map fd %d 0x%lx 0x%lx-0x%lx buf=%pK mem %0x",
 			closest_mapping->ion_fd, current_addr,
-			mapping->len, closest_mapping->len,
 			(unsigned long)closest_mapping->paddr,
-			(unsigned long)closest_mapping->paddr + mapping->len,
+			(unsigned long)closest_mapping->paddr + mapping->len - 1,
 			closest_mapping->buf,
 			buf_handle);
 	} else
@@ -711,6 +711,11 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 		if (!strcmp(iommu_cb_set.cb_info[i].name, name)) {
 			mutex_lock(&iommu_cb_set.cb_info[i].lock);
 			if (iommu_cb_set.cb_info[i].handle != HANDLE_INIT) {
+				CAM_ERR(CAM_SMMU,
+					"Error: %s already got handle 0x%x",
+					name,
+					iommu_cb_set.cb_info[i].handle);
+
 				if (iommu_cb_set.cb_info[i].is_secure)
 					iommu_cb_set.cb_info[i].secure_count++;
 
@@ -719,11 +724,6 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 					*hdl = iommu_cb_set.cb_info[i].handle;
 					return 0;
 				}
-
-				CAM_ERR(CAM_SMMU,
-					"Error: %s already got handle 0x%x",
-					name, iommu_cb_set.cb_info[i].handle);
-
 				return -EINVAL;
 			}
 
@@ -1403,42 +1403,6 @@ end:
 	return rc;
 }
 EXPORT_SYMBOL(cam_smmu_dealloc_qdss);
-
-int cam_smmu_get_io_region_info(int32_t smmu_hdl,
-	dma_addr_t *iova, size_t *len)
-{
-	int32_t idx;
-
-	if (!iova || !len || (smmu_hdl == HANDLE_INIT)) {
-		CAM_ERR(CAM_SMMU, "Error: Input args are invalid");
-		return -EINVAL;
-	}
-
-	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
-	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
-		CAM_ERR(CAM_SMMU,
-			"Error: handle or index invalid. idx = %d hdl = %x",
-			idx, smmu_hdl);
-		return -EINVAL;
-	}
-
-	if (!iommu_cb_set.cb_info[idx].io_support) {
-		CAM_ERR(CAM_SMMU,
-			"I/O memory not supported for this SMMU handle");
-		return -EINVAL;
-	}
-
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	*iova = iommu_cb_set.cb_info[idx].io_info.iova_start;
-	*len = iommu_cb_set.cb_info[idx].io_info.iova_len;
-
-	CAM_DBG(CAM_SMMU,
-		"I/O area for hdl = %x start addr = %pK len = %zu",
-		smmu_hdl, *iova, *len);
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-
-	return 0;
-}
 
 int cam_smmu_get_region_info(int32_t smmu_hdl,
 	enum cam_smmu_region_id region_id,

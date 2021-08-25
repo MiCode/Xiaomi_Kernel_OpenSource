@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2003-2006, Cluster File Systems, Inc, info@clusterfs.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by Alex Tomas <alex@clusterfs.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1647,17 +1648,29 @@ static int mb_mark_used(struct ext4_buddy *e4b, struct ext4_free_extent *ex)
 /*
  * Must be called under group lock!
  */
-static void ext4_mb_use_best_found(struct ext4_allocation_context *ac,
+static int ext4_mb_use_best_found(struct ext4_allocation_context *ac,
 					struct ext4_buddy *e4b)
 {
 	struct ext4_sb_info *sbi = EXT4_SB(ac->ac_sb);
-	int ret;
+	int ret, i;
 
 	BUG_ON(ac->ac_b_ex.fe_group != e4b->bd_group);
 	BUG_ON(ac->ac_status == AC_STATUS_FOUND);
 
 	ac->ac_b_ex.fe_len = min(ac->ac_b_ex.fe_len, ac->ac_g_ex.fe_len);
 	ac->ac_b_ex.fe_logical = ac->ac_g_ex.fe_logical;
+
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS) {
+		ext4_debug("ext_map:used extents ac->ac_b_ex.fe_len %lu\n", (unsigned long)ac->ac_b_ex.fe_len);
+		/* we need to check if blocks in ac_b_ex has been allocated for other process. */
+		for (i = 0; i < ac->ac_b_ex.fe_len; i++) {
+			if (mb_test_bit(ac->ac_b_ex.fe_start+i, e4b->bd_bitmap)) {
+				ext4_debug("ext_map:these free extents has been used\n");
+				return -EAGAIN;
+			}
+		}
+	}
+
 	ret = mb_mark_used(e4b, &ac->ac_b_ex);
 
 	/* preallocation can change ac_b_ex, thus we store actually
@@ -1686,6 +1699,8 @@ static void ext4_mb_use_best_found(struct ext4_allocation_context *ac,
 		sbi->s_mb_last_start = ac->ac_f_ex.fe_start;
 		spin_unlock(&sbi->s_md_lock);
 	}
+
+	return 0;
 }
 
 /*
@@ -1808,7 +1823,14 @@ int ext4_mb_try_best_found(struct ext4_allocation_context *ac,
 	struct ext4_free_extent ex = ac->ac_b_ex;
 	ext4_group_t group = ex.fe_group;
 	int max;
-	int err;
+	int err = 0;
+
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS) {
+		ex = ac->ac_o_ex;
+		group = ex.fe_group;
+		ext4_debug("ext_map:used ex:fe_group %lu, fe_start %lu, fe_len %lu fe_logical %lu\n", (unsigned long)ex.fe_group,
+			(unsigned long)ex.fe_start, (unsigned long)ex.fe_len, (unsigned long)ex.fe_logical);
+	}
 
 	BUG_ON(ex.fe_len <= 0);
 	err = ext4_mb_load_buddy(ac->ac_sb, group, e4b);
@@ -1816,17 +1838,22 @@ int ext4_mb_try_best_found(struct ext4_allocation_context *ac,
 		return err;
 
 	ext4_lock_group(ac->ac_sb, group);
-	max = mb_find_extent(e4b, ex.fe_start, ex.fe_len, &ex);
 
-	if (max > 0) {
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS) {
+		/* if condition is EXT4_MB_USED_EXTENTS, ac_o_ex is what ac_b_ex want. */
 		ac->ac_b_ex = ex;
-		ext4_mb_use_best_found(ac, e4b);
+		err = ext4_mb_use_best_found(ac, e4b);
+	} else {
+		max = mb_find_extent(e4b, ex.fe_start, ex.fe_len, &ex);
+		if (max > 0) {
+			ac->ac_b_ex = ex;
+			ext4_mb_use_best_found(ac, e4b);
+		}
 	}
-
 	ext4_unlock_group(ac->ac_sb, group);
 	ext4_mb_unload_buddy(e4b);
 
-	return 0;
+	return err;
 }
 
 static noinline_for_stack
@@ -2127,6 +2154,12 @@ ext4_mb_regular_allocator(struct ext4_allocation_context *ac)
 		ngroups = sbi->s_blockfile_groups;
 
 	BUG_ON(ac->ac_status == AC_STATUS_FOUND);
+
+	/* if condition is EXT4_MB_USED_EXTENTS, directly use ac->ac_o_ex, no need to do below search work. */
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS) {
+		err = ext4_mb_try_best_found(ac, &e4b);
+		goto out;
+	}
 
 	/* first, try the goal */
 	err = ext4_mb_find_by_goal(ac, &e4b);
@@ -3142,6 +3175,9 @@ ext4_mb_normalize_request(struct ext4_allocation_context *ac,
 		return ;
 	}
 
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS)
+		return;
+
 	bsbits = ac->ac_sb->s_blocksize_bits;
 
 	/* first, let's learn actual file size
@@ -3462,6 +3498,9 @@ ext4_mb_use_preallocated(struct ext4_allocation_context *ac)
 
 	/* only data can be preallocated */
 	if (!(ac->ac_flags & EXT4_MB_HINT_DATA))
+		return 0;
+
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS)
 		return 0;
 
 	/* first, try per-file preallocation */
@@ -4228,6 +4267,9 @@ static void ext4_mb_group_or_file(struct ext4_allocation_context *ac)
 	if (unlikely(ac->ac_flags & EXT4_MB_HINT_GOAL_ONLY))
 		return;
 
+	if (ac->ac_flags & EXT4_MB_USED_EXTENTS)
+		return;
+
 	size = ac->ac_o_ex.fe_logical + EXT4_C2B(sbi, ac->ac_o_ex.fe_len);
 	isize = (i_size_read(ac->ac_inode) + ac->ac_sb->s_blocksize - 1)
 		>> bsbits;
@@ -4525,6 +4567,7 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t *handle,
 	ext4_fsblk_t block = 0;
 	unsigned int inquota = 0;
 	unsigned int reserv_clstrs = 0;
+	unsigned int reserved_len = 0;
 
 	might_sleep();
 	sb = ar->inode->i_sb;
@@ -4536,11 +4579,18 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t *handle,
 	if (ext4_is_quota_file(ar->inode))
 		ar->flags |= EXT4_MB_USE_ROOT_BLOCKS;
 
+	/*
+	 * when flags is EXT4_MB_USED_EXTENTS, we must make sure ar->len is exactly what we
+	 * want within current allocation context, so can't go below code.
+	 */
 	if ((ar->flags & EXT4_MB_DELALLOC_RESERVED) == 0) {
 		/* Without delayed allocation we need to verify
 		 * there is enough free blocks to do block allocation
 		 * and verify allocation doesn't exceed the quota limits.
 		 */
+		if (ar->flags & EXT4_MB_USED_EXTENTS)
+			reserved_len = ar->len;
+
 		while (ar->len &&
 			ext4_claim_free_clusters(sbi, ar->len, ar->flags)) {
 
@@ -4550,6 +4600,11 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t *handle,
 		}
 		if (!ar->len) {
 			*errp = -ENOSPC;
+			return 0;
+		}
+		if ((ar->flags & EXT4_MB_USED_EXTENTS) && (reserved_len != ar->len)) {
+			*errp = -EAGAIN;
+			ext4_debug("ext_map: ar->len not equal with reserved_len");
 			return 0;
 		}
 		reserv_clstrs = ar->len;
@@ -5317,6 +5372,18 @@ int ext4_trim_fs(struct super_block *sb, struct fstrim_range *range)
 	end = EXT4_CLUSTERS_PER_GROUP(sb) - 1;
 
 	for (group = first_group; group <= last_group; group++) {
+		/*
+		 * If the trim thread is running and we receive the SCREEN_ON
+		 * event, we will send SIGUSR1 singnal to teriminate the trim
+		 * thread. So if there is a SIGUSR1 signal in current thread,
+		 * set the value of ret to be a negative number to teriminate
+		 * trim thread.
+		 */
+		if (signal_pending(current) && sigismember(&current->pending.signal, SIGUSR1)) {
+			ret = -EINTR;
+			break;
+		}
+
 		grp = ext4_get_group_info(sb, group);
 		/* We only do this if the grp has never been initialized */
 		if (unlikely(EXT4_MB_GRP_NEED_INIT(grp))) {
@@ -5407,3 +5474,298 @@ out_unload:
 
 	return error;
 }
+
+/*
+ * This function returns the number of file system metadata clusters at
+ * the beginning of a block group, including the reserved gdt blocks.
+ */
+static unsigned ext4_num_group_meta_blocks(struct super_block *sb,
+				     ext4_group_t block_group)
+{
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+	unsigned num;
+
+	/* Check for superblock and gdt backups in this group */
+	num = ext4_bg_has_super(sb, block_group);
+
+	if (!ext4_has_feature_meta_bg(sb) ||
+	    block_group < le32_to_cpu(sbi->s_es->s_first_meta_bg) *
+			  sbi->s_desc_per_block) {
+		if (num) {
+			num += ext4_bg_num_gdb(sb, block_group);
+			num += le16_to_cpu(sbi->s_es->s_reserved_gdt_blocks);
+		}
+	} else { /* For META_BG_BLOCK_GROUPS */
+		num += ext4_bg_num_gdb(sb, block_group);
+	}
+	return EXT4_NUM_B2C(sbi, num);
+}
+
+/**
+ * ext4_get_block_move_direction -- determine free blocks move direction
+ * @sb:			super block for file system
+ * @group:		block group
+ * @e4b:		ext4 block group buddy info
+ *
+ * if free blocks are almost locate at left half, the free blocks need to
+ * moved from right to left, otherwise, the free blocks will be moved from
+ * left to right.
+ *
+ * return 1 if free blocks need to be moved from left to right, otherwise
+ * return 0.
+ */
+static int ext4_get_block_move_direction(struct super_block *sb, ext4_group_t group, struct ext4_buddy *e4b)
+{
+	ext4_grpblk_t total_free_clusters, free_clusters = 0;
+	ext4_grpblk_t half_clusters;
+	ext4_grpblk_t total_clusters;
+	ext4_grpblk_t start, end;
+	int dir = 0;
+	unsigned num = 0;
+
+	total_clusters = EXT4_CLUSTERS_PER_GROUP(sb);
+	total_free_clusters = EXT4_NUM_B2C(EXT4_SB(sb), e4b->bd_info->bb_free);
+
+	/* Check for superblock and gdt backups in this group */
+	num = ext4_num_group_meta_blocks(sb, group);
+	end = start = EXT4_NUM_B2C(EXT4_SB(sb), num + 2 + EXT4_SB(sb)->s_itb_per_group);
+	half_clusters = start + (total_clusters - start) / 2;
+
+	while (end < half_clusters) {
+		start = mb_find_next_zero_bit(e4b->bd_bitmap, half_clusters, end);
+		if (start == half_clusters)
+			break;
+
+		end = mb_find_next_bit(e4b->bd_bitmap, half_clusters, start);
+		free_clusters += end - start;
+	}
+
+	if (free_clusters < total_free_clusters / 2)
+		dir = 1;
+
+	return dir;
+}
+
+/**
+ * ext4_get_defrag_range() -- return a free section and used section for swapping
+ * @sb:			superblock for filesystem
+ * @group:		block group
+ * @range:		defrag_range structure
+ *
+ * ext4_get_defrag_range goes through the specified group and return a free
+ * blocks segment and used blocks segment to userspace for swapping
+ */
+static ext4_grpblk_t
+ext4_get_defrag_range(struct super_block *sb, ext4_group_t group, struct defrag_range *range)
+{
+	void *bitmap;
+	static ext4_grpblk_t head, tail;
+	ext4_grpblk_t end;
+	ext4_grpblk_t free_start, free_end;
+	ext4_grpblk_t used_start, used_end;
+	unsigned long length = 0;
+	struct ext4_buddy e4b;
+	int ret = 0;
+	static int dir;
+	static ext4_group_t cur_group = -1;
+
+	if (group != cur_group) {
+		ext4_debug("ext4_get_defrag_range: switch to group %u\n", group);
+		ret = ext4_mb_load_buddy(sb, group, &e4b);
+		if (ret) {
+			ext4_error(sb, "Error in loading buddy information for %u", group);
+			return ret;
+		}
+
+		dir = ext4_get_block_move_direction(sb, group, &e4b);
+		bitmap = e4b.bd_bitmap;
+		/* pointer to the first data block */
+		head = ext4_num_group_meta_blocks(sb, group) + 2 + EXT4_SB(sb)->s_itb_per_group;
+		tail = EXT4_CLUSTERS_PER_GROUP(sb) - 1;
+		cur_group = group;
+	} else {
+		/* return if no block left to be scanned */
+		if (tail <= head)
+			return -EAGAIN;
+
+		ret = ext4_mb_load_buddy(sb, group, &e4b);
+		if (ret) {
+			ext4_error(sb, "Error in loading buddy information for %u", group);
+			return ret;
+		}
+
+		bitmap = e4b.bd_bitmap;
+	}
+
+	ext4_lock_group(sb, group);
+	/* move free blocks from left side to the right side */
+	if (dir) {
+find_again_1:
+		/* find first free block */
+		while (head <= tail && mb_test_bit(head, bitmap))
+			head++;
+
+		/* return if all blocks are used blocks */
+		if (head == tail + 1) {
+			ret = -EAGAIN;
+			goto out;
+		}
+
+		/* find last used block */
+		while (head <= tail && !mb_test_bit(tail, bitmap))
+			tail--;
+
+		/* return if all left blocks are free blocks */
+		if (head == tail + 1) {
+			ret = -EAGAIN;
+			goto out;
+		}
+
+		/* if free blocks length larger than 256, don't touch it */
+		end = mb_find_next_bit(bitmap, tail + 1, head);
+		length = end - head;
+		if (length >= EXT4_MAX_FREE_BLOCKS_LENGTH) {
+			head = mb_find_next_zero_bit(bitmap, tail + 1, end);
+			goto find_again_1;
+		}
+
+		free_start = head;
+		used_end = tail;
+		length = 0;
+		while (!mb_test_bit(head, bitmap) && mb_test_bit(tail, bitmap)) {
+			head++;
+			tail--;
+			length++;
+		}
+
+		free_end = head - 1;
+		used_start = tail + 1;
+	} else {
+find_again_2:
+		/* move free blocks from right side to left side */
+		/* find first used block */
+		while (head <= tail && !mb_test_bit(head, bitmap))
+			head++;
+
+		/* return if all blocks are free blocks */
+		if (head == tail + 1) {
+			ret = -EAGAIN;
+			goto out;
+		}
+
+		/* find last free block */
+		while (head <= tail && mb_test_bit(tail, bitmap))
+			tail--;
+
+		/* return if all left blocks are used blocks */
+		if (head == tail + 1) {
+			ret = -EAGAIN;
+			goto out;
+		}
+
+		/* if free blocks length larger than 256, don't touch it */
+		end = tail;
+		length = 0;
+		while (!mb_test_bit(end, bitmap)) {
+			end--;
+			length++;
+		}
+
+		if (length >= EXT4_MAX_FREE_BLOCKS_LENGTH) {
+			tail = end;
+			goto find_again_2;
+		}
+
+		used_start = head;
+		free_end = tail;
+		length = 0;
+		while (mb_test_bit(head, bitmap) && !mb_test_bit(tail, bitmap)) {
+			head++;
+			tail--;
+			length++;
+		}
+
+		used_end = head - 1;
+		free_start = tail + 1;
+	}
+
+	/* Return the swap range to the upper layer */
+	range->group = cur_group;
+	range->free_start = free_start;
+	range->free_end = free_end;
+	range->used_start = used_start;
+	range->used_end = used_end;
+	range->length = length;
+out:
+	ext4_unlock_group(sb, group);
+	ext4_mb_unload_buddy(&e4b);
+	return ret;
+}
+
+/**
+ * ext4_defrag_range() -- defrag ioctl handle function
+ * @sb:			superblock for filesystem
+ * @range:		defrag_range structure
+ *
+ * ext4_defrag_range goes through all allocation groups and find the most fragmented group.
+ * after have found this group, return the range needed to defrag in this group.
+ */
+int ext4_defrag_range(struct super_block *sb, struct defrag_range *range)
+{
+	struct ext4_group_info *grp;
+	ext4_group_t group, first_group, last_group;
+	ext4_grpblk_t first_cluster = 0, last_cluster = 0;
+	ext4_fsblk_t first_data_blk =
+			le32_to_cpu(EXT4_SB(sb)->s_es->s_first_data_block);
+	ext4_fsblk_t max_blks = ext4_blocks_count(EXT4_SB(sb)->s_es);
+	tid_t target;
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+	int ret = 0;
+	int jdb_ret = 0;
+
+	ext4_get_group_no_and_offset(sb, first_data_blk,
+				     &first_group, &first_cluster);
+
+	ext4_get_group_no_and_offset(sb, max_blks - 1,
+				     &last_group, &last_cluster);
+
+	if (range->group < first_group || range->group > last_group)
+		return -EINVAL;
+
+	group = range->group;
+	grp = ext4_get_group_info(sb, group);
+	/* We only do this if the grp has never been initialized */
+	if (unlikely(EXT4_MB_GRP_NEED_INIT(grp))) {
+		ret = ext4_mb_init_group(sb, group, GFP_NOFS);
+		if (ret)
+			return ret;
+	}
+
+	if (grp->bb_free >= EXT4_LOW_FREE_BLOCKS_THRESHOLD_FOR_DEFRAG
+			&& grp->bb_fragments >= EXT4_LOW_FRAGS_THRESHOLD_FOR_DEFRAG) {
+		ext4_debug("ext_map:find_group:fs_lock_busy %d\n", atomic_read(&(EXT4_SB(sb)->s_lock_busy)));
+		ret = ext4_get_defrag_range(sb, group, range);
+		ext4_debug("ext_map:find_group:fs_lock_busy %d\n", atomic_read(&(EXT4_SB(sb)->s_lock_busy)));
+	} else {
+		ret = -EAGAIN;
+	}
+
+	if (ret < 0) {
+		/*
+		 * The donor file's blocks will not be reused until after the transaction is committed.
+		 * so, before proceeding to next block group, we commit transaction first to let the freed
+		 * blocks of donor file can be reused.
+		 */
+		if (sbi->s_journal) {
+			target = jbd2_get_latest_transaction(sbi->s_journal);
+			if (jbd2_journal_start_commit(sbi->s_journal, &target)) {
+				jdb_ret = jbd2_log_wait_commit(sbi->s_journal, target);
+				if (jdb_ret)
+					ext4_error(sb, "Error in committing latest transaction for %u, error is %d", group, jdb_ret);
+			}
+		}
+	}
+
+	return ret;
+}
+

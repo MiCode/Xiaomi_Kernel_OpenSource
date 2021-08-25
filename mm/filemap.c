@@ -2,6 +2,7 @@
  *	linux/mm/filemap.c
  *
  * Copyright (C) 1994-1999  Linus Torvalds
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -39,6 +40,7 @@
 #include <linux/delayacct.h>
 #include <linux/psi.h>
 #include "internal.h"
+#include <linux/mi_iolimit_token.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/filemap.h>
@@ -50,6 +52,9 @@
 
 #include <asm/mman.h>
 
+#ifdef CONFIG_BLK_CGROUP
+extern void mi_throttle(struct kiocb *iocb, struct iov_iter *iodata);
+#endif
 int want_old_faultaround_pte = 1;
 
 /*
@@ -422,10 +427,17 @@ static void __filemap_fdatawait_range(struct address_space *mapping,
 	pgoff_t end = end_byte >> PAGE_SHIFT;
 	struct pagevec pvec;
 	int nr_pages;
+	unsigned long start_time;
+	unsigned int  delta;
+	unsigned int  pre_delta = 0;
+	unsigned long tag_pages = 0;
+	unsigned long wait_range = 0;
 
 	if (end_byte < start_byte)
 		return;
 
+	start_time = jiffies;
+	wait_range = end - index;
 	pagevec_init(&pvec, 0);
 	while (index <= end) {
 		unsigned i;
@@ -439,6 +451,15 @@ static void __filemap_fdatawait_range(struct address_space *mapping,
 			struct page *page = pvec.pages[i];
 
 			wait_on_page_writeback(page);
+			tag_pages += 1;
+			delta = jiffies_to_msecs(elapsed_jiffies(start_time));
+			if ((delta > 0) && (0 == delta % 3000) &&
+				(delta != pre_delta)) {
+				pre_delta = delta;
+				pr_info("Slow IO SyncData|filemap_fdatawait_range: %d(%s) time %dms tag_pages %lu wait_range %lu file size %lld\n",
+					current->pid, current->comm, delta, tag_pages, wait_range,
+					i_size_read(mapping->host));
+			}
 			ClearPageError(page);
 		}
 		pagevec_release(&pvec);
@@ -2032,6 +2053,7 @@ static ssize_t generic_file_buffered_read(struct kiocb *iocb,
 		unsigned long nr, ret;
 
 		cond_resched();
+		mi_io_bwc(iocb, inode, index, PAGE_SIZE, NORMAL_READ);
 find_page:
 		if (fatal_signal_pending(current)) {
 			error = -EINTR;
@@ -2311,7 +2333,9 @@ generic_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 		    IS_DAX(inode))
 			goto out;
 	}
-
+	#ifdef CONFIG_BLK_CGROUP
+	mi_throttle(iocb, iter);
+	#endif
 	retval = generic_file_buffered_read(iocb, iter, retval);
 out:
 	return retval;
@@ -3123,6 +3147,7 @@ ssize_t generic_perform_write(struct file *file,
 		offset = (pos & (PAGE_SIZE - 1));
 		bytes = min_t(unsigned long, PAGE_SIZE - offset,
 						iov_iter_count(i));
+		mi_io_bwc(NULL, mapping->host, offset, PAGE_SIZE, NORMAL_WRITE);
 
 again:
 		/*
@@ -3270,6 +3295,9 @@ ssize_t __generic_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			 */
 		}
 	} else {
+		#ifdef CONFIG_BLK_CGROUP
+		mi_throttle(iocb, from);
+		#endif
 		written = generic_perform_write(file, from, iocb->ki_pos);
 		if (likely(written > 0))
 			iocb->ki_pos += written;

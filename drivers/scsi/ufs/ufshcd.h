@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * Authors:
@@ -267,7 +268,7 @@ struct ufs_desc_size {
 	int interc_desc;
 	int unit_desc;
 	int conf_desc;
-	int hlth_desc;
+  	int hlth_desc;
 };
 
 /**

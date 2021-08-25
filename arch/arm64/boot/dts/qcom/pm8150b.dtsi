@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +75,7 @@
 					<0x2 0xc1 0 IRQ_TYPE_NONE>,
 					<0x2 0xc4 0 IRQ_TYPE_NONE>,
 					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc6 0 IRQ_TYPE_NONE>,
 					<0x2 0xc7 0 IRQ_TYPE_NONE>,
 					<0x2 0xc8 0 IRQ_TYPE_NONE>,
 					<0x2 0xc9 0 IRQ_TYPE_NONE>,
@@ -81,12 +83,12 @@
 					<0x2 0xcb 0 IRQ_TYPE_NONE>;
 			interrupt-names = "pm8150b_gpio1", "pm8150b_gpio2",
 					"pm8150b_gpio5", "pm8150b_gpio6",
-					"pm8150b_gpio8", "pm8150b_gpio9",
-					"pm8150b_gpio10", "pm8150b_gpio11",
-					"pm8150b_gpio12";
+					"pm8150b_gpio7", "pm8150b_gpio8",
+					"pm8150b_gpio9", "pm8150b_gpio10",
+					"pm8150b_gpio11", "pm8150b_gpio12";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <3 4 7>;
+			qcom,gpios-disallowed = <3 4>;
 		};
 
 		pm8150b_vadc: vadc@3100 {
@@ -607,7 +609,7 @@
 
 		trips {
 			ibat_lvl0:ibat-lvl0 {
-				temperature = <4500>;
+				temperature = <5500>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -623,7 +625,7 @@
 
 		trips {
 			ibat_lvl1:ibat-lvl1 {
-				temperature = <5000>;
+				temperature = <8000>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -736,7 +738,7 @@
 		thermal-sensors = <&bcl_soc>;
 		wake-capable-sensor;
 		tracks-low;
-
+		disable-thermal-zone;
 		trips {
 			soc_trip:soc-trip {
 				temperature = <10>;

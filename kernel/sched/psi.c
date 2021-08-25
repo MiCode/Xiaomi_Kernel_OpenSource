@@ -2,6 +2,7 @@
  * Pressure stall information for CPU, memory and IO
  *
  * Copyright (c) 2018 Facebook, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Johannes Weiner <hannes@cmpxchg.org>
  *
  * Polling support by Suren Baghdasaryan <surenb@google.com>
@@ -177,6 +178,13 @@ static DEFINE_PER_CPU(struct psi_group_cpu, system_group_pcpu);
 static struct psi_group psi_system = {
 	.pcpu = &system_group_pcpu,
 };
+
+struct psi_event_info {
+	u64 last_event_time;
+	u64 last_event_growth;
+};
+/* ioctl cmd to get info of  last psi trigger event*/
+#define GET_LAST_PSI_EVENT_INFO _IOR('p', 1, struct psi_event_info)
 
 static void psi_avgs_work(struct work_struct *work);
 
@@ -535,10 +543,11 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 		if (now < t->last_event_time + t->win.size)
 			continue;
 
+		t->last_event_time = now;
+		t->last_event_growth = growth;
 		/* Generate an event */
 		if (cmpxchg(&t->event, 0, 1) == 0)
 			wake_up_interruptible(&t->event_wait);
-		t->last_event_time = now;
 	}
 
 	if (new_stall)
@@ -1203,7 +1212,7 @@ static ssize_t psi_write(struct file *file, const char __user *user_buf,
 	if (!nbytes)
 		return -EINVAL;
 
-	buf_size = min(nbytes, sizeof(buf));
+	buf_size = min(nbytes, (sizeof(buf) - 1));
 	if (copy_from_user(buf, user_buf, buf_size))
 		return -EFAULT;
 
@@ -1247,6 +1256,43 @@ static unsigned int psi_fop_poll(struct file *file, poll_table *wait)
 	return psi_trigger_poll(&seq->private, file, wait);
 }
 
+static long psi_fop_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct seq_file *seq = file->private_data;
+	struct psi_trigger *t;
+	unsigned int ret;
+	void __user *ubuf = (void __user *)arg;
+
+	if (static_branch_likely(&psi_disabled))
+		return -EOPNOTSUPP;
+
+	switch (cmd) {
+	case GET_LAST_PSI_EVENT_INFO: {
+		struct psi_event_info last_event_info;
+		rcu_read_lock();
+		t = rcu_dereference(seq->private);
+		if (t) {
+			last_event_info.last_event_time = t->last_event_time;
+			last_event_info.last_event_growth = t->last_event_growth;
+			ret = 0;
+		} else {
+			ret = -EFAULT;
+		}
+		rcu_read_unlock();
+		if (!ret) {
+			if (copy_to_user(ubuf, &last_event_info, sizeof(last_event_info))) {
+				ret = -EFAULT;
+			}
+		}
+		break;
+	}
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static int psi_fop_release(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq = file->private_data;
@@ -1262,6 +1308,8 @@ static const struct file_operations psi_io_fops = {
 	.write          = psi_io_write,
 	.poll           = psi_fop_poll,
 	.release        = psi_fop_release,
+	.unlocked_ioctl = psi_fop_ioctl,
+	.compat_ioctl   = psi_fop_ioctl,
 };
 
 static const struct file_operations psi_memory_fops = {
@@ -1271,6 +1319,8 @@ static const struct file_operations psi_memory_fops = {
 	.write          = psi_memory_write,
 	.poll           = psi_fop_poll,
 	.release        = psi_fop_release,
+	.unlocked_ioctl = psi_fop_ioctl,
+	.compat_ioctl   = psi_fop_ioctl,
 };
 
 static const struct file_operations psi_cpu_fops = {
@@ -1280,6 +1330,8 @@ static const struct file_operations psi_cpu_fops = {
 	.write          = psi_cpu_write,
 	.poll           = psi_fop_poll,
 	.release        = psi_fop_release,
+	.unlocked_ioctl = psi_fop_ioctl,
+	.compat_ioctl   = psi_fop_ioctl,
 };
 
 static int __init psi_proc_init(void)

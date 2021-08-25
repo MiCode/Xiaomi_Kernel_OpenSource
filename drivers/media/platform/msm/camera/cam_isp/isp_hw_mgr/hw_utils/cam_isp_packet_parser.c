@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,8 +71,7 @@ int cam_isp_add_change_base(
 			hw_entry[num_ent].handle = kmd_buf_info->handle;
 			hw_entry[num_ent].len    = get_base.cmd.used_bytes;
 			hw_entry[num_ent].offset = kmd_buf_info->offset;
-			/* Marking change base as IOCFG to reapply on bubble */
-			hw_entry[num_ent].flags  = CAM_ISP_IOCFG_BL;
+			hw_entry[num_ent].flags  = CHNG_BASE_BL;
 			CAM_DBG(CAM_ISP,
 				"num_ent=%d handle=0x%x, len=%u, offset=%u",
 				num_ent,
@@ -316,7 +316,12 @@ int cam_isp_add_command_buffers(
 					hw_entry[num_ent].handle,
 					hw_entry[num_ent].len,
 					hw_entry[num_ent].offset);
-				hw_entry[num_ent].flags = CAM_ISP_IQ_BL;
+
+				if (cmd_meta_data ==
+					CAM_ISP_PACKET_META_DMI_LEFT)
+					hw_entry[num_ent].flags = DMI_BL;
+				else
+					hw_entry[num_ent].flags = CMD_BL;
 
 				num_ent++;
 			}
@@ -335,7 +340,11 @@ int cam_isp_add_command_buffers(
 					hw_entry[num_ent].len,
 					hw_entry[num_ent].offset);
 
-				hw_entry[num_ent].flags = CAM_ISP_IQ_BL;
+				if (cmd_meta_data ==
+					CAM_ISP_PACKET_META_DMI_RIGHT)
+					hw_entry[num_ent].flags = DMI_BL;
+				else
+					hw_entry[num_ent].flags = CMD_BL;
 				num_ent++;
 			}
 			break;
@@ -351,7 +360,10 @@ int cam_isp_add_command_buffers(
 				hw_entry[num_ent].handle,
 				hw_entry[num_ent].len,
 				hw_entry[num_ent].offset);
-			hw_entry[num_ent].flags = CAM_ISP_IQ_BL;
+			if (cmd_meta_data == CAM_ISP_PACKET_META_DMI_COMMON)
+				hw_entry[num_ent].flags = DMI_BL;
+			else
+				hw_entry[num_ent].flags = CMD_BL;
 
 			num_ent++;
 			break;
@@ -382,7 +394,7 @@ int cam_isp_add_command_buffers(
 						rc);
 					return rc;
 				}
-				hw_entry[num_ent].flags = CAM_ISP_IQ_BL;
+				hw_entry[num_ent].flags = CMD_BL;
 				num_ent = prepare->num_hw_update_entries;
 			}
 			break;
@@ -405,7 +417,7 @@ int cam_isp_add_command_buffers(
 						rc);
 					return rc;
 				}
-				hw_entry[num_ent].flags = CAM_ISP_IQ_BL;
+				hw_entry[num_ent].flags = CMD_BL;
 				num_ent = prepare->num_hw_update_entries;
 			}
 			break;
@@ -426,7 +438,7 @@ int cam_isp_add_command_buffers(
 					"Failed in processing blobs %d", rc);
 				return rc;
 			}
-			hw_entry[num_ent].flags = CAM_ISP_IQ_BL;
+			hw_entry[num_ent].flags = CMD_BL;
 			num_ent = prepare->num_hw_update_entries;
 		}
 			break;
@@ -472,7 +484,6 @@ int cam_isp_add_io_buffers(
 	int32_t                             hdl;
 	int                                 mmu_hdl;
 	bool                                mode, is_buf_secure;
-	uint64_t                            req_id;
 
 	io_cfg = (struct cam_buf_io_cfg *) ((uint8_t *)
 			&prepare->packet->payload +
@@ -481,7 +492,6 @@ int cam_isp_add_io_buffers(
 	num_in_buf  = 0;
 	io_cfg_used_bytes = 0;
 	prepare->pf_data->packet = prepare->packet;
-	req_id = prepare->packet->header.request_id;
 
 	/* Max one hw entries required for each base */
 	if (prepare->num_hw_update_entries + 1 >=
@@ -496,7 +506,7 @@ int cam_isp_add_io_buffers(
 		CAM_DBG(CAM_ISP, "======= io config idx %d ============", i);
 		CAM_DBG(CAM_REQ,
 			"i %d req_id %llu resource_type:%d fence:%d direction %d",
-			i, req_id,
+			i, prepare->packet->header.request_id,
 			io_cfg[i].resource_type, io_cfg[i].fence,
 			io_cfg[i].direction);
 		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
@@ -623,35 +633,10 @@ int cam_isp_add_io_buffers(
 					mmu_hdl, &io_addr[plane_id], &size);
 				if (rc) {
 					CAM_ERR(CAM_ISP,
-						"no io addr for plane%d Bufhdl:%d, Size =%d",
-						plane_id,
-						io_cfg[i].mem_handle[plane_id],
-						(int)size);
-					CAM_ERR(CAM_ISP,
-						"Port i %d Reqid %llu res_type:%d fence:%d dir %d",
-						i, req_id,
-						io_cfg[i].resource_type,
-						io_cfg[i].fence,
-						io_cfg[i].direction);
+						"no io addr for plane%d",
+						plane_id);
 					rc = -ENOMEM;
 					return rc;
-				}
-
-				if (j == 0) {
-					rc = cam_packet_validate_plane_size(
-							&io_cfg[i],
-							plane_id,
-							size);
-					if (rc) {
-						CAM_ERR(CAM_ISP,
-						"Invalid buffer size, port 0x%x plane %d req_id %llu format %d memh 0x%x",
-						io_cfg[i].resource_type,
-						plane_id,
-						req_id,
-						io_cfg[i].format,
-						io_cfg[i].mem_handle[plane_id]);
-						return -EINVAL;
-					}
 				}
 
 				/* need to update with offset */
@@ -838,8 +823,7 @@ int cam_isp_add_io_buffers(
 		prepare->hw_update_entries[num_ent].len = io_cfg_used_bytes;
 		prepare->hw_update_entries[num_ent].offset =
 			kmd_buf_info->offset;
-		prepare->hw_update_entries[num_ent].flags = CAM_ISP_IOCFG_BL;
-
+		prepare->hw_update_entries[num_ent].flags = IOCFG_BL;
 		CAM_DBG(CAM_ISP,
 			"num_ent=%d handle=0x%x, len=%u, offset=%u",
 			num_ent,
@@ -946,9 +930,7 @@ int cam_isp_add_reg_update(
 		prepare->hw_update_entries[num_ent].len = reg_update_size;
 		prepare->hw_update_entries[num_ent].offset =
 			kmd_buf_info->offset;
-		/* Marking reg update as IOCFG to reapply on bubble */
-		prepare->hw_update_entries[num_ent].flags = CAM_ISP_IOCFG_BL;
-
+		prepare->hw_update_entries[num_ent].flags = REG_UPD_BL;
 		CAM_DBG(CAM_ISP,
 			"num_ent=%d handle=0x%x, len=%u, offset=%u",
 			num_ent,

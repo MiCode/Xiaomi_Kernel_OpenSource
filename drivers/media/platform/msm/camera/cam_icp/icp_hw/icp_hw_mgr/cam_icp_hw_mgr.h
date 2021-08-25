@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,7 @@
 #define CAM_ICP_ROLE_PARENT     1
 #define CAM_ICP_ROLE_CHILD      2
 
-#define CAM_FRAME_CMD_MAX       CAM_ICP_CTX_REQ_MAX
+#define CAM_FRAME_CMD_MAX       20
 
 #define CAM_MAX_OUT_RES         6
 #define CAM_MAX_IN_RES          8
@@ -70,12 +71,6 @@
 
 #define CAM_ICP_CTX_MAX_CMD_BUFFERS 0x2
 
-/*
- * Response time threshold in ms beyond which a request is not expected
- * to be with ICP hw
- */
-#define CAM_ICP_CTX_RESPONSE_TIME_THRESHOLD   300000
-
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table
@@ -86,8 +81,6 @@
  * @fw_buf: Memory info of firmware
  * @qdss_buf: Memory info of qdss
  * @sfr_buf: Memory info for sfr buffer
- * @shmem: Memory info for shared region
- * @io_mem: Memory info for io region
  */
 struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qtbl;
@@ -99,7 +92,6 @@ struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qdss_buf;
 	struct cam_mem_mgr_memory_desc sfr_buf;
 	struct cam_smmu_region_info shmem;
-	struct cam_smmu_region_info io_mem;
 };
 
 /**
@@ -161,7 +153,6 @@ struct icp_frame_info {
  * @fw_process_flag: Frame process flag
  * @clk_info: Clock information for a request
  * @frame_info: information needed to process request
- * @submit_timestamp: Submit timestamp to hw
  */
 struct hfi_frame_process_info {
 	struct hfi_cmd_ipebps_async hfi_frame_cmd[CAM_FRAME_CMD_MAX];
@@ -176,7 +167,6 @@ struct hfi_frame_process_info {
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
 	struct icp_frame_info frame_info[CAM_FRAME_CMD_MAX];
-	struct timeval submit_timestamp[CAM_FRAME_CMD_MAX];
 };
 
 /**
@@ -196,7 +186,6 @@ struct cam_ctx_clk_info {
 	uint32_t reserved;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
-	uint64_t compressed_bw_ab;
 	int32_t clk_rate[CAM_MAX_VOTE];
 };
 /**
@@ -219,7 +208,6 @@ struct cam_ctx_clk_info {
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
  * @icp_dev_io_info: io config resource
- * @last_flush_req: last flush req for this ctx
  */
 struct cam_icp_hw_ctx_data {
 	void *context_priv;
@@ -240,7 +228,6 @@ struct cam_icp_hw_ctx_data {
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;
 	struct cam_icp_acquire_dev_info icp_dev_io_info;
-	uint64_t last_flush_req;
 };
 
 /**
@@ -263,7 +250,6 @@ struct icp_cmd_generic_blob {
  * @over_clked: Over clock count
  * @uncompressed_bw: Current bandwidth voting
  * @compressed_bw: Current compressed bandwidth voting
- * @compressed_bw_ab: Current absolute compressed bandwidth voting
  * @hw_type: IPE/BPS device type
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
@@ -275,7 +261,6 @@ struct cam_icp_clk_info {
 	uint32_t over_clked;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
-	uint64_t compressed_bw_ab;
 	uint32_t hw_type;
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;

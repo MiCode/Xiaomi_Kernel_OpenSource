@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +97,7 @@
 		compatible = "qcom,sm8150-asoc-snd-tavil";
 		qcom,model = "sm8150-tavil-snd-card";
 
+		qcom,msm-mbhc-usbc-audio-supported = <1>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
@@ -155,7 +157,7 @@
 				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
 				"msm-dai-q6-tdm.36914",
 				"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
-		fsa4480-i2c-handle = <&fsa4480>;
+				/*fsa4480-i2c-handle = <&fsa4480>;*/
 	};
 };
 

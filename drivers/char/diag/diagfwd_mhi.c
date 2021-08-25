@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -240,7 +241,6 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 	cancel_work(&mhi_info->read_work);
 	cancel_work(&mhi_info->read_done_work);
 	flush_workqueue(mhi_info->mhi_wq);
-
 	if (close_flag == CLOSE_CHANNELS) {
 		mutex_lock(&mhi_info->ch_mutex);
 		DIAG_LOG(DIAG_DEBUG_MHI,

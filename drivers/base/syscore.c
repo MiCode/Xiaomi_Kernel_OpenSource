@@ -46,17 +46,25 @@ EXPORT_SYMBOL_GPL(unregister_syscore_ops);
  *
  * This function is executed with one CPU on-line and disabled interrupts.
  */
+extern bool wakeup_irq_abort_suspend;
 int syscore_suspend(void)
 {
 	struct syscore_ops *ops;
 	int ret = 0;
+	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
 
 	trace_suspend_resume(TPS("syscore_suspend"), 0, true);
 	pr_debug("Checking wakeup interrupts\n");
 
 	/* Return error code if there are any wakeup interrupts pending. */
-	if (pm_wakeup_pending())
+	if (pm_wakeup_pending()) {
+		if (wakeup_irq_abort_suspend == false) {
+			pm_get_active_wakeup_sources(suspend_abort, MAX_SUSPEND_ABORT_LEN);
+			log_suspend_abort_reason(suspend_abort);
+		}
+		pr_err("PM: Abort system core suspend, wakeup interrupt or wakeup source detected");
 		return -EBUSY;
+	}
 
 	WARN_ONCE(!irqs_disabled(),
 		"Interrupts enabled before system core suspend.\n");

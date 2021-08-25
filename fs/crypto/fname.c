@@ -3,6 +3,7 @@
  * This contains functions for filename crypto management
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2015, Motorola Mobility
  *
  * Written by Uday Savagaonkar, 2014.
@@ -16,6 +17,7 @@
 #include <crypto/hash.h>
 #include <crypto/sha.h>
 #include <crypto/skcipher.h>
+#include <keys/user-type.h>
 #include "fscrypt_private.h"
 
 /**
@@ -154,6 +156,215 @@ int fscrypt_fname_encrypt(const struct inode *inode, const struct qstr *iname,
 	}
 
 	return 0;
+}
+
+/**
+ * fscrypt_ioctl_decrypt_filename_v1() - decrypt an encrypted filename for v1 encrypt type
+ */
+int fscrypt_ioctl_decrypt_filename_v1(struct file *filp, void __user *arg)
+{
+	int res;
+	struct encrypt_fname_v1 *enc_fname_v1 = NULL;
+	struct encrypt_fname *enc_fname = NULL;
+
+	enc_fname_v1 = kmalloc(sizeof(struct encrypt_fname_v1), GFP_NOFS);
+	if (!enc_fname_v1)
+		return -ENOMEM;
+
+	if (copy_from_user(enc_fname_v1, arg, sizeof(struct encrypt_fname_v1))) {
+		kzfree(enc_fname_v1);
+		return -EFAULT;
+	}
+
+	enc_fname = kmalloc(sizeof(struct encrypt_fname), GFP_NOFS);
+	if (!enc_fname) {
+		kzfree(enc_fname_v1);
+		return -ENOMEM;
+	}
+
+	memcpy(&enc_fname->context,&enc_fname_v1->ctx_v1,sizeof(struct fscrypt_context_v1));
+	memcpy(&enc_fname->iname,&enc_fname_v1->iname,sizeof(struct fscrypt_str_ex));
+
+	res = fscrypt_ioctl_decrypt_filename(filp,enc_fname);
+	if (res < 0) {
+		fscrypt_err(NULL,
+			"fscrypt:fscrypt_ioctl_decrypt_filename failed.\n");
+		kzfree(enc_fname_v1);
+		kzfree(enc_fname);
+		return -EINVAL;
+	}
+
+	memcpy(&enc_fname_v1->oname,&enc_fname->oname,sizeof(struct fscrypt_str_ex));
+
+	if (copy_to_user(arg, enc_fname_v1, sizeof(struct encrypt_fname_v1)))
+		res = -EFAULT;
+
+	kzfree(enc_fname_v1);
+	kzfree(enc_fname);
+	return res;
+}
+EXPORT_SYMBOL(fscrypt_ioctl_decrypt_filename_v1);
+
+/**
+ * fscrypt_ioctl_decrypt_filename_v2() - decrypt an encrypted filename for v2 encrypt type
+ */
+int fscrypt_ioctl_decrypt_filename_v2(struct file *filp, void __user *arg)
+{
+	int res;
+	struct encrypt_fname_v2 *enc_fname_v2 = NULL;
+	struct encrypt_fname *enc_fname = NULL;
+
+	enc_fname_v2 = kmalloc(sizeof(struct encrypt_fname_v2), GFP_NOFS);
+	if (!enc_fname_v2)
+		return -ENOMEM;
+
+	if (copy_from_user(enc_fname_v2, arg, sizeof(struct encrypt_fname_v2))) {
+		kzfree(enc_fname_v2);
+		return -EFAULT;
+	}
+
+	enc_fname = kmalloc(sizeof(struct encrypt_fname), GFP_NOFS);
+	if (!enc_fname) {
+		kzfree(enc_fname_v2);
+		return -ENOMEM;
+	}
+
+	memcpy(&enc_fname->context,&enc_fname_v2->ctx_v2,sizeof(struct fscrypt_context_v2));
+	memcpy(&enc_fname->iname,&enc_fname_v2->iname,sizeof(struct fscrypt_str_ex));
+
+	res = fscrypt_ioctl_decrypt_filename(filp,enc_fname);
+	if (res < 0) {
+		fscrypt_err(NULL,
+			"fscrypt:fscrypt_ioctl_decrypt_filename failed.\n");
+		kzfree(enc_fname_v2);
+		kzfree(enc_fname);
+		return -EINVAL;
+	}
+
+	memcpy(&enc_fname_v2->oname,&enc_fname->oname,sizeof(struct fscrypt_str_ex));
+
+	if (copy_to_user(arg, enc_fname_v2, sizeof(struct encrypt_fname_v2)))
+		res = -EFAULT;
+
+	kzfree(enc_fname_v2);
+	kzfree(enc_fname);
+	return res;
+}
+EXPORT_SYMBOL(fscrypt_ioctl_decrypt_filename_v2);
+
+int fscrypt_ioctl_decrypt_filename(struct file *filp, struct encrypt_fname *enc_fname)
+{
+	int res;
+	struct inode *inode = file_inode(filp);
+	struct fscrypt_str_ex *iname;
+	struct fscrypt_str_ex *oname;
+	union fscrypt_context *ctx;
+	struct fscrypt_info *crypt_info = NULL;
+	struct fscrypt_mode *mode;
+	struct skcipher_request *req = NULL;
+	struct scatterlist src_sg, dst_sg;
+	DECLARE_CRYPTO_WAIT(wait);
+	union fscrypt_iv iv;
+	u32 lim;
+	struct key *master_key = NULL;
+	int ctx_size;
+
+	iname = &enc_fname->iname;
+	lim = inode->i_sb->s_cop->max_namelen;
+	if (iname->len <= 0 || iname->len > lim) {
+		return -EIO;
+	}
+
+	res = fscrypt_initialize(inode->i_sb->s_cop->flags);
+	if (res) {
+		fscrypt_err(NULL,
+			"fscrypt: fscrypt_initialize error, res is %d\n", res);
+		return res;
+	}
+
+	ctx = &enc_fname->context;
+
+	crypt_info = kmem_cache_zalloc(fscrypt_info_cachep, GFP_NOFS);
+	if (!crypt_info) {
+		return -ENOMEM;
+	}
+
+	crypt_info->ci_inode = inode;
+
+	ctx_size = fscrypt_context_size(ctx);
+	res = fscrypt_policy_from_context(&crypt_info->ci_policy, ctx, ctx_size);
+	if (res) {
+		fscrypt_err(NULL,
+			"fscrypt:unrecognized or corrupt encryption context.\n");
+		goto out;
+	}
+
+	memcpy(crypt_info->ci_nonce, fscrypt_context_nonce(ctx), FS_KEY_DERIVATION_NONCE_SIZE);
+
+	if (!fscrypt_supported_policy(&crypt_info->ci_policy, inode)) {
+		fscrypt_err(NULL,
+			"fscrypt:unsupported policy.\n");
+		res = -EINVAL;
+		goto out;
+	}
+
+	mode = select_encryption_mode(&crypt_info->ci_policy, inode);
+	if (IS_ERR(mode)) {
+		fscrypt_err(NULL,
+			"fscrypt:encryption mode is error, can not select encryption mode.\n");
+		res = -EINVAL;
+		goto out;
+	}
+	WARN_ON(mode->ivsize > FSCRYPT_MAX_IV_SIZE);
+	crypt_info->ci_mode = mode;
+
+	res = setup_file_encryption_key(crypt_info, &master_key);
+	if (res) {
+		fscrypt_err(NULL,
+			"fscrypt:setup_file_encryption_key failed.\n");
+		goto out;
+	}
+
+	/* Allocate request */
+	req = skcipher_request_alloc(crypt_info->ci_key.tfm, GFP_NOFS);
+	if (!req) {
+		fscrypt_err(NULL,
+			"%s: crypto_request_alloc() failed\n", __func__);
+		res = -ENOMEM;
+		goto out;
+	}
+	skcipher_request_set_callback(req,
+		CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+		crypto_req_done, &wait);
+
+	/* Initialize IV */
+	fscrypt_generate_iv(&iv, 0, crypt_info);
+
+	/* Create decryption request */
+	oname = &enc_fname->oname;
+	oname->len = 256;
+	sg_init_one(&src_sg, iname->fname, iname->len);
+	sg_init_one(&dst_sg, oname->fname, oname->len);
+	skcipher_request_set_crypt(req, &src_sg, &dst_sg, iname->len, &iv);
+	res = crypto_wait_req(crypto_skcipher_decrypt(req), &wait);
+	skcipher_request_free(req);
+	if (res < 0) {
+		fscrypt_err(NULL,
+			"fscrypt: crypto_wait_req failed (error code %d)\n", res);
+		goto out;
+	}
+
+	oname->len = strnlen(oname->fname, iname->len);
+
+out:
+	if (res == -ENOKEY) {
+		fscrypt_err(NULL,
+			"fscrypt: user has no key to decrypt filename\n");
+		res = 0;
+	}
+
+	put_crypt_info(crypt_info);
+	return res;
 }
 
 /**

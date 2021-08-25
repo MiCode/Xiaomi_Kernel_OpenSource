@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,7 @@
 #include "cam_debug_util.h"
 #include "cam_lrme_context.h"
 
-static const char lrme_dev_name[] = "cam-lrme";
+static const char lrme_dev_name[] = "lrme";
 
 static int __cam_lrme_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
@@ -89,20 +90,6 @@ static int __cam_lrme_ctx_config_dev_in_activated(struct cam_context *ctx,
 		CAM_ERR(CAM_LRME, "Failed to config");
 		return rc;
 	}
-
-	return rc;
-}
-
-static int __cam_lrme_ctx_dump_dev_in_activated(struct cam_context *ctx,
-	struct cam_dump_req_cmd *cmd)
-{
-	int rc = 0;
-
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
-
-	rc = cam_context_dump_dev_to_hw(ctx, cmd);
-	if (rc)
-		CAM_ERR(CAM_LRME, "Failed to dump device");
 
 	return rc;
 }
@@ -218,7 +205,6 @@ static struct cam_ctx_ops
 			.release_dev = __cam_lrme_ctx_release_dev_in_activated,
 			.stop_dev = __cam_lrme_ctx_stop_dev_in_activated,
 			.flush_dev = __cam_lrme_ctx_flush_dev_in_activated,
-			.dump_dev = __cam_lrme_ctx_dump_dev_in_activated,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_lrme_ctx_handle_irq_in_activated,

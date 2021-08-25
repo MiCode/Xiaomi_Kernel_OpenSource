@@ -2,6 +2,7 @@
  * QTI Crypto Engine driver.
  *
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1452,6 +1453,11 @@ static int _ce_setup_aead_direct(struct qce_device *pce_dev,
 
 	/* write CNTR0_IV0_REG */
 	if (q_req->mode !=  QCE_MODE_ECB) {
+		if (ivsize > MAX_IV_LENGTH) {
+			pr_err("%s: error: Invalid length parameter\n",
+				 __func__);
+			return -EINVAL;
+		}
 		_byte_stream_to_net_words(enciv32, q_req->iv, ivsize);
 		for (i = 0; i < enciv_in_word; i++)
 			QCE_WRITE_REG(enciv32[i], pce_dev->iobase +

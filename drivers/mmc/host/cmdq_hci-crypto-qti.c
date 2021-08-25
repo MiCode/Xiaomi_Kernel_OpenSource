@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +20,12 @@
 #include "sdhci-msm.h"
 #include "cmdq_hci-crypto-qti.h"
 #include <linux/crypto-qti-common.h>
+#include <linux/pm_runtime.h>
+#include <linux/atomic.h>
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+#include <crypto/ice.h>
+#include <linux/blkdev.h>
+#endif
 
 #define RAW_SECRET_SIZE 32
 #define MINIMUM_DUN_SIZE 512
@@ -30,7 +37,12 @@ static struct cmdq_host_crypto_variant_ops cmdq_crypto_qti_variant_ops = {
 	.disable = cmdq_crypto_qti_disable,
 	.resume = cmdq_crypto_qti_resume,
 	.debug = cmdq_crypto_qti_debug,
+	.reset = cmdq_crypto_qti_reset,
+	.prepare_crypto_desc = cmdq_crypto_qti_prep_desc,
 };
+
+static atomic_t keycache;
+static bool cmdq_use_default_du_size;
 
 static bool ice_cap_idx_valid(struct cmdq_host *host,
 					unsigned int cap_idx)
@@ -40,12 +52,19 @@ static bool ice_cap_idx_valid(struct cmdq_host *host,
 
 static uint8_t get_data_unit_size_mask(unsigned int data_unit_size)
 {
+	unsigned int du_size;
+
 	if (data_unit_size < MINIMUM_DUN_SIZE ||
 		data_unit_size > MAXIMUM_DUN_SIZE ||
 	    !is_power_of_2(data_unit_size))
 		return 0;
 
-	return data_unit_size / MINIMUM_DUN_SIZE;
+	if (cmdq_use_default_du_size)
+		du_size = MINIMUM_DUN_SIZE;
+	else
+		du_size =  data_unit_size;
+
+	return du_size / MINIMUM_DUN_SIZE;
 }
 
 
@@ -68,10 +87,14 @@ void cmdq_crypto_qti_enable(struct cmdq_host *host)
 
 void cmdq_crypto_qti_disable(struct cmdq_host *host)
 {
-	/* cmdq_crypto_disable_spec(host) and
-	 * crypto_qti_disable(host->crypto_vops->priv)
-	 * are needed here?
-	 */
+	 cmdq_crypto_disable_spec(host);
+	 crypto_qti_disable(host->crypto_vops->priv);
+}
+
+int cmdq_crypto_qti_reset(struct cmdq_host *host)
+{
+	atomic_set(&keycache, 0);
+	return 0;
 }
 
 static int cmdq_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
@@ -86,9 +109,12 @@ static int cmdq_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 	crypto_alg_id = cmdq_crypto_cap_find(host, key->crypto_mode,
 					       key->data_unit_size);
 
+	pm_runtime_get_sync(&host->mmc->card->dev);
+
 	if (!cmdq_is_crypto_enabled(host) ||
 	    !cmdq_keyslot_valid(host, slot) ||
 	    !ice_cap_idx_valid(host, crypto_alg_id)) {
+		pm_runtime_put_sync(&host->mmc->card->dev);
 		return -EINVAL;
 	}
 
@@ -96,6 +122,7 @@ static int cmdq_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 
 	if (!(data_unit_mask &
 	      host->crypto_cap_array[crypto_alg_id].sdus_mask)) {
+		pm_runtime_put_sync(&host->mmc->card->dev);
 		return -EINVAL;
 	}
 
@@ -103,6 +130,8 @@ static int cmdq_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 					 slot, data_unit_mask, crypto_alg_id);
 	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
+
+	pm_runtime_put_sync(&host->mmc->card->dev);
 
 	return err;
 }
@@ -112,15 +141,24 @@ static int cmdq_crypto_qti_keyslot_evict(struct keyslot_manager *ksm,
 					  unsigned int slot)
 {
 	int err = 0;
+	int val = 0;
 	struct cmdq_host *host = keyslot_manager_private(ksm);
 
+	pm_runtime_get_sync(&host->mmc->card->dev);
+
 	if (!cmdq_is_crypto_enabled(host) ||
-	    !cmdq_keyslot_valid(host, slot))
+	    !cmdq_keyslot_valid(host, slot)) {
+		pm_runtime_put_sync(&host->mmc->card->dev);
 		return -EINVAL;
+	}
 
 	err = crypto_qti_keyslot_evict(host->crypto_vops->priv, slot);
 	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
+
+	pm_runtime_put_sync(&host->mmc->card->dev);
+	val = atomic_read(&keycache) & ~(1 << slot);
+	atomic_set(&keycache, val);
 
 	return err;
 }
@@ -278,6 +316,79 @@ int cmdq_crypto_qti_init_crypto(struct cmdq_host *host,
 					__func__, err);
 	}
 	return err;
+}
+
+int cmdq_crypto_qti_prep_desc(struct cmdq_host *host, struct mmc_request *mrq,
+			      u64 *ice_ctx)
+{
+	struct bio_crypt_ctx *bc;
+	struct request *req = mrq->req;
+	int ret = 0;
+	int val = 0;
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+	struct ice_data_setting setting;
+	bool bypass = true;
+	short key_index = 0;
+#endif
+
+	*ice_ctx = 0;
+	if (!req || !req->bio)
+		return ret;
+
+	if (!bio_crypt_should_process(req)) {
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+		ret = qcom_ice_config_start(req, &setting);
+		if (!ret) {
+			key_index = setting.crypto_data.key_index;
+			bypass = (rq_data_dir(req) == WRITE) ?
+				 setting.encr_bypass : setting.decr_bypass;
+			*ice_ctx = DATA_UNIT_NUM(req->__sector) |
+				   CRYPTO_CONFIG_INDEX(key_index) |
+				   CRYPTO_ENABLE(!bypass);
+		} else {
+			pr_err("%s crypto config failed err = %d\n", __func__,
+			       ret);
+		}
+#endif
+		return ret;
+	}
+	if (WARN_ON(!cmdq_is_crypto_enabled(host))) {
+		/*
+		 * Upper layer asked us to do inline encryption
+		 * but that isn't enabled, so we fail this request.
+		 */
+		return -EINVAL;
+	}
+
+	bc = req->bio->bi_crypt_context;
+
+	if (!cmdq_keyslot_valid(host, bc->bc_keyslot))
+		return -EINVAL;
+
+	if (!(atomic_read(&keycache) & (1 << bc->bc_keyslot)))  {
+		if (bc->is_ext4)
+			cmdq_use_default_du_size = true;
+
+		ret = cmdq_crypto_qti_keyslot_program(host->ksm, bc->bc_key,
+						      bc->bc_keyslot);
+		if (ret) {
+			pr_err("%s keyslot program failed %d\n", __func__, ret);
+			return ret;
+		}
+		val = atomic_read(&keycache) | (1 << bc->bc_keyslot);
+		atomic_set(&keycache, val);
+	}
+
+	if (ice_ctx) {
+		if (bc->is_ext4)
+			*ice_ctx = DATA_UNIT_NUM(req->__sector);
+		else
+			*ice_ctx = DATA_UNIT_NUM(bc->bc_dun[0]);
+
+		*ice_ctx = *ice_ctx | CRYPTO_CONFIG_INDEX(bc->bc_keyslot) |
+			   CRYPTO_ENABLE(true);
+	}
+	return 0;
 }
 
 int cmdq_crypto_qti_debug(struct cmdq_host *host)

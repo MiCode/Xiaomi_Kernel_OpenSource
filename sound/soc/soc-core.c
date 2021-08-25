@@ -2,6 +2,7 @@
  * soc-core.c  --  ALSA SoC Audio Layer
  *
  * Copyright 2005 Wolfson Microelectronics PLC.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
@@ -21,7 +22,6 @@
  *   o Add more codecs and platforms to ensure good API coverage.
  *   o Support TDM on PCM and I2S
  */
-
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>

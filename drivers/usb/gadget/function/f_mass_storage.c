@@ -2,6 +2,7 @@
  * f_mass_storage.c -- Mass Storage USB Composite Function
  *
  * Copyright (C) 2003-2008 Alan Stern
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2009 Samsung Electronics
  *                    Author: Michal Nazarewicz <mina86@mina86.com>
  * All rights reserved.
@@ -2230,7 +2231,6 @@ reset:
 			usb_ep_disable(fsg->bulk_out);
 			fsg->bulk_out_enabled = 0;
 		}
-
 		/* allow usb LPM after eps are disabled */
 		usb_gadget_autopm_put_async(common->gadget);
 		common->fsg = NULL;

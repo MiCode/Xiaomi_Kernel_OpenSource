@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +112,7 @@ struct dsi_phy_cfg {
 	bool force_clk_lane_hs;
 	enum dsi_phy_type phy_type;
 	unsigned long bit_clk_rate_hz;
+	bool cphy_strength;
 };
 
 struct dsi_phy_hw;

@@ -2096,6 +2096,10 @@ u64 freq_policy_load(struct rq *rq);
 
 extern u64 walt_load_reported_window;
 
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+extern DEFINE_PER_CPU(int, sched_load_usf);
+#endif
+
 static inline unsigned long
 cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 {
@@ -2108,7 +2112,11 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		return cpu_util(cpu);
 
 	boost = per_cpu(sched_load_boost, cpu);
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+	boost += per_cpu(sched_load_usf, cpu);
+#endif
 	util_unboosted = util = freq_policy_load(rq);
+
 	util = div64_u64(util * (100 + boost),
 			walt_cpu_util_freq_divisor);
 
@@ -2116,7 +2124,6 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		u64 nl = cpu_rq(cpu)->nt_prev_runnable_sum +
 				rq->grp_time.nt_prev_runnable_sum;
 		u64 pl = rq->walt_stats.pred_demands_sum_scaled;
-
 		/* do_pl_notif() needs unboosted signals */
 		rq->old_busy_time = div64_u64(util_unboosted,
 						sched_ravg_window >>
@@ -2629,6 +2636,7 @@ extern void add_new_task_to_grp(struct task_struct *new);
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2
 #define RESTRAINED_BOOST 3
+#define MI_BOOST         4
 #define FULL_THROTTLE_BOOST_DISABLE -1
 #define CONSERVATIVE_BOOST_DISABLE -2
 #define RESTRAINED_BOOST_DISABLE -3
@@ -2864,6 +2872,7 @@ static inline int sched_boost(void)
 	return sched_boost_type;
 }
 
+extern bool sched_boost_top_app(void);
 extern int preferred_cluster(struct sched_cluster *cluster,
 						struct task_struct *p);
 extern struct sched_cluster *rq_cluster(struct rq *rq);
@@ -3014,6 +3023,11 @@ static inline int sched_boost(void)
 	return 0;
 }
 
+static inline bool sched_boost_top_app(void)
+{
+	return false;
+}
+
 static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 {
 	return SCHED_BOOST_NONE;
@@ -3145,3 +3159,4 @@ struct sched_avg_stats {
 	int nr_max;
 };
 extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
+

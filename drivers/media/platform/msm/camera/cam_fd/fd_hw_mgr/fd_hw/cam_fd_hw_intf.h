@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +32,6 @@
 
 #define CAM_FD_MAX_IO_BUFFERS        5
 #define CAM_FD_MAX_HW_ENTRIES        5
-#define CAM_FD_HW_DUMP_TAG_MAX_LEN   32
 
 /**
  * enum cam_fd_hw_type - Enum for FD HW type
@@ -88,7 +88,6 @@ enum cam_fd_hw_irq_type {
  * @CAM_FD_HW_CMD_FRAME_DONE        : Command to process frame done settings
  * @CAM_FD_HW_CMD_UPDATE_SOC        : Command to process soc update
  * @CAM_FD_HW_CMD_REGISTER_CALLBACK : Command to set hw mgr callback
- * @CAM_FD_HW_CMD_HW_DUMP           : Command to dump fd hw information
  * @CAM_FD_HW_CMD_MAX               : Indicates max cmd
  */
 enum cam_fd_hw_cmd_type {
@@ -96,7 +95,6 @@ enum cam_fd_hw_cmd_type {
 	CAM_FD_HW_CMD_FRAME_DONE,
 	CAM_FD_HW_CMD_UPDATE_SOC,
 	CAM_FD_HW_CMD_REGISTER_CALLBACK,
-	CAM_FD_HW_CMD_HW_DUMP,
 	CAM_FD_HW_CMD_MAX,
 };
 
@@ -287,34 +285,6 @@ struct cam_fd_hw_reset_args {
 struct cam_fd_hw_cmd_set_irq_cb {
 	int (*cam_fd_hw_mgr_cb)(void *data, enum cam_fd_hw_irq_type irq_type);
 	void *data;
-};
-
-/**
- * struct cam_fd_hw_dump_args : Args for dump request
- *
- * @cpu_addr     : start address of the target buffer
- * @offset       : offset of the buffer
- * @request_id   : Issue request id
- * @buf_len      : Length of target buffer
- */
-struct cam_fd_hw_dump_args {
-	uintptr_t cpu_addr;
-	uint64_t  offset;
-	uint64_t  request_id;
-	size_t    buf_len;
-};
-
-/**
- * struct cam_fd_hw_dump_header : fd hw dump header
- *
- * @tag       : fd hw dump header tag
- * @size      : Size of data
- * @word_size : size of each word
- */
-struct cam_fd_hw_dump_header {
-	char     tag[CAM_FD_HW_DUMP_TAG_MAX_LEN];
-	uint64_t size;
-	uint32_t word_size;
 };
 
 #endif /* _CAM_FD_HW_INTF_H_ */

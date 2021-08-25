@@ -77,4 +77,10 @@
  */
 #define FALLOC_FL_UNSHARE_RANGE		0x40
 
+/*
+ * FALLOC_FL_RESERVE_RANGE is used to allocate user-specified physical blocks
+ * for a file which has blocks-allocating needs.
+ */
+#define FALLOC_FL_RESERVE_RANGE		0x80
+
 #endif /* _UAPI_FALLOC_H_ */

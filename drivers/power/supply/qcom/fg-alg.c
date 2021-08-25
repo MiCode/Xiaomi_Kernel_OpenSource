@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -277,7 +278,28 @@ int get_cycle_counts(struct cycle_counter *counter, const char **buf)
 	return 0;
 }
 
-/**
+ /**
+ * set_cycle_count -
+ * @counter: Cycle counter object
+ * @value: The cycle count value to be set
+ *
+ * Get average cycle count for all buckets
+ *
+ */
+int set_cycle_count(struct cycle_counter *counter, u16 count)
+{
+	int rc, id;
+
+	for (id = 0; id < BUCKET_COUNT; id++) {
+		rc = counter->store_count(counter->data, &count, id, 2);
+		if (rc < 0)
+			pr_err("failed to clear cycle counter rc=%d\n", rc);
+	}
+
+	return 0;
+}
+
+ /**
  * cycle_count_init -
  * @counter: Cycle counter object
  *

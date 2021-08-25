@@ -1,4 +1,5 @@
 /* Copyright (c) 2002, 2008-2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -411,8 +412,11 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 	 */
 
 	if (IS_ERR_OR_NULL(private->debug_root)) {
+		/*
 		WARN((private->debug_root == NULL),
 			"Unable to create debugfs dir for %s\n", name);
+		*/
+		pr_warn("Unable to create debugfs dir for %s\n", name);
 		private->debug_root = NULL;
 		return;
 	}

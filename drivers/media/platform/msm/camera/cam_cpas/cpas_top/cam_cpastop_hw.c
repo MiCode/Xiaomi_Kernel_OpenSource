@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +22,6 @@
 #include "cam_cpas_soc.h"
 #include "cpastop100.h"
 #include "cpastop_v150_100.h"
-#include "cpastop_v150_110.h"
 #include "cpastop_v170_110.h"
 #include "cpastop_v175_100.h"
 #include "cpastop_v175_101.h"
@@ -118,10 +118,6 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.minor == 0) &&
 			(hw_caps->cpas_version.incr == 0))
 			soc_info->hw_version = CAM_CPAS_TITAN_150_V100;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 1) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_150_V110;
 	}
 
 	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
@@ -221,10 +217,10 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		soc_info->reg_map[camnoc_index].mem_base +
 		camnoc_info->err_logger->errlog3_high);
 
-	CAM_DBG(CAM_CPAS,
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
 		"Possible memory configuration issue, fault at SMMU raised as CAMNOC SLAVE_IRQ");
 
-	CAM_DBG(CAM_CPAS,
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
 		"mainctrl[0x%x 0x%x] errvld[0x%x 0x%x] stall_en=%d, fault_en=%d, err_vld=%d",
 		camnoc_info->err_logger->mainctrl,
 		slave_err->mainctrl.value,
@@ -238,7 +234,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 	if (err_code_index > CAMNOC_SLAVE_MAX_ERR_CODE)
 		err_code_index = CAMNOC_SLAVE_MAX_ERR_CODE;
 
-	CAM_DBG(CAM_CPAS,
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
 		"errlog0 low[0x%x 0x%x] high[0x%x 0x%x] loginfo_vld=%d, word_error=%d, non_secure=%d, device=%d, opc=%d, err_code=%d(%s) sizef=%d, addr_space=%d, len1=%d",
 		camnoc_info->err_logger->errlog0_low,
 		slave_err->errlog0_low.value,
@@ -255,7 +251,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		slave_err->errlog0_low.addr_space,
 		slave_err->errlog0_high.len1);
 
-	CAM_DBG(CAM_CPAS,
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
 		"errlog1_low[0x%x 0x%x]  errlog1_high[0x%x 0x%x] errlog2_low[0x%x 0x%x]  errlog2_high[0x%x 0x%x] errlog3_low[0x%x 0x%x]  errlog3_high[0x%x 0x%x]",
 		camnoc_info->err_logger->errlog1_low,
 		slave_err->errlog1_low.value,
@@ -284,7 +280,7 @@ static int cam_cpastop_handle_ubwc_enc_err(struct cam_cpas *cpas_core,
 		camnoc_info->irq_err[i].err_status.offset);
 
 	/* Let clients handle the UBWC errors */
-	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+	CAM_DBG(CAM_CPAS,
 		"ubwc enc err [%d]: offset[0x%x] value[0x%x]",
 		i, camnoc_info->irq_err[i].err_status.offset,
 		enc_err->encerr_status.value);
@@ -303,7 +299,7 @@ static int cam_cpastop_handle_ubwc_dec_err(struct cam_cpas *cpas_core,
 		camnoc_info->irq_err[i].err_status.offset);
 
 	/* Let clients handle the UBWC errors */
-	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+	CAM_DBG(CAM_CPAS,
 		"ubwc dec err status [%d]: offset[0x%x] value[0x%x] thr_err=%d, fcl_err=%d, len_md_err=%d, format_err=%d",
 		i, camnoc_info->irq_err[i].err_status.offset,
 		dec_err->decerr_status.value,
@@ -335,9 +331,6 @@ static int cam_cpastop_disable_test_irq(struct cam_hw_info *cpas_hw)
 static int cam_cpastop_reset_irq(struct cam_hw_info *cpas_hw)
 {
 	int i;
-
-	if (camnoc_info->irq_sbm->sbm_enable.enable == false)
-		return 0;
 
 	cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
 		&camnoc_info->irq_sbm->sbm_clear);
@@ -520,7 +513,6 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
-	cam_cpastop_reset_irq(cpas_hw);
 	for (i = 0; i < camnoc_info->specific_size; i++) {
 		if (camnoc_info->specific[i].enable) {
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
@@ -611,9 +603,6 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 		break;
 	case CAM_CPAS_TITAN_150_V100:
 		camnoc_info = &cam150_cpas100_camnoc_info;
-		break;
-	case CAM_CPAS_TITAN_150_V110:
-		camnoc_info = &cam150_cpas110_camnoc_info;
 		break;
 	default:
 		CAM_ERR(CAM_CPAS, "Camera Version not supported %d.%d.%d",

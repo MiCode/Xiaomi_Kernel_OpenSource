@@ -99,6 +99,21 @@ config EXT4_FS_SECURITY
 	  If you are not using a security module that requires using
 	  extended attributes for file security labels, say N.
 
+config EXT4_FS_ES_BARRIER
+     bool "Ext4 Fs Es Barrier"
+     default n
+     depends on EXT4_FS
+     help
+       Support Efficent Safty Barrier which can reduce the sycn_file
+       flush greatly.
+
+config EXT4_FS_DYN_BARRIER
+	bool "Ext4 Dynamic Barrier"
+	default n
+	depends on EXT4_FS
+	help
+	  Support switch on/off of ext4 barrier.
+
 config EXT4_ENCRYPTION
 	bool "Ext4 Encryption"
 	depends on EXT4_FS

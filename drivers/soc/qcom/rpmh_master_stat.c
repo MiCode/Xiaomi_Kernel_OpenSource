@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <asm/arch_timer.h>
 #include "rpmh_master_stat.h"
+#include <linux/slab.h>
 
 #define UNIT_DIST 0x14
 #define REG_VALID 0x0
@@ -159,6 +161,36 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 
 	return length;
 }
+
+void system_sleep_status_print_enabled(void)
+{
+	size_t size = 0;
+	int i = 0;
+	ssize_t length;
+	char *buf = NULL;
+	struct msm_rpmh_master_stats *record = NULL;
+	mutex_lock(&rpmh_stats_mutex);
+
+	pr_info("APSS---Sleep count 0x%x\n",apss_master_stats.counts);
+	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
+						&apss_master_stats, "APSS");
+
+        for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
+                record = (struct msm_rpmh_master_stats *) qcom_smem_get(
+                                        rpmh_masters[i].pid,
+                                        rpmh_masters[i].smem_id, &size);
+                if (!IS_ERR_OR_NULL(record) && (PAGE_SIZE - length > 0))
+		pr_info("%s---Sleep count 0x%x\n",rpmh_masters[i].master_name,record->counts);
+	}
+
+	mutex_unlock(&rpmh_stats_mutex);
+	kfree (buf);
+
+}
+
+EXPORT_SYMBOL_GPL(system_sleep_status_print_enabled);
+
 
 static inline void msm_rpmh_apss_master_stats_update(
 				struct msm_rpmh_profile_unit *profile_unit)

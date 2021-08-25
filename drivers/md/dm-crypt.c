@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Jana Saout <jana@saout.de>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004 Clemens Fruhwirth <clemens@endorphin.org>
  * Copyright (C) 2006-2017 Red Hat, Inc. All rights reserved.
  * Copyright (C) 2013-2017 Milan Broz <gmazyland@gmail.com>
@@ -2892,7 +2893,8 @@ static int crypt_map(struct dm_target *ti, struct bio *bio)
 	 * - for REQ_OP_DISCARD caller must use flush if IO ordering matters
 	 */
 	if (unlikely(bio->bi_opf & REQ_PREFLUSH ||
-	    bio_op(bio) == REQ_OP_DISCARD)) {
+	    bio_op(bio) == REQ_OP_DISCARD ||
+	    bio_should_skip_dm_default_key(bio))) {
 		bio_set_dev(bio, cc->dev->bdev);
 		if (bio_sectors(bio))
 			bio->bi_iter.bi_sector = cc->start +

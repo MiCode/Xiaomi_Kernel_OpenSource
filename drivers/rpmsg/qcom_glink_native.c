@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -142,7 +143,6 @@ struct qcom_glink {
 	struct qcom_glink_pipe *tx_pipe;
 
 	int irq;
-
 	struct kthread_worker kworker;
 	struct task_struct *task;
 
@@ -2041,6 +2041,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		irqflags = IRQF_TRIGGER_RISING;
 	else
 		irqflags = IRQF_NO_SUSPEND | IRQF_SHARED;
+
 
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,

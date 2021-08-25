@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -913,6 +914,7 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 
 	debugfs_create_file_unsafe("stats", 0444, mhi_netdev->dentry,
 				   mhi_netdev, &debugfs_stats);
+
 	debugfs_create_file_unsafe("chain", 0444, mhi_netdev->dentry,
 				   mhi_netdev, &debugfs_chain);
 }

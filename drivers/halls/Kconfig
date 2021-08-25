@@ -1,0 +1,12 @@
+
+menu "Halls"
+
+config HALLS
+	bool "Halls"
+	default n
+	---help---
+        it's to handle hall sensors for slide
+
+endmenu
+
+

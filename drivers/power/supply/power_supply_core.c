@@ -60,6 +60,17 @@ static bool __power_supply_is_supplied_by(struct power_supply *supplier,
 	return false;
 }
 
+#ifdef CONFIG_EXT4_FS_ES_BARRIER
+atomic_t batt_percent = ATOMIC_INIT(0);
+static void power_supply_update_batt_percent(struct power_supply *psy)
+{
+	union power_supply_propval ret;
+	if (!power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY, &ret))
+		atomic_set(&batt_percent, ret.intval);
+}
+#endif
+
+
 static int __power_supply_changed_work(struct device *dev, void *data)
 {
 	struct power_supply *psy = data;
@@ -95,6 +106,11 @@ static void power_supply_changed_work(struct work_struct *work)
 		class_for_each_device(power_supply_class, NULL, psy,
 				      __power_supply_changed_work);
 		power_supply_update_leds(psy);
+
+#ifdef CONFIG_EXT4_FS_ES_BARRIER
+		power_supply_update_batt_percent(psy);
+#endif
+
 		atomic_notifier_call_chain(&power_supply_notifier,
 				PSY_EVENT_PROP_CHANGED, psy);
 		kobject_uevent(&psy->dev.kobj, KOBJ_CHANGE);
@@ -354,7 +370,7 @@ static int __power_supply_is_system_supplied(struct device *dev, void *data)
 	unsigned int *count = data;
 
 	(*count)++;
-	if (psy->desc->type != POWER_SUPPLY_TYPE_BATTERY)
+	if ((psy->desc->type != POWER_SUPPLY_TYPE_BATTERY) && (psy->desc->type != POWER_SUPPLY_TYPE_BMS))
 		if (!psy->desc->get_property(psy, POWER_SUPPLY_PROP_ONLINE,
 					&ret))
 			return ret.intval;

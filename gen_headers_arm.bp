@@ -967,6 +967,9 @@ gen_headers_out_arm = [
     "asm/swab.h",
     "asm/types.h",
     "asm/unistd.h",
+    "misc/akm09970.h",
+    "linux/akm09970.h",
+    "misc/drv8846.h",
 ]
 
 genrule {
