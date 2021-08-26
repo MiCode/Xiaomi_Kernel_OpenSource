@@ -686,9 +686,10 @@ EXPORT_SYMBOL(gh_msgq_probe);
 static void gh_msgq_cleanup(void)
 {
 	struct gh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *temp;
 
 	spin_lock(&gh_msgq_cap_list_lock);
-	list_for_each_entry(cap_table_entry, &gh_msgq_cap_list, entry) {
+	list_for_each_entry_safe(cap_table_entry, temp, &gh_msgq_cap_list, entry) {
 		kfree(cap_table_entry->tx_irq_name);
 		kfree(cap_table_entry->rx_irq_name);
 		kfree(cap_table_entry);
