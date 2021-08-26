@@ -167,7 +167,7 @@ static void limits_dcvsh_poll(struct work_struct *work)
 
 	dcvsh_freq = qcom_cpufreq_hw_get(cpu);
 
-	if (freq_limit != dcvsh_freq) {
+	if (freq_limit < dcvsh_freq) {
 		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
 				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
 	} else {
