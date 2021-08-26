@@ -273,8 +273,19 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE,
 				ARM_SMMU_FSR_TF);
 
-		wait_event_timeout(wait_int, (irq_count > irq_cnt),
-			msecs_to_jiffies(1000));
+		if (!wait_event_timeout(wait_int, (irq_count > irq_cnt),
+					msecs_to_jiffies(1000))) {
+			u32 fsr;
+
+			fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+			dev_info(smmu->dev, "timeout cb:%d, irq:%d, fsr:0x%x\n",
+				 cb, irq_cnt, fsr);
+
+			if (!fsr)
+				dev_err(smmu->dev, "SCTLR  = 0x%08x\n",
+					arm_smmu_cb_read(smmu, idx,
+							 ARM_SMMU_CB_SCTLR));
+		}
 
 		/* Make sure ARM_SMMU_CB_FSRRESTORE is written to */
 		wmb();
