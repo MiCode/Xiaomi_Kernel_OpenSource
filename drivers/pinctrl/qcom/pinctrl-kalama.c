@@ -2273,6 +2273,16 @@ static const struct msm_pinctrl_soc_data kalama_pinctrl = {
 	.nwakeirq_map = ARRAY_SIZE(kalama_pdc_map),
 };
 
+static const struct msm_pinctrl_soc_data kalama_vm_pinctrl = {
+	.pins = kalama_pins,
+	.npins = ARRAY_SIZE(kalama_pins),
+	.functions = kalama_functions,
+	.nfunctions = ARRAY_SIZE(kalama_functions),
+	.groups = kalama_groups,
+	.ngroups = ARRAY_SIZE(kalama_groups),
+	.ngpios = 211,
+};
+
 static int kalama_pinctrl_probe(struct platform_device *pdev)
 {
 	return msm_pinctrl_probe(pdev, &kalama_pinctrl);
@@ -2280,6 +2290,7 @@ static int kalama_pinctrl_probe(struct platform_device *pdev)
 
 static const struct of_device_id kalama_pinctrl_of_match[] = {
 	{ .compatible = "qcom,kalama-pinctrl", },
+	{ .compatible = "qcom,kalama-vm-pinctrl", .data = &kalama_vm_pinctrl},
 	{ },
 };
 
