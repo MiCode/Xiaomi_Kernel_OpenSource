@@ -508,21 +508,29 @@ static int memlat_pm_notif(struct notifier_block *nb, unsigned long action,
 	bool pmu_valid = false;
 	bool read_ev  = true;
 	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
+	unsigned long flags;
+
+	/* Exit if cpu is in hotplug */
+	spin_lock_irqsave(&cpu_data->read_lock, flags);
+	if (cpu_data->is_hp) {
+		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
+		return NOTIFY_OK;
+	}
 
 	if (action == CPU_PM_EXIT) {
 		if (pmu_base)
 			writel_relaxed(0, &base->valid);
 		cpu_data->is_pc = false;
+		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 		return NOTIFY_OK;
 	}
 
-	spin_lock(&cpu_data->read_lock);
-	if (cpu_data->is_idle || cpu_data->is_hp || cpu_data->is_pc)
+	if (cpu_data->is_idle || cpu_data->is_pc)
 		read_ev = false;
 	else
 		atomic_inc(&cpu_data->read_cnt);
 	cpu_data->is_pc = true;
-	spin_unlock(&cpu_data->read_lock);
+	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 
 	if (!pmu_base)
 		goto dec_read_cnt;
