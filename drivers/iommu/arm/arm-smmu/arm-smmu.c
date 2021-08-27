@@ -33,7 +33,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/of_iommu.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -126,7 +125,7 @@ static void arm_smmu_free_pgtable(void *cookie, void *virt, int order);
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
 	if (pm_runtime_enabled(smmu->dev))
-		return pm_runtime_get_sync(smmu->dev);
+		return pm_runtime_resume_and_get(smmu->dev);
 
 	return 0;
 }
@@ -871,7 +870,6 @@ static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	u32 fsr;
-	int ret;
 	struct iommu_domain *domain = dev;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
@@ -879,6 +877,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
+	int ret;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
@@ -2457,9 +2456,11 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	void __iomem *reg;
 	u32 tmp;
 	u64 phys;
-	unsigned long va;
+	unsigned long va, flags;
 	int idx = cfg->cbndx;
+	phys_addr_t addr = 0;
 
+	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	va = iova & ~0xfffUL;
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64)
 		arm_smmu_cb_writeq(smmu, idx, ARM_SMMU_CB_ATS1PR, va);
@@ -2467,25 +2468,27 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_ATS1PR, va);
 
 	reg = arm_smmu_page(smmu, ARM_SMMU_CB(smmu, idx)) + ARM_SMMU_CB_ATSR;
-	if (readl_poll_timeout_atomic(reg, tmp, !(tmp & ARM_SMMU_ATSR_ACTIVE), 5, 50)) {
-		phys = ops->iova_to_phys(ops, iova);
+	if (readl_poll_timeout_atomic(reg, tmp, !(tmp & ARM_SMMU_ATSR_ACTIVE),
+				      5, 50)) {
+		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 		dev_err(dev,
-			"iova to phys timed out on %pad. software table walk result=%pa.\n",
-			&iova, &phys);
-		phys = 0;
-		return phys;
+			"iova to phys timed out on %pad. Falling back to software table walk.\n",
+			&iova);
+		return ops->iova_to_phys(ops, iova);
 	}
 
 	phys = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_PAR);
+	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 	if (phys & ARM_SMMU_CB_PAR_F) {
 		dev_err(dev, "translation fault!\n");
 		dev_err(dev, "PAR = 0x%llx\n", phys);
-		phys = 0;
-	} else {
-		phys = (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
+		goto out;
 	}
 
-	return phys;
+	addr = (phys & GENMASK_ULL(39, 12)) | (iova & 0xfff);
+out:
+
+	return addr;
 }
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
@@ -2493,12 +2496,26 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	phys_addr_t phys;
 
 	if (domain->type == IOMMU_DOMAIN_IDENTITY)
 		return iova;
 
 	if (!ops)
 		return 0;
+
+	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
+			smmu_domain->stage == ARM_SMMU_DOMAIN_S1) {
+		if (arm_smmu_rpm_get(smmu) < 0)
+			return 0;
+
+		phys = __arm_smmu_iova_to_phys_hard(domain, iova);
+
+		arm_smmu_rpm_put(smmu);
+
+		return phys;
+	}
 
 	return ops->iova_to_phys(ops, iova);
 }
@@ -2512,7 +2529,6 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 				    struct qcom_iommu_atos_txn *txn)
 {
 	phys_addr_t ret = 0;
-	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
@@ -2527,12 +2543,9 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		goto out;
 	}
 
-	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
 			smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
 		ret = __arm_smmu_iova_to_phys_hard(domain, txn->addr);
-
-	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
 out:
 	arm_smmu_rpm_put(smmu);
@@ -2665,6 +2678,18 @@ static void arm_smmu_release_device(struct device *dev)
 	dev_iommu_priv_set(dev, NULL);
 	kfree(cfg);
 	iommu_fwspec_free(dev);
+}
+
+static void arm_smmu_probe_finalize(struct device *dev)
+{
+	struct arm_smmu_master_cfg *cfg;
+	struct arm_smmu_device *smmu;
+
+	cfg = dev_iommu_priv_get(dev);
+	smmu = cfg->smmu;
+
+	if (smmu->impl && smmu->impl->probe_finalize)
+		smmu->impl->probe_finalize(smmu, dev);
 }
 
 static struct iommu_group *arm_smmu_device_group(struct device *dev)
@@ -2966,6 +2991,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.iova_to_phys		= arm_smmu_iova_to_phys,
 		.probe_device		= arm_smmu_probe_device,
 		.release_device		= arm_smmu_release_device,
+		.probe_finalize		= arm_smmu_probe_finalize,
 		.device_group		= arm_smmu_device_group,
 		.enable_nesting		= arm_smmu_enable_nesting,
 		.set_pgtable_quirks	= arm_smmu_set_pgtable_quirks,
@@ -3708,7 +3734,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	err = iommu_device_register(&smmu->iommu, &arm_smmu_ops.iommu_ops, dev);
 	if (err) {
 		dev_err(dev, "Failed to register iommu\n");
-		goto out_power_off;
+		goto err_sysfs_remove;
 	}
 
 	platform_set_drvdata(pdev, smmu);
@@ -3736,14 +3762,20 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	 * any device which might need it, so we want the bus ops in place
 	 * ready to handle default domain setup as soon as any SMMU exists.
 	 */
-	if (!using_legacy_binding)
-		return arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
+	if (!using_legacy_binding) {
+		err = arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
+		if (err)
+			goto err_unregister_device;
+	}
 
 	return 0;
 
+err_unregister_device:
+	iommu_device_unregister(&smmu->iommu);
+err_sysfs_remove:
+	iommu_device_sysfs_remove(&smmu->iommu);
 out_power_off:
 	arm_smmu_power_off(smmu, smmu->pwr);
-
 	return err;
 }
 

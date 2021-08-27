@@ -4106,7 +4106,7 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-static inline const char *usb_role_string(enum usb_role role)
+static inline const char *dwc3_msm_usb_role_string(enum usb_role role)
 {
 	if (role < ARRAY_SIZE(usb_role_strings))
 		return usb_role_strings[role];
@@ -4127,7 +4127,7 @@ static enum usb_role dwc3_msm_usb_get_role(struct usb_role_switch *sw)
 	else
 		role = USB_ROLE_NONE;
 
-	dbg_log_string("get_role:%s\n", usb_role_string(role));
+	dbg_log_string("get_role:%s\n", dwc3_msm_usb_role_string(role));
 	return role;
 }
 
@@ -4155,8 +4155,8 @@ static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 		break;
 	}
 
-	dbg_log_string("cur_role:%s new_role:%s\n", usb_role_string(cur_role),
-						usb_role_string(role));
+	dbg_log_string("cur_role:%s new_role:%s\n", dwc3_msm_usb_role_string(cur_role),
+						dwc3_msm_usb_role_string(role));
 
 	/*
 	 * For boot up without USB cable connected case, don't check
