@@ -336,12 +336,6 @@
 		linux,cma-default;
 	};
 
-	aop_cmd_db_mem: aop_cmd_db_region@80860000 {
-		compatible = "qcom,cmd-db";
-		no-map;
-		reg = <0x0 0x80860000 0x0 0x20000>;
-	};
-
 	va_md_mem: va_md_mem_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
