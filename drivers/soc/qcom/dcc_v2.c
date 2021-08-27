@@ -62,7 +62,7 @@
 #define DCC_LL_SW_TRIGGER(m)		(0x60 + 0x80 * (m + HLOS_LIST_START))
 #define DCC_LL_BUS_ACCESS_STATUS(m)	(0x64 + 0x80 * (m + HLOS_LIST_START))
 #define DCC_CTI_TRIG(m)			(0x68 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_qad_output(m)		(0x6C + 0x80 * (m + HLOS_LIST_START))
+#define DCC_QAD_OUTPUT(m)		(0x6C + 0x80 * (m + HLOS_LIST_START))
 
 #define DCC_MAP_LEVEL1			(0x18)
 #define DCC_MAP_LEVEL2			(0x34)
@@ -174,6 +174,7 @@ struct dcc_drvdata {
 	uint8_t			curr_list;
 	uint8_t			*cti_trig;
 	uint8_t			loopoff;
+	uint8_t			*qad_output;
 };
 
 static uint32_t dcc_offset_conv(struct dcc_drvdata *drvdata, uint32_t off)
@@ -720,13 +721,16 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		}
 
 		/* 5. Configure trigger */
-		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3)
+		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
+			dcc_writel(drvdata, drvdata->qad_output[list],
+					DCC_QAD_OUTPUT(list));
 			dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
 				   (drvdata->func_type[list])), DCC_LL_CFG(list));
-		else
+		} else {
 			dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig[list] << 8) |
 				   (drvdata->data_sink[list] << 4) |
 				   (drvdata->func_type[list])), DCC_LL_CFG(list));
+		}
 	}
 
 err:
@@ -995,6 +999,61 @@ static ssize_t enable_store(struct device *dev,
 
 }
 static DEVICE_ATTR_RW(enable);
+
+static ssize_t ap_ns_qad_override_en_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (drvdata->mem_map_ver != DCC_MEM_MAP_VER3) {
+		dev_err(dev, "QAD output is not supported\n");
+		return -EINVAL;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->qad_output[drvdata->curr_list]);
+}
+
+static ssize_t ap_ns_qad_override_en_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (drvdata->mem_map_ver != DCC_MEM_MAP_VER3) {
+		dev_err(dev, "QAD output is not supported\n");
+		return -EINVAL;
+	}
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->curr_list >= drvdata->nr_link_list) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (drvdata->enable[drvdata->curr_list]) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+
+	if (val)
+		drvdata->qad_output[drvdata->curr_list] = 1;
+	else
+		drvdata->qad_output[drvdata->curr_list] = 0;
+	ret = size;
+out:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+
+}
+static DEVICE_ATTR_RW(ap_ns_qad_override_en);
 
 static ssize_t config_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
@@ -1542,6 +1601,7 @@ static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_curr_list,
 	&dev_attr_config_write,
 	&dev_attr_cti_trig,
+	&dev_attr_ap_ns_qad_override_en,
 	NULL,
 };
 
@@ -1870,6 +1930,10 @@ static int dcc_probe(struct platform_device *pdev)
 	drvdata->cti_trig = devm_kzalloc(dev, drvdata->nr_link_list *
 			sizeof(uint8_t), GFP_KERNEL);
 	if (!drvdata->cti_trig)
+		return -ENOMEM;
+	drvdata->qad_output = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(uint8_t), GFP_KERNEL);
+	if (!drvdata->qad_output)
 		return -ENOMEM;
 	drvdata->cfg_head = devm_kzalloc(dev, drvdata->nr_link_list *
 			sizeof(struct list_head), GFP_KERNEL);
