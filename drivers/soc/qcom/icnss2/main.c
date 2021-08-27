@@ -1108,16 +1108,13 @@ static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 static int icnss_event_soc_wake_release(struct icnss_priv *priv, void *data)
 {
 	int ret = 0;
-	int count = 0;
 
 	if (!priv)
 		return -ENODEV;
 
-	count = atomic_dec_return(&priv->soc_wake_ref_count);
-
-	if (count) {
+	if (atomic_dec_if_positive(&priv->soc_wake_ref_count)) {
 		icnss_pr_dbg("Wake release not called. Ref count: %d",
-			     count);
+			     priv->soc_wake_ref_count);
 		return 0;
 	}
 
@@ -2793,7 +2790,8 @@ int icnss_force_wake_release(struct device *dev)
 
 	icnss_pr_dbg("Calling SOC Wake response");
 
-	if (icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
+	if (atomic_read(&priv->soc_wake_ref_count) &&
+	    icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
 		icnss_pr_dbg("SOC previous release pending, Ref count: %d",
 			     atomic_read(&priv->soc_wake_ref_count));
 		return 0;
