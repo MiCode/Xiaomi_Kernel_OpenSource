@@ -189,7 +189,11 @@ static void register_log_minidump(struct printk_ringbuffer *prb)
 
 static void copy_boot_log_pr_cont(void *unused, struct printk_record *r, size_t text_len)
 {
-	if (!r->info->text_len || ((off + r->info->text_len) > boot_log_buf_size))
+	if (copy_early_boot_log)
+		return;
+
+	if (!r->info->text_len || !off ||
+		((off + r->info->text_len + 1 + 1) > boot_log_buf_size))
 		return;
 
 	if (boot_log_buf[off - 1] == '\n')

@@ -148,6 +148,20 @@
  */
 #define INITIAL_TXN_ID	0x12345678
 
+/*
+ * To be used for ioctl copy arg from user if the IOCTL direction is _IOC_WRITE
+ * Update the union when new ioctl struct is added
+ */
+union spcom_ioctl_arg {
+	struct spcom_poll_param poll;
+	struct spcom_ioctl_poll_event poll_event;
+	struct spcom_ioctl_ch channel;
+	struct spcom_ioctl_message message;
+	struct spcom_ioctl_modified_message modified_message;
+	struct spcom_ioctl_next_request_size next_req_size;
+	struct spcom_ioctl_dmabuf_lock dmabuf_lock;
+} __packed;
+
 /**
  * struct spcom_msg_hdr - Request/Response message header between HLOS and SP.
  *
@@ -184,6 +198,7 @@ struct dma_buf_info {
 	struct dma_buf *handle;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sg;
+	u32 owner_pid;
 };
 
 /**
@@ -194,8 +209,7 @@ struct spcom_channel {
 	struct mutex lock;
 	uint32_t txn_id;           /* incrementing nonce per client request */
 	bool is_server;            /* for txn_id and response_timeout_msec  */
-	bool comm_role_undefined;  /* is true on channel creation, before   */
-				   /* first tx/rx on channel                */
+	bool comm_role_undefined;  /* is true on channel creation before first tx/rx on channel */
 	uint32_t response_timeout_msec; /* for client only */
 
 	/* char dev */
@@ -213,14 +227,15 @@ struct spcom_channel {
 	struct completion connect;
 
 	/**
-	 * Only one client or server per non-sharable channel       .
+	 * Only one client or server per non-sharable channel
 	 * SPCOM_MAX_CHANNEL_CLIENTS clients for sharable channel
-	 * Only one tx-rx transaction at a time (request + response).
+	 * Only one tx-rx transaction at a time (request + response)
 	 */
 	bool is_busy;
-	bool is_sharable;              /* channel's sharable property   */
-	u32 active_pid;                /* current tx-rx transaction pid */
-	uint8_t num_clients;           /* current number of clients     */
+	bool is_sharable;              /* channel's sharable property         */
+	u32 max_clients;               /* number of max clients               */
+	u32 active_pid;                /* current tx-rx transaction pid       */
+	uint8_t num_clients;           /* current number of clients           */
 	struct mutex shared_sync_lock;
 
 	u32 pid[SPCOM_MAX_CHANNEL_CLIENTS];
@@ -271,6 +286,7 @@ struct spcom_device {
 	struct spcom_channel channels[SPCOM_MAX_CHANNELS];
 	unsigned int chdev_count;
 	struct mutex chdev_count_lock;
+	struct mutex ch_list_lock;
 
 	struct completion rpmsg_state_change;
 	atomic_t rpmsg_dev_count;
@@ -442,6 +458,7 @@ static int spcom_init_channel(struct spcom_channel *ch,
 	ch->rpmsg_rx_buf = NULL;
 	ch->comm_role_undefined = true;
 	ch->is_sharable = is_sharable;
+	ch->max_clients = is_sharable ? SPCOM_MAX_CHANNEL_CLIENTS : 1;
 	ch->active_pid = 0;
 	ch->num_clients = 0;
 	mutex_init(&ch->shared_sync_lock);
@@ -582,13 +599,20 @@ static int spcom_get_next_request_size(struct spcom_channel *ch)
 
 	/* NOTE: Remote clients might not be connected yet.*/
 	mutex_lock(&ch->lock);
+
+	/* Update communication role of channel if not set yet */
+	if (ch->comm_role_undefined) {
+		spcom_pr_dbg("server [%s] reading it's first request\n", ch->name);
+		ch->comm_role_undefined = false;
+		ch->is_server = true;
+	}
+
 	reinit_completion(&ch->rx_done);
 
 	/* check if already got it via callback */
 	if (ch->actual_rx_size) {
 		spcom_pr_dbg("next-req-size already ready ch [%s] size [%zu]\n",
 			 ch->name, ch->actual_rx_size);
-		ret = -EFAULT;
 		goto exit_ready;
 	}
 	mutex_unlock(&ch->lock); /* unlock while waiting */
@@ -831,30 +855,30 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 }
 
 /**
- * modify_ion_addr() - replace the ION buffer virtual address with physical
+ * modify_dma_buf_addr() - replace the ION buffer virtual address with physical
  * address in a request or response buffer.
  *
  * @buf: buffer to modify
  * @buf_size: buffer size
- * @ion_info: ION buffer info such as FD and offset in buffer.
+ * @info: DMA buffer info such as FD and offset in buffer.
  *
  * Return: 0 on successful operation, negative value otherwise.
  */
-static int modify_ion_addr(struct spcom_channel *ch, void *buf,
+static int modify_dma_buf_addr(struct spcom_channel *ch, void *buf,
 			    uint32_t buf_size,
-			    struct spcom_ion_info ion_info)
+			    struct spcom_dma_buf_info *info)
 {
-	struct dma_buf *dma_buf;
-	struct dma_buf_attachment *attach;
+	struct dma_buf *dma_buf = NULL;
+	struct dma_buf_attachment *attach = NULL;
 	struct sg_table *sg = NULL;
-	dma_addr_t phy_addr = 0;
-	int fd, ret = 0;
-	uint32_t buf_offset;
 	char *ptr = (char *)buf;
+	dma_addr_t phy_addr = 0;
+	uint32_t buf_offset = 0;
+	int fd, ret = 0;
 	int i = 0;
 
-	fd = ion_info.fd;
-	buf_offset = ion_info.buf_offset;
+	fd = info->fd;
+	buf_offset = info->offset;
 	ptr += buf_offset;
 
 	if (fd < 0) {
@@ -912,7 +936,7 @@ static int modify_ion_addr(struct spcom_channel *ch, void *buf,
 		}
 	}
 	/* Set the physical address at the buffer offset */
-	spcom_pr_dbg("ion phys addr = [0x%lx]\n", (long) phy_addr);
+	spcom_pr_dbg("dma phys addr = [0x%lx]\n", (long) phy_addr);
 	memcpy(ptr, &phy_addr, sizeof(phy_addr));
 
 	/* Don't unmap the buffer to allow dmabuf sync start/end. */
@@ -953,6 +977,7 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 	int i;
 	uint32_t timeout_msec;
 	int time_msec = 0;
+	struct spcom_dma_buf_info curr_info = {0};
 
 	spcom_pr_dbg("send req/resp ch [%s] size [%d]\n", ch->name, size);
 
@@ -1016,7 +1041,9 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 
 	for (i = 0 ; i < ARRAY_SIZE(ion_info) ; i++) {
 		if (ion_info[i].fd >= 0) {
-			ret = modify_ion_addr(ch, hdr->buf, buf_size, ion_info[i]);
+			curr_info.fd = ion_info[i].fd;
+			curr_info.offset = ion_info[i].buf_offset;
+			ret = modify_dma_buf_addr(ch, hdr->buf, buf_size, &curr_info);
 			if (ret < 0) {
 				mutex_unlock(&ch->lock);
 				memset(tx_buf, 0, tx_buf_size);
@@ -1126,25 +1153,48 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 /**
  * spcom_dmabuf_unlock() - unattach and free dmabuf
  *
- * unattach the dmabuf to the spcom driver.
+ * unattach the dmabuf from spcom driver.
  * decrememt dmabuf ref count.
  */
-static void spcom_dmabuf_unlock(struct dma_buf_info *info)
+static int spcom_dmabuf_unlock(struct dma_buf_info *info)
 {
-	if (info == NULL)
-		return;
-	if (info->handle == NULL)
-		return;
-	spcom_pr_dbg("unlock dmbuf fd [%d]\n", info->fd);
+	u32 pid = current_pid();
+
+	if (pid == 0) {
+		spcom_pr_err("Unknown PID\n");
+		return -EINVAL;
+	}
+
+	if (info == NULL) {
+		spcom_pr_err("Invalid dmabuf info pointer\n");
+		return -EINVAL;
+	}
+
+	if (info->handle == NULL) {
+		spcom_pr_err("DMA buffer handle is NULL\n");
+		return -EINVAL;
+	}
+
+	if (info->owner_pid != pid) {
+		spcom_pr_err("PID [%u] is not the owner of this DMA buffer\n", pid);
+		return -EPERM;
+	}
+
+	spcom_pr_dbg("unlock dmbuf fd [%d], PID [%u]\n", info->fd, pid);
+
 	if (!info->attach) {
 		dma_buf_unmap_attachment(info->attach, info->sg, DMA_BIDIRECTIONAL);
 		dma_buf_detach(info->handle, info->attach);
 		info->attach = NULL;
 		info->sg = NULL;
 	}
+
 	dma_buf_put(info->handle);
 	info->handle = NULL;
 	info->fd = -1;
+	info->owner_pid = 0;
+
+	return 0;
 }
 
 /**
@@ -1477,6 +1527,18 @@ static char *file_to_filename(struct file *filp)
 	return filename;
 }
 
+bool is_proc_channel_owner(struct spcom_channel *ch, u32 pid)
+{
+	int i = 0;
+
+	for (i = 0; i < ch->max_clients; ++i) {
+		if (ch->pid[i] == pid)
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * spcom_device_open() - handle channel file open() from user space.
  *
@@ -1612,6 +1674,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	}
 
 	if (strcmp(name, DEVICE_NAME) == 0) {
+		spcom_pr_dbg("PID [%d] release control channel\n", pid);
 		return 0;
 	}
 
@@ -1642,7 +1705,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 
 	for (i = 0; i < SPCOM_MAX_CHANNEL_CLIENTS; i++) {
 		if (ch->pid[i] == pid) {
-			spcom_pr_dbg("PID [%x] is releasing ch [%s]\n", current->tgid, name);
+			spcom_pr_dbg("PID [%x] is releasing ch [%s]\n", pid, name);
 			ch->pid[i] = 0;
 			break;
 		}
@@ -1859,9 +1922,9 @@ exit_err:
 }
 
 static inline int handle_poll(struct file *file,
-		       struct spcom_poll_param *op)
+		       struct spcom_poll_param *op, int *user_retval)
 {
-	struct spcom_channel *ch;
+	struct spcom_channel *ch = NULL;
 	const char *name = file_to_filename(file);
 	int ready = 0;
 	int ret = 0;
@@ -1911,63 +1974,1294 @@ static inline int handle_poll(struct file *file,
 		spcom_pr_info("interrupted wait retval=%d\n", op->retval);
 		ret = -EINTR;
 	}
+
+	if (!ret) {
+		ret = put_user(op->retval, user_retval);
+		if (ret) {
+			spcom_pr_err("Unable to copy link state to user [%d]\n", ret);
+			ret = -EFAULT;
+		}
+	}
+
 	return ret;
 }
 
-static long spcom_device_ioctl(struct file *file,
-			       unsigned int ioctl,
-			       unsigned long arg)
+/*======================================================================*/
+/*		IOCTL USER SPACE COMMANDS HANDLING		*/
+/*======================================================================*/
+
+/**
+ * spcom_register_channel
+ *
+ * @brief      Helper function to register SPCOM channel
+ *
+ * @param[in]  ch    SPCOM channel
+ *
+ * @return     zero on success, negative value otherwise.
+ */
+static int spcom_register_channel(struct spcom_channel *ch)
 {
-	void __user *argp = (void __user *)arg;
-	const char *name = file_to_filename(file);
-	struct spcom_poll_param op = {0};
+	const char *ch_name = NULL;
+	u32 pid = current_pid();
+	u32 i = 0;
+
+
+	ch_name = ch->name;
+
+	mutex_lock(&ch->lock);
+
+	if (!spcom_is_channel_open(ch))
+		spcom_pr_err("channel [%s] is not open\n", ch_name);
+
+	/* max number of channel clients reached */
+	if (ch->is_busy) {
+		spcom_pr_err("channel [%s] is occupied by max num of clients [%d]\n",
+			ch_name, ch->num_clients);
+		mutex_unlock(&ch->lock);
+		return -EBUSY;
+	}
+
+	 /* check if same client trying to register again */
+	for (i = 0; i < ch->max_clients; ++i) {
+		if (ch->pid[i] == pid) {
+			spcom_pr_err("client with pid[%d] is already registered with channel[%s]\n",
+				pid, ch_name);
+			mutex_unlock(&ch->lock);
+			return -EINVAL;
+		}
+	}
+
+	if (ch->is_sharable) {
+		/* set or add channel owner PID */
+		for (i = 0; i < ch->max_clients; ++i) {
+			if (ch->pid[i] == 0)
+				break;
+		}
+	} else {
+		i = 0;
+	}
+
+	/* update channel client, whether the channel is shared or not */
+	ch->pid[i] = pid;
+	ch->num_clients++;
+	ch->is_busy = (ch->num_clients == ch->max_clients) ? true : false;
+	mutex_unlock(&ch->lock);
+
+	return 0;
+}
+
+/**
+ * is_valid_ch_name
+ *
+ * @brief      Helper function to verify channel name pointer
+ *
+ * @param[in]  ch_name    channel name
+ *
+ * @return     true if valid channel name pointer, false otherwise.
+ */
+static inline bool is_valid_ch_name(const char *ch_name)
+{
+	static const uint32_t maxlen = SPCOM_CHANNEL_NAME_SIZE;
+
+	return (ch_name && ch_name[0] && (strnlen(ch_name, maxlen) < maxlen));
+}
+
+/**
+ * is_control_channel_name
+ *
+ * @brief      Helper function to check if channel name is the control channel name
+ *
+ * @param[in]  ch_name    channel name
+ *
+ * @return     true if control channel name, false otherwise.
+ */
+static inline bool is_control_channel_name(const char *ch_name)
+{
+	return (is_valid_ch_name(ch_name) && (!strcmp(ch_name, DEVICE_NAME)));
+}
+
+/**
+ * spcom_channel_deinit
+ *
+ * @brief      Helper function to handle deinit of SPCOM channel
+ *
+ * @param[in]  ch    SPCOM channel
+ *
+ * @return     zero on successful operation, negative value otherwise.
+ */
+static int spcom_channel_deinit(struct spcom_channel *ch)
+{
+	const char *ch_name = NULL;
+	uint32_t pid = current_pid();
+	bool found = false;
+	uint32_t i = 0;
+
+	ch_name = ch->name;
+
+	if (!pid) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ch->lock);
+
+	/* channel might be already closed or disconnected */
+	if (!spcom_is_channel_open(ch)) {
+		spcom_pr_dbg("ch [%s] already closed\n", ch_name);
+		mutex_unlock(&ch->lock);
+		return 0;
+	}
+
+	/* check that current process is a client of this channel */
+	for (i = 0; i < ch->max_clients; ++i) {
+		if (ch->pid[i] == pid) {
+			found = true;
+			spcom_pr_dbg("pid [%x] is releasing ch [%s]\n", pid, ch_name);
+			ch->pid[i] = 0;
+			break;
+		}
+	}
+
+	/* if the current process is not a valid client of this channel, return an error */
+	if (!found) {
+		spcom_pr_dbg("pid [%d] is not a client of ch [%s]\n", pid, ch_name);
+		mutex_unlock(&ch->lock);
+		return -EFAULT;
+	}
+
+	/* If shared client owner is trying to close channel, release the sync_lock if
+	 * applicable
+	 */
+	if (ch->active_pid == pid) {
+		spcom_pr_dbg("active_pid [%d] is releasing ch [%s] sync lock\n",
+			ch->active_pid, ch_name);
+		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
+	}
+
+	ch->num_clients--;
+	ch->is_busy = false;
+
+	if (ch->rpmsg_rx_buf) {
+		spcom_pr_dbg("ch [%s] discarting unconsumed rx packet actual_rx_size=%zd\n",
+			ch_name, ch->actual_rx_size);
+		kfree(ch->rpmsg_rx_buf);
+		ch->rpmsg_rx_buf = NULL;
+	}
+	ch->actual_rx_size = 0;
+
+	mutex_unlock(&ch->lock);
+
+	return 0;
+}
+
+/**
+ * spcom_send_message
+ *
+ * @brief Helper function to send request/response IOCTL command from user space
+ *
+ * @param[in]  arg            IOCTL command arguments
+ * @param[in]  buffer         user message buffer
+ * @param[in]  is_modified    flag to indicate if this is a modified message or regular message
+ *
+ * Return: 0 on successful operation, negative value otherwise.
+ */
+static int spcom_send_message(void *arg, void *buffer, bool is_modified)
+{
+	struct spcom_channel *ch = NULL;
+	struct spcom_msg_hdr *hdr = NULL;
+	struct spcom_ioctl_message *usr_msg = NULL;
+	struct spcom_ioctl_modified_message *usr_mod_msg = NULL;
+	const char *ch_name = NULL;
+	void *msg_buf = NULL;
+	void *tx_buf = NULL;
+	int tx_buf_size = 0;
+	uint32_t msg_buf_sz = 0;
+	uint32_t dma_info_array_sz = 0;
 	int ret = 0;
+	int time_msec = 0;
+	int timeout_msec = 0;
+	int i = 0;
+
+	/* Parse message command arguments */
+	if (is_modified) {
+		/* Send regular message */
+		usr_mod_msg = arg;
+		msg_buf = buffer;
+		msg_buf_sz = usr_mod_msg->buffer_size;
+		timeout_msec = usr_mod_msg->timeout_msec;
+		ch_name = usr_mod_msg->ch_name;
+	} else {
+		/* Send modified message */
+		usr_msg = arg;
+		msg_buf = buffer;
+		msg_buf_sz = usr_msg->buffer_size;
+		timeout_msec = usr_msg->timeout_msec;
+		ch_name = usr_msg->ch_name;
+	}
+
+	/* Verify channel name */
+	if (!is_valid_ch_name(ch_name)) {
+		spcom_pr_err("invalid channel name\n");
+		return -EINVAL;
+	}
+
+	/* Verify message buffer size */
+	if (msg_buf_sz > SPCOM_MAX_RESPONSE_SIZE) {
+		spcom_pr_err("ch [%s] message size is too big [%d]\n", ch_name, msg_buf_sz);
+		return -EINVAL;
+	}
+
+	/* DEVICE_NAME is reserved for control channel */
+	if (is_control_channel_name(ch_name)) {
+		spcom_pr_err("cannot send message on control channel\n");
+		return -EFAULT;
+	}
+
+	/* Find spcom channel in spcom channel list by name */
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch)
+		return -ENODEV;
+
+	/* Check if remote side connect */
+	if (!spcom_is_channel_connected(ch)) {
+		spcom_pr_err("ch [%s] remote side not connected\n", ch_name);
+		return -ENOTCONN;
+	}
+
+	spcom_pr_dbg("sending message with size [%d], ch [%s]\n", msg_buf_sz, ch_name);
+
+	/* Allocate and prepare Tx buffer */
+	tx_buf_size = sizeof(*hdr) + msg_buf_sz;
+	tx_buf = kzalloc(tx_buf_size, GFP_KERNEL);
+	if (!tx_buf)
+		return -ENOMEM;
+	hdr = tx_buf;
+
+	mutex_lock(&ch->lock);
+
+	/* For SPCOM server, get next request size must be called before sending a response
+	 * if we got here and the role is not set it means the channel is SPCOM client
+	 */
+	if (ch->comm_role_undefined) {
+		spcom_pr_dbg("client ch [%s] sending it's first message\n", ch_name);
+		ch->comm_role_undefined = false;
+		ch->is_server = false;
+	}
+
+	/* Protect shared channel Tx by lock and set the current process as the owner */
+	if (ch->is_sharable) {
+
+		if (ch->is_server) {
+			spcom_pr_err("server spcom channel cannot be shared\n");
+			goto send_message_err;
+		}
+
+		mutex_lock(&ch->shared_sync_lock);
+		ch->active_pid = current_pid();
+	}
+
+	/* SPCom client sets the request txn_id */
+	if (!ch->is_server) {
+		ch->txn_id++;
+		ch->response_timeout_msec = timeout_msec;
+	}
+	hdr->txn_id = ch->txn_id;
+
+	/* Copy user buffer to tx */
+	memcpy(hdr->buf, msg_buf, msg_buf_sz);
+
+	/* For modified message write the DMA buffer addresses to the user defined offset in the
+	 * message buffer
+	 */
+	if (is_modified) {
+		dma_info_array_sz = ARRAY_SIZE(usr_mod_msg->info);
+
+		if (dma_info_array_sz != SPCOM_MAX_DMA_BUF) {
+			spcom_pr_err("invalid info array size [%d], ch[%s]\n", dma_info_array_sz,
+				ch_name);
+			ret = -EINVAL;
+			goto send_message_err;
+		}
+
+		for (i = 0; i < dma_info_array_sz; ++i) {
+			if (usr_mod_msg->info[i].fd >= 0) {
+				ret = modify_dma_buf_addr(ch, hdr->buf, msg_buf_sz,
+					&usr_mod_msg->info[i]);
+				if (ret) {
+					ret = -EFAULT;
+					goto send_message_err;
+				}
+			}
+		}
+	}
+
+	/* Send Tx to remote edge */
+	do {
+		if (ch->rpmsg_abort) {
+			spcom_pr_err("ch [%s] aborted\n", ch_name);
+			ret = -ECANCELED;
+			break;
+		}
+
+		/* may fail when Rx intent not queued by remote edge */
+		ret = rpmsg_trysend(ch->rpdev->ept, tx_buf, tx_buf_size);
+		if (ret == 0) {
+			spcom_pr_dbg("ch[%s]: successfully sent txn_id=%d\n", ch_name, ch->txn_id);
+			break;
+		}
+
+		time_msec += TX_RETRY_DELAY_MSEC;
+
+		/* release channel lock before sleep */
+		mutex_unlock(&ch->lock);
+		msleep(TX_RETRY_DELAY_MSEC);
+		mutex_lock(&ch->lock);
+
+	} while ((ret == -EBUSY || ret == -EAGAIN) && time_msec < timeout_msec);
+
+	if (ret)
+		spcom_pr_err("Tx failed: ch [%s], err [%d], timeout [%d]ms\n",
+			ch_name, ret, timeout_msec);
+
+	ret = msg_buf_sz;
+
+send_message_err:
+
+	if (ret < 0 && ch->is_sharable && ch->active_pid == current_pid()) {
+		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
+	}
+
+	mutex_unlock(&ch->lock);
+	memset(tx_buf, 0, tx_buf_size);
+	kfree(tx_buf);
+	return ret;
+}
+
+/**
+ * is_control_channel
+ *
+ * @brief      Helper function to check if device file if of a control channel
+ *
+ * @param[in]  file    device file
+ *
+ * @return     true if file is control device file, false otherwise.
+ */
+static inline bool is_control_channel(struct file *file)
+{
+	return (!strcmp(file_to_filename(file), DEVICE_NAME)) ? true : false;
+}
+
+/**
+ * spcom_ioctl_handle_restart_spu_command
+ *
+ * @brief  Handle SPU restart IOCTL command from user space
+ *
+ * @return zero on success, negative value otherwise.
+ */
+static int spcom_ioctl_handle_restart_spu_command(void)
+{
+	int ret = 0;
+
+	spcom_pr_dbg("SPSS restart command\n");
+
+	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(spcom_dev->rproc_prop->value));
+	if (!spcom_dev->spss_rproc) {
+		pr_err("rproc device not found\n");
+		return -ENODEV;  /* no spss peripheral exist */
+	}
+
+	ret = rproc_boot(spcom_dev->spss_rproc);
+	if (ret == -ETIMEDOUT) {
+		/* userspace should handle retry if needed */
+		spcom_pr_err("FW loading process timeout\n");
+	} else if (ret) {
+		/*
+		 *  SPU shutdown. Return value comes from SPU PBL message.
+		 *  The error is not recoverable and userspace handles it
+		 *  by request and analyse rmb_error value
+		 */
+		spcom_dev->rmb_error = (uint32_t)ret;
+		spcom_pr_err("spss crashed during device bootup rmb_error[0x%x]\n",
+			     spcom_dev->rmb_error);
+		ret = -ENODEV;
+	} else {
+		spcom_pr_info("FW loading process is complete\n");
+	}
+
+	return ret;
+}
+
+/**
+ * spcom_create_channel
+ *
+ * @brief      Helper function to create spcom channel
+ *
+ * @param[in]  ch_name        spcom channel name
+ * @param[in]  is_sharable    true if sharable channel, false otherwise
+ *
+ * @return     zero on success, negative value otherwise.
+ */
+static int spcom_create_channel(const char *ch_name, bool is_sharable)
+{
+	struct spcom_channel *ch = NULL;
+	struct spcom_channel *free_ch = NULL;
+	int ret = 0;
+	int i = 0;
+
+	/* check if spcom remove was called */
+	if (atomic_read(&spcom_dev->remove_in_progress)) {
+		spcom_pr_err("module remove in progress\n");
+		ret = -ENODEV;
+	}
+
+	if (!is_valid_ch_name(ch_name)) {
+		spcom_pr_err("invalid channel name\n");
+		return -EINVAL;
+	}
+
+	if (is_control_channel_name(ch_name)) {
+		spcom_pr_err("cannot create control channel\n");
+		return -EINVAL;
+	}
+
+	spcom_pr_dbg("create spcom channel, name[%s], is sharable[%d]\n", ch_name, is_sharable);
+
+	for (i = 0; i < SPCOM_MAX_CHANNELS; ++i) {
+
+		/* Check if channel already exist */
+		ch = &spcom_dev->channels[i];
+		if (!strcmp(ch->name, ch_name))
+			break;
+
+		/* Keep address of first free channel */
+		if (!free_ch && ch->name[0] == 0)
+			free_ch = ch;
+	}
+
+	/* Channel doesn't exist */
+	if (i == SPCOM_MAX_CHANNELS) {
+
+		/* No free slot to create a new channel */
+		if (!free_ch) {
+			spcom_pr_err("no free channel\n");
+			return -ENODEV;
+		}
+
+		/* Create a new channel */
+		ret = spcom_init_channel(free_ch, is_sharable, ch_name);
+		if (ret)
+			ret = -ENODEV;
+
+	} else if (is_sharable) {
+
+		/* Channel is already created as sharable */
+		if (spcom_dev->channels[i].is_sharable) {
+			spcom_pr_err("already created channel as sharable\n");
+			return -EALREADY;
+		}
+
+		/* Cannot create sharable channel if channel already created */
+		spcom_pr_err("channel already exist, cannot create sharable channel\n");
+		ret = -EINVAL;
+	}
+
+	if (ret)
+		spcom_pr_err("create channel [%s] failed, ret[%d]\n", ch_name, ret);
+	else
+		spcom_pr_dbg("create channel [%s] is done\n", ch_name);
+
+	return ret;
+}
+
+/**
+ * spcom_ioctl_handle_create_shared_ch_command
+ *
+ * @brief      Handle SPCOM create shared channel IOCTL command from user space
+ *
+ * @param[in]  arg    SPCOM create shared channel IOCTL command arguments
+ *
+ * @return     zero on success, negative value otherwise.
+ */
+static inline int spcom_ioctl_handle_create_shared_ch_command(struct spcom_ioctl_ch *arg)
+{
+	int ret = 0;
+
+	/* Lock before modifying spcom device global channel list */
+	mutex_lock(&spcom_dev->ch_list_lock);
+
+	ret = spcom_create_channel(arg->ch_name, true /*sharable*/);
+
+	/* Unlock spcom device global channel list */
+	mutex_unlock(&spcom_dev->ch_list_lock);
+
+	return ret;
+}
+
+/**
+ * spcom_handle_channel_register_command
+ *
+ * @brief      Handle register to SPCOM channel IOCTL command from user space
+ *
+ *             Handle both create SPCOM channel (if needed) and register SPCOM channel to avoid
+ *             race condition between two processes trying to register to the same channel. The
+ *             channel list is protected by a single lock during the create and register flow.
+ *
+ * @param[in]  arg    IOCTL command arguments
+ *
+ * @return     zero on success, negative value otherwise.
+ */
+static int spcom_ioctl_handle_channel_register_command(struct spcom_ioctl_ch *arg)
+{
+	struct spcom_channel *ch = NULL;
+	const char *ch_name =  arg->ch_name;
+	int ret = 0;
+
+	if (!current_pid()) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
+	}
+
+	/* Lock before modifying spcom device global channel list */
+	mutex_lock(&spcom_dev->ch_list_lock);
+
+	ret = spcom_create_channel(ch_name, false /*non-sharable*/);
+	if (ret) {
+		mutex_unlock(&spcom_dev->ch_list_lock);
+		return ret;
+	}
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch) {
+		mutex_unlock(&spcom_dev->ch_list_lock);
+		return -ENODEV;
+	}
+
+	/* If channel open is called for the first time need to register rpmsg_drv
+	 * Please note: spcom_register_rpmsg_drv acquire the channel lock
+	 */
+	if (!spcom_is_channel_open(ch)) {
+		reinit_completion(&ch->connect);
+		ret = spcom_register_rpmsg_drv(ch);
+		if (ret < 0) {
+			mutex_unlock(&spcom_dev->ch_list_lock);
+			spcom_pr_err("register rpmsg driver failed %d\n", ret);
+			return ret;
+		}
+	}
+
+	ret = spcom_register_channel(ch);
+
+	/* Unlock spcom device global channel list */
+	mutex_unlock(&spcom_dev->ch_list_lock);
+
+	return ret;
+}
+
+/**
+ * spcom_ioctl_handle_channel_unregister_commnad
+ *
+ * @brief      Handle SPCOM channel unregister IOCTL command from user space
+ *
+ * @param[in]  arg    IOCTL command arguments
+ *
+ * @return     zero on successful operation, negative value otherwise.
+ */
+static int spcom_ioctl_handle_channel_unregister_command(struct spcom_ioctl_ch *arg)
+{
+	struct spcom_channel *ch = NULL;
+	const char *ch_name = NULL;
+	int ret = 0;
+
+	if (!current_pid()) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
+	}
+
+	spcom_pr_dbg("unregister channel cmd arg: ch_name[%s]\n", arg->ch_name);
+
+	ch_name = arg->ch_name;
+	if (!is_valid_ch_name(ch_name)) {
+		spcom_pr_err("invalid channel name\n");
+		return -EINVAL;
+	}
+
+	if (is_control_channel_name(ch_name)) {
+		spcom_pr_err("cannot unregister control channel\n");
+		return -EINVAL;
+	}
+
+	/* Lock before modifying spcom device global channel list */
+	mutex_lock(&spcom_dev->ch_list_lock);
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch) {
+		spcom_pr_err("could not find channel[%s]\n", ch_name);
+		mutex_unlock(&spcom_dev->ch_list_lock);
+		return -ENODEV;
+	}
+
+	/* Reset channel context */
+	ret = spcom_channel_deinit(ch);
+
+	/* Unlock spcom device global channel list */
+	mutex_unlock(&spcom_dev->ch_list_lock);
+
+	spcom_pr_dbg("spcom unregister ch[%s] is done, ret[%d]\n", ch_name, ret);
+
+	return ret;
+}
+
+/**
+ * spcom_ioctl_handle_is_channel_connected
+ *
+ * @brief     Handle check if SPCOM channel is connected IOCTL command from user space
+ *
+ * @arg[in]   IOCTL command arguments
+ *
+ * @return    zero if not connected, positive value if connected, negative value otherwise.
+ */
+static int spcom_ioctl_handle_is_channel_connected(struct spcom_ioctl_ch *arg)
+{
+	const char *ch_name = arg->ch_name;
+	struct spcom_channel *ch = NULL;
+	int ret = 0;
+
+	spcom_pr_dbg("Is channel connected cmd arg: ch_name[%s]\n", arg->ch_name);
+
+	if (!is_valid_ch_name(ch_name)) {
+		spcom_pr_err("invalid channel name\n");
+		return -EINVAL;
+	}
+
+	if (is_control_channel_name(ch_name)) {
+		spcom_pr_err("invalid control device: %s\n", ch_name);
+		return -EINVAL;
+	}
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch) {
+		spcom_pr_err("could not find channel[%s]\n", ch_name);
+		return -EINVAL;
+	}
+
+	mutex_lock(&ch->lock);
+	/* rpdev is set during spcom_rpdev_probe when remote app is loaded */
+	ret = (ch->rpdev != NULL) ? 1 : 0;
+	mutex_unlock(&ch->lock);
+
+	return ret;
+}
+
+/**
+ * spcom_ioctl_handle_lock_dmabuf_commnad
+ *
+ * @brief      Handle DMA buffer lock IOCTL command from user space
+ *
+ * @param[in]  arg    IOCTL command arguments
+ *
+ * @return     zero on successful operation, negative value otherwise.
+ */
+static int spcom_ioctl_handle_lock_dmabuf_command(struct spcom_ioctl_dmabuf_lock *arg)
+{
+	struct spcom_channel *ch = NULL;
+	struct dma_buf *dma_buf = NULL;
+	const char *ch_name = NULL;
+	uint32_t pid = current_pid();
+	int fd = 0;
+	int i = 0;
+
+	spcom_pr_dbg("Lock dmabuf cmd arg: ch_name[%s], fd[%d], padding[%u], PID[%ld]\n",
+		arg->ch_name, arg->fd, arg->padding, current_pid());
+
+	ch_name = arg->ch_name;
+	if (!is_valid_ch_name(ch_name)) {
+		spcom_pr_err("invalid channel name\n");
+		return -EINVAL;
+	}
+
+	fd = arg->fd;
+
+	if (!pid) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
+	}
+
+	if (fd > (unsigned int)INT_MAX) {
+		spcom_pr_err("int overflow [%u]\n", fd);
+		return -EINVAL;
+	}
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch) {
+		spcom_pr_err("could not find channel[%s]\n", ch_name);
+		return -ENODEV;
+	}
+
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		spcom_pr_err("fail to get dma buf handle\n");
+		return -EINVAL;
+	}
+
+	/* DMA buffer lock doesn't involve any Rx/Tx data to remote edge */
+	mutex_lock(&ch->lock);
+
+	/* Check if channel is open */
+	if (!spcom_is_channel_open(ch)) {
+		spcom_pr_err("Channel [%s] is closed\n", ch_name);
+		mutex_unlock(&ch->lock);
+		dma_buf_put(dma_buf);
+		return -EINVAL;
+	}
+
+	/* Check if this shared buffer is already locked */
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array); i++) {
+		if (ch->dmabuf_array[i].handle == dma_buf) {
+			spcom_pr_dbg("fd [%d] shared buf is already locked\n", fd);
+			mutex_unlock(&ch->lock);
+			dma_buf_put(dma_buf); /* decrement back the ref count */
+			return -EINVAL;
+		}
+	}
+
+	/* Store the dma_buf handle */
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array); i++) {
+
+		struct dma_buf_info *curr_buf = &ch->dmabuf_array[i];
+
+		if (curr_buf->handle == NULL) {
+			curr_buf->handle = dma_buf;
+			curr_buf->fd = fd;
+			curr_buf->owner_pid = pid;
+
+			spcom_pr_dbg("ch [%s] locked dma buf #%d fd [%d] dma_buf=0x%pK pid #%d\n",
+				ch_name, i, curr_buf->fd, curr_buf->handle, curr_buf->owner_pid);
+
+			mutex_unlock(&ch->lock);
+			return 0;
+		}
+	}
+
+	mutex_unlock(&ch->lock);
+
+	/* decrement back the ref count */
+	dma_buf_put(dma_buf);
+
+	spcom_pr_err("No free entry to store dmabuf handle of fd [%d] on ch [%s]\n", fd, ch_name);
+
+	return -EFAULT;
+}
+
+/**
+ * spcom_ioctl_handle_unlock_dmabuf_commnad
+ *
+ * @brief      Handle DMA buffer unlock IOCTL command from user space
+ *
+ * @param[in]  arg    IOCTL command arguments
+ *
+ * @return     zero on success, negative value otherwise.
+ */
+static int spcom_ioctl_handle_unlock_dmabuf_command(struct spcom_ioctl_dmabuf_lock *arg)
+{
+	struct spcom_channel *ch = NULL;
+	struct dma_buf *dma_buf = NULL;
+	const char *ch_name = NULL;
+	struct dma_buf *curr_handle = NULL;
+	bool found = false;
+	int fd = 0;
+	int i = 0;
+	int ret = 0;
+	bool unlock_all = false;
+
+	spcom_pr_dbg("Unlock dmabuf cmd arg: ch_name[%s], fd[%d], padding[%u], PID[%ld]\n",
+		arg->ch_name, arg->fd, arg->padding, current_pid());
+
+	ch_name = arg->ch_name;
+	if (!is_valid_ch_name(ch_name))
+		return -EINVAL;
+
+	fd = arg->fd;
+
+	if (fd > (unsigned int)INT_MAX) {
+		spcom_pr_err("int overflow [%u]\n", fd);
+		return -EINVAL;
+	}
+
+	if (fd == (int) SPCOM_DMABUF_FD_UNLOCK_ALL) {
+		spcom_pr_dbg("unlock all FDs of PID [%d]\n", current_pid());
+		unlock_all = true;
+	}
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch)
+		return -ENODEV;
+
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		spcom_pr_err("Failed to get dma buf handle, fd [%d]\n", fd);
+		return -EINVAL;
+	}
+	dma_buf_put(dma_buf);
+
+	mutex_lock(&ch->lock);
+
+	if (unlock_all) { /* Unlock all buffers of current PID on channel */
+		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++) {
+			if (spcom_dmabuf_unlock(&ch->dmabuf_array[i]) == 0)
+				found = true;
+		}
+	} else { /* Unlock specific buffer if owned by current PID */
+		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++) {
+			curr_handle = ch->dmabuf_array[i].handle;
+			if (curr_handle && curr_handle == dma_buf) {
+				ret = spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
+				found = true;
+				break;
+			}
+		}
+	}
+
+	mutex_unlock(&ch->lock);
+
+	if (!found) {
+		spcom_pr_err("Buffer fd [%d] was not found for PID [%u] on channel [%s]\n",
+			fd, current_pid(), ch_name);
+		return -ENODEV;
+	}
+
+	return ret;
+}
+
+/**
+ * spcom_ioctl_handle_get_message
+ *
+ * @brief      Handle get message (request or response) IOCTL command from user space
+ *
+ * @param[in]   arg                 IOCTL command arguments
+ * @param[out]  user_buffer         user space buffer to copy message to
+ *
+ * @return     size in bytes on success, negative value on failure.
+ */
+static int spcom_ioctl_handle_get_message(struct spcom_ioctl_message *arg, void *user_buffer)
+{
+	struct spcom_channel *ch = NULL;
+	struct spcom_msg_hdr *hdr = NULL;
+	const char *ch_name = NULL;
+	void *rx_buf = NULL;
+	int rx_buf_size = 0;
+	uint32_t msg_sz = arg->buffer_size;
+	uint32_t timeout_msec = 0; /* client only */
+	int ret = 0;
+
+	spcom_pr_dbg("Get message cmd arg: ch_name[%s], timeout_msec [%u], buffer size[%u]\n",
+		arg->ch_name, arg->timeout_msec, arg->buffer_size);
+
+	ch_name = arg->ch_name;
+	if (!is_valid_ch_name(ch_name)) {
+		spcom_pr_err("invalid channel name\n");
+		ret = -EINVAL;
+		goto get_message_out;
+	}
+
+	/* DEVICE_NAME name is reserved for control channel */
+	if (is_control_channel_name(ch_name)) {
+		spcom_pr_err("cannot send message on management channel\n", ch_name);
+		ret = -EFAULT;
+		goto get_message_out;
+	}
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch)
+		return -ENODEV;
+
+	/* Check if remote side connect */
+	if (!spcom_is_channel_connected(ch)) {
+		spcom_pr_err("ch [%s] remote side not connect\n", ch_name);
+		ret = -ENOTCONN;
+		goto get_message_out;
+	}
+
+	/* Check param validity */
+	if (msg_sz > SPCOM_MAX_RESPONSE_SIZE) {
+		spcom_pr_err("ch [%s] invalid size [%d]\n", ch_name, msg_sz);
+		ret = -EINVAL;
+		goto get_message_out;
+	}
+
+	spcom_pr_dbg("waiting for incoming message, ch[%s], size[%u]\n", ch_name, msg_sz);
+
+	/* Allocate Buffers*/
+	rx_buf_size = sizeof(*hdr) + msg_sz;
+	rx_buf = kzalloc(rx_buf_size, GFP_KERNEL);
+	if (!rx_buf) {
+		ret = -ENOMEM;
+		goto get_message_out;
+	}
+
+	/* Client response timeout depends on the request handling time on the remote side
+	 * Server send response to remote edge and return immediately, timeout isn't needed
+	 */
+	if (!ch->is_server) {
+		timeout_msec = ch->response_timeout_msec;
+		spcom_pr_dbg("response timeout_msec [%d]\n", (int) timeout_msec);
+	}
+
+	ret = spcom_rx(ch, rx_buf, rx_buf_size, timeout_msec);
+	if (ret < 0) {
+		spcom_pr_err("rx error %d\n", ret);
+		goto get_message_out;
+	}
+
+	msg_sz = ret; /* actual_rx_size */
+	hdr = rx_buf;
+
+	if (ch->is_server) {
+		ch->txn_id = hdr->txn_id; /* SPCOM server sets the request tnx_id */
+		spcom_pr_dbg("ch[%s]: request txn_id [0x%x]\n", ch_name, ch->txn_id);
+	}
+
+	/* Verify incoming message size */
+	if (msg_sz <= sizeof(*hdr)) {
+		spcom_pr_err("rx size [%d] too small\n", msg_sz);
+		ret = -EFAULT;
+		goto get_message_out;
+	}
+
+	/* Copy message to user */
+	msg_sz -= sizeof(*hdr);
+
+	spcom_pr_dbg("copying message to user space, size: [%d]\n", msg_sz);
+	ret = copy_to_user(user_buffer, hdr->buf, msg_sz);
+	if (ret) {
+		spcom_pr_err("failed to copy to user, ret [%d]\n");
+		ret = -EFAULT;
+		goto get_message_out;
+	}
+
+	ret = msg_sz;
+	spcom_pr_dbg("get message done, msg size[%d]\n", msg_sz);
+
+get_message_out:
+
+	if (ch && ch->active_pid == current_pid()) {
+		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
+	}
+
+	kfree(rx_buf);
+
+	return ret;
+}
+
+/**
+ * spcom_ioctl_handle_poll_event
+ *
+ * @brief       Handle SPCOM event poll ioctl command from user space
+ *
+ * @param[in]   arg            IOCTL command arguments
+ * @param[out]  user_retval    user space address of poll return value
+ *
+ * @return  Zero on success, negative value on failure.
+ */
+static int spcom_ioctl_handle_poll_event(struct spcom_ioctl_poll_event *arg, int32_t *user_retval)
+{
+	int ret = 0;
+	uint32_t link_state = 0;
+
+	spcom_pr_dbg("Handle poll event cmd args: event_id[%d], wait[%u], retval[%d], padding[%d]\n",
+		arg->event_id, arg->wait, arg->retval, arg->padding);
+
+	switch (arg->event_id) {
+	case SPCOM_EVENT_LINK_STATE:
+	{
+		if (arg->wait) {
+			reinit_completion(&spcom_dev->rpmsg_state_change);
+			ret = wait_for_completion_interruptible(
+				&spcom_dev->rpmsg_state_change);
+
+			if (ret) {/* wait was interrupted */
+				spcom_pr_info("Wait for link state change interrupted, ret[%d]\n",
+						ret);
+				return -EINTR;
+			}
+		}
+
+		if (atomic_read(&spcom_dev->rpmsg_dev_count) > 0)
+			link_state = 1;
+
+		spcom_pr_dbg("SPCOM link state change: Signaled [%d], PID [%d]\n",
+			link_state, current_pid());
+
+		ret = put_user(link_state, user_retval);
+		if (ret) {
+			spcom_pr_err("unable to copy link state to user [%d]\n", ret);
+			return -EFAULT;
+		}
+
+		return 0;
+	}
+	default:
+		spcom_pr_err("SPCOM handle poll unsupported event id [%u]\n", arg->event_id);
+		return -EINVAL;
+	}
+
+	return -EBADRQC;
+}
+
+/**
+ * spcom_ioctl_handle_get_next_req_msg_size
+ *
+ * @brief  Handle user space get next request message size IOCTL command from user space
+ *
+ * @param  arg[in]               IOCTL command arguments
+ * @param  user_req_size[out]    user space next request size pointer
+ *
+ * @Return size in bytes on success, negative value on failure.
+ */
+static int spcom_ioctl_handle_get_next_req_msg_size(struct spcom_ioctl_next_request_size *arg,
+		uint32_t *user_size)
+{
+	struct spcom_channel *ch = NULL;
+	const char *ch_name = NULL;
+	int ret = 0;
+
+	spcom_pr_dbg("Get next request msg size cmd arg: ch_name[%s], size[%u], padding[%d]\n",
+		arg->ch_name, arg->size, arg->padding);
+
+	ch_name = arg->ch_name;
+	if (!is_valid_ch_name(ch_name))
+		return -EINVAL;
+
+	ch = spcom_find_channel_by_name(ch_name);
+	if (!ch)
+		return -ENODEV;
+
+	ret = spcom_get_next_request_size(ch);
+	if (ret < 0)
+		return ret;
+
+	spcom_pr_dbg("Channel[%s], next request size[%d]\n", ch_name, ret);
+
+	/* Copy next request size to user space */
+	ret = put_user(ret, user_size);
+	if (ret) {
+		spcom_pr_err("unable to copy to user [%d]\n", ret);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/**
+ * spcom_ioctl_handle_copy_and_send_message
+ *
+ * @brief      Handle SPCOM send message (request or response) IOCTL command from user space
+ *
+ * @param[in]  arg              IOCTL command arguments
+ * @param[in]  user_msg_buffer  user message buffer
+ * @param[in]  is_modified      flag to indicate if this is a modified message or regular message
+ *
+ * @return:    zero on success, negative value otherwise.
+ */
+static int spcom_ioctl_handle_copy_and_send_message(void *arg, void *user_msg_buffer,
+	bool is_modified)
+{
+	struct spcom_ioctl_modified_message *mod_msg = NULL;
+	struct spcom_ioctl_message *msg = NULL;
+	void *msg_buffer_copy = NULL;
+	uint32_t buffer_size = 0;
+	int ret = 0;
+
+	if (is_modified) {
+		mod_msg = (struct spcom_ioctl_modified_message *)arg;
+		buffer_size = mod_msg->buffer_size;
+	} else {
+		msg = (struct spcom_ioctl_message *)arg;
+		buffer_size = msg->buffer_size;
+	}
+
+	msg_buffer_copy = kzalloc(buffer_size, GFP_KERNEL);
+	if (!msg_buffer_copy)
+		return -ENOMEM;
+
+	spcom_pr_dbg("copying message buffer from user space, size[%u]\n", buffer_size);
+	ret = copy_from_user(msg_buffer_copy, user_msg_buffer, buffer_size);
+	if (ret) {
+		spcom_pr_err("failed to copy from user, ret [%d]\n", ret);
+		kfree(msg_buffer_copy);
+		return -EFAULT;
+	}
+
+	/* Send SPCOM message to remote edge */
+	ret = spcom_send_message(arg, msg_buffer_copy, is_modified);
+	kfree(msg_buffer_copy);
+	return ret;
+}
+
+/**
+ * spcom_ioctl_copy_user_arg
+ *
+ * Helper function to copy user arguments of IOCTL commands
+ *
+ * @user_arg:  user IOCTL command arguments pointer
+ * @arg_copy:  internal copy of user arguments
+ * @size:      size of user arguments struct
+ *
+ * @return:    zero on success, negative value otherwise.
+ */
+static inline int spcom_ioctl_copy_user_arg(void *user_arg, void *arg_copy, uint32_t size)
+{
+	int ret = 0;
+
+	if (!user_arg) {
+		spcom_pr_err("user arg is NULL\n");
+		return -EINVAL;
+	}
+
+	ret = copy_from_user(arg_copy, user_arg, size);
+	if (ret) {
+		spcom_pr_err("copy from user failed, size [%u], ret[%d]\n", size, ret);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+bool is_arg_size_expected(unsigned int cmd, uint32_t arg_size)
+{
+	uint32_t expected_size = 0;
+
+	switch (cmd) {
+	case SPCOM_POLL_STATE:
+		expected_size = sizeof(struct spcom_poll_param);
+		break;
+
+	case SPCOM_IOCTL_STATE_POLL:
+		expected_size = sizeof(struct spcom_ioctl_poll_event);
+		break;
+	case SPCOM_IOCTL_SEND_MSG:
+	case SPCOM_IOCTL_GET_MSG:
+		expected_size = sizeof(struct spcom_ioctl_message);
+		break;
+	case SPCOM_IOCTL_SEND_MOD_MSG:
+		expected_size = sizeof(struct spcom_ioctl_modified_message);
+		break;
+	case SPCOM_IOCTL_GET_NEXT_REQ_SZ:
+		expected_size = sizeof(struct spcom_ioctl_next_request_size);
+		break;
+	case SPCOM_IOCTL_SHARED_CH_CREATE:
+	case SPCOM_IOCTL_CH_REGISTER:
+	case SPCOM_IOCTL_CH_UNREGISTER:
+	case SPCOM_IOCTL_CH_IS_CONNECTED:
+		expected_size = sizeof(struct spcom_ioctl_ch);
+		break;
+	case SPCOM_IOCTL_DMABUF_LOCK:
+	case SPCOM_IOCTL_DMABUF_UNLOCK:
+		expected_size = sizeof(struct spcom_ioctl_dmabuf_lock);
+		break;
+	default:
+		spcom_pr_err("No userspace data for ioctl cmd[%ld]\n", cmd);
+		return false;
+	}
+
+	if (arg_size != expected_size) {
+		spcom_pr_err("Invalid cmd size: cmd[%ld], arg size[%u], expected[%u]\n",
+				cmd, arg_size, expected_size);
+		return false;
+	}
+
+	return true;
+}
+
+static long spcom_device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	void __user *user_arg = (void __user *)arg;
+	union spcom_ioctl_arg arg_copy = {0};
+	uint32_t arg_size = 0;
+	int ret = 0;
+
+	spcom_pr_dbg("ioctl cmd [%u], PID [%d]\n", _IOC_NR(cmd), current_pid());
 
 	if (atomic_read(&spcom_dev->remove_in_progress)) {
 		spcom_pr_err("module remove in progress\n");
 		return -ENODEV;
 	}
 
-	if (strcmp(name, "unknown") == 0) {
-		spcom_pr_err("name is unknown\n");
+	if (!is_control_channel(file)) {
+		spcom_pr_err("ioctl is supported only for control channel\n");
 		return -EINVAL;
 	}
 
-	switch (ioctl) {
-	case SPCOM_SET_IONFD:
-		ret = get_user(spcom_dev->nvm_ion_fd, (int32_t *)arg);
-		break;
-	case SPCOM_GET_IONFD:
-		ret = put_user(spcom_dev->nvm_ion_fd, (int32_t *)arg);
-		break;
-	case SPCOM_GET_RMB_ERROR:
-		ret = put_user(spcom_dev->rmb_error, (uint32_t *)arg);
-		break;
-	case SPCOM_POLL_STATE:
-		ret = copy_from_user(&op, argp,
-				     sizeof(struct spcom_poll_param));
-		if (ret) {
-			spcom_pr_err("Unable to copy from user [%d]\n", ret);
-			return -EINVAL;
-		}
+	if ((_IOC_DIR(cmd) & _IOC_WRITE)) {
+		arg_size = _IOC_SIZE(cmd);
+		if (!is_arg_size_expected(cmd, arg_size))
+			return -EFAULT;
 
-		ret = handle_poll(file, &op);
+		ret = spcom_ioctl_copy_user_arg(user_arg, &arg_copy, arg_size);
 		if (ret)
 			return ret;
-
-		ret = copy_to_user(argp, &op,
-				   sizeof(struct spcom_poll_param));
-		if (ret) {
-			spcom_pr_err("Unable to copy to user [%d]\n", ret);
-			return -EINVAL;
-		}
-		break;
-	default:
-		spcom_pr_err("Unsupported ioctl:%d\n", ioctl);
-		ret = -ENOIOCTLCMD;
-
 	}
-	return ret;
+
+	switch (cmd) {
+	case SPCOM_POLL_STATE:
+		return handle_poll(file, &(arg_copy.poll),
+			&((struct spcom_poll_param *)user_arg)->retval);
+
+	case SPCOM_GET_RMB_ERROR:
+		return put_user(spcom_dev->rmb_error, (uint32_t *)arg);
+
+	case SPCOM_IOCTL_STATE_POLL:
+		return spcom_ioctl_handle_poll_event(
+			&(arg_copy.poll_event),
+			&((struct spcom_ioctl_poll_event *)user_arg)->retval);
+
+	case SPCOM_IOCTL_SEND_MSG:
+		return spcom_ioctl_handle_copy_and_send_message(&(arg_copy.message),
+			((struct spcom_ioctl_message *)user_arg)->buffer, false);
+
+	case SPCOM_IOCTL_SEND_MOD_MSG:
+		return spcom_ioctl_handle_copy_and_send_message(&(arg_copy.message),
+			((struct spcom_ioctl_modified_message *)user_arg)->buffer, true);
+
+	case SPCOM_IOCTL_GET_NEXT_REQ_SZ:
+		return spcom_ioctl_handle_get_next_req_msg_size(&(arg_copy.next_req_size),
+			&((struct spcom_ioctl_next_request_size *)user_arg)->size);
+
+	case SPCOM_IOCTL_GET_MSG:
+		return spcom_ioctl_handle_get_message(&(arg_copy.message),
+			((struct spcom_ioctl_message *)user_arg)->buffer);
+
+	case SPCOM_IOCTL_SHARED_CH_CREATE:
+		return spcom_ioctl_handle_create_shared_ch_command(&(arg_copy.channel));
+
+	case SPCOM_IOCTL_CH_REGISTER:
+		return spcom_ioctl_handle_channel_register_command(&(arg_copy.channel));
+
+	case SPCOM_IOCTL_CH_UNREGISTER:
+		return spcom_ioctl_handle_channel_unregister_command(&(arg_copy.channel));
+
+	case SPCOM_IOCTL_CH_IS_CONNECTED:
+		return spcom_ioctl_handle_is_channel_connected(&(arg_copy.channel));
+
+	case SPCOM_IOCTL_DMABUF_LOCK:
+		return spcom_ioctl_handle_lock_dmabuf_command(&(arg_copy.dmabuf_lock));
+
+	case SPCOM_IOCTL_DMABUF_UNLOCK:
+		return spcom_ioctl_handle_unlock_dmabuf_command(&(arg_copy.dmabuf_lock));
+
+	case SPCOM_IOCTL_RESTART_SPU:
+		return spcom_ioctl_handle_restart_spu_command();
+
+	case SPCOM_IOCTL_ENABLE_SSR:
+		return spcom_handle_enable_ssr_command();
+
+	default:
+		spcom_pr_err("ioctl cmd[%d] is not supported\n", cmd);
+	}
+
+	return -ENOIOCTLCMD;
 }
 
 /* file operation supported from user space */
@@ -2085,9 +3379,8 @@ static int spcom_destroy_channel_chardev(const char *name)
 	}
 
 	ret = spcom_unregister_rpmsg_drv(ch);
-	if (ret < 0) {
+	if (ret < 0)
 		spcom_pr_err("unregister rpmsg driver failed %d\n", ret);
-	}
 
 	mutex_lock(&ch->lock);
 	device_destroy(spcom_dev->driver_class, ch->devt);
@@ -2464,8 +3757,10 @@ static int spcom_register_rpmsg_drv(struct spcom_channel *ch)
 
 static int spcom_unregister_rpmsg_drv(struct spcom_channel *ch)
 {
-	if (!ch->rpdrv)
+	if (!ch->rpdrv) {
+		spcom_pr_err("rpdev is NULL, can't unregister rpmsg drv\n");
 		return -ENODEV;
+	}
 	unregister_rpmsg_driver(ch->rpdrv);
 
 	mutex_lock(&ch->lock);
@@ -2522,6 +3817,7 @@ static int spcom_probe(struct platform_device *pdev)
 	spin_lock_init(&spcom_dev->rx_lock);
 	spcom_dev->nvm_ion_fd = -1;
 	spcom_dev->rmb_error = 0;
+	mutex_init(&spcom_dev->ch_list_lock);
 
 	ret = spcom_register_chardev();
 	if (ret) {

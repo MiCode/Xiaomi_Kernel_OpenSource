@@ -153,6 +153,9 @@ struct memory_refresh_request {
 
 static struct section_stat *mem_info;
 
+static int nopasr;
+module_param_named(nopasr, nopasr, uint, 0644);
+
 static void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
@@ -1051,8 +1054,12 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 	unsigned long start_pfn = fc->start_pfn;
 	unsigned long end_pfn = fc->end_pfn;
 	LIST_HEAD(tmp);
-	struct zone *dst_zone = page_zone(pfn_to_page(start_pfn));
+	struct zone *dst_zone;
 
+	if (!(start_pfn < end_pfn))
+		return;
+
+	dst_zone = page_zone(pfn_to_page(start_pfn));
 	if (zone_page_state(dst_zone, NR_FREE_PAGES) < high_wmark_pages(dst_zone))
 		return;
 
@@ -1704,6 +1711,11 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	unsigned int total_blks;
 	int ret, i;
 	ktime_t now;
+
+	if (nopasr) {
+		pr_info("mem-offline: nopasr mode enabled. Skipping probe\n");
+		return 0;
+	}
 
 	ret = mem_parse_dt(pdev);
 	if (ret)

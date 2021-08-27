@@ -1414,6 +1414,13 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 	unsigned int geni_ios;
 	static unsigned int ios_log_limit;
 
+	/* when start_tx is called with UART clocks OFF return. */
+	if (uart_console(uport) && msm_port->is_clock_off) {
+		IPC_LOG_MSG(msm_port->console_log,
+			"%s. Console in suspend state\n", __func__);
+		return;
+	}
+
 	if (!uart_console(uport) && !pm_runtime_active(uport->dev)) {
 		PRINT_LOG(5, LOG_LEVEL, msm_port->ipc_log_misc, __func__, STR,
 				"Putting in async RPM vote");
@@ -3554,13 +3561,17 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to Read FW ver: %d\n", ret);
 		goto exit_geni_serial_probe;
 	}
+	/*
+	 * In abrupt kill scenarios, previous state of the uart causing runtime
+	 * resume, lead to spinlock bug in stop_rx_sequencer, so initializing it
+	 * before
+	 */
+	if (!dev_port->is_console)
+		spin_lock_init(&dev_port->rx_lock);
 
 	ret = uart_add_one_port(drv, uport);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to register uart_port: %d\n", ret);
-
-	if (!dev_port->is_console)
-		spin_lock_init(&dev_port->rx_lock);
 
 exit_geni_serial_probe:
 	PRINT_LOG(6, LOG_LEVEL, dev_port->ipc_log_misc, __func__, INT, "ret", ret);
@@ -3742,6 +3753,7 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 	} else if (uart_console(uport)) {
 		uart_suspend_port((struct uart_driver *)uport->private_data,
 					uport);
+		IPC_LOG_MSG(port->console_log, "%s\n", __func__);
 	} else {
 		struct uart_state *state = uport->state;
 		struct tty_port *tty_port = &state->port;
@@ -3773,6 +3785,7 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 	    console_suspend_enabled && uport->suspended) {
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);
+		IPC_LOG_MSG(port->console_log, "%s\n", __func__);
 	}
 	return 0;
 }

@@ -70,7 +70,7 @@ struct va_md_s_data {
 };
 
 struct va_minidump_data va_md_data;
-static DEFINE_SPINLOCK(va_md_lock);
+static DEFINE_MUTEX(va_md_lock);
 
 #define to_va_md_attr(_attr) container_of(_attr, struct va_md_attribute, attr)
 #define to_va_md_s_data(obj) container_of(obj, struct va_md_s_data, s_kobj)
@@ -177,7 +177,7 @@ int qcom_va_md_register(char *name, struct notifier_block *nb)
 		return -ENOMEM;
 
 	nbl->nb = *nb;
-	spin_lock(&va_md_lock);
+	mutex_lock(&va_md_lock);
 	kobj = kset_find_obj(va_md_data.va_md_kset, name);
 	if (kobj) {
 		pr_warn("subsystem: %s is already registered\n", name);
@@ -230,7 +230,7 @@ register_notifier:
 	atomic_notifier_chain_register(&va_md_s_data->va_md_s_notif_list, &nbl->nb);
 	list_add_tail(&nbl->nb_list, &va_md_s_data->va_md_s_nb_list);
 out:
-	spin_unlock(&va_md_lock);
+	mutex_unlock(&va_md_lock);
 	return ret;
 }
 EXPORT_SYMBOL(qcom_va_md_register);
@@ -680,7 +680,7 @@ static int qcom_va_md_driver_remove(struct platform_device *pdev)
 	struct va_md_s_data *va_md_s_data;
 	struct notifier_block_list *nbl;
 
-	spin_lock(&va_md_lock);
+	mutex_lock(&va_md_lock);
 	list_for_each_entry(va_md_s_data, &va_md_data.va_md_list, va_md_s_list) {
 		list_for_each_entry(nbl, &va_md_s_data->va_md_s_nb_list, nb_list) {
 			atomic_notifier_chain_unregister(&va_md_s_data->va_md_s_notif_list,
@@ -692,7 +692,7 @@ static int qcom_va_md_driver_remove(struct platform_device *pdev)
 		kobject_put(&va_md_s_data->s_kobj);
 	}
 
-	spin_unlock(&va_md_lock);
+	mutex_unlock(&va_md_lock);
 	kset_unregister(va_md_data.va_md_kset);
 	atomic_notifier_chain_unregister(&panic_notifier_list, &qcom_va_md_elf_panic_blk);
 	atomic_notifier_chain_unregister(&panic_notifier_list, &qcom_va_md_panic_blk);

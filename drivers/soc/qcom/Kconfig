@@ -35,6 +35,15 @@ config QCOM_CPUSS_SLEEP_STATS
 	 low power modes. This driver creates debugfs entry which provide
 	 provision to read those counters.
 
+config QCOM_QDSS_BRIDGE
+	tristate "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
+	depends on MHI_BUS
+	help
+	  The driver will help route diag traffic from modem side over the QDSS
+	  sub-system to USB on APSS side. The driver acts as a bridge between the
+	  MHI and USB interface.
+	  If unsure, say N.
+
 config QCOM_MEM_OFFLINE
 	tristate "Dynamic Memory Region Offline driver"
 	depends on MEMORY_HOTPLUG

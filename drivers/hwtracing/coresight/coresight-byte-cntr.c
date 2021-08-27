@@ -188,6 +188,8 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	if (byte_cntr_data->enable)
 		coresight_csr_set_byte_cntr(byte_cntr_data->csr,
 				byte_cntr_data->irqctrl_offset, 0);
+
+	disable_irq_wake(byte_cntr_data->byte_cntr_irq);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 	return 0;
@@ -207,6 +209,7 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 		return -EINVAL;
 	}
 
+	enable_irq_wake(byte_cntr_data->byte_cntr_irq);
 	/* IRQ is a '8- byte' counter and to observe interrupt at
 	 * 'block_size' bytes of data
 	 */
