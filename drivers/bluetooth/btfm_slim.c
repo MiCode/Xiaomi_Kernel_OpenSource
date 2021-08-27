@@ -347,6 +347,7 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 		slim_ifd->e_addr.instance = 0x0;
 		slim_ifd->laddr = 0x0;
 	} else if (chipset_ver == QCA_HAMILTON_SOC_ID_0100 ||
+		chipset_ver ==  QCA_HAMILTON_SOC_ID_0101 ||
 		chipset_ver ==  QCA_HAMILTON_SOC_ID_0200) {
 		BTFMSLIM_INFO("chipset is Hamliton, overwriting EA");
 		slim->is_laddr_valid = false;
