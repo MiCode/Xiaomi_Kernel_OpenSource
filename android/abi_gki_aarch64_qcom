@@ -939,6 +939,7 @@
   fsl8250_handle_irq
   fs_kobj
   fsstack_copy_attr_all
+  ftrace_set_clr_event
   full_name_hash
   fwnode_connection_find_match
   fwnode_get_parent
@@ -1082,6 +1083,8 @@
   i2c_register_driver
   i2c_smbus_read_byte
   i2c_smbus_write_byte
+  i2c_smbus_read_byte_data
+  i2c_smbus_write_byte_data
   __i2c_smbus_xfer
   i2c_smbus_xfer
   __i2c_transfer
@@ -2440,6 +2443,8 @@
   timer_unstable_counter_workaround
   timespec64_to_jiffies
   _totalram_pages
+  trace_array_create
+  trace_array_destroy
   __trace_bprintk
   trace_define_field
   trace_event_buffer_commit

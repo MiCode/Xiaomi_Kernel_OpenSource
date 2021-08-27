@@ -3,6 +3,7 @@
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 
+#include <uapi/linux/msm_ion.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/ctype.h>
 #include <linux/debugfs.h>
@@ -245,6 +246,13 @@ static void _deferred_put(struct work_struct *work)
 		container_of(work, struct kgsl_mem_entry, work);
 
 	kgsl_mem_entry_put(entry);
+}
+
+/* Use a worker to put the refcount on mem entry */
+void kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry)
+{
+	INIT_WORK(&entry->work, _deferred_put);
+	queue_work(kgsl_driver.mem_workqueue, &entry->work);
 }
 
 static struct kgsl_mem_entry *kgsl_mem_entry_create(void)
@@ -760,8 +768,7 @@ void kgsl_context_detach(struct kgsl_context *context)
 	/* Remove the event group from the list */
 	kgsl_del_event_group(device, &context->events);
 
-	kgsl_sync_timeline_put(context->ktimeline);
-
+	kgsl_sync_timeline_detach(context->ktimeline);
 	kgsl_context_put(context);
 }
 
@@ -779,6 +786,8 @@ kgsl_context_destroy(struct kref *kref)
 	 * may still be executing commands
 	 */
 	BUG_ON(!kgsl_context_detached(context));
+
+	kgsl_sync_timeline_put(context->ktimeline);
 
 	write_lock(&device->context_lock);
 	if (context->id != KGSL_CONTEXT_INVALID) {
@@ -803,7 +812,6 @@ kgsl_context_destroy(struct kref *kref)
 		context->id = KGSL_CONTEXT_INVALID;
 	}
 	write_unlock(&device->context_lock);
-	kgsl_sync_timeline_destroy(context);
 	kgsl_process_private_put(context->proc_priv);
 
 	device->ftbl->drawctxt_destroy(context);
@@ -2335,8 +2343,7 @@ static bool gpuobj_free_fence_func(void *priv)
 			entry->memdesc.gpuaddr, entry->memdesc.size,
 			entry->memdesc.flags);
 
-	INIT_WORK(&entry->work, _deferred_put);
-	queue_work(kgsl_driver.mem_workqueue, &entry->work);
+	kgsl_mem_entry_put_deferred(entry);
 	return true;
 }
 
@@ -3008,6 +3015,29 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->priv_data = meta;
 	entry->memdesc.sgt = sg_table;
 
+	if (entry->memdesc.priv & KGSL_MEMDESC_SECURE) {
+		unsigned long dma_buf_flags;
+
+		ret = dma_buf_get_flags(dmabuf, &dma_buf_flags);
+		if (ret) {
+			dev_info(device->dev,
+				"Unable to get dma buf flags, err = %d. Skipped access check\n",
+				ret);
+			ret = 0;
+			goto skip_access_check;
+		}
+
+		/*
+		 * Secure buffer is not accessible to CP_PIXEL, there is no point
+		 * in importing this buffer.
+		 */
+		if (!(dma_buf_flags & ION_FLAG_CP_PIXEL)) {
+			ret = -EPERM;
+			goto out;
+		}
+	}
+
+skip_access_check:
 	/* Calculate the size of the memdesc from the sglist */
 	for (s = entry->memdesc.sgt->sgl; s != NULL; s = sg_next(s)) {
 		int priv = (entry->memdesc.priv & KGSL_MEMDESC_SECURE) ? 1 : 0;

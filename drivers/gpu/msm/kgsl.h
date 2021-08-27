@@ -268,11 +268,6 @@ struct kgsl_mem_entry {
 	char metadata[KGSL_GPUOBJ_ALLOC_METADATA_MAX + 1];
 	struct work_struct work;
 	/**
-	 * @mapped: The number of bytes in this entry that are mapped to
-	 * userspace
-	 */
-	u64 mapped;
-	/**
 	 * @map_count: Count how many vmas this object is mapped in - used for
 	 * debugfs accounting
 	 */
@@ -565,6 +560,13 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 	if (entry)
 		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
+
+/**
+ * kgsl_mem_entry_put_deferred() - use a worker to put the refcount
+ * on mem entry from a sysfs handler or debugfs handler.
+ * @entry - The memory entry
+ */
+void kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry);
 
 /*
  * kgsl_addr_range_overlap() - Checks if 2 ranges overlap

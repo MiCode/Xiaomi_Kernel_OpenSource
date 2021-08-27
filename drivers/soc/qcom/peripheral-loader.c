@@ -1197,6 +1197,7 @@ int pil_boot(struct pil_desc *desc)
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
 
+	desc->clear_fw_region = true;
 	/* Reinitialize for new image */
 	pil_release_mmap(desc);
 
@@ -1250,6 +1251,8 @@ int pil_boot(struct pil_desc *desc)
 	if (desc->ops->init_image)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
+		/* S2 mapping not yet done */
+		desc->clear_fw_region = false;
 		pil_err(desc, "Initializing image failed(rc:%d)\n", ret);
 		goto err_boot;
 	}
@@ -1259,6 +1262,8 @@ int pil_boot(struct pil_desc *desc)
 		ret = desc->ops->mem_setup(desc, priv->region_start,
 				priv->region_end - priv->region_start);
 	if (ret) {
+		/* S2 mapping is failed */
+		desc->clear_fw_region = false;
 		pil_err(desc, "Memory setup error(rc:%d)\n", ret);
 		goto err_deinit_image;
 	}

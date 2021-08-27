@@ -462,6 +462,15 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one_hundred,
 	},
 	{
+		.procname	= "sched_asym_cap_sibling_freq_match_enable",
+		.data		= &sysctl_sched_asym_cap_sibling_freq_match_en,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
 		.procname	= "sched_coloc_downmigrate_ns",
 		.data		= &sysctl_sched_coloc_downmigrate_ns,
 		.maxlen		= sizeof(unsigned int),

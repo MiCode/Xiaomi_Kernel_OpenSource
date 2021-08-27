@@ -106,7 +106,7 @@
 #define STALE_TIMEOUT		(16)
 #define STALE_COUNT		(DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT)
 #define SEC_TO_USEC		(1000000)
-#define SYSTEM_DELAY		(500)
+#define STALE_DELAY		(10000) //10msec
 #define DEFAULT_BITS_PER_CHAR	(10)
 #define GENI_UART_NR_PORTS	(6)
 #define GENI_UART_CONS_PORTS	(1)
@@ -1559,7 +1559,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long flags = 0;
 	bool is_rx_active;
-	unsigned int stale_delay;
 	u32 dma_rx_status, s_irq_status;
 	int usage_count;
 
@@ -1576,15 +1575,12 @@ static int stop_rx_sequencer(struct uart_port *uport)
 
 	if (!uart_console(uport)) {
 		/*
-		 * Wait for the stale timeout to happen if there
-		 * is any data pending in the rx fifo.
-		 * Have a safety factor of 2 to include the interrupt
-		 * and system latencies, add 500usec delay for interrupt
-		 * latency or system delay.
+		 * Wait for the stale timeout around 10msec to happen
+		 * if there is any data pending in the rx fifo.
+		 * This will help to handle incoming rx data in stop_rx_sequencer
+		 * for interrupt latency or system delay cases.
 		 */
-		stale_delay = (STALE_COUNT * SEC_TO_USEC) / port->cur_baud;
-		stale_delay = (2 * stale_delay) + SYSTEM_DELAY;
-		udelay(stale_delay);
+		udelay(STALE_DELAY);
 
 		dma_rx_status = geni_read_reg_nolog(uport->membase,
 						SE_DMA_RX_IRQ_STAT);

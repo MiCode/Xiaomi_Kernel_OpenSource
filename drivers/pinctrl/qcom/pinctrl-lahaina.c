@@ -1286,7 +1286,7 @@ static const char * const qup5_groups[] = {
 	"gpio24", "gpio25", "gpio26", "gpio27",
 };
 static const char * const qup6_groups[] = {
-	"gpio28", "gpio29", "gpio30", "gpio31",
+	"gpio28", "gpio29", "gpio30", "gpio31", "gpio6",
 };
 static const char * const qup7_groups[] = {
 	"gpio32", "gpio33", "gpio34", "gpio35",
@@ -1609,7 +1609,7 @@ static const struct msm_pingroup lahaina_groups[] = {
 	[3] = PINGROUP(3, qup13, qup_l5, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[4] = PINGROUP(4, qup0, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[5] = PINGROUP(5, qup0, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[6] = PINGROUP(6, qup0, qup_l4, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[6] = PINGROUP(6, qup0, qup6, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[7] = PINGROUP(7, qup0, qup_l5, NA, NA, NA, NA, NA, NA, NA, 0xCB000, 0),
 	[8] = PINGROUP(8, qup1, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[9] = PINGROUP(9, qup1, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
