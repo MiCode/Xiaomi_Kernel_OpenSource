@@ -5168,9 +5168,6 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 		}
 		if (idx >= chan->sesscount) {
 			err = -EUSERS;
-			ADSPRPC_ERR(
-				"max concurrent sessions limit (%d) already reached on %s err %d\n",
-				chan->sesscount, chan->subsys, err);
 			goto bail;
 		}
 		chan->session[idx].smmu.faults = 0;
@@ -5891,7 +5888,7 @@ bail:
 	return err;
 }
 
-static int fastrpc_set_process_info(struct fastrpc_file *fl)
+static int fastrpc_set_process_info(struct fastrpc_file *fl, uint32_t cid)
 {
 	int err = 0, buf_size = 0;
 	char strpid[PID_SIZE];
@@ -5910,8 +5907,13 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 		fl->untrusted_process = true;
 	snprintf(strpid, PID_SIZE, "%d", current->pid);
 	if (debugfs_root) {
-		buf_size = strlen(cur_comm) + strlen("_")
-			+ strlen(strpid) + 1;
+		VERIFY(err, cid < NUM_CHANNELS);
+		if (err) {
+			err = -ECHRNG;
+			goto bail;
+		}
+		buf_size = strlen(cur_comm) + strlen("_") + strlen(strpid)
+			+ strlen("_") + strlen("0") + 1;
 
 		spin_lock(&fl->hlock);
 		if (fl->debug_buf_alloced_attempted) {
@@ -5926,8 +5928,8 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 			err = -ENOMEM;
 			return err;
 		}
-		snprintf(fl->debug_buf, buf_size, "%.10s%s%d",
-			cur_comm, "_", current->pid);
+		snprintf(fl->debug_buf, buf_size, "%.10s%s%d%s%d",
+			cur_comm, "_", current->pid, "_", cid);
 		fl->debugfs_file = debugfs_create_file(fl->debug_buf, 0644,
 			debugfs_root, fl, &debugfs_fops);
 		if (IS_ERR_OR_NULL(fl->debugfs_file)) {
@@ -5938,6 +5940,7 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 		kfree(fl->debug_buf);
 		fl->debug_buf = NULL;
 	}
+bail:
 	return err;
 }
 
@@ -5974,7 +5977,7 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		goto bail;
 
 	fastrpc_get_process_gids(&fl->gidlist);
-	err = fastrpc_set_process_info(fl);
+	err = fastrpc_set_process_info(fl, cid);
 	if (err)
 		goto bail;
 
