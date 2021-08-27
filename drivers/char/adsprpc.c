@@ -2159,9 +2159,18 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
 	int cid = ctx->fl->cid;
-	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
+	int err = 0;
 
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		ADSPRPC_ERR(
+			"invalid channel 0x%zx set for session\n",
+								cid);
+		return;
+	}
+	chan = &me->channel[cid];
 	i = (uint32_t)GET_TABLE_IDX_FROM_CTXID(ctx->ctxid);
 
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
