@@ -34,8 +34,13 @@
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0xa600000 0xd93c>;
+
+			iommus = <&apps_smmu 0x40 0x0>;
+			qcom,iommu-dma = "atomic";
+			qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
+			dma-coherent;
+
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
-			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
