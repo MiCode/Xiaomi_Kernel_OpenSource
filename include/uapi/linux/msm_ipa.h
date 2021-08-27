@@ -1277,6 +1277,8 @@ struct ipa_flt_rule {
 	uint8_t pdn_idx;
 };
 
+#define IPA_FLTRT_TTL_UPDATE
+
 /**
  * struct ipa_flt_rule_v2 - attributes of a filtering rule
  * @retain_hdr: bool switch to instruct IPA core to add back to the packet
@@ -1309,6 +1311,7 @@ struct ipa_flt_rule {
  * will be assigned by ipa driver.
  * @close_aggr_irq_mod: close aggregation/coalescing and close GSI
  * interrupt moderation
+ * @ttl_update: bool to indicate whether TTL update is needed or not.
  */
 struct ipa_flt_rule_v2 {
 	uint8_t retain_hdr;
@@ -1327,6 +1330,7 @@ struct ipa_flt_rule_v2 {
 	uint8_t enable_stats;
 	uint8_t cnt_idx;
 	uint8_t close_aggr_irq_mod;
+	uint8_t ttl_update;
 };
 
 /**
@@ -1436,6 +1440,7 @@ struct ipa_rt_rule {
  * will be assigned by ipa driver.
  * @close_aggr_irq_mod: close aggregation/coalescing and close GSI
  * interrupt moderation
+ * @ttl_update: bool to indicate whether TTL update is needed or not.
  */
 struct ipa_rt_rule_v2 {
 	enum ipa_client_type dst;
@@ -1449,6 +1454,7 @@ struct ipa_rt_rule_v2 {
 	uint8_t enable_stats;
 	uint8_t cnt_idx;
 	uint8_t close_aggr_irq_mod;
+	uint8_t ttl_update;
 };
 
 /**
