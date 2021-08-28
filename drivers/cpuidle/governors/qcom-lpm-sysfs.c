@@ -9,6 +9,7 @@
 #include <linux/moduleparam.h>
 #include <linux/pm_domain.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 
 #include "qcom-lpm.h"
 
@@ -19,11 +20,13 @@ static ssize_t cluster_idle_set(struct kobject *kobj,
 				const char *buf, size_t len)
 {
 	struct qcom_cluster_node *d = container_of(attr, struct qcom_cluster_node, disable_attr);
-	struct kernel_param kp;
 	bool disable;
+	int ret;
 
-	kp.arg = &disable;
-	param_set_bool(buf, &kp);
+	ret = strtobool(buf, &disable);
+	if (ret)
+		return -EINVAL;
+
 	d->cluster->state_allowed[d->state_idx] = !disable;
 
 	return len;
