@@ -168,7 +168,7 @@ static void  print_ddr_stats(struct seq_file *s, int *count,
 {
 
 	u32 cp_idx = 0;
-	u32 name, duration;
+	u32 name, duration = 0;
 
 	if (accumulated_duration)
 		duration = (data->duration * 100) / accumulated_duration;
@@ -243,11 +243,11 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 	u32 vote_offset, val[MAX_DRV];
 	int ret, i;
 
-	if (!ddr_gdata->read_vote_info)
-		return -EOPNOTSUPP;
-
 	if (!vote_info || !(ss_count == MAX_DRV) || !ddr_gdata)
 		return -ENODEV;
+
+	if (!ddr_gdata->read_vote_info)
+		return -EOPNOTSUPP;
 
 	mutex_lock(&ddr_gdata->ddr_stats_lock);
 	ret = scnprintf(buf, MAX_MSG_LEN, "{class: ddr, res: drvs_ddr_votes}");
