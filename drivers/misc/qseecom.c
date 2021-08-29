@@ -1681,9 +1681,13 @@ static void __qseecom_processing_pending_lsnr_unregister(void)
 		if (entry && entry->data) {
 			pr_debug("process pending unregister %d\n",
 					entry->data->listener.id);
-			/* don't process if qseecom_release is not called*/
-			if (!entry->data->listener.release_called)
+			/* don't process the entry if qseecom_release is not called*/
+			if (!entry->data->listener.release_called) {
+				list_del(pos);
+				list_add_tail(&entry->list,
+					&qseecom.unregister_lsnr_pending_list_head);
 				break;
+			}
 			ptr_svc = __qseecom_find_svc(
 						entry->data->listener.id);
 			if (ptr_svc) {
