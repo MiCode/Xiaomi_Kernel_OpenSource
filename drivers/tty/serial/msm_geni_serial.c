@@ -2232,8 +2232,9 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 	bool drop_rx = false;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	u32 dma_rx_status;
+	unsigned long lock_flags;
 
-	spin_lock(&msm_port->rx_lock);
+	spin_lock_irqsave(&msm_port->rx_lock, lock_flags);
 	dma_rx_status = geni_read_reg_nolog(uport->membase,
 						SE_DMA_RX_IRQ_STAT);
 
@@ -2297,7 +2298,7 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 		ret = true;
 
 exit:
-	spin_unlock(&msm_port->rx_lock);
+	spin_unlock_irqrestore(&msm_port->rx_lock, lock_flags);
 	return ret;
 }
 
