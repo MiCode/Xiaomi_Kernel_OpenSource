@@ -2,6 +2,7 @@ arm_smmu.ko
 clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
+cqhci.ko
 debug-regulator.ko
 dispcc-kalama.ko
 gcc-kalama.ko
@@ -29,6 +30,7 @@ qcom_iommu_util.ko
 qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
+sdhci-msm.ko
 smem.ko
 socinfo.ko
 stub-regulator.ko
