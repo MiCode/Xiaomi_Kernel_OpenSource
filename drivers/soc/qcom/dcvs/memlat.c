@@ -571,8 +571,8 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 	if (max_cpufreq || mon->cur_freq != mon->min_freq) {
 		stats = per_cpu(sampling_stats, max_cpu);
 		trace_memlat_dev_update(dev_name(mon->dev), max_cpu,
-				stats->prev.common_ctrs[INST_IDX],
-				stats->prev.grp_ctrs[hw][MISS_IDX],
+				stats->delta.common_ctrs[INST_IDX],
+				stats->delta.grp_ctrs[hw][MISS_IDX],
 				max_cpufreq, max_memfreq);
 	}
 
@@ -1222,7 +1222,7 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	mon->freq_scale_pct = 0;
 	mon->wb_pct_thres = 100;
 	mon->wb_filter_ipm = 25000;
-	mon->freq_scale_limit_mhz = 1881; /* Change to INT_MAX once QGPE changes are in */
+	mon->freq_scale_limit_mhz = 5000;
 
 	if (of_parse_phandle(of_node, COREDEV_TBL_PROP, 0))
 		of_node = of_parse_phandle(of_node, COREDEV_TBL_PROP, 0);
