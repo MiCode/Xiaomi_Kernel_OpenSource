@@ -705,7 +705,7 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 
 	devfreq = devfreq_add_device(&pdev->dev, &gpu_profile->profile,
 			governor, &adreno_tz_data);
-	if (IS_ERR(devfreq)) {
+	if (IS_ERR_OR_NULL(devfreq)) {
 		device->pwrscale.enabled = false;
 		msm_adreno_tz_exit();
 		return PTR_ERR(devfreq);
