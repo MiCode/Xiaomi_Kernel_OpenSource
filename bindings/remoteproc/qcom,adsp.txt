@@ -32,6 +32,7 @@ on the Qualcomm ADSP Hexagon core.
 		    "qcom,diwali-adsp-pas"
 		    "qcom,diwali-cdsp-pas"
 		    "qcom,diwali-modem-pas"
+		    "qcom,diwali-wpss-pas"
 
 - interrupts-extended:
 	Usage: required
