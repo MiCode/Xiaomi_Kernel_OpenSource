@@ -190,6 +190,8 @@ config INTERCONNECT_QCOM_SM8350
 config INTERCONNECT_QCOM_SCUBA
 	tristate "SCUBA interconnect driver"
 	depends on INTERCONNECT_QCOM
+	depends on MSM_RPM_SMD
+	select INTERCONNECT_QCOM_RPM
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on scuba-based platforms. The interconnect provider collects and
