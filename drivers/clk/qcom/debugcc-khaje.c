@@ -124,8 +124,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_cam_throttle_rt_clk",
 	"gcc_camera_ahb_clk",
 	"gcc_camss_axi_clk",
-	"gcc_camss_camnoc_atb_clk",
-	"gcc_camss_camnoc_nts_xo_clk",
 	"gcc_camss_cci_0_clk",
 	"gcc_camss_cphy_0_clk",
 	"gcc_camss_cphy_1_clk",
@@ -236,8 +234,6 @@ static int gcc_debug_mux_sels[] = {
 	0x4E,		/* gcc_cam_throttle_rt_clk */
 	0x3A,		/* gcc_camera_ahb_clk */
 	0x141,		/* gcc_camss_axi_clk */
-	0x143,		/* gcc_camss_camnoc_atb_clk */
-	0x144,		/* gcc_camss_camnoc_nts_xo_clk */
 	0x13F,		/* gcc_camss_cci_0_clk */
 	0x130,		/* gcc_camss_cphy_0_clk */
 	0x131,		/* gcc_camss_cphy_1_clk */
