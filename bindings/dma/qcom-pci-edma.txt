@@ -1,0 +1,79 @@
+Qualcomm Technologies Inc PCIe eDMA controller
+
+QCOM PCIe eDMA controller provides DMA capabilities for
+peripheral connected and uses PCIe to transfer data.
+
+==============
+Node Structure
+==============
+
+Main node properties:
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: "qcom,pci-edma"
+
+- #dma-cells
+  Usage: required
+  Value type: <u32>
+  Definition: Number of parameters client will provide.  Must be set to 2.
+	1st parameter: channel index, 0 for TX, 1 for RX
+	2nd parameter: event processing priority, set to 0 for highest priority
+
+- reg
+  Usage: required
+  Value type: Array (2-cell) of <u32>
+  Definition: First cell is eDMA register base address. Second cell is size of
+	eDMA register space.
+
+- interrupts
+  Usage: required
+  Value type: Array of <u32>
+  Definition: Array of tuples which describe interrupt lines for eDMA.
+
+- interrupts-names
+  Usage: required
+  Value type: Array of <u32>
+  Definition: Array of names which map to interrupt lines for eDMA.
+
+- interrupt-parent
+  Usage: required
+  Value type: <phandle>
+  Definition: phandle of the interrupt controller that services interrupts for
+	this device
+
+- qcom,n-tl-init
+  Usage: optional
+  Value type: <u32>
+  Definition: Number of transfer and descriptor arrays to start with. If this
+	entry is not presetn, default value is 2.
+
+- qcom,n-tl-ele
+  Usage: optional
+  Value type: <u32>
+  Definition: Number of elements for each transfer and descriptor array. If this
+	entry is not present, default value is 1024.
+
+- qcom,n-max-ev-ch
+  Usage: optional
+  Value type: <u32>
+  Definition: Total number of virtual (client) eDMA channels available. If this
+	entry is not present, default value is 32.
+
+=======
+Example
+=======
+
+pci_edma: qcom,pci-edma@40002000 {
+	compatible = "qcom,pci-edma";
+	#dma-cells = <2>;
+	reg = <0x40002000 0x2000>;
+	interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "pci-edma-int";
+	interrupt-parent = <&intc>;
+	qcom,n-max-ev-ch = <32>;
+	qcom,n-tl-init = <2>;
+	qcom,n-tl-ele = <1024>;
+	status = "ok";
+};
