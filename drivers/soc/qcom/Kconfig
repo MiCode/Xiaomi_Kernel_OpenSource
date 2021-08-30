@@ -559,4 +559,5 @@ config QCOM_CPU_VENDOR_HOOKS
           If unsure, say N.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
+
 endmenu
