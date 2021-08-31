@@ -1474,6 +1474,9 @@
 			vote = <44>;
 		};
 	};
+
+	thermal_zones: thermal-zones {
+	};
 };
 
 #include "diwali-qupv3.dtsi"
@@ -1484,6 +1487,7 @@
 #include "diwali-gdsc.dtsi"
 #include "ipcc-test-diwali.dtsi"
 #include "msm-arm-smmu-diwali.dtsi"
+#include "diwali-thermal.dtsi"
 
 &qupv3_se5_2uart {
 	status = "ok";
