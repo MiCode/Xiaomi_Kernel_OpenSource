@@ -352,6 +352,14 @@ config USB_BAM
 	  USB BAM driver was added to supports Smart Peripheral Subsystem
 	  Peripheral-to-Peripheral transfers between the USB and other
 	  peripheral.
+config QCOM_RAMDUMP
+	tristate "Qualcomm Technologies, Inc. Ramdump driver"
+	default n
+	help
+	  This option enables the QTI ramdump driver. The ramdump driver
+	  provides APIs to collect ramdumps which can be extracted from
+	  userspace. Say 'Y' here to enable this driver. It's safe to say
+	  'N' here if you don't plan on collecting ramdumps.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 endmenu
