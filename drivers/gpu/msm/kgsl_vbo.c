@@ -95,7 +95,11 @@ static void kgsl_memdesc_remove_range(struct kgsl_mem_entry *target,
 		range = bind_to_range(node);
 		next = interval_tree_iter_next(node, start, last);
 
-		if (range->entry->id == entry->id) {
+		/*
+		 * If entry is null, consider it as a special request. Unbind
+		 * the entire range between start and last in this case.
+		 */
+		if (!entry || range->entry->id == entry->id) {
 			interval_tree_remove(node, &memdesc->ranges);
 			trace_kgsl_mem_remove_bind_range(target,
 				range->range.start, range->entry,
@@ -358,6 +362,23 @@ kgsl_sharedmem_create_bind_op(struct kgsl_process_private *private,
 		if (!kgsl_memdesc_check_range(&target->memdesc,
 			range.target_offset, range.length))
 			goto err;
+
+		/*
+		 * Special case: Consider child id 0 as a special request incase of
+		 * unbind. This helps to unbind the specified range (could span multiple
+		 * child buffers) without supplying backing physical buffer information.
+		 */
+		if (range.child_id == 0 && range.op == KGSL_GPUMEM_RANGE_OP_UNBIND) {
+			op->ops[i].entry = NULL;
+			op->ops[i].start = range.target_offset;
+			op->ops[i].last = range.target_offset + range.length - 1;
+			/* Child offset doesn't matter for unbind. set it to 0 */
+			op->ops[i].child_offset = 0;
+			op->ops[i].op = range.op;
+
+			ranges += ranges_size;
+			continue;
+		}
 
 		/* Get the child object */
 		op->ops[i].entry = kgsl_sharedmem_find_id(private,
