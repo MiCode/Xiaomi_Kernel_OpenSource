@@ -10,7 +10,7 @@ struct ddr_stats_ss_vote_info {
 	u32 ab; /* vote_x */
 	u32 ib; /* vote_y */
 };
-#if IS_ENABLED(CONFIG_QCOM_SOC_SLEEP_STATS)
+#if IS_ENABLED(CONFIG_QCOM_SOC_SLEEP_STATS) && IS_ENABLED(CONFIG_MSM_QMP)
 
 int ddr_stats_get_ss_count(void);
 int ddr_stats_get_ss_vote_info(int ss_count,
