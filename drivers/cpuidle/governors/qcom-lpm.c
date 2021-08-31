@@ -17,10 +17,14 @@
 #if IS_ENABLED(CONFIG_SCHED_WALT)
 #include <linux/sched/walt.h>
 #endif
+#include <linux/smp.h>
 #include <linux/spinlock.h>
+#include <linux/string.h>
+#include <linux/suspend.h>
 #include <linux/tick.h>
 #include <linux/time64.h>
 #include <trace/events/ipi.h>
+#include <trace/events/power.h>
 #include <trace/hooks/cpuidle.h>
 
 #include "qcom-lpm.h"
@@ -38,6 +42,7 @@
 
 bool prediction_disabled;
 bool sleep_disabled = true;
+bool suspend_disabled;
 static bool traces_registered;
 static struct cluster_governor *cluster_gov_ops;
 
@@ -54,6 +59,9 @@ static bool lpm_disallowed(s64 sleep_ns, int cpu)
 	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
 	uint64_t bias_time = 0;
 #endif
+
+	if (suspend_disabled)
+		return true;
 
 	if (!check_cpu_isactive(cpu))
 		return false;
@@ -742,6 +750,27 @@ static void lpm_disable_device(struct cpuidle_driver *drv,
 	}
 }
 
+static void qcom_lpm_suspend_trace(void *unused, const char *action,
+				   int event, bool start)
+{
+	int cpu;
+
+	if (start && !strcmp("dpm_suspend_late", action)) {
+		suspend_disabled = true;
+
+		for_each_online_cpu(cpu)
+			wake_up_if_idle(cpu);
+		return;
+	}
+
+	if (!start && !strcmp("dpm_resume_early", action)) {
+		suspend_disabled = false;
+
+		for_each_online_cpu(cpu)
+			wake_up_if_idle(cpu);
+	}
+}
+
 static struct cpuidle_governor lpm_governor = {
 	.name =		"qcom-cpu-lpm",
 	.rating =	50,
@@ -767,13 +796,19 @@ static int __init qcom_lpm_governor_init(void)
 	if (ret)
 		goto cpuidle_reg_fail;
 
+	ret = register_trace_suspend_resume(qcom_lpm_suspend_trace, NULL);
+	if (ret)
+		goto cpuidle_reg_fail;
+
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "qcom-cpu-lpm",
 				lpm_online_cpu, lpm_offline_cpu);
 	if (ret < 0)
-		goto cpuidle_reg_fail;
+		goto cpuhp_setup_failed;
 
 	return 0;
 
+cpuhp_setup_failed:
+	unregister_trace_suspend_resume(qcom_lpm_suspend_trace, NULL);
 cpuidle_reg_fail:
 	qcom_cluster_lpm_governor_deinit();
 cluster_init_fail:
