@@ -3189,7 +3189,7 @@ static long spcom_device_ioctl(struct file *file, unsigned int cmd, unsigned lon
 		return -ENODEV;
 	}
 
-	if (!is_control_channel(file)) {
+	if (!is_control_channel(file) && cmd != SPCOM_POLL_STATE) {
 		spcom_pr_err("ioctl is supported only for control channel\n");
 		return -EINVAL;
 	}
