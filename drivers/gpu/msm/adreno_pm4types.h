@@ -164,7 +164,10 @@
 /* Controls which threads execute the PM4 commands the follow this packet */
 #define CP_THREAD_CONTROL 0x17
 
+#define CP_WAIT_TIMESTAMP 0x14
+
 #define CP_SET_THREAD_BR FIELD_PREP(GENMASK(1, 0), 1)
+#define CP_SET_THREAD_BV FIELD_PREP(GENMASK(1, 0), 2)
 #define CP_SET_THREAD_BOTH FIELD_PREP(GENMASK(1, 0), 3)
 #define CP_SYNC_THREADS BIT(31)
 #define CP_CONCURRENT_BIN_DISABLE BIT(27)

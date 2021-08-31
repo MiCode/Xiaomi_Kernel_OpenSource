@@ -642,8 +642,8 @@ static void reset_rb_preempt_record(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(cntl), cp_rb_cntl);
 	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(
-		KGSL_DEVICE(adreno_dev), rb->id));
+		PREEMPT_RECORD(rptr_addr), SCRATCH_RB_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id, rptr));
 	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
 }

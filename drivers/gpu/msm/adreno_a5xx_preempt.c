@@ -490,8 +490,8 @@ static int a5xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(wptr), 0);
 	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(device,
-			rb->id));
+		PREEMPT_RECORD(rptr_addr), SCRATCH_RB_GPU_ADDR(device,
+			rb->id, rptr));
 	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
 	kgsl_sharedmem_writeq(rb->preemption_desc,

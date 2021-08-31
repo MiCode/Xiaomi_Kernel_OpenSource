@@ -75,8 +75,10 @@ int a5xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 			return PTR_ERR(cmds);
 
 		cmds[0] = cp_type7_packet(CP_WHERE_AM_I, 2);
-		cmds[1] = lower_32_bits(SCRATCH_RPTR_GPU_ADDR(device, rb->id));
-		cmds[2] = upper_32_bits(SCRATCH_RPTR_GPU_ADDR(device, rb->id));
+		cmds[1] = lower_32_bits(SCRATCH_RB_GPU_ADDR(device, rb->id,
+				rptr));
+		cmds[2] = upper_32_bits(SCRATCH_RB_GPU_ADDR(device, rb->id,
+				rptr));
 	}
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);

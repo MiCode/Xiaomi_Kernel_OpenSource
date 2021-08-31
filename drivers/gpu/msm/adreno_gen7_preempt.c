@@ -616,13 +616,13 @@ static void reset_rb_preempt_record(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(cntl), GEN7_CP_RB_CNTL_DEFAULT);
 	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(
-		KGSL_DEVICE(adreno_dev), rb->id));
+		PREEMPT_RECORD(rptr_addr), SCRATCH_RB_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id, rptr));
 	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
 	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(bv_rptr_addr), SCRATCH_BV_RPTR_GPU_ADDR(
-		KGSL_DEVICE(adreno_dev), rb->id));
+		PREEMPT_RECORD(bv_rptr_addr), SCRATCH_RB_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id, bv_rptr));
 }
 
 void gen7_reset_preempt_records(struct adreno_device *adreno_dev)
