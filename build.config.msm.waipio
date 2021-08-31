@@ -6,8 +6,8 @@
 ################################################################################
 ## Variant setup
 MSM_ARCH=waipio
-VARIANTS=(consolidate gki)
-[ -z "${VARIANT}" ] && VARIANT=consolidate
+VARIANTS=(gki)
+[ -z "${VARIANT}" ] && VARIANT=gki
 
 if [ -e "${ROOT_DIR}/msm-kernel" -a "${KERNEL_DIR}" = "common" ]; then
 	KERNEL_DIR="msm-kernel"
