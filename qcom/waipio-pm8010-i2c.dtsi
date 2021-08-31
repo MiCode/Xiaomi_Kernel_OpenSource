@@ -84,6 +84,7 @@
 				regulator-min-microvolt = <2784000>;
 				regulator-max-microvolt = <2904000>;
 				qcom,min-dropout-voltage = <224000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L4I: pm8010i_l4: regulator@4300 {
@@ -92,6 +93,7 @@
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				qcom,min-dropout-voltage = <152000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L5I: pm8010i_l5: regulator@4400 {
@@ -100,6 +102,7 @@
 				regulator-min-microvolt = <1776000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <24000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L6I: pm8010i_l6: regulator@4500 {
@@ -108,6 +111,7 @@
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				qcom,min-dropout-voltage = <208000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L7I: pm8010i_l7: regulator@4600 {
@@ -116,6 +120,7 @@
 				regulator-min-microvolt = <2712000>;
 				regulator-max-microvolt = <2960000>;
 				qcom,min-dropout-voltage = <296000>;
+				qcom,hpm-min-load = <0>;
 			};
 		};
 	};
@@ -186,6 +191,7 @@
 				regulator-min-microvolt = <1576000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <224000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L4J: pm8010j_l4: regulator@4300 {
@@ -194,6 +200,7 @@
 				regulator-min-microvolt = <1608000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <192000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L5J: pm8010j_l5: regulator@4400 {
@@ -202,6 +209,7 @@
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				qcom,min-dropout-voltage = <56000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L6J: pm8010j_l6: regulator@4500 {
@@ -210,6 +218,7 @@
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				qcom,min-dropout-voltage = <120000>;
+				qcom,hpm-min-load = <0>;
 			};
 
 			L7J: pm8010j_l7: regulator@4600 {
@@ -218,6 +227,7 @@
 				regulator-min-microvolt = <2912000>;
 				regulator-max-microvolt = <3304000>;
 				qcom,min-dropout-voltage = <96000>;
+				qcom,hpm-min-load = <0>;
 			};
 		};
 	};
