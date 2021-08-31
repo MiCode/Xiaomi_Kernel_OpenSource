@@ -458,6 +458,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 						sizeof(*arch_info->bw_cfg_table)
 						* MHI_BUS_BW_CFG_COUNT,
 						GFP_KERNEL);
+		if (!arch_info->bw_cfg_table)
+			return -ENOMEM;
 
 		ret = of_property_read_u32_array(of_node, "qcom,mhi-bus-bw-cfg",
 						 (u32 *)arch_info->bw_cfg_table,
