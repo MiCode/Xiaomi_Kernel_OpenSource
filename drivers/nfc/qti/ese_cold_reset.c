@@ -49,7 +49,7 @@ static int send_ese_cmd(struct nfc_dev *nfc_dev)
  */
 int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 {
-	int ret;
+	int ret = -EPERM;
 	struct cold_reset *cold_rst = &nfc_dev->cold_reset;
 	char *rsp_buf = NULL;
 
@@ -84,9 +84,9 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 			ret = -EINVAL;
 			goto error;
 		}
-	} else if (header)
+	} else if (header) {
 		memcpy(rsp_buf, header, NCI_HDR_LEN);
-	else {
+	} else {
 		dev_err(nfc_dev->nfc_device,
 				"%s: - invalid or NULL header\n", __func__);
 		ret = -EINVAL;
@@ -101,24 +101,25 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 		goto error;
 	}
 
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
+	if (nfc_dev->interface == PLATFORM_IF_I2C) {
 		ret = nfc_dev->nfc_read(nfc_dev,
 			     &rsp_buf[NCI_PAYLOAD_IDX],
 			     rsp_buf[NCI_PAYLOAD_LEN_IDX],
 			     NCI_CMD_RSP_TIMEOUT);
 
-	if (ret <= 0) {
-		dev_err(nfc_dev->nfc_device,
-			"%s: failure to read cold reset rsp payload\n",
+		if (ret <= 0) {
+			dev_err(nfc_dev->nfc_device,
+				"%s: failure to read cold reset rsp payload\n",
 				__func__);
-		ret = -EIO;
-		goto error;
+			ret = -EIO;
+			goto error;
+		}
+		ret = cold_rst->status = rsp_buf[NCI_PAYLOAD_IDX];
+
+		pr_debug("nfc ese rsp hdr 0x%x 0x%x 0x%x, payload byte0 0x%x\n",
+				rsp_buf[0], rsp_buf[1], rsp_buf[2], rsp_buf[3]);
 	}
 
-	ret = cold_rst->status = rsp_buf[NCI_PAYLOAD_IDX];
-
-	pr_debug("nfc ese rsp hdr 0x%x 0x%x 0x%x, payload byte0 0x%x\n",
-				rsp_buf[0], rsp_buf[1], rsp_buf[2], rsp_buf[3]);
 error:
 	kfree(rsp_buf);
 
