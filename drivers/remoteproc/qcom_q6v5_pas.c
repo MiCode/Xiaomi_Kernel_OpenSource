@@ -26,6 +26,9 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/soc/qcom/qcom_aoss.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/rproc_qcom.h>
+
 #include "qcom_common.h"
 #include "qcom_pil_info.h"
 #include "qcom_q6v5.h"
@@ -149,11 +152,15 @@ static void adsp_minidump(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "enter");
+
 	if (rproc->dump_conf == RPROC_COREDUMP_DISABLED)
-		return;
+		goto exit;
 
 	qcom_minidump(rproc, adsp->minidump_id, adsp_segment_dump);
 
+exit:
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "exit");
 }
 
 static int adsp_toggle_load_state(struct qmp *qmp, const char *name, bool enable)
@@ -275,6 +282,8 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "enter");
+
 	scm_pas_enable_bw();
 
 	if (!adsp->dtb_pas_id || !adsp->dtb_fw_name) {
@@ -299,7 +308,9 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 	}
 
 exit:
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "exit");
 	scm_pas_disable_bw();
+
 	return ret;
 }
 
@@ -358,6 +369,8 @@ static int adsp_start(struct rproc *rproc)
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
 	const struct firmware *fw;
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "enter");
 
 	qcom_q6v5_prepare(&adsp->q6v5);
 
@@ -451,6 +464,7 @@ free_metadata:
 		release_firmware(adsp->dtb_firmware);
 	}
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
 }
 
@@ -470,6 +484,8 @@ static int adsp_stop(struct rproc *rproc)
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int handover;
 	int ret;
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "enter");
 
 	ret = qcom_q6v5_request_stop(&adsp->q6v5, adsp->sysmon);
 	if (ret == -ETIMEDOUT)
@@ -495,6 +511,8 @@ static int adsp_stop(struct rproc *rproc)
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
 	if (handover)
 		qcom_pas_handover(&adsp->q6v5);
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "exit");
 
 	return ret;
 }
