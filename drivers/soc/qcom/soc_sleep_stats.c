@@ -6,8 +6,10 @@
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/io.h>
+#if IS_ENABLED(CONFIG_MSM_QMP)
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
+#endif
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -79,15 +81,6 @@ struct stats_prv_data {
 	void __iomem *reg;
 };
 
-struct ddr_stats_g_data {
-	bool read_vote_info;
-	void __iomem *ddr_reg;
-	u32 entry_count;
-	struct mutex ddr_stats_lock;
-	struct mbox_chan *stats_mbox_ch;
-	struct mbox_client stats_mbox_cl;
-};
-
 struct sleep_stats {
 	u32 stat_type;
 	u32 count;
@@ -101,7 +94,18 @@ struct appended_stats {
 	u32 reserved[3];
 };
 
+#if IS_ENABLED(CONFIG_MSM_QMP)
+struct ddr_stats_g_data {
+	bool read_vote_info;
+	void __iomem *ddr_reg;
+	u32 entry_count;
+	struct mutex ddr_stats_lock;
+	struct mbox_chan *stats_mbox_ch;
+	struct mbox_client stats_mbox_cl;
+};
+
 struct ddr_stats_g_data *ddr_gdata;
+#endif
 
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
@@ -227,6 +231,7 @@ static int ddr_stats_show(struct seq_file *s, void *d)
 }
 
 DEFINE_SHOW_ATTRIBUTE(ddr_stats);
+#if IS_ENABLED(CONFIG_MSM_QMP)
 
 int ddr_stats_get_ss_count(void)
 {
@@ -286,6 +291,7 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 
 }
 EXPORT_SYMBOL(ddr_stats_get_ss_vote_info);
+#endif
 
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     void __iomem *ddr_reg,
@@ -350,7 +356,7 @@ exit:
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *reg;
+	void __iomem *reg, *ddr_reg = NULL;
 	void __iomem *offset_addr;
 	phys_addr_t stats_base;
 	resource_size_t stats_size;
@@ -387,11 +393,6 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	for (i = 0; i < config->num_records; i++)
 		prv_data[i].config = config;
 
-	ddr_gdata = devm_kzalloc(&pdev->dev, sizeof(*ddr_gdata), GFP_KERNEL);
-	if (!ddr_gdata)
-		return -ENOMEM;
-
-	ddr_gdata->read_vote_info = false;
 	if (!config->ddr_offset_addr)
 		goto skip_ddr_stats;
 
@@ -403,9 +404,17 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	stats_base = res->start | readl_relaxed(offset_addr);
 	iounmap(offset_addr);
 
-	ddr_gdata->ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
-	if (!ddr_gdata->ddr_reg)
+	ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
+	if (!ddr_reg)
 		return -ENOMEM;
+
+#if IS_ENABLED(CONFIG_MSM_QMP)
+	ddr_gdata = devm_kzalloc(&pdev->dev, sizeof(*ddr_gdata), GFP_KERNEL);
+	if (!ddr_gdata)
+		return -ENOMEM;
+
+	ddr_gdata->read_vote_info = false;
+	ddr_gdata->ddr_reg = ddr_reg;
 
 	mutex_init(&ddr_gdata->ddr_stats_lock);
 
@@ -425,9 +434,10 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 		goto skip_ddr_stats;
 
 	ddr_gdata->read_vote_info = true;
+#endif
 
 skip_ddr_stats:
-	root = create_debugfs_entries(reg, ddr_gdata->ddr_reg,  prv_data,
+	root = create_debugfs_entries(reg, ddr_reg,  prv_data,
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
 
