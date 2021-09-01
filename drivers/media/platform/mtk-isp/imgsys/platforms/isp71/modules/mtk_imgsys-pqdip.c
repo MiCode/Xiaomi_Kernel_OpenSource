@@ -123,6 +123,26 @@ void imgsys_pqdip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 }
 EXPORT_SYMBOL(imgsys_pqdip_set_initial_value);
 
+void imgsys_pqdip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
+{
+	void __iomem *ofset = NULL;
+	unsigned int hw_idx = 0;
+	unsigned int i = 0;
+
+	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
+
+	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
+		for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
+			ofset = gpqdipRegBA[hw_idx]
+				+ mtk_imgsys_pqdip_init_ary[i].ofset;
+			writel(mtk_imgsys_pqdip_init_ary[i].val, ofset);
+		}
+	}
+
+	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
+}
+EXPORT_SYMBOL(imgsys_pqdip_set_hw_initial_value);
+
 void imgsys_pqdip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine)
 {
