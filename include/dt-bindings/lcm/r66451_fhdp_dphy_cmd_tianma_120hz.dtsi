@@ -109,7 +109,7 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <190>;
+					lcm-params-dsi-pll_clock = <215>;
 					lcm-params-dsi-data_rate = <840>;
 					lcm-params-dsi-vfp_for_low_power = <620>;
 					lcm-params-dsi-ssc_disable;
@@ -860,7 +860,7 @@
 				set_backlight_grp_cmdq_table;
 
 				set_aod_light_mask = <0xfff>;
-				set_aod_light =
+				set_aod_light_table =
 					/* runtime input count, data id*/
 					<MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE 7 2 1 2>,
 						<3 0x51 0xF 0xFF>,/*data count, data mask or value*/
@@ -871,16 +871,16 @@
 				ata_check_table;
 
 				compare_id_value_length = <1>;
-				compare_id_value_data = <0x1>;
+				compare_id_value_data = <0x2>;
 				compare_id_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
 					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 1>,
 					<MTK_LCM_UTIL_TYPE_RESET 1 1>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 20>,
 					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0x0 0x2 0x37 0x0>,
+					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0x0 0x1 0x37 0x0>,
 					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_CMD_TYPE_READ_BUFFER 3 0 1 0xDA>,
+					<MTK_LCM_CMD_TYPE_READ_BUFFER 3 0 1 0xbf>,
 					<MTK_LCM_TYPE_END>;
 
 				doze_enable_start_table;

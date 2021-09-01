@@ -1124,7 +1124,7 @@
 				set_backlight_grp_cmdq_table;
 
 				set_aod_light_mask = <0xff>;
-				set_aod_light;
+				set_aod_light_table;
 
 				ata_id_value_length = <0>;
 				ata_id_value_data;

@@ -682,7 +682,7 @@
 
 				set_aod_light_mask = <0xff>;
 				set_aod_light_size = <0>;
-				set_aod_light;
+				set_aod_light_table;
 
 				ata_id_value_length = <3>;
 				ata_id_value_data = <0x40 0x0 0x0>;

@@ -617,39 +617,7 @@
 					<MTK_LCM_TYPE_END>;
 
 				lcm_update_size = <0>;
-				lcm_update_table = <MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 3>,
-						<MTK_LCM_LK_TYPE_PREPARE_PARAM 5>,
-						<0x0 0x0 0x5 0x39 0x2>,
-					/*0x2a is of data[1] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_FIX_BIT 3 1 0 0x2a>,
-					/*x0_msb is of data[1] bit8 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X0_MSB_BIT 3 1 8 0x0>,
-					/*x0_lsb is of data[1] bit16 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X0_LSB_BIT 3 1 16 0x0>,
-					/*x1_msb is of data[1] bit24 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X1_MSB_BIT  3 1 24 0x0>,
-					/*x0_lsb is of data[2] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X1_LSB_BIT  3 2 0 0x0>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 3>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5>,
-						<0x0 0x0 0x5 0x39 0x2>,
-					/*0x2b is of data[1] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_FIX_BIT 3 1 0 0x2b>,
-					/*y0_msb is of data[1] bit8 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_MSB_BIT  3 1 8 0x0>,
-					/*y0_lsb is of data[1] bit16 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_LSB_BIT  3 1 16 0x0>,
-					/*y1_msb is of data[1] bit24 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_MSB_BIT  3 1 24 0x0>,
-					/*y0_lsb is of data[2] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_LSB_BIT  3 2 0 0x0>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5>,
-						<0x0 0x0 0x2c 0x39 0x9>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_TYPE_END>;
+				lcm_update_table;
 
 				/* if this is null, we default use 0x51 for backlight settings*/
 				set_backlight_mask = <0xff>;
@@ -663,7 +631,7 @@
 
 				set_aod_light_mask = <0xff>;
 				set_aod_light_size = <0>;
-				set_aod_light;
+				set_aod_light_table;
 
 				ata_id_value_length = <3>; /*expected ata id length is 3*/
 				ata_id_value_data = <0x0 0x0 0x0>;
