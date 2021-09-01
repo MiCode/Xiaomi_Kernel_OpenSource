@@ -1080,6 +1080,13 @@ skip_buf_cache:
 			goto bail;
 		if (fl->sctx->smmu.cb)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
+		VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+		if (err) {
+			ADSPRPC_ERR(
+				"invalid channel 0x%zx set for session\n",
+				fl->cid);
+			goto bail;
+		}
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
 			int srcVM[2] = {VMID_HLOS, vmid};
@@ -1734,6 +1741,12 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	int err = 0, vmid;
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_buf *buf = NULL;
+
+	VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
 
 	VERIFY(err, size > 0 && size < me->max_size_limit);
 	if (err) {
