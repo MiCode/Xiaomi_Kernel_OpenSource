@@ -412,7 +412,6 @@ mtk_apu_rpmsg_create_rproc_subdev(struct platform_device *pdev,
 
 	return &mtk_subdev->subdev;
 }
-EXPORT_SYMBOL_GPL(mtk_apu_rpmsg_create_rproc_subdev);
 
 void mtk_apu_rpmsg_destroy_rproc_subdev(struct rproc_subdev *subdev)
 {
@@ -420,7 +419,6 @@ void mtk_apu_rpmsg_destroy_rproc_subdev(struct rproc_subdev *subdev)
 
 	kfree(mtk_subdev);
 }
-EXPORT_SYMBOL_GPL(mtk_apu_rpmsg_destroy_rproc_subdev);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek apu rpmsg driver");
