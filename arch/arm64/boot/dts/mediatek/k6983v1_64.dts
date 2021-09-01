@@ -17,14 +17,6 @@
 	firmware_class.path=/vendor/firmware \
 	allow_mismatched_32bit_el0 \
 	initcall_debug=1";
-	atag,videolfb-fb_base_l = <0x7e605000>;
-	atag,videolfb-fb_base_h = <0x0>;
-	atag,videolfb-islcmfound = <1>;
-	atag,videolfb-islcm_inited = <0>;
-	atag,videolfb-fps= <6000>;
-	atag,videolfb-vramSize= <0x1be0000>;
-	atag,videolfb-lcmname=
-		"nt36672e_fhdp_dsi_vdo_120hz_jdi_dphy_drv";
 };
 
 &odm {
