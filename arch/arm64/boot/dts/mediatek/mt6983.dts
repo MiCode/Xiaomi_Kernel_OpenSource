@@ -11787,6 +11787,17 @@
 			compatible = "mediatek,mdla-rx-rpmsg";
 			mtk,rpmsg-name = "mdla-rx-rpmsg";
 		};
+
+		mvpu_tx_rpmsg {
+			compatible = "mediatek,mvpu-tx-rpmsg";
+			mtk,rpmsg-name = "mvpu-tx-rpmsg";
+		};
+
+		mvpu_rx_rpmsg {
+			compatible = "mediatek,mvpu-rx-rpmsg";
+			mtk,rpmsg-name = "mvpu-rx-rpmsg";
+		};
+
 	};
 
 	apusys_hw_logger:apusys_hw_logger {
