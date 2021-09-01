@@ -1161,6 +1161,11 @@
 			reg = <0 0x1025d000 0 0x1000>;
 		};
 
+		usb_meta: usb_meta {
+			compatible = "mediatek,usb_meta";
+			udc = <&ssusb>;
+		};
+
 		ssusb: usb0@11201000 {
 				compatible = "mediatek,mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
