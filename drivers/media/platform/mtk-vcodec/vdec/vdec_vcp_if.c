@@ -469,6 +469,7 @@ int vcp_dec_ipi_handler(void *arg)
 					MTK_INST_IRQ_RECEIVED,
 					WAIT_INTR_TIMEOUT_MS);
 				msg->msg_id = AP_IPIMSG_DEC_WAITISR_DONE;
+				msg->status = ret;
 				vcodec_trace_count("VDEC_HW_CORE", 1);
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;
@@ -500,6 +501,7 @@ int vcp_dec_ipi_handler(void *arg)
 					MTK_INST_IRQ_RECEIVED,
 					WAIT_INTR_TIMEOUT_MS);
 				msg->msg_id = AP_IPIMSG_DEC_WAITISR_DONE;
+				msg->status = ret;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				vcodec_trace_count("VDEC_HW_LAT", 1);
 				break;
