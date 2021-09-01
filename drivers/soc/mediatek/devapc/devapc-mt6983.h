@@ -480,7 +480,7 @@ static const struct mtk_device_info mt6983_devices_infra[] = {
 
 	{-1, -1, 308, "Decode_error", true},
 	{-1, -1, 309, "Decode_error", true},
-	{-1, -1, 310, "Decode_error", true},
+	{-1, -1, 310, "Decode_error", false},
 	{-1, -1, 311, "Decode_error", true},
 	{-1, -1, 312, "Decode_error", true},
 	{-1, -1, 313, "Decode_error", true},
