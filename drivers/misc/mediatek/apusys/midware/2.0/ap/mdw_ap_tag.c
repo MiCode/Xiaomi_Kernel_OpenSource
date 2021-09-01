@@ -111,7 +111,7 @@ int mdw_ap_tag_init(void)
 {
 	int ret;
 
-	mdw_ap_tags = apu_tags_alloc("mdw", sizeof(*mdw_ap_tags),
+	mdw_ap_tags = apu_tags_alloc("mdw", sizeof(struct mdw_ap_tag),
 		MDW_TAGS_CNT, mdw_ap_tag_seq, mdw_ap_tag_seq_info, NULL);
 
 	if (!mdw_ap_tags)

@@ -281,6 +281,11 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 	struct mdw_mem *m = NULL;
 	int ret = 0;
 
+	if (!in->alloc.size) {
+		mdw_drv_err("invalid size(%u)\n", in->alloc.size);
+		return -EINVAL;
+	}
+
 	m = mdw_mem_alloc(mpriv, in->alloc.size,
 		in->alloc.align, in->alloc.flags, MDW_MEM_TYPE_ALLOC);
 	memset(args, 0, sizeof(*args));
