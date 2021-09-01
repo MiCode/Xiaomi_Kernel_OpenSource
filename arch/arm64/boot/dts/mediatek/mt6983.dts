@@ -2805,7 +2805,7 @@
 
 		map5 {
 			domain = "gpu0";
-			method = "fhctl-ap";
+			method = "fhctl-gpueb";
 			mfgpll {
 				fh-id = <0>;
 				pll-id = <CLK_MFG_MFGPLL>;
@@ -2814,7 +2814,7 @@
 
 		map7 {
 			domain = "gpu2";
-			method = "fhctl-ap";
+			method = "fhctl-gpueb";
 			mfgebpll {
 				fh-id = <0>;
 				pll-id = <CLK_MFG_GPUEBPLL>;
@@ -2823,7 +2823,7 @@
 
 		map8 {
 			domain = "gpu3";
-			method = "fhctl-ap";
+			method = "fhctl-gpueb";
 			mfgscpll {
 				fh-id = <0>;
 				pll-id = <CLK_MFG_MFGSCPLL>;
