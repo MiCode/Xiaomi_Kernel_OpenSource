@@ -482,6 +482,18 @@ struct mtk_vcodec_ctx {
 	int use_slbc;
 };
 
+/*
+ * struct venc_frm_buf - frame buffer information used in venc_if_encode()
+ * @fb_addr: plane frame buffer addresses
+ * @num_planes: frmae buffer plane num
+ */
+struct venc_larb_port {
+	unsigned int total_port_num;
+	unsigned int port_id[MTK_VENC_PORT_NUM];
+	unsigned int ram_type[MTK_VENC_PORT_NUM];
+};
+
+
 /**
  * struct mtk_vcodec_dev - driver data
  * @v4l2_dev: V4L2 device to register video devices for.
@@ -602,6 +614,7 @@ struct mtk_vcodec_dev {
 
 	struct regulator *vdec_reg;
 	struct regulator *venc_reg;
+	struct venc_larb_port venc_ports[MTK_VENC_HW_NUM];
 
 /**
  *	struct ion_client *ion_vdec_client;

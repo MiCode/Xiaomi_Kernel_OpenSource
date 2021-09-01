@@ -245,8 +245,11 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	struct mtk_vcodec_dev *dev;
 	struct video_device *vfd_enc;
 	struct resource *res;
-	int i = 0, reg_index = 0, ret;
+	int i = 0, j = 0, k = 0, reg_index = 0, ret;
 	const char *name = NULL;
+	int port_args_num = 0, port_data_len = 0, total_port_num = 0;
+	unsigned int offset = 0;
+	unsigned int core_id = 0, ram_type = 0, port_id = 0;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -328,6 +331,50 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	ret = mtk_vcodec_enc_irq_setup(pdev, dev);
 	if (ret)
 		goto err_res;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "port_arg_num", &port_args_num);
+	if (ret != 0)
+		dev_info(&pdev->dev, "Failed to get port_arg_num!");
+
+	pr_info("after get port_arg_num %d\n", port_args_num);
+	if (!of_get_property(pdev->dev.of_node, "port-def", &port_data_len))
+		dev_info(&pdev->dev, "Failed to get port-def!");
+
+	pr_info("after get port-def port_data_len %d\n", port_data_len);
+	total_port_num = port_data_len / (sizeof(u32) * port_args_num);
+
+	for (i = 0; i < total_port_num; i++) {
+		offset = i * port_args_num;
+		if (of_property_read_u32_index(pdev->dev.of_node, "port-def",
+					offset, &core_id)) {
+			dev_info(&pdev->dev, "fail core id offset %d i %d!", offset, i);
+			goto err_res;
+		}
+		if (of_property_read_u32_index(pdev->dev.of_node, "port-def",
+					offset + 1, &port_id)) {
+			dev_info(&pdev->dev, "fail port id offset %d i %d!", offset, i);
+			goto err_res;
+		}
+		if (of_property_read_u32_index(pdev->dev.of_node, "port-def",
+					offset + 2, &ram_type)) {
+			dev_info(&pdev->dev, "fail ram type offset %d i %d!", offset, i);
+			goto err_res;
+		}
+
+		if (core_id == 0) {
+			dev->venc_ports[0].port_id[j] = port_id;
+			dev->venc_ports[0].ram_type[j] = ram_type;
+			j++;
+		} else {
+			dev->venc_ports[1].port_id[k] = port_id;
+			dev->venc_ports[1].ram_type[k] = ram_type;
+			k++;
+		}
+
+	}
+	dev->venc_ports[0].total_port_num = j;
+	dev->venc_ports[1].total_port_num = k;
+	pr_info("after get port-def  port num %d %d\n", j, k);
 
 	for (i = 0; i < MTK_VENC_HW_NUM; i++)
 		sema_init(&dev->enc_sem[i], 1);
