@@ -1644,6 +1644,7 @@
 		"vde1-0";
 		infracfg = <&infracfg_ao_clk>;
 		vlpcfg = <&vlpcfg_bus_clk>;
+		mfgrpc = <&mfgrpc_clk>;
 	};
 
 	apmixedsys_clk: syscon@1000c000 {
@@ -2414,6 +2415,11 @@
 	vlpcfg_bus_clk: syscon@1c00c000 {
 		compatible = "mediatek,mt6983-vlpcfg_bus", "syscon";
 		reg = <0 0x1c00c000 0 0x1000>;
+	};
+
+	mfgrpc_clk: syscon@13f90000 {
+		compatible = "mediatek,mt6983-mfgrpc", "syscon";
+		reg = <0 0x13f90000 0 0x2000>;
 	};
 
 	spmi: spmi@1c015000 {
