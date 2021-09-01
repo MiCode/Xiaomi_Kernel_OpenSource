@@ -59,7 +59,6 @@ struct system_heap_buffer {
 	pid_t                   tid;
 	char                    pid_name[TASK_COMM_LEN];
 	char                    tid_name[TASK_COMM_LEN];
-	unsigned long long      ts;/* us */
 };
 
 #define HIGH_ORDER_GFP  (((GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN \
@@ -347,7 +346,7 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	if (skip_cache_sync)
-		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
+		pr_info_ratelimited("%s [%s]: inode:%ld name:%s dir:%d %s\n",
 				    __func__, dma_heap_get_name(buffer->heap),
 				    file_inode(dmabuf->file)->i_ino,
 				    dmabuf->name, direction,
@@ -381,7 +380,7 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	if (skip_cache_sync)
-		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
+		pr_info_ratelimited("%s [%s]: inode:%ld name:%s dir:%d %s\n",
 				    __func__, dma_heap_get_name(buffer->heap),
 				    file_inode(dmabuf->file)->i_ino,
 				    dmabuf->name, direction,
@@ -698,7 +697,6 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
-	buffer->ts  = sched_clock()/1000;
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
@@ -840,11 +838,10 @@ static int mm_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 	if (heap != buf->heap)
 		return -EINVAL;
 
-	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
+	dmabuf_dump(s, "\t\tbuf_priv: uncache:%d alloc-pid:%d[%s]-tid:%d[%s]\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
-		    buf->tid, buf->tid_name,
-		    buf->ts);
+		    buf->tid, buf->tid_name);
 
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
 		bool mapped = buf->mapped[i];
@@ -855,7 +852,7 @@ static int mm_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 			continue;
 
 		dmabuf_dump(s,
-			    "\tbuf_priv: dom:%-2d map:%d iova:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
+			    "\t\tbuf_priv: dom:%-2d map:%d iova:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
 			    i, mapped,
 			    sg_dma_address(sgt->sgl),
 			    buf->dev_info[i].map_attrs,
@@ -866,74 +863,13 @@ static int mm_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 	return 0;
 }
 
-/**
- * return none-zero value means dump fail.
- *       maybe the input dmabuf isn't this heap buffer, no need dump
- *
- * return 0 means dump pass
- */
-static int system_heap_buf_priv_dump(const struct dma_buf *dmabuf,
-				     struct dma_heap *heap,
-				     void *priv)
-{
-	struct system_heap_buffer *buf = dmabuf->priv;
-	struct seq_file *s = priv;
-
-	/* buffer check */
-	if (!is_system_heap_dmabuf(dmabuf))
-		return -EINVAL;
-
-	if (heap != buf->heap)
-		return -EINVAL;
-
-	dmabuf_dump(s, "\tbuf_priv: uncache:%d alloc: pid:%d[%s]tid:%d[%s] time:%luus\n",
-		    !!buf->uncached,
-		    buf->pid, buf->pid_name,
-		    buf->tid, buf->tid_name,
-		    buf->ts);
-
-	return 0;
-}
-
-
 static struct mtk_heap_priv_info mtk_mm_heap_priv = {
 	.buf_priv_dump = mm_heap_buf_priv_dump,
 };
 
-static struct mtk_heap_priv_info system_heap_priv = {
-	.buf_priv_dump = system_heap_buf_priv_dump,
-};
-
-
-static int set_heap_dev_dma(struct device *heap_dev)
-{
-
-	if (!heap_dev)
-		return 0;
-
-	dma_coerce_mask_and_coherent(heap_dev, DMA_BIT_MASK(64));
-
-	if (!heap_dev->dma_parms) {
-		heap_dev->dma_parms = devm_kzalloc(heap_dev,
-						   sizeof(*heap_dev->dma_parms),
-						   GFP_KERNEL);
-		if (!heap_dev->dma_parms)
-			return -ENOMEM;
-
-		if (dma_set_max_seg_size(heap_dev, (unsigned int)DMA_BIT_MASK(32))) {
-			dev_info(heap_dev, "Failed to set DMA segment size\n");
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
-
 static int system_heap_create(void)
 {
 	struct dma_heap_export_info exp_info;
-	struct device *heap_dev;
-
 	int i;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
@@ -951,7 +887,7 @@ static int system_heap_create(void)
 
 	exp_info.name = "system";
 	exp_info.ops = &system_heap_ops;
-	exp_info.priv = (void *)&system_heap_priv;
+	exp_info.priv = NULL;
 
 	sys_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_heap))
@@ -969,14 +905,13 @@ static int system_heap_create(void)
 
 	exp_info.name = "system-uncached";
 	exp_info.ops = &system_uncached_heap_ops;
-	exp_info.priv = (void *)&system_heap_priv;
+	exp_info.priv = NULL;
 
 	sys_uncached_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_uncached_heap))
 		return PTR_ERR(sys_uncached_heap);
 
-	heap_dev = dma_heap_get_dev(sys_uncached_heap);
-	set_heap_dev_dma(heap_dev);
+	dma_coerce_mask_and_coherent(dma_heap_get_dev(sys_uncached_heap), DMA_BIT_MASK(64));
 	mb(); /* make sure we only set allocate after dma_mask is set */
 	system_uncached_heap_ops.allocate = system_uncached_heap_allocate;
 	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
@@ -989,8 +924,7 @@ static int system_heap_create(void)
 	if (IS_ERR(mtk_mm_uncached_heap))
 		return PTR_ERR(mtk_mm_uncached_heap);
 
-	heap_dev = dma_heap_get_dev(mtk_mm_uncached_heap);
-	set_heap_dev_dma(heap_dev);
+	dma_coerce_mask_and_coherent(dma_heap_get_dev(mtk_mm_uncached_heap), DMA_BIT_MASK(64));
 	mb(); /* make sure we only set allocate after dma_mask is set */
 	mtk_mm_uncached_heap_ops.allocate = mtk_mm_uncached_heap_allocate;
 	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
@@ -1014,14 +948,6 @@ long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf)
 
 	return ret;
 } EXPORT_SYMBOL_GPL(mtk_dma_buf_set_name);
-
-int is_system_heap_dmabuf(const struct dma_buf *dmabuf)
-{
-	if (dmabuf && dmabuf->ops == &system_heap_buf_ops)
-		return 1;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(is_system_heap_dmabuf);
 
 int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf)
 {

@@ -110,7 +110,6 @@ struct mtk_sec_heap_buffer {
 	pid_t                    tid;
 	char                     pid_name[TASK_COMM_LEN];
 	char                     tid_name[TASK_COMM_LEN];
-	unsigned long long       ts; /* us */
 	u32                      sec_handle;/* keep same type with tmem */
 };
 
@@ -1001,7 +1000,6 @@ static void init_buffer_info(struct dma_heap *heap,
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
-	buffer->ts  = sched_clock()/1000;
 }
 
 static struct dma_buf *alloc_dmabuf(struct dma_heap *heap, struct mtk_sec_heap_buffer *buffer,
@@ -1160,11 +1158,10 @@ static int sec_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 	if (heap != buf->heap)
 		return -EINVAL;
 
-	dmabuf_dump(s, "\t\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
+	dmabuf_dump(s, "\t\tbuf_priv: uncache:%d alloc-pid:%d[%s]-tid:%d[%s]\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
-		    buf->tid, buf->tid_name,
-		    buf->ts);
+		    buf->tid, buf->tid_name);
 
 	/* region base, only has secure handle */
 	if (dmabuf->ops == &sec_buf_region_ops)
@@ -1186,7 +1183,7 @@ static int sec_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 			iova = sg_dma_address(sgt->sgl);
 
 		dmabuf_dump(s,
-			    "\tbuf_priv: dom:%-2d map:%d %4s:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
+			    "\t\tbuf_priv: dom:%-2d map:%d %4s:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
 			    i, mapped,
 			    region_buf ? "shdl" : "iova",
 			    iova,

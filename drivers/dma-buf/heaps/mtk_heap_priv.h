@@ -19,9 +19,7 @@
 
 /* Bit map */
 #define HEAP_DUMP_SKIP_ATTACH     (1 << 0)
-#define HEAP_DUMP_SKIP_RB_DUMP    (1 << 1)
-#define HEAP_DUMP_HEAP_SKIP_POOL  (1 << 2)
-#define HEAP_DUMP_RB_SKIP_BUFFER  (1 << 3)
+#define HEAP_DUMP_SKIP_FD         (1 << 1)
 
 #define dmabuf_dump(file, fmt, args...)                \
 	do {                                           \
