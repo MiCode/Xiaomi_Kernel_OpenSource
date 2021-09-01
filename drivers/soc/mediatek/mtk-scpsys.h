@@ -20,6 +20,7 @@
 #define MTK_SCPD_IS_PWR_CON_ON		BIT(8)
 #define MTK_SCPD_L2TCM_SRAM		BIT(9)
 #define MTK_SCPD_PWRON_NO_SUBSYS_CLK	BIT(10)
+#define MTK_SCPD_L2SRAM			BIT(11)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
@@ -55,6 +56,8 @@ struct scp_domain_data {
 	u32 sram_pdn_ack_bits;
 	u32 sram_slp_bits;
 	u32 sram_slp_ack_bits;
+	u32 l2sram_pdn_bits;
+	u32 l2sram_slp_bits;
 	int extb_iso_offs;
 	u32 extb_iso_bits;
 	const char *basic_clk_name[MAX_CLKS];

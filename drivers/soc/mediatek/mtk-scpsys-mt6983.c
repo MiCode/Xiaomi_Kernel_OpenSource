@@ -325,8 +325,9 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.name = "mm_proc_dormant",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE70,
-		.sram_slp_bits = GENMASK(11, 8),
+		.sram_slp_bits = GENMASK(9, 9),
 		.sram_slp_ack_bits = GENMASK(13, 13),
+		.l2sram_slp_bits = GENMASK(11, 8),
 		.basic_clk_name = {"mm_proc_dormant_0"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
@@ -335,7 +336,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 				MM_PROC_PROT_STEP2_0_MASK),
 		},
 		.sram_table = {{0xF08, false}},
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_L2TCM_SRAM |
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_L2SRAM | MTK_SCPD_SRAM_SLP |
 							MTK_SCPD_BYPASS_INIT_ON |
 							MTK_SCPD_IS_PWR_CON_ON,
 	},

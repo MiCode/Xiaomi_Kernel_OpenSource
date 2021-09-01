@@ -268,6 +268,35 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr, b
 	return 0;
 }
 
+static int scpsys_l2sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
+{
+	u32 val;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		val = readl(ctl_addr) | scpd->data->l2sram_slp_bits;
+	else
+		val = readl(ctl_addr) & ~scpd->data->l2sram_pdn_bits;
+
+	writel(val, ctl_addr);
+
+	return 0;
+}
+
+static int scpsys_l2sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
+{
+	u32 val;
+	int ret = 0;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		val = readl(ctl_addr) & ~scpd->data->l2sram_slp_bits;
+	else
+		val = readl(ctl_addr) | scpd->data->l2sram_pdn_bits;
+
+	writel(val, ctl_addr);
+
+	return ret;
+}
+
 static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr, bool wait_ack)
 {
 	u32 val;
@@ -299,7 +328,47 @@ static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr, 
 		ret = readl_poll_timeout_atomic(ctl_addr, tmp,
 				(tmp & ack_mask) == ack_sta,
 				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
-	
+
+	return ret;
+}
+
+static int scpsys_l2sram_table_enable(struct scp_domain *scpd)
+{
+	const struct sram_ctl *sram_table = scpd->data->sram_table;
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MAX_SRAM_STEPS; i++) {
+		if (sram_table[i].offs) {
+			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+
+			ret = scpsys_l2sram_enable(scpd, ctl_addr);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
+}
+
+static int scpsys_l2sram_table_disable(struct scp_domain *scpd)
+{
+	const struct sram_ctl *sram_table = scpd->data->sram_table;
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MAX_SRAM_STEPS; i++) {
+		if (sram_table[i].offs) {
+			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+
+			ret = scpsys_l2sram_disable(scpd, ctl_addr);
+			if (ret)
+				return ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -559,6 +628,12 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 			goto err_sram;
 	}
 
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2SRAM)) {
+		ret = scpsys_l2sram_table_enable(scpd);
+		if (ret < 0)
+			goto err_sram;
+	}
+
 	ret = scpsys_sram_enable(scpd, ctl_addr, true);
 	if (ret < 0)
 		goto err_sram;
@@ -608,6 +683,12 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
 		ret = scpsys_sram_table_disable(scpd);
+		if (ret < 0)
+			goto out;
+	}
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2SRAM)) {
+		ret = scpsys_l2sram_table_disable(scpd);
 		if (ret < 0)
 			goto out;
 	}
