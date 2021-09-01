@@ -5775,7 +5775,7 @@
 			<6 0 6>,
 			<7 0 6>;
 		send_name_table =
-			"IPI_ID_PLATFORM",
+			"IPI_ID_FAST_DVFS_EVENT",
 			"IPI_ID_GPUFREQ",
 			"IPI_ID_SLEEP",
 			"IPI_ID_TIMER",
@@ -5795,7 +5795,7 @@
 			<6 0 1 0>,
 			<7 0 6 0>;
 		recv_name_table =
-			"IPI_ID_PLATFORM",
+			"IPI_ID_FAST_DVFS_EVENT",
 			"IPI_ID_GPUFREQ",
 			"IPI_ID_SLEEP",
 			"IPI_ID_TIMER",
