@@ -212,6 +212,22 @@ struct bt_iter_data {
 	bool reserved;
 };
 
+static struct request *blk_mq_find_and_get_req(struct blk_mq_tags *tags,
+		unsigned int bitnr)
+{
+	struct request *rq;
+	unsigned long flags;
+	struct ext_blk_mq_tags *etags;
+
+	etags = container_of(tags, struct ext_blk_mq_tags, tags);
+	spin_lock_irqsave(&etags->lock, flags);
+	rq = tags->rqs[bitnr];
+	if (!rq || !refcount_inc_not_zero(&rq->ref))
+		rq = NULL;
+	spin_unlock_irqrestore(&etags->lock, flags);
+	return rq;
+}
+
 static bool bt_iter(struct sbitmap *bitmap, unsigned int bitnr, void *data)
 {
 	struct bt_iter_data *iter_data = data;
@@ -219,18 +235,23 @@ static bool bt_iter(struct sbitmap *bitmap, unsigned int bitnr, void *data)
 	struct blk_mq_tags *tags = hctx->tags;
 	bool reserved = iter_data->reserved;
 	struct request *rq;
+	bool ret = true;
 
 	if (!reserved)
 		bitnr += tags->nr_reserved_tags;
-	rq = tags->rqs[bitnr];
 
 	/*
 	 * We can hit rq == NULL here, because the tagging functions
 	 * test and set the bit before assigning ->rqs[].
 	 */
-	if (rq && rq->q == hctx->queue)
-		return iter_data->fn(hctx, rq, iter_data->data, reserved);
-	return true;
+	rq = blk_mq_find_and_get_req(tags, bitnr);
+	if (!rq)
+		return true;
+
+	if (rq->q == hctx->queue && rq->mq_hctx == hctx)
+		ret = iter_data->fn(hctx, rq, iter_data->data, reserved);
+	blk_mq_put_rq_ref(rq);
+	return ret;
 }
 
 /**
@@ -273,6 +294,7 @@ static bool bt_tags_iter(struct sbitmap *bitmap, unsigned int bitnr, void *data)
 	struct blk_mq_tags *tags = iter_data->tags;
 	bool reserved = iter_data->reserved;
 	struct request *rq;
+	bool ret = true;
 
 	if (!reserved)
 		bitnr += tags->nr_reserved_tags;
@@ -281,11 +303,13 @@ static bool bt_tags_iter(struct sbitmap *bitmap, unsigned int bitnr, void *data)
 	 * We can hit rq == NULL here, because the tagging functions
 	 * test and set the bit before assining ->rqs[].
 	 */
-	rq = tags->rqs[bitnr];
-	if (rq && blk_mq_request_started(rq))
-		return iter_data->fn(rq, iter_data->data, reserved);
-
-	return true;
+	rq = blk_mq_find_and_get_req(tags, bitnr);
+	if (!rq)
+		return true;
+	if (blk_mq_request_started(rq))
+		ret = iter_data->fn(rq, iter_data->data, reserved);
+	blk_mq_put_rq_ref(rq);
+	return ret;
 }
 
 /**
@@ -342,6 +366,9 @@ static void blk_mq_all_tag_busy_iter(struct blk_mq_tags *tags,
  *		indicates whether or not @rq is a reserved request. Return
  *		true to continue iterating tags, false to stop.
  * @priv:	Will be passed as second argument to @fn.
+ *
+ * We grab one request reference before calling @fn and release it after
+ * @fn returns.
  */
 void blk_mq_tagset_busy_iter(struct blk_mq_tag_set *tagset,
 		busy_tag_iter_fn *fn, void *priv)
@@ -465,18 +492,21 @@ struct blk_mq_tags *blk_mq_init_tags(unsigned int total_tags,
 				     int node, int alloc_policy)
 {
 	struct blk_mq_tags *tags;
+	struct ext_blk_mq_tags *etags;
 
 	if (total_tags > BLK_MQ_TAG_MAX) {
 		pr_err("blk-mq: tag depth too large\n");
 		return NULL;
 	}
 
-	tags = kzalloc_node(sizeof(*tags), GFP_KERNEL, node);
-	if (!tags)
+	etags = kzalloc_node(sizeof(*etags), GFP_KERNEL, node);
+	if (!etags)
 		return NULL;
 
+	tags = &etags->tags;
 	tags->nr_tags = total_tags;
 	tags->nr_reserved_tags = reserved_tags;
+	spin_lock_init(&etags->lock);
 
 	return blk_mq_init_bitmap_tags(tags, node, alloc_policy);
 }
