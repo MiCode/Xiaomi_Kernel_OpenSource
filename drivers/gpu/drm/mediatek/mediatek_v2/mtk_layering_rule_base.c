@@ -170,10 +170,9 @@ static int is_overlap_on_yaxis(struct drm_mtk_layer_config *lhs,
 }
 
 static bool is_layer_across_each_pipe(struct drm_crtc *crtc,
-			struct drm_mtk_layer_config *layer_info)
+	struct drm_mtk_layer_config *layer_info, unsigned int disp_w)
 {
 	unsigned int dst_x, dst_w;
-	unsigned int disp_w;
 	struct mtk_drm_crtc *mtk_crtc;
 
 	if (crtc == NULL)
@@ -182,8 +181,6 @@ static bool is_layer_across_each_pipe(struct drm_crtc *crtc,
 	mtk_crtc = to_mtk_crtc(crtc);
 	if (!mtk_crtc->is_dual_pipe)
 		return true;
-
-	disp_w = crtc->mode.hdisplay;
 
 	dst_x = layer_info->dst_offset_x;
 	dst_w = layer_info->dst_width;
@@ -2239,13 +2236,11 @@ static int is_same_ratio(struct drm_mtk_layer_config *ref,
 
 #define RATIO_LIMIT  2
 static bool same_ratio_limitation(struct drm_crtc *crtc,
-			struct drm_mtk_layer_config *tgt, int limitation)
+	struct drm_mtk_layer_config *tgt, int limitation,
+	int panel_w, int panel_h)
 {
-	int panel_w = 0, panel_h = 0;
 	int diff_w = 0, diff_h = 0;
 
-	panel_w = crtc->mode.hdisplay;
-	panel_h = crtc->mode.vdisplay;
 	diff_w = tgt->dst_width - tgt->src_width;
 	diff_h = tgt->dst_height - tgt->src_height;
 	if (panel_w <= 0 || panel_h <= 0)
@@ -2390,10 +2385,20 @@ static int RPO_rule(struct drm_crtc *crtc,
 	struct mtk_rect dst_layer_roi = {0};
 	struct mtk_rect src_roi = {0};
 	struct mtk_rect dst_roi = {0};
-	unsigned int disp_w = crtc->state->adjusted_mode.hdisplay;
+	unsigned int disp_w, disp_h;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct drm_display_mode *mode;
 	int rsz_idx = -1;
 	int i = 0;
+
+	mode = mtk_drm_crtc_avail_disp_mode(crtc, disp_info->disp_mode_idx[0]);
+	if (mode) {
+		disp_w = mode->hdisplay;
+		disp_h = mode->vdisplay;
+	} else {
+		disp_w = crtc->state->adjusted_mode.hdisplay;
+		disp_h = crtc->state->adjusted_mode.vdisplay;
+	}
 
 	/* if need pq, we only support one resize layer for DMDP */
 	if (has_pq) {
@@ -2438,7 +2443,8 @@ static int RPO_rule(struct drm_crtc *crtc,
 		else if (is_same_ratio(ref_layer, c) <= 0 &&
 				is_same_ratio(c, ref_layer) <= 0)
 			break;
-		else if (same_ratio_limitation(crtc, c, RATIO_LIMIT))
+		else if (same_ratio_limitation(crtc, c, RATIO_LIMIT,
+							disp_w, disp_h))
 			break;
 
 		mtk_rect_make(&src_layer_roi,
@@ -2462,7 +2468,7 @@ static int RPO_rule(struct drm_crtc *crtc,
 			break;
 		}
 
-		if (!is_layer_across_each_pipe(crtc, c))
+		if (!is_layer_across_each_pipe(crtc, c, disp_w))
 			break;
 
 		if (mtk_crtc->is_dual_pipe &&

@@ -412,8 +412,10 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	return 0;
 }
 
-static int mtk_panel_ext_param_get(
-		struct mtk_panel_params *ext_param, unsigned int id)
+static int mtk_panel_ext_param_get(struct drm_panel *panel,
+		struct drm_connector *connector,
+		struct mtk_panel_params **ext_param,
+		unsigned int id)
 {
 	struct mtk_lcm_mode_dsi *mode_node;
 	struct mtk_lcm_params_dsi *params =
@@ -421,9 +423,7 @@ static int mtk_panel_ext_param_get(
 	bool found = false;
 	struct drm_display_mode *mode = NULL;
 
-#ifdef PENDING_BY_RESOLUTION_SWITCH_PATCH
 	mode = get_mode_by_connector_id(connector, id);
-#endif
 	if (IS_ERR_OR_NULL(mode)) {
 		DDPMSG("%s, failed to get mode\n", __func__);
 		return -EINVAL;
@@ -449,7 +449,7 @@ static int mtk_panel_ext_param_get(
 		return -EINVAL;
 	}
 
-	ext_param = &mode_node->ext_param;
+	*ext_param = &mode_node->ext_param;
 	return 0;
 }
 

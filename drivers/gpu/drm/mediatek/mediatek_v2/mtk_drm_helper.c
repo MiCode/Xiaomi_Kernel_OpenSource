@@ -71,6 +71,8 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_MSYNC2_0, 0, "MTK_DRM_OPT_MSYNC2_0"},
 	{MTK_DRM_OPT_MML_PRIMARY, 0, "MTK_DRM_OPT_MML_PRIMARY"},
 	{MTK_DRM_OPT_DUAL_TE, 0, "MTK_DRM_OPT_DUAL_TE"},
+	/* Resolution switch */
+	{MTK_DRM_OPT_RES_SWITCH, 1, "MTK_DRM_OPT_RES_SWITCH"},
 };
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,

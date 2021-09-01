@@ -2392,18 +2392,171 @@ unsigned int mtk_crtc_get_idle_interval(struct drm_crtc *crtc, unsigned int fps)
 	return idle_interval;
 }
 
+void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
+	struct drm_crtc_state *old_state, struct drm_crtc_state *new_state)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct drm_display_mode *mode;
+	struct mtk_crtc_state *old_mtk_state = NULL;
+	struct mtk_crtc_state *new_mtk_state = NULL;
+
+	if (!new_state || !old_state)
+		return;
+
+	old_mtk_state = to_mtk_crtc_state(old_state);
+	new_mtk_state = to_mtk_crtc_state(new_state);
+
+	if (old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
+		new_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX])
+		return;
+
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_RES_SWITCH)) {
+		//workaround for hwc
+		if (mtk_crtc->mode_idx
+			== old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
+			new_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]
+				= mtk_crtc->mode_idx;
+			return;
+		}
+	}
+
+	DDPMSG("%s++ from %u to %u\n", __func__,
+		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+		new_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+	/* Update mode & adjusted_mode in CRTC */
+	mode = mtk_drm_crtc_avail_disp_mode(crtc,
+		new_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+	copy_drm_disp_mode(mode, &new_state->mode);
+	new_state->mode.hskew = mode->hskew;
+	drm_mode_set_crtcinfo(&new_state->mode, 0);
+
+	copy_drm_disp_mode(mode, &new_state->adjusted_mode);
+	new_state->adjusted_mode.hskew = mode->hskew;
+	drm_mode_set_crtcinfo(&new_state->adjusted_mode, 0);
+}
+
+void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
+	struct drm_crtc_state *old_state)
+{
+	int i, j;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
+	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
+	struct mtk_ddp_config cfg;
+	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *output_comp;
+
+	if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		DDPMSG("video mode does not support resolution switch!!!\n");
+		return;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!output_comp) {
+		DDPMSG("output_comp is null!\n");
+		return;
+	}
+
+	cfg.w = crtc->state->adjusted_mode.hdisplay;
+	cfg.h = crtc->state->adjusted_mode.vdisplay;
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+		mtk_crtc->panel_ext->params->dyn_fps.switch_en == 1
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps != 0)
+		cfg.vrefresh =
+			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+	else
+		cfg.vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+	cfg.bpc = mtk_crtc->bpc;
+	cfg.p_golden_setting_context = __get_golden_setting_context(mtk_crtc);
+
+	CRTC_MMP_MARK(drm_crtc_index(crtc), mode_switch, 0, 1);
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	/* 1. wait frame done & wait DSI not busy */
+	cmdq_pkt_wait_no_clear(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	/* Clear stream block to prevent trigger loop start */
+	cmdq_pkt_clear_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	cmdq_pkt_wfe(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	cmdq_pkt_clear_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	cmdq_pkt_wfe(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		DDPDBG("%s:%s\n", __func__, mtk_dump_comp_str(comp));
+		mtk_ddp_comp_stop(comp, cmdq_handle);
+		mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
+		mtk_ddp_comp_start(comp, cmdq_handle);
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_USE_PQ))
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
+	}
+
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			DDPDBG("%s:%s\n", __func__, mtk_dump_comp_str(comp));
+			mtk_ddp_comp_stop(comp, cmdq_handle);
+			mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
+			mtk_ddp_comp_start(comp, cmdq_handle);
+			if (!mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_USE_PQ))
+				mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
+		}
+	}
+
+	if (panel_ext && panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
+		struct mtk_ddp_comp *dsc_comp;
+
+		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		dsc_comp->mtk_crtc = mtk_crtc;
+
+		DDPDBG("%s:%s\n", __func__, mtk_dump_comp_str(dsc_comp));
+		mtk_ddp_comp_stop(dsc_comp, cmdq_handle);
+		mtk_ddp_comp_config(dsc_comp, &cfg, cmdq_handle);
+		mtk_ddp_comp_start(dsc_comp, cmdq_handle);
+	}
+
+	drm_update_dal(&mtk_crtc->base, cmdq_handle);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+	CRTC_MMP_MARK(drm_crtc_index(crtc), mode_switch, 0, 2);
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_TIMING_CHANGE, old_state);
+	CRTC_MMP_MARK(drm_crtc_index(crtc), mode_switch, 0, 3);
+
+	/* set frame done */
+	mtk_crtc_pkt_create(&cmdq_handle2, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_pkt_set_event(cmdq_handle2,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	cmdq_pkt_set_event(cmdq_handle2,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	cmdq_pkt_set_event(cmdq_handle2,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	cmdq_pkt_flush(cmdq_handle2);
+	cmdq_pkt_destroy(cmdq_handle2);
+}
+
 static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	struct drm_crtc_state *old_state, struct mtk_crtc_state *mtk_state,
 	struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_crtc_state *old_mtk_state = to_mtk_crtc_state(old_state);
-	struct drm_display_mode *mode;
 	struct mtk_ddp_config cfg;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
 	unsigned int fps_src, fps_dst;
-	unsigned int i, j;
-	unsigned int fps_chg_index = 0;
+	unsigned int mode_chg_index = 0;
 	unsigned int _idle_timeout = 50;/*ms*/
 	int en = 1;
 	struct mtk_ddp_comp *output_comp;
@@ -2413,58 +2566,58 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX])
 		return;
 
-	DDPMSG("%s from %u to %u\n", __func__,
+	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), mode_switch, 0, 0);
+
+	DDPMSG("%s++ from %u to %u\n", __func__,
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
-	/* Update mode & adjusted_mode in CRTC */
-	mode = mtk_drm_crtc_avail_disp_mode(crtc,
-		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
-
-	fps_src = drm_mode_vrefresh(&crtc->state->mode);
-	fps_dst = drm_mode_vrefresh(mode);
-
-	copy_drm_disp_mode(mode, &crtc->state->mode);
-	drm_mode_set_crtcinfo(&crtc->state->mode, 0);
-
-	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
-	drm_mode_set_crtcinfo(&crtc->state->adjusted_mode, 0);
+	fps_src = drm_mode_vrefresh(&old_state->mode);
+	fps_dst = drm_mode_vrefresh(&crtc->state->mode);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp) {
-		mtk_ddp_comp_io_cmd(output_comp, NULL, DYN_FPS_INDEX,
+		mtk_ddp_comp_io_cmd(output_comp, NULL, MODE_SWITCH_INDEX,
 				old_state);
-		fps_chg_index = output_comp->mtk_crtc->fps_change_index;
+		mode_chg_index = output_comp->mtk_crtc->mode_change_index;
 	}
 	//to do fps change index adjust
-	if (fps_chg_index &
-		(DYNFPS_DSI_HFP | DYNFPS_DSI_MIPI_CLK)) {
+	if ((mode_chg_index & MODE_DSI_CLK)
+		|| ((mode_chg_index & MODE_DSI_HFP)
+			&& !mtk_crtc_is_frame_trigger_mode(crtc))) {
+		unsigned int i, j;
+
 		/*ToDo HFP/MIPI CLOCK solution*/
 		DDPMSG("%s,Update RDMA golden_setting\n", __func__);
 
-	/* Update RDMA golden_setting */
-		cfg.w = crtc->state->adjusted_mode.hdisplay;
-		cfg.h = crtc->state->adjusted_mode.vdisplay;
-		cfg.vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+		/* Update RDMA golden_setting */
+		cfg.w = crtc->state->mode.hdisplay;
+		cfg.h = crtc->state->mode.vdisplay;
+		cfg.vrefresh = fps_dst;
 		cfg.bpc = mtk_crtc->bpc;
 		cfg.p_golden_setting_context =
 			__get_golden_setting_context(mtk_crtc);
-		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+
+		if (!(mode_chg_index & MODE_DSI_RES)) {
+			for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+				mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+					MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+		}
 	}
 	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_LFR_SET, &en);
 	/* pull up mm clk if dst fps is higher than src fps */
-	if (output_comp && fps_dst >= fps_src)
+	if (output_comp && fps_dst >= fps_src
+		&& !mtk_crtc_is_frame_trigger_mode(crtc))
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
 
-	/* Change DSI mipi clk & send LCM cmd */
-	if (output_comp)
+	if (mode_chg_index & MODE_DSI_RES)
+		mtk_crtc_mode_switch_config(mtk_crtc, old_state);
+	else if (output_comp) /* Change DSI mipi clk & send LCM cmd */
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_TIMING_CHANGE,
 				old_state);
 
-	drm_invoke_fps_chg_callbacks(drm_mode_vrefresh(&crtc->state->adjusted_mode));
+	drm_invoke_fps_chg_callbacks(fps_dst);
 
 	/* update framedur_ns for VSYNC report */
 	drm_calc_timestamping_constants(crtc, &crtc->state->mode);
@@ -2475,6 +2628,9 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		mtk_drm_set_idle_check_interval(crtc, _idle_timeout);
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), mode_switch, 0, 0);
+	DDPMSG("%s--\n", __func__);
 }
 
 bool already_free;

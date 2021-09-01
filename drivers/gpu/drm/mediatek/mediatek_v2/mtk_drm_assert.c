@@ -401,6 +401,24 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	}
 }
 
+void drm_update_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	if (!mfc_handle)
+		return;
+
+	DAL_LOCK();
+	MFC_SetWH(mfc_handle, crtc->state->mode.hdisplay,
+		     crtc->state->mode.vdisplay);
+	DAL_SetScreenColor(DAL_COLOR_RED);
+
+	if (drm_dal_enable)
+		MFC_Print(mfc_handle, "Resolution switch, clean dal!\n");
+	DAL_UNLOCK();
+
+	if (drm_dal_enable)
+		drm_set_dal(crtc, cmdq_handle);
+}
+
 int DAL_Clean(void)
 {
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;

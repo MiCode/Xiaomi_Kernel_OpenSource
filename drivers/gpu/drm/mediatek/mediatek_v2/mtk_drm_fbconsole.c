@@ -350,6 +350,33 @@ enum MFC_STATUS MFC_SetColor(MFC_HANDLE handle, unsigned int fg_color,
 	return MFC_STATUS_OK;
 }
 
+enum MFC_STATUS MFC_SetWH(MFC_HANDLE handle, unsigned int fb_width,
+				unsigned int fb_height)
+{
+	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)handle;
+
+	if (!ctxt)
+		return MFC_STATUS_INVALID_ARGUMENT;
+
+	if (down_interruptible(&ctxt->sem)) {
+		pr_info("[MFC] ERROR: Can't get semaphore in %s()\n", __func__);
+		return MFC_STATUS_LOCK_FAIL;
+	}
+
+	ctxt->fb_width = fb_width;
+	ctxt->fb_height = fb_height;
+	ctxt->rows = fb_height / (MFC_FONT_HEIGHT * ctxt->scale);
+	ctxt->cols = fb_width / (MFC_FONT_WIDTH * ctxt->scale);
+	ctxt->cursor_row = 0;
+	ctxt->cursor_col = 0;
+	ctxt->screen_color = 0;
+
+	up(&ctxt->sem);
+
+	return MFC_STATUS_OK;
+}
+
+
 enum MFC_STATUS MFC_ResetCursor(MFC_HANDLE handle)
 {
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)handle;

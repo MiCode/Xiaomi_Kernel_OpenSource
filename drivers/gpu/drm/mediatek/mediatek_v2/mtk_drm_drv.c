@@ -1127,6 +1127,9 @@ static int mtk_atomic_check(struct drm_device *dev,
 		old_state = to_mtk_crtc_state(crtc->state);
 		new_state = to_mtk_crtc_state(crtc_state);
 
+		if (drm_crtc_index(crtc) == 0)
+			mtk_drm_crtc_mode_check(crtc, crtc->state, crtc_state);
+
 		if (old_state->prop_val[CRTC_PROP_DOZE_ACTIVE] ==
 		    new_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
 			continue;

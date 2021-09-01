@@ -61,6 +61,8 @@ enum MTK_DRM_HELPER_OPT {
 	/* MML primary display */
 	MTK_DRM_OPT_MML_PRIMARY,
 	MTK_DRM_OPT_DUAL_TE,
+	/* Resolution switch */
+	MTK_DRM_OPT_RES_SWITCH,
 	MTK_DRM_OPT_NUM
 };
 

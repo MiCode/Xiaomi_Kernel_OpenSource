@@ -765,7 +765,8 @@ struct mtk_drm_crtc {
 	atomic_t already_config;
 
 	bool layer_rec_en;
-	unsigned int fps_change_index;
+	unsigned int mode_change_index;
+	int mode_idx;
 
 	wait_queue_head_t state_wait_queue;
 	bool crtc_blank;
@@ -933,7 +934,8 @@ int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, unsigned int en,
 int mtk_crtc_enter_tui(struct drm_crtc *crtc);
 int mtk_crtc_exit_tui(struct drm_crtc *crtc);
 
-
+void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
+	struct drm_crtc_state *old_state, struct drm_crtc_state *new_state);
 struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
 	unsigned int idx);
 unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *crtc);

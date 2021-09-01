@@ -134,11 +134,12 @@ enum MIPITX_PHY_LANE_SWAP {
 	MIPITX_PHY_LANE_NUM
 };
 
-enum FPS_CHANGE_INDEX {
-	DYNFPS_NOT_DEFINED = 0,
-	DYNFPS_DSI_VFP = 1,
-	DYNFPS_DSI_HFP = 2,
-	DYNFPS_DSI_MIPI_CLK = 4,
+enum MODE_CHANGE_INDEX {
+	MODE_NOT_DEFINED = 0,
+	MODE_DSI_VFP = BIT(0),
+	MODE_DSI_HFP = BIT(1),
+	MODE_DSI_CLK = BIT(2),
+	MODE_DSI_RES = BIT(3),
 };
 
 enum MTK_LCM_DUMP_FLAG {
@@ -435,7 +436,9 @@ struct mtk_panel_funcs {
 	int (*ata_check)(struct drm_panel *panel);
 	int (*ext_param_set)(struct drm_panel *panel,
 		struct drm_connector *connector, unsigned int mode);
-	int (*ext_param_get)(struct mtk_panel_params *ext_para,
+	int (*ext_param_get)(struct drm_panel *panel,
+		struct drm_connector *connector,
+		struct mtk_panel_params **ext_para,
 		unsigned int mode);
 	int (*mode_switch)(struct drm_panel *panel,
 		struct drm_connector *connector, unsigned int cur_mode,

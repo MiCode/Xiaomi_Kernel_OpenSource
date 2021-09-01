@@ -16,5 +16,5 @@ int mtk_drm_dal_enable(void);
 int drm_show_dal(struct drm_crtc *crtc, bool enable);
 #endif
 void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
-
+void drm_update_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
 #endif

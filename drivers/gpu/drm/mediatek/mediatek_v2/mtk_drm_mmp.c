@@ -250,6 +250,8 @@ void init_crtc_mmp_event(void)
 		g_CRTC_MMP_Events[i].msync_enable =
 			mmprofile_register_event(crtc_mmp_root, "msync_enable");
 		/*Msync 2.0 mmp end*/
+		g_CRTC_MMP_Events[i].mode_switch = mmprofile_register_event(
+			crtc_mmp_root, "mode_switch");
 	}
 }
 void drm_mmp_init(void)

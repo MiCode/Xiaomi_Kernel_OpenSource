@@ -105,6 +105,7 @@ struct CRTC_MMP_Events {
 	mmp_event dsi_dbg7_after_sof;
 	mmp_event msync_enable;
 	/*Msync 2.0 mmp end*/
+	mmp_event mode_switch;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
