@@ -65,30 +65,6 @@ static struct tmem_device_description tee_smem_devs[] = {
 	},
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
-	{
-		.kern_tmem_type = TRUSTED_MEM_2D_FR,
-		.tee_smem_type = TEE_SMEM_2D_FR,
-		.mtee_chunks_id = MTEE_MCUHNKS_INVALID,
-		.ssmr_feature_id = SSMR_FEAT_2D_FR,
-		/* clang-format off */
-		.u_ops_data.tee = {
-			.tee_cmds[TEE_OP_ALLOC] = CMD_2D_FR_SMEM_ALLOC,
-			.tee_cmds[TEE_OP_ALLOC_ZERO] =
-				CMD_2D_FR_SMEM_ALLOC_ZERO,
-			.tee_cmds[TEE_OP_FREE] = CMD_2D_FR_SMEM_UNREF,
-			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_2D_FR_SMEM_ENABLE,
-			.tee_cmds[TEE_OP_REGION_DISABLE] =
-				CMD_2D_FR_SMEM_DISABLE,
-		},
-		/* clang-format on */
-		.notify_remote = false,
-		.notify_remote_fn = NULL,
-		.mem_cfg = &tee_smem_general_configs,
-		.dev_name = "TEE_2DFR",
-	},
-#endif
-
 #if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_WFD,
