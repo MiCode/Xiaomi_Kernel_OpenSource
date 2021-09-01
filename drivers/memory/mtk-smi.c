@@ -166,7 +166,7 @@ enum smi_log_level {
 	log_set_bw,
 };
 
-#define MAX_INIT_POWER_ON_DEV	(3)
+#define MAX_INIT_POWER_ON_DEV	(5)
 static struct mtk_smi *init_power_on_dev[MAX_INIT_POWER_ON_DEV];
 static unsigned int init_power_on_num;
 
