@@ -247,6 +247,8 @@ static int mtk_cam_seninf_is_cammux_used(struct seninf_ctx *ctx, int cam_mux)
 static int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 {
 	void *pSeninf_cam_mux_pcsr = NULL;
+	void *pSeninf_csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
+	int csi_en;
 
 	if (cam_mux >= _seninf_ops->cam_mux_num) {
 		dev_info(ctx->dev, "%s err cam_mux %d >= SENINF_CAM_MUX_NUM %d\n",
@@ -266,12 +268,18 @@ static int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSIZE_ERR_IRQ_SHIFT) |
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSYNC_IRQ_SHIFT));//clr irq
 
-	dev_info(ctx->dev, " %s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
+	dev_info(ctx->dev, "%s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 		__func__,
 		cam_mux,
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL),
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_EN),
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+
+	csi_en = SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_EN);
+	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_EN, csi_en);
+	dev_info(ctx->dev, "%s wkarnd SENINF_CSI2_EN 0x%x\n",
+		__func__,
+		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_EN));
 
 	return 0;
 }
