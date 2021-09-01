@@ -44,6 +44,7 @@ static ssize_t mt6885_debug_read_reg(char* buffer, int size, struct mtk_base_afe
 
 static const struct snd_pcm_hardware mt6885_afe_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP |
+		 SNDRV_PCM_INFO_NO_PERIOD_WAKEUP |
 		 SNDRV_PCM_INFO_INTERLEAVED |
 		 SNDRV_PCM_INFO_MMAP_VALID),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
@@ -134,22 +135,21 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct mtk_base_afe_irq *irqs = &afe->irqs[irq_id];
 	const struct mtk_base_irq_data *irq_data = irqs->irq_data;
 	unsigned int counter = runtime->period_size;
+	unsigned int no_period_wakeup = runtime->no_period_wakeup;
 	unsigned int rate = runtime->rate;
 	int fs;
 	int ret = 0;
 
 	if (!in_interrupt())
-		dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
-			__func__, memif->data->name, cmd, irq_id);
+		dev_info(afe->dev,
+			 "%s(), %s cmd %d, irq_id %d, is_afe_need_triggered %d\n",
+			 __func__, memif->data->name, cmd, irq_id,
+			 is_afe_need_triggered(no_period_wakeup));
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-		/* set memif enable */
-		/* If stop_threshold is ULONG_MAX, memif is set in scp or adsp */
-		if (!memif->vow_barge_in_enable &&
-		    runtime->stop_threshold != ULONG_MAX) {
-			ret = mtk_dsp_memif_set_enable(afe, id);
+		if (is_afe_need_triggered(no_period_wakeup)) {
+			ret = mtk_memif_set_enable(afe, id);
 			if (ret) {
 				dev_err(afe->dev,
 					"%s(), error, id %d, memif enable, ret %d\n",
@@ -186,10 +186,8 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				   << irq_data->irq_fs_shift,
 				   fs << irq_data->irq_fs_shift);
 
-		/* enable interrupt */
-		/* if stop_threshold is ULONG_MAX, interrupt is set by scp or adsp */
-		if (runtime->stop_threshold != ULONG_MAX)
-			mtk_dsp_irq_set_enable(afe, irq_data, id);
+		if (is_afe_need_triggered(no_period_wakeup))
+			mtk_irq_set_enable(afe, irq_data, id);
 
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -206,10 +204,8 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			}
 		}
 
-		/* set memif disable */
-		/* if stop_threshold is ULONG_MAX, memif is set by scp or adsp */
-		if (runtime->stop_threshold != ULONG_MAX) {
-			ret = mtk_dsp_memif_set_disable(afe, id);
+		if (is_afe_need_triggered(no_period_wakeup)) {
+			ret = mtk_memif_set_disable(afe, id);
 			if (ret) {
 				dev_err(afe->dev,
 					"%s(), error, id %d, memif enable, ret %d\n",
@@ -217,10 +213,9 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			}
 		}
 
-		/* if stop_threshold is ULONG_MAX, interrupt is set by scp or adsp */
-		if (runtime->stop_threshold != ULONG_MAX) {
+		if (is_afe_need_triggered(no_period_wakeup)) {
 			/* disable interrupt */
-			mtk_dsp_irq_set_disable(afe, irq_data, id);
+			mtk_irq_set_disable(afe, irq_data, id);
 
 			/* clear pending IRQ */
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,

@@ -32,6 +32,7 @@
 
 static const struct snd_pcm_hardware mt6853_afe_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP |
+		 SNDRV_PCM_INFO_NO_PERIOD_WAKEUP |
 		 SNDRV_PCM_INFO_INTERLEAVED |
 		 SNDRV_PCM_INFO_MMAP_VALID),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
@@ -123,8 +124,9 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	const struct mtk_base_irq_data *irq_data = irqs->irq_data;
 	unsigned int counter = runtime->period_size;
 	unsigned int rate = runtime->rate;
+	unsigned int no_period_wakeup = runtime->no_period_wakeup;
 	int fs;
-	int ret;
+	int ret = 0;
 
 	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
 		 __func__, memif->data->name, cmd, irq_id);
@@ -132,12 +134,15 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		/* set memif enable */
-		if (memif->vow_barge_in_enable)
-			/* memif will be set by scp */
-			ret = 0;
-		else
+		if (is_afe_need_triggered(no_period_wakeup)) {
 			ret = mtk_memif_set_enable(afe, id);
+			if (ret) {
+				dev_err(afe->dev,
+					"%s(), error, id %d, memif enable, ret %d\n",
+					__func__, id, ret);
+				return ret;
+			}
+		}
 
 		/*
 		 * for small latency record
@@ -146,12 +151,6 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			if ((runtime->period_size * 1000) / rate <= 10)
 				udelay(300);
-		}
-
-		if (ret) {
-			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
-				__func__, id, ret);
-			return ret;
 		}
 
 		/* set irq counter */
@@ -165,7 +164,6 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 
 		/* set irq fs */
 		fs = afe->irq_fs(substream, runtime->rate);
-
 		if (fs < 0)
 			return -EINVAL;
 
@@ -174,11 +172,8 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				   << irq_data->irq_fs_shift,
 				   fs << irq_data->irq_fs_shift);
 
-		/* enable interrupt */
-		if (!memif->vow_barge_in_enable)
-			regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-					   1 << irq_data->irq_en_shift,
-					   1 << irq_data->irq_en_shift);
+		if (is_afe_need_triggered(no_period_wakeup))
+			mtk_irq_set_enable(afe, irq_data, id);
 
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -194,37 +189,24 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			}
 		}
 
-		/* set memif disable */
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
-		/* TODO: check memif->vow_barge_in_enable */
-		if (runtime->stop_threshold == ~(0U))
-			ret = 0;
-		else
+		if (is_afe_need_triggered(no_period_wakeup)) {
 			ret = mtk_memif_set_disable(afe, id);
-#else
-		ret = mtk_memif_set_disable(afe, id);
-#endif
-		if (ret) {
-			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
-				__func__, id, ret);
+			if (ret) {
+				dev_err(afe->dev,
+					"%s(), error, id %d, memif enable, ret %d\n",
+					__func__, id, ret);
+			}
 		}
 
-		/* disable interrupt */
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
-		/* TODO: check memif->vow_barge_in_enable */
-		if (runtime->stop_threshold != ~(0U))
-#endif
-			regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-					   1 << irq_data->irq_en_shift,
-					   0 << irq_data->irq_en_shift);
+		if (is_afe_need_triggered(no_period_wakeup)) {
+			/* disable interrupt */
+			mtk_irq_set_disable(afe, irq_data, id);
 
-		/* and clear pending IRQ */
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
-		/* TODO: check memif->vow_barge_in_enable */
-		if (runtime->stop_threshold != ~(0U))
-#endif
+			/* clear pending IRQ */
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
+		}
+
 		return ret;
 	default:
 		return -EINVAL;

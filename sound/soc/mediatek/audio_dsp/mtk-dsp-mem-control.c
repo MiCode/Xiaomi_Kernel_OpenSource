@@ -738,8 +738,6 @@ int get_taskid_by_afe_daiid(int afe_dai_id)
 			return i;
 	}
 
-	pr_err("%s(), afe_dai_id not support: %d", __func__, afe_dai_id);
-
 	return -1;
 }
 

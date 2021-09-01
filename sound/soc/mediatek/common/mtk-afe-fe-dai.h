@@ -35,8 +35,7 @@ int mtk_dynamic_irq_release(struct mtk_base_afe *afe, int irq_id);
 int mtk_afe_suspend(struct snd_soc_component *component);
 int mtk_afe_resume(struct snd_soc_component *component);
 
-int mtk_memif_set_enable(struct mtk_base_afe *afe, int id);
-int mtk_memif_set_disable(struct mtk_base_afe *afe, int id);
+unsigned int is_afe_need_triggered(unsigned int no_period_wakeup);
 int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 		       unsigned char *dma_area,
 		       dma_addr_t dma_addr,
@@ -52,13 +51,13 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 			    int id, int pbuf_size);
 
-/* using 3 way samephore to ensure ap/dsp sync */
-int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id);
-int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id);
-int mtk_dsp_irq_set_enable(struct mtk_base_afe *afe,
-			   const struct mtk_base_irq_data *irq_data,
-			   int afe_id);
-int mtk_dsp_irq_set_disable(struct mtk_base_afe *afe,
-			    const struct mtk_base_irq_data *irq_data,
-			    int afe_id);
+/* using samephore to ensure ap/dsp sync */
+int mtk_memif_set_enable(struct mtk_base_afe *afe, int id);
+int mtk_memif_set_disable(struct mtk_base_afe *afe, int id);
+int mtk_irq_set_enable(struct mtk_base_afe *afe,
+		       const struct mtk_base_irq_data *irq_data,
+		       int afe_id);
+int mtk_irq_set_disable(struct mtk_base_afe *afe,
+			const struct mtk_base_irq_data *irq_data,
+			int afe_id);
 #endif
