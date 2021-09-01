@@ -1562,6 +1562,7 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 	struct cmdq_task *task, *tmp;
 	unsigned long flags;
 	struct list_head removes;
+	struct cmdq_task *timeout_task = NULL;
 
 	INIT_LIST_HEAD(&removes);
 
@@ -1583,19 +1584,37 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 	if (list_empty(&thread->task_busy_list)) {
 		cmdq_err("thread:%u empty after irq handle in disable thread",
 			thread->idx);
-		cmdq_thread_resume(thread);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		return;
 	}
 
+	/* find timeout task */
+	if (thread->dirty) {
+		dma_addr_t pa_curr = cmdq_thread_get_pc(thread);
+
+		list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
+			list_entry) {
+			if (cmdq_task_is_current_run(pa_curr, task->pkt)) {
+				timeout_task = task;
+				break;
+			}
+		}
+	}
+
 	list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
 		list_entry) {
+		/* ignore timeout task */
+		if (timeout_task && (timeout_task == task))
+			continue;
+
 		cmdq_task_exec_done(task, -ECONNABORTED);
 		kfree(task);
 	}
 
-	cmdq_thread_disable(cmdq, thread);
-	cmdq_clk_disable(cmdq);
+	if (list_empty(&thread->task_busy_list)) {
+		cmdq_thread_disable(cmdq, thread);
+		cmdq_clk_disable(cmdq);
+	}
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
