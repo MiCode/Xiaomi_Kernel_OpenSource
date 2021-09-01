@@ -24,15 +24,16 @@ enum raw_qos_port_id {
 	rawi_r4,
 	rawi_r5,/* 10 */
 	aai_r1,
+	ufdi_r5,
 	fho_r1,
 	aao_r1,
-	tsfso_r1,
-	flko_r1,/* 15 */
+	tsfso_r1,/* 15 */
+	flko_r1,
 	yuvo_r1,
 	yuvo_r3,
 	yuvco_r1,
-	yuvo_r2,
-	rzh1n2to_r1,/* 20 */
+	yuvo_r2,/* 20 */
+	rzh1n2to_r1,
 	drzs4no_r1,
 	tncso_r1,
 	raw_qos_port_num
@@ -66,6 +67,7 @@ static struct raw_mmqos raw_qos[] = {
 			"l16_rawi_r4",
 			"l16_rawi_r5",
 			"l16_aai_r1",
+			"l16_ufdi_r5",
 			"l16_fho_r1",
 			"l16_aao_r1",
 			"l16_tsfso_r1",
@@ -93,6 +95,7 @@ static struct raw_mmqos raw_qos[] = {
 			"l27_rawi_r4",
 			"l27_rawi_r5",
 			"l27_aai_r1",
+			"l27_ufdi_r5",
 			"l27_fho_r1",
 			"l27_aao_r1",
 			"l27_tsfso_r1",
@@ -120,6 +123,7 @@ static struct raw_mmqos raw_qos[] = {
 			"l28_rawi_r4",
 			"l28_rawi_r5",
 			"l28_aai_r1",
+			"l28_ufdi_r5",
 			"l28_fho_r1",
 			"l28_aao_r1",
 			"l28_tsfso_r1",
