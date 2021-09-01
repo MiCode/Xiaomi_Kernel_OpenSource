@@ -494,7 +494,7 @@ static int lcm_enable(struct drm_panel *panel)
 #define VSA (8)
 #define VBP (8)
 #define VACT (3216)
-#define PLL_CLOCK (718)
+#define PLL_CLOCK (834)
 
 static const struct drm_display_mode default_mode = {
 	.clock		= 584642, //120Hz
