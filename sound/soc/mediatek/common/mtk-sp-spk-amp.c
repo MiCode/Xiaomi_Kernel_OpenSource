@@ -22,10 +22,6 @@
 #include "../../codecs/rt5509.h"
 #endif
 
-#if IS_ENABLED(CONFIG_SND_SOC_MT6660)
-#include "../../codecs/mt6660.h"
-#endif
-
 #if IS_ENABLED(CONFIG_SND_SOC_RT5512)
 #include "../../codecs/richtek/rt5512.h"
 #endif
@@ -57,14 +53,7 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "RT5509_MT_0",
 	},
 #endif
-#if IS_ENABLED(CONFIG_SND_SOC_MT6660)
-	[MTK_SPK_MEDIATEK_MT6660] = {
-		.i2c_probe = mt6660_i2c_probe,
-		.i2c_remove = mt6660_i2c_remove,
-		.codec_dai_name = "mt6660-aif",
-		.codec_name = "MT6660_MT_0",
-	},
-#endif /* CONFIG_SND_SOC_MT6660 */
+
 #if IS_ENABLED(CONFIG_SND_SOC_RT5512)
 	[MTK_SPK_MEDIATEK_RT5512] = {
 		.codec_dai_name = "rt5512-aif",

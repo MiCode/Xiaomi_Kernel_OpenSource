@@ -4,6 +4,10 @@ ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 endif
 
+ifneq ($(CONFIG_SND_SOC_MEDIATEK),)
+ccflags-y += -I$(srctree)/sound/soc/mediatek/common
+endif
+
 snd-soc-88pm860x-objs := 88pm860x-codec.o
 snd-soc-ab8500-codec-objs := ab8500-codec.o
 snd-soc-ac97-objs := ac97.o

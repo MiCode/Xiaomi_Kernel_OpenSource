@@ -25,6 +25,7 @@ struct mt6660_chip {
 	struct mutex io_lock;
 	struct regmap *regmap;
 	u16 chip_rev;
+	u8 dev_cnt;
 };
 #pragma pack(pop)
 
