@@ -30,6 +30,7 @@
 			interrupt-names = "chg_mivr", "chg_aiclmeasi",
 				"attachi", "ovpctrl_uvp_d_evt", "chg_wdtmri",
 				"chg_vbusov", "chg_tmri", "chg_treg", "dcdti";
+			bootmode = <&chosen>;
 			charger_name = "primary_chg";
 			load_switch_name = "primary_load_switch";
 			ichg = <2000000>;	/* uA */
@@ -43,6 +44,7 @@
 			ircmp_vclamp = <32000>;		/* uV */
 			enable_te;
 			enable_wdt;
+			enable_otg_wdt;
 			lbp_hys_sel = <1>;	/* 0: 100mV, 1: 200mV */
 			lbp_dt = <1>;		/* 0: 10ms, 1: 20ms */
 						/* 2: 40ms, 3: 500us */
