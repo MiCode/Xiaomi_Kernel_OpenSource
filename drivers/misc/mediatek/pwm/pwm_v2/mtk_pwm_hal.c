@@ -47,6 +47,7 @@ struct regmap *pwm_src_regmap;
 u32 pwm_clk_src_ctrl;
 u32 pwm_bclk_sw_ctrl_offset;
 u32 pwm_x_bclk_sw_ctrl_offset[PWM_MAX] = {};
+bool pwm_clk_all_on_off;
 #endif
 
 /**************************************************************/
@@ -74,18 +75,19 @@ const char *pwm_clk_name[] = {
 };
 
 enum {
-	PWM_V_NONE,
 	PWM_V0, //reserve for 26MHz clk source in pwm domain not INFRA
 	PWM_V1, //pwm channel base: 0x10,0x50,0x090,0xd0,0x110,0x150
 	PWM_V2, //pwm channel base: 0x80,0xc0,0x100,0x140,0x180,0x1c0
+	PWM_V_NUM,
 };
 
 struct clk *pwm_clk[PWM_CLK_NUM];
-static unsigned int pwm_version = PWM_V_NONE;
+static unsigned int pwm_version = PWM_V0;
 
 void mt_pwm_power_on_hal(u32 pwm_no, bool pmic_pad, unsigned long *power_flag)
 {
 	int clk_en_ret;
+	int i;
 
 	/* Set pwm_main , pwm_hclk_main(for memory and random mode) */
 	if (0 == (*power_flag)) {
@@ -112,28 +114,71 @@ void mt_pwm_power_on_hal(u32 pwm_no, bool pmic_pad, unsigned long *power_flag)
 		}
 	}
 	/* Set pwm_no clk */
-	if (!test_bit(pwm_no, power_flag)) {
-		if (pwm_clk[pwm_no]) {
-			pr_info("[PWM][CCF]enable clk_pwm%d :%p\n",
-				pwm_no, pwm_clk[pwm_no]);
-			clk_en_ret = clk_prepare_enable(pwm_clk[pwm_no]);
-			if (clk_en_ret) {
-				pr_notice("[PWM][CCF]enable clk_pwm_main failed. ret:%d, clk_pwm%d :%p\n",
-				clk_en_ret, pwm_no, pwm_clk[pwm_no]);
-			} else
-				set_bit(pwm_no, power_flag);
+	if (pwm_clk_all_on_off) {
+		if ((*power_flag) == ((1 << PWM_HCLK) | (1 << PWM_CLK))) {
+			/* 1st user come, enable all pwmX clocks */
+			for (i = PWM1; i < PWM_MAX; i++) {
+				if (pwm_clk[i]) {
+					pr_info("[PWM][CCF]all on/off enable clk_pwm%d :%p\n",
+						i, pwm_clk[i]);
+					clk_en_ret =
+						clk_prepare_enable(pwm_clk[i]);
+					if (clk_en_ret) {
+						pr_notice("[PWM][CCF]all on/off enable clk_pwm_main failed. ret:%d, clk_pwm%d :%p\n",
+						clk_en_ret, i, pwm_clk[i]);
+					}
+				}
+			}
+		}
+		if (pwm_clk[pwm_no])
+			set_bit(pwm_no, power_flag);
+	} else {
+		if (!test_bit(pwm_no, power_flag)) {
+			if (pwm_clk[pwm_no]) {
+				pr_info("[PWM][CCF]enable clk_pwm%d :%p\n",
+					pwm_no, pwm_clk[pwm_no]);
+				clk_en_ret =
+					clk_prepare_enable(pwm_clk[pwm_no]);
+				if (clk_en_ret) {
+					pr_notice("[PWM][CCF]enable clk_pwm_main failed. ret:%d, clk_pwm%d :%p\n",
+					clk_en_ret, pwm_no, pwm_clk[pwm_no]);
+				} else
+					set_bit(pwm_no, power_flag);
+			}
 		}
 	}
 }
 
 void mt_pwm_power_off_hal(u32 pwm_no, bool pmic_pad, unsigned long *power_flag)
 {
-	if (test_bit(pwm_no, power_flag)) {
-		if (pwm_clk[pwm_no]) {
-			pr_info("[PWM][CCF]disable clk_pwm%d :%p\n",
-				pwm_no, pwm_clk[pwm_no]);
-			clk_disable_unprepare(pwm_clk[pwm_no]);
-			clear_bit(pwm_no, power_flag);
+	int i;
+
+	if (pwm_clk_all_on_off) {
+		if (test_bit(pwm_no, power_flag)) {
+			if (pwm_clk[pwm_no]) {
+				pr_info("[PWM][CCF]all on/off disable power_flag clk_pwm%d :%p\n",
+					pwm_no, pwm_clk[pwm_no]);
+				clear_bit(pwm_no, power_flag);
+			}
+		}
+		if ((*power_flag) == ((1 << PWM_HCLK) | (1 << PWM_CLK))) {
+			/* disable all pwmX clocks */
+			for (i = PWM1; i < PWM_MAX; i++) {
+				if (pwm_clk[i]) {
+					pr_info("[PWM][CCF]all on/off disable clk_pwm%d :%p\n",
+						i, pwm_clk[i]);
+					clk_disable_unprepare(pwm_clk[i]);
+				}
+			}
+		}
+	} else {
+		if (test_bit(pwm_no, power_flag)) {
+			if (pwm_clk[pwm_no]) {
+				pr_info("[PWM][CCF]disable clk_pwm%d :%p\n",
+					pwm_no, pwm_clk[pwm_no]);
+				clk_disable_unprepare(pwm_clk[pwm_no]);
+				clear_bit(pwm_no, power_flag);
+			}
 		}
 	}
 
@@ -688,6 +733,21 @@ void mt_pwm_platform_init(struct platform_device *pdev)
 		PTR_ERR(pwm_src_regmap));
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "mediatek,pwm-clk-all-on-off")) {
+		pwm_clk_all_on_off = true;
+		pr_info("find node mediatek,pwm-clk-all-on-off: %d\n",
+			pwm_clk_all_on_off);
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm-version",
+			&pwm_version);
+	if (ret == 0)
+		pr_info("find node mediatek,pwm-version: 0x%x\n",
+			pwm_version);
+	else
+		pr_info("default pwm_version: 0x%x\n",
+			pwm_version);
+
 	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,pwm-topclk-ctl-reg",
 			&pwm_clk_src_ctrl);
 	if (ret == 0)
@@ -754,22 +814,7 @@ int mt_get_pwm_clk_src(struct platform_device *pdev)
 	return 0;
 }
 
-void mt_get_pwm_version(void)
+unsigned int mt_get_pwm_version(void)
 {
-	unsigned long power_flag = 0;
-	unsigned long reg_con, reg_val;
-
-	mt_pwm_power_on_hal(0, 0, &power_flag);
-
-	if (pwm_version == PWM_V_NONE) {
-		reg_con = (unsigned long)pwm_base + 0x0010;
-		reg_val = INREG32(reg_con);
-		if (reg_val != 0)
-			pwm_version = PWM_V1; /*PWM0_CON!=0*/
-		else
-			pwm_version = PWM_V2; /*PWM_INT_STATUS_UDF=0*/
-	}
-
-	mt_pwm_power_off_hal(0, 0, &power_flag);
-	pr_info("pwm_version is: 0x%x\n", pwm_version);
+	return pwm_version;
 }
