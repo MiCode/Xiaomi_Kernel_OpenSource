@@ -92,6 +92,7 @@ struct scp {
 	struct regmap *infracfg;
 	struct regmap *smi_common;
 	struct regmap *vlpcfg;
+	struct regmap *mfgrpc;
 	struct scp_ctrl_reg ctrl_reg;
 };
 

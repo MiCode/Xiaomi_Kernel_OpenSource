@@ -404,6 +404,7 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 	struct regmap *infracfg = scp->infracfg;
 	struct regmap *smi_common = scp->smi_common;
 	struct regmap *vlpcfg = scp->vlpcfg;
+	struct regmap *mfgrpc = scp->mfgrpc;
 	int i;
 
 	for (i = 0; i < MAX_STEPS; i++) {
@@ -417,6 +418,8 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 			map = smi_common;
 		else if (bp.type == VLP_TYPE)
 			map = vlpcfg;
+		else if (bp.type == MFGRPC_TYPE)
+			map = mfgrpc;
 		else
 			break;
 
@@ -436,6 +439,7 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 	struct regmap *infracfg = scp->infracfg;
 	struct regmap *smi_common = scp->smi_common;
 	struct regmap *vlpcfg = scp->vlpcfg;
+	struct regmap *mfgrpc = scp->mfgrpc;
 	int i;
 
 	for (i = MAX_STEPS - 1; i >= 0; i--) {
@@ -449,6 +453,8 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 			map = smi_common;
 		else if (bp.type == VLP_TYPE)
 			map = vlpcfg;
+		else if (bp.type == MFGRPC_TYPE)
+			map = mfgrpc;
 		else
 			continue;
 
@@ -959,6 +965,16 @@ struct scp *init_scp(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Cannot find infracfg controller: %ld\n",
 				PTR_ERR(scp->vlpcfg));
 		return ERR_CAST(scp->vlpcfg);
+	}
+
+	scp->mfgrpc = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"mfgrpc");
+	if (scp->mfgrpc == ERR_PTR(-ENODEV)) {
+		scp->mfgrpc = NULL;
+	} else if (IS_ERR(scp->mfgrpc)) {
+		dev_notice(&pdev->dev, "Cannot find mfgrpc controller: %ld\n",
+				PTR_ERR(scp->mfgrpc));
+		return ERR_CAST(scp->mfgrpc);
 	}
 
 	for (i = 0; i < num; i++) {

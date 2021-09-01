@@ -339,6 +339,7 @@ enum regmap_type {
 	IFR_TYPE,
 	SMI_TYPE,
 	VLP_TYPE,
+	MFGRPC_TYPE,
 };
 
 struct bus_prot {

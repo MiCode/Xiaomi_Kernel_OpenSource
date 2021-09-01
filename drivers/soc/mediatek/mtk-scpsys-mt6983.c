@@ -114,6 +114,19 @@
 #define MFG1_PROT_STEP3_0_ACK_MASK       ((0x1 << 2))
 #define MFG1_PROT_STEP4_0_MASK           ((0x1 << 3))
 #define MFG1_PROT_STEP4_0_ACK_MASK       ((0x1 << 3))
+
+#define MFG1_MFGRPC_PROT_STEP1_0_MASK       ((0x1 << 16) | (0x1 << 17) | (0x1 << 18) | (0x1 << 19))
+#define MFG1_MFGRPC_PROT_STEP1_0_ACK_MASK   ((0x1 << 16) | (0x1 << 17) | (0x1 << 18) | (0x1 << 19))
+#define MFG1_EMI_PROT_STEP2_0_MASK       ((0x1 << 18) | (0x1 << 19))
+#define MFG1_EMI_PROT_STEP2_0_ACK_MASK   ((0x1 << 18) | (0x1 << 19))
+#define MFG1_EMI_PROT_STEP2_1_MASK       ((0x1 << 18) | (0x1 << 19))
+#define MFG1_EMI_PROT_STEP2_1_ACK_MASK   ((0x1 << 18) | (0x1 << 19))
+
+#define MD1_EMI_PROT_STEP1_0_MASK       ((0x1 << 16) | (0x1 << 17))
+#define MD1_EMI_PROT_STEP1_0_ACK_MASK   ((0x1 << 16) | (0x1 << 17))
+#define MD1_EMI_PROT_STEP1_1_MASK       ((0x1 << 16) | (0x1 << 17))
+#define MD1_EMI_PROT_STEP1_1_ACK_MASK   ((0x1 << 16) | (0x1 << 17))
+
 #define MM_INFRA_PROT_STEP1_0_MASK       ((0x1 << 0) | (0x1 << 2) | (0x1 << 4) | (0x1 << 6))
 #define MM_INFRA_PROT_STEP1_0_ACK_MASK   ((0x1 << 0) | (0x1 << 2) | (0x1 << 4) | (0x1 << 6))
 #define MM_INFRA_PROT_STEP1_1_MASK       ((0x1 << 4) | (0x1 << 6))
@@ -142,6 +155,11 @@
 #define MM_INFRA_PROT_STEP2_2_ACK_MASK   ((0x1 << 15) | (0x1 << 17))
 #define MM_INFRA_PROT_STEP2_3_MASK       ((0x1 << 14) | (0x1 << 15))
 #define MM_INFRA_PROT_STEP2_3_ACK_MASK   ((0x1 << 14) | (0x1 << 15))
+#define MM_INFRA_PROT_STEP3_0_MASK       ((0x1 << 20) | (0x1 << 21))
+#define MM_INFRA_PROT_STEP3_0_ACK_MASK   ((0x1 << 20) | (0x1 << 21))
+#define MM_INFRA_PROT_STEP3_1_MASK       ((0x1 << 20) | (0x1 << 21))
+#define MM_INFRA_PROT_STEP3_1_ACK_MASK   ((0x1 << 20) | (0x1 << 21))
+
 #define MM_PROC_PROT_STEP1_0_MASK        ((0x1 << 10) | (0x1 << 11))
 #define MM_PROC_PROT_STEP1_0_ACK_MASK    ((0x1 << 10) | (0x1 << 11))
 #define MM_PROC_PROT_STEP2_0_MASK        ((0x1 << 12) | (0x1 << 13))
@@ -197,6 +215,12 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE00,
 		.extb_iso_offs = 0xF2C,
 		.extb_iso_bits = 0x3,
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C64, 0x0C68, 0x0C60, 0x0C6C,
+				MD1_EMI_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C74, 0x0C78, 0x0C70, 0x0C7C,
+				MD1_EMI_PROT_STEP1_1_MASK),
+		},
 		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CONN] = {
@@ -258,6 +282,10 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 				MM_INFRA_PROT_STEP2_2_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
 				MM_INFRA_PROT_STEP2_3_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C64, 0x0C68, 0x0C60, 0x0C6C,
+				MM_INFRA_PROT_STEP3_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C74, 0x0C78, 0x0C70, 0x0C7C,
+				MM_INFRA_PROT_STEP3_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -396,6 +424,12 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 				MFG1_PROT_STEP3_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
 				MFG1_PROT_STEP4_0_MASK),
+			BUS_PROT_IGN(MFGRPC_TYPE, 0x1040, 0x1044, 0x103C, 0x1048,
+				MFG1_MFGRPC_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C64, 0x0C68, 0x0C60, 0x0C6C,
+				MFG1_EMI_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C74, 0x0C78, 0x0C70, 0x0C7C,
+				MFG1_EMI_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
