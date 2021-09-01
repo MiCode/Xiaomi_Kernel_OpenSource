@@ -696,67 +696,59 @@ static void mddp_f_out_nf_ipv6(
 
 
 		/* Tag this packet for MD tracking */
-		if (skb_tailroom(skb) > (sizeof(struct mddp_f_tag_packet_t) +
-					sizeof(struct mddp_f_e_tag_common_t) +
-					sizeof(struct mddp_f_e_tag_mac_t))) {
-			MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
-			found_router_tuple =
-				mddp_f_get_router_tuple_tcpudp_wo_lock(&t);
+		MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
+		found_router_tuple =
+			mddp_f_get_router_tuple_tcpudp_wo_lock(&t);
 
-			if (found_router_tuple) {
-				tuple_hit_cnt = found_router_tuple->curr_cnt;
-				found_router_tuple->last_cnt = 0;
-				found_router_tuple->curr_cnt = 0;
-				MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
+		if (found_router_tuple) {
+			tuple_hit_cnt = found_router_tuple->curr_cnt;
+			found_router_tuple->last_cnt = 0;
+			found_router_tuple->curr_cnt = 0;
+			MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
 
-				MDDP_F_LOG(MDDP_LL_DEBUG,
-					"%s: tuple[%p] is found!!\n",
-					__func__, found_router_tuple);
-				ret = mddp_f_tag_packet(is_uplink,
-						skb, out, cb, nexthdr,
-						ip6->version, tuple_hit_cnt);
-				if (ret == 0)
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
-						__func__, is_uplink,
-						skb, tcp->th_sum);
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: tuple[%p] is found!!\n",
+				__func__, found_router_tuple);
+			ret = mddp_f_tag_packet(is_uplink,
+					skb, cb, nexthdr,
+					ip6->version, tuple_hit_cnt);
+			if (ret == 0)
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
+					__func__, is_uplink,
+					skb, tcp->th_sum);
 
-			} else {
-				MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
-
-				/* Save tuple to avoid tag many packets */
-				found_router_tuple = kmem_cache_alloc(
-							mddp_f_router_tuple_cache, GFP_ATOMIC);
-				if (found_router_tuple == NULL) {
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: kmem_cache_alloc() failed\n",
-							__func__);
-					goto out;
-				}
-
-				found_router_tuple->dev_src = cb->dev;
-				found_router_tuple->dev_dst = out;
-				ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
-				ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
-				found_router_tuple->in.tcp.port = tcp->th_sport;
-				found_router_tuple->out.tcp.port = tcp->th_dport;
-				found_router_tuple->proto = nexthdr;
-
-				mddp_f_add_router_tuple_tcpudp(found_router_tuple);
-
-				ret = mddp_f_tag_packet(is_uplink,
-						skb, out, cb, nexthdr,
-						ip6->version, tuple_hit_cnt);
-				if (ret == 0)
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
-						__func__, is_uplink,
-						skb, tcp->th_sum);
-			}
 		} else {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Teadroom of skb[%p] is not enough to add MDDP tag, tailroom[%d].\n",
-					__func__, skb, skb_tailroom(skb));
+			MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
+
+			/* Save tuple to avoid tag many packets */
+			found_router_tuple = kmem_cache_alloc(
+						mddp_f_router_tuple_cache, GFP_ATOMIC);
+			if (found_router_tuple == NULL) {
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: kmem_cache_alloc() failed\n",
+						__func__);
+				goto out;
+			}
+
+			found_router_tuple->dev_src = cb->dev;
+			found_router_tuple->dev_dst = out;
+			ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
+			ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
+			found_router_tuple->in.tcp.port = tcp->th_sport;
+			found_router_tuple->out.tcp.port = tcp->th_dport;
+			found_router_tuple->proto = nexthdr;
+
+			mddp_f_add_router_tuple_tcpudp(found_router_tuple);
+
+			ret = mddp_f_tag_packet(is_uplink,
+					skb, cb, nexthdr,
+					ip6->version, tuple_hit_cnt);
+			if (ret == 0)
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
+					__func__, is_uplink,
+					skb, tcp->th_sum);
 		}
 		break;
 	case IPPROTO_UDP:
@@ -845,84 +837,72 @@ static void mddp_f_out_nf_ipv6(
 			/* Don't fastpath dhcp packet */
 
 			/* Tag this packet for MD tracking */
-			if (skb_tailroom(skb) >
-					(sizeof(struct mddp_f_tag_packet_t) +
-					sizeof(struct mddp_f_e_tag_common_t) +
-					sizeof(struct mddp_f_e_tag_mac_t))) {
-				MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
-				found_router_tuple =
-					mddp_f_get_router_tuple_tcpudp_wo_lock(
-							&t);
+			MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
+			found_router_tuple =
+				mddp_f_get_router_tuple_tcpudp_wo_lock(
+						&t);
 
-				if (found_router_tuple) {
-					tuple_hit_cnt =
-						found_router_tuple->curr_cnt;
-					found_router_tuple->last_cnt = 0;
-					found_router_tuple->curr_cnt = 0;
-					MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock,
-							flag);
+			if (found_router_tuple) {
+				tuple_hit_cnt =
+					found_router_tuple->curr_cnt;
+				found_router_tuple->last_cnt = 0;
+				found_router_tuple->curr_cnt = 0;
+				MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock,
+						flag);
 
-					if (is_uplink == false) {
-						MDDP_F_LOG(MDDP_LL_DEBUG,
-							"%s: No need to tag UDP DL.\n",
-							__func__);
-						goto out;
-					}
-
+				if (is_uplink == false) {
 					MDDP_F_LOG(MDDP_LL_DEBUG,
-						"%s: tuple[%p] is found!!\n",
-						__func__, found_router_tuple);
-					ret = mddp_f_tag_packet(is_uplink, skb,
-								out, cb,
-								nexthdr,
-								ip6->version,
-								tuple_hit_cnt);
-					if (ret == 0)
-						MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
-							__func__, is_uplink,
-							skb, udp->uh_check);
-
-				} else {
-					MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock,
-							flag);
-
-					/* Save tuple to avoid tag many packets */
-					found_router_tuple = kmem_cache_alloc(
-							mddp_f_router_tuple_cache, GFP_ATOMIC);
-					if (found_router_tuple == NULL) {
-						MDDP_F_LOG(MDDP_LL_NOTICE,
-								"%s: kmem_cache_alloc() failed\n",
-								__func__);
-						goto out;
-					}
-
-					found_router_tuple->dev_src = cb->dev;
-					found_router_tuple->dev_dst = out;
-					ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
-					ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
-					found_router_tuple->in.udp.port = udp->uh_sport;
-					found_router_tuple->out.udp.port = udp->uh_dport;
-					found_router_tuple->proto = nexthdr;
-
-					mddp_f_add_router_tuple_tcpudp(found_router_tuple);
-
-					ret = mddp_f_tag_packet(is_uplink, skb,
-								out, cb,
-								nexthdr,
-								ip6->version,
-								tuple_hit_cnt);
-					if (ret == 0)
-						MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
-							__func__, is_uplink,
-							skb, udp->uh_check);
+						"%s: No need to tag UDP DL.\n",
+						__func__);
+					goto out;
 				}
+
+				MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: tuple[%p] is found!!\n",
+					__func__, found_router_tuple);
+				ret = mddp_f_tag_packet(is_uplink, skb,
+							cb, nexthdr,
+							ip6->version,
+							tuple_hit_cnt);
+				if (ret == 0)
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
+						__func__, is_uplink,
+						skb, udp->uh_check);
+
 			} else {
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Tailroom of skb[%p] is not enough to add MDDP tag, tailroom[%d].\n",
-						__func__,
-						skb, skb_tailroom(skb));
+				MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock,
+						flag);
+
+				/* Save tuple to avoid tag many packets */
+				found_router_tuple = kmem_cache_alloc(
+						mddp_f_router_tuple_cache, GFP_ATOMIC);
+				if (found_router_tuple == NULL) {
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: kmem_cache_alloc() failed\n",
+							__func__);
+					goto out;
+				}
+
+				found_router_tuple->dev_src = cb->dev;
+				found_router_tuple->dev_dst = out;
+				ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
+				ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
+				found_router_tuple->in.udp.port = udp->uh_sport;
+				found_router_tuple->out.udp.port = udp->uh_dport;
+				found_router_tuple->proto = nexthdr;
+
+				mddp_f_add_router_tuple_tcpudp(found_router_tuple);
+
+				ret = mddp_f_tag_packet(is_uplink, skb,
+							cb, nexthdr,
+							ip6->version,
+							tuple_hit_cnt);
+				if (ret == 0)
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
+						__func__, is_uplink,
+						skb, udp->uh_check);
 			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_DEBUG,

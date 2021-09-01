@@ -724,73 +724,65 @@ static void mddp_f_out_nf_ipv4(
 		}
 
 		/* Tag this packet for MD tracking */
-		if (skb_tailroom(skb) > (sizeof(struct mddp_f_tag_packet_t) +
-					sizeof(struct mddp_f_e_tag_common_t) +
-					sizeof(struct mddp_f_e_tag_mac_t))) {
-			MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
-			found_nat_tuple =
-				mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(&t);
+		MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
+		found_nat_tuple =
+			mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(&t);
 
-			if (found_nat_tuple) {
-				tuple_hit_cnt = found_nat_tuple->curr_cnt;
-				found_nat_tuple->last_cnt = 0;
-				found_nat_tuple->curr_cnt = 0;
-				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
+		if (found_nat_tuple) {
+			tuple_hit_cnt = found_nat_tuple->curr_cnt;
+			found_nat_tuple->last_cnt = 0;
+			found_nat_tuple->curr_cnt = 0;
+			MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
 
-				MDDP_F_LOG(MDDP_LL_DEBUG,
-					"%s: tuple[%p] is found!!\n",
-					__func__, found_nat_tuple);
-				ret = mddp_f_tag_packet(is_uplink,
-						skb, out, cb, ip->ip_p,
-						ip->ip_v, tuple_hit_cnt);
-				if (ret == 0)
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, is_uplink, skb,
-						ip->ip_id, ip->ip_sum);
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: tuple[%p] is found!!\n",
+				__func__, found_nat_tuple);
+			ret = mddp_f_tag_packet(is_uplink,
+					skb, cb, ip->ip_p,
+					ip->ip_v, tuple_hit_cnt);
+			if (ret == 0)
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+					__func__, is_uplink, skb,
+					ip->ip_id, ip->ip_sum);
 
-				goto out;
-			} else {
-				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
-
-				/* Save tuple to avoid tag many packets */
-				found_nat_tuple = kmem_cache_alloc(
-							mddp_f_nat_tuple_cache, GFP_ATOMIC);
-				if (found_nat_tuple == NULL) {
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: kmem_cache_alloc() failed\n",
-							__func__);
-					goto out;
-				}
-
-				found_nat_tuple->src_ip = cb->src[0];
-				found_nat_tuple->dst_ip = cb->dst[0];
-				found_nat_tuple->nat_src_ip = ip->ip_src;
-				found_nat_tuple->nat_dst_ip = ip->ip_dst;
-				found_nat_tuple->src.tcp.port = cb->sport;
-				found_nat_tuple->dst.tcp.port = cb->dport;
-				found_nat_tuple->nat_src.tcp.port = tcp->th_sport;
-				found_nat_tuple->nat_dst.tcp.port = tcp->th_dport;
-				found_nat_tuple->proto = ip->ip_p;
-				found_nat_tuple->dev_src = cb->dev;
-				found_nat_tuple->dev_dst = out;
-
-				mddp_f_add_nat_tuple(found_nat_tuple);
-
-				ret = mddp_f_tag_packet(is_uplink,
-						skb, out, cb, ip->ip_p,
-						ip->ip_v, tuple_hit_cnt);
-				if (ret == 0)
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-							__func__, is_uplink,
-							skb, ip->ip_id,
-							ip->ip_sum);
-			}
+			goto out;
 		} else {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Tailroom of skb[%p] is not enough to add MDDP tag, tailroom[%d].\n",
-					__func__, skb, skb_tailroom(skb));
+			MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
+
+			/* Save tuple to avoid tag many packets */
+			found_nat_tuple = kmem_cache_alloc(
+						mddp_f_nat_tuple_cache, GFP_ATOMIC);
+			if (found_nat_tuple == NULL) {
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: kmem_cache_alloc() failed\n",
+						__func__);
+				goto out;
+			}
+
+			found_nat_tuple->src_ip = cb->src[0];
+			found_nat_tuple->dst_ip = cb->dst[0];
+			found_nat_tuple->nat_src_ip = ip->ip_src;
+			found_nat_tuple->nat_dst_ip = ip->ip_dst;
+			found_nat_tuple->src.tcp.port = cb->sport;
+			found_nat_tuple->dst.tcp.port = cb->dport;
+			found_nat_tuple->nat_src.tcp.port = tcp->th_sport;
+			found_nat_tuple->nat_dst.tcp.port = tcp->th_dport;
+			found_nat_tuple->proto = ip->ip_p;
+			found_nat_tuple->dev_src = cb->dev;
+			found_nat_tuple->dev_dst = out;
+
+			mddp_f_add_nat_tuple(found_nat_tuple);
+
+			ret = mddp_f_tag_packet(is_uplink,
+					skb, cb, ip->ip_p,
+					ip->ip_v, tuple_hit_cnt);
+			if (ret == 0)
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+						__func__, is_uplink,
+						skb, ip->ip_id,
+						ip->ip_sum);
 		}
 		break;
 	case IPPROTO_UDP:
@@ -863,90 +855,80 @@ static void mddp_f_out_nf_ipv4(
 			/* Don't fastpath dhcp packet */
 
 			/* Tag this packet for MD tracking */
-			if (skb_tailroom(skb) >
-					(sizeof(struct mddp_f_tag_packet_t) +
-					sizeof(struct mddp_f_e_tag_common_t) +
-					sizeof(struct mddp_f_e_tag_mac_t))) {
-				MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
-				found_nat_tuple =
-					mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(
-							&t);
+			MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
+			found_nat_tuple =
+				mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(
+						&t);
 
-				if (found_nat_tuple) {
-					tuple_hit_cnt =
-						found_nat_tuple->curr_cnt;
-					found_nat_tuple->last_cnt = 0;
-					found_nat_tuple->curr_cnt = 0;
-					MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
-							flag);
+			if (found_nat_tuple) {
+				tuple_hit_cnt =
+					found_nat_tuple->curr_cnt;
+				found_nat_tuple->last_cnt = 0;
+				found_nat_tuple->curr_cnt = 0;
+				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
+						flag);
 
-					MDDP_F_LOG(MDDP_LL_DEBUG,
-							"%s: tuple[%p] is found!!\n",
-							__func__,
-							found_nat_tuple);
-					if (is_uplink == false) {
-						MDDP_F_LOG(MDDP_LL_DEBUG,
-							"%s: No need to tag UDP DL.\n",
-							__func__);
-						goto out;
-					}
-
-					ret = mddp_f_tag_packet(is_uplink,
-							skb, out, cb, ip->ip_p,
-							ip->ip_v,
-							tuple_hit_cnt);
-					if (ret == 0)
-						MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-							__func__, is_uplink,
-							skb, ip->ip_id,
-							ip->ip_sum);
-
-					goto out;
-				} else {
-					MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
-							flag);
-
-					/* Save tuple to avoid tag many packets */
-					found_nat_tuple = kmem_cache_alloc(
-								mddp_f_nat_tuple_cache, GFP_ATOMIC);
-					if (found_nat_tuple == NULL) {
-						MDDP_F_LOG(MDDP_LL_NOTICE,
-								"%s: kmem_cache_alloc() failed\n",
-								__func__);
-						goto out;
-					}
-
-					found_nat_tuple->src_ip = cb->src[0];
-					found_nat_tuple->dst_ip = cb->dst[0];
-					found_nat_tuple->nat_src_ip = ip->ip_src;
-					found_nat_tuple->nat_dst_ip = ip->ip_dst;
-					found_nat_tuple->src.udp.port = cb->sport;
-					found_nat_tuple->dst.udp.port = cb->dport;
-					found_nat_tuple->nat_src.udp.port = udp->uh_sport;
-					found_nat_tuple->nat_dst.udp.port = udp->uh_dport;
-					found_nat_tuple->proto = ip->ip_p;
-					found_nat_tuple->dev_src = cb->dev;
-					found_nat_tuple->dev_dst = out;
-
-					mddp_f_add_nat_tuple(found_nat_tuple);
-
-					ret = mddp_f_tag_packet(is_uplink,
-							skb, out, cb, ip->ip_p,
-							ip->ip_v,
-							tuple_hit_cnt);
-					if (ret == 0)
-						MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-							__func__, is_uplink,
-							skb, ip->ip_id,
-							ip->ip_sum);
-				}
-			} else {
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Tailroom of skb[%p] is not enough to add MDDP tag, tailroom[%d].\n",
+				MDDP_F_LOG(MDDP_LL_DEBUG,
+						"%s: tuple[%p] is found!!\n",
 						__func__,
-						skb, skb_tailroom(skb));
+						found_nat_tuple);
+				if (is_uplink == false) {
+					MDDP_F_LOG(MDDP_LL_DEBUG,
+						"%s: No need to tag UDP DL.\n",
+						__func__);
+					goto out;
+				}
+
+				ret = mddp_f_tag_packet(is_uplink,
+						skb, cb, ip->ip_p,
+						ip->ip_v,
+						tuple_hit_cnt);
+				if (ret == 0)
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+						__func__, is_uplink,
+						skb, ip->ip_id,
+						ip->ip_sum);
+
+				goto out;
+			} else {
+				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
+						flag);
+
+				/* Save tuple to avoid tag many packets */
+				found_nat_tuple = kmem_cache_alloc(
+							mddp_f_nat_tuple_cache, GFP_ATOMIC);
+				if (found_nat_tuple == NULL) {
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: kmem_cache_alloc() failed\n",
+							__func__);
+					goto out;
+				}
+
+				found_nat_tuple->src_ip = cb->src[0];
+				found_nat_tuple->dst_ip = cb->dst[0];
+				found_nat_tuple->nat_src_ip = ip->ip_src;
+				found_nat_tuple->nat_dst_ip = ip->ip_dst;
+				found_nat_tuple->src.udp.port = cb->sport;
+				found_nat_tuple->dst.udp.port = cb->dport;
+				found_nat_tuple->nat_src.udp.port = udp->uh_sport;
+				found_nat_tuple->nat_dst.udp.port = udp->uh_dport;
+				found_nat_tuple->proto = ip->ip_p;
+				found_nat_tuple->dev_src = cb->dev;
+				found_nat_tuple->dev_dst = out;
+
+				mddp_f_add_nat_tuple(found_nat_tuple);
+
+				ret = mddp_f_tag_packet(is_uplink,
+						skb, cb, ip->ip_p,
+						ip->ip_v,
+						tuple_hit_cnt);
+				if (ret == 0)
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+						__func__, is_uplink,
+						skb, ip->ip_id,
+						ip->ip_sum);
 			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_DEBUG,

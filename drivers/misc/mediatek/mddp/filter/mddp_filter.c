@@ -9,6 +9,7 @@
 #include <net/arp.h>
 #include <net/ip6_route.h>
 #include <net/ip.h>
+#include <net/ip6_checksum.h>
 #include <net/ipv6.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_extend.h>
@@ -495,186 +496,255 @@ static void mddp_f_init_jhash(void)
 static int mddp_f_e_tag_packet(
 	bool is_uplink,
 	struct sk_buff *skb,
+	struct mddp_f_cb *cb,
 	unsigned char ip_ver,
-	struct mddp_f_tag_packet_t *skb_tag,
 	unsigned int hit_cnt)
 {
+	struct net_device *lan;
+	struct mddp_f_tag_packet_t *skb_tag;
 	struct mddp_f_e_tag_common_t *skb_e_tag;
 	struct mddp_f_e_tag_mac_t e_tag_mac;
-	struct ethhdr *eth_hdr;
+	struct neighbour *neigh = NULL;
 	int tag_len, etag_len;
 
-	struct dst_entry *dst = skb_dst(skb);
-	struct rtable *rt = (struct rtable *)dst;
-	u32 nexthop_v4;
-	const struct in6_addr *nexthop_v6;
-	struct neighbour *neigh;
 
-	/* extension tag for MAC address */
+	if (is_uplink)
+		lan = cb->dev;
+	else
+		lan = skb->dev;
+
+	if (ip_ver == 4)
+		neigh = neigh_lookup(&arp_tbl, &ip_hdr(skb)->daddr, lan);
+	if (ip_ver == 6)
+		neigh = neigh_lookup(&nd_tbl,  &ipv6_hdr(skb)->daddr, lan);
+
+	if ((neigh == NULL) || !(neigh->nud_state & NUD_VALID)) {
+		MDDP_F_LOG(MDDP_LL_WARN,
+				"%s: Add MDDP Etag Fail, neigh[%x]\n",
+				__func__, neigh);
+		if (neigh)
+			neigh_release(neigh);
+		return -1;
+	}
+
+	neigh_ha_snapshot(e_tag_mac.mac_addr, neigh, neigh->dev);
+	if (neigh)
+		neigh_release(neigh);
+	e_tag_mac.access_cnt = hit_cnt;
 
 	tag_len = sizeof(struct mddp_f_tag_packet_t);
 	etag_len = sizeof(struct mddp_f_e_tag_common_t) +
 			sizeof(struct mddp_f_e_tag_mac_t);
 
+	/* extension tag for MAC address */
 	skb_e_tag = (struct mddp_f_e_tag_common_t *)
 		(skb_tail_pointer(skb) + tag_len);
 	skb_e_tag->type = MDDP_E_TAG_MAC;
 	skb_e_tag->len  = etag_len;
 
-	if (is_uplink == true) {
-		if (!skb_mac_header_was_set(skb)) {
-			MDDP_F_LOG(MDDP_LL_WARN,
-				"%s: Add MDDP Etag Fail, is_uplink[%d], mac_hdr_set[%d]\n",
-				__func__, is_uplink,
-				skb_mac_header_was_set(skb));
-			return -1;
-		}
-		eth_hdr = (struct ethhdr *)skb_mac_header(skb);
-
-		memcpy(e_tag_mac.mac_addr, eth_hdr->h_source,
-				sizeof(e_tag_mac.mac_addr));
-	} else {
-		rcu_read_lock_bh();
-		if (ip_ver == 4) {
-			nexthop_v4 = (__force u32)rt_nexthop(rt,
-					ip_hdr(skb)->daddr);
-			neigh = __ipv4_neigh_lookup_noref(dst->dev, nexthop_v4);
-		} else if (ip_ver == 6) {
-			nexthop_v6 = rt6_nexthop((struct rt6_info *)dst,
-					&ipv6_hdr(skb)->daddr);
-			neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop_v6);
-		} else {
-			rcu_read_unlock_bh();
-			MDDP_F_LOG(MDDP_LL_WARN,
-					"%s: Add MDDP Etag Fail, ip_ver[%d]\n",
-					__func__, ip_ver);
-			return -1;
-		}
-
-		if (neigh == NULL) {
-			rcu_read_unlock_bh();
-			MDDP_F_LOG(MDDP_LL_WARN,
-					"%s: Add MDDP Etag Fail, neigh[%x]\n",
-					__func__, neigh);
-			return -1;
-		}
-
-		if (neigh->nud_state & NUD_VALID)
-			neigh_ha_snapshot(e_tag_mac.mac_addr,
-					neigh, neigh->dev);
-
-		rcu_read_unlock_bh();
-	}
-
-	e_tag_mac.access_cnt = hit_cnt;
-
 	memcpy(skb_e_tag->value, &e_tag_mac, sizeof(struct mddp_f_e_tag_mac_t));
 
 	MDDP_F_LOG(MDDP_LL_INFO,
-			"%s: Add MDDP Etag, type[%x], len[%d], mac[%02x:%02x:%02x:%02x:%02x:%02x], access_cnt[%d]\n",
-			__func__, skb_e_tag->type, skb_e_tag->len,
-			e_tag_mac.mac_addr[0], e_tag_mac.mac_addr[1],
+			"%s: Add MDDP Etag,  mac[%02x:%02x:%02x:%02x:%02x:%02x], access_cnt[%d]\n",
+			__func__, e_tag_mac.mac_addr[0], e_tag_mac.mac_addr[1],
 			e_tag_mac.mac_addr[2], e_tag_mac.mac_addr[3],
 			e_tag_mac.mac_addr[4], e_tag_mac.mac_addr[5],
 			e_tag_mac.access_cnt);
 
-	skb_tag->tag_len += etag_len;
+	skb_tag = (struct mddp_f_tag_packet_t *) skb_tail_pointer(skb);
+	skb_tag->guard_pattern = MDDP_TAG_PATTERN;
+	skb_tag->version = __MDDP_VERSION__;
+	skb_tag->tag_len = tag_len + etag_len;
+	skb_tag->v2.tag_info = MDDP_RULE_TAG_FAKE_DL_NAT_PACKET;
+	skb_tag->v2.lan_netif_id = mddp_f_dev_name_to_netif_id(lan->name);
+	if (is_uplink == true) {
+		skb_tag->v2.port = cb->sport;
+		skb_tag->v2.ip = cb->src[0];  /* Don't care IPv6 IP */
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Add MDDP UL tag, lan_netif_id[%x], port[%x], ip[%x], skb[%p].\n",
+				__func__, skb_tag->v2.lan_netif_id,
+				skb_tag->v2.port, skb_tag->v2.ip, skb);
+	} else {
+		skb_tag->v2.port = cb->dport;
+		skb_tag->v2.ip = cb->dst[0];  /* Don't care IPv6 IP */
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Add MDDP DL tag, lan_netif_id[%x], port[%x], ip[%x], skb[%p].\n",
+				__func__, skb_tag->v2.lan_netif_id,
+				skb_tag->v2.port, skb_tag->v2.ip, skb);
+	}
+	__skb_put(skb, skb_tag->tag_len);
+
+	mddp_enqueue_dstate(MDDP_DSTATE_ID_NEW_TAG,
+				skb_tag->v2.ip, skb_tag->v2.port);
+
 	return 0;
 }
 
+static struct sk_buff *mddp_f_skb_tag(struct sk_buff *skb, bool is_uplink, struct mddp_f_cb *cb,
+				      unsigned char protocol, unsigned char ip_ver)
+{
+	uint16_t port;
+	int len, ntail;
+	struct net_device *dev;
+	struct sk_buff *fake_skb;
+	struct tcphdr *tcph;
+	struct udphdr *udph;
+
+	ntail = sizeof(struct mddp_f_tag_packet_t) +
+		sizeof(struct mddp_f_e_tag_common_t) +
+		sizeof(struct mddp_f_e_tag_mac_t);
+
+	if (is_uplink)
+		dev = skb->dev;
+	else
+		dev = cb->dev;
+
+	fake_skb = netdev_alloc_skb(dev, dev->mtu);
+	if (!fake_skb)
+		return NULL;
+	len = skb->len;
+	if (skb->len > (dev->mtu - ntail))
+		len = dev->mtu - ntail;
+	__skb_put_data(fake_skb, skb_network_header(skb), len);
+	skb_reset_mac_header(fake_skb);
+	skb_reset_network_header(fake_skb);
+
+	if (ip_ver == 4) {
+		struct iphdr *iph;
+
+		iph = ip_hdr(fake_skb);
+		if (is_uplink) {
+			iph->daddr = cb->src[0];
+			cb->src[0] = iph->saddr;
+			iph->saddr = cb->dst[0];
+		}
+		iph->tot_len = htons(fake_skb->len);
+		ip_send_check(iph);
+		len = iph->ihl * 4;
+		skb_set_transport_header(fake_skb, len);
+
+		if (protocol == IPPROTO_UDP) {
+			udph = (void *)(skb_network_header(fake_skb) + len);
+			if (is_uplink) {
+				port = udph->dest;
+				udph->dest = cb->sport;
+				cb->sport = udph->source;
+				udph->source = port;
+			}
+			udph->len = htons(fake_skb->len - len);
+			udph->check = 0;
+			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
+						      fake_skb->len - len, 0);
+			udph->check = csum_tcpudp_magic(iph->saddr, iph->daddr, fake_skb->len - len,
+							IPPROTO_UDP, fake_skb->csum);
+			if (udph->check == 0)
+				udph->check = CSUM_MANGLED_0;
+		}
+		if (protocol == IPPROTO_TCP) {
+			tcph = (void *)(skb_network_header(fake_skb) + len);
+			if (is_uplink) {
+				port = tcph->dest;
+				tcph->dest = cb->sport;
+				cb->sport = tcph->source;
+				tcph->source = port;
+			}
+			tcph->check = 0;
+			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
+						      fake_skb->len - len, 0);
+			tcph->check = csum_tcpudp_magic(iph->saddr, iph->daddr, fake_skb->len - len,
+							IPPROTO_TCP, fake_skb->csum);
+		}
+	}
+	if (ip_ver == 6) {
+		struct in6_addr addr;
+		struct ipv6hdr *iph;
+
+		iph = ipv6_hdr(fake_skb);
+		if (is_uplink) {
+			addr = iph->saddr;
+			iph->saddr = iph->daddr;
+			iph->daddr = addr;
+		}
+		len = sizeof(struct ipv6hdr);
+		iph->payload_len = htons(fake_skb->len - len);
+		skb_set_transport_header(fake_skb, len);
+
+		if (protocol == IPPROTO_UDP) {
+			udph = (void *)(skb_network_header(fake_skb) + len);
+			if (is_uplink) {
+				port = udph->source;
+				udph->source = udph->dest;
+				udph->dest = port;
+			}
+			udph->len = htons(fake_skb->len - len);
+			udph->check = 0;
+			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
+						      fake_skb->len - len, 0);
+			udph->check = csum_ipv6_magic(&iph->saddr, &iph->daddr, fake_skb->len - len,
+						      IPPROTO_UDP, fake_skb->csum);
+			if (udph->check == 0)
+				udph->check = CSUM_MANGLED_0;
+		}
+
+		if (protocol == IPPROTO_TCP) {
+			tcph = (void *)(skb_network_header(fake_skb) + len);
+			if (is_uplink) {
+				port = tcph->source;
+				tcph->source = tcph->dest;
+				tcph->dest = port;
+			}
+			tcph->check = 0;
+			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
+						      fake_skb->len - len, 0);
+			tcph->check = csum_ipv6_magic(&iph->saddr, &iph->daddr, fake_skb->len - len,
+						      IPPROTO_TCP, fake_skb->csum);
+		}
+	}
+
+	fake_skb->priority = skb->priority;
+	fake_skb->protocol = skb->protocol;
+	fake_skb->pkt_type = skb->pkt_type;
+
+	return fake_skb;
+}
 
 static int mddp_f_tag_packet(
 	bool is_uplink,
 	struct sk_buff *skb,
-	struct net_device *out,
-	struct mddp_f_cb *cb,
+	struct mddp_f_cb *cbp,
 	unsigned char protocol,
 	unsigned char ip_ver,
 	unsigned int hit_cnt)
 {
-	struct mddp_f_tag_packet_t *skb_tag;
 	struct sk_buff *fake_skb;
+	struct mddp_f_cb cb;
 	int ret;
 
-	if (is_uplink == true) { /* uplink*/
-		skb_tag = (struct mddp_f_tag_packet_t *) skb_tail_pointer(skb);
-		skb_tag->guard_pattern = MDDP_TAG_PATTERN;
-		skb_tag->version = __MDDP_VERSION__;
-		skb_tag->tag_len = sizeof(struct mddp_f_tag_packet_t);
-		skb_tag->v2.tag_info = MDDP_RULE_TAG_NORMAL_PACKET;
-		skb_tag->v2.lan_netif_id =
-			mddp_f_dev_name_to_netif_id(cb->dev->name);
-		skb_tag->v2.port = cb->sport;
-		skb_tag->v2.ip = cb->src[0];  /* Don't care IPv6 IP */
-
-		/* Add Extension tag */
-		ret = mddp_f_e_tag_packet(is_uplink, skb, ip_ver,
-				skb_tag, hit_cnt);
-		if (ret < 0)
-			return -EFAULT;
-		__skb_put(skb, skb_tag->tag_len);
-
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Add MDDP UL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p].\n",
-				__func__, skb_tag->guard_pattern,
-				skb_tag->version,
-				skb_tag->tag_len,
-				skb_tag->v2.tag_info,
-				skb_tag->v2.lan_netif_id,
-				skb_tag->v2.port, skb_tag->v2.ip,
-				skb);
-
-		mddp_enqueue_dstate(MDDP_DSTATE_ID_NEW_TAG,
-					cpu_to_be32(skb_tag->v2.ip),
-					cpu_to_be16(skb_tag->v2.port));
-
-	} else { /* downlink */
-		if (mddp_f_is_support_lan_dev(cb->dev->name) == true) {
+	cb = *cbp;
+	if (is_uplink != true) {
+		if (mddp_f_is_support_lan_dev(cb.dev->name) == true) {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Both in and out devices are lan devices. Do not tag the packet! out_device[%s], in_device[%s].\n",
 					__func__,
-					out->name, cb->dev->name);
+					skb->dev->name, cb.dev->name);
 			return -EFAULT;
 		}
-
-		fake_skb = skb_copy(skb, GFP_ATOMIC);
-		if (fake_skb == NULL) {
-			MDDP_F_LOG(MDDP_LL_NOTICE, "%s: skb_copy() failed\n", __func__);
-			return -ENOMEM;
-		}
-
-		fake_skb->dev = cb->dev;
-		skb_tag = (struct mddp_f_tag_packet_t *) skb_tail_pointer(fake_skb);
-		skb_tag->guard_pattern = MDDP_TAG_PATTERN;
-		skb_tag->version = __MDDP_VERSION__;
-		skb_tag->tag_len = sizeof(struct mddp_f_tag_packet_t);
-		skb_tag->v2.tag_info = MDDP_RULE_TAG_FAKE_DL_NAT_PACKET;
-		skb_tag->v2.lan_netif_id =
-				mddp_f_dev_name_to_netif_id(out->name);
-		skb_tag->v2.port = cb->dport;
-		skb_tag->v2.ip = cb->dst[0];  /* Don't care IPv6 IP */
-
-		/* Add Extension tag */
-		ret = mddp_f_e_tag_packet(is_uplink, fake_skb, ip_ver,
-				skb_tag, hit_cnt);
-		if (ret < 0)
-			return -EFAULT;
-		__skb_put(fake_skb, skb_tag->tag_len);
-
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Add MDDP DL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p], fake_skb[%p].\n",
-				__func__, skb_tag->guard_pattern,
-				skb_tag->version, skb_tag->tag_len,
-				skb_tag->v2.tag_info,
-				skb_tag->v2.lan_netif_id,
-				skb_tag->v2.port, skb_tag->v2.ip,
-				skb, fake_skb);
-
-		mddp_enqueue_dstate(MDDP_DSTATE_ID_NEW_TAG,
-					skb_tag->v2.ip, skb_tag->v2.port);
-
-		dev_queue_xmit(fake_skb);
 	}
+
+	fake_skb = mddp_f_skb_tag(skb, is_uplink, &cb, protocol, ip_ver);
+	if (fake_skb == NULL) {
+		MDDP_F_LOG(MDDP_LL_NOTICE, "%s: skb_copy() failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	/* Add Extension tag */
+	ret = mddp_f_e_tag_packet(is_uplink, fake_skb, &cb, ip_ver, hit_cnt);
+	if (ret < 0) {
+		dev_kfree_skb(fake_skb);
+		return -EFAULT;
+	}
+
+	fake_skb->dev->netdev_ops->ndo_start_xmit(fake_skb, fake_skb->dev);
 
 	return 0;
 }
