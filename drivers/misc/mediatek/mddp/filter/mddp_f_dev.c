@@ -180,6 +180,7 @@ void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 
 void mddp_f_dev_add_wan_dev(char *dev_name)
 {
+	struct net_device *dev;
 	int i;
 
 	/* Find unused id */
@@ -198,9 +199,9 @@ void mddp_f_dev_add_wan_dev(char *dev_name)
 	/* Set WAN device entry */
 	strlcpy(mddp_f_wan_dev[i].dev_name, dev_name, IFNAMSIZ);
 	mddp_f_wan_dev[i].netif_id = mddp_f_dev_get_netif_id(dev_name);
-	rcu_read_lock();
-	mddp_f_wan_netdev_set(dev_get_by_name_rcu(&init_net, dev_name));
-	rcu_read_unlock();
+	dev = dev_get_by_name(&init_net, dev_name);
+	dev_put(dev);
+	mddp_f_wan_netdev_set(dev);
 	mddp_f_wan_dev[i].is_valid = true;
 
 	mddp_f_wan_dev_cnt_g++;

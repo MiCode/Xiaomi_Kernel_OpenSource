@@ -617,9 +617,8 @@ static void mddp_nfhook_postrouting_v6(struct sk_buff *skb)
 
 	cb.is_uplink = true;
 	cb.wan = skb->dev;
-	rcu_read_lock();
-	cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-	rcu_read_unlock();
+	cb.lan = dev_get_by_index(&init_net, skb->skb_iif);
+	dev_put(cb.lan);
 	if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
 		return;
 

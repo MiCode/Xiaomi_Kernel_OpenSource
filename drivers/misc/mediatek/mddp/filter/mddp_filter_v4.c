@@ -733,18 +733,16 @@ static uint32_t mddp_nfhook_postrouting_v4
 	if (mddp_f_is_support_wan_dev(skb->dev->name) == true) {
 		cb.is_uplink = true;
 		cb.wan = skb->dev;
-		rcu_read_lock();
-		cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-		rcu_read_unlock();
+		cb.lan = dev_get_by_index(&init_net, skb->skb_iif);
+		dev_put(cb.lan);
 		if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
 			return NF_ACCEPT;
 	}
 
 	if (mddp_f_is_support_lan_dev(skb->dev->name) == true) {
 		cb.is_uplink = false;
-		rcu_read_lock();
-		cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-		rcu_read_unlock();
+		cb.wan = dev_get_by_index(&init_net, skb->skb_iif);
+		dev_put(cb.wan);
 		cb.lan = skb->dev;
 		if (mddp_f_is_support_wan_dev(cb.wan->name) == false)
 			return NF_ACCEPT;
