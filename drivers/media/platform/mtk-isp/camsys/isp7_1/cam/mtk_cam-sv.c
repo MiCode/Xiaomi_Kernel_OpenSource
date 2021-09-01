@@ -1574,20 +1574,23 @@ void mtk_camsv_unregister_entities(struct mtk_camsv *sv)
 		mtk_camsv_pipeline_unregister(sv->pipelines + i);
 }
 
-void camsv_irq_handle_tg_grab_err(
-	struct mtk_camsv_device *camsv_dev)
+void camsv_irq_handle_err(
+	struct mtk_camsv_device *camsv_dev,
+	int dequeued_frame_seq_no)
 {
 	int val, val2;
+	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_ctx *ctx;
 
 	val = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_PATH_CFG);
-	val = val|CAMSV_TG_PATH_TG_FULL_SEL;
+	val = val | CAMSV_TG_PATH_TG_FULL_SEL;
 	writel_relaxed(val, camsv_dev->base + REG_CAMSV_TG_PATH_CFG);
 	wmb(); /* TBC */
 	val2 = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
-	val2 = val2|CAMSV_TG_SEN_MODE_CMOS_RDY_SEL;
+	val2 = val2 | CAMSV_TG_SEN_MODE_CMOS_RDY_SEL;
 	writel_relaxed(val2, camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
 	wmb(); /* TBC */
-	dev_dbg_ratelimited(camsv_dev->dev,
+	dev_info(camsv_dev->dev,
 		"TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_PATH_CFG),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_MODE),
@@ -1595,15 +1598,25 @@ void camsv_irq_handle_tg_grab_err(
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_FRMSIZE_ST_R),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_GRAB_PXL),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_GRAB_LIN));
-}
-
-void camsv_irq_handle_dma_err(struct mtk_camsv_device *camsv_dev)
-{
-	dev_dbg_ratelimited(camsv_dev->dev,
+	dev_info(camsv_dev->dev,
 		"IMGO:0x%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_IMGO_ERR_STAT));
-}
 
+	ctx = mtk_cam_find_ctx(camsv_dev->cam, &camsv_dev->pipeline->subdev.entity);
+	if (!ctx) {
+		dev_info(camsv_dev->dev, "%s: cannot find ctx\n", __func__);
+		return;
+	}
+
+	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+	if (s_data) {
+		mtk_cam_debug_seninf_dump(s_data);
+	} else {
+		dev_info(camsv_dev->dev,
+			 "%s: req(%d) can't be found for seninf dump\n",
+			 __func__, dequeued_frame_seq_no);
+	}
+}
 
 static irqreturn_t mtk_irq_camsv(int irq, void *data)
 {
@@ -1645,7 +1658,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	imgo_overr_status = irq_status & CAMSV_INT_IMGO_OVERR_ST;
 	drop_status = irq_status & CAMSV_INT_IMGO_DROP_ST;
 
-	dev_info(dev,
+	dev_dbg(dev,
 		"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
 		camsv_dev->id,
 		irq_status, err_status,
@@ -1681,13 +1694,14 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	}
 	/* Check ISP error status */
 	if (err_status) {
-		dev_dbg(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
-		/* Show DMA errors in detail */
-		if (err_status & DMA_ST_MASK_CAMSV_ERR)
-			camsv_irq_handle_dma_err(camsv_dev);
-		/* Show TG register for more error detail*/
-		if (err_status & CAMSV_INT_TG_GBERR_ST)
-			camsv_irq_handle_tg_grab_err(camsv_dev);
+		dev_info(dev,
+			"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
+			camsv_dev->id,
+			irq_status, err_status,
+			drop_status, imgo_err_status, imgo_overr_status,
+			fbc_imgo_status, imgo_addr, dequeued_imgo_seq_no_inner,
+			tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
+		camsv_irq_handle_err(camsv_dev, dequeued_imgo_seq_no_inner);
 	}
 ctx_not_found:
 
