@@ -56,7 +56,7 @@ int fpsgo_fbt2fstb_get_cam_active(void);
 
 /* EARA */
 void eara2fstb_get_tfps(int max_cnt, int *is_camera, int *pid, unsigned long long *buf_id,
-				int *tfps, int *rftp, char name[][16]);
+				int *tfps, int *rftp, int *hwui, char name[][16]);
 void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff,
 				int tfps);
 #else
@@ -91,7 +91,8 @@ static int fpsgo_fbt2fstb_get_cam_active(void) { }
 
 /* EARA */
 static inline void eara2fstb_get_tfps(int max_cnt, int *pid,
-		unsigned long long *buf_id, int *tfps, char name[][16]) { }
+		unsigned long long *buf_id, int *tfps, int *hwui,
+		char name[][16]) { }
 static inline void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id,
 		int diff, int tfps) { }
 
