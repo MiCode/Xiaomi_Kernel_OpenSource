@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
+#include <linux/list_sort.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
@@ -2993,7 +2994,27 @@ struct iommu_global_t {
 
 static struct iommu_global_t iommu_globals;
 
+#define IOVA_DUMP_TOP_MAX	(10)
+
+struct iova_count_info {
+	u32 dom_id;
+	struct device *dev;
+	u64 size;
+	u32 count;
+	struct list_head list_node;
+};
+
+struct iova_count_list {
+	spinlock_t		lock;
+	struct list_head	head;
+};
+
+static struct iova_count_list count_list = {};
+
 static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
+				struct device *dev);
+
+static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
 				struct device *dev);
 
 static void mtk_iommu_iova_alloc_dump(struct seq_file *s, struct device *dev);
@@ -3533,6 +3554,7 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_trace_dump(NULL);
 		break;
 	case 17:	/* dump iova alloc list */
+		mtk_iommu_iova_alloc_dump_top(NULL, NULL);
 		mtk_iommu_iova_alloc_dump(NULL, NULL);
 		break;
 	case 18:	/* dump iova map list */
@@ -3596,6 +3618,7 @@ static int mtk_iommu_dump_fops_proc_show(struct seq_file *s, void *unused)
 
 static int mtk_iommu_iova_alloc_fops_proc_show(struct seq_file *s, void *unused)
 {
+	mtk_iommu_iova_alloc_dump_top(s, NULL);
 	mtk_iommu_iova_alloc_dump(s, NULL);
 	return 0;
 }
@@ -3770,7 +3793,133 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE3]);
 	}
 
+	spin_lock_init(&count_list.lock);
+	INIT_LIST_HEAD(&count_list.head);
+
 	return 0;
+}
+
+static int iova_size_cmp(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct iova_count_info *ia, *ib;
+
+	ia = list_entry(a, struct iova_count_info, list_node);
+	ib = list_entry(b, struct iova_count_info, list_node);
+
+	if (ia->size < ib->size)
+		return 1;
+	if (ia->size > ib->size)
+		return -1;
+
+	return 0;
+}
+
+static void mtk_iommu_clear_iova_size(void)
+{
+	struct iova_count_info *plist;
+	struct iova_count_info *tmp_plist;
+
+	list_for_each_entry_safe(plist, tmp_plist, &count_list.head, list_node) {
+		list_del(&plist->list_node);
+		kfree(plist);
+	}
+}
+
+static void mtk_iommu_count_iova_size(struct device *dev,
+				dma_addr_t iova, size_t size)
+{
+	struct iommu_fwspec *fwspec = NULL;
+	struct iova_count_info *plist = NULL;
+	struct iova_count_info *n = NULL;
+	struct iova_count_info *new_info;
+
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (fwspec == NULL) {
+		pr_notice("%s fail! dev:%s, fwspec is NULL\n",
+				__func__, dev_name(dev));
+		return;
+	}
+
+	/* Add to iova_count_info if exist */
+	spin_lock(&count_list.lock);
+	list_for_each_entry_safe(plist, n, &count_list.head, list_node) {
+		if (plist->dev == dev) {
+			plist->count++;
+			plist->size += (unsigned long) (size / 1024);
+			spin_unlock(&count_list.lock);
+			return;
+		}
+	}
+
+	/* Create new iova_count_info if no exist */
+	new_info = kzalloc(sizeof(*new_info), GFP_ATOMIC);
+	if (!new_info) {
+		spin_unlock(&count_list.lock);
+		pr_notice("%s, alloc iova_count_info fail! dev:%s\n",
+				__func__, dev_name(dev));
+		return;
+	}
+
+	new_info->dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
+	new_info->dev = dev;
+	new_info->size = (unsigned long) (size / 1024);
+	new_info->count = 1;
+	list_add_tail(&new_info->list_node, &count_list.head);
+	spin_unlock(&count_list.lock);
+}
+
+static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
+				struct device *dev)
+{
+	struct iommu_fwspec *fwspec = NULL;
+	struct iova_info *plist = NULL;
+	struct iova_info *n = NULL;
+	struct iova_count_info *p_count_list = NULL;
+	struct iova_count_info *n_count = NULL;
+	int count = 0, i = 0;
+
+	/* check fwspec by device */
+	if (dev != NULL) {
+		fwspec = dev_iommu_fwspec_get(dev);
+		if (fwspec == NULL) {
+			pr_notice("%s fail! dev:%s, fwspec is NULL\n",
+				__func__, dev_name(dev));
+			return;
+		}
+	}
+
+	/* count iova size by device */
+	spin_lock(&iova_list.lock);
+	list_for_each_entry_safe(plist, n, &iova_list.head, list_node) {
+		mtk_iommu_count_iova_size(plist->dev, plist->iova, plist->size);
+		count++;
+	}
+	spin_unlock(&iova_list.lock);
+
+	spin_lock(&count_list.lock);
+	/* sort count iova size by device */
+	list_sort(NULL, &count_list.head, iova_size_cmp);
+
+	/* dump top max user */
+	iommu_dump(s, "iommu iova alloc count:%d, top %d user:\n",
+			count, IOVA_DUMP_TOP_MAX);
+	iommu_dump(s, "%6s %8s %10s %18s\n", "dom_id", "count", "size", "dev");
+	list_for_each_entry_safe(p_count_list, n_count,
+				 &count_list.head, list_node) {
+		iommu_dump(s, "%6u %8lu %8lluKB %s\n",
+				p_count_list->dom_id,
+				p_count_list->count,
+				p_count_list->size,
+				dev_name(p_count_list->dev));
+		i++;
+		if (i >= IOVA_DUMP_TOP_MAX)
+			break;
+	}
+
+	/* clear count iova size */
+	mtk_iommu_clear_iova_size();
+
+	spin_unlock(&count_list.lock);
 }
 
 static void mtk_iommu_iova_alloc_dump(struct seq_file *s, struct device *dev)
@@ -3810,7 +3959,7 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
-		return mtk_iommu_iova_alloc_dump(NULL, dev);
+		return mtk_iommu_iova_alloc_dump_top(NULL, dev);
 	}
 
 	iova_buf = kzalloc(sizeof(*iova_buf), GFP_ATOMIC);
