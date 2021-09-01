@@ -1135,6 +1135,8 @@ int rt5512_i2c_probe(struct i2c_client *client,
 #endif /* GENERIC_DEBUGFS */
 
 	pm_runtime_set_active(chip->dev);
+	pm_runtime_use_autosuspend(chip->dev);
+	pm_runtime_set_autosuspend_delay(chip->dev, 50);
 	pm_runtime_enable(chip->dev);
 
 	dev_set_name(chip->dev, "RT5512_MT_%d", chip->dev_cnt);
@@ -1169,10 +1171,14 @@ EXPORT_SYMBOL(rt5512_i2c_remove);
 static int __maybe_unused rt5512_i2c_runtime_suspend(struct device *dev)
 {
 	struct rt5512_chip *chip = dev_get_drvdata(dev);
+	int ret = 0;
 
 	dev_info(dev, "enter low power mode\n");
-	return regmap_write_bits(chip->regmap,
-		RT5512_REG_SYSTEM_CTRL, 0xffff, 0x0001);
+	ret = regmap_write_bits(chip->regmap, RT5512_REG_SYSTEM_CTRL,
+				0xffff, 0x0001);
+	if (ret < 0)
+		dev_err(dev, "%s ret = %d\n", __func__, ret);
+	return 0;
 }
 
 static int __maybe_unused rt5512_i2c_runtime_resume(struct device *dev)
@@ -1183,8 +1189,10 @@ static int __maybe_unused rt5512_i2c_runtime_resume(struct device *dev)
 	dev_info(dev, "exit low power mode\n");
 	ret = regmap_write_bits(chip->regmap,
 		RT5512_REG_SYSTEM_CTRL, 0xffff, 0x0000);
-	mdelay(2);
-	return ret;
+	if (ret < 0)
+		dev_err(dev, "%s ret = %d\n", __func__, ret);
+	usleep_range(2000, 2100);
+	return 0;
 }
 
 static const struct dev_pm_ops rt5512_dev_pm_ops = {
@@ -1219,4 +1227,4 @@ module_i2c_driver(rt5512_i2c_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5512 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("2.0.2_M");
+MODULE_VERSION("2.0.3_M");
