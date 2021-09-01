@@ -30,6 +30,15 @@
 #define ECC_CE_AT_LEAST_ONE_ERR		(0x2 << 24)
 #define ECC_SERR_FROM_DATA_BUFF		(0x2)
 #define ECC_IRQ_TRIGGER_THRESHOLD	(1)
+#define ECC_SEL_DSU_MODE		(0x0)
+#define ECC_SEL_L1_MODE			(0x1)
+#define ECC_SEL_L2_MODE			(0x2)
+#define ECC_SEL_DSU_MODE_LGY		(0x1)
+#define ECC_SEL_L1_MODE_LGY		(0x0)
+//FIXME: delete define when MIDR upstream
+#define KLN_CPU_ID_MASK			(0xD46)
+#define MTH_CPU_ID_MASK			(0xD47)
+#define MTHELP_CPU_ID_MASK		(0xD48)
 
 struct parity_record_t {
 	unsigned int check_offset;
@@ -60,7 +69,14 @@ union err_record {
 		u32 irq;
 		int cpu;
 		u64 misc0_el1;
+		u64 misc0_el1_L1;
+		u64 misc0_el1_L2;
 		u64 status_el1;
+		u64 status_el1_L1;
+		u64 status_el1_L2;
+		u64 sctlr_el1;
+		u64 sctlr_el1_L1;
+		u64 sctlr_el1_L2;
 		bool is_err;
 	} v2;
 };
@@ -71,6 +87,7 @@ struct cache_parity {
 	/* setting from device tree */
 	unsigned int ver;
 	unsigned int nr_irq;
+	int ecc_irq_support;
 	int arm_dsu_ecc_hwirq;
 	void __iomem *cache_parity_base;
 
@@ -199,6 +216,15 @@ call_aee:
 }
 
 #ifdef CONFIG_ARM64
+static u64 read_ERXCTLR_EL1(void)
+{
+	u64 v;
+
+	__asm__ volatile ("mrs %0, s3_0_c5_c4_1" : "=r" (v));
+
+	return v;
+}
+
 static u64 read_ERXMISC0_EL1(void)
 {
 	u64 v;
@@ -217,6 +243,11 @@ static u64 read_ERXSTATUS_EL1(void)
 	return v;
 }
 
+static void write_ERRSELR_EL1(u64 v)
+{
+	__asm__ volatile ("msr s3_0_c5_c3_1, %0" : : "r" (v));
+}
+
 static void write_ERXSTATUS_EL1(u64 v)
 {
 	__asm__ volatile ("msr s3_0_c5_c4_2, %0" : : "r" (v));
@@ -227,6 +258,11 @@ static void write_ERXSELR_EL1(u64 v)
 	__asm__ volatile ("msr s3_0_c5_c3_1, %0" : : "r" (v));
 }
 #else
+static u64 read_ERXCTLR_EL1(void)
+{
+	return 0;
+}
+
 static u64 read_ERXMISC0_EL1(void)
 {
 	return 0;
@@ -235,6 +271,10 @@ static u64 read_ERXMISC0_EL1(void)
 static u64 read_ERXSTATUS_EL1(void)
 {
 	return 0;
+}
+
+static void write_ERRSELR_EL1(u64 v)
+{
 }
 
 static void write_ERXSTATUS_EL1(u64 v)
@@ -404,6 +444,79 @@ static irqreturn_t cache_parity_isr_v1(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void ecc_get_core_status(void *info)
+{
+	int cpu_idx = smp_processor_id();
+	unsigned int read_cpuid = read_cpuid_id() >> 4 & 0xFFF;
+
+//FIXME:if (is_midr_in_range_list(read_cpuid_id(), ecc_midr_list))
+	if (read_cpuid == KLN_CPU_ID_MASK || read_cpuid == MTH_CPU_ID_MASK
+	    || read_cpuid == MTHELP_CPU_ID_MASK)
+		write_ERRSELR_EL1(ECC_SEL_L1_MODE);
+	else
+		write_ERRSELR_EL1(ECC_SEL_L1_MODE_LGY);
+
+	cache_parity.record[cpu_idx].v2.sctlr_el1_L1  = read_ERXCTLR_EL1();
+	cache_parity.record[cpu_idx].v2.status_el1_L1 = read_ERXSTATUS_EL1();
+	cache_parity.record[cpu_idx].v2.misc0_el1_L1  = read_ERXMISC0_EL1();
+
+//     if (read_cpuid_id() == MIDR_CORTEX_A510) {
+	if (read_cpuid == KLN_CPU_ID_MASK) {
+		write_ERRSELR_EL1(ECC_SEL_L2_MODE);
+		cache_parity.record[cpu_idx].v2.sctlr_el1_L2  = read_ERXCTLR_EL1();
+		cache_parity.record[cpu_idx].v2.status_el1_L2 = read_ERXSTATUS_EL1();
+		cache_parity.record[cpu_idx].v2.misc0_el1_L2  = read_ERXMISC0_EL1();
+	}
+}
+
+static ssize_t status_show(struct device_driver *driver, char *buf)
+{
+	int cpu_idx;
+	unsigned int len = 0;
+	unsigned int read_cpuid = read_cpuid_id() >> 4 & 0xFFF;
+	static const char * const err_mode[] = {"DSU", "L1C", "L2C"};
+
+	cpu_idx = smp_processor_id();
+/* FIXME */
+//     if (is_midr_in_range_list(read_cpuid_id(), ecc_midr_list))
+	if (read_cpuid == KLN_CPU_ID_MASK || read_cpuid == MTH_CPU_ID_MASK
+	    || read_cpuid == MTHELP_CPU_ID_MASK)
+		write_ERRSELR_EL1(ECC_SEL_DSU_MODE);
+	else
+		write_ERRSELR_EL1(ECC_SEL_DSU_MODE_LGY);
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+		"-    %s    0x%05llx   0x%08llx    0x%012llx\n",
+		err_mode[0], read_ERXCTLR_EL1(),
+		read_ERXSTATUS_EL1(), read_ERXMISC0_EL1());
+
+	get_online_cpus();
+
+	for_each_online_cpu(cpu_idx) {
+		smp_call_function_single(cpu_idx, ecc_get_core_status, NULL, 0);
+
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"%d   /%s    0x%05llx   0x%08llx    0x%012llx\n",
+			cpu_idx, err_mode[1],
+			cache_parity.record[cpu_idx].v2.sctlr_el1_L1,
+			cache_parity.record[cpu_idx].v2.status_el1_L1,
+			cache_parity.record[cpu_idx].v2.misc0_el1_L1);
+		if (cache_parity.record[cpu_idx].v2.sctlr_el1_L2) {
+			len += snprintf(buf + len, PAGE_SIZE - len,
+			"%d   /%s    0x%05llx   0x%08llx    0x%012llx\n",
+			cpu_idx, err_mode[2],
+			cache_parity.record[cpu_idx].v2.sctlr_el1_L2,
+			cache_parity.record[cpu_idx].v2.status_el1_L2,
+			cache_parity.record[cpu_idx].v2.misc0_el1_L2);
+		}
+	}
+	put_online_cpus();
+
+	return strlen(buf);
+}
+
+static DRIVER_ATTR_RO(status);
+
 void __attribute__((weak)) cache_parity_init_platform(void)
 {
 	pr_info("[%s] adopt default flow\n", __func__);
@@ -425,6 +538,9 @@ static int __probe_v2(struct platform_device *pdev)
 	unsigned int i;
 	int ret;
 	int irq, hwirq, cpu;
+
+	if (!cache_parity.ecc_irq_support)
+		return 0;
 
 	for (i = 0, cpu = 0; i < cache_parity.nr_irq; i++) {
 		irq = irq_of_parse_and_map(pdev->dev.of_node, i);
@@ -595,6 +711,12 @@ static int cache_parity_probe(struct platform_device *pdev)
 			return -ENXIO;
 		}
 
+		ret = of_property_read_u32(pdev->dev.of_node,
+					"ecc-irq-support",
+					&cache_parity.ecc_irq_support);
+		if (ret)
+			dev_err(&pdev->dev, "no ecc_irq_support setting");
+
 		ret = __probe_v2(pdev);
 
 		break;
@@ -650,8 +772,15 @@ static int __init cache_parity_init(void)
 	if (ret)
 		return ret;
 
+	if (cache_parity.ecc_irq_support) {
+		ret = driver_create_file(&cache_parity_drv.driver,
+					 &driver_attr_cache_status);
+		if (ret)
+			return ret;
+	}
+
 	ret = driver_create_file(&cache_parity_drv.driver,
-				 &driver_attr_cache_status);
+				 &driver_attr_status);
 	if (ret)
 		return ret;
 
@@ -660,8 +789,13 @@ static int __init cache_parity_init(void)
 
 static __exit void cache_parity_exit(void)
 {
+	if (cache_parity.ecc_irq_support) {
+		driver_remove_file(&cache_parity_drv.driver,
+				   &driver_attr_cache_status);
+	}
+
 	driver_remove_file(&cache_parity_drv.driver,
-			 &driver_attr_cache_status);
+			   &driver_attr_status);
 
 	platform_driver_unregister(&cache_parity_drv);
 }
