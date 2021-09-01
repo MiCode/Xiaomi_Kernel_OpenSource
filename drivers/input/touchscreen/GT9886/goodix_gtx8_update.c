@@ -156,7 +156,7 @@ struct fw_update_ctrl {
 	struct goodix_ts_device *ts_dev;
 	struct goodix_ts_core *core_data;
 
-	char fw_name[32];
+	char fw_name[128];
 	struct bin_attribute attr_fwimage;
 	bool fw_from_sysfs;
 };
@@ -1416,9 +1416,24 @@ static int goodix_fw_update_init(struct goodix_ts_core *core_data,
 	if (ts_bdata && ts_bdata->fw_name)
 		strlcpy(fwu_ctrl->fw_name, ts_bdata->fw_name,
 				sizeof(fwu_ctrl->fw_name));
-	else
-		strlcpy(fwu_ctrl->fw_name, firmware_bin_name,
+	else {
+		if (gt9886_find_touch_node == 1) {
+			strncat(panel_firmware_buf, ".bin", 4);
+			strncpy(fwu_ctrl->fw_name,
+				panel_firmware_buf,
 				sizeof(fwu_ctrl->fw_name));
+		} else {
+			ret = snprintf(fwu_ctrl->fw_name,
+				sizeof(fwu_ctrl->fw_name),
+				"%s%s.bin",
+				TS_DEFAULT_FIRMWARE,
+				gt9886_firmware_buf);
+			if (ret >= sizeof(fwu_ctrl->fw_name))
+				ts_err("get firmware_bin_name name FAILED!!!");
+		}
+	}
+	ts_info("fwu_ctrl->fw_name:%s",
+				fwu_ctrl->fw_name);
 
 	/* create sysfs interface */
 	if (init_sysfs) {

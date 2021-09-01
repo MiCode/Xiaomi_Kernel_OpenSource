@@ -26,6 +26,9 @@
 #define TS_DEFAULT_CFG_BIN   "gt9886_cfg_"
 extern const char *gt9886_firmware_buf;
 extern const char *gt9886_config_buf;
+extern int gt9886_find_touch_node;
+extern char panel_firmware_buf[];
+extern char panel_config_buf[];
 
 #define TS_BIN_VERSION_START_INDEX	5
 #define TS_BIN_VERSION_LEN	4

@@ -162,6 +162,7 @@ struct goodix_ts_board_data {
 	/*add by lishuai*/
 	unsigned int x2x;
 	unsigned int y2y;
+	unsigned int fake_status;
 	bool pen_enable;
 	unsigned int tp_key_num;
 	/*add end*/

@@ -86,8 +86,65 @@
 /***********for config & firmware*************/
 const char *gt9886_firmware_buf;
 const char *gt9886_config_buf;
+const char *gt9886_lcm_buf;
+int gt9886_find_touch_node;
+char panel_firmware_buf[128];
+char panel_config_buf[128];
 
 static struct goodix_ts_board_data *touch_filter_bdata;
+static int goodix_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *dev_id);
+
+static int goodix_parse_dt_display(struct goodix_ts_board_data *board_data)
+{
+	int r, err;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,touch-panel");
+	if (node) {
+		r = of_property_read_u32(node, "lcm-is-fake",
+					 &board_data->fake_status);
+		if (r) {
+			ts_info("no lcm-is-fake, not find touch panel node!");
+			gt9886_find_touch_node = 0;
+			return 0;
+		}
+		ts_info("find touch panel node!");
+		r = of_property_read_u32(node, "lcm-width",
+				 &board_data->panel_max_x);
+		if (r)
+			err = -ENOENT;
+
+		r = of_property_read_u32(node, "lcm-height",
+					 &board_data->panel_max_y);
+		if (r)
+			err = -ENOENT;
+
+		r = of_property_read_u32(node, "lcm-fake-width",
+				 &board_data->input_max_x);
+		if (r)
+			err = -ENOENT;
+
+		r = of_property_read_u32(node, "lcm-fake-height",
+					 &board_data->input_max_y);
+		if (r)
+			err = -ENOENT;
+
+		r = of_property_read_string(node, "lcm-name",
+				&gt9886_lcm_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
+		gt9886_find_touch_node = 1;
+	} else {
+		ts_info("not find touch panel node!");
+		gt9886_find_touch_node = 0;
+		err = -ENOENT;
+	}
+	return 0;
+}
+
 static int tpd_misc_open(struct inode *inode, struct file *file)
 {
 	return nonseekable_open(inode, file);
@@ -195,6 +252,25 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 {
 	int r, err;
 
+	if (gt9886_find_touch_node != 1) {
+		r = of_property_read_u32(node, "goodix,panel-max-x",
+					 &board_data->panel_max_x);
+		if (r)
+			err = -ENOENT;
+		r = of_property_read_u32(node, "goodix,panel-max-y",
+					 &board_data->panel_max_y);
+		if (r)
+			err = -ENOENT;
+		/* For unreal lcm test */
+		r = of_property_read_u32(node, "goodix,input-max-x",
+					 &board_data->input_max_x);
+		if (r)
+			err = -ENOENT;
+		r = of_property_read_u32(node, "goodix,input-max-y",
+					&board_data->input_max_y);
+		if (r)
+			err = -ENOENT;
+	}
 	r = of_property_read_u32(node, "goodix,panel-max-id",
 				&board_data->panel_max_id);
 	if (r) {
@@ -203,27 +279,6 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 		if (board_data->panel_max_id > GOODIX_MAX_TOUCH)
 			board_data->panel_max_id = GOODIX_MAX_TOUCH;
 	}
-
-	r = of_property_read_u32(node, "goodix,panel-max-x",
-				 &board_data->panel_max_x);
-	if (r)
-		err = -ENOENT;
-
-	r = of_property_read_u32(node, "goodix,panel-max-y",
-				&board_data->panel_max_y);
-	if (r)
-		err = -ENOENT;
-
-	ts_info("Set Default lcm-resolution!");
-	r = of_property_read_u32(node, "goodix,input-max-x",
-				 &board_data->input_max_x);
-	if (r)
-		err = -ENOENT;
-
-	r = of_property_read_u32(node, "goodix,input-max-y",
-				&board_data->input_max_y);
-	if (r)
-		err = -ENOENT;
 
 	r = of_property_read_u32(node, "goodix,panel-max-w",
 				&board_data->panel_max_w);
@@ -288,18 +343,17 @@ static int goodix_parse_dt(struct device_node *node,
 		return -EINVAL;
 	}
 
-	r = of_property_read_string(node,
-			"goodix,firmware-version",
-			&gt9886_firmware_buf);
-	if (r < 0)
-		ts_err("Invalid firmware version in dts : %d", r);
-
-	r = of_property_read_string(node,
-			"goodix,config-version",
-			&gt9886_config_buf);
-	if (r < 0) {
-		ts_err("Invalid config version in dts : %d", r);
-		return -EINVAL;
+	if (gt9886_find_touch_node != 1) {
+		r = of_property_read_string(node, "goodix,firmware-version",
+				&gt9886_firmware_buf);
+		if (r < 0)
+			ts_err("Invalid firmware version in dts : %d", r);
+		r = of_property_read_string(node, "goodix,config-version",
+				&gt9886_config_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
 	}
 
 	board_data->avdd_name = "vtouch";
@@ -2253,6 +2307,48 @@ static const struct goodix_ts_hw_ops hw_i2c_ops = {
 
 static struct platform_device *goodix_pdev;
 
+static int goodix_i2c_remove(struct i2c_client *client)
+{
+	platform_device_unregister(goodix_pdev);
+	return 0;
+}
+
+#ifdef CONFIG_OF
+static const struct of_device_id i2c_matches[] = {
+	{.compatible = TS_DT_COMPATIBLE,},
+	{},
+};
+MODULE_DEVICE_TABLE(of, i2c_matches);
+#endif
+
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id acpi_matches[] = {
+	{.id = "PNPxxx"},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, acpi_matches);
+#endif
+
+static const struct i2c_device_id i2c_id_table[] = {
+	{TS_DRIVER_NAME, 0},
+	{},
+};
+MODULE_DEVICE_TABLE(i2c, i2c_id_table);
+
+static struct i2c_driver goodix_i2c_driver = {
+	.driver = {
+		.name = TS_DRIVER_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(i2c_matches),
+#ifdef CONFIG_ACPI
+		.acpi_match_table = acpi_matches,
+#endif
+	},
+	.probe = goodix_i2c_probe,
+	.remove = goodix_i2c_remove,
+	.id_table = i2c_id_table,
+};
+
 static void goodix_pdev_release(struct device *dev)
 {
 	kfree(goodix_pdev);
@@ -2280,9 +2376,26 @@ static int goodix_i2c_probe(struct i2c_client *client,
 
 	if (IS_ENABLED(CONFIG_OF) && client->dev.of_node) {
 		/* parse devicetree property */
+		goodix_parse_dt_display(ts_bdata);
 		r = goodix_parse_dt(client->dev.of_node, ts_bdata);
 		if (r < 0)
 			return r;
+
+		if (gt9886_find_touch_node == 1) {
+			if (strcmp("r66451_fhdp_dphy_cmd_tianma_120hz", gt9886_lcm_buf) == 0) {
+				if (ts_bdata->panel_max_x == 1080
+					&& ts_bdata->panel_max_y == 2340) {
+					strlcpy(panel_config_buf,
+						"gt9886_cfg_90hz6885", 20);
+					strlcpy(panel_firmware_buf,
+						"gt9886_firmware_6885af", 23);
+				} else {
+					ts_info("%s, fault firmware!", gt9886_lcm_buf);
+				}
+			} else {
+				ts_info("%s, fault firmware!", gt9886_lcm_buf);
+			}
+		}
 	}
 #ifdef CONFIG_ACPI
 	 else if (ACPI_COMPANION(&client->dev)) {
@@ -2359,48 +2472,6 @@ err_pdev:
 	return r;
 
 }
-
-static int goodix_i2c_remove(struct i2c_client *client)
-{
-	platform_device_unregister(goodix_pdev);
-	return 0;
-}
-
-#ifdef CONFIG_OF
-static const struct of_device_id i2c_matchs[] = {
-	{.compatible = TS_DT_COMPATIBLE,},
-	{},
-};
-MODULE_DEVICE_TABLE(of, i2c_matchs);
-#endif
-
-#ifdef CONFIG_ACPI
-static const struct acpi_device_id acpi_matchs[] = {
-	{.id = "PNPxxx"},
-	{},
-};
-MODULE_DEVICE_TABLE(acpi, acpi_matchs);
-#endif
-
-static const struct i2c_device_id i2c_id_table[] = {
-	{TS_DRIVER_NAME, 0},
-	{},
-};
-MODULE_DEVICE_TABLE(i2c, i2c_id_table);
-
-static struct i2c_driver goodix_i2c_driver = {
-	.driver = {
-		.name = TS_DRIVER_NAME,
-		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(i2c_matchs),
-#ifdef CONFIG_ACPI
-		.acpi_match_table = acpi_matchs,
-#endif
-	},
-	.probe = goodix_i2c_probe,
-	.remove = goodix_i2c_remove,
-	.id_table = i2c_id_table,
-};
 
 static int __init goodix_i2c_init(void)
 {

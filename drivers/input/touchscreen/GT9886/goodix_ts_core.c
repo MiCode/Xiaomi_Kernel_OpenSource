@@ -1425,10 +1425,21 @@ static void goodix_ts_set_input_params(struct input_dev *input_dev,
 	if (ts_bdata->swap_axis)
 		swap(ts_bdata->input_max_x, ts_bdata->input_max_y);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			0, ts_bdata->input_max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			0, ts_bdata->input_max_y, 0, 0);
+	if (ts_bdata->fake_status == 1) {
+		if (ts_bdata->swap_axis)
+			swap(ts_bdata->input_max_x, ts_bdata->input_max_y);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+					 0, ts_bdata->input_max_x, 0, 0);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+					 0, ts_bdata->input_max_y, 0, 0);
+	} else {
+		if (ts_bdata->swap_axis)
+			swap(ts_bdata->panel_max_x, ts_bdata->panel_max_y);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+					 0, ts_bdata->panel_max_x, 0, 0);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+					 0, ts_bdata->panel_max_y, 0, 0);
+	}
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			0, ts_bdata->panel_max_w, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
