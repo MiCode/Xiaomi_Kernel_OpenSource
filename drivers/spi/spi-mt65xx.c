@@ -33,7 +33,7 @@
 #define SPI_CFG2_REG                      0x0028
 #define SPI_TX_SRC_REG_64                 0x002c
 #define SPI_RX_DST_REG_64                 0x0030
-#define SPI_CFG3_IPM_REG                  0x0040
+#define SPI_CFG3_REG	                  0x0040
 
 #define SPI_CFG0_SCK_HIGH_OFFSET          0
 #define SPI_CFG0_SCK_LOW_OFFSET           8
@@ -72,25 +72,25 @@
 #define SPI_CMD_TX_ENDIAN            BIT(15)
 #define SPI_CMD_FINISH_IE            BIT(16)
 #define SPI_CMD_PAUSE_IE             BIT(17)
-#define SPI_CMD_IPM_NONIDLE_MODE     BIT(19)
-#define SPI_CMD_IPM_SPIM_LOOP        BIT(21)
-#define SPI_CMD_IPM_GET_TICKDLY_OFFSET    22
+#define SPI_CMD_NONIDLE_MODE	     BIT(19)
+#define SPI_CMD_SPIM_LOOP	     BIT(21)
+#define SPI_CMD_GET_TICKDLY_OFFSET    22
 
-#define SPI_CMD_IPM_GET_TICKDLY_MASK	GENMASK(24, 22)
+#define SPI_CMD_GET_TICKDLY_MASK	GENMASK(24, 22)
 
 #define PIN_MODE_CFG(x)	((x) / 2)
 
-#define SPI_CFG3_IPM_PIN_MODE_OFFSET		0
-#define SPI_CFG3_IPM_HALF_DUPLEX_DIR		BIT(2)
-#define SPI_CFG3_IPM_HALF_DUPLEX_EN		BIT(3)
-#define SPI_CFG3_IPM_XMODE_EN			BIT(4)
-#define SPI_CFG3_IPM_NODATA_FLAG		BIT(5)
-#define SPI_CFG3_IPM_CMD_BYTELEN_OFFSET		8
-#define SPI_CFG3_IPM_ADDR_BYTELEN_OFFSET	12
+#define SPI_CFG3_PIN_MODE_OFFSET		0
+#define SPI_CFG3_HALF_DUPLEX_DIR		BIT(2)
+#define SPI_CFG3_HALF_DUPLEX_EN			BIT(3)
+#define SPI_CFG3_XMODE_EN			BIT(4)
+#define SPI_CFG3_NODATA_FLAG			BIT(5)
+#define SPI_CFG3_CMD_BYTELEN_OFFSET		8
+#define SPI_CFG3_ADDR_BYTELEN_OFFSET		12
 
-#define SPI_CFG3_IPM_CMD_PIN_MODE_MASK		GENMASK(1, 0)
-#define SPI_CFG3_IPM_CMD_BYTELEN_MASK		GENMASK(11, 8)
-#define SPI_CFG3_IPM_ADDR_BYTELEN_MASK		GENMASK(15, 12)
+#define SPI_CFG3_CMD_PIN_MODE_MASK		GENMASK(1, 0)
+#define SPI_CFG3_CMD_BYTELEN_MASK		GENMASK(11, 8)
+#define SPI_CFG3_ADDR_BYTELEN_MASK		GENMASK(15, 12)
 
 #define MT8173_SPI_MAX_PAD_SEL 3
 
@@ -111,13 +111,15 @@
 
 struct mtk_spi_compatible {
 	bool need_pad_sel;
+	/* Must explicitly send dummy Rx bytes to do Tx only transfer */
+	bool must_rx;
 	/* Must explicitly send dummy Tx bytes to do Rx only transfer */
 	bool must_tx;
 	/* some IC design adjust cfg register to enhance time accuracy */
 	bool enhance_timing;
 	/* some IC support DMA addr extension */
 	bool dma_ext;
-	/* some IC support quad mode for mem ops */
+	/* some IC registers is new version */
 	bool ipm_design;
 	bool support_quad;
 	/* some IC no need unprepare SPI clk */
@@ -143,12 +145,14 @@ struct mtk_spi {
 static const struct mtk_spi_compatible mtk_common_compat;
 
 static const struct mtk_spi_compatible mt2712_compat = {
+	.must_rx = true,
 	.must_tx = true,
 };
 
 static const struct mtk_spi_compatible mt6983_compat = {
 	.need_pad_sel = true,
-	.must_tx = true,
+	.must_rx = false,
+	.must_tx = false,
 	.enhance_timing = true,
 	.dma_ext = true,
 	.ipm_design = true,
@@ -158,6 +162,7 @@ static const struct mtk_spi_compatible mt6983_compat = {
 
 static const struct mtk_spi_compatible mt6765_compat = {
 	.need_pad_sel = true,
+	.must_rx = true,
 	.must_tx = true,
 	.enhance_timing = true,
 	.dma_ext = true,
@@ -165,17 +170,20 @@ static const struct mtk_spi_compatible mt6765_compat = {
 };
 
 static const struct mtk_spi_compatible mt7622_compat = {
+	.must_rx = true,
 	.must_tx = true,
 	.enhance_timing = true,
 };
 
 static const struct mtk_spi_compatible mt8173_compat = {
 	.need_pad_sel = true,
+	.must_rx = true,
 	.must_tx = true,
 };
 
 static const struct mtk_spi_compatible mt8183_compat = {
 	.need_pad_sel = true,
+	.must_rx = true,
 	.must_tx = true,
 	.enhance_timing = true,
 };
@@ -288,9 +296,13 @@ static void spi_dump_reg(struct mtk_spi *mdata, struct spi_master *master)
 	spi_debug("cfg0:0x%.8x\n", readl(mdata->base + SPI_CFG0_REG));
 	spi_debug("cfg1:0x%.8x\n", readl(mdata->base + SPI_CFG1_REG));
 	spi_debug("cfg2:0x%.8x\n", readl(mdata->base + SPI_CFG2_REG));
+	if (mdata->dev_comp->ipm_design)
+		spi_debug("cfg3:0x%.8x\n", readl(mdata->base + SPI_CFG3_REG));
 	spi_debug("cmd :0x%.8x\n", readl(mdata->base + SPI_CMD_REG));
 	spi_debug("tx_s:0x%.8x\n", readl(mdata->base + SPI_TX_SRC_REG));
+	spi_debug("tx_s_64:0x%.8x\n", readl(mdata->base + SPI_TX_SRC_REG_64));
 	spi_debug("rx_d:0x%.8x\n", readl(mdata->base + SPI_RX_DST_REG));
+	spi_debug("rx_d_64:0x%.8x\n", readl(mdata->base + SPI_RX_DST_REG_64));
 	spi_debug("status1:0x%.8x\n", readl(mdata->base + SPI_STATUS1_REG));
 	spi_debug("pad_sel:0x%.8x\n", readl(mdata->base + SPI_PAD_SEL_REG));
 	spi_debug("||**************%s end**************||\n", __func__);
@@ -356,15 +368,10 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 
 	if (mdata->dev_comp->enhance_timing) {
 		if (mdata->dev_comp->ipm_design) {
-			/* CFG3 reg only used for spi-mem,
-			 * here write to default value
-			 */
-			writel(0x0, mdata->base + SPI_CFG3_IPM_REG);
-
 			reg_val = readl(mdata->base + SPI_CMD_REG);
-			reg_val &= ~SPI_CMD_IPM_GET_TICKDLY_MASK;
+			reg_val &= ~SPI_CMD_GET_TICKDLY_MASK;
 			reg_val |= (chip_config->tick_delay & 0x7)
-				   << SPI_CMD_IPM_GET_TICKDLY_OFFSET;
+				   << SPI_CMD_GET_TICKDLY_OFFSET;
 			writel(reg_val, mdata->base + SPI_CMD_REG);
 		} else {
 			reg_val = readl(mdata->base + SPI_CFG1_REG);
@@ -378,11 +385,11 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 	reg_val = readl(mdata->base + SPI_CMD_REG);
 	if (mdata->dev_comp->ipm_design) {
 		/* SPI transfer without idle time until packet length done */
-		reg_val |= SPI_CMD_IPM_NONIDLE_MODE;
+		reg_val |= SPI_CMD_NONIDLE_MODE;
 		if (spi->mode & SPI_LOOP)
-			reg_val |= SPI_CMD_IPM_SPIM_LOOP;
+			reg_val |= SPI_CMD_SPIM_LOOP;
 		else
-			reg_val &= ~SPI_CMD_IPM_SPIM_LOOP;
+			reg_val &= ~SPI_CMD_SPIM_LOOP;
 	}
 
 	if (cpha)
@@ -549,6 +556,20 @@ static void mtk_spi_prepare_transfer(struct spi_master *master,
 	reg_val &= ~SPI_CFG1_CS_IDLE_MASK;
 	reg_val |= (((cs_idletime - 1) & 0xff) << SPI_CFG1_CS_IDLE_OFFSET);
 	writel(reg_val, mdata->base + SPI_CFG1_REG);
+
+	if (mdata->dev_comp->ipm_design) {
+		reg_val = readl(mdata->base + SPI_CFG3_REG);
+		if (xfer->tx_buf && xfer->rx_buf)
+			reg_val &= ~SPI_CFG3_HALF_DUPLEX_EN;
+		else if (xfer->tx_buf) {
+			reg_val |= SPI_CFG3_HALF_DUPLEX_EN;
+			reg_val &= ~SPI_CFG3_HALF_DUPLEX_DIR;
+		} else {
+			reg_val |= SPI_CFG3_HALF_DUPLEX_EN;
+			reg_val |= SPI_CFG3_HALF_DUPLEX_DIR;
+		}
+		writel(reg_val, mdata->base + SPI_CFG3_REG);
+	}
 }
 
 static void mtk_spi_setup_packet(struct spi_master *master)
@@ -674,14 +695,16 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 	mtk_spi_prepare_transfer(master, xfer);
 	mtk_spi_setup_packet(master);
 
-	cnt = xfer->len / 4;
-	iowrite32_rep(mdata->base + SPI_TX_DATA_REG, xfer->tx_buf, cnt);
+	if (xfer->tx_buf) {
+		cnt = xfer->len / 4;
+		iowrite32_rep(mdata->base + SPI_TX_DATA_REG, xfer->tx_buf, cnt);
 
-	remainder = xfer->len % 4;
-	if (remainder > 0) {
-		reg_val = 0;
-		memcpy(&reg_val, xfer->tx_buf + (cnt * 4), remainder);
-		writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+		remainder = xfer->len % 4;
+		if (remainder > 0) {
+			reg_val = 0;
+			memcpy(&reg_val, xfer->tx_buf + (cnt * 4), remainder);
+			writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+		}
 	}
 
 	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
@@ -813,17 +836,19 @@ static irqreturn_t mtk_spi_interrupt(int irq, void *dev_id)
 		mdata->xfer_len = min(MTK_SPI_MAX_FIFO_SIZE, len);
 		mtk_spi_setup_packet(master);
 
-		cnt = mdata->xfer_len / 4;
-		iowrite32_rep(mdata->base + SPI_TX_DATA_REG,
-				trans->tx_buf + mdata->num_xfered, cnt);
+		if (trans->tx_buf) {
+			cnt = mdata->xfer_len / 4;
+			iowrite32_rep(mdata->base + SPI_TX_DATA_REG,
+					trans->tx_buf + mdata->num_xfered, cnt);
 
-		remainder = mdata->xfer_len % 4;
-		if (remainder > 0) {
-			reg_val = 0;
-			memcpy(&reg_val,
+			remainder = mdata->xfer_len % 4;
+			if (remainder > 0) {
+				reg_val = 0;
+				memcpy(&reg_val,
 				trans->tx_buf + (cnt * 4) + mdata->num_xfered,
 				remainder);
-			writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+				writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+			}
 		}
 
 		mtk_spi_enable_transfer(master);
@@ -909,8 +934,11 @@ static int mtk_spi_probe(struct platform_device *pdev)
 
 	if (mdata->dev_comp->enhance_timing)
 		master->mode_bits |= SPI_CS_HIGH;
+	if (mdata->dev_comp->must_rx)
+		master->flags |= SPI_MASTER_MUST_RX;
+	if (mdata->dev_comp->must_tx)
+		master->flags |= SPI_MASTER_MUST_TX;
 
-	master->flags = SPI_MASTER_MUST_TX | SPI_MASTER_MUST_RX;
 	if (mdata->dev_comp->ipm_design)
 		master->mode_bits |= SPI_LOOP;
 	if (mdata->dev_comp->support_quad) {
@@ -997,36 +1025,15 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		goto err_put_master;
 	}
 
-	ret = clk_prepare(mdata->spi_clk);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to prepare spi_clk (%d)\n", ret);
-		goto err_unprepare_clk;
-	}
-
-	ret = clk_enable(mdata->spi_clk);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to enable spi_clk (%d)\n", ret);
-		goto err_unprepare_clk;
-	}
-
 	ret = clk_set_parent(mdata->sel_clk, mdata->parent_clk);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to clk_set_parent (%d)\n", ret);
-		clk_disable(mdata->spi_clk);
-		goto err_unprepare_clk;
+		goto err_put_master;
 	}
 
 	mdata->spi_clk_hz = clk_get_rate(mdata->spi_clk);
 
-	clk_disable(mdata->spi_clk);
-
 	cpu_latency_qos_add_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
-
-	ret = devm_spi_register_master(&pdev->dev, master);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
-		goto err_unprepare_clk;
-	}
 
 	if (mdata->dev_comp->need_pad_sel) {
 		if (mdata->pad_num != master->num_chipselect) {
@@ -1034,14 +1041,14 @@ static int mtk_spi_probe(struct platform_device *pdev)
 				"pad_num does not match num_chipselect(%d != %d)\n",
 				mdata->pad_num, master->num_chipselect);
 			ret = -EINVAL;
-			goto err_unprepare_clk;
+			goto err_put_master;
 		}
 
 		if (!master->cs_gpios && master->num_chipselect > 1) {
 			dev_err(&pdev->dev,
 				"cs_gpios not specified and num_chipselect > 1\n");
 			ret = -EINVAL;
-			goto err_unprepare_clk;
+			goto err_put_master;
 		}
 
 		if (master->cs_gpios) {
@@ -1052,7 +1059,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 				if (ret) {
 					dev_err(&pdev->dev,
 						"can't get CS GPIO %i\n", i);
-					goto err_unprepare_clk;
+					goto err_put_master;
 				}
 			}
 		}
@@ -1069,12 +1076,26 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(addr_bits));
 	if (ret)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
-			   addr_bits, ret);
+			addr_bits, ret);
+
+	if (mdata->dev_comp->no_need_unprepare) {
+		ret = clk_prepare(mdata->spi_clk);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to prepare spi_clk (%d)\n", ret);
+			goto err_put_master;
+		}
+	}
+
+	ret = devm_spi_register_master(&pdev->dev, master);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
+		if (mdata->dev_comp->no_need_unprepare)
+			clk_unprepare(mdata->spi_clk);
+		goto err_put_master;
+	}
 
 	return 0;
 
-err_unprepare_clk:
-	clk_unprepare(mdata->spi_clk);
 err_put_master:
 	spi_master_put(master);
 	return ret;
