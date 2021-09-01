@@ -25,6 +25,10 @@
 #include "mtk_battery.h"
 #include "mtk_gauge.h"
 
+#define RG_TM_PASCODE1				0x107
+#define RG_ADC_CONFG1				0x1A4
+#define VBAT_MON_EN_MASK			BIT(5)
+#define RG_VBAT_MON_RPT				0x19C
 #define RG_BM_TOP_INT_CON0_SET			0x225
 #define RG_BM_TOP_INT_CON0_CLR			0x226
 #define RG_BM_TOP_INT_MASK_CON0			0x22D
@@ -69,6 +73,7 @@
 #define RG_FGADC_NTER_CON0			0x299
 #define FGADC_NTER_MASK				GENMASK(29, 0)
 #define RG_FGADC_ZCV_CON0			0x2AE
+#define FGADC_ZCV_CON0_RSV			BIT(7)
 #define FG_ZCV_DET_IV_MASK			GENMASK(3, 0)
 #define FG_ZCV_DET_IV_SHIFT			0
 #define RG_FGADC_ZCV_CON2			0x2B0
@@ -82,6 +87,7 @@
 #define RG_HK_TOP_STRUP_CON1			0x325
 #define HK_STRUP_AUXADC_START_SEL_MASK		BIT(2)
 #define HK_STRUP_AUXADC_START_SEL_SHIFT		2
+#define HK_TOP_WKEY				0x328
 #define RG_BATON_ANA_MON0			0x388
 #define AD_BATON_UNDET_MASK			BIT(1)
 
@@ -102,6 +108,8 @@
 #define AUXADC_ADC_RDY_PWRON_CLR_MASK		BIT(3)
 #define AUXADC_ADC_RDY_BAT_PLUGIN_CLR_MASK	BIT(2)
 #define AUXADC_ADC_RDY_WAKEUP_CLR_MASK		BIT(0)
+#define AUXADC_EFUSE_GAIN_TRIM			0x46E
+#define AUXADC_EFUSE_OFFSET_TRIM		0x470
 #define RG_AUXADC_LBAT2_0			0x4B9
 #define AUXADC_LBAT2_EN_MASK			BIT(0)
 #define RG_AUXADC_LBAT2_1			0x4BA
@@ -162,6 +170,14 @@
 #define RG_AUXADC_NAG_11			0x4DD
 #define RG_AUXADC_NAG_13			0x4DF
 #define AUXADC_NAG_C_DLTV_MASK			GENMASK(26, 0)
+#define AUXADC_EFUSE_GAIN_ERR			0X579
+
+#define ADC_CONV_TIME_US	2200
+#define ADC_VBAT_SCALE		1250
+#define ADC_FROM_VBAT_RAW(raw)	((raw) * ADC_VBAT_SCALE / 1000)
+
+#define HTOL_THRESHOLD_MAX			20
+#define HTOL_THRESHOLD_MIN			5
 
 /* mt6359 610.352 uA */
 #define UNIT_FGCURRENT				610352
@@ -209,6 +225,9 @@ struct mt6375_priv {
 	int irq;
 	u8 unmask_buf[NUM_IRQ_REG];
 	int default_r_fg;
+	u16 gain_err;
+	u16 efuse_gain_err;
+	int offset_trim;
 };
 
 /************ bat_cali *******************/
@@ -1041,11 +1060,14 @@ static int read_hw_ocv_6375_plug_in(struct mtk_gauge *gauge)
 
 static int read_hw_ocv_6375_power_on(struct mtk_gauge *gauge)
 {
+	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
 	signed int adc_result_rdy = 0;
 	signed int adc_result_reg = 0;
 	signed int adc_result = 0;
 	u16 regval = 0;
-	unsigned int sel = 0;
+	int offset_trim = priv->offset_trim;
+	unsigned int sel = 0, data;
+	bool is_ship_rst;
 
 	regmap_raw_read(gauge->regmap, RG_AUXADC_ADC_OUT_PWRON_PCHR, &regval, sizeof(regval));
 
@@ -1055,6 +1077,15 @@ static int read_hw_ocv_6375_power_on(struct mtk_gauge *gauge)
 	regmap_read(gauge->regmap, RG_HK_TOP_STRUP_CON1, &sel);
 	sel = (sel & HK_STRUP_AUXADC_START_SEL_MASK) >> HK_STRUP_AUXADC_START_SEL_SHIFT;
 
+	regmap_read(gauge->regmap, RG_FGADC_ZCV_CON0, &data);
+	is_ship_rst = data & FGADC_ZCV_CON0_RSV ? true : false;
+	if (is_ship_rst) {
+		bm_err("%s: before cali, is_ship_rst:%d, offset_trim:0x%x, gain_err:0x%x, adc_result_reg:0x%x\n",
+			__func__, is_ship_rst, offset_trim, priv->gain_err, adc_result_reg);
+		adc_result_reg = adc_result_reg * (ADC_PRECISE + priv->gain_err) / ADC_PRECISE +
+				 offset_trim;
+		bm_err("%s: after cali, adc_result_reg:0x%x\n", __func__, adc_result_reg);
+	}
 	adc_result = reg_to_mv_value(adc_result_reg);
 	bm_err("[oam] %s (pchr) : adc_result_reg=%d, adc_result=%d, start_sel=%d, rdy=%d\n",
 		__func__, adc_result_reg, adc_result,
@@ -2664,6 +2695,189 @@ static int en_h_vbat_set(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_i
 	return 0;
 }
 
+static int mt6375_enable_auxadc_hm(struct mt6375_priv *priv, bool en)
+{
+	static const u8 code[] = { 0x63, 0x63 };
+
+	if (en)
+		return regmap_bulk_write(priv->regmap, HK_TOP_WKEY, code,
+					 ARRAY_SIZE(code));
+	return regmap_write(priv->regmap, HK_TOP_WKEY, 0);
+}
+
+static int mt6375_enable_tm(struct mt6375_priv *priv, bool en)
+{
+	u8 tm_pascode[] = { 0x69, 0x96, 0x63, 0x75 };
+
+	if (en)
+		return regmap_bulk_write(priv->regmap, RG_TM_PASCODE1,
+					 tm_pascode, ARRAY_SIZE(tm_pascode));
+	return regmap_write(priv->regmap, RG_TM_PASCODE1, 0);
+}
+
+static int mt6375_get_vbat_mon_rpt(struct mt6375_priv *priv, int *vbat)
+{
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int ret;
+	u16 data;
+
+	psy = devm_power_supply_get_by_phandle(priv->dev, "charger");
+	if (psy) {
+		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CALIBRATE, &val);
+		if (ret >= 0)
+			*vbat = val.intval;
+		power_supply_put(psy);
+	} else {
+		ret = regmap_update_bits(priv->regmap, RG_ADC_CONFG1,
+					 VBAT_MON_EN_MASK, 0xFF);
+		if (ret < 0)
+			return ret;
+		usleep_range(ADC_CONV_TIME_US * 2, ADC_CONV_TIME_US * 3);
+		ret = regmap_bulk_read(priv->regmap, RG_VBAT_MON_RPT, &data, 2);
+		if (ret < 0)
+			dev_notice(priv->dev, "failed to get vbat monitor report\n");
+		else
+			*vbat = ADC_FROM_VBAT_RAW(be16_to_cpu(data));
+		regmap_update_bits(priv->regmap, RG_ADC_CONFG1,
+				   VBAT_MON_EN_MASK, 0);
+	}
+	return ret;
+}
+
+static int battery_voltage_cali(struct mtk_gauge *gauge,
+				struct mtk_gauge_sysfs_field_info *attr,
+				int *val)
+{
+	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
+	int ret;
+	int chg_vbat, auxadc_vbat, vbat_diff, vbat_diff_sum = 0, vbat_diff_avg;
+	int chg_vbat_min = INT_MAX, auxadc_vbat_min = INT_MAX;
+	int chg_vbat_max = 0, auxadc_vbat_max = 0;
+	int cnt = 0, max_cnt = 5;
+	u16 gain_err = priv->gain_err, gain_err_diff;
+	u16 data;
+
+	dev_info(priv->dev, "%s\n", __func__);
+	while (abs(cnt) < max_cnt) {
+		ret = instant_current(gauge);
+		bm_err("%s: cic1 = %d\n", __func__, ret);
+		if (abs(ret) > 500) {
+			bm_err("%s: cic1 out of range(%d)\n", __func__, ret);
+			return -EINVAL;
+		}
+
+		ret = mt6375_get_vbat_mon_rpt(priv, &chg_vbat);
+		if (ret < 0) {
+			bm_err("%s: failed to get vbat_mon_rpt\n", __func__);
+			return ret;
+		}
+
+		ret = iio_read_channel_processed(gauge->chan_bat_voltage,
+						 &auxadc_vbat);
+		if (ret < 0) {
+			bm_err("%s: failed to get auxadc_vbat(%d)\n", __func__, ret);
+			return ret;
+		}
+		dev_info(priv->dev, "%s: chg_vbat:%d, auxadc_vbat:%d\n",
+			 __func__, chg_vbat, auxadc_vbat);
+		chg_vbat_min = min(chg_vbat_min, chg_vbat);
+		chg_vbat_max = max(chg_vbat_max, chg_vbat);
+		auxadc_vbat_min = min(auxadc_vbat_min, auxadc_vbat);
+		auxadc_vbat_max = max(auxadc_vbat_max, auxadc_vbat);
+		dev_info(priv->dev, "%s: chg_vbat_min:%d, chg_vbat_max:%d\n",
+			 __func__, chg_vbat_min, chg_vbat_max);
+		dev_info(priv->dev, "%s: auxadc_vbat_min:%d, auxadc_vbat_max:%d\n",
+			 __func__, auxadc_vbat_min, auxadc_vbat_max);
+		if (chg_vbat_max - chg_vbat_min > HTOL_THRESHOLD_MAX ||
+		    auxadc_vbat_max - auxadc_vbat_min > HTOL_THRESHOLD_MAX) {
+			bm_err("%s: vbat_diff min/max out of range\n", __func__);
+			return ret;
+		}
+
+		vbat_diff = chg_vbat - auxadc_vbat;
+		vbat_diff_sum += vbat_diff;
+
+		if (abs(vbat_diff) > HTOL_THRESHOLD_MAX || abs(vbat_diff) < HTOL_THRESHOLD_MIN) {
+			bm_err("%s: vbat_diff is out of range(%d), no need to calibrate\n",
+				__func__, vbat_diff);
+			return ret;
+		}
+
+		if (vbat_diff >= HTOL_THRESHOLD_MIN && cnt++ >= 0)
+			continue;
+		else if (vbat_diff <= -HTOL_THRESHOLD_MIN && cnt-- <= 0)
+			continue;
+		else
+			return ret;
+	}
+
+	vbat_diff_avg = vbat_diff_sum / max_cnt;
+	dev_info(priv->dev, "%s: vbat_diff_avg:%d, gain_err:0x%x, efuse_gain_err:0x%x\n",
+		 __func__, vbat_diff_avg, gain_err, priv->efuse_gain_err);
+	gain_err += vbat_diff_avg;
+	gain_err_diff = abs((int)gain_err - (int)priv->efuse_gain_err);
+	if (abs(gain_err_diff) > HTOL_THRESHOLD_MAX) {
+		bm_err("%s: gain_err_diff out of theshold(%d), adjust HTOL_THRESHOLD_MAX\n",
+			__func__, gain_err_diff);
+		if (gain_err > priv->efuse_gain_err)
+			gain_err = priv->efuse_gain_err + HTOL_THRESHOLD_MAX;
+		else
+			gain_err = priv->efuse_gain_err - HTOL_THRESHOLD_MAX;
+		return ret;
+	}
+
+	ret = mt6375_enable_auxadc_hm(priv, true);
+	if (ret < 0)
+		return ret;
+	ret = regmap_bulk_write(priv->regmap, AUXADC_EFUSE_GAIN_TRIM, &gain_err, 2);
+	if (ret < 0)
+		goto out;
+	priv->gain_err = gain_err;
+out:
+	mt6375_enable_auxadc_hm(priv, false);
+	ret = regmap_bulk_read(priv->regmap, AUXADC_EFUSE_GAIN_TRIM, &data, 2);
+	dev_info(priv->dev, "%s: after cali, gain_err:0x%x\n", __func__, data);
+	dev_info(priv->dev, "%s: done(%d)\n", __func__, ret);
+	return ret;
+}
+
+static int mt6375_auxadc_init_vbat_calibration(struct mt6375_priv *priv)
+{
+	int ret, offset_trim;
+	u16 data = 0;
+
+	regmap_bulk_read(priv->regmap, AUXADC_EFUSE_OFFSET_TRIM, &offset_trim, 2);
+	if (offset_trim >= 0x4000) {
+		bm_err("%s: before handle offset trim signed, offset_trim:0x%x\n",
+		       __func__, offset_trim);
+		offset_trim = -(0x8000 - offset_trim);
+	}
+	priv->offset_trim = offset_trim;
+
+	ret = mt6375_enable_auxadc_hm(priv, true);
+	if (ret < 0)
+		return ret;
+	ret = regmap_bulk_read(priv->regmap, AUXADC_EFUSE_GAIN_TRIM, &data, 2);
+	if (ret < 0) {
+		mt6375_enable_auxadc_hm(priv, false);
+		return ret;
+	}
+	priv->gain_err = data;
+	mt6375_enable_auxadc_hm(priv, false);
+
+	ret = mt6375_enable_tm(priv, true);
+	if (ret < 0)
+		return ret;
+	ret = regmap_bulk_read(priv->regmap, AUXADC_EFUSE_GAIN_ERR, &data, 2);
+	if (ret < 0)
+		bm_err("%s: failed to get auxadc efuse trim\n", __func__);
+	priv->efuse_gain_err = data;
+	dev_info(priv->dev, "%s: gain_err:0x%x, efuse_gain_err:0x%x\n", __func__,
+		 priv->gain_err, priv->efuse_gain_err);
+	return mt6375_enable_tm(priv, false);
+}
+
 static int bif_voltage_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr,
 			   int *val)
 {
@@ -3080,10 +3294,11 @@ static struct mtk_gauge_sysfs_field_info mt6375_sysfs_field_tbl[] = {
 	GAUGE_SYSFS_INFO_FIELD_RW(r_fg_value, GAUGE_PROP_R_FG_VALUE),
 	GAUGE_SYSFS_INFO_FIELD_RW(vbat2_detect_time, GAUGE_PROP_VBAT2_DETECT_TIME),
 	GAUGE_SYSFS_INFO_FIELD_RW(vbat2_detect_counter, GAUGE_PROP_VBAT2_DETECT_COUNTER),
-	GAUGE_SYSFS_FIELD_WO(bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN)
+	GAUGE_SYSFS_FIELD_WO(bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
+	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_VOLTAGE_CALI)
 };
 
-static struct attribute *mt6375_sysfs_attrs[ARRAY_SIZE(mt6375_sysfs_field_tbl) + 1];
+static struct attribute *mt6375_sysfs_attrs[GAUGE_PROP_MAX + 1];
 
 static const struct attribute_group mt6375_sysfs_attr_group = {
 	.attrs = mt6375_sysfs_attrs,
@@ -3546,6 +3761,12 @@ static int mt6375_gauge_probe(struct platform_device *pdev)
 	ret = gauge_get_all_auxadc_channels(priv);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to get all auxadc\n");
+		goto out_irq_chip;
+	}
+
+	ret = mt6375_auxadc_init_vbat_calibration(priv);
+	if (ret) {
+		dev_notice(&pdev->dev, "Failed to init vbat calibration\n");
 		goto out_irq_chip;
 	}
 

@@ -69,7 +69,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6375_REG_DPDM_CTRL4	0x156
 #define MT6375_REG_VBAT_MON_RPT	0x19C
 #define MT6375_REG_BATEND_CODE	0x19E
-#define MT6375_REG_ADC_CONFG3	0x1A4
+#define MT6375_REG_ADC_CONFG1	0x1A4
 #define MT6375_REG_ADC_ZCV_RPT	0x1CA
 #define MT6375_REG_CHG_STAT0	0x1E0
 #define MT6375_REG_CHG_STAT1	0x1E1
@@ -136,7 +136,7 @@ enum mt6375_chg_reg_field {
 	F_DP_LDO_VSEL, F_DP_LDO_EN,
 	/* MT6375_REG_DPDM_CTRL4 */
 	F_DP_PULL_RSEL, F_DP_PULL_REN,
-	/* MT6375_REG_ADC_CONFG3 */
+	/* MT6375_REG_ADC_CONFG1 */
 	F_VBAT_MON_EN,
 	/* MT6375_REG_CHG_STAT0 */
 	F_ST_PWR_RDY,
@@ -400,7 +400,7 @@ static const struct mt6375_chg_field mt6375_chg_fields[F_MAX] = {
 	MT6375_CHG_FIELD(F_DP_LDO_EN, MT6375_REG_DPDM_CTRL2, 7, 7),
 	MT6375_CHG_FIELD(F_DP_PULL_RSEL, MT6375_REG_DPDM_CTRL4, 6, 6),
 	MT6375_CHG_FIELD(F_DP_PULL_REN, MT6375_REG_DPDM_CTRL4, 7, 7),
-	MT6375_CHG_FIELD(F_VBAT_MON_EN, MT6375_REG_ADC_CONFG3, 5, 5),
+	MT6375_CHG_FIELD(F_VBAT_MON_EN, MT6375_REG_ADC_CONFG1, 5, 5),
 	MT6375_CHG_FIELD(F_ST_PWR_RDY, MT6375_REG_CHG_STAT0, 0, 0),
 	MT6375_CHG_FIELD(F_ST_MIVR, MT6375_REG_CHG_STAT1, 7, 7),
 };
@@ -924,6 +924,7 @@ static enum power_supply_property mt6375_chg_psy_properties[] = {
 	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_CALIBRATE,
 };
 
 static int mt6375_chg_property_is_writeable(struct power_supply *psy,
@@ -950,6 +951,7 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 {
 	int ret = 0;
 	u32 _val;
+	u16 data;
 	struct mt6375_chg_data *ddata = power_supply_get_drvdata(psy);
 
 	mt_dbg(ddata->dev, "psp=%d\n", psp);
@@ -1004,6 +1006,30 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = ddata->psy_desc.type;
+		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		mutex_lock(&ddata->cv_lock);
+		ret = mt6375_chg_field_get(ddata, F_VBAT_MON_EN, &_val);
+		if (_val) {
+			ret = -EBUSY;
+			dev_notice(ddata->dev, "vbat_mon is enabled\n");
+			break;
+		}
+		ret = mt6375_chg_field_set(ddata, F_VBAT_MON_EN, 1);
+		if (ret < 0) {
+			dev_notice(ddata->dev, "failed to enable vbat monitor\n");
+			mutex_unlock(&ddata->cv_lock);
+			break;
+		}
+		usleep_range(ADC_CONV_TIME_US * 2, ADC_CONV_TIME_US * 3);
+		ret = regmap_bulk_read(ddata->rmap, MT6375_REG_VBAT_MON_RPT, &data, 2);
+		if (ret < 0)
+			dev_notice(ddata->dev, "failed to get vbat monitor report\n");
+		else
+			val->intval = ADC_FROM_VBAT_RAW(be16_to_cpu(data));
+		if (mt6375_chg_field_set(ddata, F_VBAT_MON_EN, 0) < 0)
+			dev_notice(ddata->dev, "failed to disable vbat monitor\n");
+		mutex_unlock(&ddata->cv_lock);
 		break;
 	default:
 		ret = -EINVAL;

@@ -3383,7 +3383,7 @@ static struct mtk_gauge_sysfs_field_info mt6359_sysfs_field_tbl[] = {
 };
 
 static struct attribute *
-	mt6359_sysfs_attrs[ARRAY_SIZE(mt6359_sysfs_field_tbl) + 1];
+	mt6359_sysfs_attrs[GAUGE_PROP_MAX + 1];
 
 static const struct attribute_group mt6359_sysfs_attr_group = {
 	.attrs = mt6359_sysfs_attrs,
