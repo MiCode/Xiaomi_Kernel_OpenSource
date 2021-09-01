@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2019 MediaTek Inc.
+# Copyright (c) 2021 MediaTek Inc.
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
@@ -8,8 +8,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM) \
              -I$(srctree)/drivers/misc/mediatek/mmp/
-
-ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
 include $(srctree)/drivers/tee/teei/Makefile.include
@@ -20,19 +18,15 @@ include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 
 ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
-ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+ifeq ($(CONFIG_MTK_GZ_TZ_SYSTEM),m)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
-endif
-endif
 
 ccflags-y += -DCMDQ_SECURE_SUPPORT
-
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-sec-drv.o
 cmdq-sec-drv-y := cmdq_sec_mtee.o cmdq-sec-mailbox.o cmdq-sec-helper.o
-
-endif # $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) or $(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-
+endif
+endif
 
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mtk-cmdq-drv-ext.o
 mtk-cmdq-drv-ext-y := mtk-cmdq-mailbox-ext.o mtk-cmdq-helper-ext.o cmdq-util.o
