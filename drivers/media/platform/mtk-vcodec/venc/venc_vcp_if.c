@@ -182,7 +182,7 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 
 		if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC_SW)
 			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
-		else if (msg->mem.type == MEM_TYPE_FOR_HW)
+		else if (msg->mem.type == MEM_TYPE_FOR_HW || tmp->mem.type == MEM_TYPE_FOR_SEC_HW)
 			dev = &vcu->ctx->dev->plat_dev->dev;
 
 		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
@@ -238,7 +238,7 @@ static void handle_venc_mem_free(struct venc_vcu_ipi_mem_op *msg)
 	inst = container_of(vcu, struct venc_inst, vcu_inst);
 	if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC_SW)
 		dev = vcp_get_io_device(VCP_IOMMU_256MB1);
-	else if (msg->mem.type == MEM_TYPE_FOR_HW)
+	else if (msg->mem.type == MEM_TYPE_FOR_HW || tmp->mem.type == MEM_TYPE_FOR_SEC_HW)
 		dev = &vcu->ctx->dev->plat_dev->dev;
 
 	msg->status = mtk_vcodec_free_mem(&msg->mem, dev, tmp->attach, tmp->sgt);
@@ -1279,7 +1279,7 @@ static int venc_vcp_deinit(unsigned long handle)
 		tmp = list_entry(p, struct vcp_enc_mem_list, list);
 		if (tmp->mem.type == MEM_TYPE_FOR_SW || tmp->mem.type == MEM_TYPE_FOR_SEC_SW)
 			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
-		else if (tmp->mem.type == MEM_TYPE_FOR_HW)
+		else if (tmp->mem.type == MEM_TYPE_FOR_HW || tmp->mem.type == MEM_TYPE_FOR_SEC_HW)
 			dev = &inst->vcu_inst.ctx->dev->plat_dev->dev;
 
 		mtk_vcodec_free_mem(&tmp->mem, dev, tmp->attach, tmp->sgt);
