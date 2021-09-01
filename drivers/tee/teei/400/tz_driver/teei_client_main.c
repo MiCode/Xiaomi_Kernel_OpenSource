@@ -83,7 +83,7 @@ DECLARE_SEMA(pm_sema, 0);
 
 DECLARE_COMPLETION(boot_decryto_lock);
 
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 #define TZ_PREFER_BIND_CORE (6)
 #endif
 
@@ -161,9 +161,8 @@ char *teei_boot_error_to_string(uint32_t id)
 
 struct workqueue_struct *secure_wq;
 
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 static int current_cpu_id;
-
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
 #if KERNEL_VERSION(4, 14, 0) >= LINUX_VERSION_CODE
 static int tz_driver_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu);
@@ -194,7 +193,9 @@ static struct class *config_driver_class;
 struct task_struct *teei_switch_task;
 struct task_struct *teei_bdrv_task;
 struct task_struct *teei_log_task;
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 static struct cpumask mask = { CPU_BITS_NONE };
+#endif
 static struct class *driver_class;
 static dev_t teei_client_device_no;
 static struct cdev teei_client_cdev;
@@ -204,6 +205,7 @@ DEFINE_KTHREAD_WORKER(ut_fastcall_worker);
 
 static struct tz_driver_state *tz_drv_state;
 static void *teei_cpu_write_owner;
+static struct platform_device *g_teei_pdev;
 
 int teei_set_switch_pri(unsigned long policy)
 {
@@ -301,7 +303,7 @@ int teei_move_cpu_context(int target_cpu_id, int original_cpu_id)
 	return 0;
 }
 
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 
 int get_current_cpuid(void)
 {
@@ -703,7 +705,7 @@ static int init_teei_framework(void)
 
 	teei_config_flag = 1;
 
-#ifdef CONFIG_MICROTRUST_FP_DRIVER
+#if IS_ENABLED(CONFIG_MICROTRUST_FP_DRIVER)
 	wake_up(&__fp_open_wq);
 #endif
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT All Completed");
@@ -957,7 +959,7 @@ void show_utdriver_lock_status(void)
 
 	IMSG_PRINTK("[%s][%d] how_utdriver_lock_status begin.\n",
 							__func__, __LINE__);
-#ifdef CONFIG_MICROTRUST_FP_DRIVER
+#if IS_ENABLED(CONFIG_MICROTRUST_FP_DRIVER)
 	retVal = down_trylock(&fp_api_lock);
 	if (retVal == 1)
 		IMSG_PRINTK("[%s][%d] fp_api_lock is down\n",
@@ -1039,6 +1041,7 @@ static int teei_probe(struct platform_device *pdev)
 		return -1;
 	}
 
+	g_teei_pdev = pdev;
 	return 0;
 }
 
@@ -1074,8 +1077,10 @@ static struct platform_driver teei_driver = {
  */
 static int teei_client_init(void)
 {
+	int ret = 0;
 	int ret_code = 0;
 	struct device *class_dev = NULL;
+	struct device_node *np = NULL;
 
 	struct sched_param param = {.sched_priority = 50 };
 
@@ -1145,6 +1150,21 @@ static int teei_client_init(void)
 		goto class_device_destroy;
 	}
 
+	if (g_teei_pdev != NULL) {
+		np = g_teei_pdev->dev.of_node;
+
+		ret = of_property_read_u32(np, "microtrust,real-drv", &ret_code);
+		if (ret || !ret_code) {
+			IMSG_INFO("MICROTRUST device is NOT enable.\n");
+			ret_code = 0;
+			goto class_device_destroy;
+		}
+	} else {
+		IMSG_ERROR("teei_probe NOT get the pdev.\n");
+		ret_code = 0;
+		goto class_device_destroy;
+	}
+
 	init_teei_switch_comp();
 	teei_init_task_link();
 
@@ -1166,7 +1186,7 @@ static int teei_client_init(void)
 		goto class_device_destroy;
 	}
 
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 	teei_cpus_write_lock();
 #ifdef TEEI_SWITCH_BIG_CORE
 	if (cpu_online(TZ_PREFER_BIND_CORE)) {
@@ -1182,7 +1202,7 @@ static int teei_client_init(void)
 	/* sched_setscheduler_nocheck(teei_switch_task, SCHED_FIFO, &param); */
 	wake_up_process(teei_switch_task);
 
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 
 #if KERNEL_VERSION(4, 14, 0) <= LINUX_VERSION_CODE
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
@@ -1298,7 +1318,7 @@ unregister_chrdev_region:
 del_pdev:
 	platform_device_del(tz_drv_state->tz_log_pdev);
 failed_alloc_dev:
-	platform_device_put(tz_drv_state->tz_log_pdev);
+	//platform_device_put(tz_drv_state->tz_log_pdev);
 	mutex_destroy(&tz_drv_state->smc_lock);
 	kfree(tz_drv_state);
 return_fn:
@@ -1329,7 +1349,7 @@ static void teei_client_exit(void)
 	if (tz_drv_state) {
 		tz_log_remove(tz_drv_state->tz_log_pdev);
 		platform_device_del(tz_drv_state->tz_log_pdev);
-		platform_device_put(tz_drv_state->tz_log_pdev);
+		//platform_device_put(tz_drv_state->tz_log_pdev);
 		mutex_destroy(&tz_drv_state->smc_lock);
 		kfree(tz_drv_state);
 	}

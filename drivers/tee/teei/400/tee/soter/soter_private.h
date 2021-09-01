@@ -55,7 +55,7 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 		      struct tee_param *param);
 int soter_cancel_func(struct tee_context *ctx, u32 cancel_id, u32 session);
 
-#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+#if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)
 extern uint32_t tzdriver_dynamical_debug_flag;
 #define REE_DYNAMICAL_START 1
 #define REE_DYNAMICAL_STOP  2

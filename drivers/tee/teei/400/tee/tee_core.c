@@ -181,7 +181,7 @@ static int tee_ioctl_shm_alloc(struct tee_context *ctx,
 	return ret;
 }
 
-#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
+#if IS_ENABLED(CONFIG_MICROTRUST_TEST_DRIVERS)
 
 static inline void flush_shm_dcache(void *start, size_t len)
 {
@@ -698,7 +698,7 @@ long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return tee_ioctl_version(ctx, uarg);
 	case TEE_IOC_SHM_ALLOC:
 		return tee_ioctl_shm_alloc(ctx, uarg);
-#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
+#if IS_ENABLED(CONFIG_MICROTRUST_TEST_DRIVERS)
 	case TEE_IOC_SHM_KERN_OP:
 		return tee_ioctl_shm_kern_op(ctx, uarg);
 	case TEE_IOC_CAPI_PROXY:

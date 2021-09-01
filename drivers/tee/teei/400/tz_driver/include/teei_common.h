@@ -140,7 +140,7 @@ struct service_handler {
 };
 
 /* [KTRACE] Begin-End */
-#ifdef CONFIG_MICROTRUST_TZ_DRIVER_MTK_TRACING
+#if IS_ENABLED(CONFIG_MICROTRUST_TZ_DRIVER_MTK_TRACING)
 #define KATRACE_MESSAGE_LENGTH	1024
 #define BEGINED_PID		(current->tgid)
 

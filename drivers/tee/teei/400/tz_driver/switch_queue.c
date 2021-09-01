@@ -41,7 +41,7 @@
 
 struct completion teei_switch_comp;
 
-#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 static int last_cpu_id;
 #endif
 
@@ -88,7 +88,7 @@ int add_work_entry(unsigned long long work_type, unsigned long long x0,
 	return retVal;
 }
 
-#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 static int teei_bind_current_cpu(void)
 {
 	struct cpumask mask = { CPU_BITS_NONE };
@@ -133,7 +133,7 @@ static int handle_one_switch_task(struct task_entry_struct *entry)
 	case SMC_CALL_TYPE:
 		retVal = teei_smc(entry->x0, entry->x1, entry->x2, entry->x3);
 		break;
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 	case SWITCH_CORE_TYPE:
 		retVal = handle_switch_core((int)(entry->x0));
 		break;
@@ -192,7 +192,7 @@ int teei_switch_fn(void *work)
 
 		teei_notify_log_fn();
 
-#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 		/* Bind the teei switch thread to current CPU */
 		retVal = teei_bind_current_cpu();
 		if (retVal != 0) {
@@ -207,7 +207,7 @@ int teei_switch_fn(void *work)
 			return retVal;
 		}
 
-#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 		retVal = teei_bind_all_cpu();
 		if (retVal != 0) {
 			IMSG_ERROR("TEEI: Failed to bind all CPUs!\n");

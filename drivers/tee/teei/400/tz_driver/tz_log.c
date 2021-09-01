@@ -204,7 +204,7 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 int teei_log_fn(void *work)
 {
 	int retVal = 0;
-#ifdef CONFIG_MICROTRUST_TZ_LOG
+#if IS_ENABLED(CONFIG_MICROTRUST_TZ_LOG)
 	struct tz_log_state *s;
 
 	s = g_tz_log_state;
@@ -218,7 +218,7 @@ int teei_log_fn(void *work)
 				continue;
 		}
 
-#ifdef CONFIG_MICROTRUST_TZ_LOG
+#if IS_ENABLED(CONFIG_MICROTRUST_TZ_LOG)
 		msleep(20);
 		tz_driver_dump_logs(s);
 #endif

@@ -30,7 +30,7 @@ static uint32_t imsg_log_level = IMSG_LOG_LEVEL;
 static DEFINE_MUTEX(drv_load_mutex);
 unsigned long spi_ready_flag;
 
-#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+#if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)
 uint32_t tzdriver_dynamical_debug_flag;
 #endif
 
@@ -68,7 +68,7 @@ static ssize_t imsg_log_level_show(struct device *cd,
 	return sprintf(buf, "%u\n", get_imsg_log_level());
 }
 
-#if defined(CONFIG_MICROTRUST_DEBUG)
+#if IS_ENABLED(CONFIG_MICROTRUST_DEBUG)
 static void set_imsg_log_level(uint32_t lv)
 {
 	imsg_log_level = lv;
@@ -489,7 +489,7 @@ static ssize_t list_ut_drv_show(struct device *cd,
 }
 static DEVICE_ATTR_RO(list_ut_drv);
 
-#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
+#if IS_ENABLED(CONFIG_MICROTRUST_TEST_DRIVERS)
 
 #define TEST_DRIVER_ID 0x77000012
 
@@ -575,7 +575,7 @@ static ssize_t notify_ree_dci_handler_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(notify_ree_dci_handler);
 
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 static ssize_t current_bind_cpu_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -588,7 +588,7 @@ static ssize_t current_bind_cpu_show(struct device *dev,
 static DEVICE_ATTR_RO(current_bind_cpu);
 #endif
 
-#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+#if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)
 static ssize_t tzdriver_dynamical_debug_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -620,15 +620,15 @@ static struct device_attribute *attr_list[] = {
 		&dev_attr_load_ut_drv,
 		&dev_attr_unload_ut_drv,
 		&dev_attr_list_ut_drv,
-#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
+#if IS_ENABLED(CONFIG_MICROTRUST_TEST_DRIVERS)
 		&dev_attr_dcih_notify_test,
 		&dev_attr_dcih_wait_notify_test,
 #endif
 		&dev_attr_notify_ree_dci_handler,
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
 		&dev_attr_current_bind_cpu,
 #endif
-#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+#if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)
 		&dev_attr_tzdriver_dynamical_debug,
 #endif
 		&dev_attr_teei_log_level,
