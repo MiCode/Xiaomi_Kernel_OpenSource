@@ -31,17 +31,12 @@
 #include "scp.h"
 #endif
 
-//TODO, enable and remove it after SB
-#define MT6338_IPI_IRQ		1
-
-#if MT6338_IPI_IRQ
 /* SCP -> AP ipi structure */
 /* 2 x 4-byte(unit) = 8 */
 #define ACCDET_IPI_RX_LEN	1
 struct accdet_ipi_rx_info_t {
 	unsigned int msg_data[ACCDET_IPI_RX_LEN];
 };
-#endif
 
 /* grobal variable definitions */
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
@@ -122,12 +117,10 @@ struct mt63xx_accdet_data {
 	struct workqueue_struct *dis_micbias_workqueue;
 	struct work_struct accdet_work;
 	struct workqueue_struct *accdet_workqueue;
-#if MT6338_IPI_IRQ
 	/* SCP IPI */
 	struct work_struct ipi_work;
 	struct workqueue_struct *ipi_workqueue;
 	struct accdet_ipi_rx_info_t accdet_ipi_rx_info;
-#endif
 	/* when eint issued, queue work: eint_work */
 	struct work_struct eint_work;
 	struct workqueue_struct *eint_workqueue;
@@ -2185,7 +2178,6 @@ static inline int ext_eint_setup(struct platform_device *platform_device)
 	return 0;
 }
 
-//TODO, check this function
 static int accdet_get_dts_data(void)
 {
 	int ret = 0;
@@ -2770,10 +2762,6 @@ static inline void accdet_init(void)
 /* late init for DC trim, and this API Will be called by audio */
 void mt6338_accdet_late_init(unsigned long data)
 {
-#if !MT6338_IPI_IRQ
-	pr_info("%s\n", __func__);
-	return;
-#endif
 	pr_info("%s()  now init accdet!\n", __func__);
 	if (atomic_cmpxchg(&accdet_first, 1, 0)) {
 		del_timer_sync(&accdet_init_timer);
@@ -2814,10 +2802,6 @@ int mt6338_accdet_init(struct snd_soc_component *component, struct snd_soc_card 
 	struct mt63xx_accdet_data *priv =
 			snd_soc_card_get_drvdata(component->card);
 
-#if !MT6338_IPI_IRQ
-	pr_info("%s\n", __func__);
-	return 0;
-#endif
 	/* Enable Headset and 4 Buttons Jack detection */
 	ret = snd_soc_card_jack_new(card,
 				    "Headset Jack",
@@ -2849,7 +2833,6 @@ int mt6338_accdet_set_drvdata(struct snd_soc_card *card)
 }
 EXPORT_SYMBOL_GPL(mt6338_accdet_set_drvdata);
 
-#if MT6338_IPI_IRQ
 static void ipi_work_callback(struct work_struct *work)
 {
 	accdet_irq_handle();
@@ -2890,7 +2873,6 @@ static int accdet_ipi_register(void)
 #endif
 	return ret;
 }
-#endif /* MT6338_IPI_IRQ */
 
 static int accdet_probe(struct platform_device *pdev)
 {
@@ -2947,10 +2929,6 @@ static int accdet_probe(struct platform_device *pdev)
 
 	accdet->dev = &pdev->dev;
 
-#if !MT6338_IPI_IRQ
-	pr_info("%s\n", __func__);
-	return 0;
-#endif
 	/* get pmic auxadc iio channel handler */
 	accdet->accdet_auxadc = devm_iio_channel_get(&pdev->dev, "pmic_accdet");
 	ret = PTR_ERR_OR_ZERO(accdet->accdet_auxadc);
@@ -2972,17 +2950,12 @@ static int accdet_probe(struct platform_device *pdev)
 
 	accdet_get_efuse();
 
-#if MT6338_IPI_IRQ
 	/* register pmic interrupt */
 	ret = accdet_ipi_register();
 	if (ret < 0) {
 		dev_info(&pdev->dev, "Error: IPI register failed (%d)\n", ret);
 		return ret;
 	}
-#else
-	if (ret)
-		accdet_irq_handle();
-#endif
 
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet->accdet_devno, 0, 1, ACCDET_DEVNAME);
@@ -3031,7 +3004,6 @@ static int accdet_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-#if MT6338_IPI_IRQ
 	accdet->ipi_workqueue = create_singlethread_workqueue("accdet_ipi");
 	INIT_WORK(&accdet->ipi_work, ipi_work_callback);
 	if (!accdet->ipi_workqueue) {
@@ -3039,7 +3011,6 @@ static int accdet_probe(struct platform_device *pdev)
 		ret = -1;
 		goto err_create_workqueue;
 	}
-#endif
 
 	accdet->eint_workqueue = create_singlethread_workqueue("accdet_eint");
 	INIT_WORK(&accdet->eint_work, eint_work_callback);
@@ -3080,9 +3051,7 @@ err_chrdevregion:
 
 static int accdet_remove(struct platform_device *pdev)
 {
-#if MT6338_IPI_IRQ
 	destroy_workqueue(accdet->ipi_workqueue);
-#endif
 	destroy_workqueue(accdet->eint_workqueue);
 	destroy_workqueue(accdet->dis_micbias_workqueue);
 	destroy_workqueue(accdet->accdet_workqueue);
