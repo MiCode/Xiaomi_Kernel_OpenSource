@@ -4904,6 +4904,23 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	}
 }
 
+#ifndef MTK_DRM_BRINGUP_STAGE
+static void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct cmdq_pkt *handle;
+
+	if (priv->data->mmsys_id == MMSYS_MT6983 ||
+		priv->data->mmsys_id == MMSYS_MT6879) {
+		handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+	}
+}
+#endif
+
 void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -4957,6 +4974,10 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		cmdq_mbox_enable(client->chan);
 		CRTC_MMP_MARK(crtc_id, enable, 1, 1);
 	}
+#endif
+
+#ifndef MTK_DRM_BRINGUP_STAGE
+	mtk_crtc_prepare_instr(crtc);
 #endif
 
 	/* 4. start trigger loop first to keep gce alive */
