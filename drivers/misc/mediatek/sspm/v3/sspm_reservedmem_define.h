@@ -36,11 +36,11 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 	},
 	{
 		.num = PWRAP_MEM_ID,
-		.size = 0x300,  /* 768 bytes */
+		.size = 0x000,  /* 0k */
 	},
 	{
 		.num = PMIC_MEM_ID,
-		.size = 0xC00,  /* 3K */
+		.size = 0x000,  /* 0K */
 	},
 	{
 		.num = UPD_MEM_ID,
@@ -52,7 +52,7 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 	},
 	{
 		.num = SWPM_MEM_ID,
-		.size = 0x1800,  /* 6K */
+		.size = 0x2000,  /* 8K */
 	},
 #if IS_ENABLED(CONFIG_MTK_GMO_RAM_OPTIMIZE) || IS_ENABLED(CONFIG_MTK_MET_MEM_ALLOC)
 #else
@@ -69,7 +69,7 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 		.num = GPU_MEM_ID,
 		.size = 0x1000,  /* 4K */
 	},
-	/* TO align 64K, total is 1M(5M)+64K. The remaining size = 0x2000. */
+	/* TO align 64K, total is 1M(5M)+178K.  */
 };
 #endif
 #endif
