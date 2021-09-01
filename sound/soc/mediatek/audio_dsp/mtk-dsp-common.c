@@ -30,22 +30,22 @@ static struct mtk_base_dsp *local_base_dsp;
 static struct mtk_base_afe *local_dsp_afe;
 
 static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
-	[AUDIO_TASK_VOIP_ID]        = "dsp_voipdl",
-	[AUDIO_TASK_PRIMARY_ID]     = "dsp_primary",
-	[AUDIO_TASK_OFFLOAD_ID]     = "dsp_offload",
-	[AUDIO_TASK_DEEPBUFFER_ID]  = "dsp_deep",
-	[AUDIO_TASK_PLAYBACK_ID]    = "dsp_playback",
-	[AUDIO_TASK_MUSIC_ID]       = "dsp_music",
-	[AUDIO_TASK_CAPTURE_UL1_ID] = "dsp_captureul1",
-	[AUDIO_TASK_A2DP_ID]        = "dsp_a2dp",
-	[AUDIO_TASK_BLEDL_ID]       = "dsp_bledl",
-	[AUDIO_TASK_BLEUL_ID]       = "dsp_bleul",
-	[AUDIO_TASK_DATAPROVIDER_ID] = "dsp_dataprovider",
-	[AUDIO_TASK_CALL_FINAL_ID]  = "dsp_call_final",
-	[AUDIO_TASK_FAST_ID]        = "dsp_fast",
-	[AUDIO_TASK_KTV_ID]         = "dsp_ktv",
-	[AUDIO_TASK_CAPTURE_RAW_ID] = "dsp_captureraw",
-	[AUDIO_TASK_FM_ADSP_ID]     = "dsp_fm",
+	[AUDIO_TASK_VOIP_ID]         = "voip",
+	[AUDIO_TASK_PRIMARY_ID]      = "primary",
+	[AUDIO_TASK_OFFLOAD_ID]      = "offload",
+	[AUDIO_TASK_DEEPBUFFER_ID]   = "deep",
+	[AUDIO_TASK_PLAYBACK_ID]     = "playback",
+	[AUDIO_TASK_MUSIC_ID]        = "music",
+	[AUDIO_TASK_CAPTURE_RAW_ID]  = "captureraw",
+	[AUDIO_TASK_CAPTURE_UL1_ID]  = "capture",
+	[AUDIO_TASK_A2DP_ID]         = "a2dp",
+	[AUDIO_TASK_BLEDL_ID]        = "bledl",
+	[AUDIO_TASK_BLEUL_ID]        = "bleul",
+	[AUDIO_TASK_DATAPROVIDER_ID] = "dataprovider",
+	[AUDIO_TASK_CALL_FINAL_ID]   = "call_final",
+	[AUDIO_TASK_FAST_ID]         = "fast",
+	[AUDIO_TASK_KTV_ID]          = "ktv",
+	[AUDIO_TASK_FM_ADSP_ID]      = "fm",
 };
 
 static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
@@ -55,6 +55,7 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_DEEPBUFFER_ID]  = TASK_SCENE_DEEPBUFFER,
 	[AUDIO_TASK_PLAYBACK_ID]    = TASK_SCENE_AUDPLAYBACK,
 	[AUDIO_TASK_MUSIC_ID]       = TASK_SCENE_MUSIC,
+	[AUDIO_TASK_CAPTURE_RAW_ID] = TASK_SCENE_CAPTURE_RAW,
 	[AUDIO_TASK_CAPTURE_UL1_ID] = TASK_SCENE_CAPTURE_UL1,
 	[AUDIO_TASK_A2DP_ID]        = TASK_SCENE_A2DP,
 	[AUDIO_TASK_BLEDL_ID]       = TASK_SCENE_BLEDL,
@@ -63,7 +64,6 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_CALL_FINAL_ID]  = TASK_SCENE_CALL_FINAL,
 	[AUDIO_TASK_FAST_ID]        = TASK_SCENE_FAST,
 	[AUDIO_TASK_KTV_ID]         = TASK_SCENE_KTV,
-	[AUDIO_TASK_CAPTURE_RAW_ID] = TASK_SCENE_CAPTURE_RAW,
 	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
 };
 
@@ -351,7 +351,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	struct mtk_base_dsp_mem *dsp_memif;
 	struct mtk_base_afe_memif *memif = &afe->memif[dai->id];
 	int task_id = get_taskid_by_afe_daiid(dai->id);
-	const char *task_name = get_str_by_dsp_dai_id(task_id);
+	const char *task_name;
 
 	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM)
 		return -1;
@@ -359,6 +359,8 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUNTIME) <= 0 ||
 	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
 		return -1;
+
+	task_name = get_str_by_dsp_dai_id(task_id);
 
 	pr_info("%s(), %s send cmd 0x%x\n", __func__, task_name, command);
 
