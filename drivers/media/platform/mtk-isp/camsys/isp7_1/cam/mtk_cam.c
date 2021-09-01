@@ -3537,7 +3537,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		if (mtk_cam_is_time_shared(ctx))
 			mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		if (mtk_cam_is_mstream(ctx))
-			mtk_cam_img_working_buf_pool_init(ctx, 3);
+			mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 
 		ret = mtk_cam_dev_config(ctx, false, true);
 		if (ret)
@@ -3901,8 +3901,10 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			return -EPERM;
 		}
 	}
-	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx))
+	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_mstream(ctx) ||
+		mtk_cam_is_time_shared(ctx))
 		mtk_cam_img_working_buf_pool_release(ctx);
+
 	mtk_camsys_ctrl_stop(ctx);
 
 fail_stream_off:

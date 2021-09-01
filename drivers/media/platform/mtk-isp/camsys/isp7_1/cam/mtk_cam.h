@@ -34,8 +34,8 @@
 #define CAMSV_WORKING_BUF_NUM 64
 #define IPI_FRAME_BUF_SIZE 0x10000
 
-/* for time-sharing camsv working buffer, (1inner+2backendprogramming+2backup)*/
-#define CAM_IMG_BUF_NUM (5)
+/* for time-sharing camsv working buffer, (1inner+2backendprogramming+3backup)*/
+#define CAM_IMG_BUF_NUM (6)
 
 #define CCD_READY 1
 
