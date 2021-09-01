@@ -13,7 +13,7 @@
 #include <trace/hooks/sched.h>
 
 #include <sched/sched.h>
-#include <sched_avg.h>
+#include "sched_avg.h"
 
 #define TAG "sched_avg"
 
@@ -48,9 +48,9 @@ static DEFINE_PER_CPU(u64, last_time);
 static DEFINE_PER_CPU(spinlock_t, nr_lock) = __SPIN_LOCK_UNLOCKED(nr_lock);
 static DEFINE_PER_CPU(spinlock_t, nr_over_thres_lock) = __SPIN_LOCK_UNLOCKED(nr_over_thres_lock);
 /*
-static DEFINE_PER_CPU(u64, nr_prod_sum);
-static DEFINE_PER_CPU(unsigned long, iowait_prod_sum);
-*/
+ * static DEFINE_PER_CPU(u64, nr_prod_sum);
+ * static DEFINE_PER_CPU(unsigned long, iowait_prod_sum);
+ */
 static int init_thres;
 static int global_task_util;
 static int global_task_pid;
@@ -61,7 +61,7 @@ static DEFINE_SPINLOCK(global_max_util_lock);
 #define UTIL_AVG_UNCHANGED		0x1
 #define OVER_THRES_SIZE			2
 #define MAX_CLUSTER_NR			3
-#define MAX_UTIL_TRACKER_PERIODIC_MS 	8
+#define MAX_UTIL_TRACKER_PERIODIC_MS	8
 
 static int init_thres_table(void);
 static unsigned int over_thres[OVER_THRES_SIZE] = {80, 70};
@@ -288,20 +288,20 @@ enum over_thres_type is_task_over_thres(struct task_struct *p)
 	}
 
 	/* check if task is over threshold */
-	if (util >= cpu_over_thres->up_thres) {
+	if (util >= cpu_over_thres->up_thres)
 		return OVER_UP_THRES;
-	} else if (util >= cpu_over_thres->dn_thres) {
+	else if (util >= cpu_over_thres->dn_thres)
 		return OVER_DN_THRES;
-	} else
+	else
 		return NO_OVER_THRES;
 }
 
 int sched_get_nr_over_thres_avg(unsigned int cluster_id,
-			        unsigned int *dn_avg,
-			        unsigned int *up_avg,
-			        unsigned int *sum_nr_over_dn_thres,
-			        unsigned int *sum_nr_over_up_thres,
-			        unsigned int *max_nr)
+				unsigned int *dn_avg,
+				unsigned int *up_avg,
+				unsigned int *sum_nr_over_dn_thres,
+				unsigned int *sum_nr_over_up_thres,
+				unsigned int *max_nr)
 {
 	u64 curr_time = sched_clock();
 	s64 diff;
@@ -567,10 +567,10 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 /*
  * Optional action to be done while updating the load average
  */
-#define UPDATE_TG   	0x1
+#define UPDATE_TG	0x1
 #define SKIP_AGE_LOAD	0x2
 #else
-#define UPDATE_TG   	0x0
+#define UPDATE_TG	0x0
 #define SKIP_AGE_LOAD	0x0
 #endif
 
@@ -607,21 +607,21 @@ void dec_nr_over_thres_running_by_se(void *data, struct sched_entity *se, int fl
 	for (; se; se = NULL)
 #endif
 
-#if IS_ENABLED(CONFIG_CFS_BANDWITH)
-static inline bool cfs_bandwith_used(void)
+#if IS_ENABLED(CONFIG_CFS_BANDWIDTH)
+static inline bool cfs_bandwidth_used(void)
 {
 	return true;
 }
 
 static inline int cfs_rq_throttled(struct cfs_rq *cfs_rq)
 {
-	return cfs_bandwith_used() && cfs_rq->throttled;
+	return cfs_bandwidth_used() && cfs_rq->throttled;
 }
 #endif
 
 void inc_nr_over_thres_running(void *data, struct rq *rq, struct task_struct *p, int flags)
 {
-#if IS_ENABLED(CONFIG_CFS_BANDWITH)
+#if IS_ENABLED(CONFIG_CFS_BANDWIDTH)
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
 
@@ -637,7 +637,7 @@ void inc_nr_over_thres_running(void *data, struct rq *rq, struct task_struct *p,
 
 void dec_nr_over_thres_running(void *data, struct rq *rq, struct task_struct *p, int flags)
 {
-#if IS_ENABLED(CONFIG_CFS_BANDWITH)
+#if IS_ENABLED(CONFIG_CFS_BANDWIDTH)
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
 

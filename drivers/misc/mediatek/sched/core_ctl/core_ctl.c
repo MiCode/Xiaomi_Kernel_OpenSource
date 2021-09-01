@@ -17,10 +17,10 @@
 
 #ifndef __CHECKER__
 #define CREATE_TRACE_POINTS
-#include <core_ctl_trace.h>
+#include "core_ctl_trace.h"
 #endif
 
-#include <sched_avg.h>
+#include "sched_avg.h"
 #include <sched_sys_common.h>
 #include <thermal_interface.h>
 
@@ -76,12 +76,12 @@ struct cpu_data {
 #define AB_CLUSTER_ID	2
 #define CORE_OFF	true
 #define CORE_ON		false
-#define MAX_CLUSTERS 		3
+#define MAX_CLUSTERS		3
 #define MAX_CPUS_PER_CLUSTER	6
 #define MAX_NR_DOWN_THRESHOLD	4
 #define MAX_BTASK_THRESH	100
 #define MAX_CPU_TJ_DEGREE	100000
-#define BIG_TASK_AVG_THRESHOLD 	25
+#define BIG_TASK_AVG_THRESHOLD	25
 
 #define for_each_cluster(cluster, idx) \
 	for ((cluster) = &cluster_state[idx]; (idx) < num_clusters;\
@@ -89,7 +89,7 @@ struct cpu_data {
 
 #define core_ctl_debug(x...)		\
 	do {				\
-		if (debug_enable) 	\
+		if (debug_enable)	\
 			pr_info(x);	\
 	} while (0)
 
@@ -180,9 +180,9 @@ static bool demand_eval(struct cluster_data *cluster)
 
 	spin_lock_irqsave(&state_lock, flags);
 
-	if(cluster->boost || !cluster->enable || !enable_policy) {
+	if (cluster->boost || !cluster->enable || !enable_policy)
 		need_cpus = cluster->max_cpus;
-	} else
+	else
 		need_cpus = cluster->new_need_cpus;
 
 	/* check again active cpus. */
@@ -205,7 +205,7 @@ static bool demand_eval(struct cluster_data *cluster)
 		 * If no more CPUs are needed or paused,
 		 * just update the next offline time.
 		 */
-		if(new_need == cluster->active_cpus) {
+		if (new_need == cluster->active_cpus) {
 			cluster->next_offline_time = now;
 			cluster->need_cpus = new_need;
 			goto unlock;
@@ -429,8 +429,7 @@ int core_ctl_set_boost(bool boost)
 	bool changed = false;
 
 	spin_lock_irqsave(&state_lock, flags);
-	for_each_cluster(cluster, index)
-	{
+	for_each_cluster(cluster, index) {
 		if (boost) {
 			changed = !cluster->boost;
 			cluster->boost = 1;
@@ -566,10 +565,11 @@ EXPORT_SYMBOL(core_ctl_force_pause_cpu);
 int core_ctl_enable_policy(bool enable)
 {
 	bool old_val;
+
 	if (enable != enable_policy) {
 		old_val = enable_policy;
 		enable_policy = enable;
-		pr_info("%s: Change policy from %d to %d sucessfully.",
+		pr_info("%s: Change policy from %d to %d successfully.",
 				TAG, old_val, enable);
 	}
 	return 0;
@@ -717,7 +717,7 @@ static ssize_t store_core_ctl_boost(struct cluster_data *state,
 
 static ssize_t show_core_ctl_boost(const struct cluster_data *state, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%u\n", state->boost);;
+	return snprintf(buf, PAGE_SIZE, "%u\n", state->boost);
 }
 
 static ssize_t store_enable(struct cluster_data *state,
@@ -790,7 +790,7 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 		count += snprintf(buf + count, PAGE_SIZE - count,
 				"\tIs busy: %u\n", c->is_busy);
 		count += snprintf(buf + count, PAGE_SIZE - count,
-				"\tNot preferred: %u\n",c->not_preferred);
+				"\tNot preferred: %u\n", c->not_preferred);
 	}
 	spin_unlock_irq(&state_lock);
 
@@ -799,8 +799,8 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 
 struct core_ctl_attr {
 	struct attribute attr;
-	ssize_t (*show)(const struct cluster_data *, char *);
-	ssize_t (*store)(struct cluster_data *, const char *, size_t count);
+	ssize_t (*show)(const struct cluster_data *state, char *buf);
+	ssize_t (*store)(struct cluster_data *state, const char *buf, size_t count);
 };
 
 #define core_ctl_attr_ro(_name)         \
@@ -878,7 +878,7 @@ static unsigned int heaviest_thres = 230;
 /*
  * Rewrite from sched_big_task_nr()
  */
-void get_nr_running_big_task(struct cluster_data* cluster)
+void get_nr_running_big_task(struct cluster_data *cluster)
 {
 	unsigned int avg_down[MAX_CLUSTERS] = {0};
 	unsigned int avg_up[MAX_CLUSTERS] = {0};
@@ -916,13 +916,13 @@ void get_nr_running_big_task(struct cluster_data* cluster)
 		 */
 		delta = nr_down[i] - nr_up[i];
 		if (nr_down[i] && delta > 0) {
-			if (((avg_down[i]-avg_up[i])/ delta)
+			if (((avg_down[i]-avg_up[i]) / delta)
 					> BIG_TASK_AVG_THRESHOLD)
 				cluster[i].nr_down = delta;
 			else
 				cluster[i].nr_down =
 					(avg_down[i]-avg_up[i])/
-					BIG_TASK_AVG_THRESHOLD > delta ?
+					delta < BIG_TASK_AVG_THRESHOLD ?
 					delta : (avg_down[i]-avg_up[i])/
 					BIG_TASK_AVG_THRESHOLD;
 		}
@@ -943,7 +943,7 @@ void get_nr_running_big_task(struct cluster_data* cluster)
  *   Tasks that are eligible to run on the previous
  *   cluster but cannot run because of insufficient
  *   CPUs there. It's indicative of number of CPUs
- *   in this this cluster that should assist its
+ *   in this cluster that should assist its
  *   previous cluster to makeup for insufficient
  *   CPUs there.
  */
@@ -1080,7 +1080,7 @@ void core_ctl_tick(void *data, struct rq *rq)
 	unsigned long flags;
 	struct cluster_data *cluster;
 	int cpu = 0;
-	struct cpu_data* c;
+	struct cpu_data *c;
 
 	if (!window_check())
 		return;
@@ -1137,7 +1137,7 @@ static void try_to_pause(struct cluster_data *cluster, int need)
 	unsigned int num_cpus = cluster->num_cpus;
 	unsigned int nr_paused = 0;
 	int cpu;
-	bool sucess;
+	bool success;
 	bool check_not_prefer = cluster->nr_not_preferred_cpus;
 	bool check_busy = true;
 
@@ -1147,7 +1147,7 @@ again:
 	for (cpu = nr_cpu_ids-1; cpu > -1; cpu--) {
 		struct cpu_data *c;
 
-		sucess = false;
+		success = false;
 		if (!cpumask_test_cpu(cpu, &cluster->cpu_mask))
 			continue;
 
@@ -1179,13 +1179,13 @@ again:
 
 		core_ctl_debug("%s: Trying to pause CPU%u\n", TAG, c->cpu);
 		if (!sched_pause_cpu(c->cpu)) {
-			sucess = true;
+			success = true;
 			nr_paused++;
 		} else {
 			core_ctl_debug("%s Unable to pause CPU%u\n", TAG, c->cpu);
 		}
 		spin_lock_irqsave(&state_lock, flags);
-		if (sucess)
+		if (success)
 			c->paused_by_cc = true;
 		cluster->active_cpus = get_active_cpu_count(cluster);
 	}
@@ -1255,7 +1255,7 @@ again:
 		cluster->active_cpus = get_active_cpu_count(cluster);
 	}
 	cluster->nr_paused_cpus -= nr_resumed;
-        spin_unlock_irqrestore(&state_lock, flags);
+	spin_unlock_irqrestore(&state_lock, flags);
 	/*
 	 * After un-isolated the number of prefer CPUs
 	 * is not enough for need CPUs, then check
