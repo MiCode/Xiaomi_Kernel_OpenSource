@@ -27,7 +27,7 @@
 //	mmc-hs200-1_8v;
 	cd-debounce-delay-ms = <0>;
 	cd-gpios = <&pio 11 GPIO_ACTIVE_LOW>;
-	vmmc-supply = <&mt6373_vmch>;
+	vmmc-supply = <&mt6373_vmch_eint_high>;
 	vqmmc-supply = <&mt6373_vmc>;
 	no-sdio;
 	no-mmc;
@@ -65,13 +65,13 @@
 				<PINMUX_GPIO97__FUNC_MSDC1_DAT3>,
 				<PINMUX_GPIO96__FUNC_MSDC1_CMD>;
 			input-enable;
-			drive-strength = <3>;
+			drive-strength = <1>;
 			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 
 		pins_clk {
 			pinmux = <PINMUX_GPIO95__FUNC_MSDC1_CLK>;
-			drive-strength = <3>;
+			drive-strength = <1>;
 			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 	};
