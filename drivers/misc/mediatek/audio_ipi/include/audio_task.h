@@ -34,6 +34,8 @@ enum {
 	TASK_SCENE_BLEUL                = 21,
 	TASK_SCENE_BLEDEC               = 22,
 	TASK_SCENE_BLEENC               = 23,
+	TASK_SCENE_BLECALLDL            = 24,
+	TASK_SCENE_BLECALLUL            = 25,
 
 	/* control for driver */
 	TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,

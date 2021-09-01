@@ -63,6 +63,8 @@ enum adsp_feature_id {
 	BLEUL_FEATURE_ID                = 24,
 	BLEDEC_FEATURE_ID               = 25,
 	BLEENC_FEATURE_ID               = 26,
+	BLE_CALL_DL_FEATURE_ID          = 27,
+	BLE_CALL_UL_FEATURE_ID          = 28,
 	ADSP_NUM_FEATURE_ID,
 };
 
