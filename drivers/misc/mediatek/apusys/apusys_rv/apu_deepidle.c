@@ -184,7 +184,8 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 
 	case DPIDLE_CMD_PDN_UNLOCK:
 		dev_info(apu->dev, "power down req ++\n");
-		hw_logger_deep_idle_enter();
+		hw_logger_deep_idle_enter_pre();
+
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_PDN_UNLOCK,
 				      DPIDLE_ACK_OK);
 
@@ -212,6 +213,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 
 		dev_info(apu->dev, "polling power done\n");
 
+		hw_logger_deep_idle_enter_post();
 		apu_ipi_unlock(apu);
 		dev_info(apu->dev, "power down req --\n");
 		break;

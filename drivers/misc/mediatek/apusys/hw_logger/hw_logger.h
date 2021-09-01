@@ -154,7 +154,8 @@ enum {
 int hw_logger_config_init(struct mtk_apu *apu);
 
 int hw_logger_copy_buf(void);
-int hw_logger_deep_idle_enter(void);
+int hw_logger_deep_idle_enter_pre(void);
+int hw_logger_deep_idle_enter_post(void);
 int hw_logger_deep_idle_leave(void);
 
 #endif /* __HW_LOGGER_H__ */

@@ -54,7 +54,11 @@ static struct proc_dir_entry *log_seqlogL;
 
 /* logtop mmap address */
 static void *apu_logtop;
-static void *apu_logd;
+static void *apu_mbox;
+
+#define LOG_W_OFS    (apu_mbox + 0x40)
+#define LOG_ST_ADDR  (apu_mbox + 0x44)
+#define LOG_T_SIZE   (apu_mbox + 0x4c)
 
 /* hw log buffer related */
 static char *hw_log_buf;
@@ -188,6 +192,15 @@ static unsigned long long get_w_ptr(void)
 
 	st_addr = get_st_addr();
 	t_size = get_t_size();
+
+	/* sanity check */
+	if (st_addr == 0 || t_size == 0) {
+		/*
+		 * return 0 here, it will not pass
+		 * sanity check in __apu_logtop_copy_buf()
+		 */
+		return 0;
+	}
 
 	w_ptr = ((2ULL << 34) +
 		((unsigned long long)ioread32(APU_LOG_BUF_W_PTR)
@@ -371,9 +384,28 @@ static void __get_r_w_sz(unsigned int *w_ofs,
 	*t_size = get_t_size();
 }
 
+static void __get_r_w_sz_mbox(unsigned int *w_ofs,
+	unsigned int *r_ofs, unsigned int *t_size)
+{
+	unsigned long long st_addr;
+
+	HWLOGR_DBG("ST_ADDR() = 0x%x, W_OFS = 0x%x, T_SIZE = 0x%x\n",
+		ioread32(LOG_ST_ADDR), ioread32(LOG_W_OFS), ioread32(LOG_T_SIZE));
+
+	st_addr = (unsigned long long)ioread32(LOG_ST_ADDR) << 2;
+
+	/* offset,size is only 32bit width */
+	*w_ofs = ioread32(LOG_W_OFS);
+	*r_ofs = get_r_ptr() - st_addr;
+	*t_size = ioread32(LOG_T_SIZE);
+}
+
 static int apu_logtop_copy_buf(void)
 {
 	unsigned int w_ofs, r_ofs, t_size;
+	int ret = 0;
+
+	mutex_lock(&hw_logger_mutex);
 
 	__get_r_w_sz(&w_ofs, &r_ofs, &t_size);
 
@@ -383,23 +415,30 @@ static int apu_logtop_copy_buf(void)
 	 * can not be trusted.
 	 */
 	if (atomic_read(&apu_toplog_deep_idle))
-		return 0;
+		goto out;
 
-	return __apu_logtop_copy_buf(w_ofs,
-		r_ofs, t_size);
+	ret = __apu_logtop_copy_buf(w_ofs,
+			r_ofs, t_size);
+out:
+	mutex_unlock(&hw_logger_mutex);
+
+	return ret;
 }
 
 static void apu_logtop_copy_buf_wq(struct work_struct *work)
 {
 	HWLOGR_DBG("in\n");
 
-	HWLOGR_DBG("wq_w_ofs = 0x%x, wq_r_ofs = 0x%x, wq_t_size = 0x%x\n",
-		wq_w_ofs, wq_r_ofs, wq_t_size);
 	mutex_lock(&hw_logger_mutex);
-	__apu_logtop_copy_buf(wq_w_ofs,
-		wq_r_ofs, wq_t_size);
+
+	if (apu_mbox)
+		__get_r_w_sz_mbox(&wq_w_ofs, &wq_r_ofs, &wq_t_size);
+
+	__apu_logtop_copy_buf(wq_w_ofs, wq_r_ofs, wq_t_size);
+
 	/* force set 0 here to prevent racing between power up */
 	set_r_ptr(0);
+
 	mutex_unlock(&hw_logger_mutex);
 
 	HWLOGR_DBG("out\n");
@@ -417,16 +456,14 @@ int hw_logger_copy_buf(void)
 	if (atomic_read(&apu_toplog_deep_idle))
 		goto out;
 
-	mutex_lock(&hw_logger_mutex);
 	ret = apu_logtop_copy_buf();
-	mutex_unlock(&hw_logger_mutex);
 
 out:
 	/* return copied size */
 	return ret;
 }
 
-int hw_logger_deep_idle_enter(void)
+int hw_logger_deep_idle_enter_pre(void)
 {
 	HWLOGR_DBG("in\n");
 
@@ -436,6 +473,16 @@ int hw_logger_deep_idle_enter(void)
 	atomic_set(&apu_toplog_deep_idle, 1);
 
 	__get_r_w_sz(&wq_w_ofs, &wq_r_ofs, &wq_t_size);
+
+	return 0;
+}
+
+int hw_logger_deep_idle_enter_post(void)
+{
+	HWLOGR_DBG("in\n");
+
+	if (!apu_logtop)
+		return 0;
 
 	queue_work(apusys_hwlog_wq, &apusys_hwlog_task);
 
@@ -779,7 +826,7 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 			HWLOGR_DBG("END\n");
 			return NULL;
 		}
-		msleep_interruptible(100);
+		usleep_range(10000, 15000);
 	} while (!signal_pending(current) && w_ptr == r_ptr);
 
 	HWLOGR_DBG("w_ptr = %d, r_ptr = %d, ov_flg = %d, *pos = %d\n",
@@ -1134,17 +1181,15 @@ static int hw_logger_memmap(struct platform_device *pdev)
 		goto out;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_logd");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_mbox");
 	if (res == NULL) {
-		HWLOGR_ERR("apu_logd get resource fail\n");
-		ret = -ENODEV;
+		HWLOGR_ERR("apu_mbox get resource fail\n");
 		goto out;
 	}
 
-	apu_logd = ioremap(res->start, res->end - res->start + 1);
-	if (IS_ERR((void const *)apu_logd)) {
-		HWLOGR_ERR("apu_logd remap base fail\n");
-		ret = -ENOMEM;
+	apu_mbox = ioremap(res->start, res->end - res->start + 1);
+	if (IS_ERR((void const *)apu_mbox)) {
+		HWLOGR_ERR("apu_mbox remap base fail\n");
 		goto out;
 	}
 
@@ -1216,8 +1261,8 @@ remove_hw_log_buf:
 remove_ioremap:
 	if (apu_logtop)
 		iounmap(apu_logtop);
-	if (apu_logd)
-		iounmap(apu_logd);
+	if (apu_mbox)
+		iounmap(apu_mbox);
 
 #ifdef HW_LOG_SYSFS_BIN
 remove_sysfs:
@@ -1236,6 +1281,7 @@ static int hw_logger_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	flush_workqueue(apusys_hwlog_wq);
 	destroy_workqueue(apusys_hwlog_wq);
 	hw_logger_remove_procfs(dev);
 #ifdef HW_LOG_SYSFS_BIN
