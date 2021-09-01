@@ -22,6 +22,14 @@ config MTK_SERROR_HOOK
 	  violation log in case of slave error happened.
 	  This is for debug purpose.
 
+config MTK_SABORT_HOOK
+	bool "Mediatek Synchronous Abort Dump Hook Support"
+	help
+	  Say yes here to enable support Mediatek
+	  synchronous abort dump which can see Device APC driver
+	  violation log in case of synchronous abort happened.
+	  This is for debug purpose.
+
 config DEVAPC_MT6853
 	tristate "Mediatek MT6853 Device APC driver"
 	select MTK_DEVAPC

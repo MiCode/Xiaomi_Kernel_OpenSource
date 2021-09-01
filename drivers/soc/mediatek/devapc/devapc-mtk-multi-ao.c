@@ -15,6 +15,9 @@
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/devapc_public.h>
+#ifdef CONFIG_MTK_SABORT_HOOK
+#include <trace/hooks/fault.h>
+#endif
 #ifdef CONFIG_MTK_SERROR_HOOK
 #include <trace/hooks/traps.h>
 #endif
@@ -857,11 +860,11 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 }
 
 /*
- * devapc_slave_error - the devapc will dump violation information
+ * devapc_dump_error - the devapc will dump violation information
  *			  including which master violates access slave.
  */
-#ifdef CONFIG_MTK_SERROR_HOOK
-static void devapc_slave_error(void)
+#if defined(CONFIG_MTK_SERROR_HOOK) || defined(CONFIG_MTK_SABORT_HOOK)
+static void devapc_dump_error(void)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	const struct mtk_device_info **device_info;
@@ -1421,7 +1424,19 @@ static void devapc_arm64_serror_panic_hook(void *data,
 
 	mtk_devapc_ctx->soc->slave_error = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
-	devapc_slave_error();
+	devapc_dump_error();
+}
+#endif
+
+#ifdef CONFIG_MTK_SABORT_HOOK
+static void devapc_do_sea_hook(void *data,
+		struct pt_regs *regs, unsigned int esr,
+		unsigned long addr, const char *msg)
+{
+	pr_info(PFX "sabort panic hook\n");
+
+	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
+	devapc_dump_error();
 }
 #endif
 
@@ -1443,6 +1458,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			devapc_arm64_serror_panic_hook, NULL);
 	if (ret)
 		pr_info(PFX "register android_rvh_arm64_serror_panic failed!\n");
+#endif
+
+#ifdef CONFIG_MTK_SABORT_HOOK
+	ret = register_trace_android_rvh_do_sea(
+			devapc_do_sea_hook, NULL);
+	if (ret)
+		pr_info(PFX "register android_rvh_do_sea failed!\n");
 #endif
 
 	if (IS_ERR(node)) {
