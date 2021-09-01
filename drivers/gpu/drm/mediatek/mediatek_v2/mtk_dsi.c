@@ -652,10 +652,14 @@ static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	cycle_time = 7000 / dsi->data_rate + 0x01;
 
 	lpx = NS_TO_CYCLE(dsi->data_rate * 0x4B, 0x1B58) + 0x1;
-	hs_prpr = NS_TO_CYCLE(NS_TO_CYCLE(dsi->data_rate, 2) * 101,
-		0x1B58) + 0x1;
-	hs_zero = 0x30;
-	hs_trail = 0x20;
+	hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
+	hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
+	hs_zero = (hs_zero > hs_prpr) ? hs_zero - hs_prpr : hs_zero;
+	if (hs_zero < 1)
+		hs_zero = 1;
+
+	hs_trail = 80 + 4 * ui;
+	hs_trail = (hs_trail > cycle_time) ? NS_TO_CYCLE(hs_trail, cycle_time) + 1 : 2;
 
 	ta_get = 5 * NS_TO_CYCLE(0x55, cycle_time);
 	ta_sure = 3 * NS_TO_CYCLE(0x55, cycle_time) / 2;
