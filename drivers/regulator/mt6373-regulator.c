@@ -13,6 +13,9 @@
 #include <linux/regulator/mt6373-regulator.h>
 #include <linux/regulator/of_regulator.h>
 
+#define SET_OFFSET	0x1
+#define CLR_OFFSET	0x2
+
 #define MT6373_REGULATOR_MODE_NORMAL	0
 #define MT6373_REGULATOR_MODE_FCCM	1
 #define MT6373_REGULATOR_MODE_LP	2
@@ -54,7 +57,7 @@ struct mt6373_regulator_info {
 		.of_match = of_match_ptr(#_name),		\
 		.of_parse_cb = mt6373_of_parse_cb,		\
 		.regulators_node = "regulators",		\
-		.ops = &mt6373_volt_range_ops,			\
+		.ops = &mt6373_buck_ops,			\
 		.type = REGULATOR_VOLTAGE,			\
 		.id = MT6373_ID_##_name,			\
 		.owner = THIS_MODULE,				\
@@ -186,6 +189,18 @@ static const unsigned int ldo_volt_table4[] = {
 static const unsigned int ldo_volt_table5[] = {
 	900000, 1000000, 1100000, 1200000, 1300000, 1700000, 1800000, 1810000,
 };
+
+static int mt6373_buck_enable(struct regulator_dev *rdev)
+{
+	return regmap_write(rdev->regmap, rdev->desc->enable_reg + SET_OFFSET,
+			    rdev->desc->enable_mask);
+}
+
+static int mt6373_buck_disable(struct regulator_dev *rdev)
+{
+	return regmap_write(rdev->regmap, rdev->desc->enable_reg + CLR_OFFSET,
+			    rdev->desc->enable_mask);
+}
 
 static inline unsigned int mt6373_map_mode(unsigned int mode)
 {
@@ -336,6 +351,19 @@ static int mt6373_vmch_eint_disable(struct regulator_dev *rdev)
 				 rdev->desc->enable_mask, 0);
 	return ret;
 }
+
+static const struct regulator_ops mt6373_buck_ops = {
+	.list_voltage = regulator_list_voltage_linear_range,
+	.map_voltage = regulator_map_voltage_linear_range,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = mt6373_buck_enable,
+	.disable = mt6373_buck_disable,
+	.is_enabled = regulator_is_enabled_regmap,
+	.set_mode = mt6373_regulator_set_mode,
+	.get_mode = mt6373_regulator_get_mode,
+};
 
 static const struct regulator_ops mt6373_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,

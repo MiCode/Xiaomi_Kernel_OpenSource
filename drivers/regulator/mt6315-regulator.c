@@ -13,6 +13,9 @@
 #include <linux/regulator/mt6315-regulator.h>
 #include <linux/regulator/of_regulator.h>
 
+#define SET_OFFSET	0x1
+#define CLR_OFFSET	0x2
+
 #define MT6315_REG_WIDTH	8
 
 #define MT6315_BUCK_MODE_AUTO		0
@@ -76,6 +79,18 @@ struct mt6315_chip {
 static const struct linear_range mt_volt_range1[] = {
 	REGULATOR_LINEAR_RANGE(0, 0, 0xbf, 6250),
 };
+
+static int mt6315_regulator_enable(struct regulator_dev *rdev)
+{
+	return regmap_write(rdev->regmap, rdev->desc->enable_reg + SET_OFFSET,
+			    rdev->desc->enable_mask);
+}
+
+static int mt6315_regulator_disable(struct regulator_dev *rdev)
+{
+	return regmap_write(rdev->regmap, rdev->desc->enable_reg + CLR_OFFSET,
+			    rdev->desc->enable_mask);
+}
 
 static unsigned int mt6315_map_mode(u32 mode)
 {
@@ -240,8 +255,8 @@ static const struct regulator_ops mt6315_volt_range_ops = {
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
 	.get_voltage_sel = mt6315_regulator_get_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
-	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.enable = mt6315_regulator_enable,
+	.disable = mt6315_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6315_get_status,
 	.set_mode = mt6315_regulator_set_mode,

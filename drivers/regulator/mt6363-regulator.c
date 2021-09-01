@@ -13,6 +13,9 @@
 #include <linux/regulator/mt6363-regulator.h>
 #include <linux/regulator/of_regulator.h>
 
+#define SET_OFFSET	0x1
+#define CLR_OFFSET	0x2
+
 #define MT6363_REGULATOR_MODE_NORMAL	0
 #define MT6363_REGULATOR_MODE_FCCM	1
 #define MT6363_REGULATOR_MODE_LP	2
@@ -60,7 +63,7 @@ struct mt6363_regulator_info {
 		.of_match = of_match_ptr(#_name),		\
 		.of_parse_cb = mt6363_of_parse_cb,		\
 		.regulators_node = "regulators",		\
-		.ops = &mt6363_volt_range_ops,			\
+		.ops = &mt6363_buck_ops,			\
 		.type = REGULATOR_VOLTAGE,			\
 		.id = MT6363_ID_##_name,			\
 		.owner = THIS_MODULE,				\
@@ -79,9 +82,35 @@ struct mt6363_regulator_info {
 	.modeset_mask = BIT(modeset_bit),			\
 }
 
-#define MT6363_LDO_LINEAR(_name, min, max, step, volt_ranges,	\
-			  _enable_reg, en_bit, _vsel_reg,	\
-			  _vsel_mask, _lp_mode_reg, lp_bit)	\
+#define MT6363_LDO_LINEAR1(_name, min, max, step, volt_ranges,	\
+			   _enable_reg, en_bit, _vsel_reg,	\
+			   _vsel_mask, _lp_mode_reg, lp_bit)	\
+[MT6363_ID_##_name] = {						\
+	.desc = {						\
+		.name = #_name,					\
+		.of_match = of_match_ptr(#_name),		\
+		.of_parse_cb = mt6363_of_parse_cb,		\
+		.regulators_node = "regulators",		\
+		.ops = &mt6363_buck_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6363_ID_##_name,			\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ((max) - (min)) / (step) + 1,	\
+		.linear_ranges = volt_ranges,			\
+		.n_linear_ranges = ARRAY_SIZE(volt_ranges),	\
+		.enable_reg = _enable_reg,			\
+		.enable_mask = BIT(en_bit),			\
+		.vsel_reg = _vsel_reg,				\
+		.vsel_mask = _vsel_mask,			\
+		.of_map_mode = mt6363_map_mode,			\
+	},							\
+	.lp_mode_reg = _lp_mode_reg,				\
+	.lp_mode_mask = BIT(lp_bit),				\
+}
+
+#define MT6363_LDO_LINEAR2(_name, min, max, step, volt_ranges,	\
+			   _enable_reg, en_bit, _vsel_reg,	\
+			   _vsel_mask, _lp_mode_reg, lp_bit)	\
 [MT6363_ID_##_name] = {						\
 	.desc = {						\
 		.name = #_name,					\
@@ -202,6 +231,18 @@ static const unsigned int ldo_volt_table4[] = {
 static const unsigned int ldo_volt_table5[] = {
 	600000, 650000, 700000, 750000, 800000,
 };
+
+static int mt6363_buck_enable(struct regulator_dev *rdev)
+{
+	return regmap_write(rdev->regmap, rdev->desc->enable_reg + SET_OFFSET,
+			    rdev->desc->enable_mask);
+}
+
+static int mt6363_buck_disable(struct regulator_dev *rdev)
+{
+	return regmap_write(rdev->regmap, rdev->desc->enable_reg + CLR_OFFSET,
+			    rdev->desc->enable_mask);
+}
 
 static inline unsigned int mt6363_map_mode(unsigned int mode)
 {
@@ -374,6 +415,18 @@ static int mt6363_vemc_get_voltage_sel(struct regulator_dev *rdev)
 	return sel;
 }
 
+static const struct regulator_ops mt6363_buck_ops = {
+	.list_voltage = regulator_list_voltage_linear_range,
+	.map_voltage = regulator_map_voltage_linear_range,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = mt6363_buck_enable,
+	.disable = mt6363_buck_disable,
+	.is_enabled = regulator_is_enabled_regmap,
+	.set_mode = mt6363_regulator_set_mode,
+	.get_mode = mt6363_regulator_get_mode,
+};
 
 static const struct regulator_ops mt6363_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
@@ -577,55 +630,55 @@ static struct mt6363_regulator_info mt6363_regulators[] = {
 		    MT6363_RG_BUCK_VS3_LP_SHIFT,
 		    MT6363_RG_VS3_FCCM_ADDR,
 		    MT6363_RG_VS3_FCCM_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_DIGRF, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_DIGRF_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_DIGRF_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_DIGRF_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_DIGRF_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_DIGRF_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_DIGRF_LP_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_MDFE, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_MDFE_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_MDFE_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_MDFE_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_MDFE_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_MDFE_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_MDFE_LP_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_MODEM, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_MODEM_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_MODEM_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_MODEM_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_MODEM_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_MODEM_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_MODEM_LP_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_CPUB, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_CPUB_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUB_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_CPUB_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUB_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_CPUB_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUB_LP_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_CPUM, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_CPUM_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUM_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_CPUM_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUM_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_CPUM_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUM_LP_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_CPUL, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_CPUL_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUL_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_CPUL_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUL_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_CPUL_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_CPUL_LP_SHIFT),
-	MT6363_LDO_LINEAR(VSRAM_APU, 400000, 1193750, 6250, mt_volt_range3,
-			  MT6363_RG_LDO_VSRAM_APU_EN_ADDR,
-			  MT6363_RG_LDO_VSRAM_APU_EN_SHIFT,
-			  MT6363_RG_LDO_VSRAM_APU_VOSEL_ADDR,
-			  MT6363_RG_LDO_VSRAM_APU_VOSEL_MASK,
-			  MT6363_RG_LDO_VSRAM_APU_LP_ADDR,
-			  MT6363_RG_LDO_VSRAM_APU_LP_SHIFT),
+	MT6363_LDO_LINEAR1(VSRAM_DIGRF, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_DIGRF_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_DIGRF_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_DIGRF_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_DIGRF_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_DIGRF_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_DIGRF_LP_SHIFT),
+	MT6363_LDO_LINEAR1(VSRAM_MDFE, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_MDFE_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_MDFE_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_MDFE_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_MDFE_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_MDFE_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_MDFE_LP_SHIFT),
+	MT6363_LDO_LINEAR1(VSRAM_MODEM, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_MODEM_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_MODEM_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_MODEM_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_MODEM_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_MODEM_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_MODEM_LP_SHIFT),
+	MT6363_LDO_LINEAR2(VSRAM_CPUB, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_CPUB_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUB_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_CPUB_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUB_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_CPUB_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUB_LP_SHIFT),
+	MT6363_LDO_LINEAR2(VSRAM_CPUM, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_CPUM_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUM_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_CPUM_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUM_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_CPUM_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUM_LP_SHIFT),
+	MT6363_LDO_LINEAR2(VSRAM_CPUL, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_CPUL_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUL_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_CPUL_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUL_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_CPUL_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_CPUL_LP_SHIFT),
+	MT6363_LDO_LINEAR2(VSRAM_APU, 400000, 1193750, 6250, mt_volt_range3,
+			   MT6363_RG_LDO_VSRAM_APU_EN_ADDR,
+			   MT6363_RG_LDO_VSRAM_APU_EN_SHIFT,
+			   MT6363_RG_LDO_VSRAM_APU_VOSEL_ADDR,
+			   MT6363_RG_LDO_VSRAM_APU_VOSEL_MASK,
+			   MT6363_RG_LDO_VSRAM_APU_LP_ADDR,
+			   MT6363_RG_LDO_VSRAM_APU_LP_SHIFT),
 	MT6363_LDO_OPS(VEMC, mt6363_vemc_ops, ldo_volt_table0,
 		       MT6363_RG_LDO_VEMC_EN_ADDR, MT6363_RG_LDO_VEMC_EN_SHIFT,
 		       MT6363_RG_VEMC_VOSEL_0_ADDR,
