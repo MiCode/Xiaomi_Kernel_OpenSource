@@ -64,7 +64,7 @@ struct reg_save_st reg_save_list[] = {
 	{0x00050000, 0x330},
 	{0x00051000, 0x10},
 	{0x00051400, 0x70},
-	{0x00052000, 0x340},
+	{0x00052000, 0x400},
 	{0x000A5000, 0x110},
 	{0x10001B14, 0x10},
 };
@@ -183,29 +183,46 @@ void scp_dump_last_regs(void)
 		pr_debug("[SCP] c1h1_lr_latch = %08x\n", c1_t1_m->lr_latch);
 		pr_debug("[SCP] c1h1_sp_latch = %08x\n", c1_t1_m->sp_latch);
 	}
+	scp_dump_bus_tracker_status();
+}
 
-	/* bus tracker reg dump */
-	pr_debug("BUS DBG CON: %x\n", readl(SCP_BUS_DBG_CON));
-	pr_debug("R %08x %08x %08x %08x %08x %08x %08x %08x\n",
-			readl(SCP_BUS_DBG_AR_TRACK0_L),
-			readl(SCP_BUS_DBG_AR_TRACK1_L),
-			readl(SCP_BUS_DBG_AR_TRACK2_L),
-			readl(SCP_BUS_DBG_AR_TRACK3_L),
-			readl(SCP_BUS_DBG_AR_TRACK4_L),
-			readl(SCP_BUS_DBG_AR_TRACK5_L),
-			readl(SCP_BUS_DBG_AR_TRACK6_L),
-			readl(SCP_BUS_DBG_AR_TRACK7_L)
-		   );
-	pr_debug("W %08x %08x %08x %08x %08x %08x %08x %08x\n",
-			readl(SCP_BUS_DBG_AW_TRACK0_L),
-			readl(SCP_BUS_DBG_AW_TRACK1_L),
-			readl(SCP_BUS_DBG_AW_TRACK2_L),
-			readl(SCP_BUS_DBG_AW_TRACK3_L),
-			readl(SCP_BUS_DBG_AW_TRACK4_L),
-			readl(SCP_BUS_DBG_AW_TRACK5_L),
-			readl(SCP_BUS_DBG_AW_TRACK6_L),
-			readl(SCP_BUS_DBG_AW_TRACK7_L)
-		   );
+void scp_dump_bus_tracker_status(void)
+{
+	uint32_t offset;
+	uint64_t __iomem *bus_dbg_read_l;
+	uint64_t __iomem *bus_dbg_write_l;
+	int i;
+
+	pr_notice("BUS DBG CON: %x\n", readl(SCP_BUS_DBG_CON));
+	for (i = 3; i >= 0; --i) {
+		offset = i << 3;
+		bus_dbg_read_l = ((uint64_t *)SCP_BUS_DBG_AR_TRACK0_L) + offset;
+		bus_dbg_write_l = ((uint64_t *)SCP_BUS_DBG_AW_TRACK0_L) + offset;
+		if (!readl(bus_dbg_read_l + 7) && !readl(bus_dbg_write_l + 7))
+			continue;
+		pr_notice("R[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
+				offset, offset + 7,
+				readl(bus_dbg_read_l),
+				readl(bus_dbg_read_l + 1),
+				readl(bus_dbg_read_l + 2),
+				readl(bus_dbg_read_l + 3),
+				readl(bus_dbg_read_l + 4),
+				readl(bus_dbg_read_l + 5),
+				readl(bus_dbg_read_l + 6),
+				readl(bus_dbg_read_l + 7)
+			   );
+		pr_notice("W[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
+				offset, offset + 7,
+				readl(bus_dbg_write_l),
+				readl(bus_dbg_write_l + 1),
+				readl(bus_dbg_write_l + 2),
+				readl(bus_dbg_write_l + 3),
+				readl(bus_dbg_write_l + 4),
+				readl(bus_dbg_write_l + 5),
+				readl(bus_dbg_write_l + 6),
+				readl(bus_dbg_write_l + 7)
+			   );
+		}
 }
 
 void scp_do_regdump(uint32_t *out, uint32_t *out_end)
