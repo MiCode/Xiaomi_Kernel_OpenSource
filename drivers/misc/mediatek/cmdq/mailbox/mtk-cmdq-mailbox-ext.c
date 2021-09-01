@@ -401,6 +401,7 @@ void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val)
 
 	writel(val, thread->base + CMDQ_THR_SPR + id * 4);
 }
+EXPORT_SYMBOL(cmdq_thread_set_spr);
 
 static int cmdq_core_reset(struct cmdq *cmdq)
 {
@@ -2092,6 +2093,7 @@ s32 cmdq_mbox_get_usage(void *chan)
 
 	return atomic_read(&cmdq->usage);
 }
+EXPORT_SYMBOL(cmdq_mbox_get_usage);
 
 void *cmdq_mbox_get_base(void *chan)
 {

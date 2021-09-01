@@ -1689,6 +1689,16 @@ s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event)
 }
 EXPORT_SYMBOL(cmdq_pkt_handshake_event);
 
+s32 cmdq_pkt_eoc(struct cmdq_pkt *pkt, bool cnt_inc)
+{
+	/* set to 1 to NOT inc exec count */
+	const u8 exec_inc = cnt_inc ? 0 : 1;
+
+	return cmdq_pkt_append_command(pkt, CMDQ_EOC_IRQ_EN,
+		0, 0, exec_inc, 0, 0, 0, CMDQ_CODE_EOC);
+}
+EXPORT_SYMBOL(cmdq_pkt_eoc);
+
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 {
 	int err;
@@ -1710,8 +1720,7 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 
 	/* insert EOC and generate IRQ for each command iteration */
-	err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(CMDQ_EOC_IRQ_EN),
-		CMDQ_GET_ARG_B(CMDQ_EOC_IRQ_EN), 0, 0, 0, 0, 0, CMDQ_CODE_EOC);
+	err = cmdq_pkt_eoc(pkt, true);
 	if (err < 0)
 		return err;
 
@@ -1752,8 +1761,7 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 		return 0;
 
 	/* insert EOC and generate IRQ for each command iteration */
-	err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(CMDQ_EOC_IRQ_EN),
-		CMDQ_GET_ARG_B(CMDQ_EOC_IRQ_EN), 0, 0, 0, 0, 0, CMDQ_CODE_EOC);
+	err = cmdq_pkt_eoc(pkt, true);
 	if (err < 0)
 		return err;
 
@@ -2485,8 +2493,8 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
 		len = snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] mask %#010llx",
-			offset, *((u64 *)cmdq_inst), ~val);
+			"%#06x %#018llx [Move ] mask %#010x",
+			offset, *((u64 *)cmdq_inst), (u32)~val);
 	if (len >= txt_sz)
 		cmdq_log("len:%llu over txt_sz:%d", len, txt_sz);
 }
@@ -2658,6 +2666,7 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 		buf_pa += CMDQ_INST_SIZE;
 	}
 }
+EXPORT_SYMBOL(cmdq_buf_cmd_parse);
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {

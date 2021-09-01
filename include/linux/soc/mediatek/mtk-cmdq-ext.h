@@ -454,6 +454,8 @@ s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event);
 
+s32 cmdq_pkt_eoc(struct cmdq_pkt *pkt, bool cnt_inc);
+
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt);
 
 s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt);
