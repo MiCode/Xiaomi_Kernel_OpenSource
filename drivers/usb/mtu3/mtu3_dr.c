@@ -9,6 +9,7 @@
 
 #include <linux/usb/role.h>
 #include <linux/of_platform.h>
+#include <linux/iopoll.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -89,17 +90,42 @@ static int ssusb_port0_switch(struct ssusb_mtk *ssusb,
 
 static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
 {
-	void __iomem *ibase = ssusb->ippc_base;
 
-	mtu3_setbits(ibase, SSUSB_U2_CTRL(0),
-		SSUSB_U2_PORT_DIS | SSUSB_U2_PORT_PDN);
-	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
-	mtu3_setbits(ibase, SSUSB_U3_CTRL(0),
-		(SSUSB_U3_PORT_DIS | SSUSB_U3_PORT_PDN));
-	mtu3_clrbits(ibase, SSUSB_U3_CTRL(0), SSUSB_U3_PORT_DUAL_MODE);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+	void __iomem *ibase = ssusb->ippc_base;
+	int num_u3p = ssusb->u3_ports;
+	int num_u2p = ssusb->u2_ports;
+	u32 value;
+	int ret;
+	int i;
+
+	/* power down and disable all u3 ports */
+	for (i = 0; i < num_u3p; i++) {
+		value = mtu3_readl(ibase, SSUSB_U3_CTRL(i));
+		value |= SSUSB_U3_PORT_PDN | SSUSB_U3_PORT_DIS;
+		mtu3_writel(ibase, SSUSB_U3_CTRL(i), value);
+
+		mtu3_clrbits(ibase, SSUSB_U3_CTRL(i), SSUSB_U3_PORT_DUAL_MODE);
+	}
+
+	/* power down and disable all u2 ports */
+	for (i = 0; i < num_u2p; i++) {
+		value = mtu3_readl(ibase, SSUSB_U2_CTRL(i));
+		value |= SSUSB_U2_PORT_PDN | SSUSB_U2_PORT_DIS;
+		mtu3_writel(ibase, SSUSB_U2_CTRL(i), value);
+
+		mtu3_clrbits(ibase, SSUSB_U2_CTRL(i), SSUSB_U2_PORT_OTG_SEL);
+	}
+
+	/* power down device ip */
 	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
+	/* power down host ip */
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+
+	/* wait for ip to sleep */
+	ret = readl_poll_timeout(ibase + U3D_SSUSB_IP_PW_STS1, value,
+			  (value & SSUSB_IP_SLEEP_STS), 100, 100000);
+	if (ret)
+		dev_info(ssusb->dev, "ip sleep failed!!!\n");
 }
 
 static void switch_port_to_on(struct ssusb_mtk *ssusb,
