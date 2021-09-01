@@ -3,6 +3,7 @@
 // Copyright (c) 2019 MediaTek Inc.
 
 #include <linux/component.h>
+#include <linux/freezer.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -16,12 +17,14 @@
 
 #include <linux/types.h>
 #include <linux/videodev2.h>
+#include <linux/kthread.h>
 #include <linux/media.h>
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mc.h>
 #include <media/v4l2-subdev.h>
 #include <media/media-entity.h>
+#include <uapi/linux/sched/types.h>
 
 #include <trace/hooks/v4l2core.h>
 #include <trace/hooks/v4l2mc.h>
@@ -1476,7 +1479,7 @@ static void mtk_cam_req_work_init(struct mtk_cam_req_work *work,
 static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req)
 {
-	struct mtk_cam_req_work *sensor_work, *frame_work, *frame_done_work;
+	struct mtk_cam_req_work *frame_work, *frame_done_work;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_request_stream_data *req_stream_data_mstream;
 	struct mtk_cam_request_stream_data *pipe_stream_data;
@@ -1509,8 +1512,6 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 	req_stream_data_mstream->dbg_exception_work.dump_flags = 0;
 	req_stream_data_mstream->frame_done_queue_work = 0;
 
-	sensor_work = &req_stream_data_mstream->sensor_work;
-	mtk_cam_req_work_init(sensor_work, req_stream_data_mstream);
 	frame_work = &req_stream_data_mstream->frame_work;
 	mtk_cam_req_work_init(frame_work, req_stream_data_mstream);
 
@@ -1730,8 +1731,6 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->state.estate = E_STATE_READY;
 		req_stream_data->flags = 0;
 
-		mtk_cam_req_work_init(&req_stream_data->sensor_work,
-				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_work,
 				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_done_work,
@@ -2452,16 +2451,9 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
-		drain_workqueue(ctx->composer_wq);
-		destroy_workqueue(ctx->composer_wq);
-		drain_workqueue(ctx->frame_done_wq);
-		destroy_workqueue(ctx->frame_done_wq);
-		drain_workqueue(ctx->sv_wq);
-		destroy_workqueue(ctx->sv_wq);
-		ctx->composer_wq = NULL;
-		ctx->frame_done_wq = NULL;
-		ctx->sv_wq = NULL;
-		dev_info(dev, "%s: destroy session", __func__);
+		atomic_set(&ctx->session_destroyed, 1);
+		wake_up(&ctx->session_destroy_waitq);
+		dev_info(dev, "%s:ctx(%d): destroy session", __func__, ctx->stream_id);
 	}
 
 	return 0;
@@ -2691,8 +2683,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->pipe_used & (1 << i)) {
 			unsigned int stream_id = i;
-			struct mtk_cam_req_work *sensor_work, *frame_work;
-			struct mtk_cam_req_work *done_work, *sv_work;
+			struct mtk_cam_req_work *frame_work, *done_work, *sv_work;
 			struct mtk_cam_request_stream_data *req_stream_data;
 			struct mtk_cam_request_stream_data *pipe_stream_data;
 			struct mtk_cam_ctx *ctx = &cam->ctxs[stream_id];
@@ -2714,8 +2705,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					req_stream_data->frame_seq_no == 2))
 				initial_frame = 1;
 
-			sensor_work = &req_stream_data->sensor_work;
-			mtk_cam_req_work_init(sensor_work, req_stream_data);
 			frame_work = &req_stream_data->frame_work;
 			mtk_cam_req_work_init(frame_work, req_stream_data);
 
@@ -3198,6 +3187,9 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	int ret, i;
 	struct media_entity *entity = &node->vdev.entity;
 
+	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
+		 __func__, ctx->stream_id, entity->name);
+
 	ctx->enqueued_frame_seq_no = 0;
 	ctx->composed_frame_seq_no = 0;
 	ctx->dequeued_frame_seq_no = 0;
@@ -3205,6 +3197,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;
 	atomic_set(&ctx->running_s_data_cnt, 0);
+	atomic_set(&ctx->session_destroyed, 0);
 
 	if (!cam->composer_cnt) {
 		cam->running_job_count = 0;
@@ -3236,6 +3229,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 			cam->debug_fs->ops->exp_reinit(cam->debug_fs);
 	}
 
+	init_waitqueue_head(&ctx->session_destroy_waitq);
+
 #if CCD_READY
 	if (node->uid.pipe_id >= MTKCAM_SUBDEV_RAW_START &&
 		node->uid.pipe_id < MTKCAM_SUBDEV_RAW_END) {
@@ -3251,12 +3246,23 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		goto fail_uninit_composer;
 	}
 
+	kthread_init_worker(&ctx->sensor_worker);
+	ctx->sensor_worker_task = kthread_run(kthread_worker_fn,
+					      &ctx->sensor_worker,
+					      "sensor_worker-%d",
+					      ctx->stream_id);
+	if (IS_ERR(ctx->sensor_worker_task)) {
+		dev_info(cam->dev, "%s:ctx(%d): could not create sensor_worker_task\n",
+			 __func__, ctx->stream_id);
+		goto fail_release_buffer_pool;
+	}
+
 	ctx->composer_wq =
 			alloc_ordered_workqueue(dev_name(cam->dev),
 						WQ_HIGHPRI | WQ_FREEZABLE);
 	if (!ctx->composer_wq) {
 		dev_dbg(cam->dev, "failed to alloc composer workqueue\n");
-		goto fail_release_buffer_pool;
+		goto fail_uninit_sensor_worker_task;
 	}
 
 	ctx->frame_done_wq =
@@ -3340,6 +3346,9 @@ fail_uninit_frame_done_wq:
 	destroy_workqueue(ctx->frame_done_wq);
 fail_uninit_composer_wq:
 	destroy_workqueue(ctx->composer_wq);
+fail_uninit_sensor_worker_task:
+	kthread_stop(ctx->sensor_worker_task);
+	ctx->sensor_worker_task = NULL;
 fail_release_buffer_pool:
 	mtk_cam_working_buf_pool_release(ctx);
 fail_uninit_composer:
@@ -3360,27 +3369,19 @@ fail_rproc_put:
 	return NULL;
 }
 
-#if CCD_READY
-static void isp_composer_uninit_wait(struct mtk_cam_ctx *ctx)
-{
-	unsigned long end = jiffies + msecs_to_jiffies(100);
-
-	while (time_before(jiffies, end) && ctx->composer_wq) {
-		dev_dbg(ctx->cam->dev, "wait composer session destroy\n");
-		usleep_range(0, 1000);
-	}
-
-	isp_composer_uninit(ctx);
-}
-#endif
-
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	unsigned int i, j;
 
-	pr_info("%s\n", __func__);
+	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
+		 __func__, ctx->stream_id, entity->name);
+
 	media_pipeline_stop(entity);
+
+	dev_dbg(cam->dev, "%s:ctx(%d): wait for composer session destroy\n",
+		__func__, ctx->stream_id);
+	wait_event_freezable(ctx->session_destroy_waitq, atomic_read(&ctx->session_destroyed));
 
 	if (!cam->streaming_ctx) {
 		struct v4l2_subdev *sd;
@@ -3403,6 +3404,19 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 			}
 		}
 	}
+
+	drain_workqueue(ctx->composer_wq);
+	destroy_workqueue(ctx->composer_wq);
+	ctx->composer_wq = NULL;
+	drain_workqueue(ctx->frame_done_wq);
+	destroy_workqueue(ctx->frame_done_wq);
+	ctx->frame_done_wq = NULL;
+	drain_workqueue(ctx->sv_wq);
+	destroy_workqueue(ctx->sv_wq);
+	ctx->sv_wq = NULL;
+	kthread_flush_worker(&ctx->sensor_worker);
+	kthread_stop(ctx->sensor_worker_task);
+	ctx->sensor_worker_task = NULL;
 
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		for (j = 0 ; j < cam->max_stream_num ; j++) {
@@ -3467,7 +3481,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		ctx->used_mraw_dev[i] = 0;
 	}
 
-	isp_composer_uninit_wait(ctx);
+	isp_composer_uninit(ctx);
 	cam->composer_cnt--;
 
 	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d\n",

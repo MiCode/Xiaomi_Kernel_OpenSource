@@ -188,8 +188,8 @@ struct mtk_cam_request_stream_data {
 	struct v4l2_selection vdev_selection[MTK_RAW_TOTAL_NODES];
 	struct mtkcam_ipi_frame_param frame_params;
 	struct mtk_camsv_frame_params sv_frame_params;
+	struct kthread_work sensor_work;
 	struct mtk_cam_req_work frame_work;
-	struct mtk_cam_req_work sensor_work;
 	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
 	struct mtk_cam_req_work sv_work;
@@ -312,9 +312,13 @@ struct mtk_cam_ctx {
 	unsigned int used_mraw_num;
 	unsigned int used_mraw_dev[MAX_MRAW_PIPES_PER_STREAM];
 
+	struct task_struct *sensor_worker_task;
+	struct kthread_worker sensor_worker;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
 	struct workqueue_struct *sv_wq;
+	wait_queue_head_t session_destroy_waitq;
+	atomic_t session_destroyed;
 
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;
@@ -595,6 +599,13 @@ mtk_cam_s_data_reset_wbuf(struct mtk_cam_request_stream_data *s_data)
 	s_data->working_buf = NULL;
 }
 
+static inline struct mtk_cam_request_stream_data*
+mtk_cam_sensor_work_to_s_data(struct kthread_work *work)
+{
+	return container_of(work, struct mtk_cam_request_stream_data,
+			    sensor_work);
+}
+
 static inline struct mtk_cam_seninf_dump_work*
 to_mtk_cam_seninf_dump_work(struct work_struct *work)
 {
@@ -668,8 +679,7 @@ void mtk_cam_req_update_seq(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 
 struct mtk_cam_request_stream_data*
 mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx,
-					unsigned int pipe_id, unsigned int frame_seq_no);
-
+		       unsigned int pipe_id, unsigned int frame_seq_no);
 struct mtk_raw_pipeline *mtk_cam_dev_get_raw_pipeline(struct mtk_cam_device *cam,
 						      unsigned int id);
 

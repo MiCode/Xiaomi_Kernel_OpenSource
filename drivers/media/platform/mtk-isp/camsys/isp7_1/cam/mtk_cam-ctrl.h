@@ -130,7 +130,7 @@ struct mtk_camsys_link_ctrl {
 /*per stream (sensor) */
 struct mtk_camsys_sensor_ctrl {
 	struct mtk_cam_ctx *ctx;
-	struct workqueue_struct *sensorsetting_wq;
+	struct kthread_worker *sensorsetting_wq;
 	struct hrtimer sensor_deadline_timer;
 	u64 sof_time;
 	int timer_req_sensor;

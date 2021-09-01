@@ -83,9 +83,6 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 	else
 		size = fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
 
-	if (vq->type == V4L2_BUF_TYPE_META_OUTPUT)
-		vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-
 	/* Add for q.create_bufs with fmt.g_sizeimage(p) / 2 test */
 	if (*num_planes) {
 		if (sizes[0] < size || *num_planes != 1)
@@ -1924,7 +1921,6 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->drv_priv = cam;
 	q->buf_struct_size = sizeof(struct mtk_cam_buffer);
-	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 
 	if (output)
 		q->timestamp_flags |= V4L2_BUF_FLAG_TSTAMP_SRC_EOF;

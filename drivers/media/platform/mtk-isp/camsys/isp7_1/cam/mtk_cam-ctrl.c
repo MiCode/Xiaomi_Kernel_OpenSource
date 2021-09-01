@@ -520,10 +520,29 @@ static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
 	return is_mstream_last_exposure;
 }
 
-static void mtk_cam_sensor_worker(struct work_struct *work)
+static bool mtk_cam_submit_kwork(struct kthread_worker *worker,
+				 struct kthread_work *work,
+				 kthread_work_func_t func)
+{
+	if (!worker) {
+		pr_info("%s: not queue work since kthread_worker is null\n",
+			__func__);
+		return false;
+	}
+
+	/**
+	 * TODO: init the work function during request enqueue since
+	 * mtk_cam_submit_kwork() is called in interrupt context
+	 * now.
+	 */
+	kthread_init_work(work, func);
+
+	return kthread_queue_work(worker, work);
+}
+
+static void mtk_cam_sensor_worker(struct kthread_work *work)
 {
 	struct mtk_cam_request *req;
-	struct mtk_cam_req_work *sensor_work = (struct mtk_cam_req_work *)work;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_device *cam;
 	struct media_request_object *obj;
@@ -537,7 +556,7 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 	int is_mstream_last_exposure = 0;
 	unsigned long flags;
 
-	req_stream_data = mtk_cam_req_work_get_s_data(sensor_work);
+	req_stream_data = mtk_cam_sensor_work_to_s_data(work);
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
 	cam = ctx->cam;
 	req = mtk_cam_s_data_get_req(req_stream_data);
@@ -663,10 +682,9 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 	}
 }
 
-static void mtk_cam_exp_switch_sensor_worker(struct work_struct *work)
+static void mtk_cam_exp_switch_sensor_worker(struct kthread_work *work)
 {
 	struct mtk_cam_request *req;
-	struct mtk_cam_req_work *sensor_work = (struct mtk_cam_req_work *)work;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_device *cam;
 	struct media_request_object *obj;
@@ -675,7 +693,7 @@ static void mtk_cam_exp_switch_sensor_worker(struct work_struct *work)
 	struct mtk_cam_ctx *ctx;
 	unsigned int time_after_sof = 0;
 
-	req_stream_data = mtk_cam_req_work_get_s_data(sensor_work);
+	req_stream_data = mtk_cam_sensor_work_to_s_data(work);
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
 	cam = ctx->cam;
 	req = mtk_cam_s_data_get_req(req_stream_data);
@@ -901,21 +919,16 @@ static int mtk_cam_exp_sensor_switch(struct mtk_cam_ctx *ctx,
 			   ctx->sensor_ctrl.sof_time;
 	int type = req_stream_data->feature.switch_feature_type;
 
-	if (!ctx->sensor_ctrl.sensorsetting_wq) {
-		dev_info(cam->dev, "[set_sensor] return:workqueue null\n");
-	} else {
-		INIT_WORK(&req_stream_data->sensor_work.work,
-		  mtk_cam_exp_switch_sensor_worker);
-		queue_work(ctx->sensor_ctrl.sensorsetting_wq, &req_stream_data->sensor_work.work);
-	}
-
+	mtk_cam_submit_kwork(ctx->sensor_ctrl.sensorsetting_wq,
+			     &req_stream_data->sensor_work,
+			     mtk_cam_exp_switch_sensor_worker);
 	/**
 	 * Normal to HDR switch case timing will be same as sensor mode
 	 * switch.
 	 */
-	if (type == EXPOSURE_CHANGE_1_to_2 ||
-		type == EXPOSURE_CHANGE_1_to_3)
+	if (type == EXPOSURE_CHANGE_1_to_2 || type == EXPOSURE_CHANGE_1_to_3)
 		mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
+
 	dev_dbg(cam->dev,
 		"[%s] [SOF+%dms]] ctx:%d, req:%d\n",
 		__func__, time_after_sof, ctx->stream_id, req_stream_data->frame_seq_no);
@@ -967,10 +980,9 @@ void mtk_cam_set_sub_sample_sensor(struct mtk_raw_device *raw_dev,
 		if (req_stream_data->state.estate == E_STATE_SUBSPL_OUTER) {
 			dev_dbg(ctx->cam->dev, "[%s:setup] sensor_no:%d stream_no:%d\n", __func__,
 				sensor_seq_no_next, req_stream_data->frame_seq_no);
-			INIT_WORK(&req_stream_data->sensor_work.work,
-				mtk_cam_sensor_worker);
-			queue_work(sensor_ctrl->sensorsetting_wq,
-				&req_stream_data->sensor_work.work);
+			mtk_cam_submit_kwork(sensor_ctrl->sensorsetting_wq,
+					     &req_stream_data->sensor_work,
+					     mtk_cam_sensor_worker);
 			sensor_ctrl->sensor_request_seq_no++;
 		} else if (req_stream_data->state.estate == E_STATE_SUBSPL_SCQ) {
 			dev_dbg(ctx->cam->dev, "[%s:setup:SCQ] sensor_no:%d stream_no:%d\n",
@@ -1031,18 +1043,12 @@ mtk_cam_set_sensor(struct mtk_cam_request_stream_data *s_data,
 		return;
 	}
 
-	if (!sensor_ctrl->sensorsetting_wq) {
-		pr_info("[set_sensor] return:workqueue null\n");
-	} else {
-		if (mtk_cam_is_stagger_m2m(sensor_ctrl->ctx))
-			mtk_cam_m2m_sensor_skip(s_data);
-		else {
-			INIT_WORK(&s_data->sensor_work.work,
-				  mtk_cam_sensor_worker);
-			queue_work(sensor_ctrl->sensorsetting_wq,
-				   &s_data->sensor_work.work);
-		}
-	}
+	if (mtk_cam_is_stagger_m2m(sensor_ctrl->ctx))
+		mtk_cam_m2m_sensor_skip(s_data);
+	else
+		mtk_cam_submit_kwork(sensor_ctrl->sensorsetting_wq,
+				     &s_data->sensor_work,
+				     mtk_cam_sensor_worker);
 }
 
 static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
@@ -3410,14 +3416,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			     CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		camsys_sensor_ctrl->sensor_deadline_timer.function =
 			sensor_deadline_timer_handler;
-		camsys_sensor_ctrl->sensorsetting_wq =
-			alloc_ordered_workqueue(dev_name(ctx->cam->dev),
-						WQ_HIGHPRI | WQ_FREEZABLE);
-		if (!camsys_sensor_ctrl->sensorsetting_wq) {
-			dev_dbg(ctx->cam->dev,
-				"failed to alloc sensor setting workqueue\n");
-			return -ENOMEM;
-		}
+		camsys_sensor_ctrl->sensorsetting_wq = &ctx->sensor_worker;
 	}
 
 	dev_info(ctx->cam->dev, "[%s] ctx:%d/raw_dev:0x%x drained/sensor (%d)%d/%d\n",
@@ -3446,8 +3445,6 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 	spin_unlock_irqrestore(&camsys_sensor_ctrl->camsys_state_lock, flags);
 	if (ctx->sensor) {
 		hrtimer_cancel(&camsys_sensor_ctrl->sensor_deadline_timer);
-		drain_workqueue(camsys_sensor_ctrl->sensorsetting_wq);
-		destroy_workqueue(camsys_sensor_ctrl->sensorsetting_wq);
 		camsys_sensor_ctrl->sensorsetting_wq = NULL;
 	}
 	if (ctx->used_raw_num)
