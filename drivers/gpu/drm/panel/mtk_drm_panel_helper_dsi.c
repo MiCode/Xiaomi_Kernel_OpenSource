@@ -250,7 +250,9 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 			DDPMSG("%s, %d: the %d dyn fps of invalid cmd:%d\n",
 				__func__, __LINE__, i, len);
 			continue;
-		}
+		} else if (len == 0)
+			continue;
+
 		dyn_fps->dfps_cmd_table[i].src_fps = temp[0];
 		dyn_fps->dfps_cmd_table[i].cmd_num = temp[1];
 		if (dyn_fps->dfps_cmd_table[i].cmd_num == 0)
@@ -465,7 +467,8 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 				DDPMSG("%s, %d: the %d esd table of invalid cmd:%d\n",
 					__func__, __LINE__, i, len);
 				continue;
-			}
+			} else if (len == 0)
+				continue;
 
 			ext_param->lcm_esd_check_table[i].cmd = temp[0];
 			ext_param->lcm_esd_check_table[i].count = temp[1];
@@ -588,7 +591,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 int parse_lcm_params_dsi(struct device_node *np,
 		struct mtk_lcm_params_dsi *params)
 {
-	unsigned int i = 0, phy_type = 0, len = 0;
+	unsigned int i = 0, len = 0;
 	unsigned int default_mode = 0;
 	unsigned int flag[64] = { 0 };
 	u32 *mode = NULL;
@@ -745,7 +748,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 					params->default_mode = mode_node;
 
 				parse_lcm_dsi_fps_setting(mode_np,
-						mode_node, phy_type);
+						mode_node, params->phy_type);
 			}
 		}
 	}
