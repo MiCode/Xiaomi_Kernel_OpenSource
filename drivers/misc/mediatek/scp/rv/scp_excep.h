@@ -13,6 +13,7 @@
 #define AED_LOG_PRINT_SIZE	SZ_16K
 #define SCP_LOCK_OFS	0xE0
 #define SCP_TCM_LOCK_BIT	(1 << 20)
+#define SCP_COREDUMP_TIMEOUT_MS (3 * 60 * 1000)  /* 3min */
 
 enum scp_excep_id {
 	EXCEP_RESET,

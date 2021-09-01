@@ -640,6 +640,9 @@ end:
 void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 {
 	char *scp_aed_title = NULL;
+	size_t timeout = msecs_to_jiffies(SCP_COREDUMP_TIMEOUT_MS);
+	size_t expire = jiffies + timeout;
+	int ret;
 
 	if (!scp_ee_enable) {
 		pr_debug("[SCP]ee disable value=%d\n", scp_ee_enable);
@@ -647,7 +650,23 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 	}
 
 	/* wait for previous coredump complete */
-	wait_for_completion(&scp_coredump_comp);
+	while (1) {
+		ret = wait_for_completion_interruptible_timeout(
+			&scp_coredump_comp, timeout);
+		if (ret == 0) {
+			pr_notice("[SCP] %s:TIMEOUT, skip\n",
+				__func__);
+			break;
+		}
+		if (ret > 0)
+			break;
+		if ((ret == -ERESTARTSYS) && time_before(jiffies, expire)) {
+			pr_debug("[SCP] %s: continue waiting for completion\n",
+				__func__);
+			timeout = expire - jiffies;
+			continue;
+		}
+	}
 	if (atomic_read(&coredumping) == true)
 		pr_notice("[SCP] coredump overwrite happen\n");
 	atomic_set(&coredumping, true);
