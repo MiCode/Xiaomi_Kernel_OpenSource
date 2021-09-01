@@ -10650,7 +10650,6 @@
 			 <&mdp_iommu M4U_PORT_L16_CAM2_AAO_R1>,
 			 <&mdp_iommu M4U_PORT_L16_CAM2_TSFSO_R1>,
 			 <&mdp_iommu M4U_PORT_L16_CAM2_FLKO_R1>;
-#if 0
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L16_CAM2_IMGP_R1)
 				&mmqos SLAVE_COMMON(1)>,
@@ -10676,6 +10675,8 @@
 				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L16_CAM2_AAI_R1)
 				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L16_CAM2_UFDI_R5)
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L16_CAM2_FHO_R1)
 				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L16_CAM2_AAO_R1)
@@ -10697,11 +10698,11 @@
 			"l16_rawi_r4",
 			"l16_rawi_r5",
 			"l16_aai_r1",
+			"l16_udfi_r5",
 			"l16_fho_r1",
 			"l16_aao_r1",
 			"l16_tsfso_r1",
 			"l16_flko_r1";
-#endif
 	};
 
 	cam_yuv_a@1a050000 {
@@ -10732,7 +10733,6 @@
 			<&mdp_iommu M4U_PORT_L17_CAM3_RZH1N2TO_R1>,
 			<&mdp_iommu M4U_PORT_L17_CAM3_DRZS4NO_R1>,
 			<&mdp_iommu M4U_PORT_L17_CAM3_TNCSO_R1>;
-#if 0
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_CAM3_YUVO_R1)
 				&mmqos SLAVE_COMMON(1)>,
@@ -10756,7 +10756,6 @@
 			"l17_rzh1n2to_r1",
 			"l17_drzs4no_r1",
 			"l17_tncso_r1";
-#endif
 	};
 
 	cam_raw_b@1a070000 {
@@ -10808,7 +10807,6 @@
 			<&mdp_iommu M4U_PORT_L27_CAM2_AAO_R1>,
 			<&mdp_iommu M4U_PORT_L27_CAM2_TSFSO_R1>,
 			<&mdp_iommu M4U_PORT_L27_CAM2_FLKO_R1>;
-#if 0
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L27_CAM2_IMGP_R1)
 				&mmqos SLAVE_COMMON(0)>,
@@ -10834,6 +10832,8 @@
 				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L27_CAM2_AAI_R1)
 				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L27_CAM2_UFDI_R5)
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L27_CAM2_FHO_R1)
 				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L27_CAM2_AAO_R1)
@@ -10855,11 +10855,11 @@
 				"l27_rawi_r4",
 				"l27_rawi_r5",
 				"l27_aai_r1",
+				"l27_ufdi_r5",
 				"l27_fho_r1",
 				"l27_aao_r1",
 				"l27_tsfso_r1",
 				"l27_flko_r1";
-#endif
 	};
 
 	cam_yuv_b@1a090000 {
@@ -10890,7 +10890,6 @@
 			<&mdp_iommu M4U_PORT_L29_CAM3_RZH1N2TO_R1>,
 			<&mdp_iommu M4U_PORT_L29_CAM3_DRZS4NO_R1>,
 			<&mdp_iommu M4U_PORT_L29_CAM3_TNCSO_R1>;
-#if 0
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L29_CAM3_YUVO_R1)
 				&mmqos SLAVE_COMMON(0)>,
@@ -10914,7 +10913,6 @@
 				"l29_rzh1n2to_r1",
 				"l29_drzs4no_r1",
 				"l29_tncso_r1";
-#endif
 	};
 
 	cam_raw_c@1a0b0000 {
@@ -10966,7 +10964,6 @@
 			<&mdp_iommu M4U_PORT_L28_CAM2_AAO_R1>,
 			<&mdp_iommu M4U_PORT_L28_CAM2_TSFSO_R1>,
 			<&mdp_iommu M4U_PORT_L28_CAM2_FLKO_R1>;
-#if 0
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L28_CAM2_IMGP_R1)
 				&mmqos SLAVE_COMMON(1)>,
@@ -10992,6 +10989,8 @@
 				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L28_CAM2_AAI_R1)
 				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L28_CAM2_UFDI_R5)
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L28_CAM2_FHO_R1)
 				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L28_CAM2_AAO_R1)
@@ -11013,11 +11012,11 @@
 				"l28_rawi_r4",
 				"l28_rawi_r5",
 				"l28_aai_r1",
+				"l28_ufdi_r5",
 				"l28_fho_r1",
 				"l28_aao_r1",
 				"l28_tsfso_r1",
 				"l28_flko_r1";
-#endif
 	};
 
 	cam_yuv_c@1a0d0000 {
@@ -11048,7 +11047,6 @@
 			<&mdp_iommu M4U_PORT_L30_CAM3_RZH1N2TO_R1>,
 			<&mdp_iommu M4U_PORT_L30_CAM3_DRZS4NO_R1>,
 			<&mdp_iommu M4U_PORT_L30_CAM3_TNCSO_R1>;
-#if 0
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L30_CAM3_YUVO_R1)
 				&mmqos SLAVE_COMMON(0)>,
@@ -11072,7 +11070,6 @@
 				"l30_rzh1n2to_r1",
 				"l30_drzs4no_r1",
 				"l30_tncso_r1";
-#endif
 	};
 
 	camsv1@1a110000 {
