@@ -113,6 +113,7 @@ mddp_dev_rsp_status_mapping_s[MDDP_CMCMD_RSP_CNT][2] =  {
 {MDDP_DEV_EVT_STOPPED_UNSUPPORTED,  MDDP_DEV_EVT_STOPPED_UNSUPPORTED},//DEACT
 {MDDP_DEV_EVT_STOPPED_LIMIT_REACHED, MDDP_DEV_EVT_STOPPED_LIMIT_REACHED},//LIMIT
 {MDDP_DEV_EVT_CONNECT_UPDATE,       MDDP_DEV_EVT_CONNECT_UPDATE},//CT_IND
+{MDDP_DEV_EVT_WARNING_REACHED,      MDDP_DEV_EVT_WARNING_REACHED},
 };
 #undef MDDP_CMCMD_RSP_CNT
 
@@ -875,8 +876,6 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	uint32_t                                data_len;
 	uint8_t                                 buf[MDDP_MAX_GET_BUF_SZ] = {0};
 	uint32_t                                buf_len = MDDP_MAX_GET_BUF_SZ;
-	struct mddp_dev_req_act_t              *act;
-	struct mddp_dev_req_set_data_limit_t   *limit;
 	struct mddp_dev_req_set_ct_value_t     *ct_req;
 
 	/*
@@ -901,6 +900,7 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 		goto ioctl_error;
 	}
 
+	data_len = dev_req.data_len;
 	/*
 	 * OK. IOCTL command dispatch.
 	 */
@@ -914,29 +914,22 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 		break;
 
 	case MDDP_CMCMD_ACT_REQ:
-		data_len = dev_req.data_len;
 		if (data_len == sizeof(struct mddp_dev_req_act_t)) {
-			act = (struct mddp_dev_req_act_t *)
-				&(((struct mddp_dev_req_common_t *)arg)->data);
-			ret = strncpy_from_user((char *)&buf,
-					(char *)&(act->ul_dev_name),
-					IFNAMSIZ - 1);
+			struct mddp_dev_req_act_t *from, *to;
 
-			if (ret > 0) {
-				ret = strncpy_from_user(
-				(char *)&(((struct mddp_dev_req_act_t *)
-						buf)->dl_dev_name),
-				(char *)&(act->dl_dev_name),
-				IFNAMSIZ - 1);
-				if (ret > 0) {
-					/* OK */
-					ret = mddp_on_activate(dev_req.app_type,
-					((struct mddp_dev_req_act_t *)
-						buf)->ul_dev_name,
-					((struct mddp_dev_req_act_t *)
-						buf)->dl_dev_name);
-					break;
-				}
+			to = (struct mddp_dev_req_act_t *) &buf;
+			from = (struct mddp_dev_req_act_t *)
+				&(((struct mddp_dev_req_common_t *)arg)->data);
+			ret = copy_from_user(to, from, data_len);
+
+			if (ret == 0) {
+				/* OK */
+				to->ul_dev_name[IFNAMSIZ - 1] = 0;
+				to->dl_dev_name[IFNAMSIZ - 1] = 0;
+				ret = mddp_on_activate(dev_req.app_type,
+						to->ul_dev_name,
+						to->dl_dev_name);
+				break;
 			}
 		}
 		/* NG */
@@ -990,21 +983,23 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 		break;
 
 	case MDDP_CMCMD_SET_DATA_LIMIT_REQ:
-		buf_len = sizeof(struct mddp_dev_req_set_data_limit_t);
+		if (data_len == sizeof(struct mddp_dev_req_set_data_limit_t)) {
+			struct mddp_dev_req_set_data_limit_t *from, *to;
 
-		limit = (struct mddp_dev_req_set_data_limit_t *)
-			&(((struct mddp_dev_req_common_t *)arg)->data);
-		ret = strncpy_from_user((char *)&buf,
-			(char *)&(limit->ul_dev_name), IFNAMSIZ - 1);
+			to = (struct mddp_dev_req_set_data_limit_t *) &buf;
+			from = (struct mddp_dev_req_set_data_limit_t *)
+				&(((struct mddp_dev_req_common_t *)arg)->data);
+			ret = copy_from_user(to, from, data_len);
 
-		if (ret > 0)
-			ret = mddp_on_set_data_limit(dev_req.app_type,
-					buf, buf_len);
-
+			if (ret == 0) {
+				to->ul_dev_name[IFNAMSIZ - 1] = 0;
+				ret = mddp_on_set_data_limit(dev_req.app_type, buf, data_len);
+			}
+		}
 		break;
 
 	case MDDP_CMCMD_SET_CT_VALUE_REQ:
-		if (dev_req.data_len !=
+		if (data_len !=
 			sizeof(struct mddp_dev_req_set_ct_value_t)) {
 			MDDP_C_LOG(MDDP_LL_WARN,
 					"%s: arg_len(%u) of command(%u) is not expected!\n",
@@ -1028,6 +1023,23 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 					"%s: failed to copy_from_user, buf_len(%u), ret(%ld)!\n",
 					__func__, buf_len, ret);
 
+		break;
+
+	case MDDP_CMCMD_SET_WARNING_AND_DATA_LIMIT_REQ:
+		if (data_len == sizeof(struct mddp_dev_req_set_warning_and_data_limit_t)) {
+			struct mddp_dev_req_set_warning_and_data_limit_t *from, *to;
+
+			to = (struct mddp_dev_req_set_warning_and_data_limit_t *) &buf;
+			from = (struct mddp_dev_req_set_warning_and_data_limit_t *)
+				&(((struct mddp_dev_req_common_t *)arg)->data);
+			ret = copy_from_user(to, from, data_len);
+
+			if (ret == 0) {
+				to->ul_dev_name[IFNAMSIZ - 1] = 0;
+				ret = mddp_on_set_warning_and_data_limit(dev_req.app_type, buf,
+									 data_len);
+			}
+		}
 		break;
 
 	default:

@@ -87,6 +87,7 @@ enum mddp_dev_evt_type_e {
 	MDDP_DEV_EVT_SUPPORT_AVAILABLE = 4,
 	MDDP_DEV_EVT_STOPPED_LIMIT_REACHED = 5,
 	MDDP_DEV_EVT_CONNECT_UPDATE = 6,
+	MDDP_DEV_EVT_WARNING_REACHED = 7,
 
 	MDDP_DEV_EVENT_CNT,
 	MDDP_DEV_EVENT_DUMMY = 0x7fff /* Mark it a 2-byte enum */
@@ -101,6 +102,7 @@ enum mddp_ctrl_msg_e {
 	MDDP_CMCMD_GET_OFFLOAD_STATS_REQ,
 	MDDP_CMCMD_SET_DATA_LIMIT_REQ,
 	MDDP_CMCMD_SET_CT_VALUE_REQ,
+	MDDP_CMCMD_SET_WARNING_AND_DATA_LIMIT_REQ,
 
 	/* CMCMD Response */
 	MDDP_CMCMD_RSP_BEGIN = 0x100,
@@ -110,7 +112,7 @@ enum mddp_ctrl_msg_e {
 	MDDP_CMCMD_DEACT_RSP,
 	MDDP_CMCMD_LIMIT_IND,
 	MDDP_CMCMD_CT_IND,
-	MDDP_CMCMD_SET_CT_VALUE_RSP,
+	MDDP_CMCMD_WARNING_IND,
 	MDDP_CMCMD_RSP_END,
 
 	MDDP_CMCMD_DUMMY = 0x7fff /* Mark it a 2-byte enum */
@@ -153,6 +155,12 @@ struct mddp_dev_req_deact_t {
 struct mddp_dev_req_set_data_limit_t {
 	uint8_t                 ul_dev_name[IFNAMSIZ];
 	uint64_t                limit_size; /* Bytes */
+};
+
+struct mddp_dev_req_set_warning_and_data_limit_t {
+	uint8_t                 ul_dev_name[IFNAMSIZ];
+	uint64_t                limit_size; /* Bytes */
+	uint64_t                warning_size; /* Bytes */
 };
 
 struct mddp_dev_req_set_ct_value_t {

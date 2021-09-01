@@ -857,6 +857,7 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
 	struct mddp_md_msg_t                   *md_msg;
 	struct mddp_dev_req_set_ct_value_t     *in_req;
 	struct mddp_f_set_ct_timeout_req_t      ct_req;
+	struct mddp_app_t *app;
 
 	if (buf_len != sizeof(struct mddp_dev_req_set_ct_value_t)) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
@@ -888,7 +889,8 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
 	md_msg->msg_id = IPC_MSG_ID_DPFM_SET_CT_TIMEOUT_VALUE_REQ;
 	md_msg->data_len = sizeof(ct_req);
 	memcpy(md_msg->data, &ct_req, sizeof(ct_req));
-	mddp_ipc_send_md(NULL, md_msg, MDFPM_USER_ID_DPFM);
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_DPFM);
 
 	return 0;
 }
