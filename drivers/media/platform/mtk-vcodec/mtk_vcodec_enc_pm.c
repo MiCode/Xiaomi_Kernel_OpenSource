@@ -38,6 +38,9 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	else
 		ctx->use_slbc = 0;
 
+	/* temp disable slbc */
+	ctx->use_slbc = 0;
+
 	pr_debug("slbc_request %d, %p\n", &ctx->sram_data, ctx->use_slbc);
 }
 
@@ -184,7 +187,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	}
 
 	//enable slbc port configs
-	if (pm->larbvencs[core_id]) {
+	if (pm->larbvencs[core_id] && ctx->use_slbc == 1) {
 		for (i = 0; i < larb_port_num; i++) {
 			if (dev->venc_ports[core_id].ram_type[i] == 1) {
 				ret = smi_sysram_enable(pm->larbvencs[core_id],
