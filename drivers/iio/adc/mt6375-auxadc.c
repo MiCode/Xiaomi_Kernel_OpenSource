@@ -121,7 +121,7 @@ static int auxadc_read_channel(struct mt6375_priv *priv, int chan, int dbits, in
 	usleep_range(1000, 1200);
 
 	ret = regmap_read_poll_timeout(priv->regmap, out_reg + 1, rdy_val, rdy_val & ADC_OUT_RDY,
-				       100, 1000);
+				       500, 11*1000);
 	if (ret == -ETIMEDOUT)
 		dev_err(priv->dev, "(%d) channel timeout\n", chan);
 
