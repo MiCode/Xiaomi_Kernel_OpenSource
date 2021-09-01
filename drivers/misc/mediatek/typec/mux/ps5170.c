@@ -55,9 +55,9 @@ static int ps5170_init(struct ps5170 *ps)
 	/* Force AUX RX data reverse */
 	i2c_smbus_write_byte_data(ps->i2c, 0x9F, 0x02);
 	/* Fine tune LFPS swing */
-	i2c_smbus_write_byte_data(ps->i2c, 0x8d, 0x01);
+	/* i2c_smbus_write_byte_data(ps->i2c, 0x8d, 0x01); */
 	/* Fine tune LFPS swing */
-	i2c_smbus_write_byte_data(ps->i2c, 0x90, 0x01);
+	/* i2c_smbus_write_byte_data(ps->i2c, 0x90, 0x01); */
 	i2c_smbus_write_byte_data(ps->i2c, 0x51, 0x87);
 	i2c_smbus_write_byte_data(ps->i2c, 0x50, 0x20);
 	i2c_smbus_write_byte_data(ps->i2c, 0x54, 0x11);
@@ -164,9 +164,9 @@ static int ps5170_switch_set(struct typec_switch *sw,
 			mdelay(20);
 		}
 		ps5170_init(ps);
-		/* NORMAL Side */
+		/* FLIP Side */
 		i2c_smbus_write_byte_data(ps->i2c, 0x40,
-			ps5170_ORIENTATION_NORMAL);
+			ps5170_ORIENTATION_FLIP);
 		break;
 	case TYPEC_ORIENTATION_REVERSE:
 		/* switch cc2 side */
@@ -175,9 +175,9 @@ static int ps5170_switch_set(struct typec_switch *sw,
 			mdelay(20);
 		}
 		ps5170_init(ps);
-		/* FLIP Side */
+		/* NORMAL Side */
 		i2c_smbus_write_byte_data(ps->i2c, 0x40,
-			ps5170_ORIENTATION_FLIP);
+			ps5170_ORIENTATION_NORMAL);
 		break;
 	default:
 		break;
@@ -221,18 +221,32 @@ static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 			ps5170_set_conf(ps, 4, data->ama_dp_state.polarity);
 			break;
 		default:
-			/* dev_info(ps->dev, "%s Pin Assignment not support\n", __func__,); */
+			dev_info(ps->dev, "%s Pin Assignment not support\n", __func__);
 			break;
 		}
 	} else if (state->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
-		/* uint8_t irq = data->ama_dp_hpd_state.irq; */
-		/* uint8_t state = data->ama_dp_hpd_state.state; */
-		/* Call HPD Event Not Ready */
+		uint8_t irq = data->ama_dp_hpd_state.irq;
+		uint8_t state = data->ama_dp_hpd_state.state;
+
+		dev_info(ps->dev, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
+			irq, state);
+		/* Call DP API */
+		dev_info(ps->dev, "[%s][%d]\n", __func__, __LINE__);
+		if (state) {
+			if (irq)
+				mtk_dp_SWInterruptSet(0x8);
+			else
+				mtk_dp_SWInterruptSet(0x4);
+		} else {
+			mtk_dp_SWInterruptSet(0x2);
+		}
 	} else if (state->mode == TCP_NOTIFY_TYPEC_STATE) {
 		if ((data->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			data->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
 			data->typec_state.new_state == TYPEC_UNATTACHED) {
-			/* Call DP Event API Not Ready */
+			/* Call DP Event API Ready */
+			dev_info(ps->dev, "Plug Out\n");
+			mtk_dp_SWInterruptSet(0x2);
 			ps5170_set_conf(ps, 0, 0);
 		}
 	}

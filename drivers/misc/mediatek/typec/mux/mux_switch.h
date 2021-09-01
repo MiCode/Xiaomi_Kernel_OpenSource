@@ -12,4 +12,6 @@ struct typec_mux *mtk_typec_mux_register(struct device *dev,
 			const struct typec_mux_desc *desc);
 void mtk_typec_mux_unregister(struct typec_mux *mux);
 
+extern void mtk_dp_SWInterruptSet(int bstatus);
+
 #endif	/* MTK_TYPEC_MUX_SWITCH_H */
