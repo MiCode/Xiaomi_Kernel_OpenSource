@@ -303,8 +303,9 @@
 			mt6363_vufs18: VUFS18 {
 				regulator-compatible = "VUFS18";
 				regulator-name = "mt6363_vufs18";
-				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <2100000>;
+				regulator-always-on;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 			};
