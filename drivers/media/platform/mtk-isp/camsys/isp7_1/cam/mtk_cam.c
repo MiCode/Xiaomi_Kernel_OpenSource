@@ -171,6 +171,11 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		buf_end = MTK_CAMSV_PIPELINE_PADS_NUM;
 	}
 
+	if (is_mraw_subdev(pipe_id)) {
+		buf_start = MTK_MRAW_SINK_BEGIN;
+		buf_end = MTK_MRAW_PIPELINE_PADS_NUM;
+	}
+
 	/* clean the works of the workqueues if needed */
 	mtk_cam_req_works_clean(req_stream_data_pipe);
 	mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
