@@ -162,7 +162,7 @@ static int mtk_drm_panel_unprepare(struct drm_panel *panel)
 	if (atomic_read(&ctx_dsi->prepared) == 0)
 		return 0;
 
-	DDPMSG("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	if (IS_ERR_OR_NULL(params) ||
 	    IS_ERR_OR_NULL(ops))
 		return -EINVAL;
@@ -244,7 +244,7 @@ static int mtk_drm_panel_prepare(struct drm_panel *panel)
 	if (atomic_read(&ctx_dsi->prepared) != 0)
 		return 0;
 
-	DDPMSG("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	ret = mtk_drm_gateic_power_on(MTK_LCM_FUNC_DSI);
 	if (ret < 0) {
 		DDPPR_ERR("%s, gate ic power on failed, %d\n",
@@ -288,7 +288,7 @@ static int mtk_drm_panel_enable(struct drm_panel *panel)
 	if (atomic_read(&ctx_dsi->enabled) != 0)
 		return 0;
 
-	DDPMSG("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
@@ -323,7 +323,7 @@ static int mtk_drm_panel_disable(struct drm_panel *panel)
 	if (atomic_read(&ctx_dsi->enabled) == 0)
 		return 0;
 
-	DDPMSG("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
@@ -374,7 +374,7 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	bool found = false;
 	struct drm_display_mode *mode = get_mode_by_connector_id(connector, id);
 
-	DDPMSG("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	if (IS_ERR_OR_NULL(mode)) {
 		DDPMSG("%s, failed to get mode\n", __func__);
 		return -EINVAL;
@@ -392,7 +392,7 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 
 
 	list_for_each_entry(mode_node, &params->mode_list, list) {
-		if (mode_node->fps == drm_mode_vrefresh(mode)) {
+		if (drm_mode_equal(&mode_node->mode, mode) == true) {
 			found = true;
 			break;
 		}
@@ -419,6 +419,15 @@ static int mtk_panel_ext_param_get(
 	struct mtk_lcm_params_dsi *params =
 			&ctx_dsi->panel_resource->params.dsi_params;
 	bool found = false;
+	struct drm_display_mode *mode = NULL;
+
+#ifdef PENDING_BY_RESOLUTION_SWITCH_PATCH
+	mode = get_mode_by_connector_id(connector, id);
+#endif
+	if (IS_ERR_OR_NULL(mode)) {
+		DDPMSG("%s, failed to get mode\n", __func__);
+		return -EINVAL;
+	}
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
 	    params->mode_count == 0 ||
@@ -429,11 +438,7 @@ static int mtk_panel_ext_param_get(
 	}
 
 	list_for_each_entry(mode_node, &params->mode_list, list) {
-		/* this may be failed,
-		 * and should apply as ext_param_set did,
-		 * but w/o connector data
-		 */
-		if (mode_node->id == id) {
+		if (drm_mode_equal(&mode_node->mode, mode) == true) {
 			found = true;
 			break;
 		}
@@ -717,7 +722,7 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	if (cur_mode == dst_mode)
 		return ret;
 
-	DDPMSG("%s+, cur:%u, dst:%u, stage:%d, powerdown:%d\n",
+	DDPINFO("%s+, cur:%u, dst:%u, stage:%d, powerdown:%d\n",
 		__func__, cur_mode, dst_mode, stage, BEFORE_DSI_POWERDOWN);
 	mode = get_mode_by_connector_id(connector, dst_mode);
 	if (IS_ERR_OR_NULL(params) ||
@@ -727,7 +732,7 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 		return -EINVAL;
 
 	list_for_each_entry(mode_node, &params->dsi_params.mode_list, list) {
-		if (mode_node->fps == drm_mode_vrefresh(mode)) {
+		if (drm_mode_equal(&mode_node->mode, mode) == true) {
 			found = true;
 			break;
 		}
