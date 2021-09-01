@@ -10,7 +10,7 @@
 
 #define PFX "HwSensorSyncAlgo"
 
-#define EN_DBG_LOG
+#undef EN_DBG_LOG
 
 struct HwSyncSensorInfo {
 	unsigned int sensor_id;       // imx586 -> 0x0586; s5k3m5sx -> 0x30D5
@@ -120,7 +120,9 @@ handle_by_hw_sensor_sync(unsigned int solveIdxs[], unsigned int len)
 	}
 
 	if (has_none || !(has_master && has_slave)) {
+#ifdef EN_DBG_LOG
 		LOG_INF("No master/slave mode paring. Unhandle by hw sensor sync");
+#endif
 		return 0;
 	}
 

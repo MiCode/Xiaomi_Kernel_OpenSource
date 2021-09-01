@@ -2449,6 +2449,11 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 		return;
 	}
 
+	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
+		/* no start frame sync, return */
+		return;
+	}
+
 	/* check streaming status, due to maybe calling by non-sync flow */
 	if (FS_CHECK_BIT(idx, &fs_mgr.streaming_bits) == 0) {
 		LOG_INF("WARNING: [%u] is stream off. ID:%#x(sidx:%u), return\n",
