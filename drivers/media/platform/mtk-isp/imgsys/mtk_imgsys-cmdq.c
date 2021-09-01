@@ -269,6 +269,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
 				mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
 				mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+				mtk_imgsys_power_ctrl(imgsys_dev, 0);
 				#endif
 				mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 			}
@@ -433,6 +434,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		frm_info->request_fd, frm_info->frm_owner);
 	mutex_lock(&(imgsys_dev->dvfs_qos_lock));
 	#if DVFS_QOS_READY
+	mtk_imgsys_power_ctrl(imgsys_dev, 1);
 	mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmdvfs_set(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmqos_set(imgsys_dev, frm_info, 1);
@@ -1325,18 +1327,18 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 
-	dev_info(dvfs_info->dev, "[%s] isPowerOn(%d)\n", __func__, isPowerOn);
+	dev_dbg(dvfs_info->dev, "[%s] isPowerOn(%d)\n", __func__, isPowerOn);
 
 	if (isPowerOn) {
 		if (IS_ERR_OR_NULL(dvfs_info->reg))
-			dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+			dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
 		else
 			regulator_enable(dvfs_info->reg);
 		pm_runtime_get_sync(imgsys_dev->dev);
 	} else {
 		pm_runtime_put_sync(imgsys_dev->dev);
 		if (IS_ERR_OR_NULL(dvfs_info->reg))
-			dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+			dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
 		else
 			regulator_disable(dvfs_info->reg);
 	}
