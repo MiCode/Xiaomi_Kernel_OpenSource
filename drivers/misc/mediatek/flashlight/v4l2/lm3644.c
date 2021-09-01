@@ -957,8 +957,8 @@ static int lm3644_probe(struct i2c_client *client,
 	flash->need_cooler = 0;
 	flash->target_current = LM3644_FLASH_BRT_MAX;
 	flash->ori_current = 0;
-	flash->cdev = thermal_of_cooling_device_register(client->dev.of_node, "lm3644",
-			flash, &lm3644_cooling_ops);
+	flash->cdev = thermal_of_cooling_device_register(client->dev.of_node,
+			"flashlight_cooler", flash, &lm3644_cooling_ops);
 	if (IS_ERR(flash->cdev))
 		pr_info("register thermal failed\n");
 
