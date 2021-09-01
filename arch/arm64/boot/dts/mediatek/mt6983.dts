@@ -5886,22 +5886,6 @@
 			"efuse",
 			"mfg_cpe_control",
 			"mfg_cpe_sensor";
-		clocks =
-			<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_0>,     /* mfg_sel_0 */
-			<&topckgen_clk CLK_TOPCKGEN_MFGPLL_CK>,     /* mfgpll_ck */
-			<&topckgen_clk CLK_TOPCKGEN_MFG_REF_SEL>,   /* mainpll_d5_d2 */
-			<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_1>,     /* mfg_sel_1 */
-			<&topckgen_clk CLK_TOPCKGEN_MFGSCPLL_CK>,   /* mfgscpll_ck */
-			<&topckgen_clk CLK_TOPCKGEN_MFGSC_REF_SEL>, /* mainpll_d5_d2 */
-			<&mfg_top_config_clk CLK_MFG_TOP_CONFIG_BG3D_PDN>;
-		clock-names =
-			"clk_mux",
-			"clk_main_parent",
-			"clk_sub_parent",
-			"clk_sc_mux",
-			"clk_sc_main_parent",
-			"clk_sc_sub_parent",
-			"subsys_mfg_cg";
 		_vcore-supply = <&mt6363_vbuck2>;
 		_dvfsrc-supply = <&dvfsrc_vcore>;
 		_vstack-supply = <&mt6373_vbuck2>;
@@ -5914,7 +5898,7 @@
 		compatible = "mediatek,gpufreq_wrapper";
 		gpufreq-version = <2>;
 		dual-buck = <1>;
-		gpueb-support = <0>;
+		gpueb-support = <1>;
 	};
 
 	ged: ged {
@@ -12927,6 +12911,10 @@
 };
 
 &mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&mt6373_vbuck2 {
 	regulator-always-on;
 };
 
