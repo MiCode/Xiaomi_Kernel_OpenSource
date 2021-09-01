@@ -16,12 +16,12 @@
 #include <linux/cdev.h>
 #include <linux/kthread.h>
 #include <linux/timer.h>
+#include <linux/rpmsg.h>
 
 #include "edma_dbgfs.h"
 #include "edma_driver.h"
 #include "edma_cmd_hnd.h"
 #include "apusys_power.h"
-#include "apusys_core.h"
 #include "edma_plat_internal.h"
 
 #define EDMA_DEV_NAME		"edma"
@@ -408,6 +408,8 @@ int edma_init(struct apusys_core_info *info)
 	int ret = 0;
 
 	pr_info("%s in\n", __func__);
+
+	edma_rv_setup(info);
 
 	if (!apusys_power_check()) {
 		pr_info("%s: edma is disabled by apusys\n", __func__);

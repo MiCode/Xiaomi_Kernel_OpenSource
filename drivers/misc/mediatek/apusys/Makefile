@@ -82,6 +82,7 @@ apusys-objs += edma/edma_cmd_hnd.o
 apusys-objs += edma/edma_plat_device.o
 apusys-objs += edma/edma_v20.o
 apusys-objs += edma/edma_v30.o
+apusys-objs += edma/edma_rv.o
 #apusys-objs += edma/apusys_power_dummy.o
 
 
@@ -124,6 +125,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNO
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_drv.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_pmu.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_tag.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_rv.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/mnoc_plat_device.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/v1_50/mnoc_hw_v1_50.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/v1_51/mnoc_hw_v1_51.o

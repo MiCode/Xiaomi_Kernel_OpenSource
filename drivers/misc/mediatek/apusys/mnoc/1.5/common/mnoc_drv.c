@@ -70,7 +70,6 @@ struct mnoc_plat_drv mnoc_drv;
 struct apusys_core_info *mnoc_core_info;
 
 
-
 phys_addr_t get_apu_iommu_tfrp(unsigned int id)
 {
 	return mnoc_drv.get_apu_iommu_tfrp(id);
@@ -377,6 +376,8 @@ int mnoc_init(struct apusys_core_info *info)
 	memset(&mnoc_drv, 0, sizeof(struct mnoc_plat_drv));
 
 	mnoc_driver.driver.of_match_table = mnoc_util_get_device_id();
+
+	mnoc_rv_setup(info);
 
 	if (platform_driver_register(&mnoc_driver)) {
 		LOG_ERR("failed to register %s driver", APUSYS_MNOC_DEV_NAME);

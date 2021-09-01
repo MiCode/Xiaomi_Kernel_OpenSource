@@ -77,6 +77,16 @@ static const struct {
 		.direction = IPI_APU_INITIATE,
 		.ack = IPI_WITH_ACK,
 	},
+	[APU_IPI_EDMA_TX] = { // 11
+		.name = "apu-edma-rpmsg",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITHOUT_ACK,
+	},
+	[APU_IPI_MNOC_TX] = { // 12
+		.name = "apu-mnoc-rpmsg",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITHOUT_ACK,
+	},
 };
 
 
