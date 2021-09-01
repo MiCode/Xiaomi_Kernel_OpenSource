@@ -28,7 +28,7 @@
 #include <linux/parser.h>
 
 #include <public/trusted_mem_api.h>
-#include "private/ssheap_priv.h"
+#include <private/ssheap_priv.h>
 
 enum {
 	UT_OPT_ERR = 0,
@@ -58,20 +58,6 @@ static int ssheap_release(__always_unused struct inode *ino,
 	return 0;
 }
 
-static void dump_debug_info(void)
-{
-	int total_allocated_size;
-
-	pr_info("%s: ssheap base=%pa, size=%pa\n", __func__, &ssheap_base,
-		&ssheap_size);
-
-	total_allocated_size = atomic64_read(&ssheap_total_allocated_size);
-	pr_info("%s: ssheap_total_allocated_size: 0x%x\n", __func__,
-		total_allocated_size);
-	pr_info("%s: free_size: 0x%llx\n", __func__,
-		ssheap_size - total_allocated_size);
-}
-
 static void dump_buf_info(struct ssheap_buf_info *info)
 {
 	int i;
@@ -98,9 +84,6 @@ static void dump_buf_info(struct ssheap_buf_info *info)
 
 static void ssheap_ut(const char *buf)
 {
-	unsigned long attrs = 0;
-	void *ptr = NULL;
-	dma_addr_t handle;
 	struct ssheap_buf_info *info;
 	static struct ssheap_buf_info *last_info;
 	int token;
@@ -110,7 +93,6 @@ static void ssheap_ut(const char *buf)
 	uint32_t ut_align = 0;
 	uint32_t ut_dump = 0;
 	char *options, *p, *o;
-	struct page *page = NULL;
 	unsigned long smc_ret;
 
 	options = o = kstrdup(buf, GFP_KERNEL);
@@ -148,14 +130,14 @@ static void ssheap_ut(const char *buf)
 
 	pr_info("cmd=%d size=%#x align=%#x\n", ut_cmd, ut_size, ut_align);
 	if (ut_cmd == 1) {
-		info = ssheap_alloc_non_contig(ut_size, ut_align, 0xff);
+		info = ssheap_alloc_non_contig(ut_size, ut_align, 0x9);
 		if (info == NULL) {
 			pr_info("cmd=%d FAILED\n", ut_cmd);
 		} else {
-			smc_ret = mtee_assign_buffer(info, 0xff);
+			smc_ret = mtee_assign_buffer(info, 0x9);
 			pr_debug("secure buffer ret:%d (0x%x)\n", smc_ret,
 				 smc_ret);
-			smc_ret = mtee_unassign_buffer(info, 0xff);
+			smc_ret = mtee_unassign_buffer(info, 0x9);
 			pr_debug("unsecure buffer ret:%d (0x%x)\n", smc_ret,
 				 smc_ret);
 			if (ut_dump)
@@ -195,37 +177,10 @@ static void ssheap_ut(const char *buf)
 		last_info = NULL;
 		pr_info("cmd=%d PASSED\n", ut_cmd);
 	}
-	if (ut_cmd == 3) {
-		attrs = DMA_ATTR_NO_KERNEL_MAPPING;
-		ptr = dma_alloc_attrs(ssheap_dev, ut_size, &handle, GFP_KERNEL,
-				      attrs);
-		pr_info("ptr=%p dma_handle=%lx dma_phys=%llx\n", ptr,
-			(unsigned long)handle, dma_to_phys(ssheap_dev, handle));
-		if (ptr) {
-			pr_info("free ptr=%p dma_handle=%lx\n", handle);
-			dma_free_attrs(ssheap_dev, ut_size, ptr, handle, attrs);
-			pr_info("cmd=%d PASSED\n", ut_cmd);
-		} else {
-			pr_info("cmd=%d FAILED\n", ut_cmd);
-		}
-	}
-	if (ut_cmd == 4) {
-		page = cma_alloc(ssheap_dev->cma_area, ut_size >> PAGE_SHIFT,
-				 get_order(ut_align), GFP_KERNEL);
-		if (page) {
-			pr_info("allocated phys_addr=%lx\n",
-				page_to_phys(page));
-			cma_release(ssheap_dev->cma_area, page,
-				    ut_size >> PAGE_SHIFT);
-			pr_info("cmd=%d PASSED\n", ut_cmd);
-		} else {
-			pr_info("cmd=%d FAILED\n", ut_cmd);
-		}
-	}
 
 out:
 	if (ut_dump)
-		dump_debug_info();
+		ssheap_dump_mem_info();
 
 	kfree(options);
 }
