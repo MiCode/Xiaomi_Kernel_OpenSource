@@ -89,55 +89,71 @@ void mt_pwm_power_on_hal(u32 pwm_no, bool pmic_pad, unsigned long *power_flag)
 
 	/* Set pwm_main , pwm_hclk_main(for memory and random mode) */
 	if (0 == (*power_flag)) {
-		pr_debug("[PWM][CCF]enable clk PWM_CLK:%p PWM_HCLK: %p\n",
-			pwm_clk[PWM_CLK], pwm_clk[PWM_HCLK]);
-		clk_en_ret = clk_prepare_enable(pwm_clk[PWM_CLK]);
-		if (clk_en_ret) {
-			pr_notice("[PWM][CCF]enable clk PWM_CLK failed. ret:%d, clk_pwm_main:%p\n",
-			clk_en_ret, pwm_clk[PWM_CLK]);
-		} else
-			set_bit(PWM_CLK, power_flag);
+		if (pwm_clk[PWM_CLK]) {
+			pr_info("[PWM][CCF]enable clk PWM_CLK:%p\n",
+				pwm_clk[PWM_CLK]);
+			clk_en_ret = clk_prepare_enable(pwm_clk[PWM_CLK]);
+			if (clk_en_ret) {
+				pr_notice("[PWM][CCF]enable clk PWM_CLK failed. ret:%d, clk_pwm_main:%p\n",
+				clk_en_ret, pwm_clk[PWM_CLK]);
+			} else
+				set_bit(PWM_CLK, power_flag);
+		}
 
-		clk_en_ret = clk_prepare_enable(pwm_clk[PWM_HCLK]);
-		if (clk_en_ret) {
-			pr_notice("[PWM][CCF]enable clk PWM_HCLK failed. ret:%d, clk_pwm_hclk_main:%p\n",
-			clk_en_ret, pwm_clk[PWM_HCLK]);
-		} else
-			set_bit(PWM_HCLK, power_flag);
+		if (pwm_clk[PWM_HCLK]) {
+			pr_info("[PWM][CCF]enable clk PWM_HCLK: %p\n",
+				pwm_clk[PWM_HCLK]);
+			clk_en_ret = clk_prepare_enable(pwm_clk[PWM_HCLK]);
+			if (clk_en_ret) {
+				pr_notice("[PWM][CCF]enable clk PWM_HCLK failed. ret:%d, clk_pwm_hclk_main:%p\n",
+				clk_en_ret, pwm_clk[PWM_HCLK]);
+			} else
+				set_bit(PWM_HCLK, power_flag);
+		}
 	}
 	/* Set pwm_no clk */
 	if (!test_bit(pwm_no, power_flag)) {
-		pr_debug("[PWM][CCF]enable clk_pwm%d :%p\n",
-			pwm_no, pwm_clk[pwm_no]);
-		clk_en_ret = clk_prepare_enable(pwm_clk[pwm_no]);
-		if (clk_en_ret) {
-			pr_notice("[PWM][CCF]enable clk_pwm_main failed. ret:%d, clk_pwm%d :%p\n",
-			clk_en_ret, pwm_no, pwm_clk[pwm_no]);
-		} else
-			set_bit(pwm_no, power_flag);
+		if (pwm_clk[pwm_no]) {
+			pr_info("[PWM][CCF]enable clk_pwm%d :%p\n",
+				pwm_no, pwm_clk[pwm_no]);
+			clk_en_ret = clk_prepare_enable(pwm_clk[pwm_no]);
+			if (clk_en_ret) {
+				pr_notice("[PWM][CCF]enable clk_pwm_main failed. ret:%d, clk_pwm%d :%p\n",
+				clk_en_ret, pwm_no, pwm_clk[pwm_no]);
+			} else
+				set_bit(pwm_no, power_flag);
+		}
 	}
 }
 
 void mt_pwm_power_off_hal(u32 pwm_no, bool pmic_pad, unsigned long *power_flag)
 {
 	if (test_bit(pwm_no, power_flag)) {
-		pr_debug("[PWM][CCF]disable clk_pwm%d :%p\n",
-			pwm_no, pwm_clk[pwm_no]);
-		clk_disable_unprepare(pwm_clk[pwm_no]);
-		clear_bit(pwm_no, power_flag);
+		if (pwm_clk[pwm_no]) {
+			pr_info("[PWM][CCF]disable clk_pwm%d :%p\n",
+				pwm_no, pwm_clk[pwm_no]);
+			clk_disable_unprepare(pwm_clk[pwm_no]);
+			clear_bit(pwm_no, power_flag);
+		}
 	}
 
 	if ((*power_flag) == ((1 << PWM_HCLK) | (1 << PWM_CLK))) {
 		/* Disable PWM-main, PWM-HCLK-main */
-		pr_debug("[PWM][CCF]disable clk_pwm :%p, clk_pwm_hclk :%p\n",
-			pwm_clk[PWM_CLK], pwm_clk[PWM_HCLK]);
 		if (test_bit(PWM_HCLK, power_flag)) {
-			clk_disable_unprepare(pwm_clk[PWM_HCLK]);
-			clear_bit(PWM_HCLK, power_flag);
+			if (pwm_clk[PWM_HCLK]) {
+				pr_info("[PWM][CCF]disable clk_pwm_hclk :%p\n",
+					pwm_clk[PWM_HCLK]);
+				clk_disable_unprepare(pwm_clk[PWM_HCLK]);
+				clear_bit(PWM_HCLK, power_flag);
+			}
 		}
 		if (test_bit(PWM_CLK, power_flag)) {
-			clk_disable_unprepare(pwm_clk[PWM_CLK]);
-			clear_bit(PWM_CLK, power_flag);
+			if (pwm_clk[PWM_CLK]) {
+				pr_info("[PWM][CCF]disable clk_pwm :%p\n",
+					pwm_clk[PWM_CLK]);
+				clk_disable_unprepare(pwm_clk[PWM_CLK]);
+				clear_bit(PWM_CLK, power_flag);
+			}
 		}
 	}
 }
@@ -727,10 +743,13 @@ int mt_get_pwm_clk_src(struct platform_device *pdev)
 
 	for (i = PWM1_CLK; i < PWM_CLK_NUM; i++) {
 		pwm_clk[i] = devm_clk_get(&pdev->dev, pwm_clk_name[i]);
-		if (IS_ERR(pwm_clk[i]))
-			pr_debug("cannot get %s clock\n", pwm_clk_name[i]);
-		pr_debug("[PWM] get %s clock, %p\n",
+		if (IS_ERR(pwm_clk[i])) {
+			pwm_clk[i] = NULL;
+			pr_info("cannot get %s clock\n", pwm_clk_name[i]);
+		} else {
+			pr_info("[PWM] get %s clock, %p\n",
 				pwm_clk_name[i], pwm_clk[i]);
+		}
 	}
 	return 0;
 }
