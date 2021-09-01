@@ -238,26 +238,25 @@ static int pps_request_thread_fn(void *data)
 {
 	struct tcpc_device *tcpc = data;
 	struct pd_port *pd_port = &tcpc->pd_port;
-	long ret = 0;
+	int ret = 0;
 	struct tcp_dpm_event tcp_event = {
 		.event_id = TCP_DPM_EVT_REQUEST_AGAIN,
 	};
 
 	while (true) {
-		wait_event_interruptible(pd_port->pps_request_wait_que,
-					 atomic_read(&pd_port->pps_request) ||
-					 kthread_should_stop());
-		if (kthread_should_stop())
+		ret = wait_event_interruptible(pd_port->pps_request_wait_que,
+				atomic_read(&pd_port->pps_request) ||
+				kthread_should_stop());
+		if (kthread_should_stop() || ret) {
+			dev_notice(&tcpc->dev, "%s exits(%d)\n", __func__, ret);
 			break;
-		do {
-			ret = wait_event_timeout(pd_port->pps_request_wait_que,
+		}
+		while (!wait_event_timeout(pd_port->pps_request_wait_que,
 					!atomic_read(&pd_port->pps_request) ||
 					kthread_should_stop(),
-					msecs_to_jiffies(7*1000));
-			if (ret)
-				break;
+					msecs_to_jiffies(7*1000))) {
 			pd_put_deferred_tcp_event(tcpc, &tcp_event);
-		} while (true);
+		}
 	}
 
 	return 0;
@@ -2007,7 +2006,7 @@ void pd_dpm_inform_status(struct pd_port *pd_port)
 		sdb = pd_get_msg_data_payload(pd_port);
 		DPM_INFO2("Temp=%d, IN=0x%x, BAT_IN=0x%x, EVT=0x%x, PTF=0x%x\n",
 			sdb->internal_temp, sdb->present_input,
-			sdb->present_battey_input, sdb->event_flags,
+			sdb->present_battery_input, sdb->event_flags,
 			PD_STATUS_TEMP_PTF(sdb->temp_status));
 
 		tcpci_notify_status(tcpc, sdb);
@@ -2021,14 +2020,14 @@ int pd_dpm_send_status(struct pd_port *pd_port)
 	struct pd_status sdb;
 	struct pe_data *pe_data = &pd_port->pe_data;
 
-	memset(&sdb, 0, sizeof(struct pd_status));
+	memset(&sdb, 0, PD_SDB_SIZE);
 
 	sdb.present_input = pd_port->pd_status_present_in;
 
 #ifdef CONFIG_USB_PD_REV30_BAT_INFO
 	if (sdb.present_input &
 		PD_STATUS_INPUT_INT_POWER_BAT) {
-		sdb.present_battey_input = pd_port->pd_status_bat_in;
+		sdb.present_battery_input = pd_port->pd_status_bat_in;
 	}
 #endif	/* CONFIG_USB_PD_REV30_BAT_INFO */
 
@@ -2304,11 +2303,9 @@ int pd_dpm_core_init(struct pd_port *pd_port)
 	int i, j;
 	bool ret;
 	uint8_t svid_ops_nr = ARRAY_SIZE(svdm_svid_ops);
-#ifdef CONFIG_USB_PD_REV30
 	struct tcpc_device *tcpc = pd_port->tcpc;
-#endif /* CONFIG_USB_PD_REV30 */
 
-	pd_port->svid_data = devm_kzalloc(&pd_port->tcpc->dev,
+	pd_port->svid_data = devm_kzalloc(&tcpc->dev,
 		sizeof(struct svdm_svid_data) * svid_ops_nr, GFP_KERNEL);
 
 	if (!pd_port->svid_data)

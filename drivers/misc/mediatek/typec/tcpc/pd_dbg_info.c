@@ -81,12 +81,16 @@ static inline bool pd_dbg_print_out(void)
 
 static int print_out_thread_fn(void *data)
 {
+	int ret = 0;
+
 	while (true) {
-		wait_event_interruptible(print_out_wait_que,
-					 atomic_read(&pending_print_out) ||
-					 kthread_should_stop());
-		if (kthread_should_stop())
+		ret = wait_event_interruptible(print_out_wait_que,
+				atomic_read(&pending_print_out) ||
+				kthread_should_stop());
+		if (kthread_should_stop() || ret) {
+			pr_notice("%s exits(%d)\n", __func__, ret);
 			break;
+		}
 		do {
 			atomic_dec_if_positive(&pending_print_out);
 		} while (pd_dbg_print_out() && !kthread_should_stop());

@@ -523,13 +523,12 @@ static int tcpc_typec_port_type_set(const struct typec_capability *cap,
 static int typec_init(struct rt_pd_manager_data *rpmd)
 {
 	int ret = 0;
-	uint8_t typec_role = tcpm_inquire_typec_role(rpmd->tcpc);
 
 	rpmd->typec_caps.type = TYPEC_PORT_DRP;
 	rpmd->typec_caps.data = TYPEC_PORT_DRD;
 	rpmd->typec_caps.revision = 0x0120;
 	rpmd->typec_caps.pd_revision = 0x0300;
-	switch (typec_role) {
+	switch (rpmd->tcpc->desc.role_def) {
 	case TYPEC_ROLE_SRC:
 	case TYPEC_ROLE_TRY_SRC:
 		rpmd->typec_caps.prefer_role = TYPEC_SOURCE;

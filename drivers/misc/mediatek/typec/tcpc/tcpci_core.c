@@ -23,7 +23,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.15_MTK"
+#define TCPC_CORE_VERSION		"2.0.16_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -74,6 +74,7 @@ static const struct attribute_group *tcpc_attr_groups[] = {
 };
 
 static const char * const role_text[] = {
+	"Unknown",
 	"SNK Only",
 	"SRC Only",
 	"DRP",
@@ -469,7 +470,7 @@ static int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 		return ret;
 	}
 
-	ret = tcpc_typec_init(tcpc, tcpc->desc.role_def + 1);
+	ret = tcpc_typec_init(tcpc, tcpc->desc.role_def);
 	tcpci_unlock_typec(tcpc);
 	if (ret < 0) {
 		pr_err("%s : tcpc typec init fail\n", __func__);
@@ -953,6 +954,12 @@ MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.16_MTK
+ * (1) Check the return value of wait_event_interruptible()
+ * (2) Revise *_get_cc()
+ * (3) Revise role_def
+ * (4) Fix COMMON.CHECK.PD.10
+ *
  * 2.0.15_MTK
  * (1) undef CONFIG_COMPATIBLE_APPLE_TA
  * (2) Fix TEST.PD.PROT.ALL.5 Unrecognized Message (PD2)

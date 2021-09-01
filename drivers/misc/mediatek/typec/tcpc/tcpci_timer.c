@@ -1327,15 +1327,18 @@ static int tcpc_timer_thread_fn(void *data)
 {
 	struct tcpc_device *tcpc = data;
 	struct sched_param sch_param = {.sched_priority = MAX_RT_PRIO - 1};
+	int ret = 0;
 
 	sched_setscheduler(current, SCHED_FIFO, &sch_param);
 
 	while (true) {
-		wait_event_interruptible(tcpc->timer_wait_que,
-					 tcpc_get_timer_tick(tcpc) ||
-					 kthread_should_stop());
-		if (kthread_should_stop())
+		ret = wait_event_interruptible(tcpc->timer_wait_que,
+					       tcpc_get_timer_tick(tcpc) ||
+					       kthread_should_stop());
+		if (kthread_should_stop() || ret) {
+			dev_notice(&tcpc->dev, "%s exits(%d)\n", __func__, ret);
 			break;
+		}
 		tcpc_handle_timer_triggered(tcpc);
 	}
 
