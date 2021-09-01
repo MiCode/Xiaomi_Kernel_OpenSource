@@ -272,9 +272,9 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 
 	if (on) {
 		ufs_mtk_ref_clk_notify(on, res);
-		ufshcd_delay_us(host->ref_clk_ungating_wait_us, 10);
 		ufshcd_writel(hba, REFCLK_REQUEST, REG_UFS_REFCLK_CTRL);
 	} else {
+		ufshcd_delay_us(host->ref_clk_gating_wait_us, 10);
 		ufshcd_writel(hba, REFCLK_RELEASE, REG_UFS_REFCLK_CTRL);
 	}
 
@@ -299,10 +299,10 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 
 out:
 	host->ref_clk_enabled = on;
-	if (!on) {
-		ufshcd_delay_us(host->ref_clk_gating_wait_us, 10);
+	if (on)
+		ufshcd_delay_us(host->ref_clk_ungating_wait_us, 10);
+	else
 		ufs_mtk_ref_clk_notify(on, res);
-	}
 
 	return 0;
 }
@@ -1912,7 +1912,7 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 	/*
 	 * Decide waiting time before gating reference clock and
 	 * after ungating reference clock according to vendors'
-	 * requirements.
+	 * requirements. Default 30, 30.
 	 */
 	if (mid == UFS_VENDOR_SAMSUNG)
 		ufs_mtk_setup_ref_clk_wait_us(hba, 1, 1);
@@ -1920,6 +1920,8 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 		ufs_mtk_setup_ref_clk_wait_us(hba, 30, 30);
 	else if (mid == UFS_VENDOR_TOSHIBA)
 		ufs_mtk_setup_ref_clk_wait_us(hba, 100, 32);
+	else
+		ufs_mtk_setup_ref_clk_wait_us(hba, 30, 30);
 
 	return 0;
 }
