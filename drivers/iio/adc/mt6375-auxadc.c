@@ -195,7 +195,7 @@ static int auxadc_read_imp(struct mt6375_priv *priv, int *vbat, int *ibat)
 	if (ret)
 		return ret;
 	raw_val &= (BIT(dbits) - 1);
-	*vbat = div_s64((s64)raw_val * 7360, BIT(dbits)) * 10; /* 0.1mV */
+	*vbat = div_s64((s64)raw_val * 7360, BIT(dbits));
 
 	ret = regmap_write(priv->regmap, AUXADC_IMP0, 0);
 	if (ret)
@@ -531,6 +531,10 @@ static int auxadc_get_rac(struct mt6375_priv *priv)
 			return ret;
 
 		mdelay(50);
+
+		/* translate to 0.1mV */
+		vbat_1 *= 10;
+		vbat_2 *= 10;
 
 		/* Cal.Rac: 70mA <= c_diff <= 120mA, 4mV <= v_diff <= 200mV */
 		if ((ibat_2 - ibat_1) >= 700 && (ibat_2 - ibat_1) <= 1200 &&
