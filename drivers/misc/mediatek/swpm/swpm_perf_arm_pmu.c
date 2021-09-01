@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -10,6 +10,7 @@
 #include <linux/workqueue.h>
 
 static unsigned int swpm_arm_pmu_status;
+static unsigned int boundary;
 
 static void swpm_perf_arm_pmu_init(struct work_struct *work);
 static struct workqueue_struct *swpm_perf_arm_pmu_init_work_queue;
@@ -27,7 +28,7 @@ static struct perf_event_attr l3dc_event_attr = {
 	.config		= ARMV8_PMUV3_PERFCTR_L3D_CACHE, /* 0x2B */
 	.size           = sizeof(struct perf_event_attr),
 	.pinned         = 1,
-/* 	.disabled       = 1, */
+/*	.disabled       = 1, */
 //	.sample_period  = 0, /* 1000000000, */ /* ns ? */
 };
 static struct perf_event_attr inst_spec_event_attr = {
@@ -44,7 +45,7 @@ static struct perf_event_attr cycle_event_attr = {
 	.config         = PERF_COUNT_HW_CPU_CYCLES,
 	.size           = sizeof(struct perf_event_attr),
 	.pinned         = 1,
-/* 	.disabled       = 1, */
+/*	.disabled       = 1, */
 //	.sample_period  = 0, /* 1000000000, */ /* ns ? */
 };
 
@@ -66,7 +67,7 @@ static int swpm_arm_pmu_enable(int cpu, int enable)
 			}
 			per_cpu(l3dc_events, cpu) = event;
 		}
-		if (!i_event) {
+		if (!i_event && cpu >= boundary) {
 			event = perf_event_create_kernel_counter(
 				&inst_spec_event_attr, cpu, NULL, NULL, NULL);
 			if (IS_ERR(event)) {
@@ -76,7 +77,7 @@ static int swpm_arm_pmu_enable(int cpu, int enable)
 			}
 			per_cpu(inst_spec_events, cpu) = event;
 		}
-		if (!c_event) {
+		if (!c_event && cpu >= boundary) {
 			event = perf_event_create_kernel_counter(
 				&cycle_event_attr, cpu,	NULL, NULL, NULL);
 			if (IS_ERR(event)) {
@@ -116,7 +117,7 @@ static int swpm_arm_pmu_enable(int cpu, int enable)
 
 	return 0;
 FAIL:
-        return (int)PTR_ERR(event);
+	return (int)PTR_ERR(event);
 }
 
 int swpm_arm_pmu_get_status(void)
@@ -150,8 +151,13 @@ static void swpm_perf_arm_pmu_init(struct work_struct *work)
 	swpm_arm_pmu_enable_all(1);
 }
 
-int __init swpm_arm_pmu_init(void)
+int swpm_arm_pmu_set_boundary_init(unsigned int bound)
 {
+	int ret = 0;
+
+	/* set L-boundary for inst_spec and cycles event */
+	boundary = bound;
+
 	if (!swpm_perf_arm_pmu_init_work_queue) {
 		swpm_perf_arm_pmu_init_work_queue =
 			create_workqueue("swpm_perf_arm_pmu_init");
@@ -163,6 +169,13 @@ int __init swpm_arm_pmu_init(void)
 		queue_work(swpm_perf_arm_pmu_init_work_queue,
 			   &swpm_perf_arm_pmu_init_work);
 
+	return ret;
+}
+EXPORT_SYMBOL(swpm_arm_pmu_set_boundary_init);
+
+int __init swpm_arm_pmu_init(void)
+{
+	/* actual init by platform */
 	return 0;
 }
 module_init(swpm_arm_pmu_init);

@@ -8,5 +8,6 @@
 
 extern int swpm_arm_pmu_get_status(void);
 extern int swpm_arm_pmu_enable_all(unsigned int enable);
+extern int swpm_arm_pmu_set_boundary_init(unsigned int bound);
 
 #endif
