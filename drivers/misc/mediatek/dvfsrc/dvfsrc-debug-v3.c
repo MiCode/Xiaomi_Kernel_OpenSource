@@ -177,6 +177,11 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 	return readl(dvfs->spm_regs + dvfs->dvd->config->spm_regs[reg]);
 }
 
+static u32 spm_read_offset(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
+{
+	return readl(dvfs->spm_regs + dvfs->dvd->config->spm_regs[reg] + offset);
+}
+
 static u32 dvfsrc_get_scp_req(struct mtk_dvfsrc *dvfsrc)
 {
 	/* DVFSRC_DEBUG_STA_2 */
@@ -618,6 +623,23 @@ static char *dvfsrc_dump_mt6873_spm_info(struct mtk_dvfsrc *dvfsrc,
 	return p;
 }
 
+static char *dvfsrc_dump_mt6983_spm_info(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
+{
+	char *buff_end = p + size;
+	int i;
+
+	if (!dvfsrc->spm_regs)
+		return p;
+
+	for (i = 0; i < 24; i++) {
+		p += snprintf(p, buff_end - p, "CMD%d: 0x%08x\n", i,
+			spm_read_offset(dvfsrc, SPM_DVFS_CMD0, i * 4));
+	}
+
+	return p;
+}
+
 #define MTK_SIP_VCOREFS_GET_VCORE_INFO 18
 static int dvfsrc_dvfs_get_vcore_info_data(u32 idx)
 {
@@ -762,5 +784,6 @@ const struct dvfsrc_config mt6983_dvfsrc_config = {
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
 	.query_dvfs_time = dvfsrc_query_dvfs_time,
+	.dump_spm_cmd = dvfsrc_dump_mt6983_spm_info,
 };
 

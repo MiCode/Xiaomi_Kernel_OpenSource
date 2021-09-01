@@ -139,6 +139,22 @@ static ssize_t dvfsrc_dump_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_dump);
 
+static ssize_t spm_cmd_dump_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *p = buf;
+	ssize_t dump_size = PAGE_SIZE - 1;
+	const struct dvfsrc_config *config;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	config = dvfsrc->dvd->config;
+	if (config->dump_spm_cmd && dvfsrc->spm_regs)
+		p = config->dump_spm_cmd(dvfsrc, p, dump_size - (p - buf));
+
+	return p - buf;
+}
+static DEVICE_ATTR_RO(spm_cmd_dump);
+
 static ssize_t dvfsrc_opp_table_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -212,6 +228,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_opp_table.attr,
 	&dev_attr_dvfsrc_num_opps.attr,
 	&dev_attr_dvfsrc_get_dvfs_time.attr,
+	&dev_attr_spm_cmd_dump.attr,
 	NULL,
 };
 

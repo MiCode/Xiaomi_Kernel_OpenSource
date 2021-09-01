@@ -435,10 +435,12 @@ static void dvfsrc_debug_notifier_register(struct mtk_dvfsrc *dvfsrc)
 
 static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 {
+	if (dvfsrc->force_opp_idx != opp) {
+		mtk_dvfsrc_send_request(dvfsrc->dev->parent,
+			MTK_DVFSRC_CMD_FORCEOPP_REQUEST,
+			opp);
+	}
 	dvfsrc->force_opp_idx = opp;
-	mtk_dvfsrc_send_request(dvfsrc->dev->parent,
-		MTK_DVFSRC_CMD_FORCEOPP_REQUEST,
-		opp);
 }
 
 static void mtk_dvfsrc_get_perf_bw(struct mtk_dvfsrc *dvfsrc,
