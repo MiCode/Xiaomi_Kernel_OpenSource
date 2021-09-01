@@ -156,7 +156,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 
 	switch (msg->cmd) {
 	case DPIDLE_CMD_LOCK_IPI:
-		dev_info(apu->dev, "%s: lock IPI req ++\n");
+		dev_info(apu->dev, "%s: lock IPI req ++\n", __func__);
 		ret = apu_ipi_lock(apu);
 		if (ret) {
 			dev_info(apu->dev, "%s: failed to lock IPI, ret=%d\n",
@@ -167,7 +167,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		}
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_LOCK_IPI,
 				      DPIDLE_ACK_OK);
-		dev_info(apu->dev, "%s: lock IPI req --\n");
+		dev_info(apu->dev, "%s: lock IPI req --\n", __func__);
 		break;
 
 	case DPIDLE_CMD_UNLOCK_IPI:
