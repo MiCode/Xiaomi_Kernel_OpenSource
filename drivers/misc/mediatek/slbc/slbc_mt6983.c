@@ -678,10 +678,14 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	}
 	mutex_unlock(&slbc_ops_lock);
 
-	seq_printf(m, "stat req count:%ld min:%lld avg:%lld max:%lld\n",
-			req_val_count, req_val_min, req_val_total / req_val_count, req_val_max);
-	seq_printf(m, "stat rel count:%ld min:%lld avg:%lld max:%lld\n",
-			rel_val_count, rel_val_min, rel_val_total / rel_val_count, rel_val_max);
+	if (req_val_count) {
+		seq_printf(m, "stat req count:%ld min:%lld avg:%lld max:%lld\n",
+				req_val_count, req_val_min,
+				req_val_total / req_val_count, req_val_max);
+		seq_printf(m, "stat rel count:%ld min:%lld avg:%lld max:%lld\n",
+				rel_val_count, rel_val_min,
+				rel_val_total / rel_val_count, rel_val_max);
+	}
 
 	seq_puts(m, "\n");
 
