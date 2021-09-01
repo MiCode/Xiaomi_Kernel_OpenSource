@@ -11080,17 +11080,31 @@
 		mediatek,cammux-id = <3>;
 		interrupts = <GIC_SPI 477 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVA_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsva_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsva_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv2@1a111000 {
@@ -11103,17 +11117,31 @@
 		mediatek,cammux-id = <4>;
 		interrupts = <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVA_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsva_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsva_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv3@1a112000 {
@@ -11126,17 +11154,31 @@
 		mediatek,cammux-id = <5>;
 		interrupts = <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVB_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvb_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvb_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv4@1a113000 {
@@ -11149,17 +11191,31 @@
 		mediatek,cammux-id = <6>;
 		interrupts = <GIC_SPI 480 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVB_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvb_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvb_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv5@1a114000 {
@@ -11172,17 +11228,31 @@
 		mediatek,cammux-id = <7>;
 		interrupts = <GIC_SPI 481 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVC_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsvc_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsvc_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv6@1a115000 {
@@ -11195,17 +11265,31 @@
 		mediatek,cammux-id = <8>;
 		interrupts = <GIC_SPI 482 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVC_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsvc_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsvc_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv7@1a116000 {
@@ -11218,17 +11302,31 @@
 		mediatek,cammux-id = <19>;
 		interrupts = <GIC_SPI 483 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVD_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_B_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvd_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_b_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvd_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_b_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv8@1a117000 {
@@ -11241,17 +11339,31 @@
 		mediatek,cammux-id = <20>;
 		interrupts = <GIC_SPI 484 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVD_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_B_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvd_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_b_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvd_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_b_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv9@1a180000 {
@@ -11264,17 +11376,31 @@
 		mediatek,cammux-id = <21>;
 		interrupts = <GIC_SPI 485 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVE_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_A_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsve_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_a_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsve_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_a_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv10@1a181000 {
@@ -11287,17 +11413,31 @@
 		mediatek,cammux-id = <22>;
 		interrupts = <GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVE_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_B_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsve_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "cam_main_camsv_cq_b_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsve_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"cam_main_camsv_cq_b_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv11@1a182000 {
@@ -11310,15 +11450,29 @@
 		mediatek,cammux-id = <9>;
 		interrupts = <GIC_SPI 487 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVF_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvf_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvf_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv12@1a183000 {
@@ -11331,15 +11485,29 @@
 		mediatek,cammux-id = <10>;
 		interrupts = <GIC_SPI 488 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVF_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvf_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvf_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv13@1a184000 {
@@ -11352,15 +11520,29 @@
 		mediatek,cammux-id = <11>;
 		interrupts = <GIC_SPI 489 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVG_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsvg_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsvg_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv14@1a185000 {
@@ -11373,15 +11555,29 @@
 		mediatek,cammux-id = <12>;
 		interrupts = <GIC_SPI 490 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVG_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb13_cg_con",
-				     "cam_main_gcamsvg_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb13_cg_con",
+					"cam_main_gcamsvg_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv15@1a186000 {
@@ -11394,15 +11590,29 @@
 		mediatek,cammux-id = <13>;
 		interrupts = <GIC_SPI 491 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVH_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvh_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvh_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	camsv16@1a187000 {
@@ -11415,15 +11625,29 @@
 		mediatek,cammux-id = <14>;
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2SYS_GALS_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMTG_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_GCAMSVH_CG_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_TOP_CG_CON>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 				<&topckgen_clk CLK_TOP_CAMTM_SEL>;
 
-		clock-names = "cam_main_larb14_cg_con",
-				     "cam_main_gcamsvh_cg_con",
-				     "cam_main_camsv_top_cg_con",
-				     "topckgen_top_camtm_sel";
+		clock-names = "cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam2sys_gals_cg_con",
+					"cam_main_cam_cg_con",
+					"cam_main_camtg_cg_con",
+					"cam_main_larb14_cg_con",
+					"cam_main_gcamsvh_cg_con",
+					"cam_main_camsv_top_cg_con",
+					"topckgen_top_cam_sel",
+					"topckgen_top_camtg_sel",
+					"topckgen_top_camtm_sel";
 	};
 
 	mraw1@1a130000 {
