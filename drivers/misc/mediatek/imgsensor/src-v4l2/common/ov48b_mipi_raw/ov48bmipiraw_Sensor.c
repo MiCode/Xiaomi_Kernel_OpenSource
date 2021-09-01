@@ -383,8 +383,8 @@ static void set_dummy(struct subdrv_ctx *ctx)
 	if (!_is_seamless) {
 		//ctx->frame_length = (ctx->frame_length  >> 1) << 1;
 		//write_cmos_sensor_8(ctx, 0x3208, 0x00);
-		write_cmos_sensor_8(ctx, 0x380c, ctx->line_length >> 8);
-		write_cmos_sensor_8(ctx, 0x380d, ctx->line_length & 0xFF);
+		//write_cmos_sensor_8(ctx, 0x380c, ctx->line_length >> 8);
+		//write_cmos_sensor_8(ctx, 0x380d, ctx->line_length & 0xFF);
 		write_cmos_sensor_8(ctx, 0x380e, ctx->frame_length >> 8);
 		write_cmos_sensor_8(ctx, 0x380f, ctx->frame_length & 0xFF);
 		//write_cmos_sensor_8(ctx, 0x3208, 0x10);
@@ -572,7 +572,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	kal_uint32 max_gain = imgsensor_info.max_gain;
 
 	if (gain < imgsensor_info.min_gain || gain > max_gain) {
-		pr_debug("Error gain setting");
+		pr_debug("Error gain setting\n");
 
 		if (gain < imgsensor_info.min_gain)
 			gain = imgsensor_info.min_gain;
@@ -583,7 +583,6 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
 
-	pr_debug("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
 #if SEAMLESS_
 	if (!_is_seamless) {
 		write_cmos_sensor_8(ctx, 0x03508, (reg_gain >> 8));
@@ -595,6 +594,8 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 		_i2c_data[_size_to_write++] =  reg_gain & 0xff;
 	}
 #endif
+	pr_debug("gain = %d , reg_gain = 0x%x\n", gain, reg_gain);
+
 	return gain;
 }
 

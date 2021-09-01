@@ -278,14 +278,12 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
 
-	dev_info(ctx->dev, "exposure[LLLE->SSSE] %d %d %d %d %d\n",
+	dev_info(ctx->dev, "exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d\n",
 			 ae_ctrl->exposure.le_exposure,
 			 ae_ctrl->exposure.me_exposure,
 			 ae_ctrl->exposure.se_exposure,
 			 ae_ctrl->exposure.sse_exposure,
-			 ae_ctrl->exposure.ssse_exposure);
-
-	dev_info(ctx->dev, "ana_gain[LLLE->SSSE] %d %d %d %d %d\n",
+			 ae_ctrl->exposure.ssse_exposure,
 			 ae_ctrl->gain.le_gain,
 			 ae_ctrl->gain.me_gain,
 			 ae_ctrl->gain.se_gain,
