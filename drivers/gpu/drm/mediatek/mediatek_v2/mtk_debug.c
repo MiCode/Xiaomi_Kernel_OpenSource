@@ -3120,7 +3120,7 @@ void disp_dbg_probe(void)
 	struct dentry *d_folder;
 	struct dentry *d_file;
 
-	mtkfb_dbgfs = debugfs_create_file("mtkfb", S_IFREG | 0444, NULL,
+	mtkfb_dbgfs = debugfs_create_file("mtkfb", S_IFREG | 0440, NULL,
 					  NULL, &debug_fops);
 
 	d_folder = debugfs_create_dir("displowpower", NULL);
