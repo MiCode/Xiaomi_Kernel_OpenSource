@@ -2633,10 +2633,8 @@ EXPORT_SYMBOL(xgf_set_logical_render_info);
 
 void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag)
 {
-	fpsgo_main_trace("[fstb][%d][0x%llx] | ctrl_fps_tid:%d(%d)", pid, bufID,
-		hrtimer_pid, hrtimer_flag);
-	fpsgo_systrace_c_xgf(pid, bufID, hrtimer_pid, "ctrl_fps_pid");
-	fpsgo_systrace_c_xgf(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
+	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_pid, "ctrl_fps_tid");
+	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
 }
 EXPORT_SYMBOL(xgf_set_timer_info);
 
