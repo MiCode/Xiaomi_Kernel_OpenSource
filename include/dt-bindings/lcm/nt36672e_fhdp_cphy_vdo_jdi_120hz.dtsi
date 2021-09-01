@@ -240,22 +240,27 @@
 						lcm-params-dsi-dsc_cfg = <34>;
 						lcm-params-dsi-dsc_rct_on = <1>;
 						lcm-params-dsi-dsc_bit_per_channel = <8>;
-						lcm-params-dsi-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-lk-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
 						lcm-params-dsi-dsc_bp_enable = <1>;
 						lcm-params-dsi-dsc_bit_per_pixel = <128>;
 						lcm-params-dsi-dsc_pic_height = <2400>;
 						lcm-params-dsi-dsc_pic_width = <1080>;
-						lcm-params-dsi-dsc_slice_height = <8>;
+						lcm-params-dsi-lk-dsc_slice_height = <8>;
+						lcm-params-dsi-dsc_slice_height = <20>;
 						lcm-params-dsi-dsc_slice_width = <540>;
 						lcm-params-dsi-dsc_chunk_size = <540>;
 						lcm-params-dsi-dsc_xmit_delay = <170>;
 						lcm-params-dsi-dsc_dec_delay = <526>;
 						lcm-params-dsi-dsc_scale_value = <32>;
-						lcm-params-dsi-dsc_increment_interval = <43>;
+						lcm-params-dsi-lk-dsc_increment_interval = <43>;
+						lcm-params-dsi-dsc_increment_interval = <113>;
 						lcm-params-dsi-dsc_decrement_interval = <7>;
 						lcm-params-dsi-dsc_line_bpg_offset = <12>;
-						lcm-params-dsi-dsc_nfl_bpg_offset = <3511>;
-						lcm-params-dsi-dsc_slice_bpg_offset = <3255>;
+						lcm-params-dsi-lk-dsc_nfl_bpg_offset = <3511>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <1294>;
+						lcm-params-dsi-lk-dsc_slice_bpg_offset = <3255>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1302>;
 						lcm-params-dsi-dsc_initial_offset = <6144>;
 						lcm-params-dsi-dsc_final_offset = <7072>;
 						lcm-params-dsi-dsc_flatness_minqp = <3>;
@@ -432,22 +437,27 @@
 						lcm-params-dsi-dsc_cfg = <34>;
 						lcm-params-dsi-dsc_rct_on = <1>;
 						lcm-params-dsi-dsc_bit_per_channel = <8>;
-						lcm-params-dsi-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-lk-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
 						lcm-params-dsi-dsc_bp_enable = <1>;
 						lcm-params-dsi-dsc_bit_per_pixel = <128>;
 						lcm-params-dsi-dsc_pic_height = <2400>;
 						lcm-params-dsi-dsc_pic_width = <1080>;
-						lcm-params-dsi-dsc_slice_height = <8>;
+						lcm-params-dsi-lk-dsc_slice_height = <8>;
+						lcm-params-dsi-dsc_slice_height = <20>;
 						lcm-params-dsi-dsc_slice_width = <540>;
 						lcm-params-dsi-dsc_chunk_size = <540>;
 						lcm-params-dsi-dsc_xmit_delay = <170>;
 						lcm-params-dsi-dsc_dec_delay = <526>;
 						lcm-params-dsi-dsc_scale_value = <32>;
-						lcm-params-dsi-dsc_increment_interval = <43>;
+						lcm-params-dsi-lk-dsc_increment_interval = <43>;
+						lcm-params-dsi-dsc_increment_interval = <113>;
 						lcm-params-dsi-dsc_decrement_interval = <7>;
 						lcm-params-dsi-dsc_line_bpg_offset = <12>;
-						lcm-params-dsi-dsc_nfl_bpg_offset = <3511>;
-						lcm-params-dsi-dsc_slice_bpg_offset = <3255>;
+						lcm-params-dsi-lk-dsc_nfl_bpg_offset = <3511>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <1294>;
+						lcm-params-dsi-lk-dsc_slice_bpg_offset = <3255>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1302>;
 						lcm-params-dsi-dsc_initial_offset = <6144>;
 						lcm-params-dsi-dsc_final_offset = <7072>;
 						lcm-params-dsi-dsc_flatness_minqp = <3>;
@@ -700,22 +710,27 @@
 						lcm-params-dsi-dsc_cfg = <34>;
 						lcm-params-dsi-dsc_rct_on = <1>;
 						lcm-params-dsi-dsc_bit_per_channel = <8>;
-						lcm-params-dsi-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-lk-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
 						lcm-params-dsi-dsc_bp_enable = <1>;
 						lcm-params-dsi-dsc_bit_per_pixel = <128>;
 						lcm-params-dsi-dsc_pic_height = <2400>;
 						lcm-params-dsi-dsc_pic_width = <1080>;
-						lcm-params-dsi-dsc_slice_height = <8>;
+						lcm-params-dsi-lk-dsc_slice_height = <8>;
+						lcm-params-dsi-dsc_slice_height = <20>;
 						lcm-params-dsi-dsc_slice_width = <540>;
 						lcm-params-dsi-dsc_chunk_size = <540>;
 						lcm-params-dsi-dsc_xmit_delay = <170>;
 						lcm-params-dsi-dsc_dec_delay = <526>;
 						lcm-params-dsi-dsc_scale_value = <32>;
-						lcm-params-dsi-dsc_increment_interval = <43>;
+						lcm-params-dsi-lk-dsc_increment_interval = <43>;
+						lcm-params-dsi-dsc_increment_interval = <113>;
 						lcm-params-dsi-dsc_decrement_interval = <7>;
 						lcm-params-dsi-dsc_line_bpg_offset = <12>;
-						lcm-params-dsi-dsc_nfl_bpg_offset = <3511>;
-						lcm-params-dsi-dsc_slice_bpg_offset = <3255>;
+						lcm-params-dsi-lk-dsc_nfl_bpg_offset = <3511>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <1294>;
+						lcm-params-dsi-lk-dsc_slice_bpg_offset = <3255>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1302>;
 						lcm-params-dsi-dsc_initial_offset = <6144>;
 						lcm-params-dsi-dsc_final_offset = <7072>;
 						lcm-params-dsi-dsc_flatness_minqp = <3>;
@@ -844,7 +859,6 @@
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xff 0x10>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xfb 0x01>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xb0 0x00>,
-#if 0
 					<MTK_LCM_PHASE_TYPE_START 1 MTK_LCM_PHASE_KERNEL>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xc0 0x03>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
@@ -860,18 +874,15 @@
 					<MTK_LCM_PHASE_TYPE_START 2>,
 						<MTK_LCM_PHASE_LK>,
 						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
-#endif
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xc0 0x03>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
 						<0xc1 0x89 0x28 0x00 0x08 0x00 0xaa>,
 						<0x02 0x0e 0x00 0x2b 0x00 0x07 0x0d 0xb7>,
 						<0x0c 0xb7>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xc2 0x1b 0xa0>,
-#if 0
 					<MTK_LCM_PHASE_TYPE_END 2>,
 						<MTK_LCM_PHASE_LK>,
 						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
-#endif
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xe9 0x01>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xff 0x20>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xfb 0x01>,
