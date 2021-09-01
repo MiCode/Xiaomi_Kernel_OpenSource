@@ -14,7 +14,11 @@
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <soc/mediatek/smi.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#if IS_ENABLED(CONFIG_MTK_EMI)
+#include <soc/mediatek/emi.h>
+#endif
+#include "mtk_iommu.h"
+//#include <dt-bindings/memory/mtk-smi-larb-port.h>
 
 #define DRV_NAME	"mtk-smi-dbg"
 
@@ -634,7 +638,10 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 
 		smi->probe = true;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_EMI)
+	mtk_emidbg_dump();
+#endif
+	mtk_dump_reg_for_hang_issue(0);
 	//check LARB status
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		node = smi->larb[i];
