@@ -38,9 +38,7 @@ struct adspsys_description {
 	const int semaphore_ways;
 	const int semaphore_ctrl;
 	const int semaphore_retry;
-	const u32 sysram_dsp_view;
 	const u32 axibus_idle_val;
-	const u32 clkcg_default;
 };
 
 struct irq_t {

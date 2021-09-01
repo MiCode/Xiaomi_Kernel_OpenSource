@@ -144,7 +144,7 @@ int adsp_core0_suspend(void)
 			goto ERROR;
 		}
 
-		adsp_mt_stop(pdata->id);
+		adsp_core_stop(pdata->id);
 		switch_adsp_power(false);
 		set_adsp_state(pdata, ADSP_SUSPEND);
 	}
@@ -165,11 +165,8 @@ int adsp_core0_resume(void)
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
 		switch_adsp_power(true);
-		adsp_mt_sw_reset(pdata->id);
-		adsp_set_dram_remap(pdata);
-
 		reinit_completion(&pdata->done);
-		adsp_mt_run(pdata->id);
+		adsp_core_start(pdata->id);
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
@@ -217,8 +214,7 @@ int adsp_core1_suspend(void)
 			goto ERROR;
 		}
 
-		adsp_mt_stop(pdata->id);
-		switch_adsp_clk_ctrl_cg(false, ADSP_CLK_CORE_1_EN);
+		adsp_core_stop(pdata->id);
 		set_adsp_state(pdata, ADSP_SUSPEND);
 
 		/* notify another core suspend done */
@@ -243,11 +239,8 @@ int adsp_core1_resume(void)
 		/* core A force awake, for resume core B faster */
 		adsp_awake_lock(ADSP_A_ID);
 
-		switch_adsp_clk_ctrl_cg(true, ADSP_CLK_CORE_1_EN);
-		adsp_mt_sw_reset(pdata->id);
-
 		reinit_completion(&pdata->done);
-		adsp_mt_run(pdata->id);
+		adsp_core_start(pdata->id);
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
@@ -357,9 +350,6 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID, adsp_logger_init0_cb);
-
-	/* dram_remap */
-	adsp_set_dram_remap(pdata);
 
 	if (get_adsp_core_total() > 1)
 		adsp_update_c2c_memory_info(pdata); /* only 2 core needed */

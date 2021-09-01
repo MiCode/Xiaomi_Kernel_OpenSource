@@ -100,15 +100,6 @@
 #define ADSP_SLEEP_STATUS_REG       (ADSP_BASE + 0x0158)
 #define ADSP_BUS_MON_BASE           (ADSP_BASE + 0x5000)
 
-/* dma */
-#define ADSP_DMA_BASE_REG           (ADSP_BASE + 0x2000)
-#define ADSP_DMA_BASE_CH(ch)        (ADSP_DMA_BASE_REG + (ch + 1) * 0x100)
-#define ADSP_DMA_CHANNEL            (4)
-#define ADSP_DMA_START_CLR_BIT      (0x00008000)
-#define ADSP_DMA_ACK_BIT            (0x00008000)
-#define ADSP_DMA_START(base)        (base + 0x0018)
-#define ADSP_DMA_ACKINT(base)       (base + 0x0020)
-
 /* adsp power state*/
 #define ADSP_A_IS_RESET             (0x00)
 #define ADSP_A_IS_ACTIVE            (0x10)
@@ -134,19 +125,5 @@
 #define ADSP_UART_RST_N             (1 << 3)
 #define ADSP_UART_CLK_SEL           (1 << 1)
 #define ADSP_UART_BCLK_CG           (1 << 0)
-
-/* secure: only exist in v1 */
-#define R_SYS_REMAP_ENABLE          (ADSP_SECURE_BASE + 0x0020)
-#define R_SYS_REMAP0                (ADSP_SECURE_BASE + 0x0024)
-#define R_SYS_REMAP0_ADDR           (ADSP_SECURE_BASE + 0x0028)
-
-/* bus: only exist in v2 */
-#define AUDIO_BUS_DSP2EMI_REMAP0    (ADSP_BASE2 + 0x4A00)
-#define AUDIO_BUS_DSP2EMI_REMAP1    (ADSP_BASE2 + 0x4A04)
-#define AUDIO_BUS_DMA2EMI_REMAP0    (ADSP_BASE2 + 0x4A08)
-#define AUDIO_BUS_DMA2EMI_REMAP1    (ADSP_BASE2 + 0x4A0C)
-/* dma2: only exist in v2 */
-#define ADSP_DMA2_BASE_REG          (ADSP_BASE2 + 0x2000)
-#define ADSP_DMA2_BASE_CH(ch)       (ADSP_DMA2_BASE_REG + (ch + 1) * 0x100)
 
 #endif

@@ -21,9 +21,7 @@ const struct adspsys_description mt6983_adspsys_desc = {
 	.semaphore_ways = 3,
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
-	.sysram_dsp_view = 0x50000000,
 	.axibus_idle_val = 0x0,
-	.clkcg_default = 0x10ff,
 };
 
 const struct adspsys_description mt6879_adspsys_desc = {
@@ -32,9 +30,7 @@ const struct adspsys_description mt6879_adspsys_desc = {
 	.semaphore_ways = 3,
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
-	.sysram_dsp_view = 0x50000000,
 	.axibus_idle_val = 0x0,
-	.clkcg_default = 0x10ff,
 };
 
 const struct adsp_core_description mt6983_adsp_c0_desc = {

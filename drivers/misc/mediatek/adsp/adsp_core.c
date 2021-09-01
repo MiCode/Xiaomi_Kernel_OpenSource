@@ -20,15 +20,20 @@
 #include "adsp_mbox.h"
 #include "adsp_core.h"
 
+#define adsp_smc_send(_opid, _val1, _val2)                   \
+({                                                           \
+	struct arm_smccc_res res;                            \
+	arm_smccc_smc(MTK_SIP_KERNEL_ADSP_CONTROL,           \
+		      _opid, _val1, _val2, 0, 0, 0, 0, &res);\
+	res.a0;                                              \
+})
+
 static int (*ipi_queue_send_msg_handler)(
 		uint32_t core_id, /* enum adsp_core_id */
 		uint32_t ipi_id,  /* enum adsp_ipi_id */
 		void *buf,
 		uint32_t len,
 		uint32_t wait_ms);
-
-/* protect access tcm if set reset flag */
-rwlock_t access_rwlock;
 
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
 struct adspsys_priv *adspsys;
@@ -37,6 +42,9 @@ const struct attribute_group *adspsys_attr_groups[] = {
 	&adsp_excep_attr_group,
 	NULL,
 };
+
+/* protect access tcm if set reset flag */
+static DEFINE_MUTEX(access_lock);
 
 /* notifier */
 static BLOCKING_NOTIFIER_HEAD(adsp_notifier_list);
@@ -82,20 +90,6 @@ u32 get_adsp_core_total(void)
 	return adspsys ? adspsys->num_cores : 0;
 }
 EXPORT_SYMBOL(get_adsp_core_total);
-
-u32 sum_adsp_sys_dram_total(void)
-{
-	u32 sum = 0, cid = 0;
-
-	for (cid = 0; cid < get_adsp_core_total(); cid++) {
-		if (!adsp_cores[cid])
-			continue;
-
-		sum += adsp_cores[cid]->sysram_size;
-	}
-
-	return sum;
-}
 
 bool is_adsp_system_running(void)
 {
@@ -320,7 +314,6 @@ static int adsp_pm_suspend_prepare(void)
 {
 	int cid = 0, ret = 0;
 	struct adsp_priv *pdata = NULL;
-	struct arm_smccc_res res;
 
 	for (cid = get_adsp_core_total() - 1; cid >= 0; cid--) {
 		pdata = adsp_cores[cid];
@@ -337,14 +330,7 @@ static int adsp_pm_suspend_prepare(void)
 		adsp_timesync_suspend(APTIME_FREEZE);
 		pr_info("%s, time sync freeze", __func__);
 
-		if (adspsys->desc->version == 1)
-			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-				      MTK_AUDIO_SMC_OP_ADSP_REQUEST,
-				      0, 0, 0, 0, 0, 0, &res);
-		else /* version = 2 */
-			arm_smccc_smc(MTK_SIP_KERNEL_ADSP_CONTROL,
-				      MTK_ADSP_SMC_OP_ENTER_LP,
-				      0, 0, 0, 0, 0, 0, &res);
+		adsp_smc_send(MTK_ADSP_SMC_OP_ENTER_LP, 0, 0);
 	}
 
 	return NOTIFY_DONE;
@@ -352,20 +338,11 @@ static int adsp_pm_suspend_prepare(void)
 
 static int adsp_pm_post_suspend(void)
 {
-	struct arm_smccc_res res;
-
 	if (is_adsp_system_running()) {
 		adsp_timesync_resume();
 		pr_info("%s, time sync unfreeze", __func__);
 
-		if (adspsys->desc->version == 1)
-			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-				      MTK_AUDIO_SMC_OP_ADSP_RELEASE,
-				      0, 0, 0, 0, 0, 0, &res);
-		else /* version = 2 */
-			arm_smccc_smc(MTK_SIP_KERNEL_ADSP_CONTROL,
-				      MTK_ADSP_SMC_OP_LEAVE_LP,
-				      0, 0, 0, 0, 0, 0, &res);
+		adsp_smc_send(MTK_ADSP_SMC_OP_LEAVE_LP, 0, 0);
 	}
 
 	return NOTIFY_DONE;
@@ -421,9 +398,42 @@ void switch_adsp_power(bool on)
 	}
 }
 
-void adsp_set_dram_remap(struct adsp_priv *pdata)
+void adsp_latch_dump_region(bool en)
 {
-	adsp_mt_set_dram_remap(pdata->sysram_phys, sum_adsp_sys_dram_total());
+	/* MUST! latch/unlatch region symmetric */
+	if (en) {
+		mutex_lock(&access_lock);
+		adsp_smc_send(MTK_ADSP_SMC_OP_CFG_LATCH, true, 0);
+	} else {
+		adsp_smc_send(MTK_ADSP_SMC_OP_CFG_LATCH, false, 0);
+		mutex_unlock(&access_lock);
+	}
+}
+
+void adsp_core_start(u32 cid)
+{
+	mutex_lock(&access_lock);
+	adsp_smc_send(MTK_ADSP_SMC_OP_CORE_START, cid, 0);
+	mutex_unlock(&access_lock);
+}
+
+void adsp_core_stop(u32 cid)
+{
+	adsp_smc_send(MTK_ADSP_SMC_OP_CORE_STOP, cid, 0);
+}
+
+static void adsp_set_dram_remap(void)
+{
+	u32 size = 0, cid = 0;
+
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
+		if (!adsp_cores[cid])
+			continue;
+		size += adsp_cores[cid]->sysram_size;
+	}
+
+	adsp_smc_send(MTK_ADSP_SMC_OP_CFG_REMAP,
+		      adsp_cores[ADSP_A_ID]->sysram_phys, size);
 }
 
 static void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
@@ -466,7 +476,7 @@ int adsp_reset(void)
 	}
 
 	/* clear adsp cfg */
-	adsp_mt_clear();
+	adsp_smc_send(MTK_ADSP_SMC_OP_SYS_CLEAR, 0, 0);
 
 	/* choose default clk mux */
 	adsp_select_clock_mode(CLK_LOW_POWER);
@@ -481,11 +491,9 @@ int adsp_reset(void)
 	/* restart adsp */
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
-		adsp_mt_sw_reset(cid);
+
 		reinit_completion(&pdata->done);
-
-		adsp_mt_run(cid);
-
+		adsp_core_start(cid);
 		ret = wait_for_completion_timeout(&pdata->done, HZ);
 
 		if (unlikely(ret == 0)) {
@@ -538,7 +546,6 @@ static int adsp_system_init(void)
 	if (!adspsys)
 		return -EFAULT;
 
-	rwlock_init(&access_rwlock);
 	adsp_hardware_init(adspsys);
 
 	/* ipi of ready/suspend ack */
@@ -556,6 +563,9 @@ static int adsp_system_init(void)
 	adsp_semaphore_init(adspsys->desc->semaphore_ways,
 			    adspsys->desc->semaphore_ctrl,
 			    adspsys->desc->semaphore_retry);
+
+	/* dram remap of adsp */
+	adsp_set_dram_remap();
 
 	/* exception init */
 	adspsys->workq = alloc_workqueue("adsp_wq", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
@@ -593,7 +603,7 @@ int adsp_system_bootup(void)
 		goto ERROR;
 
 	switch_adsp_power(true);
-	adsp_mt_clear();
+	adsp_smc_send(MTK_ADSP_SMC_OP_SYS_CLEAR, 0, 0);
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
@@ -602,8 +612,6 @@ int adsp_system_bootup(void)
 			goto ERROR;
 		}
 
-		adsp_mt_sw_reset(cid);
-
 		ret = pdata->ops->initialize(pdata);
 		if (unlikely(ret)) {
 			pr_warn("%s, initialize %d is fail\n", __func__, cid);
@@ -611,8 +619,9 @@ int adsp_system_bootup(void)
 		}
 
 		adsp_sram_provide_snapshot(pdata);
-		adsp_mt_run(cid);
 
+		reinit_completion(&pdata->done);
+		adsp_core_start(cid);
 		ret = wait_for_completion_timeout(&pdata->done, HZ);
 
 		if (unlikely(ret == 0)) {

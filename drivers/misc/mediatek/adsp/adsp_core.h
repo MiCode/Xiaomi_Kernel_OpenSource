@@ -23,15 +23,16 @@ enum adsp_smc_ops {
 	MTK_ADSP_SMC_OP_INIT = 0,
 	MTK_ADSP_SMC_OP_ENTER_LP,
 	MTK_ADSP_SMC_OP_LEAVE_LP,
+	MTK_ADSP_SMC_OP_SYS_CLEAR,
+	MTK_ADSP_SMC_OP_CORE_START,
+	MTK_ADSP_SMC_OP_CORE_STOP,
+	MTK_ADSP_SMC_OP_CFG_REMAP,
+	MTK_ADSP_SMC_OP_CFG_LATCH,
 	MTK_ADSP_SMC_OP_NUM
 };
 
 struct adsp_priv;
 struct adspsys_priv;
-
-/* temporary definiation for ATF from audio */
-#define MTK_AUDIO_SMC_OP_ADSP_REQUEST  5
-#define MTK_AUDIO_SMC_OP_ADSP_RELEASE  6
 
 /* core api */
 #define get_adsp_core_by_ptr(ptr)  _get_adsp_core(ptr, 0)
@@ -44,10 +45,11 @@ int get_adsp_state(struct adsp_priv *pdata);
 bool is_adsp_system_running(void);
 
 void switch_adsp_power(bool on);
-void adsp_set_dram_remap(struct adsp_priv *pdata);
 int adsp_reset(void);
+void adsp_core_start(u32 cid);
+void adsp_core_stop(u32 cid);
+void adsp_latch_dump_region(bool en);
 
-u32 sum_adsp_sys_dram_total(void);
 void register_adspsys(struct adspsys_priv *mt_adspsys);
 void register_adsp_core(struct adsp_priv *pdata);
 

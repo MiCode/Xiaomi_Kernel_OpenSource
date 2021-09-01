@@ -74,16 +74,10 @@ static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 				  void *buf, size_t size)
 {
-	u32 clk_cfg = 0, uart_cfg = 0, n = 0;
-	u32 clk_mask = ADSP_CLK_UART_EN | ADSP_CLK_CORE_0_EN |
-		       ADSP_CLK_CORE_1_EN;
-	u32 uart_mask = ADSP_UART_RST_N | ADSP_UART_BCLK_CG;
+	u32 n = 0;
 
 	adsp_enable_clock();
-	mutex_lock(&excep_ctrl.lock);
-
-	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);
-	uart_cfg = switch_adsp_uart_ctrl_cg(true, uart_mask);
+	adsp_latch_dump_region(true);
 
 	n += copy_from_buffer(buf + n, size - n,
 				adspsys->cfg, adspsys->cfg_size, 0, -1);
@@ -94,10 +88,7 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 	n += copy_from_buffer(buf + n, size - n,
 				pdata->dtcm, pdata->dtcm_size, 0, -1);
 
-	switch_adsp_clk_ctrl_cg(false, (~clk_cfg) & clk_mask);
-	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
-
-	mutex_unlock(&excep_ctrl.lock);
+	adsp_latch_dump_region(false);
 	adsp_disable_clock();
 	return n;
 }
@@ -310,7 +301,6 @@ int init_adsp_exception_control(struct device *dev,
 	ctrl->workq = workq;
 	ctrl->buf_backup = NULL;
 	ctrl->buf_size = 0;
-	mutex_init(&ctrl->lock);
 	init_completion(&ctrl->done);
 	INIT_WORK(&ctrl->aed_work, adsp_aed_worker);
 #if IS_ENABLED(CONFIG_PM_WAKELOCKS)
@@ -397,13 +387,10 @@ EXPORT_SYMBOL(get_adsp_misc_buffer);
 
 void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
-	u32 clk_cfg = 0, uart_cfg = 0, n = 0;
-	u32 clk_mask = ADSP_CLK_UART_EN | ADSP_CLK_CORE_0_EN |
-		       ADSP_CLK_CORE_1_EN;
-	u32 uart_mask = ADSP_UART_RST_N | ADSP_UART_BCLK_CG;
 	struct adsp_priv *pdata = NULL;
 	void *buf = adsp_ke_buffer;
 	u32 len = ADSP_KE_DUMP_LEN;
+	u32 n = 0;
 
 	memset(buf, 0, len);
 	if (!adspsys) {
@@ -412,13 +399,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	}
 
 	adsp_enable_clock();
-	mutex_lock(&excep_ctrl.lock);
-	read_lock(&access_rwlock);
-
-	adsp_mt_clr_sw_reset();
-
-	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);
-	uart_cfg = switch_adsp_uart_ctrl_cg(true, uart_mask);
+	adsp_latch_dump_region(true);
 
 	pdata = get_adsp_core_by_id(ADSP_A_ID);
 	if (pdata) {
@@ -435,11 +416,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 		n += copy_from_buffer(buf + n, len - n,
 					pdata->dtcm, pdata->dtcm_size, 0, -1);
 	}
-	switch_adsp_clk_ctrl_cg(false, (~clk_cfg) & clk_mask);
-	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
-
-	read_unlock(&access_rwlock);
-	mutex_unlock(&excep_ctrl.lock);
+	adsp_latch_dump_region(false);
 	adsp_disable_clock();
 
 	/* last adsp_log */
