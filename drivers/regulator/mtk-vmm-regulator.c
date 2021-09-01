@@ -21,19 +21,12 @@
 #include <linux/pm_opp.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>
-#include <linux/io.h>
 
 static struct dentry *ispdvfs_debugfs_dir;
 static struct regulator *vmm_reg;
 
 #define REGULATOR_ID_VMM 0
-
 #define AGING_MARGIN_MICROVOLT 12500
-
-#define SPM_VMM_ISO_REG_OFST 0xF30
-#define SPM_VMM_EXT_BUCK_ISO_BIT 16
-#define SPM_AOC_VMM_SRAM_ISO_DIN_BIT 17
-#define SPM_AOC_VMM_SRAM_LATCH_ENB 18
 
 int mtk_ispdvfs_dbg_level;
 EXPORT_SYMBOL(mtk_ispdvfs_dbg_level);
@@ -325,42 +318,9 @@ static void vmm_init_opp_table(struct dvfs_driver_data *data)
 	}
 }
 
-static void vmm_buck_isolation(void __iomem *base, int is_buck_on)
-{
-	void __iomem *reg_buck_iso_addr = base + SPM_VMM_ISO_REG_OFST;
-	u32 reg_buck_iso_val;
-
-	if (is_buck_on) {
-		reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
-		reg_buck_iso_val &= ~(1UL << SPM_VMM_EXT_BUCK_ISO_BIT);
-		writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
-
-		reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
-		reg_buck_iso_val &= ~(1UL << SPM_AOC_VMM_SRAM_ISO_DIN_BIT);
-		writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
-
-		reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
-		reg_buck_iso_val &= ~(1UL << SPM_AOC_VMM_SRAM_LATCH_ENB);
-		writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
-	} else {
-		reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
-		reg_buck_iso_val |= (1UL << SPM_AOC_VMM_SRAM_LATCH_ENB);
-		writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
-
-		reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
-		reg_buck_iso_val |= (1UL << SPM_AOC_VMM_SRAM_ISO_DIN_BIT);
-		writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
-
-		reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
-		reg_buck_iso_val |= (1UL << SPM_VMM_EXT_BUCK_ISO_BIT);
-		writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
-	}
-}
-
 static int vmm_enable_regulator(struct regulator_dev *rdev)
 {
 	struct vmm_regulator *regulator;
-	struct dvfs_driver_data *drv_data;
 
 	ISP_LOGI("Enable vmm regulator");
 	regulator = rdev_get_drvdata(rdev);
@@ -368,15 +328,6 @@ static int vmm_enable_regulator(struct regulator_dev *rdev)
 		ISP_LOGE("rdev_get_drvdata ptr is null");
 		return PTR_ERR(regulator);
 	}
-
-	drv_data = regulator->dvfs_data;
-	if (!drv_data) {
-		ISP_LOGE("drv_data ptr is null");
-		return PTR_ERR(drv_data);
-	}
-
-	regulator_enable(vmm_reg);
-	vmm_buck_isolation(drv_data->spm_reg, 1);
 
 	regulator->is_enable = 1;
 
@@ -386,7 +337,6 @@ static int vmm_enable_regulator(struct regulator_dev *rdev)
 static int vmm_disable_regulator(struct regulator_dev *rdev)
 {
 	struct vmm_regulator *regulator;
-	struct dvfs_driver_data *drv_data;
 
 	ISP_LOGI("Disable vmm regulator");
 	regulator = rdev_get_drvdata(rdev);
@@ -395,17 +345,7 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 		return PTR_ERR(regulator);
 	}
 
-	drv_data = regulator->dvfs_data;
-	if (!drv_data) {
-		ISP_LOGE("drv_data ptr is null");
-		return PTR_ERR(drv_data);
-	}
-
-	vmm_buck_isolation(drv_data->spm_reg, 0);
-	regulator_disable(vmm_reg);
-
 	regulator->is_enable = 0;
-
 	return 0;
 }
 
@@ -469,7 +409,6 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	struct dentry *dentry;
 	struct ispdvfs_dbg_data *dbg_data;
 	u32 opp_level = 0;
-	struct resource *res;
 
 	match = of_match_node(mtk_vmm_regulator_match, dev->of_node);
 	if (!match) {
@@ -517,18 +456,6 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	}
 	dvfs_data->num_muxes = num_mux;
 
-	/* SPM registers */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "SPM_BASE");
-	if (!res) {
-		ISP_LOGE("fail to get resource SPM_BASE");
-		return -EINVAL;
-	}
-	dvfs_data->spm_reg = devm_ioremap(dev, res->start, resource_size(res));
-	if (!(dvfs_data->spm_reg)) {
-		ISP_LOGE("fail to ioremap SPM_BASE: 0x%llx", res->start);
-		return -EINVAL;
-	}
-
 	/* Real regualtor instance which controls vmm directly */
 	vmm_reg = devm_regulator_get(dev, "buck-vmm");
 	if (IS_ERR(vmm_reg))
@@ -561,7 +488,6 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 		goto fail_destroy_mutex;
 	}
 
-	/* Debug folder and data creation */
 	ispdvfs_debugfs_dir = debugfs_create_dir("ispdvfs", NULL);
 	if (IS_ERR(ispdvfs_debugfs_dir))
 		ISP_LOGE("Failed to create debugfs dir ispdvfs: %ld\n",

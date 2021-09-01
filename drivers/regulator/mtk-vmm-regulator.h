@@ -7,7 +7,6 @@
 #define _ISP_DVFS_H
 #include <linux/mutex.h>
 #include <linux/types.h>
-#include <linux/compiler_types.h>
 
 #define CMD_UPDATE_DVFS_INFO 1
 #define MAX_MUX_NUM (10)
@@ -34,7 +33,6 @@ struct dvfs_info {
 
 struct dvfs_driver_data {
 	struct device *dev;
-	void __iomem *spm_reg;
 	u32 num_muxes;
 	struct dvfs_clk_data muxes[MAX_MUX_NUM];
 	struct dvfs_table opp_table;
