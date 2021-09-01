@@ -38,6 +38,7 @@ struct mml_pq_mbox {
 	struct mml_pq_chan tile_init_chan;
 	struct mml_pq_chan comp_config_chan;
 	struct mml_pq_chan aal_readback_chan;
+	struct mml_pq_chan hdr_readback_chan;
 };
 
 static struct mml_pq_mbox *pq_mbox;
@@ -188,6 +189,7 @@ s32 mml_pq_task_create(struct mml_task *task)
 	init_pq_sub_task(&pq_task->tile_init);
 	init_pq_sub_task(&pq_task->comp_config);
 	init_pq_sub_task(&pq_task->aal_readback);
+	init_pq_sub_task(&pq_task->hdr_readback);
 
 	mml_pq_trace_ex_end();
 	return 0;
@@ -226,6 +228,12 @@ static struct mml_pq_task *from_aal_readback(struct mml_pq_sub_task *sub_task)
 {
 	return container_of(sub_task,
 		struct mml_pq_task, aal_readback);
+}
+
+static struct mml_pq_task *from_hdr_readback(struct mml_pq_sub_task *sub_task)
+{
+	return container_of(sub_task,
+		struct mml_pq_task, hdr_readback);
 }
 
 static void dump_pq_param(struct mml_pq_param *pq_param)
@@ -412,11 +420,42 @@ int mml_pq_aal_readback(struct mml_task *task, u8 pipe, u32 *phist)
 		else
 			task->pq_task->aal_readback.pipe1_hist = phist;
 
-		if (atomic_fetch_add_unless(&task->pq_task->aal_readback.queue_cnt, 1, 1) == 1)
+		if (atomic_fetch_add_unless(&task->pq_task->aal_readback.queue_cnt, 1, 1) == 1) {
 			queue_msg(&pq_mbox->aal_readback_chan, &task->pq_task->aal_readback);
+			atomic_set(&task->pq_task->aal_readback.queue_cnt, 0);
+		}
 	} else {
 		task->pq_task->aal_readback.pipe0_hist = phist;
 		queue_msg(&pq_mbox->aal_readback_chan, &task->pq_task->aal_readback);
+	}
+	mml_pq_msg("%s end\n", __func__);
+	return ret;
+}
+
+int mml_pq_hdr_readback(struct mml_task *task, u8 pipe, u32 *phist)
+{
+	s32 ret = 0;
+
+	mml_pq_msg("%s called pipe[%d]\n", __func__, pipe);
+	if (unlikely(!task))
+		return -EINVAL;
+
+	mml_pq_msg("%s called pipe[%d] job_id[%d]\n", __func__, pipe, task->job.jobid);
+	dump_pq_param(&task->pq_param[0]);
+
+	if (task->config->dual) {
+		if (!pipe)
+			task->pq_task->hdr_readback.pipe0_hist = phist;
+		else if (pipe == 1)
+			task->pq_task->hdr_readback.pipe1_hist = phist;
+
+		if (atomic_fetch_add_unless(&task->pq_task->hdr_readback.queue_cnt, 1, 1) == 1) {
+			queue_msg(&pq_mbox->hdr_readback_chan, &task->pq_task->hdr_readback);
+			atomic_set(&task->pq_task->hdr_readback.queue_cnt, 0);
+		}
+	} else {
+		task->pq_task->hdr_readback.pipe0_hist = phist;
+		queue_msg(&pq_mbox->hdr_readback_chan, &task->pq_task->hdr_readback);
 	}
 	mml_pq_msg("%s end\n", __func__);
 	return ret;
@@ -1072,6 +1111,133 @@ wake_up_aal_readback_task:
 	return ret;
 }
 
+static int mml_pq_hdr_readback_ioctl(unsigned long data)
+{
+	struct mml_pq_chan *chan = &pq_mbox->hdr_readback_chan;
+	struct mml_pq_sub_task *new_sub_task = NULL;
+	struct mml_pq_sub_task *sub_task = NULL;
+	struct mml_pq_task *new_pq_task = NULL;
+	struct mml_pq_hdr_readback_result *readback_result = NULL;
+	struct mml_pq_hdr_readback_job *job;
+	struct mml_pq_hdr_readback_job *user_job;
+	s32 ret = 0;
+
+	mml_pq_msg("%s called\n", __func__);
+	user_job = (struct mml_pq_hdr_readback_job *)data;
+	if (unlikely(!user_job))
+		return -EINVAL;
+
+	job = kmalloc(sizeof(*job), GFP_KERNEL);
+	if (unlikely(!job))
+		return -ENOMEM;
+
+	ret = copy_from_user(job, user_job, sizeof(*job));
+	if (ret) {
+		mml_pq_err("copy_from_user failed: %d\n", ret);
+		return -EINVAL;
+	}
+
+	readback_result = kmalloc(sizeof(struct mml_pq_hdr_readback_result), GFP_KERNEL);
+	if (unlikely(!readback_result))
+		return -ENOMEM;
+
+	ret = copy_from_user(readback_result, job->result,
+		sizeof(struct mml_pq_hdr_readback_result));
+	if (ret) {
+		mml_pq_err("copy_from_user failed: %d\n", ret);
+		return -EINVAL;
+	}
+
+	if (job->result_job_id)
+		ret = find_sub_task(chan, job->result_job_id, &sub_task);
+
+	new_sub_task = wait_next_sub_task(chan);
+
+	if (!new_sub_task) {
+		kfree(job);
+		mml_pq_log("%s Get sub task failed", __func__);
+		return -ERESTARTSYS;
+	}
+
+	new_pq_task = from_hdr_readback(new_sub_task);
+	job->new_job_id = new_sub_task->job_id;
+	mutex_lock(&new_pq_task->lock);
+	if (unlikely(!atomic_read(&new_pq_task->ref_cnt))) {
+		mml_pq_err("err: pq_task ref_cnt is 0\n");
+		mutex_unlock(&new_pq_task->lock);
+		return -ENOENT;
+	}
+	ret = copy_to_user(&user_job->new_job_id,
+			&job->new_job_id, sizeof(u32));
+
+	ret = copy_to_user(&user_job->info, &new_pq_task->task->config->info,
+		sizeof(struct mml_frame_info));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to user frame info: %d\n", ret);
+		goto wake_up_hdr_readback_task;
+	}
+
+	ret = copy_to_user(user_job->param, new_pq_task->task->pq_param,
+		MML_MAX_OUTPUTS*sizeof(struct mml_pq_param));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to user pq param: %d\n", ret);
+		goto wake_up_hdr_readback_task;
+	}
+
+	readback_result->is_dual = new_pq_task->task->config->dual;
+	readback_result->cut_pos_x = new_pq_task->task->config->info.src.width / 2; //fix me
+
+	ret = copy_to_user(&job->result->is_dual, &readback_result->is_dual, sizeof(bool));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to width: %d\n", ret);
+		goto wake_up_hdr_readback_task;
+	}
+
+	ret = copy_to_user(&job->result->cut_pos_x, &readback_result->cut_pos_x, sizeof(bool));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to width: %d\n", ret);
+		goto wake_up_hdr_readback_task;
+	}
+
+	if (new_sub_task->pipe0_hist) {
+		ret = copy_to_user(readback_result->hdr_pipe0_hist, new_sub_task->pipe0_hist,
+			HDR_HIST_NUM * sizeof(u32));
+		if (unlikely(ret)) {
+			mml_pq_err("err: fail to copy to hdr_pipe0_hist: %d\n", ret);
+			goto wake_up_hdr_readback_task;
+		}
+	} else {
+		mml_pq_err("err: fail to copy to hdr_pipe0_hist because of null pointer");
+	}
+
+	if (readback_result->is_dual) {
+		if (new_sub_task->pipe1_hist) {
+			ret = copy_to_user(readback_result->hdr_pipe1_hist,
+				new_sub_task->pipe1_hist,
+				HDR_HIST_NUM * sizeof(u32));
+			if (unlikely(ret)) {
+				mml_pq_err("err: fail to copy to hdr_pipe1_hist: %d\n", ret);
+				goto wake_up_hdr_readback_task;
+			}
+		}
+	} else {
+		mml_pq_msg("single pipe");
+	}
+
+	atomic_inc(&new_pq_task->ref_cnt);
+	mutex_unlock(&new_pq_task->lock);
+	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
+	return 0;
+
+wake_up_hdr_readback_task:
+	mutex_unlock(&new_pq_task->lock);
+	mutex_lock(&new_sub_task->lock);
+	new_sub_task->job_cancelled = true;
+	wake_up(&new_sub_task->wq);
+	mutex_unlock(&new_sub_task->lock);
+	mml_pq_msg("%s end %d\n", __func__, ret);
+	return ret;
+}
 
 static long mml_pq_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
@@ -1086,6 +1252,8 @@ static long mml_pq_ioctl(struct file *file, unsigned int cmd,
 		return mml_pq_comp_config_ioctl(arg);
 	case MML_PQ_IOC_AAL_READBACK:
 		return mml_pq_aal_readback_ioctl(arg);
+	case MML_PQ_IOC_HDR_READBACK:
+		return mml_pq_hdr_readback_ioctl(arg);
 	default:
 		return -ENOTTY;
 	}
@@ -1119,6 +1287,7 @@ void mml_pq_core_init(void)
 	init_pq_chan(&pq_mbox->tile_init_chan);
 	init_pq_chan(&pq_mbox->comp_config_chan);
 	init_pq_chan(&pq_mbox->aal_readback_chan);
+	init_pq_chan(&pq_mbox->hdr_readback_chan);
 	ret = misc_register(&mml_pq_dev);
 	mml_pq_log("%s result: %d", __func__, ret);
 }

@@ -36,7 +36,7 @@ module_param(mml_max_cache_task, int, 0644);
 int mml_max_cache_cfg = 2;
 module_param(mml_max_cache_cfg, int, 0644);
 
-int mml_pq_disable = 1;
+int mml_pq_disable;
 module_param(mml_pq_disable, int, 0644);
 
 struct mml_drm_ctx {

@@ -18,6 +18,8 @@
 #define AAL_HIST_NUM (768)
 #define AAL_DUAL_INFO_NUM (16)
 
+#define HDR_HIST_NUM (58)
+
 extern int mml_pq_msg;
 
 #define mml_pq_msg(fmt, args...) \
@@ -74,6 +76,7 @@ struct mml_pq_task {
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
 	struct mml_pq_sub_task aal_readback;
+	struct mml_pq_sub_task hdr_readback;
 };
 
 /*
@@ -149,5 +152,18 @@ int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
  */
 
 int mml_pq_aal_readback(struct mml_task *task, u8 pipe, u32 *phist);
+
+/*
+ * mml_pq_hdr_readback - noify from MML core through MML PQ driver
+ *   to update histogram
+ *
+ * @task:	task data, include pq parameters and frame info
+ * @pipe:   pipe id
+ * @phist:  Histogram result
+ *
+ * Return:	if value < 0, means PQ update failed should debug
+ */
+
+int mml_pq_hdr_readback(struct mml_task *task, u8 pipe, u32 *phist);
 
 #endif	/* __MTK_MML_PQ_CORE_H__ */

@@ -16,6 +16,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-pq-core.h"
 
+#include "mtk-mml-driver.h"
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
@@ -501,6 +502,46 @@ static const struct mml_comp_config_ops hdr_cfg_ops = {
 	.reframe = hdr_reconfig_frame,
 };
 
+static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
+					 struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+
+
+	mml_pq_trace_ex_begin("%s", __func__);
+	mml_msg("%s is_hdr_need_readback[%d] id[%d] en_hdr[%d]", __func__,
+			hdr_frm->is_hdr_need_readback, comp->id, dest->pq_config.en_hdr);
+
+	if (!dest->pq_config.en_hdr)
+		goto exit;
+
+	if (hdr_frm->is_hdr_need_readback) {
+		void __iomem *base = comp->base;
+		s32 i;
+		u32 *phist = kmalloc(HDR_HIST_NUM*sizeof(u32), GFP_KERNEL);
+
+		for (i = 0; i < HDR_HIST_NUM; i++) {
+			if (i == 57) {
+				phist[i] = readl(base + HDR_LBOX_DET_4);
+				continue;
+			}
+			phist[i] = readl(base + HDR_HIST_DATA);
+		}
+		mml_pq_hdr_readback(task, ccfg->pipe, phist);
+	}
+
+exit:
+	mml_pq_trace_ex_end();
+}
+
+static const struct mml_comp_hw_ops hdr_hw_ops = {
+	.clk_enable = &mml_comp_clk_enable,
+	.clk_disable = &mml_comp_clk_disable,
+	.task_done = hdr_task_done_readback,
+};
+
 static void hdr_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
@@ -625,6 +666,7 @@ static int probe(struct platform_device *pdev)
 	/* assign ops */
 	priv->comp.tile_ops = &hdr_tile_ops;
 	priv->comp.config_ops = &hdr_cfg_ops;
+	priv->comp.hw_ops = &hdr_hw_ops;
 	priv->comp.debug_ops = &hdr_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
