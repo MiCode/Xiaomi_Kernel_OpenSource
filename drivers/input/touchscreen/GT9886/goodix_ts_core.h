@@ -757,7 +757,7 @@ int gt9886_touch_filter_register(void);
 int goodix_ts_core_init(void);
 int goodix_fwu_module_init(void *data);
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 extern atomic_t gt9886_tui_flag;
 extern struct goodix_ts_core *resume_core_data;
 #endif

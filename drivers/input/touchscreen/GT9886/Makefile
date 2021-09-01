@@ -10,4 +10,4 @@ gt9886-y += goodix_ts_i2c.o
 gt9886-y += goodix_ts_core.o
 gt9886-y += goodix_cfg_bin.o
 gt9886-y += goodix_gtx8_update.o
-gt9886-n += goodix_ts_tui.o
+gt9886-y += goodix_ts_tui.o

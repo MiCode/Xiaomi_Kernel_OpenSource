@@ -30,7 +30,7 @@
 #define GOOIDX_INPUT_PHYS	"goodix_ts/input0"
 
 struct goodix_ts_core *resume_core_data;
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 EXPORT_SYMBOL(resume_core_data);
 #endif
 
@@ -1959,7 +1959,7 @@ int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
 				if (touch_suspend_flag
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 				&& !atomic_read(&gt9886_tui_flag)
 #endif
 				) {
@@ -1973,7 +1973,7 @@ int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 				}
 			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
 				if (!touch_suspend_flag
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 				&& !atomic_read(&gt9886_tui_flag)
 #endif
 				) {

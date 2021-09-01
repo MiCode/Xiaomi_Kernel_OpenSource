@@ -18,7 +18,7 @@
   *
   */
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 #include "goodix_ts_core.h"
 
 atomic_t gt9886_tui_flag = ATOMIC_INIT(0);
@@ -34,6 +34,7 @@ int tpd_enter_tui(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(tpd_enter_tui);
 
 int tpd_exit_tui(void)
 {
@@ -48,5 +49,6 @@ int tpd_exit_tui(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(tpd_exit_tui);
 #endif
 
