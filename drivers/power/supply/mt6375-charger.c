@@ -2036,6 +2036,24 @@ static irqreturn_t mt6375_fl_detach_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t mt6375_fl_vbus_ov_handler(int irq, void *data)
+{
+	struct mt6375_chg_data *ddata = data;
+
+	mt_dbg(ddata->dev, "++\n");
+	charger_dev_notify(ddata->chgdev, CHARGER_DEV_NOTIFY_VBUS_OVP);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t mt6375_fl_chg_tout_handler(int irq, void *data)
+{
+	struct mt6375_chg_data *ddata = data;
+
+	mt_dbg(ddata->dev, "++\n");
+	charger_dev_notify(ddata->chgdev, CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT);
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t mt6375_fl_bc12_dn_handler(int irq, void *data)
 {
 	struct mt6375_chg_data *ddata = data;
@@ -2368,6 +2386,8 @@ static int mt6375_chg_init_irq(struct mt6375_chg_data *ddata)
 	} mt6375_chg_irqs[] = {
 		MT6375_CHG_IRQ(fl_wdt),
 		MT6375_CHG_IRQ(fl_pwr_rdy),
+		MT6375_CHG_IRQ(fl_vbus_ov),
+		MT6375_CHG_IRQ(fl_chg_tout),
 		MT6375_CHG_IRQ(fl_detach),
 		MT6375_CHG_IRQ(fl_bc12_dn),
 		MT6375_CHG_IRQ(fl_pe_done),
