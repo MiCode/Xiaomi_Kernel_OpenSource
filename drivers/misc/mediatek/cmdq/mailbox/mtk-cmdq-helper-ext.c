@@ -1882,7 +1882,6 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 	if (item->cb)
 		item->cb(user_data);
 	complete(&pkt->cmplt);
-	item->done = true;
 }
 #endif
 
@@ -2167,7 +2166,8 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 
 		cmdq_util_helper->dump_lock();
 		cmdq_util_user_msg(client->chan,
-			"===== SW timeout Pre-dump %u =====", cnt++);
+			"===== SW timeout Pre-dump %u =====", cnt);
+		++cnt;
 		cmdq_dump_summary(client, pkt);
 		cmdq_util_helper->dump_unlock();
 	}
