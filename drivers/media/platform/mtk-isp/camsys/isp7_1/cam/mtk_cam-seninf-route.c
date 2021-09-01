@@ -21,6 +21,7 @@
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-seninf-hw.h"
 #include "imgsensor-user.h"
+#include "mtk_cam-seninf-ca.h"
 
 #define to_std_fmt_code(code) \
 	((code) & 0xFFFF)
@@ -627,39 +628,72 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 
 	/* change cam-mux while streaming */
 	if (ctx->streaming && vc_en && vc->cam != camtg) {
-		/* disable old */
-		old_camtg = vc->cam;
-		/* enable new */
-		vc->cam = camtg;
-		g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
-		g_seninf_ops->_set_cammux_next_ctrl(ctx, 0xf, vc->cam);
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+		if (ctx->is_secure == 1) {
+			vc->cam = camtg;
 
-		g_seninf_ops->_switch_to_cammux_inner_page(ctx, false);
+			dev_info(ctx->dev, "Sensor Secure CA");
+			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
+								vc->vc, vc->dt,
+								!!vc->dt, !!vc->dt);
+			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
+								vc->exp_hsize,
+								vc->exp_vsize);
+			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
+								vc->cam,
+								vc->pixel_mode);
+			g_seninf_ops->_cammux(ctx, vc->cam);
+			if (pad_id == PAD_SRC_RAW0) {
+				// notify vc->cam
+				notify_fsync_cammux_usage_with_kthread(ctx);
+			}
 
-		g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
-					     vc->vc, vc->dt,
-					     !!vc->dt, !!vc->dt);
-		g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
-					      vc->exp_hsize,
-					      vc->exp_vsize);
-		g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
-							 vc->cam,
-							 vc->pixel_mode);
-		if (old_camtg != 0xff && disable_last)
-			g_seninf_ops->_disable_cammux(ctx, old_camtg);//disable old in next sof
-		g_seninf_ops->_cammux(ctx, vc->cam); //enable in next sof
-		g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
-		g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, vc->cam);
-		if (old_camtg != 0xff && disable_last)
-			g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, old_camtg);
+			if (!seninf_ca_open_session())
+				dev_info(ctx->dev, "seninf_ca_open_session fail");
 
-		if (pad_id == PAD_SRC_RAW0) {
-			// notify vc->cam
-			notify_fsync_cammux_usage_with_kthread(ctx);
+			dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
+			seninf_ca_checkpipe(ctx->SecInfo_addr);
+		} else {
+#endif
+			/* disable old */
+			old_camtg = vc->cam;
+			/* enable new */
+			vc->cam = camtg;
+			g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
+			g_seninf_ops->_set_cammux_next_ctrl(ctx, 0xf, vc->cam);
+
+			g_seninf_ops->_switch_to_cammux_inner_page(ctx, false);
+
+			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
+								vc->vc, vc->dt,
+								!!vc->dt, !!vc->dt);
+			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
+								vc->exp_hsize,
+								vc->exp_vsize);
+			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
+								vc->cam,
+								vc->pixel_mode);
+			if (old_camtg != 0xff && disable_last) {
+				//disable old in next sof
+				g_seninf_ops->_disable_cammux(ctx, old_camtg);
+			}
+			g_seninf_ops->_cammux(ctx, vc->cam); //enable in next sof
+			g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
+			g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, vc->cam);
+			if (old_camtg != 0xff && disable_last)
+				g_seninf_ops->_set_cammux_next_ctrl(ctx, vc->mux, old_camtg);
+
+			if (pad_id == PAD_SRC_RAW0) {
+				// notify vc->cam
+				notify_fsync_cammux_usage_with_kthread(ctx);
+			}
+
+			dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d\n",
+				 __func__, vc->out_pad, vc->mux, old_camtg, vc->cam);
+
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
 		}
-
-		dev_info(ctx->dev, "%s: pad %d mux %d cam %d -> %d\n",
-			 __func__, vc->out_pad, vc->mux, old_camtg, vc->cam);
+#endif
 	} else {
 		dev_info(ctx->dev, "%s: pad_id %d, camtg %d, ctx->streaming %d, vc_en %d, vc->cam %d\n",
 			 __func__, pad_id, camtg, ctx->streaming, vc_en, vc->cam);

@@ -122,7 +122,8 @@ struct seninf_ctx {
 #ifdef CSI_EFUSE_SET
 	unsigned int m_csi_efuse;
 #endif
-
+	unsigned int is_secure:1;
+	unsigned int SecInfo_addr;
 	int seninfIdx;
 	int pad2cam[PAD_MAXCNT];
 

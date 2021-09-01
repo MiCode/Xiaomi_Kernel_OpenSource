@@ -32,6 +32,7 @@
 #include "mtk_cam-seninf-hw.h"
 #include "mtk_cam-seninf-route.h"
 #include "imgsensor-user.h"
+#include "mtk_cam-seninf-ca.h"
 
 #define V4L2_CID_MTK_SENINF_BASE	(V4L2_CID_USER_BASE | 0xf000)
 #define V4L2_CID_MTK_TEST_STREAMON	(V4L2_CID_MTK_SENINF_BASE + 1)
@@ -760,6 +761,18 @@ static int config_hw(struct seninf_ctx *ctx)
 			dev_info(ctx->dev, "vc[%d] pad %d intf %d mux %d cam %d\n",
 				 i, vc->out_pad, intf, vc->mux, vc->cam,
 				vc_sel, dt_sel);
+
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+			if (ctx->is_secure == 1) {
+				dev_info(ctx->dev, "Sensor kernel init seninf_ca");
+				if (!seninf_ca_open_session())
+					dev_info(ctx->dev, "seninf_ca_open_session fail");
+
+				dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
+				seninf_ca_checkpipe(ctx->SecInfo_addr);
+			}
+#endif
+
 		} else
 			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d mux %d cam %d\n",
 					 i, vc->out_pad, intf, vc->mux, vc->cam,
@@ -945,6 +958,9 @@ int update_isp_clk(struct seninf_ctx *ctx)
 
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+	u32 ret_gz;
+#endif
 	int ret;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
@@ -999,8 +1015,16 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev, "sensor stream-off ret %d\n", ret);
 			return ret;
 		}
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+		if (ctx->is_secure == 1) {
+			dev_info(ctx->dev, "sensor kernel ca_free");
+			seninf_ca_free();
 
-
+			dev_info(ctx->dev, "close seninf_ca");
+			ret_gz = seninf_ca_close_session();
+			ctx->is_secure = 0;
+		}
+#endif
 		g_seninf_ops->_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
@@ -1138,6 +1162,10 @@ static int seninf_test_pattern(struct seninf_ctx *ctx, u32 pattern)
 #ifdef SENINF_DEBUG
 static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 {
+#ifdef SECURE_UT
+	ctx->is_secure = 1;
+	ctx->SecInfo_addr = 0x53;
+#endif
 	if (en) {
 		ctx->is_test_streamon = 1;
 		mtk_cam_seninf_alloc_cam_mux(ctx);
@@ -1601,3 +1629,13 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 {
 	return g_seninf_ops->_debug(sd_to_ctx(sd));
 }
+
+void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int SecInfo_addr)
+{
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+
+	ctx->SecInfo_addr = SecInfo_addr;
+	dev_info(ctx->dev, "[%s]: %x, enable: %d\n", __func__, SecInfo_addr, enable);
+	ctx->is_secure = enable ? 1 : 0;
+}
+

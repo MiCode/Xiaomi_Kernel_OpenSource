@@ -83,4 +83,6 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param);
 unsigned int
 mtk_cam_seninf_get_vc_feature(struct v4l2_subdev *sd, unsigned int pad);
 
+void
+mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int SecInfo_addr);
 #endif

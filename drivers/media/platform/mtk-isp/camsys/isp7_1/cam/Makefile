@@ -11,6 +11,11 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 
 MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1/cam
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+ccflags-y += -DSENSOR_SECURE_MTEE_SUPPORT
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/tee_gp/include
+# ccflags-y += -DSECURE_UT
+
 mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-video.o mtk_cam-smem.o \
 		    mtk_cam-ctrl.o \
@@ -23,7 +28,8 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-feature.o mtk_cam-feature-m2m.o \
 		    mtk_cam-feature-mstream.o mtk_cam-feature-smvr.o \
 		    mtk_cam-feature-stagger.o \
-		    mtk_cam-mraw.o
+		    mtk_cam-mraw.o\
+		    mtk_cam-seninf-ca.o
 
 
 include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_2_0/sub_drv.mk
