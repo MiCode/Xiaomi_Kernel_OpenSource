@@ -7651,6 +7651,8 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B>;
 		me_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IPESYS_ME>;
+		apu_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_APUSYS_APU>;
 		sw_sync_token_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_1>;
 		sw_sync_token_pool_2 =
