@@ -1224,6 +1224,38 @@
 			};
 		};
 
+		mmc0: mmc@11230000 {
+			compatible = "mediatek,common-mmc";
+			reg = <0 0x11230000 0 0x10000>,
+			      <0 0x11f50000 0 0x1000>;
+			interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
+			status = "disabled";
+		};
+
+		mmc1: mmc@11240000 {
+			compatible = "mediatek,common-mmc";
+			reg = <0 0x11240000 0 0x1000>,
+			      <0 0x11e70000 0 0x1000>;
+			interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOPCKGEN_MSDC30_1_SEL>,
+				 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC1_H_CG>,
+				 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC1_S_CG>;
+			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
+		};
+
+		mmc2: mmc@11242000 {
+			compatible = "mediatek,common-mmc";
+			reg = <0 0x11242000 0 0x1000>,
+			      <0 0x11F60000 0 0x1000>;
+			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOPCKGEN_MSDC30_2_SEL>,
+				 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC2_H_CG>,
+				 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC2_S_CG>;
+			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
+		};
+
 		u3phy: usb-phy0@11e40000 {
 			compatible = "mediatek,xsphy";
 			reg = <0 0x11e43000 0 0x200>;
@@ -6710,26 +6742,6 @@
 	i2c@14024000 {
 		compatible = "mediatek,i2c";
 		reg = <0 0x14024000 0 0x1000>;
-	};
-
-	mmc0: mmc@11230000 {
-		compatible = "mediatek,common-mmc";
-		reg = <0 0x11230000 0 0x10000>,
-		      <0 0x11f50000 0 0x1000>;
-		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
-                status = "disabled";
-	};
-
-	mmc1: mmc@11240000 {
-		compatible = "mediatek,common-mmc";
-		reg = <0 0x11240000 0 0x1000>,
-		      <0 0x11e70000 0 0x1000>;
-		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&topckgen_clk CLK_TOPCKGEN_MSDC30_1_SEL>,
-			 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC1_H_CG>,
-			 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC1_S_CG>;
-		clock-names = "source", "hclk", "source_cg";
-		status = "disabled";
 	};
 
 	ufshci: ufshci@112b0000 {
