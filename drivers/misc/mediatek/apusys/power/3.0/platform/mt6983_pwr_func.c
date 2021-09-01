@@ -180,7 +180,9 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 	case APUPWR_DBG_PROFILING:
 		if (argc == 2) {
 			rpmsg_data.cmd = APUTOP_PWR_PROFILING;
-			rpmsg_data.data0 = args[0]; // 0:clean, 1:result, 2:mask
+			// 0:clean, 1:result, 2:allow bit, 3:allow bitmask
+			rpmsg_data.data0 = args[0];
+			// value of allow bit/bitmask
 			rpmsg_data.data1 = args[1]; // allow bitmask
 			aputop_send_rpmsg(&rpmsg_data, 100);
 		} else {
