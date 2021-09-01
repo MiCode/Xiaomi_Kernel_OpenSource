@@ -1628,7 +1628,7 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 	GPUFREQ_LOGD("channel: %d send IPI command: %s (%d)",
 		g_ipi_channel, gpufreq_ipi_cmd_name[data.cmd_id], data.cmd_id);
 
-	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_POLLING,
+	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_WAIT,
 		(void *)&data, GPUFREQ_IPI_DATA_LEN, IPI_TIMEOUT_MS);
 	if (unlikely(ret != IPI_ACTION_DONE)) {
 		GPUFREQ_LOGE("[ABORT] fail to send IPI command: %s (%d)",
