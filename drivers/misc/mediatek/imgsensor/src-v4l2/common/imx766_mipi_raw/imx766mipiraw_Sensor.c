@@ -414,7 +414,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
 		},
 		1
 	},
@@ -423,7 +422,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
 		},
 		1
 	},
@@ -432,7 +430,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x240},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x240},
 		},
 		1
 	},
@@ -441,7 +438,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x480},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x120},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x500, 0x120},
 		},
 		1
 	},
@@ -450,7 +446,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
 		},
 		1
 	},
@@ -459,7 +454,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
 		},
 		1
 	},
@@ -468,7 +462,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x240},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x240},
 		},
 		1
 	},
@@ -477,7 +470,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x2000, 0x1800},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x1400, 0x600},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x1400, 0x600},
 		},
 		1
 	},
@@ -487,9 +479,7 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
 			{VC_STAGGER_ME, 0x01, 0x2b, 0x1000, 0x900},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x240},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x240},
 			{VC_PDAF_STATS_ME_PIX_1, 0x00, 0x30, 0xa00, 0x240},
-			{VC_PDAF_STATS_ME_PIX_2, 0x00, 0x31, 0xa00, 0x240},
 		},
 		1
 	},
@@ -498,7 +488,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x480},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x120},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x500, 0x120},
 		},
 		1
 	},
@@ -514,7 +503,6 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
-			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
 		},
 		1
 	},
