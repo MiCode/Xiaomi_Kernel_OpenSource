@@ -892,7 +892,7 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 		       mt6375_port_stat_names[val]);
 	} else {
 		ddata->bc12_dn = false;
-		ddata->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		ddata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		ddata->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 	}
 out_changed:
