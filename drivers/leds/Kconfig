@@ -993,6 +993,16 @@ config LEDS_MTK_DISP
 	  To compile this driver as a module, choose 'M' here: the module
 	  will be called leds-mtk-disp.
 
+config LEDS_MT_BRIGHTNESS_HW_CHANGED
+	bool "LED Class mt_brightness_hw_changed attribute support"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the mt_brightness_hw_changed attribute
+	  for LED sysfs class devices under /sys/class/leds.
+
+	  See Documentation/ABI/testing/sysfs-class-led for details
+	  this function is the same with brightness_hw_changed
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

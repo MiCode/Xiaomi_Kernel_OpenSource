@@ -18,7 +18,6 @@
 #include <leds-mtk.h>
 
 
-
 /****************************************************************************
  * variables
  ***************************************************************************/
@@ -58,13 +57,79 @@ EXPORT_SYMBOL_GPL(mt_leds_call_notifier);
 
 static int  __maybe_unused call_notifier(int event, struct led_conf_info *led_conf)
 {
-	int err;
+	int err = 0;
 
-	err = mt_leds_call_notifier(event, led_conf);
-	if (err)
-		pr_info("notifier_call_chain error\n");
+	if (led_conf->flags & LED_MT_BRIGHTNESS_CHANGED) {
+		err = mt_leds_call_notifier(event, led_conf);
+		if (err)
+			pr_info("Error notifier_call_chain error\n");
+	}
 	return err;
 }
+
+#ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
+static ssize_t mt_brightness_hw_changed_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	if (led_conf->brightness_hw_changed == -1)
+		return -ENODATA;
+
+	return sprintf(buf, "%u\n", led_conf->brightness_hw_changed);
+}
+
+static DEVICE_ATTR_RO(mt_brightness_hw_changed);
+
+static int mt_leds_add_brightness_hw_changed(struct led_conf_info *led_conf)
+{
+	struct device *dev = led_conf->cdev.dev;
+	int ret;
+
+	ret = device_create_file(dev, &dev_attr_mt_brightness_hw_changed);
+	if (ret) {
+		pr_info("Error creating mt_brightness_hw_changed\n");
+		return ret;
+	}
+
+	led_conf->brightness_hw_changed_kn =
+		sysfs_get_dirent(dev->kobj.sd, "mt_brightness_hw_changed");
+	if (!led_conf->brightness_hw_changed_kn) {
+		pr_info("Error getting mt_brightness_hw_changed kn\n");
+		device_remove_file(dev, &dev_attr_mt_brightness_hw_changed);
+		return -ENXIO;
+	}
+
+	return 0;
+}
+
+static void mt_leds_remove_brightness_hw_changed(struct led_conf_info *led_conf)
+{
+	sysfs_put(led_conf->brightness_hw_changed_kn);
+	device_remove_file(led_conf->cdev.dev, &dev_attr_mt_brightness_hw_changed);
+}
+
+void mt_leds_notify_brightness_hw_changed(struct led_conf_info *led_conf,
+					       enum led_brightness brightness)
+{
+	if (WARN_ON(!led_conf->brightness_hw_changed_kn))
+		return;
+
+	led_conf->brightness_hw_changed = brightness;
+	sysfs_notify_dirent(led_conf->brightness_hw_changed_kn);
+}
+EXPORT_SYMBOL_GPL(mt_leds_notify_brightness_hw_changed);
+#else
+static int mt_leds_add_brightness_hw_changed(struct led_conf_info *led_conf)
+{
+	return 0;
+}
+static void mt_leds_remove_brightness_hw_changed(struct led_conf_info *led_conf)
+{
+}
+#endif
 
 /****************************************************************************
  * DEBUG MACROS
@@ -139,8 +204,14 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 	if (brightness == led_dat->hw_brightness)
 		return 0;
 
-	led_dat->mtk_hw_brightness_set(led_dat, brightness);
-	led_dat->hw_brightness = brightness;
+	if (led_dat->mtk_hw_brightness_set(led_dat, brightness)) {
+		led_dat->hw_brightness = brightness;
+#ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
+		mt_leds_notify_brightness_hw_changed(&led_dat->conf, brightness);
+#endif
+	} else {
+		pr_info("set hw brightness: %d -> %d failed!", led_dat->hw_brightness, brightness);
+	}
 
 	return 0;
 }
@@ -320,7 +391,11 @@ int mt_leds_classdev_register(struct device *parent,
 	int ret = 0;
 
 	led_dat->conf.cdev.flags = LED_CORE_SUSPENDRESUME;
+	led_dat->conf.flags = LED_MT_BRIGHTNESS_HW_CHANGED | LED_MT_BRIGHTNESS_CHANGED;
 	led_dat->conf.cdev.brightness_set_blocking = mtk_set_brightness;
+#ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
+	led_dat->conf.brightness_hw_changed = -1;
+#endif
 
 	ret = devm_led_classdev_register(parent, &(led_dat->conf.cdev));
 	if (ret < 0) {
@@ -328,6 +403,13 @@ int mt_leds_classdev_register(struct device *parent,
 		return ret;
 	}
 	pr_info("%s devm_led_classdev_register ok! ", led_dat->conf.cdev.name);
+	if (led_dat->conf.flags & LED_MT_BRIGHTNESS_HW_CHANGED) {
+		ret = mt_leds_add_brightness_hw_changed(&led_dat->conf);
+		if (ret) {
+			pr_info("%s add_brightness_hw_changed failed! ", led_dat->conf.cdev.name);
+			return ret;
+		}
+	}
 
 	ret = snprintf(led_dat->debug.buffer + strlen(led_dat->debug.buffer),
 		4095 - strlen(led_dat->debug.buffer),
@@ -351,6 +433,8 @@ void mt_leds_classdev_unregister(struct device *parent,
 				     struct mt_led_data *led_dat)
 {
 	devm_led_classdev_unregister(parent, &(led_dat->conf.cdev));
+	if (led_dat->conf.flags & LED_MT_BRIGHTNESS_HW_CHANGED)
+		mt_leds_remove_brightness_hw_changed(&(led_dat->conf));
 
 	pr_info("%s devm_led_classdev_unregister ok! ", led_dat->conf.cdev.name);
 
