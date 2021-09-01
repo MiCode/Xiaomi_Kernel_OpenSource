@@ -595,6 +595,7 @@ int reset_vcp(int reset)
 		pr_debug("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x\n", __func__,
 			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
 			readl(R_CORE0_SW_RSTN_CLR));
+
 		dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
 		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
@@ -613,7 +614,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
-		pr_debug("PM_SUSPEND_PREPARE entered\n");
+		pr_debug("[VCP] PM_SUSPEND_PREPARE entered\n");
 		if (is_vcp_ready(VCP_A_ID)) {
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
@@ -627,6 +628,8 @@ static int vcp_pm_event(struct notifier_block *notifier
 		retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (retval)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
+
+		pr_debug("[VCP] PM_SUSPEND_PREPARE ok\n");
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
@@ -643,8 +646,11 @@ static int vcp_pm_event(struct notifier_block *notifier
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);
-
-		pr_debug("PM_RESTORE_PREPARE ok\n");
+#if VCP_RECOVERY_SUPPORT
+		vcp_reset_by_cmd = 1;
+		vcp_send_reset_wq(RESET_TYPE_AWAKE);
+#endif
+		pr_debug("[VCP] PM_RESTORE_PREPARE ok\n");
 
 		return NOTIFY_OK;
 	case PM_POST_HIBERNATION:
@@ -1594,6 +1600,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 					, struct vcp_work_struct, work);
 	unsigned int vcp_reset_type = sws->flags;
 	unsigned long spin_flags;
+	struct arm_smccc_res res;
 
 	pr_debug("[VCP] %s(): remain %d times\n", __func__, vcp_reset_counts);
 	/*notify vcp functions stop*/
@@ -1615,7 +1622,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
 	if (vcp_reset_by_cmd == 0) {
 		pr_debug("[VCP] %s(): vcp_aed_reset\n", __func__);
-		vcp_aed(vcp_reset_type, VCP_A_ID);
+		//vcp_aed(vcp_reset_type, VCP_A_ID);
 	}
 	pr_debug("[VCP] %s(): disable logger\n", __func__);
 	/* logger disable must after vcp_aed() */
@@ -1629,26 +1636,25 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	if ((vcp_reset_type == RESET_TYPE_TIMEOUT) ||
 		(vcp_reset_type == RESET_TYPE_AWAKE)) {
 		/* stop vcp */
-		writel(1, R_CORE0_SW_RSTN_SET);
-		writel(1, R_CORE1_SW_RSTN_SET);
+		arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+			MTK_TINYSYS_VCP_KERNEL_OP_RESET_SET,
+			0, 0, 0, 0, 0, 0, &res);
+
 		dsb(SY); /* may take lot of time */
-		pr_notice("[VCP] rstn core0 %x core1 %x\n",
-		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
+		pr_notice("[VCP] rstn core0 %x core1 %x ret %lu\n",
+		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET), res.a0);
 	} else {
 		/* reset type vcp WDT or CMD*/
 		/* make sure vcp is in idle state */
 		vcp_reset_wait_timeout();
-		writel(1, R_CORE0_SW_RSTN_SET);
-		writel(1, R_CORE1_SW_RSTN_SET);
-		writel(CORE_REBOOT_OK, VCP_GPR_CORE0_REBOOT);
-		writel(CORE_REBOOT_OK, VCP_GPR_CORE1_REBOOT);
-		dsb(SY); /* may take lot of time */
-		pr_notice("[VCP] rstn core0 %x core1 %x\n",
-		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
-	}
+		arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+			MTK_TINYSYS_VCP_KERNEL_OP_RESET_SET,
+			1, 0, 0, 0, 0, 0, &res);
 
-	/* vcp reset */
-	vcp_sys_full_reset();
+		dsb(SY); /* may take lot of time */
+		pr_notice("[VCP] rstn core0 %x core1 %x ret %lu\n",
+		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET), res.a0);
+	}
 
 #ifdef VCP_PARAMS_TO_VCP_SUPPORT
 	/* The function, sending parameters to vcp must be anchored before
@@ -1667,8 +1673,10 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
 	/* start vcp */
 	pr_notice("[VCP] start vcp\n");
-	writel(1, R_CORE0_SW_RSTN_CLR);
-	pr_notice("[VCP] rstn core0 %x\n", readl(R_CORE0_SW_RSTN_CLR));
+	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+			MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
+			0, 0, 0, 0, 0, 0, &res);
+	pr_notice("[VCP] rstn core0 %x ret %lu\n", readl(R_CORE0_SW_RSTN_CLR), res.a0);
 	dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&vcp_ready_timer[VCP_A_ID].tl, jiffies + VCP_READY_TIMEOUT);
@@ -1707,7 +1715,7 @@ int vcp_check_resource(void)
 	return vcp_resource_status;
 }
 
-#if VCP_RECOVERY_SUPPORT
+#ifdef VCP_RECOVERY_SUPPORT_REMOVED
 void vcp_region_info_init(void)
 {
 	/*get vcp loader/firmware info from vcp sram*/

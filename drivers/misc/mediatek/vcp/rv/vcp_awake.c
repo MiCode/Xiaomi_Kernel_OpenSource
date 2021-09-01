@@ -150,39 +150,6 @@ void vcp_enable_sram(void)
 	writel(0, VCP_CLK_CTRL_TCM_TAIL_SRAM_PD);
 }
 
-/*
- * vcp_sys_reset, reset vcp
- */
-int vcp_sys_full_reset(void)
-{
-#if VCP_RECOVERY_SUPPORT
-	void *tmp;
-
-	pr_notice("[VCP] %s\n", __func__);
-	/* clear whole TCM */
-	memset_io(VCP_TCM, 0, VCP_TCM_SIZE);
-	/*copy loader to vcp sram*/
-	memcpy_to_vcp(VCP_TCM, (const void *)(size_t)vcp_loader_virt
-		, vcp_region_info_copy.ap_loader_size);
-	/*set info to sram*/
-	memcpy_to_vcp(vcp_region_info, (const void *)&vcp_region_info_copy
-			, sizeof(vcp_region_info_copy));
-
-	/* reset dram from dram back */
-	if ((int)(vcp_region_info_copy.ap_dram_size) > 0) {
-		tmp = (void *)(vcp_ap_dram_virt +
-			ROUNDUP(vcp_region_info_copy.ap_dram_size, 1024)
-			* vcpreg.core_nums);
-		memset(vcp_ap_dram_virt, 0,
-			ROUNDUP(vcp_region_info_copy.ap_dram_size, 1024)
-			* vcpreg.core_nums);
-		memcpy(vcp_ap_dram_virt, tmp,
-			vcp_region_info_copy.ap_dram_size);
-	}
-#endif
-	return 0;
-}
-
 int vcp_clr_spm_reg(void *unused)
 {
 	/* AP side write 0x1 to VCP2SPM_IPC_CLR to clear

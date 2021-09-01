@@ -17,7 +17,7 @@
 #define VCP_IOMMU_ENABLE                 (1)
 
 /* vcp rescovery feature option*/
-#define VCP_RECOVERY_SUPPORT             (0)
+#define VCP_RECOVERY_SUPPORT             (1)
 /* vcp recovery timeout value (ms)*/
 #define VCP_SYS_RESET_TIMEOUT            1000
 

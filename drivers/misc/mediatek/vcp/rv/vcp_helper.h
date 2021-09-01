@@ -6,9 +6,11 @@
 #ifndef __VCP_HELPER_H__
 #define __VCP_HELPER_H__
 
+#include <linux/arm-smccc.h>
 #include <linux/notifier.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "vcp_reg.h"
 #include "vcp_feature_define.h"
 #include "vcp.h"
@@ -88,6 +90,14 @@ enum VCP_IOMMU_DEV {
 	VCP_IOMMU_VENC_512MB2 = 2,
 	VCP_IOMMU_WORK_256MB2 = 3,
 	VCP_IOMMU_DEV_NUM,
+};
+
+enum mtk_tinysys_vcp_kernel_op {
+	MTK_TINYSYS_VCP_KERNEL_OP_DUMP_START = 0,
+	MTK_TINYSYS_VCP_KERNEL_OP_DUMP_POLLING,
+	MTK_TINYSYS_VCP_KERNEL_OP_RESET_SET,
+	MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
+	MTK_TINYSYS_VCP_KERNEL_OP_NUM,
 };
 
 struct vcp_regs {
@@ -209,7 +219,6 @@ extern void vcp_status_set(unsigned int value);
 extern void vcp_logger_init_set(unsigned int value);
 extern unsigned int vcp_set_reset_status(void);
 extern void vcp_enable_sram(void);
-extern int vcp_sys_full_reset(void);
 extern void vcp_reset_awake_counts(void);
 extern void vcp_awake_init(void);
 
