@@ -2482,6 +2482,8 @@
 			mediatek,pwm2-bclk-sw-ctrl-offset = <2>;
 			mediatek,pwm3-bclk-sw-ctrl-offset = <4>;
 			mediatek,pwm4-bclk-sw-ctrl-offset = <6>;
+			/* 4. pwm version */
+			mediatek,pwm-version = <0x1>;
 
 			pwmsrcclk = <&infracfg_ao_clk>;
 		};

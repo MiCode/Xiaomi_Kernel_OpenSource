@@ -3313,6 +3313,10 @@
 		mediatek,pwm2-bclk-sw-ctrl-offset = <18>;
 		mediatek,pwm3-bclk-sw-ctrl-offset = <16>;
 		mediatek,pwm4-bclk-sw-ctrl-offset = <14>;
+		/* 4. pwm clock all on off wa support */
+		mediatek,pwm-clk-all-on-off;
+		/* 5. pwm version */
+		mediatek,pwm-version = <0x2>;
 
 		pwmsrcclk = <&pericfg_ao_clk>;
 	};
