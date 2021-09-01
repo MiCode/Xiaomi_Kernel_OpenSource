@@ -25,6 +25,7 @@
 #include "mtk_cam-ctrl.h"
 #include "mtk_cam-debug.h"
 #include "mtk_camera-v4l2-controls.h"
+#include "mtk_cam-hsf-def.h"
 
 #define MTK_CAM_REQ_MAX_S_DATA	2
 
@@ -359,6 +360,8 @@ struct mtk_cam_ctx {
 	spinlock_t streaming_lock;
 	spinlock_t m2m_lock;
 	spinlock_t first_cq_lock;
+
+	struct mtk_cam_hsf_ctrl *hsf;
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;

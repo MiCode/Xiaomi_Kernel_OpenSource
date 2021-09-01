@@ -35,6 +35,8 @@
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
 
+#include "mtk_cam-hsf.h"
+
 static unsigned int debug_raw;
 module_param(debug_raw, uint, 0644);
 MODULE_PARM_DESC(debug_raw, "activates debug info");
@@ -480,6 +482,9 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 		pipeline->mstream_exposure = *(struct mtk_cam_mstream_exposure *)ctrl->p_new.p;
 		pipeline->mstream_exposure.valid = 1;
 		break;
+	case V4L2_CID_MTK_CAM_HSF_EN:
+		res_cfg->enable_hsf_raw = ctrl->val;
+		break;
 	default:
 		dev_info(dev,
 			 "%s:pipe(%d):ctrl(id:0x%x,val:%d) not handled\n",
@@ -711,6 +716,17 @@ static const struct v4l2_ctrl_config bin = {
 	.def = 1,
 };
 
+static const struct v4l2_ctrl_config hsf = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_HSF_EN,
+	.name = "HSF raw",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+	.def = 1,
+};
+
 static const struct v4l2_ctrl_config frz = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_FRZ,
@@ -876,35 +892,38 @@ void apply_cq(struct mtk_raw_device *dev,
 		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d, REG_CQ_THR0_CTL:0x%8x\n",
 		dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset,
 		readl_relaxed(dev->base + REG_CQ_THR0_CTL));
+	if (!dev->pipeline->res_config.enable_hsf_raw) {
+		writel_relaxed(cq_addr_lsb, dev->base + REG_CQ_THR0_BASEADDR);
+		writel_relaxed(cq_addr_msb, dev->base + REG_CQ_THR0_BASEADDR_MSB);
+		writel_relaxed(cq_size, dev->base + REG_CQ_THR0_DESC_SIZE);
 
-	writel_relaxed(cq_addr_lsb, dev->base + REG_CQ_THR0_BASEADDR);
-	writel_relaxed(cq_addr_msb, dev->base + REG_CQ_THR0_BASEADDR_MSB);
-	writel_relaxed(cq_size, dev->base + REG_CQ_THR0_DESC_SIZE);
+		cq_addr_lsb = (cq_addr + sub_cq_offset) & CQ_VADDR_MASK;
+		cq_addr_msb = ((cq_addr + sub_cq_offset) >> 32);
 
-	cq_addr_lsb = (cq_addr + sub_cq_offset) & CQ_VADDR_MASK;
-	cq_addr_msb = ((cq_addr + sub_cq_offset) >> 32);
+		writel_relaxed(cq_addr_lsb,
+				dev->base + REG_CQ_SUB_THR0_BASEADDR_2);
+		writel_relaxed(cq_addr_msb,
+				dev->base + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
+		writel_relaxed(sub_cq_size,
+				dev->base + REG_CQ_SUB_THR0_DESC_SIZE_2);
 
-	writel_relaxed(cq_addr_lsb,
-		       dev->base + REG_CQ_SUB_THR0_BASEADDR_2);
-	writel_relaxed(cq_addr_msb,
-		       dev->base + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
-	writel_relaxed(sub_cq_size,
-		       dev->base + REG_CQ_SUB_THR0_DESC_SIZE_2);
-
-	wmb(); /* TBC */
-	if (initial) {
-		writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
-			       dev->base + REG_CTL_RAW_INT6_EN);
-		writel_relaxed(BIT(10),
-			       dev->base + REG_CTL_RAW_INT7_EN);
-		writel_relaxed(CTL_CQ_THR0_START,
-			       dev->base + REG_CTL_START);
 		wmb(); /* TBC */
-	} else {
+		if (initial) {
+			writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
+				       dev->base + REG_CTL_RAW_INT6_EN);
+			writel_relaxed(BIT(10),
+				       dev->base + REG_CTL_RAW_INT7_EN);
+			writel_relaxed(CTL_CQ_THR0_START,
+				       dev->base + REG_CTL_START);
+			wmb(); /* TBC */
+		} else {
 #if USINGSCQ
-		writel_relaxed(CTL_CQ_THR0_START, dev->base + REG_CTL_START);
-		wmb(); /* TBC */
+			writel_relaxed(CTL_CQ_THR0_START, dev->base + REG_CTL_START);
+			wmb(); /* TBC */
 #endif
+		}
+	} else {
+		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
 	}
 	dev_info(dev->dev,
 		"apply raw%d scq - addr/size = [main] 0x%x/%d [sub] 0x%x/%d\n",
@@ -1302,35 +1321,40 @@ void stream_on(struct mtk_raw_device *dev, int on)
 	pipe = dev->pipeline;
 	feature = pipe->feature_active;
 	if (on) {
+		if (!pipe->res_config.enable_hsf_raw) {
 #if USINGSCQ
-		val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
-		fps_ratio = get_fps_ratio(dev);
-		dev_info(dev->dev, "REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n", val, fps_ratio);
-		if (dev->stagger_en)
-			writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
+			val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
+			fps_ratio = get_fps_ratio(dev);
+			dev_info(dev->dev, "REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
+			val, fps_ratio);
+			if (dev->stagger_en)
+				writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
 				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
-		else
-			writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
+			else
+				writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
 				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
 #else
-		writel_relaxed(CQ_THR0_MODE_CONTINUOUS | CQ_THR0_EN,
+			writel_relaxed(CQ_THR0_MODE_CONTINUOUS | CQ_THR0_EN,
 			       dev->base + REG_CQ_THR0_CTL);
-		writel_relaxed(CQ_DB_EN | CQ_DB_LOAD_MODE,
+			writel_relaxed(CQ_DB_EN | CQ_DB_LOAD_MODE,
 			       dev->base + REG_CQ_EN);
-		wmb(); /* TBC */
+			wmb(); /* TBC */
 #endif
 		/*
 		 * mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
 		 *                             TG_OVERRUN);
 		 */
-		if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
-		    feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
-			dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
+			if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
+				feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
+			} else {
+				val = readl_relaxed(dev->base + REG_TG_VF_CON);
+				val |= TG_VFDATA_EN;
+				writel_relaxed(val, dev->base + REG_TG_VF_CON);
+				wmb(); /* TBC */
+			}
 		} else {
-			val = readl_relaxed(dev->base + REG_TG_VF_CON);
-			val |= TG_VFDATA_EN;
-			writel_relaxed(val, dev->base + REG_TG_VF_CON);
-			wmb(); /* TBC */
+			ccu_stream_on(dev);
 		}
 		dev->vf_en = 1;
 		dev_dbg(dev->dev,
@@ -4737,6 +4761,9 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &bin, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hsf, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hwn_try, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;

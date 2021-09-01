@@ -10,6 +10,13 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/dma-buf/heaps/
 
 MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1/cam
+# MTEE part
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+ccflags-y += -I$(srctree)/drivers/iommu/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u/
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
+# MTEE end
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DSENSOR_SECURE_MTEE_SUPPORT
@@ -31,6 +38,7 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-mraw.o\
 		    mtk_cam-seninf-ca.o
 
+mtk-cam-isp-objs +=  mtk_cam-hsf.o
 
 include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_2_0/sub_drv.mk
 include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_3_0/sub_drv.mk

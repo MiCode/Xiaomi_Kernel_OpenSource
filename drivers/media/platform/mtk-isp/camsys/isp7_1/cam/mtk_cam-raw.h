@@ -203,6 +203,7 @@ struct mtk_cam_resource_config {
 	u32 raw_path;
 	/* sink fmt adjusted according resource used*/
 	struct v4l2_mbus_framefmt sink_fmt;
+	u32 enable_hsf_raw;
 };
 
 /* exposure for m-stream */

@@ -41,6 +41,7 @@
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
+#include "mtk_cam-hsf.h"
 
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
@@ -3584,6 +3585,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev;
 	struct mtk_raw_device *raw_dev;
+	struct mtk_raw_pipeline *pipe;
 	int i, j, ret;
 	unsigned long flags;
 	bool need_dump_mem = false;
@@ -3604,6 +3606,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			goto fail_pipe_off;
 		}
 	}
+
+	pipe = ctx->pipe;
 	if (ctx->used_raw_num) {
 		/**
 		 * TODO: validate pad's setting of each pipes
@@ -3630,6 +3634,30 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			goto fail_pipe_off;
 		}
 		raw_dev = dev_get_drvdata(dev);
+
+		if (pipe->res_config.enable_hsf_raw) {
+			if (ctx->used_raw_num) {
+				initialize(raw_dev);
+				/* Stagger */
+				if (mtk_cam_is_stagger(ctx))
+					stagger_enable(raw_dev);
+				/* Sub sample */
+				if (mtk_cam_is_subsample(ctx))
+					subsample_enable(raw_dev);
+				/* Twin */
+				if (ctx->pipe->res_config.raw_num_used != 1) {
+					struct mtk_raw_device *raw_dev_slave =
+								get_slave_raw_dev(cam, ctx->pipe);
+					initialize(raw_dev_slave);
+					if (ctx->pipe->res_config.raw_num_used == 3) {
+						struct mtk_raw_device *raw_dev_slave2 =
+							get_slave2_raw_dev(cam, ctx->pipe);
+						initialize(raw_dev_slave2);
+					}
+				}
+			}
+		}
+
 		/* stagger mode - use sv to output data to DRAM - online mode */
 		if (mtk_cam_is_stagger(ctx)) {
 			int used_pipes, src_pad_idx, exp_no;
@@ -3658,9 +3686,15 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					}
 				}
 				if (used_pipes & (1 << i)) {
-					mtk_cam_seninf_set_pixelmode(ctx->seninf,
-						src_pad_idx,
-						ctx->pipe->res_config.tgo_pxl_mode);
+					//HSF control
+					dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
+					pipe->res_config.enable_hsf_raw, pipe->id);
+					if (pipe->res_config.enable_hsf_raw) {
+						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
+						goto fail_pipe_off;
+					}
+					mtk_cam_seninf_set_pixelmode(ctx->seninf, src_pad_idx,
+					ctx->pipe->res_config.tgo_pxl_mode);
 					mtk_cam_seninf_set_camtg(ctx->seninf, src_pad_idx,
 						cam->sv.pipelines[
 							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
@@ -3686,6 +3720,13 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			used_pipes = ctx->pipe->enabled_raw;
 			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
 				if (used_pipes & (1 << i)) {
+					//HSF control
+					dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
+					pipe->res_config.enable_hsf_raw, pipe->id);
+					if (pipe->res_config.enable_hsf_raw) {
+						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
+						goto fail_pipe_off;
+					}
 					mtk_cam_seninf_set_pixelmode(ctx->seninf,
 						src_pad_idx,
 						ctx->pipe->res_config.tgo_pxl_mode);
@@ -3720,6 +3761,23 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			}
 		} else if (!mtk_cam_is_stagger_m2m(ctx) &&
 					!mtk_cam_is_time_shared(ctx)) {
+			//HSF control
+			dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
+			pipe->res_config.enable_hsf_raw, pipe->id);
+			if (pipe->res_config.enable_hsf_raw) {
+				ret = mtk_cam_hsf_config(ctx, raw_dev->id);
+				if (ret != 0) {
+					dev_info(cam->dev, "Error:enabled_hsf fail\n");
+					goto fail_pipe_off;
+				}
+			}
+#ifdef USING_HSF_SENSOR
+			if (pipe->res_config.enable_hsf_raw)
+				mtk_cam_seninf_set_secure(ctx->seninf, 1,
+				ctx->hsf->share_buf->chunk_hsfhandle);
+			else
+				mtk_cam_seninf_set_secure(ctx->seninf, 0, 0);
+#endif
 			mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0,
 					ctx->pipe->res_config.tgo_pxl_mode);
 			mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0,
@@ -3765,24 +3823,25 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		ctx->composed_buffer_list.cnt = 0;
 		dev_dbg(cam->dev, "[M2M] reset processing_buffer_list.cnt & composed_buffer_list.cnt\n");
 	}
-
-	if (ctx->used_raw_num) {
-		initialize(raw_dev);
-		/* Stagger */
-		if (mtk_cam_is_stagger(ctx))
-			stagger_enable(raw_dev);
-		/* Sub sample */
-		if (mtk_cam_is_subsample(ctx))
-			subsample_enable(raw_dev);
-		/* Twin */
-		if (ctx->pipe->res_config.raw_num_used != 1) {
-			struct mtk_raw_device *raw_dev_slave =
-						get_slave_raw_dev(cam, ctx->pipe);
-			initialize(raw_dev_slave);
-			if (ctx->pipe->res_config.raw_num_used == 3) {
-				struct mtk_raw_device *raw_dev_slave2 =
-					get_slave2_raw_dev(cam, ctx->pipe);
-				initialize(raw_dev_slave2);
+	if (!pipe->res_config.enable_hsf_raw) {
+		if (ctx->used_raw_num) {
+			initialize(raw_dev);
+			/* Stagger */
+			if (mtk_cam_is_stagger(ctx))
+				stagger_enable(raw_dev);
+			/* Sub sample */
+			if (mtk_cam_is_subsample(ctx))
+				subsample_enable(raw_dev);
+			/* Twin */
+			if (ctx->pipe->res_config.raw_num_used != 1) {
+				struct mtk_raw_device *raw_dev_slave =
+				get_slave_raw_dev(cam, ctx->pipe);
+				initialize(raw_dev_slave);
+				if (ctx->pipe->res_config.raw_num_used == 3) {
+					struct mtk_raw_device *raw_dev_slave2 =
+						get_slave2_raw_dev(cam, ctx->pipe);
+					initialize(raw_dev_slave2);
+				}
 			}
 		}
 	}
@@ -3871,6 +3930,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev;
 	struct mtk_raw_device *raw_dev;
+	struct mtk_raw_pipeline *pipe;
 	unsigned int i;
 	int ret;
 
@@ -3908,6 +3968,16 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		dev_dbg(cam->dev, "failed to stream off %s:%d\n",
 			ctx->seninf->name, ret);
 		return -EPERM;
+	}
+    //HSF control
+	pipe = ctx->pipe;
+	if (pipe->res_config.enable_hsf_raw) {
+		ret = mtk_cam_hsf_uninit(ctx);
+		if (ret != 0) {
+			dev_dbg(cam->dev, "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",
+				ctx->seninf->name, ret);
+			return -EPERM;
+		}
 	}
 
 	if (ctx->used_raw_num) {
