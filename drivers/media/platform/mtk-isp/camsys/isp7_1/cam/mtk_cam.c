@@ -14,6 +14,7 @@
 #include <linux/remoteproc.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <linux/mtk_ccd_controls.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/types.h>
 #include <linux/videodev2.h>
@@ -3246,6 +3247,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	struct v4l2_subdev **target_sd;
 	int ret, i;
 	struct media_entity *entity = &node->vdev.entity;
+	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
 
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
 		 __func__, ctx->stream_id, entity->name);
@@ -3263,6 +3265,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		cam->running_job_count = 0;
 
 		dev_info(cam->dev, "%s: power on camsys\n", __func__);
+		if (dvfs_info->reg_vmm)
+			regulator_enable(dvfs_info->reg_vmm);
 		pm_runtime_get_sync(cam->dev);
 
 		/* power on the remote proc device */
@@ -3415,8 +3419,10 @@ fail_uninit_composer:
 fail_shutdown:
 	if (!cam->composer_cnt) {
 		pm_runtime_mark_last_busy(cam->dev);
-		pm_runtime_put_autosuspend(cam->dev);
+		pm_runtime_put_sync_suspend(cam->dev);
 		rproc_shutdown(cam->rproc_handle);
+		if (dvfs_info->reg_vmm)
+			regulator_disable(dvfs_info->reg_vmm);
 	}
 fail_rproc_put:
 	if (!cam->composer_cnt) {
@@ -3430,6 +3436,7 @@ fail_rproc_put:
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 {
 	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
 	unsigned int i, j;
 
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
@@ -3555,12 +3562,14 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	if (ctx->cam->rproc_handle && !ctx->cam->composer_cnt) {
 		dev_info(cam->dev, "%s power off camsys\n", __func__);
 		pm_runtime_mark_last_busy(cam->dev);
-		pm_runtime_put_autosuspend(cam->dev);
+		pm_runtime_put_sync_suspend(cam->dev);
 #if CCD_READY
 		rproc_shutdown(cam->rproc_handle);
 		rproc_put(cam->rproc_handle);
 		cam->rproc_handle = NULL;
 #endif
+		if (dvfs_info->reg_vmm)
+			regulator_disable(dvfs_info->reg_vmm);
 	}
 }
 int PipeIDtoTGIDX(int pipe_id)
