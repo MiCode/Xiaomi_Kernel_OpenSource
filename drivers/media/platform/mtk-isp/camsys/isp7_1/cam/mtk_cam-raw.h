@@ -271,7 +271,6 @@ struct mtk_raw_pipeline {
 
 struct mtk_raw_device {
 	struct device *dev;
-	struct device *larb;
 	struct mtk_cam_device *cam;
 	unsigned int id;
 	void __iomem *base;
@@ -294,7 +293,6 @@ struct mtk_raw_device {
 
 struct mtk_yuv_device {
 	struct device *dev;
-	struct device *larb;
 	unsigned int id;
 	void __iomem *base;
 	unsigned int num_clks;

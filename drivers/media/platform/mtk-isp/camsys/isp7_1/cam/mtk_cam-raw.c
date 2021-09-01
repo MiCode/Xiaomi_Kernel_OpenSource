@@ -2041,11 +2041,12 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 			    struct mtk_raw_device *raw)
 {
 	struct device *dev = &pdev->dev;
-	struct resource *res;
 	struct platform_device *larb_pdev;
-	struct device_node *node;
+	struct device_node *larb_node;
+	struct device_link *link;
+	struct resource *res;
 	unsigned int i;
-	int irq, clks, ret;
+	int irq, clks, larbs, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
@@ -2121,19 +2122,30 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		}
 	}
 
-	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
-	if (!node) {
-		dev_info(dev, "failed to get larb id\n");
-	} else {
-		larb_pdev = of_find_device_by_node(node);
-		if (WARN_ON(!larb_pdev)) {
-			of_node_put(node);
-			dev_info(dev, "failed to get larb pdev\n");
-			return -EINVAL;
-		}
-		of_node_put(node);
+	larbs = of_count_phandle_with_args(
+					pdev->dev.of_node, "mediatek,larbs", NULL);
+	dev_info(dev, "larb_num:%d\n", larbs);
 
-		raw->larb = &larb_pdev->dev;
+	for (i = 0; i < larbs; i++) {
+		larb_node = of_parse_phandle(
+					pdev->dev.of_node, "mediatek,larbs", i);
+		if (!larb_node) {
+			dev_info(dev, "failed to get larb id\n");
+			continue;
+		}
+
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(larb_node);
+			dev_info(dev, "failed to get larb pdev\n");
+			continue;
+		}
+		of_node_put(larb_node);
+
+		link = device_link_add(&pdev->dev, &larb_pdev->dev,
+						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			dev_info(dev, "unable to link smi larb%d\n", i);
 	}
 
 	return 0;
@@ -5084,9 +5096,6 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
-	if (drvdata->larb)
-		mtk_smi_larb_put(drvdata->larb);
-
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
 
@@ -5111,12 +5120,6 @@ static int mtk_raw_runtime_resume(struct device *dev)
 
 			return ret;
 		}
-	}
-
-	if (drvdata->larb) {
-		ret = mtk_smi_larb_get(drvdata->larb);
-		if (ret)
-			dev_info(drvdata->dev, "mtk_smi_larb_get fail %d\n", ret);
 	}
 
 	reset(drvdata);
@@ -5204,11 +5207,12 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 			    struct mtk_yuv_device *drvdata)
 {
 	struct device *dev = &pdev->dev;
-	struct resource *res;
 	struct platform_device *larb_pdev;
-	struct device_node *node;
+	struct device_node *larb_node;
+	struct device_link *link;
+	struct resource *res;
 	unsigned int i;
-	int irq, clks, ret;
+	int irq, clks, larbs, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &drvdata->id);
@@ -5270,19 +5274,30 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		}
 	}
 
-	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
-	if (!node) {
-		dev_info(dev, "failed to get larb id\n");
-	} else {
-		larb_pdev = of_find_device_by_node(node);
-		if (WARN_ON(!larb_pdev)) {
-			of_node_put(node);
-			dev_info(dev, "failed to get larb pdev\n");
-			return -EINVAL;
-		}
-		of_node_put(node);
+	larbs = of_count_phandle_with_args(
+					pdev->dev.of_node, "mediatek,larbs", NULL);
+	dev_info(dev, "larb_num:%d\n", larbs);
 
-		drvdata->larb = &larb_pdev->dev;
+	for (i = 0; i < larbs; i++) {
+		larb_node = of_parse_phandle(
+					pdev->dev.of_node, "mediatek,larbs", i);
+		if (!larb_node) {
+			dev_info(dev, "failed to get larb id\n");
+			continue;
+		}
+
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(larb_node);
+			dev_info(dev, "failed to get larb pdev\n");
+			continue;
+		}
+		of_node_put(larb_node);
+
+		link = device_link_add(dev, &larb_pdev->dev,
+						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			dev_info(dev, "unable to link smi larb%d\n", i);
 	}
 
 	return 0;
@@ -5373,9 +5388,6 @@ static int mtk_yuv_runtime_suspend(struct device *dev)
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
 
-	if (drvdata->larb)
-		mtk_smi_larb_put(drvdata->larb);
-
 	return 0;
 }
 
@@ -5385,12 +5397,6 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 	int i, ret;
 
 	dev_info(dev, "%s:enable clock\n", __func__);
-
-	if (drvdata->larb) {
-		ret = mtk_smi_larb_get(drvdata->larb);
-		if (ret)
-			dev_info(drvdata->dev, "mtk_smi_larb_get fail %d\n", ret);
-	}
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
