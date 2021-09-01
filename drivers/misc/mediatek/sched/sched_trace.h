@@ -21,6 +21,30 @@
 #define LB_BEST_ENERGY_CPU	(0x100)
 #define LB_MAX_SPARE_CPU	(0x200)
 
+#ifdef CREATE_TRACE_POINTS
+int sched_cgroup_state(struct task_struct *p, int subsys_id)
+{
+#ifdef CONFIG_CGROUPS
+	int cgrp_id = -1;
+	struct cgroup_subsys_state *css;
+
+	rcu_read_lock();
+	css = task_css(p, subsys_id);
+	if (!css)
+		goto out;
+
+	cgrp_id = css->id;
+
+out:
+	rcu_read_unlock();
+
+	return cgrp_id;
+#else
+	return -1;
+#endif
+}
+#endif
+
 TRACE_EVENT(sched_select_task_rq,
 
 	TP_PROTO(struct task_struct *tsk,
@@ -41,6 +65,8 @@ TRACE_EVENT(sched_select_task_rq,
 		__field(long, task_mask)
 		__field(bool, prefer)
 		__field(int, sync_flag)
+		__field(int, cpuctl_grp_id)
+		__field(int, cpuset_grp_id)
 		),
 
 	TP_fast_assign(
@@ -54,9 +80,11 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->task_mask      = tsk->cpus_ptr->bits[0];
 		__entry->prefer         = prefer;
 		__entry->sync_flag     = sync_flag;
+		__entry->cpuctl_grp_id = sched_cgroup_state(tsk, cpu_cgrp_id);
+		__entry->cpuset_grp_id = sched_cgroup_state(tsk, cpuset_cgrp_id);
 		),
 
-	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d util_est=%d uclamp=%d mask=0x%lx latency_sensitive=%d sync=%d",
+	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d util_est=%d uclamp=%d mask=0x%lx latency_sensitive=%d sync=%d cpuctl=%d cpuset=%d",
 		__entry->pid,
 		__entry->policy,
 		__entry->prev_cpu,
@@ -66,7 +94,9 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->boost,
 		__entry->task_mask,
 		__entry->prefer,
-		__entry->sync_flag)
+		__entry->sync_flag,
+		__entry->cpuctl_grp_id,
+		__entry->cpuset_grp_id)
 );
 
 TRACE_EVENT(sched_compute_energy,

@@ -470,7 +470,7 @@ done:
 			best_idle_cpu, idle_max_spare_cap_cpu, sys_max_spare_cap_cpu);
 	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
 			task_util(p), task_util_est(p), uclamp_task_util(p),
-			latency_sensitive , sync);
+			latency_sensitive, sync);
 
 	return;
 }
