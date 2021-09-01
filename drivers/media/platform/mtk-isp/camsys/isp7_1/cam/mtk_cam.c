@@ -1815,7 +1815,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);
 	cam_req->fs_on_cnt = 0;
 	cam_req->flags = 0;
-
+	cam_req->ctx_used = 0;
 
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
