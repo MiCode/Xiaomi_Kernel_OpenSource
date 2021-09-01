@@ -25,10 +25,8 @@ struct mddp_f_dev_netif {
 //------------------------------------------------------------------------------
 // Public functions.
 // -----------------------------------------------------------------------------
-bool mddp_f_is_support_dev(char *dev_name);
 bool mddp_f_is_support_lan_dev(char *dev_name);
 bool mddp_f_is_support_wan_dev(char *dev_name);
-int mddp_f_dev_name_to_id(char *dev_name);
 int mddp_f_dev_name_to_netif_id(char *dev_name);
 
 #endif /* _MDDP_F_DEV_H */

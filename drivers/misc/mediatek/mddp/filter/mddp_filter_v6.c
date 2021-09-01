@@ -445,9 +445,8 @@ static int mddp_f_in_nf_v6(struct sk_buff *skb)
 	return !(desc.flag & DESC_FLAG_TRACK_ROUTER);
 }
 
-static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
+static void mddp_f_out_nf_ipv6(struct sk_buff *skb, struct mddp_f_cb *cb)
 {
-	struct mddp_f_cb cb;
 	struct ip6header *ip6 = (struct ip6header *) skb_network_header(skb);
 	unsigned char nexthdr;
 	struct nf_conn *nat_ip_conntrack;
@@ -464,9 +463,8 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 
 	memset(&t, 0, sizeof(struct router_tuple));
 	nexthdr = ip6->nexthdr;
-	cb.proto = nexthdr;
-	cb.ip_ver = ip6->version;
-	cb.is_uplink = false;
+	cb->proto = nexthdr;
+	cb->ip_ver = ip6->version;
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 		tcp = (struct tcpheader *) (skb_network_header(skb) + sizeof(struct ip6header));
@@ -515,26 +513,11 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 			goto out;
 		}
 
-		if (mddp_f_is_support_wan_dev(skb->dev->name) == true)
-			cb.is_uplink = true;
-
 		ipv6_addr_copy(&(t.saddr), (struct in6_addr *)&(ip6->saddr));
 		ipv6_addr_copy(&(t.daddr), (struct in6_addr *)&(ip6->daddr));
 		t.proto = ip6->nexthdr;
 		t.in.tcp.port = tcp->th_sport;
 		t.out.tcp.port = tcp->th_dport;
-
-		if (cb.is_uplink) {
-			cb.wan = skb->dev;
-			rcu_read_lock();
-			cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
-		} else {
-			rcu_read_lock();
-			cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
-			cb.lan = skb->dev;
-		}
 
 		/* Tag this packet for MD tracking */
 		MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
@@ -550,11 +533,11 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 			MDDP_F_LOG(MDDP_LL_DEBUG,
 				"%s: tuple[%p] is found!!\n",
 				__func__, found_router_tuple);
-			ret = mddp_f_tag_packet(skb, &cb, tuple_hit_cnt);
+			ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
 			if (ret == 0)
 				MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
-					__func__, cb.is_uplink,
+					__func__, cb->is_uplink,
 					skb, tcp->th_sum);
 
 		} else {
@@ -578,11 +561,11 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 
 			mddp_f_add_router_tuple_tcpudp(found_router_tuple);
 
-			ret = mddp_f_tag_packet(skb, &cb, tuple_hit_cnt);
+			ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
 			if (ret == 0)
 				MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
-					__func__, cb.is_uplink,
+					__func__, cb->is_uplink,
 					skb, tcp->th_sum);
 		}
 		break;
@@ -607,26 +590,11 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 			}
 		}
 
-		if (mddp_f_is_support_wan_dev(skb->dev->name) == true)
-			cb.is_uplink = true;
-
 		ipv6_addr_copy(&(t.saddr), (struct in6_addr *)&(ip6->saddr));
 		ipv6_addr_copy(&(t.daddr), (struct in6_addr *)&(ip6->daddr));
 		t.proto = ip6->nexthdr;
 		t.in.udp.port = udp->uh_sport;
 		t.out.udp.port = udp->uh_sport;
-
-		if (cb.is_uplink) {
-			cb.wan = skb->dev;
-			rcu_read_lock();
-			cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
-		} else {
-			rcu_read_lock();
-			cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
-			cb.lan = skb->dev;
-		}
 
 		if (udp->uh_sport != 67 && udp->uh_sport != 68) {
 			/* Don't fastpath dhcp packet */
@@ -648,12 +616,12 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 				MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: tuple[%p] is found!!\n",
 					__func__, found_router_tuple);
-				ret = mddp_f_tag_packet(skb, &cb,
+				ret = mddp_f_tag_packet(skb, cb,
 							tuple_hit_cnt);
 				if (ret == 0)
 					MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
-						__func__, cb.is_uplink,
+						__func__, cb->is_uplink,
 						skb, udp->uh_check);
 
 			} else {
@@ -678,18 +646,18 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb)
 
 				mddp_f_add_router_tuple_tcpudp(found_router_tuple);
 
-				ret = mddp_f_tag_packet(skb, &cb,
+				ret = mddp_f_tag_packet(skb, cb,
 							tuple_hit_cnt);
 				if (ret == 0)
 					MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
-						__func__, cb.is_uplink,
+						__func__, cb->is_uplink,
 						skb, udp->uh_check);
 			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
-					__func__, cb.sport, skb);
+					__func__, udp->uh_sport, skb);
 		}
 		break;
 	default:
@@ -706,23 +674,47 @@ out:
 static uint32_t mddp_nfhook_postrouting_v6
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
+	struct mddp_f_cb cb;
+
 	if (skb->skb_iif == 0) {
 		MDDP_F_LOG(MDDP_LL_DEBUG, "%s: skb_iif is zero, packet is not from lan\n",
 			   __func__);
 		return NF_ACCEPT;
 	}
 
-	if (!mddp_f_is_support_dev(state->out->name)) {
+	cb.wan = NULL;
+
+	if (mddp_f_is_support_wan_dev(skb->dev->name) == true) {
+		cb.is_uplink = true;
+		cb.wan = skb->dev;
+		rcu_read_lock();
+		cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
+		rcu_read_unlock();
+		if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
+			return NF_ACCEPT;
+	}
+
+	if (mddp_f_is_support_lan_dev(skb->dev->name) == true) {
+		cb.is_uplink = false;
+		rcu_read_lock();
+		cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
+		rcu_read_unlock();
+		cb.lan = skb->dev;
+		if (mddp_f_is_support_wan_dev(cb.wan->name) == false)
+			return NF_ACCEPT;
+	}
+
+	if (cb.wan == NULL) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
-			"%s: Unsupport device,state->out->name(%s).\n",
-			__func__, state->out->name);
+			"%s: Unsupport device,sbk->dev->name(%s).\n",
+			__func__, skb->dev->name);
 		return NF_ACCEPT;
 	}
 
 	if (mddp_f_in_nf_v6(skb))
 		return NF_ACCEPT;
 
-	mddp_f_out_nf_ipv6(skb);
+	mddp_f_out_nf_ipv6(skb, &cb);
 
 	return NF_ACCEPT;
 }

@@ -13,43 +13,6 @@
 /* MD Direct Tethering only supports some specified network devices,      */
 /* which are defined below                                                */
 /*------------------------------------------------------------------------*/
-static const char * const mddp_f_support_dev_names[] = {
-	"ccmni-lan",
-	"ccmni0",
-	"ccmni1",
-	"ccmni2",
-	"ccmni3",
-	"ccmni4",
-	"ccmni5",
-	"ccmni6",
-	"ccmni7",
-	"ccmni8",
-	"ccmni9",
-	"ccmni10",
-	"ccmni11",
-	"ccmni12",
-	"ccmni13",
-	"ccmni14",
-	"ccmni15",
-	"ccmni16",
-	"ccmni17",
-	"ccmni18",
-	"ccmni19",
-	"ccmni20",
-	"ccmni21",
-	"ccmni22",
-	"ccmni23",
-	"ccmni24",
-	"ccmni25",
-	"ccmni26",
-	"ccmni27",
-	"ccmni28",
-	"ccmni29",
-	"ccmni30",
-	"ccmni31",
-	"rndis0"
-};
-
 static const char * const mddp_f_support_wan_dev_names[] = {
 	"ccmni0",
 	"ccmni1",
@@ -85,9 +48,6 @@ static const char * const mddp_f_support_wan_dev_names[] = {
 	"ccmni31"
 };
 
-static const int mddp_f_support_dev_num =
-	sizeof(mddp_f_support_dev_names) /
-	sizeof(mddp_f_support_dev_names[0]);
 static const int mddp_f_support_wan_dev_num =
 	sizeof(mddp_f_support_wan_dev_names) /
 	sizeof(mddp_f_support_wan_dev_names[0]);
@@ -144,31 +104,6 @@ static int mddp_f_dev_get_netif_id(char *dev_name)
 	MDDP_F_LOG(MDDP_LL_ERR,
 			"%s: Invalid dev_name[%s].\n", __func__, dev_name);
 	WARN_ON(1);
-
-	return -1;
-}
-
-bool mddp_f_is_support_dev(char *dev_name)
-{
-	bool ret1;
-	bool ret2;
-
-	ret1 = mddp_f_is_support_lan_dev(dev_name);
-	ret2 = mddp_f_is_support_wan_dev(dev_name);
-
-	return ((true == ret1) || (true == ret2));
-}
-
-int mddp_f_dev_name_to_id(char *dev_name)
-{
-	int i;
-
-	for (i = 0; i < mddp_f_support_dev_num; i++) {
-		if (!strcmp(mddp_f_support_dev_names[i], dev_name)) {
-			/* Matched! */
-			return i;
-		}
-	}
 
 	return -1;
 }

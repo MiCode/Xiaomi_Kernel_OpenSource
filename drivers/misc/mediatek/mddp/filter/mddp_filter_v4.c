@@ -459,9 +459,8 @@ static int mddp_f_in_nf_v4(struct sk_buff *skb)
 	return !(desc.flag & DESC_FLAG_TRACK_NAT);
 }
 
-static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
+static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 {
-	struct mddp_f_cb cb;
 	struct nf_conn *nat_ip_conntrack;
 	enum ip_conntrack_info ctinfo;
 	struct tuple t;
@@ -478,9 +477,8 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 
 	memset(&t, 0, sizeof(struct tuple));
 	offset2 += (ip->ip_hl << 2);
-	cb.proto = ip->ip_p;
-	cb.ip_ver = ip->ip_v;
-	cb.is_uplink = false;
+	cb->proto = ip->ip_p;
+	cb->ip_ver = ip->ip_v;
 	switch (ip->ip_p) {
 	case IPPROTO_TCP:
 		tcp = (struct tcpheader *) offset2;
@@ -530,33 +528,28 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 			goto out;
 		}
 
-		if (mddp_f_is_support_wan_dev(skb->dev->name) == true)
-			cb.is_uplink = true;
-
 		t.nat.src = ip->ip_src;
 		t.nat.dst = ip->ip_dst;
 		t.nat.proto = ip->ip_p;
 		t.nat.s.tcp.port = tcp->th_sport;
 		t.nat.d.tcp.port = tcp->th_dport;
 
-		if (cb.is_uplink) {
-			cb.src[0] = nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
-			cb.dst[0] = t.nat.dst;
-			cb.sport = nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.all;
-			cb.dport = nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.all;
-			cb.wan = skb->dev;
-			rcu_read_lock();
-			cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
+		if (cb->is_uplink) {
+			struct nf_conntrack_tuple *nf_tuple;
+
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+			cb->src[0] = nf_tuple->src.u3.ip;
+			cb->dst[0] = t.nat.dst;
+			cb->sport = nf_tuple->src.u.all;
+			cb->dport = nf_tuple->dst.u.all;
 		} else {
-			cb.src[0] = t.nat.src;
-			cb.dst[0] = nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip;
-			cb.sport = nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple.src.u.all;
-			cb.dport = nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.all;
-			rcu_read_lock();
-			cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
-			cb.lan = skb->dev;
+			struct nf_conntrack_tuple *nf_tuple;
+
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple;
+			cb->src[0] = t.nat.src;
+			cb->dst[0] = nf_tuple->dst.u3.ip;
+			cb->sport = nf_tuple->src.u.all;
+			cb->dport = nf_tuple->dst.u.all;
 		}
 
 		/* Tag this packet for MD tracking */
@@ -573,11 +566,11 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 			MDDP_F_LOG(MDDP_LL_DEBUG,
 				"%s: tuple[%p] is found!!\n",
 				__func__, found_nat_tuple);
-			ret = mddp_f_tag_packet(skb, &cb, tuple_hit_cnt);
+			ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
 			if (ret == 0)
 				MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-					__func__, cb.is_uplink, skb,
+					__func__, cb->is_uplink, skb,
 					ip->ip_id, ip->ip_sum);
 
 			goto out;
@@ -602,11 +595,11 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 
 			mddp_f_add_nat_tuple(found_nat_tuple);
 
-			ret = mddp_f_tag_packet(skb, &cb, tuple_hit_cnt);
+			ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
 			if (ret == 0)
 				MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, cb.is_uplink,
+						__func__, cb->is_uplink,
 						skb, ip->ip_id,
 						ip->ip_sum);
 		}
@@ -632,36 +625,31 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 			}
 		}
 
-		if (mddp_f_is_support_wan_dev(skb->dev->name) == true)
-			cb.is_uplink = true;
-
 		t.nat.src = ip->ip_src;
 		t.nat.dst = ip->ip_dst;
 		t.nat.proto = ip->ip_p;
 		t.nat.s.udp.port = udp->uh_sport;
 		t.nat.d.udp.port = udp->uh_dport;
 
-		if (cb.is_uplink) {
-			cb.src[0] = nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
-			cb.dst[0] = t.nat.dst;
-			cb.sport = nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.all;
-			cb.dport = nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.all;
-			cb.wan = skb->dev;
-			rcu_read_lock();
-			cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
+		if (cb->is_uplink) {
+			struct nf_conntrack_tuple *nf_tuple;
+
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+			cb->src[0] = nf_tuple->src.u3.ip;
+			cb->dst[0] = t.nat.dst;
+			cb->sport = nf_tuple->src.u.all;
+			cb->dport = nf_tuple->dst.u.all;
 		} else {
-			cb.src[0] = t.nat.src;
-			cb.dst[0] = nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip;
-			cb.sport = nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple.src.u.all;
-			cb.dport = nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.all;
-			rcu_read_lock();
-			cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-			rcu_read_unlock();
-			cb.lan = skb->dev;
+			struct nf_conntrack_tuple *nf_tuple;
+
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple;
+			cb->src[0] = t.nat.src;
+			cb->dst[0] = nf_tuple->dst.u3.ip;
+			cb->sport = nf_tuple->src.u.all;
+			cb->dport = nf_tuple->dst.u.all;
 		}
 
-		if (cb.sport != 67 && cb.sport != 68) {
+		if (cb->sport != 67 && cb->sport != 68) {
 			/* Don't fastpath dhcp packet */
 
 			/* Tag this packet for MD tracking */
@@ -683,12 +671,12 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 						__func__,
 						found_nat_tuple);
 
-				ret = mddp_f_tag_packet(skb, &cb,
+				ret = mddp_f_tag_packet(skb, cb,
 						tuple_hit_cnt);
 				if (ret == 0)
 					MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, cb.is_uplink,
+						__func__, cb->is_uplink,
 						skb, ip->ip_id,
 						ip->ip_sum);
 
@@ -715,19 +703,19 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb)
 
 				mddp_f_add_nat_tuple(found_nat_tuple);
 
-				ret = mddp_f_tag_packet(skb, &cb,
+				ret = mddp_f_tag_packet(skb, cb,
 						tuple_hit_cnt);
 				if (ret == 0)
 					MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, cb.is_uplink,
+						__func__, cb->is_uplink,
 						skb, ip->ip_id,
 						ip->ip_sum);
 			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
-					__func__, cb.sport, skb);
+					__func__, cb->sport, skb);
 		}
 		break;
 	default:
@@ -744,23 +732,47 @@ out:
 static uint32_t mddp_nfhook_postrouting_v4
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
+	struct mddp_f_cb cb;
+
 	if (skb->skb_iif == 0) {
 		MDDP_F_LOG(MDDP_LL_DEBUG, "%s: skb_iif is zero, packet is not from lan\n",
 			   __func__);
 		return NF_ACCEPT;
 	}
 
-	if (!mddp_f_is_support_dev(state->out->name)) {
+	cb.wan = NULL;
+
+	if (mddp_f_is_support_wan_dev(skb->dev->name) == true) {
+		cb.is_uplink = true;
+		cb.wan = skb->dev;
+		rcu_read_lock();
+		cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
+		rcu_read_unlock();
+		if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
+			return NF_ACCEPT;
+	}
+
+	if (mddp_f_is_support_lan_dev(skb->dev->name) == true) {
+		cb.is_uplink = false;
+		rcu_read_lock();
+		cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
+		rcu_read_unlock();
+		cb.lan = skb->dev;
+		if (mddp_f_is_support_wan_dev(cb.wan->name) == false)
+			return NF_ACCEPT;
+	}
+
+	if (cb.wan == NULL) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
-			"%s: Unsupport device,state->out->name(%s).\n",
-			__func__, state->out->name);
+			"%s: Unsupport device,sbk->dev->name(%s).\n",
+			__func__, skb->dev->name);
 		return NF_ACCEPT;
 	}
 
 	if (mddp_f_in_nf_v4(skb))
 		return NF_ACCEPT;
 
-	mddp_f_out_nf_ipv4(skb);
+	mddp_f_out_nf_ipv4(skb, &cb);
 
 	return NF_ACCEPT;
 }
