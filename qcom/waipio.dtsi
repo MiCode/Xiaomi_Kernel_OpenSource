@@ -3404,6 +3404,8 @@
 
 	qcom,msm_gsi {
 		compatible = "qcom,msm_gsi";
+		qcom,num-msi = <2>;
+		msi-parent = <&gic_its 0x5480>;
 	};
 
 	qcom,rmnet-ipa {
