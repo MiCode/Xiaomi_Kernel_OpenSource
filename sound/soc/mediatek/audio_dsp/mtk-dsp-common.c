@@ -176,7 +176,7 @@ int get_dspdaiid_by_dspscene(int dspscene)
 	int id;
 	int ret = -1;
 
-	if (dspscene < 0 || dspscene >= AUDIO_TASK_DAI_NUM) {
+	if (dspscene < 0) {
 		pr_info("%s() dspscene err: %d\n", __func__, dspscene);
 		return -1;
 	}
