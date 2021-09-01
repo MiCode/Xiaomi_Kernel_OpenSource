@@ -132,6 +132,7 @@ struct mtk_apu {
 
 	/* to prevent multiple ipi_send run concurrently */
 	struct mutex send_lock;
+	spinlock_t usage_cnt_lock;
 	struct apu_ipi_desc ipi_desc[APU_IPI_MAX];
 	bool ipi_id_ack[APU_IPI_MAX]; /* per-ipi ack */
 	bool ipi_inbound_locked;

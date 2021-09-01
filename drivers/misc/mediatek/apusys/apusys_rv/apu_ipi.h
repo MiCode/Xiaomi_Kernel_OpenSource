@@ -45,7 +45,7 @@ struct apu_ipi_desc {
 	 * positive: host-initiated ipi outstanding count
 	 * negative: apu-initiated ipi outstanding count
 	 */
-	atomic_t usage_cnt;
+	int usage_cnt;
 };
 
 struct mtk_share_obj {

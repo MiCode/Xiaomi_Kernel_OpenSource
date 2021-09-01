@@ -85,6 +85,20 @@ static inline bool bypass_check(u32 id)
 	return id == APU_IPI_DEEP_IDLE;
 }
 
+static void ipi_usage_cnt_update(struct mtk_apu *apu, u32 id, int diff)
+{
+	struct apu_ipi_desc *ipi = &apu->ipi_desc[id];
+
+	if (ipi_attrs[id].ack != IPI_WITH_ACK)
+		return;
+
+	spin_lock(&apu->usage_cnt_lock);
+	ipi->usage_cnt += diff;
+	dev_info(apu->dev, "%s: ipi %d usage_cnt=%d (%d)\n",
+		 __func__, id, ipi->usage_cnt, diff);
+	spin_unlock(&apu->usage_cnt_lock);
+}
+
 extern void apu_deepidle_power_on_aputop(struct mtk_apu *apu);
 
 int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
@@ -159,8 +173,7 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		}
 	}
 
-	if (ipi_attrs[id].ack == IPI_WITH_ACK)
-		atomic_add(1, &ipi->usage_cnt);
+	ipi_usage_cnt_update(apu, id, 1);
 
 unlock_mutex:
 	mutex_unlock(&apu->send_lock);
@@ -191,12 +204,13 @@ int apu_ipi_lock(struct mtk_apu *apu)
 		return 0;
 	}
 
+	spin_lock(&apu->usage_cnt_lock);
 	for (i = 0; i < APU_IPI_MAX; i++) {
 		ipi = &apu->ipi_desc[i];
 
 		if (ipi_attrs[i].ack == IPI_WITH_ACK &&
-		    atomic_read(&ipi->usage_cnt) != 0 &&
-		    bypass_check(i)) {
+		    ipi->usage_cnt != 0 &&
+		    !bypass_check(i)) {
 			dev_info(apu->dev, "%s: ipi %d is still in use %d\n",
 				 __func__, i, ipi->usage_cnt);
 			ready_to_lock = false;
@@ -205,11 +219,13 @@ int apu_ipi_lock(struct mtk_apu *apu)
 	}
 
 	if (!ready_to_lock) {
+		spin_unlock(&apu->usage_cnt_lock);
 		mutex_unlock(&apu->send_lock);
 		return -EBUSY;
 	}
 
 	apu->ipi_inbound_locked = IPI_LOCKED;
+	spin_unlock(&apu->usage_cnt_lock);
 
 	mutex_unlock(&apu->send_lock);
 
@@ -223,7 +239,9 @@ void apu_ipi_unlock(struct mtk_apu *apu)
 	if (apu->ipi_inbound_locked == IPI_UNLOCKED)
 		dev_info(apu->dev, "%s: ipi already unlocked\n", __func__);
 
+	spin_lock(&apu->usage_cnt_lock);
 	apu->ipi_inbound_locked = IPI_UNLOCKED;
+	spin_unlock(&apu->usage_cnt_lock);
 
 	mutex_unlock(&apu->send_lock);
 }
@@ -348,8 +366,7 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 
 	handler(temp_buf, len, apu->ipi_desc[id].priv);
 
-	if (ipi_attrs[id].ack == IPI_WITH_ACK)
-		atomic_sub(1, &ipi->usage_cnt);
+	ipi_usage_cnt_update(apu, id, -1);
 
 	mutex_unlock(&apu->ipi_desc[id].lock);
 
@@ -602,6 +619,7 @@ int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 	rx_serial_no = 0;
 
 	mutex_init(&apu->send_lock);
+	spin_lock_init(&apu->usage_cnt_lock);
 
 	for (i = 0; i < APU_IPI_MAX; i++) {
 		mutex_init(&apu->ipi_desc[i].lock);
