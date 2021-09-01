@@ -30,6 +30,7 @@
 module_param(mtk_v4l2_dbg_level, int, 0644);
 module_param(mtk_vcodec_dbg, bool, 0644);
 module_param(mtk_vcodec_perf, bool, 0644);
+module_param(mtk_vcodec_vcp, int, 0644);
 
 static int fops_vcodec_open(struct file *file)
 {

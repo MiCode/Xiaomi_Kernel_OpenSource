@@ -31,6 +31,8 @@
 
 struct vcp_enc_mem_list {
 	struct vcodec_mem_obj mem;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 	struct list_head list;
 };
 
@@ -117,6 +119,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	obj.id = inst->vcu_inst.id;
 	obj.len = len;
 	ipi_size = ((sizeof(u32) * 2) + len + 3) /4;
+	inst->vcu_inst.failure = 0;
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
 		is_ack, inst->vcu_inst.signaled);
@@ -138,8 +141,9 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		ret = wait_event_timeout(inst->vcu_inst.wq_hd, inst->vcu_inst.signaled, timeout);
 		inst->vcu_inst.signaled = false;
 
-		if (ret == 0) {
-			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out !%d", *(u32 *)msg, ret);
+		if (ret == 0 || inst->vcu_inst.failure) {
+			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out or fail!%d %d",
+				*(u32 *)msg, ret, inst->vcu_inst.failure);
 			mutex_unlock(&inst->ctx->dev->ipi_mutex);
 			inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
 			return -EIO;
@@ -156,6 +160,8 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 	struct venc_inst *inst = NULL;
 	struct device *dev = NULL;
 	struct vcp_enc_mem_list *tmp = NULL;
+	struct dma_buf_attachment *attach = NULL;
+	struct sg_table *sgt = NULL;
 
 	if (msg->mem.type == MEM_TYPE_FOR_SHM) {
 		msg->status = 0;
@@ -174,13 +180,12 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 		inst = container_of(vcu, struct venc_inst, vcu_inst);
 
-		if (msg->mem.type == MEM_TYPE_FOR_SW)
+		if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC)
 			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
 		else if (msg->mem.type == MEM_TYPE_FOR_HW)
 			dev = &vcu->ctx->dev->plat_dev->dev;
 
-		// TODO: need handle secure mmeory
-		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev);
+		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
 	}
 	if (msg->status) {
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
@@ -190,6 +195,8 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		tmp = kmalloc(sizeof(struct vcp_enc_mem_list), GFP_KERNEL);
 		if (tmp) {
 			mutex_lock(vcu->ctx_ipi_lock);
+			tmp->attach = attach;
+			tmp->sgt = sgt;
 			tmp->mem = msg->mem;
 			list_add_tail(&tmp->list, &vcu->bufs);
 			mutex_unlock(vcu->ctx_ipi_lock);
@@ -214,7 +221,6 @@ static void handle_venc_mem_free(struct venc_vcu_ipi_mem_op *msg)
 		if (!memcmp(&tmp->mem, &msg->mem, sizeof(struct vcodec_mem_obj))) {
 			found = 1;
 			list_del(p);
-			kfree(tmp);
 			break;
 		}
 	}
@@ -230,13 +236,13 @@ static void handle_venc_mem_free(struct venc_vcu_ipi_mem_op *msg)
 		msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,  msg->mem.type);
 
 	inst = container_of(vcu, struct venc_inst, vcu_inst);
-	if (msg->mem.type == MEM_TYPE_FOR_SW)
+	if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC)
 		dev = vcp_get_io_device(VCP_IOMMU_256MB1);
 	else if (msg->mem.type == MEM_TYPE_FOR_HW)
 		dev = &vcu->ctx->dev->plat_dev->dev;
 
-	// TODO: need handle secure mmeory
-	msg->status = mtk_vcodec_free_mem(&msg->mem, dev);
+	msg->status = mtk_vcodec_free_mem(&msg->mem, dev, tmp->attach, tmp->sgt);
+	kfree(tmp);
 
 	if (msg->status)
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
@@ -347,6 +353,8 @@ int vcp_enc_ipi_handler(void *arg)
 		switch (msg->msg_id) {
 		case VCU_IPIMSG_ENC_INIT_DONE:
 			handle_enc_init_msg(vcu, (void *)obj->share_buf);
+			if (msg->status != VENC_IPI_MSG_STATUS_OK)
+				vcu->failure = VENC_IPI_MSG_STATUS_FAIL;
 		case VCU_IPIMSG_ENC_SET_PARAM_DONE:
 		case VCU_IPIMSG_ENC_ENCODE_DONE:
 		case VCU_IPIMSG_ENC_DEINIT_DONE:
@@ -360,7 +368,6 @@ int vcp_enc_ipi_handler(void *arg)
 			break;
 		case VCU_IPIMSG_ENC_PUT_BUFFER:
 			mtk_enc_put_buf(ctx);
-			ret = 1;
 			msg->msg_id = AP_IPIMSG_ENC_PUT_BUFFER_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 			break;
@@ -397,17 +404,14 @@ int vcp_enc_ipi_handler(void *arg)
 
 			msg->msg_id = AP_IPIMSG_ENC_WAIT_ISR_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
-			ret = 1;
 			break;
 		case VCU_IPIMSG_ENC_POWER_ON:
 			venc_encode_prepare(ctx, msg->status, &flags);
-			ret = 1;
 			msg->msg_id = AP_IPIMSG_ENC_POWER_ON_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 			break;
 		case VCU_IPIMSG_ENC_POWER_OFF:
 			venc_encode_unprepare(ctx, msg->status, &flags);
-			ret = 1;
 			msg->msg_id = AP_IPIMSG_ENC_POWER_OFF_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 			break;
@@ -1273,13 +1277,12 @@ static int venc_vcp_deinit(unsigned long handle)
 	mutex_lock(inst->vcu_inst.ctx_ipi_lock);
 	list_for_each_safe(p, q, &inst->vcu_inst.bufs) {
 		tmp = list_entry(p, struct vcp_enc_mem_list, list);
-		if (tmp->mem.type == MEM_TYPE_FOR_SW)
+		if (tmp->mem.type == MEM_TYPE_FOR_SW || tmp->mem.type == MEM_TYPE_FOR_SEC)
 			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
 		else if (tmp->mem.type == MEM_TYPE_FOR_HW)
 			dev = &inst->vcu_inst.ctx->dev->plat_dev->dev;
 
-		// TODO: need handle secure mmeory
-		mtk_vcodec_free_mem(&tmp->mem, dev);
+		mtk_vcodec_free_mem(&tmp->mem, dev, tmp->attach, tmp->sgt);
 		mtk_v4l2_debug(0, "[%d] leak free va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			inst->ctx->id, tmp->mem.va, tmp->mem.pa,
 			tmp->mem.iova, tmp->mem.len,  tmp->mem.type);

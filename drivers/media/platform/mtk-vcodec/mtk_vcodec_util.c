@@ -9,6 +9,9 @@
 #include <linux/module.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
+#include <linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <uapi/linux/dma-heap.h>
 
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_util.h"
@@ -349,181 +352,75 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev)
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
+	struct dma_buf_attachment **attach, struct sg_table **sgt)
 {
-	dma_addr_t dma_addr;
+	struct dma_heap *dma_heap;
+	struct dma_buf *dbuf;
 
 	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_HW) {
-		mem->va = (__u64)dma_alloc_attrs(dev,
-			mem->len, &dma_addr, GFP_KERNEL, 0);
-		if (IS_ERR_OR_NULL((void *)mem->va))
-			return -ENOMEM;
-		else {
-			mem->iova = (__u64)dma_addr;
-			mem->pa = (__u64)dma_addr;
-		}
+		dma_heap = dma_heap_find("mtk_mm");
 	} else if (mem->type == MEM_TYPE_FOR_SEC) {
-		// TODO: alloc secure memory
+		dma_heap = dma_heap_find("mtk_svp_region-aligned");
 	} else {
 		mtk_v4l2_err("wrong type %u\n", mem->type);
 		return -EPERM;
 	}
 
-	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
+	if (!dma_heap) {
+		mtk_v4l2_err("heap find fail\n");
+		return -EPERM;
+	}
+
+	dbuf = dma_heap_buffer_alloc(dma_heap, mem->len, O_RDWR | O_CLOEXEC,
+		DMA_HEAP_VALID_HEAP_FLAGS);
+	if (IS_ERR(dbuf)) {
+		mtk_v4l2_err("buffer alloc fail\n");
+		return PTR_ERR(dbuf);
+	}
+
+	*attach = dma_buf_attach(dbuf, dev);
+	if (IS_ERR(*attach)) {
+		mtk_v4l2_err("attach fail, return\n");
+		dma_heap_buffer_free(dbuf);
+		return PTR_ERR(*attach);
+	}
+	*sgt = dma_buf_map_attachment(*attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(*sgt)) {
+		mtk_v4l2_err("map failed, detach and return\n");
+		dma_buf_detach(dbuf, *attach);
+		dma_heap_buffer_free(dbuf);
+		return PTR_ERR(*sgt);
+	}
+	mem->va = (__u64)dbuf;
+	mem->pa = (__u64)sg_dma_address((*sgt)->sgl);
+	mem->iova = (__u64)mem->pa;
+
+	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n",
+		mem->va, mem->pa, mem->iova, mem->len);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_alloc_mem);
 
-int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev)
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
+	struct dma_buf_attachment *attach, struct sg_table *sgt)
 {
-	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_HW) {
-		if (IS_ERR_OR_NULL((void *)mem->va))
-			return -EFAULT;
-		else
-			dma_free_attrs(dev, mem->len, (void *)mem->va, (dma_addr_t)mem->iova, 0);
-	} else if (mem->type == MEM_TYPE_FOR_SEC) {
-		// TODO: free secure memory
+	if (mem->type == MEM_TYPE_FOR_SW ||
+		mem->type == MEM_TYPE_FOR_HW ||
+		mem->type == MEM_TYPE_FOR_SEC) {
+		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach((struct dma_buf *)mem->va, attach);
+		dma_heap_buffer_free((struct dma_buf *)mem->va);
 	} else {
 		mtk_v4l2_err("wrong type %d\n", mem->type);
 		return -EPERM;
 	}
 
-	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
+	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n",
+		mem->va, mem->pa, mem->iova, mem->len);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_free_mem);
-
-int mtk_vcodec_init_reserve_mem_slot(enum vcp_reserve_mem_id_t res_mem_id, int **mem_slot_stat)
-{
-	__u64 total_mem = (__u64)vcp_get_reserve_mem_size(res_mem_id);
-	__u64 va_start = (__u64)vcp_get_reserve_mem_virt(res_mem_id);
-	__u64 pa_start = (__u64)vcp_get_reserve_mem_phys(res_mem_id);
-	__u64 slot_range = mem_slot_range;
-
-	int total_slot_num = (int)(total_mem/slot_range);
-	int slot;
-
-	mtk_v4l2_debug(8, "res_mem_id %d, total_mem (%llu), mem_slot_range (%llu), total_slot_num(%d), va_start:0x%llx, pa_start:0x%llx\n",
-		res_mem_id, total_mem, slot_range, total_slot_num, va_start, pa_start);
-
-	if (res_mem_id != VDEC_WORK_ID && res_mem_id != VENC_WORK_ID) {
-		mtk_v4l2_err("[err] unknown res_mem_id (%d)\n", res_mem_id);
-		return -EPERM;
-	}
-
-	*mem_slot_stat = kmalloc_array(total_slot_num, sizeof(int), GFP_KERNEL);
-	if (*mem_slot_stat == NULL) {
-		mtk_v4l2_err("[err] kmalloc_array mem_slot_stat (size %d) failed\n", total_slot_num);
-		return -ENOMEM;
-	}
-
-	for (slot = 0; slot < total_slot_num; slot++) {
-		*(*mem_slot_stat + slot) = 0;
-	}
-	mtk_v4l2_debug(8, "init mem_slot_stat 0x%08x, total_slot_num %d\n", *mem_slot_stat, total_slot_num);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mtk_vcodec_init_reserve_mem_slot);
-
-int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
-{
-	__u64 total_mem = (__u64)vcp_get_reserve_mem_size(res_mem_id);
-	__u64 va_start = (__u64)vcp_get_reserve_mem_virt(res_mem_id);
-	__u64 pa_start = (__u64)vcp_get_reserve_mem_phys(res_mem_id);
-	__u64 slot_range = mem_slot_range;
-	int total_slot_num = (int)(total_mem/slot_range), slot;
-
-	if (res_mem_id != VDEC_WORK_ID && res_mem_id != VENC_WORK_ID) {
-		mtk_v4l2_err("[err] unknown res_mem_id (%d)\n", res_mem_id);
-		return -EPERM;
-	}
-
-	if ((mem->len) > slot_range) {
-		mtk_v4l2_err("[err] Allocate size exit max memory slot %llu\n", slot_range);
-		return -EPERM;
-	}
-
-	if (mem_slot_stat == NULL) {
-		mtk_v4l2_err("[err] %s mem_slot_stat is null\n", __func__);
-		return -EPERM;
-	}
-
-	for (slot = 0; slot < total_slot_num; slot++) {
-		if(mem_slot_stat[slot] == 0) /* 0: memory slot is available */
-			break;
-	}
-
-	if (slot == total_slot_num) {
-		mtk_v4l2_err("[err] No available reserved memory\n");
-		return -ENOMEM;
-	}
-	else {
-		mem_slot_stat[slot] = 1; /* 1: memory slot is using */
-		mem->va = va_start + (__u64)slot * slot_range;
-		mem->pa = pa_start + (__u64)slot * slot_range;
-		mem->iova = 0;
-		mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
-		return 0;
-	}
-}
-EXPORT_SYMBOL_GPL(mtk_vcodec_get_reserve_mem_slot);
-
-int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
-{
-
-	__u64 total_mem = (__u64)vcp_get_reserve_mem_size(res_mem_id);
-	__u64 va_start = (__u64)vcp_get_reserve_mem_virt(res_mem_id);
-	__u64 pa_start = (__u64)vcp_get_reserve_mem_phys(res_mem_id);
-	__u64 slot_range = mem_slot_range;
-	int slot;
-	__u64 va_free = mem->va, pa_free = mem->pa;
-
-	if (res_mem_id != VDEC_WORK_ID && res_mem_id != VENC_WORK_ID) {
-		mtk_v4l2_err("[err] unknown res_mem_id (%d)\n", res_mem_id);
-		return -EPERM;
-	}
-
-	if ((mem->len) > slot_range) {
-		mtk_v4l2_err("[err] Freed size exit max memory slot %llu\n", mem_slot_range);
-		return -EPERM;
-	}
-
-	if (mem_slot_stat == NULL) {
-		mtk_v4l2_err("[err] %s mem_slot_stat is null\n", __func__);
-		return -EPERM;
-	}
-
-	/* check whether the freed address out of reserved memory range */
-	if ((pa_free < pa_start) || (va_free < va_start) || (pa_free > (pa_start + total_mem)) || (va_free > (va_start + total_mem))) {
-		mtk_v4l2_err("[err] Freed address is not in the reserved memory pa %llu, va %llu, pa range(%llu,%llu), va range (%llu,%llu)\n"
-			, pa_free, va_free, pa_start, pa_start + total_mem, va_start, va_start + total_mem);
-		return -EPERM;
-	}
-
-	/* check whether the freed address is on the start of one slot */
-	if (((pa_free - pa_start) % slot_range != 0) ||  ((va_free - va_start) % slot_range != 0)) {
-		mtk_v4l2_err("[err] Freed address is not on the slot pa %llu, va %llu\n", pa_free, va_free);
-		return -EPERM;
-	}/* check whether the freed address of va and pa are on the same slot */
-	else if ((pa_free - pa_start) / slot_range != (va_free - va_start) / slot_range) {
-		mtk_v4l2_err("[err] Freed address of pa & va are not in the same slot pa %llu, va %llu\n", pa_free, va_free);
-		return -EPERM;
-	}
-	else {
-		slot = (pa_free - pa_start) / slot_range;
-		if (mem_slot_stat[slot] == 0) {
-			mtk_v4l2_err("[err] Freed slot status %d is wrong, expected is 1\n", slot);
-		}
-
-		mem_slot_stat[slot] = 0;
-		mem->va = 0;
-		mem->pa = 0;
-		mem->iova = 0;
-		mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
-		return 0;
-	}
-}
-EXPORT_SYMBOL(mtk_vcodec_put_reserve_mem_slot);
 #endif
 
 MODULE_LICENSE("GPL v2");
