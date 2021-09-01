@@ -534,8 +534,8 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 
 	DDPMSG("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
-	ui = 1000 / dsi->data_rate + 0x01;
-	cycle_time = 8000 / dsi->data_rate + 0x01;
+	ui = (1000 / dsi->data_rate > 0) ? 1000 / dsi->data_rate : 1;
+	cycle_time = 8000 / dsi->data_rate;
 
 	lpx = NS_TO_CYCLE(dsi->data_rate * 0x4B, 0x1F40) + 0x1;
 	hs_prpr = NS_TO_CYCLE((0x40 + 0x5 * ui), cycle_time) + 0x1;
@@ -648,18 +648,14 @@ static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 
 	DDPINFO("%s+\n", __func__);
 	DDPMSG("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
-	ui = 1000 / dsi->data_rate + 0x01;
-	cycle_time = 7000 / dsi->data_rate + 0x01;
+	ui = (1000 / dsi->data_rate > 0) ? 1000 / dsi->data_rate : 1;
+	cycle_time = 7000 / dsi->data_rate;
 
 	lpx = NS_TO_CYCLE(dsi->data_rate * 0x4B, 0x1B58) + 0x1;
 	hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
-	hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
-	hs_zero = (hs_zero > hs_prpr) ? hs_zero - hs_prpr : hs_zero;
-	if (hs_zero < 1)
-		hs_zero = 1;
+	hs_zero = NS_TO_CYCLE((336 * ui), cycle_time);
 
-	hs_trail = 80 + 4 * ui;
-	hs_trail = (hs_trail > cycle_time) ? NS_TO_CYCLE(hs_trail, cycle_time) + 1 : 2;
+	hs_trail = NS_TO_CYCLE((203 * ui), cycle_time);
 
 	ta_get = 5 * NS_TO_CYCLE(0x55, cycle_time);
 	ta_sure = 3 * NS_TO_CYCLE(0x55, cycle_time) / 2;
