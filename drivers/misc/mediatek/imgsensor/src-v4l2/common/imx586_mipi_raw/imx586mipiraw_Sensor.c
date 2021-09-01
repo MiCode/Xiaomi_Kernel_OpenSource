@@ -777,7 +777,7 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx, kal_uint16 shutter,
 
 }	/* set_shutter_frame_length */
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
+static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint16 reg_gain = 0x0;
 
@@ -4968,8 +4968,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cust3[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x1770,
-			.vsize = 0x1f40,
+			.hsize = 0x1f40,
+			.vsize = 0x1770,
 		},
 	},
 	{
