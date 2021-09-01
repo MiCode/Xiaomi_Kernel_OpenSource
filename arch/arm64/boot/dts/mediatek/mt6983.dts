@@ -12118,9 +12118,9 @@
 		status = "okay";
 
 		reg = <0 0x19024000 0 0x1000>,
-			<0 0x1d080000 0 0x1000>;
+			<0 0x190e1000 0 0x1000>;
 		reg-names = "apu_logtop",
-				"apu_logd";
+				"apu_mbox";
 		interrupts = <GIC_SPI 636 IRQ_TYPE_LEVEL_HIGH 0>;
 		interrupt-names = "apu_logtop";
 		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
