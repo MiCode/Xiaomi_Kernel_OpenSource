@@ -295,6 +295,8 @@ static void sys_racing_addr_update(struct mml_comp *comp, struct mml_task *task,
 	}
 }
 
+extern int mml_racing_timeout;
+
 static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg)
 {
@@ -312,7 +314,8 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 		return;
 
 	/* do eoc to avoid task timeout during self-loop */
-	cmdq_pkt_eoc(pkt, false);
+	if (!mml_racing_timeout)
+		cmdq_pkt_eoc(pkt, false);
 
 	/* reserve assign inst for jump addr */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
