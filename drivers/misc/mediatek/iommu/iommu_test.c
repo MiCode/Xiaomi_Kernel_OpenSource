@@ -51,42 +51,48 @@ static const struct proc_ops __fops = {					  \
 }									  \
 
 enum DMABUF_HEAP {
-	TEST_REQ_SVP_REGION, /* 0x0 normal region */
-	TEST_REQ_SVP_REGION_ALIGN, /* 0x1 video */
-	TEST_REQ_SVP_REGION_PA, /* 0x2 PA */
+	TEST_REQ_SVP_REGION = 0, /* 0x0 normal region */
+	TEST_REQ_SVP_REGION_ALIGN_UP, /* 0x1 by video up */
+	TEST_REQ_SVP_REGION_ALIGN_VDEC, /* 0x2 by video up */
+	TEST_REQ_SVP_REGION_PA, /* 0x3 PA */
 
-	TEST_REQ_PROT_REGION, /* 0x3 normal region */
-	TEST_REQ_PROT_REGION_ALIGN, /* 0x4 CCU */
-	TEST_REQ_PROT_REGION_PA, /* 0x5 PA */
+	TEST_REQ_PROT_REGION = 10, /* 0xa normal region */
+	TEST_REQ_PROT_REGION_ALIGN_CCU0, /* 0xb by CCU0 */
+	TEST_REQ_PROT_REGION_PA, /* 0xc PA */
 
-	TEST_REQ_SVP_PAGE0, /* 0x6 normal region */
-	TEST_REQ_SVP_PAGE1, /* 0x7 special region */
-	TEST_REQ_SVP_PAGE2, /* 0x8 PA */
+	TEST_REQ_SVP_PAGE = 20, /* 0x14 normal region */
+	TEST_REQ_SVP_PAGE_UP, /* 0x15 special region video up */
+	TEST_REQ_SVP_PAGE_VDEC, /* 0x16 PA */
+	TEST_REQ_SVP_PAGE_PA, /* 0x17 PA */
 
-	TEST_REQ_PROT_PAGE0, /* 0x9 normal region */
-	TEST_REQ_PROT_PAGE1, /* 0xa CCU */
-	TEST_REQ_PROT_PAGE2, /* 0xb PA */
+	TEST_REQ_PROT_PAGE = 30, /* 0x1e normal region */
+	TEST_REQ_PROT_PAGE_CCU0, /* 0x1f CCU0 */
+	TEST_REQ_PROT_PAGE_PA, /* 0x20 PA */
 
-	TEST_PROT_2D_FR_REGION, /* 0xc */
-	TEST_PROT_2D_FR_REGION_ALIGN, /* 0xd */
-	TEST_SAPU_DATA_SHM_REGION, /* 0xe */
-	TEST_SAPU_DATA_SHM_REGION_ALIGN, /* 0xf */
-	TEST_SAPU_ENGINE_SHM_REGION, /* 0x10 */
-	TEST_SAPU_ENGINE_SHM_REGION_ALIGN, /* 0x11 */
-	TEST_WFD_REGION, /* 0x12 */
-	TEST_WFD_REGION_ALIGN, /* 0x13 */
-	TEST_MTK_NORMAL, /* 0x14 */
+	TEST_PROT_2D_FR_REGION = 40, /* 0x28:cancel */
+	TEST_PROT_2D_FR_REGION_ALIGN, /* 0x29:cancel */
 
-	/* Addition test */
-	TEST_REQ_PROT_REGION_ALIGN_UP, /* 0x15 video uP */
-	TEST_REQ_PROT_REGION_ALIGN_VDEC, /* 0x16 VDEC */
-	TEST_REQ_PROT_PAGE_UP, /* 0x17 video uP */
-	TEST_REQ_PROT_PAGE_VDEC, /* 0x18 VDEC */
+	TEST_SAPU_DATA_SHM_REGION = 50, /* 0x32 */
+	TEST_SAPU_DATA_SHM_REGION_ALIGN, /* 0x33 */
 
-	/* error test */
-	TEST_REQ_PROT_REGION_UP, /* 0x19 video uP */
-	TEST_REQ_PROT_REGION_CCU0, /* 0x1a ccu0 */
-	TEST_REQ_PROT_REGION_VDEC, /* 0x1b vdec */
+	TEST_SAPU_ENGINE_SHM_REGION = 60, /* 0x3c */
+	TEST_SAPU_ENGINE_SHM_REGION_ALIGN, /* 0x3d */
+
+	TEST_WFD_REGION = 70, /* 0x46 normal region */
+	TEST_WFD_REGION_ALIGN_UP, /* 0x47 by video up */
+	TEST_WFD_REGION_ALIGN_VDEC, /* 0x48 by VDEC */
+	TEST_WFD_REGION_PA, /* 0x49 PA */
+
+	TEST_MTK_NORMAL = 80, /* 0x50 */
+
+	/*
+	 * error test:
+	 * Use reserved module map buffer with region_heap, it will
+	 * return error because of PA/SIZE not 1MB alignment
+	 */
+	TEST_REQ_SVP_REGION_UP_ERR = 90, /* 0x5a video uP */
+	TEST_REQ_SVP_REGION_VDEC_ERR, /* 0x5b vdec */
+	TEST_REQ_PROT_REGION_CCU0_ERR, /* 0x5c ccu0 */
 
 	TEST_MTK_HEAP_NUM
 };
@@ -101,49 +107,59 @@ static struct heap_name heap_obj[] = {
 		.id = TEST_REQ_SVP_REGION,
 		.name = "svp_region_heap",
 	},
-	[TEST_REQ_SVP_REGION_ALIGN] = {
-		.id = TEST_REQ_SVP_REGION_ALIGN,
-		.name = "svp_region_heap-aligned",
+	[TEST_REQ_SVP_REGION_ALIGN_UP] = {
+		.id = TEST_REQ_SVP_REGION_ALIGN_UP,
+		.name = "svp_region_heap-aligned-up",
+	},
+	[TEST_REQ_SVP_REGION_ALIGN_VDEC] = {
+		.id = TEST_REQ_SVP_REGION_ALIGN_VDEC,
+		.name = "svp_region_heap-aligned-vdec",
 	},
 	[TEST_REQ_SVP_REGION_PA] = {
 		.id = TEST_REQ_SVP_REGION_PA,
 		.name = "svp_region_heap-PA",
 	},
+
 	[TEST_REQ_PROT_REGION] = {
 		.id = TEST_REQ_PROT_REGION,
 		.name = "prot_region_heap",
 	},
-	[TEST_REQ_PROT_REGION_ALIGN] = {
-		.id = TEST_REQ_PROT_REGION_ALIGN,
-		.name = "prot_region_heap-align",
+	[TEST_REQ_PROT_REGION_ALIGN_CCU0] = {
+		.id = TEST_REQ_PROT_REGION_ALIGN_CCU0,
+		.name = "prot_region_heap-align-ccu0",
 	},
 	[TEST_REQ_PROT_REGION_PA] = {
 		.id = TEST_REQ_PROT_REGION_PA,
 		.name = "prot_region_heap-PA",
 	},
-	[TEST_REQ_SVP_PAGE0] = {
-		.id = TEST_REQ_SVP_PAGE0,
-		.name = "svp_page_heap0",
+
+	[TEST_REQ_SVP_PAGE] = {
+		.id = TEST_REQ_SVP_PAGE,
+		.name = "svp_page_normal",
 	},
-	[TEST_REQ_SVP_PAGE1] = {
-		.id = TEST_REQ_SVP_PAGE1,
-		.name = "svp_page_heap1",
+	[TEST_REQ_SVP_PAGE_UP] = {
+		.id = TEST_REQ_SVP_PAGE_UP,
+		.name = "svp_page_up",
 	},
-	[TEST_REQ_SVP_PAGE2] = {
-		.id = TEST_REQ_SVP_PAGE2,
-		.name = "svp_page_heap2",
+	[TEST_REQ_SVP_PAGE_VDEC] = {
+		.id = TEST_REQ_SVP_PAGE_VDEC,
+		.name = "svp_page_vdec",
 	},
-	[TEST_REQ_PROT_PAGE0] = {
-		.id = TEST_REQ_PROT_PAGE0,
-		.name = "prot_page_heap0",
+	[TEST_REQ_SVP_PAGE_PA] = {
+		.id = TEST_REQ_SVP_PAGE_PA,
+		.name = "svp_page_pa",
 	},
-	[TEST_REQ_PROT_PAGE1] = {
-		.id = TEST_REQ_PROT_PAGE1,
-		.name = "prot_page_heap1",
+	[TEST_REQ_PROT_PAGE] = {
+		.id = TEST_REQ_PROT_PAGE,
+		.name = "prot_page_normal",
 	},
-	[TEST_REQ_PROT_PAGE2] = {
-		.id = TEST_REQ_PROT_PAGE2,
-		.name = "prot_page_heap2",
+	[TEST_REQ_PROT_PAGE_CCU0] = {
+		.id = TEST_REQ_PROT_PAGE_CCU0,
+		.name = "prot_page_ccu0",
+	},
+	[TEST_REQ_PROT_PAGE_PA] = {
+		.id = TEST_REQ_PROT_PAGE_PA,
+		.name = "prot_page_pa",
 	},
 	[TEST_PROT_2D_FR_REGION] = {
 		.id = TEST_PROT_2D_FR_REGION,
@@ -169,54 +185,42 @@ static struct heap_name heap_obj[] = {
 		.id = TEST_SAPU_ENGINE_SHM_REGION_ALIGN,
 		.name = "sapu_engine_shm_region-aligned",
 	},
+
 	[TEST_WFD_REGION] = {
 		.id = TEST_WFD_REGION,
 		.name = "wfd_region",
 	},
-	[TEST_WFD_REGION_ALIGN] = {
-		.id = TEST_WFD_REGION_ALIGN,
-		.name = "wfd_region-aligned",
+	[TEST_WFD_REGION_ALIGN_UP] = {
+		.id = TEST_WFD_REGION_ALIGN_UP,
+		.name = "wfd_region_heap-aligned-up",
 	},
+	[TEST_WFD_REGION_ALIGN_VDEC] = {
+		.id = TEST_WFD_REGION_ALIGN_VDEC,
+		.name = "wfd_region_heap-aligned-vdec",
+	},
+	[TEST_WFD_REGION_PA] = {
+		.id = TEST_WFD_REGION_PA,
+		.name = "wfd_region_heap-PA",
+	},
+
+
 	[TEST_MTK_NORMAL] = {
 		.id = TEST_MTK_NORMAL,
 		.name = "mm_heap",
 	},
 
-	/* addition test */
-	[TEST_REQ_PROT_REGION_ALIGN_UP] = {
-		.id = TEST_REQ_PROT_REGION_ALIGN_UP,
-		.name = "prot_region_heap-align-up",
-	},
-
-	[TEST_REQ_PROT_REGION_ALIGN_VDEC] = {
-		.id = TEST_REQ_PROT_REGION_ALIGN_VDEC,
-		.name = "prot_region_heap-align-vdec",
-	},
-
-	[TEST_REQ_PROT_PAGE_UP] = {
-		.id = TEST_REQ_PROT_PAGE_UP,
-		.name = "prot_page_heap_up",
-	},
-
-	[TEST_REQ_PROT_PAGE_VDEC] = {
-		.id = TEST_REQ_PROT_PAGE_VDEC,
-		.name = "prot_page_heap_vdec",
-	},
-
 	/* error test */
-	[TEST_REQ_PROT_REGION_UP] = {
-		.id = TEST_REQ_PROT_REGION_UP,
-		.name = "prot_region_heap_up",
+	[TEST_REQ_SVP_REGION_UP_ERR] = {
+		.id = TEST_REQ_SVP_REGION_UP_ERR,
+		.name = "svp_region_video_up",
 	},
-
-	[TEST_REQ_PROT_REGION_CCU0] = {
-		.id = TEST_REQ_PROT_REGION_CCU0,
-		.name = "prot_region_heap_ccu0",
+	[TEST_REQ_SVP_REGION_VDEC_ERR] = {
+		.id = TEST_REQ_SVP_REGION_VDEC_ERR,
+		.name = "prot_region_vdec",
 	},
-
-	[TEST_REQ_PROT_REGION_VDEC] = {
-		.id = TEST_REQ_PROT_REGION_VDEC,
-		.name = "prot_region_heap_vdec",
+	[TEST_REQ_PROT_REGION_CCU0_ERR] = {
+		.id = TEST_REQ_PROT_REGION_CCU0_ERR,
+		.name = "prot_region_ccu0",
 	},
 };
 
@@ -457,6 +461,8 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 		}
 		break;
 	case TEST_REQ_SVP_REGION:
+	case TEST_REQ_SVP_REGION_UP_ERR:
+	case TEST_REQ_SVP_REGION_VDEC_ERR:
 	case TEST_REQ_SVP_REGION_PA:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_svp_region");
@@ -465,7 +471,8 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 			return;
 		}
 		break;
-	case TEST_REQ_SVP_REGION_ALIGN:
+	case TEST_REQ_SVP_REGION_ALIGN_UP:
+	case TEST_REQ_SVP_REGION_ALIGN_VDEC:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_svp_region-aligned");
 		if (!data_obj->heap) {
@@ -475,9 +482,7 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 		break;
 	case TEST_REQ_PROT_REGION:
 	case TEST_REQ_PROT_REGION_PA:
-	case TEST_REQ_PROT_REGION_UP:
-	case TEST_REQ_PROT_REGION_CCU0:
-	case TEST_REQ_PROT_REGION_VDEC:
+	case TEST_REQ_PROT_REGION_CCU0_ERR:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_prot_region");
 		if (!data_obj->heap) {
@@ -485,9 +490,7 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 			return;
 		}
 		break;
-	case TEST_REQ_PROT_REGION_ALIGN:
-	case TEST_REQ_PROT_REGION_ALIGN_UP:
-	case TEST_REQ_PROT_REGION_ALIGN_VDEC:
+	case TEST_REQ_PROT_REGION_ALIGN_CCU0:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_prot_region-aligned");
 		if (!data_obj->heap) {
@@ -495,9 +498,10 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 			return;
 		}
 		break;
-	case TEST_REQ_SVP_PAGE0:
-	case TEST_REQ_SVP_PAGE1:
-	case TEST_REQ_SVP_PAGE2:
+	case TEST_REQ_SVP_PAGE:
+	case TEST_REQ_SVP_PAGE_UP:
+	case TEST_REQ_SVP_PAGE_VDEC:
+	case TEST_REQ_SVP_PAGE_PA:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_svp_page-uncached");
 		if (!data_obj->heap) {
@@ -505,11 +509,9 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 			return;
 		}
 		break;
-	case TEST_REQ_PROT_PAGE0:
-	case TEST_REQ_PROT_PAGE1:
-	case TEST_REQ_PROT_PAGE2:
-	case TEST_REQ_PROT_PAGE_UP:
-	case TEST_REQ_PROT_PAGE_VDEC:
+	case TEST_REQ_PROT_PAGE:
+	case TEST_REQ_PROT_PAGE_CCU0:
+	case TEST_REQ_PROT_PAGE_PA:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_prot_page-uncached");
 		if (!data_obj->heap) {
@@ -568,6 +570,7 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 		}
 		break;
 	case TEST_WFD_REGION:
+	case TEST_WFD_REGION_PA:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_wfd_region");
 		if (!data_obj->heap) {
@@ -575,7 +578,8 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 			return;
 		}
 		break;
-	case TEST_WFD_REGION_ALIGN:
+	case TEST_WFD_REGION_ALIGN_UP:
+	case TEST_WFD_REGION_ALIGN_VDEC:
 		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_wfd_region-aligned");
 		if (!data_obj->heap) {
@@ -950,7 +954,7 @@ static int iommu_test_debug_init(struct iommu_test_debug_data *data)
 	return 0;
 }
 
-/* normal heap test */
+/******************************************************************************/
 static int dmaheap_normal_test_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -967,70 +971,8 @@ static int dmaheap_normal_test_probe(struct platform_device *pdev)
 	return 0;
 }
 
-/* page heap test */
-static int dmaheap_page_test_probe0(struct platform_device *pdev)
+static int dmaheap_sec_normal_region_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
-
-	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
-
-	dmabuf_data_obj[TEST_REQ_SVP_PAGE0].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE0].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE0].buf_head);
-
-	dmabuf_data_obj[TEST_REQ_PROT_PAGE0].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE0].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE0].buf_head);
-
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
-
-	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
-	return 0;
-}
-
-static int dmaheap_page_test_probe1(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-
-	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
-
-	dmabuf_data_obj[TEST_REQ_SVP_PAGE1].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE1].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE1].buf_head);
-
-	dmabuf_data_obj[TEST_REQ_PROT_PAGE1].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE1].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE1].buf_head);
-
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
-
-	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
-	return 0;
-}
-
-static int dmaheap_page_test_probe2(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-
-	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
-
-	dmabuf_data_obj[TEST_REQ_SVP_PAGE2].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE2].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE2].buf_head);
-
-	dmabuf_data_obj[TEST_REQ_PROT_PAGE2].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE2].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE2].buf_head);
-
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
-
-	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
-	return 0;
-}
-
-static int dmaheap_region_probe(struct platform_device *pdev)
-{
-	int i;
 	struct device *dev = &pdev->dev;
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
@@ -1042,93 +984,108 @@ static int dmaheap_region_probe(struct platform_device *pdev)
 	dmabuf_data_obj[TEST_REQ_PROT_REGION].dev = dev;
 	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION].buf_lock);
 	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_PROT_PAGE].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE].buf_head);
+
+	dmabuf_data_obj[TEST_WFD_REGION].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_WFD_REGION].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_WFD_REGION].buf_head);
+
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
-	for (i = TEST_PROT_2D_FR_REGION; i <= TEST_WFD_REGION_ALIGN; i++) {
-		dmabuf_data_obj[i].dev = dev;
-		mutex_init(&dmabuf_data_obj[i].buf_lock);
-		INIT_LIST_HEAD(&dmabuf_data_obj[i].buf_head);
-	}
-
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+
 	return 0;
 }
 
-static int dmaheap_region_aligned_probe(struct platform_device *pdev)
+static int dmaheap_sec_ccu0_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
 
-	dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN].buf_head);
+	dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_CCU0].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_CCU0].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_CCU0].buf_head);
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN].buf_head);
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	dmabuf_data_obj[TEST_REQ_PROT_PAGE_CCU0].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_CCU0].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_CCU0].buf_head);
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION_CCU0].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_CCU0].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_CCU0].buf_head);
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	dmabuf_data_obj[TEST_REQ_PROT_REGION_CCU0_ERR].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_CCU0_ERR].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_CCU0_ERR].buf_head);
 
-	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
-	return 0;
-}
-
-static int dmaheap_video_up_probe(struct platform_device *pdev)
-{
-	/* include region && page dev */
-	struct device *dev = &pdev->dev;
-
-	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
-
-	dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_UP].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_UP].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_UP].buf_head);
-
-	dmabuf_data_obj[TEST_REQ_PROT_PAGE_UP].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_UP].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_UP].buf_head);
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
-
-	dmabuf_data_obj[TEST_REQ_PROT_REGION_UP].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_UP].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_UP].buf_head);
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 	return 0;
 }
 
-static int dmaheap_vdec_probe(struct platform_device *pdev)
+static int dmaheap_sec_video_up_probe(struct platform_device *pdev)
 {
 	/* include region && page dev */
 	struct device *dev = &pdev->dev;
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_VDEC].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_VDEC].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN_VDEC].buf_head);
+	dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN_UP].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN_UP].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN_UP].buf_head);
 
-	dmabuf_data_obj[TEST_REQ_PROT_PAGE_VDEC].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_VDEC].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_VDEC].buf_head);
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	dmabuf_data_obj[TEST_WFD_REGION_ALIGN_UP].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_WFD_REGION_ALIGN_UP].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_WFD_REGION_ALIGN_UP].buf_head);
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION_VDEC].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_VDEC].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_VDEC].buf_head);
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE_UP].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE_UP].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE_UP].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_SVP_REGION_UP_ERR].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_UP_ERR].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_UP_ERR].buf_head);
+
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 	return 0;
 }
 
-static int dmaheap_region_pa_probe(struct platform_device *pdev)
+static int dmaheap_sec_vdec_probe(struct platform_device *pdev)
+{
+	/* include region && page dev */
+	struct device *dev = &pdev->dev;
+
+	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
+
+	dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN_VDEC].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN_VDEC].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN_VDEC].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE_VDEC].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE_VDEC].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE_VDEC].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_SVP_REGION_VDEC_ERR].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_VDEC_ERR].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_VDEC_ERR].buf_head);
+
+	dmabuf_data_obj[TEST_WFD_REGION_ALIGN_VDEC].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_WFD_REGION_ALIGN_VDEC].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_WFD_REGION_ALIGN_VDEC].buf_head);
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+
+	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+	return 0;
+}
+
+static int dmaheap_sec_pa_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
@@ -1141,13 +1098,27 @@ static int dmaheap_region_pa_probe(struct platform_device *pdev)
 	dmabuf_data_obj[TEST_REQ_PROT_REGION_PA].dev = dev;
 	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_PA].buf_lock);
 	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_PA].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE_PA].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE_PA].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE_PA].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_PROT_PAGE_PA].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_PA].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_PAGE_PA].buf_head);
+
+	dmabuf_data_obj[TEST_WFD_REGION_PA].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_WFD_REGION_PA].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_WFD_REGION_PA].buf_head);
+
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 	return 0;
 }
 
-static int dma_buf_test_probe(struct platform_device *pdev)
+/******************************************************************************/
+static int dmabuf_test(struct platform_device *pdev)
 {
 	size_t size = SZ_1M;
 	struct dma_heap	*heap;
@@ -1216,9 +1187,9 @@ static int iommu_test_dom_probe(struct platform_device *pdev)
 	}
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 
-	ret = dma_buf_test_probe(pdev);
+	ret = dmabuf_test(pdev);
 	if (ret)
-		pr_info("%s failed, dma_buf_test_probe fail, dev:%s\n", __func__, dev_name(&pdev->dev));
+		pr_info("%s failed, dmabuf_test fail, dev:%s\n", __func__, dev_name(&pdev->dev));
 
 	return 0;
 }
@@ -1237,128 +1208,86 @@ static const struct of_device_id iommu_test_dom_match_table[] = {
 	{},
 };
 
-/* normal heap test */
-static const struct of_device_id dmabuf_normal_match_table[] = {
+/*************************************************************************/
+
+static const struct of_device_id dmaheap_normal_match_table[] = {
 	{.compatible = "mediatek,dmaheap-normal"},
 	{},
 };
 
-/* region heap test */
-static const struct of_device_id dmabuf_prot_region0_match_table[] = {
-	{.compatible = "mediatek,dmaheap-region"},
+static const struct of_device_id dmaheap_sec_normal_region_match_table[] = {
+	{.compatible = "mediatek,dmaheap-sec-normal-region"},
 	{},
 };
 
-static const struct of_device_id dmabuf_prot_region1_match_table[] = {
-	{.compatible = "mediatek,dmaheap-region-align"},
+static const struct of_device_id dmaheap_sec_ccu0_match_table[] = {
+	{.compatible = "mediatek,dmaheap-sec-ccu0"},
 	{},
 };
 
-static const struct of_device_id dmabuf_prot_region2_match_table[] = {
-	{.compatible = "mediatek,dmaheap-region-pa"},
+static const struct of_device_id dmaheap_sec_up_match_table[] = {
+	{.compatible = "mediatek,dmaheap-sec-up"},
 	{},
 };
 
-static const struct of_device_id dmabuf_prot_up_match_table[] = {
-	{.compatible = "mediatek,dmaheap-up"},
+static const struct of_device_id dmaheap_sec_vdec_match_table[] = {
+	{.compatible = "mediatek,dmaheap-sec-vdec"},
 	{},
 };
 
-static const struct of_device_id dmabuf_prot_vdec_match_table[] = {
-	{.compatible = "mediatek,dmaheap-vdec"},
+static const struct of_device_id dmaheap_sec_pa_match_table[] = {
+	{.compatible = "mediatek,dmaheap-sec-pa"},
 	{},
 };
 
-/* page heap test */
-static const struct of_device_id dmaheap_page_match_table0[] = {
-	{.compatible = "mediatek,dmaheap-page0"},
-	{},
-};
-
-static const struct of_device_id dmaheap_page_match_table1[] = {
-	{.compatible = "mediatek,dmaheap-page1"},
-	{},
-};
-
-static const struct of_device_id dmaheap_page_match_table2[] = {
-	{.compatible = "mediatek,dmaheap-page2"},
-	{},
-};
-
-/* normal heap test */
 static struct platform_driver iommu_test_dmaheap_normal = {
 	.probe = dmaheap_normal_test_probe,
 	.driver = {
-		.name = "iommu-test-dmaheap-normal",
-		.of_match_table = dmabuf_normal_match_table,
+		.name = "dmaheap-normal",
+		.of_match_table = dmaheap_normal_match_table,
 	},
 };
 
-/* region heap test */
-static struct platform_driver iommu_test_dmaheap_region0 = {
-	.probe = dmaheap_region_probe,
+static struct platform_driver iommu_test_dmaheap_sec_normal = {
+	.probe = dmaheap_sec_normal_region_probe,
 	.driver = {
-		.name = "iommu-test-dmaheap-region",
-		.of_match_table = dmabuf_prot_region0_match_table,
+		.name = "dmaheap-secure-normal-region",
+		.of_match_table = dmaheap_sec_normal_region_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmaheap_region1 = {
-	.probe = dmaheap_region_aligned_probe,
+static struct platform_driver iommu_test_dmaheap_sec_ccu0 = {
+	.probe = dmaheap_sec_ccu0_probe,
 	.driver = {
-		.name = "iommu-test-dmaheap-region_align",
-		.of_match_table = dmabuf_prot_region1_match_table,
+		.name = "dmaheap-secure-ccu0",
+		.of_match_table = dmaheap_sec_ccu0_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmaheap_region2 = {
-	.probe = dmaheap_region_pa_probe,
+static struct platform_driver iommu_test_dmaheap_sec_up = {
+	.probe = dmaheap_sec_video_up_probe,
 	.driver = {
-		.name = "iommu-test-dmaheap-region_pa",
-		.of_match_table = dmabuf_prot_region2_match_table,
+		.name = "dmaheap-secure-up",
+		.of_match_table = dmaheap_sec_up_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmaheap_up = {
-	.probe = dmaheap_video_up_probe,
+static struct platform_driver iommu_test_dmaheap_sec_vdec = {
+	.probe = dmaheap_sec_vdec_probe,
 	.driver = {
-		.name = "iommu-test-dmaheap_up",
-		.of_match_table = dmabuf_prot_up_match_table,
+		.name = "dmaheap-secure-vdec",
+		.of_match_table = dmaheap_sec_vdec_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmaheap_vdec = {
-	.probe = dmaheap_vdec_probe,
+static struct platform_driver iommu_test_dmaheap_sec_pa = {
+	.probe = dmaheap_sec_pa_probe,
 	.driver = {
-		.name = "iommu-test-dmaheap_vdec",
-		.of_match_table = dmabuf_prot_vdec_match_table,
+		.name = "dmaheap-secure-pa",
+		.of_match_table = dmaheap_sec_pa_match_table,
 	},
 };
-
-/* page heap test */
-static struct platform_driver iommu_test_dmaheap_page0 = {
-	.probe = dmaheap_page_test_probe0,
-	.driver = {
-		.name = "iommu-test-dmaheap-page0",
-		.of_match_table = dmaheap_page_match_table0,
-	},
-};
-
-static struct platform_driver iommu_test_dmaheap_page1 = {
-	.probe = dmaheap_page_test_probe1,
-	.driver = {
-		.name = "iommu-test-dmaheap-page1",
-		.of_match_table = dmaheap_page_match_table1,
-	},
-};
-
-static struct platform_driver iommu_test_dmaheap_page2 = {
-	.probe = dmaheap_page_test_probe2,
-	.driver = {
-		.name = "iommu-test-dmaheap-page2",
-		.of_match_table = dmaheap_page_match_table2,
-	},
-};
+/*************************************************************************/
 
 /* iova region test */
 static struct platform_driver iommu_test_driver_dom0 = {
@@ -1443,12 +1372,12 @@ static struct platform_driver iommu_test_driver_dom9 = {
 
 static struct platform_driver *const iommu_test_drivers[] = {
 	&iommu_test_dmaheap_normal,
-	&iommu_test_dmaheap_region0,
-	&iommu_test_dmaheap_region1,
-	&iommu_test_dmaheap_region2,
-	&iommu_test_dmaheap_page0,
-	&iommu_test_dmaheap_page1,
-	&iommu_test_dmaheap_page2,
+	&iommu_test_dmaheap_sec_normal,
+	&iommu_test_dmaheap_sec_ccu0,
+	&iommu_test_dmaheap_sec_up,
+	&iommu_test_dmaheap_sec_vdec,
+	&iommu_test_dmaheap_sec_pa,
+
 	&iommu_test_driver_dom0,
 	&iommu_test_driver_dom1,
 	&iommu_test_driver_dom2,
@@ -1459,8 +1388,6 @@ static struct platform_driver *const iommu_test_drivers[] = {
 	&iommu_test_driver_dom7,
 	&iommu_test_driver_dom8,
 	&iommu_test_driver_dom9,
-	&iommu_test_dmaheap_up,
-	&iommu_test_dmaheap_vdec,
 };
 
 static int __init iommu_test_init(void)
