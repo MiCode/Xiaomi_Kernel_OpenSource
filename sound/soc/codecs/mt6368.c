@@ -17,7 +17,6 @@
 #include <linux/regulator/consumer.h>
 #include <sound/tlv.h>
 #include <sound/soc.h>
-#include <sound/soc.h>
 #include <sound/core.h>
 
 #include "mt6368.h"
@@ -3048,7 +3047,9 @@ static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 			      SND_SOC_NOPM, 0, 0,
 			      mt_dcxo_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_REGULATOR_SUPPLY("vaud18", 0, 0),
+	SND_SOC_DAPM_SUPPLY_S("LDO_VAUD18", SUPPLY_SEQ_LDO_VAUD18,
+			      MT6368_LDO_VAUD18_CON0,
+			      RG_LDO_VAUD18_EN_SFT, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
 			      MT6368_AUDDEC_ANA_CON26,
 			      RG_AUDGLB_PWRDN_VA32_SFT, 1, NULL, 0),
@@ -3509,7 +3510,7 @@ static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
 static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 	/* Capture */
 	{"AIFTX_Supply", NULL, "CLK_BUF"},
-	{"AIFTX_Supply", NULL, "vaud18"},
+	{"AIFTX_Supply", NULL, "LDO_VAUD18"},
 	{"AIFTX_Supply", NULL, "AUDGLB"},
 	{"AIFTX_Supply", NULL, "CLKSQ Audio"},
 	{"AIFTX_Supply", NULL, "AUD_CK"},
@@ -3636,7 +3637,7 @@ static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 
 	/* DL Supply */
 	{"DL Power Supply", NULL, "CLK_BUF"},
-	{"DL Power Supply", NULL, "vaud18"},
+	{"DL Power Supply", NULL, "LDO_VAUD18"},
 	{"DL Power Supply", NULL, "AUDGLB"},
 	{"DL Power Supply", NULL, "CLKSQ Audio"},
 	{"DL Power Supply", NULL, "AUDNCP_CK"},
@@ -3722,7 +3723,7 @@ static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 	/* VOW */
 	{"VOW TX", NULL, "VOW_UL_SRC_MUX"},
 	{"VOW TX", NULL, "CLK_BUF"},
-	{"VOW TX", NULL, "vaud18"},
+	{"VOW TX", NULL, "LDO_VAUD18"},
 	{"VOW TX", NULL, "AUDGLB"},
 	{"VOW TX", NULL, "AUDGLB_VOW", mt_vow_amic_connect},
 	{"VOW TX", NULL, "AUD_CK", mt_vow_amic_connect},
@@ -3890,7 +3891,7 @@ static struct snd_soc_dai_driver mt6368_dai_driver[] = {
 static int mt6368_get_hpofs_auxadc(struct mt6368_priv *priv)
 {
 	int value = 0;
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MEDIATEK_SPMI_PMIC_ADC)
 	int ret;
 	struct iio_channel *auxadc = priv->hpofs_cal_auxadc;
 
@@ -3902,7 +3903,7 @@ static int mt6368_get_hpofs_auxadc(struct mt6368_priv *priv)
 			return ret;
 		}
 	}
-#endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
+#endif /* #if IS_ENABLED(CONFIG_MEDIATEK_SPMI_PMIC_ADC) */
 	return value;
 }
 
@@ -5055,13 +5056,14 @@ static int get_hp_current_calibrate_val(struct mt6368_priv *priv)
 {
 	int ret = 0;
 	unsigned short efuse_val = 0;
-	int value, sign;
+	int value = 0, sign = 0;
 
+#if IS_ENABLED(CONFIG_MT635X_EFUSE)
 	/* set eFuse register index */
 	/* HPDET_COMP[6:0] @ efuse bit 1616 ~ 1622 */
 	/* HPDET_COMP_SIGN @ efuse bit 1623 */
 	/* 1616 / 8 = 202(0xCA) bytes */
-	ret = nvmem_device_read(priv->hp_efuse, 0xCA, 2, &efuse_val);
+	ret = nvmem_device_read(priv->hp_efuse, 0xCA, 1, &efuse_val);
 	if (ret < 0) {
 		dev_err(priv->dev, "%s(), efuse read fail: %d\n", __func__,
 			ret);
@@ -5074,7 +5076,7 @@ static int get_hp_current_calibrate_val(struct mt6368_priv *priv)
 	value = sign ? -value : value;
 
 	dev_info(priv->dev, "%s(), efuse: %d\n", __func__, value);
-
+#endif
 	return value;
 }
 
@@ -5240,6 +5242,10 @@ static int mt6368_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 #if IS_ENABLED(CONFIG_MT6685_AUDCLK)
 	mt6685_set_dcxo(true);
 #endif
+	regmap_update_bits(priv->regmap, MT6368_LDO_VAUD18_CON0,
+			   RG_LDO_VAUD18_EN_MASK_SFT,
+			   1 << RG_LDO_VAUD18_EN_SFT);
+
 	/* audio clk source from internal dcxo */
 	regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON47,
 			   RG_CLKSQ_IN_SEL_TEST_MASK_SFT,

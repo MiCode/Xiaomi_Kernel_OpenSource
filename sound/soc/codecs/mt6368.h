@@ -7,9 +7,7 @@
 #ifndef _MT6368_H_
 #define _MT6368_H_
 
-#define NO_DCXO
 #define SKIP_VOW
-/* #define SKIP_SB */
 
 /*************Register Bit Define*************/
 
@@ -5588,6 +5586,7 @@ enum {
 enum {
 	/* common */
 	SUPPLY_SEQ_CLK_BUF,
+	SUPPLY_SEQ_LDO_VAUD18,
 	SUPPLY_SEQ_AUD_GLB,
 	SUPPLY_SEQ_HP_PULL_DOWN,
 	SUPPLY_SEQ_CLKSQ,
