@@ -39,12 +39,17 @@ static struct pt_regs saved_regs;
 
 #define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
 
-static void aee_exception_reboot(void)
+static void aee_exception_reboot(int reboot_reason)
 {
 	struct arm_smccc_res res;
 	int opt1 = 0, opt2 = 0;
 
-	opt1 = MTK_DOMAIN_AEE;
+	if (reboot_reason == AEE_REBOOT_MODE_HANG_DETECT)
+		opt1 |= ((unsigned char)AEE_EXP_TYPE_HANG_DETECT) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
+	else
+		opt1 |= ((unsigned char)AEE_EXP_TYPE_KE) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
+
+	opt1 |= (unsigned char)MTK_DOMAIN_AEE;
 	arm_smccc_smc(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2),
 		PSCI_1_1_RESET2_TYPE_VENDOR | opt1,
 		opt2, 0, 0, 0, 0, 0, &res);
@@ -236,7 +241,7 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	default:
 		aee_nested_printf("num_die-%d, last_step-%d, next_step-%d\n",
 				  num_die, last_step, next_step);
-		aee_exception_reboot();
+		aee_exception_reboot(reboot_reason);
 		break;
 	}
 
