@@ -15,6 +15,7 @@
 /* Record info definitions */
 #define GCE_REC_MAX_FRAME_BLOCK     (6)
 #define GCE_REC_MAX_TILE_BLOCK      (40)
+#define GCE_REC_MAX_LABEL_COUNT     (256)
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
@@ -760,6 +761,17 @@ struct BlockRecord {
 	uint32_t            cmd_length;
 };
 
+enum GCE_REC_BLOCK_ENUM {
+	GCE_REC_NONE_BLOCK = -1,
+	GCE_REC_FRAME_BLOCK = 0,
+	GCE_REC_TILE_BLOCK
+};
+
+enum GCE_REC_MODE_ENUM {
+	GCE_REC_APPEND_MODE = 0,
+	GCE_REC_REPLACE_MODE
+};
+
 struct GCERecoder {
 	// Record command offset
 	uint32_t            cmd_offset;
@@ -779,6 +791,28 @@ struct GCERecoder {
 	struct BlockRecord  tile_record[GCE_REC_MAX_TILE_BLOCK];
 	uint32_t            tile_block;
 	uint32_t            curr_tile;
+
+	// Record current block type
+	enum GCE_REC_BLOCK_ENUM  curr_block;
+
+	// Current mode setting
+	enum GCE_REC_MODE_ENUM   curr_mode;
+
+	// Append/Replace mode switch
+	uint32_t            orig_index;
+	uint32_t            *pOrig_out;
+	uint32_t            curr_label;
+
+	// Current label mode setting
+	enum GCE_REC_BLOCK_ENUM  label_block;
+
+	// Each frame command label
+	uint32_t            frame_label[GCE_REC_MAX_LABEL_COUNT];
+	uint32_t            frame_count;
+
+	// Each tile command label
+	uint32_t            tile_label[GCE_REC_MAX_LABEL_COUNT];
+	uint32_t            tile_count;
 };
 
 static struct imgsys_dvfs_group  dvfs_group[MTK_IMGSYS_DVFS_GROUP] = {

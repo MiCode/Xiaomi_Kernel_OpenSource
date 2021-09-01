@@ -114,16 +114,25 @@ static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
 	struct Command *cmd = NULL;
 	u32 cmd_num = 0;
 	u32 cmd_idx = 0;
+	u32 cmd_ofst = 0;
 
 	cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
 	cmd_num = cmd_buf->curr_length / sizeof(struct Command);
+	cmd_ofst = sizeof(struct GCERecoder);
 
 	pr_info(
-	"%s: +, req fd/no(%d/%d) frame no(%d) frm(%d/%d), cmd_oft(0x%x), cmd_len(%d), num(%d), sz_per_cmd(%d), frm_blk(%d), hw_comb(0x%x)\n",
+	"%s: +, req fd/no(%d/%d) frame no(%d) frm(%d/%d), cmd_oft(0x%x/0x%x), cmd_len(%d), num(%d), sz_per_cmd(%d), frm_blk(%d), hw_comb(0x%x)\n",
 		__func__, frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
-		frm_idx, frm_info->total_frmnum, cmd_buf->cmd_offset,
+		frm_idx, frm_info->total_frmnum, cmd_buf->cmd_offset, cmd_ofst,
 		cmd_buf->curr_length, cmd_num, sizeof(struct Command), cmd_buf->frame_block,
 		frm_info->user_info[frm_idx].hw_comb);
+
+	if (cmd_ofst != cmd_buf->cmd_offset) {
+		pr_info("%s: [ERROR]cmd offset is not match (0x%x/0x%x)!\n",
+			__func__, cmd_buf->cmd_offset, cmd_ofst);
+		return;
+	}
+
 	cmd = (struct Command *)((unsigned long)(frm_info->user_info[frm_idx].g_swbuf) +
 		(unsigned long)(cmd_buf->cmd_offset));
 
@@ -384,6 +393,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	u64 tsReqStart = 0;
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
 	u32 frm_num = 0, frm_idx = 0;
+	u32 cmd_ofst = 0;
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
@@ -402,6 +412,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 
 	is_stream_off = 0;
 	frm_num = frm_info->total_frmnum;
+	cmd_ofst = sizeof(struct GCERecoder);
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
 		cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
 		cmd_num = cmd_buf->curr_length / sizeof(struct Command);
@@ -451,9 +462,9 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		}
 
 		dev_dbg(imgsys_dev->dev,
-		"%s: req fd/no(%d/%d) frame no(%d) frm(%d/%d) cmd_oft(0x%x), cmd_len(%d), num(%d), sz_per_cmd(%d), frm_blk(%d), hw_comb(0x%x), sync_id(%d), gce_thd(%d), gce_clt(0x%x)\n",
+		"%s: req fd/no(%d/%d) frame no(%d) frm(%d/%d) cmd_oft(0x%x/0x%x), cmd_len(%d), num(%d), sz_per_cmd(%d), frm_blk(%d), hw_comb(0x%x), sync_id(%d), gce_thd(%d), gce_clt(0x%x)\n",
 			__func__, frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
-			frm_idx, frm_num, cmd_buf->cmd_offset, cmd_buf->curr_length,
+			frm_idx, frm_num, cmd_buf->cmd_offset, cmd_ofst, cmd_buf->curr_length,
 			cmd_num, sizeof(struct Command), cmd_buf->frame_block,
 			frm_info->user_info[frm_idx].hw_comb, frm_info->sync_id, thd_idx, clt);
 
