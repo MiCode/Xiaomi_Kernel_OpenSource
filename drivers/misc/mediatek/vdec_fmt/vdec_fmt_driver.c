@@ -14,6 +14,7 @@
 #include "vdec_fmt_dmabuf.h"
 #include "vdec_fmt_pm.h"
 #include "vdec_fmt_utils.h"
+#include "iommu_debug.h"
 
 static struct mtk_vdec_fmt *fmt_mtkdev;
 
@@ -490,6 +491,12 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 		if (ret < 0) {
 			mutex_unlock(&fmt->mux_gce_th[identifier]);
+			fmt_dmabuf_free_iova(iinfo.dbuf,
+				iinfo.attach, iinfo.sgt);
+			fmt_dmabuf_free_iova(oinfo.dbuf,
+				oinfo.attach, oinfo.sgt);
+			fmt_dmabuf_put(iinfo.dbuf);
+			fmt_dmabuf_put(oinfo.dbuf);
 			ret = -EINVAL;
 			return ret;
 		}
@@ -528,6 +535,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	memcpy(&fmt->gce_task[taskid].cmdq_buff, &buff, sizeof(buff));
 
 	// flush cmd async
+	fmt_debug(1, "call cmdq_pkt_flush_async");
 	cmdq_pkt_flush_async(pkt_ptr,
 		fmt_gce_flush_callback, (void *)fmt->gce_task[taskid].pkt_ptr);
 
@@ -840,6 +848,26 @@ static int vdec_fmt_suspend_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+int fmt_translation_fault_callback(int port, u64 mva, void *data)
+{
+	fmt_debug(0, "TF callback, port:%d, mva:0x%llx %p", port, mva, data);
+	fmt_dump_addr_reg();
+	mtk_smi_dbg_hang_detect("debug");
+	return 0;
+}
+
+void fmt_translation_fault_callback_setting(struct mtk_vdec_fmt *fmt)
+{
+	int i;
+
+	for (i = 0; i < FMT_PORT_NUM; i++) {
+		if (fmt->fmt_m4u_ports[i] != 0)
+			mtk_iommu_register_fault_callback(fmt->fmt_m4u_ports[i],
+			(mtk_iommu_fault_callback_t)fmt_translation_fault_callback,
+			fmt, false);
+	}
+}
+
 static int vdec_fmt_probe(struct platform_device *pdev)
 {
 	struct mtk_vdec_fmt *fmt;
@@ -849,6 +877,7 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	struct device *dev;
 	int ret = 0;
 	int i, rdma_swwa;
+	u32 port_id;
 
 	fmt_debug(0, "initialization");
 
@@ -1034,6 +1063,24 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	}
 	fmt->fmtLarb = &larbdev->dev;
 	fmt_debug(0, "get larb from node");
+
+	for (i = 0; i < FMT_PORT_NUM; i++) {
+		fmt->fmt_m4u_ports[i] = 0;
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"m4u-ports", i, &port_id);
+		if (ret) {
+			fmt_debug(0, "get m4u port index: %d fail %d",
+			i, ret);
+			continue;
+		}
+
+		fmt->fmt_m4u_ports[i] = (int)port_id;
+		fmt_debug(0, "fmt_m4u_ports[%d]=0x%x",
+		i, fmt->fmt_m4u_ports[i]);
+	}
+
+	fmt_translation_fault_callback_setting(fmt);
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 	if (ret) {

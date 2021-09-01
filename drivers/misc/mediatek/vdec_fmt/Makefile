@@ -23,3 +23,5 @@ vdec-fmt-$(CONFIG_MTK_VDEC_FMT) += vdec_fmt_driver.o \
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/ \
 			 -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/ \
 			 -I$(srctree)/drivers/misc/mediatek/include/ \
+			 -I$(srctree)/drivers/misc/mediatek/iommu/ \
+			 -I$(srctree)/drivers/iommu/ \

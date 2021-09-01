@@ -9,6 +9,7 @@
 #include <linux/semaphore.h>
 #include <linux/notifier.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <soc/mediatek/smi.h>
 #include <cmdq-util.h>
 
 #if IS_ENABLED(CONFIG_COMPAT)
@@ -184,6 +185,7 @@ struct mtk_vdec_fmt {
 	struct regulator *fmt_reg;
 	struct icc_path *fmt_qos_req[FMT_PORT_NUM];
 	struct dts_info dtsInfo;
+	int fmt_m4u_ports[FMT_PORT_NUM];
 };
 
 #define FMT_GCE_SET_CMD_FLUSH _IOW('f', 0, struct gce_cmdq_obj)
