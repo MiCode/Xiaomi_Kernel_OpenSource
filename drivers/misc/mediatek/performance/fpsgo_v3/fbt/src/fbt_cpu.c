@@ -1794,13 +1794,16 @@ static void fbt_set_sjerk(int pid, unsigned long long identifier,
 	hrtimer_start(&(sjerk.timer), ns_to_ktime(t2wnt), HRTIMER_MODE_REL);
 }
 
+void (*jatm_notify_fp)(int enable);
+EXPORT_SYMBOL(jatm_notify_fp);
+
 static void fbt_do_sjerk(struct work_struct *work)
 {
 	struct fbt_sjerk *jerk;
 	struct render_info *thr;
 	unsigned int blc_wt = 0U, last_blc = 0U;
 	struct cpu_ctrl_data *pld;
-	int do_jerk = 0;
+	int do_jerk = FPSGO_JERK_DISAPPEAR;
 	int scn;
 
 	jerk = container_of(work, struct fbt_sjerk, work);
@@ -1874,6 +1877,9 @@ EXIT:
 
 	fbt_print_rescue_info(thr->pid, thr->buffer_id, thr->t_enqueue_end,
 		0, 0, 2, do_jerk, blc_wt, last_blc);
+
+	if (jatm_notify_fp && do_jerk != FPSGO_JERK_DISAPPEAR)
+		jatm_notify_fp(1);
 
 	mutex_unlock(&fbt_mlock);
 	fpsgo_thread_unlock(&(thr->thr_mlock));
@@ -2454,6 +2460,9 @@ EXIT:
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id, "max_blc_buffer_id");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
+
+	if (jatm_notify_fp)
+		jatm_notify_fp(0);
 }
 
 static unsigned int fbt_get_max_userlimit_freq(void)
@@ -3239,6 +3248,8 @@ static void fbt_check_max_blc_locked(void)
 		fbt_set_idleprefer_locked(0);
 		fbt_set_down_throttle_locked(-1);
 		fbt_set_sync_flag_locked(-1);
+		if (jatm_notify_fp)
+			jatm_notify_fp(0);
 	} else
 		fbt_set_limit(max_blc, max_blc_pid, max_blc_buffer_id, NULL, 0);
 }
@@ -3709,6 +3720,9 @@ static void fbt_setting_reset(int reset_idleprefer)
 
 	if (ultra_rescue)
 		fbt_boost_dram(0);
+
+	if (jatm_notify_fp)
+		jatm_notify_fp(0);
 }
 
 void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
