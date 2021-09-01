@@ -875,6 +875,7 @@
 				scmi_slbc = <10>;
 				scmi_ssc = <11>;
 				scmi_apmcupm = <12>;
+				scmi_mminfra = <13>;
 			};
 		};
 	};
