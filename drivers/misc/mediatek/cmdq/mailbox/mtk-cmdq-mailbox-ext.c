@@ -858,6 +858,29 @@ static void cmdq_task_handle_error(struct cmdq_task *task)
 	cmdq_thread_resume(thread);
 }
 
+static void cmdq_thread_dump_pkt_by_pc(struct cmdq_thread *thread, const u64 pc)
+{
+	struct cmdq_task *task;
+	struct cmdq_pkt_buffer *buf;
+
+	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
+		list_for_each_entry(buf, &task->pkt->buf, list_entry) {
+			if ((pc >= (CMDQ_BUF_ADDR(buf) & UINT_MAX)) &&
+				(pc < ((CMDQ_BUF_ADDR(buf) +
+				CMDQ_CMD_BUFFER_SIZE) & UINT_MAX))) {
+				cmdq_dump_pkt(task->pkt, 0, true);
+				return;
+			}
+		}
+	}
+
+	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
+		list_for_each_entry(buf, &task->pkt->buf, list_entry) {
+			cmdq_dump_pkt(task->pkt, 0, true);
+		}
+	}
+}
+
 static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	struct cmdq_thread *thread, struct list_head *removes)
 {
@@ -900,10 +923,12 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	curr_pa = cmdq_thread_get_pc(thread);
 	task_end_pa = cmdq_thread_get_end(thread);
 
-	if (err < 0)
-		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx",
+	if (err < 0) {
+		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx thread:%u",
 			&curr_pa, &task_end_pa, err,
-			(unsigned long)cmdq->base_pa);
+			(unsigned long)cmdq->base_pa, thread->idx);
+		cmdq_thread_dump_pkt_by_pc(thread, curr_pa);
+	}
 
 	cmdq_log("task status %pa~%pa err:%d",
 		&curr_pa, &task_end_pa, err);
