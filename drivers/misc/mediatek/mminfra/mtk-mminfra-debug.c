@@ -21,6 +21,8 @@ static struct scmi_tinysys_info_st *tinfo;
 static int feature_id;
 static struct clk *mminfra_clk[MMINFRA_MAX_CLK_NUM];
 static atomic_t clk_ref_cnt = ATOMIC_INIT(0);
+static struct device *dev;
+
 
 static bool mminfra_check_scmi_status(void)
 {
@@ -151,9 +153,53 @@ static struct kernel_param_ops scmi_test_ops = {
 module_param_cb(scmi_test, &scmi_test_ops, NULL, 0644);
 MODULE_PARM_DESC(scmi_test, "scmi test");
 
+
+int mminfra_ut(const char *val, const struct kernel_param *kp)
+{
+	int ret, arg0;
+	unsigned int test_case, value;
+	void __iomem *test_base;
+
+	ret = sscanf(val, "%u %i", &test_case, &arg0);
+	if (ret != 2) {
+		pr_notice("%s: invalid input: %s, result(%d)\n", __func__, val, ret);
+		return -EINVAL;
+	}
+	pr_notice("%s: input: %s\n", __func__, val);
+	switch (test_case) {
+	case 0:
+		ret = pm_runtime_get_sync(dev);
+		test_base = ioremap(arg0, 4);
+		value = readl_relaxed(test_base);
+		do_mminfra_bkrs(false); // backup
+		writel(0x123, test_base);
+		do_mminfra_bkrs(true); // restore
+		if (value == readl_relaxed(test_base))
+			pr_notice("%s: test_case(%d) pass\n",
+				__func__, test_case);
+		else
+			pr_notice("%s: test_case(%d) fail value=%d\n",
+				__func__, test_case, value);
+		iounmap(test_base);
+		pm_runtime_put_sync(dev);
+		break;
+	default:
+		pr_notice("%s: wrong test_case(%d)\n", __func__, test_case);
+		break;
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops mminfra_ut_ops = {
+	.set = mminfra_ut,
+	.get = param_get_int,
+};
+module_param_cb(mminfra_ut, &mminfra_ut_ops, NULL, 0644);
+MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
+
 static int mminfra_debug_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
 	struct property *prop;
 	const char *name;
@@ -165,6 +211,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 
 	mminfra_check_scmi_status();
 
+	dev = &pdev->dev;
 	pm_runtime_enable(dev);
 	if (mminfra_bkrs == 1) {
 		mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
