@@ -893,7 +893,7 @@ static const struct drm_display_mode performance_mode_120hz = {
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 544,
+	.pll_clk = 548,
 	.vfp_low_power = 4180,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -949,7 +949,7 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1088,
+	.data_rate = 1096,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -973,7 +973,7 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 544,
+	.pll_clk = 548,
 	.vfp_low_power = 2528,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -1029,7 +1029,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1088,
+	.data_rate = 1096,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -1053,7 +1053,7 @@ static struct mtk_panel_params ext_params_90hz = {
 };
 
 static struct mtk_panel_params ext_params_120hz = {
-	.pll_clk = 544,
+	.pll_clk = 548,
 	.vfp_low_power = 2528,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -1109,7 +1109,7 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1088,
+	.data_rate = 1096,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
