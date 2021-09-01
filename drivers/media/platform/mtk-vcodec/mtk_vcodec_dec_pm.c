@@ -740,7 +740,8 @@ static void mtk_vdec_dump_addr_reg(
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 }
 
-int mtk_vdec_translation_fault_callback(
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+static int mtk_vdec_translation_fault_callback(
 	int port, dma_addr_t mva, void *data)
 {
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
@@ -758,9 +759,9 @@ int mtk_vdec_translation_fault_callback(
 
 	if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO_ENC])
 		hw_id = MTK_VDEC_CORE;
-	else if ((port >> 5) == 4)
+	else if (MTK_M4U_TO_LARB(port) == 4)
 		hw_id = MTK_VDEC_CORE; // larb4 CORE
-	else if ((port >> 5) == 5 && vdec_hw_ipm == VCODEC_IPM_V2)
+	else if (MTK_M4U_TO_LARB(port) == 5 && vdec_hw_ipm == VCODEC_IPM_V2)
 		hw_id = MTK_VDEC_LAT; // larb5 LAT
 	else {
 		mtk_v4l2_err("unknown larb port %d of m4u port 0x%x", port >> 5, port);
@@ -800,12 +801,23 @@ int mtk_vdec_translation_fault_callback(
 		else
 			mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
 	} else {
-		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
-		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_OUT_BUF);
+		if (vdec_hw_ipm == VCODEC_IPM_V2) {
+			if (hw_id == MTK_VDEC_CORE) {
+				mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_UBE_BUF);
+				mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_OUT_BUF);
+			} else {
+				mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
+				mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_UBE_BUF);
+			}
+		} else {
+			mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
+			mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_OUT_BUF);
+		}
 	}
 
 	return 0;
 }
+#endif
 
 int mtk_vdec_m4u_port_name_to_index(const char *name)
 {
