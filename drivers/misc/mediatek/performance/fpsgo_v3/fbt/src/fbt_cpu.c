@@ -2603,7 +2603,7 @@ static int fbt_get_next_jerk(int cur_id)
 
 static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	unsigned long long t_Q2Q_ns, unsigned long long t_enq_len_ns,
-	unsigned long long t_deq_len_ns, int target_fpks)
+	unsigned long long t_deq_len_ns, int target_fpks, int fps_margin)
 {
 	int rm_idx, new_idx, first_idx;
 	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
@@ -2627,7 +2627,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	window_cnt = target_fps * gcc_window_size;
 	do_div(window_cnt, 100);
 
-	if (target_fps != boost_info->quota_fps) {
+	if (target_fps != boost_info->quota_fps && !fps_margin) {
 		boost_info->quota_cur_idx = -1;
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
@@ -2797,7 +2797,7 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	}
 
 
-	if (boost_info->gcc_target_fps != target_fps) {
+	if (boost_info->gcc_target_fps != target_fps && !fps_margin) {
 		boost_info->gcc_target_fps = target_fps;
 		boost_info->correction = 0;
 		boost_info->gcc_count = 1;
@@ -3034,7 +3034,7 @@ static int fbt_boost_policy(
 				thread_info->Q2Q_time,
 				thread_info->enqueue_length_real,
 				thread_info->dequeue_length,
-				target_fpks);
+				target_fpks, fps_margin);
 
 		if (qr_debug)
 			fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota, "quota");
