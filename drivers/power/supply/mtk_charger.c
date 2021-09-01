@@ -813,7 +813,7 @@ static ssize_t Pump_Express_show(struct device *dev,
 		if (ret == ALG_RUNNING) {
 			is_ta_detected = true;
 			break;
-	}
+		}
 	}
 	chr_err("%s: idx = %d, detect = %d\n", __func__, i, is_ta_detected);
 	return sprintf(buf, "%d\n", is_ta_detected);
@@ -1130,6 +1130,7 @@ static ssize_t mtk_chg_en_safety_timer_write(struct file *file,
 	ret = kstrtou32(desc, 10, &enable);
 	if (ret == 0) {
 		charger_dev_enable_safety_timer(info->chg1_dev, enable);
+		info->safety_timer_cmd = (int)enable;
 		chr_info("%s: enable safety timer = %d\n", __func__, enable);
 
 		/* SW safety timer */
@@ -2063,12 +2064,12 @@ static void charger_check_status(struct mtk_charger *info)
 stop_charging:
 	mtk_battery_notify_check(info);
 
-	chr_err("tmp:%d (jeita:%d sm:%d cv:%d en:%d) (sm:%d) en:%d c:%d s:%d ov:%d sc:%d %d %d\n",
+	chr_err("tmp:%d (jeita:%d sm:%d cv:%d en:%d) (sm:%d) en:%d c:%d s:%d ov:%d sc:%d %d %d saf_cmd:%d\n",
 		temperature, info->enable_sw_jeita, info->sw_jeita.sm,
 		info->sw_jeita.cv, info->sw_jeita.charging, thermal->sm,
 		charging, info->cmd_discharging, info->safety_timeout,
 		info->vbusov_stat, info->sc.disable_charger,
-		info->can_charging, charging);
+		info->can_charging, charging, info->safety_timer_cmd);
 
 	if (charging != info->can_charging)
 		_mtk_enable_charging(info, charging);
@@ -3115,6 +3116,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	info->fast_charging_indicator = 0;
 	info->is_charging = false;
+	info->safety_timer_cmd = -1;
 
 	kthread_run(charger_routine_thread, info, "charger_thread");
 

@@ -306,6 +306,7 @@ struct mtk_charger {
 	bool can_charging;
 	bool cmd_discharging;
 	bool safety_timeout;
+	int safety_timer_cmd;
 	bool vbusov_stat;
 	bool is_chg_done;
 	/* ATM */
