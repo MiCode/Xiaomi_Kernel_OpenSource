@@ -25,8 +25,14 @@ static int __init mkp_init(void)
 {
 	int ret = 0;
 
-	mkp_setup_essential_hvc_call(PHYS_OFFSET, FIXADDR_TOP,
+	ret = mkp_setup_essential_hvc_call(PHYS_OFFSET, FIXADDR_TOP,
 		__fix_to_virt(__end_of_fixed_addresses - 1));
+
+	/* MKP service is not alive, just exit. */
+	if (ret != 0) {
+		pr_info("%s: No mkp service, stop mkp initialization.\n", __func__);
+		return 0;
+	}
 
 	pr_info("%s:%d start\n", __func__, __LINE__);
 
