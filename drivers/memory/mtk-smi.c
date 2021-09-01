@@ -18,6 +18,7 @@
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
+#include <../misc/mediatek/include/mt-plat/aee.h>
 
 #include <linux/kthread.h>
 
@@ -72,7 +73,8 @@
 #define SMI_LARB_DBG_CON			(0xf0)
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_CMD_THRT_CON	(0x500 + (SMI_LARB_CMD_THRT_CON))
-
+#define SMI_LARB_OSTD_MON_PORT(p)	(0x280 + ((p) << 2))
+#define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
@@ -310,6 +312,36 @@ void mtk_smi_add_device_link(struct device *dev, struct device *larbdev)
 
 }
 EXPORT_SYMBOL_GPL(mtk_smi_add_device_link);
+
+s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
+	const bool enable, const char *user)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
+	u32 larbid = MTK_M4U_TO_LARB(master_id);
+	u32 port = MTK_M4U_TO_PORT(master_id);
+	u32 ostd[2], val;
+
+	ostd[0] = readl_relaxed(larb->base + SMI_LARB_OSTD_MON_PORT(port));
+	ostd[1] = readl_relaxed(larb->base + INT_SMI_LARB_OSTD_MON_PORT(port));
+	if (ostd[0] || ostd[1]) {
+		aee_kernel_exception(user,
+			"%s set larb%u port%u sysram %d failed ostd:%u %u\n",
+			user, larbid, port, enable, ostd[0], ostd[1]);
+		return (ostd[1] << 16) | ostd[0];
+	}
+
+	val = readl_relaxed(larb->base + SMI_LARB_NONSEC_CON(port));
+	if (enable)
+		writel(val | (0xf << 16),
+			larb->base + SMI_LARB_NONSEC_CON(port));
+	else
+		writel(val & 0xfff0ffff,
+			larb->base + SMI_LARB_NONSEC_CON(port));
+	wmb(); /* make sure settings are written */
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(smi_sysram_enable);
 
 static int
 mtk_smi_larb_bind(struct device *dev, struct device *master, void *data)
