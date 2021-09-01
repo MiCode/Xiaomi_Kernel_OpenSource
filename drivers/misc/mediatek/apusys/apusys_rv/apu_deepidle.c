@@ -11,10 +11,13 @@
 
 #include <linux/delay.h>
 
+#include <mt-plat/aee.h>
+
 #include "apu.h"
 #include "apu_config.h"
 #include "mdw_export.h"
 #include "mtk_apu_rpmsg.h"
+#include "apu_excep.h"
 
 #include "apu_hw.h"
 #include "hw_logger.h"
@@ -151,6 +154,7 @@ static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t cmd, uint32_t ack
 static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)priv;
+	struct device *dev = apu->dev;
 	struct dpidle_msg *msg = data;
 	int ret, timeout;
 
@@ -189,6 +193,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 			dev_info(apu->dev, "failed to power off ret=%d\n", ret);
 			apu_ipi_unlock(apu);
 			WARN_ON(0);
+			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
 			return;
 		}
 
@@ -201,6 +206,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 				 __func__);
 			apu_ipi_unlock(apu);
 			WARN_ON(0);
+			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_PWRDN_TIMEOUT");
 			return;
 		}
 
