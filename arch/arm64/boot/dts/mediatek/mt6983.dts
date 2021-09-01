@@ -1362,13 +1362,11 @@
 				<GIC_SPI 677 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
 				<GIC_SPI 678 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX2 */
 				<GIC_SPI 679 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX3 */
-				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH 0>, /* DEVAPC */
 				<GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH 0>; /* DEBUG_CTRL */
 			interrupt-names = "mbox0",
 				"mbox1",
 				"mbox2",
 				"mbox3",
-				"devapc",
 				"debug_ctrl";
 			#mbox-cells = <1>;
 
