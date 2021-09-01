@@ -71,7 +71,9 @@ static unsigned int g_dither_mode = 1;
 enum COLOR_IOCTL_CMD {
 	DITHER_SELECT = 0,
 	SET_PARAM,
-	BYPASS_DITHER
+	BYPASS_DITHER,
+	SET_INTERRUPT,
+	SET_COLOR_DETECT,
 };
 
 enum PURE_CLR_RGB_ENUM {
@@ -143,7 +145,12 @@ static bool disp_dither_purecolor_devide(struct mtk_ddp_comp *comp)
 {
 	unsigned int clr_red, clr_green, clr_blue, i;
 	bool ret = false;
+	int index = index_of_dither(comp->id);
 
+	if (atomic_read(&g_dither_is_clock_on[index]) != 1) {
+		DDPINFO("%s: clock is off.\n", __func__);
+		return ret;
+	}
 	clr_red = (readl(comp->regs +
 		DISP_DITHER_PURECOLOR0) >> 8) & 0xfff;
 	clr_blue = readl(comp->regs +
@@ -169,6 +176,12 @@ static void disp_dither_purecolor_detection(struct mtk_ddp_comp *comp)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	unsigned int clr_det, clr_flag;
 
+	int index = index_of_dither(comp->id);
+
+	if (atomic_read(&g_dither_is_clock_on[index]) != 1) {
+		DDPINFO("%s: clock is off.\n", __func__);
+		return;
+	}
 	clr_det = readl(comp->regs + DISP_DITHER_PURECOLOR0) & 0x1;
 	DDPINFO("%s: clr_det: 0x%x", __func__, clr_det);
 
@@ -588,6 +601,54 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 		}
 	}
 	break;
+	case SET_INTERRUPT:
+	{
+		int *value = data;
+
+		mtk_disp_dither_set_interrupt(comp, *value);
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
+			mtk_disp_dither_set_interrupt(comp_dither1, *value);
+		}
+	}
+	break;
+	case SET_COLOR_DETECT:
+	{
+		int *value = data;
+		int index = index_of_dither(comp->id);
+
+		g_pure_clr_param->pure_clr_det = *value;
+		if (atomic_read(&g_dither_is_clock_on[index]) != 1) {
+			DDPINFO("%s: clock is off.\n",
+				__func__);
+		} else {
+			writel(readl(comp->regs + DISP_DITHER_PURECOLOR0) |
+				g_pure_clr_param->pure_clr_det,
+				comp->regs + DISP_DITHER_PURECOLOR0);
+		}
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
+			index = index_of_dither(comp_dither1->id);
+
+			if (atomic_read(&g_dither_is_clock_on[index]) != 1) {
+				DDPINFO("%s: clock is off.\n",
+					__func__);
+			} else {
+				writel(readl(comp_dither1->regs + DISP_DITHER_PURECOLOR0) |
+					g_pure_clr_param->pure_clr_det,
+					comp_dither1->regs + DISP_DITHER_PURECOLOR0);
+			}
+		}
+	}
+	break;
 	default:
 		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
 		return -EINVAL;
@@ -871,4 +932,11 @@ void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass)
 	mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 
 	DDPINFO("%s : ret = %d", __func__, ret);
+}
+
+void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable)
+{
+	mtk_crtc_user_cmd(crtc, default_comp, SET_COLOR_DETECT, &enable);
+	mtk_crtc_user_cmd(crtc, default_comp, SET_INTERRUPT, &enable);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 }

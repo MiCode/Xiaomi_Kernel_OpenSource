@@ -28,6 +28,7 @@ extern void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
 extern void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
 extern void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
 extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
 extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl);
 
@@ -40,6 +41,7 @@ enum mtk_pq_persist_property {
 	DISP_PQ_AAL_BYPASS,
 	DISP_PQ_CCORR_SILKY_BRIGHTNESS,
 	DISP_PQ_GAMMA_SILKY_BRIGHTNESS,
+	DISP_PQ_DITHER_COLOR_DETECT,
 	DISP_PQ_PROPERTY_MAX,
 };
 

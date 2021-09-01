@@ -1804,6 +1804,11 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 		m_new_pq_persist_property[DISP_PQ_AAL_BYPASS])
 		disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
 
+	if (m_old_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT] !=
+		m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT])
+		disp_dither_set_color_detect(crtc,
+			m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT]);
+
 	DDPFUNC("-");
 
 	return ret;
