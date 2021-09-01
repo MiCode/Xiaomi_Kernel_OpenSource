@@ -268,12 +268,15 @@ static int vio18_switch(struct platform_device *pdev, struct oc_debug_info *info
 	if (!vio18_ctrl->main_regmap)
 		return -EINVAL;
 
-	if (info == &mt6983_debug_info) {
+	if (info == &mt6879_debug_info)
+		vio18_ctrl->second_switch = 0x57;
+	else if (info == &mt6983_debug_info)
 		vio18_ctrl->second_switch = 0x58;
-		vio18_ctrl->second_regmap = vio18_switch_get_regmap("second_pmic");
-		if (!vio18_ctrl->second_regmap)
-			return -EINVAL;
-	}
+	else
+		return -EINVAL;
+	vio18_ctrl->second_regmap = vio18_switch_get_regmap("second_pmic");
+	if (!vio18_ctrl->second_regmap)
+		return -EINVAL;
 
 	irq_f = platform_get_irq_byname_optional(pdev, "LVSYS_F");
 	if (irq_f < 0)
