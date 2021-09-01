@@ -37,8 +37,6 @@
 
 static struct pt_regs saved_regs;
 
-#define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
-
 static void aee_exception_reboot(int reboot_reason)
 {
 	struct arm_smccc_res res;
@@ -169,6 +167,13 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	}
 }
 
+static void (*p_show_task_backtrace)(void);
+void mrdump_regist_hang_bt(void (*fn)(void))
+{
+	p_show_task_backtrace = fn;
+}
+EXPORT_SYMBOL_GPL(mrdump_regist_hang_bt);
+
 static int num_die;
 int mrdump_common_die(int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
@@ -238,6 +243,8 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		console_unlock();
 	case AEE_FIQ_STEP_COMMON_DIE_DONE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
+		if (p_show_task_backtrace)
+			p_show_task_backtrace();
 	default:
 		aee_nested_printf("num_die-%d, last_step-%d, next_step-%d\n",
 				  num_die, last_step, next_step);

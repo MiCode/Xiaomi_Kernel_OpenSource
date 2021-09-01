@@ -19,6 +19,11 @@
 
 #include "mrdump_helper.h"
 
+#define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
+
+#define MBOOT_PARAMS_DRAM_OFF	0x1000
+#define MBOOT_PARAMS_DRAM_SIZE	0x1000
+
 extern int kernel_addr_valid(unsigned long addr);
 #define mrdump_virt_addr_valid(kaddr) \
 	kernel_addr_valid((unsigned long)kaddr)
@@ -54,9 +59,6 @@ int mrdump_mini_init(const struct mrdump_params *mparams);
 uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
 
-extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
-extern void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
-		unsigned long size, unsigned long start, char *name);
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,

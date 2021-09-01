@@ -478,6 +478,7 @@ void trigger_hang_db(void)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+		mrdump_regist_hang_bt(NULL);
 		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 		"	Hang Detect", NULL);
 #else
@@ -973,7 +974,7 @@ static void show_bt_by_pid(int task_pid)
 #ifdef __aarch64__
 	struct pt_regs *user_ret;
 #endif
-	int count = 0, dump_native = 0;
+	int dump_native = 0;
 	unsigned int state = 0;
 	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 
@@ -1046,9 +1047,6 @@ static void show_bt_by_pid(int task_pid)
 				put_task_stack(t);
 			}
 			put_task_struct(t);
-
-			if ((++count) % 5 == 4)
-				msleep(20);
 			log_hang_info("-\n");
 		} while_each_thread(p, t);
 
@@ -1401,6 +1399,7 @@ static int __init monitor_hang_init(void)
 		return err;
 	}
 	hang_detect_init();
+	mrdump_regist_hang_bt(show_task_backtrace);
 
 #ifdef CONFIG_MTK_HANG_PROC
 	pe = proc_create("monitor_hang", 0660, NULL, &monitor_hang_fops);
@@ -1413,6 +1412,7 @@ static int __init monitor_hang_init(void)
 
 static void __exit monitor_hang_exit(void)
 {
+	mrdump_regist_hang_bt(NULL);
 	misc_deregister(&Hang_Monitor_dev);
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	/* kfree(NULL) is safe */

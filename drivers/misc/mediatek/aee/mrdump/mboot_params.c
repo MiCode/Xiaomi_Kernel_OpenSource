@@ -30,6 +30,7 @@
 #include <mt-plat/aee.h>
 #include "mboot_params_internal.h"
 #include "mrdump_helper.h"
+#include "mrdump_mini.h"
 #include "mrdump_private.h"
 
 #define MBOOT_PARAMS_HEADER_STR_LEN 1024
@@ -593,7 +594,26 @@ static void mboot_params_fatal(const char *str)
 	pr_info("mboot_params: FATAL:%s\n", str);
 }
 
-extern void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size);
+static phys_addr_t mboot_params_reserve_memory(void)
+{
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, DEBUG_COMPATIBLE);
+	if (!rmem_node) {
+		pr_info("[mboot_params] no node for reserved memory\n");
+		return -EINVAL;
+	}
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_info("[mboot_params] cannot lookup reserved memory\n");
+		return -EINVAL;
+	}
+
+	return rmem->base + MBOOT_PARAMS_DRAM_OFF;
+}
 
 static void mboot_params_parse_memory_info(struct mem_desc_t *sram,
 		struct mboot_params_memory_info *p_memory_info)
@@ -660,6 +680,12 @@ static int __init mboot_params_early_init(void)
 			start = sram.start;
 			size  = sram.size;
 			bufp = ioremap_wc(sram.start, sram.size);
+		} else if (sram.def_type == MBOOT_PARAMS_DEF_DRAM) {
+			start = mboot_params_reserve_memory();
+			size = MBOOT_PARAMS_DRAM_SIZE;
+			pr_info("mboot_params: using dram:0x%llx(0x%llx)\n",
+				start, size);
+			bufp = remap_lowmem(start, size);
 		} else {
 			pr_info("mboot_params: unknown def type:%d\n",
 					sram.def_type);

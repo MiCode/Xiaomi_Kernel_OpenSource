@@ -772,7 +772,7 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 	mrdump_mini_build_task_info(regs);
 }
 
-static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
+void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
 	struct page **pages;
 	phys_addr_t page_start;
