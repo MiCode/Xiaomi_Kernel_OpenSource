@@ -3499,6 +3499,16 @@
 			#iommu-cells = <1>;
 	};
 
+	mtk_dmabufheap_debug0: dmaheap_test0{
+			compatible = "mediatek, mtk_dmabufheap, iommu0";
+			iommus = <&disp_iommu M4U_PORT_L0_DISP_WDMA0>;
+	};
+
+	mtk_dmabufheap_debug1: dmaheap_test1{
+			compatible = "mediatek, mtk_dmabufheap, iommu1";
+			iommus = <&disp_iommu M4U_PORT_L1_DISP_FAKE1>;
+	};
+
 	efuse: efuse@11ee0000 {
 			compatible = "mediatek,devinfo";
 			reg = <0 0x11ee0000 0 0x10000>;
