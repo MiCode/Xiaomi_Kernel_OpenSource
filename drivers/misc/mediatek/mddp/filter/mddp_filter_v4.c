@@ -1029,8 +1029,7 @@ static uint32_t mddp_nfhook_prerouting_v4
 		return NF_ACCEPT;
 	}
 
-	if ((state->in->priv_flags & IFF_EBRIDGE) ||
-			(state->in->flags & IFF_LOOPBACK)) {
+	if (state->in->flags & IFF_LOOPBACK) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
 			"%s: Invalid flag, priv_flags(%x), flags(%x)!\n",
 			__func__, state->in->priv_flags, state->in->flags);
@@ -1060,8 +1059,7 @@ static uint32_t mddp_nfhook_postrouting_v4
 		goto out;
 	}
 
-	if ((state->out->priv_flags & IFF_EBRIDGE) ||
-			(state->out->flags & IFF_LOOPBACK)) {
+	if (state->out->flags & IFF_LOOPBACK) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
 			"%s: Invalid flag, priv_flags(%x), flags(%x).\n",
 			__func__, state->out->priv_flags, state->out->flags);
