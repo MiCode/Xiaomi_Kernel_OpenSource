@@ -89,6 +89,7 @@ static int vow_service_SearchSpeakerModelWithKeyword(int keyword);
 static int vow_service_SearchSpeakerModelWithId(int id);
 #if IS_ENABLED(CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK)
 static void vow_service_ReadPayloadDumpData(unsigned int buf_length);
+static DEFINE_MUTEX(vow_payloaddump_mutex);
 #endif
 static DEFINE_MUTEX(vow_vmalloc_lock);
 static DEFINE_MUTEX(vow_extradata_mutex);
@@ -534,7 +535,9 @@ static void vow_service_Init(void)
 		vowserv.payloaddump_user_addr = 0;
 		vowserv.payloaddump_user_max_size = 0;
 		vowserv.payloaddump_user_return_size_addr = 0;
+		mutex_lock(&vow_payloaddump_mutex);
 		vowserv.payloaddump_kernel_ptr = NULL;
+		mutex_unlock(&vow_payloaddump_mutex);
 		vowserv.payloaddump_length = 0;
 #endif
 		vowserv.voicedata_kernel_ptr = NULL;
@@ -1187,11 +1190,11 @@ static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 	unsigned int tx_len;
 	unsigned int ret;
 
-	VOW_ASSERT(vowserv.payloaddump_kernel_ptr != NULL);
-
 	// copy from DRAM to get payload data
+	mutex_lock(&vow_payloaddump_mutex);
 	memcpy(&vowserv.payloaddump_kernel_ptr[0],
 	       vowserv.payloaddump_scp_ptr, buf_length);
+	mutex_unlock(&vow_payloaddump_mutex);
 
 	//copy to user space
 	tx_len = buf_length;
@@ -1205,10 +1208,12 @@ static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 		      (void __user *)(vowserv.payloaddump_user_return_size_addr),
 		      &tx_len,
 		      sizeof(unsigned int));
+	mutex_lock(&vow_payloaddump_mutex);
 	ret = copy_to_user(
 		      (void __user *)vowserv.payloaddump_user_addr,
 		      vowserv.payloaddump_kernel_ptr,
 		      tx_len);
+	mutex_unlock(&vow_payloaddump_mutex);
 }
 #endif
 
@@ -2518,20 +2523,29 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		break;
 #if IS_ENABLED(CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK)
 	case VOW_SET_PAYLOADDUMP_INFO: {
-		struct vow_payloaddump_info_t payloaddump_temp;
+		struct vow_payloaddump_info_t payload;
 
-		copy_from_user((void *)&payloaddump_temp,
+		copy_from_user((void *)&payload,
 				 (const void __user *)arg,
 				 sizeof(struct vow_payloaddump_info_t));
+		/* add return condition */
+		if ((payload.return_payloaddump_addr == 0) ||
+		    (payload.max_payloaddump_size != VOW_VOICEDATA_SIZE)) {
+			VOWDRV_DEBUG("vow check payload fail: addr_%x, size_%x\n",
+			     (unsigned int)payload.return_payloaddump_addr,
+			     (unsigned int)payload.max_payloaddump_size);
+			return false;
+		}
 		vowserv.payloaddump_user_addr =
-		    payloaddump_temp.return_payloaddump_addr;
+		    payload.return_payloaddump_addr;
 		vowserv.payloaddump_user_max_size =
-		    payloaddump_temp.max_payloaddump_size;
+		    payload.max_payloaddump_size;
 		vowserv.payloaddump_user_return_size_addr =
-		    payloaddump_temp.return_payloaddump_size_addr;
+		    payload.return_payloaddump_size_addr;
 		pr_debug("-VOW_SET_PAYLOADDUMP_INFO(addr=%lu, sz=%lu)",
 			 vowserv.payloaddump_user_addr,
 			 vowserv.payloaddump_user_max_size);
+		mutex_lock(&vow_payloaddump_mutex);
 		if (vowserv.payloaddump_kernel_ptr != NULL) {
 			vfree(vowserv.payloaddump_kernel_ptr);
 			vowserv.payloaddump_kernel_ptr = NULL;
@@ -2542,6 +2556,7 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		} else {
 			ret = -EFAULT;
 		}
+		mutex_unlock(&vow_payloaddump_mutex);
 	}
 		break;
 #endif
