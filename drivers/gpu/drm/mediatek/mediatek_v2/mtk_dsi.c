@@ -3249,7 +3249,7 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 			       comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
 			       0x002c3909, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, 1,
-			       0x1);
+			       CMDQ_SIZE);
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, CMDQ_SIZE_SEL,
 			       CMDQ_SIZE_SEL);
 
