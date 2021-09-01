@@ -130,9 +130,11 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 	if (ret != 0)
 		gpueb_pr_info("@%s: reserved mem init fail\n", __func__);
 
+	/*
 	ret = gpueb_plat_service_init(pdev);
 	if (ret != 0)
 		gpueb_pr_info("@%s: plat service init fail\n", __func__);
+	*/
 
 	of_property_read_u32(pdev->dev.of_node, "gpueb-logger-support",
 			&gpueb_logger_support);
