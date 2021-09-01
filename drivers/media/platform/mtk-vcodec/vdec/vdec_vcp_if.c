@@ -219,6 +219,23 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%x", vcu->inst_addr);
 }
 
+static struct device *get_dev_by_mem_type(struct vdec_inst *inst, struct vcodec_mem_obj *mem)
+{
+	if (inst->ctx->dec_params.svp_mode) {
+		if (mem->type == MEM_TYPE_FOR_SW)
+			mem->type = MEM_TYPE_FOR_SEC_SW;
+		else if (mem->type == MEM_TYPE_FOR_HW)
+			mem->type = MEM_TYPE_FOR_SEC_HW;
+	}
+
+	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_SEC_SW)
+		return vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
+	else if (mem->type == MEM_TYPE_FOR_HW || mem->type == MEM_TYPE_FOR_SEC_HW)
+		return &inst->vcu.ctx->dev->plat_dev->dev;
+	else
+		return NULL;
+}
+
 static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 {
 	struct vdec_vcu_inst *vcu = (struct vdec_vcu_inst *)msg->ap_inst_addr;
@@ -242,13 +259,9 @@ static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 
 		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,	msg->mem.type);
+
 		inst = container_of(vcu, struct vdec_inst, vcu);
-
-		if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC)
-			dev = vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
-		else if (msg->mem.type == MEM_TYPE_FOR_HW)
-			dev = &vcu->ctx->dev->plat_dev->dev;
-
+		dev = get_dev_by_mem_type(inst, &msg->mem);
 		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
 	}
 	if (msg->status) {
@@ -300,11 +313,7 @@ static void handle_vdec_mem_free(struct vdec_vcu_ipi_mem_op *msg)
 		msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,  msg->mem.type);
 
 	inst = container_of(vcu, struct vdec_inst, vcu);
-	if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC)
-		dev = vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
-	else if (msg->mem.type == MEM_TYPE_FOR_HW)
-		dev = &vcu->ctx->dev->plat_dev->dev;
-
+	dev = get_dev_by_mem_type(inst, &msg->mem);
 	msg->status = mtk_vcodec_free_mem(&msg->mem, dev, tmp->attach, tmp->sgt);
 	kfree(tmp);
 
@@ -688,11 +697,8 @@ static void vdec_vcp_deinit(unsigned long h_vdec)
 	mutex_lock(inst->vcu.ctx_ipi_lock);
 	list_for_each_safe(p, q, &inst->vcu.bufs) {
 		tmp = list_entry(p, struct vcp_dec_mem_list, list);
-		if (tmp->mem.type == MEM_TYPE_FOR_SW || tmp->mem.type == MEM_TYPE_FOR_SEC)
-			dev = vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
-		else if (tmp->mem.type == MEM_TYPE_FOR_HW)
-			dev = &inst->vcu.ctx->dev->plat_dev->dev;
 
+		dev = get_dev_by_mem_type(inst, &tmp->mem);
 		mtk_vcodec_free_mem(&tmp->mem, dev, tmp->attach, tmp->sgt);
 		mtk_v4l2_debug(0, "[%d] leak free va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			inst->ctx->id, tmp->mem.va, tmp->mem.pa,

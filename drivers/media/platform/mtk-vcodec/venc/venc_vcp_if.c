@@ -180,7 +180,7 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 		inst = container_of(vcu, struct venc_inst, vcu_inst);
 
-		if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC)
+		if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC_SW)
 			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
 		else if (msg->mem.type == MEM_TYPE_FOR_HW)
 			dev = &vcu->ctx->dev->plat_dev->dev;
@@ -236,7 +236,7 @@ static void handle_venc_mem_free(struct venc_vcu_ipi_mem_op *msg)
 		msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,  msg->mem.type);
 
 	inst = container_of(vcu, struct venc_inst, vcu_inst);
-	if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC)
+	if (msg->mem.type == MEM_TYPE_FOR_SW || msg->mem.type == MEM_TYPE_FOR_SEC_SW)
 		dev = vcp_get_io_device(VCP_IOMMU_256MB1);
 	else if (msg->mem.type == MEM_TYPE_FOR_HW)
 		dev = &vcu->ctx->dev->plat_dev->dev;
@@ -1277,7 +1277,7 @@ static int venc_vcp_deinit(unsigned long handle)
 	mutex_lock(inst->vcu_inst.ctx_ipi_lock);
 	list_for_each_safe(p, q, &inst->vcu_inst.bufs) {
 		tmp = list_entry(p, struct vcp_enc_mem_list, list);
-		if (tmp->mem.type == MEM_TYPE_FOR_SW || tmp->mem.type == MEM_TYPE_FOR_SEC)
+		if (tmp->mem.type == MEM_TYPE_FOR_SW || tmp->mem.type == MEM_TYPE_FOR_SEC_SW)
 			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
 		else if (tmp->mem.type == MEM_TYPE_FOR_HW)
 			dev = &inst->vcu_inst.ctx->dev->plat_dev->dev;
