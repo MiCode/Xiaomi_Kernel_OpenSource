@@ -2989,7 +2989,8 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	struct cmdq_pkt *pkt = handle->pkt;
 	u32 dre = MDP_AAL_DRE_BITS(param);
 	u32 multiple = MDP_AAL_MULTIPLE_BITS(param);
-	u32 offset, begin_pa, condi_offset;
+	dma_addr_t begin_pa;
+	u32 offset, condi_offset;
 	u32 *condi_inst;
 	const uint16_t idx_addr = CMDQ_THR_SPR_IDX1;
 	const u16 idx_gpr_out = CMDQ_GPR_P4;
@@ -3129,7 +3130,8 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	struct mdp_readback_engine *rb =
 		&handle->readback_engs[handle->readback_cnt];
 	struct cmdq_pkt *pkt = handle->pkt;
-	u32 begin_pa, condi_offset;
+	dma_addr_t begin_pa;
+	u32 condi_offset;
 	u32 *condi_inst;
 	const uint16_t idx_counter = CMDQ_THR_SPR_IDX1;
 	const u16 idx_gpr_out = CMDQ_GPR_P4;
