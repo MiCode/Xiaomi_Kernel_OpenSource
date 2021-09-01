@@ -104,14 +104,6 @@ static void mtk_ccu_set_log_memory_address(struct mtk_ccu *ccu)
 	ccu->log_info[2].va = ccu->log_info[0].va;
 }
 
-static void mtk_ccu_clear_log_memory_address(struct mtk_ccu *ccu)
-{
-	memset(&ccu->log_info[0], 0, sizeof(struct mtk_ccu_buffer));
-	memset(&ccu->log_info[1], 0, sizeof(struct mtk_ccu_buffer));
-	memset(&ccu->log_info[2], 0, sizeof(struct mtk_ccu_buffer));
-}
-
-
 int mtk_ccu_sw_hw_reset(struct mtk_ccu *ccu)
 {
 	uint32_t duration = 0;
@@ -239,7 +231,7 @@ static int mtk_ccu_run(struct mtk_ccu *ccu)
 	if (timeout <= 0) {
 		dev_err(ccu->dev, "CCU init timeout 2\n");
 		dev_err(ccu->dev, "ccu initial debug info: %x\n",
-			readl(ccu_base + MTK_CCU_SPARE_REG08));
+			readl(ccu_base + MTK_CCU_SPARE_REG17));
 		return -ETIMEDOUT;
 	}
 
@@ -266,7 +258,6 @@ static int mtk_ccu_clk_prepare(struct mtk_ccu *ccu)
 			goto ERROR;
 		}
 	}
-
 
 	return 0;
 
@@ -301,7 +292,6 @@ static int mtk_ccu_start(struct rproc *rproc)
 	uint8_t *ccu_base = (uint8_t *)ccu->ccu_base;
 
 	/*1. Set CCU log memory address from user space*/
-	mtk_ccu_set_log_memory_address(ccu);
 	writel((uint32_t)((ccu->log_info[0].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG02);
 	writel((uint32_t)((ccu->log_info[1].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG03);
 
@@ -316,6 +306,10 @@ static int mtk_ccu_start(struct rproc *rproc)
 	LOG_DBG("LogBuf_mva[1](0x%lx)(0x%x << 8)\n",
 		ccu->log_info[1].mva, readl(ccu_base + MTK_CCU_SPARE_REG03));
 	ccu->g_LogBufIdx = -1;
+
+	spin_lock(&ccu->ccu_poweron_lock);
+	ccu->poweron = true;
+	spin_unlock(&ccu->ccu_poweron_lock);
 
 	/*1. Set CCU run*/
 	mtk_ccu_run(ccu);
@@ -405,7 +399,10 @@ static int mtk_ccu_stop(struct rproc *rproc)
 	mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(0), MBps_to_icc(0));
 #endif
 
-	mtk_ccu_clear_log_memory_address(ccu);
+	spin_lock(&ccu->ccu_poweron_lock);
+	ccu->poweron = false;
+	spin_unlock(&ccu->ccu_poweron_lock);
+
 	mtk_ccu_clk_unprepare(ccu);
 	return 0;
 }
@@ -730,6 +727,7 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	/*prepare mutex & log's waitqueuehead*/
 	mutex_init(&ccu->ipc_desc_lock);
 	spin_lock_init(&ccu->ipc_send_lock);
+	spin_lock_init(&ccu->ccu_poweron_lock);
 	init_waitqueue_head(&ccu->WaitQueueHead);
 
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
@@ -748,6 +746,8 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 		dev_err(ccu->dev, "alloc mem failed\n");
 		return ret;
 	}
+
+	mtk_ccu_set_log_memory_address(ccu);
 	rproc->auto_boot = false;
 
 	ret = rproc_add(rproc);

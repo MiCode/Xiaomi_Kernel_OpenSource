@@ -124,12 +124,14 @@ struct mtk_ccu {
 	struct mtk_ccu_ipc_desc ipc_desc[MTK_CCU_MSG_TO_APMCU_MAX];
 	struct mutex ipc_desc_lock;
 	spinlock_t ipc_send_lock;
+	spinlock_t ccu_poweron_lock;
 	struct clk *ccu_clk_pwr_ctrl[MTK_CCU_CLK_PWR_NUM];
 	struct mtk_ccu_mem_handle buffer_handle[MTK_CCU_BUF_MAX];
 	struct mtk_ccu_mem_handle ext_buf;
 	struct mtk_ccu_mailbox *mb;
 	struct mtk_ccu_buffer log_info[MTK_CCU_DRAM_LOG_BUF_CNT];
 	wait_queue_head_t WaitQueueHead;
+	bool poweron;
 	bool bWaitCond;
 	int g_LogBufIdx;
 	int log_level;

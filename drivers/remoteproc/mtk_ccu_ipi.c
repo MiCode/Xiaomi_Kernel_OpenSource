@@ -139,6 +139,14 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 	uint32_t front;
 	uint32_t next;
 
+	if (!spin_trylock(&ccu->ccu_poweron_lock))
+		return 0;
+
+	if (!ccu->poweron) {
+		spin_unlock(&ccu->ccu_poweron_lock);
+		return 0;
+	}
+
 	rear = readl(&ccu->mb->rear);
 	front = readl(&ccu->mb->front);
 
@@ -163,6 +171,8 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 	} else
 		ret = 0;
 
+	spin_unlock(&ccu->ccu_poweron_lock);
+
 	return ret;
 }
 
@@ -172,10 +182,20 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 	static struct mtk_ccu_msg msg;
 	struct mtk_ccu *ccu = (struct mtk_ccu *)priv;
 	mtk_ccu_ipc_handle_t handler;
+#if defined(SECURE_CCU)
+	struct arm_smccc_res res;
+#endif
+
+	if (!spin_trylock(&ccu->ccu_poweron_lock))
+		goto ISR_EXIT;
+
+	if (!ccu->poweron) {
+		spin_unlock(&ccu->ccu_poweron_lock);
+		goto ISR_EXIT;
+	}
 
 	/*clear interrupt status*/
 #if defined(SECURE_CCU)
-	struct arm_smccc_res res;
 #ifdef CONFIG_ARM64
 	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_CLEAR_INT,
 			(u64)1, 0, 0, 0, 0, 0, &res);
@@ -188,6 +208,9 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 	writel(0xFF, ccu->ccu_base + MTK_CCU_INT_CLR);
 	// int_st = readl(ccu->ccu_base + MTK_CCU_INT_ST);
 #endif
+
+	spin_unlock(&ccu->ccu_poweron_lock);
+
 	while (1) {
 		mb_cnt = mtk_ccu_mb_rx(ccu, &msg);
 		if (mb_cnt == 0)
