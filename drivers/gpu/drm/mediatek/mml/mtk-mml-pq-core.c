@@ -681,6 +681,7 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 	struct mml_pq_reg *aal_regs = NULL;
 	struct mml_pq_reg *hdr_regs = NULL;
 	struct mml_pq_reg *ds_regs = NULL;
+	struct mml_pq_reg *color_regs = NULL;
 	u32 *aal_curve = NULL;
 	u32 *hdr_curve = NULL;
 	s32 ret = 0;
@@ -807,12 +808,28 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 		goto free_ds_regs;
 	}
 
+	color_regs = kmalloc(result->color_reg_cnt*sizeof(*color_regs),
+			GFP_KERNEL);
+	if (unlikely(!color_regs)) {
+		mml_pq_err("err: create color_regs failed, size:%d\n",
+			result->ds_reg_cnt);
+		goto free_ds_regs;
+	}
+
+	ret = copy_from_user(color_regs, result->color_regs,
+		result->color_reg_cnt*sizeof(*color_regs));
+	if (unlikely(ret)) {
+		mml_pq_err("copy color config failed!: %d\n", ret);
+		goto free_color_regs;
+	}
+
 	result->aal_param = aal_param;
 	result->aal_regs = aal_regs;
 	result->aal_curve = aal_curve;
 	result->hdr_regs = hdr_regs;
 	result->hdr_curve = hdr_curve;
 	result->ds_regs = ds_regs;
+	result->color_regs = color_regs;
 	mutex_lock(&sub_task->lock);
 	sub_task->result = result;
 	mutex_unlock(&sub_task->lock);
@@ -825,6 +842,8 @@ free_hdr_regs:
 	kfree(hdr_regs);
 free_ds_regs:
 	kfree(ds_regs);
+free_color_regs:
+	kfree(color_regs);
 free_aal_curve:
 	kfree(aal_curve);
 free_aal_regs:

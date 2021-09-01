@@ -14,8 +14,11 @@
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-pq-core.h"
-
 #include "tile_driver.h"
+
+#undef pr_fmt
+#define pr_fmt(fmt) "[mml_pq_color]" fmt
+
 
 #define COLOR_CFG_MAIN			0x400
 #define COLOR_PXL_CNT_MAIN		0x404
@@ -173,6 +176,8 @@
 #define COLOR_LSP_1			0xd58
 #define COLOR_LSP_2			0xd5c
 
+#define COLOR_WAIT_TIMEOUT_MS (50)
+
 struct color_data {
 };
 
@@ -211,6 +216,7 @@ static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct color_frame_data *color_frm = color_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_dest *dest = &cfg->info.dest[color_frm->out_idx];
+	s32 ret = 0;
 
 	func->enable_flag = true;
 
@@ -227,7 +233,9 @@ static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		func->full_size_y_out = dest->data.height;
 	}
 
-	return 0;
+	ret = mml_pq_comp_config(task);
+
+	return ret;
 }
 
 static const struct mml_comp_tile_ops color_tile_ops = {
@@ -251,10 +259,53 @@ static s32 color_init(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static struct mml_pq_comp_config_result *get_color_comp_config_result(
+	struct mml_task *task)
+{
+	struct mml_pq_sub_task *sub_task = NULL;
+
+	if (task->pq_task)
+		sub_task = &task->pq_task->comp_config;
+	if (sub_task)
+		return (struct mml_pq_comp_config_result *)sub_task->result;
+	else
+		return NULL;
+}
+
+
 static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 			      struct mml_comp_config *ccfg)
 {
-	/* TODO: need official implementation */
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+
+
+	const phys_addr_t base_pa = comp->base_pa;
+	struct mml_pq_comp_config_result *result = NULL;
+	s32 ret = 0;
+
+	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
+	if (!ret) {
+		result = get_color_comp_config_result(task);
+		if (result) {
+			s32 i;
+			struct mml_pq_reg *regs = result->color_regs;
+			//TODO: use different regs
+			mml_pq_msg("%s:config color regs, count: %d", __func__,
+				result->color_reg_cnt);
+			for (i = 0; i < result->color_reg_cnt; i++) {
+				cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
+					regs[i].value, regs[i].mask);
+				mml_pq_msg("[color][config][%x] = %#x mask(%#x)",
+					regs[i].offset, regs[i].value, regs[i].mask);
+			}
+
+		} else {
+			mml_pq_err("%s: not get result from user lib", __func__);
+		}
+	} else {
+		mml_pq_err("get color param timeout: %d in %dms",
+			ret, COLOR_WAIT_TIMEOUT_MS);
+	}
 
 	return 0;
 }
