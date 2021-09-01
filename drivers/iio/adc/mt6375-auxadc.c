@@ -509,7 +509,7 @@ static int auxadc_get_rac(struct mt6375_priv *priv)
 		mutex_lock(&priv->adc_lock);
 		ret = auxadc_read_imp(priv, &vbat_1, &ibat_1);
 		mutex_unlock(&priv->adc_lock);
-		if (ret)
+		if (ret < 0)
 			return ret;
 
 		/* enable_dummy_load */
@@ -522,7 +522,7 @@ static int auxadc_get_rac(struct mt6375_priv *priv)
 		mutex_lock(&priv->adc_lock);
 		ret = auxadc_read_imp(priv, &vbat_2, &ibat_2);
 		mutex_unlock(&priv->adc_lock);
-		if (ret)
+		if (ret < 0)
 			return ret;
 
 		/* disable_dummy_load */
