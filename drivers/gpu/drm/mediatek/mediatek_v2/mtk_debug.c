@@ -2619,6 +2619,24 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 10, "0", 1) == 0)
 			g_mml_debug = false;
 		DDPMSG("g_mml_debug:%d", g_mml_debug);
+	} else if (strncmp(opt, "dual_te:", 8) == 0) {
+		struct drm_crtc *crtc;
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+		if (strncmp(opt + 8, "1", 1) == 0) {
+			mtk_drm_switch_te(crtc, 1, true);
+			DDPMSG("switched to te1\n");
+		} else if (strncmp(opt + 8, "0", 1) == 0) {
+			mtk_drm_switch_te(crtc, 0, true);
+			DDPMSG("switched to te0\n");
+		} else {
+			DDPMSG("dual_te parse error!\n");
+		}
 	}
 }
 

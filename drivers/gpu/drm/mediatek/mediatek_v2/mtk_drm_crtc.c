@@ -3718,7 +3718,6 @@ void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
 	cmdq_pkt_flush_async(cmdq_handle, NULL, (void *)crtc_id);
 }
 
-#define GCE_JUMP_ZERO_ADDR 0x1000000100000000
 static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 		struct mtk_drm_crtc *mtk_crtc)
 {
@@ -3729,10 +3728,9 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	struct cmdq_operand rop;
 	u32 inst_condi_jump, inst_jump_end;
 	u64 *inst, jump_pa;
-	u64 jump_to_zero = GCE_JUMP_ZERO_ADDR;
 
 	cmdq_pkt_read(cmdq_handle, NULL,
-			cmdq_buf->pa_base + DISP_SLOT_TE1_EN, te1_en);
+		cmdq_buf->pa_base + gce_mminfra + DISP_SLOT_TE1_EN, te1_en);
 	lop.reg = true;
 	lop.idx = te1_en;
 	rop.reg = false;
@@ -3757,16 +3755,13 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	/* following instructinos is condition TRUE,
 	 * thus conditional jump should jump current offset
 	 */
+	if (unlikely(!cmdq_handle->avail_buf_size))
+		cmdq_pkt_add_cmd_buffer(cmdq_handle);
 	inst = cmdq_pkt_get_va_by_offset(cmdq_handle, inst_condi_jump);
-	/* instruction may hit boundary case,
-	 * check if op code is jump and get next instruction if necessary
-	 */
-	if (inst && ((*inst)>>56 == CMDQ_CODE_JUMP))
-		inst = cmdq_pkt_get_va_by_offset(
-			cmdq_handle, inst_condi_jump + CMDQ_INST_SIZE);
 
 	jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
 			cmdq_handle->cmd_buf_size);
+	*inst = *inst & ((u64)0xFFFFFFFF << 32);
 	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
 
 	/* condition match, here is nop jump */
@@ -3779,16 +3774,13 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	/* this is end of whole condition, thus condition
 	 * FALSE part should jump here
 	 */
+	if (unlikely(!cmdq_handle->avail_buf_size))
+		cmdq_pkt_add_cmd_buffer(cmdq_handle);
 	inst = cmdq_pkt_get_va_by_offset(cmdq_handle, inst_jump_end);
-	/* instruction may hit boundary case,
-	 * check if op code is jump and get next instruction if necessary
-	 */
-	if (inst && ((*inst) != jump_to_zero))
-		inst = cmdq_pkt_get_va_by_offset(
-			cmdq_handle, inst_jump_end + CMDQ_INST_SIZE);
 
 	jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
 			cmdq_handle->cmd_buf_size);
+	*inst = *inst & ((u64)0xFFFFFFFF << 32);
 	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
 }
 
@@ -10259,7 +10251,7 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 				true);
 		set_outpin = true;
 	}
-	addr = cmdq_buf->pa_base + DISP_SLOT_TE1_EN;
+	addr = cmdq_buf->pa_base + gce_mminfra + DISP_SLOT_TE1_EN;
 	if (te_num == 1) {
 		DDPMSG("switched to te1!\n");
 		atomic_set(&d_te->te_switched, 1);
