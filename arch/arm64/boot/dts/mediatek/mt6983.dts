@@ -108,6 +108,10 @@
 		dsc1 = &disp_dsc1_wrap;
 		merge0 = &disp_merge0;
 		merge1 = &disp_merge1;
+		mml_wrot0 = &mml_wrot0;
+		mml_wrot1 = &mml_wrot1;
+		mml_wrot2 = &mml_wrot2;
+		mml_wrot3 = &mml_wrot3;
 	};
 
 	/* ATF logger */
@@ -10232,7 +10236,7 @@
 		comp-ids = <MML_COLOR1>;
 	};
 
-	mdp_wrot0@1f80f000 {
+	mml_wrot0: mml_wrot0@1f80f000 {
 		compatible = "mediatek,mdp_wrot0", "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f80f000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT0>;
@@ -10253,7 +10257,7 @@
 		inlinerot = <&inlinerot0>, <&inlinerot1>;
 	};
 
-	mdp_wrot1@1f810000 {
+	mml_wrot1: mml_wrot1@1f810000 {
 		compatible = "mediatek,mdp_wrot1", "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f810000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT1>;
@@ -10290,7 +10294,7 @@
 		comp-ids = <MML_RSZ3>;
 	};
 
-	mdp_wrot2@1f815000 {
+	mml_wrot2: mml_wrot2@1f815000 {
 		compatible = "mediatek,mdp_wrot2", "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f815000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT2>;
@@ -10309,7 +10313,7 @@
 		interconnect-names = "mml_dma";
 	};
 
-	mdp_wrot3@1f816000 {
+	mml_wrot3: mml_wrot3@1f816000 {
 		compatible = "mediatek,mdp_wrot3", "mediatek,mt6983-mml_wrot";
 		reg = <0 0x1f816000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_WROT3>;
