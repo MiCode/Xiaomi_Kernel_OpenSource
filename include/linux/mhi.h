@@ -811,6 +811,13 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client);
 int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
 
 /**
+ * mhi_force_reset - does host reset request to collect device side dumps
+ * for debugging purpose
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_force_reset(struct mhi_controller *mhi_cntrl);
+
+/**
  * mhi_scan_rddm_cookie - Look for supplied cookie value in the BHI debug
  * registers set by device to indicate rddm readiness for debugging purposes.
  * @mhi_cntrl: MHI controller
