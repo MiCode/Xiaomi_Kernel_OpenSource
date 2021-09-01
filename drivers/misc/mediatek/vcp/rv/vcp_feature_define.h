@@ -11,11 +11,7 @@
 /* vcp platform configs*/
 #define VCP_BOOT_TIME_OUT_MONITOR        (1)
 #define VCP_RESERVED_MEM                 (1)
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_LOGGER_SUPPORT)
 #define VCP_LOGGER_ENABLE                (1)
-#else
-#define VCP_LOGGER_ENABLE                (0)
-#endif
 #define VCP_VOW_LOW_POWER_MODE           (1)
 #define VCP_DEBUG_NODE_ENABLE            (0)
 #define VCP_IOMMU_ENABLE                 (1)
