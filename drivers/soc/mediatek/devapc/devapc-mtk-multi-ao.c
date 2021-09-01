@@ -1080,7 +1080,8 @@ static void devapc_ut(uint32_t cmd)
 	if (cmd == DEVAPC_UT_DAPC_INFRA_VIO ||
 		cmd == DEVAPC_UT_DAPC_VLP_VIO ||
 		cmd == DEVAPC_UT_DAPC_ADSP_VIO ||
-		cmd == DEVAPC_UT_DAPC_MMINFRA_VIO) {
+		cmd == DEVAPC_UT_DAPC_MMINFRA_VIO ||
+		cmd == DEVAPC_UT_DAPC_MMUP_VIO) {
 		if (unlikely(dapc_ao_base == NULL)) {
 			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
 			return;
@@ -1522,12 +1523,6 @@ int mtk_devapc_probe(struct platform_device *pdev,
 				"slave_type", slave_type,
 				"devapc_pd_base",
 				mtk_devapc_ctx->devapc_pd_base[slave_type]);
-
-	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
-		pr_debug(PFX "%s:0x%x %s:%pa\n",
-				"irq_type", irq_type,
-				"devapc_ao_base",
-				mtk_devapc_ctx->devapc_ao_base[irq_type]);
 
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
 		pr_info(PFX " IRQ[%d]:%d\n", irq_type,
