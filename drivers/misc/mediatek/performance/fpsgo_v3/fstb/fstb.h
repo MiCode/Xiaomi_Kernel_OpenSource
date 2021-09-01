@@ -12,9 +12,7 @@ void fpsgo_comp2fstb_queue_time_update(
 	int pid, unsigned long long bufID, int frame_type,
 	unsigned long long ts,
 	int api, int hwui_flag);
-int fpsgo_comp2fstb_enq_end(int pid,
-	unsigned long long bufID, unsigned long long enq);
-int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
+void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_queue_end_ts);
 int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID,
 	int target_fps);

@@ -106,4 +106,12 @@ struct FSTB_POWERFPS_LIST {
 	int fps;
 };
 
+struct FSTB_NOTIFIER_PUSH_TAG {
+	int pid;
+	unsigned long long bufid;
+	unsigned long long cur_queue_end_ts;
+
+	struct work_struct sWork;
+};
+
 #endif

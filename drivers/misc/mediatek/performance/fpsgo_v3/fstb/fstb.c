@@ -1012,33 +1012,7 @@ out:
 	return 0;
 }
 
-int fpsgo_comp2fstb_enq_end(int pid, unsigned long long bufID,
-		unsigned long long enq)
-{
-	struct FSTB_FRAME_INFO *iter;
-
-	mutex_lock(&fstb_lock);
-
-	if (!fstb_enable) {
-		mutex_unlock(&fstb_lock);
-		return 0;
-	}
-
-	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		if (iter->pid == pid && iter->bufid == bufID)
-			break;
-	}
-
-	if (iter == NULL) {
-		mutex_unlock(&fstb_lock);
-		return 0;
-	}
-
-	mutex_unlock(&fstb_lock);
-	return 0;
-}
-
-int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
+static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_queue_end_ts)
 {
 	int i, target_fps;
@@ -1047,17 +1021,10 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 
 	mutex_lock(&fstb_lock);
 
-	if (!fstb_enable)
-		goto out;
-
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter->pid == pid && iter->bufid == bufID)
 			break;
 	}
-
-	if (iter == NULL || fstb_is_cam_active ||
-		iter->hwui_flag == 1 || !fstb_self_ctrl_fps_enable)
-		goto out;
 
 	target_fps = fpsgo_fstb2xgf_get_target_fps(pid, bufID,
 		&iter->target_fps_margin_v2, cur_queue_end_ts);
@@ -1079,6 +1046,8 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 						break;
 					}
 				}
+				if (i < 0)
+					iter->target_fps_v2 = rtfiter->level[0].start;
 			}
 		}
 	}
@@ -1089,9 +1058,65 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, iter->target_fps_margin_v2,
 		"target_fps_margin_v2");
 
+	mutex_unlock(&fstb_lock);
+}
+
+#define FSTB_CONTAINER_OF(ptr, type, member) \
+	((type *)(((char *)ptr) - offsetof(type, member)))
+
+static void fstb_notifier_wq_cb(struct work_struct *psWork)
+{
+	struct FSTB_NOTIFIER_PUSH_TAG *vpPush =
+		FSTB_CONTAINER_OF(psWork,
+				struct FSTB_NOTIFIER_PUSH_TAG, sWork);
+
+	if (!vpPush)
+		return;
+
+	fstb_calculate_target_fps(vpPush->pid, vpPush->bufid,
+		vpPush->cur_queue_end_ts);
+
+	kfree(vpPush);
+}
+
+void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bufID,
+	unsigned long long cur_queue_end_ts)
+{
+	struct FSTB_FRAME_INFO *iter;
+	struct FSTB_NOTIFIER_PUSH_TAG *vpPush;
+
+	mutex_lock(&fstb_lock);
+
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid == pid && iter->bufid == bufID)
+			break;
+	}
+
+	if (iter == NULL || fstb_is_cam_active ||
+		iter->hwui_flag == 1 || !fstb_self_ctrl_fps_enable)
+		goto out;
+
+	vpPush =
+		(struct FSTB_NOTIFIER_PUSH_TAG *)
+		kmalloc(sizeof(struct FSTB_NOTIFIER_PUSH_TAG), GFP_ATOMIC);
+
+	if (!vpPush)
+		goto out;
+
+	if (!wq) {
+		kfree(vpPush);
+		goto out;
+	}
+
+	vpPush->pid = pid;
+	vpPush->bufid = bufID;
+	vpPush->cur_queue_end_ts = cur_queue_end_ts;
+
+	INIT_WORK(&vpPush->sWork, fstb_notifier_wq_cb);
+	queue_work(wq, &vpPush->sWork);
+
 out:
 	mutex_unlock(&fstb_lock);
-	return 0;
 }
 
 int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID, int target_fps)
@@ -1118,7 +1143,7 @@ int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID, int target_f
 				}
 			}
 			if (ret_fps < 0)
-				ret_fps = dfps_ceiling;
+				ret_fps = rtfiter->level[0].start;
 		}
 	}
 
@@ -2892,7 +2917,7 @@ int mtk_fstb_init(void)
 
 	reset_fps_level();
 
-	wq = create_singlethread_workqueue("mt_fstb");
+	wq = alloc_ordered_workqueue("%s", WQ_MEM_RECLAIM | WQ_HIGHPRI, "mt_fstb");
 	if (!wq)
 		goto err;
 
