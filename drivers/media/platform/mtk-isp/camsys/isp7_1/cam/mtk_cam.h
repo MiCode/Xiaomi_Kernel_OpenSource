@@ -197,12 +197,12 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_working_buf_entry *working_buf;
 	unsigned int no_frame_done_cnt;
 	atomic_t seninf_dump_state;
-	struct mtk_cam_req_dbg_work dbg_work;
-	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct mtk_cam_req_feature feature;
 	struct mtk_cam_tg_flash_config tg_flash_config;
-	bool frame_done_queue_work;
 	struct mtk_cam_shutter_gain mtk_cam_exposure;
+	struct mtk_cam_req_dbg_work dbg_work;
+	struct mtk_cam_req_dbg_work dbg_exception_work;
+	struct list_head list;
 };
 
 struct mtk_cam_req_pipe {

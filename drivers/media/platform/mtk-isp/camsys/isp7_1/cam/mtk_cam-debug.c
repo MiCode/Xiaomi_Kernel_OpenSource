@@ -1013,16 +1013,13 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	req = mtk_cam_s_data_get_req(s_data);
 
-	/**
-	 * Considering first request's case ( both
-	 * composed_frame_seq_no and dequeued_frame_seq_no are 1.)
-	 */
-	if (ctx->dequeued_frame_seq_no != 1 &&
-	    ctx->composed_frame_seq_no < ctx->dequeued_frame_seq_no)
+	if (ctx->composed_frame_seq_no < ctx->dequeued_frame_seq_no)
 		return;
 
 	if (s_data->state.estate == E_STATE_CQ ||
 	    s_data->state.estate == E_STATE_OUTER ||
+	    s_data->state.estate == E_STATE_INNER ||
+	    s_data->state.estate == E_STATE_OUTER_HW_DELAY ||
 	    s_data->state.estate == E_STATE_INNER_HW_DELAY)
 		s_data->no_frame_done_cnt++;
 

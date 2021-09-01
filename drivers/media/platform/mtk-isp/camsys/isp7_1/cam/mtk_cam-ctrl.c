@@ -1374,7 +1374,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_inner);
 		write_cnt = (sensor_ctrl->isp_request_seq_no / 256) * 256 + raw_dev->write_cnt;
 		if (frame_inner_idx > sensor_ctrl->isp_request_seq_no ||
-			req_stream_data->frame_done_queue_work == 1) {
+			atomic_read(&req_stream_data->frame_done_work.is_queued) == 1) {
 			dev_dbg(raw_dev->dev, "[SOF] frame done work too late\n");
 		} else if (write_cnt >= req_stream_data->frame_seq_no) {
 			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost %d frames\n",
@@ -2730,14 +2730,14 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		return;
 	}
 
-	if (req_stream_data->frame_done_queue_work) {
+	if (atomic_read(&req_stream_data->frame_done_work.is_queued)) {
 		dev_info(ctx->cam->dev,
 			"already queue done work %d\n", req_stream_data->frame_seq_no);
 		return;
 	}
 
 	atomic_set(&req_stream_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
-	req_stream_data->frame_done_queue_work = 1;
+	atomic_set(&req_stream_data->frame_done_work.is_queued, 1);
 	frame_done_work = &req_stream_data->frame_done_work;
 	queue_work(ctx->frame_done_wq, &frame_done_work->work);
 	if (mtk_cam_is_time_shared(ctx)) {
