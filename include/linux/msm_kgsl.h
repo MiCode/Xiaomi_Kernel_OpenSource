@@ -48,5 +48,16 @@ int kgsl_gpu_stat(struct kgsl_gpu_freq_stat *stats, u32 numfreq);
  */
 int kgsl_gpu_frame_count(pid_t pid, u64 *frame_count);
 
-#endif /* _MSM_KGSL_H */
+/**
+ * kgsl_get_stats - Get memory usage of any process or total driver memory
+ * @pid: PID of the process
+ *
+ * Provide the number of bytes of memory that were allocated for process
+ * with pid as @pid. If @pid is negative, provide the total memory allocated
+ * by the driver in bytes.
+ *
+ * Return: Total driver memory if @pid is negative, process memory otherwise.
+ */
+u64 kgsl_get_stats(pid_t pid);
 
+#endif /* _MSM_KGSL_H */
