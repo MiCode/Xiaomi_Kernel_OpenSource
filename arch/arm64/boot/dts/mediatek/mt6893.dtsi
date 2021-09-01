@@ -2221,7 +2221,7 @@
 
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
 			scp_mem_tbl = <0 0x0>, /* secure dump, its size is in secure_dump_size */
-				      <1 0x4a700>, /* vow */
+				      <1 0x4cf00>, /* vow */
 				      <2 0x100000>, /* sensor main*/
 				      <3 0x180000>, /* logger */
 				      <4 0x19000>, /* audio */
