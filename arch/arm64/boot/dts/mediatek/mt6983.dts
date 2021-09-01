@@ -13138,6 +13138,7 @@
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			bootmode = <&chosen>;
+			charger = <&mt6375_chg>;
 			io-channels = <&mt6375_auxadc MT6375_AUXADC_BATSNS>,
 				      <&mt6375_auxadc MT6375_AUXADC_BATON>,
 				      <&mt6375_auxadc MT6375_AUXADC_IMP>,
