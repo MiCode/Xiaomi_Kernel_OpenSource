@@ -369,7 +369,7 @@ static u16 ccmni_select_queue(struct net_device *dev, struct sk_buff *skb,
 		return CCMNI_TXQ_NORMAL;
 	}
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
-		if (skb->mark == APP_VIP_MARK)
+		if (skb->mark & APP_VIP_MARK)
 			return CCMNI_TXQ_FAST;
 
 		if (ccmni->ack_prio_en && is_ack_skb(ccmni->md_id, skb))
@@ -568,7 +568,7 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
 		iph = (struct iphdr *)skb_network_header(skb);
-		if (skb->mark == APP_VIP_MARK)
+		if (skb->mark & APP_VIP_MARK)
 			is_ack = 1;
 		else if (ccmni->ack_prio_en)
 			is_ack = is_ack_skb(ccmni->md_id, skb);
