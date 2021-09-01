@@ -66,6 +66,8 @@ int vcp_reset_counts = 100000;
 
 void vcp_dump_last_regs(void)
 {
+	return;
+
 	c0_m->status = readl(R_CORE0_STATUS);
 	c0_m->pc = readl(R_CORE0_MON_PC);
 	c0_m->lr = readl(R_CORE0_MON_LR);
