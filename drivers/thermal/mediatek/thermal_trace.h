@@ -132,15 +132,18 @@ TRACE_EVENT(thermal_cpu,
 		__field(int, ttj)
 		__field(int, limit_powerbudget)
 		__field(int, LL_min_opp_hint)
-		__field(int, LL_cur_opp)
+		__field(unsigned int, LL_cur_freq)
+		__field(unsigned int, LL_limit_freq)
 		__field(int, LL_limit_opp)
 		__field(int, LL_max_temp)
 		__field(int, BL_min_opp_hint)
-		__field(int, BL_cur_opp)
+		__field(unsigned int, BL_cur_freq)
+		__field(unsigned int, BL_limit_freq)
 		__field(int, BL_limit_opp)
 		__field(int, BL_max_temp)
 		__field(int, B_min_opp_hint)
-		__field(int, B_cur_opp)
+		__field(unsigned int, B_cur_freq)
+		__field(unsigned int, B_limit_freq)
 		__field(int, B_limit_opp)
 		__field(int, B_max_temp)
 	),
@@ -149,26 +152,30 @@ TRACE_EVENT(thermal_cpu,
 		__entry->ttj = cpu->ttj;
 		__entry->limit_powerbudget = cpu->limit_powerbudget;
 		__entry->LL_min_opp_hint = cpu->LL_min_opp_hint;
-		__entry->LL_cur_opp = cpu->LL_cur_opp;
+		__entry->LL_cur_freq = cpu->LL_cur_freq;
+		__entry->LL_limit_freq = cpu->LL_limit_freq;
 		__entry->LL_limit_opp = cpu->LL_limit_opp;
 		__entry->LL_max_temp = cpu->LL_max_temp;
 		__entry->BL_min_opp_hint = cpu->BL_min_opp_hint;
-		__entry->BL_cur_opp = cpu->BL_cur_opp;
+		__entry->BL_cur_freq = cpu->BL_cur_freq;
+		__entry->BL_limit_freq = cpu->BL_limit_freq;
 		__entry->BL_limit_opp = cpu->BL_limit_opp;
 		__entry->BL_max_temp = cpu->BL_max_temp;
 		__entry->B_min_opp_hint = cpu->B_min_opp_hint;
-		__entry->B_cur_opp = cpu->B_cur_opp;
+		__entry->B_cur_freq = cpu->B_cur_freq;
+		__entry->B_limit_freq = cpu->B_limit_freq;
 		__entry->B_limit_opp = cpu->B_limit_opp;
 		__entry->B_max_temp = cpu->B_max_temp;
 	),
 
-	TP_printk("ttj=%d limit_pb=%d LL_min_opp_h=%d LL_cur_opp=%d LL_limit_opp=%d LL_max_t=%d "
-		"BL_min_opp_h=%d BL_cur_opp=%d BL_limit_opp=%d BL_max_t=%d "
-		"B_min_opp_h=%d B_cur_opp=%d B_limit_opp=%d B_max_t=%d",
+	TP_printk("ttj=%d limit_pb=%d LL_min_opp_h=%d LL_cur_freq=%d LL_limit_freq=%d LL_limit_opp=%d LL_max_t=%d BL_min_opp_h=%d BL_cur_freq=%d BL_limit_freq=%d BL_limit_opp=%d BL_max_t=%d B_min_opp_h=%d B_cur_freq=%d B_limit_freq=%d B_limit_opp=%d B_max_t=%d",
 		__entry->ttj, __entry->limit_powerbudget,
-		__entry->LL_min_opp_hint, __entry->LL_cur_opp, __entry->LL_limit_opp, __entry->LL_max_temp,
-		__entry->BL_min_opp_hint, __entry->BL_cur_opp, __entry->BL_limit_opp, __entry->BL_max_temp,
-		__entry->B_min_opp_hint, __entry->B_cur_opp, __entry->B_limit_opp, __entry->B_max_temp)
+		__entry->LL_min_opp_hint, __entry->LL_cur_freq, __entry->LL_limit_freq,
+		__entry->LL_limit_opp, __entry->LL_max_temp,
+		__entry->BL_min_opp_hint, __entry->BL_cur_freq, __entry->BL_limit_freq,
+		__entry->BL_limit_opp, __entry->BL_max_temp,
+		__entry->B_min_opp_hint, __entry->B_cur_freq, __entry->B_limit_freq,
+		__entry->B_limit_opp, __entry->B_max_temp)
 );
 
 TRACE_EVENT(thermal_gpu,
@@ -181,20 +188,21 @@ TRACE_EVENT(thermal_gpu,
 		__field(int, ttj)
 		__field(int, limit_powerbudget)
 		__field(int, temp)
-		__field(int, limit_opp)
-		__field(int, cur_opp)
+		__field(unsigned int, limit_freq)
+		__field(unsigned int, cur_freq)
 	),
 
 	TP_fast_assign(
 		__entry->ttj = gpu->ttj;
 		__entry->limit_powerbudget = gpu->limit_powerbudget;
 		__entry->temp = gpu->temp;
-		__entry->limit_opp = gpu->limit_opp;
-		__entry->cur_opp = gpu->cur_opp;
+		__entry->limit_freq = gpu->limit_freq;
+		__entry->cur_freq = gpu->cur_freq;
 	),
 
-	TP_printk("ttj=%d limit_pb=%d t=%d limit_opp=%d cur_opp=%d",
-		__entry->ttj, __entry->limit_powerbudget, __entry->temp, __entry->limit_opp, __entry->cur_opp)
+	TP_printk("ttj=%d limit_pb=%d t=%d limit_freq=%d cur_freq=%d",
+		__entry->ttj, __entry->limit_powerbudget, __entry->temp,
+		__entry->limit_freq, __entry->cur_freq)
 );
 
 TRACE_EVENT(thermal_apu,

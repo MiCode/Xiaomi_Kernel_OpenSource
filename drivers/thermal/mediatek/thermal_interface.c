@@ -31,6 +31,7 @@
 #define MAX_HEADROOM		(100)
 #define CSRAM_INIT_VAL		(0x27bc86aa)
 #define is_opp_limited(opp)	(opp > 0 && opp != CSRAM_INIT_VAL)
+#define is_freq_limited(freq)	(freq != 0 && freq != CSRAM_INIT_VAL)
 
 struct therm_intf_info {
 	int sw_ready;
@@ -55,6 +56,13 @@ static int therm_intf_read_csram_s32(int offset)
 	void __iomem *addr = thermal_csram_base + offset;
 
 	return sign_extend32(readl(addr), 31);
+}
+
+static int therm_intf_read_csram(int offset)
+{
+	void __iomem *addr = thermal_csram_base + offset;
+
+	return readl(addr);
 }
 
 static void therm_intf_write_csram(unsigned int val, int offset)
@@ -243,12 +251,12 @@ static ssize_t cpu_info_show(struct kobject *kobj,
 		therm_intf_read_csram_s32(CPU_MIN_OPP_HINT_OFFSET),
 		therm_intf_read_csram_s32(CPU_MIN_OPP_HINT_OFFSET + 4),
 		therm_intf_read_csram_s32(CPU_MIN_OPP_HINT_OFFSET + 8),
-		therm_intf_read_csram_s32(CPU_LIMIT_OPP_OFFSET),
-		therm_intf_read_csram_s32(CPU_LIMIT_OPP_OFFSET + 4),
-		therm_intf_read_csram_s32(CPU_LIMIT_OPP_OFFSET + 8),
-		therm_intf_read_csram_s32(CPU_CUR_OPP_OFFSET),
-		therm_intf_read_csram_s32(CPU_CUR_OPP_OFFSET + 4),
-		therm_intf_read_csram_s32(CPU_CUR_OPP_OFFSET + 8),
+		therm_intf_read_csram(CPU_LIMIT_FREQ_OFFSET),
+		therm_intf_read_csram(CPU_LIMIT_FREQ_OFFSET + 4),
+		therm_intf_read_csram(CPU_LIMIT_FREQ_OFFSET + 8),
+		therm_intf_read_csram(CPU_CUR_FREQ_OFFSET),
+		therm_intf_read_csram(CPU_CUR_FREQ_OFFSET + 4),
+		therm_intf_read_csram(CPU_CUR_FREQ_OFFSET + 8),
 		therm_intf_read_csram_s32(CPU_MAX_TEMP_OFFSET),
 		therm_intf_read_csram_s32(CPU_MAX_TEMP_OFFSET + 4),
 		therm_intf_read_csram_s32(CPU_MAX_TEMP_OFFSET + 8));
@@ -281,8 +289,8 @@ static ssize_t gpu_info_show(struct kobject *kobj,
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
 		therm_intf_read_csram_s32(GPU_TEMP_OFFSET),
-		therm_intf_read_csram_s32(GPU_TEMP_OFFSET + 4),
-		therm_intf_read_csram_s32(GPU_TEMP_OFFSET + 8));
+		therm_intf_read_csram(GPU_TEMP_OFFSET + 4),
+		therm_intf_read_csram(GPU_TEMP_OFFSET + 8));
 
 	return len;
 }
@@ -328,10 +336,10 @@ static ssize_t is_cpu_limit_show(struct kobject *kobj,
 static ssize_t is_gpu_limit_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	int len = 0, limit_opp;
+	int len = 0, limit_freq;
 
-	limit_opp = therm_intf_read_csram_s32(GPU_TEMP_OFFSET + 4);
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", (is_opp_limited(limit_opp)) ? 1 : 0);
+	limit_freq = therm_intf_read_csram(GPU_TEMP_OFFSET + 4);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", (is_freq_limited(limit_freq)) ? 1 : 0);
 
 	return len;
 }

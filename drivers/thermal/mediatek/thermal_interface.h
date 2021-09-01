@@ -20,9 +20,10 @@
 #define GPU_TEMP_OFFSET            (0x180)
 #define APU_TEMP_OFFSET            (0x190)
 #define EMUL_TEMP_OFFSET           (0x1B0)
-#define CPU_LIMIT_OPP_OFFSET       (0x200)
-#define CPU_CUR_OPP_OFFSET         (0x210)
+#define CPU_LIMIT_FREQ_OFFSET      (0x200)
+#define CPU_CUR_FREQ_OFFSET        (0x210)
 #define CPU_MAX_TEMP_OFFSET        (0x220)
+#define CPU_LIMIT_OPP_OFFSET       (0x260)
 #define ATC_OFFSET                 (0x280)
 #define ATC_NUM                    (9)
 

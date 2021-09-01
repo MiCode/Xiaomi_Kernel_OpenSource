@@ -202,12 +202,12 @@ static void get_cpu_info()
 			readl(thermal_csram_base + CPU_BL_LIMIT_OPP_OFFSET), 31);
 	cpu_info.B_limit_opp = sign_extend32(
 			readl(thermal_csram_base + CPU_B_LIMIT_OPP_OFFSET), 31);
-	cpu_info.LL_cur_opp = sign_extend32(
-			readl(thermal_csram_base + CPU_LL_CUR_OPP_OFFSET), 31);
-	cpu_info.BL_cur_opp = sign_extend32(
-			readl(thermal_csram_base + CPU_BL_CUR_OPP_OFFSET), 31);
-	cpu_info.B_cur_opp = sign_extend32(
-			readl(thermal_csram_base + CPU_B_CUR_OPP_OFFSET), 31);
+	cpu_info.LL_limit_freq = readl(thermal_csram_base + CPU_LL_LIMIT_FREQ_OFFSET);
+	cpu_info.BL_limit_freq = readl(thermal_csram_base + CPU_BL_LIMIT_FREQ_OFFSET);
+	cpu_info.B_limit_freq = readl(thermal_csram_base + CPU_B_LIMIT_FREQ_OFFSET);
+	cpu_info.LL_cur_freq = readl(thermal_csram_base + CPU_LL_CUR_FREQ_OFFSET);
+	cpu_info.BL_cur_freq = readl(thermal_csram_base + CPU_BL_CUR_FREQ_OFFSET);
+	cpu_info.B_cur_freq = readl(thermal_csram_base + CPU_B_CUR_FREQ_OFFSET);
 	cpu_info.LL_max_temp = sign_extend32(
 			readl(thermal_csram_base + CPU_LL_MAX_TEMP_OFFSET), 31);
 	cpu_info.BL_max_temp = sign_extend32(
@@ -223,10 +223,8 @@ static void get_gpu_info()
 			readl(thermal_csram_base + GPU_POWERBUDGET_OFFSET), 31);
 	gpu_info.temp = sign_extend32(
 			readl(thermal_csram_base + GPU_TEMP_OFFSET), 31);
-	gpu_info.limit_opp = sign_extend32(
-			readl(thermal_csram_base + GPU_LIMIT_OPP_OFFSET), 31);
-	gpu_info.cur_opp = sign_extend32(
-			readl(thermal_csram_base + GPU_CUR_OPP_OFFSET), 31);
+	gpu_info.limit_freq = readl(thermal_csram_base + GPU_LIMIT_FREQ_OFFSET);
+	gpu_info.cur_freq = readl(thermal_csram_base + GPU_CUR_FREQ_OFFSET);
 }
 static void get_apu_info()
 {
