@@ -6043,7 +6043,7 @@
 			"disp_gpio_te1";
 
 		gce-events = <&gce CMDQ_EVENT_MMSYS_STREAM_DONE_ENG_EVENT_0>,
-			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_MMSYS1_DP_INTF0_FRAME_DONE>,
 			<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY>,
 			<&gce CMDQ_EVENT_MMSYS_DSI0_TE_ENG_EVENT>,
 			<&gce CMDQ_SYNC_TOKEN_STREAM_EOF>,
@@ -6055,8 +6055,8 @@
 			<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_WDMA0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_DP_INTF0_SOF>,
-			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
-			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_MMSYS1_DP_INTF0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_MMSYS1_DP_INTF0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_WDMA1_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_DSI0_SOF>,
 			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
@@ -6156,7 +6156,6 @@
 			<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
 			<1>; /*MTK_DRM_OPT_DUAL_TE*/
 	};
-
 	disp_mutex0: disp_mutex@14001000 {
 		compatible = "mediatek,disp_mutex0",
 					"mediatek,mt6983-disp-mutex";
@@ -7228,8 +7227,28 @@
 	};
 
 	disp_dp_intf0@1441d000 {
-		compatible = "mediatek,disp_dp_intf0";
+		compatible = "mediatek,dp_intf",
+				"mediatek,mt6885-dp-intf";
 		reg = <0 0x1441d000 0 0x1000>;
+		interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&dispsys_config_clk  CLK_DISPSYS1_CONFIG_DISP_DP_INTF0>,
+			<&dispsys_config_clk CLK_DISPSYS1_CONFIG_DP_CLK>,
+			<&topckgen_clk CLK_TOPCKGEN_DP_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D2>,
+			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D4>,
+			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D8>,
+			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D16>,
+			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_CK>;
+		clock-names = "hf_fmm_ck",
+				"hf_fdp_ck",
+				"MUX_DP",
+				"TVDPLL_D2",
+				"TVDPLL_D4",
+				"TVDPLL_D8",
+				"TVDPLL_D16",
+				"DPI_CK";
+		phys = <&dp_tx>;
+		phy-names = "dp_tx";
 	};
 
 	reserved@1441e000 {
@@ -7323,9 +7342,12 @@
 		reg = <0 0x14500000 0 0x300000>;
 	};
 
-	dp_tx@14800000 {
-		compatible = "mediatek,dp_tx";
+	dp_tx: dp_tx@14800000 {
+		compatible = "mediatek,mt6983-dp_tx",
+					"mediatek,dp_tx";
 		reg = <0 0x14800000 0 0x800000>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_DP_TX>;
+		interrupts = <GIC_SPI 761 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
 	hcp: hcp@0 {
@@ -13077,8 +13099,8 @@
 				 *	pd,id-vdo-data =
 				 *	<0xec0029cf 0x0 0x00010000 0x11000001>;
 				 */
-				pd,id-vdo-size = <3>;
-				pd,id-vdo-data = <0xd00029cf 0x0 0x00010000>;
+				pd,id-vdo-size = <4>;
+				pd,id-vdo-data = <0xec0029cf 0x0 0x00010000 0x11000001>;
 			};
 			dpm_caps {
 				local_dr_power;
