@@ -130,6 +130,7 @@ struct gpufreq_shared_status {
 	unsigned int cur_c_limiter_stack;
 	unsigned int cur_f_limiter_stack;
 	unsigned int power_control;
+	unsigned int dvfs_state;
 	unsigned int shader_present;
 	int power_count;
 	unsigned int aging_enable;

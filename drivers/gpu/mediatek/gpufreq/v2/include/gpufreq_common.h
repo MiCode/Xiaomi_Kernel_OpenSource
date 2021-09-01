@@ -126,6 +126,7 @@ static const char * const g_exception_string[] = {
 unsigned int __gpufreq_bringup(void);
 unsigned int __gpufreq_power_ctrl_enable(void);
 unsigned int __gpufreq_get_power_state(void);
+unsigned int __gpufreq_get_dvfs_state(void);
 unsigned int __gpufreq_get_shader_present(void);
 int __gpufreq_power_control(enum gpufreq_power_state power);
 void __gpufreq_set_timestamp(void);

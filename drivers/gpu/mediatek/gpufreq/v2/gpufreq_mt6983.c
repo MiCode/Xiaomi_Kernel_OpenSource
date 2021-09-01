@@ -210,6 +210,7 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.bringup = __gpufreq_bringup,
 	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
 	.get_power_state = __gpufreq_get_power_state,
+	.get_dvfs_state = __gpufreq_get_dvfs_state,
 	.get_shader_present = __gpufreq_get_shader_present,
 	.get_cur_fgpu = __gpufreq_get_cur_fgpu,
 	.get_cur_vgpu = __gpufreq_get_cur_vgpu,
@@ -294,6 +295,12 @@ unsigned int __gpufreq_get_power_state(void)
 		return POWER_ON;
 	else
 		return POWER_OFF;
+}
+
+/* API: get DVFS state (free/disable/keep) */
+unsigned int __gpufreq_get_dvfs_state(void)
+{
+	return g_dvfs_state;
 }
 
 /* API: get GPU shader stack */

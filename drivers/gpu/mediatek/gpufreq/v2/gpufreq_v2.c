@@ -170,6 +170,37 @@ unsigned int gpufreq_get_power_state(void)
 }
 
 /***********************************************************************************
+ * Function Name      : gpufreq_get_dvfs_state
+ * Inputs             : -
+ * Outputs            : -
+ * Returns            : state - Current status of GPU DVFS
+ * Description        : Get current DVFS state
+ *                      If it isn't DVFS_FREE, then DVFS is fixed in some state
+ ***********************************************************************************/
+unsigned int gpufreq_get_dvfs_state(void)
+{
+	struct gpufreq_shared_status *shared_status = NULL;
+	enum gpufreq_dvfs_state dvfs_state = DVFS_DISABLE;
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_status_shared_mem_va;
+
+		if (shared_status)
+			dvfs_state = shared_status->dvfs_state;
+	/* implement on AP */
+	} else {
+		if (gpufreq_fp && gpufreq_fp->get_dvfs_state)
+			dvfs_state = gpufreq_fp->get_dvfs_state();
+		else
+			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
+
+	return dvfs_state;
+}
+EXPORT_SYMBOL(gpufreq_get_dvfs_state);
+
+/***********************************************************************************
  * Function Name      : gpufreq_get_shader_present
  * Inputs             : -
  * Outputs            : -
