@@ -231,6 +231,7 @@ int audio_send_ipi_buf_to_dsp(
 	struct ipi_msg_t *p_ipi_msg,
 	uint8_t task_scene, /* task_scene_t */
 	uint16_t msg_id,
+	uint32_t param2,
 	void    *data_buffer,
 	uint32_t data_size);
 
@@ -239,6 +240,7 @@ int audio_recv_ipi_buf_from_dsp(
 	struct ipi_msg_t *p_ipi_msg,
 	uint8_t task_scene,
 	uint16_t msg_id,
+	uint32_t param2,
 	void    *data_buffer,
 	uint32_t max_data_size,
 	uint32_t *data_size);

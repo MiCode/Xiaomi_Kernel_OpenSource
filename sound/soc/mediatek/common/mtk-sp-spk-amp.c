@@ -74,8 +74,6 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 
 #if IS_ENABLED(CONFIG_SND_SOC_TFA9874)
 	[MTK_SPK_GOODIX_TFA98XX] = {
-		.i2c_probe = tfa98xx_i2c_probe,
-		.i2c_remove = tfa98xx_i2c_remove,
 		.codec_dai_name = "tfa98xx-aif",
 		.codec_name = "tfa98xx",
 	},
@@ -213,8 +211,6 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 			   mtk_spk_i2s_out == MTK_SPK_I2S_3) {
 			i2s_out_dai_link_idx = i;
 			dai_link->name = MTK_SPK_NAME;
-			dai_link->codecs->name = NULL;
-			dai_link->codecs->dai_name = NULL;
 		} else if (i2s_out_dai_link_idx < 0 &&
 			   strcmp(dai_link->cpus->dai_name, "I2S5") == 0 &&
 			   mtk_spk_i2s_out == MTK_SPK_I2S_5) {
@@ -230,8 +226,6 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 		     mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_0)) {
 			i2s_in_dai_link_idx = i;
 			dai_link->name = MTK_SPK_REF_NAME;
-			dai_link->codecs->name = NULL;
-			dai_link->codecs->dai_name = NULL;
 		} else if (i2s_in_dai_link_idx < 0 &&
 			   strcmp(dai_link->cpus->dai_name, "I2S2") == 0 &&
 			   (mtk_spk_i2s_in == MTK_SPK_I2S_2 ||
@@ -273,7 +267,6 @@ MODULE_DEVICE_TABLE(i2c, mtk_spk_i2c_id);
 
 #ifdef CONFIG_OF
 static const struct of_device_id mtk_spk_match_table[] = {
-	{.compatible = "goodix,tfa9874",},
 	{.compatible = "mediatek,speaker_amp",},
 	{},
 };

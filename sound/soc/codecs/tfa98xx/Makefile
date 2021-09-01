@@ -16,6 +16,7 @@
 
 # MTK include path
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
+subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/common
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 

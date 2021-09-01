@@ -23,6 +23,8 @@
 #endif
 //#define DEBUG_VERBOSE
 
+#include "mtk-sp-spk-amp.h"
+
 /* don't use this directly if not necessary */
 static struct mtk_base_dsp *local_base_dsp;
 static struct mtk_base_afe *local_dsp_afe;
@@ -493,6 +495,7 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
 
 	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
 					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
+					   mtk_spk_get_type(),
 					   data_buffer, data_size);
 
 	return result;
@@ -511,10 +514,10 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
 				   ADSP_TASK_ATTR_RUNTIME) ?
 		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
-
 	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
 					     task_scene,
 					     AUDIO_DSP_TASK_AURISYS_GET_BUF,
+					     mtk_spk_get_type(),
 					     buffer, size, buf_len);
 	return result;
 }

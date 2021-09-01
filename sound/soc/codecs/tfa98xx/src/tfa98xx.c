@@ -29,6 +29,8 @@
 #include <mtk-dsp-common.h>
 #endif
 
+#include <mtk-sp-spk-amp.h>
+
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
@@ -3181,6 +3183,8 @@ int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	list_add(&tfa98xx->list, &tfa98xx_device_list);
 	mutex_unlock(&tfa98xx_mutex);
 
+	mtk_spk_set_type(MTK_SPK_GOODIX_TFA98XX);
+
 	return 0;
 }
 EXPORT_SYMBOL(tfa98xx_i2c_probe);
@@ -3223,6 +3227,79 @@ int tfa98xx_i2c_remove(struct i2c_client *i2c)
 	return 0;
 }
 EXPORT_SYMBOL(tfa98xx_i2c_remove);
+
+static const struct i2c_device_id tfa98xx_i2c_id[] = {
+	{ "tfa9874", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, tfa98xx_i2c_id);
+
+#ifdef CONFIG_OF
+static const struct of_device_id tfa98xx_dt_match[] = {
+	{ .compatible = "goodix,tfa98xx" },
+	{ .compatible = "goodix,tfa9872" },
+	{ .compatible = "goodix,tfa9874" },
+	{ .compatible = "goodix,tfa9888" },
+	{ .compatible = "goodix,tfa9890" },
+	{ .compatible = "goodix,tfa9891" },
+	{ .compatible = "goodix,tfa9894" },
+	{ .compatible = "goodix,tfa9895" },
+	{ .compatible = "goodix,tfa9896" },
+	{ .compatible = "goodix,tfa9897" },
+	{ .compatible = "goodix,tfa9912" },
+	{ },
+};
+#endif
+
+static struct i2c_driver tfa98xx_i2c_driver = {
+	.driver = {
+		.name = "tfa98xx",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(tfa98xx_dt_match),
+	},
+	.probe = tfa98xx_i2c_probe,
+	.remove = tfa98xx_i2c_remove,
+	.id_table = tfa98xx_i2c_id,
+};
+
+static int __init tfa98xx_i2c_init(void)
+{
+	int ret = 0;
+
+	pr_info("TFA98XX driver version %s\n", TFA98XX_VERSION);
+
+	/* Enable debug traces */
+	tfa98xx_kmsg_regs = trace_level & 2;
+	tfa98xx_ftrace_regs = trace_level & 4;
+
+	/* Initialize kmem_cache */
+	tfa98xx_cache = kmem_cache_create(
+				/* Cache name /proc/slabinfo */
+				"tfa98xx_cache",
+				/* Structure size,*/
+				/*we should fit in single page */
+				PAGE_SIZE,
+				0,/* Structure alignment */
+				(SLAB_HWCACHE_ALIGN | SLAB_RECLAIM_ACCOUNT |
+				SLAB_MEM_SPREAD), /* Cache property */
+				NULL); /* Object constructor */
+	if (!tfa98xx_cache) {
+		pr_err("tfa98xx can't create memory pool\n");
+		ret = -ENOMEM;
+	}
+
+	ret = i2c_add_driver(&tfa98xx_i2c_driver);
+
+	return ret;
+}
+module_init(tfa98xx_i2c_init);
+
+static void __exit tfa98xx_i2c_exit(void)
+{
+	i2c_del_driver(&tfa98xx_i2c_driver);
+	kmem_cache_destroy(tfa98xx_cache);
+}
+module_exit(tfa98xx_i2c_exit);
 
 /* Module information */
 MODULE_DESCRIPTION("Goodix Speaker Amp Codec Driver");
