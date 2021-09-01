@@ -127,8 +127,8 @@ static const struct proc_ops ged_proc_fops = {
 #endif
 };
 
-static unsigned int g_ged_gpueb_support;
-static unsigned int g_ged_fdvfs_support;
+unsigned int g_ged_gpueb_support;
+unsigned int g_ged_fdvfs_support;
 unsigned int g_fastdvfs_mode;
 #define GED_TARGET_UNLIMITED_FPS 240
 unsigned int vGed_Tmp;

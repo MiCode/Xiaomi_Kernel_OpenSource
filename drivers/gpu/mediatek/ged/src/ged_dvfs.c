@@ -9,6 +9,7 @@
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 #include <ged_gpufreq_v2.h>
+#include <gpufreq_v2.h>
 #else
 #include <ged_gpufreq_v1.h>
 #endif /* CONFIG_MTK_GPUFREQ_V2 */
@@ -143,6 +144,7 @@ static int g_maxfreq_idx;
 #define BATCH_STR_SIZE (BATCH_PATTERN_LEN*BATCH_MAX_READ_COUNT)
 char batch_freq[BATCH_STR_SIZE];
 int avg_freq;
+unsigned int pre_freq, cur_freq;
 
 #define GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM 4
 #define GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT 70
@@ -333,6 +335,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 	int bCommited = false;
 
 	int ui32CurFreqID, ui32CeilingID, ui32FloorID;
+	unsigned int cur_freq = 0;
 
 	ui32CurFreqID = ged_get_cur_oppidx();
 
@@ -386,8 +389,16 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			}
 		}
 
-		if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode) {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		/* TODO: remove it after clk_rate_change_notify from eb is enable */
+		cur_freq = gpufreq_get_cur_freq(TARGET_GPU);
+		if (g_ged_gpueb_support && cur_freq != pre_freq) {
+			mtk_notify_gpu_freq_change(0, cur_freq);
+			pre_freq = cur_freq;
+		}
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 
+		if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode) {
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
 
