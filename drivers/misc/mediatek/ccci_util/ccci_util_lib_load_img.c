@@ -830,7 +830,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	/* X */
 	X = md_id + 1;
 
-	if ((img_type != 0) && (md_id == MD_SYS1)) {
+	if ((img_type > 0) && (md_id == MD_SYS1)) {
 		if (buf) {
 			scnprintf(buf, IMG_POSTFIX_LEN,
 				"%d_%s_n", X, type_str[img_type]);
