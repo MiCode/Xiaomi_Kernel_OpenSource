@@ -45,9 +45,9 @@ struct arm32_ctrl_regs {
 };
 
 struct aarch64_ctrl_regs {
-	uint32_t sctlr_el1;
-	uint32_t sctlr_el2;
-	uint32_t sctlr_el3;
+	uint64_t sctlr_el1;
+	uint64_t sctlr_el2;
+	uint64_t sctlr_el3;
 
 	uint64_t tcr_el1;
 	uint64_t tcr_el2;
