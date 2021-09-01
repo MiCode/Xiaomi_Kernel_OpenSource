@@ -327,7 +327,8 @@ struct mtk_imgsys_user {
 
 struct mtk_imgsys_time_state {
 	int req_fd;
-	u64 time_hwenq;
+	u64 time_qbuf;
+	u64 time_qreq;
 	u64 time_composingStart;
 	u64 time_composingEnd;
 	u64 time_iovaworkp;

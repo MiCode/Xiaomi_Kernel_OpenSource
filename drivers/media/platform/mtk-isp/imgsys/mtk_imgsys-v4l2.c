@@ -471,6 +471,7 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_imgsys_pipe_try_enqueue(req->imgsys_pipe);
 		mutex_unlock(&req->imgsys_pipe->lock);
 	}
+	req->tstate.time_qreq = ktime_get_boottime_ns()/1000;
 }
 
 static int mtk_imgsys_vb2_meta_queue_setup(struct vb2_queue *vq,
@@ -900,11 +901,17 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	struct buf_info dyn_buf_info;
 	int ret = 0, i = 0;
 	unsigned long user_ptr = 0;
+	struct mtk_imgsys_request *imgsys_req;
+	struct media_request *req;
 #ifndef USE_V4L2_FMT
 	struct v4l2_plane_pix_format *vfmt;
 	struct plane_pix_format *bfmt;
 #endif
 	//support dynamic change size&fmt for std mode flow
+	req = media_request_get_by_fd(&pipe->imgsys_dev->mdev, buf->request_fd);
+	imgsys_req = mtk_imgsys_media_req_to_imgsys_req(req);
+	imgsys_req->tstate.time_qbuf = ktime_get_boottime_ns()/1000;
+
 	if (!is_desc_fmt(node->dev_q.dev_fmt)) {
 		user_ptr =
 			(((unsigned long)(buf->m.planes[0].reserved[0]) << 32) |

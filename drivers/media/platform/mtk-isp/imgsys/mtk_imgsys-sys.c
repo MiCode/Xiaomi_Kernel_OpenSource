@@ -475,7 +475,7 @@ static void mtk_imgsys_early_notify(struct mtk_imgsys_request *req,
 
 	memset(&event, 0, sizeof(event));
 
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d fnum %d\n", req->tstate.req_fd,
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d subfrm_idx:%d\n", req->tstate.req_fd,
 							ev->frame_number);
 
 	event.type = V4L2_EVENT_FRAME_SYNC;
@@ -499,9 +499,9 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 	enum vb2_buffer_state vbf_state;
 	u32 index = iparam->index;
 	u32 frame_no = iparam->frame_no;
+	u64 req_enq, req_done, imgenq;
 
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d owner %llx\n", req->tstate.req_fd,
-								frm_owner);
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s\n", req->tstate.req_fd, ((char *)&frm_owner));
 
 	req->tstate.time_notifyStart = ktime_get_boottime_ns()/1000;
 
@@ -530,8 +530,9 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 
 	req->tstate.time_unmapiovaEnd = ktime_get_boottime_ns()/1000;
 	dev_info(imgsys_dev->dev,
-			"[K]%s:%d_%llx:%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld %6lld\n",
-			__func__, req->tstate.req_fd, frm_owner,
+			"[K]%s:%d:%s:%6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld\n",
+			__func__, req->tstate.req_fd, ((char *)(&frm_owner)),
+			(req->tstate.time_qreq-req->tstate.time_qbuf),
 			(req->tstate.time_composingEnd-req->tstate.time_composingStart),
 			(req->tstate.time_iovaworkp-req->tstate.time_composingEnd),
 			(req->tstate.time_qw2composer-req->tstate.time_iovaworkp),
@@ -556,7 +557,12 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 		__func__, pipe->desc->name, req->tstate.req_fd, index, frame_no);
 
 	IMGSYS_SYSTRACE_END();
-
+	imgenq = req->tstate.time_qreq - req->tstate.time_qbuf;
+	req_enq = req->tstate.time_send2cmq - req->tstate.time_reddonescpStart;
+	req_done = req->tstate.time_notify2vb2done - req->tstate.time_reddonescpStart;
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s imgenq:%lld tskdlr2gce:%lld tskhdlr2done:%lld\n",
+		req->tstate.req_fd, ((char *)&frm_owner), imgenq, req_enq, req_done);
+	IMGSYS_SYSTRACE_END();
 }
 
 static void cmdq_cb_timeout_worker(struct work_struct *work)
@@ -753,8 +759,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d owner %llx\n", req->tstate.req_fd,
-						swfrminfo_cb->frm_owner);
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s\n", req->tstate.req_fd,
+							((char *)&swfrminfo_cb->frm_owner));
 
 	imgsys_dev = req->imgsys_pipe->imgsys_dev;
 	req->tstate.time_mdpcbStart = ktime_get_boottime_ns()/1000;
@@ -1148,9 +1154,10 @@ static void imgsys_runner_func(void *data)
 	if (!frm_info->user_info[0].subfrm_idx)
 		req->tstate.time_send2cmq = ktime_get_boottime_ns()/1000;
 	stime = ktime_get_boottime_ns()/1000;
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d subfrm_idx %d owner %llx\n",
-		req->tstate.req_fd, frm_info->user_info[0].subfrm_idx,
-						frm_info->frm_owner);
+	IMGSYS_SYSTRACE_BEGIN("MWFrame:#%d MWReq:#%d ReqFd:%d owner:%s subfrm_idx:%d\n",
+			frm_info->frame_no, frm_info->request_no, req->tstate.req_fd,
+		((char *)&frm_info->frm_owner), frm_info->user_info[0].subfrm_idx);
+
 	ret = imgsys_cmdq_sendtask(imgsys_dev, frm_info, imgsys_mdp_cb_func,
 		imgsys_cmdq_timeout_cb_func);
 	IMGSYS_SYSTRACE_END();
@@ -1295,9 +1302,9 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		WARN_ONCE(!req, "%s: frame_no(%d) is lost\n", __func__, job_id);
 		return;
 	}
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d subfrm_idx %d owner %llx\n",
-		req->tstate.req_fd, swfrm_info->user_info[0].subfrm_idx,
-		swfrm_info->frm_owner);
+	IMGSYS_SYSTRACE_BEGIN("MWFrame:#%d MWReq:#%d ReqFd:%d owner:%s subfrm_idx:%d\n",
+			swfrm_info->frame_no, swfrm_info->request_no, req->tstate.req_fd,
+		((char *)&swfrm_info->frm_owner), swfrm_info->user_info[0].subfrm_idx);
 
 	if (!swfrm_info->user_info[0].subfrm_idx)
 		req->tstate.time_reddonescpStart = time_local_reddonescpStart;
@@ -1403,7 +1410,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 	int ret;
 	u32 index, frame_no;
 
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d\n", req->tstate.req_fd);
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d\n", req->tstate.req_fd);
 
 	req->tstate.time_compfuncStart = ktime_get_boottime_ns()/1000;
 
@@ -1840,7 +1847,7 @@ static void iova_worker(struct work_struct *work)
 	req = container_of(work, struct mtk_imgsys_request, iova_work);
 	req->tstate.time_iovaworkp = ktime_get_boottime_ns()/1000;
 
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d\n", req->tstate.req_fd);
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d\n", req->tstate.req_fd);
 
 	if (is_singledev_mode(req)) {
 		/* TODO: zero shared buffer */
@@ -1882,7 +1889,7 @@ void mtk_imgsys_hw_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 {
 	struct mtk_imgsys_hw_subframe *buf;
 
-	IMGSYS_SYSTRACE_BEGIN("reqfd %d\n", req->tstate.req_fd);
+	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d\n", req->tstate.req_fd);
 
 	req->tstate.time_composingStart = ktime_get_boottime_ns()/1000;
 	/* TODO: use user fd + offset */
