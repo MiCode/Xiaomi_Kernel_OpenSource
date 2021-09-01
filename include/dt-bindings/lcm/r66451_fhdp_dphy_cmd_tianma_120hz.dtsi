@@ -109,7 +109,9 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <215>;
+					lcm-params-dsi-lk-pll_clock = <215>;
+					lcm-params-dsi-lk-data_rate = <0>;
+					lcm-params-dsi-pll_clock = <420>;
 					lcm-params-dsi-data_rate = <840>;
 					lcm-params-dsi-vfp_for_low_power = <620>;
 					lcm-params-dsi-ssc_disable;
