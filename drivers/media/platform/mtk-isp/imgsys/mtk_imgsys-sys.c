@@ -1630,7 +1630,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				__func__, ret);
 			return -EBUSY;
 		}
-		// mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
+		mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
 		/* IMGSYS HW INIT */
 		memset(&info, 0, sizeof(info));
 		info.drv_data = (u64)&imgsys_dev;
@@ -1651,11 +1651,11 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		buf = get_first_sd_buf();
 		if (!buf) {
 			pr_info("%s: no single device buff added\n", __func__);
-			return -1;
+		} else {
+			dbuf = (struct dma_buf *)buf->dma_buf_putkva;
+			info.hw_buf_size = dbuf->size;
+			info.hw_buf_fd = buf->buf_fd;
 		}
-		dbuf = (struct dma_buf *)buf->dma_buf_putkva;
-		info.hw_buf_size = dbuf->size;
-		info.hw_buf_fd = buf->buf_fd;
 #endif
 		mtk_hcp_get_init_info(imgsys_dev->scp_pdev, &info);
 
