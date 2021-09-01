@@ -213,6 +213,7 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	}
 
 	info->disable_charger = of_property_read_bool(np, "disable_charger");
+	info->atm_enabled = of_property_read_bool(np, "atm_is_enabled");
 	info->enable_sw_safety_timer =
 			of_property_read_bool(np, "enable_sw_safety_timer");
 	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
@@ -2660,8 +2661,6 @@ void mtk_charger_get_atm_mode(struct mtk_charger *info)
 	char *ptr = NULL, *ptr_e = NULL;
 	char keyword[] = "androidboot.atm=";
 	int size = 0;
-
-	info->atm_enabled = false;
 
 	ptr = strstr(chg_get_cmd(), keyword);
 	if (ptr != 0) {
