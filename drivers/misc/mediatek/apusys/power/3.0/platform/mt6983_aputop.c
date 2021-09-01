@@ -18,6 +18,7 @@
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
 
+#include "apusys_secure.h"
 #include "aputop_rpmsg.h"
 #include "apu_top.h"
 #include "mt6983_apupwr.h"
@@ -52,6 +53,20 @@ static struct clk *clk_top_dsp5_sel;
 static struct clk *clk_top_dsp6_sel;
 static struct clk *clk_top_dsp7_sel;
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
+
+static uint32_t apusys_pwr_smc_call(struct device *dev, uint32_t smc_id,
+		uint32_t a2)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL, smc_id,
+			a2, 0, 0, 0, 0, 0, &res);
+	if (((int) res.a0) < 0)
+		dev_info(dev, "%s: smc call %d return error(%d)\n",
+				__func__,
+				smc_id, res.a0);
+	return res.a0;
+}
 
 #if APU_POWER_INIT
 // WARNING: can not call this API after acc initial or you may cause bus hang !
@@ -682,6 +697,27 @@ static void are_dump_entry(int are_hw)
 	} else {
 		are_id = apu_are2;
 		are_entry_max_id = 237;
+	}
+
+	pr_info("APU_ARE_DUMP are_hw:%d offset: 0x%03x = 0x%08x\n",
+			are_hw, 0x4, readl(apupw.regs[are_id] + 0x4));
+	pr_info("APU_ARE_DUMP are_hw:%d offset: 0x%03x = 0x%08x\n",
+			are_hw, 0x40, readl(apupw.regs[are_id] + 0x40));
+	pr_info("APU_ARE_DUMP are_hw:%d offset: 0x%03x = 0x%08x\n",
+			are_hw, 0x44, readl(apupw.regs[are_id] + 0x44));
+	pr_info("APU_ARE_DUMP are_hw:%d offset: 0x%03x = 0x%08x\n",
+			are_hw, 0x48, readl(apupw.regs[are_id] + 0x48));
+	pr_info("APU_ARE_DUMP are_hw:%d offset: 0x%03x = 0x%08x\n",
+			are_hw, 0x4C, readl(apupw.regs[are_id] + 0x4C));
+
+	for (entry = 0 ; entry <= 2 ; entry++) {
+		pr_info(
+		"APU_ARE_DUMP are_hw:%d cfg entry %d = H:0x%08x L:0x%08x\n",
+			are_hw, entry,
+			readl(apupw.regs[are_id] +
+				APU_ARE_ETRY0_SRAM_H + entry * 4),
+			readl(apupw.regs[are_id] +
+				APU_ARE_ETRY0_SRAM_L + entry * 4));
 	}
 
 	for (entry = 3 ; entry <= are_entry_max_id ; entry++) {
@@ -1338,6 +1374,8 @@ static void aputop_dump_pwr_res(void)
 static int mt6983_apu_top_func(struct platform_device *pdev,
 		enum aputop_func_id func_id, struct aputop_func_param *aputop)
 {
+	char buf[32];
+
 	pr_info("%s func_id : %d\n", __func__, aputop->func_id);
 
 	switch (aputop->func_id) {
@@ -1353,14 +1391,30 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 	case APUTOP_FUNC_OPP_LIMIT_DBG:
 		mt6983_aputop_opp_limit(aputop, OPP_LIMIT_DEBUG);
 		break;
-	case APUTOP_FUNC_DRV_CFG:
-		mt6983_drv_cfg_remote_sync(aputop);
-		break;
 	case APUTOP_FUNC_DUMP_REG:
+
 		aputop_dump_pwr_res();
+
+		memset(buf, 0, sizeof(buf));
+		snprintf(buf, 32, "phys 0x%08x: ",
+				(u32)(apupw.phy_addr[apu_rpc]));
+		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+				apupw.regs[apu_rpc], 0x300, true);
+
+		memset(buf, 0, sizeof(buf));
+		snprintf(buf, 32, "phys 0x%08x: ",
+				(u32)(apupw.phy_addr[apu_pcu]));
+		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+				apupw.regs[apu_pcu], 0x100, true);
+
+		apusys_pwr_smc_call(&pdev->dev,
+				MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
 #if DEBUG_DUMP_REG
 		aputop_dump_all_reg();
 #endif
+		break;
+	case APUTOP_FUNC_DRV_CFG:
+		mt6983_drv_cfg_remote_sync(aputop);
 		break;
 	case APUTOP_FUNC_IPI_TEST:
 		test_ipi_wakeup_apu();
