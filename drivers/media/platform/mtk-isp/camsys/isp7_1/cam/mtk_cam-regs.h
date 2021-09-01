@@ -94,6 +94,7 @@
 
 /* DMA Enable Register, DMA_EN */
 #define REG_CTL_MOD5_EN					0x0010
+#define REG_CTL_MOD6_EN					0x0014
 /* RAW input trigger*/
 #define REG_CTL_RAWI_TRIG				0x00C0
 

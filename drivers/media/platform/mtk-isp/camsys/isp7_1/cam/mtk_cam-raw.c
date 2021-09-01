@@ -942,6 +942,11 @@ void reset(struct mtk_raw_device *dev)
 	writel_relaxed(0x0007ffff, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
 	writel_relaxed(0xffffffff, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
 
+	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
+	writel(readl(dev->base + REG_CTL_MOD6_EN) |
+					0x78000, dev->base + REG_CTL_MOD6_EN);
+	toggle_db(dev);
+
 	//writel_relaxed(0, dev->base + REG_CTL_SW_CTL);
 	writel(1, dev->base + REG_CTL_SW_CTL);
 
@@ -960,9 +965,10 @@ void reset(struct mtk_raw_device *dev)
 		}
 
 		dev_info(dev->dev,
-			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, ctl_sw_ctl:0x%x,frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
+			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
 			 readl(dev->base + REG_TG_SEN_MODE),
 			 readl(dev->base + REG_CTL_EN),
+			 readl(dev->base + REG_CTL_MOD6_EN),
 			 readl(dev->base + REG_CTL_SW_CTL),
 			 readl(dev->base + REG_FRAME_SEQ_NUM),
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT),
