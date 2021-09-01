@@ -35,6 +35,13 @@
 static bool dbg_log_en;
 module_param(dbg_log_en, bool, 0644);
 
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
 /* ======================= */
 /* MT6370 Charger Variable */
 /* ======================= */
@@ -138,6 +145,9 @@ struct mt6370_pmu_charger_data {
 	atomic_t bc12_cnt;
 	atomic_t bc12_wkard;
 	int tchg;
+
+	u32 bootmode;
+
 #ifdef CONFIG_TCPC_CLASS
 	atomic_t tcpc_usb_connected;
 
@@ -150,7 +160,6 @@ struct mt6370_pmu_charger_data {
 	bool typec_attach;
 	bool ignore_usb;
 	bool bypass_chgdet;
-	bool tcpc_kpoc;
 #else
 	struct work_struct chgdet_work;
 #endif /* CONFIG_TCPC_CLASS */
@@ -160,6 +169,7 @@ struct mt6370_pmu_charger_data {
 	struct regulator_dev *otg_rdev;
 
 	bool pp_en;
+	union power_supply_propval *old_propval;
 };
 
 /* These default values will be used if there's no property in dts */
@@ -740,6 +750,11 @@ static int __maybe_unused mt6370_is_dcd_tout_enable(
 }
 #endif
 
+static inline bool mt6370_is_meta_mode(
+			struct mt6370_pmu_charger_data *chg_data);
+static void mt6370_power_supply_changed(
+			struct mt6370_pmu_charger_data *chg_data);
+
 static int mt6370_set_usbsw_state(struct mt6370_pmu_charger_data *chg_data,
 	int state)
 {
@@ -785,17 +800,15 @@ static int __maybe_unused mt6370_enable_chgdet_flow(
 	bool dcd_en = false;
 #endif /* CONFIG_MT6370_DCDTOUT_SUPPORT */
 
-#ifdef FIXME /* TODO: wait get_boot_mode */
-	if (en && is_meta_mode()) {
+	if (en && mt6370_is_meta_mode(chg_data)) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(chg_data->dev, "force Standard USB Host in meta\n");
 		chg_data->pwr_rdy = true;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-		power_supply_changed(chg_data->psy);
+		mt6370_power_supply_changed(chg_data);
 		return 0;
 	}
-#endif
 
 	if (en) {
 #ifndef CONFIG_MT6370_DCDTOUT_SUPPORT
@@ -1022,7 +1035,7 @@ dcd_timeout:
 				   __func__);
 	}
 
-	power_supply_changed(chg_data->psy);
+	mt6370_power_supply_changed(chg_data);
 	return ret;
 }
 
@@ -1819,7 +1832,7 @@ out:
 	if (ret < 0)
 		dev_notice(chg_data->dev, "%s: fail, en = %d\n", __func__, en);
 	mutex_unlock(&chg_data->ichg_access_lock);
-	power_supply_changed(chg_data->psy);
+	mt6370_power_supply_changed(chg_data);
 	return ret;
 }
 
@@ -2397,24 +2410,6 @@ out:
 
 static int mt6370_set_pep20_efficiency_table(struct charger_device *chg_dev)
 {
-#ifdef FIXME /* TODO: without charger manager */
-	struct charger_manager *chg_mgr = NULL;
-
-	chg_mgr = charger_dev_get_drvdata(chg_dev);
-	if (!chg_mgr)
-		return -EINVAL;
-
-	chg_mgr->pe2.profile[0].vchr = 8000000;
-	chg_mgr->pe2.profile[1].vchr = 8000000;
-	chg_mgr->pe2.profile[2].vchr = 8000000;
-	chg_mgr->pe2.profile[3].vchr = 8500000;
-	chg_mgr->pe2.profile[4].vchr = 8500000;
-	chg_mgr->pe2.profile[5].vchr = 8500000;
-	chg_mgr->pe2.profile[6].vchr = 9000000;
-	chg_mgr->pe2.profile[7].vchr = 9000000;
-	chg_mgr->pe2.profile[8].vchr = 9500000;
-	chg_mgr->pe2.profile[9].vchr = 9500000;
-#endif
 	return 0;
 }
 
@@ -2865,7 +2860,7 @@ static int mt6370_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 	case EVENT_FULL:
 	case EVENT_RECHARGE:
 	case EVENT_DISCHARGE:
-		power_supply_changed(chg_data->psy);
+		mt6370_power_supply_changed(chg_data);
 		break;
 	default:
 		break;
@@ -3838,15 +3833,45 @@ static int mt6370_enable_fast_unknown_ta_dect(
 		 MT6370_MASK_FAST_UNKNOWN_TA_DECT);
 }
 
+static inline bool mt6370_is_meta_mode(struct mt6370_pmu_charger_data *chg_data)
+{
+	return (chg_data->bootmode == META_BOOT ||
+		chg_data->bootmode == ADVMETA_BOOT);
+}
+
+static void mt6370_get_bootmode(struct mt6370_pmu_charger_data *chg_data)
+{
+	struct device_node *boot_node = NULL;
+	const struct tag_bootmode *tag = NULL;
+
+	boot_node = of_parse_phandle(chg_data->dev->of_node, "bootmode", 0);
+	if (!boot_node) {
+		dev_notice(chg_data->dev, "%s: get bootmode phandle fail\n",
+					  __func__);
+		return;
+	}
+
+	tag = of_get_property(boot_node, "atag,boot", NULL);
+	if (!tag) {
+		dev_notice(chg_data->dev, "%s: get property atag,boot fail\n",
+					  __func__);
+		return;
+	}
+
+	dev_info(chg_data->dev, "%s: size:%d tag:0x%X mode:%d type:%d\n",
+				__func__, tag->size, tag->tag,
+				tag->bootmode, tag->boottype);
+	chg_data->bootmode = tag->bootmode;
+}
+
 static int mt6370_chg_init_setting(struct mt6370_pmu_charger_data *chg_data)
 {
 	int ret = 0;
 	struct mt6370_pmu_charger_desc *chg_desc = chg_data->chg_desc;
-#ifdef FIXME /* TODO: wait get_boot_mode */
-	u32 boot_mode = get_boot_mode();
-#endif
 
 	dev_info(chg_data->dev, "%s\n", __func__);
+
+	mt6370_get_bootmode(chg_data);
 
 	/* Select IINLMTSEL to use AICR */
 	ret = mt6370_select_input_current_limit(chg_data,
@@ -3866,13 +3891,11 @@ static int mt6370_chg_init_setting(struct mt6370_pmu_charger_data *chg_data)
 	if (ret < 0)
 		dev_err(chg_data->dev, "%s: set ichg failed\n", __func__);
 
-#ifdef FIXME /* TODO: wait get_boot_mode */
-	if (boot_mode == META_BOOT || boot_mode == ADVMETA_BOOT) {
+	if (mt6370_is_meta_mode(chg_data)) {
 		ret = __mt6370_set_aicr(chg_data, 200000);
 		dev_info(chg_data->dev, "%s: set aicr to 200mA in meta mode\n",
 			__func__);
 	} else
-#endif
 		ret = __mt6370_set_aicr(chg_data, chg_desc->aicr);
 
 	if (ret < 0)
@@ -4252,6 +4275,30 @@ static char *mt6370_pmu_chg_supplied_to[] = {
 	"mtk-master-charger"
 };
 
+static void mt6370_power_supply_changed(
+			struct mt6370_pmu_charger_data *chg_data)
+{
+	int ret = 0, i = 0;
+	union power_supply_propval propval[mt6370_pmu_chg_desc.num_properties];
+
+	memset(propval, 0, sizeof(propval));
+
+	for (i = 0; i < ARRAY_SIZE(propval); i++) {
+		ret = mt6370_pmu_chg_get_property(chg_data->psy,
+						  mt6370_pmu_chg_properties[i],
+						  &propval[i]);
+		if (ret < 0)
+			dev_notice(chg_data->dev,
+				   "%s: get prop fail(%d), i = %d\n",
+				   __func__, ret, i);
+	}
+
+	if (memcmp(chg_data->old_propval, propval, sizeof(propval))) {
+		memcpy(chg_data->old_propval, propval, sizeof(propval));
+		power_supply_changed(chg_data->psy);
+	}
+}
+
 static int mt6370_boost_enable(struct regulator_dev *rdev)
 {
 	struct mt6370_pmu_charger_data *chg_data = rdev_get_drvdata(rdev);
@@ -4374,7 +4421,7 @@ static const struct regulator_desc mt6370_otg_rdesc = {
 static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 	bool attach)
 {
-	union power_supply_propval prop, prop2, prop3;
+	union power_supply_propval prop, prop2;
 	static struct power_supply *chg_psy;
 	int ret = 0;
 
@@ -4393,22 +4440,31 @@ static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 			ret = power_supply_set_property(chg_psy,
 					POWER_SUPPLY_PROP_ONLINE, &prop);
 			ret = power_supply_get_property(chg_psy,
-					POWER_SUPPLY_PROP_TYPE, &prop2);
-			ret = power_supply_get_property(chg_psy,
-					POWER_SUPPLY_PROP_USB_TYPE, &prop3);
-		} else {
-			prop2.intval = (int)POWER_SUPPLY_TYPE_UNKNOWN;
-			prop3.intval = (int)POWER_SUPPLY_USB_TYPE_UNKNOWN;
+					POWER_SUPPLY_PROP_USB_TYPE, &prop2);
+		} else
+			prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+
+		pr_notice("%s usb_type:%d\n", __func__, prop2.intval);
+
+		switch (prop2.intval) {
+		case POWER_SUPPLY_USB_TYPE_SDP:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+			break;
+		case POWER_SUPPLY_USB_TYPE_CDP:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
+			break;
+		case POWER_SUPPLY_USB_TYPE_DCP:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			break;
+		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+		default:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+			break;
 		}
-
-		pr_notice("%s type:%d usb_type:%d\n", __func__,
-					prop2.intval, prop3.intval);
-
-		chg_data->psy_desc.type = prop2.intval;
-		chg_data->psy_usb_type = prop3.intval;
-
-		power_supply_changed(chg_data->psy);
+		chg_data->psy_usb_type = prop2.intval;
+		mt6370_power_supply_changed(chg_data);
 	}
+
 	return prop2.intval;
 }
 
@@ -4464,7 +4520,7 @@ bypass_chgdet:
 			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		}
 		mutex_unlock(&chg_data->bc12_access_lock);
-		power_supply_changed(chg_data->psy);
+		mt6370_power_supply_changed(chg_data);
 	}
 	return ret;
 }
@@ -4483,8 +4539,8 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
-	struct mt6370_pmu_charger_data *chg_data = container_of(nb,
-		struct mt6370_pmu_charger_data, pd_nb);
+	struct mt6370_pmu_charger_data *chg_data =
+		container_of(nb, struct mt6370_pmu_charger_data, pd_nb);
 	uint8_t old_state = TYPEC_UNATTACHED, new_state = TYPEC_UNATTACHED;
 
 	switch (event) {
@@ -4502,8 +4558,9 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		     new_state == TYPEC_ATTACHED_NORP_SRC ||
 		     new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 		     new_state == TYPEC_ATTACHED_DBGACC_SNK)) {
-			pr_info("%s USB Plug in, pol = %d\n", __func__,
-					noti->typec_state.polarity);
+			dev_info(chg_data->dev,
+				 "%s Charger plug in, polarity = %d\n",
+				 __func__, noti->typec_state.polarity);
 			handle_typec_attach(chg_data, true, false);
 		} else if ((old_state == TYPEC_ATTACHED_SNK ||
 			    old_state == TYPEC_ATTACHED_NORP_SRC ||
@@ -4511,28 +4568,25 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			    old_state == TYPEC_ATTACHED_DBGACC_SNK ||
 			    old_state == TYPEC_ATTACHED_AUDIO) &&
 			    new_state == TYPEC_UNATTACHED) {
-			pr_info("%s USB Plug out\n", __func__);
-			if (chg_data->tcpc_kpoc) {
-				pr_info("%s: typec unattached, power off\n",
-					__func__);
-#ifdef FIXME
-				kernel_power_off();
-#endif
-			}
+			dev_info(chg_data->dev, "%s Charger plug out\n",
+						__func__);
 			handle_typec_attach(chg_data, false, false);
 		} else if (old_state == TYPEC_ATTACHED_SRC &&
 			   new_state == TYPEC_ATTACHED_SNK) {
-			pr_info("%s Source_to_Sink\n", __func__);
+			dev_info(chg_data->dev, "%s Source_to_Sink\n",
+						__func__);
 			handle_typec_attach(chg_data, true, true);
 		}  else if (old_state == TYPEC_ATTACHED_SNK &&
 			    new_state == TYPEC_ATTACHED_SRC) {
-			pr_info("%s Sink_to_Source\n", __func__);
+			dev_info(chg_data->dev, "%s Sink_to_Source\n",
+						__func__);
 			handle_typec_attach(chg_data, false, true);
 		}
 		break;
 	default:
 		break;
 	};
+
 	return NOTIFY_OK;
 }
 #endif
@@ -4579,6 +4633,11 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 	mutex_init(&chg_data->attach_lock);
 #endif
 	chg_data->pp_en = true;
+	chg_data->old_propval =
+		devm_kcalloc(chg_data->dev, mt6370_pmu_chg_desc.num_properties,
+			     sizeof(*chg_data->old_propval), GFP_KERNEL);
+	if (!chg_data->old_propval)
+		return -ENOMEM;
 
 	if (use_dt) {
 		ret = mt_parse_dt(&pdev->dev, chg_data);
@@ -4587,13 +4646,6 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 				__func__);
 	}
 	platform_set_drvdata(pdev, chg_data);
-
-#ifdef FIXME
-	ret = get_boot_mode();
-	if (ret == KERNEL_POWER_OFF_CHARGING_BOOT ||
-	    ret == LOW_POWER_OFF_CHARGING_BOOT)
-		chg_data->tcpc_kpoc = true;
-#endif
 
 	/* Init wait queue head */
 	init_waitqueue_head(&chg_data->wait_queue);

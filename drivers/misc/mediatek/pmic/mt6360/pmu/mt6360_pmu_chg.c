@@ -85,9 +85,7 @@ struct mt6360_pmu_chg_info {
 	u32 ichg;
 	u32 ichg_dis_chg;
 
-	/*boot_mode*/
 	u32 bootmode;
-	u32 boottype;
 
 	/* Charger type detection */
 	struct mutex chgdet_lock;
@@ -113,7 +111,6 @@ struct mt6360_pmu_chg_info {
 	bool typec_attach;
 	bool ignore_usb;
 	bool bypass_chgdet;
-	bool tcpc_kpoc;
 #else
 	struct work_struct chgdet_work;
 #endif /* CONFIG_TCPC_CLASS */
@@ -133,6 +130,8 @@ struct mt6360_pmu_chg_info {
 	struct work_struct pe_work;
 	u8 ctd_dischg_status;
 	struct regulator_dev *otg_rdev;	//otg_vbus
+
+	union power_supply_propval *old_propval;
 };
 
 /* for recive bat oc notify */
@@ -424,6 +423,9 @@ static inline int mt6360_get_chrdet_ext_stat(struct mt6360_pmu_chg_info *mpci,
 	return 0;
 }
 
+static inline bool mt6360_is_meta_mode(struct mt6360_pmu_chg_info *mpci);
+static void mt6360_power_supply_changed(struct mt6360_pmu_chg_info *mpci);
+
 static int DPDM_Switch_TO_CHG_upstream(struct mt6360_pmu_chg_info *mpci,
 						bool switch_to_chg)
 {
@@ -583,14 +585,14 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 #else
 	attach = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
-	if (attach && (mpci->bootmode == 5)) {
+	if (attach && mt6360_is_meta_mode(mpci)) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(mpci->dev, "%s: force Standard USB Host in meta\n",
 			   __func__);
 		mpci->attach = attach;
 		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-		power_supply_changed(mpci->psy);
+		mt6360_power_supply_changed(mpci);
 		return 0;
 	}
 	return __mt6360_enable_usbchgen(mpci, attach);
@@ -666,7 +668,7 @@ out:
 		mt6360_set_usbsw_state(mpci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
-	power_supply_changed(mpci->psy);
+	mt6360_power_supply_changed(mpci);
 	return ret;
 }
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
@@ -841,7 +843,7 @@ out:
 		dev_notice(mpci->dev, "%s: fail, en = %d\n", __func__, en);
 vsys_wkard_fail:
 	mutex_unlock(&mpci->ichg_lock);
-	power_supply_changed(mpci->psy);
+	mt6360_power_supply_changed(mpci);
 	return ret;
 }
 
@@ -1119,24 +1121,6 @@ out:
 
 static int mt6360_set_pep20_efficiency_table(struct charger_device *chg_dev)
 {
-#ifdef FIXME /* TODO: without charger manager */
-	struct charger_manager *chg_mgr = NULL;
-
-	chg_mgr = charger_dev_get_drvdata(chg_dev);
-	if (!chg_mgr)
-		return -EINVAL;
-
-	chg_mgr->pe2.profile[0].vchr = 8000000;
-	chg_mgr->pe2.profile[1].vchr = 8000000;
-	chg_mgr->pe2.profile[2].vchr = 8000000;
-	chg_mgr->pe2.profile[3].vchr = 8500000;
-	chg_mgr->pe2.profile[4].vchr = 8500000;
-	chg_mgr->pe2.profile[5].vchr = 8500000;
-	chg_mgr->pe2.profile[6].vchr = 9000000;
-	chg_mgr->pe2.profile[7].vchr = 9000000;
-	chg_mgr->pe2.profile[8].vchr = 9500000;
-	chg_mgr->pe2.profile[9].vchr = 9500000;
-#endif
 	return 0;
 }
 
@@ -1816,7 +1800,7 @@ static int mt6360_do_event(struct charger_device *chg_dev, u32 event,
 	case EVENT_FULL:
 	case EVENT_RECHARGE:
 	case EVENT_DISCHARGE:
-		power_supply_changed(mpci->psy);
+		mt6360_power_supply_changed(mpci);
 		break;
 	default:
 		break;
@@ -2629,32 +2613,35 @@ static int mt6360_enable_ilim(struct mt6360_pmu_chg_info *mpci, bool en)
 		(mpci->mpi, MT6360_PMU_CHG_CTRL3, MT6360_MASK_ILIM_EN);
 }
 
-static void mt6360_get_boot_mode(struct mt6360_pmu_chg_info *mpci)
+static inline bool mt6360_is_meta_mode(struct mt6360_pmu_chg_info *mpci)
 {
-	struct device_node *boot_node = NULL;
-	struct tag_bootmode *tag = NULL;
-
-	boot_node = of_parse_phandle(mpci->dev->of_node, "bootmode", 0);
-	if (!boot_node)
-		dev_info(mpci->dev, "%s: failed to get boot mode phandle\n",
-			 __func__);
-	else {
-		tag = (struct tag_bootmode *)of_get_property(boot_node,
-							"atag,boot", NULL);
-		if (!tag)
-			dev_info(mpci->dev, "%s: failed to get atag,boot\n",
-				 __func__);
-		else {
-			dev_info(mpci->dev,
-			"%s: size:0x%x tag:0x%x bootmode:0x%x boottype:0x%x\n",
-				__func__, tag->size, tag->tag,
-				tag->bootmode, tag->boottype);
-			mpci->bootmode = tag->bootmode;
-			mpci->boottype = tag->boottype;
-		}
-	}
+	return (mpci->bootmode == META_BOOT || mpci->bootmode == ADVMETA_BOOT);
 }
 
+static void mt6360_get_bootmode(struct mt6360_pmu_chg_info *mpci)
+{
+	struct device_node *boot_node = NULL;
+	const struct tag_bootmode *tag = NULL;
+
+	boot_node = of_parse_phandle(mpci->dev->of_node, "bootmode", 0);
+	if (!boot_node) {
+		dev_notice(mpci->dev, "%s: get bootmode phandle fail\n",
+				      __func__);
+		return;
+	}
+
+	tag = of_get_property(boot_node, "atag,boot", NULL);
+	if (!tag) {
+		dev_notice(mpci->dev, "%s: get property atag,boot fail\n",
+				      __func__);
+		return;
+	}
+
+	dev_info(mpci->dev, "%s: size:%d tag:0x%X mode:%d type:%d\n",
+			    __func__, tag->size, tag->tag,
+			    tag->bootmode, tag->boottype);
+	mpci->bootmode = tag->bootmode;
+}
 
 static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 {
@@ -2662,8 +2649,9 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 	int ret = 0;
 
 	dev_info(mpci->dev, "%s\n", __func__);
-	/*get boot mode*/
-	mt6360_get_boot_mode(mpci);
+
+	mt6360_get_bootmode(mpci);
+
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHRDET_STAT);
 	if (ret >= 0)
 		mpci->ctd_dischg_status = ret & 0xE3;
@@ -2682,8 +2670,7 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 		dev_err(mpci->dev, "%s: disable ilim fail\n", __func__);
 		return ret;
 	}
-	if (mpci->bootmode == 1 || mpci->bootmode == 5) {
-		/*1:META_BOOT 5:ADVMETA_BOOT*/
+	if (mt6360_is_meta_mode(mpci)) {
 		ret = mt6360_pmu_reg_update_bits(mpci->mpi,
 						 MT6360_PMU_CHG_CTRL3,
 						 MT6360_MASK_AICR,
@@ -3003,6 +2990,29 @@ static char *mt6360_pmu_chg_supplied_to[] = {
 	"mtk-master-charger"
 };
 
+static void mt6360_power_supply_changed(struct mt6360_pmu_chg_info *mpci)
+{
+	int ret = 0, i = 0;
+	union power_supply_propval propval[mt6360_pmu_chg_desc.num_properties];
+
+	memset(propval, 0, sizeof(propval));
+
+	for (i = 0; i < ARRAY_SIZE(propval); i++) {
+		ret = mt6360_pmu_chg_get_property(mpci->psy,
+						  mt6360_pmu_chg_properties[i],
+						  &propval[i]);
+		if (ret < 0)
+			dev_notice(mpci->dev,
+				   "%s: get prop fail(%d), i = %d\n",
+				   __func__, ret, i);
+	}
+
+	if (memcmp(mpci->old_propval, propval, sizeof(propval))) {
+		memcpy(mpci->old_propval, propval, sizeof(propval));
+		power_supply_changed(mpci->psy);
+	}
+}
+
 /*otg_vbus*/
 static int mt6360_boost_enable(struct regulator_dev *rdev)
 {
@@ -3152,28 +3162,27 @@ static int mt6360_get_charger_type(struct mt6360_pmu_chg_info *mpci,
 		} else
 			prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 
-		pr_notice("%s type:%d\n", __func__, prop2.intval);
+		pr_notice("%s usb_type:%d\n", __func__, prop2.intval);
 
 		switch (prop2.intval) {
-		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
-			mpci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-			break;
 		case POWER_SUPPLY_USB_TYPE_SDP:
 			mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-			mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 			break;
 		case POWER_SUPPLY_USB_TYPE_CDP:
 			mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
 			break;
 		case POWER_SUPPLY_USB_TYPE_DCP:
 			mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+			break;
+		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+		default:
+			mpci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 			break;
 		}
-		power_supply_changed(mpci->psy);
+		mpci->psy_usb_type = prop2.intval;
+		mt6360_power_supply_changed(mpci);
 	}
+
 	return prop2.intval;
 }
 
@@ -3233,7 +3242,7 @@ bypass_chgdet:
 			mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		}
 		mutex_unlock(&mpci->chgdet_lock);
-		power_supply_changed(mpci->psy);
+		mt6360_power_supply_changed(mpci);
 	}
 	return ret;
 }
@@ -3253,8 +3262,8 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
-	struct mt6360_pmu_chg_info *mpci = container_of(nb,
-		struct mt6360_pmu_chg_info, pd_nb);
+	struct mt6360_pmu_chg_info *mpci =
+		container_of(nb, struct mt6360_pmu_chg_info, pd_nb);
 	uint8_t old_state = TYPEC_UNATTACHED, new_state = TYPEC_UNATTACHED;
 
 	switch (event) {
@@ -3271,8 +3280,9 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		     new_state == TYPEC_ATTACHED_NORP_SRC ||
 		     new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 		     new_state == TYPEC_ATTACHED_DBGACC_SNK)) {
-			pr_info("%s USB Plug in, pol = %d\n", __func__,
-					noti->typec_state.polarity);
+			dev_info(mpci->dev,
+				 "%s Charger plug in, polarity = %d\n",
+				 __func__, noti->typec_state.polarity);
 			handle_typec_attach(mpci, true, false);
 		} else if ((old_state == TYPEC_ATTACHED_SNK ||
 			    old_state == TYPEC_ATTACHED_NORP_SRC ||
@@ -3280,28 +3290,22 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			    old_state == TYPEC_ATTACHED_DBGACC_SNK ||
 			    old_state == TYPEC_ATTACHED_AUDIO) &&
 			    new_state == TYPEC_UNATTACHED) {
-			pr_info("%s USB Plug out\n", __func__);
-			if (mpci->tcpc_kpoc) {
-				pr_info("%s: typec unattached, power off\n",
-					__func__);
-#ifdef FIXME
-				kernel_power_off();
-#endif
-			}
+			dev_info(mpci->dev, "%s Charger plug out\n", __func__);
 			handle_typec_attach(mpci, false, false);
 		} else if (old_state == TYPEC_ATTACHED_SRC &&
 			   new_state == TYPEC_ATTACHED_SNK) {
-			pr_info("%s Source_to_Sink\n", __func__);
+			dev_info(mpci->dev, "%s Source_to_Sink\n", __func__);
 			handle_typec_attach(mpci, true, true);
 		}  else if (old_state == TYPEC_ATTACHED_SNK &&
 			    new_state == TYPEC_ATTACHED_SRC) {
-			pr_info("%s Sink_to_Source\n", __func__);
+			dev_info(mpci->dev, "%s Sink_to_Source\n", __func__);
 			handle_typec_attach(mpci, false, true);
 		}
 		break;
 	default:
 		break;
 	};
+
 	return NOTIFY_OK;
 }
 #endif
@@ -3364,6 +3368,11 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	atomic_set(&mpci->chrdet_start, 0);
 	mutex_init(&mpci->attach_lock);
 #endif
+	mpci->old_propval =
+		devm_kcalloc(mpci->dev, mt6360_pmu_chg_desc.num_properties,
+			     sizeof(*mpci->old_propval), GFP_KERNEL);
+	if (!mpci->old_propval)
+		return -ENOMEM;
 	platform_set_drvdata(pdev, mpci);
 
 	/* apply platform data */
