@@ -8645,6 +8645,11 @@
 							"path_mini_mdp_w0",
 							"path_mini_mdp_r1",
 							"path_mini_mdp_w1";
+		m4u-ports =
+			<M4U_PORT_L6_VDEC_MINI_MDP_R0_EXT>,
+			<M4U_PORT_L6_VDEC_MINI_MDP_W0_EXT>,
+			<M4U_PORT_L6_VDEC_MINI_MDP_R1_EXT>,
+			<M4U_PORT_L6_VDEC_MINI_MDP_W1_EXT>;
 	};
 
 	smi_larb6: smi_larb6@0x16009000 {
