@@ -12539,6 +12539,7 @@
 			ieoc = <150>;
 			wdt = <40000>;
 			/* wdt_en; */
+			te_en;
 			vbus_ov = <14500>;
 			vrec = <100>;
 			ircmp_r = <16700>;
