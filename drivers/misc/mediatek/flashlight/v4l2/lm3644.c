@@ -402,11 +402,14 @@ static int lm3644_set_ctrl(struct v4l2_ctrl *ctrl, enum lm3644_led_id led_no)
 
 	case V4L2_CID_FLASH_STROBE_SOURCE:
 		if (ctrl->val == V4L2_FLASH_STROBE_SOURCE_SOFTWARE) {
+			pr_info("sw ctrl\n");
 			rval = regmap_update_bits(flash->regmap,
-					REG_ENABLE, 0x20, 0x00);
+					REG_ENABLE, 0x2C, 0x00);
 		} else if (ctrl->val == V4L2_FLASH_STROBE_SOURCE_EXTERNAL) {
+			pr_info("hw trigger\n");
 			rval = regmap_update_bits(flash->regmap,
-					REG_ENABLE, 0x20, 0x20);
+					REG_ENABLE, 0x2C, 0x24);
+			rval = lm3644_enable_ctrl(flash, led_no, true);
 		}
 		if (rval < 0)
 			goto err_out;
