@@ -2451,9 +2451,9 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
-		atomic_set(&ctx->session_destroyed, 1);
-		wake_up(&ctx->session_destroy_waitq);
-		dev_info(dev, "%s:ctx(%d): destroy session", __func__, ctx->stream_id);
+		complete(&ctx->session_complete);
+		dev_info(dev, "%s:ctx(%d): session destroyed",
+			 __func__, ctx->stream_id);
 	}
 
 	return 0;
@@ -2781,12 +2781,13 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 }
 
 #if CCD_READY
-void isp_composer_create_session(struct mtk_cam_ctx *ctx)
+int isp_composer_create_session(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtkcam_ipi_event event;
 	struct mtkcam_ipi_session_cookie *session = &event.cookie;
 	struct mtkcam_ipi_session_param	*session_data = &event.session_data;
+	int ret;
 
 	memset(&event, 0, sizeof(event));
 	event.cmd_id = CAM_CMD_CREATE_SESSION;
@@ -2798,14 +2799,18 @@ void isp_composer_create_session(struct mtk_cam_ctx *ctx)
 	session_data->msg_buf.ccd_fd = ctx->buf_pool.msg_buf_fd;
 	session_data->msg_buf.size = ctx->buf_pool.msg_buf_size;
 
-	rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-	dev_dbg(cam->dev, "%s: rpmsg_send id: %d, cq_buf(fd:%d,sz:%d, msg_buf(fd:%d,sz%d)\n",
+	ret = rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
+	dev_dbg(cam->dev,
+		"%s: rpmsg_send id: %d, cq_buf(fd:%d,sz:%d, msg_buf(fd:%d,sz%d) ret(%d)\n",
 		__func__, event.cmd_id, session_data->workbuf.ccd_fd,
 		session_data->workbuf.size, session_data->msg_buf.ccd_fd,
-		session_data->msg_buf.size);
+		session_data->msg_buf.size,
+		ret);
+
+	return ret;
 }
 
-static void isp_composer_destroy_session(struct mtk_cam_ctx *ctx)
+void isp_composer_destroy_session(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtkcam_ipi_event event;
@@ -3197,7 +3202,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;
 	atomic_set(&ctx->running_s_data_cnt, 0);
-	atomic_set(&ctx->session_destroyed, 0);
+	init_completion(&ctx->session_complete);
 
 	if (!cam->composer_cnt) {
 		cam->running_job_count = 0;
@@ -3228,8 +3233,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		if (cam->debug_fs)
 			cam->debug_fs->ops->exp_reinit(cam->debug_fs);
 	}
-
-	init_waitqueue_head(&ctx->session_destroy_waitq);
 
 #if CCD_READY
 	if (node->uid.pipe_id >= MTKCAM_SUBDEV_RAW_START &&
@@ -3379,9 +3382,13 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	media_pipeline_stop(entity);
 
-	dev_dbg(cam->dev, "%s:ctx(%d): wait for composer session destroy\n",
-		__func__, ctx->stream_id);
-	wait_event_freezable(ctx->session_destroy_waitq, atomic_read(&ctx->session_destroyed));
+	/* Consider scenario that stop the ctx while the ctx is not streamed on */
+	if (ctx->session_created) {
+		dev_info(cam->dev,
+			"%s:ctx(%d): session_created, wait for composer session destroy\n",
+			__func__, ctx->stream_id);
+		wait_for_completion(&ctx->session_complete);
+	}
 
 	if (!cam->streaming_ctx) {
 		struct v4l2_subdev *sd;
@@ -3436,6 +3443,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		}
 	}
 
+	ctx->session_created = 0;
 	ctx->enabled_node_cnt = 0;
 	ctx->streaming_node_cnt = 0;
 	ctx->streaming_pipe = 0;
@@ -3527,10 +3535,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 
 	dev_info(cam->dev, "ctx %d stream on\n", ctx->stream_id);
 	if (ctx->streaming) {
-		dev_dbg(cam->dev, "ctx-%d is already streaming on\n",
-			ctx->stream_id);
+		dev_info(cam->dev, "ctx-%d is already streaming on\n", ctx->stream_id);
 		return 0;
 	}
+
 	cam->composer_cnt++;
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
@@ -3728,6 +3736,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			cam->streaming_ctx, cam->debug_fs);
 	ctx->streaming = true;
 	cam->streaming_ctx |= 1 << ctx->stream_id;
+
 	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 	if (need_dump_mem)
 		cam->debug_fs->ops->reinit(cam->debug_fs, ctx->stream_id);
@@ -3754,6 +3763,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	}
 	dev_dbg(cam->dev, "streamed on camsys ctx:%d\n", ctx->stream_id);
 	return 0;
+
 fail_pipe_off:
 #if CCD_READY
 	isp_composer_destroy_session(ctx);
@@ -3923,10 +3933,8 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 fail_stream_off:
 #if CCD_READY
-	if (ctx->used_raw_num) {
-		/* FIXME: need to receive destroy ack then to destroy rproc_phandle */
+	if (ctx->used_raw_num)
 		isp_composer_destroy_session(ctx);
-	}
 #endif
 
 	dev_dbg(cam->dev, "streamed off camsys ctx:%d\n", ctx->stream_id);
@@ -4263,11 +4271,11 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 
 	ctx->used_raw_num = 0;
 	ctx->used_raw_dev = 0;
-	ctx->used_raw_dmas = 0;
 	ctx->processing_buffer_list.cnt = 0;
 	ctx->composed_buffer_list.cnt = 0;
 	ctx->is_first_cq_done = 0;
 	ctx->cq_done_status = 0;
+	ctx->session_created = 0;
 
 	ctx->used_sv_num = 0;
 	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {

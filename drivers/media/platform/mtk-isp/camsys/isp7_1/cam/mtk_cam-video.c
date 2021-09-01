@@ -218,19 +218,21 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 		}
 	}
 
-	if (node->uid.pipe_id >= MTKCAM_SUBDEV_RAW_START &&
-		node->uid.pipe_id < MTKCAM_SUBDEV_RAW_END)
-		ctx->used_raw_dmas |= node->desc.dma_port;
-
 	cam->streaming_pipe |= (1 << node->uid.pipe_id);
 	ctx->streaming_pipe |= (1 << node->uid.pipe_id);
 	ctx->streaming_node_cnt++;
 
 #if CCD_READY
 	if (ctx->streaming_node_cnt == 1)
-		if (node->uid.pipe_id >= MTKCAM_SUBDEV_RAW_START &&
-			node->uid.pipe_id < MTKCAM_SUBDEV_RAW_END)
-			isp_composer_create_session(ctx);
+		if (is_raw_subdev(node->uid.pipe_id)) {
+			if (!isp_composer_create_session(ctx)) {
+				ctx->session_created = 1;
+			} else {
+				complete(&ctx->session_complete);
+				ret = -EBUSY;
+				goto fail_stop_ctx;
+			}
+		}
 #endif
 
 	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt) {
@@ -238,23 +240,27 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 		return 0;
 	}
 
-	dev_info(dev, "%s ctx:%d node:%d count info:%d\n", __func__,
-		ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
+	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
+		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
 	/* all enabled nodes are streaming, enable all subdevs */
 	ret = mtk_cam_ctx_stream_on(ctx);
 	if (ret)
-		goto fail_stop_ctx;
+		goto fail_destroy_session;
 
 	mutex_unlock(&cam->op_lock);
 	return 0;
 
+fail_destroy_session:
+	if (ctx->session_created)
+		isp_composer_destroy_session(ctx);
 fail_stop_ctx:
+	ctx->streaming_node_cnt--;
+	ctx->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
+	mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
 	mtk_cam_stop_ctx(ctx, entity);
 fail_unlock:
-	if (ctx)
-		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
 	mutex_unlock(&cam->op_lock);
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_QUEUED);
 
@@ -276,8 +282,8 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		return;
 	}
 
-	dev_info(dev, "%s ctx:%d node:%d count info:%d\n", __func__,
-		ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
+	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
+		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
 	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt)
 		mtk_cam_ctx_stream_off(ctx);

@@ -280,6 +280,7 @@ struct mtk_cam_img_working_buf_pool {
 
 struct mtk_cam_device;
 struct mtk_camsys_ctrl;
+
 struct mtk_cam_ctx {
 	struct mtk_cam_device *cam;
 	unsigned int stream_id;
@@ -304,7 +305,6 @@ struct mtk_cam_ctx {
 
 	unsigned int used_raw_num;
 	unsigned int used_raw_dev;
-	unsigned int used_raw_dmas;
 
 	unsigned int used_sv_num;
 	unsigned int used_sv_dev[MAX_SV_PIPES_PER_STREAM];
@@ -317,8 +317,9 @@ struct mtk_cam_ctx {
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
 	struct workqueue_struct *sv_wq;
-	wait_queue_head_t session_destroy_waitq;
-	atomic_t session_destroyed;
+
+	struct completion session_complete;
+	int session_created;
 
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;
@@ -693,7 +694,8 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
-void isp_composer_create_session(struct mtk_cam_ctx *ctx);
+int isp_composer_create_session(struct mtk_cam_ctx *ctx);
+void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 int PipeIDtoTGIDX(int pipe_id);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req, int pipe_id,
