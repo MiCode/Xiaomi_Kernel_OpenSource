@@ -15,7 +15,9 @@
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 #include <linux/pm_wakeup.h>
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
 #include "apu_top_entry.h"
 
 extern const struct apupwr_plat_data *pwr_data;
@@ -144,5 +146,18 @@ static inline void apu_clearl(const unsigned int val,
 	{ \
 		clk_disable_unprepare(clk); \
 }
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define apupw_aee_warn(module, reason) \
+	do { \
+		char mod_name[150];\
+		snprintf(mod_name, 150, "%s_%s", reason, module); \
+		dev_info(dev, "%s: %s\n", reason, module); \
+		aee_kernel_exception(mod_name, \
+				"\nCRDISPATCH_KEY:%s\n", module); \
+	} while (0)
+#else
+#define apupw_aee_warn(module, reason)
+#endif
 
 #endif

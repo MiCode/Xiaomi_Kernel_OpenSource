@@ -1030,11 +1030,15 @@ static int mt6983_apu_top_on(struct device *dev)
 #endif
 	ret = __apu_wake_rpc_rcx(dev);
 
-	// for refcnt ++ to avoid be auto turned off by regulator framework
-	if (!ret) {
-		pr_info("%s enable vapu regulator\n", __func__);
-		regulator_enable(vapu_reg_id);
+	if (ret) {
+		pr_info("%s fail to wakeup RPC, ret %d\n", __func__, ret);
+		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_WAKEUP_FAIL");
+		return -1;
 	}
+
+	// for refcnt ++ to avoid be auto turned off by regulator framework
+	pr_info("%s enable vapu regulator\n", __func__);
+	regulator_enable(vapu_reg_id);
 
 	pr_info("%s -\n", __func__);
 	return 0;
@@ -1043,6 +1047,7 @@ static int mt6983_apu_top_on(struct device *dev)
 static int mt6983_apu_top_off(struct device *dev)
 {
 	int ret = 0, val = 0;
+	int rpc_timeout_val = 500000; // 500 ms
 
 	pr_info("%s +\n", __func__);
 
@@ -1052,13 +1057,14 @@ static int mt6983_apu_top_off(struct device *dev)
 #else
 	mt6983_pwr_flow_remote_sync(1); // tell remote side I am ready to off
 #endif
-	// blocking until sleep success or timeout
+	// blocking until sleep success or timeout, delay 50 us per round
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-			val, (val & 0x1UL) == 0x0, 50, 50000); // 50us, 50ms
+			val, (val & 0x1UL) == 0x0, 50, rpc_timeout_val);
 	if (ret) {
-		pr_info("%s timeout to wait RPC sleep, ret %d\n",
-				__func__, ret);
+		pr_info("%s timeout to wait RPC sleep (val:%d), ret %d\n",
+				__func__, rpc_timeout_val, ret);
+		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
 		return -1;
 	}
 
