@@ -28,6 +28,12 @@
 #define AP_PLL_CON3				0x000C
 #define APLL1_TUNER_CON0	0x040
 #define APLL2_TUNER_CON0	0x044
+#define ARMPLL_LL_CON0				0x0208
+#define ARMPLL_LL_CON1				0x020c
+#define ARMPLL_LL_CON3				0x0214
+#define ARMPLL_BL_CON0				0x0218
+#define ARMPLL_BL_CON1				0x021c
+#define ARMPLL_BL_CON3				0x0224
 #define TVDPLL_CON0				0x0248
 #define TVDPLL_CON1				0x024c
 #define TVDPLL_CON3				0x0254
@@ -2852,10 +2858,10 @@ static const struct mtk_pll_data apmixedsys_plls[] = {
 		MAINPLL_CON1, 0, 22 /* pcw */),
 	PLL(CLK_APMIXEDSYS_UNIVPLL /* dts */,
 		"univpll" /* name */,
-		UNIVPLL_CON0 /* base */,
-		UNIVPLL_CON0, 0xff000000, 0 /* en_reg/div_en_msk/en_bit */,
-		UNIVPLL_CON3, HAVE_RST_BAR, BIT(23) /* pwr_reg/flag/rstb_bit */,
-		UNIVPLL_CON1, 24 /* post div reg/bit */,
+		ARMPLL_LL_CON0 /* base */,
+		ARMPLL_LL_CON0, 0xff000000, 0 /* en_reg/div_en_msk/en_bit */,
+		ARMPLL_LL_CON3, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
+		ARMPLL_LL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
 		UNIVPLL_CON1, 0, 22 /* pcw */),
 	PLL(CLK_APMIXEDSYS_MSDCPLL /* dts */,
@@ -2868,10 +2874,10 @@ static const struct mtk_pll_data apmixedsys_plls[] = {
 		MSDCPLL_CON1, 0, 22 /* pcw */),
 	PLL(CLK_APMIXEDSYS_MMPLL /* dts */,
 		"mmpll" /* name */,
-		MMPLL_CON0 /* base */,
-		MMPLL_CON0, 0xff000000, 0 /* en_reg/div_en_msk/en_bit */,
-		MMPLL_CON3, HAVE_RST_BAR, BIT(23) /* pwr_reg/flag/rstb_bit */,
-		MMPLL_CON1, 24 /* post div reg/bit */,
+		ARMPLL_BL_CON0 /* base */,
+		ARMPLL_BL_CON0, 0xff000000, 0 /* en_reg/div_en_msk/en_bit */,
+		ARMPLL_BL_CON3, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
+		ARMPLL_BL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
 		MMPLL_CON1, 0, 22 /* pcw */),
 	PLL(CLK_APMIXEDSYS_ADSPPLL /* dts */,
