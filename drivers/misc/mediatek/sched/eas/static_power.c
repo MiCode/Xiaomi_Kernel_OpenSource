@@ -26,10 +26,16 @@
 #define __LKG_PROCFS__ 1
 #define __LKG_DEBUG__ 0
 
+struct leakage_para {
+	int a_b_para[36];
+	int c_para[36];
+};
+
 struct leakage_data {
 	void __iomem *base;
 	int policy[8];
 	int instance[8];
+	struct leakage_para tbl[8];
 	int clusters;
 	int init;
 };
@@ -51,15 +57,23 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 		if (j & info.policy[i])
 			break;
 	}
-	if (i >= info.clusters) {
-		pr_info("[leakage] not support cpu %d!\n", cpu);
+	if (i >= info.clusters)
 		return 0;
+
+	if (opp >= 36)
+		return 0;
+
+	if (info.tbl[i].a_b_para[opp] == 0 && info.tbl[i].c_para[opp] == 0) {
+		info.tbl[i].a_b_para[opp] =
+			readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8));
+		info.tbl[i].c_para[opp] =
+			readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8 + 4));
 	}
 
-	a = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8));
+	a = info.tbl[i].a_b_para[opp];
 	b = ((a >> 12) & 0xFFFFF);
 	a = a & 0xFFF;
-	c = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8 + 4));
+	c = info.tbl[i].c_para[opp];
 	power = (temperature*temperature*a - b*temperature+c)/10;
 	power = power / info.instance[i];
 
@@ -193,6 +207,7 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 			tP = cpufreq_cpu_get(cpu);
 			if (tP != pre_tP) {
 				info.instance[info.clusters] = cpu_no;
+				memset(&info.tbl[info.clusters], 0, sizeof(struct leakage_para));
 				info.policy[++info.clusters] = 0;
 				cpu_no = 0;
 				pre_tP = tP;
