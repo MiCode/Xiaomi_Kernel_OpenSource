@@ -38,9 +38,9 @@
 #define MT6338_TOP_DEBUG
 #define MT6338_OTHER_DEBUG
 /* #define MT6338_GSRC_DEBUG */
-#define MT6338_IIR_DEBUG
+/* #define MT6338_IIR_DEBUG */
 /* #define MT6338_ULCF_DEBUG */
-/* #define MT6338_NLE_DEBUG */
+#define MT6338_NLE_DEBUG
 /* #define MT6338_XTALK_DEBUG */
 /* #define MT6338_SCF_DEBUG */
 /* #define MT6338_VOW_DEBUG */
@@ -197,8 +197,8 @@ static void mt6338_get_efuse(struct mt6338_priv *priv)
 	fab = (efuse_val >> 5) & 0x3;
 
 	priv->hw_ver = value;
-	pr_info("%s() moisture_vdd efuse=0x%x, fab=%d, hw_ver= %d\n",
-		__func__, efuse_val, fab, priv->hw_ver);
+	pr_info("%s() mt6338 fab=%d, hw_ver= %d\n",
+		__func__, fab, priv->hw_ver);
 }
 #endif
 
@@ -474,38 +474,38 @@ static void mt6338_set_dl_src(struct mt6338_priv *priv, bool enable)
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_H,
 				AFE_DL_INPUT_MODE_CTL_MASK_SFT,
 				rate << AFE_DL_INPUT_MODE_CTL_SFT);
-			/* nedd check	 D&A
-			 * regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_H,
-			 *	AFE_DL_CH1_SATURATION_EN_CTL_MASK_SFT,
-			 *	0x0 << AFE_DL_CH1_SATURATION_EN_CTL_SFT);
-			 * regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_H,
-			 *	AFE_DL_CH2_SATURATION_EN_CTL_MASK_SFT,
-			 *	0x0 << AFE_DL_CH2_SATURATION_EN_CTL_SFT);
-			 */
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_H,
+				AFE_DL_CH1_SATURATION_EN_CTL_MASK_SFT,
+				0x0 << AFE_DL_CH1_SATURATION_EN_CTL_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_H,
+				AFE_DL_CH2_SATURATION_EN_CTL_MASK_SFT,
+				0x0 << AFE_DL_CH2_SATURATION_EN_CTL_SFT);
+
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_L,
 				AFE_DL_MUTE_CH1_OFF_CTL_PRE_MASK_SFT,
 				0x1 << AFE_DL_MUTE_CH1_OFF_CTL_PRE_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0_L,
 				AFE_DL_MUTE_CH2_OFF_CTL_PRE_MASK_SFT,
 				0x1 << AFE_DL_MUTE_CH2_OFF_CTL_PRE_SFT);
-			/* nedd check	 D&A
-			 * regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
-			 *	AFE_DL_VOICE_MODE_CTL_PRE_MASK_SFT,
-			 *	0x1 << AFE_DL_VOICE_MODE_CTL_PRE_SFT);
-			 *regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
-			 *	AFE_DL_GAIN_ON_CTL_PRE_MASK_SFT,
-			 *	0x1 << AFE_DL_GAIN_ON_CTL_PRE_SFT);
-			 */
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
+				AFE_DL_VOICE_MODE_CTL_PRE_MASK_SFT,
+				0x0 << AFE_DL_VOICE_MODE_CTL_PRE_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
+				AFE_DL_GAIN_ON_CTL_PRE_MASK_SFT,
+				0x0 << AFE_DL_GAIN_ON_CTL_PRE_SFT);
+
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
 				AFE_DL_SRC_ON_TMP_CTL_PRE_MASK_SFT,
 				0x1 << AFE_DL_SRC_ON_TMP_CTL_PRE_SFT);
 			/* Step2: DL digital gain control, 0x1800, (-19dB) */
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON1_H,
 				AFE_DL_GAIN_CTL_PRE_H_MASK_SFT,
-				0x18 << AFE_DL_GAIN_CTL_PRE_H_SFT);
+				0xff << AFE_DL_GAIN_CTL_PRE_H_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON1_M,
 				AFE_DL_GAIN_CTL_PRE_MASK_SFT,
-				0x0 << AFE_DL_GAIN_CTL_PRE_SFT);
+				0xff << AFE_DL_GAIN_CTL_PRE_SFT);
 		}
 
 		/* Step1: Choose DL FS and DL enable and DL gain enable */
@@ -1094,7 +1094,7 @@ static void hp_main_output_ramp(struct mt6338_priv *priv, bool up)
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HP_OUTSTG_LCH_MASK_SFT,
 			stage << RG_DA_HP_OUTSTG_LCH_SFT);
-		usleep_range(600, 650);
+		usleep_range(50, 60);
 	}
 }
 
@@ -1104,7 +1104,7 @@ static void hp_ln_gain_ramp(struct mt6338_priv *priv, bool up)
 	int target = 7;
 
 	/*Set HP LN gain step by step */
-	for (i = 0; i <= target; i++) {
+	for (i = 1; i <= target; i++) {
 		stage = up ? i : target - i;
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
 			RG_DA_ANA_HP_LNGAIN_ATT_RCH_MASK_SFT,
@@ -1112,7 +1112,7 @@ static void hp_ln_gain_ramp(struct mt6338_priv *priv, bool up)
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L,
 			RG_DA_ANA_HP_LNGAIN_ATT_LCH_MASK_SFT,
 			stage << RG_DA_ANA_HP_LNGAIN_ATT_LCH_SFT);
-		usleep_range(100, 120);
+		usleep_range(50, 60);
 	}
 }
 
@@ -1130,7 +1130,7 @@ static void hp_aux_feedback_loop_gain_ramp(struct mt6338_priv *priv, bool up)
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON8,
 			RG_AUDHPRAUXGAIN_VAUDP18_MASK_SFT,
 			stage << RG_AUDHPRAUXGAIN_VAUDP18_SFT);
-		usleep_range(600, 650);
+		usleep_range(50, 60);
 	}
 }
 
@@ -1139,16 +1139,13 @@ static void hp_in_pair_current(struct mt6338_priv *priv, bool increase)
 	int i = 0, stage = 0;
 	int target = 0x3;
 
-	/* Set input diff pair bias select (Hi-Fi mode) */
-	if (priv->hp_hifi_mode) {
-		/* Reduce HP aux feedback loop gain step by step */
-		for (i = 0; i <= target; i++) {
-			stage = increase ? i : target - i;
-			regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON14,
-				RG_AUDHPDIFFINPBIASADJ_VAUDP18_MASK_SFT,
-				stage << RG_AUDHPDIFFINPBIASADJ_VAUDP18_SFT);
-			usleep_range(100, 150);
-		}
+	/* Reduce HP aux feedback loop gain step by step */
+	for (i = 0; i <= target; i++) {
+		stage = increase ? i : target - i;
+		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON14,
+			RG_AUDHPDIFFINPBIASADJ_VAUDP18_MASK_SFT,
+			stage << RG_AUDHPDIFFINPBIASADJ_VAUDP18_SFT);
+		usleep_range(50, 60);
 	}
 }
 
@@ -1161,14 +1158,14 @@ static void hp_pull_down(struct mt6338_priv *priv, bool enable)
 			regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON11,
 				RG_HPPSHORT2VCM_VAUDP18_MASK_SFT,
 				i << RG_HPPSHORT2VCM_VAUDP18_SFT);
-			usleep_range(100, 120);
+			usleep_range(50, 60);
 		}
 	} else {
 		for (i = 0x7; i >= 0x0; i--) {
 			regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON11,
 				RG_HPPSHORT2VCM_VAUDP18_MASK_SFT,
 				i << RG_HPPSHORT2VCM_VAUDP18_SFT);
-			usleep_range(100, 120);
+			usleep_range(50, 60);
 		}
 	}
 }
@@ -1239,7 +1236,6 @@ static void headset_volume_ramp(struct mt6338_priv *priv,
 			regmap_update_bits(priv->regmap, MT6338_ZCD_CON2_H,
 				RG_AUDHPRGAIN_MASK_SFT,
 				reg_idx << RG_AUDHPRGAIN_SFT);
-			usleep_range(600, 650);
 		}
 		offset--;
 		count++;
@@ -1941,12 +1937,9 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 	/* Enable HP mute */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_HPLMUTE_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPLMUTE_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_HPLMUTE_EN_VAUDP18_MASK_SFT |
 		RG_HPRMUTE_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPRMUTE_EN_VAUDP18_SFT);
-	usleep_range(100, 150);
+		0x3 << RG_HPLMUTE_EN_VAUDP18_SFT);
 
 	hp_pull_down(priv, true);
 
@@ -1996,11 +1989,9 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 	/* Disable shortcut */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLSCDISABLE_VAUDP18_MASK_SFT |
 		RG_AUDHPRSCDISABLE_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRSCDISABLE_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLSCDISABLE_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLSCDISABLE_VAUDP18_SFT);
+		0x3 << RG_AUDHPLSCDISABLE_VAUDP18_SFT);
 
 	/* BAIS */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON31,
@@ -2104,18 +2095,14 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 	if (priv->hp_hifi_mode) {
 		/* apply volume setting */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-			RG_HPLHDRM_PFL_EN_VAUDP18_MASK_SFT,
-			0x1 << RG_HPLHDRM_PFL_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+			RG_HPLHDRM_PFL_EN_VAUDP18_MASK_SFT |
 			RG_HPRHDRM_PFL_EN_VAUDP18_MASK_SFT,
-			0x1 << RG_HPRHDRM_PFL_EN_VAUDP18_SFT);
+			0x3 << RG_HPLHDRM_PFL_EN_VAUDP18_SFT);
 	} else {
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-			RG_HPLHDRM_PFL_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_HPLHDRM_PFL_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+			RG_HPLHDRM_PFL_EN_VAUDP18_MASK_SFT |
 			RG_HPRHDRM_PFL_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_HPRHDRM_PFL_EN_VAUDP18_SFT);
+			0x0 << RG_HPLHDRM_PFL_EN_VAUDP18_SFT);
 	}
 
 	if (priv->hp_hifi_mode) {
@@ -2128,18 +2115,14 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 			0xff, 0x70);
 		/* Enable Neg R when turn on sequence */
 		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
-			DA_AUDHPLNEGR_EN_VAUDP18_MASK_SFT,
-			0x1 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
+			DA_AUDHPLNEGR_EN_VAUDP18_MASK_SFT |
 			DA_AUDHPRNEGR_EN_VAUDP18_MASK_SFT,
-			0x1 << DA_AUDHPRNEGR_EN_VAUDP18_SFT);
+			0x3 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
 	} else {
 		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
-			DA_AUDHPLNEGR_EN_VAUDP18_MASK_SFT,
-			0x0 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
+			DA_AUDHPLNEGR_EN_VAUDP18_MASK_SFT |
 			DA_AUDHPRNEGR_EN_VAUDP18_MASK_SFT,
-			0x0 << DA_AUDHPRNEGR_EN_VAUDP18_SFT);
+			0x0 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
 	}
 	/*Enable HPR/L main output stage to min*/
 	regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
@@ -2183,46 +2166,34 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 	/* Enable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPROUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPROUTAUXPWRUP_VAUDP18_SFT);
+		0x3 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
 	/* Enable HP aux feedback loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT |
 		RG_HPRAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPRAUXFBRSW_EN_VAUDP18_SFT);
+		0x3 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
 	/* Enable HP aux CMFB loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT |
 		RG_AUDHPRAUXCM_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRAUXCM_EN_VAUDP18_SFT);
+		0x3 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
 	/* Enable HP driver bias circuits */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-		RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
+		RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT |
 		RG_AUDHPRPWRUP_IBIAS_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRPWRUP_IBIAS_VAUDP18_SFT);
+		0x3 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
 	/* Enable HP driver core circuits */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-		RG_AUDHPLPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
+		RG_AUDHPLPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPRPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRPWRUP_VAUDP18_SFT);
+		0x3 << RG_AUDHPLPWRUP_VAUDP18_SFT);
 	/* Short HP main output to HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT |
 		RG_HPRSHORT2HPRAUX_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPRSHORT2HPRAUX_EN_VAUDP18_SFT);
+		0x3 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
 	if (priv->hp_hifi_mode) {
 		/* Increase HP input pair current to HPM step by step */
 		hp_in_pair_current(priv, true);
@@ -2236,21 +2207,15 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 		0x1 << RG_DA_HPCMFB_EN_LCH_SFT);
 	/* Disable HP aux CMFB loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT |
 		RG_AUDHPRAUXCM_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRAUXCM_EN_VAUDP18_SFT);
-	usleep_range(100, 150);
+		0x0 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
 
 	/* Enable HP main output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLOUTPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLOUTPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLOUTPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPROUTPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPROUTPWRUP_VAUDP18_SFT);
-	usleep_range(100, 150);
+		0x3 << RG_AUDHPLOUTPWRUP_VAUDP18_SFT);
 
 	/* Enable HPR/L main output stage step by step */
 	hp_main_output_ramp(priv, true);
@@ -2259,22 +2224,18 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 	hp_aux_feedback_loop_gain_ramp(priv, true);
 	/* Disable HP aux feedback loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT |
 		RG_HPRAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPRAUXFBRSW_EN_VAUDP18_SFT);
+		0x0 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
 
 	/* apply volume setting */
 	headset_volume_ramp(priv, -1, HP_GAIN_0DB);
 
 	/* Disable HP mute */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_HPLMUTE_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPLMUTE_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_HPLMUTE_EN_VAUDP18_MASK_SFT |
 		RG_HPRMUTE_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPRMUTE_EN_VAUDP18_SFT);
+		0x0 << RG_HPLMUTE_EN_VAUDP18_SFT);
 	/* apply volume setting */
 	headset_volume_ramp(priv,
 			    HP_GAIN_0DB,
@@ -2282,18 +2243,14 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 	/* open HP output to AUX output */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT |
 		RG_HPRSHORT2HPRAUX_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPRSHORT2HPRAUX_EN_VAUDP18_SFT);
+		0x0 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
 	/* Disable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPROUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPROUTAUXPWRUP_VAUDP18_SFT);
+		0x0 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
 	/* Reset HPP/N STB enhance circuits */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
 		RG_HPROUTPUTSTBENH_VAUDP18_MASK_SFT,
@@ -2313,18 +2270,14 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 	/* CMFB resistor with modulation Rwell levele */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-		RG_AUDHPLCMFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLCMFB_RNWSEL_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+		RG_AUDHPLCMFB_RNWSEL_VAUDP18_MASK_SFT |
 		RG_AUDHPRCMFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRCMFB_RNWSEL_VAUDP18_SFT);
+		0x3 << RG_AUDHPLCMFB_RNWSEL_VAUDP18_SFT);
 	/* Feedback resistor with modulation Rwell level */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-		RG_AUDHPLHPFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLHPFB_RNWSEL_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+		RG_AUDHPLHPFB_RNWSEL_VAUDP18_MASK_SFT |
 		RG_AUDHPRHPFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRHPFB_RNWSEL_VAUDP18_SFT);
+		0x3 << RG_AUDHPLHPFB_RNWSEL_VAUDP18_SFT);
 
 	/* Enable HP feedback SW source-tie */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON16,
@@ -2334,20 +2287,16 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 	if (priv->hp_hifi_mode) {
 		/* Enable HD removed SW source-tie for Hi-Fi mode */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON10,
-			RG_HPLHDRMSW_ST_EN_VAUDP18_MASK_SFT,
-			0x1 << RG_HPLHDRMSW_ST_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON10,
+			RG_HPLHDRMSW_ST_EN_VAUDP18_MASK_SFT |
 			RG_HPRHDRMSW_ST_EN_VAUDP18_MASK_SFT,
-			0x1 << RG_HPRHDRMSW_ST_EN_VAUDP18_SFT);
+			0x3 << RG_HPLHDRMSW_ST_EN_VAUDP18_SFT);
 	}
 
 	/* Enable CMFB SW source-tie */
 	regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
-		DA_HPLCMFBSWST_EN_VAUDP18_MASK_SFT,
-		0x1 << DA_HPLCMFBSWST_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
+		DA_HPLCMFBSWST_EN_VAUDP18_MASK_SFT |
 		DA_HPRCMFBSWST_EN_VAUDP18_MASK_SFT,
-		0x1 << DA_HPRCMFBSWST_EN_VAUDP18_SFT);
+		0x3 << DA_HPLCMFBSWST_EN_VAUDP18_SFT);
 	/* Enable HP input MUX SW source-tie */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON15,
 		RG_HPMUXST_EN_VAUDP18_MASK_SFT,
@@ -2361,22 +2310,20 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 		0x3 << (RG_ABIDEC_RSVD1_VAUDP18_SFT + 6));
 	/* Enable HPRL LN path feedback Rwell modulation */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-		RG_AUDHPLMAINCM2_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLMAINCM2_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+		RG_AUDHPLMAINCM2_EN_VAUDP18_MASK_SFT |
 		RG_AUDHPRMAINCM2_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRMAINCM2_EN_VAUDP18_SFT);
+		0x3 << RG_AUDHPLMAINCM2_EN_VAUDP18_SFT);
 
 	if (priv->hp_hifi_mode) {
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON0,
 			RG_AUDDACHPL_TRIM_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDDACHPL_TRIM_EN_VAUDP18_SFT);
+			0x1 << RG_AUDDACHPL_TRIM_EN_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON2,
 			RG_AUDDACHPR_TRIM_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDDACHPR_TRIM_EN_VAUDP18_SFT);
+			0x1 << RG_AUDDACHPR_TRIM_EN_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON8,
-			RG_AUDDACR_BIAS_PWRUP_VA32_MASK_SFT,
-			0x0 << RG_AUDDACR_BIAS_PWRUP_VA32_SFT);
+			RG_AUDDACHP_HOLD_SW_EN_VAUDP18_MASK_SFT,
+			0x0 << RG_AUDDACHP_HOLD_SW_EN_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON3,
 			RG_AUDDAC_RSVD0_VAUDP18_MASK_SFT, 0xff);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON3,
@@ -2395,43 +2342,34 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 	if (priv->hp_hifi_mode) {
 		/* Enable Audio DAC  */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACL_PWRUP_VAUDP18_MASK_SFT |
 			RG_AUDDACR_PWRUP_VAUDP18_MASK_SFT,
-			0x1 << RG_AUDDACR_PWRUP_VAUDP18_SFT);
+			0x3 << RG_AUDDACL_PWRUP_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACL_PWRUP_VAUDP18_MASK_SFT,
-			0x1 << RG_AUDDACL_PWRUP_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACL_BIAS_PWRUP_VA32_MASK_SFT |
 			RG_AUDDACR_BIAS_PWRUP_VA32_MASK_SFT,
-			0x1 << RG_AUDDACR_BIAS_PWRUP_VA32_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACL_BIAS_PWRUP_VA32_MASK_SFT,
-			0x1 << RG_AUDDACL_BIAS_PWRUP_VA32_SFT);
+			0x3 << RG_AUDDACL_BIAS_PWRUP_VA32_SFT);
 	} else {
 		/* Enable Audio HS&LO DAC */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACHS_PWRUP_VAUDP18_MASK_SFT,
-			0x1 << RG_AUDDACHS_PWRUP_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACHS_PWRUP_VAUDP18_MASK_SFT |
 			RG_AUDDACLO_PWRUP_VAUDP18_MASK_SFT,
-			0x1 << RG_AUDDACLO_PWRUP_VAUDP18_SFT);
+			0x3 << RG_AUDDACHS_PWRUP_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACHS_BIAS_PWRUP_VA32_MASK_SFT,
-			0x1 << RG_AUDDACHS_BIAS_PWRUP_VA32_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACHS_BIAS_PWRUP_VA32_MASK_SFT |
 			RG_AUDDACLO_BIAS_PWRUP_VA32_MASK_SFT,
-			0x1 << RG_AUDDACLO_BIAS_PWRUP_VA32_SFT);
+			0x3 << RG_AUDDACHS_BIAS_PWRUP_VA32_SFT);
 	}
 	usleep_range(100, 120);
 
-	/* bit 0: AVDD30_DAC power switch select to AVDD30_AUD */
+	/* Select to AVDD30_AUD  */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON43,
-		0xff, 0x1);
+		RG_AUDPMU_RSVD0_VA18_MASK_SFT,
+		0x1 << RG_AUDPMU_RSVD0_VA18_SFT);
 	if (priv->hp_hifi_mode) {
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON1,
+			RG_AUDDAC_L_RPWM_EN_VAUDP18_MASK_SFT |
 			RG_AUDDAC_R_RPWM_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDDAC_R_RPWM_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON1,
-			RG_AUDDAC_L_RPWM_EN_VAUDP18_MASK_SFT,
 			0x0 << RG_AUDDAC_L_RPWM_EN_VAUDP18_SFT);
 
 		/* Enable low-noise mode of DAC */
@@ -2444,7 +2382,7 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 		/* Enable low-noise mode of DAC */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON2,
 			RG_AUDDAC_ILOCAL_LN_SEL_VA32_MASK_SFT,
-			0x1 << RG_AUDDAC_ILOCAL_LN_SEL_VA32_SFT);
+			0x3 << RG_AUDDAC_ILOCAL_LN_SEL_VA32_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON2,
 			RG_AUDDAC_ILOCAL_LN_EN_VA32_MASK_SFT,
 			0x1 << RG_AUDDAC_ILOCAL_LN_EN_VA32_SFT);
@@ -2487,17 +2425,20 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 			RG_AUDHPRMUXINPUTSEL_VAUDP18_MASK_SFT,
 			HP_MUX_LOL << RG_AUDHPRMUXINPUTSEL_VAUDP18_SFT);
 	}
-	/* NLE_SUPPORT */
 	if (priv->hp_hifi_mode == 2) {
+		/* Enable NLE */
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG,
+			RG_AFE_NLE_ON_MASK_SFT,
+			0x1 << RG_AFE_NLE_ON_SFT);
 		/* NLE mode and release debug mode */
-		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_H,
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L,
 			RG_DA_ANA_HP_LNGAIN_ATT_LCH_MASK_SFT,
 			0x1 << RG_DA_ANA_HP_LNGAIN_ATT_LCH_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_RCH_CFG0_H,
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
 			RG_DA_ANA_HP_LNGAIN_ATT_RCH_MASK_SFT,
 			0x1 << RG_DA_ANA_HP_LNGAIN_ATT_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
-			RG_DA_HP_OUTSTG_LN_RCH_SFT,
+			RG_DA_HP_OUTSTG_LN_RCH_MASK_SFT,
 			0x1 << RG_DA_HP_OUTSTG_LN_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HP_OUTSTG_LN_LCH_MASK_SFT,
@@ -2507,28 +2448,30 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 		/* Enable HP LN loop */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
-			RG_DA_HP_LNSW_EN_RCH_SFT,
+			RG_DA_HP_LNSW_EN_RCH_MASK_SFT,
 			0x1 << RG_DA_HP_LNSW_EN_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HP_LNSW_EN_LCH_MASK_SFT,
 			0x1 << RG_DA_HP_LNSW_EN_LCH_SFT);
 		usleep_range(100, 120);
-		/* Disable HP main CMFB loop */
+		/* Disable HP LN CMFB loop */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
-			RG_DA_HPCMFB_LN_EN_RCH_SFT,
+			RG_DA_HPCMFB_LN_EN_RCH_MASK_SFT,
 			0x1 << RG_DA_HPCMFB_LN_EN_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HPCMFB_LN_EN_LCH_MASK_SFT,
 			0x1 << RG_DA_HPCMFB_LN_EN_LCH_SFT);
+		/* Disable HP main CMFB loop */
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
+			RG_DA_HPCMFB_EN_RCH_MASK_SFT,
+			0x0 << RG_DA_HPCMFB_EN_RCH_SFT);
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
+			RG_DA_HPCMFB_EN_LCH_MASK_SFT,
+			0x0 << RG_DA_HPCMFB_EN_LCH_SFT);
 
 		/* Disable HPR/L main output stage step by step */
 		hp_main_output_ramp(priv, false);
 		hp_ln_gain_ramp(priv, true);
-
-		/* Enable NLE */
-		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG,
-			RG_DA_HPCMFB_LN_EN_LCH_MASK_SFT,
-			0x1 << RG_DA_HPCMFB_LN_EN_LCH_SFT);
 
 		/* Need larger than preview window	delay 0.0001 */
 		usleep_range(100, 120);
@@ -2539,7 +2482,7 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 			RG_DG_OUTPUT_DEBUG_MODE_LCH_MASK_SFT,
 			0x0 << RG_DG_OUTPUT_DEBUG_MODE_LCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
-			RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_SFT,
+			RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_MASK_SFT,
 			0x0 << RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L,
 			RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_MASK_SFT,
@@ -2549,7 +2492,6 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 static void mtk_hp_disable(struct mt6338_priv *priv)
 {
-	/* NLE_SUPPORT */
 	if (priv->hp_hifi_mode == 2) {
 		/* Set NLE DA signal to debug mode */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
@@ -2566,26 +2508,29 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 			RG_DG_OUTPUT_DEBUG_MODE_RCH_MASK_SFT,
 			0x1 << RG_DG_OUTPUT_DEBUG_MODE_RCH_SFT);
 
-		/* Disable NLE */
-		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG,
-			RG_DA_HPCMFB_LN_EN_LCH_MASK_SFT,
-			0x0 << RG_DA_HPCMFB_LN_EN_LCH_SFT);
-
 		hp_ln_gain_ramp(priv, false);
 
 		/* Enable HPR/L main output stage step by step */
 		hp_main_output_ramp(priv, true);
+
 		/* Enable HP main CMFB loop */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
-			RG_DA_HPCMFB_LN_EN_RCH_SFT,
-			0x1 << RG_DA_HPCMFB_LN_EN_RCH_SFT);
+			RG_DA_HP_LNSW_EN_RCH_MASK_SFT,
+			0x1 << RG_DA_HP_LNSW_EN_RCH_SFT);
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
+			RG_DA_HP_LNSW_EN_LCH_MASK_SFT,
+			0x1 << RG_DA_HP_LNSW_EN_LCH_SFT);
+		usleep_range(100, 120);
+		/* Disable HP LN CMFB loop */
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
+			RG_DA_HPCMFB_LN_EN_RCH_MASK_SFT,
+			0x0 << RG_DA_HPCMFB_LN_EN_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HPCMFB_LN_EN_LCH_MASK_SFT,
-			0x1 << RG_DA_HPCMFB_LN_EN_LCH_SFT);
-		usleep_range(100, 120);
+			0x0 << RG_DA_HPCMFB_LN_EN_LCH_SFT);
 		/* Disable HP LN loop */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
-			RG_DA_HP_LNSW_EN_RCH_SFT,
+			RG_DA_HP_LNSW_EN_RCH_MASK_SFT,
 			0x0 << RG_DA_HP_LNSW_EN_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HP_LNSW_EN_LCH_MASK_SFT,
@@ -2594,7 +2539,7 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 		usleep_range(100, 120);
 		/* NLE mode and release debug mode */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
-			RG_DA_HP_OUTSTG_LN_RCH_SFT,
+			RG_DA_HP_OUTSTG_LN_RCH_MASK_SFT,
 			0x0 << RG_DA_HP_OUTSTG_LN_RCH_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG,
 			RG_DA_HP_OUTSTG_LN_LCH_MASK_SFT,
@@ -2605,6 +2550,11 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_H,
 			RG_DA_ANA_HP_LNGAIN_ATT_LCH_MASK_SFT,
 			0x0 << RG_DA_ANA_HP_LNGAIN_ATT_LCH_SFT);
+
+		/* Disable NLE */
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG,
+			RG_AFE_NLE_ON_MASK_SFT,
+			0x0 << RG_AFE_NLE_ON_SFT);
 	}
 	/* Disable LO when MUX to HPSPK */
 	if (priv->mux_select[MUX_HP_L] == HP_MUX_HPSPK) {
@@ -2642,52 +2592,39 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 
 	/* Disable Audio DAC */
 	if (priv->hp_hifi_mode) {
-		/* Enable Audio DAC  */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACL_PWRUP_VAUDP18_MASK_SFT |
 			RG_AUDDACR_PWRUP_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDDACR_PWRUP_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACL_PWRUP_VAUDP18_MASK_SFT,
 			0x0 << RG_AUDDACL_PWRUP_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACL_BIAS_PWRUP_VA32_MASK_SFT |
 			RG_AUDDACR_BIAS_PWRUP_VA32_MASK_SFT,
-			0x0 << RG_AUDDACR_BIAS_PWRUP_VA32_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACL_BIAS_PWRUP_VA32_MASK_SFT,
 			0x0 << RG_AUDDACL_BIAS_PWRUP_VA32_SFT);
 	} else {
-		/* Enable Audio HS&LO DAC */
+		/* Disable Audio HS&LO DAC */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACHS_PWRUP_VAUDP18_MASK_SFT,
+			RG_AUDDACHS_PWRUP_VAUDP18_MASK_SFT |
+			RG_AUDDACLO_PWRUP_VAUDP18_MASK_SFT,
 			0x0 << RG_AUDDACHS_PWRUP_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACLO_PWRUP_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDDACLO_PWRUP_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
-			RG_AUDDACHS_BIAS_PWRUP_VA32_MASK_SFT,
-			0x0 << RG_AUDDACHS_BIAS_PWRUP_VA32_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON0,
+			RG_AUDDACHS_BIAS_PWRUP_VA32_MASK_SFT |
 			RG_AUDDACLO_BIAS_PWRUP_VA32_MASK_SFT,
-			0x0 << RG_AUDDACLO_BIAS_PWRUP_VA32_SFT);
-		/* Disable low-noise mode of DAC */
+			0x0 << RG_AUDDACHS_BIAS_PWRUP_VA32_SFT);
+
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON47,
 			RG_ABIDEC_RSVD0_VA32_MASK_SFT,
 			0x0 << RG_ABIDEC_RSVD0_VA32_SFT);
 	}
 	/* CMFB resistor with modulation Rwell levele */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-		RG_AUDHPLCMFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLCMFB_RNWSEL_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+		RG_AUDHPLCMFB_RNWSEL_VAUDP18_MASK_SFT |
 		RG_AUDHPRCMFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRCMFB_RNWSEL_VAUDP18_SFT);
+		0x0 << RG_AUDHPLCMFB_RNWSEL_VAUDP18_SFT);
 	/* Feedback resistor with modulation Rwell level */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-		RG_AUDHPLHPFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLHPFB_RNWSEL_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+		RG_AUDHPLHPFB_RNWSEL_VAUDP18_MASK_SFT |
 		RG_AUDHPRHPFB_RNWSEL_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRHPFB_RNWSEL_VAUDP18_SFT);
+		0x0 << RG_AUDHPLHPFB_RNWSEL_VAUDP18_SFT);
 	/* Enable HP feedback SW source-tie */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON16,
 		RG_AUDHPHIFISWST_EN_VAUDP18_MASK_SFT,
@@ -2703,20 +2640,20 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 	}
 	/* Enable CMFB SW source-tie */
 	regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
-		DA_HPLCMFBSWST_EN_VAUDP18_MASK_SFT,
-		0x0 << DA_HPLCMFBSWST_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
+		DA_HPLCMFBSWST_EN_VAUDP18_MASK_SFT |
 		DA_HPRCMFBSWST_EN_VAUDP18_MASK_SFT,
-		0x0 << DA_HPRCMFBSWST_EN_VAUDP18_SFT);
+		0x0 << DA_HPLCMFBSWST_EN_VAUDP18_SFT);
 	/* Enable HP input MUX SW source-tie */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON15,
 		RG_HPMUXST_EN_VAUDP18_MASK_SFT,
 		0x0 << RG_HPMUXST_EN_VAUDP18_SFT);
 
+	/* Enable 2nd order damp circuit for Hi-Fi mode*/
 	if (priv->hp_hifi_mode)
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON15,
 			RG_DAMP2ND_EN_VAUDP18_MASK_SFT,
 			0x0 << RG_DAMP2ND_EN_VAUDP18_SFT);
+
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
 
@@ -2729,18 +2666,14 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 		0x7 << RG_HPLOUTPUTSTBENH_VAUDP18_SFT);
 	/* Short HP main output to HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPROUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPROUTAUXPWRUP_VAUDP18_SFT);
+		0x3 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
 	/* Enable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT |
 		RG_HPRSHORT2HPRAUX_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPRSHORT2HPRAUX_EN_VAUDP18_SFT);
+		0x3 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
 
 	/* decrease HPL/R gain to normal gain step by step */
 	headset_volume_ramp(priv,
@@ -2749,19 +2682,15 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 
 	/* Disable HP mute */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_HPLMUTE_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPLMUTE_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_HPLMUTE_EN_VAUDP18_MASK_SFT |
 		RG_HPRMUTE_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPRMUTE_EN_VAUDP18_SFT);
+		0x3 << RG_HPLMUTE_EN_VAUDP18_SFT);
 
 	/* Disable HP aux feedback loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT |
 		RG_HPRAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_HPRAUXFBRSW_EN_VAUDP18_SFT);
+		0x3 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
 	/* Reduce HP aux feedback loop gain */
 	hp_aux_feedback_loop_gain_ramp(priv, false);
 
@@ -2770,19 +2699,15 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 
 	/* Disable HP main output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLOUTPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLOUTPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLOUTPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPROUTPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPROUTPWRUP_VAUDP18_SFT);
+		0x0 << RG_AUDHPLOUTPWRUP_VAUDP18_SFT);
 
 	/* Enable HP aux CMFB loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT |
 		RG_AUDHPRAUXCM_EN_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRAUXCM_EN_VAUDP18_SFT);
+		0x3 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
 
 	/* Disable HP main CMFB loop */
 	regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M,
@@ -2797,70 +2722,54 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 	}
 	/* open HP output to AUX output */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLSHORT2HPLAUX_EN_VAUDP18_MASK_SFT |
 		RG_HPRSHORT2HPRAUX_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPRSHORT2HPRAUX_EN_VAUDP18_SFT);
+		0x0 << RG_HPLSHORT2HPLAUX_EN_VAUDP18_SFT);
 	/* Disable HP driver core circuits */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-		RG_AUDHPLPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
+		RG_AUDHPLPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPRPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRPWRUP_VAUDP18_SFT);
+		0x0 << RG_AUDHPLPWRUP_VAUDP18_SFT);
 	/* Disable HP driver bias circuits */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-		RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
+		RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT |
 		RG_AUDHPRPWRUP_IBIAS_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRPWRUP_IBIAS_VAUDP18_SFT);
+		0x0 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
 	/* Disable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+		RG_AUDHPLOUTAUXPWRUP_VAUDP18_MASK_SFT |
 		RG_AUDHPROUTAUXPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPROUTAUXPWRUP_VAUDP18_SFT);
+		0x0 << RG_AUDHPLOUTAUXPWRUP_VAUDP18_SFT);
 
 	/* Disable HP aux feedback loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
+		RG_HPLAUXFBRSW_EN_VAUDP18_MASK_SFT |
 		RG_HPRAUXFBRSW_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_HPRAUXFBRSW_EN_VAUDP18_SFT);
+		0x0 << RG_HPLAUXFBRSW_EN_VAUDP18_SFT);
 
 	/* Disable HP aux CMFB loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT |
 		RG_AUDHPRAUXCM_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRAUXCM_EN_VAUDP18_SFT);
+		0x0 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
 	if (priv->hp_hifi_mode) {
 		/* Disable HD removed SW when turn on sequence */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
-			RG_HPLHDRM_PFL_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_HPLHDRM_PFL_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON9,
+			RG_HPLHDRM_PFL_EN_VAUDP18_MASK_SFT |
 			RG_HPRHDRM_PFL_EN_VAUDP18_MASK_SFT,
-			0x0 << RG_HPRHDRM_PFL_EN_VAUDP18_SFT);
+			0x0 << RG_HPLHDRM_PFL_EN_VAUDP18_SFT);
 		/* Disable Neg R when turn on sequence */
 		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
-			DA_AUDHPLNEGR_EN_VAUDP18_MASK_SFT,
-			0x0 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON12_H,
+			DA_AUDHPLNEGR_EN_VAUDP18_MASK_SFT |
 			DA_AUDHPRNEGR_EN_VAUDP18_MASK_SFT,
-			0x0 << DA_AUDHPRNEGR_EN_VAUDP18_SFT);
+			0x0 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
 		/* Set HP NREG segmentation */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON12,
 			0xff, 0x0);
-	/* Enable HFOP circuits for Hi-Fi mode */
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON16,
-		RG_AUDHPHFOP_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPHFOP_EN_VAUDP18_SFT);
+		/* Enable HFOP circuits for Hi-Fi mode */
+		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON16,
+			RG_AUDHPHFOP_EN_VAUDP18_MASK_SFT,
+			0x0 << RG_AUDHPHFOP_EN_VAUDP18_SFT);
 	}
 	/* Enable HP damping ckt.  */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON15,
@@ -2895,22 +2804,22 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON19,
 			0xff, 0x0c);
 	}
-	/* NLE */
-	/* Set NLE DA signal to debug mode */
-	regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
-		RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_MASK_SFT,
-		0x0 << RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L,
-		RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_MASK_SFT,
-		0x0 << RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_SFT);
-
-	regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_H,
-		RG_DG_OUTPUT_DEBUG_MODE_LCH_MASK_SFT,
-		0x0 << RG_DG_OUTPUT_DEBUG_MODE_LCH_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_RCH_CFG0_H,
-		RG_DG_OUTPUT_DEBUG_MODE_RCH_MASK_SFT,
-		0x0 << RG_DG_OUTPUT_DEBUG_MODE_RCH_SFT);
-
+	if (priv->hp_hifi_mode == 2) {
+		/* NLE */
+		/* Set NLE DA signal to debug mode */
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
+			RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_MASK_SFT,
+			0x0 << RG_D2A_SIGNAL_SW_DEBUG_MODE_RCH_SFT);
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L,
+			RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_MASK_SFT,
+			0x0 << RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_SFT);
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_H,
+			RG_DG_OUTPUT_DEBUG_MODE_LCH_MASK_SFT,
+			0x0 << RG_DG_OUTPUT_DEBUG_MODE_LCH_SFT);
+		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_RCH_CFG0_H,
+			RG_DG_OUTPUT_DEBUG_MODE_RCH_MASK_SFT,
+			0x0 << RG_DG_OUTPUT_DEBUG_MODE_RCH_SFT);
+	}
 	/* BAIS */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON31,
 		RG_AUDIBIASPWRDN_VAUDP18_MASK_SFT,
@@ -2986,11 +2895,9 @@ static int mtk_hp_impedance_enable(struct mt6338_priv *priv)
 
 	/* Disable shortcut */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
+			RG_AUDHPLSCDISABLE_VAUDP18_MASK_SFT |
 			RG_AUDHPRSCDISABLE_VAUDP18_MASK_SFT,
-			0x1 << RG_AUDHPRSCDISABLE_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON5,
-			RG_AUDHPLSCDISABLE_VAUDP18_MASK_SFT,
-			0x1 << RG_AUDHPLSCDISABLE_VAUDP18_SFT);
+			0x3 << RG_AUDHPLSCDISABLE_VAUDP18_SFT);
 
 	/* IBIST */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON31,
@@ -3020,18 +2927,14 @@ static int mtk_hp_impedance_enable(struct mt6338_priv *priv)
 
 	/* Disable HP aux CMFB loop */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
+		RG_AUDHPLAUXCM_EN_VAUDP18_MASK_SFT |
 		RG_AUDHPRAUXCM_EN_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRAUXCM_EN_VAUDP18_SFT);
+		0x0 << RG_AUDHPLAUXCM_EN_VAUDP18_SFT);
 	/* Enable HP driver bias circuits */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-		RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
+		RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT |
 		RG_AUDHPRPWRUP_IBIAS_VAUDP18_MASK_SFT,
-		0x1 << RG_AUDHPRPWRUP_IBIAS_VAUDP18_SFT);
+		0x3 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
 
 	/* Disable HP damping circuit & HPN 4K load */
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON48,
@@ -3523,18 +3426,14 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 				0x0);
 		/* Disable HP driver core circuits */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-			RG_AUDHPLPWRUP_VAUDP18_MASK_SFT,
+			RG_AUDHPLPWRUP_VAUDP18_MASK_SFT |
+			RG_AUDHPRPWRUP_VAUDP18_MASK_SFT,
 			0x0 << RG_AUDHPLPWRUP_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-		RG_AUDHPRPWRUP_VAUDP18_MASK_SFT,
-		0x0 << RG_AUDHPRPWRUP_VAUDP18_SFT);
 		/* Disable HP driver bias circuits */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
-			RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON4,
+			RG_AUDHPLPWRUP_IBIAS_VAUDP18_MASK_SFT |
 			RG_AUDHPRPWRUP_IBIAS_VAUDP18_MASK_SFT,
-			0x0 << RG_AUDHPRPWRUP_IBIAS_VAUDP18_SFT);
+			0x0 << RG_AUDHPLPWRUP_IBIAS_VAUDP18_SFT);
 		}
 
 		/* Disable Audio DAC */
@@ -4401,6 +4300,15 @@ static int mt_clksq_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_CLKSQ_PMU_CON0,
 			RG_CLKSQ_AUDENC_EN_MASK_SFT,
 			0x1 << RG_CLKSQ_AUDENC_EN_SFT);
+		/* NLE enable */
+		if (priv->hp_hifi_mode == 2) {
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG_H,
+				SW_RSTB_MASK_SFT,
+				0x0 << SW_RSTB_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG_H,
+				SW_RSTB_MASK_SFT,
+				0x1 << SW_RSTB_SFT);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		regmap_update_bits(priv->regmap, MT6338_CLKSQ_PMU_CON0,
@@ -6592,7 +6500,7 @@ static int mt_delay_250_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 	case SND_SOC_DAPM_PRE_PMD:
-		usleep_range(250, 270);
+		usleep_range(25, 27);
 		break;
 	default:
 		break;
@@ -6608,7 +6516,7 @@ static int mt_delay_100_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 	case SND_SOC_DAPM_PRE_PMD:
-		usleep_range(100, 120);
+		usleep_range(10, 12);
 		break;
 	default:
 		break;
@@ -6746,7 +6654,6 @@ static int mt_esd_resist_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON10,
 			RG_AUDREFN_DERES_EN_VAUDP18_MASK_SFT,
 			0x1 << RG_AUDREFN_DERES_EN_VAUDP18_SFT);
-		usleep_range(250, 270);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		break;
@@ -6789,7 +6696,6 @@ static int mt_ldo_event(struct snd_soc_dapm_widget *w,
 			RG_LCLDO_DACSW_VREF_SEL_VA32_MASK_SFT,
 			0x2 << RG_LCLDO_DACSW_VREF_SEL_VA32_SFT);
 */
-		usleep_range(250, 270);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disnable for V32REFGEN */
@@ -6963,6 +6869,326 @@ static int mt_sdm_3rd_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SDM_DITHER_CON_M,
 			AFE_2ND_DAC_DL_SDM_DITHER_EN_MASK_SFT,
 			0x0 << AFE_2ND_DAC_DL_SDM_DITHER_EN_SFT);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int mt_nle_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (priv->hp_hifi_mode == 2) {
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG_H,
+				BYPASS_DELAY_MASK_SFT, 0x0);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG_M, 0x3b);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG_L,
+				POINT_END_H_MASK_SFT, 0x3);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG,
+				POINT_END_MASK_SFT, 0xb0);
+			/* ====== LCH ====== */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_H,
+				RG_H2L_BYPASS_1ST_START_LCH_MASK_SFT,
+				0x0 << RG_H2L_BYPASS_1ST_START_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_H,
+				RG_SW_DISABLE_POWER_DETECT_LCH_MASK_SFT,
+				0x0 << RG_SW_DISABLE_POWER_DETECT_LCH_SFT);
+			/* timeout 22ms */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_H,
+				RG_H2L_HOLD_TIME_LCH_MASK_SFT,
+				0x16 << RG_H2L_HOLD_TIME_LCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_M,
+				RG_NLE_VTH_LCH_H_MASK_SFT,
+				0x0 << RG_NLE_VTH_LCH_H_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_L,
+				RG_NLE_VTH_LCH_M_MASK_SFT,
+				0xb8 << RG_NLE_VTH_LCH_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG,
+				RG_NLE_VTH_LCH_MASK_SFT,
+				0x45 << RG_NLE_VTH_LCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_ZCD_LCH_CFG,
+				RG_ZCD_MODE_SEL_LCH_MASK_SFT,
+				0x2 << RG_ZCD_MODE_SEL_LCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_H,
+				RG_GAIN_ADJ_BYPASS_ZCD_LCH_MASK_SFT,
+				0x0 << RG_GAIN_ADJ_BYPASS_ZCD_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_H,
+				RG_TIME_OUT_LCH_MASK_SFT,
+				0x16 << RG_TIME_OUT_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_M,
+				RG_GAIN_STEP_PER_JUMP_LCH_MASK_SFT,
+				0x0 << RG_GAIN_STEP_PER_JUMP_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_M,
+				RG_HOLD_TIME_PER_JUMP_LCH_MASK_SFT,
+				0x0 << RG_HOLD_TIME_PER_JUMP_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_L,
+				RG_GAIN_STEP_PER_ZCD_LCH_MASK_SFT,
+				0x0 << RG_GAIN_STEP_PER_ZCD_LCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0,
+				RG_AG_MAX_LCH_MASK_SFT,
+				0x0 << RG_AG_MAX_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0,
+				RG_AG_MIN_LCH_MASK_SFT,
+				0x7 << RG_AG_MIN_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_M,
+				RG_AG_DELAY_LCH_MASK_SFT, 0x13 << RG_AG_DELAY_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_L,
+				RG_DG_MANUAL_LCH_MASK_SFT, 0x7 << RG_DG_MANUAL_LCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0,
+				RG_AG_MANUAL_LCH_MASK_SFT, 0x0 << RG_AG_MANUAL_LCH_SFT);
+
+			/* LCH gain */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G0_H,
+				RG_DG_STEP_LCH_SW_CONFIG_MODE_MASK_SFT,
+				0x1 << RG_DG_STEP_LCH_SW_CONFIG_MODE_SFT);
+			/* LCH gain G0: 0x010000 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G0_M,
+				RG_DG_LNGAIN_COMP_LCH_G0_M_MASK_SFT,
+				0x1 << RG_DG_LNGAIN_COMP_LCH_G0_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G0_L,
+				RG_DG_LNGAIN_COMP_LCH_G0_L_MASK_SFT,
+				0x3 << RG_DG_LNGAIN_COMP_LCH_G0_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G0,
+				RG_DG_LNGAIN_COMP_LCH_G0_MASK_SFT,
+				0x3e << RG_DG_LNGAIN_COMP_LCH_G0_SFT);
+			/* LCH gain G1: 0x016900 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G1_M,
+				RG_DG_LNGAIN_COMP_LCH_G1_M_MASK_SFT,
+				0x1 << RG_DG_LNGAIN_COMP_LCH_G1_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G1_L,
+				RG_DG_LNGAIN_COMP_LCH_G1_L_MASK_SFT,
+				0x1a << RG_DG_LNGAIN_COMP_LCH_G1_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G1,
+				RG_DG_LNGAIN_COMP_LCH_G1_MASK_SFT,
+				0x89 << RG_DG_LNGAIN_COMP_LCH_G1_SFT);
+			/* LCH gain G2: 0x01fe00 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G2_M,
+				RG_DG_LNGAIN_COMP_LCH_G2_M_MASK_SFT,
+				0x1 << RG_DG_LNGAIN_COMP_LCH_G2_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G2_L,
+				RG_DG_LNGAIN_COMP_LCH_G2_L_MASK_SFT,
+				0x88 << RG_DG_LNGAIN_COMP_LCH_G2_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G2,
+				RG_DG_LNGAIN_COMP_LCH_G2_MASK_SFT,
+				0x1b << RG_DG_LNGAIN_COMP_LCH_G2_SFT);
+			/* LCH gain G3: 0x02d100 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G3_M,
+				RG_DG_LNGAIN_COMP_LCH_G3_M_MASK_SFT,
+				0x2 << RG_DG_LNGAIN_COMP_LCH_G3_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G3_L,
+				RG_DG_LNGAIN_COMP_LCH_G3_L_MASK_SFT,
+				0x2e << RG_DG_LNGAIN_COMP_LCH_G3_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G3,
+				RG_DG_LNGAIN_COMP_LCH_G3_MASK_SFT,
+				0xff << RG_DG_LNGAIN_COMP_LCH_G3_SFT);
+			/* LCH gain G4: 0x03fb00 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G4_M,
+				RG_DG_LNGAIN_COMP_LCH_G4_M_MASK_SFT,
+				0x2 << RG_DG_LNGAIN_COMP_LCH_G4_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G4_L,
+				RG_DG_LNGAIN_COMP_LCH_G4_L_MASK_SFT,
+				0xf5 << RG_DG_LNGAIN_COMP_LCH_G4_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G4,
+				RG_DG_LNGAIN_COMP_LCH_G4_MASK_SFT,
+				0x7b << RG_DG_LNGAIN_COMP_LCH_G4_SFT);
+			/* LCH gain G5: 0x059f00 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G5_M,
+				RG_DG_LNGAIN_COMP_LCH_G5_M_MASK_SFT,
+				0x4 << RG_DG_LNGAIN_COMP_LCH_G5_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G5_L,
+				RG_DG_LNGAIN_COMP_LCH_G5_L_MASK_SFT,
+				0x76 << RG_DG_LNGAIN_COMP_LCH_G5_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G5,
+				RG_DG_LNGAIN_COMP_LCH_G5_MASK_SFT,
+				0x4b << RG_DG_LNGAIN_COMP_LCH_G5_SFT);
+			/* LCH gain G6: 0x07f100 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G6_M,
+				RG_DG_LNGAIN_COMP_LCH_G6_M_MASK_SFT,
+				0x6 << RG_DG_LNGAIN_COMP_LCH_G6_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G6_L,
+				RG_DG_LNGAIN_COMP_LCH_G6_L_MASK_SFT,
+				0x78 << RG_DG_LNGAIN_COMP_LCH_G6_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G6,
+				RG_DG_LNGAIN_COMP_LCH_G6_MASK_SFT,
+				0xbb << RG_DG_LNGAIN_COMP_LCH_G6_SFT);
+			/* LCH gain G7: 0x0b3800 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G7_M,
+				RG_DG_LNGAIN_COMP_LCH_G7_M_MASK_SFT,
+				0x9 << RG_DG_LNGAIN_COMP_LCH_G7_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G7_L,
+				RG_DG_LNGAIN_COMP_LCH_G7_L_MASK_SFT,
+				0x1D << RG_DG_LNGAIN_COMP_LCH_G7_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_LCH_G7,
+				RG_DG_LNGAIN_COMP_LCH_G7_MASK_SFT,
+				0x32 << RG_DG_LNGAIN_COMP_LCH_G7_SFT);
+
+			/* ====== RCH ====== */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_H,
+				RG_H2L_BYPASS_1ST_START_RCH_MASK_SFT,
+				0x0 << RG_H2L_BYPASS_1ST_START_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_H,
+				RG_SW_DISABLE_POWER_DETECT_RCH_MASK_SFT,
+				0x0 << RG_SW_DISABLE_POWER_DETECT_RCH_SFT);
+			/*  timeout 22ms */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_H,
+				RG_H2L_HOLD_TIME_RCH_MASK_SFT,
+				0x16 << RG_H2L_HOLD_TIME_RCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_M,
+				RG_NLE_VTH_RCH_H_MASK_SFT,
+				0x0 << RG_NLE_VTH_RCH_H_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_L,
+				RG_NLE_VTH_RCH_M_MASK_SFT,
+				0xb8 << RG_NLE_VTH_RCH_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG,
+				RG_NLE_VTH_RCH_MASK_SFT,
+				0x45 << RG_NLE_VTH_RCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_ZCD_RCH_CFG,
+				RG_ZCD_MODE_SEL_RCH_MASK_SFT,
+				0x2 << RG_ZCD_MODE_SEL_RCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_H,
+				RG_GAIN_ADJ_BYPASS_ZCD_RCH_MASK_SFT,
+				0x0 << RG_GAIN_ADJ_BYPASS_ZCD_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_H,
+				RG_TIME_OUT_RCH_MASK_SFT,
+				0x16 << RG_TIME_OUT_RCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_M,
+				RG_GAIN_STEP_PER_JUMP_RCH_MASK_SFT,
+				0x0 << RG_GAIN_STEP_PER_JUMP_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_M,
+				RG_HOLD_TIME_PER_JUMP_RCH_MASK_SFT,
+				0x0 << RG_HOLD_TIME_PER_JUMP_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_L,
+				RG_GAIN_STEP_PER_ZCD_RCH_MASK_SFT,
+				0x0 << RG_GAIN_STEP_PER_ZCD_RCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0,
+				RG_AG_MAX_RCH_MASK_SFT,
+				0x0 << RG_AG_MAX_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0,
+				RG_AG_MIN_RCH_MASK_SFT,
+				0x7 << RG_AG_MIN_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_RCH_CFG0_M,
+				RG_AG_DELAY_RCH_MASK_SFT,
+				0x13 << RG_AG_DELAY_RCH_SFT);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_RCH_CFG0_L,
+				RG_DG_MANUAL_RCH_MASK_SFT,
+				0x7 << RG_DG_MANUAL_RCH_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_RCH_CFG0,
+				RG_AG_MANUAL_RCH_MASK_SFT,
+				0x0 << RG_AG_MANUAL_RCH_SFT);
+
+			/* RCH gain */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G0_H,
+				RG_DG_STEP_RCH_SW_CONFIG_MODE_MASK_SFT,
+				0x1 << RG_DG_STEP_RCH_SW_CONFIG_MODE_SFT);
+			/* RCH gain G0: 0x010000 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G0_M,
+				RG_DG_LNGAIN_COMP_RCH_G0_M_MASK_SFT,
+				0x1 << RG_DG_LNGAIN_COMP_RCH_G0_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G0_L,
+				RG_DG_LNGAIN_COMP_RCH_G0_L_MASK_SFT,
+				0x5 << RG_DG_LNGAIN_COMP_RCH_G0_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G0,
+				RG_DG_LNGAIN_COMP_RCH_G0_MASK_SFT,
+				0x1e << RG_DG_LNGAIN_COMP_RCH_G0_SFT);
+			/* RCH gain G1: 0x016900 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G1_M,
+				RG_DG_LNGAIN_COMP_RCH_G1_M_MASK_SFT,
+				0x1 << RG_DG_LNGAIN_COMP_RCH_G1_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G1_L,
+				RG_DG_LNGAIN_COMP_RCH_G1_L_MASK_SFT,
+				0x1e << RG_DG_LNGAIN_COMP_RCH_G1_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G1,
+				RG_DG_LNGAIN_COMP_RCH_G1_MASK_SFT,
+				0x5c << RG_DG_LNGAIN_COMP_RCH_G1_SFT);
+			/* RCH gain G2: 0x01fe00 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G2_M,
+				RG_DG_LNGAIN_COMP_RCH_G2_M_MASK_SFT,
+				0x1 << RG_DG_LNGAIN_COMP_RCH_G2_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G2_L,
+				RG_DG_LNGAIN_COMP_RCH_G2_L_MASK_SFT,
+				0x8b << RG_DG_LNGAIN_COMP_RCH_G2_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G2,
+				RG_DG_LNGAIN_COMP_RCH_G2_MASK_SFT,
+				0xc1 << RG_DG_LNGAIN_COMP_RCH_G2_SFT);
+			/* RCH gain G3: 0x02d100 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G3_M,
+				RG_DG_LNGAIN_COMP_RCH_G3_M_MASK_SFT,
+				0x2 << RG_DG_LNGAIN_COMP_RCH_G3_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G3_L,
+				RG_DG_LNGAIN_COMP_RCH_G3_L_MASK_SFT,
+				0x26 << RG_DG_LNGAIN_COMP_RCH_G3_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G3,
+				RG_DG_LNGAIN_COMP_RCH_G3_MASK_SFT,
+				0xcb << RG_DG_LNGAIN_COMP_RCH_G3_SFT);
+			/* RCH gain G4: 0x03fb00 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G4_M,
+				RG_DG_LNGAIN_COMP_RCH_G4_M_MASK_SFT,
+				0x2 << RG_DG_LNGAIN_COMP_RCH_G4_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G4_L,
+				RG_DG_LNGAIN_COMP_RCH_G4_L_MASK_SFT,
+				0xf2 << RG_DG_LNGAIN_COMP_RCH_G4_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G4,
+				RG_DG_LNGAIN_COMP_RCH_G4_MASK_SFT,
+				0xca << RG_DG_LNGAIN_COMP_RCH_G4_SFT);
+			/* RCH gain G5: 0x059f00 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G5_M,
+				RG_DG_LNGAIN_COMP_RCH_G5_M_MASK_SFT,
+				0x4 << RG_DG_LNGAIN_COMP_RCH_G5_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G5_L,
+				RG_DG_LNGAIN_COMP_RCH_G5_L_MASK_SFT,
+				0x66 << RG_DG_LNGAIN_COMP_RCH_G5_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G5,
+				RG_DG_LNGAIN_COMP_RCH_G5_MASK_SFT,
+				0x10 << RG_DG_LNGAIN_COMP_RCH_G5_SFT);
+			/* RCH gain G6: 0x07f100 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G6_M,
+				RG_DG_LNGAIN_COMP_RCH_G6_M_MASK_SFT,
+				0x6 << RG_DG_LNGAIN_COMP_RCH_G6_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G6_L,
+				RG_DG_LNGAIN_COMP_RCH_G6_L_MASK_SFT,
+				0x53 << RG_DG_LNGAIN_COMP_RCH_G6_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G6,
+				RG_DG_LNGAIN_COMP_RCH_G6_MASK_SFT,
+				0xbc << RG_DG_LNGAIN_COMP_RCH_G6_SFT);
+			/* RCH gain G7: 0x0b3800 */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G7_M,
+				RG_DG_LNGAIN_COMP_RCH_G7_M_MASK_SFT,
+				0x8 << RG_DG_LNGAIN_COMP_RCH_G7_M_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G7_L,
+				RG_DG_LNGAIN_COMP_RCH_G7_L_MASK_SFT,
+				0xdc << RG_DG_LNGAIN_COMP_RCH_G7_L_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_LNGAIN_COMP_RCH_G7,
+				RG_DG_LNGAIN_COMP_RCH_G7_MASK_SFT,
+				0x72 << RG_DG_LNGAIN_COMP_RCH_G7_SFT);
+
+			/* NLE ON */
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG,
+				RG_LOW_LATENCY_MODE_MASK_SFT,
+				0x0 << RG_LOW_LATENCY_MODE_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_CFG,
+				RG_BYPASS_NLE_MASK_SFT,
+				0x0 << RG_BYPASS_NLE_SFT);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
 		break;
 	default:
 		break;
@@ -7199,6 +7425,10 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("SDM_3RD", SUPPLY_SEQ_DL_SDM,
 			      SND_SOC_NOPM, 0, 0,
 			      mt_sdm_3rd_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("NLE", SUPPLY_SEQ_DL_NLE,
+			      SND_SOC_NOPM, 0, 0,
+			      mt_nle_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* ch123 share SDM FIFO CLK */
@@ -7847,6 +8077,7 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"DL Digital Clock CH_1_2", NULL, "AFE_2ND_DL_SRC"},
 	{"DL Digital Clock CH_1_2", NULL, "SDM"},
 	{"DL Digital Clock CH_1_2", NULL, "SDM_3RD"},
+	{"DL Digital Clock CH_1_2", NULL, "NLE"},
 
 	{"DL Digital Clock CH_3_4", NULL, "DL Digital Clock"},
 	{"DL Digital Clock CH_3_4", NULL, "AFE_DL_SRC"},
