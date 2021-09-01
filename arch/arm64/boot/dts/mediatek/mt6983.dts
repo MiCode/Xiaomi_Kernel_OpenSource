@@ -2177,7 +2177,7 @@
 		mediatek,smi = <&smi_cam_mm_subcommon0 &smi_cam_sys_subcommon1>;
 		mediatek,larb-id = <13>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_C_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
 				 <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAMSV_CQ_C_CG_CON>;
 		clock-names = "apb", "smi";
 	};
@@ -2189,7 +2189,7 @@
 		mediatek,smi = <&smi_cam_mdp_subcommon1 &smi_cam_sys_subcommon1>;
 		mediatek,larb-id = <14>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_ADL_CG_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
 				 <&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_ADL_CG_CON>;
 		clock-names = "apb", "smi";
 	};
