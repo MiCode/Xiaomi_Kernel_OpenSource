@@ -10056,6 +10056,9 @@
 		event_ir_disp_eof = /bits/ 16 <CMDQ_EVENT_MMSYS_DISP_OVL0_FRAME_DONE>;
 		event_ir_mml_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
 		event_ir_disp_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
+
+		/* register offset */
+		ready-sel = /bits/ 16 <IN_LINE_READY_SEL>;
 	};
 
 	mdp_mutex0@1f801000 {
