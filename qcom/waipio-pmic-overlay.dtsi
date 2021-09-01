@@ -462,6 +462,30 @@
 				hysteresis = <10000>;
 				type = "critical";
 			};
+
+			display_test_config1: display-test-config1 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			display_test_config2: display-test-config2 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			display_test_config3: display-test-config3 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			display_test_config4: display-test-config4 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
 		};
 	};
 };
