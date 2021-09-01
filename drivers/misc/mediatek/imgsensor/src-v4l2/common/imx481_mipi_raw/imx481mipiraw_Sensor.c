@@ -130,10 +130,10 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.framelength = 3776,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 4656,
-		.grabwindow_height = 2608,
+		.grabwindow_width = 4000,
+		.grabwindow_height = 2250,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 734400000,
+		.mipi_pixel_rate = 736000000,
 		.max_framerate = 300,
 	},
 	.hs_video = {/*data rate 1840 Mbps/lane */
@@ -151,14 +151,14 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.slim_video = {/*data rate 1836 Mbps/lane */
 		.pclk = 580000000,
 		.linelength = 2560,
-		.framelength = 7552,
+		.framelength = 3776,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 1920,
 		.grabwindow_height = 1080,
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 734400000,
-		.max_framerate = 300,
+		.max_framerate = 600,
 	},
 
 	.margin = 18,		/* sensor framelength & shutter margin */
@@ -225,11 +225,11 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{4656, 3496, 0, 0, 4656, 3496, 4656, 3496,
 	0000, 0000, 4656, 3496, 0, 2, 4656, 3492},	/*Capture*/
 	{4656, 3496, 0, 444, 4656, 2608, 4656, 2608,
-	0000, 0000, 4656, 2608, 0, 0, 4656, 2608},	/*Video*/
+	328, 179, 4000, 2250, 0, 0, 4000, 2250},	/*Video*/
 	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
 	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*hs-video*/
-	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
-	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*slim video*/
+	{4656, 3496, 0, 440, 4656, 2608, 2328, 1304,
+	204, 112, 1920, 1080, 0, 0, 1920, 1080},	/*slim video*/
 };
 
 static void set_dummy(struct subdrv_ctx *ctx)
@@ -928,12 +928,12 @@ kal_uint16 addr_data_pair_video_imx481[] = {
 	/* ROI Setting */
 	0x0344, 0x00,
 	0x0345, 0x00,
-	0x0346, 0x00,
-	0x0347, 0x00,
+	0x0346, 0x01,
+	0x0347, 0xBC,
 	0x0348, 0x12,
 	0x0349, 0x2F,
-	0x034A, 0x0D,
-	0x034B, 0xA7,
+	0x034A, 0x0B,
+	0x034B, 0xEB,
 	/* Mode Setting */
 	0x0381, 0x01,
 	0x0383, 0x01,
@@ -945,19 +945,19 @@ kal_uint16 addr_data_pair_video_imx481[] = {
 	0x3F4C, 0x01,
 	0x3F4D, 0x01,
 	/* Digital Crop & Scaling */
-	0x0408, 0x00,
-	0x0409, 0x00,
-	0x040A, 0x01,
-	0x040B, 0xBC,
-	0x040C, 0x12,
-	0x040D, 0x30,
-	0x040E, 0x0A,
-	0x040F, 0x30,
+	0x0408, 0x01,
+	0x0409, 0x48,
+	0x040A, 0x00,
+	0x040B, 0xB2,
+	0x040C, 0x0F,
+	0x040D, 0xA0,
+	0x040E, 0x08,
+	0x040F, 0xCA,
 	/* Output Size Setting */
-	0x034C, 0x12,
-	0x034D, 0x30,
-	0x034E, 0x0A,
-	0x034F, 0x30,
+	0x034C, 0x0F,
+	0x034D, 0xA0,
+	0x034E, 0x08,
+	0x034F, 0xCA,
 	/* Clock Setting */
 	0x0301, 0x06,
 	0x0303, 0x02,
@@ -965,9 +965,9 @@ kal_uint16 addr_data_pair_video_imx481[] = {
 	0x0306, 0x01,
 	0x0307, 0x22,
 	0x030B, 0x01,
-	0x030D, 0x02,
+	0x030D, 0x03,
 	0x030E, 0x00,
-	0x030F, 0x99,
+	0x030F, 0xE6,
 	0x0310, 0x01,
 	/* PDAF Setting */
 	0x3E20, 0x01,
@@ -1098,17 +1098,17 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0x0342, 0x0A,
 	0x0343, 0x00,
 	/* Frame Length Lines Setting */
-	0x0340, 0x1D,
-	0x0341, 0x80,
+	0x0340, 0x0E,
+	0x0341, 0xC0,
 	/* ROI Setting */
 	0x0344, 0x00,
 	0x0345, 0x00,
-	0x0346, 0x02,
-	0x0347, 0x98,
+	0x0346, 0x01,
+	0x0347, 0xB8,
 	0x0348, 0x12,
 	0x0349, 0x2F,
 	0x034A, 0x0B,
-	0x034B, 0x07,
+	0x034B, 0xE7,
 	/* Mode Setting */
 	0x0381, 0x01,
 	0x0383, 0x01,
@@ -1123,7 +1123,7 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0x0408, 0x00,
 	0x0409, 0xCC,
 	0x040A, 0x00,
-	0x040B, 0x00,
+	0x040B, 0x70,
 	0x040C, 0x07,
 	0x040D, 0x80,
 	0x040E, 0x04,
@@ -1140,9 +1140,9 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0x0306, 0x01,
 	0x0307, 0x22,
 	0x030B, 0x01,
-	0x030D, 0x02,
+	0x030D, 0x03,
 	0x030E, 0x00,
-	0x030F, 0x99,
+	0x030F, 0xE6,
 	0x0310, 0x01,
 	/* PDAF Setting */
 	0x3E20, 0x01,
@@ -1161,8 +1161,8 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0xB2DF, 0x12,
 	0xB2E5, 0x06,
 	/* Integration Setting */
-	0x0202, 0x1D,
-	0x0203, 0x6E,
+	0x0202, 0x0E,
+	0x0203, 0xAE,
 	/* Gain Setting */
 	0x0204, 0x00,
 	0x0205, 0x00,
@@ -2236,8 +2236,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x1230,
-			.vsize = 0x0a30,
+			.hsize = 0x0FA0,
+			.vsize = 0x08CA,
 		},
 	},
 };
