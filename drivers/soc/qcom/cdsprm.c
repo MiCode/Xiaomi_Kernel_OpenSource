@@ -790,13 +790,16 @@ static int process_cdsp_request_thread(void *data)
 		if (result)
 			continue;
 
+		if (!req)
+			break;
+
 		msg = &req->msg;
 
-		if ((msg->feature_id == SYSMON_CDSP_FEATURE_RM_RX) &&
+		if (msg && (msg->feature_id == SYSMON_CDSP_FEATURE_RM_RX) &&
 			gcdsprm.b_qosinitdone) {
 			process_rm_request(msg);
-		} else if (msg->feature_id ==
-			SYSMON_CDSP_FEATURE_L3_RX) {
+		} else if (msg && (msg->feature_id ==
+			SYSMON_CDSP_FEATURE_L3_RX)) {
 			l3_clock_khz = msg->fs.l3_struct.l3_clock_khz;
 
 			spin_lock_irqsave(&gcdsprm.l3_lock, flags);
@@ -808,8 +811,8 @@ static int process_cdsp_request_thread(void *data)
 				pr_debug("Set L3 clock %d done\n",
 					l3_clock_khz);
 			}
-		} else if (msg->feature_id ==
-				SYSMON_CDSP_FEATURE_NPU_LIMIT_RX) {
+		} else if (msg && (msg->feature_id ==
+				SYSMON_CDSP_FEATURE_NPU_LIMIT_RX)) {
 			mutex_lock(&gcdsprm.npu_activity_lock);
 
 			gcdsprm.set_corner_limit_cached =
@@ -853,8 +856,8 @@ static int process_cdsp_request_thread(void *data)
 				pr_err("rpmsg send failed %d\n", result);
 			else
 				pr_debug("NPU limit ack sent\n");
-		} else if (msg->feature_id ==
-				SYSMON_CDSP_FEATURE_VERSION_RX) {
+		} else if (msg && (msg->feature_id ==
+				SYSMON_CDSP_FEATURE_VERSION_RX)) {
 			cdsprm_rpmsg_send_details();
 			pr_debug("Sent preserved data to DSP\n");
 		}
