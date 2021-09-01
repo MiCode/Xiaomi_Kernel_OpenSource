@@ -22,7 +22,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek \
              -I$(srctree)/drivers/iommu \
              -I$(srctree)/drivers/misc/mediatek/mtk-interconnect \
              -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox \
-             -I$(srctree)/drivers/misc/mediatek/slbc
+             -I$(srctree)/drivers/misc/mediatek/slbc \
+             -I$(srctree)/drivers/misc/mediatek/mmp
 
 obj-$(CONFIG_MTK_MML_LEGACY) := mtk-mml-legacy.o
 obj-$(CONFIG_MTK_MML) := mtk-mml.o
@@ -50,6 +51,10 @@ mtk-mml-objs += mtk-mml-rsz.o
 mtk-mml-objs += mtk-mml-tcc.o
 mtk-mml-objs += mtk-mml-tdshp.o
 mtk-mml-objs += mtk-mml-wrot.o
+
+ifneq (,$(strip $(CONFIG_MMPROFILE)))
+mtk-mml-objs += mtk-mml-mmp.o
+endif
 
 ifneq ($(wildcard $(srctree)/$(src)/mtk-mml-tp-mt6893.c),)
 obj-$(CONFIG_MTK_MML) += mtk-mml-mt6893.o

@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ */
+
+#include "mtk-mml-mmp.h"
+
+static struct mml_mmp_events_t mml_mmp_events;
+
+struct mml_mmp_events_t *mml_mmp_get_event(void)
+{
+	return &mml_mmp_events;
+}
+
+void mml_mmp_init(void)
+{
+	mmp_event mml;
+
+	if (mml_mmp_events.mml)
+		return;
+
+	mmprofile_enable(1);
+	mml = mmprofile_register_event(MMP_ROOT_EVENT, "MML");
+	mml_mmp_events.mml = mml;
+	mml_mmp_events.submit = mmprofile_register_event(mml, "submit");
+	mml_mmp_events.config = mmprofile_register_event(mml, "config");
+	mml_mmp_events.irq_loop = mmprofile_register_event(mml, "irq_loop");
+	mml_mmp_events.irq_err = mmprofile_register_event(mml, "irq_err");
+	mml_mmp_events.irq_done = mmprofile_register_event(mml, "irq_done");
+	mmprofile_enable_event_recursive(mml, 1);
+	mmprofile_start(1);
+}

@@ -24,6 +24,7 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-pq-core.h"
 #include "mtk-mml-sys.h"
+#include "mtk-mml-mmp.h"
 
 struct mml_dev {
 	struct platform_device *pdev;
@@ -859,6 +860,8 @@ static int __init mml_driver_init(void)
 		mml_err("failed to register mml core drivers");
 		return ret;
 	}
+
+	mml_mmp_init();
 
 	mml_pq_core_init();
 	/* register pm notifier */
