@@ -771,7 +771,7 @@ static void mtk_spr_config(struct mtk_ddp_comp *comp,
 							RDITHER_EN, handle);
 		}
 		//mtk_ddp_write_relaxed(comp, 0x21, DISP_REG_SPR_CFG, handle);
-		mtk_ddp_write_mask(comp, SPR_SPECIALCASEEN,
+		mtk_ddp_write_mask(comp, spr_params->specialcaseen << 28,
 					DISP_REG_SPR_CTRL, SPR_SPECIALCASEEN, handle);
 		/*0:5line buffers 1:3line buffers 2:0line buffers*/
 		mtk_ddp_write_mask(comp, SPR_POWERSAVING,
@@ -829,9 +829,12 @@ void mtk_spr_dump(struct mtk_ddp_comp *comp)
 	int i;
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
-	DDPDUMP("(0x000)DSC_SHADOW=0x%x\n",
-		readl(baddr + DISP_REG_SPR_EN));
 	DDPDUMP("-- Start dump spr registers --\n");
+	DDPDUMP("en=%d, spr_bypass=%d\n",
+		 DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
+				baddr + DISP_REG_SPR_EN),
+		 DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
+				baddr + DISP_REG_SPR_EN));
 	for (i = 0; i < 0x350; i += 16) {
 		DDPDUMP("SPR+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),
 			 readl(baddr + i + 0x4), readl(baddr + i + 0x8),
@@ -841,7 +844,14 @@ void mtk_spr_dump(struct mtk_ddp_comp *comp)
 
 int mtk_spr_analysis(struct mtk_ddp_comp *comp)
 {
+	void __iomem *baddr = comp->regs;
+
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("en=%d, spr_bypass=%d\n",
+		 DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
+				baddr + DISP_REG_SPR_EN),
+		 DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
+				baddr + DISP_REG_SPR_EN));
 
 	return 0;
 }

@@ -190,50 +190,51 @@ static void mtk_cm_config(struct mtk_ddp_comp *comp,
 	cm_tune_params = comp->mtk_crtc->panel_cm_params;
 
 	mtk_ddp_write(comp, 0x00000004, DISP_REG_CM_SHADOW, handle);
-	mtk_ddp_write(comp, cfg->h << 16 | width, DISP_REG_CM_SIZE, handle);
+	mtk_ddp_write(comp, width << 16 | cfg->h, DISP_REG_CM_SIZE, handle);
 	mtk_ddp_write_mask(comp, DISP_REG_CM_EN, CM_EN,
 			DISP_REG_CM_EN, handle);
 	mtk_ddp_write_mask(comp, CM_ENGINE_EN, DISP_REG_CM_CFG,
 				CM_ENGINE_EN, handle);
+	mtk_ddp_write_mask(comp, CM_GAMMA_ROUND_EN, DISP_REG_CM_CFG,
+				CM_GAMMA_ROUND_EN, handle);
 
 	if (disp_cm_bypass || cm_params->enable == 0 || cm_params->relay == 1) {
 		mtk_ddp_write_mask(comp, RELAY_MODE, DISP_REG_CM_CFG,
 				RELAY_MODE, handle);
+		return;
 	}
 
-		mtk_ddp_write_mask(comp, CM_GAMMA_ROUND_EN, DISP_REG_CM_CFG,
-				CM_GAMMA_ROUND_EN, handle);
-		if (cm_params->bits_switch == 1)
-			mtk_ddp_write_mask(comp, CM_8B_SWITCH, DISP_REG_CM_CFG,
+	if (cm_params->bits_switch == 1)
+		mtk_ddp_write_mask(comp, CM_8B_SWITCH, DISP_REG_CM_CFG,
 				CM_8B_SWITCH, handle);
-		if (cm_tune_params && cm_tune_params->enable) {
-			mtk_ddp_write(comp, cm_tune_params->cm_c00 << 16 | cm_tune_params->cm_c01,
+	if (cm_tune_params && cm_tune_params->enable) {
+		mtk_ddp_write(comp, cm_tune_params->cm_c00 << 16 | cm_tune_params->cm_c01,
 				DISP_REG_CM_COEF_0, handle);
-			mtk_ddp_write(comp, cm_tune_params->cm_c02 << 16 | cm_tune_params->cm_c10,
+		mtk_ddp_write(comp, cm_tune_params->cm_c02 << 16 | cm_tune_params->cm_c10,
 				DISP_REG_CM_COEF_1, handle);
-			mtk_ddp_write(comp, cm_tune_params->cm_c11 << 16 | cm_tune_params->cm_c12,
+		mtk_ddp_write(comp, cm_tune_params->cm_c11 << 16 | cm_tune_params->cm_c12,
 				DISP_REG_CM_COEF_2, handle);
-			mtk_ddp_write(comp, cm_tune_params->cm_c20 << 16 | cm_tune_params->cm_c21,
+		mtk_ddp_write(comp, cm_tune_params->cm_c20 << 16 | cm_tune_params->cm_c21,
 				DISP_REG_CM_COEF_3, handle);
-			mtk_ddp_write(comp, cm_tune_params->cm_c22 << 16 |
+		mtk_ddp_write(comp, cm_tune_params->cm_c22 << 16 |
 					cm_params->cm_coeff_round_en << 1
 					| cm_params->cm_gray_en,
 					DISP_REG_CM_COEF_4, handle);
-		} else {
-			mtk_ddp_write(comp, cm_params->cm_c00 << 16 | cm_params->cm_c01,
+	} else {
+		mtk_ddp_write(comp, cm_params->cm_c00 << 16 | cm_params->cm_c01,
 				DISP_REG_CM_COEF_0, handle);
-			mtk_ddp_write(comp, cm_params->cm_c02 << 16 | cm_params->cm_c10,
+		mtk_ddp_write(comp, cm_params->cm_c02 << 16 | cm_params->cm_c10,
 				DISP_REG_CM_COEF_1, handle);
-			mtk_ddp_write(comp, cm_params->cm_c11 << 16 | cm_params->cm_c12,
+		mtk_ddp_write(comp, cm_params->cm_c11 << 16 | cm_params->cm_c12,
 				DISP_REG_CM_COEF_2, handle);
-			mtk_ddp_write(comp, cm_params->cm_c20 << 16 | cm_params->cm_c21,
+		mtk_ddp_write(comp, cm_params->cm_c20 << 16 | cm_params->cm_c21,
 				DISP_REG_CM_COEF_3, handle);
-			mtk_ddp_write(comp, cm_params->cm_c22 << 16
+		mtk_ddp_write(comp, cm_params->cm_c22 << 16
 					| cm_params->cm_coeff_round_en << 1
 					| cm_params->cm_gray_en,
 					DISP_REG_CM_COEF_4, handle);
-		}
-		mtk_ddp_write(comp, cm_params->cm_precision_mask,
+	}
+	mtk_ddp_write(comp, cm_params->cm_precision_mask,
 			DISP_REG_CM_PRECISION, handle);
 }
 
@@ -244,9 +245,11 @@ void mtk_cm_dump(struct mtk_ddp_comp *comp)
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 
-	DDPDUMP("(0x000)DSC_START=0x%x\n", readl(baddr + DISP_REG_CM_EN));
-	DDPDUMP("(0x000)DSC_SHADOW=0x%x\n",
-		readl(baddr + DISP_REG_CM_SHADOW));
+	DDPDUMP("en=%d, cm_bypass=%d\n",
+		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_EN,
+				baddr + DISP_REG_CM_EN),
+		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_RELAY_MODE,
+				baddr + DISP_REG_CM_CFG));
 	DDPDUMP("-- Start dump cm registers --\n");
 	for (i = 0; i < 300; i += 16) {
 		DDPDUMP("CM+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),
@@ -257,7 +260,14 @@ void mtk_cm_dump(struct mtk_ddp_comp *comp)
 
 int mtk_cm_analysis(struct mtk_ddp_comp *comp)
 {
+	void __iomem *baddr = comp->regs;
+
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("en=%d, cm_bypass=%d\n",
+		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_EN,
+				baddr + DISP_REG_CM_EN),
+		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_RELAY_MODE,
+				baddr + DISP_REG_CM_CFG));
 
 	return 0;
 }

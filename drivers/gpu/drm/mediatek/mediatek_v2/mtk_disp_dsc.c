@@ -31,7 +31,7 @@
 	#define DSC_IN_SRC_SEL BIT(3)
 	#define DSC_BYPASS BIT(4)
 	#define DSC_RELAY BIT(5)
-	#define DSC_EMPTY_FLAG_SEL		0xC000
+	#define DSC_EMPTY_FLAG_SEL REG_FLD_MSB_LSB(15, 14)
 	#define DSC_UFOE_SEL BIT(16)
 	#define CON_FLD_DSC_EN		REG_FLD_MSB_LSB(0, 0)
 	#define CON_FLD_DISP_DSC_BYPASS		REG_FLD_MSB_LSB(4, 4)
@@ -185,14 +185,9 @@ static void mtk_dsc_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write_mask(comp, DSC_FORCE_COMMIT,
 		DISP_REG_DSC_SHADOW, DSC_FORCE_COMMIT, handle);
 
-	if (dsc->enable) {
+	if (dsc->enable)
 		mtk_ddp_write_mask(comp, DSC_EN, DISP_REG_DSC_CON,
 				DSC_EN, handle);
-
-		/* DSC Empty flag always high */
-		mtk_ddp_write_mask(comp, 0x4000, DISP_REG_DSC_CON,
-				DSC_EMPTY_FLAG_SEL, handle);
-	}
 
 	DDPINFO("%s, dsc_start:0x%x\n",
 		mtk_dump_comp_str(comp), readl(baddr + DISP_REG_DSC_CON));
@@ -377,13 +372,18 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			}
 			mtk_ddp_write_relaxed(comp, reg_val,
 				DISP_REG_DSC_SPR, handle);
-			chrunk_size = (enc_slice_width*bit_per_pixel+7)/8;
+			chrunk_size = (enc_slice_width*bit_per_pixel / 16 + 7)/8;
 		} else {
 			mtk_ddp_write_relaxed(comp, 0x0,
 				DISP_REG_DSC_SPR, handle);
 			enc_slice_width = slice_width;
 		}
 		enc_pic_width = enc_slice_width * (dsc_params->slice_mode + 1);
+		if (spr_params->enable && spr_params->relay == 0
+			&& disp_spr_bypass == 0) {
+			pic_group_width = (enc_pic_width + 2) / 3;
+			slice_group_width = (enc_slice_width + 2) / 3;
+		}
 		if (dsc->data->need_obuf_sw && enc_pic_width < 1440) {
 			mtk_ddp_write_relaxed(comp,
 				0x800002d9, DISP_REG_DSC_OBUF, handle);
@@ -393,6 +393,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			enc_pic_width << 16 | enc_slice_width,
 			DISP_REG_DSC_ENC_WIDTH, handle);
 
+		if (dsc_params->ver == 2)
+			dsc_con = 0x4080;
+		else
+			dsc_con = 0x4000;
 		dsc_con |= DSC_UFOE_SEL;
 		if (comp->mtk_crtc->is_dual_pipe)
 			dsc_con |= DSC_IN_SRC_SEL;
@@ -403,7 +407,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp,
 			(pic_group_width - 1) << 16 | cfg->w,
 			DISP_REG_DSC_PIC_W, handle);
-
 		mtk_ddp_write_relaxed(comp,
 			(pic_height_ext_num * slice_height - 1) << 16 |
 			(cfg->h - 1),
@@ -448,9 +451,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_mask(comp, reg_val,
 					DISP_REG_DSC_MODE, 0xFFFF, handle);
 
-		DDPMSG("%s, init delay:%d\n",
-			mtk_dump_comp_str(comp), reg_val);
-
 		mtk_ddp_write_relaxed(comp,
 			(dsc_params->dsc_cfg == 0) ? 0x22 : dsc_params->dsc_cfg,
 			DISP_REG_DSC_CFG, handle);
@@ -463,10 +463,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			(((dsc_params->ver & 0xf) == 2) ? 0x40 : 0x20),
 			DISP_REG_DSC_SHADOW, 0x60, handle);
 
-		if (dsc_params->dsc_line_buf_depth == 0)
-			reg_val = 0x9;
-		else
-			reg_val = dsc_params->dsc_line_buf_depth;
+		reg_val = dsc_params->dsc_line_buf_depth;
 		if (dsc_params->bit_per_channel == 0)
 			reg_val |= (0x8 << 4);
 		else
@@ -475,11 +472,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			reg_val |= (0x80 << 8);
 		else
 			reg_val |= (dsc_params->bit_per_pixel << 8);
-		if (dsc_params->rct_on == 0)
-			reg_val |= (0x1 << 18);
-		else
-			reg_val |= (dsc_params->rct_on << 18);
+
+		reg_val |= (dsc_params->rct_on << 18);
 		reg_val |= (dsc_params->bp_enable << 19);
+
 		mtk_ddp_write_relaxed(comp,	reg_val,
 			DISP_REG_DSC_PPS0, handle);
 
@@ -545,6 +541,17 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write(comp, 0xd185d965,	DISP_REG_DSC_PPS17, handle);
 		mtk_ddp_write(comp, 0xd1a7d1a5,	DISP_REG_DSC_PPS18, handle);
 		mtk_ddp_write(comp, 0x0000d1ed,	DISP_REG_DSC_PPS19, handle);
+
+		if (spr_params->enable && spr_params->relay == 0
+					&& disp_spr_bypass == 0) {
+			mtk_ddp_write(comp, 0x0001d822, DISP_REG_DSC_CFG, handle);//VESA1.2 needed
+			//mtk_ddp_write(comp, 0x00014001, DISP_REG_DSC_CON, handle);
+			mtk_ddp_write(comp, 0x800840, DISP_REG_DSC_PPS12, handle);
+			mtk_ddp_write(comp, 0xd923e103,	DISP_REG_DSC_PPS16, handle);
+			mtk_ddp_write(comp, 0xd125d925,	DISP_REG_DSC_PPS17, handle);
+			mtk_ddp_write(comp, 0xd147d125,	DISP_REG_DSC_PPS18, handle);
+			mtk_ddp_write(comp, 0xd16a,	DISP_REG_DSC_PPS19, handle);
+		}
 
 #ifdef IF_ZERO
 		if (comp->mtk_crtc->is_dual_pipe) {
