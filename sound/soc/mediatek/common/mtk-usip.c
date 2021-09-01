@@ -31,6 +31,8 @@
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 static void usip_send_emi_info_to_dsp(void);
+static void usip_send_emi_info_to_dsp_ble_ul(void);
+static void usip_send_emi_info_to_dsp_ble_dl(void);
 #endif
 
 int EMI_TABLE[3][3]
@@ -107,6 +109,8 @@ static long usip_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			usip.adsp_phone_call_enh_config);
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 		usip_send_emi_info_to_dsp();
+		usip_send_emi_info_to_dsp_ble_ul();
+		usip_send_emi_info_to_dsp_ble_dl();
 #endif
 		break;
 	default:
@@ -219,7 +223,104 @@ static void usip_get_addr(void)
 	}
 #endif
 }
+
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+static void usip_send_emi_info_to_dsp_ble_dl(void)
+{
+	int send_result = 0;
+	struct ipi_msg_t ipi_msg;
+	long long usip_emi_info[2]; //idx0 for addr, idx1 for size
+	phys_addr_t offset = 0;
+
+	if (usip.addr_phy == 0) {
+		pr_info("%s(), cannot get emi addr from ccci", __func__);
+		return;
+	}
+
+	offset = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_OFFSET];
+	usip_emi_info[0] = usip.addr_phy + offset;
+	usip_emi_info[1] = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_SIZE] +
+			EMI_TABLE[SP_EMI_ADSP_USIP_SMARTPA][SP_EMI_SIZE];
+	pr_debug("%s(), usip_emi_info[0] 0x%x, usip_emi_info[1] 0x%x\n",
+		__func__, usip_emi_info[0], usip_emi_info[1]);
+
+	ipi_msg.magic      = IPI_MSG_MAGIC_NUMBER;
+	ipi_msg.task_scene = TASK_SCENE_BLECALLDL;
+	ipi_msg.source_layer  = AUDIO_IPI_LAYER_FROM_KERNEL;
+	ipi_msg.target_layer  = AUDIO_IPI_LAYER_TO_DSP;
+	ipi_msg.data_type  = AUDIO_IPI_PAYLOAD;
+	ipi_msg.ack_type   = AUDIO_IPI_MSG_BYPASS_ACK;
+	ipi_msg.msg_id     = IPI_MSG_A2D_GET_EMI_ADDRESS;
+	ipi_msg.param1     = sizeof(usip_emi_info);
+	ipi_msg.param2     = 0;
+
+	// Send EMI Address to Hifi3 Via IPI
+	adsp_register_feature(BLE_CALL_DL_FEATURE_ID);
+	send_result = audio_send_ipi_msg(
+					 &ipi_msg, TASK_SCENE_BLECALLDL,
+					 AUDIO_IPI_LAYER_TO_DSP,
+					 AUDIO_IPI_PAYLOAD,
+					 AUDIO_IPI_MSG_BYPASS_ACK,
+					 IPI_MSG_A2D_GET_EMI_ADDRESS,
+					 sizeof(usip_emi_info),
+					 0,
+					 (char *)&usip_emi_info);
+	adsp_deregister_feature(BLE_CALL_DL_FEATURE_ID);
+
+	if (send_result != 0)
+		pr_info("%s(), BLE scp_ipi send fail\n", __func__);
+	else
+		pr_debug("%s(), BLE scp_ipi send succeed\n", __func__);
+}
+
+static void usip_send_emi_info_to_dsp_ble_ul(void)
+{
+	int send_result = 0;
+	struct ipi_msg_t ipi_msg;
+	long long usip_emi_info[2]; //idx0 for addr, idx1 for size
+	phys_addr_t offset = 0;
+
+	if (usip.addr_phy == 0) {
+		pr_info("%s(), cannot get emi addr from ccci", __func__);
+		return;
+	}
+
+	offset = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_OFFSET];
+	usip_emi_info[0] = usip.addr_phy + offset;
+	usip_emi_info[1] = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_SIZE] +
+		EMI_TABLE[SP_EMI_ADSP_USIP_SMARTPA][SP_EMI_SIZE];
+	pr_debug("%s(), usip_emi_info[0] 0x%x, usip_emi_info[1] 0x%x\n",
+		__func__, usip_emi_info[0], usip_emi_info[1]);
+
+	ipi_msg.magic      = IPI_MSG_MAGIC_NUMBER;
+	ipi_msg.task_scene = TASK_SCENE_BLECALLUL;
+	ipi_msg.source_layer  = AUDIO_IPI_LAYER_FROM_KERNEL;
+	ipi_msg.target_layer  = AUDIO_IPI_LAYER_TO_DSP;
+	ipi_msg.data_type  = AUDIO_IPI_PAYLOAD;
+	ipi_msg.ack_type   = AUDIO_IPI_MSG_BYPASS_ACK;
+	ipi_msg.msg_id     = IPI_MSG_A2D_GET_EMI_ADDRESS;
+	ipi_msg.param1     = sizeof(usip_emi_info);
+	ipi_msg.param2     = 0;
+
+	// Send EMI Address to Hifi3 Via IPI
+	adsp_register_feature(BLE_CALL_UL_FEATURE_ID);
+	send_result = audio_send_ipi_msg(
+					 &ipi_msg, TASK_SCENE_BLECALLUL,
+					 AUDIO_IPI_LAYER_TO_DSP,
+					 AUDIO_IPI_PAYLOAD,
+					 AUDIO_IPI_MSG_BYPASS_ACK,
+					 IPI_MSG_A2D_GET_EMI_ADDRESS,
+					 sizeof(usip_emi_info),
+					 0,
+					 (char *)&usip_emi_info);
+	adsp_deregister_feature(BLE_CALL_UL_FEATURE_ID);
+
+	if (send_result != 0)
+		pr_info("%s(), BLE scp_ipi send fail\n", __func__);
+	else
+		pr_debug("%s(), BLE scp_ipi send succeed\n", __func__);
+}
+
 static void usip_send_emi_info_to_dsp(void)
 {
 	int send_result = 0;
@@ -245,7 +346,8 @@ static void usip_send_emi_info_to_dsp(void)
 
 	offset = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_OFFSET];
 	usip_emi_info[0] = usip.addr_phy + offset;
-	usip_emi_info[1] = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_SIZE];
+	usip_emi_info[1] = EMI_TABLE[SP_EMI_ADSP_USIP_PHONECALL][SP_EMI_SIZE] +
+		EMI_TABLE[SP_EMI_ADSP_USIP_SMARTPA][SP_EMI_SIZE];
 
 	ipi_msg.magic      = IPI_MSG_MAGIC_NUMBER;
 	ipi_msg.task_scene = TASK_SCENE_PHONE_CALL;
@@ -305,6 +407,8 @@ static int audio_call_event_receive(struct notifier_block *this,
 		break;
 	case ADSP_EVENT_READY:
 		usip_send_emi_info_to_dsp();
+		usip_send_emi_info_to_dsp_ble_ul();
+		usip_send_emi_info_to_dsp_ble_dl();
 		break;
 	default:
 		pr_info("event %lu err", event);
@@ -327,6 +431,8 @@ static int usip_open(struct inode *inode, struct file *file)
 		usip_get_addr();
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 		usip_send_emi_info_to_dsp();
+		usip_send_emi_info_to_dsp_ble_ul();
+		usip_send_emi_info_to_dsp_ble_dl();
 #endif
 	}
 
@@ -377,6 +483,8 @@ static int speech_usip_dev_probe(struct platform_device *pdev)
 		pr_debug("%s adsp_phone_call_enh_enable is %d\n", __func__, usip.adsp_phone_call_enh_config);
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 	usip_send_emi_info_to_dsp();
+	usip_send_emi_info_to_dsp_ble_ul();
+	usip_send_emi_info_to_dsp_ble_dl();
 #endif
 	return 0;
 }
