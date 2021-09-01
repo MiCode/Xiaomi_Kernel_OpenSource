@@ -1450,6 +1450,8 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main_wb_path[] = {
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext[] = {
 	DDP_COMPONENT_OVL2_2L_NWCG,
 	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
+	DDP_COMPONENT_SUB1_VIRTUAL1,
+	DDP_COMPONENT_DP_INTF0,
 //	DDP_COMPONENT_MAIN1_VIRTUAL,
 //	DDP_COMPONENT_DSI1,
 };
@@ -3403,9 +3405,10 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 		ret = mtk_drm_get_panel_info(dev, info, 0);
 		return ret;
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
-		if (MTK_SESSION_DEV(info->session_id) == 1)
-			ret = mtk_drm_get_panel_info(dev, info, 1);
-		else
+
+//		if (MTK_SESSION_DEV(info->session_id) == 1)
+//			ret = mtk_drm_get_panel_info(dev, info, 1);
+//		else
 			ret = mtk_drm_dp_get_info(dev, info);
 		return ret;
 	} else if (s_type == MTK_SESSION_MEMORY) {

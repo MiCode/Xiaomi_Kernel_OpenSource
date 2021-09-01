@@ -4474,10 +4474,8 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 		//	mtk_disp_mutex_add_comp
 		//		(mtk_crtc->mutex[0], DDP_COMPONENT_DSI1);
 	}
-
 	/* set mutex sof, eof */
 	mtk_disp_mutex_src_set(mtk_crtc, mtk_crtc_is_frame_trigger_mode(crtc));
-
 	/* if VDO mode, enable mutex by CPU here */
 	if (!mtk_crtc_is_frame_trigger_mode(crtc))
 		mtk_disp_mutex_enable(mtk_crtc->mutex[0]);

@@ -611,7 +611,7 @@
 	#define DISP_SUB0_SOUT_SEL_TO_DISP_RDMA1_IN_RELAY		  0x0
 	#define DISP_SUB0_SOUT_SEL_TO_DISP_DP_INTF0_SEL_IN		  0x1
 
-#define MT6983_DISP_SUB0_TX_SOUT_SEL	0xFC0
+#define MT6983_DISP_SUB0_TX_SOUT_SEL	0xFC4
 	#define DISP_SUB0_TX_SOUT_SEL_TO_DISP_DP_INTF0		  0x0
 
 #define MT6983_DISP_POSTMASK0_MOUT_EN	0xFE0
@@ -704,7 +704,7 @@
 #define MT6983_MUTEX_EOF_DSI0 (MT6983_MUTEX_SOF_DSI0 << 6)
 #define MT6983_MUTEX_EOF_DPI0 (MT6983_MUTEX_SOF_DPI0 << 6)
 #define MT6983_MUTEX_EOF_DSI1 (MT6983_MUTEX_SOF_DSI1 << 6)
-
+#define MT6983_MUTEX_EOF_DPI1 (MT6983_MUTEX_SOF_DPI1 << 6)
 
 #define DISP_REG_CONFIG_MMSYS_CG_CON0_MT6983 0x100
 #define DISP_REG_CONFIG_MMSYS_CG_CON1_MT6983 0x110
@@ -8085,12 +8085,10 @@ void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
 			__func__, __LINE__,
 			&ddp->mutex[mutex->id], mutex, mutex->id);
-
 	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1)
 		reg_addr = ddp->side_regs;
 	else
 		reg_addr = ddp->regs;
-
 	if (ddp->data->mutex_mod[id] <= BIT(31)) {
 		reg = readl_relaxed(reg_addr +
 				    DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
@@ -8155,6 +8153,7 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 
 	writel_relaxed(ddp->data->mutex_sof[val],
 		       ddp->regs + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
+
 	if (ddp->data->dispsys_map && ddp->side_regs) {
 		/* disp0 DSI0 mutex src should mapping to DSI1, and vice versa */
 		if (val == DDP_MUTEX_SOF_DSI0)
@@ -8224,7 +8223,7 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (is_cmd_mode)
 			reg = DDP_MUTEX_SOF_SINGLE_MODE;
 		else
-			reg = DDP_MUTEX_SOF_DPI1;
+			reg = DDP_MUTEX_SOF_DPI0;
 		break;
 	default:
 		if (ddp->data->mutex_mod[id] <= BIT(31)) {

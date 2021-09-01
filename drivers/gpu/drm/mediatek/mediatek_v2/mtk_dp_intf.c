@@ -201,12 +201,10 @@ static void mtk_dp_intf_start(struct mtk_ddp_comp *comp,
 	irq_tl = 0;
 
 	mtk_dp_intf_mask(dp_intf, DP_INTSTA, 0xf, 0);
-
 	mtk_ddp_write_mask(comp, 1,
 		DP_RST, CON_FLD_DP_RST, handle);
 	mtk_ddp_write_mask(comp, 0,
 		DP_RST, CON_FLD_DP_RST, handle);
-
 #ifdef IF_ZERO
 	mtk_ddp_write_mask(comp,
 			(INT_UNDERFLOW_EN |
@@ -225,7 +223,6 @@ static void mtk_dp_intf_start(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_mask(comp, DP_CONTROLLER_EN,
 		DP_EN, DP_CONTROLLER_EN, handle);
 	dp_intf->enable = 1;
-
 	DDPMSG("%s, dp_intf_start:0x%x!\n",
 		mtk_dump_comp_str(comp), readl(baddr + DP_EN));
 }

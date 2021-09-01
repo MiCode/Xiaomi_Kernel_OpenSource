@@ -2038,6 +2038,28 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 	msWrite4Byte(mtk_dp, 0x124C, value);
 	DPTXDBG("0x4C:%#010x, 0x4C:%#010x", value, msRead4Byte(mtk_dp, 0x114C));
 
+//PORTING FROM CTP
+		msWrite4Byte(mtk_dp, 0x1138, 0x20181410);
+		msWrite4Byte(mtk_dp, 0x113C, 0x20241e18);
+		msWrite4Byte(mtk_dp, 0x1140, 0x00003028);
+		msWrite4Byte(mtk_dp, 0x1144, 0x10080400);
+		msWrite4Byte(mtk_dp, 0x1148, 0x000c0600);
+		msWrite4Byte(mtk_dp, 0x114C, 0x00000008);
+
+		msWrite4Byte(mtk_dp, 0x1238, 0x20181410);
+		msWrite4Byte(mtk_dp, 0x123C, 0x20241e18);
+		msWrite4Byte(mtk_dp, 0x1240, 0x00003028);
+		msWrite4Byte(mtk_dp, 0x1244, 0x10080400);
+		msWrite4Byte(mtk_dp, 0x1248, 0x000c0600);
+		msWrite4Byte(mtk_dp, 0x124C, 0x00000008);
+
+		msWrite4ByteMask(mtk_dp, 0x003C, 0x004 << 24, BITMASK(28:24));
+		msWrite4ByteMask(mtk_dp, 0x0008, 0x7 << 3, BITMASK(6:3));
+		msWrite4ByteMask(mtk_dp, 0x003C, BIT23, BIT23);
+		msWrite4ByteMask(mtk_dp, 0x0054, BIT23, BIT23);
+		msWrite4ByteMask(mtk_dp, 0x0054, 0x004 << 24, BITMASK(28:24));
+//PORTING FROM CTP END
+
 	msWrite4ByteMask(mtk_dp, 0x3690, BIT8, BIT8);
 }
 
@@ -2046,7 +2068,6 @@ void mhal_DPTx_SSCOnOffSetting(struct mtk_dp *mtk_dp, bool bENABLE)
 	DPTXMSG("SSC enable = %d\n", bENABLE);
 
 	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(0:1));
-
 	if (bENABLE)
 		msWrite4ByteMask(mtk_dp, 0x1014, BIT(3), BIT(3));
 	else
@@ -2167,23 +2188,28 @@ void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value)
 
 	msWrite4Byte(mtk_dp, 0x2000, 0x00000001); // power off TPLL and Lane;
 	/// Set gear : 0x0 : RBR, 0x1 : HBR, 0x2 : HBR2, 0x3 : HBR3
+	msWrite4ByteMask(mtk_dp, 0x003C, 0x001 << 23, BITMASK(23:23));
 	switch (Value) {
 	case 0x06:
+		msWrite4ByteMask(mtk_dp, 0x003C, 0x003 << 24, BITMASK(28:24));
 		msWrite4Byte(mtk_dp,
 			0x103C,
 			0x00000000);
 		break;
 	case 0x0A:
+		msWrite4ByteMask(mtk_dp, 0x003C, 0x005 << 24, BITMASK(28:24));
 		msWrite4Byte(mtk_dp,
 			0x103C,
 			0x00000001);
 		break;
 	case 0x14:
+		msWrite4ByteMask(mtk_dp, 0x003C, 0x005 << 24, BITMASK(28:24));
 		msWrite4Byte(mtk_dp,
 			0x103C,
 			0x00000002);
 		break;
 	case 0x1E:
+		msWrite4ByteMask(mtk_dp, 0x003C, 0x002 << 24, BITMASK(28:24));
 		msWrite4Byte(mtk_dp,
 			0x103C,
 			0x00000003);
@@ -2294,7 +2320,6 @@ void mhal_DPTx_SetScramble_Type(struct mtk_dp *mtk_dp, bool bSelType)
 void mhal_DPTx_VideoMute(struct mtk_dp *mtk_dp, bool bENABLE)
 {
 	DPTXFUNC("enable = %d\n", bENABLE);
-
 	if (bENABLE) {
 		msWriteByteMask(mtk_dp,
 			REG_3000_DP_ENCODER0_P0,
@@ -2310,6 +2335,9 @@ void mhal_DPTx_VideoMute(struct mtk_dp *mtk_dp, bool bENABLE)
 
 		mtk_dp_atf_call(DP_ATF_VIDEO_UNMUTE, 0);
 	}
+	msWriteByteMask(mtk_dp, 0x402C, 0, BIT4);
+	msWriteByteMask(mtk_dp, 0x402C, 1, BIT4);
+
 }
 
 void mhal_DPTx_VideoMuteSW(struct mtk_dp *mtk_dp, bool bENABLE)

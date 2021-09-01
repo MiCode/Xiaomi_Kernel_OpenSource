@@ -401,7 +401,6 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->training_state_pre = DPTX_NTSTATE_STARTUP;
 	mtk_dp->state = DPTXSTATE_INITIAL;
 	mtk_dp->state_pre = DPTXSTATE_INITIAL;
-
 	mtk_dp->info.input_src = DPTX_SRC_DPINTF;
 	mtk_dp->info.format = DP_COLOR_FORMAT_RGB_444;
 	mtk_dp->info.depth = DP_COLOR_DEPTH_8BIT;
@@ -2201,6 +2200,7 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 
 	case DPTX_NTSTATE_TRAINING:
 		ret = mdrv_DPTx_SetTrainingStart(mtk_dp);
+
 		if (ret == DPTX_NOERR) {
 			mdrv_DPTx_VideoMute(mtk_dp, true);
 			mdrv_DPTx_AudioMute(mtk_dp, true);
@@ -2212,10 +2212,8 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 		} else
 			DPTXERR("Handle Training Fail 6 times\n");
 		break;
-
 	case DPTX_NTSTATE_CHECKTIMING:
 		mtk_dp->training_state = DPTX_NTSTATE_NORMAL;
-
 		if (mtk_dp->training_info.ubSinkCountNum == 0) {
 			DPTXMSG("no sink count, skip uevent\n");
 			break;
@@ -2226,6 +2224,7 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 			mtk_dp->bUeventToHwc = false;
 		} else
 			DPTXMSG("Skip Uevent(1)\n");
+
 
 		break;
 	case DPTX_NTSTATE_NORMAL:
@@ -2356,7 +2355,6 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 			mdrv_DPTx_I2S_Audio_Config(mtk_dp);
 			mdrv_DPTx_I2S_Audio_Enable(mtk_dp, true);
 		}
-
 		mtk_dp->state = DPTXSTATE_NORMAL;
 		break;
 
@@ -3660,6 +3658,12 @@ void mtk_dp_fake_plugin(unsigned int status, unsigned int bpc)
 
 void mtk_dp_HPDInterruptSet(int bstatus)
 {
+
+	if (g_mtk_dp == NULL) {
+		DPTXERR("%s: dp not initial\n", __func__);
+		return;
+	}
+	DPTXMSG("%s\n", __func__);
 	DDPFUNC("status:%d[2:DISCONNECT, 4:CONNECT, 8:IRQ] Power:%d\n",
 		bstatus, g_mtk_dp->bPowerOn);
 
@@ -3750,11 +3754,8 @@ static int mtk_dp_bind(struct device *dev, struct device *master, void *data)
 	struct mtk_dp *mtk_dp = dev_get_drvdata(dev);
 	struct drm_device *drm = data;
 	int ret;
-
 	mtk_dp->drm_dev = drm;
-
 	DPTXDBG("%s, %d, mtk_dp 0x%p\n", __func__, __LINE__, mtk_dp);
-
 	ret = drm_connector_init(drm, &mtk_dp->conn, &mtk_dp_connector_funcs,
 		DRM_MODE_CONNECTOR_DisplayPort);
 
@@ -3763,17 +3764,12 @@ static int mtk_dp_bind(struct device *dev, struct device *master, void *data)
 			ret);
 		return ret;
 	}
-
 	drm_connector_helper_add(&mtk_dp->conn, &mtk_dp_connector_helper_funcs);
-
 	if (drm_encoder_init(drm, &mtk_dp->enc,	&mtk_dp_enc_funcs,
 		DRM_MODE_ENCODER_DPMST, "DP MST"))
 		goto err_encoder_init;
-
 	mtk_dp->enc.possible_crtcs = 2;
-
 	drm_connector_attach_encoder(&mtk_dp->conn, &mtk_dp->enc);
-
 	g_mtk_dp = mtk_dp;
 
 	mtk_dp->conn.kdev = drm->dev;
@@ -3820,33 +3816,27 @@ static int mtk_drm_dp_probe(struct platform_device *pdev)
 	mtk_dp->priv = mtk_priv;
 	mtk_dp->bUeventToHwc = false;
 	mtk_dp->disp_status = DPTX_DISP_NONE;
-
 	irq_num = platform_get_irq(pdev, 0);
 	if (irq_num < 0) {
 		dev_err(&pdev->dev, "failed to request dp irq resource\n");
 		return -EPROBE_DEFER;
 	}
-
 	ret = mtk_dp_dt_parse_pdata(mtk_dp, pdev);
 	if (ret)
 		return ret;
-
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_DPTX);
 	if (comp_id < 0) {
 		dev_err(dev, "Failed to identify by alias: %d\n", comp_id);
 		ret = comp_id;
 		goto error;
 	}
-
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &mtk_dp->ddp_comp, comp_id,
 			NULL);
 	if (ret) {
 		dev_err(dev, "Failed to initialize component: %d\n", ret);
 		goto error;
 	}
-
 	mtk_dp_aux_init(mtk_dp);
-
 	DPTXMSG("comp_id %d, type %d, irq %d\n", comp_id,
 		MTK_DISP_DPTX, irq_num);
 	irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
