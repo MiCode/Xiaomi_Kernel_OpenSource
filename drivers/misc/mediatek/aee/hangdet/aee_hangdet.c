@@ -296,6 +296,12 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				spin_unlock(&lock);
 				dump = 0;
 				break;
+			} else if ((get_kick_bit() & get_check_bit()) ==
+				    get_check_bit()) {
+				g_hang_detected = 0;
+				spin_unlock(&lock);
+				dump = 0;
+				break;
 			}
 			dump = 1;
 			spin_unlock(&lock);
