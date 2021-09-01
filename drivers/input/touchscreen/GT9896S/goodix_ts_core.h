@@ -137,6 +137,7 @@ struct gt9896s_ts_board_data {
 	unsigned int panel_key_map[GOODIX_MAX_TP_KEY];
 	unsigned int x2x;
 	unsigned int y2y;
+	unsigned int fake_status;
 	bool pen_enable;
 	unsigned int tp_key_num;
 	/*add end*/
