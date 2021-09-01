@@ -220,9 +220,8 @@ static int mtk_plane_atomic_set_property(struct drm_plane *plane,
 
 	for (i = 0; i < PLANE_PROP_MAX; i++) {
 		if (mtk_plane->plane_property[i] == property) {
-			plane_state->prop_val[i] = (unsigned int)val;
-			DDPDBG("set property:%s %d\n", property->name,
-				(unsigned int)val);
+			plane_state->prop_val[i] = val;
+			DDPDBG("set property:%s %llu\n", property->name, val);
 			return ret;
 		}
 	}
@@ -434,7 +433,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		mtk_crtc_index_spy(crtc_index),
 		plane_index,
 		state->pending.enable,
-		state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],
+		(unsigned int)state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],
 		state->pending.addr,
 		state->pending.size,
 		state->pending.is_sec);

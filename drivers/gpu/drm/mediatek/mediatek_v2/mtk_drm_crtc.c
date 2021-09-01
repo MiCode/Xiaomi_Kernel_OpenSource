@@ -6747,7 +6747,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 #ifndef DRM_CMDQ_DISABLE
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
 				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
-	cur_fence = plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
+	cur_fence = (unsigned int)plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
 
 	addr = cmdq_buf->pa_base + DISP_SLOT_CUR_CONFIG_FENCE(plane_index);
 	if (cur_fence != -1 && cur_fence > last_fence)
@@ -10287,7 +10287,7 @@ int MMPathTraceCrtcPlanes(struct drm_crtc *crtc,
 		n += scnprintf(str + n, strlen - n, "in_%d_bpp=%u, ",
 			i, mtk_get_format_bpp(pending->format));
 		n += scnprintf(str + n, strlen - n, "in_%d_compr=%u, ",
-			i, pending->prop_val[PLANE_PROP_COMPRESS]);
+			i, (unsigned int)pending->prop_val[PLANE_PROP_COMPRESS]);
 	}
 
 	return n;

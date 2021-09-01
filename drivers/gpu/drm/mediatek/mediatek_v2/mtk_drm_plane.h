@@ -137,7 +137,7 @@ struct mtk_plane_pending_state {
 	unsigned int height;
 	bool dirty;
 	bool is_sec;
-	unsigned int prop_val[PLANE_PROP_MAX];
+	uint64_t prop_val[PLANE_PROP_MAX];
 };
 
 struct mtk_plane_input_config {
@@ -200,7 +200,7 @@ struct mtk_plane_state {
 	struct drm_crtc *crtc;
 
 	/* property */
-	unsigned int prop_val[PLANE_PROP_MAX];
+	uint64_t prop_val[PLANE_PROP_MAX];
 };
 
 #define to_mtk_plane_state(x) container_of(x, struct mtk_plane_state, base)

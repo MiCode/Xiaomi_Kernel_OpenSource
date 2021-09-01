@@ -1506,7 +1506,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	/* handle dim layer for compression flag & color dim*/
 	if (fmt == DRM_FORMAT_C8) {
 		pending->prop_val[PLANE_PROP_COMPRESS] = 0;
-		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
+		dim_color = (unsigned int)pending->prop_val[PLANE_PROP_DIM_COLOR];
 	} else {
 		dim_color = 0xff000000;
 	}
@@ -1543,7 +1543,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	mtk_ovl_color_manage(comp, idx, state, handle);
 
-	alpha_con = pending->prop_val[PLANE_PROP_ALPHA_CON];
+	alpha_con = (unsigned int)pending->prop_val[PLANE_PROP_ALPHA_CON];
 	alpha = 0xFF & pending->prop_val[PLANE_PROP_PLANE_ALPHA];
 	if (alpha == 0xFF &&
 	    (fmt == DRM_FORMAT_RGBX8888 || fmt == DRM_FORMAT_BGRX8888 ||
@@ -1554,7 +1554,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	con |= (alpha_con << 8) | alpha;
 
 	if (fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_YUYV) {
-		unsigned int prop = pending->prop_val[PLANE_PROP_DATASPACE];
+		unsigned int prop = (unsigned int)pending->prop_val[PLANE_PROP_DATASPACE];
 
 		con |= mtk_ovl_yuv_matrix_convert((enum mtk_drm_dataspace)prop);
 	}
@@ -1565,7 +1565,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
 		__func__, comp->id, idx, pending->enable, pending->format);
 	DDPINFO("addr 0x%x, compr %d, con 0x%x\n",
-		pending->addr, pending->prop_val[PLANE_PROP_COMPRESS], con);
+		pending->addr, (unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con);
 
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
@@ -1690,7 +1690,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	struct mtk_plane_pending_state *pending = &state->pending;
 	dma_addr_t addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
-	unsigned int vpitch = pending->prop_val[PLANE_PROP_VPITCH];
+	unsigned int vpitch = (unsigned int)pending->prop_val[PLANE_PROP_VPITCH];
 	unsigned int dst_h = pending->height;
 	unsigned int dst_w = pending->width;
 	unsigned int src_x = pending->src_x, src_y = pending->src_y;
@@ -1698,7 +1698,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	unsigned int fmt = pending->format;
 	unsigned int Bpp = mtk_drm_format_plane_cpp(fmt, 0);
 	unsigned int lye_idx = 0, ext_lye_idx = 0;
-	unsigned int compress = pending->prop_val[PLANE_PROP_COMPRESS];
+	unsigned int compress = (unsigned int)pending->prop_val[PLANE_PROP_COMPRESS];
 	int rotate = 0;
 
 	/* variable to do calculation */
@@ -1912,13 +1912,13 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	struct mtk_plane_pending_state *pending = &state->pending;
 	dma_addr_t addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
-	unsigned int vpitch = pending->prop_val[PLANE_PROP_VPITCH];
+	unsigned int vpitch = (unsigned int)pending->prop_val[PLANE_PROP_VPITCH];
 	unsigned int src_x = pending->src_x, src_y = pending->src_y;
 	unsigned int src_w = pending->width, src_h = pending->height;
 	unsigned int fmt = pending->format;
 	unsigned int Bpp = mtk_drm_format_plane_cpp(fmt, 0);
 	unsigned int lye_idx = 0, ext_lye_idx = 0;
-	unsigned int compress = pending->prop_val[PLANE_PROP_COMPRESS];
+	unsigned int compress = (unsigned int)pending->prop_val[PLANE_PROP_COMPRESS];
 	int rotate = 0;
 
 	/* variable to do calculation */

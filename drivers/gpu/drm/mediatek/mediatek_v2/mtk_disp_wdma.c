@@ -887,7 +887,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	unsigned int frame_cnt = cfg_info->count + 1;
 	struct drm_crtc_state *crtc_state = comp->mtk_crtc->base.state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
-	int need_skip = state->prop_val[CRTC_PROP_SKIP_CONFIG];
+	int need_skip = (int)state->prop_val[CRTC_PROP_SKIP_CONFIG];
 	unsigned int aid_sel_offset = 0;
 	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	resource_size_t mmsys_reg = priv->config_regs_pa;
