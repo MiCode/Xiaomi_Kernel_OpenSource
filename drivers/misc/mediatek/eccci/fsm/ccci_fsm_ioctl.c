@@ -45,7 +45,7 @@ unsigned int get_sim_switch_type(void)
 
 static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0;
+	int ret = 0, retry;
 	int data;
 	char buffer[64];
 	unsigned int sim_slot_cfg[4];
@@ -217,7 +217,16 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case CCCI_IOC_RELOAD_MD_TYPE:
-		/* Phase out */
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(unsigned int))) {
+			CCCI_ERROR_LOG(md_id, FSM,
+				"CCCI_IOC_RELOAD_MD_TYPE: copy_from_user fail\n");
+			ret = -EFAULT;
+		} else {
+			ret = set_soc_md_rt_rat_by_idx(md_id, (unsigned int)data);
+			CCCI_NORMAL_LOG(md_id, FSM,
+				"CCCI_IOC_RELOAD_MD_TYPE: %d ret:%d\n", data, ret);
+		}
 		break;
 	case CCCI_IOC_SET_MD_IMG_EXIST:
 		if (copy_from_user(&per_md_data->md_img_exist,
@@ -259,6 +268,16 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		data = get_md_img_type(md_id);
 		if (!data)
 			data = 3; //MT6580 using this
+		else {
+			retry = 6000;
+			do {
+				data = get_soc_md_rt_rat_idx(md_id);
+				if (data)
+					break;
+				msleep(50);
+				retry--;
+			} while (retry);
+		}
 		CCCI_NORMAL_LOG(md_id, FSM,
 			"CCCI_IOC_GET_MD_TYPE: %d!\n", data);
 		ret = put_user((unsigned int)data,

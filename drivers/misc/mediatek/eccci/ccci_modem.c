@@ -943,8 +943,9 @@ int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 	unsigned int rat_flag;
 	unsigned int rat_str_int[MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1];
+	unsigned int wm_idx;
 	char *rat_str;
-	int i;
+	int i, ret;
 
 	if (len < 0 || data == NULL)
 		return -1;
@@ -979,7 +980,20 @@ int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 	rat_str = (char *)rat_str_int;
 	rat_str[sizeof(rat_str_int) - 1] = 0;
 
-	if (set_soc_md_rt_rat_str(md_id, rat_str) < 0)
+	wm_idx = data[MD_CFG_WM_IDX];
+	if (set_soc_md_rt_rat_by_idx(md_id, wm_idx) == 0) {
+		CCCI_NORMAL_LOG(-1, TAG, "Using WM IDX: %u\n", wm_idx);
+		return 0;
+	}
+
+	ret = set_soc_md_rt_rat_str(md_id, rat_str);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(md_id, TAG,
+			"Current setting has mistake!!\n");
+		return -1;
+	}
+
+	if (ret == 1)
 		CCCI_ERROR_LOG(md_id, TAG,
 			"runtime rat setting abnormal, using default!!\n");
 
@@ -1708,7 +1722,11 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				rt_f_element.feature[1] =
 						get_soc_md_rt_rat(MD_SYS1);
 				CCCI_BOOTUP_LOG(md->index, TAG,
-					"sbp=0x%x,wmid[%d]\n",
+					"sbp=0x%x,wmid[0x%x]\n",
+					rt_f_element.feature[0],
+					rt_f_element.feature[1]);
+				CCCI_NORMAL_LOG(md->index, TAG,
+					"sbp=0x%x,wmid[0x%x]\n",
 					rt_f_element.feature[0],
 					rt_f_element.feature[1]);
 				append_runtime_feature(&rt_data,

@@ -79,6 +79,7 @@ enum {
 	MD_CFG_RAT_STR3,
 	MD_CFG_RAT_STR4,
 	MD_CFG_RAT_STR5,
+	MD_CFG_WM_IDX,
 };
 
 enum {

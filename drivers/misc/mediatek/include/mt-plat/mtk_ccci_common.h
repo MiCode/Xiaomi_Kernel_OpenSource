@@ -688,6 +688,8 @@ unsigned int get_md_bin_capability(int md_id);
 int set_soc_md_rt_rat_str(int md_id, char str[]);
 unsigned int get_soc_md_rt_rat(int md_id);
 int check_rat_at_rt_setting(int md_id, char str[]);
+unsigned int get_soc_md_rt_rat_idx(int md_id);
+int set_soc_md_rt_rat_by_idx(int md_id, unsigned int wm_idx);
 
 int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
 	unsigned int *buf_size);

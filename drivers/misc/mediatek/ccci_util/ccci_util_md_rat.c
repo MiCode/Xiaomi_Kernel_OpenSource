@@ -11,7 +11,7 @@
 /*------------------------------------------*/
 /* Bit map defination at MD side diff to AP */
 /* 0 | 0 | Lf | Lt | W | C | T | G          */
-#define MD_CAP_GSM			(1<<0)
+#define MD_CAP_GSM		(1<<0)
 #define MD_CAP_TDS_CDMA		(1<<1)
 #define MD_CAP_WCDMA		(1<<3)
 #define MD_CAP_TDD_LTE		(1<<4)
@@ -22,6 +22,11 @@
 #define MD_CAP_FULL_SET		(MD_CAP_GSM|MD_CAP_TDS_CDMA| \
 				MD_CAP_WCDMA|MD_CAP_TDD_LTE| \
 				MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_NR)
+
+/* Note: this must keep sync with md_rat_map table.
+ *   If MD_CAP_FULL_SET change or md_rat_map table change, this macro should change too.
+ */
+#define MD_CAP_FULL_SET_IDX	(24)
 
 static const unsigned int md_img_capability_map[] = { /* At check header */
 
@@ -157,14 +162,30 @@ static unsigned int get_bit_set_num(unsigned int bitmap)
 	return num;
 }
 
-static unsigned int find_prefer_val(unsigned int ref_rat)
+static unsigned int get_rat_id_by_bitmap(unsigned int rat_bit_map)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(md_rat_map); i++) {
+		if (rat_bit_map == md_rat_map[i])
+			return i;
+	}
+
+	return 0;
+}
+
+static unsigned int find_prefer_val(unsigned int ref_rat, unsigned int *idx)
 {
 	unsigned int i;
 	unsigned int min_bitmap, min_bitmap_num, num;
+	unsigned int idx_at_support_list = MD_CAP_FULL_SET_IDX;
 
 	for (i = 0; i < ARRAY_SIZE(md_rat_map); i++) {
-		if (ref_rat == md_rat_map[i])
+		if (ref_rat == md_rat_map[i]) {
+			if (idx)
+				*idx = i;
 			return ref_rat;
+		}
 	}
 
 	/* Use the most similar settings */
@@ -178,8 +199,12 @@ static unsigned int find_prefer_val(unsigned int ref_rat)
 		if (min_bitmap_num > num) {
 			min_bitmap = md_rat_map[i];
 			min_bitmap_num = num;
+			idx_at_support_list = i;
 		}
 	}
+
+	if (idx)
+		*idx = idx_at_support_list;
 	return min_bitmap;
 }
 
@@ -284,13 +309,15 @@ int check_rat_at_md_img(int md_id, char str[])
 EXPORT_SYMBOL(check_rat_at_md_img);
 
 
+static unsigned int s_md_rt_wm_id_bitmap[MAX_MD_NUM_AT_LK];
 static unsigned int s_md_rt_wm_id[MAX_MD_NUM_AT_LK];
 
-void set_soc_md_rt_rat(int md_id, unsigned int bitmap)
+void set_soc_md_rt_rat(int md_id, unsigned int bitmap, unsigned int id)
 {
 	if ((md_id < 0) || (md_id >= MAX_MD_NUM_AT_LK))
 		return;
-	s_md_rt_wm_id[md_id] = bitmap;
+	s_md_rt_wm_id_bitmap[md_id] = bitmap;
+	s_md_rt_wm_id[md_id] = id;
 }
 EXPORT_SYMBOL(set_soc_md_rt_rat);
 
@@ -298,10 +325,17 @@ unsigned int get_soc_md_rt_rat(int md_id)
 {
 	if ((md_id < 0) || (md_id >= MAX_MD_NUM_AT_LK))
 		return 0;
-	return s_md_rt_wm_id[md_id];
+	return s_md_rt_wm_id_bitmap[md_id];
 }
 EXPORT_SYMBOL(get_soc_md_rt_rat);
 
+unsigned int get_soc_md_rt_rat_idx(int md_id)
+{
+	if ((md_id < 0) || (md_id >= MAX_MD_NUM_AT_LK))
+		return 0;
+	return s_md_rt_wm_id[md_id];
+}
+EXPORT_SYMBOL(get_soc_md_rt_rat_idx);
 
 int check_rat_at_rt_setting(int md_id, char str[])
 {
@@ -316,35 +350,74 @@ int check_rat_at_rt_setting(int md_id, char str[])
 }
 EXPORT_SYMBOL(check_rat_at_rt_setting);
 
-int set_soc_md_rt_rat_str(int md_id, char str[])
+
+int set_soc_md_rt_rat_by_idx(int md_id, unsigned int wm_idx)
 {
-	unsigned int rat_bitmap, prefer, cap;
+	unsigned int rat_bitmap, cap;
 
 	cap = get_md_bin_capability(md_id);
+	if (!wm_idx)
+		return -1;
+
+	if (wm_idx >= ARRAY_SIZE(md_rat_map)) {
+		pr_info("CCCI: %s get not support wm_idx:%u\n", __func__, wm_idx);
+		return -1;
+	}
+	rat_bitmap = md_rat_map[wm_idx];
+	if (!rat_bitmap) {
+		pr_info("CCCI: %s get invalid wm_idx:%u\n", __func__, wm_idx);
+		return -1;
+	}
+
+	if ((rat_bitmap & cap) != rat_bitmap) {
+		pr_info("CCCI:%s: md img cap not support wm_idx: %u [c:0x%x|s:0x%x]\n",
+				__func__, wm_idx, cap, rat_bitmap);
+		return -1;
+	}
+
+	set_soc_md_rt_rat(md_id, rat_bitmap, wm_idx);
+	pr_info("CCCI:%s:wm_idx[%u][c:0x%x|s:0x%x]\n", __func__, wm_idx, cap, rat_bitmap);
+
+	return 0;
+}
+EXPORT_SYMBOL(set_soc_md_rt_rat_by_idx);
+
+int set_soc_md_rt_rat_str(int md_id, char str[])
+{
+	unsigned int rat_bitmap, prefer, cap, id;
+
+	cap = get_md_bin_capability(md_id);
+	id = get_rat_id_by_bitmap(cap);
+
+	if (id == 0) {
+		pr_info("CCCI: %s: should not run to here. MD cap not in support list!\n");
+		return -1;
+	}
+
 	if (!str) {
 		pr_info("CCCI: %s get NULL ptr!\n", __func__);
-		set_soc_md_rt_rat(md_id, cap);
-		return -1;
+		set_soc_md_rt_rat(md_id, cap, id);
+		return 1;
 	}
 
 	if (strlen(str) == 0) {
 		pr_info("CCCI: %s str empty, set default value!\n", __func__);
-		set_soc_md_rt_rat(md_id, cap);
-		return -1;
+		set_soc_md_rt_rat(md_id, cap, id);
+		return 1;
 	}
 
 	rat_bitmap = ccci_rat_str_to_bitmap(str);
-	prefer = find_prefer_val(rat_bitmap);
+	prefer = find_prefer_val(rat_bitmap, &id);
 
 	if ((prefer == 0) || ((prefer & cap) != prefer)) {
 		pr_info("CCCI:%s:rat[%s](r:0x%x|p:0x%x|c:0x%x) not support!\n",
 				__func__, str, rat_bitmap, prefer, cap);
-		set_soc_md_rt_rat(md_id, cap);
-		return -1;
+		set_soc_md_rt_rat(md_id, cap, id);
+		return 1;
 	}
-	set_soc_md_rt_rat(md_id, prefer);
-	pr_info("CCCI:%s:rat[%s](r:0x%x|p:0x%x|c:0x%x)\n",
-				__func__, str, rat_bitmap, prefer, cap);
+	set_soc_md_rt_rat(md_id, prefer, id);
+	pr_info("CCCI:%s:rat[%s](r:0x%x|p:0x%x|c:0x%x)[%u]\n",
+				__func__, str, rat_bitmap, prefer, cap, id);
 	return 0;
 }
 EXPORT_SYMBOL(set_soc_md_rt_rat_str);
