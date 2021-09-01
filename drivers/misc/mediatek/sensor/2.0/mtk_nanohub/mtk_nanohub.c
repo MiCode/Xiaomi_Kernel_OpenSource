@@ -54,6 +54,11 @@ extern int __init nanohub_init(void);
 #define SYNC_TIME_CYCLC 10000
 #define SYNC_TIME_START_CYCLC 3000
 
+enum {
+	CUST_CMD_CALI,
+	MAX_CUST_CMD,
+};
+
 struct curr_wp_queue {
 	spinlock_t buffer_lock;
 	uint32_t head;

@@ -880,8 +880,7 @@ static int hf_manager_custom_cmd(struct hf_client *client,
 	struct hf_device *device = NULL;
 	int ret = 0;
 
-	if (cust_cmd->command >= MAX_CUST_CMD ||
-		cust_cmd->tx_len > sizeof(cust_cmd->data) ||
+	if (cust_cmd->tx_len > sizeof(cust_cmd->data) ||
 		cust_cmd->rx_len > sizeof(cust_cmd->data))
 		return -EINVAL;
 

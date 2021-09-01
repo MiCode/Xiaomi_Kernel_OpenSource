@@ -11,6 +11,11 @@
 
 #include "hf_manager.h"
 
+enum {
+	CUST_CMD_TEST,
+	MAX_CUST_CMD,
+};
+
 #define test_app_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
 	.attr	= {				\
@@ -122,7 +127,7 @@ static ssize_t acc_cust_show(struct kobject *kobj,
 		char *buf)
 {
 	return test_app1_cust(buf, SENSOR_TYPE_ACCELEROMETER,
-			CUST_CMD_CALI);
+			CUST_CMD_TEST);
 }
 
 
@@ -149,7 +154,7 @@ static ssize_t gyro_cust_show(struct kobject *kobj,
 		char *buf)
 {
 	return test_app1_cust(buf, SENSOR_TYPE_GYROSCOPE,
-			CUST_CMD_CALI);
+			CUST_CMD_TEST);
 }
 
 static ssize_t gyro_selftest_show(struct kobject *kobj,

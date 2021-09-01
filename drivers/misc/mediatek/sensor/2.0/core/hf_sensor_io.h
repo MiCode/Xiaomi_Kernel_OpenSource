@@ -31,13 +31,6 @@ enum {
 	MAX_ACTION,
 };
 
-enum {
-	CUST_CMD_CALI = 0,
-	/* Add custom cmd action here! */
-	CUST_CMD_TEST = 1,
-	MAX_CUST_CMD,
-};
-
 struct hf_manager_batch {
 	int64_t delay;
 	int64_t latency;
@@ -76,7 +69,11 @@ struct custom_cmd {
 	uint8_t tx_len;
 	uint8_t rx_len;
 	uint8_t padding[1];
-	int32_t data[15];
+	union {
+		int32_t data[15];
+		int32_t word[15];
+		int8_t byte[0];
+	};
 } __packed __aligned(4);
 
 struct ioctl_packet {
