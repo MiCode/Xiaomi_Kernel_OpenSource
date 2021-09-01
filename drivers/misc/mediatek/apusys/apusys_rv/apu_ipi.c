@@ -134,6 +134,9 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		return -EBUSY;
 	}
 
+	/* re-init inbox mask everytime for aoc */
+	apu_mbox_inbox_init(apu);
+
 	apu_deepidle_power_on_aputop(apu);
 
 	ret = apu_mbox_wait_inbox(apu);

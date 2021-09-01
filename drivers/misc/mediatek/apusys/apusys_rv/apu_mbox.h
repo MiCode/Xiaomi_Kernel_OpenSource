@@ -21,6 +21,7 @@ void apu_mbox_ack_outbox(struct mtk_apu *apu);
 void apu_mbox_read_outbox(struct mtk_apu *apu, struct apu_mbox_hdr *hdr);
 int apu_mbox_wait_inbox(struct mtk_apu *apu);
 void apu_mbox_write_inbox(struct mtk_apu *apu, struct apu_mbox_hdr *hdr);
+void apu_mbox_inbox_init(struct mtk_apu *apu);
 void apu_mbox_hw_init(struct mtk_apu *apu);
 void apu_mbox_hw_exit(struct mtk_apu *apu);
 
