@@ -366,23 +366,26 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 			rdma->sram_pa = (u64)mml_sram_get(task->config->mml);
 		rdma->sram_cnt++;
 		mutex_unlock(&rdma->sram_mutex);
+
+		mml_msg("%s comp %u sram pa %#llx",
+			__func__, comp->id, rdma->sram_pa);
 	} else {
 		/* get iova */
 		ret = mml_buf_iova_get(rdma->dev, &task->buf.src);
 		if (ret < 0)
 			mml_err("%s iova fail %d", __func__, ret);
+
+		mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
+			__func__, comp->id,
+			task->buf.src.dma[0].iova,
+			task->buf.src.size[0],
+			task->buf.src.dma[1].iova,
+			task->buf.src.size[1],
+			task->buf.src.dma[2].iova,
+			task->buf.src.size[2]);
 	}
 
 	mml_trace_ex_end();
-
-	mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
-		__func__, comp->id,
-		task->buf.src.dma[0].iova,
-		task->buf.src.size[0],
-		task->buf.src.dma[1].iova,
-		task->buf.src.size[1],
-		task->buf.src.dma[2].iova,
-		task->buf.src.size[2]);
 
 	return ret;
 }
@@ -818,6 +821,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u64 ufo_dec_length_c = 0;
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
+	u32 ultra = cfg->info.mode == MML_MODE_RACING;
 
 	if (cfg->alpharot)
 		alpharot = 1;
@@ -855,10 +859,10 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESV_DUMMY_0,
 			       0x0, 0x00000007);
 	}
-	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_GMCIF_CON, (1 <<  0) +
-							    (7 <<  4) +
-							    (1 << 16),
-							    0x00030071);
+	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_GMCIF_CON,
+		(1 << 0) + (7 << 4) + (ultra << 12) + (1 << 16),
+		0x00031071);
+
 	if (MML_FMT_IS_ARGB(src->format) &&
 	    cfg->info.dest[0].pq_config.en_hdr &&
 	    !cfg->info.dest[0].pq_config.en_dre &&
@@ -974,7 +978,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 
-	mml_msg("%s src %#11llx %#11llx %#11llx",
+	mml_msg("%s src %#011llx %#011llx %#011llx",
 		__func__, iova[0], iova[1], iova[2]);
 
 	if (!mml_slt) {

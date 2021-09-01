@@ -21,6 +21,12 @@
 #define MML_MAX_SYS_DL_RELAYS	4
 #define MML_MAX_SYS_DBG_REGS	60
 
+int mml_ir_loop = 1;
+module_param(mml_ir_loop, int, 0644);
+
+int mml_racing_fast;
+module_param(mml_racing_fast, int, 0644);
+
 enum mml_comp_type {
 	MML_CT_COMPONENT = 0,
 	MML_CT_SYS,
@@ -101,9 +107,50 @@ struct mml_comp_sys {
 	u8 aid_sel[MML_MAX_COMPONENTS];
 };
 
+struct sys_frame_data {
+	/* instruction offset to start of racing loop in pkt */
+	u32 racing_start_offset;
+	/* instruction offset to assgin loop target address in pkt */
+	u32 racing_jump_to;
+
+	/* instruction offset to skip sync events */
+	u32 racing_skip_sync_offset;
+	u32 racing_jump_to_skip;
+};
+
+#define sys_frm_data(i)	((struct sys_frame_data *)(i->data))
+
 static inline struct mml_comp_sys *comp_to_sys(struct mml_comp *comp)
 {
 	return container_of(comp, struct mml_comp_sys, comps[comp->sub_idx]);
+}
+
+static s32 sys_config_prepare(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg)
+{
+	struct sys_frame_data *sys_frm;
+
+	if (task->config->info.mode == MML_MODE_RACING) {
+		/* initialize component frame data for current frame config */
+		sys_frm = kzalloc(sizeof(*sys_frm), GFP_KERNEL);
+		ccfg->data = sys_frm;
+	}
+
+	return 0;
+}
+
+static void sys_sync_racing(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg)
+{
+	struct mml_dev *mml = task->config->mml;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+
+	/* synchronize disp and mml task by for MML pkt:
+	 *	set MML_READY
+	 *	wait_and_clear DISP_READY
+	 */
+	cmdq_pkt_set_event(pkt, mml_ir_get_mml_ready_event(mml));
+	cmdq_pkt_wfe(pkt, mml_ir_get_disp_ready_event(mml));
 }
 
 static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
@@ -111,8 +158,21 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_comp_sys *sys = comp_to_sys(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	u32 aid_sel = 0, mask = 0;
 	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
+
+	if (task->config->info.mode == MML_MODE_RACING) {
+		if (!mml_racing_fast && likely(!mml_racing_ut))
+			sys_sync_racing(comp, task, ccfg);
+
+		/* debug */
+		cmdq_pkt_assign_command(pkt, MML_CMDQ_ROUND_SPR,
+			MML_ROUND_SPR_INIT + 0x10000);
+
+		/* clear next spr to avoid leave loop */
+		cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CLEAR);
+	}
 
 	if (task->config->info.src.secure)
 		aid_sel |= 1 << sys->aid_sel[in_engine_id];
@@ -126,8 +186,7 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 		mask |= 1 << sys->aid_sel[path->out_engine_ids[1]];
 	}
 
-	cmdq_pkt_write(task->pkts[ccfg->pipe], NULL, comp->base_pa + SYS_AID_SEL,
-		aid_sel, mask);
+	cmdq_pkt_write(pkt, NULL, comp->base_pa + SYS_AID_SEL, aid_sel, mask);
 
 	return 0;
 }
@@ -165,7 +224,23 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	u8 sof_grp = path->mux_group;
+	struct sys_frame_data *sys_frm;
 	u32 i, j;
+
+	if (task->config->info.mode == MML_MODE_RACING && idx == 0) {
+		struct cmdq_operand lhs, rhs;
+
+		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX2, MML_ROUND_SPR_INIT);
+
+		sys_frm = sys_frm_data(ccfg);
+		sys_frm->racing_start_offset = pkt->cmd_buf_size;
+
+		lhs.reg = true;
+		lhs.idx = CMDQ_THR_SPR_IDX2;
+		rhs.reg = false;
+		rhs.value = 1;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_THR_SPR_IDX2, &lhs, &rhs);
+	}
 
 	for (i = 0; i < path->node_cnt; i++) {
 		const struct mml_path_node *node = &path->nodes[i];
@@ -192,9 +267,113 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static void sys_racing_addr_update(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg)
+{
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
+	u32 *inst;
+
+	if (task->config->disp_vdo && likely(mml_racing_ut != 1) && mml_ir_loop) {
+		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, sys_frm->racing_jump_to);
+		*inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_pa_by_offset(pkt,
+			sys_frm->racing_start_offset));
+	}
+
+	if (mml_racing_fast) {
+		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, sys_frm->racing_jump_to_skip);
+		*inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_pa_by_offset(pkt,
+			sys_frm->racing_skip_sync_offset));
+	}
+}
+
+static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg)
+{
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
+	struct cmdq_operand lhs, rhs;
+
+	if (!task->config->disp_vdo)
+		return;
+
+	if (unlikely(mml_racing_ut == 1))
+		return;
+
+	if (unlikely(!mml_ir_loop))
+		return;
+
+	/* do eoc to avoid task timeout during self-loop */
+	cmdq_pkt_eoc(pkt, false);
+
+	/* reserve assign inst for jump addr */
+	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
+	sys_frm->racing_jump_to = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+
+	/* loop if NEXT_SPR is not MML_NEXTSPR_NEXT
+	 *	if NEXT_SPR != 1:
+	 *		jump CONFIG_TILE0
+	 */
+	lhs.reg = true;
+	lhs.idx = MML_CMDQ_NEXT_SPR;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_NEXT;
+	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lhs, &rhs, CMDQ_NOT_EQUAL);
+
+	sys_racing_addr_update(comp, task, ccfg);
+}
+
+void sys_sync(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg, u32 idx)
+{
+	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct cmdq_operand lhs, rhs;
+
+	if (idx != 0 || !mml_racing_fast)
+		return;
+
+	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
+	sys_frm->racing_jump_to_skip = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+
+	lhs.reg = true;
+	lhs.idx = MML_CMDQ_NEXT_SPR;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_CLEAR;
+	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lhs, &rhs, CMDQ_NOT_EQUAL);
+
+	if (likely(!mml_racing_ut))
+		sys_sync_racing(comp, task, ccfg);
+	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CONTI);
+
+	sys_frm->racing_skip_sync_offset = pkt->cmd_buf_size;
+}
+
+static s32 sys_post(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *ccfg)
+{
+	if (task->config->info.mode == MML_MODE_RACING)
+		sys_racing_loop(comp, task, ccfg);
+
+	return 0;
+}
+
+static s32 sys_repost(struct mml_comp *comp, struct mml_task *task,
+		      struct mml_comp_config *ccfg)
+{
+	if (task->config->info.mode == MML_MODE_RACING)
+		sys_racing_addr_update(comp, task, ccfg);
+
+	return 0;
+}
+
 static const struct mml_comp_config_ops sys_config_ops = {
+	.prepare = sys_config_prepare,
 	.frame = sys_config_frame,
 	.tile = sys_config_tile,
+	.sync = sys_sync,
+	.post = sys_post,
+	.repost = sys_repost,
 };
 
 static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,

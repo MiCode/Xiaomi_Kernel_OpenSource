@@ -14,8 +14,9 @@
 #define TOPOLOGY_PLATFORM	"mt6983"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
-#define MML_IR_MIN_FRAME	(2560 * 1440)
-#define MML_IR_MAX_FRAME	(3840 * 2176)
+#define MML_IR_DUAL_FRAME	(2560 * 1440)	/* racing use dual from 2k */
+#define MML_IR_MIN_FRAME	(1920 * 1080)
+#define MML_IR_MAX_FRAME	(1080 * 2400)	/* lcm size */
 #define MML_IR_MAX_WIDTH	3200
 
 int mml_force_rsz;
@@ -32,6 +33,17 @@ module_param(mml_dual, int, 0644);
 
 int mml_path_swap;
 module_param(mml_path_swap, int, 0644);
+
+int mml_path_mode;
+module_param(mml_path_mode, int, 0644);
+
+/* debug param
+ * 0: (default)don't care, check dts property to enable racing
+ * 1: force enable
+ * 2: force disable
+ */
+int mml_racing;
+module_param(mml_racing, int, 0644);
 
 enum topology_scenario {
 	PATH_MML_NOPQ_P0 = 0,
@@ -463,7 +475,7 @@ static inline bool tp_need_dual(struct mml_frame_config *cfg)
 	const struct mml_frame_data *src = &cfg->info.src;
 	u32 min_crop_w, i;
 	u32 min_pixel = cfg->info.mode == MML_MODE_RACING ?
-		MML_IR_MIN_FRAME : MML_DUAL_FRAME;
+		MML_IR_DUAL_FRAME : MML_DUAL_FRAME;
 
 	if (src->width * src->height < min_pixel)
 		return false;
@@ -517,11 +529,27 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	return 0;
 }
 
-static enum mml_mode tp_query_mode(struct mml_frame_info *info)
+static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
+	u32 pixel;
+
+	if (unlikely(mml_path_mode))
+		return mml_path_mode;
+
+	if (unlikely(mml_racing)) {
+		if (mml_racing == 2)
+			goto decouple;
+	} else if (!mml_racing_enable(mml))
+		goto decouple;
+
+	/* aal-dre(scltm) not support inline rot */
+	if (info->dest[0].pq_config.en && info->dest[0].pq_config.en_dre)
+		goto decouple;
+
 	/* racing only support 1 out */
 	if (info->dest_cnt > 1)
 		goto decouple;
+
 	/* HW limitation */
 	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
 		if (info->dest[0].compose.width > MML_IR_MAX_WIDTH)
@@ -531,7 +559,11 @@ static enum mml_mode tp_query_mode(struct mml_frame_info *info)
 			goto decouple;
 	}
 	/* HRT BW limitation */
-	if (info->dest[0].compose.width * info->dest[0].compose.height > MML_IR_MAX_FRAME)
+	pixel = info->dest[0].compose.width * info->dest[0].compose.height;
+	if (pixel > MML_IR_MAX_FRAME)
+		goto decouple;
+
+	if (pixel < MML_IR_MIN_FRAME)
 		goto decouple;
 
 	return MML_MODE_RACING;

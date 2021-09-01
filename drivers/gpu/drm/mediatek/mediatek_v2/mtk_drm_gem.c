@@ -793,7 +793,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		print_mml_submit(submit_kernel);
 
 	if (mml_ctx > 0) {
-		ret = mml_drm_submit(mml_ctx, submit_kernel);
+		ret = mml_drm_submit(mml_ctx, submit_kernel, NULL);
 		if (ret) {
 			DDPMSG("submit failed: %d\n", ret);
 		}

@@ -140,6 +140,7 @@ struct cmdq_pkt {
 	void			*cl;
 	struct device		*dev;	/* client assigned dev */
 	bool			loop;
+	bool			self_loop;
 	void			*flush_item;
 	struct completion	cmplt;
 	struct cmdq_buf_pool	cur_pool;

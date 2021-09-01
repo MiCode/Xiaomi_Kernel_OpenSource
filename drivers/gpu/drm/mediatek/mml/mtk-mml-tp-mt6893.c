@@ -515,7 +515,7 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	return 0;
 }
 
-static enum mml_mode tp_query_mode(struct mml_frame_info *info)
+static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
 	/* racing only support 1 out */
 	if (info->dest_cnt > 1)

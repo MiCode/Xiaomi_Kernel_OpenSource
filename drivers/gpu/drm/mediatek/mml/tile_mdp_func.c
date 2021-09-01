@@ -249,13 +249,13 @@ enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 	if (data->racing) {
 		if (data->rotate == MML_ROT_90 ||
 		    data->rotate == MML_ROT_270) {
-			ptr_func->out_tile_width  = 64;
+			ptr_func->out_tile_width  = data->racing_h;
 			ptr_func->in_tile_height  = 65535;
 			ptr_func->out_tile_height = 65535;
 		} else {
 			ptr_func->out_tile_width  = data->max_width;
-			ptr_func->in_tile_height  = 64;
-			ptr_func->out_tile_height = 64;
+			ptr_func->in_tile_height  = data->racing_h;
+			ptr_func->out_tile_height = data->racing_h;
 		}
 	} else {
 		if (data->rotate == MML_ROT_90 ||

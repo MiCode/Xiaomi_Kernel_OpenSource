@@ -68,6 +68,7 @@ struct wrot_tile_data {
 	bool enable_y_crop;
 	struct mml_rect crop;
 	u32 max_width;
+	u8 racing_h;
 };
 
 union mml_tile_data {

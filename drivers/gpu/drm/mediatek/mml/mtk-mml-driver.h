@@ -58,7 +58,7 @@ void mml_comp_qos_clear(struct mml_comp *comp);
 /*
  * mml_sram_get - get sram addr from slbc and power on
  *
- * mml:		The mml driver instance
+ * @mml:	The mml driver instance
  *
  * Return:	The address of sram
  */
@@ -67,18 +67,52 @@ void __iomem *mml_sram_get(struct mml_dev *mml);
 /*
  * mml_sram_put - power off sram and release slbc object
  *
- * mml:		The mml driver instance
+ * @mml:	The mml driver instance
  */
 void mml_sram_put(struct mml_dev *mml);
 
 /*
  * mml_sram_get_racing_height - get racing height in mml cache
  *
- * mml:		The mml driver instance
+ * @mml:	The mml driver instance
  *
  * Return:	The racing height in pixel.
  */
 u8 mml_sram_get_racing_height(struct mml_dev *mml);
+
+/*
+ * mml_racing_enable - enable racing mode (inline rotate) or not
+ *
+ * @mml:	The mml driver instance
+ *
+ * Return:	True for enable, false for disable.
+ */
+bool mml_racing_enable(struct mml_dev *mml);
+
+/*
+ * mml_ir_get_mml_ready_event - get inline rot sync event mml_ready
+ *
+ * @mml:	The mml driver instance
+ *
+ * Return:	The event id of mml_ready
+ */
+u16 mml_ir_get_mml_ready_event(struct mml_dev *mml);
+
+/*
+ * mml_ir_get_disp_ready_event - get inline rot sync event disp_ready
+ *
+ * @mml:	The mml driver instance
+ *
+ * Return:	The event id of disp_ready
+ */
+u16 mml_ir_get_disp_ready_event(struct mml_dev *mml);
+
+/*
+ * mml_dump_thread - dump cmdq threads hold by mml
+ *
+ * @mml:	The mml driver instance
+ */
+void mml_dump_thread(struct mml_dev *mml);
 
 /*
  * mml_clock_lock - Lock clock mutex before clock counting or call clock api

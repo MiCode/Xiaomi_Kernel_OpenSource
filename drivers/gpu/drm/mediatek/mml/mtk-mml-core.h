@@ -74,12 +74,21 @@ extern int mml_trace;
 /* mml slt */
 extern int mml_slt;
 
+/* racing mode ut and debug */
+extern int mml_racing_ut;
+
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
 #define MML_MAX_PATH_CACHES	8
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
 #define MML_MAX_TPUT		800
+#define MML_CMDQ_NEXT_SPR	CMDQ_THR_SPR_IDX3
+#define MML_CMDQ_ROUND_SPR	CMDQ_THR_SPR_IDX2
+#define MML_ROUND_SPR_INIT	0x8000
+#define MML_NEXTSPR_CLEAR	0
+#define MML_NEXTSPR_NEXT	1
+#define MML_NEXTSPR_CONTI	2
 
 struct mml_topology_cache;
 struct mml_frame_config;
@@ -161,7 +170,8 @@ struct mml_topology_path {
 };
 
 struct mml_topology_ops {
-	enum mml_mode (*query_mode)(struct mml_frame_info *info);
+	enum mml_mode (*query_mode)(struct mml_dev *mml,
+				    struct mml_frame_info *info);
 	s32 (*init_cache)(struct mml_dev *mml,
 			  struct mml_topology_cache *cache,
 			  struct cmdq_client **clts,
@@ -229,6 +239,7 @@ struct mml_frame_config {
 	bool alpharot;
 	bool shadow;
 	bool disp_dual;
+	bool disp_vdo;
 	struct mutex pipe_mutex;
 
 	/* platform driver */
@@ -321,6 +332,7 @@ struct mml_task {
 
 	/* mml context */
 	void *ctx;
+	void *cb_param;
 
 	/* command */
 	struct cmdq_pkt *pkts[MML_PIPE_CNT];
@@ -349,7 +361,7 @@ struct mml_comp_tile_ops {
 
 struct mml_comp_config_ops {
 	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
-		       struct mml_comp_config *priv);
+		       struct mml_comp_config *ccfg);
 	s32 (*buf_map)(struct mml_comp *comp, struct mml_task *task,
 		       const struct mml_path_node *node);
 	void (*buf_unmap)(struct mml_comp *comp, struct mml_task *task,
@@ -360,22 +372,24 @@ struct mml_comp_config_ops {
 			       struct mml_comp_config *ccfg);
 	/* op to make command in frame change case */
 	s32 (*init)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *priv);
+		    struct mml_comp_config *ccfg);
 	s32 (*frame)(struct mml_comp *comp, struct mml_task *task,
-		     struct mml_comp_config *priv);
+		     struct mml_comp_config *ccfg);
 	s32 (*tile)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *priv, u32 idx);
+		    struct mml_comp_config *ccfg, u32 idx);
 	s32 (*mutex)(struct mml_comp *comp, struct mml_task *task,
-		     struct mml_comp_config *priv);
+		     struct mml_comp_config *ccfg);
 	s32 (*wait)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *priv, u32 idx);
+		    struct mml_comp_config *ccfg, u32 idx);
+	void (*sync)(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *ccfg, u32 tile);
 	s32 (*post)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *priv);
+		    struct mml_comp_config *ccfg);
 	/* op to make command in reuse case */
 	s32 (*reframe)(struct mml_comp *comp, struct mml_task *task,
-		       struct mml_comp_config *priv);
+		       struct mml_comp_config *ccfg);
 	s32 (*repost)(struct mml_comp *comp, struct mml_task *task,
-		      struct mml_comp_config *priv);
+		      struct mml_comp_config *ccfg);
 };
 
 struct mml_comp_hw_ops {
@@ -588,6 +602,13 @@ void mml_core_deinit_config(struct mml_frame_config *cfg);
  * @task:	task to execute
  */
 void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task);
+
+/**
+ * mml_core_stop_racing - set next spr to 1 to stop current racing task
+ *
+ * @cfg:	the frame config to stop
+ */
+void mml_core_stop_racing(struct mml_frame_config *cfg);
 
 /* mml_assign - assign to reg_idx with value. Cache the label of this
  * instruction to mml_pipe_cache and record its entry into label_array.

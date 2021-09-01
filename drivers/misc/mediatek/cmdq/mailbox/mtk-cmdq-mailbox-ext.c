@@ -989,6 +989,10 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 			break;
 	}
 
+	/* for some self trigger loop, notify it is still working */
+	if (curr_task && curr_task->pkt->self_loop)
+		cmdq_task_err_callback(curr_task->pkt, -EBUSY);
+
 	task = list_first_entry_or_null(&thread->task_busy_list,
 		struct cmdq_task, list_entry);
 	if (!task) {

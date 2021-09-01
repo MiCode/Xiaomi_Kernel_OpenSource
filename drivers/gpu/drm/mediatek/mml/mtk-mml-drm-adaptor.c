@@ -19,12 +19,16 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-mmp.h"
 
 
 #define MML_QUERY_ADJUST	1
 #define MML_DEFAULT_END_NS	15000000
 
 #define MML_REF_NAME "mml"
+
+/* MDPSYS register offset */
+#define MDPSYS_IN_LINE_REDAY_SEL	0x7fc
 
 /* set to 0 to disable reuse config */
 int mml_reuse = 1;
@@ -49,6 +53,8 @@ struct mml_drm_ctx {
 	struct workqueue_struct *wq_destroy;
 	struct sync_timeline *timeline;
 	bool disp_dual;
+	bool disp_vdo;
+	void (*submit_cb)(void *cb_param);
 };
 
 #if MML_QUERY_ADJUST == 1
@@ -178,7 +184,7 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	}
 
 	if (tp && tp->op->query_mode)
-		return tp->op->query_mode(info);
+		return tp->op->query_mode(ctx->mml, info);
 
 not_support:
 	return MML_MODE_NOT_SUPPORT;
@@ -302,6 +308,7 @@ static struct mml_frame_config *frame_config_create(
 	INIT_LIST_HEAD(&cfg->await_tasks);
 	INIT_LIST_HEAD(&cfg->done_tasks);
 	cfg->disp_dual = ctx->disp_dual;
+	cfg->disp_vdo = ctx->disp_vdo;
 	mutex_init(&cfg->pipe_mutex);
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
@@ -401,6 +408,9 @@ static void task_submit_done(struct mml_task *task)
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 
 	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
+
+	if (ctx->submit_cb)
+		ctx->submit_cb(task->cb_param);
 
 	mutex_lock(&ctx->config_mutex);
 	task_move_to_running(task);
@@ -523,7 +533,8 @@ static void frame_check_end_time(struct timespec64 *endtime)
 	}
 }
 
-s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
+s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
+	void *cb_param)
 {
 	struct mml_frame_config *cfg;
 	struct mml_task *task;
@@ -546,11 +557,15 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 		}
 	}
 
-	/* always fixup plane offset */
-	frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
-	for (i = 0; i < submit->info.dest_cnt; i++)
-		frame_calc_plane_offset(&submit->info.dest[i].data,
-			&submit->buffer.dest[i]);
+	if (likely(!mml_racing_ut)) {
+		/* always fixup plane offset */
+		frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+		for (i = 0; i < submit->info.dest_cnt; i++)
+			frame_calc_plane_offset(&submit->info.dest[i].data,
+				&submit->buffer.dest[i]);
+	}
+
+	mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), 0);
 
 	mutex_lock(&ctx->config_mutex);
 
@@ -593,7 +608,8 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	}
 
 	/* make sure id unique and cached last */
-	task->job.jobid = atomic_inc_return(&ctx->job_serial);
+	task->job.jobid = atomic_fetch_inc(&ctx->job_serial);
+	task->cb_param = cb_param;
 	cfg->last_jobid = task->job.jobid;
 	list_add_tail(&task->entry, &cfg->await_tasks);
 	cfg->await_task_cnt++;
@@ -654,6 +670,62 @@ err_unlock_exit:
 	return result;
 }
 EXPORT_SYMBOL_GPL(mml_drm_submit);
+
+s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit)
+{
+	struct mml_frame_config *cfg;
+
+	mml_trace_begin("%s", __func__);
+
+	mutex_lock(&ctx->config_mutex);
+
+	cfg = frame_config_find_reuse(ctx, submit);
+	if (!cfg) {
+		mml_err("[drm]The submit info not found for stop");
+		goto done;
+	}
+
+	mml_log("[drm]stop config %p", cfg);
+	mml_core_stop_racing(cfg);
+
+done:
+	mutex_unlock(&ctx->config_mutex);
+	mml_trace_end();
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mml_drm_stop);
+
+void mml_drm_config_rdone(struct mml_drm_ctx *ctx, struct mml_submit *submit,
+	struct cmdq_pkt *pkt)
+{
+	struct mml_frame_config *cfg;
+
+	mml_trace_begin("%s", __func__);
+
+	mutex_lock(&ctx->config_mutex);
+	cfg = frame_config_find_reuse(ctx, submit);
+	if (!cfg) {
+		mml_err("[drm]The submit info not found for stop");
+		goto done;
+	}
+
+	cmdq_pkt_write_value_addr(pkt,
+		cfg->path[0]->mmlsys->base_pa + MDPSYS_IN_LINE_REDAY_SEL,
+		0x34, U32_MAX);
+
+done:
+	mutex_unlock(&ctx->config_mutex);
+	mml_trace_end();
+}
+EXPORT_SYMBOL_GPL(mml_drm_config_rdone);
+
+void mml_drm_dump(struct mml_drm_ctx *ctx, struct mml_submit *submit)
+{
+	mml_log("[drm]dump threads for mml, submit job %u",
+		submit->job ? submit->job->jobid : 0);
+	mml_dump_thread(ctx->mml);
+}
+EXPORT_SYMBOL_GPL(mml_drm_dump);
 
 s32 dup_task(struct mml_task *task, u32 pipe)
 {
@@ -762,6 +834,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->task_ops = &drm_task_ops;
 	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy", 0, 0);
 	ctx->disp_dual = disp->dual;
+	ctx->disp_vdo = disp->vdo_mode;
+	ctx->submit_cb = disp->submit_cb;
 
 	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
 	if (!ctx->timeline)
@@ -818,10 +892,51 @@ EXPORT_SYMBOL_GPL(mml_drm_put_context);
 
 s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 {
-	mml_msg("[drm]%s pkt %p", __func__, pkt);
+	u32 jobid = atomic_read(&ctx->job_serial);
+
+	/* debug current task idx */
+	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3, jobid);
+
+	cmdq_pkt_set_event(pkt, mml_ir_get_disp_ready_event(ctx->mml));
+	cmdq_pkt_wfe(pkt, mml_ir_get_mml_ready_event(ctx->mml));
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mml_drm_racing_config_sync);
+
+void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
+{
+	struct mml_frame_info *info = &submit->info;
+	struct mml_frame_info *info_pq = &submit_pq->info;
+
+	memcpy(submit_pq, submit, sizeof(*submit));
+
+	info->dest[0].data.y_stride = mml_color_get_min_y_stride(
+		info->dest[0].data.format,
+		info->dest[0].crop.r.width);
+	info->dest[0].data.uv_stride = mml_color_get_min_uv_stride(
+		info->dest[0].data.format,
+		info->dest[0].crop.r.width);
+	if (info->dest[0].rotate == MML_ROT_90 ||
+		info->dest[0].rotate == MML_ROT_270) {
+		info->dest[0].data.width = info->dest[0].crop.r.height;
+		info->dest[0].data.height = info->dest[0].crop.r.width;
+	} else {
+		info->dest[0].data.width = info->dest[0].crop.r.width;
+		info->dest[0].data.height = info->dest[0].crop.r.height;
+	}
+
+	if (MML_FMT_PLANE(info->dest[0].data.format) > 1)
+		mml_err("%s dest plane should be 1 but format %#010x",
+			__func__, info->dest[0].data.format);
+
+	info_pq->src.width = info->dest[0].data.width;
+	info_pq->src.height = info->dest[0].data.height;
+	info_pq->src.format = info->dest[0].data.format;
+	info_pq->src.y_stride = info->dest[0].data.y_stride;
+	info_pq->src.uv_stride = info->dest[0].data.uv_stride;
+}
+EXPORT_SYMBOL_GPL(mml_drm_split_info);
 
 int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {

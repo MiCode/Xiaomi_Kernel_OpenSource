@@ -11,11 +11,11 @@
 #include <soc/mediatek/smi.h>
 #include <cmdq-util.h>
 
-
 #include "mtk-mml-core.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-tile.h"
 #include "mtk-mml-pq-core.h"
+#include "mtk-mml-mmp.h"
 
 #define MML_TRACE_MSG_LEN	1024
 
@@ -41,6 +41,12 @@ module_param(mml_qos_log, int, 0644);
 
 int mml_slt;
 module_param(mml_slt, int, 0644);
+
+int mml_racing_ut;
+module_param(mml_racing_ut, int, 0644);
+
+int mml_racing_timeout;
+module_param(mml_racing_timeout, int, 0644);
 
 #define mml_msg_qos(fmt, args...) \
 do { \
@@ -245,7 +251,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	bool reverse;
 
 	struct mml_comp *comp;
-	u32 i, tile, tile_idx;
+	u32 i, tile, tile_idx, tile_wait;
 	s32 ret;
 
 	if (IS_ERR(pkt)) {
@@ -302,11 +308,15 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 				for (i = 0; i < path->node_cnt; i++) {
 					comp = path->nodes[i].comp;
 					call_cfg_op(comp, wait, task, &ccfg[i],
-						    tile_idx);
+						    tile_wait);
 				}
+				path->mmlsys->config_ops->sync(path->mmlsys, task,
+					&ccfg[path->mmlsys_idx], tile - 1);
 			}
+			/* first tile must wait eof before trigger */
 			path->mutex->config_ops->mutex(path->mutex, task,
 						       &ccfg[path->mutex_idx]);
+			tile_wait = tile_idx;
 			/* last tile needs wait again */
 			if (tile == tile_cnt - 1) {
 				for (i = 0; i < path->node_cnt; i++) {
@@ -314,6 +324,8 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 					call_cfg_op(comp, wait, task, &ccfg[i],
 						    tile_idx);
 				}
+				path->mmlsys->config_ops->sync(path->mmlsys, task,
+					&ccfg[path->mmlsys_idx], tile);
 			}
 		} else {
 			path->mutex->config_ops->mutex(path->mutex, task,
@@ -323,6 +335,8 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 				call_cfg_op(comp, wait, task, &ccfg[i],
 					    tile_idx);
 			}
+			path->mmlsys->config_ops->sync(path->mmlsys, task,
+				&ccfg[path->mmlsys_idx], tile);
 		}
 	}
 
@@ -374,8 +388,8 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 	struct mml_comp *comp;
 	u32 i;
 
-	mml_err("dump %d task %p pipe %u config %p",
-		cnt, task, pipe, task->config);
+	mml_err("dump %d task %p pipe %u config %p job %u",
+		cnt, task, pipe, task->config, task->job.jobid);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
@@ -838,6 +852,8 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 		return;
 	}
 
+	mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
+
 	queue_work(task->config->wq_wait, &task->work_wait[pipe]);
 }
 
@@ -904,10 +920,21 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 	mml_trace_ex_end();
 }
 
-static void core_taskdump_cb(struct mml_task *task, u32 pipe)
+static void core_taskdump_cb(struct mml_task *task, u32 pipe, int err)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
-	int cnt = atomic_fetch_inc(&mml_err_cnt);
+	int cnt;
+
+	if (err == -EBUSY) {
+		/* inline rotate case self trigger, mark mmp and do nothing */
+		mml_mmp(irq_loop, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
+		mml_log("task loop job %u pipe %u", task->job.jobid, pipe);
+		return;
+	}
+
+	cnt = atomic_fetch_inc(&mml_err_cnt);
+
+	mml_mmp(irq_err, MMPROFILE_FLAG_PULSE, task->job.jobid, cnt);
 
 	core_comp_dump(task, pipe, cnt);
 	if (cnt < 3) {
@@ -925,20 +952,29 @@ static void core_taskdump_pipe0_cb(struct cmdq_cb_data data)
 {
 	struct mml_task *task = (struct mml_task *)data.data;
 
-	core_taskdump_cb(task, 0);
+	core_taskdump_cb(task, 0, data.err);
 }
 
 static void core_taskdump_pipe1_cb(struct cmdq_cb_data data)
 {
 	struct mml_task *task = (struct mml_task *)data.data;
 
-	core_taskdump_cb(task, 1);
+	core_taskdump_cb(task, 1, data.err);
 }
 
 static const cmdq_async_flush_cb dump_cbs[MML_PIPE_CNT] = {
 	[0] = core_taskdump_pipe0_cb,
 	[1] = core_taskdump_pipe1_cb,
 };
+
+static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe)
+{
+	if (cmdq_mbox_get_usage(cfg->path[pipe]->clt->chan) <= 0)
+		return;
+
+	cmdq_thread_set_spr(cfg->path[pipe]->clt->chan, MML_CMDQ_NEXT_SPR,
+		MML_NEXTSPR_NEXT);
+}
 
 static s32 core_flush(struct mml_task *task, u32 pipe)
 {
@@ -951,11 +987,6 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 
 	if (mml_pkt_dump == 1)
 		cmdq_pkt_dump_buf(pkt, 0);
-
-#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	if (mml_pkt_dump == 2)
-		core_dump_inst(pkt);
-#endif
 
 	/* before flush, wait buffer fence being signaled */
 	wait_dma_fence("src", task->buf.src.fence);
@@ -1001,7 +1032,27 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
 
+	if (unlikely(mml_racing_timeout)) {
+		if (task->config->info.mode == MML_MODE_RACING)
+			cmdq_mbox_set_thread_timeout(
+				task->config->path[pipe]->clt->chan,
+				CMDQ_TIMEOUT_DEFAULT * mml_racing_timeout);
+		else
+			cmdq_mbox_set_thread_timeout(
+				task->config->path[pipe]->clt->chan,
+				CMDQ_TIMEOUT_DEFAULT);
+	}
+
+	/* force stop current running racing */
+	if (task->config->info.mode == MML_MODE_RACING) {
+		mml_core_stop_racing_pipe(task->config, pipe);
+		task->pkts[pipe]->self_loop = true;
+	}
+
 	mml_trace_ex_end();
+
+	mml_log("%s task %p pipe %u pkt %p job %u",
+		__func__, task, pipe, pkt, task->job.jobid);
 
 	return cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task->pkts[pipe]);
 }
@@ -1017,9 +1068,16 @@ static void core_init_pipe(struct mml_task *task, u32 pipe)
 		/* error handling */
 	}
 	err = core_flush(task, pipe);
-	if (err < 0) {
-		/* error handling */
+	if (err < 0)
+		mml_err("flush fail task %p pipe %u pkt %p",
+			task, pipe, task->pkts[pipe]);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_pkt_dump == 2) {
+		core_dump_inst(task->pkts[pipe]);
+		mml_pkt_dump = 0; /* avoid impact performance */
 	}
+#endif
 
 	mml_msg("%s task %p pipe %u done", __func__, task, pipe);
 
@@ -1121,8 +1179,10 @@ static void core_config_thread(struct work_struct *work)
 
 	task = container_of(work, struct mml_task, work_config[0]);
 
-	mml_msg("%s begin task %p config %p",
-		__func__, task, task->config);
+	mml_mmp(config, MMPROFILE_FLAG_PULSE, task->job.jobid, 0);
+
+	mml_msg("%s begin task %p config %p job %u",
+		__func__, task, task->config, task->job.jobid);
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
@@ -1257,6 +1317,16 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)
 		core_update_out(cfg);
 
 	queue_work(cfg->wq_config[0], &task->work_config[0]);
+}
+
+void mml_core_stop_racing(struct mml_frame_config *cfg)
+{
+	if (!cfg->path[0])
+		return;
+
+	mml_core_stop_racing_pipe(cfg, 0);
+	if (cfg->dual)
+		mml_core_stop_racing_pipe(cfg, 1);
 }
 
 static s32 check_label_idx(struct mml_task_reuse *reuse,

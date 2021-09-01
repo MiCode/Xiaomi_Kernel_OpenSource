@@ -41,11 +41,15 @@ struct mml_dev {
 	struct mutex clock_mutex;
 
 	/* sram operation */
+	bool racing_en;
 	struct slbc_data sram_data;
 	s32 sram_cnt;
 	struct mutex sram_mutex;
 	/* The height of racing mode for each output tile in pixel. */
 	u8 racing_height;
+	/* inline rotate sync event */
+	u16 event_mml_ready;
+	u16 event_disp_ready;
 
 	/* wack lock to prevent system off */
 	struct wakeup_source *wake_lock;
@@ -615,9 +619,34 @@ done:
 	mutex_unlock(&mml->sram_mutex);
 }
 
+bool mml_racing_enable(struct mml_dev *mml)
+{
+	return mml->racing_en;
+}
+EXPORT_SYMBOL_GPL(mml_racing_enable);
+
 u8 mml_sram_get_racing_height(struct mml_dev *mml)
 {
 	return mml->racing_height;
+}
+
+u16 mml_ir_get_mml_ready_event(struct mml_dev *mml)
+{
+	return mml->event_mml_ready;
+}
+
+u16 mml_ir_get_disp_ready_event(struct mml_dev *mml)
+{
+	return mml->event_disp_ready;
+}
+
+void mml_dump_thread(struct mml_dev *mml)
+{
+	u32 i;
+
+	for (i = 0; i < MML_MAX_CMDQ_CLTS; i++)
+		if (mml->cmdq_clts[i])
+			cmdq_thread_dump(mml->cmdq_clts[i]->chan, NULL, NULL, NULL);
 }
 
 void mml_clock_lock(struct mml_dev *mml)
@@ -738,8 +767,18 @@ static int mml_probe(struct platform_device *pdev)
 	if (thread_cnt <= 0 || thread_cnt > MML_MAX_CMDQ_CLTS)
 		thread_cnt = MML_MAX_CMDQ_CLTS;
 
+	mml->racing_en = of_property_read_bool(dev->of_node, "racing-enable");
+	if (mml->racing_en)
+		mml_log("racing mode enable");
+
 	if (of_property_read_u8(dev->of_node, "racing_height", &mml->racing_height))
 		mml->racing_height = 64;	/* default height 64px */
+
+	if (!of_property_read_u16(dev->of_node, "event_ir_mml_ready", &mml->event_mml_ready))
+		mml_log("racing event event_mml_ready %hu", mml->event_mml_ready);
+
+	if (!of_property_read_u16(dev->of_node, "event_ir_disp_ready", &mml->event_disp_ready))
+		mml_log("racing event event_disp_ready %hu", mml->event_disp_ready);
 
 	mml->cmdq_base = cmdq_register_device(dev);
 	for (i = 0; i < thread_cnt; i++) {
