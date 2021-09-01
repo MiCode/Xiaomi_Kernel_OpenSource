@@ -195,7 +195,7 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 				   pwrkey_rst_shift);
 		regmap_update_bits(keys->regmap, pmic_rst_para_reg,
 				   homekey_rst_shift,
-				   homekey_rst_shift);
+				   RST_PWRKEY_HOME_MODE << pmic_regs->homekey_rst_shift);
 		break;
 	case LP_DISABLE:
 		regmap_update_bits(keys->regmap, pmic_rst_reg,
@@ -203,7 +203,7 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 				   0);
 		regmap_update_bits(keys->regmap, pmic_rst_para_reg,
 				   homekey_rst_shift,
-				   RST_PWRKEY_MODE);
+				   RST_PWRKEY_HOME_HOME2_MODE << pmic_regs->homekey_rst_shift);
 		break;
 	default:
 		break;
