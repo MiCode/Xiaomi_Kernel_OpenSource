@@ -1279,7 +1279,6 @@ void set_scp_mpu(void)
 
 void scp_register_feature(enum feature_id id)
 {
-	uint32_t i;
 	int ret = 0;
 
 	/*prevent from access when scp is down*/
@@ -1296,15 +1295,17 @@ void scp_register_feature(enum feature_id id)
 		return;
 	}
 
+	if (id >= NUM_FEATURE_ID) {
+		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
+			__func__, id, NUM_FEATURE_ID - 1);
+		return;
+	}
 	/* because feature_table is a global variable,
 	 * use mutex lock to protect it from accessing in the same time
 	 */
 	mutex_lock(&scp_feature_mutex);
 
-	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].feature == id)
-			feature_table[i].enable = 1;
-	}
+	feature_table[id].enable = 1;
 #if SCP_DVFS_INIT_ENABLE
 	scp_expected_freq = scp_get_freq();
 #endif
@@ -1342,29 +1343,30 @@ EXPORT_SYMBOL_GPL(scp_register_feature);
 
 void scp_deregister_feature(enum feature_id id)
 {
-	uint32_t i;
 	int ret = 0;
 
 	/* prevent from access when scp is down */
 	if (!scp_ready[SCP_A_ID]) {
-		pr_debug("[SCP] %s:not ready, scp=%u\n", __func__,
+		pr_notice("[SCP] %s:not ready, scp=%u\n", __func__,
 			scp_ready[SCP_A_ID]);
 		return;
 	}
 
 	/* prevent from access when scp dvfs cali isn't done */
 	if (!scp_dvfs_cali_ready) {
-		pr_debug("[SCP] %s: dvfs cali not ready, scp_dvfs_cali=%u\n",
-		__func__, scp_dvfs_cali_ready);
+		pr_notice("[SCP] %s: dvfs cali not ready, scp_dvfs_cali=%u\n",
+			__func__, scp_dvfs_cali_ready);
 		return;
 	}
 
+	if (id >= NUM_FEATURE_ID) {
+		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
+			__func__, id, NUM_FEATURE_ID - 1);
+		return;
+	}
 	mutex_lock(&scp_feature_mutex);
 
-	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].feature == id)
-			feature_table[i].enable = 0;
-	}
+	feature_table[id].enable = 0;
 #if SCP_DVFS_INIT_ENABLE
 	scp_expected_freq = scp_get_freq();
 #endif
@@ -1778,6 +1780,68 @@ void scp_recovery_init(void)
 #endif
 }
 
+static int scp_feature_table_probe(struct platform_device *pdev)
+{
+	enum {
+		feaure_tbl_item_size = 3
+	};
+	int i, ret, feature_num, feature_id, frequency, core_id;
+
+	feature_num = of_property_count_u32_elems(
+			pdev->dev.of_node, "scp_feature_tbl")
+			/ 3;
+	if (feature_num <= 0) {
+		pr_notice("[SCP] scp_feature_tbl not found\n");
+		return -1;
+	}
+
+	for (i = 0; i < feature_num; ++i) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"scp_feature_tbl",
+			i * feaure_tbl_item_size,
+			&feature_id);
+
+		if (ret) {
+			pr_notice("[SCP] %s: can't get feature id(%d):line %d\n",
+				__func__, i, __LINE__);
+			return -1;
+		}
+
+		if (feature_id != feature_table[i].feature) {
+			pr_notice("[SCP] %s: feature id don't match(%d:%d):line %d\n",
+				__func__, feature_id, feature_table[i].feature,
+				__LINE__);
+			return -1;
+		}
+
+		/* because feature_table data member is bit-field */
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"scp_feature_tbl",
+			i * feaure_tbl_item_size + 1,
+			&frequency);
+
+		if (ret) {
+			pr_notice("[SCP] %s: can't get frequency(%d):%d\n",
+				__func__, i, __LINE__);
+			return -1;
+		}
+		feature_table[i].freq = frequency;
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"scp_feature_tbl",
+			i * feaure_tbl_item_size + 2,
+			&core_id);
+
+		if (ret) {
+			pr_notice("[SCP] %s: can't get core_id(%d):%d\n",
+				__func__, i, __LINE__);
+			return -1;
+		}
+		feature_table[i].sys_id = core_id;
+	}
+	return 0;
+}
+
 static bool scp_ipi_table_init(struct mtk_mbox_device *scp_mboxdev, struct platform_device *pdev)
 {
 	enum table_item_num {
@@ -2173,6 +2237,12 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 #endif
 
+	/* scp feature table probe */
+	ret = scp_feature_table_probe(pdev);
+	if (ret) {
+		pr_notice("[SCP] feature_table_probe failed\n");
+		return ret;
+	}
 	/* scp memorydump size probe */
 	ret = memorydump_size_probe(pdev);
 	if (ret)

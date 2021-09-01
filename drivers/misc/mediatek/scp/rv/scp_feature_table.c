@@ -13,87 +13,45 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 /* VFFP:20 + default:5 */
 	{
 		.feature	= VOW_FEATURE_ID,
-		.freq		= 5,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE1,
 	},
 	{
 		.feature	= SENS_FEATURE_ID,
-		.freq		= 29,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE0,
 	},
 	{
 		.feature	= FLP_FEATURE_ID,
-		.freq		= 26,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE0,
 	},
 	{
 		.feature	= RTOS_FEATURE_ID,
-		.freq		= 0,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE0,
 	},
 	{
 		.feature	= SPEAKER_PROTECT_FEATURE_ID,
-		.freq		= 200,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE1,
 	},
 	{
 		.feature	= VCORE_TEST_FEATURE_ID,
-		.freq		= 77,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE0,
 	},
 	{
 		.feature	= VOW_BARGEIN_FEATURE_ID,
-		.freq		= 135,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE1,
 	},
 	{
 		.feature	= VOW_DUMP_FEATURE_ID,
-		.freq		= 10,
-		.enable		= 0,
-		.sys_id		= SCPSYS_CORE1,
 	},
 	{
 		.feature        = VOW_VENDOR_M_FEATURE_ID,
-		.freq           = 80,
-		.enable         = 0,
-		.sys_id         = SCPSYS_CORE1,
 	},
 	{
 		.feature        = VOW_VENDOR_A_FEATURE_ID,
-		.freq           = 43,
-		.enable         = 0,
-		.sys_id         = SCPSYS_CORE1,
 	},
 	{
 		.feature        = VOW_VENDOR_G_FEATURE_ID,
-		.freq           = 22,
-		.enable         = 0,
-		.sys_id         = SCPSYS_CORE1,
 	},
 	{
 		.feature        = VOW_DUAL_MIC_FEATURE_ID,
-		.freq           = 20,
-		.enable         = 0,
-		.sys_id         = SCPSYS_CORE1,
 	},
 	{
 		.feature        = VOW_DUAL_MIC_BARGE_IN_FEATURE_ID,
-		.freq           = 100,
-		.enable         = 0,
-		.sys_id         = SCPSYS_CORE1,
 	},
 	{
 		.feature        = ULTRA_FEATURE_ID,
-		.freq           = 200,
-		.enable         = 0,
-		.sys_id         = SCPSYS_CORE0,
 	},
 };
 

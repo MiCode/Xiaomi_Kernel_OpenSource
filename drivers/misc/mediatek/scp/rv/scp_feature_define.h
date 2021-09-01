@@ -100,16 +100,16 @@ enum scp_sensor_id {
 };
 
 struct scp_feature_tb {
-	uint32_t feature;
-	uint32_t freq;
-	uint32_t enable;
-	uint32_t sys_id; /* run at which subsys? */
+	uint32_t feature:5,	/* max = 31 */
+		 freq:10,	/* max = 1023 */
+		 enable:1,	/* max = 1 */
+		 sys_id:1;	/* max = 1, run at which subsys? */
 };
 
 struct scp_sub_feature_tb {
-	uint32_t feature;
-	uint32_t freq;
-	uint32_t enable;
+	uint32_t feature:6,	/* max = 63 */
+		 freq:9,	/* max = 511 */
+		 enable:1;	/* max = 1 */
 };
 
 
