@@ -48,8 +48,6 @@ void __iomem *gdipRegBA[DIP_HW_SET] = {0L};
 
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *ofset = NULL;
-	unsigned int i = 0;
 	unsigned int hw_idx = 0, ary_idx = 0;
 
 	pr_info("%s: +\n", __func__);
@@ -67,15 +65,28 @@ void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-for (i = 0 ; i < sizeof(mtk_imgsys_dip_init_ary)/sizeof(struct mtk_imgsys_init_array) ; i++) {
-	ofset = gdipRegBA[0] + mtk_imgsys_dip_init_ary[i].ofset;
-	writel(mtk_imgsys_dip_init_ary[i].val, ofset);
-}
+	imgsys_dip_set_hw_initial_value(imgsys_dev);
 
 	pr_info("%s: -\n", __func__);
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 EXPORT_SYMBOL(imgsys_dip_set_initial_value);
+
+void imgsys_dip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
+{
+	void __iomem *dipRegBA = 0L;
+	void __iomem *ofset = NULL;
+	unsigned int i;
+
+	/* iomap registers */
+	dipRegBA = gdipRegBA[0]; // dip: 0x15100000
+
+for (i = 0 ; i < sizeof(mtk_imgsys_dip_init_ary)/sizeof(struct mtk_imgsys_init_array) ; i++) {
+	ofset = dipRegBA + mtk_imgsys_dip_init_ary[i].ofset;
+	writel(mtk_imgsys_dip_init_ary[i].val, ofset);
+}
+}
+EXPORT_SYMBOL(imgsys_dip_set_hw_initial_value);
 
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine)
