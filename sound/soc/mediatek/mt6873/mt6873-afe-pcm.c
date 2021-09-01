@@ -3493,6 +3493,7 @@ static const struct snd_soc_component_driver mt6873_afe_component = {
 	.open           = mtk_afe_pcm_open,
 	.pointer        = mtk_afe_pcm_pointer,
 	.pcm_construct  = mtk_afe_pcm_new,
+	.copy_user      = mtk_afe_pcm_copy_user,
 };
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)

@@ -3089,11 +3089,12 @@ static int mt6853_afe_component_probe(struct snd_soc_component *component)
 }
 
 static const struct snd_soc_component_driver mt6853_afe_component = {
-	.name = AFE_PCM_NAME,
-	.probe = mt6853_afe_component_probe,
+	.name           = AFE_PCM_NAME,
+	.probe          = mt6853_afe_component_probe,
 	.open           = mtk_afe_pcm_open,
 	.pointer        = mtk_afe_pcm_pointer,
 	.pcm_construct  = mtk_afe_pcm_new,
+	.copy_user      = mtk_afe_pcm_copy_user,
 };
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
