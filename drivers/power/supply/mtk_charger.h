@@ -382,6 +382,7 @@ extern int get_battery_voltage(struct mtk_charger *info);
 extern int get_battery_temperature(struct mtk_charger *info);
 extern int get_battery_current(struct mtk_charger *info);
 extern int get_vbus(struct mtk_charger *info);
+extern int get_ibat(struct mtk_charger *info);
 extern int get_ibus(struct mtk_charger *info);
 extern bool is_battery_exist(struct mtk_charger *info);
 extern int get_charger_type(struct mtk_charger *info);

@@ -3543,7 +3543,7 @@ static int pe50_dump_charging_info(struct pe50_algo_info *info)
 		 data->ita_measure, data->force_ta_cv);
 	PE50_INFO("vout(master,slave)=(%d,%d)\n",
 		 vout[PE50_DVCHG_MASTER], vout[PE50_DVCHG_SLAVE]);
-	PE50_INFO("[PE5] %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	PE50_INFO("[PE5] %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		 vbus, ibus[PE50_DVCHG_MASTER], ibus[PE50_DVCHG_SLAVE],ibus_total, vbat, ibat,
 		 tbat, vsys, soc,
 		 vout[PE50_DVCHG_MASTER], vout[PE50_DVCHG_SLAVE]);

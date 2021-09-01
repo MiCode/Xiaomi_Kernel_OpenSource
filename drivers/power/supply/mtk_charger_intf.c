@@ -216,6 +216,20 @@ int get_vbus(struct mtk_charger *info)
 	return vchr;
 }
 
+int get_ibat(struct mtk_charger *info)
+{
+	int ret = 0;
+	int ibat = 0;
+
+	if (info == NULL)
+		return -EINVAL;
+	ret = charger_dev_get_ibat(info->chg1_dev, &ibat);
+	if (ret < 0)
+		chr_err("%s: get ibat failed: %d\n", __func__, ret);
+
+	return ibat / 1000;
+}
+
 int get_ibus(struct mtk_charger *info)
 {
 	int ret = 0;
@@ -314,7 +328,9 @@ int get_charger_type(struct mtk_charger *info)
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop3);
 
-		if (prop.intval == 0)
+		if (prop.intval == 0 ||
+		    (prop2.intval == POWER_SUPPLY_TYPE_USB &&
+		    prop3.intval == POWER_SUPPLY_USB_TYPE_UNKNOWN))
 			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
 	}
 

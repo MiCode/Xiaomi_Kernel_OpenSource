@@ -2424,7 +2424,7 @@ static int charger_routine_thread(void *arg)
 		info->charger_thread_timeout = false;
 
 		info->battery_temp = get_battery_temperature(info);
-		chr_err("Vbat=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d\n",
+		chr_err("Vbat=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d swchg_ibat:%d\n",
 			get_battery_voltage(info),
 			get_vbus(info),
 			get_ibus(info),
@@ -2433,7 +2433,7 @@ static int charger_routine_thread(void *arg)
 			get_uisoc(info),
 			dump_charger_type(info->chr_type, info->usb_type),
 			dump_charger_type(get_charger_type(info), get_usb_type(info)),
-			info->pd_type);
+			info->pd_type, get_ibat(info));
 
 		is_charger_on = mtk_is_charger_on(info);
 
@@ -2714,6 +2714,8 @@ static int psy_charger_get_property(struct power_supply *psy,
 	struct mtk_charger *info;
 	struct charger_device *chg;
 	struct charger_data *pdata;
+	int ret = 0;
+	struct chg_alg_device *alg = NULL;
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
 
@@ -2738,6 +2740,18 @@ static int psy_charger_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
+		if (chg == info->dvchg1_dev) {
+			alg = get_chg_alg_by_name("pe5");
+			if (alg == NULL)
+				chr_err("get pe5 fail\n");
+			else {
+				ret = chg_alg_is_algo_ready(alg);
+				if (ret == ALG_RUNNING)
+					val->intval = true;
+				break;
+			}
+		}
+
 		val->intval = is_charger_exist(info);
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:

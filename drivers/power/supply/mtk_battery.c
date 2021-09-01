@@ -433,6 +433,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 	int cur_chr_type = 0;
 
 	struct power_supply *chg_psy = NULL;
+	struct power_supply *dv2_chg_psy = NULL;
 	int ret;
 
 	gm = psy->drv_data;
@@ -457,15 +458,29 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_STATUS, &status);
 
-		if (!online.intval)
+		if (!online.intval) {
 			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
-		else {
-			if (status.intval == POWER_SUPPLY_STATUS_NOT_CHARGING)
+		} else {
+			if (status.intval == POWER_SUPPLY_STATUS_NOT_CHARGING) {
 				bs_data->bat_status =
 					POWER_SUPPLY_STATUS_NOT_CHARGING;
-			else
+
+				dv2_chg_psy = power_supply_get_by_name("mtk-mst-div-chg");
+				if (!IS_ERR_OR_NULL(dv2_chg_psy)) {
+					ret = power_supply_get_property(dv2_chg_psy,
+						POWER_SUPPLY_PROP_ONLINE, &online);
+					if (online.intval) {
+						bs_data->bat_status =
+							POWER_SUPPLY_STATUS_CHARGING;
+						status.intval =
+							POWER_SUPPLY_STATUS_CHARGING;
+					}
+				}
+			} else {
 				bs_data->bat_status =
 					POWER_SUPPLY_STATUS_CHARGING;
+			}
+
 			fg_sw_bat_cycle_accu(gm);
 		}
 
