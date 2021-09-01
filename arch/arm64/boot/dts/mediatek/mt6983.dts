@@ -385,6 +385,7 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
+			rcupdate.rcu_expedited=1 \
 			swiotlb=noforce \
 			initcall_debug=1 cma=64M \
 			allow_mismatched_32bit_el0 \
