@@ -447,7 +447,7 @@ static void mtk_imgsys_notify_batch(struct mtk_imgsys_request *req)
 	 *  so we can suspend the HW.
 	 */
 	pm_runtime_mark_last_busy(imgsys_dev->dev);
-	pm_runtime_put_sync_autosuspend(imgsys_dev->dev);
+	pm_runtime_put_autosuspend(imgsys_dev->dev);
 
 	/*
 	 * The job may be aleady removed by streamoff, so we need to check
