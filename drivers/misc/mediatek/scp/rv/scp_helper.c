@@ -483,6 +483,9 @@ static void scp_wait_ready_timeout(struct timer_list *t)
 #if SCP_RECOVERY_SUPPORT
 	if (scp_timeout_times < 10)
 		scp_send_reset_wq(RESET_TYPE_TIMEOUT);
+	else
+		__pm_relax(scp_reset_lock);
+
 #endif
 	scp_timeout_times++;
 	pr_notice("[SCP] scp_timeout_times=%x\n", scp_timeout_times);
