@@ -25,8 +25,6 @@
 			<&vlp_cksys_clk CLK_VLP_CKSYS_APEINT_66M_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CKSYS_SRCK_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CKSYS_SRAMRC_SEL>,
-			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
-			<&topckgen_clk CLK_TOP_MFGSC_REF_SEL>,
 			<&topckgen_clk CLK_TOP_PWRAP_ULPOSC_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_SPMI_P_MST_SEL>,
@@ -36,9 +34,7 @@
 			<&topckgen_clk CLK_TOP_PERI_HF_FMEM_SEL>,
 			<&topckgen_clk CLK_TOP_UFS_HF_FMEM_SEL>,
 			<&topckgen_clk CLK_TOP_MCU_ACP_SEL>,
-			<&topckgen_clk CLK_TOP_TL_CK_SEL>,
-			<&topckgen_clk CLK_TOP_MFG_SEL_0>,
-			<&topckgen_clk CLK_TOP_MFG_SEL_1>;
+			<&topckgen_clk CLK_TOP_TL_CK_SEL>;
 	};
 
 };
