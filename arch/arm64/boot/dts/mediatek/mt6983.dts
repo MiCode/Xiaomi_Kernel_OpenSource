@@ -9600,6 +9600,11 @@
 		clock-names = "MDP_MUTEX0";
 	};
 
+	smi_test {
+		compatible = "mediatek,smi-testcase";
+		mediatek,larbs = <&smi_larb2>;
+	};
+
 	smi_larb2: smi_larb2@1f002000 {
 		compatible = "mediatek,smi_larb2",
 			"mediatek,mt6983-smi-larb", "mediatek,smi-larb";
