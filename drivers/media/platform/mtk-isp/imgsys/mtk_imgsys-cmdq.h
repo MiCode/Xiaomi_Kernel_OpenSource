@@ -11,7 +11,7 @@
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-sys.h"
 
-#define CMDQ_STOP_FUNC         (0)
+#define CMDQ_STOP_FUNC         (1)
 
 #define DVFS_QOS_READY         (1)
 
