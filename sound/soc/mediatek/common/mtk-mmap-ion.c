@@ -13,6 +13,9 @@
 #include <linux/slab.h>
 
 
+static void *dl_alloc_vaddr;
+static void *ul_alloc_vaddr;
+
 static unsigned long dl_phy_addr;
 static unsigned long ul_phy_addr;
 
@@ -105,10 +108,13 @@ static struct dma_buf *mtk_dma_buf_init(struct device *dev, void **vaddr)
 
 	dmabuf_dev = dev;
 
-	*vaddr = kzalloc(MMAP_BUFFER_SIZE, GFP_KERNEL);
-	if (!(*vaddr)) {
-		dev_warn(dev, "%s() kzalloc fail!!\n", __func__);
-		return NULL;
+	if (*vaddr == NULL) {
+		dev_info(dev, "%s(), kazlloc()\n", __func__);
+		*vaddr = kzalloc(MMAP_BUFFER_SIZE, GFP_KERNEL);
+		if (!(*vaddr)) {
+			dev_info(dev, "%s() kzalloc fail!!\n", __func__);
+			return NULL;
+		}
 	}
 
 	exp_info.ops = &exp_dmabuf_ops;
@@ -120,7 +126,7 @@ static struct dma_buf *mtk_dma_buf_init(struct device *dev, void **vaddr)
 
 	dmabuf = dma_buf_export(&exp_info);
 	if (IS_ERR_OR_NULL(dmabuf)) {
-		dev_warn(dev, "%s() couldn't export dma_buf", __func__);
+		dev_info(dev, "%s() couldn't export dma_buf", __func__);
 		kfree(vaddr);
 		return NULL;
 	}
@@ -130,16 +136,16 @@ static struct dma_buf *mtk_dma_buf_init(struct device *dev, void **vaddr)
 int mtk_exporter_init(struct device *dev)
 {
 	struct dma_buf *dmabuf;
-	void *vaddr;
 
-	dev_info(dev, "%s()\n", __func__);
+	dev_info(dev, "%s(), dl_alloc_vaddr %p, ul_alloc_vaddr %p\n",
+		 __func__, dl_alloc_vaddr, ul_alloc_vaddr);
 
 	// for DL
-	dmabuf = mtk_dma_buf_init(dev, &vaddr);
+	dmabuf = mtk_dma_buf_init(dev, &dl_alloc_vaddr);
 	if (dmabuf != NULL) {
 		//dev_info(dev, "+%s() for DL, addr %p, phy_addr %ld, size %zu, fd %d\n",
 		//		__func__, dl_vir_addr, dl_phy_addr, dl_size, dl_fd);
-		dl_vir_addr = vaddr;
+		dl_vir_addr = dl_alloc_vaddr;
 		dl_phy_addr = __pa(dl_vir_addr);
 		dl_size     = MMAP_BUFFER_SIZE;
 		dl_fd = dma_buf_fd(dmabuf, O_CLOEXEC);
@@ -148,11 +154,11 @@ int mtk_exporter_init(struct device *dev)
 	}
 
 	// for UL
-	dmabuf = mtk_dma_buf_init(dev, &vaddr);
+	dmabuf = mtk_dma_buf_init(dev, &ul_alloc_vaddr);
 	if (dmabuf != NULL) {
 		//dev_info(dev, "+%s() for UL, addr %p, phy_addr %ld, size %zu, fd %d\n",
 		//		__func__, ul_vir_addr, ul_phy_addr, ul_size, ul_fd);
-		ul_vir_addr = vaddr;
+		ul_vir_addr = ul_alloc_vaddr;
 		ul_phy_addr = __pa(ul_vir_addr);
 		ul_size     = MMAP_BUFFER_SIZE;
 		ul_fd = dma_buf_fd(dmabuf, O_CLOEXEC);
