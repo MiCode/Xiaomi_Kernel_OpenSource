@@ -451,6 +451,17 @@ static void task_frame_done(struct mml_task *task)
 	mutex_lock(&ctx->config_mutex);
 	task_move_to_idle(task);
 
+	if (!task->pkts[0] || (task->config->dual && !task->pkts[1])) {
+		list_del_init(&task->entry);
+		cfg->done_task_cnt--;
+		mml_msg("[drm]%s task cnt (%u %u %hhu)",
+			__func__,
+			task->config->await_task_cnt,
+			task->config->run_task_cnt,
+			task->config->done_task_cnt);
+		kref_put(&task->ref, task_move_to_destroy);
+	}
+
 	if (cfg->done_task_cnt > mml_max_cache_task) {
 		task = list_first_entry(&cfg->done_tasks, typeof(*task),
 			entry);
@@ -755,7 +766,7 @@ s32 dup_task(struct mml_task *task, u32 pipe)
 		goto dup_command;
 
 	src = list_first_entry_or_null(&cfg->tasks, struct mml_task, entry);
-	if (src)
+	if (src && src->pkts[pipe])
 		goto dup_command;
 
 

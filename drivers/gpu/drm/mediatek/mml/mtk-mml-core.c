@@ -759,6 +759,24 @@ char *mml_core_get_dump_inst(u32 *size)
 }
 #endif	/* CONFIG_MTK_MML_DEBUG */
 
+static void core_taskerr(struct mml_task *task, u32 pipe)
+{
+	u32 cnt;
+
+	cnt = atomic_inc_return(&task->pipe_done);
+
+	if (task->config->dual && cnt == 1)
+		return;
+
+	/* before clean up, signal buffer fence */
+	if (task->fence) {
+		dma_fence_signal(task->fence);
+		dma_fence_put(task->fence);
+	}
+
+	core_buffer_unmap(task);
+	task->config->task_ops->frame_done(task);
+}
 
 static void core_taskdone(struct mml_task *task, u32 pipe)
 {
@@ -772,10 +790,16 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	 *
 	 * and note we always lock pipe 0
 	 */
-	path_clt = core_get_path_clt(task, 0);
-	mutex_lock(&path_clt->clt_mutex);
-	mml_core_dvfs_end(task, pipe);
-	mutex_unlock(&path_clt->clt_mutex);
+
+	if (task->pkts[pipe]) {
+		path_clt = core_get_path_clt(task, 0);
+		mutex_lock(&path_clt->clt_mutex);
+		mml_core_dvfs_end(task, pipe);
+		mutex_unlock(&path_clt->clt_mutex);
+	} else {
+		core_taskerr(task, pipe);
+		goto done;
+	}
 
 	cnt = atomic_inc_return(&task->pipe_done);
 
@@ -807,12 +831,14 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		dma_fence_put(task->fence);
 	}
 
-	core_task_comp_done(task, 0);
-	if (task->config->dual)
+	if (task->pkts[0])
+		core_task_comp_done(task, 0);
+	if (task->config->dual && task->pkts[1])
 		core_task_comp_done(task, 1);
 
-	core_disable(task, 0);
-	if (task->config->dual)
+	if (task->pkts[0])
+		core_disable(task, 0);
+	if (task->config->dual && task->pkts[1])
 		core_disable(task, 1);
 
 	core_buffer_unmap(task);
@@ -861,6 +887,20 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 {
 	int ret;
 
+	if (task->state == MML_TASK_REUSE ||
+	    task->state == MML_TASK_DUPLICATE) {
+		if (task->state == MML_TASK_DUPLICATE) {
+			/* task need duplcicate before reuse */
+			mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
+			ret = task->config->task_ops->dup_task(task, pipe);
+			mml_trace_ex_end();
+			if (ret < 0) {
+				task->state = MML_TASK_INITIAL;
+				mml_err("dup task fail %d", ret);
+			}
+		}
+	}
+
 	if (task->state == MML_TASK_INITIAL) {
 		/* prepare data in each component for later tile use */
 		core_prepare(task, pipe);
@@ -883,17 +923,6 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 		command_make(task, pipe);
 		mml_trace_ex_end();
 	} else {
-		if (task->state == MML_TASK_DUPLICATE) {
-			/* task need duplcicate before reuse */
-			mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
-			ret = task->config->task_ops->dup_task(task, pipe);
-			mml_trace_ex_end();
-			if (ret < 0) {
-				mml_err("dup task fail %d", ret);
-				return ret;
-			}
-		}
-
 		/* pkt exists, reuse it directly */
 		mml_trace_ex_begin("%s_%s_%u", __func__, "reuse", pipe);
 		core_reuse(task, pipe);
@@ -1065,12 +1094,17 @@ static void core_init_pipe(struct mml_task *task, u32 pipe)
 
 	err = core_config(task, pipe);
 	if (err < 0) {
-		/* error handling */
+		mml_err("config fail task %p pipe %u pkt %p",
+			task, pipe, task->pkts[pipe]);
+		queue_work(task->config->wq_wait, &task->work_wait[pipe]);
+		goto exit;
 	}
 	err = core_flush(task, pipe);
-	if (err < 0)
+	if (err < 0) {
 		mml_err("flush fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
+		queue_work(task->config->wq_wait, &task->work_wait[pipe]);
+	}
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	if (mml_pkt_dump == 2) {
@@ -1080,7 +1114,7 @@ static void core_init_pipe(struct mml_task *task, u32 pipe)
 #endif
 
 	mml_msg("%s task %p pipe %u done", __func__, task, pipe);
-
+exit:
 	mml_trace_ex_end();
 }
 
