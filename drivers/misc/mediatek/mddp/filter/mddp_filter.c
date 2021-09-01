@@ -619,7 +619,7 @@ static struct sk_buff *mddp_f_skb_tag(struct sk_buff *skb, bool is_uplink, struc
 			iph->saddr = cb->dst[0];
 		}
 		iph->tot_len = htons(fake_skb->len);
-		ip_send_check(iph);
+		iph->check = 0;
 		len = iph->ihl * 4;
 		skb_set_transport_header(fake_skb, len);
 
@@ -632,13 +632,6 @@ static struct sk_buff *mddp_f_skb_tag(struct sk_buff *skb, bool is_uplink, struc
 				udph->source = port;
 			}
 			udph->len = htons(fake_skb->len - len);
-			udph->check = 0;
-			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
-						      fake_skb->len - len, 0);
-			udph->check = csum_tcpudp_magic(iph->saddr, iph->daddr, fake_skb->len - len,
-							IPPROTO_UDP, fake_skb->csum);
-			if (udph->check == 0)
-				udph->check = CSUM_MANGLED_0;
 		}
 		if (protocol == IPPROTO_TCP) {
 			tcph = (void *)(skb_network_header(fake_skb) + len);
@@ -648,11 +641,6 @@ static struct sk_buff *mddp_f_skb_tag(struct sk_buff *skb, bool is_uplink, struc
 				cb->sport = tcph->source;
 				tcph->source = port;
 			}
-			tcph->check = 0;
-			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
-						      fake_skb->len - len, 0);
-			tcph->check = csum_tcpudp_magic(iph->saddr, iph->daddr, fake_skb->len - len,
-							IPPROTO_TCP, fake_skb->csum);
 		}
 	}
 	if (ip_ver == 6) {
@@ -677,13 +665,6 @@ static struct sk_buff *mddp_f_skb_tag(struct sk_buff *skb, bool is_uplink, struc
 				udph->dest = port;
 			}
 			udph->len = htons(fake_skb->len - len);
-			udph->check = 0;
-			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
-						      fake_skb->len - len, 0);
-			udph->check = csum_ipv6_magic(&iph->saddr, &iph->daddr, fake_skb->len - len,
-						      IPPROTO_UDP, fake_skb->csum);
-			if (udph->check == 0)
-				udph->check = CSUM_MANGLED_0;
 		}
 
 		if (protocol == IPPROTO_TCP) {
@@ -693,11 +674,6 @@ static struct sk_buff *mddp_f_skb_tag(struct sk_buff *skb, bool is_uplink, struc
 				tcph->source = tcph->dest;
 				tcph->dest = port;
 			}
-			tcph->check = 0;
-			fake_skb->csum = skb_checksum(fake_skb, skb_transport_offset(fake_skb),
-						      fake_skb->len - len, 0);
-			tcph->check = csum_ipv6_magic(&iph->saddr, &iph->daddr, fake_skb->len - len,
-						      IPPROTO_TCP, fake_skb->csum);
 		}
 	}
 
