@@ -2206,15 +2206,22 @@
 					<4>, /* out_size */
 					<4>; /* in_size */
 
-			scp_feature_tbl = <0 5>,   /* vow */
-					  <1 29>,  /* sensor */
-					  <2 26>,  /* flp */
-					  <3 0>,   /* rtos */
-					  <4 200>, /* speaker */
-					  <5 77>,  /* vcore */
-					  <6 200>, /* barge in */
-					  <7 10>,  /* vow dump */
-					  <13 200>; /* ultrasound */
+
+			/* feature, frequecy, coreid */
+			scp_feature_tbl = < 0   5 1>,	/* vow */
+					  < 1  29 0>,	/* sensor */
+					  < 2  26 0>,	/* flp */
+					  < 3   0 0>,	/* rtos */
+					  < 4 200 1>,	/* speaker */
+					  < 5   0 0>,	/* vcore */
+					  < 6 135 1>,	/* barge in */
+					  < 7  10 1>,	/* vow dump */
+					  < 8  80 1>,	/* vow vendor M */
+					  < 9  43 1>,	/* vow vendor A */
+					  <10  22 1>,	/* vow vendor G */
+					  <11  20 1>,	/* vow dual mic */
+					  <12 100 1>,	/* vow dual mic barge in */
+					  <13 200 0>;	/* ultrasound */
 
 			secure_dump = "disable";	/* disabled in default */
 			secure_dump_size = <0>;
