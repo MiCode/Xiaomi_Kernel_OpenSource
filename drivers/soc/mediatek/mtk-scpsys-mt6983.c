@@ -239,12 +239,12 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		},
 		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
-	[MT6983_POWER_DOMAIN_UFS0] = {//dormant
+	[MT6983_POWER_DOMAIN_UFS0] = {
 		.name = "ufs0",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE10,
-		.sram_slp_bits = GENMASK(9, 9),
-		.sram_slp_ack_bits = GENMASK(13, 13),
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"ufs0_0"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
@@ -254,8 +254,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				UFS0_PROT_STEP3_0_MASK),
 		},
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON |
-							MTK_SCPD_BYPASS_INIT_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_MM_INFRA] = {
 		.name = "mm_infra",
