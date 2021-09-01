@@ -2944,7 +2944,7 @@ static const struct mtk_iommu_port apu_port_mt6895[] = {
 };
 
 /**********iommu trace**********/
-#define IOMMU_MAX_EVENT_COUNT 1024
+#define IOMMU_MAX_EVENT_COUNT 3000
 
 #define iommu_dump(file, fmt, args...) \
 	do {\
@@ -2959,6 +2959,8 @@ enum IOMMU_PROFILE_TYPE {
 	IOMMU_FREE,
 	IOMMU_MAP,
 	IOMMU_UNMAP,
+	IOMMU_SYNC,
+	IOMMU_UNSYNC,
 	IOMMU_EVENT_MAX,
 };
 
@@ -3146,7 +3148,7 @@ static void mtk_iommu_trace_dump(struct seq_file *s)
 		if (event_id < 0 || event_id >= IOMMU_EVENT_MAX)
 			continue;
 
-		if (event_id <= IOMMU_UNMAP)
+		if (event_id <= IOMMU_UNSYNC)
 			end_iova = iommu_globals.record[i].data1 +
 				iommu_globals.record[i].data2 - 1;
 
@@ -3504,16 +3506,22 @@ static int m4u_debug_set(void *data, u64 val)
 		event_mgr[IOMMU_FREE].dump_trace = 1;
 		event_mgr[IOMMU_MAP].dump_trace = 1;
 		event_mgr[IOMMU_UNMAP].dump_trace = 1;
+		event_mgr[IOMMU_SYNC].dump_trace = 1;
+		event_mgr[IOMMU_UNSYNC].dump_trace = 1;
 		break;
 	case 14:	/* disable trace dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 0;
 		event_mgr[IOMMU_FREE].dump_trace = 0;
 		event_mgr[IOMMU_MAP].dump_trace = 0;
 		event_mgr[IOMMU_UNMAP].dump_trace = 0;
+		event_mgr[IOMMU_SYNC].dump_trace = 0;
+		event_mgr[IOMMU_UNSYNC].dump_trace = 0;
 		break;
 	case 15:	/* reset to default trace log & dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 1;
 		event_mgr[IOMMU_FREE].dump_trace = 1;
+		event_mgr[IOMMU_SYNC].dump_trace = 1;
+		event_mgr[IOMMU_UNSYNC].dump_trace = 1;
 		event_mgr[IOMMU_MAP].dump_trace = 0;
 		event_mgr[IOMMU_UNMAP].dump_trace = 0;
 		event_mgr[IOMMU_ALLOC].dump_log = 0;
@@ -3616,8 +3624,12 @@ static void mtk_iommu_trace_init(struct mtk_m4u_data *data)
 	strncpy(event_mgr[IOMMU_FREE].name, "free", 10);
 	strncpy(event_mgr[IOMMU_MAP].name, "map", 10);
 	strncpy(event_mgr[IOMMU_UNMAP].name, "unmap", 10);
+	strncpy(event_mgr[IOMMU_SYNC].name, "sync", 10);
+	strncpy(event_mgr[IOMMU_UNSYNC].name, "unsync", 10);
 	event_mgr[IOMMU_ALLOC].dump_trace = 1;
 	event_mgr[IOMMU_FREE].dump_trace = 1;
+	event_mgr[IOMMU_SYNC].dump_trace = 1;
+	event_mgr[IOMMU_UNSYNC].dump_trace = 1;
 
 	iommu_globals.record = vmalloc(total_size);
 	if (!iommu_globals.record) {
@@ -3698,6 +3710,13 @@ static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
 
 	mtk_iommu_trace_rec_write(event, (unsigned long) iova, size, id, dev);
 }
+
+void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids)
+{
+	mtk_iommu_trace_rec_write(IOMMU_SYNC, (unsigned long) iova, size,
+				(unsigned long) iommu_ids, NULL);
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_tlb_sync_trace);
 
 static int m4u_debug_init(struct mtk_m4u_data *data)
 {
@@ -3813,11 +3832,13 @@ static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 {
 	struct iova_info *plist;
 	struct iova_info *tmp_plist;
+	struct device *dev = NULL;
 
 	spin_lock(&iova_list.lock);
 	list_for_each_entry_safe(plist, tmp_plist,
 				 &iova_list.head, list_node) {
 		if (plist->iova == iova && plist->size == size) {
+			dev = plist->dev;
 			list_del(&plist->list_node);
 			kfree(plist);
 			break;
@@ -3825,7 +3846,7 @@ static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 	}
 	spin_unlock(&iova_list.lock);
 
-	mtk_iommu_iova_trace(IOMMU_FREE, iova, size, NULL);
+	mtk_iommu_iova_trace(IOMMU_FREE, iova, size, dev);
 }
 
 /* all code inside alloc_iova_hook can't be scheduled! */

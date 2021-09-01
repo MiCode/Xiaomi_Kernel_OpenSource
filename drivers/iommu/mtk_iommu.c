@@ -226,6 +226,8 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 	((lower_32_bits(_addr) & GENMASK(31, 12)) | upper_32_bits(_addr));\
 })
 
+#define MTK_IOMMU_ID_FLAG(type, id)		BIT((2*(type)) + (id))
+
 /*
  * In M4U 4GB mode, the physical address is remapped as below:
  *
@@ -578,6 +580,8 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 /* Notice!!: Before use it, must be ensure mtcmos is on */
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 {
+	int iommu_ids = 0;
+
 	for_each_m4u(data) {
 		bool has_pm = !!data->dev->pm_domain;
 
@@ -589,6 +593,9 @@ static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 				continue;
 			}
 		}
+
+		iommu_ids |= MTK_IOMMU_ID_FLAG(data->plat_data->iommu_type,
+						data->plat_data->iommu_id);
 
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
@@ -620,6 +627,11 @@ skip_polling:
 			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	if (iommu_ids != 0)
+		mtk_iommu_tlb_sync_trace(0x0, 0x1, iommu_ids);
+#endif
 }
 
 static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
@@ -627,6 +639,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 					   struct mtk_iommu_data *data)
 {
 	unsigned long flags;
+	int iommu_ids = 0;
 	int ret;
 	u32 tmp;
 
@@ -643,6 +656,9 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 				continue;
 			}
 		}
+
+		iommu_ids |= MTK_IOMMU_ID_FLAG(data->plat_data->iommu_type,
+						data->plat_data->iommu_id);
 
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
@@ -672,6 +688,11 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	if (iommu_ids != 0)
+		mtk_iommu_tlb_sync_trace(iova, size, iommu_ids);
+#endif
 }
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)

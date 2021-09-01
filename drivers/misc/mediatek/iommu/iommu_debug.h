@@ -46,6 +46,7 @@ int mtk_iommu_unregister_fault_callback(int port, bool is_vpu);
 void mtk_iova_map(u64 iova, size_t size);
 void mtk_iova_unmap(u64 iova, size_t size);
 void mtk_iova_map_dump(u64 iova);
+void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids);
 
 void mtk_iommu_debug_reset(void);
 enum peri_iommu get_peri_iommu_id(u32 bus_id);
