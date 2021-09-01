@@ -2,6 +2,8 @@
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-common.o
 
+obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk_vcp_default_on.o
+
 mtk-vcodec-dec-$(CONFIG_VIDEO_MEDIATEK_VCU) += vdec/vdec_common_if.o \
 		vdec/vdec_vcu_if.o
 
