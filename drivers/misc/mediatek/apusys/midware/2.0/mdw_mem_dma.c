@@ -693,7 +693,7 @@ int mdw_mem_dma_flush(struct mdw_mem *mem)
 
 	if (!mdbuf->a.vaddr) {
 		mdw_drv_err("mdbuf vaddr NULL\n");
-		ret = -EINVAL;
+		//ret = -EINVAL; //workaround
 		goto out;
 	}
 
@@ -718,7 +718,7 @@ int mdw_mem_dma_invalidate(struct mdw_mem *mem)
 
 	if (!mdbuf->a.vaddr) {
 		mdw_drv_err("mdbuf vaddr NULL\n");
-		ret = -EINVAL;
+		//ret = -EINVAL;  //workaround
 		goto out;
 	}
 
