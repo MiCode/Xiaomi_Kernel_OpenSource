@@ -250,6 +250,7 @@ struct mt6375_chg_platform_data {
 	const char *chg_name;
 	bool chg_tmr_en;
 	bool wdt_en;
+	bool te_en;
 	bool usb_killer_detect;
 };
 
@@ -630,6 +631,7 @@ static const struct mt6375_chg_platform_data mt6375_chg_pdata_def = {
 	.chg_tmr = 10,	/* hr */
 	.dcdt_sel = 600,
 	.wdt_en = false,
+	.te_en = true,
 	.chg_tmr_en = true,
 	.chg_name = "primary_chg",
 	.usb_killer_detect = false,
@@ -2082,6 +2084,7 @@ static const struct mt6375_chg_dtprop mt6375_chg_dtprops[] = {
 	MT6375_CHG_DTPROP(ircmp_r, F_IRCMP_R, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(wdt, F_WDT, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(wdt_en, F_WDT_EN, DTPROP_BOOL, false),
+	MT6375_CHG_DTPROP(te_en, F_TE, DTPROP_BOOL, false),
 	MT6375_CHG_DTPROP(mivr, F_VMIVR, DTPROP_U32, true),
 	MT6375_CHG_DTPROP(aicr, F_IAICR, DTPROP_U32, true),
 	MT6375_CHG_DTPROP(ichg, F_CC, DTPROP_U32, true),
