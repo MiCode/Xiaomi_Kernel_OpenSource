@@ -6013,7 +6013,8 @@
 			"disp_dsi0_sof0",
 			"disp_token_vfp_period0",
 			"disp_token_disp_va_start0",
-			"disp_token_disp_va_end0";
+			"disp_token_disp_va_end0",
+			"disp_gpio_te1";
 
 		gce-events = <&gce CMDQ_EVENT_MMSYS_STREAM_DONE_ENG_EVENT_0>,
 			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
@@ -6034,7 +6035,8 @@
 			<&gce CMDQ_EVENT_MMSYS_DISP_DSI0_SOF>,
 			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
-			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
+			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
+			<&gce CMDQ_EVENT_GCE_EVENT_DSI1_TE_I>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
@@ -6079,7 +6081,8 @@
 			"MTK_DRM_OPT_DYN_MIPI_CHANGE",
 			"MTK_DRM_OPT_PRIM_DUAL_PIPE",
 			"MTK_DRM_OPT_MSYNC2_0",
-			"MTK_DRM_OPT_MML_PRIMARY";
+			"MTK_DRM_OPT_MML_PRIMARY",
+			"MTK_DRM_OPT_DUAL_TE";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -6124,7 +6127,8 @@
 			<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 			<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
 			<1>, /*MTK_DRM_OPT_MSYNC2_0*/
-			<1>; /*MTK_DRM_OPT_MML_PRIMARY*/
+			<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
+			<1>; /*MTK_DRM_OPT_DUAL_TE*/
 	};
 
 	disp_mutex0: disp_mutex@14001000 {
@@ -6670,6 +6674,11 @@
 
 	dsi_te: dsi_te {
 		compatible = "mediatek, dsi_te-eint";
+		status = "disabled";
+	};
+
+	dsi1_te: dsi1_te {
+		compatible = "mediatek, dsi1_te-int";
 		status = "disabled";
 	};
 
