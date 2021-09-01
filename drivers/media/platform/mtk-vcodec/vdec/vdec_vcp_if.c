@@ -1009,7 +1009,7 @@ static int vdec_vcp_set_param(unsigned long h_vdec,
 	case SET_PARAM_FRAME_SIZE:
 	case SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER:
 		msg.data[0] = (__u32)(*param_ptr);
-		msg.data[1] = (__u32)(*param_ptr + 1);
+		msg.data[1] = (__u32)(*(param_ptr + 1));
 		vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 		break;
 	case SET_PARAM_DECODE_MODE:
