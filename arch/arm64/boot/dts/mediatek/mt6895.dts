@@ -4,11 +4,13 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/pinctrl/mt6895-pinfunc.h>
 #include <dt-bindings/memory/mt6895-larb-port.h>
 
@@ -229,6 +231,10 @@
 			<GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH 0>;
 		clock-frequency = <13000000>;
+	};
+
+	spmi: spmi@1c804000 {
+		compatible = "mediatek,mt6895-spmi";
 	};
 
 	soc {
@@ -4357,6 +4363,157 @@
 		memory-region = <&wifi_mem>;
 		flavor_bin = "b";
 	};
+
+	pmic-oc-debug {
+		compatible = "mediatek,mt6895-oc-debug";
+		interrupt-parent = <&main_pmic>;
+		interrupts = <54 IRQ_TYPE_NONE>, <55 IRQ_TYPE_NONE>;
+		interrupt-names = "LVSYS_R", "LVSYS_F";
+		status = "okay";
+	};
+};
+
+&spmi {
+	mt6319_6: mt6319@6 {
+		compatible = "mediatek,mt6319";
+		reg = <0x6 SPMI_USID>;
+
+		extbuck_debug {
+			compatible = "mediatek,spmi-pmic-debug";
+		};
+		mt6319_6_regulator: mt6319_6_regulator {
+			compatible = "mediatek,mt6315_6-regulator";
+			buck-size = <2>;
+			buck1-modeset-mask = <0x3>;
+
+			mt6319_6_vbuck1: 6_vbuck1 {
+				regulator-compatible = "vbuck1";
+				regulator-name = "6_vbuck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+			mt6319_6_vbuck3: 6_vbuck3 {
+				regulator-compatible = "vbuck3";
+				regulator-name = "6_vbuck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+		};
+	};
+
+	mt6319_7: mt6319@7 {
+		compatible = "mediatek,mt6319";
+		reg = <0x7 SPMI_USID>;
+
+		extbuck_debug {
+			compatible = "mediatek,spmi-pmic-debug";
+		};
+		mt6319_7_regulator: mt6319_7_regulator {
+			compatible = "mediatek,mt6315_7-regulator";
+			buck-size = <2>;
+			buck1-modeset-mask = <0xb>;
+
+			mt6319_7_vbuck1: 7_vbuck1 {
+				regulator-compatible = "vbuck1";
+				regulator-name = "7_vbuck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+			mt6319_7_vbuck3: 7_vbuck3 {
+				regulator-compatible = "vbuck3";
+				regulator-name = "7_vbuck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-always-on;
+			};
+		};
+	};
 };
 
 #include "mediatek/cust_mt6895_msdc.dtsi"
+#include "mediatek/mt6363.dtsi"
+#include "mediatek/mt6368.dtsi"
+
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck3 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck5 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vsram_modem {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpub {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpul {
+	regulator-always-on;
+};
+
+&mt6363_vm18 {
+	regulator-always-on;
+};
+
+&mt6363_vufs18 {
+	regulator-always-on;
+};
+
+&mt6363_vufs12 {
+	regulator-always-on;
+};
+
+&mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck5 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck6 {
+	regulator-always-on;
+};
+
+
