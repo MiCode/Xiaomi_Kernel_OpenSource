@@ -17,7 +17,6 @@ ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),m)
 include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 
-ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
 ifeq ($(CONFIG_MTK_GZ_TZ_SYSTEM),m)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
@@ -25,7 +24,6 @@ ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
 ccflags-y += -DCMDQ_SECURE_SUPPORT
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-sec-drv.o
 cmdq-sec-drv-y := cmdq_sec_mtee.o cmdq-sec-mailbox.o cmdq-sec-helper.o
-endif
 endif
 
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mtk-cmdq-drv-ext.o
