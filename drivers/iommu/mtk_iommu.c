@@ -480,41 +480,39 @@ static void mtk_iommu_bk0_intr_en(const struct mtk_iommu_data *data,
 	}
 }
 
-static inline void mtk_iommu_isr_setup(unsigned long enable)
+static inline void mtk_iommu_isr_setup(struct mtk_iommu_data *data, unsigned long enable)
 {
-	struct mtk_iommu_data *data;
+	bool has_pm = !!data->dev->pm_domain;
 
-	pr_info("%s, enable:%d\n", __func__, enable);
-	for_each_m4u(data) {
-		bool has_pm = !!data->dev->pm_domain;
-
-		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
-			if ((data->plat_data->iommu_type == MM_IOMMU &&
-				pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
-				(data->plat_data->iommu_type != MM_IOMMU &&
-				pm_runtime_get_if_in_use(data->dev) <= 0)) {
-				pr_info("%s, power off:%s\n", __func__, dev_name(data->dev));
-				continue;
-			}
+	pr_info("%s, iommu:(%d,%d), enable:%d\n", __func__,
+		data->plat_data->iommu_type, data->plat_data->iommu_id, enable);
+	if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
+		if ((data->plat_data->iommu_type == MM_IOMMU &&
+			pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
+			(data->plat_data->iommu_type != MM_IOMMU &&
+			pm_runtime_get_if_in_use(data->dev) <= 0)) {
+			pr_info("%s, power off:%s\n", __func__, dev_name(data->dev));
+			return;
 		}
-
-		mtk_iommu_bk0_intr_en(data, enable);
+	}
+	mtk_iommu_bk0_intr_en(data, enable);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
-		if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_SEC_BK_EN))
-			mtk_iommu_sec_bk_irq_en_by_atf(data->plat_data->iommu_type,
-					data->plat_data->iommu_id, enable);
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_SEC_BK_EN))
+		mtk_iommu_sec_bk_irq_en_by_atf(data->plat_data->iommu_type,
+				data->plat_data->iommu_id, enable);
 #endif
 
-		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
-			data->plat_data->iommu_type != MM_IOMMU)
-			pm_runtime_put(data->dev);
-	}
+	if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
+		data->plat_data->iommu_type != MM_IOMMU)
+		pm_runtime_put(data->dev);
 }
 
 static void mtk_iommu_isr_restart(struct timer_list *t)
 {
-	mtk_iommu_isr_setup(1);
+	struct mtk_iommu_data *data = from_timer(data, t, iommu_isr_pause_timer);
+
+	mtk_iommu_isr_setup(data, 1);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_debug_reset();
@@ -531,7 +529,7 @@ static int mtk_iommu_isr_pause(struct mtk_iommu_data *data, int delay)
 {
 	if (!timer_pending(&data->iommu_isr_pause_timer)) {
 		/* disable all intr */
-		mtk_iommu_isr_setup(0);
+		mtk_iommu_isr_setup(data, 0);
 		/* delay seconds */
 		data->iommu_isr_pause_timer.expires = jiffies + delay * HZ;
 		add_timer(&data->iommu_isr_pause_timer);
@@ -541,19 +539,16 @@ static int mtk_iommu_isr_pause(struct mtk_iommu_data *data, int delay)
 
 static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 {
-	static int isr_cnt;
-	static unsigned long first_jiffies;
-
 	/* we allow one irq in 1s, or we will disable them after isr_cnt s. */
-	if (!isr_cnt || time_after(jiffies, first_jiffies + isr_cnt * HZ)) {
-		isr_cnt = 1;
-		first_jiffies = jiffies;
+	if (!data->isr_cnt || time_after(jiffies, data->first_jiffies + data->isr_cnt * HZ)) {
+		data->isr_cnt = 1;
+		data->first_jiffies = jiffies;
 	} else {
-		isr_cnt++;
-		if (isr_cnt >= MTK_IOMMU_ISR_COUNT_MAX) {
+		data->isr_cnt++;
+		if (data->isr_cnt >= MTK_IOMMU_ISR_COUNT_MAX) {
 			/* irq too many! disable irq for a while, to avoid HWT timeout*/
 			mtk_iommu_isr_pause(data, MTK_IOMMU_ISR_DISABLE_TIME);
-			isr_cnt = 0;
+			data->isr_cnt = 0;
 		}
 	}
 }
