@@ -44,7 +44,8 @@ enum apu_opp_limit_type {
 
 struct drv_cfg_data {
 	int8_t log_level;
-	int8_t dvfs_debounce; // ms
+	int8_t dvfs_debounce;	// debounce unit : ms
+	int8_t disable_hw_meter;// 1: disable hw meter, bypass to read volt/freq
 };
 
 struct plat_cfg_data {

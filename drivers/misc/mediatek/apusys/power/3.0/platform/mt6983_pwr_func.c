@@ -468,8 +468,11 @@ int mt6983_drv_cfg_remote_sync(struct aputop_func_param *aputop)
 
 	cfg.log_level = aputop->param1 & 0xf;
 	cfg.dvfs_debounce = aputop->param2 & 0xf;
+	cfg.disable_hw_meter = aputop->param3 & 0xf;
 
-	reg_data = cfg.log_level | (cfg.dvfs_debounce << 8);
+	reg_data = cfg.log_level |
+		(cfg.dvfs_debounce << 8) |
+		(cfg.disable_hw_meter << 16);
 
 	pr_info("%s 0x%08x\n", __func__, reg_data);
 	apu_writel(reg_data, spare_reg_base + DRV_CFG_SYNC_REG);
