@@ -10291,10 +10291,10 @@
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>,
 		<&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-#if 0
+
 		operating-points-v2 = <&opp_table_cam>;
 		dvfsrc-vmm-supply = <&vmm_proxy_label>;
-#endif
+
 		clocks =
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_SENINF_CG_CON>,
 			 <&topckgen_clk CLK_TOPCKGEN_SENINF_SEL>,
