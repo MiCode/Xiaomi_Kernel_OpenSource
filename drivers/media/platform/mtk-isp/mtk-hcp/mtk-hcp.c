@@ -479,16 +479,16 @@ static int hcp_send_internal(struct platform_device *pdev,
 		spin_lock_irqsave(&hcp_dev->msglock, flag);
 
 		// Bypass sequeunce check for the following commands
-		if ((id == HCP_IMGSYS_IOVA_FDS_ADD_ID) ||
-				(id == HCP_IMGSYS_IOVA_FDS_DEL_ID) ||
-				(id == HCP_IMGSYS_UVA_FDS_ADD_ID) ||
-				(id == HCP_IMGSYS_UVA_FDS_DEL_ID) ||
-				(id == HCP_IMGSYS_SET_CONTROL_ID) ||
-				(id == HCP_IMGSYS_GET_CONTROL_ID)) {
-			no = 0;
-		} else {
+		//if ((id == HCP_IMGSYS_IOVA_FDS_ADD_ID) ||
+		//		(id == HCP_IMGSYS_IOVA_FDS_DEL_ID) ||
+		//		(id == HCP_IMGSYS_UVA_FDS_ADD_ID) ||
+		//		(id == HCP_IMGSYS_UVA_FDS_DEL_ID) ||
+		//		(id == HCP_IMGSYS_SET_CONTROL_ID) ||
+		//		(id == HCP_IMGSYS_GET_CONTROL_ID)) {
+		//	no = 0;
+		//} else {
 			no = atomic_inc_return(&hcp_dev->seq);
-		}
+		//}
 
 		//msg->user_obj.id =
 		//	(int)((id & 0x01F) | ((req_fd << 5) & 0x0FFE0) | (no << 16));
