@@ -13,6 +13,7 @@
 #include "mtk_imgsys-engine.h"
 
 void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
 void imgsys_wpe_uninit(struct mtk_imgsys_dev *imgsys_dev);

@@ -216,8 +216,6 @@ int imgsys_wpe_tfault_callback(int port,
 
 void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *ofset = NULL;
-	unsigned int i = 0;
 	unsigned int hw_idx = 0, ary_idx = 0;
 
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
@@ -232,11 +230,8 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 				__func__, hw_idx, imgsys_dev->dev->of_node->name);
 			continue;
 		}
-		for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
-			ofset = gWpeRegBA[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
-			writel(mtk_imgsys_wpe_init_ary[i].val, ofset);
-		}
 	}
+	imgsys_wpe_set_hw_initial_value(imgsys_dev);
 
 #ifdef WPE_TF_DUMP_71_1
 	//wpe_eis
@@ -394,6 +389,28 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
+EXPORT_SYMBOL(imgsys_wpe_set_initial_value);
+
+void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
+{
+	void __iomem *ofset = NULL;
+	unsigned int i = 0;
+	unsigned int hw_idx = 0, ary_idx = 0;
+
+	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
+
+	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
+		/* iomap registers */
+		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
+		for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
+			ofset = gWpeRegBA[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
+			writel(mtk_imgsys_wpe_init_ary[i].val, ofset);
+		}
+	}
+
+	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
+}
+EXPORT_SYMBOL(imgsys_wpe_set_hw_initial_value);
 
 void imgsys_wpe_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 							void __iomem *wpeRegBA)
@@ -448,7 +465,6 @@ void imgsys_wpe_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 	  sel_value[2], debug_value[2],
 	   ((debug_value[2] >> 24) & 0x1), ((debug_value[2] >> 23) & 0x1));
 }
-EXPORT_SYMBOL(imgsys_wpe_set_initial_value);
 
 void imgsys_wpe_debug_cq_dump(struct mtk_imgsys_dev *imgsys_dev,
 							void __iomem *wpeRegBA)
