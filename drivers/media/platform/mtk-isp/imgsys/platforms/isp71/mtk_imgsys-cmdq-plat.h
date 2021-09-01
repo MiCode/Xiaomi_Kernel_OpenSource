@@ -12,6 +12,8 @@
 #define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (0)
 
+#define IMGSYS_SECURE_ENABLE   (0)
+
 /* Record info definitions */
 #define GCE_REC_MAX_FRAME_BLOCK     (6)
 #define GCE_REC_MAX_TILE_BLOCK      (40)
@@ -19,6 +21,7 @@
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
+#define IMGSYS_SEC_THD 1
 
 #define IMGSYS_CMDQ_HW_EVENT_BEGIN	129
 #define IMGSYS_CMDQ_HW_EVENT_END	250
@@ -248,6 +251,8 @@ enum mtk_imgsys_event {
 	IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_8,
 	IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_9,
 	IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_10,
+	IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT,
+	IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_SET,
 	IMGSYS_CMDQ_EVENT_MAX
 };
 
@@ -476,10 +481,13 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_8, "sw_sync_token_camsys_pool_8"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_9, "sw_sync_token_camsys_pool_9"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_10, "sw_sync_token_camsys_pool_10"},
+	{IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT, "sw_sync_token_tzmp_isp_wait"},
+	{IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_SET, "sw_sync_token_tzmp_isp_set"},
 	{IMGSYS_CMDQ_EVENT_MAX, "imgsys_event_max"},
 };
 
 static struct cmdq_client *imgsys_clt[IMGSYS_ENG_MAX];
+static struct cmdq_client *imgsys_sec_clt[IMGSYS_SEC_THD];
 
 enum mtk_imgsys_m4u_port {
 	/* TRAW */

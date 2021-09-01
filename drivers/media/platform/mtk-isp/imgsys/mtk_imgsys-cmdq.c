@@ -17,9 +17,17 @@
 #include "mtk_imgsys-cmdq-plat.h"
 #include "mtk_imgsys-trace.h"
 #include "mtk-interconnect.h"
+#if IMGSYS_SECURE_ENABLE
+#include "cmdq-sec.h"
+#include "cmdq-sec-iwc-common.h"
+#endif
 
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
+#if IMGSYS_SECURE_ENABLE
+static u32 is_sec_task_create;
+static struct cmdq_pkt *pkt_sec;
+#endif
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev)
 {
@@ -46,6 +54,15 @@ void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev
 			imgsys_clt[idx] = cmdq_mbox_create(dev, idx);
 			pr_info("%s: cmdq_mbox_create(%d, 0x%x)\n", __func__, idx, imgsys_clt[idx]);
 		}
+		#if IMGSYS_SECURE_ENABLE
+		/* request for imgsys secure gce thread */
+		for (idx = IMGSYS_ENG_MAX; idx < (IMGSYS_ENG_MAX + IMGSYS_SEC_THD); idx++) {
+			imgsys_sec_clt[idx-IMGSYS_ENG_MAX] = cmdq_mbox_create(dev, idx);
+			pr_info(
+				"%s: cmdq_mbox_create sec_thd(%d, 0x%x)\n",
+				__func__, idx, imgsys_sec_clt[idx-IMGSYS_ENG_MAX]);
+		}
+		#endif
 		/* parse hardware event */
 		for (idx = 0; idx < IMGSYS_CMDQ_EVENT_MAX; idx++) {
 			of_property_read_u16(dev->of_node,
@@ -74,6 +91,12 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 		cmdq_mbox_destroy(imgsys_clt[idx]);
 		imgsys_clt[idx] = NULL;
 	}
+	#if IMGSYS_SECURE_ENABLE
+	for (idx = 0; idx < IMGSYS_SEC_THD; idx++) {
+		cmdq_mbox_destroy(imgsys_sec_clt[idx]);
+		imgsys_sec_clt[idx] = NULL;
+	}
+	#endif
 
 	/* Release work_quque */
 	flush_workqueue(imgsys_cmdq_wq);
@@ -91,11 +114,10 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 {
-	#if CMDQ_STOP_FUNC
 	u32 idx = 0;
-	#endif
 
-	dev_info(imgsys_dev->dev, "%s: cmdq stream off (%d)\n", __func__, is_stream_off);
+	dev_info(imgsys_dev->dev,
+		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
 	is_stream_off = 1;
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
 	#if CMDQ_STOP_FUNC
@@ -104,6 +126,15 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 		dev_info(imgsys_dev->dev,
 			"%s: calling cmdq_mbox_stop(%d, 0x%x)\n",
 			__func__, idx, imgsys_clt[idx]);
+	}
+	#endif
+	#if IMGSYS_SECURE_ENABLE
+	if (is_sec_task_create) {
+		for (idx = 0; idx < IMGSYS_SEC_THD; idx++)
+			cmdq_sec_mbox_stop(imgsys_sec_clt[idx]);
+		cmdq_pkt_destroy(pkt_sec);
+		pkt_sec = NULL;
+		is_sec_task_create = 0;
 	}
 	#endif
 }
@@ -413,6 +444,17 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	is_stream_off = 0;
 	frm_num = frm_info->total_frmnum;
 	cmd_ofst = sizeof(struct GCERecoder);
+
+	#if IMGSYS_SECURE_ENABLE
+	if (frm_info->is_secReq && (is_sec_task_create == 0)) {
+		imgsys_cmdq_sec_sendtask(imgsys_dev);
+		is_sec_task_create = 1;
+		pr_info(
+			"%s: create imgsys secure task is_secReq(%d)\n",
+			__func__, frm_info->is_secReq);
+	}
+	#endif
+
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
 		cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
 		cmd_num = cmd_buf->curr_length / sizeof(struct Command);
@@ -495,6 +537,11 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				frm_info->request_fd, frm_info->user_info[frm_idx].subfrm_idx,
 				frm_info->user_info[frm_idx].hw_comb, frm_info->frm_owner,
 				frm_idx, frm_num, blk_idx);
+			// Add secure token begin
+			#if IMGSYS_SECURE_ENABLE
+			if (frm_info->user_info[frm_idx].is_secFrm)
+				imgsys_cmdq_sec_cmd(pkt);
+			#endif
 			do {
 				pr_debug(
 				"%s: parsing idx(%d) with cmd(%d)\n", __func__, cmd_idx,
@@ -512,6 +559,11 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 					goto sendtask_done;
 				}
 			} while (cmd_idx < cmd_num);
+			// Add secure token end
+			#if IMGSYS_SECURE_ENABLE
+			if (frm_info->user_info[frm_idx].is_secFrm)
+				imgsys_cmdq_sec_cmd(pkt);
+			#endif
 			IMGSYS_SYSTRACE_END();
 
 			/* Prepare cb param */
@@ -635,6 +687,28 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd)
 	}
 
 	return 0;
+}
+
+int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct cmdq_client *clt_sec = NULL;
+	int ret = 0;
+
+	clt_sec = imgsys_sec_clt[0];
+	#if IMGSYS_SECURE_ENABLE
+	pkt_sec = cmdq_pkt_create(clt_sec);
+	cmdq_sec_pkt_set_data(pkt_sec, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
+	cmdq_sec_pkt_set_mtee(pkt_sec, true);
+	cmdq_pkt_finalize_loop(pkt_sec);
+	cmdq_pkt_flush_threaded(pkt_sec, NULL, (void *)pkt_sec);
+	#endif
+	return ret;
+}
+
+void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt)
+{
+	cmdq_pkt_set_event(pkt, imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT].event);
+	cmdq_pkt_wfe(pkt, imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_SET].event);
 }
 
 void imgsys_cmdq_setevent(u64 u_id)

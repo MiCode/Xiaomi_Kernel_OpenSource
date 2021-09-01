@@ -110,6 +110,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_uinfo_idx, bool isHWhang));
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd);
+int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt);
 
 #if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);
