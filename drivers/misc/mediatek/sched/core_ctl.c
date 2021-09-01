@@ -519,14 +519,17 @@ int core_ctl_force_pause_cpu(unsigned int cpu, bool is_pause)
 {
 	int ret;
 	unsigned long flags;
-	struct cpu_data* c = &per_cpu(cpu_state, cpu);
-	struct cluster_data* cluster = c->cluster;
+	struct cpu_data *c;
+	struct cluster_data *cluster;
 
 	if (cpu > nr_cpu_ids)
 		return -EINVAL;
 
 	if (!cpu_online(cpu))
 		return -EBUSY;
+
+	c = &per_cpu(cpu_state, cpu);
+	cluster = c->cluster;
 
 	mutex_lock(&core_ctl_force_lock);
 
