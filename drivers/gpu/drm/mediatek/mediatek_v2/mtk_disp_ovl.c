@@ -403,6 +403,7 @@ struct mtk_disp_ovl_data {
 	unsigned int greq_num_dl;
 	bool is_support_34bits;
 	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
+	resource_size_t (*mmsys_mapping)(struct mtk_ddp_comp *comp);
 };
 
 #define MAX_LAYER_NUM 4
@@ -455,6 +456,27 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 		return -1;
 	}
 	return 0;
+}
+
+resource_size_t mtk_ovl_mmsys_mapping_MT6983(struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+		return priv->config_regs_pa;
+	case DDP_COMPONENT_OVL1:
+	case DDP_COMPONENT_OVL2_2L:
+	case DDP_COMPONENT_OVL2_2L_NWCG:
+	case DDP_COMPONENT_OVL3_2L_NWCG:
+		return priv->side_config_regs_pa;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
 }
 
 unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
@@ -1356,10 +1378,9 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int clip = 0;
 	unsigned int buf_size = 0;
 	int rotate = 0;
-	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	unsigned int aid_sel_offset = 0;
-	resource_size_t mmsys_reg = priv->config_regs_pa;
+	resource_size_t mmsys_reg = 0;
 	int sec_bit;
 
 	if (fmt == DRM_FORMAT_YUYV || fmt == DRM_FORMAT_YVYU ||
@@ -1398,6 +1419,9 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	buf_size = (dst_h - 1) * pending->pitch +
 		dst_w * mtk_drm_format_plane_cpp(fmt, 0);
 
+	if (ovl->data->mmsys_mapping)
+		mmsys_reg = ovl->data->mmsys_mapping(comp);
+
 	if (ovl->data->aid_sel_mapping)
 		aid_sel_offset = ovl->data->aid_sel_mapping(comp);
 
@@ -1411,7 +1435,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
 			pitch, ~0);
 
-		if (aid_sel_offset) {
+		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, true, id);
 			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1439,7 +1463,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			pitch, ~0);
 
-		if (aid_sel_offset) {
+		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
 			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1688,10 +1712,9 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	unsigned int buf_size = 0;
 	unsigned int buf_total_size = 0;
 
-	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	unsigned int aid_sel_offset = 0;
-	resource_size_t mmsys_reg = priv->config_regs_pa;
+	resource_size_t mmsys_reg = 0;
 	int sec_bit;
 
 	/* variable to config into register */
@@ -1807,13 +1830,16 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		dst_w * mtk_drm_format_plane_cpp(fmt, 0);
 	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
 
+	if (ovl->data->mmsys_mapping)
+		mmsys_reg = ovl->data->mmsys_mapping(comp);
+
 	if (ovl->data->aid_sel_mapping)
 		aid_sel_offset = ovl->data->aid_sel_mapping(comp);
 
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
-		if (aid_sel_offset) {
+		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, true, id);
 			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1845,7 +1871,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
 			       lx_hdr_pitch, ~0);
 	} else {
-		if (aid_sel_offset) {
+		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
 			if (state->pending.is_sec && pending->addr)
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1920,10 +1946,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	unsigned int lx_2nd_subbuf = 0;
 	unsigned int lx_pitch_msb = 0;
 
-	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	unsigned int aid_sel_offset = 0;
-	resource_size_t mmsys_reg = priv->config_regs_pa;
+	resource_size_t mmsys_reg = 0;
 	int sec_bit;
 
 	DDPDBG("%s:%d, addr:0x%x, pitch:%d, vpitch:%d\n",
@@ -2057,13 +2082,16 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	buf_size = (dst_h - 1) * pitch + dst_w * Bpp;
 	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
 
+	if (ovl->data->mmsys_mapping)
+		mmsys_reg = ovl->data->mmsys_mapping(comp);
+
 	if (ovl->data->aid_sel_mapping)
 		aid_sel_offset = ovl->data->aid_sel_mapping(comp);
 
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
-		if (aid_sel_offset) {
+		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, true, id);
 			if (state->pending.is_sec)
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2093,7 +2121,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
 			lx_hdr_pitch, ~0);
 	} else {
-		if (aid_sel_offset) {
+		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
 			if (state->pending.is_sec)
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -3528,6 +3556,7 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
+	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983,
 };
 
 
