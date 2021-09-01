@@ -1495,6 +1495,10 @@ static const struct mtk_addon_module_data mt6983_addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0},
 };
 
+static const struct mtk_addon_module_data mt6983_addon_wdma2_data[] = {
+	{DISP_WDMA2, ADDON_AFTER, DDP_COMPONENT_SPR1},
+};
+
 
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
@@ -1621,8 +1625,8 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[WDMA_WRITE_BACK] = {
-				.module_num = ARRAY_SIZE(addon_wdma1_data),
-				.module_data = addon_wdma1_data,
+				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data),
+				.module_data = mt6983_addon_wdma2_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };

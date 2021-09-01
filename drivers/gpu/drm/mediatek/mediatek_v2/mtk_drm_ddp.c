@@ -5777,7 +5777,7 @@ static int mtk_ddp_sel_in_MT6983(const struct mtk_mmsys_reg_data *data,
 		value = DISP_WDMA1_SEL_IN_FROM_DISP_OVL_1_2L_NWCG;
 	} else if ((cur == DDP_COMPONENT_SPR0 &&
 		next == DDP_COMPONENT_WDMA0) || (cur == DDP_COMPONENT_SPR1 &&
-		next == DDP_COMPONENT_WDMA1)) {
+		next == DDP_COMPONENT_WDMA2)) {
 		*addr = MT6983_DISP_WDMA0_SEL_IN;
 		value = DISP_WDMA0_SEL_IN_FROM_DISP_SPR0;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&

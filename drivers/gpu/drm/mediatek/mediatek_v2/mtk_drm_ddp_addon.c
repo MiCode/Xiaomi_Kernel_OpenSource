@@ -43,6 +43,10 @@ static const int disp_wdma1_path[] = {
 	DDP_COMPONENT_WDMA1,
 };
 
+static const int disp_wdma2_path[] = {
+	DDP_COMPONENT_WDMA2,
+};
+
 static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_RSZ] = {
 				.path = disp_rsz_path,
@@ -71,6 +75,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_WDMA1] = {
 				.path = disp_wdma1_path,
 				.path_len = ARRAY_SIZE(disp_wdma1_path),
+			},
+		[DISP_WDMA2] = {
+				.path = disp_wdma2_path,
+				.path_len = ARRAY_SIZE(disp_wdma2_path),
 			},
 };
 
