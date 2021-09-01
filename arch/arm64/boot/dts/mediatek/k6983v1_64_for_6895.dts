@@ -60,7 +60,7 @@
 
 	epa_elna_mtk {
 		parts = <&nofem &nofem>,		/* [0]iPA/iLNA */
-			<&wlan7207h &wlan7205c_laa>,	/* [1]ePA/eLNA - Open Loop, LAA 4x4 */
+			<&wlan7207h &wlan7205c_laa>,	/* [1]ePA/eLNA - Closed-Loop, LAA 4x4 */
 			<&wlan7207h &wlan7205c>,	/* [2]ePA/eLNA - Open Loop */
 			<&wlan7207h &wlan7205c>,	/* [3]ePA/eLNA - Closed-Loop */
 			<&wlan7207h &wlan7205c_laa>,	/* [4]ePA/eLNA - Closed-Loop, LAA 4x4 */
@@ -73,7 +73,6 @@
 
 		wifi {
 			flags-1 {
-				open-loop;
 				laa;
 			};
 			flags-2 {
