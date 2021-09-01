@@ -1232,7 +1232,8 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 					!mtk_cam_is_time_shared(ctx))
 					mtk_cam_sv_write_rcnt(ctx, pipe_id);
 			} else {
-				queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
+				if (ctx->sv_wq)
+					queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
 			}
 		}
 	}
