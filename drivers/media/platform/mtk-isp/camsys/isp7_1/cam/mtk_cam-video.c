@@ -1137,11 +1137,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		break;
 #if MRAW_READY
 	case MTKCAM_IPI_MRAW_META_STATS_CFG:
-		vaddr = vb2_plane_vaddr(vb, 0);
-		mtk_cam_mraw_handle_enque(vb);
-		break;
 	case MTKCAM_IPI_MRAW_META_STATS_0:
-		vaddr = vb2_plane_vaddr(vb, 0);
 		mtk_cam_mraw_handle_enque(vb);
 		break;
 #endif

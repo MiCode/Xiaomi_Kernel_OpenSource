@@ -209,8 +209,6 @@ static int mtk_mraw_set_fmt(struct v4l2_subdev *sd,
 			sd->name, fmt->pad, mf->width, mf->height, mf->code);
 
 		if (fmt->pad == MTK_MRAW_SINK) {
-			dev_info(mraw->cam_dev,
-				"%s:Set res_config tg param:%d\n", __func__);
 			/* set cfg buffer for tg/crp info. */
 			ipi_fmt = mtk_cam_get_sensor_fmt(fmt->format.code);
 			if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
@@ -420,7 +418,7 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"apply mraw%d cq - addr:0x%llx ,size:%d,offset:%d, REG_MRAW_CQ_THR0_CTL:0x%8x\n",
 		dev->id, cq_addr, cq_size, cq_offset,
 		readl_relaxed(dev->base + REG_MRAW_CQ_THR0_CTL));
@@ -442,12 +440,12 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 		wmb(); /* TBC */
 #endif
 	}
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"apply mraw%d scq - addr/size = [main] 0x%llx/%d\n",
 		dev->id, cq_addr, cq_size);
 }
 
-unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n)
+static unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n)
 {
 	unsigned int rst = 1.0;
 	unsigned int m = (n >= 0) ? n : -n;
@@ -458,80 +456,119 @@ unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n)
 	return (n >= 0) ? rst : 1.0 / rst;
 }
 
-unsigned int mtk_cam_mraw_xsize_cal(unsigned int length)
+static unsigned int mtk_cam_mraw_xsize_cal(unsigned int length)
 {
 	return length * 16 / 8;
 }
 
-unsigned int mtk_cam_mraw_xsize_cal_cpio(unsigned int length)
+static unsigned int mtk_cam_mraw_xsize_cal_cpio(unsigned int length)
 {
 	return (length + 7) / 8;
 }
 
-void mtk_cam_mraw_set_mraw_dmao_info(
-	struct device *dev,
-	struct mtk_cam_mraw_resource_config *res_config,
-	struct mtk_cam_mraw_dmao_info *mraw_dmao_info,
-	unsigned int tg_width, unsigned int tg_height)
+static void mtk_cam_mraw_set_dense_fmt(
+	struct device *dev, unsigned int *tg_width_temp,
+	unsigned int *tg_height_temp,
+	struct mtk_cam_mraw_resource_config *res_config, unsigned int dmao)
 {
-	unsigned int tg_width_temp = tg_width;
-	unsigned int tg_height_temp = tg_height;
-	int i;
-	/* cal. for imgo & imgbo */
-	if (res_config->mqe_en) {
-		switch (res_config->mqe_mode) {
-		case UL_MODE:
-		case UR_MODE:
-		case DL_MODE:
-		case DR_MODE:
-			tg_width_temp /= 2;
-			tg_height_temp /= 2;
+	if (dmao == IMGO) {
+		if (res_config->mbn_pow < 2 || res_config->mbn_pow > 6) {
+			dev_info(dev, "%s:Invalid mbn_pow: %d",
+				__func__, res_config->mbn_pow);
+			return;
+		}
+		switch (res_config->mbn_dir) {
+		case MBN_POW_VERTICAL:
+			*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->mbn_pow);
 			break;
-		case PD_L_MODE:
-		case PD_R_MODE:
-		case PD_M_MODE:
-		case PD_B01_MODE:
-		case PD_B02_MODE:
-			tg_width_temp /= 2;
+		case MBN_POW_HORIZONTAL:
+			*tg_width_temp /= mtk_cam_mraw_powi(2, res_config->mbn_pow);
 			break;
 		default:
-			dev_info(dev, "imgo & imgbo MQE-Mode %d %s fail\n",
-				res_config->mqe_mode, "unknown idx");
+			dev_info(dev, "%s:MBN's dir %d %s fail",
+				__func__, res_config->mbn_dir, "unknown idx");
+			return;
+		}
+		 // divided for 2 path from MBN
+		*tg_width_temp /= 2;
+	} else if (dmao == CPIO) {
+		if (res_config->cpi_pow < 2 || res_config->cpi_pow > 6) {
+			dev_info(dev, "Invalid cpi_pow: %d", res_config->cpi_pow);
+			return;
+		}
+		switch (res_config->cpi_dir) {
+		case CPI_POW_VERTICAL:
+			*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->cpi_pow);
+			break;
+		case CPI_POW_HORIZONTAL:
+			*tg_width_temp /= mtk_cam_mraw_powi(2, res_config->cpi_pow);
+			break;
+		default:
+			dev_info(dev, "%s:CPI's dir %d %s fail",
+				__func__, res_config->cpi_dir, "unknown idx");
 			return;
 		}
 	}
+}
 
-	if (res_config->mbn_pow < 2 || res_config->mbn_pow > 6) {
-		dev_info(dev, "Invalid mbn_pow: %d", res_config->mbn_pow);
-		return;
+static void mtk_cam_mraw_set_concatenation_fmt(
+	struct device *dev, unsigned int *tg_width_temp,
+	unsigned int *tg_height_temp,
+	struct mtk_cam_mraw_resource_config *res_config, unsigned int dmao)
+{
+	if (dmao == IMGO) {
+		if (res_config->mbn_spar_pow < 1 || res_config->mbn_spar_pow > 6) {
+			dev_info(dev, "%s:Invalid mbn_spar_pow: %d",
+				__func__, res_config->mbn_spar_pow);
+			return;
+		}
+		// concatenated
+		*tg_width_temp *= res_config->mbn_spar_fac;
+		*tg_height_temp /= res_config->mbn_spar_fac;
+
+		// vertical binning
+		*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->mbn_spar_pow);
+
+		// divided for 2 path from MBN
+		*tg_width_temp /= 2;
+	} else if (dmao == CPIO) {
+		if (res_config->cpi_spar_pow < 1 || res_config->cpi_spar_pow > 6) {
+			dev_info(dev, "%s:Invalid cpi_spar_pow: %d",
+				__func__, res_config->cpi_spar_pow);
+			return;
+		}
+		// concatenated
+		*tg_width_temp *= res_config->cpi_spar_fac;
+		*tg_height_temp /= res_config->cpi_spar_fac;
+
+		// vertical binning
+		*tg_height_temp /= mtk_cam_mraw_powi(2, res_config->cpi_spar_pow);
 	}
+}
 
-	switch (res_config->mbn_dir) {
-	case MBN_POW_VERTICAL:
-		tg_height_temp /= mtk_cam_mraw_powi(2, res_config->mbn_pow);
-		break;
-	case MBN_POW_HORIZONTAL:
-		tg_width_temp /= mtk_cam_mraw_powi(2, res_config->mbn_pow);
-		break;
-	default:
-		dev_info(dev, "%s:imgo & imgbo MBN's dir %d %s fail",
-			__func__, res_config->mbn_dir, "unknown idx");
-		return;
+static void mtk_cam_mraw_set_interleving_fmt(
+	unsigned int *tg_width_temp,
+	unsigned int *tg_height_temp, unsigned int dmao)
+{
+	if (dmao == IMGO)
+		*tg_height_temp /= 2; // divided for 2 path from MBN
+	else if (dmao == CPIO) {
+		// concatenated
+		*tg_width_temp *= 2;
+		*tg_height_temp /= 2;
 	}
+}
 
-	tg_width_temp /= 2;  // divided for 2 path from MBN
-
-	mraw_dmao_info->dmao_width[IMGO] = mtk_cam_mraw_xsize_cal(tg_width_temp);
-	mraw_dmao_info->dmao_height[IMGO] = tg_height_temp;
-	mraw_dmao_info->dmao_stride[IMGO] = mraw_dmao_info->dmao_width[IMGO];
-
-	mraw_dmao_info->dmao_width[IMGBO] = mtk_cam_mraw_xsize_cal(tg_width_temp);
-	mraw_dmao_info->dmao_height[IMGBO] = tg_height_temp;
-	mraw_dmao_info->dmao_stride[IMGBO] = mraw_dmao_info->dmao_width[IMGBO];
-
-	/* cal. for cpio */
-	tg_width_temp = tg_width;
-	tg_height_temp = tg_height;
+static void mtk_cam_mraw_set_mraw_dmao_info(
+	struct device *dev, struct mtk_cam_mraw_resource_config *res_config,
+	struct mtk_cam_mraw_dmao_info *mraw_dmao_info,
+	unsigned int tg_width, unsigned int tg_height)
+{
+	unsigned int tg_width_mqe = tg_width;
+	unsigned int tg_height_mqe = tg_height;
+	unsigned int tg_width_temp;
+	unsigned int tg_height_temp;
+	int i;
 
 	if (res_config->mqe_en) {
 		switch (res_config->mqe_mode) {
@@ -539,57 +576,92 @@ void mtk_cam_mraw_set_mraw_dmao_info(
 		case UR_MODE:
 		case DL_MODE:
 		case DR_MODE:
-			tg_width_temp /= 2;
-			tg_height_temp /= 2;
+			tg_width_mqe /= 2;
+			tg_height_mqe /= 2;
 			break;
 		case PD_L_MODE:
 		case PD_R_MODE:
 		case PD_M_MODE:
 		case PD_B01_MODE:
 		case PD_B02_MODE:
-			tg_width_temp /= 2;
+			tg_width_mqe /= 2;
 			break;
 		default:
-			dev_info(dev, "%s:imgo & imgbo MQE-Mode %d %s fail\n",
+			dev_info(dev, "%s:MQE-Mode %d %s fail\n",
 				__func__, res_config->mqe_mode, "unknown idx");
 			return;
 		}
 	}
 
-	if (res_config->cpi_pow < 2 || res_config->cpi_pow > 6) {
-		dev_info(dev, "Invalid cpi_pow: %d", res_config->cpi_pow);
-		return;
-	}
-
-
-	switch (res_config->cpi_dir) {
-	case CPI_POW_VERTICAL:
-		tg_height_temp /= mtk_cam_mraw_powi(2, res_config->cpi_pow);
+	/* cal. for IMGO */
+	tg_width_temp = tg_width_mqe;
+	tg_height_temp = tg_height_mqe;
+	switch (res_config->mbn_dir) {
+	case MBN_POW_VERTICAL:
+	case MBN_POW_HORIZONTAL:
+		mtk_cam_mraw_set_dense_fmt(dev, &tg_width_temp,
+			&tg_height_temp, res_config, IMGO);
 		break;
-	case CPI_POW_HORIZONTAL:
-		tg_width_temp /= mtk_cam_mraw_powi(2, res_config->cpi_pow);
+	case MBN_POW_SPARSE_CONCATENATION:
+		mtk_cam_mraw_set_concatenation_fmt(
+			dev, &tg_width_temp, &tg_height_temp, res_config, IMGO);
+		break;
+	case MBN_POW_SPARSE_INTERLEVING:
+		mtk_cam_mraw_set_interleving_fmt(&tg_width_temp, &tg_height_temp, IMGO);
 		break;
 	default:
-		dev_info(dev, "cpio CPI's dir %d %s fail"
-			, res_config->cpi_dir, "unknown idx");
+		dev_info(dev, "%s:MBN's dir %d %s fail",
+			__func__, res_config->mbn_dir, "unknown idx");
 		return;
 	}
 
-	mraw_dmao_info->dmao_width[CPIO] = mtk_cam_mraw_xsize_cal_cpio(tg_width_temp);
+	mraw_dmao_info->dmao_width[IMGO] =
+		mtk_cam_mraw_xsize_cal(tg_width_temp);
+	mraw_dmao_info->dmao_height[IMGO] = tg_height_temp;
+	mraw_dmao_info->dmao_stride[IMGO] = mraw_dmao_info->dmao_width[IMGO];
+
+	/* IMGBO's w/h is the same as IMGO */
+	mraw_dmao_info->dmao_width[IMGBO]
+		= mtk_cam_mraw_xsize_cal(tg_width_temp);
+	mraw_dmao_info->dmao_height[IMGBO] = tg_height_temp;
+	mraw_dmao_info->dmao_stride[IMGBO] = mraw_dmao_info->dmao_width[IMGBO];
+
+	/* cal. for CPIO */
+	tg_width_temp = tg_width_mqe;
+	tg_height_temp = tg_height_mqe;
+	switch (res_config->cpi_dir) {
+	case CPI_POW_VERTICAL:
+	case CPI_POW_HORIZONTAL:
+		mtk_cam_mraw_set_dense_fmt(dev, &tg_width_temp,
+			&tg_height_temp, res_config, CPIO);
+		break;
+	case CPI_POW_SPARSE_CONCATENATION:
+		mtk_cam_mraw_set_concatenation_fmt(dev, &tg_width_temp,
+			&tg_height_temp, res_config, CPIO);
+		break;
+	case CPI_POW_SPARSE_INTERLEVING:
+		mtk_cam_mraw_set_interleving_fmt(&tg_width_temp, &tg_height_temp, CPIO);
+		break;
+	default:
+		dev_info(dev, "%s:CPI's dir %d %s fail",
+			__func__, res_config->cpi_dir, "unknown idx");
+		return;
+	}
+
+	mraw_dmao_info->dmao_width[CPIO] =
+		mtk_cam_mraw_xsize_cal_cpio(tg_width_temp);
 	mraw_dmao_info->dmao_height[CPIO] = tg_height_temp;
 	mraw_dmao_info->dmao_stride[CPIO] = mraw_dmao_info->dmao_width[CPIO];
 
 	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
-		dev_info(dev, "dma_id:%d, w:%d s:%d stride:%d\n",
-			i,
-			mraw_dmao_info->dmao_width[i],
+		dev_dbg(dev, "dma_id:%d, w:%d s:%d stride:%d\n",
+			i, mraw_dmao_info->dmao_width[i],
 			mraw_dmao_info->dmao_height[i],
-			mraw_dmao_info->dmao_stride[i]
-			);
+			mraw_dmao_info->dmao_stride[i]);
 	}
 }
 
-void mtk_cam_mraw_copy_user_input_param(
+static void mtk_cam_mraw_copy_user_input_param(
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
 	struct mtkcam_ipi_frame_param *frame_param,
 	struct mtk_mraw_pipeline *mraw_pipline, int mraw_param_num)
@@ -609,20 +681,27 @@ void mtk_cam_mraw_copy_user_input_param(
 		= mraw_pipline->res_config.width;
 	frame_param->mraw_param[mraw_param_num].crop_size_h
 		= mraw_pipline->res_config.height;
+
 	/* Set mraw res_config */
 	mraw_pipline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
 	mraw_pipline->res_config.mqe_mode = mraw_meta_in_buf->mqe_param.mqe_mode;
+
 	mraw_pipline->res_config.mbn_dir = mraw_meta_in_buf->mbn_param.mbn_dir;
 	mraw_pipline->res_config.mbn_pow = mraw_meta_in_buf->mbn_param.mbn_pow;
 	mraw_pipline->res_config.cpi_pow = mraw_meta_in_buf->cpi_param.cpi_pow;
 	mraw_pipline->res_config.cpi_dir = mraw_meta_in_buf->cpi_param.cpi_dir;
+
+	mraw_pipline->res_config.mbn_spar_pow = mraw_meta_in_buf->mbn_param.mbn_spar_pow;
+	mraw_pipline->res_config.mbn_spar_fac = mraw_meta_in_buf->mbn_param.mbn_spar_fac;
+	mraw_pipline->res_config.cpi_spar_pow = mraw_meta_in_buf->cpi_param.cpi_spar_pow;
+	mraw_pipline->res_config.cpi_spar_fac = mraw_meta_in_buf->cpi_param.cpi_spar_fac;
 }
 
-void mtk_cam_mraw_set_frame_param_dmao(
+static void mtk_cam_mraw_set_frame_param_dmao(
 	struct device *dev,
 	struct mtkcam_ipi_frame_param *frame_param,
 	struct mtk_cam_mraw_dmao_info mraw_dmao_info, int pipe_id, int param_num,
-	struct mtk_cam_buffer *buf)
+	dma_addr_t buf_daddr)
 {
 	struct mtkcam_ipi_img_output *mraw_img_outputs, *last_mraw_img_outputs;
 	int i;
@@ -645,17 +724,59 @@ void mtk_cam_mraw_set_frame_param_dmao(
 
 		if (i == 0)
 			mraw_img_outputs->buf[0][0].iova
-				= buf->daddr + sizeof(struct mtk_cam_uapi_meta_mraw_stats_0);
+				= buf_daddr + sizeof(struct mtk_cam_uapi_meta_mraw_stats_0);
 		else
 			mraw_img_outputs->buf[0][0].iova = last_mraw_img_outputs->buf[0][0].iova
 				+ last_mraw_img_outputs->fmt.stride[0] *
 					last_mraw_img_outputs->fmt.s.h;
 
-		mraw_img_outputs->buf[0][0].size = mraw_dmao_info.dmao_stride[i];
+		mraw_img_outputs->buf[0][0].size =
+			mraw_img_outputs->fmt.stride[0] * mraw_img_outputs->fmt.s.h;
 
-		dev_dbg(dev, "%s:dmao_id:%d iova:0x%08x\n",
-			__func__, i, mraw_img_outputs->buf[0][0].iova);
+		dev_dbg(dev, "%s:dmao_id:%d iova:0x%llx size:%d\n",
+			__func__, i, mraw_img_outputs->buf[0][0].iova,
+			mraw_img_outputs->buf[0][0].size);
 	}
+}
+
+static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
+			unsigned int size, unsigned long *offset)
+{
+	buf->offset = *offset;
+	buf->size = size;
+	*offset += size;
+}
+
+static void mtk_cam_mraw_set_meta_stats_info(
+	void *vaddr, struct mtk_cam_mraw_dmao_info *mraw_dmao_info)
+{
+	struct mtk_cam_uapi_meta_mraw_stats_0 *mraw_stats0;
+	unsigned long offset;
+	unsigned int size;
+
+	mraw_stats0 = (struct mtk_cam_uapi_meta_mraw_stats_0 *)vaddr;
+	offset = sizeof(*mraw_stats0);
+	/* imgo */
+	size = mraw_dmao_info->dmao_stride[IMGO] * mraw_dmao_info->dmao_height[IMGO];
+	set_payload(&mraw_stats0->pdp_0_stats.pdo_buf, size, &offset);
+	mraw_stats0->pdp_0_stats_enabled = 1;
+	mraw_stats0->pdp_0_stats.stats_src.width = mraw_dmao_info->dmao_width[IMGO];
+	mraw_stats0->pdp_0_stats.stats_src.height = mraw_dmao_info->dmao_height[IMGO];
+	mraw_stats0->pdp_0_stats.stride = mraw_dmao_info->dmao_stride[IMGO];
+	/* imgbo */
+	size = mraw_dmao_info->dmao_stride[IMGBO] * mraw_dmao_info->dmao_height[IMGBO];
+	set_payload(&mraw_stats0->pdp_1_stats.pdo_buf, size, &offset);
+	mraw_stats0->pdp_1_stats_enabled = 1;
+	mraw_stats0->pdp_1_stats.stats_src.width = mraw_dmao_info->dmao_width[IMGBO];
+	mraw_stats0->pdp_1_stats.stats_src.height = mraw_dmao_info->dmao_height[IMGBO];
+	mraw_stats0->pdp_1_stats.stride = mraw_dmao_info->dmao_stride[IMGBO];
+	/* cpio */
+	size = mraw_dmao_info->dmao_stride[CPIO] * mraw_dmao_info->dmao_height[CPIO];
+	set_payload(&mraw_stats0->cpi_stats.cpio_buf, size, &offset);
+	mraw_stats0->cpi_stats_enabled = 1;
+	mraw_stats0->cpi_stats.stats_src.width = mraw_dmao_info->dmao_width[CPIO];
+	mraw_stats0->cpi_stats.stats_src.height = mraw_dmao_info->dmao_height[CPIO];
+	mraw_stats0->cpi_stats.stride = mraw_dmao_info->dmao_stride[CPIO];
 }
 
 void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
@@ -686,6 +807,8 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 		mraw_meta_in_buf = (struct mtk_cam_uapi_meta_mraw_stats_cfg *)vaddr;
 		mraw_pipline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_CFG
 			- MTKCAM_IPI_MRAW_ID_START] = vaddr;
+		mraw_pipline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_CFG
+			- MTKCAM_IPI_MRAW_ID_START] = buf->daddr;
 		meta_in = &frame_param->mraw_param[0].mraw_meta_inputs;
 		meta_in->buf.ccd_fd = vb->planes[0].m.fd;
 		meta_in->buf.size = node->active_fmt.fmt.meta.buffersize;
@@ -699,6 +822,8 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 	case MTKCAM_IPI_MRAW_META_STATS_0:
 		mraw_pipline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START] = vaddr;
+		mraw_pipline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
+			- MTKCAM_IPI_MRAW_ID_START] = buf->daddr;
 		mraw_pipline->res_config.enque_num++;
 		break;
 	default:
@@ -717,7 +842,9 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 			&mraw_dmao_info, width, height);
 
 		mtk_cam_mraw_set_frame_param_dmao(cam->dev, frame_param,
-			mraw_dmao_info, pipe_id, 0, buf);
+			mraw_dmao_info, pipe_id, 0,
+			mraw_pipline->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
+				- MTKCAM_IPI_MRAW_ID_START]);
 
 		mtk_cam_mraw_set_meta_stats_info(
 			mraw_pipline->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_0
@@ -861,85 +988,6 @@ struct device *mtk_cam_find_mraw_dev(struct mtk_cam_device *cam
 	}
 
 	return NULL;
-}
-
-unsigned int mtk_cam_mraw_format_sel(unsigned int pixel_fmt)
-{
-	union MRAW_FMT_SEL fmt;
-
-	fmt.Raw = 0;
-	fmt.Bits.MRAWCTL_TG_SWAP = MRAW_TG_SW_UYVY;
-
-	switch (pixel_fmt) {
-	case V4L2_PIX_FMT_SBGGR8:
-	case V4L2_PIX_FMT_SGBRG8:
-	case V4L2_PIX_FMT_SGRBG8:
-	case V4L2_PIX_FMT_SRGGB8:
-		fmt.Bits.MRAWCTL_TG_FMT = MRAW_TG_FMT_RAW8;
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR10:
-	case V4L2_PIX_FMT_MTISP_SGBRG10:
-	case V4L2_PIX_FMT_MTISP_SGRBG10:
-	case V4L2_PIX_FMT_MTISP_SRGGB10:
-		fmt.Bits.MRAWCTL_TG_FMT = MRAW_TG_FMT_RAW10;
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR12:
-	case V4L2_PIX_FMT_MTISP_SGBRG12:
-	case V4L2_PIX_FMT_MTISP_SGRBG12:
-	case V4L2_PIX_FMT_MTISP_SRGGB12:
-		fmt.Bits.MRAWCTL_TG_FMT = MRAW_TG_FMT_RAW12;
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR14:
-	case V4L2_PIX_FMT_MTISP_SGBRG14:
-	case V4L2_PIX_FMT_MTISP_SGRBG14:
-	case V4L2_PIX_FMT_MTISP_SRGGB14:
-		fmt.Bits.MRAWCTL_TG_FMT = MRAW_TG_FMT_RAW14;
-		break;
-	default:
-		break;
-	}
-
-	return fmt.Raw;
-}
-
-static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
-			unsigned int size, unsigned long *offset)
-{
-	buf->offset = *offset;
-	buf->size = size;
-	*offset += size;
-}
-
-void mtk_cam_mraw_set_meta_stats_info(
-	void *vaddr, struct mtk_cam_mraw_dmao_info *mraw_dmao_info)
-{
-	struct mtk_cam_uapi_meta_mraw_stats_0 *mraw_stats0;
-	unsigned long offset;
-	unsigned int size;
-
-	mraw_stats0 = (struct mtk_cam_uapi_meta_mraw_stats_0 *)vaddr;
-	offset = sizeof(*mraw_stats0);
-	/* imgo */
-	size = mraw_dmao_info->dmao_stride[IMGO] * mraw_dmao_info->dmao_height[IMGO];
-	set_payload(&mraw_stats0->pdp_0_stats.pdo_buf, size, &offset);
-	mraw_stats0->pdp_0_stats_enabled = 1;
-	mraw_stats0->pdp_0_stats.stats_src.width = mraw_dmao_info->dmao_width[IMGO];
-	mraw_stats0->pdp_0_stats.stats_src.height = mraw_dmao_info->dmao_height[IMGO];
-	mraw_stats0->pdp_0_stats.stride = mraw_dmao_info->dmao_stride[IMGO];
-	/* imgbo */
-	size = mraw_dmao_info->dmao_stride[IMGBO] * mraw_dmao_info->dmao_height[IMGBO];
-	set_payload(&mraw_stats0->pdp_1_stats.pdo_buf, size, &offset);
-	mraw_stats0->pdp_1_stats_enabled = 1;
-	mraw_stats0->pdp_1_stats.stats_src.width = mraw_dmao_info->dmao_width[IMGBO];
-	mraw_stats0->pdp_1_stats.stats_src.height = mraw_dmao_info->dmao_height[IMGBO];
-	mraw_stats0->pdp_1_stats.stride = mraw_dmao_info->dmao_stride[IMGBO];
-	/* cpio */
-	size = mraw_dmao_info->dmao_stride[CPIO] * mraw_dmao_info->dmao_height[CPIO];
-	set_payload(&mraw_stats0->cpi_stats.cpio_buf, size, &offset);
-	mraw_stats0->cpi_stats_enabled = 1;
-	mraw_stats0->cpi_stats.stats_src.width = mraw_dmao_info->dmao_width[CPIO];
-	mraw_stats0->cpi_stats.stats_src.height = mraw_dmao_info->dmao_height[CPIO];
-	mraw_stats0->cpi_stats.stride = mraw_dmao_info->dmao_stride[CPIO];
 }
 
 int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev)
@@ -1628,9 +1676,9 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	unsigned int irq_status2, irq_status3, irq_status4;
 	unsigned int dma_err_status;
 	unsigned int imgo_overr_status, imgbo_overr_status, cpio_overr_status;
-	unsigned int fbc_imgo_status, imgo_addr;
-	unsigned int fbc_imgbo_status, imgbo_addr;
-	unsigned int fbc_cpio_status, cpio_addr;
+	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
+	unsigned int fbc_imgbo_status, imgbo_addr, imgbo_addr_msb;
+	unsigned int fbc_cpio_status, cpio_addr, cpio_addr_msb;
 	unsigned long flags;
 	int ret;
 
@@ -1656,17 +1704,23 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	fbc_imgo_status =
 		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL2);
 	imgo_addr =
-		readl_relaxed(mraw_dev->base + REG_MRAW_IMGO_BASE_ADDR);
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR);
+	imgo_addr_msb =
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR_MSB);
 
 	fbc_imgbo_status =
 		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL2);
 	imgbo_addr =
-		readl_relaxed(mraw_dev->base + REG_MRAW_IMGBO_BASE_ADDR);
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR);
+	imgbo_addr_msb =
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR_MSB);
 
 	fbc_cpio_status =
 		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL2);
 	cpio_addr =
-		readl_relaxed(mraw_dev->base + REG_MRAW_CPIO_BASE_ADDR);
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR);
+	cpio_addr_msb =
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR_MSB);
 	spin_unlock_irqrestore(&mraw_dev->spinlock_irq, flags);
 
 	err_status = irq_status & INT_ST_MASK_MRAW_ERR;
@@ -1675,11 +1729,12 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	imgbo_overr_status = irq_status5 & MRAWCTL_IMGBO_M1_OTF_OVERFLOW_ST;
 	cpio_overr_status = irq_status5 & MRAWCTL_CPIO_M1_OTF_OVERFLOW_ST;
 
-	dev_info(dev,
-		"%i status:0x%x(err:0x%x) dma_err:0x%x fbc_status(imgo:0x%x, imgbo:0x%x, cpio:0x%x) dma_addr(imgo:0x%x, imgbo:0x%x, cpio:0x%x)\n",
-		mraw_dev->id, irq_status, err_status, dma_err_status,
+	dev_dbg(dev,
+		"%i status:0x%x(err:0x%x)/0x%x dma_err:0x%x fbc_status(imgo:0x%x, imgbo:0x%x, cpio:0x%x) dma_addr(imgo:0x%x%x, imgbo:0x%x%x, cpio:0x%x%x), seq_num:%d\n",
+		mraw_dev->id, irq_status, err_status, irq_status6, dma_err_status,
 		fbc_imgo_status, fbc_imgbo_status, fbc_cpio_status,
-		imgo_addr, imgbo_addr, cpio_addr);
+		imgo_addr_msb, imgo_addr, imgbo_addr_msb, imgbo_addr,
+		cpio_addr_msb, cpio_addr, dequeued_imgo_seq_no_inner);
 
 	dev_dbg(dev,
 		"%i imgo_overr_status:0x%x, imgbo_overr_status:0x%x, cpio_overr_status:0x%x\n",
@@ -1724,7 +1779,12 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 
 	/* Check ISP error status */
 	if (err_status) {
-		dev_info(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
+		dev_info(dev,
+			"%i status:0x%x(err:0x%x)/0x%x dma_err:0x%x fbc_status(imgo:0x%x, imgbo:0x%x, cpio:0x%x) dma_addr(imgo:0x%x%x, imgbo:0x%x%x, cpio:0x%x%x), seq_num:%d\n",
+			mraw_dev->id, irq_status, err_status, irq_status6, dma_err_status,
+			fbc_imgo_status, fbc_imgbo_status, fbc_cpio_status,
+			imgo_addr_msb, imgo_addr, imgbo_addr_msb, imgbo_addr,
+			cpio_addr_msb, cpio_addr, dequeued_imgo_seq_no_inner);
 		/* Show DMA errors in detail */
 		if (err_status & DMA_ST_MASK_MRAW_ERR)
 			mraw_irq_handle_dma_err(mraw_dev);

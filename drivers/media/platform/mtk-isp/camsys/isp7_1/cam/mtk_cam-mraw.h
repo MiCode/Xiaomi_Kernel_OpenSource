@@ -151,11 +151,15 @@ enum mqe_mode {
 enum mbn_dir {
 	MBN_POW_VERTICAL = 0,
 	MBN_POW_HORIZONTAL,
+	MBN_POW_SPARSE_CONCATENATION,
+	MBN_POW_SPARSE_INTERLEVING,
 };
 
 enum cpi_dir {
 	CPI_POW_VERTICAL = 0,
 	CPI_POW_HORIZONTAL,
+	CPI_POW_SPARSE_CONCATENATION,
+	CPI_POW_SPARSE_INTERLEVING,
 };
 
 enum dmao_id {
@@ -174,6 +178,7 @@ struct mtk_mraw_pad_config {
 
 struct mtk_cam_mraw_resource_config {
 	void *vaddr[MAX_MRAW_VIDEO_DEV_NUM];
+	__u64 daddr[MAX_MRAW_VIDEO_DEV_NUM];
 	__u32 enque_num;
 	__u32 width;
 	__u32 height;
@@ -181,10 +186,15 @@ struct mtk_cam_mraw_resource_config {
 	__u32 pixel_mode;
 	__s8 mqe_en;
 	__u32 mqe_mode;
+
 	__u32 mbn_dir;
 	__u32 mbn_pow;
 	__u32 cpi_pow;
 	__u32 cpi_dir;
+	__u32 mbn_spar_fac;
+	__u32 mbn_spar_pow;
+	__u32 cpi_spar_fac;
+	__u32 cpi_spar_pow;
 };
 
 struct mtk_cam_mraw_dmao_info {
@@ -248,31 +258,21 @@ mtk_cam_dev_get_mraw_pipeline(struct mtk_cam_device *cam,
 int mtk_cam_mraw_pipeline_config(struct mtk_cam_ctx *ctx, unsigned int idx);
 struct device *mtk_cam_find_mraw_dev(
 	struct mtk_cam_device *cam, unsigned int mraw_mask);
-void mtk_cam_mraw_set_meta_stats_info(
-	void *vaddr, struct mtk_cam_mraw_dmao_info *mraw_dmao_info);
-void mtk_cam_mraw_set_frame_param_dmao(
-	struct device *dev,
-	struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_cam_mraw_dmao_info mraw_dmao_info, int pipe_id,
-	int param_num, struct mtk_cam_buffer *buf);
 int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx, unsigned int stag_en);
 int mtk_cam_mraw_dev_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int idx,
 	unsigned int streaming, unsigned int stag_en);
-unsigned int mtk_cam_mraw_format_sel(unsigned int pixel_fmt);
 int mtk_cam_mraw_dmao_config(
 	struct mtk_mraw_device *top_dev, struct mtk_mraw_device *sub_dev);
 int mtk_cam_mraw_fbc_config(
 	struct mtk_mraw_device *dev);
-
 int mtk_cam_mraw_top_enable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_dmao_enable(
 	struct mtk_mraw_device *dev);
 int mtk_cam_mraw_fbc_enable(
 	struct mtk_mraw_device *dev);
-
 int mtk_cam_mraw_tg_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_dmao_disable(struct mtk_mraw_device *dev);
@@ -282,16 +282,6 @@ int mtk_cam_find_mraw_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 void apply_mraw_cq(struct mtk_mraw_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
-unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n);
-void mtk_cam_mraw_set_mraw_dmao_info(
-	struct device *dev,
-	struct mtk_cam_mraw_resource_config *res_config,
-	struct mtk_cam_mraw_dmao_info *mraw_dmao_info,
-	unsigned int tg_width, unsigned int tg_height);
-void mtk_cam_mraw_copy_user_input_param(
-	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
-	struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_mraw_pipeline *mraw_pipline, int mraw_param_num);
 void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb);
 
 extern struct platform_driver mtk_cam_mraw_driver;
