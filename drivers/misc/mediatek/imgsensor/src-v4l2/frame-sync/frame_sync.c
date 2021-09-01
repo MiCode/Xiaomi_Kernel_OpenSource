@@ -1633,6 +1633,7 @@ static int fs_try_trigger_frame_sync_sa(unsigned int idx)
 
 
 	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
+#if !defined(REDUCE_FS_DRV_LOG)
 		LOG_INF(
 			"WARNING: [%u] ID:%#x(sidx:%u), not valid for sync:%d(streaming:%d/enSync:%d), return\n",
 			idx,
@@ -1641,6 +1642,7 @@ static int fs_try_trigger_frame_sync_sa(unsigned int idx)
 			FS_READ_BITS(&fs_mgr.validSync_bits),
 			FS_READ_BITS(&fs_mgr.streaming_bits),
 			FS_READ_BITS(&fs_mgr.enSync_bits));
+#endif
 
 		return 0;
 	}
@@ -1906,9 +1908,8 @@ void fs_seamless_switch(unsigned int ident)
  */
 void fs_update_tg(unsigned int ident, unsigned int tg)
 {
-	unsigned int is_streaming = 0;
-	unsigned int idx = fs_get_reg_sensor_pos(ident);
 	struct SensorInfo info = {0};
+	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 
 	if (check_idx_valid(idx) == 0) {
@@ -1919,23 +1920,20 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 	}
 
 
-	fs_get_reg_sensor_info(idx, &info);
-
-	is_streaming = FS_CHECK_BIT(idx, &fs_mgr.streaming_bits);
-
-	if (!is_streaming) {
-		LOG_PR_WARN(
-			"WARNING: [%u] ID:%#x(sidx:%u) is not streaming ON. set TG:%u. (TG maybe overwrite when fs_streaming(1))\n",
-			idx,
-			info.sensor_id,
-			info.sensor_idx,
-			tg);
-	}
-
-
 	/* 1. update the fs_streaming_st data */
 	fs_alg_update_tg(idx, tg);
 	frm_update_tg(idx, tg);
+
+
+	fs_get_reg_sensor_info(idx, &info);
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), updated tg:%u (fs_alg, frm)\n",
+		idx,
+		info.sensor_id,
+		info.sensor_idx,
+		tg
+	);
 
 
 #ifdef USING_CCU
@@ -2170,9 +2168,11 @@ static inline void fs_notify_sensor_ctrl_setup_complete(unsigned int idx)
  */
 void fs_update_auto_flicker_mode(unsigned int ident, unsigned int en)
 {
-	unsigned int is_streaming = 0;
-	unsigned int idx = fs_get_reg_sensor_pos(ident);
+#if !defined(REDUCE_FS_DRV_LOG)
 	struct SensorInfo info = {0};
+#endif // REDUCE_FS_DRV_LOG
+
+	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 
 	if (check_idx_valid(idx) == 0) {
@@ -2183,22 +2183,21 @@ void fs_update_auto_flicker_mode(unsigned int ident, unsigned int en)
 	}
 
 
-	fs_get_reg_sensor_info(idx, &info);
-
-	is_streaming = FS_CHECK_BIT(idx, &fs_mgr.streaming_bits);
-
-	if (!is_streaming) {
-		LOG_PR_WARN(
-			"WARNING: [%u] ID:%#x(sidx:%u) is not streaming ON. (set flicker_en:%u)\n",
-			idx,
-			info.sensor_id,
-			info.sensor_idx,
-			en);
-	}
-
-
 	/* 1. update the fs_perframe_st data in fs algo */
 	fs_alg_set_anti_flicker(idx, en);
+
+
+#if !defined(REDUCE_FS_DRV_LOG)
+	fs_get_reg_sensor_info(idx, &info);
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), updated flicker_en:%u\n",
+		idx,
+		info.sensor_id,
+		info.sensor_idx,
+		en
+	);
+#endif // REDUCE_FS_DRV_LOG
 
 
 	/* if this is the last ctrl needed by FrameSync, notify setup complete */
@@ -2214,8 +2213,10 @@ void fs_update_auto_flicker_mode(unsigned int ident, unsigned int en)
  */
 void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 {
-	unsigned int is_streaming = 0;
+#if !defined(REDUCE_FS_DRV_LOG)
 	struct SensorInfo info = {0};
+#endif // REDUCE_FS_DRV_LOG
+
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 
@@ -2226,19 +2227,6 @@ void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 		return;
 	}
 
-	fs_get_reg_sensor_info(idx, &info);
-
-	is_streaming = FS_CHECK_BIT(idx, &fs_mgr.streaming_bits);
-
-	if (!is_streaming) {
-		LOG_PR_WARN(
-			"WARNING: [%u] ID:%#x(sidx:%u) is not streaming ON. (set min_fl_lc:%u)\n",
-			idx,
-			info.sensor_id,
-			info.sensor_idx,
-			min_fl_lc);
-	}
-
 
 	/* 1. update the fs_perframe_st data in fs algo */
 	fs_alg_update_min_fl_lc(idx, min_fl_lc);
@@ -2246,6 +2234,19 @@ void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 #if !defined(FS_UT)
 	hw_fs_alg_update_min_fl_lc(idx, min_fl_lc);
 #endif // FS_UT
+
+
+#if !defined(REDUCE_FS_DRV_LOG)
+	fs_get_reg_sensor_info(idx, &info);
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), updated min_fl_lc:%u\n",
+		idx,
+		info.sensor_id,
+		info.sensor_idx,
+		min_fl_lc
+	);
+#endif // REDUCE_FS_DRV_LOG
 
 
 #ifndef USING_V4L2_CTRL_REQUEST_SETUP

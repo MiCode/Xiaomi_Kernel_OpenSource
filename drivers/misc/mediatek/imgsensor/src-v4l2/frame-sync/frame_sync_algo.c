@@ -575,20 +575,27 @@ static void calc_predicted_frame_length(unsigned int idx)
 {
 	unsigned int i = 0;
 
+	unsigned int fdelay = fs_inst[idx].fl_active_delay;
 	unsigned int *p_fl_lc = fs_inst[idx].predicted_fl_lc;
 	unsigned int *p_fl_us = fs_inst[idx].predicted_fl_us;
 
 
+	/* for error handle, check sensor fl_active_delay value */
+	if ((fdelay < 2) || (fdelay > 3)) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame:%u is not valid (must be 2 or 3)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].fl_active_delay);
+
+		return;
+	}
+
 	/* calculate "current predicted" and "next predicted" framelength */
 	/* P.S. current:0, next:1 */
 	for (i = 0; i < 2; ++i) {
-		if (fs_inst[idx].fl_active_delay < 2) {
-			/* error handle show msg */
-			LOG_PR_WARN(
-				"ERROR: fl_active_delay is not valid, fdelay:%u\n",
-				fs_inst[idx].fl_active_delay);
-
-		} else if (fs_inst[idx].fl_active_delay == 3) {
+		if (fdelay == 3) {
 			/* SONY sensor with auto-extend on */
 			unsigned int sm =
 				*fs_inst[idx].recs[1-i].shutter_lc +
@@ -604,7 +611,7 @@ static void calc_predicted_frame_length(unsigned int idx)
 						fs_inst[idx].lineTimeInNs,
 						p_fl_lc[i]);
 
-		} else { // fs_inst[idx].fl_active_delay == 2
+		} else { // fdelay == 2
 			/* non-SONY sensor case */
 			p_fl_lc[i] = *fs_inst[idx].recs[1-i].framelength_lc;
 
@@ -894,6 +901,61 @@ static inline void fs_alg_sa_init_new_ctrl(
 }
 
 
+/*
+ * return:
+ *     0: check passed / non-0: non-valid data is detected
+ *     1: last timestamp is zero
+ *     2: sensor frame_time_delay_frame value is non-valid
+ */
+static unsigned int fs_alg_sa_dynamic_paras_checker(
+	unsigned int s_idx, unsigned int m_idx,
+	struct FrameSyncDynamicPara *p_para_m,
+	struct FrameSyncDynamicPara *p_para_s)
+{
+	unsigned int ret = 0;
+	unsigned int query_ts_idx[2] = {s_idx, m_idx};
+	unsigned int fdelay_s = fs_inst[s_idx].fl_active_delay;
+	unsigned int fdelay_m = fs_inst[m_idx].fl_active_delay;
+
+
+	/* check if last timestamp equal to zero */
+	if (check_vsync_valid(query_ts_idx, 2) == 0) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, ts(s:%u/m:%u)\n",
+			s_idx,
+			fs_inst[s_idx].sensor_id,
+			fs_inst[s_idx].sensor_idx,
+			p_para_s->magic_num,
+			p_para_m->magic_num,
+			m_idx,
+			fs_sa_inst.dynamic_paras[s_idx].last_ts,
+			fs_sa_inst.dynamic_paras[m_idx].last_ts
+		);
+
+		ret = 1;
+	}
+
+
+	/* check sensor fl_active_delay value */
+	/* in this time predicted frame length are equal to zero */
+	if ((fdelay_s < 2 || fdelay_s > 3) || (fdelay_m < 2 || fdelay_m > 3)) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame is/are not valid (must be 2 or 3), s:%u/m:%u\n",
+			s_idx,
+			fs_inst[s_idx].sensor_id,
+			fs_inst[s_idx].sensor_idx,
+			fs_inst[s_idx].fl_active_delay,
+			fs_inst[m_idx].fl_active_delay
+		);
+
+		ret = 2;
+	}
+
+
+	return ret;
+}
+
+
 static inline unsigned int fs_alg_sa_get_timestamp_info(
 	unsigned int idx, struct FrameSyncDynamicPara *p_para)
 {
@@ -1142,7 +1204,7 @@ static inline void fs_alg_sa_update_pred_fl_and_ts_bias(
 
 #if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u, pred_fl(c:%u(%u), n:%u(%u)), bias(exp:%u/tag:%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, pred_fl(c:%u(%u), n:%u(%u))(%u), bias(exp:%u/tag:%u), fdelay:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -1151,8 +1213,10 @@ static inline void fs_alg_sa_update_pred_fl_and_ts_bias(
 		fs_inst[idx].predicted_fl_lc[0],
 		p_para->pred_fl_us[1],
 		fs_inst[idx].predicted_fl_lc[1],
+		fs_inst[idx].lineTimeInNs,
 		p_para->ts_bias_us,
-		p_para->tag_bias_us);
+		p_para->tag_bias_us,
+		fs_inst[idx].fl_active_delay);
 #endif // REDUCE_FS_ALGO_LOG
 }
 
@@ -1219,7 +1283,7 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 
 #if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), adjust_diff_s:%lld(ts:%lld/%lld, delta:%u/%u), stable_fl(%u/%u), f_cell(%u/%u), fdely(%u/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), adjust_diff_s:%lld(ts:%lld/%lld(%u/%u), delta:%u/%u), stable_fl(%u/%u), f_cell(%u/%u), fdely(%u/%u)\n",
 		s_idx,
 		fs_inst[s_idx].sensor_id,
 		fs_inst[s_idx].sensor_idx,
@@ -1227,16 +1291,18 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 		p_para_m->magic_num,
 		m_idx,
 		adjust_diff_s,
-		ts_diff_m,
 		ts_diff_s,
-		p_para_m->delta,
+		ts_diff_m,
+		fs_sa_inst.dynamic_paras[s_idx].last_ts,
+		fs_sa_inst.dynamic_paras[m_idx].last_ts,
 		p_para_s->delta,
-		p_para_m->stable_fl_us,
+		p_para_m->delta,
 		p_para_s->stable_fl_us,
-		f_cell_m,
+		p_para_m->stable_fl_us,
 		f_cell_s,
-		fs_inst[m_idx].fl_active_delay,
-		fs_inst[s_idx].fl_active_delay
+		f_cell_m,
+		fs_inst[s_idx].fl_active_delay,
+		fs_inst[m_idx].fl_active_delay
 	);
 #endif // REDUCE_FS_ALGO_LOG
 
@@ -1310,7 +1376,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 
 
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), request_switch(%u), s/m adjust_diff(%lld(%u)/%lld), ts(%lld/%lld), sync_delay(%u/%u)[(n:%u/s:%u/a:%lld/t:%u)/(n:%u/s:%u/a:%lld/t:%u)], f_cell(%u/%u), fdelay(%u/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), ask_switch(%u), s/m adjust_diff(%lld(%u)/%lld), ts(%lld/%lld), delta(%u/%u), sync_delay(%u/%u) [(c:%u/n:%u/s:%u/e:%u/t:%u) / (c:%u/n:%u/s:%u/e:%u/t:%u)], f_cell(%u/%u), fdelay(%u/%u), ts_abs(%u/%u)\n",
 		s_idx,
 		fs_inst[s_idx].sensor_id,
 		fs_inst[s_idx].sensor_idx,
@@ -1323,35 +1389,31 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 		adjust_diff_m,
 		ts_diff_s,
 		ts_diff_m,
+		p_para_s->delta,
+		p_para_m->delta,
 		sync_delay_s,
 		sync_delay_m,
+		p_para_s->pred_fl_us[0],
 		p_para_s->pred_fl_us[1],
 		p_para_s->stable_fl_us,
-		adjust_diff_s,
+		p_para_s->ts_bias_us,
 		p_para_s->tag_bias_us,
+		p_para_m->pred_fl_us[0],
 		p_para_m->pred_fl_us[1],
 		p_para_m->stable_fl_us,
-		adjust_diff_m,
+		p_para_m->ts_bias_us,
 		p_para_m->tag_bias_us,
 		f_cell_s,
 		f_cell_m,
 		fs_inst[s_idx].fl_active_delay,
-		fs_inst[m_idx].fl_active_delay
+		fs_inst[m_idx].fl_active_delay,
+		fs_sa_inst.dynamic_paras[s_idx].last_ts,
+		fs_sa_inst.dynamic_paras[m_idx].last_ts
 	);
 
 
 	return (request_switch_master || (!adjust_or_not))
 		? 0 : adjust_diff_s;
-}
-
-
-static inline void fs_alg_sa_update_fl_us(
-	unsigned int idx, unsigned int us,
-	struct FrameSyncDynamicPara *p_para)
-{
-	set_fl_us(idx, us);
-
-	p_para->stable_fl_us = us;
 }
 
 
@@ -1420,6 +1482,20 @@ static inline void fs_alg_sa_prepare_dynamic_para(
 				p_para->pred_fl_us, p_para->stable_fl_us,
 				fs_inst[idx].fl_active_delay, i, 1);
 	}
+}
+
+
+static inline void fs_alg_sa_update_fl_us(
+	unsigned int idx, unsigned int us,
+	struct FrameSyncDynamicPara *p_para)
+{
+	set_fl_us(idx, us);
+
+	p_para->stable_fl_us = us;
+
+	/* for correctly showing info */
+	/* update fl also update all related variable */
+	fs_alg_sa_prepare_dynamic_para(idx, p_para);
 }
 
 
@@ -1603,11 +1679,13 @@ void fs_alg_update_tg(unsigned int idx, unsigned int tg)
 	fs_inst[idx].tg = tg;
 
 
+#if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_INF("[%u] ID:%#x(sidx:%u), updated tg:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
 		fs_inst[idx].tg);
+#endif // REDUCE_FS_ALGO_LOG
 }
 
 
@@ -1618,6 +1696,7 @@ void fs_alg_update_min_fl_lc(unsigned int idx, unsigned int min_fl_lc)
 		fs_inst[idx].min_fl_lc = min_fl_lc;
 
 
+#if !defined(REDUCE_FS_ALGO_LOG)
 		LOG_INF("[%u] ID:%#x(sidx:%u), updated min_fl:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
@@ -1626,6 +1705,7 @@ void fs_alg_update_min_fl_lc(unsigned int idx, unsigned int min_fl_lc)
 				fs_inst[idx].lineTimeInNs,
 				fs_inst[idx].min_fl_lc),
 			fs_inst[idx].min_fl_lc);
+#endif // REDUCE_FS_ALGO_LOG
 	}
 }
 
@@ -2000,7 +2080,7 @@ void fs_alg_set_frame_record_st_data(
 
 // #ifndef REDUCE_FS_ALGO_LOG
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))\n",
+		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))(%u), margin_lc:%u, fdelay:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -2014,7 +2094,10 @@ void fs_alg_set_frame_record_st_data(
 		fs_inst[idx].predicted_fl_us[0],
 		fs_inst[idx].predicted_fl_lc[0],
 		fs_inst[idx].predicted_fl_us[1],
-		fs_inst[idx].predicted_fl_lc[1]);
+		fs_inst[idx].predicted_fl_lc[1],
+		fs_inst[idx].lineTimeInNs,
+		fs_inst[idx].margin_lc,
+		fs_inst[idx].fl_active_delay);
 // #endif
 }
 /******************************************************************************/
@@ -2667,28 +2750,13 @@ static void adjust_vsync_diff_sa(
 	struct FrameSyncDynamicPara *p_para)
 {
 	long long adjust_diff = 0;
-	unsigned int query_ts_idx[1] = {0};
 	unsigned int out_fl_us = 0, flk_diff = 0;
 	struct FrameSyncDynamicPara m_para = {0};
 	struct FrameSyncDynamicPara *p_para_m = &m_para;
 
 
-	/* 0. check vsync timestamp (preventing last vts is "0") */
-	/*    and prepare dynamic para */
-	query_ts_idx[0] = idx;
-	if (check_vsync_valid(query_ts_idx, 1) == 0) {
-		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, not adjust vsync diff\n",
-			idx,
-			fs_inst[idx].sensor_id,
-			fs_inst[idx].sensor_idx,
-			p_para->magic_num,
-			p_para_m->magic_num,
-			m_idx
-		);
-	}
-
-	fs_alg_sa_prepare_dynamic_para(idx, p_para);
+	/* this should be done when fl be updated */
+	// fs_alg_sa_prepare_dynamic_para(idx, p_para);
 
 
 	/* master only do fps sync */
@@ -2702,6 +2770,26 @@ static void adjust_vsync_diff_sa(
 	fs_alg_sa_get_dynamic_para(m_idx, p_para_m);
 
 
+	/* check all needed info is valid or not for preventing error */
+	if (fs_alg_sa_dynamic_paras_checker(idx, m_idx, p_para, p_para_m)) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), do not adjust vsync diff, out_fl:%u(%u)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_para->magic_num,
+			p_para_m->magic_num,
+			m_idx,
+			fs_inst[idx].output_fl_us,
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].output_fl_us)
+		);
+
+		return;
+	}
+
+
 	/* calculate/get suitable slave adjust diff */
 	adjust_diff = fs_alg_sa_adjust_slave_diff_resolver(
 		m_idx, idx, p_para_m, p_para);
@@ -2710,13 +2798,17 @@ static void adjust_vsync_diff_sa(
 		fs_sa_request_switch_master(idx);
 
 		LOG_INF(
-			"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), request switch to master sensor\n",
+			"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), request switch to master sensor, out_fl:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
 			p_para->magic_num,
 			p_para_m->magic_num,
-			m_idx
+			m_idx,
+			fs_inst[idx].output_fl_us,
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fs_inst[idx].output_fl_us)
 		);
 
 		return;

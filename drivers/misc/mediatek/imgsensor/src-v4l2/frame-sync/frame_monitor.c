@@ -872,11 +872,13 @@ void frm_update_tg(unsigned int idx, unsigned int tg)
 	frm_inst.f_info[idx].tg = tg;
 
 
+#if !defined(REDUCE_FRM_LOG)
 	LOG_INF("[%u] ID:%#x(sidx:%u), updated tg:%u\n",
 		idx,
 		frm_inst.f_info[idx].sensor_id,
 		frm_inst.f_info[idx].sensor_idx,
 		frm_inst.f_info[idx].tg);
+#endif // REDUCE_FRM_LOG
 }
 
 
