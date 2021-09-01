@@ -55,6 +55,9 @@
 #define ufs_mtk_device_reset_ctrl(high, res) \
 	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, high, res)
 
+#define ufs_mtk_host_pwr_ctrl(on, res) \
+	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, on, res)
+
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
@@ -1846,6 +1849,8 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ufshcd_is_link_off(hba))
 		ufs_mtk_device_reset_ctrl(0, res);
 
+	ufs_mtk_host_pwr_ctrl(false, res);
+
 	return 0;
 fail:
 	/*
@@ -1860,6 +1865,9 @@ fail:
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
+	struct arm_smccc_res res;
+
+	ufs_mtk_host_pwr_ctrl(true, res);
 
 	err = ufs_mtk_mphy_power_on(hba, true);
 	if (err)
