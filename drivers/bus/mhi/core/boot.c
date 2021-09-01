@@ -180,7 +180,7 @@ static int mhi_fw_load_bhie(struct mhi_controller *mhi_cntrl,
 	void __iomem *base = mhi_cntrl->bhie;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
-	u32 tx_status, sequence_id, val;
+	u32 tx_status = 0, sequence_id = 0, val = 0;
 	int ret, rd;
 
 	read_lock_bh(pm_lock);
