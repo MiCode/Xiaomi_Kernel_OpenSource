@@ -217,8 +217,6 @@ struct venc_ap_ipi_msg_enc {
 	__u32 bs_addr;
 	__u32 bs_size;
 	__u32 data_offset[3];
-	__s16 input_fd[3];
-	__s16 bs_fd;
 	__u8 fb_num_planes;
 	__u8 bs_mode;
 	__u32 meta_size;

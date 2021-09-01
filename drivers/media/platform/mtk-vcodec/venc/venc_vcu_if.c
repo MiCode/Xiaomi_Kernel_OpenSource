@@ -568,10 +568,10 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			vsi->qpmap_size = 0;
 		}
 
-		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%d), size %d %llx",
+		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx), size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0], vsi->meta_size,
+			vsi->meta_size,
 			vsi->meta_addr);
 		mtk_vcodec_debug(vcu, "vsi qpmap addr %llx size%d",
 			vsi->meta_addr, vsi->qpmap_size);
@@ -584,9 +584,8 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		out.bs_addr = bs_buf->dma_addr;
 		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
-		mtk_vcodec_debug(vcu, " output (dma:%lx fd:%x)",
-			(unsigned long)bs_buf->dmabuf,
-			out.bs_fd);
+		mtk_vcodec_debug(vcu, " output (dma:%lx)",
+			(unsigned long)bs_buf->dmabuf);
 	}
 	else {
 		mtk_vcodec_debug(vcu, "bs_buf is null");

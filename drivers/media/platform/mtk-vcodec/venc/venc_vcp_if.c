@@ -632,10 +632,10 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 			vsi->qpmap_size = 0;
 		}
 
-		mtk_vcodec_debug(inst, " num_planes = %d input (dmabuf:%lx fd:%d), size %d %llx",
+		mtk_vcodec_debug(inst, " num_planes = %d input (dmabuf:%lx), size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0], vsi->meta_size,
+			vsi->meta_size,
 			vsi->meta_addr);
 		mtk_vcodec_debug(inst, "vsi qpmap addr %llx size%d",
 			vsi->qpmap_addr, vsi->qpmap_size);
@@ -645,9 +645,8 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 		out.bs_addr = bs_buf->dma_addr;
 		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
-		mtk_vcodec_debug(inst, " output (dma:%lx fd:%x)",
-			(unsigned long)bs_buf->dmabuf,
-			out.bs_fd);
+		mtk_vcodec_debug(inst, " output (dma:%lx)",
+			(unsigned long)bs_buf->dmabuf);
 	}
 
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
