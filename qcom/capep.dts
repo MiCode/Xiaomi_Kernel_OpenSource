@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "capep.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. CapeP SoC";
+	compatible = "qcom,capep";
+	qcom,board-id = <0 0>;
+};

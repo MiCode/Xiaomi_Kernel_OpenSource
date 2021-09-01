@@ -1,0 +1,7 @@
+#include "cape.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. CapeP";
+	compatible = "qcom,capep";
+	qcom,msm-id = <531 0x10000>;
+};

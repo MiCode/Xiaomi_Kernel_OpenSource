@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "capep.dtsi"
+#include "capep-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. CapeP MTP";
+	compatible = "qcom,capep-mtp", "qcom,capep", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};
