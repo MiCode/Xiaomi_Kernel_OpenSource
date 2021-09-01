@@ -534,6 +534,7 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 	int sv_i;
 	int i;
 	int is_mstream_last_exposure = 0;
+	unsigned long flags;
 
 	req_stream_data = mtk_cam_req_work_get_s_data(sensor_work);
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
@@ -598,7 +599,7 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 	if (mtk_cam_req_frame_sync_end(req))
 		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
 			__func__, ctx->stream_id);
-	spin_lock(&ctx->streaming_lock);
+	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	if (ctx->streaming && ctx->used_raw_num) {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		if (req_stream_data->frame_seq_no == 1 &&
@@ -620,7 +621,7 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 			}
 		}
 	}
-	spin_unlock(&ctx->streaming_lock);
+	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	dev_info(cam->dev, "%s:%s:ctx(%d)req(%d):sensor done at SOF+%dms\n",
 		__func__, req->req.debug_str, ctx->stream_id,
@@ -2501,6 +2502,7 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	struct vb2_buffer *vb;
 	struct mtk_cam_video_device *node;
 	void *vaddr;
+	unsigned long flags;
 
 	s_data = mtk_cam_req_work_get_s_data(meta1_done_work);
 	ctx = mtk_cam_s_data_get_ctx(s_data);
@@ -2509,14 +2511,14 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 
 	dev_dbg(ctx->cam->dev, "%s: ctx:%d\n", __func__, ctx->stream_id);
 
-	spin_lock(&ctx->streaming_lock);
+	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	if (!ctx->streaming) {
-		spin_unlock(&ctx->streaming_lock);
+		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 		dev_info(ctx->cam->dev, "%s: skip for stream off ctx:%d\n",
 			 __func__, ctx->stream_id);
 		return;
 	}
-	spin_unlock(&ctx->streaming_lock);
+	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
 	if (!s_data) {
 		dev_info(ctx->cam->dev,
@@ -2751,9 +2753,10 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *req_state;
 	struct mtk_cam_request *req_tmp;
 	int state_found = 0;
+	unsigned long flags;
 
 	if (ctx->sensor) {
-		spin_lock(&sensor_ctrl->camsys_state_lock);
+		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 		list_for_each_entry_safe(state_entry, state_entry_prev,
 				&sensor_ctrl->camsys_state_list,
 				state_element) {
@@ -2777,7 +2780,7 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				}
 			}
 		}
-		spin_unlock(&sensor_ctrl->camsys_state_lock);
+		spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 		if (state_found == 0)
 			dev_dbg(ctx->cam->dev, "state not found\n");
 	}
