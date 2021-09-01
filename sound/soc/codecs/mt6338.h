@@ -3053,6 +3053,32 @@
 #define MT6338_ACCDET_CON40                                       0x3050
 //mask is HEX;  shift is Integer
 
+/* TOP_CKPDN_CON1 */
+#define RG_AUD_208M_CK_PDN_SFT                     7
+#define RG_AUD_208M_CK_PDN_MASK                    0x1
+#define RG_AUD_208M_CK_PDN_MASK_SFT                (0x1 << 7)
+#define RG_AUD_13M_CK_PDN_SFT                      6
+#define RG_AUD_13M_CK_PDN_MASK                     0x1
+#define RG_AUD_13M_CK_PDN_MASK_SFT                 (0x1 << 6)
+#define RG_AUD_26M_CK_PDN_SFT                      5
+#define RG_AUD_26M_CK_PDN_MASK                     0x1
+#define RG_AUD_26M_CK_PDN_MASK_SFT                 (0x1 << 5)
+#define RG_OSC_1M_CK_PDN_SFT                       4
+#define RG_OSC_1M_CK_PDN_MASK                      0x1
+#define RG_OSC_1M_CK_PDN_MASK_SFT                  (0x1 << 4)
+#define RG_OSC_13M_CK_PDN_SFT                      3
+#define RG_OSC_13M_CK_PDN_MASK                     0x1
+#define RG_OSC_13M_CK_PDN_MASK_SFT                 (0x1 << 3)
+#define RG_OSC_26M_CK_PDN_SFT                      2
+#define RG_OSC_26M_CK_PDN_MASK                     0x1
+#define RG_OSC_26M_CK_PDN_MASK_SFT                 (0x1 << 2)
+#define RG_OSC_37P5K_CK_PDN_SFT                    1
+#define RG_OSC_37P5K_CK_PDN_MASK                   0x1
+#define RG_OSC_37P5K_CK_PDN_MASK_SFT               (0x1 << 1)
+#define RG_OSC_75K_CK_PDN_SFT                      0
+#define RG_OSC_75K_CK_PDN_MASK                     0x1
+#define RG_OSC_75K_CK_PDN_MASK_SFT                 (0x1 << 0)
+
 /* TOP_CKTST_CON0 */
 #define TOP_CKTST_CON0_RSV_SFT                     5
 #define TOP_CKTST_CON0_RSV_MASK                    0x7
@@ -22454,13 +22480,7 @@ enum {
 	SUPPLY_SEQ_UL_SRC_DMIC,
 	SUPPLY_SEQ_UL_SRC,
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
-	/* vow */
-	SUPPLY_SEQ_VOW_AUD_LPW,
-	SUPPLY_SEQ_AUD_VOW,
-	SUPPLY_SEQ_VOW_CLK,
-	SUPPLY_SEQ_VOW_LDO,
 	SUPPLY_SEQ_VOW_DIG_CFG,
-	SUPPLY_SEQ_VOW_PERIODIC_CFG,
 #endif
 };
 
@@ -22605,9 +22625,10 @@ enum {
 };
 
 enum {
-	VOW_AMIC_MUX_ADC_L = 0,
-	VOW_AMIC_MUX_ADC_R,
-	VOW_AMIC_MUX_ADC_T,
+	VOW_AMIC_MUX_ADC_DATA_0 = 0,
+	VOW_AMIC_MUX_ADC_DATA_1,
+	VOW_AMIC_MUX_ADC_DATA_2,
+	VOW_AMIC_MUX_ADC_DATA_3
 };
 
 enum {
@@ -22622,11 +22643,6 @@ enum {
 	ADC_MUX_AIN0,
 	ADC_MUX_PREAMPLIFIER,
 	ADC_MUX_IDLE1,
-};
-
-enum {
-	VOW_MTKIF_TX_SET_STEREO = 0,
-	VOW_MTKIF_TX_SET_MONO,
 };
 
 enum {
@@ -22787,11 +22803,6 @@ struct mt6338_priv {
 			x == MIC_TYPE_MUX_DCC_ECM_SINGLE)
 
 #define IS_AMIC_BASE(x) (x == MIC_TYPE_MUX_ACC || IS_DCC_BASE(x))
-
-/* VOW MTKIF TX setting */
-#define VOW_MCLK 13000
-#define VOW_MTKIF_TX_MONO_CLK 650
-#define VOW_MTKIF_TX_STEREO_CLK 1083
 
 /* reg idx for -40dB */
 #define PGA_MINUS_40_DB_REG_VAL 0x1f
