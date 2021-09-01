@@ -207,6 +207,9 @@
 #define RG_XTP_LN0_TX_IMPSEL		GENMASK(4, 0)
 #define RG_XTP_LN0_TX_IMPSEL_VAL(x)	(0x1f & (x))
 
+#define SSPXTP_PHYA_LN_08	((SSPXTP_SIFSLV_PHYA_LN) + 0x08)
+#define RG_XTP_LN0_TX_RXDET_HZ		BIT(13)
+
 #define SSPXTP_PHYA_LN_14	((SSPXTP_SIFSLV_PHYA_LN) + 0x014)
 #define RG_XTP_LN0_RX_IMPSEL		GENMASK(4, 0)
 #define RG_XTP_LN0_RX_IMPSEL_VAL(x)	(0x1f & (x))
@@ -843,6 +846,11 @@ static void u3_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	void __iomem *pbase = inst->port_base;
 	u32 tmp;
 
+	/* clear hz mode */
+	tmp = readl(pbase + SSPXTP_PHYA_LN_08);
+	tmp &= ~RG_XTP_LN0_TX_RXDET_HZ;
+	writel(tmp, pbase + SSPXTP_PHYA_LN_08);
+
 	/* DA_XTP_GLB_TXPLL_IR[4:0], 5'b00100 */
 	tmp = readl(xsphy->glb_base + SSPXTP_DIG_GLB_28);
 	tmp &= ~RG_XTP_DAIF_GLB_TXPLL_IR;
@@ -888,6 +896,14 @@ static void u3_phy_instance_power_on(struct mtk_xsphy *xsphy,
 static void u3_phy_instance_power_off(struct mtk_xsphy *xsphy,
 				      struct xsphy_instance *inst)
 {
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+
+	/* enable hz mode */
+	tmp = readl(pbase + SSPXTP_PHYA_LN_08);
+	tmp |= RG_XTP_LN0_TX_RXDET_HZ;
+	writel(tmp, pbase + SSPXTP_PHYA_LN_08);
+
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, inst->index);
 }
 
