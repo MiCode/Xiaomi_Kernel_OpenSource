@@ -66,6 +66,10 @@ void qos_bound_enable(int enable)
 		return;
 	}
 	bound = (struct qos_bound *)sspm_sbuf_get(ack);
+	if (bound == NULL) {
+		pr_info("mtk_qos: sspm_sbuf_get fail\n");
+		return;
+	}
 	smp_mb(); /* init bound before flag enabled */
 #endif
 	if (bound->ver == QOS_BOUND_VER_TAG) {
