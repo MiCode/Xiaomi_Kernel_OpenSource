@@ -99,6 +99,7 @@ enum mml_pq_hdr_video_mode
 	MML_PQ_NON_HDR = 0,
 	MML_PQ_HDR10,
 	MML_PQ_HDR10P,
+	MML_PQ_HDRVIVID,
 };
 
 struct mml_pq_param {
