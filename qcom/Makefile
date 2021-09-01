@@ -159,11 +159,17 @@ dtb-$(CONFIG_ARCH_NEO) += neo-rumi.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo
+dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo \
+	diwali-idp-overlay.dtbo \
+	diwali-qrd-overlay.dtbo
 
 diwali-rumi-overlay.dtbo-base := diwali.dtb
+diwali-idp-overlay.dtbo-base := diwali.dtb
+diwali-qrd-overlay.dtbo-base := diwali.dtb
 else
-dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb
+dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
+	diwali-idp.dtsi \
+	diwali-qrd.dtsi
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

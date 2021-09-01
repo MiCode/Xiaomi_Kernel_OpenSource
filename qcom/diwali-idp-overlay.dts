@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "diwali-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali IDP";
+	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
+	qcom,msm-id = <506 0x10000>;
+	qcom,board-id = <34 0>;
+};
