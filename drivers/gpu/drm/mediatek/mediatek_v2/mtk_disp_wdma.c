@@ -134,6 +134,11 @@
 #define MEM_MODE_INPUT_FORMAT_IYUV (0x008U << 4)
 #define MEM_MODE_INPUT_SWAP BIT(16)
 
+
+/* AID offset in mmsys config */
+#define MT6983_WDMA0_AID_SEL	(0xB1CUL)
+#define MT6983_WDMA1_AID_SEL	(0xB20UL)
+
 enum GS_WDMA_FLD {
 	GS_WDMA_SMI_CON = 0, /* whole reg */
 	GS_WDMA_BUF_CON1,    /* whole reg */
@@ -188,6 +193,7 @@ struct mtk_disp_wdma_data {
 
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+	unsigned int (*aid_sel)(struct mtk_ddp_comp *comp);
 	bool support_shadow;
 	bool need_bypass_shadow;
 	bool is_support_34bits;
@@ -285,17 +291,37 @@ static inline struct mtk_disp_wdma *comp_to_wdma(struct mtk_ddp_comp *comp)
 	return container_of(comp, struct mtk_disp_wdma, ddp_comp);
 }
 
+unsigned int mtk_wdma_aid_sel_MT6983(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA1:
+		return MT6983_WDMA1_AID_SEL;
+	default:
+		return 0;
+	}
+}
+
 static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	const struct mtk_disp_wdma_data *data = wdma->data;
 	unsigned int inten;
 	bool en = 1;
+	unsigned int aid_sel_offset = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
 
 	inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
 		REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
 	mtk_ddp_write(comp, WDMA_EN, DISP_REG_WDMA_EN, handle);
 	mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
+
+
+	if (data && data->aid_sel)
+		aid_sel_offset = data->aid_sel(comp);
+	if (aid_sel_offset)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			mmsys_reg + aid_sel_offset, BIT(1), BIT(1));
 
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,
@@ -782,6 +808,10 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 	/* unsigned int v_size = 0; */
 	unsigned int stride = dstPitch;
 	int has_v = 1;
+	unsigned int aid_sel_offset = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 
 	if (fmt != DRM_FORMAT_YUV420 && fmt != DRM_FORMAT_YVU420 &&
 		fmt != DRM_FORMAT_NV12 && fmt != DRM_FORMAT_NV21)
@@ -799,6 +829,19 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		u_size = u_stride * Height / 2;
 		u_off = y_size;
 		has_v = 0;
+	}
+
+	if (wdma->data && wdma->data->aid_sel)
+		aid_sel_offset = wdma->data->aid_sel(comp);
+	if (aid_sel_offset) {
+		if (sec)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				BIT(0), BIT(0));
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				0, BIT(0));
 	}
 
 	write_dst_addr(comp, handle, 1, dstAddress + u_off);
@@ -845,6 +888,9 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	struct drm_crtc_state *crtc_state = comp->mtk_crtc->base.state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	int need_skip = state->prop_val[CRTC_PROP_SKIP_CONFIG];
+	unsigned int aid_sel_offset = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
 
 	if (need_skip) {
 		mtk_ddp_write(comp, frame_cnt | 0x80000000U,
@@ -916,6 +962,19 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
+
+	if (wdma->data && wdma->data->aid_sel)
+		aid_sel_offset = wdma->data->aid_sel(comp);
+	if (aid_sel_offset) {
+		if (sec)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				BIT(0), BIT(0));
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				0, BIT(0));
+	}
 
 	write_dst_addr(comp, handle, 0, addr);
 
@@ -1552,6 +1611,7 @@ static const struct mtk_disp_wdma_data mt6983_wdma_driver_data = {
 	.fifo_size_3plane = 596,
 	.fifo_size_uv_3plane = 148,
 	.sodi_config = mt6983_mtk_sodi_config,
+	.aid_sel = &mtk_wdma_aid_sel_MT6983,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = false,

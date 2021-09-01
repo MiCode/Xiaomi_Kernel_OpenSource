@@ -9145,6 +9145,9 @@ void mmsys_config_dump_reg_mt6983(void __iomem *config_regs)
 	for (off = 0x650; off <= 0x670; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
+	for (off = 0xB00; off <= 0xB24; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 4);
+
 	for (off = 0xE70; off <= 0xff0; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 }
