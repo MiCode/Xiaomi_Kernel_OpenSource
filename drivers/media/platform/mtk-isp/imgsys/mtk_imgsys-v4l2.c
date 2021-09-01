@@ -907,6 +907,12 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	struct v4l2_plane_pix_format *vfmt;
 	struct plane_pix_format *bfmt;
 #endif
+	if (!dev_buf) {
+		dev_dbg(pipe->imgsys_dev->dev, "[%s] NULL dev_buf obtained with idx %d\n", __func__,
+											buf->index);
+		return -EINVAL;
+	}
+
 	//support dynamic change size&fmt for std mode flow
 	req = media_request_get_by_fd(&pipe->imgsys_dev->mdev, buf->request_fd);
 	imgsys_req = mtk_imgsys_media_req_to_imgsys_req(req);
