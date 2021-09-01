@@ -1812,7 +1812,6 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 
 	cmdq_msg("%s pkt:%p", __func__, pkt);
 
-	cmdq_util_helper->dump_lock();
 	cmdq_util_helper->error_enable();
 
 	cmdq_util_user_err(client ? client->chan : NULL,
@@ -1864,7 +1863,6 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	}
 
 	cmdq_util_helper->error_disable();
-	cmdq_util_helper->dump_unlock();
 }
 
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)

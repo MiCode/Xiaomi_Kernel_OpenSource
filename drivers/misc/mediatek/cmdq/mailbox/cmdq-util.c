@@ -49,7 +49,7 @@
 
 struct cmdq_util_error {
 	spinlock_t	lock;
-	bool		enable;
+	atomic_t	enable;
 	char		*buffer;
 	u32		length;
 	u64		nsec;
@@ -196,14 +196,19 @@ void cmdq_util_error_enable(void)
 {
 	if (!util.err.nsec)
 		util.err.nsec = sched_clock();
-
-	util.err.enable = true;
+	atomic_inc(&util.err.enable);
 }
 EXPORT_SYMBOL(cmdq_util_error_enable);
 
 void cmdq_util_error_disable(void)
 {
-	util.err.enable = false;
+	s32 enable;
+
+	enable = atomic_dec_return(&util.err.enable);
+	if (enable < 0) {
+		cmdq_err("enable:%d", enable);
+		dump_stack();
+	}
 }
 EXPORT_SYMBOL(cmdq_util_error_disable);
 
@@ -223,8 +228,10 @@ s32 cmdq_util_error_save_lst(const char *format, va_list args)
 {
 	unsigned long flags;
 	s32 size;
+	s32 enable;
 
-	if (!util.err.enable || !util.err.buffer)
+	enable = atomic_read(&util.err.enable);
+	if ((enable <= 0) || !util.err.buffer)
 		return -EFAULT;
 
 	spin_lock_irqsave(&util.err.lock, flags);
@@ -248,8 +255,10 @@ EXPORT_SYMBOL(cmdq_util_error_save_lst);
 s32 cmdq_util_error_save(const char *format, ...)
 {
 	va_list args;
+	s32 enable;
 
-	if (!util.err.enable || !util.err.buffer)
+	enable = atomic_read(&util.err.enable);
+	if ((enable <= 0) || !util.err.buffer)
 		return -EFAULT;
 
 	va_start(args, format);
