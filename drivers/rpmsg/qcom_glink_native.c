@@ -2210,6 +2210,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	}
 
 	glink->irq = irq;
+	disable_irq(glink->irq);
 
 	size = of_property_count_u32_elems(dev->of_node, "cpu-affinity");
 	if (size > 0) {
@@ -2233,6 +2234,8 @@ EXPORT_SYMBOL(qcom_glink_native_probe);
 int qcom_glink_native_start(struct qcom_glink *glink)
 {
 	int ret;
+
+	enable_irq(glink->irq);
 
 	ret = qcom_glink_send_version(glink);
 	if (ret) {
