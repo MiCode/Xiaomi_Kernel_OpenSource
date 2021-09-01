@@ -51,6 +51,7 @@ static struct device *sw_logger_dev;
 static struct kobject *root_dir;
 static dma_addr_t handle;
 static char *sw_log_buf;
+static wait_queue_head_t apusys_swlog_wait;
 
 static unsigned int g_log_r_ptr;
 static unsigned int g_log_l_r_ptr;
@@ -645,6 +646,22 @@ static int seq_showl(struct seq_file *s, void *v)
 	return 0;
 }
 
+static unsigned int seq_poll(struct file *file, poll_table *wait)
+{
+	unsigned int ret = 0;
+
+	if (!(file->f_mode & FMODE_READ))
+		return ret;
+
+	poll_wait(file, &apusys_swlog_wait, wait);
+
+	if (ioread32(LOG_W_PTR) !=
+		ioread32(LOG_R_PTR))
+		ret = POLLIN | POLLRDNORM;
+
+	return ret;
+}
+
 static const struct seq_operations seq_ops = {
 	.start = seq_start,
 	.next  = seq_next,
@@ -678,6 +695,7 @@ static const struct proc_ops sw_loggerSeqLog_ops = {
 
 static const struct proc_ops sw_loggerSeqLogL_ops = {
 	.proc_open    = debug_sqopen_lock,
+	.proc_poll    = seq_poll,
 	.proc_read    = seq_read,    // system
 	.proc_lseek  = seq_lseek,   // system
 	.proc_release = seq_release  // system
@@ -838,7 +856,7 @@ static int sw_logger_probe(struct platform_device *pdev)
 
 	sw_logger_dev = dev;
 
-	spin_lock_init(&sw_logger_spinlock);
+	init_waitqueue_head(&apusys_swlog_wait);
 
 	ret = sw_logger_create_procfs(dev);
 	if (ret) {

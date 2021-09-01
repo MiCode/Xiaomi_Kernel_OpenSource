@@ -96,6 +96,7 @@ static struct hw_logger_seq_data g_log_lm;
 static struct workqueue_struct *apusys_hwlog_wq;
 static struct work_struct apusys_hwlog_task;
 static unsigned int wq_w_ofs, wq_r_ofs, wq_t_size;
+static wait_queue_head_t apusys_hwlog_wait;
 
 #define APUSYS_HWLOG_WQ_NAME "apusys_hwlog_wq"
 
@@ -775,6 +776,7 @@ static void *seq_startl(struct seq_file *s, loff_t *pos)
 		else if (pSData->nonblock) {
 			/* free here and return NULL, seq will stop */
 			kfree(pSData);
+			HWLOGR_DBG("END\n");
 			return NULL;
 		}
 		msleep_interruptible(100);
@@ -905,6 +907,25 @@ static int seq_show(struct seq_file *s, void *v)
 	return 0;
 }
 
+static unsigned int seq_poll(struct file *file, poll_table *wait)
+{
+	unsigned int ret = 0;
+
+	if (!(file->f_mode & FMODE_READ))
+		return ret;
+
+	/* force flush last hw buffer */
+	hw_logger_copy_buf();
+
+	poll_wait(file, &apusys_hwlog_wait, wait);
+
+	if (g_log_lm.r_ptr !=
+		__loc_log_w_ofs)
+		ret = POLLIN | POLLRDNORM;
+
+	return ret;
+}
+
 static const struct seq_operations seq_ops = {
 	.start = seq_start,
 	.next  = seq_next,
@@ -938,6 +959,7 @@ static const struct proc_ops hw_loggerSeqLog_ops = {
 
 static const struct proc_ops hw_loggerSeqLogL_ops = {
 	.proc_open    = debug_sqopen_lock,
+	.proc_poll    = seq_poll,
 	.proc_read    = seq_read,
 	.proc_lseek  = seq_lseek,
 	.proc_release = seq_release
@@ -1138,6 +1160,8 @@ static int hw_logger_probe(struct platform_device *pdev)
 	HWLOGR_INFO("start\n");
 
 	hw_logger_dev = dev;
+
+	init_waitqueue_head(&apusys_hwlog_wait);
 
 	ret = hw_logger_create_procfs(dev);
 	if (ret) {
