@@ -1010,6 +1010,7 @@ drivers/scsi/ufs/ufshcd.o
 drivers/scsi/ufs/ufshcd-pci.o
 drivers/scsi/ufs/ufshcd-pltfrm.o
 drivers/scsi/ufs/ufs-hisi.o
+drivers/scsi/ufs/ufshpb.o
 drivers/scsi/ufs/ufs-sysfs.o
 drivers/soc/qcom/smem_state.o
 drivers/soc/sunxi/sunxi_sram.o
@@ -2424,6 +2425,13 @@ net/netfilter/xt_u32.o
 net/netlink/af_netlink.o
 net/netlink/genetlink.o
 net/netlink/policy.o
+net/nfc/af_nfc.o
+net/nfc/core.o
+net/nfc/llcp_commands.o
+net/nfc/llcp_core.o
+net/nfc/llcp_sock.o
+net/nfc/netlink.o
+net/nfc/rawsock.o
 net/packet/af_packet.o
 net/rfkill/core.o
 net/sched/act_api.o

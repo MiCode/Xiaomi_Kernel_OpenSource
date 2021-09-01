@@ -207,6 +207,8 @@
   cpu_hwcap_keys
   cpu_hwcaps
   cpuidle_get_cpu_driver
+  cpuidle_pause_and_lock
+  cpuidle_resume_and_unlock
   cpumask_next
   cpumask_next_and
   cpu_number
@@ -334,6 +336,7 @@
   devm_gpio_request_one
   devm_hwrng_register
   devm_i2c_new_dummy_device
+  devm_iio_channel_get
   devm_iio_device_alloc
   __devm_iio_device_register
   devm_input_allocate_device
@@ -643,6 +646,7 @@
   drm_get_format_name
   drm_handle_vblank
   drm_hdmi_avi_infoframe_from_display_mode
+  drm_hdmi_infoframe_set_hdr_metadata
   drm_helper_connector_dpms
   drm_helper_disable_unused_functions
   drm_helper_force_disable_all
@@ -842,6 +846,7 @@
   gpiod_get_raw_value
   gpiod_get_raw_value_cansleep
   gpiod_set_raw_value
+  gpiod_set_raw_value_cansleep
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
@@ -858,6 +863,7 @@
   handle_simple_irq
   handle_sysrq
   hdmi_avi_infoframe_pack
+  hdmi_drm_infoframe_pack_only
   hex_dump_to_buffer
   hmm_range_fault
   housekeeping_cpumask
@@ -920,11 +926,14 @@
   ignore_console_lock_warning
   iio_channel_get
   iio_channel_release
+  iio_convert_raw_to_processed
   iio_device_alloc
   iio_device_free
   __iio_device_register
   iio_device_unregister
+  iio_get_channel_type
   iio_read_channel_processed
+  iio_read_channel_raw
   inc_zone_page_state
   inet_csk_get_port
   init_dummy_netdev
@@ -1338,6 +1347,7 @@
   pcie_get_speed_cap
   pci_enable_atomic_ops_to_root
   pci_enable_device
+  pci_enable_pcie_error_reporting
   pci_enable_wake
   pci_find_bus
   pci_find_capability
@@ -1463,6 +1473,7 @@
   proc_create_data
   proc_create_seq_private
   proc_mkdir
+  proc_mkdir_data
   proc_remove
   proc_set_size
   proc_set_user
@@ -1705,6 +1716,7 @@
   snd_pcm_format_width
   snd_pcm_hw_constraint_integer
   snd_pcm_hw_constraint_list
+  snd_pcm_hw_constraint_mask64
   snd_pcm_lib_free_pages
   snd_pcm_lib_ioctl
   snd_pcm_lib_malloc_pages
@@ -1822,6 +1834,7 @@
   strlen
   strncasecmp
   strncat
+  strnchr
   strncmp
   strncpy
   strnlen
@@ -1891,6 +1904,7 @@
   time64_to_tm
   topology_set_thermal_pressure
   _totalram_pages
+  __trace_bprintk
   trace_event_buffer_commit
   trace_event_buffer_reserve
   trace_event_ignore_this_pid
@@ -2244,6 +2258,7 @@
   __wake_up_locked_key
   wake_up_process
   wakeup_source_add
+  wakeup_source_destroy
   wakeup_source_register
   wakeup_source_unregister
   __wake_up_sync
