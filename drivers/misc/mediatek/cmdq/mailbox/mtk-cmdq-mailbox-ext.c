@@ -1085,7 +1085,6 @@ static bool cmdq_thread_timeout_excceed(struct cmdq_thread *thread)
 	if (duration < thread->timeout_ms) {
 		mod_timer(&thread->timeout, jiffies +
 			msecs_to_jiffies(thread->timeout_ms - duration));
-		thread->timer_mod = sched_clock();
 		cmdq_msg(
 			"thread:%u usage:%d mod time:%llu dur:%llu timeout not excceed",
 			thread->idx, atomic_read(&cmdq->usage),
@@ -1674,7 +1673,7 @@ static int cmdq_resume(struct device *dev)
 
 static s32 cmdq_notifier_call_impl(struct cmdq *cmdq, unsigned long action)
 {
-	cmdq_msg("%s action:%d", __func__, action);
+	cmdq_msg("%s hwid:%d action:%d", __func__, cmdq->hwid, action);
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
 		atomic_dec(&cmdq->notifier_count);
