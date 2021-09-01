@@ -8594,6 +8594,13 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	writel(~val, ddp->regs + DISP_REG_MUTEX_INTSTA);
 
 	for (m_id = 0; m_id < DISP_MUTEX_DDP_COUNT; m_id++) {
+		if (val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
+			DDPIRQ("[IRQ] mutex%d eof!\n", m_id);
+			DRM_MMP_MARK(mutex[m_id], val, 1);
+#ifndef DRM_BYPASS_PQ
+			disp_c3d_on_end_of_frame_mutex();
+#endif
+		}
 		if (val & (0x1 << m_id)) {
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
@@ -8603,13 +8610,6 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 #ifndef DRM_BYPASS_PQ
 			disp_aal_on_start_of_frame();
 			disp_c3d_on_start_of_frame();
-#endif
-		}
-		if (val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
-			DDPIRQ("[IRQ] mutex%d eof!\n", m_id);
-			DRM_MMP_MARK(mutex[m_id], val, 1);
-#ifndef DRM_BYPASS_PQ
-			disp_c3d_on_end_of_frame_mutex();
 #endif
 		}
 	}
