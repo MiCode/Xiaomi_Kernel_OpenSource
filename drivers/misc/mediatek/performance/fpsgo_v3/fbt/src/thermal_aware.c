@@ -34,6 +34,7 @@ static unsigned long long last_frame_ts;
 static unsigned long long last_active_ts;
 static int cur_pid;
 static int cfp_enabled;
+static int cur_m_core;
 
 static int g_cluster_num;
 static int *g_core_num;
@@ -139,7 +140,14 @@ static int thrm_get_pcb_temp(void)
 #endif
 }
 
-#if IS_ENABLED(CONFIG_MTK_CORE_CTL) && IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+static void thrm_do_isolation(int cl, int cl_min, int cl_max)
+{
+	if (cl_max == -1)
+		fpsgo_sentcmd(FPSGO_SET_ISOLATION, cl, -1);
+	else
+		fpsgo_sentcmd(FPSGO_SET_ISOLATION, cl, (cl_max << 4) + cl_min);
+}
+
 static int thrm_get_cluster_by_cpu(int cpu)
 {
 	int cl = -1, i = 0;
@@ -161,16 +169,11 @@ static int thrm_get_cluster_by_cpu(int cpu)
 	if (cl >= g_cluster_num || cl < 0)
 		return -1;
 
-	if (!g_core_num[cl])
-		return -1;
-
 	return cl;
 }
-#endif
 
 static void thrm_set_isolation_cluster(int input, int cl)
 {
-#if IS_ENABLED(CONFIG_MTK_CORE_CTL) && IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 	int cl_min = 0, cl_max;
 
 	if (!g_cluster_num)
@@ -182,66 +185,40 @@ static void thrm_set_isolation_cluster(int input, int cl)
 	if (!g_core_num[cl])
 		return;
 
-	cl_max = g_core_num[cl];
-
 	if (input == THRM_AWARE_CORE_ISO)
 		cl_max = g_core_num[cl] - 1;
 	else if (input == THRM_AWARE_CORE_DEISO)
 		cl_min = cl_max = g_core_num[cl];
+	else
+		cl_min = cl_max = -1;
 
 	fpsgo_systrace_c_thrm(cl_max, "thrm_aware_%d_max", cl);
 	fpsgo_systrace_c_thrm(cl_min, "thrm_aware_%d_min", cl);
 	fpsgo_main_trace("thrm_aware pid=%d, set cl=%d, max=%d, min=%d",
 		cur_pid, cl, cl_max, cl_min);
 
-	core_ctl_set_limit_cpus(cl, cl_min, cl_max);
-#else
-	fpsgo_main_trace("thrm_aware CORE_CTL is not enabled");
-#endif
+	thrm_do_isolation(cl, cl_min, cl_max);
 }
 
 static void thrm_set_isolation(int input, int cpu)
 {
-#if IS_ENABLED(CONFIG_MTK_CORE_CTL) && IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 	int cl;
-	int cl_min = 0, cl_max;
 
 	cl = thrm_get_cluster_by_cpu(cpu);
 	if (cl == -1)
 		return;
 
-	cl_max = g_core_num[cl];
-
-	if (input == THRM_AWARE_CORE_ISO)
-		cl_max = g_core_num[cl] - 1;
-	else if (input == THRM_AWARE_CORE_DEISO)
-		cl_min = cl_max = g_core_num[cl];
-
-	fpsgo_systrace_c_thrm(cl_max, "thrm_aware_%d_max", cl);
-	fpsgo_systrace_c_thrm(cl_min, "thrm_aware_%d_min", cl);
-	fpsgo_main_trace("thrm_aware pid=%d, set cpu=%d cl=%d, max=%d, min=%d",
-		cur_pid, cpu, cl, cl_max, cl_min);
-
-	core_ctl_set_limit_cpus(cl, cl_min, cl_max);
-
-#elif IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
-	fpsgo_systrace_c_thrm((input == THRM_AWARE_CORE_ISO) ? 1 : 0,
-			"thrm_aware_%d", cpu);
-	fpsgo_main_trace("thrm_aware pid=%d, set cpu=%d: %d",
-			cur_pid, cpu, input);
-
-	if (input == THRM_AWARE_CORE_ISO)
-		sched_pause_cpu(cpu);
-	else
-		sched_resume_cpu(cpu);
-#else
-	return;
-#endif
+	thrm_set_isolation_cluster(input, cl);
 }
 
 static void thrm_set_mcpu_isolation(int input)
 {
-	int cluster = g_cluster_num - 2;
+	int cluster;
+
+	if (input == cur_m_core)
+		return;
+
+	cluster = g_cluster_num - 2;
 
 	if (cluster <= 0)
 		return;
@@ -257,7 +234,8 @@ static void thrm_set_mcpu_isolation(int input)
 		return;
 	}
 
-	thrm_set_isolation_cluster(input, 1);
+	thrm_set_isolation_cluster(input, cluster);
+	cur_m_core = input;
 }
 
 static void thrm_enable_timer(void)
@@ -788,6 +766,7 @@ void __init thrm_aware_init(struct kobject *dir_kobj, int cpu)
 
 	sub_cpu = -1;
 	cur_state = THRM_AWARE_STATE_INACTIVE;
+	cur_m_core = THRM_AWARE_CORE_RESET;
 	debnc_time = TIME_1S;
 	iso_pcbtemp_th = 200;
 	thrm_aware_priority = 1;

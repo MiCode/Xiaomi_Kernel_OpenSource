@@ -1754,8 +1754,6 @@ static void fbt_do_jerk_boost(struct render_info *thr, int blc_wt,
 				int boost_group, int jerk)
 {
 	if (boost_ta || boost_group) {
-		if (boost_group && !boost_ta)
-			fbt_set_min_cap_locked(thr, blc_wt, jerk);
 		fbt_set_boost_value(blc_wt);
 		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, blc_wt, "perf idx");
 		max_blc_cur = blc_wt;
