@@ -22,6 +22,7 @@
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
+#include "mtk-mml-sys.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -98,9 +99,6 @@
 
 /* SMI offset */
 #define SMI_LARB_NON_SEC_CON		0x380
-
-/* MDPSYS register offset */
-#define MDPSYS_IN_LINE_REDAY_SEL	0x7fc
 
 #define MML_WROT_RACING_MIN		64
 
@@ -481,15 +479,14 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 			if (dest->rotate == MML_ROT_0)
 				wrot_frm->sram_side = ccfg->pipe;
 			else if (dest->rotate == MML_ROT_90)
-				wrot_frm->sram_side = (ccfg->pipe + 1) & 0x1;
+				wrot_frm->sram_side = !ccfg->pipe;
 			else if (dest->rotate == MML_ROT_180)
-				wrot_frm->sram_side = (ccfg->pipe + 1) & 0x1;
+				wrot_frm->sram_side = !ccfg->pipe;
 			else
 				wrot_frm->sram_side = ccfg->pipe;
 
 			if (dest->flip)
-				wrot_frm->sram_side =
-					(wrot_frm->sram_side + 1) & 0x1;
+				wrot_frm->sram_side = !wrot_frm->sram_side;
 		}
 	}
 
@@ -918,7 +915,8 @@ static void wrot_config_ready(struct mml_comp_wrot *wrot,
 	bool enable)
 {
 	const struct mml_topology_path *path = cfg->path[pipe];
-	phys_addr_t sel = path->mmlsys->base_pa + MDPSYS_IN_LINE_REDAY_SEL;
+	phys_addr_t sel = path->mmlsys->base_pa +
+		mml_sys_get_reg_ready_sel(path->mmlsys);
 	u32 shift, mask;
 
 	if (wrot->idx == 0)
@@ -1478,6 +1476,7 @@ static void wrot_tile_calc(const struct mml_task *task,
 		ofst->v += wrot->data->sram_size * sram_block;
 		wrot_frm->wdone[idx].sram = sram_block;
 		wrot_frm->wdone[idx].eol = tile_eol;
+		tout->tiles[idx].eol = tile_eol;
 	}
 
 	mml_msg("%s %s: offset Y:%#010llx U:%#010llx V:%#010llx h:%hu/%hu v:%hu/%hu (%u%s)",

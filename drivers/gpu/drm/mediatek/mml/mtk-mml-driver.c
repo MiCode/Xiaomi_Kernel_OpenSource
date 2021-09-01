@@ -550,13 +550,15 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
 	u32 bandwidth, datasize;
+	bool hrt = task->config->info.mode == MML_MODE_RACING;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
 	bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
-	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), 0);
-	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u",
+	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth),
+		hrt ? U32_MAX : 0);
+	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u%s",
 		__func__, comp->id, comp->name, bandwidth,
-		throughput, cache->max_pixel);
+		throughput, cache->max_pixel, hrt ? " hrt" : "");
 }
 
 void mml_comp_qos_clear(struct mml_comp *comp)

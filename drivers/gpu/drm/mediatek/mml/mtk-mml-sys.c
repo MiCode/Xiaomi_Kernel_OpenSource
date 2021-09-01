@@ -24,7 +24,7 @@
 int mml_ir_loop = 1;
 module_param(mml_ir_loop, int, 0644);
 
-int mml_racing_fast;
+int mml_racing_fast = 1;
 module_param(mml_racing_fast, int, 0644);
 
 enum mml_comp_type {
@@ -105,6 +105,9 @@ struct mml_comp_sys {
 
 	/* store the bit to enable aid_sel for specific component */
 	u8 aid_sel[MML_MAX_COMPONENTS];
+
+	/* register for racing mode select ready signal */
+	u16 inline_ready_sel;
 };
 
 struct sys_frame_data {
@@ -123,6 +126,11 @@ struct sys_frame_data {
 static inline struct mml_comp_sys *comp_to_sys(struct mml_comp *comp)
 {
 	return container_of(comp, struct mml_comp_sys, comps[comp->sub_idx]);
+}
+
+u16 mml_sys_get_reg_ready_sel(struct mml_comp *comp)
+{
+	return comp_to_sys(comp)->inline_ready_sel;
 }
 
 static s32 sys_config_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -323,15 +331,17 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	sys_racing_addr_update(comp, task, ccfg);
 }
 
-void sys_sync(struct mml_comp *comp, struct mml_task *task,
+bool sys_sync(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg, u32 idx)
 {
 	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct cmdq_operand lhs, rhs;
+	struct mml_tile_config *tile_cfg = &cfg->tile_output[ccfg->pipe]->tiles[idx];
 
-	if (idx != 0 || !mml_racing_fast)
-		return;
+	if (!tile_cfg->eol || !mml_racing_fast)
+		return false;
 
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
 	sys_frm->racing_jump_to_skip = pkt->cmd_buf_size - CMDQ_INST_SIZE;
@@ -347,6 +357,8 @@ void sys_sync(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CONTI);
 
 	sys_frm->racing_skip_sync_offset = pkt->cmd_buf_size;
+
+	return true;
 }
 
 static s32 sys_post(struct mml_comp *comp, struct mml_task *task,
@@ -498,6 +510,8 @@ static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
 		of_property_read_u32_index(node, "aid-sel", i + 1, &value);
 		sys->aid_sel[comp_id] = (u8)value;
 	}
+
+	of_property_read_u16(dev->of_node, "ready-sel", &sys->inline_ready_sel);
 
 	comp->config_ops = &sys_config_ops;
 	comp->debug_ops = &sys_debug_ops;

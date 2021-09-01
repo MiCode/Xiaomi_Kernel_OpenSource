@@ -381,7 +381,7 @@ struct mml_comp_config_ops {
 		     struct mml_comp_config *ccfg);
 	s32 (*wait)(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg, u32 idx);
-	void (*sync)(struct mml_comp *comp, struct mml_task *task,
+	bool (*sync)(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg, u32 tile);
 	s32 (*post)(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg);
@@ -469,6 +469,9 @@ struct mml_tile_config {
 	/* align with tile_engine_cnt */
 	u8 engine_cnt;
 	struct mml_tile_engine tile_engines[MML_MAX_PATH_NODES];
+
+	/* assign by wrot, end of current tile line */
+	bool eol;
 };
 
 struct mml_tile_output {

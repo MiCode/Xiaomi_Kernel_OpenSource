@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <cmdq-util.h>
 
+#include "mtk-mml-rdma-golden.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
@@ -277,9 +278,18 @@ static void rdma_update_addr(struct mml_task_reuse *reuse,
 	mml_update(reuse, label_msb, value >> 32);
 }
 
+enum rdma_golden_fmt {
+	GOLDEN_FMT_ARGB,
+	GOLDEN_FMT_YUV420,
+	GOLDEN_FMT_TOTAL
+};
+
 struct rdma_data {
 	u32 tile_width;
 	bool write_sec_reg;
+
+	/* threshold golden setting for racing mode */
+	struct rdma_golden golden[GOLDEN_FMT_TOTAL];
 };
 
 static const struct rdma_data mt6893_rdma_data = {
@@ -289,6 +299,16 @@ static const struct rdma_data mt6893_rdma_data = {
 static const struct rdma_data mt6983_rdma_data = {
 	.tile_width = 1696,
 	.write_sec_reg = true,
+	.golden = {
+		[GOLDEN_FMT_ARGB] = {
+			.cnt = 2,
+			.settings = th_argb_mt6983,
+		},
+		[GOLDEN_FMT_YUV420] = {
+			.cnt = 2,
+			.settings = th_yuv420_mt6983,
+		},
+	},
 };
 
 static const struct rdma_data mt6879_rdma_data = {
@@ -789,6 +809,39 @@ static void rdma_cpr_trigger(struct cmdq_pkt *pkt, u8 hw_pipe)
 	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_PREBUILT_MML_LOCK);
 }
 
+static void rdma_select_threshold(struct mml_comp_rdma *rdma,
+	struct cmdq_pkt *pkt, const phys_addr_t base_pa,
+	u32 format, u32 width, u32 height)
+{
+	const struct rdma_golden *golden;
+	const struct golden_setting *golden_set;
+	u32 pixel = width * height;
+	u32 idx, i;
+
+	if (MML_FMT_IS_ARGB(format))
+		golden = &rdma->data->golden[GOLDEN_FMT_ARGB];
+	else
+		golden = &rdma->data->golden[GOLDEN_FMT_YUV420];
+
+	for (idx = 0; idx < golden->cnt; idx++)
+		if (golden->settings[idx].pixel > pixel)
+			break;
+	golden_set = &golden->settings[idx];
+
+	/* config threshold for all plane */
+	for (i = 0; i < MML_FMT_PLANE(format); i++) {
+		cmdq_pkt_write(pkt, NULL,
+			base_pa + RDMA_URGENT_TH_CON_0 + i * 0x10,
+			golden_set->plane[i].urgent, U32_MAX);
+		cmdq_pkt_write(pkt, NULL,
+			base_pa + RDMA_ULTRA_TH_CON_0 + i * 0x10,
+			golden_set->plane[i].ultra, U32_MAX);
+		cmdq_pkt_write(pkt, NULL,
+			base_pa + RDMA_PREULTRA_TH_CON_0 + i * 0x10,
+			golden_set->plane[i].preultra, U32_MAX);
+	}
+}
+
 static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
@@ -803,6 +856,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	const phys_addr_t base_pa = comp->base_pa;
 	const bool write_sec = mml_slt ? false : rdma->data->write_sec_reg;
+	u32 i;
 	u8 simple_mode = 1;
 	u8 filterMode;
 	u8 loose = 0;
@@ -821,7 +875,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u64 ufo_dec_length_c = 0;
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
-	u32 ultra = cfg->info.mode == MML_MODE_RACING;
+	bool gmcif_con;
 
 	if (cfg->alpharot)
 		alpharot = 1;
@@ -859,9 +913,25 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESV_DUMMY_0,
 			       0x0, 0x00000007);
 	}
-	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_GMCIF_CON,
-		(1 << 0) + (7 << 4) + (ultra << 12) + (1 << 16),
-		0x00031071);
+
+	gmcif_con = BIT(0) |		/* COMMAND_DIV */
+		    GENMASK(6, 4) |	/* READ_REQUEST_TYPE */
+		    BIT(16);		/* PRE_ULTRA_EN */
+	/* racing case also enable urgent/ultra to not blocking disp */
+	if (cfg->info.mode == MML_MODE_RACING) {
+		gmcif_con |= BIT(12) |	/* ULTRA_EN */
+			     BIT(14);	/* URGENT_EN */
+
+		rdma_select_threshold(rdma, pkt, base_pa, src->format,
+			src->width, src->height);
+	} else {
+		for (i = 0; i < MML_FMT_PLANE(src->format); i++)
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + RDMA_PREULTRA_TH_CON_0 + i * 0x10,
+				0, U32_MAX);
+	}
+
+	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_GMCIF_CON, gmcif_con, 0x00031071);
 
 	if (MML_FMT_IS_ARGB(src->format) &&
 	    cfg->info.dest[0].pq_config.en_hdr &&

@@ -231,9 +231,15 @@ static void case_general_submit(struct mml_test *test,
 			check_fence(fences[i], __func__);
 	}
 
-	msleep_interruptible(1000);	/* make sure mml stops */
 	kfree(fences);
-	mml_drm_put_context(mml_ctx);
+	for (i = 0; i < 5 && !mml_drm_ctx_idle(mml_ctx); i++) {
+		mml_log("wait for ctx idle...");
+		msleep_interruptible(1000);	/* make sure mml stops */
+	}
+	if (mml_drm_ctx_idle(mml_ctx))
+		mml_drm_put_context(mml_ctx);
+	else
+		mml_err("fail to put ctx");
 	mml_log("%s end", __func__);
 }
 

@@ -19,16 +19,13 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-sys.h"
 #include "mtk-mml-mmp.h"
-
 
 #define MML_QUERY_ADJUST	1
 #define MML_DEFAULT_END_NS	15000000
 
 #define MML_REF_NAME "mml"
-
-/* MDPSYS register offset */
-#define MDPSYS_IN_LINE_REDAY_SEL	0x7fc
 
 /* set to 0 to disable reuse config */
 int mml_reuse = 1;
@@ -721,8 +718,9 @@ void mml_drm_config_rdone(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	}
 
 	cmdq_pkt_write_value_addr(pkt,
-		cfg->path[0]->mmlsys->base_pa + MDPSYS_IN_LINE_REDAY_SEL,
-		0x34, U32_MAX);
+		cfg->path[0]->mmlsys->base_pa +
+		mml_sys_get_reg_ready_sel(cfg->path[0]->mmlsys),
+		0x24, U32_MAX);
 
 done:
 	mutex_unlock(&ctx->config_mutex);
@@ -874,6 +872,27 @@ struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(mml_drm_get_context);
 
+bool mml_drm_ctx_idle(struct mml_drm_ctx *ctx)
+{
+	bool idle = false;
+
+	struct mml_frame_config *cfg;
+
+	mutex_lock(&ctx->config_mutex);
+	list_for_each_entry(cfg, &ctx->configs, entry) {
+		if (!list_empty(&cfg->await_tasks))
+			goto done;
+
+		if (!list_empty(&cfg->tasks))
+			goto done;
+	}
+
+	idle = true;
+done:
+	mutex_unlock(&ctx->config_mutex);
+	return idle;
+}
+
 static void drm_ctx_release(struct mml_drm_ctx *ctx)
 {
 	struct mml_frame_config *cfg, *tmp;
@@ -889,9 +908,8 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 
 	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
-	kfree(ctx);
-
 	mtk_sync_timeline_destroy(ctx->timeline);
+	kfree(ctx);
 }
 
 void mml_drm_put_context(struct mml_drm_ctx *ctx)
@@ -922,30 +940,40 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 
 	memcpy(submit_pq, submit, sizeof(*submit));
 
+	if (info->dest[0].rotate == MML_ROT_0 ||
+		info->dest[0].rotate == MML_ROT_180) {
+		info->dest[0].compose.left = 0;
+		info->dest[0].compose.top = 0;
+		info->dest[0].compose.width = info->dest[0].crop.r.width;
+		info->dest[0].compose.height = info->dest[0].crop.r.height;
+	} else {
+		info->dest[0].compose.left = 0;
+		info->dest[0].compose.top = 0;
+		info->dest[0].compose.width = info->dest[0].crop.r.height;
+		info->dest[0].compose.height = info->dest[0].crop.r.width;
+	}
+
+	info->dest[0].data.width = info->dest[0].compose.width;
+	info->dest[0].data.height = info->dest[0].compose.height;
 	info->dest[0].data.y_stride = mml_color_get_min_y_stride(
 		info->dest[0].data.format,
-		info->dest[0].crop.r.width);
+		info->dest[0].compose.width);
 	info->dest[0].data.uv_stride = mml_color_get_min_uv_stride(
 		info->dest[0].data.format,
-		info->dest[0].crop.r.width);
-	if (info->dest[0].rotate == MML_ROT_90 ||
-		info->dest[0].rotate == MML_ROT_270) {
-		info->dest[0].data.width = info->dest[0].crop.r.height;
-		info->dest[0].data.height = info->dest[0].crop.r.width;
-	} else {
-		info->dest[0].data.width = info->dest[0].crop.r.width;
-		info->dest[0].data.height = info->dest[0].crop.r.height;
-	}
+		info->dest[0].compose.width);
+	memset(&info->dest[0].pq_config, 0, sizeof(info->dest[0].pq_config));
+
+	info_pq->src = info->dest[0].data;
+	info_pq->dest[0].crop.r.left = 0;
+	info_pq->dest[0].crop.r.top = 0;
+	info_pq->dest[0].crop.r.width = info_pq->src.width;
+	info_pq->dest[0].crop.r.height = info_pq->src.height;
+	info_pq->dest[0].rotate = 0;
+	info_pq->dest[0].flip = 0;
 
 	if (MML_FMT_PLANE(info->dest[0].data.format) > 1)
 		mml_err("%s dest plane should be 1 but format %#010x",
 			__func__, info->dest[0].data.format);
-
-	info_pq->src.width = info->dest[0].data.width;
-	info_pq->src.height = info->dest[0].data.height;
-	info_pq->src.format = info->dest[0].data.format;
-	info_pq->src.y_stride = info->dest[0].data.y_stride;
-	info_pq->src.uv_stride = info->dest[0].data.uv_stride;
 }
 EXPORT_SYMBOL_GPL(mml_drm_split_info);
 

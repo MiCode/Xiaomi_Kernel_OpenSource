@@ -251,8 +251,9 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	bool reverse;
 
 	struct mml_comp *comp;
-	u32 i, tile, tile_idx, tile_wait;
+	u32 i, tile, tile_idx, tile_wait = 0;
 	s32 ret;
+	bool sync = false;
 
 	if (IS_ERR(pkt)) {
 		mml_err("%s fail err %d", __func__, PTR_ERR(pkt));
@@ -310,8 +311,11 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 					call_cfg_op(comp, wait, task, &ccfg[i],
 						    tile_wait);
 				}
-				path->mmlsys->config_ops->sync(path->mmlsys, task,
-					&ccfg[path->mmlsys_idx], tile - 1);
+				if (!sync)
+					sync = path->mmlsys->config_ops->sync(
+						path->mmlsys, task,
+						&ccfg[path->mmlsys_idx],
+						tile_wait);
 			}
 			/* first tile must wait eof before trigger */
 			path->mutex->config_ops->mutex(path->mutex, task,
@@ -322,10 +326,13 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 				for (i = 0; i < path->node_cnt; i++) {
 					comp = path->nodes[i].comp;
 					call_cfg_op(comp, wait, task, &ccfg[i],
-						    tile_idx);
+						    tile_wait);
 				}
-				path->mmlsys->config_ops->sync(path->mmlsys, task,
-					&ccfg[path->mmlsys_idx], tile);
+				if (!sync)
+					sync = path->mmlsys->config_ops->sync(
+						path->mmlsys, task,
+						&ccfg[path->mmlsys_idx],
+						tile_wait);
 			}
 		} else {
 			path->mutex->config_ops->mutex(path->mutex, task,
@@ -335,8 +342,10 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 				call_cfg_op(comp, wait, task, &ccfg[i],
 					    tile_idx);
 			}
-			path->mmlsys->config_ops->sync(path->mmlsys, task,
-				&ccfg[path->mmlsys_idx], tile);
+			if (!sync)
+				sync = path->mmlsys->config_ops->sync(
+					path->mmlsys, task,
+					&ccfg[path->mmlsys_idx], tile_idx);
 		}
 	}
 
@@ -957,7 +966,6 @@ static void core_taskdump_cb(struct mml_task *task, u32 pipe, int err)
 	if (err == -EBUSY) {
 		/* inline rotate case self trigger, mark mmp and do nothing */
 		mml_mmp(irq_loop, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
-		mml_log("task loop job %u pipe %u", task->job.jobid, pipe);
 		return;
 	}
 
@@ -1013,9 +1021,6 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	mml_msg("%s task %p pipe %u pkt %p", __func__, task, pipe, pkt);
 
 	mml_trace_ex_begin("%s", __func__);
-
-	if (mml_pkt_dump == 1)
-		cmdq_pkt_dump_buf(pkt, 0);
 
 	/* before flush, wait buffer fence being signaled */
 	wait_dma_fence("src", task->buf.src.fence);
@@ -1106,8 +1111,11 @@ static void core_init_pipe(struct mml_task *task, u32 pipe)
 		queue_work(task->config->wq_wait, &task->work_wait[pipe]);
 	}
 
+	if (mml_pkt_dump == 1)
+		cmdq_pkt_dump_buf(task->pkts[pipe], 0);
+
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	if (mml_pkt_dump == 2) {
+	else if (mml_pkt_dump == 2) {
 		core_dump_inst(task->pkts[pipe]);
 		mml_pkt_dump = 0; /* avoid impact performance */
 	}

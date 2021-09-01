@@ -10,6 +10,7 @@
 #include <linux/platform_device.h>
 #include <linux/component.h>
 
+u16 mml_sys_get_reg_ready_sel(struct mml_comp *comp);
 struct mtk_mml_sys *mml_sys_create(struct platform_device *pdev,
 	const struct component_ops *comp_ops);
 void mml_sys_destroy(struct platform_device *pdev, struct mtk_mml_sys *sys,
