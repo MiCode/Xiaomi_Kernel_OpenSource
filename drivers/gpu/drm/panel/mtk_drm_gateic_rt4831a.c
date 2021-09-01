@@ -71,7 +71,7 @@ static int rt4831a_push_i2c_data(unsigned char *table, unsigned int size,
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 static int rt4831a_update_backlight_table(unsigned int level, unsigned char *table,
@@ -122,11 +122,11 @@ static int rt4831a_set_backlight(unsigned int level)
 	rt4831a_update_backlight_table(level, &table[0][0], size, unit);
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
-		DDPMSG("ERROR %d!! i2c write data fail 0x%0x, 0x%0x !!\n",
-				ret, table[0][1], table[1][1]);
+		DDPMSG("%s: ERROR %d!! i2c write data fail 0x%0x, 0x%0x !!\n",
+				__func__, ret, table[0][1], table[1][1]);
 
 	ctx_rt4831a.backlight_level = level;
-	return ret;
+	return 0; //for evb case, i2c ops are always failed
 }
 
 static int rt4831a_enable_backlight(void)
@@ -169,7 +169,7 @@ static int rt4831a_enable_backlight(void)
 			__func__, ctx_rt4831a.backlight_mode, ret);
 
 	//DDPMSG("%s--, %d\n", __func__, ret);
-	return ret;
+	return 0; //for evb case, i2c ops are always failed
 }
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -273,7 +273,7 @@ static int rt4831a_power_on(void)
 			__func__, ret);
 	//DDPMSG("%s--\n", __func__);
 
-	return 0;
+	return 0; //for evb case, i2c ops are always failed
 }
 
 static int rt4831a_power_off(void)
@@ -316,7 +316,7 @@ static int rt4831a_power_off(void)
 	}
 
 	DDPMSG("%s--\n", __func__);
-	return 0;
+	return 0; //for evb case, i2c ops are always failed
 }
 
 static int rt4831a_set_voltage(unsigned int level)
@@ -357,7 +357,7 @@ static int rt4831a_set_voltage(unsigned int level)
 		DDPMSG("%s, failed to push voltage table,level:%u-%u, ret:%d",
 			__func__, level, RT4831A_VOL_REG_VALUE(level), ret);
 
-	return ret;
+	return 0; //for evb case, i2c ops are always failed
 }
 
 static int rt4831a_match_lcm_list(const char *lcm_name)

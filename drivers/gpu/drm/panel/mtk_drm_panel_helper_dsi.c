@@ -775,17 +775,21 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				&ops->prepare, "prepare_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing prepare_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->unprepare, "unprepare_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing unprepare_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	mtk_lcm_dts_read_u32(np, "compare_id_value_length",
@@ -811,9 +815,11 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					&ops->compare_id, "compare_id_table",
 					MTK_LCM_FUNC_DSI,  cust,
 					MTK_LCM_PHASE_KERNEL);
-		if (ret < 0)
+		if (ret < 0) {
 			DDPMSG("%s, %d failed to parsing compare_id_table, ret:%d\n",
 				__func__, __LINE__, ret);
+			return ret;
+		}
 	}
 #endif
 
@@ -824,18 +830,22 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				"set_backlight_cmdq_table",
 				MTK_LCM_FUNC_DSI,  cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing set_backlight_cmdq_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->set_backlight_grp_cmdq,
 				"set_backlight_grp_cmdq_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing set_backlight_grp_cmdq_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	mtk_lcm_dts_read_u32(np, "ata_id_value_length",
 			&ops->ata_id_value_length);
@@ -861,65 +871,79 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					&ops->ata_check, "ata_check_table",
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
-		if (ret < 0)
+		if (ret < 0) {
 			DDPMSG("%s, %d failed to parsing ata_check_table, ret:%d\n",
 				__func__, __LINE__, ret);
+			return ret;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_mask",
 				&ops->set_aod_light_mask);
 	ret = parse_lcm_ops_func(np,
 				&ops->set_aod_light,
-				"set_aod_light",
+				"set_aod_light_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing set_aod_light, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_enable,
 				"doze_enable_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing doze_enable_table, ret:%d\n",
 				__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_disable,
 				"doze_disable_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing doze_disable_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_enable_start,
 				"doze_enable_start_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing doze_enable_start_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_area, "doze_area_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing doze_area_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_post_disp_on,
 				"doze_post_disp_on_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing doze_post_disp_on_table, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_switch_on",
 				&ops->hbm_set_cmdq_switch_on);
@@ -929,9 +953,11 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				&ops->hbm_set_cmdq, "hbm_set_cmdq_table",
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0)
+	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing operation, ret:%d\n",
 			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	for_each_available_child_of_node(np, mode_np) {
 		if (of_device_is_compatible(mode_np,
@@ -951,9 +977,11 @@ int parse_lcm_ops_dsi(struct device_node *np,
 						&mode_node->fps_switch_bfoff, mode_name,
 						MTK_LCM_FUNC_DSI, cust,
 						MTK_LCM_PHASE_KERNEL);
-				if (ret < 0)
+				if (ret < 0) {
 					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
 						__func__, __LINE__, mode_name, ret);
+					return ret;
+				}
 			}
 		}
 
@@ -974,9 +1002,11 @@ int parse_lcm_ops_dsi(struct device_node *np,
 						&mode_node->fps_switch_afon, mode_name,
 						MTK_LCM_FUNC_DSI, cust,
 						MTK_LCM_PHASE_KERNEL);
-				if (ret < 0)
+				if (ret < 0) {
 					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
 						__func__, __LINE__, mode_name, ret);
+					return ret;
+				}
 			}
 		}
 	}

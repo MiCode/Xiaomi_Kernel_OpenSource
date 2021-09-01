@@ -580,8 +580,12 @@ int parse_lcm_ops_func(struct device_node *np,
 	memset(table_dts_buf, 0, sizeof(table_dts_buf));
 	len = mtk_lcm_dts_read_u8_array(np,
 				func, &table_dts_buf[0], 0, sizeof(table_dts_buf));
-	if (len <= 0) {
+	if (len == 0) {
 		return 0;
+	} else if (len < 0) {
+		DDPMSG("%s, failed to get table dts, len:%d\n",
+			__func__, len);
+		return -EFAULT;
 	} else if ((unsigned int)len < sizeof(table_dts_buf)) {
 		table_dts_buf[len] = '\0';
 		DDPINFO("%s: start to parse:%s, dts_len:%u, phase:0x%x\n",
@@ -606,6 +610,7 @@ int parse_lcm_ops_func(struct device_node *np,
 		if (op->type == MTK_LCM_TYPE_END) {
 			len = len - 1;
 			DDPINFO("%s: parsing end of %s, len:%d\n", __func__, func, len);
+			LCM_KFREE(op, sizeof(struct mtk_lcm_ops_data));
 			break;
 		}
 
@@ -629,6 +634,7 @@ int parse_lcm_ops_func(struct device_node *np,
 				DDPMSG("[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,fail:%d\n",
 					func, i, op->func, op->type,
 					op->size, len, ret);
+				LCM_KFREE(op, sizeof(struct mtk_lcm_ops_data));
 				return ret;
 			}
 			list_add_tail(&op->node, &table->list);
@@ -639,9 +645,7 @@ int parse_lcm_ops_func(struct device_node *np,
 				func, i, op->func, op->type,
 				phase_skip_flag, phase);
 #endif
-			op->func = 0;
-			op->type = 0;
-			op->size = 0;
+			LCM_KFREE(op, sizeof(struct mtk_lcm_ops_data));
 			skip_count++;
 		}
 

@@ -239,7 +239,7 @@ fail2:
 static int mtk_drm_panel_prepare(struct drm_panel *panel)
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
-	int ret;
+	int ret = 0;
 
 	if (atomic_read(&ctx_dsi->prepared) != 0)
 		return 0;
@@ -1257,8 +1257,6 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 
 		return ret;
 	}
-	DDPMSG("%s,%d, load panel resource, total_size:%lluByte\n",
-		__func__, __LINE__, mtk_lcm_total_size);
 	of_node_put(lcm_np);
 
 	dsi_params = &ctx_dsi->panel_resource->params.dsi_params;
