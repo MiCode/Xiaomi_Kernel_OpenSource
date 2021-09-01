@@ -33,6 +33,9 @@
 		sz -= l; \
 	} while (0)
 
+
+#define SWPM_EXT_DBG (0)
+
 static unsigned int pmu_ms_mode;
 
 static ssize_t enable_read(char *ToUser, size_t sz, void *priv)
@@ -202,6 +205,7 @@ static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {
 	.fs_write = swpm_pmsr_en_write,
 };
 
+#if SWPM_EXT_DBG
 static ssize_t swpm_sp_test_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
@@ -354,6 +358,7 @@ End:
 static const struct mtk_swpm_sysfs_op swpm_sp_ddr_idx_fops = {
 	.fs_read = swpm_sp_ddr_idx_read,
 };
+#endif
 
 static void swpm_v6983_dbg_fs_init(void)
 {
@@ -367,10 +372,12 @@ static void swpm_v6983_dbg_fs_init(void)
 			, 0444, &pmu_ms_mode_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_en"
 			, 0444, &swpm_pmsr_en_fops, NULL, NULL);
+#if SWPM_EXT_DBG
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_ddr_idx"
 			, 0444, &swpm_sp_ddr_idx_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_test"
 			, 0444, &swpm_sp_test_fops, NULL, NULL);
+#endif
 }
 
 static int __init swpm_v6983_dbg_early_initcall(void)

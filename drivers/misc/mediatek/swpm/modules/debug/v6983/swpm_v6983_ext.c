@@ -29,7 +29,7 @@
 #define SUSPEND_SRAM (share_idx_ref_ext->suspend)
 
 #define OPP_FREQ_TO_DDR(x) \
-	((x != 1866) ? (x * 2) : ((x * 2) + 1))
+	((x == 1066 || x == 1333) ? (x * 2 + 1) : (x * 2))
 
 static struct timer_list swpm_sp_timer;
 static DEFINE_SPINLOCK(swpm_sp_spinlock);
@@ -57,7 +57,7 @@ static uint64_t total_suspend_us;
 
 /* core ip (cam, img1, img2, ipe, disp venc, vdec, gpu, scp, adsp */
 static char core_ip_str[NR_CORE_IP][MAX_IP_NAME_LENGTH] = {
-	"CAM", "IMG1", "IMG2", "IPE", "DISP",
+	"CAM", "IMG", "ISP", "MMSYS",
 	"VENC", "VDEC", "SCP",
 };
 /* ddr bw ip (total r/total w/cpu/gpu/mm/md) */

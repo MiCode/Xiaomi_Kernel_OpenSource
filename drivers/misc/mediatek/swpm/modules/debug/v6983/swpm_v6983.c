@@ -39,12 +39,12 @@
 DEFINE_SPINLOCK(swpm_snap_spinlock);
 struct mem_swpm_index mem_idx_snap;
 struct power_rail_data swpm_power_rail[NR_POWER_RAIL] = {
+	[VPROC3] = {0, "VPROC3"},
 	[VPROC2] = {0, "VPROC2"},
 	[VPROC1] = {0, "VPROC1"},
 	[VGPU] = {0, "VGPU"},
 	[VCORE] = {0, "VCORE"},
 	[VDRAM] = {0, "VDRAM"},
-	[VIO18_DDR] = {0, "VIO18_DDR"},
 	[VIO18_DRAM] = {0, "VIO18_DRAM"},
 };
 struct share_wrap *wrap_d;
@@ -95,7 +95,7 @@ static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
 	575, 600, 650, 725, 750,
 };
 static unsigned short ddr_opp_freq[NR_DDR_FREQ] = {
-	400, 933, 1067, 1334, 1600, 2133, 2750, 3200, 3750,
+	400, 933, 1066, 1333, 1600, 2133, 2750, 3200, 3750,
 };
 static struct aphy_core_bw_data aphy_ref_core_bw_tbl[] = {
 	[DDR_400] = {

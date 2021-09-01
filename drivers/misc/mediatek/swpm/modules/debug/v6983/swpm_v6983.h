@@ -20,13 +20,13 @@
 
 #define DEFAULT_AVG_WINDOW		(50)
 
-/* VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
-#define DEFAULT_LOG_MASK			(0x1F)
+/* VPROC3 + VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
+#define DEFAULT_LOG_MASK			(0x3F)
 
 #define POWER_INDEX_CHAR_SIZE			(4096)
 
 #define NR_CORE_VOLT				(5)
-#define NR_CPU_OPP				(16)
+#define NR_CPU_OPP				(32)
 #define NR_CPU_CORE				(8)
 #define NR_CPU_L_CORE				(4)
 
@@ -60,12 +60,12 @@ enum power_meter_type {
 };
 
 enum power_rail {
+	VPROC3,
 	VPROC2,
 	VPROC1,
 	VGPU,
 	VCORE,
 	VDRAM,
-	VIO18_DDR,
 	VIO18_DRAM,
 
 	NR_POWER_RAIL
@@ -333,38 +333,38 @@ struct dram_pwr_conf {
 };
 
 /* numbers of unsigned int for mem reserved memory */
-#define MEM_SWPM_RESERVED_SIZE (500)
+#define MEM_SWPM_RESERVED_SIZE (550)
 
-/* mem share memory data structure - 1940/2000 bytes */
+/* mem share memory data structure - 2200/2200 bytes */
 struct mem_swpm_rec_data {
-	/* 2(short) * 8(ddr_opp) = 16 bytes */
+	/* 2(short) * 9(ddr_opp) = 18 bytes */
 	unsigned short ddr_opp_freq[NR_DDR_FREQ];
 
-	/* 2(short) * 16(sample point) * 8(opp_num) = 256 bytes */
+	/* 2(short) * 16(sample point) * 9(opp_num) = 288 bytes */
 	struct aphy_others_bw_data aphy_others_bw_tbl[NR_DDR_FREQ];
 
 	/* 2(short) * 3(pwr_type) */
-	/* * ((16+16)(r/w_coef) * 8(opp) + 8(idle)) = 1584 bytes */
+	/* * ((16+16)(r/w_coef) * 9(opp) + 9(idle)) = 1782 bytes */
 	struct aphy_others_pwr_data
 		aphy_others_pwr_tbl[NR_APHY_OTHERS_PWR_TYPE];
 
-	/* 4(int) * 3(pwr_type) * 7 = 84 bytes */
+	/* 4(int) * 4(pwr_type) * 7 = 112 bytes */
 	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
 };
 
 /* numbers of unsigned int for core reserved memory */
-#define CORE_SWPM_RESERVED_SIZE (208)
+#define CORE_SWPM_RESERVED_SIZE (225)
 
-/* core share memory data structure - 826/832 bytes */
+/* core share memory data structure - 900/900 bytes */
 struct core_swpm_rec_data {
 	/* 2(short) * 5(core_volt) = 10 bytes */
 	unsigned short core_volt_tbl[NR_CORE_VOLT];
 
-	/* 2(short) * 12(sample point) * 8(opp_num) = 192 bytes */
+	/* 2(short) * 12(sample point) * 9(opp_num) = 216 bytes */
 	struct aphy_core_bw_data aphy_core_bw_tbl[NR_DDR_FREQ];
 
 	/* 2(short) * 1(pwr_type) */
-	/* * ((12+12)(r/w_coef) * 8(opp) + 8(idle)) = 400 bytes */
+	/* * ((12+12)(r/w_coef) * 9(opp) + 9(idle)) = 450 bytes */
 	struct aphy_core_pwr_data
 		aphy_core_pwr_tbl[NR_APHY_CORE_PWR_TYPE];
 
@@ -389,12 +389,12 @@ struct swpm_rec_data {
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
-	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
+	/* unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP]; */
 
-	/* 1940/2000 bytes */
+	/* 2200/2200 bytes */
 	unsigned int mem_reserved[MEM_SWPM_RESERVED_SIZE];
 
-	/* 828/832 bytes */
+	/* 900/900 bytes */
 	unsigned int core_reserved[CORE_SWPM_RESERVED_SIZE];
 
 	/* 4(int) * 15 = 60 bytes */
@@ -405,7 +405,7 @@ struct swpm_rec_data {
 
 	/* 4(int) * 11 = 44 bytes */
 	unsigned int me_reserved[ME_SWPM_RESERVED_SIZE];
-	/* remaining size = 72/6144 bytes */
+	/* used/remaining/total size = 6340/1852/8192 bytes */
 } __aligned(8);
 
 #if IS_ENABLED(CONFIG_MTK_CACHE_CONTROL)
