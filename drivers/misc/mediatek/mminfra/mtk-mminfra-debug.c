@@ -20,7 +20,7 @@ static struct notifier_block mtk_pd_notifier;
 static struct scmi_tinysys_info_st *tinfo;
 static int feature_id;
 static struct clk *mminfra_clk[MMINFRA_MAX_CLK_NUM];
-
+static atomic_t clk_ref_cnt = ATOMIC_INIT(0);
 
 static bool mminfra_check_scmi_status(void)
 {
@@ -42,7 +42,7 @@ static bool mminfra_check_scmi_status(void)
 	}
 
 	of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_smi", &feature_id);
-	pr_notice("%s: get scmi_smi succeed!!\n", __func__);
+	pr_notice("%s: get scmi_smi succeed id=%d!!\n", __func__, feature_id);
 	return true;
 }
 
@@ -90,12 +90,24 @@ static void mminfra_clk_set(bool is_enable)
 static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
+	int count;
+
 	if (flags == GENPD_NOTIFY_ON) {
 		mminfra_clk_set(true);
+		count = atomic_inc_return(&clk_ref_cnt);
 		do_mminfra_bkrs(true);
+		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
 		do_mminfra_bkrs(false);
+		count = atomic_read(&clk_ref_cnt);
+		if (count != 1) {
+			pr_notice("%s: wrong clk ref_cnt=%d in PRE_OFF\n",
+				__func__, count);
+			return NOTIFY_OK;
+		}
 		mminfra_clk_set(false);
+		count = atomic_dec_return(&clk_ref_cnt);
+		pr_notice("%s: disable clk ref_cnt=%d\n", __func__, count);
 	}
 
 	return NOTIFY_OK;
@@ -172,6 +184,11 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 				break;
 			}
 			mminfra_clk[i++] = clk;
+		}
+		if (of_property_read_bool(node, "init-clk-on")) {
+			atomic_inc(&clk_ref_cnt);
+			mminfra_clk_set(true);
+			pr_notice("%s: init-clk-on enable clk\n", __func__);
 		}
 	}
 	return ret;
