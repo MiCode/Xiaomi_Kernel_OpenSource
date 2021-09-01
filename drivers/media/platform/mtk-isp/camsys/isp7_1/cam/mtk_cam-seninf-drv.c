@@ -69,6 +69,7 @@ static ssize_t status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(status);
 
+#define SENINF_DVFS_READY
 #ifdef SENINF_DVFS_READY
 static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
 {
