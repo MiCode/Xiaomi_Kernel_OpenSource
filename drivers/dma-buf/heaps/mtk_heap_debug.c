@@ -139,7 +139,7 @@ struct fd_const {
 
 struct dump_fd_data {
 	/* can be changed part */
-	spinlock_t splock;/* lock for dmabuf_root */
+	struct mutex lock;/* lock for dmabuf_root */
 	struct rb_root dmabuf_root;
 	int pid_array[TOTAL_PID_CNT];
 
@@ -169,7 +169,7 @@ struct dmabuf_vm_res {
 struct dmabuf_pid_res {
 	struct list_head pid_res;
 
-	spinlock_t splock;
+	struct mutex lock;
 	struct list_head fds_head;
 	struct list_head vms_head;
 	pid_t pid;
@@ -185,7 +185,7 @@ struct dmabuf_debug_node {
 	struct rb_node dmabuf_node;
 	struct list_head pids_res;
 
-	spinlock_t splock;
+	struct mutex lock;
 	const struct dma_buf *dmabuf;
 	unsigned long inode;
 	int fd_cnt_total;
@@ -194,6 +194,10 @@ struct dmabuf_debug_node {
 	int nr_process;
 };
 
+
+/* function declare */
+
+/* pointr to unsigned long */
 static inline struct dump_fd_data *
 to_dump_fd_data(const struct fd_const *d)
 {
@@ -263,7 +267,7 @@ dmabuf_rbtree_vmres_add_return(struct dmabuf_pid_res *node,
 	vm_res->vm_pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 	vm_res->p = node;
 
-	spin_lock(&node->splock);
+	mutex_lock(&node->lock);
 	list_add(&vm_res->vm_res, &node->vms_head);
 	node->vm_cnt++;
 
@@ -273,8 +277,8 @@ dmabuf_rbtree_vmres_add_return(struct dmabuf_pid_res *node,
 
 	/* buffer total mmap size */
 	node->p->mmap_size += vm_res->vm_size;
-	spin_unlock(&node->splock);
 
+	mutex_unlock(&node->lock);
 	if (dmabuf_rb_check)
 		dmabuf_dump(s,
 			    "[A] [VA] inode:%lu pid[%d:%s] va:0x%lx-0x%lx map_sz:%lu inode:%lu buf_sz:%zu\n",
@@ -312,12 +316,12 @@ dmabuf_rbtree_fdres_add_return(struct dmabuf_pid_res *node,
 	fd_res_entry->fd_val = fd;
 	fd_res_entry->p = node;
 
-	spin_lock(&node->splock);
+	mutex_lock(&node->lock);
 	list_add(&fd_res_entry->fd_res, &node->fds_head);
 	node->fd_cnt++;
 	node->RSS += node->p->dmabuf->size;
 	node->p->fd_cnt_total++;
-	spin_unlock(&node->splock);
+	mutex_unlock(&node->lock);
 
 	if (dmabuf_rb_check)
 		dmabuf_dump(s, "[A] [FD] inode:%lu pid[%d:%s] fd:%d sz:%zu\n",
@@ -357,12 +361,12 @@ dmabuf_rbtree_pidres_add_return(struct dmabuf_debug_node *dbg_node,
 
 	INIT_LIST_HEAD(&pid_entry->fds_head);
 	INIT_LIST_HEAD(&pid_entry->vms_head);
-	spin_lock_init(&pid_entry->splock);
+	mutex_init(&pid_entry->lock);
 
-	spin_lock(&dbg_node->splock);
+	mutex_lock(&dbg_node->lock);
 	list_add(&pid_entry->pid_res, &dbg_node->pids_res);
 	pid_entry->p->nr_process++;
-	spin_unlock(&dbg_node->splock);
+	mutex_unlock(&dbg_node->lock);
 	if (dmabuf_rb_check)
 		dmabuf_dump(s, "[A] [PID] inode:%lu pid[%d:%s]\n",
 			    pid_entry->p->inode,
@@ -409,8 +413,7 @@ dmabuf_rbtree_dbg_add_return(const struct dma_buf *dmabuf, void *priv)
 
 	dbg_node->dmabuf = dmabuf;
 	dbg_node->inode = ino;
-	spin_lock_init(&dbg_node->splock);
-
+	mutex_init(&dbg_node->lock);
 	INIT_LIST_HEAD(&dbg_node->pids_res);
 
 	rb_link_node(&dbg_node->dmabuf_node, rb, ppn);
@@ -443,7 +446,6 @@ static unsigned long dmabuf_dbg_rbtree_clear(struct dump_fd_data *fddata)
 	struct seq_file *s = fddata->constd.s;
 	unsigned long free_size = 0;
 
-	spin_lock(&fddata->splock);
 	while (rb_first(root)) {
 		struct rb_node *tmp_rb = rb_first(root);
 		const struct dma_buf *dmabuf = NULL;
@@ -478,9 +480,9 @@ static unsigned long dmabuf_dbg_rbtree_clear(struct dump_fd_data *fddata)
 				fd_entry = list_first_entry(&pid_entry->fds_head,
 							    struct dmabuf_fd_res,
 							    fd_res);
-				spin_lock(&pid_entry->splock);
+				mutex_lock(&pid_entry->lock);
 				list_del(&fd_entry->fd_res);
-				spin_unlock(&pid_entry->splock);
+				mutex_unlock(&pid_entry->lock);
 				if (dmabuf_rb_check)
 					dmabuf_dump(s, "\t\t[R] [FD] inode:%lu pid[%d:%s] fd:%d\n",
 						    fd_entry->p->p->inode,
@@ -497,9 +499,9 @@ static unsigned long dmabuf_dbg_rbtree_clear(struct dump_fd_data *fddata)
 				vm_entry = list_first_entry(&pid_entry->vms_head,
 							    struct dmabuf_vm_res,
 							    vm_res);
-				spin_lock(&pid_entry->splock);
+				mutex_lock(&pid_entry->lock);
 				list_del(&vm_entry->vm_res);
-				spin_unlock(&pid_entry->splock);
+				mutex_unlock(&pid_entry->lock);
 				if (dmabuf_rb_check)
 					dmabuf_dump(s,
 						    "\t\t[R] [VA] inode:0x%lx pid[%d:%s] va:0x%lx-0x%lx\n",
@@ -511,9 +513,9 @@ static unsigned long dmabuf_dbg_rbtree_clear(struct dump_fd_data *fddata)
 				free_size += sizeof(*vm_entry);
 				kfree(vm_entry);
 			}
-			spin_lock(&entry->splock);
+			mutex_lock(&entry->lock);
 			list_del(&pid_entry->pid_res);
-			spin_unlock(&entry->splock);
+			mutex_unlock(&entry->lock);
 			free_size += sizeof(*pid_entry);
 			kfree(pid_entry);
 		}
@@ -521,7 +523,6 @@ static unsigned long dmabuf_dbg_rbtree_clear(struct dump_fd_data *fddata)
 		free_size += sizeof(*entry);
 		kfree(entry);
 	}
-	spin_unlock(&fddata->splock);
 	free_size += sizeof(*fddata);
 	kfree(fddata);
 
@@ -554,9 +555,6 @@ static unsigned long dmabuf_rbtree_get_stats(struct rb_root *root, pid_t pid,
 			krn_rss += dmabuf->size;
 			continue;
 		}
-
-		if (!dbg_node->mmap_size || !dbg_node->vm_cnt_total)
-			continue;
 
 		list_for_each(pid_node, &dbg_node->pids_res) {
 			pid_info = list_entry(pid_node, struct dmabuf_pid_res, pid_res);
@@ -867,9 +865,9 @@ dmabuf_rbtree_add_all(struct dma_heap *heap,
 	fddata->constd.s = s;
 	fddata->constd.heap = heap;
 	fddata->dmabuf_root = RB_ROOT;
-	spin_lock_init(&fddata->splock);
+	mutex_init(&fddata->lock);
 
-	spin_lock(&fddata->splock);
+	mutex_lock(&fddata->lock);
 
 	get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
 	read_lock(&tasklist_lock);
@@ -911,7 +909,7 @@ dmabuf_rbtree_add_all(struct dma_heap *heap,
 		task_unlock(p);
 	}
 	read_unlock(&tasklist_lock);
-	spin_unlock(&fddata->splock);
+	mutex_unlock(&fddata->lock);
 
 	return fddata;
 }
@@ -1101,9 +1099,6 @@ static void show_help_info(struct dma_heap *heap, struct seq_file *s)
 
 	dmabuf_dump(s, "- Set debug name for dmabuf: %s\n",
 		    "https://wiki.mediatek.inc/display/WSDOSS3ME18/How+to+set+dmabuf+debug+name ");
-
-	dmabuf_dump(s, "- How to use this debug file %s\n",
-		    "https://wiki.mediatek.inc/pages/viewpage.action?pageId=881824213 ");
 
 	dmabuf_dump(s, "all debug cmd:\n");
 	for (i = 0; i < ARRAY_SIZE(heap_helper); i++) {
@@ -1456,7 +1451,6 @@ static int dma_buf_init_procfs(void)
 			__func__, PTR_ERR(dma_heaps_stats));
 		return -1;
 	}
-	pr_info("create debug file for stats\n");
 
 	return ret;
 }
