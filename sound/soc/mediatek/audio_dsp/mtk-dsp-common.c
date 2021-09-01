@@ -27,6 +27,44 @@
 static struct mtk_base_dsp *local_base_dsp;
 static struct mtk_base_afe *local_dsp_afe;
 
+static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
+	[AUDIO_TASK_VOIP_ID]        = "dsp_voipdl",
+	[AUDIO_TASK_PRIMARY_ID]     = "dsp_primary",
+	[AUDIO_TASK_OFFLOAD_ID]     = "dsp_offload",
+	[AUDIO_TASK_DEEPBUFFER_ID]  = "dsp_deep",
+	[AUDIO_TASK_PLAYBACK_ID]    = "dsp_playback",
+	[AUDIO_TASK_MUSIC_ID]       = "dsp_music",
+	[AUDIO_TASK_CAPTURE_UL1_ID] = "dsp_captureul1",
+	[AUDIO_TASK_A2DP_ID]        = "dsp_a2dp",
+	[AUDIO_TASK_BLEDL_ID]       = "dsp_bledl",
+	[AUDIO_TASK_BLEUL_ID]       = "dsp_bleul",
+	[AUDIO_TASK_DATAPROVIDER_ID] = "dsp_dataprovider",
+	[AUDIO_TASK_CALL_FINAL_ID]  = "dsp_call_final",
+	[AUDIO_TASK_FAST_ID]        = "dsp_fast",
+	[AUDIO_TASK_KTV_ID]         = "dsp_ktv",
+	[AUDIO_TASK_CAPTURE_RAW_ID] = "dsp_captureraw",
+	[AUDIO_TASK_FM_ADSP_ID]     = "dsp_fm",
+};
+
+static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
+	[AUDIO_TASK_VOIP_ID]        = TASK_SCENE_VOIP,
+	[AUDIO_TASK_PRIMARY_ID]     = TASK_SCENE_PRIMARY,
+	[AUDIO_TASK_OFFLOAD_ID]     = TASK_SCENE_PLAYBACK_MP3,
+	[AUDIO_TASK_DEEPBUFFER_ID]  = TASK_SCENE_DEEPBUFFER,
+	[AUDIO_TASK_PLAYBACK_ID]    = TASK_SCENE_AUDPLAYBACK,
+	[AUDIO_TASK_MUSIC_ID]       = TASK_SCENE_MUSIC,
+	[AUDIO_TASK_CAPTURE_UL1_ID] = TASK_SCENE_CAPTURE_UL1,
+	[AUDIO_TASK_A2DP_ID]        = TASK_SCENE_A2DP,
+	[AUDIO_TASK_BLEDL_ID]       = TASK_SCENE_BLEDL,
+	[AUDIO_TASK_BLEUL_ID]       = TASK_SCENE_BLEUL,
+	[AUDIO_TASK_DATAPROVIDER_ID] = TASK_SCENE_DATAPROVIDER,
+	[AUDIO_TASK_CALL_FINAL_ID]  = TASK_SCENE_CALL_FINAL,
+	[AUDIO_TASK_FAST_ID]        = TASK_SCENE_FAST,
+	[AUDIO_TASK_KTV_ID]         = TASK_SCENE_KTV,
+	[AUDIO_TASK_CAPTURE_RAW_ID] = TASK_SCENE_CAPTURE_RAW,
+	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
+};
+
 int audio_set_dsp_afe(struct mtk_base_afe *afe)
 {
 	local_dsp_afe = afe;
@@ -124,87 +162,37 @@ EXPORT_SYMBOL(mtk_scp_ipi_send);
 /* dsp scene ==> od mapping */
 int get_dspscene_by_dspdaiid(int id)
 {
-	switch (id) {
-	case AUDIO_TASK_VOIP_ID:
-		return TASK_SCENE_VOIP;
-	case AUDIO_TASK_PRIMARY_ID:
-		return TASK_SCENE_PRIMARY;
-	case AUDIO_TASK_OFFLOAD_ID:
-		return TASK_SCENE_PLAYBACK_MP3;
-	case AUDIO_TASK_DEEPBUFFER_ID:
-		return TASK_SCENE_DEEPBUFFER;
-	case AUDIO_TASK_PLAYBACK_ID:
-		return TASK_SCENE_AUDPLAYBACK;
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-		return TASK_SCENE_CAPTURE_UL1;
-	case AUDIO_TASK_A2DP_ID:
-		return TASK_SCENE_A2DP;
-	case AUDIO_TASK_BLEDL_ID:
-		return TASK_SCENE_BLEDL;
-	case AUDIO_TASK_BLEUL_ID:
-		return TASK_SCENE_BLEUL;
-	case AUDIO_TASK_DATAPROVIDER_ID:
-		return TASK_SCENE_DATAPROVIDER;
-	case AUDIO_TASK_CALL_FINAL_ID:
-		return TASK_SCENE_CALL_FINAL;
-	case AUDIO_TASK_FAST_ID:
-		return TASK_SCENE_FAST;
-	case AUDIO_TASK_MUSIC_ID:
-		return TASK_SCENE_MUSIC;
-	case AUDIO_TASK_KTV_ID:
-		return TASK_SCENE_KTV;
-	case AUDIO_TASK_CAPTURE_RAW_ID:
-		return TASK_SCENE_CAPTURE_RAW;
-	case AUDIO_TASK_FM_ADSP_ID:
-		return TASK_SCENE_FM_ADSP;
-	default:
-		pr_warn("%s() err\n", __func__);
+	if (id < 0 || id >= AUDIO_TASK_DAI_NUM) {
+		pr_info("%s(), id err: %d\n", __func__, id);
 		return -1;
 	}
-	return 0;
+
+	return dsp_task_scence[id];
 }
 EXPORT_SYMBOL(get_dspscene_by_dspdaiid);
 
 int get_dspdaiid_by_dspscene(int dspscene)
 {
-	switch (dspscene) {
-	case TASK_SCENE_VOIP:
-		return AUDIO_TASK_VOIP_ID;
-	case TASK_SCENE_PRIMARY:
-		return AUDIO_TASK_PRIMARY_ID;
-	case TASK_SCENE_PLAYBACK_MP3:
-		return AUDIO_TASK_OFFLOAD_ID;
-	case TASK_SCENE_DEEPBUFFER:
-		return AUDIO_TASK_DEEPBUFFER_ID;
-	case TASK_SCENE_AUDPLAYBACK:
-		return AUDIO_TASK_PLAYBACK_ID;
-	case TASK_SCENE_CAPTURE_UL1:
-		return AUDIO_TASK_CAPTURE_UL1_ID;
-	case TASK_SCENE_A2DP:
-		return AUDIO_TASK_A2DP_ID;
-	case TASK_SCENE_BLEDL:
-		return AUDIO_TASK_BLEDL_ID;
-	case TASK_SCENE_BLEUL:
-		return AUDIO_TASK_BLEUL_ID;
-	case TASK_SCENE_DATAPROVIDER:
-		return AUDIO_TASK_DATAPROVIDER_ID;
-	case TASK_SCENE_FAST:
-		return AUDIO_TASK_FAST_ID;
-	case TASK_SCENE_MUSIC:
-		return AUDIO_TASK_MUSIC_ID;
-	case TASK_SCENE_CALL_FINAL:
-		return AUDIO_TASK_CALL_FINAL_ID;
-	case TASK_SCENE_KTV:
-		return AUDIO_TASK_KTV_ID;
-	case TASK_SCENE_CAPTURE_RAW:
-		return AUDIO_TASK_CAPTURE_RAW_ID;
-	case TASK_SCENE_FM_ADSP:
-		return AUDIO_TASK_FM_ADSP_ID;
-	default:
-		pr_info("%s() err dspscene=%d\n", __func__, dspscene);
+	int id;
+	int ret = -1;
+
+	if (dspscene < 0 || dspscene >= AUDIO_TASK_DAI_NUM) {
+		pr_info("%s() dspscene err: %d\n", __func__, dspscene);
 		return -1;
 	}
-	return 0;
+
+	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
+		if (dsp_task_scence[id] == dspscene) {
+			ret = id;
+			break;
+		}
+	}
+
+	if (ret < 0)
+		pr_info("%s() dspscene is not in dsp_task_scence[id]\n",
+			__func__);
+
+	return ret;
 }
 EXPORT_SYMBOL(get_dspdaiid_by_dspscene);
 
@@ -253,28 +241,14 @@ EXPORT_SYMBOL_GPL(get_dsp_task_attr);
 int get_dsp_task_id_from_str(const char *task_name)
 {
 	int ret = -1;
+	int id;
 
-	if (strstr(task_name, "primary"))
-		ret = AUDIO_TASK_PRIMARY_ID;
-	else if (strstr(task_name, "deepbuffer"))
-		ret = AUDIO_TASK_DEEPBUFFER_ID;
-	else if (strstr(task_name, "voip"))
-		ret = AUDIO_TASK_VOIP_ID;
-	else if (strstr(task_name, "playback"))
-		ret = AUDIO_TASK_PLAYBACK_ID;
-	else if (strstr(task_name, "call_final"))
-		ret = AUDIO_TASK_CALL_FINAL_ID;
-	else if (strstr(task_name, "ktv"))
-		ret = AUDIO_TASK_KTV_ID;
-	else if (strstr(task_name, "fm"))
-		ret = AUDIO_TASK_FM_ADSP_ID;
-	else if (strstr(task_name, "offload"))
-		ret = AUDIO_TASK_OFFLOAD_ID;
-	else if (strstr(task_name, "capture"))
-		ret = AUDIO_TASK_CAPTURE_UL1_ID;
-	else if (strstr(task_name, "fast"))
-		ret = AUDIO_TASK_FAST_ID;
-	else
+	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
+		if (strstr(task_name, dsp_task_name[id]))
+			ret = id;
+	}
+
+	if (ret < 0)
 		pr_info("%s(), %s has no task id, ret %d",
 			__func__, task_name, ret);
 
@@ -284,63 +258,12 @@ EXPORT_SYMBOL_GPL(get_dsp_task_id_from_str);
 
 const char *get_str_by_dsp_dai_id(const int task_id)
 {
-	char *name = NULL;
-
-	switch (task_id) {
-	case AUDIO_TASK_VOIP_ID:
-		name = "T_VOIP";
-		break;
-	case AUDIO_TASK_PRIMARY_ID:
-		name = "T_PRIMARY";
-		break;
-	case AUDIO_TASK_OFFLOAD_ID:
-		name = "T_OFFLOAD";
-		break;
-	case AUDIO_TASK_DEEPBUFFER_ID:
-		name = "T_DEEP";
-		break;
-	case AUDIO_TASK_PLAYBACK_ID:
-		name = "T_PLAYBACK";
-		break;
-	case AUDIO_TASK_MUSIC_ID:
-		name = "T_MUSIC";
-		break;
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-		name = "T_CAPTURE";
-		break;
-	case AUDIO_TASK_A2DP_ID:
-		name = "T_A2DP";
-		break;
-	case AUDIO_TASK_BLEDL_ID:
-		name = "T_BLEDL";
-		break;
-	case AUDIO_TASK_BLEUL_ID:
-		name = "T_BLEUL";
-		break;
-	case AUDIO_TASK_DATAPROVIDER_ID:
-		name = "T_DATAPROVIDER";
-		break;
-	case AUDIO_TASK_CALL_FINAL_ID:
-		name = "T_CALLFINAL";
-		break;
-	case AUDIO_TASK_FAST_ID:
-		name = "T_FAST";
-		break;
-	case AUDIO_TASK_KTV_ID:
-		name = "T_KTV";
-		break;
-	case AUDIO_TASK_CAPTURE_RAW_ID:
-		name = "T_CAPTURE_RAW";
-		break;
-	case AUDIO_TASK_FM_ADSP_ID:
-		name = "T_FM_ADSP";
-		break;
-	default:
-		name = "T_UNKNOWN";
-		break;
+	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM) {
+		pr_info("%s(), task_id err: %d\n", __func__, task_id);
+		return NULL;
 	}
 
-	return name;
+	return dsp_task_name[task_id];
 }
 EXPORT_SYMBOL_GPL(get_str_by_dsp_dai_id);
 
@@ -431,7 +354,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM)
 		return -1;
 
-	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUMTIME) <= 0 ||
+	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUNTIME) <= 0 ||
 	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
 		return -1;
 
@@ -565,7 +488,7 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
 	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-				   ADSP_TASK_ATTR_RUMTIME) ?
+				   ADSP_TASK_ATTR_RUNTIME) ?
 		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
 
 	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
@@ -586,7 +509,7 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
 	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-				   ADSP_TASK_ATTR_RUMTIME) ?
+				   ADSP_TASK_ATTR_RUNTIME) ?
 		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
 
 	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
