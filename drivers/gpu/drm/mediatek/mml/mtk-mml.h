@@ -100,6 +100,7 @@ enum mml_pq_hdr_video_mode
 	MML_PQ_HDR10,
 	MML_PQ_HDR10P,
 	MML_PQ_HDRVIVID,
+	MML_PQ_AISDR2HDR,
 };
 
 struct mml_pq_param {
