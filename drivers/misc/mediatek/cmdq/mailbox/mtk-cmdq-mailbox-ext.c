@@ -966,8 +966,12 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
 				 list_entry) {
 		task_end_pa = cmdq_task_get_end_pa(task->pkt);
-		if (cmdq_task_is_current_run(curr_pa, task->pkt))
+		if (cmdq_task_is_current_run(curr_pa, task->pkt)) {
 			curr_task = task;
+		/* for some self trigger loop, notify it is still working */
+			if (curr_task->pkt->self_loop)
+				cmdq_task_err_callback(curr_task->pkt, -EBUSY);
+		}
 
 		if (!curr_task || curr_pa == task_end_pa - CMDQ_INST_SIZE) {
 			if (curr_task && (curr_pa != task_end_pa)) {
@@ -989,10 +993,6 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		if (curr_task)
 			break;
 	}
-
-	/* for some self trigger loop, notify it is still working */
-	if (curr_task && curr_task->pkt->self_loop)
-		cmdq_task_err_callback(curr_task->pkt, -EBUSY);
 
 	task = list_first_entry_or_null(&thread->task_busy_list,
 		struct cmdq_task, list_entry);
