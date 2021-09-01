@@ -137,6 +137,12 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 
 	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
 
+	/* Workaround for PR_SWAP, Host mode should not come to this function. */
+	if (extcon->c_role == DUAL_PROP_DR_HOST) {
+		dev_info(extcon->dev, "Remain HOST mode\n");
+		return NOTIFY_DONE;
+	}
+
 	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
 			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
