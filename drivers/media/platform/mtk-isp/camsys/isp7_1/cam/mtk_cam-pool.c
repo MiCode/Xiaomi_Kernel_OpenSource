@@ -47,6 +47,8 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	/* working buffer */
 	smem.len = ctx->buf_pool.working_buf_size;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+	if (IS_ERR(mem_priv))
+		return PTR_ERR(mem_priv);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
@@ -58,6 +60,8 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	/* msg buffer */
 	smem.len = ctx->buf_pool.msg_buf_size;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+	if (IS_ERR(mem_priv))
+		return PTR_ERR(mem_priv);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
@@ -86,6 +90,8 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		/* meta buffer */
 		smem.len = RAW_STATS_1_SIZE;
 		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+		if (IS_ERR(mem_priv))
+			return PTR_ERR(mem_priv);
 		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
 		dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 		if (dbuf)
@@ -251,6 +257,8 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
 			__func__, ctx->stream_id, smem.len);
 	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+	if (IS_ERR(mem_priv))
+		return PTR_ERR(mem_priv);
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)

@@ -3619,11 +3619,16 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		 * return -EPIPE if failed
 		 */
 		if (mtk_cam_is_stagger(ctx))
-			mtk_cam_img_working_buf_pool_init(ctx, 2 + mtk_cam_is_3_exposure(ctx));
+			ret = mtk_cam_img_working_buf_pool_init(ctx,
+				2 + mtk_cam_is_3_exposure(ctx));
 		if (mtk_cam_is_time_shared(ctx))
-			mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
+			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		if (mtk_cam_is_mstream(ctx))
-			mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
+			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
+		if (ret) {
+			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
+			return ret;
+		}
 
 		ret = mtk_cam_dev_config(ctx, false, true);
 		if (ret)
