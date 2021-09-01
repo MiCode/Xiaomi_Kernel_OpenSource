@@ -737,6 +737,10 @@ SND_SOC_DAILINK_DEFS(dspbledl,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_bledl_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspbleul,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_bleul_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
 #endif
 
 static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
@@ -1377,6 +1381,11 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.name = "DSP_Playback_BLEDL",
 		.stream_name = "DSP_Playback_BLEDL",
 		SND_SOC_DAILINK_REG(dspbledl),
+	},
+	{
+		.name = "DSP_Capture_BLE",
+		.stream_name = "DSP_Capture_BLE",
+		SND_SOC_DAILINK_REG(dspbleul),
 	},
 #endif
 };
