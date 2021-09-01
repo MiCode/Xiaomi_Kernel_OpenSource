@@ -3278,6 +3278,12 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 				   100)
 				  << 4) &
 				 0x7FFF0);
+			fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] = 0;
+			if (aie_cfg->en_roi) {
+				fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] =
+				(aie_cfg->src_roi.x1 - aie_cfg->src_padding.left) |
+				(aie_cfg->src_roi.y1 - aie_cfg->src_padding.up) << 16;
+			}
 		} else if (i == rpn1_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
 				(fd_cur_cfg[FD_IMAGE_COORD] & 0xF) |
@@ -3286,6 +3292,12 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 				   100)
 				  << 4) &
 				 0x7FFF0);
+			fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] = 0;
+			if (aie_cfg->en_roi) {
+				fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] =
+				(aie_cfg->src_roi.x1 - aie_cfg->src_padding.left) |
+				(aie_cfg->src_roi.y1 - aie_cfg->src_padding.up) << 16;
+			}
 		} else if (i == rpn2_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
 				(fd_cur_cfg[FD_IMAGE_COORD] & 0xF) |
@@ -3294,6 +3306,12 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 				   100)
 				  << 4) &
 				 0x7FFF0);
+			fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] = 0;
+			if (aie_cfg->en_roi) {
+				fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] =
+				(aie_cfg->src_roi.x1 - aie_cfg->src_padding.left) |
+				(aie_cfg->src_roi.y1 - aie_cfg->src_padding.up) << 16;
+			}
 		}
 
 		/* IN_FM_BASE_ADR */
