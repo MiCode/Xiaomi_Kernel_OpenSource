@@ -1385,7 +1385,7 @@ static void mtk_aie_device_run(void *priv)
 		img_uv = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
 		fd_param.src_img[1].dma_addr = img_uv & 0xffffffff;
 	}
-	fd->img_msb = (img_y & 0Xf00000000) >> 32;
+	fd->img_msb_y = (img_y & 0Xf00000000) >> 32;
 
 	vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
 #if CHECK_SERVICE_0 //Remove CID
@@ -1431,6 +1431,10 @@ static void mtk_aie_device_run(void *priv)
 		fd_param.src_img[1].dma_addr = fd_param.src_img[0].dma_addr +
 			g_user_param.user_param.src_img_stride *
 			g_user_param.user_param.src_img_height;
+		fd->img_msb_uv = ((img_y +
+			g_user_param.user_param.src_img_stride *
+			g_user_param.user_param.src_img_height) &
+			0Xf00000000) >> 32;
 	}
 
 	fd->aie_cfg->src_img_addr = fd_param.src_img[0].dma_addr;
@@ -1440,7 +1444,7 @@ static void mtk_aie_device_run(void *priv)
 		ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
 	} else {
 
-		img_msb = fd->img_msb;  //MASK MSB-BIT
+		img_msb = fd->img_msb_y;  //MASK MSB-BIT
 		set_msb_bit = img_msb | img_msb << 4 | img_msb << 8 | img_msb << 12;
 		set_msb_bit = set_msb_bit | set_msb_bit << 16;
 

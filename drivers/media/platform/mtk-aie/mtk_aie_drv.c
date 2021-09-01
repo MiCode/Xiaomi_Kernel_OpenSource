@@ -330,7 +330,42 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 #define fld_forest 14
 #define fld_point 500
 #define fld_cur_landmark 11
+#define CHECK_SERVICE_IF_0 0
 
+#if CHECK_SERVICE_IF_0
+int FDVT_M4U_TranslationFault_callback(int port,
+							   unsigned int mva,
+							   void *data)
+{
+	pr_info("[FDVT_M4U]fault call port=%d, mva=0x%x", port, mva);
+
+	switch (port) {
+#if CHECK_SERVICE_IF_0
+	case M4U_PORT_FDVT_RDA:
+	case M4U_PORT_FDVT_RDB:
+	case M4U_PORT_FDVT_WRA:
+	case M4U_PORT_FDVT_WRB:
+#endif
+	default: //ISP_FDVT_BASE = 0x1b001000
+		pr_info("FDVT_IN_BASE_ADR_0:0x%08x, FDVT_IN_BASE_ADR_1:0x%08x, FDVT_IN_BASE_ADR_2:0x%08x, FDVT_IN_BASE_ADR_3:0x%08x\n",
+			FDVT_RD32(FDVT_IN_BASE_ADR_0_REG),
+			FDVT_RD32(FDVT_IN_BASE_ADR_1_REG),
+			FDVT_RD32(FDVT_IN_BASE_ADR_2_REG),
+			FDVT_RD32(FDVT_IN_BASE_ADR_3_REG));
+		pr_info("FDVT_OUT_BASE_ADR_0:0x%08x, FDVT_OUT_BASE_ADR_1:0x%08x, FDVT_OUT_BASE_ADR_2:0x%08x, FDVT_OUT_BASE_ADR_3:0x%08x\n",
+			FDVT_RD32(FDVT_OUT_BASE_ADR_0_REG),
+			FDVT_RD32(FDVT_OUT_BASE_ADR_1_REG),
+			FDVT_RD32(FDVT_OUT_BASE_ADR_2_REG),
+			FDVT_RD32(FDVT_OUT_BASE_ADR_3_REG));
+		pr_info("FDVT_KERNEL_BASE_ADR_0:0x%08x, FDVT_KERNEL_BASE_ADR_1:0x%08x\n",
+			FDVT_RD32(FDVT_KERNEL_BASE_ADR_0_REG),
+			FDVT_RD32(FDVT_KERNEL_BASE_ADR_1_REG));
+	break;
+	}
+
+	return 1;
+}
+#endif
 static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
 			  struct imem_buf_info *bufinfo)
 {
@@ -764,19 +799,11 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 	int ret;
 	u32 alloc_size = 0;
 	int i, j, pa_off = 0, va_off = 0;
-	unsigned long long addr = 0;
-	unsigned int msb_bit = 0;
-
 
 	for (i = 0; i < PYM_NUM; i++)
 		alloc_size += fd->rs_pym_out_size[i] * 3;
 
 	ret = aie_imem_alloc(fd, alloc_size, &fd->rs_output_hw);
-
-	addr = fd->rs_output_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-
-	fd->rs_out_msb = msb_bit;
 
 	if (ret)
 		return ret;
@@ -826,44 +853,26 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 {
 	int ret;
 	u32 alloc_size;
-	unsigned long long addr = 0;
-	unsigned int msb_bit = 0;
 
 	alloc_size = fd->fd_dma_max_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_hw);
 	if (ret)
 		return ret;
 
-	addr = fd->fd_dma_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-	fd->fd_dma_msb = msb_bit;
-
 	alloc_size = fd->fd_fd_kernel_size + fd->fd_attr_kernel_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_kernel_hw);
 	if (ret)
 		goto free_kernel;
-
-	addr = fd->fd_kernel_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-	fd->kernel_dma_msb = msb_bit;
 
 	alloc_size = fd->fd_attr_dma_max_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_attr_dma_hw);
 	if (ret)
 		goto free_attr_dma;
 
-	addr = fd->fd_attr_dma_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-	fd->attr_dma_msb = msb_bit;
-
 	alloc_size = fd->fd_dma_rst_max_size + fd->fd_attr_dma_rst_max_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_result_hw);
 	if (ret)
 		goto free_dma_result_hw;
-
-	addr = fd->fd_dma_result_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-	fd->rst_dma_msb = msb_bit;
 
 	return 0;
 
@@ -903,81 +912,24 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (ret)
 		goto free_fld_fp_hw;
 
-	addr = fd->fld_fp_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32;
-	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
-	set_msb_bit = set_msb_bit | set_msb_bit << 16;
-	dev_info(fd->dev, "FP MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB);
-
-	set_msb_bit = set_msb_bit & 0xfffffff;
-	dev_info(fd->dev, "FP MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB);
-
-
 	alloc_size = (fld_cv_size * (FLD_MAX_INPUT-1)) + fld_cv_size_00;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_cv_hw);
 	if (ret)
 		goto free_fld_cv_hw;
-
-	addr = fd->fld_cv_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32;
-	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
-	set_msb_bit = set_msb_bit | set_msb_bit << 16;
-	dev_info(fd->dev, "CV MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB);
-
-	set_msb_bit = set_msb_bit & 0xfffffff;
-	dev_info(fd->dev, "CV MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
-
 
 	alloc_size = fld_leafnode_size * FLD_MAX_INPUT;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_leafnode_hw);
 	if (ret)
 		goto free_fld_leafnode_hw;
 
-	addr = fd->fld_leafnode_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32;
-	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
-	set_msb_bit = set_msb_bit | set_msb_bit << 16;
-	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
-
-	set_msb_bit = set_msb_bit & 0xfffffff;
-	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
-
 	alloc_size = fld_tree_size * FLD_MAX_INPUT;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_02_hw);
 	if (ret)
 		goto free_fld_tree_02_hw;
 
-	addr = fd->fld_tree_02_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32;
-	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
-	set_msb_bit = set_msb_bit | set_msb_bit << 16;
-	dev_info(fd->dev, "T02 MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
-
-	set_msb_bit = set_msb_bit & 0xfffffff;
-	dev_info(fd->dev, "T02: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
-
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_13_hw);
 	if (ret)
 		goto free_fld_tree_13_hw;
-
-	addr = fd->fld_tree_13_hw.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32;
-	set_msb_bit = msb_bit | msb_bit << 4 | msb_bit << 8 | msb_bit << 12;
-	set_msb_bit = set_msb_bit | set_msb_bit << 16;
-	dev_info(fd->dev, "T02 MSB: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
-
-	set_msb_bit = set_msb_bit & 0xfffffff;
-	dev_info(fd->dev, "T02: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
-	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
 
 	alloc_size = fld_result_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_output_hw);
@@ -1352,6 +1304,9 @@ static void aie_arrange_result_dma_buf(struct mtk_aie_dev *fd)
 static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 {
 	int input_index = 0;
+	int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0, msb_bit_3 = 0;
+	int msb_bit_4 = 0, msb_bit_5 = 0, msb_bit_6 = 0, msb_bit_7 = 0;
+	int set_msb_bit = 0;
 
 	fd->dma_para->fld_blink_weight_va = fd->fld_blink_weight_hw.va;
 	fd->dma_para->fld_blink_weight_pa = fd->fld_blink_weight_hw.pa;
@@ -1365,6 +1320,7 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	fd->dma_para->fld_cv_pa[0] = fd->fld_cv_hw.pa;
 	fd->dma_para->fld_fp_va[0] = fd->fld_fp_hw.va;
 	fd->dma_para->fld_fp_pa[0] = fd->fld_fp_hw.pa;
+
 	fd->dma_para->fld_leafnode_va[0] = fd->fld_leafnode_hw.va;
 	fd->dma_para->fld_leafnode_pa[0] = fd->fld_leafnode_hw.pa;
 	fd->dma_para->fld_tree02_va[0] = fd->fld_tree_02_hw.va;
@@ -1405,6 +1361,155 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 		fd->dma_para->fld_tree13_pa[input_index + 1] =
 				fd->dma_para->fld_tree13_pa[input_index] + fld_tree_size;
 	}
+	//fp
+	msb_bit_0 = (fd->dma_para->fld_fp_pa[0] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_fp_pa[1] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_fp_pa[2] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_fp_pa[3] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_fp_pa[4] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_fp_pa[5] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_fp_pa[6] & 0xf00000000) >> 32;
+	msb_bit_7 = (fd->dma_para->fld_fp_pa[7] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
+
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB);
+
+	msb_bit_0 = (fd->dma_para->fld_fp_pa[8] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_fp_pa[9] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_fp_pa[10] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_fp_pa[11] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_fp_pa[12] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_fp_pa[13] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_fp_pa[14] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
+
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB);
+
+	//cv
+	msb_bit_0 = (fd->dma_para->fld_cv_pa[0] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_cv_pa[1] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_cv_pa[2] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_cv_pa[3] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_cv_pa[4] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_cv_pa[5] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_cv_pa[6] & 0xf00000000) >> 32;
+	msb_bit_7 = (fd->dma_para->fld_cv_pa[7] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
+
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB);
+
+	msb_bit_0 = (fd->dma_para->fld_cv_pa[8] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_cv_pa[9] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_cv_pa[10] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_cv_pa[11] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_cv_pa[12] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_cv_pa[13] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_cv_pa[14] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
+
+	dev_info(fd->dev, "CV MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
+
+	//leafnode
+	msb_bit_0 = (fd->dma_para->fld_leafnode_pa[0] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_leafnode_pa[1] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_leafnode_pa[2] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_leafnode_pa[3] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_leafnode_pa[4] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_leafnode_pa[5] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_leafnode_pa[6] & 0xf00000000) >> 32;
+	msb_bit_7 = (fd->dma_para->fld_leafnode_pa[7] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
+
+	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
+
+
+	msb_bit_0 = (fd->dma_para->fld_leafnode_pa[8] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_leafnode_pa[9] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_leafnode_pa[10] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_leafnode_pa[11] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_leafnode_pa[12] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_leafnode_pa[13] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_leafnode_pa[14] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
+
+	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
+
+	//02tree
+	msb_bit_0 = (fd->dma_para->fld_tree02_pa[0] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_tree02_pa[1] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_tree02_pa[2] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_tree02_pa[3] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_tree02_pa[4] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_tree02_pa[5] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_tree02_pa[6] & 0xf00000000) >> 32;
+	msb_bit_7 = (fd->dma_para->fld_tree02_pa[7] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
+
+	dev_info(fd->dev, "T02 MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
+
+	msb_bit_0 = (fd->dma_para->fld_tree02_pa[8] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_tree02_pa[9] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_tree02_pa[10] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_tree02_pa[11] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_tree02_pa[12] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_tree02_pa[13] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_tree02_pa[14] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
+
+	dev_info(fd->dev, "T02: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
+
+	//13tree
+	msb_bit_0 = (fd->dma_para->fld_tree13_pa[0] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_tree13_pa[1] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_tree13_pa[2] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_tree13_pa[3] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_tree13_pa[4] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_tree13_pa[5] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_tree13_pa[6] & 0xf00000000) >> 32;
+	msb_bit_7 = (fd->dma_para->fld_tree13_pa[7] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
+
+	dev_info(fd->dev, "T13 MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
+
+
+	msb_bit_0 = (fd->dma_para->fld_tree13_pa[8] & 0xf00000000) >> 32;
+	msb_bit_1 = (fd->dma_para->fld_tree13_pa[9] & 0xf00000000) >> 32;
+	msb_bit_2 = (fd->dma_para->fld_tree13_pa[10] & 0xf00000000) >> 32;
+	msb_bit_3 = (fd->dma_para->fld_tree13_pa[11] & 0xf00000000) >> 32;
+	msb_bit_4 = (fd->dma_para->fld_tree13_pa[12] & 0xf00000000) >> 32;
+	msb_bit_5 = (fd->dma_para->fld_tree13_pa[13] & 0xf00000000) >> 32;
+	msb_bit_6 = (fd->dma_para->fld_tree13_pa[14] & 0xf00000000) >> 32;
+
+	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
+		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
+
+	dev_info(fd->dev, "T13: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
+	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
+
 }
 #endif
 static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
@@ -2603,8 +2708,8 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	u16 stride_pym0_out_w = 0;
 	u16 src_crop_w = 0;
 	u16 src_crop_h = 0;
-	unsigned int img_msb_bit = 0;
-	unsigned int y2r_msb_bit = 0;
+	unsigned int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0;
+
 
 	if (aie_cfg->en_roi == false) {
 		img_off = 0;
@@ -2860,15 +2965,17 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	yuv2rgb_cfg[Y2R_IN_1] = srcbuf_UV;
 
 
-	img_msb_bit = fd->img_msb; //MASK MSB-BIT
-	y2r_msb_bit = img_msb_bit | img_msb_bit << 8;
-
-
 	//yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)0x00000303; //for UT
-	yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)y2r_msb_bit;
-	yuv2rgb_cfg[POS_Y2RCON_OUT_BA_MSB] = (u32)(fd->rs_out_msb | fd->rs_out_msb << 8 |
-						fd->rs_out_msb << 16);//0x00030303
+	yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)(fd->img_msb_y | fd->img_msb_uv << 8);
+	msb_bit_0 = (fd->base_para->rs_pym_rst_pa[0][0] &
+						0xf00000000) >> 32;
+	msb_bit_1 = (fd->base_para->rs_pym_rst_pa[0][1] &
+						0xf00000000) >> 32;
+	msb_bit_2 = (fd->base_para->rs_pym_rst_pa[0][2] &
+						0xf00000000) >> 32;
 
+	yuv2rgb_cfg[POS_Y2RCON_OUT_BA_MSB] = (u32)(msb_bit_0 | msb_bit_1 << 8 |
+						msb_bit_2 << 16);//0x00030303
 
 	yuv2rgb_cfg[Y2R_OUT_0] = (u32)fd->base_para->rs_pym_rst_pa[0][0];
 	yuv2rgb_cfg[Y2R_OUT_1] = (u32)fd->base_para->rs_pym_rst_pa[0][1];
@@ -2907,7 +3014,7 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	u16 round_w = 0;
 	u16 src_crop_w = 0;
 	u16 src_crop_h = 0;
-	int i = 0;
+	int i = 0, msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0;
 
 	if (aie_cfg->sel_mode == 0) {
 		src_crop_w = fd->base_para->crop_width;
@@ -2929,14 +3036,30 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	for (i = 0; i < 2; i++) {
 		rs_tbl[i] = rs_cfg + RS_CONFIG_SIZE * i;
-		rs_tbl[i][POS_RSCON_IN_BA_MSB] = (u32)(fd->rs_out_msb | fd->rs_out_msb << 8 |
-								fd->rs_out_msb << 16); //0x00030303
-		rs_tbl[i][POS_RSCON_OUT_BA_MSB] = (u32)(fd->rs_out_msb | fd->rs_out_msb << 8 |
-								fd->rs_out_msb << 16); //0x00030303
+
+		msb_bit_0 = (fd->base_para->rs_pym_rst_pa[i][0] &
+							0xf00000000) >> 32;
+		msb_bit_1 = (fd->base_para->rs_pym_rst_pa[i][1] &
+							0xf00000000) >> 32;
+		msb_bit_2 = (fd->base_para->rs_pym_rst_pa[i][2] &
+							0xf00000000) >> 32;
+
+		rs_tbl[i][POS_RSCON_IN_BA_MSB] = (u32)(msb_bit_0 | msb_bit_1 << 8 |
+							msb_bit_2 << 16); //0x00030303
 
 		rs_tbl[i][RS_IN_0] = (u32)fd->base_para->rs_pym_rst_pa[i][0];
 		rs_tbl[i][RS_IN_1] = (u32)fd->base_para->rs_pym_rst_pa[i][1];
 		rs_tbl[i][RS_IN_2] = (u32)fd->base_para->rs_pym_rst_pa[i][2];
+
+		msb_bit_0 = (fd->base_para->rs_pym_rst_pa[i + 1][0] &
+							0xf00000000) >> 32;
+		msb_bit_1 = (fd->base_para->rs_pym_rst_pa[i + 1][1] &
+							0xf00000000) >> 32;
+		msb_bit_2 = (fd->base_para->rs_pym_rst_pa[i + 1][2] &
+							0xf00000000) >> 32;
+
+		rs_tbl[i][POS_RSCON_OUT_BA_MSB] = (u32)(msb_bit_0 | msb_bit_1 << 8 |
+							msb_bit_2 << 16); //0x00030303
 
 		rs_tbl[i][RS_OUT_0] =
 			(u32)fd->base_para->rs_pym_rst_pa[i + 1][0];
@@ -3018,6 +3141,7 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	u32 src_crop_w  = 0;
 	u32 src_crop_h = 0;
 	struct aie_static_info *pstv = NULL;
+	int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0, msb_bit_3 = 0;
 
 	pstv = &fd->st_info;
 
@@ -3043,29 +3167,13 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 			(fd_cur_cfg[FD_INPUT_ROTATE] & 0xFFFF0FFF) |
 			((aie_cfg->rotate_degree << 12) & 0x3000);
 
-		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)(fd->kernel_dma_msb |
-							fd->kernel_dma_msb << 8); //0x00000303
-
-
 		if (i == 0) {
-			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
-						fd->rs_out_msb << 8 | fd->rs_out_msb << 16 |
-						fd->rs_out_msb << 24); //pyramid: 0x03030303
 			input_height = pyramid2_out_h;
 		} else if (i == (rpn2_loop_num + 1)) {
-			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
-						fd->rs_out_msb << 8 |  fd->rs_out_msb << 16 |
-						fd->rs_out_msb << 24); //pyramid: 0x03030303
 			input_height = pyramid1_out_h;
 		} else if (i == (rpn1_loop_num + 1)) {
-			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
-						fd->rs_out_msb << 8 |  fd->rs_out_msb << 16 |
-						fd->rs_out_msb << 24); //pyramid: 0x03030303
 			input_height = pyramid0_out_h;
 		} else {
-			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->fd_dma_msb |
-						fd->fd_dma_msb << 8 |  fd->fd_dma_msb << 16 |
-						fd->fd_dma_msb << 24); //fd_dma: 0x03030303
 			if (fd_out_stride2_in[i] == 0)
 				input_height = out_height;
 			else
@@ -3156,16 +3264,11 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		}
 
 		if (i == rpn0_loop_num || i == rpn1_loop_num || i == rpn2_loop_num) {
-			fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
-						fd->rst_dma_msb << 8 |  fd->rst_dma_msb << 16 |
-						fd->rst_dma_msb << 24); //result: 0x03030303
+
 			fd_cur_cfg[FD_RPN_SET] =
 				aie_combine_u16(fd_cur_cfg[FD_RPN_SET],
 						fd->base_para->rpn_anchor_thrd);
-		} else
-			fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->fd_dma_msb |
-						fd->fd_dma_msb << 8 | fd->fd_dma_msb << 16 |
-						fd->fd_dma_msb << 24); //fd_dma: 0x03030303
+		}
 
 		if (i == rpn0_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
@@ -3195,6 +3298,15 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 
 		/* IN_FM_BASE_ADR */
 		if (i == 0) {
+			msb_bit_0 = (fd->base_para->rs_pym_rst_pa[2][0] &
+								0xf00000000) >> 32;
+			msb_bit_1 = (fd->base_para->rs_pym_rst_pa[2][1] &
+								0xf00000000) >> 32;
+			msb_bit_2 = (fd->base_para->rs_pym_rst_pa[2][2] &
+								0xf00000000) >> 32;
+
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(msb_bit_0 |
+				msb_bit_1 << 8 | msb_bit_2 << 16);
 			fd_cur_cfg[FD_IN_0] =
 				(u32)(fd->base_para->rs_pym_rst_pa[2][0]);
 			fd_cur_cfg[FD_IN_1] =
@@ -3202,6 +3314,16 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 			fd_cur_cfg[FD_IN_2] =
 				(u32)(fd->base_para->rs_pym_rst_pa[2][2]);
 		} else if (i == (rpn2_loop_num + 1)) {
+			msb_bit_0 = (fd->base_para->rs_pym_rst_pa[1][0] &
+								0xf00000000) >> 32;
+			msb_bit_1 = (fd->base_para->rs_pym_rst_pa[1][1] &
+								0xf00000000) >> 32;
+			msb_bit_2 = (fd->base_para->rs_pym_rst_pa[1][2] &
+								0xf00000000) >> 32;
+
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(msb_bit_0 |
+				msb_bit_1 << 8 |  msb_bit_2 << 16);
+
 			fd_cur_cfg[FD_IN_0] =
 				(u32)(fd->base_para->rs_pym_rst_pa[1][0]);
 			fd_cur_cfg[FD_IN_1] =
@@ -3209,6 +3331,15 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 			fd_cur_cfg[FD_IN_2] =
 				(u32)(fd->base_para->rs_pym_rst_pa[1][2]);
 		} else if (i == (rpn1_loop_num + 1)) {
+			msb_bit_0 = (fd->base_para->rs_pym_rst_pa[0][0] &
+								0xf00000000) >> 32;
+			msb_bit_1 = (fd->base_para->rs_pym_rst_pa[0][1] &
+								0xf00000000) >> 32;
+			msb_bit_2 = (fd->base_para->rs_pym_rst_pa[0][2] &
+								0xf00000000) >> 32;
+
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(msb_bit_0 |
+						msb_bit_1 << 8 |  msb_bit_2 << 16);
 			fd_cur_cfg[FD_IN_0] =
 				(u32)(fd->base_para->rs_pym_rst_pa[0][0]);
 			fd_cur_cfg[FD_IN_1] =
@@ -3220,6 +3351,26 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 				if (fd_rdma_en[i][j][0] != -1) {
 					uloop = fd_rdma_en[i][j][0];
 					uch = fd_rdma_en[i][j][1];
+					if (j == 0) {
+						msb_bit_0 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
+								& 0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |= (u32)(msb_bit_0);
+					} else if (j == 1) {
+						msb_bit_1 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
+								& 0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
+								(u32)(msb_bit_1 << 8);
+					} else if (j == 2) {
+						msb_bit_2 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
+								& 0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
+								(u32)(msb_bit_2 << 16);
+					} else if (j == 3) {
+						msb_bit_3 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
+								& 0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
+								(u32)(msb_bit_3 << 24);
+					}
 					fd_cur_cfg[FD_IN_0 + j] = (u32)(
 						fd->dma_para
 							->fd_out_hw_pa[uloop]
@@ -3231,6 +3382,24 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		/* OUT_FM_BASE_ADR */
 		for (j = 0; j < output_WDMA_WRA_num; j++) {
 			if (fd_wdma_en[i][j]) {
+				if (j == 0) {
+					msb_bit_0 = (fd->dma_para->fd_out_hw_pa[i][j] &
+								0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_0);
+				} else if (j == 1) {
+					msb_bit_1 = (fd->dma_para->fd_out_hw_pa[i][j] &
+								0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_1 << 8);
+				} else if (j == 2) {
+					msb_bit_2 = (fd->dma_para->fd_out_hw_pa[i][j] &
+								0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_2 << 16);
+				} else if (j == 3) {
+					msb_bit_3 = (fd->dma_para->fd_out_hw_pa[i][j] &
+								0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_3 << 24);
+				}
+
 				fd_cur_cfg[FD_OUT_0 + j] =
 					(u32)(fd->dma_para->fd_out_hw_pa[i][j]);
 			}
@@ -3239,6 +3408,17 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		/* KERNEL_BASE_ADR */
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
 			if (fd_ker_rdma_size[i][j]) {
+				if (j == 0) {
+					msb_bit_0 = (fd->dma_para->fd_kernel_pa[i][j] &
+								0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] |= (u32)(msb_bit_0);
+				} else if (j == 1) {
+					msb_bit_1 = (fd->dma_para->fd_kernel_pa[i][j] &
+								0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] |=
+								(u32)(msb_bit_1 << 8);
+				}
+
 				fd_cur_cfg[FD_KERNEL_0 + j] =
 					(u32)(fd->dma_para->fd_kernel_pa[i][j]);
 			}
@@ -3262,6 +3442,7 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 	int fd_conv_ht;
 	u16 src_crop_w;
 	u16 src_crop_h;
+	int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0, msb_bit_3 = 0;
 
 	src_crop_w = fd->attr_para->crop_width[fd->attr_para->w_idx];
 	src_crop_h = fd->attr_para->crop_height[fd->attr_para->w_idx];
@@ -3277,24 +3458,9 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 			(fd_cur_cfg[FD_INPUT_ROTATE] & 0xFFFF0FFF) |
 			((aie_cfg->rotate_degree << 12) & 0x3000);
 
-		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)(fd->kernel_dma_msb |
-							fd->kernel_dma_msb << 8); //0x00000303
-		fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->attr_dma_msb |
-							fd->attr_dma_msb << 8 |
-							fd->attr_dma_msb << 16 |
-							fd->attr_dma_msb << 24); //0x03030303
-
 		if (i == 0) {
 			fd_input_ht = pyramid0_out_h;
-			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->rs_out_msb |
-							fd->rs_out_msb << 8 |
-							fd->rs_out_msb << 16 |
-							fd->rs_out_msb << 24); //pyramid: 03030303
 		} else {
-			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(fd->attr_dma_msb |
-							fd->attr_dma_msb << 8 |
-							fd->attr_dma_msb << 16 |
-							fd->attr_dma_msb << 24); //fd_dram: 03030303
 			if (attr_out_stride2_as_in[i] == 0)
 				fd_input_ht = fd_output_ht;
 			else if (attr_out_stride2_as_in[i] == 1)
@@ -3350,6 +3516,16 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 
 		/* IN_FM_BASE_ADR */
 		if (i == 0) {
+			msb_bit_0 = (fd->base_para->rs_pym_rst_pa[0][0] &
+								0xf00000000) >> 32;
+			msb_bit_1 = (fd->base_para->rs_pym_rst_pa[0][1] &
+								0xf00000000) >> 32;
+			msb_bit_2 = (fd->base_para->rs_pym_rst_pa[0][2] &
+								0xf00000000) >> 32;
+
+			fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)(msb_bit_0 |
+							msb_bit_1 << 8 |
+							msb_bit_2 << 16);
 			fd_cur_cfg[FD_IN_0] =
 				(u32)(fd->base_para->rs_pym_rst_pa[0][0]);
 			fd_cur_cfg[FD_IN_1] =
@@ -3358,9 +3534,35 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 				(u32)(fd->base_para->rs_pym_rst_pa[0][2]);
 		} else {
 			for (j = 0; j < input_WDMA_WRA_num; j++) {
+
 				if (attr_rdma_en[i][j][0] != -1) {
 					uloop = attr_rdma_en[i][j][0];
 					uch = attr_rdma_en[i][j][1];
+					if (j == 0) {
+						msb_bit_0 =
+						(fd->dma_para->attr_out_hw_pa[uloop][uch] &
+								0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |= (u32)(msb_bit_0);
+					} else if (j == 1) {
+						msb_bit_1 =
+						(fd->dma_para->attr_out_hw_pa[uloop][uch] &
+								0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
+								(u32)(msb_bit_1 << 8);
+					} else if (j == 2) {
+						msb_bit_2 =
+						(fd->dma_para->attr_out_hw_pa[uloop][uch] &
+								0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
+								(u32)(msb_bit_2 << 16);
+					} else if (j == 3) {
+						msb_bit_3 =
+						(fd->dma_para->attr_out_hw_pa[uloop][uch] &
+								0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
+								(u32)(msb_bit_3 << 24);
+					}
+
 					fd_cur_cfg[FD_IN_0 + j] = (u32)(
 						fd->dma_para
 							->attr_out_hw_pa[uloop]
@@ -3374,38 +3576,57 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 			if (attr_wdma_en[i][j]) {
 				uidx = fd->attr_para->w_idx;
 				if (i == age_out_rgs && j == 0) {
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
-							fd->rst_dma_msb << 8 |
-							fd->rst_dma_msb << 16 |
-							fd->rst_dma_msb << 24); //result: 0x03030303
+					msb_bit_0 = (fd->dma_para->age_out_hw_pa[uidx] &
+									0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)msb_bit_0;
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para
 							->age_out_hw_pa[uidx]);
 				} else if (i == gender_out_rgs && j == 0) {
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
-							fd->rst_dma_msb << 8 |
-							fd->rst_dma_msb << 16 |
-							fd->rst_dma_msb << 24);//result: 0x03030303
+					msb_bit_0 = (fd->dma_para->gender_out_hw_pa[uidx] &
+									0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)msb_bit_0;
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para->gender_out_hw_pa
 							[uidx]);
 				} else if (i == indian_out_rgs && j == 0) {
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
-							fd->rst_dma_msb << 8 |
-							fd->rst_dma_msb << 16 |
-							fd->rst_dma_msb << 24); //result: 0x03030303
+					msb_bit_0 = (fd->dma_para->isIndian_out_hw_pa[uidx] &
+									0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)msb_bit_0;
+
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para->isIndian_out_hw_pa
 							[uidx]);
 				} else if (i == race_out_rgs && j == 0) {
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)(fd->rst_dma_msb |
-							fd->rst_dma_msb << 8 |
-							fd->rst_dma_msb << 16 |
-							fd->rst_dma_msb << 24); //result: 0x03030303
+					msb_bit_0 = (fd->dma_para->race_out_hw_pa[uidx] &
+									0xf00000000) >> 32;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)msb_bit_0;
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para
 							->race_out_hw_pa[uidx]);
 				} else {
+					if (j == 0) {
+						msb_bit_0 = (fd->dma_para->attr_out_hw_pa[i][j] &
+									0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |=
+									(u32)(msb_bit_0);
+					} else if (j == 1) {
+						msb_bit_1 = (fd->dma_para->attr_out_hw_pa[i][j] &
+									0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |=
+									(u32)(msb_bit_1 << 8);
+					} else if (j == 2) {
+						msb_bit_2 = (fd->dma_para->attr_out_hw_pa[i][j] &
+									0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |=
+									(u32)(msb_bit_2 << 16);
+					} else if (j == 3) {
+						msb_bit_3 = (fd->dma_para->attr_out_hw_pa[i][j] &
+									0xf00000000) >> 32;
+						fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |=
+									(u32)(msb_bit_3 << 24);
+					}
+
 					fd_cur_cfg[FD_OUT_0 + j] = (u32)(
 						fd->dma_para
 							->attr_out_hw_pa[i][j]);
@@ -3415,6 +3636,15 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 
 		/* KERNEL_BASE_ADR */
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
+			if (j == 0) {
+				msb_bit_0 = (fd->dma_para->attr_kernel_pa[i][j] &
+								0xf00000000) >> 32;
+				fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] |= (u32)(msb_bit_0);
+			} else if (j == 1) {
+				msb_bit_1 = (fd->dma_para->attr_kernel_pa[i][j] &
+								0xf00000000) >> 32;
+				fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] |= (u32)(msb_bit_1 << 8);
+			}
 			fd_cur_cfg[FD_KERNEL_0 + j] =
 				(u32)(fd->dma_para->attr_kernel_pa[i][j]);
 		}
@@ -3530,7 +3760,20 @@ int aie_init(struct mtk_aie_dev *fd)
 	fd->fd_state = STATE_NA;
 
 	dev_info(fd->dev, "AIE INIT!\n");
-
+#if CHECK_SERVICE_IF_0
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_RDA0,
+		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
+		NULL, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_RDB0,
+		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
+		NULL, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_WRA0,
+		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
+		NULL, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_WRB0,
+		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
+		NULL, false);
+#endif
 	fd->base_para = kmalloc(sizeof(struct aie_para), GFP_KERNEL);
 	if (fd->base_para == NULL)
 		return -ENOMEM;
