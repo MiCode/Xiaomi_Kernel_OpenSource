@@ -252,6 +252,12 @@ struct mtk_cam_uapi_af_param {
 	__u32 data_gain[7];
 };
 
+enum mtk_cam_uapi_flk_hdr_path_control {
+	MTKCAM_UAPI_FKLO_HDR_1ST_FRAME = 0,
+	MTKCAM_UAPI_FKLO_HDR_2ND_FRAME,
+	MTKCAM_UAPI_FKLO_HDR_3RD_FRAME,
+};
+
 /*
  *  struct mtk_cam_uapi_flk_param
  *
@@ -264,6 +270,7 @@ struct mtk_cam_uapi_af_param {
  *              this value is considered as noise
  *  @saturate_thr: the saturation threshold of pixel value, pixel value
  *                 higher than this value is considered as saturated
+ *  @hdr_flk_src: flk source tap point selection
  */
 struct mtk_cam_uapi_flk_param {
 	__u32 input_bit_sel;
@@ -272,6 +279,7 @@ struct mtk_cam_uapi_flk_param {
 	__u32 sgg_val[8];
 	__u32 noise_thr;
 	__u32 saturate_thr;
+	__u32 hdr_flk_src;
 };
 
 /*
@@ -628,7 +636,7 @@ struct mtk_cam_uapi_pd_stats {
 /**
  *  T O N E
  */
-#define MTK_CAM_UAPI_LTMSO_SIZE ((70*12*9 + 514) * 4)
+#define MTK_CAM_UAPI_LTMSO_SIZE ((37*12*9 + 258) * 8)
 #define MTK_CAM_UAPI_TNCSO_SIZE (680*510*2)
 #define MTK_CAM_UAPI_TNCSHO_SIZE (1544)
 #define MTK_CAM_UAPI_TNCSBO_SIZE (3888)
@@ -842,7 +850,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 3
+#define MTK_CAM_META_VERSION_MINOR 4
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6983"
 
