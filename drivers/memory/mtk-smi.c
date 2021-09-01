@@ -175,6 +175,12 @@ void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev);
 
+	if (port >= SMI_COMMON_LARB_NR_MAX) { /* max: 8 input larbs. */
+		dev_err(dev, "%s port invalid:%d, val:%u.\n", __func__,
+			port, val);
+		return;
+	}
+
 	if (common->plat->gen == MTK_SMI_GEN3)
 		common->plat->bwl[common->commid * SMI_COMMON_LARB_NR_MAX + port] = val;
 	else if (common->plat->gen == MTK_SMI_GEN2)
@@ -192,6 +198,11 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 
+	if (port >= SMI_LARB_PORT_NR_MAX) { /* max: 32 ports for a larb */
+		dev_err(dev, "%s port invalid:%d, val:%u.\n", __func__,
+			port, val);
+		return;
+	}
 	if (val) {
 		larb->larb_gen->bwl[larb->larbid * SMI_LARB_PORT_NR_MAX + port] = val;
 		if (atomic_read(&larb->smi.ref_count)) {
