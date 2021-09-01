@@ -243,10 +243,23 @@ struct mtk_imgsys_qos {
 };
 
 struct gce_work {
+	struct list_head entry;
+	struct work_pool *pool;
 	struct imgsys_work work;
 	struct mtk_imgsys_request *req;
 	void *req_sbuf_kva;
 };
+
+#define GCE_WORK_NR (128)
+struct work_pool {
+	atomic_t num;
+	struct list_head free_list;
+	struct list_head used_list;
+	spinlock_t lock;
+	wait_queue_head_t waitq;
+	void *_cookie;
+};
+
 #define RUNNER_WQ_NR (4)
 typedef void (*debug_dump)(struct mtk_imgsys_dev *imgsys_dev, 		\
 	const struct module_ops *imgsys_modules, int imgsys_module_num,	\
@@ -267,6 +280,8 @@ struct mtk_imgsys_dev {
 	struct workqueue_struct *mdp_wq[RUNNER_WQ_NR];
 	struct imgsys_queue runnerque;
 	wait_queue_head_t flushing_waitq;
+
+	struct work_pool gwork_pool;
 	atomic_t num_composing;	/* increase after ipi */
 	/*MDP/GCE callback workqueue */
 	struct workqueue_struct *mdpcb_wq;

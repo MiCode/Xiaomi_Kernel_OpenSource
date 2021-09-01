@@ -1129,6 +1129,109 @@ static void dip_runner_func_batch(struct work_struct *work)
 #endif
 #endif
 
+static int gce_work_pool_init(struct mtk_imgsys_dev *dev)
+{
+	struct gce_work *gwork = NULL;
+	struct work_pool *gwork_pool;
+	signed int i;
+	int ret = 0;
+
+	gwork_pool = &dev->gwork_pool;
+	spin_lock_init(&gwork_pool->lock);
+	INIT_LIST_HEAD(&gwork_pool->free_list);
+	INIT_LIST_HEAD(&gwork_pool->used_list);
+	gwork = vzalloc(sizeof(struct gce_work) * GCE_WORK_NR);
+	if (!gwork)
+		return -ENOMEM;
+
+	gwork_pool->_cookie = (void *)gwork;
+	for (i = 0; i < GCE_WORK_NR; i++) {
+		list_add_tail(&gwork[i].entry, &gwork_pool->free_list);
+		gwork[i].pool = gwork_pool;
+	}
+	atomic_set(&gwork_pool->num, i);
+	init_waitqueue_head(&gwork_pool->waitq);
+
+	return ret;
+}
+
+static void gce_work_pool_uninit(struct mtk_imgsys_dev *dev)
+{
+	struct gce_work *gwork, *g0;
+	struct work_pool *pool;
+
+	pool = &dev->gwork_pool;
+
+	spin_lock(&pool->lock);
+	list_for_each_entry_safe(gwork, g0, &pool->free_list, entry) {
+		list_del(&gwork->entry);
+		atomic_dec(&pool->num);
+	}
+	list_for_each_entry_safe(gwork, g0, &pool->used_list, entry) {
+		list_del(&gwork->entry);
+		atomic_dec(&pool->num);
+	}
+	spin_unlock(&pool->lock);
+
+	if (pool->_cookie) {
+		vfree(pool->_cookie);
+		pool->_cookie = NULL;
+	}
+
+	if (atomic_read(&pool->num))
+		dev_info(dev->dev, "%s: %d works not freed", __func__,
+					atomic_read(&pool->num));
+}
+
+static bool work_pool_avail(struct work_pool *pool)
+{
+	bool empty;
+
+	spin_lock(&pool->lock);
+	empty = list_empty(&pool->free_list);
+	spin_unlock(&pool->lock);
+
+	return !empty;
+}
+
+static struct gce_work *get_gce_work(struct mtk_imgsys_dev *dev)
+{
+	struct gce_work *gwork = NULL;
+	struct work_pool *gwork_pool;
+	int ret;
+
+	gwork_pool = &dev->gwork_pool;
+	ret = wait_event_interruptible_timeout(gwork_pool->waitq, work_pool_avail(gwork_pool),
+								msecs_to_jiffies(3000));
+
+	if (!ret) {
+		dev_info(dev->dev, "%s wait for gce pool timeout\n", __func__);
+		return NULL;
+	} else if (-ERESTARTSYS == ret) {
+		dev_info(dev->dev, "%s wait for gce pool interrupted !\n", __func__);
+		return NULL;
+	}
+
+	spin_lock(&gwork_pool->lock);
+	gwork = list_first_entry(&gwork_pool->free_list, struct gce_work, entry);
+	list_del(&gwork->entry);
+	list_add_tail(&gwork->entry, &gwork_pool->used_list);
+	spin_unlock(&gwork_pool->lock);
+
+	return gwork;
+}
+
+static void put_gce_work(struct gce_work *gwork)
+{
+	struct work_pool *gwork_pool;
+
+	gwork_pool = gwork->pool;
+	spin_lock(&gwork_pool->lock);
+	list_del(&gwork->entry);
+	list_add_tail(&gwork->entry, &gwork_pool->free_list);
+	spin_unlock(&gwork_pool->lock);
+}
+
 static void imgsys_runner_func(void *data)
 {
 	struct imgsys_work *iwork = (struct imgsys_work *) data;
@@ -1173,8 +1276,7 @@ static void imgsys_runner_func(void *data)
 		dev_info(imgsys_dev->dev,
 			"%s: imgsys_cmdq_sendtask fail(%d)\n", __func__, ret);
 	}
-
-	vfree(work);
+	put_gce_work(work);
 }
 
 static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
@@ -1310,7 +1412,6 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		req->tstate.time_reddonescpStart = time_local_reddonescpStart;
 
 	swfrm_cnt = atomic_inc_return(&req->swfrm_cnt);
-
 	if (swfrm_cnt == 1)
 		dev_dbg(imgsys_dev->dev,
 		"%d:%d:%s: request num(%d)/frame no(%d), request fd(%d) kva(0x%lx) tfnum(%d) sidx(%d)\n",
@@ -1348,7 +1449,10 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	if (!swfrm_info->user_info[0].subfrm_idx)
 		req->tstate.time_qw2runner = ktime_get_boottime_ns()/1000;
 
-	gwork = vzalloc(sizeof(struct gce_work));
+	gwork = get_gce_work(imgsys_dev);
+	if (!gwork)
+		return;
+
 	gwork->req = req;
 	gwork->req_sbuf_kva = (void *)swfrm_info;
 	gwork->work.run = imgsys_runner_func;
@@ -1674,6 +1778,13 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		return -EBUSY;
 	}
 
+	ret = gce_work_pool_init(imgsys_dev);
+	if (ret) {
+		dev_info(imgsys_dev->dev, "%s: gce work pool allocate failed %d\n",
+			__func__, ret);
+		return -EBUSY;
+	}
+
 	/* calling cmdq stream on */
 	imgsys_cmdq_streamon(imgsys_dev);
 
@@ -1726,6 +1837,7 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 			imgsys_dev->modules[i].uninit(imgsys_dev);
 	}
 	mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
+	gce_work_pool_uninit(imgsys_dev);
 
 	#if DVFS_QOS_READY
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
