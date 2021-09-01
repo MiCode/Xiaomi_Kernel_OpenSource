@@ -352,6 +352,12 @@ static inline int alloc_bat_skb(
 			return ret;
 	}
 
+	if (!bat_skb->skb) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] g_skb_tbl_cnt: %u; g_skb_tbl_idx: %u\n",
+			__func__, g_skb_tbl_cnt, g_skb_tbl_idx);
+	}
+
 	bat_skb->data_phy_addr = data_base_addr;
 	bat_skb->data_len = skb_data_size(bat_skb->skb);
 
@@ -632,6 +638,12 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 
 		if (atomic_read(&dpmaif_ctrl->bat_paused_alloc)
 				!= BAT_ALLOC_NO_PAUSED) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] bat_paused_alloc: %d; bat_need_alloc: %d\n",
+				__func__,
+				atomic_read(&dpmaif_ctrl->bat_paused_alloc),
+				atomic_read(&dpmaif_ctrl->bat_need_alloc));
+
 			if (atomic_read(&dpmaif_ctrl->bat_paused_alloc)
 					== BAT_ALLOC_IS_PAUSED) {
 				atomic_set(&dpmaif_ctrl->bat_paused_alloc,
