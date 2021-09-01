@@ -11,9 +11,11 @@
 #include <linux/of_address.h>
 #include <linux/rtc.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/signal.h>
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/sysrq.h>
+#include <sched/sched.h>
 #include <uapi/linux/sched/types.h>
 
 #include <mt-plat/mboot_params.h>
@@ -36,6 +38,7 @@
 #define WDT_STAGE_KERNEL    0x03
 #define CPU_NR (nr_cpu_ids)
 #define DEFAULT_INTERVAL    15
+#define WDT_COUNTER     0x514
 
 static int start_kicker(void);
 static int g_kicker_init;
@@ -253,6 +256,35 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	spin_unlock(&lock);
 
 	pr_info("%s", msg_buf);
+
+	if (msg_buf[5] == 'k' && toprgu_base) {
+		unsigned int r_counter = ioread32(toprgu_base + WDT_COUNTER);
+
+		r_counter /= (32 * 1024);
+		/*
+		 *If the remaing counter is less than 15s means
+		 * the watchdogd already stopped
+		 */
+		if (r_counter < DEFAULT_INTERVAL) {
+			struct task_struct *g, *t;
+
+			pr_info("WDT_COUNTER %d\n", r_counter);
+
+			for_each_process_thread(g, t) {
+
+				if (!strcmp(t->comm, "watchdogd")) {
+					struct rq *rq;
+
+					pr_info("watchdogd on CPU %d\n", t->cpu);
+					sched_show_task(t);
+
+					rq = cpu_rq(t->cpu);
+					if (rq)
+						sched_show_task(rq->curr);
+				}
+			}
+		}
+	}
 
 	if (dump_timeout) {
 		int dump = 0;
