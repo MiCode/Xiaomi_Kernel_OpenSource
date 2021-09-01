@@ -164,3 +164,12 @@
 
 	status = "ok";
 };
+
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};
+
