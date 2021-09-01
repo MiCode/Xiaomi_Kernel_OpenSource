@@ -1591,7 +1591,7 @@ static int mtk_camsys_ts_state_handle(
 				req_stream_data->timestamp = time_boot;
 				req_stream_data->timestamp_mono = time_mono;
 			}
-			dev_info(ctx->cam->dev,
+			dev_dbg(ctx->cam->dev,
 			"[TS-SOF] ctx:%d STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
 			ctx->stream_id, stateidx, req_stream_data->frame_seq_no,
 			state_rec[stateidx]->estate);
@@ -1664,7 +1664,7 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 		}
 		req_stream_data->timestamp = ktime_get_boottime_ns();
 		req_stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
-		dev_info(cam->dev,
+		dev_dbg(cam->dev,
 		"TS-SOF[ctx:%d-#%d], SV-ENQ req:%d is update, composed:%d, iova:0x%x, time:%lld\n",
 		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
 		ctx->composed_frame_seq_no, req_stream_data->frame_params.img_ins[0].buf[0].iova,
@@ -1898,7 +1898,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	}
 	/* Update CQ base address if needed */
 	if (ctx->composed_frame_seq_no <= dequeued_frame_seq_no) {
-		dev_info(raw_dev->dev,
+		dev_info_ratelimited(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ isn't updated [composed_frame_deq (%d) ]\n",
 			ctx->stream_id, dequeued_frame_seq_no,
 			ctx->composed_frame_seq_no);
@@ -1907,7 +1907,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
 	if (list_empty(&ctx->composed_buffer_list.list)) {
-		dev_info(raw_dev->dev,
+		dev_info_ratelimited(raw_dev->dev,
 			"SOF_INT_ST, no buffer update, cq_num:%d, frame_seq:%d\n",
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no);
 		spin_unlock(&ctx->composed_buffer_list.lock);
@@ -2088,7 +2088,7 @@ static void mtk_camsys_raw_m2m_cq_done(struct mtk_raw_device *raw_dev,
 	if (frame_seq_no_outer == 1)
 		stream_on(raw_dev, 1);
 
-	dev_info(raw_dev->dev,
+	dev_dbg(raw_dev->dev,
 		"[M2M CQD] frame_seq_no_outer:%d composed_buffer_list.cnt:%d\n",
 		frame_seq_no_outer, ctx->composed_buffer_list.cnt);
 
@@ -2184,7 +2184,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				frame_seq_no_outer > sensor_ctrl->isp_request_seq_no) {
 				state_transition(state_entry, E_STATE_TS_CQ,
 						E_STATE_TS_INNER);
-				dev_info(raw_dev->dev, "[TS-SOF] ctx:%d sw trigger rawi_r2 req:%d->%d, state:0x%x\n",
+				dev_dbg(raw_dev->dev, "[TS-SOF] ctx:%d sw trigger rawi_r2 req:%d->%d, state:0x%x\n",
 						ctx->stream_id, ctx->dequeued_frame_seq_no,
 						req_stream_data->frame_seq_no, state_entry->estate);
 				ctx->dequeued_frame_seq_no = frame_seq_no_outer;
@@ -3020,7 +3020,7 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	/* Update CQ base address if needed */
 	if (ctx->mraw_composed_frame_seq_no[mraw_dev_index] <=
 		dequeued_frame_seq_no) {
-		dev_info(mraw_dev->dev,
+		dev_info_ratelimited(mraw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ isn't updated [mraw_composed_frame_deq (%d) ]\n",
 			ctx->stream_id, dequeued_frame_seq_no,
 			ctx->mraw_composed_frame_seq_no[mraw_dev_index]);

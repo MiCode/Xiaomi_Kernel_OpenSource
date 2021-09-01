@@ -888,7 +888,7 @@ void apply_cq(struct mtk_raw_device *dev,
 	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d, REG_CQ_THR0_CTL:0x%8x\n",
 		dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset,
 		readl_relaxed(dev->base + REG_CQ_THR0_CTL));
@@ -925,7 +925,7 @@ void apply_cq(struct mtk_raw_device *dev,
 	} else {
 		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
 	}
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"apply raw%d scq - addr/size = [main] 0x%x/%d [sub] 0x%x/%d\n",
 		dev->id, cq_addr, cq_size, cq_addr + sub_cq_offset, sub_cq_size);
 }
