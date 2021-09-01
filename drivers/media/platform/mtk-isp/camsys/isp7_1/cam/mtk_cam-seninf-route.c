@@ -383,7 +383,6 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 					vc->out_pad = PAD_SRC_RAW0 + raw_cnt;
 					break;
 				}
-
 				++raw_cnt;
 				vc->feature = VC_RAW_DATA;
 				vc->group = grp++;
@@ -392,13 +391,25 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 					desc, vc->dt);
 				continue;
 			}
+			break;
 		}
 
 		if (vc->feature != VC_RAW_DATA) {
-			if (grp_metadata < 0)
-				grp_metadata = grp++;
-
-			vc->group = grp_metadata;
+			switch (vc->feature) {
+			case VC_PDAF_STATS_PIX_1:
+			case VC_PDAF_STATS_PIX_2:
+			case VC_PDAF_STATS_ME_PIX_1:
+			case VC_PDAF_STATS_ME_PIX_2:
+			case VC_PDAF_STATS_SE_PIX_1:
+			case VC_PDAF_STATS_SE_PIX_2:
+				vc->group = grp++;
+				break;
+			default:
+				if (grp_metadata < 0)
+					grp_metadata = grp++;
+				vc->group = grp_metadata;
+				break;
+			}
 		}
 
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
@@ -430,9 +441,10 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 				get_mbus_format_by_dt(vc->dt);
 		}
 
-		dev_info(ctx->dev, "vc[%d] vc 0x%x dt 0x%x pad %d exp %dx%d code 0x%x\n",
+		dev_info(ctx->dev, "%s vc[%d] vc 0x%x dt 0x%x pad %d exp %dx%d grp 0x%x code 0x%x\n",
+			__func__,
 			vcinfo->cnt, vc->vc, vc->dt, vc->out_pad,
-			vc->exp_hsize, vc->exp_vsize,
+			vc->exp_hsize, vc->exp_vsize, vc->group,
 			ctx->fmt[vc->out_pad].format.code);
 	}
 

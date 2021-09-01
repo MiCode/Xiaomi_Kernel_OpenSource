@@ -910,10 +910,9 @@ int update_isp_clk(struct seninf_ctx *ctx)
 	}
 	dev_info(ctx->dev, "%s pixel mode%d\n", __func__, vc->pixel_mode);
 	//Use SensorPixelrate
-	//if (ctx->buffered_pixel_rate)
-	//	pixel_rate = ctx->buffered_pixel_rate;
-	//else
-	if (ctx->mipi_pixel_rate)
+	if (ctx->buffered_pixel_rate)
+		pixel_rate = ctx->buffered_pixel_rate;
+	else if (ctx->mipi_pixel_rate)
 		pixel_rate = ctx->mipi_pixel_rate;
 	else {
 		dev_info(ctx->dev, "failed to get pixel_rate\n");
