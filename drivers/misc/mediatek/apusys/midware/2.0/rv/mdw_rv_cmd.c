@@ -62,6 +62,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_cmd *rmc = NULL;
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
+	int ret = 0;
 
 	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
 
@@ -103,6 +104,13 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		mdw_drv_err("c(0x%llx) alloc cb size(%u) fail\n",
 			c->kid, cb_size);
 		goto free_rc;
+	}
+
+	ret = mdw_mem_map(mpriv, rc->cb);
+	if (ret) {
+		mdw_drv_err("c(0x%llx) map cb size(%u) fail\n",
+			c->kid, cb_size);
+		goto free_mem;
 	}
 
 	/* assign cmd info */
@@ -173,6 +181,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	goto out;
 
+free_mem:
+	mdw_mem_free(mpriv, rc->cb);
 free_rc:
 	vfree(rc);
 	rc = NULL;
@@ -185,7 +195,7 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
 	if (!rc)
 		return -EINVAL;
-
+	mdw_mem_unmap(rc->c->mpriv, rc->cb);
 	mdw_mem_free(rc->c->mpriv, rc->cb);
 	vfree(rc);
 

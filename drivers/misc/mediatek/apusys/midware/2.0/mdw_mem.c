@@ -15,9 +15,9 @@
 #include "mdw_trace.h"
 
 #define mdw_mem_show(m) \
-	mdw_mem_debug("mem(%p/%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d" \
+	mdw_mem_debug("mem(0x%llx/0x%llx/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d" \
 	"/%d/%p)(%d)\n", \
-	m->mpriv, m, m->handle, (uint64_t)m->vaddr, m->size, \
+	(uint64_t) m->mpriv, (uint64_t) m, m->handle, (uint64_t)m->vaddr, m->size, \
 	m->device_va, m->align, m->flags, m->type, \
 	kref_read(&m->map_ref), m->priv, current->pid)
 
@@ -25,6 +25,22 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 {
 	return mdw_mem_dma_get(handle);
 }
+
+void mdw_mem_all_print(struct mdw_fpriv *mpriv)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct mdw_mem *m = NULL;
+
+	mdw_mem_debug("---list--\n");
+	mutex_lock(&mpriv->mtx);
+	list_for_each_safe(list_ptr, tmp, &mpriv->mems) {
+		m = list_entry(list_ptr, struct mdw_mem, u_item);
+		mdw_mem_show(m);
+	}
+	mutex_unlock(&mpriv->mtx);
+	mdw_mem_debug("---list--\n");
+}
+
 
 static void mdw_mem_delete(struct mdw_mem *m)
 {
@@ -93,6 +109,7 @@ static void mdw_mem_map_release(struct kref *ref)
 	}
 }
 
+
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint64_t flags, enum mdw_mem_type type)
 {
@@ -136,14 +153,16 @@ int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	int ret = 0;
 
+	mdw_mem_show(m);
+
 	mdw_trace_begin("%s|size(%u) align(%u)",
 		__func__, m->size, m->align);
 
-	mdw_mem_show(m);
 	ret = mdw_mem_dma_free(m);
 
 	mdw_trace_end("%s|size(%u) align(%u)",
 		__func__, m->size, m->align);
+
 
 	return ret;
 }
@@ -152,31 +171,65 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	int ret = 0;
 
-	mdw_mem_show(m);
-
+	/* Already exit*/
 	if (kref_read(&m->map_ref)) {
 		kref_get(&m->map_ref);
 		ret = 0;
 	} else {
-		if (mdw_mem_dma_map(m))
+		ret = mdw_mem_dma_map(m);
+		if (ret) {
+			mdw_drv_err("map fail %d\n", ret);
 			goto out;
+		}
 		kref_init(&m->map_ref);
 	}
-
+	mdw_mem_show(m);
 out:
 	return ret;
 }
 
 int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
-	mdw_mem_show(m);
 	if (!kref_read(&m->map_ref)) {
 		mdw_drv_warn("can't unmap mem\n");
 		return -EINVAL;
 	}
-
+	mdw_mem_show(m);
 	kref_put(&m->map_ref, mdw_mem_map_release);
+
 	return 0;
+}
+
+int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	int ret = 0;
+
+	ret = mdw_mem_dma_flush(m);
+	if (ret) {
+		mdw_drv_err("Flush Fail\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	mdw_mem_show(m);
+out:
+	return ret;
+}
+
+int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	int ret = 0;
+
+	ret = mdw_mem_dma_invalidate(m);
+	if (ret) {
+		mdw_drv_err("Invalidate Fail\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	mdw_mem_show(m);
+out:
+	return ret;
 }
 
 static struct mdw_mem *mdw_mem_import(struct mdw_fpriv *mpriv,
@@ -236,11 +289,14 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 		return -ENOMEM;
 	}
 
+	args->out.alloc.handle = m->handle;
+
+	mdw_mem_show(m);
+
 	mutex_lock(&mpriv->mtx);
 	list_add_tail(&m->u_item, &mpriv->mems);
 	mutex_unlock(&mpriv->mtx);
 
-	args->out.alloc.handle = m->handle;
 	return ret;
 }
 
@@ -254,7 +310,6 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 	memset(args, 0, sizeof(*args));
 
-	mdw_mem_debug("handle = %llu\n", handle);
 	mutex_lock(&mpriv->mtx);
 	m = mdw_mem_get(mpriv, handle);
 	if (!m) {
@@ -266,14 +321,10 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	}
 
 	/* already exist */
-	if (kref_read(&m->map_ref)) {
-		kref_get(&m->map_ref);
-		ret = 0;
-	} else {
-		ret = mdw_mem_map(mpriv, m);
-		if (ret)
-			mdw_drv_err("map fail\n");
-	}
+	ret = mdw_mem_map(mpriv, m);
+	if (ret)
+		mdw_drv_err("map fail\n");
+
 
 	mdw_mem_show(m);
 
@@ -299,11 +350,54 @@ static int mdw_mem_ioctl_unmap(struct mdw_fpriv *mpriv,
 	if (!m)
 		goto out;
 
+	mdw_mem_show(m);
 	ret = mdw_mem_unmap(mpriv, m);
 
 out:
 	mutex_unlock(&mpriv->mtx);
 
+	return ret;
+}
+
+static int mdw_mem_ioctl_flush(struct mdw_fpriv *mpriv,
+	union mdw_mem_args *args)
+{
+	struct mdw_mem_in *in = (struct mdw_mem_in *)args;
+	struct mdw_mem *m = NULL;
+	int ret = -ENOMEM, handle = in->flush.handle;
+
+	memset(args, 0, sizeof(*args));
+
+	mutex_lock(&mpriv->mtx);
+	m = mdw_mem_get(mpriv, handle);
+	if (!m)
+		goto out;
+
+	ret = mdw_mem_flush(mpriv, m);
+	mdw_mem_show(m);
+out:
+	mutex_unlock(&mpriv->mtx);
+	return ret;
+}
+
+static int mdw_mem_ioctl_invalidate(struct mdw_fpriv *mpriv,
+	union mdw_mem_args *args)
+{
+	struct mdw_mem_in *in = (struct mdw_mem_in *)args;
+	struct mdw_mem *m = NULL;
+	int ret = -ENOMEM, handle = in->invalidate.handle;
+
+	memset(args, 0, sizeof(*args));
+
+	mutex_lock(&mpriv->mtx);
+	m = mdw_mem_get(mpriv, handle);
+	if (!m)
+		goto out;
+
+	ret = mdw_mem_invalidate(mpriv, m);
+	mdw_mem_show(m);
+out:
+	mutex_unlock(&mpriv->mtx);
 	return ret;
 }
 
@@ -329,6 +423,14 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
 
 	case MDW_MEM_IOCTL_UNMAP:
 		ret = mdw_mem_ioctl_unmap(mpriv, args);
+		break;
+
+	case MDW_MEM_IOCTL_FLUSH:
+		ret = mdw_mem_ioctl_flush(mpriv, args);
+		break;
+
+	case MDW_MEM_IOCTL_INVALIDATE:
+		ret = mdw_mem_ioctl_invalidate(mpriv, args);
 		break;
 
 	default:
@@ -366,14 +468,38 @@ uint64_t apusys_mem_query_iova(uint64_t kva)
 
 int apusys_mem_flush_kva(void *kva, uint32_t size)
 {
-	/* TODO */
-	mdw_mem_debug("\n");
-	return 0;
+	struct mdw_mem *m = NULL;
+	int ret = 0;
+
+	m = mdw_mem_dma_query_mem((uint64_t)kva);
+	if (!m) {
+		mdw_drv_err("No Mem\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = mdw_mem_flush(m->mpriv, m);
+	mdw_mem_debug("flush kva 0x%llx\n", (uint64_t)kva);
+
+out:
+	return ret;
 }
 
 int apusys_mem_invalidate_kva(void *kva, uint32_t size)
 {
-	/* TODO */
-	mdw_mem_debug("\n");
-	return 0;
+	struct mdw_mem *m = NULL;
+	int ret = 0;
+
+	m = mdw_mem_dma_query_mem((uint64_t)kva);
+	if (!m) {
+		mdw_drv_err("No Mem\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = mdw_mem_invalidate(m->mpriv, m);
+
+	mdw_mem_debug("invalidate kva 0x%llx\n", (uint64_t)kva);
+out:
+	return ret;
 }

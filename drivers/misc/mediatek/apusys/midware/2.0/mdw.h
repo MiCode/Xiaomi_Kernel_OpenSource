@@ -230,12 +230,16 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
+void mdw_mem_all_print(struct mdw_fpriv *mpriv);
+
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle);
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint64_t flags, enum mdw_mem_type type);
 int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 
 int mdw_sysfs_init(struct mdw_device *mdev);
 void mdw_sysfs_deinit(struct mdw_device *mdev);

@@ -30,9 +30,23 @@ static int apumem_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "type", &type);
 
 
-	pr_info("%s mask %llx type %u\n", __func__, mask, type);
+	pr_info("%s mask 0x%llx type %u\n", __func__, mask, type);
 
-	dma_set_mask_and_coherent(dev, mask);
+	ret = dma_set_mask_and_coherent(dev, mask);
+	if (ret) {
+		dev_info(&pdev->dev, "unable to set DMA mask coherent: %d\n", ret);
+		return ret;
+	}
+
+	pr_info("%s dma_set_mask_and_coherent 0x%llx type %u\n", __func__, mask, type);
+
+	ret = dma_set_mask(dev, mask);
+	if (ret) {
+		dev_info(&pdev->dev, "unable to set DMA mask: %d\n", ret);
+		return ret;
+	}
+
+	pr_info("%s dma_set_mask 0x%llx type %u\n", __func__, mask, type);
 
 	mdw_mem_rsc_register(&pdev->dev, type);
 

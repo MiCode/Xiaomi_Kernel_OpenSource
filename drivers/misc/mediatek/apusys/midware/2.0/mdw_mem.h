@@ -20,5 +20,8 @@ void mdw_mem_dma_deinit(void);
 struct mdw_mem *mdw_mem_dma_get(int handle);
 uint64_t mdw_mem_dma_query_kva(uint64_t iova);
 uint64_t mdw_mem_dma_query_iova(uint64_t kva);
+struct mdw_mem *mdw_mem_dma_query_mem(uint64_t kva);
+int mdw_mem_dma_flush(struct mdw_mem *mem);
+int mdw_mem_dma_invalidate(struct mdw_mem *mem);
 
 #endif
