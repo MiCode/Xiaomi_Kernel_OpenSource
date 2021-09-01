@@ -3300,6 +3300,11 @@
 		pwm-supply = "mt6373_vio28";
 	};
 
+	iommu_test {
+			compatible = "mediatek,ktf-iommu-test";
+			iommus = <&disp_iommu M4U_PORT_L34_APU_SECURE>;
+	};
+
 	mtk_iommu_debug {
 			compatible = "mediatek,mt6983-iommu-debug";
 			mediatek,iommus = <&disp_iommu &mdp_iommu &apu_iommu0 &apu_iommu1
