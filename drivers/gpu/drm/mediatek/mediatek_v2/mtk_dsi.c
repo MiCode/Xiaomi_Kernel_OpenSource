@@ -83,6 +83,7 @@
 #define DSI_PHY_RESET BIT(2)
 #define DSI_DUAL_EN BIT(4)
 #define CON_CTRL_FLD_REG_DUAL_EN REG_FLD_MSB_LSB(4, 4)
+#define DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN BIT(24)
 #define DSI_CM_WAIT_FIFO_FULL_EN BIT(27)
 
 #define DSI_MODE_CTRL 0x14
@@ -251,6 +252,15 @@
 #define DSI_BYPASS_SHADOW BIT(1)
 #define DSI_READ_WORKING BIT(2)
 
+#define DSI_SCRAMBLE_CON 0x1D8
+#define DATA_SCRAMBLE_EN BIT(31)
+
+#define DSI_BUF_CON0 0x400
+#define BUF_BUF_EN BIT(0)
+#define DSI_BUF_CON1 0x404
+
+#define DSI_TX_BUF_RW_TIMES 0x410
+
 //#define DSI_CMDQ0 0x200
 //#define DSI_CMDQ1 0x204
 
@@ -339,6 +349,7 @@ struct mtk_dsi_driver_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
 	bool need_wait_fifo;
+	bool dsi_buffer;
 	u32 max_vfp;
 };
 
@@ -1324,6 +1335,54 @@ static void mtk_dsi_cmd_type1_hs(struct mtk_dsi *dsi)
 		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS, CMD_CPHY_6BYTE_EN, 0);
 }
 
+static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
+{
+	u32 width, height, tmp, rw_times;
+	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
+
+	if (!dsi->is_slave) {
+		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
+		height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+	} else {
+		width = mtk_dsi_get_virtual_width(dsi,
+				dsi->master_dsi->encoder.crtc);
+		height = mtk_dsi_get_virtual_heigh(dsi,
+				dsi->master_dsi->encoder.crtc);
+	}
+
+	if (dsc_params->enable == 1)
+		width = (width + 2) / 3;
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		if ((width * height * 3 % 9) == 0)
+			rw_times = width * height * 3 / 9;
+		else
+			rw_times = width * height * 3 / 9 + 1;
+		tmp = 0;
+	} else {
+		if ((width * 3 % 9) == 0)
+			rw_times = (width * 3 / 9) * height;
+		else
+			rw_times = (width * 3 / 9 + 1) * height;
+
+		if (dsi->ext->params->is_cphy)
+			tmp = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		else
+			tmp = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
+	}
+
+	DDPINFO(
+		"%s, mode=0x%x, tmp=0x%x, width=%d, height=%d, rw_times=%d\n",
+		__func__, dsi->mode_flags, tmp, width, height, rw_times);
+
+	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+			DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
+	writel(rw_times, dsi->regs + DSI_TX_BUF_RW_TIMES);
+	mtk_dsi_mask(dsi, DSI_BUF_CON0, BUF_BUF_EN, BUF_BUF_EN);
+}
+
 static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 {
 	u32 horizontal_sync_active_byte;
@@ -2053,6 +2112,8 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 	mtk_dsi_phy_timconfig(dsi, NULL);
 
 	mtk_dsi_rxtx_control(dsi);
+	if (dsi->driver_data->dsi_buffer)
+		mtk_dsi_tx_buf_rw(dsi);
 	mtk_dsi_cmd_type1_hs(dsi);
 	mtk_dsi_ps_control_vact(dsi);
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -3376,6 +3437,8 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	mtk_dsi_phy_timconfig(dsi, NULL);
 
 	mtk_dsi_rxtx_control(dsi);
+	if (dsi->driver_data->dsi_buffer)
+		mtk_dsi_tx_buf_rw(dsi);
 	mtk_dsi_cmd_type1_hs(dsi);
 	mtk_dsi_ps_control_vact(dsi);
 	mtk_dsi_cmdq_size_sel(dsi);
@@ -6187,6 +6250,7 @@ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
+	.dsi_buffer = false,
 	.max_vfp = 0,
 };
 
@@ -6204,6 +6268,7 @@ static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
+	.dsi_buffer = false,
 	.max_vfp = 0,
 };
 
@@ -6221,6 +6286,7 @@ static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
+	.dsi_buffer = false,
 	.max_vfp = 0xffe,
 };
 
@@ -6238,6 +6304,7 @@ static const struct mtk_dsi_driver_data mt6983_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
+	.dsi_buffer = true,
 	.max_vfp = 0xffe,
 };
 
@@ -6255,6 +6322,7 @@ static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
+	.dsi_buffer = false,
 	.max_vfp = 0,
 };
 
@@ -6272,6 +6340,7 @@ static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
+	.dsi_buffer = false,
 	.max_vfp = 0,
 };
 
@@ -6289,6 +6358,7 @@ static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
+	.dsi_buffer = false,
 	.max_vfp = 0,
 };
 
@@ -6306,6 +6376,7 @@ static const struct mtk_dsi_driver_data mt6879_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
+	.dsi_buffer = false,
 	.max_vfp = 0xffe,
 };
 
@@ -6319,6 +6390,7 @@ static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.reg_vm_cmd_data30_ofs = 0x1b0,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = true,
+	.dsi_buffer = false,
 	.max_vfp = 0,
 };
 
