@@ -318,7 +318,8 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			cmdq->base + GCE_OUTPIN_EVENT);
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
-		cmdq_init(cmdq);
+		if (!cmdq->prebuilt_enable)
+			cmdq_init(cmdq);
 	}
 
 	err_timer = clk_enable(cmdq->clock_timer);
@@ -1687,8 +1688,10 @@ static s32 cmdq_notifier_call_impl(struct cmdq *cmdq, unsigned long action)
 		pm_runtime_get_sync(cmdq->mbox.dev);
 		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
 		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
-		if (cmdq->prebuilt_enable)
+		if (cmdq->prebuilt_enable) {
+			cmdq_init_cpu(cmdq);
 			cmdq_util_prebuilt_enable(cmdq->hwid);
+		}
 		cmdq->notifier_time[1] = sched_clock();
 		atomic_inc(&cmdq->notifier_count);
 		return NOTIFY_OK;
@@ -2032,9 +2035,11 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->wake_lock = wakeup_source_register(dev, "cmdq_pm_lock");
 
 	spin_lock_init(&cmdq->lock);
-	clk_enable(cmdq->clock);
-	cmdq_init(cmdq);
-	clk_disable(cmdq->clock);
+	if (!cmdq->prebuilt_enable) {
+		clk_enable(cmdq->clock);
+		cmdq_init(cmdq);
+		clk_disable(cmdq->clock);
+	}
 
 	cmdq_mmp_init();
 
