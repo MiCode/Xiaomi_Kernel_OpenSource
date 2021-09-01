@@ -12648,23 +12648,23 @@
 		resource-ctrl-list {
 			bus26m: bus26m {
 				id = <0x00000000>;
-				value = <1>;
+				value = <0>;
 			};
 			infra: infra {
 				id = <0x00000001>;
-				value = <1>;
+				value = <0>;
 			};
 			syspll: syspll {
 				id = <0x00000002>;
-				value = <1>;
+				value = <0>;
 			};
 			dram_s0: dram_s0 {
 				id = <0x00000003>;
-				value = <1>;
+				value = <0>;
 			};
 			dram_s1: dram_s1 {
 				id = <0x00000004>;
-				value = <1>;
+				value = <0>;
 			};
 		};
 		constraint-list {
