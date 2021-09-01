@@ -14,6 +14,8 @@
 
 #include "apusys_power.h"
 #include "mvpu_plat_device.h"
+#include "mvpu_sysfs.h"
+#include "mvpu_ipi.h"
 
 #include "apu_config.h"
 #include "mvpu_driver.h"
@@ -101,11 +103,11 @@ static void mvpu_drv_exit(void)
 
 int mvpu_init(void)
 {
-	//mvpu_sysfs_init();
-
 	/* Register platform driver after debugfs initialization */
-	if (mvpu_drv_init()) {
-		//mvpu_sysfs_init();
+	if (!mvpu_drv_init()) {
+		mvpu_sysfs_init();
+		mvpu_ipi_init();
+	} else {
 		return -ENODEV;
 	}
 

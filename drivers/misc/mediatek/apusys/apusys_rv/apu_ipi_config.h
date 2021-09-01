@@ -87,6 +87,16 @@ static const struct {
 		.direction = IPI_HOST_INITIATE,
 		.ack = IPI_WITHOUT_ACK,
 	},
+	[APU_IPI_MVPU_TX] = { // 13
+		.name = "apu-mvpu-tx",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
+	[APU_IPI_MVPU_RX] = { // 14
+		.name = "apu-mvpu-rx",
+		.direction = IPI_APU_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
 };
 
 
