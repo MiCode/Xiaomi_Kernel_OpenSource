@@ -22428,8 +22428,8 @@ enum {
 	SUPPLY_SEQ_TOP_CK,
 	SUPPLY_SEQ_TOP_SRAM,
 	SUPPLY_SEQ_TOP_CK_LAST,
-	SUPPLY_SEQ_DCC_CLK,
 	SUPPLY_SEQ_MIC_BIAS,
+	SUPPLY_SEQ_DCC_CLK,
 	SUPPLY_SEQ_DMIC,
 	SUPPLY_SEQ_AUD_TOP,
 	SUPPLY_SEQ_AUD_TOP_LAST,
@@ -22721,6 +22721,9 @@ struct mt6338_priv {
 	int mtkaif_protocol;
 	int dmic_one_wire_mode;
 	int mic_hifi_mode;
+
+	/* hw version */
+	int hw_ver;
 
 	/* dc trim */
 	struct dc_trim_data dc_trim;
