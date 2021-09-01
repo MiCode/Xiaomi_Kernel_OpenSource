@@ -2070,7 +2070,7 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 
 			mtkbuf->frame_buffer.buf_att = dma_buf_attach(
 				mtkbuf->frame_buffer.dma_general_buf,
-				&ctx->dev->plat_dev->dev);
+				ctx->m2m_ctx->out_q_ctx.q.dev); // vcp&vcu compatible access device
 			mtkbuf->frame_buffer.sgt =
 				dma_buf_map_attachment(mtkbuf->frame_buffer.buf_att, DMA_TO_DEVICE);
 			if (IS_ERR_OR_NULL(mtkbuf->frame_buffer.sgt)) {
