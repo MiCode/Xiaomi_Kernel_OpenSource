@@ -11519,7 +11519,7 @@
 				"d_times_down";
 
 			node_7 = "SSPM_CM_MGR_RATIO",
-				"ratio_max_0,ratio_max_1,ratio_0,ratio_1,ratio_2,ratio_3,ratio_4,",
+				"ratio_0,ratio_1,ratio_2,ratio_3,ratio_4,",
 				"ratio_5,ratio_6,ratio_7";
 
 			node_8 = "SSPM_CM_MGR_BW",
