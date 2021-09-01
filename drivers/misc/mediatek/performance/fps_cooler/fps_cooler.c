@@ -17,7 +17,6 @@
 #define EARA_PROC_NAME_LEN 16
 #define NETLINK_FPS 29
 #define TAG "FPS_COOLER"
-#define EARA_ENABLE                 _IOW('g', 1, int)
 
 struct _EARA_THRM_PACKAGE {
 	__s32 type;
