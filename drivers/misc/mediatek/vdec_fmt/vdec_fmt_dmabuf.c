@@ -25,6 +25,7 @@ int fmt_dmabuf_get_iova(struct dma_buf *dbuf, u64 *iova,
 	}
 
 	*iova = sg_dma_address((*sgt)->sgl);
+	dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
 	return 0;
 }
 
@@ -35,6 +36,7 @@ void fmt_dmabuf_free_iova(struct dma_buf *dbuf,
 		fmt_debug(0, "attach or sgt null, not need to free iova");
 		return;
 	}
+	dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
 	dma_buf_unmap_attachment(attach, sgt, DMA_TO_DEVICE);
 	dma_buf_detach(dbuf, attach);
 }

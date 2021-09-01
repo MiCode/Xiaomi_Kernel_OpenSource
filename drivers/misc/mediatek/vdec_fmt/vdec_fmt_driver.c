@@ -139,7 +139,7 @@ static void fmt_clear_gce_task(unsigned int taskid)
 	mutex_unlock(&fmt->mux_task);
 }
 
-static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
+static int fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 	unsigned char cmd, u64 addr, u64 data, u32 mask, u32 gpr, unsigned int idx,
 	struct dmabuf_info *iinfo, struct dmabuf_info *oinfo, struct dmabufmap map[])
 {
@@ -262,6 +262,8 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 			if (type % 2 == 0) {
 				iova = fmt_translate_fd(data, mask, map, fmt->dev,
 					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt);
+				if (iinfo->attach == NULL || iinfo->sgt == NULL)
+					return -1;
 				if (addr - fmt->map_base[type].base >= 0xf30) { // rdma 34bit
 					fmt_debug(3, "cmdq_pkt_write base: 0x%x addr:0x%x value:0x%x",
 						fmt->map_base[type].base, addr, (iova >> 32));
@@ -276,6 +278,8 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 			} else {
 				iova = fmt_translate_fd(data, mask, map, fmt->dev,
 						&oinfo->dbuf, &oinfo->attach, &oinfo->sgt);
+				if (oinfo->attach == NULL || oinfo->sgt == NULL)
+					return -1;
 				if (addr - fmt->map_base[type].base >= 0xf34) { // wrot 34bit
 					fmt_debug(3, "cmdq_pkt_write base: 0x%x addr:0x%x value:0x%x",
 						fmt->map_base[type].base, addr, (iova >> 32));
@@ -296,6 +300,8 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 		fmt_debug(3, "CMD_WRITE_FD_RDMA cpridx %d fd 0x%x offset 0x%x", addr, data, mask);
 		iova = fmt_translate_fd(data, mask, map, fmt->dev,
 					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt);
+		if (iinfo->attach == NULL || iinfo->sgt == NULL)
+			return -1;
 		if (addr >= CPR_IDX_FMT_RDMA_SRC_OFFSET_0
 			&& addr <= CPR_IDX_FMT_RDMA_UFO_DEC_LENGTH_BASE_C) {
 			fmt_debug(3, "cmdq_pkt_assign_command idx %d cpr %d value 0x%x",
@@ -318,6 +324,7 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 		fmt_err("unknown GCE cmd %d", cmd);
 	break;
 	}
+	return 0;
 }
 
 static void fmt_dump_addr_reg(void)
@@ -455,11 +462,38 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	if (cmds->cmd_cnt >= FMT_CMDQ_CMD_MAX) {
 		fmt_err("cmd_cnt (%d) overflow!!", cmds->cmd_cnt);
 		cmds->cmd_cnt = FMT_CMDQ_CMD_MAX;
+		mutex_unlock(&fmt->mux_gce_th[identifier]);
 		ret = -EINVAL;
 		return ret;
 	}
 
 	buff.cmds_user_ptr = (u64)(unsigned long)cmds;
+
+	pkt_ptr = cmdq_pkt_create(cl);
+	if (IS_ERR_OR_NULL(pkt_ptr)) {
+		fmt_err("cmdq_pkt_create fail");
+		pkt_ptr = NULL;
+		mutex_unlock(&fmt->mux_gce_th[identifier]);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	for (i = 0; i < FMT_FD_RESERVE; i++) {
+		map[i].fd = -1;
+		map[i].iova = 0;
+	}
+
+	for (i = 0; i < cmds->cmd_cnt; i++) {
+		ret = fmt_set_gce_cmd(pkt_ptr, cmds->cmd[i],
+			cmds->addr[i], cmds->data[i],
+			cmds->mask[i], fmt->gce_gpr[identifier], identifier, &iinfo, &oinfo, map);
+
+		if (ret < 0) {
+			mutex_unlock(&fmt->mux_gce_th[identifier]);
+			ret = -EINVAL;
+			return ret;
+		}
+	}
 
 	mutex_lock(&fmt->mux_fmt);
 	if ((atomic_read(&fmt->gce_job_cnt[0])
@@ -480,22 +514,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	mutex_unlock(&fmt->mux_fmt);
 
 	fmt_start_dvfs_emi_bw(fmt, buff.pmqos_param, identifier);
-
-	pkt_ptr = cmdq_pkt_create(cl);
-	if (IS_ERR_OR_NULL(pkt_ptr)) {
-		fmt_err("cmdq_pkt_create fail");
-		pkt_ptr = NULL;
-	}
-	for (i = 0; i < FMT_FD_RESERVE; i++) {
-		map[i].fd = -1;
-		map[i].iova = 0;
-	}
-
-	for (i = 0; i < cmds->cmd_cnt; i++) {
-		fmt_set_gce_cmd(pkt_ptr, cmds->cmd[i],
-			cmds->addr[i], cmds->data[i],
-			cmds->mask[i], fmt->gce_gpr[identifier], identifier, &iinfo, &oinfo, map);
-	}
 
 	mutex_unlock(&fmt->mux_gce_th[identifier]);
 

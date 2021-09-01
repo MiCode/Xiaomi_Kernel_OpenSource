@@ -9,6 +9,7 @@
 
 #include <linux/clk.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <soc/mediatek/smi.h>
 #include "mtk-interconnect.h"
@@ -32,6 +33,7 @@ void fmt_init_pm(struct mtk_vdec_fmt *fmt)
 		&fmt->clk_VDEC);
 	fmt_get_module_clock_by_name(fmt, "MT_CG_MINI_MDP",
 		&fmt->clk_MINI_MDP);
+	pm_runtime_enable(fmt->dev);
 }
 
 int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
