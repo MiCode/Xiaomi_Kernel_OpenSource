@@ -4,6 +4,7 @@
  */
 
 #include <linux/errno.h>
+#include <linux/netdevice.h>
 #include <linux/string.h>
 
 #include "mddp_debug.h"
@@ -197,6 +198,9 @@ void mddp_f_dev_add_wan_dev(char *dev_name)
 	/* Set WAN device entry */
 	strlcpy(mddp_f_wan_dev[i].dev_name, dev_name, IFNAMSIZ);
 	mddp_f_wan_dev[i].netif_id = mddp_f_dev_get_netif_id(dev_name);
+	rcu_read_lock();
+	mddp_f_wan_netdev_set(dev_get_by_name_rcu(&init_net, dev_name));
+	rcu_read_unlock();
 	mddp_f_wan_dev[i].is_valid = true;
 
 	mddp_f_wan_dev_cnt_g++;

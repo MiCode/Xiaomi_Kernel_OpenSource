@@ -449,14 +449,10 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb, struct mddp_f_cb *cb)
 {
 	struct ip6header *ip6 = (struct ip6header *) skb_network_header(skb);
 	unsigned char nexthdr;
-	struct nf_conn *nat_ip_conntrack;
-	enum ip_conntrack_info ctinfo;
 	struct router_tuple t;
 	struct router_tuple *found_router_tuple;
 	struct tcpheader *tcp;
 	struct udpheader *udp;
-	unsigned char tcp_state;
-	unsigned char ext_offset;
 	unsigned long flag;
 	unsigned int tuple_hit_cnt = 0;
 	int ret;
@@ -468,50 +464,6 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb, struct mddp_f_cb *cb)
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 		tcp = (struct tcpheader *) (skb_network_header(skb) + sizeof(struct ip6header));
-		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		if (!nat_ip_conntrack) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
-					__func__, skb);
-			goto out;
-		}
-
-		tcp_state = nat_ip_conntrack->proto.tcp.state;
-		if (nat_ip_conntrack->ext) { /* helper */
-			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-			if (ext_offset) {
-				MDDP_F_LOG(MDDP_LL_DEBUG,
-					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
-					__func__, skb,
-					nat_ip_conntrack->ext, ext_offset);
-				goto out;
-			}
-		}
-
-		if (mddp_f_contentfilter
-				&& (tcp->th_dport == htons(80)
-				|| tcp->th_sport == htons(80))
-				&& nat_ip_conntrack->mark != 0x80000000) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Invalid parameter, contentfilter[%d], dport[%x], sport[%x], mark[%x], skb[%p] is filtered out,.\n",
-					__func__,
-					mddp_f_contentfilter, tcp->th_dport,
-					tcp->th_sport, nat_ip_conntrack->mark,
-					skb);
-			goto out;
-		}
-		if (tcp_state >= TCP_CONNTRACK_FIN_WAIT
-				&& tcp_state <=	TCP_CONNTRACK_CLOSE) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Invalid TCP state[%d], skb[%p] is filtered out.\n",
-					__func__, tcp_state, skb);
-			goto out;
-		} else if (tcp_state !=	TCP_CONNTRACK_ESTABLISHED) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
-					__func__, tcp_state, skb);
-			goto out;
-		}
 
 		ipv6_addr_copy(&(t.saddr), (struct in6_addr *)&(ip6->saddr));
 		ipv6_addr_copy(&(t.daddr), (struct in6_addr *)&(ip6->daddr));
@@ -571,24 +523,6 @@ static void mddp_f_out_nf_ipv6(struct sk_buff *skb, struct mddp_f_cb *cb)
 		break;
 	case IPPROTO_UDP:
 		udp = (struct udpheader *) (skb_network_header(skb) + sizeof(struct ip6header));
-		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		if (!nat_ip_conntrack) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
-					__func__, skb);
-			goto out;
-		}
-
-		if (nat_ip_conntrack->ext) { /* helper */
-			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-			if (ext_offset) {
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
-					__func__, skb,
-					nat_ip_conntrack->ext, ext_offset);
-				goto out;
-			}
-		}
 
 		ipv6_addr_copy(&(t.saddr), (struct in6_addr *)&(ip6->saddr));
 		ipv6_addr_copy(&(t.daddr), (struct in6_addr *)&(ip6->daddr));
@@ -671,51 +605,26 @@ out:
 	return;
 }
 
-static uint32_t mddp_nfhook_postrouting_v6
-(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+static void mddp_nfhook_postrouting_v6(struct sk_buff *skb)
 {
 	struct mddp_f_cb cb;
 
 	if (skb->skb_iif == 0) {
 		MDDP_F_LOG(MDDP_LL_DEBUG, "%s: skb_iif is zero, packet is not from lan\n",
 			   __func__);
-		return NF_ACCEPT;
+		return;
 	}
 
-	cb.wan = NULL;
-
-	if (mddp_f_is_support_wan_dev(skb->dev->name) == true) {
-		cb.is_uplink = true;
-		cb.wan = skb->dev;
-		rcu_read_lock();
-		cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-		rcu_read_unlock();
-		if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
-			return NF_ACCEPT;
-	}
-
-	if (mddp_f_is_support_lan_dev(skb->dev->name) == true) {
-		cb.is_uplink = false;
-		rcu_read_lock();
-		cb.wan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-		rcu_read_unlock();
-		cb.lan = skb->dev;
-		if (mddp_f_is_support_wan_dev(cb.wan->name) == false)
-			return NF_ACCEPT;
-	}
-
-	if (cb.wan == NULL) {
-		MDDP_F_LOG(MDDP_LL_DEBUG,
-			"%s: Unsupport device,sbk->dev->name(%s).\n",
-			__func__, skb->dev->name);
-		return NF_ACCEPT;
-	}
+	cb.is_uplink = true;
+	cb.wan = skb->dev;
+	rcu_read_lock();
+	cb.lan = dev_get_by_index_rcu(&init_net, skb->skb_iif);
+	rcu_read_unlock();
+	if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
+		return;
 
 	if (mddp_f_in_nf_v6(skb))
-		return NF_ACCEPT;
+		return;
 
 	mddp_f_out_nf_ipv6(skb, &cb);
-
-	return NF_ACCEPT;
 }
-

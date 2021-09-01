@@ -59,10 +59,9 @@ struct mddp_f_cb {
 #define MDDP_F_MAX_TRACK_TABLE_LIST 16
 #define MDDP_F_TABLE_BUFFER_NUM 3000
 
-static int mddp_f_contentfilter;
-module_param(mddp_f_contentfilter, int, 0000);
-
 static uint32_t mddp_netfilter_is_hook;
+static struct net_device *mddp_wan_netdev;
+static const struct net_device_ops *mddp_wan_netdev_ops_save;
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -85,8 +84,7 @@ struct mddp_f_set_ct_timeout_rsp_t {
 //------------------------------------------------------------------------------
 static uint32_t mddp_nfhook_postrouting_v4
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
-static uint32_t mddp_nfhook_postrouting_v6
-(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+static void mddp_nfhook_postrouting_v6(struct sk_buff *skb);
 
 static int32_t mddp_f_init_nat_tuple(void);
 static void mddp_f_uninit_nat_tuple(void);
@@ -101,12 +99,6 @@ static struct nf_hook_ops mddp_nf_ops[] __read_mostly = {
 		.pf             = NFPROTO_IPV4,
 		.hooknum        = NF_INET_POST_ROUTING,
 		.priority       = NF_IP_PRI_LAST,
-	},
-	{
-		.hook           = mddp_nfhook_postrouting_v6,
-		.pf             = NFPROTO_IPV6,
-		.hooknum        = NF_INET_POST_ROUTING,
-		.priority       = NF_IP6_PRI_LAST,
 	},
 };
 
@@ -312,7 +304,8 @@ static int mddp_f_tag_packet(
 		return -EFAULT;
 	}
 
-	cb->wan->netdev_ops->ndo_start_xmit(fake_skb, cb->wan);
+	if (cb->wan->netdev_ops->ndo_start_xmit(fake_skb, cb->wan) != NETDEV_TX_OK)
+		dev_kfree_skb(fake_skb);
 
 	return 0;
 }
@@ -364,6 +357,11 @@ static int32_t mddp_ct_update(void *buf, uint32_t buf_len)
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
+void mddp_f_wan_netdev_set(struct net_device *netdev)
+{
+	mddp_wan_netdev = netdev;
+}
+
 int32_t mddp_f_suspend_tag(void)
 {
 	struct mddp_md_msg_t           *md_msg;
@@ -490,6 +488,55 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
 //------------------------------------------------------------------------------
 // Kernel functions.
 //------------------------------------------------------------------------------
+static int mddp_netops_open(struct net_device *dev)
+{
+	return mddp_wan_netdev_ops_save->ndo_open(dev);
+}
+
+static int mddp_netops_stop(struct net_device *dev)
+{
+	return mddp_wan_netdev_ops_save->ndo_stop(dev);
+}
+
+static netdev_tx_t mddp_netops_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	if (skb->protocol == htons(ETH_P_IPV6))
+		mddp_nfhook_postrouting_v6(skb);
+
+	return mddp_wan_netdev_ops_save->ndo_start_xmit(skb, dev);
+}
+
+static void mddp_netops_tx_timeout(struct net_device *dev, unsigned int txqueue)
+{
+	mddp_wan_netdev_ops_save->ndo_tx_timeout(dev, txqueue);
+}
+
+static int mddp_netops_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	return mddp_wan_netdev_ops_save->ndo_do_ioctl(dev, ifr, cmd);
+}
+
+static int mddp_netops_change_mtu(struct net_device *dev, int new_mtu)
+{
+	return mddp_wan_netdev_ops_save->ndo_change_mtu(dev, new_mtu);
+}
+
+static u16 mddp_netops_select_queue(struct net_device *dev, struct sk_buff *skb,
+				    struct net_device *sb_dev)
+{
+	return mddp_wan_netdev_ops_save->ndo_select_queue(dev, skb, sb_dev);
+}
+
+static const struct net_device_ops mddp_wan_netdev_ops = {
+	.ndo_open	= mddp_netops_open,
+	.ndo_stop	= mddp_netops_stop,
+	.ndo_start_xmit	= mddp_netops_start_xmit,
+	.ndo_tx_timeout	= mddp_netops_tx_timeout,
+	.ndo_do_ioctl	= mddp_netops_do_ioctl,
+	.ndo_change_mtu	= mddp_netops_change_mtu,
+	.ndo_select_queue = mddp_netops_select_queue,
+};
+
 static int __net_init mddp_nf_register(struct net *net)
 {
 	return nf_register_net_hooks(net, mddp_nf_ops,
@@ -519,6 +566,10 @@ void mddp_netfilter_hook(void)
 					"%s: Cannot register hooks(%d)!\n",
 					__func__, ret);
 		} else {
+			netif_tx_disable(mddp_wan_netdev);
+			mddp_wan_netdev_ops_save = mddp_wan_netdev->netdev_ops;
+			mddp_wan_netdev->netdev_ops = &mddp_wan_netdev_ops;
+			netif_tx_wake_all_queues(mddp_wan_netdev);
 			mddp_netfilter_is_hook = 1;
 		}
 	}
@@ -528,6 +579,9 @@ void mddp_netfilter_unhook(void)
 {
 	if (mddp_netfilter_is_hook == 1) {
 		unregister_pernet_subsys(&mddp_net_ops);
+		netif_tx_disable(mddp_wan_netdev);
+		mddp_wan_netdev->netdev_ops = mddp_wan_netdev_ops_save;
+		netif_tx_wake_all_queues(mddp_wan_netdev);
 		mddp_netfilter_is_hook = 0;
 	}
 }

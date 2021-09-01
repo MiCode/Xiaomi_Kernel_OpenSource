@@ -502,18 +502,6 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 			}
 		}
 
-		if (mddp_f_contentfilter
-				&& (tcp->th_dport == htons(80)
-				|| tcp->th_sport == htons(80))
-				&& nat_ip_conntrack->mark != 0x80000000) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Invalid parameter, contentfilter[%d], dport[%x], sport[%x], mark[%x], skb[%p] is filtered out,.\n",
-					__func__, mddp_f_contentfilter,
-					tcp->th_dport,
-					tcp->th_sport,
-					nat_ip_conntrack->mark, skb);
-			goto out;
-		}
 
 		if (tcp_state >= TCP_CONNTRACK_FIN_WAIT
 				&& tcp_state <=	TCP_CONNTRACK_CLOSE) {
