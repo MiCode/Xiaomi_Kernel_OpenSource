@@ -1444,6 +1444,9 @@
 		goodix_fp: fingerprint {
 			compatible = "mediatek,goodix-fp";
 		};
+		touch_panel0: touch_panel@0 {
+			compatible = "mediatek,touch-panel";
+		};
 
 	};
 
