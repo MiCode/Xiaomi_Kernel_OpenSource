@@ -49,6 +49,7 @@ struct lpm_cpu {
 	ktime_t next_wakeup;
 	uint64_t predicted;
 	uint32_t history_invalid;
+	bool predict_started;
 	bool htmr_wkup;
 	struct hrtimer histtimer;
 	struct hrtimer biastimer;
