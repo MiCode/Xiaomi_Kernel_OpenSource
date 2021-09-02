@@ -256,6 +256,14 @@ config ARCH_PALM
           PALM chipset. If you do not wish to build a kernel that
           runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_CAPE
+        bool "Enable Support for Qualcomm Technologies, Inc. CAPE"
+        depends on ARCH_QCOM
+        help
+          This enables support for the Qualcomm Technologies, Inc.'s
+          CAPE chipset. If you do not wish to build a kernel that
+          runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_HOLI
 	bool "Enable Support for Qualcomm Technologies, Inc. HOLI"
 	depends on ARCH_QCOM
