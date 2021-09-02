@@ -258,6 +258,7 @@ struct reg_write_info {
  * @time_get: Return host time in us
  * @lpm_disable: Request controller to disable link level low power modes
  * @lpm_enable: Controller may enable link level low power modes again
+ * @reset: Controller specific reset function (optional)
  * @priv_data: Points to bus master's private data
  */
 struct mhi_controller {
@@ -390,6 +391,7 @@ struct mhi_controller {
 			struct mhi_link_info *link_info);
 	void (*write_reg)(struct mhi_controller *mhi_cntrl, void __iomem *base,
 			u32 offset, u32 val);
+	void (*reset)(struct mhi_controller *mhi_cntrl);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
@@ -886,6 +888,13 @@ enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_soc_reset - Trigger a device reset. This can be used as a last resort
+ *			to reset and recover a device.
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_soc_reset(struct mhi_controller *mhi_cntrl);
 
 /**
  * mhi_set_mhi_state - Set device state
