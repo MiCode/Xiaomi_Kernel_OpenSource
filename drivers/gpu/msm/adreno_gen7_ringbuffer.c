@@ -87,7 +87,7 @@ static int gen7_rb_context_switch(struct adreno_device *adreno_dev,
 			drawctxt, pagetable, &cmds[count]);
 	else {
 		struct kgsl_iommu *iommu = KGSL_IOMMU(device);
-		u32 id = drawctxt ? drawctxt->base.id : 0;
+
 		u32 offset = GEN7_SMMU_BASE + (iommu->cb0_offset >> 2) + 0x0d;
 
 		/*
@@ -96,7 +96,7 @@ static int gen7_rb_context_switch(struct adreno_device *adreno_dev,
 		 * need any special sequence or locking to change it
 		 */
 		cmds[count++] = cp_type4_packet(offset, 1);
-		cmds[count++] = id;
+		cmds[count++] = drawctxt->base.id;
 	}
 
 	cmds[count++] = cp_type7_packet(CP_NOP, 1);
