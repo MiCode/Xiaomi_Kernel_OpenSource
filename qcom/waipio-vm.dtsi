@@ -259,7 +259,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		/* Valid pins */
-		gpios = /bits/ 16 <64 65 66 67 0 4 86 87>;
+		gpios = /bits/ 16 <64 65 66 67 0 4 86 87 16 17 18 19 20 21>;
 	};
 
 	psci {
@@ -269,7 +269,7 @@
 
 	tlmm-vm-mem-access {
 		compatible = "qcom,tlmm-vm-mem-access";
-		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388>;
+		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388 317 318 319 320 321 322>;
 	};
 
 	vgic: interrupt-controller@17100000 {
