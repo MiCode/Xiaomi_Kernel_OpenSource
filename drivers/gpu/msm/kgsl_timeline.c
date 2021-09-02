@@ -196,6 +196,16 @@ static bool timeline_fence_signaled(struct dma_fence *fence)
 		fence->ops);
 }
 
+static bool timeline_fence_enable_signaling(struct dma_fence *fence)
+{
+	/*
+	 * Return value of false indicates the fence already passed.
+	 * When fence is not passed we return true indicating successful
+	 * enabling.
+	 */
+	return !timeline_fence_signaled(fence);
+}
+
 static const char *timeline_get_driver_name(struct dma_fence *fence)
 {
 	return "kgsl-sw-timeline";
@@ -221,6 +231,7 @@ static const struct dma_fence_ops timeline_fence_ops = {
 	.get_timeline_name = timeline_get_timeline_name,
 	.signaled = timeline_fence_signaled,
 	.release = timeline_fence_release,
+	.enable_signaling = timeline_fence_enable_signaling,
 	.timeline_value_str = timeline_get_value_str,
 	.use_64bit_seqno = true,
 };
@@ -298,10 +309,18 @@ struct dma_fence *kgsl_timeline_fence_alloc(struct kgsl_timeline *timeline,
 
 	INIT_LIST_HEAD(&fence->node);
 
-	if (!dma_fence_is_signaled(&fence->base))
+	/*
+	 * Once fence is checked as not signaled, allow it to be added
+	 * in the list before other thread such as kgsl_timeline_signal
+	 * can get chance to signal.
+	 */
+	spin_lock_irq(&timeline->lock);
+	if (!dma_fence_is_signaled_locked(&fence->base))
 		kgsl_timeline_add_fence(timeline, fence);
 
 	trace_kgsl_timeline_fence_alloc(timeline->id, seqno);
+	spin_unlock_irq(&timeline->lock);
+
 	log_kgsl_timeline_fence_alloc_event(timeline->id, seqno);
 
 	return &fence->base;
