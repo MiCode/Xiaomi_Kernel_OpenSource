@@ -239,20 +239,28 @@ const char *kgsl_context_type(int type)
 	return "ANY";
 }
 
-/* Scheduled by kgsl_mem_entry_put_deferred() */
-static void _deferred_put(struct work_struct *work)
+/* Scheduled by kgsl_mem_entry_destroy_deferred() */
+static void _deferred_destroy(struct work_struct *work)
 {
 	struct kgsl_mem_entry *entry =
 		container_of(work, struct kgsl_mem_entry, work);
 
-	kgsl_mem_entry_put(entry);
+	kgsl_mem_entry_destroy(&entry->refcount);
 }
 
-/* Use a worker to put the refcount on mem entry */
+static void kgsl_mem_entry_destroy_deferred(struct kref *kref)
+{
+	struct kgsl_mem_entry *entry =
+		container_of(kref, struct kgsl_mem_entry, refcount);
+
+	INIT_WORK(&entry->work, _deferred_destroy);
+	queue_work(kgsl_driver.mem_workqueue, &entry->work);
+}
+
 void kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry)
 {
-	INIT_WORK(&entry->work, _deferred_put);
-	queue_work(kgsl_driver.mem_workqueue, &entry->work);
+	if (entry)
+		kref_put(&entry->refcount, kgsl_mem_entry_destroy_deferred);
 }
 
 static struct kgsl_mem_entry *kgsl_mem_entry_create(void)
