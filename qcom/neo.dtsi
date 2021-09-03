@@ -378,6 +378,7 @@
 };
 
 #include "neo-pinctrl.dtsi"
+#include "neo-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 
 &gcc_apcs_gdsc_vote_ctrl {
