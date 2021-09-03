@@ -2,7 +2,7 @@
 /*
  * Qualcomm ICE (Inline Crypto Engine) support.
  *
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  * Copyright 2019 Google LLC
  */
 
@@ -166,6 +166,10 @@ int ufs_qcom_ice_enable(struct ufs_qcom_host *host)
 	qcom_ice_low_power_mode_enable(host);
 	qcom_ice_optimization_enable(host);
 	return ufs_qcom_ice_resume(host);
+}
+
+void ufs_qcom_ice_disable(struct ufs_qcom_host *host)
+{
 }
 
 /* Poll until all BIST bits are reset */
