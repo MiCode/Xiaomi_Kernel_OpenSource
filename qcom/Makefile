@@ -173,6 +173,20 @@ dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_CAPE) += cape-mtp-overlay.dtbo \
+        cape-cdp-overlay.dtbo \
+        cape-atp-overlay.dtbo
+
+cape-mtp-overlay.dtbo-base := cape.dtb
+cape-cdp-overlay.dtbo-base := cape.dtb
+cape-atp-overlay.dtbo-base := cape.dtb
+else
+dtb-$(CONFIG_ARCH_CAPE) += cape-mtp.dtb \
+        cape-cdp.dtb \
+        cape-atp.dtb
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_HOLI) +=  holi-rumi-overlay.dtbo
 dtbo-$(CONFIG_ARCH_HOLI) += holi-rumi-overlay.dtbo \
 	holi-mtp-overlay.dtbo \
