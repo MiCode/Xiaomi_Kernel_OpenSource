@@ -1237,6 +1237,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,leica-used-i2c"))
+		gi2c->i2c_rsc.skip_bw_vote = true;
+
 	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
 	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 
