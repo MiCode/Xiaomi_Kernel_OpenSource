@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MSM_GPI_H_
@@ -263,4 +263,8 @@ struct msm_gpi_dma_async_tx_cb_param {
 	void *userdata;
 };
 
+/* Client drivers of the GPI can call this function to dump the GPI registers
+ * whenever client met some scenario like timeout, error in GPI transfer mode.
+ */
+void gpi_dump_for_geni(struct dma_chan *chan);
 #endif
