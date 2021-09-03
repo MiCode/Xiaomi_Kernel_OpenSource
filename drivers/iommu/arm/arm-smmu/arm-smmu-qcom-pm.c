@@ -14,6 +14,8 @@
 #define ARM_SMMU_ICC_PEAK_BW_LOW	0
 #define ARM_SMMU_ICC_ACTIVE_ONLY_TAG	0x3
 
+#define ARM_SMMU_MICRO_IDLE_DELAY_US	5
+
 /*
  * Theoretically, our interconnect does not guarantee the order between
  * writes to different "register blocks" even with device memory type.
@@ -154,6 +156,15 @@ static int __arm_smmu_micro_idle_cfg(struct arm_smmu_device *smmu,
 	if (ret)
 		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
 			tmp, new);
+	/*
+	 * While the micro-idle guard sequence registers may have been configured
+	 * properly, it is possible that the intended effect has not been realized
+	 * by the power management hardware due to delays in the system.
+	 *
+	 * Spin for a short amount of time to allow for the desired configuration to
+	 * take effect before proceeding.
+	 */
+	udelay(ARM_SMMU_MICRO_IDLE_DELAY_US);
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
 	return ret;
 }
