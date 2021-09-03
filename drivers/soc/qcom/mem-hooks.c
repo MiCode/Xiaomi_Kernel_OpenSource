@@ -39,7 +39,8 @@ static void set_swap_cache(void *data, gfp_t *flag)
 
 static void reap_eligible(void *data, struct task_struct *task, bool *reap)
 {
-	if (!strcmp(task->comm, "lmkd"))
+	/* TODO: Can this logic be moved to module params approach? */
+	if (!strcmp(task->comm, "lmkd") || !strcmp(task->comm, "PreKillActionT"))
 		*reap = true;
 }
 
