@@ -576,8 +576,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		return NULL;
 	}
 
-	if (!(attrs & DMA_ATTR_SKIP_ZEROING))
-		gfp |= __GFP_ZERO;
+	gfp |= __GFP_ZERO;
 
 	*handle = DMA_MAPPING_ERROR;
 	size = ALIGN(size, SZ_4K);
