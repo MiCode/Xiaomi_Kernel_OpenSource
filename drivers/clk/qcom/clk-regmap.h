@@ -56,6 +56,7 @@ struct clk_regmap {
 	struct list_head list_node;
 	struct device *dev;
 #define QCOM_CLK_IS_CRITICAL BIT(0)
+#define QCOM_CLK_BOOT_CRITICAL BIT(1)
 	unsigned long flags;
 };
 
