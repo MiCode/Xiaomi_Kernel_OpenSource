@@ -189,6 +189,10 @@ static void qrtr_mhi_dev_state_cb(struct mhi_dev_client_cb_data *cb_data)
 		}
 		break;
 	case MHI_STATE_DISCONNECTED:
+		mutex_lock(&qep->out_lock);
+		complete_all(&qep->out_tre);
+		mutex_unlock(&qep->out_lock);
+
 		qrtr_endpoint_unregister(&qep->ep);
 		qrtr_mhi_dev_close_channels(qep);
 		break;
