@@ -407,6 +407,7 @@ static const struct arm_smmu_impl qcom_smmu_impl = {
 #define DEBUG_AXUSER_CDMID_VAL          255
 
 #define TBU_DBG_TIMEOUT_US		100
+#define TBU_MICRO_IDLE_DELAY_US		5
 
 #define TNX_TCR_CNTL			0x130
 #define TNX_TCR_CNTL_TBU_OT_CAPTURE_EN	BIT(18)
@@ -728,6 +729,15 @@ static int __arm_tbu_micro_idle_cfg(struct arm_smmu_device *smmu,
 	if (ret)
 		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
 			tmp, new);
+	/*
+	 * While the micro-idle guard sequence registers may have been configured
+	 * properly, it is possible that the intended effect has not been realized
+	 * by the power management hardware due to delays in the system.
+	 *
+	 * Spin for a short amount of time to allow for the desired configuration to
+	 * take effect before proceeding.
+	 */
+	udelay(TBU_MICRO_IDLE_DELAY_US);
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
 	return ret;
 }
