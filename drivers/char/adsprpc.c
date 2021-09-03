@@ -1761,7 +1761,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		goto bail;
 	}
 
-	VERIFY(err, fl->sctx != NULL);
+	VERIFY(err, fl && fl->sctx != NULL);
 	if (err) {
 		err = -EBADR;
 		goto bail;
@@ -3487,7 +3487,7 @@ read_async_job:
 		break;
 	}
 	spin_unlock_irqrestore(&fl->aqlock, flags);
-	if (fl->profile)
+	if (fl->profile && ctx)
 		perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
 	if (ctx) {
 		fastrpc_wait_for_completion(ctx, &interrupted, 0, 1,
@@ -6803,7 +6803,8 @@ static void  fastrpc_print_debug_data(int cid)
 	scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 			MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 			"gmsg_log_rx:\n %s\n", gmsg_log_rx);
-	chan->buf->size = strlen(mini_dump_buff);
+	if (chan)
+		chan->buf->size = strlen(mini_dump_buff);
 	kfree(gmsg_log_tx);
 	kfree(gmsg_log_rx);
 }
