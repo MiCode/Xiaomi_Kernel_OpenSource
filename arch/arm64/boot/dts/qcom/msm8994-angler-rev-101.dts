@@ -30,3 +30,7 @@
 		};
 	};
 };
+
+&msmgpio {
+	gpio-reserved-ranges = <85 4>;
+};
