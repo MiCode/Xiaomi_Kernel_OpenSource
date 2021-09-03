@@ -1475,7 +1475,7 @@ static struct qcom_icc_node qss_ddrss_cfg = {
 	.channels = 1,
 	.buswidth = 4,
 	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 1,
+	.num_links = 0,
 };
 
 static struct qcom_icc_node qxs_boot_imem = {
@@ -1694,6 +1694,7 @@ static struct qcom_icc_bcm bcm_acv = {
 	.name = "ACV",
 	.voter_idx = 0,
 	.enable_mask = 0x8,
+	.perf_mode_mask = 0x2,
 	.num_nodes = 1,
 	.nodes = { &ebi },
 };
@@ -1746,6 +1747,13 @@ static struct qcom_icc_bcm bcm_co0 = {
 	.enable_mask = 0x1,
 	.num_nodes = 2,
 	.nodes = { &qxm_nsp, &qns_nsp_gemnoc },
+};
+
+static struct qcom_icc_bcm bcm_lp0 = {
+	.name = "LP0",
+	.voter_idx = 0,
+	.num_nodes = 2,
+	.nodes = { &qnm_lpass_lpinoc, &qns_lpass_aggnoc },
 };
 
 static struct qcom_icc_bcm bcm_mc0 = {
@@ -1805,10 +1813,13 @@ static struct qcom_icc_bcm bcm_sh1 = {
 	.name = "SH1",
 	.voter_idx = 0,
 	.enable_mask = 0x1,
-	.num_nodes = 7,
+	.num_nodes = 13,
 	.nodes = { &alm_gpu_tcu, &alm_sys_tcu,
-		   &qnm_nsp_gemnoc, &qnm_pcie,
-		   &qnm_snoc_gc, &qns_gem_noc_cnoc,
+		   &chm_apps, &qnm_gpu,
+		   &qnm_mdsp, &qnm_mnoc_hf,
+		   &qnm_mnoc_sf, &qnm_nsp_gemnoc,
+		   &qnm_pcie, &qnm_snoc_gc,
+		   &qnm_snoc_sf, &qns_gem_noc_cnoc,
 		   &qns_pcie },
 };
 
@@ -1853,6 +1864,7 @@ static struct qcom_icc_bcm bcm_acv_disp = {
 	.name = "ACV",
 	.voter_idx = 1,
 	.enable_mask = 0x1,
+	.perf_mode_mask = 0x2,
 	.num_nodes = 1,
 	.nodes = { &ebi_disp },
 };
@@ -1882,8 +1894,8 @@ static struct qcom_icc_bcm bcm_sh1_disp = {
 	.name = "SH1",
 	.voter_idx = 1,
 	.enable_mask = 0x1,
-	.num_nodes = 1,
-	.nodes = { &qnm_pcie_disp },
+	.num_nodes = 2,
+	.nodes = { &qnm_mnoc_hf_disp, &qnm_pcie_disp },
 };
 
 static struct qcom_icc_bcm *aggre1_noc_bcms[] = {
@@ -2134,6 +2146,7 @@ static struct qcom_icc_desc kalama_lpass_ag_noc = {
 };
 
 static struct qcom_icc_bcm *lpass_lpiaon_noc_bcms[] = {
+	&bcm_lp0,
 };
 
 static struct qcom_icc_node *lpass_lpiaon_noc_nodes[] = {
