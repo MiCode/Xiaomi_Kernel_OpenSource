@@ -854,6 +854,30 @@
 					<&cpufreq_hw 2>;
 	};
 
+	apsscc: syscon@17a80000 {
+		compatible = "syscon";
+		reg = <0x17a80000 0x21000>;
+	};
+
+	mccc: syscon@190ba000 {
+		compatible = "syscon";
+		reg = <0x190ba000 0x54>;
+	};
+
+	debugcc: debug-clock-controller@0 {
+		compatible = "qcom,diwali-debugcc";
+		qcom,gcc = <&gcc>;
+		qcom,videocc = <&videocc>;
+		qcom,dispcc = <&dispcc>;
+		qcom,camcc = <&camcc>;
+		qcom,gpucc = <&gpucc>;
+		qcom,apsscc = <&apsscc>;
+		qcom,mccc = <&mccc>;
+		clock-names = "xo_clk_src";
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};
+
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;

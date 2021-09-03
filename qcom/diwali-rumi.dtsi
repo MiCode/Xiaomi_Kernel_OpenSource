@@ -204,3 +204,7 @@
 &cpufreq_hw {
 	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
 };
+
+&debugcc {
+	clocks = <&bi_tcxo>;
+};
