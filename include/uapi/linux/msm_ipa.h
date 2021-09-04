@@ -141,6 +141,7 @@
 #define IPA_IOCTL_ADD_EoGRE_MAPPING             88
 #define IPA_IOCTL_DEL_EoGRE_MAPPING             89
 #define IPA_IOCTL_SET_IPPT_SW_FLT               90
+#define IPA_IOCTL_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH 91
 
 /**
  * max size of the header to be inserted
@@ -3622,6 +3623,9 @@ struct ipa_ioc_sw_flt_list_type {
 #define IPA_IOC_SET_IPPT_SW_FLT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_SET_IPPT_SW_FLT, \
 				struct ipa_ioc_sw_flt_list_type)
+#define IPA_IOC_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH, \
+				enum ipa_client_type)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
