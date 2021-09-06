@@ -305,3 +305,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dma_buf_release);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmc_check_status);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_blk_alloc_rqs);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_blk_rq_ctx_init);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmap_region);
