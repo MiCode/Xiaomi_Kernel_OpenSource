@@ -650,6 +650,8 @@ static int eth_stop(struct net_device *net)
 		dev->net->stats.rx_errors, dev->net->stats.tx_errors
 		);
 
+	usb_gadget_autopm_get(dev->gadget);
+
 	/* ensure there are no more active requests */
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
@@ -682,6 +684,7 @@ static int eth_stop(struct net_device *net)
 		}
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
+	usb_gadget_autopm_put_async(dev->gadget);
 
 	return 0;
 }
