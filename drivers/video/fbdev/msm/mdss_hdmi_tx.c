@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2010-2018, 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2010-2018, 2020, 2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/bitops.h>
 #include <linux/delay.h>
@@ -649,7 +649,7 @@ static ssize_t edid_store(struct device *dev,
 	memset(hdmi_ctrl->edid_buf, 0, hdmi_ctrl->edid_buf_size);
 
 	while (edid_size--) {
-		char t[char_to_nib + 1];
+		char t[3]; /* char_to_nib + 1; */
 		int d;
 
 		memcpy(t, buf_t, sizeof(char) * char_to_nib);
