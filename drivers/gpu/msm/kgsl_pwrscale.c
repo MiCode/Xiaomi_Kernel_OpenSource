@@ -708,7 +708,7 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	if (IS_ERR_OR_NULL(devfreq)) {
 		device->pwrscale.enabled = false;
 		msm_adreno_tz_exit();
-		return PTR_ERR(devfreq);
+		return IS_ERR(devfreq) ? PTR_ERR(devfreq) : -EINVAL;
 	}
 
 	pwrscale->devfreqptr = devfreq;
