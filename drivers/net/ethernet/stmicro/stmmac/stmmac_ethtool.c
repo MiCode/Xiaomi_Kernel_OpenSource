@@ -17,6 +17,7 @@
 #include <asm/io.h>
 
 #include "stmmac.h"
+#include "hwif.h"
 #include "dwmac_dma.h"
 #include "dwxgmac2.h"
 
@@ -541,8 +542,14 @@ stmmac_get_pauseparam(struct net_device *netdev,
 		if (!adv_lp.pause)
 			return;
 	} else {
-		if (!priv->plat->mac2mac_en)
+		if (!priv->plat->mac2mac_en) {
 			phylink_ethtool_get_pauseparam(priv->phylink, pause);
+		} else {
+			if (priv->flow_ctrl & FLOW_RX)
+				pause->rx_pause = 1;
+			if (priv->flow_ctrl & FLOW_TX)
+				pause->tx_pause = 1;
+		}
 	}
 }
 
@@ -553,9 +560,11 @@ stmmac_set_pauseparam(struct net_device *netdev,
 	struct stmmac_priv *priv = netdev_priv(netdev);
 	struct rgmii_adv adv_lp;
 
+	u32 tx_cnt = priv->plat->tx_queues_to_use;
 	struct phy_device *phy = netdev->phydev;
+	int new_pause = FLOW_OFF;
 
-	if (!phy) {
+	if (!phy && !priv->plat->mac2mac_en) {
 		pr_err("%s: %s: PHY is not registered\n",
 		       __func__, netdev->name);
 		return -ENODEV;
@@ -567,10 +576,19 @@ stmmac_set_pauseparam(struct net_device *netdev,
 			return -EOPNOTSUPP;
 		return 0;
 	} else {
-		if (!priv->plat->mac2mac_en)
+		if (!priv->plat->mac2mac_en) {
 			return phylink_ethtool_set_pauseparam(priv->phylink, pause);
-		else
+		} else {
+			if (pause->rx_pause)
+				new_pause |= FLOW_RX;
+			if (pause->tx_pause)
+				new_pause |= FLOW_TX;
+
+			priv->flow_ctrl = new_pause;
+			stmmac_flow_ctrl(priv, priv->hw, 0, priv->flow_ctrl,
+					 priv->pause, tx_cnt);
 			return 0;
+		}
 	}
 }
 
