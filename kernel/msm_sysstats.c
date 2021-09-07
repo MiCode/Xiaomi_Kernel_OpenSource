@@ -422,7 +422,7 @@ static void sysstats_build(struct sysstats_mem *stats)
 	stats->free_cma = K(global_zone_page_state(NR_FREE_CMA_PAGES));
 	stats->file_mapped = K(global_node_page_state(NR_FILE_MAPPED));
 	stats->kernelstack = global_node_page_state(NR_KERNEL_STACK_KB);
-	stats->pagetable = K(global_zone_page_state(NR_PAGETABLE));
+	stats->pagetable = K(global_node_page_state(NR_PAGETABLE));
 	stats->shmem = K(i.sharedram);
 	sysstats_fill_zoneinfo(stats);
 }
