@@ -1829,3 +1829,4 @@
 };
 #include "diwali-stub-regulator.dtsi"
 #include "diwali-usb.dtsi"
+#include "diwali-gpu.dtsi"
