@@ -16,6 +16,10 @@
 #define QTI_ICE_MAX_BIST_CHECK_COUNT 100
 #define QTI_ICE_TYPE_NAME_LEN 8
 
+/* Storage types for crypto */
+#define UFS_CE 10
+#define SDCC_CE 20
+
 struct ice_mmio_data {
 	void __iomem *ice_base_mmio;
 #if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
