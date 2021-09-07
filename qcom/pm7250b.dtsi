@@ -439,13 +439,13 @@
 			pm7250b_trip1: trip1 {
 				temperature = <115000>;
 				hysteresis = <0>;
-				type = "passive";
+				type = "critical";
 			};
 
-			trip2 {
+			pm7250b_trip2: trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
@@ -487,6 +487,18 @@
 		thermal-sensors = <&pm7250b_bcl 5>;
 
 		trips {
+			thermal-engine-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			thermal-hal-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
 			b_bcl_lvl0: b-bcl-lvl0 {
 				temperature = <1>;
 				hysteresis = <1>;
@@ -502,6 +514,18 @@
 		thermal-sensors = <&pm7250b_bcl 6>;
 
 		trips {
+			thermal-engine-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			thermal-hal-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
 			b_bcl_lvl1: b-bcl-lvl1 {
 				temperature = <1>;
 				hysteresis = <1>;
@@ -517,6 +541,18 @@
 		thermal-sensors = <&pm7250b_bcl 7>;
 
 		trips {
+			thermal-engine-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			thermal-hal-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
 			b_bcl_lvl2: b-bcl-lvl2 {
 				temperature = <1>;
 				hysteresis = <1>;
@@ -532,6 +568,18 @@
 		thermal-sensors = <&bcl_soc>;
 
 		trips {
+			thermal-engine-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			thermal-hal-trip {
+				temperature = <100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
 			socd_trip:socd-trip {
 				temperature = <90>;
 				hysteresis = <1>;
