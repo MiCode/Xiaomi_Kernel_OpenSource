@@ -815,6 +815,7 @@ static void load_pmu_counters(void)
 
 int rimps_pmu_init(struct scmi_device *sdev)
 {
+	int ret = 0;
 
 	if (!sdev || !sdev->handle)
 		return -EINVAL;
@@ -823,7 +824,15 @@ int rimps_pmu_init(struct scmi_device *sdev)
 	if (!ops)
 		return -EINVAL;
 
-	return configure_cpucp_map(*cpu_possible_mask);
+	/*
+	 * If communication with cpucp doesn't succeed here the device memory
+	 * will be de-allocated. Make ops NULL to avoid further scmi calls.
+	 */
+	ret = configure_cpucp_map(*cpu_possible_mask);
+	if (ret)
+		ops = NULL;
+
+	return ret;
 }
 EXPORT_SYMBOL(rimps_pmu_init);
 
