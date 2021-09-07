@@ -5424,6 +5424,20 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
+	spin_lock(&me->hlock);
+	if (fl->device) {
+		fl->device->dev_close = true;
+		if (fl->device->refs == 0) {
+			is_driver_closed = true;
+			hlist_del_init(&fl->device->hn);
+		}
+	}
+	spin_unlock(&me->hlock);
+
+	spin_lock(&fl->hlock);
+	fl->file_close = 1;
+	spin_unlock(&fl->hlock);
+
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock(&fl->apps->hlock);
@@ -5446,19 +5460,6 @@ skip_dump_wait:
 		return 0;
 	}
 
-	spin_lock(&me->hlock);
-	if (fl->device) {
-		fl->device->dev_close = true;
-		if (fl->device->refs == 0) {
-			is_driver_closed = true;
-			hlist_del_init(&fl->device->hn);
-		}
-	}
-	spin_unlock(&me->hlock);
-
-	spin_lock(&fl->hlock);
-	fl->file_close = 1;
-	spin_unlock(&fl->hlock);
 	//Dummy wake up to exit Async worker thread
 	spin_lock_irqsave(&fl->aqlock, flags);
 	atomic_add(1, &fl->async_queue_job_count);
