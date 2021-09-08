@@ -789,7 +789,7 @@ static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 50000000,
 			[VDD_LOW] = 100000000,
-			[VDD_NOMINAL] = 171428571},
+			[VDD_NOMINAL] = 200000000},
 	},
 };
 
