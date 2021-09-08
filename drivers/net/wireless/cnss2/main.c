@@ -2308,7 +2308,7 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 	list_add(&seg->node, &head);
 
 do_elf_dump:
-	ret = qcom_elf_dump(&head, info_v2->ramdump_dev);
+	ret = qcom_elf_dump(&head, info_v2->ramdump_dev, ELF_CLASS);
 
 	while (!list_empty(&head)) {
 		seg = list_first_entry(&head, struct qcom_dump_segment, node);
