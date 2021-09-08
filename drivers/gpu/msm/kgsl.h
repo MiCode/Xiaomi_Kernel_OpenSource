@@ -71,6 +71,12 @@ struct adreno_rb_shadow {
 	u32 bv_rptr;
 	/** @bv_ts: per ringbuffer address where BV ringbuffer timestamp is written to */
 	u32 bv_ts;
+	/** @current_rb_ptname: The current pagetable active on the given RB */
+	u32 current_rb_ptname;
+	/** @ttbr0: value to program into TTBR0 during pagetable switch */
+	u64 ttbr0;
+	/** @contextidr: value to program into CONTEXTIDR during pagetable switch */
+	u32 contextidr;
 };
 
 #define SCRATCH_RB_OFFSET(id, _field) ((id * sizeof(struct adreno_rb_shadow)) + \
