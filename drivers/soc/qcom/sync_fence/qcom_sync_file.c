@@ -41,6 +41,7 @@ struct sync_device {
 	atomic_t device_available;
 	char name[NAME_LEN];
 	uint32_t version;
+	struct mutex l_lock;
 	struct list_head fence_array_list;
 };
 
@@ -55,26 +56,46 @@ static struct sync_device sync_dev;
 static bool sanitize_fence_array(struct dma_fence_array *fence)
 {
 	struct fence_array_node *node;
+	int ret = false;
 
+	mutex_lock(&sync_dev.l_lock);
 	list_for_each_entry(node, &sync_dev.fence_array_list, list) {
-		if (node->fence_array == fence)
-			return true;
+		if (node->fence_array == fence) {
+			ret = true;
+			break;
+		}
 	}
+	mutex_unlock(&sync_dev.l_lock);
 
-	return false;
+	return ret;
 }
 
 static void clear_fence_array_tracker(bool force_clear)
 {
 	struct fence_array_node *node, *temp;
+	struct dma_fence_array *array;
+	struct dma_fence *fence;
+	bool is_signaled;
 
+	mutex_lock(&sync_dev.l_lock);
 	list_for_each_entry_safe(node, temp, &sync_dev.fence_array_list, list) {
-		if (force_clear || dma_fence_is_signaled(&node->fence_array->base)) {
-			dma_fence_put(&node->fence_array->base);
+		array = node->fence_array;
+		fence = &array->base;
+		is_signaled = dma_fence_is_signaled(fence);
+
+		pr_debug("force_clear:%d is_signaled:%d pending:%d\n", force_clear, is_signaled,
+			atomic_read(&array->num_pending));
+
+		if (force_clear && !is_signaled && atomic_dec_and_test(&array->num_pending))
+			dma_fence_signal(fence);
+
+		if (force_clear || is_signaled) {
+			dma_fence_put(fence);
 			list_del(&node->list);
 			kfree(node);
 		}
 	}
+	mutex_unlock(&sync_dev.l_lock);
 }
 
 static struct sync_device *spec_fence_init_locked(struct sync_device *obj, const char *name)
@@ -189,7 +210,10 @@ static int spec_sync_create_array(struct fence_create_data *f)
 	}
 	node->fence_array = fence_array;
 	dma_fence_get(&fence_array->base);
+
+	mutex_lock(&sync_dev.l_lock);
 	list_add_tail(&node->list, &sync_dev.fence_array_list);
+	mutex_unlock(&sync_dev.l_lock);
 
 	pr_debug("spec fd:%d num_fences:%u\n", fd, f->num_fences);
 	return fd;
@@ -387,6 +411,7 @@ static int spec_sync_register_device(void)
 
 	sync_dev.version = DRV_VERSION;
 	mutex_init(&sync_dev.lock);
+	mutex_init(&sync_dev.l_lock);
 	INIT_LIST_HEAD(&sync_dev.fence_array_list);
 
 	return 0;
