@@ -86,6 +86,21 @@ static bool dynamic_pool_count_below_lowmark(struct dynamic_page_pool *pool)
 	return atomic_read(&pool->count) < get_dynamic_pool_lowmark(pool);
 }
 
+/* Based on gfp_zone() in mm/mmzone.c since it is not exported. */
+static enum zone_type dynamic_pool_gfp_zone(gfp_t flags)
+{
+	enum zone_type z;
+	gfp_t local_flags = flags;
+	int bit;
+
+	bit = (__force int) ((local_flags) & GFP_ZONEMASK);
+
+	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
+					 ((1 << GFP_ZONES_SHIFT) - 1);
+	VM_BUG_ON((GFP_ZONE_BAD >> bit) & 1);
+	return z;
+}
+
 /* do a simple check to see if we are in any low memory situation */
 static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
 {
@@ -93,7 +108,7 @@ static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
 	struct zoneref *z;
 	struct zone *zone;
 	int mark;
-	enum zone_type classzone_idx = gfp_zone(pool->gfp_mask);
+	enum zone_type classzone_idx = dynamic_pool_gfp_zone(pool->gfp_mask);
 	s64 delta;
 
 	/* check if we are within the refill defer window */
