@@ -254,7 +254,7 @@ struct msm_geni_serial_port {
 	struct completion m_cmd_timeout;
 	struct completion s_cmd_timeout;
 	spinlock_t rx_lock;
-	bool is_clock_off;
+	atomic_t is_clock_off;
 	enum uart_error_code uart_error;
 };
 
@@ -1415,7 +1415,7 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 	static unsigned int ios_log_limit;
 
 	/* when start_tx is called with UART clocks OFF return. */
-	if (uart_console(uport) && msm_port->is_clock_off) {
+	if (uart_console(uport) && (uport->suspended || atomic_read(&msm_port->is_clock_off))) {
 		IPC_LOG_MSG(msm_port->console_log,
 			"%s. Console in suspend state\n", __func__);
 		return;
@@ -2315,7 +2315,7 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 	bool s_cmd_done = false;
 	bool m_cmd_done = false;
 
-	if (uart_console(uport) && msm_port->is_clock_off) {
+	if (uart_console(uport) && atomic_read(&msm_port->is_clock_off)) {
 		IPC_LOG_MSG(msm_port->console_log,
 			"%s. Console in suspend state\n", __func__);
 		goto exit_geni_serial_isr;
@@ -3162,12 +3162,11 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 
 	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF) {
 		se_geni_resources_on(&msm_port->serial_rsc);
-		msm_port->is_clock_off = false;
-	}
-	else if (new_state == UART_PM_STATE_OFF &&
+		atomic_set(&msm_port->is_clock_off, 0);
+	} else if (new_state == UART_PM_STATE_OFF &&
 			old_state == UART_PM_STATE_ON) {
+		atomic_set(&msm_port->is_clock_off, 1);
 		se_geni_resources_off(&msm_port->serial_rsc);
-		msm_port->is_clock_off = true;
 	}
 }
 
@@ -3774,6 +3773,7 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 	if (port->is_console && !con_enabled) {
 		return 0;
 	} else if (uart_console(uport)) {
+		IPC_LOG_MSG(port->console_log, "%s start\n", __func__);
 		uart_suspend_port((struct uart_driver *)uport->private_data,
 					uport);
 		IPC_LOG_MSG(port->console_log, "%s\n", __func__);
@@ -3806,6 +3806,7 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 
 	if (uart_console(uport) &&
 	    console_suspend_enabled && uport->suspended) {
+		IPC_LOG_MSG(port->console_log, "%s start\n", __func__);
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);
 		IPC_LOG_MSG(port->console_log, "%s\n", __func__);
