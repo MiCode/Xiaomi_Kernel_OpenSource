@@ -21,9 +21,6 @@
 #include <linux/firmware.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
-#include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/subsystem_restart.h>
-
 #define MAX_LEN 256
 #define DEFAULT_UNISO_TIMEOUT_MS 8000
 #define NUM_RESERVED_CPUS 2
