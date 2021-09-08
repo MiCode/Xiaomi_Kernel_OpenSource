@@ -104,10 +104,8 @@ static enum zone_type dynamic_pool_gfp_zone(gfp_t flags)
 /* do a simple check to see if we are in any low memory situation */
 static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
 {
-	struct zonelist *zonelist;
-	struct zoneref *z;
 	struct zone *zone;
-	int mark;
+	int i, mark;
 	enum zone_type classzone_idx = dynamic_pool_gfp_zone(pool->gfp_mask);
 	s64 delta;
 
@@ -116,14 +114,15 @@ static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
 	if (delta < DYNAMIC_POOL_REFILL_DEFER_WINDOW_MS)
 		return false;
 
-	zonelist = node_zonelist(numa_node_id(), pool->gfp_mask);
 	/*
 	 * make sure that if we allocate a pool->order page from buddy,
-	 * we don't put the zone watermarks go below the high threshold.
+	 * we don't put the zone watermarks below the high threshold.
 	 * This makes sure there's no unwanted repetitive refilling and
 	 * reclaiming of buddy pages on the pool.
 	 */
-	for_each_zone_zonelist(zone, z, zonelist, classzone_idx) {
+	for (i = classzone_idx; i >= 0; i--) {
+		zone = &NODE_DATA(numa_node_id())->node_zones[i];
+
 		if (!strcmp(zone->name, "DMA32"))
 			continue;
 
