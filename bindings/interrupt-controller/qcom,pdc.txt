@@ -22,6 +22,7 @@ Properties:
 		    - "qcom,sdm845-pdc": For SDM845
 		    - "qcom,diwali-pdc": For Diwali
 		    - "qcom,cape-pdc": For Cape
+		    - "qcom,neo-pdc": For Neo
 
 - reg:
 	Usage: required
