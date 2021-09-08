@@ -492,13 +492,16 @@ static void sysmon_notif_timeout_handler(struct timer_list *t)
 	struct notif_timeout_data *td = from_timer(td, t, timer);
 	struct qcom_sysmon *sysmon = container_of(td, struct qcom_sysmon, timeout_data);
 
-#if IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT)
-	panic(notif_timeout_msg, sysmon->name, td->dest->name,
-	      subdevice_state_string[sysmon->state]);
-#else
-	WARN(1, notif_timeout_msg, sysmon->name, td->dest->name,
-	     subdevice_state_string[sysmon->state]);
-#endif
+	if (IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT) &&
+	    system_state != SYSTEM_RESTART &&
+	    system_state != SYSTEM_POWER_OFF &&
+	    system_state != SYSTEM_HALT &&
+	    !qcom_device_shutdown_in_progress)
+		panic(notif_timeout_msg, sysmon->name, td->dest->name,
+		      subdevice_state_string[sysmon->state]);
+	else
+		WARN(1, notif_timeout_msg, sysmon->name, td->dest->name,
+		     subdevice_state_string[sysmon->state]);
 }
 
 static void sysmon_shutdown_notif_timeout_handler(struct timer_list *t)
@@ -506,11 +509,14 @@ static void sysmon_shutdown_notif_timeout_handler(struct timer_list *t)
 	struct notif_timeout_data *td = from_timer(td, t, timer);
 	struct qcom_sysmon *sysmon = container_of(td, struct qcom_sysmon, timeout_data);
 
-#if IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT)
-	panic(shutdown_timeout_msg, sysmon->name);
-#else
-	WARN(1, shutdown_timeout_msg, sysmon->name);
-#endif
+	if (IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT) &&
+	    system_state != SYSTEM_RESTART &&
+	    system_state != SYSTEM_POWER_OFF &&
+	    system_state != SYSTEM_HALT &&
+	    !qcom_device_shutdown_in_progress)
+		panic(shutdown_timeout_msg, sysmon->name);
+	else
+		WARN(1, shutdown_timeout_msg, sysmon->name);
 }
 
 static inline void send_event(struct qcom_sysmon *sysmon, struct qcom_sysmon *source)
