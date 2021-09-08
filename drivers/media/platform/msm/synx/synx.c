@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -681,9 +681,9 @@ EXPORT_SYMBOL(synx_merge);
 int synx_release(struct synx_session session_id, s32 h_synx)
 {
 	int rc = 0;
+	u32 idx;
 	struct synx_client *client;
 	struct synx_handle_coredata *synx_data;
-	struct synx_coredata *synx_obj;
 
 	pr_debug("[sess: %u] Enter release from pid %d\n",
 		session_id.client_id, current->pid);
@@ -692,21 +692,31 @@ int synx_release(struct synx_session session_id, s32 h_synx)
 	if (!client)
 		return -EINVAL;
 
-	synx_data = synx_util_acquire_handle(client, h_synx);
-	synx_obj = synx_util_obtain_object(synx_data);
-	/* no need to check for fence here */
-	if (!synx_obj) {
-		pr_err("%s: [sess: %u] invalid handle access %d\n",
-			__func__, client->id, h_synx);
-		rc = -EINVAL;
-		goto fail;
+	synx_data = NULL;
+	idx = synx_util_handle_index(h_synx);
+
+	mutex_lock(&client->synx_table_lock[idx]);
+	synx_data = &client->synx_table[idx];
+	if (!synx_data->synx_obj) {
+		pr_err("[sess: %u] invalid object handle %d\n",
+			client->id, h_synx);
+	} else if (synx_data->handle != h_synx) {
+		pr_err("[sess: %u] stale object handle %d\n",
+			client->id, h_synx);
+	} else if (synx_data->rel_count == 0) {
+		pr_err("[sess: %u] released object handle %d\n",
+			client->id, h_synx);
+	} else if (!kref_read(&synx_data->internal_refcount)) {
+		pr_err("[sess: %u] destroyed object handle %d\n",
+			client->id, h_synx);
+	} else {
+		synx_data->rel_count--;
+		/* release the reference obtained at synx creation */
+		kref_put(&synx_data->internal_refcount,
+			synx_util_destroy_internal_handle);
 	}
+	mutex_unlock(&client->synx_table_lock[idx]);
 
-	/* release the reference obtained at synx creation */
-	synx_util_release_handle(synx_data);
-
-fail:
-	synx_util_release_handle(synx_data);
 	synx_put_client(client);
 	pr_debug("[sess: %u] exit release with status %d\n",
 		session_id.client_id, rc);
@@ -953,8 +963,10 @@ int synx_addrefcount(struct synx_session session_id, s32 h_synx, s32 count)
 	idx = synx_util_handle_index(h_synx);
 	mutex_lock(&client->synx_table_lock[idx]);
 	/* acquire additional references to handle */
-	while (count--)
+	while (count--) {
+		synx_data->rel_count++;
 		kref_get(&synx_data->internal_refcount);
+	}
 	mutex_unlock(&client->synx_table_lock[idx]);
 
 fail:
