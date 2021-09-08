@@ -239,6 +239,7 @@ struct synx_device;
  * @import_refcount   : References for external clients for import
  * @id                : Synx object handle for the client
  * @key               : Key for import authentication
+ * @rel_count         : No of allowed release counts
  */
 struct synx_handle_coredata {
 	struct synx_client *client;
@@ -247,6 +248,7 @@ struct synx_handle_coredata {
 	struct kref import_refcount;
 	u32 handle;
 	u16 key;
+	u32 rel_count;
 };
 
 /**
