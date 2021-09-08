@@ -7,6 +7,7 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		wakeup-parent = <&pdc>;
 
 		sdc1_on: sdc1_on {
 			clk {
