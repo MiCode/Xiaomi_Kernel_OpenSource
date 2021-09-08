@@ -2857,8 +2857,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	/* baud rate */
 	baud = uart_get_baud_rate(uport, termios, old, 300, 4000000);
 	port->cur_baud = baud;
-	uart_sampling = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING) ?
-				UART_OVERSAMPLING / 2 : UART_OVERSAMPLING;
+
+	/* sampling is halved for QUP versions >= 2.5 */
+	uart_sampling = UART_OVERSAMPLING;
+	if ((port->ver_info.hw_major_ver >= 3) || ((port->ver_info.hw_major_ver >= 2) &&
+		(port->ver_info.hw_minor_ver >= 5)))
+		uart_sampling /= 2;
+
 	desired_rate = baud * uart_sampling;
 
 	/*
