@@ -933,10 +933,8 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->limited_commit_stack)
-		ret = gpuppm_fp->limited_commit_stack(oppidx);
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->limited_commit_gpu)
-		ret = gpuppm_fp->limited_commit_gpu(oppidx);
+	if (gpuppm_fp && gpuppm_fp->limited_commit)
+		ret = gpuppm_fp->limited_commit(target, oppidx);
 	else {
 		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
@@ -1000,10 +998,8 @@ int gpufreq_set_limit(enum gpufreq_target target,
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
-		ret = gpuppm_fp->set_limit_stack(limiter, ceiling_info, floor_info);
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
-		ret = gpuppm_fp->set_limit_gpu(limiter, ceiling_info, floor_info);
+	if (gpuppm_fp && gpuppm_fp->set_limit)
+		ret = gpuppm_fp->set_limit(target, limiter, ceiling_info, floor_info);
 	else {
 		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
@@ -1061,21 +1057,12 @@ int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_ceiling_stack)
-			limit_idx = gpuppm_fp->get_ceiling_stack();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_floor_stack)
-			limit_idx = gpuppm_fp->get_floor_stack();
-		else
-			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-	} else if (target == TARGET_GPU) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_ceiling_gpu)
-			limit_idx = gpuppm_fp->get_ceiling_gpu();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_floor_gpu)
-			limit_idx = gpuppm_fp->get_floor_gpu();
-		else
-			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-	}
+	if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_ceiling)
+		limit_idx = gpuppm_fp->get_ceiling(target);
+	else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_floor)
+		limit_idx = gpuppm_fp->get_floor(target);
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
 done:
 	GPUFREQ_LOGD("target: %s, current %s index: %d",
@@ -1127,21 +1114,12 @@ unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_lim
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_c_limiter_stack)
-			limiter = gpuppm_fp->get_c_limiter_stack();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_f_limiter_stack)
-			limiter = gpuppm_fp->get_f_limiter_stack();
-		else
-			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-	} else if (target == TARGET_GPU) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_c_limiter_gpu)
-			limiter = gpuppm_fp->get_c_limiter_gpu();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_f_limiter_gpu)
-			limiter = gpuppm_fp->get_f_limiter_gpu();
-		else
-			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-	}
+	if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_c_limiter)
+		limiter = gpuppm_fp->get_c_limiter(target);
+	else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_f_limiter)
+		limiter = gpuppm_fp->get_f_limiter(target);
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
 done:
 	GPUFREQ_LOGD("target: %s, current %s limiter: %d",
@@ -1222,10 +1200,8 @@ struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->get_debug_limit_info_stack)
-		limit_info = gpuppm_fp->get_debug_limit_info_stack();
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->get_debug_limit_info_gpu)
-		limit_info = gpuppm_fp->get_debug_limit_info_gpu();
+	if (gpuppm_fp && gpuppm_fp->get_debug_limit_info)
+		limit_info = gpuppm_fp->get_debug_limit_info(target);
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
@@ -1334,10 +1310,8 @@ const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target targ
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->get_limit_table_stack)
-		limit_table = gpuppm_fp->get_limit_table_stack();
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->get_limit_table_gpu)
-		limit_table = gpuppm_fp->get_limit_table_gpu();
+	if (gpuppm_fp && gpuppm_fp->get_limit_table)
+		limit_table = gpuppm_fp->get_limit_table(target);
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
@@ -1375,10 +1349,8 @@ int gpufreq_switch_limit(enum gpufreq_target target,
 	}
 
 	/* implement on AP */
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->switch_limit_stack)
-		ret = gpuppm_fp->switch_limit_stack(limiter, c_enable, f_enable);
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->switch_limit_gpu)
-		ret = gpuppm_fp->switch_limit_gpu(limiter, c_enable, f_enable);
+	if (gpuppm_fp && gpuppm_fp->switch_limit)
+		ret = gpuppm_fp->switch_limit(target, limiter, c_enable, f_enable);
 	else {
 		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");

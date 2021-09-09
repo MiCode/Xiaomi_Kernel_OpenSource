@@ -3671,7 +3671,7 @@ static void __gpufreq_resume_dvfs(void)
 
 	__gpufreq_set_dvfs_state(false, DVFS_AGING_KEEP);
 
-	GPUFREQ_LOGD("dvfs state: 0x%x", g_dvfs_state);
+	GPUFREQ_LOGI("resume DVFS, state: 0x%x", g_dvfs_state);
 
 	GPUFREQ_TRACE_END();
 }
@@ -3738,7 +3738,7 @@ static int __gpufreq_pause_dvfs(void)
 		goto done_unlock;
 	}
 
-	GPUFREQ_LOGD("pause DVFS at STACK(%d, %d), GPU(%d, %d), state: 0x%x",
+	GPUFREQ_LOGI("pause DVFS at STACK(%d, %d), GPU(%d, %d), state: 0x%x",
 		target_fstack, target_vstack, target_fgpu, target_vgpu, g_dvfs_state);
 
 done_unlock:
@@ -3777,10 +3777,10 @@ static void __gpufreq_interpolate_volt(void)
 		range = rear_idx - front_idx;
 
 		/* freq division to amplify slope */
-		large_volt = signed_table[front_idx].volt;
+		large_volt = signed_table[front_idx].volt * 100;
 		large_freq = signed_table[front_idx].freq / 1000;
 
-		small_volt = signed_table[rear_idx].volt;
+		small_volt = signed_table[rear_idx].volt * 100;
 		small_freq = signed_table[rear_idx].freq / 1000;
 
 		/* slope = volt / freq */
@@ -3797,7 +3797,7 @@ static void __gpufreq_interpolate_volt(void)
 		for (j = 1; j < range; j++) {
 			inner_idx = rear_idx - j;
 			inner_freq = signed_table[inner_idx].freq / 1000;
-			inner_volt = small_volt + slope * (inner_freq - small_freq);
+			inner_volt = (small_volt + slope * (inner_freq - small_freq)) / 100;
 			inner_volt = VOLT_NORMALIZATION(inner_volt);
 
 			/* compare interpolated volt with volt of previous OPP idx */
@@ -4146,6 +4146,8 @@ static void __gpufreq_aging_adjustment(void)
 
 	g_asensor_info.aging_table_idx_most_agrresive = GPUFREQ_AGING_MOST_AGRRESIVE;
 	g_asensor_info.aging_table_idx_choosed = aging_table_idx;
+
+	GPUFREQ_LOGI("Aging Sensor choose aging table id: %d", aging_table_idx);
 #endif /* GPUFREQ_ASENSOR_ENABLE */
 
 	adj_num = g_stack.signed_opp_num;
@@ -4194,7 +4196,12 @@ static void __gpufreq_avs_adjustment(void)
 		oppidx = g_avs_adj[i].oppidx;
 		val = readl(g_efuse_base + 0x5D4 + (i * 0x4));
 
+		/* if efuse value is not set */
+		if (!val)
+			continue;
+
 		/* compute Freq from efuse */
+		temp_freq = 0;
 		temp_freq |= (val & 0x00100000) >> 10; // Get freq[10]  from efuse[20]
 		temp_freq |= (val & 0x00000C00) >> 2;  // Get freq[9:8] from efuse[11:10]
 		temp_freq |= (val & 0x00000003) << 6;  // Get freq[7:6] from efuse[1:0]
@@ -4212,6 +4219,7 @@ static void __gpufreq_avs_adjustment(void)
 		}
 
 		/* compute Volt from efuse */
+		temp_volt = 0;
 		temp_volt |= (val & 0x0003C000) >> 14; // Get volt[3:0] from efuse[17:14]
 		temp_volt |= (val & 0x00000030);       // Get volt[5:4] from efuse[5:4]
 		temp_volt |= (val & 0x0000000C) << 4;  // Get volt[7:6] from efuse[3:2]
@@ -4224,6 +4232,9 @@ static void __gpufreq_avs_adjustment(void)
 			g_avs_adj[i].volt = g_stack.signed_table[oppidx].volt;
 		} else
 			g_avs_adj[i].volt = temp_volt;
+
+		GPUFREQ_LOGI("OPP[%02d*]: AVS efuse[%d] freq(%d), volt(%d)",
+			oppidx, i, temp_freq, temp_volt);
 	}
 
 	/* apply AVS to signed table */

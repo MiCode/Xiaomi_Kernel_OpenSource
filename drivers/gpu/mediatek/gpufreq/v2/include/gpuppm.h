@@ -58,23 +58,16 @@ struct gpuppm_status {
  * Function
  **************************************************/
 int gpuppm_init(enum gpufreq_target target, unsigned int gpueb_support, unsigned int sramrc_vsafe);
-int gpuppm_limited_commit_gpu(int oppidx);
-int gpuppm_limited_commit_stack(int oppidx);
-int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
-int gpuppm_switch_limit_gpu(enum gpuppm_limiter limiter, int c_enable, int f_enable);
-int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
-int gpuppm_switch_limit_stack(enum gpuppm_limiter limiter, int c_enable, int f_enable);
-int gpuppm_get_ceiling_gpu(void);
-int gpuppm_get_floor_gpu(void);
-unsigned int gpuppm_get_c_limiter_gpu(void);
-unsigned int gpuppm_get_f_limiter_gpu(void);
-const struct gpuppm_limit_info *gpuppm_get_limit_table_gpu(void);
-struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void);
-int gpuppm_get_ceiling_stack(void);
-int gpuppm_get_floor_stack(void);
-unsigned int gpuppm_get_c_limiter_stack(void);
-unsigned int gpuppm_get_f_limiter_stack(void);
-const struct gpuppm_limit_info *gpuppm_get_limit_table_stack(void);
-struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_stack(void);
+int gpuppm_limited_commit(enum gpufreq_target target, int oppidx);
+int gpuppm_set_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
+	int ceiling_info, int floor_info);
+int gpuppm_switch_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
+	int c_enable, int f_enable);
+int gpuppm_get_ceiling(enum gpufreq_target target);
+int gpuppm_get_floor(enum gpufreq_target target);
+unsigned int gpuppm_get_c_limiter(enum gpufreq_target target);
+unsigned int gpuppm_get_f_limiter(enum gpufreq_target target);
+const struct gpuppm_limit_info *gpuppm_get_limit_table(enum gpufreq_target target);
+struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info(enum gpufreq_target target);
 
 #endif /* __GPUPPM_H__ */

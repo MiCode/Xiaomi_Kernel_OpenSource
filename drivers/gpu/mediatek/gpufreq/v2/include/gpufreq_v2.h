@@ -203,24 +203,17 @@ struct gpufreq_platform_fp {
 };
 
 struct gpuppm_platform_fp {
-	int (*limited_commit_gpu)(int oppidx);
-	int (*limited_commit_stack)(int oppidx);
-	int (*set_limit_gpu)(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
-	int (*switch_limit_gpu)(enum gpuppm_limiter limiter, int c_enable, int f_enable);
-	int (*set_limit_stack)(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
-	int (*switch_limit_stack)(enum gpuppm_limiter limiter, int c_enable, int f_enable);
-	int (*get_ceiling_gpu)(void);
-	int (*get_floor_gpu)(void);
-	unsigned int (*get_c_limiter_gpu)(void);
-	unsigned int (*get_f_limiter_gpu)(void);
-	const struct gpuppm_limit_info *(*get_limit_table_gpu)(void);
-	struct gpufreq_debug_limit_info (*get_debug_limit_info_gpu)(void);
-	int (*get_ceiling_stack)(void);
-	int (*get_floor_stack)(void);
-	unsigned int (*get_c_limiter_stack)(void);
-	unsigned int (*get_f_limiter_stack)(void);
-	const struct gpuppm_limit_info *(*get_limit_table_stack)(void);
-	struct gpufreq_debug_limit_info (*get_debug_limit_info_stack)(void);
+	int (*limited_commit)(enum gpufreq_target target, int oppidx);
+	int (*set_limit)(enum gpufreq_target target, enum gpuppm_limiter limiter,
+		int ceiling_info, int floor_info);
+	int (*switch_limit)(enum gpufreq_target target, enum gpuppm_limiter limiter,
+		int c_enable, int f_enable);
+	int (*get_ceiling)(enum gpufreq_target target);
+	int (*get_floor)(enum gpufreq_target target);
+	unsigned int (*get_c_limiter)(enum gpufreq_target target);
+	unsigned int (*get_f_limiter)(enum gpufreq_target target);
+	const struct gpuppm_limit_info *(*get_limit_table)(enum gpufreq_target target);
+	struct gpufreq_debug_limit_info (*get_debug_limit_info)(enum gpufreq_target target);
 };
 
 /**************************************************
