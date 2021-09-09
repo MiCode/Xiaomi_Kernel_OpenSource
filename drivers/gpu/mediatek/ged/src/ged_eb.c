@@ -103,46 +103,13 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 {
 	int ret = 0;
 
-	/* init ipi channel */
-	if (g_fast_dvfs_ipi_channel < 0) {
-		g_fast_dvfs_ipi_channel =
-			gpueb_get_send_PIN_ID_by_name("IPI_ID_FAST_DVFS");
-		if (unlikely(g_fast_dvfs_ipi_channel <= 0)) {
-			GPUFDVFS_LOGE("fail to get fast dvfs IPI channel id (ENOENT)");
-			g_is_fastdvfs_enable = -1;
-
-			return -ENOENT;
-		}
-
-		mtk_ipi_register(get_gpueb_ipidev(), g_fast_dvfs_ipi_channel,
-			NULL, NULL, (void *)&fdvfs_ipi_rcv_msg);
-	}
-
-	if (g_fdvfs_event_ipi_channel < 0) {
-		g_fdvfs_event_ipi_channel =
-			gpueb_get_recv_PIN_ID_by_name("IPI_ID_FAST_DVFS_EVENT");
-		if (unlikely(g_fdvfs_event_ipi_channel < 0)) {
-			GPUFDVFS_LOGE("fail to get FDVFS EVENT IPI channel id (ENOENT)");
-
-			return -ENOENT;
-		}
-
-		mtk_ipi_register(get_gpueb_ipidev(), g_fdvfs_event_ipi_channel,
-				(void *)fast_dvfs_eb_event_handler, NULL, &fdvfs_event_ipi_rcv_msg);
-	}
-
-	GPUFDVFS_LOGD("%s(%d), cmd: %d, channel: %d, ipi_size: %d (X4)\n",
-		__func__,
-		__LINE__,
-		cmd,
-		g_fast_dvfs_ipi_channel,
-		FDVFS_IPI_DATA_LEN);
-
-	if (ipi_data != NULL) {
+	if (ipi_data != NULL &&
+		g_fast_dvfs_ipi_channel >= 0 && g_fdvfs_event_ipi_channel >= 0) {
 		ipi_data->cmd = cmd;
 	} else {
-		GPUFDVFS_LOGI("%s(%d), cmd: %d, invalid ipi_data = NULL\n",
-			__func__, __LINE__, cmd);
+		GPUFDVFS_LOGI("%s(%d), Can't send cmd(%d) ipi_data:%p, ch:(%d)(%d)\n",
+			__func__, __LINE__, cmd, ipi_data,
+			g_fast_dvfs_ipi_channel, g_fdvfs_event_ipi_channel);
 		return -ENOENT;
 	}
 
@@ -709,6 +676,41 @@ void fdvfs_init(void)
 	g_is_fulltrace_enable = 0;
 
 	g_fast_dvfs_ipi_channel = -1;
+	g_fdvfs_event_ipi_channel = -1;
+
+	/* init ipi channel */
+	if (g_fast_dvfs_ipi_channel < 0) {
+		g_fast_dvfs_ipi_channel =
+			gpueb_get_send_PIN_ID_by_name("IPI_ID_FAST_DVFS");
+		if (unlikely(g_fast_dvfs_ipi_channel <= 0)) {
+			GPUFDVFS_LOGE("fail to get fast dvfs IPI channel id (ENOENT)");
+			g_is_fastdvfs_enable = -1;
+
+			return;
+		}
+
+		mtk_ipi_register(get_gpueb_ipidev(), g_fast_dvfs_ipi_channel,
+			NULL, NULL, (void *)&fdvfs_ipi_rcv_msg);
+	}
+
+	if (g_fdvfs_event_ipi_channel < 0) {
+		g_fdvfs_event_ipi_channel =
+			gpueb_get_recv_PIN_ID_by_name("IPI_ID_FAST_DVFS_EVENT");
+		if (unlikely(g_fdvfs_event_ipi_channel < 0)) {
+			GPUFDVFS_LOGE("fail to get FDVFS EVENT IPI channel id (ENOENT)");
+
+			return;
+		}
+
+		mtk_ipi_register(get_gpueb_ipidev(), g_fdvfs_event_ipi_channel,
+				(void *)fast_dvfs_eb_event_handler, NULL, &fdvfs_event_ipi_rcv_msg);
+	}
+
+	GPUFDVFS_LOGI("succeed to register channel: (%d)(%d), ipi_size: %d\n",
+		g_fast_dvfs_ipi_channel,
+		g_fdvfs_event_ipi_channel,
+		FDVFS_IPI_DATA_LEN);
+
 
 	/* init sysram for debug */
 	mtk_gpueb_dvfs_sysram_base_addr =
