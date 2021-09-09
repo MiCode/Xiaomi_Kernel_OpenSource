@@ -1865,11 +1865,11 @@ static int gpufreq_gpueb_init(void)
 
 	g_status_shared_mem_va = shared_mem_va;
 	status_shared_mem_pa = shared_mem_pa;
-	status_shared_mem_size = GPUFREQ_STATUS_MEM_SZ;
+	status_shared_mem_size = 0x400; // 1KB
 
-	g_debug_shared_mem_va = shared_mem_va + GPUFREQ_STATUS_MEM_SZ;
-	debug_shared_mem_pa = shared_mem_pa + GPUFREQ_STATUS_MEM_SZ;
-	debug_shared_mem_size = shared_mem_size - GPUFREQ_STATUS_MEM_SZ;
+	g_debug_shared_mem_va = shared_mem_va + 0x400;
+	debug_shared_mem_pa = shared_mem_pa + 0x400;
+	debug_shared_mem_size = shared_mem_size - status_shared_mem_size; // 4KB - 1KB
 
 	send_msg.cmd_id = CMD_INIT_SHARED_MEM;
 	send_msg.u.addr.status_base = (uint32_t)status_shared_mem_pa;

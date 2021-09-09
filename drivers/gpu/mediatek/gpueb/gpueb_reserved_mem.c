@@ -131,19 +131,26 @@ EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_size_by_name);
 
 int gpueb_reserved_mem_init(struct platform_device *pdev)
 {
-	struct device_node *of_gpueb = pdev->dev.of_node;
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
 	unsigned int i, m_idx, m_size;
 	phys_addr_t accumlate_memory_size = 0;
 	int ret;
 
-	of_property_read_u64(of_gpueb, "gpueb_mem_addr", &gpueb_mem_base_phys);
-	of_property_read_u64(of_gpueb, "gpueb_mem_size", &gpueb_mem_size);
-
-	if (!gpueb_mem_base_phys || !gpueb_mem_size) {
-		gpueb_pr_debug("@%s: invalid gpueb_mem_base_phys (0x%x), gpueb_mem_size (%x)\n",
-			__func__, (unsigned int)gpueb_mem_base_phys, (unsigned int)gpueb_mem_size);
+	rmem_node = of_find_compatible_node(NULL, NULL, GPUEB_MEM_RESERVED_KEY);
+	if (!rmem_node) {
+		gpueb_pr_debug("@%s: no node for reserved memory\n", __func__);
 		return -EINVAL;
 	}
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		gpueb_pr_debug("@%s: cannot lookup reserved memory\n", __func__);
+		return -EINVAL;
+	}
+
+	gpueb_mem_base_phys = (phys_addr_t) rmem->base;
+	gpueb_mem_size = (phys_addr_t) rmem->size;
 
 	gpueb_pr_debug("@%s: base_phys = 0x%x, size = 0x%x",
 			__func__,
