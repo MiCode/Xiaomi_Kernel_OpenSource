@@ -423,7 +423,13 @@ int mtk_gpueb_sysram_batch_read(int max_read_count,
 			SYSRAM_GPU_CURR_FREQ + (index_freq<<2));
 		}
 
-		avg_freq /= value_cnt;
+		if (value_cnt > 0)
+			avg_freq /= value_cnt;
+		else {
+			avg_freq = ged_get_cur_freq()/1000;
+			curr_str_len += snprintf(batch_string + curr_str_len,
+					batch_str_size, "|%d", avg_freq);
+		}
 
 		return avg_freq;
 
