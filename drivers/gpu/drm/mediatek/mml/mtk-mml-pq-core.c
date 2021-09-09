@@ -146,6 +146,7 @@ static void init_sub_task(struct mml_pq_sub_task *sub_task)
 	mutex_init(&sub_task->lock);
 	init_waitqueue_head(&sub_task->wq);
 	INIT_LIST_HEAD(&sub_task->mbox_list);
+	sub_task->first_job = true;
 }
 
 s32 mml_pq_task_create(struct mml_task *task)
@@ -178,6 +179,8 @@ static void release_tile_init_result(void *data)
 {
 	struct mml_pq_tile_init_result *result =
 		(struct mml_pq_tile_init_result *)data;
+
+	mml_pq_msg("%s called", __func__);
 
 	if (!result)
 		return;
@@ -268,6 +271,26 @@ static int set_sub_task(struct mml_task *task,
 {
 	struct mml_pq_task *pq_task = task->pq_task;
 
+	mml_pq_msg("%s called queued[%d] result_ref[%d] job_id[%d, %d] first_job[%d]",
+		__func__, atomic_read(&sub_task->queued),
+		atomic_read(&sub_task->result_ref),
+		sub_task->job_id, task->job.jobid,
+		sub_task->first_job);
+
+	mutex_lock(&sub_task->lock);
+	if (sub_task->mml_task_jobid != task->job.jobid || sub_task->first_job) {
+		sub_task->mml_task_jobid = task->job.jobid;
+		sub_task->first_job = false;
+	} else {
+		mutex_unlock(&sub_task->lock);
+		mml_pq_msg("%s already queue queued[%d] job_id[%d, %d]",
+			__func__, atomic_read(&sub_task->queued),
+			sub_task->job_id, task->job.jobid);
+
+		return 0;
+	}
+	mutex_unlock(&sub_task->lock);
+
 	if (!atomic_fetch_add_unless(&sub_task->queued, 1, 1)) {
 		WARN_ON(atomic_read(&sub_task->result_ref));
 		atomic_set(&sub_task->result_ref, 0);
@@ -280,6 +303,11 @@ static int set_sub_task(struct mml_task *task,
 		queue_msg(chan, sub_task);
 		dump_pq_param(pq_param);
 	}
+	mml_pq_msg("%s end queued[%d] result_ref[%d] job_id[%d, %d] first_job[%d]",
+		__func__, atomic_read(&sub_task->queued),
+		atomic_read(&sub_task->result_ref),
+		sub_task->job_id, task->job.jobid,
+		sub_task->first_job);
 	return 0;
 }
 
@@ -310,6 +338,11 @@ static int get_sub_task_result(struct mml_pq_task *pq_task,
 
 static void put_sub_task_result(struct mml_pq_sub_task *sub_task, struct mml_pq_chan *chan)
 {
+	mml_pq_msg("%s result_ref[%d] queued[%d] msg_cnt[%d]",
+		__func__, atomic_read(&sub_task->result_ref),
+		atomic_read(&sub_task->queued),
+		atomic_read(&chan->msg_cnt));
+
 	if (!atomic_dec_if_positive(&sub_task->result_ref))
 		if (!atomic_dec_if_positive(&sub_task->queued))
 			atomic_dec_if_positive(&chan->msg_cnt);
@@ -377,7 +410,8 @@ int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
 	s32 ret;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s called, %d", __func__, timeout_ms);
+	mml_pq_msg("%s called, %d job_id[%d]",
+		__func__, timeout_ms, task->job.jobid);
 	ret = get_sub_task_result(pq_task, &pq_task->tile_init, timeout_ms,
 				  dump_tile_init);
 	mml_pq_trace_ex_end();
@@ -496,7 +530,9 @@ int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms)
 	s32 ret;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s called, %d", __func__, timeout_ms);
+	mml_pq_msg("%s called, %d job_id[%d]", __func__,
+		timeout_ms, task->job.jobid);
+
 	ret = get_sub_task_result(pq_task, &pq_task->comp_config, timeout_ms,
 				  dump_comp_config);
 	mml_pq_trace_ex_end();

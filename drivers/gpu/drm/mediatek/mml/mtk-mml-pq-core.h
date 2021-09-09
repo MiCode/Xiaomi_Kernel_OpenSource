@@ -76,6 +76,8 @@ struct mml_pq_sub_task {
 	struct wait_queue_head wq;
 	struct list_head mbox_list;
 	bool job_cancelled;
+	bool first_job;
+	u32 mml_task_jobid;
 	u64 job_id;
 };
 

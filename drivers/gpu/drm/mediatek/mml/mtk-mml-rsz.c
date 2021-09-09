@@ -208,15 +208,15 @@ static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
 			data->rsz_data.ver_algo = init_param->ver_algorithm;
 			data->rsz_data.ver_first = init_param->vertical_first;
 			data->rsz_data.ver_cubic_trunc = init_param->ver_cubic_trunc;
-			mml_log("%s read rsz param index: %d done",
-				__func__, rsz_frm->out_idx);
+			mml_log("%s read rsz param index: %d done job_id[%d]",
+				__func__, rsz_frm->out_idx, task->job.jobid);
 		} else {
 			mml_err("%s read rsz param index: %d out of count %d",
 				__func__, rsz_frm->out_idx, result->rsz_param_cnt);
 		}
 	} else {
-		mml_err("get rsz param timeout: %d in %dms",
-			ret, RSZ_WAIT_TIMEOUT_MS);
+		mml_err("get rsz param timeout: %d in %dms, job_id[%d]",
+			ret, RSZ_WAIT_TIMEOUT_MS, task->job.jobid);
 	}
 	return 0;
 }

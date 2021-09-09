@@ -197,7 +197,8 @@ static s32 hdr_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	s32 ret = 0;
 
-	mml_pq_msg("%s engine_id[%d]", __func__, comp->id);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__,
+		ccfg->pipe, comp->id);
 	if (dest->pq_config.en_hdr)
 		ret = mml_pq_set_comp_config(task);
 
