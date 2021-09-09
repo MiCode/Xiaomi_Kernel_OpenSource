@@ -92,6 +92,7 @@ unsigned long long mutex_nested_time_start;
 unsigned long long mutex_nested_time_end;
 long long mutex_nested_time_period;
 const char *mutex_nested_locker;
+static int aod_scp_flag;
 
 struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
@@ -105,6 +106,17 @@ dma_addr_t test_pa;
 #endif
 
 extern bool g_mobile_log;
+struct aod_scp_send_ipi_msg {
+	int (*send_ipi)(int value);
+};
+
+static struct aod_scp_send_ipi_msg aod_scp_ipi;
+
+void **mtk_aod_scp_ipi_init(void)
+{
+	return (void **)&aod_scp_ipi.send_ipi;
+}
+EXPORT_SYMBOL(mtk_aod_scp_ipi_init);
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
@@ -714,6 +726,11 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 	if (mtk_state->doze_changed && priv->data->doze_ctrl_pmic) {
 		if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] && prepare) {
 			DDPMSG("enter AOD, disable PMIC LPMODE\n");
+			if ((aod_scp_flag) && (aod_scp_ipi.send_ipi)) {
+				aod_scp_ipi.send_ipi(0);
+				DDPMSG("mtk_aod_scp_ipi_send sent IPI to SCP done\n");
+				mdelay(10000);
+				}
 			//pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
 		} else if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]
@@ -4932,10 +4949,13 @@ SKIP_SIDE_DISP:
 
 	/* Get AOD-SCP config */
 	aod_scp_node = of_find_node_by_name(NULL, "AOD_SCP_ON");
-	if (!aod_scp_node)
+	if (!aod_scp_node) {
+		aod_scp_flag = 0;
 		DDPMSG("%s AOD-SCP OFF\n", __func__);
-	else
+	}	else {
+		aod_scp_flag = 1;
 		DDPMSG("%s AOD-SCP ON\n", __func__);
+	}
 
 #ifdef MTK_DISP_MMQOS_SUPPORT
 	private->hrt_bw_request = of_mtk_icc_get(dev, "disp_hrt_qos");
