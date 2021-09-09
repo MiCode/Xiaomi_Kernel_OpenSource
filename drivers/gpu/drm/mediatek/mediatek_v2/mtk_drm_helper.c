@@ -184,6 +184,12 @@ void mtk_drm_helper_init(struct device *dev, struct mtk_drm_helper **helper_opt)
 		tmp_opt[i].val = value;
 		DDPINFO("%s %d\n", tmp_opt[i].desc, tmp_opt[i].val);
 	}
+
+	if (of_property_read_bool(dev->of_node, "force_no_prim_dual_pipe"))
+		mtk_drm_helper_set_opt_by_name(tmp_opt,
+				"MTK_DRM_OPT_PRIM_DUAL_PIPE", 0);
+
+
 	*helper_opt = tmp_opt;
 }
 
