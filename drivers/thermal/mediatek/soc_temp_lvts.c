@@ -159,10 +159,11 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 			s_index = tc[i].sensor_map[j];
 
 			msr_raw = lvts_read_tc_msr_raw(LVTSMSR0_0 + base + 0x4 * j);
-			current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), j, msr_raw);
 
 			if (msr_raw == 0)
 				current_temp = THERMAL_TEMP_INVALID;
+			else
+				current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), j, msr_raw);
 
 			if (i == 0 && j == 0)
 				max_temp = current_temp;
