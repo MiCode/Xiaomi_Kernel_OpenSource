@@ -3039,6 +3039,7 @@ static int dpmaif_start(unsigned char hif_id)
 	struct dpmaif_tx_queue *txq = NULL;
 	int i, ret = 0;
 	struct cpumask tmask;
+	unsigned int value = 0;
 
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
 		return 0;
@@ -3053,7 +3054,27 @@ static int dpmaif_start(unsigned char hif_id)
 	/* cg set */
 	ccci_dpmaif_set_clk(1, g_clk_tbs);
 
-	drv3_dpmaif_clr_axi_out_gated();
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	value |= (1<<15);
+
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	//drv3_dpmaif_clr_axi_out_gated();
 
 	drv3_dpmaif_common_hw_init();
 
@@ -3350,40 +3371,101 @@ static int dpmaif_stop_tx_sw(unsigned char hif_id)
 static void dpmaif_hw_reset(void)
 {
 	unsigned char md_id = 0;
+	unsigned int value;
+	int ret;
 
-	drv3_dpmaif_set_axi_out_gated();
+	//drv3_dpmaif_set_axi_out_gated();
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	value &= ~(1<<15);
+
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	udelay(500);
 
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: PD Domain */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST0_REG_PD, DPMAIF_PD_RST_MASK);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+				INFRA_RST0_REG_PD, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 
 	udelay(500);
 
 	/* reset dpmaif hw: AO Domain */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST0_REG_AO, DPMAIF_AO_RST_MASK);
-
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			INFRA_RST0_REG_AO, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 
 	udelay(500);
 
 	/* reset dpmaif clr */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST1_REG_AO, DPMAIF_AO_RST_MASK);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			INFRA_RST1_REG_AO, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	udelay(500);
 
-	drv3_dpmaif_set_axi_out_gated();
+	//drv3_dpmaif_set_axi_out_gated();
 
 	/* reset dpmaif clr */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST1_REG_PD, DPMAIF_PD_RST_MASK);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			INFRA_RST1_REG_PD, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
-
 }
 
 static int dpmaif_stop(unsigned char hif_id)
