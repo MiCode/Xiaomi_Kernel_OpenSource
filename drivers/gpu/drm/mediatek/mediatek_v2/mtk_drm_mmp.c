@@ -156,8 +156,6 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "atomic_begin");
 		g_CRTC_MMP_Events[i].atomic_flush = mmprofile_register_event(
 			crtc_mmp_root, "atomic_flush");
-		g_CRTC_MMP_Events[i].msync_level = mmprofile_register_event(
-			crtc_mmp_root, "msync_level");
 		g_CRTC_MMP_Events[i].enable_vblank = mmprofile_register_event(
 			crtc_mmp_root, "enable_vblank");
 		g_CRTC_MMP_Events[i].disable_vblank = mmprofile_register_event(

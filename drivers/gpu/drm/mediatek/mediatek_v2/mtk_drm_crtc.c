@@ -6556,15 +6556,6 @@ int mtk_drm_get_atomic_fps(void)
 	return target_fps;
 }
 
-void msync_callback_func(struct cmdq_cb_data data)
-{
-	struct mtk_cmdq_msync_cb_data *msync_data =
-		(struct mtk_cmdq_msync_cb_data *)data.data;
-	CRTC_MMP_MARK(0, msync_level, 1, 1);
-	cmdq_pkt_destroy(msync_data->cmdq_handle);
-	kfree(msync_data);
-}
-
 static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned int target_fps)
 {
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
@@ -6573,6 +6564,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	struct mtk_panel_params *params = mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int fps_level = 0;
 	unsigned int min_fps = 0;
+	unsigned int need_send_cmd = 0;
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
 
@@ -6595,9 +6587,6 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			&params->msync_cmd_table.multi_te_tb;
 		static unsigned int fps_level_old;
 		static unsigned int min_fps_old;
-		struct cmdq_pkt *cmdq_handle;
-		struct mtk_cmdq_msync_cb_data *msync_data =
-			kzalloc(sizeof(*msync_data), GFP_KERNEL);
 
 		DDPMSG("[Msync2.0] M-TE\n");
 
@@ -6620,13 +6609,30 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		DDPMSG("[Msync2.0] M-TE target_fps:%u fps_level:%u dirty:%u min_fps:%u\n",
 			target_fps, fps_level, msync_cmd_level_tb_dirty, min_fps);
 
-		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-		msync_data->cmdq_handle = cmdq_handle;
+		if ((fps_level != fps_level_old) ||
+			(msync_cmd_level_tb_dirty && (min_fps != min_fps_old))) {
+			/*
+			 * 1,because sending cmd to ddic has polling operation
+			 *   maybe schedule out to other cmdq thread;
+			 * 2,clear EOF to avoid any operation on DSI
+			 * 3,clear CABC_EOF to avoid backlight
+			 *   which using DSC_CFG and async
+			 * 4,clear dirty before sending cmd to
+			 *  avoid trigger loop be started during sending cmd
+			 */
+			cmdq_pkt_wfe(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+			cmdq_pkt_wfe(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_clear_event(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+			need_send_cmd = 1;
+
+		}
 
 		/* Switch msync TE level */
 		if (fps_level != fps_level_old) {
-			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
 					DSI_MSYNC_SWITCH_TE_LEVEL, &fps_level);
 			fps_level_old = fps_level;
 		}
@@ -6636,12 +6642,17 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			unsigned int flag = 0;
 
 			flag = (fps_level << 16) | min_fps;
-			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
 					DSI_MSYNC_CMD_SET_MIN_FPS, &flag);
 			min_fps_old = min_fps;
 		}
-		CRTC_MMP_MARK(0, msync_level, 0, 0);
-		cmdq_pkt_flush_threaded(cmdq_handle, msync_callback_func, (void *)msync_data);
+
+		if (need_send_cmd) {
+			/*release CABC_EOF lock to allow backlight keep going*/
+			cmdq_pkt_set_event(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+
+		}
 
 	} else if (params->msync_cmd_table.te_type == TRIGGER_LEVEL_TE) {
 		/* TODO: Add Trigger Level Te */
