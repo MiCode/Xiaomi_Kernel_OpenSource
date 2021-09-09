@@ -398,15 +398,6 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			}
 		}
 
-#if defined(CONFIG_MTK_GPUFREQ_V2)
-		/* TODO: remove it after clk_rate_change_notify from eb is enable */
-		cur_freq = gpufreq_get_cur_freq(TARGET_GPU);
-		if (g_ged_gpueb_support && cur_freq != pre_freq) {
-			mtk_notify_gpu_freq_change(0, cur_freq);
-			pre_freq = cur_freq;
-		}
-#endif /* CONFIG_MTK_GPUFREQ_V2 */
-
 		if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode) {
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
