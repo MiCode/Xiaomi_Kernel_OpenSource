@@ -721,7 +721,7 @@ void mtu3_gadget_cleanup(struct mtu3 *mtu)
 
 void mtu3_gadget_resume(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "gadget RESUME\n");
+	dev_info(mtu->dev, "gadget RESUME\n");
 	if (mtu->gadget_driver && mtu->gadget_driver->resume) {
 		spin_unlock(&mtu->lock);
 		mtu->gadget_driver->resume(&mtu->g);
@@ -732,7 +732,7 @@ void mtu3_gadget_resume(struct mtu3 *mtu)
 /* called when SOF packets stop for 3+ msec or enters U3 */
 void mtu3_gadget_suspend(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "gadget SUSPEND\n");
+	dev_info(mtu->dev, "gadget SUSPEND\n");
 	if (mtu->gadget_driver && mtu->gadget_driver->suspend) {
 		spin_unlock(&mtu->lock);
 		mtu->gadget_driver->suspend(&mtu->g);
@@ -756,7 +756,7 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu)
 
 void mtu3_gadget_reset(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "gadget RESET\n");
+	dev_info(mtu->dev, "gadget RESET\n");
 
 	/* report disconnect, if we didn't flush EP state */
 	if (mtu->g.speed != USB_SPEED_UNKNOWN)
