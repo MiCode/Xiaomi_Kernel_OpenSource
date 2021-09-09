@@ -35,6 +35,8 @@
  * VCU interfaces with other blocks by share memory and interrupt.
  **/
 
+extern int mtk_vcodec_vcp;
+
 typedef int (*ipi_handler_t)(void *data,
 							 unsigned int len,
 							 void *priv);

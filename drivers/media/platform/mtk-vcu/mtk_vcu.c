@@ -2414,7 +2414,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	struct device *dev;
 	struct resource *res;
 	int i, j, ret = 0;
-	unsigned int vcuid;
+	unsigned int vcuid, off = 0;
 	const char *gce_event_name;
 	int gce_event_id;
 
@@ -2428,6 +2428,12 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		vcu_ptr = vcu;
 	} else
 		vcu = vcu_ptr;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,vcu-off", &off);
+	if (off) {
+		mtk_vcodec_vcp = 3;
+		pr_info("[VCU] VCU off\n");
+	}
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,vcuid", &vcuid);
 	if (ret != 0) {
