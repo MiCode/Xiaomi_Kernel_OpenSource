@@ -44,6 +44,7 @@ enum sec_heap_region_type {
 enum sec_heap_page_type {
 	SVP_PAGE,
 	PROT_PAGE,
+	WFD_PAGE,
 	PAGE_HEAPS_NUM,
 };
 
@@ -122,6 +123,11 @@ static struct secure_heap_page mtk_sec_heap_page[PAGE_HEAPS_NUM] = {
 	[PROT_PAGE] = {
 		.heap_name = "mtk_prot_page-uncached",
 		.tmem_type = TRUSTED_MEM_REQ_PROT_PAGE,
+		.heap_type = PAGE_BASE,
+	},
+	[WFD_PAGE] = {
+		.heap_name = "mtk_wfd_page-uncached",
+		.tmem_type = TRUSTED_MEM_REQ_WFD_PAGE,
 		.heap_type = PAGE_BASE,
 	},
 };
