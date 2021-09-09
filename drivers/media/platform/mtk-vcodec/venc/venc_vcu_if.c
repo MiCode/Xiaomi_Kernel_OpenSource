@@ -152,7 +152,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		else
 			vcodec_trace_count("VENC_HW_CORE_1", 2);
 
-		if (-1 == mtk_vcodec_wait_for_done_ctx(ctx, 0,
+		if (-1 == mtk_vcodec_wait_for_done_ctx(ctx, msg->status,
 			MTK_INST_IRQ_RECEIVED,
 			WAIT_INTR_TIMEOUT_MS)) {
 			handle_enc_waitisr_msg(vcu, data, 1);

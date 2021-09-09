@@ -570,7 +570,7 @@ struct mtk_vcodec_dev {
 	struct mtk_vcodec_msgq mq;
 
 	int dec_irq[MTK_VDEC_HW_NUM];
-	int enc_irq;
+	int enc_irq[MTK_VENC_HW_NUM];
 	int enc_lt_irq;
 
 	struct semaphore dec_sem[MTK_VDEC_HW_NUM];
