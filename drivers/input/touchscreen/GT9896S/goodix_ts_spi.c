@@ -1471,6 +1471,8 @@ static int gt9896s_spi_probe(struct spi_device *spi)
 				}
 			} else if ((strcmp("nt36672e_fhdp_dphy_vdo_jdi_120hz",
 					gt9896s_lcm_buf) == 0) ||
+					(strcmp("nt36672e_fhdp_cphy_vdo_jdi_120hz",
+					gt9896s_lcm_buf) == 0) ||
 					(strcmp("nt36672e_fhdp_dphy_vdo_jdi_144hz",
 					gt9896s_lcm_buf) == 0) ||
 					(strcmp("nt36672e_fhdp_dphy_vdo_jdi_60hz",
