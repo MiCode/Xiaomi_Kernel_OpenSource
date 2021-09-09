@@ -811,20 +811,15 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_slc_control();
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
 
-		/* control DFD */
-		__gpudfd_config_dfd(true);
-		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
-
 		/* free DVFS when power on */
 		g_dvfs_state &= ~DVFS_POWEROFF;
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
 	} else if (power == POWER_OFF && g_stack.power_count == 0) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0D);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
 
-		/* control DFD */
-		__gpudfd_config_dfd(false);
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0E);
 
 		/* backup MFG registers */
@@ -5011,6 +5006,13 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* init gpu dfd*/
+	ret = gpudfd_init(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
+		goto done;
+	}
+
 	/* probe only init register base and hook function pointer in EB mode */
 	if (g_gpueb_support) {
 		GPUFREQ_LOGI("gpufreq platform probe only init reg base and hook fp in EB mode");
@@ -5098,13 +5100,6 @@ register_fp:
 	ret = gpuppm_init(TARGET_STACK, g_gpueb_support, GPUFREQ_SAFE_VLOGIC);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
-		goto done;
-	}
-
-	/* init gpu dfd*/
-	ret = gpudfd_init(pdev);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
 		goto done;
 	}
 

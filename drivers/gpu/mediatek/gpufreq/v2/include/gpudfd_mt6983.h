@@ -29,9 +29,9 @@
 
 #define MFG_DEBUGMON_CON_00_ENABLE   (0xFFFFFFFF)
 #define MFG_DFD_CON_0_ENABLE         (0x0F101100)
-#define MFG_DFD_CON_1_ENABLE         (0x00000100)
-#define MFG_DFD_CON_2_ENABLE         (0x00000000)
-#define MFG_DFD_CON_3_ENABLE         (0x0010001F)
+#define MFG_DFD_CON_1_ENABLE         (0x0000908D)
+#define MFG_DFD_CON_2_ENABLE         (0x0000E820)
+#define MFG_DFD_CON_3_ENABLE         (0x00215F79)
 #define MFG_DFD_CON_4_ENABLE         (0x00000000)
 #define MFG_DFD_CON_5_ENABLE         (0x00000000)
 #define MFG_DFD_CON_6_ENABLE         (0x00000000)

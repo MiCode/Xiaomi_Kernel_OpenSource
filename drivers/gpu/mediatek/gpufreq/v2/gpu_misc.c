@@ -87,6 +87,13 @@ unsigned int gpufreq_set_dfd_force_dump_mode(unsigned int mode)
 }
 EXPORT_SYMBOL(gpufreq_set_dfd_force_dump_mode);
 
+void gpufreq_config_dfd(unsigned int enable)
+{
+	if (gpudfd_fp && gpudfd_fp->config_dfd)
+		gpudfd_fp->config_dfd(enable);
+}
+EXPORT_SYMBOL(gpufreq_config_dfd);
+
 void gpu_misc_register_gpudfd_fp(struct gpudfd_platform_fp *dfd_platform_fp)
 {
 	if (!dfd_platform_fp) {

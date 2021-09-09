@@ -12,6 +12,7 @@
 struct gpudfd_platform_fp {
 	unsigned int (*get_dfd_force_dump_mode)(void);
 	void (*set_dfd_force_dump_mode)(unsigned int mode);
+	void (*config_dfd)(unsigned int enable);
 };
 
 /**************************************************
@@ -19,7 +20,8 @@ struct gpudfd_platform_fp {
  **************************************************/
 void gpufreq_hardstop_dump_slog(void);
 void gpu_misc_register_gpudfd_fp(struct gpudfd_platform_fp *dfd_platform_fp);
-unsigned int gpufreq_set_dfd_force_dump_mode(unsigned int mode);
 unsigned int gpufreq_get_dfd_force_dump_mode(void);
+unsigned int gpufreq_set_dfd_force_dump_mode(unsigned int mode);
+void gpufreq_config_dfd(unsigned int enable);
 
 #endif /* __GPU_MISC_H__ */

@@ -25,6 +25,7 @@
 
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
+#include <gpu_misc.h>
 #include <gpufreq_ipi.h>
 #include <gpueb_ipi.h>
 #include <gpueb_reserved_mem.h>
@@ -882,6 +883,9 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 	}
 
 done:
+	/* control DFD */
+	gpufreq_config_dfd(power);
+
 	if (unlikely(ret < 0))
 		GPUFREQ_LOGE("fail to control power state: %s (%d)",
 			power ? "POWER_ON" : "POWER_OFF",

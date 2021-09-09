@@ -36,6 +36,7 @@ static unsigned int g_dfd_force_dump_mode;
 static struct gpudfd_platform_fp platform_fp = {
 	.get_dfd_force_dump_mode = __gpudfd_get_dfd_force_dump_mode,
 	.set_dfd_force_dump_mode = __gpudfd_set_dfd_force_dump_mode,
+	.config_dfd = __gpudfd_config_dfd,
 };
 
 void __gpudfd_set_dfd_force_dump_mode(unsigned int mode)
@@ -100,10 +101,13 @@ unsigned int gpudfd_init(struct platform_device *pdev)
 
 	/* 0x13FBF000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
-	g_mfg_top_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_top_base) {
-		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG (ENOENT)");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_TOP_CONFIG");
+		goto done;
+	}
+	g_mfg_top_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_top_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%llx", res->start);
 		goto done;
 	}
 
