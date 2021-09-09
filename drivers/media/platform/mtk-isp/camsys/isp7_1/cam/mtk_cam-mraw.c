@@ -103,7 +103,7 @@ static int mtk_mraw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		pipe->enabled_dmas = 0;
 	}
 
-	dev_info(mraw->cam_dev, "%s:mraw-%d: en %d, dev 0x%x dmas %llu\n",
+	dev_info(mraw->cam_dev, "%s:mraw-%d: en %d, dev 0x%x dmas %llx\n",
 		 __func__, pipe->id-MTKCAM_SUBDEV_MRAW_START, enable, pipe->enabled_mraw,
 		 pipe->enabled_dmas);
 
@@ -662,6 +662,7 @@ static void mtk_cam_mraw_set_mraw_dmao_info(
 }
 
 static void mtk_cam_mraw_copy_user_input_param(
+	struct device *dev,
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
 	struct mtkcam_ipi_frame_param *frame_param,
 	struct mtk_mraw_pipeline *mraw_pipline, int mraw_param_num)
@@ -695,6 +696,22 @@ static void mtk_cam_mraw_copy_user_input_param(
 	mraw_pipline->res_config.mbn_spar_fac = mraw_meta_in_buf->mbn_param.mbn_spar_fac;
 	mraw_pipline->res_config.cpi_spar_pow = mraw_meta_in_buf->cpi_param.cpi_spar_pow;
 	mraw_pipline->res_config.cpi_spar_fac = mraw_meta_in_buf->cpi_param.cpi_spar_fac;
+
+	dev_dbg(dev, "%s:enable:(%d,%d,%d,%d) mqe_mode:%d mbn_dir/pow:(%d,%d) cpi_dir/pow:(%d,%d) mbn_spar(%x,%x,%x,%x,%x) cpi_spar(%x,%x,%x,%x,%x,%x)\n",
+		__func__, mraw_meta_in_buf->mqe_enable, mraw_meta_in_buf->mobc_enable,
+		mraw_meta_in_buf->lsc_enable, mraw_meta_in_buf->lsci_enable,
+		mraw_meta_in_buf->mqe_param.mqe_mode,
+		mraw_meta_in_buf->mbn_param.mbn_dir, mraw_meta_in_buf->mbn_param.mbn_pow,
+		mraw_meta_in_buf->cpi_param.cpi_dir, mraw_meta_in_buf->cpi_param.cpi_pow,
+		mraw_meta_in_buf->mbn_param.mbn_spar_hei,
+		mraw_meta_in_buf->mbn_param.mbn_spar_pow,
+		mraw_meta_in_buf->mbn_param.mbn_spar_fac,
+		mraw_meta_in_buf->mbn_param.mbn_spar_con1,
+		mraw_meta_in_buf->mbn_param.mbn_spar_con0,
+		mraw_meta_in_buf->cpi_param.cpi_th,
+		mraw_meta_in_buf->cpi_param.cpi_spar_hei, mraw_meta_in_buf->cpi_param.cpi_spar_pow,
+		mraw_meta_in_buf->cpi_param.cpi_spar_fac, mraw_meta_in_buf->cpi_param.cpi_spar_con1,
+		mraw_meta_in_buf->cpi_param.cpi_spar_con0);
 }
 
 static void mtk_cam_mraw_set_frame_param_dmao(
@@ -815,7 +832,7 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 		meta_in->buf.iova = buf->daddr;
 		meta_in->uid.id = dma_port;
 		meta_in->uid.pipe_id = node->uid.pipe_id;
-		mtk_cam_mraw_copy_user_input_param(mraw_meta_in_buf,
+		mtk_cam_mraw_copy_user_input_param(cam->dev, mraw_meta_in_buf,
 			frame_param, mraw_pipline, 0);
 		mraw_pipline->res_config.enque_num++;
 		break;
@@ -831,6 +848,9 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 			__func__, pipe_id, dma_port);
 		break;
 	}
+
+	dev_dbg(dev, "%s:pipe(%d) dma_port(%d) buf_length(%d)\n",
+		__func__, pipe_id, dma_port, vb->planes[0].length);
 
 	if (mraw_pipline->res_config.enque_num == MAX_MRAW_VIDEO_DEV_NUM) {
 		width = mraw_pipline->res_config.width;

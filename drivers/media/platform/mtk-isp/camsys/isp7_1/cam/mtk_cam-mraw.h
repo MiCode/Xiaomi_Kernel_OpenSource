@@ -62,10 +62,12 @@ struct mtk_cam_ctx;
 struct mtk_cam_request;
 
 enum mraw_module_id {
-	MRAW_0 = 0,
+	MRAW_START = 0,
+	MRAW_0 = MRAW_START,
 	MRAW_1 = 1,
 	MRAW_2 = 2,
 	MRAW_3 = 3,
+	MRAW_END
 };
 
 enum mraw_db_load_src {
@@ -216,7 +218,7 @@ struct mtk_mraw_pipeline {
 
 	/* cached settings */
 	unsigned int enabled_mraw;
-	unsigned long enabled_dmas;
+	unsigned long long enabled_dmas;
 	struct mtk_cam_mraw_resource_config res_config;
 
 	/* seninf pad index */
