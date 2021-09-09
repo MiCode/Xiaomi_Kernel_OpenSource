@@ -76,7 +76,6 @@ static void mddpwh_sm_enable(struct mddp_app_t *app)
 			smem_num * sizeof(struct wfpm_smem_info_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return;
 	}
 
@@ -137,7 +136,6 @@ static void mddpwh_sm_disable(struct mddp_app_t *app)
 	if (unlikely(!md_msg)) {
 		MDDP_S_LOG(MDDP_LL_ERR,
 				"%s: Failed to alloc md_msg bug!\n", __func__);
-		WARN_ON(1);
 		return;
 	}
 
@@ -177,7 +175,6 @@ static void mddpwh_sm_act(struct mddp_app_t *app)
 		sizeof(struct wfpm_activate_md_func_req_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return;
 	}
 
@@ -231,7 +228,6 @@ static void mddpwh_sm_deact(struct mddp_app_t *app)
 		sizeof(struct wfpm_activate_md_func_req_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return;
 	}
 
@@ -401,7 +397,6 @@ static void mddpw_wfpm_send_smem_layout(void)
 			smem_num * sizeof(struct wfpm_smem_info_t),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return;
 	}
 
@@ -588,7 +583,6 @@ static int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
 	sizeof(struct mddpw_txd_t) + txd->txd_length, GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return -ENOMEM;
 	}
 
@@ -744,7 +738,6 @@ static int32_t mddpw_drv_notify_info(
 		wifi_notify->buf_len, GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return -ENOMEM;
 	}
 

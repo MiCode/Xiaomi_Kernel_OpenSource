@@ -113,7 +113,6 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 		MDDP_U_LOG(MDDP_LL_ERR,
 				"%s: Invalid parameter, buf_len(%d)!\n",
 				__func__, buf_len);
-		WARN_ON(1);
 		return -EINVAL;
 	}
 
@@ -129,7 +128,6 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(limit),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return -EAGAIN;
 	}
 
@@ -139,7 +137,6 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 		MDDP_U_LOG(MDDP_LL_ERR,
 				"%s: Invalid dev_name, dev_name(%s)!\n",
 				__func__, in_req->ul_dev_name);
-		WARN_ON(1);
 		kfree(md_msg);
 		return -EINVAL;
 	}
@@ -176,7 +173,6 @@ int32_t mddp_u_set_warning_and_data_limit(uint8_t *buf, uint32_t buf_len)
 		MDDP_U_LOG(MDDP_LL_ERR,
 				"%s: Invalid parameter, buf_len(%d)!\n",
 				__func__, buf_len);
-		WARN_ON(1);
 		return -EINVAL;
 	}
 
@@ -192,7 +188,6 @@ int32_t mddp_u_set_warning_and_data_limit(uint8_t *buf, uint32_t buf_len)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(limit),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return -EAGAIN;
 	}
 
@@ -202,7 +197,6 @@ int32_t mddp_u_set_warning_and_data_limit(uint8_t *buf, uint32_t buf_len)
 		MDDP_U_LOG(MDDP_LL_ERR,
 				"%s: Invalid dev_name, dev_name(%s)!\n",
 				__func__, in_req->ul_dev_name);
-		WARN_ON(1);
 		kfree(md_msg);
 		return -EINVAL;
 	}

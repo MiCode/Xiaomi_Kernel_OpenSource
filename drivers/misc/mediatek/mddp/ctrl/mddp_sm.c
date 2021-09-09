@@ -63,7 +63,6 @@ void mddp_check_feature(void)
 	if (unlikely(!md_msg)) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 			"%s: failed to alloc md_msg bug!\n", __func__);
-		WARN_ON(1);
 		return;
 	}
 

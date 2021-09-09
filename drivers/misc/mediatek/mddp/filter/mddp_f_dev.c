@@ -104,7 +104,6 @@ static int mddp_f_dev_get_netif_id(char *dev_name)
 
 	MDDP_F_LOG(MDDP_LL_ERR,
 			"%s: Invalid dev_name[%s].\n", __func__, dev_name);
-	WARN_ON(1);
 
 	return -1;
 }
@@ -160,7 +159,6 @@ void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 	if (i >= MDDP_MAX_LAN_DEV_NUM) {
 		MDDP_F_LOG(MDDP_LL_ERR,
 				"%s: LAN device is full[%d].\n", __func__, i);
-		WARN_ON(1);
 		return;
 	}
 
@@ -192,7 +190,6 @@ void mddp_f_dev_add_wan_dev(char *dev_name)
 	if (i >= MDDP_MAX_WAN_DEV_NUM) {
 		MDDP_F_LOG(MDDP_LL_ERR,
 				"%s: WAN device is full[%d].\n", __func__, i);
-		WARN_ON(1);
 		return;
 	}
 
@@ -226,7 +223,6 @@ void mddp_f_dev_del_lan_dev(char *dev_name)
 		MDDP_F_LOG(MDDP_LL_ERR,
 				"%s: Cannot find LAN device[%s].\n",
 				__func__, dev_name);
-		WARN_ON(1);
 		return;
 	}
 
@@ -256,7 +252,6 @@ void mddp_f_dev_del_wan_dev(char *dev_name)
 		MDDP_F_LOG(MDDP_LL_ERR,
 				"%s: Cannot find WAN device[%s].\n",
 				__func__, dev_name);
-		WARN_ON(1);
 		return;
 	}
 

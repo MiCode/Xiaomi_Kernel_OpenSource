@@ -374,7 +374,6 @@ int32_t mddp_f_suspend_tag(void)
 	if (unlikely(!md_msg)) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: failed to alloc md_msg bug!\n", __func__);
-		WARN_ON(1);
 		return 0;
 	}
 
@@ -401,7 +400,6 @@ int32_t mddp_f_resume_tag(void)
 	if (unlikely(!md_msg)) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: failed to alloc md_msg bug!\n", __func__);
-		WARN_ON(1);
 		return 0;
 	}
 
