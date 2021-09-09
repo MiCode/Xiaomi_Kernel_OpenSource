@@ -39,12 +39,12 @@ static int polling_sec;
 static int polling_ms;
 static bool debug_enable;
 static int over_threshold; /*threshold value for sent uevent*/
-static int mid_core_overThrhld; /*mid-core cpus threshold value for sent uevent*/
+static int specify_32bit_overThrhld; /*specify 32bit cpus threshold value for sent uevent*/
 static int under_threshold; /*threshold value for sent uevent*/
 static bool uevent_enable; /*sent uevent switch*/
 static int curr_cpu_loading; /*cat curr cpu loading node*/
-static int mid_core_cpus; /*mid-core cpus*/
-static struct cpumask *mid_core_cpu_mask; /*mid-core cpus' mask*/
+static int specify_32bit_cpus; /*specify 32bit cpus*/
+static struct cpumask *specify_32bit_cpu_mask; /*specify 32bit cpus' mask*/
 static int nr_cpus;/*cpu numbers*/
 static int state;
 
@@ -84,8 +84,8 @@ static void init_cpu_loading_value(void)
 	polling_sec = 10;
 	polling_ms = 10000;
 	over_threshold = 85;
-	mid_core_overThrhld = 90;
-	mid_core_cpus = 0;
+	specify_32bit_overThrhld = 100;
+	specify_32bit_cpus = 0;
 	nr_cpus = num_possible_cpus();
 	under_threshold = 20;
 	uevent_enable = 1;
@@ -121,7 +121,7 @@ static bool sentuevent(const char *src)
 {
 	int ret;
 	char *envp[2];
-	char event_string[15];
+	char event_string[32];
 
 	envp[0] = event_string;
 	envp[1] = NULL;
@@ -129,7 +129,7 @@ static bool sentuevent(const char *src)
 
 	/*send uevent*/
 	if (uevent_enable) {
-		strlcpy(event_string, src, 15);
+		strlcpy(event_string, src, 32);
 		if (event_string[0] == '\0') { /*string is null*/
 
 			perfmgr_trace_printk("cpu_loading", "string is null");
@@ -172,9 +172,9 @@ static void calculat_loading_callback(int loading, int mask_loading)
 		sentuevent("over=1");
 	} else if (loading > under_threshold) {
 		state = ULOAD_STATE_MID;
-		if (mid_core_cpus != 0
-				&& mask_loading >= mid_core_overThrhld) {
-			sentuevent("mid_over=1");
+		if (specify_32bit_cpus != 0
+				&& mask_loading >= specify_32bit_overThrhld) {
+			sentuevent("specify_32bit_over=1");
 		}
 	} else {
 		state = ULOAD_STATE_LOW;
@@ -190,28 +190,23 @@ static void start_calculate_loading(void)
 {
 	int ret_reg;
 	int poll_ms;
-	unsigned int temp;
+	unsigned int i, start, end;
 
 	poll_ms = polling_ms;
 
 	cl_unlock(__func__);
 
-	if (mid_core_cpus != 0) {
-		mid_core_cpu_mask = kzalloc(nr_cpus, GFP_KERNEL);
-		cpumask_clear(mid_core_cpu_mask);
+	if (specify_32bit_cpus != 0) {
+		specify_32bit_cpu_mask = kzalloc(nr_cpus, GFP_KERNEL);
+		cpumask_clear(specify_32bit_cpu_mask);
 
-		show_debug("mid_core_cpus:%d\n", mid_core_cpus);
-		temp = mid_core_cpus;
+		start = specify_32bit_cpus%10;
+		end = specify_32bit_cpus/10;
 
-		do {
-			cpumask_set_cpu(temp%10, mid_core_cpu_mask);
-			temp /= 10;
-		} while (temp != 0);
-	}
-
-	if (mid_core_cpus != 0) {
+		for (i = start; i <= end; i++)
+			cpumask_set_cpu(i, specify_32bit_cpu_mask);
 		ret_reg = reg_loading_tracking(calculat_loading_callback, poll_ms,
-				mid_core_cpu_mask);
+				specify_32bit_cpu_mask);
 	} else {
 		ret_reg = -1;
 	}
@@ -471,7 +466,7 @@ static ssize_t perfmgr_overThrhld_proc_write(
 	return cnt;
 }
 
-static ssize_t perfmgr_mid_core_cpus_proc_show(struct file *file,
+static ssize_t perfmgr_specify_32bit_cpus_proc_show(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
 	int n = 0;
@@ -480,7 +475,7 @@ static ssize_t perfmgr_mid_core_cpus_proc_show(struct file *file,
 	if (*ppos != 0)
 		goto out;
 
-	n = scnprintf(buffer, 512, "%u", mid_core_cpus);
+	n = scnprintf(buffer, 512, "%u", specify_32bit_cpus);
 out:
 	if (n < 0)
 		return -EINVAL;
@@ -488,7 +483,7 @@ out:
 	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
 }
 
-static ssize_t perfmgr_mid_core_cpus_proc_write(
+static ssize_t perfmgr_specify_32bit_cpus_proc_write(
 		struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
 {
@@ -504,8 +499,8 @@ static ssize_t perfmgr_mid_core_cpus_proc_write(
 
 	cl_lock(__func__);
 
-	mid_core_cpus = val;
-	pr_debug("c mid_core_cpus :%d\n", mid_core_cpus);
+	specify_32bit_cpus = val;
+	pr_debug("c specify_32bit_cpus :%d\n", specify_32bit_cpus);
 	if (onoff) {
 		stop_calculate_loading();
 		start_calculate_loading();
@@ -516,7 +511,7 @@ static ssize_t perfmgr_mid_core_cpus_proc_write(
 
 }
 
-static ssize_t perfmgr_mid_core_overThrhld_proc_show(struct file *file,
+static ssize_t perfmgr_specify_32bit_overThrhld_proc_show(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
 	int n = 0;
@@ -525,7 +520,7 @@ static ssize_t perfmgr_mid_core_overThrhld_proc_show(struct file *file,
 	if (*ppos != 0)
 		goto out;
 
-	n = scnprintf(buffer, 512, "%u", mid_core_overThrhld);
+	n = scnprintf(buffer, 512, "%u", specify_32bit_overThrhld);
 out:
 	if (n < 0)
 		return -EINVAL;
@@ -533,7 +528,7 @@ out:
 	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
 }
 
-static ssize_t perfmgr_mid_core_overThrhld_proc_write(
+static ssize_t perfmgr_specify_32bit_overThrhld_proc_write(
 		struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
 {
@@ -549,8 +544,8 @@ static ssize_t perfmgr_mid_core_overThrhld_proc_write(
 
 	cl_lock(__func__);
 
-	mid_core_overThrhld = val;
-	pr_debug("c mid_core_overThrhld :%d\n", mid_core_overThrhld);
+	specify_32bit_overThrhld = val;
+	pr_debug("c specify_32bit_overThrhld :%d\n", specify_32bit_overThrhld);
 	if (onoff) {
 		stop_calculate_loading();
 		start_calculate_loading();
@@ -669,8 +664,8 @@ PROC_FOPS_RW(poltime_secs);
 PROC_FOPS_RW(poltime_nsecs);
 PROC_FOPS_RW(onoff);
 PROC_FOPS_RW(overThrhld);
-PROC_FOPS_RW(mid_core_cpus);
-PROC_FOPS_RW(mid_core_overThrhld);
+PROC_FOPS_RW(specify_32bit_cpus);
+PROC_FOPS_RW(specify_32bit_overThrhld);
 PROC_FOPS_RW(underThrhld);
 PROC_FOPS_RW(uevent_enable);
 PROC_FOPS_RW(debug_enable);
@@ -720,8 +715,8 @@ static int __init uload_init(void)
 		PROC_ENTRY(poltime_nsecs),
 		PROC_ENTRY(onoff),
 		PROC_ENTRY(overThrhld),
-		PROC_ENTRY(mid_core_cpus),
-		PROC_ENTRY(mid_core_overThrhld),
+		PROC_ENTRY(specify_32bit_cpus),
+		PROC_ENTRY(specify_32bit_overThrhld),
 		PROC_ENTRY(underThrhld),
 		PROC_ENTRY(uevent_enable),
 		PROC_ENTRY(curr_cpu_loading),
