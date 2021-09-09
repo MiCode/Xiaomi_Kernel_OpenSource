@@ -4286,6 +4286,17 @@ int fpsgo_base2fbt_is_finished(struct render_info *thr)
 	return 1;
 }
 
+void fpsgo_base2fbt_stop_boost(struct render_info *thr)
+{
+	if (!thr)
+		return;
+
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 1, "stop_boost");
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 0, "stop_boost");
+
+	fbt_reset_boost(thr);
+}
+
 static int fbt_get_opp_by_freq(int cluster, unsigned int freq)
 {
 	int opp;
