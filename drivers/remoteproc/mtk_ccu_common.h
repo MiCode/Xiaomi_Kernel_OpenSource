@@ -30,7 +30,7 @@
 #define MTK_CCU_CLK_PWR_NUM 7
 #define MTK_CCU_MAILBOX_QUEUE_SIZE 8
 
-#define MTK_CCU_DRAM_LOG_BUF_CNT (3)
+#define MTK_CCU_DRAM_LOG_BUF_CNT (4)
 #define MTK_CCU_DRAM_LOG_BUF_SIZE (1024 * 1024) //1MB
 
 struct mtk_ccu_ipc_desc {

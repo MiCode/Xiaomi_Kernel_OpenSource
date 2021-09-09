@@ -86,23 +86,32 @@ static void mtk_ccu_set_log_memory_address(struct mtk_ccu *ccu)
 		return;
 	}
 
+	/* log chunk1 */
 	ccu->log_info[0].fd = meminfo->fd;
 	ccu->log_info[0].size = MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[0].offset = offset;
 	ccu->log_info[0].mva = meminfo->mva + offset;
 	ccu->log_info[0].va = meminfo->va + offset;
 
+	/* log chunk2 */
 	ccu->log_info[1].fd = meminfo->fd;
 	ccu->log_info[1].size = MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[1].offset = offset + MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[1].mva = ccu->log_info[0].mva + MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[1].va = ccu->log_info[0].va + MTK_CCU_DRAM_LOG_BUF_SIZE;
 
+	/* sram log */
 	ccu->log_info[2].fd = meminfo->fd;
-	ccu->log_info[2].size = MTK_CCU_DRAM_LOG_BUF_SIZE * 2;
-	ccu->log_info[2].offset = offset;
-	ccu->log_info[2].mva = ccu->log_info[0].mva;
-	ccu->log_info[2].va = ccu->log_info[0].va;
+	ccu->log_info[2].size = MTK_CCU_DRAM_LOG_BUF_SIZE;
+	ccu->log_info[2].offset = offset + MTK_CCU_DRAM_LOG_BUF_SIZE * 2;
+	ccu->log_info[2].mva = ccu->log_info[1].mva + MTK_CCU_DRAM_LOG_BUF_SIZE;
+	ccu->log_info[2].va = ccu->log_info[1].va + MTK_CCU_DRAM_LOG_BUF_SIZE;
+
+	ccu->log_info[3].fd = meminfo->fd;
+	ccu->log_info[3].size = MTK_CCU_DRAM_LOG_BUF_SIZE * 2;
+	ccu->log_info[3].offset = offset;
+	ccu->log_info[3].mva = ccu->log_info[0].mva;
+	ccu->log_info[3].va = ccu->log_info[0].va;
 }
 
 int mtk_ccu_sw_hw_reset(struct mtk_ccu *ccu)
@@ -295,6 +304,7 @@ static int mtk_ccu_start(struct rproc *rproc)
 	/*1. Set CCU log memory address from user space*/
 	writel((uint32_t)((ccu->log_info[0].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG02);
 	writel((uint32_t)((ccu->log_info[1].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG03);
+	writel((uint32_t)((ccu->log_info[2].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG07);
 
 #if defined(CCU_SET_MMQOS)
 	mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(20), MBps_to_icc(20));
@@ -306,6 +316,8 @@ static int mtk_ccu_start(struct rproc *rproc)
 		ccu->log_info[0].mva, readl(ccu_base + MTK_CCU_SPARE_REG02));
 	LOG_DBG("LogBuf_mva[1](0x%lx)(0x%x << 8)\n",
 		ccu->log_info[1].mva, readl(ccu_base + MTK_CCU_SPARE_REG03));
+	LOG_DBG("LogBuf_mva[2](0x%lx)(0x%x << 8)\n",
+		ccu->log_info[2].mva, readl(ccu_base + MTK_CCU_SPARE_REG07));
 	ccu->g_LogBufIdx = -1;
 
 	spin_lock(&ccu->ccu_poweron_lock);

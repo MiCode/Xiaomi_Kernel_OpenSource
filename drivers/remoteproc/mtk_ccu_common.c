@@ -125,7 +125,7 @@ static long mtk_ccu_ioctl(struct file *flip, unsigned int cmd,
 	{
 		log_idx = mtk_ccu_waitirq(ccu);
 		if (log_idx < 0) {
-			log_info = ccu->log_info[2];
+			log_info = ccu->log_info[3];
 			log_info.buf_idx = log_idx;
 		} else if (log_idx > 0) {
 			log_info = ccu->log_info[log_idx-1];
