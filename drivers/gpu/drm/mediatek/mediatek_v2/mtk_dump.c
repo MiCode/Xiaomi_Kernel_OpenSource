@@ -123,6 +123,7 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_CHIST0:
 	case DDP_COMPONENT_CHIST1:
 		mtk_chist_dump(comp);
+		break;
 	case DDP_COMPONENT_Y2R0:
 		mtk_y2r_dump(comp);
 		break;
