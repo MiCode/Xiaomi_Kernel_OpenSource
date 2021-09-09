@@ -141,6 +141,7 @@ struct mtk_pcie_port {
 	struct phy *phy;
 	struct clk_bulk_data *clks;
 	int num_clks;
+	int port_num;
 	int irq;
 	u32 saved_irq_state;
 	raw_spinlock_t irq_lock;
@@ -275,6 +276,37 @@ static void mtk_pcie_enable_msi(struct mtk_pcie_port *port)
 	writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
 }
 
+static void mtk_pcie_phy_setting_fixup_mt6983(struct mtk_pcie_port *port)
+{
+	void __iomem *reg;
+
+	if (port->port_num == 0) {
+		reg = ioremap(0x11E80000, 0x10000);
+		writel_relaxed(0x03060C0C, reg + 0x202C);
+		writel_relaxed(0x03040404, reg + 0x222C);
+		writel_relaxed(0x0070776A, reg + 0x50A0);
+		writel_relaxed(0x00040000, reg + 0xA060);
+		writel_relaxed(0x10040F00, reg + 0x306C);
+		iounmap(reg);
+
+		reg = ioremap(0x11E90000, 0x1000);
+		writel_relaxed(0x00007808, reg + 0x004);
+		iounmap(reg);
+	} else if (port->port_num == 1) {
+		reg = ioremap(0x11EC0000, 0x10000);
+		writel_relaxed(0x03060C0C, reg + 0x202C);
+		writel_relaxed(0x03040404, reg + 0x222C);
+		writel_relaxed(0x0070776A, reg + 0x50A0);
+		writel_relaxed(0x00040000, reg + 0xA060);
+		writel_relaxed(0x10040F00, reg + 0x306C);
+		iounmap(reg);
+
+		reg = ioremap(0x11EE0000, 0x1000);
+		writel_relaxed(0x00007808, reg + 0x004);
+		iounmap(reg);
+	}
+}
+
 static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 {
 	struct resource_entry *entry;
@@ -282,6 +314,8 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	unsigned int table_index = 0;
 	int err;
 	u32 val;
+
+	mtk_pcie_phy_setting_fixup_mt6983(port);
 
 	/* Set as RC mode */
 	val = readl_relaxed(port->base + PCIE_SETTING_REG);
@@ -759,6 +793,10 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	}
 
 	port->reg_base = regs->start;
+
+	port->port_num = of_get_pci_domain_nr(dev->of_node);
+	if (port->port_num >= 0)
+		dev_info(dev, "host bridge domain number %d\n", port->port_num);
 
 	port->phy_reset = devm_reset_control_get_optional_exclusive(dev, "phy");
 	if (IS_ERR(port->phy_reset)) {
