@@ -764,7 +764,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 				ddp_color_bypass_color(comp_color0, false, handle);
 				bypass_color0 = false;
 			}
-		} else if (id == 1) {
+		} else if (id == 1 || id == 2) {
 			if (bypass_color1 == true) {
 				struct mtk_ddp_comp *comp_color1 =
 					priv->ddp_comp[DDP_COMPONENT_COLOR1];
@@ -782,7 +782,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 				ddp_color_bypass_color(comp_color0, true, handle);
 				bypass_color0 = true;
 			}
-		} else if (id == 1) {
+		} else if (id == 1 || id == 2) {
 			if (bypass_color1 == false) {
 				struct mtk_ddp_comp *comp_color1 =
 					priv->ddp_comp[DDP_COMPONENT_COLOR1];
