@@ -3597,6 +3597,7 @@ static enum power_supply_property gauge_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_ENERGY_EMPTY,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
 };
 
 static int get_ptim_current(struct mtk_gauge *gauge)
@@ -3677,6 +3678,17 @@ static int psy_gauge_set_property(struct power_supply *psy,
 		gm = gauge->gm;
 		if (gm != NULL && val->intval == 1)
 			set_shutdown_cond(gm, DLPT_SHUTDOWN);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
+		gm = gauge->gm;
+		if (gm != NULL && val->intval != 0) {
+			gm->imix = val->intval;
+			if (gm->imix > 5500) {
+				gm->imix = 5500;
+				pr_notice("imix check limit 5500:%d\n",
+					val->intval);
+			}
+		}
 		break;
 	default:
 		ret = -EINVAL;
