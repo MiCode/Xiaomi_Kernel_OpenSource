@@ -74,10 +74,14 @@ int fg_get_system_sec(void)
 	return (int)tmp_time.tv_sec;
 }
 
-int fg_get_imix(void)
+int fg_get_imix(struct mtk_battery *gm)
 {
-	/* todo: in ALPS */
-	return 1;
+	int imix = 1;
+
+	if (gm->imix != 0)
+		return gm->imix;
+
+	return imix;
 }
 
 int gauge_set_nag_en(struct mtk_battery *gm, int nafg_zcv_en)
@@ -3159,7 +3163,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	break;
 	case FG_DAEMON_CMD_GET_IMIX:
 	{
-		int imix = UNIT_TRANS_10 * fg_get_imix();
+		int imix = UNIT_TRANS_10 * fg_get_imix(gm);
 
 		ret_msg->fgd_data_len += sizeof(imix);
 		memcpy(ret_msg->fgd_data, &imix, sizeof(imix));

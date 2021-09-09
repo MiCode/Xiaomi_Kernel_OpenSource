@@ -924,6 +924,7 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->com_fg_meter_resistance = FG_METER_RESISTANCE;
 	fg_cust_data->r_fg_value = UNIT_TRANS_10 * R_FG_VALUE;
 	fg_cust_data->com_r_fg_value = UNIT_TRANS_10 * R_FG_VALUE;
+	fg_cust_data->unit_multiple = UNIT_MULTIPLE;
 
 	/* Aging Compensation */
 	fg_cust_data->aging_one_en = AGING_ONE_EN;
@@ -1452,6 +1453,12 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		&(gm->no_bat_temp_compensate), 1);
 	fg_read_dts_val(np, "R_FG_VALUE", &(fg_cust_data->r_fg_value),
 		UNIT_TRANS_10);
+
+	fg_read_dts_val(np, "CURR_MEASURE_20A",
+		&(fg_cust_data->curr_measure_20a), 1);
+	fg_read_dts_val(np, "UNIT_MULTIPLE",
+		&(fg_cust_data->unit_multiple), 1);
+
 	gm->gauge->hw_status.r_fg_value =
 		fg_cust_data->r_fg_value;
 

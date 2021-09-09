@@ -333,10 +333,10 @@ struct fuelgauge_charge_pseudo100_s {
 
 
 struct fuelgauge_profile_struct {
-	unsigned int mah;
+	int mah;
 	unsigned short voltage;
 	unsigned short resistance; /* Ohm*/
-	unsigned int percentage;
+	int percentage;
 	struct fuelgauge_charger_struct charge_r;
 };
 
@@ -408,6 +408,8 @@ struct fuel_gauge_custom_data {
 	int car_tune_value;
 	int fg_meter_resistance;
 	int com_fg_meter_resistance;
+	int curr_measure_20a;
+	int unit_multiple;
 	int r_fg_value;
 	int com_r_fg_value;
 	int mtk_chr_exist;
@@ -918,6 +920,7 @@ struct mtk_battery {
 	int charge_power_sel;
 
 	/*battery status*/
+	int imix;
 	int baton;
 	int vbat;
 	int ibat;
