@@ -577,7 +577,9 @@ EXPORT_SYMBOL_GPL(qcom_remove_ssr_subdev);
 
 static void qcom_check_ssr_status(void *data, struct rproc *rproc)
 {
-	if (rproc->state == RPROC_RUNNING || qcom_device_shutdown_in_progress)
+	if (!atomic_read(&rproc->power) ||
+	    rproc->state == RPROC_RUNNING ||
+	    qcom_device_shutdown_in_progress)
 		return;
 
 	panic("Panicking, remoteproc %s failed to recover!\n", rproc->name);
