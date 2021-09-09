@@ -264,7 +264,7 @@ static int mt6360_charger_get_ocv(struct mt6360_chg_info *mci,
 static int mt6360_charger_get_charge_type(struct mt6360_chg_info *mci,
 					  union power_supply_propval *val)
 {
-	int type, ret;
+	int type = 0, ret;
 	unsigned int regval;
 	u8 chg_stat;
 

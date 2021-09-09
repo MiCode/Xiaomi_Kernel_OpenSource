@@ -436,6 +436,10 @@ int pagecache_write_end(struct file *, struct address_space *mapping,
  * struct address_space - Contents of a cacheable, mappable object.
  * @host: Owner, either the inode or the block_device.
  * @i_pages: Cached pages.
+ * @invalidate_lock: Guards coherency between page cache contents and
+ *   file offset->disk block mappings in the filesystem during invalidates.
+ *   It is also used to block modification of page cache contents through
+ *   memory mappings.
  * @gfp_mask: Memory allocation flags to use for allocating pages.
  * @i_mmap_writable: Number of VM_SHARED mappings.
  * @nr_thps: Number of THPs in the pagecache (non-shmem only).
@@ -453,6 +457,7 @@ int pagecache_write_end(struct file *, struct address_space *mapping,
 struct address_space {
 	struct inode		*host;
 	struct xarray		i_pages;
+	struct rw_semaphore	invalidate_lock;
 	gfp_t			gfp_mask;
 	atomic_t		i_mmap_writable;
 #ifdef CONFIG_READ_ONLY_THP_FOR_FS
@@ -814,8 +819,41 @@ static inline void inode_lock_shared_nested(struct inode *inode, unsigned subcla
 	down_read_nested(&inode->i_rwsem, subclass);
 }
 
+static inline void filemap_invalidate_lock(struct address_space *mapping)
+{
+	down_write(&mapping->invalidate_lock);
+}
+
+static inline void filemap_invalidate_unlock(struct address_space *mapping)
+{
+	up_write(&mapping->invalidate_lock);
+}
+
+static inline void filemap_invalidate_lock_shared(struct address_space *mapping)
+{
+	down_read(&mapping->invalidate_lock);
+}
+
+static inline int filemap_invalidate_trylock_shared(
+					struct address_space *mapping)
+{
+	return down_read_trylock(&mapping->invalidate_lock);
+}
+
+static inline void filemap_invalidate_unlock_shared(
+					struct address_space *mapping)
+{
+	up_read(&mapping->invalidate_lock);
+}
+
 void lock_two_nondirectories(struct inode *, struct inode*);
 void unlock_two_nondirectories(struct inode *, struct inode*);
+
+void filemap_invalidate_lock_two(struct address_space *mapping1,
+				 struct address_space *mapping2);
+void filemap_invalidate_unlock_two(struct address_space *mapping1,
+				   struct address_space *mapping2);
+
 
 /*
  * NOTE: in a 32bit arch with a preemptable kernel and
@@ -1507,8 +1545,11 @@ struct super_block {
 	/* Number of inodes with nlink == 0 but still referenced */
 	atomic_long_t s_remove_count;
 
-	/* Pending fsnotify inode refs */
-	atomic_long_t s_fsnotify_inode_refs;
+	/*
+	 * Number of inode/mount/sb objects that are being watched, note that
+	 * inodes objects are currently double-accounted.
+	 */
+	atomic_long_t s_fsnotify_connectors;
 
 	/* Being remounted read-only */
 	int s_readonly_remount;
@@ -2487,6 +2528,7 @@ struct file_system_type {
 
 	struct lock_class_key i_lock_key;
 	struct lock_class_key i_mutex_key;
+	struct lock_class_key invalidate_lock_key;
 	struct lock_class_key i_mutex_dir_key;
 };
 
@@ -2569,90 +2611,6 @@ extern int generic_update_time(struct inode *, struct timespec64 *, int);
 extern struct kobject *fs_kobj;
 
 #define MAX_RW_COUNT (INT_MAX & PAGE_MASK)
-
-#ifdef CONFIG_MANDATORY_FILE_LOCKING
-extern int locks_mandatory_locked(struct file *);
-extern int locks_mandatory_area(struct inode *, struct file *, loff_t, loff_t, unsigned char);
-
-/*
- * Candidates for mandatory locking have the setgid bit set
- * but no group execute bit -  an otherwise meaningless combination.
- */
-
-static inline int __mandatory_lock(struct inode *ino)
-{
-	return (ino->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID;
-}
-
-/*
- * ... and these candidates should be on SB_MANDLOCK mounted fs,
- * otherwise these will be advisory locks
- */
-
-static inline int mandatory_lock(struct inode *ino)
-{
-	return IS_MANDLOCK(ino) && __mandatory_lock(ino);
-}
-
-static inline int locks_verify_locked(struct file *file)
-{
-	if (mandatory_lock(locks_inode(file)))
-		return locks_mandatory_locked(file);
-	return 0;
-}
-
-static inline int locks_verify_truncate(struct inode *inode,
-				    struct file *f,
-				    loff_t size)
-{
-	if (!inode->i_flctx || !mandatory_lock(inode))
-		return 0;
-
-	if (size < inode->i_size) {
-		return locks_mandatory_area(inode, f, size, inode->i_size - 1,
-				F_WRLCK);
-	} else {
-		return locks_mandatory_area(inode, f, inode->i_size, size - 1,
-				F_WRLCK);
-	}
-}
-
-#else /* !CONFIG_MANDATORY_FILE_LOCKING */
-
-static inline int locks_mandatory_locked(struct file *file)
-{
-	return 0;
-}
-
-static inline int locks_mandatory_area(struct inode *inode, struct file *filp,
-                                       loff_t start, loff_t end, unsigned char type)
-{
-	return 0;
-}
-
-static inline int __mandatory_lock(struct inode *inode)
-{
-	return 0;
-}
-
-static inline int mandatory_lock(struct inode *inode)
-{
-	return 0;
-}
-
-static inline int locks_verify_locked(struct file *file)
-{
-	return 0;
-}
-
-static inline int locks_verify_truncate(struct inode *inode, struct file *filp,
-					size_t size)
-{
-	return 0;
-}
-
-#endif /* CONFIG_MANDATORY_FILE_LOCKING */
-
 
 #ifdef CONFIG_FILE_LOCKING
 static inline int break_lease(struct inode *inode, unsigned int mode)
