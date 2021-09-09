@@ -3142,6 +3142,7 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	u32 src_crop_h = 0;
 	struct aie_static_info *pstv = NULL;
 	int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0, msb_bit_3 = 0;
+	int filter = 0;
 
 	pstv = &fd->st_info;
 
@@ -3372,22 +3373,31 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 					if (j == 0) {
 						msb_bit_0 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
 								& 0xf00000000) >> 32;
-						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |= (u32)(msb_bit_0);
+						filter = 0xfffffffc | msb_bit_0;
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB]
+							= (u32)(fd_cur_cfg[POS_FDCON_IN_BA_MSB] &
+								filter);
 					} else if (j == 1) {
 						msb_bit_1 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
 								& 0xf00000000) >> 32;
-						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
-								(u32)(msb_bit_1 << 8);
+						filter = 0xfffffcff | (msb_bit_1 << 8);
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB]
+							= (u32)(fd_cur_cfg[POS_FDCON_IN_BA_MSB] &
+								filter);
 					} else if (j == 2) {
 						msb_bit_2 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
 								& 0xf00000000) >> 32;
-						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
-								(u32)(msb_bit_2 << 16);
+						filter = 0xfffcffff | (msb_bit_2 << 16);
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB]
+							= (u32)(fd_cur_cfg[POS_FDCON_IN_BA_MSB]
+								& filter);
 					} else if (j == 3) {
 						msb_bit_3 = (fd->dma_para->fd_out_hw_pa[uloop][uch]
 								& 0xf00000000) >> 32;
-						fd_cur_cfg[POS_FDCON_IN_BA_MSB] |=
-								(u32)(msb_bit_3 << 24);
+						filter = 0xfcffffff | (msb_bit_3 << 24);
+						fd_cur_cfg[POS_FDCON_IN_BA_MSB]
+							= (u32)(fd_cur_cfg[POS_FDCON_IN_BA_MSB]
+								& filter);
 					}
 					fd_cur_cfg[FD_IN_0 + j] = (u32)(
 						fd->dma_para
@@ -3403,19 +3413,27 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 				if (j == 0) {
 					msb_bit_0 = (fd->dma_para->fd_out_hw_pa[i][j] &
 								0xf00000000) >> 32;
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_0);
+					filter = 0xfffffffc | msb_bit_0;
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] =
+						(u32)(fd_cur_cfg[POS_FDCON_OUT_BA_MSB] & filter);
 				} else if (j == 1) {
 					msb_bit_1 = (fd->dma_para->fd_out_hw_pa[i][j] &
 								0xf00000000) >> 32;
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_1 << 8);
+					filter = 0xfffffcff | (msb_bit_1 << 8);
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] =
+						(u32)(fd_cur_cfg[POS_FDCON_OUT_BA_MSB] & filter);
 				} else if (j == 2) {
 					msb_bit_2 = (fd->dma_para->fd_out_hw_pa[i][j] &
 								0xf00000000) >> 32;
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_2 << 16);
+					filter = 0xfffcffff | (msb_bit_2 << 16);
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] =
+						(u32)(fd_cur_cfg[POS_FDCON_OUT_BA_MSB] & filter);
 				} else if (j == 3) {
 					msb_bit_3 = (fd->dma_para->fd_out_hw_pa[i][j] &
 								0xf00000000) >> 32;
-					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] |= (u32)(msb_bit_3 << 24);
+					filter = 0xfcffffff | (msb_bit_3 << 24);
+					fd_cur_cfg[POS_FDCON_OUT_BA_MSB] =
+						(u32)(fd_cur_cfg[POS_FDCON_OUT_BA_MSB] & filter);
 				}
 
 				fd_cur_cfg[FD_OUT_0 + j] =
@@ -3429,12 +3447,16 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 				if (j == 0) {
 					msb_bit_0 = (fd->dma_para->fd_kernel_pa[i][j] &
 								0xf00000000) >> 32;
-					fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] |= (u32)(msb_bit_0);
+					filter = 0xfffffffc | msb_bit_0;
+					fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] =
+						(u32)(fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] & filter);
+
 				} else if (j == 1) {
 					msb_bit_1 = (fd->dma_para->fd_kernel_pa[i][j] &
 								0xf00000000) >> 32;
-					fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] |=
-								(u32)(msb_bit_1 << 8);
+					filter = 0xfffffcff | (msb_bit_1 << 8);
+					fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] =
+						(u32)(fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] & filter);
 				}
 
 				fd_cur_cfg[FD_KERNEL_0 + j] =
