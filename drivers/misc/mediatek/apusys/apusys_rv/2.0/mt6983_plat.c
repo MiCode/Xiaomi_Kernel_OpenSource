@@ -24,6 +24,9 @@ static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
 {
 	struct arm_smccc_res res;
 
+	dev_info(dev, "%s: smc call %d\n",
+			__func__, smc_id);
+
 	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL, smc_id,
 				a2, 0, 0, 0, 0, 0, &res);
 	if (((int) res.a0) < 0)
@@ -466,7 +469,8 @@ static void mt6983_rv_cachedump(struct mtk_apu *apu)
 }
 
 const struct mtk_apu_platdata mt6983_platdata = {
-	.flags		= F_PRELOAD_FIRMWARE | F_AUTO_BOOT,
+	.flags		= F_PRELOAD_FIRMWARE | F_AUTO_BOOT |
+					F_SECURE_BOOT | F_SECURE_COREDUMP,
 	.ops		= {
 		.init	= mt6983_rproc_init,
 		.exit	= mt6983_rproc_exit,
