@@ -69,8 +69,8 @@
 		compatible = "novatek,NVT-ts-spi", "goodix,gt9896s";
 		reg = <0>; //Same as CS ID
 		spi-max-frequency = <1000000>;
-		novatek,reset-gpio = <&pio 20 0x00>;
-		novatek,irq-gpio = <&pio 21 0x00>;
+		novatek,reset-gpio = <&pio 3 0x00>;
+		novatek,irq-gpio = <&pio 8 0x00>;
 		// 525
 		//novatek,swrst-n8-addr = <0x01F01A>;
 		// 672A, 525B, 675, 526
