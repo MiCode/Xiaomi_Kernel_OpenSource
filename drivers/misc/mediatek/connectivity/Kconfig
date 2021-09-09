@@ -187,6 +187,15 @@ config MTK_COMBO_CHIP_CONSYS_6879
 	  is
 	  MT6879(BT/WIFI/GPS/FM combo chip)
 
+config MTK_COMBO_CHIP_CONSYS_6895
+	bool "MTK MT6895 combo chip support"
+	help
+	  this config is used to decide SOC consys version
+	  in current platform
+	  is
+	  MT6895(BT/WIFI/GPS/FM combo chip)
+
+
 #
 # Target Platform Selection
 #
