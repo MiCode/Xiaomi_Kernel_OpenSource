@@ -901,14 +901,6 @@
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 
-		reserve-memory-gpueb_share {
-			compatible = "mediatek,reserve-memory-gpueb_share";
-			no-map;
-			size = <0 0x00300000>; /* 3MB share mem size */
-			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x40000000 0 0x40000000>;
-		};
-
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -5956,12 +5948,12 @@
 		interrupt-names = "mbox0";
 
 		gpueb_mem_table =
-			<0 0x180000>, /* 1.5MB */
-			<1 0x1000>;   /* 4KB */
+			<0 0x1000>,   /* 4KB */
+			<1 0x180000>; /* 1.5MB */
 
 		gpueb_mem_name_table =
-			"MEM_ID_LOG",     /* logger */
-			"MEM_ID_GPUFREQ"; /* GPUFREQ */
+			"MEM_ID_GPUFREQ", /* GPUFREQ */
+			"MEM_ID_LOG";     /* LOGGER */
 	};
 
 	gpufreq: gpufreq {
