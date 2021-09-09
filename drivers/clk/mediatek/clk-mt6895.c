@@ -403,6 +403,10 @@ static const struct mtk_fixed_factor vlp_ck_divs[] = {
 static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_CCIPLL, "ccipll_ck",
 			"ccipll", 1, 1),
+	FACTOR(CLK_TOP_MFGPLL, "mfgpll_ck",
+			"mfg_ao_mfgpll", 1, 1),
+	FACTOR(CLK_TOP_MFGSCPLL, "mfgscpll_ck",
+			"mfgsc_ao_mfgscpll", 1, 1),
 	FACTOR(CLK_TOP_MAINPLL, "mainpll_ck",
 			"mainpll", 1, 1),
 	FACTOR(CLK_TOP_MAINPLL_D3, "mainpll_d3",
@@ -1819,13 +1823,13 @@ static const char * const mcu_acp_parents[] = {
 };
 
 static const char * const mfg_sel_0_parents[] = {
-	"mainpll_d4",
-	"mainpll_d4"
+	"mfg_ref_ck",
+	"mfgpll_ck"
 };
 
 static const char * const mfg_sel_1_parents[] = {
-	"mainpll_d4",
-	"mainpll_d4"
+	"mfgsc_ref_ck",
+	"mfgscpll_ck"
 };
 
 static const char * const apll_i2s0_mck_parents[] = {

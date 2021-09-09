@@ -56,7 +56,9 @@ static struct regbase rb[] = {
 	[mm0] = REGBASE_V(0x14000000, mm0, MT6895_POWER_DOMAIN_DISP, CLK_NULL),
 	[mm1] = REGBASE_V(0x14400000, mm1, MT6895_POWER_DOMAIN_DISP, CLK_NULL),
 	[img] = REGBASE_V(0x15000000,
-			img, MT6895_POWER_DOMAIN_ISP_MAIN, CLK_NULL),
+			img,
+			MT6895_POWER_DOMAIN_ISP_MAIN,
+			CLK_NULL),
 	[dip_top_dip1] = REGBASE_V(0x15110000,
 			dip_top_dip1,
 			MT6895_POWER_DOMAIN_ISP_MAIN,
@@ -81,43 +83,13 @@ static struct regbase rb[] = {
 			wpe3_dip1,
 			MT6895_POWER_DOMAIN_ISP_MAIN,
 			CLK_NULL),
-	[vde1] = REGBASE_V(0x1600f000, vde1, PD_NULL, CLK_NULL),
-	[vde2] = REGBASE_V(0x1602f000,
-			vde2,
-			MT6895_POWER_DOMAIN_VDE0,
-			CLK_NULL),
-	[ven1] = REGBASE_V(0x17000000,
-			ven1,
-			MT6895_POWER_DOMAIN_VEN0,
-			CLK_NULL),
-	[ven2] = REGBASE_V(0x17800000, ven2, PD_NULL, CLK_NULL),
-	[apurc] = REGBASE_V(0x19020000,
-			apurc,
-			MT6895_POWER_DOMAIN_APU,
-			CLK_NULL),
-	[apurcv] = REGBASE_V(0x190e0000,
-			apurcv,
-			MT6895_POWER_DOMAIN_APU,
-			CLK_NULL),
+	[vde1] = REGBASE_V(0x1600f000, vde1, MT6895_POWER_DOMAIN_VDE1, CLK_NULL),
+	[vde2] = REGBASE_V(0x1602f000, vde2, MT6895_POWER_DOMAIN_VDE0, CLK_NULL),
+	[ven1] = REGBASE_V(0x17000000, ven1, MT6895_POWER_DOMAIN_VEN0, CLK_NULL),
+	[ven2] = REGBASE_V(0x17800000, ven2, MT6895_POWER_DOMAIN_VEN1, CLK_NULL),
 	[apu0_ao] = REGBASE_V(0x190f3000, apu0_ao, PD_NULL, CLK_NULL),
 	[npu_ao] = REGBASE_V(0x190f3400, npu_ao, PD_NULL, CLK_NULL),
 	[apu1_ao] = REGBASE_V(0x190f3800, apu1_ao, PD_NULL, CLK_NULL),
-	[mvpu0_top_config] = REGBASE_V(0x1912b000,
-			mvpu0_top_config,
-			MT6895_POWER_DOMAIN_APU,
-			CLK_NULL),
-	[apud0] = REGBASE_V(0x19130000,
-			apud0,
-			MT6895_POWER_DOMAIN_APU,
-			CLK_NULL),
-	[apu_dla_1_config] = REGBASE_V(0x19134000,
-			apu_dla_1_config,
-			PD_NULL,
-			CLK_NULL),
-	[apuac] = REGBASE_V(0x1913c000,
-			apuac,
-			MT6895_POWER_DOMAIN_APU,
-			CLK_NULL),
 	[spm] = REGBASE_V(0x1C001000, spm, PD_NULL, CLK_NULL),
 	[vlpcfg] = REGBASE_V(0x1C00C000, vlpcfg, PD_NULL, CLK_NULL),
 	[vlp_ck] = REGBASE_V(0x1C013000, vlp_ck, PD_NULL, CLK_NULL),
@@ -202,6 +174,7 @@ static struct regname rn[] = {
 	REGNAME(top, 0x0140, CLK_CFG_19),
 	REGNAME(top, 0x0150, CLK_CFG_20),
 	REGNAME(top, 0x0160, CLK_CFG_21),
+	REGNAME(top, 0x01f0, CLK_CFG_30),
 	REGNAME(top, 0x0320, CLK_AUDDIV_0),
 	REGNAME(top, 0x0328, CLK_AUDDIV_2),
 	REGNAME(top, 0x0334, CLK_AUDDIV_3),
@@ -350,9 +323,11 @@ static struct regname rn[] = {
 	/* MMSYS0_CONFIG register */
 	REGNAME(mm0, 0x100, MMSYS_CG_0),
 	REGNAME(mm0, 0x110, MMSYS_CG_1),
+	REGNAME(mm0, 0x1A0, MMSYS_CG_2),
 	/* MMSYS1_CONFIG register */
 	REGNAME(mm1, 0x100, MMSYS_CG_0),
 	REGNAME(mm1, 0x110, MMSYS_CG_1),
+	REGNAME(mm1, 0x1A0, MMSYS_CG_2),
 	/* IMGSYS_MAIN register */
 	REGNAME(img, 0x0, IMG_MAIN_CG),
 	/* DIP_TOP_DIP1 register */
@@ -379,10 +354,6 @@ static struct regname rn[] = {
 	REGNAME(ven1, 0x0, VENCSYS_CG),
 	/* VENC_GCON_CORE1 register */
 	REGNAME(ven2, 0x0, VENCSYS_CG),
-	/* APU_RCX_CONFIG register */
-	REGNAME(apurc, 0x0, APU_RCX_CG),
-	/* APU_RCX_VCORE_CONFIG register */
-	REGNAME(apurcv, 0x0, APUSYS_VCORE_CG),
 	/* APUPLL_PLL_CTRL register */
 	REGNAME(apu0_ao, 0x8, APUPLL_CON0),
 	REGNAME(apu0_ao, 0xc, APUPLL_CON1),
@@ -398,14 +369,6 @@ static struct regname rn[] = {
 	REGNAME(apu1_ao, 0xc, APUPLL1_CON1),
 	REGNAME(apu1_ao, 0x10, APUPLL1_CON2),
 	REGNAME(apu1_ao, 0x14, APUPLL1_CON3),
-	/* MVPU0_TOP_CONFIG register */
-	REGNAME(mvpu0_top_config, 0x0, MVPU_CG),
-	/* APU_DLA_0_CONFIG register */
-	REGNAME(apud0, 0x0, MDLA_CG),
-	/* APU_DLA_1_CONFIG register */
-	REGNAME(apu_dla_1_config, 0x0, MDLA_CG),
-	/* APU_ACX_CONFIG register */
-	REGNAME(apuac, 0x0, APU_CONN_CG),
 	/* SPM register */
 	REGNAME(spm, 0xE00, MD1_PWR_CON),
 	REGNAME(spm, 0xF34, PWR_STATUS),
@@ -452,6 +415,7 @@ static struct regname rn[] = {
 	REGNAME(spm, 0xEDC, MFG9_PWR_CON),
 	REGNAME(spm, 0xEE0, MFG10_PWR_CON),
 	REGNAME(spm, 0xEE4, MFG11_PWR_CON),
+	REGNAME(spm, 0xEE8, MFG12_PWR_CON),
 	REGNAME(spm, 0x670, SPM_CROSS_WAKE_M01_REQ),
 	REGNAME(spm, 0x414, SPM2APU_CON),
 	/* VLPCFG_BUS register */
@@ -563,20 +527,15 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"npupll_pll_ctrl", PWR_STA, 0x00000000},
 	{"apupll1_pll_ctrl", PWR_STA, 0x00000000},
 	{"afe", PWR_STA, 0x00000080},
-	{"apu_acx_config", OTHER_STA, 0x00000200},
-	{"apu_dla_0_config", OTHER_STA, 0x00000200},
-	{"apu_dla_1_config", PWR_STA, 0x00000000},
-	{"apu_rcx_config", OTHER_STA, 0x00000200},
-	{"apu_rcx_vcore_config", OTHER_STA, 0x00000200},
 	{"camsys_mraw", PWR_STA, 0x00100000},
 	{"camsys_rawa", PWR_STA, 0x00200000},
 	{"camsys_rawb", PWR_STA, 0x00400000},
-	{"camsys_rawc", PWR_STA, 0x00000000},
+	{"camsys_rawc", PWR_STA, 0x00800000},
 	{"camsys_yuva", PWR_STA, 0x00100000},
 	{"camsys_yuvb", PWR_STA, 0x00100000},
-	{"camsys_yuvc", PWR_STA, 0x00000000},
+	{"camsys_yuvc", PWR_STA, 0x00100000},
 	{"cam_main_r1a", PWR_STA, 0x00100000},
-	{"ccu", PWR_STA, 0x00000000},
+	{"ccu", PWR_STA, 0x01000000},
 	{"dip_nr_dip1", PWR_STA, 0x00000800},
 	{"dip_top_dip1", PWR_STA, 0x00000800},
 	{"gce_d", PWR_STA, 0x20000000},
@@ -593,7 +552,6 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"mminfra_config", PWR_STA, 0x20000000},
 	{"mmsys0", PWR_STA, 0x08000000},
 	{"mmsys1", PWR_STA, 0x08000000},
-	{"mvpu0_top_config", OTHER_STA, 0x00000200},
 	{"nemi_reg", PWR_STA, 0x00000000},
 	{"pericfg_ao", PWR_STA, 0x00000000},
 	{"semi_reg", PWR_STA, 0x00000000},
@@ -603,9 +561,9 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"ufs_ao_config", PWR_STA, 0x00000000},
 	{"ufs_pdn_cfg", PWR_STA, 0x00000000},
 	{"vdec_gcon_base", PWR_STA, 0x00008000},
-	{"vdec_soc_gcon_base", PWR_STA, 0x00000000},
+	{"vdec_soc_gcon_base", PWR_STA, 0x00010000},
 	{"vencsys", PWR_STA, 0x00020000},
-	{"vencsys_c1", PWR_STA, 0x00000000},
+	{"vencsys_c1", PWR_STA, 0x00040000},
 	{"wpe1_dip1", PWR_STA, 0x00007800},
 	{"wpe2_dip1", PWR_STA, 0x00007800},
 	{"wpe3_dip1", PWR_STA, 0x00007800},
@@ -872,10 +830,7 @@ static int __init clkchk_mt6895_init(void)
 {
 	static struct platform_device *clk_chk_dev;
 
-	clk_chk_dev = platform_device_register_simple("clk-chk-mt6895",
-							-1,
-							NULL,
-							0);
+	clk_chk_dev = platform_device_register_simple("clk-chk-mt6895", -1, NULL, 0);
 	if (IS_ERR(clk_chk_dev))
 		pr_warn("unable to register clk-chk device");
 
