@@ -2534,8 +2534,22 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
 
 		/* Do nothing if the user doesn't enable force dump */
-		mtk_cam_req_dump(s_data,
-				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
+		if (mtk_cam_feature_is_mstream(s_data->feature.raw_feature)) {
+			struct mtk_cam_request_stream_data *mstream_s_data;
+
+			mstream_s_data = mtk_cam_req_get_s_data(
+						s_data->req, ctx->stream_id, 0);
+			if (s_data->frame_seq_no ==
+					mstream_s_data->frame_seq_no) {
+				mtk_cam_req_dump(s_data,
+					MTK_CAM_REQ_DUMP_FORCE,
+					"Camsys Force Dump");
+			}
+		} else {
+			mtk_cam_req_dump(s_data,
+					MTK_CAM_REQ_DUMP_FORCE,
+					"Camsys Force Dump");
+		}
 
 		/* assign mraw using buf */
 		if (ctx->used_mraw_num > 0) {
