@@ -2168,6 +2168,18 @@ phys_addr_t cmdq_mbox_get_base_pa(void *chan)
 }
 EXPORT_SYMBOL(cmdq_mbox_get_base_pa);
 
+phys_addr_t cmdq_mbox_get_dummy_reg(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	return cmdq->thread[22].gce_pa
+		+ CMDQ_THR_BASE + CMDQ_THR_SIZE * 22
+		+ CMDQ_THR_SPR + 4*CMDQ_THR_SPR_IDX3;
+}
+EXPORT_SYMBOL(cmdq_mbox_get_dummy_reg);
+
+
 struct device *cmdq_mbox_get_dev(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,

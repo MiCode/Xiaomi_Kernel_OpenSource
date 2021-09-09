@@ -292,6 +292,7 @@ unsigned long cmdq_get_tracing_mark(void);
 u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms);
 void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
 s32 cmdq_mbox_set_hw_id(void *cmdq);
+phys_addr_t cmdq_mbox_get_dummy_reg(void *chan);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);

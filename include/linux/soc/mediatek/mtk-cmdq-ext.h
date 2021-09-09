@@ -371,6 +371,8 @@ s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u32 value, u32 mask);
 
+s32 cmdq_pkt_write_dummy(struct cmdq_pkt *pkt, dma_addr_t addr);
+
 s32 cmdq_pkt_mem_move(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t src_addr, dma_addr_t dst_addr, u16 swap_reg_idx);
 

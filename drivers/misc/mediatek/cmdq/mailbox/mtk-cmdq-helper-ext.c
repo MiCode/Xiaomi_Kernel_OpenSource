@@ -874,8 +874,10 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	if (err != 0)
 		return err;
 
-	return cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
+	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
 		value, mask);
+	cmdq_pkt_write_dummy(pkt, addr);
+	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
 
@@ -1119,6 +1121,31 @@ s32 cmdq_pkt_store64_value_reg(struct cmdq_pkt *pkt,
 		CMDQ_REG_TYPE, CMDQ_CODE_WRITE);
 }
 EXPORT_SYMBOL(cmdq_pkt_store64_value_reg);
+
+s32 cmdq_pkt_write_dummy(struct cmdq_pkt *pkt, dma_addr_t addr)
+{
+	s32 err;
+	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+	struct cmdq_client *cl = pkt->cl;
+	u32 dummy_addr;
+
+	if (!cl || !gce_mminfra)
+		return 0;
+
+	dummy_addr = (u32)cmdq_mbox_get_dummy_reg(cl->chan);
+	if (addr > (dma_addr_t)gce_mminfra) {
+		/* assign bit 47:16 to spr temp */
+		err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
+			CMDQ_GET_ADDR_HIGH(dummy_addr));
+		if (err != 0)
+			return err;
+
+		return cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(dummy_addr),
+			1, ~0);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_pkt_write_dummy);
 
 s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u16 src_reg_idx, u32 mask)
