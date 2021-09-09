@@ -2731,8 +2731,8 @@ static const struct mtk_fake_eng_data mt6833_fake_eng_data = {
 };
 
 static const struct mtk_fake_eng_reg mt6879_fake_eng_reg[] = {
-	{.CG_idx = 0, .CG_bit = 20, .share_port = true},
-	{.CG_idx = 0, .CG_bit = 21, .share_port = true},
+	{.CG_idx = 0, .CG_bit = 3, .share_port = false},
+	{.CG_idx = 0, .CG_bit = 6, .share_port = false},
 };
 
 static const struct mtk_fake_eng_data mt6879_fake_eng_data = {
