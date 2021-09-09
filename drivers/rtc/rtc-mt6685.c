@@ -42,22 +42,38 @@ module_param(rtc_show_alarm, int, 0644);
 
 static int mtk_rtc_write_trigger(struct mt6685_rtc *rtc);
 
+static int counter;
+
 void power_on_mclk(struct mt6685_rtc *rtc)
 {
+	mutex_lock(&rtc->clk_lock);
 	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
 	regmap_write(rtc->regmap, TOP_DIG_WPK, 0x15);
 	regmap_write(rtc->regmap, TOP_DIG_WPK_H, 0x63);
 	/*Power on RTC MCLK before write RTC register*/
 	regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_CLR, RG_RTC_MCLK_PDN_MASK);
+	counter++;
+	mdelay(1);
+	mutex_unlock(&rtc->clk_lock);
 }
 
 static void power_down_mclk(struct mt6685_rtc *rtc)
 {
-	/*Write Protection Key to unlock TOP_CKPDN_CON0*/
-	regmap_write(rtc->regmap, TOP_DIG_WPK, 0x15);
-	regmap_write(rtc->regmap, TOP_DIG_WPK_H, 0x63);
-	/*Power down RTC MCLK after write RTC register*/
-	regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_SET, RG_RTC_MCLK_PDN_MASK);
+	mutex_lock(&rtc->clk_lock);
+	counter--;
+	if (counter < 0) {
+		//dump_stack();
+		pr_info("mclk_counter[%d]\n", counter);
+	}
+	if (counter == 0) {
+		/*Write Protection Key to unlock TOP_CKPDN_CON0*/
+		regmap_write(rtc->regmap, TOP_DIG_WPK, 0x15);
+		regmap_write(rtc->regmap, TOP_DIG_WPK_H, 0x63);
+		/*Power down RTC MCLK after write RTC register*/
+		regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_SET, RG_RTC_MCLK_PDN_MASK);
+		mdelay(1);
+	}
+	mutex_unlock(&rtc->clk_lock);
 }
 
 
@@ -82,7 +98,6 @@ static int rtc_bulk_write(struct mt6685_rtc *rtc, unsigned int reg,
 {
 	int ret;
 
-	power_on_mclk(rtc);
 	ret = regmap_bulk_write(rtc->regmap, reg, val, val_count);
 
 	return ret;
@@ -202,8 +217,12 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 	struct mt6685_rtc *rtc = dev_get_drvdata(dev);
 	u32 td;
 
-	if (!rtc->cali_is_supported)
+	power_on_mclk(rtc);
+
+	if (!rtc->cali_is_supported) {
+		power_down_mclk(rtc);
 		return;
+	}
 
 	/* Truning on eosc cali mode clock */
 	rtc_update_bits(rtc, TOP_RTC_EOSC32_CK_PDN, TOP_RTC_EOSC32_CK_PDN_MASK, 0);
@@ -232,6 +251,7 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 		rtc_update_bits(rtc, rtc->addr_base + EOSC_CALI_TD, EOSC_CALI_TD_MASK, td);
 		mtk_rtc_write_trigger(rtc);
 	}
+	power_down_mclk(rtc);
 }
 #endif
 
@@ -280,10 +300,12 @@ static int rtc_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 
 static void rtc_mark_kpoc(struct mt6685_rtc *rtc)
 {
+	power_on_mclk(rtc);
 	mutex_lock(&rtc->lock);
 	rtc_spare_field_write(rtc, SPARE_KPOC, 1);
 	mtk_rtc_write_trigger(rtc);
 	mutex_unlock(&rtc->lock);
+	power_down_mclk(rtc);
 }
 
 static void mtk_rtc_work_queue(struct work_struct *work)
@@ -332,6 +354,8 @@ static void mtk_rtc_update_pwron_alarm_flag(struct mt6685_rtc *rtc)
 {
 	int ret;
 
+	power_on_mclk(rtc);
+
 	dev_notice(rtc->rtc_dev->dev.parent, "%s\n", __func__);
 
 	ret = rtc_update_bits(rtc,
@@ -347,8 +371,11 @@ static void mtk_rtc_update_pwron_alarm_flag(struct mt6685_rtc *rtc)
 		goto exit;
 
 	mtk_rtc_write_trigger(rtc);
+	power_down_mclk(rtc);
 	return;
+
 exit:
+	power_down_mclk(rtc);
 	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
 }
 
@@ -357,10 +384,13 @@ static int mtk_rtc_restore_alarm(struct mt6685_rtc *rtc, struct rtc_time *tm)
 	int ret;
 	u16 data[RTC_OFFSET_COUNT] = { 0 };
 
+	power_on_mclk(rtc);
+
 	ret = rtc_bulk_read(rtc, rtc->addr_base + RTC_AL_SEC,
 			    data, RTC_OFFSET_COUNT * 2);
 	if (ret < 0)
 		goto exit;
+
 	data[RTC_OFFSET_SEC] = ((data[RTC_OFFSET_SEC] & ~(RTC_AL_SEC_MASK)) |
 				(tm->tm_sec & RTC_AL_SEC_MASK));
 	data[RTC_OFFSET_MIN] = ((data[RTC_OFFSET_MIN] & ~(RTC_AL_MIN_MASK)) |
@@ -382,24 +412,26 @@ static int mtk_rtc_restore_alarm(struct mt6685_rtc *rtc, struct rtc_time *tm)
 	ret = rtc_bulk_write(rtc, rtc->addr_base + RTC_AL_SEC,
 				data, RTC_OFFSET_COUNT * 2);
 	if (ret < 0)
-
 		goto exit;
 
 	ret = rtc_write(rtc, rtc->addr_base + RTC_AL_MASK,
 				RTC_AL_MASK_DOW);
 	if (ret < 0)
 		goto exit;
+
 	ret =  rtc_update_bits(rtc,
 				rtc->addr_base + RTC_IRQ_EN,
 				RTC_IRQ_EN_ONESHOT_AL,
 				RTC_IRQ_EN_ONESHOT_AL);
 	if (ret < 0)
 		goto exit;
-	mtk_rtc_write_trigger(rtc);
 
+	mtk_rtc_write_trigger(rtc);
+	power_down_mclk(rtc);
 	return ret;
 
 exit:
+	power_down_mclk(rtc);
 	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
 	return ret;
 }
@@ -519,9 +551,6 @@ static int mtk_rtc_write_trigger(struct mt6685_rtc *rtc)
 		}
 		cpu_relax();
 	}
-
-	power_down_mclk(rtc);
-
 	return ret;
 }
 
@@ -532,14 +561,18 @@ static void mtk_rtc_reset_bbpu_alarm_status(struct mt6685_rtc *rtc)
 	u32 bbpu;
 	int ret;
 
+	power_on_mclk(rtc);
+
 	bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN | RTC_BBPU_RESET_AL;
 	ret = rtc_write(rtc, rtc->addr_base + RTC_BBPU, bbpu);
 	if (ret < 0)
 		goto exit;
-	mtk_rtc_write_trigger(rtc);
 
+	mtk_rtc_write_trigger(rtc);
+	power_down_mclk(rtc);
 	return;
 exit:
+	power_down_mclk(rtc);
 	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
 
 }
@@ -551,12 +584,12 @@ static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 	int ret;
 
 	power_on_mclk(rtc);
+
 	ret = rtc_read(rtc, rtc->addr_base + RTC_IRQ_STA, &irqsta);/* read clear */
 
 	/*clear SCK_TOP rtc interrupt*/
 	rtc_read(rtc, SCK_TOP_INT_STATUS0, &sck);
 	rtc_write(rtc, SCK_TOP_INT_STATUS0, sck);
-	power_down_mclk(rtc);
 
 	if ((ret == 0) && (irqsta & RTC_IRQ_STA_AL)) {
 		bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN;
@@ -566,10 +599,10 @@ static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 			dev_err(rtc->rtc_dev->dev.parent,
 				"%s error\n", __func__);
 		mtk_rtc_write_trigger(rtc);
-
+		power_down_mclk(rtc);
 		return RTC_ALSTA;
 	}
-
+	power_down_mclk(rtc);
 	return RTC_NONE;
 }
 
@@ -667,10 +700,13 @@ static int __mtk_rtc_read_time(struct mt6685_rtc *rtc,
 	unsigned int reload = 0;
 	u16 data[RTC_OFFSET_COUNT] = { 0 };
 
+	power_on_mclk(rtc);
+
 	rtc_read(rtc, rtc->addr_base + RTC_BBPU, &reload);
 	reload = reload | RTC_BBPU_KEY | RTC_BBPU_RELOAD;
 	rtc_write(rtc, rtc->addr_base + RTC_BBPU, reload);
 	mtk_rtc_write_trigger(rtc);
+	power_down_mclk(rtc);
 
 	mutex_lock(&rtc->lock);
 	ret = rtc_bulk_read(rtc, rtc->addr_base + RTC_TC_SEC,
@@ -745,11 +781,11 @@ void mtk_rtc_save_pwron_time(struct mt6685_rtc *rtc,
 		goto exit;
 
 	mtk_rtc_write_trigger(rtc);
-
 	return;
 
 exit:
 	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
+	return;
 }
 
 static int mtk_rtc_read_time(struct device *dev, struct rtc_time *tm)
@@ -802,6 +838,8 @@ static int mtk_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	int ret;
 	u16 data[RTC_OFFSET_COUNT];
 
+	power_on_mclk(rtc);
+
 	dev_notice(rtc->rtc_dev->dev.parent,
 			"set tc time = %04d/%02d/%02d %02d:%02d:%02d\n",
 			tm->tm_year + RTC_BASE_YEAR, tm->tm_mon + 1, tm->tm_mday,
@@ -825,9 +863,9 @@ static int mtk_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 	/* Time register write to hardware after call trigger function */
 	ret = mtk_rtc_write_trigger(rtc);
-
 exit:
 	mutex_unlock(&rtc->lock);
+	power_down_mclk(rtc);
 	return ret;
 }
 
@@ -884,6 +922,8 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	int ret;
 	u16 data[RTC_OFFSET_COUNT];
 	ktime_t target;
+
+	power_on_mclk(rtc);
 
 	if (alm->enabled == 1) {
 		/* Add one more second to postpone wake time. */
@@ -972,6 +1012,7 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	ret = mtk_rtc_write_trigger(rtc);
 exit:
 	mutex_unlock(&rtc->lock);
+	power_down_mclk(rtc);
 	return ret;
 }
 
@@ -1060,6 +1101,8 @@ int rtc_nvram_write(void *priv, unsigned int offset, void *val,
 	int ret;
 	u8 *buf = val;
 
+	power_on_mclk(rtc);
+
 	mutex_lock(&rtc->lock);
 
 	for (; bytes; bytes--) {
@@ -1071,6 +1114,7 @@ int rtc_nvram_write(void *priv, unsigned int offset, void *val,
 	mtk_rtc_write_trigger(rtc);
 out:
 	mutex_unlock(&rtc->lock);
+	power_down_mclk(rtc);
 	return ret;
 }
 
@@ -1124,6 +1168,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	pr_notice("%s: rtc->addr_base =0x%x\n", __func__, rtc->addr_base);
 
 	mutex_init(&rtc->lock);
+	mutex_init(&rtc->clk_lock);
 
 	platform_set_drvdata(pdev, rtc);
 
@@ -1212,6 +1257,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	rtc->cali_is_supported = true;
 #endif
 
+	power_on_mclk(rtc);
 	power_down_mclk(rtc);
 	return 0;
 }

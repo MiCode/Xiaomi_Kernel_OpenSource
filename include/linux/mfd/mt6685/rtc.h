@@ -240,6 +240,7 @@ struct mt6685_rtc {
 
 	/* Protect register access from multiple tasks */
 	struct mutex            lock;
+	struct mutex            clk_lock;
 	struct regmap           *regmap;
 	struct regmap           *regmap_spar;
 	int                     irq;
