@@ -60,10 +60,6 @@ MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
 
-static int en_fmt = 1;
-module_param(en_fmt, int, 0644);
-MODULE_PARM_DESC(en_fmt, "enable fmt negotiation");
-
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define MTK_CAMSYS_RES_IDXMASK		0xF0
@@ -224,11 +220,6 @@ static const struct v4l2_mbus_framefmt mfmt_default = {
 	.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT,
 	.quantization = V4L2_QUANTIZATION_DEFAULT,
 };
-
-bool mtk_raw_is_fmt_nego_enabled(void)
-{
-	return en_fmt;
-}
 
 static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 				  struct mtk_cam_resource_config *res,
@@ -534,6 +525,13 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 		return ret;
 	}
 
+	pipeline->feature_pending = res_user->raw_res.feature;
+
+	dev_dbg(dev,
+		"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
+		__func__, pipeline->id, pipeline->subdev.entity.stream_count,
+		pipeline->feature_pending, pipeline->feature_active);
+
 	ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user, &sink_fmt);
 	if (ret)
 		return ret;
@@ -678,6 +676,10 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
+		/**
+		 * It also updates V4L2_CID_MTK_CAM_FEATURE and
+		 * V4L2_CID_MTK_CAM_RAW_PATH_SELECT to device
+		 */
 		ret = mtk_cam_raw_set_res_ctrl(ctrl);
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
@@ -1802,26 +1804,6 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	}
 
 	return res_found;
-}
-
-static bool mtk_raw_resource_calc_set(struct mtk_raw_pipeline *pipe,
-				      int in_w, int in_h, int *out_w, int *out_h)
-{
-	struct mtk_cam_device *cam =
-		container_of(pipe->raw, struct mtk_cam_device, raw);
-	struct mtk_cam_resource_config *res = &pipe->res_config;
-	s64 pixel_rate = 0;
-	bool result;
-
-	mutex_lock(&res->resource_lock);
-
-	mtk_cam_seninf_get_pixelrate(res->seninf, &pixel_rate);
-	result = mtk_raw_resource_calc(cam, res, pixel_rate, res->res_plan,
-				       in_w, in_h, out_w, out_h);
-
-	mutex_unlock(&res->resource_lock);
-
-	return result;
 }
 
 bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
@@ -3111,7 +3093,6 @@ int mtk_raw_try_pad_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-/* To be deplicated */
 static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 				struct v4l2_subdev_pad_config *cfg,
 				struct v4l2_subdev_format *fmt,
@@ -3121,7 +3102,6 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_raw *raw = pipe->raw;
 	struct v4l2_mbus_framefmt *mf;
-	struct mtk_cam_resource_config *res_cfg;
 
 	if (!sd || !fmt) {
 		dev_dbg(raw->cam_dev, "%s: Required sd(%p), fmt(%p)\n",
@@ -3154,8 +3134,6 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 	if (fmt->pad == MTK_RAW_SINK) {
 		struct v4l2_mbus_framefmt *source_mf;
 		struct v4l2_format *img_fmt;
-		bool ret;
-		int w, h;
 
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
@@ -3173,46 +3151,11 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 			return 0;
 		}
 
-		if (en_fmt) {
-			/**
-			 * User will trigger resource calc with V4L2_CID_MTK_CAM_RAW_RESOURCE
-			 * so we don't need to trigger it here anymore.
-			 */
-			propagate_fmt(mf, source_mf, mf->width, mf->height);
-
-			return 0;
-		}
-
-		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			s64 prate = 0;
-			struct mtk_cam_device *cam = container_of(pipe->raw,
-				struct mtk_cam_device, raw);
-			res_cfg = &pipe->try_res_config;
-			prate = mtk_cam_seninf_calc_pixelrate
-					(raw->cam_dev, mf->width, mf->height,
-					res_cfg->hblank, res_cfg->vblank,
-					res_cfg->interval.denominator,
-					res_cfg->interval.numerator,
-					res_cfg->sensor_pixel_rate);
-			pipe->try_res_config.raw_feature = pipe->feature_pending_try;
-			ret = mtk_raw_resource_calc(cam, &pipe->try_res_config,
-						    prate, res_cfg->res_plan,
-						    mf->width, mf->height,
-						    &w, &h);
-		} else {
-			/**
-			 * mtk_raw_resource_calc_set() will be phased out
-			 * since it uses the link information and it must
-			 * be decoupled with format negociation flow
-			 * like the updated V4L2_SUBDEV_FORMAT_TRY flow.
-			 */
-			pipe->res_config.raw_feature = pipe->feature_pending;
-			ret = mtk_raw_resource_calc_set(pipe, mf->width,
-							mf->height, &w, &h);
-		}
-
-		if (!ret)
-			return -EINVAL;
+		/**
+		 * User will trigger resource calc with V4L2_CID_MTK_CAM_RAW_RESOURCE
+		 * so we don't need to trigger it here anymore.
+		 */
+		propagate_fmt(mf, source_mf, mf->width, mf->height);
 	}
 
 	return 0;
@@ -3248,12 +3191,8 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_cam_device *cam = dev_get_drvdata(pipe->raw->cam_dev);
 
-	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		if (en_fmt)
-			return mtk_raw_try_pad_fmt(sd, cfg, fmt);
-		else
-			return mtk_raw_call_set_fmt(sd, cfg, fmt, false);
-	}
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+		return mtk_raw_try_pad_fmt(sd, cfg, fmt);
 
 	/* if the pipeline is streaming, pending the change */
 	if (!sd->entity.stream_count)

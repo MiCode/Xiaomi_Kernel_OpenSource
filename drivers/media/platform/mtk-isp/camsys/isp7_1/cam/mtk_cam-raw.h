@@ -379,8 +379,6 @@ mtk_raw_fmt_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt,
 
 unsigned int mtk_raw_get_hdr_scen_id(struct mtk_cam_ctx *ctx);
 
-bool mtk_raw_is_fmt_nego_enabled(void);
-
 struct v4l2_mbus_framefmt*
 mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
 			 struct v4l2_subdev_pad_config *cfg,

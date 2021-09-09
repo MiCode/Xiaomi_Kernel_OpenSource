@@ -2135,34 +2135,10 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 				__func__, raw_pipeline->id, raw_feature);
 		} else {
 			/* try format */
-			if (mtk_raw_is_fmt_nego_enabled()) {
-				/* read feature flgas from v4l2_format.fmt.pix_mp */
-				raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
-				dev_dbg(cam->dev,
-					"%s:pipe(%d) read feature(0x%x) from pix_mp\n",
-					__func__, raw_pipeline->id, raw_feature);
-			} else {
-				/* Workaround before the user pass feature in v4l2_format */
-				if (raw_pipeline->subdev.entity.stream_count > 0) {
-					/**
-					 * Use the locked feature_active if it is streaming
-					 * since feature_pending may be changed per request
-					 * during streaming and we always use the worst case
-					 * of num of planes or the input to determine it
-					 * during format negotiation.
-					 */
-					raw_feature = raw_pipeline->feature_active;
-					dev_dbg(cam->dev,
-						"%s:pipe(%d) read feature(0x%x) from active\n",
-						__func__, raw_pipeline->id, raw_feature);
-
-				} else {
-					raw_feature = raw_pipeline->feature_pending;
-					dev_dbg(cam->dev,
-						"%s:pipe(%d) read feature(0x%x) from pending\n",
-						__func__, raw_pipeline->id, raw_feature);
-				}
-			}
+			raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
+			dev_dbg(cam->dev,
+				"%s:pipe(%d) read feature(0x%x) from pix_mp\n",
+				__func__, raw_pipeline->id, raw_feature);
 		}
 	}
 
