@@ -284,7 +284,7 @@ static const struct v4l2_subdev_video_ops mtk_mraw_subdev_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops mtk_mraw_subdev_pad_ops = {
-	.link_validate = v4l2_subdev_link_validate_default,
+	.link_validate = mtk_cam_link_validate,
 	.init_cfg = mtk_mraw_init_cfg,
 	.set_fmt = mtk_mraw_set_fmt,
 	.get_fmt = mtk_mraw_get_fmt,

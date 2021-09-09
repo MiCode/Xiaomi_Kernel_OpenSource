@@ -597,32 +597,6 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 				req_stream_data->seninf_fmt.format.width,
 				req_stream_data->seninf_fmt.format.height,
 				req_stream_data->seninf_fmt.format.code);
-
-			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-			fmt.pad = PAD_SINK;
-			fmt.format = req_stream_data->seninf_fmt.format;
-			ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
-					       pad, set_fmt, NULL, &fmt);
-			dev_dbg(ctx->cam->dev,
-				"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
-				__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
-				fmt.pad,
-				req_stream_data->seninf_fmt.format.width,
-				req_stream_data->seninf_fmt.format.height,
-				req_stream_data->seninf_fmt.format.code);
-
-			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-			fmt.pad = PAD_SRC_RAW0;
-			fmt.format = req_stream_data->seninf_fmt.format;
-			ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
-					       pad, set_fmt, NULL, &fmt);
-			dev_dbg(ctx->cam->dev,
-				"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
-				__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
-				fmt.pad,
-				req_stream_data->seninf_fmt.format.width,
-				req_stream_data->seninf_fmt.format.height,
-				req_stream_data->seninf_fmt.format.code);
 		}
 	}
 
@@ -637,9 +611,10 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 				parent_hdl = obj->priv;
 			else
 				continue;
+
 			if (parent_hdl == ctx->sensor->ctrl_handler ||
 			    (ctx->prev_sensor && parent_hdl ==
-			     ctx->prev_sensor->ctrl_handler)) {
+			    ctx->prev_sensor->ctrl_handler)) {
 				struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 
 				v4l2_ctrl_request_setup(&req->req, parent_hdl);
@@ -1070,6 +1045,21 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	}
 }
 
+static inline bool is_sensor_switch(struct mtk_cam_request_stream_data *s_data)
+{
+	if (s_data->feature.switch_feature_type &&
+	    !mtk_cam_feature_change_is_mstream(s_data->feature.switch_feature_type))
+		return true;
+
+	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE &&
+	    s_data->feature.raw_feature & MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
+		state_transition(&s_data->state, E_STATE_READY, E_STATE_SENSOR);
+		return true;
+	}
+
+	return false;
+}
+
 static void
 mtk_cam_set_sensor(struct mtk_cam_request_stream_data *s_data,
 		   struct mtk_camsys_sensor_ctrl *sensor_ctrl)
@@ -1085,8 +1075,7 @@ mtk_cam_set_sensor(struct mtk_cam_request_stream_data *s_data,
 	sensor_ctrl->sensor_request_seq_no = s_data->frame_seq_no;
 	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 
-	if (s_data->feature.switch_feature_type &&
-	    !mtk_cam_feature_change_is_mstream(s_data->feature.switch_feature_type)) {
+	if (is_sensor_switch(s_data)) {
 		dev_info(sensor_ctrl->ctx->cam->dev,
 			 "[TimerIRQ] switch type:%d request:%d - pass sensor\n",
 			 s_data->feature.switch_feature_type,
@@ -2064,6 +2053,139 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 	return 0;
 }
 
+static void mtk_cam_seamless_switch_work(struct work_struct *work)
+{
+	struct mtk_cam_req_work *req_work = (struct mtk_cam_req_work *)work;
+	struct mtk_cam_request *req;
+	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam;
+	struct v4l2_ctrl_handler *parent_hdl;
+	struct v4l2_subdev_format fmt;
+	struct media_request_object *obj;
+	struct media_request_object *pipe_obj = NULL;
+	int ret = 0;
+
+	s_data = mtk_cam_req_work_get_s_data(req_work);
+	if (!s_data) {
+		pr_info("%s mtk_cam_req_work(%p), req_stream_data(%p), dropped\n",
+			__func__, req_work, s_data);
+		return;
+	}
+
+	req = mtk_cam_s_data_get_req(s_data);
+	if (!req) {
+		pr_info("%s s_data(%p), req(%p), dropped\n",
+			__func__, s_data, req);
+		return;
+	}
+
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	if (!ctx) {
+		pr_info("%s s_data(%p), ctx(%p), dropped\n",
+			__func__, s_data, ctx);
+		return;
+	}
+	cam = ctx->cam;
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fmt.pad = 0;
+	fmt.format = s_data->seninf_fmt.format;
+
+	dev_dbg(ctx->cam->dev,
+		"%s:ctx(%d):sd:%s - start change sensor mode settings\n",
+		__func__, ctx->stream_id, ctx->sensor->name);
+	ret = v4l2_subdev_call(ctx->sensor, pad, set_fmt, NULL, &fmt);
+	dev_dbg(ctx->cam->dev,
+		"%s:ctx(%d) apply sensor fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+		__func__, ctx->stream_id, ctx->sensor->name,
+		fmt.pad, s_data->seninf_fmt.format.width,
+		s_data->seninf_fmt.format.height,
+		s_data->seninf_fmt.format.code);
+
+	list_for_each_entry(obj, &req->req.objects, list) {
+		if (likely(obj))
+			parent_hdl = obj->priv;
+		else
+			continue;
+
+		if (parent_hdl == ctx->sensor->ctrl_handler ||
+		    (ctx->prev_sensor && parent_hdl ==
+		     ctx->prev_sensor->ctrl_handler))
+			v4l2_ctrl_request_setup(&req->req, parent_hdl);
+
+		if (parent_hdl == &ctx->pipe->ctrl_handler)
+			pipe_obj = obj;
+	}
+
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fmt.pad = PAD_SINK;
+	fmt.format = s_data->seninf_fmt.format;
+	ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
+			       pad, set_fmt, NULL, &fmt);
+	dev_dbg(ctx->cam->dev,
+		"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+		__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
+		fmt.pad,
+		s_data->seninf_fmt.format.width,
+		s_data->seninf_fmt.format.height,
+		s_data->seninf_fmt.format.code);
+
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fmt.pad = PAD_SRC_RAW0;
+	fmt.format = s_data->seninf_fmt.format;
+	ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
+			       pad, set_fmt, NULL, &fmt);
+	dev_dbg(ctx->cam->dev,
+		"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+		__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
+		fmt.pad, s_data->seninf_fmt.format.width,
+		s_data->seninf_fmt.format.height,
+		s_data->seninf_fmt.format.code);
+
+	s_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
+	dev_info(cam->dev, "%s:%s:ctx(%d):seq(%d):sensor done\n",
+		 __func__, req->req.debug_str, ctx->stream_id,
+		 s_data->frame_seq_no);
+
+	/* request complete - time consuming*/
+	list_for_each_entry(obj, &req->req.objects, list) {
+		if (likely(obj))
+			parent_hdl = obj->priv;
+		else
+			continue;
+
+		if (parent_hdl == ctx->sensor->ctrl_handler ||
+		    (ctx->prev_sensor && parent_hdl ==
+		     ctx->prev_sensor->ctrl_handler)) {
+#ifdef SENSOR_AE_CTRL_COMPLETE
+			v4l2_ctrl_request_complete(&req->req, parent_hdl);
+#else
+			media_request_object_complete(obj);
+#endif
+		}
+	}
+
+	/* mark pipeline control completed */
+	if (likely(pipe_obj))
+		media_request_object_complete(pipe_obj);
+
+	state_transition(&s_data->state, E_STATE_CAMMUX_OUTER_CFG, E_STATE_CAMMUX_OUTER);
+	state_transition(&s_data->state, E_STATE_CAMMUX_OUTER_CFG_DELAY, E_STATE_INNER);
+}
+
+static void mtk_cam_handle_seamless_switch(struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
+	struct mtk_cam_device *cam = ctx->cam;
+
+	if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE) &&
+	    (s_data->feature.raw_feature & MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK)) {
+		state_transition(&s_data->state, E_STATE_OUTER, E_STATE_CAMMUX_OUTER_CFG);
+		INIT_WORK(&s_data->seninf_s_fmt_work.work, mtk_cam_seamless_switch_work);
+		queue_work(cam->link_change_wq, &s_data->seninf_s_fmt_work.work);
+	}
+}
+
 // TODO(mstream): check mux switch case
 static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 				   struct mtk_cam_ctx *ctx,
@@ -2272,6 +2394,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				dev_dbg(raw_dev->dev,
 					"[CQD] req:%d, CQ->OUTER state:%d\n",
 					req_stream_data->frame_seq_no, state_entry->estate);
+				mtk_cam_handle_seamless_switch(req_stream_data);
 				mtk_cam_handle_mux_switch(raw_dev, ctx, req);
 			}
 		}

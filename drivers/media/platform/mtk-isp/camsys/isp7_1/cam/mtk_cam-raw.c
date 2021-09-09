@@ -60,7 +60,7 @@ MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
 
-static int en_fmt;
+static int en_fmt = 1;
 module_param(en_fmt, int, 0644);
 MODULE_PARM_DESC(en_fmt, "enable fmt negotiation");
 
@@ -363,14 +363,9 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 	return 0;
 }
 
-int
-mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
-			 struct mtk_cam_resource *res_user,
-			 struct mtk_cam_resource_config *res_cfg,
-			 struct v4l2_mbus_framefmt *sink_fmt)
+int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
+			  struct mtk_cam_resource *res_user)
 {
-	s64 prate = 0;
-	int width, height;
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 
 	dev_info(dev,
@@ -432,6 +427,24 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
 		 res_user->raw_res.throughput);
 
+	return 0;
+}
+
+int
+mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
+			 struct mtk_cam_resource *res_user,
+			 struct mtk_cam_resource_config *res_cfg,
+			 struct v4l2_mbus_framefmt *sink_fmt)
+{
+	s64 prate = 0;
+	int width, height;
+	int ret;
+	struct device *dev = pipeline->raw->devs[pipeline->id];
+
+	ret = mtk_cam_raw_res_store(pipeline, res_user);
+	if (ret)
+		return 0;
+
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
 	res_cfg->frz_limit = 0;
 	res_cfg->hwn_limit_max = res_user->raw_res.raw_max;
@@ -491,13 +504,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	 */
 	if (width != sink_fmt->width || height != sink_fmt->height) {
 		dev_info(dev,
-			 "%s:pipe(%d): size adjuest after enter raw: before(%d,%d) after(%d,%d)\n",
+			 "%s:pipe(%d): size adjust info: raw: sink(%d,%d) res:(%d,%d)\n",
 			 __func__, pipeline->id, sink_fmt->width,
 			 sink_fmt->height, width, height);
 	}
-	sink_fmt->width = width;
-	sink_fmt->height = height;
-
 
 	return 0;
 
@@ -507,7 +517,7 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_raw_pipeline *pipeline;
 	struct mtk_cam_resource *res_user;
-	struct v4l2_mbus_framefmt *sink_fmt;
+	struct v4l2_mbus_framefmt sink_fmt;
 	struct device *dev;
 	int ret = 0;
 
@@ -515,26 +525,25 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 	res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
 
-	/* TODO: consider RAWI cases */
-	sink_fmt = mtk_raw_pipeline_get_fmt(pipeline, NULL, MTK_RAW_SINK,
-					    V4L2_SUBDEV_FORMAT_ACTIVE);
-	pipeline->res_config.sink_fmt = *sink_fmt;
+	/* if the pipeline is streaming, pending the change */
+	if (!pipeline->subdev.entity.stream_count) {
+		dev_dbg(dev, "%s:pipe(%d): pending res calc\n", __func__,
+			pipeline->id);
+		ret = mtk_cam_raw_res_store(pipeline, res_user);
 
+		return ret;
+	}
+
+	ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user, &sink_fmt);
+	if (ret)
+		return ret;
+
+	pipeline->res_config.sink_fmt = sink_fmt;
 	ret = mtk_cam_raw_try_res_ctrl(pipeline, res_user,
-				       &pipeline->res_config, sink_fmt);
+				       &pipeline->res_config, &sink_fmt);
+
 	if (ret)
 		return -EINVAL;
-
-	/* TBC: if user need the adjused sink_fmt? */
-	if (res_user->sink_fmt) {
-		ret = mtk_cam_res_copy_fmt_to_user(pipeline, res_user,
-						   sink_fmt);
-	} else {
-		dev_info(dev,
-			 "%s:pipe(%d): failed to return adjusted size after sink pad failed w(%d), h(%d)\n",
-			 __func__, pipeline->id, sink_fmt->width,
-			 sink_fmt->height);
-	}
 
 	return ret;
 }
@@ -622,13 +631,15 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret)
 			break;
 
+		dev_dbg(dev, "%s:pipe(%d): res ctrl start\n", __func__,
+			pipeline->id);
 		ret = mtk_cam_raw_try_res_ctrl(pipeline, res_user, &res_cfg,
 					       &res_cfg.sink_fmt);
 		if (ret)
 			break;
 
-		ret = mtk_cam_res_copy_fmt_to_user(pipeline, res_user,
-						   &res_cfg.sink_fmt);
+		dev_dbg(dev, "%s:pipe(%d): res ctrl end\n", __func__,
+			pipeline->id);
 			break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_try_ctrl(ctrl);
@@ -2126,41 +2137,49 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	wmb(); /* for dbg dump register */
 
 	dev_info(raw_dev->dev,
-			 "TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
-			 readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
-			 readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
-			 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
-			 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
-			 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
-			 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+		 "[Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		 readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
+		 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
+		 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
 	dev_info(raw_dev->dev,
-			 "REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_REQ_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_REQ_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_REQ_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_REQ_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_REQ_STAT));
+		 "[Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		 readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
 	dev_info(raw_dev->dev,
-			 "RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_RDY_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_RDY_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_RDY_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_RDY_STAT),
-			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_RDY_STAT));
+		 "REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_REQ_STAT));
 	dev_info(raw_dev->dev,
-			 "REQ YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_REQ_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_REQ_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_REQ_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_REQ_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_REQ_STAT));
+		 "RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_RDY_STAT));
 	dev_info(raw_dev->dev,
-			 "RDY YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_RDY_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_RDY_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_RDY_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_RDY_STAT),
-			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
+		 "REQ YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_REQ_STAT));
+	dev_info(raw_dev->dev,
+		 "RDY YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
 
 	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
 	if (!ctx) {
@@ -2569,7 +2588,7 @@ static bool mtk_raw_try_fmt(struct v4l2_subdev *sd,
 	struct mtk_raw *raw = pipe->raw;
 	unsigned int user_fmt;
 
-	dev_dbg(raw->cam_dev, "%s try format 0x%x, w:%d, h:%d field:%d\n",
+	dev_dbg(raw->cam_dev, "%s:s_fmt: check format 0x%x, w:%d, h:%d field:%d\n",
 		sd->name, fmt->format.code, fmt->format.width,
 		fmt->format.height, fmt->format.field);
 
@@ -2879,7 +2898,7 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 	mtk_cam_pad_fmt_enable(framefmt, true);
 
 	dev_info(dev,
-		"%s(%d): Set fmt pad:%d(%s), (0x%x/%d/%d)\n",
+		"%s(%d): Set fmt pad:%d(%s), code/w/h = 0x%x/%d/%d\n",
 		__func__, fmt->which, fmt->pad, node_str,
 		framefmt->code, framefmt->width, framefmt->height);
 
@@ -3139,6 +3158,17 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 
 		if (streaming) {
 			propagate_fmt(mf, source_mf, mf->width, mf->height);
+
+			return 0;
+		}
+
+		if (en_fmt) {
+			/**
+			 * User will trigger resource calc with V4L2_CID_MTK_CAM_RAW_RESOURCE
+			 * so we don't need to trigger it here anymore.
+			 */
+			propagate_fmt(mf, source_mf, mf->width, mf->height);
+
 			return 0;
 		}
 
@@ -3172,8 +3202,6 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 
 		if (!ret)
 			return -EINVAL;
-
-		return mtk_raw_call_set_fmt(sd, NULL, fmt, true);
 	}
 
 	return 0;

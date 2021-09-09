@@ -1851,7 +1851,8 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		 * and may by updated by qbuf before request enqueue
 		 * so we don't reset it here.
 		 */
-
+		mtk_cam_req_work_init(&req_stream_data->seninf_s_fmt_work,
+				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_work,
 				      req_stream_data);
 		mtk_cam_req_work_init(&req_stream_data->frame_done_work,

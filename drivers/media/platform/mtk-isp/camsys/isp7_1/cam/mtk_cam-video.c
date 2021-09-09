@@ -2405,9 +2405,9 @@ void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_
 	u8 *reserved = fmt_mp->reserved;
 
 	fmt_mp->flags = raw_feature & 0x000000FF;
-	reserved[1] = (raw_feature & 0x0000FF00) >> 8;
-	reserved[2] = (raw_feature & 0x00FF0000) >> 16;
-	reserved[3] = (raw_feature & 0xFF000000) >> 24;
+	reserved[4] = (raw_feature & 0x0000FF00) >> 8;
+	reserved[5] = (raw_feature & 0x00FF0000) >> 16;
+	reserved[6] = (raw_feature & 0xFF000000) >> 24;
 }
 
 int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp)
@@ -2418,9 +2418,9 @@ int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp)
 	 * Current 8 bits flag is not enough so we also use the reserved[4-6] to
 	 * save the feature flags.
 	 */
-	raw_feature |= ((unsigned int)fmt_mp->reserved[5]) << 8 & 0x0000FF00;
-	raw_feature |= ((unsigned int)fmt_mp->reserved[6]) << 16 & 0x00FF0000;
-	raw_feature |= ((unsigned int)fmt_mp->reserved[7]) << 24 & 0xFF000000;
+	raw_feature |= ((unsigned int)fmt_mp->reserved[4]) << 8 & 0x0000FF00;
+	raw_feature |= ((unsigned int)fmt_mp->reserved[5]) << 16 & 0x00FF0000;
+	raw_feature |= ((unsigned int)fmt_mp->reserved[6]) << 24 & 0xFF000000;
 
 	return raw_feature;
 }

@@ -196,6 +196,7 @@ struct mtk_cam_request_stream_data {
 	struct mtkcam_ipi_frame_param frame_params;
 	struct mtk_camsv_frame_params sv_frame_params;
 	struct kthread_work sensor_work;
+	struct mtk_cam_req_work seninf_s_fmt_work;
 	struct mtk_cam_req_work frame_work;
 	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
