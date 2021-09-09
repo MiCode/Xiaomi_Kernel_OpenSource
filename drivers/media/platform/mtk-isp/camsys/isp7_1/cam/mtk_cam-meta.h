@@ -205,7 +205,7 @@ struct mtk_cam_uapi_awb_param {
  *  @gain: digital gain to increase image brightness, 1 x= 1024
  */
 struct mtk_cam_uapi_dgn_param {
-	__u16 gain;
+	__u32 gain;
 };
 
 /*
@@ -850,7 +850,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 4
+#define MTK_CAM_META_VERSION_MINOR 5
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6983"
 
