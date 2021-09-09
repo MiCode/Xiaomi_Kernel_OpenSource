@@ -311,7 +311,12 @@ bool disp_aal_is_support(void)
 
 static void disp_aal_set_interrupt(struct mtk_ddp_comp *comp, int enable)
 {
-	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+	struct mtk_disp_aal *aal_data = NULL;
+
+	if (comp != NULL)
+		aal_data = comp_to_aal(comp);
+	else
+		aal_data = comp_to_aal(default_comp);
 
 	if (!disp_aal_is_support()) {
 		AALIRQ_LOG("aal is not support\n");
@@ -546,7 +551,7 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 
 	int ret = 0;
-	unsigned long flags, clockflags;
+	unsigned long flags;
 	int *enabled = (int *)data;
 
 	AALFLOW_LOG("%d\n", *enabled);
@@ -557,14 +562,14 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 			AALFLOW_LOG("force enable aal ieq 0 -> 1\n");
 		*enabled = 1;
 	}
-	if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
+	//if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
 		if (atomic_read(&aal_data->is_clock_on) != 1) {
 			AALFLOW_LOG("clock is off\n");
 			ret = -EFAULT;
 		} else
-			disp_aal_set_interrupt(comp, *enabled);
-		spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
-	}
+			disp_aal_set_interrupt(NULL, *enabled);
+		//spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
+	//}
 	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 
 	if (*enabled) {
