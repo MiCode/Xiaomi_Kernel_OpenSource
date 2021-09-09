@@ -486,7 +486,9 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 
 		if (status.intval == POWER_SUPPLY_STATUS_FULL
 			&& gm->b_EOC != true) {
-			bm_err("POWER_SUPPLY_STATUS_FULL\n");
+			bm_err("POWER_SUPPLY_STATUS_FULL, EOC\n");
+			gauge_get_int_property(GAUGE_PROP_BAT_EOC);
+			bm_err("GAUGE_PROP_BAT_EOC done\n");
 			gm->b_EOC = true;
 			notify_fg_chr_full(gm);
 		} else
