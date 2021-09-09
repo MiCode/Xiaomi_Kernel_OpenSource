@@ -204,7 +204,7 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 	if (brightness == led_dat->hw_brightness)
 		return 0;
 
-	if (led_dat->mtk_hw_brightness_set(led_dat, brightness)) {
+	if (led_dat->mtk_hw_brightness_set(led_dat, brightness) >= 0) {
 		led_dat->hw_brightness = brightness;
 #ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 		mt_leds_notify_brightness_hw_changed(&led_dat->conf, brightness);
