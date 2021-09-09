@@ -409,8 +409,6 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[VCP] clear vcp reset flag and unlock\n");
 
-	/* register vcp dvfs*/
-	msleep(2000);
 	__pm_relax(vcp_reset_lock);
 	vcp_register_feature(RTOS_FEATURE_ID);
 
@@ -550,6 +548,18 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
 	pr_notice("[VCP] Error_info: context: %s\n", info->context);
 }
 
+/*
+ * @return: 1 if vcp is ready for running tasks
+ */
+void tirgger_vcp_halt(enum vcp_core_id id)
+{
+	if (vcp_ready[id]) {
+		/* trigger halt isr, force vcp enter wfi */
+		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
+		wait_vcp_wdt_irq_done();
+	}
+}
+EXPORT_SYMBOL_GPL(tirgger_vcp_halt);
 
 /*
  * @return: 1 if vcp is ready for running tasks

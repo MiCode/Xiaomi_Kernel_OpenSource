@@ -26,7 +26,7 @@
 #ifdef CONFIG_MTK_ENG_BUILD
 #define IPI_TIMEOUT_MS          16000U
 #else
-#define IPI_TIMEOUT_MS          5000U
+#define IPI_TIMEOUT_MS          500U
 #endif
 
 struct vcp_enc_mem_list {
@@ -142,6 +142,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		mtk_vcodec_err(inst, "mtk_ipi_send fail %d", ret);
 		mutex_unlock(&inst->ctx->dev->ipi_mutex);
 		inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
+		tirgger_vcp_halt(VCP_A_ID);
 		return -EIO;
 	}
 	if (!is_ack) {
@@ -155,6 +156,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 				*(u32 *)msg, ret, inst->vcu_inst.failure);
 			mutex_unlock(&inst->ctx->dev->ipi_mutex);
 			inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
+			tirgger_vcp_halt(VCP_A_ID);
 			return -EIO;
 		}
 	}
