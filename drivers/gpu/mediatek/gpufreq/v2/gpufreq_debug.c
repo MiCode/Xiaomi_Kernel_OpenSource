@@ -4,7 +4,7 @@
  */
 
 /**
- * @file    mtk_gpufreq_debug.c
+ * @file    gpufreq_debug.c
  * @brief   Debug mechanism for GPU-DVFS
  */
 
@@ -754,7 +754,6 @@ static ssize_t gpm_mode_proc_write(struct file *file,
 	int ret = GPUFREQ_SUCCESS;
 	char buf[64];
 	unsigned int len = 0;
-	unsigned int value = 0;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {

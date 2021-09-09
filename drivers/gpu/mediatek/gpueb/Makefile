@@ -24,4 +24,5 @@ gpueb-y += \
     gpueb_plat_service.o \
     gpueb_reserved_mem.o \
     gpueb_gpumpu.o \
-    gpueb_hwvoter_dbg.o
+    gpueb_hwvoter_dbg.o \
+    gpueb_debug.o

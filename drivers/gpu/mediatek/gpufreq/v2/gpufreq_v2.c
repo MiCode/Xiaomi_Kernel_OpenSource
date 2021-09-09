@@ -29,6 +29,7 @@
 #include <gpufreq_ipi.h>
 #include <gpueb_ipi.h>
 #include <gpueb_reserved_mem.h>
+#include <gpueb_debug.h>
 #include <mtk_gpu_utility.h>
 
 #if IS_ENABLED(CONFIG_MTK_PBM)
@@ -1648,7 +1649,7 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 	GPUFREQ_LOGD("channel: %d send IPI command: %s (%d)",
 		g_ipi_channel, gpufreq_ipi_cmd_name[data.cmd_id], data.cmd_id);
 
-	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_WAIT,
+	ret = mtk_ipi_send_compl(get_gpueb_ipidev(), g_ipi_channel, IPI_SEND_POLLING,
 		(void *)&data, GPUFREQ_IPI_DATA_LEN, IPI_TIMEOUT_MS);
 	if (unlikely(ret != IPI_ACTION_DONE)) {
 		GPUFREQ_LOGE("[ABORT] fail to send IPI command: %s (%d)",
@@ -1722,9 +1723,9 @@ static void gpufreq_dump_dvfs_status(void)
  ***********************************************************************************/
 static void gpufreq_abort(void)
 {
-	gpufreq_dump_dvfs_status();
+	gpufreq_dump_infra_status();
 
-	BUG_ON(1);
+	gpueb_trigger_wdt("GPUFREQ");
 }
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)

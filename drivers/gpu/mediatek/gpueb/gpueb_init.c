@@ -35,6 +35,7 @@
 #include "gpueb_reserved_mem.h"
 #include "gpueb_plat_service.h"
 #include "gpueb_hwvoter_dbg.h"
+#include "gpueb_debug.h"
 
 /*
  * ===============================================
@@ -157,6 +158,9 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 	}
 
 	gpueb_hw_voter_dbg_init();
+
+	/* init gpufreq debug */
+	gpueb_debug_init();
 
 	g_pdev = pdev;
 	g_probe_done = true;
