@@ -2791,13 +2791,13 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	int ret = 0;
 
 	if (!gcc_fps_margin && target_fps == 60)
-		target_time = vsync_duration_us_60;
+		target_time = max(target_time, (long long)vsync_duration_us_60);
 	if (!gcc_fps_margin && target_fps == 90)
-		target_time = vsync_duration_us_90;
+		target_time = max(target_time, (long long)vsync_duration_us_90);
 	if (!gcc_fps_margin && target_fps == 120)
-		target_time = vsync_duration_us_120;
+		target_time = max(target_time, (long long)vsync_duration_us_120);
 	if (!gcc_fps_margin && target_fps == 144)
-		target_time = vsync_duration_us_144;
+		target_time = max(target_time, (long long)vsync_duration_us_144);
 
 	gcc_down_window = target_fps * gcc_down_sec_pct;
 	do_div(gcc_down_window, 100);
@@ -3880,17 +3880,19 @@ void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 				vsync_duration_us_90;
 		}
 	} else if (_gdfrc_fps_limit == 120) {
-		vsync_duration_us_60 = 0;
 		vsync_duration_us_90 = 0;
 		vsync_duration_us_144 = 0;
-		if (vsync_duration_us_120 == 0)
+		if (vsync_duration_us_120 == 0) {
+			vsync_duration_us_60 = 1000000 / 60;
 			vsync_duration_us_120 = 1000000 / 120;
-		else {
+		} else {
 			vsync_duration_us_120 =
 				vsync_duration < 1000000 / 120 * 15 / 10 &&
 				vsync_duration > 1000000 / 120 / 2 ?
 				(vsync_duration * 3 + vsync_duration_us_120 * 7) / 10 :
 				vsync_duration_us_120;
+			/* for game use vsync to control 60fps */
+			vsync_duration_us_60 = vsync_duration_us_120 * 2;
 		}
 	}  else if (_gdfrc_fps_limit == 144) {
 		vsync_duration_us_60 = 0;
