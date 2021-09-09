@@ -242,11 +242,6 @@ static int set_xo_impedance(u8 xo_idx, u32 impedance)
 	if (ret)
 		return ret;
 
-	if (!clkbuf_dcxo_get_xo_controllable(xo_idx)) {
-		pr_notice("xo_buf: %u not controllable\n", xo_idx);
-		return -EINVAL;
-	}
-
 	if (preempt_count() > 0 || irqs_disabled()
 		|| system_state != SYSTEM_RUNNING || oops_in_progress)
 		no_lock = 1;
@@ -278,11 +273,6 @@ static int set_xo_desense(u8 xo_idx, u32 desense)
 	if (ret)
 		return ret;
 
-	if (!clkbuf_dcxo_get_xo_controllable(xo_idx)) {
-		pr_notice("xo_buf: %u not controllable\n", xo_idx);
-		return -EINVAL;
-	}
-
 	if (preempt_count() > 0 || irqs_disabled()
 		|| system_state != SYSTEM_RUNNING || oops_in_progress)
 		no_lock = 1;
@@ -313,11 +303,6 @@ static int set_xo_drvcurr(u8 xo_idx, u32 drvcurr)
 	ret = clkbuf_xo_sanity_check(xo_idx);
 	if (ret)
 		return ret;
-
-	if (!clkbuf_dcxo_get_xo_controllable(xo_idx)) {
-		pr_notice("xo_buf: %u not controllable\n", xo_idx);
-		return -EINVAL;
-	}
 
 	if (preempt_count() > 0 || irqs_disabled()
 		|| system_state != SYSTEM_RUNNING || oops_in_progress)

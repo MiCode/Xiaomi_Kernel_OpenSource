@@ -110,6 +110,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6685_SET_REG_BY_NAME(xo_en, XO_BBCK5_EN_M)
 		SET_REG(xo_en_auxout, MT6685_XO_STATIC_AUXOUT_H_ADDR, 0x1, 3)
 		MT6685_SET_REG_BY_NAME(impedance, RG_XO_EXTBUF_BBCK5_RSEL)
+		MT6685_SET_REG_BY_NAME(de_sense, RG_XO_EXTBUF_BBCK5_HD)
 		MT6685_SET_REG_BY_NAME(rc_voter, XO_BBCK5_VOTE_L)
 		MT6685_SET_REG_BY_NAME(hwbblpm_msk, XO_BBCK5_BBLPM_EN_MASK)
 		.xo_en_auxout_sel = 15,
