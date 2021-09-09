@@ -2072,7 +2072,8 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	dvs_cnt = 0;
 	dvp_put = 0;
 	dvs_put = 0;
-	spin_lock(&(DPEInfo.SpinLockFD));
+	mutex_lock(&gDpeMutex);
+
 		//LOG_INF("put fd DVS_only_en =%d DVP_only_en =%d\n",DVS_only_en,DVP_only_en);
 		//LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n",DVS_Num,DVP_Num);
 		//LOG_INF("[dpe_deque_cb] Dpe_engineSelect %d\n",pDpeConfig->Dpe_engineSelect);
@@ -2245,7 +2246,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	}
 
 	LOG_INF("put end put_dvs = %d put_dvp = %d\n", dvs_cnt, dvp_cnt);
-	spin_unlock(&(DPEInfo.SpinLockFD));
+	mutex_unlock(&gDpeMutex);
 	_req->m_ReqNum = ucnt;
 	return 0;
 }
@@ -5572,7 +5573,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	//struct DPE_Config *pDpeConfig;
 	LOG_INF("DPE_DumpReg  star\n");
-	DPE_DumpReg();//!test
+	//DPE_DumpReg();//!test
 	//LOG_INF("DPE_DumpReg end\n");
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq));
@@ -5695,6 +5696,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	struct DPE_device *_dpe_dev;
 	struct video_device *vfd = NULL;
 	struct device_node *node;
+	int ret;
 #if IS_ENABLED(CONFIG_OF)
 	struct DPE_device *DPE_dev;
 #endif
@@ -5811,7 +5813,12 @@ if (DPE_dev->irq > 0) {
 	if (!pm_runtime_enabled(DPE_dev->dev))
 		goto EXIT;
 
-	dma_set_mask_and_coherent(DPE_dev->dev, DMA_BIT_MASK(34));
+	//dma_set_mask_and_coherent(DPE_dev->dev, DMA_BIT_MASK(34));
+	ret = dma_set_max_seg_size(DPE_dev->dev, (unsigned int)DMA_BIT_MASK(34));
+	if (ret) {
+		dev_dbg(DPE_dev->dev, "Failed to set DMA segment size\n");
+		goto EXIT;
+	}
 
 	/* Only register char driver in the 1st time */
 	if (nr_DPE_devs == 2) {
