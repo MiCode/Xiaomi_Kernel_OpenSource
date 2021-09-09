@@ -559,11 +559,11 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->fd_stream_count == 0) {
 		//mtk_aie_mmqos_set(fd, 0);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
-		if (g_user_param.is_secure) {
-			dev_info(fd->dev, "AIE SECURE MODE END!\n");
-			aie_disable_secure_domain(fd);
-			config_aie_cmdq_secure_end(fd);
-		}
+		dev_info(fd->dev, "vunmap\n");
+		dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
+		dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+		dma_buf_put(fd->dmabuf);
+		fd->map_count--;
 		aie_uninit(fd);
 	}
 }
@@ -1022,12 +1022,7 @@ static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
 						  : &m2m_ctx->cap_q_ctx;
 	while ((vb = v4l2_m2m_buf_remove(queue_ctx)))
 		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
-	if (fd->dmabuf->vmap_ptr != NULL) {
-		dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
-		dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
-		dma_buf_put(fd->dmabuf);
-		fd->map_count--;
-	}
+
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		mtk_aie_hw_disconnect(fd);
 }
