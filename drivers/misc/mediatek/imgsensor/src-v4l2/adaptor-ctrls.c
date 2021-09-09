@@ -165,6 +165,43 @@ static void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx)
 		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
+/* notify frame-sync trigger N:1 sync */
+static void notify_fsync_mgr_n_1_en(struct adaptor_ctx *ctx, u64 n, u64 en)
+{
+	/* call frame-sync fs_n_1_en() */
+	if (ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_n_1_en(ctx->idx, n, en);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
+/* notify frame-sync trigger M-Stream */
+static void notify_fsync_mgr_mstream_en(struct adaptor_ctx *ctx, u64 en)
+{
+	/* call frame-sync fs_mstream_en() */
+	if (ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_mstream_en(ctx->idx, en);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
+/* notify frame-sync trigger M-Stream subsample tag */
+static void notify_fsync_mgr_subsample_tag(struct adaptor_ctx *ctx, u64 sub_tag)
+{
+	if (sub_tag < 1) {
+		dev_info(ctx->dev, "sub_tag should larger than 1\n");
+		return;
+	}
+
+	dev_info(ctx->dev, "sub_tag %u\n", sub_tag);
+
+	/* call frame-sync fs_set_frame_tag() */
+	if (sub_tag > 0 && ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_set_frame_tag(ctx->idx, sub_tag - 1);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
 /* notify frame-sync set_shutter(), bind all SENSOR_FEATURE_SET_ESHUTTER CMD */
 static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 					enum ACDK_SENSOR_FEATURE_ENUM cmd,
@@ -308,6 +345,13 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	default:
 	{
 		u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
+
+		/* notify subsample tags if set */
+		if (ae_ctrl->subsample_tags) {
+			notify_fsync_mgr_subsample_tag(ctx,
+						ae_ctrl->subsample_tags);
+		}
+
 		para.u64[0] = ae_ctrl->exposure.le_exposure;
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_ESHUTTER,
@@ -851,6 +895,19 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		else
 			adaptor_hw_power_off(ctx);
 		break;
+	case V4L2_CID_MTK_MSTREAM_MODE:
+		dev_info(dev, "V4L2_CID_MTK_MSTREAM_MODE val = %d\n", ctrl->val);
+		notify_fsync_mgr_mstream_en(ctx, ctrl->val);
+		break;
+	case V4L2_CID_MTK_N_1_MODE:
+		{
+			struct mtk_n_1_mode *info = ctrl->p_new.p;
+
+			dev_info(dev, "V4L2_CID_MTK_N_1_MODE n = %u, en = %u\n",
+				 info->n, info->en);
+			notify_fsync_mgr_n_1_en(ctx, info->n, info->en);
+		}
+		break;
 	}
 
 	pm_runtime_put(dev);
@@ -1185,6 +1242,28 @@ static const struct v4l2_ctrl_config cfg_sensor_power = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_mstream_mode = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_MSTREAM_MODE,
+	.name = "mstream_mode",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.def = 0,
+	.max = 1,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config cfg_n_1_mode = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_N_1_MODE,
+	.name = "n_1_mode",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffff,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_n_1_mode)},
+};
+
 void restore_ae_ctrl(struct adaptor_ctx *ctx)
 {
 	if (!ctx->ae_memento.exposure.le_exposure ||
@@ -1411,6 +1490,8 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 #endif
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_power, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_mstream_mode, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_n_1_mode, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;

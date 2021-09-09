@@ -204,6 +204,7 @@ struct mtk_hdr_ae {
 	struct mtk_hdr_exposure exposure;
 	struct mtk_hdr_gain gain;
 	__u32 actions;
+	__u32 subsample_tags;
 };
 
 struct mtk_seamless_switch_param {
@@ -352,6 +353,11 @@ struct mtk_mbus_frame_desc {
 	enum mtk_mbus_frame_desc_type type;
 	struct mtk_mbus_frame_desc_entry entry[MTK_FRAME_DESC_ENTRY_MAX];
 	unsigned short num_entries;
+};
+
+struct mtk_n_1_mode {
+	__u32 n;
+	__u8 en;
 };
 
 
