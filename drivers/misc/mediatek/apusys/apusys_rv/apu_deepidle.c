@@ -144,10 +144,9 @@ static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t cmd, uint32_t ack
 static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)priv;
-	struct device *dev = apu->dev;
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct dpidle_msg *msg = data;
-	int ret, timeout;
+	int ret;
 
 	switch (msg->cmd) {
 	case DPIDLE_CMD_LOCK_IPI:
@@ -185,24 +184,8 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 			dev_info(apu->dev, "failed to power off ret=%d\n", ret);
 			apu_ipi_unlock(apu);
 			WARN_ON(0);
-			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
 			return;
 		}
-
-		dev_info(apu->dev, "start polling power off\n");
-		timeout = 500;
-		while (!pm_runtime_suspended(apu->power_dev) && timeout-- > 0)
-			msleep(20);
-		if (timeout <= 0) {
-			dev_info(apu->dev, "%s: polling power off timeout!!\n",
-				 __func__);
-			apu_ipi_unlock(apu);
-			WARN_ON(0);
-			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_PWRDN_TIMEOUT");
-			return;
-		}
-
-		dev_info(apu->dev, "polling power done\n");
 
 		hw_logger_deep_idle_enter_post();
 		apu_ipi_unlock(apu);
@@ -213,39 +196,6 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		dev_info(apu->dev, "unknown cmd %x\n", msg->cmd);
 		break;
 	}
-}
-
-int apu_get_power_dev(struct mtk_apu *apu)
-{
-	struct device *dev = apu->dev;
-	struct device_node *np;
-	struct platform_device *pdev;
-
-	np = of_parse_phandle(dev->of_node, "mediatek,apusys_power", 0);
-	if (!np) {
-		dev_info(dev, "failed to parse apusys_power node\n");
-		return -EINVAL;
-	}
-
-	if (!of_device_is_available(np)) {
-		dev_info(dev, "unable to find apusys_power node\n");
-		of_node_put(np);
-		return -ENODEV;
-	}
-
-	pdev = of_find_device_by_node(np);
-	if (!pdev) {
-		dev_info(dev, "apusys_power is not ready yet\n");
-		of_node_put(np);
-		return -EPROBE_DEFER;
-	}
-
-	dev_info(dev, "%s: get power_dev, name=%s\n", __func__, pdev->name);
-
-	apu->power_dev = &pdev->dev;
-	of_node_put(np);
-
-	return 0;
 }
 
 int apu_deepidle_init(struct mtk_apu *apu)

@@ -26,6 +26,7 @@ struct mtk_apu_hw_ops {
 	void (*rv_cachedump)(struct mtk_apu *apu);
 
 	/* power related ops */
+	int (*power_init)(struct mtk_apu *apu);
 	int (*power_on)(struct mtk_apu *apu);
 	int (*power_off)(struct mtk_apu *apu);
 };
@@ -154,6 +155,7 @@ struct mtk_apu {
 
 	struct mtk_apu_platdata	*platdata;
 	struct device *power_dev;
+	struct device *apu_iommu0, *apu_iommu1;
 };
 
 #define TCM_SIZE (128UL * 1024UL)

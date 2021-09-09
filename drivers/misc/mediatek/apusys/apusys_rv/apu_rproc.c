@@ -32,44 +32,6 @@
 
 struct mtk_apu *g_apu_struct;
 uint32_t g_apu_log;
-static struct platform_device *g_pdev;
-static int drv_param;
-
-static int set_drv_param(const char *buf, const struct kernel_param *kp)
-{
-	int err = 0;
-	int param = 0;
-
-	err = kstrtoint(buf, 10, &param);
-	if (err || (param != 0 && param != 1))
-		return -EINVAL;
-
-	if (param == 1) {
-		pr_info("%s call rpm get sync ++\n", __func__);
-		pm_runtime_get_sync(&g_pdev->dev);
-		pr_info("%s call rpm get sync --\n", __func__);
-	} else {
-		pr_info("%s call rpm put sync ++\n", __func__);
-		pm_runtime_put_sync(&g_pdev->dev);
-		pr_info("%s call rpm put sync --\n", __func__);
-	}
-
-	return 0;
-}
-
-static int get_drv_param(char *buf, const struct kernel_param *kp)
-{
-	return snprintf(buf, 64, "drv_param:%d\n", drv_param);
-}
-
-static struct kernel_param_ops drv_param_ops = {
-	.set = set_drv_param,
-	.get = get_drv_param,
-};
-
-__MODULE_PARM_TYPE(drv_param, "int");
-module_param_cb(drv_param, &drv_param_ops, &drv_param, 0644);
-MODULE_PARM_DESC(drv_param, "apusys rv33 driver param");
 
 static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 {
@@ -343,7 +305,6 @@ static int apu_probe(struct platform_device *pdev)
 		g_apu_log = 0;
 
 	apu = (struct mtk_apu *)rproc->priv;
-	g_apu_struct = apu;
 	dev_info(dev, "%s: apu=%p\n", __func__, apu);
 	apu->rproc = rproc;
 	apu->pdev = pdev;
@@ -424,11 +385,10 @@ static int apu_probe(struct platform_device *pdev)
 	 * apusys_rv -> iommu0 -> apu_top
 	 * apusys_rv -> iommu1 -> apu_top
 	 */
-	g_pdev = pdev;
 	pm_runtime_get_sync(&pdev->dev);
 
 	if (data->flags & F_AUTO_BOOT) {
-		ret = apu_get_power_dev(apu);
+		ret = hw_ops->power_init(apu);
 		if (ret) {
 			pm_runtime_put_sync(&pdev->dev);
 			goto out_free_rproc;
