@@ -12050,7 +12050,7 @@
 			node_64 = "SSPM_SLBC_PMU",
 				"hit,miss";
 			node_65 = "SSPM_SLBC_WAY",
-				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc";
+				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
 		};
 	};
 
