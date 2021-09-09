@@ -7526,7 +7526,8 @@
 			 <&gce_m 16 3000 CMDQ_THR_PRIO_1>,
 			 <&gce_m 17 3000 CMDQ_THR_PRIO_1>,
 			 <&gce_m 18 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 19 3000 CMDQ_THR_PRIO_1>;
+			 <&gce_m 19 3000 CMDQ_THR_PRIO_1>,
+			 <&gce_m_sec 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		traw_cq_thread0_frame_done =
 			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0>;
 		traw_cq_thread1_frame_done =
@@ -7933,6 +7934,10 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_99>;
 		sw_sync_token_pool_100 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_100>;
+		sw_sync_token_tzmp_isp_wait =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT>;
+		sw_sync_token_tzmp_isp_set =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_SET>;
 #if 0
 		sw_sync_token_camsys_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_1>;
