@@ -1515,7 +1515,12 @@
 			clocks = <&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
 				<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>;
 			clock-names = "infra-dpmaif-clk",
-					"infra-dpmaif-blk-clk";
+				"infra-dpmaif-blk-clk";
+			interconnects = <&dvfsrc MT6873_MASTER_NETSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "icc-mdspd-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>;
+			net_spd_ver = <1>;
 		};
 
 		systimer: systimer@10017000 {

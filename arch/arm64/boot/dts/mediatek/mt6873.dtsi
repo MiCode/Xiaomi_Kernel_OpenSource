@@ -1600,6 +1600,7 @@
 			interconnect-names = "icc-dpmaif-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 						<&dvfsrc_freq_opp1>;
+			net_spd_ver = <2>;
 			mediatek,ap_plat_info = <6873>;
 		};
 
