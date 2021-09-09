@@ -125,7 +125,26 @@ void mt6338_LP_Setting(struct mt6338_pmic_info *mpi)
 				RG_LDO_VAUD18_EN_2_MASK_SFT,
 				0x0 << RG_LDO_VAUD18_EN_2_SFT);
 #endif
-	dev_info(mpi->dev, "\n\n%s(), execute InitSetting -- ***************\n", __func__);
+}
+
+void mt6338_Suspend_Setting(struct mt6338_pmic_info *mpi)
+{
+	regmap_write(mpi->regmap, MT6338_TOP_DIG_WPK_H, 0x63);
+	regmap_write(mpi->regmap, MT6338_TOP_DIG_WPK, 0x38);
+
+	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x10);
+	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x11);
+	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x13);
+
+	regmap_write(mpi->regmap, MT6338_DA_INTF_STTING3, 0x08);
+
+	regmap_write(mpi->regmap, MT6338_LDO_VAUD18_CON2, 0x1C);
+	regmap_write(mpi->regmap, MT6338_LDO_VAUD18_OP_EN0, 0x01);
+	regmap_write(mpi->regmap, MT6338_LDO_VAUD18_OP_CFG0, 0x01);
+
+	regmap_write(mpi->regmap, MT6338_DA_INTF_STTING1, 0x64);
+	regmap_write(mpi->regmap, MT6338_DA_INTF_STTING1, 0x66);
+	regmap_write(mpi->regmap, MT6338_DA_INTF_STTING1, 0x76);
 }
 
 void mt6338_InitSetting(struct mt6338_pmic_info *mpi)
@@ -202,7 +221,6 @@ void mt6338_InitSetting(struct mt6338_pmic_info *mpi)
 	regmap_write(mpi->regmap, MT6338_TEST_CON0, 0x0);
 	regmap_write(mpi->regmap, MT6338_TEST_CON1, 0x3);
 	regmap_write(mpi->regmap, MT6338_GPIO_MODE3, 0x17);
-	dev_info(mpi->dev, "\n\n%s(), execute InitSetting -- ***************\n", __func__);
 }
 
 static const unsigned short mt6338_slave_addr = MT6338_PMIC_SLAVEID;
@@ -244,13 +262,16 @@ static int mt6338_pmic_probe(struct i2c_client *client,
 		dev_info(&client->dev, "mfd add cells fail\n");
 		goto out;
 	}
-	dev_info(&client->dev, "Successfully probed\n");
+	dev_info(&client->dev, "execute InitSetting\n");
 
 	/* initial setting */
 	mt6338_Keyunlock(mpi);
 	mt6338_LP_Setting(mpi);
 	mt6338_InitSetting(mpi);
+	mt6338_Suspend_Setting(mpi);
 	mt6338_Keylock(mpi);
+
+	dev_info(&client->dev, "Successfully probed\n");
 	return 0;
 out:
 	i2c_unregister_device(mpi->i2c);
