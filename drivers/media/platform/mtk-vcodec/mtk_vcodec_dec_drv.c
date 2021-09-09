@@ -32,7 +32,9 @@ module_param(mtk_vcodec_dbg, bool, 0644);
 module_param(mtk_vcodec_perf, bool, 0644);
 module_param(mtk_vcodec_vcp, int, 0644);
 module_param(mtk_vdec_property, charp, 0644);
+module_param(mtk_vdec_vcp_log, charp, 0644);
 char mtk_vdec_property_prev[1024];
+char mtk_vdec_vcp_log_prev[1024];
 
 static int fops_vcodec_open(struct file *file)
 {

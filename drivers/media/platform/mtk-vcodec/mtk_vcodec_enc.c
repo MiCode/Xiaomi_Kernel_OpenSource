@@ -49,31 +49,50 @@ inline unsigned int log2_enc(__u32 value)
 	return x;
 }
 
-static void set_venc_property(struct mtk_vcodec_ctx *ctx)
+static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
 	struct venc_enc_param enc_prm;
 
 	memset(&enc_prm, 0, sizeof(enc_prm));
-	memset(enc_prm.property_buf, '\0', 1024);
-	sprintf(enc_prm.property_buf, "%s", mtk_venc_property);
+	memset(enc_prm.set_vcp_buf, '\0', 1024);
 
-	mtk_v4l2_debug(3, "[%d] mtk_venc_property %s", ctx->id, enc_prm.property_buf);
-	mtk_v4l2_debug(3, "[%d] mtk_venc_property_prev %s", ctx->id, mtk_venc_property_prev);
+	if (id == VENC_SET_PROP_MEM_ID) {
 
-	if (strcmp(mtk_venc_property_prev, enc_prm.property_buf) != 0 &&
-		strlen(enc_prm.property_buf) != 0) {
+		sprintf(enc_prm.set_vcp_buf, "%s", mtk_venc_property);
+		mtk_v4l2_debug(3, "[%d] mtk_venc_property %s", ctx->id, enc_prm.set_vcp_buf);
+		mtk_v4l2_debug(3, "[%d] mtk_venc_property_prev %s",
+					ctx->id, mtk_venc_property_prev);
 
-		if (venc_if_set_param(ctx,
-			VENC_SET_PARAM_PROPERTY,
-			&enc_prm) != 0) {
-			mtk_v4l2_err("Error!! Cannot set venc property");
-			return;
+		if (strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 &&
+			strlen(enc_prm.set_vcp_buf) != 0) {
+
+			if (venc_if_set_param(ctx,
+				VENC_SET_PARAM_PROPERTY,
+				&enc_prm) != 0) {
+				mtk_v4l2_err("Error!! Cannot set venc property");
+				return;
+			}
+			strcpy(mtk_venc_property_prev, enc_prm.set_vcp_buf);
 		}
-		strcpy(mtk_venc_property_prev, enc_prm.property_buf);
+	} else if (id == VENC_VCP_LOG_INFO_ID) {
+
+		sprintf(enc_prm.set_vcp_buf, "%s", mtk_venc_vcp_log);
+		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log %s", ctx->id, enc_prm.set_vcp_buf);
+		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log_prev %s", ctx->id, mtk_venc_vcp_log_prev);
+
+		if (strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 &&
+			strlen(enc_prm.set_vcp_buf) != 0) {
+
+			if (venc_if_set_param(ctx,
+				VENC_SET_PARAM_VCP_LOG_INFO,
+				&enc_prm) != 0) {
+				mtk_v4l2_err("Error!! Cannot set venc vcp log info");
+				return;
+			}
+			strcpy(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf);
+		}
 	}
 }
-
-
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int i;
@@ -2804,7 +2823,11 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 
 	get_supported_format(ctx);
 	get_supported_framesizes(ctx);
-	set_venc_property(ctx);
+
+	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)) {
+		set_venc_vcp_data(ctx, VENC_VCP_LOG_INFO_ID);
+		set_venc_vcp_data(ctx, VENC_SET_PROP_MEM_ID);
+	}
 
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));

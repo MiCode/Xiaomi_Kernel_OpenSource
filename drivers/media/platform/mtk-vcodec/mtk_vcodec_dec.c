@@ -57,23 +57,45 @@ void mtk_vdec_do_gettimeofday(struct timespec64 *tv)
 	tv->tv_nsec = now.tv_nsec; // micro sec = ((long)(now.tv_nsec)/1000);
 }
 
-static void set_vdec_property(struct mtk_vcodec_ctx *ctx)
+static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
-	char property_buf[1024] = "";
+	char tmp_buf[1024] = "";
 
-	sprintf(property_buf, "%s", mtk_vdec_property);
+	if (id == VDEC_SET_PROP_MEM_ID) {
 
-	mtk_v4l2_debug(3, "[%d] mtk_vdec_property %s", ctx->id, property_buf);
-	mtk_v4l2_debug(3, "[%d] mtk_vdec_property_prev %s", ctx->id, mtk_vdec_property_prev);
+		sprintf(tmp_buf, "%s", mtk_vdec_property);
 
-	if (strcmp(mtk_vdec_property_prev, property_buf) != 0 && strcmp(property_buf, "") != 0) {
-		if (vdec_if_set_param(ctx,
-			SET_PARAM_VDEC_PROPERTY,
-			property_buf)  != 0) {
-			mtk_v4l2_err("Error!! Cannot set vdec property");
-			return;
+		mtk_v4l2_debug(3, "[%d] mtk_vdec_property %s", ctx->id, tmp_buf);
+		mtk_v4l2_debug(3, "[%d] mtk_vdec_property_prev %s",
+					ctx->id, mtk_vdec_property_prev);
+
+		if (strcmp(mtk_vdec_property_prev, tmp_buf) != 0 && strcmp(tmp_buf, "") != 0) {
+			if (vdec_if_set_param(ctx,
+				SET_PARAM_VDEC_PROPERTY,
+				tmp_buf)  != 0) {
+				mtk_v4l2_err("Error!! Cannot set vdec property");
+				return;
+			}
+			strcpy(mtk_vdec_property_prev, tmp_buf);
 		}
-		strcpy(mtk_vdec_property_prev, property_buf);
+	} else if (id == VDEC_VCP_LOG_INFO_ID) {
+
+		sprintf(tmp_buf, "%s", mtk_vdec_vcp_log);
+
+		mtk_v4l2_debug(3, "[%d] mtk_vdec_vcp_log %s", ctx->id, tmp_buf);
+		mtk_v4l2_debug(3, "[%d] mtk_vdec_vcp_log_prev %s", ctx->id, mtk_vdec_vcp_log_prev);
+
+		if (strcmp(mtk_vdec_vcp_log_prev, tmp_buf) != 0 && strcmp(tmp_buf, "") != 0) {
+			if (vdec_if_set_param(ctx,
+				SET_PARAM_VDEC_VCP_LOG_INFO,
+				tmp_buf)  != 0) {
+				mtk_v4l2_err("Error!! Cannot set vdec vcp log info");
+				return;
+			}
+			strcpy(mtk_vdec_vcp_log_prev, tmp_buf);
+		}
+	} else {
+		mtk_v4l2_err("[%d] id not support %d", ctx->id, id);
 	}
 }
 
@@ -1188,8 +1210,10 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 
 	get_supported_format(ctx);
 	get_supported_framesizes(ctx);
-	set_vdec_property(ctx);
-
+	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+		set_vdec_vcp_data(ctx, VDEC_VCP_LOG_INFO_ID);
+		set_vdec_vcp_data(ctx, VDEC_SET_PROP_MEM_ID);
+	}
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));
 	q_data->visible_width = DFT_CFG_WIDTH;

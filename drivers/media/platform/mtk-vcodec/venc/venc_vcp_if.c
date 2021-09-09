@@ -1013,36 +1013,44 @@ static int venc_vcp_get_param(unsigned long handle,
 	return ret;
 }
 
-void venc_vcp_set_property(struct venc_inst *inst, void *property_string)
+void set_venc_vcp_data(struct venc_inst *inst, enum vcp_reserve_mem_id_t id, void *string)
 {
 	struct venc_ap_ipi_msg_set_param msg;
 
-	void *property_va = (void *)(__u64)vcp_get_reserve_mem_virt(VENC_SET_PROP_MEM_ID);
-	void *property_pa = (void *)(__u64)vcp_get_reserve_mem_phys(VENC_SET_PROP_MEM_ID);
-	__u64 mem_size = (__u64)vcp_get_reserve_mem_size(VENC_SET_PROP_MEM_ID);
-	int prop_len = strlen((char *)property_string);
+	void *string_va = (void *)(__u64)vcp_get_reserve_mem_virt(id);
+	void *string_pa = (void *)(__u64)vcp_get_reserve_mem_phys(id);
+	__u64 mem_size = (__u64)vcp_get_reserve_mem_size(id);
+	int string_len = strlen((char *)string);
 
-	mtk_vcodec_debug(inst, "mem_size 0x%llx, property_va 0x%llx, property_pa 0x%llx\n",
-		mem_size, property_va, property_pa);
-	mtk_vcodec_debug(inst, "property_string: %s\n", (char *)property_string);
-	mtk_vcodec_debug(inst, "prop_len:%d\n", prop_len);
+	mtk_vcodec_debug(inst, "mem_size 0x%llx, string_va 0x%llx, string_pa 0x%llx\n",
+		mem_size, string_va, string_pa);
+	mtk_vcodec_debug(inst, "string: %s\n", (char *)string);
+	mtk_vcodec_debug(inst, "string_len:%d\n", string_len);
 
-	memcpy(property_va, (char *)property_string, prop_len + 1);
+	if (string_len <= (mem_size-1))
+		memcpy(string_va, (char *)string, string_len + 1);
 
 	inst->vcu_inst.ctx = inst->ctx;
 	inst->vcu_inst.id =
 		(inst->vcu_inst.id == IPI_VCU_INIT) ? IPI_VENC_COMMON : inst->vcu_inst.id;
 
 	memset(&msg, 0, sizeof(msg));
+
 	msg.msg_id = AP_IPIMSG_ENC_SET_PARAM;
+
+	if (id == VENC_SET_PROP_MEM_ID)
+		msg.param_id = VENC_SET_PARAM_PROPERTY;
+	else if (id == VENC_VCP_LOG_INFO_ID)
+		msg.param_id = VENC_SET_PARAM_VCP_LOG_INFO;
+	else
+		mtk_vcodec_err(inst, "unknown id (%d)", msg.param_id);
+
 	msg.vcu_inst_addr = inst->vcu_inst.inst_addr;
-	msg.param_id = VENC_SET_PARAM_PROPERTY;
+	msg.data[0] = (__u32)((__u64)string_pa & 0xFFFFFFFF);
+	msg.data[1] = (__u32)((__u64)string_pa >> 32);
 
-	msg.data[0] = (__u32)((__u64)property_pa & 0xFFFFFFFF);
-	msg.data[1] = (__u32)((__u64)property_pa >> 32);
-
-	mtk_vcodec_debug(inst, "msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
-		msg.data[0], msg.data[1]);
+	mtk_vcodec_debug(inst, "msg.param_id %d msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
+		msg.param_id, msg.data[0], msg.data[1]);
 	venc_vcp_ipi_send(inst, &msg, sizeof(msg), 1);
 
 }
@@ -1285,8 +1293,12 @@ static int venc_vcp_set_param(unsigned long handle,
 		ret = vcp_enc_set_param(inst, type, enc_prm);
 		break;
 	case VENC_SET_PARAM_PROPERTY:
-		mtk_vcodec_debug(inst, "enc_prm->property_buf:%s", enc_prm->property_buf);
-		venc_vcp_set_property(inst, enc_prm->property_buf);
+		mtk_vcodec_debug(inst, "enc_prm->set_vcp_buf:%s", enc_prm->set_vcp_buf);
+		set_venc_vcp_data(inst, VENC_SET_PROP_MEM_ID, enc_prm->set_vcp_buf);
+		break;
+	case VENC_SET_PARAM_VCP_LOG_INFO:
+		mtk_vcodec_debug(inst, "enc_prm->set_vcp_buf:%s", enc_prm->set_vcp_buf);
+		set_venc_vcp_data(inst, VENC_VCP_LOG_INFO_ID, enc_prm->set_vcp_buf);
 		break;
 	default:
 		if (inst->vsi == NULL)

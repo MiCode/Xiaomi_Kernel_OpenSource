@@ -31,7 +31,9 @@ module_param(mtk_v4l2_dbg_level, int, S_IRUGO | S_IWUSR);
 module_param(mtk_vcodec_dbg, bool, S_IRUGO | S_IWUSR);
 module_param(mtk_vcodec_vcp, int, S_IRUGO | S_IWUSR);
 module_param(mtk_venc_property, charp, 0644);
+module_param(mtk_venc_vcp_log, charp, 0644);
 char mtk_venc_property_prev[1024];
+char mtk_venc_vcp_log_prev[1024];
 
 static int fops_vcodec_open(struct file *file)
 {

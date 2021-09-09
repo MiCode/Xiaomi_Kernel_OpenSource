@@ -72,6 +72,10 @@ extern char *mtk_vdec_property;
 extern char *mtk_venc_property;
 extern char mtk_vdec_property_prev[1024];
 extern char mtk_venc_property_prev[1024];
+extern char *mtk_vdec_vcp_log;
+extern char mtk_vdec_vcp_log_prev[1024];
+extern char *mtk_venc_vcp_log;
+extern char mtk_venc_vcp_log_prev[1024];
 
 #define DEBUG   1
 

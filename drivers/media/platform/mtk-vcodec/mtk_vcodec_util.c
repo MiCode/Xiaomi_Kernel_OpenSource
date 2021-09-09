@@ -50,6 +50,14 @@ EXPORT_SYMBOL(mtk_vdec_property);
 char *mtk_venc_property = "";
 EXPORT_SYMBOL(mtk_venc_property);
 
+/* For vdec vcp log info */
+char *mtk_vdec_vcp_log = "";
+EXPORT_SYMBOL(mtk_vdec_vcp_log);
+
+/* For venc vcp log info */
+char *mtk_venc_vcp_log = "";
+EXPORT_SYMBOL(mtk_venc_vcp_log);
+
 /* VCODEC FTRACE */
 unsigned long vcodec_get_tracing_mark(void)
 {
