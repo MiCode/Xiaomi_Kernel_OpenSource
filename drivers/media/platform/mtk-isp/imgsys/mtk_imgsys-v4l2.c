@@ -1733,15 +1733,18 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	return 0;
 }
 
-static int mtkdip_ioc_s_sensorinfo(struct v4l2_subdev *subdev, void *arg)
+static int mtkdip_ioc_s_init_info(struct v4l2_subdev *subdev, void *arg)
 {
 	/* struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev); */
-	struct sensor_info *info = (struct sensor_info *)arg;
+	struct init_info *info = (struct init_info *)arg;
+	struct mtk_imgsys_pipe *pipe;
 
+	pipe = container_of(subdev, struct mtk_imgsys_pipe, subdev);
+	pipe->sec_tag = info->sec_tag;
 	/* TODO: HCP API */
 
 	pr_info("%s sensor_info width:%d height:%d\n", __func__,
-				info->full_wd, info->full_ht);
+				info->sensor.full_wd, info->sensor.full_ht);
 
 	return 0;
 }
@@ -1786,8 +1789,8 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 		return mtkdip_ioc_add_iova(subdev, arg);
 	case MTKDIP_IOC_DEL_IOVA:
 		return mtkdip_ioc_del_iova(subdev, arg);
-	case MTKDIP_IOC_S_SENSOR_INFO:
-		return mtkdip_ioc_s_sensorinfo(subdev, arg);
+	case MTKDIP_IOC_S_INIT_INFO:
+		return mtkdip_ioc_s_init_info(subdev, arg);
 	case MTKDIP_IOC_SET_CONTROL:
 		return mtkdip_ioc_set_control(subdev, arg);
 	default:

@@ -44,8 +44,13 @@ struct sensor_info {
 	uint16_t full_wd;
 	uint16_t full_ht;
 };
-#define MTKDIP_IOC_S_SENSOR_INFO \
-			_IOW('V', BASE_VIDIOC_PRIVATE + 12, struct sensor_info)
+
+struct init_info {
+	struct sensor_info sensor;
+	uint32_t sec_tag;
+};
+#define MTKDIP_IOC_S_INIT_INFO \
+			_IOW('V', BASE_VIDIOC_PRIVATE + 12, struct init_info)
 
 #define V4L2_CID_IMGSYS_OFFSET	(0xC000)
 #define V4L2_CID_IMGSYS_BASE    (V4L2_CID_USER_BASE + V4L2_CID_IMGSYS_OFFSET)

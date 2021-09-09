@@ -1762,7 +1762,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		}
 #endif
 		mtk_hcp_get_init_info(imgsys_dev->scp_pdev, &info);
-
+		info.sec_tag = imgsys_dev->imgsys_pipe[0].sec_tag;
 		ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
 			(void *)&info, sizeof(info), 0, 1);
 	}

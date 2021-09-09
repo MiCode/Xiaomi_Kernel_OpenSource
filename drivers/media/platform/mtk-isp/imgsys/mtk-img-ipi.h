@@ -77,6 +77,7 @@ struct img_init_info {
 	uint32_t    g_wbuf_fd;
 	uint64_t	g_wbuf;
 	uint32_t	g_wbuf_sz;
+	uint32_t	sec_tag;
 } __attribute__ ((__packed__));
 
 struct img_swfrm_info {
