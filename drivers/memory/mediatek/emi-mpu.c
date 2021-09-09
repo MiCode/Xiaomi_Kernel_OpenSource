@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <emi_mpu.h>
 #include <linux/arm-smccc.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -19,47 +20,9 @@
 #include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
 
-struct emi_mpu {
-	unsigned long long dram_start;
-	unsigned long long dram_end;
-	unsigned int region_cnt;
-	unsigned int domain_cnt;
-	unsigned int addr_align;
-	unsigned int ctrl_intf;
-
-	unsigned int dump_cnt;
-	struct reg_info_t *dump_reg;
-
-	unsigned int clear_reg_cnt;
-	struct reg_info_t *clear_reg;
-
-	struct reg_info_t *clear_md_reg;
-	unsigned int clear_md_reg_cnt;
-
-	unsigned int emi_cen_cnt;
-	void __iomem **emi_cen_base;
-	void __iomem **emi_mpu_base;
-
-	struct emimpu_region_t *ap_rg_info;
-
-	/* interrupt id */
-	unsigned int irq;
-
-	/* hook functions in ISR */
-	emimpu_pre_handler pre_handler;
-	emimpu_post_clear post_clear;
-	emimpu_md_handler md_handler;
-
-	/* debugging log for EMI MPU violation */
-	char *vio_msg;
-	unsigned int in_msg_dump;
-
-	/* hook functions in worker thread */
-	struct emimpu_dbg_cb *dbg_cb_list;
-};
-
 /* global pointer for exported functions */
-static struct emi_mpu *global_emi_mpu;
+struct emi_mpu *global_emi_mpu;
+EXPORT_SYMBOL_GPL(global_emi_mpu);
 
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,

@@ -61,6 +61,8 @@ typedef irqreturn_t (*emimpu_pre_handler)(
 typedef void (*emimpu_post_clear)(unsigned int emi_id);
 typedef void (*emimpu_md_handler)(
 	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
+typedef void (*emimpu_iommu_handler)(
+	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 typedef void (*emimpu_debug_dump)(void);
 
 struct emimpu_dbg_cb {
@@ -93,6 +95,7 @@ int mtk_emimpu_prehandle_register(emimpu_pre_handler bypass_func);
 int mtk_emimpu_postclear_register(emimpu_post_clear clear_func);
 int mtk_emimpu_md_handling_register(emimpu_md_handler md_handling_func);
 int mtk_emimpu_debugdump_register(emimpu_debug_dump debug_func);
+int mtk_emimpu_iommu_handling_register(emimpu_iommu_handler iommu_handling_func);
 void mtk_clear_md_violation(void);
 
 #endif /* __EMI_H__ */
