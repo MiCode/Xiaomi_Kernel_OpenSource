@@ -401,7 +401,7 @@ union CAMSV_FBC_IMGO_CTL1 {
 	unsigned int Raw;
 };
 
-/* FBC IMGO CTL2 */
+/* FBC IMGO CTL1 */
 #define REG_CAMSV_FBC_IMGO_CTL2					0x0244
 
 /* QBIN */
