@@ -58,6 +58,10 @@ EXPORT_SYMBOL(mtk_vdec_vcp_log);
 char *mtk_venc_vcp_log = "";
 EXPORT_SYMBOL(mtk_venc_vcp_log);
 
+/* For vcp vdec sec mem debug */
+int mtk_vdec_sw_mem_sec;
+EXPORT_SYMBOL_GPL(mtk_vdec_sw_mem_sec);
+
 /* VCODEC FTRACE */
 unsigned long vcodec_get_tracing_mark(void)
 {

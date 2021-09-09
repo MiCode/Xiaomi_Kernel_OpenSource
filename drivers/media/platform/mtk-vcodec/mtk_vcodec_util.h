@@ -76,6 +76,7 @@ extern char *mtk_vdec_vcp_log;
 extern char mtk_vdec_vcp_log_prev[1024];
 extern char *mtk_venc_vcp_log;
 extern char mtk_venc_vcp_log_prev[1024];
+extern int mtk_vdec_sw_mem_sec;
 
 #define DEBUG   1
 
