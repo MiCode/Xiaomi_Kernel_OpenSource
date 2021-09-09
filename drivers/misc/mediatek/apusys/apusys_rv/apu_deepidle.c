@@ -45,43 +45,68 @@ struct dpidle_msg {
 	uint32_t ack;
 };
 
-void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
+static struct mtk_apu *g_apu;
+static struct work_struct pwron_dbg_wk;
+
+static void apu_deepidle_pwron_dbg_fn(struct work_struct *work)
 {
+	struct mtk_apu *apu = g_apu;
 	struct device *dev = apu->dev;
-	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	int i;
 
-	if (pm_runtime_suspended(apu->dev)) {
+	dev_info(dev, "mbox dummy= 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		ioread32(apu->apu_mbox + 0x40),
+		ioread32(apu->apu_mbox + 0x44),
+		ioread32(apu->apu_mbox + 0x48),
+		ioread32(apu->apu_mbox + 0x4c));
+
+	usleep_range(0, 1000);
+	for (i = 0; i < 20; i++) {
 		dev_info(apu->dev, "apu boot: pc=%08x, sp=%08x\n",
-			ioread32(apu->md32_sysctrl + 0x838),
-			ioread32(apu->md32_sysctrl+0x840));
+		ioread32(apu->md32_sysctrl + 0x838),
+				ioread32(apu->md32_sysctrl+0x840));
+		usleep_range(0, 1000);
+	}
 
-		dev_info(dev, "%s: UP_NORMAL_DOMAIN_NS = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + UP_NORMAL_DOMAIN_NS));
-		dev_info(dev, "%s: UP_PRI_DOMAIN_NS = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + UP_PRI_DOMAIN_NS));
-		dev_info(dev, "%s: USERFW_CTXT = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + USERFW_CTXT));
-		dev_info(dev, "%s: SECUREFW_CTXT = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + SECUREFW_CTXT));
+	dev_info(dev, "%s: UP_NORMAL_DOMAIN_NS = 0x%x\n",
+		__func__,
+		ioread32(apu->apu_sctrl_reviser + UP_NORMAL_DOMAIN_NS));
+	dev_info(dev, "%s: UP_PRI_DOMAIN_NS = 0x%x\n",
+		__func__,
+		ioread32(apu->apu_sctrl_reviser + UP_PRI_DOMAIN_NS));
+	dev_info(dev, "%s: USERFW_CTXT = 0x%x\n",
+		__func__,
+		ioread32(apu->apu_sctrl_reviser + USERFW_CTXT));
+	dev_info(dev, "%s: SECUREFW_CTXT = 0x%x\n",
+		__func__,
+		ioread32(apu->apu_sctrl_reviser + SECUREFW_CTXT));
 
-		dev_info(dev, "%s: MD32_SYS_CTRL = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + MD32_SYS_CTRL));
+	dev_info(dev, "%s: MD32_SYS_CTRL = 0x%x\n",
+		__func__, ioread32(apu->md32_sysctrl + MD32_SYS_CTRL));
 
-		dev_info(dev, "%s: MD32_CLK_EN = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + MD32_CLK_EN));
-		dev_info(dev, "%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + UP_WAKE_HOST_MASK0));
+	dev_info(dev, "%s: MD32_CLK_EN = 0x%x\n",
+		__func__, ioread32(apu->md32_sysctrl + MD32_CLK_EN));
+	dev_info(dev, "%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
+		__func__, ioread32(apu->md32_sysctrl + UP_WAKE_HOST_MASK0));
 
-		dev_info(dev, "%s: MD32_BOOT_CTRL = 0x%x\n",
-			__func__, ioread32(apu->apu_ao_ctl + MD32_BOOT_CTRL));
+	dev_info(dev, "%s: MD32_BOOT_CTRL = 0x%x\n",
+		__func__, ioread32(apu->apu_ao_ctl + MD32_BOOT_CTRL));
 
-		dev_info(dev, "%s: MD32_PRE_DEFINE = 0x%x\n",
-			__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
+	dev_info(dev, "%s: MD32_PRE_DEFINE = 0x%x\n",
+		__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
+}
+
+void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
+{
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+
+	if (pm_runtime_suspended(apu->dev)) {
+
+		if (!(apu->platdata->flags & F_SECURE_BOOT))
+			dev_info(apu->dev,
+				 "%s: before warm boot pc=%08x, sp=%08x\n",
+				 ioread32(apu->md32_sysctrl + 0x838),
+				 ioread32(apu->md32_sysctrl + 0x840));
 
 		dev_info(apu->dev, "%s: power on apu top\n", __func__);
 		apu->conf_buf->time_offset = sched_clock();
@@ -89,47 +114,8 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 
 		hw_logger_deep_idle_leave();
 
-		dev_info(dev, "mbox dummy= 0x%08x 0x%08x 0x%08x 0x%08x\n",
-			ioread32(apu->apu_mbox + 0x40),
-			ioread32(apu->apu_mbox + 0x44),
-			ioread32(apu->apu_mbox + 0x48),
-			ioread32(apu->apu_mbox + 0x4c));
-
-		usleep_range(0, 1000);
-		for (i = 0; i < 20; i++) {
-			dev_info(apu->dev, "apu boot: pc=%08x, sp=%08x\n",
-			ioread32(apu->md32_sysctrl + 0x838),
-					ioread32(apu->md32_sysctrl+0x840));
-			usleep_range(0, 1000);
-		}
-
-		dev_info(dev, "%s: UP_NORMAL_DOMAIN_NS = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + UP_NORMAL_DOMAIN_NS));
-		dev_info(dev, "%s: UP_PRI_DOMAIN_NS = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + UP_PRI_DOMAIN_NS));
-		dev_info(dev, "%s: USERFW_CTXT = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + USERFW_CTXT));
-		dev_info(dev, "%s: SECUREFW_CTXT = 0x%x\n",
-			__func__,
-			ioread32(apu->apu_sctrl_reviser + SECUREFW_CTXT));
-
-		dev_info(dev, "%s: MD32_SYS_CTRL = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + MD32_SYS_CTRL));
-
-		dev_info(dev, "%s: MD32_CLK_EN = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + MD32_CLK_EN));
-		dev_info(dev, "%s: UP_WAKE_HOST_MASK0 = 0x%x\n",
-			__func__, ioread32(apu->md32_sysctrl + UP_WAKE_HOST_MASK0));
-
-		dev_info(dev, "%s: MD32_BOOT_CTRL = 0x%x\n",
-			__func__, ioread32(apu->apu_ao_ctl + MD32_BOOT_CTRL));
-
-		dev_info(dev, "%s: MD32_PRE_DEFINE = 0x%x\n",
-			__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
-
+		if (!(apu->platdata->flags & F_SECURE_BOOT))
+			schedule_work(&pwron_dbg_wk);
 	}
 }
 
@@ -272,12 +258,16 @@ int apu_deepidle_init(struct mtk_apu *apu)
 			 __func__, ret);
 	}
 
+	g_apu = apu;
+	INIT_WORK(&pwron_dbg_wk, apu_deepidle_pwron_dbg_fn);
+
 	return ret;
 }
 
 void apu_deepidle_exit(struct mtk_apu *apu)
 {
 	/* module can be removed only after APU TOP is shutdown properly */
+	flush_work(&pwron_dbg_wk);
 
 	apu_ipi_unregister(apu, APU_IPI_DEEP_IDLE);
 }
