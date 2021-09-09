@@ -68,12 +68,12 @@ static void add_shm_list_node(struct KREE_SHM_RUNLENGTH_LIST **tail,
 }
 
 static struct KREE_SHM_RUNLENGTH_ENTRY *shmem_param_run_length_encoding(
-	int numOfPA, int *runLeng_arySize, uint64_t *ary)
+	int numOfPA, int *runLeng_arySize, int64_t *ary)
 {
 	int arySize = numOfPA + 1;
 	int i = 0;
-	uint64_t start;
-	uint64_t now, next;
+	int64_t start;
+	int64_t now, next;
 	uint32_t size = 1;
 	int xx = 0;
 	int idx = 0;
@@ -305,7 +305,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 	TZ_RESULT ret = 0;
 	int numOfPA;
 	int i, idx = 0, p_idx = 0, offset = 0;
-	uint64_t *ary;
+	int64_t *ary;
 	int round = 0;
 	int runLeng_arySize = 0;
 #ifdef DBG_KREE_SHM
@@ -321,7 +321,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 	/* init mtee param & other buffer */
 	init_shm_params(p, tmp_ary_entryNum);
 
-	ary = (uint64_t *) mapAry;
+	ary = (int64_t *) mapAry;
 	numOfPA = ary[0];
 	KREE_DEBUG("[%s] numOfPA = %d, MAX_MARY_SIZE = %lu\n", __func__,
 		numOfPA, MAX_MARY_SIZE);
@@ -337,7 +337,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 #ifdef DBG_KREE_SHM
 	for (i = 0; i <= numOfPA; i++)
 		KREE_DEBUG("[%s] ====> mapAry[%d]= 0x%llx\n", __func__, i,
-		(uint64_t) ary[i]);
+		(int64_t) ary[i]);
 	for (idx = 0; idx <= runLeng_arySize; idx++)
 		KREE_DEBUG
 	    ("runLengAry[%d]. high = 0x%x, low=0x%x, size = 0x%x\n",

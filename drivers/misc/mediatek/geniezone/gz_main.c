@@ -448,7 +448,7 @@ static long tz_client_open_session(struct file *filep, void __user *arg)
 {
 	struct kree_session_cmd_param param;
 	unsigned long cret;
-	char uuid[40];
+	char uuid[MAX_UUID_LEN];
 	long len;
 	TZ_RESULT ret;
 	KREE_SESSION_HANDLE handle = 0;
@@ -521,7 +521,7 @@ _tz_client_close_session_end:
 static long tz_client_tee_service(struct file *file, void __user *arg,
 	unsigned int compat)
 {
-	struct kree_tee_service_cmd_param cparam;
+	struct kree_tee_service_cmd_param cparam = { 0 };
 	unsigned long cret;
 	uint32_t tmpTypes;
 	union MTEEC_PARAM param[4], oparam[4];

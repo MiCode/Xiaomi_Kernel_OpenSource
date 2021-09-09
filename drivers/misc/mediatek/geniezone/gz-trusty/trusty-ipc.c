@@ -47,8 +47,6 @@
 #include <gz-trusty/trusty.h>
 #include <gz-trusty/trusty_ipc.h>
 
-#include <linux/hashtable.h>
-#include <linux/stringhash.h>
 #include "tee_routing_config.h"
 
 #define MAX_DEVICES			4
@@ -68,12 +66,6 @@
 
 #define TIPC_IOC_MAGIC			'r'
 #define TIPC_IOC_CONNECT		_IOW(TIPC_IOC_MAGIC, 0x80, char *)
-
-#define MAX_TOKEN_LEN (8)
-#define HASH_SALT ((const void *)0xCAFE)
-
-/* define a hash table with 1<<5 buckets */
-DEFINE_HASHTABLE(tee_routing_htable, 5);
 
 struct tipc_virtio_dev;
 
@@ -181,7 +173,7 @@ struct tipc_chan {
 static struct class *tipc_class;
 static unsigned int tipc_major;
 
-struct virtio_device *vdev_array[TEE_ID_END];
+struct virtio_device *vdev_array[TEE_ID_END] = { NULL };
 
 static DEFINE_IDR(tipc_devices);
 static DEFINE_MUTEX(tipc_devices_lock);
@@ -347,19 +339,22 @@ static void vds_put_txbuf(struct tipc_virtio_dev *vds, struct tipc_msg_buf *mb)
 	mutex_unlock(&vds->lock);
 }
 
-static int is_valid_vds(struct tipc_virtio_dev *vds)
+static inline int check_vds(struct tipc_virtio_dev *vds)
 {
 	int i = 0;
-	int ret = 0;
 
 	if (unlikely(!virt_addr_valid(vds)))
 		return -EFAULT;
 
-	for (i = 0 ; i < TEE_ID_END ; i++)
-		if (vdev_array[i])
-			ret |= (vds == vdev_array[i]->priv);
+	for (i = 0 ; i < TEE_ID_END ; i++) {
+		if (!virt_addr_valid(vdev_array[i]))
+			continue;
 
-	return (ret > 0) ? ret : -ENODEV;
+		if (vds == vdev_array[i]->priv)
+			return 0;
+	}
+
+	return -ENODEV;
 }
 
 static struct tipc_msg_buf *vds_get_txbuf(struct tipc_virtio_dev *vds,
@@ -369,8 +364,8 @@ static struct tipc_msg_buf *vds_get_txbuf(struct tipc_virtio_dev *vds,
 	int ret;
 
 	/* sanity check */
-	ret = is_valid_vds(vds);
-	if (unlikely(ret < 0)) {
+	ret = check_vds(vds);
+	if (unlikely(ret)) {
 		pr_info("%s: error vds 0x%p ret:%d\n", __func__, vds, ret);
 		return ERR_PTR(ret);
 	}
@@ -1291,11 +1286,10 @@ static char *strdup_s(const char *str)
 
 int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 {
-	char *token, *str, *p;
+	char *last_token, *str, *p;
 	const char *delim = ".";
-	u32 hash_val;
-	struct tee_routing_obj *tr_obj;
 	const enum tee_id_t default_tee_id = tee_routing_config[0].tee_id;
+	int i;
 
 	/* Set default value */
 	*o_tid = default_tee_id;
@@ -1305,8 +1299,8 @@ int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 		return -ENOMEM;
 
 	p = str;
-	token = strsep(&p, delim);
-	if (!token) {
+	last_token = strsep(&p, delim);
+	if (!last_token) {
 		/* we can not determine which vds to be delivered,
 		 * just take the default.
 		 */
@@ -1315,14 +1309,16 @@ int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 		return -EINVAL;
 	}
 
-	hash_val = hashlen_hash(hashlen_string(HASH_SALT, token));
+	for (i = 0; i < MAX_TEE_ROUTING_NUM ; i++) {
+		struct tee_routing_obj *tr_obj = &tee_routing_config[i];
 
-	hash_for_each_possible(tee_routing_htable, tr_obj, node, hash_val) {
-		/* If hash table hit, set from tee_routing_config. */
-		if (strcmp(token, tr_obj->srv_name) == 0) {
+		if (tr_obj->tee_id == TEE_ID_END)
+			break;
+
+		if (strncmp(last_token, tr_obj->srv_name, MAX_SRV_NAME_LEN) == 0) {
 			*o_tid = tr_obj->tee_id;
-			pr_debug("[%s] find token %s, tid %d\n",
-				 __func__, token, *o_tid);
+			pr_info("[%s] find last_token %s, tee id %d\n",
+				 __func__, last_token, *o_tid);
 			break;
 		}
 	}
@@ -1938,24 +1934,6 @@ static void _txvq_cb(struct virtqueue *txvq)
 	}
 }
 
-static void tee_routing_init(void)
-{
-	int i;
-
-	hash_init(tee_routing_htable);
-
-	for (i = 0; i < MAX_TEE_ROUTING_NUM &&
-	     tee_routing_config[i].tee_id != TEE_ID_END; i++) {
-		char *srv_name = tee_routing_config[i].srv_name;
-		u32 hash_val =
-		    hashlen_hash(hashlen_string(HASH_SALT, srv_name));
-		pr_debug("[%s] name %s, hash_val 0x%x added\n", __func__,
-			 srv_name, hash_val);
-		hash_add(tee_routing_htable, &tee_routing_config[i].node,
-			 hash_val);
-	}
-}
-
 static int tipc_setup_virtqueue(struct tipc_virtio_dev *vds,
 				struct tipc_dev_config *config)
 {
@@ -2278,9 +2256,6 @@ static int __init tipc_init(void)
 		pr_info("%s: class_create failed: %d\n", __func__, ret);
 		goto err_class_create;
 	}
-
-	/* For multiple TEEs */
-	tee_routing_init();
 
 	ret = register_virtio_driver(&virtio_tipc_driver);
 	if (ret) {

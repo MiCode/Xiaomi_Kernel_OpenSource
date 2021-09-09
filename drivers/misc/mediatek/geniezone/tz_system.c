@@ -410,7 +410,10 @@ int32_t _HandleToFd(struct tipc_k_handle h)
 	return _setSessionHandle(h);
 }
 
-#define _HandleToChanInfo(x) (x?(struct tipc_dn_chan *)(x->dn):0)
+static inline struct tipc_dn_chan *_HandleToChanInfo(struct tipc_k_handle *handle)
+{
+	return handle ? (struct tipc_dn_chan *)(handle->dn) : NULL;
+}
 
 TZ_RESULT KREE_SessionToTID(KREE_SESSION_HANDLE session, enum tee_id_t *o_tid)
 {
@@ -432,7 +435,13 @@ void KREE_SESSION_LOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
 
-	if (chan_p != NULL && handle != _sys_service_Fd[chan_p->tee_id])
+	if (!chan_p)
+		return;
+
+	if (!is_tee_id(chan_p->tee_id))
+		return;
+
+	if (handle != _sys_service_Fd[chan_p->tee_id])
 		mutex_lock(&chan_p->sess_lock);
 }
 EXPORT_SYMBOL(KREE_SESSION_LOCK);
@@ -442,7 +451,13 @@ void KREE_SESSION_UNLOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
 
-	if (chan_p != NULL && handle != _sys_service_Fd[chan_p->tee_id])
+	if (!chan_p)
+		return;
+
+	if (!is_tee_id(chan_p->tee_id))
+		return;
+
+	if (handle != _sys_service_Fd[chan_p->tee_id])
 		mutex_unlock(&chan_p->sess_lock);
 }
 EXPORT_SYMBOL(KREE_SESSION_UNLOCK);
@@ -630,7 +645,7 @@ static void report_param_byte(struct gz_syscall_cmd_param *param)
 static void report_param(struct gz_syscall_cmd_param *param)
 {
 	int i;
-	union MTEEC_PARAM *param_p = param->param;
+	union MTEEC_PARAM *param_p = (union MTEEC_PARAM *) param->param;
 
 	KREE_DEBUG("session: 0x%x, command: 0x%x\n", param->handle,
 		   param->command);
@@ -754,7 +769,7 @@ void GZ_RewriteParamMemAddr(struct gz_syscall_cmd_param *param)
 {
 	uint32_t type, size, offset = 0;
 	int i;
-	union MTEEC_PARAM *param_p = param->param;
+	union MTEEC_PARAM *param_p = (union MTEEC_PARAM *) param->param;
 
 	KREE_DEBUG("RPMA: head of param: %p\n", param_p);
 
@@ -1196,13 +1211,14 @@ static void kree_perf_boost(int enable)
 		}
 		perf_boost_cnt++;
 	} else {
-		perf_boost_cnt--;
-		if (perf_boost_cnt == 0) {
+		if (perf_boost_cnt == 1) {
 			KREE_DEBUG("%s wake_unlock\n", __func__);
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 			__pm_relax(TeeServiceCall_wake_lock); /*4.19*/
 #endif
 		}
+		if (perf_boost_cnt > 0)
+			perf_boost_cnt--;
 	}
 
 	mutex_unlock(&perf_boost_lock);
@@ -1255,7 +1271,7 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	}
 
 	p[0].mem.buffer = (void *)ta_uuid;
-	p[0].mem.size = (uint32_t)(strlen(ta_uuid) + 1);
+	p[0].mem.size = (uint32_t)(strnlen(ta_uuid, MAX_UUID_LEN) + 1);
 	ret = KREE_TeeServiceCall(
 		_sys_service_Fd[tee_id], TZCMD_SYS_SESSION_CREATE,
 		TZ_ParamTypes2(TZPT_MEM_INPUT, TZPT_VALUE_OUTPUT), p);
@@ -1292,7 +1308,7 @@ TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid,
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 
 	param[0].mem.buffer = (char *)ta_uuid;
-	param[0].mem.size = strlen(ta_uuid) + 1;
+	param[0].mem.size = strnlen(ta_uuid, MAX_UUID_LEN) + 1;
 	param[1].mem.buffer = (char *)tag;
 	if (tag != NULL && strlen(tag) != 0)
 		param[1].mem.size = strlen(tag) + 1;
@@ -1340,7 +1356,7 @@ TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle)
 	}
 
 	tee_id = chan_p->tee_id;
-	if (_sys_service_Fd[tee_id] < 0) {
+	if (!is_tee_id(tee_id) || _sys_service_Fd[tee_id] < 0) {
 		KREE_ERR("%s: sys service fd is not open.\n", __func__);
 		ret = TZ_RESULT_ERROR_GENERIC;
 		goto close_session_out;

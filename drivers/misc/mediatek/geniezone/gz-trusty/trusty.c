@@ -288,8 +288,6 @@ static int nebula_interrupted_loop(struct trusty_state *s, u32 smcnr, int ret)
 	return ret;
 }
 
-static DEFINE_MUTEX(multi_lock);
-
 s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
 	int ret;
@@ -305,7 +303,6 @@ s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 
 	if (smcnr != MTEE_SMCNR_TID(SMCF_SC_NOP, 0) &&
 	    smcnr != MTEE_SMCNR_TID(SMCF_SC_NOP, 1)) {
-		//mutex_lock(&multi_lock);
 		mutex_lock(&s->smc_lock);
 		reinit_completion(&s->cpu_idle_completion);
 	}
@@ -330,7 +327,6 @@ s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 		complete(&s->cpu_idle_completion);
 	else {
 		mutex_unlock(&s->smc_lock);
-		//mutex_unlock(&multi_lock);
 	}
 
 	return ret;
