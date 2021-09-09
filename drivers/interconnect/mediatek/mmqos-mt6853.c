@@ -372,19 +372,27 @@ static const char * const larb_icc_path_names_mt6853[] = { "larb0", "larb1", "la
 	"larb4", NULL, NULL, "larb7", NULL, "larb9", NULL, "larb11", NULL, "larb13", "larb14",
 	NULL, "larb16", "larb17", NULL, "larb19", "larb20", NULL, NULL, NULL };
 static const struct mtk_mmqos_desc mmqos_desc_mt6853 = {
-.nodes = node_descs_mt6853,
-.num_nodes = ARRAY_SIZE(node_descs_mt6853),
-.comm_muxes = comm_muxes_mt6853,
-.comm_icc_path_names = comm_icc_path_names_mt6853,
-.comm_icc_hrt_path_names = comm_icc_hrt_path_names_mt6853,
-.larb_icc_path_names = larb_icc_path_names_mt6853,
-.max_ratio = 40,
-.hrt_LPDDR4 = {
-	.hrt_bw = {3344, 0, 0},
-	.hrt_total_bw = 8532, /* Todo: Use DRAMC API */
-},
-.comm_port_channels = {
+	.nodes = node_descs_mt6853,
+	.num_nodes = ARRAY_SIZE(node_descs_mt6853),
+	.comm_muxes = comm_muxes_mt6853,
+	.comm_icc_path_names = comm_icc_path_names_mt6853,
+	.comm_icc_hrt_path_names = comm_icc_hrt_path_names_mt6853,
+	.larb_icc_path_names = larb_icc_path_names_mt6853,
+	.max_ratio = 40,
+	.hrt_LPDDR4 = {
+		.hrt_bw = {3344, 0, 0},
+		.hrt_total_bw = 8532, /* Todo: Use DRAMC API */
+		.md_speech_bw = { 3344, 3344},
+		.hrt_ratio = {1000, 1000, 1000, 1000},
+		.blocking = true,
+		.emi_ratio = 1000,
+	},
+	.comm_port_channels = {
 		{ 0x1, 0x2, 0x2, 0x1, 0x2, 0x2, 0x1, 0x2, 0x3 }
+	},
+	.comm_port_hrt_types = {
+		{ HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE,
+			HRT_NONE, HRT_CAM, HRT_CAM, HRT_DISP },
 	},
 };
 static const struct of_device_id mtk_mmqos_mt6853_of_ids[] = {
