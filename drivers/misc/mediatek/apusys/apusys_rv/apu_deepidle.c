@@ -99,6 +99,7 @@ static void apu_deepidle_pwron_dbg_fn(struct work_struct *work)
 void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 {
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+	int ret;
 
 	if (pm_runtime_suspended(apu->dev)) {
 
@@ -111,9 +112,10 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 
 		dev_info(apu->dev, "%s: power on apu top\n", __func__);
 		apu->conf_buf->time_offset = sched_clock();
-		hw_ops->power_on(apu);
+		ret = hw_ops->power_on(apu);
 
-		hw_logger_deep_idle_leave();
+		if (ret == 0)
+			hw_logger_deep_idle_leave();
 
 		if (!(apu->platdata->flags & F_SECURE_BOOT))
 			schedule_work(&pwron_dbg_wk);
