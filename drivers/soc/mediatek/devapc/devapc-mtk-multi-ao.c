@@ -133,8 +133,11 @@ static void sramrom_vio_handler(void)
 		return;
 	}
 
-	vio_info->master_id = (sramrom_vio_sta & sramrom_vios->vio_id_mask)
-			>> sramrom_vios->vio_id_shift;
+	if (sramrom_vio_id)
+		vio_info->master_id = sramrom_vio_id;
+	else
+		vio_info->master_id = (sramrom_vio_sta & sramrom_vios->vio_id_mask)
+				>> sramrom_vios->vio_id_shift;
 	vio_info->domain_id = (sramrom_vio_sta & sramrom_vios->vio_domain_mask)
 			>> sramrom_vios->vio_domain_shift;
 	rw = (sramrom_vio_sta & sramrom_vios->vio_rw_mask) >>
