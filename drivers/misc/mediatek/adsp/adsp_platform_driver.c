@@ -8,6 +8,7 @@
 #include <linux/vmalloc.h>
 #include <linux/ktime.h>
 #include <linux/pm_runtime.h>
+#include <slbc_ops.h>
 #include "adsp_mbox.h"
 #include "adsp_logger.h"
 #include "adsp_timesync.h"
@@ -304,6 +305,70 @@ void adsp_logger_init1_cb(struct work_struct *ws)
 		pr_err("[ADSP]logger initial fail, ipi ret=%d\n", ret);
 }
 
+static struct slbc_data slb_data = {
+	.uid = UID_HIFI3,
+	.type = TP_BUFFER
+};
+
+static int slb_memory_control(bool en)
+{
+	static DEFINE_MUTEX(lock);
+	static int use_cnt;
+	int ret = 0;
+
+	mutex_lock(&lock);
+	if (en) {
+		if (use_cnt == 0) {
+			ret = slbc_request(&slb_data);
+			if (ret)
+				goto EXIT;
+			slbc_power_on(&slb_data);
+		}
+		use_cnt++;
+	} else {
+		if (use_cnt == 0)
+			goto EXIT;
+
+		if (--use_cnt == 0) {
+			slbc_power_off(&slb_data);
+			ret = slbc_release(&slb_data);
+		}
+	}
+EXIT:
+	if (ret)
+		pr_info("%s, fail slbc request %d, ret %d, cnt %d",
+			__func__, en, ret, use_cnt);
+	else
+		pr_info("%s, ok slbc request %d, ret %d, cnt %d",
+			__func__, en, ret, use_cnt);
+	mutex_unlock(&lock);
+	return use_cnt;
+}
+
+static void adsp_slb_init_handler(int id, void *data, unsigned int len)
+{
+	u32 cid = *(u32 *)data;
+	u32 request = *((u32 *)data + 1);
+	unsigned long info[2];
+	int ret;
+
+	slb_memory_control(request);
+
+	info[0] = (unsigned long)slb_data.paddr;
+	info[1] = (unsigned long)slb_data.size;
+
+	pr_info("%s 0x%lx, 0x%lx cid %d request %d", __func__, info[0], info[1], cid, request);
+
+	_adsp_register_feature(cid, SYSTEM_FEATURE_ID, 0);
+
+	ret = adsp_push_message(ADSP_IPI_SLB_INIT, info, sizeof(info), 20, cid);
+
+	_adsp_deregister_feature(cid, SYSTEM_FEATURE_ID, 0);
+
+	if (ret != ADSP_IPI_DONE)
+		pr_info("%s, fail send msg to cid %d, ret %d", __func__, cid, ret);
+}
+
 int adsp_core_common_init(struct adsp_priv *pdata)
 {
 	int ret = 0;
@@ -322,6 +387,9 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 
 	/* mailbox */
 	pdata->recv_mbox->prdata = &pdata->id;
+
+	/* slb init ipi */
+	adsp_ipi_registration(ADSP_IPI_SLB_INIT, adsp_slb_init_handler, "slb_init");
 
 	/* wake lock */
 	adsp_awake_init(pdata);
