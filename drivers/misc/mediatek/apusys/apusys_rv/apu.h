@@ -203,6 +203,7 @@ void apu_timesync_remove(struct mtk_apu *apu);
 
 extern const struct mtk_apu_platdata mt6879_platdata;
 extern const struct mtk_apu_platdata mt6893_platdata;
+extern const struct mtk_apu_platdata mt6895_platdata;
 extern const struct mtk_apu_platdata mt6983_platdata;
 
 extern int reviser_set_init_info(struct mtk_apu *apu);
