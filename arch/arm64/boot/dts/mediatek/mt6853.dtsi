@@ -3365,6 +3365,10 @@
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
+		mmqos_wrapper {
+				compatible = "mediatek,mt6853-mmqos-wrapper";
+		};
+
 		mmqos: interconnect {
 			compatible = "mediatek,mt6853-mmqos";
 			#interconnect-cells = <1>;
@@ -3376,24 +3380,8 @@
 			clocks = <&topckgen_clk CLK_TOP_DISP_SEL>;
 			clock-names = "mm";
 			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
-					<&dvfsrc MT6873_MASTER_HRT_MMSYS
-					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>,
-					<&mmqos MASTER_COMMON_PORT(0, 0) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 1) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 4) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 2) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 3) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 7) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 6) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 6) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 7) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>;
-			interconnect-names = "icc-bw", "icc-hrt-bw", "larb0", "larb1", "larb2",
-						"larb4", "larb7", "larb9", "larb11", "larb13",
-						"larb14", "larb16", "larb17", "larb19", "larb20";
+				<&dvfsrc MT6873_MASTER_HRT_MMSYS &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-hrt-bw";
 		};
 
 		iommu0: iommu@14016000 {
