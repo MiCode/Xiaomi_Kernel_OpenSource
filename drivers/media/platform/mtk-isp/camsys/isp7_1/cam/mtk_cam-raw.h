@@ -57,10 +57,13 @@ enum raw_module_id {
 };
 
 /* feature mask to categorize all raw functions */
-#define MTK_CAM_FEATURE_HDR_MASK	0x0000000F
-#define MTK_CAM_FEATURE_SUBSAMPLE_MASK	0x000000F0
+#define MTK_CAM_FEATURE_HDR_MASK		0x0000000F
+#define MTK_CAM_FEATURE_SUBSAMPLE_MASK		0x000000F0
 #define MTK_CAM_FEATURE_STAGGER_M2M_MASK	0x00000F00
-#define MTK_CAM_FEATURE_TIMESHARE_MASK	0x0000F000
+#define MTK_CAM_FEATURE_TIMESHARE_MASK		0x0000F000
+
+/* flags common to features */
+#define MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK	BIT(31)
 
 enum raw_function_id {
 	/* hdr */
@@ -81,7 +84,7 @@ enum raw_function_id {
 	STAGGER_M2M_3_EXPOSURE_LE_NE_SE = (3 << 8),
 	STAGGER_M2M_3_EXPOSURE_SE_NE_LE = (4 << 8),
 	TIMESHARE_1_GROUP		= (1 << 12),
-	RAW_FUNCTION_END,
+	RAW_FUNCTION_END		= 0xF0000000,
 };
 
 enum hdr_scenario_id {
@@ -187,7 +190,8 @@ struct mtk_cam_resource_config {
 	s64 pixel_rate;
 	u32 bin_limit;
 	u32 frz_limit;
-	u32 hwn_limit;
+	u32 hwn_limit_max;
+	u32 hwn_limit_min;
 	s64 hblank;
 	s64 vblank;
 	s64 sensor_pixel_rate;
@@ -319,41 +323,84 @@ mtk_cam_ctrl_handler_to_raw_pipeline(struct v4l2_ctrl_handler *handler)
 };
 
 int mtk_raw_setup_dependencies(struct mtk_raw *raw);
+
 int mtk_raw_register_entities(struct mtk_raw *raw,
 			      struct v4l2_device *v4l2_dev);
 void mtk_raw_unregister_entities(struct mtk_raw *raw);
+
 int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
+
 bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev);
 
 int mtk_cam_get_subsample_ratio(int raw_feature);
+
 void subsample_enable(struct mtk_raw_device *dev);
+
 void stagger_enable(struct mtk_raw_device *dev);
+
 void stagger_disable(struct mtk_raw_device *dev);
+
 void toggle_db(struct mtk_raw_device *dev);
+
 void enable_tg_db(struct mtk_raw_device *dev, int en);
+
 void initialize(struct mtk_raw_device *dev);
+
 void stream_on(struct mtk_raw_device *dev, int on);
+
 void apply_cq(struct mtk_raw_device *dev,
-	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset, int initial,
-	      unsigned int sub_cq_size, unsigned int sub_cq_offset);
+	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
+	      int initial, unsigned int sub_cq_size,
+	      unsigned int sub_cq_offset);
+
 void trigger_rawi(struct mtk_raw_device *dev);
+
 void reset(struct mtk_raw_device *dev);
+
 int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
+
 int mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
 			  struct media_entity *entity);
+
+struct mtk_raw_pipeline*
+mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf);
+
 bool
-mtk_raw_sel_get_res(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_selection *sel,
-			  struct mtk_cam_resource *res);
+mtk_raw_sel_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_selection *sel,
+		    struct mtk_cam_resource *res);
 bool
-mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_format *fmt,
-			  struct mtk_cam_resource *res);
-unsigned int mtk_raw_get_hdr_scen_id(
-	struct mtk_cam_ctx *ctx);
+mtk_raw_fmt_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt,
+		    struct mtk_cam_resource *res);
+
+unsigned int mtk_raw_get_hdr_scen_id(struct mtk_cam_ctx *ctx);
+
 bool mtk_raw_is_fmt_nego_enabled(void);
+
+struct v4l2_mbus_framefmt*
+mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
+			 struct v4l2_subdev_pad_config *cfg,
+			 int padid, int which);
+struct v4l2_rect*
+mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
+			       struct v4l2_subdev_pad_config *cfg,
+			       int pad, int which);
+int
+mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
+			 struct mtk_cam_resource *res_user,
+			 struct mtk_cam_resource_config *res_cfg,
+			 struct v4l2_mbus_framefmt *sink_fmt);
+int
+mtk_cam_res_copy_fmt_from_user(struct mtk_raw_pipeline *pipeline,
+			       struct mtk_cam_resource *res_user,
+			       struct v4l2_mbus_framefmt *dest);
+
+int
+mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
+			     struct mtk_cam_resource *res_user,
+			     struct v4l2_mbus_framefmt *src);
+
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
 

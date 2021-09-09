@@ -552,7 +552,7 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 	struct mtk_raw_device *raw_dev = NULL;
 	unsigned int time_after_sof = 0;
 	int sv_i;
-	int i;
+	int i, ret;
 	int is_mstream_last_exposure = 0;
 	unsigned long flags;
 
@@ -571,9 +571,60 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 	if (mtk_cam_req_frame_sync_start(req))
 		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
 			__func__, req->req.debug_str, ctx->stream_id);
+
 	if (mtk_cam_is_mstream(ctx))
 		is_mstream_last_exposure =
 			mtk_cam_set_sensor_mstream_exposure(ctx, req_stream_data);
+
+	if (req_stream_data->feature.raw_feature & MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
+		struct v4l2_subdev_format fmt;
+
+		if (!(req_stream_data->pad_fmt_update & 1 << MTK_RAW_SINK)) {
+			dev_dbg(ctx->cam->dev,
+				"%s:%s:ctx(%d):seq(%d), pad_fmt_update(0x%x) no pending MTK_RAW_SINK s_fmt found, can't set senor/seninf fmt for SEAMLESS_SWITCH\n",
+				__func__, req->req.debug_str, ctx->stream_id,
+				req_stream_data->frame_seq_no, req_stream_data->pad_fmt_update);
+		} else {
+			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+			fmt.pad = 0;
+			fmt.format = req_stream_data->seninf_fmt.format;
+			ret = v4l2_subdev_call(ctx->sensor, pad, set_fmt,
+					       NULL, &fmt);
+			dev_dbg(ctx->cam->dev,
+				"%s:ctx(%d) apply sensor fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+				__func__, ctx->stream_id, ctx->sensor->name,
+				fmt.pad,
+				req_stream_data->seninf_fmt.format.width,
+				req_stream_data->seninf_fmt.format.height,
+				req_stream_data->seninf_fmt.format.code);
+
+			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+			fmt.pad = PAD_SINK;
+			fmt.format = req_stream_data->seninf_fmt.format;
+			ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
+					       pad, set_fmt, NULL, &fmt);
+			dev_dbg(ctx->cam->dev,
+				"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+				__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
+				fmt.pad,
+				req_stream_data->seninf_fmt.format.width,
+				req_stream_data->seninf_fmt.format.height,
+				req_stream_data->seninf_fmt.format.code);
+
+			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+			fmt.pad = PAD_SRC_RAW0;
+			fmt.format = req_stream_data->seninf_fmt.format;
+			ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
+					       pad, set_fmt, NULL, &fmt);
+			dev_dbg(ctx->cam->dev,
+				"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+				__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
+				fmt.pad,
+				req_stream_data->seninf_fmt.format.width,
+				req_stream_data->seninf_fmt.format.height,
+				req_stream_data->seninf_fmt.format.code);
+		}
+	}
 
 	/* request setup*/
 	/* 1st frame sensor setting in mstream is treated like normal frame and is set with

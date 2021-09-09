@@ -49,6 +49,7 @@ struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;
 struct mtk_cam_request;
+struct mtk_raw_pipeline;
 
 #define SENSOR_FMT_MASK			0xFFFF
 
@@ -61,6 +62,10 @@ struct mtk_cam_request;
 #define MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH		BIT(0)
 
 #define MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT	BIT(1)
+
+#define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
+
+#define MTK_CAM_REQ_S_DATA_FLAG_SENINF_FMT_UPDATE	BIT(3)
 
 struct mtk_cam_working_buf {
 	void *va;
@@ -184,6 +189,7 @@ struct mtk_cam_request_stream_data {
 	u32 pad_fmt_update;
 	u32 vdev_fmt_update;
 	u32 vdev_selection_update;
+	struct v4l2_subdev_format seninf_fmt;
 	struct v4l2_subdev_format pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_format vdev_fmt[MTK_RAW_TOTAL_NODES];
 	struct v4l2_selection vdev_selection[MTK_RAW_TOTAL_NODES];
@@ -242,6 +248,8 @@ struct mtk_cam_request {
 	struct work_struct link_work;
 	u64 time_syscall_enque;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
+	u8 raw_res_update;
+	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;
 };
 
@@ -514,6 +522,24 @@ mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
 	return s_data->req;
 }
 
+static inline struct mtk_cam_resource*
+mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!is_raw_subdev(s_data->pipe_id))
+		return NULL;
+
+	return &s_data->req->raw_res[s_data->pipe_id];
+}
+
+static inline bool
+mtk_cam_s_data_has_res(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!is_raw_subdev(s_data->pipe_id))
+		return false;
+
+	return s_data->req->raw_res_update & s_data->pipe_id;
+}
+
 static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 			    int node_id)
@@ -565,6 +591,16 @@ mtk_cam_s_data_get_vfmt(struct mtk_cam_request_stream_data *s_data, int node_id)
 
 	return NULL;
 }
+
+static inline struct v4l2_mbus_framefmt*
+mtk_cam_s_data_get_pfmt(struct mtk_cam_request_stream_data *s_data, int pad)
+{
+	if (pad >= 0)
+		return &s_data->pad_fmt[pad].format;
+
+	return NULL;
+}
+
 
 static inline struct v4l2_selection*
 mtk_cam_s_data_get_vsel(struct mtk_cam_request_stream_data *s_data, int node_id)
@@ -639,6 +675,7 @@ mtk_cam_is_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt)
 }
 
 //TODO: with spinlock or not? depends on how request works [TBD]
+
 struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 				      struct mtk_cam_video_device *node);
 struct mtk_cam_ctx *mtk_cam_find_ctx(struct mtk_cam_device *cam,
@@ -654,6 +691,11 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
+
+void
+mtk_cam_req_pending_seninf_s_fmt(struct media_request *req,
+				 struct mtk_raw_pipeline *raw_pipe,
+				 struct v4l2_subdev_format *seninf_fmt);
 
 void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
 				     struct mtk_cam_buffer *buf,
