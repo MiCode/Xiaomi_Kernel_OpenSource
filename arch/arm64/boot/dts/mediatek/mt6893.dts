@@ -1228,6 +1228,12 @@
 		compatible = "mediatek,drm_wv";
 		status = "okay";
 	};
+
+	swpm: swpm {
+		compatible = "mediatek,mtk-swpm";
+		pmu_boundary_num = <4>;
+		pmu_support_l = <1>;
+	};
 };
 
 &i2c5 {
