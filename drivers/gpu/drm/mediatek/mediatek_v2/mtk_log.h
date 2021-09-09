@@ -149,6 +149,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 #endif /* CONFIG_MTK_AEE_FEATURE */
 
 extern bool g_mobile_log;
+extern bool g_msync_debug;
 extern bool g_fence_log;
 extern bool g_irq_log;
 extern bool g_detail_log;

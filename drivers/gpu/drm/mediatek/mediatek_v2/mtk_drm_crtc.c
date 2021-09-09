@@ -6541,6 +6541,15 @@ int mtk_drm_get_atomic_fps(void)
 	return target_fps;
 }
 
+void msync_callback_func(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_msync_cb_data *msync_data =
+		(struct mtk_cmdq_msync_cb_data *)data.data;
+	CRTC_MMP_MARK(0, msync_level, 1, 1);
+	cmdq_pkt_destroy(msync_data->cmdq_handle);
+	kfree(msync_data);
+}
+
 static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned int target_fps)
 {
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
@@ -6571,10 +6580,17 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			&params->msync_cmd_table.multi_te_tb;
 		static unsigned int fps_level_old;
 		static unsigned int min_fps_old;
+		struct cmdq_pkt *cmdq_handle;
+		struct mtk_cmdq_msync_cb_data *msync_data =
+			kzalloc(sizeof(*msync_data), GFP_KERNEL);
 
 		DDPMSG("[Msync2.0] M-TE\n");
 
-		if (mtk_sync_multi_te_level_decision_fp) {
+		if (target_fps == 0xFFFF) {
+			DDPMSG("[Msync2.0] Msync Need close M-TE\n");
+			fps_level = 0xFFFF;
+			min_fps = drm_mode_vrefresh(&crtc->state->mode);
+		} else if (mtk_sync_multi_te_level_decision_fp) {
 			mtk_sync_multi_te_level_decision_fp((void *)mte_tb->multi_te_level,
 				target_fps, &fps_level, &min_fps);
 
@@ -6589,9 +6605,13 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		DDPMSG("[Msync2.0] M-TE target_fps:%u fps_level:%u dirty:%u min_fps:%u\n",
 			target_fps, fps_level, msync_cmd_level_tb_dirty, min_fps);
 
+		cmdq_handle =
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		msync_data->cmdq_handle = cmdq_handle;
+
 		/* Switch msync TE level */
 		if (fps_level != fps_level_old) {
-			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					DSI_MSYNC_SWITCH_TE_LEVEL, &fps_level);
 			fps_level_old = fps_level;
 		}
@@ -6601,10 +6621,12 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			unsigned int flag = 0;
 
 			flag = (fps_level << 16) | min_fps;
-			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					DSI_MSYNC_CMD_SET_MIN_FPS, &flag);
 			min_fps_old = min_fps;
 		}
+		CRTC_MMP_MARK(0, msync_level, 0, 0);
+		cmdq_pkt_flush_threaded(cmdq_handle, msync_callback_func, (void *)msync_data);
 
 	} else if (params->msync_cmd_table.te_type == TRIGGER_LEVEL_TE) {
 		/* TODO: Add Trigger Level Te */
@@ -6633,6 +6655,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int target_fps = 0;
 	unsigned int atomic_fps = 0;
+	static unsigned int msync_need_close;
 	struct drm_device *dev = crtc->dev;
 	struct mml_drm_ctx *mml_ctx = NULL;
 
@@ -6708,8 +6731,16 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				atomic_fps);
 		else
 			target_fps = drm_mode_vrefresh(&crtc->state->adjusted_mode);
-
-		mtk_crtc_msync2_send_cmds_bef_cfg(crtc, target_fps);
+		if (g_msync_debug == 0)
+			mtk_crtc_msync2_send_cmds_bef_cfg(crtc, target_fps);
+		msync_need_close = 0;
+	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
+			!msync_is_on(priv, params, crtc_id,
+				state, old_mtk_state) && (index == 0)) {
+		if ((msync_need_close == 0) && (g_msync_debug == 0)) {
+			mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
+			msync_need_close = 1;
+		}
 	}
 
 #ifdef MTK_DRM_ADVANCE

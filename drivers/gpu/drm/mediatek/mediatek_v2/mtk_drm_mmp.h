@@ -70,6 +70,7 @@ struct CRTC_MMP_Events {
 	mmp_event warn_sf_pf_2;
 	mmp_event atomic_begin;
 	mmp_event atomic_flush;
+	mmp_event msync_level;
 	mmp_event enable_vblank;
 	mmp_event disable_vblank;
 	mmp_event esd_check;

@@ -847,6 +847,10 @@ struct mtk_cmdq_cb_data {
 	bool is_mml;
 };
 
+struct mtk_cmdq_msync_cb_data {
+	struct cmdq_pkt			*cmdq_handle;
+};
+
 extern unsigned int disp_spr_bypass;
 
 int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);

@@ -73,8 +73,10 @@ bool g_detail_log = 1;
 bool g_mobile_log;
 bool g_fence_log;
 bool g_detail_log;
+bool g_msync_debug;
 #endif
 EXPORT_SYMBOL(g_mobile_log);
+EXPORT_SYMBOL(g_msync_debug);
 bool g_irq_log;
 bool g_trace_log;
 bool g_mml_debug;
@@ -1859,6 +1861,11 @@ static void process_dbg_opt(const char *opt)
 			g_mobile_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_mobile_log = 0;
+	} else if (strncmp(opt, "msync_debug:", 12) == 0) {
+		if (strncmp(opt + 12, "on", 2) == 0)
+			g_msync_debug = 1;
+		else if (strncmp(opt + 12, "off", 3) == 0)
+			g_msync_debug = 0;
 	} else if (strncmp(opt, "msync_dy:", 9) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
