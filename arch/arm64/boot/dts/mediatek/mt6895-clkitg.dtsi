@@ -321,19 +321,9 @@
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_UFS0_SHUTDOWN>;
 	};
 
-	bring-up-pd-ufs0_dormant {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_UFS0_DORMANT>;
-	};
-
 	bring-up-pd-audio {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_AUDIO>;
-	};
-
-	bring-up-pd-adsp_top_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_ADSP_TOP_SHUTDOWN>;
 	};
 
 	bring-up-pd-adsp_top_dormant {
@@ -344,11 +334,6 @@
 	bring-up-pd-adsp_infra {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_ADSP_INFRA>;
-	};
-
-	bring-up-pd-adsp_ao {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_ADSP_AO>;
 	};
 
 	bring-up-pd-isp_main {
@@ -446,11 +431,6 @@
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_INFRA>;
 	};
 
-	bring-up-pd-mm_proc_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_SHUTDOWN>;
-	};
-
 	bring-up-pd-mm_proc_dormant {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
@@ -459,16 +439,6 @@
 	bring-up-pd-dp_tx {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_DP_TX>;
-	};
-
-	bring-up-pd-mfg0_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_MFG0_SHUTDOWN>;
-	};
-
-	bring-up-pd-mfg0_dormant {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_MFG0_DORMANT>;
 	};
 
 	bring-up-pd-mfg1 {
@@ -524,6 +494,11 @@
 	bring-up-pd-mfg11 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MFG11>;
+	};
+
+	bring-up-pd-mfg12 {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT6895_POWER_DOMAIN_MFG12>;
 	};
 
 };
