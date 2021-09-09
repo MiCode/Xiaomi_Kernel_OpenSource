@@ -1600,7 +1600,7 @@ static int mtk_raw_pixelmode_calc(int rawpxl, int b_twin, bool b_bin,
 
 	pixelmode = (b_twin == 2) ? pixelmode << 2 : pixelmode;
 	pixelmode = (b_twin == 1) ? pixelmode << 1 : pixelmode;
-	pixelmode = b_bin ? pixelmode << 2 : pixelmode;
+	pixelmode = b_bin ? pixelmode << 1 : pixelmode;
 	pixelmode = (b_frz && (min_ratio < FRZ_PXLMODE_THRES))
 			? pixelmode << 1 : pixelmode;
 	pixelmode = (pixelmode > TGO_MAX_PXLMODE) ?
