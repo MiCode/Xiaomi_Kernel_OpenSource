@@ -147,7 +147,7 @@ int _gate_ic_backlight_set(unsigned int hw_level)
 	char cmd_buf[3] = { 0x00, 0x00, 0x00 };
 	int ret = 0;
 
-	pr_info("%s+\n", __func__);
+	pr_debug("%s+\n", __func__);
 
 	level_h = (hw_level >> BRIGHTNESS_HIGN_OFFSET) & BRIGHTNESS_HIGN_MASK;
 	level_l = (hw_level >> BRIGHTNESS_LOW_OFFSET) & BRIGHTNESS_LOW_MASK;
