@@ -1636,11 +1636,10 @@ int mtk_cam_seninf_calc_pixelrate(struct device *dev, s64 width, s64 height,
 
 	ret = calc_buffered_pixel_rate(dev, width, height, hblank, vblank,
 				       fps_n, fps_d, &p_pixel_rate);
-	//if (ret)
-	//Use Sensor_pixel_rate
-	return sensor_pixel_rate;
+	if (ret)
+		return sensor_pixel_rate;
 
-	//return p_pixel_rate;
+	return p_pixel_rate;
 }
 
 /* to be replaced by mtk_cam_seninf_calc_pixelrate() */
