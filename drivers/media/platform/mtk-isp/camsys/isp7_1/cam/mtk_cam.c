@@ -162,6 +162,7 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct media_request_object *hdl_obj;
 	int i, buf_start = 0, buf_end = 0, running_s_data_cnt;
+	unsigned long flags;
 
 	running_s_data_cnt = atomic_dec_return(&ctx->running_s_data_cnt);
 	req_stream_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
@@ -242,9 +243,9 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			continue;
 		}
 
-		spin_lock(&node->buf_list_lock);
+		spin_lock_irqsave(&node->buf_list_lock, flags);
 		list_del(&buf->list);
-		spin_unlock(&node->buf_list_lock);
+		spin_unlock_irqrestore(&node->buf_list_lock, flags);
 
 		// TODO(mstream): fill timestamp
 		mtk_cam_s_data_update_timestamp(ctx, buf, req_stream_data);
@@ -544,13 +545,13 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			 * in previous mtk_cam_dequeue_req_frame() but can be
 			 * removed since another ctx is stream off cases.
 			 */
-			spin_lock(&req->done_status_lock);
+			spin_lock_irqsave(&req->done_status_lock, flags);
 			if (req->done_status & 1 << pipe_id) {
-				spin_unlock(&req->done_status_lock);
+				spin_unlock_irqrestore(&req->done_status_lock, flags);
 				result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
 				break;
 			}
-			spin_unlock(&req->done_status_lock);
+			spin_unlock_irqrestore(&req->done_status_lock, flags);
 
 			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
 				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
@@ -582,9 +583,9 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			 * in previous mtk_cam_dequeue_req_frame() but can be
 			 * removed since another ctx is stream off cases.
 			 */
-			spin_lock(&req->done_status_lock);
+			spin_lock_irqsave(&req->done_status_lock, flags);
 			if (req->done_status & 1 << pipe_id) {
-				spin_unlock(&req->done_status_lock);
+				spin_unlock_irqrestore(&req->done_status_lock, flags);
 				result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
 				dev_dbg(ctx->cam->dev,
 					"req:%d, time:%lld drop, ctx:%d, pipe:%d\n",
@@ -592,7 +593,7 @@ bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 					ctx->stream_id, pipe_id);
 				continue;
 			}
-			spin_unlock(&req->done_status_lock);
+			spin_unlock_irqrestore(&req->done_status_lock, flags);
 
 			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
 				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
