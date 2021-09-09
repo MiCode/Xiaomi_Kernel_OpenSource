@@ -36,9 +36,7 @@
 #include "u_os_desc.h"
 #include "configfs.h"
 
-#ifdef CONFIG_MEDIATEK_SOLUTION
 #include "usb_boost.h"
-#endif
 
 #define FUNCTIONFS_MAGIC	0xa647361 /* Chosen by a honest dice roll ;) */
 
@@ -991,10 +989,9 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		}
 	}
 
-#ifdef CONFIG_MEDIATEK_SOLUTION
 	if (!strncmp(epfile->ffs->dev_name, "mtp", 3))
 		usb_boost();
-#endif
+
 	spin_lock_irq(&epfile->ffs->eps_lock);
 
 	if (epfile->ep != ep) {
