@@ -330,7 +330,9 @@ struct venc_enc_param {
 	unsigned int qp_control_mode;
 	unsigned int ip_qpdelta;
 	unsigned int dummynal;
+	unsigned int slbc_addr;
 	char set_vcp_buf[1024];
+	char property_buf[1024];
 };
 
 /*
@@ -481,6 +483,7 @@ struct mtk_vcodec_ctx {
 	struct mutex worker_lock;
 	struct slbc_data sram_data;
 	int use_slbc;
+	unsigned int slbc_addr;
 };
 
 /*

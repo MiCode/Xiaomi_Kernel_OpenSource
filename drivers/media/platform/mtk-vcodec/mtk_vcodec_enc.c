@@ -1110,6 +1110,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->max_h = enc_params->max_h;
 	param->num_b_frame = enc_params->num_b_frame;
 	param->slbc_ready = ctx->use_slbc;
+	param->slbc_addr = ctx->slbc_addr;
 	param->i_qp = enc_params->i_qp;
 	param->p_qp = enc_params->p_qp;
 	param->b_qp = enc_params->b_qp;

@@ -33,15 +33,19 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	ctx->sram_data.size = 0;
 	ctx->sram_data.flag = FG_POWER;
 
-	if (slbc_request(&ctx->sram_data) >= 0)
+	if (slbc_request(&ctx->sram_data) >= 0) {
 		ctx->use_slbc = 1;
-	else
+		ctx->slbc_addr = (unsigned int)(unsigned long)ctx->sram_data.paddr;
+	} else
 		ctx->use_slbc = 0;
 
-	/* temp disable slbc */
-	ctx->use_slbc = 0;
+	if (ctx->slbc_addr % 256 != 0 || ctx->slbc_addr == 0) {
+		pr_info("slbc_addr error 0x%x\n", ctx->slbc_addr);
+		ctx->use_slbc = 0;
+	}
 
-	pr_debug("slbc_request %d, %p\n", &ctx->sram_data, ctx->use_slbc);
+	pr_info("slbc_request %p, 0x%x, 0x%llx\n",
+	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr);
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
