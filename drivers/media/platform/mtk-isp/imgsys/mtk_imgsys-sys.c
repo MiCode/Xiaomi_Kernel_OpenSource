@@ -723,7 +723,7 @@ static void cmdq_cb_done_worker(struct work_struct *work)
 	wake_up_interruptible(&frm_info_waitq);
 
 release_work:
-	vfree(gwork);
+	return;
 }
 
 /* Maybe in IRQ context of cmdq */
@@ -736,7 +736,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	//struct swfrm_info_t *frm_info_cb;
 	struct swfrm_info_t *swfrminfo_cb;
 	struct imgsys_event_status ev;
-	struct gce_cb_work *gwork = NULL;
+	struct gce_cb_work gwork;
 	bool need_notify_daemon = false;
 	bool lastfrmInMWReq = false;
 
@@ -956,14 +956,12 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 
 		if (need_notify_daemon) {
-			gwork = vzalloc(sizeof(struct gce_cb_work));
-			gwork->req = req;
+			gwork.req = req;
 			//memcpy((void *)(&(gwork->user_info)), (void *)(&(frm_info_cb->user_info)),
 			//	sizeof(struct img_swfrm_info));
-			gwork->req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
-			gwork->pipe = swfrminfo_cb->pipe;
-			INIT_WORK(&gwork->work, cmdq_cb_done_worker);
-			queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq, &gwork->work);
+			gwork.req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
+			gwork.pipe = swfrminfo_cb->pipe;
+			cmdq_cb_done_worker(&gwork.work);
 		}
 	}
 
