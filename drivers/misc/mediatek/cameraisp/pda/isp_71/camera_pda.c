@@ -115,6 +115,11 @@ unsigned int g_rgn_h_buf[45];
 unsigned int g_rgn_w_buf[45];
 unsigned int g_rgn_iw_buf[45];
 
+// buffer mmu
+struct pda_mmu g_image_mmu;
+struct pda_mmu g_table_mmu;
+struct pda_mmu g_output_mmu;
+
 #ifdef FOR_DEBUG
 // buffer address
 unsigned int *g_buf_LI_va;
@@ -208,7 +213,7 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
 	/* consumer device starting work*/
 	pm_runtime_put_sync(g_dev2); //Note: It‘s not larb's device.
 	pm_runtime_put_sync(g_dev1); //Note: It‘s not larb's device.
-	LOG_INF("pm_runtime_put done\n");
+	LOG_INF("pm_runtime_put_sync done\n");
 #endif
 }
 
@@ -339,20 +344,33 @@ err_attach:
 	return -1;
 }
 
+static void pda_put_dma_buffer(struct pda_mmu *mmu)
+{
+	if (mmu->attach == NULL || mmu->sgt == NULL) {
+		LOG_INF("attach or sgt is null, no need to free iova\n");
+		return;
+	}
+
+	if (mmu->dma_buf) {
+		dma_buf_unmap_attachment(mmu->attach, mmu->sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach(mmu->dma_buf, mmu->attach);
+		dma_buf_put(mmu->dma_buf);
+	}
+}
+
 static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 {
 	int ret = 0;
-	struct pda_mmu mmu;
 	unsigned long nAddress;
 	int i = 0;
 
 	// Left image buffer
-	ret = pda_get_dma_buffer(&mmu, pda_PdaConfig->FD_L_Image);
+	ret = pda_get_dma_buffer(&g_image_mmu, pda_PdaConfig->FD_L_Image);
 	if (ret < 0) {
 		LOG_INF("Left image, pda_get_dma_buffer fail!\n");
 		return ret;
 	}
-	nAddress = (unsigned long) sg_dma_address(mmu.sgt->sgl);
+	nAddress = (unsigned long) sg_dma_address(g_image_mmu.sgt->sgl);
 	pda_PdaConfig->PDA_PDAI_P1_BASE_ADDR = (unsigned int)nAddress;
 	for (i = 0; i < g_PDA_quantity; i++) {
 		m_pda_base = PDA_devs[i].m_pda_base;
@@ -363,7 +381,7 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	LOG_INF("Left image MVA MSB = 0x%x\n", PDA_RD32(PDA_PDAI_P1_BASE_ADDR_MSB_REG));
 	LOG_INF("Left image whole MVA = 0x%lx\n", nAddress);
 	// get kernel va
-	g_buf_LI_va = dma_buf_vmap(mmu.dma_buf);
+	g_buf_LI_va = dma_buf_vmap(g_image_mmu.dma_buf);
 	if (!g_buf_LI_va) {
 		LOG_INF("Left image map failed\n");
 		return -1;
@@ -391,12 +409,12 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 #endif
 
 	// Left table buffer
-	ret = pda_get_dma_buffer(&mmu, pda_PdaConfig->FD_L_Table);
+	ret = pda_get_dma_buffer(&g_table_mmu, pda_PdaConfig->FD_L_Table);
 	if (ret < 0) {
 		LOG_INF("Left table, pda_get_dma_buffer fail!\n");
 		return ret;
 	}
-	nAddress = (unsigned long) sg_dma_address(mmu.sgt->sgl);
+	nAddress = (unsigned long) sg_dma_address(g_table_mmu.sgt->sgl);
 	pda_PdaConfig->PDA_PDATI_P1_BASE_ADDR = (unsigned int)nAddress;
 	for (i = 0; i < g_PDA_quantity; i++) {
 		m_pda_base = PDA_devs[i].m_pda_base;
@@ -407,7 +425,7 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	LOG_INF("Left table MVA MSB = 0x%x\n", PDA_RD32(PDA_PDATI_P1_BASE_ADDR_MSB_REG));
 	LOG_INF("Left table whole MVA = 0x%lx\n", nAddress);
 	// get kernel va
-	g_buf_LT_va = dma_buf_vmap(mmu.dma_buf);
+	g_buf_LT_va = dma_buf_vmap(g_table_mmu.dma_buf);
 	if (!g_buf_LT_va) {
 		LOG_INF("Left table map failed\n");
 		return -1;
@@ -440,17 +458,16 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 {
 	int ret = 0;
-	struct pda_mmu mmu;
 	unsigned long nAddress;
 	int i = 0;
 
 	// Output buffer
-	ret = pda_get_dma_buffer(&mmu, pda_PdaConfig->FD_Output);
+	ret = pda_get_dma_buffer(&g_output_mmu, pda_PdaConfig->FD_Output);
 	if (ret < 0) {
 		LOG_INF("Output, pda_get_dma_buffer fail!\n");
 		return ret;
 	}
-	nAddress = (unsigned long) sg_dma_address(mmu.sgt->sgl);
+	nAddress = (unsigned long) sg_dma_address(g_output_mmu.sgt->sgl);
 	pda_PdaConfig->PDA_PDAO_P1_BASE_ADDR = (unsigned int)nAddress;
 	for (i = 0; i < g_PDA_quantity; i++) {
 		m_pda_base = PDA_devs[i].m_pda_base;
@@ -461,7 +478,7 @@ static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	LOG_INF("Output MVA MSB = 0x%x\n", PDA_RD32(PDA_PDAO_P1_BASE_ADDR_MSB_REG));
 	LOG_INF("Output whole MVA = 0x%lx\n", nAddress);
 	// get kernel va
-	g_buf_Out_va = dma_buf_vmap(mmu.dma_buf);
+	g_buf_Out_va = dma_buf_vmap(g_output_mmu.dma_buf);
 	if (!g_buf_Out_va) {
 		LOG_INF("Output map failed\n");
 		return -1;
@@ -1145,14 +1162,14 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		if (Get_Input_Addr_From_DMABUF(&pda_Pdadata) < 0) {
 			pda_Pdadata.Status = -26;
 			LOG_INF("Get_Input_Addr_From_DMABUF fail\n");
-			goto EXIT;
+			goto EXIT_WITHOUT_FREE_IOVA;
 		}
 
 			// output buffer mapping iova
 		if (Get_Output_Addr_From_DMABUF(&pda_Pdadata) < 0) {
 			pda_Pdadata.Status = -27;
 			LOG_INF("Get_Output_Addr_From_DMABUF fail\n");
-			goto EXIT;
+			goto INPUT_BUFFER_FREE_IOVA;
 		}
 
 		// PDA HW and DMA setting
@@ -1272,6 +1289,24 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		}
 //////////////////////////////////////////////////////////////////////////////
 EXIT:
+		// free output iova
+#ifdef FOR_DEBUG
+		LOG_INF("free output iova\n");
+#endif
+		pda_put_dma_buffer(&g_output_mmu);
+
+INPUT_BUFFER_FREE_IOVA:
+		//free input iova
+#ifdef FOR_DEBUG
+		LOG_INF("free input iova\n");
+#endif
+		pda_put_dma_buffer(&g_image_mmu);
+		pda_put_dma_buffer(&g_table_mmu);
+
+EXIT_WITHOUT_FREE_IOVA:
+#ifdef FOR_DEBUG
+		LOG_INF("Exit\n");
+#endif
 
 #ifdef GET_PDA_TIME
 		// for compute pda process time
