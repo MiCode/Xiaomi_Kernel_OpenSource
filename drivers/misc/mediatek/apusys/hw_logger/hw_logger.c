@@ -152,8 +152,8 @@ static int hw_logger_buf_alloc(struct device *dev)
 		goto out;
 	}
 
-	HWLOGR_DBG("local_log_buf = 0x%llx\n", (unsigned long long)local_log_buf);
-	HWLOGR_DBG("hw_log_buf = 0x%llx, hw_log_buf_addr = 0x%llx\n",
+	HWLOGR_INFO("local_log_buf = 0x%llx\n", (unsigned long long)local_log_buf);
+	HWLOGR_INFO("hw_log_buf = 0x%llx, hw_log_buf_addr = 0x%llx\n",
 		(unsigned long long)hw_log_buf, hw_log_buf_addr);
 
 out:
@@ -199,6 +199,8 @@ static unsigned long long get_w_ptr(void)
 		 * return 0 here, it will not pass
 		 * sanity check in __apu_logtop_copy_buf()
 		 */
+		HWLOGR_WARN("st_addr = 0x%x, t_size = 0x%x\n",
+			st_addr, t_size);
 		return 0;
 	}
 
@@ -317,7 +319,7 @@ static int __apu_logtop_copy_buf(unsigned int w_ofs,
 	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
 
 	if (w_ofs + HWLOG_LINE_MAX_LENS > t_size ||
-		r_ofs + HWLOG_LINE_MAX_LENS > t_size || t_size == 0) {
+		r_ofs + HWLOG_LINE_MAX_LENS > t_size || t_size == 0 || t_size > HWLOGR_LOG_SIZE) {
 		HWLOGR_WARN("w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n", w_ofs, r_ofs, t_size);
 		return 0;
 	}
@@ -1254,15 +1256,19 @@ static int hw_logger_probe(struct platform_device *pdev)
 
 remove_hw_log_buf:
 	kfree(hw_log_buf);
-#ifdef HW_LOG_ISR
+	hw_log_buf = NULL;
 	kfree(local_log_buf);
-#endif
+	local_log_buf = NULL;
 
 remove_ioremap:
-	if (apu_logtop)
+	if (apu_logtop) {
 		iounmap(apu_logtop);
-	if (apu_mbox)
+		apu_logtop = NULL;
+	}
+	if (apu_mbox) {
 		iounmap(apu_mbox);
+		apu_mbox = NULL;
+	}
 
 #ifdef HW_LOG_SYSFS_BIN
 remove_sysfs:
@@ -1281,6 +1287,8 @@ static int hw_logger_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	HWLOGR_INFO("in\n");
+
 	flush_workqueue(apusys_hwlog_wq);
 	destroy_workqueue(apusys_hwlog_wq);
 	hw_logger_remove_procfs(dev);
@@ -1288,8 +1296,19 @@ static int hw_logger_remove(struct platform_device *pdev)
 	hw_logger_remove_sysfs(dev);
 #endif
 	dma_unmap_single(dev, hw_log_buf_addr, HWLOGR_LOG_SIZE, DMA_FROM_DEVICE);
+
 	kfree(hw_log_buf);
+	hw_log_buf = NULL;
 	kfree(local_log_buf);
+	local_log_buf = NULL;
+
+	iounmap(apu_logtop);
+	apu_logtop = NULL;
+
+	if (apu_mbox) {
+		iounmap(apu_mbox);
+		apu_mbox = NULL;
+	}
 
 	return 0;
 }
