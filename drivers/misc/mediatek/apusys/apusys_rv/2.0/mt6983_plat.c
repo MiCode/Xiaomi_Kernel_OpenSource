@@ -221,15 +221,13 @@ static void apu_start_mp(struct mtk_apu *apu)
 		iowrite32(0x0, apu->apu_ao_ctl + MD32_RUNSTALL);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
 
-		if ((apu->platdata->flags & F_PRELOAD_FIRMWARE) == 0) {
-			usleep_range(0, 1000);
+		if ((apu->platdata->flags & F_SECURE_BOOT) == 0)
 			for (i = 0; i < 20; i++) {
 				dev_info(dev, "apu boot: pc=%08x, sp=%08x\n",
 				ioread32(apu->md32_sysctrl + 0x838),
 						ioread32(apu->md32_sysctrl+0x840));
-				usleep_range(0, 1000);
+				usleep_range(0, 20);
 			}
-		}
 	}
 }
 

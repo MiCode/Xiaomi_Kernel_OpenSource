@@ -21,6 +21,8 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 
+#include <mt-plat/aee.h>
+
 #include "apu.h"
 #include "apu_debug.h"
 #include "apu_excep.h"
@@ -110,17 +112,19 @@ static int __apu_run(struct rproc *rproc)
 	ret = wait_event_interruptible_timeout(
 					run->wq,
 					run->signaled,
-					msecs_to_jiffies(2000));
+					msecs_to_jiffies(10000));
 
 	ktime_get_ts64(&end);
 
 	if (ret == 0) {
 		dev_info(dev, "APU initialization timeout!!\n");
 		ret = -ETIME;
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
 		goto stop;
 	}
 	if (ret == -ERESTARTSYS) {
 		dev_info(dev, "wait APU interrupted by a signal!!\n");
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
 		goto stop;
 	}
 
