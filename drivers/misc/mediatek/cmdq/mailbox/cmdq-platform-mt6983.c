@@ -78,7 +78,11 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		switch (event) {
 		case CMDQ_EVENT_VENC2_EVENT_0 ... CMDQ_EVENT_VENC1_EVENT_16:
 			return "VENC";
-		case CMDQ_EVENT_VDEC2_EVENT_0 ... CMDQ_EVENT_VDEC1_EVENT_31:
+		case CMDQ_EVENT_VDEC2_EVENT_0 ... CMDQ_EVENT_VDEC1_EVENT_15:
+			return "VDEC";
+		case CMDQ_EVENT_VDEC1_EVENT_16 ... CMDQ_EVENT_VDEC1_EVENT_23:
+			return "VFMT";
+		case CMDQ_EVENT_VDEC1_EVENT_24 ... CMDQ_EVENT_VDEC1_EVENT_31:
 			return "VDEC";
 		case CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0
 			... CMDQ_EVENT_IMG_TRAW0_DIP_DMA_ERR_EVENT:
