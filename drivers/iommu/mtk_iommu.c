@@ -558,6 +558,8 @@ static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 	}
 }
 
+static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data);
+
 static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 {
 	u32 tlb_en = readl_relaxed(data->base + REG_MMU_INVALIDATE);
@@ -566,10 +568,20 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	pr_info("%s in, range:%d, tlb_en:0x%x, cpe_done:%d\n", __func__, range, tlb_en, cpe_done);
 	/* check tlb inv enable bit */
 	if (range && (tlb_en & F_MMU_INV_RANGE)) {
-		pr_warn("%s, TLB flush Range timed out, need to extend time!!\n", __func__);
+		pr_warn("%s, TLB flush Range timed out, need to extend time!!(%d, %d)\n", __func__,
+			data->plat_data->iommu_type, data->plat_data->iommu_id);
+		__mtk_dump_reg_for_hang_issue(data);
+		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
+			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
+			readl_relaxed(data->base + REG_MMU_CPE_DONE));
 		return;
 	} else if (!range && (tlb_en & F_ALL_INVLD)) {
-		pr_warn("%s, TLB flush All timed out, need to extend time!!\n", __func__);
+		pr_warn("%s, TLB flush All timed out, need to extend time!!(%d, %d)\n", __func__,
+			data->plat_data->iommu_type, data->plat_data->iommu_id);
+		__mtk_dump_reg_for_hang_issue(data);
+		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
+			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
+			readl_relaxed(data->base + REG_MMU_CPE_DONE));
 		return;
 	}
 	/* check tlb inv done bit */
@@ -612,14 +624,16 @@ static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 			u32 sync_en = ctrl_reg & F_MMU_SYNC_INVLDT_EN;
 
 			if (!sync_en) {
-				dev_info(data->dev, "skip flush all polling, 0x%x\n", ctrl_reg);
+				pr_info("skip flush all polling, 0x%x, (%d, %d)\n", ctrl_reg,
+					data->plat_data->iommu_type, data->plat_data->iommu_id);
 				goto skip_polling;
 			}
 			/* tlb sync */
 			ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
 							tmp, tmp != 0, 10, 1000);
 			if (ret) {
-				dev_warn(data->dev, "TLB flush All timed out\n");
+				pr_warn("TLB flush All timed out, (%d, %d)\n",
+					data->plat_data->iommu_type, data->plat_data->iommu_id);
 				mtk_iommu_tlb_flush_check(data, false);
 			}
 			/* Clear the CPE status */
@@ -677,8 +691,8 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
 						tmp, tmp != 0, 10, 1000);
 		if (ret) {
-			dev_warn(data->dev,
-				 "Partial TLB flush timed out, Falling back to Flush All\n");
+			pr_warn("Partial TLB flush timed out, (%d, %d)\n",
+				data->plat_data->iommu_type, data->plat_data->iommu_id);
 			if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN))
 				mtk_iommu_tlb_flush_check(data, true);
 			else
@@ -2143,7 +2157,8 @@ static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 	}
 
 	base = data->base;
-
+	pr_info("%s start, (%d, %d)\n", __func__, data->plat_data->iommu_type,
+		data->plat_data->iommu_id);
 	/* control register */
 	pr_info("REG_MMU_PT_BASE_ADDR(0x000)	   = 0x%x\n",
 		readl_relaxed(base + REG_MMU_PT_BASE_ADDR));
@@ -2185,6 +2200,8 @@ static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 	if (ret)
 		pr_err("%s, failed to disable secure debug\n", __func__);
 #endif
+	pr_info("%s done, (%d, %d)\n", __func__, data->plat_data->iommu_type,
+		data->plat_data->iommu_id);
 }
 
 void mtk_dump_reg_for_hang_issue(uint32_t type)
