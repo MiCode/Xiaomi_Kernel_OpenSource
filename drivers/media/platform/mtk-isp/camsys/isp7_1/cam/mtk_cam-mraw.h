@@ -6,6 +6,8 @@
 #ifndef __MTK_CAM_MRAW_H
 #define __MTK_CAM_MRAW_H
 
+#include <linux/suspend.h>
+
 #include "mtk_cam-video.h"
 #include "mtk_cam-meta.h"
 
@@ -237,6 +239,7 @@ struct mtk_mraw_device {
 	spinlock_t spinlock_irq;
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
+	struct notifier_block notifier_blk;
 };
 
 struct mtk_mraw {
