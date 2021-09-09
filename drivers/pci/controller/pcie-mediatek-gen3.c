@@ -6,6 +6,7 @@
  * Author: Jianjun Wang <jianjun.wang@mediatek.com>
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
@@ -21,6 +22,7 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "../pci.h"
 
@@ -795,8 +797,12 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	port->reg_base = regs->start;
 
 	port->port_num = of_get_pci_domain_nr(dev->of_node);
-	if (port->port_num >= 0)
-		dev_info(dev, "host bridge domain number %d\n", port->port_num);
+	if (port->port_num < 0) {
+		dev_info(dev, "failed to get domain number\n");
+		return port->port_num;
+	}
+
+	dev_info(dev, "host bridge domain number %d\n", port->port_num);
 
 	port->phy_reset = devm_reset_control_get_optional_exclusive(dev, "phy");
 	if (IS_ERR(port->phy_reset)) {
@@ -834,10 +840,43 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	return 0;
 }
 
+static int mtk_pcie_peri_reset_clr(struct mtk_pcie_port *port)
+{
+	struct arm_smccc_res res;
+	struct device *dev = port->dev;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_PCIE_CONTROL, port->port_num, 0,
+		      0, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		dev_info(dev, "Can't clear sw reset bit through SMC call\n");
+		return res.a0;
+	}
+}
+
+static int mtk_pcie_peri_reset_set(struct mtk_pcie_port *port)
+{
+	struct arm_smccc_res res;
+	struct device *dev = port->dev;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_PCIE_CONTROL, port->port_num, 1,
+		      0, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		dev_info(dev, "Can't set sw reset through SMC call\n");
+		return res.a0;
+	}
+}
+
 static int mtk_pcie_power_up(struct mtk_pcie_port *port)
 {
 	struct device *dev = port->dev;
 	int err;
+
+	/* Clear PCIe sw reset bit */
+	err = mtk_pcie_peri_reset_clr(port);
+	if (err) {
+		dev_info(dev, "failed to clear PERI reset control bit\n");
+		return err;
+	}
 
 	/* PHY power on and enable pipe clock */
 	reset_control_deassert(port->phy_reset);
@@ -891,7 +930,11 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 
 	phy_power_off(port->phy);
 	phy_exit(port->phy);
+
 	reset_control_assert(port->phy_reset);
+
+	/* Set PCIe sw reset bit */
+	mtk_pcie_peri_reset_set(port);
 }
 
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
