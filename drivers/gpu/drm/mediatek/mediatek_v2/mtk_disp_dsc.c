@@ -212,7 +212,8 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 
 	/* Bypass shadow register and read shadow register */
 	if (dsc->data->need_bypass_shadow) {
-		if (priv->data->mmsys_id == MMSYS_MT6983)
+		if (priv->data->mmsys_id == MMSYS_MT6983 ||
+			priv->data->mmsys_id == MMSYS_MT6895)
 			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
 				MT6983_DISP_REG_SHADOW_CTRL, DSC_BYPASS_SHADOW);
 		else
@@ -776,6 +777,12 @@ static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
 	.need_obuf_sw = true,
 };
 
+static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.need_obuf_sw = false,
+};
+
 static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
@@ -796,6 +803,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6885_dsc_driver_data},
 	{ .compatible = "mediatek,mt6983-disp-dsc",
 	  .data = &mt6983_dsc_driver_data},
+	{ .compatible = "mediatek,mt6895-disp-dsc",
+	  .data = &mt6895_dsc_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-dsc",
 	  .data = &mt6873_dsc_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-dsc",

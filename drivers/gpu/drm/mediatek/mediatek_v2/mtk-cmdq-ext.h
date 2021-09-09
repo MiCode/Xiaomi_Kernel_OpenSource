@@ -322,6 +322,7 @@ void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 	const u32 count);
 
 void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt);
+void cmdq_set_outpin_event(struct cmdq_client *cl, bool ena);
 
 u32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src);
 

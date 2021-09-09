@@ -296,7 +296,11 @@ u32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 		comp = private->ddp_comp[i];
 		if (comp->regs_pa == (pa & (~DISP_COMP_REG_ADDR_MASK))) {
 			va = comp->regs + (pa & DISP_COMP_REG_ADDR_MASK);
+			if (mask != 0xffffffff)
+				value = ((readl(va) & ~mask) | (value & mask));
 			writel(value, va);
+			DDPDBG("%s:0x%x, va:0x%x, value:0x%x\n",
+				__func__, pa, va, value);
 			return 0;
 		}
 	}
@@ -321,11 +325,13 @@ u32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 			regs_addr->regs_pa = pa;
 			list_add_tail(&regs_addr->list, &addr_head);
 		}
-		DDPDBG("%s:%x, va:%u\n",
-			__func__, pa, va);
 	}
-
+	if (mask != 0xffffffff)
+		value = ((readl(va) & ~mask) | (value & mask));
 	writel(value, va);
+	DDPDBG("%s:0x%x, va:0x%x, value:0x%x\n",
+		__func__, pa, va, value);
+
 	return 0;
 }
 //EXPORT_SYMBOL(cmdq_pkt_write);
@@ -425,7 +431,15 @@ u32 cmdq_pkt_flush(struct cmdq_pkt *pkt)
 	return 0;
 }
 //EXPORT_SYMBOL(cmdq_pkt_flush);
+
 void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt)
 {
 }
 //EXPORT_SYMBOL(cmdq_reuse_refresh);
+
+void cmdq_set_outpin_event(struct cmdq_client *cl, bool ena)
+{
+
+}
+//EXPORT_SYMBOL(cmdq_set_outpin_event);
+

@@ -335,6 +335,10 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define MT6983_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
 #define MT6983_OVL1_2L_NWCG_AID_SEL (0xB10UL)
 
+#define MT6895_OVL0_AID_SEL	(0xB00UL)
+#define MT6895_OVL0_2L_AID_SEL	(0xB04UL)
+#define MT6895_OVL1_2L_AID_SEL	(0xB08UL)
+
 #define SMI_LARB_NON_SEC_CON        0x380
 
 #define MML_SRAM_SHIFT (512*1024)
@@ -536,6 +540,24 @@ unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL1_2L_NWCG:
 	case DDP_COMPONENT_OVL3_2L_NWCG:
 		return MT6983_OVL1_2L_NWCG_AID_SEL;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
+unsigned int mtk_ovl_aid_sel_MT6895(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL1:
+		return MT6895_OVL0_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL2_2L:
+		return MT6895_OVL0_2L_AID_SEL;
+	case DDP_COMPONENT_OVL1_2L:
+	case DDP_COMPONENT_OVL3_2L:
+		return MT6895_OVL1_2L_AID_SEL;
 	default:
 		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
 		return 0;
@@ -3625,6 +3647,28 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983,
 };
 
+static const struct compress_info compr_info_mt6895  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6895_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x10,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6895,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x15e,
+	.fifo_size = 384,
+	.issue_req_th_dl = 255,
+	.issue_req_th_urg_dl = 127,
+	.greq_num_dl = 0x7777,
+	.is_support_34bits = true,
+	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6895,
+};
 
 static const struct compress_info compr_info_mt6873  = {
 	.name = "AFBC_V1_2_MTK_1",
@@ -3737,6 +3781,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6885_ovl_driver_data},
 	{.compatible = "mediatek,mt6983-disp-ovl",
 	 .data = &mt6983_ovl_driver_data},
+	{.compatible = "mediatek,mt6895-disp-ovl",
+	 .data = &mt6895_ovl_driver_data},
 	{.compatible = "mediatek,mt6873-disp-ovl",
 	 .data = &mt6873_ovl_driver_data},
 	{.compatible = "mediatek,mt6853-disp-ovl",

@@ -271,6 +271,15 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 			mtk_dump_reg(comp);
 		break;
+	case MMSYS_MT6895:
+		mmsys_config_dump_reg_mt6895(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs)
+			mmsys_config_dump_reg_mt6895(mtk_crtc->side_config_regs);
+		mutex_dump_reg_mt6895(mtk_crtc->mutex[0]);
+
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+			mtk_dump_reg(comp);
+		break;
 	case MMSYS_MT6873:
 	case MMSYS_MT6853:
 	case MMSYS_MT6833:
@@ -396,6 +405,21 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 			mmsys_config_dump_analysis_mt6983(mtk_crtc->side_config_regs);
 		}
 		mutex_dump_analysis_mt6983(mtk_crtc->mutex[0]);
+		if (mtk_crtc->is_dual_pipe) {
+			DDPDUMP("anlysis dual pipe\n");
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				mtk_dump_analysis(comp);
+				mtk_dump_reg(comp);
+			}
+		}
+		break;
+	case MMSYS_MT6895:
+		mmsys_config_dump_analysis_mt6895(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("DUMP DISPSYS1\n");
+			mmsys_config_dump_analysis_mt6895(mtk_crtc->side_config_regs);
+		}
+		mutex_dump_analysis_mt6895(mtk_crtc->mutex[0]);
 		if (mtk_crtc->is_dual_pipe) {
 			DDPDUMP("anlysis dual pipe\n");
 			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
@@ -2274,6 +2298,39 @@ static unsigned int dual_comp_map_mt6983(unsigned int comp_id)
 	return ret;
 }
 
+static unsigned int dual_comp_map_mt6895(unsigned int comp_id)
+{
+	unsigned int ret = 0;
+
+	switch (comp_id) {
+	case DDP_COMPONENT_OVL0:
+		ret = DDP_COMPONENT_OVL1;
+		break;
+	case DDP_COMPONENT_OVL0_2L:
+		ret = DDP_COMPONENT_OVL2_2L;
+		break;
+	case DDP_COMPONENT_OVL1_2L:
+		ret = DDP_COMPONENT_OVL3_2L;
+		break;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		ret = DDP_COMPONENT_OVL2_2L_NWCG;
+		break;
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+		ret = DDP_COMPONENT_OVL3_2L_NWCG;
+		break;
+	case DDP_COMPONENT_AAL0:
+		ret = DDP_COMPONENT_AAL1;
+		break;
+	case DDP_COMPONENT_WDMA0:
+		ret = DDP_COMPONENT_WDMA2;
+		break;
+	default:
+		DDPMSG("unknown comp %u for %s\n", comp_id, __func__);
+	}
+
+	return ret;
+}
+
 unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id)
 {
 	unsigned int ret = 0;
@@ -2281,6 +2338,9 @@ unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id)
 	switch (mmsys_id) {
 	case MMSYS_MT6983:
 		ret = dual_comp_map_mt6983(comp_id);
+		break;
+	case MMSYS_MT6895:
+		ret = dual_comp_map_mt6895(comp_id);
 		break;
 	case MMSYS_MT6885:
 		ret = dual_comp_map_mt6885(comp_id);
@@ -3526,6 +3586,7 @@ static void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
 }
 
 #ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef DRM_CMDQ_DISABLE
 static void mtk_crtc_exec_atf_prebuilt_instr(struct mtk_drm_crtc *mtk_crtc,
 			   struct cmdq_pkt *handle)
 {
@@ -3543,6 +3604,7 @@ static void mtk_crtc_exec_atf_prebuilt_instr(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_util_enable_disp_va();
 }
 #endif
+#endif
 
 void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 			   struct cmdq_pkt *handle)
@@ -3555,11 +3617,14 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 		mtk_crtc_fill_fb_para(mtk_crtc);
 
 #ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef DRM_CMDQ_DISABLE
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
-		priv->data->mmsys_id == MMSYS_MT6879) {
+		priv->data->mmsys_id == MMSYS_MT6879 ||
+		priv->data->mmsys_id == MMSYS_MT6895) {
 		/*set smi_larb_sec_con reg as 1*/
 		mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);
 	}
+#endif
 #endif
 
 	mtk_crtc_enable_iommu(mtk_crtc, handle);
@@ -4019,6 +4084,8 @@ void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
 	cmdq_pkt_flush_async(cmdq_handle, NULL, (void *)crtc_id);
 }
 
+#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef DRM_CMDQ_DISABLE
 static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 		struct mtk_drm_crtc *mtk_crtc)
 {
@@ -4084,6 +4151,8 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	*inst = *inst & ((u64)0xFFFFFFFF << 32);
 	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
 }
+#endif
+#endif
 
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 {
@@ -4285,7 +4354,11 @@ void trigger_without_cmdq(struct drm_crtc *crtc)
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+#endif
 
+	DDPDBG("%s+\n",	__func__);
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* wait for TE, fpga no TE signal */
 	drm_wait_one_vblank(priv->drm, 0);
 #endif
@@ -4299,6 +4372,8 @@ void trigger_without_cmdq(struct drm_crtc *crtc)
 		MTK_TRIG_FLAG_TRIGGER);
 	//loop for check idle of dsi, maybe timeout
 	mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle, MTK_TRIG_FLAG_EOF);
+
+	DDPDBG("%s-\n",	__func__);
 }
 #endif
 
@@ -4440,6 +4515,9 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 		case MMSYS_MT6983:
 			mtk_ddp_remove_dsc_prim_MT6983(mtk_crtc, handle);
 			break;
+		case MMSYS_MT6895:
+			mtk_ddp_remove_dsc_prim_MT6895(mtk_crtc, handle);
+			break;
 		case MMSYS_MT6873:
 			mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
 			break;
@@ -4534,6 +4612,9 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 			break;
 		case MMSYS_MT6873:
 			mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
+			break;
+		case MMSYS_MT6895:
+			mtk_ddp_insert_dsc_prim_MT6895(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6853:
 			mtk_ddp_insert_dsc_prim_MT6853(mtk_crtc, handle);
@@ -4987,8 +5068,10 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	cfg.bpc = mtk_crtc->bpc;
 	cfg.p_golden_setting_context = __get_golden_setting_context(mtk_crtc);
 
+#ifndef DRM_CMDQ_DISABLE
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
-		priv->data->mmsys_id == MMSYS_MT6879) {
+		priv->data->mmsys_id == MMSYS_MT6879 ||
+		priv->data->mmsys_id == MMSYS_MT6895) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
@@ -4997,6 +5080,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 		writel(0x1, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
 	}
+#endif
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -5632,8 +5716,9 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_config cfg = {0};
 	int i, j;
 	struct mtk_ddp_comp *output_comp;
+#ifndef DRM_CMDQ_DISABLE
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-
+#endif
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	cfg.w = crtc->mode.hdisplay;
@@ -5647,8 +5732,10 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	cfg.p_golden_setting_context =
 			__get_golden_setting_context(mtk_crtc);
 
+#ifndef DRM_CMDQ_DISABLE
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
-		priv->data->mmsys_id == MMSYS_MT6879) {
+		priv->data->mmsys_id == MMSYS_MT6879 ||
+		priv->data->mmsys_id == MMSYS_MT6895) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
@@ -5657,6 +5744,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		writel(0x1, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
 	}
+#endif
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);

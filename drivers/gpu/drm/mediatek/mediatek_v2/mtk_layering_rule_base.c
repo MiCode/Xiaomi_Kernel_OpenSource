@@ -1594,12 +1594,16 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			return DDP_COMPONENT_OVL2_2L;
 		else if (priv->data->mmsys_id == MMSYS_MT6983)
 			return DDP_COMPONENT_OVL2_2L_NWCG;
+		else if (priv->data->mmsys_id == MMSYS_MT6895)
+			return DDP_COMPONENT_OVL0_2L;
 	} else if (disp_idx == 2) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_VDS_PATH_SWITCH))
 			return DDP_COMPONENT_OVL0_2L;
 		else if (priv->data->mmsys_id == MMSYS_MT6983)
 			return DDP_COMPONENT_OVL1_2L_NWCG;
+		else if (priv->data->mmsys_id == MMSYS_MT6895)
+			return DDP_COMPONENT_OVL0_2L;
 		else
 			return DDP_COMPONENT_OVL2_2L;
 	}
@@ -2644,7 +2648,7 @@ static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layer_config *c = NULL;
 
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
-		c = & disp_info->input_config[disp_idx][i];
+		c = &disp_info->input_config[disp_idx][i];
 		if (MTK_MML_OVL_LAYER & c->layer_caps) {
 			c->layer_caps |= query_MML(dev, dev->dev_private,
 				(struct mml_frame_info *)c->mml_cfg);

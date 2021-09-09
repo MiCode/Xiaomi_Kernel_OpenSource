@@ -200,7 +200,10 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_DLI_ASYNC)                                       \
 /*130*/	EXPR(DDP_COMPONENT_INLINE_ROTATE)                                   \
 	EXPR(DDP_COMPONENT_MMLSYS_BYPASS)                                   \
-	EXPR(DDP_COMPONENT_ID_MAX)                                          \
+	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL)                     \
+	EXPR(DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL)                  \
+	EXPR(DDP_COMPONENT_SUB_OVL_DISP1_PQ0_VIRTUAL)					   \
+	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,
 #define DECLARE_STR(STR) #STR,
@@ -628,6 +631,8 @@ void mt6779_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
+void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6873_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
