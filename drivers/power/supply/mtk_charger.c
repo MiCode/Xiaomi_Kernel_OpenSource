@@ -2741,6 +2741,7 @@ static int psy_charger_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (chg == info->dvchg1_dev) {
+			val->intval = false;
 			alg = get_chg_alg_by_name("pe5");
 			if (alg == NULL)
 				chr_err("get pe5 fail\n");
@@ -2748,8 +2749,8 @@ static int psy_charger_get_property(struct power_supply *psy,
 				ret = chg_alg_is_algo_ready(alg);
 				if (ret == ALG_RUNNING)
 					val->intval = true;
-				break;
 			}
+			break;
 		}
 
 		val->intval = is_charger_exist(info);
