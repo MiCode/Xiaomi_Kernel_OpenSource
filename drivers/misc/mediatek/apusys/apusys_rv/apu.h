@@ -118,10 +118,10 @@ struct mtk_apu {
 
 	struct apusys_secure_info_t *apusys_sec_info;
 	struct apusys_aee_coredump_info_t *apusys_aee_coredump_info;
-	uint32_t apusys_sec_mem_start;
-	uint32_t apusys_sec_mem_size;
-	uint32_t apusys_aee_coredump_mem_start;
-	uint32_t apusys_aee_coredump_mem_size;
+	uint64_t apusys_sec_mem_start;
+	uint64_t apusys_sec_mem_size;
+	uint64_t apusys_aee_coredump_mem_start;
+	uint64_t apusys_aee_coredump_mem_size;
 
 	/* Buffer to place execution area */
 	void *code_buf;

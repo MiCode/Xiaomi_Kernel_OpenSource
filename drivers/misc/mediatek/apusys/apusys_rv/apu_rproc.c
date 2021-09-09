@@ -362,11 +362,11 @@ static int apu_probe(struct platform_device *pdev)
 				ret = -EINVAL;
 				goto out_free_rproc;
 			}
-			of_property_read_u32_index(apusys_sec_mem_node, "reg", 1,
+			of_property_read_u64_index(apusys_sec_mem_node, "reg", 0,
 				&(apu->apusys_sec_mem_start));
-			of_property_read_u32_index(apusys_sec_mem_node, "reg", 3,
+			of_property_read_u64_index(apusys_sec_mem_node, "reg", 1,
 				&(apu->apusys_sec_mem_size));
-			apu_drv_debug("%s: start = 0x%x, size = 0x%x\n",
+			apu_drv_debug("%s: start = 0x%llx, size = 0x%llx\n",
 				apusys_sec_mem_node->full_name, apu->apusys_sec_mem_start,
 				apu->apusys_sec_mem_size);
 			apu->apu_sec_mem_base = memremap(apu->apusys_sec_mem_start,
@@ -399,11 +399,11 @@ static int apu_probe(struct platform_device *pdev)
 			ret = -EINVAL;
 			goto out_free_rproc;
 		}
-		of_property_read_u32_index(apusys_aee_coredump_mem_node, "reg", 1,
+		of_property_read_u64_index(apusys_aee_coredump_mem_node, "reg", 0,
 			&(apu->apusys_aee_coredump_mem_start));
-		of_property_read_u32_index(apusys_aee_coredump_mem_node, "reg", 3,
+		of_property_read_u64_index(apusys_aee_coredump_mem_node, "reg", 1,
 			&(apu->apusys_aee_coredump_mem_size));
-		apu_drv_debug("%s: start = 0x%x, size = 0x%x\n",
+		apu_drv_debug("%s: start = 0x%llx, size = 0x%llx\n",
 			apusys_aee_coredump_mem_node->full_name,
 			apu->apusys_aee_coredump_mem_start,
 			apu->apusys_aee_coredump_mem_size);
