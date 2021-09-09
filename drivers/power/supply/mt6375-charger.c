@@ -7,6 +7,7 @@
 
 #include <linux/completion.h>
 #include <linux/iio/consumer.h>
+#include <linux/atomic.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
@@ -220,7 +221,7 @@ struct mt6375_chg_data {
 
 	enum power_supply_usb_type psy_usb_type;
 	bool pwr_rdy;
-	bool attach;
+	atomic_t attach;
 	bool bc12_dn;
 	bool batprotect_en;
 	u32 hm_use_cnt;
@@ -738,9 +739,7 @@ static void mt6375_chg_attach_pre_process(struct mt6375_chg_data *ddata,
 		       mt6375_attach_trig_names[trig]);
 		return;
 	}
-	mutex_lock(&ddata->attach_lock);
-	ddata->attach = attach;
-	mutex_unlock(&ddata->attach_lock);
+	atomic_set(&ddata->attach, attach);
 	if (!queue_work(ddata->wq, &ddata->bc12_work))
 		dev_notice(ddata->dev, "%s bc12 work already queued\n", __func__);
 }
@@ -801,7 +800,6 @@ static int mt6375_chg_enable_bc12(struct mt6375_chg_data *ddata, bool en)
 {
 	int i, ret;
 	static const int max_wait_cnt = 250;
-	bool attach;
 
 	mt_dbg(ddata->dev, "en=%d\n", en);
 	if (en) {
@@ -810,10 +808,7 @@ static int mt6375_chg_enable_bc12(struct mt6375_chg_data *ddata, bool en)
 		for (i = 0; i < max_wait_cnt; i++) {
 			if (is_usb_rdy(ddata->dev))
 				break;
-			mutex_lock(&ddata->attach_lock);
-			attach = ddata->attach;
-			mutex_unlock(&ddata->attach_lock);
-			if (!attach)
+			if (!atomic_read(&ddata->attach))
 				return 0;
 			msleep(100);
 		}
@@ -837,10 +832,12 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 						     struct mt6375_chg_data,
 						     bc12_work);
 	struct mt6375_chg_platform_data *pdata = dev_get_platdata(ddata->dev);
+	bool attach;
 
 	mutex_lock(&ddata->attach_lock);
-	mt_dbg(ddata->dev, "attach=%d\n", ddata->attach);
-	if (ddata->attach) {
+	attach = atomic_read(&ddata->attach);
+	mt_dbg(ddata->dev, "attach=%d\n", attach);
+	if (attach) {
 		if (pdata->boot_mode == 5) {
 			/* skip bc12 to speed up ADVMETA_BOOT */
 			dev_notice(ddata->dev, "force SDP in meta mode\n");
@@ -964,9 +961,7 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 		val->strval = MT6375_MANUFACTURER;
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
-		mutex_lock(&ddata->attach_lock);
-		val->intval = ddata->attach;
-		mutex_unlock(&ddata->attach_lock);
+		val->intval = atomic_read(&ddata->attach);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6375_chg_field_get(ddata, F_IC_STAT, &_val);
@@ -2511,6 +2506,7 @@ static int mt6375_chg_probe(struct platform_device *pdev)
 	mutex_init(&ddata->pe_lock);
 	mutex_init(&ddata->cv_lock);
 	mutex_init(&ddata->hm_lock);
+	atomic_set(&ddata->attach, 0);
 	atomic_set(&ddata->eoc_cnt, 0);
 	ddata->wq = create_singlethread_workqueue(dev_name(dev));
 	if (!ddata->wq) {
