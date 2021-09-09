@@ -4783,6 +4783,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct platform_device *side_pdev;
 	struct device *side_dev = NULL;
 	struct device_node *side_node = NULL;
+	struct device_node *aod_scp_node = NULL;
 
 	disp_dbg_probe();
 	PanelMaster_probe();
@@ -4893,6 +4894,13 @@ SKIP_SIDE_DISP:
 
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
+
+	/* Get AOD-SCP config */
+	aod_scp_node = of_find_node_by_name(NULL, "AOD_SCP_ON");
+	if (!aod_scp_node)
+		DDPMSG("%s AOD-SCP OFF\n", __func__);
+	else
+		DDPMSG("%s AOD-SCP ON\n", __func__);
 
 #ifdef MTK_DISP_MMQOS_SUPPORT
 	private->hrt_bw_request = of_mtk_icc_get(dev, "disp_hrt_qos");
