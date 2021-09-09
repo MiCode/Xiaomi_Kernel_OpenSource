@@ -1242,6 +1242,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 
 	if (!min_cap) {
 		fbt_clear_min_cap(thr);
+		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
+			0,	"perf idx");
+		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
+			100,	"perf_idx_max");
 		return;
 	}
 
