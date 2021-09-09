@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/task.h>
+#include <linux/sched/cputime.h>
 #include <linux/cpufreq.h>
 #include <linux/kobject.h>
 #include <linux/device.h>
@@ -60,7 +61,7 @@ static DEFINE_MUTEX(fpsgo_render_lock);
 
 long long fpsgo_task_sched_runtime(struct task_struct *p)
 {
-	return p->se.sum_exec_runtime;
+	return task_sched_runtime(p);
 }
 
 long fpsgo_sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
