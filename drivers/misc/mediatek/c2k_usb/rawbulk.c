@@ -181,8 +181,10 @@ static ssize_t rawbulk_attr_show(struct device *dev,
 
 	for (n = 0; n < _MAX_TID; n++) {
 		fn = rawbulk_lookup_function(n);
-		if (IS_ERR_OR_NULL(fn))
-			break;
+		if (IS_ERR_OR_NULL(fn)) {
+			C2K_ERR("Null or error rawbulk_function! (n = %d)\n", n);
+			return 0;
+		}
 		if (fn->dev == dev) {
 			idx = which_attr(fn, attr);
 			break;
