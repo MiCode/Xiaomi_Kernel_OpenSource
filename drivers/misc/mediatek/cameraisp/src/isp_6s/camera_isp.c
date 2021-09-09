@@ -6257,10 +6257,6 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		clkcnt = G_u4EnableClockCount[i];
 		spin_unlock(&(IspInfo.SpinLockClock));
 
-		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
-		for (j = 0; j < clkcnt; j++)
-			ISP_EnableClock(i, MFALSE);
-
 		/* Close VF when ISP_release */
 		/* reason of close vf is to make sure */
 		/* camera can serve regular after previous abnormal exit */
@@ -6286,6 +6282,10 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		 *  Next camera runs in single mode, and it will not update CQ0
 		 */
 		ISP_WR32(CAM_REG_CTL_TWIN_STATUS(i), 0x0);
+
+		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
+		for (j = 0; j < clkcnt; j++)
+			ISP_EnableClock(i, MFALSE);
 	}
 
 	for (i = RUNTIME_ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++) {
@@ -6301,13 +6301,13 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		clkcnt = G_u4EnableClockCount[i];
 		spin_unlock(&(IspInfo.SpinLockClock));
 
-		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
-		for (j = 0; j < clkcnt; j++)
-			ISP_EnableClock(i, MFALSE);
-
 		Reg = ISP_RD32(CAMSV_REG_TG_VF_CON(i));
 		Reg &= 0xfffffffE; /* close Vfinder */
 		ISP_WR32(CAMSV_REG_TG_VF_CON(i), Reg);
+
+		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
+		for (j = 0; j < clkcnt; j++)
+			ISP_EnableClock(i, MFALSE);
 	}
 
 	/* why i add this wake_unlock here, */
