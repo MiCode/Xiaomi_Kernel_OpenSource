@@ -236,8 +236,12 @@ endif
 endif
 
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6983.c),)
+obj-$(CONFIG_COMMON_CLK_MT6983) += clk-chk-mt6983.o
+clk-chk-mt6983-$(CONFIG_COMMON_CLK_MT6983) += clkchk-mt6983.o
 obj-$(CONFIG_COMMON_CLK_MT6983) += clk-fmeter-mt6983.o
 clk-fmeter-mt6983-$(CONFIG_COMMON_CLK_MT6983) += clk-fmeter-mt6983.o
+obj-$(CONFIG_COMMON_CLK_MT6983) += pd-chk-mt6983.o
+pd-chk-mt6983-$(CONFIG_COMMON_CLK_MT6983) += mtk-pd-chk-mt6983.o
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MT6983) += clk-dbg-mt6983.o
 clk-dbg-mt6983-$(CONFIG_COMMON_CLK_MT6983) += clkdbg-mt6983.o

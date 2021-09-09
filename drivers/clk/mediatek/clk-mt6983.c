@@ -326,8 +326,6 @@ static const struct mtk_fixed_factor top_divs[] = {
 		"apll2", 1, 4),
 	FACTOR(CLK_TOP_APLL2_D8, "apll2_d8",
 		"apll2", 1, 8),
-	FACTOR(CLK_TOP_EMIPLL, "emipll_ck",
-		"emipll", 1, 1),
 	FACTOR(CLK_TOP_IMGPLL_D2, "imgpll_d2",
 		"imgpll", 1, 2),
 	FACTOR(CLK_TOP_IMGPLL_D5, "imgpll_d5",
@@ -1423,20 +1421,6 @@ static const char * const aes_msdcfde_parents[] = {
 	"univpll_d6",
 };
 
-static const char * const emi_n_parents[] = {
-	"tck_26m_mx9_ck",
-	"mainpll_d6_d2",
-	"osc_d2",
-	"emipll_ck",
-};
-
-static const char * const emi_s_parents[] = {
-	"tck_26m_mx9_ck",
-	"mainpll_d6_d2",
-	"osc_d2",
-	"emipll_ck",
-};
-
 static const char * const dsi_occ_parents[] = {
 	"tck_26m_mx9_ck",
 	"mainpll_d6_d2",
@@ -2169,18 +2153,7 @@ static struct mtk_mux top_muxes[] = {
 		16 /* lsb */, 3 /* width */, 23 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_AES_MSDCFDE_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_EMI_N_SEL /* dts */,
-		"emi_n_sel", emi_n_parents /* parents*/,
-		CLK_CFG_18, CLK_CFG_18_SET, CLK_CFG_18_CLR, /* sta/set/clr */
-		24 /* lsb */, 2 /* width */, 31 /* pdn */,
-		CLK_CFG_UPDATE_2 /* upd ofs */,
-		TOP_MUX_EMI_N_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_EMI_S_SEL /* dts */,
-		"emi_s_sel", emi_s_parents /* parents*/,
-		CLK_CFG_19, CLK_CFG_19_SET, CLK_CFG_19_CLR, /* sta/set/clr */
-		0 /* lsb */, 2 /* width */, 7 /* pdn */,
-		CLK_CFG_UPDATE_2 /* upd ofs */,
-		TOP_MUX_EMI_S_SHIFT /* upd shift */),
+
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_DSI_OCC_SEL /* dts */,
 		"dsi_occ_sel", dsi_occ_parents /* parents*/,
 		CLK_CFG_19, CLK_CFG_19_SET, CLK_CFG_19_CLR, /* sta/set/clr */

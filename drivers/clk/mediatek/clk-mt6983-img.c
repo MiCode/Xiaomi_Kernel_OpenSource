@@ -180,10 +180,10 @@ static const struct mtk_gate_regs dip_top_dip1_0_cg_regs = {
 	}
 static struct mtk_gate dip_top_dip1_clks[] = {
 	GATE_DIP_TOP_DIP1_0(CLK_DIP_TOP_DIP1_LARB10 /* CLK ID */,
-		"dip_top_dip1_larb10" /* name */,
+		"dip_dip1_larb10" /* name */,
 		"img1_ck" /* parent */, 0 /* bit */),
 	GATE_DIP_TOP_DIP1_0(CLK_DIP_TOP_DIP1_DIP_TOP /* CLK ID */,
-		"dip_top_dip1_dip_top" /* name */,
+		"dip_dip1_dip_top" /* name */,
 		"img1_ck" /* parent */, 1 /* bit */),
 };
 

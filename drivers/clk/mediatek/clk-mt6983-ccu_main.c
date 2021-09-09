@@ -34,16 +34,16 @@ static const struct mtk_gate_regs ccu_main_0_cg_regs = {
 	}
 static struct mtk_gate ccu_main_clks[] = {
 	GATE_CCU_MAIN_0(CLK_CCU_MAIN_LARB19 /* CLK ID */,
-		"ccu_main_larb19" /* name */,
+		"ccu_larb19" /* name */,
 		"ccusys_ck" /* parent */, 0 /* bit */),
 	GATE_CCU_MAIN_0(CLK_CCU_MAIN_AHB /* CLK ID */,
-		"ccu_main_ahb" /* name */,
+		"ccu_ahb" /* name */,
 		"ccu_ahb_ck" /* parent */, 1 /* bit */),
 	GATE_CCU_MAIN_0(CLK_CCU_MAIN_CCUSYS_CCU0 /* CLK ID */,
-		"ccu_main_ccusys_ccu0" /* name */,
+		"ccusys_ccu0" /* name */,
 		"ccusys_ck" /* parent */, 2 /* bit */),
 	GATE_CCU_MAIN_0(CLK_CCU_MAIN_CCUSYS_CCU1 /* CLK ID */,
-		"ccu_main_ccusys_ccu1" /* name */,
+		"ccusys_ccu1" /* name */,
 		"ccusys_ck" /* parent */, 3 /* bit */),
 };
 
