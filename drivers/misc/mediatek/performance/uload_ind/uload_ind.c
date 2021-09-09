@@ -87,7 +87,7 @@ static void init_cpu_loading_value(void)
 	specify_32bit_overThrhld = 100;
 	specify_32bit_cpus = 0;
 	nr_cpus = num_possible_cpus();
-	under_threshold = 20;
+	under_threshold = 50;
 	uevent_enable = 1;
 	debug_enable = 0;
 	curr_cpu_loading = 0;
@@ -208,7 +208,8 @@ static void start_calculate_loading(void)
 		ret_reg = reg_loading_tracking(calculat_loading_callback, poll_ms,
 				specify_32bit_cpu_mask);
 	} else {
-		ret_reg = -1;
+		ret_reg = reg_loading_tracking(calculat_loading_callback, poll_ms,
+				cpu_possible_mask);
 	}
 
 	show_debug("ret_reg:%d\n", ret_reg);
