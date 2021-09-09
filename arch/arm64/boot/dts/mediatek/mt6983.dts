@@ -8925,14 +8925,27 @@
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
-	jpgdec@17040000 {
-		compatible = "mediatek,jpgdec";
-		reg = <0 0x17040000 0 0x10000>;
-	};
-
-	jpgdec_c1@17050000 {
-		compatible = "mediatek,jpgdec_c1";
-		reg = <0 0x17050000 0 0x10000>;
+	jpgdec0@17040000 {
+		compatible = "mediatek,jpgdec0";
+		reg = <0 0x17040000 0 0x10000>,
+			<0 0x17050000 0 0x10000>;
+		interrupts = <GIC_SPI 452 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 453 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,larbs = <&smi_larb7>;
+		operating-points-v2 = <&opp_table_venc>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		clocks = <&venc_gcon_clk CLK_VEN1_CKE3_JPGDEC>,
+			<&venc_gcon_clk CLK_VEN1_CKE4_JPGDEC_C1>;
+		clock-names = "MT_CG_VENC_JPGDEC",
+					"MT_CG_VENC_JPGDEC_C1";
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_VEN0>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&disp_iommu M4U_PORT_L7_JPGDEC_WDMA_0_DISP>,
+			 <&disp_iommu M4U_PORT_L7_JPGDEC_BSDMA_0_DISP>,
+			 <&disp_iommu M4U_PORT_L7_JPGDEC_WDMA_1_DISP>,
+			 <&disp_iommu M4U_PORT_L7_JPGDEC_BSDMA_1_DISP>,
+			 <&disp_iommu M4U_PORT_L7_JPGDEC_HUFF_OFFSET_1_DISP>,
+			 <&disp_iommu M4U_PORT_L7_JPGDEC_HUFF_OFFSET_0_DISP>;
 	};
 
 	mbist@17060000 {
@@ -8986,11 +8999,6 @@
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 #endif
-
-	jpgdec@17840000 {
-		compatible = "mediatek,jpgdec";
-		reg = <0 0x17840000 0 0x10000>;
-	};
 
 	mbist@17860000 {
 		compatible = "mediatek,mbist";
