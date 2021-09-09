@@ -672,7 +672,7 @@ static int gz_dev_release(struct inode *inode, struct file *filp)
  *  DEV DRIVER IOCTL
  *  Ported from trustzone driver
  **************************************************************************/
-static long tz_client_open_session(struct file *filep, unsigned long arg)
+static long tz_client_open_session(struct file *filep, void __user *arg)
 {
 	struct kree_session_cmd_param param;
 	unsigned long cret;
@@ -681,7 +681,7 @@ static long tz_client_open_session(struct file *filep, unsigned long arg)
 	TZ_RESULT ret;
 	KREE_SESSION_HANDLE handle = 0;
 
-	cret = copy_from_user(&param, (void *)arg, sizeof(param));
+	cret = copy_from_user(&param, arg, sizeof(param));
 	if (cret)
 		return -EFAULT;
 
@@ -690,7 +690,7 @@ static long tz_client_open_session(struct file *filep, unsigned long arg)
 		return -EFAULT;
 
 	KREE_DEBUG("%s: uuid addr = 0x%llx\n", __func__, param.data);
-	len = strncpy_from_user(uuid, (void *)(unsigned long)param.data,
+	len = strncpy_from_user(uuid, (void *)param.data,
 		sizeof(uuid));
 	if (len <= 0)
 		return -EFAULT;
@@ -709,20 +709,20 @@ static long tz_client_open_session(struct file *filep, unsigned long arg)
 tz_client_open_session_end:
 	param.ret = ret;
 	param.handle = handle;
-	cret = copy_to_user((void *)arg, &param, sizeof(param));
+	cret = copy_to_user(arg, &param, sizeof(param));
 	if (cret)
 		return cret;
 
 	return 0;
 }
 
-static long tz_client_close_session(struct file *filep, unsigned long arg)
+static long tz_client_close_session(struct file *filep, void __user *arg)
 {
 	struct kree_session_cmd_param param;
 	unsigned long cret;
 	TZ_RESULT ret;
 
-	cret = copy_from_user(&param, (void *)arg, sizeof(param));
+	cret = copy_from_user(&param, arg, sizeof(param));
 	if (cret)
 		return -EFAULT;
 
@@ -739,14 +739,14 @@ static long tz_client_close_session(struct file *filep, unsigned long arg)
 
 _tz_client_close_session_end:
 	param.ret = ret;
-	cret = copy_to_user((void *)arg, &param, sizeof(param));
+	cret = copy_to_user(arg, &param, sizeof(param));
 	if (cret)
 		return -EFAULT;
 
 	return 0;
 }
 
-static long tz_client_tee_service(struct file *file, unsigned long arg,
+static long tz_client_tee_service(struct file *file, void __user *arg,
 	unsigned int compat)
 {
 	struct kree_tee_service_cmd_param cparam;
@@ -759,7 +759,7 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 	void __user *ubuf;
 	uint32_t ubuf_sz;
 
-	cret = copy_from_user(&cparam, (void *)arg, sizeof(cparam));
+	cret = copy_from_user(&cparam, arg, sizeof(cparam));
 	if (cret) {
 		KREE_ERR("%s: copy_from_user(msg) failed\n", __func__);
 		return -EFAULT;
@@ -932,7 +932,7 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 	}
 
 
-	cret = copy_to_user((void *)arg, &cparam, sizeof(cparam));
+	cret = copy_to_user(arg, &cparam, sizeof(cparam));
 	if (cret) {
 		KREE_ERR("%s: copy_to_user(msg) failed\n", __func__);
 		return -EFAULT;
@@ -959,7 +959,7 @@ error:
 	return cret;
 }
 
-static long _sc_test_cp_chm2shm(struct file *filep, unsigned long arg)
+static long _sc_test_cp_chm2shm(struct file *filep, void __user *arg)
 {
 
 	struct kree_user_sc_param cparam;
@@ -970,7 +970,7 @@ static long _sc_test_cp_chm2shm(struct file *filep, unsigned long arg)
 	uint32_t size;
 
 	/* copy param from user */
-	ret = copy_from_user(&cparam, (void *)arg, sizeof(cparam));
+	ret = copy_from_user(&cparam, arg, sizeof(cparam));
 
 	if (ret) {
 		KREE_ERR("%s: copy_from_user failed(%d)\n", __func__, ret);
@@ -999,7 +999,7 @@ static long _sc_test_cp_chm2shm(struct file *filep, unsigned long arg)
 	return ret;
 }
 
-static long _sc_test_upt_chmdata(struct file *filep, unsigned long arg)
+static long _sc_test_upt_chmdata(struct file *filep, void __user *arg)
 {
 	struct kree_user_sc_param cparam;
 	int ret;
@@ -1010,7 +1010,7 @@ static long _sc_test_upt_chmdata(struct file *filep, unsigned long arg)
 	uint32_t size;
 
 	/* copy param from user */
-	ret = copy_from_user(&cparam, (void *)arg, sizeof(cparam));
+	ret = copy_from_user(&cparam, arg, sizeof(cparam));
 
 	if (ret) {
 		KREE_ERR("%s: copy_from_user failed(%d)\n", __func__, ret);
@@ -1219,7 +1219,7 @@ int gz_adjust_task_attr(struct trusty_task_attr *manual_task_attr)
 	return trusty_adjust_task_attr(tz_system_dev->dev.parent, manual_task_attr);
 }
 
-TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
+TZ_RESULT gz_manual_adjust_trusty_wq_attr(void __user *user_req)
 {
 	int err;
 	char str[32];
@@ -1254,30 +1254,22 @@ TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
 	return gz_adjust_task_attr(&manual_task_attr);
 }
 
-static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
+static long _gz_ioctl(struct file *filep, unsigned int cmd, void __user *arg,
 	unsigned int compat)
 {
 	int err;
 	TZ_RESULT ret = 0;
-	char __user *user_req;
 	struct user_shm_param shm_data;
 	KREE_SHAREDMEM_HANDLE shm_handle = 0;
 
 	if (_IOC_TYPE(cmd) != MTEE_IOC_MAGIC)
 		return -EINVAL;
 
-#if IS_ENABLED(CONFIG_COMPAT)
-	if (compat)
-		user_req = (char __user *)compat_ptr(arg);
-	else
-#endif
-		user_req = (char __user *)arg;
-
 	switch (cmd) {
 	case MTEE_CMD_SHM_REG:
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_SHM_REG(0x%x)\n", __func__, cmd);
 		/* copy param from user */
-		err = copy_from_user(&shm_data, user_req, sizeof(shm_data));
+		err = copy_from_user(&shm_data, arg, sizeof(shm_data));
 		if (err) {
 			KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
 				err);
@@ -1301,7 +1293,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 
 		/* copy result back to user */
 		shm_data.session = ret;
-		err = copy_to_user(user_req, &shm_data, sizeof(shm_data));
+		err = copy_to_user(arg, &shm_data, sizeof(shm_data));
 		if (err) {
 			KREE_ERR("[%s]copy_to_user fail(0x%x)\n", __func__,
 				err);
@@ -1363,7 +1355,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 #endif
 
 	case MTEE_CMD_ADJUST_WQ_ATTR:
-		ret = gz_manual_adjust_trusty_wq_attr(user_req);
+		ret = gz_manual_adjust_trusty_wq_attr(arg);
 		break;
 
 	default:
@@ -1378,8 +1370,9 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 static long gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	long ret;
+	void __user *user_req = (void __user *)arg;
 
-	ret = _gz_ioctl(filep, cmd, arg, 0);
+	ret = _gz_ioctl(filep, cmd, user_req, 0);
 	return ret;
 }
 
@@ -1388,8 +1381,9 @@ static long gz_compat_ioctl(struct file *filep, unsigned int cmd,
 	unsigned long arg)
 {
 	long ret;
+	void __user *user_req = (void __user *)compat_ptr(arg);
 
-	ret = _gz_ioctl(filep, cmd, arg, 1);
+	ret = _gz_ioctl(filep, cmd, user_req, 1);
 	return ret;
 }
 #endif
