@@ -33,8 +33,6 @@
 		sz -= l; \
 	} while (0)
 
-static unsigned int pmu_ms_mode;
-
 static ssize_t enable_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
@@ -130,6 +128,7 @@ static const struct mtk_swpm_sysfs_op dram_bw_fops = {
 	.fs_read = dram_bw_read,
 };
 
+static unsigned int pmu_ms_mode;
 static ssize_t pmu_ms_mode_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
@@ -150,8 +149,8 @@ static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
 	if (!FromUser)
 		return -EINVAL;
 
-	if ((!kstrtouint(FromUser, 1, &enable)) == 1) {
-		pmu_ms_mode = enable;
+	if (!kstrtouint(FromUser, 0, &enable)) {
+		pmu_ms_mode = !!enable;
 
 		/* TODO: remove this path after qos commander ready */
 		swpm_set_update_cnt(0, (0x1 << SWPM_CODE_USER_BIT) |
@@ -187,7 +186,7 @@ static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 	if (!FromUser)
 		return -EINVAL;
 
-	if ((!kstrtouint(FromUser, 1, &enable)) == 1) {
+	if (!kstrtouint(FromUser, 0, &enable)) {
 		if (!enable) {
 			swpm_pmsr_en = enable;
 			swpm_set_update_cnt(0, 9696 << SWPM_CODE_USER_BIT);
