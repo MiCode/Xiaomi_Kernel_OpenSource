@@ -309,7 +309,9 @@ struct MTK_CSTATE_INFO {
 	long val;
 };
 
-static long mtk_per_cpuidle_state_param(void *pData)
+static struct MTK_CSTATE_INFO state_info;
+
+static int mtk_per_cpuidle_state_param(void *pData)
 {
 	int i;
 	struct cpuidle_driver *drv = cpuidle_get_driver();
@@ -323,7 +325,6 @@ static long mtk_per_cpuidle_state_param(void *pData)
 		if ((suspend_type == LPM_SUSPEND_S2IDLE) &&
 			!strcmp(drv->states[i].name, S2IDLE_STATE_NAME))
 			continue;
-
 		if (info->type == MTK_CPUIDLE_STATE_EN_SET) {
 			mtk_cpuidle_set_param(drv, i, IDLE_PARAM_EN,
 					      !!info->val);
@@ -333,27 +334,35 @@ static long mtk_per_cpuidle_state_param(void *pData)
 		else
 			break;
 	}
+
+	do_exit(0);
 	return 0;
 }
-
 void mtk_cpuidle_state_enable(bool en)
 {
 	int cpu;
-	struct MTK_CSTATE_INFO state_info = {
-		.type = MTK_CPUIDLE_STATE_EN_SET,
-		.val = (long)en,
-	};
+	struct task_struct *task;
 
-	mtk_cpupm_block();
+	state_info.type = MTK_CPUIDLE_STATE_EN_SET;
+	state_info.val = (long)en;
+
+	cpuidle_pause_and_lock();
+
 	for_each_possible_cpu(cpu) {
-		work_on_cpu(cpu, mtk_per_cpuidle_state_param,
-			    &state_info);
+		task = kthread_create(mtk_per_cpuidle_state_param,
+				&state_info, "mtk_cpuidle_state_enable");
+		if (IS_ERR(task)) {
+			pr_info("[name:mtk_lpm][P] mtk_cpuidle_state_enable failed\n");
+			return;
+		}
+		kthread_bind(task, cpu);
+		wake_up_process(task);
 	}
 
 	if (!en)
 		mtk_lpm_last_cpuidle_dis = sched_clock();
 
-	mtk_cpupm_allow();
+	cpuidle_resume_and_unlock();
 }
 
 unsigned long long mtk_cpuidle_state_last_dis_ms(void)
@@ -364,15 +373,23 @@ unsigned long long mtk_cpuidle_state_last_dis_ms(void)
 long mtk_cpuidle_state_enabled(void)
 {
 	int cpu;
-	struct MTK_CSTATE_INFO state_info = {
-		.type = MTK_CPUIDLE_STATE_EN_GET,
-		.val = 0,
-	};
+	long ret;
+	struct task_struct *task;
 
+	state_info.type = MTK_CPUIDLE_STATE_EN_GET;
+	state_info.val = 0;
 	for_each_possible_cpu(cpu) {
-		work_on_cpu(cpu, mtk_per_cpuidle_state_param,
-			    &state_info);
+		task = kthread_create(mtk_per_cpuidle_state_param,
+			(void *)&state_info, "mtk_cpuidle_state_enabled");
+		if (IS_ERR(task)) {
+			pr_info("[name:mtk_lpm][P] mtk_cpuidle_state_enabled failed\n");
+			ret = (long)PTR_ERR(task);
+			return ret;
+		}
+		kthread_bind(task, cpu);
+		wake_up_process(task);
 	}
+
 	return state_info.val;
 }
 
