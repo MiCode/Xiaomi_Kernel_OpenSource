@@ -499,7 +499,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	unsigned long flags;
 	int feature;
 	int dequeue_cnt = 0;
-	bool cleaned, del_job, del_req;
+	bool del_job, del_req;
 
 	INIT_LIST_HEAD(&dequeue_list);
 
@@ -526,27 +526,20 @@ STOP_SCAN:
 	spin_unlock_irqrestore(&ctx->cam->running_job_lock, flags);
 
 	list_for_each_entry(s_data, &dequeue_list, list) {
-		cleaned = false;
 		del_req = false;
 		del_job = false;
 		feature = s_data->feature.raw_feature;
 		req = mtk_cam_s_data_get_req(s_data);
-		if (mtk_cam_feature_is_mstream(feature))
-			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
-		else
-			s_data_mstream = NULL;
-
-		dev_dbg(ctx->cam->dev,
-			"frame_seq:%d[ctx=%d,pipe=%d,ctx_used=%x], de-queue frame_seq:%d\n",
-			s_data->frame_seq_no, ctx->stream_id,
-			pipe_id, req->ctx_used, dequeued_frame_seq_no);
 
 		spin_lock(&req->done_status_lock);
 
 		if ((req->done_status & 1 << pipe_id) &&
 		    (req->done_status & ctx->cam->streaming_pipe) ==
-		    (req->pipe_used & ctx->cam->streaming_pipe))
-			cleaned = true;
+		    (req->pipe_used & ctx->cam->streaming_pipe)) {
+			/* already handled by another job done work */
+			spin_unlock(&req->done_status_lock);
+			continue;
+		}
 
 		/* Check whether all pipelines of single ctx are done */
 		req->done_status |= 1 << pipe_id;
@@ -557,23 +550,19 @@ STOP_SCAN:
 		    (req->pipe_used & ctx->cam->streaming_pipe))
 			del_req = true;
 
+		dev_dbg(ctx->cam->dev,
+			"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d)\n",
+			__func__, req->req.debug_str, ctx->stream_id, pipe_id,
+			dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
+			req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
+			del_job, del_req);
+
 		spin_unlock(&req->done_status_lock);
 
-		if (cleaned) {
-			/**
-			 * For request not removed since there is another ctx
-			 * in previous mtk_cam_dequeue_req_frame() but can be
-			 * removed since another ctx is stream off cases.
-			 */
-			dev_dbg(ctx->cam->dev,
-				"%s: one of ctxs in req(%s) is stream-off\n",
-				__func__, req->req.debug_str);
-
-			mtk_cam_del_req_from_running(ctx, req, pipe_id);
-			dequeue_cnt++;
-
-			continue;
-		}
+		if (mtk_cam_feature_is_mstream(feature))
+			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+		else
+			s_data_mstream = NULL;
 
 		if (is_raw_subdev(pipe_id)) {
 			mtk_cam_req_dbg_works_clean(s_data);
@@ -623,7 +612,7 @@ STOP_SCAN:
 		} else {
 			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_DONE);
 			dev_dbg(ctx->cam->dev,
-				"%s:req(%d) done",
+				"%s:req(%d) done success",
 				__func__, s_data->frame_seq_no);
 		}
 	}
