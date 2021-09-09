@@ -574,6 +574,21 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			break;
 		}
 	}
+
+	if (mtk_cam_is_mstream(ctx)) {
+		qos_port_id = engine_id * raw_qos_port_num + rawi_r2;
+		vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+		ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
+		pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
+		num_plane = mtk_cam_get_plane_num(ipi_fmt);
+		BW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					(vblank + height) * pixel_bits * num_plane / 8;
+		dvfs_info->qos_bw_avg[qos_port_id] += BW_MB_s;
+		dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w : %2d/%2d/%d/%5d BW(B/s):%lu\n",
+			raw_mmqos->port[qos_port_id % raw_qos_port_num], qos_port_id, ipi_fmt,
+			pixel_bits, num_plane, vdev->active_fmt.fmt.pix_mp.width, BW_MB_s);
+	}
+
 	if (mtk_cam_is_stagger(ctx)) {
 		qos_port_id = engine_id * raw_qos_port_num + rawi_r2;
 		vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
