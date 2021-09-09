@@ -5421,11 +5421,15 @@
 		compatible = "mediatek,mt6983-mdpm";
 	};
 
-	power_throttling: power_throttling {
-		compatible = "mediatek,power_throttling";
+	cpu_power_throttling: cpu_power_throttling {
+		compatible = "mediatek,cpu-power-throttling";
 		lbat_cpu_limit = <900000 900000 1300000>;
-		lbat_md_reduce_tx = <6>;
 		oc_cpu_limit = <900000 900000 1300000>;
+	};
+
+	md_power_throttling: md_power_throttling {
+		compatible = "mediatek,md-power-throttling";
+		lbat_md_reduce_tx = <6>;
 		oc_md_reduce_tx = <6>;
 	};
 
