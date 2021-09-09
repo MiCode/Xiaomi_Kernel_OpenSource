@@ -1004,7 +1004,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 
 static void mtk_aie_job_wait_finish(struct mtk_aie_dev *fd)
 {
-	wait_for_completion(&fd->fd_job_finished);
+	wait_for_completion_timeout(&fd->fd_job_finished, msecs_to_jiffies(3000));
 }
 
 static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
