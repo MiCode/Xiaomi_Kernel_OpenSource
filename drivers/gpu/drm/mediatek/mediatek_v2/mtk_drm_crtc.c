@@ -4031,7 +4031,7 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	u64 *inst, jump_pa;
 
 	cmdq_pkt_read(cmdq_handle, NULL,
-		cmdq_buf->pa_base + gce_mminfra + DISP_SLOT_TE1_EN, te1_en);
+		cmdq_buf->pa_base + DISP_SLOT_TE1_EN, te1_en);
 	lop.reg = true;
 	lop.idx = te1_en;
 	rop.reg = false;
@@ -10611,7 +10611,7 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 				true);
 		set_outpin = true;
 	}
-	addr = cmdq_buf->pa_base + gce_mminfra + DISP_SLOT_TE1_EN;
+	addr = cmdq_buf->pa_base + DISP_SLOT_TE1_EN;
 	if (te_num == 1) {
 		DDPMSG("switched to te1!\n");
 		atomic_set(&d_te->te_switched, 1);
