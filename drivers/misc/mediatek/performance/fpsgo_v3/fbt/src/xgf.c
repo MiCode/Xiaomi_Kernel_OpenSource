@@ -59,14 +59,20 @@ static int xgf_cfg_spid;
 static int xgf_ema2_enable = 1;
 static int xgf_camera_flag;
 static int xgf_display_rate = DEFAULT_DFRC;
-int fstb_frame_num;
+int fstb_frame_num = 20;
 EXPORT_SYMBOL(fstb_frame_num);
-int fstb_no_stable_thr;
+int fstb_no_stable_thr = 5;
 EXPORT_SYMBOL(fstb_no_stable_thr);
-int fstb_target_fps_margin;
-EXPORT_SYMBOL(fstb_target_fps_margin);
+int fstb_target_fps_margin_low_FPS = 3;
+EXPORT_SYMBOL(fstb_target_fps_margin_low_FPS);
+int fstb_target_fps_margin_high_FPS = 5;
+EXPORT_SYMBOL(fstb_target_fps_margin_high_FPS);
 int fstb_separate_runtime_enable;
 EXPORT_SYMBOL(fstb_separate_runtime_enable);
+int fstb_fps_num = TARGET_FPS_LEVEL;
+EXPORT_SYMBOL(fstb_fps_num);
+int fstb_fps_choice[TARGET_FPS_LEVEL] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
+EXPORT_SYMBOL(fstb_fps_choice);
 
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
@@ -82,7 +88,8 @@ module_param(xgf_cfg_spid, int, 0644);
 module_param(xgf_ema2_enable, int, 0644);
 module_param(fstb_frame_num, int, 0644);
 module_param(fstb_no_stable_thr, int, 0644);
-module_param(fstb_target_fps_margin, int, 0644);
+module_param(fstb_target_fps_margin_low_FPS, int, 0644);
+module_param(fstb_target_fps_margin_high_FPS, int, 0644);
 module_param(fstb_separate_runtime_enable, int, 0644);
 
 HLIST_HEAD(xgf_renders);
@@ -2631,10 +2638,21 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 }
 EXPORT_SYMBOL(xgf_set_logical_render_info);
 
-void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag)
+void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag,
+	unsigned long long hrtimer_ts, unsigned long long prev_queue_end_ts)
 {
+	int diff;
+
+	if (hrtimer_ts >= prev_queue_end_ts)
+		diff = (int)(hrtimer_ts - prev_queue_end_ts);
+	else {
+		diff = (int)(prev_queue_end_ts - hrtimer_ts);
+		diff *= -1;
+	}
+
 	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_pid, "ctrl_fps_tid");
 	fpsgo_systrace_c_fbt(pid, bufID, hrtimer_flag, "ctrl_fps_flag");
+	fpsgo_systrace_c_xgf(pid, bufID, diff, "ctrl_fps_ts");
 }
 EXPORT_SYMBOL(xgf_set_timer_info);
 
