@@ -4,6 +4,7 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/clock/mt6895-clk.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/clock/mt6895-clk.h>
 #include <dt-bindings/power/mt6895-power.h>
@@ -964,6 +965,48 @@
 		apdma@10220000 {
 			compatible = "mediatek,apdma";
 			reg = <0 0x10220000 0 0x4000>;
+		};
+
+		pwm@11008000 {
+			compatible = "mediatek,pwm";
+			reg = <0 0x11008000 0 0x1000>;
+			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao_clk CLK_PERAOP_0_PWM_FBCLK1>,
+				<&infracfg_ao_clk CLK_PERAOP_0_PWM_FBCLK2>,
+				<&infracfg_ao_clk CLK_PERAOP_0_PWM_FBCLK3>,
+				<&infracfg_ao_clk CLK_PERAOP_0_PWM_FBCLK4>,
+				<&infracfg_ao_clk CLK_PERAOP_0_PWM_HCLK>,
+				<&infracfg_ao_clk CLK_PERAOP_0_PWM_BCLK>;
+
+			clock-names = "PWM1-main",
+				"PWM2-main",
+				"PWM3-main",
+				"PWM4-main",
+				"PWM-HCLK-main",
+				"PWM-main";
+
+			/* 1. pwm periclk control reg offset */
+			mediatek,pwm-topclk-ctl-reg = <0x20>;
+			/* 2. pwm bclk sw ctrl offset */
+			mediatek,pwm-bclk-sw-ctrl-offset = <12>;
+			/* 3. pwm_x bclk sw ctrl offset */
+			mediatek,pwm1-bclk-sw-ctrl-offset = <20>;
+			mediatek,pwm2-bclk-sw-ctrl-offset = <18>;
+			mediatek,pwm3-bclk-sw-ctrl-offset = <16>;
+			mediatek,pwm4-bclk-sw-ctrl-offset = <14>;
+			/* 4. pwm clock all on off wa support */
+			mediatek,pwm-clk-all-on-off;
+			/* 5. pwm version */
+			mediatek,pwm-version = <0x2>;
+
+			pwmsrcclk = <&pericfg_ao_clk>;
+		};
+
+		irtx_pwm:irtx_pwm {
+			compatible = "mediatek,irtx-pwm";
+			pwm_ch = <1>;
+			pwm_data_invert = <0>;
+			pwm-supply = "mt6368_vio28";
 		};
 
 		i2c0: i2c@11f40000 {
