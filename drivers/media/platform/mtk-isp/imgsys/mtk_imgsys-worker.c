@@ -26,6 +26,7 @@ int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name)
 	init_waitqueue_head(&que->dis_wq);
 	spin_lock_init(&que->lock);
 	atomic_set(&que->nr, 0);
+	mutex_init(&que->task_lock);
 EXIT:
 	return ret;
 }
@@ -83,6 +84,7 @@ int imgsys_queue_enable(struct imgsys_queue *que)
 	if (!que)
 		return -1;
 
+	mutex_lock(&que->task_lock);
 	que->task = kthread_create(worker_func, (void *)que, que->name);
 	if (!que->task) {
 		dev_info(que->dev, "%s: kthread_run failed\n", __func__);
@@ -91,6 +93,7 @@ int imgsys_queue_enable(struct imgsys_queue *que)
 	get_task_struct(que->task);
 	atomic_set(&que->disable, 0);
 	wake_up_process(que->task);
+	mutex_unlock(&que->task_lock);
 
 	return 0;
 }
@@ -110,6 +113,7 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 	else if (ret == -ERESTARTSYS)
 		dev_info(que->dev, "%s: signal interrupt", __func__);
 
+	mutex_lock(&que->task_lock);
 	atomic_set(&que->disable, 1);
 	ret = kthread_stop(que->task);
 	if (ret)
@@ -117,6 +121,9 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 						__func__, ret);
 	put_task_struct(que->task);
 	que->task = NULL;
+	mutex_unlock(&que->task_lock);
+
+	mutex_destroy(&que->task_lock);
 
 	return ret;
 }

@@ -23,6 +23,7 @@ struct imgsys_queue {
 	wait_queue_head_t wq;
 	wait_queue_head_t dis_wq;
 	struct task_struct *task;
+	struct mutex task_lock;
 };
 
 struct imgsys_work {
