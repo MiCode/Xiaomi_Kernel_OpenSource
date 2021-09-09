@@ -26,7 +26,6 @@ int fmt_dmabuf_get_iova(struct dma_buf *dbuf, u64 *iova,
 
 	*iova = sg_dma_address((*sgt)->sgl);
 	fmt_debug(1, "dbuf %p attach %p sgt %p iova 0x%llx\n", dbuf, *attach, *sgt, *iova);
-	dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
 	return 0;
 }
 
@@ -38,7 +37,6 @@ void fmt_dmabuf_free_iova(struct dma_buf *dbuf,
 		return;
 	}
 	fmt_debug(1, "dbuf %p attach %p sgt %p\n", dbuf, attach, sgt);
-	dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
 	dma_buf_unmap_attachment(attach, sgt, DMA_TO_DEVICE);
 	dma_buf_detach(dbuf, attach);
 }
@@ -67,8 +65,19 @@ void fmt_dmabuf_put(struct dma_buf *dbuf)
 	dma_buf_put(dbuf);
 }
 
+void fmt_dmabuf_end_cpu_access(struct dma_buf *dbuf)
+{
+	dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
+}
+
+void fmt_dmabuf_begin_cpu_access(struct dma_buf *dbuf)
+{
+	dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
+}
+
 u64 fmt_translate_fd(u64 fd, u32 offset, struct dmabufmap map[], struct device *dev,
-	struct dma_buf **dbuf, struct dma_buf_attachment **attach, struct sg_table **sgt)
+	struct dma_buf **dbuf, struct dma_buf_attachment **attach, struct sg_table **sgt,
+	bool cache_sync)
 {
 	int i, ret;
 	u64 iova = 0;
@@ -87,6 +96,9 @@ u64 fmt_translate_fd(u64 fd, u32 offset, struct dmabufmap map[], struct device *
 	*dbuf = fmt_dmabuf_get(fd);
 
 	ret = fmt_dmabuf_get_iova(*dbuf, &iova, dev, attach, sgt);
+
+	if (cache_sync)
+		fmt_dmabuf_end_cpu_access(*dbuf);
 
 	if (ret != 0) {
 		fmt_debug(0, "fd: %d iova get failed", fd);

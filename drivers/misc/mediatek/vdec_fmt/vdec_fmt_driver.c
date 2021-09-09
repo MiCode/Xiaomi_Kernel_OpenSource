@@ -119,7 +119,7 @@ static int fmt_set_gce_task(struct cmdq_pkt *pkt_ptr, u32 id,
 	return -1;
 }
 
-static void fmt_clear_gce_task(unsigned int taskid)
+static void fmt_clear_gce_task(unsigned int taskid, bool secure)
 {
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 
@@ -132,6 +132,8 @@ static void fmt_clear_gce_task(unsigned int taskid)
 		fmt->gce_task[taskid].identifier = 0;
 		fmt_dmabuf_free_iova(fmt->gce_task[taskid].iinfo.dbuf,
 		fmt->gce_task[taskid].iinfo.attach, fmt->gce_task[taskid].iinfo.sgt);
+		if (!secure)
+			fmt_dmabuf_begin_cpu_access(fmt->gce_task[taskid].oinfo.dbuf);
 		fmt_dmabuf_free_iova(fmt->gce_task[taskid].oinfo.dbuf,
 		fmt->gce_task[taskid].oinfo.attach, fmt->gce_task[taskid].oinfo.sgt);
 		fmt_dmabuf_put(fmt->gce_task[taskid].iinfo.dbuf);
@@ -142,7 +144,8 @@ static void fmt_clear_gce_task(unsigned int taskid)
 
 static int fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 	unsigned char cmd, u64 addr, u64 data, u32 mask, u32 gpr, unsigned int idx,
-	struct dmabuf_info *iinfo, struct dmabuf_info *oinfo, struct dmabufmap map[])
+	struct dmabuf_info *iinfo, struct dmabuf_info *oinfo, struct dmabufmap map[],
+	bool secure)
 {
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 	int type;
@@ -262,7 +265,7 @@ static int fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 		if (type >= 0) {
 			if (type % 2 == 0) {
 				iova = fmt_translate_fd(data, mask, map, fmt->dev,
-					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt);
+					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt, false);
 				if (iinfo->attach == NULL || iinfo->sgt == NULL)
 					return -1;
 				if (addr - fmt->map_base[type].base >= 0xf30) { // rdma 34bit
@@ -278,7 +281,7 @@ static int fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 				}
 			} else {
 				iova = fmt_translate_fd(data, mask, map, fmt->dev,
-						&oinfo->dbuf, &oinfo->attach, &oinfo->sgt);
+						&oinfo->dbuf, &oinfo->attach, &oinfo->sgt, !secure);
 				if (oinfo->attach == NULL || oinfo->sgt == NULL)
 					return -1;
 				if (addr - fmt->map_base[type].base >= 0xf34) { // wrot 34bit
@@ -300,7 +303,7 @@ static int fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 	case CMD_WRITE_FD_RDMA:
 		fmt_debug(3, "CMD_WRITE_FD_RDMA cpridx %d fd 0x%x offset 0x%x", addr, data, mask);
 		iova = fmt_translate_fd(data, mask, map, fmt->dev,
-					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt);
+					&iinfo->dbuf, &iinfo->attach, &iinfo->sgt, false);
 		if (iinfo->attach == NULL || iinfo->sgt == NULL)
 			return -1;
 		if (addr >= CPR_IDX_FMT_RDMA_SRC_OFFSET_0
@@ -487,7 +490,8 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	for (i = 0; i < cmds->cmd_cnt; i++) {
 		ret = fmt_set_gce_cmd(pkt_ptr, cmds->cmd[i],
 			cmds->addr[i], cmds->data[i],
-			cmds->mask[i], fmt->gce_gpr[identifier], identifier, &iinfo, &oinfo, map);
+			cmds->mask[i], fmt->gce_gpr[identifier], identifier,
+			&iinfo, &oinfo, map, (bool)buff.secure);
 
 		if (ret < 0) {
 			mutex_unlock(&fmt->mux_gce_th[identifier]);
@@ -552,6 +556,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 static int fmt_gce_wait_callback(unsigned long arg)
 {
 	int ret;
+	bool secure = false;
 	unsigned int identifier, taskid;
 	unsigned char *user_data_addr = NULL;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
@@ -583,6 +588,9 @@ static int fmt_gce_wait_callback(unsigned long arg)
 
 	cmdq_pkt_wait_complete(fmt->gce_task[taskid].pkt_ptr);
 
+	if (fmt_dbg_level == 4)
+		fmt_dump_addr_reg();
+
 	mutex_lock(&fmt->mux_gce_th[identifier]);
 	fmt_end_dvfs_emi_bw(fmt, identifier);
 
@@ -601,13 +609,15 @@ static int fmt_gce_wait_callback(unsigned long arg)
 			}
 	}
 	mutex_unlock(&fmt->mux_fmt);
+	if (fmt->gce_status[identifier] == GCE_SECURE)
+		secure = true;
 	if (atomic_read(&fmt->gce_job_cnt[identifier]) == 0)
 		fmt_unlock(identifier);
 
 	mutex_unlock(&fmt->mux_gce_th[identifier]);
 
 	cmdq_pkt_destroy(fmt->gce_task[taskid].pkt_ptr);
-	fmt_clear_gce_task(taskid);
+	fmt_clear_gce_task(taskid, secure);
 
 	return ret;
 }
