@@ -528,6 +528,9 @@ static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
 	} else {
 		u64 duration = time_dur_us(end, start);
 
+		if (!duration)
+			duration = 1;
+
 		/* truoughput by end time */
 		task->throughput = (u32)div_u64(pixel, duration);
 	}
