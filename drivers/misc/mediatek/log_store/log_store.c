@@ -3,6 +3,7 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
+#include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
@@ -13,14 +14,17 @@
 #include <linux/seq_file.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/syscalls.h>
+#include <linux/regmap.h>
 #include <asm/memory.h>
 #include <linux/of_fdt.h>
 #include <linux/kmsg_dump.h>
 #include <linux/suspend.h>
+#include <linux/platform_device.h>
 #include "log_store_kernel.h"
 
 static struct sram_log_header *sram_header;
@@ -30,37 +34,89 @@ static char *pbuff;
 static struct pl_lk_log *dram_curlog_header;
 static struct dram_buf_header *sram_dram_buff;
 static bool early_log_disable;
-struct proc_dir_entry *entry;
+static struct proc_dir_entry *entry;
 static u32 last_boot_phase = FLAG_INVALID;
-
+static struct regmap *map;
+static u32 pmic_addr;
 
 
 #define LOG_BLOCK_SIZE (512)
 #define EXPDB_LOG_SIZE (2*1024*1024)
 
-#if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
+static bool get_pmic_interface(void)
+{
+	struct device_node *np;
+	struct platform_device *pmic_pdev = NULL;
+	unsigned int reg_val = 0;
+
+	if (pmic_addr == 0)
+		return false;
+
+	np = of_find_node_by_name(NULL, "pmic");
+	if (!np) {
+		pr_err("log_store: pmic node not found.\n");
+		return false;
+	}
+
+	pmic_pdev = of_find_device_by_node(np->child);
+	if (!pmic_pdev) {
+		pr_err("log_store: pmic child device not found.\n");
+		return false;
+	}
+
+	/* get regmap */
+	map = dev_get_regmap(pmic_pdev->dev.parent, NULL);
+	if (!map) {
+		pr_err("log_store:pmic regmap not found.\n");
+		return false;
+	}
+	regmap_read(map, pmic_addr, &reg_val);
+	pr_info("log_store:read pmic register value 0x%x.\n", reg_val);
+	return true;
+
+}
+
 u32 set_pmic_boot_phase(u32 boot_phase)
 {
-	u32 ret;
+	unsigned int reg_val = 0, ret;
 
+	if (!map) {
+		if (get_pmic_interface() == false)
+			return -1;
+	}
 	boot_phase = boot_phase & BOOT_PHASE_MASK;
-	ret = pmic_config_interface(0xA0E, boot_phase, BOOT_PHASE_MASK,
-		PMIC_BOOT_PHASE_SHIFT);
+	ret = regmap_read(map, pmic_addr, &reg_val);
+	if (ret == 0) {
+		reg_val = reg_val & (BOOT_PHASE_MASK << LAST_BOOT_PHASE_SHIFT);
+		reg_val |= boot_phase;
+		ret = regmap_write(map, pmic_addr, reg_val);
+		pr_info("log_store: write pmic value 0x%x, ret 0x%x.\n", reg_val, ret);
+	}
+
 	return ret;
 }
 
 
 u32 get_pmic_boot_phase(void)
 {
-	u32 value = 0, ret;
+	unsigned int reg_val = 0, ret;
 
-	ret = pmic_read_interface(0xA0E, &value, BOOT_PHASE_MASK,
-		PMIC_LAST_BOOT_PHASE_SHIFT);
-	if (ret == 0)
-		last_boot_phase = value;
-	return value;
+	if (!map) {
+		if (get_pmic_interface() == false)
+			return -1;
+	}
+
+	ret = regmap_read(map, pmic_addr, &reg_val);
+
+	if (ret == 0) {
+		reg_val = (reg_val >> LAST_BOOT_PHASE_SHIFT) & BOOT_PHASE_MASK;
+		last_boot_phase = reg_val;
+		return reg_val;
+	}
+
+	return -1;
 }
-#endif
+
 
 /* set the flag whether store log to emmc in next boot phase in pl */
 void store_log_to_emmc_enable(bool value)
@@ -88,13 +144,11 @@ void store_log_to_emmc_enable(bool value)
 void set_boot_phase(u32 step)
 {
 
-#if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
 	if (sram_header->reserve[SRAM_PMIC_BOOT_PHASE] == FLAG_ENABLE) {
 		set_pmic_boot_phase(step);
 		if (last_boot_phase == 0)
 			get_pmic_boot_phase();
 	}
-#endif
 
 	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] &= ~BOOT_PHASE_MASK;
 	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] |= step;
@@ -384,7 +438,15 @@ struct mem_desc_ls {
 static int __init dt_get_log_store(struct mem_desc_ls *data)
 {
 	struct mem_desc_ls *sram_ls;
-	struct device_node *np_chosen;
+	struct device_node *np_chosen, *np_logstore;
+
+	np_logstore = of_find_node_by_name(NULL, "logstore");
+	if (np_logstore) {
+		of_property_read_u32(np_logstore, "pmic_register", &pmic_addr);
+		pr_notice("log_store: get address 0x%x.\n", pmic_addr);
+	} else {
+		pr_err("log_store: can't get pmic address.\n");
+	}
 
 	np_chosen = of_find_node_by_path("/chosen");
 	if (!np_chosen)
@@ -461,8 +523,13 @@ static int __init log_store_early_init(void)
 #ifdef MODULE
 static void __exit log_store_exit(void)
 {
+	static struct notifier_block logstore_pm_nb;
+
 	if (entry)
 		proc_remove(entry);
+
+	logstore_pm_nb.notifier_call = logstore_pm_notify;
+	unregister_pm_notifier(&logstore_pm_nb);
 }
 
 module_init(log_store_early_init);
