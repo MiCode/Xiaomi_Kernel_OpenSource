@@ -1540,8 +1540,6 @@ static const struct mtk_pin_soc mt6983_data = {
 	.neh_pins = ARRAY_SIZE(mt6983_eh_pin_pinmux_list),
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
-	.adv_pull_get = mtk_pinconf_adv_pull_get,
-	.adv_pull_set = mtk_pinconf_adv_pull_set,
 	.adv_drive_get = mtk_pinconf_adv_drive_get,
 	.adv_drive_set = mtk_pinconf_adv_drive_set,
 };
