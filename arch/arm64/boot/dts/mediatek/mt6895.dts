@@ -5422,4 +5422,9 @@
 	};
 };
 
+&mtk_gauge {
+	charger = <&mt6375_chg>;
+};
+
+#include "mediatek/bat_setting/mt6895_battery_prop.dtsi"
 #include "mediatek/mt6895-clkitg.dtsi"

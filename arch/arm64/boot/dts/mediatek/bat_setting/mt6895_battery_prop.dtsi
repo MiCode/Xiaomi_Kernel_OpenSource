@@ -6,6 +6,7 @@
  */
 
 &mtk_gauge {
+	DISABLE_MTKBATTERY = <(1)>;
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(60)>;
@@ -68,6 +69,6 @@
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
 	RBAT_PULL_UP_VOLT = <(1840)>;
-#include "mt6983_battery_table.dtsi"
-#include "mt6983_battery_prop_dim2_ext.dtsi"
+#include "mt6895_battery_table.dtsi"
+#include "mt6895_battery_prop_dim2_ext.dtsi"
 };

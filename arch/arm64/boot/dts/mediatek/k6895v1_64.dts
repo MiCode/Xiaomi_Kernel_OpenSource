@@ -25,6 +25,10 @@ initcall_debug=1 ";
 		"td4330_fhdp_dsi_vdo_auo_rt5081_drv";
 };
 
+&mtk_gauge {
+	DISABLE_MTKBATTERY = <(1)>;
+};
+
 &odm {
 	vibrator0:vibrator@0 {
 		compatible = "mediatek,vibrator";
