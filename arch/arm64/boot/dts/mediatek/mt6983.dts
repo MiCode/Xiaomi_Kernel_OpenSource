@@ -1606,9 +1606,15 @@
 		fbt_cpu_mask = <255 128 15 127>;
 	};
 
+	hwv: syscon@10320000 {
+		compatible = "mediatek,mt6983-hwv", "syscon";
+		reg = <0 0x10320000 0 0x2000>;
+	};
+
 	topckgen_clk: syscon@10000000 {
 		compatible = "mediatek,mt6983-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
@@ -1695,11 +1701,13 @@
 		infracfg = <&infracfg_ao_clk>;
 		vlpcfg = <&vlpcfg_bus_clk>;
 		mfgrpc = <&mfgrpc_clk>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	apmixedsys_clk: syscon@1000c000 {
 		compatible = "mediatek,mt6983-apmixedsys", "syscon";
 		reg = <0 0x1000c000 0 0x1000>;
+		hw-voter-regmap = <&hwv>;
 		#clock-cells = <1>;
 	};
 
