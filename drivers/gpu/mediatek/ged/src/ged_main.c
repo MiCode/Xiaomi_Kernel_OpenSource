@@ -43,6 +43,7 @@
 #include "ged_gpu_tuner.h"
 #include "ged_eb.h"
 #include "ged_global.h"
+#include "ged_dcs.h"
 #include "mtk_drm_arr.h"
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 #include <ged_gpufreq_v2.h>
@@ -534,6 +535,20 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
+	err = ged_gpufreq_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init GPU Freq!\n");
+		goto ERROR;
+	}
+
+#ifdef GED_DCS_POLICY
+	err = ged_dcs_init_platform_info();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init DCS platform info!\n");
+		goto ERROR;
+	}
+#endif
+
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to init notify sw vsync!\n");
@@ -563,20 +578,6 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		GED_LOGE("Failed to init GPU Tuner!\n");
 		goto ERROR;
 	}
-
-	err = ged_gpufreq_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("Failed to init GPU Freq!\n");
-		goto ERROR;
-	}
-
-	/* Delegate to DCS commit */
-	/*
-	 * if (ged_is_gpueb_support()) {
-	 *	ged_dvfs_gpu_freq_commit_fp = mtk_gpueb_dvfs_commit;
-	 *	GED_LOGI("%s @ %d. GPUEB version commit\n", __func__, __LINE__);
-	 *}
-	 */
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(ged_dfrc_fps_limit_cb);

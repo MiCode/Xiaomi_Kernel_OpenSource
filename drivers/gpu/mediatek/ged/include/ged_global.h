@@ -55,4 +55,7 @@ extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
 extern int mtk_gpueb_sysram_batch_read(int max_read_count,
 	char *batch_string, int batch_str_size);
+
+/* set core_mask to DDK */
+extern int (*ged_dvfs_set_gpu_core_mask_fp)(u64 core_mask);
 #endif

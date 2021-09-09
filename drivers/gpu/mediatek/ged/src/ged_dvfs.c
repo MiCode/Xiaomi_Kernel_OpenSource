@@ -26,6 +26,7 @@
 #include "ged_base.h"
 #include "ged_global.h"
 #include "ged_eb.h"
+#include "ged_dcs.h"
 
 #define MTK_DEFER_DVFS_WORK_MS          10000
 #define MTK_DVFS_SWITCH_INTERVAL_MS     50
@@ -191,7 +192,6 @@ static int g_tb_dvfs_margin_value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
 static unsigned int g_tb_dvfs_margin_mode = CONFIGURE_TIMER_BASED_MODE;
 
-
 static void _init_loading_ud_table(void)
 {
 	int i;
@@ -247,11 +247,11 @@ unsigned long ged_query_info(GED_INFO eType)
 	case GED_CUR_FREQ_IDX:
 		return ged_get_cur_oppidx();
 	case GED_MAX_FREQ_IDX:
-		return g_minfreq_idx;
+		return ged_get_max_oppidx();
 	case GED_MAX_FREQ_IDX_FREQ:
 		return g_maxfreq;
 	case GED_MIN_FREQ_IDX:
-		return g_minfreq_idx;
+		return ged_get_min_oppidx();
 	case GED_MIN_FREQ_IDX_FREQ:
 		return g_minfreq;
 	case GED_3D_FENCE_DONE_TIME:
@@ -371,8 +371,8 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		if (ui32NewFreqID != ui32CurFreqID) {
 			/* call to DVFS module */
 			g_ged_dvfs_commit_idx = ui32NewFreqID;
-			ged_dvfs_gpu_freq_commit_fp(ui32NewFreqID, eCommitType,
-				&bCommited);
+			ged_gpufreq_commit(ui32NewFreqID);
+
 			/*
 			 * To-Do: refine previous freq contributions,
 			 * since it is possible to have multiple freq settings
@@ -416,7 +416,6 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			ged_get_cur_limit_idx_ceil())/1000),
 			5566, 0, 0);
 	}
-
 	return bCommited;
 }
 
@@ -559,6 +558,7 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 #ifdef ENABLE_COMMON_DVFS
 	int i;
 	int ui32CurFreqID;
+	int minfreq_idx;
 	unsigned int ui32NewFreqID;
 	unsigned long gpu_freq;
 	unsigned int sentinalLoading = 0;
@@ -566,6 +566,7 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 	unsigned long ui32IRQFlags;
 
 	ui32CurFreqID = ged_get_cur_oppidx();
+	minfreq_idx = ged_get_min_oppidx();
 
 	if (g_gpu_timer_based_emu)
 		return GED_ERROR_INTENTIONAL_BLOCK;
@@ -626,8 +627,8 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 		g_policy_tar_freq = g_um_gpu_tar_freq;
 		g_mode = 1;
 
-		ui32NewFreqID = g_minfreq_idx;
-		for (i = 0; i <= g_minfreq_idx; i++) {
+		ui32NewFreqID = minfreq_idx;
+		for (i = 0; i <= minfreq_idx; i++) {
 			gpu_freq = ged_get_freq_by_idx(i);
 
 			if (gpu_tar_freq > gpu_freq) {
@@ -717,6 +718,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 {
 	int i, gpu_freq_tar, ui32NewFreqID = 0;
 	int ret_freq = -1;
+	int minfreq_idx;
 	static int gpu_freq_pre = -1;
 	static int num_pre_frames;
 	static int cur_frame_idx;
@@ -905,8 +907,10 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	cur_frame_idx = (cur_frame_idx + 1) %
 		GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM;
 
-	ui32NewFreqID = g_minfreq_idx;
-	for (i = 0; i <= g_minfreq_idx; i++) {
+	minfreq_idx = ged_get_min_oppidx();
+	ui32NewFreqID = minfreq_idx;
+
+	for (i = 0; i <= minfreq_idx; i++) {
 		int gpu_freq;
 
 		gpu_freq = ged_get_freq_by_idx(i);
@@ -973,6 +977,7 @@ static bool ged_dvfs_policy(
 	unsigned long ui32IRQFlags;
 
 	int loading_mode;
+	int minfreq_idx;
 
 	if (ui32GPUFreq == -1)
 		return GED_FALSE;
@@ -1036,12 +1041,13 @@ static bool ged_dvfs_policy(
 	ged_log_buf_print(ghLogBuf_DVFS,
 		"[GED_K] timer: loading %u", ui32GPULoading);
 
+	minfreq_idx = ged_get_min_oppidx();
 	/* conventional timer-based policy */
 	if (g_gpu_timer_based_emu) {
 		if (ui32GPULoading >= 99)
 			i32NewFreqID = 0;
 		else if (ui32GPULoading <= 1)
-			i32NewFreqID = g_minfreq_idx;
+			i32NewFreqID = minfreq_idx;
 		else if (ui32GPULoading >= 85)
 			i32NewFreqID -= 2;
 		else if (ui32GPULoading <= 30)
@@ -1174,8 +1180,8 @@ static bool ged_dvfs_policy(
 		g_CommitType = MTK_GPU_DVFS_TYPE_FALLBACK;
 	}
 
-	if (i32NewFreqID > g_minfreq_idx)
-		i32NewFreqID = g_minfreq_idx;
+	if (i32NewFreqID > minfreq_idx)
+		i32NewFreqID = minfreq_idx;
 	else if (i32NewFreqID < 0)
 		i32NewFreqID = 0;
 
@@ -1219,19 +1225,22 @@ void ged_dvfs_boost_gpu_freq(void)
 /* Set buttom gpufreq by from PowerHal  API Boost */
 static void ged_dvfs_set_bottom_gpu_freq(unsigned int ui32FreqLevel)
 {
+	int minfreq_idx;
 	static unsigned int s_bottom_freq_id;
+
+	minfreq_idx = ged_get_min_oppidx();
 
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
-	if (g_minfreq_idx < ui32FreqLevel)
-		ui32FreqLevel = g_minfreq_idx;
+	if (minfreq_idx < ui32FreqLevel)
+		ui32FreqLevel = minfreq_idx;
 
 	mutex_lock(&gsDVFSLock);
 
 	/* 0 => The highest frequency */
 	/* table_num - 1 => The lowest frequency */
-	s_bottom_freq_id = g_minfreq_idx - ui32FreqLevel;
+	s_bottom_freq_id = minfreq_idx - ui32FreqLevel;
 
 	ged_set_limit_floor(LIMITER_APIBOOST, s_bottom_freq_id);
 
@@ -1266,11 +1275,15 @@ static unsigned int ged_dvfs_get_gpu_freq_level_count(void)
 /* set buttom gpufreq from PowerHal by MIN_FREQ */
 static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 {
+	int minfreq_idx;
+
+	minfreq_idx = ged_get_min_oppidx();
+
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
-	if (g_minfreq_idx < ui32FreqLevel)
-		ui32FreqLevel = g_minfreq_idx;
+	if (minfreq_idx < ui32FreqLevel)
+		ui32FreqLevel = minfreq_idx;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -1292,11 +1305,15 @@ static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 /* set buttom gpufreq from PowerHal by MAX_FREQ */
 static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 {
+	int minfreq_idx;
+
+	minfreq_idx = ged_get_min_oppidx();
+
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
-	if (g_minfreq_idx < ui32FreqLevel)
-		ui32FreqLevel = g_minfreq_idx;
+	if (minfreq_idx < ui32FreqLevel)
+		ui32FreqLevel = minfreq_idx;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -1316,7 +1333,9 @@ static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 
 static unsigned int ged_dvfs_get_bottom_gpu_freq(void)
 {
-	unsigned int ui32MaxLevel = g_minfreq_idx;
+	unsigned int ui32MaxLevel;
+
+	ui32MaxLevel = ged_get_min_oppidx();
 
 	return ui32MaxLevel - g_bottom_freq_id;
 }

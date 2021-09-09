@@ -46,6 +46,7 @@
 #if defined(MTK_GPU_BM_2)
 #include <ged_gpu_bm.h>
 #endif /* MTK_GPU_BM_2 */
+#include <ged_dcs.h>
 
 #ifdef MTK_GED_KPI
 
@@ -560,7 +561,11 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		psKPI->cpu_gpu_info.gpu.limit_lower,
 		psKPI->cpu_gpu_info.gpu.dvfs_loading_mode,
 		psKPI->cpu_gpu_info.gpu.gpu_util,
+#ifdef GED_DCS_POLICY
+		dcs_get_cur_core_num(),
+#else
 		psKPI->cpu_gpu_info.gpu.gpu_power,
+#endif /* GED_DCS_POLICY */
 #ifdef MTK_CPUFREQ
 		mt_cpufreq_get_cur_freq(0) / 1000,
 		mt_cpufreq_get_freq_by_idx(0, GED_KPI_CPU_MAX_OPP) / 1000,

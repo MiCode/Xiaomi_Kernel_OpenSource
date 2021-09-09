@@ -163,6 +163,8 @@ extern unsigned int mtk_gpueb_dvfs_get_cur_freq(void);
 extern unsigned int mtk_gpueb_dvfs_get_frame_loading(void);
 extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 		GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
+extern void mtk_gpueb_dvfs_dcs_commit(unsigned int platform_freq_idx,
+		GED_DVFS_COMMIT_TYPE eCommitType, unsigned int virtual_freq_in_MHz);
 extern unsigned int mtk_gpueb_dvfs_set_frame_base_dvfs(unsigned int enable);
 extern int
 	mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time);

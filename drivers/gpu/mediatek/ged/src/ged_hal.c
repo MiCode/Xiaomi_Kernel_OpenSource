@@ -25,6 +25,7 @@
 #include "ged_notify_sw_vsync.h"
 #include "ged_kpi.h"
 #include "ged_global.h"
+#include "ged_dcs.h"
 
 static struct kobject *hal_kobj;
 
@@ -560,6 +561,53 @@ void mtk_ged_event_notify(int events)
 }
 
 //-----------------------------------------------------------------------------
+#ifdef GED_DCS_POLICY
+static ssize_t dcs_mode_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int dcs_enable = 0;
+	int pos = 0;
+
+	dcs_enable = is_dcs_enable();
+
+	if (dcs_enable) {
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"DCS Policy is enable\n");
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"Current in use core num: %d\n", dcs_get_cur_core_num());
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"Available max core num: %d\n",	dcs_get_max_core_num());
+	} else {
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"DCS Policy is disabled\n");
+	}
+	return pos;
+}
+
+static ssize_t dcs_mode_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value < 0)
+					i32Value = 0;
+				dcs_enable(i32Value);
+			}
+		}
+	}
+	return count;
+}
+
+static KOBJ_ATTR_RW(dcs_mode);
+#endif /* GED_DCS_POLICY */
+
+//-----------------------------------------------------------------------------
 GED_ERROR ged_hal_init(void)
 {
 	GED_ERROR err = GED_OK;
@@ -658,10 +706,16 @@ GED_ERROR ged_hal_init(void)
 		GED_LOGE("Register fb_notifier fail!\n");
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fastdvfs_mode);
-	if (unlikely(err != GED_OK)) {
+	if (unlikely(err != GED_OK))
 		GED_LOGE("Failed to create fastdvfs_mode entry!\n");
+
+#ifdef GED_DCS_POLICY
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dcs_mode);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to create dcs_mode entry!\n");
 		goto ERROR;
 	}
+#endif /* GED_DCS_POLICY */
 
 	return err;
 
@@ -690,6 +744,9 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_custom_upbound_gpu_freq);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_custom_boost_gpu_freq);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_total_gpu_freq_level_count);
+#ifdef GED_DCS_POLICY
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
+#endif
 	ged_sysfs_remove_dir(&hal_kobj);
 }
 //-----------------------------------------------------------------------------

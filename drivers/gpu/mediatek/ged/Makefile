@@ -43,6 +43,10 @@ ifeq ($(CONFIG_MTK_FTRACE_DEFAULT_ENABLE),y)
 ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
 endif
 
+ifeq ($(CONFIG_MTK_GPUFREQ_V2),y)
+ccflags-y += -DGED_DCS_POLICY
+endif
+
 ccflags-y += \
 	     -I$(srctree)/include/ \
 	     -I$(MTK_TOP)/include/ \
@@ -74,7 +78,8 @@ endif
 
 ifeq ($(CONFIG_MTK_GPUFREQ_V2),y)
 ged-y += \
-	src/ged_gpufreq_v2.o
+	src/ged_gpufreq_v2.o \
+	src/ged_dcs.o
 else
 ged-y += \
 	src/ged_gpufreq_v1.o

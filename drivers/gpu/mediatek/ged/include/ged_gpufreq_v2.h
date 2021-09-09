@@ -32,5 +32,6 @@ int ged_set_limit_floor(int limiter, int floor);
 int ged_gpufreq_commit(int oppidx);
 
 unsigned int ged_gpufreq_bringup(void);
+void ged_gpufreq_print_tables(void);
 
 #endif /* __GED_GPUFREQ_V2_H__ */
