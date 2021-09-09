@@ -90,6 +90,8 @@ enum {
 	IPI_IN_SCP_CONNSYS        = 34,
 	IPI_OUT_SCP_HWVOTER_DEBUG   = 35,
 	IPI_IN_AUDIO_ACCDET_1     = 36,
+	IPI_OUT_SCP_AOD           = 37,
+	IPI_IN_SCP_AOD            = 38,
 	SCP_IPI_COUNT
 };
 
