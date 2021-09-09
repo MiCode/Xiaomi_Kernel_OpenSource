@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2021 MediaTek Inc.
  */
+#define MBOX_TIMESTAMP
 
 #include <linux/kernel.h>
 #include <linux/of_device.h>
@@ -19,6 +20,14 @@
 #include <linux/of_reserved_mem.h>
 #endif
 
+#ifdef MBOX_TIMESTAMP
+#include <asm/arch_timer.h>
+#define FIXED_MBOX_SIZE		128
+#define T_SEND_OFFSET_H		(FIXED_MBOX_SIZE - 16)
+#define T_SEND_OFFSET_L		(FIXED_MBOX_SIZE - 12)
+#define T_IRQ_OFFSET_H		(FIXED_MBOX_SIZE - 8)
+#define T_IRQ_OFFSET_L		(FIXED_MBOX_SIZE - 4)
+#endif
 #define INTR_SET_OFS	0x0
 #define INTR_CLR_OFS	0x4
 
@@ -30,6 +39,10 @@ struct mhu_link {
 	unsigned irq;
 	void __iomem *tx_reg;
 	void __iomem *rx_reg;
+#ifdef MBOX_TIMESTAMP
+	void __iomem *shmem;
+	resource_size_t shmem_size;
+#endif
 };
 
 struct mtk_mbu {
@@ -44,6 +57,13 @@ static irqreturn_t tinysys_mbox_rx_interrupt(int irq, void *p)
 	struct mbox_chan *chan = p;
 	struct mhu_link *mlink = chan->con_priv;
 	u32 val;
+#ifdef MBOX_TIMESTAMP
+	u64 tv;
+
+	tv = __arch_counter_get_cntvct();
+	writel_relaxed((u32)((tv & 0xFFFFFFFF00000000LL) >> 32), mlink->shmem + T_IRQ_OFFSET_H);
+	writel_relaxed((u32)(tv & 0xFFFFFFFFLL), mlink->shmem + T_IRQ_OFFSET_L);
+#endif
 
 	val = readl_relaxed(mlink->rx_reg + INTR_CLR_OFS);
 #if MBOX_DEBUG
@@ -73,12 +93,20 @@ static bool tinysys_mbox_last_tx_done(struct mbox_chan *chan)
 static int tinysys_mbox_send_data(struct mbox_chan *chan, void *data)
 {
 	struct mhu_link *mlink = chan->con_priv;
+#ifdef MBOX_TIMESTAMP
+	u64 tv;
+#endif
 #if MBOX_DEBUG
 	u32 *arg = data;
 
 	dev_notice(chan->mbox->dev, "[scmi] send_data %x\n", *arg);
 #endif
 	smp_mb();
+#ifdef MBOX_TIMESTAMP
+	tv = __arch_counter_get_cntvct();
+	writel_relaxed((u32)((tv & 0xFFFFFFFF00000000LL) >> 32), mlink->shmem + T_SEND_OFFSET_H);
+	writel_relaxed((u32)(tv & 0xFFFFFFFFLL), mlink->shmem + T_SEND_OFFSET_L);
+#endif
 	writel_relaxed(1, mlink->tx_reg + INTR_SET_OFS);
 
 	return 0;
@@ -120,6 +148,11 @@ static int tinysys_mbox_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct tinysys_mbox_plat *plat_data;
+#ifdef MBOX_TIMESTAMP
+	struct device_node *shmem;
+	struct resource shmem_res;
+	resource_size_t size;
+#endif
 
 	/* Allocate memory for device */
 	mbu = devm_kzalloc(dev, sizeof(*mbu), GFP_KERNEL);
@@ -136,6 +169,18 @@ static int tinysys_mbox_probe(struct platform_device *pdev)
 			dev_notice(dev, "failed to ioremap mbu");
 			return PTR_ERR(mbu->base);
 		}
+#ifdef MBOX_TIMESTAMP
+		shmem = of_parse_phandle(dev->of_node, "shmem", i);
+		err  = of_address_to_resource(shmem, 0, &shmem_res);
+		of_node_put(shmem);
+		if (err) {
+			dev_err(dev, "failed to get scmi profile memory\n");
+			return err;
+		}
+		size = resource_size(&shmem_res);
+		mbu->mlink[i].shmem = devm_ioremap(dev, shmem_res.start, size);
+		mbu->mlink[i].shmem_size = size;
+#endif
 		mbu->chan[i].con_priv = &mbu->mlink[i];
 		mbu->mlink[i].irq = platform_get_irq(pdev, i);
 		if (!mbu->mlink[i].irq) {
