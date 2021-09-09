@@ -3890,7 +3890,7 @@ static void mtk_iommu_clear_iova_size(void)
 }
 
 static void mtk_iommu_count_iova_size(struct device *dev,
-				dma_addr_t iova, size_t size)
+				      dma_addr_t iova, size_t size)
 {
 	struct iommu_fwspec *fwspec = NULL;
 	struct iova_count_info *plist = NULL;
@@ -3900,7 +3900,7 @@ static void mtk_iommu_count_iova_size(struct device *dev,
 	fwspec = dev_iommu_fwspec_get(dev);
 	if (fwspec == NULL) {
 		pr_notice("%s fail! dev:%s, fwspec is NULL\n",
-				__func__, dev_name(dev));
+			  __func__, dev_name(dev));
 		return;
 	}
 
@@ -3920,7 +3920,7 @@ static void mtk_iommu_count_iova_size(struct device *dev,
 	if (!new_info) {
 		spin_unlock(&count_list.lock);
 		pr_notice("%s, alloc iova_count_info fail! dev:%s\n",
-				__func__, dev_name(dev));
+			  __func__, dev_name(dev));
 		return;
 	}
 
@@ -3933,29 +3933,33 @@ static void mtk_iommu_count_iova_size(struct device *dev,
 }
 
 static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
-				struct device *dev)
+					  struct device *dev)
 {
 	struct iommu_fwspec *fwspec = NULL;
 	struct iova_info *plist = NULL;
 	struct iova_info *n = NULL;
 	struct iova_count_info *p_count_list = NULL;
 	struct iova_count_info *n_count = NULL;
-	int count = 0, i = 0;
+	int count = 0, dom_count = 0, dom_id = -1, i = 0;
 
 	/* check fwspec by device */
 	if (dev != NULL) {
 		fwspec = dev_iommu_fwspec_get(dev);
 		if (fwspec == NULL) {
 			pr_notice("%s fail! dev:%s, fwspec is NULL\n",
-				__func__, dev_name(dev));
+				  __func__, dev_name(dev));
 			return;
 		}
+		dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
 	}
 
 	/* count iova size by device */
 	spin_lock(&iova_list.lock);
 	list_for_each_entry_safe(plist, n, &iova_list.head, list_node) {
-		mtk_iommu_count_iova_size(plist->dev, plist->iova, plist->size);
+		if (dev == NULL || plist->dom_id == dom_id) {
+			mtk_iommu_count_iova_size(plist->dev, plist->iova, plist->size);
+			dom_count++;
+		}
 		count++;
 	}
 	spin_unlock(&iova_list.lock);
@@ -3965,16 +3969,15 @@ static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
 	list_sort(NULL, &count_list.head, iova_size_cmp);
 
 	/* dump top max user */
-	iommu_dump(s, "iommu iova alloc count:%d, top %d user:\n",
-			count, IOVA_DUMP_TOP_MAX);
-	iommu_dump(s, "%6s %8s %10s %18s\n", "dom_id", "count", "size", "dev");
-	list_for_each_entry_safe(p_count_list, n_count,
-				 &count_list.head, list_node) {
+	iommu_dump(s, "iommu iova alloc count:%d, dom:%d(count:%d), top %d user:\n",
+		   count, dom_id, dom_count, IOVA_DUMP_TOP_MAX);
+	iommu_dump(s, "%6s %8s %10s %3s\n", "dom_id", "count", "size", "dev");
+	list_for_each_entry_safe(p_count_list, n_count, &count_list.head, list_node) {
 		iommu_dump(s, "%6u %8lu %8lluKB %s\n",
-				p_count_list->dom_id,
-				p_count_list->count,
-				p_count_list->size,
-				dev_name(p_count_list->dev));
+			   p_count_list->dom_id,
+			   p_count_list->count,
+			   p_count_list->size,
+			   dev_name(p_count_list->dev));
 		i++;
 		if (i >= IOVA_DUMP_TOP_MAX)
 			break;
@@ -4002,16 +4005,16 @@ static void mtk_iommu_iova_alloc_dump(struct seq_file *s, struct device *dev)
 	}
 
 	iommu_dump(s, "iommu iova alloc dump:\n");
-	iommu_dump(s, "%6s %18s %8s %18s\n", "dom_id", "iova", "size", "dev");
+	iommu_dump(s, "%6s %18s %8s %3s\n", "dom_id", "iova", "size", "dev");
 
 	spin_lock(&iova_list.lock);
 	list_for_each_entry_safe(plist, n, &iova_list.head, list_node)
 		if (dev == NULL || plist->dom_id == MTK_M4U_TO_DOM(fwspec->ids[0]))
 			iommu_dump(s, "%6u %18pa %8zx %s\n",
-				plist->dom_id,
-				&plist->iova,
-				plist->size,
-				dev_name(plist->dev));
+				   plist->dom_id,
+				   &plist->iova,
+				   plist->size,
+				   dev_name(plist->dev));
 	spin_unlock(&iova_list.lock);
 }
 

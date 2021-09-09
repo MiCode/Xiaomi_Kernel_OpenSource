@@ -550,8 +550,7 @@ static void mtk_iommu_bk0_intr_en(const struct mtk_iommu_data *data,
 
 		regval = F_INT_TRANSLATION_FAULT | F_INT_MAIN_MULTI_HIT_FAULT |
 			F_INT_INVALID_PA_FAULT | F_INT_ENTRY_REPLACEMENT_FAULT |
-			F_INT_TLB_MISS_FAULT | F_INT_MISS_TRANSACTION_FIFO_FAULT |
-			F_INT_PRETETCH_TRANSATION_FIFO_FAULT;
+			F_INT_TLB_MISS_FAULT | F_INT_MISS_TRANSACTION_FIFO_FAULT;
 
 		if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_MAU_EN))
 			regval |= F_INT_MAIN_MAU_INT_EN(data->plat_data->mau_count);
@@ -982,7 +981,7 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 		}
 
 		dev_warn(dev, "L2 table walk fault: iova=0x%lx, layer=%d\n",
-				fault_iova, layer);
+			 fault_iova, layer);
 	}
 
 	if (int_state0 & F_INT_PFQ_FIFO_FULL)
@@ -1019,28 +1018,28 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 
 	if (int_state1 & F_INT_MMU_MHIT_ERR(slave_id))
 		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-				F_INT_MMU_MHIT_ERR(slave_id));
+			  F_INT_MMU_MHIT_ERR(slave_id));
 
 	if (int_state1 & F_INT_MMU_INV_PA_ERR(slave_id))
 		if (!(int_state1 & F_INT_MMU_TF_ERR(slave_id)))
 			pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-					F_INT_MMU_INV_PA_ERR(slave_id));
+				  F_INT_MMU_INV_PA_ERR(slave_id));
 
 	if (int_state1 & F_INT_MMU_ENTR_REP_ERR(slave_id))
 		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-				F_INT_MMU_ENTR_REP_ERR(slave_id));
+			  F_INT_MMU_ENTR_REP_ERR(slave_id));
 
 	if (int_state1 & F_INT_MMU_TLBM_ERR(slave_id))
 		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-				F_INT_MMU_TLBM_ERR(slave_id));
+			  F_INT_MMU_TLBM_ERR(slave_id));
 
 	if (int_state1 & F_INT_MMU_MQ_OVF_ERR(slave_id))
 		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-				F_INT_MMU_MQ_OVF_ERR(slave_id));
+			  F_INT_MMU_MQ_OVF_ERR(slave_id));
 
 	if (int_state1 & F_INT_MMU_PFQ_OVF_ERR(slave_id))
 		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-				F_INT_MMU_PFQ_OVF_ERR(slave_id));
+			  F_INT_MMU_PFQ_OVF_ERR(slave_id));
 
 	/* MMU Interrupt Status1 for MAU Related Interrupt Status */
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_MAU_EN)) {
@@ -1113,9 +1112,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	int_state0 = readl_relaxed(base + REG_MMU_FAULT_ST0);
 	int_state1 = readl_relaxed(base + REG_MMU_FAULT_ST1);
 
-	if ((int_state1 & F_REG_MMU0_FAULT_MASK) ||
-	    (int_state1 & F_REG_MMU1_FAULT_MASK)) {
-		if (int_state1 & F_REG_MMU0_FAULT_MASK) {
+	if (int_state1 & F_INT_TRANSLATION_FAULT) {
+		if (int_state1 & F_INT_MMU_TF_ERR(0)) {
 			regval = readl_relaxed(base + REG_MMU0_INT_ID);
 			fault_iova = readl_relaxed(base + REG_MMU0_FAULT_VA);
 			fault_pa = readl_relaxed(base + REG_MMU0_INVLD_PA);
