@@ -411,7 +411,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 		if (!latency_sensitive && max_spare_cap_cpu >= 0) {
 			cur_delta = compute_energy(p, max_spare_cap_cpu, pd);
 			cur_delta -= base_energy_pd;
-			if (cur_delta < best_delta) {
+			if (cur_delta <= best_delta) {
 				best_delta = cur_delta;
 				best_energy_cpu = max_spare_cap_cpu;
 			}
@@ -421,7 +421,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			if (max_spare_cap_cpu_ls_idle >= 0) {
 				cur_delta = compute_energy(p, max_spare_cap_cpu_ls_idle, pd);
 				cur_delta -= base_energy_pd;
-				if (cur_delta < best_delta) {
+				if (cur_delta <= best_delta) {
 					best_delta = cur_delta;
 					best_idle_cpu = max_spare_cap_cpu_ls_idle;
 				}
