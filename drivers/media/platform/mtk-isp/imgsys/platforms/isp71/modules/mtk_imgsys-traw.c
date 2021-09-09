@@ -535,14 +535,22 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *trawRegBA = 0L;
-	void __iomem *ofset = NULL;
-	unsigned int i = 0, HwIdx = 0;
-
 	/* iomap reg base */
 	g_trawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TRAW);
 	g_ltrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_LTRAW);
 	g_xtrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_XTRAW);
+
+	/* Init HW */
+	imgsys_traw_set_initial_value_hw(imgsys_dev);
+
+	pr_info("%s\n", __func__);
+}
+
+void imgsys_traw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
+{
+	void __iomem *trawRegBA = 0L;
+	void __iomem *ofset = NULL;
+	unsigned int i = 0, HwIdx = 0;
 
 	for (HwIdx = 0; HwIdx < TRAW_HW_SET; HwIdx++) {
 		if (HwIdx == 0)

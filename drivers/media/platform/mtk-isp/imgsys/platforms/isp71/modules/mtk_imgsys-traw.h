@@ -75,6 +75,7 @@ struct TRAWDmaDebugInfo {
 // Public Functions
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_traw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
 void imgsys_traw_uninit(struct mtk_imgsys_dev *imgsys_dev);
