@@ -97,7 +97,7 @@ static int goodix_i2c_probe(struct i2c_client *client,
 
 static int goodix_parse_dt_display(struct goodix_ts_board_data *board_data)
 {
-	int r, err;
+	int r;
 	struct device_node *node = NULL;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,touch-panel");
@@ -113,34 +113,42 @@ static int goodix_parse_dt_display(struct goodix_ts_board_data *board_data)
 		r = of_property_read_u32(node, "lcm-width",
 				 &board_data->panel_max_x);
 		if (r)
-			err = -ENOENT;
+			ts_info("read lcm-width failed!");
 
 		r = of_property_read_u32(node, "lcm-height",
 					 &board_data->panel_max_y);
 		if (r)
-			err = -ENOENT;
+			ts_info("read lcm-height failed!");
 
 		r = of_property_read_u32(node, "lcm-fake-width",
 				 &board_data->input_max_x);
 		if (r)
-			err = -ENOENT;
+			ts_info("read lcm-fake-width failed!");
 
 		r = of_property_read_u32(node, "lcm-fake-height",
 					 &board_data->input_max_y);
 		if (r)
-			err = -ENOENT;
+			ts_info("read lcm-fake-height failed!");
 
 		r = of_property_read_string(node, "lcm-name",
 				&gt9886_lcm_buf);
 		if (r < 0) {
-			ts_err("Invalid config version in dts : %d", r);
+			ts_info("read lcm-name failed!");
+		}
+		//check if the lcm-name is supported
+		if ((strcmp("td4330_fhdp_dphy_vdo_truly",
+			gt9886_lcm_buf) != 0) &&
+			(strcmp("td4330_fhdp_dphy_cmd_truly",
+			gt9886_lcm_buf) != 0) &&
+			(strcmp("r66451_fhdp_dphy_cmd_tianma_120hz",
+			gt9886_lcm_buf) != 0)) {
+			ts_info("lcm-name is not supported by gt9886!");
 			return -EINVAL;
 		}
 		gt9886_find_touch_node = 1;
 	} else {
 		ts_info("not find touch panel node!");
 		gt9886_find_touch_node = 0;
-		err = -ENOENT;
 	}
 	return 0;
 }
@@ -2376,7 +2384,11 @@ static int goodix_i2c_probe(struct i2c_client *client,
 
 	if (IS_ENABLED(CONFIG_OF) && client->dev.of_node) {
 		/* parse devicetree property */
-		goodix_parse_dt_display(ts_bdata);
+		r = goodix_parse_dt_display(ts_bdata);
+		if (r < 0) {
+			ts_info("%s OUT, lcm not support", __func__);
+			return r;
+		}
 		r = goodix_parse_dt(client->dev.of_node, ts_bdata);
 		if (r < 0)
 			return r;
@@ -2389,6 +2401,19 @@ static int goodix_i2c_probe(struct i2c_client *client,
 						"gt9886_cfg_90hz6885", 20);
 					strlcpy(panel_firmware_buf,
 						"gt9886_firmware_6885af", 23);
+				} else {
+					ts_info("%s, fault firmware!", gt9886_lcm_buf);
+				}
+			} else if ((strcmp("td4330_fhdp_dphy_vdo_truly",
+					gt9886_lcm_buf) == 0) ||
+					(strcmp("td4330_fhdp_dphy_cmd_truly",
+					gt9886_lcm_buf) == 0)) {
+				if (ts_bdata->panel_max_x == 1080
+					&& ts_bdata->panel_max_y == 2280) {
+					strlcpy(panel_config_buf,
+						"gt9886_cfg_6877v01", 19);
+					strlcpy(panel_firmware_buf,
+						"gt9886_firmware_6877v01", 24);
 				} else {
 					ts_info("%s, fault firmware!", gt9886_lcm_buf);
 				}

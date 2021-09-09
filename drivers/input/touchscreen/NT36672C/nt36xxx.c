@@ -40,6 +40,8 @@ uint8_t esd_retry;
 
 struct nvt_ts_data *ts;
 char novatek_firmware[25];
+int nvt_find_lcm;
+const char *nvt_lcm_buf;
 /* For SPI mode */
 static struct pinctrl *nt36672_pinctrl;
 static struct pinctrl_state *nt36672_spi_mode_default;
@@ -1456,6 +1458,42 @@ static int nvt_tp_power_on_reinit(void)
 }
 #endif
 
+static int nvt_parse_dt_display(void)
+{
+	int r;
+	unsigned int fake_status;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,touch-panel");
+	if (node) {
+		r = of_property_read_u32(node, "lcm-is-fake",
+					 &fake_status);
+		if (r) {
+			NVT_LOG("no lcm-is-fake, not find touch panel node!\n");
+			nvt_find_lcm = 0;
+			return 0;
+		}
+		NVT_LOG("find touch panel node!\n");
+
+		r = of_property_read_string(node, "lcm-name",
+				&nvt_lcm_buf);
+		if (r < 0)
+			NVT_LOG("read lcm-name fail\n");
+
+		if ((strcmp("nt36672e_fhdp_dphy_vdo_tianma_120hz_hfp", nvt_lcm_buf) != 0)
+			&& (strcmp("nt36672c_fhdp_dphy_vdo_shenchao_120hz", nvt_lcm_buf) != 0)
+			&& (strcmp("nt36672c_fhdp_dphy_vdo_tianma_120hz", nvt_lcm_buf) != 0)
+			&& (strcmp("nt36672c_fhdp_dphy_vdo_tianma_144hz", nvt_lcm_buf) != 0)) {
+			NVT_LOG("lcm-name is not supported by nt36672!\n");
+			return -1;
+		}
+		nvt_find_lcm = 1;
+	} else {
+		NVT_LOG("not find touch panel node!\n");
+		nvt_find_lcm = 0;
+	}
+	return 0;
+}
 
 /*******************************************************
 Description:
@@ -1511,6 +1549,59 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 
 	ts->client = client;
 	spi_set_drvdata(client, ts);
+
+	NVT_LOG("start to parse lcm name\n");
+	ret = nvt_parse_dt_display();
+	if (ret < 0) {
+		NVT_LOG("not get lcm info from dts\n");
+		goto err_ckeck_full_duplex;
+	}
+	//find co-load lcm node, use configs in lcm node
+	if (nvt_find_lcm == 1) {
+		if (strcmp("nt36672e_fhdp_dphy_vdo_tianma_120hz_hfp",
+			nvt_lcm_buf) == 0) {
+			strncpy(novatek_firmware, firmware_name_144hz, sizeof(firmware_name_144hz));
+		} else {
+			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
+		}
+		NVT_LOG("nvt_find_lcm nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
+	} else {
+		lcm_name = of_find_node_by_path("/chosen");
+		if (lcm_name) {
+			videolfb_tag = (struct tag_videolfb *)
+				of_get_property(lcm_name,
+				"atag,videolfb",
+				(int *)&size);
+			if (!videolfb_tag)
+				NVT_ERR("Invalid lcm name\n");
+				NVT_LOG("read lcm name : %s\n", videolfb_tag->lcmname);
+			if (strcmp("nt36672c_fhdp_dsi_vdo_90hz_jdi_rt4801_lcm_drv",
+				videolfb_tag->lcmname) == 0 ||
+				strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_lcm_drv",
+				videolfb_tag->lcmname) == 0 ||
+				strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_hfp_lcm_drv",
+				videolfb_tag->lcmname) == 0)
+				strncpy(novatek_firmware, firmware_name_jdi,
+					sizeof(firmware_name_jdi));
+			else if (strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_lcm_drv",
+				videolfb_tag->lcmname) == 0 ||
+				strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_hfp_lcm_drv",
+				videolfb_tag->lcmname) == 0)
+				strncpy(novatek_firmware, firmware_name_tm,
+					sizeof(firmware_name_tm));
+			else if (strcmp("nt36672e_fhdp_dsi_vdo_120hz_tianma_hfp_lcm_drv",
+				videolfb_tag->lcmname) == 0 ||
+				strcmp("nt36672e_fhdp_dphy_vdo_tianma_120hz_hfp",
+				videolfb_tag->lcmname) == 0)
+				strncpy(novatek_firmware, firmware_name_144hz,
+					sizeof(firmware_name_144hz));
+			else
+				strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
+			NVT_LOG("nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
+		} else {
+			NVT_ERR("Can't find node: chose in dts");
+		}
+	}
 
 	//---prepare for spi parameter---
 	if (ts->client->master->flags & SPI_MASTER_HALF_DUPLEX) {
@@ -1685,38 +1776,6 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #endif
 
 #if BOOT_UPDATE_FIRMWARE
-	NVT_LOG("start to parse lcm name\n");
-	lcm_name = of_find_node_by_path("/chosen");
-	if (lcm_name) {
-		videolfb_tag = (struct tag_videolfb *)
-			of_get_property(lcm_name,
-			"atag,videolfb",
-			(int *)&size);
-		if (!videolfb_tag)
-			NVT_ERR("Invalid lcm name\n");
-			NVT_LOG("read lcm name : %s\n", videolfb_tag->lcmname);
-		if (strcmp("nt36672c_fhdp_dsi_vdo_90hz_jdi_rt4801_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_hfp_lcm_drv",
-			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware, firmware_name_jdi, sizeof(firmware_name_jdi));
-		else if (strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_hfp_lcm_drv",
-			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
-		else if (strcmp("nt36672e_fhdp_dsi_vdo_120hz_tianma_hfp_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672e_fhdp_dphy_vdo_tianma_120hz_hfp",
-			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware, firmware_name_144hz, sizeof(firmware_name_144hz));
-		else
-			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
-		NVT_LOG("nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
-	} else
-		NVT_ERR("Can't find node: chose in dts");
 	nvt_fwu_worker = kthread_create_worker(0, "nvt_fwu_worker");
 	if (!nvt_fwu_worker) {
 		NVT_ERR("nvt_fwu_worker create kthread failed\n");

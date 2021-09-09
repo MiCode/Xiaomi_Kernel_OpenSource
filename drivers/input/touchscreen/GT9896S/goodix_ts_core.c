@@ -1713,6 +1713,11 @@ static int gt9896s_ts_power_on_reinit(void)
 
 	ts_info("%s start!\n", __func__);
 
+	if (ts_core == NULL) {
+		ts_err("ts_core is NULL");
+		return -EINVAL;
+	}
+
 	/* disable irq */
 	gt9896s_ts_irq_enable(ts_core, false);
 

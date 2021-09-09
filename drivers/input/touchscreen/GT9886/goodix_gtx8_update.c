@@ -1327,9 +1327,9 @@ static struct goodix_ext_attribute goodix_fwu_attrs[] = {
 	__EXTMOD_ATTR(result, 0444, goodix_sysfs_update_result_show, NULL),
 	__EXTMOD_ATTR(fwversion, 0444,
 			goodix_sysfs_update_fwversion_show, NULL),
-	__EXTMOD_ATTR(fwsize, 0666, goodix_sysfs_fwsize_show,
+	__EXTMOD_ATTR(fwsize, 0660, goodix_sysfs_fwsize_show,
 			goodix_sysfs_fwsize_store),
-	__EXTMOD_ATTR(force_update, 0222, NULL,
+	__EXTMOD_ATTR(force_update, 0220, NULL,
 			goodix_sysfs_force_update_store),
 };
 
@@ -1361,7 +1361,7 @@ static int goodix_syfs_init(struct goodix_ts_core *core_data,
 	}
 
 	fw_ctrl->attr_fwimage.attr.name = "fwimage";
-	fw_ctrl->attr_fwimage.attr.mode = 0666;
+	fw_ctrl->attr_fwimage.attr.mode = 0660;
 	fw_ctrl->attr_fwimage.size = 0;
 	fw_ctrl->attr_fwimage.write = goodix_sysfs_fwimage_store;
 	#ifdef CONFIG_DEBUG_LOCK_ALLOC

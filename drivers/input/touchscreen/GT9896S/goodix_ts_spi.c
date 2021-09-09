@@ -98,7 +98,7 @@ static int gt9896s_spi_probe(struct spi_device *spi);
 #ifdef CONFIG_OF
 static int gt9896s_parse_dt_display(struct gt9896s_ts_board_data *board_data)
 {
-	int r, err;
+	int r;
 	struct device_node *node = NULL;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,touch-panel");
@@ -134,14 +134,30 @@ static int gt9896s_parse_dt_display(struct gt9896s_ts_board_data *board_data)
 		r = of_property_read_string(node, "lcm-name",
 				&gt9896s_lcm_buf);
 		if (r < 0) {
-			ts_err("Invalid config version in dts : %d", r);
+			ts_info("read lcm-name failed!");
+		}
+		//check if the lcm-name is supported
+		if ((strcmp("nt36672e_fhdp_dphy_vdo_jdi_120hz",
+			gt9896s_lcm_buf) != 0) &&
+			(strcmp("nt36672e_fhdp_cphy_vdo_jdi_120hz",
+			gt9896s_lcm_buf) != 0) &&
+			(strcmp("nt36672e_fhdp_dphy_vdo_jdi_144hz",
+			gt9896s_lcm_buf) != 0) &&
+			(strcmp("nt36672e_fhdp_dphy_vdo_jdi_60hz",
+			gt9896s_lcm_buf) != 0) &&
+			(strcmp("td4330_fhdp_dphy_vdo_truly",
+			gt9896s_lcm_buf) != 0) &&
+			(strcmp("td4330_fhdp_dphy_cmd_truly",
+			gt9896s_lcm_buf) != 0) &&
+			(strcmp("ft8756_fhdp_dphy_vdo_truly",
+			gt9896s_lcm_buf) != 0)) {
+			ts_info("lcm-name is not supported by gt9896s!");
 			return -EINVAL;
 		}
 		gt9896s_find_touch_node = 1;
 	} else {
 		ts_info("not find touch panel node!");
 		gt9896s_find_touch_node = 0;
-		err = -ENOENT;
 	}
 	return 0;
 }
@@ -1425,7 +1441,11 @@ static int gt9896s_spi_probe(struct spi_device *spi)
 
 	/* parse devicetree property */
 	if (IS_ENABLED(CONFIG_OF) && spi->dev.of_node) {
-		gt9896s_parse_dt_display(&ts_device->board_data);
+		r = gt9896s_parse_dt_display(&ts_device->board_data);
+		if (r < 0) {
+			ts_info("%s OUT, lcm not support", __func__);
+			return r;
+		}
 		r = gt9896s_parse_dt(spi->dev.of_node,
 				    &ts_device->board_data);
 		if (r < 0) {
