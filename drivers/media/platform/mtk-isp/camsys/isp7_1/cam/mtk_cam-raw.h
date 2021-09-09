@@ -59,7 +59,7 @@ enum raw_module_id {
 /* feature mask to categorize all raw functions */
 #define MTK_CAM_FEATURE_HDR_MASK		0x0000000F
 #define MTK_CAM_FEATURE_SUBSAMPLE_MASK		0x000000F0
-#define MTK_CAM_FEATURE_STAGGER_M2M_MASK	0x00000F00
+#define MTK_CAM_FEATURE_OFFLINE_M2M_MASK	0x00000100
 #define MTK_CAM_FEATURE_TIMESHARE_MASK		0x0000F000
 
 /* flags common to features */
@@ -79,10 +79,7 @@ enum raw_function_id {
 	HIGHFPS_8_SUBSAMPLE		= (3 << 4),
 	HIGHFPS_16_SUBSAMPLE		= (4 << 4),
 	HIGHFPS_32_SUBSAMPLE		= (5 << 4),
-	STAGGER_M2M_2_EXPOSURE_LE_SE	= (1 << 8),
-	STAGGER_M2M_2_EXPOSURE_SE_LE	= (2 << 8),
-	STAGGER_M2M_3_EXPOSURE_LE_NE_SE = (3 << 8),
-	STAGGER_M2M_3_EXPOSURE_SE_NE_LE = (4 << 8),
+	OFFLINE_M2M			= (1 << 8),
 	TIMESHARE_1_GROUP		= (1 << 12),
 	RAW_FUNCTION_END		= 0xF0000000,
 };

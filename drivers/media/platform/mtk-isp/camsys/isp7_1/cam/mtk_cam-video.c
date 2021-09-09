@@ -949,7 +949,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	/* update buffer internal address */
 	switch (dma_port) {
 	case MTKCAM_IPI_RAW_RAWI_2:
-		if (raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+		if (raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK &&
+			raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
 			mtk_cam_hdr_buf_update(vb, STAGGER_M2M,
 						req, pipe_id, raw_pipline);
 			frame_param->raw_param.hardware_scenario =
@@ -983,7 +984,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			img_out = &frame_param->img_outs[desc_id];
 			mtk_cam_fill_img_buf(img_out, f, buf->daddr);
 		}
-		if (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
+		if ((raw_feature & MTK_CAM_FEATURE_HDR_MASK) &&
+			!(raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)) {
 			int feature =
 				raw_feature & MTK_CAM_FEATURE_HDR_MASK;
 			enum hdr_scenario_id scenario;
@@ -2124,6 +2126,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	s32 request_fd, i;
 	u32 bytesperline, sizeimage;
 	int raw_feature = 0;
+	u32 is_hdr = 0, is_hdr_m2m = 0;
 
 	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
 	if (raw_pipeline) {
@@ -2164,10 +2167,18 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	/* Todo: width and stride should align bus_size */
 	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
 	try_fmt.fmt.pix_mp.num_planes = 1;
+
+	if (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
+		if (raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
+			is_hdr_m2m = 1;
+		else
+			is_hdr = 1;
+	}
 	/* support 1/2/3 plane */
-	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
-		(raw_feature & MTK_CAM_FEATURE_HDR_MASK)) {
-		switch (raw_feature) {
+	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
+		(node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m)) {
+
+		switch (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
 		case STAGGER_2_EXPOSURE_LE_SE:
 		case STAGGER_2_EXPOSURE_SE_LE:
 		case MSTREAM_NE_SE:
@@ -2176,20 +2187,6 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 			break;
 		case STAGGER_3_EXPOSURE_LE_NE_SE:
 		case STAGGER_3_EXPOSURE_SE_NE_LE:
-			try_fmt.fmt.pix_mp.num_planes = 3;
-			break;
-		default:
-			try_fmt.fmt.pix_mp.num_planes = 1;
-		}
-	} else if (node->desc.id == MTK_RAW_RAWI_2_IN &&
-		(raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK)) {
-		switch (raw_feature) {
-		case STAGGER_M2M_2_EXPOSURE_LE_SE:
-		case STAGGER_M2M_2_EXPOSURE_SE_LE:
-			try_fmt.fmt.pix_mp.num_planes = 2;
-			break;
-		case STAGGER_M2M_3_EXPOSURE_LE_NE_SE:
-		case STAGGER_M2M_3_EXPOSURE_SE_NE_LE:
 			try_fmt.fmt.pix_mp.num_planes = 3;
 			break;
 		default:

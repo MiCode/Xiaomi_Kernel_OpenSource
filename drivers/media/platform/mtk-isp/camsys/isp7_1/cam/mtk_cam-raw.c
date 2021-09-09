@@ -1499,7 +1499,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		 *                             TG_OVERRUN);
 		 */
 			if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
-				feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+				feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK) {
 				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
 			} else {
 				val = readl_relaxed(dev->base + REG_TG_VF_CON);

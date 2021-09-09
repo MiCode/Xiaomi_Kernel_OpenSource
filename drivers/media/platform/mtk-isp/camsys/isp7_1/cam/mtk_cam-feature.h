@@ -29,7 +29,12 @@ static inline bool mtk_cam_feature_is_time_shared(int feature)
 
 static inline bool mtk_cam_feature_is_stagger_m2m(int feature)
 {
-	if (feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK)
+	int is_hdr;
+
+	is_hdr = feature & MTK_CAM_FEATURE_HDR_MASK;
+	if ((feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK) &&
+		(is_hdr >= STAGGER_2_EXPOSURE_LE_SE &&
+		is_hdr <= STAGGER_3_EXPOSURE_SE_NE_LE))
 		return true;
 
 	return false;
@@ -38,6 +43,9 @@ static inline bool mtk_cam_feature_is_stagger_m2m(int feature)
 static inline bool mtk_cam_feature_is_stagger(int feature)
 {
 	int is_hdr;
+
+	if (feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
+		return false;
 
 	is_hdr = feature & MTK_CAM_FEATURE_HDR_MASK;
 	if (is_hdr && is_hdr >= STAGGER_2_EXPOSURE_LE_SE &&
@@ -57,10 +65,11 @@ static inline bool mtk_cam_feature_is_subsample(int feature)
 
 static inline bool mtk_cam_feature_is_2_exposure(int feature)
 {
-	if (feature == STAGGER_2_EXPOSURE_LE_SE ||
-	    feature == STAGGER_2_EXPOSURE_SE_LE ||
-	    feature == STAGGER_M2M_2_EXPOSURE_LE_SE ||
-	    feature == STAGGER_M2M_2_EXPOSURE_SE_LE ||
+	u32 raw_feature = 0;
+
+	raw_feature = feature & 0x0000000F;
+	if (raw_feature == STAGGER_2_EXPOSURE_LE_SE ||
+	    raw_feature == STAGGER_2_EXPOSURE_SE_LE ||
 	    mtk_cam_feature_is_mstream(feature))
 		return true;
 
@@ -69,10 +78,11 @@ static inline bool mtk_cam_feature_is_2_exposure(int feature)
 
 static inline bool mtk_cam_feature_is_3_exposure(int feature)
 {
-	if (feature == STAGGER_3_EXPOSURE_LE_NE_SE ||
-	    feature == STAGGER_3_EXPOSURE_SE_NE_LE ||
-	    feature == STAGGER_M2M_3_EXPOSURE_LE_NE_SE ||
-	    feature == STAGGER_M2M_3_EXPOSURE_SE_NE_LE)
+	u32 raw_feature = 0;
+
+	raw_feature = feature & 0x0000000F;
+	if (raw_feature == STAGGER_3_EXPOSURE_LE_NE_SE ||
+	    raw_feature == STAGGER_3_EXPOSURE_SE_NE_LE)
 		return true;
 
 	return false;

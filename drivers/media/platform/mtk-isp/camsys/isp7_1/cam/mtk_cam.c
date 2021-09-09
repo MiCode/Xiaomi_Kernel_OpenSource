@@ -3281,6 +3281,11 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 				hw_scen, req_amount);
 			return -EINVAL;
 		}
+	} else if (config_pipe && mtk_cam_is_stagger_m2m(ctx)) {
+		int hw_scen, req_amount;
+
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+		req_amount = (mtk_cam_is_3_exposure(ctx)) ? 3 : 2;
 	}
 
 	update_hw_mapping(ctx, &config_param);

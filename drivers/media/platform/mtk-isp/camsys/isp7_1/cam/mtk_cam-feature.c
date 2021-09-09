@@ -71,18 +71,15 @@ bool mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx)
 int mtk_cam_get_sensor_exposure_num(u32 raw_feature)
 {
 	int result = 1;
+	raw_feature &= MTK_CAM_FEATURE_HDR_MASK;
 
 	switch (raw_feature) {
 	case STAGGER_3_EXPOSURE_LE_NE_SE:
 	case STAGGER_3_EXPOSURE_SE_NE_LE:
-	case STAGGER_M2M_3_EXPOSURE_LE_NE_SE:
-	case STAGGER_M2M_3_EXPOSURE_SE_NE_LE:
 		result = 3;
 		break;
 	case STAGGER_2_EXPOSURE_LE_SE:
 	case STAGGER_2_EXPOSURE_SE_LE:
-	case STAGGER_M2M_2_EXPOSURE_LE_SE:
-	case STAGGER_M2M_2_EXPOSURE_SE_LE:
 		result = 2;
 		break;
 	default:

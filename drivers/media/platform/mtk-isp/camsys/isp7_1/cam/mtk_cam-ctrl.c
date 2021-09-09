@@ -2371,7 +2371,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 
-	if (!(raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_STAGGER_M2M_MASK))
+	if (!(raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_OFFLINE_M2M_MASK))
 		return;
 
 	trigger_rawi(raw_dev);
@@ -3233,7 +3233,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 		/* raw's CQ done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
-			if (ctx->pipe->feature_active & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+			if (mtk_cam_is_stagger_m2m(ctx)) {
 				mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 				mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
 			} else {
@@ -3252,7 +3252,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 		/* raw's SW done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
-			if (ctx->pipe->feature_active & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {
+			if (mtk_cam_is_stagger_m2m(ctx)) {
 				mtk_camsys_raw_m2m_frame_done(raw_dev, ctx,
 						   irq_info->frame_inner_idx);
 			} else
