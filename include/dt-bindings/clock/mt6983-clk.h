@@ -16,10 +16,8 @@
 #define CLK_APMIXEDSYS_APLL1					(6)
 #define CLK_APMIXEDSYS_APLL2					(7)
 #define CLK_APMIXEDSYS_MPLL					(8)
-#define CLK_APMIXEDSYS_EMIPLL					(9)
-#define CLK_APMIXEDSYS_IMGPLL					(10)
-#define CLK_APMIXEDSYS_USBPLL					(11)
-#define CLK_APMIXEDSYS_NR_CLK					12
+#define CLK_APMIXEDSYS_IMGPLL					(9)
+#define CLK_APMIXEDSYS_NR_CLK					10
 
 #define CLK_MFG_MFGPLL						(0)
 #define CLK_MFG_MFGSCPLL					(1)
