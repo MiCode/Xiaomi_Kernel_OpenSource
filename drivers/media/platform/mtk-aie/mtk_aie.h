@@ -296,6 +296,7 @@
 #define FDVT_VERSION_HW                    (FDVT_BASE_HW + 0x11c)
 #define FDVT_PADDING_CON0_HW               (FDVT_BASE_HW + 0x120)
 #define FDVT_PADDING_CON1_HW               (FDVT_BASE_HW + 0x124)
+#define FDVT_SECURE_REGISTER               (FDVT_BASE_HW + 0x13C)
 #define DMA_SOFT_RSTSTAT_HW                (FDVT_BASE_HW + 0x200)
 #define TDRI_BASE_ADDR_HW                  (FDVT_BASE_HW + 0x204)
 #define TDRI_OFST_ADDR_HW                  (FDVT_BASE_HW + 0x208)
@@ -735,6 +736,8 @@
 #define POSE_LOOP_NUM 3
 #define FLD_MAX_OUT 1680
 
+extern struct mtk_aie_user_para g_user_param;
+
 static const unsigned int fld_face_info_0[FLD_MAX_INPUT] = {
 	FLD_INFO_0_FACE_0, FLD_INFO_0_FACE_1, FLD_INFO_0_FACE_2,
 	FLD_INFO_0_FACE_3, FLD_INFO_0_FACE_4, FLD_INFO_0_FACE_5,
@@ -1066,13 +1069,6 @@ struct fd_buffer {
 	__u32 dma_addr; /* used by DMA HW */
 } __packed;
 
-struct user_init {
-	unsigned int max_img_width;
-	unsigned int max_img_height;
-	unsigned int pyramid_width;
-	unsigned int pyramid_height;
-	unsigned int feature_thread;
-} __packed;
 struct user_param {
 	unsigned int fd_mode;
 	unsigned int src_img_fmt;
@@ -1225,6 +1221,7 @@ struct mtk_aie_dev {
 
 	/*DMA Buffer*/
 	struct dma_buf *dmabuf;
+	struct dma_buf *sec_dmabuf;
 	unsigned long long kva;
 	int map_count;
 
@@ -1267,6 +1264,10 @@ void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_execute_pose(struct mtk_aie_dev *fd);
 void aie_irqhandle(struct mtk_aie_dev *fd);
 void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
+void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
+void config_aie_cmdq_secure_end(struct mtk_aie_dev *fd);
+void aie_enable_secure_domain(struct mtk_aie_dev *fd);
+void aie_disable_secure_domain(struct mtk_aie_dev *fd);
 void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);

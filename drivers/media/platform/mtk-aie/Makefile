@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps/
 
 mtk_aie-objs := \
 mtk_aie_53.o\

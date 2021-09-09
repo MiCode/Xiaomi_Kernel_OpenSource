@@ -466,6 +466,11 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->fd_stream_count == 0) {
 		//mtk_aie_mmqos_set(fd, 0);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
+		if (g_user_param.is_secure) {
+			dev_info(fd->dev, "AIE SECURE MODE END!\n");
+			aie_disable_secure_domain(fd);
+			config_aie_cmdq_secure_end(fd);
+		}
 		aie_uninit(fd);
 	}
 }
@@ -1112,6 +1117,14 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 						(g_user_param.pyramid_width & 0x0000FFFF);
 			fd->base_para->max_pyramid_height = (signed short)
 						(g_user_param.pyramid_height & 0x0000FFFF);
+
+			dev_info(fd->dev, "AIE QBUF!: %d\n", g_user_param.is_secure);
+
+			if (g_user_param.is_secure) {
+				dev_info(fd->dev, "AIE SECURE MODE INIT!\n");
+				config_aie_cmdq_secure_init(fd);
+				aie_enable_secure_domain(fd);
+			}
 
 			ret = aie_alloc_aie_buf(fd);
 			if (ret)
@@ -1771,17 +1784,15 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if CHECK_SERVICE_0
 	fd->fdvt_secure_clt = cmdq_mbox_create(dev, 1);
 
 	if (!fd->fdvt_secure_clt)
 		dev_info(dev, "cmdq mbox create fail\n");
 	else
 		dev_info(dev, "cmdq mbox create done\n");
-#endif
+
 	of_property_read_u32(pdev->dev.of_node, "fdvt_frame_done", &(fd->fdvt_event_id));
 	dev_info(dev, "fdvt event id is %d\n", fd->fdvt_event_id);
-
 
 	mutex_init(&fd->vfd_lock);
 	init_completion(&fd->fd_job_finished);

@@ -10,17 +10,26 @@
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/device.h>
+#include <linux/dma-heap.h>
+#include "mtk_heap.h"
+#include <uapi/linux/dma-heap.h>
+#include <linux/scatterlist.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <aie_mp_fw/config/dma_def.h>
 #include <aie_mp_fw/kernel/dma_def.h>
 #include <aie_mp_fw/all_header.h>
+#include "cmdq-sec.h"
+#include "cmdq-sec-iwc-common.h"
+
 
 #define FDVT_USE_GCE 1
 #define FLD
 #define FLD_ALIGN 128
 #define CHECK_SERVICE_0 0
+#define BUFTAG "AIE"
 //#include <mtkcam-hwcore/imgsys/inc/drv/gce/mt6983/gce_module.h>
 
+struct cmdq_pkt *g_sec_pkt;
 
 static const unsigned int fd_wdma_en[fd_loop_num][output_WDMA_WRA_num] = {
 	{1, 0, 0, 0}, {1, 0, 1, 0}, {1, 0, 1, 0}, {1, 0, 0, 0}, {1, 1, 1, 1},
@@ -366,6 +375,52 @@ int FDVT_M4U_TranslationFault_callback(int port,
 	return 1;
 }
 #endif
+
+struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size)
+{
+	struct dma_heap *dma_heap;
+	struct dma_buf *my_dma_buf;
+	//all supported heap name you can find with cmd(ls /dev/dma_heap/) in shell
+	dma_heap = dma_heap_find("mtk_prot_page-uncached");
+
+	if (!dma_heap) {
+		pr_info("heap find fail\n");
+		return NULL;
+	}
+
+	my_dma_buf = dma_heap_buffer_alloc(dma_heap, size, O_RDWR |
+		O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
+	if (IS_ERR(my_dma_buf)) {
+		pr_info("buffer alloc fail\n");
+		return NULL;
+	}
+	mtk_dma_buf_set_name(my_dma_buf, BUFTAG);
+	return my_dma_buf;
+}
+
+unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf)
+{
+	struct dma_buf_attachment *attach;
+	unsigned long long iova = 0;
+	struct sg_table *sgt;
+
+	attach = dma_buf_attach(my_dma_buf, fd->dev);
+	if (IS_ERR(attach)) {
+		pr_info("attach fail, return\n");
+		return 0;
+	}
+
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		pr_info("map failed, detach and return\n");
+		dma_buf_detach(my_dma_buf, attach);
+		return 0;
+	}
+
+	iova = sg_dma_address(sgt->sgl);
+	return iova;
+}
+
 static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
 			  struct imem_buf_info *bufinfo)
 {
@@ -796,14 +851,30 @@ free_rs:
 
 static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 {
-	int ret;
+	int ret = 0;
 	u32 alloc_size = 0;
 	int i, j, pa_off = 0, va_off = 0;
+
+	struct dma_buf *sec_ret = NULL;
+	unsigned long long iova = 0;
 
 	for (i = 0; i < PYM_NUM; i++)
 		alloc_size += fd->rs_pym_out_size[i] * 3;
 
+	if (g_user_param.is_secure) {
+		sec_ret = aie_imem_sec_alloc(fd, alloc_size);
+		if (!sec_ret)
+			return -1;
+		fd->sec_dmabuf = sec_ret;
+		iova = aie_get_sec_iova(fd, sec_ret);
+		if (!iova)
+			return -1;
+		fd->rs_output_hw.pa = iova;
+		dev_info(fd->dev, "ALLOCATE SECURE IOVA: %llx\n", iova);
+	} else {
+		dev_info(fd->dev, "ALLOCATE NORMAL IOVA: %llx\n", fd->rs_output_hw.pa);
 	ret = aie_imem_alloc(fd, alloc_size, &fd->rs_output_hw);
+	}
 
 	if (ret)
 		return ret;
@@ -1678,6 +1749,11 @@ static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 			}
 		}
 	}
+}
+static void aie_free_sec_buf(struct mtk_aie_dev *fd)
+{
+	dev_info(fd->dev, "Free sec buf\n");
+	dma_heap_buffer_free(fd->sec_dmabuf);
 }
 
 static void aie_free_dram_buf(struct mtk_aie_dev *fd)
@@ -2603,7 +2679,7 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 
 	return ret;
 }
-
+#if  CHECK_SERVICE_0
 static void aie_reset_output_buf(struct mtk_aie_dev *fd,
 				 struct aie_enq_info *aie_cfg)
 {
@@ -2625,7 +2701,7 @@ static void aie_reset_output_buf(struct mtk_aie_dev *fd,
 		       fd->rs_pym_out_size[0]);
 	}
 }
-
+#endif
 static int aie_update_cfg(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	int crop_width;
@@ -3866,6 +3942,9 @@ void aie_uninit(struct mtk_aie_dev *fd)
 #ifdef FLD
 	aie_free_fld_buf(fd);
 #endif
+	if (g_user_param.is_secure)
+		aie_free_sec_buf(fd);
+
 	kfree(fd->base_para);
 	kfree(fd->attr_para);
 	kfree(fd->dma_para);
@@ -3943,7 +4022,7 @@ int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 		return -EINVAL;
 	}
 
-	aie_reset_output_buf(fd, aie_cfg);
+	//aie_reset_output_buf(fd, aie_cfg);
 
 	fd->reg_cfg.fd_mode = aie_cfg->sel_mode;
 	if (aie_cfg->sel_mode == 0) { /* FDMODE */
@@ -3990,6 +4069,54 @@ static void AIECmdqCB(struct cmdq_cb_data data)
 	dev_info(fd->dev, "%s CB FUNC\n ", __func__);
 }
 
+static void AIECmdqSecCB(struct cmdq_cb_data data)
+{
+	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
+
+	dev_info(fd->dev, "%s Sec CB FUNC\n ", __func__);
+}
+
+void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd)
+{
+	g_sec_pkt = cmdq_pkt_create(fd->fdvt_secure_clt);
+
+	cmdq_sec_pkt_set_data(g_sec_pkt, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
+	cmdq_sec_pkt_set_mtee(g_sec_pkt, true);
+	cmdq_pkt_finalize_loop(g_sec_pkt);
+	cmdq_pkt_flush_threaded(g_sec_pkt, NULL, (void *)g_sec_pkt);
+}
+
+void aie_enable_secure_domain(struct mtk_aie_dev *fd)
+{
+	struct cmdq_pkt *pkt = NULL;
+
+	pkt = cmdq_pkt_create(fd->fdvt_clt);
+	cmdq_pkt_set_event(pkt, 678); //SET: 679
+	cmdq_pkt_wfe(pkt, 679); //WAIT-EVENT: 678
+	cmdq_pkt_flush_async(pkt, AIECmdqSecCB, (void *)fd);	/* flush and destry in cmdq*/
+	cmdq_pkt_wait_complete(pkt);
+	cmdq_pkt_destroy(pkt);
+}
+
+void aie_disable_secure_domain(struct mtk_aie_dev *fd)
+{
+	struct cmdq_pkt *pkt = NULL;
+
+	pkt = cmdq_pkt_create(fd->fdvt_clt);
+	cmdq_pkt_set_event(pkt, 678); //SET: 679
+	cmdq_pkt_wfe(pkt, 679); //WAIT-EVENT: 678
+	cmdq_pkt_flush_async(pkt, AIECmdqSecCB, (void *)fd);/* flush and destry in cmdq*/
+	cmdq_pkt_wait_complete(pkt);
+	cmdq_pkt_destroy(pkt);
+}
+
+void config_aie_cmdq_secure_end(struct mtk_aie_dev *fd)
+{
+	cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
+	cmdq_pkt_destroy(g_sec_pkt);
+	g_sec_pkt = NULL;
+
+}
 void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	struct cmdq_pkt *pkt = NULL;
@@ -4407,10 +4534,6 @@ void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
-	int i = 0, j = 0;
-	unsigned int fld_out_unit = 0;
-	unsigned short *out_parsing = NULL;
-
 	aie_cfg->sel_mode = fd->fld_para->sel_mode;
 	aie_cfg->src_img_width = fd->fld_para->img_width;
 	aie_cfg->src_img_height = fd->fld_para->img_height;
@@ -4419,46 +4542,8 @@ void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	aie_cfg->src_img_addr = fd->fld_para->src_img_addr;
 	aie_cfg->fld_face_num = fd->fld_para->face_num;
 
-	dev_info(fd->dev, "[TINA LOG]MEMCPY %x to %x\n", aie_cfg->fld_raw_out,
-			fd->dma_para->fld_output_va);
-
 	memcpy(aie_cfg->fld_raw_out, fd->dma_para->fld_output_va, FLD_MAX_OUT);
-
-	dev_info(fd->dev, "[TINA LOG]%d MEMCPY %x %x to %x\n", aie_cfg->fld_face_num,
-			&(aie_cfg->fld_input[0]), aie_cfg->fld_input, fd->fld_para->fld_input);
 	memcpy((char *)&(aie_cfg->fld_input[0]), (char *)fd->fld_para->fld_input,
 		sizeof(struct FLD_CROP_RIP_ROP) * aie_cfg->fld_face_num);
 
-	if (fld_cur_landmark % 2)
-		fld_out_unit = (((fld_cur_landmark + 1) / 2) + 1) * 8;
-	else
-		fld_out_unit = ((fld_cur_landmark / 2) + 1) * 8;
-
-	for (j = 0; j < aie_cfg->fld_face_num; j++) {
-		out_parsing = (unsigned short *)fd->dma_para->fld_output_va + j * fld_out_unit;
-		for (i = 0; i < fld_cur_landmark; i++) {
-			aie_cfg->fld_output[j].fld_landmark[i].x = *out_parsing;
-			aie_cfg->fld_output[j].fld_landmark[i].y = *(out_parsing + 1);
-			dev_info(fd->dev, "[TINA LOG]%x %x %x %x\n", j, i,
-				 aie_cfg->fld_output[j].fld_landmark[i].x,
-				 aie_cfg->fld_output[j].fld_landmark[i].y);
-			if (i % 2)
-				out_parsing = out_parsing + 6;
-			else
-				out_parsing = out_parsing + 2;
-		}
-		out_parsing = (unsigned short *)fd->dma_para->fld_output_va;
-		if (fld_cur_landmark % 2)
-			out_parsing = out_parsing + ((fld_cur_landmark + 1) / 2) * 8;
-		else
-			out_parsing = out_parsing + (fld_cur_landmark / 2) * 8;
-
-		aie_cfg->fld_output[j].fld_out_rop = *out_parsing;
-		aie_cfg->fld_output[j].fld_out_rip = *(out_parsing + 1);
-		aie_cfg->fld_output[j].confidence = *(out_parsing + 2);
-		aie_cfg->fld_output[j].blinkscore = *(out_parsing + 3);
-		dev_info(fd->dev, "[TINA LOG]%x %x %x %x\n", aie_cfg->fld_output[j].fld_out_rop,
-			 aie_cfg->fld_output[j].fld_out_rip, aie_cfg->fld_output[j].confidence,
-			 aie_cfg->fld_output[j].blinkscore);
-	}
 }
