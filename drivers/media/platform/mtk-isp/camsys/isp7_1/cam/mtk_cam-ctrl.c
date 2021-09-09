@@ -108,7 +108,8 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		/* Match by the en-queued request number */
 		if (req->ctx_used & (1 << ctx->stream_id) && req_stream_data)
-			res = 1;
+			if (req_stream_data->frame_seq_no == sensor_seq_no_next)
+				res = 1;
 	}
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
