@@ -1572,7 +1572,7 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_busy_list)) {
-		cmdq_err("stop empty thread:%u", thread->idx);
+		cmdq_log("stop empty thread:%u", thread->idx);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		return;
 	}
