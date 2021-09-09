@@ -1893,7 +1893,7 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 	pipe->streaming = 0;
 
 	ret = mtk_imgsys_hw_flush_pipe_jobs(pipe);
-	if (WARN_ON(ret != 0)) {
+	if (ret != 0) {
 		dev_info(imgsys_dev->dev,
 			"%s:%s: mtk_imgsys_hw_flush_pipe_jobs, ret(%d)\n",
 			__func__, pipe->desc->name, ret);
