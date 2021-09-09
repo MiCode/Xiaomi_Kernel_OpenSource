@@ -270,9 +270,8 @@
 			mt6373_vmch: VMCH {
 				regulator-compatible = "VMCH";
 				regulator-name = "mt6373_vmch";
-				regulator-always-on;
-				regulator-min-microvolt = <3000000>;
-				regulator-max-microvolt = <3000000>;
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3500000>;
 				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
