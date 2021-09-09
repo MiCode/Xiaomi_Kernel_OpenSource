@@ -480,7 +480,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	}
 
 	res_user->raw_res.raw_used = res_cfg->raw_num_used;
-	res_user->raw_res.bin = res_cfg->bin_enable;
+	if (res_cfg->bin_limit == BIN_AUTO)
+		res_user->raw_res.bin = res_cfg->bin_enable;
+	else
+		res_user->raw_res.bin = res_cfg->bin_limit;
 
 	dev_info(dev,
 		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/strategy(%d)\n",
@@ -821,11 +824,11 @@ static const struct v4l2_ctrl_config bin_limit = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_BIN_LIMIT,
 	.name = "Binning limitation",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.type = V4L2_CTRL_TYPE_INTEGER,
 	.min = 0,
-	.max = 1,
+	.max = 0xfff,
 	.step = 1,
-	.def = 1,
+	.def = 0,
 };
 
 static const struct v4l2_ctrl_config frz_limit = {
@@ -1647,6 +1650,18 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 
 }
 
+static bool is_cbn_en(int bin_flag)
+{
+	switch (bin_flag) {
+	case CBN_2X2_ON:
+	case CBN_3X3_ON:
+	case CBN_4X4_ON:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 				  struct mtk_cam_resource_config *res,
 				  s64 pixel_rate, int res_plan,
@@ -1710,14 +1725,16 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		}
 
 		/* 1 for force bin on */
-		if (res->bin_limit == 1)
+		if (res->bin_limit >= 1)
 			bin_en = 1;
 
 		if (res->hwn_limit_min > 1)
 			twin_en = 1;
 
 		/* max line buffer check*/
-		lb_chk_res = mtk_raw_linebuf_chk(twin_en, bin_en, frz_en, 0, 0,
+		lb_chk_res = mtk_raw_linebuf_chk(twin_en, res->bin_limit & BIN_ON,
+						 frz_en, res->bin_limit & QBND_ON,
+						 is_cbn_en(res->bin_limit),
 						 in_w, &frz_ratio);
 		/* frz ratio*/
 		if (res_step_type == MTK_CAMSYS_RES_FRZ_TAG) {

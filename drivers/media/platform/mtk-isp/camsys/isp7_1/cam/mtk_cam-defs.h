@@ -254,4 +254,14 @@ enum mtkcam_ipi_meta_valid_num_control {
 	MTKCAM_IPI_FBCX_LAST,
 };
 
+enum {
+	BIN_AUTO	= 0,
+	BIN_OFF		= BIN_AUTO,
+	BIN_ON		= (1 << 0),
+	CBN_2X2_ON	= (1 << 4),
+	CBN_3X3_ON	= (1 << 5),
+	CBN_4X4_ON	= (1 << 6),
+	QBND_ON		= (1 << 8)
+};
+
 #endif /* __MTKCAM_DEFS_H */
