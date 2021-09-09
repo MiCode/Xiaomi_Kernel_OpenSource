@@ -140,7 +140,7 @@ obj-$(CCCI_OBJ) += ccci_ccif.o
 ccci_dpmaif-y := hif/ccci_hif_dpmaif.o hif/dpmaif_drv.o \
 	hif/ccci_hif_dpmaif_comm.o hif/ccci_hif_dpmaif_v3.o hif/dpmaif_drv_v3.o \
 	hif/dpmaif_bat.o hif/dpmaif_bat_v3.o hif/dpmaif_debug.o hif/net_speed.o \
-	hif/net_pool.o
+	hif/net_pool.o hif/md_spd_dvfs_fn.o hif/md_spd_dvfs_method.o
 
 obj-$(CCCI_OBJ) += ccci_dpmaif.o
 

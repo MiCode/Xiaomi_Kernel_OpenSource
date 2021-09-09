@@ -63,6 +63,8 @@
 #include "dpmaif_bat.h"
 #include "net_speed.h"
 #include "net_pool.h"
+#include "md_spd_dvfs_method.h"
+#include "md_spd_dvfs_fn.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -3487,6 +3489,9 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		&ccci_hif_dpmaif_ops);
 
 	atomic_set(&dpmaif_ctrl->suspend_flag, 0);
+
+	mtk_ccci_md_spd_qos_init(dev);
+	mtk_ccci_spd_qos_method_init();
 
 	return 0;
 
