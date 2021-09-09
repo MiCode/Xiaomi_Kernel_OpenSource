@@ -139,6 +139,8 @@ void __gpufreq_set_stress_test(unsigned int mode);
 int __gpufreq_set_aging_mode(unsigned int mode);
 void __gpufreq_set_gpm_mode(unsigned int mode);
 struct gpufreq_asensor_info __gpufreq_get_asensor_info(void);
+struct gpufreq_core_mask_info *__gpufreq_get_core_mask_table(void);
+unsigned int __gpufreq_get_core_num(void);
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
 unsigned int __gpufreq_get_cur_vgpu(void);

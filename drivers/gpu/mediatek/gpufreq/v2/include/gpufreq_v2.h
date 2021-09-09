@@ -124,6 +124,11 @@ struct gpufreq_opp_info {
 	unsigned int power;           /* mW */
 };
 
+struct gpufreq_core_mask_info {
+	unsigned int num;
+	unsigned int mask;
+};
+
 struct gpufreq_sb_info {
 	int up;
 	int down;
@@ -157,6 +162,8 @@ struct gpufreq_platform_fp {
 	int (*set_aging_mode)(unsigned int mode);
 	void (*set_gpm_mode)(unsigned int mode);
 	struct gpufreq_asensor_info (*get_asensor_info)(void);
+	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
+	unsigned int (*get_core_num)(void);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
@@ -276,5 +283,7 @@ int gpufreq_set_stress_test(unsigned int mode);
 int gpufreq_set_aging_mode(unsigned int mode);
 int gpufreq_set_gpm_mode(unsigned int mode);
 struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
+struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void);
+unsigned int gpufreq_get_core_num(void);
 
 #endif /* __GPUFREQ_V2_H__ */

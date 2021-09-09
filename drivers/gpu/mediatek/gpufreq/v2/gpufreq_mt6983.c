@@ -263,6 +263,8 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.set_aging_mode = __gpufreq_set_aging_mode,
 	.set_gpm_mode = __gpufreq_set_gpm_mode,
 	.get_asensor_info = __gpufreq_get_asensor_info,
+	.get_core_mask_table = __gpufreq_get_core_mask_table,
+	.get_core_num = __gpufreq_get_core_num,
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
@@ -272,6 +274,8 @@ static struct gpufreq_platform_fp platform_eb_fp = {
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.get_dyn_pgpu = __gpufreq_get_dyn_pgpu,
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
+	.get_core_mask_table = __gpufreq_get_core_mask_table,
+	.get_core_num = __gpufreq_get_core_num,
 };
 
 /**
@@ -1434,6 +1438,18 @@ int __gpufreq_set_aging_mode(unsigned int mode)
 void __gpufreq_set_gpm_mode(unsigned int mode)
 {
 	g_gpm_enable = mode;
+}
+
+/* API: get core_mask table */
+struct gpufreq_core_mask_info *__gpufreq_get_core_mask_table(void)
+{
+	return g_core_mask_table;
+}
+
+/* API: get max number of shader cores */
+unsigned int __gpufreq_get_core_num(void)
+{
+	return SHADER_CORE_NUM;
 }
 
 /**

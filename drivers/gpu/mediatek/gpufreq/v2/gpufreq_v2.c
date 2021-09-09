@@ -1132,6 +1132,50 @@ done:
 EXPORT_SYMBOL(gpufreq_get_cur_limiter);
 
 /***********************************************************************************
+ * Function Name      : gpufreq_get_core_mask_table
+ * Inputs             : -
+ * Outputs            : -
+ * Returns            : core_mask_table  - Pointer to array of core mask structure
+ * Description        : Get core mask table
+ *                      This is for DCS to scale the number of shader cores
+ ***********************************************************************************/
+struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void)
+{
+	struct gpufreq_core_mask_info *core_mask_table = NULL;
+
+	/* implement only on AP */
+	if (gpufreq_fp && gpufreq_fp->get_core_mask_table)
+		core_mask_table = gpufreq_fp->get_core_mask_table();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	return core_mask_table;
+}
+EXPORT_SYMBOL(gpufreq_get_core_mask_table);
+
+/***********************************************************************************
+ * Function Name      : gpufreq_get_core_num
+ * Inputs             : -
+ * Outputs            : -
+ * Returns            : core_num  - # of GPU Shader cores
+ * Description        : Get number of GPU shader cores
+ *                      This is for DCS to scale the number of shader cores
+ ***********************************************************************************/
+unsigned int gpufreq_get_core_num(void)
+{
+	unsigned int core_num = 0;
+
+	/* implement only on AP */
+	if (gpufreq_fp && gpufreq_fp->get_core_num)
+		core_num = gpufreq_fp->get_core_num();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	return core_num;
+}
+EXPORT_SYMBOL(gpufreq_get_core_num);
+
+/***********************************************************************************
  * Function Name      : gpufreq_get_debug_opp_info
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
