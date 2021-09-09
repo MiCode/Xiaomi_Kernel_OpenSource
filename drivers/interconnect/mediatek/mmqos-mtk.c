@@ -15,6 +15,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_mmdvfs.h>
 #include <soc/mediatek/smi.h>
+#include <soc/mediatek/dramc.h>
 #include "mtk_iommu.h"
 #include "mmqos-mtk.h"
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
@@ -331,7 +332,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	struct larb_node *larb_node;
 	struct larb_port_node *larb_port_node;
 	struct mtk_iommu_data *smi_imu;
-	int i, id, num_larbs = 0, num_volts, ret;
+	int i, id, num_larbs = 0, num_volts, ret, ddr_type;
 	const struct mtk_mmqos_desc *mmqos_desc;
 	const struct mtk_node_desc *node_desc;
 	struct device *larb_dev;
@@ -583,7 +584,15 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err;
 	}
-	memcpy(hrt, &mmqos_desc->hrt, sizeof(mmqos_desc->hrt));
+
+	ddr_type = mtk_dramc_get_ddr_type();
+	if (ddr_type == TYPE_LPDDR4 ||
+		ddr_type == TYPE_LPDDR4X || ddr_type == TYPE_LPDDR4P)
+		memcpy(hrt, &mmqos_desc->hrt_LPDDR4, sizeof(mmqos_desc->hrt_LPDDR4));
+	else
+		memcpy(hrt, &mmqos_desc->hrt, sizeof(mmqos_desc->hrt));
+	pr_notice("[mmqos] ddr type: %d\n", mtk_dramc_get_ddr_type());
+
 	mtk_mmqos_init_hrt(hrt);
 	mmqos->nb.notifier_call = update_mm_clk;
 	register_mmdvfs_notifier(&mmqos->nb);

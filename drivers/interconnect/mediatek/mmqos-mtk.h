@@ -75,6 +75,7 @@ struct mtk_mmqos_desc {
 	const char * const *larb_icc_path_names;
 	const u32 max_ratio;
 	const struct mmqos_hrt hrt;
+	const struct mmqos_hrt hrt_LPDDR4;
 	const u8 comm_port_channels[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 	const u8 comm_port_hrt_types[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 };

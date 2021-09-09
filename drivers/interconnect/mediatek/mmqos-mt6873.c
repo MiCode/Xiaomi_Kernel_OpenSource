@@ -415,7 +415,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6873 = {
 	.comm_icc_hrt_path_names = comm_icc_hrt_path_names_mt6873,
 	.larb_icc_path_names = larb_icc_path_names_mt6873,
 	.max_ratio = 40,
-	.hrt = {
+	.hrt_LPDDR4 = {
 		.hrt_bw = {3344, 0, 0},
 		.hrt_total_bw = 8532, /* Todo: Use DRAMC API */
 	},
