@@ -286,7 +286,6 @@ enum {
 	SUPPLY_SEQ_TDM_BCK_EN,
 	SUPPLY_SEQ_TDM_DPTX_MCK_EN,
 	SUPPLY_SEQ_TDM_DPTX_BCK_EN,
-	SUPPLY_SEQ_TDM_EN,
 };
 
 static int get_tdm_id_by_name(const char *name)
@@ -377,9 +376,6 @@ static const struct snd_soc_dapm_widget mtk_dai_tdm_widgets[] = {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_tdm_clk"),
 #endif
-	SND_SOC_DAPM_SUPPLY_S("TDM_EN", SUPPLY_SEQ_TDM_EN,
-			      AFE_TDM_CON1, TDM_EN_SFT, 0, NULL, 0),
-
 	SND_SOC_DAPM_SUPPLY_S("TDM_BCK", SUPPLY_SEQ_TDM_BCK_EN,
 			      SND_SOC_NOPM, 0, 0,
 			      mtk_tdm_bck_en_event,
@@ -519,7 +515,6 @@ static const struct snd_soc_dapm_route mtk_dai_tdm_routes[] = {
 	{"TDM", NULL, "aud_tdm_clk"},
 #endif
 	{"TDM", NULL, "TDM_BCK"},
-	{"TDM", NULL, "TDM_EN"},
 
 	{"TDM_DPTX", NULL, "DPTX_OUT_MUX"},
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -668,6 +663,57 @@ static int mtk_dai_tdm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int mtk_dai_tdm_trigger(struct snd_pcm_substream *substream,
+			       int cmd,
+			       struct snd_soc_dai *dai)
+{
+	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
+	int tdm_id = dai->id;
+
+	dev_info(afe->dev, "%s(), cmd %d, tdm_id %d\n", __func__, cmd, tdm_id);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+		/* enable Out control */
+		regmap_update_bits(afe->regmap, AFE_DAC_CON0,
+				   HDMI_OUT_ON_MASK_SFT,
+				   0x1 << HDMI_OUT_ON_SFT);
+
+		/* enable dptx */
+		if (tdm_id == MT6983_DAI_TDM_DPTX) {
+			regmap_update_bits(afe->regmap, AFE_DPTX_CON,
+					   DPTX_ON_MASK_SFT, 0x1 <<
+					   DPTX_ON_SFT);
+		}
+
+		/* enable tdm */
+		regmap_update_bits(afe->regmap, AFE_TDM_CON1,
+				   TDM_EN_MASK_SFT, 0x1 << TDM_EN_SFT);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		/* disable tdm */
+		regmap_update_bits(afe->regmap, AFE_TDM_CON1,
+				   TDM_EN_MASK_SFT, 0);
+
+		/* disable dptx */
+		if (tdm_id == MT6983_DAI_TDM_DPTX) {
+			regmap_update_bits(afe->regmap, AFE_DPTX_CON,
+					   DPTX_ON_MASK_SFT, 0);
+		}
+
+		/* disable Out control */
+		regmap_update_bits(afe->regmap, AFE_DAC_CON0,
+				   HDMI_OUT_ON_MASK_SFT, 0);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int mtk_dai_tdm_set_sysclk(struct snd_soc_dai *dai,
 				  int clk_id, unsigned int freq, int dir)
 {
@@ -692,6 +738,7 @@ static int mtk_dai_tdm_set_sysclk(struct snd_soc_dai *dai,
 
 static const struct snd_soc_dai_ops mtk_dai_tdm_ops = {
 	.hw_params = mtk_dai_tdm_hw_params,
+	.trigger = mtk_dai_tdm_trigger,
 	.set_sysclk = mtk_dai_tdm_set_sysclk,
 };
 
