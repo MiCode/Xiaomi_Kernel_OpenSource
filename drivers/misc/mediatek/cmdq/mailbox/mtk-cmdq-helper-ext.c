@@ -1906,14 +1906,20 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 		if (len >= ARRAY_SIZE(text_gpr))
 			cmdq_log("len:%d over text_gpr size:%lu",
 				len, ARRAY_SIZE(text_gpr));
+	} else if (inst->arg_a >= CMDQ_TOKEN_TZMP_ISP_WAIT &&
+		inst->arg_a <= CMDQ_TOKEN_TZMP_AIE_SET) {
+		const u16 mod = (inst->arg_a - CMDQ_TOKEN_TZMP_ISP_WAIT) / 2;
+		const u16 event = CMDQ_TOKEN_TZMP_ISP_WAIT + mod * 2;
+
+		cmdq_util_user_msg(chan,
+				"CMDQ_TZMP: mod:%hu event %hu:%#x %#x",
+			mod, event, cmdq_get_event(chan, event),
+			cmdq_get_event(chan, event + 1));
 	} else if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
 		inst->arg_a <= CMDQ_TOKEN_DISP_VA_END) {
-		const u16 mod = (inst->arg_a - CMDQ_TOKEN_PREBUILT_MDP_WAIT) /
-			(CMDQ_TOKEN_PREBUILT_MML_WAIT -
-			CMDQ_TOKEN_PREBUILT_MDP_WAIT);
-		const u16 event = CMDQ_TOKEN_PREBUILT_MDP_WAIT + mod *
-			(CMDQ_TOKEN_PREBUILT_MML_WAIT -
-			CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+		const u16 mod =
+			(inst->arg_a - CMDQ_TOKEN_PREBUILT_MDP_WAIT) / 3;
+		const u16 event = CMDQ_TOKEN_PREBUILT_MDP_WAIT + mod * 3;
 
 		cmdq_util_user_msg(chan,
 				"CMDQ_PREBUILT: mod:%hu event %hu:%#x %#x %#x",
