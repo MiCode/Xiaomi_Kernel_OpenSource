@@ -246,6 +246,10 @@ static int __init init_perf_common(void)
 	if (ret)
 		goto out;
 
+#if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
+	init_perf_freq_tracker();
+#endif
+
 	/* get cpufreq driver base address */
 	dn = of_find_node_by_name(NULL, "cpuhvfs");
 	if (!dn) {
@@ -302,6 +306,9 @@ static void __exit exit_perf_common(void)
 	unregister_trace_android_vh_scheduler_tick(perf_common, NULL);
 	exit_cpufreq_table();
 	cleanup_perf_common_sysfs();
+#if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
+	exit_perf_freq_tracker();
+#endif
 }
 
 module_init(init_perf_common);

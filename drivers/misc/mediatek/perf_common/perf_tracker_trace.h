@@ -219,6 +219,34 @@ TRACE_EVENT(perf_index_sbin,
 		__entry->lens, sizeof(u32)))
 );
 
+TRACE_EVENT(freq_qos_user_setting,
+	TP_PROTO(
+		int type,
+		int value,
+		const char *caller
+	),
+
+	TP_ARGS(type, value, caller),
+
+	TP_STRUCT__entry(
+		__field(int, type)
+		__field(int, value)
+		__string(caller, caller)
+	),
+
+	TP_fast_assign(
+		__entry->type = type;
+		__entry->value = value;
+		__assign_str(caller, caller);
+	),
+
+	TP_printk("type=%d value=%d caller=%s",
+		__entry->type,
+		__entry->value,
+		__get_str(caller)
+	)
+);
+
 #endif /*_PERF_TRACKER_TRACE_H */
 
 #undef TRACE_INCLUDE_PATH
