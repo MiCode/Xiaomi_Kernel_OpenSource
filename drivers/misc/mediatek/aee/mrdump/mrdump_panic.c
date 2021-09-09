@@ -243,8 +243,6 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		console_unlock();
 	case AEE_FIQ_STEP_COMMON_DIE_DONE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
-		if (p_show_task_backtrace)
-			p_show_task_backtrace();
 	default:
 		aee_nested_printf("num_die-%d, last_step-%d, next_step-%d\n",
 				  num_die, last_step, next_step);
