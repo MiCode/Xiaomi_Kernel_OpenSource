@@ -33,6 +33,15 @@ const struct adspsys_description mt6879_adspsys_desc = {
 	.axibus_idle_val = 0x0,
 };
 
+const struct adspsys_description mt6895_adspsys_desc = {
+	.platform_name = "mt6895",
+	.version = 2,
+	.semaphore_ways = 3,
+	.semaphore_ctrl = 2,
+	.semaphore_retry = 5000,
+	.axibus_idle_val = 0x0,
+};
+
 const struct adsp_core_description mt6983_adsp_c0_desc = {
 	.id = 0,
 	.name = "adsp_0",
@@ -96,9 +105,51 @@ const struct adsp_core_description mt6879_adsp_c0_desc = {
 	}
 };
 
+const struct adsp_core_description mt6895_adsp_c0_desc = {
+	.id = 0,
+	.name = "adsp_0",
+	.sharedmems = {
+		[ADSP_SHAREDMEM_BOOTUP_MARK] = {0x0004, 0x0004},
+		[ADSP_SHAREDMEM_SYS_STATUS] = {0x0008, 0x0004},
+		[ADSP_SHAREDMEM_MPUINFO] = {0x0028, 0x0020},
+		[ADSP_SHAREDMEM_WAKELOCK] = {0x002C, 0x0004},
+		[ADSP_SHAREDMEM_IPCBUF] = {0x0300, 0x0200},
+		[ADSP_SHAREDMEM_C2C_0_BUF] = {0x2508, 0x2208}, //common begin
+		[ADSP_SHAREDMEM_C2C_BUFINFO] = {0x2510, 0x0008},
+		[ADSP_SHAREDMEM_TIMESYNC] = {0x2530, 0x0020},
+		[ADSP_SHAREDMEM_DVFSSYNC] = {0x253C, 0x000C},
+		[ADSP_SHAREDMEM_SLEEPSYNC] = {0x2540, 0x0004},
+		[ADSP_SHAREDMEM_BUS_MON_DUMP] = {0x25FC, 0x00BC},
+		[ADSP_SHAREDMEM_INFRA_BUS_DUMP] = {0x269C, 0x00A0},
+		[ADSP_SHAREDMEM_LATMON_DUMP] = {0x26B8, 0x001C},
+	},
+	.ops = {
+		.initialize = adsp_core0_init,
+		.after_bootup = adsp_after_bootup,
+	}
+};
+
+const struct adsp_core_description mt6895_adsp_c1_desc = {
+	.id = 1,
+	.name = "adsp_1",
+	.sharedmems = {
+		[ADSP_SHAREDMEM_BOOTUP_MARK] = {0x0004, 0x0004},
+		[ADSP_SHAREDMEM_SYS_STATUS] = {0x0008, 0x0004},
+		[ADSP_SHAREDMEM_MPUINFO] = {0x0028, 0x0020},
+		[ADSP_SHAREDMEM_WAKELOCK] = {0x002C, 0x0004},
+		[ADSP_SHAREDMEM_IPCBUF] = {0x0300, 0x0200},
+		[ADSP_SHAREDMEM_C2C_1_BUF] = {0x2508, 0x2208}, //common begin
+	},
+	.ops = {
+		.initialize = adsp_core1_init,
+		.after_bootup = adsp_after_bootup,
+	}
+};
+
 static const struct of_device_id adspsys_of_ids[] = {
 	{ .compatible = "mediatek,mt6983-adspsys", .data = &mt6983_adspsys_desc},
 	{ .compatible = "mediatek,mt6879-adspsys", .data = &mt6879_adspsys_desc},
+	{ .compatible = "mediatek,mt6895-adspsys", .data = &mt6895_adspsys_desc},
 	{}
 };
 
@@ -106,6 +157,8 @@ static const struct of_device_id adsp_core_of_ids[] = {
 	{ .compatible = "mediatek,mt6983-adsp_core_0", .data = &mt6983_adsp_c0_desc},
 	{ .compatible = "mediatek,mt6983-adsp_core_1", .data = &mt6983_adsp_c1_desc},
 	{ .compatible = "mediatek,mt6879-adsp_core_0", .data = &mt6879_adsp_c0_desc},
+	{ .compatible = "mediatek,mt6895-adsp_core_0", .data = &mt6895_adsp_c0_desc},
+	{ .compatible = "mediatek,mt6895-adsp_core_1", .data = &mt6895_adsp_c1_desc},
 	{}
 };
 
