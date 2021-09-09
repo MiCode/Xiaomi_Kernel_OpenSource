@@ -688,6 +688,13 @@ static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + C3D_SIZE, (width << 16) | cfg->h, ~0);
+}
+
+
+static void mtk_disp_c3d_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + C3D_EN, 0x1, ~0);
 
 	if (atomic_read(&g_c3d_force_relay[index_of_c3d(comp->id)]) == 1) {
 		// Set reply mode
@@ -701,13 +708,6 @@ static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 	}
 
 	disp_c3d_set_1dlut(comp, handle, 0);
-}
-
-
-static void mtk_disp_c3d_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
-{
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + C3D_EN, 0x1, ~0);
 }
 
 static void mtk_disp_c3d_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
