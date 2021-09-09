@@ -699,7 +699,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 struct mtk_cam_ctx *mtk_cam_find_ctx(struct mtk_cam_device *cam,
 				     struct media_entity *entity);
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity);
-
+void mtk_cam_complete_raw_hdl(struct mtk_cam_request_stream_data *s_data);
+void mtk_cam_complete_sensor_hdl(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
@@ -721,13 +722,11 @@ void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
 				     struct mtk_cam_buffer *buf,
 				     struct mtk_cam_request_stream_data *s_data);
 
-bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
-			       unsigned int dequeued_frame_seq_no,
-			       int pipe_id);
+int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
+			      unsigned int dequeued_frame_seq_no,
+			      int pipe_id);
 
-void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
-			  struct mtk_cam_request *req,
-			  int pipe_id,
+void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 			  enum vb2_buffer_state state);
 
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe);

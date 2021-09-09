@@ -35,6 +35,7 @@ struct mtk_cam_debug_fs;
 #define MTK_CAM_REQ_DBGWORK_S_INIT		0
 #define MTK_CAM_REQ_DBGWORK_S_PREPARED		1
 #define MTK_CAM_REQ_DBGWORK_S_FINISHED		2
+#define MTK_CAM_REQ_DBGWORK_S_CANCEL		3
 
 struct mtk_cam_dump_param {
 	/* Common Debug Information*/
@@ -230,7 +231,7 @@ mtk_cam_req_dump_work_init(struct mtk_cam_request_stream_data *s_data)
 }
 
 static inline void
-mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
+mtk_cam_req_dbg_works_clean(struct mtk_cam_request_stream_data *s_data)
 {
 }
 
@@ -251,7 +252,7 @@ void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head);
 
 void mtk_cam_req_dump_work_init(struct mtk_cam_request_stream_data *s_data);
 
-void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data);
+void mtk_cam_req_dbg_works_clean(struct mtk_cam_request_stream_data *s_data);
 
 void
 mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data);

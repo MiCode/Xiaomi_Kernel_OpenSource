@@ -443,7 +443,6 @@ static void mtk_cam_m2m_sensor_skip(struct mtk_cam_request_stream_data *req_stre
 	struct mtk_cam_request *req;
 	struct mtk_cam_device *cam;
 	struct mtk_cam_ctx *ctx;
-	struct media_request_object *hdl_obj;
 
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
 	cam = ctx->cam;
@@ -456,20 +455,8 @@ static void mtk_cam_m2m_sensor_skip(struct mtk_cam_request_stream_data *req_stre
 	E_STATE_READY, E_STATE_SENSOR);
 
 	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
+	mtk_cam_complete_sensor_hdl(req_stream_data);
 
-	/* request complete - time consuming*/
-	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
-	    !(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
-	    req_stream_data->sensor_hdl_obj) {
-		hdl_obj = req_stream_data->sensor_hdl_obj;
-		if (hdl_obj->ops)
-			hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-		else
-			dev_dbg(cam->dev,
-				"%s:cannot unbind sensor hdl\n", __func__);
-		media_request_object_complete(hdl_obj);
-		req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
-	}
 }
 
 static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
@@ -551,7 +538,6 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 	struct mtk_cam_device *cam;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_raw_device *raw_dev = NULL;
-	struct media_request_object *hdl_obj;
 	unsigned int time_after_sof = 0;
 	int sv_i;
 	int i, ret;
@@ -663,19 +649,7 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 
 	mtk_cam_tg_flash_req_setup(ctx, req_stream_data);
 
-	/* request complete - time consuming*/
-	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
-	    !(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
-	    req_stream_data->sensor_hdl_obj) {
-		hdl_obj = req_stream_data->sensor_hdl_obj;
-		if (hdl_obj->ops)
-			hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-		else
-			dev_dbg(cam->dev,
-				"%s:cannot unbind sensor hdl\n", __func__);
-		media_request_object_complete(hdl_obj);
-		req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
-	}
+	mtk_cam_complete_sensor_hdl(req_stream_data);
 
 	/* time sharing sv wdma flow - stream on at 1st request*/
 	if (mtk_cam_is_time_shared(ctx) &&
@@ -696,7 +670,6 @@ static void mtk_cam_exp_switch_sensor_worker(struct kthread_work *work)
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_device *cam;
 	struct mtk_cam_ctx *ctx;
-	struct media_request_object *hdl_obj;
 	unsigned int time_after_sof = 0;
 
 	req_stream_data = mtk_cam_sensor_work_to_s_data(work);
@@ -730,19 +703,7 @@ static void mtk_cam_exp_switch_sensor_worker(struct kthread_work *work)
 		 __func__, req->req.debug_str, ctx->stream_id,
 		 req_stream_data->frame_seq_no, time_after_sof);
 
-	/* request complete - time consuming*/
-	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
-	    !(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
-	    req_stream_data->sensor_hdl_obj) {
-		hdl_obj = req_stream_data->sensor_hdl_obj;
-		if (hdl_obj->ops)
-			hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-		else
-			dev_dbg(cam->dev,
-				"%s:cannot unbind sensor hdl\n", __func__);
-		media_request_object_complete(hdl_obj);
-		req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
-	}
+	mtk_cam_complete_sensor_hdl(req_stream_data);
 }
 
 static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
@@ -1686,7 +1647,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 	unsigned long flags;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
-	bool dequeue_result = false;
+	int dequeue_cnt;
 
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
@@ -1730,7 +1691,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 	}
 
 	spin_lock(&ctx->m2m_lock);
-	dequeue_result = mtk_cam_dequeue_req_frame(ctx, dequeued_frame_seq_no, ctx->stream_id);
+	dequeue_cnt = mtk_cam_dequeue_req_frame(ctx, dequeued_frame_seq_no, ctx->stream_id);
 
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
@@ -1796,7 +1757,7 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 
-	if (dequeue_result) {
+	if (dequeue_cnt) {
 		mutex_lock(&ctx->cam->op_lock);
 		mtk_cam_dev_req_try_queue(ctx->cam);
 		mutex_unlock(&ctx->cam->op_lock);
@@ -2106,27 +2067,7 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 		 __func__, req->req.debug_str, ctx->stream_id,
 		 s_data->frame_seq_no);
 
-	/* request complete - time consuming*/
-	list_for_each_entry(obj, &req->req.objects, list) {
-		if (likely(obj))
-			parent_hdl = obj->priv;
-		else
-			continue;
-
-		if (parent_hdl == ctx->sensor->ctrl_handler ||
-		    (ctx->prev_sensor && parent_hdl ==
-		     ctx->prev_sensor->ctrl_handler)) {
-#ifdef SENSOR_AE_CTRL_COMPLETE
-			v4l2_ctrl_request_complete(&req->req, parent_hdl);
-#else
-			media_request_object_complete(obj);
-#endif
-		}
-	}
-
-	/* mark pipeline control completed */
-	if (likely(pipe_obj))
-		media_request_object_complete(pipe_obj);
+	mtk_cam_complete_sensor_hdl(s_data);
 
 	state_transition(&s_data->state, E_STATE_CAMMUX_OUTER_CFG, E_STATE_CAMMUX_OUTER);
 	state_transition(&s_data->state, E_STATE_CAMMUX_OUTER_CFG_DELAY, E_STATE_INNER);
@@ -3413,11 +3354,61 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
 	dev_info(ctx->cam->dev, "Initial sensor timer setup\n");
 }
 
+static void mtk_cam_complete_hdl(struct mtk_cam_request_stream_data *s_data,
+				 struct media_request_object *hdl_obj,
+				 char *name)
+{
+	char *debug_str;
+	u64 start, cost;
+
+	debug_str = mtk_cam_s_data_get_dbg_str(s_data);
+
+	start = ktime_get_boottime_ns();
+	if (hdl_obj->ops)
+		hdl_obj->ops->unbind(hdl_obj);	/* mutex used */
+	else
+		pr_info("%s:%s:pipe(%d):seq(%d): cannot unbind %s hd\n",
+			__func__, debug_str, s_data->pipe_id,
+			s_data->frame_seq_no, name);
+
+	cost = ktime_get_boottime_ns() - start;
+	if (cost > 1000000)
+		pr_info("%s:%s:pipe(%d):seq(%d): complete hdl:%s, cost:%llu ns\n",
+			__func__, debug_str, s_data->pipe_id,
+			s_data->frame_seq_no, name, cost);
+	else
+		pr_debug("%s:%s:pipe(%d):seq(%d): complete hdl:%s, cost:%llu ns\n",
+			 __func__, debug_str, s_data->pipe_id,
+			 s_data->frame_seq_no, name, cost);
+
+	media_request_object_complete(hdl_obj);
+}
+
+void mtk_cam_complete_sensor_hdl(struct mtk_cam_request_stream_data *s_data)
+{
+	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
+	    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
+	    s_data->sensor_hdl_obj) {
+		mtk_cam_complete_hdl(s_data, s_data->sensor_hdl_obj, "sensor");
+		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
+	}
+}
+
+void mtk_cam_complete_raw_hdl(struct mtk_cam_request_stream_data *s_data)
+{
+	if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN) &&
+	    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE) &&
+	    s_data->raw_hdl_obj) {
+		mtk_cam_complete_hdl(s_data, s_data->raw_hdl_obj, "raw");
+		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE;
+	}
+}
+
 void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
 			    struct mtk_cam_request *req)
 {
 	struct mtk_cam_request_stream_data *req_stream_data;
-	struct media_request_object *hdl_obj;
+
 	req_stream_data = mtk_cam_req_get_s_data(req, raw_pipe->id, 0);
 
 	/* Setup raw pipeline's ctrls */
@@ -3429,14 +3420,8 @@ void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
 			__func__, raw_pipe->subdev.name, req->req.debug_str,
 			req_stream_data->frame_seq_no);
 		v4l2_ctrl_request_setup(&req->req, &raw_pipe->ctrl_handler);
-		hdl_obj = req_stream_data->raw_hdl_obj;
-		if (hdl_obj->ops)
-			hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-		else
-			dev_dbg(raw_pipe->subdev.v4l2_dev->dev,
-				"%s:cannot unbind raw hdl\n", __func__);
-		media_request_object_complete(hdl_obj);
-		req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE;
+
+		mtk_cam_complete_raw_hdl(req_stream_data);
 	}
 }
 

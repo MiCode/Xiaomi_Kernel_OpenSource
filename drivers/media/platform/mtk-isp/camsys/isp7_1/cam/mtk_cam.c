@@ -151,39 +151,54 @@ void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
 			vb->timestamp);
 }
 
-void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
-			  struct mtk_cam_request *req,
-			  int pipe_id,
+void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 			  enum vb2_buffer_state state)
 {
-	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_cam_device *cam;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request *req;
 	struct mtk_camsys_ctrl_state *req_state;
-	struct mtk_cam_request_stream_data *req_stream_data_pipe;
-	struct mtk_cam_request_stream_data *req_stream_data;
-	struct media_request_object *hdl_obj;
-	int i, buf_start = 0, buf_end = 0, running_s_data_cnt;
+	struct mtk_cam_request_stream_data *s_data;
+	int i, buf_start = 0, buf_end = 0, pipe_id;
 	unsigned long flags;
 
-	running_s_data_cnt = atomic_dec_return(&ctx->running_s_data_cnt);
-	req_stream_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
-	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	ctx = mtk_cam_s_data_get_ctx(s_data_pipe);
+	if (!ctx) {
+		pr_info("%s: get ctx from s_data failed", __func__);
+		return;
+	}
+
+	req = mtk_cam_s_data_get_req(s_data_pipe);
+	if (!req) {
+		pr_info("%s: get req from s_data failed", __func__);
+		return;
+	}
+
+	cam = ctx->cam;
+	if (!cam) {
+		pr_info("%s: get cam from ctx failed", __func__);
+		return;
+	}
+
+	pipe_id = s_data_pipe->pipe_id;
+	s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	dev_dbg(cam->dev,
 		 "%s: job done, req:%d, state:%d, ctx:(%d,0x%x), pipe:(%d,0x%x), done_status:0x%x, running(%d)\n",
-		 req->req.debug_str, req_stream_data->frame_seq_no, state,
+		 req->req.debug_str, s_data->frame_seq_no, state,
 		 ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
-		 req->done_status, running_s_data_cnt);
+		 req->done_status, atomic_read(&ctx->running_s_data_cnt));
 
 	if (!(cam->streaming_pipe & (1 << pipe_id))) {
 		dev_dbg(cam->dev,
 			"%s:%s: skip stream off pipe req:%d, ctx:(%d,0x%x), pipe:(%d,0x%x)\n",
 			__func__, req->req.debug_str,
-			req_stream_data->frame_seq_no, ctx->stream_id,
+			s_data->frame_seq_no, ctx->stream_id,
 			req->ctx_used, pipe_id, req->pipe_used);
 		return;
 	}
 
 	if (is_raw_subdev(pipe_id)) {
-		mtk_cam_tg_flash_req_done(ctx, req_stream_data);
+		mtk_cam_tg_flash_req_done(ctx, s_data);
 		buf_start = MTK_RAW_SINK_NUM;
 		buf_end = MTK_RAW_PIPELINE_PADS_NUM;
 	}
@@ -198,38 +213,15 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		buf_end = MTK_MRAW_PIPELINE_PADS_NUM;
 	}
 
-	/* clean the works of the workqueues if needed */
-	mtk_cam_req_works_clean(req_stream_data_pipe);
-	mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
-
-	if (req_stream_data_pipe->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
-	    !(req_stream_data_pipe->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
-	    req_stream_data_pipe->sensor_hdl_obj) {
-		hdl_obj = req_stream_data->sensor_hdl_obj;
-		if (hdl_obj->ops) {
-			/* TODO: enable while no spin_lock */
-			//hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-			dev_dbg(cam->dev, "%s:cannot unbind sensor hdl\n",
-				__func__);
-		}
-		media_request_object_complete(hdl_obj);
-		dev_dbg(cam->dev,
-			"%s:%s:pipe(%d):seq(%d): complete sensor(%s) hdl\n",
-			__func__, req->req.debug_str, pipe_id,
-			req_stream_data_pipe->frame_seq_no,
-			req_stream_data_pipe->sensor->name);
-		req_stream_data_pipe->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
-	}
-
 	/* clean the req_stream_data being used right after request reinit */
-	mtk_cam_req_s_data_clean(req_stream_data_pipe);
+	mtk_cam_req_s_data_clean(s_data_pipe);
 
 	for (i = buf_start; i < buf_end; i++) {
 		struct mtk_cam_buffer *buf;
 		struct vb2_buffer *vb;
 		struct mtk_cam_video_device *node;
 
-		buf = mtk_cam_s_data_get_vbuf(req_stream_data_pipe, i);
+		buf = mtk_cam_s_data_get_vbuf(s_data_pipe, i);
 		if (!buf)
 			continue;
 
@@ -248,42 +240,42 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 		spin_unlock_irqrestore(&node->buf_list_lock, flags);
 
 		// TODO(mstream): fill timestamp
-		mtk_cam_s_data_update_timestamp(ctx, buf, req_stream_data);
+		mtk_cam_s_data_update_timestamp(ctx, buf, s_data);
 
 		/* clean the stream data for req reinit case */
-		mtk_cam_s_data_reset_vbuf(req_stream_data_pipe, i);
+		mtk_cam_s_data_reset_vbuf(s_data_pipe, i);
 
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
 
-	req_state = &req_stream_data->state;
+	req_state = &s_data->state;
 	req_state->time_deque = ktime_get_boottime_ns() / 1000;
 	if (mtk_cam_is_subsample(ctx))
 		dev_dbg(cam->dev, "[ctx:%d,0x%x/pipe:%d,0x%x/%4d(us)] %6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
 		ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
-		req_stream_data->frame_seq_no,
-		req_state->time_composing -	req->time_syscall_enque,
+		s_data->frame_seq_no,
+		req_state->time_composing - req->time_syscall_enque,
 		req_state->time_swirq_composed - req_state->time_composing,
-		req_state->time_sensorset -	req_state->time_irq_sof1,
+		req_state->time_sensorset - req_state->time_irq_sof1,
 		req_state->time_irq_sof2 - req_state->time_sensorset,
 		req_state->time_cqset -	req_state->time_irq_sof1,
-		req_state->time_irq_outer -	req_state->time_cqset,
+		req_state->time_irq_outer - req_state->time_cqset,
 		req_state->time_irq_sof2 - req_state->time_irq_sof1,
 		req_state->time_irq_done - req_state->time_irq_sof2,
-		req_state->time_deque -	req_state->time_irq_done);
+		req_state->time_deque - req_state->time_irq_done);
 	else
 		dev_dbg(cam->dev, "[ctx:%d,0x%x/pipe:%d,0x%x/%4d(us)] %6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
 		ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
-		req_stream_data->frame_seq_no,
-		req_state->time_composing -	req->time_syscall_enque,
+		s_data->frame_seq_no,
+		req_state->time_composing - req->time_syscall_enque,
 		req_state->time_swirq_composed - req_state->time_composing,
-		req_state->time_sensorset -	req_state->time_swirq_timer,
+		req_state->time_sensorset - req_state->time_swirq_timer,
 		req_state->time_irq_sof1 - req_state->time_sensorset,
 		req_state->time_cqset -	req_state->time_irq_sof1,
-		req_state->time_irq_outer -	req_state->time_cqset,
+		req_state->time_irq_outer - req_state->time_cqset,
 		req_state->time_irq_sof2 - req_state->time_irq_sof1,
 		req_state->time_irq_done - req_state->time_irq_sof2,
-		req_state->time_deque -	req_state->time_irq_done);
+		req_state->time_deque - req_state->time_irq_done);
 }
 
 struct mtk_cam_request_stream_data*
@@ -457,171 +449,185 @@ static void update_hw_mapping(struct mtk_cam_ctx *ctx,
 	}
 }
 
-static bool mtk_cam_update_done_status(struct mtk_cam_ctx *ctx,
+static void mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
 					 struct mtk_cam_request *req, int pipe_id)
 {
-	int ret = false;
-	unsigned int done_status;
+	struct mtk_cam_request_stream_data *s_data;
+	unsigned long flags;
 
-	spin_lock(&req->done_status_lock);
-	req->done_status |= 1 << pipe_id;
-	done_status = req->done_status;
-	spin_unlock(&req->done_status_lock);
+	s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	dev_dbg(ctx->cam->dev,
+		"%s: %s: removed, req:%d, ctx:(%d/0x%x/0x%x), pipe:(%d/0x%x/0x%x) done_status:0x%x]\n",
+		__func__, req->req.debug_str, s_data->frame_seq_no,
+		ctx->stream_id, req->ctx_used, ctx->cam->streaming_ctx,
+		pipe_id, req->pipe_used, ctx->cam->streaming_pipe,
+		req->done_status);
 
-	/* Check whether all pipelines of single ctx are done */
-	if ((done_status & ctx->streaming_pipe) == ctx->streaming_pipe)
-		ret = true;
+	spin_lock_irqsave(&ctx->cam->running_job_lock, flags);
+	list_del(&req->list);
+	spin_unlock_irqrestore(&ctx->cam->running_job_lock, flags);
 
-	return ret;
+	ctx->cam->running_job_count--;
+	atomic_dec(&ctx->running_s_data_cnt);
+	mtk_cam_req_clean(req);
+	media_request_put(&req->req);
 }
 
-static bool mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
-					 struct mtk_cam_request *req, int pipe_id)
+static void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
 {
-	int ret = false;
-	unsigned int done_status;
-	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
+	char *dbg_str = mtk_cam_s_data_get_dbg_str(s_data);
 
-	req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-
-	spin_lock(&req->done_status_lock);
-	done_status = req->done_status;
-	spin_unlock(&req->done_status_lock);
-
-	/* Check if the frames of all the streams is done */
-	if ((done_status & ctx->cam->streaming_pipe) ==
-	    (req->pipe_used & ctx->cam->streaming_pipe)) {
-		list_del(&req->list);
-		ctx->cam->running_job_count--;
-		ret = true;
+	/* flush the sensor work */
+	if (atomic_read(&s_data->sensor_work.is_queued)) {
+		kthread_flush_work(&s_data->sensor_work.work);
 		dev_dbg(ctx->cam->dev,
-			"%s: %s: removed, req:%d, ctx:(%d/0x%x/0x%x), pipe:(%d/0x%x/0x%x) done_status:0x%x]\n",
-			__func__, req->req.debug_str, req_stream_data->frame_seq_no,
-			ctx->stream_id, req->ctx_used, ctx->cam->streaming_ctx,
-			pipe_id, req->pipe_used, ctx->cam->streaming_pipe,
-			req->done_status);
-		mtk_cam_req_clean(req);
-		media_request_put(&req->req);
+				"%s:ctx(%d):%s:seq(%d): flushed sensor_work\n",
+				__func__, ctx->stream_id, dbg_str, s_data->frame_seq_no);
 	}
-
-	return ret;
 }
 
-bool mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
-			       unsigned int dequeued_frame_seq_no,
-			       int pipe_id)
+int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
+			      unsigned int dequeued_frame_seq_no,
+			      int pipe_id)
 {
+	struct list_head dequeue_list;
 	struct mtk_cam_request *req, *req_prev;
-	struct mtk_cam_request_stream_data *req_stream_data, *s_data_mstream;
+	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	unsigned long flags;
-	enum vb2_buffer_state buf_state = VB2_BUF_STATE_DONE;
-	bool result = false;
 	int feature;
+	int dequeue_cnt = 0;
+	bool cleaned, del_job, del_req;
+
+	INIT_LIST_HEAD(&dequeue_list);
 
 	spin_lock_irqsave(&ctx->cam->running_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
-		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		if (!req_stream_data) {
+		if (!(req->pipe_used & (1 << pipe_id)))
+			continue;
+
+		s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		if (!s_data) {
 			dev_info(ctx->cam->dev,
 				"frame_seq:%d[ctx=%d,pipe=%d], de-queue request not found\n",
 				dequeued_frame_seq_no, ctx->stream_id, pipe_id);
 			continue;
 		}
 
-		dev_dbg(ctx->cam->dev,
-			"frame_seq:%d[ctx=%d,pipe=%d,ctx_used=%x], de-queue frame_seq:%d\n",
-			req_stream_data->frame_seq_no, ctx->stream_id,
-			pipe_id, req->ctx_used, dequeued_frame_seq_no);
+		if (s_data->frame_seq_no > dequeued_frame_seq_no)
+			goto STOP_SCAN;
 
-		if (!(req->pipe_used & (1 << pipe_id)))
-			continue;
-
-		feature = req_stream_data->feature.raw_feature;
-		/* Match by the en-queued request number */
-		if (req_stream_data->frame_seq_no == dequeued_frame_seq_no) {
-			/**
-			 * For request not removed since there is another ctx
-			 * in previous mtk_cam_dequeue_req_frame() but can be
-			 * removed since another ctx is stream off cases.
-			 */
-			spin_lock_irqsave(&req->done_status_lock, flags);
-			if (req->done_status & 1 << pipe_id) {
-				spin_unlock_irqrestore(&req->done_status_lock, flags);
-				result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
-				break;
-			}
-			spin_unlock_irqrestore(&req->done_status_lock, flags);
-
-			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
-				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
-				mtk_cam_sv_finish_buf(req_stream_data);
-				mtk_cam_mraw_finish_buf(req_stream_data);
-				finish_cq_buf(req_stream_data);
-				if (mtk_cam_is_time_shared(ctx))
-					finish_img_buf(req_stream_data);
-
-				if (mtk_cam_feature_is_mstream(feature)) {
-					s_data_mstream = mtk_cam_req_get_s_data(req,
-										ctx->stream_id,
-										1);
-					finish_cq_buf(s_data_mstream);
-					finish_img_buf(req_stream_data);
-				}
-			}
-
-			if (req_stream_data->state.estate ==
-				E_STATE_DONE_MISMATCH)
-				buf_state = VB2_BUF_STATE_ERROR;
-
-			result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
-			mtk_cam_dev_job_done(ctx, req, pipe_id, buf_state);
-			break;
-		} else if (req_stream_data->frame_seq_no < dequeued_frame_seq_no) {
-			/**
-			 * For request not removed since there is another ctx
-			 * in previous mtk_cam_dequeue_req_frame() but can be
-			 * removed since another ctx is stream off cases.
-			 */
-			spin_lock_irqsave(&req->done_status_lock, flags);
-			if (req->done_status & 1 << pipe_id) {
-				spin_unlock_irqrestore(&req->done_status_lock, flags);
-				result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
-				dev_dbg(ctx->cam->dev,
-					"req:%d, time:%lld drop, ctx:%d, pipe:%d\n",
-					req_stream_data->frame_seq_no, req_stream_data->timestamp,
-					ctx->stream_id, pipe_id);
-				continue;
-			}
-			spin_unlock_irqrestore(&req->done_status_lock, flags);
-
-			if (mtk_cam_update_done_status(ctx, req, pipe_id)) {
-				mtk_camsys_state_delete(ctx, sensor_ctrl, req);
-				mtk_cam_sv_finish_buf(req_stream_data);
-				mtk_cam_mraw_finish_buf(req_stream_data);
-				finish_cq_buf(req_stream_data);
-				if (mtk_cam_is_time_shared(ctx))
-					finish_img_buf(req_stream_data);
-
-				if (mtk_cam_feature_is_mstream(feature)) {
-					s_data_mstream = mtk_cam_req_get_s_data(req,
-										ctx->stream_id,
-										1);
-					finish_cq_buf(s_data_mstream);
-					finish_img_buf(req_stream_data);
-				}
-			}
-
-			result = mtk_cam_del_req_from_running(ctx, req, pipe_id);
-			dev_dbg(ctx->cam->dev, "req:%d, time:%lld drop, ctx:%d, pipe:%d\n",
-				req_stream_data->frame_seq_no, req_stream_data->timestamp,
-				ctx->stream_id, pipe_id);
-			mtk_cam_dev_job_done(ctx, req, pipe_id, VB2_BUF_STATE_ERROR);
-		}
+		list_add_tail(&s_data->list, &dequeue_list);
 	}
+
+STOP_SCAN:
 	spin_unlock_irqrestore(&ctx->cam->running_job_lock, flags);
 
-	return result;
+	list_for_each_entry(s_data, &dequeue_list, list) {
+		cleaned = false;
+		del_req = false;
+		del_job = false;
+		feature = s_data->feature.raw_feature;
+		req = mtk_cam_s_data_get_req(s_data);
+		if (mtk_cam_feature_is_mstream(feature))
+			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+		else
+			s_data_mstream = NULL;
+
+		dev_dbg(ctx->cam->dev,
+			"frame_seq:%d[ctx=%d,pipe=%d,ctx_used=%x], de-queue frame_seq:%d\n",
+			s_data->frame_seq_no, ctx->stream_id,
+			pipe_id, req->ctx_used, dequeued_frame_seq_no);
+
+		spin_lock(&req->done_status_lock);
+
+		if ((req->done_status & 1 << pipe_id) &&
+		    (req->done_status & ctx->cam->streaming_pipe) ==
+		    (req->pipe_used & ctx->cam->streaming_pipe))
+			cleaned = true;
+
+		/* Check whether all pipelines of single ctx are done */
+		req->done_status |= 1 << pipe_id;
+		if ((req->done_status & ctx->streaming_pipe) == ctx->streaming_pipe)
+			del_job = true;
+
+		if ((req->done_status & ctx->cam->streaming_pipe) ==
+		    (req->pipe_used & ctx->cam->streaming_pipe))
+			del_req = true;
+
+		spin_unlock(&req->done_status_lock);
+
+		if (cleaned) {
+			/**
+			 * For request not removed since there is another ctx
+			 * in previous mtk_cam_dequeue_req_frame() but can be
+			 * removed since another ctx is stream off cases.
+			 */
+			dev_dbg(ctx->cam->dev,
+				"%s: one of ctxs in req(%s) is stream-off\n",
+				__func__, req->req.debug_str);
+
+			mtk_cam_del_req_from_running(ctx, req, pipe_id);
+			dequeue_cnt++;
+
+			continue;
+		}
+
+		if (is_raw_subdev(pipe_id)) {
+			mtk_cam_req_dbg_works_clean(s_data);
+			mtk_cam_req_works_clean(s_data);
+
+			if (s_data_mstream) {
+				mtk_cam_req_dbg_works_clean(s_data_mstream);
+				mtk_cam_req_works_clean(s_data_mstream);
+			}
+		}
+
+		if (del_job) {
+			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
+
+			/* release internal buffers */
+			mtk_cam_sv_finish_buf(s_data);
+			mtk_cam_mraw_finish_buf(s_data);
+			finish_cq_buf(s_data);
+
+			if (mtk_cam_is_time_shared(ctx))
+				finish_img_buf(s_data);
+
+			if (s_data_mstream) {
+				finish_cq_buf(s_data_mstream);
+				finish_img_buf(s_data);
+			}
+		}
+
+		if (del_req) {
+			mtk_cam_del_req_from_running(ctx, req, pipe_id);
+			dequeue_cnt++;
+		}
+
+		/* release vb2 buffers of the pipe */
+		s_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
+		if (s_data->frame_seq_no < dequeued_frame_seq_no) {
+			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
+			dev_dbg(ctx->cam->dev,
+				"req:%d, time:%lld drop, ctx:%d, pipe:%d\n",
+				s_data->frame_seq_no, s_data->timestamp,
+				ctx->stream_id, pipe_id);
+		} else if (s_data->state.estate == E_STATE_DONE_MISMATCH) {
+			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
+			dev_dbg(ctx->cam->dev,
+				"%s:req(%d) state done mismatch",
+				__func__, s_data->frame_seq_no);
+		} else {
+			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_DONE);
+			dev_dbg(ctx->cam->dev,
+				"%s:req(%d) done",
+				__func__, s_data->frame_seq_no);
+		}
+	}
+
+	return dequeue_cnt;
 }
 
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
@@ -632,7 +638,6 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head *running = &cam->running_job_list;
 	struct list_head s_data_clean_list;
-	struct media_request_object *hdl_obj;
 	int i, num_s_data;
 	unsigned long flags;
 	bool need_clean_s_data, need_clean_req;
@@ -706,6 +711,8 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 
 		if (atomic_read(&s_data->dbg_exception_work.state) ==
 			MTK_CAM_REQ_DBGWORK_S_PREPARED) {
+			atomic_set(&s_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_CANCEL);
+			mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
 			cancel_work_sync(&s_data->dbg_exception_work.work);
 			dev_info(cam->dev,
 				 "%s:%s:pipe(%d):seq(%d): cancel dbg_exception_work\n",
@@ -747,39 +754,8 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		}
 		spin_unlock(&req->done_status_lock);
 
-		if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) &&
-		    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
-		    s_data->sensor_hdl_obj) {
-			hdl_obj = s_data->sensor_hdl_obj;
-			if (hdl_obj->ops)
-				hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-			else
-				dev_dbg(cam->dev,
-					"%s:cannot unbind sensor hdl\n", __func__);
-			media_request_object_complete(hdl_obj);
-			dev_dbg(cam->dev,
-				"%s:%s:pipe(%d):seq(%d): complete sensor(%s) hdl\n",
-				__func__, req->req.debug_str, pipe_id,
-				s_data->frame_seq_no, s_data->sensor->name);
-			s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
-		}
-
-		if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN) &&
-		    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE) &&
-		    s_data->raw_hdl_obj) {
-			hdl_obj = s_data->raw_hdl_obj;
-			if (hdl_obj->ops)
-				hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
-			else
-				dev_dbg(cam->dev,
-					"%s:cannot unbind raw hdl\n", __func__);
-			media_request_object_complete(hdl_obj);
-			dev_dbg(cam->dev,
-				"%s:%s:pipe(%d):seq(%d): complete raw hdl\n",
-				__func__, req->req.debug_str, pipe_id,
-				s_data->frame_seq_no);
-			s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE;
-		}
+		mtk_cam_complete_sensor_hdl(s_data);
+		mtk_cam_complete_raw_hdl(s_data);
 
 		if (need_clean_s_data) {
 			dev_info(cam->dev,
@@ -1484,6 +1460,7 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	}
 	s_data->feature.raw_feature = raw_pipe->feature_pending;
 	s_data->feature.prev_feature = raw_fut_pre;
+	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
 
 	return 0;
 }
