@@ -24,7 +24,8 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/$(CMDQ_VER) \
 	     -I$(srctree)/drivers/iommu/ \
 	     -I$(srctree)/drivers/staging/android/mtk_ion \
-	     -I$(srctree)/drivers/staging/android/mtk_ion/mtk
+	     -I$(srctree)/drivers/staging/android/mtk_ion/mtk \
+	     -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/$(CMDQ_VER)/$(MTK_PLATFORM)
 

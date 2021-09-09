@@ -37,6 +37,7 @@
 #include "mdp_ioctl_ex.h"
 #include "cmdq_struct.h"
 #include "mdp_m4u.h"
+#include "ion_sec_heap.h"
 
 #ifdef MDP_M4U_TEE_SUPPORT
 static atomic_t m4u_init = ATOMIC_INIT(0);
@@ -505,6 +506,47 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 	return 0;
 }
 
+static s32 mdp_init_secure_id(struct cmdqRecStruct *handle)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u32 i;
+	uint32_t trustmem_type = 0;
+	int sec = 0;
+	int iommu_sec_id = 0;
+	ion_phys_addr_t sec_handle;
+	struct cmdqSecAddrMetadataStruct *secMetadatas = NULL;
+
+	if (!handle->secData.is_secure)
+		return 0;
+	secMetadatas = (struct cmdqSecAddrMetadataStruct *)handle->secData.addrMetadatas;
+
+	for (i = 0; i < handle->secData.addrMetadataCount; i++) {
+		secMetadatas[i].useSecIdinMeta = 1;
+		if (secMetadatas[i].ionFd <= 0) {
+			secMetadatas[i].sec_id = 0;
+			continue;
+		}
+
+		trustmem_type = ion_fd2sec_type(secMetadatas[i].ionFd, &sec,
+			&iommu_sec_id, &sec_handle);
+		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
+#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
+		secMetadatas[i].sec_id = iommu_sec_id;
+#else
+		secMetadatas[i].sec_id = trustmem_type;
+#endif
+		CMDQ_LOG("%s,port:%d,ionFd:%d,sec_id:%d,sec_handle:0x%#llx",
+				__func__, secMetadatas[i].port,
+				secMetadatas[i].ionFd,
+				secMetadatas[i].sec_id,
+				secMetadatas[i].baseHandle);
+	}
+	return 1;
+#else
+	return 0;
+#endif
+}
+
 static int mdp_implement_read_v1(struct mdp_submit *user_job,
 				struct cmdqRecStruct *handle,
 				struct cmdq_command_buffer *cmd_buf)
@@ -648,6 +690,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		return status;
 	}
 
+	mdp_init_secure_id(handle);
 	/* Make command from user job */
 	exec_cost = sched_clock();
 	status = translate_user_job(&user_job, mapping_job, handle, &cmd_buf);
