@@ -45,16 +45,19 @@ static struct pm_qos_request slbc_qos_request;
 static struct mtk_slbc *slbc;
 
 static int slbc_sram_enable;
-static int slbc_force;
-static int buffer_ref;
-static int acp_ref;
-static int slbc_ref;
-static int slbc_sta;
-static int slbc_ack_c;
-static int slbc_ack_g;
-static int cpuqos_mode;
-static int slbc_sram_con;
-static int slbc_cache_used;
+static u32 slbc_force;
+static u32 buffer_ref;
+static u32 acp_ref;
+static u32 slbc_ref;
+static u32 slbc_sta;
+static u32 slbc_ack_c;
+static u32 slbc_ack_g;
+static u32 cpuqos_mode;
+static u32 slbc_sram_con;
+static u32 slbc_cache_used;
+static u32 slbc_pmu_0;
+static u32 slbc_pmu_1;
+static u32 slbc_pmu_2;
 static int debug_level;
 static int uid_ref[UID_MAX];
 static int slbc_mic_num = 3;
@@ -632,6 +635,9 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	cpuqos_mode = slbc_sram_read(CPUQOS_MODE);
 	slbc_sram_con = slbc_sram_read(SLBC_SRAM_CON);
 	slbc_cache_used = slbc_sram_read(SLBC_CACHE_USED);
+	slbc_pmu_0 = slbc_sram_read(SLBC_PMU_0);
+	slbc_pmu_1 = slbc_sram_read(SLBC_PMU_1);
+	slbc_pmu_2 = slbc_sram_read(SLBC_PMU_2);
 
 	for (i = 0; i < UID_MAX; i++) {
 		sid = slbc_get_sid_by_uid(i);
@@ -659,6 +665,9 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "cpuqos_mode %x\n", cpuqos_mode);
 	seq_printf(m, "slbc_sram_con %x\n", slbc_sram_con);
 	seq_printf(m, "slbc_cache_used %x\n", slbc_cache_used);
+	seq_printf(m, "slbc_pmu_0 %x\n", slbc_pmu_0);
+	seq_printf(m, "slbc_pmu_1 %x\n", slbc_pmu_1);
+	seq_printf(m, "slbc_pmu_2 %x\n", slbc_pmu_2);
 	seq_printf(m, "mic_num %x\n", slbc_mic_num);
 	seq_printf(m, "inner %x\n", slbc_inner);
 	seq_printf(m, "outer %x\n", slbc_outer);
