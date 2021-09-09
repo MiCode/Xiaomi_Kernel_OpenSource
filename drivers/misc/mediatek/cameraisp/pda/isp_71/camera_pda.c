@@ -206,8 +206,8 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
 
 #if IS_ENABLED(CONFIG_OF)
 	/* consumer device starting work*/
-	pm_runtime_put(g_dev1); //Note: It‘s not larb's device.
-	pm_runtime_put(g_dev2); //Note: It‘s not larb's device.
+	pm_runtime_put_sync(g_dev2); //Note: It‘s not larb's device.
+	pm_runtime_put_sync(g_dev1); //Note: It‘s not larb's device.
 	LOG_INF("pm_runtime_put done\n");
 #endif
 }
@@ -1002,8 +1002,8 @@ static signed int pda_wait_irq(struct PDA_Data_t *pda_data)
 	ktime_get_real_ts64(&time_end);
 #endif
 	if (ret == 0) {
-		// time out error
-		LOG_INF("wait_event_interruptible_timeout Fail");
+		// timeout error
+		LOG_INF("wait_event_interruptible_timeout Fail\n");
 		pda_data->Status = -2;
 		return -1;
 	} else if (ret == -ERESTARTSYS) {
