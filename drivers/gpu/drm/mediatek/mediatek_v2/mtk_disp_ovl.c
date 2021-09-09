@@ -422,7 +422,9 @@ struct mtk_disp_ovl_data {
 	unsigned int preultra_th_dc;
 	unsigned int fifo_size;
 	unsigned int issue_req_th_dl;
+	unsigned int issue_req_th_dc;
 	unsigned int issue_req_th_urg_dl;
+	unsigned int issue_req_th_urg_dc;
 	unsigned int greq_num_dl;
 	bool is_support_34bits;
 	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
@@ -2366,9 +2368,10 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg,
 	gs[GS_OVL_RDMA_FIFO_SIZE] = data->fifo_size;
 
 	/* OVL_RDMA_MEM_GMC_SETTING_2 */
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? data->issue_req_th_dl : 15;
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? data->issue_req_th_urg_dl
-							: 15;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? data->issue_req_th_dl :
+				data->issue_req_th_dc;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? data->issue_req_th_urg_dl :
+				data->issue_req_th_urg_dc;
 	gs[GS_OVL_RDMA_REQ_TH_PRE_ULTRA] = 0;
 	gs[GS_OVL_RDMA_REQ_TH_ULTRA] = 1;
 	gs[GS_OVL_RDMA_FORCE_REQ_TH] = 0;
@@ -3618,7 +3621,9 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.preultra_th_dc = 0x15e,
 	.fifo_size = 384,
 	.issue_req_th_dl = 255,
+	.issue_req_th_dc = 15,
 	.issue_req_th_urg_dl = 127,
+	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = false,
 };
@@ -3640,7 +3645,9 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.preultra_th_dc = 0x15e,
 	.fifo_size = 384,
 	.issue_req_th_dl = 255,
+	.issue_req_th_dc = 15,
 	.issue_req_th_urg_dl = 127,
+	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
@@ -3687,7 +3694,9 @@ static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.preultra_th_dc = 0xe0,
 	.fifo_size = 288,
 	.issue_req_th_dl = 191,
+	.issue_req_th_dc = 15,
 	.issue_req_th_urg_dl = 95,
+	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
 };
@@ -3709,7 +3718,9 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.preultra_th_dc = 0xe0,
 	.fifo_size = 288,
 	.issue_req_th_dl = 191,
+	.issue_req_th_dc = 15,
 	.issue_req_th_urg_dl = 95,
+	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
 };
@@ -3731,7 +3742,9 @@ static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
 	.preultra_th_dc = 0xe0,
 	.fifo_size = 288,
 	.issue_req_th_dl = 191,
+	.issue_req_th_dc = 15,
 	.issue_req_th_urg_dl = 95,
+	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
 };
@@ -3752,10 +3765,12 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.preultra_th_dc = 0xe0,
-	.fifo_size = 288,
-	.issue_req_th_dl = 191,
-	.issue_req_th_urg_dl = 95,
-	.greq_num_dl = 0x5555,
+	.fifo_size = 576,
+	.issue_req_th_dl = 383,
+	.issue_req_th_dc = 31,
+	.issue_req_th_urg_dl = 191,
+	.issue_req_th_urg_dc = 31,
+	.greq_num_dl = 0xbbbb,
 	.is_support_34bits = true,
 };
 
