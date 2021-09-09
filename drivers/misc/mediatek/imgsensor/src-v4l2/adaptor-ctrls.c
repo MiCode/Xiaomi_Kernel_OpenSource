@@ -697,7 +697,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				SENSOR_FEATURE_SET_FRAMELENGTH,
 				1, fsync_exp);
 
-			para.u64[0] = info->gain / 16;
+			para.u64[0] = info->gain;
 			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_GAIN,
 				para.u8, &len);
