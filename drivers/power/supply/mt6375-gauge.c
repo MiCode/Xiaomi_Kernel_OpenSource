@@ -228,6 +228,10 @@ struct mt6375_priv {
 	u16 gain_err;
 	u16 efuse_gain_err;
 	int offset_trim;
+	int unit_fgcurrent;
+	int unit_charge;
+	int unit_fg_iavg;
+	int unit_fgcar_zcv;
 };
 
 /************ bat_cali *******************/
@@ -584,6 +588,7 @@ static int mv_to_reg_12_value(struct mtk_gauge *gauge,
 static int reg_to_current(struct mtk_gauge *gauge,
 	unsigned int regval)
 {
+	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
 	unsigned short uvalue16 = 0;
 	int dvalue, retval;
 	long long temp_value = 0;
@@ -604,7 +609,7 @@ static int reg_to_current(struct mtk_gauge *gauge,
 		temp_value = (long long) dvalue;
 	}
 
-	temp_value = temp_value * UNIT_FGCURRENT;
+	temp_value = temp_value * priv->unit_fgcurrent;
 #if defined(__LP64__) || defined(_LP64)
 	do_div(temp_value, 100000);
 #else
@@ -909,17 +914,17 @@ static int calculate_car_tune(struct mtk_gauge *gauge)
 		bm_err("[555]sum_all %lld temp_sum %lld avg_cnt %d current_from_ADC %lld\n",
 			sum_all, temp_sum, avg_cnt, current_from_ADC);
 
-		Temp_Value2 = current_from_ADC * UNIT_FGCURRENT;
+		Temp_Value2 = current_from_ADC * priv->unit_fgcurrent;
 
-		bm_err("[555]Temp_Value2 %lld current_from_ADC %lld UNIT_FGCURRENT %d\n",
-			Temp_Value2, current_from_ADC, UNIT_FGCURRENT);
+		bm_err("[555]Temp_Value2 %lld current_from_ADC %lld priv->unit_fgcurrent %d\n",
+			Temp_Value2, current_from_ADC, priv->unit_fgcurrent);
 
 		/* Move 100 from denominator to cali_car_tune's numerator */
 		/*do_div(Temp_Value2, 1000000);*/
 		do_div(Temp_Value2, 10000);
 
-		bm_err("[666]Temp_Value2 %lld current_from_ADC %lld UNIT_FGCURRENT %d\n",
-			Temp_Value2, current_from_ADC, UNIT_FGCURRENT);
+		bm_err("[666]Temp_Value2 %lld current_from_ADC %lld priv->unit_fgcurrent %d\n",
+			Temp_Value2, current_from_ADC, priv->unit_fgcurrent);
 
 		dvalue = (unsigned int) Temp_Value2;
 
@@ -948,7 +953,7 @@ static int calculate_car_tune(struct mtk_gauge *gauge)
 			bm_err(
 				"[fgauge_meta_cali_car_tune_value][%d] meta:%d, adc:%lld, UNI_FGCUR:%d, r_fg_value:%d\n",
 				cali_car_tune, gauge->hw_status.meta_current,
-				current_from_ADC, UNIT_FGCURRENT,
+				current_from_ADC, priv->unit_fgcurrent,
 				gauge->hw_status.r_fg_value);
 		}
 
@@ -1226,9 +1231,9 @@ static void fgauge_set_zcv_intr_internal(struct mtk_gauge *gauge_dev, int fg_zcv
 	fg_zcv_car_th_reg = (fg_zcv_car_th_reg * 100 * 1000);
 
 #if defined(__LP64__) || defined(_LP64)
-	do_div(fg_zcv_car_th_reg, UNIT_FGCAR_ZCV);
+	do_div(fg_zcv_car_th_reg, priv->unit_fgcar_zcv);
 #else
-	fg_zcv_car_th_reg = div_s64(fg_zcv_car_th_reg, UNIT_FGCAR_ZCV);
+	fg_zcv_car_th_reg = div_s64(fg_zcv_car_th_reg, priv->unit_fgcar_zcv);
 #endif
 
 	if (gauge_dev->hw_status.r_fg_value != priv->default_r_fg)
@@ -1294,7 +1299,7 @@ static void read_fg_hw_info_current_2(struct mtk_gauge *gauge_dev)
 		sign_bit = 0;
 	}
 
-	Temp_Value = Temp_Value * UNIT_FGCURRENT;
+	Temp_Value = Temp_Value * priv->unit_fgcurrent;
 #if defined(__LP64__) || defined(_LP64)
 	do_div(Temp_Value, 100000);
 #else
@@ -1344,9 +1349,9 @@ static void read_fg_hw_info_ncar(struct mtk_gauge *gauge_dev)
 
 	/* 0.1 mAh */
 #if defined(__LP64__) || defined(_LP64)
-	Temp_Value = Temp_Value * UNIT_CHARGE / 1000;
+	Temp_Value = Temp_Value * priv->unit_charge / 1000;
 #else
-	Temp_Value = div_s64(Temp_Value * UNIT_CHARGE, 1000);
+	Temp_Value = div_s64(Temp_Value * priv->unit_charge, 1000);
 #endif
 
 #if defined(__LP64__) || defined(_LP64)
@@ -1478,9 +1483,9 @@ static int coulomb_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	}
 
 #if defined(__LP64__) || defined(_LP64)
-	temp_value = temp_value * UNIT_CHARGE / 1000;
+	temp_value = temp_value * priv->unit_charge / 1000;
 #else
-	temp_value = div_s64(temp_value * UNIT_CHARGE, 1000);
+	temp_value = div_s64(temp_value * priv->unit_charge, 1000);
 #endif
 
 
@@ -1569,7 +1574,7 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 
 		is_bat_charging = sign_bit ? 0 : 1;
 
-		fg_iavg_ma = fg_iavg_reg * UNIT_FG_IAVG * car_tune_value;
+		fg_iavg_ma = fg_iavg_reg * priv->unit_fg_iavg * car_tune_value;
 
 		bm_debug(
 			"[fg_get_current_iavg] fg_iavg_ma %lld fg_iavg_reg %lld fg_iavg_reg_tmp %lld\n",
@@ -1771,7 +1776,7 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 /* reverse for IAVG */
 /* fg_iavg_ma * 100 * fg_cust_data.r_fg_value / DEFAULT_RFG * 1000 * 1000 */
-/* / fg_cust_data.car_tune_value / UNIT_FG_IAVG  = fg_iavg_reg  */
+/* / fg_cust_data.car_tune_value / priv->unit_fg_iavg  = fg_iavg_reg  */
 
 	fg_iavg_reg_ht = iavg_ht * 100;
 	if (gauge_dev->hw_status.r_fg_value != priv->default_r_fg) {
@@ -1786,10 +1791,10 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 	fg_iavg_reg_ht = fg_iavg_reg_ht * 1000000;
 
 #if defined(__LP64__) || defined(_LP64)
-	do_div(fg_iavg_reg_ht, UNIT_FG_IAVG);
+	do_div(fg_iavg_reg_ht, priv->unit_fg_iavg);
 	do_div(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
-	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, UNIT_FG_IAVG);
+	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, priv->unit_fg_iavg);
 	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
@@ -1809,10 +1814,10 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 	fg_iavg_reg_lt = fg_iavg_reg_lt * 1000000;
 
 #if defined(__LP64__) || defined(_LP64)
-	do_div(fg_iavg_reg_lt, UNIT_FG_IAVG);
+	do_div(fg_iavg_reg_lt, priv->unit_fg_iavg);
 	do_div(fg_iavg_reg_lt, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
-	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt, UNIT_FG_IAVG);
+	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt, priv->unit_fg_iavg);
 	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt,
 				gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
@@ -1922,10 +1927,10 @@ static int bat_cycle_intr_threshold_set(struct mtk_gauge *gauge,
 	disable_gauge_irq(gauge, FG_N_CHARGE_L_IRQ);
 
 #if defined(__LP64__) || defined(_LP64)
-	car = car * 100000 / UNIT_CHARGE;
+	car = car * 100000 / priv->unit_charge;
 	/* 1000 * 100 */
 #else
-	car = div_s64(car * 100000, UNIT_CHARGE);
+	car = div_s64(car * 100000, priv->unit_charge);
 #endif
 
 	if (gauge->hw_status.r_fg_value != priv->default_r_fg) {
@@ -2250,7 +2255,7 @@ static int zcv_current_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field
 		Temp_Value = (long long) dvalue;
 	}
 
-	Temp_Value = Temp_Value * UNIT_FGCURRENT;
+	Temp_Value = Temp_Value * priv->unit_fgcurrent;
 
 #if defined(__LP64__) || defined(_LP64)
 	do_div(Temp_Value, 100000);
@@ -3001,10 +3006,10 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 
 	/* gap to register-base */
 #if defined(__LP64__) || defined(_LP64)
-	car = car * 100000 / UNIT_CHARGE;
+	car = car * 100000 / priv->unit_charge;
 	/* car * 1000 * 100 */
 #else
-	car = div_s64(car * 100000, UNIT_CHARGE);
+	car = div_s64(car * 100000, priv->unit_charge);
 #endif
 
 	if (r_fg_value != priv->default_r_fg)
@@ -3093,9 +3098,9 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 		temp_car_31_16);
 
 #if defined(__LP64__) || defined(_LP64)
-	car = car * 100000 / UNIT_CHARGE;
+	car = car * 100000 / priv->unit_charge;
 #else
-	car = div_s64(car * 100000, UNIT_CHARGE);
+	car = div_s64(car * 100000, priv->unit_charge);
 #endif
 
 	if (r_fg_value != priv->default_r_fg)
@@ -3701,7 +3706,6 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	gauge->pdev = to_platform_device(priv->dev);
 	mutex_init(&gauge->ops_lock);
 	gauge->hw_status.car_tune_value = 1000;
-	gauge->hw_status.r_fg_value = priv->default_r_fg;
 	gauge->attr = mt6375_sysfs_field_tbl;
 
 	if (battery_psy_init(gauge->pdev))
@@ -3725,6 +3729,36 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	adc_cali_cdev_init(gauge->pdev);
 
 	return 0;
+}
+
+static void mt6375_gauge_refactor_unit(struct mt6375_priv *priv)
+{
+	struct fuel_gauge_custom_data fg_cust_data = priv->gauge.gm->fg_cust_data;
+
+	priv->unit_fgcurrent = UNIT_FGCURRENT;
+	priv->unit_charge = UNIT_CHARGE;
+	priv->unit_fg_iavg = UNIT_FG_IAVG;
+	priv->unit_fgcar_zcv = UNIT_FGCAR_ZCV;
+
+	if (priv->gauge.hw_status.r_fg_value == 20)
+		priv->default_r_fg = 20;
+
+	if (fg_cust_data.curr_measure_20a) {
+		priv->default_r_fg = 10;
+		priv->unit_fgcurrent *= fg_cust_data.unit_multiple;
+		priv->unit_charge *= fg_cust_data.unit_multiple;
+		priv->unit_fg_iavg *= fg_cust_data.unit_multiple;
+		priv->unit_fgcar_zcv *= fg_cust_data.unit_multiple;
+	}
+
+	pr_notice("%s:20A:%d,r_fg:%d,unit_fg_current:%d,unit_charge:%d,unit_fg_iavg:%d,unit_fgcar_zcv:%d\n",
+		  __func__,
+		  priv->gauge.gm->fg_cust_data.curr_measure_20a,
+		  priv->default_r_fg,
+		  priv->unit_fgcurrent,
+		  priv->unit_charge,
+		  priv->unit_fg_iavg,
+		  priv->unit_fgcar_zcv);
 }
 
 static int mt6375_gauge_probe(struct platform_device *pdev)
@@ -3782,6 +3816,7 @@ static int mt6375_gauge_probe(struct platform_device *pdev)
 		goto out_irq_chip;
 	}
 
+	mt6375_gauge_refactor_unit(priv);
 	return 0;
 
 out_irq_chip:
