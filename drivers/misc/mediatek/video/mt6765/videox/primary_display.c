@@ -106,6 +106,7 @@ static struct disp_internal_buffer_info
 static struct RDMA_CONFIG_STRUCT decouple_rdma_config;
 static struct WDMA_CONFIG_STRUCT decouple_wdma_config;
 static struct disp_mem_output_config mem_config;
+static unsigned int primary_display_set_sess_mode;
 atomic_t hwc_configing = ATOMIC_INIT(0);
 static unsigned int primary_session_id =
 	MAKE_DISP_SESSION(DISP_SESSION_PRIMARY, 0);
@@ -7254,6 +7255,13 @@ err:
 int primary_display_switch_mode(int sess_mode, unsigned int session, int force)
 {
 	int ret = 0;
+
+	DISPDBG("%s+\n", __func__);
+	if (sess_mode == primary_display_set_sess_mode) {
+		DISPDBG("%s: sess_mode is same\n", __func__);
+		return ret;
+	}
+	primary_display_set_sess_mode = sess_mode;
 
 	_primary_path_lock(__func__);
 	primary_display_idlemgr_kick(__func__, 0);
