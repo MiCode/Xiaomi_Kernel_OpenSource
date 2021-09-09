@@ -244,7 +244,7 @@ static s32 tdshp_prepare(struct mml_comp *comp, struct mml_task *task,
 		return ret;
 	}
 
-	ret = mml_pq_comp_config(task);
+	ret = mml_pq_set_comp_config(task);
 	return ret;
 }
 
@@ -305,16 +305,10 @@ static s32 tdshp_init(struct mml_comp *comp, struct mml_task *task,
 static struct mml_pq_comp_config_result *get_tdshp_comp_config_result(
 	struct mml_task *task)
 {
-	struct mml_pq_sub_task *sub_task = NULL;
+	struct mml_pq_sub_task *sub_task = &task->pq_task->comp_config;
 
-	if (task->pq_task)
-		sub_task = &task->pq_task->comp_config;
-	if (sub_task)
-		return (struct mml_pq_comp_config_result *)sub_task->result;
-	else
-		return NULL;
+	return (struct mml_pq_comp_config_result *)sub_task->result;
 }
-
 
 static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 			      struct mml_comp_config *ccfg)
@@ -422,11 +416,23 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static s32 tdshp_config_post(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
+{
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
+	struct mml_frame_dest *dest = &task->config->info.dest[tdshp_frm->out_idx];
+
+	if (dest->pq_config.en_sharp || dest->pq_config.en_dc)
+		mml_pq_put_comp_config_result(task);
+	return 0;
+}
+
 static const struct mml_comp_config_ops tdshp_cfg_ops = {
 	.prepare = tdshp_prepare,
 	.init = tdshp_init,
 	.frame = tdshp_config_frame,
 	.tile = tdshp_config_tile,
+	.post = tdshp_config_post,
 };
 
 static void tdshp_debug_dump(struct mml_comp *comp)

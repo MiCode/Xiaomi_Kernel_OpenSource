@@ -233,7 +233,8 @@ static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		func->full_size_y_out = dest->data.height;
 	}
 
-	ret = mml_pq_comp_config(task);
+	if (dest->pq_config.en_color)
+		ret = mml_pq_set_comp_config(task);
 
 	return ret;
 }
@@ -262,26 +263,25 @@ static s32 color_init(struct mml_comp *comp, struct mml_task *task,
 static struct mml_pq_comp_config_result *get_color_comp_config_result(
 	struct mml_task *task)
 {
-	struct mml_pq_sub_task *sub_task = NULL;
+	struct mml_pq_sub_task *sub_task = &task->pq_task->comp_config;
 
-	if (task->pq_task)
-		sub_task = &task->pq_task->comp_config;
-	if (sub_task)
-		return (struct mml_pq_comp_config_result *)sub_task->result;
-	else
-		return NULL;
+	return (struct mml_pq_comp_config_result *)sub_task->result;
 }
-
 
 static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 			      struct mml_comp_config *ccfg)
 {
+	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
-
+	struct color_frame_data *color_frm = color_frm_data(ccfg);
+	const struct mml_frame_dest *dest = &cfg->info.dest[color_frm->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_pq_comp_config_result *result = NULL;
 	s32 ret = 0;
+
+	if (!dest->pq_config.en_color)
+		return ret;
 
 	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -328,32 +328,23 @@ static s32 color_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static s32 color_post(struct mml_comp *comp, struct mml_task *task,
+static s32 color_config_post(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	if (!task && !task->pq_task)
-		atomic_set(&task->pq_task->comp_config.queue_cnt, 0);
+	struct color_frame_data *color_frm = color_frm_data(ccfg);
+	struct mml_frame_dest *dest = &task->config->info.dest[color_frm->out_idx];
 
+	if (dest->pq_config.en_color)
+		mml_pq_put_comp_config_result(task);
 	return 0;
 }
-
-static s32 color_repost(struct mml_comp *comp, struct mml_task *task,
-			     struct mml_comp_config *ccfg)
-{
-	if (!task && !task->pq_task)
-		atomic_set(&task->pq_task->comp_config.queue_cnt, 0);
-
-	return 0;
-}
-
 
 static const struct mml_comp_config_ops color_cfg_ops = {
 	.prepare = color_prepare,
 	.init = color_init,
 	.frame = color_config_frame,
 	.tile = color_config_tile,
-	.post = color_post,
-	.repost = color_repost,
+	.post = color_config_post,
 };
 
 static void color_debug_dump(struct mml_comp *comp)

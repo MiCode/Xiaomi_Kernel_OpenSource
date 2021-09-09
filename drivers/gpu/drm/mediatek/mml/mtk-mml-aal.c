@@ -229,12 +229,9 @@ static s32 aal_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
 			dest->pq_config.en_dre);
 
-	if (!dest->pq_config.en_dre)
-		goto exit;
+	if (dest->pq_config.en_dre)
+		ret = mml_pq_set_comp_config(task);
 
-	ret = mml_pq_comp_config(task);
-
-exit:
 	mml_pq_trace_ex_end();
 	return ret;
 }
@@ -321,14 +318,9 @@ static s32 aal_init(struct mml_comp *comp, struct mml_task *task,
 static struct mml_pq_comp_config_result *get_aal_comp_config_result(
 	struct mml_task *task)
 {
-	struct mml_pq_sub_task *sub_task = NULL;
+	struct mml_pq_sub_task *sub_task = &task->pq_task->comp_config;
 
-	if (task->pq_task)
-		sub_task = &task->pq_task->comp_config;
-	if (sub_task)
-		return (struct mml_pq_comp_config_result *)sub_task->result;
-	else
-		return NULL;
+	return (struct mml_pq_comp_config_result *)sub_task->result;
 }
 
 static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
@@ -344,6 +336,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 
 	struct mml_pq_comp_config_result *result = NULL;
+	struct mml_pq_aal_config_param *tile_config_param = NULL;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 	s32 ret = 0;
@@ -403,6 +396,13 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 			mml_pq_msg("%s is_aal_need_readback[%d]", __func__,
 					result->is_aal_need_readback);
 			aal_frm->is_aal_need_readback = result->is_aal_need_readback;
+
+			tile_config_param = &(result->aal_param[aal_frm->out_idx]);
+			aal_frm->dre_blk_width = tile_config_param->dre_blk_width;
+			aal_frm->dre_blk_height = tile_config_param->dre_blk_height;
+			mml_pq_msg("%s: success dre_blk_width[%d], dre_blk_height[%d]",
+				__func__, tile_config_param->dre_blk_width,
+				tile_config_param->dre_blk_height);
 		} else {
 			mml_pq_err("%s: not get result from user lib", __func__);
 		}
@@ -424,8 +424,6 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
-	struct mml_pq_comp_config_result *result = NULL;
-	struct mml_pq_aal_config_param *tile_config_param = NULL;
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 	u32 src_frame_width = cfg->info.src.width;
@@ -478,34 +476,8 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre)
 		goto exit;
 
-	if (!idx) {
-		ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
-		if (!ret) {
-			result = get_aal_comp_config_result(task);
-			if (result)	{
-				tile_config_param = &(result->aal_param[aal_frm->out_idx]);
-				aal_frm->dre_blk_width = tile_config_param->dre_blk_width;
-				aal_frm->dre_blk_height = tile_config_param->dre_blk_height;
-				dre_blk_width = aal_frm->dre_blk_width;
-				dre_blk_height = aal_frm->dre_blk_height;
-				mml_pq_msg("%s %d: success dre_blk_width[%d], dre_blk_height[%d]",
-					__func__, idx, tile_config_param->dre_blk_width,
-					tile_config_param->dre_blk_height);
-			} else {
-				mml_pq_err("%s %d: failed dre_blk_width[%d], dre_blk_height[%d]",
-					__func__, idx, tile_config_param->dre_blk_width,
-					tile_config_param->dre_blk_height);
-			}
-		} else {
-			mml_pq_msg("%s %d: get aal param timeout: %d in %dms",
-				__func__, idx, ret, AAL_WAIT_TIMEOUT_MS);
-		}
-	} else {
-		dre_blk_width = aal_frm->dre_blk_width;
-		dre_blk_height = aal_frm->dre_blk_height;
-		mml_pq_msg("%s %d: dre_blk_width[%d] dre_blk_height[%d]",
-			__func__, idx, dre_blk_width, dre_blk_height);
-	}
+	dre_blk_width = aal_frm->dre_blk_width;
+	dre_blk_height = aal_frm->dre_blk_height;
 
 	aal_hist_left_start =
 		(tile->out.xs > aal_frm->out_hist_xs) ? tile->out.xs : aal_frm->out_hist_xs;
@@ -549,14 +521,14 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	blk_cnt_y_end = tile_pxl_y_end - (blk_num_y_end * dre_blk_height);
 
 	if (!idx) {
-		aal_frm->out_hist_xs = tile->out.xe+1;
+		aal_frm->out_hist_xs = tile->out.xe + 1;
 		save_first_blk_col_flag = 1;
 		save_last_blk_col_flag = 0;
-	} else if (idx+1 >= tile_cnt) {
+	} else if (idx + 1 >= tile_cnt) {
 		aal_frm->out_hist_xs = 0;
-		save_last_blk_col_flag  = 1;
+		save_last_blk_col_flag = 1;
 	} else {
-		aal_frm->out_hist_xs = tile->out.xe+1;
+		aal_frm->out_hist_xs = tile->out.xe + 1;
 		save_first_blk_col_flag = 0;
 		save_last_blk_col_flag = 0;
 	}
@@ -619,6 +591,17 @@ exit:
 	return ret;
 }
 
+static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_dest *dest = &task->config->info.dest[aal_frm->out_idx];
+
+	if (dest->pq_config.en_dre)
+		mml_pq_put_comp_config_result(task);
+	return 0;
+}
+
 static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 			      struct mml_comp_config *ccfg)
 {
@@ -669,7 +652,9 @@ static const struct mml_comp_config_ops aal_cfg_ops = {
 	.init = aal_init,
 	.frame = aal_config_frame,
 	.tile = aal_config_tile,
+	.post = aal_config_post,
 	.reframe = aal_reconfig_frame,
+	.repost = aal_config_post,
 };
 
 static inline bool aal_reg_poll(struct mml_comp *comp, u32 addr, u32 value, u32 mask)

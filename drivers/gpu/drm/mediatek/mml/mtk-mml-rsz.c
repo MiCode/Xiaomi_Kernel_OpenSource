@@ -110,6 +110,7 @@ struct rsz_frame_data {
 	/* 0 or 1 for 1st or 2nd out port */
 	u8 out_idx;
 
+	bool rsz_relay_mode:1;
 	bool use121filter:1;
 };
 
@@ -119,27 +120,6 @@ struct rsz_frame_data {
 static inline struct mml_comp_rsz *comp_to_rsz(struct mml_comp *comp)
 {
 	return container_of(comp, struct mml_comp_rsz, comp);
-}
-
-static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
-			    struct mml_comp_config *ccfg)
-{
-	struct rsz_frame_data *rsz_frm;
-	s32 ret = 0;
-
-	mml_trace_ex_begin("%s", __func__);
-
-	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
-	ccfg->data = rsz_frm;
-	/* cache out index for easy use */
-	rsz_frm->out_idx = ccfg->node->out_idx;
-
-	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
-
-	ret = mml_pq_tile_init(task);
-
-	mml_trace_ex_end();
-	return ret;
 }
 
 static bool rsz_relay(struct mml_frame_config *cfg,
@@ -167,42 +147,49 @@ static bool rsz_relay(struct mml_frame_config *cfg,
 	return false;
 }
 
-static struct mml_pq_tile_init_result *get_init_result(struct mml_task *task)
+static s32 rsz_prepare_scale(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
 {
-	struct mml_pq_sub_task *sub_task = NULL;
-
-	if (task->pq_task)
-		sub_task = &task->pq_task->tile_init;
-	if (sub_task)
-		return (struct mml_pq_tile_init_result *)sub_task->result;
-	else {
-		mml_log("%s pq_task is null, need to check pq_task create flow", __func__);
-		return NULL;
-	}
-}
-
-static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
-			    struct mml_comp_config *ccfg,
-			    struct tile_func_block *func,
-			    union mml_tile_data *data)
-{
-	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	const struct mml_frame_data *src = &cfg->info.src;
-	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
-	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
-	struct mml_pq_tile_init_result *result = NULL;
-	struct mml_pq_rsz_tile_init_param *init_param;
-	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
-	u32 in_crop_w, in_crop_h;
-	s32 ret;
+	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct rsz_frame_data *rsz_frm;
+	s32 ret = 0;
 
 	mml_trace_ex_begin("%s", __func__);
+
+	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
+	ccfg->data = rsz_frm;
+	/* cache out index for easy use */
+	rsz_frm->out_idx = ccfg->node->out_idx;
+	rsz_frm->rsz_relay_mode = rsz_relay(cfg, src, dest);
+
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
+	if (!rsz_frm->rsz_relay_mode)
+		ret = mml_pq_set_tile_init(task);
+
+	mml_trace_ex_end();
+	return ret;
+}
+
+static struct mml_pq_tile_init_result *get_tile_init_result(struct mml_task *task)
+{
+	struct mml_pq_sub_task *sub_task = &task->pq_task->tile_init;
+
+	return (struct mml_pq_tile_init_result *)sub_task->result;
+}
+
+static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
+{
+	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
+	struct mml_pq_tile_init_result *result = NULL;
+	struct mml_pq_rsz_tile_init_param *init_param;
+	s32 ret;
 
 	ret = mml_pq_get_tile_init_result(task, RSZ_WAIT_TIMEOUT_MS);
 	if (!ret) {
-		result = get_init_result(task);
+		result = get_tile_init_result(task);
 		if (result && rsz_frm->out_idx < result->rsz_param_cnt) {
 			mml_log("%s read rsz param index: %d", __func__,
 				rsz_frm->out_idx);
@@ -231,6 +218,26 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		mml_err("get rsz param timeout: %d in %dms",
 			ret, RSZ_WAIT_TIMEOUT_MS);
 	}
+	return 0;
+}
+
+static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg,
+			    struct tile_func_block *func,
+			    union mml_tile_data *data)
+{
+	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	const struct mml_frame_data *src = &cfg->info.src;
+	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
+	u32 in_crop_w, in_crop_h;
+
+	mml_trace_ex_begin("%s", __func__);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
+
+	if (!rsz_frm->rsz_relay_mode)
+		prepare_tile_data(data, task, ccfg);
 
 	data->rsz_data.max_width = rsz->data->tile_width;
 	/* RSZ support crop capability */
@@ -240,7 +247,7 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->back_func_ptr = tile_prz_back;
 	func->func_data = data;
 
-	func->enable_flag = !rsz_relay_mode;
+	func->enable_flag = !rsz_frm->rsz_relay_mode;
 
 	in_crop_w = dest->crop.r.width;
 	in_crop_h = dest->crop.r.height;
@@ -295,21 +302,18 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
-	const struct mml_frame_data *src = &cfg->info.src;
-	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
 	struct mml_pq_tile_init_result *result;
-	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 
 	mml_msg("%s is called", __func__);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ETC_CONTROL, 0x0, U32_MAX);
 
-	if (rsz_relay_mode) {
+	if (rsz_frm->rsz_relay_mode) {
 		/* relay mode */
 		cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, U32_MAX);
 		return 0;
 	}
 
-	result = get_init_result(task);
+	result = get_tile_init_result(task);
 	if (result) {
 		s32 i;
 		struct mml_pq_reg *regs = result->rsz_regs;
@@ -325,9 +329,11 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 		mml_err("%s: not get result from user lib", __func__);
 	}
 
-	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(src->format);
+	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(cfg->info.src.format);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_CON_1,
 		       rsz_frm->use121filter << 26, 0x04000000);
+
+	mml_pq_put_tile_init_result(task);
 	mml_msg("%s is end", __func__);
 	return 0;
 }
@@ -414,7 +420,7 @@ static s32 rsz_config_tile(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops rsz_cfg_ops = {
-	.prepare = rsz_config_scale,
+	.prepare = rsz_prepare_scale,
 	.init = rsz_init,
 	.frame = rsz_config_frame,
 	.tile = rsz_config_tile,

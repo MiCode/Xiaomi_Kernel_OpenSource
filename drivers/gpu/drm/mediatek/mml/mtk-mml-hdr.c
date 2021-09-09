@@ -190,14 +190,16 @@ static s32 hdr_prepare(struct mml_comp *comp, struct mml_task *task,
 }
 
 static s32 hdr_buf_prepare(struct mml_comp *comp, struct mml_task *task,
-		struct mml_comp_config *ccfg)
+			   struct mml_comp_config *ccfg)
 {
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	s32 ret = 0;
 
 	mml_pq_msg("%s engine_id[%d]", __func__, comp->id);
-	ret = mml_pq_comp_config(task);
-	if (ret)
-		return ret;
+	if (dest->pq_config.en_hdr)
+		ret = mml_pq_set_comp_config(task);
 
 	return ret;
 }
@@ -281,16 +283,10 @@ static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
 static struct mml_pq_comp_config_result *get_hdr_comp_config_result(
 	struct mml_task *task)
 {
-	struct mml_pq_sub_task *sub_task = NULL;
+	struct mml_pq_sub_task *sub_task = &task->pq_task->comp_config;
 
-	if (task->pq_task)
-		sub_task = &task->pq_task->comp_config;
-	if (sub_task)
-		return (struct mml_pq_comp_config_result *)sub_task->result;
-	else
-		return NULL;
+	return (struct mml_pq_comp_config_result *)sub_task->result;
 }
-
 
 static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
@@ -450,15 +446,25 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+	struct mml_frame_dest *dest = &task->config->info.dest[hdr_frm->out_idx];
+
+	if (dest->pq_config.en_hdr)
+		mml_pq_put_comp_config_result(task);
+	return 0;
+}
+
 static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
-			    struct mml_comp_config *ccfg)
+			      struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	struct mml_pq_comp_config_result *result = NULL;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
-
 	s32 ret = 0;
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
@@ -499,7 +505,9 @@ static const struct mml_comp_config_ops hdr_cfg_ops = {
 	.init = hdr_init,
 	.frame = hdr_config_frame,
 	.tile = hdr_config_tile,
+	.post = hdr_config_post,
 	.reframe = hdr_reconfig_frame,
+	.repost = hdr_config_post,
 };
 
 static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,

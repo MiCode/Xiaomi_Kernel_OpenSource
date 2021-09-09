@@ -917,21 +917,26 @@ static int __init mml_driver_init(void)
 
 	ret = platform_register_drivers(mml_drivers, ARRAY_SIZE(mml_drivers));
 	if (ret) {
-		mml_err("failed to register mml core drivers");
+		mml_err("failed to register mml core drivers: %d", ret);
 		return ret;
 	}
 
 	mml_mmp_init();
 
-	mml_pq_core_init();
+	ret = mml_pq_core_init();
+
+	if (ret)
+		mml_err("failed to init mml pq core: %d", ret);
+
 	/* register pm notifier */
 
-	return 0;
+	return ret;
 }
 module_init(mml_driver_init);
 
 static void __exit mml_driver_exit(void)
 {
+	mml_pq_core_uninit();
 	platform_unregister_drivers(mml_drivers, ARRAY_SIZE(mml_drivers));
 }
 module_exit(mml_driver_exit);

@@ -1293,9 +1293,12 @@ done:
 struct mml_task *mml_core_create_task(void)
 {
 	struct mml_task *task = kzalloc(sizeof(*task), GFP_KERNEL);
+	s32 ret;
 
-	if (IS_ERR(task))
-		return task;
+	if (unlikely(!task)) {
+		mml_err("failed to create mml task");
+		return ERR_PTR(-ENOMEM);
+	}
 	INIT_LIST_HEAD(&task->entry);
 	INIT_LIST_HEAD(&task->pipe[0].entry_clt);
 	INIT_LIST_HEAD(&task->pipe[1].entry_clt);
@@ -1307,7 +1310,12 @@ struct mml_task *mml_core_create_task(void)
 	task->pipe[0].task = task;
 	task->pipe[1].task = task;
 
-	mml_pq_task_create(task);
+	ret = mml_pq_task_create(task);
+	if (ret) {
+		kfree(task);
+		return ERR_PTR(ret);
+	}
+
 	return task;
 }
 
@@ -1321,6 +1329,7 @@ void mml_core_destroy_task(struct mml_task *task)
 		if (task->pkts[i])
 			cmdq_pkt_destroy(task->pkts[i]);
 	}
+	mml_pq_task_release(task);
 	kfree(task);
 }
 

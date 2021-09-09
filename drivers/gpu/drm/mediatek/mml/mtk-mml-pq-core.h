@@ -8,6 +8,7 @@
 
 #include <linux/completion.h>
 #include <linux/kernel.h>
+#include <linux/kref.h>
 #include <linux/types.h>
 #include <linux/wait.h>
 
@@ -59,8 +60,9 @@ struct mml_task;
 
 struct mml_pq_sub_task {
 	struct mutex lock;
-	atomic_t queue_cnt;
+	atomic_t queued;
 	void *result;
+	atomic_t result_ref;
 	u32 *pipe0_hist;
 	u32 *pipe1_hist;
 	struct wait_queue_head wq;
@@ -71,8 +73,7 @@ struct mml_pq_sub_task {
 
 struct mml_pq_task {
 	struct mml_task *task;
-	atomic_t ref_cnt;
-	struct mutex lock;
+	struct kref ref;
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
 	struct mml_pq_sub_task aal_readback;
@@ -81,8 +82,15 @@ struct mml_pq_task {
 
 /*
  * mml_pq_core_init - Initialize PQ core
+ *
+ * Return:	Error of initialization
  */
-void mml_pq_core_init(void);
+int mml_pq_core_init(void);
+
+/*
+ * mml_pq_core_uninit - Uninitialize PQ core
+ */
+void mml_pq_core_uninit(void);
 
 /*
  * mml_pq_task_create - create and initial pq task
@@ -94,24 +102,24 @@ void mml_pq_core_init(void);
 s32 mml_pq_task_create(struct mml_task *task);
 
 /*
- * destroy_pq_task - for adaptor to call before destroy mml_task
+ * mml_pq_task_release - for adaptor to call before destroy mml_task
  *
  * @task:	task data, include pq_task inside
  */
-void destroy_pq_task(struct mml_task *task);
+void mml_pq_task_release(struct mml_task *task);
 
 /*
- * mml_pq_tile_inti - noify from MML core through MML PQ driver
- *   to update frame information for tile start
+ * mml_pq_set_tile_init - noify from MML core through MML PQ driver
+ *	to update frame information for tile start
  *
  * @task:	task data, include pq parameters and frame info
  *
  * Return:	if value < 0, means PQ update failed should debug
  */
-int mml_pq_tile_init(struct mml_task *task);
+int mml_pq_set_tile_init(struct mml_task *task);
 
 /*
- * mml_pq_get_tile_init_result - wait for result and update data
+ * mml_pq_get_tile_init_result - wait for result
  *
  * @task:	task data, include pq parameters and frame info
  * @timeout_ms:	timeout setting to get result, unit: ms
@@ -121,17 +129,24 @@ int mml_pq_tile_init(struct mml_task *task);
 int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms);
 
 /*
- * mml_pq_comp_config - noify from MML core through MML PQ driver
- *   to update frame information for comp config
+ * mml_pq_put_tile_init_result - put away result
+ *
+ * @task:	task data, include pq parameters and frame info
+ */
+void mml_pq_put_tile_init_result(struct mml_task *task);
+
+/*
+ * mml_pq_set_comp_config - noify from MML core through MML PQ driver
+ *	to update frame information for frame config
  *
  * @task:	task data, include pq parameters and frame info
  *
  * Return:	if value < 0, means PQ update failed should debug
  */
-int mml_pq_comp_config(struct mml_task *task);
+int mml_pq_set_comp_config(struct mml_task *task);
 
 /*
- * mml_pq_get_tile_init_result - wait for result and update data
+ * mml_pq_get_comp_config_result - wait for result
  *
  * @task:	task data, include pq parameters and frame info
  * @timeout_ms:	timeout setting to get result, unit: ms
@@ -141,16 +156,22 @@ int mml_pq_comp_config(struct mml_task *task);
 int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
 
 /*
- * mml_pq_aal_readback - noify from MML core through MML PQ driver
- *   to update histogram
+ * mml_pq_put_comp_config_result - put away result
  *
  * @task:	task data, include pq parameters and frame info
- * @pipe:   pipe id
- * @phist:  Histogram result
+ */
+void mml_pq_put_comp_config_result(struct mml_task *task);
+
+/*
+ * mml_pq_aal_readback - noify from MML core through MML PQ driver
+ *	to update histogram
+ *
+ * @task:	task data, include pq parameters and frame info
+ * @pipe:	pipe id
+ * @phist:	Histogram result
  *
  * Return:	if value < 0, means PQ update failed should debug
  */
-
 int mml_pq_aal_readback(struct mml_task *task, u8 pipe, u32 *phist);
 
 /*
