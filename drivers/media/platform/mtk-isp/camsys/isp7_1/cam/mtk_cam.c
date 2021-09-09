@@ -3511,7 +3511,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		dev_info(cam->dev,
 			"%s:ctx(%d): session_created, wait for composer session destroy\n",
 			__func__, ctx->stream_id);
-		wait_for_completion(&ctx->session_complete);
+		if (wait_for_completion_interruptible(&ctx->session_complete) < 0)
+			dev_info(cam->dev, "%s:ctx(%d): signal by ERESTARTSYS\n",
+			__func__, ctx->stream_id);
 	}
 
 	if (!cam->streaming_ctx) {
