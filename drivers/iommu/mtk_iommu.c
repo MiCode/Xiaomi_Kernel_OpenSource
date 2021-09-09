@@ -402,6 +402,9 @@ static int iova_is_secure(struct mtk_iommu_data *data, unsigned long iova, size_
 	const struct mtk_iommu_iova_region *region;
 	unsigned long iova_end = iova + size - 1;
 
+	if (iova > iova_end)
+		return 0;
+
 	for (i = 0; i < data->plat_data->iova_region_nr; i++) {
 		region = &data->plat_data->iova_region[i];
 		if (iova >= region->iova_base && iova_end < (region->iova_base + region->size) &&
@@ -1330,6 +1333,12 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	size_t length = gather->end - gather->start + 1;
 
+	if (gather->start > gather->end) {
+		pr_err("%s fail, iova range : 0x%lx ~ 0x%lx\n",
+		       __func__, gather->start, gather->end);
+		return;
+	}
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	if (gather->start > 0 && gather->start != ULONG_MAX)
 		mtk_iova_unmap(gather->start, length);
@@ -1348,6 +1357,12 @@ static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 {
 	int ret;
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+
+	if (iova > (iova + size)) {
+		pr_err("%s fail, iova range : 0x%lx ~ 0x%lx\n",
+		       __func__, iova, iova + size);
+		return;
+	}
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	if (iova > 0 && iova != ULONG_MAX)
