@@ -5200,6 +5200,13 @@
 #include "mediatek/cust_mt6895_msdc.dtsi"
 #include "mediatek/mt6363.dtsi"
 #include "mediatek/mt6368.dtsi"
+#include "mediatek/rt5133.dtsi"
+#include "mediatek/rt6160.dtsi"
+
+&rt5133 {
+	interrupts-extended = <&pio 141 0x0>;
+	enable-gpio = <&pio 164 0x0>;
+};
 
 &mt6363_vbuck1 {
 	regulator-always-on;
@@ -5280,7 +5287,7 @@
 		reg = <0x34>;
 		status = "okay";
 		interrupt-parent = <&pio>;
-		interrupts = <66 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <116 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		wakeup-source;
