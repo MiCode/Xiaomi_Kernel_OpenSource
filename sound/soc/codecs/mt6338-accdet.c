@@ -725,7 +725,7 @@ static void accdet_get_efuse(void)
 	/* moisture vdd efuse offset */
 	ret = nvmem_device_read(accdet->accdet_efuse, 89, 1, &efuseval);
 	accdet->moisture_vdd_offset =
-		(int)((efuseval >> 8) & ACCDET_CALI_MASK0);
+		(int)(efuseval & ACCDET_CALI_MASK0);
 	if (accdet->moisture_vdd_offset > 128)
 		accdet->moisture_vdd_offset -= 256;
 	pr_info("%s moisture_vdd efuse=0x%x, moisture_vdd_offset=%d mv\n",
@@ -744,7 +744,7 @@ static void accdet_get_efuse(void)
 		ret = nvmem_device_read(accdet->accdet_efuse,
 				87, 1, &efuseval);
 		moisture_eint0 =
-			(int)((efuseval >> 8) & ACCDET_CALI_MASK0);
+			(int)(efuseval & ACCDET_CALI_MASK0);
 		pr_info("%s moisture_eint0 efuse=0x%x,moisture_eint0=0x%x\n",
 			__func__, efuseval, moisture_eint0);
 
