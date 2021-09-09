@@ -7086,7 +7086,7 @@ static int mtk_ddp_sel_in_MT6983(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6983_DISP_MAIN0_SEL_IN;
 		value = DISP_MAIN0_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
 	} else if ((cur == DDP_COMPONENT_PWM0 && /* Wired path */
-		next == DDP_COMPONENT_CHIST0) || (cur == DDP_COMPONENT_PWM0 &&
+		next == DDP_COMPONENT_CHIST0) || (cur == DDP_COMPONENT_PWM1 &&
 		next == DDP_COMPONENT_CHIST2)) {
 		*addr = MT6983_DISP_CHIST0_SEL_IN;
 		if (MT6983_CHIST_PATH_CONNECT & (0x1 << DISP_CHIST0_FROM_RDMA0_POS))
