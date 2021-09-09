@@ -25,7 +25,6 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "mtk_drm_arr.h"
-#include "utch.h"
 #include "uboost.h"
 #include "gbe_common.h"
 
@@ -73,6 +72,8 @@ static int fpsgo_force_onoff;
 static int gpu_boost_enable_perf;
 static int gpu_boost_enable_camera;
 static int perfserv_ta;
+
+int powerhal_tid;
 
 void (*rsu_cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 
@@ -485,6 +486,8 @@ void fpsgo_notify_swap_buffer(int pid)
 void fpsgo_get_fps(int *pid, int *fps)
 {
 	//int pid = -1, fps = -1;
+	if (unlikely(powerhal_tid == 0))
+		powerhal_tid = current->pid;
 
 	fpsgo_ctrl2fstb_get_fps(pid, fps);
 
@@ -744,8 +747,6 @@ static void __exit fpsgo_exit(void)
 	fpsgo_composer_exit();
 	fpsgo_sysfs_exit();
 
-	/* touch boost */
-	exit_utch_mod();
 	/* game boost engine */
 	exit_gbe_common();
 }
@@ -797,8 +798,6 @@ fail_reg_cpu_frequency_entry:
 	fpsgo_composer_init();
 	fpsgo_uboost_init();
 
-	/* touch boost */
-	init_utch_mod();
 	/* game boost engine*/
 	init_gbe_common();
 

@@ -880,7 +880,6 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		return 0;
 	}
 	if (Curr_cap) {
-		notify_touch(3);
 		if (wq_has_sleeper(&active_queue)) {
 			condition_fstb_active = 1;
 			wake_up_interruptible(&active_queue);
