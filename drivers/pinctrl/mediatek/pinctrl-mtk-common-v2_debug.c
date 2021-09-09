@@ -331,6 +331,11 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 				else if (val > 3)
 					val = 3;
 				pullen = r1r0_en[val];
+			} else if (pullen >= MTK_I2C_PULL_RSEL_000 &&
+				   pullen <= MTK_I2C_PULL_RSEL_111) {
+				/* Now don't support I2C RSEL via procfs */
+				pullen = !!val;
+				;
 			} else {
 				goto out;
 			}

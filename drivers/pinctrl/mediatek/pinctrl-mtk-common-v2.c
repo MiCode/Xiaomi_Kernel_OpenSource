@@ -903,14 +903,18 @@ int mtk_pinconf_bias_set_combo(struct mtk_pinctrl *hw,
 
 	if (try_all_type ||
 	    (hw->soc->pull_type[desc->number] & PULL_TYPE_RSEL)) {
-		err = mtk_pinconf_bias_set_rsel(hw, desc, arg);
-		if (!err) {
-			/* RSEL type use PUPD for up/down selection */
-			err = mtk_pinconf_bias_set_pu_pd(hw, desc, pullup,
-				MTK_ENABLE);
-			if (!err)
-				goto out;
+		if ((arg == MTK_ENABLE) || (arg == MTK_DISABLE)) {
+			err = mtk_pinconf_bias_set_pu_pd(hw, desc, pullup, arg);
+		} else {
+			err = mtk_pinconf_bias_set_rsel(hw, desc, arg);
+			if (!err) {
+				/* RSEL type use PUPD for up/down selection */
+				err = mtk_pinconf_bias_set_pu_pd(hw, desc,
+					pullup, MTK_ENABLE);
+			}
 		}
+		if (!err)
+			goto out;
 	}
 
 	if (try_all_type ||
