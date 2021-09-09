@@ -495,7 +495,7 @@ void fpsgo_get_fps(int *pid, int *fps)
 
 	fpsgo_ctrl2fstb_get_fps(pid, fps);
 
-	FPSGO_LOGE("[FPSGO_CTRL] get_fps %d %d\n", *pid, *fps);
+	FPSGO_LOGI("[FPSGO_CTRL] get_fps %d %d\n", *pid, *fps);
 
 	//return fps;
 }
