@@ -110,6 +110,19 @@ obj-$(CONFIG_COMMON_CLK_MT6893_VDECSYS_SOC) += clk-mt6893-vde1.o
 obj-$(CONFIG_COMMON_CLK_MT6893_VENCSYS_C1) += clk-mt6893-ven2.o
 obj-$(CONFIG_COMMON_CLK_MT6893_VENCSYS) += clk-mt6893-ven1.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6895.c),)
+obj-$(CONFIG_COMMON_CLK_MT6895) += clk-mt6895.o clk-bringup.o
+obj-$(CONFIG_COMMON_CLK_MT6895_ADSP) += clk-mt6895-adsp.o
+obj-$(CONFIG_COMMON_CLK_MT6895_CAM) += clk-mt6895-cam.o
+obj-$(CONFIG_COMMON_CLK_MT6895_CCU) += clk-mt6895-ccu.o
+obj-$(CONFIG_COMMON_CLK_MT6895_IMG) += clk-mt6895-img.o
+obj-$(CONFIG_COMMON_CLK_MT6895_MMSYS) += clk-mt6895-mmsys.o
+obj-$(CONFIG_COMMON_CLK_MT6895_PERI) += clk-mt6895-peri.o
+obj-$(CONFIG_COMMON_CLK_MT6895_BUS) += clk-mt6895-bus.o
+obj-$(CONFIG_COMMON_CLK_MT6895_MDPSYS) += clk-mt6895-mdpsys.o
+obj-$(CONFIG_COMMON_CLK_MT6895_MFG) += clk-mt6895-mfgcfg.o
+obj-$(CONFIG_COMMON_CLK_MT6895_VCODEC) += clk-mt6895-vcodec.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6983.c),)
 obj-$(CONFIG_COMMON_CLK_MT6983) += clk-mt6983.o clk-bringup.o
 obj-$(CONFIG_COMMON_CLK_MT6983_ADSP) += clk-mt6983-adsp_grp.o
@@ -232,6 +245,19 @@ pd-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += mtk-pd-chk-mt6893.o
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-dbg-mt6893.o
 clk-dbg-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clkdbg-mt6893.o
+endif
+endif
+
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6895.c),)
+obj-$(CONFIG_COMMON_CLK_MT6895) += clk-chk-mt6895.o
+clk-chk-mt6895-$(CONFIG_COMMON_CLK_MT6895) += clkchk-mt6895.o
+obj-$(CONFIG_COMMON_CLK_MT6895) += clk-fmeter-mt6895.o
+clk-fmeter-mt6895-$(CONFIG_COMMON_CLK_MT6895) += clk-fmeter-mt6895.o
+obj-$(CONFIG_COMMON_CLK_MT6895) += pd-chk-mt6895.o
+pd-chk-mt6895-$(CONFIG_COMMON_CLK_MT6895) += mtk-pd-chk-mt6895.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_COMMON_CLK_MT6895) += clk-dbg-mt6895.o
+clk-dbg-mt6895-$(CONFIG_COMMON_CLK_MT6895) += clkdbg-mt6895.o
 endif
 endif
 

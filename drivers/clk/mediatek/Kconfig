@@ -859,6 +859,107 @@ config COMMON_CLK_MT6893_VENCSYS
 	  If you wish to use clock resources from the vencsys device,
 	  say Y. Otherwise, say N.
 
+config COMMON_CLK_MT6895
+	tristate "Clock driver for MediaTek MT6895"
+	depends on ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6895
+	help
+	  This driver supports MediaTek MT6895 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6895 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_ADSP
+	tristate "Clock driver for MediaTek MT6895 adsp"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 adsp clocks,
+	  which is used to control adsp clock output.
+	  If you wish to use clock resources from the adsp device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_CAM
+	tristate "Clock driver for MediaTek MT6895 cam"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 cam clocks,
+	  which is used to control cam clock output.
+	  If you wish to use clock resources from the cam device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_CCU
+	tristate "Clock driver for MediaTek MT6895 ccu"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 ccu clocks,
+	  which is used to control ccu clock output.
+	  If you wish to use clock resources from the ccu device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_IMG
+	tristate "Clock driver for MediaTek MT6895 img"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 img clocks,
+	  which is used to control img clock output.
+	  If you wish to use clock resources from the img device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_MMSYS
+	tristate "Clock driver for MediaTek MT6895 mmsys"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_PERI
+	tristate "Clock driver for MediaTek MT6895 peri"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 peri clocks,
+	  which is used to control peri clock output.
+	  If you wish to use clock resources from the peri device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_BUS
+	tristate "Clock driver for MediaTek MT6895 bus"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 bus clocks,
+	  which is used to control bus clock output.
+	  If you wish to use clock resources from the bus device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_MDPSYS
+	tristate "Clock driver for MediaTek MT6895 mdpsys"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 mdpsys clocks,
+	  which is used to control mdpsys clock output.
+	  If you wish to use clock resources from the mdpsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_MFG
+	tristate "Clock driver for MediaTek MT6895 mfg"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 mfg clocks,
+	  which is used to control mfg clock output.
+	  If you wish to use clock resources from the mfg device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6895_VCODEC
+	tristate "Clock driver for MediaTek MT6895 vcodec"
+	depends on COMMON_CLK_MT6895
+	help
+	  This driver supports MediaTek MT6895 vcodec clocks,
+	  which is used to control vcodec clock output.
+	  If you wish to use clock resources from the vcodec device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT6983
 	tristate "Clock driver for MediaTek MT6983"
 	depends on ARM64 || COMPILE_TEST
