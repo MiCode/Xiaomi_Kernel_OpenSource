@@ -41,6 +41,7 @@ struct mtk_imgsys_cb_param {
 	u32 frm_num;
 	u32 is_earlycb;
 	s32 group_id;
+	u32 thd_idx;
 	bool isBlkLast;
 	bool isFrmLast;
 };

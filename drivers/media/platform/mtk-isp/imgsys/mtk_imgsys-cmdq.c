@@ -219,6 +219,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	u32 hw_comb = 0;
 	u32 cb_frm_cnt = 0;
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
+	int req_fd = 0, req_no = 0, frm_no = 0;
 
 	pr_debug("%s: +\n", __func__);
 
@@ -238,6 +239,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			cb_param->frm_idx, cb_param->frm_num);
 
 		hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
+		req_fd = cb_param->frm_info->request_fd;
+		req_no = cb_param->frm_info->request_no;
+		frm_no = cb_param->frm_info->frame_no;
 
 		if (cb_param->isBlkLast) {
 			cb_param->frm_info->cb_frmcnt++;
@@ -312,8 +316,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	IMGSYS_SYSTRACE_END();
 
 	dev_dbg(imgsys_dev->dev,
-	"%s: TSus cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
-		__func__, cb_param, cb_param->err, cb_param->frm_idx,
+	"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
+		__func__, req_fd, req_no, frm_no, cb_param->thd_idx,
+		cb_param, cb_param->err, cb_param->frm_idx,
 		cb_param->frm_num, cb_frm_cnt, hw_comb,
 		(cb_param->cmdqTs.tsDvfsQosEnd-cb_param->cmdqTs.tsDvfsQosStart),
 		(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsReqStart),
@@ -496,8 +501,10 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		/* This is work around for low latency flow.		*/
 		/* If we change to request base,			*/
 		/* we don't have to take this condition into account.	*/
-		if (frm_info->sync_id != -1)
-			clt = imgsys_clt[0];
+		if (frm_info->sync_id != -1) {
+			thd_idx = 0;
+			clt = imgsys_clt[thd_idx];
+		}
 
 		if (clt == NULL) {
 			pr_info("%s: [ERROR] No HW Found (0x%x) for frm(%d/%d)!\n",
@@ -599,6 +606,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			cb_param->cmdqTs.tsDvfsQosStart = tsDvfsQosStart;
 			cb_param->cmdqTs.tsDvfsQosEnd = tsDvfsQosEnd;
 			cb_param->imgsys_dev = imgsys_dev;
+			cb_param->thd_idx = thd_idx;
 
 			/* flush synchronized, block API */
 			cb_param->cmdqTs.tsFlushStart = ktime_get_boottime_ns()/1000;
