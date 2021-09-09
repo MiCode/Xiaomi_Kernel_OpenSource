@@ -1960,8 +1960,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	const char *mod = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 
-	cmdq_util_helper->dump_lock();
-
 	/* assign error during dump cb */
 	item->err = data.err;
 
@@ -1970,8 +1968,10 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	 */
 	if (pkt->self_loop && data.err == -EBUSY) {
 		cmdq_pkt_call_item_cb(item);
-		goto done;
+		return;
 	}
+
+	cmdq_util_helper->dump_lock();
 
 	if (err_num == 0)
 		cmdq_util_helper->error_enable();
@@ -1993,7 +1993,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	if (data.err == -ECONNABORTED) {
 		cmdq_util_msg("skip since abort");
-		goto sec_done;
+		goto done;
 	}
 
 #else
@@ -2051,7 +2051,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
 #ifdef CMDQ_SECURE_SUPPORT
-sec_done:
+done:
 #endif
 
 	cmdq_util_user_err(client->chan, "End of Error %u", err_num);
@@ -2060,8 +2060,6 @@ sec_done:
 		cmdq_util_helper->set_first_err_mod(client->chan, mod);
 	}
 	err_num++;
-
-done:
 	cmdq_util_helper->dump_unlock();
 
 #else
