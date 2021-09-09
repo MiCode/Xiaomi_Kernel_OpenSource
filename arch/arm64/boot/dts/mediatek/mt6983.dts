@@ -5882,7 +5882,7 @@
 	gpu_fdvfs@00112000 {
 		compatible = "mediatek,gpu_fdvfs";
 		reg = <0 0x112000 0 0x400>;
-		fdvfs-policy-support = <0>;
+		fdvfs-policy-support = <1>;
 	};
 
 	gpu_dcs: gpu_dcs {
