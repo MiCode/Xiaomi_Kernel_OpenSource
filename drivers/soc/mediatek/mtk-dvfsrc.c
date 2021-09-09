@@ -218,6 +218,7 @@ enum dvfsrc_regs {
 	DVFSRC_TARGET_FORCE,
 	DVFSRC_FORCE_MASK,
 	DVFSRC_TARGET_FORCE_H,
+	DVFSRC_SW_FORCE_BW,
 };
 
 static const int mt8183_regs[] = {
@@ -252,6 +253,7 @@ static const int mt6983_regs[] = {
 	[DVFSRC_TARGET_FORCE] =		0x5E0,
 	[DVFSRC_TARGET_FORCE_H] =	0x5DC,
 	[DVFSRC_FORCE_MASK] =		0x5EC,
+	[DVFSRC_SW_FORCE_BW] =		0x200,
 };
 
 static const struct dvfsrc_opp *get_current_opp(struct mtk_dvfsrc *dvfsrc)
@@ -497,7 +499,7 @@ static int mt6983_get_target_level(struct mtk_dvfsrc *dvfsrc)
 
 	reg = dvfsrc_read(dvfsrc, DVFSRC_TARGET_LEVEL);
 	if (reg & (1 << 16))
-		return (reg >> 8) & 0x3f + 1;
+		return ((reg >> 8) & 0x3f) + 1;
 	else
 		return 0;
 }
@@ -557,14 +559,25 @@ static void mt6983_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	int ret = 0;
 
 	spin_lock_irqsave(&dvfsrc->force_lock, flags);
-	dvfsrc->opp_forced = true;
 	if (level > dvfsrc->curr_opps->num_opp - 1) {
+		dvfsrc_write(dvfsrc, DVFSRC_SW_FORCE_BW, 0x0);
 		dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 0, 0x1, 14);
 		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE_H, 0);
 		dvfsrc->opp_forced = false;
 		goto out;
 	}
+
+	if (!dvfsrc->opp_forced) {
+		dvfsrc_write(dvfsrc, DVFSRC_SW_FORCE_BW, 0x3FF);
+		udelay(STARTUP_TIME);
+		dvfsrc_wait_for_idle(dvfsrc);
+		udelay(STARTUP_TIME);
+		dvfsrc_wait_for_idle(dvfsrc);
+	}
+
+	dvfsrc->opp_forced = true;
+
 	if (level >= 32) {
 		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 		dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE_H, 1 << (level - 32));
