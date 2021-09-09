@@ -13,6 +13,10 @@ ifeq ($(CONFIG_MTK_QOS_FRAMEWORK),m)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos
 endif
 
+ifeq ($(CONFIG_MTK_THERMAL),y)
+ccflags-y += -I$(srctree)/drivers/thermal/mediatek/
+endif
+
 MTK_SWPM_DBG_VERSION = v1
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/swpm/inc/

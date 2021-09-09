@@ -24,6 +24,10 @@
 #include <sspm_reservedmem.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_THERMAL)
+#include <thermal_interface.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <swpm_tracker_trace.h>
 //EXPORT_TRACEPOINT_SYMBOL(swpm_power);
@@ -79,6 +83,7 @@ static unsigned long long rec_size;
 #endif
 
 struct swpm_rec_data *swpm_info_ref;
+struct cpu_swpm_rec_data *cpu_ptr;
 struct core_swpm_rec_data *core_ptr;
 struct mem_swpm_rec_data *mem_ptr;
 struct me_swpm_rec_data *me_ptr;
@@ -667,6 +672,22 @@ static inline void swpm_pass_to_sspm(void)
 		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
 }
 
+static void swpm_update_temp(void)
+{
+	unsigned int temp = 30, i;
+
+	for (i = 0; i < NR_CPU_CORE; i++) {
+#if IS_ENABLED(CONFIG_MTK_THERMAL)
+		temp = get_cpu_temp(i) / 1000;
+		if (temp > 100)
+			temp = 100;
+#endif
+		if (cpu_ptr) {
+			cpu_ptr->cpu_temp[i] = (unsigned short)temp;
+		}
+	}
+}
+
 static void swpm_idx_snap(void)
 {
 	unsigned long flags;
@@ -759,7 +780,7 @@ static void swpm_log_loop(struct timer_list *t)
 	t2 = ktime_get();
 #endif
 
-	/* swpm_update_lkg_table(); */
+	swpm_update_temp();
 
 #ifdef LOG_LOOP_TIME_PROFILE
 	diff = ktime_to_us(ktime_sub(t2, t1));
@@ -877,6 +898,10 @@ static void swpm_init_pwr_data(void)
 	int ret;
 	phys_addr_t *ptr = NULL;
 
+	ret = swpm_mem_addr_request(CPU_SWPM_TYPE, &ptr);
+	if (!ret)
+		cpu_ptr = (struct cpu_swpm_rec_data *)ptr;
+
 	ret = swpm_mem_addr_request(CORE_SWPM_TYPE, &ptr);
 	if (!ret)
 		core_ptr = (struct core_swpm_rec_data *)ptr;
@@ -937,6 +962,9 @@ static inline void swpm_subsys_data_ref_init(void)
 {
 	swpm_lock(&swpm_mutex);
 
+	mem_ref_tbl[CPU_POWER_METER].valid = true;
+	mem_ref_tbl[CPU_POWER_METER].virt =
+		(phys_addr_t *)&swpm_info_ref->cpu_reserved;
 	mem_ref_tbl[MEM_POWER_METER].valid = true;
 	mem_ref_tbl[MEM_POWER_METER].virt =
 		(phys_addr_t *)&swpm_info_ref->mem_reserved;
@@ -1126,10 +1154,6 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 int swpm_v6983_init(void)
 {
 	int ret = 0;
-
-#if IS_ENABLED(CONFIG_MTK_SWPM_PERF_ARMV8_PMU)
-	swpm_arm_pmu_set_boundary_init(NR_CPU_L_CORE);
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	swpm_get_rec_addr(&rec_phys_addr,

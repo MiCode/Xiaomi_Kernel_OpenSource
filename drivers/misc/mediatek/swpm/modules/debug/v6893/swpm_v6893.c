@@ -1078,10 +1078,6 @@ int swpm_v6893_init(void)
 {
 	int ret = 0;
 
-#if IS_ENABLED(CONFIG_MTK_SWPM_PERF_ARMV8_PMU)
-	swpm_arm_pmu_set_boundary_init(NR_CPU_L_CORE);
-#endif
-
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	swpm_get_rec_addr(&rec_phys_addr,
 			  &rec_virt_addr,

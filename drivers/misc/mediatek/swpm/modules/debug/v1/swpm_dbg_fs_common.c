@@ -75,12 +75,34 @@ static const struct mtk_swpm_sysfs_op gpu_debug_fops = {
 static ssize_t swpm_arm_pmu_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
+	unsigned int val, i;
 
 	if (!ToUser)
 		return -EINVAL;
 
-	swpm_dbg_log("SWPM arm pmu is %s\n",
-		(swpm_arm_pmu_get_status()) ? "enabled" : "disabled");
+	val = swpm_arm_pmu_get_status();
+
+	swpm_dbg_log("SWPM arm pmu is %s (%d:%d)\n",
+		(val & 0xFFFF) ? "enabled" : "disabled",
+		(val >> 16) & 0xFF, (val >> 24) & 0xFF);
+
+	swpm_dbg_log("L3DC\n");
+	for (i = 0; i < num_possible_cpus(); i++)
+		swpm_dbg_log("%d,",
+		     swpm_arm_pmu_get_idx((unsigned int)L3DC_EVT, i));
+	swpm_dbg_log("\nINST_SPEC\n");
+	for (i = 0; i < num_possible_cpus(); i++)
+		swpm_dbg_log("%d,",
+		     swpm_arm_pmu_get_idx((unsigned int)INST_SPEC_EVT, i));
+	swpm_dbg_log("\nCYCLES\n");
+	for (i = 0; i < num_possible_cpus(); i++)
+		swpm_dbg_log("%d,",
+		     swpm_arm_pmu_get_idx((unsigned int)CYCLES_EVT, i));
+	swpm_dbg_log("\nL3DC_REFILL\n");
+	for (i = 0; i < num_possible_cpus(); i++)
+		swpm_dbg_log("%d,",
+		     swpm_arm_pmu_get_idx((unsigned int)L3DC_REFILL_EVT, i));
+	swpm_dbg_log("\n");
 
 	return p - ToUser;
 }

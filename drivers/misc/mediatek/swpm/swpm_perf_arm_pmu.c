@@ -6,21 +6,25 @@
 #include <linux/cpu.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/perf_event.h>
 #include <linux/workqueue.h>
 
+#include <swpm_perf_arm_pmu.h>
+
 static unsigned int swpm_arm_pmu_status;
 static unsigned int boundary;
-
-static void swpm_perf_arm_pmu_init(struct work_struct *work);
-static struct workqueue_struct *swpm_perf_arm_pmu_init_work_queue;
-DECLARE_WORK(swpm_perf_arm_pmu_init_work, swpm_perf_arm_pmu_init);
+static unsigned int pmu_support_l = 1;
 
 static DEFINE_MUTEX(swpm_pmu_lock);
 
 static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
 static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
 static DEFINE_PER_CPU(struct perf_event *, cycle_events);
+static DEFINE_PER_CPU(int, l3dc_idx);
+static DEFINE_PER_CPU(int, inst_spec_idx);
+static DEFINE_PER_CPU(int, cycle_idx);
 
 static struct perf_event_attr l3dc_event_attr = {
 	.type           = PERF_TYPE_RAW,
@@ -34,7 +38,7 @@ static struct perf_event_attr l3dc_event_attr = {
 static struct perf_event_attr inst_spec_event_attr = {
 	.type           = PERF_TYPE_RAW,
 /*	.config         = 0x1B, */
-	.config		= ARMV8_PMUV3_PERFCTR_INST_SPEC, /*0 x1B */
+	.config		= ARMV8_PMUV3_PERFCTR_INST_SPEC, /* 0x1B */
 	.size           = sizeof(struct perf_event_attr),
 	.pinned         = 1,
 /*	.disabled       = 1, */
@@ -48,6 +52,46 @@ static struct perf_event_attr cycle_event_attr = {
 /*	.disabled       = 1, */
 //	.sample_period  = 0, /* 1000000000, */ /* ns ? */
 };
+
+static void swpm_pmu_start(int cpu)
+{
+	struct perf_event *l3_event = per_cpu(l3dc_events, cpu);
+	struct perf_event *i_event = per_cpu(inst_spec_events, cpu);
+	struct perf_event *c_event = per_cpu(cycle_events, cpu);
+
+	if (l3_event) {
+		perf_event_enable(l3_event);
+		per_cpu(l3dc_idx, cpu) = l3_event->hw.idx;
+	}
+	if (i_event) {
+		perf_event_enable(i_event);
+		per_cpu(inst_spec_idx, cpu) = i_event->hw.idx;
+	}
+	if (c_event) {
+		perf_event_enable(c_event);
+		per_cpu(cycle_idx, cpu) = c_event->hw.idx;
+	}
+}
+
+static void swpm_pmu_stop(int cpu)
+{
+	struct perf_event *l3_event = per_cpu(l3dc_events, cpu);
+	struct perf_event *i_event = per_cpu(inst_spec_events, cpu);
+	struct perf_event *c_event = per_cpu(cycle_events, cpu);
+
+	if (l3_event) {
+		perf_event_disable(l3_event);
+		per_cpu(l3dc_idx, cpu) = -1;
+	}
+	if (i_event) {
+		perf_event_disable(i_event);
+		per_cpu(inst_spec_idx, cpu) = -1;
+	}
+	if (c_event) {
+		perf_event_disable(c_event);
+		per_cpu(cycle_idx, cpu) = -1;
+	}
+}
 
 static int swpm_arm_pmu_enable(int cpu, int enable)
 {
@@ -87,19 +131,10 @@ static int swpm_arm_pmu_enable(int cpu, int enable)
 			}
 			per_cpu(cycle_events, cpu) = event;
 		}
-		if (l3_event)
-			perf_event_enable(l3_event);
-		if (i_event)
-			perf_event_enable(i_event);
-		if (c_event)
-			perf_event_enable(c_event);
+
+		swpm_pmu_start(cpu);
 	} else {
-		if (l3_event)
-			perf_event_disable(l3_event);
-		if (i_event)
-			perf_event_disable(i_event);
-		if (c_event)
-			perf_event_disable(c_event);
+		swpm_pmu_stop(cpu);
 
 		if (l3_event) {
 			per_cpu(l3dc_events, cpu) = NULL;
@@ -120,9 +155,28 @@ FAIL:
 	return (int)PTR_ERR(event);
 }
 
+int swpm_arm_pmu_get_idx(unsigned int evt_id, unsigned int cpu)
+{
+	switch (evt_id) {
+	case L3DC_EVT:
+		return per_cpu(l3dc_idx, cpu);
+	case INST_SPEC_EVT:
+		return per_cpu(inst_spec_idx, cpu);
+	case CYCLES_EVT:
+		return per_cpu(cycle_idx, cpu);
+	case L3DC_REFILL_EVT:
+		return -1;
+	}
+
+	return -1;
+}
+EXPORT_SYMBOL(swpm_arm_pmu_get_idx);
+
 int swpm_arm_pmu_get_status(void)
 {
-	return swpm_arm_pmu_status;
+	return (pmu_support_l << 24 |
+		boundary << 16 |
+		swpm_arm_pmu_status);
 }
 EXPORT_SYMBOL(swpm_arm_pmu_get_status);
 
@@ -146,36 +200,41 @@ int swpm_arm_pmu_enable_all(unsigned int enable)
 }
 EXPORT_SYMBOL(swpm_arm_pmu_enable_all);
 
-static void swpm_perf_arm_pmu_init(struct work_struct *work)
-{
-	swpm_arm_pmu_enable_all(1);
-}
-
-int swpm_arm_pmu_set_boundary_init(unsigned int bound)
-{
-	int ret = 0;
-
-	/* set L-boundary for inst_spec and cycles event */
-	boundary = bound;
-
-	if (!swpm_perf_arm_pmu_init_work_queue) {
-		swpm_perf_arm_pmu_init_work_queue =
-			create_workqueue("swpm_perf_arm_pmu_init");
-		if (!swpm_perf_arm_pmu_init_work_queue)
-			pr_debug("swpm_perf_arm_pmu_init workqueue create failed\n");
-	}
-
-	if (swpm_perf_arm_pmu_init_work_queue)
-		queue_work(swpm_perf_arm_pmu_init_work_queue,
-			   &swpm_perf_arm_pmu_init_work);
-
-	return ret;
-}
-EXPORT_SYMBOL(swpm_arm_pmu_set_boundary_init);
-
 int __init swpm_arm_pmu_init(void)
 {
-	/* actual init by platform */
+	int ret, i;
+	struct device_node *node = NULL;
+	char swpm_arm_pmu_desc[] = "mediatek,mtk-swpm";
+
+	node = of_find_compatible_node(NULL, NULL, swpm_arm_pmu_desc);
+
+	if (!node) {
+		pr_notice("of_find_compatible_node unable to find swpm device node\n");
+		goto END;
+	}
+	/* device node, device name, offset, variable */
+	ret = of_property_read_u32_index(node, "pmu_boundary_num",
+					 0, &boundary);
+	if (ret) {
+		pr_notice("failed to get pmu_boundary_num index from dts\n");
+		goto END;
+	}
+	/* device node, device name, offset, variable */
+	ret = of_property_read_u32_index(node, "pmu_support_l",
+					 0, &pmu_support_l);
+	if (ret) {
+		pr_notice("failed to get pmu_support_l index from dts\n");
+		goto END;
+	}
+
+END:
+	for (i = 0; i < num_possible_cpus(); i++) {
+		per_cpu(l3dc_idx, i) = -1;
+		per_cpu(inst_spec_idx, i) = -1;
+		per_cpu(cycle_idx, i) = -1;
+	}
+
+	swpm_arm_pmu_enable_all(1);
 	return 0;
 }
 module_init(swpm_arm_pmu_init);

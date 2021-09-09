@@ -162,6 +162,7 @@ enum mcusys_power_state {
 enum cpu_pwr_type {
 	CPU_PWR_TYPE_L,
 	CPU_PWR_TYPE_B,
+	CPU_PWR_TYPE_BB,
 	CPU_PWR_TYPE_DSU,
 	CPU_PWR_TYPE_MCUSYS,
 
@@ -332,6 +333,14 @@ struct dram_pwr_conf {
 	unsigned int i_dd6;
 };
 
+/* numbers of unsigned int for cpu reserved memory */
+#define CPU_SWPM_RESERVED_SIZE (4)
+
+struct cpu_swpm_rec_data {
+	/* 2(short) * 8(cores) = 16 bytes */
+	unsigned short cpu_temp[NR_CPU_CORE];
+};
+
 /* numbers of unsigned int for mem reserved memory */
 #define MEM_SWPM_RESERVED_SIZE (550)
 
@@ -388,8 +397,8 @@ struct swpm_rec_data {
 	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
-	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
-	/* unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP]; */
+	/* 16/16 bytes */
+	unsigned int cpu_reserved[CPU_SWPM_RESERVED_SIZE];
 
 	/* 2200/2200 bytes */
 	unsigned int mem_reserved[MEM_SWPM_RESERVED_SIZE];
