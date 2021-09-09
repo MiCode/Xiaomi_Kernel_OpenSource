@@ -409,7 +409,7 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 	int count = 0;
 
 	CCCI_NORMAL_LOG(md->index, TAG,
-		"[POWER OFF] revert sequencer setting to AOC1.0 start\n");
+		"[POWER OFF] %s start\n", __func__);
 
 	reg = ioremap_wc(0x1C803000, 0x1000);
 	if (reg == NULL) {
@@ -422,18 +422,19 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 	ccci_write32(reg, 0x204, 0x0);
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER OFF] disable sequencer done\n");
-	udelay(1000);
 
-	/* retry 10 * 0.1ms = 1ms*/
+	/* retry 1000 * 1ms = 1s*/
 	while (1) {
 		/* wait sequencer done */
 		if (ccci_read32(reg, 0x310) == 0x1010001)
 			break;
 		count++;
-		udelay(100);
-		if (count == 10) {
+		udelay(1000);
+		if (count == 1000) {
 			CCCI_ERROR_LOG(md->index, TAG,
-				"[POWER OFF] wait sequencer fail\n");
+				"[POWER OFF] wait sequencer fail,0x1C803200=0x%x,0x1C803204=0x%x,0x1C803208=0x%x,0x1C803310=0x%x\n",
+				ccci_read32(reg, 0x200), ccci_read32(reg, 0x204),
+				ccci_read32(reg, 0x208), ccci_read32(reg, 0x310));
 			iounmap(reg);
 			return -2;
 		}
@@ -443,10 +444,10 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 		"[POWER OFF] wait sequencer done\n");
 
 	/* revert mux of sequencer to AOC1.0 */
-	ccci_write32(reg, 0x208, 0x90000);
+	ccci_write32(reg, 0x208, 0x5000D);
 
 	CCCI_NORMAL_LOG(md->index, TAG,
-		"[POWER OFF] revert sequencer setting to AOC1.0 end\n");
+		"[POWER OFF] %s end\n", __func__);
 
 	iounmap(reg);
 
@@ -467,6 +468,13 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		CCCI_ERROR_LOG(-1, TAG,
 			"[POWER OFF] MD idx error(%d)\n", md->index);
 		return -1;
+	}
+
+	/* revert sequencer setting to AOC1.0 for gen98 */
+	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+		ret = md1_revert_sequencer_setting(md);
+		if (ret)
+			return ret;
 	}
 
 	/* 1. power off MD MTCMOS */
@@ -514,13 +522,6 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 
 	/* modem topclkgen off setting */
 	md_cd_topclkgen_off(md);
-
-	/* revert sequencer setting to AOC1.0 for gen98 */
-	if (md_cd_plat_val_ptr.md_gen >= 6298) {
-		ret = md1_revert_sequencer_setting(md);
-		if (ret)
-			return ret;
-	}
 
 	/* 5. DLPT */
 #if IS_ENABLED(CONFIG_MTK_PBM)
