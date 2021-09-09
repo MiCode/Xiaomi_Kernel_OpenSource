@@ -4517,8 +4517,6 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON15,
 			RG_AUDADC4_VOW_MASK_SFT,
 			0x1 << RG_AUDADC4_VOW_SFT);
-		regmap_write(priv->regmap, MT6338_AUD_TOP_CKPDN_CON0_SET,
-			0x1 << RG_VOWPLL_EN_SFT);
 		regmap_write(priv->regmap, MT6338_TOP_CKPDN_CON1_CLR,
 			0x1 << RG_AUD_13M_CK_PDN_SFT);
 		regmap_write(priv->regmap, MT6338_AUD_TOP_CKPDN_CON0_H_CLR,
@@ -4608,8 +4606,6 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 			0x1 << RG_VOW13M_CK_PDN_SFT);
 		regmap_write(priv->regmap, MT6338_TOP_CKPDN_CON1_SET,
 			0x1 << RG_AUD_13M_CK_PDN_SFT);
-		regmap_write(priv->regmap, MT6338_AUD_TOP_CKPDN_CON0_CLR,
-			0x1 << RG_VOWPLL_EN_SFT);
 		break;
 	default:
 		break;
