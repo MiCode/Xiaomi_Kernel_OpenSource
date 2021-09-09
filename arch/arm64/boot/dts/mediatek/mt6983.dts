@@ -12908,6 +12908,10 @@
 	mtee_svp: mtee_svp {
 		compatible = "medaitek,svp";
 	};
+
+	aod_scp: aod_scp {
+		compatible = "medaitek,aod_scp";
+	};
 };
 
 &i2c6 {
