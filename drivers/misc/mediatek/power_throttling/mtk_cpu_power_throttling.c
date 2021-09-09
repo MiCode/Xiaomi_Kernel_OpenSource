@@ -7,6 +7,7 @@
 #include <linux/cpufreq.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
 
@@ -65,21 +66,14 @@ static void cpu_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 }
 #endif
 
-static int __init mtk_cpu_power_throttling_module_init(void)
+static int mtk_cpu_power_throttling_probe(struct platform_device *pdev)
 {
 	struct cpufreq_policy *policy;
 	struct cpu_pt_policy *pt_policy;
 	unsigned int i = 0, j = 0;
 	int cpu, ret;
-	struct device_node *np;
 	struct cpu_pt_priv cpu_pt_info;
-
-	np = of_find_compatible_node(NULL, NULL, "mediatek,power_throttling");
-
-	if (!np) {
-		pr_notice("get power_throttling node fail\n");
-		return -EINVAL;
-	}
+	struct device_node *np = pdev->dev.of_node;
 
 	for (i = 0; i < 3; i++) {
 		cpu_pt_info.lbat_cpu_limit[i] = CPU_LIMIT_FREQ;
@@ -87,7 +81,12 @@ static int __init mtk_cpu_power_throttling_module_init(void)
 	}
 
 	ret = of_property_read_u32_array(np, "lbat_cpu_limit", &cpu_pt_info.lbat_cpu_limit[0], 3);
+	if (ret < 0)
+		pr_notice("%s: get lbat cpu limit fail %d\n", __func__, ret);
+
 	ret = of_property_read_u32_array(np, "oc_cpu_limit", &cpu_pt_info.oc_cpu_limit[0], 3);
+	if (ret < 0)
+		pr_notice("%s: get oc cpu limit fail %d\n", __func__, ret);
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
@@ -135,7 +134,7 @@ static int __init mtk_cpu_power_throttling_module_init(void)
 	return 0;
 }
 
-static void __exit mtk_cpu_power_throttling_module_exit(void)
+static int mtk_cpu_power_throttling_remove(struct platform_device *pdev)
 {
 	struct cpu_pt_policy *pt_policy, *pt_policy_t;
 
@@ -145,10 +144,25 @@ static void __exit mtk_cpu_power_throttling_module_exit(void)
 		list_del(&pt_policy->cpu_pt_list);
 		kfree(pt_policy);
 	}
+
+	return 0;
 }
 
-module_init(mtk_cpu_power_throttling_module_init);
-module_exit(mtk_cpu_power_throttling_module_exit);
+static const struct of_device_id cpu_power_throttling_of_match[] = {
+	{ .compatible = "mediatek,cpu-power-throttling", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, cpu_power_throttling_of_match);
+
+static struct platform_driver cpu_power_throttling_driver = {
+	.probe = mtk_cpu_power_throttling_probe,
+	.remove = mtk_cpu_power_throttling_remove,
+	.driver = {
+		.name = "mtk-cpu_power_throttling",
+		.of_match_table = cpu_power_throttling_of_match,
+	},
+};
+module_platform_driver(cpu_power_throttling_driver);
 
 MODULE_AUTHOR("Samuel Hsieh");
 MODULE_DESCRIPTION("MTK cpu power throttling driver");
