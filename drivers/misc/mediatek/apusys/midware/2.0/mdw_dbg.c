@@ -20,6 +20,23 @@ struct dentry *mdw_dbg_device;
 u32 g_mdw_klog;
 u8 cfg_apusys_trace;
 
+
+static int min_dtime_set(void *data, u64 val)
+{
+	struct mdw_device *mdev = (struct mdw_device *)data;
+
+	mdev->dev_funcs->set_param(mdev, MDW_INFO_MIN_DTIME, val);
+	return 0;
+}
+static int min_dtime_get(void *data, u64 *val)
+{
+	struct mdw_device *mdev = (struct mdw_device *)data;
+
+	*val = mdev->dev_funcs->get_info(mdev, MDW_INFO_MIN_DTIME);
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_min_dtime, min_dtime_get, min_dtime_set, "%llu\n");
 //----------------------------------------------
 int mdw_dbg_init(struct apusys_core_info *info)
 {
@@ -36,6 +53,8 @@ int mdw_dbg_init(struct apusys_core_info *info)
 	cfg_apusys_trace = 0;
 	debugfs_create_u8("trace_en", 0644,
 		mdw_dbg_root, &cfg_apusys_trace);
+
+	debugfs_create_file("min_dtime", 0644, mdw_dbg_root, mdw_dev, &fops_min_dtime);
 
 	mdw_dbg_device = debugfs_create_dir("device", mdw_dbg_root);
 

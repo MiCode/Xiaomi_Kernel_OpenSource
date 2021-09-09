@@ -67,6 +67,7 @@ struct mdw_ipi_param {
 	uint32_t uplog;
 	uint32_t preempt_policy;
 	uint32_t sched_policy;
+	uint32_t min_dtime;
 };
 
 struct mdw_ipi_msg {

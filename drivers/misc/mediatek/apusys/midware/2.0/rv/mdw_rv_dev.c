@@ -272,6 +272,9 @@ int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 	case MDW_INFO_SCHED_POLICY:
 		msg.p.sched_policy = val;
 		break;
+	case MDW_INFO_MIN_DTIME:
+		msg.p.min_dtime = val;
+		break;
 	default:
 		ret = -EINVAL;
 		goto out;
@@ -303,6 +306,9 @@ uint32_t mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type)
 		break;
 	case MDW_INFO_SCHED_POLICY:
 		ret = (int)mrdev->param.sched_policy;
+		break;
+	case MDW_INFO_MIN_DTIME:
+		ret = (int)mrdev->param.min_dtime;
 		break;
 	case MDW_INFO_NORMAL_TASK_DLA:
 	case MDW_INFO_NORMAL_TASK_DSP:
@@ -407,6 +413,7 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 	mdev->dev_specific = mrdev;
 	mrdev->mdev = mdev;
 	mrdev->rpdev = mdev->rpdev;
+	mrdev->param.min_dtime = 50; /* 50ms */
 
 	strscpy(chinfo.name, mrdev->rpdev->id.name, RPMSG_NAME_SIZE);
 	chinfo.src = mrdev->rpdev->src;

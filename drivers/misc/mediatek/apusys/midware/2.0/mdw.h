@@ -44,6 +44,8 @@ enum mdw_info_type {
 	MDW_INFO_NORMAL_TASK_DSP,
 	MDW_INFO_NORMAL_TASK_DMA,
 
+	MDW_INFO_MIN_DTIME,
+
 	MDW_INFO_MAX,
 };
 
