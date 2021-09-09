@@ -12,7 +12,7 @@
 #define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (0)
 
-#define IMGSYS_SECURE_ENABLE   (0)
+#define IMGSYS_SECURE_ENABLE   (1)
 
 /* Record info definitions */
 #define GCE_REC_MAX_FRAME_BLOCK     (6)
