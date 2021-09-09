@@ -212,7 +212,6 @@ static int lm3644_pinctrl_set(struct lm3644_flash *flash, int pin, int state)
 		pr_info("set err, pin(%d) state(%d)\n", pin, state);
 		break;
 	}
-	pr_info("pin(%d) state(%d)\n", pin, state);
 
 	return ret;
 }
@@ -222,7 +221,7 @@ static int lm3644_mode_ctrl(struct lm3644_flash *flash)
 {
 	int rval = -EINVAL;
 
-	pr_info("%s mode:%d", __func__, flash->led_mode);
+	pr_info_ratelimited("%s mode:%d", __func__, flash->led_mode);
 	switch (flash->led_mode) {
 	case V4L2_FLASH_LED_MODE_NONE:
 		rval = regmap_update_bits(flash->regmap,
@@ -246,11 +245,11 @@ static int lm3644_enable_ctrl(struct lm3644_flash *flash,
 {
 	int rval;
 
-	pr_info("%s %d enable:%d", __func__, led_no, on);
+	pr_info_ratelimited("%s led:%d enable:%d", __func__, led_no, on);
 
 	flashlight_kicker_pbm(on);
 	if (flashlight_pt_is_low()) {
-		pr_info("pt is low\n");
+		pr_info_ratelimited("pt is low\n");
 		return 0;
 	}
 
@@ -279,7 +278,7 @@ static int lm3644_torch_brt_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 br_bits;
 
-	pr_info("%s %d brt:%u\n", __func__, led_no, brt);
+	pr_info_ratelimited("%s %d brt:%u\n", __func__, led_no, brt);
 	if (brt < LM3644_TORCH_BRT_MIN)
 		return lm3644_enable_ctrl(flash, led_no, false);
 
@@ -384,7 +383,7 @@ static int lm3644_set_ctrl(struct v4l2_ctrl *ctrl, enum lm3644_led_id led_no)
 	struct lm3644_flash *flash = to_lm3644_flash(ctrl, led_no);
 	int rval = -EINVAL;
 
-	pr_info("%s %d ID:%d", __func__, led_no);
+	pr_info("%s led:%d ID:%d", __func__, led_no, ctrl->id);
 	mutex_lock(&flash->lock);
 
 	switch (ctrl->id) {
@@ -714,7 +713,7 @@ static int lm3644_ioctl(unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case FLASH_IOC_SET_ONOFF:
-		pr_info("FLASH_IOC_SET_ONOFF(%d): %d\n",
+		pr_info_ratelimited("FLASH_IOC_SET_ONOFF(%d): %d\n",
 				channel, (int)fl_arg->arg);
 		if ((int)fl_arg->arg) {
 			lm3644_torch_brt_ctrl(lm3644_flash_data, channel, 25000);
@@ -722,9 +721,11 @@ static int lm3644_ioctl(unsigned int cmd, unsigned long arg)
 			lm3644_mode_ctrl(lm3644_flash_data);
 			lm3644_enable_ctrl(lm3644_flash_data, channel, true);
 		} else {
-			lm3644_flash_data->led_mode = V4L2_FLASH_LED_MODE_NONE;
-			lm3644_mode_ctrl(lm3644_flash_data);
-			lm3644_enable_ctrl(lm3644_flash_data, channel, false);
+			if (lm3644_flash_data->led_mode != V4L2_FLASH_LED_MODE_NONE) {
+				lm3644_flash_data->led_mode = V4L2_FLASH_LED_MODE_NONE;
+				lm3644_mode_ctrl(lm3644_flash_data);
+				lm3644_enable_ctrl(lm3644_flash_data, channel, false);
+			}
 		}
 		break;
 	default:
