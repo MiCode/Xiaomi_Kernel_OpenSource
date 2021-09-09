@@ -933,6 +933,21 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 				0);
 		}
 	}
+	if (hw_comb & IMGSYS_ENG_WPE_LITE) {
+		port_st = IMGSYS_M4U_PORT_WPE_LITE_START;
+		port_num = WPE_SMI_PORT_NUM;
+		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
+				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
+					__func__, port_idx);
+				continue;
+			}
+			mtk_icc_set_bw(
+				qos_info->qos_path[port_idx].path,
+				Bps_to_icc(qos_info->qos_path[port_idx].bw),
+				0);
+		}
+	}
 	if (hw_comb & IMGSYS_ENG_TRAW) {
 		port_st = IMGSYS_M4U_PORT_TRAW_START;
 		port_num = TRAW_SMI_PORT_NUM;
@@ -951,6 +966,21 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 	if (hw_comb & IMGSYS_ENG_LTR) {
 		port_st = IMGSYS_M4U_PORT_LTRAW_START;
 		port_num = LTRAW_SMI_PORT_NUM;
+		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
+			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
+				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
+					__func__, port_idx);
+				continue;
+			}
+			mtk_icc_set_bw(
+				qos_info->qos_path[port_idx].path,
+				Bps_to_icc(qos_info->qos_path[port_idx].bw),
+				0);
+		}
+	}
+	if (hw_comb & IMGSYS_ENG_XTR) {
+		port_st = IMGSYS_M4U_PORT_XTRAW_START;
+		port_num = XTRAW_SMI_PORT_NUM;
 		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
 			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
 				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
@@ -1099,7 +1129,8 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 		/* do_gettimeofday(&curr_time); */
 		ts_curr = curr_time.tv_sec * 1000000 + curr_time.tv_usec;
 		ts_eq = frm_info->eqtime.tv_sec * 1000000 + frm_info->eqtime.tv_usec;
-		ts_sw = ts_curr - ts_eq;
+		/* ts_sw = ts_curr - ts_eq; */
+		ts_sw = 0; /* Set ts_sw = 0 for sw fence */
 		if (fps != 0) {
 			ts_fps = 1000000 / fps;
 			if (ts_fps > ts_sw)
@@ -1112,7 +1143,8 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 			freq = 650000000; /* Forcing highest frequency if fps is 0 */
 			ts_exe = (pixel_max * 1000000) / freq;
 			ts_end = ts_curr + ts_exe;
-			bw_exe = 1000000 / ts_exe;
+			/* bw_exe = 1000000 / ts_exe; */
+			bw_exe = IMGSYS_MAX_FPS;
 		} else {
 			freq = (pixel_total_max * 1000000) / ts_hw;
 			/* freq = (dvfs_info->pixel_size * fps); */
@@ -1138,7 +1170,8 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 		if (fps == 0) {
 			freq = 650000000; /* Forcing highest frequency if fps is 0 */
 			ts_exe = (pixel_max * 1000000) / freq;
-			bw_exe = 1000000 / ts_exe;
+			/* bw_exe = 1000000 / ts_exe; */
+			bw_exe = IMGSYS_MAX_FPS;
 		} else
 			bw_exe = fps;
 
@@ -1210,6 +1243,24 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 						(smi_port[port_idx-port_st].portbw * bw_exe);
 			}
 		}
+		if (hw_comb & IMGSYS_ENG_WPE_LITE) {
+			port_st = IMGSYS_M4U_PORT_WPE_LITE_START;
+			port_num = WPE_SMI_PORT_NUM;
+			smi_port = (struct smi_port_t *)bw_buf->wpe_lite.smiport;
+			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
+				if (isSet == 1) {
+					dev_dbg(qos_info->dev,
+						"[%s] WPE_LITE idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
+						__func__, port_idx, fps, bw_exe,
+						smi_port[port_idx-port_st].portbw,
+						qos_info->qos_path[port_idx].bw);
+					qos_info->qos_path[port_idx].bw +=
+						(smi_port[port_idx-port_st].portbw * bw_exe);
+				} else if (isSet == 0)
+					qos_info->qos_path[port_idx].bw -=
+						(smi_port[port_idx-port_st].portbw * bw_exe);
+			}
+		}
 		if (hw_comb & IMGSYS_ENG_TRAW) {
 			port_st = IMGSYS_M4U_PORT_TRAW_START;
 			port_num = TRAW_SMI_PORT_NUM;
@@ -1236,6 +1287,24 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				if (isSet == 1) {
 					dev_dbg(qos_info->dev,
 						"[%s] LTRAW idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
+						__func__, port_idx, fps, bw_exe,
+						smi_port[port_idx-port_st].portbw,
+						qos_info->qos_path[port_idx].bw);
+					qos_info->qos_path[port_idx].bw +=
+						(smi_port[port_idx-port_st].portbw * bw_exe);
+				} else if (isSet == 0)
+					qos_info->qos_path[port_idx].bw -=
+						(smi_port[port_idx-port_st].portbw * bw_exe);
+			}
+		}
+		if (hw_comb & IMGSYS_ENG_XTR) {
+			port_st = IMGSYS_M4U_PORT_XTRAW_START;
+			port_num = XTRAW_SMI_PORT_NUM;
+			smi_port = (struct smi_port_t *)bw_buf->xtraw.smiport;
+			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
+				if (isSet == 1) {
+					dev_dbg(qos_info->dev,
+						"[%s] XTRAW idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
 						__func__, port_idx, fps, bw_exe,
 						smi_port[port_idx-port_st].portbw,
 						qos_info->qos_path[port_idx].bw);

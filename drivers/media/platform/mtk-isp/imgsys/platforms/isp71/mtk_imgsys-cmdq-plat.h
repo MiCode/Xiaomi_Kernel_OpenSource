@@ -10,7 +10,7 @@
 #define _MTK_IMGSYS_CMDQ_PLAT_H_
 
 #define IMGSYS_DVFS_ENABLE     (1)
-#define IMGSYS_QOS_ENABLE      (0)
+#define IMGSYS_QOS_ENABLE      (1)
 
 #define IMGSYS_SECURE_ENABLE   (1)
 
@@ -22,6 +22,7 @@
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
 #define IMGSYS_SEC_THD 1
+#define IMGSYS_MAX_FPS 60
 
 #define IMGSYS_CMDQ_HW_EVENT_BEGIN	129
 #define IMGSYS_CMDQ_HW_EVENT_END	250
@@ -868,6 +869,11 @@ struct ltraw_bw_t {
 	struct smi_port_t smiport[LTRAW_SMI_PORT_NUM];
 } __attribute__((__packed__));
 
+struct xtraw_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[XTRAW_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
 struct dip_bw_t {
 	uint32_t totalbw;
 	struct smi_port_t smiport[DIP_SMI_PORT_NUM];
@@ -882,6 +888,7 @@ struct frame_bw_t {
 	struct pqdip_bw_t pqdip_b;
 	struct traw_bw_t traw;
 	struct ltraw_bw_t ltraw;
+	struct xtraw_bw_t xtraw;
 	struct dip_bw_t dip;
 } __attribute__((__packed__));
 
