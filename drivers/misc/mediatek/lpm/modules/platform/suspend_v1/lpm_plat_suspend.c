@@ -275,7 +275,6 @@ struct lpm_model lpm_model_suspend = {
 #define CPU_NUMBER (NR_CPUS)
 struct mtk_lpm_abort_control {
 	struct task_struct *ts;
-	struct completion lpm_completion;
 };
 static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
 static int mtk_lpm_in_suspend;
@@ -284,11 +283,14 @@ static int mtk_lpm_monitor_thread(void *not_used)
 	struct sched_param param = {.sched_priority = 99 };
 	int cpu;
 
-	sched_setscheduler(current, SCHED_FIFO, &param);
+	/* smp_processor_id() is not allowed in preempible context */
+	spin_lock(&lpm_abort_locker);
 	cpu = smp_processor_id();
+	spin_unlock(&lpm_abort_locker);
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
 	allow_signal(SIGKILL);
 
-	wait_for_completion(&mtk_lpm_ac[cpu].lpm_completion);
 	msleep_interruptible(5000);
 
 	pm_system_wakeup();
@@ -326,7 +328,6 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		mtk_lpm_in_suspend = 1;
 		for (i = 0; i < suspend_online_cpus; i++) {
 			cpumask_set_cpu(i, &abort_cpumask);
-			init_completion(&mtk_lpm_ac[i].lpm_completion);
 			mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread,
 					NULL, "LPM-%d", i);
 			if (mtk_lpm_ac[i].ts) {
@@ -334,8 +335,6 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 				wake_up_process(mtk_lpm_ac[i].ts);
 			}
 		}
-		for (i = 0; i < suspend_online_cpus; i++)
-			complete(&mtk_lpm_ac[i].lpm_completion);
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		mtk_lpm_in_suspend = 0;
