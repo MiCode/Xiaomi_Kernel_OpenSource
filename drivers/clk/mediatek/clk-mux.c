@@ -38,9 +38,30 @@ static void mtk_clk_mux_disable(struct clk_hw *hw)
 static int mtk_clk_mux_enable_setclr(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	unsigned long flags = 0;
 
-	return regmap_write(mux->regmap, mux->data->clr_ofs,
-			BIT(mux->data->gate_shift));
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+	else
+		__acquire(mux->lock);
+
+	regmap_write(mux->regmap, mux->data->clr_ofs,
+		BIT(mux->data->gate_shift));
+
+	/*
+	 * If mux setting restore after vcore resume, it will
+	 * not be effective yet. Set the update bit to ensure the mux gets
+	 * updated.
+	 */
+	regmap_write(mux->regmap, mux->data->upd_ofs,
+		BIT(mux->data->upd_shift));
+
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+	else
+		__release(mux->lock);
+
+	return 0;
 }
 
 static void mtk_clk_mux_disable_setclr(struct clk_hw *hw)
