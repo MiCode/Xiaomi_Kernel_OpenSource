@@ -505,8 +505,10 @@ static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
 		dev_dbg(ctx->cam->dev,
 			"%s exposure:%d gain:%d\n", __func__, shutter, gain);
 
-		v4l2_ctrl_s_ctrl(shutter_ctrl, shutter);
-		v4l2_ctrl_s_ctrl(gain_ctrl, gain);
+		if (shutter > 0 && gain > 0) {
+			v4l2_ctrl_s_ctrl(shutter_ctrl, shutter);
+			v4l2_ctrl_s_ctrl(gain_ctrl, gain);
+		}
 	}
 
 	return is_mstream_last_exposure;
