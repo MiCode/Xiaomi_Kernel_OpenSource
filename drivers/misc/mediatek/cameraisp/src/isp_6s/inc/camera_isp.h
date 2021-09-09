@@ -595,6 +595,12 @@ struct ISP_RAW_INT_STATUS {
 	unsigned int ispInt5Err;
 };
 
+struct ISP_CQ0_NOTE_INFO {
+	unsigned int cq0_data[ISP_IRQ_TYPE_INT_CAMSV_START_ST][3];
+	unsigned int exposureNum;
+	unsigned int cqCnt;
+};
+
 /*******************************************************************************
  * pass1 real time buffer control use cq0c
  ******************************************************************************/

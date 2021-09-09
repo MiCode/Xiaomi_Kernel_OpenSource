@@ -5265,47 +5265,49 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 	} break;
 	case ISP_NOTE_CQTHR0_BASE: {
-		unsigned int cq0_data[CAM_MAX][3];
+		struct ISP_CQ0_NOTE_INFO cq0_note;
 		unsigned int index = 0;
+		memset((void *)&cq0_note, 0x0, sizeof(struct ISP_CQ0_NOTE_INFO));
 
-		if (copy_from_user(&cq0_data, (void *)Param,
-				   sizeof(unsigned int) * CAM_MAX * 3) != 0) {
+		if (copy_from_user(&cq0_note, (void *)Param,
+			sizeof(struct ISP_CQ0_NOTE_INFO)) != 0) {
 			LOG_NOTICE("copy to user fail");
 			Ret = -EFAULT;
 			break;
 		}
-		index = cq0_data[CAM_A][0] - ISP_CAM_A_IDX;
+
+		index = cq0_note.cq0_data[CAM_A][0] - ISP_CAM_A_IDX;
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-			if (cq0_data[CAM_A][1] != 0) {
-				g_cqBaseAddr[index][0] = cq0_data[CAM_A][1];
-				g_cq0NextBA[index][0] = cq0_data[CAM_A][2];
+			if (cq0_note.cq0_data[CAM_A][1] != 0) {
+				g_cqBaseAddr[index][0] = cq0_note.cq0_data[CAM_A][1];
+				g_cq0NextBA[index][0] = cq0_note.cq0_data[CAM_A][2];
 				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x, 0x%x",
-				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1],
-				 * cq0_data[CAM_A][2]);
+				 *cq0_note.cq0_data[CAM_A][0], cq0_note.cq0_data[CAM_A][1],
+				 * cq0_note.cq0_data[CAM_A][2]);
 				 */
 			}
 		}
-		index = cq0_data[CAM_B][0] - ISP_CAM_A_IDX;
+		index = cq0_note.cq0_data[CAM_B][0] - ISP_CAM_A_IDX;
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-			if (cq0_data[CAM_B][1] != 0) {
-				g_cqBaseAddr[index][0] = cq0_data[CAM_B][1];
-				g_cq0NextBA[index][0] = cq0_data[CAM_B][2];
+			if (cq0_note.cq0_data[CAM_B][1] != 0) {
+				g_cqBaseAddr[index][0] = cq0_note.cq0_data[CAM_B][1];
+				g_cq0NextBA[index][0] = cq0_note.cq0_data[CAM_B][2];
 				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x, 0x%x",
-				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1],
-				 *cq0_data[CAM_B][2]);
+				 *cq0_note.cq0_data[CAM_B][0], cq0_note.cq0_data[CAM_B][1],
+				 *cq0_note.cq0_data[CAM_B][2]);
 				 */
 			}
 		}
 
 		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
-			index = cq0_data[CAM_C][0] - ISP_CAM_A_IDX;
+			index = cq0_note.cq0_data[CAM_C][0] - ISP_CAM_A_IDX;
 			if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-				if (cq0_data[CAM_C][1] != 0) {
-					g_cqBaseAddr[index][0] = cq0_data[CAM_C][1];
-					g_cq0NextBA[index][0] = cq0_data[CAM_C][2];
+				if (cq0_note.cq0_data[CAM_C][1] != 0) {
+					g_cqBaseAddr[index][0] = cq0_note.cq0_data[CAM_C][1];
+					g_cq0NextBA[index][0] = cq0_note.cq0_data[CAM_C][2];
 					/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x, 0x%x",
-					 *cq0_data[CAM_C][0], cq0_data[CAM_C][1],
-					 *cq0_data[CAM_C][2]);
+					 *cq0_note.cq0_data[CAM_C][0], cq0_note.cq0_data[CAM_C][1],
+					 *cq0_note.cq0_data[CAM_C][2]);
 					 */
 				}
 			}
