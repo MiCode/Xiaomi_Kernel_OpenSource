@@ -1899,6 +1899,7 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 	/* Direct debugging information to REG_MTK_PROBE */
 	ufs_mtk_dbg_sel(hba);
 	ufshcd_dump_regs(hba, REG_UFS_PROBE, 0x4, "Debug Probe ");
+	ufs_mtk_dbg_dump(100);
 }
 
 static void ufs_mtk_fix_regulators(struct ufs_hba *hba)

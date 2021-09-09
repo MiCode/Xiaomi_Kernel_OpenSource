@@ -102,6 +102,7 @@ struct cmd_hist_struct {
 };
 
 int ufs_mtk_dbg_register(struct ufs_hba *hba);
+void ufs_mtk_dbg_dump(u32 latest_cnt);
 
 #else
 
