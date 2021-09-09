@@ -20,6 +20,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/pm_qos.h>
+#include <linux/pm_runtime.h>
 
 #include "jpeg_drv.h"
 #include "jpeg_drv_reg.h"
@@ -41,7 +42,7 @@ static const struct of_device_id jdec_hybrid_of_ids[] = {
 static wait_queue_head_t hybrid_dec_wait_queue[HW_CORE_NUMBER];
 static DEFINE_MUTEX(jpeg_hybrid_dec_lock);
 
-static bool dec_hwlocked[HW_CORE_NUMBER] = {false, false, false};
+static bool dec_hwlocked[HW_CORE_NUMBER] = {false, false/*, false*/};
 static unsigned int _jpeg_hybrid_dec_int_status[HW_CORE_NUMBER];
 static struct dmabuf_info bufInfo[HW_CORE_NUMBER];
 
@@ -203,7 +204,7 @@ static void jpeg_drv_hybrid_dec_get_p_n_s(
 	progress = IMG_REG_READ(REG_JPGDEC_HYBRID_340(id)) - 1;
 	status = IMG_REG_READ(REG_JPGDEC_HYBRID_348(id));
 	*progress_n_status = progress << 4 | status;
-	JPEG_LOG(1, "progress_n_status %d", progress_n_status);
+	JPEG_LOG(1, "progress_n_status %d", *progress_n_status);
 }
 
 static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
@@ -315,8 +316,9 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 {
 	int ret;
 
-	if (!dec_hwlocked[(id+1)%3] && !dec_hwlocked[(id+2)%3]) {
+	if (!dec_hwlocked[(id+1)%HW_CORE_NUMBER]/*&& !dec_hwlocked[(id+2)%HW_CORE_NUM]*/) {
 		if (gJpegqDev.jpegLarb[0]) {
+			JPEG_LOG(1, "power on larb7");
 			ret = mtk_smi_larb_get(gJpegqDev.jpegLarb[0]);
 			if (ret)
 				JPEG_LOG(0, "mtk_smi_larb_get failed %d",
@@ -334,6 +336,7 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 
 	if (id == 2) {
 		if (gJpegqDev.jpegLarb[1]) {
+			JPEG_LOG(1, "power on larb8");
 			ret = mtk_smi_larb_get(gJpegqDev.jpegLarb[1]);
 			if (ret)
 				JPEG_LOG(0, "mtk_smi_larb_get failed %d",
@@ -360,7 +363,7 @@ void jpeg_drv_hybrid_dec_power_off(int id)
 	} else
 		jpeg_drv_hybrid_dec_end_dvfs(0);
 
-	if (!dec_hwlocked[(id+1)%3] && !dec_hwlocked[(id+2)%3]) {
+	if (!dec_hwlocked[(id+1)%HW_CORE_NUMBER]/* && !dec_hwlocked[(id+2)%3]*/) {
 		clk_disable_unprepare(gJpegqDev.jpegClk.clk_venc_jpgDec);
 		clk_disable_unprepare(gJpegqDev.jpegClk.clk_venc_jpgDec_c1);
 		if (gJpegqDev.jpegLarb[0])
@@ -825,7 +828,7 @@ static int jpeg_probe(struct platform_device *pdev)
 	node = pdev->dev.of_node;
 
 	if (node_index == 0) {
-		for (i = 0; i < HW_CORE_NUMBER - 1; i++) {
+		for (i = 0; i < HW_CORE_NUMBER; i++) {
 			gJpegqDev.hybriddecRegBaseVA[i] =
 				(unsigned long)of_iomap(node, i);
 
@@ -851,7 +854,7 @@ static int jpeg_probe(struct platform_device *pdev)
 			of_clk_get_by_name(node, "MT_CG_VENC_JPGDEC_C1");
 		if (IS_ERR(gJpegqDev.jpegClk.clk_venc_jpgDec_c1))
 			JPEG_LOG(0, "get MT_CG_VENC_JPGDEC_C1 clk error!");
-	} else {
+	} /*else {
 		i = HW_CORE_NUMBER - 1;
 		gJpegqDev.hybriddecRegBaseVA[i] =
 			(unsigned long)of_iomap(node, 0);
@@ -876,6 +879,7 @@ static int jpeg_probe(struct platform_device *pdev)
 		if (IS_ERR(gJpegqDev.jpegClk.clk_venc_c1_jpgDec))
 			JPEG_LOG(0, "get MT_CG_VENC_C1_JPGDEC clk error!");
 	}
+	*/
 
 	larbnode = of_parse_phandle(node, "mediatek,larbs", 0);
 	if (!larbnode) {
@@ -896,6 +900,7 @@ static int jpeg_probe(struct platform_device *pdev)
 		JPEG_LOG(0, "64-bit DMA enable failed");
 		return ret;
 	}
+	pm_runtime_enable(&pdev->dev);
 
 	jpeg_drv_hybrid_dec_prepare_dvfs(node_index);
 

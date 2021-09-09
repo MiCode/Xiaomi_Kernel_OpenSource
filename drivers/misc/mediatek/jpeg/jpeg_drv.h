@@ -21,7 +21,7 @@
 
 #include "jpeg_dma_buf.h"
 
-#define HW_CORE_NUMBER 3
+#define HW_CORE_NUMBER 2
 #define JPEG_LARB_COUNT 2
 #define MAX_FREQ_STEP 10
 
