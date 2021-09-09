@@ -38,7 +38,7 @@ static int worker_func(void *data)
 	struct list_head *list;
 	struct sched_param param = {.sched_priority = 94 };
 
-	sched_setscheduler(current, SCHED_RR, &param);
+	sched_setscheduler(current, SCHED_NORMAL, &param);
 
 	while (1) {
 		dev_dbg(head->dev, "%s: %s kthread sleeps\n", __func__,

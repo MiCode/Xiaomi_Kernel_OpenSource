@@ -1877,7 +1877,7 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
 
 			return ret;
 		}
-		imgsys_queue_init(&imgsys_dev->runnerque, imgsys_dev->dev, "runner");
+		imgsys_queue_init(&imgsys_dev->runnerque, imgsys_dev->dev, "imgsys-cmdq");
 		imgsys_queue_enable(&imgsys_dev->runnerque);
 	}
 	count = imgsys_dev->imgsys_stream_cnt++;
