@@ -636,6 +636,16 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret)
 			break;
 
+		/* Will be removed with mtk_cam_req_update_ctrl */
+		if (!pipeline->subdev.entity.stream_count) {
+			pipeline->feature_pending_try = res_user->raw_res.feature;
+			dev_dbg(dev,
+				"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x), feature_try(0x%x)\n",
+				__func__, pipeline->id, pipeline->subdev.entity.stream_count,
+				pipeline->feature_pending, pipeline->feature_active,
+				pipeline->feature_pending_try);
+		}
+
 		dev_dbg(dev, "%s:pipe(%d): res ctrl end\n", __func__,
 			pipeline->id);
 			break;
@@ -689,9 +699,10 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		pipeline->feature_pending = ctrl->val;
 
 		dev_dbg(dev,
-			"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
+			"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x), feature_try(0x%x)\n",
 			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-			pipeline->feature_pending, pipeline->feature_active);
+			pipeline->feature_pending, pipeline->feature_active,
+			pipeline->feature_pending_try);
 		ret = 0;
 		break;
 	default:
