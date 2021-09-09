@@ -545,20 +545,39 @@ static u32 mml_calc_bw(u64 data, u32 pixel, u64 throughput)
 	return (u32)div_u64(data, pixel);
 }
 
+static u32 mml_calc_bw_hrt(u32 datasize)
+{
+	/* hrt bw: width * height * fps * 1.25 (v-blanking) * bpp = HRT MB/s
+	 *
+	 * the 1.25 separate to * 10 / 8
+	 * and width * height * bpp = datasize in bytes
+	 */
+	return (datasize * 60 * 10) >> 3;
+}
+
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg, u32 throughput)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
 	u32 bandwidth, datasize;
-	bool hrt = task->config->info.mode == MML_MODE_RACING;
+	bool hrt;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
-	bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
+	if (task->config->info.mode == MML_MODE_RACING) {
+		hrt = true;
+		bandwidth = mml_calc_bw_hrt(datasize);
+	} else {
+		hrt = false;
+		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
+	}
+
 	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth),
-		hrt ? U32_MAX : 0);
-	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u%s",
+		hrt ? MBps_to_icc(bandwidth) : 0);
+
+	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u size %u%s",
 		__func__, comp->id, comp->name, bandwidth,
-		throughput, cache->max_pixel, hrt ? " hrt" : "");
+		throughput, cache->max_pixel, datasize,
+		hrt ? " hrt" : "");
 }
 
 void mml_comp_qos_clear(struct mml_comp *comp)

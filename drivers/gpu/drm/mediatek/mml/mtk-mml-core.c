@@ -516,6 +516,23 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 	return div_u64((u64)delta.tv_sec * 1000000000 + delta.tv_nsec, 1000);
 }
 
+static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
+	const struct timespec64 *end, const struct timespec64 *start)
+{
+	if (task->config->info.mode == MML_MODE_RACING) {
+		/* throughput is pixel / duration,
+		 * duration is 1/60 * 0.8 (w/o blanking), thus
+		 * pixel / (1/60 * 0.8) = pixel * 60 * 1.25
+		 */
+		task->throughput = (pixel * 60 * 10) >> 3;
+	} else {
+		u64 duration = time_dur_us(end, start);
+
+		/* truoughput by end time */
+		task->throughput = (u32)div_u64(pixel, duration);
+	}
+}
+
 static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
@@ -555,8 +572,8 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 
 	if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
 		/* calculate remaining time to complete pixels */
-		task->throughput = (u32)div_u64(max_pixel,
-			time_dur_us(&task->end_time, &task->submit_time));
+		mml_core_calc_tput(task, max_pixel,
+			&task->end_time, &task->submit_time);
 
 		throughput = task->throughput;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
@@ -646,8 +663,8 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 
 		/* calculate remaining time to complete pixels */
 		max_pixel = task_pipe_cur->task->config->cache[pipe].max_pixel;
-		task_pipe_cur->task->throughput = (u32)div_u64(max_pixel,
-			time_dur_us(&curr_time, &task->end_time));
+		mml_core_calc_tput(task_pipe_cur->task, max_pixel,
+			&task->end_time, &curr_time);
 
 		throughput = 0;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
