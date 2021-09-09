@@ -3001,6 +3001,14 @@
 			#clock-cells = <1>;
 		};
 
+		mmdvfs-debug {
+			compatible = "mediatek,mmdvfs-debug";
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			disp-dev = <&dispsys_config>;
+			force-step0 = <1>;
+			release-step0 = <1>;
+		};
+
 		mmdvfs {
 			compatible = "mediatek,mmdvfs";
 
