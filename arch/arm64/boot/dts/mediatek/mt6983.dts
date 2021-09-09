@@ -6115,6 +6115,8 @@
 			"disp_token_vfp_period0",
 			"disp_token_disp_va_start0",
 			"disp_token_disp_va_end0",
+			"disp_token_disp_va_start2",
+			"disp_token_disp_va_end2",
 			"disp_gpio_te1";
 
 		gce-events = <&gce CMDQ_EVENT_MMSYS_STREAM_DONE_ENG_EVENT_0>,
@@ -6135,6 +6137,8 @@
 			<&gce CMDQ_EVENT_MMSYS_DISP_WDMA1_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_DSI0_SOF>,
 			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
+			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
+			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 			<&gce CMDQ_EVENT_GCE_EVENT_DSI1_TE_I>;
