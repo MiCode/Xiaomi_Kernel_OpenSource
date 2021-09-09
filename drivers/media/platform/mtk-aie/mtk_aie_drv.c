@@ -3269,6 +3269,8 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 			fd_cur_cfg[FD_RPN_SET] =
 				aie_combine_u16(fd_cur_cfg[FD_RPN_SET],
 						fd->base_para->rpn_anchor_thrd);
+				fd_cur_cfg[FD_IN_CHANNEL_PACK] = fd_cur_cfg[Y2R_SRC_DST_FORMAT] |
+									0x30000000;
 		}
 
 		if (i == rpn0_loop_num) {

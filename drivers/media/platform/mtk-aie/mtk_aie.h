@@ -83,6 +83,7 @@
 #define RS_OUT_X_Y_SIZE2 20
 #define RS_OUT_STRIDE2 21
 
+#define FD_IN_CHANNEL_PACK 0
 #define FD_INPUT_ROTATE 1 /* AIE3.0 new */
 #define FD_CONV_WIDTH_MOD6 2
 #define FD_CONV_IMG_W_H 4

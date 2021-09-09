@@ -455,6 +455,11 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
 	dev_info(fd->dev, "mtk_aie_hw_disconnect start!: %x %x\n", fd->map_count,
 								fd->fd_stream_count);
+	if (g_user_param.is_secure == 1 & fd->fd_stream_count == 1) {
+		dev_info(fd->dev, "AIE SECURE MODE END!\n");
+		aie_disable_secure_domain(fd);
+		config_aie_cmdq_secure_end(fd);
+	}
 	mtk_aie_ccf_disable(fd->dev);
 	pm_runtime_put(fd->dev);
 	fd->fd_stream_count--;
