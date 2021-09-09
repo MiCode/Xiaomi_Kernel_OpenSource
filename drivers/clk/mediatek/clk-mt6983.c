@@ -1711,6 +1711,13 @@ static struct mtk_mux vlp_cksys_muxes[] = {
 		VLP_CKSYS_MUX_SRAMRC_SHIFT /* upd shift */),
 };
 
+
+#define HWV_CLK_CFG_20_SET		0x070
+#define HWV_CLK_CFG_20_CLR		0x074
+#define HWV_CLK_CFG_20_STA		0x1838
+#define HWV_CLK_CFG_21_SET		0x080
+#define HWV_CLK_CFG_21_CLR		0x084
+#define HWV_CLK_CFG_21_STA		0x1840
 static struct mtk_mux top_muxes[] = {
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_PERI_HD_FAXI_SEL /* dts */,
 		"peri_hd_faxi_sel", peri_hd_faxi_parents /* parents*/,
@@ -2198,27 +2205,32 @@ static struct mtk_mux top_muxes[] = {
 		0 /* lsb */, 1 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_AP2CONN_HOST_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_IMG1_SEL /* dts */,
+
+	MUX_HWV(CLK_TOP_IMG1_SEL /* dts */,
 		"img1_sel", img1_parents /* parents*/,
 		CLK_CFG_20, CLK_CFG_20_SET, CLK_CFG_20_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_20_STA, HWV_CLK_CFG_20_SET, HWV_CLK_CFG_20_CLR, /* sta/set/clr */
 		8 /* lsb */, 4 /* width */, 15 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_IMG1_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_IPE_SEL /* dts */,
+	MUX_HWV(CLK_TOP_IPE_SEL /* dts */,
 		"ipe_sel", ipe_parents /* parents*/,
 		CLK_CFG_20, CLK_CFG_20_SET, CLK_CFG_20_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_20_STA, HWV_CLK_CFG_20_SET, HWV_CLK_CFG_20_CLR, /* sta/set/clr */
 		16 /* lsb */, 4 /* width */, 23 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_IPE_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAM_SEL /* dts */,
+	MUX_HWV(CLK_TOP_CAM_SEL /* dts */,
 		"cam_sel", cam_parents /* parents*/,
 		CLK_CFG_20, CLK_CFG_20_SET, CLK_CFG_20_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_20_STA, HWV_CLK_CFG_20_SET, HWV_CLK_CFG_20_CLR, /* sta/set/clr */
 		24 /* lsb */, 4 /* width */, 31 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_CAM_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_CCUSYS_SEL /* dts */,
+	MUX_HWV(CLK_TOP_CCUSYS_SEL /* dts */,
 		"ccusys_sel", ccusys_parents /* parents*/,
 		CLK_CFG_21, CLK_CFG_21_SET, CLK_CFG_21_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_21_STA, HWV_CLK_CFG_21_SET, HWV_CLK_CFG_21_CLR, /* sta/set/clr */
 		0 /* lsb */, 3 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_CCUSYS_SHIFT /* upd shift */),
@@ -2810,7 +2822,7 @@ static struct mtk_gate top_clks[] = {
 #endif
 
 #define PLL(_id, _name, _reg, _en_reg, _div_en_msk, _pll_en_bit,	\
-			_pwr_reg,	 _flags, _rst_bar_mask,		\
+			_pwr_reg, _flags, _rst_bar_mask,		\
 			_pd_reg, _pd_shift, _tuner_reg,			\
 			_tuner_en_reg, _tuner_en_bit,			\
 			_pcw_reg, _pcw_shift, _pcwbits) {		\
@@ -2836,17 +2848,42 @@ static struct mtk_gate top_clks[] = {
 		.pcwibits = PLL_INTEGER_BITS,				\
 	}
 
-#define PLL_B(_id, _name, _reg, _div_en_msk, _pwr_reg, _flags,		\
-			_rst_bar_mask, _pd_reg, _pd_shift,		\
-			_tuner_reg, _tuner_en_reg, _tuner_en_bit,	\
-			_pcw_reg, _pcw_shift, _pcwbits)			\
-		PLL(_id, _name, _reg, 0, _div_en_msk, 0,		\
-			_pwr_reg,	 _flags, _rst_bar_mask,		\
+#define PLL_HV(_id, _name, _reg, _en_reg, _div_en_msk, _pll_en_bit,	\
+			_pwr_reg, _flags, _rst_bar_mask,		\
 			_pd_reg, _pd_shift, _tuner_reg,			\
 			_tuner_en_reg, _tuner_en_bit,			\
-			_pcw_reg, _pcw_shift, _pcwbits)
+			_pcw_reg, _pcw_shift, _pcwbits,	\
+			_hwv_set_ofs, _hwv_clr_ofs, _hwv_sta_ofs,	\
+			_hwv_shift) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.reg = _reg,						\
+		.en_reg = _en_reg,					\
+		.en_mask = _div_en_msk,					\
+		.pll_en_bit = _pll_en_bit,				\
+		.pwr_reg = _pwr_reg,					\
+		.flags = (_flags | PLL_CFLAGS | CLK_USE_HW_VOTER),	\
+		.rst_bar_mask = _rst_bar_mask,				\
+		.fmax = PLL_FMAX,					\
+		.fmin = PLL_FMIN,					\
+		.pd_reg = _pd_reg,					\
+		.pd_shift = _pd_shift,					\
+		.tuner_reg = _tuner_reg,				\
+		.tuner_en_reg = _tuner_en_reg,				\
+		.tuner_en_bit = _tuner_en_bit,				\
+		.pcw_reg = _pcw_reg,					\
+		.pcw_shift = _pcw_shift,				\
+		.pcwbits = _pcwbits,					\
+		.pcwibits = PLL_INTEGER_BITS,				\
+		.hwv_set_ofs = _hwv_set_ofs,	\
+		.hwv_clr_ofs = _hwv_clr_ofs,	\
+		.hwv_sta_ofs = _hwv_sta_ofs,	\
+		.hwv_shift = _hwv_shift,	\
+	}
 
-
+#define HWV_PLL_SET		0x190
+#define HWV_PLL_CLR		0x194
+#define HWV_PLL_STA		0x1404
 static const struct mtk_pll_data apmixedsys_plls[] = {
 	PLL(CLK_APMIXEDSYS_MAINPLL /* dts */,
 		"mainpll" /* name */,
@@ -2856,14 +2893,15 @@ static const struct mtk_pll_data apmixedsys_plls[] = {
 		MAINPLL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
 		MAINPLL_CON1, 0, 22 /* pcw */),
-	PLL(CLK_APMIXEDSYS_UNIVPLL /* dts */,
+	PLL_HV(CLK_APMIXEDSYS_UNIVPLL /* dts */,
 		"univpll" /* name */,
 		ARMPLL_LL_CON0 /* base */,
 		ARMPLL_LL_CON0, 0xff000000, 0 /* en_reg/div_en_msk/en_bit */,
 		ARMPLL_LL_CON3, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
 		ARMPLL_LL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
-		UNIVPLL_CON1, 0, 22 /* pcw */),
+		UNIVPLL_CON1, 0, 22 /* pcw */,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_STA, 1),
 	PLL(CLK_APMIXEDSYS_MSDCPLL /* dts */,
 		"msdcpll" /* name */,
 		MSDCPLL_CON0 /* base */,
@@ -2872,14 +2910,15 @@ static const struct mtk_pll_data apmixedsys_plls[] = {
 		MSDCPLL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
 		MSDCPLL_CON1, 0, 22 /* pcw */),
-	PLL(CLK_APMIXEDSYS_MMPLL /* dts */,
+	PLL_HV(CLK_APMIXEDSYS_MMPLL /* dts */,
 		"mmpll" /* name */,
 		ARMPLL_BL_CON0 /* base */,
 		ARMPLL_BL_CON0, 0xff000000, 0 /* en_reg/div_en_msk/en_bit */,
 		ARMPLL_BL_CON3, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
 		ARMPLL_BL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
-		MMPLL_CON1, 0, 22 /* pcw */),
+		MMPLL_CON1, 0, 22 /* pcw */,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_STA, 3),
 	PLL(CLK_APMIXEDSYS_ADSPPLL /* dts */,
 		"adsppll" /* name */,
 		ADSPPLL_CON0 /* base */,
@@ -2910,16 +2949,23 @@ static const struct mtk_pll_data apmixedsys_plls[] = {
 		APLL2_CON0, 0x00000000, 0 /* en_reg/div_en_msk/en_bit */,
 		APLL2_CON4, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
 		APLL2_CON1, 24 /* post div reg/bit */,
-		APLL1_TUNER_CON0, AP_PLL_CON3, 5 /* tuner */,
+		APLL2_TUNER_CON0, AP_PLL_CON3, 5 /* tuner */,
 		APLL2_CON2, 0, 32 /* pcw */),
-	PLL(CLK_APMIXEDSYS_IMGPLL /* dts */,
+	PLL(CLK_APMIXEDSYS_MPLL, "mpll", MPLL_CON0/*base*/,
+		MPLL_CON0, 0, 0/*en*/,
+		MPLL_CON3/*pwr*/, PLL_AO, BIT(0)/*rstb*/,
+		MPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		MPLL_CON1, 0, 22/*pcw*/),
+	PLL_HV(CLK_APMIXEDSYS_IMGPLL /* dts */,
 		"imgpll" /* name */,
 		IMGPLL_CON0 /* base */,
 		IMGPLL_CON0, 0x00000000, 0 /* en_reg/div_en_msk/en_bit */,
-		IMGPLL_CON3, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
+		IMGPLL_CON3, CLK_USE_HW_VOTER, BIT(0) /* pwr_reg/flag/rstb_bit */,
 		IMGPLL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
-		IMGPLL_CON1, 0, 22 /* pcw */),
+		IMGPLL_CON1, 0, 22 /* pcw */,
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_STA, 10),
 };
 
 
