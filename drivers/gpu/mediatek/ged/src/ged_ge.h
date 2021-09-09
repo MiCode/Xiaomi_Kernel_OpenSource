@@ -12,7 +12,7 @@
 /* Must be the same as item number in region_sizes[], which in
  * /vendor/mediatek/proprietary/hardware/gralloc_extra/ge_misc.cpp
  */
-#define GE_ALLOC_STRUCT_NUM 17
+#define GE_ALLOC_STRUCT_NUM 18
 
 GED_ERROR ged_ge_init(void);
 int ged_ge_exit(void);
