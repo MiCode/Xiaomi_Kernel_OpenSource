@@ -13052,6 +13052,9 @@
 	aod_scp: aod_scp {
 		compatible = "medaitek,aod_scp";
 	};
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+	};
 };
 
 &i2c6 {
