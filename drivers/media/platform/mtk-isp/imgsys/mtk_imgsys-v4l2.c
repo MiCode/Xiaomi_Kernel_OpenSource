@@ -1744,7 +1744,7 @@ static int mtkdip_ioc_s_init_info(struct v4l2_subdev *subdev, void *arg)
 	struct mtk_imgsys_pipe *pipe;
 
 	pipe = container_of(subdev, struct mtk_imgsys_pipe, subdev);
-	pipe->sec_tag = info->sec_tag;
+	pipe->init_info = *info;
 	/* TODO: HCP API */
 
 	pr_info("%s sensor_info width:%d height:%d\n", __func__,

@@ -204,7 +204,7 @@ struct mtk_imgsys_pipe {
 	//struct mutex job_lock;
 	const struct mtk_imgsys_pipe_desc *desc;
 	struct mtk_imgsys_dma_buf_iova_list iova_cache;
-	unsigned int sec_tag;
+	struct init_info init_info;
 };
 
 struct imgsys_event_status {
