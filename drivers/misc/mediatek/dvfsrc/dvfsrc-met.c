@@ -97,27 +97,13 @@ char **vcorefs_get_src_req_name(void)
 }
 EXPORT_SYMBOL(vcorefs_get_src_req_name);
 
-static DEFINE_RATELIMIT_STATE(tracelimit, 3 * HZ, 1);
-void vcorefs_trace_qos(struct mtk_dvfsrc_met *dvfsrc)
-{
-	if (__ratelimit(&tracelimit)) {
-		if (dvfsrc->dvfsrc_vcore_power)
-			regulator_set_voltage(dvfsrc->dvfsrc_vcore_power, 0, INT_MAX);
-		if (dvfsrc->bw_path)
-			icc_set_bw(dvfsrc->bw_path, 0, 0);
-		if (dvfsrc->hrt_path)
-			icc_set_bw(dvfsrc->hrt_path, 0, 0);
-	}
-}
-
 unsigned int *vcorefs_get_src_req(void)
 {
 	struct mtk_dvfsrc_met *dvfsrc = dvfsrc_drv;
 
-	if (dvfsrc) {
-		vcorefs_trace_qos(dvfsrc);
+	if (dvfsrc)
 		return dvfsrc->dvd->met->dvfsrc_get_src_req(dvfsrc);
-	}
+
 	return NULL;
 }
 EXPORT_SYMBOL(vcorefs_get_src_req);
