@@ -3388,35 +3388,6 @@ faile_release_msg_dev:
 }
 #endif
 
-static int mtk_cam_pm_suspend(struct device *dev)
-{
-	int ret;
-
-	dev_dbg(dev, "- %s\n", __func__);
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	ret = pm_runtime_force_suspend(dev);
-	if (ret)
-		dev_dbg(dev, "failed to force suspend:%d\n", ret);
-
-	return ret;
-}
-
-static int mtk_cam_pm_resume(struct device *dev)
-{
-	int ret;
-
-	dev_dbg(dev, "- %s\n", __func__);
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	ret = pm_runtime_force_resume(dev);
-	return ret;
-}
-
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "- %s\n", __func__);
@@ -4957,7 +4928,6 @@ static int mtk_cam_remove(struct platform_device *pdev)
 }
 
 static const struct dev_pm_ops mtk_cam_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(mtk_cam_pm_suspend, mtk_cam_pm_resume)
 	SET_RUNTIME_PM_OPS(mtk_cam_runtime_suspend, mtk_cam_runtime_resume,
 			   NULL)
 };

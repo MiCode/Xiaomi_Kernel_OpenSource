@@ -284,6 +284,9 @@ struct mtk_raw_device {
 	unsigned int num_clks;
 	struct clk **clks;
 	struct mtk_raw_pipeline *pipeline;
+#ifdef CONFIG_PM_SLEEP
+	struct notifier_block pm_notifier;
+#endif
 	spinlock_t spinlock_irq;
 	u64 sof_count;
 	u64 setting_count;
@@ -302,6 +305,9 @@ struct mtk_yuv_device {
 	void __iomem *base;
 	unsigned int num_clks;
 	struct clk **clks;
+#ifdef CONFIG_PM_SLEEP
+	struct notifier_block pm_notifier;
+#endif
 };
 /*
  * struct mtk_raw - the raw information
