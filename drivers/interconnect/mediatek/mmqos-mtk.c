@@ -141,6 +141,9 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 		avg_bw += comm_port_node->latest_avg_bw;
 		normalize_peak_bw = (comm_port_node->latest_peak_bw
 				& ~(MTK_MMQOS_MAX_BW));
+		normalize_peak_bw = MULTIPLY_RATIO(normalize_peak_bw)
+						/ mtk_mmqos_get_hrt_ratio(
+						comm_port_node->hrt_type);
 		peak_bw += normalize_peak_bw;
 		set_chn_bw(chn_hrt_bw, comm_port_node->channel,
 			       normalize_peak_bw);
@@ -175,14 +178,16 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 	struct common_node *comm_node;
 	struct common_port_node *comm_port;
 	u32 hrt_bw[HRT_TYPE_NUM] = {0};
-	u32 i;
+	u32 i, normalize_peak_bw;
 
 	list_for_each_entry(comm_node, &mmqos->comm_list, list) {
 		list_for_each_entry(comm_port,
 				    &comm_node->comm_port_list, list) {
 			if (comm_port->hrt_type != HRT_NONE) {
 				mutex_lock(&comm_port->bw_lock);
-				hrt_bw[comm_port->hrt_type] += icc_to_MBps(comm_port->latest_peak_bw);
+				normalize_peak_bw = (comm_port->latest_peak_bw
+							& ~(MTK_MMQOS_MAX_BW));
+				hrt_bw[comm_port->hrt_type] += icc_to_MBps(normalize_peak_bw);
 				mutex_unlock(&comm_port->bw_lock);
 			}
 		}
@@ -221,9 +226,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			break;
 		mutex_lock(&comm_port_node->bw_lock);
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
-		comm_port_node->latest_peak_bw = MULTIPLY_RATIO(dst->peak_bw)
-						/ mtk_mmqos_get_hrt_ratio(
-						comm_port_node->hrt_type);
+		comm_port_node->latest_peak_bw = dst->peak_bw;
 		comm_port_node->latest_avg_bw = dst->avg_bw;
 		if (mmqos_state & BWL_ENABLE)
 			mmqos_update_comm_bw(comm_port_node->larb_dev,
