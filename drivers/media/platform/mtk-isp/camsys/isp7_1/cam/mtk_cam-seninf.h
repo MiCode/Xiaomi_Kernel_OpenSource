@@ -164,6 +164,8 @@ struct seninf_ctx {
 	int settle_delay_ck;
 	int hs_trail_parameter;
 
+	int open_refcnt;
+	struct mutex mutex;
 };
 
 #endif

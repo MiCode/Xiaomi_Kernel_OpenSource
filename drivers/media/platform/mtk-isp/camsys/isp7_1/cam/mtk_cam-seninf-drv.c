@@ -1214,6 +1214,50 @@ static const struct v4l2_ctrl_ops seninf_ctrl_ops = {
 	.s_ctrl = mtk_cam_seninf_set_ctrl,
 };
 
+static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+
+	mutex_lock(&ctx->mutex);
+	ctx->open_refcnt++;
+
+	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
+
+	mutex_unlock(&ctx->mutex);
+
+	return 0;
+}
+
+static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+
+	mutex_lock(&ctx->mutex);
+	ctx->open_refcnt--;
+
+	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
+
+	if (!ctx->open_refcnt) {
+#ifdef SENINF_DEBUG
+		if (ctx->is_test_streamon)
+			seninf_test_streamon(ctx, 0);
+		else if (ctx->streaming)
+#else
+		if (ctx->streaming)
+#endif
+			seninf_s_stream(&ctx->subdev, 0);
+	}
+
+	mutex_unlock(&ctx->mutex);
+
+	return 0;
+}
+
+static const struct v4l2_subdev_internal_ops seninf_internal_ops = {
+	.open = seninf_open,
+	.close = seninf_close,
+};
+
 static const char * const seninf_test_pattern_menu[] = {
 	"Disabled",
 	"generate_test_pattern",
@@ -1227,6 +1271,7 @@ static const struct v4l2_ctrl_config cfg_test_streamon = {
 	.id = V4L2_CID_MTK_TEST_STREAMON,
 	.name = "test_streamon",
 	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 1,
 	.step = 1,
 };
@@ -1305,6 +1350,7 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd->entity.ops = &seninf_media_ops;
+	sd->internal_ops = &seninf_internal_ops;
 
 	pads[PAD_SINK].flags = MEDIA_PAD_FL_SINK;
 	for (i = PAD_SRC_RAW0; i < PAD_MAXCNT; i++)
@@ -1404,6 +1450,9 @@ static int seninf_probe(struct platform_device *pdev)
 	list_add(&ctx->list, &core->list);
 	INIT_LIST_HEAD(&ctx->list_mux);
 	INIT_LIST_HEAD(&ctx->list_cam_mux);
+
+	ctx->open_refcnt = 0;
+	mutex_init(&ctx->mutex);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {
@@ -1545,6 +1594,8 @@ static int seninf_remove(struct platform_device *pdev)
 	component_del(dev, &seninf_comp_ops);
 
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
+
+	mutex_destroy(&ctx->mutex);
 
 	dev_info(dev, "%s\n", __func__);
 
