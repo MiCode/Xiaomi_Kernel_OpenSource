@@ -57,6 +57,29 @@
 
 #define PD_PIX_2_EN 0
 
+#define _I2C_BUF_SIZE 256
+static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
+static unsigned int _size_to_write;
+
+static void commit_write_sensor(struct subdrv_ctx *ctx)
+{
+	if (_size_to_write) {
+		imx766_table_write_cmos_sensor_8(ctx, _i2c_data, _size_to_write);
+		memset(_i2c_data, 0x0, sizeof(_i2c_data));
+		_size_to_write = 0;
+	}
+}
+
+static void set_cmos_sensor_8(struct subdrv_ctx *ctx,
+			kal_uint16 reg, kal_uint16 val)
+{
+	if (_size_to_write > _I2C_BUF_SIZE - 2)
+		commit_write_sensor(ctx);
+
+	_i2c_data[_size_to_write++] = reg;
+	_i2c_data[_size_to_write++] = val;
+}
+
 static kal_uint8 qsc_flag;
 static kal_uint8 otp_flag;
 
@@ -800,13 +823,13 @@ static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
 
 	if (ctx->extend_frame_length_en == KAL_FALSE) {
 		LOG_INF("fll %d exp_cnt %d\n", ctx->frame_length, exp_cnt);
-		write_cmos_sensor_8(ctx, 0x0340, ctx->frame_length / exp_cnt >> 8);
-		write_cmos_sensor_8(ctx, 0x0341, ctx->frame_length / exp_cnt & 0xFF);
+		set_cmos_sensor_8(ctx, 0x0340, ctx->frame_length / exp_cnt >> 8);
+		set_cmos_sensor_8(ctx, 0x0341, ctx->frame_length / exp_cnt & 0xFF);
 	}
 
 	if (ctx->fast_mode_on == KAL_TRUE) {
 		ctx->fast_mode_on = KAL_FALSE;
-		write_cmos_sensor_8(ctx, 0x3010, 0x00);
+		set_cmos_sensor_8(ctx, 0x3010, 0x00);
 	}
 }
 
@@ -817,7 +840,11 @@ static void set_dummy(struct subdrv_ctx *ctx)
 		ctx->dummy_line, ctx->dummy_pixel);
 
 	/* return;*/ /* for test */
+	set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	write_frame_len(ctx, ctx->frame_length);
+	set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 }	/*	set_dummy  */
 
@@ -873,7 +900,6 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate, kal_bool
 	}
 	if (min_framelength_en)
 		ctx->min_frame_length = ctx->frame_length;
-	set_dummy(ctx);
 }	/*	set_max_framerate  */
 
 #define MAX_CIT_LSHIFT 7
@@ -894,7 +920,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 		shutter = imgsensor_info.min_shutter;
 
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	if (ctx->autoflicker_en) {
 		realtime_fps = ctx->pclk / ctx->line_length * 10
 				/ ctx->frame_length;
@@ -925,25 +951,28 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 		shutter = shutter >> l_shift;
 		ctx->frame_length = shutter + imgsensor_info.margin;
 		LOG_INF("enter long exposure mode, time is %d", l_shift);
-		write_cmos_sensor_8(ctx, 0x3100,
+		set_cmos_sensor_8(ctx, 0x3100,
 			read_cmos_sensor_16(ctx, 0x3100) | (l_shift & 0x7));
 		/* Frame exposure mode customization for LE*/
 		ctx->ae_frm_mode.frame_mode_1 = IMGSENSOR_AE_MODE_SE;
 		ctx->ae_frm_mode.frame_mode_2 = IMGSENSOR_AE_MODE_SE;
 		ctx->current_ae_effective_frame = 2;
 	} else {
-		write_cmos_sensor_8(ctx, 0x3100, read_cmos_sensor_16(ctx, 0x3100) & 0xf8);
+		set_cmos_sensor_8(ctx, 0x3100, read_cmos_sensor_16(ctx, 0x3100) & 0xf8);
 		write_frame_len(ctx, ctx->frame_length);
 		ctx->current_ae_effective_frame = 2;
 		LOG_INF("set frame_length\n");
 	}
 
 	/* Update Shutter */
-	write_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
-	write_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0203, shutter  & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
+	set_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0203, shutter  & 0xFF);
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x00);
+		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
+
 
 	LOG_INF("shutter =%d, framelength =%d\n",
 		shutter, ctx->frame_length);
@@ -1017,7 +1046,7 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 	(shutter > (imgsensor_info.max_frame_length - imgsensor_info.margin))
 	? (imgsensor_info.max_frame_length - imgsensor_info.margin) : shutter;
 
-	write_cmos_sensor_8(ctx, 0x0104, 0x01);
+	set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	if (ctx->autoflicker_en) {
 		realtime_fps = ctx->pclk
 			/ ctx->line_length * 10 / ctx->frame_length;
@@ -1026,23 +1055,19 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 			set_max_framerate(ctx, 296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
-		else {
-			/* Extend frame length */
-			write_frame_len(ctx, ctx->frame_length);
-		}
-	} else {
-		/* Extend frame length */
-		write_frame_len(ctx, ctx->frame_length);
 	}
+	write_frame_len(ctx, ctx->frame_length);
 
 	/* Update Shutter */
 	if (auto_extend_en)
-		write_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
+		set_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
 	else
-		write_cmos_sensor_8(ctx, 0x0350, 0x00); /* Disable auto extend */
-	write_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0203, shutter & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0104, 0x00);
+		set_cmos_sensor_8(ctx, 0x0350, 0x00); /* Disable auto extend */
+	set_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0203, shutter & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 	LOG_INF(
 		"Exit! shutter =%d, framelength =%d/%d, dummy_line=%d, auto_extend=%d\n",
@@ -1117,11 +1142,13 @@ static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bo
 	LOG_INF("gain = %d, reg_gain = 0x%x\n ", gain, reg_gain);
 
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x01);
-	write_cmos_sensor_8(ctx, 0x0204, (reg_gain>>8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0205, reg_gain & 0xFF);
+		set_cmos_sensor_8(ctx, 0x0104, 0x01);
+	set_cmos_sensor_8(ctx, 0x0204, (reg_gain>>8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0205, reg_gain & 0xFF);
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x00);
+		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 	return gain;
 }
@@ -1154,9 +1181,11 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 
 	ctx->frame_length = (per_frame_ms + (ns / 1000000)) * ctx->frame_length / per_frame_ms;
 
-	write_cmos_sensor_8(ctx, 0x0104, 0x01);
+	set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	write_frame_len(ctx, ctx->frame_length);
-	write_cmos_sensor_8(ctx, 0x0104, 0x00);
+	set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 	ctx->extend_frame_length_en = KAL_TRUE;
 
@@ -1439,7 +1468,7 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		le, me, se, ctx->autoflicker_en, ctx->frame_length);
 
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 
 	if (ctx->autoflicker_en) {
 		realtime_fps =
@@ -1449,26 +1478,26 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 			set_max_framerate(ctx, 296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
-		else
-			write_frame_len(ctx, ctx->frame_length);
-	} else
-		write_frame_len(ctx, ctx->frame_length);
+	}
+	write_frame_len(ctx, ctx->frame_length);
 
 	/* Long exposure */
-	write_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
 	/* Muddle exposure */
 	if (me != 0) {
 		/*MID_COARSE_INTEG_TIME[15:8]*/
-		write_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
+		set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
 		/*MID_COARSE_INTEG_TIME[7:0]*/
-		write_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
+		set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
 	}
 	/* Short exposure */
-	write_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x00);
+		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 	LOG_INF("L! le:0x%x, me:0x%x, se:0x%x\n", le, me, se);
 }
@@ -1493,20 +1522,22 @@ static void hdr_write_tri_gain_w_gph(struct subdrv_ctx *ctx,
 
 	ctx->gain = reg_lg;
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	/* Long Gian */
-	write_cmos_sensor_8(ctx, 0x0204, (reg_lg>>8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0205, reg_lg & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0204, (reg_lg>>8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0205, reg_lg & 0xFF);
 	/* Middle Gian */
 	if (mg != 0) {
-		write_cmos_sensor_8(ctx, 0x313C, (reg_mg>>8) & 0xFF);
-		write_cmos_sensor_8(ctx, 0x313D, reg_mg & 0xFF);
+		set_cmos_sensor_8(ctx, 0x313C, (reg_mg>>8) & 0xFF);
+		set_cmos_sensor_8(ctx, 0x313D, reg_mg & 0xFF);
 	}
 	/* Short Gian */
-	write_cmos_sensor_8(ctx, 0x0216, (reg_sg>>8) & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0217, reg_sg & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0216, (reg_sg>>8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0217, reg_sg & 0xFF);
 	if (gph)
-		write_cmos_sensor_8(ctx, 0x0104, 0x00);
+		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 	LOG_INF(
 		"lg:0x%x, reg_lg:0x%x, mg:0x%x, reg_mg:0x%x, sg:0x%x, reg_sg:0x%x\n",
@@ -2430,9 +2461,8 @@ static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 		ctx->current_fps = 146;
 	else
 		ctx->current_fps = framerate;
-	write_cmos_sensor_8(ctx, 0x0104, 0x01);
 	set_max_framerate(ctx, ctx->current_fps, 1);
-	write_cmos_sensor_8(ctx, 0x0104, 0x00);
+	set_dummy(ctx);
 
 	return ERROR_NONE;
 }
@@ -2465,11 +2495,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.pre.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		if (ctx->current_fps != imgsensor_info.cap.max_framerate)
@@ -2495,11 +2522,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.cap.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		if (framerate == 0)
@@ -2515,11 +2539,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.normal_video.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		frame_length = imgsensor_info.hs_video.pclk / framerate * 10
@@ -2532,11 +2553,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.hs_video.framelength
 				+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		frame_length = imgsensor_info.slim_video.pclk / framerate * 10
@@ -2549,11 +2567,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.slim_video.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 		frame_length = imgsensor_info.custom1.pclk / framerate * 10
@@ -2566,11 +2581,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom1.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
 		frame_length = imgsensor_info.custom2.pclk / framerate * 10
@@ -2583,11 +2595,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom2.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 		frame_length = imgsensor_info.custom3.pclk / framerate * 10
@@ -2600,11 +2609,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom3.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM4:
 		frame_length = imgsensor_info.custom4.pclk / framerate * 10
@@ -2617,11 +2623,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom4.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM5:
 		frame_length = imgsensor_info.custom5.pclk / framerate * 10
@@ -2634,11 +2637,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom5.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM6:
 		frame_length = imgsensor_info.custom6.pclk / framerate * 10
@@ -2651,11 +2651,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom6.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM7:
 		frame_length = imgsensor_info.custom7.pclk / framerate * 10
@@ -2668,11 +2665,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom7.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM8:
 		frame_length = imgsensor_info.custom8.pclk / framerate * 10
@@ -2685,11 +2679,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom8.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM9:
 		frame_length = imgsensor_info.custom9.pclk / framerate * 10
@@ -2702,11 +2693,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom9.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM10:
 		frame_length = imgsensor_info.custom10.pclk / framerate * 10
@@ -2719,11 +2707,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom10.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM11:
 		frame_length = imgsensor_info.custom11.pclk / framerate * 10
@@ -2736,11 +2721,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom11.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM12:
 		frame_length = imgsensor_info.custom12.pclk / framerate * 10
@@ -2753,11 +2735,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom12.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 		frame_length = imgsensor_info.custom13.pclk / framerate * 10
@@ -2770,11 +2749,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom13.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		break;
 	default:  /*coding with  preview scenario by default*/
 		frame_length = imgsensor_info.pre.pclk / framerate * 10
@@ -2785,11 +2761,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->frame_length =
 			imgsensor_info.pre.framelength + ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter) {
-			write_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-			write_cmos_sensor_8(ctx, 0x0104, 0x00);
-		}
 		LOG_INF("error scenario_id = %d, we use preview scenario\n",
 			scenario_id);
 		break;
