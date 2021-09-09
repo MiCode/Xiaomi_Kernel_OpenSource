@@ -575,10 +575,19 @@ EXPORT_SYMBOL_GPL(is_vcp_ready);
  */
 int reset_vcp(int reset)
 {
+	struct arm_smccc_res res;
+	unsigned long onoff;
+
 	mutex_lock(&vcp_A_notify_mutex);
 	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
 		NULL);
 	mutex_unlock(&vcp_A_notify_mutex);
+
+	/* Turn off MMuP security */
+	onoff = 0;
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_CONTROL,
+		onoff, 0, 0, 0, 0, 0, 0, &res);
+	/* To Do: fixed L2/L3 timing & enable */
 
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
@@ -616,6 +625,12 @@ static int vcp_pm_event(struct notifier_block *notifier
 	case PM_SUSPEND_PREPARE:
 		pr_debug("[VCP] PM_SUSPEND_PREPARE entered\n");
 		if (is_vcp_ready(VCP_A_ID)) {
+			retval = disable_irq_wake(vcpreg.irq0);
+			if (retval < 0)
+				pr_notice("[VCP] disable wdt fail:%d,%d\n",
+					vcpreg.irq0, retval);
+			disable_irq(vcpreg.irq0);
+
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
 			wait_vcp_wdt_irq_done();
@@ -642,6 +657,12 @@ static int vcp_pm_event(struct notifier_block *notifier
 		retval  = clk_prepare_enable(vcppll);
 		if (retval)
 			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+
+		enable_irq(vcpreg.irq0);
+		retval = enable_irq_wake(vcpreg.irq0);
+		if (retval < 0)
+			pr_notice("[VCP] wdt wake fail:%d,%d\n",
+				vcpreg.irq0, retval);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -1551,42 +1572,6 @@ unsigned int vcp_set_reset_status(void)
 	return 0;
 }
 
-/******************************************************************************
- *****************************************************************************/
-void print_clk_registers(void)
-{
-	void __iomem *cfg = vcpreg.cfg;
-	void __iomem *clkctrl = vcpreg.clkctrl;
-	void __iomem *cfg_core0 = vcpreg.cfg_core0;
-	void __iomem *cfg_core1 = vcpreg.cfg_core1;
-
-	unsigned int offset;
-	unsigned int value;
-
-	// 0x24000 ~ 0x24160 (inclusive)
-	for (offset = 0x0000; offset <= 0x0160; offset += 4) {
-		value = (unsigned int)readl(cfg + offset);
-		pr_notice("[VCP] cfg[0x%04x]: 0x%08x\n", offset, value);
-	}
-	// 0x21000 ~ 0x210120 (inclusive)
-	for (offset = 0x0000; offset < 0x0120; offset += 4) {
-		value = (unsigned int)readl(clkctrl + offset);
-		pr_notice("[VCP] clk[0x%04x]: 0x%08x\n", offset, value);
-	}
-	// 0x30000 ~ 0x30114 (inclusive)
-	for (offset = 0x0000; offset <= 0x0114; offset += 4) {
-		value = (unsigned int)readl(cfg_core0 + offset);
-		pr_notice("[VCP] cfg_core0[0x%04x]: 0x%08x\n", offset, value);
-	}
-	if (vcpreg.core_nums == 1)
-		return;
-	// 0x40000 ~ 0x40114 (inclusive)
-	for (offset = 0x0000; offset <= 0x0114; offset += 4) {
-		value = (unsigned int)readl(cfg_core1 + offset);
-		pr_notice("[VCP] cfg_core1[0x%04x]: 0x%08x\n", offset, value);
-	}
-
-}
 
 /*
  * callback function for work struct
@@ -1617,8 +1602,6 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	/* wake lock AP*/
 	__pm_stay_awake(vcp_reset_lock);
 
-	/* print_clk and vcp_aed before pll enable to keep ori CLK_SEL */
-	print_clk_registers();
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
 	if (vcp_reset_by_cmd == 0) {
 		pr_debug("[VCP] %s(): vcp_aed_reset\n", __func__);

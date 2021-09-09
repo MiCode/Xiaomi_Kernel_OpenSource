@@ -1520,15 +1520,10 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			mtk_venc_queue_error_event(ctx);
 			return -EINVAL;
 		}
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-		dev	= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-		if (!dev)
-			dev = &ctx->dev->plat_dev->dev;
-#endif
-#else
-		dev	= &ctx->dev->plat_dev->dev;
-#endif
+
+		dev = ctx->m2m_ctx->cap_q_ctx.q.dev;
+		/* use vcp & vcu compatible access device */
+
 		mtkbuf->frm_buf.qpmap_dma_att = dma_buf_attach(mtkbuf->frm_buf.qpmap_dma,
 			dev);
 		mtkbuf->frm_buf.qpmap_sgt = dma_buf_map_attachment(mtkbuf->frm_buf.qpmap_dma_att,
@@ -1564,15 +1559,9 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			return -EINVAL;
 		}
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-		dev	= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-		if (!dev)
-			dev = &ctx->dev->plat_dev->dev;
-#endif
-#else
-		dev	= &ctx->dev->plat_dev->dev;
-#endif
+		dev = ctx->m2m_ctx->cap_q_ctx.q.dev;
+		/* use vcp & vcu compatible access device */
+
 		meta_buf_att = dma_buf_attach(mtkbuf->frm_buf.metabuffer_dma,
 			dev);
 		meta_sgt = dma_buf_map_attachment(meta_buf_att, DMA_TO_DEVICE);
