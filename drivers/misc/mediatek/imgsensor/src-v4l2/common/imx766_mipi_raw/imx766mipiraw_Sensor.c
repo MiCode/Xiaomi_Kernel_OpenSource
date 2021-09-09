@@ -55,6 +55,8 @@
 #define PFX "IMX766_camera_sensor"
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 
+#define PD_PIX_2_EN 0
+
 static kal_uint8 qsc_flag;
 static kal_uint8 otp_flag;
 
@@ -414,6 +416,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
+#endif
 		},
 		1
 	},
@@ -422,6 +427,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
+#endif
 		},
 		1
 	},
@@ -430,6 +438,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x240},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x240},
+#endif
 		},
 		1
 	},
@@ -438,6 +449,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x480},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x120},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x500, 0x120},
+#endif
 		},
 		1
 	},
@@ -446,6 +460,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
+#endif
 		},
 		1
 	},
@@ -454,6 +471,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
+#endif
 		},
 		1
 	},
@@ -462,6 +482,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x240},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x240},
+#endif
 		},
 		1
 	},
@@ -470,6 +493,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x2000, 0x1800},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x1400, 0x600},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x1400, 0x600},
+#endif
 		},
 		1
 	},
@@ -479,7 +505,13 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0x900},
 			{VC_STAGGER_ME, 0x01, 0x2b, 0x1000, 0x900},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x240},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x240},
+#endif
 			{VC_PDAF_STATS_ME_PIX_1, 0x00, 0x30, 0xa00, 0x240},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_ME_PIX_2, 0x00, 0x31, 0xa00, 0x240},
+#endif
 		},
 		1
 	},
@@ -488,6 +520,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x480},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x120},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x500, 0x120},
+#endif
 		},
 		1
 	},
@@ -503,6 +538,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xc00},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0xa00, 0x300},
+#if PD_PIX_2_EN
+			{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0xa00, 0x300},
+#endif
 		},
 		1
 	},
@@ -3671,6 +3709,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
@@ -3692,6 +3741,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
@@ -3713,6 +3773,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0240,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_hs[] = {
@@ -3734,6 +3805,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0500,
+			.vsize = 0x0120,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_slim[] = {
@@ -3755,6 +3837,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
@@ -3776,6 +3869,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
@@ -3797,6 +3901,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0240,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
@@ -3818,6 +3933,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x1400,
+			.vsize = 0x0600,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
@@ -3848,6 +3974,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0240,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 	{
 		.bus.csi2 = {
 			.channel = 1,
@@ -3857,6 +3994,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
 	{
 		.bus.csi2 = {
 			.channel = 1,
@@ -3866,6 +4004,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.user_data_desc = VC_PDAF_STATS_ME_PIX_2,
 		},
 	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
@@ -3887,6 +4026,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0500,
+			.vsize = 0x0120,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
@@ -3920,6 +4070,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if PD_PIX_2_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x31,
+			.hsize = 0x0a00,
+			.vsize = 0x0300,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_2,
+		},
+	},
+#endif
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
