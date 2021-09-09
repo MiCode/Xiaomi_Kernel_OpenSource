@@ -372,7 +372,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 				mem->flags, dev_name(dev));
 	}
 	if (mem->flags & (1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE))
-		uncached = true;
+		uncached = false;
 	else
 		uncached = true;
 
