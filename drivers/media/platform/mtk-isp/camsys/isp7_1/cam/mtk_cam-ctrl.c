@@ -1632,10 +1632,11 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 	}
 }
 
-static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
-				       struct mtk_cam_ctx *ctx,
-				       unsigned int dequeued_frame_seq_no)
+static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
+			      unsigned int dequeued_frame_seq_no,
+			      unsigned int pipe_id)
 {
+	struct mtk_raw_device *raw_dev = NULL;
 	struct mtk_camsys_ctrl_state *state_temp, *state_inner = NULL;
 	struct mtk_camsys_ctrl_state *state_sensor = NULL;
 	struct mtk_cam_request *req;
@@ -1648,6 +1649,18 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
 	int dequeue_cnt;
+
+	spin_lock_irqsave(&ctx->streaming_lock, flags);
+	if (!ctx->streaming) {
+		dev_dbg(ctx->cam->dev,
+			 "%s: skip frame done for stream off ctx:%d\n",
+			 __func__, ctx->stream_id);
+		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+
+	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
@@ -1690,8 +1703,8 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 
-	spin_lock(&ctx->m2m_lock);
 	dequeue_cnt = mtk_cam_dequeue_req_frame(ctx, dequeued_frame_seq_no, ctx->stream_id);
+	complete(&ctx->m2m_complete);
 
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
@@ -1705,7 +1718,6 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
 			ctx->composed_buffer_list.cnt);
 		spin_unlock(&ctx->composed_buffer_list.lock);
-		spin_unlock(&ctx->m2m_lock);
 	} else {
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
@@ -1723,7 +1735,6 @@ static void mtk_camsys_raw_m2m_frame_done(struct mtk_raw_device *raw_dev,
 			ctx->processing_buffer_list.cnt);
 
 		spin_unlock(&ctx->processing_buffer_list.lock);
-		spin_unlock(&ctx->m2m_lock);
 
 		base_addr = buf_entry->buffer.iova;
 
@@ -2737,6 +2748,35 @@ static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 	queue_work(ctx->frame_done_wq, &meta1_done_work->work);
 }
 
+void mtk_camsys_m2m_frame_done(struct mtk_cam_ctx *ctx,
+							unsigned int frame_seq_no,
+							unsigned int pipe_id)
+{
+	struct mtk_cam_request *req;
+	struct mtk_cam_req_work *frame_done_work;
+	struct mtk_cam_request_stream_data *req_stream_data;
+
+	req_stream_data = mtk_cam_get_req_s_data(ctx, pipe_id, frame_seq_no);
+	if (req_stream_data) {
+		req = mtk_cam_s_data_get_req(req_stream_data);
+	} else {
+		dev_dbg(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
+				__func__, ctx->stream_id, pipe_id, frame_seq_no);
+		return;
+	}
+
+	if (atomic_read(&req_stream_data->frame_done_work.is_queued)) {
+		dev_info(ctx->cam->dev,
+			"already queue done work %d\n", req_stream_data->frame_seq_no);
+		return;
+	}
+
+	atomic_set(&req_stream_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+	atomic_set(&req_stream_data->frame_done_work.is_queued, 1);
+	frame_done_work = &req_stream_data->frame_done_work;
+	queue_work(ctx->frame_done_wq, &frame_done_work->work);
+}
+
 void mtk_cam_frame_done_work(struct work_struct *work)
 {
 	struct mtk_cam_req_work *frame_done_work = (struct mtk_cam_req_work *)work;
@@ -2745,7 +2785,13 @@ void mtk_cam_frame_done_work(struct work_struct *work)
 
 	req_stream_data = mtk_cam_req_work_get_s_data(frame_done_work);
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
-	mtk_cam_handle_frame_done(ctx,
+
+	if (mtk_cam_is_m2m(ctx))
+		mtk_cam_handle_m2m_frame_done(ctx,
+				  req_stream_data->frame_seq_no,
+				  req_stream_data->pipe_id);
+	else
+		mtk_cam_handle_frame_done(ctx,
 				  req_stream_data->frame_seq_no,
 				  req_stream_data->pipe_id);
 }
@@ -3194,8 +3240,8 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 		/* raw's SW done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 			if (mtk_cam_is_m2m(ctx)) {
-				mtk_camsys_raw_m2m_frame_done(raw_dev, ctx,
-						   irq_info->frame_inner_idx);
+				mtk_camsys_m2m_frame_done(ctx, irq_info->frame_inner_idx,
+					ctx->stream_id);
 			} else
 				mtk_camsys_frame_done(ctx, ctx->dequeued_frame_seq_no,
 					ctx->stream_id);

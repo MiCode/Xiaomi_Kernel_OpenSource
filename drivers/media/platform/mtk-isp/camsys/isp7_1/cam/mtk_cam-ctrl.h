@@ -187,6 +187,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */
 void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx); /* ctx_stream_off */
 void mtk_cam_req_seninf_change(struct mtk_cam_request *req);
 void mtk_cam_frame_done_work(struct work_struct *work);
+void mtk_cam_m2m_done_work(struct work_struct *work);
 void mtk_cam_meta1_done_work(struct work_struct *work);
 void mtk_cam_sv_work(struct work_struct *work);
 void mtk_cam_m2m_enter_cq_state(struct mtk_camsys_ctrl_state *ctrl_state);

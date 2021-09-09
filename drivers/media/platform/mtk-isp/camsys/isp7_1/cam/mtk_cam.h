@@ -346,6 +346,7 @@ struct mtk_cam_ctx {
 	struct workqueue_struct *sv_wq;
 
 	struct completion session_complete;
+	struct completion m2m_complete;
 	int session_created;
 
 	struct rpmsg_channel_info rpmsg_channel;
@@ -384,7 +385,6 @@ struct mtk_cam_ctx {
 	unsigned int mraw_dequeued_frame_seq_no[MAX_MRAW_PIPES_PER_STREAM];
 
 	spinlock_t streaming_lock;
-	spinlock_t m2m_lock;
 	spinlock_t first_cq_lock;
 
 	struct mtk_cam_hsf_ctrl *hsf;
