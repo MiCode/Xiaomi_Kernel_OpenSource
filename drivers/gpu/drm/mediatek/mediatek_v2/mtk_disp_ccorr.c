@@ -56,27 +56,80 @@
 static unsigned int g_ccorr_8bit_switch[DISP_CCORR_TOTAL];
 static unsigned int g_ccorr_relay_value[DISP_CCORR_TOTAL];
 
-#define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : 1)
+#define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : \
+		((module == DDP_COMPONENT_CCORR1) ? 1 : \
+		((module == DDP_COMPONENT_CCORR2) ? 2 : 3)))
 
 static bool bypass_color0, bypass_color1;
 
 static atomic_t g_ccorr_is_clock_on[DISP_CCORR_TOTAL] = {
-	ATOMIC_INIT(0), ATOMIC_INIT(0) };
+	ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0) };
 
 static struct DRM_DISP_CCORR_COEF_T *g_disp_ccorr_coef[DISP_CCORR_TOTAL] = {
 	NULL };
-static int g_ccorr_color_matrix[3][3] = {
-	{1024, 0, 0},
-	{0, 1024, 0},
-	{0, 0, 1024} };
-static int g_ccorr_prev_matrix[3][3] = {
-	{1024, 0, 0},
-	{0, 1024, 0},
-	{0, 0, 1024} };
-static int g_rgb_matrix[3][3] = {
-	{1024, 0, 0},
-	{0, 1024, 0},
-	{0, 0, 1024} };
+static int g_ccorr_color_matrix[DISP_CCORR_TOTAL][3][3] = {
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	} };
+static int g_ccorr_prev_matrix[DISP_CCORR_TOTAL][3][3] = {
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	} };
+static int g_rgb_matrix[DISP_CCORR_TOTAL][3][3] = {
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	},
+	{
+		{1024, 0, 0},
+		{0, 1024, 0},
+		{0, 0, 1024}
+	} };
 static struct DRM_DISP_CCORR_COEF_T g_multiply_matrix_coef;
 static int g_disp_ccorr_without_gamma;
 
@@ -245,9 +298,9 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 	//if (id == 0) {
 		multiply_matrix = &g_multiply_matrix_coef;
-		disp_ccorr_multiply_3x3(ccorr->coef, g_ccorr_color_matrix,
+		disp_ccorr_multiply_3x3(ccorr->coef, g_ccorr_color_matrix[id],
 			temp_matrix);
-		disp_ccorr_multiply_3x3(temp_matrix, g_rgb_matrix,
+		disp_ccorr_multiply_3x3(temp_matrix, g_rgb_matrix[id],
 			multiply_matrix->coef);
 		ccorr = multiply_matrix;
 
@@ -681,16 +734,16 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	for (i = 0; i < 3; i++) {
 		for (j = 0; j < 3; j++) {
 			/* Copy Color Matrix */
-			g_ccorr_color_matrix[i][j] = matrix[j*4 + i];
+			g_ccorr_color_matrix[id][i][j] = matrix[j*4 + i];
 
 			/* early jump out */
 			if (ccorr_without_gamma == 1)
 				continue;
 
-			if (i == j && g_ccorr_color_matrix[i][j] != 1024) {
+			if (i == j && g_ccorr_color_matrix[id][i][j] != 1024) {
 				ccorr_without_gamma = 1;
 				identity_matrix = false;
-			} else if (i != j && g_ccorr_color_matrix[i][j] != 0) {
+			} else if (i != j && g_ccorr_color_matrix[id][i][j] != 0) {
 				ccorr_without_gamma = 1;
 				identity_matrix = false;
 			}
@@ -754,9 +807,9 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	for (i = 0; i < 3; i += 1) {
 		DDPDBG("g_ccorr_color_matrix[%d][0-2] = {%d, %d, %d}\n",
 				i,
-				g_ccorr_color_matrix[i][0],
-				g_ccorr_color_matrix[i][1],
-				g_ccorr_color_matrix[i][2]);
+				g_ccorr_color_matrix[id][i][0],
+				g_ccorr_color_matrix[id][i][1],
+				g_ccorr_color_matrix[id][i][2]);
 	}
 
 	DDPDBG("g_ccorr_color_matrix offset {%d, %d, %d}, hint: %d\n",
@@ -770,22 +823,22 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 
 	for (i = 0; i < 3; i++) {
 		for (j = 0; j < 3; j++) {
-			if (g_ccorr_prev_matrix[i][j]
-				!= g_ccorr_color_matrix[i][j]) {
+			if (g_ccorr_prev_matrix[id][i][j]
+				!= g_ccorr_color_matrix[id][i][j]) {
 				/* refresh when matrix changed */
 				need_refresh = true;
 			}
 			/* Copy Color Matrix */
-			g_ccorr_prev_matrix[i][j] = g_ccorr_color_matrix[i][j];
+			g_ccorr_prev_matrix[id][i][j] = g_ccorr_color_matrix[id][i][j];
 		}
 	}
 
 	for (i = 0; i < 3; i += 1) {
 		DDPINFO("g_ccorr_color_matrix[%d][0-2] = {%d, %d, %d}\n",
 				i,
-				g_ccorr_color_matrix[i][0],
-				g_ccorr_color_matrix[i][1],
-				g_ccorr_color_matrix[i][2]);
+				g_ccorr_color_matrix[id][i][0],
+				g_ccorr_color_matrix[id][i][1],
+				g_ccorr_color_matrix[id][i][2]);
 	}
 
 	DDPINFO("g_disp_ccorr_without_gamma: [%d], need_refresh: [%d]\n",
@@ -804,11 +857,12 @@ int disp_ccorr_set_RGB_Gain(struct mtk_ddp_comp *comp,
 	int r, int g, int b)
 {
 	int ret;
+	int id = index_of_ccorr(comp->id);
 
 	mutex_lock(&g_ccorr_global_lock);
-	g_rgb_matrix[0][0] = r;
-	g_rgb_matrix[1][1] = g;
-	g_rgb_matrix[2][2] = b;
+	g_rgb_matrix[id][0][0] = r;
+	g_rgb_matrix[id][1][1] = g;
+	g_rgb_matrix[id][2][2] = b;
 
 	DDPINFO("%s: r[%d], g[%d], b[%d]", __func__, r, g, b);
 	ret = disp_ccorr_write_coef_reg(comp, NULL, 0);
@@ -1034,12 +1088,16 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 
 	case SET_INTERRUPT:
 	{
+		struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
+
 		mtk_disp_ccorr_set_interrupt(comp, data);
 		if (comp->mtk_crtc->is_dual_pipe) {
 			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+			if (ccorr->data->single_pipe_ccorr_num == 2)
+				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
 
 			mtk_disp_ccorr_set_interrupt(comp_ccorr1, data);
 		}
@@ -1049,6 +1107,7 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 	case BYPASS_CCORR:
 	{
 		int *value = data;
+		struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
 
 		mtk_ccorr_bypass(comp, *value, handle);
 		if (comp->mtk_crtc->is_dual_pipe) {
@@ -1056,6 +1115,8 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+			if (ccorr->data->single_pipe_ccorr_num == 2)
+				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
 
 			mtk_ccorr_bypass(comp_ccorr1, *value, handle);
 		}

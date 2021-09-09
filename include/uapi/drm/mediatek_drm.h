@@ -364,6 +364,8 @@ struct DISP_READ_REG {
 enum disp_ccorr_id_t {
 	DISP_CCORR0 = 0,
 	DISP_CCORR1,
+	DISP_CCORR2,
+	DISP_CCORR3,
 	DISP_CCORR_TOTAL
 };
 
