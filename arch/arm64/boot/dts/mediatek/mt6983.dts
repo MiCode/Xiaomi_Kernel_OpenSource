@@ -10590,7 +10590,7 @@
 			"apu_acx0_rpc_lite",
 			"apu_acx1",
 			"apu_acx1_rpc_lite";
-		consumer = <&apu_iommu0 &apu_iommu1>;
+		// consumer = <&apu_iommu0 &apu_iommu1>; // set devlink to iommu
 	};
 
 	apusys_power_dummy: apusys_power_dummy {
