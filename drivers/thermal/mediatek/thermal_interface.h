@@ -25,7 +25,7 @@
 #define CPU_MAX_TEMP_OFFSET        (0x220)
 #define CPU_LIMIT_OPP_OFFSET       (0x260)
 #define ATC_OFFSET                 (0x280)
-#define ATC_NUM                    (9)
+#define ATC_NUM                    (16)
 
 #define APU_MBOX_TTJ_OFFSET        (0x700)
 #define APU_MBOX_PB_OFFSET         (0x704)
