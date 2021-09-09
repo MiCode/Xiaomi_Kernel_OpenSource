@@ -2565,6 +2565,10 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		buf_entry->sub_cq_desc_size =
 			ipi_msg->ack_data.frame_result.sub_cq_desc_size;
 
+		/* Do nothing if the user doesn't enable force dump */
+		mtk_cam_req_dump(s_data,
+				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
+
 		/* assign mraw using buf */
 		if (ctx->used_mraw_num > 0) {
 			spin_lock_irqsave(&ctx->mraw_using_buffer_list.lock, flags);
@@ -2702,9 +2706,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		if (mtk_cam_is_stagger_m2m(ctx))
 			spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
 
-		/* Do nothing if the user doesn't enable force dump */
-		mtk_cam_req_dump(s_data,
-				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		complete(&ctx->session_complete);
