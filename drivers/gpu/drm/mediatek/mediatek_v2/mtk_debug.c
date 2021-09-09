@@ -364,34 +364,36 @@ extern int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
 int mtkfb_set_backlight_level(unsigned int level)
 {
 	struct drm_crtc *crtc;
+	int ret = 0;
 
 	/* this debug cmd only for crtc0 */
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
 	if (!crtc) {
 		DDPPR_ERR("find crtc fail\n");
-		return 0;
+		return -EINVAL;
 	}
-	mtk_drm_setbacklight(crtc, level);
+	ret = mtk_drm_setbacklight(crtc, level);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
 int mtkfb_set_aod_backlight_level(unsigned int level)
 {
 	struct drm_crtc *crtc;
+	int ret = 0;
 
 	/* this debug cmd only for crtc0 */
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
 	if (!crtc) {
 		pr_info("find crtc fail\n");
-		return 0;
+		return -EINVAL;
 	}
-	mtk_drm_aod_setbacklight(crtc, level);
+	ret = mtk_drm_aod_setbacklight(crtc, level);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(mtkfb_set_aod_backlight_level);
 

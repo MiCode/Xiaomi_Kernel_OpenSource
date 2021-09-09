@@ -763,17 +763,19 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct cmdq_pkt_buffer *cmdq_buf;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
-	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])
-		sb_backlight = level;
+	int ret = 0;
 
 	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
 			level);
+
+	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])
+		sb_backlight = level;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (!(mtk_crtc->enabled)) {
 		DDPINFO("Sleep State set backlight stop --crtc not ebable\n");
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
 
 		return -EINVAL;
@@ -781,7 +783,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	if (!comp) {
 		DDPINFO("%s no output comp\n", __func__);
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
 
 		return -EINVAL;
@@ -792,11 +794,9 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-
 		DDPPR_ERR("cb data creation failed\n");
 		CRTC_MMP_EVENT_END(index, backlight, 0, 2);
-
-		return 0;
+		return -EINVAL;
 	}
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
@@ -852,15 +852,17 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
 
-	if (cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data) < 0)
+	if (cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data) < 0) {
 		DDPPR_ERR("failed to flush bl_cmdq_cb\n");
+		ret = -EINVAL;
+	}
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	CRTC_MMP_EVENT_END(index, backlight, (unsigned long)crtc,
 			level);
 
-	return 0;
+	return ret;
 }
 
 int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level)
