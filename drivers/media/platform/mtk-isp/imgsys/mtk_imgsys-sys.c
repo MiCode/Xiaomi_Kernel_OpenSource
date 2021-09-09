@@ -1698,7 +1698,13 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 #else
 	int fd;
 #endif
+	u32 user_cnt = 0;
 
+	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
+	if (user_cnt != 0)
+		dev_info(imgsys_dev->dev,
+			"%s: [ERROR] imgsys user count is not zero(%d)\n",
+			__func__, user_cnt);
 	#if DVFS_QOS_READY
 	mtk_imgsys_power_ctrl(imgsys_dev, true);
 	#else
@@ -1808,6 +1814,7 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	scp_ipi_unregister(imgsys_dev->scp_pdev, SCP_IPI_DIP);
 #else
 	struct img_init_info info;
+	u32 user_cnt = 0;
 
 	/* calling cmdq stream off */
 	imgsys_cmdq_streamoff(imgsys_dev);
@@ -1844,6 +1851,12 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	#else
 	pm_runtime_put_sync(imgsys_dev->dev);
 	#endif
+
+	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
+	if (user_cnt != 0)
+		dev_info(imgsys_dev->dev,
+			"%s: [ERROR] imgsys user count is not yet return to zero(%d)\n",
+			__func__, user_cnt);
 
 }
 

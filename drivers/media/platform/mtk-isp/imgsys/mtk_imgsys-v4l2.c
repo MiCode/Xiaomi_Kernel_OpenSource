@@ -2492,6 +2492,7 @@ static void mtk_imgsys_res_release(struct mtk_imgsys_dev *imgsys_dev)
 
 	atomic_set(&imgsys_dev->num_composing, 0);
 	atomic_set(&imgsys_dev->imgsys_enqueue_cnt, 0);
+	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
 
 	mutex_destroy(&imgsys_dev->imgsys_users.user_lock);
 }
@@ -2690,6 +2691,7 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 	}
 
 	atomic_set(&imgsys_dev->imgsys_enqueue_cnt, 0);
+	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
 	atomic_set(&imgsys_dev->num_composing, 0);
 	mutex_init(&imgsys_dev->hw_op_lock);
 	/* Limited by the co-processor side's stack size */

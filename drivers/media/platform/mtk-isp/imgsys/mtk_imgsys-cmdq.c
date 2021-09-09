@@ -1403,10 +1403,10 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
-
-	dev_dbg(dvfs_info->dev, "[%s] isPowerOn(%d)\n", __func__, isPowerOn);
+	u32 user_cnt = 0;
 
 	if (isPowerOn) {
+		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (IS_ERR_OR_NULL(dvfs_info->reg))
 			dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
 		else
@@ -1418,8 +1418,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 			dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
 		else
 			regulator_disable(dvfs_info->reg);
+		user_cnt = atomic_dec_return(&imgsys_dev->imgsys_user_cnt);
 	}
 
+	dev_info(dvfs_info->dev, "[%s] isPowerOn(%d) user(%d)\n", __func__, isPowerOn, user_cnt);
 }
 #endif
 
