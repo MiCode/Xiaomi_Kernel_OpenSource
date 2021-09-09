@@ -5427,6 +5427,12 @@
 		reg = <0 0x0c400000 0 0x40000>;
 	};
 
+
+	logstore: logstore {
+		enabled = <1>;
+		pmic_register = <0xa0d>;
+	};
+
 	dbg_cti@0d020000 {
 		compatible = "mediatek,dbg_cti";
 		reg = <0 0x0d020000 0 0x10000>;
