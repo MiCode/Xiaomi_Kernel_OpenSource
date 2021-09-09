@@ -24,6 +24,7 @@ static int scmi_plh_probe(struct scmi_device *sdev)
 
 static const struct scmi_device_id scmi_id_table[] = {
 	{ .protocol_id = SCMI_PROTOCOL_PLH, .name = "scmi_protocol_plh" },
+	{ },
 };
 MODULE_DEVICE_TABLE(scmi, scmi_id_table);
 
