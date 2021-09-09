@@ -1083,6 +1083,11 @@ static int pe50_stop(struct pe50_algo_info *info, struct pe50_stop_info *sinfo)
 	};
 
 	if (data->state == PE50_ALGO_STOP) {
+		/*
+		 * Always clear stop_algo,
+		 * in case it is called from pe50_stop_algo
+		 */
+		atomic_set(&data->stop_algo, 0);
 		PE50_DBG("already stop\n");
 		return 0;
 	}
