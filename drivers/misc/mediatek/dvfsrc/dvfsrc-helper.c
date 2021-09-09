@@ -958,7 +958,7 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 		dev_info(dev, "dvfsrc debug setting fail\n");
 		return ret;
 	}
-
+	mutex_init(&dvfsrc->dump_lock);
 	dvfsrc_drv = dvfsrc;
 	platform_set_drvdata(pdev, dvfsrc);
 	mtk_dvfsrc_regmap_debug_setting(dvfsrc);
