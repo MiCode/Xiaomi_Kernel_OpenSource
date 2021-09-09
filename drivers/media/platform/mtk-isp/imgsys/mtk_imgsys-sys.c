@@ -93,7 +93,7 @@ int mtk_imgsys_hw_working_buf_pool_reinit(struct mtk_imgsys_dev *imgsys_dev)
 	spin_unlock(&imgsys_dev->imgsys_freebufferlist.lock);
 
 
-	dev_info(imgsys_dev->dev, "%s", __func__);
+	dev_dbg(imgsys_dev->dev, "%s", __func__);
 
 	return 0;
 }

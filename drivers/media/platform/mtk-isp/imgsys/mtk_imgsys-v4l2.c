@@ -467,7 +467,7 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 
 	buf_count = atomic_dec_return(&req->buf_count);
 	if (!buf_count) {
-		dev_info(pipe->imgsys_dev->dev,
+		dev_dbg(pipe->imgsys_dev->dev,
 			"framo_no: (%d), reqfd-%d\n",
 			req->img_fparam.frameparam.frame_no, b->request_fd);
 		req->tstate.req_fd = b->request_fd;
@@ -2777,7 +2777,7 @@ static int __maybe_unused mtk_imgsys_runtime_suspend(struct device *dev)
 	clk_bulk_disable_unprepare(imgsys_dev->num_clks,
 				   imgsys_dev->clks);
 
-	dev_info(dev, "%s: disabled imgsys clks\n", __func__);
+	dev_dbg(dev, "%s: disabled imgsys clks\n", __func__);
 
 	return 0;
 }
@@ -2796,7 +2796,7 @@ static int __maybe_unused mtk_imgsys_runtime_resume(struct device *dev)
 		return ret;
 	}
 
-	dev_info(dev, "%s: enabled imgsys clks\n", __func__);
+	dev_dbg(dev, "%s: enabled imgsys clks\n", __func__);
 
 #if MTK_CM4_SUPPORT
 	ret = rproc_boot(imgsys_dev->rproc_handle);
