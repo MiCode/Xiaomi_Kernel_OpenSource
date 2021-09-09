@@ -148,7 +148,7 @@ static struct secure_heap_region mtk_sec_heap_region[REGION_HEAPS_NUM] = {
 	[WFD_REGION] = {
 		.heap_name = {"mtk_wfd_region",
 			      "mtk_wfd_region-aligned"},
-		.tmem_type = TRUSTED_MEM_REQ_WFD,
+		.tmem_type = TRUSTED_MEM_REQ_WFD_REGION,
 		.heap_type = REGION_BASE,
 	},
 	[SAPU_DATA_SHM_REGION] = {

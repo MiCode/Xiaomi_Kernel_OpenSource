@@ -67,10 +67,10 @@ static struct tmem_device_description tee_smem_devs[] = {
 
 #if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 	{
-		.kern_tmem_type = TRUSTED_MEM_WFD,
+		.kern_tmem_type = TRUSTED_MEM_WFD_REGION,
 		.tee_smem_type = TEE_SMEM_WFD,
 		.mtee_chunks_id = MTEE_MCUHNKS_INVALID,
-		.ssmr_feature_id = SSMR_FEAT_WFD,
+		.ssmr_feature_id = SSMR_FEAT_WFD_REGION,
 		/* clang-format off */
 		.u_ops_data.tee = {
 			.tee_cmds[TEE_OP_ALLOC] = CMD_WFD_SMEM_ALLOC,
@@ -129,12 +129,12 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 	struct trusted_mem_device *t_device;
 
 	/* skip svp and wfd when disable svp */
-	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD_REGION) &&
 		!is_svp_enabled())
 		return NULL;
 
 	/* skip svp or wfd on MTEE */
-	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD_REGION) &&
 		is_svp_on_mtee())
 		return NULL;
 

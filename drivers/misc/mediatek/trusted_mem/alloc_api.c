@@ -24,7 +24,8 @@ static inline void trusted_mem_type_enum_validate(void)
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SVP_PAGE == (int)TRUSTED_MEM_SVP_PAGE);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_PROT_REGION == (int)TRUSTED_MEM_PROT_REGION);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_PROT_PAGE == (int)TRUSTED_MEM_PROT_PAGE);
-	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD == (int)TRUSTED_MEM_WFD);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD_REGION == (int)TRUSTED_MEM_WFD_REGION);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD_PAGE == (int)TRUSTED_MEM_WFD_PAGE);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP == (int)TRUSTED_MEM_HAPP);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP_EXTRA
 		       == (int)TRUSTED_MEM_HAPP_EXTRA);
@@ -49,8 +50,10 @@ get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 		return TRUSTED_MEM_PROT_REGION;
 	case TRUSTED_MEM_REQ_PROT_PAGE:
 		return TRUSTED_MEM_PROT_PAGE;
-	case TRUSTED_MEM_REQ_WFD:
-		return TRUSTED_MEM_WFD;
+	case TRUSTED_MEM_REQ_WFD_REGION:
+		return TRUSTED_MEM_WFD_REGION;
+	case TRUSTED_MEM_REQ_WFD_PAGE:
+		return TRUSTED_MEM_WFD_PAGE;
 	case TRUSTED_MEM_REQ_HAPP:
 		return TRUSTED_MEM_HAPP;
 	case TRUSTED_MEM_REQ_HAPP_EXTRA:
@@ -78,6 +81,8 @@ get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
 		return TRUSTED_MEM_SVP_REGION;
 	case TRUSTED_MEM_PROT_PAGE:
 		return TRUSTED_MEM_PROT_REGION;
+	case TRUSTED_MEM_WFD_PAGE:
+		return TRUSTED_MEM_WFD_REGION;
 	default:
 		return req_type;
 	}
@@ -91,7 +96,8 @@ int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 alignment,
 
 	if((mem_type == TRUSTED_MEM_SVP_REGION ||
 		mem_type == TRUSTED_MEM_SVP_PAGE ||
-		mem_type == TRUSTED_MEM_WFD) &&
+		mem_type == TRUSTED_MEM_WFD_REGION ||
+		mem_type == TRUSTED_MEM_WFD_PAGE) &&
 		!is_svp_enabled()) {
 		pr_info("[TMEM][%d] %s: TMEM_OPERATION_NOT_REGISTERED\n", mem_type, __func__);
 		return TMEM_OPERATION_NOT_REGISTERED;

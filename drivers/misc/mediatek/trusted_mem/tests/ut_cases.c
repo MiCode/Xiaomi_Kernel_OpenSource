@@ -453,10 +453,10 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP_REGION))
 		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP_REGION),
 			  "svp ssmr allocate check");
-	if (tmem_core_is_device_registered(TRUSTED_MEM_WFD)) {
-		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_WFD),
+	if (tmem_core_is_device_registered(TRUSTED_MEM_WFD_REGION)) {
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_WFD_REGION),
 			  "wfd ssmr allocate check");
-		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_WFD),
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_WFD_REGION),
 			  "wfd ssmr release check");
 	}
 	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP_REGION))
@@ -579,34 +579,34 @@ static struct test_case test_cases[] = {
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
-	CASE(WFD_SMEM_UT_PROC_BASIC, "WFD Basic", TRUSTED_MEM_WFD,
+	CASE(WFD_SMEM_UT_PROC_BASIC, "WFD Basic", TRUSTED_MEM_WFD_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
-	CASE(WFD_SMEM_UT_PROC_SIMPLE_ALLOC, "WFD Alloc Simple", TRUSTED_MEM_WFD,
+	CASE(WFD_SMEM_UT_PROC_SIMPLE_ALLOC, "WFD Alloc Simple", TRUSTED_MEM_WFD_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, MEM_UNORDER_SIZE_TEST_CFG_DISABLE,
 	     tmem_alloc_simple_test),
 	CASE(WFD_SMEM_UT_PROC_UNORDERED_SIZE, "WFD Alloc Un-ordered Size",
-	     TRUSTED_MEM_WFD, REGMGR_REGION_FINAL_STATE_OFF,
+	     TRUSTED_MEM_WFD_REGION, REGMGR_REGION_FINAL_STATE_OFF,
 	     MEM_UNORDER_SIZE_TEST_CFG_ENABLE, tmem_alloc_simple_test),
-	CASE(WFD_SMEM_UT_PROC_ALIGNMENT, "WFD Alloc Alignment", TRUSTED_MEM_WFD,
+	CASE(WFD_SMEM_UT_PROC_ALIGNMENT, "WFD Alloc Alignment", TRUSTED_MEM_WFD_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_alloc_alignment_test),
-	CASE(WFD_SMEM_UT_PROC_SATURATION, "WFD Saturation", TRUSTED_MEM_WFD,
+	CASE(WFD_SMEM_UT_PROC_SATURATION, "WFD Saturation", TRUSTED_MEM_WFD_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 1, tmem_alloc_saturation_test),
 	CASE(WFD_SMEM_UT_PROC_SATURATION_STRESS, "WFD Saturation Stress",
-	     TRUSTED_MEM_WFD, REGMGR_REGION_FINAL_STATE_OFF,
+	     TRUSTED_MEM_WFD_REGION, REGMGR_REGION_FINAL_STATE_OFF,
 	     UT_SATURATION_STRESS_ROUNDS, tmem_alloc_saturation_test),
 	CASE(WFD_SMEM_UT_PROC_REGION_DEFER, "WFD Region Defer Off",
-	     TRUSTED_MEM_WFD, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     TRUSTED_MEM_WFD_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_regmgr_region_defer_off_test),
 	CASE(WFD_SMEM_UT_PROC_REGION_ONLINE_CNT, "WFD Region Online Count",
-	     TRUSTED_MEM_WFD, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     TRUSTED_MEM_WFD_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_regmgr_region_online_count_test),
 	CASE(WFD_SMEM_UT_PROC_REGION_STRESS, "WFD Region On/Off Stress",
-	     TRUSTED_MEM_WFD, REGMGR_REGION_FINAL_STATE_OFF,
+	     TRUSTED_MEM_WFD_REGION, REGMGR_REGION_FINAL_STATE_OFF,
 	     MEM_REGION_ON_OFF_STREE_ROUND, tmem_region_on_off_stress_test),
 	CASE(WFD_SMEM_UT_PROC_ALLOC_MULTITHREAD, "WFD Alloc Multi-thread",
-	     TRUSTED_MEM_WFD, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     TRUSTED_MEM_WFD_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_alloc_multithread_test),
-	CASE(WFD_SMEM_UT_PROC_ALL, "WFD Run ALL", TRUSTED_MEM_WFD,
+	CASE(WFD_SMEM_UT_PROC_ALL, "WFD Run ALL", TRUSTED_MEM_WFD_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
 #endif
 

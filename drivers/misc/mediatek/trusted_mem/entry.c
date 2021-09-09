@@ -501,7 +501,9 @@ static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 		return SZ_128M;
 	case TRUSTED_MEM_PROT_PAGE:
 		return SZ_128M;
-	case TRUSTED_MEM_WFD:
+	case TRUSTED_MEM_WFD_REGION:
+		return SZ_64M;
+	case TRUSTED_MEM_WFD_PAGE:
 		return SZ_64M;
 	case TRUSTED_MEM_2D_FR:
 		return SZ_16M;
@@ -554,7 +556,7 @@ bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 	switch (mem_type) {
 	case TRUSTED_MEM_SVP_REGION:
 		return is_svp_on_mtee();
-	case TRUSTED_MEM_WFD:
+	case TRUSTED_MEM_WFD_REGION:
 		return is_svp_on_mtee();
 	case TRUSTED_MEM_PROT_REGION:
 	case TRUSTED_MEM_HAPP:

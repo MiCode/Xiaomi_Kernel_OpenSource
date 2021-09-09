@@ -84,11 +84,11 @@ static struct tmem_device_description mtee_mchunks[] = {
 
 #if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 	{
-		.kern_tmem_type = TRUSTED_MEM_WFD,
+		.kern_tmem_type = TRUSTED_MEM_WFD_REGION,
 		.tee_smem_type = TEE_SMEM_WFD,
 		.mtee_chunks_id = MTEE_MCHUNKS_WFD,
-		.ssmr_feature_id = SSMR_FEAT_WFD,
-		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_WFD},
+		.ssmr_feature_id = SSMR_FEAT_WFD_REGION,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_WFD_REGION},
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.notify_remote = true,
@@ -198,12 +198,12 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 	struct trusted_mem_device *t_device;
 
 	/* skip svp and wfd when disable svp */
-	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD_REGION) &&
 		!is_svp_enabled())
 		return NULL;
 
 	/* skip svp or wfd on TEE */
-	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD_REGION) &&
 		!is_svp_on_mtee())
 		return NULL;
 

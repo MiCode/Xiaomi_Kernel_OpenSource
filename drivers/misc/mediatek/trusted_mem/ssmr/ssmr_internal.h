@@ -161,11 +161,11 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.req_size = 0,
 		.is_page_based = false
 	},
-	[SSMR_FEAT_WFD] = {
-		.dt_prop_name = "wfd-size",
-		.feat_name = "wfd",
-		.cmd_online = "wfd=on",
-		.cmd_offline = "wfd=off",
+	[SSMR_FEAT_WFD_REGION] = {
+		.dt_prop_name = "wfd-region-based-size",
+		.feat_name = "wfd_region_based",
+		.cmd_online = "wfd_region=on",
+		.cmd_offline = "wfd_region=off",
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
@@ -288,6 +288,22 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS | SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = true
+	},
+	[SSMR_FEAT_WFD_PAGE] = {
+		.dt_prop_name = "wfd-page-based-size",
+		.feat_name = "wfd_page_based",
+		.cmd_online = "wfd_page=on",
+		.cmd_offline = "wfd_page=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = true
 	},
