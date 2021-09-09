@@ -415,7 +415,6 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
-		vcinfo->cnt++;
 
 		/* update pad fotmat */
 		if (vc->exp_hsize && vc->exp_vsize) {
@@ -447,6 +446,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vcinfo->cnt, vc->vc, vc->dt, vc->out_pad,
 			vc->exp_hsize, vc->exp_vsize, vc->group,
 			ctx->fmt[vc->out_pad].format.code);
+		vcinfo->cnt++;
 	}
 
 	return 0;

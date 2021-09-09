@@ -681,7 +681,7 @@ static int config_hw(struct seninf_ctx *ctx)
 	int hsPol, vsPol, vc_sel, dt_sel, dt_en;
 	struct seninf_vcinfo *vcinfo;
 	struct seninf_vc *vc;
-	struct seninf_mux *mux, *mux_by_grp[4] = {0};
+	struct seninf_mux *mux, *mux_by_grp[SENINF_VC_MAXCNT] = {0};
 
 	intf = ctx->seninfIdx;
 	vcinfo = &ctx->vcinfo;
@@ -740,8 +740,8 @@ static int config_hw(struct seninf_ctx *ctx)
 			//TODO
 			//mtk_cam_seninf_set_mux_crop(ctx, vc->mux, 0, 2327, 0);
 		}
-		dev_info(ctx->dev, "ctx->pad2cam[vc->out_pad] %d vc->out_pad %d vc->cam %d, i %d",
-			ctx->pad2cam[vc->out_pad], vc->out_pad, vc->cam, i);
+		dev_info(ctx->dev, "ctx->pad2cam[%d] %d vc->out_pad %d vc->cam %d, i %d",
+			vc->out_pad, ctx->pad2cam[vc->out_pad], vc->out_pad, vc->cam, i);
 
 		if (vc->cam != 0xff) {
 			vc_sel = vc->vc;
@@ -775,11 +775,8 @@ static int config_hw(struct seninf_ctx *ctx)
 
 		} else
 			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d mux %d cam %d\n",
-					 i, vc->out_pad, intf, vc->mux, vc->cam,
-					vc_sel, dt_sel);
-
+					 i, vc->out_pad, intf, vc->mux, vc->cam);
 	}
-
 	return 0;
 }
 
@@ -991,7 +988,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 
 		update_isp_clk(ctx);
-
 		ret = config_hw(ctx);
 		if (ret) {
 			dev_info(ctx->dev, "config_seninf_hw ret %d\n", ret);
