@@ -2725,6 +2725,12 @@
 		apu = <2097152>;
 	};
 
+	swpm: swpm {
+		compatible = "mediatek,mtk-swpm";
+		pmu_boundary_num = <4>;
+		pmu_support_l = <2>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
@@ -12034,14 +12040,14 @@
 				"cpu_emi_bw";
 
 			node_30 = "SSPM_SWPM_CPU__DVFS",
-				"vproc2,vproc1,B_volt,cpuL_freq,cpuBL_freq,cpuB_freq,cpu_L_opp,",
+				"vproc3,vproc2,vproc1,cpuL_freq,cpuBL_freq,cpuB_freq,cpu_L_opp,",
 				"cpu_BL_opp,cpu_B_opp,cci_volt,cci_freq,cci_opp";
 
 			node_31 = "SSPM_SWPM_CPU__LKG_POWER",
-				"cpu_L,cpu_BL,cpu_B,dsu";
+				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7,dsu";
 
 			node_32 = "SSPM_SWPM_CPU__POWER",
-				"cpu_L,cpu_B,dsu,mcusys";
+				"cpu_L,cpu_B,cpu_BB,dsu,mcusys";
 
 			node_33 = "SSPM_SWPM_GPU__GPU_STATE_RATIO",
 				"active,idle,off";
@@ -12114,7 +12120,7 @@
 
 			node_55 = "SSPM_SWPM_DRAM__POWER",
 				"aphy_vddq_0p6v,aphy_vm_0p75v,aphy_vio_1p2v,dram_vddq_0p6v,",
-				"dram_vdd2_1p1v,dram_vdd1_1p8v";
+				"dram_vdd2l_0p9v,dram_vdd2h_1p05v,dram_vdd1_1p8v";
 
 			node_56 = "SSPM_SWPM_ME__POWER",
 				"disp,mdp,venc,vdec";
@@ -12144,6 +12150,8 @@
 				"hit,miss";
 			node_65 = "SSPM_SLBC_WAY",
 				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
+			node_66 = "SSPM_SWPM_CPU__CORE_PMU_L3DC_REFILL",
+				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
 		};
 	};
 
