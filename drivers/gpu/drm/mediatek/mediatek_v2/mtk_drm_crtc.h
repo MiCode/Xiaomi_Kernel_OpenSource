@@ -28,6 +28,7 @@
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_disp_pmqos.h"
+#include "slbc_ops.h"
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -668,6 +669,11 @@ struct dual_te {
 	int te1;
 };
 
+struct mtk_mml_cb_para {
+	atomic_t mml_job_submit_done;
+	wait_queue_head_t mml_job_submit_wq;
+};
+
 /**
  * struct mtk_drm_crtc - MediaTek specific crtc structure.
  * @base: crtc object.
@@ -797,6 +803,15 @@ struct mtk_drm_crtc {
 	struct mtk_panel_spr_params *panel_spr_params;
 	struct mtk_panel_cm_params *panel_cm_params;
 	struct dual_te d_te;
+
+	// MML inline rotate SRAM
+	struct slbc_data mml_ir_sram;
+	struct mml_submit *mml_cfg;
+	struct mtk_mml_cb_para mml_cb;
+
+	atomic_t mml_last_job_is_flushed;
+	wait_queue_head_t signal_mml_last_job_is_flushed_wq;
+	bool is_mml;
 };
 
 struct mtk_crtc_state {
@@ -825,6 +840,11 @@ struct mtk_cmdq_cb_data {
 	struct drm_crtc			*crtc;
 	unsigned int misc;
 	unsigned int msync2_enable;
+	void __iomem *mutex_reg_va;
+	void __iomem *disp_reg_va;
+	void __iomem *disp_mutex_reg_va;
+	void __iomem *mmlsys_reg_va;
+	bool is_mml;
 };
 
 extern unsigned int disp_spr_bypass;

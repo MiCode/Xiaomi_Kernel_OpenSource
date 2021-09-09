@@ -25,6 +25,8 @@ enum addon_scenario {
 	GAME_PQ,
 	VP_PQ,
 	TRIPLE_DISP,
+	MML,
+	MML_SRAM_ONLY,
 	ADDON_SCN_NR,
 };
 
@@ -37,6 +39,8 @@ enum addon_module {
 	DISP_WDMA1,
 	DISP_WDMA2,
 	DMDP_PQ_WITH_RDMA,
+	DISP_INLINE_ROTATE,
+	DISP_INLINE_ROTATE_SRAM_ONLY,
 	ADDON_MODULE_NUM,
 };
 

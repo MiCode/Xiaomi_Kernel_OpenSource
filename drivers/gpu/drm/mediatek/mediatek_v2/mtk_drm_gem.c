@@ -616,7 +616,6 @@ int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
-//To-Do: need to be remove
 void print_mml_frame_buffer(struct mml_frame_buffer frame_buf)
 {
 	unsigned int i = 0;
@@ -814,5 +813,6 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 
 	return ret;
 }
+
 
 

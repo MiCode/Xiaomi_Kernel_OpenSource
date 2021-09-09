@@ -59,6 +59,11 @@ enum mtk_ddp_comp_type {
 	MTK_DISP_CHIST,
 	MTK_DISP_C3D,
 	MTK_DISP_TDSHP,
+	MTK_DISP_Y2R,
+	MTK_DISP_DLO_ASYNC,
+	MTK_DISP_DLI_ASYNC,
+	MTK_DISP_INLINE_ROTATE,
+	MTK_MMLSYS_BYPASS,
 	MTK_DDP_COMP_TYPE_MAX,
 };
 
@@ -189,7 +194,13 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_SUB1_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL)                           \
 /*125*/	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL)                       \
-	EXPR(DDP_COMPONENT_ID_MAX)
+	EXPR(DDP_COMPONENT_Y2R0)                                            \
+	EXPR(DDP_COMPONENT_Y2R0_VIRTUAL0)                                   \
+	EXPR(DDP_COMPONENT_DLO_ASYNC)                                       \
+	EXPR(DDP_COMPONENT_DLI_ASYNC)                                       \
+/*130*/	EXPR(DDP_COMPONENT_INLINE_ROTATE)                                   \
+	EXPR(DDP_COMPONENT_MMLSYS_BYPASS)                                   \
+	EXPR(DDP_COMPONENT_ID_MAX)                                          \
 
 #define DECLARE_NUM(ENUM) ENUM,
 #define DECLARE_STR(STR) #STR,
@@ -232,6 +243,12 @@ enum mtk_ddp_comp_id {
 	DDP_COMPONENT_WDMA0,
 	DDP_COMPONENT_WDMA1,
 	DDP_COMPONENT_POSTMASK0,
+	DDP_COMPONENT_Y2R0,
+	DDP_COMPONENT_Y2R0_VIRTUAL0,
+	DDP_COMPONENT_DLO_ASYNC,
+	DDP_COMPONENT_DLI_ASYNC,
+	DDP_COMPONENT_INLINE_ROTATE,
+	DDP_COMPONENT_MMLSYS_BYPASS,
 	DDP_COMPONENT_ID_MAX,
 };
 #endif

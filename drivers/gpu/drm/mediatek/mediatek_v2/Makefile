@@ -45,7 +45,12 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_drm_arr.o \
 		  mtk_disp_merge.o \
 		  mtk_dmdp_aal.o \
-		  mtk_fbconfig_kdebug.o
+		  mtk_fbconfig_kdebug.o \
+		  mtk_disp_y2r0.o \
+		  mtk_disp_dlo_async.o \
+		  mtk_disp_dli_async.o \
+		  mtk_disp_inlinerotate.o \
+		  mtk_mmlsys_bypass_mode.o \
 
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o
@@ -90,6 +95,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/iommu/		\
              -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/        \
              -I$(srctree)/drivers/gpu/drm/mediatek \
+             -I$(srctree)/drivers/misc/mediatek/slbc/ \
+             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/ \
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 

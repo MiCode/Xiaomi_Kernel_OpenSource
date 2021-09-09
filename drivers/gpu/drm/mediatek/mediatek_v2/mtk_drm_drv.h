@@ -17,6 +17,7 @@
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_session.h"
 #include "mtk_drm_helper.h"
+#include "../mml/mtk-mml-drm-adaptor.h"
 
 #define MAX_CONNECTOR 3
 
@@ -187,6 +188,10 @@ struct mtk_drm_private {
 	bool dma_parms_allocated;
 
 	bool already_first_config;
+
+	struct mml_drm_ctx *mml_ctx;
+	atomic_t mml_job_done;
+	wait_queue_head_t signal_mml_job_done_wq;
 };
 
 struct mtk_drm_property {
@@ -259,6 +264,11 @@ extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 extern struct platform_driver mtk_disp_merge_driver;
 extern struct platform_driver mtk_dp_tx_driver;
 extern struct platform_driver mtk_dp_intf_driver;
+extern struct platform_driver mtk_disp_y2r_driver;
+extern struct platform_driver mtk_disp_dlo_async_driver;
+extern struct platform_driver mtk_disp_dli_async_driver;
+extern struct platform_driver mtk_disp_inlinerotate_driver;
+extern struct platform_driver mtk_mmlsys_bypass_driver;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
@@ -285,5 +295,7 @@ int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 bool mtk_drm_lcm_is_connect(void);
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 	unsigned int *fps);
+struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev);
+void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para);
 
 #endif /* MTK_DRM_DRV_H */

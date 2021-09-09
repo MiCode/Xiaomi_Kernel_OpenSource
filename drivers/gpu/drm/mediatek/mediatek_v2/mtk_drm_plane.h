@@ -9,6 +9,7 @@
 #include <drm/drm_crtc.h>
 #include <linux/types.h>
 #include <drm/mediatek_drm.h>
+#include "../mml/mtk-mml.h"
 
 #define MAKE_DISP_FORMAT_ID(id, bpp) (((id) << 8) | (bpp))
 
@@ -111,6 +112,8 @@ enum MTK_PLANE_PROP {
 	PLANE_PROP_VPITCH,
 	PLANE_PROP_COMPRESS,
 	PLANE_PROP_DIM_COLOR,
+	PLANE_PROP_IS_MML,
+	PLANE_PROP_MML_SUBMIT,
 	PLANE_PROP_MAX,
 };
 
@@ -125,6 +128,7 @@ struct mtk_plane_pending_state {
 	bool config;
 	bool enable;
 	dma_addr_t addr;
+	void __iomem *sram_p_addr;
 	size_t size;
 	unsigned int pitch;
 	unsigned int format;
@@ -137,6 +141,8 @@ struct mtk_plane_pending_state {
 	unsigned int height;
 	bool dirty;
 	bool is_sec;
+	enum mml_mode mml_mode;
+	struct mml_submit *mml_cfg;
 	uint64_t prop_val[PLANE_PROP_MAX];
 };
 
@@ -201,6 +207,8 @@ struct mtk_plane_state {
 
 	/* property */
 	uint64_t prop_val[PLANE_PROP_MAX];
+	enum mml_mode mml_mode;
+	struct mml_submit *mml_cfg;
 };
 
 #define to_mtk_plane_state(x) container_of(x, struct mtk_plane_state, base)

@@ -16,6 +16,11 @@
 #include "mtk_drm_gem.h"
 #include "mtk_drm_plane.h"
 
+#include "slbc_ops.h"
+#include "../mml/mtk-mml.h"
+
+extern bool g_disp_drm;
+
 #define MTK_DRM_PLANE_SCALING_MIN 16
 #define MTK_DRM_PLANE_SCALING_MAX (1 << 16)
 
@@ -142,6 +147,8 @@ static struct mtk_drm_property mtk_plane_property[PLANE_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "VPITCH", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "COMPRESS", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "DIM_COLOR", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "IS_MML", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "MML_SUBMIT", 0, ULONG_MAX, 0},
 };
 
 static void mtk_plane_reset(struct drm_plane *plane)
@@ -393,18 +400,52 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		dst_h = src_h;
 	}
 
-	state->pending.enable = plane->state->visible;
-	state->pending.pitch = fb->pitches[0];
-	state->pending.format = fb->format->format;
-	state->pending.modifier = fb->modifier;
-	state->pending.addr = mtk_fb_get_dma(fb);
-	state->pending.size = mtk_fb_get_size(fb);
-	state->pending.src_x = (plane->state->src.x1 >> 16);
-	state->pending.src_y = (plane->state->src.y1 >> 16);
-	state->pending.dst_x = dst_x;
-	state->pending.dst_y = dst_y;
-	state->pending.width = dst_w;
-	state->pending.height = dst_h;
+	state->pending.mml_mode = state->mml_mode;
+	state->pending.mml_cfg = state->mml_cfg;
+
+	if (state->pending.mml_mode == MML_MODE_RACING && mtk_crtc->is_mml) {
+		struct mml_submit *cfg = state->pending.mml_cfg;
+		uint32_t width, height, pitch;
+
+		DDPINFO("%s 1\n", __func__);
+		width = (g_disp_drm) ? 1080 :
+			cfg->info.src.width;
+		height = (g_disp_drm) ? 1920 :
+			cfg->info.src.height;
+		pitch = cfg->info.src.y_stride;
+
+		DDPINFO("%s 2: w:%d, h:%d, y_s:%d\n", __func__,
+			cfg->info.src.width,
+			cfg->info.src.height,
+			cfg->info.src.y_stride);
+		state->pending.enable = plane->state->visible;
+		state->pending.pitch = pitch;
+		state->pending.format = DRM_FORMAT_ABGR8888;
+		state->pending.addr = (g_disp_drm) ?
+			mtk_fb_get_dma(fb) : (dma_addr_t)(mtk_crtc->mml_ir_sram.paddr);
+		state->pending.modifier = MTK_FMT_NONE;
+		state->pending.size = width  * height * 4;
+		state->pending.src_x = 0;
+		state->pending.src_y = 0;
+		state->pending.dst_x = 0;
+		state->pending.dst_y = 0;
+		state->pending.width = width;
+		state->pending.height = height;
+	} else {
+		state->pending.enable = plane->state->visible;
+		state->pending.pitch = fb->pitches[0];
+		state->pending.format = fb->format->format;
+		state->pending.modifier = fb->modifier;
+		state->pending.addr = mtk_fb_get_dma(fb);
+		state->pending.size = mtk_fb_get_size(fb);
+		state->pending.src_x = (plane->state->src.x1 >> 16);
+		state->pending.src_y = (plane->state->src.y1 >> 16);
+		state->pending.dst_x = dst_x;
+		state->pending.dst_y = dst_y;
+		state->pending.width = dst_w;
+		state->pending.height = dst_h;
+	}
+
 	if (mtk_drm_fb_is_secure(fb))
 		state->pending.is_sec = true;
 	else

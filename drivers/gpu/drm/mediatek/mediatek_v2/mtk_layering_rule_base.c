@@ -35,6 +35,11 @@
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_gem.h"
 
+#include "../mml/mtk-mml.h"
+#include "../mml/mtk-mml-drm-adaptor.h"
+
+extern unsigned int g_mml_mode;
+
 static struct drm_mtk_layering_info layering_info;
 #ifdef HRT_UT_DEBUG
 static int debug_resolution_level;
@@ -1283,7 +1288,12 @@ static int _calc_hrt_num(struct drm_device *dev,
 		int ovl_idx;
 
 		layer_info = &disp_info->input_config[disp][i];
-		if (disp_info->gles_head[disp] == -1 ||
+		if ((hrt_type == HRT_TYPE_EMI) &&
+			MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & layer_info->layer_caps) {
+			// Totally have no idea what larb is, and what it should do
+			// if layer is inline-rotate, buffer is come from SRAM
+			// so we don't have to calculate it
+		} else if (disp_info->gles_head[disp] == -1 ||
 		    (i < disp_info->gles_head[disp] ||
 		     i > disp_info->gles_tail[disp])) {
 			if (hrt_type != HRT_TYPE_EMI) {
@@ -1684,6 +1694,29 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 	}
 }
 
+static void clear_mml_caps_for_gles_layer(struct drm_mtk_layering_info *disp_info)
+{
+	int di = 0;
+	int i = 0;
+	struct drm_mtk_layer_config *c;
+
+	for (di = 0; di < HRT_DISP_TYPE_NUM; di++) {
+		for (i = 0; i < disp_info->layer_num[di]; i++) {
+			if (!mtk_is_gles_layer(disp_info, di, i))
+				continue;
+			c = &disp_info->input_config[di][i];
+			c->ext_sel_layer = -1;
+			if (MTK_MML_OVL_LAYER & c->layer_caps) {
+				c->layer_caps &= ~(MTK_MML_DISP_DIRECT_LINK_LAYER |
+					MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
+					MTK_MML_DISP_DECOUPLE_LAYER |
+					MTK_MML_DISP_MDP_LAYER);
+				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			}
+		}
+	}
+}
+
 static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 				  int layer_map, int disp_idx,
 				  struct mtk_drm_lyeblob_ids *lyeblob_ids,
@@ -1844,6 +1877,7 @@ static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
 	}
 
 	clear_layer(disp_info);
+	clear_mml_caps_for_gles_layer(disp_info);
 
 	return 0;
 }
@@ -2005,6 +2039,7 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 	struct drm_mtk_layering_info *l_info = &layering_info;
 	unsigned long layer_size = 0;
 	int ret = 0, layer_num = 0;
+	int i = 0;
 
 	if (l_info->layer_num[disp_idx] <= 0) {
 		/* direct skip */
@@ -2036,6 +2071,39 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 					layer_size);
 			return -EFAULT;
 		}
+
+		for (i = 0; i < layer_num; ++i) {
+			struct mml_frame_info *temp = NULL;
+
+			if (!(MTK_MML_OVL_LAYER &
+				l_info->input_config[disp_idx][i].layer_caps)) {
+				if (l_info->input_config[disp_idx][i].mml_cfg != NULL)
+					DDPMSG("%s:%d pointer should be NULL",
+						__func__, __LINE__);
+				l_info->input_config[disp_idx][i].mml_cfg = NULL;
+				continue;
+			}
+
+			temp = (struct mml_frame_info *)
+				(l_info->input_config[disp_idx][i].mml_cfg);
+			if (!temp) {
+				DDPPR_ERR("%s:%d addr should not be NULL\n",
+					__func__, __LINE__);
+				return -EFAULT;
+			}
+
+			l_info->input_config[disp_idx][i].mml_cfg =
+				kzalloc(sizeof(*temp), GFP_KERNEL);
+
+			if (copy_from_user(l_info->input_config[disp_idx][i].mml_cfg,
+					   temp, sizeof(*temp))) {
+				DDPPR_ERR("%s:%d copy mml cfg failed:(0x%p,0x%p)\n",
+						__func__, __LINE__,
+						temp,
+						disp_info_user->input_config[disp_idx][i].mml_cfg);
+				return -EFAULT;
+			}
+		}
 	}
 
 	return ret;
@@ -2065,6 +2133,7 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 	struct drm_mtk_layering_info *l_info = &layering_info;
 	unsigned long layer_size = 0;
 	int ret = 0;
+	int i = 0;
 
 	if (l_info->layer_num[disp_idx] <= 0) {
 		/* direct skip */
@@ -2087,6 +2156,9 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 				__LINE__);
 			ret = -EFAULT;
 		}
+		for (i = 0; i < l_info->layer_num[disp_idx]; ++i)
+			kfree(l_info->input_config[disp_idx][i].mml_cfg);
+
 		kfree(l_info->input_config[disp_idx]);
 	}
 
@@ -2517,16 +2589,56 @@ static unsigned int resizing_rule(struct drm_device *dev,
 	return scale_num;
 }
 
-static enum MTK_LAYERING_CAPS query_MML(struct mtk_drm_private *priv)
+static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
+	struct mtk_drm_private *priv, struct mml_frame_info *mml_cfg)
 {
+	enum mml_mode mode = MML_MODE_UNKNOWN;
+	enum MTK_LAYERING_CAPS ret = MTK_MML_DISP_NOT_SUPPORT;
+
 	if (!priv || !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
 		return MTK_MML_DISP_NOT_SUPPORT;
 
-	return MTK_MML_DISP_DECOUPLE_LAYER;
+	DDPINFO("%s mml_drm_query_cap +", __func__);
+	ret = MTK_MML_DISP_DECOUPLE_LAYER;
+	// TODO: need to be remove
+	if (g_mml_mode != MML_MODE_UNKNOWN) {
+		DDPINFO("%s g_mml_mode:%d", __func__, g_mml_mode);
+		mode = g_mml_mode;
+	} else {
+		mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev), mml_cfg);
+		DDPINFO("%s mode:%d", __func__, mode);
+	}
+
+	switch (mode) {
+	case MML_MODE_NOT_SUPPORT:
+		ret = MTK_MML_DISP_NOT_SUPPORT;
+		break;
+	case MML_MODE_DIRECT_LINK:
+		ret = MTK_MML_DISP_DIRECT_LINK_LAYER;
+		break;
+	case MML_MODE_RACING:
+		ret = MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+		break;
+	case MML_MODE_MML_DECOUPLE:
+		ret = MTK_MML_DISP_DECOUPLE_LAYER;
+		break;
+	case MML_MODE_MDP_DECOUPLE:
+		ret = MTK_MML_DISP_MDP_LAYER;
+		break;
+	case MML_MODE_UNKNOWN:
+	default:
+		ret = MTK_MML_DISP_NOT_SUPPORT;
+		break;
+	}
+
+	DDPINFO("%s ret:%d", __func__, ret);
+
+	return ret;
 }
 
 static void check_is_mml_layer(const int disp_idx,
-	struct drm_mtk_layering_info *disp_info, struct drm_device *dev)
+	struct drm_mtk_layering_info *disp_info, struct drm_device *dev,
+	unsigned int *scn_decision_flag)
 {
 	int i = 0;
 	struct drm_mtk_layer_config *c = NULL;
@@ -2534,12 +2646,17 @@ static void check_is_mml_layer(const int disp_idx,
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 		c = & disp_info->input_config[disp_idx][i];
 		if (MTK_MML_OVL_LAYER & c->layer_caps) {
-			c->layer_caps |= query_MML(dev->dev_private);
+			c->layer_caps |= query_MML(dev, dev->dev_private,
+				(struct mml_frame_info *)c->mml_cfg);
 			if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
 				MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 				// if layer can use MML direct link or inline rotate handle,
 				// we don't use DISP RSZ
 				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
+				//*scn_decision_flag |= SCN_MML;
+				*scn_decision_flag |= SCN_MML_SRAM_ONLY;
+				DDPINFO("%s scn_decision_flag:%d, SCN_MML:%d, SCN_MML_SRAM_ONLY:%d",
+					__func__, *scn_decision_flag, SCN_MML, SCN_MML_SRAM_ONLY);
 			} else if (MTK_MML_DISP_NOT_SUPPORT & c->layer_caps) {
 				if (disp_info->gles_head[disp_idx] == -1 ||
 					disp_info->gles_head[disp_idx] > i)
@@ -2709,7 +2826,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 
 	/* Check can do MML or not */
 	if (layering_info.layer_num[HRT_PRIMARY] > 0) {
-		check_is_mml_layer(disp_idx, &layering_info, dev);
+		check_is_mml_layer(disp_idx, &layering_info,
+			dev, &scn_decision_flag);
 	}
 
 	/* fbdc_rule should be after resizing_rule

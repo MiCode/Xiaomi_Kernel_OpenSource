@@ -33,6 +33,12 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
 
+#include "slbc_ops.h"
+#include "../mml/mtk-mml.h"
+#include <soc/mediatek/smi.h>
+
+extern bool g_disp_drm;
+
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
 #define REG_FLD(width, shift)                                                  \
@@ -89,6 +95,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
 #define DISP_REG_OVL_ROI_BGCLR 0x0028
 #define DISP_REG_OVL_SRC_CON 0x002c
+#define DISP_OVL_FORCE_CONSTANT_LAYER BIT(4)
 #define DISP_OVL_FORCE_RELAY_MODE BIT(8)
 
 #define DISP_REG_OVL_CON(n) (0x0030 + 0x20 * (n))
@@ -111,6 +118,10 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define CON_LSRC_RES BIT(28)
 #define CON_VERTICAL_FLIP BIT(9)
 #define CON_HORI_FLIP BIT(10)
+
+#define DISP_REG_OVL_SRAM_CFG(n) (0x880 + 0x10 * (n))
+#define DISP_REG_OVL_SRAM_BUF0_ADDR(n) (0x884 + 0x10 * (n))
+#define DISP_REG_OVL_SRAM_BUF1_ADDR(n) (0x888 + 0x10 * (n))
 
 #define DISP_REG_OVL_SRCKEY(n) (0x0034 + 0x20 * (n))
 #define DISP_REG_OVL_SRC_SIZE(n) (0x0038 + 0x20 * (n))
@@ -139,6 +150,10 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_RDMA3_MEM_GMC_S2 (0x1ECUL)
 #define DISP_REG_OVL_RDMA_BURST_CON1	(0x1F4UL)
 #define FLD_RDMA_BURST_CON1_BURST16_EN		REG_FLD_MSB_LSB(28, 28)
+
+#define DISP_REG_OVL_SYSRAM_CFG(n) (0x0880UL + 0x10 * n)
+#define DISP_REG_OVL_SYSRAM_BUF0_ADDR(n) (0x0884UL + 0x10 * n)
+#define DISP_REG_OVL_SYSRAM_BUF1_ADDR(n) (0x0888UL + 0x10 * n)
 
 #define DISP_REG_OVL_GDRDY_PRD (0x208UL)
 
@@ -320,6 +335,10 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define MT6983_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
 #define MT6983_OVL1_2L_NWCG_AID_SEL (0xB10UL)
 
+#define SMI_LARB_NON_SEC_CON        0x380
+
+#define MML_SRAM_SHIFT (512*1024)
+
 enum GS_OVL_FLD {
 	GS_OVL_RDMA_ULTRA_TH = 0,
 	GS_OVL_RDMA_PRE_ULTRA_TH,
@@ -429,7 +448,29 @@ struct mtk_disp_ovl {
 	int bg_w, bg_h;
 	struct clk *fbdc_clk;
 	struct mtk_ovl_backup_info backup_info[MAX_LAYER_NUM];
+	bool is_mml_path;
 };
+
+void mtk_ovl_addon_mml_inlinerotate_config_1st_OVL(
+	struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	DDPINFO("%s comp->id:%d", __func__, comp->id);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+					   comp->regs_pa + 0x10,
+					   0x00001000,
+					   0x00001000);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+					   comp->regs_pa + 0x938,
+					   200,
+					   200);
+
+	// setting SMI for read SRAM
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
+		0x000F0000, GENMASK(19, 16));
+	DDPINFO("comp->regs_pa:%x", comp->regs_pa);
+	DDPINFO("%s -\n", __func__);
+}
 
 static inline struct mtk_disp_ovl *comp_to_ovl(struct mtk_ddp_comp *comp)
 {
@@ -751,8 +792,6 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_SRC_CON,
 		       DISP_OVL_FORCE_RELAY_MODE, DISP_OVL_FORCE_RELAY_MODE);
-
-
 	SET_VAL_MASK(value, mask, 1, FLD_RDMA_BURST_CON1_BURST16_EN);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_RDMA_BURST_CON1,
@@ -1475,8 +1514,26 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					0, BIT(sec_bit));
 		}
 
-		write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
+		if (pending->mml_mode == MML_MODE_RACING
+			&& !g_disp_drm) {
+			dma_addr_t sram_addr = pending->addr;
 
+			DDPINFO("%s in handle:0x%x", __func__, handle);
+			// enable
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_SYSRAM_CFG(lye_idx), 1,
+				~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF0_ADDR(lye_idx),
+				sram_addr, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
+				sram_addr + MML_SRAM_SHIFT,
+				~0);
+			mtk_ovl_addon_mml_inlinerotate_config_1st_OVL(comp, handle);
+		} else {
+			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
+		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
 			src_size, ~0);
@@ -1525,6 +1582,11 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		 */
 		_ovl_common_config(comp, idx, state, handle);
 	}
+
+	if (pending->mml_mode)
+		ovl->is_mml_path = true;
+	else
+		ovl->is_mml_path = false;
 
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
@@ -1984,7 +2046,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			lx_fbdc_en << (lye_idx + 4), BIT(lye_idx + 4));
 
 	/* if no compress, do common config and return */
-	if (compress == 0) {
+	if (compress == 0 || (pending->mml_mode == MML_MODE_RACING)) {
 		_ovl_common_config(comp, idx, state, handle);
 		return 0;
 	}
@@ -2877,7 +2939,7 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
 
-		for (i = 0; i < 0x8e0; i += 0x10)
+		for (i = 0; i < 0xFF0; i += 0x10)
 			mtk_serial_dump_reg(baddr, i, 4);
 
 		/* ADDR */
@@ -3121,6 +3183,10 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 		REG_FLD_VAL_GET(L_CON_FLD_AEN, con),
 		REG_FLD_VAL_GET(L_CON_FLD_APHA, con),
 		clip);
+	DDPDUMP("L0_SYSRAM_CFG:0x%x, L0_SYSRAM_BUF0:0x%x, L0_SYSRAM_BUF1:0x%x\n",
+			readl(comp->regs + 0x880),
+			readl(comp->regs + 0x884),
+			readl(comp->regs + 0x888));
 
 	ovl_dump_layer_info_compress(comp, layer, is_ext_layer);
 }

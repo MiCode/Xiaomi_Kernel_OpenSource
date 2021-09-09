@@ -28,6 +28,11 @@ void mtk_merge_dump(struct mtk_ddp_comp *comp);
 void mtk_cm_dump(struct mtk_ddp_comp *comp);
 void mtk_spr_dump(struct mtk_ddp_comp *comp);
 void mtk_chist_dump(struct mtk_ddp_comp *comp);
+void mtk_inlinerotate_dump(struct mtk_ddp_comp *comp);
+void mtk_dli_async_dump(struct mtk_ddp_comp *comp);
+void mtk_dlo_async_dump(struct mtk_ddp_comp *comp);
+void mtk_y2r_dump(struct mtk_ddp_comp *comp);
+void mtk_mmlsys_bypass_dump(struct mtk_ddp_comp *comp);
 
 int mtk_ovl_analysis(struct mtk_ddp_comp *comp);
 int mtk_rdma_analysis(struct mtk_ddp_comp *comp);
@@ -41,6 +46,11 @@ int mtk_merge_analysis(struct mtk_ddp_comp *comp);
 int mtk_cm_analysis(struct mtk_ddp_comp *comp);
 int mtk_spr_analysis(struct mtk_ddp_comp *comp);
 int mtk_chist_analysis(struct mtk_ddp_comp *comp);
+int mtk_inlinerotate_analysis(struct mtk_ddp_comp *comp);
+int mtk_dli_async_analysis(struct mtk_ddp_comp *comp);
+int mtk_dlo_async_analysis(struct mtk_ddp_comp *comp);
+int mtk_y2r_analysis(struct mtk_ddp_comp *comp);
+int mtk_mmlsys_bypass_analysis(struct mtk_ddp_comp *comp);
 
 int mtk_dump_reg(struct mtk_ddp_comp *comp);
 int mtk_dump_analysis(struct mtk_ddp_comp *comp);

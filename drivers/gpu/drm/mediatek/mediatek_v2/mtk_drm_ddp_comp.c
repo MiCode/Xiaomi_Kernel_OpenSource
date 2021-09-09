@@ -308,6 +308,11 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DISP_CHIST] = "chist",
 	[MTK_DISP_C3D] = "c3d",
 	[MTK_DISP_TDSHP] = "tdshp",
+	[MTK_DISP_Y2R] = "y2r",
+	[MTK_DISP_DLO_ASYNC] = "dlo_async",
+	[MTK_DISP_DLI_ASYNC] = "dli_async",
+	[MTK_DISP_INLINE_ROTATE] = "inlinerotate",
+	[MTK_MMLSYS_BYPASS] = "mmlsys_bypass",
 };
 
 struct mtk_ddp_comp_match {
@@ -445,6 +450,12 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_SUB1_VIRTUAL1, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_Y2R0, MTK_DISP_Y2R, 0, NULL, 0},
+	{DDP_COMPONENT_Y2R0_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC, MTK_DISP_DLO_ASYNC, 0, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC, MTK_DISP_DLI_ASYNC, 0, NULL, 0},
+	{DDP_COMPONENT_INLINE_ROTATE, MTK_DISP_INLINE_ROTATE, 0, NULL, 0},
+	{DDP_COMPONENT_MMLSYS_BYPASS, MTK_MMLSYS_BYPASS, 0, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)

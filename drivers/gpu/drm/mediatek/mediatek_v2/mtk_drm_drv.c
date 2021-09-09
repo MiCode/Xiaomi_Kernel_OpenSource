@@ -61,6 +61,14 @@
 //#include "include/pmic_api_buck.h"
 #include <../drivers/gpu/drm/mediatek/mml/mtk-mml.h>
 
+#include "../mml/mtk-mml.h"
+#include "../mml/mtk-mml-drm-adaptor.h"
+#include "../mml/mtk-mml-driver.h"
+
+#include "slbc_ops.h"
+
+extern void print_mml_submit(struct mml_submit *args);
+
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -97,6 +105,8 @@ struct drm_crtc *test_crtc;
 void *test_va;
 dma_addr_t test_pa;
 #endif
+
+extern bool g_mobile_log;
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
@@ -1042,6 +1052,171 @@ static void mtk_drm_enable_trig(struct drm_device *drm,
 	}
 }
 
+static struct mml_submit *mtk_alloc_mml_submit(void)
+{
+	struct mml_submit *temp = NULL;
+	unsigned int i = 0;
+
+	temp = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
+	temp->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		temp->pq_param[i] =	kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
+
+	return temp;
+}
+
+static void _mtk_atomic_mml_plane(struct drm_device *dev,
+	struct mtk_plane_state *mtk_plane_state)
+{
+	struct mml_submit *submit_kernel = NULL;
+	struct mml_submit *submit_pq = NULL;
+	struct mml_submit *submit_user = NULL;
+	struct mml_job *temp_job = NULL;
+	struct mml_pq_param *temp_pq_param[MML_MAX_OUTPUTS] = {NULL, NULL};
+	struct mml_drm_ctx *mml_ctx = NULL;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(mtk_plane_state->crtc);
+	int i = 0;
+
+	DDPINFO("PLANE_PROP_TEST_CODE:%lld",
+		(long long)mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
+
+	submit_user = (struct mml_submit *)
+		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
+
+	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
+	if (copy_from_user(submit_kernel, submit_user,
+			sizeof(struct mml_submit))) {
+		DDPPR_ERR("%s copy_from_user mml_submit fail\n", __func__);
+		goto err_handle_mtk_atomic_mml_plane_free_mml_submit;
+	}
+	temp_job = submit_kernel->job;
+	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
+
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
+		temp_pq_param[i] = submit_kernel->pq_param[i];
+		submit_kernel->pq_param[i] =
+			kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
+	}
+
+	if (temp_job) {
+		if (copy_from_user(submit_kernel->job, temp_job,
+			sizeof(struct mml_job))) {
+			DDPPR_ERR("%s copy_from_user mml_job fail\n", __func__);
+			goto err_handle_mtk_atomic_mml_plane_free_all;
+		}
+	} else {
+		DDPPR_ERR("%s submit_user->job is null\n", __func__);
+		goto err_handle_mtk_atomic_mml_plane_free_all;
+	}
+
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
+		if (!temp_pq_param[i]) {
+			DDPPR_ERR("%s temp_pq_param[%d] is null\n", __func__, i);
+			goto err_handle_mtk_atomic_mml_plane_free_all;
+		}
+
+		if (copy_from_user(submit_kernel->pq_param[i],
+				temp_pq_param[i], sizeof(struct mml_pq_param))) {
+			DDPPR_ERR("%s copy_from_user mml_pq_param fail\n", __func__);
+			goto err_handle_mtk_atomic_mml_plane_free_all;
+		}
+	}
+
+	if (submit_kernel != NULL) {
+		int ret = 0;
+
+		submit_kernel->update = false;
+		submit_kernel->info.mode = MML_MODE_RACING;
+		//print_mml_submit(submit_kernel);
+		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+		submit_pq = mtk_alloc_mml_submit();
+
+		submit_kernel->info.dest[0].crop.r.height = 64;
+		submit_kernel->info.dest[0].crop.r.width = 512;
+		submit_kernel->info.dest[0].crop.r.left = 0;
+		submit_kernel->info.dest[0].crop.r.top = 0;
+		submit_kernel->info.dest[0].crop.h_sub_px = 0;
+		submit_kernel->info.dest[0].crop.w_sub_px = 0;
+		submit_kernel->info.dest[0].crop.x_sub_px = 0;
+		submit_kernel->info.dest[0].crop.y_sub_px = 0;
+
+		mml_drm_split_info(submit_kernel, submit_pq);
+
+		submit_kernel->info.dest[0].compose.height = 64;
+		submit_kernel->info.dest[0].compose.width = 512;
+		submit_kernel->info.dest[0].compose.left = 0;
+		submit_kernel->info.dest[0].compose.top = 0;
+
+		DDPINFO("%s mml_drm_split_info -", __func__);
+		if (mml_ctx != NULL) {
+			ret = wait_event_interruptible(
+				mtk_crtc->signal_mml_last_job_is_flushed_wq
+				, atomic_read(&mtk_crtc->mml_last_job_is_flushed));
+			DDPINFO("%s 2\n", __func__);
+			atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 0);
+
+			DDPINFO("mml_drm_submit + src fd:%d, dst fd:%d",
+				submit_kernel->buffer.src.fd[0],
+				submit_kernel->buffer.dest[0].fd[0]);
+
+			DDPINFO("mml_drm_submit + 0x%x", &(mtk_crtc->mml_cb));
+			ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));
+			DDPINFO("mml_drm_submit -");
+			DDPINFO("mtk_plane_state:0x%x, mtk_plane_state->mml_mode:%d",
+				mtk_plane_state, mtk_plane_state->mml_mode);
+			mtk_crtc->is_mml = true;
+			mtk_plane_state->mml_mode = MML_MODE_RACING;
+			mtk_plane_state->mml_cfg = submit_pq;
+			mtk_crtc->mml_cfg = submit_kernel;
+			DDPINFO("%s, mtk_crtc:0x%x, mtk_crtc->is_mml:%d",
+				__func__, mtk_crtc, mtk_crtc->is_mml);
+		}
+	}
+
+err_handle_mtk_atomic_mml_plane_free_all:
+	//for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+	//	kfree(submit_kernel->pq_param[i]);
+	//kfree(submit_kernel->job);
+err_handle_mtk_atomic_mml_plane_free_mml_submit:
+	//kfree(submit_kernel);
+	DDPINFO("%s -\n", __func__);
+}
+
+static void mtk_atomic_mml(struct drm_device *dev,
+	struct drm_atomic_state *state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state, *old_plane_state;
+	struct mtk_plane_state *mtk_plane_state;
+	struct mtk_drm_crtc *mtk_crtc;
+	int i = 0;
+
+	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
+		if (crtc && drm_crtc_index(crtc) == 0) {
+			mtk_crtc = to_mtk_crtc(crtc);
+			mtk_crtc->is_mml = false;
+			break;
+		}
+	}
+
+	for_each_old_plane_in_state(state, plane, old_plane_state, i) {
+		plane_state = plane->state;
+		if (plane_state && plane_state->crtc &&
+			drm_crtc_index(plane_state->crtc) == 0) {
+			mtk_plane_state = to_mtk_plane_state(plane_state);
+
+			if (!mtk_plane_state->prop_val[PLANE_PROP_IS_MML])
+				continue;
+
+			DDPINFO("%s _mtk_atomic_mml_plane +", __func__);
+			_mtk_atomic_mml_plane(dev, mtk_plane_state);
+			DDPINFO("%s _mtk_atomic_mml_plane -", __func__);
+		}
+	}
+}
+
 static void mtk_atomic_complete(struct mtk_drm_private *private,
 				struct drm_atomic_state *state)
 {
@@ -1049,7 +1224,7 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 
 	if (mtk_atomic_skip_config(state)) {
 		drm_atomic_helper_commit_planes(drm, state,
-				DRM_PLANE_COMMIT_ACTIVE_ONLY);
+			DRM_PLANE_COMMIT_ACTIVE_ONLY);
 		return;
 	}
 	mtk_atomic_wait_for_fences(state);
@@ -1084,6 +1259,8 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	mtk_atomic_calculate_plane_enabled_number(drm, state);
 
 	mtk_atomic_check_plane_sec_state(drm, state);
+
+	mtk_atomic_mml(drm, state);
 
 	if (!mtk_atomic_skip_plane_update(private, state)) {
 		drm_atomic_helper_commit_planes(drm, state,
@@ -1501,6 +1678,13 @@ static const struct mtk_addon_module_data mt6983_addon_wdma2_data[] = {
 	{DISP_WDMA2, ADDON_AFTER, DDP_COMPONENT_SPR1},
 };
 
+static const struct mtk_addon_module_data addon_mml_data[] = {
+	{DISP_INLINE_ROTATE, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data addon_mml_sram_only_data[] = {
+	{DISP_INLINE_ROTATE_SRAM_ONLY, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
 
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
@@ -1609,6 +1793,16 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 				.module_data = mt6983_addon_wdma0_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
+		[MML] = {
+				.module_num = ARRAY_SIZE(addon_mml_data),
+				.module_data = addon_mml_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[MML_SRAM_ONLY] = {
+				.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
+				.module_data = addon_mml_sram_only_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
 };
 
 static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR] = {
@@ -1629,6 +1823,16 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 		[WDMA_WRITE_BACK] = {
 				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data),
 				.module_data = mt6983_addon_wdma2_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[MML] = {
+				.module_num = ARRAY_SIZE(addon_mml_data),
+				.module_data = addon_mml_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[MML_SRAM_ONLY] = {
+				.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
+				.module_data = addon_mml_sram_only_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
@@ -3459,6 +3663,84 @@ int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
 	return ret;
 }
 
+void mtk_drm_mmlsys_submit_done_cb(void *cb_param)
+{
+	struct mtk_mml_cb_para *cb_para = (struct mtk_mml_cb_para *)cb_param;
+
+	if (cb_para == NULL) {
+		DDPPR_ERR("%s\n", __func__);
+		return;
+	}
+
+	DDPINFO("%s cb_para:0x%x, 0x%x, 0x%x\n", __func__,
+		cb_para, &(cb_para->mml_job_submit_done), &(cb_para->mml_job_submit_wq));
+	atomic_set(&(cb_para->mml_job_submit_done), 1);
+	DDPINFO("%s 2\n", __func__);
+	wake_up_interruptible(&(cb_para->mml_job_submit_wq));
+	DDPINFO("%s 3\n", __func__);
+}
+
+void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para)
+{
+	int ret = 0;
+
+	DDPINFO("%s 1 0x%x 0x%x, 0x%x\n", __func__,
+		cb_para,
+		&(cb_para->mml_job_submit_wq),
+		&(cb_para->mml_job_submit_done));
+	ret = wait_event_interruptible(
+		cb_para->mml_job_submit_wq
+		, atomic_read(&cb_para->mml_job_submit_done));
+	DDPINFO("%s 2 ret:%d\n", __func__, ret);
+	atomic_set(&(cb_para->mml_job_submit_done), 0);
+	DDPINFO("%s 3\n", __func__);
+}
+
+struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct platform_device *plat_dev = NULL;
+	struct platform_device *mml_pdev = NULL;
+	struct mml_drm_ctx *mml_ctx = NULL;
+	struct mml_drm_param disp_param = {};
+
+	if (priv->mml_ctx != NULL) {
+		DDPPR_ERR("%s 1 priv->mml_ctx:0x%x\n", __func__, priv->mml_ctx);
+		return priv->mml_ctx;
+	}
+
+	plat_dev = of_find_device_by_node(priv->mutex_node);
+	if (!plat_dev) {
+		DDPPR_ERR("%s of_find_device_by_node open fail\n", __func__);
+		goto err_handle_mtk_drm_get_mml_drm_ctx;
+	}
+
+	mml_pdev = mml_get_plat_device(plat_dev);
+	if (!mml_pdev) {
+		DDPPR_ERR("mtk_drm_ioctl_mml_gem_submit mml_get_plat_device open fail\n");
+		goto err_handle_mtk_drm_get_mml_drm_ctx;
+	}
+
+	disp_param.dual = false;
+	disp_param.racing_height = 64;
+	disp_param.vblank_interval = 16666666;
+	disp_param.vdo_mode = true;
+	disp_param.submit_cb = mtk_drm_mmlsys_submit_done_cb;
+
+	mml_ctx = mml_drm_get_context(mml_pdev, &disp_param);
+	if (!mml_ctx)
+		DDPPR_ERR("mml_drm_get_context fail. mml_ctx:%p\n", mml_ctx);
+	else {
+		priv->mml_ctx = mml_ctx;
+		DDPMSG("%s 2 0x%x", __func__, priv->mml_ctx);
+		return priv->mml_ctx;
+	}
+
+err_handle_mtk_drm_get_mml_drm_ctx:
+	priv->mml_ctx = NULL;
+	return priv->mml_ctx;
+}
+
 static int mtk_drm_kms_init(struct drm_device *drm)
 {
 	struct mtk_drm_private *private = drm->dev_private;
@@ -3529,6 +3811,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 						->path[DDP_MAJOR][0][0]];
 
 	pdev = of_find_device_by_node(np);
+
 	if (!pdev) {
 		ret = -ENODEV;
 		dev_err(drm->dev, "Need at least one OVL device\n");
@@ -3635,6 +3918,11 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 
 	disp_dbg_deinit();
 	PanelMaster_Deinit();
+
+	if (private->mml_ctx) {
+		mml_drm_put_context(private->mml_ctx);
+		private->mml_ctx = NULL;
+	}
 }
 
 int mtk_drm_fm_lcm_auto_test(struct drm_device *dev, void *data,
@@ -3872,7 +4160,6 @@ static int mtk_drm_bind(struct device *dev)
 
 	drm->dev_private = private;
 	private->drm = drm;
-
 	ret = mtk_drm_kms_init(drm);
 	if (ret < 0)
 		goto err_free;
@@ -4186,6 +4473,16 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DMDP_AAL},
 	{.compatible = "mediatek,mt6873-dmdp-aal",
 	 .data = (void *)MTK_DMDP_AAL},
+	{.compatible = "mediatek,mt6983-disp-y2r",
+	 .data = (void *)MTK_DISP_Y2R},
+	{.compatible = "mediatek,mt6983-disp-dlo-async3",
+	 .data = (void *)MTK_DISP_DLO_ASYNC},
+	{.compatible = "mediatek,mt6983-disp-dli-async3",
+	 .data = (void *)MTK_DISP_DLI_ASYNC},
+	{.compatible = "mediatek,mt6983-disp-inlinerotate",
+	 .data = (void *)MTK_DISP_INLINE_ROTATE},
+	{.compatible = "mediatek,mt6983-mmlsys-bypass",
+	 .data = (void *)MTK_MMLSYS_BYPASS},
 	{} };
 
 #ifdef CONFIG_MTK_DISPLAY_M4U
@@ -4424,6 +4721,7 @@ SKIP_SIDE_DISP:
 		    comp_type == MTK_DMDP_AAL
 #endif
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
+			|| comp_type == MTK_DISP_INLINE_ROTATE
 		    ) {
 			dev_info(dev, "Adding component match for %s, comp_id:%d\n",
 				 node->full_name, comp_id);
@@ -4455,6 +4753,7 @@ SKIP_SIDE_DISP:
 	platform_set_drvdata(pdev, private);
 
 	ret = component_master_add_with_match(dev, &mtk_drm_ops, match);
+
 	DDPINFO("%s- ret:%d\n", __func__, ret);
 	if (ret)
 		goto err_pm;
@@ -4646,6 +4945,11 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_spr_driver,
 	&mtk_disp_dsc_driver,
 	&mtk_dp_tx_driver,
+	&mtk_disp_y2r_driver,
+	&mtk_disp_inlinerotate_driver,
+	&mtk_disp_dlo_async_driver,
+	&mtk_disp_dli_async_driver,
+	&mtk_mmlsys_bypass_driver,
 	&mtk_disp_merge_driver
 };
 
@@ -4661,7 +4965,8 @@ static int __init mtk_drm_init(void)
 			DDPPR_ERR("Failed to register %s driver: %d\n",
 				  mtk_drm_drivers[i]->driver.name, ret);
 			goto err;
-		}
+		} else
+			DDPINFO("%s driver success\n", mtk_drm_drivers[i]->driver.name);
 	}
 	DDPINFO("%s-\n", __func__);
 

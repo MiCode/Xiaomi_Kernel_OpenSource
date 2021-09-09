@@ -123,6 +123,20 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_CHIST0:
 	case DDP_COMPONENT_CHIST1:
 		mtk_chist_dump(comp);
+	case DDP_COMPONENT_Y2R0:
+		mtk_y2r_dump(comp);
+		break;
+	case DDP_COMPONENT_DLO_ASYNC:
+		mtk_dlo_async_dump(comp);
+		break;
+	case DDP_COMPONENT_DLI_ASYNC:
+		mtk_dli_async_dump(comp);
+		break;
+	case DDP_COMPONENT_INLINE_ROTATE:
+		mtk_inlinerotate_dump(comp);
+		break;
+	case DDP_COMPONENT_MMLSYS_BYPASS:
+		mtk_mmlsys_bypass_dump(comp);
 		break;
 	default:
 		return 0;

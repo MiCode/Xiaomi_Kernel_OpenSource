@@ -47,6 +47,20 @@ static const int disp_wdma2_path[] = {
 	DDP_COMPONENT_WDMA2,
 };
 
+static const int disp_mml_path[] = {
+	DDP_COMPONENT_OVL0_2L_VIRTUAL0,
+	DDP_COMPONENT_INLINE_ROTATE,
+	DDP_COMPONENT_DLO_ASYNC,
+	DDP_COMPONENT_MMLSYS_BYPASS,
+	DDP_COMPONENT_DLI_ASYNC,
+	DDP_COMPONENT_Y2R0,
+	DDP_COMPONENT_Y2R0_VIRTUAL0
+};
+
+static const int disp_mml_sram_only_path[] = {
+	DDP_COMPONENT_INLINE_ROTATE,
+};
+
 static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_RSZ] = {
 				.path = disp_rsz_path,
@@ -79,6 +93,14 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_WDMA2] = {
 				.path = disp_wdma2_path,
 				.path_len = ARRAY_SIZE(disp_wdma2_path),
+			},
+		[DISP_INLINE_ROTATE] = {
+				.path = disp_mml_path,
+				.path_len = ARRAY_SIZE(disp_mml_path),
+			},
+		[DISP_INLINE_ROTATE_SRAM_ONLY] = {
+				.path = disp_mml_sram_only_path,
+				.path_len = ARRAY_SIZE(disp_mml_sram_only_path),
 			},
 };
 
