@@ -1710,6 +1710,8 @@
 		vlpcfg = <&vlpcfg_bus_clk>;
 		mfgrpc = <&mfgrpc_clk>;
 		hw-voter-regmap = <&hwv>;
+		isp_main-supply = <&vmm_proxy_label>;
+		cam_main-supply = <&vmm_proxy_label>;
 	};
 
 	apmixedsys_clk: syscon@1000c000 {
@@ -12406,6 +12408,9 @@
 
 	ispdvfs: ispdvfs {
 		compatible = "mediatek,ispdvfs";
+		reg = <0 0x1c001000 0 0x1000>;  // sys_spm
+		reg-names = "SPM_BASE";
+
 		mediatek,ccu_rproc = <&ccu_rproc>;
 		mediatek,support_micro_processor = <1>;
 		operating-points-v2 = <&opp_table_img>;
@@ -12457,7 +12462,6 @@
 			regulator-name = "dvfs-vmm";
 			regulator-min-microvolt = <550000>;
 			regulator-max-microvolt = <700000>;
-			regulator-always-on;
 		};
 	};
 
@@ -12944,7 +12948,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2>;
-				regulator-always-on;
 			};
 		};
 	};
