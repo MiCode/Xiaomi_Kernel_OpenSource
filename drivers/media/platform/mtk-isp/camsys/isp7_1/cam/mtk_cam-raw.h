@@ -361,8 +361,11 @@ void reset(struct mtk_raw_device *dev);
 int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
 
-int mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
-			  struct media_entity *entity);
+struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
+					struct media_entity *entity);
+
+void mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
+			   struct v4l2_subdev *sensor);
 
 struct mtk_raw_pipeline*
 mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf);

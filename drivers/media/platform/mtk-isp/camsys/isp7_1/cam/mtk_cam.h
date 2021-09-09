@@ -67,6 +67,14 @@ struct mtk_raw_pipeline;
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SENINF_FMT_UPDATE	BIT(3)
 
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
+
+#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN		BIT(5)
+
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE	BIT(6)
+
+#define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
+
 struct mtk_cam_working_buf {
 	void *va;
 	dma_addr_t iova;
@@ -165,6 +173,11 @@ struct mtk_cam_req_feature {
 	int switch_feature_type;
 };
 
+struct mtk_cam_sensor_work {
+	struct kthread_work work;
+	atomic_t is_queued;
+};
+
 /*
  * struct mtk_cam_request_stream_data - per stream members of a request
  *
@@ -176,6 +189,7 @@ struct mtk_cam_req_feature {
  *
  */
 struct mtk_cam_request_stream_data {
+	int index;
 	struct mtk_cam_request *req;
 	struct mtk_cam_ctx *ctx;
 	int pipe_id;
@@ -184,8 +198,11 @@ struct mtk_cam_request_stream_data {
 	u64 timestamp;
 	u64 timestamp_mono;
 	struct mtk_cam_buffer *bufs[MTK_RAW_TOTAL_NODES];
+	struct v4l2_subdev *sensor;
 	struct v4l2_subdev *seninf_old;
 	struct v4l2_subdev *seninf_new;
+	struct media_request_object *sensor_hdl_obj;  /* for complete only */
+	struct media_request_object *raw_hdl_obj;  /* for complete only */
 	u32 pad_fmt_update;
 	u32 vdev_fmt_update;
 	u32 vdev_selection_update;
@@ -195,7 +212,7 @@ struct mtk_cam_request_stream_data {
 	struct v4l2_selection vdev_selection[MTK_RAW_TOTAL_NODES];
 	struct mtkcam_ipi_frame_param frame_params;
 	struct mtk_camsv_frame_params sv_frame_params;
-	struct kthread_work sensor_work;
+	struct mtk_cam_sensor_work sensor_work;
 	struct mtk_cam_req_work seninf_s_fmt_work;
 	struct mtk_cam_req_work frame_work;
 	struct mtk_cam_req_work meta1_done_work;
@@ -644,7 +661,7 @@ static inline struct mtk_cam_request_stream_data*
 mtk_cam_sensor_work_to_s_data(struct kthread_work *work)
 {
 	return container_of(work, struct mtk_cam_request_stream_data,
-			    sensor_work);
+			    sensor_work.work);
 }
 
 static inline struct mtk_cam_seninf_dump_work*

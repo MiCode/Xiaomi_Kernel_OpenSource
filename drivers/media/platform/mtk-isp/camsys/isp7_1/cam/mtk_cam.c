@@ -97,6 +97,7 @@ mtk_cam_req_s_data_clean(struct mtk_cam_request_stream_data *s_data)
 {
 	s_data->seninf_old = NULL;
 	s_data->seninf_new = NULL;
+	s_data->sensor = NULL;
 	s_data->pad_fmt_update = 0;
 	s_data->vdev_fmt_update = 0;
 	s_data->vdev_selection_update = 0;
@@ -159,6 +160,7 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *req_state;
 	struct mtk_cam_request_stream_data *req_stream_data_pipe;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	struct media_request_object *hdl_obj;
 	int i, buf_start = 0, buf_end = 0, running_s_data_cnt;
 
 	running_s_data_cnt = atomic_dec_return(&ctx->running_s_data_cnt);
@@ -198,6 +200,25 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 	/* clean the works of the workqueues if needed */
 	mtk_cam_req_works_clean(req_stream_data_pipe);
 	mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
+
+	if (req_stream_data_pipe->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN &&
+	    !(req_stream_data_pipe->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
+	    req_stream_data_pipe->sensor_hdl_obj) {
+		hdl_obj = req_stream_data->sensor_hdl_obj;
+		if (hdl_obj->ops) {
+			/* TODO: enable while no spin_lock */
+			//hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
+			dev_dbg(cam->dev, "%s:cannot unbind sensor hdl\n",
+				__func__);
+		}
+		media_request_object_complete(hdl_obj);
+		dev_dbg(cam->dev,
+			"%s:%s:pipe(%d):seq(%d): complete sensor(%s) hdl\n",
+			__func__, req->req.debug_str, pipe_id,
+			req_stream_data_pipe->frame_seq_no,
+			req_stream_data_pipe->sensor->name);
+		req_stream_data_pipe->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
+	}
 
 	/* clean the req_stream_data being used right after request reinit */
 	mtk_cam_req_s_data_clean(req_stream_data_pipe);
@@ -610,6 +631,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head *running = &cam->running_job_list;
 	struct list_head s_data_clean_list;
+	struct media_request_object *hdl_obj;
 	int i, num_s_data;
 	unsigned long flags;
 	bool need_clean_s_data, need_clean_req;
@@ -654,6 +676,15 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		}
 
 		 /* Cancel s_data's works before we clean up the data */
+		if (atomic_read(&s_data->sensor_work.is_queued)) {
+			kthread_cancel_work_sync(&s_data->sensor_work.work);
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):seq(%d): cancel sensor_work\n",
+				 __func__, req->req.debug_str, pipe_id,
+				 s_data->frame_seq_no);
+		}
+		atomic_set(&s_data->sensor_work.is_queued, 1);
+
 		if (atomic_read(&s_data->meta1_done_work.is_queued)) {
 			cancel_work_sync(&s_data->meta1_done_work.work);
 			dev_info(cam->dev,
@@ -661,6 +692,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
 		}
+		atomic_set(&s_data->meta1_done_work.is_queued, 1);
 
 		if (atomic_read(&s_data->frame_done_work.is_queued)) {
 			cancel_work_sync(&s_data->frame_done_work.work);
@@ -669,6 +701,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
 		}
+		atomic_set(&s_data->frame_done_work.is_queued, 1);
 
 		if (atomic_read(&s_data->dbg_exception_work.state) ==
 			MTK_CAM_REQ_DBGWORK_S_PREPARED) {
@@ -678,6 +711,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
 		}
+		atomic_set(&s_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 
 		if (atomic_read(&s_data->dbg_work.state) ==
 			MTK_CAM_REQ_DBGWORK_S_PREPARED) {
@@ -687,6 +721,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
 		}
+		atomic_set(&s_data->dbg_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 
 		spin_lock(&req->done_status_lock);
 		dev_dbg(cam->dev,
@@ -710,6 +745,40 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				need_clean_req = false;
 		}
 		spin_unlock(&req->done_status_lock);
+
+		if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) &&
+		    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE) &&
+		    s_data->sensor_hdl_obj) {
+			hdl_obj = s_data->sensor_hdl_obj;
+			if (hdl_obj->ops)
+				hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
+			else
+				dev_dbg(cam->dev,
+					"%s:cannot unbind sensor hdl\n", __func__);
+			media_request_object_complete(hdl_obj);
+			dev_dbg(cam->dev,
+				"%s:%s:pipe(%d):seq(%d): complete sensor(%s) hdl\n",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no, s_data->sensor->name);
+			s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE;
+		}
+
+		if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN) &&
+		    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE) &&
+		    s_data->raw_hdl_obj) {
+			hdl_obj = s_data->raw_hdl_obj;
+			if (hdl_obj->ops)
+				hdl_obj->ops->unbind(hdl_obj);  /* mutex used */
+			else
+				dev_dbg(cam->dev,
+					"%s:cannot unbind raw hdl\n", __func__);
+			media_request_object_complete(hdl_obj);
+			dev_dbg(cam->dev,
+				"%s:%s:pipe(%d):seq(%d): complete raw hdl\n",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no);
+			s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE;
+		}
 
 		if (need_clean_s_data) {
 			dev_info(cam->dev,
@@ -1483,6 +1552,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		req_stream_data = mtk_cam_req_get_s_data(req, node->uid.pipe_id, 0);
 		req_stream_data->ctx = ctx;
 		req_stream_data->no_frame_done_cnt = 0;
+		atomic_set(&req_stream_data->sensor_work.is_queued, 0);
 		atomic_set(&req_stream_data->dbg_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
 		req_stream_data->dbg_work.dump_flags = 0;
 		atomic_set(&req_stream_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
@@ -1611,6 +1681,14 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 	req_stream_data_mstream->feature.raw_feature =
 		req_stream_data->feature.raw_feature;
 
+	req_stream_data_mstream->sensor = req_stream_data->sensor;
+	req_stream_data_mstream->raw_hdl_obj = req_stream_data->raw_hdl_obj;
+	req_stream_data_mstream->sensor_hdl_obj = req_stream_data->sensor_hdl_obj;
+	req_stream_data_mstream->flags |= req_stream_data->flags &
+					  MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN;
+	req_stream_data_mstream->flags |= req_stream_data->flags &
+					  MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN;
+
 	ctx->enqueued_frame_seq_no = req_stream_data->frame_seq_no;
 
 	pr_info("%s: frame_seq:%d, frame_mstream_seq:%d\n",
@@ -1619,6 +1697,7 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 
 	req_stream_data_mstream->ctx = ctx;
 	req_stream_data_mstream->no_frame_done_cnt = 0;
+	atomic_set(&req_stream_data_mstream->sensor_work.is_queued, 0);
 	atomic_set(&req_stream_data_mstream->dbg_work.state,
 			MTK_CAM_REQ_DBGWORK_S_INIT);
 	req_stream_data_mstream->dbg_work.dump_flags = 0;
@@ -1695,10 +1774,12 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data;
 	unsigned long flags;
-	int i;
+	int i, s_data_flags;
 	int feature_change, previous_feature;
 	int enqueue_req_cnt, job_count, s_data_cnt;
 	struct list_head equeue_list;
+	struct v4l2_ctrl_handler *hdl;
+	struct media_request_object *sensor_hdl_obj, *raw_hdl_obj, *obj;
 
 	if (!cam->streaming_ctx) {
 		dev_dbg(cam->dev, "streams are off\n");
@@ -1742,6 +1823,10 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 			/* Initialize ctx related s_data fields */
 			ctx = &cam->ctxs[i];
+			sensor_hdl_obj = NULL;
+			raw_hdl_obj = NULL;
+			s_data_flags = 0;
+
 			/* Update frame_seq_no */
 			s_data = mtk_cam_req_get_s_data(req, i, 0);
 			s_data->frame_seq_no = ++(ctx->enqueued_frame_seq_no);
@@ -1750,19 +1835,66 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			if (is_raw_subdev(i)) {
 				previous_feature = ctx->pipe->feature_pending;
 
+				s_data_cnt =
+					atomic_inc_return(&ctx->running_s_data_cnt);
+
+				immediate_link_update_chk(cam, i, s_data_cnt,
+							  s_data);
+
+				if (!(req->ctx_link_update & (1 << i)))
+					s_data->sensor = ctx->sensor;
+
+				spin_lock_irqsave(&req->req.lock, flags);
+				list_for_each_entry(obj, &req->req.objects, list) {
+					if (vb2_request_object_is_buffer(obj))
+						continue;
+
+					hdl = (struct v4l2_ctrl_handler *)obj->priv;
+					if (hdl == &ctx->pipe->ctrl_handler)
+						raw_hdl_obj = obj;
+					else if (hdl == ctx->sensor->ctrl_handler)
+						sensor_hdl_obj = obj;
+				}
+				spin_unlock_irqrestore(&req->req.lock, flags);
+
+				if (raw_hdl_obj) {
+					s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN;
+					s_data->raw_hdl_obj = raw_hdl_obj;
+					dev_dbg(cam->dev,
+						"%s:%s:ctx(%d): find pipe hdl\n",
+						__func__, req->req.debug_str, i);
+				}
+
 				/* Apply raw subdev's ctrl */
 				mtk_cam_req_update_ctrl(ctx->pipe, s_data);
 				feature_change = s_data->feature.switch_feature_type;
+
+				if (s_data->sensor && s_data->sensor->ctrl_handler &&
+				    sensor_hdl_obj) {
+					s_data->sensor_hdl_obj = sensor_hdl_obj;
+					dev_dbg(cam->dev,
+						"%s:%s:ctx(%d): find sensor(%s) hdl\n",
+						__func__, req->req.debug_str, i,
+						s_data->sensor->name);
+					s_data->flags |=
+						MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN;
+				}
+
+				s_data_flags = s_data->flags;
+
+				/* mstream: re-init the s_data */
 				if (mtk_cam_feature_change_is_mstream(feature_change))
 					mstream_seamless_buf_update(ctx, req, i,
 								    previous_feature);
+
+				/* reload s_data */
+				s_data->flags = s_data_flags;
+				s_data->raw_hdl_obj = raw_hdl_obj;
+				s_data->sensor_hdl_obj = sensor_hdl_obj;
+
+				/* copy s_data content */
 				if (mtk_cam_is_mstream(ctx))
 					fill_mstream_s_data(ctx, req);
-
-				s_data_cnt =
-					atomic_inc_return(&ctx->running_s_data_cnt);
-				immediate_link_update_chk(cam, i, s_data_cnt,
-							  s_data);
 			}
 		}
 
@@ -1844,6 +1976,7 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->req = req;
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
+		req_stream_data->index = i;
 
 		/**
 		 * req_stream_data->flags is cleaned by
@@ -1997,6 +2130,7 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, ctx->stream_id, 0);
 	stream_data->seninf_old = ctx->seninf;
 	stream_data->seninf_new = media_entity_to_v4l2_subdev(source);
+	stream_data->sensor = mtk_cam_find_sensor(ctx, &stream_data->seninf_new->entity);
 	cam_req->ctx_link_update |= 1 << ctx->stream_id;
 	media_request_put(req);
 
@@ -4029,6 +4163,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	struct mtk_raw_pipeline *pipe;
 	unsigned int i;
 	int ret;
+	unsigned long flags;
 
 	if (!ctx->streaming) {
 		dev_dbg(cam->dev, "ctx-%d is already streaming off\n",
@@ -4039,8 +4174,10 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d\n",
 		__func__, ctx->stream_id, cam->composer_cnt);
 
+	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	ctx->streaming = false;
 	cam->streaming_ctx &= ~(1 << ctx->stream_id);
+	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
 	if (ctx->synced) {
 		struct v4l2_ctrl *ctrl;

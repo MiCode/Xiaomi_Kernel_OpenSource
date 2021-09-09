@@ -3301,37 +3301,38 @@ static int mtk_raw_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-int mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
-				 struct media_entity *entity)
+void mtk_cam_update_sensor(struct mtk_cam_ctx *ctx, struct v4l2_subdev *sensor)
+{
+	ctx->prev_sensor = ctx->sensor;
+	ctx->sensor = sensor;
+}
+
+struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
+					struct media_entity *entity)
 {
 	struct media_graph *graph;
-	struct v4l2_subdev **target_sd;
+	struct v4l2_subdev *sensor = NULL;
 
 	graph = &ctx->pipeline.graph;
 	media_graph_walk_start(graph, entity);
 
 	while ((entity = media_graph_walk_next(graph))) {
 		dev_dbg(ctx->cam->dev, "linked entity: %s\n", entity->name);
-
-		target_sd = NULL;
+		sensor = NULL;
 
 		switch (entity->function) {
 		case MEDIA_ENT_F_CAM_SENSOR:
-			ctx->prev_sensor = ctx->sensor;
-			target_sd = &ctx->sensor;
-			*target_sd = media_entity_to_v4l2_subdev(entity);
-			dev_dbg(ctx->cam->dev, "sensor:%s->%s\n",
-				ctx->prev_sensor->entity.name, ctx->sensor->entity.name);
+			sensor = media_entity_to_v4l2_subdev(entity);
 			break;
 		default:
 			break;
 		}
 
-		if (!target_sd)
-			continue;
+		if (sensor)
+			break;
 	}
 
-	return 0;
+	return sensor;
 }
 
 unsigned int mtk_raw_get_hdr_scen_id(
