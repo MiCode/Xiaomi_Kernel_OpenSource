@@ -4995,7 +4995,7 @@ s32 _testcase_secure_handle(u32 secHandle, enum CMDQ_SCENARIO_ENUM scenario)
 	/* record command */
 	cmdq_op_write_reg(hReqMDP, CMDQ_TEST_MMSYS_DUMMY_PA, PATTERN_MDP, ~0);
 	cmdq_op_write_reg_secure(hReqMDP, CMDQ_TEST_MMSYS_DUMMY_PA,
-		CMDQ_SAM_H_2_MVA, secHandle, 0xf000, 0x100, 0);
+		CMDQ_SAM_H_2_MVA, secHandle, 0xf000, 0x100, 0, 0);
 	cmdq_append_command(hReqMDP, CMDQ_CODE_EOC, 0, 1, 0, 0);
 	cmdq_append_command(hReqMDP, CMDQ_CODE_JUMP, 0, 8, 0, 0);
 
