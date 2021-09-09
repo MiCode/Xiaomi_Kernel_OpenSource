@@ -106,7 +106,7 @@ int mtk_clk_register_gates_with_dev(struct device_node *node,
 {
 	int i;
 	struct clk *clk;
-	struct regmap *regmap;
+	struct regmap *regmap, *hw_voter_regmap;
 
 	if (!clk_data)
 		return -ENOMEM;
@@ -118,18 +118,30 @@ int mtk_clk_register_gates_with_dev(struct device_node *node,
 		return PTR_ERR(regmap);
 	}
 
+	hw_voter_regmap = syscon_regmap_lookup_by_phandle(node, "hw-voter-regmap");
+	if (IS_ERR(hw_voter_regmap))
+		hw_voter_regmap = NULL;
+
 	for (i = 0; i < num; i++) {
 		const struct mtk_gate *gate = &clks[i];
 
 		if (!IS_ERR_OR_NULL(clk_data->clks[gate->id]))
 			continue;
 
-		clk = mtk_clk_register_gate(gate->name, gate->parent_name,
-				regmap,
-				gate->regs->set_ofs,
-				gate->regs->clr_ofs,
-				gate->regs->sta_ofs,
-				gate->shift, gate->ops, gate->flags, dev);
+		if (hw_voter_regmap && gate->flags & CLK_USE_HW_VOTER)
+			clk = mtk_clk_register_gate(gate->name, gate->parent_name,
+					hw_voter_regmap,
+					gate->regs->set_ofs,
+					gate->regs->clr_ofs,
+					gate->regs->sta_ofs,
+					gate->shift, gate->ops, gate->flags, dev);
+		else
+			clk = mtk_clk_register_gate(gate->name, gate->parent_name,
+					regmap,
+					gate->regs->set_ofs,
+					gate->regs->clr_ofs,
+					gate->regs->sta_ofs,
+					gate->shift, gate->ops, gate->flags, dev);
 
 		if (IS_ERR(clk)) {
 			pr_err("Failed to register clk %s: %ld\n",

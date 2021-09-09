@@ -156,11 +156,18 @@ struct mtk_gate_regs {
 	u32 set_ofs;
 };
 
+struct mtk_hwv_gate_regs {
+	u32 sta_ofs;
+	u32 clr_ofs;
+	u32 set_ofs;
+};
+
 struct mtk_gate {
 	int id;
 	const char *name;
 	const char *parent_name;
 	const struct mtk_gate_regs *regs;
+	const struct mtk_hwv_gate_regs *hwv_regs;
 	int shift;
 	const struct clk_ops *ops;
 	unsigned long flags;
@@ -205,6 +212,7 @@ struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 
 #define HAVE_RST_BAR	BIT(0)
 #define PLL_AO		BIT(1)
+#define CLK_USE_HW_VOTER	BIT(2)
 
 struct mtk_pll_div_table {
 	u32 div;
@@ -218,6 +226,10 @@ struct mtk_pll_data {
 	uint32_t pwr_reg;
 	uint32_t en_reg;
 	uint32_t en_mask;
+	uint32_t hwv_set_ofs;
+	uint32_t hwv_clr_ofs;
+	uint32_t hwv_sta_ofs;
+	int hwv_shift;
 	uint32_t pd_reg;
 	uint32_t tuner_reg;
 	uint32_t tuner_en_reg;

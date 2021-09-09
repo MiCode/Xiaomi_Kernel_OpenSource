@@ -7,6 +7,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
+#include <linux/mfd/syscon.h>
 #include <linux/slab.h>
 #include <linux/clkdev.h>
 #include <linux/delay.h>
@@ -46,6 +47,7 @@ struct mtk_clk_pll {
 	void __iomem	*pcw_chg_addr;
 	void __iomem	*en_addr;
 	const struct mtk_pll_data *data;
+	struct regmap	*hwv_regmap;
 };
 
 bool (*mtk_fh_set_rate)(const char *name, unsigned long dds, int postdiv) = NULL;
@@ -301,6 +303,44 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	writel(r, pll->pwr_addr);
 }
 
+static int mtk_hwv_pll_is_prepared(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+	u32 val;
+
+	regmap_read(pll->hwv_regmap, pll->data->hwv_sta_ofs, &val);
+
+	return (val & BIT(pll->data->hwv_shift)) != 0;
+}
+
+static int mtk_hwv_pll_prepare(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+	int i = 0;
+
+	regmap_write(pll->hwv_regmap, pll->data->hwv_set_ofs, BIT(pll->data->hwv_shift));
+
+	while (mtk_hwv_pll_is_prepared(hw)) {
+		if (i < 5)
+			udelay(10);
+		i++;
+	}
+
+	if (i >= 5) {
+		pr_err("%s pll prepare timeout\n", pll->data->name);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	regmap_write(pll->hwv_regmap, pll->data->hwv_clr_ofs, BIT(pll->data->hwv_shift));
+}
+
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_pll_prepare,
@@ -310,8 +350,18 @@ static const struct clk_ops mtk_pll_ops = {
 	.set_rate	= mtk_pll_set_rate,
 };
 
+static const struct clk_ops mtk_hwv_pll_ops = {
+	.is_prepared	= mtk_hwv_pll_is_prepared,
+	.prepare	= mtk_hwv_pll_prepare,
+	.unprepare	= mtk_hwv_pll_unprepare,
+	.recalc_rate	= mtk_pll_recalc_rate,
+	.round_rate	= mtk_pll_round_rate,
+	.set_rate	= mtk_pll_set_rate,
+};
+
 static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
-		void __iomem *base)
+		void __iomem *base,
+		struct regmap *hw_voter_regmap)
 {
 	struct mtk_clk_pll *pll;
 	struct clk_init_data init = {};
@@ -338,6 +388,10 @@ static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 		pll->en_addr = base + data->en_reg;
 	else
 		pll->en_addr = pll->base_addr + REG_CON0;
+
+	if (hw_voter_regmap && (data->flags & CLK_USE_HW_VOTER))
+		pll->hwv_regmap = hw_voter_regmap;
+
 	pll->hw.init = &init;
 	pll->data = data;
 
@@ -364,6 +418,7 @@ void mtk_clk_register_plls(struct device_node *node,
 	void __iomem *base;
 	int i;
 	struct clk *clk;
+	struct regmap *hw_voter_regmap;
 
 	base = of_iomap(node, 0);
 	if (!base) {
@@ -371,18 +426,24 @@ void mtk_clk_register_plls(struct device_node *node,
 		return;
 	}
 
+	hw_voter_regmap = syscon_regmap_lookup_by_phandle(node, "hw-voter-regmap");
+	if (IS_ERR_OR_NULL(hw_voter_regmap))
+		hw_voter_regmap = NULL;
+
 	for (i = 0; i < num_plls; i++) {
 		const struct mtk_pll_data *pll = &plls[i];
 
-		clk = mtk_clk_register_pll(pll, base);
+		if (IS_ERR_OR_NULL(clk_data->clks[pll->id])) {
+			clk = mtk_clk_register_pll(pll, base, hw_voter_regmap);
 
-		if (IS_ERR(clk)) {
-			pr_err("Failed to register clk %s: %ld\n",
-					pll->name, PTR_ERR(clk));
-			continue;
+			if (IS_ERR_OR_NULL(clk)) {
+				pr_err("Failed to register clk %s: %ld\n",
+						pll->name, PTR_ERR(clk));
+				continue;
+			}
+
+			clk_data->clks[pll->id] = clk;
 		}
-
-		clk_data->clks[pll->id] = clk;
 	}
 }
 EXPORT_SYMBOL(mtk_clk_register_plls);

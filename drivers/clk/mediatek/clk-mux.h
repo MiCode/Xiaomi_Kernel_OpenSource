@@ -12,6 +12,7 @@
 struct mtk_clk_mux {
 	struct clk_hw hw;
 	struct regmap *regmap;
+	struct regmap *hwv_regmap;
 	const struct mtk_mux *data;
 	spinlock_t *lock;
 };
@@ -26,6 +27,9 @@ struct mtk_mux {
 	u32 set_ofs;
 	u32 clr_ofs;
 	u32 upd_ofs;
+	u32 hwv_set_ofs;
+	u32 hwv_clr_ofs;
+	u32 hwv_sta_ofs;
 
 	u8 mux_shift;
 	u8 mux_width;
@@ -41,6 +45,7 @@ extern const struct clk_ops mtk_mux_ops;
 extern const struct clk_ops mtk_mux_clr_set_upd_ops;
 extern const struct clk_ops mtk_mux_gate_ops;
 extern const struct clk_ops mtk_mux_gate_clr_set_upd_ops;
+extern const struct clk_ops mtk_hwv_mux_ops;
 
 #define GATE_CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,		\
 			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
@@ -90,11 +95,31 @@ extern const struct clk_ops mtk_mux_gate_clr_set_upd_ops;
 			_upd_ofs, _upd)					\
 		MUX_CLR_SET_UPD_FLAGS(_id, _name, _parents,		\
 			_mux_ofs, _mux_set_ofs, _mux_clr_ofs, _shift,	\
-			_width, _upd_ofs, _upd,	CLK_SET_RATE_PARENT)
+			_width, _upd_ofs, _upd, CLK_SET_RATE_PARENT)
 
-struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
-				 struct regmap *regmap,
-				 spinlock_t *lock);
+
+#define MUX_HWV(_id, _name, _parents, _mux_ofs,		\
+			_mux_set_ofs, _mux_clr_ofs, _hwv_sta_ofs,	\
+			_hwv_set_ofs, _hwv_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.mux_ofs = _mux_ofs,					\
+		.set_ofs = _mux_set_ofs,				\
+		.clr_ofs = _mux_clr_ofs,				\
+		.hwv_sta_ofs = _hwv_sta_ofs,				\
+		.hwv_set_ofs = _hwv_set_ofs,				\
+		.hwv_clr_ofs = _hwv_clr_ofs,				\
+		.upd_ofs = _upd_ofs,					\
+		.mux_shift = _shift,					\
+		.mux_width = _width,					\
+		.gate_shift = _gate,					\
+		.upd_shift = _upd,					\
+		.parent_names = _parents,				\
+		.num_parents = ARRAY_SIZE(_parents),			\
+		.flags = CLK_SET_RATE_PARENT | CLK_USE_HW_VOTER,	\
+		.ops = &mtk_hwv_mux_ops,				\
+	}
 
 int mtk_clk_register_muxes(const struct mtk_mux *muxes,
 			   int num, struct device_node *node,
