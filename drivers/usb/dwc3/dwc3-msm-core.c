@@ -2959,7 +2959,8 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 		break;
 	case DWC3_CONTROLLER_PULLUP:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_PULLUP %d\n", value);
-		if (!value)
+		/* ignor pullup when role switch from device to host */
+		if (mdwc->vbus_active && !value)
 			schedule_work(&mdwc->redriver_work);
 		break;
 	case DWC3_GSI_EVT_BUF_SETUP:
