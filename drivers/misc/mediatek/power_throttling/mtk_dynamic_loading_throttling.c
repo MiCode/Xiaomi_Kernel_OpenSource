@@ -98,6 +98,8 @@ struct dlpt_priv {
 	struct iio_channel *chan_ptim;
 	struct iio_channel *chan_imix_r;
 	struct iio_channel *chan_zcv;
+	bool suspend_flag;
+
 };
 
 struct dlpt_callback_table {
@@ -107,6 +109,7 @@ struct dlpt_callback_table {
 static struct dlpt_priv dlpt = {
 	.notify_lock	=  __MUTEX_INITIALIZER(dlpt.notify_lock),
 	.notify_waiter	= __WAIT_QUEUE_HEAD_INITIALIZER(dlpt.notify_waiter),
+	.suspend_flag = false,
 };
 #define DLPTCB_MAX_NUM 16
 static struct dlpt_callback_table dlptcb_tb[DLPTCB_MAX_NUM] = { {0} };
@@ -273,6 +276,24 @@ static void dlpt_set_shutdown_condition(void)
 		pr_info("%s fail\n", __func__);
 }
 
+static void dlpt_update_imix(int imix)
+{
+	struct power_supply *psy;
+	union power_supply_propval prop;
+	int ret;
+
+	psy = get_mtk_gauge_psy();
+	/* gauge disabled */
+	if (!psy)
+		return;
+
+	prop.intval = imix;
+	ret = power_supply_set_property(psy, POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
+					&prop);
+	if (ret)
+		pr_info("%s fail\n", __func__);
+}
+
 static int dlpt_get_uisoc(void)
 {
 	struct power_supply *psy;
@@ -374,6 +395,8 @@ static int dlpt_notify_handler(void *unused)
 					 (dlpt.notify_flag == true));
 		__pm_stay_awake(dlpt.notify_ws);
 		mutex_lock(&dlpt.notify_lock);
+		if (dlpt.suspend_flag)
+			goto bypass;
 
 		cur_ui_soc = dlpt_get_uisoc();
 
@@ -389,6 +412,7 @@ static int dlpt_notify_handler(void *unused)
 
 			if (dlpt.imix > IMAX_MAX_VALUE)
 				dlpt.imix = IMAX_MAX_VALUE;
+			dlpt_update_imix(dlpt.imix);
 			exec_dlpt_callback(dlpt.imix);
 
 			pr_info("[DLPT_final] %d,%d,%d,%d\n"
@@ -404,6 +428,7 @@ static int dlpt_notify_handler(void *unused)
 			dlpt_set_shutdown_condition();
 			pr_info("[DLPT] notify battery SOC=0 to power off.\n");
 		}
+bypass:
 		mutex_unlock(&dlpt.notify_lock);
 		__pm_relax(dlpt.notify_ws);
 
@@ -535,14 +560,27 @@ static int dlpt_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused dlpt_suspend(struct device *d)
+{
+	if (!mutex_trylock(&dlpt.notify_lock))
+		return -EAGAIN;
+	dlpt.suspend_flag = true;
+	mutex_unlock(&dlpt.notify_lock);
+	return 0;
+}
+
 static int __maybe_unused dlpt_resume(struct device *d)
 {
+	mutex_lock(&dlpt.notify_lock);
+	dlpt.suspend_flag = false;
+	mutex_unlock(&dlpt.notify_lock);
 	update_dlpt_imix_r();
+	wake_up_interruptible(&dlpt.notify_waiter);
 	return 0;
 }
 
 static SIMPLE_DEV_PM_OPS(dlpt_pm_ops,
-			 NULL,
+			 dlpt_suspend,
 			 dlpt_resume);
 
 static const struct of_device_id dynamic_loading_throttling_of_match[] = {
