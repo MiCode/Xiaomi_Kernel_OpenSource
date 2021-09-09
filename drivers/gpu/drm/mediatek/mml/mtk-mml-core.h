@@ -76,6 +76,7 @@ extern int mml_slt;
 
 /* racing mode ut and debug */
 extern int mml_racing_ut;
+extern int mml_racing_timeout;
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16

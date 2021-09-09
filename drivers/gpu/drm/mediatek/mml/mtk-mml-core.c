@@ -45,7 +45,7 @@ module_param(mml_slt, int, 0644);
 int mml_racing_ut;
 module_param(mml_racing_ut, int, 0644);
 
-int mml_racing_timeout = 10000;
+int mml_racing_timeout;
 module_param(mml_racing_timeout, int, 0644);
 
 #define mml_msg_qos(fmt, args...) \
@@ -1083,7 +1083,7 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
 
-	if (mml_racing_timeout) {
+	if (unlikely(mml_racing_timeout)) {
 		if (task->config->info.mode == MML_MODE_RACING)
 			cmdq_mbox_set_thread_timeout(
 				task->config->path[pipe]->clt->chan,

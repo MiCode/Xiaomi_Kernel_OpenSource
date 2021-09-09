@@ -1931,6 +1931,18 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	cmdq_util_user_msg(chan, "curr inst: %s value:%u%s",
 		text, cmdq_get_event(chan, inst->arg_a), text_gpr);
 }
+
+static void cmdq_pkt_call_item_cb(struct cmdq_flush_item *item)
+{
+	struct cmdq_cb_data cb_data = {
+		.data = item->err_data,
+		.err = item->err,
+	};
+
+	if (!item->err_cb)
+		return;
+	item->err_cb(cb_data);
+}
 #endif
 
 void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
@@ -1953,6 +1965,14 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	/* assign error during dump cb */
 	item->err = data.err;
 
+	/* The self loop case, callback to caller with -EBUSY without all other
+	 * error message dump.
+	 */
+	if (pkt->self_loop && data.err == -EBUSY) {
+		cmdq_pkt_call_item_cb(item);
+		goto done;
+	}
+
 	if (err_num == 0)
 		cmdq_util_helper->error_enable();
 
@@ -1973,7 +1993,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	if (data.err == -ECONNABORTED) {
 		cmdq_util_msg("skip since abort");
-		goto done;
+		goto sec_done;
 	}
 
 #else
@@ -1993,15 +2013,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	else
 		cmdq_util_msg("curr inst: Not Available");
 
-	if (item->err_cb) {
-		struct cmdq_cb_data cb_data = {
-			.data = item->err_data,
-			.err = data.err
-		};
-
-		item->err_cb(cb_data);
-	}
-
+	cmdq_pkt_call_item_cb(item);
 	cmdq_dump_pkt(pkt, pc, true);
 
 #ifdef CMDQ_SECURE_SUPPORT
@@ -2039,7 +2051,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
 #ifdef CMDQ_SECURE_SUPPORT
-done:
+sec_done:
 #endif
 
 	cmdq_util_user_err(client->chan, "End of Error %u", err_num);
@@ -2049,11 +2061,12 @@ done:
 	}
 	err_num++;
 
+done:
 	cmdq_util_helper->dump_unlock();
 
 #else
 	cmdq_err("cmdq error:%d", data.err);
-#endif
+#endif	/* CONFIG_MTK_CMDQ_MBOX_EXT */
 }
 
 s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,

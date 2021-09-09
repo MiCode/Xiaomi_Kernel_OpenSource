@@ -670,6 +670,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		memcpy(submit->job, &task->job, sizeof(*submit->job));
 
 	mml_trace_end();
+
 	return 0;
 
 err_unlock_exit:

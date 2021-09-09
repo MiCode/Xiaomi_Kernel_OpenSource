@@ -27,6 +27,9 @@ module_param(mml_ir_loop, int, 0644);
 int mml_racing_fast = 1;
 module_param(mml_racing_fast, int, 0644);
 
+int mml_racing_sleep = 16000;
+module_param(mml_racing_sleep, int, 0644);
+
 enum mml_comp_type {
 	MML_CT_COMPONENT = 0,
 	MML_CT_SYS,
@@ -42,6 +45,7 @@ struct mml_comp_sys;
 struct mml_data {
 	int (*comp_inits[MML_COMP_TYPE_TOTAL])(struct device *dev,
 		struct mml_comp_sys *sys, struct mml_comp *comp);
+	u8 gpr[MML_PIPE_CNT];
 };
 
 enum mml_mux_type {
@@ -111,14 +115,15 @@ struct mml_comp_sys {
 };
 
 struct sys_frame_data {
-	/* instruction offset to start of racing loop in pkt */
-	u32 racing_start_offset;
-	/* instruction offset to assgin loop target address in pkt */
-	u32 racing_jump_to;
+	/* instruction offset to start of racing loop (tile 0) in pkt */
+	u32 racing_tile0_offset;
+	/* instruction offset to assign jump target PA to racing_tile0_offset */
+	u32 racing_tile0_jump;
 
 	/* instruction offset to skip sync events */
-	u32 racing_skip_sync_offset;
-	u32 racing_jump_to_skip;
+	u32 racing_skip_offset;
+	/* instruction offset to assign jump target PA to racing_skip_offset */
+	u32 racing_skip_jump;
 };
 
 #define sys_frm_data(i)	((struct sys_frame_data *)(i->data))
@@ -241,7 +246,7 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX2, MML_ROUND_SPR_INIT);
 
 		sys_frm = sys_frm_data(ccfg);
-		sys_frm->racing_start_offset = pkt->cmd_buf_size;
+		sys_frm->racing_tile0_offset = pkt->cmd_buf_size;
 
 		lhs.reg = true;
 		lhs.idx = CMDQ_THR_SPR_IDX2;
@@ -283,23 +288,22 @@ static void sys_racing_addr_update(struct mml_comp *comp, struct mml_task *task,
 	u32 *inst;
 
 	if (task->config->disp_vdo && likely(mml_racing_ut != 1) && mml_ir_loop) {
-		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, sys_frm->racing_jump_to);
+		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, sys_frm->racing_tile0_jump);
 		*inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_pa_by_offset(pkt,
-			sys_frm->racing_start_offset));
+			sys_frm->racing_tile0_offset));
 	}
 
 	if (mml_racing_fast) {
-		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, sys_frm->racing_jump_to_skip);
+		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, sys_frm->racing_skip_jump);
 		*inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_pa_by_offset(pkt,
-			sys_frm->racing_skip_sync_offset));
+			sys_frm->racing_skip_offset));
 	}
 }
-
-extern int mml_racing_timeout;
 
 static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg)
 {
+	struct mml_comp_sys *sys = comp_to_sys(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
 	struct cmdq_operand lhs, rhs;
@@ -313,13 +317,17 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	if (unlikely(!mml_ir_loop))
 		return;
 
+	if (unlikely(mml_racing_ut))
+		cmdq_pkt_sleep(pkt, CMDQ_US_TO_TICK(mml_racing_sleep),
+			sys->data->gpr[ccfg->pipe]);
+
 	/* do eoc to avoid task timeout during self-loop */
-	if (!mml_racing_timeout)
+	if (likely(!mml_racing_timeout))
 		cmdq_pkt_eoc(pkt, false);
 
 	/* reserve assign inst for jump addr */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
-	sys_frm->racing_jump_to = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	sys_frm->racing_tile0_jump = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
 	/* loop if NEXT_SPR is not MML_NEXTSPR_NEXT
 	 *	if NEXT_SPR != 1:
@@ -347,7 +355,7 @@ bool sys_sync(struct mml_comp *comp, struct mml_task *task,
 		return false;
 
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
-	sys_frm->racing_jump_to_skip = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	sys_frm->racing_skip_jump = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
 	lhs.reg = true;
 	lhs.idx = MML_CMDQ_NEXT_SPR;
@@ -359,7 +367,7 @@ bool sys_sync(struct mml_comp *comp, struct mml_task *task,
 		sys_sync_racing(comp, task, ccfg);
 	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CONTI);
 
-	sys_frm->racing_skip_sync_offset = pkt->cmd_buf_size;
+	sys_frm->racing_skip_offset = pkt->cmd_buf_size;
 
 	return true;
 }
@@ -724,6 +732,7 @@ static const struct mml_data mt6893_mml_data = {
 		[MML_CT_SYS] = &sys_comp_init,
 		[MML_CT_DL_IN] = &dl_comp_init,
 	},
+	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
 };
 
 static const struct mml_data mt6983_mml_data = {
@@ -732,6 +741,7 @@ static const struct mml_data mt6983_mml_data = {
 		[MML_CT_DL_IN] = &dl_comp_init,
 		[MML_CT_DL_OUT] = &dl_comp_init,
 	},
+	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
 };
 
 static const struct mml_data mt6879_mml_data = {
@@ -740,6 +750,7 @@ static const struct mml_data mt6879_mml_data = {
 		[MML_CT_DL_IN] = &dl_comp_init,
 		[MML_CT_DL_OUT] = &dl_comp_init,
 	},
+	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
 };
 
 const struct of_device_id mtk_mml_of_ids[] = {
