@@ -48,7 +48,10 @@ void gh_init_vm_prop_table(void)
 int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 			struct gh_vm_property *vm_prop)
 {
-	if (vm_prop->vmid < 0)
+	if (!vm_prop)
+		return -EINVAL;
+
+	if (vm_prop->vmid < 0 || vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
 	if (vm_prop->vmid) {
@@ -99,7 +102,12 @@ void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
  */
 int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
 {
-	gh_vmid_t _vmid = gh_vm_table[vm_name].vmid;
+	gh_vmid_t _vmid;
+
+	if (vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
+		return -EINVAL;
+
+	_vmid = gh_vm_table[vm_name].vmid;
 
 	if (!gh_rm_core_initialized)
 		return -EPROBE_DEFER;
@@ -150,7 +158,8 @@ int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vm)
 	if (!vm)
 		return -EINVAL;
 
-	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth)
+	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth
+		|| vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
 	vm->guid = gh_vm_table[vm_name].guid;
@@ -769,6 +778,9 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	/* Look up for the vm_name<->vmid pair if already present.
 	 * If so, return.
 	 */
+	if (vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
+		return -EINVAL;
+
 	if (gh_vm_table[vm_name].vmid != GH_VMID_INVAL ||
 		vm_name == GH_SELF_VM) {
 		pr_err("%s: VM_ALLOCATE already called for this VM\n",
