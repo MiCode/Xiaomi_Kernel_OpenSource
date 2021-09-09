@@ -120,12 +120,6 @@ static int sw_logger_buf_alloc(struct device *dev)
 {
 	int ret;
 
-	ret = of_dma_configure(dev, dev->of_node, true);
-	if (ret) {
-		dev_info(sw_logger_dev, "%s: of_dma_configure fail(%d)\n", __func__, ret);
-		return -ENOMEM;
-	}
-
 	if (!BYPASS_IOMMU) {
 		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 		if (ret) {

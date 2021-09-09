@@ -115,13 +115,6 @@ static int hw_logger_buf_alloc(struct device *dev)
 {
 	int ret = 0;
 
-	ret = of_dma_configure(dev, dev->of_node, true);
-	if (ret) {
-		HWLOGR_ERR("of_dma_configure fail (%d)\n", ret);
-		ret = -ENOMEM;
-		goto out;
-	}
-
 	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(64));
 	if (ret) {
 		HWLOGR_ERR("dma_set_coherent_mask fail (%d)\n", ret);
