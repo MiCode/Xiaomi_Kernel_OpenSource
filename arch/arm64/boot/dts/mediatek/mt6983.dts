@@ -3288,6 +3288,22 @@
 		reg = <0 0x10225000 0 0x1000>;
 	};
 
+	emimpu: emimpu@10226000 {
+		compatible = "mediatek,mt6983-emimpu";
+		reg = <0 0x10226000 0 0x1000>,
+		      <0 0x10225000 0 0x1000>;
+		mediatek,emi-reg = <&emicen>;
+		mediatek,miukp-reg = <&miu_kp>;
+		mediatek,miumpu-reg = <&miu_mpu>;
+		interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH 0>;
+		dump = <0x1f0 0x1f8 0x1fc>;
+		clear = <0x1f0 0x80000000 1>,
+			<0x160 0xffffffff 16>,
+			<0x200 0x00000003 16>;
+		clear_hp = <0x1fc 0x40000000 1>;
+		clear_md = <0x1fc 0x80000000 1>;
+	};
+
 	pwm@11008000 {
 		compatible = "mediatek,pwm";
 		reg = <0 0x11008000 0 0x1000>;
@@ -3550,6 +3566,37 @@
 	mtk_dmabufheap_debug1: dmaheap_test1{
 			compatible = "mediatek, mtk_dmabufheap, iommu1";
 			iommus = <&disp_iommu M4U_PORT_L1_DISP_FAKE1>;
+	};
+
+	emislb: emislb@10342000 {
+		compatible = "mediatek,common-emislb";
+		reg = <0 0x10342000 0 0x1000>,
+		      <0 0x10343000 0 0x1000>;
+		mediatek,emimpu-reg = <&emimpu>;
+		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH 0>;
+		dump = <0xd14 0xd18 0xd1c 0xd20 0xd24>;
+		clear = <0x680 0x80000000 1>;
+	};
+
+	miu_kp: miu_kp@10350000 {
+		compatible = "mediatek,common-miukp";
+		reg = <0 0x10350000 0 0x1000>,
+		      <0 0x10354000 0 0x1000>;
+		dump = <0x200 0x204 0x208 0x20c 0x220 0x224 0x228 0x22c>;
+		clear = <0x20 0x1 1>,
+			<0x20 0x0 1>;
+	};
+
+	miu_mpu: miu_mpu@10352000 {
+		compatible = "mediatek,common-miumpu";
+		reg = <0 0x10352000 0 0x1000>,
+		      <0 0x10356000 0 0x1000>;
+		dump = <0x1c0 0x1c4 0x1c8 0x1cc 0x1d4 0x1dc 0x1e4 0x1e8
+			0x3c0 0x3c4 0x3c8 0x3cc 0x3d4 0x3dc 0x3e4 0x3e8>;
+		clear = <0x1c0 0x1 1>,
+			<0x1c0 0x0 1>,
+			<0x3c0 0x1 1>,
+			<0x3c0 0x0 1>;
 	};
 
 	efuse: efuse@11ee0000 {
