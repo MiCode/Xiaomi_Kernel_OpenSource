@@ -1013,7 +1013,39 @@ static int venc_vcp_get_param(unsigned long handle,
 	return ret;
 }
 
+void venc_vcp_set_property(struct venc_inst *inst, void *property_string)
+{
+	struct venc_ap_ipi_msg_set_param msg;
 
+	void *property_va = (void *)(__u64)vcp_get_reserve_mem_virt(VENC_SET_PROP_MEM_ID);
+	void *property_pa = (void *)(__u64)vcp_get_reserve_mem_phys(VENC_SET_PROP_MEM_ID);
+	__u64 mem_size = (__u64)vcp_get_reserve_mem_size(VENC_SET_PROP_MEM_ID);
+	int prop_len = strlen((char *)property_string);
+
+	mtk_vcodec_debug(inst, "mem_size 0x%llx, property_va 0x%llx, property_pa 0x%llx\n",
+		mem_size, property_va, property_pa);
+	mtk_vcodec_debug(inst, "property_string: %s\n", (char *)property_string);
+	mtk_vcodec_debug(inst, "prop_len:%d\n", prop_len);
+
+	memcpy(property_va, (char *)property_string, prop_len + 1);
+
+	inst->vcu_inst.ctx = inst->ctx;
+	inst->vcu_inst.id =
+		(inst->vcu_inst.id == IPI_VCU_INIT) ? IPI_VENC_COMMON : inst->vcu_inst.id;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_id = AP_IPIMSG_ENC_SET_PARAM;
+	msg.vcu_inst_addr = inst->vcu_inst.inst_addr;
+	msg.param_id = VENC_SET_PARAM_PROPERTY;
+
+	msg.data[0] = (__u32)((__u64)property_pa & 0xFFFFFFFF);
+	msg.data[1] = (__u32)((__u64)property_pa >> 32);
+
+	mtk_vcodec_debug(inst, "msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
+		msg.data[0], msg.data[1]);
+	venc_vcp_ipi_send(inst, &msg, sizeof(msg), 1);
+
+}
 
 int vcp_enc_set_param(struct venc_inst *inst,
 					  enum venc_set_param_type id,
@@ -1161,13 +1193,16 @@ static int venc_vcp_set_param(unsigned long handle,
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
 
-	if (inst == NULL || inst->vsi == NULL)
+	if (inst == NULL)
 		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "->type=%d, ipi_id=%d", type, inst->vcu_inst.id);
 
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
+		if (inst->vsi == NULL)
+			return -EINVAL;
+
 		inst->vsi->config.input_fourcc = enc_prm->input_yuv_fmt;
 		inst->vsi->config.bitrate = enc_prm->bitrate;
 		inst->vsi->config.pic_w = enc_prm->width;
@@ -1242,11 +1277,21 @@ static int venc_vcp_set_param(unsigned long handle,
 		ret = vcp_enc_set_param(inst, type, enc_prm);
 		break;
 	case VENC_SET_PARAM_COLOR_DESC:
+		if (inst->vsi == NULL)
+			return -EINVAL;
+
 		memcpy(&inst->vsi->config.color_desc, enc_prm->color_desc,
 			sizeof(struct mtk_color_desc));
 		ret = vcp_enc_set_param(inst, type, enc_prm);
 		break;
+	case VENC_SET_PARAM_PROPERTY:
+		mtk_vcodec_debug(inst, "enc_prm->property_buf:%s", enc_prm->property_buf);
+		venc_vcp_set_property(inst, enc_prm->property_buf);
+		break;
 	default:
+		if (inst->vsi == NULL)
+			return -EINVAL;
+
 		ret = vcp_enc_set_param(inst, type, enc_prm);
 		inst->ctx->async_mode = !(inst->vsi->sync_mode);
 		break;

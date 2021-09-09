@@ -457,13 +457,15 @@ static int venc_set_param(unsigned long handle,
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
 
-	if (inst == NULL || inst->vsi == NULL)
+	if (inst == NULL)
 		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "->type=%d, ipi_id=%d", type, inst->vcu_inst.id);
 
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
+		if (inst->vsi == NULL)
+			return -EINVAL;
 		inst->vsi->config.input_fourcc = enc_prm->input_yuv_fmt;
 		inst->vsi->config.bitrate = enc_prm->bitrate;
 		inst->vsi->config.pic_w = enc_prm->width;
@@ -538,11 +540,18 @@ static int venc_set_param(unsigned long handle,
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		break;
 	case VENC_SET_PARAM_COLOR_DESC:
+		if (inst->vsi == NULL)
+			return -EINVAL;
 		memcpy(&inst->vsi->config.color_desc, enc_prm->color_desc,
 			sizeof(struct mtk_color_desc));
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		break;
+	case VENC_SET_PARAM_PROPERTY:
+		mtk_vcodec_err(inst, "VCU not support SET_PARAM_VDEC_PROPERTY\n");
+		break;
 	default:
+		if (inst->vsi == NULL)
+			return -EINVAL;
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		inst->ctx->async_mode = !(inst->vsi->sync_mode);
 		break;

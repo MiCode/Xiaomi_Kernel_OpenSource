@@ -330,6 +330,7 @@ struct venc_enc_param {
 	unsigned int qp_control_mode;
 	unsigned int ip_qpdelta;
 	unsigned int dummynal;
+	char property_buf[1024];
 };
 
 /*

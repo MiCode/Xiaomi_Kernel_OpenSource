@@ -42,6 +42,14 @@ EXPORT_SYMBOL_GPL(mtk_v4l2_dbg_level);
 int mtk_vcodec_vcp;
 EXPORT_SYMBOL_GPL(mtk_vcodec_vcp);
 
+/* For vdec set property */
+char *mtk_vdec_property = "";
+EXPORT_SYMBOL(mtk_vdec_property);
+
+/* For venc set property */
+char *mtk_venc_property = "";
+EXPORT_SYMBOL(mtk_venc_property);
+
 /* VCODEC FTRACE */
 unsigned long vcodec_get_tracing_mark(void)
 {

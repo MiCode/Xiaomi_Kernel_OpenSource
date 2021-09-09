@@ -616,6 +616,9 @@ static int vdec_set_param(unsigned long h_vdec,
 			return -EINVAL;
 		inst->vsi->dec.fb_num_planes = *(unsigned int *)in;
 		break;
+	case SET_PARAM_VDEC_PROPERTY:
+		mtk_vcodec_err(inst, "VCU not support SET_PARAM_VDEC_PROPERTY\n");
+		break;
 	default:
 		mtk_vcodec_err(inst, "invalid set parameter type=%d\n", type);
 		ret = -EINVAL;

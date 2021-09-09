@@ -852,6 +852,38 @@ err_free_fb_out:
 	return ret;
 }
 
+void vdec_vcp_set_property(struct vdec_inst *inst, void *property_string)
+{
+	struct vdec_ap_ipi_set_param msg;
+	void *property_va = (void *)(__u64)vcp_get_reserve_mem_virt(VDEC_SET_PROP_MEM_ID);
+	void *property_pa = (void *)(__u64)vcp_get_reserve_mem_phys(VDEC_SET_PROP_MEM_ID);
+	__u64 mem_size = (__u64)vcp_get_reserve_mem_size(VDEC_SET_PROP_MEM_ID);
+	int prop_len = strlen((char *)property_string);
+
+	mtk_vcodec_debug(inst, "mem_size 0x%llx, property_va 0x%llx, property_pa 0x%llx\n",
+		mem_size, property_va, property_pa);
+	mtk_vcodec_debug(inst, "property_string: %s\n", (char *)property_string);
+	mtk_vcodec_debug(inst, "prop_len:%d\n", prop_len);
+
+	memcpy(property_va, (char *)property_string, prop_len + 1);
+
+	inst->vcu.ctx = inst->ctx;
+	inst->vcu.id = (inst->vcu.id == IPI_VCU_INIT) ? IPI_VDEC_COMMON : inst->vcu.id;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
+	msg.id = SET_PARAM_VDEC_PROPERTY;
+	msg.vcu_inst_addr = (uintptr_t)&inst->vcu;
+
+	msg.data[0] = (__u32)((__u64)property_pa & 0xFFFFFFFF);
+	msg.data[1] = (__u32)((__u64)property_pa >> 32);
+
+	mtk_vcodec_debug(inst, "msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
+		msg.data[0], msg.data[1]);
+	vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 1);
+
+}
+
 int vdec_vcp_set_frame_buffer(struct vdec_inst *inst, void *fb)
 {
 	int err = 0;
@@ -1038,6 +1070,9 @@ static int vdec_vcp_set_param(unsigned long h_vdec,
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		inst->vsi->dec.fb_num_planes = *(unsigned int *)in;
+		break;
+	case SET_PARAM_VDEC_PROPERTY:
+		vdec_vcp_set_property(inst, in);
 		break;
 	default:
 		mtk_vcodec_err(inst, "invalid set parameter type=%d\n", type);

@@ -68,6 +68,10 @@ extern int mtk_v4l2_dbg_level;
 extern bool mtk_vcodec_dbg;
 extern bool mtk_vcodec_perf;
 extern int mtk_vcodec_vcp;
+extern char *mtk_vdec_property;
+extern char *mtk_venc_property;
+extern char mtk_vdec_property_prev[1024];
+extern char mtk_venc_property_prev[1024];
 
 #define DEBUG   1
 

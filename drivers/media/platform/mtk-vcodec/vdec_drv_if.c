@@ -145,12 +145,27 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 int vdec_if_set_param(struct mtk_vcodec_ctx *ctx, enum vdec_set_param_type type,
 					  void *in)
 {
+	struct vdec_inst *inst = NULL;
 	int ret = 0;
+	int drv_handle_exist = 1;
 
-	if (ctx->drv_handle == 0)
-		return -EIO;
+	if (!ctx->drv_handle) {
+		inst = kzalloc(sizeof(struct vdec_inst), GFP_KERNEL);
+		if (inst == NULL)
+			return -ENOMEM;
+		inst->ctx = ctx;
+		ctx->drv_handle = (unsigned long)(inst);
+		ctx->dec_if = get_data_path_ptr();
+		drv_handle_exist = 0;
+	}
 
 	ret = ctx->dec_if->set_param(ctx->drv_handle, type, in);
+
+	if (!drv_handle_exist) {
+		kfree(inst);
+		ctx->drv_handle = 0;
+		ctx->dec_if = NULL;
+	}
 
 	return ret;
 }

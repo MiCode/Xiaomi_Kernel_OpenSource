@@ -25,6 +25,18 @@ static struct vcp_reserve_mblock vcp_reserve_mblock[] = {
 		.start_virt = 0x0,
 		.size = 0x0,
 	},
+	{
+		.num = VDEC_SET_PROP_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x0,
+	},
+	{
+		.num = VENC_SET_PROP_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x0,
+	},
 };
 
 

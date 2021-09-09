@@ -57,6 +57,26 @@ void mtk_vdec_do_gettimeofday(struct timespec64 *tv)
 	tv->tv_nsec = now.tv_nsec; // micro sec = ((long)(now.tv_nsec)/1000);
 }
 
+static void set_vdec_property(struct mtk_vcodec_ctx *ctx)
+{
+	char property_buf[1024] = "";
+
+	sprintf(property_buf, "%s", mtk_vdec_property);
+
+	mtk_v4l2_debug(3, "[%d] mtk_vdec_property %s", ctx->id, property_buf);
+	mtk_v4l2_debug(3, "[%d] mtk_vdec_property_prev %s", ctx->id, mtk_vdec_property_prev);
+
+	if (strcmp(mtk_vdec_property_prev, property_buf) != 0 && strcmp(property_buf, "") != 0) {
+		if (vdec_if_set_param(ctx,
+			SET_PARAM_VDEC_PROPERTY,
+			property_buf)  != 0) {
+			mtk_v4l2_err("Error!! Cannot set vdec property");
+			return;
+		}
+		strcpy(mtk_vdec_property_prev, property_buf);
+	}
+}
+
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int i;
@@ -1168,6 +1188,7 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 
 	get_supported_format(ctx);
 	get_supported_framesizes(ctx);
+	set_vdec_property(ctx);
 
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));
