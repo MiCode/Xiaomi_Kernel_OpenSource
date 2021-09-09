@@ -530,11 +530,22 @@ int redriver_notify_connect(struct device_node *node)
 		return -EINVAL;
 
 	if ((redriver->op_mode == OP_MODE_DEFAULT) ||
-	    (redriver->op_mode == OP_MODE_DP) ||
-	    (redriver->op_mode == OP_MODE_NONE))
+	    (redriver->op_mode == OP_MODE_DP))
 		return 0;
 
-	dev_dbg(redriver->dev, "op mode %s\n",
+	/* if ucsi ppm can't return status with Connector Partner Changed
+	 * bit set, redriver will not process the notification,
+	 * but ucsi still start usb host/device mode,
+	 * then redriver stay in disabled state, super speed (plus)
+	 * will not work.
+	 * fix should come from ucsi ppm, it is a enhancement here.
+	 * TODO: redriver controlled by dwc3, remove ucsi notification
+	 */
+	if (redriver->op_mode == OP_MODE_NONE) {
+		redriver->op_mode = OP_MODE_USB;
+		ssusb_redriver_read_orientation(redriver);
+	}
+	dev_dbg(redriver->dev, "connect op mode %s\n",
 		OPMODESTR(redriver->op_mode));
 
 	ssusb_redriver_channel_update(redriver);
