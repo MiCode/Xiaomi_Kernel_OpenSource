@@ -213,6 +213,7 @@ int pe4_hal_get_uisoc(struct chg_alg_device *alg)
 	if (IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
+		return ret;
 	} else {
 		ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_CAPACITY, &prop);
@@ -592,6 +593,7 @@ int pe4_hal_get_vbat(struct chg_alg_device *alg)
 	if (IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 3999;
+		return ret;
 	} else {
 		ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
@@ -653,6 +655,7 @@ int pe4_hal_get_ibat(struct chg_alg_device *alg)
 	if (IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 0;
+		return ret;
 	} else {
 		ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_CURRENT_NOW, &prop);
