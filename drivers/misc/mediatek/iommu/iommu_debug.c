@@ -78,6 +78,12 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 	name, m4u_id, larb_id, port_id, tf_id\
 }
 
+#define MAU_CONFIG_INIT(iommu_type, iommu_id, slave, mau, start, end,\
+	port_mask, larb_mask, wr, virt, io, start_bit32, end_bit32) {\
+	iommu_type, iommu_id, slave, mau, start, end, port_mask, larb_mask,\
+	wr, virt, io, start_bit32, end_bit32\
+}
+
 #define mmu_translation_log_format \
 	"CRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%llx,pa=0x%llx\n"
 
@@ -107,6 +113,8 @@ struct mtk_m4u_plat_data {
 	struct peri_iommu_data		*peri_data;
 	const struct mtk_iommu_port	*port_list[TYPE_NUM];
 	u32				port_nr[TYPE_NUM];
+	const struct mau_config_info	*mau_config;
+	u32				mau_config_nr;
 	int (*mm_tf_is_gce_videoup)(u32 port_tf, u32 vld_tf);
 	char *(*peri_tf_analyse)(enum peri_iommu bus_id, u32 id);
 };
@@ -1887,6 +1895,17 @@ static const struct mtk_iommu_port apu_port_mt6983[] = {
 	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0x1f)
 };
 
+static const struct mau_config_info mau_config_mt6983[] = {
+	MAU_CONFIG_INIT(0, 0, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0),
+	MAU_CONFIG_INIT(0, 1, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0),
+	MAU_CONFIG_INIT(1, 0, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0),
+	MAU_CONFIG_INIT(1, 1, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0)
+};
+
 static const struct mtk_iommu_port mm_port_mt6879[] = {
 	/* Larb0 */
 	MM_IOMMU_PORT_INIT("LARB0_PORT0", DISP_IOMMU, 0, 0x0, 0),
@@ -3284,8 +3303,6 @@ void report_custom_iommu_fault(
 		return;
 	}
 
-	iommu_globals.enable = 0;
-
 	/* Only MM_IOMMU support fault callback */
 	if (type == MM_IOMMU) {
 		pr_info("error, tf report larb-port:(%u--%u), idx:%d\n",
@@ -3348,6 +3365,53 @@ int mtk_iommu_unregister_fault_callback(int port, bool is_vpu)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_unregister_fault_callback);
+
+char *mtk_iommu_get_port_name(enum mtk_iommu_type type, int id, int tf_id)
+{
+	const struct mtk_iommu_port *port_list;
+	u32 port_nr;
+	int idx;
+
+	if (type < MM_IOMMU || type >= TYPE_NUM) {
+		pr_notice("%s fail, invalid type %d\n", __func__, type);
+		return "m4u_port_unknown";
+	}
+
+	if (type == PERI_IOMMU)
+		return peri_tf_analyse(id, tf_id);
+
+	port_nr = m4u_data->plat_data->port_nr[type];
+	port_list = m4u_data->plat_data->port_list[type];
+	idx = mtk_iommu_get_tf_port_idx(tf_id, type, id);
+	if (idx >= port_nr) {
+		pr_notice("%s err, iommu(%d,%d) tf_id:0x%x\n",
+			  __func__, type, id, tf_id);
+		return "m4u_port_unknown";
+	}
+
+	return port_list[idx].name;
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_get_port_name);
+
+const struct mau_config_info *mtk_iommu_get_mau_config(
+				enum mtk_iommu_type type, int id,
+				unsigned int slave, unsigned int mau)
+{
+	const struct mau_config_info *mau_config;
+	int i;
+
+	for (i = 0; i < m4u_data->plat_data->mau_config_nr; i++) {
+		mau_config = &m4u_data->plat_data->mau_config[i];
+		if (mau_config->iommu_type == type &&
+		    mau_config->iommu_id == id &&
+		    mau_config->slave == slave &&
+		    mau_config->mau == mau)
+			return mau_config;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_get_mau_config);
 
 static int mtk_iommu_debug_help(struct seq_file *s)
 {
@@ -4091,6 +4155,8 @@ static const struct mtk_m4u_plat_data mt6983_data = {
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
 	.peri_data	= mt6983_peri_iommu_data,
 	.peri_tf_analyse = mt6983_peri_tf,
+	.mau_config	= mau_config_mt6983,
+	.mau_config_nr = ARRAY_SIZE(mau_config_mt6983),
 };
 
 static const struct mtk_m4u_plat_data mt6879_data = {

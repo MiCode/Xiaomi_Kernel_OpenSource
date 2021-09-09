@@ -51,4 +51,8 @@ void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids);
 void mtk_iommu_debug_reset(void);
 enum peri_iommu get_peri_iommu_id(u32 bus_id);
 char *peri_tf_analyse(enum peri_iommu iommu_id, u32 fault_id);
+char *mtk_iommu_get_port_name(enum mtk_iommu_type type, int id, int tf_id);
+const struct mau_config_info *mtk_iommu_get_mau_config(
+				enum mtk_iommu_type type, int id,
+				unsigned int slave, unsigned int mau);
 #endif

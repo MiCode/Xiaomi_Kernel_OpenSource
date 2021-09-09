@@ -37,6 +37,8 @@ struct mtk_iommu_suspend_reg {
 	u32				vld_pa_rng;
 	u32				wr_len_ctrl;
 	u32				tbw_id;
+	u32				mau_real_size;
+	u32				*mau;
 };
 
 enum mtk_iommu_plat {
@@ -92,6 +94,22 @@ enum IOMMU_BANK {
 
 struct mtk_iommu_iova_region;
 
+struct mau_config_info {
+	unsigned int iommu_type;
+	unsigned int iommu_id;
+	unsigned int slave;
+	unsigned int mau;
+	unsigned int start;
+	unsigned int end;
+	unsigned int port_mask;
+	unsigned int larb_mask;
+	unsigned int wr;		/* 0:read, 1:write for each MAU set */
+	unsigned int virt;		/* 0: PA; 1: VA for each MAU set */
+	unsigned int io;		/* 0:input, 1:output for each MAU set */
+	unsigned int start_bit32;	/* bit34-32 of start address */
+	unsigned int end_bit32;		/* bit34-32 of end address */
+};
+
 struct mtk_iommu_plat_data {
 	enum mtk_iommu_plat m4u_plat;
 	u32                 flags;
@@ -105,6 +123,7 @@ struct mtk_iommu_plat_data {
 	unsigned int				iova_region_nr;
 	const struct mtk_iommu_iova_region	*iova_region;
 	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
+	unsigned int	    mau_count;
 };
 
 struct mtk_iommu_domain;
