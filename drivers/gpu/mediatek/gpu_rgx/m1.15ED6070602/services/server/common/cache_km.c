@@ -1965,8 +1965,10 @@ e1:
 	{
 		eError = PMRUnlockSysPhysAddresses(psCacheOpWorkItem->psPMR);
 		PVR_LOG_IF_ERROR(eError, "PMRUnlockSysPhysAddresses");
+
+		OSLockRelease(gsCwq.hDeferredLock);
 	}
-	OSLockRelease(gsCwq.hDeferredLock);
+
 
 e0:
 	if (bBatchHasTimeline)
