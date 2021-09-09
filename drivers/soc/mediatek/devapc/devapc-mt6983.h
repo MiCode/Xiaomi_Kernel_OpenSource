@@ -80,11 +80,17 @@ enum INFRACFG_MM2ND_OFFSET {
 
 enum BUSID_LENGTH {
 	INFRAAXI_MI_BIT_LENGTH = 16,
+	MMINFRAAXI_MI_BIT_LENGTH = 19,
 };
 
 struct INFRAAXI_ID_INFO {
 	const char	*master;
 	uint8_t		bit[INFRAAXI_MI_BIT_LENGTH];
+};
+
+struct MMINFRAAXI_ID_INFO {
+	const char	*master;
+	uint8_t		bit[MMINFRAAXI_MI_BIT_LENGTH];
 };
 
 enum DEVAPC_IRQ_TYPE {
@@ -130,6 +136,9 @@ enum DEVAPC_IRQ_TYPE {
 
 #define SRAM_START_ADDR				(0x100000)
 #define SRAM_END_ADDR				(0x1FFFFF)
+
+#define MMUP_START_ADDR				(0x1EA00000)
+#define MMUP_END_ADDR				(0x1EFFFFFF)
 
 static const struct mtk_device_info mt6983_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
