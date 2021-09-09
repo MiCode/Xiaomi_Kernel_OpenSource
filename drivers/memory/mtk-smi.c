@@ -526,9 +526,16 @@ mtk_smi_larb_mt6873_bwl[MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
 };
 
 static u8
+mtk_smi_larb_mt6853_cmd_group[MTK_LARB_NR_MAX][2] = {
+	{2, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+};
+
+static u8
 mtk_smi_larb_mt6853_bwl[MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
-	{0x2, 0x2, 0x28, 0x28,},
-	{0x2, 0x18, 0xa, 0xc, 0x28,},
+	{0x2, 0x2, 0x28, 0x1e,},
+	{0x2, 0x18, 0xa, 0xc, 0x1e,},
 	{0x5, 0x5, 0x5, 0x5, 0x1,},
 	{},
 	{0x28, 0x19, 0xb, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x4, 0x1, 0x16,},
@@ -555,6 +562,18 @@ mtk_smi_larb_mt6853_bwl[MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
 	 0x4, 0x2, 0x8, 0x4, 0x4,},
 	{0x2, 0x2, 0x4, 0x2,},
 	{0x9, 0x9, 0x5, 0x5, 0x1, 0x1,},
+};
+
+static u8
+mtk_smi_larb_mt6853_bw_thrt_en[MTK_LARB_NR_MAX][2] = {
+	{0, 0}, {0, 0},
+	{0, 5}, {0, 0},
+	{0, 12}, {0, 0}, {0, 0},
+	{0, 13}, {0, 0},
+	{0, 29}, {0, 0}, {0, 29}, {0, 0},
+	{0, 0}, {0, 0},
+	{0, 19}, {0, 0}, {0, 0}, {0, 0},
+	{0, 4}, {0, 6}, /*20*/
 };
 
 static u8
@@ -804,7 +823,7 @@ mtk_smi_larb_mt6853_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON,  0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},
@@ -1038,7 +1057,11 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6853 = {
 					  BIT(22),
 				      /*skip larb: 3,6,8,10,12,15,21,22*/
 	.has_bwl                    = true,
+	.has_grouping               = true,
+	.has_bw_thrt                = true,
 	.bwl                        = (u8 *)mtk_smi_larb_mt6853_bwl,
+	.cmd_group                  = (u8 *)mtk_smi_larb_mt6853_cmd_group,
+	.bw_thrt_en                 = (u8 *)mtk_smi_larb_mt6853_bw_thrt_en,
 	.misc = (struct mtk_smi_reg_pair *)mtk_smi_larb_mt6853_misc,
 };
 
@@ -1355,8 +1378,15 @@ static u16 mtk_smi_common_mt6873_bwl[SMI_COMMON_LARB_NR_MAX] = {
 	0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000,
 };
 
-static u16 mtk_smi_common_mt6853_bwl[SMI_COMMON_LARB_NR_MAX] = {
-	0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000,
+static u16 mtk_smi_common_mt6853_bwl[MTK_COMMON_NR_MAX][SMI_COMMON_LARB_NR_MAX] = {
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 };
 
 static u16 mtk_smi_common_mt6893_bwl[MTK_COMMON_NR_MAX][SMI_COMMON_LARB_NR_MAX] = {
@@ -1421,13 +1451,23 @@ mtk_smi_common_mt6873_misc[SMI_COMMON_MISC_NR] = {
 };
 
 static struct mtk_smi_reg_pair
-mtk_smi_common_mt6853_misc[SMI_COMMON_MISC_NR] = {
-	{SMI_L1LEN, 0xb},
-	{SMI_M4U_TH, 0xe100e10},
-	{SMI_FIFO_TH1, 0x9100910},
-	{SMI_FIFO_TH2, 0x5060910},
-	{SMI_DCM, 0x4f1},
-	{SMI_DUMMY, 0x1},
+mtk_smi_common_mt6853_misc[MTK_COMMON_NR_MAX][SMI_COMMON_MISC_NR] = {
+	{{SMI_L1LEN, 0xb}, {SMI_M4U_TH, 0xe100e10}, {SMI_FIFO_TH1, 0x90a090a},
+	 {SMI_FIFO_TH2, 0x506090a}, {SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
+	{{SMI_L1LEN, 0xa}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DCM, 0x4f1},
+	 {SMI_DUMMY, 0x1},},
 };
 
 static struct mtk_smi_reg_pair
@@ -1551,13 +1591,13 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt6873 = {
 };
 
 static const struct mtk_smi_common_plat mtk_smi_common_mt6853 = {
-	.gen      = MTK_SMI_GEN2,
+	.gen      = MTK_SMI_GEN3,
 	.has_gals = true,
 	.bus_sel  = F_MMU1_LARB(1) | F_MMU1_LARB(2) | F_MMU1_LARB(4) |
 		    F_MMU1_LARB(5) | F_MMU1_LARB(7),
 	.has_bwl  = true,
-	.bwl      = mtk_smi_common_mt6853_bwl,
-	.misc     = mtk_smi_common_mt6853_misc,
+	.bwl      = (u16 *)mtk_smi_common_mt6853_bwl,
+	.misc     = (struct mtk_smi_reg_pair *)mtk_smi_common_mt6853_misc,
 };
 
 static const struct mtk_smi_common_plat mtk_smi_common_mt6893 = {
