@@ -5857,7 +5857,6 @@ int __init fbt_cpu_init(void)
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
 	fps_level_range = 10;
-	check_running = 1;
 	uboost_enhance_f = fbt_get_default_uboost();
 	cm_big_cap = 95;
 	cm_tdiff = TIME_1MS;
