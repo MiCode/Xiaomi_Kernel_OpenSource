@@ -107,8 +107,6 @@ int mdla_plat_init(struct platform_device *pdev)
 		sw_preemption_en = false;
 
 	if (micro_p_en) {
-		of_dma_configure(dev, dev->of_node, true);
-
 		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 			dev_info(dev, "MDLA: set DMA mask failed\n");
 	}
