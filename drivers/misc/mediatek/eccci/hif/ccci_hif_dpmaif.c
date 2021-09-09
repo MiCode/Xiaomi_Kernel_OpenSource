@@ -1877,9 +1877,6 @@ static inline int cs_type(struct sk_buff *skb)
 
 		return 0;
 	} else if (packet_type == IPV4_VERSION) {
-		if (iph->check == 0)
-			return 0; /* No HW check sum */
-
 		if (skb->ip_summed == CHECKSUM_NONE ||
 			skb->ip_summed == CHECKSUM_UNNECESSARY ||
 			skb->ip_summed == CHECKSUM_COMPLETE)
