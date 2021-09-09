@@ -9313,6 +9313,7 @@
 		//<11 2  6>,/* IPI_OUT_SCP_MPOOL_0 */
 		<33 2  16>,/* IPI_OUT_SCP_CONNSYS */
 		< 3 3  2>,/* IPI_OUT_APCCCI_0 */
+		<37 3  1>,/* IPI_OUT_SCP_AOD */
 		<26 3  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
 		<35 3  2>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
 		<29 4 16>,/* IPI_OUT_SENSOR_CTRL */
@@ -9333,6 +9334,7 @@
 		//<12 2  6 0>,/* IPI_IN_SCP_MPOOL_0 */
 		<34 2 16 0>,/* IPI_IN_SCP_CONNSYS */
 		< 7 3  2 0>,/* IPI_IN_APCCCI_0 */
+		<38 3  1 0>,/* IPI_IN_SCP_AOD */
 		<28 3  5 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
 		<27 3  2 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
 		<35 3  4 1>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
