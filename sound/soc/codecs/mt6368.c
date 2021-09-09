@@ -435,9 +435,6 @@ static void headset_volume_ramp(struct mt6368_priv *priv,
 		return;
 	}
 
-	dev_info(priv->dev, "%s(), from %d, to %d\n",
-		 __func__, from, to);
-
 	if (to > from)
 		offset = to - from;
 	else
@@ -980,11 +977,6 @@ static int mt_dcxo_event(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol,
 			  int event)
 {
-	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
-	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
-
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* enable clk buf */
@@ -1649,7 +1641,7 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
+	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable %d\n",
 		 __func__, event, priv->vow_enable);
 
 	switch (event) {
@@ -1704,7 +1696,7 @@ static int mt_dcc_clk_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
+	dev_dbg(priv->dev, "%s(), event 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1748,7 +1740,7 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_0];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
+	dev_dbg(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
 		 __func__, event, mic_type, priv->vow_enable);
 
 	switch (event) {
@@ -1801,7 +1793,7 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_1];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
+	dev_dbg(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
 		 __func__, event, mic_type, priv->vow_enable);
 
 	switch (event) {
@@ -1839,7 +1831,7 @@ static int mt_mic_bias_2_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_2];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
+	dev_dbg(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
 		 __func__, event, mic_type, priv->vow_enable);
 
 	switch (event) {
@@ -1891,7 +1883,7 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event 0x%x, single mic select: %d, vow_channel: %d\n",
+	dev_dbg(priv->dev, "%s(), event 0x%x, single mic select: %d, vow_channel: %d\n",
 		 __func__, event, priv->vow_single_mic_select, priv->vow_channel);
 
 	switch (event) {
@@ -2082,7 +2074,7 @@ static int mt_vow_periodic_cfg_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
+	dev_dbg(priv->dev, "%s(), event 0x%x\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* Periodic On/Off */
@@ -2114,7 +2106,7 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 	unsigned int vow_top_con3 = 0x0000;
 	unsigned int is_dmic = 0;
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type0: %d, mic_type2: %d,vow_dmic_lp: %d\n",
+	dev_dbg(priv->dev, "%s(), event 0x%x, mic_type0: %d, mic_type2: %d,vow_dmic_lp: %d\n",
 		 __func__, event, mic_type0, mic_type2, priv->vow_dmic_lp);
 
 	switch (event) {
@@ -2342,7 +2334,7 @@ static int mt_ul_src_dmic_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+	dev_dbg(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -2374,7 +2366,7 @@ static int mt_ul_src_34_dmic_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+	dev_dbg(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -2454,7 +2446,7 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+	dev_dbg(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -2479,7 +2471,7 @@ static int mt_pga_l_mux_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
-	dev_info(priv->dev, "%s(), mux %d\n", __func__, mux);
+	dev_dbg(priv->dev, "%s(), mux %d\n", __func__, mux);
 	priv->mux_select[MUX_PGA_L] = mux >> RG_AUDPREAMPLINPUTSEL_SFT;
 	return 0;
 }
@@ -2492,7 +2484,7 @@ static int mt_pga_r_mux_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
-	dev_info(priv->dev, "%s(), mux %d\n", __func__, mux);
+	dev_dbg(priv->dev, "%s(), mux %d\n", __func__, mux);
 	priv->mux_select[MUX_PGA_R] = mux >> RG_AUDPREAMPRINPUTSEL_SFT;
 	return 0;
 }
@@ -2505,7 +2497,7 @@ static int mt_pga_3_mux_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
-	dev_info(priv->dev, "%s(), mux %d\n", __func__, mux);
+	dev_dbg(priv->dev, "%s(), mux %d\n", __func__, mux);
 	priv->mux_select[MUX_PGA_3] = mux >> RG_AUDPREAMP3INPUTSEL_SFT;
 	return 0;
 }
@@ -3030,7 +3022,7 @@ static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	struct dc_trim_data *dc_trim = &priv->dc_trim;
 
-	dev_info(priv->dev, "%s(), event = 0x%x, dc_trim->calibrated %u\n",
+	dev_dbg(priv->dev, "%s(), event = 0x%x, dc_trim->calibrated %u\n",
 		 __func__, event, dc_trim->calibrated);
 
 	if (dc_trim->calibrated)
@@ -4449,7 +4441,6 @@ static unsigned int update_trim_code(const bool is_negative,
 static void calculate_lr_finetrim_code(struct mt6368_priv *priv)
 {
 	struct hp_trim_data *hp_trim = &priv->hp_trim_3_pole;
-	unsigned int reg_value;
 
 	int finetrim_l[TRIM_STEP_NUM - 1] = {0, 0, 0};
 	int finetrim_r[TRIM_STEP_NUM - 1] = {0, 0, 0};
@@ -4457,13 +4448,6 @@ static void calculate_lr_finetrim_code(struct mt6368_priv *priv)
 	unsigned int finetrim_r_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
 	unsigned int hpl_finetrim_code = 0, hpr_finetrim_code = 0;
 	unsigned int step = 0;
-
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON6, &reg_value);
-	dev_info(priv->dev, "%s(), initial LCH MT6368_AUDDEC_ANA_CON6 = 0x%x\n",
-		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON7, &reg_value);
-	dev_info(priv->dev, "%s(), initial RCH MT6368_AUDDEC_ANA_CON7 = 0x%x\n",
-		 __func__, reg_value);
 
 	/* step0 */
 	finetrim_l_code[0] = 0x0;
@@ -4553,16 +4537,8 @@ static void calculate_lr_trim_code(struct mt6368_priv *priv)
 
 	unsigned int hpl_trim_code, hpr_trim_code;
 	bool hpl_negative, hpr_negative;
-	unsigned int reg_value;
 
 	dev_info(priv->dev, "%s(), Start DCtrim Calibrating\n", __func__);
-
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON4, &reg_value);
-	dev_info(priv->dev, "%s(), initial MT6368_AUDDEC_ANA_CON4 = 0x%x\n",
-		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON5, &reg_value);
-	dev_info(priv->dev, "%s(), initial MT6368_AUDDEC_ANA_CON5 = 0x%x\n",
-		 __func__, reg_value);
 
 	regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON6,
 			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
@@ -4570,13 +4546,6 @@ static void calculate_lr_trim_code(struct mt6368_priv *priv)
 	regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON7,
 			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
 			   0x0 << RG_AUDHPRFINETRIM_VAUDP32_SFT);
-
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON6, &reg_value);
-	dev_info(priv->dev, "%s(), initial LCH MT6368_AUDDEC_ANA_CON6 = 0x%x\n",
-		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON7, &reg_value);
-	dev_info(priv->dev, "%s(), initial RCH MT6368_AUDDEC_ANA_CON7 = 0x%x\n",
-		 __func__, reg_value);
 
 	/* Start step0, set trim code to 0x0 */
 	trim_l_code[0] = 0x0;
@@ -4707,25 +4676,12 @@ static void get_hp_trim_offset(struct mt6368_priv *priv, bool force)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	struct dc_trim_data *dc_trim = &priv->dc_trim;
 	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
-	unsigned int reg_value;
 
 	if (dc_trim->calibrated && !force)
 		return;
 
 	dev_info(priv->dev, "%s(), Start DCtrim Calibrating", __func__);
 	dc_trim->calibrated = true;
-
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON6, &reg_value);
-	dev_info(priv->dev, "%s(), initial LCH MT6368_AUDDEC_ANA_CON6 = 0x%x\n",
-		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6368_AUDDEC_ANA_CON3, &reg_value);
-	dev_info(priv->dev, "%s(), initial RCH MT6368_AUDDEC_ANA_CON7 = 0x%x\n",
-		 __func__, reg_value);
-
-	dev_info(priv->dev, "%s(), before trim_code R:(0x%x/0x%x), L:(0x%x/0x%x)",
-		 __func__,
-		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
-		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
 
 	enable_trim_circuit(priv, true);
 	calculate_lr_trim_code(priv);
@@ -5550,7 +5506,7 @@ static void codec_write_reg(struct mt6368_priv *priv, void *arg)
 
 	token1 = strsep(&temp, delim);
 	token2 = strsep(&temp, delim);
-	dev_info(priv->dev, "%s(), token1 = %s, token2 = %s, temp = %s\n",
+	dev_dbg(priv->dev, "%s(), token1 = %s, token2 = %s, temp = %s\n",
 		 __func__, token1, token2, temp);
 
 	if ((token1 != NULL) && (token2 != NULL)) {
