@@ -4066,7 +4066,6 @@ static void AIECmdqCB(struct cmdq_cb_data data)
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
 
 	queue_work(fd->frame_done_wq, &fd->req_work.work);
-	dev_info(fd->dev, "%s CB FUNC\n ", __func__);
 }
 
 static void AIECmdqSecCB(struct cmdq_cb_data data)
