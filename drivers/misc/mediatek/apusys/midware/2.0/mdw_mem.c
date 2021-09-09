@@ -15,10 +15,10 @@
 #include "mdw_trace.h"
 
 #define mdw_mem_show(m) \
-	mdw_mem_debug("mem(0x%llx/0x%llx/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d" \
+	mdw_mem_debug("mem(0x%llx/0x%llx/%d/0x%llx/0x%x/0x%llx/0x%x/%u/0x%llx/%d" \
 	"/%d/%p)(%d)\n", \
 	(uint64_t) m->mpriv, (uint64_t) m, m->handle, (uint64_t)m->vaddr, m->size, \
-	m->device_va, m->align, m->flags, m->type, \
+	m->device_va, m->dva_size, m->align, m->flags, m->type, \
 	kref_read(&m->map_ref), m->priv, current->pid)
 
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)

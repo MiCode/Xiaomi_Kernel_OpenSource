@@ -595,8 +595,6 @@ int mdw_mem_dma_import(struct mdw_mem *mem)
 		goto put_dbuf;
 	}
 
-
-
 	mdbuf->mmem = mem;
 	mdbuf->dbuf = dbuf;
 	mdbuf->mem_dev = dev;
@@ -635,6 +633,7 @@ int mdw_mem_dma_import(struct mdw_mem *mem)
 	}
 	mem->device_va = mdbuf->dma_addr;
 	mem->priv = mdbuf;
+	mem->dva_size = mdbuf->dma_size;
 	mutex_lock(&mdmgr.mtx);
 	list_add_tail(&mdbuf->m_item, &mdmgr.mems);
 	mutex_unlock(&mdmgr.mtx);
@@ -691,17 +690,20 @@ int mdw_mem_dma_flush(struct mdw_mem *mem)
 	int ret = 0;
 	struct mdw_mem_dma *mdbuf = mem->priv;
 
-	if (!mdbuf->a.vaddr) {
-		mdw_drv_err("mdbuf vaddr NULL\n");
-		//ret = -EINVAL; //workaround
-		goto out;
-	}
 
+	if (mem->type == MDW_MEM_TYPE_IMPORT)
+		dma_buf_end_cpu_access(mdbuf->dbuf, DMA_TO_DEVICE);
+	else {
+		if (!mdbuf->a.vaddr) {
+			mdw_drv_err("mdbuf vaddr NULL\n");
+			ret = -EINVAL;
+			goto out;
+		}
 
-	if (!mdbuf->uncached) {
-		dma_sync_sgtable_for_device(mdbuf->mem_dev, &mdbuf->a.sgt, DMA_TO_DEVICE);
-		mdw_drv_info("mem flush(0x%llx) sgt (0x%llx)\n",
-				(uint64_t) mem,  mdbuf->a.sgt);
+		if (!mdbuf->uncached) {
+			dma_sync_sgtable_for_device(mdbuf->mem_dev, &mdbuf->a.sgt, DMA_TO_DEVICE);
+			mdw_mem_debug("mem flush(0x%llx)\n", (uint64_t) mem);
+		}
 	}
 
 	mdw_mem_dma_show(mdbuf);
@@ -716,18 +718,21 @@ int mdw_mem_dma_invalidate(struct mdw_mem *mem)
 	int ret = 0;
 	struct mdw_mem_dma *mdbuf = mem->priv;
 
-	if (!mdbuf->a.vaddr) {
-		mdw_drv_err("mdbuf vaddr NULL\n");
-		//ret = -EINVAL;  //workaround
-		goto out;
+	if (mem->type == MDW_MEM_TYPE_IMPORT)
+		dma_buf_begin_cpu_access(mdbuf->dbuf, DMA_FROM_DEVICE);
+	else {
+		if (!mdbuf->a.vaddr) {
+			mdw_drv_err("mdbuf vaddr NULL\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (!mdbuf->uncached) {
+			dma_sync_sgtable_for_cpu(mdbuf->mem_dev, &mdbuf->a.sgt, DMA_FROM_DEVICE);
+			mdw_mem_debug("mem invalidate(0x%llx)\n", (uint64_t) mem);
+		}
 	}
 
-
-	if (!mdbuf->uncached) {
-		dma_sync_sgtable_for_cpu(mdbuf->mem_dev, &mdbuf->a.sgt, DMA_FROM_DEVICE);
-		mdw_drv_info("mem invalidate(0x%llx) sgt (0x%llx)\n",
-				(uint64_t) mem,  mdbuf->a.sgt);
-	}
 
 	mdw_mem_dma_show(mdbuf);
 
