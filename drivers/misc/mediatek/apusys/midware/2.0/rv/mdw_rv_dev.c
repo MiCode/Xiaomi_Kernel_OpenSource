@@ -256,32 +256,18 @@ int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 	struct mdw_ipi_msg msg;
 	int ret = 0;
 
-	memset(&msg, 0, sizeof(msg));
-	msg.id = MDW_IPI_PARAM;
-	memcpy(&msg.p, &mrdev->param, sizeof(msg.p));
-	switch (type) {
-	case MDW_INFO_KLOG:
+	if (type == MDW_INFO_KLOG) {
 		g_mdw_klog = val;
-		goto out;
-	case MDW_INFO_ULOG:
-		msg.p.uplog = val;
-		break;
-	case MDW_INFO_PREEMPT_POLICY:
-		msg.p.preempt_policy = val;
-		break;
-	case MDW_INFO_SCHED_POLICY:
-		msg.p.sched_policy = val;
-		break;
-	case MDW_INFO_MIN_DTIME:
-		msg.p.min_dtime = val;
-		break;
-	default:
+	} else if (type >= MDW_INFO_MAX) {
 		ret = -EINVAL;
 		goto out;
 	}
+	msg.id = MDW_IPI_PARAM;
+	msg.p.type = type;
+	msg.p.dir = MDW_INFO_SET;
+	msg.p.value = val;
 
-	mdw_drv_debug("set(%u) param(%u/%u/%u)\n",
-		type, msg.p.uplog, msg.p.preempt_policy, msg.p.sched_policy);
+	mdw_drv_debug("set param(%u/%u/%u)\n", msg.p.type, msg.p.dir, msg.p.value);
 	ret = mdw_rv_dev_send_sync(mrdev, &msg);
 	if (!ret)
 		memcpy(&mrdev->param, &msg.p, sizeof(msg.p));
@@ -290,37 +276,27 @@ out:
 	return ret;
 }
 
-uint32_t mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type)
+int mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint32_t *val)
 {
-	uint32_t ret = 0;
+	int ret = 0;
+	struct mdw_ipi_msg msg;
 
-	switch (type) {
-	case MDW_INFO_KLOG:
-		ret = g_mdw_klog;
-		break;
-	case MDW_INFO_ULOG:
-		ret = (int)mrdev->param.uplog;
-		break;
-	case MDW_INFO_PREEMPT_POLICY:
-		ret = (int)mrdev->param.preempt_policy;
-		break;
-	case MDW_INFO_SCHED_POLICY:
-		ret = (int)mrdev->param.sched_policy;
-		break;
-	case MDW_INFO_MIN_DTIME:
-		ret = (int)mrdev->param.min_dtime;
-		break;
-	case MDW_INFO_NORMAL_TASK_DLA:
-	case MDW_INFO_NORMAL_TASK_DSP:
-	case MDW_INFO_NORMAL_TASK_DMA:
-		mdw_drv_warn("not support(%d)\n", type);
-		break;
-	default:
-		mdw_drv_warn("unknown type(%d)\n", type);
+	if (type == MDW_INFO_KLOG) {
+		*val = g_mdw_klog;
+		goto out;
+	} else if (type >= MDW_INFO_MAX) {
 		ret = -EINVAL;
-		break;
+		goto out;
 	}
+	msg.id = MDW_IPI_PARAM;
+	msg.p.type = type;
+	msg.p.dir = MDW_INFO_GET;
 
+	mdw_drv_debug("get param(%u/%u/%u)\n", msg.p.type, msg.p.dir, msg.p.value);
+	ret = mdw_rv_dev_send_sync(mrdev, &msg);
+	if (!ret)
+		*val = msg.p.value;
+out:
 	return ret;
 }
 
@@ -413,7 +389,6 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 	mdev->dev_specific = mrdev;
 	mrdev->mdev = mdev;
 	mrdev->rpdev = mdev->rpdev;
-	mrdev->param.min_dtime = 50; /* 50ms */
 
 	strscpy(chinfo.name, mrdev->rpdev->id.name, RPMSG_NAME_SIZE);
 	chinfo.src = mrdev->rpdev->src;

@@ -94,7 +94,7 @@ int mdw_rv_dev_init(struct mdw_device *mdev);
 void mdw_rv_dev_deinit(struct mdw_device *mdev);
 int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
 int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, uint32_t idx, uint32_t val);
-uint32_t mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, uint32_t idx);
+int mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, uint32_t idx, uint32_t *val);
 
 struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd *c);

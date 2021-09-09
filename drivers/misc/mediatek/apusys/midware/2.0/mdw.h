@@ -34,20 +34,6 @@
 
 #define MDW_ALIGN(x, align) ((x+align-1) & (~(align-1)))
 
-enum mdw_info_type {
-	MDW_INFO_KLOG,
-	MDW_INFO_ULOG,
-	MDW_INFO_PREEMPT_POLICY,
-	MDW_INFO_SCHED_POLICY,
-
-	MDW_INFO_NORMAL_TASK_DLA,
-	MDW_INFO_NORMAL_TASK_DSP,
-	MDW_INFO_NORMAL_TASK_DMA,
-
-	MDW_INFO_MIN_DTIME,
-
-	MDW_INFO_MAX,
-};
 
 struct mdw_fpriv;
 struct mdw_device;
@@ -91,6 +77,27 @@ struct mdw_dinfo {
 enum mdw_driver_type {
 	MDW_DRIVER_TYPE_PLATFORM,
 	MDW_DRIVER_TYPE_RPMSG,
+};
+
+enum mdw_info_type {
+	MDW_INFO_KLOG,
+	MDW_INFO_ULOG,
+	MDW_INFO_PREEMPT_POLICY,
+	MDW_INFO_SCHED_POLICY,
+
+	MDW_INFO_NORMAL_TASK_DLA,
+	MDW_INFO_NORMAL_TASK_DSP,
+	MDW_INFO_NORMAL_TASK_DMA,
+
+	MDW_INFO_MIN_DTIME,
+	MDW_INFO_MIN_ETIME,
+
+	MDW_INFO_MAX,
+};
+
+enum mdw_info_dir {
+	MDW_INFO_SET,
+	MDW_INFO_GET
 };
 
 struct mdw_device {

@@ -6,6 +6,7 @@
 #ifndef __MTK_APU_MDW_RV_MSG__
 #define __MTK_APU_MDW_RV_MSG__
 
+#include "mdw.h"
 /* mdw queue cmd type */
 enum {
 	MDW_IPI_NONE,
@@ -64,10 +65,9 @@ struct mdw_ipi_handshake {
 };
 
 struct mdw_ipi_param {
-	uint32_t uplog;
-	uint32_t preempt_policy;
-	uint32_t sched_policy;
-	uint32_t min_dtime;
+	int type;
+	int dir;
+	uint32_t value;
 };
 
 struct mdw_ipi_msg {
