@@ -3075,8 +3075,12 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 		priv->power_state = true;
 
 	//[NEED_TO_FIX] DP_INTF
-	writel(0x00000001, priv->side_config_regs + 0x118);
-	writel(0x00000002, priv->side_config_regs + 0x1a8);
+	if (priv->data->mmsys_id == MMSYS_MT6983) {
+		if (priv->side_config_regs) {
+			writel(0x00000001, priv->side_config_regs + 0x118);
+			writel(0x00000002, priv->side_config_regs + 0x1a8);
+		}
+	}
 	spin_unlock_irqrestore(&top_clk_lock, flags);
 
 	if (priv->data->sodi_config)
@@ -3107,9 +3111,12 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		priv->power_state = false;
 	}
 	//[NEED_TO_FIX] DP_INTF
-	writel(0x00000001, priv->side_config_regs + 0x114);
-	writel(0x00000002, priv->side_config_regs + 0x1a4);
-
+	if (priv->data->mmsys_id == MMSYS_MT6983) {
+		if (priv->side_config_regs) {
+			writel(0x00000001, priv->side_config_regs + 0x114);
+			writel(0x00000002, priv->side_config_regs + 0x1a4);
+		}
+	}
 	spin_unlock_irqrestore(&top_clk_lock, flags);
 
 	for (i = priv->top_clk_num - 1; i >= 0; i--) {

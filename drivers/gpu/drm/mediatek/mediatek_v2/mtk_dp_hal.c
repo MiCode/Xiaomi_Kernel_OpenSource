@@ -2326,18 +2326,17 @@ void mhal_DPTx_VideoMute(struct mtk_dp *mtk_dp, bool bENABLE)
 			BIT3|BIT2,
 			BIT3|BIT2); //Video mute enable
 
-		mtk_dp_atf_call(DP_ATF_VIDEO_UNMUTE, 1);
+		mtk_dp_atf_call(DP_VIDEO_UNMUTE, 1);
 	} else {
 		msWriteByteMask(mtk_dp,
 			REG_3000_DP_ENCODER0_P0,
 			BIT3,
 			BIT3|BIT2);// [3] Sw ov Mode [2] mute value
 
-		mtk_dp_atf_call(DP_ATF_VIDEO_UNMUTE, 0);
+		mtk_dp_atf_call(DP_VIDEO_UNMUTE, 0);
 	}
 	msWriteByteMask(mtk_dp, 0x402C, 0, BIT4);
 	msWriteByteMask(mtk_dp, 0x402C, 1, BIT4);
-
 }
 
 void mhal_DPTx_VideoMuteSW(struct mtk_dp *mtk_dp, bool bENABLE)

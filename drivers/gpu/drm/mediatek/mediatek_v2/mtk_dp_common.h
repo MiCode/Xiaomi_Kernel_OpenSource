@@ -77,10 +77,10 @@
 #define CP2520_PATTERN3                 0x7
 #endif
 
-enum DP_ATF_CMD {
-	DP_ATF_DUMP = 0x20,
-	DP_ATF_VIDEO_UNMUTE,
-	DP_ATF_CMD_COUNT
+enum dp_cmd {
+	DP_DUMP = 0x20,
+	DP_VIDEO_UNMUTE,
+	DP_CMD_COUNT
 };
 
 union PPS_T {
