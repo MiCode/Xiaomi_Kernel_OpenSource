@@ -1901,6 +1901,30 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 	ufshcd_dump_regs(hba, REG_UFS_PROBE, 0x4, "Debug Probe ");
 }
 
+static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
+{
+	struct ufs_dev_info *dev_info = &hba->dev_info;
+	struct ufs_vreg_info *vreg_info = &hba->vreg_info;
+
+	if (dev_info->wspecversion >= 0x0300) {
+		if (vreg_info->vccq2) {
+			regulator_disable(vreg_info->vccq2->reg);
+			devm_kfree(hba->dev, vreg_info->vccq2);
+			vreg_info->vccq2 = NULL;
+		}
+		if (vreg_info->vccq)
+			vreg_info->vccq->always_on = true;
+	} else {
+		if (vreg_info->vccq) {
+			regulator_disable(vreg_info->vccq->reg);
+			devm_kfree(hba->dev, vreg_info->vccq);
+			vreg_info->vccq = NULL;
+		}
+		if (vreg_info->vccq2)
+			vreg_info->vccq2->always_on = true;
+	}
+}
+
 static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 {
 	struct ufs_dev_info *dev_info = &hba->dev_info;
@@ -1922,6 +1946,8 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 		ufs_mtk_setup_ref_clk_wait_us(hba, 100, 32);
 	else
 		ufs_mtk_setup_ref_clk_wait_us(hba, 30, 30);
+
+	ufs_mtk_fix_regulators(hba);
 
 	return 0;
 }
