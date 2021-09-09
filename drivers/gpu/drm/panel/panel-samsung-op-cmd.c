@@ -346,12 +346,6 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x1F, 0x00);
 	lcm_dcs_write_seq_static(ctx, 0xF0, 0xA5, 0xA5);
 	lcm_dcs_write_seq_static(ctx, 0x29);
-	lcm_dcs_write_seq_static(ctx, 0x51, 0x03, 0xff);
-	lcm_dcs_write_seq_static(ctx, 0x39, 0xF0, 0x5A, 0x5A);
-	lcm_dcs_write_seq_static(ctx, 0x39, 0xBF, 0x02);
-	lcm_dcs_write_seq_static(ctx, 0xFF, 0x64);
-	lcm_dcs_write_seq_static(ctx, 0x39, 0xF0, 0xA5, 0xA5);
-	lcm_dcs_write_seq(ctx, bl_tb0[0], bl_tb0[1]);
 
 	pr_info("%s-\n", __func__);
 }
@@ -480,10 +474,50 @@ static int panel_ata_check(struct drm_panel *panel)
 	return 1;
 }
 
+static int panel_doze_enable_start(struct drm_panel *panel, void *dsi, dcs_write_gce cb,
+	void *handle)
+{
+	static char aod_en0[] = { 0xF0, 0x5A, 0x5A}, aod_en1[] = { 0x53, 0x24},
+	aod_en2[] = { 0xF0, 0xA5, 0xA5}, aod_en3[] = { 0x29};
+
+	pr_info("%s\n", __func__);
+
+	if (!cb)
+		return -1;
+
+	cb(dsi, handle, aod_en0, ARRAY_SIZE(aod_en0));
+	cb(dsi, handle, aod_en1, ARRAY_SIZE(aod_en1));
+	cb(dsi, handle, aod_en2, ARRAY_SIZE(aod_en2));
+	msleep(80);
+
+	cb(dsi, handle, aod_en3, ARRAY_SIZE(aod_en3));
+
+	return 0;
+}
+
+static int panel_doze_disable(struct drm_panel *panel, void *dsi, dcs_write_gce cb,
+	void *handle)
+{
+	static char aod_en0[] = { 0xF0, 0x5A, 0x5A}, aod_en1[] = { 0x53, 0x28},
+	aod_en2[] = { 0xF0, 0xA5, 0xA5};
+
+	pr_info("%s\n", __func__);
+
+	if (!cb)
+		return -1;
+
+	cb(dsi, handle, aod_en0, ARRAY_SIZE(aod_en0));
+	cb(dsi, handle, aod_en1, ARRAY_SIZE(aod_en1));
+	cb(dsi, handle, aod_en2, ARRAY_SIZE(aod_en2));
+
+	return 0;
+}
+
 static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level)
 {
-	level = 2047;
+	if (level < 0x06)
+		level = 0x06;
 
 	bl_tb0[1] = level >> 8;
 	bl_tb0[2] = level & 0xFF;
@@ -499,12 +533,12 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 static struct mtk_panel_params ext_params = {
 	.data_rate = PLL_CLOCK * 2,
 	.pll_clk = PLL_CLOCK,
-	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.cust_esd_check = 1,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x9c,
+		.para_list[0] = 0x9f,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
@@ -562,6 +596,8 @@ static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
 	.ata_check = panel_ata_check,
+	.doze_disable = panel_doze_disable,
+	.doze_enable_start = panel_doze_enable_start,
 	//.ext_param_set = mtk_panel_ext_param_set,
 	//.ext_param_get = mtk_panel_ext_param_get,
 	//.mode_switch = mode_switch,
