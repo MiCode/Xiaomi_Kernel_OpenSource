@@ -97,6 +97,7 @@ static inline bool mtk_cam_feature_change_is_mstream(int feature_change)
 }
 
 bool mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
+bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);

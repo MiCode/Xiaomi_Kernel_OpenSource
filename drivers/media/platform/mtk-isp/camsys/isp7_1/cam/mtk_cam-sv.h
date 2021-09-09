@@ -13,6 +13,11 @@
 #define PDAF_READY 1
 #define CAMSV_PIPELINE_NUM 16
 
+#define SV_IMG_MAX_WIDTH		8192
+#define SV_IMG_MAX_HEIGHT		6144
+#define SV_IMG_MIN_WIDTH		0
+#define SV_IMG_MIN_HEIGHT		0
+
 /* camsv hardware capability definition: */
 /* [15:0]: hardware scenario             */
 /* [19:16]: group number                 */
@@ -192,6 +197,7 @@ struct mtk_camsv_device {
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
+	unsigned int is_enqueued;
 };
 
 struct mtk_camsv {
@@ -200,7 +206,19 @@ struct mtk_camsv {
 	struct mtk_camsv_pipeline pipelines[CAMSV_PIPELINE_NUM];
 };
 
+struct mtk_camsv_reconfig_info {
+	u32 grab_pxl;
+	u32 grab_lin;
+	u32 fmt_sel;
+	u32 pak;
+	u32 imgo_xsize;
+	u32 imgo_ysize;
+	u32 imgo_stride;
+};
+
 struct mtk_camsv_frame_params {
+	u8 is_reconfig;
+	struct mtk_camsv_reconfig_info cfg_info;
 	struct mtkcam_ipi_img_output img_out;
 };
 
@@ -209,6 +227,8 @@ int mtk_camsv_setup_dependencies(struct mtk_camsv *sv, struct mtk_larb *larb);
 int mtk_camsv_register_entities(
 	struct mtk_camsv *sv, struct v4l2_device *v4l2_dev);
 void mtk_camsv_unregister_entities(struct mtk_camsv *sv);
+int mtk_camsv_call_pending_set_fmt(struct v4l2_subdev *sd,
+				 struct v4l2_subdev_format *fmt);
 int mtk_cam_sv_select(
 	struct mtk_camsv_pipeline *pipe,
 	struct mtkcam_ipi_input_param *cfg_in_param);
@@ -225,6 +245,8 @@ int mtk_cam_sv_dev_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int idx,
 	unsigned int streaming, unsigned int hw_scen);
 unsigned int mtk_cam_sv_format_sel(unsigned int pixel_fmt);
+unsigned int mtk_cam_sv_pak_sel(unsigned int tg_fmt,
+	unsigned int pixel_mode);
 unsigned int mtk_cam_sv_xsize_cal(
 	struct mtkcam_ipi_input_param *cfg_in_param);
 int mtk_cam_sv_tg_config(
@@ -239,6 +261,7 @@ int mtk_cam_sv_fbc_config(
 int mtk_cam_sv_tg_enable(
 	struct mtk_camsv_device *dev, struct mtkcam_ipi_input_param *cfg_in_param);
 int mtk_cam_sv_toggle_tg_db(struct mtk_camsv_device *dev);
+int mtk_cam_sv_toggle_db(struct mtk_camsv_device *dev);
 int mtk_cam_sv_top_enable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_dmao_enable(
 	struct mtk_camsv_device *dev, struct mtkcam_ipi_input_param *cfg_in_param);
@@ -249,12 +272,17 @@ int mtk_cam_sv_tg_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_top_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_dmao_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev);
+int mtk_cam_sv_vf_on(struct mtk_camsv_device *dev, unsigned int is_on);
 int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no);
 bool mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_find_sv_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx);
 int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
+int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
+	const struct v4l2_format *img_fmt, struct mtk_camsv_frame_params *params);
+int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
+	struct mtk_cam_request_stream_data *s_data);
 
 extern struct platform_driver mtk_cam_sv_driver;
 
