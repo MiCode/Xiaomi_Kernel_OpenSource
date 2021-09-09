@@ -526,9 +526,9 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
 
 	/* if the pipeline is streaming, pending the change */
-	if (!pipeline->subdev.entity.stream_count) {
-		dev_dbg(dev, "%s:pipe(%d): pending res calc\n", __func__,
-			pipeline->id);
+	if (pipeline->subdev.entity.stream_count) {
+		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported\n",
+			__func__, pipeline->id);
 		ret = mtk_cam_raw_res_store(pipeline, res_user);
 
 		return ret;
@@ -1601,6 +1601,11 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 	if (!debug_raw)
 		return;
 
+	dev_dbg(cam->dev, "%s:before:BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d, clk:%d\n",
+		__func__, res->bin_enable, res->frz_enable, res->frz_ratio,
+		res->raw_num_used, *clk_idx, res->tgo_pxl_mode,
+		res->clk_target);
+
 	if (debug_raw_num > 0) {
 		dev_info(cam->dev, "DEBUG: force raw_num_used: %d\n",
 			 debug_raw_num);
@@ -1619,6 +1624,12 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 		*clk_idx = debug_clk_idx;
 		res->clk_target = clk->clklv[debug_clk_idx];
 	}
+
+	dev_dbg(cam->dev, "%s:after:BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d, clk:%d\n",
+		__func__, res->bin_enable, res->frz_enable, res->frz_ratio,
+		res->raw_num_used, *clk_idx, res->tgo_pxl_mode,
+		res->clk_target);
+
 }
 
 static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,

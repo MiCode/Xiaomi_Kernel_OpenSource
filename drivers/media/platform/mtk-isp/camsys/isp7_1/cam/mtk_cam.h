@@ -685,7 +685,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity);
 
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
-
+int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
+				      struct v4l2_subdev *sd,
+				      int pad_id, int pixel_mode);
 // FIXME: refine following
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			     struct mtk_cam_request *req);

@@ -316,9 +316,10 @@ void mtk_cam_req_seninf_change_new(struct mtk_cam_request *req)
 			s_data->seninf_old->entity.stream_count--;
 			s_data->seninf_old->entity.pipe = m_pipe;
 
-			mtk_cam_seninf_set_pixelmode(s_data->seninf_new,
-						     PAD_SRC_RAW0,
-						     ctx->pipe->res_config.tgo_pxl_mode);
+			mtk_cam_call_seninf_set_pixelmode(ctx,
+							  s_data->seninf_new,
+							  PAD_SRC_RAW0,
+							  ctx->pipe->res_config.tgo_pxl_mode);
 
 			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
 				 __func__, stream_id, s_data->seninf_new->name);
@@ -391,7 +392,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 			req_stream_data->seninf_old->entity.stream_count--;
 			req_stream_data->seninf_old->entity.pipe = m_pipe;
 
-			mtk_cam_seninf_set_pixelmode(req_stream_data->seninf_new,
+			mtk_cam_call_seninf_set_pixelmode(ctx, req_stream_data->seninf_new,
 						     PAD_SRC_RAW0,
 						     ctx->pipe->res_config.tgo_pxl_mode);
 
