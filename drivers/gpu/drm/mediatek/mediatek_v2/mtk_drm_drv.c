@@ -2180,31 +2180,38 @@ static const enum mtk_ddp_comp_id mt6879_mtk_ddp_main[] = {
 #endif
 };
 
+static const enum mtk_ddp_comp_id mt6879_mtk_ddp_ext[] = {
+	//todo: ovl0_2l_nwcg -> dp
+};
+
 static const enum mtk_ddp_comp_id mt6879_mtk_ddp_third[] = {
-	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_WDMA0,
+	DDP_COMPONENT_OVL0_2L_NWCG,	DDP_COMPONENT_WDMA1,
 };
 
 #ifdef IF_ZERO
 static const enum mtk_ddp_comp_id mt6879_mtk_ddp_main_minor[] = {
-	DDP_COMPONENT_OVL0_2L,       DDP_COMPONENT_OVL0,
+	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_OVL0,
 	DDP_COMPONENT_WDMA0,
 };
-#endif
 
-#ifdef IF_ZERO
 static const enum mtk_ddp_comp_id mt6879_mtk_ddp_main_minor_sub[] = {
 	DDP_COMPONENT_RDMA0,
-	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
-	DDP_COMPONENT_CCORR1,
-	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
-	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+#ifndef DRM_BYPASS_PQ
+	DDP_COMPONENT_TDSHP0,
+	DDP_COMPONENT_COLOR0, DDP_COMPONENT_CCORR0, DDP_COMPONENT_CCORR1,
+	DDP_COMPONENT_C3D0,
+	DDP_COMPONENT_AAL0, DDP_COMPONENT_GAMMA0, DDP_COMPONENT_POSTMASK0,
+	DDP_COMPONENT_DITHER0, DDP_COMPONENT_CM0, DDP_COMPONENT_SPR0,
+	DDP_COMPONENT_PQ0_VIRTUAL, DDP_COMPONENT_MAIN0_VIRTUAL,
+#endif
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
 };
-#endif
 
-#ifdef IF_ZERO
 static const enum mtk_ddp_comp_id mt6879_mtk_ddp_main_wb_path[] = {
-	DDP_COMPONENT_OVL0, DDP_COMPONENT_WDMA0,
+	DDP_COMPONENT_OVL0_2L,
+	DDP_COMPONENT_OVL0,
+	DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL,
+	DDP_COMPONENT_WDMA0,
 };
 #endif
 
@@ -2212,17 +2219,22 @@ static const struct mtk_addon_scenario_data mt6879_addon_main[ADDON_SCN_NR] = {
 	[NONE] = {
 			.module_num = 0,
 			.hrt_type = HRT_TB_TYPE_GENERAL1,
-		},
+	},
 	[ONE_SCALING] = {
 			.module_num = ARRAY_SIZE(addon_rsz_data),
 			.module_data = addon_rsz_data,
 			.hrt_type = HRT_TB_TYPE_RPO_L0,
-		},
+	},
 	[TWO_SCALING] = {
 			.module_num = ARRAY_SIZE(addon_rsz_data),
 			.module_data = addon_rsz_data,
 			.hrt_type = HRT_TB_TYPE_GENERAL1,
-		},
+	},
+	[WDMA_WRITE_BACK] = {
+			.module_num = ARRAY_SIZE(mt6983_addon_wdma0_data),
+			.module_data = mt6983_addon_wdma0_data,
+			.hrt_type = HRT_TB_TYPE_GENERAL1,
+	},
 };
 
 static const struct mtk_addon_scenario_data mt6879_addon_ext[ADDON_SCN_NR] = {
@@ -2474,11 +2486,19 @@ static const struct mtk_crtc_path_data mt6879_mtk_main_path_data = {
 	.addon_data = mt6879_addon_main,
 };
 
+static const struct mtk_crtc_path_data mt6879_mtk_ext_path_data = {
+	.path[DDP_MAJOR][0] = mt6879_mtk_ddp_ext,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6879_mtk_ddp_ext),
+	.path_req_hrt[DDP_MAJOR][0] = true,
+	.addon_data = mt6879_addon_ext,
+};
+
 static const struct mtk_crtc_path_data mt6879_mtk_third_path_data = {
 	.path[DDP_MAJOR][0] = mt6879_mtk_ddp_third,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6879_mtk_ddp_third),
 	.addon_data = mt6879_addon_ext,
 };
+
 const struct mtk_session_mode_tb mt6779_mode_tb[MTK_DRM_SESSION_NUM] = {
 		[MTK_DRM_SESSION_DL] = {
 
