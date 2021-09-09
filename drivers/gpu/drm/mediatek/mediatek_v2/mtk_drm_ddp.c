@@ -9975,7 +9975,7 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (is_cmd_mode)
 			reg = DDP_MUTEX_SOF_SINGLE_MODE;
 		else
-			reg = DDP_MUTEX_SOF_DPI0;
+			reg = DDP_MUTEX_SOF_DPI1;
 		break;
 	default:
 		if (ddp->data->mutex_mod[id] <= BIT(31)) {

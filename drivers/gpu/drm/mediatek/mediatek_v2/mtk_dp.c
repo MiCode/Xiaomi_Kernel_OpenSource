@@ -140,7 +140,6 @@ static int create_switch_class(void)
 	return 0;
 }
 
-
 int dptx_uevent_dev_register(struct notify_dev *sdev)
 {
 	int ret;
@@ -284,7 +283,6 @@ bool mdrv_DPTx_AuxWrite_DPCD(struct mtk_dp *mtk_dp, u8 ubCmd,
 
 	return bRet;
 }
-
 
 bool mdrv_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	u32 usDPCDADDR, size_t ubLength, BYTE *pData)
@@ -751,7 +749,6 @@ bool mdrv_DPTx_CheckSSC(struct mtk_dp *mtk_dp)
 }
 #endif
 
-
 #if (DPTX_AutoTest_ENABLE == 0x1) && (DPTX_PHY_TEST_PATTERN_EN == 0x1)
 bool mdrv_DPTx_PHY_AdjustSwingPre(struct mtk_dp *mtk_dp, BYTE ubLaneCount)
 {
@@ -888,7 +885,6 @@ bool mdrv_DPTx_PHY_PatternSetting(struct mtk_dp *mtk_dp, BYTE ubPatternType,
 	};
 	return true;
 }
-
 
 struct DP_CTS_AUTO_REQ cts_req;
 bool mdrv_DPTx_Video_PG_AutoTest(struct mtk_dp *mtk_dp)//, BYTE ubDPCD_201)
@@ -2774,7 +2770,6 @@ u8 PPS_4k60[128] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-
 void mtk_dp_video_config(struct mtk_dp *mtk_dp)
 {
 	struct DPTX_TIMING_PARAMETER *DPTX_TBL = &mtk_dp->info.DPTX_OUTBL;
@@ -3426,7 +3421,6 @@ static void mtk_dp_encoder_destroy(struct drm_encoder *encoder)
 	kfree(encoder);
 }
 
-
 static const struct drm_encoder_funcs mtk_dp_enc_funcs = {
 	.destroy = mtk_dp_encoder_destroy,
 };
@@ -3683,6 +3677,7 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 		return;
 	}
 }
+
 void mtk_dp_SWInterruptSet(int bstatus)
 {
 	mutex_lock(&dp_lock);
@@ -3705,6 +3700,7 @@ void mtk_dp_SWInterruptSet(int bstatus)
 	mutex_unlock(&dp_lock);
 }
 EXPORT_SYMBOL_GPL(mtk_dp_SWInterruptSet);
+
 void mtk_dp_poweroff(void)
 {
 	DPTXFUNC();
@@ -3915,12 +3911,10 @@ static int mtk_dp_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(mtk_dp_pm_ops,
 		mtk_dp_suspend, mtk_dp_resume);
 
-
 static const struct of_device_id mtk_dp_of_match[] = {
 	{ .compatible = "mediatek,dp_tx", },
 	{ },
 };
-
 
 struct platform_driver mtk_dp_tx_driver = {
 	.probe = mtk_drm_dp_probe,

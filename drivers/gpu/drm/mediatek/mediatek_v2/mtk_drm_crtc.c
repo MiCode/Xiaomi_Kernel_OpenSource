@@ -4274,10 +4274,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 
 		} else if (crtc_id == 1)
 			cmdq_pkt_wfe(cmdq_handle,
-				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-//workaround, need fix for DSI/DP
-//			cmdq_pkt_wfe(cmdq_handle,
-//					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 
 		/* sw workaround to fix gce hw bug */
 		if (mtk_crtc_with_sodi_loop(crtc)) {
@@ -5081,6 +5078,15 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 		/*Set BYPASS_MUX_SHADOW*/
 		writel(0x1, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
+
+		if (mtk_crtc->side_config_regs) {
+			writel(0x3, mtk_crtc->side_config_regs +
+					DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+
+			/*Set BYPASS_MUX_SHADOW*/
+			writel(0x1, mtk_crtc->side_config_regs +
+					DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
+		}
 	}
 #endif
 
@@ -5745,6 +5751,15 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		/*Set BYPASS_MUX_SHADOW*/
 		writel(0x1, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
+
+		if (mtk_crtc->side_config_regs) {
+			writel(0x3, mtk_crtc->side_config_regs +
+					DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+
+			/*Set BYPASS_MUX_SHADOW*/
+			writel(0x1, mtk_crtc->side_config_regs +
+					DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
+		}
 	}
 #endif
 
