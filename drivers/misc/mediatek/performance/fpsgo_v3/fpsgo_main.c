@@ -238,10 +238,19 @@ static void fpsgo_notifier_wq_cb(void)
 	wait_event_interruptible(notifier_wq_queue, condition_notifier_wq);
 	mutex_lock(&notifier_wq_lock);
 
-	if (list_empty(&head))
-		goto out;
+	if (!list_empty(&head)) {
+		vpPush = list_first_entry(&head,
+			struct FPSGO_NOTIFIER_PUSH_TAG, queue_list);
+		list_del(&vpPush->queue_list);
+		if (list_empty(&head))
+			condition_notifier_wq = 0;
+		mutex_unlock(&notifier_wq_lock);
+	} else {
+		condition_notifier_wq = 0;
+		mutex_unlock(&notifier_wq_lock);
+		return;
+	}
 
-	vpPush = list_first_entry(&head, struct FPSGO_NOTIFIER_PUSH_TAG, queue_list);
 	switch (vpPush->ePushType) {
 	case FPSGO_NOTIFIER_SWITCH_FPSGO:
 		fpsgo_notifier_wq_cb_enable(vpPush->enable);
@@ -273,13 +282,8 @@ static void fpsgo_notifier_wq_cb(void)
 				vpPush->ePushType);
 		break;
 	}
-	list_del(&vpPush->queue_list);
 	fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
 
-out:
-	if (list_empty(&head))
-		condition_notifier_wq = 0;
-	mutex_unlock(&notifier_wq_lock);
 }
 
 static int kfpsgo(void *arg)
