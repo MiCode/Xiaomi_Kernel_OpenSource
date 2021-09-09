@@ -21,6 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/remoteproc/mtk_ccu.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <soc/mediatek/smi.h>
 
 #include "mtk_ccu_isp71.h"
 #include "mtk_ccu_common.h"
@@ -615,6 +616,8 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	struct mtk_ccu *ccu;
 	struct rproc *rproc;
+	struct device_node *smi_node;
+	struct platform_device *smi_pdev;
 	int ret = 0;
 	uint32_t phy_addr;
 	uint32_t phy_size;
@@ -664,7 +667,21 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	LOG_DBG("pmem_base va: 0x%lx\n", (uint64_t)ccu->pmem_base);
 
 	/* get Clock control from device tree.  */
+	smi_node = of_parse_phandle(node, "mediatek,larbs", 0);
+	if (!smi_node) {
+		dev_err(ccu->dev, "get smi larb from DTS fail!\n");
+		return -ENODEV;
+	}
+	smi_pdev = of_find_device_by_node(smi_node);
+	if (WARN_ON(!smi_pdev)) {
+		of_node_put(smi_node);
+		return -ENODEV;
+	}
+	of_node_put(smi_node);
+
+	mtk_smi_add_device_link(ccu->dev, &smi_pdev->dev);
 	pm_runtime_enable(ccu->dev);
+
 	ccu->ccu_clk_pwr_ctrl[0] = devm_clk_get(ccu->dev,
 		"CLK_TOP_CCUSYS_SEL");
 	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[0])) {
@@ -694,6 +711,20 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[4])) {
 		dev_err(ccu->dev, "Get CLK_CCUSYS_CCU0 fail.\n");
 		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[4]);
+	}
+
+	ccu->ccu_clk_pwr_ctrl[5] = devm_clk_get(ccu->dev,
+		"CAM_LARB14");
+	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[5])) {
+		dev_err(ccu->dev, "Get CAM_LARB14 fail.\n");
+		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[5]);
+	}
+
+	ccu->ccu_clk_pwr_ctrl[6] = devm_clk_get(ccu->dev,
+		"CAM_MM1_GALS");
+	if (IS_ERR(ccu->ccu_clk_pwr_ctrl[6])) {
+		dev_err(ccu->dev, "Get CAM_MM1_GALS fail.\n");
+		return PTR_ERR(ccu->ccu_clk_pwr_ctrl[6]);
 	}
 
 #if defined(CCU_SET_MMQOS)

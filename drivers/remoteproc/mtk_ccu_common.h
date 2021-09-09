@@ -27,7 +27,7 @@
 #define MTK_CCU_IOCTL_SET_LOG_LEVEL          _IOW(MTK_CCU_MAGICNO,   1, int)
 #define MTK_CCU_IOCTL_FLUSH_LOG              _IOW(MTK_CCU_MAGICNO,   2, int)
 
-#define MTK_CCU_CLK_PWR_NUM 5
+#define MTK_CCU_CLK_PWR_NUM 7
 #define MTK_CCU_MAILBOX_QUEUE_SIZE 8
 
 #define MTK_CCU_DRAM_LOG_BUF_CNT (3)
