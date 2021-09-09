@@ -12208,16 +12208,22 @@
 		compatible = "mediatek,ccu_rproc";
 		reg = <0 0x1b080000 0 0x9000>;
 		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
+		mediatek,larbs = <&smi_larb19>;
 		clocks =        <&topckgen_clk CLK_TOPCKGEN_CCUSYS_SEL>,
 				<&topckgen_clk CLK_TOPCKGEN_CCU_AHB_SEL>,
 				<&ccu_main_clk CLK_CCU_MAIN_LARB19_CGPDN>,
 				<&ccu_main_clk CLK_CCU_MAIN_AHB_CGPDN>,
-				<&ccu_main_clk CLK_CCU_MAIN_CCUSYS_CCU0_CGPDN>;
+				<&ccu_main_clk CLK_CCU_MAIN_CCUSYS_CCU0_CGPDN>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>;
 		clock-names =   "CLK_TOP_CCUSYS_SEL",
 				"CLK_TOP_CCU_AHB_SEL",
 				"CLK_CCU_LARB",
 				"CLK_CCU_AHB",
-				"CLK_CCUSYS_CCU0";
+				"CLK_CCUSYS_CCU0",
+				"CAM_LARB14",
+				"CAM_MM1_GALS";
 		mediatek,ccu_rproc1 = <&ccu_rproc1>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L19_CAM_CCUO>,
