@@ -16,6 +16,7 @@
 #define GPUFREQ_TRACE_ENABLE            (0)
 #define GPUFERQ_TAG                     "[GPU/FREQ]"
 #define GPUFREQ_TRACE_TAG               "[GPU/TRACE]"
+#define GPUFREQ_STATUS_MEM_SZ           (0x400) // 1KB
 
 /**************************************************
  * GPUFREQ Log Setting
