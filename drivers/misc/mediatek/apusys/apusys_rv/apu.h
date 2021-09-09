@@ -24,6 +24,10 @@ struct mtk_apu_hw_ops {
 	void (*cg_gating)(struct mtk_apu *apu);
 	void (*cg_ungating)(struct mtk_apu *apu);
 	void (*rv_cachedump)(struct mtk_apu *apu);
+
+	/* power related ops */
+	int (*power_on)(struct mtk_apu *apu);
+	int (*power_off)(struct mtk_apu *apu);
 };
 
 #define F_PRELOAD_FIRMWARE	BIT(0)

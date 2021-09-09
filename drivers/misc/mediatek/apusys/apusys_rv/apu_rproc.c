@@ -102,8 +102,7 @@ static int __apu_run(struct rproc *rproc)
 		return -EINVAL;
 	}
 
-	pm_runtime_get_sync(apu->dev);
-
+	hw_ops->power_on(apu);
 	hw_ops->start(apu);
 
 	/* check if boot success */

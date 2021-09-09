@@ -7,6 +7,9 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/sched/clock.h>
+#include <linux/pm_runtime.h>
+
+#include "mt-plat/aee.h"
 
 #include "apusys_power.h"
 #include "apusys_secure.h"
@@ -14,6 +17,7 @@
 #include "../apu_debug.h"
 #include "../apu_config.h"
 #include "../apu_hw.h"
+#include "../apu_excep.h"
 
 static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
 	uint32_t a2)
@@ -264,6 +268,64 @@ static int mt6983_rproc_stop(struct mtk_apu *apu)
 	return 0;
 }
 
+static int mt6983_apu_power_on(struct mtk_apu *apu)
+{
+	struct device *dev = apu->dev;
+	int ret;
+
+	/* to force apu top power on synchronously */
+	ret = pm_runtime_get_sync(apu->power_dev);
+	if (ret < 0) {
+		dev_info(apu->dev,
+			 "%s: call to get_sync(power_dev) failed, ret=%d\n",
+			 __func__, ret);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_PWR_ERROR");
+		return ret;
+	}
+
+	/* to notify IOMMU power on */
+	ret = pm_runtime_get_sync(apu->dev);
+	if (ret < 0) {
+		dev_info(apu->dev,
+			 "%s: call to get_sync(dev) failed, ret=%d\n",
+			 __func__, ret);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_ERROR");
+		pm_runtime_put_sync(apu->power_dev);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int mt6983_apu_power_off(struct mtk_apu *apu)
+{
+	struct device *dev = apu->dev;
+	int ret;
+
+	/* to notify IOMMU power off */
+	ret = pm_runtime_put_sync(apu->dev);
+	if (ret) {
+		dev_info(apu->dev,
+			 "%s: call to put_sync(dev) failed, ret=%d\n",
+			 __func__, ret);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
+		return ret;
+	}
+
+	/* to force apu top power off synchronously */
+	ret = pm_runtime_put_sync(apu->power_dev);
+	if (ret) {
+		dev_info(apu->dev,
+			 "%s: call to put_sync(power_dev) failed, ret=%d\n",
+			 __func__, ret);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_PWR_ERROR");
+		pm_runtime_get_sync(apu->dev);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int mt6983_apu_memmap_init(struct mtk_apu *apu)
 {
 	struct platform_device *pdev = apu->pdev;
@@ -415,5 +477,7 @@ const struct mtk_apu_platdata mt6983_platdata = {
 		.cg_gating = mt6983_rv_cg_gating,
 		.cg_ungating = mt6983_rv_cg_ungating,
 		.rv_cachedump = mt6983_rv_cachedump,
+		.power_on = mt6983_apu_power_on,
+		.power_off = mt6983_apu_power_off,
 	},
 };

@@ -69,6 +69,16 @@ static int mt6893_rproc_stop(struct mtk_apu *apu)
 	return 0;
 }
 
+static int mt6893_apu_power_on(struct mtk_apu *apu)
+{
+	return 0;
+}
+
+static int mt6893_apu_power_off(struct mtk_apu *apu)
+{
+	return 0;
+}
+
 static int mt6893_apu_memmap_init(struct mtk_apu *apu)
 {
 	struct platform_device *pdev = apu->pdev;
@@ -180,5 +190,7 @@ const struct mtk_apu_platdata mt6893_platdata = {
 		.cg_gating = mt6893_rv_cg_gating,
 		.cg_ungating = mt6893_rv_cg_ungating,
 		.rv_cachedump = mt6893_rv_cachedump,
+		.power_on = mt6893_apu_power_on,
+		.power_off = mt6893_apu_power_off,
 	},
 };

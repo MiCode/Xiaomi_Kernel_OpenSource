@@ -48,6 +48,7 @@ struct dpidle_msg {
 void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	int i;
 
 	if (pm_runtime_suspended(apu->dev)) {
@@ -84,7 +85,7 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 
 		dev_info(apu->dev, "%s: power on apu top\n", __func__);
 		apu->conf_buf->time_offset = sched_clock();
-		pm_runtime_get_sync(apu->dev);
+		hw_ops->power_on(apu);
 
 		hw_logger_deep_idle_leave();
 
@@ -155,6 +156,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = (struct mtk_apu *)priv;
 	struct device *dev = apu->dev;
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct dpidle_msg *msg = data;
 	int ret, timeout;
 
@@ -189,7 +191,7 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_PDN_UNLOCK,
 				      DPIDLE_ACK_OK);
 
-		ret = pm_runtime_put_sync(apu->dev);
+		ret = hw_ops->power_off(apu);
 		if (ret) {
 			dev_info(apu->dev, "failed to power off ret=%d\n", ret);
 			apu_ipi_unlock(apu);
