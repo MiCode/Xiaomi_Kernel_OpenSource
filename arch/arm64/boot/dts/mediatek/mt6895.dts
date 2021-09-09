@@ -4671,6 +4671,14 @@
 		};
 	};
 
+	fm: fm@18000000 {
+		compatible = "mediatek,fm";
+		family-id = <0x6983>;
+		host-id = <0x6895>;
+		conn-id = <0x0205>;
+		interrupts = <GIC_SPI 759 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
 	wifi: wifi@18000000 {
 		compatible = "mediatek,wifi";
 		reg = <0 0x18000000 0 0x700000>;
