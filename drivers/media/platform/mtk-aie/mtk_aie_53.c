@@ -26,7 +26,8 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-v4l2.h>
-
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 #include <soc/mediatek/smi.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
@@ -51,7 +52,7 @@
 #endif
 
 struct mtk_aie_user_para g_user_param;
-
+static struct device *aie_pm_dev;
 static const struct v4l2_pix_format_mplane mtk_aie_img_fmts[] = {
 	{
 		.pixelformat = V4L2_PIX_FMT_NV16M, .num_planes = 2,
@@ -100,6 +101,98 @@ static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
 	{NULL, "l12_fdvt_wrb", 0}
 };
 #endif
+
+static int mtk_aie_suspend(struct device *dev)
+{
+	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
+	int ret, num;
+
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	num = atomic_read(&fd->num_composing);
+	dev_dbg(dev, "%s: suspend aie job start, num(%d)\n", __func__, num);
+
+	ret = wait_event_timeout
+		(fd->flushing_waitq,
+		 !(num = atomic_read(&fd->num_composing)),
+		 msecs_to_jiffies(MTK_FD_HW_TIMEOUT));
+	if (!ret && num) {
+		dev_info(dev, "%s: flushing aie job timeout, num(%d)\n",
+			__func__, num);
+
+		return -EBUSY;
+	}
+
+	dev_dbg(dev, "%s: suspend aie job end, num(%d)\n", __func__, num);
+
+	ret = pm_runtime_put_sync(dev);
+	if (ret) {
+		dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
+			__func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int mtk_aie_resume(struct device *dev)
+{
+	int ret;
+
+	dev_dbg(dev, "%s: resume aie job start)\n", __func__);
+
+	if (pm_runtime_suspended(dev)) {
+		dev_dbg(dev, "%s: pm_runtime_suspended is true, no action\n",
+			__func__);
+		return 0;
+	}
+
+	ret = pm_runtime_get_sync(dev);
+	if (ret) {
+		dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
+			__func__, ret);
+		return ret;
+	}
+
+	dev_dbg(dev, "%s: resume aie job end)\n", __func__);
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_PM)
+static int aie_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		mtk_aie_suspend(aie_pm_dev);
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		mtk_aie_resume(aie_pm_dev);
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block aie_notifier_block = {
+	.notifier_call = aie_pm_event,
+	.priority = 0,
+};
+#endif
+
 #define NUM_FORMATS ARRAY_SIZE(mtk_aie_img_fmts)
 
 static inline struct mtk_aie_ctx *fh_to_ctx(struct v4l2_fh *fh)
@@ -1820,6 +1913,15 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
 		goto err_destroy_mutex;
 	}
+
+	aie_pm_dev = &pdev->dev;
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&aie_notifier_block);
+	if (ret) {
+		dev_info(dev, "failed to register notifier block.\n");
+		return ret;
+	}
+#endif
 	dev_info(dev, "AIE : Success to %s >W<\n", __func__);
 
 	return 0;
@@ -1849,56 +1951,6 @@ static int mtk_aie_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int mtk_aie_suspend(struct device *dev)
-{
-	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
-	int ret, num;
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	num = atomic_read(&fd->num_composing);
-	dev_dbg(dev, "%s: suspend aie job start, num(%d)\n", __func__, num);
-
-	ret = wait_event_timeout
-		(fd->flushing_waitq,
-		 !(num = atomic_read(&fd->num_composing)),
-		 msecs_to_jiffies(MTK_FD_HW_TIMEOUT));
-	if (!ret && num) {
-		dev_info(dev, "%s: flushing aie job timeout, num(%d)\n",
-			__func__, num);
-
-		return -EBUSY;
-	}
-
-	dev_dbg(dev, "%s: suspend aie job end, num(%d)\n", __func__, num);
-
-	ret = pm_runtime_force_suspend(dev);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static int mtk_aie_resume(struct device *dev)
-{
-	int ret;
-
-	dev_dbg(dev, "%s: resume aie job start)\n", __func__);
-
-	if (pm_runtime_suspended(dev)) {
-		dev_dbg(dev, "%s: pm_runtime_suspended is true, no action\n",
-			__func__);
-		return 0;
-	}
-
-	ret = pm_runtime_force_resume(dev);
-	if (ret)
-		return ret;
-
-	dev_dbg(dev, "%s: resume aie job end)\n", __func__);
-	return 0;
-}
 
 static int mtk_aie_runtime_suspend(struct device *dev)
 {
@@ -1915,7 +1967,6 @@ static int mtk_aie_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops mtk_aie_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(mtk_aie_suspend, mtk_aie_resume)
 		SET_RUNTIME_PM_OPS(mtk_aie_runtime_suspend,
 				   mtk_aie_runtime_resume, NULL)};
 
