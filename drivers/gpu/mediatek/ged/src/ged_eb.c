@@ -38,22 +38,16 @@
 #include <ged_gpufreq_v1.h>
 #endif /* CONFIG_MTK_GPUFREQ_V2 */
 
-int mtk_gpueb_sysram_read(int offset);
-
 static void __iomem *mtk_gpueb_dvfs_sysram_base_addr;
-// should sync with PIN_R_MSG_SIZE_FAST_DVFS
-uint32_t fdvfs_ipi_rcv_msg[6];
+
+struct fdvfs_ipi_rcv_data fdvfs_ipi_rcv_msg;
 static int g_fast_dvfs_ipi_channel = -1;
+
+static int g_fdvfs_event_ipi_channel = -1;
+uint32_t fdvfs_event_ipi_rcv_msg[4];
 
 int g_is_fastdvfs_enable;
 int g_is_fulltrace_enable;
-
-enum action_map {
-	ACTION_MAP_FASTDVFS = 0,
-	ACTION_MAP_FULLTRACE = 1,
-
-	NR_ACTION_MAP
-};
 
 unsigned int fastdvfs_mode = 1;
 static struct hrtimer g_HT_fdvfs_debug;
@@ -67,12 +61,50 @@ static int mfg_is_power_on;
 
 #define FDVFS_IPI_ATTR "ipi_dev:%p, ch:%d, DATA_LEN: %d, TIMEOUT: %d(ms)"
 
+static struct workqueue_struct *g_psEBWorkQueue;
+
+static void ged_eb_work_cb(struct work_struct *psWork)
+{
+	struct GED_EB_EVENT *psEBEvent =
+		GED_CONTAINER_OF(psWork, struct GED_EB_EVENT, sWork);
+
+	mtk_notify_gpu_freq_change(0, psEBEvent->freq_new);
+
+	ged_free(psEBEvent, sizeof(struct GED_EB_EVENT));
+}
+
+/*
+ * handle events from EB
+ * @param id    : ipi id
+ * @param prdata: ipi handler parameter
+ * @param data  : ipi data
+ * @param len   : length of ipi data
+ */
+static int fast_dvfs_eb_event_handler(unsigned int id, void *prdata, void *data,
+				    unsigned int len)
+{
+	struct GED_EB_EVENT *psEBEvent =
+				(struct GED_EB_EVENT *)ged_alloc_atomic(
+				sizeof(struct GED_EB_EVENT));
+
+	if (data != NULL)
+		psEBEvent->freq_new = ((struct fastdvfs_event_data *)data)->u.set_para.arg[0];
+
+	/*get rate from EB*/
+	GPUFDVFS_LOGD("%s@%d top clock: %d (KHz)\n", __func__, __LINE__, psEBEvent->freq_new);
+
+	INIT_WORK(&psEBEvent->sWork, ged_eb_work_cb);
+	queue_work(g_psEBWorkQueue, &psEBEvent->sWork);
+
+	return 0;
+}
+
 int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 {
 	int ret = 0;
 
 	/* init ipi channel */
-	if (g_fast_dvfs_ipi_channel <= 0) {
+	if (g_fast_dvfs_ipi_channel < 0) {
 		g_fast_dvfs_ipi_channel =
 			gpueb_get_send_PIN_ID_by_name("IPI_ID_FAST_DVFS");
 		if (unlikely(g_fast_dvfs_ipi_channel <= 0)) {
@@ -84,6 +116,19 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 
 		mtk_ipi_register(get_gpueb_ipidev(), g_fast_dvfs_ipi_channel,
 			NULL, NULL, (void *)&fdvfs_ipi_rcv_msg);
+	}
+
+	if (g_fdvfs_event_ipi_channel < 0) {
+		g_fdvfs_event_ipi_channel =
+			gpueb_get_recv_PIN_ID_by_name("IPI_ID_FAST_DVFS_EVENT");
+		if (unlikely(g_fdvfs_event_ipi_channel < 0)) {
+			GPUFDVFS_LOGE("fail to get FDVFS EVENT IPI channel id (ENOENT)");
+
+			return -ENOENT;
+		}
+
+		mtk_ipi_register(get_gpueb_ipidev(), g_fdvfs_event_ipi_channel,
+				(void *)fast_dvfs_eb_event_handler, NULL, &fdvfs_event_ipi_rcv_msg);
 	}
 
 	GPUFDVFS_LOGD("%s(%d), cmd: %d, channel: %d, ipi_size: %d (X4)\n",
@@ -122,7 +167,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 				g_fast_dvfs_ipi_channel,
 				FDVFS_IPI_DATA_LEN, FASTDVFS_IPI_TIMEOUT);
 		} else {
-			ret = fdvfs_ipi_rcv_msg[0];
+			ret = fdvfs_ipi_rcv_msg.u.set_para.arg[0];
 		}
 	break;
 	// Set -
@@ -140,7 +185,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 			GPUFDVFS_LOGI("%s(%d), cmd: %d, mtk_ipi_send_compl, ret: %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else {
-			ret = fdvfs_ipi_rcv_msg[0];
+			ret = fdvfs_ipi_rcv_msg.u.set_para.arg[0];
 		}
 	break;
 	// Get
@@ -164,34 +209,44 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 	break;
 	}
 
-	GPUFDVFS_LOGD("%s(%d), cmd: %d, fdvfs_ipi_rcv_msg[0]: %d\n",
+	GPUFDVFS_LOGD("%s(%d), cmd: %d, ack cmd: %d, msg[0]: %d\n",
 		__func__,
 		__LINE__,
 		cmd,
-		fdvfs_ipi_rcv_msg[0]);
+		fdvfs_ipi_rcv_msg.cmd,
+		fdvfs_ipi_rcv_msg.u.set_para.arg[0]);
 
 	return ret;
 }
 
-void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
+void mtk_gpueb_dvfs_commit(unsigned long ulNewFreqID,
 		GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
 {
 	int ret;
+
 	struct fdvfs_ipi_data ipi_data;
+	static unsigned long ulPreFreqID = -1;
 
-	ipi_data.u.set_para.arg[0] = ui32NewFreqID;
-	ipi_data.u.set_para.arg[1] = eCommitType;
-	ipi_data.u.set_para.arg[2] = 0;
-	ipi_data.u.set_para.arg[3] = 0xFFFFFFFF;
+	if (ulNewFreqID != ulPreFreqID) {
+		ipi_data.u.set_para.arg[0] = ulNewFreqID;
+		ipi_data.u.set_para.arg[1] = eCommitType;
+		ipi_data.u.set_para.arg[2] = 0;
+		ipi_data.u.set_para.arg[3] = 0xFFFFFFFF;
 
-	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_NEW_FREQ, &ipi_data);
+		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_NEW_FREQ, &ipi_data);
 
-	if (pbCommited) {
-		if (ret == 0)
+		if (pbCommited) {
+			if (ret == 0)
+				*pbCommited = true;
+			else
+				*pbCommited = false;
+		}
+	} else {
+		if (pbCommited)
 			*pbCommited = true;
-		else
-			*pbCommited = false;
 	}
+
+	ulPreFreqID = ulNewFreqID;
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_commit);
 
@@ -200,13 +255,23 @@ void mtk_gpueb_dvfs_dcs_commit(unsigned int platform_freq_idx,
 		unsigned int virtual_freq_in_MHz)
 {
 	struct fdvfs_ipi_data ipi_data;
+	static unsigned int pre_platform_freq_idx = -1;
+	static unsigned int pre_virtual_freq_in_MHz = -1;
 
-	ipi_data.u.set_para.arg[0] = platform_freq_idx;
-	ipi_data.u.set_para.arg[1] = eCommitType;
-	ipi_data.u.set_para.arg[2] = virtual_freq_in_MHz;
-	ipi_data.u.set_para.arg[3] = 0xFFFFFFFF;
+	if (platform_freq_idx != pre_platform_freq_idx ||
+		virtual_freq_in_MHz != pre_virtual_freq_in_MHz) {
 
-	ged_to_fdvfs_command(GPUFDVFS_IPI_SET_NEW_FREQ, &ipi_data);
+		ipi_data.u.set_para.arg[0] = platform_freq_idx;
+		ipi_data.u.set_para.arg[1] = eCommitType;
+		ipi_data.u.set_para.arg[2] = virtual_freq_in_MHz;
+		ipi_data.u.set_para.arg[3] = 0xFFFFFFFF;
+
+		ged_to_fdvfs_command(GPUFDVFS_IPI_SET_NEW_FREQ, &ipi_data);
+	}
+
+	pre_platform_freq_idx = platform_freq_idx;
+	pre_virtual_freq_in_MHz = virtual_freq_in_MHz;
+
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_dcs_commit);
 
@@ -240,22 +305,31 @@ unsigned int mtk_gpueb_dvfs_set_frame_base_dvfs(unsigned int enable)
 {
 	int ret = 0;
 	struct fdvfs_ipi_data ipi_data;
+	static unsigned int is_fb_dvfs_enabled;
 
-	ipi_data.u.set_para.arg[0] = (enable && g_is_fastdvfs_enable);
-	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_FRAME_BASE_DVFS, &ipi_data);
+	if (enable != is_fb_dvfs_enabled) {
+		ipi_data.u.set_para.arg[0] = (enable && g_is_fastdvfs_enable);
+		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_FRAME_BASE_DVFS, &ipi_data);
+	}
+
+	is_fb_dvfs_enabled = enable;
 
 	return ret;
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_set_frame_base_dvfs);
 
-
 int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time)
 {
 	int ret = 0;
 	struct fdvfs_ipi_data ipi_data;
+	static unsigned int pre_target_frame_time;
 
-	ipi_data.u.set_para.arg[0] = target_frame_time;
-	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_TARGET_FRAME_TIME, &ipi_data);
+	if (target_frame_time != pre_target_frame_time) {
+		ipi_data.u.set_para.arg[0] = target_frame_time;
+		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_TARGET_FRAME_TIME, &ipi_data);
+	}
+
+	pre_target_frame_time = target_frame_time;
 
 	return ret;
 }
@@ -577,6 +651,12 @@ void ged_fastdvfs_systrace(void)
 		(long long)mtk_gpueb_sysram_read(SYSRAM_GPU_LEFT_TIME));
 	DVFS_trace_counter("(FDVFS)UNDER HINT CNT",
 		(long long)mtk_gpueb_sysram_read(SYSRAM_GPU_UNDER_HINT_CNT));
+	DVFS_trace_counter("(FDVFS)JS0 DELTA",
+		(long long)mtk_gpueb_sysram_read(SYSRAM_GPU_JS0_DELTA));
+	DVFS_trace_counter("(FDVFS)COMMIT PROFILE",
+		(long long)mtk_gpueb_sysram_read(SYSRAM_GPU_COMMIT_PROFILE));
+	DVFS_trace_counter("(FDVFS)DCS",
+		(long long)mtk_gpueb_sysram_read(SYSRAM_GPU_DCS));
 
 }
 
@@ -614,20 +694,10 @@ static void __iomem *_gpu_fastdvfs_of_ioremap(const char *node_name)
 
 static void gpu_power_change_notify_fdvfs(int power_on)
 {
+	/* Do something if necessary */
 	spin_lock(&counter_info_lock);
 
 	GPUFDVFS_LOGD("%s() power on: %d\n", __func__, power_on);
-
-	if (g_is_fulltrace_enable == 1) {
-		if (power_on) {
-			if (!hrtimer_active(&g_HT_fdvfs_debug)) {
-				hrtimer_start(&g_HT_fdvfs_debug,
-					ns_to_ktime(GED_FDVFS_TIMER_TIMEOUT),
-					HRTIMER_MODE_REL);
-			}
-		}
-	}
-
 	mfg_is_power_on = power_on;
 
 	spin_unlock(&counter_info_lock);
@@ -635,10 +705,12 @@ static void gpu_power_change_notify_fdvfs(int power_on)
 
 void fdvfs_init(void)
 {
-	/* init sysram for debug */
 	g_is_fastdvfs_enable = 1;
 	g_is_fulltrace_enable = 0;
 
+	g_fast_dvfs_ipi_channel = -1;
+
+	/* init sysram for debug */
 	mtk_gpueb_dvfs_sysram_base_addr =
 		_gpu_fastdvfs_of_ioremap("mediatek,gpu_fdvfs");
 
@@ -646,8 +718,6 @@ void fdvfs_init(void)
 		GPUFDVFS_LOGE("can't find fdvfs sysram");
 		return;
 	}
-
-	g_fast_dvfs_ipi_channel = -1;
 
 	mtk_register_gpu_power_change("fdvfs", gpu_power_change_notify_fdvfs);
 
@@ -657,6 +727,16 @@ void fdvfs_init(void)
 	if (g_is_fulltrace_enable == 1)
 		hrtimer_start(&g_HT_fdvfs_debug,
 			ns_to_ktime(GED_FDVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
+
+	g_psEBWorkQueue =
+		alloc_ordered_workqueue("ged_eb",
+			WQ_FREEZABLE | WQ_MEM_RECLAIM);
+}
+
+void fdvfs_exit(void)
+{
+	destroy_workqueue(g_psEBWorkQueue);
+	mtk_unregister_gpu_power_change("fdvfs");
 }
 
 int fastdvfs_proc_init(void)
@@ -670,8 +750,4 @@ void fastdvfs_proc_exit(void)
 {
 	remove_proc_entry("fastdvfs_proc", NULL);
 }
-
-//MODULE_LICENSE("GPL");
-//module_init(fastdvfs_proc_init);
-//module_exit(fastdvfs_proc_exit);
 

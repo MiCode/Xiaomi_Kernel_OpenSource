@@ -345,6 +345,15 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 	if (eCommitType == GED_DVFS_DEFAULT_COMMIT)
 		g_last_def_commit_freq_id = ui32NewFreqID;
 
+	/* Delegate to DCS */
+#ifdef DIRECT_EB_COMMIT
+	if (ged_is_gpueb_support() &&
+		ged_dvfs_gpu_freq_commit_fp != mtk_gpueb_dvfs_commit) {
+		ged_dvfs_gpu_freq_commit_fp = mtk_gpueb_dvfs_commit;
+		GED_LOGI("%s @ %d. GPUEB version commit\n", __func__, __LINE__);
+	}
+#endif
+
 	if (ged_dvfs_gpu_freq_commit_fp != NULL) {
 
 		ui32CeilingID = ged_get_cur_limit_idx_ceil();

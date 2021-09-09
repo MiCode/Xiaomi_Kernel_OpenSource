@@ -45,6 +45,9 @@ enum gpu_fastdvfs_counter {
 	FASTDVFS_COUNTER_FRAME_END_HINT_COUNT       = 12,
 	FASTDVFS_COUNTER_UNDER_HINT_WL              = 13,
 	FASTDVFS_COUNTER_UNDER_HINT_CNT             = 14,
+	FASTDVFS_COUNTER_JS0_DELTA                  = 15,
+	FASTDVFS_COUNTER_COMMIT_PROFILE             = 16,
+	FASTDVFS_COUNTER_DCS	                    = 17,
 
 	NR_FASTDVFS_COUNTER
 };
@@ -112,6 +115,25 @@ enum gpu_fastdvfs_counter {
 (                                                 \
 (FASTDVFS_COUNTER_UNDER_HINT_CNT*SYSRAM_LOG_SIZE) \
 )
+#define SYSRAM_GPU_JS0_DELTA                 \
+(                                            \
+(FASTDVFS_COUNTER_JS0_DELTA*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_COMMIT_PROFILE            \
+(                                            \
+(FASTDVFS_COUNTER_COMMIT_PROFILE*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_DCS                 \
+(                                      \
+(FASTDVFS_COUNTER_DCS*SYSRAM_LOG_SIZE) \
+)
+
+enum action_map {
+	ACTION_MAP_FASTDVFS = 0,
+	ACTION_MAP_FULLTRACE = 1,
+
+	NR_ACTION_MAP
+};
 
 /**************************************************
  * GPU FAST DVFS IPI CMD
@@ -144,6 +166,38 @@ struct fdvfs_ipi_data {
 };
 
 
+struct fdvfs_ipi_rcv_data {
+	unsigned int cmd;
+	union {
+		struct {
+			unsigned int arg[5];
+		} set_para;
+	} u;
+};
+
+/**************************************************
+ * GPU FAST DVFS EVENT IPI
+ **************************************************/
+enum {
+	GPUFDVFS_IPI_EVENT_CLK_CHANGE = 1,
+
+	NR_GPUFDVFS_IPI_EVENT_CMD,
+};
+
+struct GED_EB_EVENT {
+	unsigned int freq_new;
+	struct work_struct sWork;
+};
+
+struct fastdvfs_event_data {
+	unsigned int cmd;
+	union {
+		struct {
+		unsigned int arg[3];
+		} set_para;
+	} u;
+};
+
 /**************************************************
  * Definition
  **************************************************/
@@ -151,8 +205,10 @@ struct fdvfs_ipi_data {
 	DIV_ROUND_UP(sizeof(struct fdvfs_ipi_data), MBOX_SLOT_SIZE)
 
 extern void fdvfs_init(void);
+extern void fdvfs_exit(void);
 extern int ged_to_fdvfs_command(unsigned int cmd,
 	struct fdvfs_ipi_data *fdvfs_d);
+extern int mtk_gpueb_sysram_read(int offset);
 
 
 /**************************************************

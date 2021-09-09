@@ -421,6 +421,8 @@ unlock_and_return:
 unsigned int ged_is_gpueb_support(void)
 {
 	// Todo: Check more conditions
+	GED_LOGD("@%s: gpueb_support: %d, fdvfs_support: %d, kpi_enable: %d\n",
+		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, ged_kpi_enabled());
 	return (g_ged_gpueb_support && g_ged_fdvfs_support && ged_kpi_enabled());
 }
 EXPORT_SYMBOL(ged_is_gpueb_support);
@@ -458,8 +460,6 @@ GED_ERROR check_eb_config(void)
 
 	GED_LOGI("%s. gpueb_support: %d, fdvfs_support: %d, fastdvfs_mode: %d",
 		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, g_fastdvfs_mode);
-
-done:
 
 	return ret;
 }

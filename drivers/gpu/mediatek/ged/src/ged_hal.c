@@ -420,7 +420,7 @@ static ssize_t fastdvfs_mode_show(struct kobject *kobj,
 	if (false == mtk_get_fastdvfs_mode(&ui32FastDVFSMode)) {
 		ui32FastDVFSMode = 0;
 		length = scnprintf(buf + pos, PAGE_SIZE - pos,
-				"call mtk_get_fastdvfs_mode false\n");
+				"fdvfs is off\n");
 		pos += length;
 	}
 	length = scnprintf(buf + pos, PAGE_SIZE - pos,
