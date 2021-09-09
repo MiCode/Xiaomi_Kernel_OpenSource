@@ -498,6 +498,7 @@ do { \
 //int dpmaif_stop_tx(unsigned char hif_id);
 //int dpmaif_stop(unsigned char hif_id);
 //void dpmaif_stop_hw(void);
+extern void ccmni_clr_flush_timer(void);
 extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);

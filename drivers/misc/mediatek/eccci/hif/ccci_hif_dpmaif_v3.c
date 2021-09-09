@@ -1091,6 +1091,7 @@ static int dpmaif_net_rx_push_thread(void *arg)
 			ret = wait_event_interruptible(queue->rx_wq,
 				(ccci_dl_queue_len(queue->index) ||
 				kthread_should_stop()));
+			ccmni_clr_flush_timer();
 			if (ret == -ERESTARTSYS)
 				continue;	/* FIXME */
 		}
@@ -1596,6 +1597,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	/* still need sync to SW/HW cnt. */
 	if (recv_skb_cnt)
 		NOTIFY_RX_PUSH(rxq);
+
 	/* update to HW */
 	if (ret_hw == 0 && notify_hw.pit_cnt)
 		ret_hw = dpmaifq_rx_notify_hw(rxq, &notify_hw);
@@ -1654,7 +1656,6 @@ static int dpmaif_rx_data_collect(struct hif_dpmaif_ctrl *hif_ctrl,
 	if (cnt) {
 		max_cnt = cnt;
 		rd_cnt = (cnt > budget && !blocking) ? budget:cnt;
-
 		real_cnt = dpmaif_rx_start(rxq, rd_cnt, blocking, time_limit);
 
 		if (real_cnt < LOW_MEMORY_TYPE_MAX) {
