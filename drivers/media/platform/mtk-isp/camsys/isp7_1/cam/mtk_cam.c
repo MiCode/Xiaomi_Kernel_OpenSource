@@ -2588,10 +2588,10 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			}
 		}
 
-		if (mtk_cam_is_stagger_m2m(ctx))
+		if (mtk_cam_is_m2m(ctx))
 			spin_lock_irqsave(&ctx->m2m_lock, m2m_flags);
 
-		if (mtk_cam_is_stagger_m2m(ctx)) {
+		if (mtk_cam_is_m2m(ctx)) {
 			spin_lock_irqsave(&ctx->composed_buffer_list.lock, flags);
 			dev_dbg(dev, "%s ctx->composed_buffer_list.cnt %d\n", __func__,
 				ctx->composed_buffer_list.cnt);
@@ -2647,7 +2647,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 			raw_dev = dev_get_drvdata(dev);
 
-			if (mtk_cam_is_stagger_m2m(ctx)) {
+			if (mtk_cam_is_m2m(ctx)) {
 				dev_dbg(dev, "%s M2M apply_cq, composed_buffer_list.cnt %d frame_seq_no %d\n",
 					__func__, ctx->composed_buffer_list.cnt,
 					s_data->frame_seq_no);
@@ -2677,7 +2677,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			s_data->timestamp_mono = ktime_get_ns();
 			s_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 
-			if (mtk_cam_is_stagger_m2m(ctx))
+			if (mtk_cam_is_m2m(ctx))
 				spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
 
 			return 0;
@@ -2687,7 +2687,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->composed_buffer_list.list);
 		ctx->composed_buffer_list.cnt++;
-		if (mtk_cam_is_stagger_m2m(ctx)) {
+		if (mtk_cam_is_m2m(ctx)) {
 			dev_dbg(dev, "%s M2M composed_buffer_list.cnt %d\n",
 					__func__, ctx->composed_buffer_list.cnt);
 		}
@@ -2704,7 +2704,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 		spin_unlock(&ctx->using_buffer_list.lock);
 
-		if (mtk_cam_is_stagger_m2m(ctx))
+		if (mtk_cam_is_m2m(ctx))
 			spin_unlock_irqrestore(&ctx->m2m_lock, m2m_flags);
 
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
@@ -2994,7 +2994,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			}
 
 			if (ctx->sensor && (initial_frame ||
-					mtk_cam_is_stagger_m2m(ctx))) {
+					mtk_cam_is_m2m(ctx))) {
 				if (mtk_cam_is_mstream(ctx)) {
 					mtk_cam_mstream_initial_sensor_setup(req, ctx);
 				} else {
@@ -3224,7 +3224,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	}
 
 	if (config_pipe && !mtk_cam_is_subsample(ctx) && !mtk_cam_is_stagger(ctx)
-		&& !mtk_cam_is_stagger_m2m(ctx) && !mtk_cam_is_time_shared(ctx))
+		&& !mtk_cam_is_m2m(ctx) && !mtk_cam_is_time_shared(ctx))
 		config_param.flags |= MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE;
 
 	dev_dbg(dev, "%s: config_param flag:0x%x enabled_raw:0x%x\n", __func__,
@@ -3966,7 +3966,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				mtk_cam_seninf_set_camtg(ctx->seninf, seninf_pad,
 							PipeIDtoTGIDX(raw_dev->id));
 			}
-		} else if (!mtk_cam_is_stagger_m2m(ctx) &&
+		} else if (!mtk_cam_is_m2m(ctx) &&
 					!mtk_cam_is_time_shared(ctx)) {
 			//HSF control
 			dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
@@ -3993,7 +3993,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	if (!mtk_cam_is_stagger_m2m(ctx)) {
+	if (!mtk_cam_is_m2m(ctx)) {
 		for (i = 0 ; i < ctx->used_sv_num ; i++) {
 			/* use 8-pixel mode as default */
 			mtk_cam_call_seninf_set_pixelmode(ctx,

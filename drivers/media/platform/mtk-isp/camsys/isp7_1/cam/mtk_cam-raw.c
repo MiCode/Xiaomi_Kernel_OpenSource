@@ -1020,11 +1020,19 @@ static const struct v4l2_ctrl_config cfg_pde_info = {
 	.dims = {sizeof_u32(struct mtk_cam_pde_info)},
 };
 
-void trigger_rawi(struct mtk_raw_device *dev)
+void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
 {
 #define TRIGGER_RAWI_R6 0x10
+#define TRIGGER_RAWI_R2 0x01
 
-	writel_relaxed(TRIGGER_RAWI_R6, dev->base + REG_CTL_RAWI_TRIG);
+	u32 cmd = 0;
+
+	if (mtk_cam_is_stagger_m2m(ctx))
+		cmd = TRIGGER_RAWI_R6;
+	else
+		cmd = TRIGGER_RAWI_R2;
+
+	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
 	wmb(); /* TBC */
 }
 

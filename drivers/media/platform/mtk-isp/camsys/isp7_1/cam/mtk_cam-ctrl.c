@@ -607,7 +607,7 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 	 * other settings like max fps.
 	 * 2nd is special, only expsure is set.
 	 */
-	if (!mtk_cam_is_stagger_m2m(ctx) && !is_mstream_last_exposure) {
+	if (!mtk_cam_is_m2m(ctx) && !is_mstream_last_exposure) {
 		if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
 			v4l2_ctrl_request_setup(&req->req,
 						req_stream_data->sensor->ctrl_handler);
@@ -1042,7 +1042,7 @@ mtk_cam_set_sensor(struct mtk_cam_request_stream_data *s_data,
 		return;
 	}
 
-	if (mtk_cam_is_stagger_m2m(sensor_ctrl->ctx))
+	if (mtk_cam_is_m2m(sensor_ctrl->ctx))
 		mtk_cam_m2m_sensor_skip(s_data);
 	else
 		mtk_cam_submit_kwork(sensor_ctrl->sensorsetting_wq,
@@ -2374,7 +2374,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 	if (!(raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_OFFLINE_M2M_MASK))
 		return;
 
-	trigger_rawi(raw_dev);
+	trigger_rawi(raw_dev, ctx);
 
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
@@ -3233,7 +3233,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 		/* raw's CQ done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
-			if (mtk_cam_is_stagger_m2m(ctx)) {
+			if (mtk_cam_is_m2m(ctx)) {
 				mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 				mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
 			} else {
@@ -3252,7 +3252,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 		/* raw's SW done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
-			if (mtk_cam_is_stagger_m2m(ctx)) {
+			if (mtk_cam_is_m2m(ctx)) {
 				mtk_camsys_raw_m2m_frame_done(raw_dev, ctx,
 						   irq_info->frame_inner_idx);
 			} else

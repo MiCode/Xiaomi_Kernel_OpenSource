@@ -357,7 +357,7 @@ void apply_cq(struct mtk_raw_device *dev,
 	      int initial, unsigned int sub_cq_size,
 	      unsigned int sub_cq_offset);
 
-void trigger_rawi(struct mtk_raw_device *dev);
+void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx);
 
 void reset(struct mtk_raw_device *dev);
 
