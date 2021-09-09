@@ -6917,7 +6917,6 @@
 
 		mediatek,ufs-qos;
 		mediatek,ufs-disable-ah8;
-		mediatek,ufs-broken-vcc;
 	};
 
 	ufs_ao_cfg: ufs_ao_cfg@112b8000 {
