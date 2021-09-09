@@ -3163,8 +3163,8 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 		else if (cur_panel_params->pll_clk !=
 				adjust_panel_params->pll_clk)
 			mode_chg_index |= MODE_DSI_CLK;
-		else if (adjust_mode->clock != old_mode->clock)
-			mode_chg_index |= MODE_DSI_CLK;
+		//else if (adjust_mode->clock != old_mode->clock)
+			//mode_chg_index |= MODE_DSI_CLK;
 	} else if (cur_panel_params && adjust_panel_params) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				 MTK_DRM_OPT_RES_SWITCH)
