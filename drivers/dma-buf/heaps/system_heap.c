@@ -257,6 +257,10 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 			return ERR_PTR(-EINVAL);
 
 		a->mapped = true;
+
+		if (!(attr & DMA_ATTR_SKIP_CPU_SYNC))
+			dma_sync_sgtable_for_device(attachment->dev, table, direction);
+
 		return table;
 	}
 
@@ -317,8 +321,11 @@ static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	 * unmap iova when release dma-buf.
 	 * system heap: unmap it every time
 	 */
-	if (is_mtk_mm_heap_dmabuf(buf) && fwspec)
+	if (is_mtk_mm_heap_dmabuf(buf) && fwspec) {
+		if (!(attr & DMA_ATTR_SKIP_CPU_SYNC))
+			dma_sync_sgtable_for_cpu(attachment->dev, table, direction);
 		return;
+	}
 
 	dma_unmap_sgtable(attachment->dev, table, direction, attr);
 }
