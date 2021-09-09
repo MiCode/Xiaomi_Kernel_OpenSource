@@ -893,6 +893,14 @@
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
 
+		gps_mem: gps-reserve-memory {
+			compatible = "mediatek,gps-reserve-memory";
+			no-map;
+			size = <0 0x100000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 		reserve-memory-vcp_share {
 			compatible = "mediatek,reserve-memory-vcp_share";
 			no-map;
@@ -9070,11 +9078,7 @@
 				<GIC_SPI 564 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 566 IRQ_TYPE_LEVEL_HIGH 0>;
-		emi-connac-ver = <2>;
-		emi-addr = <0>;
-		emi-size = <0x100000>;
-		emi-alignment = <0x100000>;
-		emi-max-addr = <0xc0000000>;
+		memory-region = <&gps_mem>;
 	};
 
 	watchdog: watchdog@1c007000 {
