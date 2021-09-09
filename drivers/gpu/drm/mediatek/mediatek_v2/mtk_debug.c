@@ -586,7 +586,7 @@ static void mtk_fake_engine_share_port_config(struct drm_crtc *crtc,
 	if (en) {
 		value = readl(baddr[idx] + SMI_LARB_VC_PRI_MODE);
 		value = (value & ~0x3) | (0x0 & 0x3);
-		writel_relaxed(value, baddr + SMI_LARB_VC_PRI_MODE);
+		writel_relaxed(value, baddr[idx] + SMI_LARB_VC_PRI_MODE);
 
 		value = readl(mtk_crtc->config_regs +
 				DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON);
@@ -596,7 +596,7 @@ static void mtk_fake_engine_share_port_config(struct drm_crtc *crtc,
 	} else {
 		value = readl(baddr[idx] + SMI_LARB_VC_PRI_MODE);
 		value = (value & ~0x3) | (0x1 & 0x3);
-		writel_relaxed(value, baddr + SMI_LARB_VC_PRI_MODE);
+		writel_relaxed(value, baddr[idx] + SMI_LARB_VC_PRI_MODE);
 
 		value = readl(mtk_crtc->config_regs +
 				DISP_REG_CONFIG_RDMA_SHARE_SRAM_CON);
