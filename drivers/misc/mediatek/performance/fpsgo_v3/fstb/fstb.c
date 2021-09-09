@@ -1014,9 +1014,12 @@ out:
 static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_queue_end_ts)
 {
-	int i, target_fps;
+	int i, target_fps, margin = 0;
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter;
+
+	target_fps = fpsgo_fstb2xgf_get_target_fps(pid, bufID,
+		&margin, cur_queue_end_ts);
 
 	mutex_lock(&fstb_lock);
 
@@ -1025,8 +1028,8 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 			break;
 	}
 
-	target_fps = fpsgo_fstb2xgf_get_target_fps(pid, bufID,
-		&iter->target_fps_margin_v2, cur_queue_end_ts);
+	if (iter == NULL)
+		goto out;
 
 	if (target_fps <= 0) {
 		iter->target_fps_v2 = iter->target_fps;
@@ -1050,6 +1053,7 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 			}
 		}
 	}
+	iter->target_fps_margin_v2 = margin;
 
 	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d) margin:%d", iter->pid, iter->bufid,
 		iter->target_fps_v2, target_fps, iter->target_fps_margin_v2);
@@ -1057,6 +1061,7 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, iter->target_fps_margin_v2,
 		"target_fps_margin_v2");
 
+out:
 	mutex_unlock(&fstb_lock);
 }
 
@@ -1124,13 +1129,15 @@ int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID, int target_f
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter;
 
+	mutex_lock(&fstb_lock);
+
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter->pid == pid && iter->bufid == bufID)
 			break;
 	}
 
 	if (iter == NULL)
-		return ret_fps;
+		goto out;
 
 	hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
 		if (!strncmp(iter->proc_name, rtfiter->process_name, 16)
@@ -1146,6 +1153,8 @@ int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID, int target_f
 		}
 	}
 
+out:
+	mutex_unlock(&fstb_lock);
 	return ret_fps;
 }
 

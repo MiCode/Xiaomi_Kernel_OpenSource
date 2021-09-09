@@ -59,6 +59,7 @@ static int xgf_cfg_spid;
 static int xgf_ema2_enable = 1;
 static int xgf_camera_flag;
 static int xgf_display_rate = DEFAULT_DFRC;
+static DEFINE_MUTEX(fstb_ko_lock);
 int fstb_frame_num = 20;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr = 5;
@@ -2106,7 +2107,7 @@ int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
 {
 	int target_fps;
 
-	xgf_lock(__func__);
+	mutex_lock(&fstb_ko_lock);
 
 	WARN_ON(!fpsgo_xgf2ko_calculate_target_fps_fp);
 	if (fpsgo_xgf2ko_calculate_target_fps_fp)
@@ -2115,7 +2116,7 @@ int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
 	else
 		target_fps = -ENOENT;
 
-	xgf_unlock(__func__);
+	mutex_unlock(&fstb_ko_lock);
 
 	return target_fps;
 }
@@ -2124,7 +2125,7 @@ int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID)
 {
 	int ret = 1;
 
-	xgf_lock(__func__);
+	mutex_lock(&fstb_ko_lock);
 
 	WARN_ON(!fpsgo_xgf2ko_do_recycle_fp);
 	if (fpsgo_xgf2ko_do_recycle_fp)
@@ -2132,7 +2133,7 @@ int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID)
 	else
 		ret = -ENOENT;
 
-	xgf_unlock(__func__);
+	mutex_unlock(&fstb_ko_lock);
 
 	return ret;
 }
