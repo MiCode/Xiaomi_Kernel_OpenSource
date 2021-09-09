@@ -47,10 +47,17 @@ int fstb_frame_num;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr;
 EXPORT_SYMBOL(fstb_no_stable_thr);
-int fstb_target_fps_margin;
-EXPORT_SYMBOL(fstb_target_fps_margin);
+int fstb_target_fps_margin_low_FPS;
+EXPORT_SYMBOL(fstb_target_fps_margin_low_FPS);
+int fstb_target_fps_margin_high_FPS;
+EXPORT_SYMBOL(fstb_target_fps_margin_high_FPS);
 int fstb_separate_runtime_enable;
 EXPORT_SYMBOL(fstb_separate_runtime_enable);
+int fstb_fps_num;
+EXPORT_SYMBOL(fstb_fps_num);
+int fstb_fps_choice[10] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
+EXPORT_SYMBOL(fstb_fps_choice);
+
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
 module_param(xgf_dep_frames, int, 0644);
@@ -1721,8 +1728,8 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 	unsigned long long f_start_ts) { }
 EXPORT_SYMBOL(xgf_set_logical_render_info);
 
-void xgf_set_timer_info(int pid, unsigned long long bufID,
-	int hrtimer_pid, int hrtimer_flag)
+void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int hrtimer_flag,
+	unsigned long long hrtimer_ts, unsigned long long prev_queue_end_ts)
 { }
 EXPORT_SYMBOL(xgf_set_timer_info);
 

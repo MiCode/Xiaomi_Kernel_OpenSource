@@ -286,7 +286,8 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 	unsigned long long l_start_ts,
 	unsigned long long f_start_ts);
 void xgf_set_timer_info(int pid, unsigned long long bufID,
-	int hrtimer_pid, int hrtimer_flag);
+	int hrtimer_pid, int hrtimer_flag,
+	unsigned long long hrtimer_ts, unsigned long long prev_queue_end_ts);
 
 long long xgf_ema2_predict(struct xgf_ema2_predictor *pt, long long X);
 void xgf_ema2_init(struct xgf_ema2_predictor *pt);
@@ -340,8 +341,11 @@ extern atomic_t fstb_event_data_idx;
 extern int fstb_event_buffer_size;
 extern int fstb_frame_num;
 extern int fstb_no_stable_thr;
-extern int fstb_target_fps_margin;
+extern int fstb_target_fps_margin_low_FPS;
+extern int fstb_target_fps_margin_high_FPS;
 extern int fstb_separate_runtime_enable;
+extern int fstb_fps_num;
+extern int fstb_fps_choice[];
 
 int __init init_xgf(void);
 
