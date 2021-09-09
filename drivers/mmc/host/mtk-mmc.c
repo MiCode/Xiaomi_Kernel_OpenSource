@@ -23,6 +23,7 @@ static const struct mtk_mmc_compatible mt8135_compat = {
 	.stop_clk_fix = false,
 	.enhance_rx = false,
 	.support_64g = false,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt8173_compat = {
@@ -36,6 +37,7 @@ static const struct mtk_mmc_compatible mt8173_compat = {
 	.stop_clk_fix = false,
 	.enhance_rx = false,
 	.support_64g = false,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt8183_compat = {
@@ -49,6 +51,7 @@ static const struct mtk_mmc_compatible mt8183_compat = {
 	.stop_clk_fix = true,
 	.enhance_rx = true,
 	.support_64g = true,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt2701_compat = {
@@ -62,6 +65,7 @@ static const struct mtk_mmc_compatible mt2701_compat = {
 	.stop_clk_fix = false,
 	.enhance_rx = false,
 	.support_64g = false,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt2712_compat = {
@@ -75,6 +79,7 @@ static const struct mtk_mmc_compatible mt2712_compat = {
 	.stop_clk_fix = true,
 	.enhance_rx = true,
 	.support_64g = true,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt7622_compat = {
@@ -88,6 +93,7 @@ static const struct mtk_mmc_compatible mt7622_compat = {
 	.stop_clk_fix = true,
 	.enhance_rx = true,
 	.support_64g = false,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt8516_compat = {
@@ -99,6 +105,7 @@ static const struct mtk_mmc_compatible mt8516_compat = {
 	.data_tune = true,
 	.busy_check = true,
 	.stop_clk_fix = true,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt7620_compat = {
@@ -112,6 +119,7 @@ static const struct mtk_mmc_compatible mt7620_compat = {
 	.stop_clk_fix = false,
 	.enhance_rx = false,
 	.use_internal_cd = true,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible mt6779_compat = {
@@ -125,6 +133,7 @@ static const struct mtk_mmc_compatible mt6779_compat = {
 	.stop_clk_fix = true,
 	.enhance_rx = true,
 	.support_64g = true,
+	.need_gate_cg = true,
 };
 
 static const struct mtk_mmc_compatible common_compat = {
@@ -138,6 +147,21 @@ static const struct mtk_mmc_compatible common_compat = {
 	.stop_clk_fix = true,
 	.enhance_rx = true,
 	.support_64g = true,
+	.need_gate_cg = true,
+};
+
+static const struct mtk_mmc_compatible mt6879_compat = {
+	.clk_div_bits = 12,
+	.recheck_sdio_irq = false,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.need_gate_cg = false,
 };
 
 static const struct of_device_id msdc_of_ids[] = {
@@ -151,6 +175,7 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt7620-mmc", .data = &mt7620_compat},
 	{ .compatible = "mediatek,mt6779-mmc", .data = &mt6779_compat},
 	{ .compatible = "mediatek,common-mmc", .data = &common_compat},
+	{ .compatible = "mediatek,mt6879-mmc", .data = &mt6879_compat},
 	{}
 };
 MODULE_DEVICE_TABLE(of, msdc_of_ids);
@@ -468,10 +493,13 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 	 * As src_clk/HCLK use the same bit to gate/ungate,
 	 * So if want to only gate src_clk, need gate its parent(mux).
 	 */
-	if (host->src_clk_cg)
-		clk_disable(host->src_clk_cg);
-	else
-		clk_disable(clk_get_parent(host->src_clk));
+
+	if (host->dev_comp->need_gate_cg) {
+		if (host->src_clk_cg)
+			clk_disable(host->src_clk_cg);
+		else
+			clk_disable(clk_get_parent(host->src_clk));
+	}
 	if (host->dev_comp->clk_div_bits == 8)
 		sdr_set_field(host->base + MSDC_CFG,
 			      MSDC_CFG_CKMOD | MSDC_CFG_CKDIV,
@@ -480,10 +508,13 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 		sdr_set_field(host->base + MSDC_CFG,
 			      MSDC_CFG_CKMOD_EXTRA | MSDC_CFG_CKDIV_EXTRA,
 			      (mode << 12) | div);
-	if (host->src_clk_cg)
-		clk_enable(host->src_clk_cg);
-	else
-		clk_enable(clk_get_parent(host->src_clk));
+
+	if (host->dev_comp->need_gate_cg) {
+		if (host->src_clk_cg)
+			clk_enable(host->src_clk_cg);
+		else
+			clk_enable(clk_get_parent(host->src_clk));
+	}
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();

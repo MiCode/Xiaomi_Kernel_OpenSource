@@ -558,6 +558,7 @@ struct mtk_mmc_compatible {
 	bool enhance_rx;
 	bool support_64g;
 	bool use_internal_cd;
+	bool need_gate_cg;
 };
 
 struct msdc_tune_para {
