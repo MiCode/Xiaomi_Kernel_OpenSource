@@ -143,10 +143,8 @@ def main(**args):
         for line in file_handle.readlines():
             line_strip = line.strip()
             ext_modules_list = '%s %s' % (ext_modules_list, line_strip)
-        ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules_list.strip())
         file_handle.close()
-    if ext_modules:
-        ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules.strip())
+    ext_modules_list = 'EXT_MODULES=\"%s %s\"' % (ext_modules_list.strip(), ext_modules.strip())
     file_text.append(ext_modules_list)
 
     file_text.append("DIST_CMDS='cp -p ${OUT_DIR}/.config ${DIST_DIR}'")
