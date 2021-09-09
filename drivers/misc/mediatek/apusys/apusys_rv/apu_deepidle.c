@@ -105,6 +105,7 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 		if (!(apu->platdata->flags & F_SECURE_BOOT))
 			dev_info(apu->dev,
 				 "%s: before warm boot pc=%08x, sp=%08x\n",
+				 __func__,
 				 ioread32(apu->md32_sysctrl + 0x838),
 				 ioread32(apu->md32_sysctrl + 0x840));
 
