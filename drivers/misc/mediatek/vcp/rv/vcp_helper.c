@@ -644,6 +644,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
 			wait_vcp_wdt_irq_done();
+			vcp_ready[VCP_A_ID] = 0;
 		}
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
