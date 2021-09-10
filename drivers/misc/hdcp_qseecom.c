@@ -27,12 +27,15 @@
 
 #define HDCP2P2_APP_NAME      "hdcp2p2"
 #define HDCP1_APP_NAME        "hdcp1"
+#define HDCP1OPS_APP_NAME      "ops"
 #define HDCPSRM_APP_NAME      "hdcpsrm"
 #define QSEECOM_SBUFF_SIZE    0x1000
 
+#define MAX_REC_ID_LIST_SIZE    160
 #define MAX_TX_MESSAGE_SIZE	129
 #define MAX_RX_MESSAGE_SIZE	534
 #define MAX_TOPOLOGY_ELEMS	32
+#define HDCP1_NOTIFY_TOPOLOGY   1
 #define HDCP1_AKSV_SIZE         8
 
 #define HDCP1_SET_KEY       202
@@ -70,6 +73,9 @@
 
 /* hdcp command status */
 #define HDCP_SUCCESS                    0
+
+/* DP device type */
+#define DEVICE_TYPE_DP 0x8002
 
 const char *HdcpErrors[] = {
 	"HDCP_SUCCESS",
@@ -490,6 +496,20 @@ struct __attribute__ ((__packed__)) hdcp1_set_enc_rsp {
 	uint32_t ret;
 };
 
+struct __attribute__ ((__packed__)) hdcp1_ops_notify_req {
+	uint32_t commandid;
+	uint32_t device_type;
+	uint8_t recv_id_list[MAX_REC_ID_LIST_SIZE];
+	int32_t recv_id_len;
+	struct hdcp1_topology topology;
+	bool is_authenticated;
+};
+
+struct __attribute__ ((__packed__)) hdcp1_ops_notify_rsp {
+	uint32_t commandid;
+	uint32_t ret;
+};
+
 struct __attribute__ ((__packed__)) hdcp_start_auth_req {
 	uint32_t commandid;
 	uint32_t ctxHandle;
@@ -559,11 +579,13 @@ struct hdcp2_handle {
 /*
  * struct hdcp1_handle - handle for HDCP 1.x client
  * @qseecom_handle - for sending commands to qseecom
+ * @hdcpops_handle - for sending commands to ops TA
  * @feature_supported - set to true if the platform supports HDCP 1.x
  * @device_type - the interface type (HDMI or DisplayPort)
  */
 struct hdcp1_handle {
 	struct qseecom_handle *qseecom_handle;
+	struct qseecom_handle *hdcpops_handle;
 	bool feature_supported;
 	uint32_t device_type;
 	enum hdcp_state hdcp_state;
@@ -1525,6 +1547,13 @@ static int hdcp1_app_load(struct hdcp1_handle *handle)
 		goto error;
 	}
 
+	rc = qseecom_start_app(&handle->hdcpops_handle, HDCP1OPS_APP_NAME,
+			QSEECOM_SBUFF_SIZE);
+	if (rc) {
+		pr_warn("%s app load failed (%d)\n", HDCP1OPS_APP_NAME, rc);
+		handle->hdcpops_handle = NULL;
+	}
+
 	handle->hdcp_state |= HDCP_STATE_APP_LOADED;
 	pr_debug("%s app loaded\n", handle->app_name);
 
@@ -1544,6 +1573,13 @@ static void hdcp1_app_unload(struct hdcp1_handle *handle)
 	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
 		pr_warn("%s app not loaded\n", handle->app_name);
 		return;
+	}
+
+	if (handle->hdcpops_handle) {
+		/* deallocate the resources for HDCP 1.x ops handle */
+		rc = qseecom_shutdown_app(&handle->hdcpops_handle);
+		if (rc)
+			pr_warn("%s app unload failed (%d)\n", HDCP1OPS_APP_NAME, rc);
 	}
 
 	/* deallocate the resources for qseecom HDCP 1.x handle */
@@ -1687,6 +1723,72 @@ int hdcp1_set_enc(void *data, bool enable)
 }
 EXPORT_SYMBOL(hdcp1_set_enc);
 
+int hdcp1_ops_notify(void *data, void *topo, bool is_authenticated)
+{
+	int rc = 0;
+	struct hdcp1_ops_notify_req *ops_notify_req;
+	struct hdcp1_ops_notify_rsp *ops_notify_rsp;
+	struct hdcp1_handle *hdcp1_handle = data;
+	struct qseecom_handle *handle = NULL;
+	struct hdcp1_topology *topology = NULL;
+
+	if (!hdcp1_handle || !hdcp1_handle->hdcpops_handle) {
+		pr_err("invalid HDCP 1.x ops handle\n");
+		return -EINVAL;
+	}
+
+	if (!hdcp1_handle->feature_supported) {
+		pr_err("HDCP 1.x not supported\n");
+		return -EINVAL;
+	}
+
+	if (!(hdcp1_handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("%s app not loaded\n", HDCP1OPS_APP_NAME);
+		return -EINVAL;
+	}
+
+	handle = hdcp1_handle->hdcpops_handle;
+	topology = (struct hdcp1_topology *)topo;
+
+	/* set keys and request aksv */
+	ops_notify_req = (struct hdcp1_ops_notify_req *)handle->sbuf;
+	ops_notify_req->commandid = HDCP1_NOTIFY_TOPOLOGY;
+	ops_notify_req->device_type = DEVICE_TYPE_DP;
+	ops_notify_req->is_authenticated = is_authenticated;
+	ops_notify_req->topology.depth = topology->depth;
+	ops_notify_req->topology.device_count = topology->device_count;
+	ops_notify_req->topology.max_devices_exceeded = topology->max_devices_exceeded;
+	ops_notify_req->topology.max_cascade_exceeded = topology->max_cascade_exceeded;
+
+	/*
+	 * For hdcp1.4 below two nodes are not applicable but as
+	 * TZ ops ta talks with other drivers with same structure
+	 * and want to maintain same interface across hdcp versions,
+	 * we are setting the values to 0.
+	 */
+	ops_notify_req->topology.hdcp2LegacyDeviceDownstream = 0;
+	ops_notify_req->topology.hdcp1DeviceDownstream = 0;
+
+	memset(ops_notify_req->recv_id_list, 0, sizeof(uint8_t) * MAX_REC_ID_LIST_SIZE);
+
+	ops_notify_rsp = (struct hdcp1_ops_notify_rsp *)(handle->sbuf +
+			QSEECOM_ALIGN(sizeof(struct hdcp1_ops_notify_req)));
+	rc = qseecom_send_command(handle, ops_notify_req,
+			QSEECOM_ALIGN(sizeof(struct hdcp1_ops_notify_req)),
+			ops_notify_rsp,
+			QSEECOM_ALIGN(sizeof(struct hdcp1_ops_notify_rsp)));
+
+	rc = ops_notify_rsp->ret;
+	if (rc < 0) {
+		pr_warn("Ops notify cmd failed, rsp=%d\n", ops_notify_rsp->ret);
+		return -EINVAL;
+	}
+
+	pr_debug("ops notify success\n");
+	return 0;
+}
+EXPORT_SYMBOL(hdcp1_ops_notify);
+
 int hdcp1_start(void *data, u32 *aksv_msb, u32 *aksv_lsb)
 {
 	int rc = 0;
@@ -1737,7 +1839,7 @@ void hdcp1_stop(void *data)
 {
 	struct hdcp1_handle *hdcp1_handle = data;
 
-	if (!hdcp1_handle || !hdcp1_handle->qseecom_handle) {
+	if (!hdcp1_handle || !hdcp1_handle->qseecom_handle || !hdcp1_handle->hdcpops_handle) {
 		pr_err("invalid handle\n");
 		return;
 	}
