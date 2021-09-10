@@ -13,9 +13,14 @@
 #include <linux/platform_device.h>
 #include <linux/rpmsg.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/rproc_qcom.h>
+
 #include "qcom_common.h"
 
 #define SYSMON_NOTIF_TIMEOUT CONFIG_RPROC_SYSMON_NOTIF_TIMEOUT
+
+#define SYSMON_SUBDEV_NAME "sysmon"
 
 static const char * const notif_timeout_msg = "sysmon msg from %s to %s for %s taking too long";
 static const char * const shutdown_timeout_msg = "sysmon_send_shutdown to %s taking too long";
@@ -542,6 +547,8 @@ static int sysmon_prepare(struct rproc_subdev *subdev)
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon,
 						  subdev);
 
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME, "prepare");
+
 	mutex_lock(&sysmon->state_lock);
 	sysmon->state = QCOM_SSR_BEFORE_POWERUP;
 	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)sysmon);
@@ -564,6 +571,8 @@ static int sysmon_start(struct rproc_subdev *subdev)
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon,
 						  subdev);
 	struct qcom_sysmon *target;
+
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME, "start");
 
 	mutex_lock(&sysmon->state_lock);
 	sysmon->state = QCOM_SSR_AFTER_POWERUP;
@@ -588,6 +597,9 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	unsigned long timeout;
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon, subdev);
+
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME,
+			       crashed ? "crash stop" : "stop");
 
 	sysmon->shutdown_acked = false;
 
@@ -621,6 +633,9 @@ static void sysmon_unprepare(struct rproc_subdev *subdev)
 {
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon,
 						  subdev);
+
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME,
+			       "unprepare");
 
 	mutex_lock(&sysmon->state_lock);
 	sysmon->state = QCOM_SSR_AFTER_SHUTDOWN;

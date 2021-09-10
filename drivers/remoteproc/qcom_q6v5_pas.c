@@ -26,6 +26,9 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/soc/qcom/qcom_aoss.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/rproc_qcom.h>
+
 #include "qcom_common.h"
 #include "qcom_pil_info.h"
 #include "qcom_q6v5.h"
@@ -134,10 +137,15 @@ static void adsp_minidump(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "enter");
+
 	if (rproc->dump_conf == RPROC_COREDUMP_DISABLED)
-		return;
+		goto exit;
 
 	qcom_minidump(rproc, adsp->minidump_id, adsp_segment_dump);
+
+exit:
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "exit");
 }
 
 static int adsp_toggle_load_state(struct qmp *qmp, const char *name, bool enable)
@@ -259,19 +267,23 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "enter");
+
 	scm_pas_enable_bw();
 	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 			    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
 			    &adsp->mem_reloc, adsp->mdata);
 	scm_pas_disable_bw();
 	if (ret)
-		return ret;
+		goto exit;
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
 	adsp_recalibrate_phys_addrs(adsp, fw);
 
-	return 0;
+exit:
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "exit");
+	return ret;
 }
 
 static void disable_regulators(struct qcom_adsp *adsp)
@@ -328,6 +340,8 @@ static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "enter");
 
 	qcom_q6v5_prepare(&adsp->q6v5);
 
@@ -395,6 +409,8 @@ disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 free_metadata:
 	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata, ret);
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
 }
 
@@ -415,6 +431,8 @@ static int adsp_stop(struct rproc *rproc)
 	int handover;
 	int ret;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "enter");
+
 	ret = qcom_q6v5_request_stop(&adsp->q6v5, adsp->sysmon);
 	if (ret == -ETIMEDOUT)
 		dev_err(adsp->dev, "timed out on wait\n");
@@ -431,6 +449,8 @@ static int adsp_stop(struct rproc *rproc)
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
 	if (handover)
 		qcom_pas_handover(&adsp->q6v5);
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "exit");
 
 	return ret;
 }
