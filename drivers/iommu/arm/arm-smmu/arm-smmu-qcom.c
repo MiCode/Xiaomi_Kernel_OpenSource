@@ -197,10 +197,12 @@ static bool qcom_adreno_can_do_ttbr1(struct arm_smmu_device *smmu)
 	return true;
 }
 
+static const struct of_device_id __maybe_unused qcom_smmu_impl_of_match[];
 static int qcom_adreno_smmu_init_context(struct arm_smmu_domain *smmu_domain,
 		struct io_pgtable_cfg *pgtbl_cfg, struct device *dev)
 {
 	struct adreno_smmu_priv *priv;
+	const struct device_node *np = smmu_domain->smmu->dev->of_node;
 
 	/* Only enable split pagetables for the GPU device (SID 0) */
 	if (!qcom_adreno_smmu_is_gpu_device(dev))
@@ -225,8 +227,19 @@ static int qcom_adreno_smmu_init_context(struct arm_smmu_domain *smmu_domain,
 	priv->get_ttbr1_cfg = qcom_adreno_smmu_get_ttbr1_cfg;
 	priv->set_ttbr0_cfg = qcom_adreno_smmu_set_ttbr0_cfg;
 	priv->get_fault_info = qcom_adreno_smmu_get_fault_info;
-	priv->set_stall = qcom_adreno_smmu_set_stall;
-	priv->resume_translation = qcom_adreno_smmu_resume_translation;
+
+	/*
+	 * These functions are only compatible with the data structures used by the
+	 * QCOM SMMU implementation hooks, and are thus not appropriate to set for other
+	 * implementations (e.g. QSMMUV500).
+	 *
+	 * Providing these functions as part of the GPU interface also makes little sense
+	 * as context banks are set to stall by default anyway.
+	 */
+	if (of_match_node(qcom_smmu_impl_of_match, np)) {
+		priv->set_stall = qcom_adreno_smmu_set_stall;
+		priv->resume_translation = qcom_adreno_smmu_resume_translation;
+	}
 
 	return 0;
 }
