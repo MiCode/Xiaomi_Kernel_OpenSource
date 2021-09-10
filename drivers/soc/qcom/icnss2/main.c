@@ -3208,6 +3208,7 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 {
 	struct icnss_priv *priv = icnss_get_plat_priv();
 	phandle rproc_phandle;
+	int ret;
 
 	if (of_property_read_u32(priv->pdev->dev.of_node, "qcom,rproc-handle",
 				 &rproc_phandle)) {
@@ -3221,8 +3222,9 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 		return;
 	}
 
-	if (rproc_boot(priv->rproc)) {
-		icnss_pr_err("Failed to boot wpss rproc");
+	ret = rproc_boot(priv->rproc);
+	if (ret) {
+		icnss_pr_err("Failed to boot wpss rproc, ret: %d", ret);
 		rproc_put(priv->rproc);
 	}
 }
