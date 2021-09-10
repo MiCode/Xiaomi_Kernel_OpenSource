@@ -1700,6 +1700,13 @@
 		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
 
+	gunyah-vsock {
+		compatible = "qcom,gunyah-vsock";
+		qcom,master;
+		peer-name = <2>;
+		msgq-label = <3>;
+	};
+
 	/* CAM_CC GDSCs */
 	cam_cc_bps_gdsc: qcom,gdsc@adf0004 {
 		compatible = "qcom,gdsc";
