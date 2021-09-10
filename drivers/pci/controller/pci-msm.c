@@ -187,7 +187,7 @@
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (6)
-#define MSM_PCIE_MAX_CLK (18)
+#define MSM_PCIE_MAX_CLK (20)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (3)
 #define MAX_DEVICE_NUM (20)
@@ -665,6 +665,8 @@ struct msm_pcie_dev_t {
 
 	struct clk *pipe_clk_mux;
 	struct clk *pipe_clk_ext_src;
+	struct clk *phy_aux_clk_mux;
+	struct clk *phy_aux_clk_ext_src;
 	struct clk *ref_clk_src;
 
 	bool cfg_access;
@@ -903,7 +905,9 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_phy_aux_clk_mux", 0, false, false},
+	{NULL, "pcie_phy_aux_clk_ext_src", 0, false, false}
 	},
 	{
 	{NULL, "pcie_1_ref_clk_src", 0, false, false},
@@ -923,7 +927,9 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_phy_aux_clk_mux", 0, false, false},
+	{NULL, "pcie_phy_aux_clk_ext_src", 0, false, false}
 	},
 	{
 	{NULL, "pcie_2_ref_clk_src", 0, false, false},
@@ -943,7 +949,9 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_phy_aux_clk_mux", 0, false, false},
+	{NULL, "pcie_phy_aux_clk_ext_src", 0, false, false}
 	}
 };
 
@@ -2943,6 +2951,10 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 				dev->rc_idx);
 	}
 
+	/* switch phy aux clock mux to xo before turning off gdsc */
+	if (dev->phy_aux_clk_mux && dev->ref_clk_src)
+		clk_set_parent(dev->phy_aux_clk_mux, dev->ref_clk_src);
+
 	/* switch pipe clock mux to xo before turning off gdsc */
 	if (dev->pipe_clk_mux && dev->ref_clk_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
@@ -3282,6 +3294,15 @@ static int msm_pcie_get_clk(struct msm_pcie_dev_t *pcie_dev)
 					"pcie_pipe_clk_ext_src");
 	if (IS_ERR(pcie_dev->pipe_clk_ext_src))
 		pcie_dev->pipe_clk_ext_src = NULL;
+
+	pcie_dev->phy_aux_clk_mux = clk_get(&pdev->dev, "pcie_phy_aux_clk_mux");
+	if (IS_ERR(pcie_dev->phy_aux_clk_mux))
+		pcie_dev->phy_aux_clk_mux = NULL;
+
+	pcie_dev->phy_aux_clk_ext_src = clk_get(&pdev->dev,
+					"pcie_phy_aux_clk_ext_src");
+	if (IS_ERR(pcie_dev->phy_aux_clk_ext_src))
+		pcie_dev->phy_aux_clk_ext_src = NULL;
 
 	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_%d_ref_clk_src",
 		pcie_dev->rc_idx);
@@ -3906,6 +3927,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 	ret = pcie_phy_init(dev);
 	if (ret)
 		goto link_fail;
+
+	/* switch phy aux clock source from xo to phy aux clk */
+	if (dev->phy_aux_clk_mux && dev->phy_aux_clk_ext_src)
+		clk_set_parent(dev->phy_aux_clk_mux, dev->phy_aux_clk_ext_src);
 
 	usleep_range(dev->ep_latency * 1000, dev->ep_latency * 1000);
 
@@ -6812,27 +6837,49 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 			pcie_dev->rc_idx);
 
 	/*
-	 * if PCIe CLKREQ override is still enabled, then make sure PCIe mux is
-	 * set to PCIe PIPE before enabling PCIe PIPE CLK.
-	 * APPS votes for mux was PCIe PIPE before DRV suspend. In order to vote
-	 * for PCIe PIPE, need to first set mux to XO then PCIe PIPE or else
-	 * clock driver will short the request.
+	 * if PCIe CLKREQ override is still enabled, then make sure PCIe PIPE
+	 * clk source mux is set to PCIe PIPE CLK. Similarly set phy aux clk src
+	 * to phy aux clk before enabling PCIe PIPE CLK and phy aux clk.
+	 * APPS votes for mux was PCIe PIPE and phy aux clk before DRV suspend.
+	 * In order to vote for PCIe PIPE and phy aux clk, need to first set mux
+	 * to XO then PCIe PIPE and phy aux clk or else clock driver will
+	 * short the request.
 	 */
-	if (clkreq_override_en && pcie_dev->pipe_clk_mux) {
-		if (pcie_dev->ref_clk_src) {
-			PCIE_DBG(pcie_dev,
-				"PCIe: RC%d: setting PCIe PIPE MUX to XO\n",
-				pcie_dev->rc_idx);
-			clk_set_parent(pcie_dev->pipe_clk_mux,
-					pcie_dev->ref_clk_src);
+	if (clkreq_override_en) {
+		if (pcie_dev->pipe_clk_mux) {
+			if (pcie_dev->ref_clk_src) {
+				PCIE_DBG(pcie_dev,
+					 "PCIe: RC%d: setting PCIe PIPE MUX to XO\n",
+					 pcie_dev->rc_idx);
+				clk_set_parent(pcie_dev->pipe_clk_mux,
+					       pcie_dev->ref_clk_src);
+			}
+
+			if (pcie_dev->pipe_clk_ext_src) {
+				PCIE_DBG(pcie_dev,
+					 "PCIe: RC%d: setting PCIe PIPE MUX to PCIe PIPE\n",
+					 pcie_dev->rc_idx);
+				clk_set_parent(pcie_dev->pipe_clk_mux,
+					       pcie_dev->pipe_clk_ext_src);
+			}
 		}
 
-		if (pcie_dev->pipe_clk_ext_src) {
-			PCIE_DBG(pcie_dev,
-				"PCIe: RC%d: setting PCIe PIPE MUX to PCIe PIPE\n",
-				pcie_dev->rc_idx);
-			clk_set_parent(pcie_dev->pipe_clk_mux,
-					pcie_dev->pipe_clk_ext_src);
+		if (pcie_dev->phy_aux_clk_mux) {
+			if (pcie_dev->ref_clk_src) {
+				PCIE_DBG(pcie_dev,
+					 "PCIe: RC%d: setting PCIe phy aux MUX to XO\n",
+					 pcie_dev->rc_idx);
+				clk_set_parent(pcie_dev->phy_aux_clk_mux,
+					       pcie_dev->ref_clk_src);
+			}
+
+			if (pcie_dev->phy_aux_clk_ext_src) {
+				PCIE_DBG(pcie_dev,
+					 "PCIe: RC%d: setting PCIe phy aux MUX to phy aux clk\n",
+					 pcie_dev->rc_idx);
+				clk_set_parent(pcie_dev->phy_aux_clk_mux,
+					       pcie_dev->phy_aux_clk_ext_src);
+			}
 		}
 	}
 
