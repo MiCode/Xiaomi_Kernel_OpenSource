@@ -168,8 +168,15 @@ static void tmc_pages_free(struct tmc_pages *tmc_pages,
 			__free_page(tmc_pages->pages[i]);
 	}
 
-	kfree(tmc_pages->pages);
-	kfree(tmc_pages->daddrs);
+	if (is_vmalloc_addr(tmc_pages->pages))
+		vfree(tmc_pages->pages);
+	else
+		kfree(tmc_pages->pages);
+
+	if (is_vmalloc_addr(tmc_pages->daddrs))
+		vfree(tmc_pages->daddrs);
+	else
+		kfree(tmc_pages->daddrs);
 	tmc_pages->pages = NULL;
 	tmc_pages->daddrs = NULL;
 	tmc_pages->nr_pages = 0;
@@ -195,14 +202,24 @@ static int tmc_pages_alloc(struct tmc_pages *tmc_pages,
 	nr_pages = tmc_pages->nr_pages;
 	tmc_pages->daddrs = kcalloc(nr_pages, sizeof(*tmc_pages->daddrs),
 					 GFP_KERNEL);
-	if (!tmc_pages->daddrs)
-		return -ENOMEM;
+	if (!tmc_pages->daddrs) {
+		tmc_pages->daddrs = vmalloc(sizeof(*tmc_pages->daddrs) * nr_pages);
+		if (!tmc_pages->daddrs)
+			return -ENOMEM;
+	}
+
 	tmc_pages->pages = kcalloc(nr_pages, sizeof(*tmc_pages->pages),
 					 GFP_KERNEL);
 	if (!tmc_pages->pages) {
-		kfree(tmc_pages->daddrs);
-		tmc_pages->daddrs = NULL;
-		return -ENOMEM;
+		tmc_pages->pages = vmalloc(sizeof(*tmc_pages->pages) * nr_pages);
+		if (!tmc_pages->pages) {
+			if (is_vmalloc_addr(tmc_pages->daddrs))
+				vfree(tmc_pages->daddrs);
+			else
+				kfree(tmc_pages->daddrs);
+			tmc_pages->daddrs = NULL;
+			return -ENOMEM;
+		}
 	}
 
 	for (i = 0; i < nr_pages; i++) {

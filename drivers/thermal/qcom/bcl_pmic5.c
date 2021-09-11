@@ -26,10 +26,11 @@
 #define BCL_MONITOR_EN        0x46
 #define BCL_IRQ_STATUS        0x08
 
-#define BCL_IBAT_HIGH         0x4B
-#define BCL_IBAT_TOO_HIGH     0x4C
-#define BCL_IBAT_READ         0x86
-#define BCL_IBAT_SCALING_UA   78127
+#define BCL_IBAT_HIGH             0x4B
+#define BCL_IBAT_TOO_HIGH         0x4C
+#define BCL_IBAT_READ             0x86
+#define BCL_IBAT_SCALING_UA       78127
+#define BCL_IBAT_CCM_SCALING_UA   15625
 
 #define BCL_VBAT_READ         0x76
 #define BCL_VBAT_ADC_LOW      0x48
@@ -182,28 +183,28 @@ static void convert_adc_to_vbat_val(int *val)
 	*val = (*val * BCL_VBAT_SCALING_UV) / 1000;
 }
 
-static void convert_ibat_to_adc_val(int *val)
+static void convert_ibat_to_adc_val(int *val, int scaling_factor)
 {
 	/*
 	 * Threshold register can be bit shifted from ADC MSB.
 	 * So the scaling factor is half in those cases.
 	 */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * 2000 * 2, BCL_IBAT_SCALING_UA);
+		*val = (int)div_s64(*val * 2000 * 2, scaling_factor);
 	else if (no_bit_shift)
-		*val = (int)div_s64(*val * 1000, BCL_IBAT_SCALING_UA);
+		*val = (int)div_s64(*val * 1000, scaling_factor);
 	else
-		*val = (int)div_s64(*val * 2000, BCL_IBAT_SCALING_UA);
+		*val = (int)div_s64(*val * 2000, scaling_factor);
 
 }
 
-static void convert_adc_to_ibat_val(int *val)
+static void convert_adc_to_ibat_val(int *val, int scaling_factor)
 {
 	/* Scaling factor will be half if ibat_use_qg_adc is true */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 2 * 1000);
+		*val = (int)div_s64(*val * scaling_factor, 2 * 1000);
 	else
-		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 1000);
+		*val = (int)div_s64(*val * scaling_factor, 1000);
 }
 
 static int8_t convert_ibat_to_ccm_val(int ibat)
@@ -245,7 +246,10 @@ static int bcl_set_ibat(void *data, int low, int high)
 	}
 
 	ibat_ua = thresh_value;
-	convert_ibat_to_adc_val(&thresh_value);
+	if (bat_data->dev->ibat_ccm_enabled)
+		convert_ibat_to_adc_val(&thresh_value, BCL_IBAT_CCM_SCALING_UA);
+	else
+		convert_ibat_to_adc_val(&thresh_value, BCL_IBAT_SCALING_UA);
 	val = (int8_t)thresh_value;
 	switch (bat_data->type) {
 	case BCL_IBAT_LVL0:
@@ -299,7 +303,10 @@ static int bcl_read_ibat(void *data, int *adc_value)
 		 */
 		*adc_value = bat_data->last_val;
 	} else {
-		convert_adc_to_ibat_val(adc_value);
+		if (bat_data->dev->ibat_ccm_enabled)
+			convert_adc_to_ibat_val(adc_value, BCL_IBAT_CCM_SCALING_UA);
+		else
+			convert_adc_to_ibat_val(adc_value, BCL_IBAT_SCALING_UA);
 		bat_data->last_val = *adc_value;
 	}
 	pr_debug("ibat:%d mA ADC:0x%02x\n", bat_data->last_val, val);

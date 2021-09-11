@@ -44,6 +44,7 @@
 #include <soc/qcom/ramdump.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <trace/events/trace_msm_ssr_event.h>
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
@@ -1108,16 +1109,13 @@ static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 static int icnss_event_soc_wake_release(struct icnss_priv *priv, void *data)
 {
 	int ret = 0;
-	int count = 0;
 
 	if (!priv)
 		return -ENODEV;
 
-	count = atomic_dec_return(&priv->soc_wake_ref_count);
-
-	if (count) {
+	if (atomic_dec_if_positive(&priv->soc_wake_ref_count)) {
 		icnss_pr_dbg("Wake release not called. Ref count: %d",
-			     count);
+			     priv->soc_wake_ref_count);
 		return 0;
 	}
 
@@ -2793,7 +2791,8 @@ int icnss_force_wake_release(struct device *dev)
 
 	icnss_pr_dbg("Calling SOC Wake response");
 
-	if (icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
+	if (atomic_read(&priv->soc_wake_ref_count) &&
+	    icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
 		icnss_pr_dbg("SOC previous release pending, Ref count: %d",
 			     atomic_read(&priv->soc_wake_ref_count));
 		return 0;
@@ -3909,6 +3908,22 @@ static inline bool icnss_use_nv_mac(struct icnss_priv *priv)
 				     "use-nv-mac");
 }
 
+#ifdef CONFIG_ICNSS2_RESTART_LEVEL_NOTIF
+static void pil_restart_level_notifier(void *ignore,
+			      int restart_level,
+			      const char *fw)
+{
+	icnss_pr_err("PIL Notifier, restart_level: %d, FW:%s",
+		     restart_level, fw);
+	if (!strcmp(fw, "wpss")) {
+		if (restart_level == RESET_SUBSYS_COUPLED)
+			icnss_send_smp2p(penv, ICNSS_ENABLE_M3_SSR);
+		else
+			icnss_send_smp2p(penv, ICNSS_DISABLE_M3_SSR);
+	}
+}
+#endif
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -4025,6 +4040,9 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_pr_dbg("NV MAC feature is %s\n",
 			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
 		INIT_WORK(&wpss_loader, icnss_wpss_load);
+#ifdef CONFIG_ICNSS2_RESTART_LEVEL_NOTIF
+		register_trace_pil_restart_level(pil_restart_level_notifier, NULL);
+#endif
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
@@ -4056,6 +4074,9 @@ static int icnss_remove(struct platform_device *pdev)
 		icnss_dms_deinit(priv);
 		icnss_genl_exit();
 		icnss_runtime_pm_deinit(priv);
+#ifdef CONFIG_ICNSS2_RESTART_LEVEL_NOTIF
+		unregister_trace_pil_restart_level(pil_restart_level_notifier, NULL);
+#endif
 	}
 
 	device_init_wakeup(&priv->pdev->dev, false);
