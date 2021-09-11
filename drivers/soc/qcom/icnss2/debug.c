@@ -14,7 +14,8 @@
 
 void *icnss_ipc_log_context;
 void *icnss_ipc_log_long_context;
-void *icnss_ipc_log_long1_context;
+void *icnss_ipc_log_smp2p_context;
+void *icnss_ipc_soc_wake_context;
 
 static ssize_t icnss_regwrite_write(struct file *fp,
 				    const char __user *user_buf,
@@ -775,10 +776,15 @@ void icnss_debug_init(void)
 	if (!icnss_ipc_log_long_context)
 		icnss_pr_err("Unable to create log long context\n");
 
-	icnss_ipc_log_long1_context = ipc_log_context_create(NUM_LOG_LONG_PAGES,
-						       "icnss_long1", 0);
-	if (!icnss_ipc_log_long1_context)
-		icnss_pr_err("Unable to create log long context\n");
+	icnss_ipc_log_smp2p_context = ipc_log_context_create(NUM_LOG_LONG_PAGES,
+						       "icnss_smp2p", 0);
+	if (!icnss_ipc_log_smp2p_context)
+		icnss_pr_err("Unable to create log smp2p context\n");
+
+	icnss_ipc_soc_wake_context = ipc_log_context_create(NUM_LOG_LONG_PAGES,
+						       "icnss_soc_wake", 0);
+	if (!icnss_ipc_soc_wake_context)
+		icnss_pr_err("Unable to create log soc_wake context\n");
 
 }
 
@@ -793,9 +799,14 @@ void icnss_debug_deinit(void)
 		ipc_log_context_destroy(icnss_ipc_log_long_context);
 		icnss_ipc_log_long_context = NULL;
 	}
-	if (icnss_ipc_log_long1_context) {
-		ipc_log_context_destroy(icnss_ipc_log_long1_context);
-		icnss_ipc_log_long1_context = NULL;
+
+	if (icnss_ipc_log_smp2p_context) {
+		ipc_log_context_destroy(icnss_ipc_log_smp2p_context);
+		icnss_ipc_log_smp2p_context = NULL;
 	}
 
+	if (icnss_ipc_soc_wake_context) {
+		ipc_log_context_destroy(icnss_ipc_soc_wake_context);
+		icnss_ipc_soc_wake_context = NULL;
+	}
 }
