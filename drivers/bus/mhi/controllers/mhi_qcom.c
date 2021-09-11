@@ -731,6 +731,16 @@ exit_system_suspend:
 	return ret;
 }
 
+static int mhi_suspend_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static int mhi_resume_noirq(struct device *dev)
+{
+	return 0;
+}
+
 static int mhi_force_suspend(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
@@ -854,6 +864,22 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 	}
 }
 
+/* Setting to use this mhi_qcom_pm_domain ops will let PM framework override the
+ * ops from dev->bus->pm which is pci_dev_pm_ops from pci-driver.c. This ops
+ * has to take care everything device driver needed which is currently done
+ * from pci_dev_pm_ops.
+ */
+static struct dev_pm_domain mhi_qcom_pm_domain = {
+	.ops = {
+		SET_SYSTEM_SLEEP_PM_OPS(mhi_system_suspend, mhi_system_resume)
+		SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mhi_suspend_noirq,
+					      mhi_resume_noirq)
+		SET_RUNTIME_PM_OPS(mhi_runtime_suspend,
+				   mhi_runtime_resume,
+				   mhi_runtime_idle)
+		}
+};
+
 static int mhi_qcom_register_controller(struct mhi_controller *mhi_cntrl,
 					struct mhi_qcom_priv *mhi_priv)
 {
@@ -942,6 +968,9 @@ static int mhi_qcom_register_controller(struct mhi_controller *mhi_cntrl,
 		if (ret)
 			goto error_register;
 	}
+
+	if (dev_info->drv_support)
+		pci_dev->dev.pm_domain = &mhi_qcom_pm_domain;
 
 	/* set name based on PCIe BDF format */
 	mhi_dev = mhi_cntrl->mhi_dev;
