@@ -5232,8 +5232,13 @@ int mdss_fb_suspres_panel(struct device *dev, void *data)
 
 	event = *((bool *) data) ? MDSS_EVENT_RESUME : MDSS_EVENT_SUSPEND;
 
-	/* Do not send runtime suspend/resume for HDMI primary */
-	if (!mdss_fb_is_hdmi_primary(mfd)) {
+	/* Do not send runtime suspend/resume for HDMI/DP */
+	if ((mfd->panel.type == DTV_PANEL) ||
+		(mfd->panel.type == DP_PANEL) ||
+		(mfd->panel.type == HDMI_PANEL)) {
+		pr_debug("%s: Avoid sus/res for panel = %d, ndx = %d\n",
+			 __func__, mfd->panel.type, mfd->index);
+	} else {
 		rc = mdss_fb_send_panel_event(mfd, event, NULL);
 		if (rc)
 			pr_warn("unable to %s fb%d (%d)\n",
