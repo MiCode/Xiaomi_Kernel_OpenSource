@@ -5886,7 +5886,8 @@ static void msm_pcie_poll_for_l0_from_l0s(struct msm_pcie_dev_t *dev)
 		pci_walk_bus(dev->dev->bus, msm_pcie_read_devid_all, dev);
 }
 
-int msm_pcie_set_target_link_speed(u32 rc_idx, u32 target_link_speed)
+int msm_pcie_set_target_link_speed(u32 rc_idx, u32 target_link_speed,
+				   bool force)
 {
 	struct msm_pcie_dev_t *pcie_dev;
 
@@ -5909,7 +5910,7 @@ int msm_pcie_set_target_link_speed(u32 rc_idx, u32 target_link_speed)
 	 * it's greater than what was specified in DT (if present)
 	 */
 	if (target_link_speed > pcie_dev->bw_gen_max ||
-		(pcie_dev->dt_target_link_speed &&
+		(pcie_dev->dt_target_link_speed && !force &&
 		target_link_speed > pcie_dev->dt_target_link_speed)) {
 		PCIE_DBG(pcie_dev,
 			"PCIe: RC%d: invalid target link speed: %d\n",
@@ -5924,9 +5925,12 @@ int msm_pcie_set_target_link_speed(u32 rc_idx, u32 target_link_speed)
 	 * be devicetree specified GEN speed if present else it will be whatever
 	 * the PCIe root complex is capable of.
 	 */
-	if (!target_link_speed)
+	if (!target_link_speed) {
 		pcie_dev->target_link_speed = pcie_dev->dt_target_link_speed ?
 			pcie_dev->dt_target_link_speed : pcie_dev->bw_gen_max;
+		if (force)
+			pcie_dev->target_link_speed = pcie_dev->bw_gen_max;
+	}
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: target_link_speed is now: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->target_link_speed);

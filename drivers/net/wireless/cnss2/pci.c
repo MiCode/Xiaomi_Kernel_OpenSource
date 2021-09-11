@@ -633,7 +633,7 @@ static int cnss_pci_set_link_bandwidth(struct cnss_pci_data *pci_priv,
 static int cnss_pci_set_max_link_speed(struct cnss_pci_data *pci_priv,
 				       u32 rc_num, u16 link_speed)
 {
-	return msm_pcie_set_target_link_speed(rc_num, link_speed);
+	return msm_pcie_set_target_link_speed(rc_num, link_speed, false);
 }
 
 /**
