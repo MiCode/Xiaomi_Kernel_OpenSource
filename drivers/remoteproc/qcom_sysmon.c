@@ -12,8 +12,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rpmsg.h>
-
-#define CREATE_TRACE_POINTS
 #include <trace/events/rproc_qcom.h>
 
 #include "qcom_common.h"

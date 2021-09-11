@@ -7,3 +7,5 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/rproc_qcom.h>
+
+EXPORT_TRACEPOINT_SYMBOL(rproc_qcom_event);
