@@ -143,6 +143,8 @@ struct qcom_glink {
 
 	int irq;
 	char irqname[GLINK_NAME_SIZE];
+	spinlock_t irq_lock;
+	bool irq_running;
 
 	struct kthread_worker kworker;
 	struct task_struct *task;
@@ -1253,12 +1255,21 @@ static int qcom_glink_handle_signals(struct qcom_glink *glink,
 static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 {
 	struct glink_msg msg;
+	unsigned long flags;
 	unsigned int param1;
 	unsigned int param2;
 	unsigned int avail;
 	unsigned int cmd;
 	int ret = 0;
 	int i;
+
+	spin_lock_irqsave(&glink->irq_lock, flags);
+	if (glink->irq_running) {
+		spin_unlock_irqrestore(&glink->irq_lock, flags);
+		return 0;
+	}
+	glink->irq_running = true;
+	spin_unlock_irqrestore(&glink->irq_lock, flags);
 
 	if (should_wake) {
 		pr_info("%s: wakeup %s\n", __func__, glink->irqname);
@@ -1333,6 +1344,10 @@ static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 		if (ret)
 			break;
 	}
+
+	spin_lock_irqsave(&glink->irq_lock, flags);
+	glink->irq_running = false;
+	spin_unlock_irqrestore(&glink->irq_lock, flags);
 
 	return qcom_glink_rx_avail(glink);
 }
@@ -2184,6 +2199,9 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	}
 
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
+
+	spin_lock_init(&glink->irq_lock);
+	glink->irq_running = false;
 
 	irq = of_irq_get(dev->of_node, 0);
 	ret = devm_request_threaded_irq(dev, irq,
