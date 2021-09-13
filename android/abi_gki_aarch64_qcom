@@ -407,6 +407,8 @@
   devm_extcon_register_notifier
   devm_free_irq
   devm_fwnode_get_index_gpiod_from_child
+  devm_gpiochip_add_data
+  devm_gpiod_get
   devm_gpiod_get_index
   devm_gpiod_get_optional
   devm_gpio_request
@@ -441,6 +443,7 @@
   devm_pinctrl_get
   devm_pinctrl_put
   devm_pinctrl_register
+  devm_pinctrl_register_and_init
   devm_platform_ioremap_resource
   devm_power_supply_get_by_phandle
   devm_power_supply_register
@@ -657,12 +660,14 @@
   drm_atomic_state_default_release
   __drm_atomic_state_free
   drm_atomic_state_init
+  drm_bridge_add
   drm_bridge_attach
   drm_bridge_disable
   drm_bridge_enable
   drm_bridge_mode_set
   drm_bridge_post_disable
   drm_bridge_pre_enable
+  drm_bridge_remove
   drm_class_device_register
   drm_class_device_unregister
   drm_clflush_pages
@@ -1014,9 +1019,12 @@
   gnss_register_device
   gpiochip_add_data_with_key
   gpiochip_add_pin_range
+  gpiochip_generic_config
   gpiochip_generic_free
   gpiochip_generic_request
   gpiochip_get_data
+  gpiochip_irqchip_add_key
+  gpiochip_line_is_irq
   gpiochip_line_is_valid
   gpiochip_remove
   gpiod_cansleep
@@ -1030,6 +1038,7 @@
   gpiod_get_value_cansleep
   gpiod_is_active_low
   gpiod_set_debounce
+  gpiochip_set_nested_irqchip
   gpiod_set_raw_value
   gpiod_set_raw_value_cansleep
   gpiod_set_value
@@ -1090,6 +1099,10 @@
   __i2c_smbus_xfer
   i2c_smbus_xfer
   __i2c_transfer
+  i2c_smbus_read_i2c_block_data
+  i2c_smbus_read_byte_data
+  i2c_smbus_write_i2c_block_data
+  i2c_smbus_write_byte_data
   i2c_transfer
   i2c_transfer_buffer_flags
   icc_get
@@ -1739,6 +1752,7 @@
   pid_task
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
+  pinctrl_enable
   pinctrl_force_default
   pinctrl_force_sleep
   pinctrl_get
