@@ -1384,6 +1384,7 @@
   sdhci_remove_host
   sdhci_reset
   sdhci_set_bus_width
+  __sdhci_set_timeout
 
 # required by smem.ko
   hwspin_lock_free
