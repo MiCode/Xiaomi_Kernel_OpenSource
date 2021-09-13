@@ -125,6 +125,9 @@ struct memlat_group {
 	enum dcvs_path_type		sampling_path_type;
 	enum dcvs_path_type		threadlat_path_type;
 	u32				sampling_cur_freq;
+	u32				adaptive_cur_freq;
+	u32				adaptive_high_freq;
+	u32				adaptive_low_freq;
 	bool				fp_voting_enabled;
 	u32				fp_freq;
 	u32				*fp_votes;
@@ -133,6 +136,7 @@ struct memlat_group {
 	u32				num_mons;
 	u32				num_inited_mons;
 	struct mutex			mons_lock;
+	struct kobject			kobj;
 };
 
 struct memlat_dev_data {
@@ -171,6 +175,7 @@ struct qcom_memlat_attr {
 #define to_memlat_attr(_attr) \
 	container_of(_attr, struct qcom_memlat_attr, attr)
 #define to_memlat_mon(k) container_of(k, struct memlat_mon, kobj)
+#define to_memlat_grp(k) container_of(k, struct memlat_group, kobj)
 
 #define MEMLAT_ATTR_RW(_name)						\
 static struct qcom_memlat_attr _name =					\
@@ -188,7 +193,7 @@ static ssize_t show_##name(struct kobject *kobj,			\
 	return scnprintf(buf, PAGE_SIZE, "%u\n", mon->name);		\
 }									\
 
-#define store_attr(name, _min, _max) \
+#define store_attr(name, _min, _max)					\
 static ssize_t store_##name(struct kobject *kobj,			\
 			struct attribute *attr, const char *buf,	\
 			size_t count)					\
@@ -202,6 +207,31 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
 	mon->name = val;						\
+	return count;							\
+}									\
+
+#define show_grp_attr(name)						\
+static ssize_t show_##name(struct kobject *kobj,			\
+			struct attribute *attr, char *buf)		\
+{									\
+	struct memlat_group *grp = to_memlat_grp(kobj);			\
+	return scnprintf(buf, PAGE_SIZE, "%u\n", grp->name);		\
+}									\
+
+#define store_grp_attr(name, _min, _max)				\
+static ssize_t store_##name(struct kobject *kobj,			\
+			struct attribute *attr, const char *buf,	\
+			size_t count)					\
+{									\
+	int ret;							\
+	unsigned int val;						\
+	struct memlat_group *grp = to_memlat_grp(kobj);			\
+	ret = kstrtouint(buf, 10, &val);				\
+	if (ret < 0)							\
+		return ret;						\
+	val = max(val, _min);						\
+	val = min(val, _max);						\
+	grp->name = val;						\
 	return count;							\
 }									\
 
@@ -289,6 +319,13 @@ static ssize_t show_sample_ms(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", memlat_data->sample_ms);
 }
 
+show_grp_attr(sampling_cur_freq);
+show_grp_attr(adaptive_cur_freq);
+show_grp_attr(adaptive_high_freq);
+store_grp_attr(adaptive_high_freq, 0U, 8000000U);
+show_grp_attr(adaptive_low_freq);
+store_grp_attr(adaptive_low_freq, 0U, 8000000U);
+
 show_attr(min_freq);
 show_attr(max_freq);
 show_attr(cur_freq);
@@ -309,6 +346,11 @@ show_attr(freq_scale_limit_mhz);
 
 MEMLAT_ATTR_RW(sample_ms);
 
+MEMLAT_ATTR_RO(sampling_cur_freq);
+MEMLAT_ATTR_RO(adaptive_cur_freq);
+MEMLAT_ATTR_RW(adaptive_low_freq);
+MEMLAT_ATTR_RW(adaptive_high_freq);
+
 MEMLAT_ATTR_RW(min_freq);
 MEMLAT_ATTR_RW(max_freq);
 MEMLAT_ATTR_RO(freq_map);
@@ -323,6 +365,14 @@ MEMLAT_ATTR_RW(freq_scale_limit_mhz);
 
 static struct attribute *memlat_settings_attr[] = {
 	&sample_ms.attr,
+	NULL,
+};
+
+static struct attribute *memlat_grp_attr[] = {
+	&sampling_cur_freq.attr,
+	&adaptive_cur_freq.attr,
+	&adaptive_high_freq.attr,
+	&adaptive_low_freq.attr,
 	NULL,
 };
 
@@ -393,6 +443,12 @@ static struct kobj_type memlat_mon_ktype = {
 static struct kobj_type compute_mon_ktype = {
 	.sysfs_ops	= &memlat_sysfs_ops,
 	.default_attrs	= compute_mon_attr,
+
+};
+
+static struct kobj_type memlat_grp_ktype = {
+	.sysfs_ops	= &memlat_sysfs_ops,
+	.default_attrs	= memlat_grp_attr,
 
 };
 
@@ -521,13 +577,32 @@ static void calculate_sampling_stats(void)
 	local_irq_restore(flags);
 }
 
-static void set_higher_freq(int *max_cpu, int cpu, u32 *max_cpufreq,
+static inline void set_higher_freq(int *max_cpu, int cpu, u32 *max_cpufreq,
 			    u32 cpufreq)
 {
 	if (cpufreq > *max_cpufreq) {
 		*max_cpu = cpu;
 		*max_cpufreq = cpufreq;
 	}
+}
+
+static inline void apply_adaptive_freq(struct memlat_group *memlat_grp,
+					u32 *max_freq)
+{
+	u32 prev_freq = memlat_grp->adaptive_cur_freq;
+
+	if (*max_freq < memlat_grp->adaptive_low_freq) {
+		*max_freq = memlat_grp->adaptive_low_freq;
+		memlat_grp->adaptive_cur_freq = memlat_grp->adaptive_low_freq;
+	} else if (*max_freq < memlat_grp->adaptive_high_freq) {
+		*max_freq = memlat_grp->adaptive_high_freq;
+		memlat_grp->adaptive_cur_freq = memlat_grp->adaptive_high_freq;
+	} else
+		memlat_grp->adaptive_cur_freq = memlat_grp->adaptive_high_freq;
+
+	if (prev_freq != memlat_grp->adaptive_cur_freq)
+		trace_memlat_dev_update(dev_name(memlat_grp->dev),
+				0, 0, 0, 0, memlat_grp->adaptive_cur_freq);
 }
 
 static void calculate_mon_sampling_freq(struct memlat_mon *mon)
@@ -660,14 +735,20 @@ static void memlat_update_work(struct work_struct *work)
 			calculate_mon_sampling_freq(mon);
 			max_freqs[grp] = max(mon->cur_freq, max_freqs[grp]);
 		}
+		if (memlat_grp->adaptive_high_freq ||
+				memlat_grp->adaptive_low_freq)
+			apply_adaptive_freq(memlat_grp, &max_freqs[grp]);
 	}
 
 	update_memlat_fp_vote(SAMPLING_VOTER, max_freqs);
 
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		memlat_grp = memlat_data->groups[grp];
-		if (!memlat_grp || memlat_grp->fp_voting_enabled ||
-				memlat_grp->sampling_cur_freq == max_freqs[grp])
+		if (!memlat_grp || memlat_grp->sampling_cur_freq ==
+							max_freqs[grp])
+			continue;
+		memlat_grp->sampling_cur_freq = max_freqs[grp];
+		if (memlat_grp->fp_voting_enabled)
 			continue;
 		new_freq.ib = max_freqs[grp];
 		new_freq.ab = 0;
@@ -676,7 +757,6 @@ static void memlat_update_work(struct work_struct *work)
 				&new_freq, 1, memlat_grp->sampling_path_type);
 		if (ret < 0)
 			dev_err(memlat_grp->dev, "qcom dcvs err: %d\n", ret);
-		memlat_grp->sampling_cur_freq = max_freqs[grp];
 	}
 }
 
@@ -1147,6 +1227,9 @@ static int memlat_grp_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	ret = kobject_init_and_add(&memlat_grp->kobj, &memlat_grp_ktype,
+				memlat_grp->dcvs_kobj, "memlat");
 
 	mutex_lock(&memlat_lock);
 	memlat_data->num_inited_grps++;
