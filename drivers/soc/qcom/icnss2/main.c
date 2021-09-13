@@ -293,9 +293,9 @@ int icnss_soc_wake_event_post(struct icnss_priv *priv,
 	if (!priv)
 		return -ENODEV;
 
-	icnss_pr_dbg("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
-		     icnss_soc_wake_event_to_str(type), type, current->comm,
-		     flags, priv->state);
+	icnss_pr_soc_wake("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
+			  icnss_soc_wake_event_to_str(type),
+			  type, current->comm, flags, priv->state);
 
 	if (type >= ICNSS_SOC_WAKE_EVENT_MAX) {
 		icnss_pr_err("Invalid Event type: %d, can't post", type);
@@ -332,9 +332,9 @@ int icnss_soc_wake_event_post(struct icnss_priv *priv,
 	else
 		ret = wait_for_completion_interruptible(&event->complete);
 
-	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
-		     icnss_soc_wake_event_to_str(type), type, priv->state, ret,
-		     event->ret);
+	icnss_pr_soc_wake("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
+			  icnss_soc_wake_event_to_str(type),
+			  type, priv->state, ret, event->ret);
 
 	spin_lock_irqsave(&priv->soc_wake_msg_lock, irq_flags);
 	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
@@ -1094,8 +1094,8 @@ static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 		return -ENODEV;
 
 	if (atomic_inc_not_zero(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("SOC awake after posting work, Ref count: %d",
-			     atomic_read(&priv->soc_wake_ref_count));
+		icnss_pr_soc_wake("SOC awake after posting work, Ref count: %d",
+				  atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
@@ -1114,8 +1114,8 @@ static int icnss_event_soc_wake_release(struct icnss_priv *priv, void *data)
 		return -ENODEV;
 
 	if (atomic_dec_if_positive(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("Wake release not called. Ref count: %d",
-			     priv->soc_wake_ref_count);
+		icnss_pr_soc_wake("Wake release not called. Ref count: %d",
+				  priv->soc_wake_ref_count);
 		return 0;
 	}
 
@@ -1566,10 +1566,10 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 		list_del(&event->list);
 		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
 
-		icnss_pr_dbg("Processing event: %s%s(%d), state: 0x%lx\n",
-			     icnss_soc_wake_event_to_str(event->type),
-			     event->sync ? "-sync" : "", event->type,
-			     priv->state);
+		icnss_pr_soc_wake("Processing event: %s%s(%d), state: 0x%lx\n",
+				  icnss_soc_wake_event_to_str(event->type),
+				  event->sync ? "-sync" : "", event->type,
+				  priv->state);
 
 		switch (event->type) {
 		case ICNSS_SOC_WAKE_REQUEST_EVENT:
@@ -1588,10 +1588,10 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 
 		priv->stats.soc_wake_events[event->type].processed++;
 
-		icnss_pr_dbg("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
-			     icnss_soc_wake_event_to_str(event->type),
-			     event->sync ? "-sync" : "", event->type, ret,
-			     priv->state);
+		icnss_pr_soc_wake("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
+				  icnss_soc_wake_event_to_str(event->type),
+				  event->sync ? "-sync" : "", event->type, ret,
+				  priv->state);
 
 		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
 		if (event->sync) {
@@ -2212,14 +2212,14 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 	value <<= ICNSS_SMEM_SEQ_NO_POS;
 	value |= msg_id;
 
-	icnss_pr_vdbg1("Sending SMP2P value: 0x%X\n", value);
+	icnss_pr_smp2p("Sending SMP2P value: 0x%X\n", value);
 
 	ret = qcom_smem_state_update_bits(
 			priv->smp2p_info.smem_state,
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_vdbg1("Error in SMP2P send ret: %d\n", ret);
+		icnss_pr_smp2p("Error in SMP2P send ret: %d\n", ret);
 
 	return ret;
 }
@@ -2761,12 +2761,12 @@ int icnss_force_wake_request(struct device *dev)
 	}
 
 	if (atomic_inc_not_zero(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("SOC already awake, Ref count: %d",
-			     atomic_read(&priv->soc_wake_ref_count));
+		icnss_pr_soc_wake("SOC already awake, Ref count: %d",
+				  atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
-	icnss_pr_dbg("Calling SOC Wake request");
+	icnss_pr_soc_wake("Calling SOC Wake request");
 
 	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_REQUEST_EVENT,
 				  0, NULL);
@@ -2789,12 +2789,12 @@ int icnss_force_wake_release(struct device *dev)
 		return -EINVAL;
 	}
 
-	icnss_pr_dbg("Calling SOC Wake response");
+	icnss_pr_soc_wake("Calling SOC Wake response");
 
 	if (atomic_read(&priv->soc_wake_ref_count) &&
 	    icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("SOC previous release pending, Ref count: %d",
-			     atomic_read(&priv->soc_wake_ref_count));
+		icnss_pr_soc_wake("SOC previous release pending, Ref count: %d",
+				  atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
@@ -3128,7 +3128,7 @@ int icnss_trigger_recovery(struct device *dev)
 	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
-		icnss_pr_vdbg1("Initiate Root PD restart");
+		icnss_pr_vdbg("Initiate Root PD restart");
 		ret = icnss_send_smp2p(priv, ICNSS_TRIGGER_SSR);
 		if (!ret)
 			set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
@@ -3210,7 +3210,7 @@ int icnss_exit_power_save(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 
-	icnss_pr_vdbg1("Calling Exit Power Save\n");
+	icnss_pr_vdbg("Calling Exit Power Save\n");
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
 	    !test_bit(ICNSS_MODE_ON, &priv->state))
@@ -3881,7 +3881,7 @@ static inline void  icnss_get_smp2p_info(struct icnss_priv *priv)
 					    "wlan-smp2p-out",
 					    &priv->smp2p_info.smem_bit);
 	if (IS_ERR(priv->smp2p_info.smem_state)) {
-		icnss_pr_vdbg1("Failed to get smem state %d",
+		icnss_pr_smp2p("Failed to get smem state %d",
 			     PTR_ERR(priv->smp2p_info.smem_state));
 	}
 
