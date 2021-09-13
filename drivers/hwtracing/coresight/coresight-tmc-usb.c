@@ -42,7 +42,7 @@ static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 		return -EINVAL;
 	}
 
-	offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+	offset = tmc_get_rwp_offset(tmcdrvdata);
 	if (offset < 0) {
 		dev_err(&tmcdrvdata->csdev->dev,
 			"%s: invalid rwp offset value\n", __func__);
@@ -114,7 +114,7 @@ static int usb_transfer_small_packet(struct byte_cntr *drvdata, size_t *small_si
 	size_t req_size, actual;
 	long w_offset;
 
-	w_offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+	w_offset = tmc_get_rwp_offset(tmcdrvdata);
 	if (w_offset < 0) {
 		ret = w_offset;
 		dev_err_ratelimited(&tmcdrvdata->csdev->dev,
