@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/highmem.h>
@@ -119,7 +119,8 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 		 * secure environment to ensure the data is actually present
 		 * in RAM
 		 */
-		dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
+		dmac_flush_range(chunk_list,
+			(void *)chunk_list + chunk_list_len);
 
 		ret = secure_buffer_change_chunk(chunk_list_phys,
 				nchunks, V2_CHUNK_SIZE, lock);
