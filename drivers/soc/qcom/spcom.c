@@ -1156,14 +1156,9 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
  * unattach the dmabuf from spcom driver.
  * decrememt dmabuf ref count.
  */
-static int spcom_dmabuf_unlock(struct dma_buf_info *info)
+static int spcom_dmabuf_unlock(struct dma_buf_info *info, bool verify_buf_owner)
 {
 	u32 pid = current_pid();
-
-	if (pid == 0) {
-		spcom_pr_err("Unknown PID\n");
-		return -EINVAL;
-	}
 
 	if (info == NULL) {
 		spcom_pr_err("Invalid dmabuf info pointer\n");
@@ -1175,9 +1170,16 @@ static int spcom_dmabuf_unlock(struct dma_buf_info *info)
 		return -EINVAL;
 	}
 
-	if (info->owner_pid != pid) {
-		spcom_pr_err("PID [%u] is not the owner of this DMA buffer\n", pid);
-		return -EPERM;
+	if (verify_buf_owner) {
+		if (pid == 0) {
+			spcom_pr_err("Unknown PID\n");
+			return -EINVAL;
+		}
+
+		if (info->owner_pid != pid) {
+			spcom_pr_err("PID [%u] is not the owner of this DMA buffer\n", pid);
+			return -EPERM;
+		}
 	}
 
 	spcom_pr_dbg("unlock dmbuf fd [%d], PID [%u]\n", info->fd, pid);
@@ -1239,14 +1241,14 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 		found = true;
 		/* unlock all buf */
 		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++)
-			spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
+			spcom_dmabuf_unlock(&ch->dmabuf_array[i], true);
 	} else {
 		/* unlock specific buf */
 		for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array) ; i++) {
 			if (!ch->dmabuf_array[i].handle)
 				continue;
 			if (ch->dmabuf_array[i].handle == dma_buf) {
-				spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
+				spcom_dmabuf_unlock(&ch->dmabuf_array[i], true);
 				found = true;
 				break;
 			}
@@ -2809,14 +2811,14 @@ static int spcom_ioctl_handle_unlock_dmabuf_command(struct spcom_ioctl_dmabuf_lo
 
 	if (unlock_all) { /* Unlock all buffers of current PID on channel */
 		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++) {
-			if (spcom_dmabuf_unlock(&ch->dmabuf_array[i]) == 0)
+			if (spcom_dmabuf_unlock(&ch->dmabuf_array[i], true) == 0)
 				found = true;
 		}
 	} else { /* Unlock specific buffer if owned by current PID */
 		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++) {
 			curr_handle = ch->dmabuf_array[i].handle;
 			if (curr_handle && curr_handle == dma_buf) {
-				ret = spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
+				ret = spcom_dmabuf_unlock(&ch->dmabuf_array[i], true);
 				found = true;
 				break;
 			}
@@ -3684,7 +3686,8 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	/* unlock all ion buffers of sp_kernel channel*/
 	if (strcmp(ch->name, "sp_kernel") == 0) {
 		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++)
-			spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
+			if (ch->dmabuf_array[i].handle)
+				spcom_dmabuf_unlock(&ch->dmabuf_array[i], false);
 	}
 
 	ch->rpdev = NULL;
