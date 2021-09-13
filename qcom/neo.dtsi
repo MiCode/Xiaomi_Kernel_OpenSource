@@ -571,6 +571,26 @@
 		interrupt-parent = <&intc>;
 		interrupt-controller;
 	};
+
+	cpuss-sleep-stats@17800054 {
+		compatible = "qcom,cpuss-sleep-stats";
+		reg = <0x17800054 0x4>, <0x17810054 0x4>, <0x17820054 0x4>,
+		    <0x17830054 0x4>, <0x17880098 0x4>, <0x178C0000 0x10000>;
+		reg-names = "seq_lpm_cntr_cfg_cpu0", "seq_lpm_cntr_cfg_cpu1",
+			  "seq_lpm_cntr_cfg_cpu2", "seq_lpm_cntr_cfg_cpu3",
+			  "l3_seq_lpm_cntr_cfg", "apss_seq_mem_base";
+		num-cpus = <4>;
+	};
+
+	rpmh-sleep-stats@c3f0000 {
+		compatible = "qcom,rpmh-sleep-stats";
+		reg = <0xc3f0000 0x400>;
+	};
+
+	subsystem-sleep-stats@c3f0000 {
+		compatible = "qcom,subsystem-sleep-stats";
+		reg = <0xc3f0000 0x400>;
+	};
 };
 
 #include "neo-pinctrl.dtsi"
