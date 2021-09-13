@@ -40,6 +40,9 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD0>;
+			power-domain-names = "psci";
 			L2_0: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -58,6 +61,9 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD1>;
+			power-domain-names = "psci";
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -76,6 +82,9 @@
 			reg = <0x0 0x200>;
 			enable-method = "psci";
 			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD2>;
+			power-domain-names = "psci";
 			L2_2: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -94,6 +103,9 @@
 			reg = <0x0 0x300>;
 			enable-method = "psci";
 			next-level-cache = <&L2_3>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD3>;
+			power-domain-names = "psci";
 			L2_3: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -124,6 +136,57 @@
 			core3 {
 				cpu = <&CPU3>;
 			};
+		};
+	};
+
+	idle-states {
+		entry-method = "psci";
+
+		LITTLE_CPU_OFF: silver-c3 {  /* C3 */
+			compatible = "arm,idle-state";
+			idle-state-name = "pc";
+			entry-latency-us = <549>;
+			exit-latency-us = <901>;
+			min-residency-us = <1774>;
+			arm,psci-suspend-param = <0x40000003>;
+			local-timer-stop;
+		};
+
+		LITTLE_CPU_RAIL_OFF: silver-c4 {  /* C4 */
+			compatible = "arm,idle-state";
+			idle-state-name = "rail-pc";
+			entry-latency-us = <702>;
+			exit-latency-us = <915>;
+			min-residency-us = <4001>;
+			arm,psci-suspend-param = <0x40000004>;
+			local-timer-stop;
+		};
+
+		CLUSTER_OFF: cluster-d4 { /* D4 */
+			compatible = "domain-idle-state";
+			idle-state-name = "l3-off";
+			entry-latency-us = <2752>;
+			exit-latency-us = <3048>;
+			min-residency-us = <6118>;
+			arm,psci-suspend-param = <0x41000044>;
+		};
+
+		CX_OFF: cx-off { /* Cx Off */
+			compatible = "domain-idle-state";
+			idle-state-name = "cx-off";
+			entry-latency-us = <3263>;
+			exit-latency-us = <4562>;
+			min-residency-us = <8467>;
+			arm,psci-suspend-param = <0x41002344>;
+		};
+
+		LLCC_OFF: cluster-e3 { /* E3 */
+			compatible = "domain-idle-state";
+			idle-state-name = "llcc-off";
+			entry-latency-us = <3638>;
+			exit-latency-us = <6562>;
+			min-residency-us = <9826>;
+			arm,psci-suspend-param = <0x4100C344>;
 		};
 	};
 
@@ -160,6 +223,31 @@
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
+
+		CPU_PD0: cpu-pd0 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CPU_PD1: cpu-pd1 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CPU_PD2: cpu-pd2 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CPU_PD3: cpu-pd3 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CLUSTER_PD: cluster-pd {
+			#power-domain-cells = <0>;
+			domain-idle-states = <&CLUSTER_OFF &CX_OFF &LLCC_OFF>;
+		};
 	};
 
 	intc: interrupt-controller@0x17200000 {
@@ -206,6 +294,12 @@
 				  <WAKE_TCS      2>,
 				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
 				  <FAST_PATH_TCS 1>;
+		power-domains = <&CLUSTER_PD>;
+	};
+
+	cluster-device {
+		compatible = "qcom,lpm-cluster-dev";
+		power-domains = <&CLUSTER_PD>;
 	};
 
 	disp_rsc: rsc@af20000 {
