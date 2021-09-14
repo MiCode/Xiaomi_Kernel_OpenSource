@@ -5430,6 +5430,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	int cid;
 	struct fastrpc_apps *me = &gfa;
 	bool is_driver_closed = false;
+	int err = 0;
 
 	if (!fl)
 		return 0;
@@ -5506,9 +5507,10 @@ skip_dump_wait:
 	if (fl->device && is_driver_closed)
 		device_unregister(&fl->device->dev);
 
-	if (fl->sctx)
+	VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+	if (!err && fl->sctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
-	if (fl->secsctx)
+	if (!err && fl->secsctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->secsctx);
 
 	fastrpc_remote_buf_list_free(fl);
