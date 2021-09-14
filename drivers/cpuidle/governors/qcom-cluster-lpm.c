@@ -276,7 +276,7 @@ static void cluster_power_down(struct lpm_cluster *cluster_gov)
  * @action:  action i.e power_off/power_on
  * @data:  pointer to private data structure
  *
- * It returns the NOTIFY_OK to notify the notifier call chain
+ * It returns the NOTIFY_OK/NOTIFY_BAD to notify the notifier call chain
  */
 static int cluster_power_cb(struct notifier_block *nb,
 			    unsigned long action, void *data)
@@ -300,6 +300,9 @@ static int cluster_power_cb(struct notifier_block *nb,
 		cluster_predict(cluster_gov);
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
+		if (!cluster_gov->state_allowed[pd->state_idx])
+			return NOTIFY_BAD;
+
 		if (cluster_gov->genpd->suspended_count != 0) {
 			clear_cpu_predict_history();
 			clear_cluster_history(cluster_gov);
@@ -431,6 +434,7 @@ static int lpm_cluster_gov_remove(struct platform_device *pdev)
 		return -ENODEV;
 
 	pm_runtime_disable(&pdev->dev);
+	cluster_gov->genpd->flags &= ~GENPD_FLAG_MIN_RESIDENCY;
 	remove_cluster_sysfs_nodes(cluster_gov);
 	dev_pm_genpd_remove_notifier(cluster_gov->dev);
 
@@ -456,6 +460,7 @@ static int lpm_cluster_gov_probe(struct platform_device *pdev)
 	hrtimer_init(&cluster_gov->histtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	cluster_gov->genpd = pd_to_genpd(cluster_gov->dev->pm_domain);
 	cluster_gov->genpd_nb.notifier_call = cluster_power_cb;
+	cluster_gov->genpd->flags |= GENPD_FLAG_MIN_RESIDENCY;
 	ret = dev_pm_genpd_add_notifier(cluster_gov->dev,
 					&cluster_gov->genpd_nb);
 	if (ret) {
