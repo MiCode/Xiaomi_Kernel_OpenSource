@@ -381,7 +381,7 @@ static void update_cpu_history(struct lpm_cpu *cpu_gov)
 
 void update_ipi_history(int cpu)
 {
-	struct lpm_cpu *cpu_gov = this_cpu_ptr(&lpm_cpu_data);
+	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
 	struct history_ipi *history = &cpu_gov->ipi_history;
 	ktime_t now = ktime_get();
 
