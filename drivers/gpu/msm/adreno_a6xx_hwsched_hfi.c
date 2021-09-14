@@ -1364,7 +1364,7 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
 
-	cmd = kvmalloc(cmd_sizebytes, GFP_KERNEL);
+	cmd = kmalloc(cmd_sizebytes, GFP_KERNEL);
 	if (cmd == NULL)
 		return -ENOMEM;
 
@@ -1417,7 +1417,7 @@ skipib:
 	adreno_profile_submit_time(&time);
 
 free:
-	kvfree(cmd);
+	kfree(cmd);
 
 	return ret;
 }
