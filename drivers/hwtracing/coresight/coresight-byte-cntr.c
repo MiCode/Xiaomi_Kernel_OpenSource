@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -181,7 +181,8 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->read_active = false;
 
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
+	if (byte_cntr_data->enable)
+		coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 	return 0;
@@ -554,6 +555,11 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
+		if (tmcdrvdata->mode == CS_MODE_DISABLED) {
+			dev_err_ratelimited(&tmcdrvdata->csdev->dev,
+			 "%s: ETR is disabled.\n", __func__);
+			return;
+		}
 		ret = usb_bypass_start(drvdata);
 		if (ret < 0)
 			return;

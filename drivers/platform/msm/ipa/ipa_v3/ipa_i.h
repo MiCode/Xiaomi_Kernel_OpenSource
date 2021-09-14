@@ -85,6 +85,10 @@
 
 #define NAPI_WEIGHT 64
 
+/* Bit alignment for IPA4.5 GSI rings */
+#define IPA_LOW_16_BIT_MASK (0xFFFF)
+#define IPA4_5_GSI_RING_SIZE_ALIGN (16 * PAGE_SIZE)
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -1377,6 +1381,7 @@ struct ipa3_stats {
 	u32 flow_disable;
 	u32 tx_non_linear;
 	u32 rx_page_drop_cnt;
+	u32 zero_len_frag_pkt_cnt;
 	struct ipa3_page_recycle_stats page_recycle_stats[2];
 };
 

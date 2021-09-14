@@ -1725,22 +1725,29 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		data_idx++;
 
 		for (f = 0; f < num_frags; f++) {
-			desc[data_idx + f].frag = &skb_shinfo(skb)->frags[f];
-			desc[data_idx + f].type = IPA_DATA_DESC_SKB_PAGED;
-			desc[data_idx + f].len =
-				skb_frag_size(desc[data_idx + f].frag);
+			if (skb_frag_size(&skb_shinfo(skb)->frags[f]) != 0) {
+				desc[data_idx].frag =
+					&skb_shinfo(skb)->frags[f];
+				desc[data_idx].type =
+					IPA_DATA_DESC_SKB_PAGED;
+				desc[data_idx].len =
+					skb_frag_size(desc[data_idx].frag);
+				data_idx++;
+			} else {
+				IPAERR_RL("Received zero len SKB frag pkt\n");
+				IPA_STATS_INC_CNT(
+					ipa3_ctx->stats.zero_len_frag_pkt_cnt);
+			}
 		}
 		/* don't free skb till frag mappings are released */
 		if (num_frags) {
-			desc[data_idx + f - 1].callback =
-				desc[skb_idx].callback;
-			desc[data_idx + f - 1].user1 = desc[skb_idx].user1;
-			desc[data_idx + f - 1].user2 = desc[skb_idx].user2;
+			desc[data_idx - 1].callback = desc[skb_idx].callback;
+			desc[data_idx - 1].user1 = desc[skb_idx].user1;
+			desc[data_idx - 1].user2 = desc[skb_idx].user2;
 			desc[skb_idx].callback = NULL;
 		}
 
-		if (unlikely(ipa3_send(sys, num_frags + data_idx,
-		    desc, true))) {
+		if (unlikely(ipa3_send(sys, data_idx, desc, true))) {
 			IPAERR_RL("fail to send skb %pK num_frags %u SWP\n",
 				skb, num_frags);
 			goto fail_send;
@@ -3763,7 +3770,9 @@ static void ipa3_set_aggr_limit(struct ipa_sys_connect_params *in,
 	sys->ep->status.status_en = false;
 	sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(adjusted_sz);
 
-	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
+	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS ||
+		(in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			ipa3_ctx->ipa_hw_type <= IPA_HW_v4_2))
 		in->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
 
 	*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
