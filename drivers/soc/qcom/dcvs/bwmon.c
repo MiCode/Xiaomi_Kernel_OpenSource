@@ -676,10 +676,11 @@ static void bwmon_jiffies_update_cb(void *unused, void *extra)
 {
 	struct bw_hwmon *hw;
 	struct hwmon_node *node;
+	unsigned long flags;
 	ktime_t now = ktime_get();
 	s64 delta_ns;
 
-	spin_lock(&list_lock);
+	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry(node, &hwmon_list, list) {
 		hw = node->hw;
 		if (!hw->is_active)
@@ -690,7 +691,7 @@ static void bwmon_jiffies_update_cb(void *unused, void *extra)
 			hw->last_update_ts = now;
 		}
 	}
-	spin_unlock(&list_lock);
+	spin_unlock_irqrestore(&list_lock, flags);
 }
 
 static void bwmon_monitor_work(struct work_struct *work)
@@ -787,6 +788,7 @@ static void stop_monitor(struct bw_hwmon *hwmon)
 static int configure_hwmon_node(struct bw_hwmon *hwmon)
 {
 	struct hwmon_node *node;
+	unsigned long flags;
 
 	node = devm_kzalloc(hwmon->dev, sizeof(*node), GFP_KERNEL);
 	if (!node)
@@ -812,9 +814,9 @@ static int configure_hwmon_node(struct bw_hwmon *hwmon)
 
 	mutex_init(&node->mon_lock);
 	mutex_init(&node->update_lock);
-	spin_lock(&list_lock);
+	spin_lock_irqsave(&list_lock, flags);
 	list_add_tail(&node->list, &hwmon_list);
-	spin_unlock(&list_lock);
+	spin_unlock_irqrestore(&list_lock, flags);
 
 	return 0;
 }
