@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/of_device.h>
 #include <linux/slab.h>
 
 #include "bcm-voter.h"
@@ -255,42 +256,43 @@ static struct regmap *qcom_icc_rpmh_map(struct platform_device *pdev,
 int qcom_icc_rpmh_probe(struct platform_device *pdev)
 {
 	const struct qcom_icc_desc *desc;
+	struct device *dev = &pdev->dev;
 	struct icc_onecell_data *data;
 	struct icc_provider *provider;
-	struct qcom_icc_node **qnodes;
+	struct qcom_icc_node **qnodes, *qn;
 	struct qcom_icc_provider *qp;
 	struct icc_node *node;
-	size_t num_nodes, i;
+	size_t num_nodes, i, j;
 	int ret;
 
-	desc = of_device_get_match_data(&pdev->dev);
+	desc = of_device_get_match_data(dev);
 	if (!desc)
 		return -EINVAL;
 
 	qnodes = desc->nodes;
 	num_nodes = desc->num_nodes;
 
-	qp = devm_kzalloc(&pdev->dev, sizeof(*qp), GFP_KERNEL);
+	qp = devm_kzalloc(dev, sizeof(*qp), GFP_KERNEL);
 	if (!qp)
 		return -ENOMEM;
 
-	data = devm_kcalloc(&pdev->dev, num_nodes, sizeof(*node), GFP_KERNEL);
+	data = devm_kzalloc(dev, struct_size(data, nodes, num_nodes), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
 	qp->stub = of_property_read_bool(pdev->dev.of_node, "qcom,stub");
 
 	provider = &qp->provider;
-	provider->dev = &pdev->dev;
+	provider->dev = dev;
 	provider->set = qcom_icc_set_stub;
 	provider->pre_aggregate = qcom_icc_pre_aggregate;
 	provider->aggregate = qcom_icc_aggregate_stub;
-	provider->xlate = of_icc_xlate_onecell;
+	provider->xlate_extended = qcom_icc_xlate_extended;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
 	provider->get_bw = qcom_icc_get_bw_stub;
 
-	qp->dev = &pdev->dev;
+	qp->dev = dev;
 	qp->bcms = desc->bcms;
 
 	if (!qp->stub) {
@@ -315,10 +317,8 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 		return PTR_ERR(qp->regmap);
 
 	ret = icc_provider_add(provider);
-	if (ret) {
-		dev_err(&pdev->dev, "error adding interconnect provider\n");
+	if (ret)
 		return ret;
-	}
 
 	qp->num_clks = devm_clk_bulk_get_all(qp->dev, &qp->clks);
 	if (qp->num_clks < 0)
@@ -331,45 +331,39 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < qp->num_bcms; i++)
-		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
+		qcom_icc_bcm_init(qp->bcms[i], dev);
 
 	for (i = 0; i < num_nodes; i++) {
-		size_t j;
-
-		if (!qnodes[i])
+		qn = qnodes[i];
+		if (!qn)
 			continue;
 
-		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
+		qn->regmap = dev_get_regmap(qp->dev, NULL);
 
-		node = icc_node_create(qnodes[i]->id);
+		node = icc_node_create(qn->id);
 		if (IS_ERR(node)) {
 			ret = PTR_ERR(node);
-			dev_err(&pdev->dev, "error creating node %d\n", ret);
 			goto err;
 		}
 
-		if (qnodes[i]->qosbox) {
-			qnodes[i]->noc_ops->set_qos(qnodes[i]);
-			qnodes[i]->qosbox->initialized = true;
+		if (qn->qosbox) {
+			qn->noc_ops->set_qos(qn);
+			qn->qosbox->initialized = true;
 		}
 
-		node->name = qnodes[i]->name;
-		node->data = qnodes[i];
+		node->name = qn->name;
+		node->data = qn;
 		icc_node_add(node, provider);
 
-		dev_dbg(&pdev->dev, "registered node %pK %s %d\n", node,
-			qnodes[i]->name, node->id);
-
-		/* populate links */
-		for (j = 0; j < qnodes[i]->num_links; j++)
-			icc_link_create(node, qnodes[i]->links[j]);
+		for (j = 0; j < qn->num_links; j++)
+			icc_link_create(node, qn->links[j]);
 
 		data->nodes[i] = node;
 	}
-	data->num_nodes = num_nodes;
 
 	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 
+	data->num_nodes = num_nodes;
 	platform_set_drvdata(pdev, qp);
 
 	if (!qp->stub) {
@@ -383,40 +377,27 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 	list_add_tail(&qp->probe_list, &qnoc_probe_list);
 	mutex_unlock(&probe_list_lock);
 
-	return ret;
+	return 0;
 err:
-	list_for_each_entry(node, &provider->nodes, node_list) {
-		icc_node_del(node);
-		icc_node_destroy(node->id);
-	}
-
 	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 	clk_bulk_put_all(qp->num_clks, qp->clks);
-
+	icc_nodes_remove(provider);
 	icc_provider_del(provider);
-
 	return ret;
 }
-EXPORT_SYMBOL(qcom_icc_rpmh_probe);
+EXPORT_SYMBOL_GPL(qcom_icc_rpmh_probe);
 
 int qcom_icc_rpmh_remove(struct platform_device *pdev)
 {
 	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
-	struct icc_provider *provider = &qp->provider;
-	struct icc_node *n;
 
-	qcom_icc_debug_unregister(provider);
-
-	list_for_each_entry(n, &provider->nodes, node_list) {
-		icc_node_del(n);
-		icc_node_destroy(n->id);
-	}
-
+	qcom_icc_debug_unregister(&qp->provider);
 	clk_bulk_put_all(qp->num_clks, qp->clks);
 
-	return icc_provider_del(provider);
+	icc_nodes_remove(&qp->provider);
+	return icc_provider_del(&qp->provider);
 }
-EXPORT_SYMBOL(qcom_icc_rpmh_remove);
+EXPORT_SYMBOL_GPL(qcom_icc_rpmh_remove);
 
 void qcom_icc_rpmh_sync_state(struct device *dev)
 {
