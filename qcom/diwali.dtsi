@@ -621,6 +621,11 @@
 				  <WAKE_TCS		1>,
 				  <CONTROL_TCS		0>,
 				  <FAST_PATH_TCS	0>;
+
+		disp_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
+		};
 	};
 
 	pdc: interrupt-controller@b220000 {
@@ -2150,8 +2155,8 @@
 	mc_virt: interconnect@1 {
 		compatible = "qcom,diwali-mc_virt";
 		#interconnect-cells = <1>;
-		qcom,bcm-voter-names = "hlos";
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	config_noc: interconnect@1500000 {
@@ -2182,6 +2187,8 @@
 		reg = <0x16e0000 0x1C080>;
 		compatible = "qcom,diwali-aggre1_noc";
 		#interconnect-cells = <1>;
+		clocks = <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			 <&gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
@@ -2190,6 +2197,9 @@
 		reg = <0x1700000 0x31080>;
 		compatible = "qcom,diwali-aggre2_noc";
 		#interconnect-cells = <1>;
+		clocks = <&gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
+			 <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			 <&rpmhcc RPMH_IPA_CLK>;
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
@@ -2198,16 +2208,16 @@
 		reg = <0x1740000 0x1f080>;
 		compatible = "qcom,diwali-mmss_noc";
 		#interconnect-cells = <1>;
-		qcom,bcm-voter-names = "hlos";
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	gem_noc: interconnect@19100000 {
 		reg = <0x19100000 0xBB800>;
 		compatible = "qcom,diwali-gem_noc";
 		#interconnect-cells = <1>;
-		qcom,bcm-voter-names = "hlos";
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	nsp_noc: interconnect@320C0000 {
