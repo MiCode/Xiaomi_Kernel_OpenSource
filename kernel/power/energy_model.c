@@ -149,7 +149,9 @@ static struct em_perf_domain *em_create_pd(cpumask_t *span, int nr_states,
 	/* Compute the cost of each capacity_state. */
 	fmax = (u64) table[nr_states - 1].frequency;
 	for (i = 0; i < nr_states; i++) {
-		table[i].cost = div64_u64(fmax * table[i].power,
+		unsigned long power_res = em_scale_power(table[i].power);
+
+		table[i].cost = div64_u64(fmax * power_res,
 					  table[i].frequency);
 	}
 
