@@ -27,6 +27,7 @@ qcom-scm.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
+qcom_ipc_logging.ko
 qcom_ipcc.ko
 qcom_rpmh.ko
 qnoc-kalama.ko
