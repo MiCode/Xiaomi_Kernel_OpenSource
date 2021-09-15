@@ -167,6 +167,9 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 		/* Atomic calls should not wait */
 		BUG_ON(call_type == QCOM_SCM_CALL_ATOMIC);
 
+		if (!dev)
+			return -EPROBE_DEFER;
+
 		wait_res.result[0] = smc_res.a1;
 		wait_res.result[1] = smc_res.a2;
 		wait_res.result[2] = smc_res.a3;
