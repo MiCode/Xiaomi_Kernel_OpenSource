@@ -307,6 +307,11 @@ int mlx5_lag_mp_init(struct mlx5_lag *ldev)
 	struct lag_mp *mp = &ldev->lag_mp;
 	int err;
 
+	/* always clear mfi, as it might become stale when a route delete event
+	 * has been missed
+	 */
+	mp->mfi = NULL;
+
 	if (mp->fib_nb.notifier_call)
 		return 0;
 
@@ -328,4 +333,5 @@ void mlx5_lag_mp_cleanup(struct mlx5_lag *ldev)
 
 	unregister_fib_notifier(&mp->fib_nb);
 	mp->fib_nb.notifier_call = NULL;
+	mp->mfi = NULL;
 }

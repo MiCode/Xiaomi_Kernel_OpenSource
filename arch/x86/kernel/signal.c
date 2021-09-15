@@ -241,10 +241,11 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size,
 	     void __user **fpstate)
 {
 	/* Default to using normal stack */
+	bool nested_altstack = on_sig_stack(regs->sp);
+	bool entering_altstack = false;
 	unsigned long math_size = 0;
 	unsigned long sp = regs->sp;
 	unsigned long buf_fx = 0;
-	int onsigstack = on_sig_stack(sp);
 	int ret;
 
 	/* redzone */
@@ -253,15 +254,23 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size,
 
 	/* This is the X/Open sanctioned signal stack switching.  */
 	if (ka->sa.sa_flags & SA_ONSTACK) {
-		if (sas_ss_flags(sp) == 0)
+		/*
+		 * This checks nested_altstack via sas_ss_flags(). Sensible
+		 * programs use SS_AUTODISARM, which disables that check, and
+		 * programs that don't use SS_AUTODISARM get compatible.
+		 */
+		if (sas_ss_flags(sp) == 0) {
 			sp = current->sas_ss_sp + current->sas_ss_size;
+			entering_altstack = true;
+		}
 	} else if (IS_ENABLED(CONFIG_X86_32) &&
-		   !onsigstack &&
+		   !nested_altstack &&
 		   regs->ss != __USER_DS &&
 		   !(ka->sa.sa_flags & SA_RESTORER) &&
 		   ka->sa.sa_restorer) {
 		/* This is the legacy signal stack switching. */
 		sp = (unsigned long) ka->sa.sa_restorer;
+		entering_altstack = true;
 	}
 
 	sp = fpu__alloc_mathframe(sp, IS_ENABLED(CONFIG_X86_32),
@@ -274,8 +283,15 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size,
 	 * If we are on the alternate signal stack and would overflow it, don't.
 	 * Return an always-bogus address instead so we will die with SIGSEGV.
 	 */
-	if (onsigstack && !likely(on_sig_stack(sp)))
+	if (unlikely((nested_altstack || entering_altstack) &&
+		     !__on_sig_stack(sp))) {
+
+		if (show_unhandled_signals && printk_ratelimit())
+			pr_info("%s[%d] overflowed sigaltstack\n",
+				current->comm, task_pid_nr(current));
+
 		return (void __user *)-1L;
+	}
 
 	/* save i387 and extended state */
 	ret = copy_fpstate_to_sigframe(*fpstate, (void __user *)buf_fx, math_size);
@@ -770,30 +786,8 @@ handle_signal(struct ksignal *ksig, struct pt_regs *regs)
 
 static inline unsigned long get_nr_restart_syscall(const struct pt_regs *regs)
 {
-	/*
-	 * This function is fundamentally broken as currently
-	 * implemented.
-	 *
-	 * The idea is that we want to trigger a call to the
-	 * restart_block() syscall and that we want in_ia32_syscall(),
-	 * in_x32_syscall(), etc. to match whatever they were in the
-	 * syscall being restarted.  We assume that the syscall
-	 * instruction at (regs->ip - 2) matches whatever syscall
-	 * instruction we used to enter in the first place.
-	 *
-	 * The problem is that we can get here when ptrace pokes
-	 * syscall-like values into regs even if we're not in a syscall
-	 * at all.
-	 *
-	 * For now, we maintain historical behavior and guess based on
-	 * stored state.  We could do better by saving the actual
-	 * syscall arch in restart_block or (with caveats on x32) by
-	 * checking if regs->ip points to 'int $0x80'.  The current
-	 * behavior is incorrect if a tracer has a different bitness
-	 * than the tracee.
-	 */
 #ifdef CONFIG_IA32_EMULATION
-	if (current_thread_info()->status & (TS_COMPAT|TS_I386_REGS_POKED))
+	if (current_thread_info()->status & TS_COMPAT_RESTART)
 		return __NR_ia32_restart_syscall;
 #endif
 #ifdef CONFIG_X86_X32_ABI

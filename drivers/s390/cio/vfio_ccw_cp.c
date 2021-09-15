@@ -636,6 +636,10 @@ int cp_init(struct channel_program *cp, struct device *mdev, union orb *orb)
 {
 	int ret;
 
+	/* this is an error in the caller */
+	if (cp->initialized)
+		return -EBUSY;
+
 	/*
 	 * XXX:
 	 * Only support prefetch enable mode now.

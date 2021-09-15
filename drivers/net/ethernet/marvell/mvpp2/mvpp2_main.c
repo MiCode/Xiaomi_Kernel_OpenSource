@@ -1073,7 +1073,7 @@ static void mvpp2_interrupts_unmask(void *arg)
 	u32 val;
 
 	/* If the thread isn't used, don't do anything */
-	if (smp_processor_id() > port->priv->nthreads)
+	if (smp_processor_id() >= port->priv->nthreads)
 		return;
 
 	val = MVPP2_CAUSE_MISC_SUM_MASK |
@@ -1129,7 +1129,7 @@ static void mvpp22_gop_init_rgmii(struct mvpp2_port *port)
 
 	regmap_read(priv->sysctrl_base, GENCONF_CTRL0, &val);
 	if (port->gop_id == 2)
-		val |= GENCONF_CTRL0_PORT0_RGMII | GENCONF_CTRL0_PORT1_RGMII;
+		val |= GENCONF_CTRL0_PORT0_RGMII;
 	else if (port->gop_id == 3)
 		val |= GENCONF_CTRL0_PORT1_RGMII_MII;
 	regmap_write(priv->sysctrl_base, GENCONF_CTRL0, val);
@@ -2078,7 +2078,7 @@ static void mvpp2_txq_sent_counter_clear(void *arg)
 	int queue;
 
 	/* If the thread isn't used, don't do anything */
-	if (smp_processor_id() > port->priv->nthreads)
+	if (smp_processor_id() >= port->priv->nthreads)
 		return;
 
 	for (queue = 0; queue < port->ntxqs; queue++) {
@@ -2161,17 +2161,18 @@ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
 static void mvpp2_tx_pkts_coal_set(struct mvpp2_port *port,
 				   struct mvpp2_tx_queue *txq)
 {
-	unsigned int thread = mvpp2_cpu_to_thread(port->priv, get_cpu());
+	unsigned int thread;
 	u32 val;
 
 	if (txq->done_pkts_coal > MVPP2_TXQ_THRESH_MASK)
 		txq->done_pkts_coal = MVPP2_TXQ_THRESH_MASK;
 
 	val = (txq->done_pkts_coal << MVPP2_TXQ_THRESH_OFFSET);
-	mvpp2_thread_write(port->priv, thread, MVPP2_TXQ_NUM_REG, txq->id);
-	mvpp2_thread_write(port->priv, thread, MVPP2_TXQ_THRESH_REG, val);
-
-	put_cpu();
+	/* PKT-coalescing registers are per-queue + per-thread */
+	for (thread = 0; thread < MVPP2_MAX_THREADS; thread++) {
+		mvpp2_thread_write(port->priv, thread, MVPP2_TXQ_NUM_REG, txq->id);
+		mvpp2_thread_write(port->priv, thread, MVPP2_TXQ_THRESH_REG, val);
+	}
 }
 
 static u32 mvpp2_usec_to_cycles(u32 usec, unsigned long clk_hz)
@@ -4544,7 +4545,7 @@ static int mvpp2_port_init(struct mvpp2_port *port)
 	struct mvpp2 *priv = port->priv;
 	struct mvpp2_txq_pcpu *txq_pcpu;
 	unsigned int thread;
-	int queue, err;
+	int queue, err, val;
 
 	/* Checks for hardware constraints */
 	if (port->first_rxq + port->nrxqs >
@@ -4557,6 +4558,18 @@ static int mvpp2_port_init(struct mvpp2_port *port)
 	/* Disable port */
 	mvpp2_egress_disable(port);
 	mvpp2_port_disable(port);
+
+	if (mvpp2_is_xlg(port->phy_interface)) {
+		val = readl(port->base + MVPP22_XLG_CTRL0_REG);
+		val &= ~MVPP22_XLG_CTRL0_FORCE_LINK_PASS;
+		val |= MVPP22_XLG_CTRL0_FORCE_LINK_DOWN;
+		writel(val, port->base + MVPP22_XLG_CTRL0_REG);
+	} else {
+		val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
+		val &= ~MVPP2_GMAC_FORCE_LINK_PASS;
+		val |= MVPP2_GMAC_FORCE_LINK_DOWN;
+		writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
+	}
 
 	port->tx_time_coal = MVPP2_TXDONE_COAL_USEC;
 
@@ -4777,8 +4790,6 @@ static void mvpp2_phylink_validate(struct phylink_config *config,
 
 	phylink_set(mask, Autoneg);
 	phylink_set_port_modes(mask);
-	phylink_set(mask, Pause);
-	phylink_set(mask, Asym_Pause);
 
 	switch (state->interface) {
 	case PHY_INTERFACE_MODE_10GKR:
@@ -5729,6 +5740,10 @@ static int mvpp2_probe(struct platform_device *pdev)
 			return PTR_ERR(priv->lms_base);
 	} else {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (!res) {
+			dev_err(&pdev->dev, "Invalid resource\n");
+			return -EINVAL;
+		}
 		if (has_acpi_companion(&pdev->dev)) {
 			/* In case the MDIO memory region is declared in
 			 * the ACPI, it can already appear as 'in-use'
@@ -5899,6 +5914,8 @@ static int mvpp2_probe(struct platform_device *pdev)
 	return 0;
 
 err_port_probe:
+	fwnode_handle_put(port_fwnode);
+
 	i = 0;
 	fwnode_for_each_available_child_node(fwnode, port_fwnode) {
 		if (priv->port_list[i])

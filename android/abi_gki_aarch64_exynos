@@ -28,6 +28,7 @@
   arm64_const_caps_ready
   __arm_smccc_hvc
   __arm_smccc_smc
+  async_schedule_node
   atomic_notifier_call_chain
   atomic_notifier_chain_register
   atomic_notifier_chain_unregister
@@ -48,6 +49,9 @@
   blkdev_get_by_path
   blkdev_put
   blk_lookup_devt
+  blk_pm_runtime_init
+  blk_queue_update_dma_alignment
+  blk_queue_update_dma_pad
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
@@ -58,8 +62,12 @@
   bpf_trace_run5
   bpf_trace_run6
   bpf_trace_run7
+  bpf_trace_run8
   bpf_trace_run9
   __break_lease
+  bsg_job_done
+  bsg_remove_queue
+  bsg_setup_queue
   build_skb
   bus_find_device
   bus_for_each_dev
@@ -149,6 +157,7 @@
   clk_register_fixed_factor
   clk_register_fixed_rate
   clk_register_gate
+  clk_round_rate
   clk_set_parent
   clk_set_rate
   clk_unprepare
@@ -242,6 +251,8 @@
   devfreq_recommended_opp
   devfreq_register_opp_notifier
   devfreq_remove_device
+  devfreq_resume_device
+  devfreq_suspend_device
   devfreq_unregister_opp_notifier
   devfreq_update_status
   dev_fwnode
@@ -349,6 +360,7 @@
   dev_pm_opp_of_remove_table
   dev_pm_opp_put
   dev_pm_opp_put_regulators
+  dev_pm_opp_remove
   dev_pm_opp_set_regulators
   dev_printk
   dev_queue_xmit
@@ -432,6 +444,7 @@
   downgrade_write
   down_interruptible
   down_read
+  down_read_trylock
   down_trylock
   down_write
   d_path
@@ -464,6 +477,7 @@
   filp_close
   filp_open
   find_get_pid
+  find_last_bit
   find_next_bit
   find_next_zero_bit
   find_vma
@@ -716,8 +730,11 @@
   kernel_restart
   kernel_write
   kern_path
+  keyslot_manager_create
   keyslot_manager_create_passthrough
+  keyslot_manager_destroy
   keyslot_manager_private
+  keyslot_manager_reprogram_all_keys
   __kfifo_alloc
   __kfifo_free
   __kfifo_in
@@ -741,6 +758,7 @@
   kmemdup
   kobject_add
   kobject_create_and_add
+  kobject_del
   kobject_get
   kobject_init
   kobject_init_and_add
@@ -881,6 +899,7 @@
   netlink_register_notifier
   netlink_unicast
   netlink_unregister_notifier
+  net_ratelimit
   nla_memcpy
   __nla_parse
   nla_put
@@ -892,6 +911,7 @@
   notify_change
   nr_cpu_ids
   nr_irqs
+  ns_capable
   nsecs_to_jiffies
   ns_to_timespec
   ns_to_timespec64
@@ -965,6 +985,7 @@
   of_usb_get_phy_mode
   of_usb_host_tpl_support
   oops_in_progress
+  override_creds
   pagecache_get_page
   panic
   panic_notifier_list
@@ -1164,6 +1185,7 @@
   refcount_dec_checked
   refcount_inc_checked
   refcount_inc_not_zero_checked
+  refresh_frequency_limits
   __refrigerator
   regcache_cache_bypass
   regcache_cache_only
@@ -1198,6 +1220,7 @@
   regmap_write
   regulator_bulk_disable
   regulator_bulk_enable
+  regulator_count_voltages
   regulator_disable
   regulator_enable
   regulator_force_disable
@@ -1208,6 +1231,7 @@
   regulator_list_voltage_linear
   regulator_map_voltage_linear
   regulator_put
+  regulator_set_load
   regulator_set_mode
   regulator_set_voltage
   release_firmware
@@ -1230,6 +1254,7 @@
   reset_control_put
   reset_control_reset
   return_address
+  revert_creds
   rfkill_alloc
   rfkill_blocked
   rfkill_destroy
@@ -1257,11 +1282,29 @@
   schedule_timeout
   schedule_timeout_uninterruptible
   scnprintf
+  __scsi_add_device
+  scsi_add_host_with_dma
+  scsi_autopm_get_device
+  scsi_autopm_put_device
+  scsi_block_requests
   scsi_block_when_processing_errors
+  scsi_change_queue_depth
   scsi_device_get
   __scsi_device_lookup_by_target
+  scsi_device_put
+  scsi_dma_map
+  scsi_dma_unmap
   __scsi_execute
+  scsi_host_alloc
+  scsi_host_put
+  scsi_is_host_device
+  scsi_print_command
   scsi_print_sense_hdr
+  scsi_remove_device
+  scsi_remove_host
+  scsi_report_bus_reset
+  scsi_scan_host
+  scsi_unblock_requests
   sdev_prefix_printk
   sdio_signal_irq
   security_sock_graft
@@ -1276,6 +1319,7 @@
   setup_irq
   sg_alloc_table
   sg_alloc_table_from_pages
+  sg_copy_from_buffer
   sg_copy_to_buffer
   sget
   sg_free_table
@@ -1307,6 +1351,7 @@
   skb_copy_datagram_iter
   skb_copy_expand
   skb_dequeue
+  skb_dequeue_tail
   skb_free_datagram
   skb_pull
   skb_push
@@ -1510,6 +1555,7 @@
   sysfs_remove_bin_file
   sysfs_remove_file_ns
   sysfs_remove_group
+  sysfs_remove_groups
   sysfs_remove_link
   sysfs_streq
   system_freezable_wq
@@ -1557,6 +1603,7 @@
   __tracepoint_suspend_resume
   trace_print_array_seq
   trace_print_flags_seq
+  trace_print_hex_seq
   trace_print_symbols_seq
   __trace_puts
   trace_raw_output_prep
@@ -1722,6 +1769,7 @@
   __usecs_to_jiffies
   user_path_at_empty
   usleep_range
+  utf16s_to_utf8s
   v4l2_ctrl_handler_free
   v4l2_ctrl_handler_init_class
   v4l2_ctrl_handler_setup
