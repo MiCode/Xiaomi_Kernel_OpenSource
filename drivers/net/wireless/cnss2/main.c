@@ -2250,6 +2250,11 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 	struct list_head head;
 	int i, ret = 0;
 
+	if (!dump_enabled()) {
+		cnss_pr_info("Dump collection is not enabled\n");
+		return ret;
+	}
+
 	INIT_LIST_HEAD(&head);
 	for (i = 0; i < dump_data->nentries; i++) {
 		if (dump_seg->type >= CNSS_FW_DUMP_TYPE_MAX) {
