@@ -1434,6 +1434,38 @@ int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
 }
 EXPORT_SYMBOL(msm_dwc3_reset_dbm_ep);
 
+static int __dwc3_msm_ebc_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
+{
+	struct dwc3_gadget_ep_cmd_params params;
+	u32 cmd, param1;
+	int ret = 0;
+
+	req->status = DWC3_REQUEST_STATUS_STARTED;
+	list_add_tail(&req->list, &dep->started_list);
+	if (dep->direction)
+		param1 = 0x0;
+	else
+		param1 = 0x200;
+
+	/* Now start the transfer */
+	memset(&params, 0, sizeof(params));
+	params.param0 = 0x8000; /* TDAddr High */
+	params.param1 = param1; /* DAddr Low */
+
+	cmd = DWC3_DEPCMD_STARTTRANSFER;
+	ret = dwc3_core_send_gadget_ep_cmd(dep, cmd, &params);
+	if (ret < 0) {
+		dev_dbg(dep->dwc->dev,
+			"%s: failed to send STARTTRANSFER command\n",
+			__func__);
+
+		list_del(&req->list);
+		return ret;
+	}
+
+	return ret;
+}
+
 /**
  * Helper function.
  * See the header of the dwc3_msm_ep_queue function.
@@ -1443,13 +1475,15 @@ EXPORT_SYMBOL(msm_dwc3_reset_dbm_ep);
  *
  * @return int - 0 on success, negative on error.
  */
-static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
+static int __dwc3_msm_dbm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 {
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_trb *trb;
 	struct dwc3_trb *trb_link;
 	struct dwc3_gadget_ep_cmd_params params;
 	u32 cmd;
-	int ret = 0;
+	int ret = 0, size;
 
 	/* We push the request to the dep->started_list list to indicate that
 	 * this request is issued with start transfer. The request will be out
@@ -1460,6 +1494,12 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	 */
 	req->status = DWC3_REQUEST_STATUS_STARTED;
 	list_add_tail(&req->list, &dep->started_list);
+
+	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
+	dbm_event_buffer_config(mdwc,
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
+		DWC3_GEVNTSIZ_SIZE(size));
 
 	/* First, prepare a normal TRB, point to the fake buffer */
 	trb = &dep->trb_pool[dep->trb_enqueue];
@@ -1506,6 +1546,9 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		return ret;
 	}
 
+	msm_dbm_write_reg(mdwc, DBM_GEN_CFG,
+				dwc3_msm_is_superspeed(mdwc) ? 1 : 0);
+
 	return ret;
 }
 
@@ -1540,7 +1583,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_msm_req_complete *req_complete;
 	unsigned long flags;
-	int ret = 0, size;
+	int ret = 0;
 
 	/*
 	 * We must obtain the lock of the dwc3 core driver,
@@ -1573,7 +1616,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	}
 
 	/* HW restriction regarding TRB size (8KB) */
-	if (req->request.length < 0x2000) {
+	if (mdwc->hw_eps[dep->number].mode == USB_EP_BAM && req->request.length < 0x2000) {
 		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EINVAL;
@@ -1617,23 +1660,19 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 
 	dev_vdbg(dwc->dev, "%s: queuing request %pK to ep %s length %d\n",
 			__func__, request, ep->name, request->length);
-	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
-	dbm_event_buffer_config(mdwc,
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
-		DWC3_GEVNTSIZ_SIZE(size));
 
-	ret = __dwc3_msm_ep_queue(dep, req);
+	if (mdwc->hw_eps[dep->number].mode == USB_EP_EBC)
+		ret = __dwc3_msm_ebc_ep_queue(dep, req);
+	else
+		ret = __dwc3_msm_dbm_ep_queue(dep, req);
 	if (ret < 0) {
 		dev_err(mdwc->dev,
-			"error %d after calling __dwc3_msm_ep_queue\n", ret);
+			"error %d after queuing %s req\n", ret,
+			mdwc->hw_eps[dep->number].mode == USB_EP_EBC ? "ebc" : "dbm");
 		goto err;
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	msm_dbm_write_reg_field(mdwc, DBM_GEN_CFG, DBM_EN_USB3,
-			dwc3_msm_is_dev_superspeed(mdwc) ? 1 : 0);
 
 	return 0;
 
