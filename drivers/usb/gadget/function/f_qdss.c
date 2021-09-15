@@ -435,8 +435,11 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	qdss->port.data = ep;
 	ep->driver_data = qdss;
 
-	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MSM)) {
-		ret = msm_ep_set_mode(qdss->port.data, USB_EP_BAM);
+	if (!qdss_uses_sw_path(qdss)) {
+		ret = msm_ep_set_mode(qdss->port.data, qdss->ch.ch_type);
+		if (ret < 0)
+			goto clear_ep;
+
 		msm_ep_update_ops(qdss->port.data);
 	}
 
@@ -459,8 +462,8 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		ep->driver_data = qdss;
 	}
 
-	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MSM)) {
-		ret = alloc_sps_req(qdss->port.data);
+	if (!qdss_uses_sw_path(qdss)) {
+		ret = alloc_hw_req(qdss->port.data);
 		if (ret) {
 			pr_err("%s: alloc_sps_req error (%d)\n",
 							__func__, ret);
@@ -571,11 +574,7 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 			NULL);
 
 	/* Uninitialized init data i.e. ep specific operation */
-	if (qdss->ch.app_conn && !strcmp(qdss->ch.name, USB_QDSS_CH_MSM)) {
-		status = uninit_data(qdss->port.data);
-		if (status)
-			pr_err("%s: uninit_data error\n", __func__);
-
+	if (qdss->ch.app_conn && !qdss_uses_sw_path(qdss)) {
 		status = set_qdss_data_connection(qdss, 0);
 		if (status)
 			pr_err("qdss_disconnect error\n");
@@ -787,6 +786,14 @@ static struct f_qdss *alloc_usb_qdss(char *channel_name)
 	spin_lock_irqsave(&channel_lock, flags);
 	ch = &qdss->ch;
 	ch->name = channel_name;
+
+	if (!strcmp(ch->name, USB_QDSS_CH_MSM))
+		ch->ch_type = USB_EP_BAM;
+	else if (!strcmp(ch->name, USB_QDSS_CH_EBC))
+		ch->ch_type = USB_EP_EBC;
+	else
+		ch->ch_type = USB_EP_NONE;
+
 	list_add_tail(&ch->list, &usb_qdss_ch_list);
 	spin_unlock_irqrestore(&channel_lock, flags);
 
@@ -964,10 +971,6 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	gadget = qdss->gadget;
 	ch->app_conn = 0;
 	spin_unlock_irqrestore(&channel_lock, flags);
-
-	status = uninit_data(qdss->port.data);
-	if (status)
-		pr_err("%s: uninit_data error\n", __func__);
 
 	status = set_qdss_data_connection(qdss, 0);
 	if (status)

@@ -71,7 +71,6 @@ struct usb_qdss_opts {
 	char *channel_name;
 };
 
-int uninit_data(struct usb_ep *ep);
 int set_qdss_data_connection(struct f_qdss *qdss, int enable);
-int alloc_sps_req(struct usb_ep *data_ep);
+int alloc_hw_req(struct usb_ep *data_ep);
 #endif
