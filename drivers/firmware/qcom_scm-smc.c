@@ -96,6 +96,7 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 				    ARM_SMCCC_SMC_32 : ARM_SMCCC_SMC_64;
 	struct arm_smccc_res smc_res;
 	struct arm_smccc_args smc = {0};
+	struct qcom_scm_res wait_res;
 
 	smc.args[0] = ARM_SMCCC_CALL_VAL(
 		smccc_call_type,
@@ -161,18 +162,28 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 			kfree(shm.vaddr);
 	}
 
-	if (res) {
-		res->result[0] = smc_res.a1;
-		res->result[1] = smc_res.a2;
-		res->result[2] = smc_res.a3;
-	}
-
 	if (smc_res.a0 == QCOM_SCM_WAITQ_SLEEP ||
 			smc_res.a0 == QCOM_SCM_WAITQ_WAKE) {
 		/* Atomic calls should not wait */
 		BUG_ON(call_type == QCOM_SCM_CALL_ATOMIC);
-		return qcom_scm_handle_wait(dev, smc_res.a0, res);
+
+		wait_res.result[0] = smc_res.a1;
+		wait_res.result[1] = smc_res.a2;
+		wait_res.result[2] = smc_res.a3;
+
+		ret = qcom_scm_handle_wait(dev, smc_res.a0, &wait_res);
+
+		if (res)
+			*res = wait_res;
+	} else {
+		if (res) {
+			res->result[0] = smc_res.a1;
+			res->result[1] = smc_res.a2;
+			res->result[2] = smc_res.a3;
+		}
+
+		ret = (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
 	}
 
-	return (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
+	return ret;
 }
