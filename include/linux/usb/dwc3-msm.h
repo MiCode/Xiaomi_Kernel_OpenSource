@@ -37,6 +37,9 @@
 #define MSM_INTERNAL_MEM		BIT(10)
 #define MSM_VENDOR_ID			BIT(16)
 
+/* EBC TRB parameters */
+#define EBC_TRB_SIZE			16384
+
 /* Operations codes for GSI enabled EPs */
 enum gsi_ep_op {
 	GSI_EP_OP_CONFIG = 0,
