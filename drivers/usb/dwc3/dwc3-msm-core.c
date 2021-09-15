@@ -174,6 +174,19 @@
 /* BAM pipe mask */
 #define MSM_PIPE_ID_MASK	(0x1F)
 
+/* EBC/LPC Configuration */
+#define LPC_SCAN_MASK		(QSCRATCH_REG_OFFSET + 0x200)
+#define LPC_REG			(QSCRATCH_REG_OFFSET + 0x204)
+
+#define LPC_SPEED_INDICATOR	BIT(0)
+#define LPC_SSP_MODE		BIT(1)
+#define LPC_BUS_CLK_EN		BIT(12)
+
+#define DWC3_DEPCFG_EBC_MODE		BIT(15)
+
+#define DWC3_DEPCFG_RETRY		BIT(15)
+#define DWC3_DEPCFG_TRB_WB		BIT(14)
+
 enum dbm_reg {
 	DBM_EP_CFG,
 	DBM_DATA_FIFO,
@@ -539,6 +552,7 @@ struct dwc3_msm {
 	void            *dwc_dma_ipc_log_ctxt;
 
 	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
+	phys_addr_t		ebc_desc_addr;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1634,6 +1648,7 @@ err:
  * Supported EP types:
  * - USB GSI
  * - USB BAM
+ * - USB EBC
  */
 static void dwc3_msm_depcfg_params(struct usb_ep *ep, struct dwc3_gadget_ep_cmd_params *params)
 {
@@ -1671,6 +1686,9 @@ static void dwc3_msm_depcfg_params(struct usb_ep *ep, struct dwc3_gadget_ep_cmd_
 		params->param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
 		params->param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
 		params->param1 |= DWC3_DEPCFG_FIFO_ERROR_EN;
+	} else if (mdwc->hw_eps[dep->number].mode == USB_EP_EBC) {
+		params->param1 |= DWC3_DEPCFG_RETRY | DWC3_DEPCFG_TRB_WB;
+		params->param0 |= DWC3_DEPCFG_EBC_MODE;
 	}
 }
 
@@ -5029,6 +5047,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dwc3_msm_config_gdsc(mdwc, 0);
 		}
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ebc_desc");
+	if (res)
+		mdwc->ebc_desc_addr = res->start;
 
 	dwc3_init_dbm(mdwc);
 

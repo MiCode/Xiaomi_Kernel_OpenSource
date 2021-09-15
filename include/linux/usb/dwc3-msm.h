@@ -59,6 +59,7 @@ enum usb_hw_ep_mode {
 	USB_EP_NONE,
 	USB_EP_BAM,
 	USB_EP_GSI,
+	USB_EP_EBC,
 };
 
 enum dwc3_notify_event {
