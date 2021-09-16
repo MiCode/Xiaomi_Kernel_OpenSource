@@ -154,6 +154,13 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 	int i, cpu, cnt = 0;
 	struct thermal_struct thermal_order[NR_CPUS];
 
+	if (cpumask_weight(cpus) == 1) {
+		cpu = cpumask_first(cpus);
+		*cpu_order = cpu;
+
+		return 1;
+	}
+
 	for_each_cpu_and(cpu, cpus, cpu_online_mask) {
 		thermal_order[cnt].cpu_id = cpu;
 		thermal_order[cnt].headroom = get_thermal_headroom(cpu);
