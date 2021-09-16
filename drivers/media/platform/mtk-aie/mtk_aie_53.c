@@ -530,7 +530,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 		config_aie_cmdq_secure_end(fd);
 	}
 	mtk_aie_ccf_disable(fd->dev);
-	pm_runtime_put(fd->dev);
+	pm_runtime_put_sync(fd->dev);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) {
 		mtk_aie_mmqos_set(fd, 0);
