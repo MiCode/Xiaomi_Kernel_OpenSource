@@ -37,10 +37,8 @@
 	/* Battery temperature T2 */
 	TEMPERATURE_T3 = <(0)>;
 	/* Battery temperature T3 */
-	TEMPERATURE_T4 = <(-6)>;
+	TEMPERATURE_T4 = <(-10)>;
 	/* Battery temperature T4 */
-	TEMPERATURE_T5 = <(-10)>;
-	/* Battery temperature T5 */
 	g_FG_PSEUDO100_T0 = <(100)>;
 	/* Pseudo 100% percentage at T0 */
 	g_FG_PSEUDO100_T1 = <(100)>;
@@ -65,7 +63,7 @@
 	/* compensate R_sense resistance */
 	enable_tmp_intr_suspend = <(0)>;
 	/* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+	ACTIVE_TABLE = <(5)>;
 	/* Table numbers per battery */
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
