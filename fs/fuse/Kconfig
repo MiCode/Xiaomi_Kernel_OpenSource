@@ -52,3 +52,9 @@ config FUSE_DAX
 
 	  If you want to allow mounting a Virtio Filesystem with the "dax"
 	  option, answer Y.
+
+config MTK_FUSE_PASSTHROUGH_MTIME_UPDATE
+	bool "update file time in passthrough path"
+	help
+	  This is a temporary config used for mtk userdebug and eng load to fix
+	  the file time issue when passthrough is used.
