@@ -104,7 +104,6 @@ static struct cmdq_util	util;
 static DEFINE_MUTEX(cmdq_record_mutex);
 static DEFINE_MUTEX(cmdq_dump_mutex);
 struct cmdq_util_controller_fp controller_fp = {
-	.dump_dbg_reg = cmdq_util_dump_dbg_reg,
 	.track_ctrl = cmdq_util_track_ctrl,
 };
 struct cmdq_util_helper_fp helper_fp = {
@@ -411,7 +410,7 @@ enum cmdq_smc_request {
 	CMDQ_PREBUILT_DUMP,
 };
 
-static atomic_t cmdq_dbg_ctrl = ATOMIC_INIT(0);
+static atomic_t cmdq_dbg_ctrl[CMDQ_HW_MAX] = {ATOMIC_INIT(0)};
 
 void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
 {
@@ -466,48 +465,16 @@ void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
 }
 EXPORT_SYMBOL(cmdq_util_prebuilt_dump);
 
-void cmdq_util_dump_dbg_reg(void *chan)
+void cmdq_util_enable_dbg(u32 id)
 {
-	void *base = cmdq_mbox_get_base(chan);
-	u32 dbg0[3], dbg2[6], dbg3, i;
-	u32 id;
-
-	if (!base) {
-		cmdq_util_msg("no cmdq dbg since no base");
-		return;
-	}
-
-	id = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(chan));
-
-	if (atomic_cmpxchg(&cmdq_dbg_ctrl, 0, 1) == 0) {
+	if ((id < CMDQ_HW_MAX) && (atomic_cmpxchg(&cmdq_dbg_ctrl[id], 0, 1) == 0)) {
 		struct arm_smccc_res res;
 
 		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG, id,
 			0, 0, 0, 0, 0, &res);
 	}
-
-	/* debug select */
-	for (i = 0; i < 6; i++) {
-		if (i < 3) {
-			writel((i << 8) | i, base + GCE_DBG_CTL);
-			dbg0[i] = readl(base + GCE_DBG0);
-		} else {
-			/* only other part */
-			writel(i << 8, base + GCE_DBG_CTL);
-		}
-		dbg2[i] = readl(base + GCE_DBG2);
-	}
-
-	dbg3 = readl(base + GCE_DBG3);
-
-	cmdq_util_user_msg(chan,
-		"id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x dbg3:%#x",
-		id,
-		dbg0[0], dbg0[1], dbg0[2],
-		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5],
-		dbg3);
 }
-EXPORT_SYMBOL(cmdq_util_dump_dbg_reg);
+EXPORT_SYMBOL(cmdq_util_enable_dbg);
 
 void cmdq_util_track(struct cmdq_pkt *pkt)
 {
@@ -581,6 +548,18 @@ void cmdq_util_dump_smi(void)
 #endif
 }
 EXPORT_SYMBOL(cmdq_util_dump_smi);
+
+void cmdq_util_devapc_dump(void)
+{
+	u32 i;
+
+	cmdq_util_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
+	for (i = 0; i < util.mbox_cnt; i++) {
+		cmdq_mbox_dump_dbg(util.cmdq_mbox[i], NULL);
+		cmdq_thread_dump_all(util.cmdq_mbox[i]);
+	}
+}
+EXPORT_SYMBOL(cmdq_util_devapc_dump);
 
 #ifdef CONFIG_MTK_DEVAPC
 static void cmdq_util_handle_devapc_vio(void)

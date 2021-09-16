@@ -98,6 +98,10 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 #define CMDQ_THR_PRIORITY		0x7
 #define CMDQ_TPR_EN			BIT(31)
 
+#define GCE_DBG_CTL			0x3000
+#define GCE_DBG0			0x3004
+#define GCE_DBG2			0x300C
+#define GCE_DBG3			0x3010
 
 #define CMDQ_JUMP_BY_OFFSET		0x10000000
 #define CMDQ_JUMP_BY_PA			0x10000001
@@ -446,7 +450,7 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 		cmdq_err("suspend GCE thread 0x%x failed",
 			(u32)(thread->base - cmdq->base));
 		if (thread->chan)
-			cmdq_util_dump_dbg_reg(thread->chan);
+			cmdq_chan_dump_dbg(thread->chan);
 		return -EFAULT;
 	}
 
@@ -477,7 +481,7 @@ int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
 			0, 10)) {
 		cmdq_err("reset GCE thread %u failed", thread->idx);
 		if (thread->chan)
-			cmdq_util_dump_dbg_reg(thread->chan);
+			cmdq_chan_dump_dbg(thread->chan);
 		return -EFAULT;
 	}
 	writel(CMDQ_THR_ACTIVE_SLOT_CYCLES, cmdq->base + CMDQ_THR_SLOT_CYCLES);
@@ -1272,7 +1276,7 @@ void cmdq_dump_core(struct mbox_chan *chan)
 		"notifier_time:%llu:%llu",
 		cmdq->notifier_time[0], cmdq->notifier_time[1]);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util_controller->dump_dbg_reg(chan);
+	cmdq_chan_dump_dbg(chan);
 #endif
 }
 EXPORT_SYMBOL(cmdq_dump_core);
@@ -1413,6 +1417,61 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		*pc_out = curr_pa;
 }
 EXPORT_SYMBOL(cmdq_thread_dump);
+
+void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan)
+{
+	struct cmdq *cmdq = mbox_cmdq;
+	void *base = cmdq->base;
+	u32 dbg0[3], dbg2[6], dbg3, i;
+	u32 id;
+
+	if (!base) {
+		cmdq_util_msg("no cmdq dbg since no base");
+		return;
+	}
+
+	id = cmdq_util_get_hw_id((u32)cmdq->base_pa);
+	cmdq_util_enable_dbg(id);
+
+	/* debug select */
+	for (i = 0; i < 6; i++) {
+		if (i < 3) {
+			writel((i << 8) | i, base + GCE_DBG_CTL);
+			dbg0[i] = readl(base + GCE_DBG0);
+		} else {
+			/* only other part */
+			writel(i << 8, base + GCE_DBG_CTL);
+		}
+		dbg2[i] = readl(base + GCE_DBG2);
+	}
+
+	dbg3 = readl(base + GCE_DBG3);
+
+	if (chan)
+		cmdq_util_user_msg(chan,
+		"id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x dbg3:%#x",
+		id,
+		dbg0[0], dbg0[1], dbg0[2],
+		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5],
+		dbg3);
+	else
+		cmdq_util_msg(
+			"id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x dbg3:%#x",
+			id,
+			dbg0[0], dbg0[1], dbg0[2],
+			dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5],
+			dbg3);
+}
+EXPORT_SYMBOL(cmdq_mbox_dump_dbg);
+
+void cmdq_chan_dump_dbg(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	cmdq_mbox_dump_dbg(cmdq, chan);
+}
+EXPORT_SYMBOL(cmdq_chan_dump_dbg);
 
 void cmdq_thread_dump_all(void *mbox_cmdq)
 {

@@ -137,7 +137,6 @@ void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client);
 void cmdq_util_prebuilt_init(const u16 mod);
 void cmdq_util_prebuilt_enable(const u16 hwid);
 void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event);
-void cmdq_util_dump_dbg_reg(void *chan);
 void cmdq_util_track(struct cmdq_pkt *pkt);
 void cmdq_util_dump_smi(void);
 u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base, bool sec);
@@ -151,5 +150,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 u32 cmdq_util_hw_id(u32 pa);
 const char *cmdq_util_hw_name(void *chan);
 bool cmdq_thread_ddr_module(const s32 thread);
+void cmdq_util_enable_dbg(u32 id);
+void cmdq_util_devapc_dump(void);
 int cmdq_util_init(void);
 #endif

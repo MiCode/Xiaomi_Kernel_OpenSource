@@ -1852,7 +1852,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 
 	cmdq_util_user_err(client ? client->chan : NULL,
 		"begin of error irq %u", err_num++);
-	cmdq_util_dump_dbg_reg(client->chan);
+	cmdq_chan_dump_dbg(client->chan);
 	cmdq_task_get_thread_pc(client->chan, &pc);
 	cmdq_util_user_err(client ? client->chan : NULL,
 		"pkt:%lx thread:%d pc:%lx",
