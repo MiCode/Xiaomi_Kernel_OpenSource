@@ -74,6 +74,10 @@ struct sw_logger_seq_data {
 
 static struct sw_logger_seq_data pSeqData_lock_obj;
 
+/* debug log */
+#define PROC_WRITE_BUFSIZE 16
+#define CLEAR_LOG_CMD "clear"
+
 static int apusys_debug_dump(struct seq_file *s, void *unused)
 {
 	DBG_LOG_CON(s, "%d\n", g_sw_logger_log_lv);
@@ -680,9 +684,45 @@ static int debug_sqopen(struct inode *inode, struct file *file)
 	return seq_open(file, &seq_ops);
 }
 
+static void clear_sw_log_buf(void)
+{
+	unsigned long flags;
+
+	LOGGER_INFO("in\n");
+
+	spin_lock_irqsave(&sw_logger_spinlock, flags);
+	iowrite32(0, LOG_W_PTR);
+	iowrite32(0, LOG_R_PTR);
+	iowrite32(0, LOG_OV_FLG);
+	memset(sw_log_buf, 0, APU_LOG_SIZE);
+	spin_unlock_irqrestore(&sw_logger_spinlock, flags);
+}
+
+static ssize_t debug_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *pos)
+{
+	char buf[PROC_WRITE_BUFSIZE];
+
+	if (*pos > 0 || count > PROC_WRITE_BUFSIZE)
+		return -EFAULT;
+
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+
+	buf[PROC_WRITE_BUFSIZE - 1] = '\0';
+
+	LOGGER_INFO("cmd = %s\n", buf);
+
+	if (!strncmp(buf, CLEAR_LOG_CMD, strlen(CLEAR_LOG_CMD)))
+		clear_sw_log_buf();
+
+	return count;
+}
+
 static const struct proc_ops sw_loggerSeqLog_ops = {
 	.proc_open    = debug_sqopen,
 	.proc_read    = seq_read,    // system
+	.proc_write   = debug_write,
 	.proc_lseek  = seq_lseek,   // system
 	.proc_release = seq_release  // system
 };
@@ -691,6 +731,7 @@ static const struct proc_ops sw_loggerSeqLogL_ops = {
 	.proc_open    = debug_sqopen_lock,
 	.proc_poll    = seq_poll,
 	.proc_read    = seq_read,    // system
+	.proc_write   = debug_write,
 	.proc_lseek  = seq_lseek,   // system
 	.proc_release = seq_release  // system
 };

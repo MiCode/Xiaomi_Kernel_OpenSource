@@ -104,6 +104,10 @@ static wait_queue_head_t apusys_hwlog_wait;
 
 #define APUSYS_HWLOG_WQ_NAME "apusys_hwlog_wq"
 
+/* debug log */
+#define PROC_WRITE_BUFSIZE 16
+#define CLEAR_LOG_CMD "clear"
+
 static void hw_logger_buf_invalidate(void)
 {
 	dma_sync_single_for_cpu(
@@ -992,9 +996,60 @@ static int debug_sqopen(struct inode *inode, struct file *file)
 	return seq_open(file, &seq_ops);
 }
 
+static void clear_local_log_buf(void)
+{
+	unsigned long flags;
+
+	HWLOGR_INFO("in\n");
+
+	mutex_lock(&hw_logger_mutex);
+
+	memset(local_log_buf, 0, LOCAL_LOG_SIZE);
+
+	spin_lock_irqsave(&hw_logger_spinlock, flags);
+	__loc_log_w_ofs = 0;
+	__loc_log_ov_flg = 0;
+
+	g_log.w_ptr = 0;
+	g_log.r_ptr = U32_MAX;
+	g_log.ov_flg = 0;
+	g_log.not_rd_sz = 0;
+	g_log_l.w_ptr = 0;
+	g_log_l.r_ptr = U32_MAX;
+	g_log_l.ov_flg = 0;
+	g_log_l.not_rd_sz = 0;
+
+	g_log_lm.not_rd_sz = 0;
+	spin_unlock_irqrestore(&hw_logger_spinlock, flags);
+
+	mutex_unlock(&hw_logger_mutex);
+}
+
+static ssize_t debug_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *pos)
+{
+	char buf[PROC_WRITE_BUFSIZE];
+
+	if (*pos > 0 || count > PROC_WRITE_BUFSIZE)
+		return -EFAULT;
+
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+
+	buf[PROC_WRITE_BUFSIZE - 1] = '\0';
+
+	HWLOGR_INFO("cmd = %s\n", buf);
+
+	if (!strncmp(buf, CLEAR_LOG_CMD, strlen(CLEAR_LOG_CMD)))
+		clear_local_log_buf();
+
+	return count;
+}
+
 static const struct proc_ops hw_loggerSeqLog_ops = {
 	.proc_open    = debug_sqopen,
 	.proc_read    = seq_read,
+	.proc_write   = debug_write,
 	.proc_lseek  = seq_lseek,
 	.proc_release = seq_release
 };
@@ -1003,6 +1058,7 @@ static const struct proc_ops hw_loggerSeqLogL_ops = {
 	.proc_open    = debug_sqopen_lock,
 	.proc_poll    = seq_poll,
 	.proc_read    = seq_read,
+	.proc_write   = debug_write,
 	.proc_lseek  = seq_lseek,
 	.proc_release = seq_release
 };
