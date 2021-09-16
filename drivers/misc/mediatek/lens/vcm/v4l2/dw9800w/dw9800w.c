@@ -211,11 +211,17 @@ fail:
 
 static int dw9800w_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct dw9800w_device *dw9800w = to_dw9800w_vcm(ctrl);
 
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
 		LOG_INF("pos(%d)\n", ctrl->val);
-		return dw9800w_set_position(dw9800w, ctrl->val);
+		ret = dw9800w_set_position(dw9800w, ctrl->val);
+		if (ret) {
+			LOG_INF("%s I2C failure: %d",
+				__func__, ret);
+			return ret;
+		}
 	}
 	return 0;
 }

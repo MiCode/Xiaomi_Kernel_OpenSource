@@ -189,11 +189,17 @@ fail:
 
 static int gt9764_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct gt9764_device *gt9764 = to_gt9764_vcm(ctrl);
 
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
 		LOG_INF("pos(%d)\n", ctrl->val);
-		return gt9764_set_position(gt9764, ctrl->val);
+		ret = gt9764_set_position(gt9764, ctrl->val);
+		if (ret) {
+			LOG_INF("%s I2C failure: %d",
+				__func__, ret);
+			return ret;
+		}
 	}
 	return 0;
 }

@@ -191,11 +191,17 @@ fail:
 
 static int gt9772a_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct gt9772a_device *gt9772a = to_gt9772a_vcm(ctrl);
 
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
 		LOG_INF("pos(%d)\n", ctrl->val);
-		return gt9772a_set_position(gt9772a, ctrl->val);
+		ret = gt9772a_set_position(gt9772a, ctrl->val);
+		if (ret) {
+			LOG_INF("%s I2C failure: %d",
+				__func__, ret);
+			return ret;
+		}
 	}
 	return 0;
 }

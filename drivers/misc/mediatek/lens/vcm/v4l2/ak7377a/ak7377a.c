@@ -196,11 +196,17 @@ fail:
 
 static int ak7377a_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct ak7377a_device *ak7377a = to_ak7377a_vcm(ctrl);
 
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
 		LOG_INF("pos(%d)\n", ctrl->val);
-		return ak7377a_set_position(ak7377a, ctrl->val);
+		ret = ak7377a_set_position(ak7377a, ctrl->val);
+		if (ret) {
+			LOG_INF("%s I2C failure: %d",
+				__func__, ret);
+			return ret;
+		}
 	}
 	return 0;
 }

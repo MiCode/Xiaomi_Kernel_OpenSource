@@ -201,11 +201,17 @@ fail:
 
 static int lc898229_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct lc898229_device *lc898229 = to_lc898229_vcm(ctrl);
 
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
 		LOG_INF("pos(%d)\n", ctrl->val);
-		return lc898229_set_position(lc898229, ctrl->val);
+		ret = lc898229_set_position(lc898229, ctrl->val);
+		if (ret) {
+			LOG_INF("%s I2C failure: %d",
+				__func__, ret);
+			return ret;
+		}
 	}
 	return 0;
 }

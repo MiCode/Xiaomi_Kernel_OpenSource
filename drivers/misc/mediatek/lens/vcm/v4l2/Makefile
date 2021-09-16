@@ -9,5 +9,6 @@ obj-$(CONFIG_MTK_V4L2_LENS)   += gt9764/
 obj-$(CONFIG_MTK_V4L2_LENS)   += gt9772a/
 obj-$(CONFIG_MTK_V4L2_LENS)   += gt9772b/
 obj-$(CONFIG_MTK_V4L2_LENS)   += ak7377a/
-obj-$(CONFIG_MTK_V4L2_LENS)   += ak7377b/
 obj-$(CONFIG_MTK_V4L2_LENS)   += dw9800w/
+obj-$(CONFIG_MTK_V4L2_LENS)   += ak7375c/
+obj-$(CONFIG_MTK_V4L2_LENS)   += bu64253gwz/

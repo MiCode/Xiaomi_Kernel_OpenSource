@@ -237,11 +237,17 @@ fail:
 
 static int dw9718_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct dw9718_device *dw9718 = to_dw9718_vcm(ctrl);
 
-	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE)
-		return dw9718_set_position(dw9718, ctrl->val);
-
+	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
+		ret = dw9718_set_position(dw9718, ctrl->val);
+		if (ret) {
+			pr_info("%s I2C failure: %d",
+				__func__, ret);
+			return ret;
+		}
+	}
 	return 0;
 }
 
