@@ -513,7 +513,6 @@ int cmdq_TranslationFault_callback(
 		"=============== [MDP] Frame Information Begin ===============================\n");
 	/* find dispatch module and assign dispatch key */
 	cmdq_mdp_check_TF_address(mva, dispatchModel);
-	memcpy(data, dispatchModel, sizeof(dispatchModel));
 	CMDQ_ERR(
 		"=============== [MDP] Frame Information End =================================\n");
 	CMDQ_ERR("================= [MDP M4U] Dump End ================\n");
@@ -1500,19 +1499,17 @@ struct device *mdp_init_larb(struct platform_device *pdev, u8 idx)
 void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
 #ifdef MDP_IOMMU_DEBUG
-	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
-
 	CMDQ_LOG("[MDP] %s\n", __func__);
 
 	/* Register ION Translation Fault function */
 	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA0,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA2,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT0,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT2,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 #endif
 
 	/* must porting in dts */
