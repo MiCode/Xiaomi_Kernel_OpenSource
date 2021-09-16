@@ -647,7 +647,8 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	if (range && (tlb_en & F_MMU_INV_RANGE)) {
 		pr_warn("%s, TLB flush Range timed out, need to extend time!!(%d, %d)\n", __func__,
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
-		__mtk_dump_reg_for_hang_issue(data);
+		//mtk_smi_dbg_hang_detect() will call __mtk_dump_reg_for_hang_issue()
+		mtk_smi_dbg_hang_detect("iommu");
 		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
 			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
 			readl_relaxed(data->base + REG_MMU_CPE_DONE));
@@ -655,7 +656,8 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	} else if (!range && (tlb_en & F_ALL_INVLD)) {
 		pr_warn("%s, TLB flush All timed out, need to extend time!!(%d, %d)\n", __func__,
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
-		__mtk_dump_reg_for_hang_issue(data);
+		//mtk_smi_dbg_hang_detect() will call __mtk_dump_reg_for_hang_issue()
+		mtk_smi_dbg_hang_detect("iommu");
 		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
 			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
 			readl_relaxed(data->base + REG_MMU_CPE_DONE));
