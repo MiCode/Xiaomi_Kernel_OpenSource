@@ -31,19 +31,15 @@ extern bool g_trace_log;
 
 #define mtk_drm_trace_async_begin(fmt, args...) do { \
 	if (g_trace_log) { \
-		preempt_disable(); \
-		/* event_trace_printk(mtk_drm_get_tracing_mark(), \
-			"S|%d|"fmt"\n", current->tgid, ##args); */ \
-		preempt_enable();\
+		mtk_drm_print_trace( \
+			"S|%d|"fmt"\n", current->tgid, ##args); \
 	} \
 } while (0)
 
 #define mtk_drm_trace_async_end(fmt, args...) do { \
 	if (g_trace_log) { \
-		preempt_disable(); \
-		/* event_trace_printk(mtk_drm_get_tracing_mark(), \
-			"F|%d|"fmt"\n", current->tgid, ##args); */ \
-		preempt_enable();\
+		mtk_drm_print_trace( \
+			"F|%d|"fmt"\n", current->tgid, ##args); \
 	} \
 } while (0)
 
