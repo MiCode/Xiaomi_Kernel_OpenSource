@@ -218,6 +218,9 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type);
 void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);
 void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf);
+int mtk_dma_sync_sg_range(const struct sg_table *sgt,
+	struct device *dev, unsigned int size,
+	enum dma_data_direction direction);
 void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)

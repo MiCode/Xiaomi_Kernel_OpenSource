@@ -291,6 +291,55 @@ void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_buf_queue_check);
 
+int mtk_dma_sync_sg_range(const struct sg_table *sgt,
+	struct device *dev, unsigned int size,
+	enum dma_data_direction direction)
+{
+	struct sg_table *sgt_tmp;
+	struct scatterlist *s_sgl, *d_sgl;
+	unsigned int contig_size = 0;
+	int ret, i;
+
+	sgt_tmp = kzalloc(sizeof(*sgt_tmp), GFP_KERNEL);
+	if (!sgt_tmp)
+		return -1;
+
+	ret = sg_alloc_table(sgt_tmp, sgt->orig_nents, GFP_KERNEL);
+	if (ret) {
+		mtk_v4l2_debug(0, "sg alloc table failed %d.\n", ret);
+		kfree(sgt_tmp);
+		return -1;
+	}
+	sgt_tmp->nents = 0;
+	d_sgl = sgt_tmp->sgl;
+
+	for_each_sg(sgt->sgl, s_sgl, sgt->orig_nents, i) {
+		mtk_v4l2_debug(4, "%d contig_size %d bytesused %d.\n",
+			i, contig_size, size);
+		if (contig_size >= size)
+			break;
+		memcpy(d_sgl, s_sgl, sizeof(*s_sgl));
+		contig_size += sg_dma_len(s_sgl);
+		d_sgl = sg_next(d_sgl);
+		sgt_tmp->nents++;
+	}
+	if (direction == DMA_TO_DEVICE) {
+		dma_sync_sg_for_device(dev, sgt_tmp->sgl, sgt_tmp->nents, direction);
+	} else if (direction == DMA_FROM_DEVICE) {
+		dma_sync_sg_for_cpu(dev, sgt_tmp->sgl, sgt_tmp->nents, direction);
+	} else {
+		mtk_v4l2_debug(0, "direction %d not correct\n", direction);
+		return -1;
+	}
+	mtk_v4l2_debug(4, "flush nents %d total nents %d\n",
+		sgt_tmp->nents, sgt->orig_nents);
+	sg_free_table(sgt_tmp);
+	kfree(sgt_tmp);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dma_sync_sg_range);
+
 void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 {
 	const char *descr = NULL;

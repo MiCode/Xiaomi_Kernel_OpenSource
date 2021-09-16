@@ -2153,10 +2153,8 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 				dma_buf_detach(vb->planes[0].dbuf, buf_att);
 				return -EINVAL;
 			}
-			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
-				sgt->sgl,
-				sgt->orig_nents,
-				DMA_TO_DEVICE);
+			mtk_dma_sync_sg_range(sgt, &ctx->dev->plat_dev->dev,
+				vb->planes[0].bytesused, DMA_TO_DEVICE);
 			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
 
 			src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
