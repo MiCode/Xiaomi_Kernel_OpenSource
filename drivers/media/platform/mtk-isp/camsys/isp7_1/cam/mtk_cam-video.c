@@ -1013,6 +1013,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		frame_param->img_outs[desc_id].buf[0][0].ccd_fd = vb->planes[0].m.fd;
 		if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_LSC)
 			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_LSC;
+		else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_LTM)
+			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_LTM;
 		else
 			/* un-processed raw frame */
 			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_UNPROCESSED;
