@@ -3,6 +3,7 @@ scheduler-y += eas/sched_main.o
 scheduler-y += eas/sched_sys_common.o
 scheduler-y += eas/eas_plus.o
 scheduler-y += eas/static_power.o
+scheduler-y += eas/topology.o
 scheduler-y += common.o
 scheduler-y += fair.o
 scheduler-$(CONFIG_MTK_CORE_PAUSE)+= eas/core_pause.o

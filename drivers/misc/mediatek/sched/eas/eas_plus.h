@@ -10,6 +10,9 @@
 #define MIGR_IDLE_PULL_MISFIT_RUNNING   2
 #define MIGR_TICK_PULL_MISFIT_RUNNING   3
 
+DECLARE_PER_CPU(unsigned long, max_freq_scale);
+DECLARE_PER_CPU(unsigned long, min_freq);
+
 #ifdef CONFIG_SMP
 /*
  * The margin used when comparing utilization with CPU capacity.
@@ -37,9 +40,11 @@ extern unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned
 extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);
 #endif
 
+extern void mtk_freq_limit_notifier_register(void);
 extern int init_sram_info(void);
 extern void mtk_tick_entry(void *data, struct rq *rq);
 extern void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode);
+extern void mtk_update_cpu_capacity(void *data, int cpu, unsigned long *capacity);
 
 #if IS_ENABLED(CONFIG_UCLAMP_TASK_GROUP)
 extern void mtk_uclamp_eff_get(void *data, struct task_struct *p, enum uclamp_id clamp_id,

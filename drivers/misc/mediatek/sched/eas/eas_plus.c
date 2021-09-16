@@ -211,6 +211,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 #else
 	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
 #endif
+	freq = max(freq, per_cpu(min_freq, cpu));
 
 	/*
 	 * Find the lowest performance state of the Energy Model above the
@@ -308,10 +309,9 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	void __iomem *base = sram_base_addr;
 	struct em_perf_domain *pd;
 	int this_cpu, gear_id, opp_idx, offset;
-	unsigned int freq_thermal, freq_max, freq_ceiling;
+	unsigned int freq_thermal;
 	unsigned long max_capacity, capacity;
 	u32 opp_ceiling;
-	struct cpufreq_policy *policy;
 
 	this_cpu = cpu_of(rq);
 	pd = em_cpu_get(this_cpu);
@@ -329,21 +329,12 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	opp_idx = pd->nr_perf_states - opp_ceiling - 1;
 	freq_thermal = pd->table[opp_idx].frequency;
 
-	policy = cpufreq_cpu_get(this_cpu);
-	if (!policy)
-		freq_max = pd->table[pd->nr_perf_states-1].frequency;
-	else {
-		freq_max = policy->max;
-		cpufreq_cpu_put(policy);
-	}
-
-	freq_ceiling = min(freq_thermal, freq_max);
 	max_capacity = arch_scale_cpu_capacity(this_cpu);
-	capacity = freq_ceiling * max_capacity;
+	capacity = freq_thermal * max_capacity;
 	capacity /= pd->table[pd->nr_perf_states-1].frequency;
 	arch_set_thermal_pressure(to_cpumask(pd->cpus), max_capacity - capacity);
 
-	trace_sched_frequency_limits(this_cpu, freq_thermal, freq_max, freq_ceiling);
+	trace_sched_frequency_limits(this_cpu, freq_thermal);
 }
 
 /*

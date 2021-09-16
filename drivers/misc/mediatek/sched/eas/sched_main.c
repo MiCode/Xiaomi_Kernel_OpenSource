@@ -130,10 +130,11 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		return ret;
 
-
 	mtk_static_power_init();
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
+	mtk_freq_limit_notifier_register();
+
 	ret = init_sram_info();
 	if (ret)
 		return ret;
@@ -162,6 +163,11 @@ static int __init mtk_scheduler_init(void)
 			mtk_set_wake_flags, NULL);
 	if (ret)
 		pr_info("register android_vh_set_wake_flags failed\n");
+
+	ret = register_trace_android_rvh_update_cpu_capacity(
+			mtk_update_cpu_capacity, NULL);
+	if (ret)
+		pr_info("register android_rvh_update_cpu_capacity failed\n");
 
 #if IS_ENABLED(CONFIG_UCLAMP_TASK_GROUP)
 	ret = register_trace_android_rvh_uclamp_eff_get(

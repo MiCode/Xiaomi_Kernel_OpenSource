@@ -63,8 +63,7 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 extern int set_sched_capacity_margin_dvfs(unsigned int capacity_margin);
 extern unsigned int get_sched_capacity_margin_dvfs(void);
 #endif
-
-extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 #endif
 
+extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 #endif /* __CPUFREQ_H__ */
