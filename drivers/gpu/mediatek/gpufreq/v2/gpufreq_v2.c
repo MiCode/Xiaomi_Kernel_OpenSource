@@ -1725,7 +1725,7 @@ static void gpufreq_abort(void)
 {
 	gpufreq_dump_infra_status();
 
-	gpueb_trigger_wdt("GPUFREQ");
+	BUG_ON(1);
 }
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
