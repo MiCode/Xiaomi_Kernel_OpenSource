@@ -766,7 +766,6 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	addr = fd->rs_cfg_data.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
 
-	dev_info(fd->dev, "RS_CON_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
 	writel(msb_bit, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
 
 	/* FD MODE */
@@ -784,7 +783,6 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	addr = fd->fd_cfg_data.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
 
-	dev_info(fd->dev, "FD_CON_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
 	writel(msb_bit, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
 
 	/* FD MODE */
@@ -816,7 +814,6 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	addr = fd->yuv2rgb_cfg_data.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
 
-	dev_info(fd->dev, "Y2R_CON_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
 	writel(msb_bit, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
 
 
@@ -870,10 +867,8 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 		if (!iova)
 			return -1;
 		fd->rs_output_hw.pa = iova;
-		dev_info(fd->dev, "ALLOCATE SECURE IOVA: %llx\n", iova);
 	} else {
-		dev_info(fd->dev, "ALLOCATE NORMAL IOVA: %llx\n", fd->rs_output_hw.pa);
-	ret = aie_imem_alloc(fd, alloc_size, &fd->rs_output_hw);
+		ret = aie_imem_alloc(fd, alloc_size, &fd->rs_output_hw);
 	}
 
 	if (ret)
@@ -965,7 +960,6 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	u32 alloc_size;
 	unsigned long long addr = 0;
 	unsigned int msb_bit = 0;
-	unsigned int set_msb_bit = 0;
 
 	alloc_size = fld_blink_weight_size;
 	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_blink_weight_hw);
@@ -974,7 +968,6 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 
 	addr = fd->fld_blink_weight_hw.pa;
 	msb_bit = (addr & 0Xf00000000) >> 8; //MASK MSB-BIT
-	dev_info(fd->dev, "BK_ADDR: %llx, msb_bit: %llx\n", addr, msb_bit);
 	writel(msb_bit, fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB);
 
 
@@ -1009,10 +1002,8 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 
 	addr = fd->fld_output_hw.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32;
-	dev_info(fd->dev, "OUT MSB: %llx\n", msb_bit);
 	writel(msb_bit, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0_MSB);
 
-	dev_info(fd->dev, "OUT: %llx, set_msb_bit: %llx\n", msb_bit, set_msb_bit);
 	writel(msb_bit, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0_MSB);
 
 	return 0;
@@ -1486,7 +1477,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
 
-	dev_info(fd->dev, "CV MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB);
 
 	//leafnode
@@ -1502,9 +1492,7 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
 
-	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB);
-
 
 	msb_bit_0 = (fd->dma_para->fld_leafnode_pa[8] & 0xf00000000) >> 32;
 	msb_bit_1 = (fd->dma_para->fld_leafnode_pa[9] & 0xf00000000) >> 32;
@@ -1517,7 +1505,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
 
-	dev_info(fd->dev, "LF MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB);
 
 	//02tree
@@ -1533,7 +1520,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
 
-	dev_info(fd->dev, "T02 MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB);
 
 	msb_bit_0 = (fd->dma_para->fld_tree02_pa[8] & 0xf00000000) >> 32;
@@ -1547,7 +1533,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
 
-	dev_info(fd->dev, "T02: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB);
 
 	//13tree
@@ -1563,7 +1548,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24 | msb_bit_7 << 28;
 
-	dev_info(fd->dev, "T13 MSB: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB);
 
 
@@ -1578,7 +1562,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 	set_msb_bit = msb_bit_0 | msb_bit_1 << 4 | msb_bit_2 << 8 | msb_bit_3 << 12
 		| msb_bit_4 << 16 | msb_bit_5 << 20 | msb_bit_6 << 24;
 
-	dev_info(fd->dev, "T13: %llx, set_msb_bit: %llx\n", msb_bit_0, set_msb_bit);
 	writel(set_msb_bit, fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB);
 
 }
@@ -1752,7 +1735,6 @@ static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 }
 static void aie_free_sec_buf(struct mtk_aie_dev *fd)
 {
-	dev_info(fd->dev, "Free sec buf\n");
 	dma_heap_buffer_free(fd->sec_dmabuf);
 }
 
@@ -1835,9 +1817,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 		       fd->attr_yuv2rgb_cfg_size);
 	}
 
-
-	dev_info(fd->dev, "aie_load_fw KERNEL START!\n");
-
 	/*0~10*/
 	memcpy(fd->dma_para->fd_kernel_va[0][0], &fdvt_kernel_bias_loop00_0_frame01[0],
 						fd_ker_rdma_size[0][0]);
@@ -1893,7 +1872,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[10][0]);
 	memcpy(fd->dma_para->fd_kernel_va[10][1], &fdvt_kernel_bias_loop10_1_frame01[0],
 						fd_ker_rdma_size[10][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 11~20!\n");
 
 	/*11~20*/
 	memcpy(fd->dma_para->fd_kernel_va[11][0], &fdvt_kernel_bias_loop11_0_frame01[0],
@@ -1945,7 +1923,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[20][0]);
 	memcpy(fd->dma_para->fd_kernel_va[20][1], &fdvt_kernel_bias_loop20_1_frame01[0],
 						fd_ker_rdma_size[20][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 21~30!\n");
 
 	/*21~30: except 28*/
 	memcpy(fd->dma_para->fd_kernel_va[21][0], &fdvt_kernel_bias_loop21_0_frame01[0],
@@ -1992,7 +1969,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[30][0]);
 	memcpy(fd->dma_para->fd_kernel_va[30][1], &fdvt_kernel_bias_loop30_1_frame01[0],
 						fd_ker_rdma_size[30][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 31~40!\n");
 
 	/*31~40*/
 	memcpy(fd->dma_para->fd_kernel_va[31][0], &fdvt_kernel_bias_loop31_0_frame01[0],
@@ -2044,7 +2020,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[40][0]);
 	memcpy(fd->dma_para->fd_kernel_va[40][1], &fdvt_kernel_bias_loop40_1_frame01[0],
 						fd_ker_rdma_size[40][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 41~50!\n");
 
 	/*41~50*/
 	memcpy(fd->dma_para->fd_kernel_va[41][0], &fdvt_kernel_bias_loop41_0_frame01[0],
@@ -2096,7 +2071,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[50][0]);
 	memcpy(fd->dma_para->fd_kernel_va[50][1], &fdvt_kernel_bias_loop50_1_frame01[0],
 						fd_ker_rdma_size[50][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 51~60!\n");
 
 	/*51~60: except 57*/
 	memcpy(fd->dma_para->fd_kernel_va[51][0], &fdvt_kernel_bias_loop51_0_frame01[0],
@@ -2143,7 +2117,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[60][0]);
 	memcpy(fd->dma_para->fd_kernel_va[60][1], &fdvt_kernel_bias_loop60_1_frame01[0],
 						fd_ker_rdma_size[60][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 61~70!\n");
 
 	/*61~70*/
 	memcpy(fd->dma_para->fd_kernel_va[61][0], &fdvt_kernel_bias_loop61_0_frame01[0],
@@ -2195,7 +2168,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[70][0]);
 	memcpy(fd->dma_para->fd_kernel_va[70][1], &fdvt_kernel_bias_loop70_1_frame01[0],
 						fd_ker_rdma_size[70][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 71~80!\n");
 
 	/*71~80*/
 	memcpy(fd->dma_para->fd_kernel_va[71][0], &fdvt_kernel_bias_loop71_0_frame01[0],
@@ -2247,7 +2219,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						fd_ker_rdma_size[80][0]);
 	memcpy(fd->dma_para->fd_kernel_va[80][1], &fdvt_kernel_bias_loop80_1_frame01[0],
 						fd_ker_rdma_size[80][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 81~85!\n");
 
 	/*81~85*/
 	memcpy(fd->dma_para->fd_kernel_va[81][0], &fdvt_kernel_bias_loop81_0_frame01[0],
@@ -2275,7 +2246,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	memcpy(fd->dma_para->fd_kernel_va[85][1], &fdvt_kernel_bias_loop85_1_frame01[0],
 						fd_ker_rdma_size[85][1]);
 
-	dev_info(fd->dev, "aie_load_fw ATTR. KERNEL Start!\n");
 	memcpy(fd->dma_para->attr_kernel_va[0][0], &gender_kernel_bias_loop00_0_frame01[0],
 						 attr_ker_rdma_size[0][0]);
 	memcpy(fd->dma_para->attr_kernel_va[0][1], &gender_kernel_bias_loop00_1_frame01[0],
@@ -2330,7 +2300,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						attr_ker_rdma_size[10][0]);
 	memcpy(fd->dma_para->attr_kernel_va[10][1], &gender_kernel_bias_loop10_1_frame01[0],
 						attr_ker_rdma_size[10][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 11~20!\n");
 
 	/*11~20*/
 	memcpy(fd->dma_para->attr_kernel_va[11][0], &gender_kernel_bias_loop11_0_frame01[0],
@@ -2382,7 +2351,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 						attr_ker_rdma_size[20][0]);
 	memcpy(fd->dma_para->attr_kernel_va[20][1], &gender_kernel_bias_loop20_1_frame01[0],
 						attr_ker_rdma_size[20][1]);
-	dev_info(fd->dev, "aie_load_fw KERNEL START 21~30!\n");
 
 	/*21~30: except 28*/
 	memcpy(fd->dma_para->attr_kernel_va[21][0], &gender_kernel_bias_loop21_0_frame01[0],
@@ -2410,7 +2378,6 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	memcpy(fd->dma_para->attr_kernel_va[25][1], &gender_kernel_bias_loop25_1_frame01[0],
 						attr_ker_rdma_size[25][1]);
 
-	dev_info(fd->dev, "aie_load_fw FLD!\n");
 
 	memcpy(fd->dma_para->fld_blink_weight_va, &fdvt_fld_blink_weight_forest14[0],
 						fld_blink_weight_size_non_align);
@@ -3877,7 +3844,6 @@ int aie_init(struct mtk_aie_dev *fd)
 
 	fd->fd_state = STATE_NA;
 
-	dev_info(fd->dev, "AIE INIT!\n");
 #if CHECK_SERVICE_IF_0
 	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_RDA0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
@@ -3956,7 +3922,6 @@ void aie_uninit(struct mtk_aie_dev *fd)
 int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	int ret = 0;
-	dev_info(fd->dev, "%s START\n", __func__);
 
 	if (fd->fd_state != STATE_INIT) {
 		dev_info(fd->dev, "%s fd state fail: %d\n",
@@ -4072,7 +4037,7 @@ static void AIECmdqSecCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
 
-	dev_info(fd->dev, "%s Sec CB FUNC\n ", __func__);
+	dev_info(fd->dev, "AIE SEC CMDQ CB\n");
 }
 
 void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd)
@@ -4170,29 +4135,11 @@ void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	} else if (aie_cfg->sel_mode == 3) {
 		int i = 0;
-
 		cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + AIE_START_REG, 0x10, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_DMA_CTL_HW, 0x00011111, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + FLD_EN, 0x01111111, CMDQ_REG_MASK);
 
 		for (i = 0; i < aie_cfg->fld_face_num; i++) {
-
-			dev_info(fd->dev, "[%s] %x %x %x\n ", __func__,
-					aie_cfg->fld_input[i].fld_in_crop.x1,
-					aie_cfg->fld_input[i].fld_in_crop.y1,
-					aie_cfg->fld_input[i].fld_in_crop.x1 << 16 |
-					aie_cfg->fld_input[i].fld_in_crop.y1);
-			dev_info(fd->dev, "[%s]  %x %x %x\n ", __func__,
-					aie_cfg->fld_input[i].fld_in_crop.x2,
-					aie_cfg->fld_input[i].fld_in_crop.y2,
-					aie_cfg->fld_input[i].fld_in_crop.x2 << 16 |
-					aie_cfg->fld_input[i].fld_in_crop.y2);
-			dev_info(fd->dev, "[%s]  %x %x %x\n ", __func__,
-					aie_cfg->fld_input[i].fld_in_crop.x2,
-					aie_cfg->fld_input[i].fld_in_crop.y2,
-					aie_cfg->fld_input[i].fld_in_rip << 4 |
-					aie_cfg->fld_input[i].fld_in_rop);
-
 			cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + FLD_BASE_ADDR_FACE_0 + i * 0x4,
 					aie_cfg->src_img_addr, CMDQ_REG_MASK);
 			cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + fld_face_info_0[i],
@@ -4260,7 +4207,6 @@ void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 				0x0020000f, CMDQ_REG_MASK);
 
 		/*output setting*/
-		dev_info(fd->dev, "%s AIE EXECUTE\n ", __func__);
 		cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + FLD_SH_IN_SIZE_0,
 					((2400 * aie_cfg->fld_face_num - 1) << 16) | 127,
 					CMDQ_REG_MASK);
@@ -4302,8 +4248,6 @@ void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 	}
 
-	dev_info(fd->dev, "FDVT CMDQ Task flush\n");
-
 	//cmdq_pkt_flush(pkt);
 	cmdq_pkt_flush_async(pkt, AIECmdqCB, (void *)fd);	/* flush and destry in cmdq*/
 	cmdq_pkt_wait_complete(pkt);
@@ -4317,8 +4261,6 @@ void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	unsigned int loop_num = 0;
 	unsigned int loop_reg_val = 0;
-
-	dev_info(fd->dev, "%s AIE EXECUTE\n ", __func__);
 
 	if (aie_cfg->sel_mode == 0) {
 		writel(0x00000111, fd->fd_base + AIE_ENABLE_REG);
@@ -4347,7 +4289,7 @@ void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 		writel(0x1, fd->fd_base + AIE_START_REG);
 	} else if (aie_cfg->sel_mode == 3) {
 		int i = 0;
-		dev_info(fd->dev, "%s FLD EXECUTE\n ", __func__);
+
 		writel(0x10, fd->fd_base + AIE_START_REG);
 		writel(0x00011111, fd->fd_base + AIE_DMA_CTL_REG);
 		writel(0x01111111, fd->fd_base + FLD_EN);

@@ -406,7 +406,6 @@ static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 #endif
 static int mtk_aie_hw_enable(struct mtk_aie_dev *fd)
 {
-	dev_info(fd->dev, "mtk_aie_hw_enable");
 	return aie_init(fd);
 }
 
@@ -415,7 +414,6 @@ static void mtk_aie_hw_job_finish(struct mtk_aie_dev *fd,
 {
 	struct mtk_aie_ctx *ctx;
 	struct vb2_v4l2_buffer *src_vbuf = NULL, *dst_vbuf = NULL;
-	dev_info(fd->dev, "mtk_aie_hw_job_finish");
 
 	ctx = v4l2_m2m_get_curr_priv(fd->m2m_dev);
 	src_vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
@@ -445,7 +443,6 @@ static int mtk_aie_ccf_enable(struct device *dev)
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 	int ret;
 
-	dev_info(dev, "%s: CCF start)\n", __func__);
 #ifdef CLK_SINGLE
 	ret = clk_prepare_enable(fd->vcore_gals);
 	if (ret) {
@@ -470,13 +467,7 @@ static int mtk_aie_ccf_enable(struct device *dev)
 		dev_info(dev, "Failed to open ipe_fdvt clk:%d\n", ret);
 		return ret;
 	}
-#if CHECK_SERVICE_0
-	ret = clk_prepare_enable(fd->ipe_fdvt1);
-	if (ret) {
-		dev_info(dev, "Failed to open ipe_fdvt1 clk:%d\n", ret);
-		return ret;
-	}
-#endif
+
 	ret = clk_prepare_enable(fd->ipe_smi_larb12);
 	if (ret) {
 		dev_info(dev, "Failed to open ipe_smi_larb12 clk:%d\n", ret);
@@ -489,9 +480,8 @@ static int mtk_aie_ccf_enable(struct device *dev)
 		return ret;
 	}
 
-	dev_info(dev, "%s: runtime resume aie job end)\n", __func__);
 #else
-	dev_info(dev, "%s: CCF BULK start)\n", __func__);
+
 	ret = clk_bulk_prepare_enable(fd->aie_clk.clk_num, fd->aie_clk.clks);
 	if (ret) {
 		dev_info("failed to enable AIE clock:%d\n", ret);
@@ -507,11 +497,8 @@ static int mtk_aie_ccf_disable(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 
-	dev_info(dev, "%s: runtime suspend aie job start)\n", __func__);
-
 	clk_disable_unprepare(fd->ipe_top);
 	clk_disable_unprepare(fd->ipe_smi_larb12);
-	clk_disable_unprepare(fd->ipe_fdvt1);
 	clk_disable_unprepare(fd->ipe_fdvt);
 	clk_disable_unprepare(fd->img_ipe);
 	clk_disable_unprepare(fd->main_gals);
@@ -523,15 +510,11 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
-	dev_info(fd->dev, "pm_runtime_get_sync!\n");
 	pm_runtime_get_sync((fd->dev));
-	dev_info(fd->dev, "mtk_aie_hw_connect start!: %x %x\n", fd->map_count, fd->fd_stream_count);
 	mtk_aie_ccf_enable((fd->dev));
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
-		dev_info(fd->dev, "mtk_aie_hw_enable:  %x %x\n", fd->map_count,
-								fd->fd_stream_count);
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;
@@ -546,10 +529,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 
 static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
-	dev_info(fd->dev, "mtk_aie_hw_disconnect start!: %x %x\n", fd->map_count,
-								fd->fd_stream_count);
 	if (g_user_param.is_secure == 1 & fd->fd_stream_count == 1) {
-		dev_info(fd->dev, "AIE SECURE MODE END!\n");
 		aie_disable_secure_domain(fd);
 		config_aie_cmdq_secure_end(fd);
 	}
@@ -559,7 +539,6 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->fd_stream_count == 0) {
 		//mtk_aie_mmqos_set(fd, 0);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
-		dev_info(fd->dev, "vunmap\n");
 		dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 		dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 		dma_buf_put(fd->dmabuf);
@@ -571,8 +550,6 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 static int mtk_aie_hw_job_exec(struct mtk_aie_dev *fd,
 			       struct fd_enq_param *fd_param)
 {
-	dev_info(fd->dev, "mtk_aie_hw_job_exec\n");
-
 	reinit_completion(&fd->fd_job_finished);
 	schedule_delayed_work(&fd->job_timeout_work,
 				msecs_to_jiffies(MTK_FD_HW_TIMEOUT));
@@ -692,7 +669,6 @@ static int mtk_aie_vb2_queue_setup(struct vb2_queue *vq,
 static int mtk_aie_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct mtk_aie_ctx *ctx = vb2_get_drv_priv(vq);
-	dev_info(ctx->dev, "start streaming!");
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return mtk_aie_hw_connect(ctx->fd_dev);
@@ -704,7 +680,6 @@ void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int siz
 	unsigned int i;
 	unsigned int comparetimes = size / 4;
 
-	//LOG_INF("Total Byte Size: %d", size);
 	for (i = 0; i < comparetimes; i += 4) {
 		dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
 						hw[i + 1], hw[i + 2], hw[i + 3]);
