@@ -423,9 +423,10 @@
 
 /* UFS_PDN_CFG */
 #define CLK_UFSPDN_U_0_HCIUFS				0
-#define CLK_UFSPDN_U_0_HCIAHB				1
-#define CLK_UFSPDN_U_0_HCIAXI				2
-#define CLK_UFSPDN_NR_CLK				3
+#define CLK_UFSPDN_U_0_HCIAES				1
+#define CLK_UFSPDN_U_0_HCIAHB				2
+#define CLK_UFSPDN_U_0_HCIAXI				3
+#define CLK_UFSPDN_NR_CLK				4
 
 /* IMP_IIC_WRAP_S */
 #define CLK_IMPS_AP_CLOCK_I2C1				0
