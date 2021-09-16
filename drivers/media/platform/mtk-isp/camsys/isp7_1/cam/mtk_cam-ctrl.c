@@ -1708,7 +1708,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	complete(&ctx->m2m_complete);
 
 	/* apply next composed buffer */
-	spin_lock(&ctx->composed_buffer_list.lock);
+	spin_lock_irqsave(&ctx->composed_buffer_list.lock, flags);
 	dev_dbg(raw_dev->dev,
 		"[M2M check next action] que_cnt:%d composed_buffer_list.cnt:%d\n",
 		que_cnt, ctx->composed_buffer_list.cnt);
@@ -1718,15 +1718,15 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			"[M2M] no buffer, cq_num:%d, frame_seq:%d, composed_buffer_list.cnt :%d\n",
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
 			ctx->composed_buffer_list.cnt);
-		spin_unlock(&ctx->composed_buffer_list.lock);
+		spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
 	} else {
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
 		list_del(&buf_entry->list_entry);
 		ctx->composed_buffer_list.cnt--;
-		spin_unlock(&ctx->composed_buffer_list.lock);
-		spin_lock(&ctx->processing_buffer_list.lock);
+		spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
+		spin_lock_irqsave(&ctx->processing_buffer_list.lock, flags);
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->processing_buffer_list.list);
 		ctx->processing_buffer_list.cnt++;
@@ -1735,7 +1735,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			"[M2M P1 Don] ctx->processing_buffer_list.cnt:%d\n",
 			ctx->processing_buffer_list.cnt);
 
-		spin_unlock(&ctx->processing_buffer_list.lock);
+		spin_unlock_irqrestore(&ctx->processing_buffer_list.lock, flags);
 
 		base_addr = buf_entry->buffer.iova;
 
