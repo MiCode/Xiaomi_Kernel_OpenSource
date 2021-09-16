@@ -106,6 +106,8 @@
 		cm0 = &disp_cm0;
 		spr0 = &disp_spr0;
 		dsc0 = &disp_dsc_wrap0;
+		mtksmmu0 = &disp_iommu;
+		mtksmmu1 = &apu_iommu0;
 	};
 
 	/* ATF logger */
