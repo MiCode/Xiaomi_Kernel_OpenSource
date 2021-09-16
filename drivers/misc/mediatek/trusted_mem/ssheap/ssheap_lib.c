@@ -243,6 +243,8 @@ retry:
 		sg = sg_next(sg);
 	}
 
+	dma_sync_sgtable_for_cpu(ssheap_dev, info->table, DMA_BIDIRECTIONAL);
+
 	return info;
 out_err:
 	mutex_unlock(&ssheap_alloc_lock);
