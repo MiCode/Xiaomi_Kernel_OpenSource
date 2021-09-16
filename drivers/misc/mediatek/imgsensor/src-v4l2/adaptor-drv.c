@@ -161,7 +161,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		(mode->pclk / 1000 - 1);
 	do_div(mode->linetime_in_ns, mode->pclk / 1000);
 
-	dev_info(ctx->dev, "[%d] id %d %dx%d %dx%d px %d fps %d\n",
+	dev_dbg(ctx->dev, "[%d] id %d %dx%d %dx%d px %d fps %d\n",
 		idx, id, width, height,
 		mode->llp, mode->fll,
 		mode->mipi_pixel_rate, mode->max_framerate);
@@ -243,7 +243,7 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		control_sensor(ctx);
 	}
 
-	dev_info(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
+	dev_dbg(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
 		mode->width, mode->height, mode->max_framerate,
 		mode->llp, mode->fll, mode->mipi_pixel_rate);
 

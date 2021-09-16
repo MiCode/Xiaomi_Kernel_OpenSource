@@ -884,6 +884,22 @@ static int g_4cell_data(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+static int g_preload_eeprom_data(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_PRELOAD_EEPROM_DATA, para.u8, &len);
+
+	*info = para.u32[0];
+
+	return 0;
+}
+
 static int g_ae_frame_mode_for_le(struct adaptor_ctx *ctx, void *arg)
 {
 	subdrv_call(ctx, feature_control,
@@ -1277,6 +1293,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_DELAY_INFO, g_delay_info},
 	{VIDIOC_MTK_G_FEATURE_INFO, g_feature_info},
 	{VIDIOC_MTK_G_4CELL_DATA, g_4cell_data},
+	{VIDIOC_MTK_G_PRELOAD_EEPROM_DATA, g_preload_eeprom_data},
 	{VIDIOC_MTK_G_AE_FRAME_MODE_FOR_LE, g_ae_frame_mode_for_le},
 	{VIDIOC_MTK_G_AE_EFFECTIVE_FRAME_FOR_LE, g_ae_effective_frame_for_le},
 	{VIDIOC_MTK_G_SCENARIO_COMBO_INFO, g_scenario_combo_info},

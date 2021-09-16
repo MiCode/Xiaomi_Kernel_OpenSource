@@ -3065,6 +3065,12 @@ static kal_uint32 return_sensor_id(struct subdrv_ctx *ctx)
 	return ((read_cmos_sensor_8(ctx, 0x0000) << 8) | read_cmos_sensor_8(ctx, 0x0001));
 }
 
+static void read_sensor_Cali(struct subdrv_ctx *ctx)
+{
+	LOG_INF("return data\n");
+	ctx->is_read_preload_eeprom = 1;
+}
+
 /*************************************************************************
  * FUNCTION
  *	get_imgsensor_id
@@ -4400,6 +4406,13 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 	case SENSOR_FEATURE_SET_FRAMELENGTH:
 		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
+	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
+		/*get eeprom preloader data*/
+		*feature_return_para_32 = ctx->is_read_preload_eeprom;
+		*feature_para_len = 4;
+		if (ctx->is_read_preload_eeprom != 1)
+			read_sensor_Cali(ctx);
 		break;
 	default:
 		break;

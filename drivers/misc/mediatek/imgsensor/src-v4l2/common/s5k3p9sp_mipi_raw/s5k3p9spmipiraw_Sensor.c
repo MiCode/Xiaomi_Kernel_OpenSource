@@ -616,14 +616,16 @@ static void slim_video_setting(struct subdrv_ctx *ctx)
 
 #define FOUR_CELL_SIZE 3072
 #define FOUR_CELL_ADDR 0x150F
-static int is_read_four_cell;
 static char four_cell_data[FOUR_CELL_SIZE + 2];
 static void read_four_cell_from_eeprom(struct subdrv_ctx *ctx, char *data)
 {
 	int ret, i;
 	char temp;
 
-	if (is_read_four_cell != 1) {
+	if (data != NULL) {
+		LOG_INF("return data\n");
+		memcpy(data, four_cell_data, FOUR_CELL_SIZE);
+	} else {
 		LOG_INF("Need to read from EEPROM\n");
 		/* Check I2C is normal */
 		ret = adaptor_i2c_rd_u8(ctx->i2c_client,
@@ -638,11 +640,7 @@ static void read_four_cell_from_eeprom(struct subdrv_ctx *ctx, char *data)
 		for (i = 2; i < (FOUR_CELL_SIZE + 2); i++)
 			adaptor_i2c_rd_u8(ctx->i2c_client,
 				S5K3P9SP_EEPROM_READ_ID >> 1, FOUR_CELL_ADDR, &four_cell_data[i]);
-		is_read_four_cell = 1;
-	}
-	if (data != NULL) {
-		LOG_INF("return data\n");
-		memcpy(data, four_cell_data, FOUR_CELL_SIZE);
+		ctx->is_read_four_cell = 1;
 	}
 }
 
@@ -679,8 +677,6 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 			if (*sensor_id == imgsensor_info.sensor_id) {
 				LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n",
 					ctx->i2c_write_id, *sensor_id);
-				/* preload 4cell data */
-				read_four_cell_from_eeprom(ctx, NULL);
 				return ERROR_NONE;
 			}
 			LOG_INF("Read sensor id fail, id: 0x%x\n",
@@ -1582,6 +1578,13 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			imgsensor_info.pre.grabwindow_width;
 			break;
 		}
+		break;
+	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
+		/*get eeprom preloader data*/
+		*feature_return_para_32 = ctx->is_read_four_cell;
+		*feature_para_len = 4;
+		if (ctx->is_read_four_cell != 1)
+			read_four_cell_from_eeprom(ctx, NULL);
 		break;
 	default:
 		break;

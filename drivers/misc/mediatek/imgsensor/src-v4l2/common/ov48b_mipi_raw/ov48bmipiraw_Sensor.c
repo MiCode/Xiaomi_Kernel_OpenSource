@@ -1181,6 +1181,7 @@ static kal_uint16 read_cmos_eeprom_8(struct subdrv_ctx *ctx, kal_uint16 addr)
 
 	return (u16)data;
 }
+
 static kal_uint16 ov48b_PDC_setting[8*2];
 static kal_uint16 ov48b_PDC_setting_burst[720*2];
 
@@ -1196,6 +1197,7 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 		ov48b_PDC_setting[2 * idx + 1] =
 			read_cmos_eeprom_8(ctx, eeprom_PDC_addr);
 	}
+
 	for (idx = 8; idx < 728; idx++) {
 		eeprom_PDC_addr = 0x1638 + idx;
 		sensor_PDC_addr2 = 0x5900 + idx - 8;
@@ -1203,6 +1205,8 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 		ov48b_PDC_setting_burst[2 * (idx-8) + 1] =
 			read_cmos_eeprom_8(ctx, eeprom_PDC_addr);
 	}
+
+	ctx->is_read_preload_eeprom = 1;
 }
 
 static void write_sensor_PDC(struct subdrv_ctx *ctx)
@@ -1231,7 +1235,6 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 	if (*sensor_id == imgsensor_info.sensor_id) {
 		pr_debug("i2c write id: 0x%x, sensor id: 0x%x\n",
 			ctx->i2c_write_id, *sensor_id);
-			read_sensor_Cali(ctx);
 		return ERROR_NONE;
 	}
 		retry--;
@@ -2855,6 +2858,13 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*feature_return_para_32);
 		*feature_para_len = 4;
 
+		break;
+	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
+		/*get eeprom preloader data*/
+		*feature_return_para_32 = ctx->is_read_preload_eeprom;
+		*feature_para_len = 4;
+		if (ctx->is_read_preload_eeprom != 1)
+			read_sensor_Cali(ctx);
 		break;
 	default:
 	break;

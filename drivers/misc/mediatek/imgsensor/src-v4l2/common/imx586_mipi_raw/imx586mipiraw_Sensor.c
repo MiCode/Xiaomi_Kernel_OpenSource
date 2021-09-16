@@ -458,16 +458,13 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 
 	for (i = 0; i < 7; i++)
 		otp_data[i] = read_cmos_eeprom_8(ctx, 0x0001 + i);
-
-
 	/*Internal Module Type*/
 	if ((otp_data[0] == 0xff) &&
 		(otp_data[1] == 0x00) &&
 		(otp_data[2] == 0x0b) &&
 		(otp_data[3] == 0x01)) {
-		pr_info("OTP type: Internal Only");
+		pr_debug("OTP type: Internal Only");
 		otp_flag = OTP_QSC_INTERNAL;
-
 		for (idx = 0; idx < 2304; idx++) {
 			addr_qsc = 0xfaf + idx;
 			sensor_lrc = 0x7F00 + idx;
@@ -475,7 +472,6 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 			imx586_QSC_setting[2 * idx + 1] =
 				read_cmos_eeprom_8(ctx, addr_qsc);
 		}
-
 		for (idx = 0; idx < 192; idx++) {
 			imx586_LRC_setting[2 * idx] = sensor_lrc_0 + idx;
 				imx586_LRC_setting[2 * idx + 1] =
@@ -485,12 +481,10 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 			imx586_LRC_setting[2 * idx + 1 + 192 * 2] =
 			read_cmos_eeprom_8(ctx, eeprom_lrc_1 + idx);
 		}
-
 	} else if ((otp_data[5] == 0x56) && (otp_data[6] == 0x00)) {
 		/*Internal Module Type*/
-		pr_info("OTP type: Custom Only");
+		pr_debug("OTP type: Custom Only");
 		otp_flag = OTP_QSC_CUSTOM;
-
 		for (idx = 0; idx < 2304; idx++) {
 			addr_qsc = 0xc90 + idx;
 			sensor_lrc = 0x7F00 + idx;
@@ -498,14 +492,12 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 			imx586_QSC_setting[2 * idx + 1] =
 				read_cmos_eeprom_8(ctx, addr_qsc);
 		}
-
 	} else {
-		pr_info("OTP type: No Data, 0x0008 = %d, 0x0009 = %d",
+		pr_debug("OTP type: No Data, 0x0008 = %d, 0x0009 = %d",
 		read_cmos_eeprom_8(ctx, 0x0008),
 		read_cmos_eeprom_8(ctx, 0x0009));
 	}
-
-
+	ctx->is_read_preload_eeprom = 1;
 }
 
 static void write_sensor_QSC(struct subdrv_ctx *ctx)
@@ -3327,7 +3319,6 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 			if (*sensor_id == imgsensor_info.sensor_id) {
 				pr_debug("i2c write id: 0x%x, sensor id: 0x%x\n",
 					ctx->i2c_write_id, *sensor_id);
-				read_sensor_Cali(ctx);
 				return ERROR_NONE;
 			}
 
@@ -4864,6 +4855,13 @@ break;
 		break;
 	case SENSOR_FEATURE_SET_FRAMELENGTH:
 		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
+	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
+		/*get eeprom preloader data*/
+		*feature_return_para_32 = ctx->is_read_preload_eeprom;
+		*feature_para_len = 4;
+		if (ctx->is_read_preload_eeprom != 1)
+			read_sensor_Cali(ctx);
 		break;
 	default:
 		break;

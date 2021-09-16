@@ -109,13 +109,13 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 	ret = regulator_set_voltage(reg, val, val);
 	if (ret) {
-		dev_warn(ctx->dev, "failed to set voltage %s %d\n",
+		dev_dbg(ctx->dev, "failed to set voltage %s %d\n",
 				reg_names[idx], val);
 	}
 
 	ret = regulator_enable(reg);
 	if (ret) {
-		dev_err(ctx->dev, "failed to enable %s\n",
+		dev_dbg(ctx->dev, "failed to enable %s\n",
 				reg_names[idx]);
 		return ret;
 	}
@@ -133,7 +133,7 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 	ret = regulator_disable(reg);
 	if (ret) {
-		dev_err(ctx->dev, "failed to disable %s\n",
+		dev_dbg(ctx->dev, "failed to disable %s\n",
 				reg_names[idx]);
 		return ret;
 	}
@@ -215,10 +215,10 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 	struct adaptor_hw_ops *op;
 
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
-	dev_info(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
+	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
 	ctx->power_refcnt++;
 	if (ctx->power_refcnt > 1) {
-		dev_info(ctx->dev, "%s already powered, cnt = %d\n", __func__, ctx->power_refcnt);
+		dev_dbg(ctx->dev, "%s already powered, cnt = %d\n", __func__, ctx->power_refcnt);
 		return 0;
 	}
 #endif
@@ -235,7 +235,7 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
 		if (!op->set) {
-			dev_warn(ctx->dev, "cannot set comp %d val %d\n",
+			dev_dbg(ctx->dev, "cannot set comp %d val %d\n",
 				ent->id, ent->val);
 			continue;
 		}
@@ -244,7 +244,7 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 			mdelay(ent->delay);
 	}
 
-	dev_info(ctx->dev, "%s\n", __func__);
+	dev_dbg(ctx->dev, "%s\n", __func__);
 
 	return 0;
 }
@@ -258,14 +258,14 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 
 	if (!ctx->power_refcnt) {
-		dev_info(ctx->dev, "%s power ref cnt = %d, skip due to not power on yet\n",
+		dev_dbg(ctx->dev, "%s power ref cnt = %d, skip due to not power on yet\n",
 			__func__, ctx->power_refcnt);
 		return 0;
 	}
-	dev_info(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
+	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
 	ctx->power_refcnt--;
 	if (ctx->power_refcnt > 0) {
-		dev_info(ctx->dev, "%s skip due to cnt = %d\n", __func__, ctx->power_refcnt);
+		dev_dbg(ctx->dev, "%s skip due to cnt = %d\n", __func__, ctx->power_refcnt);
 		return 0;
 	}
 	ctx->power_refcnt = 0;
@@ -293,7 +293,7 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 		ctx->pinctrl = NULL;
 	}
 
-	dev_info(ctx->dev, "%s\n", __func__);
+	dev_dbg(ctx->dev, "%s\n", __func__);
 
 	return 0;
 }

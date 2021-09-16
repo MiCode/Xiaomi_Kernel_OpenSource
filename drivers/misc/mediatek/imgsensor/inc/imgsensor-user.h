@@ -470,6 +470,9 @@ struct mtk_n_1_mode {
 #define VIDIOC_MTK_G_MAX_EXPOSURE \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 35, struct mtk_stagger_max_exp_time)
 
+#define VIDIOC_MTK_G_PRELOAD_EEPROM_DATA \
+	_IOR('M', BASE_VIDIOC_PRIVATE + 36, unsigned int)
+
 /* SET */
 
 #define VIDIOC_MTK_S_VIDEO_FRAMERATE \

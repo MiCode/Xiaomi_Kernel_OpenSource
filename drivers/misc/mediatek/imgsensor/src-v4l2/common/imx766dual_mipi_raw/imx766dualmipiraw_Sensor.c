@@ -748,6 +748,7 @@ static kal_uint16 read_cmos_eeprom_8(struct subdrv_ctx *ctx, kal_uint16 addr)
 #define SENSOR_ID_H 0x00
 #define LENS_ID_L 0x47
 #define LENS_ID_H 0x01
+
 static void read_sensor_Cali(struct subdrv_ctx *ctx)
 {
 	kal_uint16 idx = 0, addr_qsc = QSC_EEPROM_ADDR, sensor_qsc = QSC_OTP_ADDR;
@@ -759,7 +760,6 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 
 	for (i = 0; i < 7; i++)
 		otp_data[i] = read_cmos_eeprom_8(ctx, 0x0006 + i);
-
 	/*Internal Module Type*/
 	if ((otp_data[0] == SENSOR_ID_L) &&
 		(otp_data[1] == SENSOR_ID_H) &&
@@ -767,7 +767,6 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 		(otp_data[3] == LENS_ID_H)) {
 		LOG_INF("OTP type: Custom Only");
 		otp_flag = OTP_QSC_CUSTOM;
-
 		for (idx = 0; idx < QSC_SIZE; idx++) {
 			addr_qsc = QSC_EEPROM_ADDR + idx;
 			sensor_qsc = QSC_OTP_ADDR + idx;
@@ -779,6 +778,7 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 		LOG_INF("OTP type: No Data, 0x0008 = %d, 0x0009 = %d",
 		read_cmos_eeprom_8(ctx, 0x0008), read_cmos_eeprom_8(ctx, 0x0009));
 	}
+	ctx->is_read_preload_eeprom = 1;
 }
 
 static void write_sensor_QSC(struct subdrv_ctx *ctx)
@@ -1705,7 +1705,6 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 				*sensor_id = IMX766DUAL_SENSOR_ID;
 				LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n",
 					ctx->i2c_write_id, *sensor_id);
-				read_sensor_Cali(ctx);
 				return ERROR_NONE;
 			}
 			LOG_INF("Read sensor id fail. i2c_write_id: 0x%x\n", ctx->i2c_write_id);
@@ -3645,6 +3644,13 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 	}
 	break;
+	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
+		/*get eeprom preloader data*/
+		*feature_return_para_32 = ctx->is_read_preload_eeprom;
+		*feature_para_len = 4;
+		if (ctx->is_read_preload_eeprom != 1)
+			read_sensor_Cali(ctx);
+		break;
 	default:
 		break;
 	}

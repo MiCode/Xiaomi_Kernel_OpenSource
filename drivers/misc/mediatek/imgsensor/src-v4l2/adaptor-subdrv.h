@@ -93,6 +93,8 @@ struct subdrv_ctx {
 
 	u8 extend_frame_length_en;
 	u8 fast_mode_on;
+	u32 is_read_preload_eeprom;
+	u32 is_read_four_cell;
 };
 
 struct subdrv_ops {
