@@ -42,6 +42,10 @@ static struct gt9896s_ts_core *ts_core;
 
 #define GOOIDX_INPUT_PHYS	"goodix_ts/input0"
 
+static struct task_struct *gt9896s_polling_thread;
+static int gt9896s_ts_event_polling(void *arg);
+static int gt9896s_polling_flag;
+
 struct gt9896s_module gt9896s_modules;
 
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
@@ -636,14 +640,78 @@ static ssize_t gt9896s_ts_irq_info_store(struct device *dev,
 					const char *buf, size_t count)
 {
 	struct gt9896s_ts_core *core_data = dev_get_drvdata(dev);
-	int en;
+	int en = 0;
+	int ret = 0;
 
 	if (sscanf(buf, "%d", &en) != 1)
 		return -EINVAL;
 
+	switch (en) {
+	case 0:
+		gt9896s_polling_flag = 1;
+		ts_info("disable irq, polling mode, flag = %d", gt9896s_polling_flag);
+		if (gt9896s_polling_thread == NULL) {
+			gt9896s_polling_thread =
+				kthread_run(gt9896s_ts_event_polling,
+				0, GOODIX_CORE_DRIVER_NAME);
+			ts_info("gt9896s_polling_thread, kthread_run");
+			if (IS_ERR(gt9896s_polling_thread)) {
+				ret = PTR_ERR(gt9896s_polling_thread);
+				ts_err(" failed to create kernel thread: %d\n",
+					ret);
+			}
+		}
+		break;
+	case 1:
+		gt9896s_polling_flag = 0;
+		ts_info("enable irq, irq mode, flag = %d", gt9896s_polling_flag);
+		if (gt9896s_polling_thread) {
+			kthread_stop(gt9896s_polling_thread);
+			gt9896s_polling_thread = NULL;
+		}
+		break;
+	default:
+		break;
+	}
+
 	gt9896s_ts_irq_enable(core_data, en);
 	return count;
 }
+
+/**
+ * gt9896s_ts_event_polling used for bring up
+ */
+static int gt9896s_ts_event_polling(void *arg)
+{
+	struct gt9896s_ts_event *ts_event = &ts_core->ts_event;
+	struct gt9896s_ts_device *ts_dev =  ts_core->ts_dev;
+	struct sched_param param = { .sched_priority = 4 };
+	int ret;
+	u8 irq_flag = 0;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	ts_info("gt9896s_polling_thread, enter");
+	do {
+		usleep_range(30000, 35100);
+		/* read touch data from touch device */
+		ret = ts_dev->hw_ops->event_handler(ts_dev, ts_event);
+		if (likely(ret >= 0)) {
+			if (ts_event->event_type == EVENT_TOUCH) {
+				/* report touch */
+				gt9896s_ts_report_finger(ts_core->input_dev,
+				&ts_event->touch_data);
+			}
+		}
+
+		// clean irq flag
+		irq_flag = 0;
+		ts_dev->hw_ops->write_trans(ts_dev, ts_dev->reg.coor, &irq_flag, 1);
+	} while (!kthread_should_stop());
+
+	return 0;
+}
+
 
 /*reg read/write */
 static u16 rw_addr;

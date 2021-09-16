@@ -454,7 +454,7 @@ int gt9896s_reset_ic_init(struct gt9896s_ts_device *ts_dev)
 			ts_err("spi read spi tranfer args failed, ret %d", ret);
 			goto exit;
 		}
-
+		ts_info("spi write data: %d, read data: %d!", reg_val, ack_val);
 		if (ack_val == reg_val) {
 			ts_info("set spi tranfer args success!");
 			break;
@@ -483,7 +483,7 @@ int gt9896s_reset_ic_init(struct gt9896s_ts_device *ts_dev)
 			ts_err("spi read to remove GIO force to hold CPU failed");
 			goto exit;
 		}
-
+		ts_info("spi write data: %d, read data: %d!", reg_val, ack_val);
 		if (ack_val == reg_val) {
 			ts_info("remove GIO force to hold CPU success");
 			break;
