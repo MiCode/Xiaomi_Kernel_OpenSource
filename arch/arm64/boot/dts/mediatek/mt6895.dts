@@ -414,6 +414,62 @@
 		compatible = "mediatek,mt6895-spmi";
 	};
 
+	ccu_rproc: ccu_rproc@1b080000 {
+		compatible = "mediatek,ccu_rproc";
+		reg = <0 0x1b080000 0 0x9000>;
+		interrupts = <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MAIN>;
+#if 0
+		mediatek,larbs = <&smi_larb19>;
+#endif
+		clocks =        <&topckgen_clk CLK_TOP_CCUSYS_SEL>,
+				<&topckgen_clk CLK_TOP_CCU_AHB_SEL>,
+				<&ccu_main_clk CLK_CCU_LARB19>,
+				<&ccu_main_clk CLK_CCU_AHB>,
+				<&ccu_main_clk CLK_CCUSYS_CCU0>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_LARB14_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON>;
+		clock-names =   "CLK_TOP_CCUSYS_SEL",
+				"CLK_TOP_CCU_AHB_SEL",
+				"CLK_CCU_LARB",
+				"CLK_CCU_AHB",
+				"CLK_CCUSYS_CCU0",
+				"CAM_LARB14",
+				"CAM_MM1_GALS";
+		mediatek,ccu_rproc1 = <&ccu_rproc1>;
+#if 0
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+		iommus = <&disp_iommu M4U_LARB19_PORT1>,
+			 <&disp_iommu M4U_LARB19_PORT0>;
+		interconnects =
+		<&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>,
+		<&mmqos MASTER_LARB_PORT(M4U_LARB19_PORT1)
+			&mmqos SLAVE_COMMON(0)>,
+		<&mmqos MASTER_LARB_PORT(M4U_LARB19_PORT0)
+			&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"ccu_g",
+			"ccu_o",
+			"ccu_i";
+#endif
+		secured = "no";
+		ccu_emiStatus = "no";
+		ccu_sramSize = <0x00020000>;
+		ccu_sramOffset = <0x00020000>;
+		ccu_dramSize = <0x00400000>;
+		ccu_dramAddr = <0x80000000>;
+		ccu_emiRegion = <20>;
+	};
+
+	ccu_rproc1: ccu_rproc1 {
+		compatible = "mediatek,ccu_rproc1";
+#if 0
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+		iommus = <&disp_iommu M4U_LARB19_PORT3>,
+			<&disp_iommu M4U_LARB19_PORT2>;
+#endif
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
