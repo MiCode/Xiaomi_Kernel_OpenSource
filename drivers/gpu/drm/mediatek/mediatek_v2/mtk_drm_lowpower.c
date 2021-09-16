@@ -483,6 +483,8 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	bool mode = mtk_crtc_is_dc_mode(crtc);
+	struct mtk_drm_private *priv =
+				mtk_crtc->base.dev->dev_private;
 
 	DDPINFO("%s, crtc%d+\n", __func__, crtc_id);
 
@@ -499,9 +501,9 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_disconnect_addon_module(crtc);
 
 	/* 3. set HRT BW to 0 */
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	mtk_disp_set_hrt_bw(mtk_crtc, 0);
-#endif
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		mtk_disp_set_hrt_bw(mtk_crtc, 0);
 
 	/* 4. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
@@ -527,6 +529,8 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(crtc);
+	struct mtk_drm_private *priv =
+			mtk_crtc->base.dev->dev_private;
 	bool mode = mtk_crtc_is_dc_mode(crtc);
 	struct mtk_ddp_comp *comp;
 	unsigned int i, j;
@@ -573,9 +577,10 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
 	/* 9. restore HRT BW */
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	mtk_disp_set_hrt_bw(mtk_crtc, mtk_crtc->qos_ctx->last_hrt_req);
-#endif
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		mtk_disp_set_hrt_bw(mtk_crtc,
+			mtk_crtc->qos_ctx->last_hrt_req);
 
 	/* 10. set vblank */
 	drm_crtc_vblank_on(crtc);

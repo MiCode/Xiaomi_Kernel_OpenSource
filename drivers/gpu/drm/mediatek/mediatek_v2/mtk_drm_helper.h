@@ -6,10 +6,17 @@
 #ifndef _MTK_DRM_HELPER_H_
 #define _MTK_DRM_HELPER_H_
 
+enum DISP_HELPER_STAGE {
+	DISP_HELPER_STAGE_NORMAL = 0,
+	DISP_HELPER_STAGE_BRING_UP
+};
+
 enum MTK_DRM_HELPER_OPT {
 	MTK_DRM_OPT_STAGE = 0,
 	MTK_DRM_OPT_USE_CMDQ,
 	MTK_DRM_OPT_USE_M4U,
+	MTK_DRM_OPT_MMQOS_SUPPORT,
+	MTK_DRM_OPT_MMDVFS_SUPPORT,
 	/* Begin: lowpower option*/
 	MTK_DRM_OPT_SODI_SUPPORT,
 	MTK_DRM_OPT_IDLE_MGR,
@@ -78,6 +85,9 @@ enum MTK_DRM_HELPER_STAGE {
 	MTK_DRM_HELPER_STAGE_NORMAL
 };
 
+enum DISP_HELPER_STAGE disp_helper_get_stage(void);
+void disp_helper_set_stage(enum DISP_HELPER_STAGE stage);
+
 int mtk_drm_helper_get_opt(struct mtk_drm_helper *helper_opt,
 			   enum MTK_DRM_HELPER_OPT option);
 int mtk_drm_helper_set_opt(struct mtk_drm_helper *helper_opt,
@@ -89,8 +99,6 @@ int mtk_drm_helper_get_opt_list(struct mtk_drm_helper *helper_opt,
 void mtk_drm_helper_init(struct device *dev,
 			 struct mtk_drm_helper **helper_opt);
 
-enum DISP_HELPER_STAGE disp_helper_get_stage(void);
-const char *disp_helper_stage_spy(void);
 enum MTK_DRM_HELPER_OPT
 mtk_drm_helper_name_to_opt(struct mtk_drm_helper *helper_opt, const char *name);
 

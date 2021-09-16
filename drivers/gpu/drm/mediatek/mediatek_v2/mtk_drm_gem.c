@@ -141,6 +141,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	struct drm_gem_object *obj;
 	struct sg_table *sgt;
 	dma_addr_t fb_pa = 0;
+	struct mtk_drm_private *private = dev->dev_private;
 
 	DDPINFO("%s+\n", __func__);
 	mtk_gem = mtk_drm_gem_init(dev, vramsize);
@@ -156,11 +157,12 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 
 	mtk_gem->sec = false;
 
-#ifndef CONFIG_MTK_DISPLAY_M4U
-	mtk_gem->dma_addr = fb_base;
-#else
-	mtk_gem->dma_addr = fb_pa;
-#endif
+	if (!mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_USE_M4U))
+		mtk_gem->dma_addr = fb_base;
+	else
+		mtk_gem->dma_addr = fb_pa;
+
 	mtk_gem->kvaddr = mtk_gem->cookie;
 	mtk_gem->sg = sgt;
 

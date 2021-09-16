@@ -1068,7 +1068,6 @@ static int mtk_dsi_LFR_status_check(struct mtk_dsi *dsi)
 	return 0;
 }
 
-#ifndef MTK_DRM_BRINGUP_STAGE
 static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 {
 	unsigned int data_rate;
@@ -1085,63 +1084,62 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
 	return ret;
 }
-#endif
 
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
 	struct mtk_drm_private *priv = dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
 	struct device *dev = dsi->dev;
-#endif
 	int ret;
 
 	DDPDBG("%s+\n", __func__);
 	if (++dsi->clk_refcnt != 1)
 		return 0;
-#ifndef MTK_DRM_BRINGUP_STAGE
-	ret = mtk_dsi_set_data_rate(dsi);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set data rate: %d\n", ret);
-		goto err_refcount;
+
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		ret = mtk_dsi_set_data_rate(dsi);
+		if (ret < 0) {
+			dev_err(dev, "Failed to set data rate: %d\n", ret);
+			goto err_refcount;
+		}
+
+		if (dsi->ext) {
+			if (dsi->ext->params->is_cphy)
+				if (priv->data->mmsys_id == MMSYS_MT6983 ||
+					priv->data->mmsys_id == MMSYS_MT6895) {
+					mtk_mipi_tx_cphy_lane_config_mt6983(dsi->phy, dsi->ext,
+								     !!dsi->slave_dsi);
+				} else {
+					mtk_mipi_tx_cphy_lane_config(dsi->phy, dsi->ext,
+								     !!dsi->slave_dsi);
+				}
+			else
+				if (priv->data->mmsys_id == MMSYS_MT6983 ||
+					priv->data->mmsys_id == MMSYS_MT6895) {
+					mtk_mipi_tx_dphy_lane_config_mt6983(dsi->phy, dsi->ext,
+								     !!dsi->slave_dsi);
+				} else {
+					mtk_mipi_tx_dphy_lane_config(dsi->phy, dsi->ext,
+								     !!dsi->slave_dsi);
+				}
+		}
+
+		pm_runtime_get_sync(dsi->host.dev);
+
+		phy_power_on(dsi->phy);
+
+		ret = clk_prepare_enable(dsi->engine_clk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable engine clock: %d\n", ret);
+			goto err_phy_power_off;
+		}
+
+		ret = clk_prepare_enable(dsi->digital_clk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable digital clock: %d\n", ret);
+			goto err_disable_engine_clk;
+		}
 	}
 
-	if (dsi->ext) {
-		if (dsi->ext->params->is_cphy)
-			if (priv->data->mmsys_id == MMSYS_MT6983 ||
-				priv->data->mmsys_id == MMSYS_MT6895) {
-				mtk_mipi_tx_cphy_lane_config_mt6983(dsi->phy, dsi->ext,
-							     !!dsi->slave_dsi);
-			} else {
-				mtk_mipi_tx_cphy_lane_config(dsi->phy, dsi->ext,
-							     !!dsi->slave_dsi);
-			}
-		else
-			if (priv->data->mmsys_id == MMSYS_MT6983 ||
-				priv->data->mmsys_id == MMSYS_MT6895) {
-				mtk_mipi_tx_dphy_lane_config_mt6983(dsi->phy, dsi->ext,
-							     !!dsi->slave_dsi);
-			} else {
-				mtk_mipi_tx_dphy_lane_config(dsi->phy, dsi->ext,
-							     !!dsi->slave_dsi);
-			}
-	}
-
-	pm_runtime_get_sync(dsi->host.dev);
-
-	phy_power_on(dsi->phy);
-
-	ret = clk_prepare_enable(dsi->engine_clk);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable engine clock: %d\n", ret);
-		goto err_phy_power_off;
-	}
-
-	ret = clk_prepare_enable(dsi->digital_clk);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable digital clock: %d\n", ret);
-		goto err_disable_engine_clk;
-	}
-#endif
 	mtk_dsi_set_LFR(dsi, NULL, NULL, 1);
 
 	/* Bypass shadow register and read shadow register */
@@ -1152,15 +1150,19 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	DDPDBG("%s-\n", __func__);
 
 	return 0;
-#ifndef MTK_DRM_BRINGUP_STAGE
+
 err_disable_engine_clk:
-	clk_disable_unprepare(dsi->engine_clk);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		clk_disable_unprepare(dsi->engine_clk);
 err_phy_power_off:
-	phy_power_off(dsi->phy);
-	pm_runtime_put_sync(dsi->host.dev);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		phy_power_off(dsi->phy);
+		pm_runtime_put_sync(dsi->host.dev);
+	}
 err_refcount:
-	dsi->clk_refcnt--;
-#endif
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		dsi->clk_refcnt--;
+
 	return ret;
 }
 
@@ -1943,16 +1945,18 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 
 	if (--dsi->clk_refcnt != 0)
 		return;
-#ifndef MTK_DRM_BRINGUP_STAGE
-	clk_disable_unprepare(dsi->engine_clk);
-	clk_disable_unprepare(dsi->digital_clk);
 
-	writel(0, dsi->regs + DSI_START);
-	writel(0, dsi->regs + dsi->driver_data->reg_cmdq0_ofs);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		clk_disable_unprepare(dsi->engine_clk);
+		clk_disable_unprepare(dsi->digital_clk);
 
-	phy_power_off(dsi->phy);
-	pm_runtime_put_sync(dsi->host.dev);
-#endif
+		writel(0, dsi->regs + DSI_START);
+		writel(0, dsi->regs + dsi->driver_data->reg_cmdq0_ofs);
+
+		phy_power_off(dsi->phy);
+		pm_runtime_put_sync(dsi->host.dev);
+	}
+
 	DDPDBG("%s -\n", __func__);
 }
 
@@ -3270,15 +3274,15 @@ static const char *mtk_dsi_mode_spy(enum DSI_MODE_CON mode)
 
 int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-#endif
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
 
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
-#ifndef MTK_DRM_BRINGUP_STAGE
-	DDPDUMP("MIPITX Clock:%d\n", mtk_mipi_tx_pll_get_rate(dsi->phy));
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	DDPDUMP("MIPITX Clock:%d\n",
+		mtk_mipi_tx_pll_get_rate(dsi->phy));
 #endif
 
 	DDPDUMP("start:%x,busy:%d,DSI_DUAL_EN:%d\n",
@@ -3331,11 +3335,11 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_TYPE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_SKIP_NUM, reg_val));
 
-#ifndef MTK_DRM_BRINGUP_STAGE
-	if (dsi->ext && dsi->ext->funcs &&
-	    dsi->ext->funcs->lcm_dump)
-		dsi->ext->funcs->lcm_dump(dsi->panel, MTK_DRM_PANEL_DUMP_PARAMS);
-#endif
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (dsi->ext && dsi->ext->funcs &&
+		    dsi->ext->funcs->lcm_dump)
+			dsi->ext->funcs->lcm_dump(dsi->panel, MTK_DRM_PANEL_DUMP_PARAMS);
+	}
 
 	return 0;
 }
@@ -5130,7 +5134,6 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
  * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
  * DPHY     | data_rate x lane_num x compress_ratio / bpp
  ******************************************************************************/
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
@@ -5200,7 +5203,6 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
-#endif
 
 /******************************************************************************
  * DSI Type | PHY TYPE | HRT_BW (unit: Bytes) one frame ( Overlap * )
@@ -5363,9 +5365,9 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
-#ifdef MTK_DISP_MMDVFS_SUPPORT
-	mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
-#endif
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMDVFS_SUPPORT))
+		mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
 skip_change_mipi:
 	/*  send lcm cmd after DSI power on if needed */
 	if (dsi->ext && dsi->ext->funcs &&
@@ -5392,19 +5394,22 @@ skip_change_mipi:
 static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(cb_data->crtc);
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_dsi *dsi;
+	struct mtk_drm_private *priv =
+		mtk_crtc->base.dev->dev_private;
 
 	DDPINFO("%s vdo mode fps change done\n", __func__);
 
-	if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
-		comp->id == DDP_COMPONENT_DSI1)) {
-		dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-		mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_MMDVFS_SUPPORT)) {
+		if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
+			comp->id == DDP_COMPONENT_DSI1)) {
+			dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+			mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
+		}
 	}
-#endif
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -6079,12 +6084,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case SET_MMCLK_BY_DATARATE:
 	{
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
+		struct mtk_drm_private *priv = (crtc->base).dev->dev_private;
 
-		mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
-#endif
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMDVFS_SUPPORT))
+			mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
 	}
 		break;
 	case GET_FRAME_HRT_BW_BY_DATARATE:
@@ -6629,27 +6635,24 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->engine_clk)) {
 		ret = PTR_ERR(dsi->engine_clk);
 		dev_err(dev, "Failed to get engine clock: %d\n", ret);
-#ifndef MTK_DRM_BRINGUP_STAGE
-		goto error;
-#endif
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			goto error;
 	}
 
 	dsi->digital_clk = devm_clk_get(dev, "digital");
 	if (IS_ERR(dsi->digital_clk)) {
 		ret = PTR_ERR(dsi->digital_clk);
 		dev_err(dev, "Failed to get digital clock: %d\n", ret);
-#ifndef MTK_DRM_BRINGUP_STAGE
-		goto error;
-#endif
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			goto error;
 	}
 
 	dsi->hs_clk = devm_clk_get(dev, "hs");
 	if (IS_ERR(dsi->hs_clk)) {
 		ret = PTR_ERR(dsi->hs_clk);
 		dev_err(dev, "Failed to get hs clock: %d\n", ret);
-#ifndef MTK_DRM_BRINGUP_STAGE
-		goto error;
-#endif
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			goto error;
 	}
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -6657,18 +6660,16 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->regs)) {
 		ret = PTR_ERR(dsi->regs);
 		dev_err(dev, "Failed to ioremap memory: %d\n", ret);
-#ifndef MTK_DRM_BRINGUP_STAGE
-		goto error;
-#endif
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			goto error;
 	}
 
 	dsi->phy = devm_phy_get(dev, "dphy");
 	if (IS_ERR(dsi->phy)) {
 		ret = PTR_ERR(dsi->phy);
 		dev_err(dev, "Failed to get MIPI-DPHY: %d\n", ret);
-#ifndef MTK_DRM_BRINGUP_STAGE
-		goto error;
-#endif
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			goto error;
 	}
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DSI);
@@ -6712,27 +6713,26 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 
 #ifndef CONFIG_MTK_DISP_NO_LK
-#ifndef MTK_DRM_BRINGUP_STAGE
 	/* set ccf reference cnt = 1 */
-	pm_runtime_get_sync(dev);
-#endif
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		pm_runtime_get_sync(dev);
 #endif
 
 	/* Assume DSI0 enable already in LK */
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
 #ifndef CONFIG_MTK_DISP_NO_LK
-#ifndef MTK_DRM_BRINGUP_STAGE
-		phy_power_on(dsi->phy);
-		ret = clk_prepare_enable(dsi->engine_clk);
-		if (ret < 0)
-			pr_info("%s Failed to enable engine clock: %d\n",
-				__func__, ret);
+		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+			phy_power_on(dsi->phy);
+			ret = clk_prepare_enable(dsi->engine_clk);
+			if (ret < 0)
+				pr_info("%s Failed to enable engine clock: %d\n",
+					__func__, ret);
 
-		ret = clk_prepare_enable(dsi->digital_clk);
-		if (ret < 0)
-			pr_info("%s Failed to enable digital clock: %d\n",
-				__func__, ret);
-#endif
+			ret = clk_prepare_enable(dsi->digital_clk);
+			if (ret < 0)
+				pr_info("%s Failed to enable digital clock: %d\n",
+					__func__, ret);
+		}
 		dsi->output_en = true;
 		dsi->clk_refcnt = 1;
 #endif

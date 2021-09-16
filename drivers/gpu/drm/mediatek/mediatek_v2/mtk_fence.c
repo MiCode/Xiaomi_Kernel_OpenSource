@@ -438,21 +438,19 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 
 		layer_info->fence_fd = buf->fence;
 
-#ifdef CONFIG_MTK_DISPLAY_M4U
 		if (buf->buf_hnd) {
 			DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p\n",
 				 mtk_fence_session_mode_spy(session_id),
 				 MTK_SESSION_DEV(session_id), layer_id, fence,
 				 current_timeline_idx, layer_info->fence_idx,
 				 buf->idx, buf->buf_hnd);
+		} else {
+			DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d\n",
+				 mtk_fence_session_mode_spy(session_id),
+				 MTK_SESSION_DEV(session_id), layer_id, fence,
+				 current_timeline_idx, layer_info->fence_idx,
+				 buf->idx);
 		}
-#else
-		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d\n",
-			 mtk_fence_session_mode_spy(session_id),
-			 MTK_SESSION_DEV(session_id), layer_id, fence,
-			 current_timeline_idx, layer_info->fence_idx,
-			 buf->idx);
-#endif
 
 		list_del_init(&buf->list);
 
@@ -836,17 +834,16 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	list_add_tail(&buf_info->list, &layer_info->buf_list);
 	mutex_unlock(&layer_info->sync_lock);
 
-#ifdef CONFIG_MTK_DISPLAY_M4U
-	DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
-		 mtk_fence_session_mode_spy(session_id),
-		 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-		 buf_info->fence, buf_info->buf_hnd);
-#else
-	DDPFENCE("P+/%s%d/L%d/id%d/fd%d\n",
-		 mtk_fence_session_mode_spy(session_id),
-		 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-		 buf_info->fence);
-#endif
+	if (buf_info->buf_hnd)
+		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
+			 mtk_fence_session_mode_spy(session_id),
+			 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
+			 buf_info->fence, buf_info->buf_hnd);
+	else
+		DDPFENCE("P+/%s%d/L%d/id%d/fd%d\n",
+			 mtk_fence_session_mode_spy(session_id),
+			 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
+			 buf_info->fence);
 
 	return buf_info;
 }

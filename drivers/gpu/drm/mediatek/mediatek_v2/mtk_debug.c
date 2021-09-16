@@ -65,16 +65,12 @@ static struct proc_dir_entry *disp_lowpower_proc;
 static struct proc_dir_entry *mtkfb_debug_procfs;
 #endif
 static struct drm_device *drm_dev;
-#ifdef MTK_DRM_BRINGUP_STAGE
-bool g_mobile_log = 1;
-bool g_fence_log = 1;
-bool g_detail_log = 1;
-#else
+
 bool g_mobile_log;
 bool g_fence_log;
 bool g_detail_log;
 bool g_msync_debug;
-#endif
+
 EXPORT_SYMBOL(g_mobile_log);
 EXPORT_SYMBOL(g_msync_debug);
 bool g_irq_log;
@@ -2005,10 +2001,12 @@ static void process_dbg_opt(const char *opt)
 		DDPMSG("change idle interval to %llu ms\n",
 		       idle_check_interval);
 	} else if (strncmp(opt, "hrt_bw", 6) == 0) {
+		struct mtk_drm_private *priv = drm_dev->dev_private;
+
 		DDPINFO("HRT test+\n");
-#ifdef MTK_DISP_MMQOS_SUPPORT
-		mtk_disp_hrt_bw_dbg();
-#endif
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			mtk_disp_hrt_bw_dbg();
 		DDPINFO("HRT test-\n");
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;

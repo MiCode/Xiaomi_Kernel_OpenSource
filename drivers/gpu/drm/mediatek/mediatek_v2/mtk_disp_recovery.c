@@ -419,6 +419,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int ret = 0;
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
@@ -441,11 +442,12 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	if (drm_crtc_index(crtc) == 0)
-		mtk_disp_set_hrt_bw(mtk_crtc,
-			mtk_crtc->qos_ctx->last_hrt_req);
-#endif
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		if (drm_crtc_index(crtc) == 0)
+			mtk_disp_set_hrt_bw(mtk_crtc,
+				mtk_crtc->qos_ctx->last_hrt_req);
+	}
 
 	mtk_drm_crtc_enable(crtc);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 3);

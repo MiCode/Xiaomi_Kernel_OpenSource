@@ -1023,7 +1023,6 @@ bool mtk_drm_lcm_is_connect(void)
 	return false;
 }
 
-#ifdef MTK_DRM_ESD_SUPPORT
 static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 				     struct drm_atomic_state *old_state)
 {
@@ -1045,7 +1044,6 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 		is_first = false;
 	}
 }
-#endif
 
 static void mtk_drm_enable_trig(struct drm_device *drm,
 		struct drm_atomic_state *old_state)
@@ -1280,9 +1278,7 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	if (!mtk_atomic_skip_plane_update(private, state)) {
 		drm_atomic_helper_commit_planes(drm, state,
 						DRM_PLANE_COMMIT_ACTIVE_ONLY);
-#ifdef MTK_DRM_ESD_SUPPORT
 		drm_atomic_esd_chk_first_enable(drm, state);
-#endif
 	}
 
 	mtk_atomic_doze_finish(drm, state);
@@ -3030,13 +3026,13 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 	struct clk *clk;
 	int ret, i;
 
-#ifdef MTK_DRM_BRINGUP_STAGE
+	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL) {
 		spin_lock_init(&top_clk_lock);
 		/* TODO: check display enable from lk */
 		atomic_set(&top_isr_ref, 0);
 		atomic_set(&top_clk_ref, 1);
 		priv->power_state = true;
-#endif
+	}
 
 	if (of_property_read_u32(node, "clock-num", &priv->top_clk_num)) {
 		priv->top_clk_num = -1;
@@ -3072,13 +3068,13 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 			DDPPR_ERR("top clk prepare enable failed:%d\n", i);
 	}
 
-#ifndef MTK_DRM_BRINGUP_STAGE
-	spin_lock_init(&top_clk_lock);
-	/* TODO: check display enable from lk */
-	atomic_set(&top_isr_ref, 0);
-	atomic_set(&top_clk_ref, 1);
-	priv->power_state = true;
-#endif
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		spin_lock_init(&top_clk_lock);
+		/* TODO: check display enable from lk */
+		atomic_set(&top_isr_ref, 0);
+		atomic_set(&top_clk_ref, 1);
+		priv->power_state = true;
+	}
 }
 
 void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
@@ -3171,37 +3167,38 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 
 bool mtk_drm_top_clk_isr_get(char *master)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
 	unsigned long flags = 0;
 
-	spin_lock_irqsave(&top_clk_lock, flags);
-	if (atomic_read(&top_clk_ref) <= 0) {
-		DDPPR_ERR("%s, top clk off at %s\n",
-			  __func__, master ? master : "NULL");
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		spin_lock_irqsave(&top_clk_lock, flags);
+		if (atomic_read(&top_clk_ref) <= 0) {
+			DDPPR_ERR("%s, top clk off at %s\n",
+				  __func__, master ? master : "NULL");
+			spin_unlock_irqrestore(&top_clk_lock, flags);
+			return false;
+		}
+		atomic_inc(&top_isr_ref);
 		spin_unlock_irqrestore(&top_clk_lock, flags);
-		return false;
 	}
-	atomic_inc(&top_isr_ref);
-	spin_unlock_irqrestore(&top_clk_lock, flags);
-#endif
 	return true;
 }
 
 void mtk_drm_top_clk_isr_put(char *master)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
 	unsigned long flags = 0;
 
-	spin_lock_irqsave(&top_clk_lock, flags);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 
-	/* when timeout of polling isr ref in unpreare top clk*/
-	if (atomic_read(&top_clk_ref) <= 0)
-		DDPPR_ERR("%s, top clk off at %s\n",
-			  __func__, master ? master : "NULL");
+		spin_lock_irqsave(&top_clk_lock, flags);
 
-	atomic_dec(&top_isr_ref);
-	spin_unlock_irqrestore(&top_clk_lock, flags);
-#endif
+		/* when timeout of polling isr ref in unpreare top clk*/
+		if (atomic_read(&top_clk_ref) <= 0)
+			DDPPR_ERR("%s, top clk off at %s\n",
+				  __func__, master ? master : "NULL");
+
+		atomic_dec(&top_isr_ref);
+		spin_unlock_irqrestore(&top_clk_lock, flags);
+	}
 }
 
 static void mtk_drm_first_enable(struct drm_device *drm)
@@ -3990,10 +3987,11 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	struct device *dma_dev;
 	int ret, i;
 
-#ifdef CONFIG_MTK_DISPLAY_M4U
-	if (!iommu_present(&platform_bus_type))
-		return -EPROBE_DEFER;
-#endif
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_USE_M4U)) {
+		if (!iommu_present(&platform_bus_type))
+			return -EPROBE_DEFER;
+	}
 
 	DDPINFO("%s+\n", __func__);
 
@@ -4034,16 +4032,18 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	ret = mtk_drm_crtc_create(drm, private->data->main_path_data);
 	if (ret < 0)
 		goto err_component_unbind;
-#ifndef MTK_DRM_BRINGUP_STAGE
-	/* ... and OVL1 -> COLOR1 -> GAMMA -> RDMA1 -> DPI0. */
-	ret = mtk_drm_crtc_create(drm, private->data->ext_path_data);
-	if (ret < 0)
-		goto err_component_unbind;
 
-	ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
-	if (ret < 0)
-		goto err_component_unbind;
-#endif
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		/* ... and OVL1 -> COLOR1 -> GAMMA -> RDMA1 -> DPI0. */
+		ret = mtk_drm_crtc_create(drm, private->data->ext_path_data);
+		if (ret < 0)
+			goto err_component_unbind;
+
+		ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
+		if (ret < 0)
+			goto err_component_unbind;
+	}
+
 	/* Use OVL device for all DMA memory allocations */
 	np = private->comp_node[private->data->main_path_data
 					->path[DDP_MAJOR][0][0]];
@@ -4115,9 +4115,9 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #endif
 	disp_dbg_init(drm);
 	PanelMaster_Init(drm);
-#ifdef MTK_DISP_MMDVFS_SUPPORT
-	mtk_drm_mmdvfs_init(drm->dev);
-#endif
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_MMDVFS_SUPPORT))
+		mtk_drm_mmdvfs_init(drm->dev);
 	DDPINFO("%s-\n", __func__);
 
 	mtk_drm_first_enable(drm);
@@ -4772,7 +4772,6 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_MMLSYS_BYPASS},
 	{} };
 
-#ifdef CONFIG_MTK_DISPLAY_M4U
 static struct disp_iommu_device disp_iommu;
 static struct platform_device mydev;
 
@@ -4820,7 +4819,6 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 	disp_iommu.inited = 1;
 	return &disp_iommu;
 }
-#endif
 
 static int mtk_drm_probe(struct platform_device *pdev)
 {
@@ -4857,6 +4855,15 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	mutex_init(&private->commit.lock);
 	INIT_WORK(&private->commit.work, mtk_atomic_work);
+
+	mtk_drm_helper_init(dev, &private->helper_opt);
+
+	/* Init disp_global_stage from platform dts */
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_STAGE) == DISP_HELPER_STAGE_NORMAL)
+		disp_helper_set_stage(DISP_HELPER_STAGE_NORMAL);
+	else
+		disp_helper_set_stage(DISP_HELPER_STAGE_BRING_UP);
 
 	ret = of_property_read_u32(dev->of_node,
 				"dispsys_num", &dispsys_num);
@@ -4957,9 +4964,10 @@ SKIP_SIDE_DISP:
 		DDPMSG("%s AOD-SCP ON\n", __func__);
 	}
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	private->hrt_bw_request = of_mtk_icc_get(dev, "disp_hrt_qos");
-#endif
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		private->hrt_bw_request =
+			of_mtk_icc_get(dev, "disp_hrt_qos");
 
 	/* Iterate over sibling DISP function blocks */
 	for_each_child_of_node(dev->of_node->parent, node) {
@@ -5057,14 +5065,11 @@ SKIP_SIDE_DISP:
 		goto err_pm;
 
 	mtk_fence_init();
-	mtk_drm_helper_init(dev, &private->helper_opt);
 	DDPINFO("%s-\n", __func__);
 
 	disp_dts_gpio_init(dev, private);
 
-#ifdef CONFIG_MTK_DISPLAY_M4U
 	memcpy(&mydev, pdev, sizeof(mydev));
-#endif
 
 	return 0;
 

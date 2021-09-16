@@ -4,6 +4,7 @@
  */
 
 #include <drm/drm_crtc.h>
+#include "mtk_drm_drv.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_fb.h"
@@ -304,9 +305,8 @@ int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
 			  unsigned long map_va)
 {
-#ifdef CONFIG_MTK_DISPLAY_M4U
 	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
-#endif
+
 	return 0;
 }
 
@@ -315,12 +315,19 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 {
 	struct mtk_plane_pending_state *pending = &state->pending;
 	struct drm_crtc *crtc = state->crtc;
+	struct mtk_drm_private *private = crtc->dev->dev_private;
 	int crtc_idx = drm_crtc_index(crtc);
 	struct mmp_metadata_bitmap_t bitmap;
 	struct mmp_metadata_t meta;
 	unsigned int fmt = pending->format;
 	int raw = 0;
 	int yuv = 0;
+
+	if (!mtk_drm_helper_get_opt(private->helper_opt,
+				MTK_DRM_OPT_USE_M4U)) {
+		DDPPR_ERR("[MMP]display iommu is disabled\n");
+		return -1;
+	}
 
 	if (!pending->enable) {
 		DDPINFO("[MMP]layer is not disable\n");

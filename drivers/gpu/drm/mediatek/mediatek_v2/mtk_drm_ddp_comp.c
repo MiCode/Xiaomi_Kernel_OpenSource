@@ -772,7 +772,6 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #endif
 }
 
-#ifndef MTK_DRM_BRINGUP_STAGE
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
 {
@@ -789,7 +788,6 @@ static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
 	return 0;
 }
 #endif
-#endif
 
 #define GET_M4U_PORT 0x1F
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
@@ -797,9 +795,12 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 {
 	int port, index, ret;
 	struct resource res;
+	struct mtk_drm_private *priv;
 
-	if (!comp->dev || !comp->larb_dev)
+	if (!comp->dev || !comp->larb_dev || !comp->mtk_crtc)
 		return;
+
+	priv = comp->mtk_crtc->base.dev->dev_private;
 
 	index = 0;
 	while (1) {
@@ -808,12 +809,12 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 		if (ret < 0)
 			break;
 
-#ifndef MTK_DRM_BRINGUP_STAGE
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-			mtk_iommu_register_fault_callback(
-				port, mtk_ddp_m4u_callback,
-				comp, false);
-#endif
+			if (disp_helper_get_stage() ==
+					DISP_HELPER_STAGE_NORMAL)
+				mtk_iommu_register_fault_callback(
+					port, mtk_ddp_m4u_callback,
+					comp, false);
 #endif
 
 		port &= (unsigned int)GET_M4U_PORT;
@@ -824,16 +825,17 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			return;
 		}
 
-#ifndef CONFIG_MTK_DISPLAY_M4U
-		//bypass m4u
-		cmdq_pkt_write(handle, NULL,
-			res.start + SMI_LARB_NON_SEC_CON + port * 4, 0,
-			0x1);
-#else
-		cmdq_pkt_write(handle, NULL,
-			res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
-			0x1);
-#endif
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_USE_M4U))
+			//bypass m4u
+			cmdq_pkt_write(handle, NULL,
+				res.start + SMI_LARB_NON_SEC_CON + port * 4, 0,
+				0x1);
+		else
+			cmdq_pkt_write(handle, NULL,
+				res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
+				0x1);
+
 		index++;
 	}
 }

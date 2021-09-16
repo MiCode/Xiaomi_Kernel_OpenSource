@@ -2667,6 +2667,8 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd io_cmd, void *params)
 {
 	int ret = 0;
+	struct mtk_drm_private *priv =
+		comp->mtk_crtc->base.dev->dev_private;
 
 	switch (io_cmd) {
 	case MTK_IO_CMD_OVL_GOLDEN_SETTING: {
@@ -2707,11 +2709,14 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, 0, inten);
 		break;
 	}
-#ifdef MTK_DISP_MMQOS_SUPPORT
 	case PMQOS_SET_BW: {
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
 		u32 ovl_bw, slot_num;
+
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
 
 		mtk_crtc = comp->mtk_crtc;
 		cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -2738,6 +2743,10 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case PMQOS_SET_HRT_BW: {
 		u32 bw_val = *(unsigned int *)params;
 
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
+
 		__mtk_disp_set_module_hrt(comp->hrt_qos_req, bw_val);
 
 		ret = OVL_REQ_HRT;
@@ -2748,6 +2757,10 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
 		u32 slot_num;
+
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
@@ -2773,7 +2786,6 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			comp->fbdc_bw, comp->qos_bw);
 		break;
 	}
-#endif
 	case OVL_REPLACE_BOOTUP_MVA: {
 		struct mtk_ddp_fb_info *fb_info =
 			(struct mtk_ddp_fb_info *)params;
@@ -3456,12 +3468,11 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_ovl *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
+	struct mtk_drm_private *private = drm_dev->dev_private;
 	int ret;
 	unsigned int bg_h, bg_w;
 	void __iomem *baddr;
-#ifdef MTK_DISP_MMQOS_SUPPORT
 	char buf[50];
-#endif
 
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
@@ -3470,19 +3481,20 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
-					&priv->ddp_comp, "qos");
-	priv->ddp_comp.qos_req = of_mtk_icc_get(dev, buf);
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "qos");
+		priv->ddp_comp.qos_req = of_mtk_icc_get(dev, buf);
 
-	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
-					&priv->ddp_comp, "fbdc_qos");
-	priv->ddp_comp.fbdc_qos_req = of_mtk_icc_get(dev, buf);
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "fbdc_qos");
+		priv->ddp_comp.fbdc_qos_req = of_mtk_icc_get(dev, buf);
 
-	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
-					&priv->ddp_comp, "hrt_qos");
-	priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
-#endif
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "hrt_qos");
+		priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
+	}
 
 	baddr = priv->ddp_comp.regs;
 	bg_w = readl(DISP_REG_OVL_ROI_SIZE + baddr) & 0xfff,

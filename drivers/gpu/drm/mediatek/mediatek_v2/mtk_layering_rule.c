@@ -24,9 +24,8 @@
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_graphics_base.h"
-#ifdef MTK_DISP_MMQOS_SUPPORT
+
 #include <soc/mediatek/mmqos.h>
-#endif
 
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
@@ -519,10 +518,15 @@ unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 {
 	unsigned long long dvfs_bw = 0;
-#ifdef MTK_DISP_MMQOS_SUPPORT
 	unsigned long long tmp = 0;
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv =
+			mtk_crtc->base.dev->dev_private;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		return 600;
 
 	dvfs_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
 	if (dvfs_bw == 0xffffffffffffffff) {
@@ -562,9 +566,6 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
 		mtk_mmqos_get_avail_hrt_bw(HRT_DISP),
 		dvfs_bw, tmp);
-#else
-	dvfs_bw = 600;
-#endif
 
 	return dvfs_bw;
 }

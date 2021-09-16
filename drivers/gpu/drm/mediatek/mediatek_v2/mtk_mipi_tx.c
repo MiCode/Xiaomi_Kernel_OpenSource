@@ -373,7 +373,7 @@ static void mtk_mipi_tx_update_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 
 unsigned int mtk_mipi_tx_pll_get_rate(struct phy *phy)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	int i = 0;
 	unsigned int pcw;
 	unsigned int prediv;
@@ -391,13 +391,13 @@ unsigned int mtk_mipi_tx_pll_get_rate(struct phy *phy)
 	i = prediv * posdiv;
 	if (i > 0)
 		return 26 * pcw / i;
-#endif /* MTK_DRM_BRINGUP_STAGE */
+#endif
 	return 0;
 }
 
 int mtk_mipi_tx_dump(struct phy *phy)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	int k;
 
@@ -409,7 +409,7 @@ int mtk_mipi_tx_dump(struct phy *phy)
 			readl(mipi_tx->regs + k + 0x8),
 			readl(mipi_tx->regs + k + 0xc));
 	}
-#endif /* MTK_DRM_BRINGUP_STAGE */
+#endif
 	return 0;
 }
 
@@ -1301,7 +1301,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 
 static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
@@ -1476,7 +1476,7 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6885(struct clk_hw *hw)
 }
 static int mtk_mipi_tx_pll_cphy_prepare_mt6983(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
@@ -1919,7 +1919,7 @@ static int mtk_mipi_tx_pll_prepare_mt6833(struct clk_hw *hw)
 
 static int mtk_mipi_tx_pll_prepare_mt6879(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
@@ -2002,13 +2002,13 @@ static int mtk_mipi_tx_pll_prepare_mt6879(struct clk_hw *hw)
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 
 	DDPDBG("%s-\n", __func__);
-#endif /*MTK_DRM_BRINGUP_STAGE*/
+#endif
 	return 0;
 }
 
 static int mtk_mipi_tx_pll_cphy_prepare_mt6879(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
@@ -2198,7 +2198,7 @@ static void mtk_mipi_tx_pll_cphy_unprepare_mt6885(struct clk_hw *hw)
 
 static void mtk_mipi_tx_pll_unprepare_mt6983(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
 	DDPDBG("%s+\n", __func__);
@@ -2229,7 +2229,7 @@ static void mtk_mipi_tx_pll_unprepare_mt6983(struct clk_hw *hw)
 
 static void mtk_mipi_tx_pll_cphy_unprepare_mt6983(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
 	DDPDBG("%s+\n", __func__);
@@ -2355,7 +2355,7 @@ static void mtk_mipi_tx_pll_unprepare_mt6833(struct clk_hw *hw)
 
 static void mtk_mipi_tx_pll_unprepare_mt6879(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
 	DDPDBG("%s+\n", __func__);
@@ -2379,13 +2379,13 @@ static void mtk_mipi_tx_pll_unprepare_mt6879(struct clk_hw *hw)
 
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON);
 	writel(0x3FFF0100, mipi_tx->regs + MIPITX_LANE_CON);
-#endif /*MTK_DRM_BRINGUP_STAGE*/
+#endif
 	DDPINFO("%s-\n", __func__);
 }
 
 static void mtk_mipi_tx_pll_cphy_unprepare_mt6879(struct clk_hw *hw)
 {
-#ifndef MTK_DRM_BRINGUP_STAGE
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
 	DDPDBG("%s+\n", __func__);
@@ -2940,15 +2940,18 @@ static int mtk_mipi_tx_probe(struct platform_device *pdev)
 
 	mtk_mipi_tx_pll_ops.prepare = mipi_tx->driver_data->pll_prepare;
 	mtk_mipi_tx_pll_ops.unprepare = mipi_tx->driver_data->pll_unprepare;
-#ifndef MTK_DRM_BRINGUP_STAGE
-	mipi_tx->pll_hw.init = &clk_init;
-	mipi_tx->pll = devm_clk_register(dev, &mipi_tx->pll_hw);
-	if (IS_ERR(mipi_tx->pll)) {
-		ret = PTR_ERR(mipi_tx->pll);
-		dev_err(dev, "Failed to register PLL: %d\n", ret);
-		return ret;
+
+	if (disp_helper_get_stage() ==
+						DISP_HELPER_STAGE_NORMAL) {
+		mipi_tx->pll_hw.init = &clk_init;
+		mipi_tx->pll = devm_clk_register(dev, &mipi_tx->pll_hw);
+		if (IS_ERR(mipi_tx->pll)) {
+			ret = PTR_ERR(mipi_tx->pll);
+			dev_err(dev, "Failed to register PLL: %d\n", ret);
+			return ret;
+		}
 	}
-#endif
+
 	phy = devm_phy_create(dev, NULL, &mtk_mipi_tx_ops);
 	if (IS_ERR(phy)) {
 		ret = PTR_ERR(phy);

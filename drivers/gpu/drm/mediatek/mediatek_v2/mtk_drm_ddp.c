@@ -10401,9 +10401,10 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		if (val & (0x1 << m_id)) {
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
-#ifndef MTK_DRM_BRINGUP_STAGE
-			mtk_drm_cwb_backup_copy_size();
-#endif
+
+			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+				mtk_drm_cwb_backup_copy_size();
+
 #ifndef DRM_BYPASS_PQ
 			disp_aal_on_start_of_frame();
 			disp_c3d_on_start_of_frame();
@@ -12229,18 +12230,20 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 
 	for (i = 0; i < 10; i++)
 		ddp->mutex[i].id = i;
-#ifndef MTK_DRM_BRINGUP_STAGE
-	if (!of_find_property(dev->of_node, "clocks", &i))
-		pr_info("mediatek-drm %s: has no clocks, set freerun\n",
-			dev_name(dev));
-	else {
-		ddp->clk = devm_clk_get(dev, NULL);
-		if (IS_ERR(ddp->clk)) {
-			pr_info("Failed to get Mutex clock\n");
-			return PTR_ERR(ddp->clk);
+
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (!of_find_property(dev->of_node, "clocks", &i))
+			pr_info("mediatek-drm %s: has no clocks, set freerun\n",
+				dev_name(dev));
+		else {
+			ddp->clk = devm_clk_get(dev, NULL);
+			if (IS_ERR(ddp->clk)) {
+				pr_info("Failed to get Mutex clock\n");
+				return PTR_ERR(ddp->clk);
+			}
 		}
 	}
-#endif
+
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ddp->regs_pa = regs->start;
 	ddp->regs = devm_ioremap_resource(dev, regs);

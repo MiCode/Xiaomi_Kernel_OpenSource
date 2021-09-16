@@ -11,22 +11,19 @@
 #include "mtk_dump.h"
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
-#ifdef MTK_DISP_MMQOS_SUPPORT
+
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <soc/mediatek/mmqos.h>
-#endif
+
 
 static struct drm_crtc *dev_crtc;
 
 /* add for mm qos */
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
 static int g_freq_level = -1;
 static int step_size = 1;
-#endif
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
 void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
 				struct mtk_ddp_comp *comp, char *qos_event)
 {
@@ -209,11 +206,9 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 	return 0;
 }
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
 struct notifier_block pmqos_hrt_notifier = {
 	.notifier_call = mtk_disp_hrt_cond_change_cb,
 };
-#endif
 
 int mtk_disp_hrt_bw_dbg(void)
 {
@@ -221,27 +216,34 @@ int mtk_disp_hrt_bw_dbg(void)
 
 	return 0;
 }
-#endif
 
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *priv;
 
 	dev_crtc = crtc;
 	mtk_crtc = to_mtk_crtc(dev_crtc);
+
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s:mtk_crtc is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	priv = mtk_crtc->base.dev->dev_private;
 
 	mtk_crtc->qos_ctx = vmalloc(sizeof(struct mtk_drm_qos_ctx));
 	if (mtk_crtc->qos_ctx == NULL) {
 		DDPPR_ERR("%s:allocate qos_ctx failed\n", __func__);
 		return -ENOMEM;
 	}
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);
-#endif
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);
+
 	return 0;
 }
 
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 {
 	int i = 0;
@@ -325,4 +327,4 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 			mtk_drm_set_mmclk(crtc, 0, caller);
 	}
 }
-#endif
+

@@ -15,10 +15,15 @@
 #include "mtk_drm_helper.h"
 #include "mtk_log.h"
 
+static enum DISP_HELPER_STAGE disp_global_stage;
+
 static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_STAGE, 0, "MTK_DRM_OPT_STAGE"},       /* must enable */
 	{MTK_DRM_OPT_USE_CMDQ, 0, "MTK_DRM_OPT_USE_CMDQ"}, /* must enable */
-	{MTK_DRM_OPT_USE_M4U, 0, "MTK_DRM_OPT_USE_M4U"},   /* must enable */
+	{MTK_DRM_OPT_USE_M4U, 1, "MTK_DRM_OPT_USE_M4U"},   /* must enable */
+
+	{MTK_DRM_OPT_MMQOS_SUPPORT, 1, "MTK_DRM_OPT_MMQOS_SUPPORT"},
+	{MTK_DRM_OPT_MMDVFS_SUPPORT, 1, "MTK_DRM_OPT_MMDVFS_SUPPORT"},
 
 	/* low power option start */
 	{MTK_DRM_OPT_SODI_SUPPORT, 0, "MTK_DRM_OPT_SODI_SUPPORT"},
@@ -74,6 +79,16 @@ static struct mtk_drm_helper help_info[] = {
 	/* Resolution switch */
 	{MTK_DRM_OPT_RES_SWITCH, 1, "MTK_DRM_OPT_RES_SWITCH"},
 };
+
+enum DISP_HELPER_STAGE disp_helper_get_stage(void)
+{
+	return disp_global_stage;
+}
+
+void disp_helper_set_stage(enum DISP_HELPER_STAGE stage)
+{
+	disp_global_stage = stage;
+}
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,
 					  enum MTK_DRM_HELPER_OPT option)

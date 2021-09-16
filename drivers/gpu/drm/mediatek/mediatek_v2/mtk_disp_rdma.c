@@ -855,6 +855,8 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			   enum mtk_ddp_io_cmd io_cmd, void *params)
 {
 	int ret = 0;
+	struct mtk_drm_private *priv =
+		comp->mtk_crtc->base.dev->dev_private;
 
 	switch (io_cmd) {
 	case MTK_IO_CMD_RDMA_GOLDEN_SETTING: {
@@ -885,11 +887,14 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			       inten);
 		break;
 	}
-#ifdef MTK_DISP_MMQOS_SUPPORT
 	case PMQOS_SET_HRT_BW: {
 		bool *rdma_memory_mode = comp->comp_mode;
 		u32 bw_val = *(unsigned int *)params;
 		struct mtk_ddp_comp *output_comp;
+
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
 
 		output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
 		if (*rdma_memory_mode == true) {
@@ -902,7 +907,6 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		break;
 	}
-#endif
 	case BACKUP_INFO_CMP: {
 		mtk_rdma_backup_info_cmp(comp, params);
 		break;
@@ -1321,9 +1325,8 @@ static int mtk_disp_rdma_bind(struct device *dev, struct device *master,
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	struct drm_device *drm_dev = data;
-#ifdef MTK_DISP_MMQOS_SUPPORT
+	struct mtk_drm_private *private = drm_dev->dev_private;
 	char buf[50];
-#endif
 
 	DDPINFO("%s\n", __func__);
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
@@ -1337,15 +1340,16 @@ static int mtk_disp_rdma_bind(struct device *dev, struct device *master,
 
 	comp->comp_mode = &priv->rdma_memory_mode;
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
-	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
-					&priv->ddp_comp, "qos");
-	priv->ddp_comp.qos_req = of_mtk_icc_get(dev, buf);
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "qos");
+		priv->ddp_comp.qos_req = of_mtk_icc_get(dev, buf);
 
-	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
-					&priv->ddp_comp, "hrt_qos");
-	priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
-#endif
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "hrt_qos");
+		priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
+	}
 
 	return 0;
 }
