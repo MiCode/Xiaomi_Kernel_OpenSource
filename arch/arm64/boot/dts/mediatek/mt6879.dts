@@ -4143,14 +4143,6 @@
 				"mfg_cpe_control",
 				"mfg_cpe_sensor",
 				"infra_ao_mem";
-			clocks =
-					<&mfg_top_config_clk CLK_MFGCFG_BG3D>,
-					<&mfg_pll_ctrl_clk	 CLK_MFG_AO_MFGPLL>,
-					<&mfg_pll_ctrl_clk	 CLK_MFG_AO_MFGSCPLL>;
-			clock-names =
-						"subsys_mfg_cg",
-						"clk_main_parent",
-						"clk_sc_main_parent";
 			power-domains =
 				<&scpsys MT6879_POWER_DOMAIN_MFG1>,
 				<&scpsys MT6879_POWER_DOMAIN_MFG2>,
@@ -4174,7 +4166,7 @@
 			compatible = "mediatek,gpufreq_wrapper";
 			gpufreq-version = <2>;
 			dual-buck = <0>;
-			gpueb-support = <0>;
+			gpueb-support = <1>;
 		};
 
 		ged: ged {
@@ -9764,6 +9756,10 @@
 };
 
 &mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck2 {
 	regulator-always-on;
 };
 
