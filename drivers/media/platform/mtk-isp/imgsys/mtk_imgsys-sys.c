@@ -751,10 +751,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 
 	swfrminfo_cb = data.data;
 	pipe = (struct mtk_imgsys_pipe *)swfrminfo_cb->pipe;
-	if (!pipe->streaming) {
+	if (!pipe->streaming)
 		pr_info("%s pipe already streamoff\n", __func__);
-		return;
-	}
 
 	req = (struct mtk_imgsys_request *)(swfrminfo_cb->req);
 	if (!req) {

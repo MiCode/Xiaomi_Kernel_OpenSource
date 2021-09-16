@@ -265,80 +265,79 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		);
 	}
 
-
-	if (is_stream_off == 0) {
-		dev_dbg(imgsys_dev->dev,
-			"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) isFrmLast(%d) isECB(%d) isGPLast(%d) isGPECB(%d) for frm(%d/%d)\n",
-			__func__, cb_param->frm_info->request_fd,
-			cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
-			cb_param, cb_param->frm_info, cb_param->isBlkLast,
-			cb_param->isFrmLast, cb_param->is_earlycb,
-			cb_param->frm_info->user_info[cb_param->frm_idx].is_lastingroup,
-			cb_param->frm_info->user_info[cb_param->frm_idx].is_earlycb,
-			cb_param->frm_idx, cb_param->frm_num);
-
-		hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
-		req_fd = cb_param->frm_info->request_fd;
-		req_no = cb_param->frm_info->request_no;
-		frm_no = cb_param->frm_info->frame_no;
-
-		if (cb_param->isBlkLast) {
-			cb_param->frm_info->cb_frmcnt++;
-			cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
-		}
-
-		dev_dbg(imgsys_dev->dev,
-			"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) cb_param->frm_num(%d) cb_frm_cnt(%d)\n",
-			__func__, cb_param->frm_info->request_fd,
-			cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
-			cb_param, cb_param->frm_info, cb_param->isBlkLast, cb_param->frm_num,
-			cb_frm_cnt, cb_frm_cnt);
-
-		if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
-			((cb_param->frm_num == cb_frm_cnt) || cb_param->is_earlycb)) {
-			struct cmdq_cb_data user_cb_data;
-
-			/* PMQOS API */
-			tsDvfsQosStart = ktime_get_boottime_ns()/1000;
-			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
-				__func__, "dvfs_qos", cb_param->frm_info->frame_no,
-				cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
-				cb_param->frm_info->frm_owner);
-			/* Calling PMQOS API if last frame */
-			if (cb_param->frm_num == cb_frm_cnt) {
-				mutex_lock(&(imgsys_dev->dvfs_qos_lock));
-				#if DVFS_QOS_READY
-				mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
-				mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
-				#if IMGSYS_QOS_SET_REAL
-				mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
-				#endif
-				mtk_imgsys_power_ctrl(imgsys_dev, 0);
-				#endif
-				mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
-				if (imgsys_cmdq_ts_enabled())
-					cmdq_mbox_buf_free(cb_param->clt,
-						cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
-			}
-			IMGSYS_SYSTRACE_END();
-			tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
-
-			user_cb_data.err = cb_param->err;
-			user_cb_data.data = (void *)cb_param->frm_info;
-			cb_param->cmdqTs.tsUserCbStart = ktime_get_boottime_ns()/1000;
-			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
-				__func__, "user_cb", cb_param->frm_info->frame_no,
-				cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
-				cb_param->frm_info->frm_owner);
-			cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx);
-			IMGSYS_SYSTRACE_END();
-			cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
-		}
-	} else
+	if (is_stream_off == 1)
 		pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
 			__func__, cb_param, is_stream_off);
+
+	dev_dbg(imgsys_dev->dev,
+		"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) isFrmLast(%d) isECB(%d) isGPLast(%d) isGPECB(%d) for frm(%d/%d)\n",
+		__func__, cb_param->frm_info->request_fd,
+		cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
+		cb_param, cb_param->frm_info, cb_param->isBlkLast,
+		cb_param->isFrmLast, cb_param->is_earlycb,
+		cb_param->frm_info->user_info[cb_param->frm_idx].is_lastingroup,
+		cb_param->frm_info->user_info[cb_param->frm_idx].is_earlycb,
+		cb_param->frm_idx, cb_param->frm_num);
+
+	hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
+	req_fd = cb_param->frm_info->request_fd;
+	req_no = cb_param->frm_info->request_no;
+	frm_no = cb_param->frm_info->frame_no;
+
+	if (cb_param->isBlkLast) {
+		cb_param->frm_info->cb_frmcnt++;
+		cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
+	}
+
+	dev_dbg(imgsys_dev->dev,
+		"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) cb_param->frm_num(%d) cb_frm_cnt(%d)\n",
+		__func__, cb_param->frm_info->request_fd,
+		cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
+		cb_param, cb_param->frm_info, cb_param->isBlkLast, cb_param->frm_num,
+		cb_frm_cnt, cb_frm_cnt);
+
+	if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
+		((cb_param->frm_num == cb_frm_cnt) || cb_param->is_earlycb)) {
+		struct cmdq_cb_data user_cb_data;
+
+		/* PMQOS API */
+		tsDvfsQosStart = ktime_get_boottime_ns()/1000;
+		IMGSYS_SYSTRACE_BEGIN(
+			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+			__func__, "dvfs_qos", cb_param->frm_info->frame_no,
+			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
+			cb_param->frm_info->frm_owner);
+		/* Calling PMQOS API if last frame */
+		if (cb_param->frm_num == cb_frm_cnt) {
+			mutex_lock(&(imgsys_dev->dvfs_qos_lock));
+			#if DVFS_QOS_READY
+			mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
+			mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
+			#if IMGSYS_QOS_SET_REAL
+			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+			#endif
+			mtk_imgsys_power_ctrl(imgsys_dev, 0);
+			#endif
+			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
+			if (imgsys_cmdq_ts_enabled())
+				cmdq_mbox_buf_free(cb_param->clt,
+					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
+		}
+		IMGSYS_SYSTRACE_END();
+		tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
+
+		user_cb_data.err = cb_param->err;
+		user_cb_data.data = (void *)cb_param->frm_info;
+		cb_param->cmdqTs.tsUserCbStart = ktime_get_boottime_ns()/1000;
+		IMGSYS_SYSTRACE_BEGIN(
+			"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+			__func__, "user_cb", cb_param->frm_info->frame_no,
+			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
+			cb_param->frm_info->frm_owner);
+		cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx);
+		IMGSYS_SYSTRACE_END();
+		cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
+	}
 
 	IMGSYS_SYSTRACE_BEGIN(
 		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p thd:%d frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
@@ -403,51 +402,49 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 	if (cb_param->err != 0) {
 		pr_info("%s: [ERROR] cb(%p) error(%d) for frm(%d/%d)",
 			__func__, cb_param, cb_param->err, cb_param->frm_idx, cb_param->frm_num);
-		if (is_stream_off == 0) {
-			pipe = (struct mtk_imgsys_pipe *)cb_param->frm_info->pipe;
-			if (pipe->streaming) {
-				imgsys_cmdq_cmd_dump(cb_param->frm_info, cb_param->frm_idx);
-				if (cb_param->user_cmdq_err_cb) {
-					struct cmdq_cb_data user_cb_data;
-					u16 event = 0;
-					bool isHWhang = 0;
-
-					event = cb_param->pkt->err_data.event;
-					if ((event >= IMGSYS_CMDQ_HW_EVENT_BEGIN) &&
-						(event <= IMGSYS_CMDQ_HW_EVENT_END)) {
-						isHWhang = 1;
-						pr_info(
-							"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
-							__func__,
-							cb_param->pkt->err_data.wfe_timeout,
-							cb_param->pkt->err_data.event, isHWhang);
-					} else if ((event >= IMGSYS_CMDQ_SW_EVENT_BEGIN) &&
-							(event <= IMGSYS_CMDQ_SW_EVENT_END))
-						pr_info(
-							"%s: [ERROR] SW event timeout! wfe(%d) event(%d) isHW(%d)",
-							__func__,
-							cb_param->pkt->err_data.wfe_timeout,
-							cb_param->pkt->err_data.event, isHWhang);
-					else
-						pr_info(
-							"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
-							__func__,
-							cb_param->pkt->err_data.wfe_timeout,
-							cb_param->pkt->err_data.event, isHWhang);
-
-					user_cb_data.err = cb_param->err;
-					user_cb_data.data = (void *)cb_param->frm_info;
-					cb_param->user_cmdq_err_cb(
-						user_cb_data, cb_param->frm_idx, isHWhang);
-				}
-			} else {
-				is_stream_off = 1;
-				pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
-					__func__, cb_param, is_stream_off);
-			}
-		} else
+		if (is_stream_off == 1)
 			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
 				__func__, cb_param, is_stream_off);
+		pipe = (struct mtk_imgsys_pipe *)cb_param->frm_info->pipe;
+		if (pipe->streaming) {
+			is_stream_off = 1;
+			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
+				__func__, cb_param, is_stream_off);
+		}
+		imgsys_cmdq_cmd_dump(cb_param->frm_info, cb_param->frm_idx);
+		if (cb_param->user_cmdq_err_cb) {
+			struct cmdq_cb_data user_cb_data;
+			u16 event = 0;
+			bool isHWhang = 0;
+
+			event = cb_param->pkt->err_data.event;
+			if ((event >= IMGSYS_CMDQ_HW_EVENT_BEGIN) &&
+				(event <= IMGSYS_CMDQ_HW_EVENT_END)) {
+				isHWhang = 1;
+				pr_info(
+					"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
+					__func__,
+					cb_param->pkt->err_data.wfe_timeout,
+					cb_param->pkt->err_data.event, isHWhang);
+			} else if ((event >= IMGSYS_CMDQ_SW_EVENT_BEGIN) &&
+					(event <= IMGSYS_CMDQ_SW_EVENT_END))
+				pr_info(
+					"%s: [ERROR] SW event timeout! wfe(%d) event(%d) isHW(%d)",
+					__func__,
+					cb_param->pkt->err_data.wfe_timeout,
+					cb_param->pkt->err_data.event, isHWhang);
+			else
+				pr_info(
+					"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
+					__func__,
+					cb_param->pkt->err_data.wfe_timeout,
+					cb_param->pkt->err_data.event, isHWhang);
+
+			user_cb_data.err = cb_param->err;
+			user_cb_data.data = (void *)cb_param->frm_info;
+			cb_param->user_cmdq_err_cb(
+				user_cb_data, cb_param->frm_idx, isHWhang);
+		}
 	}
 
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
