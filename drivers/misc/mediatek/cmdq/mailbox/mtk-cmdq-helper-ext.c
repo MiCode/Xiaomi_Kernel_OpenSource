@@ -1898,6 +1898,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			mod, cmdq_util_helper->hw_name(client->chan), pc, thread_id);
 	}
 
+	cmdq_util_helper->dump_smi();
 	cmdq_util_helper->error_disable();
 }
 
