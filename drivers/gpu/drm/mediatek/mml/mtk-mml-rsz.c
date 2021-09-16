@@ -4,18 +4,16 @@
  * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 
-#include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <mtk_drm_ddp_comp.h>
 
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
-#include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
@@ -282,16 +280,27 @@ static const struct mml_comp_tile_ops rsz_tile_ops = {
 	.prepare = rsz_tile_prepare,
 };
 
+static void rsz_config_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
+{
+	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0x1, U32_MAX);
+
+	/* Enable shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_SHADOW_CTRL, 0x2, U32_MAX);
+}
+
+static void rsz_config_relay(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
+{
+	/* relay mode */
+	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, U32_MAX);
+}
+
 static s32 rsz_init(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg)
 {
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0x1, U32_MAX);
-
-	/* Enable shadow */
-	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_SHADOW_CTRL, 0x2, U32_MAX);
+	rsz_config_init(pkt, base_pa);
 	return 0;
 }
 
@@ -308,8 +317,7 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ETC_CONTROL, 0x0, U32_MAX);
 
 	if (rsz_frm->rsz_relay_mode) {
-		/* relay mode */
-		cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, U32_MAX);
+		rsz_config_relay(pkt, base_pa);
 		return 0;
 	}
 
@@ -547,48 +555,37 @@ static void rsz_debug_dump(struct mml_comp *comp)
 static const struct mml_comp_debug_ops rsz_debug_ops = {
 	.dump = &rsz_debug_dump,
 };
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_rsz *rsz = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 ret = -1, temp;
+	struct drm_device *drm_dev = data;
+	s32 ret;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		ret = mml_register_comp(master, &rsz->comp);
 		if (ret)
 			dev_err(dev, "Failed to register mml component %s: %d\n",
 				dev->of_node->full_name, ret);
 	} else {
-		drm_dev = data;
 		ret = mml_ddp_comp_register(drm_dev, &rsz->ddp_comp);
-		if (ret < 0)
+		if (ret)
 			dev_err(dev, "Failed to register ddp component %s: %d\n",
 				dev->of_node->full_name, ret);
 		else
 			rsz->ddp_bound = true;
 	}
-
 	return ret;
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_rsz *rsz = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 temp;
+	struct drm_device *drm_dev = data;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		mml_unregister_comp(master, &rsz->comp);
 	} else {
-		drm_dev = data;
 		mml_ddp_comp_unregister(drm_dev, &rsz->ddp_comp);
 		rsz->ddp_bound = false;
 	}
@@ -599,6 +596,51 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
+static inline struct mml_comp_rsz *ddp_comp_to_rsz(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_comp_rsz, ddp_comp);
+}
+
+static void rsz_addon_config(struct mtk_ddp_comp *ddp_comp,
+			     enum mtk_ddp_comp_id prev,
+			     enum mtk_ddp_comp_id next,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
+{
+}
+
+static void rsz_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	rsz_config_init(pkt, ddp_comp_to_rsz(ddp_comp)->comp.base_pa);
+}
+
+static void rsz_stop(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	rsz_config_relay(pkt, ddp_comp_to_rsz(ddp_comp)->comp.base_pa);
+}
+
+static void rsz_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_rsz(ddp_comp)->comp;
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void rsz_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_rsz(ddp_comp)->comp;
+
+	comp->hw_ops->clk_disable(comp);
+}
+
+static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
+	.addon_config = rsz_addon_config,
+	.start = rsz_start,
+	.stop = rsz_stop,
+	.prepare = rsz_prepare,
+	.unprepare = rsz_unprepare,
+};
+
 static struct mml_comp_rsz *dbg_probed_components[4];
 static int dbg_probed_count;
 
@@ -607,29 +649,37 @@ static int probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mml_comp_rsz *priv;
 	s32 ret;
+	bool add_ddp = true;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (const struct rsz_data *)of_device_get_match_data(dev);
+	priv->data = of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
 		dev_err(dev, "Failed to init mml component: %d\n", ret);
 		return ret;
 	}
-
 	/* assign ops */
 	priv->comp.tile_ops = &rsz_tile_ops;
 	priv->comp.config_ops = &rsz_cfg_ops;
 	priv->comp.debug_ops = &rsz_debug_ops;
 
+	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
+				&ddp_comp_funcs);
+	if (ret) {
+		mml_log("failed to init ddp component: %d", ret);
+		add_ddp = false;
+	}
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
-	ret = component_add(dev, &mml_comp_ops);
+	if (add_ddp)
+		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 

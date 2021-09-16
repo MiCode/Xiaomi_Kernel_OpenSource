@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
  * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
@@ -8,9 +8,11 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <mtk_drm_ddp_comp.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-drm-adaptor.h"
 
 #define MUTEX_MAX_MOD_REGS	((MML_MAX_COMPONENTS + 31) >> 5)
 
@@ -56,20 +58,19 @@ struct mutex_module {
 };
 
 struct mml_mutex {
+	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct mutex_data *data;
+	bool ddp_bound;
 
 	struct mutex_module modules[MML_MAX_COMPONENTS];
 };
 
-static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
-			 struct mml_comp_config *ccfg)
+static s32 mutex_enable(struct mml_mutex *mutex, struct cmdq_pkt *pkt,
+			const struct mml_topology_path *path, u32 mutex_sof)
 {
-	struct mml_mutex *mutex = container_of(comp, struct mml_mutex, comp);
-	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-	u32 mutex_id = 0;
+	const phys_addr_t base_pa = mutex->comp.base_pa;
+	s32 mutex_id = -1;
 	u32 mutex_mod[MUTEX_MAX_MOD_REGS] = {0};
 	u32 i;
 
@@ -84,48 +85,55 @@ static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
 	/* TODO: get sof group0 shift from dts */
 	mutex_mod[1] |= 1 << (24 + path->mux_group);
 
+	if (mutex_id < 0)
+		return -EINVAL;
+
 	for (i = 0; i < mutex->data->mod_cnt; i++) {
 		u32 offset = mutex->data->mod_offsets[i];
 
 		cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_MOD(mutex_id, offset),
 			       mutex_mod[i], U32_MAX);
 	}
-	cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_SOF(mutex_id), 0x0, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_SOF(mutex_id),
+		       mutex_sof, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_EN(mutex_id), 0x1, U32_MAX);
 	return 0;
+}
+
+static s32 mutex_disable(struct mml_mutex *mutex, struct cmdq_pkt *pkt,
+			 const struct mml_topology_path *path)
+{
+	const phys_addr_t base_pa = mutex->comp.base_pa;
+	s32 mutex_id = -1;
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mutex_module *mod = &mutex->modules[path->nodes[i].id];
+
+		if (mod->select)
+			mutex_id = mod->mutex_id;
+	}
+
+	if (mutex_id < 0)
+		return -EINVAL;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_EN(mutex_id), 0x0, U32_MAX);
+	return 0;
+}
+
+static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
+			 struct mml_comp_config *ccfg)
+{
+	struct mml_mutex *mutex = container_of(comp, struct mml_mutex, comp);
+	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+
+	return mutex_enable(mutex, pkt, path, 0x0);
 }
 
 static const struct mml_comp_config_ops mutex_config_ops = {
 	.mutex = mutex_trigger
 };
-
-static int mml_bind(struct device *dev, struct device *master, void *data)
-{
-	struct mml_mutex *mutex = dev_get_drvdata(dev);
-	s32 ret;
-
-	ret = mml_register_comp(master, &mutex->comp);
-	if (ret)
-		dev_err(dev, "Failed to register mml component %s: %d\n",
-			dev->of_node->full_name, ret);
-	return ret;
-}
-
-static void mml_unbind(struct device *dev, struct device *master, void *data)
-{
-	struct mml_mutex *mutex = dev_get_drvdata(dev);
-
-	mml_unregister_comp(master, &mutex->comp);
-}
-
-
-static const struct component_ops mml_comp_ops = {
-	.bind	= mml_bind,
-	.unbind = mml_unbind,
-};
-
-static struct mml_mutex *dbg_probed_components[2];
-static int dbg_probed_count;
 
 static void mutex_debug_dump(struct mml_comp *comp)
 {
@@ -151,6 +159,96 @@ static const struct mml_comp_debug_ops mutex_debug_ops = {
 	.dump = &mutex_debug_dump,
 };
 
+static int mml_bind(struct device *dev, struct device *master, void *data)
+{
+	struct mml_mutex *mutex = dev_get_drvdata(dev);
+	struct drm_device *drm_dev = data;
+	s32 ret;
+
+	if (!drm_dev) {
+		ret = mml_register_comp(master, &mutex->comp);
+		if (ret)
+			dev_err(dev, "Failed to register mml component %s: %d\n",
+				dev->of_node->full_name, ret);
+	} else {
+		ret = mml_ddp_comp_register(drm_dev, &mutex->ddp_comp);
+		if (ret)
+			dev_err(dev, "Failed to register ddp component %s: %d\n",
+				dev->of_node->full_name, ret);
+		else
+			mutex->ddp_bound = true;
+	}
+	return ret;
+}
+
+static void mml_unbind(struct device *dev, struct device *master, void *data)
+{
+	struct mml_mutex *mutex = dev_get_drvdata(dev);
+	struct drm_device *drm_dev = data;
+
+	if (!drm_dev) {
+		mml_unregister_comp(master, &mutex->comp);
+	} else {
+		mml_ddp_comp_unregister(drm_dev, &mutex->ddp_comp);
+		mutex->ddp_bound = false;
+	}
+}
+
+static const struct component_ops mml_comp_ops = {
+	.bind	= mml_bind,
+	.unbind = mml_unbind,
+};
+
+static inline struct mml_mutex *ddp_comp_to_mutex(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_mutex, ddp_comp);
+}
+
+static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
+			       enum mtk_ddp_comp_id prev,
+			       enum mtk_ddp_comp_id next,
+			       union mtk_addon_config *addon_config,
+			       struct cmdq_pkt *pkt)
+{
+	struct mml_mutex *mutex = ddp_comp_to_mutex(ddp_comp);
+	const struct mml_topology_path *path;/* = addon_config->... */
+	u32 mutex_sof = 0x0;/* = addon_config->... */
+
+	mutex_enable(mutex, pkt, path, mutex_sof);
+}
+
+static void mutex_stop(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	struct mml_mutex *mutex = ddp_comp_to_mutex(ddp_comp);
+	const struct mml_topology_path *path;/* = addon_config->... */
+
+	mutex_disable(mutex, pkt, path);
+}
+
+static void mutex_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_mutex(ddp_comp)->comp;
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void mutex_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_mutex(ddp_comp)->comp;
+
+	comp->hw_ops->clk_disable(comp);
+}
+
+static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
+	.addon_config = mutex_addon_config,
+	.stop = mutex_stop,/* .disconnect = mutex_disconnect, */
+	.prepare = mutex_prepare,
+	.unprepare = mutex_unprepare,
+};
+
+static struct mml_mutex *dbg_probed_components[2];
+static int dbg_probed_count;
+
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -160,9 +258,10 @@ static int probe(struct platform_device *pdev)
 	const char *name;
 	u32 mod[3], comp_id, mutex_id;
 	s32 id_count, i, ret;
+	bool add_ddp = true;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (priv == NULL)
+	if (!priv)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
@@ -222,11 +321,20 @@ static int probe(struct platform_device *pdev)
 	}
 
 	priv->comp.config_ops = &mutex_config_ops;
-	priv->comp.debug_ops= &mutex_debug_ops;
+	priv->comp.debug_ops = &mutex_debug_ops;
+
+	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
+				&ddp_comp_funcs);
+	if (ret) {
+		mml_log("failed to init ddp component: %d", ret);
+		add_ddp = false;
+	}
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
+	if (add_ddp)
+		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 
@@ -235,6 +343,7 @@ static int probe(struct platform_device *pdev)
 
 static int remove(struct platform_device *pdev)
 {
+	component_del(&pdev->dev, &mml_comp_ops);
 	component_del(&pdev->dev, &mml_comp_ops);
 	return 0;
 }
@@ -309,6 +418,12 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 			length += snprintf(buf + length, PAGE_SIZE - length,
 				"  -      mml.bind: %d\n",
 				dbg_probed_components[i]->comp.bound);
+			length += snprintf(buf + length, PAGE_SIZE - length,
+				"  -      ddp_comp_id: %d\n",
+				dbg_probed_components[i]->ddp_comp.id);
+			length += snprintf(buf + length, PAGE_SIZE - length,
+				"  -      ddp_bound: %d\n",
+				dbg_probed_components[i]->ddp_bound);
 		}
 	default:
 		mml_err("not support read for case_id: %d", ut_case);

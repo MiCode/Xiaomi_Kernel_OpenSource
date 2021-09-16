@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
  * Author: Ping-Hsun Wu <ping-hsun.wu@mediatek.com>
@@ -8,9 +8,11 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <mtk_drm_ddp_comp.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-drm-adaptor.h"
 
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
@@ -40,11 +42,12 @@ enum mml_comp_type {
 	MML_COMP_TYPE_TOTAL
 };
 
-struct mml_comp_sys;
+struct mml_sys;
 
 struct mml_data {
 	int (*comp_inits[MML_COMP_TYPE_TOTAL])(struct device *dev,
-		struct mml_comp_sys *sys, struct mml_comp *comp);
+		struct mml_sys *sys, struct mml_comp *comp);
+	const struct mtk_ddp_comp_funcs *ddp_comp_funcs[MML_COMP_TYPE_TOTAL];
 	u8 gpr[MML_PIPE_CNT];
 };
 
@@ -68,8 +71,11 @@ struct mml_dbg_reg {
 	u32 offset;
 };
 
-struct mml_comp_sys {
+struct mml_sys {
 	const struct mml_data *data;
+	struct mtk_ddp_comp ddp_comps[MML_MAX_SYS_COMPONENTS];
+	u32 ddp_comp_en;
+	u32 ddp_bound;
 	struct mml_comp comps[MML_MAX_SYS_COMPONENTS];
 	u32 comp_cnt;
 	u32 comp_bound;
@@ -128,9 +134,28 @@ struct sys_frame_data {
 
 #define sys_frm_data(i)	((struct sys_frame_data *)(i->data))
 
-static inline struct mml_comp_sys *comp_to_sys(struct mml_comp *comp)
+static inline struct mml_sys *comp_to_sys(struct mml_comp *comp)
 {
-	return container_of(comp, struct mml_comp_sys, comps[comp->sub_idx]);
+	return container_of(comp, struct mml_sys, comps[comp->sub_idx]);
+}
+
+static inline struct mml_sys *ddp_comp_to_sys(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_sys, ddp_comps[ddp_comp->sub_idx]);
+}
+
+static void ddp_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_sys(ddp_comp)->comps[ddp_comp->sub_idx];
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_sys(ddp_comp)->comps[ddp_comp->sub_idx];
+
+	comp->hw_ops->clk_disable(comp);
 }
 
 u16 mml_sys_get_reg_ready_sel(struct mml_comp *comp)
@@ -169,7 +194,7 @@ static void sys_sync_racing(struct mml_comp *comp, struct mml_task *task,
 static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
-	struct mml_comp_sys *sys = comp_to_sys(comp);
+	struct mml_sys *sys = comp_to_sys(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	u32 aid_sel = 0, mask = 0;
@@ -204,7 +229,7 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
+static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
 		       const phys_addr_t base_pa, u8 mux_idx, u8 sof_grp,
 		       u16 *offset, u32 *mout)
 {
@@ -232,7 +257,7 @@ static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
 static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg, u32 idx)
 {
-	struct mml_comp_sys *sys = comp_to_sys(comp);
+	struct mml_sys *sys = comp_to_sys(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
@@ -303,7 +328,7 @@ static void sys_racing_addr_update(struct mml_comp *comp, struct mml_task *task,
 static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg)
 {
-	struct mml_comp_sys *sys = comp_to_sys(comp);
+	struct mml_sys *sys = comp_to_sys(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
 	struct cmdq_operand lhs, rhs;
@@ -399,32 +424,10 @@ static const struct mml_comp_config_ops sys_config_ops = {
 	.repost = sys_repost,
 };
 
-static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
-			  struct mml_comp_config *ccfg, u32 idx)
-{
-	struct mml_comp_sys *sys = comp_to_sys(comp);
-	struct mml_frame_config *cfg = task->config;
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
-
-	u16 offset = sys->dl_relays[sys->adjacency[comp->id][comp->id]];
-	u32 dl_w = tile->in.xe - tile->in.xs + 1;
-	u32 dl_h = tile->in.ye - tile->in.ys + 1;
-
-	cmdq_pkt_write(pkt, NULL, base_pa + offset,
-		       (dl_h << 16) + dl_w, U32_MAX);
-	return 0;
-}
-
-static const struct mml_comp_config_ops dl_config_ops = {
-	.tile = dl_config_tile,
-};
-
 static void sys_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	struct mml_comp_sys *sys = comp_to_sys(comp);
+	struct mml_sys *sys = comp_to_sys(comp);
 	u32 value;
 	u32 i;
 
@@ -455,7 +458,7 @@ static const struct mml_comp_debug_ops sys_debug_ops = {
 	.reset = &sys_reset,
 };
 
-static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
+static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 			 struct mml_comp *comp)
 {
 	struct device_node *node = dev->of_node;
@@ -529,7 +532,45 @@ static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
 	return 0;
 }
 
-static int dl_comp_init(struct device *dev, struct mml_comp_sys *sys,
+static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
+			     enum mtk_ddp_comp_id prev,
+			     enum mtk_ddp_comp_id next,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
+{
+	/* Config aid select if mml output */
+	/* Config mux select for each path node and each next */
+}
+
+static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
+	.addon_config = sys_addon_config,
+	.prepare = ddp_prepare,
+	.unprepare = ddp_unprepare,
+};
+
+static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
+			  struct mml_comp_config *ccfg, u32 idx)
+{
+	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_frame_config *cfg = task->config;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	const phys_addr_t base_pa = comp->base_pa;
+	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
+
+	u16 offset = sys->dl_relays[sys->adjacency[comp->id][comp->id]];
+	u32 dl_w = tile->in.xe - tile->in.xs + 1;
+	u32 dl_h = tile->in.ye - tile->in.ys + 1;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + offset,
+		       (dl_h << 16) + dl_w, U32_MAX);
+	return 0;
+}
+
+static const struct mml_comp_config_ops dl_config_ops = {
+	.tile = dl_config_tile,
+};
+
+static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 			struct mml_comp *comp)
 {
 	struct device_node *node = dev->of_node;
@@ -567,11 +608,40 @@ static int dl_comp_init(struct device *dev, struct mml_comp_sys *sys,
 	return 0;
 }
 
-static int subcomp_init(struct platform_device *pdev, struct mml_comp_sys *sys,
+static void dli_addon_config(struct mtk_ddp_comp *ddp_comp,
+			     enum mtk_ddp_comp_id prev,
+			     enum mtk_ddp_comp_id next,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
+{
+}
+
+static const struct mtk_ddp_comp_funcs dli_ddp_funcs = {
+	.addon_config = dli_addon_config,
+	.prepare = ddp_prepare,
+	.unprepare = ddp_unprepare,
+};
+
+static void dlo_addon_config(struct mtk_ddp_comp *ddp_comp,
+			     enum mtk_ddp_comp_id prev,
+			     enum mtk_ddp_comp_id next,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
+{
+}
+
+static const struct mtk_ddp_comp_funcs dlo_ddp_funcs = {
+	.addon_config = dlo_addon_config,
+	.prepare = ddp_prepare,
+	.unprepare = ddp_unprepare,
+};
+
+static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
 			int subcomponent)
 {
 	struct device *dev = &pdev->dev;
 	struct mml_comp *comp = &sys->comps[subcomponent];
+	const struct mml_data *data = sys->data;
 	u32 comp_type;
 	int ret;
 
@@ -584,12 +654,26 @@ static int subcomp_init(struct platform_device *pdev, struct mml_comp_sys *sys,
 		dev_info(dev, "no comp-type of mmlsys comp-%d\n", subcomponent);
 		return 0;
 	}
-	if (sys->data->comp_inits[comp_type])
-		ret = sys->data->comp_inits[comp_type](dev, sys, comp);
+	if (data->comp_inits[comp_type]) {
+		ret = data->comp_inits[comp_type](dev, sys, comp);
+		if (ret)
+			return ret;
+	}
+
+	if (data->ddp_comp_funcs[comp_type]) {
+		ret = mml_ddp_comp_init(dev, &sys->ddp_comps[subcomponent],
+					comp, data->ddp_comp_funcs[comp_type]);
+		if (unlikely(ret)) {
+			mml_log("failed to init ddp comp-%d: %d",
+				subcomponent, ret);
+			return ret;
+		}
+		sys->ddp_comp_en |= 1 << subcomponent;
+	}
 	return ret;
 }
 
-static int mml_sys_init(struct platform_device *pdev, struct mml_comp_sys *sys,
+static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 			const struct component_ops *comp_ops)
 {
 	struct device *dev = &pdev->dev;
@@ -597,7 +681,7 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_comp_sys *sys,
 	int comp_cnt, i;
 	int ret;
 
-	sys->data = (const struct mml_data *)of_device_get_match_data(dev);
+	sys->data = of_device_get_match_data(dev);
 
 	/* Initialize component and subcomponents */
 	comp_cnt = of_mml_count_comps(node);
@@ -617,12 +701,16 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_comp_sys *sys,
 	}
 
 	ret = component_add(dev, comp_ops);
+	if (sys->ddp_comp_en & (1 << 0))
+		ret = component_add(dev, comp_ops);
 	if (ret) {
 		dev_err(dev, "failed to add mmlsys comp-%d: %d\n", 0, ret);
 		return ret;
 	}
 	for (i = 1; i < comp_cnt; i++) {
 		ret = component_add_typed(dev, comp_ops, i);
+		if (sys->ddp_comp_en & (1 << i))
+			ret = component_add_typed(dev, comp_ops, i);
 		if (ret) {
 			dev_err(dev, "failed to add mmlsys comp-%d: %d\n",
 				i, ret);
@@ -633,16 +721,19 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_comp_sys *sys,
 	return 0;
 
 err_comp_add:
-	for (; i > 0; i--)
+	for (; i > 0; i--) {
 		component_del(dev, comp_ops);
+		if (sys->ddp_comp_en & (1 << (i - 1)))
+			component_del(dev, comp_ops);
+	}
 	return ret;
 }
 
-struct mml_comp_sys *mml_sys_create(struct platform_device *pdev,
-				    const struct component_ops *comp_ops)
+struct mml_sys *mml_sys_create(struct platform_device *pdev,
+			       const struct component_ops *comp_ops)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_comp_sys *sys;
+	struct mml_sys *sys;
 	int ret;
 
 	sys = devm_kzalloc(dev, sizeof(*sys), GFP_KERNEL);
@@ -658,18 +749,21 @@ struct mml_comp_sys *mml_sys_create(struct platform_device *pdev,
 	return sys;
 }
 
-void mml_sys_destroy(struct platform_device *pdev, struct mml_comp_sys *sys,
+void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
 		     const struct component_ops *comp_ops)
 {
 	int i;
 
-	for (i = 0; i < sys->comp_cnt; i++)
+	for (i = 0; i < sys->comp_cnt; i++) {
 		component_del(&pdev->dev, comp_ops);
+		if (sys->ddp_comp_en & (1 << i))
+			component_del(&pdev->dev, comp_ops);
+	}
 	devm_kfree(&pdev->dev, sys);
 }
 
-int mml_sys_bind(struct device *dev, struct device *master,
-		 struct mml_comp_sys *sys)
+static int bind_mml(struct device *dev, struct device *master,
+		    struct mml_sys *sys)
 {
 	s32 ret;
 
@@ -684,22 +778,74 @@ int mml_sys_bind(struct device *dev, struct device *master,
 	return ret;
 }
 
-void mml_sys_unbind(struct device *dev, struct device *master,
-		    struct mml_comp_sys *sys)
+static int bind_ddp(struct device *dev, struct drm_device *drm_dev,
+		    struct mml_sys *sys)
+{
+	s32 i, ret;
+
+	for (i = sys->ddp_bound; i < sys->comp_cnt; i++)
+		if (sys->ddp_comp_en & (1 << i))
+			break;
+	sys->ddp_bound = i;
+
+	if (WARN_ON(sys->ddp_bound >= sys->comp_cnt))
+		return -ERANGE;
+	ret = mml_ddp_comp_register(drm_dev, &sys->ddp_comps[sys->ddp_bound++]);
+	if (ret) {
+		dev_err(dev, "failed to register ddp component %s: %d\n",
+			dev->of_node->full_name, ret);
+		sys->ddp_bound--;
+	}
+	return ret;
+}
+
+int mml_sys_bind(struct device *dev, struct device *master,
+		 struct mml_sys *sys, void *data)
+{
+	if (!data)
+		return bind_mml(dev, master, sys);
+	else
+		return bind_ddp(dev, data, sys);
+}
+
+static void unbind_mml(struct device *master, struct mml_sys *sys)
 {
 	if (WARN_ON(sys->comp_bound <= 0))
 		return;
 	mml_unregister_comp(master, &sys->comps[--sys->comp_bound]);
 }
 
+static void unbind_ddp(struct drm_device *drm_dev, struct mml_sys *sys)
+{
+	s32 i;
+
+	for (i = sys->ddp_bound; i > 0; i--)
+		if (sys->ddp_comp_en & (1 << (i - 1)))
+			break;
+	sys->ddp_bound = i;
+
+	if (WARN_ON(sys->ddp_bound <= 0))
+		return;
+	mml_ddp_comp_unregister(drm_dev, &sys->ddp_comps[--sys->ddp_bound]);
+}
+
+void mml_sys_unbind(struct device *dev, struct device *master,
+		    struct mml_sys *sys, void *data)
+{
+	if (!data)
+		unbind_mml(master, sys);
+	else
+		unbind_ddp(data, sys);
+}
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	return mml_sys_bind(dev, master, dev_get_drvdata(dev));
+	return mml_sys_bind(dev, master, dev_get_drvdata(dev), data);
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	mml_sys_unbind(dev, master, dev_get_drvdata(dev));
+	mml_sys_unbind(dev, master, dev_get_drvdata(dev), data);
 }
 
 static const struct component_ops mml_comp_ops = {
@@ -709,7 +855,7 @@ static const struct component_ops mml_comp_ops = {
 
 static int probe(struct platform_device *pdev)
 {
-	struct mml_comp_sys *priv;
+	struct mml_sys *priv;
 
 	priv = mml_sys_create(pdev, &mml_comp_ops);
 	if (IS_ERR(priv)) {
@@ -740,6 +886,11 @@ static const struct mml_data mt6983_mml_data = {
 		[MML_CT_SYS] = &sys_comp_init,
 		[MML_CT_DL_IN] = &dl_comp_init,
 		[MML_CT_DL_OUT] = &dl_comp_init,
+	},
+	.ddp_comp_funcs = {
+		[MML_CT_SYS] = &sys_ddp_funcs,
+		[MML_CT_DL_IN] = &dli_ddp_funcs,
+		[MML_CT_DL_OUT] = &dlo_ddp_funcs,
 	},
 	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
 };

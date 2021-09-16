@@ -17,6 +17,8 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-drm-adaptor.h"
+
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
@@ -180,17 +182,18 @@ static const struct wrot_data mml_wrot_data = {
 };
 
 struct mml_comp_wrot {
+	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct wrot_data *data;
-	struct device *dev;	/* for dmabuf to iova */
+	bool ddp_bound;
 
-	u16 event_eof;	/* wrot frame done */
+	u16 event_eof;		/* wrot frame done */
 	u16 event_pipe_sync;	/* pipe sync in dual wdone */
 	int idx;
 
+	struct device *dev;	/* for dmabuf to iova */
 	/* smi register to config sram/dram mode */
 	phys_addr_t smi_larb_con;
-
 	/* inline rotate base addr */
 	phys_addr_t irot_base[MML_PIPE_CNT];
 	void __iomem *irot_va[MML_PIPE_CNT];
@@ -428,8 +431,8 @@ static void wrot_config_pipe1(struct mml_frame_config *cfg,
 	}
 }
 
-static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
-			     struct mml_comp_config *ccfg)
+static s32 wrot_prepare_write(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm;
@@ -1834,7 +1837,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops wrot_cfg_ops = {
-	.prepare = wrot_config_write,
+	.prepare = wrot_prepare_write,
 	.buf_map = wrot_buf_map,
 	.buf_unmap = wrot_buf_unmap,
 	.buf_prepare = wrot_buf_prepare,
@@ -1989,25 +1992,74 @@ static const struct mml_comp_debug_ops wrot_debug_ops = {
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_wrot *wrot = dev_get_drvdata(dev);
+	struct drm_device *drm_dev = data;
 	s32 ret;
 
-	ret = mml_register_comp(master, &wrot->comp);
-	if (ret)
-		dev_err(dev, "Failed to register mml component %s: %d\n",
-			dev->of_node->full_name, ret);
+	if (!drm_dev) {
+		ret = mml_register_comp(master, &wrot->comp);
+		if (ret)
+			dev_err(dev, "Failed to register mml component %s: %d\n",
+				dev->of_node->full_name, ret);
+	} else {
+		ret = mml_ddp_comp_register(drm_dev, &wrot->ddp_comp);
+		if (ret)
+			dev_err(dev, "Failed to register ddp component %s: %d\n",
+				dev->of_node->full_name, ret);
+		else
+			wrot->ddp_bound = true;
+	}
 	return ret;
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_wrot *wrot = dev_get_drvdata(dev);
+	struct drm_device *drm_dev = data;
 
-	mml_unregister_comp(master, &wrot->comp);
+	if (!drm_dev) {
+		mml_unregister_comp(master, &wrot->comp);
+	} else {
+		mml_ddp_comp_unregister(drm_dev, &wrot->ddp_comp);
+		wrot->ddp_bound = false;
+	}
 }
 
 static const struct component_ops mml_comp_ops = {
 	.bind	= mml_bind,
 	.unbind = mml_unbind,
+};
+
+static inline struct mml_comp_wrot *ddp_comp_to_wrot(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_comp_wrot, ddp_comp);
+}
+
+static void wrot_addon_config(struct mtk_ddp_comp *ddp_comp,
+			      enum mtk_ddp_comp_id prev,
+			      enum mtk_ddp_comp_id next,
+			      union mtk_addon_config *addon_config,
+			      struct cmdq_pkt *pkt)
+{
+}
+
+static void wrot_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_wrot(ddp_comp)->comp;
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void wrot_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_wrot(ddp_comp)->comp;
+
+	comp->hw_ops->clk_disable(comp);
+}
+
+static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
+	.addon_config = wrot_addon_config,
+	.prepare = wrot_prepare,
+	.unprepare = wrot_unprepare,
 };
 
 phys_addr_t mml_get_node_base_pa(struct platform_device *pdev, const char *name,
@@ -2043,6 +2095,7 @@ static int probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mml_comp_wrot *priv;
 	s32 ret;
+	bool add_ddp = true;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -2100,9 +2153,18 @@ static int probe(struct platform_device *pdev)
 	priv->comp.hw_ops = &wrot_hw_ops;
 	priv->comp.debug_ops = &wrot_debug_ops;
 
+	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
+				&ddp_comp_funcs);
+	if (ret) {
+		mml_log("failed to init ddp component: %d", ret);
+		add_ddp = false;
+	}
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
+	if (add_ddp)
+		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 
@@ -2111,6 +2173,7 @@ static int probe(struct platform_device *pdev)
 
 static int remove(struct platform_device *pdev)
 {
+	component_del(&pdev->dev, &mml_comp_ops);
 	component_del(&pdev->dev, &mml_comp_ops);
 	return 0;
 }
@@ -2185,6 +2248,12 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 			length += snprintf(buf + length, PAGE_SIZE - length,
 				"  -      mml_bound: %d\n",
 				dbg_probed_components[i]->comp.bound);
+			length += snprintf(buf + length, PAGE_SIZE - length,
+				"  -      ddp_comp_id: %d\n",
+				dbg_probed_components[i]->ddp_comp.id);
+			length += snprintf(buf + length, PAGE_SIZE - length,
+				"  -      ddp_bound: %d\n",
+				dbg_probed_components[i]->ddp_bound);
 		}
 	default:
 		mml_err("not support read for case_id: %d", ut_case);

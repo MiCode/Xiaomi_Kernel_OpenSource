@@ -29,7 +29,7 @@
 struct mml_dev {
 	struct platform_device *pdev;
 	struct mml_comp *comps[MML_MAX_COMPONENTS];
-	struct mtk_mml_sys *sys;
+	struct mml_sys *sys;
 	struct cmdq_base *cmdq_base;
 	struct cmdq_client *cmdq_clts[MML_MAX_CMDQ_CLTS];
 	u8 cmdq_clt_cnt;
@@ -731,17 +731,17 @@ EXPORT_SYMBOL_GPL(mml_unregister_comp);
 static int sys_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_dev *mml = dev_get_drvdata(dev);
-	struct mtk_mml_sys *sys = mml->sys;
+	struct mml_sys *sys = mml->sys;
 
-	return mml_sys_bind(dev, master, sys);
+	return mml_sys_bind(dev, master, sys, data);
 }
 
 static void sys_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_dev *mml = dev_get_drvdata(dev);
-	struct mtk_mml_sys *sys = mml->sys;
+	struct mml_sys *sys = mml->sys;
 
-	mml_sys_unbind(dev, master, sys);
+	mml_sys_unbind(dev, master, sys, data);
 }
 
 static const struct component_ops sys_comp_ops = {
