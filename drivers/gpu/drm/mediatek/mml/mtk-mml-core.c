@@ -972,9 +972,13 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 	if (!fence)
 		return;
 	mml_trace_ex_begin("%s_%s", __func__, name);
-	ret = dma_fence_wait_timeout(fence, true, 3000);
-	if (ret < 0)
-		mml_err("wait %s fence fail %p ret %ld", name, fence, ret);
+	ret = dma_fence_wait_timeout(fence, false, msecs_to_jiffies(200));
+	if (ret <= 0)
+		mml_err("wait fence %s %s-%s%llu-%llu fail %p ret %ld",
+			name, fence->ops->get_driver_name(fence),
+			fence->ops->get_timeline_name(fence),
+			fence->context, fence->seqno, fence, ret);
+
 	mml_trace_ex_end();
 }
 
