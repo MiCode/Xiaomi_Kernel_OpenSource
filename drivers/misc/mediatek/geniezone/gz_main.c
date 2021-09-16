@@ -959,105 +959,6 @@ error:
 	return cret;
 }
 
-static long _sc_test_cp_chm2shm(struct file *filep, void __user *arg)
-{
-
-	struct kree_user_sc_param cparam;
-	int ret;
-	KREE_ION_HANDLE ION_Handle = 0;
-	KREE_SECUREMEM_HANDLE shm_handle;
-	KREE_SESSION_HANDLE cp_session;
-	uint32_t size;
-
-	/* copy param from user */
-	ret = copy_from_user(&cparam, arg, sizeof(cparam));
-
-	if (ret) {
-		KREE_ERR("%s: copy_from_user failed(%d)\n", __func__, ret);
-		return ret;
-	}
-
-	/*input params */
-	shm_handle = cparam.other_handle;
-	ION_Handle = cparam.ION_handle;	/*need to transform to mem_handle */
-	size = cparam.size;	/*alloc size */
-	cp_session = cparam.chmp.alloc_chm_session;
-
-	KREE_DEBUG("[%s] input: cp_session=0x%x, shm_handle=0x%x\n",
-		__func__, cp_session, shm_handle);
-	KREE_DEBUG("[%s] input: ION_Handle=0x%x, size=0x%x\n",
-		__func__, ION_Handle, size);
-
-	ret = KREE_ION_CP_Chm2Shm(cp_session, ION_Handle, shm_handle, size);
-
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("[%s] KREE_ION_CP_Chm2Shm Fail. ret=0x%x\n", __func__,
-			ret);
-	else
-		KREE_DEBUG("[OK]KREE_ION_CP_Chm2Shm done\n");
-
-	return ret;
-}
-
-static long _sc_test_upt_chmdata(struct file *filep, void __user *arg)
-{
-	struct kree_user_sc_param cparam;
-	int ret;
-	KREE_ION_HANDLE ION_Handle = 0;
-	KREE_SECUREMEM_HANDLE shm_handle;
-	KREE_SESSION_HANDLE echo_session = 0;
-	union MTEEC_PARAM param[4];
-	uint32_t size;
-
-	/* copy param from user */
-	ret = copy_from_user(&cparam, arg, sizeof(cparam));
-
-	if (ret) {
-		KREE_ERR("%s: copy_from_user failed(%d)\n", __func__, ret);
-		return ret;
-	}
-
-	/*input params */
-	shm_handle = cparam.other_handle;
-	ION_Handle = cparam.ION_handle;
-	size = cparam.size;
-
-	/*create session for echo */
-	ret = KREE_CreateSession(echo_srv_name, &echo_session);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR
-		("echo_srv CreateSession (echo_session:0x%x) Error: %d\n",
-		(uint32_t) echo_session, ret);
-		return ret;
-	}
-	KREE_DEBUG("[OK] create echo_session=0x%x.\n", (uint32_t) echo_session);
-
-	param[0].value.a = ION_Handle; /*need to transform to mem_handle */
-	param[1].value.a = size;       /*alloc size */
-
-	KREE_DEBUG("[%s] input: shm_handle=0x%x. ION_Handle=0x%x\n", __func__,
-		param[0].value.b, param[0].value.a);
-
-	/*test: modify chm memory data */
-	/*TZCMD_TEST_CHM_UPT_DATA */
-	ret = KREE_ION_AccessChunkmem(echo_session, param, 0x9989);
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("[%s] modify chm memory data Fail. ret=0x%x\n",
-			__func__, ret);
-	else
-		KREE_DEBUG("[OK]modify chm memory data done\n");
-
-	ret = KREE_CloseSession(echo_session);
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("KREE_CloseSession Error:echo_session=0x%x, ret=%d\n",
-			 (uint32_t) echo_session, ret);
-	else
-		KREE_DEBUG("[OK] close session OK. echo_session=0x%x\n",
-			   (uint32_t) echo_session);
-
-	return ret;
-}
-
 #define SZ_32KB (32*1024)
 static TZ_RESULT _reg_shmem_from_userspace(
 	uint32_t session, uint32_t region_id,
@@ -1331,16 +1232,6 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, void __user *arg,
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_TEE_SERVICE(0x%x)\n", __func__,
 			cmd);
 		return tz_client_tee_service(filep, arg, compat);
-
-	case MTEE_CMD_SC_TEST_CP_CHM2SHM:	/*Secure Camera Test */
-		KREE_DEBUG("[%s]cmd=MTEE_CMD_SC_TEST_CP_CHM2SHM(0x%x)\n",
-			__func__, cmd);
-		return _sc_test_cp_chm2shm(filep, arg);
-
-	case MTEE_CMD_SC_TEST_UPT_CHMDATA:	/*Secure Camera Test */
-		KREE_DEBUG("[%s]cmd=MTEE_CMD_SC_TEST_UPT_CHMDATA(0x%x)\n",
-			__func__, cmd);
-		return _sc_test_upt_chmdata(filep, arg);
 
 #ifndef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case MTEE_CMD_FOD_TEE_SHM_ON:

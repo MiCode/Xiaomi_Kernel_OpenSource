@@ -933,46 +933,6 @@ TZ_RESULT KREE_ION_UnreferenceChunkmem(KREE_SESSION_HANDLE session,
 }
 EXPORT_SYMBOL(KREE_ION_UnreferenceChunkmem);
 
-TZ_RESULT KREE_ION_AccessChunkmem(KREE_SESSION_HANDLE session,
-	union MTEEC_PARAM param[4], uint32_t cmd)
-{
-	uint32_t paramTypes;
-	TZ_RESULT ret;
-
-	paramTypes = TZ_ParamTypes4(TZPT_VALUE_INPUT, TZPT_VALUE_INPUT,
-			TZPT_VALUE_INPUT, TZPT_VALUE_INOUT);
-
-	ret = KREE_TeeServiceCall(session, cmd, paramTypes, param);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] Fail(0x%x)\n", __func__, ret);
-		return ret;
-	}
-
-	return TZ_RESULT_SUCCESS;
-}
-
-/*only for debug: copy chm data to shm.*/
-TZ_RESULT KREE_ION_CP_Chm2Shm(KREE_SESSION_HANDLE session,
-	KREE_SECUREMEM_HANDLE secm_hd, KREE_SECUREMEM_HANDLE shm_hd, uint32_t size)
-{
-	TZ_RESULT ret;
-	union MTEEC_PARAM param[4];
-
-	param[0].value.a = secm_hd;
-	param[0].value.b = shm_hd;
-	param[1].value.a = size;	/*alloc size */
-
-	ret = KREE_ION_AccessChunkmem(session, param, TZCMD_MEM_CopyChmtoShm);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] Fail(0x%x)\n", __func__, ret);
-		return ret;
-	}
-
-	KREE_DEBUG("[%s]ret param[3].value.a=0x%x\n", __func__,
-		param[3].value.a);
-	return param[3].value.a;
-}
-
 TZ_RESULT KREE_ION_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE secmHandle, uint32_t cmd)
 {

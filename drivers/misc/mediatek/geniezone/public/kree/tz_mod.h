@@ -41,10 +41,6 @@
 	_IOWR(MTEE_IOC_MAGIC, 4, struct kree_tee_service_cmd_param)
 #define MTEE_CMD_SHM_UNREG                                                     \
 	_IOWR(MTEE_IOC_MAGIC, 5, struct kree_tee_service_cmd_param)
-#define MTEE_CMD_SC_TEST_CP_CHM2SHM                                            \
-	_IOWR(MTEE_IOC_MAGIC, 6, struct kree_user_sc_param)
-#define MTEE_CMD_SC_TEST_UPT_CHMDATA                                           \
-	_IOWR(MTEE_IOC_MAGIC, 7, struct kree_user_sc_param)
 #define MTEE_CMD_FOD_TEE_SHM_ON                                                \
 	_IO(MTEE_IOC_MAGIC, 16)
 #define MTEE_CMD_FOD_TEE_SHM_OFF                                               \
