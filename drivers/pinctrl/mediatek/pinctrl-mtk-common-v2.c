@@ -667,6 +667,10 @@ static int mtk_pinconf_bias_set_pu_pd(struct mtk_pinctrl *hw,
 {
 	int err, pu, pd;
 
+	if (arg >= MTK_PULL_SET_RSEL_000 &&
+	    arg <= MTK_PULL_SET_RSEL_MAX)
+		arg = MTK_ENABLE;
+
 	if (arg == MTK_DISABLE) {
 		pu = 0;
 		pd = 0;
@@ -853,9 +857,10 @@ static int mtk_pinconf_bias_get_rsel(struct mtk_pinctrl *hw,
 
 	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_PD, &pd);
 
-	if (pu == 0 && pd == 0)
-		*pullup = 0;
-	else if (pu == 1 && pd == 0)
+	if (pu == 0 && pd == 0) {
+		/* use 2 to indicate no-pull */
+		*pullup = 2;
+	} else if (pu == 1 && pd == 0)
 		*pullup = 1;
 	else if (pu == 0 && pd == 1)
 		*pullup = 0;
@@ -864,7 +869,7 @@ static int mtk_pinconf_bias_get_rsel(struct mtk_pinctrl *hw,
 		goto out;
 	}
 
-	*enable = r + MTK_I2C_PULL_RSEL_000;
+	*enable = r + MTK_PULL_SET_RSEL_000;
 
 out:
 	return err;
@@ -876,12 +881,12 @@ static int mtk_pinconf_bias_set_rsel(struct mtk_pinctrl *hw,
 {
 	int err;
 
-	if (arg < MTK_I2C_PULL_RSEL_000) {
+	if (arg < MTK_PULL_SET_RSEL_000) {
 		err = -EINVAL;
 		goto out;
 	}
 
-	arg -= MTK_I2C_PULL_RSEL_000;
+	arg -= MTK_PULL_SET_RSEL_000;
 
 	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_RSEL, arg);
 

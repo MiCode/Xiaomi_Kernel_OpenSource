@@ -113,15 +113,17 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 					ret = MTK_DISABLE;
 			} else if (param == PIN_CONFIG_BIAS_PULL_UP) {
 				/* When desire to get pull-up value, return
-				 *  error if current setting is pull-down
+				 *  error if current setting is pull-down nor
+				 *  no-pull
 				 */
-				if (!pullup)
+				if (pullup == 0 || pullup == 2)
 					err = -EINVAL;
 			} else if (param == PIN_CONFIG_BIAS_PULL_DOWN) {
 				/* When desire to get pull-down value, return
-				 *  error if current setting is pull-up
+				 *  error if current setting is pull-up or
+				 *  no-pull
 				 */
-				if (pullup)
+				if (pullup == 1 || pullup == 2)
 					err = -EINVAL;
 			}
 		} else {
@@ -599,7 +601,8 @@ static int mtk_hw_get_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio, int 
 ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	unsigned int gpio, char *buf, unsigned int bufLen)
 {
-	int pinmux, pullup = 0, pullen = 0, r1 = -1, r0 = -1, len = 0, val;
+	int pullup = 0, pullen = 0, r1 = -1, r0 = -1, len = 0, rsel = -1;
+	int pinmux, val;
 	const struct mtk_pin_desc *desc;
 
 	if (gpio >= hw->soc->npins)
@@ -621,6 +624,14 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	val = mtk_pinconf_bias_get_combo(hw, desc, &pullup, &pullen);
 	if (val < 0) {
 		pullen = -1;
+	} else if (!val && pullen >= MTK_PULL_SET_RSEL_000
+		&& pullen <= MTK_PULL_SET_RSEL_MAX) {
+		rsel = pullen - MTK_PULL_SET_RSEL_000;
+		if (pullup == 2) {
+			pullup = 0;
+			pullen = 0;
+		} else
+			pullen = 1;
 	} else if (pullen == MTK_PUPD_SET_R1R0_00) {
 		pullen = 0;
 		r1 = 0;
@@ -637,9 +648,9 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 		pullen = 1;
 		r1 = 1;
 		r0 = 1;
-	} else if (pullen >= MTK_I2C_PULL_RSEL_000) {
-		/* to do: show detail RSEL setting */
-		pullen = 1;
+	} else if (pullup == 2) {
+		pullup = 0;
+		pullen = 0;
 	}
 
 	len += snprintf(buf + len, bufLen - len,
@@ -673,6 +684,9 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	else if (r1 != -1)
 		len += snprintf(buf + len, bufLen - len, "%1d%1d (%1d %1d)",
 			pullen, pullup, r1, r0);
+	else if (rsel != -1)
+		len += snprintf(buf + len, bufLen - len, "%1d%1d (rsel = %d)",
+			pullen, pullup, rsel);
 	else
 		len += snprintf(buf + len, bufLen - len, "%1d%1d",
 			pullen, pullup);

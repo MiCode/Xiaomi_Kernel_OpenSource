@@ -324,6 +324,8 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 			hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
 			if (pullen < MTK_PUPD_SET_R1R0_00) {
 				pullen = !!val;
+				if (pullup == 2)
+					pullup = 0;
 			} else if (pullen >= MTK_PUPD_SET_R1R0_00 &&
 				   pullen <= MTK_PUPD_SET_R1R0_11) {
 				if (val < 0)
@@ -331,11 +333,12 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 				else if (val > 3)
 					val = 3;
 				pullen = r1r0_en[val];
-			} else if (pullen >= MTK_I2C_PULL_RSEL_000 &&
-				   pullen <= MTK_I2C_PULL_RSEL_111) {
-				/* Now don't support I2C RSEL via procfs */
+			} else if (pullen >= MTK_PULL_SET_RSEL_000 &&
+				   pullen <= MTK_PULL_SET_RSEL_MAX) {
+				/* don't support to change rsel via pullen */
 				pullen = !!val;
-				;
+				if (pullup == 2)
+					pullup = 0;
 			} else {
 				goto out;
 			}
@@ -351,6 +354,8 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
 		if (!mt63xx) {
 			hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
+			if (pullen == 0)
+				pullen = 1;
 			hw->soc->bias_set_combo(hw, desc, !!val, pullen);
 		} else
 			mtk_pctrl_set_pullsel(hw, gpio, !!val);
@@ -386,6 +391,20 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 		hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
 		pullen = r1r0_en[(((!!val) << 1) + !!val2)];
 		hw->soc->bias_set_combo(hw, desc, pullup, pullen);
+	} else if ((!strncmp(buf, "rsel", 4))
+		&& (sscanf(buf+4, "%d %d", &gpio, &val) == 2)) {
+		if (gpio < 0 || gpio >= hw->soc->npins) {
+			pr_notice("invalid pin number\n");
+			goto out;
+		}
+		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
+		if (mt63xx) {
+			pr_notice("[pinctrl] rsel not supported\n");
+			goto out;
+		}
+		hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
+		hw->soc->bias_set_combo(hw, desc, pullup,
+			val + MTK_PULL_SET_RSEL_000);
 	} else if (!strncmp(buf, "set", 3)) {
 		if (!mt63xx) {
 			val = sscanf(buf+3, "%d %c%c%c%c%c%c%c%c%c%c %c%c",
@@ -439,10 +458,13 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 		/* PULL */
 		if (!mt63xx) {
 			hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
-			if (pullen < MTK_PUPD_SET_R1R0_00) {
+			if ((pullen < MTK_PUPD_SET_R1R0_00)
+			 || (pullen >= MTK_PULL_SET_RSEL_000 &&
+			     pullen <= MTK_PULL_SET_RSEL_MAX)){
 				hw->soc->bias_set_combo(hw, desc, !!vals[9],
 					!!vals[8]);
-			} else {
+			} else if (pullen >= MTK_PUPD_SET_R1R0_00 &&
+				   pullen <= MTK_PUPD_SET_R1R0_11) {
 				val = (((!!vals[10]) << 1) + !!vals[11]);
 				pullen = r1r0_en[val];
 				hw->soc->bias_set_combo(hw, desc, !!vals[9],
