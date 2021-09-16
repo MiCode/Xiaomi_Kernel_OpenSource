@@ -11,8 +11,8 @@
 	SHUTDOWN_1_TIME = <(60)>;
 	/* If ui_soc shows 1% more than X minites, system will shutdown */
 	KEEP_100_PERCENT = <(1)>;
-	CURR_MEASURE_20A = <(0)>;
-	UNIT_MULTIPLE = <(1)>;
+	CURR_MEASURE_20A = <(1)>;
+	UNIT_MULTIPLE = <(2)>;
 	R_FG_VALUE = <(1)>;
 	/* R_sense resistance */
 	EMBEDDED_SEL = <(0)>;
