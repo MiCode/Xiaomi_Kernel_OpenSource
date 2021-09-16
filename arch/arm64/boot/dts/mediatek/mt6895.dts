@@ -7007,6 +7007,10 @@
 	regulator-always-on;
 };
 
+&mt6363_vsram_cpum {
+	regulator-always-on;
+};
+
 &mt6363_vsram_cpul {
 	regulator-always-on;
 };
