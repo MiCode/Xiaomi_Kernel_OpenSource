@@ -5,6 +5,7 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/blocktag/
 ccflags-y += -I$(srctree)/drivers/scsi/ufs/
+ccflags-y += -I$(srctree)/drivers/char/rpmb/
 
 obj-$(CONFIG_MMC_ARMMMCI) += armmmci.o
 armmmci-y := mmci.o

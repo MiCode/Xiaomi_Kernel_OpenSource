@@ -5,6 +5,9 @@ endif
 ccflags-y += -I$(srctree)/drivers/scsi/ufs
 ccflags-y += -I$(srctree)/drivers/scsi/ufs/vendor
 
+ccflags-y += -I$(srctree)/drivers/mmc/host
+ccflags-y += -I$(srctree)/drivers/mmc/core
+
 obj-$(CONFIG_RPMB) += rpmb-mtk.o
 
 obj-$(CONFIG_RPMB) += rpmb.o

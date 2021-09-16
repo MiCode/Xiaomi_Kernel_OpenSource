@@ -37,6 +37,7 @@
 
 #include "cqhci.h"
 #include "mtk-mmc-autok.h"
+#include "rpmb-mtk.h"
 
 #define MAX_BD_NUM          1024
 #define MSDC_NR_CLOCKS      3
@@ -653,7 +654,7 @@ struct msdc_host {
 };
 
 /*--------------------------------------------------------------------------*/
-/* SDCard error handler                                                 */
+/* SDCard error handler                                                     */
 /*--------------------------------------------------------------------------*/
 /* if continuous data timeout reach the limit */
 /* driver will force remove card */

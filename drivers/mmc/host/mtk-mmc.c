@@ -2767,6 +2767,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	ret = mmc_dbg_register(mmc);
 #endif
 
+#if IS_ENABLED(CONFIG_RPMB)
+	ret = mmc_rpmb_register(mmc);
+#endif
+
 	return 0;
 end:
 	pm_runtime_disable(host->dev);
