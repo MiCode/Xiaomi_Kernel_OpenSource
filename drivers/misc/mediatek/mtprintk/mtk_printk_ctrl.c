@@ -285,16 +285,22 @@ static int mt_printk_ctrl_show(struct seq_file *m, void *v)
  * register_trace_android_vh_printk_logbuf function, don't call printk/pr_xx to
  * printk log, or will into infinite loop
  */
+#define CPU_INDEX (100000)
+#define UART_INDEX (1000000)
 static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
 	struct printk_record *r)
 {
 	if (r->info->caller_id  & 0x80000000) {
-		r->info->caller_id = ((r->info->caller_id & 0xFF) * 100000)
+		r->info->caller_id = ((r->info->caller_id & 0xFF) * CPU_INDEX)
 			| task_pid_nr(current) | 0x80000000;
 	} else {
 		/* max pid 0x8000 -> 32768 */
-		r->info->caller_id = r->info->caller_id + (raw_smp_processor_id() * 100000);
+		r->info->caller_id = r->info->caller_id + (raw_smp_processor_id() * CPU_INDEX);
 	}
+#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
+	if (printk_ctrl_disable != 1)
+		r->info->caller_id = r->info->caller_id + UART_INDEX;
+#endif
 }
 
 static ssize_t mt_printk_ctrl_write(struct file *filp,
