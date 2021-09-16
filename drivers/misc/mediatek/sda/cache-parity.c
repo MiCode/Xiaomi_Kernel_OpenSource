@@ -476,7 +476,6 @@ static ssize_t status_show(struct device_driver *driver, char *buf)
 	unsigned int read_cpuid = read_cpuid_id() >> 4 & 0xFFF;
 	static const char * const err_mode[] = {"DSU", "L1C", "L2C"};
 
-	cpu_idx = smp_processor_id();
 /* FIXME */
 //     if (is_midr_in_range_list(read_cpuid_id(), ecc_midr_list))
 	if (read_cpuid == KLN_CPU_ID_MASK || read_cpuid == MTH_CPU_ID_MASK
