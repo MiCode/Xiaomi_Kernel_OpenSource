@@ -405,6 +405,8 @@
 
 	sensor4: sensor4@10 {
 		compatible = "mediatek,imgsensor";
+		sensor-names = "imx481_mipi_raw",
+				"s5k3m5sx_mipi_raw";
 		reg = <0x10>;
 		#thermal-sensor-cells = <0>;
 		pinctrl-names = "mclk_off",
@@ -482,6 +484,7 @@
 
 	sensor1: sensor1@10 {
 		compatible = "mediatek,imgsensor";
+		sensor-names = "s5k3p9sp_mipi_raw";
 		reg = <0x10>;
 
 		#thermal-sensor-cells = <0>;
@@ -536,6 +539,8 @@
 
 	sensor2: sensor2@1a {
 		compatible = "mediatek,imgsensor";
+		sensor-names = "s5k3m5sx_mipi_raw",
+				"imx766dual_mipi_raw";
 		reg = <0x1a>;
 
 		#thermal-sensor-cells = <0>;
@@ -641,6 +646,9 @@
 
 	sensor0: sensor0@1a {
 		compatible = "mediatek,imgsensor";
+		sensor-names = "imx586_mipi_raw",
+				"ov48b_mipi_raw",
+				"imx766_mipi_raw";
 		reg = <0x1a>;
 		#thermal-sensor-cells = <0>;
 
