@@ -947,7 +947,8 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 
 	submit_pq->info = submit->info;
 	submit_pq->buffer = submit->buffer;
-	*submit_pq->job = *submit->job;
+	if (submit_pq->job && submit->job)
+		*submit_pq->job = *submit->job;
 	for (i = 0; i < MML_MAX_OUTPUTS; i++)
 		if (submit_pq->pq_param[i] && submit->pq_param[i])
 			*submit_pq->pq_param[i] = *submit->pq_param[i];
