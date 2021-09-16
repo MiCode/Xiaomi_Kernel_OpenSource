@@ -75,6 +75,7 @@
 #define INT_SMI_LARB_CMD_THRT_CON	(0x500 + (SMI_LARB_CMD_THRT_CON))
 #define SMI_LARB_OSTD_MON_PORT(p)	(0x280 + ((p) << 2))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
+#define INT_SMI_LARB_OSTDL_PORTx(id)	(0x500 + SMI_LARB_OSTDL_PORT + ((id) << 2))
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
@@ -207,6 +208,7 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 		larb->larb_gen->bwl[larb->larbid * SMI_LARB_PORT_NR_MAX + port] = val;
 		if (atomic_read(&larb->smi.ref_count)) {
 			writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
+			writel(val, larb->base + INT_SMI_LARB_OSTDL_PORTx(port));
 		} else {
 			dev_notice(dev, "set larb bw fail larb:%d, port:%d, val:%u\n",
 				larb->larbid, port, val);
@@ -642,7 +644,7 @@ mtk_smi_larb_mt6983_cmd_group[MTK_LARB_NR_MAX][2] = {
 static u8
 mtk_smi_larb_mt6983_bw_thrt_en[MTK_LARB_NR_MAX][2] = {
 	{14, 16}, {7, 8},
-	{0, 9}, {2, 5},
+	{0, 9}, {0, 0},
 	{0, 11}, {0, 9}, {0, 4},
 	{0, 31}, {0, 31},
 	{0, 25}, {0, 20}, {0, 30}, {0, 16},
