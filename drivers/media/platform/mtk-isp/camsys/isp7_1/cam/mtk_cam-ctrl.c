@@ -3133,16 +3133,6 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	/* Prevent losting seq_num when the SW performance is bad */
 	mtk_camsys_mraw_check_frame_done(ctx, dequeued_frame_seq_no,
 		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
-
-	/* Update CQ base address if needed */
-	if (ctx->mraw_composed_frame_seq_no[mraw_dev_index] <=
-		dequeued_frame_seq_no) {
-		dev_info_ratelimited(mraw_dev->dev,
-			"SOF[ctx:%d-#%d], CQ isn't updated [mraw_composed_frame_deq (%d) ]\n",
-			ctx->stream_id, dequeued_frame_seq_no,
-			ctx->mraw_composed_frame_seq_no[mraw_dev_index]);
-		return;
-	}
 }
 
 static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
