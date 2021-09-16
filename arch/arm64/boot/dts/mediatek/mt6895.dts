@@ -3655,7 +3655,6 @@
 			interconnect-names = "disp_hrt_qos";
 #endif
 
-#if 0
 			/* define threads, see mt6895-gce.h */
 			mediatek,mailbox-gce = <&gce>;
 			mboxes = <&gce 0 0 CMDQ_THR_PRIO_4>,
@@ -3727,7 +3726,7 @@
 				<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
 				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
-#endif
+
 			helper-name = "MTK_DRM_OPT_STAGE",
 				"MTK_DRM_OPT_USE_CMDQ",
 				"MTK_DRM_OPT_USE_M4U",
@@ -3778,7 +3777,7 @@
 				"MTK_DRM_OPT_RES_SWITCH";
 
 			helper-value = <1>, /*MTK_DRM_OPT_STAGE*/
-				<0>, /*MTK_DRM_OPT_USE_CMDQ*/
+				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
 				<0>, /*MTK_DRM_OPT_USE_M4U*/
 				<0>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
 				<0>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
