@@ -187,20 +187,23 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 	core->pm_domain_cnt = of_count_phandle_with_args(core->dev->of_node,
 					"power-domains",
 					"#power-domain-cells");
+	if (core->pm_domain_cnt == 1)
+		pm_runtime_enable(core->dev);
+	else {
+		core->pm_domain_devs = devm_kcalloc(core->dev, core->pm_domain_cnt,
+					sizeof(*core->pm_domain_devs), GFP_KERNEL);
+		if (!core->pm_domain_devs)
+			return -ENOMEM;
 
-	core->pm_domain_devs = devm_kcalloc(core->dev, core->pm_domain_cnt,
-				sizeof(*core->pm_domain_devs), GFP_KERNEL);
-	if (!core->pm_domain_devs)
-		return -ENOMEM;
+		for (i = 0; i < core->pm_domain_cnt; i++) {
+			core->pm_domain_devs[i] =
+				dev_pm_domain_attach_by_id(core->dev, i);
 
-	for (i = 0; i < core->pm_domain_cnt; i++) {
-		core->pm_domain_devs[i] =
-			dev_pm_domain_attach_by_id(core->dev, i);
-
-		if (IS_ERR_OR_NULL(core->pm_domain_devs[i])) {
-			dev_info(core->dev, "%s: fail to probe pm id %d\n",
-				__func__, i);
-			core->pm_domain_devs[i] = NULL;
+			if (IS_ERR_OR_NULL(core->pm_domain_devs[i])) {
+				dev_info(core->dev, "%s: fail to probe pm id %d\n",
+					__func__, i);
+				core->pm_domain_devs[i] = NULL;
+			}
 		}
 	}
 
@@ -210,13 +213,16 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 static int seninf_core_pm_runtime_disable(struct seninf_core *core)
 {
 	int i;
+	if (core->pm_domain_cnt == 1)
+		pm_runtime_disable(core->dev);
+	else {
+		if (!core->pm_domain_devs)
+			return -EINVAL;
 
-	if (!core->pm_domain_devs)
-		return -EINVAL;
-
-	for (i = 0; i < core->pm_domain_cnt; i++) {
-		if (core->pm_domain_devs[i])
-			dev_pm_domain_detach(core->pm_domain_devs[i], 1);
+		for (i = 0; i < core->pm_domain_cnt; i++) {
+			if (core->pm_domain_devs[i])
+				dev_pm_domain_detach(core->pm_domain_devs[i], 1);
+		}
 	}
 
 	return 0;
@@ -225,13 +231,16 @@ static int seninf_core_pm_runtime_disable(struct seninf_core *core)
 static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 {
 	int i;
+	if (core->pm_domain_cnt == 1)
+		pm_runtime_get_sync(core->dev);
+	else {
+		if (!core->pm_domain_devs)
+			return -EINVAL;
 
-	if (!core->pm_domain_devs)
-		return -EINVAL;
-
-	for (i = 0; i < core->pm_domain_cnt; i++) {
-		if (core->pm_domain_devs[i])
-			pm_runtime_get_sync(core->pm_domain_devs[i]);
+		for (i = 0; i < core->pm_domain_cnt; i++) {
+			if (core->pm_domain_devs[i])
+				pm_runtime_get_sync(core->pm_domain_devs[i]);
+		}
 	}
 
 	return 0;
@@ -240,13 +249,16 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 static int seninf_core_pm_runtime_put(struct seninf_core *core)
 {
 	int i;
+	if (core->pm_domain_cnt == 1)
+		pm_runtime_put(core->dev);
+	else {
+		if (!core->pm_domain_devs && core->pm_domain_cnt < 1)
+			return -EINVAL;
 
-	if (!core->pm_domain_devs && core->pm_domain_cnt < 1)
-		return -EINVAL;
-
-	for (i = core->pm_domain_cnt - 1; i >= 0; i--) {
-		if (core->pm_domain_devs[i])
-			pm_runtime_put(core->pm_domain_devs[i]);
+		for (i = core->pm_domain_cnt - 1; i >= 0; i--) {
+			if (core->pm_domain_devs[i])
+				pm_runtime_put(core->pm_domain_devs[i]);
+		}
 	}
 
 	return 0;
