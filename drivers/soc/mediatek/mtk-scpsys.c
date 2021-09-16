@@ -29,21 +29,8 @@
 #include <dt-bindings/power/mt8173-power.h>
 #include <dt-bindings/power/mt8192-power.h>
 
-
-
 #define MTK_POLL_DELAY_US   10
 #define MTK_POLL_TIMEOUT    USEC_PER_SEC
-
-#define MTK_SCPD_ACTIVE_WAKEUP		BIT(0)
-#define MTK_SCPD_FWAIT_SRAM		BIT(1)
-#define MTK_SCPD_SRAM_ISO		BIT(2)
-#define MTK_SCPD_MD_OPS			BIT(3)
-#define MTK_SCPD_ALWAYS_ON		BIT(4)
-#define MTK_SCPD_APU_OPS		BIT(5)
-#define MTK_SCPD_SRAM_SLP		BIT(6)
-#define MTK_SCPD_BYPASS_INIT_ON		BIT(7)
-#define MTK_SCPD_IS_PWR_CON_ON		BIT(8)
-#define MTK_SCPD_L2TCM_SRAM		BIT(9)
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -576,7 +563,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 
 	ret = scpsys_regulator_enable(scpd);
 	if (ret < 0)
-		return ret;
+		goto err_regulator;
 
 	ret = scpsys_clk_enable(scpd->clk, MAX_CLKS);
 	if (ret)
@@ -584,7 +571,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 
 	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
 	if (ret)
-		goto err_clk;
+		goto err_lp_clk;
 
 	/* subsys power on */
 	val = readl(ctl_addr);
@@ -612,11 +599,11 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	val |= PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
-	ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
-	if (ret < 0)
-		goto err_pwr_ack;
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK)) {
+		ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+		if (ret < 0)
+			goto err_pwr_ack;
 
-	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_PWRON_NO_SUBSYS_CLK)) {
 		ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
 		if (ret < 0)
 			goto err_pwr_ack;
@@ -642,8 +629,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_sram;
 
-	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_PWRON_NO_SUBSYS_CLK))
-		scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
 
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
@@ -652,11 +638,13 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 err_sram:
 	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
 err_pwr_ack:
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+err_lp_clk:
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 err_clk:
 	scpsys_regulator_disable(scpd);
-
-	dev_err(scp->dev, "Failed to power on domain %s\n", genpd->name);
+err_regulator:
+	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
 
 	return ret;
 }
@@ -697,9 +685,10 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto out;
 
-	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
-
-	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK)) {
+		scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+		scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	}
 
 	/* subsys power off */
 	val = readl(ctl_addr);
@@ -743,7 +732,7 @@ err_subsys_lp_clk:
 err_lp_clk:
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 out:
-	dev_err(scp->dev, "Failed to power off domain %s\n", genpd->name);
+	dev_err(scp->dev, "Failed to power off domain %s(%d)\n", genpd->name, ret);
 
 	return ret;
 }
@@ -885,6 +874,103 @@ static int scpsys_apu_power_off(struct generic_pm_domain *genpd)
 				"Failed to power off domain %s\n", genpd->name);
 		}
 	}
+	return ret;
+}
+
+static int mtk_hwv_is_done(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	u32 val = 0;
+
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+
+	return (val & BIT(scpd->data->hwv_shift)) != 0;
+}
+
+static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	u32 val = 0;
+	int ret = 0;
+	int tmp;
+
+	ret = scpsys_regulator_enable(scpd);
+	if (ret < 0)
+		goto err_regulator;
+
+	ret = scpsys_clk_enable(scpd->clk, MAX_CLKS);
+	if (ret)
+		goto err_clk;
+
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
+
+	val = BIT(scpd->data->hwv_shift);
+	regmap_write(scp->hwv_regmap, scpd->data->hwv_set_ofs, val);
+
+	/* wait until VOTER_ACK = 1 */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv_ack;
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+
+	return 0;
+
+err_hwv_ack:
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+err_lp_clk:
+	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+err_clk:
+	scpsys_regulator_disable(scpd);
+err_regulator:
+	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
+
+	return ret;
+}
+
+static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	u32 val = 0;
+	int ret = 0;
+	int tmp;
+
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
+
+	val = BIT(scpd->data->hwv_shift);
+	regmap_write(scp->hwv_regmap, scpd->data->hwv_clr_ofs, val);
+
+	/* wait until VOTER_ACK = 0 */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv;
+
+	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+
+	ret = scpsys_regulator_disable(scpd);
+	if (ret < 0)
+		goto err_regulator;
+
+	return 0;
+
+
+err_hwv:
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+err_lp_clk:
+err_regulator:
+	dev_err(scp->dev, "Failed to power off domain %s(%d)\n", genpd->name, ret);
+
 	return ret;
 }
 
@@ -1058,6 +1144,16 @@ struct scp *init_scp(struct platform_device *pdev,
 		return ERR_CAST(scp->mfgrpc);
 	}
 
+	scp->hwv_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"hw-voter-regmap");
+	if (scp->hwv_regmap == ERR_PTR(-ENODEV)) {
+		scp->hwv_regmap = NULL;
+	} else if (IS_ERR(scp->hwv_regmap)) {
+		dev_notice(&pdev->dev, "Cannot find hw voter controller: %ld\n",
+				PTR_ERR(scp->hwv_regmap));
+		return ERR_CAST(scp->hwv_regmap);
+	}
+
 	for (i = 0; i < num; i++) {
 		struct scp_domain *scpd = &scp->domains[i];
 		const struct scp_domain_data *data = &scp_domain_data[i];
@@ -1121,6 +1217,9 @@ struct scp *init_scp(struct platform_device *pdev,
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_APU_OPS)) {
 			genpd->power_on = scpsys_apu_power_on;
 			genpd->power_off = scpsys_apu_power_off;
+		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_HWV_OPS)) {
+			genpd->power_on = scpsys_hwv_power_on;
+			genpd->power_off = scpsys_hwv_power_off;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;

@@ -9,6 +9,9 @@
 #include <linux/pm_domain.h>
 #include "scpsys.h"
 
+#define MTK_POLL_DELAY_US		10
+#define MTK_POLL_TIMEOUT		USEC_PER_SEC
+
 #define MTK_SCPD_ACTIVE_WAKEUP		BIT(0)
 #define MTK_SCPD_FWAIT_SRAM		BIT(1)
 #define MTK_SCPD_SRAM_ISO		BIT(2)
@@ -19,8 +22,9 @@
 #define MTK_SCPD_BYPASS_INIT_ON		BIT(7)
 #define MTK_SCPD_IS_PWR_CON_ON		BIT(8)
 #define MTK_SCPD_L2TCM_SRAM		BIT(9)
-#define MTK_SCPD_PWRON_NO_SUBSYS_CLK	BIT(10)
+#define MTK_SCPD_BYPASS_CLK		BIT(10)
 #define MTK_SCPD_L2SRAM			BIT(11)
+#define MTK_SCPD_HWV_OPS		BIT(12)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
@@ -52,6 +56,10 @@ struct scp_domain_data {
 	const char *name;
 	u32 sta_mask;
 	int ctl_offs;
+	u32 hwv_done_ofs;
+	u32 hwv_set_ofs;
+	u32 hwv_clr_ofs;
+	u8 hwv_shift;
 	u32 sram_pdn_bits;
 	u32 sram_pdn_ack_bits;
 	u32 sram_slp_bits;
@@ -96,6 +104,7 @@ struct scp {
 	struct regmap *smi_common;
 	struct regmap *vlpcfg;
 	struct regmap *mfgrpc;
+	struct regmap *hwv_regmap;
 	struct scp_ctrl_reg ctrl_reg;
 };
 
