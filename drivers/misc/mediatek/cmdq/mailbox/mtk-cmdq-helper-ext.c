@@ -876,7 +876,10 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 
 	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
 		value, mask);
-	cmdq_pkt_write_dummy(pkt, addr);
+
+	if (addr > (dma_addr_t)gce_mminfra)
+		cmdq_pkt_read_addr(pkt, addr, CMDQ_SPR_FOR_TEMP);
+
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
