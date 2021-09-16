@@ -1190,6 +1190,79 @@
 			udc = <&ssusb>;
 		};
 
+		pcie_ckm_xtal_ck: pcie-ckm-xtal-ck {
+			pcie-ckm-clk-status = "disable";
+		};
+
+		pcie0: pcie@112f0000 {
+			device_type = "pci";
+			compatible = "mediatek,mt6983-pcie";
+			reg = <0 0x112f0000 0 0x4000>;
+			reg-names = "pcie-mac";
+			linux,pci-domain = <0>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH 0>;
+			bus-range = <0x00 0xff>;
+
+			ranges = <0x82000000 0 0x30000000
+				  0x0 0x30000000 0 0x4000000>;
+
+			status = "disabled";
+
+			clocks = <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE0_26M>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE0_250M>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE0_GFMUX>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE0_MEM>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE0_PCIE1_HCLK_CLR>;
+
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &pcie_intc0 0>,
+					<0 0 0 2 &pcie_intc0 1>,
+					<0 0 0 3 &pcie_intc0 2>,
+					<0 0 0 4 &pcie_intc0 3>;
+			pcie_intc0: interrupt-controller {
+				interrupt-controller;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+
+		pcie1: pcie@112f8000 {
+			device_type = "pci";
+			compatible = "mediatek,mt6983-pcie";
+			reg = <0 0x112f8000 0 0x4000>;
+			reg-names = "pcie-mac";
+			linux,pci-domain = <1>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH 0>;
+			bus-range = <0x00 0xff>;
+			ranges = <0x82000000 0 0x34000000
+				  0x0 0x34000000 0 0x4000000>;
+
+			status = "disabled";
+
+			clocks = <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE1_26M>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE1_250M>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE1_GFMUX>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE1_MEM_CLR>,
+				 <&pericfg_ao_clk CLK_PERI_AO_PERI_PCIE0_PCIE1_HCLK_CLR>;
+
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &pcie_intc1 0>,
+					<0 0 0 2 &pcie_intc1 1>,
+					<0 0 0 3 &pcie_intc1 2>,
+					<0 0 0 4 &pcie_intc1 3>;
+			pcie_intc1: interrupt-controller {
+				interrupt-controller;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+
 		ssusb: usb0@11201000 {
 				compatible = "mediatek,mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
