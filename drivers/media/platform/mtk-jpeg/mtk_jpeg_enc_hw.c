@@ -136,7 +136,7 @@ void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
 	writel(img_stride, base + JPEG_ENC_IMG_STRIDE);
 	writel(mem_stride, base + JPEG_ENC_STRIDE);
 
-	enc_quality = mtk_jpeg_enc_quality[0].hardware_value;
+	enc_quality = JPEG_ENC_QUALITY_Q97;
 	for (i = 0; i < ARRAY_SIZE(mtk_jpeg_enc_quality); i++) {
 		if (ctx->enc_quality <= mtk_jpeg_enc_quality[i].quality_param) {
 			enc_quality = mtk_jpeg_enc_quality[i].hardware_value;
@@ -159,4 +159,11 @@ void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
 	writel(value, base + JPEG_ENC_CTRL);
 
 	writel(ctx->restart_interval, base + JPEG_ENC_RST_MCU_NUM);
+
+
+	pr_info("fmt %d, w,h %d,%d, enable_exif %d, enc_quality %d, restart_interval %d,img_stride %d, mem_stride %d\n",
+		enc_format, width, height,
+		ctx->enable_exif, enc_quality, ctx->restart_interval,
+		img_stride, mem_stride);
+
 }

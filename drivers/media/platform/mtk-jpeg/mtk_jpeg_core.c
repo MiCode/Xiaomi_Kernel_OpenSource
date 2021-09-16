@@ -1267,7 +1267,6 @@ static irqreturn_t mtk_jpeg_enc_done(struct mtk_jpeg_dev *jpeg)
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 
 	result_size = mtk_jpeg_enc_get_file_size(jpeg->reg_base);
-	pr_info("%s done size %d", __func__, result_size);
 	vb2_set_plane_payload(&dst_buf->vb2_buf, 0, result_size);
 
 	buf_state = VB2_BUF_STATE_DONE;
