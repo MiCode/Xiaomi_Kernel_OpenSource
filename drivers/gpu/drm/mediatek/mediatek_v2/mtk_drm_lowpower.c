@@ -165,6 +165,10 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_idlemgr *idlemgr;
 	struct mtk_drm_idlemgr_context *idlemgr_ctx;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR))
+		return;
 
 	if (!mtk_crtc->idlemgr)
 		return;
