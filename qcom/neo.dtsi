@@ -429,22 +429,6 @@
 		};
 	};
 
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
 	rpmhcc: qcom,rpmhcc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "rpmhcc_clocks";
@@ -453,8 +437,17 @@
 	};
 
 	gcc: clock-controller@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,neo-gcc", "syscon";
+		reg = <0x100000 0x1f4200>;
+		reg-name = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mxa-supply = <&VDD_MXA_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>, <&sleep_clk>,
+			<&pcie_0_pipe_clk>, <&pcie_1_pipe_clk>,
+			<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+		clock-names = "bi_tcxo", "sleep_clk",
+			"pcie_0_pipe_clk", "pcie_1_pipe_clk",
+			"usb3_phy_wrapper_gcc_usb30_pipe_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -473,9 +466,17 @@
 		#reset-cells = <1>;
 	};
 
-	videocc: clock-controller@abf0000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+	videocc: clock-controller@aaf0000 {
+		compatible = "qcom,neo-videocc", "syscon";
+		reg = <0xaaf0000 0x10000>;
+		reg-name = "cc_base";
+		vdd_mm-supply = <&VDD_MM_LEVEL>;
+		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&sleep_clk>,
+			<&gcc GCC_VIDEO_AHB_CLK>;
+		clock-names = "bi_tcxo", "sleep_clk",
+			"iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -820,55 +821,55 @@
 };
 
 &gcc_pcie_0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 	/delete-property/ qcom,support-hw-trigger;
 };
 
 &gcc_pcie_0_phy_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gcc_pcie_1_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gcc_pcie_1_phy_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gcc_usb30_prim_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &gcc_usb3_phy_gdsc {
-	compatible = "regulator-fixed";
-	qcom,support-hw-trigger;
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_turing_mmu_tbu1_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_turing_mmu_tbu0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
+	reg = <0x18d204 0x4>;
 	status = "ok";
 };
 
@@ -918,26 +919,34 @@
 };
 
 &video_cc_mvs0_gdsc {
-	compatible = "regulator-fixed";
-	reg = <0xabf80a4 0x4>;
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
+	parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
+	reg = <0xaaf80a4 0x4>;
 	status = "ok";
 };
 
 &video_cc_mvs0c_gdsc {
-	compatible = "regulator-fixed";
-	reg = <0xabf804c 0x4>;
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
+	parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
+	reg = <0xaaf804c 0x4>;
 	status = "ok";
 };
 
 &video_cc_mvs1_gdsc {
-	compatible = "regulator-fixed";
-	reg = <0xabf80cc 0x4>;
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
+	parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
+	reg = <0xaaf80cc 0x4>;
 	status = "ok";
 };
 
 &video_cc_mvs1c_gdsc {
-	compatible = "regulator-fixed";
-	reg = <0xabf8078 0x4>;
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
+	parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
+	reg = <0xaaf8078 0x4>;
 	status = "ok";
 
 };
