@@ -337,6 +337,8 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 #endif
 
 	if (cmd == HANG_ADD_WHITE_LIST) {
+		if (strlen(argp) >= TASK_COMM_LEN)
+			return -EFAULT;
 		if (copy_from_user(name, argp, TASK_COMM_LEN))
 			ret = -EFAULT;
 		ret = add_white_list(name);
@@ -346,6 +348,8 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	if (cmd == HANG_DEL_WHITE_LIST) {
+		if (strlen(argp) >= TASK_COMM_LEN)
+			return -EFAULT;
 		if (copy_from_user(name, argp, TASK_COMM_LEN))
 			ret = -EFAULT;
 		ret = del_white_list(name);
@@ -770,10 +774,12 @@ static int dump_native_info_by_tid(pid_t tid,
 		hang_log("UserSP_start:%08x,Length:%08x,End:%08x\n",
 				SPStart, length, SPEnd);
 		while (SPStart < SPEnd) {
+			++oops_in_progress; /* sleeping function warn */
 			copied =
 			    access_process_vm(current_task, SPStart,
 					&tempSpContent, sizeof(tempSpContent),
 					0);
+			--oops_in_progress;
 			if (copied != sizeof(tempSpContent)) {
 				pr_info("access_process_vm  SPStart error,sizeof(tempSpContent)=%x\n",
 				  (unsigned int)sizeof(tempSpContent));
@@ -872,9 +878,11 @@ static int dump_native_info_by_tid(pid_t tid,
 			hang_log("UserSP_start:%lx,Length:%lx,End:%lx\n",
 				SPStart, length, SPEnd);
 			while (SPStart < SPEnd) {
+				++oops_in_progress; /* sleeping function warn */
 				copied = access_process_vm(current_task,
 						SPStart, &tempSpContent,
 						sizeof(tempSpContent), 0);
+				--oops_in_progress;
 				if (copied != sizeof(tempSpContent)) {
 					pr_info(
 					  "access_process_vm  SPStart error,sizeof(tempSpContent)=%x\n",
@@ -931,18 +939,22 @@ static int dump_native_info_by_tid(pid_t tid,
 			frames = 2;
 			while (tmpfp < userstack_end &&
 					tmpfp > userstack_start) {
+				++oops_in_progress; /* sleeping function warn */
 				copied =
 				    access_process_vm(current_task,
 						    (unsigned long)tmpfp, &tmp,
 						      sizeof(tmp), 0);
+				--oops_in_progress;
 				if (copied != sizeof(tmp)) {
 					pr_info("access_process_vm  fp error\n");
 					return -EIO;
 				}
+				++oops_in_progress; /* sleeping function warn */
 				copied =
 				    access_process_vm(current_task,
 						    (unsigned long)tmpfp + 0x08,
 						      &tmpLR, sizeof(tmpLR), 0);
+				--oops_in_progress;
 				if (copied != sizeof(tmpLR)) {
 					pr_info("access_process_vm  pc error\n");
 					return -EIO;
