@@ -6,19 +6,17 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <mtk_drm_ddp_comp.h>
 
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
-#include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-pq-core.h"
 
-#include "mtk-mml-driver.h"
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
@@ -144,8 +142,6 @@
 #define AAL_DRE_BILATERAL_BLENDING	0x564
 
 #define AAL_WAIT_TIMEOUT_MS	(50)
-#define AAL_MIN_WIDTH (50)
-
 
 #define AAL_POLL_SLEEP_TIME_US	(10)
 #define AAL_MAX_POLL_TIME_US	(1000)
@@ -345,7 +341,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id, dest->pq_config.en_dre);
-	if (!dest->pq_config.en_dre || dest->crop.r.width < AAL_MIN_WIDTH) {
+	if (!dest->pq_config.en_dre || dest->crop.r.width < aal->data->min_tile_width) {
 		/* relay mode */
 		cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG, 0x1, 0x00000001);
 		goto exit;
@@ -849,7 +845,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (const struct aal_data *)of_device_get_match_data(dev);
+	priv->data = of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {

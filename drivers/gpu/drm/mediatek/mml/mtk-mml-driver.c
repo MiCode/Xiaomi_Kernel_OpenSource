@@ -232,12 +232,6 @@ static const struct component_master_ops mml_master_ops = {
 	.unbind = master_unbind,
 };
 
-static inline int of_mml_read_comp_name_index(const struct device_node *np,
-	int index, const char **name)
-{
-	return of_property_read_string_index(np, "comp-names", index, name);
-}
-
 static int comp_compare(struct device *dev, int subcomponent, void *data)
 {
 	u32 comp_id;
@@ -284,6 +278,12 @@ static int comp_master_init(struct device *dev, struct mml_dev *mml)
 static void comp_master_deinit(struct device *dev)
 {
 	component_master_del(dev, &mml_master_ops);
+}
+
+static inline int of_mml_read_comp_name_index(const struct device_node *np,
+	int index, const char **name)
+{
+	return of_property_read_string_index(np, "comp-names", index, name);
 }
 
 static const char *comp_clock_names = "comp-clock-names";
@@ -352,16 +352,18 @@ static s32 comp_init(struct platform_device *pdev, struct mml_comp *comp,
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 {
 	struct device *dev = &comp_pdev->dev;
+	struct device_node *node = dev->of_node;
 	u32 comp_id;
 	int ret;
 
-	ret = of_mml_read_comp_id_index(dev->of_node, 0, &comp_id);
+	ret = of_mml_read_comp_id_index(node, 0, &comp_id);
 	if (ret) {
 		dev_err(dev, "no comp-ids in component %s: %d\n",
-			dev->of_node->full_name, ret);
+			node->full_name, ret);
 		return -EINVAL;
 	}
 	comp->id = comp_id;
+	of_mml_read_comp_name_index(node, 0, &comp->name);
 	return comp_init(comp_pdev, comp, comp_clock_names);
 }
 EXPORT_SYMBOL_GPL(mml_comp_init);
@@ -384,9 +386,8 @@ s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	}
 	comp->id = comp_id;
 	comp->sub_idx = subcomponent;
-	if (!of_mml_read_comp_name_index(node, subcomponent, &name_ptr)) {
-		comp->name = name_ptr;
-		ret = snprintf(name, sizeof(name), "%s-clock-names", name_ptr);
+	if (!of_mml_read_comp_name_index(node, subcomponent, &comp->name)) {
+		ret = snprintf(name, sizeof(name), "%s-clock-names", comp->name);
 		if (ret >= sizeof(name)) {
 			dev_err(dev, "len:%d over name size:%d",
 				ret, sizeof(name));
@@ -412,9 +413,9 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 		mml_err("%s fail to parse mediatek,larb", __func__);
 		return 0; /* -ENOENT; for FPGA no smi_larb */
 	}
-	comp->smi_port = larb_args.args[0];
+	comp->larb_port = larb_args.args[0];
 	if (!of_address_to_resource(larb_args.np, 0, &res))
-		comp->smi_base = res.start;
+		comp->larb_base = res.start;
 
 	larb_pdev = of_find_device_by_node(larb_args.np);
 	of_node_put(larb_args.np);

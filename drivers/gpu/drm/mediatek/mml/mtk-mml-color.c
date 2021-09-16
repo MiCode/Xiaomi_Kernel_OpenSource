@@ -6,13 +6,12 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <mtk_drm_ddp_comp.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
-#include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-pq-core.h"
 #include "tile_driver.h"
 
@@ -456,7 +455,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (const struct color_data *)of_device_get_match_data(dev);
+	priv->data = of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {

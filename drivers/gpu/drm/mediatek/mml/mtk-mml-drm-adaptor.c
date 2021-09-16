@@ -9,10 +9,8 @@
 #include <linux/module.h>
 #include <linux/sync_file.h>
 #include <linux/time64.h>
-
-#include "mediatek_v2/mtk_drm_ddp_comp.h"
-#include "mediatek_v2/mtk_sync.h"
-#include "mediatek_v2/mtk_drm_drv.h"
+#include <mtk_sync.h>
+#include <mtk_drm_drv.h>
 
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-buf.h"
@@ -977,6 +975,79 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 			__func__, info->dest[0].data.format);
 }
 EXPORT_SYMBOL_GPL(mml_drm_split_info);
+
+struct mml_ddp_comp_match {
+	enum mtk_ddp_comp_id id;
+	enum mtk_ddp_comp_type type;
+	const char *name;
+};
+
+static const struct mml_ddp_comp_match mml_ddp_matches[] = {
+	{ DDP_COMPONENT_MML_RSZ0, MTK_MML_RSZ, "rsz0" },
+	{ DDP_COMPONENT_MML_RSZ1, MTK_MML_RSZ, "rsz1" },
+	{ DDP_COMPONENT_MML_RSZ2, MTK_MML_RSZ, "rsz2" },
+	{ DDP_COMPONENT_MML_RSZ3, MTK_MML_RSZ, "rsz3" },
+	{ DDP_COMPONENT_MML_HDR0, MTK_MML_HDR, "hdr0" },
+	{ DDP_COMPONENT_MML_HDR1, MTK_MML_HDR, "hdr1" },
+	{ DDP_COMPONENT_MML_AAL0, MTK_MML_AAL, "aal0" },
+	{ DDP_COMPONENT_MML_AAL1, MTK_MML_AAL, "aal1" },
+	{ DDP_COMPONENT_MML_TDSHP0, MTK_MML_TDSHP, "tdshp0" },
+	{ DDP_COMPONENT_MML_TDSHP1, MTK_MML_TDSHP, "tdshp1" },
+	{ DDP_COMPONENT_MML_COLOR0, MTK_MML_COLOR, "color0" },
+	{ DDP_COMPONENT_MML_COLOR1, MTK_MML_COLOR, "color1" },
+	{ DDP_COMPONENT_MML_MML0, MTK_MML_MML, "mmlsys" },
+	{ DDP_COMPONENT_MML_DLI0, MTK_MML_MML, "dli0" },
+	{ DDP_COMPONENT_MML_DLI1, MTK_MML_MML, "dli1" },
+	{ DDP_COMPONENT_MML_DLO0, MTK_MML_MML, "dlo0" },
+	{ DDP_COMPONENT_MML_DLO1, MTK_MML_MML, "dlo1" },
+	{ DDP_COMPONENT_MML_MUTEX0, MTK_MML_MUTEX, "mutex0" },
+	{ DDP_COMPONENT_MML_WROT0, MTK_MML_WROT, "wrot0" },
+	{ DDP_COMPONENT_MML_WROT1, MTK_MML_WROT, "wrot1" },
+	{ DDP_COMPONENT_MML_WROT2, MTK_MML_WROT, "wrot2" },
+	{ DDP_COMPONENT_MML_WROT3, MTK_MML_WROT, "wrot3" },
+};
+
+static u32 mml_ddp_comp_get_id(struct device_node *node, const char *name)
+{
+	u32 i;
+
+	if (!name) {
+		mml_err("no comp-names in component %s for ddp binding",
+			node->full_name);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(mml_ddp_matches); i++) {
+		if (!strcmp(name, mml_ddp_matches[i].name))
+			return mml_ddp_matches[i].id;
+	}
+	mml_err("no ddp component matches: %s", name);
+	return -ENODATA;
+}
+
+int mml_ddp_comp_init(struct device *dev,
+		      struct mtk_ddp_comp *ddp_comp, struct mml_comp *mml_comp,
+		      const struct mtk_ddp_comp_funcs *funcs)
+{
+	if (unlikely(!funcs))
+		return -EINVAL;
+
+	ddp_comp->id = mml_ddp_comp_get_id(dev->of_node, mml_comp->name);
+	if (IS_ERR_VALUE(ddp_comp->id))
+		return ddp_comp->id;
+
+	ddp_comp->funcs = funcs;
+	ddp_comp->dev = dev;
+
+	/* ddp_comp->clk = mml_comp->clks[0]; */
+	ddp_comp->regs_pa = mml_comp->base_pa;
+	ddp_comp->regs = mml_comp->base;
+	/* ddp_comp->cmdq_base = cmdq_register_device(dev); */
+	ddp_comp->larb_dev = mml_comp->larb_dev;
+	ddp_comp->larb_id = mml_comp->larb_port;
+	ddp_comp->sub_idx = mml_comp->sub_idx;
+	return 0;
+}
 
 int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {

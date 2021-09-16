@@ -419,8 +419,8 @@ struct mml_comp {
 	phys_addr_t base_pa;
 	struct clk *clks[2];
 	struct device *larb_dev;
-	phys_addr_t smi_base;
-	u32 smi_port;
+	phys_addr_t larb_base;
+	u32 larb_port;
 	s32 pw_cnt;
 	s32 clk_cnt;
 	struct icc_path *icc_path;

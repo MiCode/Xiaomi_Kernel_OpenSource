@@ -6,13 +6,11 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
-#include "mtk_drm_ddp_comp.h"
 
 #include "tile_driver.h"
 
@@ -31,10 +29,8 @@ static const struct tcc_data mt6893_tcc_data = {
 };
 
 struct mml_comp_tcc {
-	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct tcc_data *data;
-	bool ddp_bound;
 };
 
 /* meta data for each different frame config */
@@ -164,48 +160,20 @@ static const struct mml_comp_debug_ops tcc_debug_ops = {
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_tcc *tcc = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 ret = -1, temp;
+	s32 ret;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
-		ret = mml_register_comp(master, &tcc->comp);
-		if (ret)
-			dev_err(dev, "Failed to register mml component %s: %d\n",
-				dev->of_node->full_name, ret);
-	} else {
-		drm_dev = data;
-		ret = mml_ddp_comp_register(drm_dev, &tcc->ddp_comp);
-		if (ret < 0)
-			dev_err(dev, "Failed to register ddp component %s: %d\n",
-				dev->of_node->full_name, ret);
-		else
-			tcc->ddp_bound = true;
-	}
-
+	ret = mml_register_comp(master, &tcc->comp);
+	if (ret)
+		dev_err(dev, "Failed to register mml component %s: %d\n",
+			dev->of_node->full_name, ret);
 	return ret;
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_tcc *tcc = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 temp;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
-		mml_unregister_comp(master, &tcc->comp);
-	} else {
-		drm_dev = data;
-		mml_ddp_comp_unregister(drm_dev, &tcc->ddp_comp);
-		tcc->ddp_bound = false;
-	}
+	mml_unregister_comp(master, &tcc->comp);
 }
 
 static const struct component_ops mml_comp_ops = {
@@ -227,7 +195,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (const struct tcc_data *)of_device_get_match_data(dev);
+	priv->data = of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
@@ -243,7 +211,6 @@ static int probe(struct platform_device *pdev)
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
-	ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 
@@ -252,7 +219,6 @@ static int probe(struct platform_device *pdev)
 
 static int remove(struct platform_device *pdev)
 {
-	component_del(&pdev->dev, &mml_comp_ops);
 	component_del(&pdev->dev, &mml_comp_ops);
 	return 0;
 }
@@ -319,12 +285,6 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 			length += snprintf(buf + length, PAGE_SIZE - length,
 				"  -      mml_bound: %d\n",
 				dbg_probed_components[i]->comp.bound);
-			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -      ddp_comp_id: %d\n",
-				dbg_probed_components[i]->ddp_comp.id);
-			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -      ddp_bound: %d\n",
-				dbg_probed_components[i]->ddp_bound);
 		}
 	default:
 		mml_err("not support read for case_id: %d", ut_case);

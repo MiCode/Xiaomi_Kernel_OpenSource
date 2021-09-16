@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 #
 
-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek \
+ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2 \
              -I$(srctree)/drivers/devfreq \
              -I$(srctree)/drivers/dma-buf/heaps/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs \

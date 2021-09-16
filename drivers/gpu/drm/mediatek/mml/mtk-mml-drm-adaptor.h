@@ -9,10 +9,12 @@
 
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <mtk_drm_ddp_comp.h>
+
 #include "mtk-mml.h"
-#include "mediatek_v2/mtk_drm_ddp_comp.h"
 
 struct mml_drm_ctx;
+struct mml_comp;
 
 struct mml_drm_param {
 	/* [in]helps calculate inline rotate support */
@@ -142,12 +144,28 @@ void mml_drm_config_rdone(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 void mml_drm_dump(struct mml_drm_ctx *ctx, struct mml_submit *submit);
 
 /*
+ * mml_ddp_comp_init - initialize ddp component to drm
+ *
+ * @dev:	Device of component.
+ * @ddp_comp:	The ddp component that will be initialized.
+ * @mml_comp:	The mml component of device.
+ * @funcs:	The functions of ddp component.
+ *
+ * Return:	Result of ddp component initialization.
+ *		In case value < 0 means initialization fail.
+ */
+int mml_ddp_comp_init(struct device *dev,
+		      struct mtk_ddp_comp *ddp_comp, struct mml_comp *mml_comp,
+		      const struct mtk_ddp_comp_funcs *funcs);
+
+/*
  * mml_ddp_comp_register - register ddp component to drm
  *
  * @drm:	Device of drm.
- * @comp:	The component that will be reigster to drm.
+ * @comp:	The component that will be reigstered to drm.
  *
- * Return:	Result of component register. In case value < 0 means registeration fail
+ * Return:	Result of component register.
+ *		In case value < 0 means registration fail.
  */
 int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp);
 
@@ -155,7 +173,7 @@ int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp);
  * mml_ddp_comp_unregister - unregister ddp component to drm
  *
  * @drm:	Device of drm.
- * @comp:	The component that will be reigster to drm.
+ * @comp:	The component that was reigstered to drm.
  *
  * Return:	None
  */

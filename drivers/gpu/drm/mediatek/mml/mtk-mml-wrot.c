@@ -4,14 +4,12 @@
  * Author: Dennis YC Hsieh <dennis-yc.hsieh@mediatek.com>
  */
 
-#include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/dma-mapping.h>
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/math64.h>
 
@@ -2051,7 +2049,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (const struct wrot_data *)of_device_get_match_data(dev);
+	priv->data = of_device_get_match_data(dev);
 	priv->dev = dev;
 
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
@@ -2074,8 +2072,8 @@ static int probe(struct platform_device *pdev)
 	}
 
 	/* store smi larb con register for later use */
-	priv->smi_larb_con = priv->comp.smi_base +
-		SMI_LARB_NON_SEC_CON + priv->comp.smi_port * 4;
+	priv->smi_larb_con = priv->comp.larb_base +
+		SMI_LARB_NON_SEC_CON + priv->comp.larb_port * 4;
 	mutex_init(&priv->sram_mutex);
 	mml_log("comp(wrot) %u smi larb con %#lx", priv->comp.id, priv->smi_larb_con);
 
