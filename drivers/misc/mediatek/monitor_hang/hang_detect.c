@@ -4,6 +4,7 @@
  */
 
 #include <linux/cdev.h>
+#include <linux/debug_locks.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -87,6 +88,13 @@ DEFINE_RAW_SPINLOCK(callback_list_lock);
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
 static void show_bt_by_pid(int task_pid);
+
+static void (*p_ldt_disable_aee)(void);
+void monitor_hang_regist_ldt(void (*fn)(void))
+{
+	p_ldt_disable_aee = fn;
+}
+EXPORT_SYMBOL_GPL(monitor_hang_regist_ldt);
 
 static void reset_hang_info(void)
 {
@@ -1122,6 +1130,13 @@ static void show_task_backtrace(void)
 		pr_info("hang_detect first dump was blocked\n");
 		first_dump_blocked = true;
 	}
+#if IS_ENABLED(CONFIG_PROVE_LOCKING)
+	if (debug_locks && p_ldt_disable_aee) {
+		p_ldt_disable_aee();
+		pr_info("hang_detect debug locks off here\n");
+		debug_locks_off();
+	}
+#endif
 	rcu_read_lock();
 	for_each_process(p) {
 		get_task_struct(p);

@@ -108,6 +108,14 @@ struct unwind_info_rms {
 /* QHQ RT Monitor */
 #define AEEIOCTL_RT_MON_Kick _IOR('p', 0x0A, int)
 #define AE_WDT_DEVICE_PATH      "/dev/RT_Monitor"
+
+#if IS_ENABLED(CONFIG_MTK_HANG_DETECT)
+void monitor_hang_regist_ldt(void (*fn)(void));
+#else
+void monitor_hang_regist_ldt(void (*fn)(void))
+{
+}
+#endif
 /* QHQ RT Monitor    end */
 
 /* DB dump option bits, set relative bit to 1 to include related file in db */
