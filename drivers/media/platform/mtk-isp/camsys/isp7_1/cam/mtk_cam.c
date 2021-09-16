@@ -3075,7 +3075,11 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
 			}
-
+			if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+				ctx->pipe->feature_active == 0 &&
+				req_stream_data->frame_seq_no == 2) {
+				mtk_cam_initial_sensor_setup(req, ctx);
+			}
 			/* Prepare CQ compose work */
 			if (mtk_cam_is_mstream(ctx)) {
 				int frame_cnt;
@@ -3299,8 +3303,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 	}
 
-	if (config_pipe && !mtk_cam_is_subsample(ctx) && !mtk_cam_is_stagger(ctx)
-		&& !mtk_cam_is_m2m(ctx) && !mtk_cam_is_time_shared(ctx))
+	if (config_pipe && is_first_request_sync(ctx))
 		config_param.flags |= MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE;
 
 	dev_dbg(dev, "%s: config_param flag:0x%x enabled_raw:0x%x\n", __func__,
@@ -3513,6 +3516,12 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	ctx->enqueued_frame_seq_no = 0;
 	ctx->composed_frame_seq_no = 0;
 	ctx->dequeued_frame_seq_no = 0;
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++)
+		ctx->sv_dequeued_frame_seq_no[i] = 0;
+	for (i = 0 ; i < MAX_MRAW_PIPES_PER_STREAM ; i++)
+		ctx->mraw_dequeued_frame_seq_no[i] = 0;
+	ctx->mraw_processing_buffer_list.cnt = 0;
+	ctx->mraw_composed_buffer_list.cnt = 0;
 	ctx->enqueued_request_cnt = 0;
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;

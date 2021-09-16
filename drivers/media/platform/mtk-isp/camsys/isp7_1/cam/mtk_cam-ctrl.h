@@ -19,6 +19,7 @@ struct mtk_raw_device;
 #define MTK_CAMSYS_ENGINE_MRAW_TAG   0x20
 #define MTK_CAMSYS_ENGINE_CAMSV_TAG  0x30
 #define MTK_CAMSYS_ENGINE_SENINF_TAG	0x40
+#define MTK_CAM_INITIAL_REQ_SYNC 0
 
 enum MTK_CAMSYS_ENGINE_IDX {
 	CAMSYS_ENGINE_RAW_BEGIN = MTK_CAMSYS_ENGINE_RAW_TAG,
@@ -181,5 +182,6 @@ void mtk_cam_m2m_done_work(struct work_struct *work);
 void mtk_cam_meta1_done_work(struct work_struct *work);
 void mtk_cam_sv_work(struct work_struct *work);
 void mtk_cam_m2m_enter_cq_state(struct mtk_camsys_ctrl_state *ctrl_state);
+bool is_first_request_sync(struct mtk_cam_ctx *ctx);
 
 #endif
