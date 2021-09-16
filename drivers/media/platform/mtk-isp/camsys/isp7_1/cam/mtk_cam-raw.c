@@ -362,10 +362,11 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 
 	dev_info(dev,
-		 "%s:pipe(%d): from user: sensor:%d/%d/%lld/%d/%d\n",
+		 "%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d\n",
 		 __func__, pipeline->id,
 		 res_user->sensor_res.hblank, res_user->sensor_res.vblank,
 		 res_user->sensor_res.pixel_rate,
+		 res_user->sensor_res.cust_pixel_rate,
 		 res_user->sensor_res.interval.denominator,
 		 res_user->sensor_res.interval.numerator);
 
@@ -449,14 +450,17 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	res_cfg->raw_feature = res_user->raw_res.feature;
 	res_cfg->raw_path = res_user->raw_res.path_sel;
 
-	prate = mtk_cam_seninf_calc_pixelrate
-				(pipeline->raw->cam_dev, sink_fmt->width,
-				 sink_fmt->height,
-				 res_user->sensor_res.hblank,
-				 res_user->sensor_res.vblank,
-				 res_user->sensor_res.interval.denominator,
-				 res_user->sensor_res.interval.numerator,
-				 res_user->sensor_res.pixel_rate);
+	if (res_user->sensor_res.cust_pixel_rate)
+		prate = res_user->sensor_res.cust_pixel_rate;
+	else
+		prate = mtk_cam_seninf_calc_pixelrate
+					(pipeline->raw->cam_dev, sink_fmt->width,
+					 sink_fmt->height,
+					 res_user->sensor_res.hblank,
+					 res_user->sensor_res.vblank,
+					 res_user->sensor_res.interval.denominator,
+					 res_user->sensor_res.interval.numerator,
+					 res_user->sensor_res.pixel_rate);
 
 	mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
 			      res_cfg, prate,
