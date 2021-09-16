@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/uaccess.h>
+#include "rpmh_master_stat.h"
 
 #define STATS_BASEMINOR				0
 #define STATS_MAX_MINOR				1
@@ -27,6 +28,8 @@
 #define DDR_STATS_NAME_ADDR		0x0
 #define DDR_STATS_COUNT_ADDR		0x4
 #define DDR_STATS_DURATION_ADDR		0x8
+
+#define MSM_ARCH_TIMER_FREQ	19200000
 
 #define APSS_IOCTL		_IOR(SUBSYSTEM_STATS_MAGIC_NUM, 0, \
 				     struct sleep_stats *)
@@ -117,6 +120,13 @@ struct sleep_stats_data {
 
 static DEFINE_MUTEX(sleep_stats_mutex);
 
+static inline u64 get_time_in_msec(u64 counter)
+{
+	do_div(counter, MSM_ARCH_TIMER_FREQ);
+	counter *= MSEC_PER_SEC;
+
+	return counter;
+}
 static int stats_data_open(struct inode *inode, struct file *file)
 {
 	struct sleep_stats_data *drvdata = NULL;
@@ -142,6 +152,7 @@ static void ddr_stats_sleep_stat(struct sleep_stats_data *stats_data, struct sle
 		(ddr_stats + i)->last_entered_at = 0xDEADDEAD;
 		(ddr_stats + i)->last_exited_at = 0xDEADDEAD;
 		(ddr_stats + i)->accumulated = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
+		(ddr_stats + i)->accumulated = get_time_in_msec((ddr_stats + i)->accumulated);
 		reg += sizeof(struct sleep_stats) - 2 * sizeof(u64);
 	}
 }
@@ -154,7 +165,18 @@ static int subsystem_sleep_stats(struct sleep_stats_data *stats_data, struct sle
 	if (pid == SUBSYSTEM_STATS_OTHERS_NUM)
 		memcpy_fromio(stats, stats_data->reg[idx], sizeof(*stats));
 	else {
-		subsystem_stats_data = qcom_smem_get(pid, idx, NULL);
+		/* Check if HLOS already maintained APSS stats */
+		if (pid == QCOM_SMEM_HOST_ANY) {
+			struct msm_rpmh_master_stats *apss_data = msm_rpmh_get_apss_data();
+
+			if (apss_data && apss_data->version_id == 0x1)
+				subsystem_stats_data = (struct sleep_stats *) apss_data;
+			else
+				subsystem_stats_data = qcom_smem_get(pid, idx, NULL);
+		} else {
+			subsystem_stats_data = qcom_smem_get(pid, idx, NULL);
+		}
+
 		if (IS_ERR(subsystem_stats_data))
 			return -ENODEV;
 
