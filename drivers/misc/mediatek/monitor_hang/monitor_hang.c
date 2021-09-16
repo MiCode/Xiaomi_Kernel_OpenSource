@@ -386,6 +386,8 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 #endif
 
 	if (cmd == HANG_ADD_WHITE_LIST) {
+		if (strlen(argp) >= TASK_COMM_LEN)
+			return -EFAULT;
 		if (copy_from_user(name, argp, TASK_COMM_LEN))
 			ret = -EFAULT;
 		ret = add_white_list(name);
@@ -395,6 +397,8 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	if (cmd == HANG_DEL_WHITE_LIST) {
+		if (strlen(argp) >= TASK_COMM_LEN)
+			return -EFAULT;
 		if (copy_from_user(name, argp, TASK_COMM_LEN))
 			ret = -EFAULT;
 		ret = del_white_list(name);
