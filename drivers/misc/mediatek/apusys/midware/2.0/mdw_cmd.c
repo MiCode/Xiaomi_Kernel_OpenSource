@@ -54,7 +54,9 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		c->kid, c->num_subcmds, c->num_cmdbufs);
 
 	/* flush cmdbufs and execinfos */
-	apusys_mem_invalidate_kva(c->cmdbufs->vaddr, c->cmdbufs->size);
+	if (mdw_mem_invalidate(mpriv, c->cmdbufs))
+		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate cmdbufs(%u) fail\n",
+			(uint64_t)mpriv, c->kid, c->cmdbufs->size);
 
 	for (i = 0; i < c->num_subcmds; i++) {
 		ksubcmd = &c->ksubcmds[i];
@@ -129,7 +131,6 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		goto out;
 	}
 
-
 	/* alloc mem for duplicated cmdbuf */
 	for (i = 0; i < c->num_subcmds; i++) {
 		mdw_cmd_debug("sc(0x%llx-%u) #cmdbufs(%u)\n",
@@ -193,7 +194,9 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		}
 	}
 	/* flush cmdbufs */
-	apusys_mem_flush_kva(c->cmdbufs->vaddr, c->cmdbufs->size);
+	if (mdw_mem_flush(mpriv, c->cmdbufs))
+		mdw_drv_warn("s(0x%llx) c(0x%llx) flush cmdbufs(%u) fail\n",
+			(uint64_t)mpriv, c->kid, c->cmdbufs->size);
 
 	ret = 0;
 	goto out;
@@ -592,13 +595,13 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	/* check input params */
 	if (mdw_cmd_sanity_check(c)) {
 		mdw_drv_err("cmd sanity check fail\n");
-		goto free_cmd;
+		goto put_execinfos;
 	}
 
 	/* subcmds/ksubcmds */
 	c->subcmds = kvzalloc(c->num_subcmds * sizeof(*c->subcmds), GFP_KERNEL);
 	if (!c->subcmds)
-		goto free_cmd;
+		goto put_execinfos;
 	if (copy_from_user(c->subcmds, (void __user *)in->exec.subcmd_infos,
 		c->num_subcmds * sizeof(*c->subcmds))) {
 		mdw_drv_err("copy subcmds fail\n");
@@ -632,7 +635,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	/* create infos */
 	if (mdw_cmd_create_infos(mpriv, c)) {
 		mdw_drv_err("create cmd info fail\n");
-		goto put_execinfo;
+		goto free_adj;
 	}
 
 	/* init fence */
@@ -653,14 +656,14 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 
 delete_infos:
 	mdw_cmd_delete_infos(mpriv, c);
-put_execinfo:
-	mdw_cmd_put_mem(mpriv, c->exec_infos);
 free_adj:
 	kvfree(c->adj_matrix);
 free_ksubcmds:
 	kvfree(c->ksubcmds);
 free_subcmds:
 	kvfree(c->subcmds);
+put_execinfos:
+	mdw_cmd_put_mem(mpriv, c->exec_infos);
 free_cmd:
 	kvfree(c);
 	c = NULL;

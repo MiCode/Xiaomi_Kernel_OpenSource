@@ -177,8 +177,13 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	c->einfos->c.ret = 0;
 	c->einfos->c.sc_rets = 0;
 
-	apusys_mem_flush_kva(rc->cb->vaddr, rc->cb->size);
-	apusys_mem_flush_kva(c->exec_infos->vaddr, c->exec_infos->size);
+	if (mdw_mem_flush(mpriv, rc->cb))
+		mdw_drv_warn("s(0x%llx) c(0x%llx) flush rv cbs(%u) fail\n",
+			(uint64_t)c->mpriv, c->kid, rc->cb->size);
+
+	if (mdw_mem_flush(mpriv, c->exec_infos))
+		mdw_drv_warn("s(0x%llx) c(0x%llx) flush exec infos(%u) fail\n",
+			(uint64_t)c->mpriv, c->kid, c->exec_infos->size);
 
 	goto out;
 

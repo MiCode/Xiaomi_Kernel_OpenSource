@@ -66,13 +66,14 @@ struct mdw_mem {
 	/* map */
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
+	struct kref map_ref;
 
 	/* control */
 	enum mdw_mem_op op;
 	enum mdw_mem_type type;
 	struct list_head u_item; //to mpriv
 	struct list_head d_node; //to mdev
-	struct kref map_ref;
+	struct mutex mtx;
 	void (*release)(struct mdw_mem *m);
 };
 

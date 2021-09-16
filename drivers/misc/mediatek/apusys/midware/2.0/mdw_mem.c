@@ -100,6 +100,7 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 		m->release = mdw_mem_delete;
 		mdw_mem_show(m);
 		mpriv->get(mpriv);
+		mutex_init(&m->mtx);
 
 		mutex_lock(&mdw_dev->m_mtx);
 		list_add_tail(&m->d_node, &mdw_dev->m_list);

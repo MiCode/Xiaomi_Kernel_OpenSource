@@ -260,7 +260,10 @@ static void mdw_ap_cmd_done(struct kref *ref)
 		mdw_ap_cmd_delete(ac);
 	} else {
 		mdw_ap_cmd_delete(ac);
-		apusys_mem_flush_kva(c->exec_infos->vaddr, c->exec_infos->size);
+		if (mdw_mem_flush(c->mpriv, c->exec_infos))
+			mdw_drv_warn("s(0x%llx) c(0x%llx) flush exec infos(%u) fail\n",
+				(uint64_t)c->mpriv, c->kid,
+				c->exec_infos->size);
 		if (c->einfos->c.sc_rets)
 			ret = -EFAULT;
 		c->complete(c, ret);
@@ -413,4 +416,5 @@ struct mdw_parser mdw_ap_parser = {
 	.get_ctx = mdw_ap_cmd_get_ctx,
 	.put_ctx = mdw_ap_cmd_put_ctx,
 	.is_deadline = mdw_ap_cmd_is_deadline,
+
 };
