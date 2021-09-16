@@ -119,7 +119,7 @@
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
 		};
-#if 0
+
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
@@ -196,7 +196,7 @@
 			capacity-dmips-mhz = <943>;
 			#cooling-cells = <2>;
 		};
-#endif
+
 	};
 
 	cpu-map {
@@ -206,7 +206,7 @@
 			core0 {
 				cpu = <&cpu0>;
 			};
-#if 0
+
 			core1 {
 				cpu = <&cpu1>;
 			};
@@ -242,7 +242,7 @@
 			core0 {
 				cpu = <&cpu7>;
 			};
-#endif
+
 		};
 
 	};
