@@ -46,6 +46,8 @@ struct dpidle_msg {
 
 static struct mtk_apu *g_apu;
 static struct work_struct pwron_dbg_wk;
+static struct workqueue_struct *apu_deepidle_workq;
+static struct dpidle_msg recv_msg;
 
 static void apu_deepidle_pwron_dbg_fn(struct work_struct *work)
 {
@@ -140,11 +142,11 @@ static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t cmd, uint32_t ack
 	return ret;
 }
 
-static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
+static void apu_deepidle_work_func(struct work_struct *work)
 {
-	struct mtk_apu *apu = (struct mtk_apu *)priv;
+	struct mtk_apu *apu = container_of(work, struct mtk_apu, deepidle_work);
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
-	struct dpidle_msg *msg = data;
+	struct dpidle_msg *msg = &recv_msg;
 	int ret;
 
 	switch (msg->cmd) {
@@ -197,10 +199,28 @@ static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 }
 
+static void apu_deepidle_ipi_handler(void *data, unsigned int len, void *priv)
+{
+	struct mtk_apu *apu = (struct mtk_apu *)priv;
+
+	memcpy(&recv_msg, data, len);
+	queue_work(apu_deepidle_workq, &apu->deepidle_work);
+}
+
 int apu_deepidle_init(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 	int ret;
+
+	apu_deepidle_workq = alloc_workqueue("apu_deepidle",
+					     WQ_UNBOUND | WQ_HIGHPRI, 0);
+	if (!apu_deepidle_workq) {
+		dev_info(apu->dev, "%s: failed to allocate rq for deep idle\n",
+			 __func__);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&apu->deepidle_work, apu_deepidle_work_func);
 
 	ret = apu_ipi_register(apu, APU_IPI_DEEP_IDLE,
 			       apu_deepidle_ipi_handler, apu);
@@ -222,5 +242,8 @@ void apu_deepidle_exit(struct mtk_apu *apu)
 	flush_work(&pwron_dbg_wk);
 
 	apu_ipi_unregister(apu, APU_IPI_DEEP_IDLE);
+
+	if (apu_deepidle_workq)
+		destroy_workqueue(apu_deepidle_workq);
 }
 

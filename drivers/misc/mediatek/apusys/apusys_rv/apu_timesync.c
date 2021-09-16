@@ -40,7 +40,8 @@ int apu_timesync_init(struct mtk_apu *apu)
 	apu_ts_workq = alloc_workqueue("apu_timesync",
 				       WQ_UNBOUND | WQ_HIGHPRI, 0);
 	if (!apu_ts_workq) {
-		dev_info(apu->dev, "%s: failed to allocate wq for timesync\n");
+		dev_info(apu->dev, "%s: failed to allocate wq for timesync\n",
+			 __func__);
 		return -ENOMEM;
 	}
 
@@ -49,7 +50,7 @@ int apu_timesync_init(struct mtk_apu *apu)
 	ret = apu_ipi_register(apu, APU_IPI_TIMESYNC, apu_timesync_handler,
 			       apu);
 	if (ret) {
-		dev_info(apu->dev, "%s: failed to register IPI\n");
+		dev_info(apu->dev, "%s: failed to register IPI\n", __func__);
 		destroy_workqueue(apu_ts_workq);
 		apu_ts_workq = NULL;
 		return ret;

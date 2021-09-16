@@ -164,6 +164,8 @@ struct mtk_apu {
 
 	struct work_struct timesync_work;
 
+	struct work_struct deepidle_work;
+
 	struct rproc_subdev *rpmsg_subdev;
 
 	struct mtk_apu_platdata	*platdata;
