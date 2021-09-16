@@ -1465,25 +1465,25 @@
 				"mbox1_base", "mbox1_set", "mbox1_clr",
 				"mbox2_base", "mbox2_set", "mbox2_clr",
 				"mbox3_base", "mbox3_set", "mbox3_clr";
-			interrupts = <GIC_SPI 676 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX0 */
-				<GIC_SPI 677 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
-				<GIC_SPI 678 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX2 */
-				<GIC_SPI 679 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX3 */
-				<GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH 0>; /* DEBUG_CTRL */
+			interrupts = <GIC_SPI 644 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX0 */
+				<GIC_SPI 645 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
+				<GIC_SPI 646 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX2 */
+				<GIC_SPI 647 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX3 */
+				<GIC_SPI 654 IRQ_TYPE_LEVEL_HIGH 0>; /* DEBUG_CTRL */
 			interrupt-names = "mbox0",
 				"mbox1",
 				"mbox2",
 				"mbox3",
 				"debug_ctrl";
 			#mbox-cells = <1>;
-			/* power-domains = <&scpsys MT6895_POWER_DOMAIN_ADSP_TOP_DORMANT>; TODO */
-			/* clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>, */
-				/* <&clk26m>, */
-				/* <&topckgen_clk CLK_TOP_ADSPPLL>; */
-			/* clock-names = "clk_top_adsp_sel", */
-				/* "clk_top_clk26m", */
-				/* "clk_top_adsppll"; */
-			core_num = <2>;    /* core number */
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_ADSP_TOP_DORMANT>;
+			clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
+				<&clk26m>,
+				<&topckgen_clk CLK_TOP_ADSPPLL>;
+			clock-names = "clk_top_adsp_sel",
+				"clk_top_clk26m",
+				"clk_top_adsppll";
+			core_num = <2>;    /* core number*/
 			adsp-rsv-ipidma-a = <0x100000>;
 			adsp-rsv-ipidma-b = <0x100000>;
 			adsp-rsv-logger-a = <0x80000>;
@@ -1501,9 +1501,9 @@
 			reg = <0 0x1e050000 0 0x9000>, /* ITCM */
 				<0 0x1e020000 0 0x8000>; /* DTCM */
 			system = <0 0x50000000 0 0x700000>;
-			interrupts = <GIC_SPI 670 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 672 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 638 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 640 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 642 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
 			feature_control_bits = <0x2703ff>;
@@ -1514,9 +1514,9 @@
 			reg = <0 0x1e0c0000 0 0x9000>, /* ITCM */
 				<0 0x1e090000 0 0x8000>; /* DTCM */
 			system = <0 0x50700000 0 0x700000>;
-			interrupts = <GIC_SPI 671 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 675 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 639 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 641 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 643 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 2>, /*channel 2*/
 				<&adspsys 3>; /*channel 3*/
 			feature_control_bits = <0x18f00f>;
@@ -5643,7 +5643,6 @@
 		topckgen = <&topckgen_clk>;
 		apmixedsys = <&apmixedsys_clk>;
 		infracfg = <&infracfg_ao_clk>;
-#if 0
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_AUDIO>;
 		clocks = <&afe_clk CLK_AFE_AFE>,
 			<&afe_clk CLK_AFE_DAC>,
@@ -5754,7 +5753,6 @@
 			"top_apll12_div9",
 			"top_mux_audio_h",
 			"top_clk26m_clk";
-#endif
 	};
 
 	audio_sram@1e102000 {
