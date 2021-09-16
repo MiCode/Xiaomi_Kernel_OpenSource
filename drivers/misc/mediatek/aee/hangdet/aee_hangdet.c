@@ -229,7 +229,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 
 	if ((g_hang_detected == 0) &&
-		    (r_counter < DEFAULT_INTERVAL) && !g_change_tmo) {
+		    (r_counter < DEFAULT_INTERVAL - 1) && !g_change_tmo) {
 		g_hang_detected = 1;
 		dump_timeout = 2;
 	}
