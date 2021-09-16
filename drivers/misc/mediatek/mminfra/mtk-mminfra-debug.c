@@ -12,9 +12,17 @@
 #include <linux/pm_runtime.h>
 #include <linux/scmi_protocol.h>
 #include <linux/slab.h>
+#include "mtk-smi-dbg.h"
 #include "tinysys-scmi.h"
 
 #define MMINFRA_MAX_CLK_NUM	(4)
+
+struct mminfra_dbg {
+	void __iomem *ctrl_base;
+	ssize_t ctrl_size;
+	struct device *comm_dev;
+	struct notifier_block nb;
+};
 
 static struct notifier_block mtk_pd_notifier;
 static struct scmi_tinysys_info_st *tinfo;
@@ -22,6 +30,7 @@ static int feature_id;
 static struct clk *mminfra_clk[MMINFRA_MAX_CLK_NUM];
 static atomic_t clk_ref_cnt = ATOMIC_INIT(0);
 static struct device *dev;
+static struct mminfra_dbg *dbg;
 
 
 static bool mminfra_check_scmi_status(void)
@@ -198,15 +207,97 @@ static struct kernel_param_ops mminfra_ut_ops = {
 module_param_cb(mminfra_ut, &mminfra_ut_ops, NULL, 0644);
 MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
 
+
+int mtk_mminfra_dbg_hang_detect(const char *user)
+{
+	s32 offset, len, ret;
+	u32 val;
+	char buf[LINK_MAX + 1] = {0};
+
+	if (!dev || !dbg || !dbg->comm_dev)
+		return -ENODEV;
+
+	pr_info("%s: check caller:%s\n", __func__, user);
+	ret = pm_runtime_get_if_in_use(dbg->comm_dev);
+	if (ret <= 0) {
+		pr_notice("%s: mminfra is power off(%d)\n", __func__, ret);
+		return -EFAULT;
+	}
+
+	for (offset = 0; offset <= dbg->ctrl_size; offset += 4) {
+		val = readl_relaxed(dbg->ctrl_base + offset);
+		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+			offset, val);
+		if (ret < 0 || ret >= LINK_MAX - len) {
+			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			dev_info(dev, "%s\n", buf);
+
+			len = 0;
+			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
+			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+				offset, val);
+		}
+		len += ret;
+	}
+	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	dev_info(dev, "%s\n", buf);
+
+	pm_runtime_put(dbg->comm_dev);
+	return 0;
+}
+
+static int mminfra_smi_dbg_cb(struct notifier_block *nb,
+		unsigned long value, void *v)
+{
+	mtk_mminfra_dbg_hang_detect("smi_dbg");
+	return 0;
+}
+
 static int mminfra_debug_probe(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *node;
+	struct platform_device *comm_pdev;
 	struct property *prop;
+	struct resource *res;
 	const char *name;
 	struct clk *clk;
-	u32 mminfra_bkrs = 0;
+	u32 mminfra_bkrs = 0, comm_id;
 	int ret = 0, i = 0;
 
+	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
+	if (!dbg)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_notice(&pdev->dev, "could not get resource for ctrl\n");
+		return -EINVAL;
+	}
+
+	dbg->ctrl_size = resource_size(res);
+	dbg->ctrl_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(dbg->ctrl_base)) {
+		dev_notice(&pdev->dev, "could not ioremap resource for ctrl\n");
+		return PTR_ERR(dbg->ctrl_base);
+	}
+
+	for_each_compatible_node(node, NULL, "mediatek,smi-common") {
+		if (!node || of_property_read_u32(node, "mediatek,common-id", &comm_id))
+			continue;
+
+		if (comm_id == 0) {
+			comm_pdev = of_find_device_by_node(node);
+			of_node_put(node);
+			if (!comm_pdev)
+				return -EINVAL;
+			dbg->comm_dev = &comm_pdev->dev;
+			break;
+		}
+	}
+	dbg->nb.notifier_call = mminfra_smi_dbg_cb;
+	mtk_smi_dbg_register_notifier(&dbg->nb);
+
+	node = pdev->dev.of_node;
 	of_property_read_u32(node, "mminfra-bkrs", &mminfra_bkrs);
 
 	mminfra_check_scmi_status();
