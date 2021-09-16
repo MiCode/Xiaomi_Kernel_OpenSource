@@ -1501,7 +1501,9 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 			dev_info(dvfs_info->dev,
 				"[%s] isPowerOn(%d) user(%d)\n",
 				__func__, isPowerOn, user_cnt);
-			pm_runtime_put_sync(imgsys_dev->dev);
+			/* pm_runtime_put_sync(imgsys_dev->dev); */
+			pm_runtime_mark_last_busy(imgsys_dev->dev);
+			pm_runtime_put_autosuspend(imgsys_dev->dev);
 			if (IS_ERR_OR_NULL(dvfs_info->reg))
 				dev_dbg(dvfs_info->dev,
 					"%s: [ERROR] reg is err or null\n", __func__);
