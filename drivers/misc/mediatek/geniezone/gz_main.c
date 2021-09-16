@@ -74,11 +74,6 @@ uint32_t sdsp_elf_size[2] = { 0, 0 };
 uint64_t sdsp_elf_pa[2] = { 0, 0 };
 #endif
 
-#define MTEE_kernel_UT_RUN 1
-#if MTEE_kernel_UT_RUN		//add tmp
-#include "mtee_ut/gz_sec_storage_ut.h"
-#endif
-
 #define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
@@ -145,11 +140,6 @@ static ssize_t gz_test_store(struct device *dev,
 	case '4':
 		KREE_DEBUG("test GenieZone abort\n");
 		th = kthread_run(gz_abort_test, NULL, "GZ KREE test");
-		break;
-	case 'C':
-		KREE_DEBUG("test GZ Secure Storage\n");
-		th = kthread_run(test_SecureStorageBasic, NULL,
-				 "sec_storage_ut");
 		break;
 	default:
 		KREE_DEBUG("err: unknown test case\n");
