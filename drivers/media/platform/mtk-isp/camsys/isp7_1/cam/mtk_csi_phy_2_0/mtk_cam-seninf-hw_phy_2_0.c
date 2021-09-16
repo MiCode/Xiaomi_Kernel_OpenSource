@@ -1349,7 +1349,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		bit_per_pixel = 10;
 		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 		do_div(data_rate, ctx->num_data_lanes);
-		hs_trail_en = data_rate < SENINF_HS_TRAIL_EN_CONDITION;
+		hs_trail_en = data_rate < 800000000;
 
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LD0_HS_TRAIL_EN, hs_trail_en);
