@@ -6740,8 +6740,9 @@
 			interconnect-names = "icc-bw", "icc-hrt-bw";
 	};
 
-	mminfra-debug {
+	mminfra-debug@0x1e827000 {
 		compatible = "mediatek,mminfra-debug";
+		reg = <0 0x1e827000 0 0x90>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
 		mminfra-bkrs = <1>;
 		init-clk-on;
