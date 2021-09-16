@@ -7351,8 +7351,8 @@
 				"mediatek,mt6885-dp-intf";
 		reg = <0 0x1441d000 0 0x1000>;
 		interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&dispsys_config_clk  CLK_DISPSYS1_CONFIG_DISP_DP_INTF0>,
-			<&dispsys_config_clk CLK_DISPSYS1_CONFIG_DP_CLK>,
+		clocks = <&dispsys1_config_clk  CLK_DISPSYS1_CONFIG_DISP_DP_INTF0>,
+			<&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DP_CLK>,
 			<&topckgen_clk CLK_TOPCKGEN_DP_SEL>,
 			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_TVDPLL_D4>,
