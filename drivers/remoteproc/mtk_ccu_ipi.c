@@ -299,7 +299,12 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 {
 	struct mtk_ccu_msg msg = {0};
 	uint32_t ret;
-	struct mtk_ccu *ccu = platform_get_drvdata(pdev);
+	struct mtk_ccu *ccu;
+
+	if (!pdev)
+		return -EINVAL;
+
+	ccu = platform_get_drvdata(pdev);
 
 	if (!ccu) {
 		dev_err(&pdev->dev, "ccu device is not ready\n");
@@ -310,6 +315,12 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 		dev_err(ccu->dev, "sendCcuCommnadIpc failed, msgId(%d)", msgId);
 		return -EINVAL;
 	}
+
+	if (!inDataPtr) {
+		dev_err(ccu->dev, "inDataPtr is NULL\n");
+		return -EINVAL;
+	}
+
 	LOG_DBG_IPI("ft(%d), msgId(%d)\n", featureType, msgId);
 
 	spin_lock(&ccu->ipc_send_lock);
