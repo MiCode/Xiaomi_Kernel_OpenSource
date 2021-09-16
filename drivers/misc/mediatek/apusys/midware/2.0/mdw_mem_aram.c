@@ -13,10 +13,12 @@
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 #include "mdw_mem_rsc.h"
+#include "slbc_ops.h"
 
 struct mdw_mem_aram {
 	dma_addr_t dma_addr;
 	uint32_t dma_size;
+	uint32_t sid;
 	struct mdw_mem *m;
 
 	struct list_head attachments;
@@ -102,13 +104,23 @@ static void mdw_mem_aram_unmap_dma(struct dma_buf_attachment *attach,
 	mdw_mem_debug("\n");
 }
 
+static int mdw_mem_aram_unprepare(struct mdw_mem_aram *am)
+{
+	struct slbc_data slb;
+
+	slb.uid = UID_SH_APU;
+	slb.type = TP_BUFFER;
+	slbc_release(&slb);
+	return 0;
+}
+
 static void mdw_mem_aram_release(struct dma_buf *dbuf)
 {
 	struct mdw_mem *m = dbuf->priv;
 	struct mdw_mem_aram *am = m->priv;
 
 	mdw_mem_debug("\n");
-
+	mdw_mem_aram_unprepare(am);
 	kfree(am);
 	m->release(m);
 }
@@ -121,17 +133,25 @@ static struct dma_buf_ops mdw_mem_aram_ops = {
 	.release = mdw_mem_aram_release,
 };
 
-static int mdw_mem_aram_unprepare(struct mdw_mem_aram *am)
-{
-	return 0;
-}
 
-static int mdw_mem_aram_prepare(struct mdw_device *mdev,
+static int mdw_mem_aram_prepare(struct mdw_fpriv *mpriv,
 	struct mdw_mem_aram *am)
 {
 	/* TODO, should allocate via reviser function */
-	am->dma_addr = 0x2c00000;
-	am->dma_size = 3*1024*1024;
+	struct slbc_data slb;
+	uint32_t vlm_pa, vlm_size;
+
+	slb.uid = UID_SH_APU;
+	slb.type = TP_BUFFER;
+
+	slbc_request(&slb);
+
+	/*XXX get vlm addr from reviser */
+	vlm_pa = (size_t)slb.paddr;
+	vlm_size = slb.size;
+	am->dma_addr = vlm_pa;
+	am->dma_size = vlm_size;
+
 	mdw_mem_debug("slb isp(0x%llx/0x%x)\n", am->dma_addr, am->dma_size);
 
 	return 0;
@@ -158,7 +178,7 @@ int mdw_mem_aram_alloc(struct mdw_mem *mem)
 	am->m = mem;
 	mem->priv = am;
 
-	ret = mdw_mem_aram_prepare(mem->mpriv->mdev, am);
+	ret = mdw_mem_aram_prepare(mem->mpriv, am);
 	if (ret) {
 		mdw_drv_err("prepare slb fail\n");
 		goto free_mslb;
