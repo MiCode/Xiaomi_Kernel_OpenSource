@@ -121,9 +121,19 @@ static int __init sspm_device_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device *dev = &pdev->dev;
+	unsigned int fake_sspm;
+	int ret;
 
 	if (atomic_inc_return(&sspm_dev_inited) != 1)
 		return -1;
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+		"mediatek,fake_sspm", &fake_sspm);
+
+	if (!ret) {
+		pr_info("[SSPM] It's fake probe\n");
+		return 0;
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cfgreg");
 	sspmreg.cfg = devm_ioremap_resource(dev, res);
