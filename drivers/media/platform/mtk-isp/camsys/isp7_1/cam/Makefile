@@ -24,7 +24,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/tee_gp/include
 # ccflags-y += -DSECURE_UT
 
 mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
-		    mtk_cam-video.o mtk_cam-smem.o \
+		    mtk_cam-video.o mtk_cam-smem.o mtk_cam_vb2-dma-contig.o\
 		    mtk_cam-ctrl.o \
 		    mtk_cam-seninf-route.o mtk_cam-seninf-drv.o \
 		    mtk_cam-dvfs_qos.o \

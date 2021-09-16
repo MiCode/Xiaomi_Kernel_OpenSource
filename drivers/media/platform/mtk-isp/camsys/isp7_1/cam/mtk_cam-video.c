@@ -14,6 +14,8 @@
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-ufbc-def.h"
 
+#include "mtk_cam_vb2-dma-contig.h"
+
 /*
  * Note
  *	differt dma(fmt) would have different bus_size
@@ -1922,7 +1924,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	q->supports_requests = true;
 	q->lock = &video->q_lock;
 	q->ops = &mtk_cam_vb2_ops;
-	q->mem_ops = &vb2_dma_contig_memops;
+	q->mem_ops = &mtk_cam_dma_contig_memops;
 	q->drv_priv = cam;
 	q->buf_struct_size = sizeof(struct mtk_cam_buffer);
 
