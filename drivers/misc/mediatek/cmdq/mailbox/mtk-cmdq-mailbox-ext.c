@@ -133,10 +133,6 @@ int cmdq_trace;
 EXPORT_SYMBOL(cmdq_trace);
 module_param(cmdq_trace, int, 0644);
 
-int cmdq_perf;
-EXPORT_SYMBOL(cmdq_perf);
-module_param(cmdq_perf, int, 0644);
-
 struct cmdq_task {
 	struct cmdq		*cmdq;
 	struct list_head	list_entry;
