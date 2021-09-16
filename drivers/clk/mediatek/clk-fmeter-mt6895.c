@@ -209,7 +209,6 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK3(ABIST, FM_MMPLL_CKDIV_CK, "fm_mmpll_ckdiv_ck", 0x03A4, 1, 8),
 	FMCLK3(ABIST, FM_MAINPLL_CKDIV_CK, "fm_mainpll_ckdiv_ck", 0x0354, 1, 8),
 	FMCLK3(ABIST, FM_IMGPLL_CKDIV_CK, "fm_imgpll_ckdiv_ck", 0x0374, 1, 8),
-	FMCLK3(ABIST, FM_EMIPLL_CKDIV_CK, "fm_emipll_ckdiv_ck", 0x03B4, 1, 8),
 	FMCLK3(ABIST, FM_MSDCPLL_CKDIV_CK, "fm_msdcpll_ckdiv_ck", 0x0364, 1, 8),
 	FMCLK(ABIST, FM_PLLGP_MON_FM_CK, "fm_pllgp_mon_fm_ck", 1),
 	/* ABIST_2 Part */

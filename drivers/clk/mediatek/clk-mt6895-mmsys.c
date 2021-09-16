@@ -220,14 +220,14 @@ static const struct mtk_gate mm0_clks[] = {
 			"disp0_ck"/* parent */, 26),
 	GATE_MM00(CLK_MM0_DISP_DSC_WRAP0, "mm0_disp_dsc_wrap0",
 			"disp0_ck"/* parent */, 27),
-	GATE_MM00(CLK_MM0_FMM_DISP_DSI0, "mm0_fmm_CLK0",
+	GATE_MM00(CLK_MM0_FMM_DISP_DSI0, "mm0_fmm_clk0",
 			"disp0_ck"/* parent */, 29),
 	GATE_MM00(CLK_MM0_DISP_UFBC_WDMA0, "mm0_disp_ufbc_wdma0",
 			"disp0_ck"/* parent */, 30),
 	GATE_MM00(CLK_MM0_DISP_WDMA1, "mm0_disp_wdma1",
 			"disp0_ck"/* parent */, 31),
 	/* MM01 */
-	GATE_MM01(CLK_MM0_FMM_DISP_DP_INTF0, "mm0_fmm_DP_CLK",
+	GATE_MM01(CLK_MM0_FMM_DISP_DP_INTF0, "mm0_fmm_dp_clk",
 			"disp0_ck"/* parent */, 0),
 	GATE_MM01(CLK_MM0_APB_BUS, "mm0_apb_bus",
 			"disp0_ck"/* parent */, 1),
@@ -256,9 +256,9 @@ static const struct mtk_gate mm0_clks[] = {
 	GATE_MM01(CLK_MM0_SMI_COMMON, "mm0_smi_common",
 			"disp0_ck"/* parent */, 20),
 	/* MM02 */
-	GATE_MM02(CLK_MM0_DISP_DSI, "mm0_CLK",
+	GATE_MM02(CLK_MM0_DISP_DSI, "mm0_clk",
 			"disp0_ck"/* parent */, 0),
-	GATE_MM02(CLK_MM0_DISP_DP_INTF0, "mm0_DP_CLK",
+	GATE_MM02(CLK_MM0_DISP_DP_INTF0, "mm0_dp_clk",
 			"disp0_ck"/* parent */, 1),
 };
 
@@ -370,14 +370,14 @@ static const struct mtk_gate mm1_clks[] = {
 			"disp0_ck"/* parent */, 26),
 	GATE_MM10(CLK_MM1_DISP_DSC_WRAP0, "mm1_disp_dsc_wrap0",
 			"disp0_ck"/* parent */, 27),
-	GATE_MM10(CLK_MM1_FMM_DISP_DSI0, "mm1_fmm_CLK0",
+	GATE_MM10(CLK_MM1_FMM_DISP_DSI0, "mm1_fmm_clk0",
 			"disp0_ck"/* parent */, 29),
 	GATE_MM10(CLK_MM1_DISP_UFBC_WDMA0, "mm1_disp_ufbc_wdma0",
 			"disp0_ck"/* parent */, 30),
 	GATE_MM10(CLK_MM1_DISP_WDMA1, "mm1_disp_wdma1",
 			"disp0_ck"/* parent */, 31),
 	/* MM11 */
-	GATE_MM11(CLK_MM1_FMM_DISP_DP_INTF0, "mm1_fmm_DP_CLK",
+	GATE_MM11(CLK_MM1_FMM_DISP_DP_INTF0, "mm1_fmm_dp_clk",
 			"disp0_ck"/* parent */, 0),
 	GATE_MM11(CLK_MM1_APB_BUS, "mm1_apb_bus",
 			"disp0_ck"/* parent */, 1),
@@ -406,9 +406,9 @@ static const struct mtk_gate mm1_clks[] = {
 	GATE_MM11(CLK_MM1_SMI_COMMON, "mm1_smi_common",
 			"disp0_ck"/* parent */, 20),
 	/* MM12 */
-	GATE_MM12(CLK_MM1_DISP_DSI, "mm1_CLK",
+	GATE_MM12(CLK_MM1_DISP_DSI, "mm1_clk",
 			"disp0_ck"/* parent */, 0),
-	GATE_MM12(CLK_MM1_DISP_DP_INTF0, "mm1_DP_CLK",
+	GATE_MM12(CLK_MM1_DISP_DP_INTF0, "mm1_dp_clk",
 			"disp0_ck"/* parent */, 1),
 };
 
