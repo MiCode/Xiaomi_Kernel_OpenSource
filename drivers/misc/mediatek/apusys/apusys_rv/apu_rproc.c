@@ -433,6 +433,10 @@ static int apu_probe(struct platform_device *pdev)
 			goto remove_apu_deepidle;
 	}
 
+	ret = apu_debug_init(apu);
+	if (ret)
+		goto remove_apu_debug;
+
 	ret = apu_timesync_init(apu);
 	if (ret)
 		goto remove_apu_timesync;
@@ -478,6 +482,9 @@ remove_apu_procfs:
 
 remove_apu_timesync:
 	apu_timesync_remove(apu);
+
+remove_apu_debug:
+	apu_debug_remove(apu);
 
 remove_apu_deepidle:
 	apu_deepidle_exit(apu);
@@ -528,6 +535,7 @@ static int apu_remove(struct platform_device *pdev)
 	apu_excep_remove(pdev, apu);
 	apu_procfs_remove(pdev);
 	apu_timesync_remove(apu);
+	apu_debug_remove(apu);
 	apu_ipi_remove(apu);
 	apu_dram_boot_remove(apu);
 	apu_coredump_remove(apu);

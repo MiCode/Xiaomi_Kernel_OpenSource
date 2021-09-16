@@ -205,6 +205,7 @@ apusys-objs += apusys_rv/apu_procfs.o
 apusys-objs += apusys_rv/apu_timesync.o
 apusys-objs += apusys_rv/apu_deepidle.o
 apusys-objs += apusys_rv/apu_regdump.o
+apusys-objs += apusys_rv/apu_debug.o
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/apusys_rv/2.0/mt6879_plat.c),)
 subdir-ccflags-y += -DMT6879_APUSYS_RV_PLAT_DATA
 apusys-objs += apusys_rv/2.0/mt6879_plat.o

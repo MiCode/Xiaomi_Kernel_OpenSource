@@ -44,8 +44,12 @@ enum {
 #define APU_LOG_SIZE (1024*1024)
 #define APU_LOG_BUF_SIZE (1024*1024)
 
+#define IPI_DEBUG_LEVEL 4
+
 /* #define SW_LOGGER_DEBUG */
 
 int sw_logger_config_init(struct mtk_apu *apu);
+int sw_logger_ipi_init(struct mtk_apu *apu);
+void sw_logger_ipi_remove(struct mtk_apu *apu);
 
 #endif /* __SW_LOGGER_H__ */

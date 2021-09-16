@@ -217,6 +217,8 @@ void apu_coredump_remove(struct mtk_apu *apu);
 void apu_setup_dump(struct mtk_apu *apu, dma_addr_t da);
 int apu_timesync_init(struct mtk_apu *apu);
 void apu_timesync_remove(struct mtk_apu *apu);
+int apu_debug_init(struct mtk_apu *apu);
+void apu_debug_remove(struct mtk_apu *apu);
 
 extern const struct mtk_apu_platdata mt6879_platdata;
 extern const struct mtk_apu_platdata mt6893_platdata;

@@ -149,9 +149,13 @@ enum {
 #define HWLOGR_LOG_SIZE        (1024 * 1024)
 #define LOCAL_LOG_SIZE         (1024 * 1024)
 
+#define IPI_DEBUG_LEVEL 4
+
 /* #define hw_logger_DEBUG */
 
 int hw_logger_config_init(struct mtk_apu *apu);
+int hw_logger_ipi_init(struct mtk_apu *apu);
+void hw_logger_ipi_remove(struct mtk_apu *apu);
 
 int hw_logger_copy_buf(void);
 int hw_logger_deep_idle_enter_pre(void);

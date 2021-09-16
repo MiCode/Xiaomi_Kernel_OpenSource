@@ -97,6 +97,11 @@ static const struct {
 		.direction = IPI_APU_INITIATE,
 		.ack = IPI_WITH_ACK,
 	},
+	[APU_IPI_LOG_LEVEL] = { // 15
+		.name = "apu-log-level",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
 };
 
 

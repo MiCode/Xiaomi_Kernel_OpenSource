@@ -58,6 +58,14 @@ static unsigned int g_log_l_r_ptr;
 
 static void *apu_mbox;
 
+static struct mtk_apu *g_apu;
+
+struct sw_log_level_data {
+	unsigned int level;
+};
+
+static struct sw_log_level_data sw_ipi_loglv_data = {IPI_DEBUG_LEVEL};
+
 #define APU_MBOX_BASE (0x19000000)
 #define LOG_W_PTR (apu_mbox + 0x40)
 #define LOG_R_PTR (apu_mbox + 0x44)
@@ -98,8 +106,8 @@ static ssize_t show_debuglv(struct file *filp, char __user *buffer,
 
 	if (sw_log_buf) {
 		len += scnprintf(buf + len, sizeof(buf) - len,
-				"g_sw_logger_log_lv = %d:\n",
-				g_sw_logger_log_lv);
+				"uP_sw_logger_log_lv = 0x%x:\n",
+				sw_ipi_loglv_data.level);
 
 		spin_lock_irqsave(&sw_logger_spinlock, flags);
 		len += scnprintf(buf + len, sizeof(buf) - len,
@@ -168,6 +176,13 @@ static int sw_logger_buf_alloc(struct device *dev)
 	return 0;
 }
 
+static void apu_sw_log_level_ipi_handler(void *data, unsigned int len, void *priv)
+{
+	unsigned int log_level = *(unsigned int *)data;
+
+	LOGGER_INFO("log_level = 0x%x (%d)\n", log_level, len);
+}
+
 int sw_logger_config_init(struct mtk_apu *apu)
 {
 	int ret;
@@ -216,6 +231,29 @@ int sw_logger_config_init(struct mtk_apu *apu)
 }
 EXPORT_SYMBOL(sw_logger_config_init);
 
+int sw_logger_ipi_init(struct mtk_apu *apu)
+{
+	int ret = 0;
+
+	/* do nothing if not probed */
+	if (!apu_mbox)
+		return 0;
+
+	g_apu = apu;
+
+	ret = apu_ipi_register(g_apu, APU_IPI_LOG_LEVEL,
+			apu_sw_log_level_ipi_handler, NULL);
+	if (ret)
+		LOGGER_ERR("Fail in apu_sw_log_level_ipi_init\n");
+
+	return 0;
+}
+
+void sw_logger_ipi_remove(struct mtk_apu *apu)
+{
+	apu_ipi_unregister(apu, APU_IPI_LOG_LEVEL);
+}
+
 static ssize_t set_debuglv(struct file *flip,
 						   const char __user *buffer,
 						   size_t count, loff_t *f_pos)
@@ -237,12 +275,17 @@ static ssize_t set_debuglv(struct file *flip,
 
 	tmp[count] = '\0';
 	cursor = tmp;
-	ret = kstrtouint(cursor, 10, &input);
+	ret = kstrtouint(cursor, 0, &input);
 
-	LOGGER_INFO("set debug lv = %d\n", input);
+	LOGGER_INFO("set uP debug lv = 0x%x\n", input);
 
-	if (input <= DEBUG_LOG_DEBUG)
-		g_sw_logger_log_lv = input;
+	sw_ipi_loglv_data.level = input;
+
+	ret = apu_ipi_send(g_apu, APU_IPI_LOG_LEVEL,
+			&sw_ipi_loglv_data, sizeof(sw_ipi_loglv_data), 1000);
+
+	if (ret)
+		LOGGER_ERR("Failed for sw_logger log level send.\n");
 
 	kfree(tmp);
 
@@ -252,9 +295,9 @@ static ssize_t set_debuglv(struct file *flip,
 static const struct proc_ops apusys_debug_fops = {
 	.proc_open = sw_logger_open,
 	.proc_read = show_debuglv,
+	.proc_write = set_debuglv,
 	.proc_lseek = seq_lseek,
 	.proc_release = seq_release,
-	.proc_write = set_debuglv,
 };
 
 static ssize_t show_debugAttr(struct file *filp, char __user *buffer,
@@ -289,9 +332,43 @@ static ssize_t show_debugAttr(struct file *filp, char __user *buffer,
 	return simple_read_from_buffer(buffer, count, ppos, buf, len);
 }
 
+static ssize_t set_debugAttr(struct file *flip,
+						     const char __user *buffer,
+						     size_t count, loff_t *f_pos)
+{
+	char *tmp, *cursor;
+	int ret;
+	unsigned int input = 0;
+
+	tmp = kzalloc(count + 1, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	ret = copy_from_user(tmp, buffer, count);
+	if (ret) {
+		LOGGER_ERR("copy_from_user failed, ret=%d\n", ret);
+		kfree(tmp);
+		return count;
+	}
+
+	tmp[count] = '\0';
+	cursor = tmp;
+	ret = kstrtouint(cursor, 10, &input);
+
+	LOGGER_INFO("set debug lv = %d\n", input);
+
+	if (input <= DEBUG_LOG_DEBUG)
+		g_sw_logger_log_lv = input;
+
+	kfree(tmp);
+
+	return count;
+}
+
 static const struct proc_ops sw_logger_attr_fops = {
 	.proc_open = sw_logger_open,
 	.proc_read = show_debugAttr,
+	.proc_write = set_debugAttr,
 	.proc_lseek = seq_lseek,
 	.proc_release = seq_release,
 };
