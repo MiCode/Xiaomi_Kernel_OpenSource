@@ -3680,6 +3680,9 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 
 void mtk_dp_SWInterruptSet(int bstatus)
 {
+	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
+		return;
+
 	mutex_lock(&dp_lock);
 
 	if ((bstatus == HPD_DISCONNECT && g_mtk_dp->bPowerOn)
