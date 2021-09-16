@@ -1724,7 +1724,7 @@ void camsv_irq_handle_err(
 	val2 = val2 | CAMSV_TG_SEN_MODE_CMOS_RDY_SEL;
 	writel_relaxed(val2, camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
 	wmb(); /* TBC */
-	dev_info(camsv_dev->dev,
+	dev_dbg(camsv_dev->dev,
 		"TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_PATH_CFG),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_MODE),
@@ -1732,7 +1732,7 @@ void camsv_irq_handle_err(
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_FRMSIZE_ST_R),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_GRAB_PXL),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_GRAB_LIN));
-	dev_info(camsv_dev->dev,
+	dev_dbg(camsv_dev->dev,
 		"IMGO:0x%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_IMGO_ERR_STAT));
 
@@ -1828,7 +1828,8 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	}
 	/* Check ISP error status */
 	if (err_status) {
-		dev_info(dev,
+		/* TODO: use work queue to dump debug log when error occurs */
+		dev_dbg(dev,
 			"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
 			camsv_dev->id,
 			irq_status, err_status,
