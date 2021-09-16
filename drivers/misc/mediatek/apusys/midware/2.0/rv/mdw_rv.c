@@ -10,12 +10,12 @@
 static int mdw_rv_sw_init(struct mdw_device *mdev)
 {
 	int ret = 0, i = 0;
-	struct mdw_rv_dev *rdev = (struct mdw_rv_dev *)mdev->dev_specific;
+	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
 	struct mdw_dinfo *d = NULL;
 
-	/* update device info */
+	/* update device infos */
 	for (i = 0; i < MDW_DEV_MAX; i++) {
-		if (!test_bit(i, rdev->dev_mask) || mdev->dinfos[i])
+		if (!test_bit(i, mrdev->dev_mask) || mdev->dinfos[i])
 			continue;
 
 		/* setup mdev's info */
@@ -23,16 +23,21 @@ static int mdw_rv_sw_init(struct mdw_device *mdev)
 		if (!d)
 			goto free_dinfo;
 
-		d->num = rdev->dev_num[i];
+		d->num = mrdev->dev_num[i];
 		d->type = i;
 
 		/* meta data */
-		memcpy(d->meta, &rdev->meta_data[i][0], sizeof(d->meta));
+		memcpy(d->meta, &mrdev->meta_data[i][0], sizeof(d->meta));
 		mdw_drv_debug("dev(%u) support (%u)core\n", d->type, d->num);
 
 		mdev->dinfos[i] = d;
 		bitmap_set(mdev->dev_mask, i, 1);
 	}
+
+	/* update mem infos */
+	mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
+	memcpy(mdev->mem_mask, mrdev->mem_mask, sizeof(mdev->mem_mask));
+	memcpy(mdev->minfos, mrdev->minfos, sizeof(mdev->minfos));
 
 	goto out;
 
@@ -65,11 +70,6 @@ static int mdw_rv_late_init(struct mdw_device *mdev)
 	int ret = 0;
 
 	mdw_rv_tag_init();
-
-	/* get vlm property */
-	ret = mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
-	if (ret)
-		mdw_drv_warn("vlm wrong\n");
 
 	/* init rv device */
 	ret = mdw_rv_dev_init(mdev);
@@ -109,16 +109,6 @@ static int mdw_rv_ucmd(struct mdw_device *mdev,
 	return -EINVAL;
 }
 
-static int mdw_rv_lock(struct mdw_device *mdev)
-{
-	return 0;
-}
-
-static int mdw_rv_unlock(struct mdw_device *mdev)
-{
-	return 0;
-}
-
 static int mdw_rv_set_param(struct mdw_device *mdev,
 	enum mdw_info_type type, uint32_t val)
 {
@@ -145,8 +135,6 @@ static const struct mdw_dev_func mdw_rv_func = {
 	.run_cmd = mdw_rv_run_cmd,
 	.set_power = mdw_rv_set_power,
 	.ucmd = mdw_rv_ucmd,
-	.lock = mdw_rv_lock,
-	.unlock = mdw_rv_unlock,
 	.set_param = mdw_rv_set_param,
 	.get_info = mdw_rv_get_info,
 };

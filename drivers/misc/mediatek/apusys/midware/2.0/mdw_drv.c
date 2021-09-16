@@ -135,6 +135,7 @@ static int mdw_platform_probe(struct platform_device *pdev)
 	mdev->pdev = pdev;
 	mdev->driver_type = MDW_DRIVER_TYPE_PLATFORM;
 	mdev->misc_dev = &mdw_misc_dev;
+	hash_init(mdev->m_hlist);
 	mdw_dev = mdev;
 	platform_set_drvdata(pdev, mdev);
 
@@ -225,6 +226,7 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	mdev->driver_type = MDW_DRIVER_TYPE_RPMSG;
 	mdev->rpdev = rpdev;
 	mdev->misc_dev = &mdw_misc_dev;
+	hash_init(mdev->m_hlist);
 	mdw_dev = mdev;
 	dev_set_drvdata(dev, mdev);
 
@@ -278,8 +280,8 @@ static const struct of_device_id mdw_rpmsg_of_match[] = {
 };
 
 static struct rpmsg_driver mdw_rpmsg_driver = {
-	.drv	= {
-		.name	= "apu-mdw-rpmsg",
+	.drv = {
+		.name = "apu-mdw-rpmsg",
 		.owner = THIS_MODULE,
 		.of_match_table = mdw_rpmsg_of_match,
 	},

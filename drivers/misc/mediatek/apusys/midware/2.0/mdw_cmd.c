@@ -29,7 +29,7 @@ static struct mdw_mem *mdw_cmd_get_mem(struct mdw_fpriv *mpriv, uint64_t handle)
 	if (m == NULL)
 		return NULL;
 
-	mdw_mem_dma_map(m);
+	get_dma_buf(m->dbuf);
 	mdw_cmd_debug("u(0x%llx) get cmdbuf(0x%llx/%llu)(%p/0x%llx)\n",
 		(uint64_t) mpriv, (uint64_t) m, handle, m->vaddr, m->device_va);
 
@@ -38,7 +38,7 @@ static struct mdw_mem *mdw_cmd_get_mem(struct mdw_fpriv *mpriv, uint64_t handle)
 
 static int mdw_cmd_put_mem(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
-	mdw_mem_dma_unmap(m);
+	dma_buf_put(m->dbuf);
 	return 0;
 }
 
@@ -111,9 +111,8 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 	/* alloc cmdbuf by dmabuf */
 	c->cmdbufs = mdw_mem_alloc(mpriv, c->size_cmdbufs, MDW_DEFAULT_ALIGN,
-		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE |
-		1ULL << MDW_MEM_IOCTL_ALLOC_32BIT),
-		MDW_MEM_TYPE_INTERNAL);
+		F_MDW_MEM_CACHEABLE|F_MDW_MEM_32BIT, MDW_MEM_TYPE_MAIN,
+		MDW_MEM_OP_INTERNAL);
 	if (!c->cmdbufs) {
 		mdw_drv_err("cmd(0x%llx/0x%llx) alloc buffer for duplicate fail\n",
 			(uint64_t) mpriv, c->kid);

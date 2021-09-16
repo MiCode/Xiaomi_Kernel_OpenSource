@@ -17,37 +17,64 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 
 	switch (args->in.op) {
 	case MDW_HS_IOCTL_OP_BASIC:
+		/* assign basic infos */
 		memset(args, 0, sizeof(*args));
 		args->out.basic.version = mdev->uapi_ver;
 		memcpy(&args->out.basic.dev_bitmask,
-			mdev->dev_mask, sizeof(args->out.basic.dev_bitmask));
+			mdev->dev_mask, sizeof(mdev->dev_mask));
+		memcpy(&args->out.basic.mem_bitmask,
+			mdev->mem_mask, sizeof(mdev->mem_mask));
 		args->out.basic.meta_size = MDW_DEV_META_SIZE;
-		args->out.basic.vlm_start = mdev->vlm_start;
-		args->out.basic.vlm_size = mdev->vlm_size;
-		mdw_flw_debug("version(%u) dev mask(0x%llx)\n",
-			args->out.basic.version, args->out.basic.dev_bitmask);
+		mdw_flw_debug("version(%u) dev mask(0x%llx) mem mask(0x%llx)\n",
+			args->out.basic.version,
+			args->out.basic.dev_bitmask,
+			args->out.basic.mem_bitmask);
 		break;
 
 	case MDW_HS_IOCTL_OP_DEV:
+		/* check type valid */
 		type = args->in.dev.type;
 		if (type >= MDW_DEV_MAX) {
 			ret = -EINVAL;
 			break;
 		}
 
+		/* assign dev infos */
+		memset(args, 0, sizeof(*args));
+		args->out.dev.type = type;
 		if (mdev->dinfos[type] == NULL) {
 			ret = -EINVAL;
+			mdw_drv_err("dev type(%u) not support\n", type);
 			break;
 		}
 
-		memset(args, 0, sizeof(*args));
-		args->out.dev.type = type;
 		args->out.dev.num = mdev->dinfos[type]->num;
 		memcpy(args->out.dev.meta, mdev->dinfos[type]->meta,
 			sizeof(args->out.dev.meta));
 		mdw_flw_debug("dev(%u) num(%u) meta(%s)\n",
 			args->out.dev.type, args->out.dev.num,
 			mdev->dinfos[type]->meta);
+		break;
+
+	case MDW_HS_IOCTL_OP_MEM:
+		/* check type valid */
+		type = args->in.mem.type;
+		if (type >= MDW_MEM_TYPE_MAX) {
+			mdw_drv_err("unknown mem type(%u)\n", type);
+			ret = -EINVAL;
+			break;
+		}
+
+		/* assign mem infos */
+		memset(args, 0, sizeof(*args));
+		args->out.mem.type = type;
+
+		args->out.mem.start = mdev->minfos[type].device_va;
+		args->out.mem.size = mdev->minfos[type].size;
+		mdw_flw_debug("mem(%u) start(0x%llx) size(0x%x)\n",
+			args->out.mem.type,
+			args->out.mem.start,
+			args->out.mem.size);
 		break;
 
 	default:

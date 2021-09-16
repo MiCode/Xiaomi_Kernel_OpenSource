@@ -15,7 +15,6 @@
 
 #include "apu.h"
 #include "apu_config.h"
-#include "mdw_export.h"
 #include "mtk_apu_rpmsg.h"
 #include "apu_excep.h"
 

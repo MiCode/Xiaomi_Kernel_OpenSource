@@ -68,18 +68,31 @@ static int mdw_ap_late_init(struct mdw_device *mdev)
 	int ret = 0;
 
 	mdw_ap_tag_init();
-	mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
 
+	/* init resource mgr */
 	ret = mdw_rsc_init();
 	if (ret) {
 		mdw_drv_err("rsc init fail\n");
 		goto out;
 	}
 
+	/* init dmy driver */
 	ret = mdw_dmy_init();
 	if (ret) {
 		mdw_drv_err("init dmy dev fail\n");
 		goto rsc_deinit;
+	}
+
+	/* init mem infos */
+	ret = mdw_rvs_get_vlm_property(
+		&mdev->minfos[MDW_MEM_TYPE_VLM].device_va,
+		&mdev->minfos[MDW_MEM_TYPE_VLM].size);
+	if (ret) {
+		mdw_drv_warn("vlm wrong\n");
+		mdev->minfos[MDW_MEM_TYPE_VLM].device_va = 0;
+		mdev->minfos[MDW_MEM_TYPE_VLM].size = 0;
+	} else {
+		bitmap_set(mdev->mem_mask, MDW_MEM_TYPE_VLM, 1);
 	}
 
 	mdev->inited = true;
@@ -126,18 +139,6 @@ static int mdw_ap_ucmd(struct mdw_device *mdev,
 		return -ENODEV;
 
 	return d->ucmd(d, (uint64_t)vaddr, 0, size);
-}
-
-static int mdw_ap_lock(struct mdw_device *mdev)
-{
-	mdw_drv_warn("not support\n");
-	return -EINVAL;
-}
-
-static int mdw_ap_unlock(struct mdw_device *mdev)
-{
-	mdw_drv_warn("not support\n");
-	return -EINVAL;
 }
 
 static int mdw_ap_set_param(struct mdw_device *mdev,
@@ -207,8 +208,6 @@ static const struct mdw_dev_func mdw_ap_func = {
 	.run_cmd = mdw_ap_run_cmd,
 	.set_power = mdw_ap_set_power,
 	.ucmd = mdw_ap_ucmd,
-	.lock = mdw_ap_lock,
-	.unlock = mdw_ap_unlock,
 	.set_param = mdw_ap_set_param,
 	.get_info = mdw_ap_get_info,
 };

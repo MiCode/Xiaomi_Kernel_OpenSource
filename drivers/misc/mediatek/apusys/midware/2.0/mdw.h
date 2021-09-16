@@ -17,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/dma-fence.h>
+#include <linux/hashtable.h>
 
 #include "apusys_core.h"
 #include "apusys_device.h"
@@ -38,11 +39,11 @@
 struct mdw_fpriv;
 struct mdw_device;
 
-enum mdw_mem_type {
-	MDW_MEM_TYPE_NONE,
-	MDW_MEM_TYPE_INTERNAL,
-	MDW_MEM_TYPE_ALLOC,
-	MDW_MEM_TYPE_IMPORT,
+enum mdw_mem_op {
+	MDW_MEM_OP_NONE,
+	MDW_MEM_OP_INTERNAL,
+	MDW_MEM_OP_ALLOC,
+	MDW_MEM_OP_IMPORT,
 };
 
 struct mdw_mem {
@@ -58,12 +59,19 @@ struct mdw_mem {
 	void *vaddr;
 	uint64_t device_va;
 	uint32_t dva_size;
+	struct device *mdev;
+	struct dma_buf *dbuf;
 	void *priv;
 
+	/* map */
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+
 	/* control */
+	enum mdw_mem_op op;
 	enum mdw_mem_type type;
-	struct list_head u_item;
-	struct list_head m_item;
+	struct list_head u_item; //to mpriv
+	struct list_head d_node; //to mdev
 	struct kref map_ref;
 	void (*release)(struct mdw_mem *m);
 };
@@ -109,21 +117,32 @@ struct mdw_device {
 	struct device *dev;
 	struct miscdevice *misc_dev;
 
+	/* init flag */
 	bool inited;
 
-	uint64_t vlm_start;
-	uint32_t vlm_size;
-
-	uint32_t mdw_ver;
+	/* cores enable bitmask */
 	uint32_t dsp_mask;
 	uint32_t dla_mask;
 	uint32_t dma_mask;
 
+	/* mdw version */
+	uint32_t mdw_ver;
+	/* user interface version */
 	uint32_t uapi_ver;
 
+	/* device support information */
 	unsigned long dev_mask[BITS_TO_LONGS(MDW_DEV_MAX)];
 	struct mdw_dinfo *dinfos[MDW_DEV_MAX];
+	/* memory support information */
+	unsigned long mem_mask[BITS_TO_LONGS(MDW_MEM_TYPE_MAX)];
+	struct mdw_mem minfos[MDW_MEM_TYPE_MAX];
 
+	/* memory hlist */
+	DECLARE_HASHTABLE(m_hlist, 5);
+	struct list_head m_list;
+	struct mutex m_mtx;
+
+	/* device functions */
 	const struct mdw_dev_func *dev_funcs;
 	void *dev_specific;
 };
@@ -204,10 +223,7 @@ struct mdw_dev_func {
 	void (*late_deinit)(struct mdw_device *mdev);
 	int (*sw_init)(struct mdw_device *mdev);
 	void (*sw_deinit)(struct mdw_device *mdev);
-
 	int (*run_cmd)(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
-	int (*lock)(struct mdw_device *mdev);
-	int (*unlock)(struct mdw_device *mdev);
 	int (*set_power)(struct mdw_device *mdev, uint32_t type, uint32_t idx, uint32_t boost);
 	int (*ucmd)(struct mdw_device *mdev, uint32_t type, void *vaddr, uint32_t size);
 	int (*set_param)(struct mdw_device *mdev, enum mdw_info_type type, uint32_t val);
@@ -243,12 +259,15 @@ void mdw_mem_all_print(struct mdw_fpriv *mpriv);
 
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle);
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
-	uint32_t align, uint64_t flags, enum mdw_mem_type type);
+	uint32_t align, uint64_t flags,
+	enum mdw_mem_type type, enum mdw_mem_op op);
 int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+int mdw_mem_init(struct mdw_device *mdev);
+void mdw_mem_deinit(struct mdw_device *mdev);
 
 int mdw_sysfs_init(struct mdw_device *mdev);
 void mdw_sysfs_deinit(struct mdw_device *mdev);

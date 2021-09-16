@@ -14,15 +14,19 @@
 enum mdw_hs_ioctl_op {
 	MDW_HS_IOCTL_OP_BASIC,
 	MDW_HS_IOCTL_OP_DEV,
+	MDW_HS_IOCTL_OP_MEM,
 };
 
 struct mdw_hs_in {
-	enum mdw_hs_ioctl_op op;
+	uint32_t op; //enum mdw_hs_ioctl_op
 	uint64_t flags;
 	union {
 		struct {
 			uint32_t type;
 		} dev;
+		struct {
+			uint32_t type;
+		} mem;
 	};
 };
 
@@ -33,10 +37,10 @@ struct mdw_hs_out {
 		struct {
 			uint64_t version;
 			uint64_t dev_bitmask;
+			uint64_t mem_bitmask;
 			uint64_t flags;
 			uint32_t meta_size;
-			uint64_t vlm_start;
-			uint32_t vlm_size;
+			uint32_t reserved;
 		} basic;
 
 		struct {
@@ -44,6 +48,13 @@ struct mdw_hs_out {
 			uint32_t num;
 			char meta[MDW_DEV_META_SIZE];
 		} dev;
+
+		struct {
+			uint32_t type;
+			uint32_t reserved;
+			uint64_t start;
+			uint32_t size;
+		} mem;
 	};
 };
 
@@ -64,21 +75,35 @@ enum mdw_mem_ioctl_op {
 	MDW_MEM_IOCTL_INVALIDATE,
 };
 
-enum MDW_MEM_IOCTL_ALLOC_BITMASK {
-	MDW_MEM_IOCTL_ALLOC_CACHEABLE,
-	MDW_MEM_IOCTL_ALLOC_32BIT,
-	MDW_MEM_IOCTL_ALLOC_HIGHADDR,
+enum mdw_mem_flag {
+	MDW_MEM_FLAG_CACHEABLE,
+	MDW_MEM_FLAG_32BIT,
+	MDW_MEM_FLAG_HIGHADDR,
+};
+#define F_MDW_MEM_CACHEABLE (1ULL << MDW_MEM_FLAG_CACHEABLE)
+#define F_MDW_MEM_32BIT (1ULL << MDW_MEM_FLAG_32BIT)
+#define F_MDW_MEM_HIGHADDR (1ULL << MDW_MEM_FLAG_HIGHADDR)
+
+enum mdw_mem_type {
+	MDW_MEM_TYPE_MAIN,
+	MDW_MEM_TYPE_VLM,
+	MDW_MEM_TYPE_LOCAL,
+	MDW_MEM_TYPE_SYSTEM,
+	MDW_MEM_TYPE_SYSTEM_ISP,
+
+	MDW_MEM_TYPE_MAX,
 };
 
 struct mdw_mem_in {
-	enum mdw_mem_ioctl_op op;
+	uint32_t op; //enum mdw_mem_ioctl_op
 	uint64_t flags;
 	union {
 		/* alloc */
 		struct {
+			uint32_t type; //enum mdw_mem_type
 			uint32_t size;
 			uint32_t align;
-			uint64_t flags; //enum MDW_MEM_IOCTL_ALLOC_BITMASK
+			uint64_t flags;
 		} alloc;
 		struct {
 			uint64_t handle;
@@ -96,9 +121,13 @@ struct mdw_mem_in {
 		/* cache operation */
 		struct {
 			uint64_t handle;
+			uint32_t offset;
+			uint32_t size;
 		} flush;
 		struct {
 			uint64_t handle;
+			uint32_t offset;
+			uint32_t size;
 		} invalidate;
 	};
 };
@@ -109,6 +138,7 @@ struct mdw_mem_out {
 			uint64_t handle;
 		} alloc;
 		struct {
+			uint32_t type;
 			uint64_t device_va;
 		} map;
 		struct {
@@ -185,7 +215,7 @@ struct mdw_subcmd_info {
 };
 
 struct mdw_cmd_in {
-	enum mdw_cmd_ioctl_op op;
+	uint32_t op; //enum mdw_cmd_ioctl_op
 	union {
 		struct {
 			uint64_t usr_id;
@@ -230,7 +260,7 @@ enum mdw_util_ioctl_op {
 };
 
 struct mdw_util_in {
-	enum mdw_util_ioctl_op op;
+	uint32_t op; //enum mdw_util_ioctl_op
 	union {
 		struct {
 			uint32_t dev_type;

@@ -97,9 +97,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_alloc(mpriv, cb_size, MDW_DEFAULT_ALIGN,
-		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE |
-		1ULL << MDW_MEM_IOCTL_ALLOC_32BIT),
-		MDW_MEM_TYPE_INTERNAL);
+		F_MDW_MEM_CACHEABLE|F_MDW_MEM_32BIT, MDW_MEM_TYPE_MAIN,
+		MDW_MEM_OP_INTERNAL);
 	if (!rc->cb) {
 		mdw_drv_err("c(0x%llx) alloc cb size(%u) fail\n",
 			c->kid, cb_size);
@@ -117,6 +116,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
 	rmc->session_id = (uint64_t)c->mpriv;
 	rmc->cmd_id = c->kid;
+	rmc->pid = (uint32_t)c->pid;
+	rmc->tgid = (uint32_t)c->tgid;
 	rmc->exec_infos = c->exec_infos->device_va;
 	rmc->exec_size = c->exec_infos->size;
 	rmc->priority = c->priority;

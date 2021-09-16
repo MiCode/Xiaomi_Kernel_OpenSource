@@ -6,7 +6,6 @@
 #include <linux/slab.h>
 
 #include "mdw_cmn.h"
-#include "mdw_export.h"
 
 int mdw_dev_init(struct mdw_device *mdev)
 {
@@ -39,20 +38,4 @@ void mdw_dev_deinit(struct mdw_device *mdev)
 		mdev->dev_funcs->late_deinit(mdev);
 		mdev->dev_funcs = NULL;
 	}
-}
-
-int mdw_dev_lock(void)
-{
-	if (!mdw_dev)
-		return -ENODEV;
-
-	return mdw_dev->dev_funcs->lock(mdw_dev);
-}
-
-int mdw_dev_unlock(void)
-{
-	if (!mdw_dev)
-		return -ENODEV;
-
-	return mdw_dev->dev_funcs->unlock(mdw_dev);
 }

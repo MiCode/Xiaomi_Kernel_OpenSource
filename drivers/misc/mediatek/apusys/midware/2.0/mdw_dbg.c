@@ -55,7 +55,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_min_etime, min_etime_get, min_etime_set, "%llu\n")
 //----------------------------------------------
 int mdw_dbg_init(struct apusys_core_info *info)
 {
-	g_mdw_klog = 0;
+	g_mdw_klog = 0x0;
 
 	/* create debug root */
 	mdw_dbg_root = debugfs_create_dir("midware", info->dbg_root);
@@ -79,6 +79,4 @@ int mdw_dbg_init(struct apusys_core_info *info)
 
 void mdw_dbg_deinit(void)
 {
-	/* remove by core */
-	//debugfs_remove_recursive(mdw_dbg_root);
 }

@@ -303,8 +303,10 @@ out:
 static int mdw_rv_dev_handshake(struct mdw_rv_dev *mrdev)
 {
 	struct mdw_ipi_msg msg;
-	int ret = 0, type = 0;
+	int ret = 0;
+	uint32_t type = 0;
 
+	/* query basic infos */
 	memset(&msg, 0, sizeof(msg));
 	msg.id = MDW_IPI_HANDSHAKE;
 	msg.h.h_id = MDW_IPI_HANDSHAKE_BASIC_INFO;
@@ -319,10 +321,14 @@ static int mdw_rv_dev_handshake(struct mdw_rv_dev *mrdev)
 	}
 
 	memcpy(mrdev->dev_mask, &msg.h.basic.dev_bmp, sizeof(mrdev->dev_mask));
+	memcpy(mrdev->mem_mask, &msg.h.basic.mem_bmp, sizeof(mrdev->mem_mask));
 	mrdev->rv_version = msg.h.basic.version;
-	mdw_drv_debug("rv info(%u/0x%llx)\n",
-		mrdev->rv_version, msg.h.basic.dev_bmp);
+	mdw_drv_warn("apusys: rv infos(%u)(0x%x/0x%llx)(0x%x/0x%llx)\n",
+		mrdev->rv_version, mrdev->dev_mask[0],
+		msg.h.basic.dev_bmp, mrdev->mem_mask[0], msg.h.basic.mem_bmp);
 
+	/* query device num */
+	type = 0;
 	do {
 		type = find_next_bit(mrdev->dev_mask, APUSYS_DEVICE_MAX, type);
 		if (type >= APUSYS_DEVICE_MAX)
@@ -342,12 +348,41 @@ static int mdw_rv_dev_handshake(struct mdw_rv_dev *mrdev)
 			break;
 		}
 
-		mrdev->dev_num[msg.h.dev.type] = msg.h.dev.num;
+		mrdev->dev_num[type] = msg.h.dev.num;
 		memcpy(&mrdev->meta_data[msg.h.dev.type][0],
 			msg.h.dev.meta, sizeof(msg.h.dev.meta));
-		mdw_drv_debug("type(%d) num(%u)\n", type, msg.h.dev.num);
+		mdw_drv_debug("dev(%d) num(%u)\n", type, msg.h.dev.num);
 		type++;
 	} while (type < APUSYS_DEVICE_MAX);
+
+	/* query mem info */
+	type = 0;
+	do {
+		type = find_next_bit(mrdev->mem_mask, MDW_MEM_TYPE_MAX, type);
+		if (type >= MDW_MEM_TYPE_MAX)
+			break;
+
+		memset(&msg, 0, sizeof(msg));
+		msg.id = MDW_IPI_HANDSHAKE;
+		msg.h.h_id = MDW_IPI_HANDSHAKE_MEM_INFO;
+		msg.h.mem.type = type;
+		ret = mdw_rv_dev_send_sync(mrdev, &msg);
+		if (ret)
+			break;
+
+		if (msg.id != MDW_IPI_HANDSHAKE ||
+			msg.h.h_id != MDW_IPI_HANDSHAKE_MEM_INFO) {
+			ret = -EINVAL;
+			break;
+		}
+
+		mrdev->minfos[type].device_va = msg.h.mem.start;
+		mrdev->minfos[type].size = msg.h.mem.size;
+
+		mdw_drv_debug("mem(%d)(0x%llx/0x%x)\n",
+			type, msg.h.mem.start, msg.h.mem.size);
+		type++;
+	} while (type < MDW_MEM_TYPE_MAX);
 
 out:
 	return ret;

@@ -13,7 +13,6 @@ enum {
 	MDW_IPI_APU_CMD,
 	MDW_IPI_HANDSHAKE,
 	MDW_IPI_PARAM,
-	MDW_IPI_USER,
 	MDW_IPI_MAX = 0x20,
 };
 
@@ -21,6 +20,7 @@ enum {
 	MDW_IPI_HANDSHAKE_BASIC_INFO,
 	MDW_IPI_HANDSHAKE_DEV_NUM,
 	MDW_IPI_HANDSHAKE_TASK_NUM,
+	MDW_IPI_HANDSHAKE_MEM_INFO,
 };
 
 enum {
@@ -50,12 +50,18 @@ struct mdw_ipi_handshake {
 			uint64_t magic;
 			uint32_t version;
 			uint64_t dev_bmp;
+			uint64_t mem_bmp;
 		} basic;
 		struct {
 			uint32_t type;
 			uint32_t num;
 			uint8_t meta[MDW_DEV_META_SIZE];
 		} dev;
+		struct {
+			uint32_t type;
+			uint64_t start;
+			uint32_t size;
+		} mem;
 		struct {
 			uint32_t type;
 			uint32_t norm_task_num;
