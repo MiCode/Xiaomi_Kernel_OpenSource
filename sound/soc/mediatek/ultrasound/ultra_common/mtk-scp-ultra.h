@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2018 MediaTek Inc.
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2018 MediaTek Inc.
+ */
 
 #ifndef _MTK_SCP_ULTRA_H_
 #define _MTK_SCP_ULTRA_H_
@@ -41,7 +42,6 @@ struct mtk_base_scp_ultra {
 int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 			       dma_addr_t *phys_addr,
 			       unsigned char **virt_addr,
-			       unsigned int size,
-			       struct mtk_base_afe *afe);
+			       unsigned int size);
 
 #endif

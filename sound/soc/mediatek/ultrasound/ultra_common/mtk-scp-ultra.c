@@ -8,6 +8,7 @@
 
 #include "mtk-scp-ultra.h"
 #include "mtk-afe-fe-dai.h"
+#include "mtk-mem-allocation-control.h"
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 #include "scp.h"
 #endif
@@ -39,8 +40,7 @@ EXPORT_SYMBOL_GPL(get_scp_ultra_base);
 int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 			       dma_addr_t *phys_addr,
 			       unsigned char **virt_addr,
-			       unsigned int size,
-			       struct mtk_base_afe *afe)
+			       unsigned int size)
 {
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -71,7 +71,7 @@ int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 	*phys_addr = dma_buf->addr;
 	*virt_addr = dma_buf->area;
 #else
-	dev_err(afe->dev, "%s(), error, id %d, set addr, ret %d\n",
+	pr_debug("%s(), error, id %d, set addr, ret %d\n",
 			__func__, id, ret);
 	return -EINVAL;
 #endif
@@ -85,6 +85,46 @@ int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_scp_ultra_allocate_mem);
+
+int notify_ultrasound_event(struct notifier_block *nb, unsigned long event, void *v)
+{
+	int status = NOTIFY_DONE; //default don't care it.
+
+	if (event == NOTIFIER_ULTRASOUND_ALLOCATE_MEM) {
+		struct snd_pcm_substream *substream;
+
+		substream = (struct snd_pcm_substream *)v;
+		pr_debug("%s(), ultrasound received afe notify init event.\n", __func__);
+		if (mtk_scp_ultra_allocate_mem(substream,
+				&substream->runtime->dma_addr,
+				&substream->runtime->dma_area,
+				substream->runtime->dma_bytes) == 0)
+			status = NOTIFY_STOP;
+		else
+			status = NOTIFY_BAD;
+
+	}
+	return status;
+}
+
+/* define a notifier_block */
+static struct notifier_block ultrasound_init_notifier = {
+	.notifier_call = notify_ultrasound_event,
+};
+
+static int __init mtk_ultrasound_init(void)
+{
+	register_afe_allocate_mem_notifier(&ultrasound_init_notifier);
+	return 0;
+}
+
+static void __exit mtk_ultrasound_exit(void)
+{
+	unregister_afe_allocate_mem_notifier(&ultrasound_init_notifier);
+}
+
+module_init(mtk_ultrasound_init);
+module_exit(mtk_ultrasound_exit);
 
 MODULE_DESCRIPTION("Mediatek scp ultra platform driver");
 MODULE_AUTHOR("Ning Li <Ning.Li@mediatek.com>");

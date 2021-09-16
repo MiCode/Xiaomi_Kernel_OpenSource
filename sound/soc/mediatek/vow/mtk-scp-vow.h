@@ -11,7 +11,6 @@
 
 int mtk_scp_vow_barge_in_allocate_mem(struct snd_pcm_substream *substream,
 			     dma_addr_t *phys_addr, unsigned char **virt_addr,
-			     unsigned int size,
-			     struct mtk_base_afe *afe);
+			     unsigned int size);
 
 #endif

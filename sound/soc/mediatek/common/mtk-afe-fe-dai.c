@@ -15,10 +15,7 @@
 #include <sound/pcm_params.h>
 #include "mtk-afe-fe-dai.h"
 #include "mtk-base-afe.h"
-
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
-#include "../vow/mtk-scp-vow.h"
-#endif
+#include "mtk-mem-allocation-control.h"
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 #include "mtk-sram-manager.h"
@@ -31,10 +28,6 @@
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include "adsp_helper.h"
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
-#include "../ultrasound/ultra_common/mtk-scp-ultra.h"
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -212,16 +205,12 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		memif->using_sram = 0;
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 		if (memif->vow_barge_in_enable) {
-			ret = mtk_scp_vow_barge_in_allocate_mem(substream,
-						   &substream->runtime->dma_addr,
-						   &substream->runtime->dma_area,
-						   substream->runtime->dma_bytes,
-						   afe);
-			if (ret < 0) {
+			ret = notify_allocate_mem(NOTIFIER_VOW_ALLOCATE_MEM, substream);
+			if (ret != NOTIFY_STOP) {
 				dev_err(afe->dev,
-					"%s(), vow_barge_in: %d, err: %d\n",
-					__func__, memif->use_adsp_share_mem, ret);
-				return ret;
+					"%s(), vow_barge_in allocate mem err: %d\n",
+					__func__, ret);
+				return -EINVAL;
 			}
 
 			goto MEM_ALLOCATE_DONE;
@@ -244,15 +233,11 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 	if (memif->scp_ultra_enable) {
-		ret = mtk_scp_ultra_allocate_mem(substream,
-						 &substream->runtime->dma_addr,
-						 &substream->runtime->dma_area,
-						 substream->runtime->dma_bytes,
-						 afe);
-		if (ret < 0) {
+		ret = notify_allocate_mem(NOTIFIER_ULTRASOUND_ALLOCATE_MEM, substream);
+		if (ret != NOTIFY_STOP) {
 			dev_err(afe->dev, "%s(), scp_ultra_enable: %d, err: %d\n",
 				__func__, memif->scp_ultra_enable, ret);
-			return ret;
+			return -EINVAL;
 		}
 
 		goto MEM_ALLOCATE_DONE;
