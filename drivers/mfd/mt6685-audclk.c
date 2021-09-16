@@ -36,6 +36,9 @@ struct mt6685_clk {
 struct mt6685_clk *clk;
 void mt6685_set_dcxo(bool enable)
 {
+	if (!clk || !clk->regmap)
+		return;
+
 	if (enable) {
 		regmap_update_bits(clk->regmap, MT6685_DCXO_EXTBUF5_CW0,
 				XO_BBCK5_EN_M_MSK_SFT,	0x1 << XO_BBCK5_EN_M_SFT);
