@@ -178,6 +178,7 @@
 
 #define HTOL_THRESHOLD_MAX			20
 #define HTOL_THRESHOLD_MIN			5
+#define HTOL_CALI_MAX				120
 
 /* mt6359 610.352 uA */
 #define UNIT_FGCURRENT				610352
@@ -2822,13 +2823,13 @@ static int battery_voltage_cali(struct mtk_gauge *gauge,
 		 __func__, vbat_diff_avg, gain_err, priv->efuse_gain_err);
 	gain_err += vbat_diff_avg;
 	gain_err_diff = abs((int)gain_err - (int)priv->efuse_gain_err);
-	if (abs(gain_err_diff) > HTOL_THRESHOLD_MAX) {
+	if (abs(gain_err_diff) > HTOL_CALI_MAX) {
 		bm_err("%s: gain_err_diff out of theshold(%d), adjust HTOL_THRESHOLD_MAX\n",
 			__func__, gain_err_diff);
 		if (gain_err > priv->efuse_gain_err)
-			gain_err = priv->efuse_gain_err + HTOL_THRESHOLD_MAX;
+			gain_err = priv->efuse_gain_err + HTOL_CALI_MAX;
 		else
-			gain_err = priv->efuse_gain_err - HTOL_THRESHOLD_MAX;
+			gain_err = priv->efuse_gain_err - HTOL_CALI_MAX;
 		return ret;
 	}
 
