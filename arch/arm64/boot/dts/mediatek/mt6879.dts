@@ -3988,6 +3988,7 @@
 			mbox_count = <1>;
 			mbox_size = <160>; /* slots */
 			slot_size = <4>;   /* bytes */
+			ts_mbox = <0>; /* mbox for timersync */
 
 			/* id, mbox, send_size */
 			send_table =
@@ -4012,13 +4013,13 @@
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
 				<0 0 4 0>,
-				<1 0 6 0>,
+				<1 0 6 1>,
 				<2 0 1 0>,
 				<3 0 1 0>,
-				<4 0 1 0>,
-				<5 0 4 0>,
-				<6 0 1 0>,
-				<7 0 6 0>;
+				<4 0 1 1>,
+				<5 0 4 1>,
+				<6 0 1 1>,
+				<7 0 6 1>;
 			recv_name_table =
 				"IPI_ID_FAST_DVFS_EVENT",
 				"IPI_ID_GPUFREQ",
