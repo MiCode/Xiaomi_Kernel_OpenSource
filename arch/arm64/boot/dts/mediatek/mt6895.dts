@@ -749,18 +749,6 @@
 			#clock-cells = <1>;
 		};
 
-		ufs_ao_config_clk: syscon@112b8000 {
-			compatible = "mediatek,mt6895-ufs_ao_config", "syscon";
-			reg = <0 0x112b8000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
-		ufs_pdn_cfg_clk: syscon@112bc000 {
-			compatible = "mediatek,mt6895-ufs_pdn_cfg", "syscon";
-			reg = <0 0x112bc000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
 		imp_iic_wrap_s_clk: syscon@11d07000 {
 			compatible = "mediatek,mt6895-imp_iic_wrap_s", "syscon";
 			reg = <0 0x11D07000 0 0x1000>;
@@ -3129,32 +3117,89 @@
 			};
 		};
 
+		ufs_ao_config_clk: syscon@112b8000 {
+			compatible = "mediatek,mt6895-ufs_ao_config", "syscon", "simple-mfd";
+			reg = <0 0x112b8000 0 0x1000>;
+			#clock-cells = <1>;
+
+			ufsaocfg_rst: reset-controller {
+				compatible = "ti,syscon-reset";
+				#reset-cells = <1>;
+
+				ti,reset-bits = <
+					/* ufs unipro reset */
+					0x44 1 0x48 1 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: unipro */
+					>;
+			};
+		};
+
+		ufs_pdn_cfg_clk: syscon@112bc000 {
+			compatible = "mediatek,mt6895-ufs_pdn_cfg", "syscon", "simple-mfd";
+			reg = <0 0x112bc000 0 0x1000>;
+			#clock-cells = <1>;
+
+			ufspdncfg_rst: reset-controller {
+				compatible = "ti,syscon-reset";
+				#reset-cells = <1>;
+
+				ti,reset-bits = <
+					/* ufs crypto/ufshci reset */
+					0x44 0 0x48 0 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0:ufs-crypto */
+					0x44 1 0x48 1 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 1:ufshci */
+					>;
+			};
+		};
+
 		ufshci: ufshci@112b0000 {
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x112b0000 0 0x2300>;
 			interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH 0>;
-	#if 0
-			clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
-				   <&infracfg_ao_clk CLK_IFRAO_UFS_TICK>,
-				   <&infracfg_ao_clk CLK_IFRAO_UFS_AXI>,
-				   <&infracfg_ao_clk CLK_IFRAO_UFS_MP_SAP_BCLK>,
-				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_TICK>,
-				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_MBIST>,
-				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
-				   <&infracfg_ao_clk CLK_IFRAO_AES>;
-			clock-names = "ufs", "ufs_tick", "ufs_axi", "ufs_mp",
-				"unipro_tick", "unipro_mbist", "unipro_sys",
-				"crypt_infra";
 
-			freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
-					<0 0>, <0 0>, <0 0>;
+			clocks =
+				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_TXSYMBLOCLK>,
+				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_RXSYMBLOCLK0>,
+				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_RXSYMBLOCLK1>,
+				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_SYSCLK>,
+				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_UMPSAP>,
+				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_MMPSAP>,
+				<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIUFS>,
+				<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
+				<&topckgen_clk CLK_TOP_U_SEL>;
 
-			vcc-supply = <&mt6359p_vemc_reg>;
+			clock-names =
+				"phy_tx_sym",
+				"phy_rx_sym0",
+				"phy_rx_sym1",
+				"unipro_sys",
+				"unipro_sap",
+				"phy_sap",
+				"ufs_ck",
+				"ufs_fde",
+				"ufs";
 
-			resets = <&infracfg_rst 2>, <&infracfg_rst 3>,
-				 <&infracfg_rst 4>;
-			reset-names = "hci_rst", "unipro_rst", "crypto_rst";
-	#endif
+			freq-table-hz =
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>;
+
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_UFS0_SHUTDOWN>;
+
+			vcc-supply = <&mt6363_vemc>;
+			vccq-supply = <&mt6363_vufs12>;
+			vccq2-supply = <&mt6363_vufs18>;
+
+			resets = <&ufsaocfg_rst 0>, <&ufspdncfg_rst 0>,
+			   <&ufspdncfg_rst 1>;
+			reset-names = "unipro_rst", "crypto_rst", "hci_rst";
 
 			bootmode = <&chosen>;
 
@@ -6294,14 +6339,6 @@
 };
 
 &mt6363_vm18 {
-	regulator-always-on;
-};
-
-&mt6363_vufs18 {
-	regulator-always-on;
-};
-
-&mt6363_vufs12 {
 	regulator-always-on;
 };
 
