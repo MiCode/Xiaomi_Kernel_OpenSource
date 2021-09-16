@@ -79,13 +79,19 @@ struct irq_mon_tracer {
 	unsigned int aee_debounce_ms;
 };
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE)
+#define OVERRIDE_TH1_MS 500
+#define OVERRIDE_TH2_MS 500
+#define OVERRIDE_TH3_MS 500
+#endif
+
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 	.tracing = false,
 	.name = "irq_handler_tracer",
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE)
-	.th1_ms = 500,
-	.th2_ms = 500,
-	.th3_ms = 500,
+	.th1_ms = OVERRIDE_TH1_MS,
+	.th2_ms = OVERRIDE_TH2_MS,
+	.th3_ms = OVERRIDE_TH3_MS,
 	.aee_limit = 1,
 #else
 	.th1_ms = 100,
@@ -107,10 +113,17 @@ static struct irq_mon_tracer softirq_tracer __read_mostly = {
 static struct irq_mon_tracer ipi_tracer __read_mostly = {
 	.tracing = false,
 	.name = "ipi_tracer",
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE)
+	.th1_ms = OVERRIDE_TH1_MS,
+	.th2_ms = OVERRIDE_TH2_MS,
+	.th3_ms = OVERRIDE_TH3_MS,
+	.aee_limit = 0,
+#else
 	.th1_ms = 100,
 	.th2_ms = 500,
 	.th3_ms = 500,
 	.aee_limit = 0,
+#endif
 };
 
 static struct irq_mon_tracer irq_off_tracer __read_mostly = {
@@ -133,9 +146,9 @@ static struct irq_mon_tracer hrtimer_expire_tracer __read_mostly = {
 	.tracing = false,
 	.name = "hrtimer_expire_tracer",
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE)
-	.th1_ms = 500,
-	.th2_ms = 500,
-	.th3_ms = 500,
+	.th1_ms = OVERRIDE_TH1_MS,
+	.th2_ms = OVERRIDE_TH2_MS,
+	.th3_ms = OVERRIDE_TH3_MS,
 	.aee_limit = 1,
 #else
 	.th1_ms = 100,
@@ -1082,6 +1095,9 @@ static int __init irq_monitor_init(void)
 	irq_mon_proc_init();
 #if IS_ENABLED(CONFIG_MTK_AEE_HANGDET)
 	kwdt_regist_irq_info(mt_aee_dump_irq_info);
+#endif
+#if IS_ENABLED(CONFIG_MTK_FTRACE_DEFAULT_ENABLE)
+	trace_set_clr_event(NULL, "irq_mon_msg", 1);
 #endif
 	return 0;
 }

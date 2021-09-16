@@ -72,6 +72,19 @@ const void *irq_to_handler(int irq)
 	return NULL;
 }
 
+const int irq_to_ipi_type(int irq)
+{
+	struct irq_desc **ipi_desc = ipi_desc_get();
+	struct irq_desc *desc = irq_to_desc(irq);
+	int nr_ipi = nr_ipi_get();
+	int i = 0;
+
+	for (i = 0; i < nr_ipi; i++)
+		if (ipi_desc[i] == desc)
+			return i;
+	return -1;
+}
+
 #ifdef MODULE
 // workaround for kstat_irqs_cpu & kstat_irqs
 static unsigned int irq_mon_irqs(unsigned int irq)
@@ -110,6 +123,7 @@ struct irq_count_stat {
 };
 
 static struct irq_count_stat __percpu *irq_count_data;
+static struct hrtimer __percpu *irq_count_tracer_hrtimer;
 
 struct irq_count_all {
 	spinlock_t lock; /* protect this struct */
@@ -164,8 +178,6 @@ void show_irq_count_info(unsigned int output)
 		__show_irq_count_info(output);
 }
 
-DEFINE_PER_CPU(struct hrtimer, irq_count_tracer_hrtimer);
-
 static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 {
 	struct irq_count_stat *irq_cnt = this_cpu_ptr(irq_count_data);
@@ -217,6 +229,8 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 	t_diff = irq_cnt->t_end - irq_cnt->t_start;
 
 	for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
+		char irq_name[64];
+
 		irq_num = irq_mon_irqs_cpu(irq, cpu);
 		count = irq_num - irq_cnt->count[irq];
 
@@ -243,21 +257,15 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 					skip = 1;
 		}
 
-		if (!strcmp(irq_to_name(irq), "IPI")) {
-#if IS_ENABLED(CONFIG_ARM64)
-			struct irq_desc **ipi_desc = ipi_desc_get();
-			struct irq_desc *desc = irq_to_desc(irq);
-
-			/* reschedule IPI and function call IPI */
-			if (ipi_desc[0] == desc || ipi_desc[1] == desc)
-				skip = 1;
-#else
-			skip = 1;
-#endif
-		}
-
 		if (skip)
 			continue;
+
+		if (!strcmp(irq_to_name(irq), "IPI")) {
+			scnprintf(irq_name, sizeof(irq_name), "%s%d",
+				irq_to_name(irq), irq_to_ipi_type(irq));
+			skip = 1;
+		} else
+			scnprintf(irq_name, sizeof(irq_name), "%s", irq_to_name(irq));
 
 		for (i = 0; i < REC_NUM; i++) {
 			char msg[MAX_MSG_LEN];
@@ -275,14 +283,15 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 
 			scnprintf(msg, sizeof(msg),
 				 "irq: %d [<%p>]%pS, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
-				 irq, irq_to_handler(irq), irq_to_handler(irq), irq_to_name(irq),
+				 irq, irq_to_handler(irq), irq_to_handler(irq), irq_name,
 				 irq_cpus[i].diff[irq], t_diff_ms,
 				 sec_high(irq_cpus[i].ts),
 				 sec_low(irq_cpus[i].ts),
 				 sec_high(irq_cpus[i].te),
 				 sec_low(irq_cpus[i].te));
 
-			if (irq_period_th2_ns && t_avg < irq_period_th2_ns && irq_count_aee_limit)
+			if (irq_period_th2_ns && t_avg < irq_period_th2_ns &&
+				irq_count_aee_limit && !skip)
 				/* aee threshold and aee limit meet */
 				if (t_prev_aee && irq_mon_aee_debounce &&
 					(sched_clock() - t_prev_aee) < irq_mon_aee_debounce)
@@ -300,13 +309,14 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 
 		scnprintf(aee_msg, sizeof(aee_msg),
 			 "irq: %d [<%p>]%pS, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
-			 irq, irq_to_handler(irq), irq_to_handler(irq), irq_to_name(irq),
+			 irq, irq_to_handler(irq), irq_to_handler(irq), irq_name,
 			 count, t_diff_ms,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			 raw_smp_processor_id());
 
-		if (irq_period_th2_ns && t_avg < irq_period_th2_ns && irq_count_aee_limit)
+		if (irq_period_th2_ns && t_avg < irq_period_th2_ns &&
+			irq_count_aee_limit && !skip)
 			/* aee threshold and aee limit meet */
 			if (t_prev_aee && irq_mon_aee_debounce &&
 				(sched_clock() - t_prev_aee) < irq_mon_aee_debounce)
@@ -318,7 +328,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 				irq_mon_msg(TO_BOTH, aee_msg);
 				scnprintf(module, sizeof(module),
 					"BURST IRQ:%d, %pS %s +%d in %lldms",
-					irq, irq_to_handler(irq), irq_to_name(irq),
+					irq, irq_to_handler(irq), irq_name,
 					count, t_diff_ms);
 				aee_kernel_warning_api(__FILE__, __LINE__,
 					DB_OPT_DUMMY_DUMP|DB_OPT_FTRACE, module, aee_msg);
@@ -334,7 +344,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 
 static void irq_count_tracer_start(int cpu)
 {
-	struct hrtimer *hrtimer = this_cpu_ptr(&irq_count_tracer_hrtimer);
+	struct hrtimer *hrtimer = this_cpu_ptr(irq_count_tracer_hrtimer);
 
 	hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
 	hrtimer->function = irq_count_tracer_hrtimer_fn;
@@ -377,6 +387,7 @@ int irq_count_tracer_init(void)
 	int i;
 
 	irq_count_data = alloc_percpu(struct irq_count_stat);
+	irq_count_tracer_hrtimer = alloc_percpu(struct hrtimer);
 	if (!irq_count_data) {
 		pr_info("Failed to alloc irq_count_data\n");
 		return -ENOMEM;
@@ -395,6 +406,7 @@ int irq_count_tracer_init(void)
 void irq_count_tracer_exit(void)
 {
 	free_percpu(irq_count_data);
+	free_percpu(irq_count_tracer_hrtimer);
 }
 
 /* Must holding lock*/
@@ -415,7 +427,7 @@ void irq_count_tracer_set(bool val)
 		irq_count_tracer = 0;
 		for_each_possible_cpu(cpu) {
 			struct hrtimer *hrtimer =
-				per_cpu_ptr(&irq_count_tracer_hrtimer, cpu);
+				per_cpu_ptr(irq_count_tracer_hrtimer, cpu);
 
 			per_cpu_ptr(irq_count_data, cpu)->enabled = 0;
 			hrtimer_cancel(hrtimer);
