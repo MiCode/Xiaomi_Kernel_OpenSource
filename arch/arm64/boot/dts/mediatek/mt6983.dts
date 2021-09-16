@@ -10670,8 +10670,7 @@
 		reg-names = "base", "ana-rx";
 		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH 0>;
 
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>,
-		<&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
 
 		operating-points-v2 = <&opp_table_cam>;
 		dvfsrc-vmm-supply = <&vmm_proxy_label>;
