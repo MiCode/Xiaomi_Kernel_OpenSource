@@ -46,7 +46,7 @@ void wait_vcp_wdt_irq_done(void)
 
 		if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
 			break;
-		udelay(2);
+		udelay(1);
 	}
 
 	if (retry == 0)

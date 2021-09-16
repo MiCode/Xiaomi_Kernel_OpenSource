@@ -10,7 +10,7 @@
 #include "vcp.h"
 
 /* vcp awake timeout count definition */
-#define VCP_AWAKE_TIMEOUT 100000
+#define VCP_AWAKE_TIMEOUT 50000
 
 /* this is only for ipi to distinguish core0 and core1 */
 enum {
