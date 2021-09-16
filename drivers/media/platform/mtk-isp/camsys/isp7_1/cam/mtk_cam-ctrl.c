@@ -155,9 +155,9 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 	struct mtk_cam_device *cam =
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_ctx *ctx;
-	int i;
-	int ctx_cnt = 0;
 	struct mtk_cam_ctx *sync_ctx[MTKCAM_SUBDEV_MAX];
+	int i, ctx_cnt = 0;
+	unsigned long flags;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (!(1 << i & req->ctx_used))
@@ -169,6 +169,15 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 				 __func__, ctx->stream_id);
 			continue;
 		}
+
+		spin_lock_irqsave(&ctx->streaming_lock, flags);
+		if (!ctx->streaming) {
+			spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+			dev_info(cam->dev, "%s: ctx(%d): is streamed off\n",
+				 __func__, ctx->stream_id);
+			continue;
+		}
+		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
 		sync_ctx[ctx_cnt] = ctx;
 		ctx_cnt++;
@@ -228,8 +237,8 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 	struct mtk_cam_device *cam =
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_ctx *ctx;
-	int i;
-	int ctx_cnt = 0;
+	int i, ctx_cnt = 0;
+	unsigned long flags;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (!(1 << i & req->ctx_used))
@@ -241,6 +250,15 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 				 __func__, ctx->stream_id);
 			continue;
 		}
+
+		spin_lock_irqsave(&ctx->streaming_lock, flags);
+		if (!ctx->streaming) {
+			spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+			dev_info(cam->dev, "%s: ctx(%d): is streamed off\n",
+				 __func__, ctx->stream_id);
+			continue;
+		}
+		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
 		ctx_cnt++;
 	}
