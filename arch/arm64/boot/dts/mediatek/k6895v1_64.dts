@@ -495,4 +495,5 @@ initcall_debug=1 ";
 
 #include "mediatek/cust_mt6895_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6895_camera_v4l2.dtsi"
+#include <k6895v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
