@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef _DT_BINDINGS_GCE_MT6983_H
-#define _DT_BINDINGS_GCE_MT6983_H
+#ifndef _DT_BINDINGS_GCE_MT6895_H
+#define _DT_BINDINGS_GCE_MT6895_H
 
 /* assign timeout 0 also means default */
 #define CMDQ_NO_TIMEOUT		0xffffffff
