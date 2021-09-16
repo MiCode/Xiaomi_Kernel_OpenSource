@@ -207,23 +207,23 @@ static struct regname rn[] = {
 	REGNAME(disp, 0x110, MMSYS_CG_1),
 	REGNAME(disp, 0x1A0, MMSYS_CG_2),
 	/* DISPSYS1_CONFIG register */
-	REGNAME(disp1, 0x100, MMSYS_CG_0),
-	REGNAME(disp1, 0x110, MMSYS_CG_1),
-	REGNAME(disp1, 0x1A0, MMSYS_CG_2),
+	REGNAME(disp1, 0x100, MMSYS1_CG_0),
+	REGNAME(disp1, 0x110, MMSYS1_CG_1),
+	REGNAME(disp1, 0x1A0, MMSYS1_CG_2),
 	/* IMGSYS_MAIN register */
 	REGNAME(img, 0x0, IMG_MAIN_CG),
 	/* DIP_TOP_DIP1 register */
-	REGNAME(dip_top_dip1, 0x0, MACRO_CG),
+	REGNAME(dip_top_dip1, 0x0, TOP_DIP1_CG),
 	/* DIP_NR_DIP1 register */
-	REGNAME(dip_nr_dip1, 0x0, MACRO_CG),
+	REGNAME(dip_nr_dip1, 0x0, NR_DIP1_CG),
 	/* WPE1_DIP1 register */
-	REGNAME(wpe1_dip1, 0x0, MACRO_CG),
+	REGNAME(wpe1_dip1, 0x0, WPE1_DIP1_CG),
 	/* IPESYS register */
-	REGNAME(ipe, 0x0, MACRO_CG),
+	REGNAME(ipe, 0x0, IPE_CG),
 	/* WPE2_DIP1 register */
-	REGNAME(wpe2_dip1, 0x0, MACRO_CG),
+	REGNAME(wpe2_dip1, 0x0, WPE2_DIP1_CG),
 	/* WPE3_DIP1 register */
-	REGNAME(wpe3_dip1, 0x0, MACRO_CG),
+	REGNAME(wpe3_dip1, 0x0, WPE3_DIP1_CG),
 	/* VDEC_GCON_BASE register */
 	REGNAME(vde2, 0x8, LARB_CKEN_CON),
 	REGNAME(vde2, 0x0, VDEC_CKEN),
@@ -245,16 +245,23 @@ static struct regname rn[] = {
 	REGNAME(spm, 0xE2C, ISP_IPE_PWR_CON),
 	REGNAME(spm, 0xE30, ISP_VCORE_PWR_CON),
 	REGNAME(spm, 0xE34, VDE0_PWR_CON),
+	REGNAME(spm, 0xE38, VDE1_PWR_CON),
 	REGNAME(spm, 0xE3C, VEN0_PWR_CON),
+	REGNAME(spm, 0xE40, VEN1_PWR_CON),
 	REGNAME(spm, 0xE44, CAM_MAIN_PWR_CON),
 	REGNAME(spm, 0xE48, CAM_MRAW_PWR_CON),
 	REGNAME(spm, 0xE4C, CAM_SUBA_PWR_CON),
 	REGNAME(spm, 0xE50, CAM_SUBB_PWR_CON),
+	REGNAME(spm, 0xE54, CAM_SUBC_PWR_CON),
 	REGNAME(spm, 0xE58, CAM_VCORE_PWR_CON),
+	REGNAME(spm, 0xE5C, MDP0_PWR_CON),
+	REGNAME(spm, 0xE60, MDP1_PWR_CON),
 	REGNAME(spm, 0xE64, DIS0_PWR_CON),
+	REGNAME(spm, 0xE68, DIS1_PWR_CON),
 	REGNAME(spm, 0xE6C, MM_INFRA_PWR_CON),
 	REGNAME(spm, 0xE70, MM_PROC_PWR_CON),
-	REGNAME(spm, 0xF48, CSI_RX_PWR_CON),
+	REGNAME(spm, 0xE74, DP_TX_PWR_CON),
+	REGNAME(spm, 0xE78, SCP_PWR_CON),
 	REGNAME(spm, 0xEB8, MFG0_PWR_CON),
 	REGNAME(spm, 0xF3C, XPU_PWR_STATUS),
 	REGNAME(spm, 0xF40, XPU_PWR_STATUS_2ND),
@@ -263,12 +270,20 @@ static struct regname rn[] = {
 	REGNAME(spm, 0xEC4, MFG3_PWR_CON),
 	REGNAME(spm, 0xEC8, MFG4_PWR_CON),
 	REGNAME(spm, 0xECC, MFG5_PWR_CON),
-	REGNAME(spm, 0x670, SPM_CROSS_WAKE_M01_REQ),
-	REGNAME(spm, 0x414, SPM2APU_CON),
-	REGNAME(spm, 0xEA0, DPM1_PWR_CON),
-	REGNAME(spm, 0xEA4, DPM2_PWR_CON),
-	REGNAME(spm, 0xEA8, DPM3_PWR_CON),
-	REGNAME(spm, 0xEB0, EMI1_PWR_CON),
+	REGNAME(spm, 0xED0, MFG6_PWR_CON),
+	REGNAME(spm, 0xED4, MFG7_PWR_CON),
+	REGNAME(spm, 0xED8, MFG8_PWR_CON),
+	REGNAME(spm, 0xEDC, MFG9_PWR_CON),
+	REGNAME(spm, 0xEE0, MFG10_PWR_CON),
+	REGNAME(spm, 0xEE4, MFG11_PWR_CON),
+	REGNAME(spm, 0xEE8, MFG12_PWR_CON),
+	REGNAME(spm, 0xEEC, MFG13_PWR_CON),
+	REGNAME(spm, 0xEF0, MFG14_PWR_CON),
+	REGNAME(spm, 0xEF4, MFG15_PWR_CON),
+	REGNAME(spm, 0xEF8, MFG16_PWR_CON),
+	REGNAME(spm, 0xEFC, MFG17_PWR_CON),
+	REGNAME(spm, 0xF00, MFG18_PWR_CON),
+	REGNAME(spm, 0xF08, EMI_HRE_SRAM_CON),
 	/* VLPCFG_BUS register */
 	REGNAME(vlpcfg, 0x0210, VLP_TOPAXI_PROTECTEN),
 	REGNAME(vlpcfg, 0x0220, VLP_TOPAXI_PROTECTEN_STA1),
@@ -282,15 +297,19 @@ static struct regname rn[] = {
 	/* CAM_MAIN_R1A register */
 	REGNAME(cam_m, 0x0, CAM_MAIN_CG),
 	/* CAMSYS_RAWA register */
-	REGNAME(cam_ra, 0x0, CAMSYS_CG),
+	REGNAME(cam_ra, 0x0, CAMSYS_RA_CG),
 	/* CAMSYS_YUVA register */
-	REGNAME(cam_ya, 0x0, CAMSYS_CG),
+	REGNAME(cam_ya, 0x0, CAMSYS_YA_CG),
 	/* CAMSYS_RAWB register */
-	REGNAME(cam_rb, 0x0, CAMSYS_CG),
+	REGNAME(cam_rb, 0x0, CAMSYS_RB_CG),
 	/* CAMSYS_YUVB register */
-	REGNAME(cam_yb, 0x0, CAMSYS_CG),
+	REGNAME(cam_yb, 0x0, CAMSYS_YB_CG),
+	/* CAMSYS_RAWC register */
+	REGNAME(cam_rc, 0x0, CAMSYS_RC_CG),
+	/* CAMSYS_YUVC register */
+	REGNAME(cam_yc, 0x0, CAMSYS_YC_CG),
 	/* CAMSYS_MRAW register */
-	REGNAME(cam_mr, 0x0, CAMSYS_CG),
+	REGNAME(cam_mr, 0x0, CAMSYS_MR_CG),
 	/* CCU_MAIN register */
 	REGNAME(ccu, 0x0, CCUSYS_CG),
 	/* AFE register */
@@ -332,7 +351,6 @@ static u32 pwr_ofs[STA_NUM] = {
 	[PWR_STA2] = 0xF38,
 	[XPU_PWR_STA] = 0xF3C,
 	[XPU_PWR_STA2] = 0xF40,
-	[OTHER_STA] = 0x414,
 };
 
 static u32 pwr_sta[STA_NUM];
@@ -379,10 +397,6 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"gce_m", PWR_STA, 0x08000000},
 	{"gpu_eb_rpc", XPU_PWR_STA, 0x00000004},
 	{"imgsys_main", PWR_STA, 0x00000200},
-	{"imp_iic_wrap_c", PWR_STA, 0x00000000},
-	{"imp_iic_wrap_e", PWR_STA, 0x00000000},
-	{"imp_iic_wrap_en", PWR_STA, 0x00000000},
-	{"imp_iic_wrap_w", PWR_STA, 0x00000000},
 	{"infracfg", PWR_STA, 0x00000000},
 	{"infracfg_ao", PWR_STA, 0x00000000},
 	{"ipesys", PWR_STA, 0x00000800},
