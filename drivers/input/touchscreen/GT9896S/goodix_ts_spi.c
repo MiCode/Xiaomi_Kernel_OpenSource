@@ -1549,8 +1549,6 @@ static int gt9896s_spi_probe(struct spi_device *spi)
 		goto err_pdriver;
 	}
 
-	gt9896s_fwu_module_init(NULL);
-
 	ts_info("%s OUT", __func__);
 	return r;
 

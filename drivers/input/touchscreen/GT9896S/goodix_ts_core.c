@@ -57,10 +57,9 @@ EXPORT_SYMBOL_GPL(ts_core_for_tui);
  * __do_register_ext_module - register external module
  * to register into touch core modules structure
  */
-static void  __do_register_ext_module(struct work_struct *work)
+static void  __do_register_ext_module(struct gt9896s_ext_module *gt_module)
 {
-	struct gt9896s_ext_module *module =
-			container_of(work, struct gt9896s_ext_module, work);
+	struct gt9896s_ext_module *module = gt_module;
 	struct gt9896s_ext_module *ext_module, *next;
 	struct list_head *insert_point = &gt9896s_modules.head;
 
@@ -161,8 +160,7 @@ int gt9896s_register_ext_module(struct gt9896s_ext_module *module)
 
 	ts_info("gt9896s_register_ext_module IN");
 
-	INIT_WORK(&module->work, __do_register_ext_module);
-	schedule_work(&module->work);
+	__do_register_ext_module(module);
 
 	ts_info("gt9896s_register_ext_module OUT");
 
@@ -2185,7 +2183,7 @@ static int gt9896s_ts_probe(struct platform_device *pdev)
 
 	r = gt9896s_ts_power_init(core_data);
 	if (r < 0)
-		goto out;
+		goto err_init;
 
 	r = gt9896s_ts_power_on(core_data);
 	if (r < 0)
@@ -2222,13 +2220,6 @@ static int gt9896s_ts_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* Try start a thread to get config-bin info */
-	r = gt9896s_start_later_init(core_data);
-	if (r) {
-		ts_info("Failed start cfg_bin_proc");
-		goto err;
-	}
-
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	ts_info("TP power_on reset!\n");
 	ts_core = core_data;
@@ -2246,7 +2237,21 @@ static int gt9896s_ts_probe(struct platform_device *pdev)
 	/* generic notifier callback */
 	core_data->ts_notifier.notifier_call = gt9896s_generic_noti_callback;
 	gt9896s_ts_register_notifier(&core_data->ts_notifier);
-	goto out;
+
+	core_data->initialized = 1;
+	gt9896s_modules.core_data = core_data;
+	ts_info("core_data->initialized = %d", core_data->initialized);
+	gt9896s_fwu_module_init(NULL);
+	/* Try start a thread to get config-bin info */
+	r = gt9896s_start_later_init(core_data);
+	if (r) {
+		ts_info("Failed start cfg_bin_proc");
+		goto err;
+	}
+	ts_info("core probe OUT");
+	/* wakeup ext module register work */
+	complete_all(&gt9896s_modules.core_comp);
+	return 0;
 
 err:
 	if (core_data->pinctrl)
@@ -2256,7 +2261,7 @@ err:
 regulator_err:
 	gt9896s_ts_power_off(core_data);
 	regulator_put(core_data->avdd);
-out:
+err_init:
 	if (r) {
 		core_data->initialized = 0;
 		core_data = NULL;
