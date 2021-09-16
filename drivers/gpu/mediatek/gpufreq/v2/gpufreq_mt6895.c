@@ -2343,7 +2343,7 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	/*
 	 * [SPM] pwr_status    : 0x10006F3C
 	 * [SPM] pwr_status_2nd: 0x10006F40
-	 * Power ON: 0001 1111 1111 1110 (0x1FFE)
+	 * Power ON: 0001 1111 1111 1110 (0x3FFE)
 	 * [13:1]: MFG0-12
 	 */
 	GPUFREQ_LOGI("[GPU]     MALI_ID:    0x%08x, MFG_TOP_CONFIG: 0x%08x",
@@ -2355,12 +2355,6 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		__gpufreq_get_real_fgpu(), mfg_sel_0, mfg_ref_sel);
 	GPUFREQ_LOGI("[STACK] CON1: %d, MFG_SEL_1: 0x%08x, MFGSC_REF_SEL: 0x%08x",
 		__gpufreq_get_real_fstack(), mfg_sel_1, mfgsc_ref_sel);
-	GPUFREQ_LOGI("[TOP] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
-		__gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu(),
-		__gpufreq_get_fmeter_main_fgpu(), __gpufreq_get_fmeter_sub_fgpu());
-	GPUFREQ_LOGI("[STACK] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
-		__gpufreq_get_fmeter_fstack(), __gpufreq_get_real_fstack(),
-		__gpufreq_get_fmeter_main_fstack(), __gpufreq_get_fmeter_sub_fstack());
 
 done:
 	return;
