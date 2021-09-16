@@ -16,7 +16,11 @@
  * Deprecated ABI compatibility, this should be removed at some point
  */
 
+#if defined(CONFIG_MTK_PRINTK_DEBUG)
+#define nvram_warning "Deprecated ABI, please use nvmem"
+#else
 static const char nvram_warning[] = "Deprecated ABI, please use nvmem";
+#endif
 
 static ssize_t
 rtc_nvram_read(struct file *filp, struct kobject *kobj,
