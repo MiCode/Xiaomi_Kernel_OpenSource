@@ -98,8 +98,9 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
-			vmalloc=400M swiotlb=noforce \
+			vmalloc=400M swiotlb=noforce cma=64M \
 			firmware_class.path=/vendor/firmware ";
+		kaslr-seed = <0 0>;
 	};
 
 	cpus {
