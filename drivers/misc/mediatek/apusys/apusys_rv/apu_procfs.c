@@ -12,6 +12,7 @@
 #include <linux/slab.h>
 
 #include "apu.h"
+#include "apu_regdump.h"
 
 static struct platform_device *g_apu_pdev;
 
@@ -25,7 +26,6 @@ static struct proc_dir_entry *procfs_root;
 
 static struct apusys_rv_seq_data *p_seqdata_coredump;
 static struct apusys_rv_seq_data *p_seqdata_xfile;
-static struct apusys_rv_seq_data *p_seqdata_regdump;
 
 static void *coredump_seq_start(struct seq_file *s, loff_t *pos)
 {
@@ -149,59 +149,36 @@ static int xfile_seq_show(struct seq_file *s, void *v)
 	return 0;
 }
 
-/* TODO: add regdump base and len */
-static void *regdump_seq_start(struct seq_file *s, loff_t *pos)
-{
-	if (p_seqdata_regdump == NULL) {
-		p_seqdata_regdump = kzalloc(sizeof(struct apusys_rv_seq_data),
-			GFP_KERNEL);
-		if (!p_seqdata_regdump)
-			return NULL;
-
-		p_seqdata_regdump->len = 0;
-		p_seqdata_regdump->i = 0;
-		p_seqdata_regdump->base = NULL;
-	} else if (p_seqdata_regdump->i >= p_seqdata_regdump->len) {
-		kfree(p_seqdata_regdump);
-		p_seqdata_regdump = NULL;
-		return NULL;
-	}
-
-	return p_seqdata_regdump;
-}
-
-static void *regdump_seq_next(struct seq_file *s, void *v, loff_t *pos)
-{
-	struct apusys_rv_seq_data *pSData = v;
-
-	if (pSData == NULL) {
-		dev_info(&g_apu_pdev->dev, "%s: pSData == NULL\n", __func__);
-		return NULL;
-	}
-
-	pSData->i = pSData->i + PAGE_SIZE;
-
-	/* prevent kernel warning */
-	*pos = pSData->i;
-
-	if (pSData->i >= pSData->len)
-		return NULL;
-
-	return v;
-}
-
-static void regdump_seq_stop(struct seq_file *s, void *v)
-{
-}
-
 static int regdump_seq_show(struct seq_file *s, void *v)
 {
-	struct apusys_rv_seq_data *pSData = v;
+	struct mtk_apu *apu = NULL;
+	struct mtk_apu_hw_configs *configs = NULL;
+	const struct regdump_region_info *info = NULL;
+	void *base_va = NULL;
+	uint32_t region_num = 0;
+	unsigned int region_offset = 0;
+	int i;
 
-	if (pSData->i + PAGE_SIZE <= pSData->len)
-		seq_write(s, pSData->base + pSData->i, PAGE_SIZE);
-	else
-		seq_write(s, pSData->base + pSData->i, pSData->len - pSData->i);
+	apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
+	configs = &apu->platdata->configs;
+
+	info = configs->apu_regdump.region_info;
+	if (info == NULL) {
+		dev_info(&g_apu_pdev->dev, "%s: region_info == NULL\n", __func__);
+		return 0;
+	}
+
+	region_num = configs->apu_regdump.region_num;
+	base_va = apu->apu_aee_coredump_mem_base +
+		apu->apusys_aee_coredump_info->regdump_ofs;
+
+	for (i = 0; i < region_num; i++) {
+		seq_printf(s, "---- dump %s from 0x%x to 0x%x ----\n",
+			info[i].name, info[i].start, info[i].start + info[i].size);
+		seq_hex_dump(s, "", DUMP_PREFIX_OFFSET, 16, 4,
+			(void *)(base_va + region_offset), info[i].size, false);
+		region_offset += info[i].size;
+	}
 
 	return 0;
 }
@@ -220,13 +197,6 @@ static const struct seq_operations xfile_seq_ops = {
 	.show  = xfile_seq_show
 };
 
-static const struct seq_operations regdump_seq_ops = {
-	.start = regdump_seq_start,
-	.next  = regdump_seq_next,
-	.stop  = regdump_seq_stop,
-	.show  = regdump_seq_show
-};
-
 static int coredump_sqopen(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &coredump_seq_ops);
@@ -239,7 +209,12 @@ static int xfile_sqopen(struct inode *inode, struct file *file)
 
 static int regdump_sqopen(struct inode *inode, struct file *file)
 {
-	return seq_open(file, &regdump_seq_ops);
+	uint8_t is_do_regdump = 0;
+
+	if (is_do_regdump)
+		apu_regdump();
+
+	return single_open(file, regdump_seq_show, NULL);
 }
 
 static const struct proc_ops coredump_file_ops = {
@@ -260,7 +235,7 @@ static const struct proc_ops regdump_file_ops = {
 	.proc_open		= regdump_sqopen,
 	.proc_read		= seq_read,
 	.proc_lseek		= seq_lseek,
-	.proc_release	= seq_release
+	.proc_release	= single_release
 };
 
 int apu_procfs_init(struct platform_device *pdev)
@@ -305,7 +280,7 @@ int apu_procfs_init(struct platform_device *pdev)
 			ret);
 		goto out;
 	}
-
+	apu_regdump_init(pdev);
 out:
 	return ret;
 }

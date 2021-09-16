@@ -9,7 +9,6 @@
 #include <linux/sched/clock.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
-#include <linux/kernel.h>
 
 #include "mt-plat/aee.h"
 
@@ -39,12 +38,12 @@ static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
 	return res.a0;
 }
 
-static int mt6983_rproc_init(struct mtk_apu *apu)
+static int mt6879_rproc_init(struct mtk_apu *apu)
 {
 	return 0;
 }
 
-static int mt6983_rproc_exit(struct mtk_apu *apu)
+static int mt6879_rproc_exit(struct mtk_apu *apu)
 {
 	return 0;
 }
@@ -240,7 +239,7 @@ static void apu_start_mp(struct mtk_apu *apu)
 	}
 }
 
-static int mt6983_rproc_start(struct mtk_apu *apu)
+static int mt6879_rproc_start(struct mtk_apu *apu)
 {
 	int ns = 1; /* Non Secure */
 	int domain = 0;
@@ -259,7 +258,7 @@ static int mt6983_rproc_start(struct mtk_apu *apu)
 	return 0;
 }
 
-static int mt6983_rproc_stop(struct mtk_apu *apu)
+static int mt6879_rproc_stop(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 
@@ -273,7 +272,7 @@ static int mt6983_rproc_stop(struct mtk_apu *apu)
 	return 0;
 }
 
-static int mt6983_apu_power_init(struct mtk_apu *apu)
+static int mt6879_apu_power_init(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 	struct device_node *np;
@@ -331,35 +330,10 @@ static int mt6983_apu_power_init(struct mtk_apu *apu)
 	of_node_put(np);
 
 
-	/* apu iommu 1 */
-	np = of_parse_phandle(dev->of_node, "apu_iommu1", 0);
-	if (!np) {
-		dev_info(dev, "failed to parse apu_iommu1 node\n");
-		return -EINVAL;
-	}
-
-	if (!of_device_is_available(np)) {
-		dev_info(dev, "unable to find apu_iommu1 node\n");
-		of_node_put(np);
-		return -ENODEV;
-	}
-
-	pdev = of_find_device_by_node(np);
-	if (!pdev) {
-		dev_info(dev, "apu_iommu1 is not ready yet\n");
-		of_node_put(np);
-		return -EPROBE_DEFER;
-	}
-
-	dev_info(dev, "%s: get apu_iommu1 device, name=%s\n", __func__, pdev->name);
-
-	apu->apu_iommu1 = &pdev->dev;
-	of_node_put(np);
-
 	return 0;
 }
 
-static int mt6983_apu_power_on(struct mtk_apu *apu)
+static int mt6879_apu_power_on(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 	int ret, timeout;
@@ -376,14 +350,6 @@ static int mt6983_apu_power_on(struct mtk_apu *apu)
 
 	/* to notify IOMMU power on */
 	ret = pm_runtime_get_sync(apu->apu_iommu0);
-	if (ret < 0)
-		goto iommu_get_error;
-
-	ret = pm_runtime_get_sync(apu->apu_iommu1);
-	if (ret < 0)
-		pm_runtime_put_sync(apu->apu_iommu0);
-
-iommu_get_error:
 	if (ret < 0) {
 		dev_info(apu->dev,
 			 "%s: call to get_sync(iommu) failed, ret=%d\n",
@@ -395,8 +361,7 @@ iommu_get_error:
 	/* polling IOMMU rpm state till active */
 	dev_info(apu->dev, "start polling iommu on\n");
 	timeout = 5000;
-	while ((!pm_runtime_active(apu->apu_iommu0) ||
-	       !pm_runtime_active(apu->apu_iommu1)) && timeout-- > 0)
+	while (!pm_runtime_active(apu->apu_iommu0) && timeout-- > 0)
 		msleep(20);
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling iommu on timeout!!\n",
@@ -420,16 +385,16 @@ iommu_get_error:
 	return 0;
 
 error_put_iommu_dev:
-	pm_runtime_put_sync(apu->apu_iommu1);
 	pm_runtime_put_sync(apu->apu_iommu0);
 
 error_put_power_dev:
 	pm_runtime_put_sync(apu->power_dev);
 
 	return ret;
+
 }
 
-static int mt6983_apu_power_off(struct mtk_apu *apu)
+static int mt6879_apu_power_off(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
 	int ret, timeout;
@@ -445,15 +410,7 @@ static int mt6983_apu_power_off(struct mtk_apu *apu)
 
 
 	/* to notify IOMMU power off */
-	ret = pm_runtime_put_sync(apu->apu_iommu1);
-	if (ret < 0)
-		goto iommu_put_error;
-
 	ret = pm_runtime_put_sync(apu->apu_iommu0);
-	if (ret < 0)
-		pm_runtime_get_sync(apu->apu_iommu1);
-
-iommu_put_error:
 	if (ret < 0) {
 		dev_info(apu->dev,
 			 "%s: call to put_sync(iommu) failed, ret=%d\n",
@@ -465,8 +422,7 @@ iommu_put_error:
 	/* polling IOMMU rpm state till suspended */
 	dev_info(apu->dev, "start polling iommu off\n");
 	timeout = 5000;
-	while ((!pm_runtime_suspended(apu->apu_iommu0) ||
-	       !pm_runtime_suspended(apu->apu_iommu1)) && timeout-- > 0)
+	while (!pm_runtime_suspended(apu->apu_iommu0) && timeout-- > 0)
 		msleep(20);
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling iommu off timeout!!\n",
@@ -514,14 +470,13 @@ error_get_power_dev:
 	pm_runtime_get_sync(apu->power_dev);
 error_get_iommu_dev:
 	pm_runtime_get_sync(apu->apu_iommu0);
-	pm_runtime_get_sync(apu->apu_iommu1);
 error_get_rv_dev:
 	pm_runtime_get_sync(apu->dev);
 
 	return ret;
 }
 
-static int mt6983_apu_memmap_init(struct mtk_apu *apu)
+static int mt6879_apu_memmap_init(struct mtk_apu *apu)
 {
 	struct platform_device *pdev = apu->pdev;
 	struct device *dev = apu->dev;
@@ -621,21 +576,21 @@ static int mt6983_apu_memmap_init(struct mtk_apu *apu)
 	return 0;
 }
 
-static void mt6983_apu_memmap_remove(struct mtk_apu *apu)
+static void mt6879_apu_memmap_remove(struct mtk_apu *apu)
 {
 }
 
-static void mt6983_rv_cg_gating(struct mtk_apu *apu)
+static void mt6879_rv_cg_gating(struct mtk_apu *apu)
 {
 	iowrite32(0x0, apu->md32_sysctrl + MD32_CLK_EN);
 }
 
-static void mt6983_rv_cg_ungating(struct mtk_apu *apu)
+static void mt6879_rv_cg_ungating(struct mtk_apu *apu)
 {
 	iowrite32(0x1, apu->md32_sysctrl + MD32_CLK_EN);
 }
 
-static void mt6983_rv_cachedump(struct mtk_apu *apu)
+static void mt6879_rv_cachedump(struct mtk_apu *apu)
 {
 	int offset;
 	unsigned long flags;
@@ -660,43 +615,26 @@ static void mt6983_rv_cachedump(struct mtk_apu *apu)
 	spin_unlock_irqrestore(&apu->reg_lock, flags);
 }
 
-static const struct regdump_region_info mt6983_apu_regdump[] = {
-	{"APU_MD32_SYSCTRL", 0x19001000, 0x848},
-	{"APU_RCX_AO_CTRL",  0x190f2000, 0x314},
-	{"APU_MD32_WDT",     0x19002000, 0x10},
-	{"APU0_IOMMU_BANK0", 0x19010000, 0xB88},
-	{"APU0_IOMMU_BANK1", 0x19011000, 0x158},
-	{"APU0_IOMMU_BANK2", 0x19012000, 0x158},
-	{"APU0_IOMMU_BANK3", 0x19013000, 0x158},
-	{"APU0_IOMMU_BANK4", 0x19014000, 0xF14},
-	{"APU1_IOMMU_BANK0", 0x19015000, 0xB88},
-	{"APU1_IOMMU_BANK1", 0x19016000, 0x158},
-	{"APU1_IOMMU_BANK2", 0x19017000, 0x158},
-	{"APU1_IOMMU_BANK3", 0x19018000, 0x158},
-	{"APU1_IOMMU_BANK4", 0x19019000, 0xF14},
-};
-
-const struct mtk_apu_platdata mt6983_platdata = {
-	.flags		= F_PRELOAD_FIRMWARE | F_AUTO_BOOT |
-					F_SECURE_BOOT | F_SECURE_COREDUMP,
+const struct mtk_apu_platdata mt6879_platdata = {
+	.flags		= F_PRELOAD_FIRMWARE | F_AUTO_BOOT,
 	.ops		= {
-		.init	= mt6983_rproc_init,
-		.exit	= mt6983_rproc_exit,
-		.start	= mt6983_rproc_start,
-		.stop	= mt6983_rproc_stop,
-		.apu_memmap_init = mt6983_apu_memmap_init,
-		.apu_memmap_remove = mt6983_apu_memmap_remove,
-		.cg_gating = mt6983_rv_cg_gating,
-		.cg_ungating = mt6983_rv_cg_ungating,
-		.rv_cachedump = mt6983_rv_cachedump,
-		.power_init = mt6983_apu_power_init,
-		.power_on = mt6983_apu_power_on,
-		.power_off = mt6983_apu_power_off,
+		.init	= mt6879_rproc_init,
+		.exit	= mt6879_rproc_exit,
+		.start	= mt6879_rproc_start,
+		.stop	= mt6879_rproc_stop,
+		.apu_memmap_init = mt6879_apu_memmap_init,
+		.apu_memmap_remove = mt6879_apu_memmap_remove,
+		.cg_gating = mt6879_rv_cg_gating,
+		.cg_ungating = mt6879_rv_cg_ungating,
+		.rv_cachedump = mt6879_rv_cachedump,
+		.power_init = mt6879_apu_power_init,
+		.power_on = mt6879_apu_power_on,
+		.power_off = mt6879_apu_power_off,
 	},
 	.configs	= {
 		.apu_regdump = {
-			.region_info = mt6983_apu_regdump,
-			.region_num = ARRAY_SIZE(mt6983_apu_regdump),
+			.region_info = NULL,
+			.region_num = 0,
 		},
 	},
 };

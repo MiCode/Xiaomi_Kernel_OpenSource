@@ -480,4 +480,10 @@ const struct mtk_apu_platdata mt6895_platdata = {
 		.power_on = mt6895_apu_power_on,
 		.power_off = mt6895_apu_power_off,
 	},
+	.configs        = {
+		.apu_regdump = {
+			.region_info = NULL,
+			.region_num = 0,
+		},
+	},
 };
