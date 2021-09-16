@@ -198,6 +198,7 @@ static int logmuch_dump_thread(void *arg)
 				break;
 			memset((char *)log_much, 0, log_much_len);
 			kmsg_dump_rewind(&dumper);
+			dumper.cur_seq = last_seq;
 			kmsg_dump_get_buffer(&dumper, true, (char *)log_much,
 								 log_much_len, &len);
 			memset(aee_str, 0, 63);
