@@ -263,6 +263,7 @@ const char * const *get_mt6895_all_clk_names(void)
 
 		/* ufs_pdn_cfg */
 		"ufspdn_u_0_hciufs",
+		"ufspdn_u_0_hciaes",
 		"ufspdn_u_0_hciahb",
 		"ufspdn_u_0_hciaxi",
 
