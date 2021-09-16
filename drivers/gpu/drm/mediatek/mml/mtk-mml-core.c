@@ -422,6 +422,10 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 
 	mml_clock_lock(task->config->mml);
 
+	mml_trace_ex_begin("%s_%s_%u", __func__, "cmdq", pipe);
+	cmdq_mbox_enable(((struct cmdq_client *)task->pkts[pipe]->cl)->chan);
+	mml_trace_ex_end();
+
 	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
@@ -481,6 +485,10 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 		comp = path->nodes[i].comp;
 		call_hw_op(comp, pw_disable);
 	}
+	mml_trace_ex_end();
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "cmdq", pipe);
+	cmdq_mbox_disable(((struct cmdq_client *)task->pkts[pipe]->cl)->chan);
 	mml_trace_ex_end();
 
 	mml_clock_unlock(task->config->mml);
