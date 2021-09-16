@@ -1095,9 +1095,9 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 				return HRTIMER_NORESTART;
 			} else if (state_entry->estate == E_STATE_CAMMUX_OUTER_CFG) {
 				state_entry->estate = E_STATE_CAMMUX_OUTER_CFG_DELAY;
+				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 				dev_dbg(ctx->cam->dev,
 					"[TimerIRQ] CAMMUX OUTTER CFG DELAY STATE\n");
-				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 				return HRTIMER_NORESTART;
 
 			} else if (state_entry->estate <= E_STATE_SENSOR) {
@@ -2230,6 +2230,7 @@ static void mtk_camsys_raw_m2m_cq_done(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_entry;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	unsigned long flags;
 
 	if (frame_seq_no_outer == 1)
 		stream_on(raw_dev, 1);
@@ -2238,7 +2239,7 @@ static void mtk_camsys_raw_m2m_cq_done(struct mtk_raw_device *raw_dev,
 		"[M2M CQD] frame_seq_no_outer:%d composed_buffer_list.cnt:%d\n",
 		frame_seq_no_outer, ctx->composed_buffer_list.cnt);
 
-	spin_lock(&sensor_ctrl->camsys_state_lock);
+	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
 			    state_element) {
 		req = mtk_cam_ctrl_state_get_req(state_entry);
@@ -2261,7 +2262,7 @@ static void mtk_camsys_raw_m2m_cq_done(struct mtk_raw_device *raw_dev,
 			}
 		}
 	}
-	spin_unlock(&sensor_ctrl->camsys_state_lock);
+	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 }
 
 static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
@@ -2273,6 +2274,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int i, type;
+	unsigned long flags;
 
 	/* initial CQ done */
 	if (raw_dev->sof_count == 0) {
@@ -2308,7 +2310,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 	/* Legacy CQ done will be always happened at frame done */
-	spin_lock(&sensor_ctrl->camsys_state_lock);
+	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
 			    state_element) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_entry);
@@ -2372,7 +2374,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			}
 		}
 	}
-	spin_unlock(&sensor_ctrl->camsys_state_lock);
+	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 }
 
 static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
@@ -2384,13 +2386,14 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_entry;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	unsigned long flags;
 
 	if (!(raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_OFFLINE_M2M_MASK))
 		return;
 
 	trigger_rawi(raw_dev, ctx);
 
-	spin_lock(&sensor_ctrl->camsys_state_lock);
+	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
 			    state_element) {
 		req = mtk_cam_ctrl_state_get_req(state_entry);
@@ -2410,7 +2413,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 				frame_seq_no_outer);
 		}
 	}
-	spin_unlock(&sensor_ctrl->camsys_state_lock);
+	spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 
 }
 
