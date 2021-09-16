@@ -285,19 +285,25 @@ static const struct mml_comp_tile_ops tdshp_tile_ops = {
 	.prepare = tdshp_tile_prepare,
 };
 
+static void tdshp_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
+			       bool is_start)
+{
+	if (is_start) {
+		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0x1, 0x00000001);
+		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x2, 0x00000002);
+
+		/* Enable shadow */
+		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_SHADOW_CTRL, 0x2, U32_MAX);
+	} else {
+		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0x0, 0x00000001);
+		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x0, 0x00000002);
+	}
+}
+
 static s32 tdshp_init(struct mml_comp *comp, struct mml_task *task,
 		      struct mml_comp_config *ccfg)
 {
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 1, 0x00000001);
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x2, 0x00000002);
-
-	/* Enable shadow */
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_SHADOW_CTRL, 0x2, U32_MAX);
-
-	/* reset luma hist */
+	tdshp_start_config(task->pkts[ccfg->pipe], comp->base_pa, true);
 	return 0;
 }
 
@@ -475,45 +481,33 @@ static const struct mml_comp_debug_ops tdshp_debug_ops = {
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_tdshp *tdshp = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 ret = -1, temp;
+	struct drm_device *drm_dev = data;
+	s32 ret;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		ret = mml_register_comp(master, &tdshp->comp);
 		if (ret)
 			dev_err(dev, "Failed to register mml component %s: %d\n",
 				dev->of_node->full_name, ret);
 	} else {
-		drm_dev = data;
 		ret = mml_ddp_comp_register(drm_dev, &tdshp->ddp_comp);
-		if (ret < 0)
+		if (ret)
 			dev_err(dev, "Failed to register ddp component %s: %d\n",
 				dev->of_node->full_name, ret);
 		else
 			tdshp->ddp_bound = true;
 	}
-
 	return ret;
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_tdshp *tdshp = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 temp;
+	struct drm_device *drm_dev = data;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		mml_unregister_comp(master, &tdshp->comp);
 	} else {
-		drm_dev = data;
 		mml_ddp_comp_unregister(drm_dev, &tdshp->ddp_comp);
 		tdshp->ddp_bound = false;
 	}
@@ -524,6 +518,55 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
+static inline struct mml_comp_tdshp *ddp_comp_to_tdshp(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_comp_tdshp, ddp_comp);
+}
+
+static void tdshp_addon_config(struct mtk_ddp_comp *ddp_comp,
+			       enum mtk_ddp_comp_id prev,
+			       enum mtk_ddp_comp_id next,
+			       union mtk_addon_config *addon_config,
+			       struct cmdq_pkt *pkt)
+{
+	const phys_addr_t base_pa = ddp_comp_to_tdshp(ddp_comp)->comp.base_pa;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x1, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_00, 0x80000000, 0x80000000);
+}
+
+static void tdshp_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	tdshp_start_config(pkt, ddp_comp_to_tdshp(ddp_comp)->comp.base_pa, true);
+}
+
+static void tdshp_stop(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	tdshp_start_config(pkt, ddp_comp_to_tdshp(ddp_comp)->comp.base_pa, false);
+}
+
+static void tdshp_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_tdshp(ddp_comp)->comp;
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void tdshp_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_tdshp(ddp_comp)->comp;
+
+	comp->hw_ops->clk_disable(comp);
+}
+
+static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
+	.addon_config = tdshp_addon_config,
+	.start = tdshp_start,
+	.stop = tdshp_stop,
+	.prepare = tdshp_ddp_prepare,
+	.unprepare = tdshp_ddp_unprepare,
+};
+
 static struct mml_comp_tdshp *dbg_probed_components[4];
 static int dbg_probed_count;
 
@@ -532,6 +575,7 @@ static int probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mml_comp_tdshp *priv;
 	s32 ret;
+	bool add_ddp = true;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -551,10 +595,18 @@ static int probe(struct platform_device *pdev)
 	priv->comp.config_ops = &tdshp_cfg_ops;
 	priv->comp.debug_ops = &tdshp_debug_ops;
 
+	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
+				&ddp_comp_funcs);
+	if (ret) {
+		mml_log("failed to init ddp component: %d", ret);
+		add_ddp = false;
+	}
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
-	ret = component_add(dev, &mml_comp_ops);
+	if (add_ddp)
+		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 

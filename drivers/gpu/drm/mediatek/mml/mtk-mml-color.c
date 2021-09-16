@@ -242,12 +242,8 @@ static const struct mml_comp_tile_ops color_tile_ops = {
 	.prepare = color_tile_prepare,
 };
 
-static s32 color_init(struct mml_comp *comp, struct mml_task *task,
-		      struct mml_comp_config *ccfg)
+static void color_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 {
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-
 	/* relay mode */
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 3, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM1_EN, 0, 0x00000001);
@@ -256,6 +252,12 @@ static s32 color_init(struct mml_comp *comp, struct mml_task *task,
 
 	/* Enable shadow */
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_SHADOW_CTRL, 0x2, U32_MAX);
+}
+
+static s32 color_init(struct mml_comp *comp, struct mml_task *task,
+		      struct mml_comp_config *ccfg)
+{
+	color_start_config(task->pkts[ccfg->pipe], comp->base_pa);
 	return 0;
 }
 
@@ -392,45 +394,33 @@ static const struct mml_comp_debug_ops color_debug_ops = {
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_color *color = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 ret = -1, temp;
+	struct drm_device *drm_dev = data;
+	s32 ret;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		ret = mml_register_comp(master, &color->comp);
 		if (ret)
 			dev_err(dev, "Failed to register mml component %s: %d\n",
 				dev->of_node->full_name, ret);
 	} else {
-		drm_dev = data;
 		ret = mml_ddp_comp_register(drm_dev, &color->ddp_comp);
-		if (ret < 0)
+		if (ret)
 			dev_err(dev, "Failed to register ddp component %s: %d\n",
 				dev->of_node->full_name, ret);
 		else
 			color->ddp_bound = true;
 	}
-
 	return ret;
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_color *color = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 temp;
+	struct drm_device *drm_dev = data;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		mml_unregister_comp(master, &color->comp);
 	} else {
-		drm_dev = data;
 		mml_ddp_comp_unregister(drm_dev, &color->ddp_comp);
 		color->ddp_bound = false;
 	}
@@ -441,6 +431,48 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
+static inline struct mml_comp_color *ddp_comp_to_color(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_comp_color, ddp_comp);
+}
+
+static void color_addon_config(struct mtk_ddp_comp *ddp_comp,
+			       enum mtk_ddp_comp_id prev,
+			       enum mtk_ddp_comp_id next,
+			       union mtk_addon_config *addon_config,
+			       struct cmdq_pkt *pkt)
+{
+	const phys_addr_t base_pa = ddp_comp_to_color(ddp_comp)->comp.base_pa;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 0x3, 0x00000003);
+}
+
+static void color_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	color_start_config(pkt, ddp_comp_to_color(ddp_comp)->comp.base_pa);
+}
+
+static void color_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_color(ddp_comp)->comp;
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void color_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_color(ddp_comp)->comp;
+
+	comp->hw_ops->clk_disable(comp);
+}
+
+static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
+	.addon_config = color_addon_config,
+	.start = color_start,
+	.prepare = color_ddp_prepare,
+	.unprepare = color_ddp_unprepare,
+};
+
 static struct mml_comp_color *dbg_probed_components[2];
 static int dbg_probed_count;
 
@@ -449,6 +481,7 @@ static int probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mml_comp_color *priv;
 	s32 ret;
+	bool add_ddp = true;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -468,10 +501,18 @@ static int probe(struct platform_device *pdev)
 	priv->comp.config_ops = &color_cfg_ops;
 	priv->comp.debug_ops = &color_debug_ops;
 
+	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
+				&ddp_comp_funcs);
+	if (ret) {
+		mml_log("failed to init ddp component: %d", ret);
+		add_ddp = false;
+	}
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
-	ret = component_add(dev, &mml_comp_ops);
+	if (add_ddp)
+		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 

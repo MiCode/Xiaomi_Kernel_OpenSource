@@ -267,16 +267,24 @@ static u32 hdr_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	return HDR_CURVE_NUM;
 }
 
+static void hdr_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
+			     bool is_start)
+{
+	if (is_start) {
+		/* Enable engine and shadow */
+		cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x100001, 0x00308001);
+	} else {
+		/* Disable engine */
+		cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x0, 0x00000001);
+	}
+}
+
 static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg)
 {
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
-	/* Enable engine and shadow */
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x100001, 0x00308001);
+	hdr_start_config(task->pkts[ccfg->pipe], comp->base_pa, true);
 	return 0;
 }
 
@@ -316,11 +324,11 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	if (!dest->pq_config.en_hdr) {
 		/* relay mode */
-		cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, 0x00000001);
+		cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, U32_MAX);
 		return ret;
 	}
 
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x0, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x0, U32_MAX);
 
 	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -600,45 +608,33 @@ static const struct mml_comp_debug_ops hdr_debug_ops = {
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_hdr *hdr = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 ret = -1, temp;
+	struct drm_device *drm_dev = data;
+	s32 ret;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		ret = mml_register_comp(master, &hdr->comp);
 		if (ret)
 			dev_err(dev, "Failed to register mml component %s: %d\n",
 				dev->of_node->full_name, ret);
 	} else {
-		drm_dev = data;
 		ret = mml_ddp_comp_register(drm_dev, &hdr->ddp_comp);
-		if (ret < 0)
+		if (ret)
 			dev_err(dev, "Failed to register ddp component %s: %d\n",
 				dev->of_node->full_name, ret);
 		else
 			hdr->ddp_bound = true;
 	}
-
 	return ret;
 }
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_comp_hdr *hdr = dev_get_drvdata(dev);
-	struct drm_device *drm_dev = NULL;
-	bool mml_master = false;
-	s32 temp;
+	struct drm_device *drm_dev = data;
 
-	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
-		mml_master = true;
-
-	if (mml_master) {
+	if (!drm_dev) {
 		mml_unregister_comp(master, &hdr->comp);
 	} else {
-		drm_dev = data;
 		mml_ddp_comp_unregister(drm_dev, &hdr->ddp_comp);
 		hdr->ddp_bound = false;
 	}
@@ -649,6 +645,54 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
+static inline struct mml_comp_hdr *ddp_comp_to_hdr(struct mtk_ddp_comp *ddp_comp)
+{
+	return container_of(ddp_comp, struct mml_comp_hdr, ddp_comp);
+}
+
+static void hdr_addon_config(struct mtk_ddp_comp *ddp_comp,
+			     enum mtk_ddp_comp_id prev,
+			     enum mtk_ddp_comp_id next,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
+{
+	const phys_addr_t base_pa = ddp_comp_to_hdr(ddp_comp)->comp.base_pa;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, U32_MAX);
+}
+
+static void hdr_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	hdr_start_config(pkt, ddp_comp_to_hdr(ddp_comp)->comp.base_pa, true);
+}
+
+static void hdr_stop(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	hdr_start_config(pkt, ddp_comp_to_hdr(ddp_comp)->comp.base_pa, false);
+}
+
+static void hdr_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_hdr(ddp_comp)->comp;
+
+	comp->hw_ops->clk_enable(comp);
+}
+
+static void hdr_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_comp *comp = &ddp_comp_to_hdr(ddp_comp)->comp;
+
+	comp->hw_ops->clk_disable(comp);
+}
+
+static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
+	.addon_config = hdr_addon_config,
+	.start = hdr_start,
+	.stop = hdr_stop,
+	.prepare = hdr_ddp_prepare,
+	.unprepare = hdr_ddp_unprepare,
+};
+
 static struct mml_comp_hdr *dbg_probed_components[2];
 static int dbg_probed_count;
 
@@ -657,6 +701,7 @@ static int probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mml_comp_hdr *priv;
 	s32 ret;
+	bool add_ddp = true;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -677,10 +722,18 @@ static int probe(struct platform_device *pdev)
 	priv->comp.hw_ops = &hdr_hw_ops;
 	priv->comp.debug_ops = &hdr_debug_ops;
 
+	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
+				&ddp_comp_funcs);
+	if (ret) {
+		mml_log("failed to init ddp component: %d", ret);
+		add_ddp = false;
+	}
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
-	ret = component_add(dev, &mml_comp_ops);
+	if (add_ddp)
+		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 
