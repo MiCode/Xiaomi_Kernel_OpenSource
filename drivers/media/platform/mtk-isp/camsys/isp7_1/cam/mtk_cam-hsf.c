@@ -258,9 +258,10 @@ void ccu_hsf_config(struct mtk_cam_ctx *ctx, unsigned int En)
 	}
 
 	share_buf = hsf_config->share_buf;
-	pData.tg_idx = ctx->pipe->id;
+	pData.tg_idx = share_buf->cam_tg;
 	pData.chunk_iova = share_buf->chunk_iova;
 	pData.cq_iova = share_buf->cq_dst_iova;
+	pData.enable_raw = share_buf->enable_raw;
 	pData.Hsf_en = En;
 
 	pr_info("tg = %d  chunk_iova = 0x%lx  pData.Hsf_en = 0x%x\n",
@@ -336,6 +337,7 @@ void ccu_apply_cq(struct mtk_raw_device *dev, dma_addr_t cq_addr,
 	pData.cq_offset = cq_offset;
 	pData.sub_cq_size = sub_cq_size;
 	pData.sub_cq_offset = sub_cq_offset;
+	pData.ipc_status = 0;
 
 	pr_info("CCU trigger CQ. tg:%d cq_src:0x%lx cq_dst:0x%lx cq_addr = 0x%lx init_value = %d\n",
 		pData.tg, pData.src_addr, pData.dst_addr, cq_addr, pData.init_value);
@@ -356,11 +358,14 @@ void ccu_apply_cq(struct mtk_raw_device *dev, dma_addr_t cq_addr,
 #endif
 
 	if (ret != 0)
-		pr_info("error: CCU trigger CQ failure. tg:%d cq_src:0x%x cq_dst:0x%x cq_size:\n",
+		pr_info("error: CCU trigger CQ failure. tg:%d cq_src:0x%x cq_dst:0x%x cq_size:%d\n",
 		pData.tg, pData.src_addr, pData.dst_addr, pData.cq_size);
 	else
-		pr_info("after CCU trigger CQ. tg:%d cq_src:0x%x cq_dst:0x%x\n",
-		pData.tg, pData.src_addr, pData.dst_addr);
+		pr_info("after CCU trigger CQ. tg:%d cq_src:0x%x cq_dst:0x%x initial_value = %d\n",
+		pData.tg, pData.src_addr, pData.dst_addr, pData.init_value);
+	if (pData.ipc_status != 0)
+		pr_info("error:CCU trrigger CQ Sensor initial fail 0x%x\n",
+		pData.init_value);
 
 }
 int mtk_cam_hsf_init(struct mtk_cam_ctx *ctx)
@@ -474,7 +479,7 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 #endif
 
 	share_buf->cq_size = CQ_BUF_SIZE;
-	share_buf->twin_status = pipe->enabled_raw;
+	share_buf->enable_raw = pipe->enabled_raw;
 	share_buf->cam_module = raw_id;
 	share_buf->cam_tg = raw_id;
 

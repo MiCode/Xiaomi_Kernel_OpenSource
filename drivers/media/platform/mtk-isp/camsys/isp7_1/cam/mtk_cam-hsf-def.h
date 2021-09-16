@@ -30,7 +30,7 @@ struct mtk_cam_hsf_info {
 	u32 cq_size;
 	u64 cq_dst_iova;
 	u32 cam_tg;
-	u32 twin_status;
+	u32 enable_raw;
 	u32 cam_module;
 	u64 chunk_iova;
 	uint32_t chunk_hsfhandle;
@@ -46,6 +46,7 @@ struct cq_info {
 	uint32_t cq_offset;
 	uint32_t sub_cq_size;
 	uint32_t sub_cq_offset;
+	int32_t  ipc_status;
 };
 
 struct raw_info {
@@ -53,6 +54,7 @@ struct raw_info {
 	uint64_t chunk_iova;
 	uint64_t cq_iova;
 	uint32_t Hsf_en;
+	uint32_t enable_raw;
 };
 
 struct mtk_cam_dma_map {
