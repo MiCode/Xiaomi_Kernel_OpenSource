@@ -450,7 +450,7 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&clk26m>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG4_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
@@ -533,7 +533,7 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&clk26m>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
@@ -590,7 +590,7 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&clk26m>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG2_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
@@ -695,7 +695,7 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&clk26m>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG3_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
