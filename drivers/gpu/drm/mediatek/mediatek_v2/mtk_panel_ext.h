@@ -445,6 +445,8 @@ struct mtk_panel_funcs {
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
 	int (*msync_te_level_switch)(void *dsi, dcs_write_gce cb,
 		void *handle, unsigned int fps_level);
+	int (*msync_te_level_switch_grp)(void *dsi, dcs_grp_write_gce cb,
+		void *handle, unsigned int fps_level);
 	int (*msync_cmd_set_min_fps)(void *dsi, dcs_write_gce cb,
 			void *handle, unsigned int flag);
 	int (*get_virtual_heigh)(void);

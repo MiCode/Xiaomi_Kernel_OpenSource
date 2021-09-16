@@ -158,7 +158,7 @@
 #define DSI_BLLP_WC 0x5C
 
 #define DSI_CMDQ_SIZE 0x60
-#define CMDQ_SIZE 0x3f
+#define CMDQ_SIZE 0xff
 #define CMDQ_SIZE_SEL BIT(15)
 
 #define DSI_CMD_TYPE1_HS 0x6c
@@ -3131,7 +3131,7 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	}
 
 	DDPDUMP("- DSI CMD REGS -\n");
-	for (k = 0; k < 32; k += 16) {
+	for (k = 0; k < 512; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k),
 			readl(dsi->regs + dsi->driver_data->reg_cmdq0_ofs + k + 0x4),
@@ -4012,14 +4012,17 @@ static void mtk_dsi_cmdq_grp_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 {
 	struct mipi_dsi_msg msg;
 	const char *tx_buf;
-	u8 config, cmdq_off, type;
-	u8 cmdq_size, total_cmdq_size = 0;
-	u8 start_off = 0;
+	u32 config, cmdq_off, type;
+	u32 cmdq_size, total_cmdq_size = 0;
+	u32 start_off = 0;
 	u32 reg_val, cmdq_val;
 	u32 cmdq_mask, i, j;
 	unsigned int base_addr;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	const u32 reg_cmdq_ofs = dsi->driver_data->reg_cmdq0_ofs;
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+	mtk_ddp_write_mask(comp, DIS_EOT, DSI_TXRX_CTRL, DIS_EOT, handle);
 
 	for (j = 0; j < para_size; j++) {
 		msg.tx_buf = para_table[j].para_list,
@@ -4049,6 +4052,8 @@ static void mtk_dsi_cmdq_grp_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 			config = BTA;
 		else
 			config = (msg.tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
+
+		config |= HSTX;
 
 		if (msg.tx_len > 2) {
 			cmdq_off = 4;
@@ -4084,29 +4089,19 @@ static void mtk_dsi_cmdq_grp_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				}
 			}
 		} else {
-			cmdq_off = 2;
-			cmdq_mask = CONFIG | DATA_ID;
-			reg_val = (type << 8) | config;
 
-			for (i = 0; i < msg.tx_len; i++) {
-				cmdq_val = tx_buf[i] << ((i & 0x3u) * 8);
-				cmdq_mask = (0xFFu << ((i & 0x3u) * 8));
-				reg_val = reg_val | (cmdq_val & cmdq_mask);
+			reg_val = (tx_buf[1] << 24) | (tx_buf[0] << 16) | (type << 8) | config;
+			base_addr = reg_cmdq_ofs + start_off;
+			mtk_ddp_write_relaxed(comp,
+				reg_val,
+				base_addr,
+				handle);
 
-				if (i == (msg.tx_len - 1)) {
-					base_addr = reg_cmdq_ofs + start_off +
-						cmdq_off + (i / 4) * 4;
-					mtk_ddp_write_relaxed(comp,
-						reg_val,
-						base_addr,
-						handle);
+			DDPINFO("set cmdq addr %x, val:%x\n",
+				base_addr,
+				reg_val);
+			reg_val = 0;
 
-					DDPINFO("set cmdq addr %x, val:%x\n",
-						base_addr,
-						reg_val);
-					reg_val = 0;
-				}
-			}
 		}
 
 		if (msg.tx_len > 2)
@@ -4121,13 +4116,26 @@ static void mtk_dsi_cmdq_grp_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 
 	mtk_ddp_write_mask(comp, total_cmdq_size,
 				DSI_CMDQ_SIZE, CMDQ_SIZE, handle);
+	mtk_ddp_write_mask(comp, CMDQ_SIZE_SEL,
+					DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, handle);
 
 	mtk_ddp_write_relaxed(comp, 0x0, DSI_START, handle);
 	mtk_ddp_write_relaxed(comp, 0x1, DSI_START, handle);
-	mtk_dsi_cmdq_poll(comp, handle, comp->regs_pa + DSI_INTSTA,
+	/*
+	 *ToDo: polling cmd done has something wrong
+	 *sometimes CMD_DONE can't change to 1,
+	 *sometimes CMD_DONE change to 1 before sending done cmds
+	 *maybe we should clear CMD_DONE before waiting
+	 */
+	/*mtk_dsi_cmdq_poll(comp, handle, comp->regs_pa + DSI_INTSTA,
 			CMD_DONE_INT_FLAG, CMD_DONE_INT_FLAG);
-	mtk_ddp_write_mask(comp, 0x0, DSI_INTSTA, CMD_DONE_INT_FLAG,
+	*/
+	/*add poll idle*/
+	mtk_dsi_poll_for_idle(dsi, handle);
+	/*mtk_ddp_write_mask(comp, 0x0, DSI_INTSTA, CMD_DONE_INT_FLAG,
 			handle);
+	*/
+	mtk_ddp_write_mask(comp, 0, DSI_TXRX_CTRL, DIS_EOT, handle);
 
 	DDPINFO("set cmdqaddr %x, val:%d, mask %x\n", DSI_CMDQ_SIZE,
 			total_cmdq_size,
@@ -6176,12 +6184,21 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		unsigned int *fps_level = (unsigned int *)params;
 
-
 		if (dsi->ext && dsi->ext->funcs &&
 				dsi->ext->funcs->msync_te_level_switch)
 			dsi->ext->funcs->msync_te_level_switch(dsi,
-					mipi_dsi_dcs_write_gce,
-					handle, *fps_level);
+						mipi_dsi_dcs_write_gce,
+						handle, *fps_level);
+	}
+	case DSI_MSYNC_SWITCH_TE_LEVEL_GRP:
+	{
+		unsigned int *fps_level = (unsigned int *)params;
+
+		if (dsi->ext && dsi->ext->funcs &&
+				dsi->ext->funcs->msync_te_level_switch_grp)
+			dsi->ext->funcs->msync_te_level_switch_grp(dsi,
+					mipi_dsi_dcs_grp_write_gce,
+						handle, *fps_level);
 	}
 		break;
 	case DSI_MSYNC_CMD_SET_MIN_FPS:

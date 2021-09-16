@@ -6566,6 +6566,9 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	unsigned int fps_level = 0;
 	unsigned int min_fps = 0;
 	unsigned int need_send_cmd = 0;
+	int index = drm_crtc_index(crtc);
+	static unsigned int fps_level_old;
+	static unsigned int min_fps_old;
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
 
@@ -6586,8 +6589,6 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	} else if (params->msync_cmd_table.te_type == MULTI_TE) {
 		struct msync_multi_te_table *mte_tb =
 			&params->msync_cmd_table.multi_te_tb;
-		static unsigned int fps_level_old;
-		static unsigned int min_fps_old;
 
 		DDPMSG("[Msync2.0] M-TE\n");
 
@@ -6609,20 +6610,24 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 
 		DDPMSG("[Msync2.0] M-TE target_fps:%u fps_level:%u dirty:%u min_fps:%u\n",
 			target_fps, fps_level, msync_cmd_level_tb_dirty, min_fps);
+		DDPMSG("[Msync2.0] M-TE fps_level_old:%u min_fps_old:%u\n",
+			fps_level_old, min_fps_old);
+
+		/*Msync 2.0: add Msync trace info*/
+		mtk_drm_trace_begin("msync_level_fps:%u[%u] to %u[%u]",
+			fps_level_old, min_fps_old,
+			fps_level, min_fps);
+		CRTC_MMP_MARK(index, atomic_begin, fps_level, min_fps);
 
 		if ((fps_level != fps_level_old) ||
 			(msync_cmd_level_tb_dirty && (min_fps != min_fps_old))) {
 			/*
-			 * 1,because sending cmd to ddic has polling operation
-			 *   maybe schedule out to other cmdq thread;
-			 * 2,clear EOF to avoid any operation on DSI
-			 * 3,clear CABC_EOF to avoid backlight
-			 *   which using DSC_CFG and async
-			 * 4,clear dirty before sending cmd to
+			 * 1,clear CABC_EOF to avoid backlight
+			 *   which using DSI_CFG and async
+			 *	if BL change to use CFG thread, remove this part
+			 * 2,clear dirty before sending cmd to
 			 *  avoid trigger loop be started during sending cmd
 			 */
-			cmdq_pkt_wfe(state->cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 			cmdq_pkt_wfe(state->cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 			cmdq_pkt_clear_event(state->cmdq_handle,
@@ -6634,7 +6639,7 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		/* Switch msync TE level */
 		if (fps_level != fps_level_old) {
 			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
-					DSI_MSYNC_SWITCH_TE_LEVEL, &fps_level);
+					DSI_MSYNC_SWITCH_TE_LEVEL_GRP, &fps_level);
 			fps_level_old = fps_level;
 		}
 
@@ -6652,8 +6657,9 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			/*release CABC_EOF lock to allow backlight keep going*/
 			cmdq_pkt_set_event(state->cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-
 		}
+
+		mtk_drm_trace_end();
 
 	} else if (params->msync_cmd_table.te_type == TRIGGER_LEVEL_TE) {
 		/* TODO: Add Trigger Level Te */
@@ -6747,8 +6753,14 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				atomic_fps);
 		else
 			target_fps = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+
+		CRTC_MMP_MARK(index, atomic_begin, 0, 1);
+
 		if (g_msync_debug == 0)
 			mtk_crtc_msync2_send_cmds_bef_cfg(crtc, target_fps);
+
+		CRTC_MMP_MARK(index, atomic_begin, 0, 2);
+
 		msync_need_close = 0;
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 			!msync_is_on(priv, params, crtc_id,

@@ -3033,6 +3033,38 @@ static int msync_te_level_switch(void *dsi, dcs_write_gce cb,
 	} else
 		ret = 1;
 
+	DDPINFO("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
+	return ret;
+}
+
+static int msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
+		void *handle, unsigned int fps_level)
+{
+	int ret = 0;
+
+	DDPINFO("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
+	if (fps_level <= MODE_0_FPS) { /*switch to 60 */
+		DDPINFO("%s:%d switch to 60fps\n", __func__, __LINE__);
+		cb(dsi, handle, msync_level_60, ARRAY_SIZE(msync_level_60));
+
+	} else if (fps_level <= MODE_1_FPS) { /*switch to 72 */
+		DDPINFO("%s:%d switch to 72fps\n", __func__, __LINE__);
+		cb(dsi, handle, msync_level_72, ARRAY_SIZE(msync_level_72));
+
+	} else if (fps_level <= MODE_2_FPS) { /*switch to 90 */
+		DDPINFO("%s:%d switch to 90fps\n", __func__, __LINE__);
+		cb(dsi, handle, msync_level_90, ARRAY_SIZE(msync_level_90));
+	} else if (fps_level <= MODE_3_FPS) { /*switch to 120 */
+		DDPINFO("%s:%d switch to 120fps\n", __func__, __LINE__);
+		cb(dsi, handle, msync_level_120, ARRAY_SIZE(msync_level_120));
+	} else if (fps_level == MTE_OFF) { /*close multi te */
+		DDPINFO("%s:%d Close MTE\n", __func__, __LINE__);
+		cb(dsi, handle, msync_close_mte, ARRAY_SIZE(msync_close_mte));
+		cb(dsi, handle, msync_default, ARRAY_SIZE(msync_default));
+	} else
+		ret = 1;
+
+	DDPINFO("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
 	return ret;
 }
 
@@ -3293,6 +3325,7 @@ static struct mtk_panel_funcs ext_funcs = {
 	.ext_param_get = mtk_panel_ext_param_get,
 	.mode_switch = mode_switch,
 	.msync_te_level_switch = msync_te_level_switch,
+	.msync_te_level_switch_grp = msync_te_level_switch_grp,
 	.msync_cmd_set_min_fps = msync_cmd_set_min_fps,
 };
 #endif
