@@ -159,7 +159,6 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 	struct mtk_cam_device *cam;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req;
-	struct mtk_camsys_ctrl_state *req_state;
 	struct mtk_cam_request_stream_data *s_data;
 	int i, buf_start = 0, buf_end = 0, pipe_id;
 	unsigned long flags;
@@ -249,35 +248,6 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
-
-	req_state = &s_data->state;
-	req_state->time_deque = ktime_get_boottime_ns() / 1000;
-	if (mtk_cam_is_subsample(ctx))
-		dev_dbg(cam->dev, "[ctx:%d,0x%x/pipe:%d,0x%x/%4d(us)] %6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
-		ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
-		s_data->frame_seq_no,
-		req_state->time_composing - req->time_syscall_enque,
-		req_state->time_swirq_composed - req_state->time_composing,
-		req_state->time_sensorset - req_state->time_irq_sof1,
-		req_state->time_irq_sof2 - req_state->time_sensorset,
-		req_state->time_cqset -	req_state->time_irq_sof1,
-		req_state->time_irq_outer - req_state->time_cqset,
-		req_state->time_irq_sof2 - req_state->time_irq_sof1,
-		req_state->time_irq_done - req_state->time_irq_sof2,
-		req_state->time_deque - req_state->time_irq_done);
-	else
-		dev_dbg(cam->dev, "[ctx:%d,0x%x/pipe:%d,0x%x/%4d(us)] %6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
-		ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
-		s_data->frame_seq_no,
-		req_state->time_composing - req->time_syscall_enque,
-		req_state->time_swirq_composed - req_state->time_composing,
-		req_state->time_sensorset - req_state->time_swirq_timer,
-		req_state->time_irq_sof1 - req_state->time_sensorset,
-		req_state->time_cqset -	req_state->time_irq_sof1,
-		req_state->time_irq_outer - req_state->time_cqset,
-		req_state->time_irq_sof2 - req_state->time_irq_sof1,
-		req_state->time_irq_done - req_state->time_irq_sof2,
-		req_state->time_deque - req_state->time_irq_done);
 }
 
 struct mtk_cam_request_stream_data*
@@ -2651,7 +2621,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			return -EINVAL;
 		}
 
-		s_data->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		buf_entry->cq_desc_offset =
 			ipi_msg->ack_data.frame_result.cq_desc_offset;
 		buf_entry->cq_desc_size =
@@ -2778,7 +2747,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 			s_data->timestamp = ktime_get_boottime_ns();
 			s_data->timestamp_mono = ktime_get_ns();
-			s_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 
 			mtk_cam_systrace_end();
 			return 0;
@@ -2975,8 +2943,6 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_enable;
 	else
 		frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_limit;
-
-	req_stream_data->state.time_composing = ktime_get_boottime_ns() / 1000;
 
 	/* Send CAM_CMD_CONFIG if we change sensor */
 	if (req->ctx_link_update & 1 << ctx->stream_id ||

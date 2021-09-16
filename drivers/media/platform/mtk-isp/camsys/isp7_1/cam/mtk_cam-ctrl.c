@@ -506,7 +506,6 @@ static void mtk_cam_m2m_sensor_skip(struct mtk_cam_request_stream_data *req_stre
 	state_transition(&req_stream_data->state,
 	E_STATE_READY, E_STATE_SENSOR);
 
-	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	mtk_cam_complete_sensor_hdl(req_stream_data);
 
 }
@@ -694,7 +693,6 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 		}
 	}
 	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
-	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	dev_info(cam->dev, "%s:%s:ctx(%d)req(%d):sensor done at SOF+%dms\n",
 		__func__, req->req.debug_str, ctx->stream_id,
 		req_stream_data->frame_seq_no, time_after_sof);
@@ -750,7 +748,6 @@ static void mtk_cam_exp_switch_sensor_worker(struct kthread_work *work)
 		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
 			__func__, ctx->stream_id);
 
-	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	dev_info(cam->dev, "%s:%s:ctx(%d)req(%d):sensor done at SOF+%dms\n",
 		 __func__, req->req.debug_str, ctx->stream_id,
 		 req_stream_data->frame_seq_no, time_after_sof);
@@ -999,8 +996,6 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
 		if (req_stream_data->state.estate == E_STATE_READY) {
-			req_stream_data->state.time_swirq_timer =
-				ktime_get_boottime_ns() / 1000;
 			dev_dbg(cam->dev, "[%s] sensor_no:%d stream_no:%d\n", __func__,
 					sensor_seq_no_next, req_stream_data->frame_seq_no);
 			/* Increase the request ref count for camsys_state_list's usage*/
@@ -1130,7 +1125,6 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 				 state_entry->estate);
 			return HRTIMER_NORESTART;
 		}
-		req_stream_data->state.time_swirq_timer = ktime_get_boottime_ns() / 1000;
 		mtk_cam_set_sensor(req_stream_data, &ctx->sensor_ctrl);
 		dev_dbg(cam->dev,
 			"%s:[TimerIRQ [SOF+%dms]:] ctx:%d, sensor_req_seq_no:%d\n",
@@ -1248,14 +1242,10 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				state_outer = state_temp;
 				mtk_cam_set_timestamp(req_stream_data,
 						      time_boot, time_mono);
-				req_stream_data->state.time_irq_sof2 =
-							ktime_get_boottime_ns() / 1000;
 			}
 			if (state_temp->estate == E_STATE_SUBSPL_READY ||
 				state_temp->estate == E_STATE_SUBSPL_SCQ_DELAY) {
 				state_ready = state_temp;
-				req_stream_data->state.time_irq_sof1 =
-							ktime_get_boottime_ns() / 1000;
 			}
 			dev_dbg(raw_dev->dev,
 			"[SOF-subsample] STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
@@ -1358,8 +1348,6 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				state_outer = state_temp;
 				mtk_cam_set_timestamp(req_stream_data,
 						      time_boot, time_mono);
-				req_stream_data->state.time_irq_sof2 =
-							ktime_get_boottime_ns() / 1000;
 			}
 			/* Find inner state element request*/
 			if (state_temp->estate == E_STATE_INNER ||
@@ -1369,8 +1357,6 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			/* Find sensor state element request*/
 			if (state_temp->estate <= E_STATE_SENSOR) {
 				state_sensor = state_temp;
-				req_stream_data->state.time_irq_sof1 =
-							ktime_get_boottime_ns() / 1000;
 			}
 			dev_dbg(raw_dev->dev,
 			"[SOF] STATE_CHECK [N-%d] Req:%d / State:%d\n",
@@ -1597,9 +1583,6 @@ static int mtk_camsys_ts_state_handle(
 			   req_stream_data->frame_seq_no;
 		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
 			state_rec[stateidx] = state_temp;
-			if (state_temp->estate <= E_STATE_TS_SENSOR)
-				req_stream_data->state.time_irq_sof1 =
-					ktime_get_boottime_ns() / 1000;
 			if (state_temp->estate == E_STATE_TS_SV) {
 				req_stream_data->timestamp = time_boot;
 				req_stream_data->timestamp_mono = time_mono;
@@ -1676,7 +1659,6 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 			}
 		}
 		req_stream_data->timestamp = ktime_get_boottime_ns();
-		req_stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 		dev_dbg(cam->dev,
 		"TS-SOF[ctx:%d-#%d], SV-ENQ req:%d is update, composed:%d, iova:0x%x, time:%lld\n",
 		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
@@ -1966,7 +1948,6 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 
 			/* req_stream_data of req_cq*/
 			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
-			req_stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 			dev_dbg(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",
 			ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
@@ -2128,7 +2109,6 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 		s_data->seninf_fmt.format.height,
 		s_data->seninf_fmt.format.code);
 
-	s_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	dev_info(cam->dev, "%s:%s:ctx(%d):seq(%d):sensor done\n",
 		 __func__, req->req.debug_str, ctx->stream_id,
 		 s_data->frame_seq_no);
@@ -2254,8 +2234,6 @@ static void mtk_camsys_raw_m2m_cq_done(struct mtk_raw_device *raw_dev,
 				state_transition(state_entry, E_STATE_CQ,
 						E_STATE_OUTER);
 
-				req_stream_data->state.time_irq_outer =
-					ktime_get_boottime_ns() / 1000;
 				dev_dbg(raw_dev->dev,
 					"[M2M CQD] req:%d, CQ->OUTER state:%d\n",
 					req_stream_data->frame_seq_no, state_entry->estate);
@@ -2323,7 +2301,6 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			if (raw_dev->sof_count == 0)
 				state_transition(state_entry, E_STATE_SUBSPL_READY,
 						E_STATE_SUBSPL_OUTER);
-			req_stream_data->state.time_irq_outer = ktime_get_boottime_ns() / 1000;
 			dev_dbg(raw_dev->dev,
 					"[CQD-subsample] req:%d, CQ->OUTER state:0x%x\n",
 					req_stream_data->frame_seq_no, state_entry->estate);
@@ -2351,8 +2328,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				state_transition(state_entry,
 						E_STATE_CQ_SCQ_DELAY,
 						E_STATE_OUTER);
-				req_stream_data->state.time_irq_outer =
-						ktime_get_boottime_ns() / 1000;
+
 				type = req_stream_data->feature.switch_feature_type;
 				if (type != 0 && (!mtk_cam_is_mstream(ctx) &&
 						!mtk_cam_feature_change_is_mstream(type))) {
@@ -2406,7 +2382,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 			sensor_ctrl->isp_request_seq_no = frame_seq_no_outer;
 			state_transition(state_entry, E_STATE_OUTER,
 					E_STATE_INNER);
-			req_stream_data->state.time_irq_sof1 = ktime_get_boottime_ns() / 1000;
+
 			dev_dbg(raw_dev->dev,
 				"[SW Trigger] req:%d, M2M CQ->INNER state:%d frame_seq_no:%d\n",
 				req_stream_data->frame_seq_no, state_entry->estate,
@@ -2489,9 +2465,7 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 				state_transition(state_entry,
 						 E_STATE_SUBSPL_INNER,
 						 E_STATE_SUBSPL_DONE_NORMAL);
-				if (state_entry->estate == E_STATE_SUBSPL_DONE_NORMAL)
-					s_data->state.time_irq_done =
-						ktime_get_boottime_ns() / 1000;
+
 				dev_dbg(cam->dev, "[SWD-subspl] req:%d/state:0x%x/time:%lld\n",
 					s_data->frame_seq_no, state_entry->estate,
 					s_data->timestamp);
@@ -2499,21 +2473,17 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 				state_transition(state_entry,
 						 E_STATE_TS_INNER,
 						 E_STATE_TS_DONE_NORMAL);
-				if (state_entry->estate == E_STATE_TS_DONE_NORMAL)
-					s_data->state.time_irq_done =
-						ktime_get_boottime_ns() / 1000;
-					dev_dbg(cam->dev, "[TS-SWD] ctx:%d req:%d/state:0x%x/time:%lld\n",
-						ctx->stream_id, s_data->frame_seq_no,
-						state_entry->estate, s_data->timestamp);
+
+				dev_dbg(cam->dev, "[TS-SWD] ctx:%d req:%d/state:0x%x/time:%lld\n",
+					ctx->stream_id, s_data->frame_seq_no,
+					state_entry->estate, s_data->timestamp);
 			} else {
 				state_transition(state_entry,
 						 E_STATE_INNER_HW_DELAY,
 						 E_STATE_DONE_MISMATCH);
 				state_transition(state_entry, E_STATE_INNER,
 						 E_STATE_DONE_NORMAL);
-				if (state_entry->estate == E_STATE_DONE_NORMAL)
-					s_data->state.time_irq_done =
-						ktime_get_boottime_ns() / 1000;
+
 				if (camsys_sensor_ctrl->isp_request_seq_no == 0)
 					state_transition(state_entry,
 							 E_STATE_CQ,
@@ -3415,7 +3385,6 @@ void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *initial_req,
 	struct mtk_cam_request_stream_data *req_stream_data =
 		mtk_cam_req_get_s_data(initial_req, ctx->stream_id, 1);
 	sensor_ctrl->ctx = ctx;
-	req_stream_data->state.time_swirq_timer = ktime_get_boottime_ns() / 1000;
 	mtk_cam_set_sensor(req_stream_data, sensor_ctrl);
 	dev_info(ctx->cam->dev, "[mstream] Initial sensor timer setup, seq_no(%d)\n",
 				req_stream_data->frame_seq_no);
@@ -3429,8 +3398,6 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
 
 	sensor_ctrl->ctx = ctx;
 	req_stream_data = mtk_cam_req_get_s_data(initial_req, ctx->stream_id, 0);
-	req_stream_data->state.time_swirq_timer =
-		ktime_get_boottime_ns() / 1000;
 	mtk_cam_set_sensor(req_stream_data, sensor_ctrl);
 	if (mtk_cam_is_subsample(ctx))
 		state_transition(&req_stream_data->state,

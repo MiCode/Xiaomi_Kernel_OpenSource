@@ -107,16 +107,6 @@ enum MTK_CAMSYS_STATE_IDX {
 struct mtk_camsys_ctrl_state {
 	enum MTK_CAMSYS_STATE_IDX estate;
 	struct list_head state_element;
-	u64 time_composing;
-	u64 time_swirq_composed;
-	u64 time_swirq_timer;
-	u64 time_sensorset;
-	u64 time_irq_sof1;
-	u64 time_cqset;
-	u64 time_irq_outer;
-	u64 time_irq_sof2;
-	u64 time_irq_done;
-	u64 time_deque;
 };
 
 struct mtk_camsys_link_ctrl {
