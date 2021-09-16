@@ -897,7 +897,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			lastin_errcase = true;
 		}
 
-		if (lastfrmInMWReq)
+		if (pipe->streaming && lastfrmInMWReq)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 
 		if (lastin_errcase)
@@ -960,7 +960,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->frame_no,
 			(unsigned long)swfrminfo_cb, lastfrmInMWReq);
 		/* call dip notify when all package done */
-		if (lastfrmInMWReq)
+		if (pipe->streaming && lastfrmInMWReq)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 
 		if (need_notify_daemon) {
