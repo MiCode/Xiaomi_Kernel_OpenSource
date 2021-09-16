@@ -2383,6 +2383,63 @@ static bool color_get_DISP_DITHER1_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_DISP_CCORR2_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,disp_ccorr2");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc)	{
+		DDPINFO("Fail to get disp_ccorr2 REG\n");
+		return false;
+	}
+
+	DDPDBG("disp_ccorr2 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
+static bool color_get_DISP_TDSHP1_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,disp_tdshp1");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc)	{
+		DDPINFO("Fail to get disp_tdshp1 REG\n");
+		return false;
+	}
+
+	DDPDBG("disp_tdshp1 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
+static bool color_get_DISP_C3D1_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,disp_c3d1");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc)	{
+		DDPINFO("Fail to get disp_c3d1 REG\n");
+		return false;
+	}
+
+	DDPDBG("disp_c3d1 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 static int get_tuning_reg_table_idx_and_offset(struct mtk_ddp_comp *comp,
 	unsigned long addr, unsigned int *offset)
 {
@@ -3098,7 +3155,9 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 					pa =  res.start + offset;
 
 			} else if (tablet_index == TUNING_DISP_CCORR) {
-				if (color_get_DISP_CCORR1_REG(&res))
+				if (color_get_DISP_CCORR2_REG(&res))
+					pa = res.start + offset;
+				else if (color_get_DISP_CCORR1_REG(&res))
 					pa =  res.start + offset;
 
 			} else if (tablet_index == TUNING_DISP_AAL) {
@@ -3111,6 +3170,13 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 
 			} else if (tablet_index == TUNING_DISP_DITHER) {
 				if (color_get_DISP_DITHER1_REG(&res))
+					pa =  res.start + offset;
+			} else if (tablet_index == TUNING_DISP_TDSHP) {
+				if (color_get_DISP_TDSHP1_REG(&res))
+					pa =  res.start + offset;
+
+			} else if (tablet_index == TUNING_DISP_C3D) {
+				if (color_get_DISP_C3D1_REG(&res))
 					pa =  res.start + offset;
 			}
 
@@ -3385,8 +3451,8 @@ static const struct mtk_disp_color_data mt6983_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6873,
 	.support_color21 = true,
 	.support_color30 = true,
-	.reg_table = {0x14007000, 0x14009000, 0x1400A000, 0x1400B000,
-			0x14008000, 0x1400D000, 0x1400E000, 0x14010000},
+	.reg_table = {0x14009000, 0x1400A000, 0x1400D000, 0x1400E000,
+			0x14010000, 0x1400B000, 0x14007000, 0x14008000},
 	.color_window = 0x40185E57,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
@@ -3396,8 +3462,8 @@ static const struct mtk_disp_color_data mt6895_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6873,
 	.support_color21 = true,
 	.support_color30 = true,
-	.reg_table = {0x14007000, 0x14009000, 0x1400A000, 0x1400B000,
-			0x14008000, 0x1400D000, 0x1400E000, 0x14010000},
+	.reg_table = {0x14009000, 0x1400A000, 0x1400D000, 0x1400E000,
+			0x14010000, 0x1400B000, 0x14007000, 0x14008000},
 	.color_window = 0x40185E57,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
