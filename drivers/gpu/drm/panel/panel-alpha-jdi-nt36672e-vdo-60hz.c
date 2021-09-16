@@ -727,7 +727,7 @@ static const struct drm_display_mode default_mode = {
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 625,
+	.pll_clk = 595,
 	.vfp_low_power = 4180,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -747,7 +747,7 @@ static struct mtk_panel_params ext_params = {
 	.lane_swap[1][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
 	.lane_swap[1][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
 	.lane_swap[1][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
-	.data_rate = 1250,
+	.data_rate = 1190,
 };
 
 static int panel_ata_check(struct drm_panel *panel)
