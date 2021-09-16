@@ -503,7 +503,8 @@ int scp_request_freq(void)
 				SCP_REQ_SYSPLL);
 
 		/*  turn on PLL if necessary */
-		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
+		if (!dvfs.vlp_support) /* no parking needed for vlp */
+			scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
 
 		do {
 			ret = mtk_ipi_send(&scp_ipidev,
@@ -531,7 +532,8 @@ int scp_request_freq(void)
 		} while (scp_current_freq != scp_expected_freq);
 
 		/* turn off PLL if necessary */
-		scp_pll_ctrl_set(PLL_DISABLE, scp_expected_freq);
+		if (!dvfs.vlp_support) /* no parking needed for vlp */
+			scp_pll_ctrl_set(PLL_DISABLE, scp_expected_freq);
 
 		/* do DVS after DFS if decreasing frequency */
 		if (is_increasing_freq == 0)
@@ -2082,9 +2084,9 @@ static int __init mt_scp_dts_clk_init(struct platform_device *pdev)
 		return PTR_ERR(mt_scp_pll.clk_mux);
 	}
 
-	/* scp_sel has most 8 member of clk source */
-	mt_scp_pll.pll_num = 8;
-	for (i = 0; i < 8; i++) {
+	/* scp_sel has most 9 member of clk source */
+	mt_scp_pll.pll_num = MAX_SUPPORTED_PLL_NUM;
+	for (i = 0; i < MAX_SUPPORTED_PLL_NUM; i++) {
 		ret = snprintf(buf, 15, "clk_pll_%d", i);
 		if (ret < 0 || ret >= 15) {
 			pr_notice("[%s]: clk name buf len: %d\n",

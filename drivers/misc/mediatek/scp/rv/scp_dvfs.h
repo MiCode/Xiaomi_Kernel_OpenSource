@@ -28,6 +28,8 @@
 #define CALI_MIS_RATE			(40)
 #define CALI_DIV_VAL			(512)
 
+#define MAX_SUPPORTED_PLL_NUM 9
+
 #define REG_DEFINE_WITH_INIT(reg, offset, mask, shift, init, set_clr)	\
 	._##reg = {							\
 		.ofs = offset,						\
@@ -146,7 +148,7 @@ enum ulposc_onoff_enum {
 
 struct mt_scp_pll_t {
 	struct clk *clk_mux;
-	struct clk *clk_pll[8];
+	struct clk *clk_pll[MAX_SUPPORTED_PLL_NUM];
 	unsigned int pll_num;
 };
 
