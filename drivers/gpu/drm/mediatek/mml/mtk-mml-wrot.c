@@ -2195,6 +2195,10 @@ const struct of_device_id mml_wrot_driver_dt_match[] = {
 		.compatible = "mediatek,mt6879-mml_wrot",
 		.data = &mml_wrot_data
 	},
+	{
+		.compatible = "mediatek,mt6895-mml_wrot",
+		.data = &mml_wrot_data
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mml_wrot_driver_dt_match);

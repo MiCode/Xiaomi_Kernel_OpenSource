@@ -48,6 +48,11 @@ static const struct mutex_data mt6879_mutex_data = {
 	.mod_cnt = 2,
 };
 
+static const struct mutex_data mt6895_mutex_data = {
+	.mutex_cnt = 16,
+	.mod_offsets = {0x30, 0x34},
+	.mod_cnt = 2,
+};
 
 struct mutex_module {
 	u32 mutex_id;
@@ -360,6 +365,10 @@ const struct of_device_id mml_mutex_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6879-mml_mutex",
 		.data = &mt6879_mutex_data
+	},
+	{
+		.compatible = "mediatek,mt6895-mml_mutex",
+		.data = &mt6895_mutex_data
 	},
 	{},
 };

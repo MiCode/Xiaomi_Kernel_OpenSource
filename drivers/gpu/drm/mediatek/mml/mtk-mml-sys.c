@@ -901,6 +901,15 @@ static const struct mml_data mt6879_mml_data = {
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
+static const struct mml_data mt6895_mml_data = {
+	.comp_inits = {
+		[MML_CT_SYS] = &sys_comp_init,
+		[MML_CT_DL_IN] = &dl_comp_init,
+		[MML_CT_DL_OUT] = &dl_comp_init,
+	},
+	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
+};
+
 const struct of_device_id mtk_mml_of_ids[] = {
 	{
 		.compatible = "mediatek,mt6983-mml",
@@ -913,6 +922,10 @@ const struct of_device_id mtk_mml_of_ids[] = {
 	{
 		.compatible = "mediatek,mt6879-mml",
 		.data = &mt6879_mml_data,
+	},
+	{
+		.compatible = "mediatek,mt6895-mml",
+		.data = &mt6895_mml_data,
 	},
 	{},
 };
