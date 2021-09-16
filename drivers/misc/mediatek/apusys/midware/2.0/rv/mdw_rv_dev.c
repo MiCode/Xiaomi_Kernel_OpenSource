@@ -12,7 +12,7 @@
 #define CREATE_TRACE_POINTS
 #include "mdw_rv_events.h"
 
-#define MDW_CMD_IPI_TIMEOUT (2*1000) //ms
+#define MDW_CMD_IPI_TIMEOUT (10*1000) //ms
 
 static inline void mdw_rv_dev_trace(struct mdw_rv_cmd *rc, bool done)
 {
@@ -30,21 +30,32 @@ static inline void mdw_rv_dev_trace(struct mdw_rv_cmd *rc, bool done)
 		rc->c->einfos->c.sc_rets);
 }
 
-static struct mdw_ipi_msg_sync *mdw_rv_dev_get_msg(struct mdw_rv_dev *mrdev, uint64_t sync_id)
+static void mdw_rv_dev_msg_insert(struct mdw_rv_dev *mrdev,
+	struct mdw_ipi_msg_sync *s_msg)
+{
+	list_add_tail(&s_msg->ud_item, &mrdev->s_list);
+}
+
+static void mdw_rv_dev_msg_remove(struct mdw_rv_dev *mrdev,
+	struct mdw_ipi_msg_sync *s_msg)
+{
+	list_del(&s_msg->ud_item);
+}
+
+static struct mdw_ipi_msg_sync *mdw_rv_dev_msg_find(struct mdw_rv_dev *mrdev,
+	uint64_t sync_id)
 {
 	struct mdw_ipi_msg_sync *s_msg = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 
 	mdw_drv_debug("get msg(0x%llx)\n", sync_id);
 
-	mutex_lock(&mrdev->msg_mtx);
 	list_for_each_safe(list_ptr, tmp, &mrdev->s_list) {
 		s_msg = list_entry(list_ptr, struct mdw_ipi_msg_sync, ud_item);
 		if (s_msg->msg.sync_id == sync_id)
 			break;
 		s_msg = NULL;
 	}
-	mutex_unlock(&mrdev->msg_mtx);
 
 	return s_msg;
 }
@@ -59,7 +70,7 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 
 	/* insert to msg list */
 	mutex_lock(&mrdev->msg_mtx);
-	list_add_tail(&s_msg->ud_item, &mrdev->s_list);
+	mdw_rv_dev_msg_insert(mrdev, s_msg);
 	mutex_unlock(&mrdev->msg_mtx);
 
 	/* send & retry */
@@ -79,11 +90,19 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 		break;
 	}
 
+	/* send ipi fail, remove msg from list */
 	if (ret) {
 		mdw_drv_err("send ipi msg(0x%llx) fail(%d)\n",
 			s_msg->msg.sync_id, ret);
 		mutex_lock(&mrdev->msg_mtx);
-		list_del(&s_msg->ud_item);
+		if (mdw_rv_dev_msg_find(mrdev, s_msg->msg.sync_id) == s_msg) {
+			mdw_drv_warn("remove ipi msg(0x%llx)\n",
+				s_msg->msg.sync_id);
+			mdw_rv_dev_msg_remove(mrdev, s_msg);
+		} else {
+			mdw_drv_err("can't find ipi msg(0x%llx)\n",
+				s_msg->msg.sync_id);
+		}
 		mutex_unlock(&mrdev->msg_mtx);
 	}
 
@@ -123,7 +142,14 @@ static int mdw_rv_dev_send_sync(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg *ms
 	if (!wait_for_completion_timeout(&s_msg->cmplt, timeout)) {
 		mdw_drv_err("ipi no response\n");
 		mutex_lock(&mrdev->msg_mtx);
-		list_del(&s_msg->ud_item);
+		if (mdw_rv_dev_msg_find(mrdev, s_msg->msg.sync_id) == s_msg) {
+			mdw_drv_warn("remove ipi msg(0x%llx)\n",
+				s_msg->msg.sync_id);
+			mdw_rv_dev_msg_remove(mrdev, s_msg);
+		} else {
+			mdw_drv_err("can't find ipi msg(0x%llx)\n",
+				s_msg->msg.sync_id);
+		}
 		mutex_unlock(&mrdev->msg_mtx);
 		ret = -ETIME;
 	} else {
@@ -236,17 +262,17 @@ static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
 
 	mdw_drv_debug("callback msg(%d/0x%llx)\n", msg->id, msg->sync_id);
 
-	s_msg = mdw_rv_dev_get_msg(mrdev, msg->sync_id);
+	mutex_lock(&mrdev->msg_mtx);
+	s_msg = mdw_rv_dev_msg_find(mrdev, msg->sync_id);
 	if (!s_msg) {
 		mdw_exception("get msg fail(0x%llx)", msg->sync_id);
 	} else {
 		memcpy(&s_msg->msg, msg, sizeof(*msg));
-		mutex_lock(&mrdev->msg_mtx);
 		list_del(&s_msg->ud_item);
-		mutex_unlock(&mrdev->msg_mtx);
 		/* complete callback */
 		s_msg->complete(s_msg);
 	}
+	mutex_unlock(&mrdev->msg_mtx);
 
 	return 0;
 }
