@@ -32,6 +32,8 @@
 	no-sdio;
 	no-mmc;
 //	non-removable;
+	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	req-vcore = <725000>;
 };
 
 &mmc2 {
