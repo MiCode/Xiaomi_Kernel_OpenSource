@@ -15,40 +15,40 @@
 #define pr_debug_if(cond, ...)      do { if ((cond)) pr_debug(__VA_ARGS__); } while (0)
 #define pr_debug_err(...)    pr_debug("error: " __VA_ARGS__)
 
-static unsigned int do_single_lsc_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
+static unsigned int do_single_lsc_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
-static unsigned int do_2a_gain_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
+static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
-static unsigned int do_lens_id_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
+static unsigned int do_lens_id_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
 
 static struct STRUCT_CALIBRATION_LAYOUT_STRUCT cal_layout_table = {
-	0x00000006, 0x01470005, CAM_CAL_SINGLE_EEPROM_DATA,
+	0x00000006, 0x01480005, CAM_CAL_SINGLE_EEPROM_DATA,
 	{
 		{0x00000001, 0x00000000, 0x00000000, do_module_version},
 		{0x00000001, 0x00000000, 0x00000002, do_part_number},
-		{0x00000001, 0x000000D0, 0x0000074C, do_single_lsc_imx766dual},
-		{0x00000001, 0x00000007, 0x0000000E, do_2a_gain_imx766dual},
-		{0x00000001, 0x00000830, 0x00001A78, do_pdaf},
+		{0x00000001, 0x00004000, 0x0000074C, do_single_lsc_imx766},
+		{0x00000001, 0x00000007, 0x0000000E, do_2a_gain_imx766},
+		{0x00000001, 0x00004800, 0x00001B5A, do_pdaf},
 		{0x00000000, 0x00000FAE, 0x00000550, do_stereo_data},
-		{0x00000001, 0x00000000, 0x00004000, do_dump_all},
-		{0x00000001, 0x00000008, 0x00000002, do_lens_id_imx766dual}
+		{0x00000001, 0x00000000, 0x00008000, do_dump_all},
+		{0x00000001, 0x00000008, 0x00000002, do_lens_id_imx766}
 	}
 };
 
-struct STRUCT_CAM_CAL_CONFIG_STRUCT imx766dual_op_tri_eeprom = {
-	.name = "imx766dual_op_tri_eeprom",
+struct STRUCT_CAM_CAL_CONFIG_STRUCT imx766_cust_op_tri_eeprom = {
+	.name = "imx766_cust_op_tri_eeprom",
 	.check_layout_function = layout_check,
 	.read_function = Common_read_region,
 	.layout = &cal_layout_table,
-	.sensor_id = IMX766DUAL_SENSOR_ID,
-	.i2c_write_id = 0xA2,
-	.max_size = 0x4000,
+	.sensor_id = IMX766_SENSOR_ID,
+	.i2c_write_id = 0xA0,
+	.max_size = 0x8000,
 	.enable_preload = 1,
-	.preload_size = 0x4000,
+	.preload_size = 0x8000,
 };
 
-static unsigned int do_single_lsc_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
+static unsigned int do_single_lsc_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData)
 {
 	struct STRUCT_CAM_CAL_DATA_STRUCT *pCamCalData =
@@ -118,7 +118,7 @@ static unsigned int do_single_lsc_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
 	return err;
 }
 
-static unsigned int do_2a_gain_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
+static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData)
 {
 	struct STRUCT_CAM_CAL_DATA_STRUCT *pCamCalData =
@@ -534,7 +534,7 @@ static unsigned int do_2a_gain_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
 	return err;
 }
 
-static unsigned int do_lens_id_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
+static unsigned int do_lens_id_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData)
 {
 	return do_lens_id_base(pdata, start_addr, block_size, pGetSensorCalData);

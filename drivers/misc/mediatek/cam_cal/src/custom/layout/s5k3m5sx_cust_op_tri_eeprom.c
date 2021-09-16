@@ -36,8 +36,8 @@ static struct STRUCT_CALIBRATION_LAYOUT_STRUCT cal_layout_table = {
 	}
 };
 
-struct STRUCT_CAM_CAL_CONFIG_STRUCT s5k3m5sx_op_tri_eeprom = {
-	.name = "s5k3m5sx_op_tri_eeprom",
+struct STRUCT_CAM_CAL_CONFIG_STRUCT s5k3m5sx_cust_op_tri_eeprom = {
+	.name = "s5k3m5sx_cust_op_tri_eeprom",
 	.check_layout_function = layout_check,
 	.read_function = Common_read_region,
 	.layout = &cal_layout_table,
