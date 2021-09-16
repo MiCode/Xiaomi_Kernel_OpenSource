@@ -496,9 +496,9 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 
 	if (host->dev_comp->need_gate_cg) {
 		if (host->src_clk_cg)
-			clk_disable(host->src_clk_cg);
+			clk_disable_unprepare(host->src_clk_cg);
 		else
-			clk_disable(clk_get_parent(host->src_clk));
+			clk_disable_unprepare(clk_get_parent(host->src_clk));
 	}
 	if (host->dev_comp->clk_div_bits == 8)
 		sdr_set_field(host->base + MSDC_CFG,
@@ -511,9 +511,9 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 
 	if (host->dev_comp->need_gate_cg) {
 		if (host->src_clk_cg)
-			clk_enable(host->src_clk_cg);
+			clk_prepare_enable(host->src_clk_cg);
 		else
-			clk_enable(clk_get_parent(host->src_clk));
+			clk_prepare_enable(clk_get_parent(host->src_clk));
 	}
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
