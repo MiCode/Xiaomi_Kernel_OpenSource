@@ -15,9 +15,14 @@
 #include <linux/workqueue.h>
 #include <linux/kdev_t.h>
 #include <linux/timekeeping.h>
+#include <linux/usb/composite.h>
 
 #include "usb_boost.h"
 #include "xhci-trace.h"
+#if IS_ENABLED(CONFIG_USB_MTU3)
+#include "mtu3.h"
+#include "mtu3_trace.h"
+#endif
 
 #define USB_BOOST_CLASS_NAME "usb_boost"
 enum{
@@ -77,6 +82,21 @@ static char *type_name[_TYPE_MAXID] = {
 	"cpu_core",
 	"dram_vcore",
 };
+
+enum {
+	USB_TYPE_UNKNOWN,
+	USB_TYPE_ADB,
+	USB_TYPE_MTP,
+	/* USB_TYPE_PTP, */
+	USB_TYPE_RNDIS,
+};
+
+#if IS_ENABLED(CONFIG_USB_MTU3)
+#define MAX_EP_NUM 32
+/* ep0 + in ep + out ep */
+static int boost_ep[MAX_EP_NUM * 2 + 1];
+#endif
+
 #define MAX_LEN_WQ_NAME 32
 static int trigger_cnt_disabled;
 static int enabled;
@@ -567,6 +587,157 @@ static int create_sys_fs(void)
 
 }
 
+#if IS_ENABLED(CONFIG_USB_MTU3)
+static struct usb_descriptor_header **
+get_function_descriptors(struct usb_function *f,
+		     enum usb_device_speed speed)
+{
+	struct usb_descriptor_header **descriptors;
+
+	switch (speed) {
+	case USB_SPEED_SUPER_PLUS:
+		descriptors = f->ssp_descriptors;
+		if (descriptors)
+			break;
+		fallthrough;
+	case USB_SPEED_SUPER:
+		descriptors = f->ss_descriptors;
+		if (descriptors)
+			break;
+		fallthrough;
+	case USB_SPEED_HIGH:
+		descriptors = f->hs_descriptors;
+		if (descriptors)
+			break;
+		fallthrough;
+	default:
+		descriptors = f->fs_descriptors;
+	}
+
+	return descriptors;
+}
+
+static int mtu3_get_ep_type(struct usb_descriptor_header **f_desc)
+{
+	struct usb_interface_descriptor *int_desc;
+	u8 int_class, int_subclass, int_protocol;
+
+	for (; *f_desc; ++f_desc) {
+		if ((*f_desc)->bDescriptorType != USB_DT_INTERFACE)
+			continue;
+
+		int_desc = (struct usb_interface_descriptor *)*f_desc;
+		int_class = int_desc->bInterfaceClass;
+		int_subclass = int_desc->bInterfaceSubClass;
+		int_protocol = int_desc->bInterfaceProtocol;
+
+		if (int_class == 0x6 && int_subclass == 0x1
+			&& int_protocol == 0x1) {
+			return USB_TYPE_MTP;
+		} else if (int_class == 0xff && int_subclass == 0x42
+			&& int_protocol == 0x1) {
+			return USB_TYPE_ADB;
+		}
+	}
+
+	return USB_TYPE_UNKNOWN;
+}
+
+static void boost_set_ep_type(int type, int num, int is_in)
+{
+	if (num > MAX_EP_NUM)
+		return;
+
+	if (is_in)
+		boost_ep[num] = type;
+	else
+		boost_ep[num + MAX_EP_NUM] = type;
+}
+
+static int boost_get_ep_type(int num, int is_in)
+{
+	int type;
+
+	if (num > MAX_EP_NUM)
+		return USB_TYPE_UNKNOWN;
+
+	if (is_in)
+		type = boost_ep[num];
+	else
+		type = boost_ep[num + MAX_EP_NUM];
+
+	return type;
+}
+
+static void boost_ep_enable(void *unused, struct mtu3_ep *mep)
+{
+	struct usb_ep *ep = &mep->ep;
+	struct usb_gadget *g = &mep->mtu->g;
+	struct usb_composite_dev *cdev;
+	struct usb_function *f = NULL;
+	struct usb_descriptor_header **f_desc;
+	int addr;
+	int type;
+
+	cdev = get_gadget_data(&mep->mtu->g);
+	if (!cdev || !cdev->config)
+		return;
+
+	if (!mep->epnum)
+		return;
+
+	addr = ((ep->address & 0x80) >> 3)
+			| (ep->address & 0x0f);
+
+	list_for_each_entry(f, &cdev->config->functions, list) {
+		if (test_bit(addr, f->endpoints))
+			goto find_f;
+	}
+	return;
+find_f:
+	f_desc = get_function_descriptors(f, g->speed);
+	if (f_desc) {
+		type = mtu3_get_ep_type(f_desc);
+		boost_set_ep_type(type, mep->epnum, mep->is_in);
+	}
+}
+
+static void boost_ep_disable(void *unused, struct mtu3_ep *mep)
+{
+	if (!mep->epnum)
+		return;
+
+	boost_set_ep_type(USB_TYPE_UNKNOWN, mep->epnum, mep->is_in);
+}
+
+static void mtu3_req_complete_boost(void *unused, struct mtu3_request *mreq)
+{
+	struct usb_request *req = &mreq->request;
+	struct mtu3_ep *mep = mreq->mep;
+	int type = boost_get_ep_type(mep->epnum, mep->is_in);
+
+	switch (type) {
+	case USB_TYPE_MTP:
+		if (req->actual >= 8192)
+			usb_boost();
+		break;
+	default:
+		break;
+	}
+}
+
+static int mtu3_trace_init(void)
+{
+	WARN_ON(register_trace_mtu3_gadget_ep_enable(
+		boost_ep_enable, NULL));
+	WARN_ON(register_trace_mtu3_gadget_ep_disable(
+		boost_ep_disable, NULL));
+	WARN_ON(register_trace_mtu3_req_complete(
+		mtu3_req_complete_boost, NULL));
+	return 0;
+}
+#endif
+
 void xhci_urb_giveback_dbg(void *unused, struct urb *urb)
 {
 	switch (usb_endpoint_type(&urb->ep->desc)) {
@@ -609,6 +780,10 @@ int usb_boost_init(void)
 	inited = 1;
 
 	xhci_trace_init();
+
+#if IS_ENABLED(CONFIG_USB_MTU3)
+	mtu3_trace_init();
+#endif
 
 	return 0;
 }
