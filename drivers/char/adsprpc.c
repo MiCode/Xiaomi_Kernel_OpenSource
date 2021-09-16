@@ -199,6 +199,7 @@
 
 #define INIT_FILELEN_MAX (2*1024*1024)
 #define INIT_MEMLEN_MAX  (8*1024*1024)
+#define INIT_MEMLEN_MIN  (1*1024*1024)
 #define MAX_CACHE_BUF_SIZE (8*1024*1024)
 
 /* Maximum buffers cached in cached buffer list */
@@ -539,6 +540,7 @@ struct fastrpc_channel_ctx {
 	struct hlist_head initmems;
 	/* Store gfa structure debug details */
 	struct fastrpc_buf *buf;
+	uint32_t staticpd_flags;
 };
 
 struct fastrpc_apps {
@@ -547,7 +549,6 @@ struct fastrpc_apps {
 	struct class *class;
 	struct smq_phy_page range;
 	struct hlist_head maps;
-	uint32_t staticpd_flags;
 	dev_t dev_no;
 	int compat;
 	struct hlist_head drivers;
@@ -4099,6 +4100,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 	uint64_t phys = 0;
 	size_t size = 0;
 	int fds[3];
+	struct fastrpc_channel_ctx *chan = NULL;
 	struct secure_vm *rhvm = &me->channel[fl->cid].rhvm;
 	struct {
 		int pgid;
@@ -4106,7 +4108,11 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		unsigned int pageslen;
 	} inbuf;
 
+	chan = &me->channel[fl->cid];
 	if (!init->filelen)
+		goto bail;
+
+	if (fl->cid != RH_CID)
 		goto bail;
 
 	proc_name = kzalloc(init->filelen + 1, GFP_KERNEL);
@@ -4136,9 +4142,12 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		err = fastrpc_mmap_remove_pdr(fl);
 		if (err)
 			goto bail;
+	} else {
+		err = -EFAULT;
+		goto bail;
 	}
 
-	if (!me->staticpd_flags && !me->legacy_remote_heap) {
+	if (!chan->staticpd_flags && !me->legacy_remote_heap) {
 		inbuf.pageslen = 1;
 		mutex_lock(&fl->map_mutex);
 		err = fastrpc_mmap_create(fl, -1, NULL, 0, init->mem,
@@ -4165,7 +4174,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 			}
 			rh_hyp_done = 1;
 		}
-		me->staticpd_flags = 1;
+		chan->staticpd_flags = 1;
 	}
 
 	/*
@@ -4202,10 +4211,10 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 bail:
 	kfree(proc_name);
 	if (err) {
-		me->staticpd_flags = 0;
 		if (rh_hyp_done) {
 			int hyp_err = 0;
 
+			chan->staticpd_flags = 0;
 			/* Assign memory back to HLOS in case of errors */
 			hyp_err = hyp_assign_phys(phys, (uint64_t)size,
 					rhvm->vmid, rhvm->vmcount,
@@ -4232,7 +4241,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_channel_ctx *chan = NULL;
 
 	VERIFY(err, init->filelen < INIT_FILELEN_MAX
-			&& init->memlen < INIT_MEMLEN_MAX);
+			&& init->memlen < INIT_MEMLEN_MAX
+				&& init->memlen > INIT_MEMLEN_MIN);
 	if (err)
 		goto bail;
 	if (err) {
@@ -6852,7 +6862,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		ctx->issubsystemup = 0;
 		mutex_unlock(&me->channel[cid].smd_mutex);
 		if (cid == RH_CID)
-			me->staticpd_flags = 0;
+			ctx->staticpd_flags = 0;
 		break;
 	case QCOM_SSR_AFTER_SHUTDOWN:
 		if (cid == RH_CID) {
@@ -6895,11 +6905,20 @@ static void fastrpc_pdr_cb(int state, char *service_path, void *priv)
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_static_pd *spd;
 	int err = 0;
+	struct fastrpc_channel_ctx *chan = NULL;
 
 	spd = priv;
 	VERIFY(err, spd);
 	if (err)
 		goto bail;
+	VERIFY(err, VALID_FASTRPC_CID(spd->cid));
+	if (err) {
+		ADSPRPC_ERR("Invalid Channel ID:%d is set\n",
+			spd->cid);
+		err = -ECHRNG;
+		goto bail;
+	}
+	chan = &me->channel[spd->cid];
 
 	switch (state) {
 	case SERVREG_SERVICE_STATE_DOWN:
@@ -6907,13 +6926,13 @@ static void fastrpc_pdr_cb(int state, char *service_path, void *priv)
 			__func__, spd->spdname,
 			spd->servloc_name,
 			gcinfo[spd->cid].subsys);
-		mutex_lock(&me->channel[spd->cid].smd_mutex);
+		mutex_lock(&chan->smd_mutex);
 		spd->pdrcount++;
 		spd->ispdup = 0;
-		mutex_unlock(&me->channel[spd->cid].smd_mutex);
+		mutex_unlock(&chan->smd_mutex);
 		if (!strcmp(spd->servloc_name,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
-			me->staticpd_flags = 0;
+			chan->staticpd_flags = 0;
 		fastrpc_notify_pdr_drivers(me, spd->servloc_name);
 		break;
 	case SERVREG_SERVICE_STATE_UP:
