@@ -3301,6 +3301,12 @@
 					<0 0x1026d000 0 0x1000>;
 		};
 
+		emiisu {
+			compatible = "mediatek,mt6983-emiisu",
+					"mediatek,common-emiisu";
+			ctrl_intf = <1>;
+		};
+
 		gps: gps@18c00000 {
 			compatible = "mediatek,mt6879-gps";
 			reg = <0 0x18000000 0 0x100000>,
