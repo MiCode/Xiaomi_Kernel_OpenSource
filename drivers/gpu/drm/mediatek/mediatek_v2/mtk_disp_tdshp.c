@@ -521,8 +521,16 @@ static void mtk_disp_tdshp_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
+void mtk_disp_tdshp_first_cfg(struct mtk_ddp_comp *comp,
+		struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	pr_notice("%s\n", __func__);
+	mtk_disp_tdshp_config(comp, cfg, handle);
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_tdshp_funcs = {
 	.config = mtk_disp_tdshp_config,
+	.first_cfg = mtk_disp_tdshp_first_cfg,
 	.start = mtk_disp_tdshp_start,
 	.stop = mtk_disp_tdshp_stop,
 	.bypass = mtk_disp_tdshp_bypass,
