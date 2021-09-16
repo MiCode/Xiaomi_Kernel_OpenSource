@@ -116,7 +116,7 @@ struct seninf_ctx {
 
 	unsigned int is_4d1c:1;
 	unsigned int is_cphy:1;
-	unsigned int is_test_model:2;
+	unsigned int is_test_model:4;
 #ifdef SENINF_DEBUG
 	unsigned int is_test_streamon:1;
 #endif

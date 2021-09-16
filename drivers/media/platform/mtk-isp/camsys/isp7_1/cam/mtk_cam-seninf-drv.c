@@ -618,7 +618,7 @@ static int mtk_cam_seninf_get_fmt(struct v4l2_subdev *sd,
 
 static int set_test_model(struct seninf_ctx *ctx, char enable)
 {
-	struct seninf_vc *vc[] = {NULL, NULL, NULL};
+	struct seninf_vc *vc[] = {NULL, NULL, NULL, NULL, NULL};
 	int i = 0, vc_used = 0;
 	struct seninf_mux *mux;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
@@ -633,6 +633,12 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 	} else if (ctx->is_test_model == 3) {
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF0);
+	} else if (ctx->is_test_model == 4) {
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW1);
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW2);
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF0);
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF1);
 	} else {
 		dev_info(ctx->dev, "testmodel %d invalid\n", ctx->is_test_model);
 		return -1;
@@ -669,7 +675,11 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			g_seninf_ops->_set_test_model(ctx,
 					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode);
 
-			udelay(40);
+			if (vc[i]->out_pad == PAD_SRC_PDAF0) {
+				mdelay(40);
+			} else {
+				udelay(40);
+			}
 		}
 	} else {
 		g_seninf_ops->_set_idle(ctx);
@@ -1183,6 +1193,7 @@ static int seninf_test_pattern(struct seninf_ctx *ctx, u32 pattern)
 	case 1:// RAW only
 	case 2:// Stagger: 3 expo
 	case 3:// 1 RAW + 1 PD
+	case 4:// 3 RAW + 2 PD
 		if (ctx->streaming)
 			return -EBUSY;
 		ctx->is_test_model = pattern;
@@ -1300,6 +1311,7 @@ static const char * const seninf_test_pattern_menu[] = {
 	"generate_test_pattern",
 	"generate_test_pattern_stagger",
 	"generate_test_pattern_pd",
+	"generate_test_pattern_5_src_pad",
 };
 
 #ifdef SENINF_DEBUG
