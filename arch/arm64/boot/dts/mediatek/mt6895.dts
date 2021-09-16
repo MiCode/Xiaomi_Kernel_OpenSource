@@ -6558,7 +6558,6 @@
 		_vstack-supply = <&mt6368_vbuck2>;
 		_vsram-supply = <&mt6363_vbuck4>;
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
-		fhctl-supply = <&fhctl>;
 	};
 
 	gpufreq_wrapper: gpufreq_wrapper {
