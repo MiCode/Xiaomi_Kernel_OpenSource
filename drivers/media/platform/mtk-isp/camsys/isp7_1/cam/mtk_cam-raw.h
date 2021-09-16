@@ -6,6 +6,7 @@
 #ifndef __MTK_CAM_RAW_H
 #define __MTK_CAM_RAW_H
 
+#include <linux/kfifo.h>
 #include <media/v4l2-subdev.h>
 #include "mtk_cam-video.h"
 #include "mtk_camera-v4l2-controls.h"
@@ -276,6 +277,7 @@ struct mtk_raw_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;
 	unsigned int id;
+	int irq;
 	void __iomem *base;
 	void __iomem *base_inner;
 	void __iomem *yuv_base;
@@ -285,7 +287,11 @@ struct mtk_raw_device {
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notifier;
 #endif
-	spinlock_t spinlock_irq;
+
+	int		fifo_size;
+	void		*msg_buffer;
+	struct kfifo	msg_fifo;
+
 	u64 sof_count;
 	u64 setting_count;
 	int write_cnt;

@@ -1203,6 +1203,11 @@ static void reset_reg(struct mtk_raw_device *dev)
 			 readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
 }
 
+static int reset_msgfifo(struct mtk_raw_device *dev)
+{
+	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
+}
+
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
 	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
 	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
@@ -1221,6 +1226,7 @@ void set_fifo_threshold(void __iomem *dma_base)
 	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 3/8, 1/4),
 			dma_base + DMA_OFFSET_CON4);
 }
+
 void toggle_db(struct mtk_raw_device *dev)
 {
 	int value;
@@ -1477,6 +1483,8 @@ void initialize(struct mtk_raw_device *dev)
 	dev->time_shared_busy = 0;
 	dev->vf_en = 0;
 	dev->stagger_en = 0;
+	reset_msgfifo(dev);
+
 	init_dma_threshold(dev);
 
 	/* Workaround: disable FLKO error_sof: double sof error
@@ -1935,6 +1943,7 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 	return res;
 
 }
+
 static irqreturn_t mtk_irq_raw(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
@@ -1944,10 +1953,8 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
 	unsigned int drop_status, dma_ofl_status, cq_done_status, cq2_done_status;
 	unsigned int tg_cfg, cq_en, val_dcif_ctl, val_tg_sen;
-	unsigned long flags;
-	int ret;
+	int wake_thread = 0;
 
-	spin_lock_irqsave(&raw_dev->spinlock_irq, flags);
 	irq_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
 	dmao_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT2_STAT);
 	dmai_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT3_STAT);
@@ -1972,7 +1979,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
 	fbc_fho_r1_ctl2 =
 		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
-	spin_unlock_irqrestore(&raw_dev->spinlock_irq, flags);
 
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 	dev_dbg(dev,
@@ -1982,17 +1988,13 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		dma_ofl_status, cq_done_status, cq2_done_status,
 		dequeued_frame_seq_no_inner);
 
-	if (!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw) {
+	if (unlikely(!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw)) {
 		dev_dbg(dev,
 			"%s: %i: raw pipeline is disabled\n",
 			__func__, raw_dev->id);
 		goto ctx_not_found;
 	}
 
-	/*
-	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
-	 * If these two ISRs come together, print warning msg to hint.
-	 */
 	irq_info.engine_id = CAMSYS_ENGINE_RAW_BEGIN + raw_dev->id;
 	irq_info.frame_idx = dequeued_frame_seq_no;
 	irq_info.frame_inner_idx = dequeued_frame_seq_no_inner;
@@ -2043,10 +2045,21 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		dev_dbg(dev, "[SOF+DMA_ERR] CAMSYS_IRQ_FRAME_DROP\n");
 	}
 
-	/* inform interrupt information to camsys controller */
-	ret = mtk_camsys_isr_event(raw_dev->cam, &irq_info);
-	if (ret)
-		goto ctx_not_found;
+	if (irq_info.irq_type) {
+		int len;
+
+		if (unlikely(kfifo_avail(&raw_dev->msg_fifo) < sizeof(irq_info))) {
+			dev_info_ratelimited(dev, "msg fifo is full\n");
+			goto no_msgfifo;
+		}
+
+		len = kfifo_in(&raw_dev->msg_fifo, &irq_info, sizeof(irq_info));
+		WARN_ON(len != sizeof(irq_info));
+
+		wake_thread = 1;
+	}
+
+no_msgfifo:
 
 	/* Check ISP error status */
 	if (err_status) {
@@ -2084,10 +2097,26 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 
 	/* enable to debug fbc related */
 	if (debug_raw && debug_dump_fbc && (irq_status & SOF_INT_ST))
-		mtk_cam_raw_dump_fbc(raw_dev->dev,
-				     raw_dev->base, raw_dev->yuv_base);
+		mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
 
 ctx_not_found:
+
+	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
+{
+	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
+	struct mtk_camsys_irq_info irq_info;
+
+	while (kfifo_len(&raw_dev->msg_fifo) >= sizeof(irq_info)) {
+		int len = kfifo_out(&raw_dev->msg_fifo, &irq_info, sizeof(irq_info));
+
+		WARN_ON(len != sizeof(irq_info));
+
+		/* inform interrupt information to camsys controller */
+		mtk_camsys_isr_event(raw_dev->cam, &irq_info);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -2349,7 +2378,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	struct device_link *link;
 	struct resource *res;
 	unsigned int i;
-	int irq, clks, larbs, ret;
+	int clks, larbs, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
@@ -2390,19 +2419,23 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	/* will be assigned later */
 	raw->yuv_base = NULL;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	raw->irq = platform_get_irq(pdev, 0);
+	if (raw->irq < 0) {
 		dev_dbg(dev, "failed to get irq\n");
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(dev, irq, mtk_irq_raw, 0,
-			       dev_name(dev), raw);
+	ret = devm_request_threaded_irq(dev, raw->irq,
+					mtk_irq_raw,
+					mtk_thread_irq_raw,
+					0, dev_name(dev), raw);
 	if (ret) {
-		dev_dbg(dev, "failed to request irq=%d\n", irq);
+		dev_dbg(dev, "failed to request irq=%d\n", raw->irq);
 		return ret;
 	}
-	dev_dbg(dev, "registered irq=%d\n", irq);
+	dev_dbg(dev, "registered irq=%d\n", raw->irq);
+
+	disable_irq(raw->irq);
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
@@ -5306,11 +5339,15 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	raw_dev->dev = dev;
 	dev_set_drvdata(dev, raw_dev);
 
-	spin_lock_init(&raw_dev->spinlock_irq);
-
 	ret = mtk_raw_of_probe(pdev, raw_dev);
 	if (ret)
 		return ret;
+
+	raw_dev->fifo_size =
+		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
+	raw_dev->msg_buffer = devm_kzalloc(dev, raw_dev->fifo_size, GFP_KERNEL);
+	if (!raw_dev->msg_buffer)
+		return -ENOMEM;
 
 	pm_runtime_enable(dev);
 
@@ -5346,6 +5383,8 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
 
+	disable_irq(drvdata->irq);
+
 	return 0;
 }
 
@@ -5353,6 +5392,13 @@ static int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
+
+	/* reset_msgfifo before enable_irq */
+	ret = reset_msgfifo(drvdata);
+	if (ret)
+		return ret;
+
+	enable_irq(drvdata->irq);
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
