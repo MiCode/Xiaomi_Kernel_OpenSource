@@ -7296,19 +7296,19 @@
 			opp-peak-KBps = <3800000>;
 		};
 		dvfsrc_freq_opp4: opp4 {
-			opp-peak-KBps = <51000000>;
+			opp-peak-KBps = <5100000>;
 		};
 		dvfsrc_freq_opp3: opp3 {
-			opp-peak-KBps = <59000000>;
+			opp-peak-KBps = <5900000>;
 		};
 		dvfsrc_freq_opp2: opp2 {
-			opp-peak-KBps = <74000000>;
+			opp-peak-KBps = <7400000>;
 		};
 		dvfsrc_freq_opp1: opp1 {
-			opp-peak-KBps = <102000000>;
+			opp-peak-KBps = <10200000>;
 		};
 		dvfsrc_freq_opp0: opp0 {
-			opp-peak-KBps = <136000000>;
+			opp-peak-KBps = <13600000>;
 		};
 
 		dvfsrc-helper {
