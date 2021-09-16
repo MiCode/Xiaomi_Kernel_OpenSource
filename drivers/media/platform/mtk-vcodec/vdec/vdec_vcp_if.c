@@ -338,6 +338,9 @@ int vcp_dec_ipi_handler(void *arg)
 	struct vdec_vcu_ipi_mem_op *shem_msg;
 	unsigned long flags;
 	unsigned int suspend_block_cnt = 0;
+	struct list_head *p, *q;
+	struct mtk_vcodec_ctx *temp_ctx;
+	int msg_valid = 0;
 
 	mtk_v4l2_debug_enter();
 	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_cmd) > SHARE_BUF_SIZE);
@@ -397,10 +400,29 @@ int vcp_dec_ipi_handler(void *arg)
 				continue;
 			}
 		}
-
 		vcu = (struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
+
+		/* Check IPI inst is valid */
+		mutex_lock(&dev->ctx_mutex);
+		msg_valid = 0;
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			temp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			inst = (struct vdec_inst *)temp_ctx->drv_handle;
+			if (vcu == &inst->vcu) {
+				msg_valid = 1;
+				break;
+			}
+		}
+		if (!msg_valid) {
+			mtk_v4l2_err(" msg vcu not exist %p\n", vcu);
+			mutex_unlock(&dev->ctx_mutex);
+			kfree(mq_node);
+			continue;
+		}
+
 		if (vcu->abort) {
 			mtk_v4l2_err(" msg vcu abort\n");
+			mutex_unlock(&dev->ctx_mutex);
 			kfree(mq_node);
 			continue;
 		}
@@ -513,6 +535,7 @@ int vcp_dec_ipi_handler(void *arg)
 			}
 		}
 		mtk_vcodec_debug(vcu, "- id=%X", msg->msg_id);
+		mutex_unlock(&dev->ctx_mutex);
 		kfree(mq_node);
 	} while (!kthread_should_stop());
 	mtk_v4l2_debug_leave();
@@ -655,6 +678,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	INIT_LIST_HEAD(&inst->vcu.bufs);
 
 	mtk_vcodec_debug(inst, "vdec_inst=%p svp_mode=%d", &inst->vcu, msg.reserved);
+	*h_vdec = (unsigned long)inst;
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 
 	if (err != 0) {
@@ -670,7 +694,6 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
-	*h_vdec = (unsigned long)inst;
 	return 0;
 
 error_free_inst:

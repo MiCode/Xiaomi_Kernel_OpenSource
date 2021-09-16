@@ -86,6 +86,11 @@ static int fops_vcodec_open(struct file *file)
 	}
 	src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
+	mutex_lock(&dev->ctx_mutex);
+	list_add(&ctx->list, &dev->ctx_list);
+	mutex_unlock(&dev->ctx_mutex);
+
 	ctx->enc_flush_buf->vb.vb2_buf.vb2_queue = src_vq;
 	ctx->enc_flush_buf->lastframe = NON_EOS;
 	ctx->enc_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
@@ -114,7 +119,6 @@ static int fops_vcodec_open(struct file *file)
 	mtk_v4l2_debug(2, "Create instance [%d]@%p m2m_ctx=%p ",
 				   ctx->id, ctx, ctx->m2m_ctx);
 
-	list_add(&ctx->list, &dev->ctx_list);
 	dev->enc_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
@@ -125,6 +129,9 @@ static int fops_vcodec_open(struct file *file)
 	/* Deinit when failure occurred */
 err_load_fw:
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
+	mutex_lock(&dev->ctx_mutex);
+	list_del_init(&ctx->list);
+	mutex_unlock(&dev->ctx_mutex);
 err_m2m_ctx_init:
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 err_ctrls_setup:
@@ -154,11 +161,13 @@ static int fops_vcodec_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 
+	mutex_lock(&dev->ctx_mutex);
 	list_del_init(&ctx->list);
 	kfree(ctx->enc_flush_buf);
 	kfree(ctx);
 	if (dev->enc_cnt > 0)
 		dev->enc_cnt--;
+	mutex_unlock(&dev->ctx_mutex);
 	mutex_unlock(&dev->dev_mutex);
 	return 0;
 }
@@ -384,6 +393,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	for (i = 0; i < MTK_VENC_HW_NUM; i++)
 		sema_init(&dev->enc_sem[i], 1);
 
+	mutex_init(&dev->ctx_mutex);
 	mutex_init(&dev->dev_mutex);
 	mutex_init(&dev->ipi_mutex);
 	mutex_init(&dev->enc_dvfs_mutex);
