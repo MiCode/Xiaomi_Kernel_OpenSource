@@ -8,7 +8,9 @@
 #include "eas_plus.h"
 #include "eas_trace.h"
 #include <linux/sort.h>
+#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 #include <thermal_interface.h>
+#endif
 
 MODULE_LICENSE("GPL");
 
@@ -183,17 +185,17 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
  * Return: the sum of the energy consumed by the CPUs of the domain assuming
  * a capacity state satisfying the max utilization of the domain.
  */
-void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
-		unsigned long max_util, unsigned long sum_util, unsigned long *energy)
+unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
+		unsigned long max_util, unsigned long sum_util, unsigned int *cpu_temp)
 {
 	unsigned long freq, scale_cpu;
 	struct em_perf_state *ps;
 	int i, cpu, opp = -1;
 	unsigned long dyn_pwr = 0, static_pwr = 0;
+	unsigned long energy;
 
 	if (!sum_util) {
-		energy = 0;
-		return;
+		return 0;
 	}
 
 	/*
@@ -210,7 +212,6 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
 #endif
 
-
 	/*
 	 * Find the lowest performance state of the Energy Model above the
 	 * requested frequency.
@@ -226,16 +227,12 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 	opp = pd->nr_perf_states - i - 1;
 
 	for_each_cpu_and(cpu, to_cpumask(pd->cpus), cpu_online_mask) {
-		unsigned int temp;
-		unsigned long cpu_static_pwr;
+		unsigned int cpu_static_pwr;
 
-		temp = get_cpu_temp(cpu);
-		temp /= 1000;
-
-		cpu_static_pwr = mtk_get_leakage(cpu, opp, temp);
+		cpu_static_pwr = mtk_get_leakage(cpu, opp, cpu_temp[cpu]);
 		static_pwr += cpu_static_pwr;
 
-		trace_sched_leakage(cpu, opp, temp, cpu_static_pwr, static_pwr);
+		trace_sched_leakage(cpu, opp, cpu_temp[cpu], cpu_static_pwr, static_pwr);
 	}
 #endif
 
@@ -283,9 +280,11 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 	 */
 
 	dyn_pwr = (ps->cost * 1000 * sum_util / scale_cpu);
-	*energy = dyn_pwr + static_pwr;
+	energy = dyn_pwr + static_pwr;
 
 	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
+
+	return energy;
 }
 
 #define CSRAM_BASE 0x0011BC00

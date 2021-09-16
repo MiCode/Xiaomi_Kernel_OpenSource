@@ -134,9 +134,11 @@ TRACE_EVENT(sched_energy_util,
 
 	TP_PROTO(int dst_cpu,
 		unsigned long max_util, unsigned long sum_util,
-		int cpu, unsigned long util_cfs, unsigned long cpu_util),
+		int cpu, unsigned long util_cfs, unsigned long util_cfs_energy,
+		unsigned long cpu_util),
 
-	TP_ARGS(dst_cpu, max_util, sum_util, cpu, util_cfs, cpu_util),
+
+	TP_ARGS(dst_cpu, max_util, sum_util, cpu, util_cfs, util_cfs_energy, cpu_util),
 
 	TP_STRUCT__entry(
 		__field(int, dst_cpu)
@@ -144,6 +146,7 @@ TRACE_EVENT(sched_energy_util,
 		__field(unsigned long, sum_util)
 		__field(int, cpu)
 		__field(unsigned long, util_cfs)
+		__field(unsigned long, util_cfs_energy)
 		__field(unsigned long, cpu_util)
 		),
 
@@ -153,15 +156,17 @@ TRACE_EVENT(sched_energy_util,
 		__entry->sum_util   = sum_util;
 		__entry->cpu        = cpu;
 		__entry->util_cfs   = util_cfs;
+		__entry->util_cfs_energy   = util_cfs_energy;
 		__entry->cpu_util   = cpu_util;
 		),
 
-	TP_printk("dst_cpu=%d max_util=%lu sum_util=%lu cpu=%d util_cfs=%lu cpu_util=%lu",
+	TP_printk("dst_cpu=%d max_util=%lu sum_util=%lu cpu=%d util_cfs=%lu util_cfs_energy=%lu cpu_util=%lu",
 		__entry->dst_cpu,
 		__entry->max_util,
 		__entry->sum_util,
 		__entry->cpu,
 		__entry->util_cfs,
+		__entry->util_cfs_energy,
 		__entry->cpu_util)
 );
 

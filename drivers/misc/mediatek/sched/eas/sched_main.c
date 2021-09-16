@@ -148,11 +148,6 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register android_rvh_find_energy_efficient_cpu failed\n");
 
-	ret = register_trace_android_vh_em_cpu_energy(
-			mtk_em_cpu_energy, NULL);
-	if (ret)
-		pr_info("register trace_android_vh_em_cpu_energy failed\n");
-
 	ret = register_trace_android_rvh_cpu_overutilized(
 			mtk_cpu_overutilized, NULL);
 	if (ret)

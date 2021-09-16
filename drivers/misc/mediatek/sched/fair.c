@@ -11,6 +11,9 @@
 #include <sched/pelt.h>
 #include <linux/stop_machine.h>
 #include <linux/kthread.h>
+#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
+#include <thermal_interface.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "sched_trace.h"
@@ -117,6 +120,7 @@ unsigned long cpu_util(int cpu)
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
+#if IS_ENABLED(CONFIG_MTK_EAS)
 /*
  * Predicts what cpu_util(@cpu) would return if @p was migrated (and enqueued)
  * to @dst_cpu.
@@ -156,20 +160,84 @@ static unsigned long cpu_util_next(int cpu, struct task_struct *p, int dst_cpu)
 }
 
 /*
+ * Predicts what cpu_util(@cpu) would return if @p was migrated (and enqueued)
+ * to @dst_cpu.
+ * input:
+ * util_freq = READ_ONCE(cfs_rq->avg.util_avg);
+ *
+ * if (sched_feat(UTIL_EST)) {
+ *	util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
+ * }
+ */
+static unsigned long mtk_cpu_util_next(int cpu, struct task_struct *p, int dst_cpu,
+					unsigned long util_freq, unsigned long util_est,
+					unsigned long *util_energy)
+{
+	*util_energy = util_freq;
+	/*
+	 * If @p migrates from @cpu to another, remove its contribution. Or,
+	 * if @p migrates from another CPU to @cpu, add its contribution. In
+	 * the other cases, @cpu is not impacted by the migration, so the
+	 * util_avg should already be correct.
+	 */
+	if (task_cpu(p) == cpu && dst_cpu != cpu)
+		sub_positive(&util_freq, task_util(p));
+	else if (task_cpu(p) != cpu && dst_cpu == cpu)
+		util_freq += task_util(p);
+
+	if (task_cpu(p) == cpu)
+		sub_positive(util_energy, task_util(p));
+
+	if (sched_feat(UTIL_EST)) {
+		*util_energy = max(*util_energy, util_est);
+
+		/*
+		 * During wake-up, the task isn't enqueued yet and doesn't
+		 * appear in the cfs_rq->avg.util_est.enqueued of any rq,
+		 * so just add it (if needed) to "simulate" what will be
+		 * cpu_util() after the task has been enqueued.
+		 */
+		if (dst_cpu == cpu)
+			util_est += _task_util_est(p);
+
+		util_freq = max(util_freq, util_est);
+	}
+
+	if (dst_cpu == cpu) {
+		unsigned long task_util_energy;
+
+		if (sched_feat(UTIL_EST))
+			task_util_energy = task_util_est(p);
+		else
+			task_util_energy = task_util(p);
+
+		*util_energy += task_util_energy;
+	}
+
+	*util_energy =  min(*util_energy, capacity_orig_of(cpu));
+
+	return min(util_freq, capacity_orig_of(cpu));
+}
+
+/*
  * compute_energy(): Estimates the energy that @pd would consume if @p was
  * migrated to @dst_cpu. compute_energy() predicts what will be the utilization
  * landscape of @pd's CPUs after the task migration, and uses the Energy Model
  * to compute what would be the energy if we decided to actually migrate that
  * task.
+ * return the delta energy of put task p in dst_cpu
  */
-static long
-compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
+static unsigned long
+mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 {
 	struct cpumask *pd_mask = perf_domain_span(pd);
 	unsigned long cpu_cap = arch_scale_cpu_capacity(cpumask_first(pd_mask));
-	unsigned long max_util = 0, sum_util = 0;
-	unsigned long energy = 0;
+	unsigned long max_util_base = 0, max_util_cur = 0;
+	unsigned long cpu_energy_util, sum_util_base = 0, sum_util_cur = 0;
+	unsigned long util_cfs_base, util_cfs_cur, util_cfs_energy_base, util_cfs_energy_cur;
+	unsigned long energy_base = 0, energy_cur = 0, energy_delta = 0;
 	int cpu;
+	int cpu_temp[NR_CPUS];
 
 	/*
 	 * The capacity state of CPUs of the current rd can be driven by CPUs
@@ -181,9 +249,16 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	 * its pd list and will not be accounted by compute_energy().
 	 */
 	for_each_cpu_and(cpu, pd_mask, cpu_online_mask) {
-		unsigned long cpu_util, util_cfs = cpu_util_next(cpu, p, dst_cpu);
+		unsigned long cpu_util_base, cpu_util_cur;
 		struct task_struct *tsk = cpu == dst_cpu ? p : NULL;
+		struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
+		unsigned long util_est = 0, util_freq = READ_ONCE(cfs_rq->avg.util_avg);
 
+		if (sched_feat(UTIL_EST))
+			util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
+
+		util_cfs_base = mtk_cpu_util_next(cpu, p, -1, util_freq, util_est,
+							&util_cfs_energy_base);
 		/*
 		 * Busy time computation: utilization clamping is not
 		 * required since the ratio (sum_util / cpu_capacity)
@@ -191,12 +266,13 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * consumption at the (eventually clamped) cpu_capacity.
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		sum_util += mtk_cpu_util(cpu, util_cfs, cpu_cap,
+		cpu_energy_util = mtk_cpu_util(cpu, util_cfs_energy_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #else
-		sum_util += schedutil_cpu_util(cpu, util_cfs, cpu_cap,
+		cpu_energy_util = schedutil_cpu_util(cpu, util_cfs_energy_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
+		sum_util_base += cpu_energy_util;
 
 		/*
 		 * Performance domain frequency: utilization clamping
@@ -206,25 +282,74 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * FREQUENCY_UTIL's utilization can be max OPP.
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		cpu_util = mtk_cpu_util(cpu, util_cfs, cpu_cap,
+		cpu_util_base = mtk_cpu_util(cpu, util_cfs_base, cpu_cap,
+					      FREQUENCY_UTIL, NULL);
+#else
+		cpu_util_base = schedutil_cpu_util(cpu, util_cfs_base, cpu_cap,
+					      FREQUENCY_UTIL, NULL);
+#endif
+
+		if (cpu == dst_cpu) {
+			util_cfs_cur = mtk_cpu_util_next(cpu, p, dst_cpu, util_freq, util_est,
+						&util_cfs_energy_cur);
+			/*
+			 * Busy time computation: utilization clamping is not
+			 * required since the ratio (sum_util / cpu_capacity)
+			 * is already enough to scale the EM reported power
+			 * consumption at the (eventually clamped) cpu_capacity.
+			 */
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+			sum_util_cur += mtk_cpu_util(cpu, util_cfs_energy_cur, cpu_cap,
+					       ENERGY_UTIL, NULL);
+#else
+			sum_util_cur += schedutil_cpu_util(cpu, util_cfs_energy_cur, cpu_cap,
+					       ENERGY_UTIL, NULL);
+#endif
+			/*
+			 * Performance domain frequency: utilization clamping
+			 * must be considered since it affects the selection
+			 * of the performance domain frequency.
+			 * NOTE: in case RT tasks are running, by default the
+			 * FREQUENCY_UTIL's utilization can be max OPP.
+			 */
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+			cpu_util_cur = mtk_cpu_util(cpu, util_cfs_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 #else
-		cpu_util = schedutil_cpu_util(cpu, util_cfs, cpu_cap,
+			cpu_util_cur = schedutil_cpu_util(cpu, util_cfs_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 #endif
-		max_util = max(max_util, cpu_util);
+		} else {
 
-		trace_sched_energy_util(dst_cpu, max_util, sum_util, cpu, util_cfs, cpu_util);
+			util_cfs_energy_cur = util_cfs_energy_base;
+			util_cfs_cur = util_cfs_base;
+			sum_util_cur += cpu_energy_util;
+			cpu_util_cur = cpu_util_base;
+		}
+
+		max_util_base = max(max_util_base, cpu_util_base);
+		max_util_cur = max(max_util_cur, cpu_util_cur);
+
+		trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu, util_cfs_base,
+				util_cfs_energy_base, cpu_util_base);
+		trace_sched_energy_util(dst_cpu, max_util_cur, sum_util_cur, cpu, util_cfs_cur,
+				util_cfs_energy_cur, cpu_util_cur);
+
+		/* get temperature for each cpu*/
+		cpu_temp[cpu] = get_cpu_temp(cpu);
+		cpu_temp[cpu] /= 1000;
 	}
 
-	trace_android_vh_em_cpu_energy(pd->em_pd, max_util, sum_util, &energy);
-	if (!energy)
-		energy = em_cpu_energy(pd->em_pd, max_util, sum_util);
+	energy_base = mtk_em_cpu_energy(pd->em_pd, max_util_base, sum_util_base, cpu_temp);
+	energy_cur = mtk_em_cpu_energy(pd->em_pd, max_util_cur, sum_util_cur, cpu_temp);
+	energy_delta = energy_cur - energy_base;
 
-	trace_sched_compute_energy(dst_cpu, pd_mask, energy, max_util, sum_util);
+	trace_sched_compute_energy(-1, pd_mask, energy_base, max_util_base, sum_util_base);
+	trace_sched_compute_energy(dst_cpu, pd_mask, energy_cur, max_util_cur, sum_util_cur);
 
-	return energy;
+	return energy_delta;
 }
+#endif
 
 static unsigned int uclamp_min_ls;
 void set_uclamp_min_ls(unsigned int val)
@@ -265,6 +390,7 @@ static void attach_one_task(struct rq *rq, struct task_struct *p)
 	rq_unlock(rq, &rf);
 }
 
+#if IS_ENABLED(CONFIG_MTK_EAS)
 void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_cpu, int sync, int *new_cpu)
 {
 	unsigned long best_delta = ULONG_MAX;
@@ -274,7 +400,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	int sys_max_spare_cap_cpu = -1;
 	int idle_max_spare_cap_cpu = -1;
 	unsigned long target_cap = 0;
-	unsigned long cpu_cap, util, base_energy = 0;
+	unsigned long cpu_cap, util;
 	bool latency_sensitive = false;
 	unsigned int min_exit_lat = UINT_MAX;
 	int cpu, best_energy_cpu = -1;
@@ -311,8 +437,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	}
 
 	for (; pd; pd = pd->next) {
-		unsigned long base_energy_pd;
-		long cur_delta;
+		unsigned long cur_delta;
 		long spare_cap, max_spare_cap = LONG_MIN;
 		unsigned long max_spare_cap_ls_idle = 0;
 		int max_spare_cap_cpu = -1;
@@ -320,10 +445,6 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 		int cpu_order[NR_CPUS], cnt, i;
 #endif
-
-		/* Compute the 'base' energy of the pd, without @p */
-		base_energy_pd = compute_energy(p, -1, pd);
-		base_energy += base_energy_pd;
 
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 		cnt = sort_thermal_headroom(perf_domain_span(pd), cpu_order);
@@ -409,8 +530,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 
 		/* Evaluate the energy impact of using this CPU. */
 		if (!latency_sensitive && max_spare_cap_cpu >= 0) {
-			cur_delta = compute_energy(p, max_spare_cap_cpu, pd);
-			cur_delta -= base_energy_pd;
+			cur_delta = mtk_compute_energy(p, max_spare_cap_cpu, pd);
 			if (cur_delta <= best_delta) {
 				best_delta = cur_delta;
 				best_energy_cpu = max_spare_cap_cpu;
@@ -419,8 +539,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 
 		if (latency_sensitive) {
 			if (max_spare_cap_cpu_ls_idle >= 0) {
-				cur_delta = compute_energy(p, max_spare_cap_cpu_ls_idle, pd);
-				cur_delta -= base_energy_pd;
+				cur_delta = mtk_compute_energy(p, max_spare_cap_cpu_ls_idle, pd);
 				if (cur_delta <= best_delta) {
 					best_delta = cur_delta;
 					best_idle_cpu = max_spare_cap_cpu_ls_idle;
@@ -474,9 +593,11 @@ done:
 
 	return;
 }
+#endif
 
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_EAS)
 /* must hold runqueue lock for queue se is currently on */
 static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 {
@@ -522,6 +643,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 	rcu_read_unlock();
 	return p;
 }
+#endif
 
 static int mtk_active_load_balance_cpu_stop(void *data)
 {
@@ -596,6 +718,7 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 	return active_balance;
 }
 
+#if IS_ENABLED(CONFIG_MTK_EAS)
 void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *rf,
 		int *pulled_task, int *done)
 {
@@ -702,3 +825,4 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 
 	return;
 }
+#endif
