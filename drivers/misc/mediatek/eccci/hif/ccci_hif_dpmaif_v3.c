@@ -3772,14 +3772,6 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	CCCI_DEBUG_LOG(md_id, TAG, "dpmaif_irq_id:%d\n",
 			hif_ctrl->dpmaif_irq_id);
 
-	node = of_find_compatible_node(NULL, NULL,
-		"mediatek,infracfg_ao_mem");
-	if (!node) {
-		CCCI_ERROR_LOG(md_id, TAG, "mediatek,infracfg_ao_mem fail!\n");
-		ret = -1;
-		goto DPMAIF_INIT_FAIL;
-	}
-
 	mtk_ccci_net_speed_init();
 	dpmaif_init_cap(dev);
 
