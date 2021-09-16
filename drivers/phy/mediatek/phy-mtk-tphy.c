@@ -74,6 +74,10 @@
 #define PA6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
 #define PA6_RG_U2_PHY_REV6_MASK	(0x3)
 #define PA6_RG_U2_PHY_REV6_OFET	(30)
+#define PA6_RG_U2_PHY_REV4		BIT(28)
+#define PA6_RG_U2_PHY_REV4_VAL(x)	((0x1 & (x)) << 28)
+#define PA6_RG_U2_PHY_REV4_MASK	(0x1)
+#define PA6_RG_U2_PHY_REV4_OFET	(28)
 #define PA6_RG_U2_PHY_REV1		BIT(25)
 #define PA6_RG_U2_BC11_SW_EN		BIT(23)
 #define PA6_RG_U2_OTG_VBUSCMP_EN	BIT(20)
@@ -83,6 +87,8 @@
 #define PA6_RG_U2_DISCTH_OFET	(4)
 #define PA6_RG_U2_SQTH		GENMASK(3, 0)
 #define PA6_RG_U2_SQTH_VAL(x)	(0xf & (x))
+#define PA6_RG_U2_SQTH_MASK	(0xf)
+#define PA6_RG_U2_SQTH_OFET	(0)
 
 #define U3P_U2PHYACR4		0x020
 #define P2C_RG_USB20_GPIO_CTL		BIT(9)
@@ -318,8 +324,10 @@
 
 #define TERM_SEL_STR "term_sel"
 #define VRT_SEL_STR "vrt_sel"
+#define PHY_REV4_STR "phy_rev4"
 #define PHY_REV6_STR "phy_rev6"
 #define DISCTH_STR "discth"
+#define RX_SQTH_STR "rx_sqth"
 #define SIB_STR	"sib"
 #define LOOPBACK_STR "loopback_test"
 
@@ -386,6 +394,8 @@ struct mtk_phy_instance {
 	int eye_term;
 	int intr;
 	int discth;
+	int rx_sqth;
+	int rev4;
 	int rev6;
 	bool bc12_en;
 	struct proc_dir_entry *phy_root;
@@ -816,6 +826,62 @@ static const struct  proc_ops proc_vrt_sel_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_phy_rev4_show(struct seq_file *s, void *unused)
+{
+	struct mtk_phy_instance *instance = s->private;
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp >>= PA6_RG_U2_PHY_REV4_OFET;
+	tmp &= PA6_RG_U2_PHY_REV4_MASK;
+
+	cover_val_to_str(tmp, 1, str);
+
+	seq_printf(s, "\n%s = %s\n", PHY_REV4_STR, str);
+	return 0;
+}
+
+static int proc_phy_rev4_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_phy_rev4_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_phy_rev4_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct mtk_phy_instance *instance = s->private;
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_PHY_REV4;
+	tmp |= PA6_RG_U2_PHY_REV4_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR6);
+
+	return count;
+}
+
+static const struct proc_ops proc_phy_rev4_fops = {
+	.proc_open = proc_phy_rev4_open,
+	.proc_write = proc_phy_rev4_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 static int proc_phy_rev6_show(struct seq_file *s, void *unused)
 {
 	struct mtk_phy_instance *instance = s->private;
@@ -928,6 +994,61 @@ static const struct proc_ops proc_discth_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_rx_sqth_show(struct seq_file *s, void *unused)
+{
+	struct mtk_phy_instance *instance = s->private;
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp >>= PA6_RG_U2_SQTH_OFET;
+	tmp &= PA6_RG_U2_SQTH_MASK;
+
+	cover_val_to_str(tmp, 4, str);
+
+	seq_printf(s, "\n%s = %s\n", RX_SQTH_STR, str);
+	return 0;
+}
+
+static int proc_rx_sqth_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_rx_sqth_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_rx_sqth_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct mtk_phy_instance *instance = s->private;
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_SQTH;
+	tmp |= PA6_RG_U2_SQTH_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR6);
+
+	return count;
+}
+
+static const struct proc_ops proc_rx_sqth_fops = {
+	.proc_open = proc_rx_sqth_open,
+	.proc_write = proc_rx_sqth_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
 static int u2_phy_procfs_init(struct mtk_tphy *tphy,
 			struct mtk_phy_instance *instance)
 {
@@ -966,6 +1087,14 @@ static int u2_phy_procfs_init(struct mtk_tphy *tphy,
 		goto err1;
 	}
 
+	file = proc_create_data(PHY_REV4_STR, 0644,
+			phy_root, &proc_phy_rev4_fops, instance);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", PHY_REV4_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
 	file = proc_create_data(PHY_REV6_STR, 0644,
 			phy_root, &proc_phy_rev6_fops, instance);
 	if (!file) {
@@ -978,6 +1107,14 @@ static int u2_phy_procfs_init(struct mtk_tphy *tphy,
 			phy_root, &proc_discth_fops, instance);
 	if (!file) {
 		dev_info(dev, "failed to creat proc file: %s\n", DISCTH_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(RX_SQTH_STR, 0644,
+			phy_root, &proc_rx_sqth_fops, instance);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", RX_SQTH_STR);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -1683,13 +1820,18 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 				 &instance->intr);
 	device_property_read_u32(dev, "mediatek,discth",
 				 &instance->discth);
+	device_property_read_u32(dev, "mediatek,rx_sqth",
+				 &instance->rx_sqth);
+	device_property_read_u32(dev, "mediatek,rev4",
+				 &instance->rev4);
 	device_property_read_u32(dev, "mediatek,rev6",
 				 &instance->rev6);
-	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d, disc:%d\n",
+	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d\n",
 		instance->bc12_en, instance->eye_src,
-		instance->eye_vrt, instance->eye_term,
-		instance->intr, instance->discth);
-	dev_dbg(dev, "rev6:%d\n", instance->rev6);
+		instance->eye_vrt, instance->eye_term, instance->intr);
+	dev_dbg(dev, "disc:%d rx_sqth:%d\n",
+		instance->discth, instance->rx_sqth);
+	dev_dbg(dev, "rev4:%d, rev6:%d\n", instance->rev4, instance->rev6);
 }
 
 static void u2_phy_props_set(struct mtk_tphy *tphy,
@@ -1700,11 +1842,12 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 	struct device *dev = &instance->phy->dev;
 	u32 tmp;
 
-	dev_info(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d, disc:%d\n",
+	dev_info(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d\n",
 		instance->bc12_en, instance->eye_src,
-		instance->eye_vrt, instance->eye_term,
-		instance->intr, instance->discth);
-	dev_info(dev, "rev6:%d\n", instance->rev6);
+		instance->eye_vrt, instance->eye_term, instance->intr);
+	dev_info(dev, "disc:%d rx_sqth:%d\n",
+		instance->discth, instance->rx_sqth);
+	dev_info(dev, "rev4:%d, rev6:%d\n", instance->rev4, instance->rev6);
 
 	if (instance->bc12_en) {
 		tmp = readl(com + U3P_U2PHYBC12C);
@@ -1744,6 +1887,20 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 		tmp = readl(com + U3P_USBPHYACR6);
 		tmp &= ~PA6_RG_U2_DISCTH;
 		tmp |= PA6_RG_U2_DISCTH_VAL(instance->discth);
+		writel(tmp, com + U3P_USBPHYACR6);
+	}
+
+	if (instance->rx_sqth) {
+		tmp = readl(com + U3P_USBPHYACR6);
+		tmp &= ~PA6_RG_U2_SQTH;
+		tmp |= PA6_RG_U2_SQTH_VAL(instance->rx_sqth);
+		writel(tmp, com + U3P_USBPHYACR6);
+	}
+
+	if (instance->rev4) {
+		tmp = readl(com + U3P_USBPHYACR6);
+		tmp &= ~PA6_RG_U2_PHY_REV4;
+		tmp |= PA6_RG_U2_PHY_REV4_VAL(instance->rev4);
 		writel(tmp, com + U3P_USBPHYACR6);
 	}
 
