@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_VMM_SPM
+	tristate "MediaTek VMM SPM driver"
+	help
+	  This driver is for the Multimedia Infrastructure in MediaTek SoCs.
+	  The VMM SPM driver mainly help control VMM buck isolation. It's a
+	  basic setting during VMM buck being powering up/down. It leaverages
+	  regulator fwk notification callback to get the status of buck control
+	  and sets up related SPM registers.
