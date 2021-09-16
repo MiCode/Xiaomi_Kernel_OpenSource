@@ -46,19 +46,24 @@ static void qcom_devcd_freev(void *data)
 
 	vfree(desc->data);
 	complete(&desc->dump_done);
+	kfree(desc);
 }
 
 static int qcom_devcd_dump(struct device *dev, void *data, size_t datalen, gfp_t gfp)
 {
-	struct qcom_ramdump_desc desc;
+	struct qcom_ramdump_desc *desc;
 	int ret;
 
-	desc.data = data;
-	init_completion(&desc.dump_done);
+	desc = kmalloc(sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
+
+	desc->data = data;
+	init_completion(&desc->dump_done);
 
 	dev_coredumpm(dev, NULL, &desc, datalen, gfp, qcom_devcd_readv, qcom_devcd_freev);
 
-	ret = wait_for_completion_timeout(&desc.dump_done, msecs_to_jiffies(RAMDUMP_TIMEOUT));
+	ret = wait_for_completion_timeout(&desc->dump_done, msecs_to_jiffies(RAMDUMP_TIMEOUT));
 	if (!ret)
 		dev_err(dev, "ramdump collection timed out\n");
 
