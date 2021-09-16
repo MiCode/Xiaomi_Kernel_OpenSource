@@ -1719,7 +1719,7 @@
 		gpu_dcs: gpu_dcs {
 			compatible = "mediatek,gpu_dcs";
 			dcs-policy-support = <1>;
-			virtual-opp-support = <0x13>;
+			virtual-opp-support = <0x213>;
 		};
 
 		gpueb: gpueb@13c00000 {
