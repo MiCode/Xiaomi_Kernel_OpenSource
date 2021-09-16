@@ -88,6 +88,8 @@ module_param(dbg_log_en, bool, 0644);
 #define ADC_TO_VBAT_RAW(vbat)	((vbat) * 1000 / ADC_VBAT_SCALE)
 #define ADC_FROM_VBAT_RAW(raw)	((raw) * ADC_VBAT_SCALE / 1000)
 
+#define RECHG_THRESHOLD		100
+
 enum mt6375_chg_reg_field {
 	/* MT6375_REG_CORE_CTRL2 */
 	F_SHIP_RST_DIS,
@@ -703,6 +705,74 @@ static inline int mt6375_chg_field_set(struct mt6375_chg_data *ddata,
 	return regmap_field_write(ddata->rmap_fields[fd], val);
 }
 
+static int mt6375_chg_enable_charging(struct mt6375_chg_data *ddata, bool en)
+{
+	int ret;
+
+	mutex_lock(&ddata->cv_lock);
+	ret = mt6375_chg_field_set(ddata, F_CHG_EN, en);
+	mutex_unlock(&ddata->cv_lock);
+	return ret;
+}
+
+static int mt6375_chg_is_enabled(struct mt6375_chg_data *ddata, bool *en)
+{
+	int ret = 0;
+	u32 val = 0;
+
+	ret = mt6375_chg_field_get(ddata, F_CHG_EN, &val);
+	if (ret < 0)
+		return ret;
+	*en = val;
+	return 0;
+}
+
+static int mt6375_chg_is_charge_done(struct mt6375_chg_data *ddata, bool *done)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(ddata->psy, POWER_SUPPLY_PROP_STATUS,
+					&val);
+	if (ret < 0)
+		return ret;
+	*done = (val.intval == POWER_SUPPLY_STATUS_FULL);
+	return 0;
+}
+
+static int mt6375_chg_set_cv(struct mt6375_chg_data *ddata, u32 uV)
+{
+	int ret = 0;
+	bool done = false, enabled = false;
+
+	mt_dbg(ddata->dev, "cv=%d\n", uV);
+	mutex_lock(&ddata->cv_lock);
+	if (ddata->batprotect_en) {
+		dev_notice(ddata->dev,
+			   "batprotect enabled, should not set cv\n");
+		goto out;
+	}
+	if (uV <= ddata->cv || uV >= ddata->cv + RECHG_THRESHOLD)
+		goto out_cv;
+	ret = mt6375_chg_is_charge_done(ddata, &done);
+	if (ret < 0 || !done)
+		goto out_cv;
+	ret = mt6375_chg_is_enabled(ddata, &enabled);
+	if (ret < 0 || !enabled)
+		goto out_cv;
+	if (mt6375_chg_field_set(ddata, F_CHG_EN, false) < 0)
+		dev_notice(ddata->dev, "failed to disable charging\n");
+out_cv:
+	ret = mt6375_chg_field_set(ddata, F_CV, U_TO_M(uV));
+	if (!ret)
+		ddata->cv = uV;
+	if (done && enabled)
+		mt6375_chg_field_set(ddata, F_CHG_EN, true);
+out:
+	mutex_unlock(&ddata->cv_lock);
+	return ret;
+}
+
 static int to_psy_status(u32 stat)
 {
 	switch (stat) {
@@ -1053,7 +1123,7 @@ static int mt6375_chg_set_property(struct power_supply *psy,
 					      val->intval);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
-		ret = mt6375_chg_field_set(ddata, F_CHG_EN, val->intval);
+		ret = mt6375_chg_enable_charging(ddata, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 		mutex_lock(&ddata->pe_lock);
@@ -1061,15 +1131,7 @@ static int mt6375_chg_set_property(struct power_supply *psy,
 		mutex_unlock(&ddata->pe_lock);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
-		mutex_lock(&ddata->cv_lock);
-		if (!ddata->batprotect_en) {
-			ret = mt6375_chg_field_set(ddata, F_CV, val->intval);
-			if (!ret)
-				ddata->cv = val->intval;
-		} else
-			dev_notice(ddata->dev,
-				 "batprotect enabled, should not set cv\n");
-		mutex_unlock(&ddata->cv_lock);
+		ret = mt6375_chg_set_cv(ddata, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		mutex_lock(&ddata->pe_lock);
@@ -1112,24 +1174,15 @@ static const struct power_supply_desc mt6375_psy_desc = {
 static int mt6375_enable_charging(struct charger_device *chgdev, bool en)
 {
 	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
-	union power_supply_propval val = { .intval = en };
 
-	mt_dbg(ddata->dev, "en=%d\n", en);
-	return power_supply_set_property(ddata->psy, POWER_SUPPLY_PROP_STATUS,
-					 &val);
+	return mt6375_chg_enable_charging(ddata, en);
 }
 
 static int mt6375_is_enabled(struct charger_device *chgdev, bool *en)
 {
 	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
-	int ret = 0;
-	u32 val = 0;
 
-	ret = mt6375_chg_field_get(ddata, F_CHG_EN, &val);
-	if (ret < 0)
-		return ret;
-	*en = val;
-	return 0;
+	return mt6375_chg_is_enabled(ddata, en);
 }
 
 static int mt6375_set_ichg(struct charger_device *chgdev, u32 uA)
@@ -1165,11 +1218,8 @@ static int mt6375_get_min_ichg(struct charger_device *chgdev, u32 *uA)
 static int mt6375_set_cv(struct charger_device *chgdev, u32 uV)
 {
 	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
-	union power_supply_propval val = { .intval = U_TO_M(uV) };
 
-	mt_dbg(ddata->dev, "cv=%d\n", uV);
-	return power_supply_set_property(ddata->psy,
-		POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, &val);
+	return mt6375_chg_set_cv(ddata, uV);
 }
 
 static int mt6375_get_cv(struct charger_device *chgdev, u32 *uV)
@@ -1385,16 +1435,9 @@ static int mt6375_sw_check_eoc(struct charger_device *chgdev, u32 uA)
 
 static int mt6375_is_charge_done(struct charger_device *chgdev, bool *done)
 {
-	int ret;
-	union power_supply_propval val;
 	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
 
-	ret = power_supply_get_property(ddata->psy, POWER_SUPPLY_PROP_STATUS,
-					&val);
-	if (ret < 0)
-		return ret;
-	*done = (val.intval == POWER_SUPPLY_STATUS_FULL);
-	return 0;
+	return mt6375_chg_is_charge_done(ddata, done);
 }
 
 static int mt6375_enable_te(struct charger_device *chgdev, bool en)
