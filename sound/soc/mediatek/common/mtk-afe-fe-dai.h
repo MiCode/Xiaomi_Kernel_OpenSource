@@ -35,7 +35,7 @@ int mtk_dynamic_irq_release(struct mtk_base_afe *afe, int irq_id);
 int mtk_afe_suspend(struct snd_soc_component *component);
 int mtk_afe_resume(struct snd_soc_component *component);
 
-unsigned int is_afe_need_triggered(unsigned int no_period_wakeup);
+unsigned int is_afe_need_triggered(struct mtk_base_afe_memif *memif);
 int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 		       unsigned char *dma_area,
 		       dma_addr_t dma_addr,

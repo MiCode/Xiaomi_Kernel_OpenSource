@@ -136,20 +136,20 @@ int mt6879_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	const struct mtk_base_irq_data *irq_data = irqs->irq_data;
 	unsigned int counter = runtime->period_size;
 	unsigned int rate = runtime->rate;
-	unsigned int no_period_wakeup = runtime->no_period_wakeup;
 	int fs;
 	int ret = 0;
 
 	if (!in_interrupt())
 		dev_info(afe->dev,
-			 "%s(), %s cmd %d, irq_id %d, is_afe_need_triggered %d\n",
+			 "%s(), %s cmd %d, irq_id %d, is_afe_need_triggered %d, no_period_wakeup %d\n",
 			 __func__, memif->data->name, cmd, irq_id,
-			 is_afe_need_triggered(no_period_wakeup));
+			 is_afe_need_triggered(memif),
+			 runtime->no_period_wakeup);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		if (is_afe_need_triggered(no_period_wakeup)) {
+		if (is_afe_need_triggered(memif)) {
 			ret = mtk_memif_set_enable(afe, id);
 			if (ret) {
 				dev_err(afe->dev,
@@ -187,7 +187,7 @@ int mt6879_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				   << irq_data->irq_fs_shift,
 				   fs << irq_data->irq_fs_shift);
 
-		if (is_afe_need_triggered(no_period_wakeup))
+		if (!runtime->no_period_wakeup)
 			mtk_irq_set_enable(afe, irq_data, id);
 
 		return 0;
@@ -205,7 +205,7 @@ int mt6879_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			}
 		}
 
-		if (is_afe_need_triggered(no_period_wakeup)) {
+		if (is_afe_need_triggered(memif)) {
 			ret = mtk_memif_set_disable(afe, id);
 			if (ret) {
 				dev_err(afe->dev,
@@ -214,7 +214,7 @@ int mt6879_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			}
 		}
 
-		if (is_afe_need_triggered(no_period_wakeup)) {
+		if (!runtime->no_period_wakeup) {
 			/* disable interrupt */
 			mtk_irq_set_disable(afe, irq_data, id);
 

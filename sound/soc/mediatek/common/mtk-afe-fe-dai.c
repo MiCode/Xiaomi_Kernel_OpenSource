@@ -551,13 +551,15 @@ int mtk_afe_resume(struct snd_soc_component *component)
 }
 EXPORT_SYMBOL_GPL(mtk_afe_resume);
 
-unsigned int is_afe_need_triggered(unsigned int no_period_wakeup)
+unsigned int is_afe_need_triggered(struct mtk_base_afe_memif *memif)
 {
 	/* memif and irq enable control of SCP and ADSP
 	 * features will be set in ADSP and SCP side.
 	 */
 
-	if (no_period_wakeup)
+	if (memif->use_adsp_share_mem ||
+	    memif->vow_barge_in_enable ||
+	    memif->scp_ultra_enable)
 		return false;
 
 	return true;
