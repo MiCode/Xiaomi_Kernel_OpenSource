@@ -6,9 +6,7 @@
 #ifndef __MTK_CAM_TRACE_H
 #define __MTK_CAM_TRACE_H
 
-#define MTK_CAM_TRACE_ENABLE	0
-
-#if IS_ENABLED(CONFIG_TRACING) && MTK_CAM_TRACE_ENABLE
+#if IS_ENABLED(CONFIG_TRACING) && defined(MTK_CAM_TRACE_SUPPORT)
 
 #include <stdarg.h>
 #include <linux/sched.h>

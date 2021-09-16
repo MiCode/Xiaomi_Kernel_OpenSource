@@ -19,7 +19,7 @@ bool mtk_cam_trace_enabled(void)
 static noinline
 int tracing_mark_write(const char *fmt, va_list ap)
 {
-	//ftrace_vprintk(fmt, ap);
+	ftrace_vprintk(fmt, ap);
 	return 0;
 }
 

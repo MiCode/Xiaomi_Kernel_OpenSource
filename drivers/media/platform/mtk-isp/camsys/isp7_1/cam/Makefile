@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+CAMSYS_TRACE_ENABLE = n
+
 subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/misc/mediatek/mmdvfs \
 	     -I$(srctree)/drivers/misc/mediatek/smi/ \
@@ -38,7 +40,10 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-mraw.o\
 		    mtk_cam-seninf-ca.o
 
-#mtk-cam-isp-$(CONFIG_TRACING) += mtk_cam-trace.o
+ifeq ($(CAMSYS_TRACE_ENABLE), y)
+mtk-cam-isp-$(CONFIG_TRACING) += mtk_cam-trace.o
+ccflags-y += -DMTK_CAM_TRACE_SUPPORT
+endif
 
 mtk-cam-isp-objs +=  mtk_cam-hsf.o
 #mtk-cam-isp-objs += mtk_cam-procdbg.o
