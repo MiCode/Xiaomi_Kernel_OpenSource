@@ -5144,18 +5144,23 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct mtk_panel_spr_params *spr_params;
 
+	spr_params = &ext->params->spr_params;
 	if (ext->params->dsc_params.enable) {
 		bpp = ext->params->dsc_params.bit_per_pixel / 16;
 		bpc = ext->params->dsc_params.bit_per_channel;
 		//compress_rate*100 for 3.75 or 2.5 case
-		spr_params = &ext->params->spr_params;
 		if (spr_params->enable && spr_params->relay == 0
-			&& disp_spr_bypass == 0)
-			compress_rate = bpc * 8 * 100 / bpp;
+			&& disp_spr_bypass == 0
+			&& spr_params->spr_format_type < MTK_PANEL_RGBRGB_BGRBGR_TYPE)
+			compress_rate = bpc * 4 * 100 / bpp;
 		else
 			compress_rate = bpc * 3 * 100 / bpp;
-	} else
+	} else {
 		compress_rate = 100;
+		if (spr_params->enable && spr_params->relay == 0
+			&& disp_spr_bypass == 0)
+			compress_rate = compress_rate * (3 / 2);
+	}
 
 	return compress_rate;
 }
