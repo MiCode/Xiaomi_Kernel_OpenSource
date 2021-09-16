@@ -142,6 +142,7 @@ enum venc_yuv_fmt {
 	VENC_YUV_FORMAT_P010 = 26,
 	VENC_YUV_FORMAT_NV12_AFBC = 27,
 	VENC_YUV_FORMAT_NV12_10B_AFBC = 28,
+	VENC_YUV_FORMAT_NV21_AFBC = 29,
 };
 
 /**
@@ -715,6 +716,8 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 #define V4L2_PIX_FMT_BGRA1010102_AFBC   v4l2_fourcc('M', 'C', 'B', 'X')
 	/* MTK 8-bit frame buffer compressed mode, two planes */
 #define V4L2_PIX_FMT_NV12_AFBC          v4l2_fourcc('M', 'C', 'N', '8')
+	/* MTK 8-bit frame buffer compressed mode, two planes */
+#define V4L2_PIX_FMT_NV21_AFBC          v4l2_fourcc('M', 'N', '2', '8')
 	/* MTK 10-bit frame buffer compressed mode, two planes */
 #define V4L2_PIX_FMT_NV12_10B_AFBC      v4l2_fourcc('M', 'C', 'N', 'X')
 /* Vendor specific - Mediatek ISP compressed formats */
