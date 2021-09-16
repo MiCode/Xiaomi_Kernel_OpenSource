@@ -6634,6 +6634,16 @@
 	};
 };
 
+&i2c6 {
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,gate-ic-i2c";
+		gate-power-gpios = <&pio 215 0>;
+		reg = <0x11>;
+		id = <6>;
+		status = "okay";
+	};
+};
+
 &mtk_gauge {
 	charger = <&mt6375_chg>;
 };
