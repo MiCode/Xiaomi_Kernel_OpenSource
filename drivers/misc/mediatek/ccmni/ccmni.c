@@ -236,10 +236,22 @@ void ccmni_clr_flush_timer(void)
 }
 EXPORT_SYMBOL(ccmni_clr_flush_timer);
 
+static inline void napi_gro_list_flush(struct ccmni_instance *ccmni)
+{
+	struct napi_struct *napi;
+
+	napi = ccmni->napi;
+	napi_gro_flush(napi, false);
+	if (napi->rx_count) {
+		netif_receive_skb_list(&napi->rx_list);
+		INIT_LIST_HEAD(&napi->rx_list);
+		napi->rx_count = 0;
+	}
+}
+
 static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 {
 	struct timespec64 curr_time, diff;
-	struct napi_struct *napi;
 
 	if (!gro_flush_timer)
 		return;
@@ -247,13 +259,7 @@ static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 	ktime_get_real_ts64(&curr_time);
 	diff = timespec64_sub(curr_time, ccmni->flush_time);
 	if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
-		napi = ccmni->napi;
-		napi_gro_flush(napi, false);
-		if (napi->rx_count) {
-			netif_receive_skb_list(&napi->rx_list);
-			INIT_LIST_HEAD(&napi->rx_list);
-			napi->rx_count = 0;
-		}
+		napi_gro_list_flush(ccmni);
 		timeout_flush_num++;
 		ktime_get_real_ts64(&ccmni->flush_time);
 	}
@@ -1558,7 +1564,7 @@ static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 		preempt_disable();
 		spin_lock_bh(ccmni->spinlock);
 		ccmni->rx_gro_cnt++;
-		napi_gro_flush(ccmni->napi, false);
+		napi_gro_list_flush(ccmni);
 		spin_unlock_bh(ccmni->spinlock);
 		preempt_enable();
 		break;
