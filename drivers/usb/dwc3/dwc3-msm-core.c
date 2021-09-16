@@ -510,6 +510,7 @@ struct dwc3_msm {
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
 	struct mutex suspend_resume_mutex;
+	struct mutex role_switch_mutex;
 
 	enum usb_device_speed override_usb_speed;
 	enum usb_device_speed	max_hw_supp_speed;
@@ -4307,6 +4308,7 @@ static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
 	enum usb_role cur_role = USB_ROLE_NONE;
 
+	mutex_lock(&mdwc->role_switch_mutex);
 	cur_role = dwc3_msm_usb_get_role(sw);
 
 	switch (role) {
@@ -4325,6 +4327,7 @@ static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 		mdwc->id_state = DWC3_ID_FLOAT;
 		break;
 	}
+	mutex_unlock(&mdwc->role_switch_mutex);
 
 	dbg_log_string("cur_role:%s new_role:%s\n", usb_role_string(cur_role),
 						usb_role_string(role));
@@ -4650,7 +4653,7 @@ static void dwc3_msm_set_dp_only_params(struct dwc3_msm *mdwc)
 int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	int ret;
+	int ret = 0;
 
 	if (!mdwc || !mdwc->dwc3) {
 		dev_err(dev, "dwc3-msm is not initialized yet.\n");
@@ -4692,11 +4695,12 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
+	mutex_lock(&mdwc->role_switch_mutex);
 	if (mdwc->id_state == DWC3_ID_GROUND) {
 		/* stop USB host mode */
 		ret = dwc3_start_stop_host(mdwc, false);
 		if (ret)
-			return ret;
+			goto exit;
 
 		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_host(mdwc, true);
@@ -4704,19 +4708,23 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		/* stop USB device mode */
 		ret = dwc3_start_stop_device(mdwc, false);
 		if (ret)
-			return ret;
+			goto exit;
 
 		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_device(mdwc, true);
 	} else {
-		if (mdwc->in_host_mode || mdwc->in_device_mode)
-			return -EBUSY;
+		if (mdwc->in_host_mode || mdwc->in_device_mode) {
+			ret = -EBUSY;
+			goto exit;
+		}
 
 		dbg_log_string("USB is not active.\n");
 		dwc3_msm_set_dp_only_params(mdwc);
 	}
 
-	return 0;
+exit:
+	mutex_unlock(&mdwc->role_switch_mutex);
+	return ret;
 }
 EXPORT_SYMBOL(dwc3_msm_set_dp_mode);
 
@@ -5152,6 +5160,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&mdwc->suspend_resume_mutex);
+	mutex_init(&mdwc->role_switch_mutex);
 
 	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
 	INIT_WORK(&mdwc->redriver_work, dwc3_msm_redriver_work);
