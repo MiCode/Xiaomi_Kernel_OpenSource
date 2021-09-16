@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <dt-bindings/gce/mt6983-gce.h>
+#include <dt-bindings/gce/mt6895-gce.h>
 
 #include "cmdq-util.h"
 
