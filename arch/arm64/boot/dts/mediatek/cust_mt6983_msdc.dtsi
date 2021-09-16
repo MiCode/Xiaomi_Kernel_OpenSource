@@ -35,7 +35,7 @@
 };
 
 &mmc2 {
-	host-index = <1>;
+	host-index = <2>;
 	status = "disabled";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc2_pins_default>;
@@ -48,12 +48,12 @@
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	cd-gpios = <&pio 11 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt6373_vmch>;
-	vqmmc-supply = <&mt6373_vmc>;
+	vqmmc-supply = <&mt6363_vio18>;
 	no-mmc;
 	no-sd;
 	cap-sdio-irq;
+	non-removable;
 };
 
 &pio {
