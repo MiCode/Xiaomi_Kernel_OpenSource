@@ -910,6 +910,10 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx)
 	}
 	return 1;
 }
+static int reset_msgfifo(struct mtk_mraw_device *dev)
+{
+	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
+}
 
 void mraw_reset(struct mtk_mraw_device *dev)
 {
@@ -1382,7 +1386,7 @@ int mtk_cam_mraw_dev_config(
 			mraw_dev->pipeline = &cam->mraw.pipelines[i];
 			break;
 		}
-
+	reset_msgfifo(mraw_dev);
 	mtk_cam_mraw_top_config(mraw_dev);
 	mtk_cam_mraw_dma_config(mraw_dev);
 	mtk_cam_mraw_fbc_config(mraw_dev);
@@ -1699,10 +1703,8 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
 	unsigned int fbc_imgbo_status, imgbo_addr, imgbo_addr_msb;
 	unsigned int fbc_cpio_status, cpio_addr, cpio_addr_msb;
-	unsigned long flags;
-	int ret;
+	int wake_thread = 0;
 
-	spin_lock_irqsave(&mraw_dev->spinlock_irq, flags);
 	irq_status	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT_STATUS);
 
 	/*
@@ -1741,7 +1743,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR);
 	cpio_addr_msb =
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR_MSB);
-	spin_unlock_irqrestore(&mraw_dev->spinlock_irq, flags);
+
 
 	err_status = irq_status & INT_ST_MASK_MRAW_ERR;
 	dma_err_status = irq_status & MRAWCTL_DMA_ERR_ST;
@@ -1788,13 +1790,18 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		irq_info.irq_type |= 1<<CAMSYS_IRQ_SETTING_DONE;
 		dev_dbg(dev, "CQ done:%d\n", mraw_dev->sof_count);
 	}
-	/* inform interrupt information to camsys controller */
-	if ((irq_status & MRAWCTL_SOF_INT_ST) ||
-		(irq_status & MRAWCTL_SW_PASS1_DONE_ST) ||
-		(irq_status6 & MRAWCTL_CQ_THR0_DONE_ST)) {
-		ret = mtk_camsys_isr_event(mraw_dev->cam, &irq_info);
-		if (ret)
-			goto ctx_not_found;
+	if (irq_info.irq_type) {
+		int len;
+
+		if (unlikely(kfifo_avail(&mraw_dev->msg_fifo) < sizeof(irq_info))) {
+			dev_info_ratelimited(dev, "msg fifo is full\n");
+			goto no_msgfifo;
+		}
+
+		len = kfifo_in(&mraw_dev->msg_fifo, &irq_info, sizeof(irq_info));
+		WARN_ON(len != sizeof(irq_info));
+
+		wake_thread = 1;
 	}
 
 	/* Check ISP error status */
@@ -1814,10 +1821,28 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		if (err_status & MRAWCTL_TG_ERR_ST)
 			mraw_irq_handle_tg_overrun_err(mraw_dev);
 	}
-ctx_not_found:
+no_msgfifo:
+
+	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
+{
+	struct mtk_mraw_device *mraw_dev = (struct mtk_mraw_device *)data;
+	struct mtk_camsys_irq_info irq_info;
+
+	while (kfifo_len(&mraw_dev->msg_fifo) >= sizeof(irq_info)) {
+		int len = kfifo_out(&mraw_dev->msg_fifo, &irq_info, sizeof(irq_info));
+
+		WARN_ON(len != sizeof(irq_info));
+
+		/* inform interrupt information to camsys controller */
+		mtk_camsys_isr_event(mraw_dev->cam, &irq_info);
+	}
 
 	return IRQ_HANDLED;
 }
+
 
 bool
 mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
@@ -1946,7 +1971,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int irq, ret;
+	int ret;
 	int i;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,mraw-id",
@@ -1992,19 +2017,21 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	dev_dbg(dev, "mraw, map_addr(inner)=0x%pK\n", mraw->base_inner);
 
 
-	irq = platform_get_irq(pdev, 0);
-	if (!irq) {
+	mraw->irq = platform_get_irq(pdev, 0);
+	if (!mraw->irq) {
 		dev_dbg(dev, "failed to get irq\n");
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(dev, irq, mtk_irq_mraw, 0,
-				dev_name(dev), mraw);
+	ret = devm_request_threaded_irq(dev, mraw->irq,
+				mtk_irq_mraw, mtk_thread_irq_mraw,
+				0, dev_name(dev), mraw);
 	if (ret) {
-		dev_dbg(dev, "failed to request irq=%d\n", irq);
+		dev_dbg(dev, "failed to request irq=%d\n", mraw->irq);
 		return ret;
 	}
-	dev_dbg(dev, "registered irq=%d\n", irq);
+	dev_dbg(dev, "registered irq=%d\n", mraw->irq);
+	disable_irq(mraw->irq);
 
 	mraw->num_clks = 0;
 	mraw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
@@ -2094,11 +2121,15 @@ static int mtk_mraw_probe(struct platform_device *pdev)
 	mraw_dev->dev = dev;
 	dev_set_drvdata(dev, mraw_dev);
 
-	spin_lock_init(&mraw_dev->spinlock_irq);
-
 	ret = mtk_mraw_of_probe(pdev, mraw_dev);
 	if (ret)
 		return ret;
+
+	mraw_dev->fifo_size =
+		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
+	mraw_dev->msg_buffer = devm_kzalloc(dev, mraw_dev->fifo_size, GFP_KERNEL);
+	if (!mraw_dev->msg_buffer)
+		return -ENOMEM;
 
 	pm_runtime_enable(dev);
 
@@ -2126,6 +2157,8 @@ static int mtk_mraw_runtime_suspend(struct device *dev)
 	for (i = 0; i < mraw_dev->num_clks; i++)
 		clk_disable_unprepare(mraw_dev->clks[i]);
 
+	disable_irq(mraw_dev->irq);
+
 	return 0;
 }
 
@@ -2133,6 +2166,13 @@ static int mtk_mraw_runtime_resume(struct device *dev)
 {
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	int i, ret;
+
+	/* reset_msgfifo before enable_irq */
+	ret = reset_msgfifo(mraw_dev);
+	if (ret)
+		return ret;
+
+	enable_irq(mraw_dev->irq);
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++) {

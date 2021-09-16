@@ -6,6 +6,8 @@
 #ifndef __MTK_CAM_MRAW_H
 #define __MTK_CAM_MRAW_H
 
+#include <linux/kfifo.h>
+
 #include <linux/suspend.h>
 
 #include "mtk_cam-video.h"
@@ -231,6 +233,7 @@ struct mtk_mraw_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;
 	unsigned int id;
+	int irq;
 	void __iomem *base;
 	void __iomem *base_inner;
 	unsigned int num_clks;
@@ -238,7 +241,10 @@ struct mtk_mraw_device {
 	struct mtk_mraw_pipeline *pipeline;
 	unsigned int cammux_id;
 
-	spinlock_t spinlock_irq;
+	int fifo_size;
+	void *msg_buffer;
+	struct kfifo msg_fifo;
+
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;

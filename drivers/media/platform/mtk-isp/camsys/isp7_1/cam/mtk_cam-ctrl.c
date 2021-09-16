@@ -113,6 +113,7 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 				res = 1;
 	}
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
 	if (res == 0) {
 		mtk_cam_event_request_drained(ctx->pipe);
