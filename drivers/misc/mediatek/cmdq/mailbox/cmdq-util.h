@@ -136,6 +136,7 @@ void cmdq_util_enable_disp_va(void);
 void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client);
 void cmdq_util_prebuilt_init(const u16 mod);
 void cmdq_util_prebuilt_enable(const u16 hwid);
+void cmdq_util_prebuilt_disable(const u16 hwid);
 void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event);
 void cmdq_util_track(struct cmdq_pkt *pkt);
 void cmdq_util_dump_smi(void);

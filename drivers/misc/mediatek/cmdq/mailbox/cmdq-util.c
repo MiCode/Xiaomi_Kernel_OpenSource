@@ -407,6 +407,7 @@ enum cmdq_smc_request {
 	CMDQ_ENABLE_DISP_VA,
 	CMDQ_PREBUILT_INIT,
 	CMDQ_PREBUILT_ENABLE,
+	CMDQ_PREBUILT_DISABLE,
 	CMDQ_PREBUILT_DUMP,
 };
 
@@ -451,6 +452,16 @@ void cmdq_util_prebuilt_enable(const u16 hwid)
 		0, 0, 0, 0, 0, &res);
 }
 EXPORT_SYMBOL(cmdq_util_prebuilt_enable);
+
+void cmdq_util_prebuilt_disable(const u16 hwid)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: hwid:%u", __func__, hwid);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_DISABLE, hwid,
+		0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_disable);
 
 void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
 {

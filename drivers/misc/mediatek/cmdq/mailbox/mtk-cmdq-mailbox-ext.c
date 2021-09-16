@@ -183,9 +183,6 @@ struct cmdq {
 	bool			outpin_en;
 	bool			prebuilt_enable;
 	struct cmdq_client	*prebuilt_clt;
-	struct notifier_block	notifier;
-	atomic_t		notifier_count;
-	u64			notifier_time[2];
 };
 
 struct gce_plat {
@@ -295,17 +292,20 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 	cmdq_trace_ex_end();
 }
 
+static int cmdq_ultra_en(struct cmdq *cmdq)
+{
+	cmdq_log("%s hwid:%d", __func__, cmdq->hwid);
+
+	writel(CMDQ_ULTRA_EN, cmdq->base + GCE_BUS_GCTL);
+	return 0;
+}
+
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
 	s32 usage, err, err_timer;
 	unsigned long flags;
 
 	cmdq_trace_ex_begin("%s", __func__);
-
-	usage = atomic_read(&cmdq->notifier_count);
-	if (!usage)
-		cmdq_msg("%s: pa:%pa hwid:%hu count:%d PM OFF",
-			__func__, &cmdq->base_pa, cmdq->hwid, usage);
 
 	spin_lock_irqsave(&cmdq->lock, flags);
 
@@ -329,7 +329,12 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			cmdq->base + GCE_OUTPIN_EVENT);
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
-		if (!cmdq->prebuilt_enable)
+		if (gce_mminfra)
+			cmdq_ultra_en(cmdq);
+		if (cmdq->prebuilt_enable) {
+			cmdq_init_cpu(cmdq);
+			cmdq_util_prebuilt_enable(cmdq->hwid);
+		} else
 			cmdq_init(cmdq);
 	}
 
@@ -368,6 +373,8 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
 		if (cmdq->sw_ddr_en)
 			writel(0x7, cmdq->base + GCE_GCTL_VALUE);
+		if (cmdq->prebuilt_enable)
+			cmdq_util_prebuilt_disable(cmdq->hwid);
 		/* now allow pm suspend */
 		cmdq_lock_wake_lock(cmdq, false);
 	}
@@ -426,14 +433,6 @@ static int cmdq_core_reset(struct cmdq *cmdq)
 	cmdq_msg("%s hwid:%d", __func__, cmdq->hwid);
 	writel(CMDQ_THR_DO_HARD_RESET, cmdq->base + CMDQ_CORE_REST);
 	writel(0, cmdq->base + CMDQ_CORE_REST);
-	return 0;
-}
-
-static int cmdq_ultra_en(struct cmdq *cmdq)
-{
-	cmdq_log("%s hwid:%d", __func__, cmdq->hwid);
-
-	writel(CMDQ_ULTRA_EN, cmdq->base + GCE_BUS_GCTL);
 	return 0;
 }
 
@@ -1280,11 +1279,8 @@ void cmdq_dump_core(struct mbox_chan *chan)
 
 
 	cmdq_util_user_msg(chan,
-		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x bus:%#x",
-		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en, bus_gctl);
-	cmdq_util_user_msg(chan,
-		"notifier_time:%llu:%llu",
-		cmdq->notifier_time[0], cmdq->notifier_time[1]);
+		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x",
+		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_chan_dump_dbg(chan);
 #endif
@@ -1759,44 +1755,6 @@ static int cmdq_resume(struct device *dev)
 	return 0;
 }
 
-static s32 cmdq_notifier_call_impl(struct cmdq *cmdq, unsigned long action)
-{
-	cmdq_msg("%s hwid:%d action:%d", __func__, cmdq->hwid, action);
-	switch (action) {
-	case PM_SUSPEND_PREPARE:
-		atomic_dec(&cmdq->notifier_count);
-		cmdq->notifier_time[0] = sched_clock();
-		clk_disable_unprepare(cmdq->clock_timer);
-		clk_disable_unprepare(cmdq->clock);
-		pm_runtime_put_sync(cmdq->mbox.dev);
-		return NOTIFY_OK;
-
-	case PM_POST_SUSPEND:
-		pm_runtime_get_sync(cmdq->mbox.dev);
-		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
-		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
-		if (gce_mminfra)
-			cmdq_ultra_en(cmdq);
-		if (cmdq->prebuilt_enable) {
-			cmdq_init_cpu(cmdq);
-			cmdq_util_prebuilt_enable(cmdq->hwid);
-		}
-		cmdq->notifier_time[1] = sched_clock();
-		atomic_inc(&cmdq->notifier_count);
-		return NOTIFY_OK;
-	}
-
-	return NOTIFY_DONE;
-}
-
-static int cmdq_notifier_call(struct notifier_block *nb, unsigned long action,
-	void *data)
-{
-	struct cmdq *cmdq = container_of(nb, typeof(*cmdq), notifier);
-
-	return cmdq_notifier_call_impl(cmdq, action);
-}
-
 static int cmdq_remove(struct platform_device *pdev)
 {
 	struct cmdq *cmdq = platform_get_drvdata(pdev);
@@ -2117,8 +2075,6 @@ static int cmdq_probe(struct platform_device *pdev)
 		"cmdq_timeout_handler");
 
 	pm_runtime_enable(dev);
-	if (of_property_read_bool(dev->of_node, "notifier-init"))
-		cmdq_notifier_call_impl(cmdq, PM_POST_SUSPEND);
 	platform_set_drvdata(pdev, cmdq);
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 	WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
@@ -2126,11 +2082,6 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->wake_lock = wakeup_source_register(dev, "cmdq_pm_lock");
 
 	spin_lock_init(&cmdq->lock);
-	if (!cmdq->prebuilt_enable) {
-		clk_enable(cmdq->clock);
-		cmdq_init(cmdq);
-		clk_disable(cmdq->clock);
-	}
 
 	cmdq_mmp_init();
 
@@ -2138,8 +2089,6 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
-	cmdq->notifier.notifier_call = cmdq_notifier_call;
-	err = register_pm_notifier(&cmdq->notifier);
 	return 0;
 }
 
@@ -2214,6 +2163,7 @@ void cmdq_mbox_enable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
+	pm_runtime_get_sync(cmdq->mbox.dev);
 	cmdq_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
@@ -2231,6 +2181,7 @@ void cmdq_mbox_disable(void *chan)
 		return;
 	}
 	cmdq_clk_disable(cmdq);
+	pm_runtime_put_sync(cmdq->mbox.dev);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
 
