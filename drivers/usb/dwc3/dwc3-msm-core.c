@@ -4663,6 +4663,8 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 	if (!dp_connected) {
 		dbg_event(0xFF, "DP not connected", 0);
+
+		mdwc->ss_release_called = false;
 		/*
 		 * Special case for HOST mode, as we need to ensure that the DWC3
 		 * max speed is set before moving back into gadget/device mode.
@@ -4675,7 +4677,6 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 			dwc3_msm_clear_dp_only_params(mdwc);
 
 		mdwc->ss_phy->flags &= ~PHY_USB_DP_CONCURRENT_MODE;
-		mdwc->ss_release_called = false;
 
 		return 0;
 	}
@@ -5528,7 +5529,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		 * reset before dwc3_gadget_init() is called.  Otherwise, USB
 		 * gadget will be set to HS only.
 		 */
-		dwc3_msm_clear_dp_only_params(mdwc);
+		if (!mdwc->ss_release_called)
+			dwc3_msm_clear_dp_only_params(mdwc);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
