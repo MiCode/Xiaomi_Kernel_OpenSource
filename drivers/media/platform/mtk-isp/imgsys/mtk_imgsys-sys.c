@@ -1161,16 +1161,16 @@ static int gce_work_pool_init(struct mtk_imgsys_dev *dev)
 	}
 	atomic_set(&gwork_pool->num, i);
 	init_waitqueue_head(&gwork_pool->waitq);
+	kref_init(&gwork_pool->kref);
 
 	return ret;
 }
 
-static void gce_work_pool_uninit(struct mtk_imgsys_dev *dev)
+static void pool_release(struct kref *kref)
 {
 	struct gce_work *gwork, *g0;
-	struct work_pool *pool;
-
-	pool = &dev->gwork_pool;
+	struct work_pool *pool = container_of(kref, struct work_pool, kref);
+	struct mtk_imgsys_dev *dev = container_of(pool, struct mtk_imgsys_dev, gwork_pool);
 
 	spin_lock(&pool->lock);
 	list_for_each_entry_safe(gwork, g0, &pool->free_list, entry) {
@@ -1191,6 +1191,16 @@ static void gce_work_pool_uninit(struct mtk_imgsys_dev *dev)
 	if (atomic_read(&pool->num))
 		dev_info(dev->dev, "%s: %d works not freed", __func__,
 					atomic_read(&pool->num));
+
+}
+
+static void gce_work_pool_uninit(struct mtk_imgsys_dev *dev)
+{
+	struct work_pool *pool;
+
+	pool = &dev->gwork_pool;
+	kref_put(&pool->kref, pool_release);
+
 }
 
 static bool work_pool_avail(struct work_pool *pool)
@@ -1226,6 +1236,7 @@ static struct gce_work *get_gce_work(struct mtk_imgsys_dev *dev)
 	gwork = list_first_entry(&gwork_pool->free_list, struct gce_work, entry);
 	list_del(&gwork->entry);
 	list_add_tail(&gwork->entry, &gwork_pool->used_list);
+	kref_get(&gwork->pool->kref);
 	spin_unlock(&gwork_pool->lock);
 
 	return gwork;
@@ -1239,7 +1250,9 @@ static void put_gce_work(struct gce_work *gwork)
 	spin_lock(&gwork_pool->lock);
 	list_del(&gwork->entry);
 	list_add_tail(&gwork->entry, &gwork_pool->free_list);
+	kref_put(&gwork->pool->kref, pool_release);
 	spin_unlock(&gwork_pool->lock);
+
 }
 
 static void imgsys_runner_func(void *data)

@@ -259,6 +259,7 @@ struct work_pool {
 	spinlock_t lock;
 	wait_queue_head_t waitq;
 	void *_cookie;
+	struct kref kref;
 };
 
 #define RUNNER_WQ_NR (4)
