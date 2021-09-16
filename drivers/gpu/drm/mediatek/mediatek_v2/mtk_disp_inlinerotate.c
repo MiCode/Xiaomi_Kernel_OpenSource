@@ -49,9 +49,6 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_REG_DISPSYS_SHADOW_CTRL,
 		0x00000002, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_INLINEROT_SWRST,
-		0, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_INLINEROT_OVLSEL,
 		12, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,

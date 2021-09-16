@@ -454,22 +454,12 @@ struct mtk_disp_ovl {
 	int bg_w, bg_h;
 	struct clk *fbdc_clk;
 	struct mtk_ovl_backup_info backup_info[MAX_LAYER_NUM];
-	bool is_mml_path;
 };
 
 void mtk_ovl_addon_mml_inlinerotate_config_1st_OVL(
 	struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	DDPINFO("%s comp->id:%d", __func__, comp->id);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-					   comp->regs_pa + 0x10,
-					   0x00001000,
-					   0x00001000);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-					   comp->regs_pa + 0x938,
-					   200,
-					   200);
-
 	// setting SMI for read SRAM
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
@@ -816,6 +806,8 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_SRC_CON,
 		       DISP_OVL_FORCE_RELAY_MODE, DISP_OVL_FORCE_RELAY_MODE);
+
+
 	SET_VAL_MASK(value, mask, 1, FLD_RDMA_BURST_CON1_BURST16_EN);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_RDMA_BURST_CON1,
@@ -1542,7 +1534,6 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			&& !g_disp_drm) {
 			dma_addr_t sram_addr = pending->addr;
 
-			DDPINFO("%s in handle:0x%x", __func__, handle);
 			// enable
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_SYSRAM_CFG(lye_idx), 1,
@@ -1606,11 +1597,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		 */
 		_ovl_common_config(comp, idx, state, handle);
 	}
-
-	if (pending->mml_mode)
-		ovl->is_mml_path = true;
-	else
-		ovl->is_mml_path = false;
 
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)

@@ -816,5 +816,3 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	return ret;
 }
 
-
-

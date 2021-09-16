@@ -95,12 +95,8 @@ static void layering_rule_scenario_decision(unsigned int scn_decision_flag,
 
 	if (scn_decision_flag & SCN_MML_SRAM_ONLY) {
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML_SRAM_ONLY;
-		DDPINFO("%s in l_rule_info.addon_scn[HRT_PRIMARY]:%d\n",
-			__func__, l_rule_info.addon_scn[HRT_PRIMARY]);
 	} else if (scn_decision_flag & SCN_MML) {
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML;
-		DDPINFO("%s in l_rule_info.addon_scn[HRT_PRIMARY]:%d\n",
-			__func__, l_rule_info.addon_scn[HRT_PRIMARY]);
 	} else if (scn_decision_flag & SCN_NEED_GAME_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
 	else if (scn_decision_flag & SCN_NEED_VP_PQ)

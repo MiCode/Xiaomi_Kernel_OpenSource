@@ -2566,15 +2566,12 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 	if (!priv || !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
 		return MTK_MML_DISP_NOT_SUPPORT;
 
-	DDPINFO("%s mml_drm_query_cap +", __func__);
 	ret = MTK_MML_DISP_DECOUPLE_LAYER;
 	// TODO: need to be remove
 	if (g_mml_mode != MML_MODE_UNKNOWN) {
-		DDPINFO("%s g_mml_mode:%d", __func__, g_mml_mode);
 		mode = g_mml_mode;
 	} else {
 		//mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev), mml_cfg);
-		//DDPINFO("%s mode:%d", __func__, mode);
 		mode = MML_MODE_MML_DECOUPLE;
 	}
 
@@ -2600,8 +2597,6 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 		break;
 	}
 
-	DDPINFO("%s ret:%d", __func__, ret);
-
 	return ret;
 }
 
@@ -2621,10 +2616,7 @@ static void check_is_mml_layer(const int disp_idx,
 				// if layer can use MML direct link or inline rotate handle,
 				// we don't use DISP RSZ
 				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
-				//*scn_decision_flag |= SCN_MML;
 				*scn_decision_flag |= SCN_MML_SRAM_ONLY;
-				DDPINFO("%s scn_decision_flag:%d, SCN_MML:%d, SCN_MML_SRAM_ONLY:%d",
-					__func__, *scn_decision_flag, SCN_MML, SCN_MML_SRAM_ONLY);
 			} else if (MTK_MML_DISP_NOT_SUPPORT & c->layer_caps) {
 				if (disp_info->gles_head[disp_idx] == -1 ||
 					disp_info->gles_head[disp_idx] > i)

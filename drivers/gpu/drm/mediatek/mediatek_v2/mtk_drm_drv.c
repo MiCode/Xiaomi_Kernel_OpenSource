@@ -67,8 +67,6 @@
 
 #include "slbc_ops.h"
 
-extern void print_mml_submit(struct mml_submit *args);
-
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -105,7 +103,6 @@ void *test_va;
 dma_addr_t test_pa;
 #endif
 
-extern bool g_mobile_log;
 struct aod_scp_send_ipi_msg {
 	int (*send_ipi)(int value);
 };
@@ -1090,9 +1087,6 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(mtk_plane_state->crtc);
 	int i = 0;
 
-	DDPINFO("PLANE_PROP_TEST_CODE:%lld",
-		(long long)mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
-
 	submit_user = (struct mml_submit *)
 		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
 
@@ -1140,7 +1134,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 
 		submit_kernel->update = false;
 		submit_kernel->info.mode = MML_MODE_RACING;
-		//print_mml_submit(submit_kernel);
+
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
 		submit_pq = mtk_alloc_mml_submit();
 
@@ -1164,29 +1158,18 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		submit_kernel->info.dest[0].compose.left = 0;
 		submit_kernel->info.dest[0].compose.top = 0;
 
-		DDPINFO("%s mml_drm_split_info -", __func__);
 		if (mml_ctx != NULL) {
 			ret = wait_event_interruptible(
 				mtk_crtc->signal_mml_last_job_is_flushed_wq
 				, atomic_read(&mtk_crtc->mml_last_job_is_flushed));
-			DDPINFO("%s 2\n", __func__);
 			atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 0);
 
-			DDPINFO("mml_drm_submit + src fd:%d, dst fd:%d",
-				submit_kernel->buffer.src.fd[0],
-				submit_kernel->buffer.dest[0].fd[0]);
-
-			DDPINFO("mml_drm_submit + 0x%x", &(mtk_crtc->mml_cb));
 			ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));
-			DDPINFO("mml_drm_submit -");
-			DDPINFO("mtk_plane_state:0x%x, mtk_plane_state->mml_mode:%d",
-				mtk_plane_state, mtk_plane_state->mml_mode);
+
 			mtk_crtc->is_mml = true;
 			mtk_plane_state->mml_mode = MML_MODE_RACING;
 			mtk_plane_state->mml_cfg = submit_pq;
 			mtk_crtc->mml_cfg = submit_kernel;
-			DDPINFO("%s, mtk_crtc:0x%x, mtk_crtc->is_mml:%d",
-				__func__, mtk_crtc, mtk_crtc->is_mml);
 		}
 	}
 
@@ -4042,7 +4025,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 						->path[DDP_MAJOR][0][0]];
 
 	pdev = of_find_device_by_node(np);
-
 	if (!pdev) {
 		ret = -ENODEV;
 		dev_err(drm->dev, "Need at least one OVL device\n");
@@ -4391,6 +4373,7 @@ static int mtk_drm_bind(struct device *dev)
 
 	drm->dev_private = private;
 	private->drm = drm;
+
 	ret = mtk_drm_kms_init(drm);
 	if (ret < 0)
 		goto err_free;
@@ -5049,7 +5032,6 @@ SKIP_SIDE_DISP:
 	platform_set_drvdata(pdev, private);
 
 	ret = component_master_add_with_match(dev, &mtk_drm_ops, match);
-
 	DDPINFO("%s- ret:%d\n", __func__, ret);
 	if (ret)
 		goto err_pm;
@@ -5262,8 +5244,7 @@ static int __init mtk_drm_init(void)
 			DDPPR_ERR("Failed to register %s driver: %d\n",
 				  mtk_drm_drivers[i]->driver.name, ret);
 			goto err;
-		} else
-			DDPINFO("%s driver success\n", mtk_drm_drivers[i]->driver.name);
+		}
 	}
 	DDPINFO("%s-\n", __func__);
 

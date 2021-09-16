@@ -407,17 +407,12 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		struct mml_submit *cfg = state->pending.mml_cfg;
 		uint32_t width, height, pitch;
 
-		DDPINFO("%s 1\n", __func__);
 		width = (g_disp_drm) ? 1080 :
 			cfg->info.src.width;
 		height = (g_disp_drm) ? 1920 :
 			cfg->info.src.height;
 		pitch = cfg->info.src.y_stride;
 
-		DDPINFO("%s 2: w:%d, h:%d, y_s:%d\n", __func__,
-			cfg->info.src.width,
-			cfg->info.src.height,
-			cfg->info.src.y_stride);
 		state->pending.enable = plane->state->visible;
 		state->pending.pitch = pitch;
 		state->pending.format = DRM_FORMAT_ABGR8888;
