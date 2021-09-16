@@ -852,6 +852,37 @@ static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attrib
 
 static DEVICE_ATTR_RW(fast_chg_indicator);
 
+static ssize_t enable_meta_current_limit_show(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_debug("%s: %d\n", __func__, pinfo->enable_meta_current_limit);
+	return sprintf(buf, "%d\n", pinfo->enable_meta_current_limit);
+}
+
+static ssize_t enable_meta_current_limit_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	unsigned int temp;
+
+	if (kstrtouint(buf, 10, &temp) == 0)
+		pinfo->enable_meta_current_limit = temp;
+	else
+		chr_err("%s: format error!\n", __func__);
+
+	if (pinfo->enable_meta_current_limit > 0) {
+		pinfo->log_level = CHRLOG_DEBUG_LEVEL;
+		mtk_charger_set_algo_log_level(pinfo, pinfo->log_level);
+	}
+
+	_wake_up_charger(pinfo);
+	return size;
+}
+
+static DEVICE_ATTR_RW(enable_meta_current_limit);
+
 static ssize_t ADC_Charger_Voltage_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -2575,6 +2606,10 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	if (ret)
 		goto _out;
 
+	ret = device_create_file(&(pdev->dev), &dev_attr_enable_meta_current_limit);
+	if (ret)
+		goto _out;
+
 	ret = device_create_file(&(pdev->dev), &dev_attr_fast_chg_indicator);
 	if (ret)
 		goto _out;
@@ -3116,6 +3151,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->chg_alg_nb.notifier_call = chg_alg_event;
 
 	info->fast_charging_indicator = 0;
+	info->enable_meta_current_limit = 1;
 	info->is_charging = false;
 	info->safety_timer_cmd = -1;
 

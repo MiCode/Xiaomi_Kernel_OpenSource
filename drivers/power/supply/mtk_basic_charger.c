@@ -153,9 +153,9 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		goto done;
 	}
 
-	if ((info->bootmode == 1) ||
-	    (info->bootmode == 5)) {
-		pdata->input_current_limit = 200000; /* 200mA */
+	if (((info->bootmode == 1) ||
+	    (info->bootmode == 5)) && info->enable_meta_current_limit != 0) {
+		pdata->input_current_limit = 200000; // 200mA
 		is_basic = true;
 		goto done;
 	}

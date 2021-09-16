@@ -347,6 +347,9 @@ struct mtk_charger {
 	bool enable_fast_charging_indicator;
 	unsigned int fast_charging_indicator;
 
+	/* diasable meta current limit for testing */
+	unsigned int enable_meta_current_limit;
+
 	struct smartcharging sc;
 
 	/*daemon related*/
