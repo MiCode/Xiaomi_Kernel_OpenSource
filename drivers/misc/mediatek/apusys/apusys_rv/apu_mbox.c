@@ -22,6 +22,8 @@
 #define _INBOX_IRQ_MASK(_m)	(_m->apu_mbox + 0xd0)
 #define _OUTBOX_IRQ_MASK(_m)	(_m->apu_mbox + 0xd8)
 
+#define WAIT_INBOX_TMO_MS	1000
+
 void apu_mbox_ack_outbox(struct mtk_apu *apu)
 {
 	iowrite32(ioread32(_OUTBOX_IRQ(apu)),
@@ -44,19 +46,26 @@ int apu_mbox_wait_inbox(struct mtk_apu *apu)
 	unsigned long timeout;
 	unsigned char irq, mask;
 
-	timeout = jiffies + msecs_to_jiffies(1000);
+	timeout = jiffies + msecs_to_jiffies(WAIT_INBOX_TMO_MS);
 	do {
-		if (time_after(jiffies, timeout)) {
-			dev_info(apu->dev, "timeout.\n");
-			return -ETIMEDOUT;
-		}
-
 		irq = ioread32(_INBOX_IRQ(apu));
 		mask = ioread32(_INBOX_IRQ_MASK(apu));
+		if (!(irq & ~mask))
+			return 0;
 
+		if (time_after(jiffies, timeout))
+			break;
 	} while (irq & ~mask);
 
-	return 0;
+	/* second chance */
+	irq = ioread32(_INBOX_IRQ(apu));
+	mask = ioread32(_INBOX_IRQ_MASK(apu));
+	if (!(irq & ~mask))
+		return 0;
+
+	dev_info(apu->dev, "timeout. irq = 0x%x, mask = 0x%x\n",
+		irq, mask);
+	return -EBUSY;
 }
 
 void apu_mbox_write_inbox(struct mtk_apu *apu, struct apu_mbox_hdr *hdr)
