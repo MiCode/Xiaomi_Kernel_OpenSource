@@ -2182,7 +2182,7 @@ static ssize_t clkdbg_write(
 
 	last_cmd[len] = '\0';
 
-	if (last_cmd[len - 1UL] == '\n')
+	if (len >= 1 && last_cmd[len - 1UL] == '\n')
 		last_cmd[len - 1UL] = '\0';
 
 	return (ssize_t)len;
