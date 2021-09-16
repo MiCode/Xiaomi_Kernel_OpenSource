@@ -91,7 +91,6 @@ static bool mtk_btag_mictx_self_test;
 static bool mtk_btag_mictx_data_dump;
 
 /* blocktag */
-static DEFINE_MUTEX(mtk_btag_list_lock);
 static LIST_HEAD(mtk_btag_list);
 
 /* memory block for PIDLogger */
@@ -117,9 +116,10 @@ static struct mtk_blocktag *mtk_btag_find_locked(const char *name)
 {
 	struct mtk_blocktag *btag;
 
-	mutex_lock(&mtk_btag_list_lock);
+	/* TODO:
+	 * If anyone needs to register btag at runtime, a list lock is needed.
+	 */
 	btag = mtk_btag_find(name);
-	mutex_unlock(&mtk_btag_list_lock);
 	return btag;
 }
 
@@ -1057,10 +1057,11 @@ static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
 {
 	struct mtk_blocktag *btag, *n;
 
-	mutex_lock(&mtk_btag_list_lock);
+	/* TODO:
+	 * If anyone needs to register btag at runtime, a list lock is needed.
+	 */
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		mtk_btag_clear_trace(&btag->rt);
-	mutex_unlock(&mtk_btag_list_lock);
 	return count;
 }
 
@@ -1292,8 +1293,12 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	size_t used_mem = 0;
 	struct mtk_blocktag *btag, *n;
 
+	/* TODO:
+	 * If anyone needs to register btag at runtime, a list lock is needed.
+	 * also be careful that we cannot sleep here because this function will
+	 * be used when the KE happen, i.e., mutex is not allowed.
+	 */
 	SPREAD_PRINTF(buff, size, seq, "[Trace]\n");
-	mutex_lock(&mtk_btag_list_lock);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		mtk_btag_seq_debug_show_ringtrace(buff, size, seq, btag);
 
@@ -1309,7 +1314,6 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		used_mem += mtk_btag_seq_sub_show_usedmem(buff, size,
 				seq, btag);
-	mutex_unlock(&mtk_btag_list_lock);
 
 	SPREAD_PRINTF(buff, size, seq, "<blocktag core>\n");
 	used_mem += mtk_btag_seq_pidlog_usedmem(buff, size, seq);
