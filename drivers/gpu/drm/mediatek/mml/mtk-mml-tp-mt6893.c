@@ -435,7 +435,8 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
-	} else if (en_rsz && cfg->info.dest_cnt == 1) {
+	} else if ((en_rsz || cfg->info.dest[0].pq_config.en) &&
+		   cfg->info.dest_cnt == 1) {
 		/* 1 in 1 out with PQs */
 		if (cfg->info.dest[0].pq_config.en_dre ||
 			cfg->info.dest[0].pq_config.en_hdr) {
