@@ -138,6 +138,9 @@ static unsigned int g_maxfreq;
 static int g_minfreq_idx;
 static int g_maxfreq_idx;
 
+/* LB down scale count */
+static unsigned int g_lb_down_count = 1;
+
 /* need to sync to EB */
 #define BATCH_MAX_READ_COUNT 32
 /* formatted pattern |xxx|xxx 4x2 */
@@ -747,6 +750,8 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		if (force_fallback == 1) {
 			int i32NewFreqID = ged_get_cur_oppidx();
 
+			g_lb_down_count = 1;
+
 			if (dvfs_step_mode == 0)
 				i32NewFreqID = 0;
 			else
@@ -1161,7 +1166,8 @@ static bool ged_dvfs_policy(
 
 		ui32GPULoading_avg = _loading_avg(ui32GPULoading);
 
-		if (ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur) {
+		if (ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur
+			|| ui32GPULoading >= 95) {
 			if (dvfs_step_mode == 0)
 				i32NewFreqID = 0;
 			else
@@ -1169,9 +1175,17 @@ static bool ged_dvfs_policy(
 
 			if (i32NewFreqID < 0)
 				i32NewFreqID = 0;
+
+			g_lb_down_count = 1;
+		} else if (ui32GPULoading < 15) {
+			i32NewFreqID += g_lb_down_count;
+			g_lb_down_count *= 2;
+			if (g_lb_down_count >= 4)
+				g_lb_down_count = 4;
 		} else if (ui32GPULoading_avg >=
 			loading_ud_table[ui32GPUFreq].up) {
 			i32NewFreqID -= 1;
+			g_lb_down_count = 1;
 		} else if (ui32GPULoading_avg <=
 			loading_ud_table[ui32GPUFreq].down) {
 			i32NewFreqID += 1;
