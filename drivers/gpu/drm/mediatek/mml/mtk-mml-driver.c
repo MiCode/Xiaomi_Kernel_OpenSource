@@ -945,41 +945,35 @@ static void __exit mml_driver_exit(void)
 }
 module_exit(mml_driver_exit);
 
-static s32 ut_case;
-static int ut_set(const char *val, const struct kernel_param *kp)
+static s32 dbg_case;
+static int dbg_set(const char *val, const struct kernel_param *kp)
 {
 	int result;
 
-	result = sscanf(val, "%d", &ut_case);
-	if (result != 1) {
-		mml_err("invalid input: %s, result(%d)", val, result);
-		return -EINVAL;
-	}
-	mml_log("%s: case_id=%d", __func__, ut_case);
+	result = kstrtos32(val, 0, &dbg_case);
+	mml_log("%s: debug_case=%d", __func__, dbg_case);
 
-	switch (ut_case) {
+	switch (dbg_case) {
 	case 0:
-		mml_log("use read to dump current pwm setting");
+		mml_log("use read to dump current setting");
 		break;
 	default:
-		mml_err("invalid case_id: %d", ut_case);
+		mml_err("invalid debug_case: %d", dbg_case);
 		break;
 	}
-
-	mml_log("%s END", __func__);
-	return 0;
+	return result;
 }
 
-static int ut_get(char *buf, const struct kernel_param *kp)
+static int dbg_get(char *buf, const struct kernel_param *kp)
 {
 	int length = 0;
 
-	switch (ut_case) {
+	switch (dbg_case) {
 	case 0:
 		length += snprintf(buf + length, PAGE_SIZE - length,
-			"[%d] probed: %d\n", ut_case, dbg_probed);
+			"[%d] probed: %d\n", dbg_case, dbg_probed);
 	default:
-		mml_err("not support read for case_id: %d", ut_case);
+		mml_err("not support read for debug_case: %d", dbg_case);
 		break;
 	}
 	buf[length] = '\0';
@@ -987,12 +981,12 @@ static int ut_get(char *buf, const struct kernel_param *kp)
 	return length;
 }
 
-static struct kernel_param_ops up_param_ops = {
-	.set = ut_set,
-	.get = ut_get,
+static const struct kernel_param_ops dbg_param_ops = {
+	.set = dbg_set,
+	.get = dbg_get,
 };
-module_param_cb(ut_case, &up_param_ops, NULL, 0644);
-MODULE_PARM_DESC(ut_case, "mml platform driver UT test case");
+module_param_cb(drv_debug, &dbg_param_ops, NULL, 0644);
+MODULE_PARM_DESC(drv_debug, "mml driver debug case");
 
 MODULE_DESCRIPTION("MediaTek multimedia-layer driver");
 MODULE_AUTHOR("Ping-Hsun Wu <ping-hsun.wu@mediatek.com>");

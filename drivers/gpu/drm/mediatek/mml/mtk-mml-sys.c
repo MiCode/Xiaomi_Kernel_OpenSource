@@ -726,6 +726,9 @@ err_comp_add:
 	return ret;
 }
 
+static struct mml_sys *dbg_probed_components[2];
+static int dbg_probed_count;
+
 struct mml_sys *mml_sys_create(struct platform_device *pdev,
 			       const struct component_ops *comp_ops)
 {
@@ -743,6 +746,8 @@ struct mml_sys *mml_sys_create(struct platform_device *pdev,
 		devm_kfree(dev, sys);
 		return ERR_PTR(ret);
 	}
+
+	dbg_probed_components[dbg_probed_count++] = sys;
 	return sys;
 }
 
@@ -951,6 +956,74 @@ struct platform_driver mml_sys_driver = {
 	},
 };
 //module_platform_driver(mml_sys_driver);
+
+static s32 dbg_case;
+static s32 dbg_set(const char *val, const struct kernel_param *kp)
+{
+	s32 result;
+
+	result = kstrtos32(val, 0, &dbg_case);
+	mml_log("%s: debug_case=%d", __func__, dbg_case);
+
+	switch (dbg_case) {
+	case 0:
+		mml_log("use read to dump component status");
+		break;
+	default:
+		mml_err("invalid debug_case: %d", dbg_case);
+		break;
+	}
+	return result;
+}
+
+static s32 dbg_get(char *buf, const struct kernel_param *kp)
+{
+	s32 length = 0;
+	u32 i, j;
+
+	switch (dbg_case) {
+	case 0:
+		length += snprintf(buf + length, PAGE_SIZE - length,
+			"[%d] probed count: %d\n", dbg_case, dbg_probed_count);
+		for (j = 0; j < dbg_probed_count; j++) {
+			struct mml_sys *sys = dbg_probed_components[j];
+
+			length += snprintf(buf + length, PAGE_SIZE - length,
+				"  - [%d] component count: %d bound: %d ddp: %d\n", j,
+				sys->comp_cnt, sys->comp_bound, sys->ddp_bound);
+			for (i = 0; i < sys->comp_cnt; i++) {
+				struct mml_comp *comp = &sys->comps[i];
+				struct mtk_ddp_comp *ddp_comp = &sys->ddp_comps[i];
+
+				length += snprintf(buf + length, PAGE_SIZE - length,
+					"    - [%d] mml comp_id: %d.%d @%08x name: %s bound: %d\n",
+					i, comp->id, comp->sub_idx, comp->base_pa,
+					comp->name ? comp->name : "(null)", comp->bound);
+				length += snprintf(buf + length, PAGE_SIZE - length,
+					"    -         larb_port: %d @%08x pw: %d clk: %d\n",
+					comp->larb_port, comp->larb_base,
+					comp->pw_cnt, comp->clk_cnt);
+				length += snprintf(buf + length, PAGE_SIZE - length,
+					"    -     ddp comp_id: %d bound: %d\n",
+					ddp_comp->id,
+					(sys->ddp_comp_en >> i) & 0x1);
+			}
+		}
+	default:
+		mml_err("not support read for debug_case: %d", dbg_case);
+		break;
+	}
+	buf[length] = '\0';
+
+	return length;
+}
+
+static const struct kernel_param_ops dbg_param_ops = {
+	.set = dbg_set,
+	.get = dbg_get,
+};
+module_param_cb(sys_debug, &dbg_param_ops, NULL, 0644);
+MODULE_PARM_DESC(sys_debug, "mml sys debug case");
 
 MODULE_DESCRIPTION("MediaTek SoC display MMLSYS driver");
 MODULE_AUTHOR("Ping-Hsun Wu <ping-hsun.wu@mediatek.com>");

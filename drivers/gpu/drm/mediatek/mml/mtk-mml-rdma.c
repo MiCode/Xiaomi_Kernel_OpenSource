@@ -1702,50 +1702,48 @@ struct platform_driver mml_rdma_driver = {
 
 //module_platform_driver(mml_rdma_driver);
 
-static s32 ut_case;
-static s32 ut_set(const char *val, const struct kernel_param *kp)
+static s32 dbg_case;
+static s32 dbg_set(const char *val, const struct kernel_param *kp)
 {
 	s32 result;
 
-	result = sscanf(val, "%d", &ut_case);
-	if (result != 1) {
-		mml_err("invalid input: %s, result(%d)", val, result);
-		return -EINVAL;
-	}
-	mml_log("%s: case_id=%d", __func__, ut_case);
+	result = kstrtos32(val, 0, &dbg_case);
+	mml_log("%s: debug_case=%d", __func__, dbg_case);
 
-	switch (ut_case) {
+	switch (dbg_case) {
 	case 0:
-		mml_log("use read to dump current pwm setting");
+		mml_log("use read to dump component status");
 		break;
 	default:
-		mml_err("invalid case_id: %d", ut_case);
+		mml_err("invalid debug_case: %d", dbg_case);
 		break;
 	}
-
-	mml_log("%s END", __func__);
-	return 0;
+	return result;
 }
 
-static s32 ut_get(char *buf, const struct kernel_param *kp)
+static s32 dbg_get(char *buf, const struct kernel_param *kp)
 {
 	s32 length = 0;
 	u32 i;
 
-	switch (ut_case) {
+	switch (dbg_case) {
 	case 0:
 		length += snprintf(buf + length, PAGE_SIZE - length,
-			"[%d] probed count: %d\n", ut_case, dbg_probed_count);
-		for(i = 0; i < dbg_probed_count; i++) {
+			"[%d] probed count: %d\n", dbg_case, dbg_probed_count);
+		for (i = 0; i < dbg_probed_count; i++) {
+			struct mml_comp *comp = &dbg_probed_components[i]->comp;
+
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  - [%d] mml_comp_id: %d\n", i,
-				dbg_probed_components[i]->comp.id);
+				"  - [%d] mml comp_id: %d.%d @%08x name: %s bound: %d\n", i,
+				comp->id, comp->sub_idx, comp->base_pa,
+				comp->name ? comp->name : "(null)", comp->bound);
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -      mml_bound: %d\n",
-				dbg_probed_components[i]->comp.bound);
+				"  -         larb_port: %d @%08x pw: %d clk: %d\n",
+				comp->larb_port, comp->larb_base,
+				comp->pw_cnt, comp->clk_cnt);
 		}
 	default:
-		mml_err("not support read for case_id: %d", ut_case);
+		mml_err("not support read for debug_case: %d", dbg_case);
 		break;
 	}
 	buf[length] = '\0';
@@ -1753,12 +1751,12 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 	return length;
 }
 
-static struct kernel_param_ops up_param_ops = {
-	.set = ut_set,
-	.get = ut_get,
+static const struct kernel_param_ops dbg_param_ops = {
+	.set = dbg_set,
+	.get = dbg_get,
 };
-module_param_cb(rdma_ut_case, &up_param_ops, NULL, 0644);
-MODULE_PARM_DESC(rdma_ut_case, "mml rdma UT test case");
+module_param_cb(rdma_debug, &dbg_param_ops, NULL, 0644);
+MODULE_PARM_DESC(rdma_debug, "mml rdma debug case");
 
 MODULE_AUTHOR("Dennis-YC Hsieh <dennis-yc.hsieh@mediatek.com>");
 MODULE_DESCRIPTION("MediaTek SoC display MML RDMA driver");
