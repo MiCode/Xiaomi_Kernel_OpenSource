@@ -2132,9 +2132,12 @@ static irqreturn_t mt6375_fl_aicc_done_handler(int irq, void *data)
 static irqreturn_t mt6375_fl_batpro_done_handler(int irq, void *data)
 {
 	struct mt6375_chg_data *ddata = data;
+	int ret;
 
 	mt_dbg(ddata->dev, "++\n");
-	return IRQ_HANDLED;
+	ret = mt6375_enable_6pin_battery_charging(ddata->chgdev, false);
+	charger_dev_notify(ddata->chgdev, CHARGER_DEV_NOTIFY_BATPRO_DONE);
+	return ret < 0 ? ret : IRQ_HANDLED;
 }
 
 static irqreturn_t mt6375_adc_vbat_mon_ov_handler(int irq, void *data)
