@@ -1450,6 +1450,7 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	}
 	s_data->feature.raw_feature = raw_pipe->feature_pending;
 	s_data->feature.prev_feature = raw_fut_pre;
+	s_data->res_update = raw_pipe->res_update;
 	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
 
 	return 0;
@@ -1945,6 +1946,7 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
 		req_stream_data->index = i;
+		req_stream_data->res_update = 0;
 
 		/**
 		 * req_stream_data->flags is cleaned by

@@ -263,6 +263,7 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_resource user_res;
 	struct mtk_cam_resource_config res_config;
 	struct mtk_cam_resource_config try_res_config;
+	int res_update;
 	s64 sync_id;
 	/* mstream */
 	struct mtk_cam_mstream_exposure mstream_exposure;

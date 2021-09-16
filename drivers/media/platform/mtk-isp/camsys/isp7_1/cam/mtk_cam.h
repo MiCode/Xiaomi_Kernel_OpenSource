@@ -206,6 +206,7 @@ struct mtk_cam_request_stream_data {
 	u32 pad_fmt_update;
 	u32 vdev_fmt_update;
 	u32 vdev_selection_update;
+	u32 res_update;
 	struct v4l2_subdev_format seninf_fmt;
 	struct v4l2_subdev_format pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_format vdev_fmt[MTK_RAW_TOTAL_NODES];

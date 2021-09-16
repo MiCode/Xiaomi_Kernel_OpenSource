@@ -238,7 +238,7 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
 	dev = pipeline->raw->devs[pipeline->id];
 
-	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE) {
+	if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC) {
 		user_res = (struct mtk_cam_resource *)ctrl->p_new.p;
 		user_res->sensor_res = pipeline->user_res.sensor_res;
 		user_res->raw_res = pipeline->user_res.raw_res;
@@ -246,6 +246,8 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 			ret = mtk_cam_res_copy_fmt_to_user(pipeline,
 							   user_res,
 							   pipeline->user_res.sink_fmt);
+	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE) {
+		ctrl->val = pipeline->res_update;
 	} else if (ctrl->id >= V4L2_CID_MTK_CAM_USED_ENGINE_TRY &&
 		   ctrl->id <= V4L2_CID_MTK_CAM_FRZ_TRY) {
 		/**
@@ -624,7 +626,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
 		res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
 		ret = mtk_cam_raw_res_store(pipeline, res_user);
 		if (ret)
@@ -658,6 +660,9 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(dev, "%s:pipe(%d): res ctrl end\n", __func__,
 			pipeline->id);
 			break;
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
+		ret = 0; /* no support */
+		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_try_ctrl(ctrl);
 		break;
@@ -694,12 +699,22 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
 		/**
 		 * It also updates V4L2_CID_MTK_CAM_FEATURE and
 		 * V4L2_CID_MTK_CAM_RAW_PATH_SELECT to device
 		 */
 		ret = mtk_cam_raw_set_res_ctrl(ctrl);
+		break;
+	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
+		/**
+		 * res_update should be reset by driver after the completion of
+		 * resource updating (seamless switch)
+		 */
+		pipeline->res_update = ctrl->val;
+		dev_dbg(dev, "%s:pipe(%d):streaming(%d), res_update(%d)\n",
+			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
+			pipeline->res_update);
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
@@ -980,13 +995,24 @@ static const struct v4l2_ctrl_config mtk_feature = {
 
 static struct v4l2_ctrl_config cfg_res_ctrl = {
 	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE,
+	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
 	.name = "resource ctrl",
 	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0xffffffff,
 	.step = 1,
 	.dims = {sizeof(struct mtk_cam_resource)},
+};
+
+static struct v4l2_ctrl_config cfg_res_update = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE,
+	.name = "resource update",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min = 0,
+	.max = 0xf,
+	.step = 1,
+	.def = 0,
 };
 
 static const struct v4l2_ctrl_config mstream_exposure = {
@@ -3278,7 +3304,7 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		}
 
 		/**
-		 * User will trigger resource calc with V4L2_CID_MTK_CAM_RAW_RESOURCE
+		 * User will trigger resource calc with V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC
 		 * so we don't need to trigger it here anymore.
 		 */
 		propagate_fmt(mf, source_mf, mf->width, mf->height);
@@ -5046,6 +5072,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_update, NULL);
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_ctrl, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
@@ -5063,6 +5090,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->res_config.res_plan = res_plan_policy.def;
 	pipe->feature_pending = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
+	pipe->res_update = cfg_res_update.def;
 	pipe->pde_config.pde_info.pdo_max_size = cfg_pde_info.def;
 	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;
 	pipe->pde_config.pde_info.pd_table_offset = cfg_pde_info.def;
