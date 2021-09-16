@@ -5719,6 +5719,18 @@
 			};
 		};
 
+		typec_mux_switch: typec_mux_switch {
+			compatible = "mediatek,typec_mux_switch";
+			status = "okay";
+		};
+
+		usb_dp_selector: usb_dp_selector@10005600 {
+			compatible = "mediatek,usb_dp_selector";
+			reg = <0 0x10005600 0 0x4>;
+			reg-names = "usb_dp_reg";
+			status = "okay";
+		};
+
 		mrdump_ext_rst: mrdump_ext_rst {
 			compatible = "mediatek, mrdump_ext_rst-eint";
 			mode = "IRQ";
@@ -6796,6 +6808,14 @@
 		power-gs-list {
 			/* FIXME */
 		};
+	};
+};
+
+&i2c6 {
+	ps5170: ps5170@28 {
+		compatible = "parade,ps5170";
+		reg = <0x28>;
+		status = "okay";
 	};
 };
 
