@@ -82,9 +82,9 @@ static ssize_t swpm_arm_pmu_read(char *ToUser, size_t sz, void *priv)
 
 	val = swpm_arm_pmu_get_status();
 
-	swpm_dbg_log("SWPM arm pmu is %s (%d:%d)\n",
+	swpm_dbg_log("SWPM arm pmu is %s (%d:%d:%d)\n",
 		(val & 0xFFFF) ? "enabled" : "disabled",
-		(val >> 16) & 0xFF, (val >> 24) & 0xFF);
+		(val >> 20) & 0xF, (val >> 24) & 0xF, (val >> 28) & 0xF);
 
 	swpm_dbg_log("L3DC\n");
 	for (i = 0; i < num_possible_cpus(); i++)
