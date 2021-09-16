@@ -4415,6 +4415,7 @@
 				<&mdpsys_config_clk CLK_MDP_SMI0>,
 				<&mminfra_config_clk CLK_MMINFRA_SMI>,
 				<&imgsys_main_clk CLK_IMG_LARB9>,
+				<&imgsys_main_clk CLK_IMG_VCORE_GALS>,
 				<&imgsys_main_clk CLK_IMG_GALS>,
 				<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>;
 			clock-names = "adsp", "audio", "cam", "ccu", "ccu_ahb",
@@ -4422,7 +4423,8 @@
 				"isp", "ipe", "vde", "ven",
 				"cam-0", "cam-1", "cam_lp-0", "cam_lp-1",
 				"cam_lp-2", "disp-0", "mdp_lp-0",
-				"mm_infra_lp-0", "isp-0", "isp-1", "vde-0";
+				"mm_infra_lp-0", "isp-0", "isp-1",
+				"isp-2", "vde-0";
 			infracfg = <&infracfg_ao_clk>;
 			vlpcfg = <&vlpcfg_bus_clk>;
 		};
