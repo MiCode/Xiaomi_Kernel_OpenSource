@@ -756,7 +756,7 @@ void eara2fstb_get_tfps(int max_cnt, int *is_camera, int *pid, unsigned long lon
 		rfps[count] = iter->queue_fps;
 		if (!iter->target_fps_notifying
 			|| iter->target_fps_notifying == -1)
-			tfps[count] = iter->target_fps;
+			tfps[count] = iter->target_fps_v2;
 		else
 			tfps[count] = iter->target_fps_notifying;
 		if(name)
@@ -779,7 +779,7 @@ void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff,
 	hlist_for_each_entry_safe(iter, n, &fstb_frame_infos, hlist) {
 		if (pid == iter->pid && buf_id == iter->bufid) {
 			if (tfps != iter->target_fps_notifying
-				&& tfps != iter->target_fps)
+				&& tfps != iter->target_fps_v2)
 				break;
 
 			iter->target_fps_diff = diff;
@@ -787,10 +787,10 @@ void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff,
 
 			if (iter->target_fps_notifying
 				&& tfps == iter->target_fps_notifying) {
-				iter->target_fps = iter->target_fps_notifying;
+				iter->target_fps_v2 = iter->target_fps_notifying;
 				iter->target_fps_notifying = 0;
 				fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
-					iter->target_fps, "fstb_target_fps1");
+					iter->target_fps_v2, "fstb_target_fps1");
 				fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
 					0, "fstb_notifying");
 			}
@@ -818,12 +818,12 @@ static void fstb_change_tfps(struct FSTB_FRAME_INFO *iter, int target_fps,
 
 	if ((notify_eara && (ret == -1))
 		|| iter->target_fps_notifying == target_fps) {
-		iter->target_fps = target_fps;
+		iter->target_fps_v2 = target_fps;
 		iter->target_fps_notifying = 0;
 		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
 					0, "fstb_notifying");
 		fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
-					iter->target_fps, "fstb_target_fps1");
+					iter->target_fps_v2, "fstb_target_fps1");
 	} else {
 		iter->target_fps_notifying = target_fps;
 		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
@@ -1015,6 +1015,7 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_queue_end_ts)
 {
 	int i, target_fps, margin = 0;
+	int target_fps_old = max_fps_limit, target_fps_new = max_fps_limit;
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter;
 
@@ -1032,26 +1033,29 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 		goto out;
 
 	if (target_fps <= 0) {
-		iter->target_fps_v2 = iter->target_fps;
+		fstb_change_tfps(iter, iter->target_fps, 1);
 		fpsgo_main_trace("[fstb][%d][0x%llx] | back to v1 (%d)(%d)(%d)",
 			iter->pid, iter->bufid, iter->target_fps, target_fps, iter->hwui_flag);
 	} else {
-		iter->target_fps_v2 = target_fps;
+		target_fps_old = iter->target_fps_v2;
+		target_fps_new = target_fps;
 		hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
 			if (!strncmp(iter->proc_name, rtfiter->process_name, 16) ||
 				rtfiter->pid == iter->pid) {
 				for (i = rtfiter->nr_level-1; i >= 0; i--) {
 					if (rtfiter->level[i].start >= target_fps) {
-						iter->target_fps_v2 =
+						target_fps_new =
 							target_fps >= rtfiter->level[i].end ?
 							target_fps : rtfiter->level[i].end;
 						break;
 					}
 				}
 				if (i < 0)
-					iter->target_fps_v2 = rtfiter->level[0].start;
+					target_fps_new = rtfiter->level[0].start;
 			}
 		}
+		if (target_fps_old != target_fps_new)
+			fstb_change_tfps(iter, target_fps_new, 1);
 	}
 	iter->target_fps_margin_v2 = margin;
 
@@ -1476,7 +1480,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 
 		if (tmp_vote_fps > iter->target_fps) {
 			iter->fps_raise_flag = 1;
-			fstb_change_tfps(iter, tmp_vote_fps, 1);
+			iter->target_fps = tmp_vote_fps;
 		}
 	}
 
@@ -1982,9 +1986,7 @@ static void fstb_fps_stats(struct work_struct *work)
 			idle = 0;
 
 			target_fps = cal_target_fps(iter);
-			target_fps = calculate_fps_limit(iter, target_fps);
-			if (target_fps != iter->target_fps)
-				fstb_change_tfps(iter, target_fps, 0);
+			iter->target_fps = calculate_fps_limit(iter, target_fps);
 
 			iter->vote_i = 0;
 			fpsgo_systrace_c_fstb_man(iter->pid, 0,
@@ -2024,9 +2026,7 @@ static void fstb_fps_stats(struct work_struct *work)
 			iter->render_idle_cnt++;
 			if (iter->render_idle_cnt < FSTB_IDLE_DBNC) {
 
-				target_fps = calculate_fps_limit(iter, target_fps);
-				if (target_fps != iter->target_fps)
-					fstb_change_tfps(iter, target_fps, 0);
+				iter->target_fps = calculate_fps_limit(iter, target_fps);
 				mtk_fstb_dprintk(
 						"%s pid:%d target_fps:%d\n",
 						__func__, iter->pid,
@@ -2079,16 +2079,15 @@ static void fstb_fps_stats(struct work_struct *work)
 			if (!iter->target_fps_notifying
 				|| iter->target_fps_notifying == -1)
 				continue;
-			iter->target_fps = iter->target_fps_notifying;
+			iter->target_fps_v2 = iter->target_fps_notifying;
 			iter->target_fps_notifying = 0;
 			fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
 					0, "fstb_notifying");
 			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
-					iter->target_fps, "fstb_target_fps1");
+					iter->target_fps_v2, "fstb_target_fps1");
 		}
 		mutex_unlock(&fstb_lock);
 	}
-
 
 	fstb_check_cam_status();
 
