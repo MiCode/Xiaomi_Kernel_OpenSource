@@ -379,6 +379,11 @@
 			remote-endpoint = <&main_af_cam6>;
 		};
 	};
+	port@7 {
+		main_af_cam7_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam7>;
+		};
+	};
 };
 
 &i2c2 {
@@ -386,13 +391,24 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-	camera_af_main_two@0e {
+	camera_af_main_three@0e {
 		compatible = "mediatek,gt9772b";
 		reg = <0x0e>;
 		vin-supply = <&rt5133_gpio1>;
 		port {
 			main_af_cam3: endpoint {
 				remote-endpoint = <&main_af_cam3_endpoint>;
+			};
+		};
+	};
+
+	camera_af_main_three@2a {
+		compatible = "mediatek,bu64253gwz";
+		reg = <0x2a>;
+		vin-supply = <&rt5133_gpio1>;
+		port {
+			main_af_cam7: endpoint {
+				remote-endpoint = <&main_af_cam7_endpoint>;
 			};
 		};
 	};
@@ -465,9 +481,9 @@
 		};
 	};
 
-	camera_af_main_two@0b {
-		compatible = "mediatek,ak7377b";
-		reg = <0x0b>;
+	camera_af_main_two@2b {
+		compatible = "mediatek,ak7375c";
+		reg = <0x2b>;
 		vin-supply = <&rt5133_ldo2>;
 		port {
 			main_af_cam6: endpoint {
