@@ -73,8 +73,8 @@
 #define PWR_STATUS_OFS                  (0xF3C)
 #define PWR_STATUS_2ND_OFS              (0xF40)
 #define MFG_0_1_PWR_MASK                (0x6)          /* 0000 0000 0000 0110 */
-#define MFG_0_12_PWR_MASK               (0x1FFE)       /* 0001 1111 1111 1110 */
-#define MFG_1_12_PWR_MASK               (0x1FFC)       /* 0001 1111 1111 1100 */
+#define MFG_0_12_PWR_MASK               (0x3FFE)       /* 0011 1111 1111 1110 */
+#define MFG_1_12_PWR_MASK               (0x3FFC)       /* 0011 1111 1111 1100 */
 
 /**************************************************
  * Shader Core Setting
@@ -91,9 +91,9 @@
 #define GPU_SHADER_PRESENT_3 \
 	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK1)
 #define GPU_SHADER_PRESENT_4 \
-	(MFG3_SHADER_STACK0 | MFG6_SHADER_STACK4)
+	(MFG3_SHADER_STACK0 | MFG5_SHADER_STACK2)
 #define GPU_SHADER_PRESENT_5 \
-	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK1 | MFG6_SHADER_STACK4)
+	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK1 | MFG5_SHADER_STACK2)
 #define GPU_SHADER_PRESENT_6 \
 	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK1 | MFG5_SHADER_STACK2 | MFG6_SHADER_STACK4)
 
