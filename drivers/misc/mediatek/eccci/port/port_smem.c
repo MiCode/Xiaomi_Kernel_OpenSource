@@ -513,51 +513,8 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	unsigned int data;
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
-	unsigned char *ptr;
-	struct ccci_ccb_debug debug_in, debug_out;
-	struct ccci_smem_region *ccb_dhl =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_CCB_DHL);
-
-	ptr = NULL;
 
 	switch (cmd) {
-	case CCCI_IOC_GET_CCB_DEBUG_VAL:
-		if ((smem_port->addr_phy == 0)
-			|| (smem_port->length == 0)) {
-			ret = -EFAULT;
-			break;
-		}
-		if (copy_from_user(&debug_in, (void __user *)arg,
-			sizeof(struct ccci_ccb_debug))) {
-			CCCI_ERROR_LOG(md_id, TAG,
-				"set user_id fail: copy_from_user fail!\n");
-		} else {
-			CCCI_DEBUG_LOG(md_id, TAG,
-				"get buf_num=%d, page_num=%d\n",
-				debug_in.buffer_id, debug_in.page_id);
-		}
-		memset(&debug_out, 0, sizeof(debug_out));
-		if (debug_in.buffer_id == 0) {
-			ptr = (char *)ccb_dhl->base_ap_view_vir +
-			ccb_configs[0].dl_buff_size +
-			debug_in.page_id*ccb_configs[0].ul_page_size + 8;
-			debug_out.value = *ptr;
-		} else if (debug_in.buffer_id == 1) {
-			ptr  = (char *)ccb_dhl->base_ap_view_vir +
-			ccb_configs[0].dl_buff_size +
-			ccb_configs[0].ul_buff_size +
-			ccb_configs[1].dl_buff_size +
-			debug_in.page_id*ccb_configs[1].ul_page_size + 8;
-			debug_out.value = *ptr;
-		} else
-			CCCI_ERROR_LOG(md_id, TAG, "wrong buffer num\n");
-
-		if (copy_to_user((void __user *)arg, &debug_out,
-			sizeof(struct ccci_ccb_debug)))
-			CCCI_ERROR_LOG(md_id, TAG,
-				"copy_to_user ccb failed !!\n");
-
-		break;
 	case CCCI_IOC_SMEM_BASE:
 		smem_port = (struct ccci_smem_port *)port->private_data;
 		CCCI_NORMAL_LOG(md_id, TAG, "smem_port->addr_phy=%lx\n",
