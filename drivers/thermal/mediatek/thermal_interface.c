@@ -26,12 +26,14 @@
 #include <linux/thermal.h>
 
 #include <linux/io.h>
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#include <mtk_gpufreq.h>
+#endif
 #include "thermal_interface.h"
 
 #define MAX_HEADROOM		(100)
 #define CSRAM_INIT_VAL		(0x27bc86aa)
 #define is_opp_limited(opp)	(opp > 0 && opp != CSRAM_INIT_VAL)
-#define is_freq_limited(freq)	(freq != 0 && freq != CSRAM_INIT_VAL)
 
 struct therm_intf_info {
 	int sw_ready;
@@ -336,10 +338,16 @@ static ssize_t is_cpu_limit_show(struct kobject *kobj,
 static ssize_t is_gpu_limit_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	int len = 0, limit_freq;
+	int len = 0;
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	int limit_freq, max_freq;
 
 	limit_freq = therm_intf_read_csram(GPU_TEMP_OFFSET + 4);
-	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", (is_freq_limited(limit_freq)) ? 1 : 0);
+	max_freq = gpufreq_get_freq_by_idx(TARGET_DEFAULT, 0);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", (limit_freq < max_freq) ? 1 : 0);
+#else
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", 0);
+#endif
 
 	return len;
 }
