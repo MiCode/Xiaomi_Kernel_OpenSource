@@ -66,7 +66,7 @@ static bool watchdog_thread_exist;
 static bool system_server_exist;
 #endif
 
-static bool Hang_Detect_first;
+static bool Hang_first_done;
 static bool hd_detect_enabled;
 static int hd_timeout = 0x7fffffff;
 static int hang_detect_counter = 0x7fffffff;
@@ -90,7 +90,7 @@ static void show_bt_by_pid(int task_pid);
 
 static void reset_hang_info(void)
 {
-	Hang_Detect_first = false;
+	Hang_first_done = false;
 }
 
 int add_white_list(char *name)
@@ -1110,6 +1110,7 @@ static void show_task_backtrace(void)
 	struct task_struct *p, *t, *system_server_task = NULL;
 	struct task_struct *monkey_task = NULL;
 	struct task_struct *aee_aed_task = NULL;
+	bool first_dump_blocked = false;
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	watchdog_thread_exist = false;
@@ -1117,10 +1118,14 @@ static void show_task_backtrace(void)
 #endif
 	log_hang_info("dump backtrace start: %llu\n", local_clock());
 
+	if (!strcmp(current->comm, "hang_detect2")) {
+		pr_info("hang_detect first dump was blocked\n");
+		first_dump_blocked = true;
+	}
 	rcu_read_lock();
 	for_each_process(p) {
 		get_task_struct(p);
-		if (Hang_Detect_first == false) {
+		if (Hang_first_done == false) {
 			if (!strcmp(p->comm, "system_server"))
 				system_server_task = p;
 			if (strstr(p->comm, "monkey"))
@@ -1129,15 +1134,11 @@ static void show_task_backtrace(void)
 				aee_aed_task = p;
 		}
 		/* specify process, need dump maps file and native backtrace */
-		if (!strcmp(p->comm, "surfaceflinger") ||
-			!strcmp(p->comm, "init") ||
+		if (!first_dump_blocked &&
+			(!strcmp(p->comm, "init") ||
 			!strcmp(p->comm, "system_server") ||
-			!strcmp(p->comm, "mmcqd/0")  ||
-			!strcmp(p->comm, "debuggerd64") ||
-			!strcmp(p->comm, "mmcqd/1") ||
 			!strcmp(p->comm, "vold") ||
-			!strcmp(p->comm, "vdc") ||
-			!strcmp(p->comm, "debuggerd")) {
+			!strcmp(p->comm, "vdc"))) {
 			show_bt_by_pid(p->pid);
 			put_task_struct(p);
 			continue;
@@ -1160,7 +1161,7 @@ static void show_task_backtrace(void)
 	}
 	rcu_read_unlock();
 	log_hang_info("dump backtrace end: %llu\n", local_clock());
-	if (Hang_Detect_first == false) {
+	if (Hang_first_done == false) {
 		if (aee_aed_task)
 			send_sig(SIGUSR1, aee_aed_task, 1);
 		if (system_server_task)
@@ -1175,7 +1176,7 @@ static void show_status(int flag)
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 #ifndef MODULE
-	if (Hang_Detect_first)	{ /* the last dump */
+	if (Hang_first_done)	{ /* the last dump */
 		dump_mem_info();
 		dump_msdc_hang_info();
 	}
@@ -1184,7 +1185,7 @@ static void show_status(int flag)
 
 	show_task_backtrace();
 
-	if (Hang_Detect_first)	{ /* the last dump */
+	if (Hang_first_done)	{ /* the last dump */
 		/* debug_locks = 1; */
 		debug_show_all_locks();
 #ifndef MODULE
@@ -1292,14 +1293,14 @@ static int hang_detect_thread(void *arg)
 			if (hang_detect_counter <= 0) {
 				log_hang_info(
 					"[Hang_detect]Dump the %d time process bt.\n",
-					Hang_Detect_first ? 2 : 1);
+					Hang_first_done ? 2 : 1);
 #ifdef CONFIG_MTK_HANG_DETECT_DB
-				if (!Hang_Detect_first) {
+				if (!Hang_first_done) {
 					memset(Hang_Info, 0, MaxHangInfoSize);
 					Hang_Info_Size = 0;
 				}
 #endif
-				if (Hang_Detect_first == true
+				if (Hang_first_done == true
 					&& dump_bt_done != 1) {
 		/* some time dump thread will block in dumping native bt */
 		/* so create new thread to dump enough kernel bt */
@@ -1317,14 +1318,14 @@ static int hang_detect_thread(void *arg)
 					wake_up_dump();
 
 
-				if (Hang_Detect_first == true) {
+				if (Hang_first_done == true) {
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 					trigger_hang_db();
 #else
 					BUG();
 #endif
 				} else
-					Hang_Detect_first = true;
+					Hang_first_done = true;
 			}
 			hang_detect_counter--;
 		}
