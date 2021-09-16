@@ -15,7 +15,7 @@ struct  ccci_plat_val {
 	unsigned int md_gen;
 	unsigned long offset_epof_md1;
 	void __iomem *md_plat_info;
-	int srclkena_setting;
+	unsigned int power_flow_config;
 	int srclken_o1_bit;
 };
 
@@ -83,6 +83,7 @@ struct cldma_hw_info {
 enum {
 	SRCCLKENA_SETTING_BIT,
 	SRCLKEN_O1_BIT,
+	REVERT_SEQUENCER_BIT,
 };
 
 

@@ -411,6 +411,14 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER OFF] %s start\n", __func__);
 
+	if (!(md_cd_plat_val_ptr.power_flow_config & (1 << REVERT_SEQUENCER_BIT))) {
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER OFF] bypass %s\n", __func__);
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER OFF] bypass %s\n", __func__);
+		return 0;
+	}
+
 	reg = ioremap_wc(0x1C803000, 0x1000);
 	if (reg == NULL) {
 		CCCI_ERROR_LOG(md->index, TAG,
@@ -623,7 +631,7 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 	unsigned int val = 0;
 	int ret;
 
-	if (!(md_cd_plat_val_ptr.srclkena_setting & (1 << SRCLKEN_O1_BIT))) {
+	if (!(md_cd_plat_val_ptr.power_flow_config & (1 << SRCLKEN_O1_BIT))) {
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"[POWER ON] bypass %s step\n", __func__);
 		CCCI_ERROR_LOG(md->index, TAG,
@@ -692,17 +700,12 @@ SRC_CLK_O1_DONE:
 	return ret;
 }
 
-/*
- * md_cd_plat_val_ptr.srclkena_setting will decide use which flow:
- * bit0: means to set srcclkena
- * bit1: means to set srclken_o1_on
- */
 static int md_cd_srcclkena_setting(struct ccci_modem *md)
 {
 	unsigned int reg_value;
 	int ret;
 
-	if (!(md_cd_plat_val_ptr.srclkena_setting & (1 << SRCCLKENA_SETTING_BIT))) {
+	if (!(md_cd_plat_val_ptr.power_flow_config & (1 << SRCCLKENA_SETTING_BIT))) {
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"[POWER ON] bypass md_cd_srcclkena_setting step\n");
 		CCCI_ERROR_LOG(md->index, TAG,
@@ -967,17 +970,23 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
+/*
+ * md_cd_plat_val_ptr.power_flow_config will decide use which flow:
+ * bit0: means to set srcclkena
+ * bit1: means to set srclken_o1_on
+ * bit2: means to config md1_revert_sequencer_setting
+ */
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
-		"mediatek,srclkena_setting",
-		&md_cd_plat_val_ptr.srclkena_setting);
+		"mediatek,power_flow_config",
+		&md_cd_plat_val_ptr.power_flow_config);
 	if (ret < 0) {
-		md_cd_plat_val_ptr.srclkena_setting = 0;
-		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:srclkena_setting fail\n",
+		md_cd_plat_val_ptr.power_flow_config = 0;
+		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:power_flow_config fail\n",
 			__func__);
 	} else
 		CCCI_NORMAL_LOG(dev_cfg->index, TAG,
-			"%s:srclkena_setting=0x%x\n",
-			__func__, md_cd_plat_val_ptr.srclkena_setting);
+			"%s:power_flow_config=0x%x\n",
+			__func__, md_cd_plat_val_ptr.power_flow_config);
 
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
 		"mediatek,srclken_o1", &md_cd_plat_val_ptr.srclken_o1_bit);
