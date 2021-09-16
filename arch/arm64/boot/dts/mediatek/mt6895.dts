@@ -1236,6 +1236,9 @@
 		md1_sim2_hot_plug_eint:MD1_SIM2_HOT_PLUG_EINT {
 		};
 
+		md1_pmic1_eint:MD1_PMIC1_EINT {
+		};
+
 		bus_dbg@10208000 {
 			compatible = "mediatek,bus_dbg";
 			reg = <0 0x10208000 0 0x1000>;
