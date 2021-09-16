@@ -562,6 +562,14 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		inject_md_status_event(md_id, MD_STA_EV_LEAVE_FLIGHT_E_REQUEST,
 					current->comm);
 		break;
+	/* RILD nodify ccci power off md */
+	case CCCI_IOC_RILD_POWER_OFF_MD:
+		CCCI_NORMAL_LOG(md_id, FSM,
+				"MD will power off ioctl called by %s\n",
+				current->comm);
+		inject_md_status_event(md_id, MD_STA_EV_RILD_POWEROFF_START,
+				current->comm);
+		break;
 	case CCCI_IOC_SET_EFUN:
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(unsigned int))) {

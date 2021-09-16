@@ -282,6 +282,9 @@ extern struct ccci_ccb_config ccb_configs[];
 /* RILD  factory */
 #define CCCI_IOC_LEAVE_DEEP_FLIGHT_ENHANCED     \
 	_IO(CCCI_IOC_MAGIC,  124)
+/* RILD nodify ccci power off md */
+#define CCCI_IOC_RILD_POWER_OFF_MD		\
+	_IO(CCCI_IOC_MAGIC,  125)
 
 
 #define CCCI_IPC_MAGIC 'P' /* only for IPC user */
@@ -567,6 +570,7 @@ enum md_bc_event {
 	MD_STA_EV_READY,
 	MD_STA_EV_EXCEPTION,
 	MD_STA_EV_STOP,
+	MD_STA_EV_RILD_POWEROFF_START,
 };
 
 /* ========================================================================= */
