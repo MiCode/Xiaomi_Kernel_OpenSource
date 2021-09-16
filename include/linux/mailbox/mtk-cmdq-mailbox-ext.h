@@ -251,6 +251,8 @@ extern int cmdq_trace;
 } while (0)
 #endif
 
+extern int cmdq_perf;
+
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
 dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);
 void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val);
