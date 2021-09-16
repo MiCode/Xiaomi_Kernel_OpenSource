@@ -24,6 +24,9 @@
 
 #include "mtk_battery.h"
 #include "mtk_gauge.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
 
 #define RG_TM_PASCODE1				0x107
 #define RG_ADC_CONFG1				0x1A4
@@ -2920,7 +2923,8 @@ static int battery_temperature_adc_get(struct mtk_gauge *gauge,
 
 static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
-	int ret;
+	int i, ret;
+	u32 data = 0;
 
 	if (IS_ERR(gauge->chan_bat_voltage)) {
 		bm_err("[%s]chan error\n", __func__);
@@ -2931,6 +2935,15 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	if (ret < 0)
 		bm_err("[%s]read fail,ret=%d\n", __func__, ret);
 
+	if (*val < 1000) {
+		bm_err("[%s] vbat_cell = %d\n", __func__, *val);
+		for (i = 0; i < 0x4FF; i++) {
+			ret = regmap_read(gauge->regmap, i, &data);
+			bm_err("[%s] addr:0x%4x, data:0x%x(%d)\n",
+				__func__, i, data, ret);
+		}
+		aee_kernel_warning("GAUGE", "vbat cell < 1V");
+	}
 	return ret;
 }
 
