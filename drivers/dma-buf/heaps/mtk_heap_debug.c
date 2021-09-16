@@ -44,34 +44,6 @@
 #define _HEAP_FD_FLAGS_  (O_CLOEXEC|O_RDWR)
 #define DMA_HEAP_CMDLINE_LEN      (30)
 
-/* copy from struct system_heap_buffer */
-struct dmaheap_buf_copy {
-	struct dma_heap *heap;
-	struct list_head attachments;
-	struct mutex lock;
-	unsigned long len;
-	struct sg_table sg_table;
-	int vmap_cnt;
-	void *vaddr;
-	struct deferred_freelist_item deferred_free;
-	bool uncached;
-	/* helper function */
-	int (*show)(const struct dma_buf *dmabuf, struct seq_file *s);
-
-	/* system heap will not strore sgtable here */
-	bool                     mapped[BUF_PRIV_MAX_CNT];
-	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
-	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
-	struct mutex             map_lock; /* map iova lock */
-	pid_t                    pid;
-	pid_t                    tid;
-	char                     pid_name[TASK_COMM_LEN];
-	char                     tid_name[TASK_COMM_LEN];
-	unsigned long long       ts; /* us */
-};
-
-
-
 #if IS_ENABLED(CONFIG_PROC_FS)
 /* debug flags */
 int vma_dump_flag;
@@ -197,14 +169,14 @@ unsigned long long get_current_time_ms(void)
 int is_dmabuf_from_heap(const struct dma_buf *dmabuf, struct dma_heap *heap)
 {
 
-	struct dmaheap_buf_copy *heap_buf = dmabuf->priv;
+	struct sys_heap_buf_debug_use *heap_buf;
+	struct dma_heap *match_heap = heap;
 
-	if (!(is_system_heap_dmabuf(dmabuf) ||
-	      is_mtk_mm_heap_dmabuf(dmabuf) ||
-	      is_mtk_sec_heap_dmabuf(dmabuf)))
+	if (!dmabuf || !dmabuf->priv || !match_heap)
 		return 0;
+	heap_buf = dmabuf->priv;
 
-	return (heap_buf->heap == heap);
+	return (heap_buf->heap == match_heap);
 }
 
 int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
@@ -213,14 +185,23 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	struct mtk_heap_dump_s *dump_param = priv;
 	struct seq_file *s = dump_param->file;
 	struct dma_heap *dump_heap = dump_param->heap;
-	struct dmaheap_buf_copy *buf = dmabuf->priv;
+	struct sys_heap_buf_debug_use *buf = dmabuf->priv;
 	struct dma_buf_attachment *attach_obj;
 	int ret;
 	dma_addr_t iova = 0x0;
 	const char *device_name = NULL;
+	struct mtk_heap_priv_info *heap_priv = NULL;
 	int attach_cnt = 0;
 
-	if (dump_heap && !is_dmabuf_from_heap(dmabuf, dump_heap))
+	/*
+	 * if heap is NULL, dump all buffer
+	 * if heap is not NULL, dump matched buffer
+	 */
+	if (dump_heap && (!buf || buf->heap != dump_heap))
+		return 0;
+
+	ret = dma_resv_lock(dmabuf->resv, NULL);
+	if (ret)
 		return 0;
 
 	dmabuf_dump(s, "\tinode:%-8d size:%-8ld count:%-2ld cache_sg:%-1d exp:%s\tname:%s\n",
@@ -232,15 +213,31 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 		    dmabuf->name?:"NULL");
 
 	/* buffer private dump */
-	if (buf->show)
-		buf->show(dmabuf, s);
+	if (dump_heap) {
+		heap_priv = dma_heap_get_drvdata(dump_heap);
+		if (heap_priv && heap_priv->buf_priv_dump)
+			heap_priv->buf_priv_dump(dmabuf, dump_heap, s);
+	} else {
+		int i = 0;
+		int ret = -1;
+
+		for (i = 0; i < _DEBUG_HEAP_CNT_; i++) {
+			dump_heap = dma_heap_find(debug_heap_list[i].heap_name);
+			if (!dump_heap)
+				continue;
+
+			heap_priv = dma_heap_get_drvdata(dump_heap);
+			if (heap_priv && heap_priv->buf_priv_dump)
+				ret = heap_priv->buf_priv_dump(dmabuf, dump_heap, s);
+
+			dma_heap_put(dump_heap);
+			/* dump success */
+			if (!ret)
+				break;
+		}
+	}
 
 	attach_cnt = 0;
-
-	ret = dma_resv_lock(dmabuf->resv, NULL);
-	if (ret)
-		return 0;
-
 	list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
 		iova = (dma_addr_t)0;
 
@@ -269,14 +266,14 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 
 }
 
-/* support @heap == NULL*/
+
 static int dma_heap_total_cb(const struct dma_buf *dmabuf,
 			     void *priv)
 {
 	struct mtk_heap_dump_s *dump_info = (typeof(dump_info))priv;
 	struct dma_heap *heap = dump_info->heap;
 
-	if (!heap || is_dmabuf_from_heap(dmabuf, heap))
+	if (is_dmabuf_from_heap(dmabuf, heap))
 		dump_info->ret += dmabuf->size;
 
 	return 0;

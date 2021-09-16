@@ -28,6 +28,7 @@
 #include <uapi/linux/dma-buf.h>
 
 #include <linux/iommu.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 #include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 
@@ -47,8 +48,6 @@ struct system_heap_buffer {
 	void *vaddr;
 	struct deferred_freelist_item deferred_free;
 	bool uncached;
-	/* helper function */
-	int (*show)(const struct dma_buf *dmabuf, struct seq_file *s);
 
 	/* system heap will not strore sgtable here */
 	bool                     mapped[BUF_PRIV_MAX_CNT];
@@ -76,11 +75,6 @@ static gfp_t order_flags[] = {HIGH_ORDER_GFP, HIGH_ORDER_GFP, LOW_ORDER_GFP};
 static const unsigned int orders[] = {8, 4, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
 struct dmabuf_page_pool *pools[NUM_ORDERS];
-
-/* function declare */
-static int system_buf_priv_dump(const struct dma_buf *dmabuf,
-				struct seq_file *s);
-
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
 {
@@ -711,7 +705,6 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
 	buffer->ts  = sched_clock() / 1000;
-	buffer->show = system_buf_priv_dump;
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
@@ -832,11 +825,26 @@ static struct dma_heap_ops mtk_mm_uncached_heap_ops = {
 	.allocate = uncached_heap_not_initialized,
 };
 
-static int system_buf_priv_dump(const struct dma_buf *dmabuf,
-				struct seq_file *s)
+/**
+ * return none-zero value means dump fail.
+ *       maybe the input dmabuf isn't this heap buffer, no need dump
+ *
+ * return 0 means dump pass
+ */
+static int system_heap_buf_priv_dump(const struct dma_buf *dmabuf,
+				     struct dma_heap *heap,
+				     void *priv)
 {
-	int i = 0;
 	struct system_heap_buffer *buf = dmabuf->priv;
+	struct seq_file *s = priv;
+	int i = 0;
+
+	/* buffer check */
+	if (!is_mtk_mm_heap_dmabuf(dmabuf) && !is_system_heap_dmabuf(dmabuf))
+		return -EINVAL;
+
+	if (heap != buf->heap)
+		return -EINVAL;
 
 	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
 		    !!buf->uncached,
@@ -867,34 +875,14 @@ static int system_buf_priv_dump(const struct dma_buf *dmabuf,
 	return 0;
 }
 
-/**
- * return none-zero value means dump fail.
- *       maybe the input dmabuf isn't this heap buffer, no need dump
- *
- * return 0 means dump pass
- */
-static int system_heap_buf_priv_dump(const struct dma_buf *dmabuf,
-				     struct dma_heap *heap,
-				     void *priv)
-{
-	struct seq_file *s = priv;
-	struct system_heap_buffer *buf = dmabuf->priv;
-
-	if (!is_system_heap_dmabuf(dmabuf) && !is_mtk_mm_heap_dmabuf(dmabuf))
-		return -EINVAL;
-
-	if (heap != buf->heap)
-		return -EINVAL;
-
-	if (buf->show)
-		return buf->show(dmabuf, s);
-
-	return -EINVAL;
-}
-
-static struct mtk_heap_priv_info system_heap_priv = {
+static struct mtk_heap_priv_info mtk_mm_heap_priv = {
 	.buf_priv_dump = system_heap_buf_priv_dump,
 };
+
+static struct mtk_heap_priv_info system_mm_heap_priv = {
+	.buf_priv_dump = system_heap_buf_priv_dump,
+};
+
 
 static int system_heap_create(void)
 {
@@ -914,11 +902,9 @@ static int system_heap_create(void)
 		}
 	}
 
-	/* system & mtk_mm heap use same heap show */
-	exp_info.priv = (void *)&system_heap_priv;
-
 	exp_info.name = "system";
 	exp_info.ops = &system_heap_ops;
+	exp_info.priv = (void *)&system_mm_heap_priv;
 
 	sys_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_heap))
@@ -927,6 +913,7 @@ static int system_heap_create(void)
 
 	exp_info.name = "mtk_mm";
 	exp_info.ops = &mtk_mm_heap_ops;
+	exp_info.priv = (void *)&mtk_mm_heap_priv;
 
 	mtk_mm_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(mtk_mm_heap))
@@ -935,6 +922,7 @@ static int system_heap_create(void)
 
 	exp_info.name = "system-uncached";
 	exp_info.ops = &system_uncached_heap_ops;
+	exp_info.priv = (void *)&system_mm_heap_priv;
 
 	sys_uncached_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_uncached_heap))
@@ -947,6 +935,7 @@ static int system_heap_create(void)
 
 	exp_info.name = "mtk_mm-uncached";
 	exp_info.ops = &mtk_mm_uncached_heap_ops;
+	exp_info.priv = (void *)&mtk_mm_heap_priv;
 
 	mtk_mm_uncached_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(mtk_mm_uncached_heap))
