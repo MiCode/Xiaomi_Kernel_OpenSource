@@ -4652,10 +4652,8 @@
 				<DLO_ASYNC0_STATUS0>, <DLO_ASYNC0_STATUS1>,
 				<DLO_ASYNC1_STATUS0>, <DLO_ASYNC1_STATUS1>,
 				<DL_VALID0>, <DL_VALID1>, <DL_READY0>, <DL_READY1>;
-#if 0
-			operating-points-v2 = <&opp_table_mdp0>;
+			operating-points-v2 = <&opp_table_mdp>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-#endif
 			aid-sel = <
 				MML_RDMA0 0
 				MML_WROT0 2>;
@@ -4696,12 +4694,10 @@
 				<CMDQ_EVENT_MDPSYS0_MDP_RDMA0_FRAME_DONE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&disp_iommu M4U_LARB2_PORT0>;
-#if 0
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT0)
-					&mmqos SLAVE_COMMON(1)>;
+					&mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "mml_dma";
-#endif
 		};
 
 		mdp_hdr0@1f005000 {
@@ -4757,12 +4753,10 @@
 				<CMDQ_EVENT_MDPSYS0_MDP_WROT0_FRAME_DONE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&disp_iommu M4U_LARB2_PORT2>;
-#if 0
 			interconnects =
 				<&mmqos MTK_M4U_TO_PORT(M4U_LARB2_PORT2)
-					&mmqos SLAVE_COMMON(1)>;
+					&mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "mml_dma";
-#endif
 		};
 
 		disp_iommu_bank1: iommu@1e803000 {
