@@ -874,11 +874,11 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 }
 
 /*
- * devapc_dump_error - the devapc will dump violation information
+ * devapc_dump_info - the devapc will dump violation information
  *			  including which master violates access slave.
  */
 #if defined(CONFIG_MTK_SERROR_HOOK) || defined(CONFIG_MTK_SABORT_HOOK)
-static void devapc_dump_error(void)
+static void devapc_dump_info(void)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	const struct mtk_device_info **device_info;
@@ -1445,7 +1445,7 @@ static void devapc_arm64_serror_panic_hook(void *data,
 
 	mtk_devapc_ctx->soc->slave_error = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
-	devapc_dump_error();
+	devapc_dump_info();
 }
 #endif
 
@@ -1456,8 +1456,12 @@ static void devapc_do_sea_hook(void *data,
 {
 	pr_info(PFX "sabort panic hook\n");
 
+	if (mtk_devapc_ctx->soc->abort_error)
+		return;
+
+	mtk_devapc_ctx->soc->abort_error = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
-	devapc_dump_error();
+	devapc_dump_info();
 }
 #endif
 

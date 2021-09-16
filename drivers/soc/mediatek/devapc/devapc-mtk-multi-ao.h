@@ -181,6 +181,9 @@ struct mtk_devapc_soc {
 #ifdef CONFIG_MTK_SERROR_HOOK
 	bool slave_error;
 #endif
+#ifdef CONFIG_MTK_SABORT_HOOK
+	bool abort_error;
+#endif
 
 	/* platform specific operations */
 	const char* (*subsys_get)(int slave_type, uint32_t vio_index,
