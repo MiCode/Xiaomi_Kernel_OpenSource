@@ -941,6 +941,8 @@ static int goodix_i2c_test(struct goodix_ts_device *dev)
 {
 #define TEST_ADDR  0x4100
 #define TEST_LEN   1
+	u8 write_test[4] = {0};
+	u8 read_test[4] = {0};
 	struct i2c_client *client = to_i2c_client(dev->dev);
 	unsigned char test_buf[TEST_LEN + 1], addr_buf[2];
 	struct i2c_msg msgs[] = {
@@ -960,8 +962,22 @@ static int goodix_i2c_test(struct goodix_ts_device *dev)
 	msgs[0].buf[0] = (TEST_ADDR >> 8) & 0xFF;
 	msgs[0].buf[1] = TEST_ADDR & 0xFF;
 
-	if (i2c_transfer(client->adapter, msgs, 2) == 2)
-		return 0;
+	write_test[0] = 0x55;
+	write_test[1] = 0xAA;
+	if (i2c_transfer(client->adapter, msgs, 2) == 2) {
+		goodix_i2c_write(dev, TEST_ADDR, write_test, 1);
+		goodix_i2c_read(dev, TEST_ADDR, read_test, 1);
+		ts_info("i2c write_test[0] = %d, read_test[0] = %d", write_test[0], read_test[0]);
+
+		goodix_i2c_write(dev, TEST_ADDR, &write_test[1], 1);
+		goodix_i2c_read(dev, TEST_ADDR, &read_test[1], 1);
+		ts_info("i2c write_test[1] = %d, read_test[1] = %d", write_test[1], read_test[1]);
+
+		if ((write_test[0] != read_test[0]) || (write_test[1] != read_test[1]))
+			return -EINVAL;
+		else
+			return 0;
+	}
 
 	/* test failed */
 	return -EINVAL;
