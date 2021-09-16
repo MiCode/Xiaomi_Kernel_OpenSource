@@ -13,9 +13,10 @@
 
 #include <linux/seq_file.h>
 #include <linux/sched/clock.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 #define DUMP_INFO_LEN_MAX    (400)
-#define BUF_PRIV_MAX_CNT         MTK_M4U_DOM_NR_MAX
+#define BUF_PRIV_MAX_CNT     MTK_M4U_DOM_NR_MAX
 
 /* Bit map */
 #define HEAP_DUMP_SKIP_ATTACH     (1 << 0)
@@ -53,14 +54,6 @@ struct mtk_heap_dev_info {
 	struct device           *dev;
 	enum dma_data_direction direction;
 	unsigned long           map_attrs;
-};
-
-/* copy from struct system_heap_buffer */
-struct sys_heap_buf_debug_use {
-	struct dma_heap *heap;
-	struct list_head attachments;
-	struct mutex lock;
-	unsigned long len;
 };
 
 #endif /* _MTK_DMABUFHEAP_DEBUG_H */
