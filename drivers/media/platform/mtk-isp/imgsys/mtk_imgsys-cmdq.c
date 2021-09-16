@@ -22,6 +22,9 @@
 #include "cmdq-sec-iwc-common.h"
 #endif
 
+int imgsys_cmdq_ts_en;
+module_param(imgsys_cmdq_ts_en, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -207,6 +210,9 @@ static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
 				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
 				cmd[cmd_idx].u.action);
 			break;
+		case IMGSYS_CMD_TIME:
+			pr_info("%s: Get cmdq TIME stamp\n", __func__);
+		break;
 		case IMGSYS_CMD_STOP:
 			pr_info("%s: End Of Cmd!\n", __func__);
 			break;
@@ -225,12 +231,40 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	u32 cb_frm_cnt = 0;
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
 	int req_fd = 0, req_no = 0, frm_no = 0;
+	u32 tsSwEvent = 0, tsHwEvent = 0, tsHw = 0, tsTaskPending = 0;
 
 	pr_debug("%s: +\n", __func__);
 
 	cb_param = container_of(work, struct mtk_imgsys_cb_param, cmdq_cb_work);
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
+
+	if (imgsys_cmdq_ts_enabled()) {
+		/* Calculating task timestamp */
+		tsSwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1]
+				- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0];
+		tsHwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2]
+				- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1];
+		tsHw = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
+			- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2];
+		CMDQ_TICK_TO_US(tsSwEvent);
+		CMDQ_TICK_TO_US(tsHwEvent);
+		CMDQ_TICK_TO_US(tsHw);
+		tsTaskPending =
+			(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart)
+			- (tsSwEvent+tsHwEvent+tsHw);
+		dev_dbg(imgsys_dev->dev,
+		"%s: TSus cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) ts_num(%d) sw_event(%d) hw_event(%d) hw_real(%d) (%d/%d/%d/%d)\n",
+			__func__, cb_param, cb_param->err, cb_param->frm_idx,
+			cb_param->frm_num, cb_frm_cnt, hw_comb,
+			cb_param->taskTs.num, tsSwEvent, tsHwEvent, tsHw,
+			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0],
+			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1],
+			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2],
+			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
+		);
+	}
+
 
 	if (is_stream_off == 0) {
 		dev_dbg(imgsys_dev->dev,
@@ -283,6 +317,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				mtk_imgsys_power_ctrl(imgsys_dev, 0);
 				#endif
 				mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
+				if (imgsys_cmdq_ts_enabled())
+					cmdq_mbox_buf_free(cb_param->clt,
+						cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
 			}
 			IMGSYS_SYSTRACE_END();
 			tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
@@ -304,26 +341,28 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			__func__, cb_param, is_stream_off);
 
 	IMGSYS_SYSTRACE_BEGIN(
-		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
+		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p thd:%d frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
 		__func__, "wait_pkt", cb_param->frm_info->frame_no,
 		cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 		cb_param->frm_info->user_info[cb_param->frm_idx].subfrm_idx, hw_comb,
-		cb_param->frm_info->frm_owner, cb_param,
+		cb_param->frm_info->frm_owner, cb_param, cb_param->thd_idx,
 		cb_param->frm_idx, cb_param->frm_num, cb_frm_cnt,
 		(cb_param->cmdqTs.tsDvfsQosEnd-cb_param->cmdqTs.tsDvfsQosStart),
 		(cb_param->cmdqTs.tsFlushStart-cb_param->cmdqTs.tsReqStart),
 		(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart),
+		tsTaskPending, tsSwEvent, tsHwEvent, tsHw,
 		(cb_param->cmdqTs.tsCmdqCbEnd-cb_param->cmdqTs.tsCmdqCbStart),
 		(cb_param->cmdqTs.tsCmdqCbWorkStart-cb_param->cmdqTs.tsCmdqCbEnd),
 		(cb_param->cmdqTs.tsUserCbEnd-cb_param->cmdqTs.tsUserCbStart),
 		(tsDvfsQosEnd-tsDvfsQosStart));
+
 	cmdq_pkt_wait_complete(cb_param->pkt);
 	cmdq_pkt_destroy(cb_param->pkt);
 	cb_param->cmdqTs.tsReqEnd = ktime_get_boottime_ns()/1000;
 	IMGSYS_SYSTRACE_END();
 
 	dev_dbg(imgsys_dev->dev,
-	"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
+	"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
 		__func__, req_fd, req_no, frm_no, cb_param->thd_idx,
 		cb_param, cb_param->err, cb_param->frm_idx,
 		cb_param->frm_num, cb_frm_cnt, hw_comb,
@@ -331,6 +370,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsReqStart),
 		(cb_param->cmdqTs.tsFlushStart-cb_param->cmdqTs.tsReqStart),
 		(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart),
+		tsTaskPending, tsSwEvent, tsHwEvent, tsHw,
 		(cb_param->cmdqTs.tsCmdqCbEnd-cb_param->cmdqTs.tsCmdqCbStart),
 		(cb_param->cmdqTs.tsCmdqCbWorkStart-cb_param->cmdqTs.tsCmdqCbEnd),
 		(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsCmdqCbWorkStart),
@@ -428,6 +468,10 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	struct GCERecoder *cmd_buf = NULL;
 	struct Command *cmd = NULL;
 	struct mtk_imgsys_cb_param *cb_param = NULL;
+	dma_addr_t pkt_ts_pa;
+	u32 *pkt_ts_va = NULL;
+	u32 pkt_ts_num = 0;
+	u32 pkt_ts_ofst = 0;
 	u32 cmd_num = 0;
 	u32 cmd_idx = 0;
 	u32 blk_idx = 0; /* For Vss block cnt */
@@ -470,6 +514,10 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			__func__, frm_info->is_secReq);
 	}
 	#endif
+
+	/* Allocate cmdq buffer for task timestamp */
+	if (imgsys_cmdq_ts_enabled())
+		pkt_ts_va = cmdq_mbox_buf_alloc(imgsys_clt[0], &pkt_ts_pa);
 
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
 		cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
@@ -543,6 +591,9 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			"%s: cmdq_pkt_create success(0x%x) in block(%d) for frm(%d/%d)\n",
 				__func__, pkt, blk_idx, frm_idx, frm_num);
 
+			/* Reset pkt timestamp num */
+			pkt_ts_num = 0;
+
 			/* Assign task priority according to is_time_shared */
 			if (frm_info->user_info[frm_idx].is_time_shared)
 				pkt->priority = IMGSYS_PRI_LOW;
@@ -564,7 +615,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				pr_debug(
 				"%s: parsing idx(%d) with cmd(%d)\n", __func__, cmd_idx,
 					cmd[cmd_idx].opcode);
-				ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx]);
+				ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx],
+						(pkt_ts_pa+4*pkt_ts_ofst), &pkt_ts_num);
 				cmd_idx++;
 				if (ret == IMGSYS_CMD_STOP)
 					break;
@@ -616,6 +668,14 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			cb_param->cmdqTs.tsDvfsQosEnd = tsDvfsQosEnd;
 			cb_param->imgsys_dev = imgsys_dev;
 			cb_param->thd_idx = thd_idx;
+			cb_param->clt = clt;
+			if (imgsys_cmdq_ts_enabled()) {
+				cb_param->taskTs.dma_pa = pkt_ts_pa;
+				cb_param->taskTs.dma_va = pkt_ts_va;
+				cb_param->taskTs.num = pkt_ts_num;
+				cb_param->taskTs.ofst = pkt_ts_ofst;
+				pkt_ts_ofst += pkt_ts_num;
+			}
 
 			/* flush synchronized, block API */
 			cb_param->cmdqTs.tsFlushStart = ktime_get_boottime_ns()/1000;
@@ -644,7 +704,7 @@ sendtask_done:
 	return ret;
 }
 
-int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd)
+int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, dma_addr_t dma_pa, uint32_t *num)
 {
 	pr_debug("%s: +, cmd(%d)\n", __func__, cmd->opcode);
 
@@ -696,6 +756,17 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd)
 		"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
 			cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
 		cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
+		break;
+	case IMGSYS_CMD_TIME:
+		pr_debug(
+		"%s: TIME with addr(0x%08lx) num(0x%08x)\n", __func__,
+			dma_pa, *num);
+		if (imgsys_cmdq_ts_enabled()) {
+			cmdq_pkt_write_indriect(pkt, NULL, dma_pa + (4*(*num)), CMDQ_TPR_ID, ~0);
+			(*num)++;
+		} else
+			pr_info(
+			"%s: [ERROR]Not enable imgsys cmdq ts function!!\n", __func__);
 		break;
 	case IMGSYS_CMD_STOP:
 		pr_debug("%s: End Of Cmd!\n", __func__);
@@ -1433,4 +1504,9 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	dev_info(dvfs_info->dev, "[%s] isPowerOn(%d) user(%d)\n", __func__, isPowerOn, user_cnt);
 }
 #endif
+
+bool imgsys_cmdq_ts_enabled(void)
+{
+	return imgsys_cmdq_ts_en;
+}
 

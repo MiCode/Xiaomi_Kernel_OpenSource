@@ -15,6 +15,13 @@
 
 #define DVFS_QOS_READY         (1)
 
+struct task_timestamp {
+	dma_addr_t dma_pa;
+	uint32_t *dma_va;
+	uint32_t num;
+	uint32_t ofst;
+};
+
 struct mtk_imgsys_cmdq_timestamp {
 	u64 tsReqStart;
 	u64 tsFlushStart;
@@ -34,6 +41,8 @@ struct mtk_imgsys_cb_param {
 	struct swfrm_info_t *frm_info;
 	struct mtk_imgsys_cmdq_timestamp cmdqTs;
 	struct mtk_imgsys_dev *imgsys_dev;
+	struct cmdq_client *clt;
+	struct task_timestamp taskTs;
 	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx);
 	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang);
 	s32 err;
@@ -55,6 +64,7 @@ enum mtk_imgsys_cmd {
 	IMGSYS_CMD_WAIT,
 	IMGSYS_CMD_UPDATE,
 	IMGSYS_CMD_ACQUIRE,
+	IMGSYS_CMD_TIME,
 	IMGSYS_CMD_STOP
 };
 
@@ -110,7 +120,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 					uint32_t uinfo_idx),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_uinfo_idx, bool isHWhang));
-int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd);
+int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd
+				, dma_addr_t dma_pa, uint32_t *num);
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt);
 
@@ -130,4 +141,6 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				bool isSet);
 void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
 #endif
+
+bool imgsys_cmdq_ts_enabled(void);
 
