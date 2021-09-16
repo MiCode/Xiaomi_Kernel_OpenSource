@@ -457,7 +457,7 @@ pvr_sync_resolve_fence(PSYNC_CHECKPOINT_CONTEXT psSyncCheckpointContext,
 		       PSYNC_CHECKPOINT **checkpoint_handles, u64 *fence_uid)
 {
 	PSYNC_CHECKPOINT *checkpoints = NULL;
-	unsigned int i, num_fences, num_used_fences = 0;
+	unsigned int i, num_fences = 0, num_used_fences = 0;
 	struct dma_fence **fences = NULL;
 	struct dma_fence *fence;
 	PVRSRV_ERROR err = PVRSRV_OK;
