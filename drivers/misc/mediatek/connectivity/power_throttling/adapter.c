@@ -44,6 +44,7 @@
 #define CONN_PWR_IOCTL_GET_DRV_LEVEL _IOR(CONN_PWR_DEV_IOC_MAGIC, 1, int)
 #define CONN_PWR_IOCTL_GET_PLAT_LEVEL _IOR(CONN_PWR_DEV_IOC_MAGIC, 2, int)
 #define CONN_PWR_SWITCH_LEVEL_MIN_SEC 30
+#define CONN_PWR_SWITCH_LEVEL_GPS_MIN_SEC 5
 #define CONN_CUSTOMER_SET_LEVEL_SUCCESS 0
 #define CONN_CUSTOMER_SET_LEVEL_FAILED -1
 
@@ -240,6 +241,7 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 	unsigned long long sec;
 	unsigned long usec;
 	int ret = CONN_CUSTOMER_SET_LEVEL_SUCCESS;
+	unsigned int inactive_time = 0;
 
 	if (type < CONN_PRW_DRV_ALL || type >= CONN_PWR_DRV_MAX || level < CONN_PWR_THR_LV_0 ||
 		level >= CONN_PWR_LOW_BATTERY_MAX) {
@@ -251,7 +253,12 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 
 	if (type == CONN_PRW_DRV_ALL) {
 		for (i = 0; i < CONN_PWR_DRV_MAX; i++) {
-			if (sec > (g_radio_last_updated_time[i] + CONN_PWR_SWITCH_LEVEL_MIN_SEC) ||
+			if (type == CONN_PWR_DRV_GPS)
+				inactive_time = CONN_PWR_SWITCH_LEVEL_GPS_MIN_SEC;
+			else
+				inactive_time = CONN_PWR_SWITCH_LEVEL_MIN_SEC;
+
+			if (sec > (g_radio_last_updated_time[i] + inactive_time) ||
 				g_radio_last_updated_time[i] > sec) {
 				updated = 1;
 			} else {
@@ -273,7 +280,12 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 			g_radio_last_updated_time[CONN_PWR_DRV_WIFI] = sec;
 		}
 	} else {
-		if (sec > (g_radio_last_updated_time[type] + CONN_PWR_SWITCH_LEVEL_MIN_SEC) ||
+		if (type == CONN_PWR_DRV_GPS)
+			inactive_time = CONN_PWR_SWITCH_LEVEL_GPS_MIN_SEC;
+		else
+			inactive_time = CONN_PWR_SWITCH_LEVEL_MIN_SEC;
+
+		if (sec > (g_radio_last_updated_time[type] + inactive_time) ||
 				g_radio_last_updated_time[type] > sec) {
 			g_radio_last_updated_time[type] = sec;
 			updated = 1;
