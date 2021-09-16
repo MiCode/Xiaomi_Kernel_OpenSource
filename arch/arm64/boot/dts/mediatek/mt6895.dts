@@ -1179,6 +1179,12 @@
 			reg = <0 0x10207000 0 0x1000>;
 		};
 
+		md1_sim1_hot_plug_eint:MD1_SIM1_HOT_PLUG_EINT {
+		};
+
+		md1_sim2_hot_plug_eint:MD1_SIM2_HOT_PLUG_EINT {
+		};
+
 		bus_dbg@10208000 {
 			compatible = "mediatek,bus_dbg";
 			reg = <0 0x10208000 0 0x1000>;
@@ -2347,6 +2353,10 @@
 			compatible = "mediatek,mt6895-venc_gcon_core1", "syscon";
 			reg = <0 0x17800000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		touch: touch {
+			compatible = "mediatek,touch";
 		};
 
 		apupll_pll_ctrl_clk: syscon@190f3000 {
