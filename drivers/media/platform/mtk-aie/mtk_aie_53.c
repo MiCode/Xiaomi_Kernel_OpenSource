@@ -511,6 +511,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
+		cmdq_mbox_enable(fd->fdvt_clt->chan);
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;
@@ -535,6 +536,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->fd_stream_count == 0) {
 		mtk_aie_mmqos_set(fd, 0);
 		mtk_aie_mmdvfs_set(fd, 0, 0);
+		cmdq_mbox_disable(fd->fdvt_clt->chan);
 		if (fd->dmabuf->vmap_ptr != NULL) {
 			dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
