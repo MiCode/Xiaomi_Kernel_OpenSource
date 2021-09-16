@@ -344,7 +344,7 @@ static void mtk_smi_dbg_print(
 	}
 	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
 	dev_info(node.dev, "%s\n", buf);
-	pm_runtime_put_sync(node.dev);
+	pm_runtime_put(node.dev);
 }
 
 static void mtk_smi_dbg_hang_detect_single(
@@ -641,7 +641,7 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	mtk_emidbg_dump();
 #endif
-	mtk_dump_reg_for_hang_issue(0);
+	//mtk_dump_reg_for_hang_issue(0);
 	//check LARB status
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		node = smi->larb[i];
@@ -659,7 +659,7 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 			dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
 				&node.pa, "LARB", i, "busy", busy, time);
 		}
-		pm_runtime_put_sync(node.dev);
+		pm_runtime_put(node.dev);
 	}
 
 	//check COMM status
@@ -679,7 +679,7 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 			dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
 			&node.pa, "COMM", i, "busy", busy, time);
 		}
-		pm_runtime_put_sync(node.dev);
+		pm_runtime_put(node.dev);
 	}
 
 	if (PRINT_NR == 1)
