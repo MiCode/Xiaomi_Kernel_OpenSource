@@ -226,6 +226,8 @@ void _gate_ic_Power_on(void)
 	if (IS_ERR(gate_client->pinctrl)) {
 		pr_info("ERROR!! pinctrl is error!\n");
 	} else if (!atomic_read(&gate_client->gate_ic_power_status)) {
+		gate_client->pinctrl = devm_gpiod_get(gate_client->dev, "gate-power",
+				   GPIOD_OUT_HIGH);
 		gpiod_set_value(gate_client->pinctrl, 1);
 		devm_gpiod_put(gate_client->dev, gate_client->pinctrl);
 
@@ -249,6 +251,8 @@ void _gate_ic_Power_off(void)
 		pr_info("ERROR!! pinctrl is error!\n");
 	} else if (atomic_read(&gate_client->gate_ic_power_status) &&
 			!atomic_read(&gate_client->backlight_status)) {
+		gate_client->pinctrl = devm_gpiod_get(gate_client->dev, "gate-power",
+				   GPIOD_OUT_HIGH);
 		gpiod_set_value(gate_client->pinctrl, 0);
 		devm_gpiod_put(gate_client->dev, gate_client->pinctrl);
 
@@ -312,6 +316,7 @@ static int _gate_ic_i2c_probe(struct i2c_client *client,
 		pr_info("ERROR!! Failed to enable gpio: %d\n", status);
 		return status;
 	}
+	devm_gpiod_put(gate_client->dev, gate_client->pinctrl);
 	i2c_set_clientdata(client, gate_client);
 	_gate_ic_i2c_client = client;
 	atomic_set(&gate_client->gate_ic_power_status, 1);
