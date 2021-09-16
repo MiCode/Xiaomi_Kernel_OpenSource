@@ -543,7 +543,7 @@ static int autok_send_tune_cmd(struct msdc_host *host, unsigned int opcode,
 		&& ((opcode == MMC_WRITE_BLOCK)
 		|| (opcode == MMC_EXECUTE_WRITE_TASK)
 		|| (opcode == MMC_WRITE_MULTIPLE_BLOCK))) {
-			if (host->id == MSDC_SD) {
+			if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
 				sdr_set_field(host->base + tune_reg,
 					MSDC_PAD_TUNE_CLKTDLY,
 					host_para->clk_tx);
@@ -1885,11 +1885,8 @@ static int autok_adjust_param(struct msdc_host *host,
 		if (((host->id == MSDC_EMMC)
 		&& (platform_top_ctrl.msdc0_rx_enhance_top == 1)
 		&& host->top_base)
-		|| ((host->id == MSDC_SD)
+		|| ((host->id == MSDC_SD || host->id == MSDC_SDIO)
 		&& (platform_top_ctrl.msdc1_rx_enhance_top == 1)
-		&& host->top_base)
-		|| ((host->id == MSDC_SDIO)
-		&& (platform_top_ctrl.msdc2_rx_enhance_top == 1)
 		&& host->top_base)) {
 			use_top_base = 1;
 			reg = (u32) EMMC_TOP_CONTROL;
@@ -2583,7 +2580,7 @@ int autok_path_sel(struct msdc_host *host)
 				platform_para_tx.msdc0_hl_duty_sel);
 		}
 	}
-	if ((host->id == MSDC_SD)
+	if ((host->id == MSDC_SD || host->id == MSDC_SDIO)
 		&& (platform_para_func.msdc1_bypass_duty_modify == 1)) {
 		if (host->top_base) {
 			sdr_set_field(host->top_base + EMMC50_PAD_CTL0, DCC_SEL,
@@ -2592,23 +2589,6 @@ int autok_path_sel(struct msdc_host *host)
 				platform_para_tx.msdc1_hl_duty_sel);
 		}
 	}
-	if ((host->id == MSDC_SDIO)
-		&& (platform_para_func.msdc2_bypass_duty_modify == 1)) {
-		if (host->top_base) {
-			sdr_set_field(host->top_base + EMMC50_PAD_CTL0, DCC_SEL,
-				platform_para_tx.msdc2_duty_bypass);
-			sdr_set_field(host->top_base + EMMC50_PAD_CTL0, HL_SEL,
-				platform_para_tx.msdc2_hl_duty_sel);
-		} else {
-			sdr_set_field(host->base + MSDC_PAD_CTL0,
-				MSDC_PAD_CTL0_DCCSEL,
-				platform_para_tx.msdc2_duty_bypass);
-			sdr_set_field(host->base + MSDC_PAD_CTL0,
-				MSDC_PAD_CTL0_HLSEL,
-				platform_para_tx.msdc2_hl_duty_sel);
-		}
-	}
-
 	return 0;
 }
 EXPORT_SYMBOL(autok_path_sel);
@@ -2640,20 +2620,13 @@ int autok_init_sdr104(struct msdc_host *host)
 			/* LATCH_TA_EN Config for CMD Path HS FS mode */
 			sdr_set_field(host->base + MSDC_PATCH_BIT2, MSDC_PB2_RESPSTSENSEL,
 				platform_para_rx.latch_en_cmd_hs);
-		} else if (host->id == MSDC_SD) {
+		} else if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
 			/* LATCH_TA_EN Config for WCRC Path SDR104 mode */
 			sdr_set_field(host->base + MSDC_PATCH_BIT2, MSDC_PB2_CRCSTSENSEL,
 				platform_para_rx.latch_en_crc_sd_sdr104);
 			/* LATCH_TA_EN Config for CMD Path SDR104 mode */
 			sdr_set_field(host->base + MSDC_PATCH_BIT2, MSDC_PB2_RESPSTSENSEL,
 				platform_para_rx.latch_en_cmd_sd_sdr104);
-		} else if (host->id == MSDC_SDIO) {
-			/* LATCH_TA_EN Config for WCRC Path SDR104 mode */
-			sdr_set_field(host->base + MSDC_PATCH_BIT2, MSDC_PB2_CRCSTSENSEL,
-				platform_para_rx.latch_en_crc_sdio_sdr104);
-			/* LATCH_TA_EN Config for CMD Path SDR104 mode */
-			sdr_set_field(host->base + MSDC_PATCH_BIT2, MSDC_PB2_RESPSTSENSEL,
-				platform_para_rx.latch_en_cmd_sdio_sdr104);
 		}
 	}
 	/* enable dvfs feature */
@@ -3326,10 +3299,7 @@ int execute_online_tuning(struct msdc_host *host, u8 *res)
 	    sizeof(p_autok_tune_res) / sizeof(u8));
 
 	/* restore TX value */
-	if (host->id == MSDC_SDIO) {
-		autok_param_update(PAD_CLK_TXDLY_AUTOK,
-			platform_para_tx.msdc2_clktx, p_autok_tune_res);
-	} else if (host->id == MSDC_SD) {
+	if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
 		if (mmc->actual_clock <= 100000000) {
 			autok_param_update(PAD_CLK_TXDLY_AUTOK,
 				platform_para_tx.msdc1_clktx, p_autok_tune_res);
@@ -3564,7 +3534,7 @@ void autok_msdc_tx_setting(struct msdc_host *host, struct mmc_ios *ios)
 			autok_adjust_param(host, EMMC50_DATA7_TX_DLY,
 			    &value, AUTOK_WRITE);
 		}
-	} else if (host->id == MSDC_SD) {
+	} else if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
 		sdr_set_field(host->base + MSDC_IOCON,
 			MSDC_IOCON_DDR50CKD, platform_para_tx.msdc1_ddr_ckd);
 		if (ios->timing == MMC_TIMING_UHS_SDR104) {
@@ -3680,7 +3650,7 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 			    orig_crc_fifo_edge, cur_crc_fifo_edge);
 			break;
 		}
-	} else if (host->id == MSDC_SD) {
+	} else if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
 		switch (error_type) {
 		case CMD_ERROR:
 			sdr_get_field(host->base + MSDC_IOCON,
@@ -4466,7 +4436,7 @@ int sd_execute_autok(struct msdc_host *host, u32 opcode)
 
 	if (mmc->ios.timing == MMC_TIMING_UHS_SDR104 ||
 		mmc->ios.timing == MMC_TIMING_UHS_SDR50) {
-		pr_notice("[AUTOK]SDcard autok\n");
+		pr_notice("[AUTOK]SD/SDIO card autok\n");
 		ret = autok_execute_tuning(host, res);
 		if (ret)
 			goto exit;

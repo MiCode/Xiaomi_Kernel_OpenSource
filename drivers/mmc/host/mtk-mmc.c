@@ -1104,7 +1104,7 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		/* Apply different pinctrl settings for different signal voltage */
 		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
 			pinctrl_select_state(host->pinctrl, host->pins_uhs);
-			if (host->id == MSDC_SD) {
+			if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
 				/* Keep clock gated for 10 ms, though spec only says 5 ms */
 				mmc_delay(10);
 				sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
@@ -2184,7 +2184,7 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	host->tuning_in_progress = true;
 	if (host->id == MSDC_EMMC)
 		ret = emmc_execute_autok(host, opcode);
-	else if (host->id == MSDC_SD)
+	else if (host->id == MSDC_SD || host->id == MSDC_SDIO)
 		ret = sd_execute_autok(host, opcode);
 	host->tuning_in_progress = false;
 
@@ -2872,6 +2872,7 @@ void msdc_save_timing_setting(struct msdc_host *host)
 
 void msdc_restore_timing_setting(struct msdc_host *host)
 {
+	struct mmc_host *mmc = mmc_from_priv(host);
 	int emmc = (host->id == MSDC_EMMC) ? 1 : 0;
 	int i;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
@@ -2927,6 +2928,8 @@ void msdc_restore_timing_setting(struct msdc_host *host)
 				host->top_base + EMMC50_PAD_DAT0_TUNE + i * 4);
 		}
 	}
+	if (sdio_irq_claimed(mmc))
+		__msdc_enable_sdio_irq(host, 1);
 }
 #endif
 static int __maybe_unused msdc_runtime_suspend(struct device *dev)
