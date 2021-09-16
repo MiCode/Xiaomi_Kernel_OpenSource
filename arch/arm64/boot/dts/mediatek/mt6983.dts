@@ -2224,12 +2224,14 @@
 		compatible = "mediatek,mt6983-dispsys_config", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	dispsys1_config_clk: syscon@14400000 {
 		compatible = "mediatek,mt6983-dispsys1_config", "syscon";
 		reg = <0 0x14400000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	imgsys_main_clk: syscon@15000000 {
@@ -2613,24 +2615,28 @@
 		compatible = "mediatek,mt6983-vdec_soc_gcon_base", "syscon";
 		reg = <0 0x1600f000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	vdec_gcon_base_clk: syscon@1602f000 {
 		compatible = "mediatek,mt6983-vdec_gcon_base", "syscon";
 		reg = <0 0x1602f000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	venc_gcon_clk: syscon@17000000 {
 		compatible = "mediatek,mt6983-venc_gcon", "syscon";
 		reg = <0 0x17000000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	venc_gcon_core1_clk: syscon@17800000 {
 		compatible = "mediatek,mt6983-venc_gcon_core1", "syscon";
 		reg = <0 0x17800000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	apu_clk: syscon@190f3000 {
@@ -3024,6 +3030,7 @@
 		compatible = "mediatek,mt6983-mminfra_config", "syscon";
 		reg = <0 0x1e800000 0 0x1000>;
 		#clock-cells = <1>;
+		hw-voter-regmap = <&hwv>;
 	};
 
 	eint: apirq@1000d000 {
