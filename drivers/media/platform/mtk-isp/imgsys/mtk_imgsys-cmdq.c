@@ -272,7 +272,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				#if DVFS_QOS_READY
 				mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
 				mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
+				#if IMGSYS_QOS_SET_REAL
 				mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+				#endif
 				mtk_imgsys_power_ctrl(imgsys_dev, 0);
 				#endif
 				mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
@@ -442,7 +444,9 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	mtk_imgsys_power_ctrl(imgsys_dev, 1);
 	mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmdvfs_set(imgsys_dev, frm_info, 1);
+	#if IMGSYS_QOS_SET_REAL
 	mtk_imgsys_mmqos_set(imgsys_dev, frm_info, 1);
+	#endif
 	#endif
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 	IMGSYS_SYSTRACE_END();
