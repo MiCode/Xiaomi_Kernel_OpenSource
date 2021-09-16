@@ -1408,36 +1408,24 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 				   struct mtk_cam_request_stream_data *s_data)
 {
-	s64 raw_fut_pre, raw_fut_pre_try, raw_fut_cur_try;
+	s64 raw_fut_pre;
 	char *debug_str = mtk_cam_s_data_get_dbg_str(s_data);
 
 	raw_fut_pre = raw_pipe->feature_pending;
-	raw_fut_pre_try = raw_pipe->feature_pending_try;
 	mtk_cam_req_ctrl_setup(raw_pipe, mtk_cam_s_data_get_req(s_data));
-	raw_fut_cur_try = raw_pipe->feature_pending_try;
-	if (raw_fut_pre_try != raw_fut_cur_try) {
-		s_data->feature.switch_feature_type =
-			EXPOSURE_CHANGE_NONE;
-		raw_pipe->feature_pending = raw_fut_pre_try;
-		raw_pipe->feature_pending_try = raw_fut_pre_try;
-		dev_info(raw_pipe->subdev.dev,
-			 "%s:%s:%s:invalid raw_feature judge, Real/Fake:%d/%d\n",
-			 __func__, raw_pipe->subdev.name, debug_str,
-			 raw_fut_pre_try, raw_fut_cur_try);
-	} else {
-		if (raw_fut_cur_try != raw_pipe->feature_pending) {
-			dev_info(raw_pipe->subdev.dev,
-				 "%s:%s:%s: correct set raw_feature, try/set:%d/%d\n",
-				 __func__, raw_pipe->subdev.name, debug_str,
-				 raw_fut_cur_try, raw_pipe->feature_pending);
-			raw_pipe->feature_pending = raw_fut_cur_try;
-		}
-		s_data->feature.switch_feature_type =
-			mtk_cam_get_feature_switch(raw_pipe, raw_fut_pre);
-	}
+	s_data->feature.switch_feature_type =
+		mtk_cam_get_feature_switch(raw_pipe, raw_fut_pre);
 	s_data->feature.raw_feature = raw_pipe->feature_pending;
 	s_data->feature.prev_feature = raw_fut_pre;
 	s_data->res_update = raw_pipe->res_update;
+	dev_dbg(raw_pipe->subdev.v4l2_dev->dev,
+			"%s:%s:%s: raw_feature(0x%0x), prev_feature(0x%0x), switch_feature_type(0x%0x), res_update(0x%0x)\n",
+			__func__, raw_pipe->subdev.name, debug_str,
+			s_data->feature.raw_feature,
+			s_data->feature.prev_feature,
+			s_data->feature.switch_feature_type,
+			s_data->res_update);
+
 	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
 
 	return 0;

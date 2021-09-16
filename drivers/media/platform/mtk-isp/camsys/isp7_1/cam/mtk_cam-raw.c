@@ -648,13 +648,10 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret)
 			break;
 
-		/* Will be removed with mtk_cam_req_update_ctrl */
-		pipeline->feature_pending_try = res_user->raw_res.feature;
 		dev_dbg(dev,
-				"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x), feature_try(0x%x)\n",
+				"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
 				__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-				pipeline->feature_pending, pipeline->feature_active,
-				pipeline->feature_pending_try);
+				pipeline->feature_pending, pipeline->feature_active);
 
 		dev_dbg(dev, "%s:pipe(%d): res ctrl end\n", __func__,
 			pipeline->id);
@@ -665,16 +662,9 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_try_ctrl(ctrl);
 		break;
-	// skip control doesn't support try ctrl
+	/* skip control value checks */
 	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
-		ret = 0;
-		break;
 	case V4L2_CID_MTK_CAM_FEATURE:
-		pipeline->feature_pending_try = *ctrl->p_new.p_s64;
-		dev_dbg(dev,
-			"%s:pipe(%d): feature_pending_try(0x%x)\n",
-			__func__, pipeline->id,
-			pipeline->feature_pending_try);
 		ret = 0;
 		break;
 	default:
@@ -722,10 +712,9 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		pipeline->feature_pending = *ctrl->p_new.p_s64;
 
 		dev_dbg(dev,
-			"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x), feature_try(0x%x)\n",
+			"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
 			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-			pipeline->feature_pending, pipeline->feature_active,
-			pipeline->feature_pending_try);
+			pipeline->feature_pending, pipeline->feature_active);
 		ret = 0;
 		break;
 	default:

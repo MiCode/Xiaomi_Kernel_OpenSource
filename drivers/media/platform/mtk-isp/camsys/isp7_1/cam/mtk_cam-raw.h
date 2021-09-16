@@ -235,10 +235,6 @@ struct mtk_raw_pad_config {
  *		     please use mtk_cam_request_stream_data's
  *		     feature.raw_feature field
  *		     to avoid the CTRL value change tming issue.
- * @feature_pending_try: keep the user value of set CTRL
- *			 V4L2_CID_MTK_CAM_FEATURE. It is only for some woraround
- *			 to check valid set CTRL call and should be phase out
- *			 after the issue is fixed.
  * @feature_active: The active feature during streaming. It can't be changed
  *		    during streaming and can only be used after streaming on.
  *
@@ -256,7 +252,6 @@ struct mtk_raw_pipeline {
 	/* resource controls */
 	struct v4l2_ctrl_handler ctrl_handler;
 	s64 feature_pending;
-	s64 feature_pending_try;
 	s64 feature_active;
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
 	struct mtk_cam_tg_flash_config tg_flash_config;
