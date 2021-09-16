@@ -2850,7 +2850,8 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 
 	if (atomic_read(&req_stream_data->frame_done_work.is_queued)) {
 		dev_info(ctx->cam->dev,
-			"already queue done work %d\n", req_stream_data->frame_seq_no);
+			"already queue done work req:%d seq:%d pipe_id:%d\n",
+			req_stream_data->frame_seq_no, frame_seq_no, pipe_id);
 		return;
 	}
 
@@ -3004,35 +3005,6 @@ static int mtk_camsys_camsv_state_handle(
 	return STATE_RESULT_PASS_CQ_SW_DELAY;
 }
 
-static void mtk_camsys_camsv_check_frame_done(struct mtk_cam_ctx *ctx,
-	unsigned int dequeued_frame_seq_no, unsigned int pipe_id)
-{
-#define CHECK_STATE_DEPTH 3
-	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-	struct mtk_camsys_ctrl_state *state_temp;
-	struct mtk_cam_request_stream_data *req_stream_data;
-	unsigned long flags;
-	unsigned int seqList[CHECK_STATE_DEPTH];
-	unsigned int cnt = 0;
-	int i;
-
-	if (ctx->sensor) {
-		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
-		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
-						state_element) {
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
-			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no) {
-				seqList[cnt++] = req_stream_data->frame_seq_no;
-				if (cnt == CHECK_STATE_DEPTH)
-					break;
-			}
-		}
-		spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
-		for (i = 0; i < cnt; i++)
-			mtk_camsys_frame_done(ctx, seqList[i], pipe_id);
-	}
-}
-
 static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no)
 {
@@ -3052,9 +3024,6 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	ctx->sv_dequeued_frame_seq_no[sv_dev_index] = dequeued_frame_seq_no;
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_sv_event_frame_sync(camsv_dev, dequeued_frame_seq_no);
-
-	mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no,
-		camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START);
 
 	if (ctx->sensor &&
 		(ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
@@ -3089,35 +3058,6 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	}
 }
 
-static void mtk_camsys_mraw_check_frame_done(struct mtk_cam_ctx *ctx,
-	unsigned int dequeued_frame_seq_no, unsigned int pipe_id)
-{
-#define CHECK_STATE_DEPTH 3
-	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-	struct mtk_camsys_ctrl_state *state_temp;
-	struct mtk_cam_request_stream_data *req_stream_data;
-	unsigned long flags;
-	unsigned int seqList[CHECK_STATE_DEPTH];
-	unsigned int cnt = 0;
-	int i;
-
-	if (ctx->sensor) {
-		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
-		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
-						state_element) {
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
-			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no) {
-				seqList[cnt++] = req_stream_data->frame_seq_no;
-				if (cnt == CHECK_STATE_DEPTH)
-					break;
-			}
-		}
-		spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
-		for (i = 0; i < cnt; i++)
-			mtk_camsys_frame_done(ctx, seqList[i], pipe_id);
-	}
-}
-
 static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no)
 {
@@ -3130,10 +3070,6 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 		return;
 	}
 	ctx->mraw_dequeued_frame_seq_no[mraw_dev_index] = dequeued_frame_seq_no;
-
-	/* Prevent losting seq_num when the SW performance is bad */
-	mtk_camsys_mraw_check_frame_done(ctx, dequeued_frame_seq_no,
-		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
 }
 
 static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,

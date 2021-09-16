@@ -1225,11 +1225,10 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 				dev_sv = ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
 				camsv_dev = dev_get_drvdata(dev_sv);
 				mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
-
 				/* initial request readout will be delayed 1 frame */
 				if (ctx->used_raw_num && !mtk_cam_is_subsample(ctx) &&
 					!mtk_cam_is_stagger(ctx) && !mtk_cam_is_stagger_m2m(ctx) &&
-					!mtk_cam_is_time_shared(ctx))
+					!mtk_cam_is_time_shared(ctx) && !mtk_cam_is_mstream(ctx))
 					mtk_cam_sv_write_rcnt(ctx, pipe_id);
 			} else {
 				if (ctx->sv_wq)
