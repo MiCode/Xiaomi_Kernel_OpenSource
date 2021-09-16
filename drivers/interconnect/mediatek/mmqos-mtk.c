@@ -129,7 +129,7 @@ s32 mtk_mmqos_system_qos_update(unsigned short qos_status)
 {
 	struct mtk_mmqos *mmqos = gmmqos;
 
-	mmqos->qos_bound = !(qos_status > QOS_BOUND_BW_FREE);
+	mmqos->qos_bound = (qos_status > QOS_BOUND_BW_FREE);
 	mmqos_update_setting(mmqos);
 
 	return 0;
