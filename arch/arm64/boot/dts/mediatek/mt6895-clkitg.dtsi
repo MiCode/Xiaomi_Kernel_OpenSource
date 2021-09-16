@@ -201,6 +201,7 @@
 			<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_MMPAHB>,
 			<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_PERI2UFS>,
 			<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIUFS>,
+			<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIAES>,
 			<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIAHB>,
 			<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIAXI>,
 			<&imp_iic_wrap_s_clk CLK_IMPS_AP_CLOCK_I2C1>,
