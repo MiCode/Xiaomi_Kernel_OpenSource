@@ -3788,10 +3788,26 @@
 		scp_dvfs {
 			compatible = "mediatek,scp_dvfs";
 			clocks = <&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
-				<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
+				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D3>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D3>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+				<&topckgen_clk CLK_TOP_APLL1>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D4>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D7>,
+				<&topckgen_clk CLK_TOP_OSC_D10>;
 
 			clock-names = "clk_mux",
-				"clk_pll_0";
+				"clk_pll_0",
+				"clk_pll_1", /* 624M */
+				"clk_pll_2",
+				"clk_pll_3",
+				"clk_pll_4",
+				"clk_pll_5",
+				"clk_pll_6",
+				"clk_pll_7",
+				"clk_pll_8";
 
 			scp-cores = <1>;
 			vlp-support;
@@ -3803,7 +3819,8 @@
 			< 750000	750000	0xff		0xfff		100  0	0x0>,
 			< 750000	750000	0xff		0xfff		133  0	0x0>,
 			< 750000	750000	0xff		0xfff		200  0	0x0>,
-			< 750000	750000	0xff		0xfff		400  0	0x0>;
+			< 750000	750000	0xff		0xfff		400  0	0x0>,
+			< 750000	750000	0xff		0xfff		624  1	0x0>;
 
 			gpio-base = <&scp_gpio>;
 			gpio-vreq-mode = <1>;
