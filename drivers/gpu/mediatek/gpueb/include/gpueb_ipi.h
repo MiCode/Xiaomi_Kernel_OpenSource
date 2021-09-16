@@ -20,6 +20,8 @@ extern const char *gpueb_mbox_pin_send_name[20];
 extern const char *gpueb_mbox_pin_recv_name[20];
 
 int gpueb_ipi_init(struct platform_device *pdev);
+unsigned int gpueb_get_ts_mbox(void);
+int gpueb_get_send_PIN_offset_by_name(char *send_PIN_name);
 int gpueb_get_send_PIN_ID_by_name(char *send_PIN_name);
 int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name);
 void *get_gpueb_ipidev(void);

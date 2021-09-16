@@ -25,4 +25,5 @@ gpueb-y += \
     gpueb_reserved_mem.o \
     gpueb_gpumpu.o \
     gpueb_hwvoter_dbg.o \
-    gpueb_debug.o
+    gpueb_debug.o \
+    gpueb_timesync.o

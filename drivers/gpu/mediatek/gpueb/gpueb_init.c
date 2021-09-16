@@ -36,6 +36,7 @@
 #include "gpueb_plat_service.h"
 #include "gpueb_hwvoter_dbg.h"
 #include "gpueb_debug.h"
+#include "gpueb_timesync.h"
 
 /*
  * ===============================================
@@ -161,6 +162,12 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 
 	/* init gpufreq debug */
 	gpueb_debug_init();
+
+	ret = gpueb_timesync_init();
+	if (ret) {
+		gpueb_pr_info("GPUEB timesync init fail\n");
+		return ret;
+	}
 
 	g_pdev = pdev;
 	g_probe_done = true;

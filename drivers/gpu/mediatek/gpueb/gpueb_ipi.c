@@ -38,6 +38,7 @@ const char *gpueb_mbox_pin_send_name[20];
 const char *gpueb_mbox_pin_recv_name[20];
 unsigned int g_mbox_size = 0;
 unsigned int g_slot_size = 0;
+unsigned int g_ts_mbox;
 
 static int gpueb_ipi_table_init(struct platform_device *pdev)
 {
@@ -68,6 +69,15 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 			&g_slot_size);
 	if (g_slot_size == 0) {
 		gpueb_pr_debug("slot size not found\n");
+		return false;
+	}
+
+	// Get mbox for timesync
+	of_property_read_u32(pdev->dev.of_node, "ts_mbox",
+			&g_ts_mbox);
+	if (g_ts_mbox > gpueb_mboxdev.count) {
+		gpueb_pr_debug("ts_mbox(%d) > mbox_count(%d)\n",
+			g_ts_mbox, gpueb_mboxdev.count);
 		return false;
 	}
 
@@ -481,6 +491,22 @@ int gpueb_ipi_test(struct platform_device *pdev)
 	return test_result;
 }
 #endif
+
+unsigned int gpueb_get_ts_mbox(void)
+{
+	return g_ts_mbox;
+}
+
+int gpueb_get_send_PIN_offset_by_name(char *send_PIN_name)
+{
+	int i;
+
+	for (i = 0; i < gpueb_mboxdev.send_count; i++) {
+		if (!strcmp(gpueb_mbox_pin_send_name[i], send_PIN_name))
+			return gpueb_mbox_pin_send[i].offset;
+	}
+	return -1;
+}
 
 int gpueb_get_send_PIN_ID_by_name(char *send_PIN_name)
 {
