@@ -931,14 +931,13 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 		shutter = shutter >> l_shift;
 		ctx->frame_length = shutter + imgsensor_info.margin;
 		LOG_INF("enter long exposure mode, time is %d", l_shift);
-		set_cmos_sensor_8(ctx, 0x3100,
-			read_cmos_sensor_16(ctx, 0x3100) | (l_shift & 0x7));
+		set_cmos_sensor_8(ctx, 0x3128, l_shift);
 		/* Frame exposure mode customization for LE*/
 		ctx->ae_frm_mode.frame_mode_1 = IMGSENSOR_AE_MODE_SE;
 		ctx->ae_frm_mode.frame_mode_2 = IMGSENSOR_AE_MODE_SE;
 		ctx->current_ae_effective_frame = 2;
 	} else {
-		set_cmos_sensor_8(ctx, 0x3100, read_cmos_sensor_16(ctx, 0x3100) & 0xf8);
+		set_cmos_sensor_8(ctx, 0x3128, 0x00);
 		write_frame_len(ctx, ctx->frame_length);
 		ctx->current_ae_effective_frame = 2;
 		LOG_INF("set frame_length\n");
