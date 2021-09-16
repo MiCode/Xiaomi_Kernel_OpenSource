@@ -29,9 +29,9 @@
 static const struct scp_domain_data scp_domain_data_mt6895[] = {
 	[MT6895_POWER_DOMAIN_MD] = {
 		.name = "md",
-		.sta_mask = GENMASK(31, 30),
+		.sta_mask = BIT(0),
 		.ctl_offs = 0xE00,
-		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
 		.extb_iso_offs = 0xF2C,
 		.extb_iso_bits = 0x3,
 		.bp_table = {
