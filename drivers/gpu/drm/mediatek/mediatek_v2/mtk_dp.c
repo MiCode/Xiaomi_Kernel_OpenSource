@@ -51,6 +51,7 @@ static int fakeres = FAKE_DEFAULT_RES;
 static int fakebpc = DP_COLOR_DEPTH_8BIT;
 struct mutex dp_lock;
 static bool g_hdcp_on = 1;
+static bool aux_swap;
 
 static const struct drm_display_mode dptx_est_modes[] = {
 	/* 2160x3840@60Hz */
@@ -2464,6 +2465,7 @@ void mdrv_DPTx_InitPort(struct mtk_dp *mtk_dp)
 
 	mhal_DPTx_InitialSetting(mtk_dp);
 	mhal_DPTx_AuxSetting(mtk_dp);
+	mhal_DPTx_SetAuxSwap(mtk_dp, aux_swap);
 	mhal_DPTx_DigitalSetting(mtk_dp);
 	mhal_DPTx_AnalogPowerOnOff(mtk_dp, true);
 	mhal_DPTx_PHYSetting(mtk_dp);
@@ -3677,6 +3679,13 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 		return;
 	}
 }
+
+void mtk_dp_aux_swap_enable(bool enable)
+{
+	DPTXMSG("%s, enable=%d -> %d\n", __func__, aux_swap, enable);
+	aux_swap = enable;
+}
+EXPORT_SYMBOL_GPL(mtk_dp_aux_swap_enable);
 
 void mtk_dp_SWInterruptSet(int bstatus)
 {

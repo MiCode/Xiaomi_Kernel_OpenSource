@@ -2039,25 +2039,25 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 	DPTXDBG("0x4C:%#010x, 0x4C:%#010x", value, msRead4Byte(mtk_dp, 0x114C));
 
 //PORTING FROM CTP
-		msWrite4Byte(mtk_dp, 0x1138, 0x20181410);
-		msWrite4Byte(mtk_dp, 0x113C, 0x20241e18);
-		msWrite4Byte(mtk_dp, 0x1140, 0x00003028);
-		msWrite4Byte(mtk_dp, 0x1144, 0x10080400);
-		msWrite4Byte(mtk_dp, 0x1148, 0x000c0600);
-		msWrite4Byte(mtk_dp, 0x114C, 0x00000008);
+	msWrite4Byte(mtk_dp, 0x1138, 0x20181410);
+	msWrite4Byte(mtk_dp, 0x113C, 0x20241e18);
+	msWrite4Byte(mtk_dp, 0x1140, 0x00003028);
+	msWrite4Byte(mtk_dp, 0x1144, 0x10080400);
+	msWrite4Byte(mtk_dp, 0x1148, 0x000c0600);
+	msWrite4Byte(mtk_dp, 0x114C, 0x00000008);
 
-		msWrite4Byte(mtk_dp, 0x1238, 0x20181410);
-		msWrite4Byte(mtk_dp, 0x123C, 0x20241e18);
-		msWrite4Byte(mtk_dp, 0x1240, 0x00003028);
-		msWrite4Byte(mtk_dp, 0x1244, 0x10080400);
-		msWrite4Byte(mtk_dp, 0x1248, 0x000c0600);
-		msWrite4Byte(mtk_dp, 0x124C, 0x00000008);
+	msWrite4Byte(mtk_dp, 0x1238, 0x20181410);
+	msWrite4Byte(mtk_dp, 0x123C, 0x20241e18);
+	msWrite4Byte(mtk_dp, 0x1240, 0x00003028);
+	msWrite4Byte(mtk_dp, 0x1244, 0x10080400);
+	msWrite4Byte(mtk_dp, 0x1248, 0x000c0600);
+	msWrite4Byte(mtk_dp, 0x124C, 0x00000008);
 
-		msWrite4ByteMask(mtk_dp, 0x003C, 0x004 << 24, BITMASK(28:24));
-		msWrite4ByteMask(mtk_dp, 0x0008, 0x7 << 3, BITMASK(6:3));
-		msWrite4ByteMask(mtk_dp, 0x003C, BIT23, BIT23);
-		msWrite4ByteMask(mtk_dp, 0x0054, BIT23, BIT23);
-		msWrite4ByteMask(mtk_dp, 0x0054, 0x004 << 24, BITMASK(28:24));
+	msWrite4ByteMask(mtk_dp, 0x003C, 0x004 << 24, BITMASK(28:24));
+	msWrite4ByteMask(mtk_dp, 0x0008, 0x7 << 3, BITMASK(6:3));
+	msWrite4ByteMask(mtk_dp, 0x003C, BIT23, BIT23);
+	msWrite4ByteMask(mtk_dp, 0x0054, BIT23, BIT23);
+	msWrite4ByteMask(mtk_dp, 0x0054, 0x004 << 24, BITMASK(28:24));
 //PORTING FROM CTP END
 
 	msWrite4ByteMask(mtk_dp, 0x3690, BIT8, BIT8);
@@ -2155,7 +2155,7 @@ void mhal_DPTx_PHYD_Reset(struct mtk_dp *mtk_dp)
 	msWriteByteMask(mtk_dp, 0x1038, BIT(0), BIT(0));
 }
 
-void mhal_DPTx_SetTxLane(struct mtk_dp *mtk_dp, int  Value)
+void mhal_DPTx_SetTxLane(struct mtk_dp *mtk_dp, int Value)
 {
 	DPTXFUNC();
 
@@ -2181,6 +2181,18 @@ void mhal_DPTx_SetTxLane(struct mtk_dp *mtk_dp, int  Value)
 		BIT3|BIT2);
 }
 
+void mhal_DPTx_SetAuxSwap(struct mtk_dp *mtk_dp, bool enable)
+{
+	DPTXFUNC();
+
+	if (enable) {
+		msWrite4ByteMask(mtk_dp, REG_360C_AUX_TX_P0, 0, BIT15);
+		msWrite4ByteMask(mtk_dp, REG_3680_AUX_TX_P0, 0, BIT0);
+	} else {
+		msWrite4ByteMask(mtk_dp, REG_360C_AUX_TX_P0, BIT15, BIT15);
+		msWrite4ByteMask(mtk_dp, REG_3680_AUX_TX_P0, BIT0, BIT0);
+	}
+}
 
 void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value)
 {
@@ -2353,7 +2365,6 @@ void mhal_DPTx_VideoMuteSW(struct mtk_dp *mtk_dp, bool bENABLE)
 			0,
 			BIT2);	// [3] Sw ov Mode [2] mute value
 }
-
 
 void mhal_DPTx_AudioMute(struct mtk_dp *mtk_dp, bool bENABLE)
 {
