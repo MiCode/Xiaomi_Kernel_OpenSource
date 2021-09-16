@@ -787,7 +787,8 @@ static int mtk_vdec_translation_fault_callback(
 		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO] ||
 		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO_ENC]) {
 		mtk_vdec_dump_addr_reg(dev, MTK_VDEC_CORE, DUMP_VDEC_OUT_BUF);
-	} else if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_MC]) {
+	} else if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_MC] ||
+		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_LAT0_MC]) {
 		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_REF_BUF);
 	} else if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_AVC_MV]) {
 		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_MV_BUF);
