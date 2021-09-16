@@ -92,6 +92,7 @@ struct battery_oc_priv {
 	int default_rfg;
 	int car_tune_value;
 	int unit_fg_cur;
+	int unit_multiple;
 	const struct battery_oc_data_t *ocdata;
 };
 
@@ -397,6 +398,12 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	}
 	priv->r_fg_value *= UNIT_TRANS_10;
 
+	ret = of_property_read_u32(np, "UNIT_MULTIPLE", &priv->unit_multiple);
+	if (ret) {
+		dev_notice(&pdev->dev, "get UNIT_MULTIPLE fail\n");
+		return -EINVAL;
+	}
+
 	ret = of_property_read_u32(np, "CAR_TUNE_VALUE", &priv->car_tune_value);
 	if (ret) {
 		dev_notice(&pdev->dev, "get CAR_TUNE_VALUE fail\n");
@@ -423,8 +430,12 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	if (priv->ocdata->cust_rfg) {
 		__regmap_read(priv->regmap, &priv->ocdata->reg_default_rfg, &regval);
 		regval &= priv->ocdata->reg_default_rfg.mask;
-		priv->default_rfg = r_fg_val[regval];
-		priv->unit_fg_cur = MT6375_UNIT_FGCURRENT;
+		/* The real rfg gain is r_fg_value * unit_multiple */
+		if (priv->r_fg_value == 20 || priv->unit_multiple != 1)
+			priv->default_rfg = priv->r_fg_value;
+		else
+			priv->default_rfg = r_fg_val[regval];
+		priv->unit_fg_cur = MT6375_UNIT_FGCURRENT * priv->unit_multiple;
 	} else {
 		pmic = dev_get_drvdata(pdev->dev.parent);
 		switch (pmic->chip_id) {
