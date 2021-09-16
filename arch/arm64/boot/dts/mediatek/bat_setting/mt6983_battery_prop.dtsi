@@ -8,7 +8,7 @@
 &mtk_gauge {
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 	/* Charging termination current */
-	SHUTDOWN_1_TIME = <(60)>;
+	SHUTDOWN_1_TIME = <(5)>;
 	/* If ui_soc shows 1% more than X minites, system will shutdown */
 	KEEP_100_PERCENT = <(1)>;
 	CURR_MEASURE_20A = <(1)>;
