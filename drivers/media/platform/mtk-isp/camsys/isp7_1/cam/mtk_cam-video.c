@@ -259,13 +259,13 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 		}
 #endif
 
+	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
+		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
+
 	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt) {
 		mutex_unlock(&cam->op_lock);
 		return 0;
 	}
-
-	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
-		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
 	/* all enabled nodes are streaming, enable all subdevs */
 	MTK_CAM_TRACE_BEGIN("ctx_stream_on");
