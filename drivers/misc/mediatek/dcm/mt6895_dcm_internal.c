@@ -153,6 +153,7 @@ int dcm_armcore(int on)
 {
 	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(on);
 	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(on);
+	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(on);
 
 	return 0;
 }
