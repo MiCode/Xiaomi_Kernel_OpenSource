@@ -37,6 +37,12 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 	.sta_ofs = 0x1A0,
 };
 
+static const struct mtk_gate_regs mm_hwv_regs = {
+	.set_ofs = 0x08,
+	.clr_ofs = 0x0C,
+	.sta_ofs = 0x1904,
+};
+
 #define GATE_MM0(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -62,6 +68,16 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 		.regs = &mm2_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+#define GATE_HWV_MM(_id, _name, _parent, _shift) {			\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &mm_hwv_regs,					\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,				\
+		.flags = CLK_USE_HW_VOTER,				\
 	}
 
 static const struct mtk_gate mm_clks[] = {
@@ -133,7 +149,7 @@ static const struct mtk_gate mm_clks[] = {
 			"disp0_ck"/* parent */, 9),
 	GATE_MM1(CLK_MM_DISP_DL0_ASYNC3, "mm_disp_dl0_async3",
 			"disp0_ck"/* parent */, 10),
-	GATE_MM1(CLK_MM_SMI_LARB, "mm_smi_larb",
+	GATE_HWV_MM(CLK_MM_SMI_LARB, "mm_smi_larb",
 			"disp0_ck"/* parent */, 20),
 	/* MM2 */
 	GATE_MM2(CLK_MM_DSI_CLK, "mm_dsi_clk",
@@ -157,6 +173,18 @@ static const struct mtk_gate_regs mminfra_config1_cg_regs = {
 	.set_ofs = 0x114,
 	.clr_ofs = 0x118,
 	.sta_ofs = 0x110,
+};
+
+static const struct mtk_gate_regs mminfra_config0_hwv_regs = {
+	.set_ofs = 0x28,
+	.clr_ofs = 0x2C,
+	.sta_ofs = 0x1914,
+};
+
+static const struct mtk_gate_regs mminfra_config1_hwv_regs = {
+	.set_ofs = 0x38,
+	.clr_ofs = 0x3C,
+	.sta_ofs = 0x191C,
 };
 
 #define GATE_MMINFRA_CONFIG0(_id, _name, _parent, _shift) {	\
@@ -186,16 +214,36 @@ static const struct mtk_gate_regs mminfra_config1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_HWV_MMINFRA_CONFIG0(_id, _name, _parent, _shift) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &mminfra_config0_hwv_regs,			\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,			\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
+#define GATE_HWV_MMINFRA_CONFIG1(_id, _name, _parent, _shift) {	\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &mminfra_config1_hwv_regs,			\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_hwv,			\
+		.flags = CLK_USE_HW_VOTER,				\
+	}
+
 static const struct mtk_gate mminfra_config_clks[] = {
 	/* MMINFRA_CONFIG0 */
-	GATE_MMINFRA_CONFIG0(CLK_MMINFRA_GCE_D, "mminfra_gce_d",
+	GATE_HWV_MMINFRA_CONFIG0(CLK_MMINFRA_GCE_D, "mminfra_gce_d",
 			"mminfra_ck"/* parent */, 0),
-	GATE_MMINFRA_CONFIG0(CLK_MMINFRA_GCE_M, "mminfra_gce_m",
+	GATE_HWV_MMINFRA_CONFIG0(CLK_MMINFRA_GCE_M, "mminfra_gce_m",
 			"mminfra_ck"/* parent */, 1),
-	GATE_MMINFRA_CONFIG0_DUMMY(CLK_MMINFRA_SMI, "mminfra_smi",
-			"mminfra_ck"/* parent */, 2),
+	GATE_HWV_MMINFRA_CONFIG0(CLK_MMINFRA_SMI, "mminfra_smi",
+			"clk26m"/* parent */, 2),
 	/* MMINFRA_CONFIG1 */
-	GATE_MMINFRA_CONFIG1(CLK_MMINFRA_GCE_26M, "mminfra_gce_26m",
+	GATE_HWV_MMINFRA_CONFIG1(CLK_MMINFRA_GCE_26M, "mminfra_gce_26m",
 			"mminfra_ck"/* parent */, 17),
 };
 
