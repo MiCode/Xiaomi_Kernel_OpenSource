@@ -18,6 +18,30 @@
 
 struct mrdump_control_block *mrdump_cblock;
 
+static unsigned long mrdump_output_lbaooo;
+
+#if IS_ENABLED(CONFIG_SYSFS)
+
+static ssize_t mrdump_version_show(struct kobject *kobj,
+		struct kobj_attribute *kattr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s", MRDUMP_GO_DUMP);
+}
+
+static struct kobj_attribute mrdump_version_attribute =
+	__ATTR(mrdump_version, 0400, mrdump_version_show, NULL);
+
+static struct attribute *attrs[] = {
+	&mrdump_version_attribute.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+#endif
+
 static inline u64 read_tcr_el1_t1sz(void)
 {
 	return (read_sysreg(tcr_el1) & TCR_T1SZ_MASK) >> TCR_T1SZ_OFFSET;
@@ -122,22 +146,28 @@ void mrdump_cblock_late_init(void)
 	pr_notice("%s: done.\n", __func__);
 }
 
-__init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
+__init void mrdump_cblock_init(const struct mrdump_params *mparams)
 {
 	struct mrdump_machdesc *machdesc_p;
 
-	if (cb_addr == 0) {
+	if (strcmp(mparams->lk_version, MRDUMP_GO_DUMP) != 0) {
+		pr_notice("%s: ramdump disabled, lk version %s not matched.\n",
+			  __func__, mparams->lk_version);
+		return;
+	}
+
+	if (mparams->cb_addr == 0) {
 		pr_notice("%s: mrdump control address cannot be 0\n",
 			  __func__);
 		return;
 	}
-	if (cb_size < sizeof(struct mrdump_control_block)) {
+	if (mparams->cb_size < sizeof(struct mrdump_control_block)) {
 		pr_notice("%s: not enough space for mrdump control block\n",
 			  __func__);
 		return;
 	}
 
-	mrdump_cblock = ioremap(cb_addr, cb_size);
+	mrdump_cblock = ioremap(mparams->cb_addr, mparams->cb_size);
 	if (!mrdump_cblock) {
 		pr_notice("%s: mrdump_cb not mapped\n", __func__);
 		return;
@@ -183,6 +213,38 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 #else
 	mrdump_cblock_late_init();
 #endif
+
+#if IS_ENABLED(CONFIG_SYSFS)
+	if (sysfs_create_group(kernel_kobj, &attr_group)) {
+		pr_notice("MT-RAMDUMP: sysfs create sysfs failed\n");
+		return;
+	}
+#endif
+
 	pr_notice("%s: done.\n", __func__);
 }
 
+
+static int param_set_mrdump_lbaooo(const char *val,
+				   const struct kernel_param *kp)
+{
+	int retval = 0;
+
+	if (mrdump_cblock) {
+		retval = param_set_ulong(val, kp);
+		if (!retval)
+			mrdump_cblock->output_fs_lbaooo = mrdump_output_lbaooo;
+	}
+	return retval;
+}
+
+/* sys/modules/mrdump/parameter/lbaooo */
+struct kernel_param_ops param_ops_mrdump_lbaooo = {
+	.set = param_set_mrdump_lbaooo,
+	.get = param_get_ulong,
+};
+
+param_check_ulong(lbaooo, &mrdump_output_lbaooo);
+module_param_cb(lbaooo, &param_ops_mrdump_lbaooo, &mrdump_output_lbaooo,
+		0644);
+__MODULE_PARM_TYPE(lbaooo, "ulong");

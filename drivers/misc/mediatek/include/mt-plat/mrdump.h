@@ -27,8 +27,6 @@
 
 #define MRDUMP_CPU_MAX 12
 
-#define MRDUMP_ENABLE_COOKIE 0x590d2ba3
-
 #define MRDUMP_GO_DUMP "MRDUMP11"
 
 #define KSYM_32        1
@@ -117,8 +115,8 @@ struct mrdump_machdesc {
 	uint64_t kimage_etext;
 	uint64_t kimage_stext_real;
 	uint64_t kimage_voffset;
-	uint64_t kimage_sdata;
-	uint64_t kimage_edata;
+	uint64_t unused0;
+	uint64_t unused1;
 
 	uint64_t vmalloc_start;
 	uint64_t vmalloc_end;
@@ -144,7 +142,7 @@ struct mrdump_control_block {
 	struct mrdump_machdesc machdesc;
 	uint32_t machdesc_crc;
 
-	uint32_t enabled;
+	uint32_t unused0;
 	uint32_t output_fs_lbaooo;
 
 	struct mrdump_crash_record crash_record;

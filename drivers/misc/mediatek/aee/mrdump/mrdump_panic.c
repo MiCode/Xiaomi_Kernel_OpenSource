@@ -379,13 +379,12 @@ static int __init mrdump_panic_init(void)
 #ifdef MODULE
 	mrdump_module_init_mboot_params();
 #endif
-	mrdump_cblock_init(mparams.cb_addr, mparams.cb_size);
+	mrdump_cblock_init(&mparams);
 	if (mrdump_cblock == NULL) {
 		pr_notice("%s: MT-RAMDUMP no control block\n", __func__);
 		return -EINVAL;
 	}
 	mrdump_mini_init(&mparams);
-	mrdump_full_init(mparams.lk_version);
 
 #ifdef MODULE
 	mrdump_mini_add_misc_pa((unsigned long)rmem->priv, rmem->base,
