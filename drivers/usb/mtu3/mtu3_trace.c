@@ -22,3 +22,7 @@ void mtu3_dbg_trace(struct device *dev, const char *fmt, ...)
 	trace_mtu3_log(dev, &vaf);
 	va_end(args);
 }
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_gadget_ep_enable);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_gadget_ep_disable);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_req_complete);
