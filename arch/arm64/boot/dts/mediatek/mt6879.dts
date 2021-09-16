@@ -7656,6 +7656,11 @@
 		iommus = <&apu_iommu0 M4U_LARB34_APU_CODE>;
 	};
 
+	camera_fsync_ccu {
+		compatible = "mediatek,camera_fsync_ccu";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+	};
+
 	fusb304: fusb304 {
 		compatible = "mediatek,fusb304";
 		status = "okay";
