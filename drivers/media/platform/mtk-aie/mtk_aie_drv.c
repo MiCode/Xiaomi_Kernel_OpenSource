@@ -3910,12 +3910,15 @@ void aie_uninit(struct mtk_aie_dev *fd)
 #endif
 	if (g_user_param.is_secure)
 		aie_free_sec_buf(fd);
-
-	kfree(fd->base_para);
-	kfree(fd->attr_para);
-	kfree(fd->dma_para);
+	if (fd->base_para != NULL)
+		kfree(fd->base_para);
+	if (fd->attr_para != NULL)
+		kfree(fd->attr_para);
+	if (fd->dma_para != NULL)
+		kfree(fd->dma_para);
 #ifdef FLD
-	kfree(fd->fld_para);
+	if (fd->fld_para != NULL)
+		kfree(fd->fld_para);
 #endif
 }
 
