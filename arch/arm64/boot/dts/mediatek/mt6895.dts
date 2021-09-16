@@ -1380,6 +1380,95 @@
 			pwm-supply = "mt6368_vio28";
 		};
 
+		spi0: spi0@11010000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11010000 0 0x100>;
+			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI0_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+		spi1: spi1@11011000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11011000 0 0x100>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI1_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+		spi2: spi2@11012000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11012000 0 0x100>;
+			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI2_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+		spi3: spi3@11013000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11013000 0 0x100>;
+			interrupts = <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI3_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+
+		spi4: spi4@11014000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11014000 0 0x100>;
+			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI4_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+		spi5: spi5@11015000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11015000 0 0x100>;
+			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI5_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+		spi6: spi6@11016000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11016000 0 0x100>;
+			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI6_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
+		spi7: spi7@11017000 {
+			compatible = "mediatek,mt6983-spi";
+			mediatek,pad-select = <0>;
+			reg = <0 0x11017000 0 0x100>;
+			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_0_SPI7_BCLK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
+		};
+
 		i2c0: i2c@11f40000 {
 			compatible = "mediatek,mt6983-i2c";
 			reg = <0 0x11f40000 0 0x1000>,
