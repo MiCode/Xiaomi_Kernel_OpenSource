@@ -35,7 +35,7 @@
 
 #define TAG "pool"
 
-#define DL_POOL_LEN	10240
+#define DL_POOL_LEN	51200
 
 
 struct fifo_t {

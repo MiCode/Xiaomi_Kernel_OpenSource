@@ -48,7 +48,7 @@ struct temp_page_info {
 	unsigned long long base_addr;
 };
 
-#define MAX_INFO_COUNT 1000
+#define MAX_INFO_COUNT 10000
 
 static struct temp_skb_info g_skb_tbl[MAX_INFO_COUNT];
 static unsigned int g_skb_tbl_cnt;
