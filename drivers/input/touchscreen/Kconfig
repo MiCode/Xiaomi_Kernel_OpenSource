@@ -1342,4 +1342,12 @@ config TOUCHSCREEN_MTK_TOUCH
 
          To compile this dirver for used touch IC.
 
+config TOUCHSCREEN_MT6983_ALPHA_SUPPORT
+	tristate "Specify Alpha Touch Platform is mt6983"
+	help
+	  Select Alpha Touch Platform is mt6983.
+	  To compile this dirver for used touch IC.
+	  Set Y or M to select this feature for specific platform-mt6983,
+	  and set N to disable.
+
 endif
