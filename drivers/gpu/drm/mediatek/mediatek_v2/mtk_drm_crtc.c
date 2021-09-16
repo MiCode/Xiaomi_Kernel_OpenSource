@@ -1873,6 +1873,8 @@ _mtk_crtc_cwb_addon_module_connect(
 				cwb_info->src_roi;
 			addon_config.addon_wdma_config.wdma_dst_roi =
 				cwb_info->buffer[buf_idx].dst_roi;
+			addon_config.addon_wdma_config.pitch =
+				cwb_info->buffer[buf_idx].dst_roi.width * 3;
 			addon_config.addon_wdma_config.addr =
 				cwb_info->buffer[buf_idx].addr_mva;
 			addon_config.addon_wdma_config.fb =
@@ -1901,7 +1903,6 @@ _mtk_crtc_cwb_addon_module_connect(
 					dst_roi_r.x = 0;
 					dst_roi_r.y = 0;
 					dst_roi_r.width = 0;
-					dst_roi_r.height = 0;
 				} else if (cwb_info->buffer[buf_idx].dst_roi.x >= w/2) {
 				/* handle source ROI locate in right pipe*/
 					dst_roi_l.x = 0;

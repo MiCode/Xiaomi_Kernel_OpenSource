@@ -1589,6 +1589,7 @@ void mtk_drm_cwb_backup_copy_size(void)
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_cwb_info *cwb_info;
 	struct mtk_ddp_comp *comp;
+	int left_w = 0;
 
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
@@ -1609,6 +1610,15 @@ void mtk_drm_cwb_backup_copy_size(void)
 
 	comp = cwb_info->comp;
 	mtk_ddp_comp_io_cmd(comp, NULL, WDMA_READ_DST_SIZE, cwb_info);
+	if (mtk_crtc->is_dual_pipe) {
+		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+
+		left_w = cwb_info->copy_w;
+		comp = priv->ddp_comp
+				[dual_pipe_comp_mapping(priv->data->mmsys_id, comp->id)];
+		mtk_ddp_comp_io_cmd(comp, NULL, WDMA_READ_DST_SIZE, cwb_info);
+		cwb_info->copy_w += left_w;
+	}
 }
 
 bool mtk_drm_set_cwb_user_buf(void *user_buffer, enum CWB_BUFFER_TYPE type)

@@ -1002,7 +1002,7 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
-	int src_w, src_h, clip_w, clip_h, clip_x, clip_y;
+	int src_w, src_h, clip_w, clip_h, clip_x, clip_y, pitch;
 	struct golden_setting_context *gsc;
 
 	comp->fb = addon_config->addon_wdma_config.fb;
@@ -1030,6 +1030,7 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 	clip_h = addon_config->addon_wdma_config.wdma_dst_roi.height;
 	clip_x = addon_config->addon_wdma_config.wdma_dst_roi.x;
 	clip_y = addon_config->addon_wdma_config.wdma_dst_roi.y;
+	pitch = addon_config->addon_wdma_config.pitch;
 
 	size = (src_w & 0x3FFFU) + ((src_h << 16U) & 0x3FFF0000U);
 	mtk_ddp_write(comp, size, DISP_REG_WDMA_SRC_SIZE, handle);
@@ -1045,7 +1046,7 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_mask(comp, 0,
 			DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
 
-	mtk_ddp_write(comp, clip_w * 3,
+	mtk_ddp_write(comp, pitch,
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
 
 	gsc = addon_config->addon_wdma_config.p_golden_setting_context;
