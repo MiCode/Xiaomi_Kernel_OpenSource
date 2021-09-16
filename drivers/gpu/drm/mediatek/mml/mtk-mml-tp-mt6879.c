@@ -400,10 +400,17 @@ decouple:
 	return MML_MODE_MML_DECOUPLE;
 }
 
+static struct cmdq_client *get_racing_clt(struct mml_topology_cache *cache, u32 pipe)
+{
+	/* not support inline rot in this platform */
+	return NULL;
+}
+
 static const struct mml_topology_ops tp_ops_mt6879 = {
 	.query_mode = tp_query_mode,
 	.init_cache = tp_init_cache,
-	.select = tp_select
+	.select = tp_select,
+	.get_racing_clt = get_racing_clt,
 };
 
 static __init int mml_topology_ip_init(void)

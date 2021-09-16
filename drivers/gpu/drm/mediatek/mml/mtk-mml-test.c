@@ -246,7 +246,7 @@ static void case_general_submit(struct mml_test *test,
 		}
 
 		if (mml_racing_ut == 2 || mml_racing_ut == 3)
-			mml_drm_stop(mml_ctx, &task);
+			mml_drm_stop(mml_ctx, &task, false);
 	}
 
 	for (i = 0; i < run_cnt; i++) {

@@ -4229,7 +4229,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				/*clear last SOF*/
 				cmdq_pkt_clear_event(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-			
+
 				/*for dynamic Msync on/off,set vfp period token*/
 				cmdq_pkt_set_event(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
@@ -5168,7 +5168,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	/* stop the last mml pkt */
 	if (mtk_crtc->mml_cfg) {
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
-		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg);
+		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
 	}
 
 	if (crtc_id == 2) {

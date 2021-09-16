@@ -17,9 +17,13 @@ struct mml_mmp_events_t {
 	mmp_event mml;
 	mmp_event submit;
 	mmp_event config;
+	mmp_event flush;
+	mmp_event submit_cb;
+	mmp_event stop_racing;
 	mmp_event irq_loop;
 	mmp_event irq_err;
 	mmp_event irq_done;
+	mmp_event irq_stop;
 };
 
 void mml_mmp_init(void);

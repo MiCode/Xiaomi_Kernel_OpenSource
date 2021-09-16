@@ -404,6 +404,8 @@ static void task_submit_done(struct mml_task *task)
 
 	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
 
+	mml_mmp(submit_cb, MMPROFILE_FLAG_PULSE, task->job.jobid, 0);
+
 	if (ctx->submit_cb)
 		ctx->submit_cb(task->cb_param);
 
@@ -428,6 +430,7 @@ static void task_frame_done(struct mml_task *task)
 		task, task->state, task->job.jobid);
 
 	/* clean up */
+	mml_trace_ex_begin("%s_putbuf", __func__);
 	if (task->config->info.mode != MML_MODE_RACING) {
 		for (i = 0; i < task->buf.dest_cnt; i++) {
 			mml_msg("[drm]release dest %hhu iova %#011llx",
@@ -438,6 +441,7 @@ static void task_frame_done(struct mml_task *task)
 	mml_msg("[drm]release src iova %#011llx",
 		task->buf.src.dma[0].iova);
 	mml_buf_put(&task->buf.src);
+	mml_trace_ex_end();
 
 	/* TODO: Confirm buf file and fence release correctly,
 	 * after implement dmabuf and fence mechanism.
@@ -678,7 +682,7 @@ err_unlock_exit:
 }
 EXPORT_SYMBOL_GPL(mml_drm_submit);
 
-s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit)
+s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit, bool force)
 {
 	struct mml_frame_config *cfg;
 
@@ -693,7 +697,7 @@ s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	}
 
 	mml_log("[drm]stop config %p", cfg);
-	mml_core_stop_racing(cfg);
+	mml_core_stop_racing(cfg, force);
 
 done:
 	mutex_unlock(&ctx->config_mutex);
@@ -920,13 +924,16 @@ EXPORT_SYMBOL_GPL(mml_drm_put_context);
 
 s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 {
-	u32 jobid = atomic_read(&ctx->job_serial);
-
 	/* debug current task idx */
-	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3, jobid);
+	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3,
+		atomic_read(&ctx->job_serial));
+
+	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_NEXT);
 
 	cmdq_pkt_set_event(pkt, mml_ir_get_disp_ready_event(ctx->mml));
 	cmdq_pkt_wfe(pkt, mml_ir_get_mml_ready_event(ctx->mml));
+
+	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CLEAR);
 
 	return 0;
 }

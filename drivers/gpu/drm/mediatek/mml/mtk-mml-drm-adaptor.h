@@ -114,11 +114,13 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
  *
  * @ctx:	Context of mml drm adaptor. Get by mml_drm_get_context API.
  * @submit:	Frame info which want mml driver to execute.
+ * @force:	true to use cmdq stop gce hardware thread, false to set next_spr
+ *		to next only.
  *
  * Return:	Result of submit. In value < 0 case job did not send to mml
  *		driver core.
  */
-s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit);
+s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit, bool force);
 
 /*
  * mml_drm_config_rdone - append instruction to config mmlsys rdone sel to

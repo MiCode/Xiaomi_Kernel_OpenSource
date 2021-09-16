@@ -77,6 +77,8 @@ extern int mml_slt;
 /* racing mode ut and debug */
 extern int mml_racing_ut;
 extern int mml_racing_timeout;
+extern int mml_racing_urgent;
+extern int mml_racing_wdone_eoc;
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
@@ -84,12 +86,12 @@ extern int mml_racing_timeout;
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
 #define MML_MAX_TPUT		800
-#define MML_CMDQ_NEXT_SPR	CMDQ_THR_SPR_IDX3
-#define MML_CMDQ_ROUND_SPR	CMDQ_THR_SPR_IDX2
+#define MML_CMDQ_NEXT_SPR	(CMDQ_GPR_CNT_ID + CMDQ_GPR_R10)
+#define MML_CMDQ_ROUND_SPR	CMDQ_THR_SPR_IDX3
 #define MML_ROUND_SPR_INIT	0x8000
-#define MML_NEXTSPR_CLEAR	0
-#define MML_NEXTSPR_NEXT	1
-#define MML_NEXTSPR_CONTI	2
+#define MML_NEXTSPR_CLEAR	0x1
+#define MML_NEXTSPR_CONTI	0x2
+#define MML_NEXTSPR_NEXT	0x3
 
 struct mml_topology_cache;
 struct mml_frame_config;
@@ -179,6 +181,8 @@ struct mml_topology_ops {
 			  u32 clt_cnt);
 	s32 (*select)(struct mml_topology_cache *cache,
 		      struct mml_frame_config *cfg);
+	struct cmdq_client *(*get_racing_clt)(struct mml_topology_cache *cache,
+					      u32 pipe);
 };
 
 struct mml_path_client {
@@ -611,8 +615,10 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task);
  * mml_core_stop_racing - set next spr to 1 to stop current racing task
  *
  * @cfg:	the frame config to stop
+ * @force:	true to use cmdq stop gce hardware thread, false to set next_spr
+ *		to next only.
  */
-void mml_core_stop_racing(struct mml_frame_config *cfg);
+void mml_core_stop_racing(struct mml_frame_config *cfg, bool force);
 
 /* mml_assign - assign to reg_idx with value. Cache the label of this
  * instruction to mml_pipe_cache and record its entry into label_array.

@@ -567,6 +567,9 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	if (task->config->info.mode == MML_MODE_RACING) {
 		hrt = true;
 		bandwidth = mml_calc_bw_hrt(datasize);
+
+		if (mml_racing_urgent)
+			bandwidth = U32_MAX;
 	} else {
 		hrt = false;
 		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);

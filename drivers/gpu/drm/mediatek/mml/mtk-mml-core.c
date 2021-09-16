@@ -48,6 +48,12 @@ module_param(mml_racing_ut, int, 0644);
 int mml_racing_timeout;
 module_param(mml_racing_timeout, int, 0644);
 
+int mml_racing_urgent;
+module_param(mml_racing_urgent, int, 0644);
+
+int mml_racing_wdone_eoc;
+module_param(mml_racing_wdone_eoc, int, 0644);
+
 #define mml_msg_qos(fmt, args...) \
 do { \
 	if (mml_qos_log) \
@@ -306,16 +312,16 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		if (task->config->shadow) {
 			/* skip first tile wait */
 			if (tile) {
-				for (i = 0; i < path->node_cnt; i++) {
-					comp = path->nodes[i].comp;
-					call_cfg_op(comp, wait, task, &ccfg[i],
-						    tile_wait);
-				}
 				if (!sync)
 					sync = path->mmlsys->config_ops->sync(
 						path->mmlsys, task,
 						&ccfg[path->mmlsys_idx],
 						tile_wait);
+				for (i = 0; i < path->node_cnt; i++) {
+					comp = path->nodes[i].comp;
+					call_cfg_op(comp, wait, task, &ccfg[i],
+						    tile_wait);
+				}
 			}
 			/* first tile must wait eof before trigger */
 			path->mutex->config_ops->mutex(path->mutex, task,
@@ -323,29 +329,29 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 			tile_wait = tile_idx;
 			/* last tile needs wait again */
 			if (tile == tile_cnt - 1) {
-				for (i = 0; i < path->node_cnt; i++) {
-					comp = path->nodes[i].comp;
-					call_cfg_op(comp, wait, task, &ccfg[i],
-						    tile_wait);
-				}
 				if (!sync)
 					sync = path->mmlsys->config_ops->sync(
 						path->mmlsys, task,
 						&ccfg[path->mmlsys_idx],
 						tile_wait);
+				for (i = 0; i < path->node_cnt; i++) {
+					comp = path->nodes[i].comp;
+					call_cfg_op(comp, wait, task, &ccfg[i],
+						    tile_wait);
+				}
 			}
 		} else {
 			path->mutex->config_ops->mutex(path->mutex, task,
 						       &ccfg[path->mutex_idx]);
+			if (!sync)
+				sync = path->mmlsys->config_ops->sync(
+					path->mmlsys, task,
+					&ccfg[path->mmlsys_idx], tile_idx);
 			for (i = 0; i < path->node_cnt; i++) {
 				comp = path->nodes[i].comp;
 				call_cfg_op(comp, wait, task, &ccfg[i],
 					    tile_idx);
 			}
-			if (!sync)
-				sync = path->mmlsys->config_ops->sync(
-					path->mmlsys, task,
-					&ccfg[path->mmlsys_idx], tile_idx);
 		}
 	}
 
@@ -907,7 +913,11 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 		return;
 	}
 
-	mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
+	if (data.err)
+		mml_mmp(irq_stop, MMPROFILE_FLAG_PULSE, task->job.jobid,
+			((data.err & GENMASK(15, 0)) << 16) | pipe);
+	else
+		mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
 
 	queue_work(task->config->wq_wait, &task->work_wait[pipe]);
 }
@@ -1028,21 +1038,28 @@ static const cmdq_async_flush_cb dump_cbs[MML_PIPE_CNT] = {
 	[1] = core_taskdump_pipe1_cb,
 };
 
-static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe)
+static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bool force)
 {
-	if (cmdq_mbox_get_usage(cfg->path[pipe]->clt->chan) <= 0)
-		return;
-
-	cmdq_thread_set_spr(cfg->path[pipe]->clt->chan, MML_CMDQ_NEXT_SPR,
-		MML_NEXTSPR_NEXT);
+	if (force) {
+		/* call cmdq to stop hardware thread directly */
+		cmdq_mbox_channel_stop(cfg->path[pipe]->clt->chan);
+		mml_mmp(irq_stop, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+	} else {
+		if (cmdq_mbox_get_usage(cfg->path[pipe]->clt->chan) <= 0)
+			return;
+		cmdq_thread_set_spr(cfg->path[pipe]->clt->chan, MML_CMDQ_NEXT_SPR,
+			MML_NEXTSPR_NEXT);
+		mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+	}
 }
 
 static s32 core_flush(struct mml_task *task, u32 pipe)
 {
-	int i;
+	int i, ret;
 	struct cmdq_pkt *pkt = task->pkts[pipe];
 
-	mml_msg("%s task %p pipe %u pkt %p", __func__, task, pipe, pkt);
+	mml_msg("%s task %p pipe %u pkt %p job %u",
+		__func__, task, pipe, pkt, task->job.jobid);
 
 	mml_trace_ex_begin("%s", __func__);
 
@@ -1102,17 +1119,18 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	}
 
 	/* force stop current running racing */
-	if (task->config->info.mode == MML_MODE_RACING) {
-		mml_core_stop_racing_pipe(task->config, pipe);
+	if (task->config->info.mode == MML_MODE_RACING)
 		task->pkts[pipe]->self_loop = true;
-	}
+
+	mml_trace_ex_begin("%s_cmdq", __func__);
+	mml_mmp(flush, MMPROFILE_FLAG_PULSE, task->job.jobid,
+		(unsigned long)task->pkts[pipe]);
+	ret = cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task->pkts[pipe]);
+	mml_trace_ex_end();
 
 	mml_trace_ex_end();
 
-	mml_log("%s task %p pipe %u pkt %p job %u",
-		__func__, task, pipe, pkt, task->job.jobid);
-
-	return cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task->pkts[pipe]);
+	return ret;
 }
 
 static void core_init_pipe(struct mml_task *task, u32 pipe)
@@ -1394,14 +1412,14 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)
 	queue_work(cfg->wq_config[0], &task->work_config[0]);
 }
 
-void mml_core_stop_racing(struct mml_frame_config *cfg)
+void mml_core_stop_racing(struct mml_frame_config *cfg, bool force)
 {
 	if (!cfg->path[0])
 		return;
 
-	mml_core_stop_racing_pipe(cfg, 0);
+	mml_core_stop_racing_pipe(cfg, 0, force);
 	if (cfg->dual)
-		mml_core_stop_racing_pipe(cfg, 1);
+		mml_core_stop_racing_pipe(cfg, 1, force);
 }
 
 static s32 check_label_idx(struct mml_task_reuse *reuse,

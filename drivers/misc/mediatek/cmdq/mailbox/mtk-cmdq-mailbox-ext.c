@@ -409,9 +409,15 @@ static void cmdq_thread_set_end(struct cmdq_thread *thread, dma_addr_t end)
 
 void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val)
 {
-	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
+	if (id >= CMDQ_GPR_CNT_ID) {
+		struct cmdq *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
 
-	writel(val, thread->base + CMDQ_THR_SPR + id * 4);
+		writel(val, cmdq->base + GCE_GPR_R0_START + (id - CMDQ_GPR_CNT_ID) * 4);
+	} else {
+		struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
+
+		writel(val, thread->base + CMDQ_THR_SPR + id * 4);
+	}
 }
 EXPORT_SYMBOL(cmdq_thread_set_spr);
 
@@ -2260,6 +2266,15 @@ phys_addr_t cmdq_mbox_get_dummy_reg(void *chan)
 }
 EXPORT_SYMBOL(cmdq_mbox_get_dummy_reg);
 
+phys_addr_t cmdq_mbox_get_spr_pa(void *chan, u8 spr)
+{
+	struct cmdq_thread *thread =
+		(struct cmdq_thread *)((struct mbox_chan *)chan)->con_priv;
+
+	return thread->gce_pa + CMDQ_THR_BASE + CMDQ_THR_SIZE * thread->idx +
+		CMDQ_THR_SPR + 4 * spr;
+}
+EXPORT_SYMBOL(cmdq_mbox_get_spr_pa);
 
 struct device *cmdq_mbox_get_dev(void *chan)
 {

@@ -207,9 +207,6 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 		/* debug */
 		cmdq_pkt_assign_command(pkt, MML_CMDQ_ROUND_SPR,
 			MML_ROUND_SPR_INIT + 0x10000);
-
-		/* clear next spr to avoid leave loop */
-		cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CLEAR);
 	}
 
 	if (task->config->info.src.secure)
@@ -347,7 +344,7 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 			sys->data->gpr[ccfg->pipe]);
 
 	/* do eoc to avoid task timeout during self-loop */
-	if (likely(!mml_racing_timeout))
+	if (likely(!mml_racing_timeout) && likely(!mml_racing_wdone_eoc))
 		cmdq_pkt_eoc(pkt, false);
 
 	/* reserve assign inst for jump addr */
@@ -878,7 +875,7 @@ static const struct mml_data mt6893_mml_data = {
 		[MML_CT_SYS] = &sys_comp_init,
 		[MML_CT_DL_IN] = &dl_comp_init,
 	},
-	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
 static const struct mml_data mt6983_mml_data = {
@@ -892,7 +889,7 @@ static const struct mml_data mt6983_mml_data = {
 		[MML_CT_DL_IN] = &dli_ddp_funcs,
 		[MML_CT_DL_OUT] = &dlo_ddp_funcs,
 	},
-	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
 static const struct mml_data mt6879_mml_data = {
@@ -901,7 +898,7 @@ static const struct mml_data mt6879_mml_data = {
 		[MML_CT_DL_IN] = &dl_comp_init,
 		[MML_CT_DL_OUT] = &dl_comp_init,
 	},
-	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
 const struct of_device_id mtk_mml_of_ids[] = {

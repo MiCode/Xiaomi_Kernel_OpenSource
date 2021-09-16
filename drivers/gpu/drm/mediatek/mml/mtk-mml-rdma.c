@@ -913,10 +913,16 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	gmcif_con = BIT(0) |		/* COMMAND_DIV */
-		    GENMASK(6, 4) |	/* READ_REQUEST_TYPE */
+		    GENMASK(6, 4);	/* READ_REQUEST_TYPE */
 		    BIT(16);		/* PRE_ULTRA_EN */
 	/* racing case also enable urgent/ultra to not blocking disp */
-	if (cfg->info.mode == MML_MODE_RACING) {
+	if (unlikely(mml_racing_urgent)) {
+		gmcif_con = gmcif_con ^ (BIT(16) | BIT(15));
+		for (i = 0; i < MML_FMT_PLANE(src->format); i++)
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + RDMA_URGENT_TH_CON_0 + i * 0x10,
+				0, U32_MAX);
+	} else if (cfg->info.mode == MML_MODE_RACING) {
 		gmcif_con |= BIT(12) |	/* ULTRA_EN */
 			     BIT(14);	/* URGENT_EN */
 

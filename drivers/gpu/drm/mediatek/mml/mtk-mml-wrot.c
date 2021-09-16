@@ -12,6 +12,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/math64.h>
+#include <soc/mediatek/smi.h>
 
 #include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
@@ -23,6 +24,7 @@
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
 #include "mtk-mml-sys.h"
+#include "mtk-mml-mmp.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -1727,6 +1729,9 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
 
+	if (unlikely(mml_racing_wdone_eoc))
+		cmdq_pkt_eoc(pkt, false);
+
 	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
 		if (task->config->dual && !task->config->disp_dual) {
 			/* 2 wrot to 1 disp: wait and trigger 1 wdone */
@@ -2128,20 +2133,14 @@ static int probe(struct platform_device *pdev)
 	priv->smi_larb_con = priv->comp.larb_base +
 		SMI_LARB_NON_SEC_CON + priv->comp.larb_port * 4;
 	mutex_init(&priv->sram_mutex);
-	mml_log("comp(wrot) %u smi larb con %#lx", priv->comp.id, priv->smi_larb_con);
 
-	if (of_property_read_u16(dev->of_node, "event_frame_done",
-				 &priv->event_eof))
-		dev_err(dev, "read event frame_done fail\n");
+	of_property_read_u16(dev->of_node, "event_frame_done",
+			     &priv->event_eof);
+	of_property_read_u16(dev->of_node, "event_pipe_sync",
+			     &priv->event_pipe_sync);
 
-	if (!of_property_read_u16(dev->of_node, "event_pipe_sync",
-				  &priv->event_pipe_sync))
-		mml_log("comp %u (wrot) pipe sync event %hu",
-			priv->comp.id, priv->event_pipe_sync);
-
+	/* get index of wrot by alias */
 	priv->idx = of_alias_get_id(dev->of_node, "mml_wrot");
-	mml_log("comp %u (wrot) idx %hhu",
-		priv->comp.id, priv->idx);
 
 	/* parse inline rot node for racing mode */
 	priv->irot_base[0] = mml_get_node_base_pa(pdev, "inlinerot", 0, &priv->irot_va[0]);
@@ -2167,6 +2166,11 @@ static int probe(struct platform_device *pdev)
 		ret = component_add(dev, &mml_comp_ops);
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
+
+	mml_log("wrot%d (%u) smi larb con %#lx event eof %hu sync %hu",
+		priv->idx, priv->comp.id, priv->smi_larb_con,
+		priv->event_eof,
+		priv->event_pipe_sync);
 
 	return ret;
 }
