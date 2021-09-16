@@ -95,9 +95,6 @@ static int lt_update_mask_loading(struct LT_USER_DATA *lt_data)
 
 			cpu_idle_time += cur_idle_time_i - lt_data->prev_idle_time[cpu];
 			cpu_wall_time += cur_wall_time_i - lt_data->prev_wall_time[cpu];
-
-			lt_data->prev_idle_time[cpu] = cur_idle_time_i;
-			lt_data->prev_wall_time[cpu] = cur_wall_time_i;
 		}
 	}
 
@@ -146,7 +143,7 @@ static void lt_work_fn(struct work_struct *ps_work)
 	lt_work = container_of(dwork, struct LT_WORK_DATA, s_work);
 	lt_user = lt_work->link2user;
 	if (lt_user) {
-		lt_user->fn(lt_update_loading(lt_user), lt_update_mask_loading(lt_user));
+		lt_user->fn(lt_update_mask_loading(lt_user), lt_update_loading(lt_user));
 
 		ktime_now = ktime_get();
 		do {

@@ -84,10 +84,10 @@ static void init_cpu_loading_value(void)
 	polling_sec = 10;
 	polling_ms = 10000;
 	over_threshold = 85;
-	specify_32bit_overThrhld = 100;
+	specify_32bit_overThrhld = 85;
 	specify_32bit_cpus = 0;
 	nr_cpus = num_possible_cpus();
-	under_threshold = 50;
+	under_threshold = 20;
 	uevent_enable = 1;
 	debug_enable = 0;
 	curr_cpu_loading = 0;
@@ -155,7 +155,7 @@ static bool sentuevent(const char *src)
 }
 
 /*update info*/
-static void calculat_loading_callback(int loading, int mask_loading)
+static void calculat_loading_callback(int mask_loading, int loading)
 {
 	cl_lock(__func__);
 
@@ -178,7 +178,6 @@ static void calculat_loading_callback(int loading, int mask_loading)
 		}
 	} else {
 		state = ULOAD_STATE_LOW;
-		sentuevent("lower=2");
 	}
 
 	show_debug("current state:%d\n", state);
