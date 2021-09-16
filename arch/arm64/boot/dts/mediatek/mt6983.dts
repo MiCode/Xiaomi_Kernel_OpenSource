@@ -3481,6 +3481,13 @@
 		clock-frequency = <13000000>;
 	};
 
+	hwrng: hwrng {
+		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
+	};
+
 	modem_temp_share@10018000 {
 		compatible = "mediatek,modem_temp_share";
 		reg = <0 0x10018000 0 0x1000>;
