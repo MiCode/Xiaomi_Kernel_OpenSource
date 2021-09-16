@@ -26,6 +26,24 @@
 
 #define TAG "core_ctl"
 
+struct ppm_table {
+	/* normal: cpu power data */
+	unsigned int static_pwr;
+	/* thermal: cpu power data */
+	unsigned int thermal_static_pwr;
+	unsigned int dyn_pwr;
+	unsigned int capacity;
+	/* cpu cacpacity divide cpu power data */
+	unsigned int efficiency;
+	unsigned int thermal_efficiency;
+};
+
+struct cluster_ppm_data {
+	bool init;
+	int opp_nr;
+	struct ppm_table *ppm_tbl;
+};
+
 struct cluster_data {
 	bool inited;
 	bool enable;
@@ -42,7 +60,7 @@ struct cluster_data {
 	unsigned int up_thres;
 	unsigned int down_thres;
 	unsigned int thermal_degree_thres;
-	unsigned int thermal_down_thres;
+	unsigned int thermal_up_thres;
 	unsigned int nr_not_preferred_cpus;
 	unsigned int need_cpus;
 	unsigned int new_need_cpus;
@@ -57,6 +75,7 @@ struct cluster_data {
 	struct kobject kobj;
 	s64 offline_throttle_ms;
 	s64 next_offline_time;
+	struct cluster_ppm_data ppm_data;
 };
 
 struct cpu_data {
@@ -743,6 +762,38 @@ static ssize_t show_enable(const struct cluster_data *state, char *buf)
 	return scnprintf(buf, PAGE_SIZE, "%u\n", state->enable);
 }
 
+static ssize_t show_ppm_state(const struct cluster_data *state, char *buf)
+{
+	ssize_t count = 0;
+	int opp_nr = state->ppm_data.opp_nr;
+	int i;
+
+	if (!state->ppm_data.init) {
+		count += snprintf(buf + count, PAGE_SIZE - count,
+				"ppm_data is not initialized\n");
+		return count;
+	}
+
+	count += snprintf(buf + count, PAGE_SIZE - count,
+			"OPP   CAP   STATIC_45   STATIC_65   DYNC   EFF_45   EFF_85\n");
+	for (i = 0; i < opp_nr; i++) {
+		count += snprintf(buf + count, PAGE_SIZE - count,
+				"%4d  %4u   %8u   %8u   %8u   %8u   %8u\n", i,
+				state->ppm_data.ppm_tbl[i].capacity,
+				state->ppm_data.ppm_tbl[i].static_pwr,
+				state->ppm_data.ppm_tbl[i].thermal_static_pwr,
+				state->ppm_data.ppm_tbl[i].dyn_pwr,
+				state->ppm_data.ppm_tbl[i].efficiency,
+				state->ppm_data.ppm_tbl[i].thermal_efficiency);
+	}
+	return count;
+}
+
+static ssize_t show_thermal_up_thres(const struct cluster_data *state, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", state->thermal_up_thres);
+}
+
 static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 {
 	struct cpu_data *c;
@@ -819,6 +870,8 @@ core_ctl_attr_rw(not_preferred);
 core_ctl_attr_rw(core_ctl_boost);
 core_ctl_attr_rw(enable);
 core_ctl_attr_ro(global_state);
+core_ctl_attr_ro(ppm_state);
+core_ctl_attr_ro(thermal_up_thres);
 
 static struct attribute *default_attrs[] = {
 	&min_cpus.attr,
@@ -829,6 +882,8 @@ static struct attribute *default_attrs[] = {
 	&core_ctl_boost.attr,
 	&enable.attr,
 	&global_state.attr,
+	&ppm_state.attr,
+	&thermal_up_thres.attr,
 	NULL
 };
 
@@ -1028,7 +1083,7 @@ static inline void core_ctl_main_algo(void)
 
 		sched_max_util_task(NULL, NULL, &max_util, NULL);
 		big_cluster = &cluster_state[num_clusters - 1];
-		prev_cluster = &cluster_state[big_cluster->cluster_id-1];
+		prev_cluster = &cluster_state[big_cluster->cluster_id - 1];
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 		big_cpu_ts = get_cpu_temp(big_cluster->first_cpu);
 #endif
@@ -1040,9 +1095,9 @@ static inline void core_ctl_main_algo(void)
 		 */
 		max_capacity = get_max_capacity(prev_cluster->cluster_id);
 		heaviest_thres = (unsigned int)
-			div64_u64((u64)big_cluster->down_thres * max_capacity, 100);
+			div64_u64((u64)prev_cluster->up_thres * max_capacity, 100);
 		thermal_heaviest_thres = (unsigned int)
-			div64_u64((u64)big_cluster->thermal_down_thres * max_capacity, 100);
+			div64_u64((u64)prev_cluster->thermal_up_thres * max_capacity, 100);
 
 		/* If CPU is thermal, use thermal threshold as heaviest threshold */
 		if (big_cpu_ts > big_cluster->thermal_degree_thres)
@@ -1401,6 +1456,8 @@ static struct cluster_data *find_cluster_by_first_cpu(unsigned int first_cpu)
 
 /* ==================== init section ======================== */
 
+static int ppm_data_init(struct cluster_data *cluster);
+
 static int cluster_init(const struct cpumask *mask)
 {
 	struct device *dev;
@@ -1409,11 +1466,11 @@ static int cluster_init(const struct cpumask *mask)
 	struct cpu_data *state;
 	unsigned int cpu;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
-
+	int ret = 0;
 
 	/* first_cpu is defined */
 	if (find_cluster_by_first_cpu(first_cpu))
-		return 0;
+		return ret;
 
 	dev = get_cpu_device(first_cpu);
 	if (!dev)
@@ -1464,11 +1521,15 @@ static int cluster_init(const struct cpumask *mask)
 
 	if (cluster->cluster_id == AB_CLUSTER_ID) {
 		cluster->thermal_degree_thres = 65000;
-		cluster->thermal_down_thres = 80;
+		cluster->thermal_up_thres = INT_MAX;
 	} else {
 		cluster->thermal_degree_thres = INT_MAX;
-		cluster->thermal_down_thres = INT_MAX;
+		cluster->thermal_up_thres = 80;
 	}
+
+	ret = ppm_data_init(cluster);
+	if (ret)
+		pr_info("initialize ppm data failed ret = %d", ret);
 
 	cluster->nr_not_preferred_cpus = 0;
 	spin_lock_init(&cluster->pending_lock);
@@ -1501,6 +1562,175 @@ static int cluster_init(const struct cpumask *mask)
 	return kobject_add(&cluster->kobj, &dev->kobj, "core_ctl");
 }
 
+static inline int get_opp_count(struct cpufreq_policy *policy)
+{
+	int opp_nr;
+	struct cpufreq_frequency_table *freq_pos;
+
+	cpufreq_for_each_entry_idx(freq_pos, policy->freq_table, opp_nr);
+	return opp_nr;
+}
+
+#define NORMAL_TEMP	45
+#define THERMAL_TEMP	85
+
+/*
+ * x1: BL cap
+ * y1: BL eff
+ * x2: B  cap
+ * y2, B  eff
+ */
+bool check_eff_precisely(unsigned int x1,
+			 unsigned int y1,
+			 unsigned int x2,
+			 unsigned int y2)
+{
+	unsigned int diff;
+	unsigned int new_y1 = 0;
+
+	diff = (unsigned int)div64_u64(x2 * 100, x1);
+	new_y1 = (unsigned int)div64_u64(y1 * diff, 100);
+	return y2 < new_y1;
+}
+
+static unsigned int find_turn_point(struct cluster_data *c1,
+				    struct cluster_data *c2,
+				    bool is_thermal)
+{
+	int i, j;
+	bool changed = false;
+	bool stop_going = false;
+	unsigned int turn_point = 0;
+
+	/* BLCPU */
+	for (i = 0; i < c1->ppm_data.opp_nr - 1; i++) {
+		changed = false;
+		/* BCPU */
+		for (j = c2->ppm_data.opp_nr - 1; j >= 0; j--) {
+			unsigned int c1_eff, c2_eff;
+
+			if (c2->ppm_data.ppm_tbl[j].capacity <
+					c1->ppm_data.ppm_tbl[i].capacity)
+				continue;
+
+			c1_eff = is_thermal ? c1->ppm_data.ppm_tbl[i].thermal_efficiency
+				: c1->ppm_data.ppm_tbl[i].efficiency;
+			c2_eff = is_thermal ? c2->ppm_data.ppm_tbl[j].thermal_efficiency
+				: c2->ppm_data.ppm_tbl[j].efficiency;
+			if (c2_eff < c1_eff ||
+					check_eff_precisely(
+						c1->ppm_data.ppm_tbl[i].capacity, c1_eff,
+						c2->ppm_data.ppm_tbl[j].capacity, c2_eff)) {
+				turn_point = c2->ppm_data.ppm_tbl[j].capacity;
+				changed = true;
+				/*
+				 * If lowest capacity of BCPU is more efficient than
+				 * any capacity of BLCPU, we should not need to find
+				 * further.
+				 */
+				if (j == c2->ppm_data.opp_nr - 1)
+					stop_going = true;
+			}
+			break;
+		}
+		if (!changed)
+			break;
+		if (stop_going)
+			break;
+	}
+	return turn_point;
+}
+
+static int ppm_data_init(struct cluster_data *cluster)
+{
+	struct cpufreq_policy *policy;
+	struct ppm_table *ppm_tbl;
+	struct em_perf_domain *pd;
+	struct em_perf_state *ps;
+	int opp_nr, first_cpu, i;
+	int cid = cluster->cluster_id;
+
+	first_cpu = cluster->first_cpu;
+	policy = cpufreq_cpu_get(first_cpu);
+	if (!policy) {
+		pr_info("%s: cpufreq policy %d is not found for cpu#%d",
+				TAG, first_cpu);
+		return -ENOMEM;
+	}
+
+	opp_nr = get_opp_count(policy);
+	ppm_tbl = kcalloc(opp_nr, sizeof(struct ppm_table), GFP_KERNEL);
+
+	cluster->ppm_data.ppm_tbl = ppm_tbl;
+	if (!cluster->ppm_data.ppm_tbl) {
+		pr_info("%s: Failed to allocate ppm_table for cluster %d",
+				TAG, cluster->cluster_id);
+		cpufreq_cpu_put(policy);
+		return -ENOMEM;
+	}
+
+	pd = em_cpu_get(first_cpu);
+
+	/* get power and capacity and calculate efficiency */
+
+	for (i = 0; i < opp_nr; i++) {
+		ps = &pd->table[opp_nr-1-i];
+		ppm_tbl[i].dyn_pwr = ps->power << 10;
+		ppm_tbl[i].static_pwr = mtk_get_leakage(first_cpu, i, NORMAL_TEMP);
+		ppm_tbl[i].thermal_static_pwr = mtk_get_leakage(first_cpu, i, THERMAL_TEMP);
+		ppm_tbl[i].capacity = pd_get_opp_capacity(first_cpu, i);
+		ppm_tbl[i].efficiency =
+			div64_u64(ppm_tbl[i].static_pwr + ppm_tbl[i].dyn_pwr,
+					ppm_tbl[i].capacity);
+		ppm_tbl[i].thermal_efficiency =
+			div64_u64(ppm_tbl[i].thermal_static_pwr + ppm_tbl[i].dyn_pwr,
+					ppm_tbl[i].capacity);
+	}
+
+	cluster->ppm_data.ppm_tbl = ppm_tbl;
+	cluster->ppm_data.opp_nr = opp_nr;
+	cluster->ppm_data.init = 1;
+	cpufreq_cpu_put(policy);
+
+	/* calculate turning point */
+	if (cid == AB_CLUSTER_ID) {
+		struct cluster_data *prev_cluster = &cluster_state[cid - 1];
+		unsigned int turn_point = 0;
+
+		turn_point = find_turn_point(prev_cluster, cluster, false);
+		/*
+		 * If the turn-point can't be figure out.
+		 * Use max capacity of BLCPU as turn-point
+		 */
+		if (!turn_point)
+			turn_point = prev_cluster->ppm_data.ppm_tbl[0].capacity;
+
+		if (turn_point) {
+			unsigned int val = 0;
+
+			val = div64_u64(turn_point * 100,
+				prev_cluster->ppm_data.ppm_tbl[0].capacity);
+			set_up_thres(prev_cluster, val);
+		}
+
+		/* thermal case */
+		turn_point = find_turn_point(prev_cluster, cluster, true);
+		if (!turn_point)
+			turn_point = prev_cluster->ppm_data.ppm_tbl[0].capacity;
+
+		if (turn_point) {
+			unsigned int val = 0;
+
+			val = div64_u64(turn_point * 100,
+				prev_cluster->ppm_data.ppm_tbl[0].capacity);
+			if (val <= 100)
+				prev_cluster->thermal_up_thres = val;
+			pr_info("thermal_turn_pint is %u, thermal_down_thre is change to %u",
+				 turn_point, val);
+		}
+	}
+	return 0;
+}
 
 static int __init core_ctl_init(void)
 {

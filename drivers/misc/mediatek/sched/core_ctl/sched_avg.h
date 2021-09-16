@@ -22,5 +22,9 @@ extern unsigned int sched_get_cpu_util_pct(unsigned int cpu);
 extern void set_over_threshold(unsigned int index, unsigned int val);
 unsigned int get_over_threshold(int index);
 unsigned int get_max_capacity(unsigned int cid);
+extern unsigned int mtk_get_leakage(unsigned int cpu,
+				    unsigned int opp,
+				    unsigned int temperature);
+extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 
 #endif /* _SCHED_AVG_H */

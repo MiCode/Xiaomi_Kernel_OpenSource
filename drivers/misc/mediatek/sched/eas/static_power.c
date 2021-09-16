@@ -79,6 +79,7 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 
 	return power;
 }
+EXPORT_SYMBOL_GPL(mtk_get_leakage);
 
 #if __LKG_PROCFS__
 #define PROC_FOPS_RW(name)                                              \
