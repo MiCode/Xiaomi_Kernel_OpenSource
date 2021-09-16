@@ -252,8 +252,15 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define OVL_LAYER_OFFSET (0x20)
 #define DISP_REG_OVL_LX_HDR_ADDR(n) (0xF44UL + 0x20 * (n))
 #define DISP_REG_OVL_LX_HDR_PITCH(n) (0xF48UL + 0x20 * (n))
-#define DISP_REG_OVL_ELX_HDR_ADDR(n) (0xFD0UL + 0x8 * (n))
-#define DISP_REG_OVL_ELX_HDR_PITCH(n) (0xFD4UL + 0x8 * (n))
+
+#define DISP_REG_OVL_ELX_HDR_ADDR(module, n) \
+	((module)->data->el_hdr_addr + \
+	(module)->data->el_hdr_addr_offset * (n))
+
+#define DISP_REG_OVL_ELX_HDR_PITCH(module, n) \
+	((module)->data->el_hdr_addr + 0x04UL + \
+	(module)->data->el_hdr_addr_offset * (n))
+
 #define DISP_REG_OVL_L0_OFFSET (0x03CUL)
 #define DISP_REG_OVL_L0_SRC_SIZE (0x038UL)
 #define DISP_REG_OVL_L0_PITCH (0x044UL)
@@ -412,6 +419,8 @@ struct compress_info {
 struct mtk_disp_ovl_data {
 	unsigned int addr;
 	unsigned int el_addr_offset;
+	unsigned int el_hdr_addr;
+	unsigned int el_hdr_addr_offset;
 	bool fmt_rgb565_is_0;
 	unsigned int fmt_uyvy;
 	unsigned int fmt_yuyv;
@@ -1404,7 +1413,7 @@ static void write_ext_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_ELX_HDR_ADDR(id),
+			comp->regs_pa + DISP_REG_OVL_ELX_HDR_ADDR(ovl, id),
 			addr, ~0);
 
 	if (ovl->data->is_support_34bits)
@@ -1940,7 +1949,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		write_ext_layer_hdr_addr_cmdq(comp, handle, id, lx_hdr_addr);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
+			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(ovl, id),
 			       lx_hdr_pitch, ~0);
 	} else {
 		if (mmsys_reg && aid_sel_offset) {
@@ -2190,7 +2199,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			comp->regs_pa + DISP_REG_OVL_EL_CLIP(id),
 			lx_clip, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
+			comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(ovl, id),
 			lx_hdr_pitch, ~0);
 	} else {
 		if (mmsys_reg && aid_sel_offset) {
@@ -2562,7 +2571,7 @@ static dma_addr_t read_ext_layer_hdr_addr(struct mtk_ddp_comp *comp, int id)
 		layer_addr += ((layer_addr & 0xf00) << 24);
 	}
 
-	layer_addr += readl(comp->regs + DISP_REG_OVL_ELX_HDR_ADDR(id));
+	layer_addr += readl(comp->regs + DISP_REG_OVL_ELX_HDR_ADDR(ovl, id));
 
 	return layer_addr;
 }
@@ -3138,6 +3147,7 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 	unsigned int compr_en = 0, pitch_msb, pitch;
 	void __iomem *baddr = comp->regs;
 	dma_addr_t addr;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
 	if (is_ext_layer) {
 		compr_en = DISP_REG_GET_FIELD(
@@ -3145,7 +3155,7 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 			baddr + DISP_REG_OVL_DATAPATH_EXT_CON);
 		addr = read_ext_layer_hdr_addr(comp, layer);
 		pitch_msb = readl(baddr + DISP_REG_OVL_EL_PITCH_MSB(layer));
-		pitch = readl(baddr + DISP_REG_OVL_ELX_HDR_PITCH(layer));
+		pitch = readl(baddr + DISP_REG_OVL_ELX_HDR_PITCH(ovl, layer));
 	} else {
 		compr_en =
 			DISP_REG_GET_FIELD(REG_FLD(1, layer + 4),
@@ -3577,6 +3587,8 @@ static int mtk_disp_ovl_remove(struct platform_device *pdev)
 static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT2701,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = false,
 	.fmt_uyvy = 9U << 12,
 	.fmt_yuyv = 8U << 12,
@@ -3593,6 +3605,8 @@ static const struct compress_info compr_info_mt6779  = {
 static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT6779,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3610,6 +3624,8 @@ static const struct compress_info compr_info_mt6885  = {
 static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3634,6 +3650,8 @@ static const struct compress_info compr_info_mt6983  = {
 static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x10,
+	.el_hdr_addr = 0xfb4,
+	.el_hdr_addr_offset = 0x10,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3660,6 +3678,8 @@ static const struct compress_info compr_info_mt6895  = {
 static const struct mtk_disp_ovl_data mt6895_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x10,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3685,6 +3705,8 @@ static const struct compress_info compr_info_mt6873  = {
 static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3709,6 +3731,8 @@ static const struct compress_info compr_info_mt6853  = {
 static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3733,6 +3757,8 @@ static const struct compress_info compr_info_mt6833  = {
 static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
@@ -3757,6 +3783,8 @@ static const struct compress_info compr_info_mt6879  = {
 static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x10,
+	.el_hdr_addr = 0xfb4,
+	.el_hdr_addr_offset = 0x10,
 	.fmt_rgb565_is_0 = true,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
@@ -3777,6 +3805,8 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT8173,
 	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
