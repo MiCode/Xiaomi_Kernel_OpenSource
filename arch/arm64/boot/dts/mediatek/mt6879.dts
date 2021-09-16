@@ -645,14 +645,6 @@
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
-		wifi_mem: wifi-reserve-memory {
-			compatible = "shared-dma-pool";
-			no-map;
-			size = <0 0xf20000>;
-			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x40000000 0 0x80000000>;
-		};
-
 		reserve-memory-vcp_share {
 			compatible = "mediatek,reserve-memory-vcp_share";
 			no-map;
@@ -4552,8 +4544,11 @@
 			reg = <0 0x18000000 0 0x700000>;
 			interrupts = <GIC_SPI 512 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 527 IRQ_TYPE_LEVEL_HIGH 0>;
-			memory-region = <&wifi_mem>;
 			flavor_bin = "a";
+			emi-addr = <0>;
+			emi-size = <0x1400000>;
+			emi-alignment = <0x1000000>;
+			emi-max-addr = <0xC0000000>;
 		};
 
 		mdpsys_config_clk: syscon@1f000000 {

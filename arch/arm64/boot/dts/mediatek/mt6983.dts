@@ -9834,7 +9834,7 @@
 		interrupts = <GIC_SPI 554 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_SPI 569 IRQ_TYPE_LEVEL_HIGH 0>;
 		emi-addr = <0>;
-		emi-size = <0xf20000>;
+		emi-size = <0x1400000>;
 		emi-alignment = <0x1000000>;
 		emi-max-addr = <0xC0000000>;
 	};
