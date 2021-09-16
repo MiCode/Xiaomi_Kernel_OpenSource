@@ -139,12 +139,21 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 
 	mode->mipi_pixel_rate = val;
 
+	val = 0;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_CUST_PIXEL_RATE,
+		para.u8, &len);
+
+	mode->cust_pixel_rate = val;
+
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO,
 		para.u8, &len);
 
 	mode->max_framerate = val;
 
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO,
 		para.u8, &len);

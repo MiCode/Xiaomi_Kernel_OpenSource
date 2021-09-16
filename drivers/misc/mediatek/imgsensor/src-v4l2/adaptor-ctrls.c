@@ -512,6 +512,9 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	case V4L2_CID_MTK_SENSOR_PIXEL_RATE:
 		ctrl->val = mode->mipi_pixel_rate;
 		break;
+	case V4L2_CID_MTK_CUST_SENSOR_PIXEL_RATE:
+		ctrl->val = mode->cust_pixel_rate;
+		break;
 	case V4L2_CID_MTK_STAGGER_INFO:
 	{
 		struct mtk_stagger_info *info = ctrl->p_new.p;
@@ -609,11 +612,13 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 			info->vblank = mode->fll - mode->height;
 			info->hblank = mode->llp - mode->width;
 			info->pixelrate = mode->mipi_pixel_rate;
+			info->cust_pixelrate = mode->cust_pixel_rate;
 		}
 
-		dev_info(ctx->dev, "%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d\n",
-				 __func__, info->scenario_id, info->fps, info->vblank,
-				 info->hblank, info->pixelrate);
+		dev_info(ctx->dev,
+				"%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d cust_pixel_rate: %d\n",
+				__func__, info->scenario_id, info->fps, info->vblank,
+				info->hblank, info->pixelrate, info->cust_pixelrate);
 	}
 		break;
 	default:
@@ -1170,7 +1175,7 @@ static const struct v4l2_ctrl_config cfg_max_fps = {
 	.step = 1,
 };
 
-static const struct v4l2_ctrl_config cust_mtkcam_pixel_rate = {
+static const struct v4l2_ctrl_config cfg_mtkcam_pixel_rate = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_MTK_SENSOR_PIXEL_RATE,
 	.name = "pixel rate",
@@ -1179,6 +1184,17 @@ static const struct v4l2_ctrl_config cust_mtkcam_pixel_rate = {
 	.max = 0x7fffffff,
 	.step = 1,
 };
+
+static const struct v4l2_ctrl_config cfg_mtkcam_cust_pixel_rate = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_CUST_SENSOR_PIXEL_RATE,
+	.name = "customized pixel rate",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0x7fffffff,
+	.step = 1,
+};
+
 
 static const struct v4l2_ctrl_config cfg_seamless_scenario = {
 	.ops = &ctrl_ops,
@@ -1325,7 +1341,11 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 				V4L2_CID_PIXEL_RATE, min, max, 1, def);
 
 	/* pixel rate for try control*/
-	v4l2_ctrl_new_custom(&ctx->ctrls, &cust_mtkcam_pixel_rate, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_pixel_rate, NULL);
+
+
+	/* pixel rate for special output timing*/
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_cust_pixel_rate, NULL);
 
 	/* hblank */
 	min = max = def = cur_mode->llp - cur_mode->width;

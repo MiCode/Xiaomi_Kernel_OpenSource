@@ -860,6 +860,22 @@ static int get_buffered_pixel_rate(struct seninf_ctx *ctx,
 					ctx->fps_n, ctx->fps_d, result);
 }
 
+static int get_customized_pixel_rate(struct seninf_ctx *ctx, struct v4l2_subdev *sd,
+			  s64 *result)
+{
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_MTK_CUST_SENSOR_PIXEL_RATE);
+	if (!ctrl) {
+		dev_info(ctx->dev, "no cust pixel rate in subdev %s\n", sd->name);
+		return -EINVAL;
+	}
+
+	*result = v4l2_ctrl_g_ctrl(ctrl);
+
+	return 0;
+}
+
 static int get_pixel_rate(struct seninf_ctx *ctx, struct v4l2_subdev *sd,
 			  s64 *result)
 {
@@ -920,9 +936,17 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		dev_info(ctx->dev, "failed to get vc\n");
 		return -1;
 	}
-	dev_info(ctx->dev, "%s pixel mode%d\n", __func__, vc->pixel_mode);
+	dev_info(ctx->dev,
+		"%s pixel mode %d customized_pixel_rate %lld, buffered_pixel_rate %lld mipi_pixel_rate %lld\n",
+		__func__,
+		vc->pixel_mode,
+		ctx->customized_pixel_rate,
+		ctx->buffered_pixel_rate,
+		ctx->mipi_pixel_rate);
 	//Use SensorPixelrate
-	if (ctx->buffered_pixel_rate)
+	if (ctx->customized_pixel_rate)
+		pixel_rate = ctx->customized_pixel_rate;
+	else if (ctx->buffered_pixel_rate)
 		pixel_rate = ctx->buffered_pixel_rate;
 	else if (ctx->mipi_pixel_rate)
 		pixel_rate = ctx->mipi_pixel_rate;
@@ -978,6 +1002,8 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	get_buffered_pixel_rate(ctx, ctx->sensor_sd,
 				ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
+
+	get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
 
 	get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
 

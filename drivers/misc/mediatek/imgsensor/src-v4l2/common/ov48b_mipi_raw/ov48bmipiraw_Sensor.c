@@ -273,8 +273,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 300,
 		.mipi_pixel_rate = 548000000,
 	},
-	.margin = 22,					/* sensor framelength & shutter margin */
-	.min_shutter = 4,				/* min shutter */
+	.margin = 14,					/* sensor framelength & shutter margin */
+	.min_shutter = 8,				/* min shutter */
 	.min_gain = BASEGAIN, /*1x gain*/
 	.max_gain = 15872, /*15.5x * 1024  gain*/
 	.min_gain_iso = 100,

@@ -38,6 +38,7 @@ struct sensor_mode {
 	u32 width;
 	u32 height;
 	u32 mipi_pixel_rate;
+	u32 cust_pixel_rate;
 	u32 max_framerate;
 	u32 pclk;
 	u64 linetime_in_ns;

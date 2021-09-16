@@ -112,6 +112,7 @@ struct seninf_ctx {
 	int num_data_lanes;
 	s64 mipi_pixel_rate;
 	s64 buffered_pixel_rate;
+	s64 customized_pixel_rate;
 
 	unsigned int is_4d1c:1;
 	unsigned int is_cphy:1;
