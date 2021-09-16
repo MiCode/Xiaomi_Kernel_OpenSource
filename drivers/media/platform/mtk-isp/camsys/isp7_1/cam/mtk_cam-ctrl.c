@@ -2089,8 +2089,8 @@ static void mtk_cam_handle_seamless_switch(struct mtk_cam_request_stream_data *s
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_device *cam = ctx->cam;
 
-	if ((s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE) &&
-	    (s_data->feature.raw_feature & MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK)) {
+	/* TODO: need to check && MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK */
+	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE) {
 		state_transition(&s_data->state, E_STATE_OUTER, E_STATE_CAMMUX_OUTER_CFG);
 		INIT_WORK(&s_data->seninf_s_fmt_work.work, mtk_cam_seamless_switch_work);
 		queue_work(cam->link_change_wq, &s_data->seninf_s_fmt_work.work);

@@ -432,12 +432,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 {
 	s64 prate = 0;
 	int width, height;
-	int ret;
 	struct device *dev = pipeline->raw->devs[pipeline->id];
-
-	ret = mtk_cam_raw_res_store(pipeline, res_user);
-	if (ret)
-		return 0;
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
 	res_cfg->frz_limit = 0;
@@ -525,16 +520,14 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 	res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
 
-	/* if the pipeline is streaming, pending the change */
+	ret = mtk_cam_raw_res_store(pipeline, res_user);
+	pipeline->feature_pending = res_user->raw_res.feature;
 	if (pipeline->subdev.entity.stream_count) {
+		/* if the pipeline is streaming, pending the change */
 		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported\n",
 			__func__, pipeline->id);
-		ret = mtk_cam_raw_res_store(pipeline, res_user);
-
 		return ret;
 	}
-
-	pipeline->feature_pending = res_user->raw_res.feature;
 
 	dev_dbg(dev,
 		"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
@@ -633,10 +626,19 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE:
 		res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
-		ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user,
-						     &res_cfg.sink_fmt);
+		ret = mtk_cam_raw_res_store(pipeline, res_user);
 		if (ret)
 			break;
+
+		ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user,
+						     &res_cfg.sink_fmt);
+		if (ret) {
+			ret = 0;
+			/* only corret the user's input, it may be request-based try and set fmt */
+			dev_dbg(dev, "%s:pipe(%d): no sink_fmt from user, not calc res\n",
+				__func__, pipeline->id);
+			break;
+		}
 
 		dev_dbg(dev, "%s:pipe(%d): res ctrl start\n", __func__,
 			pipeline->id);
@@ -646,14 +648,12 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 			break;
 
 		/* Will be removed with mtk_cam_req_update_ctrl */
-		if (!pipeline->subdev.entity.stream_count) {
-			pipeline->feature_pending_try = res_user->raw_res.feature;
-			dev_dbg(dev,
+		pipeline->feature_pending_try = res_user->raw_res.feature;
+		dev_dbg(dev,
 				"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x), feature_try(0x%x)\n",
 				__func__, pipeline->id, pipeline->subdev.entity.stream_count,
 				pipeline->feature_pending, pipeline->feature_active,
 				pipeline->feature_pending_try);
-		}
 
 		dev_dbg(dev, "%s:pipe(%d): res ctrl end\n", __func__,
 			pipeline->id);
