@@ -903,7 +903,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u64 ufo_dec_length_c = 0;
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
-	bool gmcif_con;
+	u32 gmcif_con;
 
 	if (cfg->alpharot)
 		alpharot = 1;
@@ -943,7 +943,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	gmcif_con = BIT(0) |		/* COMMAND_DIV */
-		    GENMASK(6, 4);	/* READ_REQUEST_TYPE */
+		    GENMASK(6, 4) |	/* READ_REQUEST_TYPE */
 		    BIT(16);		/* PRE_ULTRA_EN */
 	/* racing case also enable urgent/ultra to not blocking disp */
 	if (unlikely(mml_racing_urgent)) {
