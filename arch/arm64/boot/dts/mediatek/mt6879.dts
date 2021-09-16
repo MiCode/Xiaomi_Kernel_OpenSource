@@ -6285,9 +6285,9 @@
 
 	low_battery_throttling {
 		compatible = "mediatek,low_battery_throttling";
-		hv_thd_volt = <3400>;
-		lv1_thd_volt = <3250>;
-		lv2_thd_volt = <3100>;
+		hv_thd_volt = <3300>;
+		lv1_thd_volt = <3150>;
+		lv2_thd_volt = <3000>;
 	};
 
 	pbm: pbm {
