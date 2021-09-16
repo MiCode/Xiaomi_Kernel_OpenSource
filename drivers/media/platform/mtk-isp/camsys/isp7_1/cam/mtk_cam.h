@@ -75,6 +75,9 @@ struct mtk_raw_pipeline;
 
 #define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
 
+#define v4l2_subdev_format_request_fd(x) x->reserved[0]
+#define v4l2_frame_interval_which(x) x->reserved[0]
+
 struct mtk_cam_working_buf {
 	void *va;
 	dma_addr_t iova;
@@ -510,7 +513,7 @@ mtk_cam_img_wbuf_set_s_data(struct mtk_cam_img_working_buf_entry *buf_entry,
 
 static inline void
 mtk_cam_sv_wbuf_set_s_data(struct mtk_camsv_working_buf_entry *buf_entry,
-			   struct mtk_cam_request_stream_data *s_data)
+			struct mtk_cam_request_stream_data *s_data)
 {
 	buf_entry->s_data = s_data;
 }
@@ -759,6 +762,8 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
+struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
+					struct mtk_camsv_pipeline *pipe);
 int isp_composer_create_session(struct mtk_cam_ctx *ctx);
 void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 int PipeIDtoTGIDX(int pipe_id);

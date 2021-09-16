@@ -61,9 +61,6 @@ static int debug_dump_fbc;
 module_param(debug_dump_fbc, int, 0644);
 MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 
-#define v4l2_subdev_format_request_fd(x) x->reserved[0]
-#define v4l2_frame_interval_which(x) x->reserved[0]
-
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define MTK_CAMSYS_RES_IDXMASK		0xF0

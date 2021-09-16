@@ -1124,7 +1124,6 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_cam_set_meta_stats_info(dma_port, vaddr, pde_cfg);
 		break;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		/* TODO: support multiple vc and meta header  */
 #if PDAF_READY
 		sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
 			sizeof(struct mtk_cam_uapi_meta_camsv_stats_0);

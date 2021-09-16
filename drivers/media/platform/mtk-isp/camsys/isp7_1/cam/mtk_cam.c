@@ -545,7 +545,8 @@ STOP_SCAN:
 
 		/* Check whether all pipelines of single ctx are done */
 		req->done_status |= 1 << pipe_id;
-		if ((req->done_status & ctx->streaming_pipe) == ctx->streaming_pipe)
+		if ((req->done_status & ctx->streaming_pipe) ==
+			(req->pipe_used & ctx->streaming_pipe))
 			del_job = true;
 
 		if ((req->done_status & ctx->cam->streaming_pipe) ==
@@ -1340,81 +1341,93 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 	struct mtk_cam_resource *res_user;
 	struct v4l2_subdev *sd;
 	struct v4l2_mbus_framefmt *sink_fmt;
+	struct mtk_raw_pipeline *raw_pipeline;
 	int w, h;
 
 	dev_dbg(cam->dev, "%s:%s\n", __func__, req->req.debug_str);
 
 	for (pipe_id = 0; pipe_id < cam->max_stream_num; pipe_id++) {
-		if (req->pipe_used & (1 << pipe_id) &&
-		    (is_raw_subdev(pipe_id))) {
-			stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
-			sd = &cam->raw.pipelines[pipe_id].subdev;
-			pad = MTK_RAW_SINK;
-			if (stream_data->pad_fmt_update & 1 << MTK_RAW_SINK) {
-				/* update stream_data flag */
-				w = cam->raw.pipelines[pipe_id].cfg[MTK_RAW_SINK].mbus_fmt.width;
-				h = cam->raw.pipelines[pipe_id].cfg[MTK_RAW_SINK].mbus_fmt.height;
-				if (w != stream_data->pad_fmt[pad].format.width ||
-				    h != stream_data->pad_fmt[pad].format.height) {
-					dev_info(cam->dev,
-						 "%s:%s:pipe(%d):seq(%d):sink fmt change: (%d, %d) --> (%d, %d)\n",
-						 __func__, req->req.debug_str, pipe_id,
-						 stream_data->frame_seq_no,
-						 w, h,
-						 stream_data->pad_fmt[pad].format.width,
-						 stream_data->pad_fmt[pad].format.height);
-					stream_data->flags |=
-						MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE;
+		if (req->pipe_used & (1 << pipe_id)) {
+			if (is_raw_subdev(pipe_id)) {
+				stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
+				raw_pipeline = &cam->raw.pipelines[pipe_id];
+				sd = &raw_pipeline->subdev;
+				pad = MTK_RAW_SINK;
+				if (stream_data->pad_fmt_update & 1 << MTK_RAW_SINK) {
+					/* update stream_data flag */
+					w = raw_pipeline->cfg[MTK_RAW_SINK].mbus_fmt.width;
+					h = raw_pipeline->cfg[MTK_RAW_SINK].mbus_fmt.height;
+					if (w != stream_data->pad_fmt[pad].format.width ||
+						h != stream_data->pad_fmt[pad].format.height) {
+						dev_info(cam->dev,
+							 "%s:%s:pipe(%d):seq(%d):sink fmt change: (%d, %d) --> (%d, %d)\n",
+							 __func__, req->req.debug_str, pipe_id,
+							 stream_data->frame_seq_no,
+							 w, h,
+							 stream_data->pad_fmt[pad].format.width,
+							 stream_data->pad_fmt[pad].format.height);
+						stream_data->flags |=
+							MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE;
+					}
+
+					if (stream_data->feature.raw_feature &
+						MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
+						stream_data->seninf_fmt.format =
+							stream_data->pad_fmt[pad].format;
+						dev_info(cam->dev,
+							 "%s:%s:pipe(%d):seq(%d):pending sensor/seninf fmt change: (%d, %d, 0x%x)\n",
+							 __func__, req->req.debug_str, pipe_id,
+							 stream_data->frame_seq_no,
+							 stream_data->seninf_fmt.format.width,
+							 stream_data->seninf_fmt.format.height,
+							 stream_data->seninf_fmt.format.code);
+					}
 				}
 
-				if (stream_data->feature.raw_feature &
-				    MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
-					stream_data->seninf_fmt.format =
-						stream_data->pad_fmt[pad].format;
-					dev_info(cam->dev,
-						 "%s:%s:pipe(%d):seq(%d):pending sensor/seninf fmt change: (%d, %d, 0x%x)\n",
-						 __func__, req->req.debug_str, pipe_id,
-						 stream_data->frame_seq_no,
-						 stream_data->seninf_fmt.format.width,
-						 stream_data->seninf_fmt.format.height,
-						 stream_data->seninf_fmt.format.code);
+				/* Set MEDIA_PAD_FL_SINK pad's fmt */
+				for (pad = MTK_RAW_SINK_BEGIN;
+					 pad < MTK_RAW_SOURCE_BEGIN; pad++) {
+					if (stream_data->pad_fmt_update & 1 << pad) {
+						mtk_raw_call_pending_set_fmt
+							(sd,
+							 &stream_data->pad_fmt[pad]);
+					} else {
+						stream_data->pad_fmt[pad].format =
+							raw_pipeline->cfg[pad].mbus_fmt;
+					}
 				}
-			}
 
-			/* Set MEDIA_PAD_FL_SINK pad's fmt */
-			for (pad = MTK_RAW_SINK_BEGIN;
-			     pad < MTK_RAW_SOURCE_BEGIN; pad++) {
-				if (stream_data->pad_fmt_update & 1 << pad) {
-					mtk_raw_call_pending_set_fmt
-						(sd,
-						 &stream_data->pad_fmt[pad]);
-				} else {
-					stream_data->pad_fmt[pad].format =
-						cam->raw.pipelines[pipe_id].cfg[pad].mbus_fmt;
+				/* Trigger resource calculation and pdate resources */
+				if (stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE &&
+					mtk_cam_s_data_has_res(stream_data)) {
+					res_user = mtk_cam_s_data_get_res(stream_data);
+					sink_fmt = &stream_data->pad_fmt[MTK_RAW_SINK].format;
+					mtk_cam_raw_try_res_ctrl(raw_pipeline, res_user,
+								 &raw_pipeline->res_config,
+								 sink_fmt);
 				}
-			}
 
-			/* Trigger resource calculation and pdate resources */
-			if (stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE &&
-			    mtk_cam_s_data_has_res(stream_data)) {
-				res_user = mtk_cam_s_data_get_res(stream_data);
-				sink_fmt = &stream_data->pad_fmt[MTK_RAW_SINK].format;
-				mtk_cam_raw_try_res_ctrl(&cam->raw.pipelines[pipe_id], res_user,
-							 &cam->raw.pipelines[pipe_id].res_config,
-							 sink_fmt);
-			}
-
-			/* Set MEDIA_PAD_FL_SOURCE pad's fmt */
-			for (pad = MTK_RAW_SOURCE_BEGIN;
-			     pad < MTK_RAW_PIPELINE_PADS_NUM; pad++) {
-				if (stream_data->pad_fmt_update & 1 << pad) {
-					mtk_raw_call_pending_set_fmt
-						(sd,
-						 &stream_data->pad_fmt[pad]);
-				} else {
-					stream_data->pad_fmt[pad].format =
-						cam->raw.pipelines[pipe_id].cfg[pad].mbus_fmt;
+				/* Set MEDIA_PAD_FL_SOURCE pad's fmt */
+				for (pad = MTK_RAW_SOURCE_BEGIN;
+					 pad < MTK_RAW_PIPELINE_PADS_NUM; pad++) {
+					if (stream_data->pad_fmt_update & 1 << pad) {
+						mtk_raw_call_pending_set_fmt
+							(sd,
+							 &stream_data->pad_fmt[pad]);
+					} else {
+						stream_data->pad_fmt[pad].format =
+							raw_pipeline->cfg[pad].mbus_fmt;
+					}
 				}
+			} else if (is_camsv_subdev(pipe_id)) {
+				stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
+				sd = &cam->sv.pipelines[pipe_id - MTKCAM_SUBDEV_CAMSV_START].subdev;
+				for (pad = MTK_CAMSV_SOURCE_BEGIN;
+					 pad < MTK_CAMSV_PIPELINE_PADS_NUM; pad++)
+					if (stream_data->pad_fmt_update & (1 << pad))
+						mtk_camsv_call_pending_set_fmt
+							(sd,
+							 &stream_data->pad_fmt[pad]);
 			}
 		}
 	}
@@ -1606,6 +1619,12 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 							sd_width, sd_height);
 				if (ret)
 					return ret;
+			}
+			break;
+		case MTKCAM_IPI_CAMSV_MAIN_OUT:
+			if (req_stream_data->vdev_fmt_update) {
+				mtk_cam_sv_cal_cfg_info(
+					ctx, cfg_fmt, &req_stream_data->sv_frame_params);
 			}
 			break;
 		default:
@@ -2527,6 +2546,17 @@ struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 
 	return dev_get_drvdata(dev_slave);
 }
+
+struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
+					  struct mtk_camsv_pipeline *pipe)
+{
+	struct device *dev;
+
+	dev = cam->sv.devs[pipe->id - MTKCAM_SUBDEV_CAMSV_START];
+
+	return dev_get_drvdata(dev);
+}
+
 #if CCD_READY
 static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
 {
@@ -2983,7 +3013,13 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		pipe_id = ctx->sv_pipe[i]->id;
 		buf_entry = mtk_cam_sv_working_buf_get(ctx);
+		req->p_data[pipe_id].s_data_num = req->p_data[ctx->stream_id].s_data_num;
 		pipe_stream_data = mtk_cam_req_get_s_data(req, pipe_id, idx);
+		/* align master pipe's sequence number */
+		pipe_stream_data->frame_seq_no = ctx_stream_data->frame_seq_no;
+		pipe_stream_data->req = ctx_stream_data->req;
+		pipe_stream_data->pipe_id = ctx->sv_pipe[i]->id;
+		pipe_stream_data->ctx = ctx;
 		mtk_cam_sv_wbuf_set_s_data(buf_entry, pipe_stream_data);
 		spin_lock_irqsave(&ctx->sv_using_buffer_list[i].lock, flags);
 		list_add_tail(&buf_entry->list_entry,
@@ -3044,7 +3080,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			mtk_cam_req_work_init(frame_work, req_stream_data);
 
 			for (j = 0 ; j < MTKCAM_SUBDEV_MAX ; j++) {
-				if (1 << j & ctx->streaming_pipe) {
+				if ((1 << j & ctx->streaming_pipe) && (1 << j & req->pipe_used)) {
 					pipe_stream_data = mtk_cam_req_get_s_data(req, j, 0);
 					done_work = &pipe_stream_data->frame_done_work;
 					INIT_WORK(&done_work->work, mtk_cam_frame_done_work);
@@ -3868,7 +3904,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev;
 	struct mtk_raw_device *raw_dev;
-	struct mtk_raw_pipeline *pipe;
 	int i, j, ret;
 	int tgo_pxl_mode;
 	unsigned long flags;
@@ -3891,7 +3926,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	pipe = ctx->pipe;
 	if (ctx->used_raw_num) {
 		tgo_pxl_mode = ctx->pipe->res_config.tgo_pxl_mode;
 		/**
@@ -3920,7 +3954,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 		raw_dev = dev_get_drvdata(dev);
 
-		if (pipe->res_config.enable_hsf_raw) {
+		if (ctx->pipe->res_config.enable_hsf_raw) {
 			if (ctx->used_raw_num) {
 				initialize(raw_dev);
 				/* Stagger */
@@ -3973,8 +4007,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				if (used_pipes & (1 << i)) {
 					//HSF control
 					dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
-					pipe->res_config.enable_hsf_raw, pipe->id);
-					if (pipe->res_config.enable_hsf_raw) {
+					ctx->pipe->res_config.enable_hsf_raw, ctx->pipe->id);
+					if (ctx->pipe->res_config.enable_hsf_raw) {
 						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
 						goto fail_pipe_off;
 					}
@@ -4008,8 +4042,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				if (used_pipes & (1 << i)) {
 					//HSF control
 					dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
-					pipe->res_config.enable_hsf_raw, pipe->id);
-					if (pipe->res_config.enable_hsf_raw) {
+					ctx->pipe->res_config.enable_hsf_raw, ctx->pipe->id);
+					if (ctx->pipe->res_config.enable_hsf_raw) {
 						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
 						goto fail_pipe_off;
 					}
@@ -4050,20 +4084,21 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			}
 		} else if (!mtk_cam_is_m2m(ctx) &&
 					!mtk_cam_is_time_shared(ctx)) {
-			//HSF control
-			dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
-			pipe->res_config.enable_hsf_raw, pipe->id);
-			if (pipe->res_config.enable_hsf_raw) {
-				ret = mtk_cam_hsf_config(ctx, raw_dev->id);
-				if (ret != 0) {
-					dev_info(cam->dev, "Error:enabled_hsf fail\n");
-					goto fail_pipe_off;
-				}
+			if (mtk_cam_is_hsf(ctx)) {
+				//HSF control
+				dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
+					ctx->pipe->res_config.enable_hsf_raw, ctx->pipe->id);
+					ret = mtk_cam_hsf_config(ctx, raw_dev->id);
+					if (ret != 0) {
+						dev_info(cam->dev, "Error:enabled_hsf fail\n");
+						goto fail_pipe_off;
+					}
+
 			}
 #ifdef USING_HSF_SENSOR
-			if (pipe->res_config.enable_hsf_raw)
+			if (mtk_cam_is_hsf(ctx))
 				mtk_cam_seninf_set_secure(ctx->seninf, 1,
-				ctx->hsf->share_buf->chunk_hsfhandle);
+					ctx->hsf->share_buf->chunk_hsfhandle);
 			else
 				mtk_cam_seninf_set_secure(ctx->seninf, 0, 0);
 #endif
@@ -4116,7 +4151,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		ctx->composed_buffer_list.cnt = 0;
 		dev_dbg(cam->dev, "[M2M] reset processing_buffer_list.cnt & composed_buffer_list.cnt\n");
 	}
-	if (!pipe->res_config.enable_hsf_raw) {
+	if (!mtk_cam_is_hsf(ctx)) {
 		if (ctx->used_raw_num) {
 			initialize(raw_dev);
 			/* Stagger */
@@ -4223,7 +4258,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev;
 	struct mtk_raw_device *raw_dev;
-	struct mtk_raw_pipeline *pipe;
 	unsigned int i;
 	int ret;
 	unsigned long flags;
@@ -4266,8 +4300,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		return -EPERM;
 	}
     //HSF control
-	pipe = ctx->pipe;
-	if (pipe->res_config.enable_hsf_raw) {
+	if (mtk_cam_is_hsf(ctx)) {
 		ret = mtk_cam_hsf_uninit(ctx);
 		if (ret != 0) {
 			dev_dbg(cam->dev, "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",

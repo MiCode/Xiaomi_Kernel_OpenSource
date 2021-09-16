@@ -368,7 +368,8 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_raw_device *raw_dev;
-	int i, stream_id, val;
+	struct mtk_camsv_device *camsv_dev;
+	int i, j, stream_id, val;
 
 	dev_info(cam->dev, "%s, req->ctx_used:0x%x, req->ctx_link_update:0x%x\n",
 		__func__, req->ctx_used, req->ctx_link_update);
@@ -386,6 +387,17 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 
 			val = readl(raw_dev->base + REG_TG_VF_CON);
 			writel(val & (~TG_VFDATA_EN), raw_dev->base + REG_TG_VF_CON);
+
+			for (j = 0; j < ctx->used_sv_num; j++) {
+				camsv_dev = get_camsv_dev(ctx->cam, ctx->sv_pipe[j]);
+				val = readl(camsv_dev->base + REG_CAMSV_TG_VF_CON);
+				writel(val & (~CAMSV_TG_VF_CON_VFDATA_EN),
+					camsv_dev->base + REG_CAMSV_TG_VF_CON);
+				dev_info(cam->dev, "%s: pipe(%d): switch seninf: %s--> %s\n",
+					 __func__, ctx->sv_pipe[j]->id,
+					 req_stream_data->seninf_old->name,
+					 req_stream_data->seninf_new->name);
+			}
 
 			m_pipe = req_stream_data->seninf_new->entity.pipe;
 			req_stream_data->seninf_new->entity.stream_count++;
@@ -405,6 +417,19 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 			mtk_cam_seninf_set_camtg(req_stream_data->seninf_new,
 						 PAD_SRC_RAW0,
 						 PipeIDtoTGIDX(raw_dev->id));
+
+			for (j = 0; j < ctx->used_sv_num; j++) {
+				mtk_cam_seninf_set_pixelmode(req_stream_data->seninf_new,
+					ctx->sv_pipe[j]->seninf_padidx, 3);
+				mtk_cam_seninf_set_camtg(req_stream_data->seninf_new,
+					ctx->sv_pipe[j]->seninf_padidx,
+					ctx->sv_pipe[j]->cammux_id);
+				dev_info(cam->dev,
+					"%s: pipe(%d): seninf_set_camtg, pad(%d) camtg(%d)",
+					__func__, ctx->sv_pipe[j]->id,
+					ctx->sv_pipe[j]->seninf_padidx,
+					ctx->sv_pipe[j]->cammux_id);
+			}
 
 			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
 				 __func__, stream_id, req_stream_data->seninf_new->name);
@@ -429,6 +454,13 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 
 			val = readl(raw_dev->base + REG_TG_VF_CON);
 			writel(val | TG_VFDATA_EN, raw_dev->base + REG_TG_VF_CON);
+
+			for (j = 0; j < ctx->used_sv_num; j++) {
+				camsv_dev = get_camsv_dev(ctx->cam, ctx->sv_pipe[j]);
+				val = readl(camsv_dev->base + REG_CAMSV_TG_VF_CON);
+				writel(val | CAMSV_TG_VF_CON_VFDATA_EN,
+					camsv_dev->base + REG_CAMSV_TG_VF_CON);
+			}
 
 			if (ctx->prev_sensor || ctx->prev_seninf) {
 				ctx->prev_sensor = NULL;
@@ -2110,7 +2142,8 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request_stream_data *stream_data_change[MTKCAM_SUBDEV_MAX];
 	struct mtk_cam_seninf_mux_setting mux_settings[
 			MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
-	int i;
+	struct mtk_camsv_device *camsv_dev;
+	int i, j;
 
 	if (!(req->ctx_used & cam->streaming_ctx & req->ctx_link_update))
 		return;
@@ -2122,6 +2155,12 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 				enable_tg_db(raw_dev, 0);
 				enable_tg_db(raw_dev, 1);
 				toggle_db(raw_dev);
+
+				for (j = 0; j < cam->ctxs[i].used_sv_num; j++) {
+					camsv_dev = get_camsv_dev(cam, cam->ctxs[i].sv_pipe[j]);
+					mtk_cam_sv_toggle_tg_db(camsv_dev);
+					mtk_cam_sv_toggle_db(camsv_dev);
+				}
 			}
 		}
 		return;
@@ -2701,11 +2740,18 @@ void mtk_cam_sv_work(struct work_struct *work)
 
 	s_data = mtk_cam_req_work_get_s_data(sv_work);
 	ctx = mtk_cam_s_data_get_ctx(s_data);
-	seq_no = s_data->frame_seq_no;
-	base_addr = s_data->sv_frame_params.img_out.buf[0][0].iova;
 	dev_sv = ctx->cam->sv.devs[s_data->pipe_id - MTKCAM_SUBDEV_CAMSV_START];
 	camsv_dev = dev_get_drvdata(dev_sv);
-	mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+
+	if (s_data->req->pipe_used & (1 << s_data->pipe_id)) {
+		seq_no = s_data->frame_seq_no;
+		base_addr = s_data->sv_frame_params.img_out.buf[0][0].iova;
+		mtk_cam_sv_setup_cfg_info(camsv_dev, s_data);
+		mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+		mtk_cam_sv_vf_on(camsv_dev, 1);
+	} else {
+		mtk_cam_sv_vf_on(camsv_dev, 0);
+	}
 }
 
 static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
