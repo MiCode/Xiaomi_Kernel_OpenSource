@@ -637,6 +637,12 @@ static int mtu3_get_ep_type(struct usb_descriptor_header **f_desc)
 		} else if (int_class == 0xff && int_subclass == 0x42
 			&& int_protocol == 0x1) {
 			return USB_TYPE_ADB;
+		} else if (int_class == 0x2 && int_subclass == 0x2
+			&& int_protocol == 0xff) {
+			return USB_TYPE_RNDIS;
+		} else if (int_class == 0xe0 && int_subclass == 0x1
+			&& int_protocol == 0x3) {
+			return USB_TYPE_RNDIS;
 		}
 	}
 
@@ -719,6 +725,10 @@ static void mtu3_req_complete_boost(void *unused, struct mtu3_request *mreq)
 	switch (type) {
 	case USB_TYPE_MTP:
 		if (req->actual >= 8192)
+			usb_boost();
+		break;
+	case USB_TYPE_RNDIS:
+		if (mep->is_in && mep->type == USB_ENDPOINT_XFER_BULK)
 			usb_boost();
 		break;
 	default:
