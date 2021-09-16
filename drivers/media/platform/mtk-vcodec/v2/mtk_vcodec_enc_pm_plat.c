@@ -20,7 +20,7 @@
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include "vcodec_dvfs.h"
-#define STD_VENC_FREQ 273
+#define STD_VENC_FREQ 250
 #define STD_LUMA_BW 100L
 #define STD_CHROMA_BW 50L
 #endif

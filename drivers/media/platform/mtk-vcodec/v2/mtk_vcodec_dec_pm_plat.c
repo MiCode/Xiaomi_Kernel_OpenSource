@@ -17,7 +17,7 @@
 #if DEC_DVFS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
-#define STD_VDEC_FREQ 249
+#define STD_VDEC_FREQ 218
 #endif
 
 #define VDEC_DRV_UFO_ON (1 << 0)
