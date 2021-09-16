@@ -43,6 +43,7 @@
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-hsf.h"
+#include "mtk_cam-trace.h"
 
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
@@ -2041,6 +2042,8 @@ static void mtk_cam_req_queue(struct media_request *req)
 	cam_req->flags = 0;
 	cam_req->ctx_used = 0;
 
+	mtk_cam_systrace_begin_func();
+
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
 
@@ -2050,6 +2053,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 				     &cam->pending_job_list,
 				     "pending_job_list")) {
 		spin_unlock_irqrestore(&cam->pending_job_lock, flags);
+		mtk_cam_systrace_end();
 		return;
 	}
 
@@ -2064,6 +2068,8 @@ static void mtk_cam_req_queue(struct media_request *req)
 	mutex_lock(&cam->op_lock);
 	mtk_cam_dev_req_try_queue(cam);
 	mutex_unlock(&cam->op_lock);
+
+	mtk_cam_systrace_end();
 }
 
 static int mtk_cam_link_notify(struct media_link *link, u32 flags,
@@ -2483,6 +2489,8 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		return -EINVAL;
 
 	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
+		mtk_cam_systrace_begin("ipi_frame_ack:%d", ipi_msg->cookie.frame_no);
+
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 
 		if (mtk_cam_is_m2m(ctx)) {
@@ -2509,12 +2517,14 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		/* get from using list */
 		if (list_empty(&ctx->using_buffer_list.list)) {
 			spin_unlock(&ctx->using_buffer_list.lock);
+			mtk_cam_systrace_end();
 			return -EINVAL;
 		}
 
 		if (ctx->used_mraw_num > 0
 			&& list_empty(&ctx->mraw_using_buffer_list.list)) {
 			spin_unlock(&ctx->using_buffer_list.lock);
+			mtk_cam_systrace_end();
 			return -EINVAL;
 		}
 
@@ -2530,6 +2540,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			dev_dbg(dev, "ctx:%d no req for ack frame_num:%d\n",
 				ctx->stream_id, ctx->composed_frame_seq_no);
 			spin_unlock(&ctx->using_buffer_list.lock);
+			mtk_cam_systrace_end();
 			return -EINVAL;
 		}
 
@@ -2624,6 +2635,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			dev = mtk_cam_find_raw_dev(cam, ctx->pipe->enabled_raw);
 			if (!dev) {
 				dev_dbg(dev, "frm#1 raw device not found\n");
+				mtk_cam_systrace_end();
 				return -EINVAL;
 			}
 
@@ -2646,6 +2658,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 					ctx->mraw_pipe[i]->enabled_mraw);
 				if (!dev) {
 					dev_info(dev, "frm#1 mraw device not found\n");
+					mtk_cam_systrace_end();
 					return -EINVAL;
 				}
 				mraw_dev = dev_get_drvdata(dev);
@@ -2658,6 +2671,8 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			s_data->timestamp = ktime_get_boottime_ns();
 			s_data->timestamp_mono = ktime_get_ns();
 			s_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
+
+			mtk_cam_systrace_end();
 			return 0;
 		}
 		spin_lock_irqsave(&ctx->composed_buffer_list.lock,
@@ -2681,6 +2696,8 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		}
 
 		spin_unlock(&ctx->using_buffer_list.lock);
+
+		mtk_cam_systrace_end();
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		complete(&ctx->session_complete);
@@ -2859,10 +2876,12 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mtk_cam_dev_config(ctx, true, false);
 
 	if (ctx->rpmsg_dev) {
+		mtk_cam_systrace_begin("ipi_cmd_frame:%d", req_stream_data->frame_seq_no);
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
 		dev_info(cam->dev, "rpmsg_send id: %d, ctx:%d, req:%d\n",
 			event.cmd_id, session->session_id,
 			req_stream_data->frame_seq_no);
+		mtk_cam_systrace_end();
 	} else {
 		dev_dbg(cam->dev, "%s: rpmsg_dev not exist: %d, ctx:%d, req:%d\n",
 			__func__, event.cmd_id, session->session_id,

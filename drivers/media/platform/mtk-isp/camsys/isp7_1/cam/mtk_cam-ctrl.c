@@ -22,6 +22,7 @@
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
+#include "mtk_cam-trace.h"
 #include "imgsys/mtk_imgsys-cmdq-ext.h"
 
 #include "frame_sync_camsys.h"
@@ -3210,6 +3211,9 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 		/* raw's CQ done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
+			mtk_cam_systrace_begin_frame("cq_done", ctx->stream_id,
+				irq_info->frame_inner_idx);
+
 			if (mtk_cam_is_m2m(ctx)) {
 				mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 				mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
@@ -3217,6 +3221,8 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 				if (mtk_camsys_is_all_cq_done(ctx, raw_dev->id))
 					mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
 			}
+
+			mtk_cam_systrace_end();
 		}
 		/* raw's subsample sensor setting */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET))
@@ -3224,20 +3230,31 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 		/* raw's DMA done, we only allow AFO done here */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE)) {
+			mtk_cam_systrace_begin_frame("meta1_done", ctx->stream_id,
+				irq_info->frame_inner_idx);
 			mtk_cam_meta1_done(ctx, ctx->dequeued_frame_seq_no, ctx->stream_id);
+			mtk_cam_systrace_end();
 		}
 
 		/* raw's SW done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+			mtk_cam_systrace_begin_frame("sw_p1_done", ctx->stream_id,
+					irq_info->frame_inner_idx);
+
 			if (mtk_cam_is_m2m(ctx)) {
 				mtk_camsys_m2m_frame_done(ctx, irq_info->frame_inner_idx,
 					ctx->stream_id);
 			} else
 				mtk_camsys_frame_done(ctx, ctx->dequeued_frame_seq_no,
 					ctx->stream_id);
+
+			mtk_cam_systrace_end();
 		}
 		/* raw's SOF */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+			mtk_cam_systrace_begin_frame("sof", ctx->stream_id,
+				irq_info->frame_inner_idx);
+
 			if (mtk_cam_is_stagger(ctx)) {
 				dev_dbg(raw_dev->dev, "[stagger] last frame_start\n");
 				mtk_cam_hdr_last_frame_start(raw_dev, ctx,
@@ -3246,6 +3263,8 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 				mtk_camsys_raw_frame_start(raw_dev, ctx,
 						  irq_info->frame_inner_idx);
 			}
+
+			mtk_cam_systrace_end();
 		}
 		break;
 	case MTK_CAMSYS_ENGINE_MRAW_TAG:
@@ -3301,23 +3320,38 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 
 			// first exposure camsv's SOF
 			if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+				mtk_cam_systrace_begin_frame("sof", ctx->stream_id,
+						irq_info->frame_inner_idx);
+
 				if (camsv_dev->pipeline->exp_order == 0)
 					mtk_camsys_raw_frame_start(raw_dev, ctx,
 						   irq_info->frame_inner_idx);
 				else if (camsv_dev->pipeline->exp_order == 2)
 					mtk_cam_hdr_last_frame_start(raw_dev, ctx,
 						   irq_info->frame_inner_idx);
+
+				mtk_cam_systrace_end();
 			}
 			// time sharing - camsv write DRAM mode
 			if (camsv_dev->pipeline->hw_scen &
 				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M)) {
 				if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
+					mtk_cam_systrace_begin_frame("sw_p1_done", ctx->stream_id,
+					irq_info->frame_inner_idx);
+
 					mtk_camsys_ts_sv_done(ctx, irq_info->frame_inner_idx);
 					mtk_camsys_ts_raw_try_set(
 						raw_dev, ctx, ctx->dequeued_frame_seq_no + 1);
+
+					mtk_cam_systrace_end();
 				}
 				if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START)) {
+					mtk_cam_systrace_begin_frame("sof", ctx->stream_id,
+						irq_info->frame_inner_idx);
+
 					mtk_camsys_ts_frame_start(ctx, irq_info->frame_inner_idx);
+
+					mtk_cam_systrace_end();
 				}
 			}
 		} else {
@@ -3339,12 +3373,19 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 					break;
 				}
 				seq = ctx->sv_dequeued_frame_seq_no[sv_dev_index];
+				mtk_cam_systrace_begin_frame("sw_p1_done", ctx->stream_id,
+					irq_info->frame_inner_idx);
 				mtk_camsys_frame_done(ctx, seq, stream_id);
+				mtk_cam_systrace_end();
 			}
 			/* camsv's SOF */
-			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
+			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START)) {
+				mtk_cam_systrace_begin_frame("sof", ctx->stream_id,
+					irq_info->frame_inner_idx);
 				mtk_camsys_camsv_frame_start(camsv_dev, ctx,
 					irq_info->frame_inner_idx);
+				mtk_cam_systrace_end();
+			}
 		}
 		break;
 	case MTK_CAMSYS_ENGINE_SENINF_TAG:
