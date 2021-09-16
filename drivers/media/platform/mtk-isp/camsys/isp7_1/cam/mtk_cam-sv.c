@@ -546,6 +546,11 @@ static const char *sv_capture_queue_names[CAMSV_PIPELINE_NUM][MTK_CAMSV_TOTAL_CA
 	{"mtk-cam camsv-15 main-stream"},
 };
 
+static int reset_msgfifo(struct mtk_camsv_device *dev)
+{
+	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
+}
+
 void sv_reset(struct mtk_camsv_device *dev)
 {
 	unsigned long end = jiffies + msecs_to_jiffies(100);
@@ -1451,6 +1456,7 @@ int mtk_cam_sv_dev_config(
 
 	/* reset enqueued status */
 	camsv_dev->is_enqueued = 0;
+	reset_msgfifo(camsv_dev);
 
 	mtk_cam_sv_tg_config(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_top_config(camsv_dev, &cfg_in_param);
@@ -1763,10 +1769,8 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	unsigned int drop_status, imgo_err_status, imgo_overr_status;
 	unsigned int fbc_imgo_status, imgo_addr;
 	unsigned int tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg;
-	unsigned long flags;
-	int ret;
+	int wake_thread = 0;
 
-	spin_lock_irqsave(&camsv_dev->spinlock_irq, flags);
 	irq_status	= readl_relaxed(camsv_dev->base + REG_CAMSV_INT_STATUS);
 	tg_timestamp = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_TIME_STAMP);
 	dequeued_imgo_seq_no =
@@ -1785,7 +1789,6 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_TG_VF_CON);
 	tg_path_cfg =
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_TG_PATH_CFG);
-	spin_unlock_irqrestore(&camsv_dev->spinlock_irq, flags);
 
 	err_status = irq_status & INT_ST_MASK_CAMSV_ERR;
 	imgo_err_status = irq_status & CAMSV_INT_DMA_ERR_ST;
@@ -1819,13 +1822,21 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		irq_info.irq_type |= 1<<CAMSYS_IRQ_FRAME_START;
 		camsv_dev->sof_count++;
 	}
-	/* inform interrupt information to camsys controller */
-	if ((irq_status & CAMSV_INT_TG_SOF_INT_ST) ||
-		(irq_status & CAMSV_INT_SW_PASS1_DON_ST)) {
-		ret = mtk_camsys_isr_event(camsv_dev->cam, &irq_info);
-		if (ret)
-			goto ctx_not_found;
+
+	if (irq_info.irq_type) {
+		int len;
+
+		if (unlikely(kfifo_avail(&camsv_dev->msg_fifo) < sizeof(irq_info))) {
+			dev_info_ratelimited(dev, "msg fifo is full\n");
+			goto no_msgfifo;
+		}
+
+		len = kfifo_in(&camsv_dev->msg_fifo, &irq_info, sizeof(irq_info));
+		WARN_ON(len != sizeof(irq_info));
+
+		wake_thread = 1;
 	}
+
 	/* Check ISP error status */
 	if (err_status) {
 		/* TODO: use work queue to dump debug log when error occurs */
@@ -1838,7 +1849,25 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 			tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
 		camsv_irq_handle_err(camsv_dev, dequeued_imgo_seq_no_inner);
 	}
-ctx_not_found:
+
+no_msgfifo:
+
+	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
+{
+	struct mtk_camsv_device *camsv_dev = (struct mtk_camsv_device *)data;
+	struct mtk_camsys_irq_info irq_info;
+
+	while (kfifo_len(&camsv_dev->msg_fifo) >= sizeof(irq_info)) {
+		int len = kfifo_out(&camsv_dev->msg_fifo, &irq_info, sizeof(irq_info));
+
+		WARN_ON(len != sizeof(irq_info));
+
+		/* inform interrupt information to camsys controller */
+		mtk_camsys_isr_event(camsv_dev->cam, &irq_info);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -1970,7 +1999,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	unsigned int i;
-	int irq, clks, ret;
+	int clks, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
 						       &sv->id);
@@ -2021,19 +2050,23 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "camsv, map_addr(inner)=0x%pK\n", sv->base_inner);
 
-	irq = platform_get_irq(pdev, 0);
-	if (!irq) {
+	sv->irq = platform_get_irq(pdev, 0);
+	if (!sv->irq) {
 		dev_dbg(dev, "failed to get irq\n");
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(dev, irq, mtk_irq_camsv, 0,
-				dev_name(dev), sv);
+	ret = devm_request_threaded_irq(dev, sv->irq,
+					mtk_irq_camsv,
+					mtk_thread_irq_camsv,
+					0, dev_name(dev), sv);
 	if (ret) {
-		dev_dbg(dev, "failed to request irq=%d\n", irq);
+		dev_dbg(dev, "failed to request irq=%d\n", sv->irq);
 		return ret;
 	}
-	dev_dbg(dev, "registered irq=%d\n", irq);
+	dev_dbg(dev, "registered irq=%d\n", sv->irq);
+
+	disable_irq(sv->irq);
 
 	clks  = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
@@ -2168,11 +2201,16 @@ static int mtk_camsv_probe(struct platform_device *pdev)
 	camsv_dev->dev = dev;
 	dev_set_drvdata(dev, camsv_dev);
 
-	spin_lock_init(&camsv_dev->spinlock_irq);
-
 	ret = mtk_camsv_of_probe(pdev, camsv_dev);
 	if (ret)
 		return ret;
+
+	camsv_dev->fifo_size =
+		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
+	camsv_dev->msg_buffer = devm_kzalloc(dev, camsv_dev->fifo_size,
+					     GFP_KERNEL);
+	if (!camsv_dev->msg_buffer)
+		return -ENOMEM;
 
 	pm_runtime_enable(dev);
 
@@ -2201,6 +2239,8 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
 
+	disable_irq(camsv_dev->irq);
+
 	return 0;
 }
 
@@ -2208,6 +2248,13 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 {
 	struct mtk_camsv_device *camsv_dev = dev_get_drvdata(dev);
 	int i, ret;
+
+	/* reset_msgfifo before enable_irq */
+	ret = reset_msgfifo(camsv_dev);
+	if (ret)
+		return ret;
+
+	enable_irq(camsv_dev->irq);
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
