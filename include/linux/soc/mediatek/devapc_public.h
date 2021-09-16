@@ -37,6 +37,7 @@ void dump_dbg_info(void);
 void register_devapc_vio_callback(struct devapc_vio_callbacks *viocb);
 void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size);
 void clkchk_devapc_dump(void);
+void cmdq_util_devapc_dump(void);
 
 void __attribute__((weak)) register_devapc_vio_callback(struct devapc_vio_callbacks *viocb)
 {
