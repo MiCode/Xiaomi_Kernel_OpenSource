@@ -3615,7 +3615,7 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 	dvalue = reg_to_current(gauge, reg_value);
 
 	/* Auto adjust value */
-	if (r_fg_value != priv->default_r_fg)
+	if (r_fg_value != priv->default_r_fg && r_fg_value != 0)
 		dvalue = (dvalue * priv->default_r_fg) / r_fg_value;
 
 	dvalue = ((dvalue * car_tune_value) / 1000);
