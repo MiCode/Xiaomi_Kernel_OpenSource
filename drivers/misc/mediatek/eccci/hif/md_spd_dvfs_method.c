@@ -300,6 +300,8 @@ static void spd_qos_method(u64 dl_speed[], u32 dl_num, u64 ul_speed[], u32 ul_nu
 	u64 dl_spd = 0ULL, ul_spd = 0ULL;
 	int new_idx, ul_change = 0, dl_change = 0;
 
+	return;
+
 	for (i = 0; i < dl_num; i++)
 		dl_spd += dl_speed[i];
 	for (i = 0; i < ul_num; i++)

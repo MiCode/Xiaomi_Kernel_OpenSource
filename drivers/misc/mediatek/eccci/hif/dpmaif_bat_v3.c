@@ -682,6 +682,26 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 	return 0;
 }
 
+static void bat_affinity_rta(u32 push_cpus, int cpu_nr)
+{
+	struct cpumask tmask;
+	int i, ret;
+
+	cpumask_clear(&tmask);
+
+	for (i = 0; i < cpu_nr; i++) {
+		if (push_cpus & (1 << i))
+			cpumask_set_cpu(i, &tmask);
+	}
+
+	if (dpmaif_ctrl->bat_alloc_thread) {
+		ret = set_cpus_allowed_ptr(dpmaif_ctrl->bat_alloc_thread, &tmask);
+		CCCI_NORMAL_LOG(-1, TAG,
+			"[%s] bat_alloc_thread(0x%X): %d\n",
+			__func__, push_cpus, ret);
+	}
+}
+
 static int ccci_dpmaif_create_bat_thread(void)
 {
 	init_waitqueue_head(&dpmaif_ctrl->bat_alloc_wq);
@@ -703,6 +723,8 @@ static int ccci_dpmaif_create_bat_thread(void)
 
 		return -1;
 	}
+
+	bat_affinity_rta(0x40, 8);
 
 	return 0;
 }

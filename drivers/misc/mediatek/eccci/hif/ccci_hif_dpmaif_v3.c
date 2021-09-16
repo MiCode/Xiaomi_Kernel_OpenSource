@@ -3142,7 +3142,7 @@ static int dpmaif_start(unsigned char hif_id)
 
 	atomic_set(&s_tx_busy_assert_on, 0);
 
-	dpmaif_affinity_rta(0x02, 0x04, 8);
+	dpmaif_affinity_rta(0x02, 0x10, 8);
 
 	return 0;
 }
