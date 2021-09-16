@@ -498,9 +498,13 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	act_win_x_start = aal_hist_left_start - tile->in.xs;
 	act_win_x_end = tile->out.xe - tile->in.xs;
 	tile_pxl_x_start = tile->in.xs - aal_frm->in_crop_xs;
-	tile_pxl_x_end = tile->in.xe;
+	tile_pxl_x_end = tile->in.xe - aal_frm->in_crop_xs;
 
 	last_tile_x_flag = (tile->in.xe+1 >= src_frame_width) ? 1:0;
+
+	mml_pq_msg("%s %d: [tile_pxl] [xs, xe] = [%d, %d], in_crop_xs[%d]",
+			__func__, idx, tile_pxl_x_start, tile_pxl_x_end,
+			aal_frm->in_crop_xs);
 
 	act_win_y_start = 0;
 	act_win_y_end = tile->in.ye - tile->in.ys;
