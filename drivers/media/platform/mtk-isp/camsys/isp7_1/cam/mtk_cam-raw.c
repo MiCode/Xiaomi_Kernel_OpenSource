@@ -670,7 +670,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		ret = 0;
 		break;
 	case V4L2_CID_MTK_CAM_FEATURE:
-		pipeline->feature_pending_try = ctrl->val;
+		pipeline->feature_pending_try = *ctrl->p_new.p_s64;
 		dev_dbg(dev,
 			"%s:pipe(%d): feature_pending_try(0x%x)\n",
 			__func__, pipeline->id,
@@ -719,7 +719,7 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
 		break;
 	case V4L2_CID_MTK_CAM_FEATURE:
-		pipeline->feature_pending = ctrl->val;
+		pipeline->feature_pending = *ctrl->p_new.p_s64;
 
 		dev_dbg(dev,
 			"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x), feature_try(0x%x)\n",
@@ -985,7 +985,7 @@ static const struct v4l2_ctrl_config mtk_feature = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_FEATURE,
 	.name = "Mediatek camsys feature",
-	.type = V4L2_CTRL_TYPE_INTEGER,
+	.type = V4L2_CTRL_TYPE_INTEGER64,
 	.min = 0,
 	.max = RAW_FUNCTION_END,
 	.step = 1,

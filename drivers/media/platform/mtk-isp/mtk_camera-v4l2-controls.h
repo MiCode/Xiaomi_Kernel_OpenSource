@@ -182,7 +182,7 @@ struct mtk_cam_resource_sensor {
  *
  */
 struct mtk_cam_resource_raw {
-	__u32	feature;
+	__s64	feature;
 	__u16	strategy;
 	__u8	raw_max;
 	__u8	raw_min;

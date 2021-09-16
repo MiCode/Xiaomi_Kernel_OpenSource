@@ -1438,7 +1438,7 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 				   struct mtk_cam_request_stream_data *s_data)
 {
-	int raw_fut_pre, raw_fut_pre_try, raw_fut_cur_try;
+	s64 raw_fut_pre, raw_fut_pre_try, raw_fut_cur_try;
 	char *debug_str = mtk_cam_s_data_get_dbg_str(s_data);
 
 	raw_fut_pre = raw_pipe->feature_pending;
