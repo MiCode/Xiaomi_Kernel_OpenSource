@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/slab.h>
+#include <linux/kref.h>
 #include "mtk_heap.h"
 #include "mtk-hcp_isp71.h"
 
@@ -333,6 +334,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev)
 				dma_buf_fd(mblock[id].d_buf,
 				O_RDWR | O_CLOEXEC);
 				dma_buf_get(mblock[id].fd);
+				kref_init(&mblock[id].kref);
 				break;
 			default:
 
@@ -412,6 +414,34 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev)
 }
 EXPORT_SYMBOL(isp71_allocate_working_buffer);
 
+static void gce_release(struct kref *ref)
+{
+	struct mtk_hcp_reserve_mblock *mblock =
+		container_of(ref, struct mtk_hcp_reserve_mblock, kref);
+
+	dma_buf_vunmap(mblock->d_buf, mblock->start_virt);
+	/* free iova */
+	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_TO_DEVICE);
+	dma_buf_detach(mblock->d_buf, mblock->attach);
+	dma_buf_put(mblock->d_buf);
+	// close fd in user space driver, you can't close fd in kernel site
+	// dma_heap_buffer_free(mblock[id].d_buf);
+	//dma_buf_put(my_dma_buf);
+	//also can use this api, but not recommended
+	mblock->mem_priv = NULL;
+	mblock->mmap_cnt = 0;
+	mblock->start_dma = 0x0;
+	mblock->start_virt = 0x0;
+	mblock->start_phys = 0x0;
+	mblock->d_buf = NULL;
+	mblock->fd = -1;
+	mblock->pIonHandle = NULL;
+	mblock->attach = NULL;
+	mblock->sgt = NULL;
+	pr_info("%s", __func__);
+}
+
+
 int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 {
 	enum isp71_rsv_mem_id_t id;
@@ -428,7 +458,8 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
-			/* case IMG_MEM_G_ID: */
+			case IMG_MEM_G_ID:
+				kref_put(&mblock[id].kref, gce_release);
 				break;
 			default:
 				/* free va */
@@ -586,6 +617,18 @@ int isp71_get_init_info(struct img_init_info *info)
 	return 0;
 }
 
+static int isp71_put_gce(void)
+{
+	kref_put(&isp71_reserve_mblock[IMG_MEM_G_ID].kref, gce_release);
+	return 0;
+}
+
+static int isp71_get_gce(void)
+{
+	kref_get(&isp71_reserve_mblock[IMG_MEM_G_ID].kref);
+	return 0;
+}
+
 struct mtk_hcp_data isp71_hcp_data = {
 	.mblock = isp71_reserve_mblock,
 	.block_num = ARRAY_SIZE(isp71_reserve_mblock),
@@ -593,5 +636,7 @@ struct mtk_hcp_data isp71_hcp_data = {
 	.release = isp71_release_working_buffer,
 	.get_init_info = isp71_get_init_info,
 	.get_gce_virt = isp71_get_gce_virt,
+	.get_gce = isp71_get_gce,
+	.put_gce = isp71_put_gce,
 	.get_hwid_virt = isp71_get_hwid_virt,
 };

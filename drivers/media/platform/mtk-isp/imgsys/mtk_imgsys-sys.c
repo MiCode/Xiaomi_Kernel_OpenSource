@@ -612,6 +612,7 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 	}
 
 release_work:
+	mtk_hcp_put_gce_buffer(req->imgsys_pipe->imgsys_dev->scp_pdev);
 	/*vfree(swork);*/
 	pr_debug("%s leave\n", __func__);
 }
@@ -646,6 +647,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 	imgsys_dev = req->imgsys_pipe->imgsys_dev;
+	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
 	/*frm_info_cb->fail_uinfo_idx = fail_subfidx;*/
 	dev_info(imgsys_dev->dev,
 		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d) dump cb +",
@@ -739,6 +741,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	struct gce_cb_work gwork;
 	bool need_notify_daemon = false;
 	bool lastfrmInMWReq = false;
+	bool lastin_errcase = false;
 
 	if (!data.data) {
 		pr_info("%s: data->data is NULL\n",
@@ -859,6 +862,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			if (swfrminfo_cb->user_info[subfidx].is_lastingroup) {
 				if (swfrminfo_cb->is_lastfrm)
 					lastfrmInMWReq = true;
+				lastin_errcase = true;
 			}
 
 			dev_info(imgsys_dev->dev,
@@ -890,10 +894,16 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->user_info[0].subfrm_idx,
 			swfrminfo_cb->total_frmnum,
 			lastfrmInMWReq);
+
+			/*early cb or last frame for non-grouping case*/
+			lastin_errcase = true;
 		}
 
 		if (lastfrmInMWReq)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
+
+		if (lastin_errcase)
+			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 	} else {
 		if (swfrminfo_cb->is_lastfrm || swfrminfo_cb->is_earlycb ||
 			swfrminfo_cb->user_info[subfidx].is_lastingroup)
@@ -962,6 +972,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			gwork.req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
 			gwork.pipe = swfrminfo_cb->pipe;
 			cmdq_cb_done_worker(&gwork.work);
+			/*grouping, paired with scp_handler*/
+			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 		}
 	}
 
@@ -1259,6 +1271,7 @@ static void imgsys_runner_func(void *data)
 			frm_info->frame_no, frm_info->request_no, req->tstate.req_fd,
 		((char *)&frm_info->frm_owner), frm_info->user_info[0].subfrm_idx);
 
+	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
 	ret = imgsys_cmdq_sendtask(imgsys_dev, frm_info, imgsys_mdp_cb_func,
 		imgsys_cmdq_timeout_cb_func);
 	IMGSYS_SYSTRACE_END();
@@ -1275,6 +1288,7 @@ static void imgsys_runner_func(void *data)
 			"%s: imgsys_cmdq_sendtask fail(%d)\n", __func__, ret);
 	}
 	put_gce_work(work);
+	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 }
 
 static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
@@ -1290,6 +1304,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	int swfrm_cnt;
 	u64 time_local_reddonescpStart = 0;
 	int i = 0;
+	void *gce_virt = NULL;
 
 	if (!data) {
 		WARN_ONCE(!data, "%s: failed due to NULL data\n", __func__);
@@ -1301,8 +1316,8 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		return;
 
 	swbuf_data = (struct img_sw_buffer *)data;
-	swfrm_info = (struct swfrm_info_t *)(mtk_hcp_get_gce_mem_virt(
-				imgsys_dev->scp_pdev) + (swbuf_data->offset));
+	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
+	swfrm_info = (struct swfrm_info_t *)(gce_virt + (swbuf_data->offset));
 
 	if (!swfrm_info) {
 		pr_info("%s: invalid swfrm_info\n", __func__);
@@ -1310,8 +1325,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	}
 
 	swfrm_info->req_sbuf_goft = swbuf_data->offset;
-	swfrm_info->req_sbuf_kva = mtk_hcp_get_gce_mem_virt(
-				imgsys_dev->scp_pdev) + (swbuf_data->offset);
+	swfrm_info->req_sbuf_kva = gce_virt + (swbuf_data->offset);
 
 #if MTK_CM4_SUPPORT == 0
 
@@ -1435,12 +1449,8 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swfrm_info->chan_id = 0;
 	swfrm_info->fail_isHWhang = -1;
 	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
-		swfrm_info->user_info[i].g_swbuf =
-			mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev) +
-			(swfrm_info->user_info[i].sw_goft);
-		swfrm_info->user_info[i].bw_swbuf =
-			mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev) +
-			(swfrm_info->user_info[i].sw_bwoft);
+		swfrm_info->user_info[i].g_swbuf = gce_virt + (swfrm_info->user_info[i].sw_goft);
+		swfrm_info->user_info[i].bw_swbuf = gce_virt + (swfrm_info->user_info[i].sw_bwoft);
 	}
 
 	/**/
@@ -1450,7 +1460,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	gwork = get_gce_work(imgsys_dev);
 	if (!gwork)
 		return;
-
+	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
 	gwork->req = req;
 	gwork->req_sbuf_kva = (void *)swfrm_info;
 	gwork->work.run = imgsys_runner_func;

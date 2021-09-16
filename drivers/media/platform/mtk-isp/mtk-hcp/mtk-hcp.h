@@ -188,6 +188,9 @@ void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev);
 void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev);
 int mtk_hcp_get_init_info(struct platform_device *pdev, struct img_init_info *info);
 
+int mtk_hcp_get_gce_buffer(struct platform_device *pdev);
+int mtk_hcp_put_gce_buffer(struct platform_device *pdev);
+
 /**
  * mtk_hcp_purge_msg - purge messages
  *
@@ -323,6 +326,8 @@ struct mtk_hcp_data {
 	int (*release)(struct mtk_hcp *hcp_dev);
 	int (*get_init_info)(struct img_init_info *info);
 	void* (*get_gce_virt)(void);
+	int (*get_gce)(void);
+	int (*put_gce)(void);
 	void* (*get_hwid_virt)(void);
 };
 
@@ -360,10 +365,12 @@ struct mtk_hcp_reserve_mblock {
 	struct ion_handle *pIonHandle;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
+	struct kref kref;
 };
 
 int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 	int32_t value, size_t size);
+
 
 extern phys_addr_t mtk_hcp_get_reserve_mem_phys(
 					unsigned int id);

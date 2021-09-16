@@ -1054,6 +1054,32 @@ void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_gce_mem_virt);
 
+int mtk_hcp_get_gce_buffer(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if (!hcp_dev->data->get_gce) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return -1;
+	}
+
+	return hcp_dev->data->get_gce();
+}
+EXPORT_SYMBOL(mtk_hcp_get_gce_buffer);
+
+int mtk_hcp_put_gce_buffer(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if (!hcp_dev->data->put_gce) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return -1;
+	}
+
+	return hcp_dev->data->put_gce();
+}
+EXPORT_SYMBOL(mtk_hcp_put_gce_buffer);
+
 void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
