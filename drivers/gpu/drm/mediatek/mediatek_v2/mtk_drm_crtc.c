@@ -1258,17 +1258,19 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 			comp->id = comp_id;
 			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
 			continue;
+		} else if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_DSC) {
+			/*4k 30 use DISP_MERGE1, 4k 60 use DSC*/
+			//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
+			if ((drm_crtc_index(&mtk_crtc->base) == 1) &&
+				(drm_mode_vrefresh(&crtc->state->adjusted_mode) == 30)) {
+				comp = priv->ddp_comp[DDP_COMPONENT_MERGE1];
+				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
+				comp->mtk_crtc = mtk_crtc;
+			}
+			continue;
 		}
 		comp = priv->ddp_comp[comp_id];
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
-		comp->mtk_crtc = mtk_crtc;
-	}
-
-	/*4k 30 use DISP_MERGE1, 4k 60 use DSC*/
-	if ((drm_crtc_index(&mtk_crtc->base) == 1) &&
-		(drm_mode_vrefresh(&crtc->state->adjusted_mode) == 30)) {
-		comp = priv->ddp_comp[DDP_COMPONENT_MERGE1];
-		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[0][2] = comp;
 		comp->mtk_crtc = mtk_crtc;
 	}
 }
@@ -2255,6 +2257,12 @@ static unsigned int dual_comp_map_mt6983(unsigned int comp_id)
 		break;
 	case DDP_COMPONENT_OVL1_2L_NWCG:
 		ret = DDP_COMPONENT_OVL3_2L_NWCG;
+		break;
+	case DDP_COMPONENT_OVL2_2L_NWCG:
+		ret = DDP_COMPONENT_OVL0_2L_NWCG;
+		break;
+	case DDP_COMPONENT_OVL3_2L_NWCG:
+		ret = DDP_COMPONENT_OVL1_2L_NWCG;
 		break;
 	case DDP_COMPONENT_AAL0:
 		ret = DDP_COMPONENT_AAL1;

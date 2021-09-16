@@ -3398,7 +3398,7 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 	if (i >= plat_limit_array)
 		return MODE_BAD_VSCAN;
 
-	DPTXDBG("%s xres=%d, yres=%d, refresh=%d, clock=%d\n",
+	DPTXMSG("%s xres=%d, yres=%d, refresh=%d, clock=%d\n",
 			__func__, mode->hdisplay, mode->vdisplay,
 			drm_mode_vrefresh(mode),
 			mode->clock);

@@ -370,7 +370,6 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	int src_w, src_h, dst_x, dst_y, dst_w, dst_h, i;
 	struct mtk_drm_crtc *mtk_crtc;
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
-	static int cnt;
 	bool skip_update = 0;
 	int crtc_index = 0;
 
@@ -482,13 +481,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	if (state->pending.enable)
 		atomic_set(&mtk_crtc->already_config, 1);
 
-	if (cnt <= 5) {
-		cnt++;
-		if (state->pending.format == DRM_FORMAT_RGB332 &&
-			drm_crtc_index(crtc) == 0)
-			skip_update = 1;
-	}
-
+	if (state->pending.format == DRM_FORMAT_RGB332)
+		skip_update = 1;
 	/* workaround for skip plane update when hwc set crtc */
 	if (skip_update == 0)
 		mtk_drm_crtc_plane_update(crtc, plane, state);
