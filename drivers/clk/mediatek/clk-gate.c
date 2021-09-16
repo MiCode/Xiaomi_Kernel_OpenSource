@@ -110,6 +110,41 @@ static void mtk_cg_disable_unused_inv(struct clk_hw *hw)
 	mtk_cg_clr_bit(hw);
 }
 
+static int mtk_cg_enable_hwv(struct clk_hw *hw)
+{
+	int i = 0;
+
+	mtk_cg_set_bit(hw);
+
+	while (!mtk_cg_bit_is_set(hw)) {
+		if (i < 10)
+			udelay(10);
+		else
+			break;
+		i++;
+	}
+
+	if (i >= 10) {
+		pr_err("%s cg enable timeout(%dus)(0x%x)\n", clk_hw_get_name(hw), i * 10);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static void mtk_cg_disable_hwv(struct clk_hw *hw)
+{
+	mtk_cg_clr_bit(hw);
+}
+
+static void mtk_cg_disable_unused_hwv(struct clk_hw *hw)
+{
+	const char *c_n = clk_hw_get_name(hw);
+
+	pr_notice("disable_unused - %s\n", c_n);
+	mtk_cg_clr_bit(hw);
+}
+
 static int mtk_cg_enable_no_setclr(struct clk_hw *hw)
 {
 	mtk_cg_clr_bit_no_setclr(hw);
@@ -158,6 +193,13 @@ const struct clk_ops mtk_clk_gate_ops_setclr_dummy = {
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_dummy);
 
+const struct clk_ops mtk_clk_gate_ops_hwv_dummy = {
+	.is_enabled	= mtk_cg_bit_is_set,
+	.enable		= mtk_cg_enable_hwv,
+	.disable_unused = mtk_cg_disable_unused_hwv,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_hwv_dummy);
+
 const struct clk_ops mtk_clk_gate_ops_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,
 	.enable		= mtk_cg_enable,
@@ -173,6 +215,14 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv = {
 	.disable_unused = mtk_cg_disable_unused_inv,
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv);
+
+const struct clk_ops mtk_clk_gate_ops_hwv = {
+	.is_enabled	= mtk_cg_bit_is_set,
+	.enable		= mtk_cg_enable_hwv,
+	.disable	= mtk_cg_disable_hwv,
+	.disable_unused = mtk_cg_disable_unused_hwv,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_hwv);
 
 const struct clk_ops mtk_clk_gate_ops_no_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,

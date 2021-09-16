@@ -85,9 +85,25 @@ static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
 static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	int i = 0;
 
-	return regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
+	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
 			BIT(mux->data->gate_shift));
+
+	while (!mtk_clk_mux_is_enabled(hw)) {
+		if (i < 10)
+			udelay(10);
+		else
+			break;
+		i++;
+	}
+
+	if (i >= 10) {
+		pr_err("%s mux enable timeout(%dus)(0x%x)\n", clk_hw_get_name(hw), i * 10);
+		return -EBUSY;
+	}
+
+	return 0;
 }
 
 static void mtk_clk_hwv_mux_disable(struct clk_hw *hw)

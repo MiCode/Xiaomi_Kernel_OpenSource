@@ -316,18 +316,22 @@ static int mtk_hwv_pll_is_prepared(struct clk_hw *hw)
 static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+	u32 val;
 	int i = 0;
 
 	regmap_write(pll->hwv_regmap, pll->data->hwv_set_ofs, BIT(pll->data->hwv_shift));
 
-	while (mtk_hwv_pll_is_prepared(hw)) {
-		if (i < 5)
+	do {
+		regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
+		if (i < 200)
 			udelay(10);
+		else
+			break;
 		i++;
-	}
+	} while ((val & BIT(pll->data->hwv_shift)) == 0);
 
-	if (i >= 5) {
-		pr_err("%s pll prepare timeout\n", pll->data->name);
+	if (i >= 200) {
+		pr_err("%s pll prepare timeout(%dus)(0x%x)\n", pll->data->name, i * 10, val);
 		return -EBUSY;
 	}
 
@@ -337,8 +341,24 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+	u32 val;
+	int i = 0;
 
 	regmap_write(pll->hwv_regmap, pll->data->hwv_clr_ofs, BIT(pll->data->hwv_shift));
+
+	do {
+		regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
+		if (i < 200)
+			udelay(10);
+		else
+			break;
+		i++;
+	} while ((val & BIT(pll->data->hwv_shift)) == 0);
+
+	if (i >= 200) {
+		pr_err("%s pll unprepare timeout(%dus)(0x%x)\n", pll->data->name, i * 10, val);
+		return;
+	}
 }
 
 static const struct clk_ops mtk_pll_ops = {
@@ -397,7 +417,11 @@ static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 
 	init.name = data->name;
 	init.flags = (data->flags & PLL_AO) ? CLK_IS_CRITICAL : 0;
-	init.ops = &mtk_pll_ops;
+	if (hw_voter_regmap && (data->flags & CLK_USE_HW_VOTER))
+		init.ops = &mtk_hwv_pll_ops;
+	else
+		init.ops = &mtk_pll_ops;
+
 	if (data->parent_name)
 		init.parent_names = &data->parent_name;
 	else

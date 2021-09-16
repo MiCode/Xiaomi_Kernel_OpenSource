@@ -229,6 +229,7 @@ struct mtk_pll_data {
 	uint32_t hwv_set_ofs;
 	uint32_t hwv_clr_ofs;
 	uint32_t hwv_sta_ofs;
+	uint32_t hwv_done_ofs;
 	int hwv_shift;
 	uint32_t pd_reg;
 	uint32_t tuner_reg;
