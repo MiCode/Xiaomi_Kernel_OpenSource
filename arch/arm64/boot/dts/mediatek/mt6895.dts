@@ -640,13 +640,13 @@
 				<GIC_SPI 760 IRQ_TYPE_LEVEL_HIGH 0>; /* new rxq1 irq: 664 760 792 */
 			mediatek,dpmaif_ver = <3>;
 			mediatek,dpmaif_cap = <0x00000004>;
-//
-//			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
-//				 <&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
-//				 <&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>;
-//			clock-names = "infra-dpmaif-clk",
-//				    "infra-dpmaif-blk-clk",
-//				    "infra-dpmaif-rg-mmw-clk";
+
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
+				 <&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
+				 <&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>;
+			clock-names = "infra-dpmaif-clk",
+				    "infra-dpmaif-blk-clk",
+				    "infra-dpmaif-rg-mmw-clk";
 		};
 
 		ccifdriver:ccifdriver@10209000 {
@@ -657,18 +657,18 @@
 			/* DTS/GIC_ID: CCIF0 241/273; CCIF0 242/274 */
 			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF1_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF1_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF4_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF5_MD_CG>;
-//			clock-names = "infra-ccif-ap",
-//				"infra-ccif-md",
-//				"infra-ccif1-ap",
-//				"infra-ccif1-md",
-//				"infra-ccif4-md",
-//				"infra-ccif5-md";
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF1_AP>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF1_MD>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>;
+			clock-names = "infra-ccif-ap",
+				"infra-ccif-md",
+				"infra-ccif1-ap",
+				"infra-ccif1-md",
+				"infra-ccif4-md",
+				"infra-ccif5-md";
 		};
 
 		mddriver:mddriver {
@@ -692,9 +692,9 @@
 			interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH 0>;
-//			power-domains = <&scpsys MT6895_POWER_DOMAIN_MD>;
-//			ccci-infracfg = <&infracfg_ao_clk>;
-//			ccci-topckgen = <&topckgen_clk>;
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_MD>;
+			ccci-infracfg = <&infracfg_ao_clk>;
+			ccci-topckgen = <&topckgen_clk>;
 			/* ccci_spmsleep = <&sleep>; */
 		};
 
@@ -707,10 +707,10 @@
 
 		ccci_scp:ccci_scp {
 			compatible = "mediatek,ccci_md_scp";
-//			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF2_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF2_MD_CG>;
-//			clock-names = "infra-ccif2-ap",
-//				"infra-ccif2-md";
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>;
+			clock-names = "infra-ccif2-ap",
+				"infra-ccif2-md";
 		};
 
 		gpio_usage_mapping:gpio {
