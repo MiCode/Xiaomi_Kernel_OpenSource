@@ -28,6 +28,9 @@
 #include "../mediatek/mediatek_v2/mtk_panel_ext.h"
 #include "../mediatek/mediatek_v2/mtk_drm_graphics_base.h"
 #endif
+
+#include "../../../misc/mediatek/gate_ic/gate_i2c.h"
+
 /* enable this to check panel self -bist pattern */
 /* #define PANEL_BIST_PATTERN */
 /****************TPS65132***********/
@@ -777,6 +780,9 @@ static int jdi_unprepare(struct drm_panel *panel)
 			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_pos, 0);
 		devm_gpiod_put(ctx->dev, ctx->bias_pos);
+	} else if (ctx->gate_ic == 4831) {
+		_gate_ic_i2c_panel_bias_enable(0);
+		_gate_ic_Power_off();
 	}
 	ctx->error = 0;
 	ctx->prepared = false;
@@ -813,6 +819,9 @@ static int jdi_prepare(struct drm_panel *panel)
 			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_neg, 1);
 		devm_gpiod_put(ctx->dev, ctx->bias_neg);
+	} else if (ctx->gate_ic == 4831) {
+		_gate_ic_Power_on();
+		_gate_ic_i2c_panel_bias_enable(1);
 	}
 #ifndef BYPASSI2C
 	_lcm_i2c_write_bytes(0x0, 0xf);
