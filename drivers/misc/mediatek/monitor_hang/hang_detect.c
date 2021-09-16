@@ -677,7 +677,9 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		vma = vma->vm_next;
 		mapcount++;
 	}
+	++oops_in_progress; /* sleeping function warn */
 	mmput(current_task->mm);
+	--oops_in_progress;
 
 	return 0;
 }
