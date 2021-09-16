@@ -18,7 +18,7 @@
 #define RESCUE_TIMER_NUM 5
 #define QUOTA_MAX_SIZE 300
 #define GCC_MAX_SIZE 300
-#define LOADING_CNT 3
+#define LOADING_CNT 64
 
 enum {
 	FPSGO_SET_UNKNOWN = -1,
