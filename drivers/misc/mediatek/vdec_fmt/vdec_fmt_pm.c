@@ -40,6 +40,7 @@ int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
 {
 	int ret = 0;
 
+	cmdq_mbox_enable(fmt->clt_fmt[0]->chan);
 	if (fmt->fmtLarb) {
 		ret = mtk_smi_larb_get(fmt->fmtLarb);
 		if (ret) {
@@ -64,6 +65,7 @@ int32_t fmt_clock_off(struct mtk_vdec_fmt *fmt)
 	clk_disable_unprepare(fmt->clk_VDEC);
 	if (fmt->fmtLarb)
 		mtk_smi_larb_put(fmt->fmtLarb);
+	cmdq_mbox_disable(fmt->clt_fmt[0]->chan);
 	return 0;
 }
 
