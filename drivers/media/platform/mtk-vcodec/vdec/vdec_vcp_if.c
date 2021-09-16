@@ -105,6 +105,9 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	unsigned long timeout;
 	struct share_obj obj;
 	unsigned int suspend_block_cnt = 0;
+	struct mutex *msg_mutex;
+	unsigned int *msg_signaled;
+	wait_queue_head_t *msg_wq;
 
 	if (!is_vcp_ready(VCP_A_ID))
 		mtk_vcodec_err(inst, "VCP_A_ID not ready");
@@ -123,20 +126,29 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		usleep_range(10000, 20000);
 	}
 
-	if (!is_ack)
-		mutex_lock(&inst->ctx->dev->ipi_mutex);
 	memset(&obj, 0, sizeof(obj));
 	memcpy(obj.share_buf, msg, len);
-	if (*(__u32 *)msg == AP_IPIMSG_DEC_FRAME_BUFFER)
+
+	if (*(__u32 *)msg == AP_IPIMSG_DEC_FRAME_BUFFER) {
 		obj.id = IPI_VDEC_RESOURCE;
-	else
+		msg_mutex = &inst->ctx->dev->ipi_mutex_res;
+		msg_signaled = &inst->vcu.signaled_res;
+		msg_wq = &inst->vcu.wq_res;
+	} else {
 		obj.id = inst->vcu.id;
+		msg_mutex = &inst->ctx->dev->ipi_mutex;
+		msg_signaled = &inst->vcu.signaled;
+		msg_wq = &inst->vcu.wq;
+	}
+	if (!is_ack)
+		mutex_lock(msg_mutex);
+
 	obj.len = len;
 	ipi_size = ((sizeof(u32) * 2) + len + 3) /4;
 	inst->vcu.failure = 0;
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
-		is_ack, inst->vcu.signaled);
+		is_ack, *msg_signaled);
 	ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VDEC_1, IPI_SEND_WAIT, &obj,
 		ipi_size, IPI_TIMEOUT_MS);
 
@@ -145,7 +157,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 
 	if (ret != IPI_ACTION_DONE) {
 		mtk_vcodec_err(inst, "mtk_ipi_send fail %d", ret);
-		mutex_unlock(&inst->ctx->dev->ipi_mutex);
+		mutex_unlock(msg_mutex);
 		inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 		tirgger_vcp_halt(VCP_A_ID);
 		return -EIO;
@@ -154,19 +166,19 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	if (!is_ack) {
 		/* wait for VCP's ACK */
 		timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
-		ret = wait_event_timeout(inst->vcu.wq, inst->vcu.signaled, timeout);
-		inst->vcu.signaled = false;
+		ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
+		*msg_signaled = false;
 
 		if (ret == 0 || inst->vcu.failure) {
 			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out or fail! %d %d",
 				*(u32 *)msg, ret, inst->vcu.failure);
-			mutex_unlock(&inst->ctx->dev->ipi_mutex);
+			mutex_unlock(msg_mutex);
 			inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 			tirgger_vcp_halt(VCP_A_ID);
 			return -EIO;
 		}
 	}
-	mutex_unlock(&inst->ctx->dev->ipi_mutex);
+	mutex_unlock(msg_mutex);
 
 	return 0;
 }
@@ -434,10 +446,13 @@ int vcp_dec_ipi_handler(void *arg)
 
 		if (msg->status == VDEC_IPI_MSG_STATUS_OK) {
 			switch (msg->msg_id) {
+			case VCU_IPIMSG_DEC_DONE:
+				vcu->signaled_res = true;
+				wake_up(&vcu->wq_res);
+				break;
 			case VCU_IPIMSG_DEC_INIT_DONE:
 				handle_init_ack_msg((void *)obj->share_buf);
 			case VCU_IPIMSG_DEC_START_DONE:
-			case VCU_IPIMSG_DEC_DONE:
 			case VCU_IPIMSG_DEC_DEINIT_DONE:
 			case VCU_IPIMSG_DEC_RESET_DONE:
 			case VCU_IPIMSG_DEC_SET_PARAM_DONE:
@@ -506,10 +521,13 @@ int vcp_dec_ipi_handler(void *arg)
 			}
 		} else {
 			switch (msg->msg_id) {
+			case VCU_IPIMSG_DEC_DONE:
+				vcu->signaled_res = true;
+				wake_up(&vcu->wq_res);
+				break;
 			case VCU_IPIMSG_DEC_INIT_DONE:
 				vcu->failure = VDEC_IPI_MSG_STATUS_FAIL;
 			case VCU_IPIMSG_DEC_START_DONE:
-			case VCU_IPIMSG_DEC_DONE:
 			case VCU_IPIMSG_DEC_DEINIT_DONE:
 			case VCU_IPIMSG_DEC_RESET_DONE:
 			case VCU_IPIMSG_DEC_SET_PARAM_DONE:
@@ -662,6 +680,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->vcu.ctx = ctx;
 	init_waitqueue_head(&inst->vcu.wq);
+	init_waitqueue_head(&inst->vcu.wq_res);
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_INIT;
@@ -688,6 +707,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
 	inst->vcu.signaled = false;
+	inst->vcu.signaled_res = false;
 	ctx->input_driven = inst->vsi->input_driven;
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;

@@ -568,6 +568,7 @@ struct mtk_vcodec_dev {
 	struct mutex ctx_mutex;
 	struct mutex dev_mutex;
 	struct mutex ipi_mutex;
+	struct mutex ipi_mutex_res;
 	struct mtk_vcodec_msgq mq;
 
 	int dec_irq[MTK_VDEC_HW_NUM];

@@ -27,11 +27,13 @@
  */
 struct vdec_vcu_inst {
 	wait_queue_head_t wq;
+	wait_queue_head_t wq_res;
 	enum ipi_id id;
 	void *vsi;
 	int32_t failure;
 	uint32_t inst_addr;
 	unsigned int signaled;
+	unsigned int signaled_res;
 	struct mtk_vcodec_ctx *ctx;
 	struct platform_device *dev;
 	ipi_handler_t handler;
