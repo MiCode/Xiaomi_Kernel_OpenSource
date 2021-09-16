@@ -50,6 +50,29 @@
 #define write_cmos_sensor(...) subdrv_i2c_wr_u8(__VA_ARGS__)
 #define imx481_table_write_cmos_sensor(...) subdrv_i2c_wr_regs_u8(__VA_ARGS__)
 
+#define _I2C_BUF_SIZE 256
+static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
+static unsigned int _size_to_write;
+
+static void commit_write_sensor(struct subdrv_ctx *ctx)
+{
+	if (_size_to_write) {
+		imx481_table_write_cmos_sensor(ctx, _i2c_data, _size_to_write);
+		memset(_i2c_data, 0x0, sizeof(_i2c_data));
+		_size_to_write = 0;
+	}
+}
+
+static void set_cmos_sensor(struct subdrv_ctx *ctx,
+			kal_uint16 reg, kal_uint16 val)
+{
+	if (_size_to_write > _I2C_BUF_SIZE - 2)
+		commit_write_sensor(ctx);
+
+	_i2c_data[_size_to_write++] = reg;
+	_i2c_data[_size_to_write++] = val;
+}
+
 /************************************************************************
  * Proifling
  ************************************************************************/
@@ -238,14 +261,16 @@ static void set_dummy(struct subdrv_ctx *ctx)
 	    ctx->frame_length,
 	    ctx->line_length);
 
-	write_cmos_sensor(ctx, 0x0104, 0x01);
+	set_cmos_sensor(ctx, 0x0104, 0x01);
 
-	write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
-	write_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
-	write_cmos_sensor(ctx, 0x0342, ctx->line_length >> 8);
-	write_cmos_sensor(ctx, 0x0343, ctx->line_length & 0xFF);
+	set_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+	set_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+	set_cmos_sensor(ctx, 0x0342, ctx->line_length >> 8);
+	set_cmos_sensor(ctx, 0x0343, ctx->line_length & 0xFF);
 
-	write_cmos_sensor(ctx, 0x0104, 0x00);
+	set_cmos_sensor(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 } /* set_dummy */
 
 static kal_uint32 return_lot_id_from_otp(struct subdrv_ctx *ctx)
@@ -304,7 +329,6 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate, kal_bool
 	}
 	if (min_framelength_en)
 		ctx->min_frame_length = ctx->frame_length;
-	set_dummy(ctx);
 } /* set_max_framerate */
 
 /************************************************************************
@@ -345,6 +369,8 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		? imgsensor_info.min_shutter
 		: shutter;
 
+	set_cmos_sensor(ctx, 0x0104, 0x01);
+
 	/* long expsoure */
 	if (shutter > (imgsensor_info.max_frame_length
 		       - imgsensor_info.margin)) {
@@ -365,13 +391,13 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		}
 		shutter = shutter >> l_shift;
 		ctx->frame_length = shutter + imgsensor_info.margin;
-		write_cmos_sensor(ctx, 0x3100,
+		set_cmos_sensor(ctx, 0x3100,
 			read_cmos_sensor(ctx, 0x3100) | (l_shift & 0x7));
 
 		/* pr_debug("0x3028 0x%x\n", read_cmos_sensor(0x3028)); */
 
 	} else {
-		write_cmos_sensor(ctx, 0x3100,
+		set_cmos_sensor(ctx, 0x3100,
 			read_cmos_sensor(ctx, 0x3100) & 0xf8);
 	}
 
@@ -392,28 +418,17 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 			set_max_framerate(ctx, 236, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
-		else {
-			/* Extend frame length */
-			write_cmos_sensor(ctx, 0x0104, 0x01);
-			write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
-			write_cmos_sensor(ctx, 0x0341,
-				ctx->frame_length & 0xFF);
-
-			write_cmos_sensor(ctx, 0x0104, 0x00);
-		}
-	} else {
-		/* Extend frame length */
-		write_cmos_sensor(ctx, 0x0104, 0x01);
-		write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
-		write_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
-		write_cmos_sensor(ctx, 0x0104, 0x00);
 	}
 
 	/* Update Shutter */
-	write_cmos_sensor(ctx, 0x0104, 0x01);
-	write_cmos_sensor(ctx, 0x0202, (shutter >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0203, shutter & 0xFF);
-	write_cmos_sensor(ctx, 0x0104, 0x00);
+	set_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+	set_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+	set_cmos_sensor(ctx, 0x0202, (shutter >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0203, shutter & 0xFF);
+	set_cmos_sensor(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
+
 	pr_debug(
 	    "Exit! shutter =%d, framelength =%d\n",
 	    shutter,
@@ -432,10 +447,12 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 		ctx->frame_length = ctx->min_frame_length;
 
 	/* Extend frame length */
-	write_cmos_sensor(ctx, 0x0104, 0x01);
-	write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
-	write_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
-	write_cmos_sensor(ctx, 0x0104, 0x00);
+	set_cmos_sensor(ctx, 0x0104, 0x01);
+	set_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+	set_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+	set_cmos_sensor(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
 
 	pr_debug("Framelength: set=%d/input=%d/min=%d, auto_extend=%d\n",
 		ctx->frame_length, frame_length, ctx->min_frame_length,
@@ -492,32 +509,22 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx, kal_uint16 shutter,
 			set_max_framerate(ctx, 296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
-		else {
-			/* Extend frame length */
-			write_cmos_sensor(ctx, 0x0104, 0x01);
-			write_cmos_sensor(ctx, 0x0340,
-					ctx->frame_length >> 8);
-			write_cmos_sensor(ctx, 0x0341,
-					ctx->frame_length & 0xFF);
-			write_cmos_sensor(ctx, 0x0104, 0x00);
-		}
-	} else {
-		/* Extend frame length */
-		write_cmos_sensor(ctx, 0x0104, 0x01);
-		write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
-		write_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
-		write_cmos_sensor(ctx, 0x0104, 0x00);
 	}
 
 	/* Update Shutter */
-	write_cmos_sensor(ctx, 0x0104, 0x01);
+	set_cmos_sensor(ctx, 0x0104, 0x01);
 	if (auto_extend_en)
-		write_cmos_sensor(ctx, 0x0350, 0x01); /* Enable auto extend */
+		set_cmos_sensor(ctx, 0x0350, 0x01); /* Enable auto extend */
 	else
-		write_cmos_sensor(ctx, 0x0350, 0x00); /* Disable auto extend */
-	write_cmos_sensor(ctx, 0x0202, (shutter >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0203, shutter  & 0xFF);
-	write_cmos_sensor(ctx, 0x0104, 0x00);
+		set_cmos_sensor(ctx, 0x0350, 0x00); /* Disable auto extend */
+	set_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+	set_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+	set_cmos_sensor(ctx, 0x0202, (shutter >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0203, shutter  & 0xFF);
+	set_cmos_sensor(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
+
 	pr_debug(
 		"Exit! shutter =%d, framelength =%d/%d, dummy_line=%d, auto_extend=%d\n",
 		shutter, ctx->frame_length, frame_length, dummy_line,
@@ -567,12 +574,13 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	ctx->gain = reg_gain;
 	pr_debug("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
 
-	write_cmos_sensor(ctx, 0x0104, 0x01);
+	set_cmos_sensor(ctx, 0x0104, 0x01);
 	/* Global analog Gain for Long expo */
-	write_cmos_sensor(ctx, 0x0204, (reg_gain >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0205, reg_gain & 0xFF);
-	write_cmos_sensor(ctx, 0x0104, 0x00);
+	set_cmos_sensor(ctx, 0x0204, (reg_gain >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0205, reg_gain & 0xFF);
+	set_cmos_sensor(ctx, 0x0104, 0x00);
 
+	commit_write_sensor(ctx);
 
 	return gain;
 } /* set_gain */
@@ -1632,6 +1640,7 @@ static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 	else
 		ctx->current_fps = framerate;
 	set_max_framerate(ctx, ctx->current_fps, 1);
+	set_dummy(ctx);
 
 	return ERROR_NONE;
 }
@@ -1868,14 +1877,17 @@ static kal_uint32 imx481_awb_gain(struct subdrv_ctx *ctx, struct SET_SENSOR_AWB_
 		pSetSensorAWB->ABS_GAIN_B, bgain_32,
 		pSetSensorAWB->ABS_GAIN_GB, gbgain_32);
 
-	write_cmos_sensor(ctx, 0x0b8e, (grgain_32 >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0b8f, grgain_32 & 0xFF);
-	write_cmos_sensor(ctx, 0x0b90, (rgain_32 >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0b91, rgain_32 & 0xFF);
-	write_cmos_sensor(ctx, 0x0b92, (bgain_32 >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0b93, bgain_32 & 0xFF);
-	write_cmos_sensor(ctx, 0x0b94, (gbgain_32 >> 8) & 0xFF);
-	write_cmos_sensor(ctx, 0x0b95, gbgain_32 & 0xFF);
+	set_cmos_sensor(ctx, 0x0b8e, (grgain_32 >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0b8f, grgain_32 & 0xFF);
+	set_cmos_sensor(ctx, 0x0b90, (rgain_32 >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0b91, rgain_32 & 0xFF);
+	set_cmos_sensor(ctx, 0x0b92, (bgain_32 >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0b93, bgain_32 & 0xFF);
+	set_cmos_sensor(ctx, 0x0b94, (gbgain_32 >> 8) & 0xFF);
+	set_cmos_sensor(ctx, 0x0b95, gbgain_32 & 0xFF);
+
+	commit_write_sensor(ctx);
+
 	return ERROR_NONE;
 }
 

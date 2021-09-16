@@ -57,6 +57,29 @@
 #define PFX "S5K3P9SP_camera_sensor"
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 
+#define _I2C_BUF_SIZE 256
+static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
+static unsigned int _size_to_write;
+
+static void commit_write_sensor(struct subdrv_ctx *ctx)
+{
+	if (_size_to_write) {
+		s5k3p9sp_table_write_cmos_sensor_16(ctx, _i2c_data, _size_to_write);
+		memset(_i2c_data, 0x0, sizeof(_i2c_data));
+		_size_to_write = 0;
+	}
+}
+
+static void set_cmos_sensor_16(struct subdrv_ctx *ctx,
+			kal_uint16 reg, kal_uint16 val)
+{
+	if (_size_to_write > _I2C_BUF_SIZE - 2)
+		commit_write_sensor(ctx);
+
+	_i2c_data[_size_to_write++] = reg;
+	_i2c_data[_size_to_write++] = val;
+}
+
 static struct imgsensor_info_struct imgsensor_info = {
 		.sensor_id = S5K3P9SP_SENSOR_ID,
 
@@ -192,8 +215,10 @@ static void set_dummy(struct subdrv_ctx *ctx)
 {
 	LOG_INF("dummyline = %d, dummypixels = %d\n",
 		ctx->dummy_line, ctx->dummy_pixel);
-	write_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
-	write_cmos_sensor_16(ctx, 0x0342, ctx->line_length);
+	set_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
+	set_cmos_sensor_16(ctx, 0x0342, ctx->line_length);
+
+	commit_write_sensor(ctx);
 }	/*	set_dummy  */
 
 static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate,
@@ -220,7 +245,6 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate,
 	}
 	if (min_framelength_en)
 		ctx->min_frame_length = ctx->frame_length;
-	set_dummy(ctx);
 }	/*	set_max_framerate  */
 
 static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
@@ -241,20 +265,17 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 		realtime_fps =
 			ctx->pclk / ctx->line_length
 			* 10 / ctx->frame_length;
-		if (realtime_fps >= 297 && realtime_fps <= 305) {
+		if (realtime_fps >= 297 && realtime_fps <= 305)
 			set_max_framerate(ctx, 296, 0);
-		} else if (realtime_fps >= 147 && realtime_fps <= 150) {
+		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
-		} else {
-			/* Extend frame length*/
-			write_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
-		}
-	} else {
-		/* Extend frame length*/
-		write_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
 	}
 	/* Update Shutter*/
-	write_cmos_sensor_16(ctx, 0x0202, shutter);
+	set_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
+	set_cmos_sensor_16(ctx, 0x0202, shutter);
+
+	commit_write_sensor(ctx);
+
 	LOG_INF("shutter = %d, framelength = %d\n",
 		shutter, ctx->frame_length);
 }	/*	write_shutter  */
@@ -321,22 +342,17 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 		realtime_fps =
 			ctx->pclk / ctx->line_length *
 			10 / ctx->frame_length;
-		if (realtime_fps >= 297 && realtime_fps <= 305) {
+		if (realtime_fps >= 297 && realtime_fps <= 305)
 			set_max_framerate(ctx, 296, 0);
-		} else if (realtime_fps >= 147 && realtime_fps <= 150)
+		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
-		else {
-			/* Extend frame length */
-			write_cmos_sensor_16(ctx, 0x0340,
-				ctx->frame_length & 0xFFFF);
-		}
-	} else
-		/* Extend frame length */
-		write_cmos_sensor_16(ctx, 0x0340,
-			ctx->frame_length & 0xFFFF);
+	}
 
 	/* Update Shutter */
-	write_cmos_sensor_16(ctx, 0X0202, shutter & 0xFFFF);
+	set_cmos_sensor_16(ctx, 0x0340, ctx->frame_length & 0xFFFF);
+	set_cmos_sensor_16(ctx, 0X0202, shutter & 0xFFFF);
+
+	commit_write_sensor(ctx);
 
 	LOG_INF("shutter = %d, framelength = %d/%d, dummy_line= %d\n",
 		shutter, ctx->frame_length,
@@ -1038,6 +1054,7 @@ static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 	else
 		ctx->current_fps = framerate;
 	set_max_framerate(ctx, ctx->current_fps, 1);
+	set_dummy(ctx);
 
 	return ERROR_NONE;
 }
