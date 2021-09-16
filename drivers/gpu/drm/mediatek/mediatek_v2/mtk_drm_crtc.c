@@ -5343,11 +5343,9 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 
 #ifndef DRM_CMDQ_DISABLE
 	/* 3. power on cmdq client */
-	if (crtc_id == 2) {
-		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
-		cmdq_mbox_enable(client->chan);
-		CRTC_MMP_MARK(crtc_id, enable, 1, 1);
-	}
+	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+	cmdq_mbox_enable(client->chan);
+	CRTC_MMP_MARK(crtc_id, enable, 1, 1);
 #endif
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
@@ -5732,6 +5730,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 					DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
 		}
 	}
+	cmdq_mbox_enable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
 #endif
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
@@ -5901,11 +5900,9 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 
 #ifndef DRM_CMDQ_DISABLE
 	/* 8. power off cmdq client */
-	if (crtc_id == 2) {
-		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
-		cmdq_mbox_disable(client->chan);
-		CRTC_MMP_MARK(crtc_id, disable, 1, 2);
-	}
+	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+	cmdq_mbox_disable(client->chan);
+	CRTC_MMP_MARK(crtc_id, disable, 1, 2);
 #endif
 
 	/* 9. power off all modules in this CRTC */
