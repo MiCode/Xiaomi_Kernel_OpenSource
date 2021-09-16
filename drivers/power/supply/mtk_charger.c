@@ -2085,6 +2085,7 @@ static void mtk_chg_get_tchg(struct mtk_charger *info)
 static void charger_check_status(struct mtk_charger *info)
 {
 	bool charging = true;
+	bool chg_dev_chgen = true;
 	int temperature;
 	struct battery_thermal_protection_data *thermal;
 
@@ -2170,7 +2171,11 @@ stop_charging:
 		info->vbusov_stat, info->sc.disable_charger,
 		info->can_charging, charging, info->safety_timer_cmd);
 
+	charger_dev_is_enabled(info->chg1_dev, &chg_dev_chgen);
+
 	if (charging != info->can_charging)
+		_mtk_enable_charging(info, charging);
+	else if (charging == false && chg_dev_chgen == true)
 		_mtk_enable_charging(info, charging);
 
 	info->can_charging = charging;
