@@ -62,6 +62,45 @@ long int gro_flush_timer;
 
 static unsigned long timeout_flush_num, clear_flush_num;
 
+/*
+ * Register the sysctl to set tcp_pacing_shift.
+ */
+static int sysctl_tcp_pacing_shift;
+static struct ctl_table tcp_pacing_table[] = {
+	{
+		.procname	= "tcp_pacing_shift",
+		.data		= &sysctl_tcp_pacing_shift,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+	},
+	{}
+};
+static struct ctl_table tcp_pacing_sysctl_root[] = {
+	{
+		.procname	= "net",
+		.mode		= 0555,
+		.child		= tcp_pacing_table,
+	},
+	{}
+};
+
+static struct ctl_table_header *sysctl_header;
+static int register_tcp_pacing_sysctl(void)
+{
+	sysctl_header = register_sysctl_table(tcp_pacing_sysctl_root);
+	if (sysctl_header == NULL) {
+		pr_info("CCCI:CCMNI:register tcp_pacing failed\n");
+		return -1;
+	}
+	return 0;
+}
+
+static void unregister_tcp_pacing_sysctl(void)
+{
+	unregister_sysctl_table(sysctl_header);
+}
+
 void set_ccmni_rps(unsigned long value)
 {
 	int i = 0;
@@ -595,7 +634,7 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		else if (ccmni->ack_prio_en)
 			is_ack = is_ack_skb(ccmni->md_id, skb);
 	}
-	sk_pacing_shift_update(skb->sk, 8);
+	sk_pacing_shift_update(skb->sk, sysctl_tcp_pacing_shift);
 	ret = ctlb->ccci_ops->send_pkt(ccmni->md_id, ccmni->index, skb, is_ack);
 	if (ret == CCMNI_ERR_MD_NO_READY || ret == CCMNI_ERR_TX_INVAL) {
 		dev_kfree_skb(skb);
@@ -1176,6 +1215,10 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 	struct ccmni_instance *ccmni_irat_src = NULL;
 	struct net_device *dev = NULL;
 
+	if (register_tcp_pacing_sysctl() == -1)
+		return 0;
+	sysctl_tcp_pacing_shift = 6;
+
 	if (md_id < 0 || md_id >= MAX_MD_NUM) {
 		CCMNI_INF_MSG(-1, "%s : invalid md_id = %d\n", __func__, md_id);
 		return -EINVAL;
@@ -1398,6 +1441,8 @@ static void ccmni_exit(int md_id)
 	struct ccmni_instance *ccmni = NULL;
 
 	CCMNI_DBG_MSG(md_id, "%s\n", __func__);
+
+	unregister_tcp_pacing_sysctl();
 
 	ctlb = ccmni_ctl_blk[md_id];
 	if (ctlb) {
