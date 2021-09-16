@@ -11,47 +11,8 @@
 # GNU General Public License for more details.
 #
 
-MTK_DIP_COUNT := 1
-MTK_MSF_OFFSET := 0
 $(warning $(CONFIG_MTK_CAMERA_ISP_VER))
-
-ifeq ($(CONFIG_MACH_MT6775),y)
-  obj-y += $(subst ",,isp_50)/
-endif
-
-ifeq ($(CONFIG_MACH_MT6771),y)
-  obj-y += $(subst ",,isp_50)/
-endif
-
-ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-y += $(subst ",,isp_6s)/
-  MTK_DIP_COUNT := 2
-endif
-
-ifeq ($(CONFIG_MACH_MT6883),y)
-  obj-y += $(subst ",,isp_6s)/
-  MTK_DIP_COUNT := 2
-endif
 
 ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp6s")
   obj-$(CONFIG_MTK_CAMERA_DIP_ISP6S) += isp_6s/
-    ifeq ($(CONFIG_MTK_CAMERA_DUAL_DIP_ISP6S),m)
-        $(warning "This path for dual dip")
-        MTK_DIP_COUNT := 2
-    else
-        $(warning "This path for single dip")
-        MTK_MSF_OFFSET := 1
-    endif
 endif
-
-ifeq ($(CONFIG_MACH_MT6853),y)
-  obj-y += $(subst ",,isp_6s)/
-  MTK_MSF_OFFSET := 1
-endif
-
-ifeq ($(CONFIG_MACH_MT3967),y)
-  obj-y += $(subst ",,isp_50)/
-endif
-
-subdir-ccflags-y += -DMTK_DIP_COUNT=$(MTK_DIP_COUNT)
-subdir-ccflags-y += -DMTK_MSF_OFFSET=$(MTK_MSF_OFFSET)
