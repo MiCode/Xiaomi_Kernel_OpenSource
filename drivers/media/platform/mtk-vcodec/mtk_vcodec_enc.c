@@ -2722,6 +2722,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_VIDEO_ENABLE_TSVC;
 	cfg.type = V4L2_CTRL_TYPE_U32;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video encode tsvc";
