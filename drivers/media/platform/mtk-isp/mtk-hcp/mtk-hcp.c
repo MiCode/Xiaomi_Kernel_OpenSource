@@ -1138,10 +1138,22 @@ static unsigned int mtk_hcp_poll(struct file *file, poll_table *wait)
 static int mtk_hcp_release(struct inode *inode, struct file *file)
 {
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
+	struct slbc_data slb;
+	int ret;
 
 	dev_dbg(hcp_dev->dev, "- E. hcp release.\n");
 
 	hcp_dev->is_open = false;
+
+	if (atomic_read(&(hcp_dev->have_slb)) > 0) {
+		slb.uid  = UID_SH_P2;
+		slb.type = TP_BUFFER;
+		ret = slbc_release(&slb);
+		if (ret < 0) {
+			dev_info(hcp_dev->dev, "Failed to release SLB buffer");
+			return -1;
+		}
+	}
 
 	kfree(hcp_dev->extmem.d_va);
 	return 0;
