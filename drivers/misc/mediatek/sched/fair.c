@@ -659,7 +659,7 @@ static int mtk_active_load_balance_cpu_stop(void *data)
 	rq_lock_irq(busiest_rq, &rf);
 
 	if (task_cpu(target_task) != busiest_cpu ||
-		(target_task->flags & PF_KTHREAD) ||
+		(!cpumask_test_cpu(target_cpu, target_task->cpus_ptr)) ||
 		task_running(busiest_rq, target_task) ||
 		target_rq == busiest_rq)
 		goto out_unlock;
