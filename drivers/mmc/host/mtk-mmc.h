@@ -605,6 +605,8 @@ struct msdc_host {
 	struct pinctrl_state *pins_uhs;
 	struct delayed_work req_timeout;
 	int irq;		/* host interrupt */
+	int eint_irq;	        /* device interrupt */
+	int sdio_irq_cnt;       /* irq enable cnt */
 	struct reset_control *reset;
 
 	struct clk *src_clk;	/* msdc source clock */

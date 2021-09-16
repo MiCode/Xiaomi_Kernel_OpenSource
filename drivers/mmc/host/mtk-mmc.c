@@ -2381,6 +2381,51 @@ static const struct cqhci_host_ops msdc_cmdq_ops = {
 	.post_disable = msdc_cqe_post_disable,
 };
 
+static irqreturn_t sdio_eint_irq(int irq, void *dev_id)
+{
+	unsigned long flags;
+	struct msdc_host *host = (struct msdc_host *)dev_id;
+	struct mmc_host *mmc = mmc_from_priv(host);
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (likely(host->sdio_irq_cnt > 0)) {
+		disable_irq_nosync(host->eint_irq);
+		disable_irq_wake(host->eint_irq);
+		host->sdio_irq_cnt--;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	sdio_signal_irq(mmc);
+
+	return IRQ_HANDLED;
+}
+
+static int request_sdio_eint_irq(struct msdc_host *host)
+{
+	struct gpio_desc *desc;
+	int ret = 0;
+	int irq;
+
+	desc = devm_gpiod_get_index(host->dev, "eint", 0, GPIOD_IN);
+	if (IS_ERR(desc)) {
+		pr_info("mmc%d:failed to get sdio eint gpiod\n", host->id);
+		return PTR_ERR(desc);
+	}
+
+	irq = gpiod_to_irq(desc);
+	if (irq >= 0) {
+		irq_set_status_flags(irq, IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(host->dev, irq,
+				NULL, sdio_eint_irq,
+				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+				"sdio-eint", host);
+	} else
+		ret = irq;
+
+	host->eint_irq = irq;
+	return ret;
+}
+
 static void msdc_of_property_parse(struct platform_device *pdev,
 				   struct msdc_host *host)
 {
@@ -2702,6 +2747,13 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (ret)
 		goto release;
 
+	if (host->id == MSDC_SDIO) {
+		ret = request_sdio_eint_irq(host);
+		if (ret) {
+			dev_info(host->dev, "failed to register sdio eint irq!\n");
+			goto release;
+		}
+	}
 	pm_runtime_set_active(host->dev);
 	pm_runtime_set_autosuspend_delay(host->dev, MTK_MMC_AUTOSUSPEND_DELAY);
 	pm_runtime_use_autosuspend(host->dev);
@@ -2942,6 +2994,14 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 #else
 	msdc_save_reg(host);
 #endif
+
+	sdr_clr_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
+	if (host->sdio_irq_cnt == 0) {
+		enable_irq(host->eint_irq);
+		enable_irq_wake(host->eint_irq);
+		host->sdio_irq_cnt++;
+	}
+
 	msdc_gate_clock(host);
 
 	if (host->dvfsrc_vcore_power && host->req_vcore) {
@@ -2970,6 +3030,13 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 #else
 	msdc_restore_reg(host);
 #endif
+
+	if (host->sdio_irq_cnt > 0) {
+		disable_irq_nosync(host->eint_irq);
+		disable_irq_wake(host->eint_irq);
+		host->sdio_irq_cnt--;
+	}
+	sdr_set_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
 
 	return 0;
 }
