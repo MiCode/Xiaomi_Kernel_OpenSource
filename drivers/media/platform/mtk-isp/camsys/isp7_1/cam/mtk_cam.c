@@ -3929,25 +3929,23 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 		raw_dev = dev_get_drvdata(dev);
 
-		if (ctx->pipe->res_config.enable_hsf_raw) {
-			if (ctx->used_raw_num) {
-				initialize(raw_dev);
-				/* Stagger */
-				if (mtk_cam_is_stagger(ctx))
-					stagger_enable(raw_dev);
-				/* Sub sample */
-				if (mtk_cam_is_subsample(ctx))
-					subsample_enable(raw_dev);
-				/* Twin */
-				if (ctx->pipe->res_config.raw_num_used != 1) {
-					struct mtk_raw_device *raw_dev_slave =
-								get_slave_raw_dev(cam, ctx->pipe);
-					initialize(raw_dev_slave);
-					if (ctx->pipe->res_config.raw_num_used == 3) {
-						struct mtk_raw_device *raw_dev_slave2 =
-							get_slave2_raw_dev(cam, ctx->pipe);
-						initialize(raw_dev_slave2);
-					}
+		if (mtk_cam_is_hsf(ctx)) {
+			initialize(raw_dev);
+			/* Stagger */
+			if (mtk_cam_is_stagger(ctx))
+				stagger_enable(raw_dev);
+			/* Sub sample */
+			if (mtk_cam_is_subsample(ctx))
+				subsample_enable(raw_dev);
+			/* Twin */
+			if (ctx->pipe->res_config.raw_num_used != 1) {
+				struct mtk_raw_device *raw_dev_slave =
+							get_slave_raw_dev(cam, ctx->pipe);
+				initialize(raw_dev_slave);
+				if (ctx->pipe->res_config.raw_num_used == 3) {
+					struct mtk_raw_device *raw_dev_slave2 =
+						get_slave2_raw_dev(cam, ctx->pipe);
+					initialize(raw_dev_slave2);
 				}
 			}
 		}
@@ -3981,9 +3979,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				}
 				if (used_pipes & (1 << i)) {
 					//HSF control
-					dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
-					ctx->pipe->res_config.enable_hsf_raw, ctx->pipe->id);
-					if (ctx->pipe->res_config.enable_hsf_raw) {
+					if (mtk_cam_is_hsf(ctx)) {
 						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
 						goto fail_pipe_off;
 					}
@@ -4016,9 +4012,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
 				if (used_pipes & (1 << i)) {
 					//HSF control
-					dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
-					ctx->pipe->res_config.enable_hsf_raw, ctx->pipe->id);
-					if (ctx->pipe->res_config.enable_hsf_raw) {
+					if (mtk_cam_is_hsf(ctx)) {
 						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
 						goto fail_pipe_off;
 					}
@@ -4061,8 +4055,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					!mtk_cam_is_time_shared(ctx)) {
 			if (mtk_cam_is_hsf(ctx)) {
 				//HSF control
-				dev_info(cam->dev, "enabled_hsf_raw =%d pipe id =%d\n",
-					ctx->pipe->res_config.enable_hsf_raw, ctx->pipe->id);
+				dev_info(cam->dev, "enabled_hsf_raw =%d\n",
+					ctx->pipe->res_config.enable_hsf_raw);
 					ret = mtk_cam_hsf_config(ctx, raw_dev->id);
 					if (ret != 0) {
 						dev_info(cam->dev, "Error:enabled_hsf fail\n");
@@ -4126,8 +4120,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		ctx->composed_buffer_list.cnt = 0;
 		dev_dbg(cam->dev, "[M2M] reset processing_buffer_list.cnt & composed_buffer_list.cnt\n");
 	}
-	if (!mtk_cam_is_hsf(ctx)) {
-		if (ctx->used_raw_num) {
+	if (ctx->used_raw_num) {
+		if (!mtk_cam_is_hsf(ctx)) {
 			initialize(raw_dev);
 			/* Stagger */
 			if (mtk_cam_is_stagger(ctx))
@@ -4274,17 +4268,16 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			ctx->seninf->name, ret);
 		return -EPERM;
 	}
-    //HSF control
-	if (mtk_cam_is_hsf(ctx)) {
-		ret = mtk_cam_hsf_uninit(ctx);
-		if (ret != 0) {
-			dev_dbg(cam->dev, "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",
-				ctx->seninf->name, ret);
-			return -EPERM;
-		}
-	}
 
 	if (ctx->used_raw_num) {
+		if (mtk_cam_is_hsf(ctx)) {
+			ret = mtk_cam_hsf_uninit(ctx);
+			if (ret != 0) {
+				dev_dbg(cam->dev, "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",
+					ctx->seninf->name, ret);
+				return -EPERM;
+			}
+		}
 		dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 		if (!dev) {
 			dev_dbg(cam->dev, "streamoff raw device not found\n");
