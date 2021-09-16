@@ -2683,6 +2683,44 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 12, "0", 1) == 0)
 			g_force_write_done = false;
 		DDPMSG("g_disp_drm:%d", g_force_write_done);
+	}  else if (strncmp(opt, "mml_sram_height:", 16) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		unsigned int height;
+		int ret;
+
+		ret = sscanf(opt, "mml_sram_height:%d\n", &height);
+		DDPMSG("height:%d", height);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc)
+			return;
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->mml_force_height = height;
+	} else if (strncmp(opt, "mml_sram_width:", 15) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		unsigned int width;
+		int ret;
+
+		ret = sscanf(opt, "mml_sram_width:%d\n", &width);
+		DDPMSG("mml_sram_width width:%d", width);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc)
+			return;
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->mml_force_width = width;
 	}
 }
 

@@ -1144,8 +1144,10 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
 		submit_pq = mtk_alloc_mml_submit();
 
-		submit_kernel->info.dest[0].crop.r.height = 64;
-		submit_kernel->info.dest[0].crop.r.width = 512;
+		submit_kernel->info.dest[0].crop.r.height =
+			(mtk_crtc->mml_force_height) ? mtk_crtc->mml_force_height : 64;
+		submit_kernel->info.dest[0].crop.r.width =
+			(mtk_crtc->mml_force_width) ? mtk_crtc->mml_force_width : 512;
 		submit_kernel->info.dest[0].crop.r.left = 0;
 		submit_kernel->info.dest[0].crop.r.top = 0;
 		submit_kernel->info.dest[0].crop.h_sub_px = 0;
@@ -1155,8 +1157,10 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 
 		mml_drm_split_info(submit_kernel, submit_pq);
 
-		submit_kernel->info.dest[0].compose.height = 64;
-		submit_kernel->info.dest[0].compose.width = 512;
+		submit_kernel->info.dest[0].compose.height =
+			(mtk_crtc->mml_force_height) ? mtk_crtc->mml_force_height : 64;
+		submit_kernel->info.dest[0].compose.width =
+			(mtk_crtc->mml_force_width) ? mtk_crtc->mml_force_width : 512;
 		submit_kernel->info.dest[0].compose.left = 0;
 		submit_kernel->info.dest[0].compose.top = 0;
 
