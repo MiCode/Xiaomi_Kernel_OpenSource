@@ -44,6 +44,7 @@ struct a2d_s6s_v2 {
 	unsigned int dual_rank_en;
 	unsigned int dw32_en;
 	unsigned int bg1_bk3_pos;
+	unsigned int chn_scrm_en;
 	unsigned int rank_pos;
 	unsigned int magics2[7];
 	unsigned int rank0_row_width, rank0_bank_width, rank0_col_width;
@@ -151,6 +152,8 @@ static const struct mtk_emi_compatible mt6877_compat = {
 #define EMI_CHN_CONA_4BANK_MODE_2ND 25
 #define EMI_CHN_CONA_RANK_POS 27
 #define EMI_CHN_CONA_BG1_BK3_POS 31
+
+#define EMI_CHN_CONC_SCRM_EN 7
 
 #define MTK_EMI_DRAM_OFFSET 0x40000000
 #define MTK_EMI_HASH 0x7
@@ -722,6 +725,7 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 	s6s->rank_pos = test_bit(EMI_CHN_CONA_RANK_POS, &emi_chn_cona) ? 1 : 0;
 	s6s->bg1_bk3_pos =
 		test_bit(EMI_CHN_CONA_BG1_BK3_POS, &emi_chn_cona) ? 1 : 0;
+	s6s->chn_scrm_en = test_bit(EMI_CHN_CONC_SCRM_EN, &emi_chn_conc);
 
 	b11s = (emi_chn_conc >> 8) & mask_4b;
 	b12s = (emi_chn_conc >> 12) & mask_4b;
@@ -1007,26 +1011,28 @@ static int mtk_emicen_addr2dram_v2(unsigned long addr,
 	}
 
 	saddr = taddr;
-	clear_bit(8, &saddr);
-	clear_bit(11, &saddr);
-	clear_bit(12, &saddr);
-	clear_bit(13, &saddr);
-	clear_bit(14, &saddr);
-	clear_bit(15, &saddr);
-	clear_bit(16, &saddr);
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[0], 8) << 8;
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[1], 11) << 11;
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[2], 12) << 12;
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[3], 13) << 13;
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[4], 14) << 14;
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[5], 15) << 15;
-	saddr |= use_a2d_magic_v2(taddr, s6s->magics2[6], 16) << 16;
+	if (s6s->chn_scrm_en) {
+		clear_bit(8, &saddr);
+		clear_bit(11, &saddr);
+		clear_bit(12, &saddr);
+		clear_bit(13, &saddr);
+		clear_bit(14, &saddr);
+		clear_bit(15, &saddr);
+		clear_bit(16, &saddr);
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[0], 8) << 8;
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[1], 11) << 11;
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[2], 12) << 12;
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[3], 13) << 13;
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[4], 14) << 14;
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[5], 15) << 15;
+		saddr |= use_a2d_magic_v2(taddr, s6s->magics2[6], 16) << 16;
+	}
 
 	if (!s6s->dual_rank_en)
 		map->rank = 0;
 	else {
 		if (!s6s->rank_pos)
-			map->rank = ((saddr >> 20) > s6s->rank0_size_MB) ?
+			map->rank = ((saddr >> 20) >= s6s->rank0_size_MB) ?
 					1 : 0;
 		else {
 			tmp = 1 + s6s->dw32_en;
@@ -1124,7 +1130,7 @@ static ssize_t emicen_addr2dram_show(struct device_driver *driver, char *buf)
 	ret = mtk_emicen_addr2dram(addr, &map);
 	if (!ret)
 		return snprintf(buf, PAGE_SIZE,
-		     "0x%lx\n->\nemi%d\nchn%d\nrank%d\nbank%d\nrow%d\ncol%d\n",
+		     "0x%lx\n->\nemi: %d\nchn: %d\nrank:%d\nbank:%d\nrow: %d\ncol: %d\n",
 		     addr, map.emi, map.channel, map.rank,
 		     map.bank, map.row, map.column);
 	else
