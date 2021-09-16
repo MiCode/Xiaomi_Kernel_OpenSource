@@ -27,6 +27,9 @@
  *************************************************************************/
 #define WK_MAX_MSG_SIZE (128)
 #define SOFT_KICK_RANGE     (100*1000) // 100ms
+
+#define WDT_MODE		0x0
+#define WDT_MODE_EN		0x1
 #define WDT_LENGTH_TIMEOUT(n)   ((n) << 5)
 #define WDT_LENGTH      0x04
 #define WDT_LENGTH_KEY      0x8
@@ -39,6 +42,9 @@
 #define CPU_NR (nr_cpu_ids)
 #define DEFAULT_INTERVAL    15
 #define WDT_COUNTER     0x514
+
+#define SYST0_CON		0x40
+#define SYST0_VAL		0x44
 
 static int start_kicker(void);
 static int g_kicker_init;
@@ -62,6 +68,7 @@ static struct notifier_block wdt_pm_nb;
 static unsigned long g_nxtKickTime;
 static int g_hang_detected;
 static void __iomem *toprgu_base;
+static void __iomem *systimer_base;
 static unsigned int cpus_kick_bit;
 static atomic_t plug_mask = ATOMIC_INIT(0xFF);
 
@@ -207,8 +214,11 @@ static void kwdt_time_sync(void)
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
-	unsigned int dump_timeout = 0;
+	unsigned int dump_timeout = 0, r_counter = DEFAULT_INTERVAL;
 	int i = 0;
+
+	if (toprgu_base && (ioread32(toprgu_base + WDT_MODE) & WDT_MODE_EN))
+		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
 
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
@@ -223,13 +233,19 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		dump_timeout = 1;
 	}
 
+	if ((g_hang_detected == 0) &&
+		    (r_counter < DEFAULT_INTERVAL)) {
+		g_hang_detected = 1;
+		dump_timeout = 1;
+	}
+
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
+	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%x,%d,%d,%lld,%lld,%lld,[%lld,%ld] %d\n",
 	 cpu, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
 	 lasthpg_act, lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
-	 curInterval);
+	 curInterval, r_counter);
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		msg_buf[5] = 'k';
@@ -257,37 +273,34 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	pr_info("%s", msg_buf);
 
-	if (msg_buf[5] == 'k' && toprgu_base) {
-		unsigned int r_counter = ioread32(toprgu_base + WDT_COUNTER);
+	if (dump_timeout) {
+		int dump = 0;
+		struct task_struct *g, *t;
 
-		r_counter /= (32 * 1024);
-		/*
-		 *If the remaing counter is less than 15s means
-		 * the watchdogd already stopped
-		 */
-		if (r_counter < DEFAULT_INTERVAL) {
-			struct task_struct *g, *t;
+		if (systimer_base)
+			pr_info("SYST0 CON%x VAL%x\n",
+				ioread32(systimer_base + SYST0_CON),
+				ioread32(systimer_base + SYST0_VAL));
 
-			pr_info("WDT_COUNTER %d\n", r_counter);
+		pr_info("WDT_COUNTER %d\n", r_counter);
 
-			for_each_process_thread(g, t) {
+		for_each_process_thread(g, t) {
 
-				if (!strcmp(t->comm, "watchdogd")) {
+			if (!strcmp(t->comm, "watchdogd")) {
+				pr_info("watchdogd on CPU %d\n", t->cpu);
+				sched_show_task(t);
+
+				for (i = 0; i < CPU_NR; i++) {
 					struct rq *rq;
 
-					pr_info("watchdogd on CPU %d\n", t->cpu);
-					sched_show_task(t);
-
-					rq = cpu_rq(t->cpu);
-					if (rq)
+					pr_info("task on CPU%d\n", i);
+					rq = cpu_rq(i);
+					if (cpu_rq(i))
 						sched_show_task(rq->curr);
 				}
 			}
 		}
-	}
 
-	if (dump_timeout) {
-		int dump = 0;
 
 		for (i = 0; i < 2000; i++) {
 			mdelay(1);
@@ -297,18 +310,23 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				dump = 0;
 				break;
 			} else if ((get_kick_bit() & get_check_bit()) ==
-				    get_check_bit()) {
+					get_check_bit()) {
 				g_hang_detected = 0;
 				spin_unlock(&lock);
 				dump = 0;
 				break;
 			}
+
 			dump = 1;
 			spin_unlock(&lock);
+
+			if (r_counter < DEFAULT_INTERVAL)
+				break;
 		}
 
 		if (dump) {
 			dump_wdk_bind_info();
+
 			mrdump_mini_add_extra_misc();
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
 			if (p_mt_aee_dump_irq_info)
@@ -513,10 +531,15 @@ static const struct of_device_id toprgu_of_match[] = {
 	{},
 };
 
+static const struct of_device_id systimer_of_match[] = {
+	{ .compatible = "mediatek,mt6765-timer" },
+	{},
+};
+
 static int __init hangdet_init(void)
 {
 	int res = 0;
-	struct device_node *np_toprgu;
+	struct device_node *np_toprgu, *np_systimer;
 
 	for_each_matching_node(np_toprgu, toprgu_of_match) {
 		pr_info("%s: compatible node found: %s\n",
@@ -529,6 +552,16 @@ static int __init hangdet_init(void)
 		pr_debug("toprgu iomap failed\n");
 	else
 		wdt_mark_stage(WDT_STAGE_KERNEL);
+
+	for_each_matching_node(np_systimer, systimer_of_match) {
+		pr_info("%s: compatible node found: %s\n",
+			 __func__, np_systimer->name);
+		break;
+	}
+
+	systimer_base = of_iomap(np_systimer, 0);
+	if (!systimer_base)
+		pr_debug("systimer iomap failed\n");
 
 	init_wk_check_bit();
 
