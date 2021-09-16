@@ -61,6 +61,7 @@
 #include <asm/setup.h>
 
 #include "mtk_charger.h"
+#include "mtk_battery.h"
 
 struct tag_bootmode {
 	u32 size;
@@ -1005,6 +1006,73 @@ static ssize_t BatteryNotify_store(struct device *dev,
 static DEVICE_ATTR_RW(BatteryNotify);
 
 /* procfs */
+static int mtk_chg_set_cv_show(struct seq_file *m, void *data)
+{
+	struct mtk_charger *pinfo = m->private;
+
+	seq_printf(m, "%d\n", pinfo->data.battery_cv);
+	return 0;
+}
+
+static int mtk_chg_set_cv_open(struct inode *node, struct file *file)
+{
+	return single_open(file, mtk_chg_set_cv_show, PDE_DATA(node));
+}
+
+static ssize_t mtk_chg_set_cv_write(struct file *file,
+		const char *buffer, size_t count, loff_t *data)
+{
+	int len = 0, ret = 0;
+	char desc[32] = {0};
+	unsigned int cv = 0;
+	struct mtk_charger *info = PDE_DATA(file_inode(file));
+	struct power_supply *psy = NULL;
+	union  power_supply_propval dynamic_cv;
+
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return -EFAULT;
+
+	desc[len] = '\0';
+
+	ret = kstrtou32(desc, 10, &cv);
+	if (ret == 0) {
+		if (cv >= BATTERY_CV) {
+			info->data.battery_cv = BATTERY_CV;
+			chr_info("%s: adjust charge voltage %dV too high, use default cv\n",
+				  __func__, cv);
+		} else {
+			info->data.battery_cv = cv;
+			chr_info("%s: adjust charge voltage = %dV\n", __func__, cv);
+		}
+		psy = power_supply_get_by_name("battery");
+		if (!IS_ERR_OR_NULL(psy)) {
+			dynamic_cv.intval = info->data.battery_cv;
+			ret = power_supply_set_property(psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, &dynamic_cv);
+			if (ret < 0)
+				chr_err("set gauge cv fail\n");
+		}
+		return count;
+	}
+
+	chr_err("%s: bad argument\n", __func__);
+	return count;
+}
+
+static const struct proc_ops mtk_chg_set_cv_fops = {
+	.proc_open = mtk_chg_set_cv_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+	.proc_write = mtk_chg_set_cv_write,
+};
+
 static int mtk_chg_current_cmd_show(struct seq_file *m, void *data)
 {
 	struct mtk_charger *pinfo = m->private;
@@ -2678,6 +2746,12 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	}
 	entry = proc_create_data("en_safety_timer", 0644, battery_dir,
 			&mtk_chg_en_safety_timer_fops, info);
+	if (!entry) {
+		ret = -ENODEV;
+		goto fail_procfs;
+	}
+	entry = proc_create_data("set_cv", 0644, battery_dir,
+			&mtk_chg_set_cv_fops, info);
 	if (!entry) {
 		ret = -ENODEV;
 		goto fail_procfs;

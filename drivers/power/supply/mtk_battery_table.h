@@ -96,6 +96,10 @@
 /* PCB setting */
 #define CALI_CAR_TUNE_AVG_NUM	60
 
+/* Dynamic CV */
+#define DYNAMIC_CV_FACTOR      100     /* mV */
+#define CHARGER_IEOC           150     /* mA */
+
 /* Aging Compensation 1*/
 #define AGING_FACTOR_MIN			90
 #define AGING_FACTOR_DIFF			10

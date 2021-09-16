@@ -281,6 +281,7 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_CHG_DECIMAL_RATE,
 	FG_KERNEL_CMD_FORCE_BAT_TEMP,
 	FG_KERNEL_CMD_SEND_BH_DATA,
+	FG_KERNEL_CMD_GET_DYNAMIC_CV,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -413,6 +414,10 @@ struct fuel_gauge_custom_data {
 	int r_fg_value;
 	int com_r_fg_value;
 	int mtk_chr_exist;
+
+	/* Dynamic cv*/
+	int dynamic_cv_factor;
+	int charger_ieoc;
 
 	/* Aging Compensation 1*/
 	int aging_one_en;

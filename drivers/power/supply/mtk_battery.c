@@ -183,7 +183,7 @@ bool is_recovery_mode(void)
 	struct mtk_battery *gm;
 
 	gm = get_mtk_battery();
-	bm_debug("%s, bootmdoe = %d\n", gm->bootmode);
+	bm_debug("%s, bootmdoe = %d\n", __func__, gm->bootmode);
 
 	/* RECOVERY_BOOT */
 	if (gm->bootmode == 2)
@@ -277,6 +277,7 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 };
 
 static int battery_psy_get_property(struct power_supply *psy,
@@ -413,6 +414,37 @@ static int battery_psy_get_property(struct power_supply *psy,
 		}
 		break;
 
+
+	default:
+		ret = -EINVAL;
+		break;
+		}
+
+	bm_debug("%s psp:%d ret:%d val:%d",
+		__func__, psp, ret, val->intval);
+
+	return ret;
+}
+
+static int battery_psy_set_property(struct power_supply *psy,
+	enum power_supply_property psp,
+	const union power_supply_propval *val)
+{
+	int ret = 0;
+	struct mtk_battery *gm;
+
+	gm = (struct mtk_battery *)power_supply_get_drvdata(psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+		if (val->intval > 0) {
+			wakeup_fg_algo_cmd(gm, FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_GET_DYNAMIC_CV, (val->intval / 100));
+			bm_err("[%s], dynamic_cv: %d\n",  __func__, val->intval);
+		}
+		break;
+
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -530,6 +562,7 @@ void battery_service_data_init(struct mtk_battery *gm)
 	bs_data->psd.properties = battery_props;
 	bs_data->psd.num_properties = ARRAY_SIZE(battery_props);
 	bs_data->psd.get_property = battery_psy_get_property;
+	bs_data->psd.set_property = battery_psy_set_property;
 	bs_data->psd.external_power_changed =
 		mtk_battery_external_power_changed;
 	bs_data->psy_cfg.drv_data = gm;
@@ -925,6 +958,10 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->r_fg_value = UNIT_TRANS_10 * R_FG_VALUE;
 	fg_cust_data->com_r_fg_value = UNIT_TRANS_10 * R_FG_VALUE;
 	fg_cust_data->unit_multiple = UNIT_MULTIPLE;
+
+	/* Dynamic CV */
+	fg_cust_data->dynamic_cv_factor = DYNAMIC_CV_FACTOR;
+	fg_cust_data->charger_ieoc = CHARGER_IEOC;
 
 	/* Aging Compensation */
 	fg_cust_data->aging_one_en = AGING_ONE_EN;
