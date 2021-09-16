@@ -2996,7 +2996,7 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 #endif
 
 	sdr_clr_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
-	if (host->sdio_irq_cnt == 0) {
+	if (host->sdio_irq_cnt == 0 && host->id == MSDC_SDIO) {
 		enable_irq(host->eint_irq);
 		enable_irq_wake(host->eint_irq);
 		host->sdio_irq_cnt++;
@@ -3031,7 +3031,7 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 	msdc_restore_reg(host);
 #endif
 
-	if (host->sdio_irq_cnt > 0) {
+	if (host->sdio_irq_cnt > 0 && host->id == MSDC_SDIO) {
 		disable_irq_nosync(host->eint_irq);
 		disable_irq_wake(host->eint_irq);
 		host->sdio_irq_cnt--;
