@@ -1977,7 +1977,6 @@ static void iova_worker(struct work_struct *work)
 	struct req_frameparam *req_frame;
 	struct mtk_imgsys_hw_subframe *buf;
 	struct img_ipi_frameparam *param;
-	int ret;
 
 	req = container_of(work, struct mtk_imgsys_request, iova_work);
 	req->tstate.time_iovaworkp = ktime_get_boottime_ns()/1000;
@@ -2008,12 +2007,7 @@ static void iova_worker(struct work_struct *work)
 			atomic_inc_return(&imgsys_dev->imgsys_enqueue_cnt);
 	req->tstate.time_qw2composer = ktime_get_boottime_ns()/1000;
 
-	INIT_WORK(&req->fw_work, imgsys_composer_workfunc);
-	ret = queue_work(imgsys_dev->composer_wq, &req->fw_work);
-	if (!ret)
-		dev_dbg(imgsys_dev->dev,
-			"frame_no(%d) queue_work failed, already on a queue\n",
-			atomic_read(&imgsys_dev->imgsys_enqueue_cnt));
+	imgsys_composer_workfunc(&req->fw_work);
 
 	IMGSYS_SYSTRACE_END();
 
