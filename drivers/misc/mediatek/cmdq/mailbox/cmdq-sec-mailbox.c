@@ -424,6 +424,10 @@ static void cmdq_sec_task_done(struct cmdq_sec_task *task, s32 err)
 	cmdq_log("%s done task:%p pkt:%p err:%d",
 		__func__, task, task->pkt, err);
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		task->pkt->rec_irq = sched_clock();
+#endif
+
 	if (task->pkt->cb.cb) {
 		struct cmdq_cb_data cb_data;
 

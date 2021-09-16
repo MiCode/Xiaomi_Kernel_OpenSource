@@ -144,6 +144,7 @@ struct cmdq_task {
 	struct cmdq_thread	*thread;
 	struct cmdq_pkt		*pkt; /* the packet sent from mailbox client */
 	u64			exec_time;
+	u64			end_time;
 };
 
 struct cmdq_buf_dump {
@@ -845,6 +846,7 @@ static void cmdq_task_exec_done(struct cmdq_task *task, s32 err)
 #endif
 	cmdq_task_callback(task->pkt, err);
 	cmdq_log("pkt:0x%p done err:%d", task->pkt, err);
+	task->end_time = sched_clock();
 	list_del_init(&task->list_entry);
 }
 
@@ -990,6 +992,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 
 	list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
 				 list_entry) {
+		if (task->end_time)
+			cmdq_util_err("thd:%d pkt:%p is done,start:%llu end:%llu",
+				thread->idx, task->pkt, task->exec_time, task->end_time);
 		task_end_pa = cmdq_task_get_end_pa(task->pkt);
 		if (cmdq_task_is_current_run(curr_pa, task->pkt)) {
 			curr_task = task;

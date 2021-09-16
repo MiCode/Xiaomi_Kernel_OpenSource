@@ -609,6 +609,17 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 
 	if (client)
 		mutex_lock(&client->chan_mutex);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	if (pkt && pkt->task_alloc && !pkt->rec_irq) {
+		if (client && client->chan) {
+			s32 thread_id = cmdq_mbox_chan_id(client->chan);
+
+			cmdq_err("invalid destroy, pkt:%p thd:%d", pkt, thread_id);
+		} else
+			cmdq_err("invalid pkt_destroy, pkt:0x%p", pkt);
+		dump_stack();
+	}
+#endif
 	pkt->task_alive = false;
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
