@@ -1715,12 +1715,13 @@ mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 	struct mtk_camsv_working_buf_entry *sv_buf_entry, *sv_buf_entry_prev;
 	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
 	int i;
+	unsigned long flags;
 
 	if (!ctx->used_sv_num)
 		return false;
 
 	for (i = 0; i < ctx->used_sv_num; i++) {
-		spin_lock(&ctx->sv_processing_buffer_list[i].lock);
+		spin_lock_irqsave(&ctx->sv_processing_buffer_list[i].lock, flags);
 		list_for_each_entry_safe(sv_buf_entry, sv_buf_entry_prev,
 					 &ctx->sv_processing_buffer_list[i].list,
 					 list_entry) {
@@ -1734,7 +1735,7 @@ mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 				break;
 			}
 		}
-		spin_unlock(&ctx->sv_processing_buffer_list[i].lock);
+		spin_unlock_irqrestore(&ctx->sv_processing_buffer_list[i].lock, flags);
 	}
 
 	return result;

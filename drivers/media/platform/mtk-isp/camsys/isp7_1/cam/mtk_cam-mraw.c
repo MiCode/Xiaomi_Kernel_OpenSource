@@ -1825,11 +1825,12 @@ mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 	bool result = false;
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry, *mraw_buf_entry_prev;
 	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
+	unsigned long flags;
 
 	if (!ctx->used_mraw_num)
 		return false;
 
-	spin_lock(&ctx->mraw_processing_buffer_list.lock);
+	spin_lock_irqsave(&ctx->mraw_processing_buffer_list.lock, flags);
 
 	list_for_each_entry_safe(mraw_buf_entry, mraw_buf_entry_prev,
 				 &ctx->mraw_processing_buffer_list.list,
@@ -1844,7 +1845,7 @@ mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 			break;
 		}
 	}
-	spin_unlock(&ctx->mraw_processing_buffer_list.lock);
+	spin_unlock_irqrestore(&ctx->mraw_processing_buffer_list.lock, flags);
 
 	dev_dbg(ctx->cam->dev, "put mraw bufs, %s\n",
 		req_stream_data->req->req.debug_str);

@@ -2801,11 +2801,11 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mraw_buf_entry->ctx = ctx;
 
 		/* put to mraw using list */
-		spin_lock(&ctx->mraw_using_buffer_list.lock);
+		spin_lock_irqsave(&ctx->mraw_using_buffer_list.lock, flags);
 		list_add_tail(&mraw_buf_entry->list_entry,
 			&ctx->mraw_using_buffer_list.list);
 		ctx->mraw_using_buffer_list.cnt++;
-		spin_unlock(&ctx->mraw_using_buffer_list.lock);
+		spin_unlock_irqrestore(&ctx->mraw_using_buffer_list.lock, flags);
 	}
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
@@ -2877,6 +2877,7 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 	struct mtk_cam_request_stream_data *pipe_stream_data;
 	struct mtk_camsv_working_buf_entry *buf_entry;
 	bool ret = true;
+	unsigned long flags;
 
 	if (ctx->used_sv_num == 0)
 		return ret;
@@ -2887,11 +2888,11 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx, struct mtk_cam_request *req
 		buf_entry = mtk_cam_sv_working_buf_get(ctx);
 		pipe_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
 		mtk_cam_sv_wbuf_set_s_data(buf_entry, pipe_stream_data);
-		spin_lock(&ctx->sv_using_buffer_list[i].lock);
+		spin_lock_irqsave(&ctx->sv_using_buffer_list[i].lock, flags);
 		list_add_tail(&buf_entry->list_entry,
 				&ctx->sv_using_buffer_list[i].list);
 		ctx->sv_using_buffer_list[i].cnt++;
-		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+		spin_unlock_irqrestore(&ctx->sv_using_buffer_list[i].lock, flags);
 	}
 	if (ctx_stream_data->frame_seq_no == 1) {
 		mtk_cam_sv_apply_next_buffer(ctx);
