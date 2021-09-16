@@ -3021,6 +3021,8 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		pipe_stream_data->req = ctx_stream_data->req;
 		pipe_stream_data->pipe_id = ctx->sv_pipe[i]->id;
 		pipe_stream_data->ctx = ctx;
+		mtk_cam_req_work_init(&pipe_stream_data->sv_work, pipe_stream_data);
+		INIT_WORK(&pipe_stream_data->sv_work.work, mtk_cam_sv_work);
 		mtk_cam_sv_wbuf_set_s_data(buf_entry, pipe_stream_data);
 		spin_lock_irqsave(&ctx->sv_using_buffer_list[i].lock, flags);
 		list_add_tail(&buf_entry->list_entry,
@@ -3055,7 +3057,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->pipe_used & (1 << i)) {
 			unsigned int stream_id = i;
-			struct mtk_cam_req_work *frame_work, *done_work, *sv_work;
+			struct mtk_cam_req_work *frame_work, *done_work;
 			struct mtk_cam_request_stream_data *req_stream_data;
 			struct mtk_cam_request_stream_data *pipe_stream_data;
 			struct mtk_cam_ctx *ctx = &cam->ctxs[stream_id];
@@ -3089,9 +3091,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					done_work = &pipe_stream_data->meta1_done_work;
 					atomic_set(&done_work->is_queued, 0);
 					INIT_WORK(&done_work->work, mtk_cam_meta1_done_work);
-
-					sv_work = &pipe_stream_data->sv_work;
-					INIT_WORK(&sv_work->work, mtk_cam_sv_work);
 				}
 			}
 
