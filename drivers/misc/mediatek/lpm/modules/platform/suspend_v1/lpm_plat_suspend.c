@@ -187,11 +187,16 @@ PLAT_LEAVE_SUSPEND:
 static void __lpm_suspend_reflect(int type, int cpu,
 					const struct lpm_issuer *issuer)
 {
+	struct lpm_issuer _suspend_issuer;
+
 	lpm_suspend_common_resume(lpm_suspend_status);
 	lpm_do_mcusys_prepare_on();
-
-	if (issuer)
-		issuer->log(LPM_ISSUER_SUSPEND, "suspend", (void *)issuer);
+	if (issuer) {
+		/* make sure suspend always print log */
+		_suspend_issuer.log_type = LOG_SUCCEESS;
+		_suspend_issuer.log = issuer->log;
+		_suspend_issuer.log(LPM_ISSUER_SUSPEND, "suspend", (void *)&_suspend_issuer);
+	}
 }
 int lpm_suspend_system_prompt(int cpu,
 					const struct lpm_issuer *issuer)
