@@ -480,7 +480,7 @@ const char * const *get_mt6895_all_clk_names(void)
 		"vlp_scp_sel",
 		"vlp_pwrap_ulposc_sel",
 		"vlp_gpt_bclk_sel",
-		"vlp_dxcc_sel",
+		"vlp_dxcc_vlp_sel",
 		"vlp_spmi_p_sel",
 		"vlp_spmi_m_sel",
 		"vlp_dvfsrc_sel",
