@@ -39,7 +39,6 @@
 //#include "lcm_i2c.h"
 
 static char bl_tb0[] = { 0x51, 0xff };
-static int current_fps = 60;
 
 //TO DO: You have to do that remove macro BYPASSI2C and solve build error
 //otherwise voltage will be unstable
@@ -263,6 +262,7 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0XC1, 0X89, 0X28, 0X00, 0X08, 0X00, 0XAA,
 				0X02, 0X0E, 0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7, 0X0C, 0XB7);
 	jdi_dcs_write_seq_static(ctx, 0XC2, 0X1B, 0XA0);
+	jdi_dcs_write_seq_static(ctx, 0XE9, 0X01);
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X20);
 	//REGR 0XFE,0X20
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
@@ -284,12 +284,12 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0XF8, 0X65);
 	jdi_dcs_write_seq_static(ctx, 0XF9, 0X64);
 
-	jdi_dcs_write_seq_static(ctx, 0X89, 0X15);//VCOM
-	jdi_dcs_write_seq_static(ctx, 0X8A, 0X15);//VCOM
-	jdi_dcs_write_seq_static(ctx, 0X8D, 0X15);//VCOM
-	jdi_dcs_write_seq_static(ctx, 0X8E, 0X15);//VCOM
-	jdi_dcs_write_seq_static(ctx, 0X8F, 0X15);//VCOM
-	jdi_dcs_write_seq_static(ctx, 0X91, 0X15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x89, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8A, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8D, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8E, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x8F, 0x15);//VCOM
+	jdi_dcs_write_seq_static(ctx, 0x91, 0x15);//VCOM
 
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X23);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
@@ -422,12 +422,7 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X25);
 	//REGR 0XFE,0X25
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
-	if (current_fps == 120)
-		jdi_dcs_write_seq_static(ctx, 0X18, 0X22);
-	else if (current_fps == 90)
-		jdi_dcs_write_seq_static(ctx, 0X18, 0X20);
-	else
-		jdi_dcs_write_seq_static(ctx, 0X18, 0X21);
+	jdi_dcs_write_seq_static(ctx, 0X18, 0X22);
 	jdi_dcs_write_seq_static(ctx, 0X19, 0XE4);
 	jdi_dcs_write_seq_static(ctx, 0X21, 0X40);
 	jdi_dcs_write_seq_static(ctx, 0X66, 0XD8);
@@ -643,56 +638,57 @@ static void jdi_panel_init(struct jdi *ctx)
 
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X20);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
-	jdi_dcs_write_seq_static(ctx, 0XB0, 0X00, 0XE2, 0X00, 0XE9, 0X00, 0XF6, 0X01, 0X01, 0X01,
-		0X0C, 0X01, 0X15, 0X01, 0X20, 0X01, 0X28);
-	jdi_dcs_write_seq_static(ctx, 0XB1, 0X01, 0X33, 0X01, 0X51, 0X01, 0X6E, 0X01, 0X9A, 0X01,
-		0XC0, 0X01, 0XFD, 0X02, 0X34, 0X02, 0X35);
-	jdi_dcs_write_seq_static(ctx, 0XB2, 0X02, 0X6B, 0X02, 0XA9, 0X02, 0XD1, 0X03, 0X04, 0X03,
-		0X25, 0X03, 0X51, 0X03, 0X5F, 0X03, 0X6D);
-	jdi_dcs_write_seq_static(ctx, 0XB3, 0X03, 0X7D, 0X03, 0X90, 0X03, 0XA7, 0X03, 0XBB, 0X03,
-		0XD4, 0X03, 0XD8, 0X00, 0X00);
-	jdi_dcs_write_seq_static(ctx, 0XB4, 0X00, 0XAA, 0X00, 0XB3, 0X00, 0XC4, 0X00, 0XD4, 0X00,
-		0XE2, 0X00, 0XF0, 0X00, 0XFC, 0X01, 0X08);
-	jdi_dcs_write_seq_static(ctx, 0XB5, 0X01, 0X12, 0X01, 0X39, 0X01, 0X58, 0X01, 0X8C, 0X01,
-		0XB5, 0X01, 0XF7, 0X02, 0X30, 0X02, 0X31);
-	jdi_dcs_write_seq_static(ctx, 0XB6, 0X02, 0X68, 0X02, 0XA6, 0X02, 0XCE, 0X03, 0X01, 0X03,
-		0X23, 0X03, 0X4E, 0X03, 0X5C, 0X03, 0X6A);
-	jdi_dcs_write_seq_static(ctx, 0XB7, 0X03, 0X7B, 0X03, 0X8E, 0X03, 0XA5, 0X03, 0XBB, 0X03,
-		0XD4, 0X03, 0XD8, 0X00, 0X00);
-	jdi_dcs_write_seq_static(ctx, 0XB8, 0X00, 0X00, 0X00, 0X20, 0X00, 0X47, 0X00, 0X65, 0X00,
-		0X85, 0X00, 0X99, 0X00, 0XAD, 0X00, 0XC0);
-	jdi_dcs_write_seq_static(ctx, 0XB9, 0X00, 0XD2, 0X01, 0X06, 0X01, 0X30, 0X01, 0X70, 0X01,
-		0X9F, 0X01, 0XE8, 0X02, 0X25, 0X02, 0X26);
-	jdi_dcs_write_seq_static(ctx, 0XBA, 0X02, 0X5F, 0X02, 0X9F, 0X02, 0XC7, 0X02, 0XFD, 0X03,
-		0X20, 0X03, 0X52, 0X03, 0X63, 0X03, 0X67);
-	jdi_dcs_write_seq_static(ctx, 0XBB, 0X03, 0X78, 0X03, 0X8B, 0X03, 0XA3, 0X03, 0XB9, 0X03,
-		0XD4, 0X03, 0XD8, 0X00, 0X00);
+	jdi_dcs_write_seq_static(ctx, 0XB0, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x49, 0x00, 0x6B, 0x00,
+		0x85, 0x00, 0x9C, 0x00, 0xB1, 0x00, 0xC4);
+	jdi_dcs_write_seq_static(ctx, 0XB1, 0x00, 0xD1, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
+		0x9E, 0x01, 0xE5, 0x02, 0x1E, 0x02, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0XB2, 0x02, 0x56, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF4, 0x03,
+		0x16, 0x03, 0x41, 0x03, 0x51, 0x03, 0x5F);
+	jdi_dcs_write_seq_static(ctx, 0XB3, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0XB4, 0x00, 0x00, 0x00, 0x1E, 0x00, 0x49, 0x00, 0x69, 0x00,
+		0x84, 0x00, 0x9B, 0x00, 0xAF, 0x00, 0xC1);
+	jdi_dcs_write_seq_static(ctx, 0XB5, 0x00, 0xD2, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
+		0x9D, 0x01, 0xE5, 0x02, 0x1F, 0x02, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0XB6, 0x02, 0x57, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF3, 0x03,
+		0x16, 0x03, 0x3F, 0x03, 0x4F, 0x03, 0x5D);
+	jdi_dcs_write_seq_static(ctx, 0XB7, 0x03, 0x6D, 0x03, 0x81, 0x03, 0x98, 0x03, 0xAC, 0x03,
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0XB8, 0x00, 0x00, 0x00, 0x20, 0x00, 0x48, 0x00, 0x6A, 0x00,
+		0x86, 0x00, 0x9F, 0x00, 0xB5, 0x00, 0xC6);
+	jdi_dcs_write_seq_static(ctx, 0XB9, 0x00, 0xD8, 0x01, 0x0D, 0x01, 0x36, 0x01, 0x73, 0x01,
+		0xA1, 0x01, 0xE8, 0x02, 0x21, 0x02, 0x22);
+	jdi_dcs_write_seq_static(ctx, 0XBA, 0x02, 0x58, 0x02, 0x98, 0x02, 0xC1, 0x02, 0xF7, 0x03,
+		0x1B, 0x03, 0x41, 0x03, 0x54, 0x03, 0x66);
+	jdi_dcs_write_seq_static(ctx, 0XBB, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
+		0xD0, 0x03, 0xD8, 0x00, 0x00);
+
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X21);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
-	jdi_dcs_write_seq_static(ctx, 0XB0, 0X00, 0XE2, 0X00, 0XE9, 0X00, 0XF6, 0X01, 0X01, 0X01,
-		0X0C, 0X01, 0X15, 0X01, 0X20, 0X01, 0X28);
-	jdi_dcs_write_seq_static(ctx, 0XB1, 0X01, 0X33, 0X01, 0X51, 0X01, 0X6E, 0X01, 0X9A, 0X01,
-		0XC0, 0X01, 0XFD, 0X02, 0X34, 0X02, 0X35);
-	jdi_dcs_write_seq_static(ctx, 0XB2, 0X02, 0X6B, 0X02, 0XA9, 0X02, 0XD1, 0X03, 0X04, 0X03,
-		0X25, 0X03, 0X51, 0X03, 0X5F, 0X03, 0X6D);
-	jdi_dcs_write_seq_static(ctx, 0XB3, 0X03, 0X7D, 0X03, 0X90, 0X03, 0XA7, 0X03, 0XBB, 0X03,
-		0XD4, 0X03, 0XD8, 0X00, 0X00);
-	jdi_dcs_write_seq_static(ctx, 0XB4, 0X00, 0XAA, 0X00, 0XB3, 0X00, 0XC4, 0X00, 0XD4, 0X00,
-		0XE2, 0X00, 0XF0, 0X00, 0XFC, 0X01, 0X08);
-	jdi_dcs_write_seq_static(ctx, 0XB5, 0X01, 0X12, 0X01, 0X39, 0X01, 0X58, 0X01, 0X8C, 0X01,
-		0XB5, 0X01, 0XF7, 0X02, 0X30, 0X02, 0X31);
-	jdi_dcs_write_seq_static(ctx, 0XB6, 0X02, 0X68, 0X02, 0XA6, 0X02, 0XCE, 0X03, 0X01, 0X03,
-		0X23, 0X03, 0X4E, 0X03, 0X5C, 0X03, 0X6A);
-	jdi_dcs_write_seq_static(ctx, 0XB7, 0X03, 0X7B, 0X03, 0X8E, 0X03, 0XA5, 0X03, 0XBB, 0X03,
-		0XD4, 0X03, 0XD8, 0X00, 0X00);
-	jdi_dcs_write_seq_static(ctx, 0XB8, 0X00, 0X00, 0X00, 0X20, 0X00, 0X47, 0X00, 0X65, 0X00,
-		0X85, 0X00, 0X99, 0X00, 0XAD, 0X00, 0XC0);
-	jdi_dcs_write_seq_static(ctx, 0XB9, 0X00, 0XD2, 0X01, 0X06, 0X01, 0X30, 0X01, 0X70, 0X01,
-		0X9F, 0X01, 0XE8, 0X02, 0X25, 0X02, 0X26);
-	jdi_dcs_write_seq_static(ctx, 0XBA, 0X02, 0X5F, 0X02, 0X9F, 0X02, 0XC7, 0X02, 0XFD, 0X03,
-		0X20, 0X03, 0X52, 0X03, 0X63, 0X03, 0X67);
-	jdi_dcs_write_seq_static(ctx, 0XBB, 0X03, 0X78, 0X03, 0X8B, 0X03, 0XA3, 0X03, 0XB9, 0X03,
-		0XD4, 0X03, 0XD8, 0X00, 0X00);
+	jdi_dcs_write_seq_static(ctx, 0XB0, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x49, 0x00, 0x6B, 0x00,
+		0x85, 0x00, 0x9C, 0x00, 0xB1, 0x00, 0xC4);
+	jdi_dcs_write_seq_static(ctx, 0XB1, 0x00, 0xD1, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
+		0x9E, 0x01, 0xE5, 0x02, 0x1E, 0x02, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0XB2, 0x02, 0x56, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF4, 0x03,
+		0x16, 0x03, 0x41, 0x03, 0x51, 0x03, 0x5F);
+	jdi_dcs_write_seq_static(ctx, 0XB3, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0XB4, 0x00, 0x00, 0x00, 0x1E, 0x00, 0x49, 0x00, 0x69, 0x00,
+		0x84, 0x00, 0x9B, 0x00, 0xAF, 0x00, 0xC1);
+	jdi_dcs_write_seq_static(ctx, 0XB5, 0x00, 0xD2, 0x01, 0x07, 0x01, 0x30, 0x01, 0x6E, 0x01,
+		0x9D, 0x01, 0xE5, 0x02, 0x1F, 0x02, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0XB6, 0x02, 0x57, 0x02, 0x96, 0x02, 0xBF, 0x02, 0xF3, 0x03,
+		0x16, 0x03, 0x3F, 0x03, 0x4F, 0x03, 0x5D);
+	jdi_dcs_write_seq_static(ctx, 0XB7, 0x03, 0x6D, 0x03, 0x81, 0x03, 0x98, 0x03, 0xAC, 0x03,
+		0xCC, 0x03, 0xD8, 0x00, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0XB8, 0x00, 0x00, 0x00, 0x20, 0x00, 0x48, 0x00, 0x6A, 0x00,
+		0x86, 0x00, 0x9F, 0x00, 0xB5, 0x00, 0xC6);
+	jdi_dcs_write_seq_static(ctx, 0XB9, 0x00, 0xD8, 0x01, 0x0D, 0x01, 0x36, 0x01, 0x73, 0x01,
+		0xA1, 0x01, 0xE8, 0x02, 0x21, 0x02, 0x22);
+	jdi_dcs_write_seq_static(ctx, 0XBA, 0x02, 0x58, 0x02, 0x98, 0x02, 0xC1, 0x02, 0xF7, 0x03,
+		0x1B, 0x03, 0x41, 0x03, 0x54, 0x03, 0x66);
+	jdi_dcs_write_seq_static(ctx, 0XBB, 0x03, 0x6E, 0x03, 0x82, 0x03, 0x98, 0x03, 0xAC, 0x03,
+		0xD0, 0x03, 0xD8, 0x00, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X2B);
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
 	jdi_dcs_write_seq_static(ctx, 0XB7, 0X06);
@@ -869,45 +865,45 @@ static int jdi_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 269626,
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 664,//HFP
-	.hsync_end = 1080 + 664 + 12,//HSA
-	.htotal = 1080 + 664 + 12 + 56,//HBP
-	.vdisplay = 2400,
-	.vsync_start = 2400 + 60,//VFP
-	.vsync_end = 2400 + 60 + 10,//VSA
-	.vtotal = 2400 + 60 + 10 + 10,//VBP
-};
-
-static const struct drm_display_mode performance_mode_90hz = {
-	.clock = 316498,
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 270,//HFP
-	.hsync_end = 1080 + 270 + 12,//HSA
-	.htotal = 1080 + 270 + 12 + 56,//HBP
-	.vdisplay = 2400,
-	.vsync_start = 2400 + 60,//VFP
-	.vsync_end = 2400 + 60 + 10,//VSA
-	.vtotal = 2400 + 60 + 10 + 10,//VBP
-};
-
-static const struct drm_display_mode performance_mode_120hz = {
-	.clock = 364262,
+	.clock = 370506,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
-	.htotal = 1080 + 76 + 12 + 56,//HBP
+	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 60,//VFP
-	.vsync_end = 2400 + 60 + 10,//VSA
-	.vtotal = 2400 + 60 + 10 + 10,//VBP
+	.vsync_start = 2400 + 2528,//VFP
+	.vsync_end = 2400 + 2528 + 10,//VSA
+	.vtotal = 2400 + 2528 + 10 + 10,//VBP
+};
+
+static const struct drm_display_mode performance_mode_90hz = {
+	.clock = 370431,
+	.hdisplay = 1080,
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
+	.vdisplay = 2400,
+	.vsync_start = 2400 + 878,//VFP
+	.vsync_end = 2400 + 878 + 10,//VSA
+	.vtotal = 2400 + 878 + 10 + 10,//VBP
+};
+
+static const struct drm_display_mode performance_mode_120hz = {
+	.clock = 370506,
+	.hdisplay = 1080,
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
+	.vdisplay = 2400,
+	.vsync_start = 2400 + 54,//VFP
+	.vsync_end = 2400 + 54 + 10,//VSA
+	.vtotal = 2400 + 54 + 10 + 10,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 527,
-	.vfp_low_power = 880,
+	.pll_clk = 550,
+	.vfp_low_power = 4180,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -962,12 +958,12 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1054,
+	.data_rate = 1100,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		.switch_en = 1,
-		.vact_timing_fps = 60,
+		.switch_en = 0,
+		.vact_timing_fps = 120,
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
 		.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
@@ -986,8 +982,8 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 527,
-	.vfp_low_power = 1300,
+	.pll_clk = 550,
+	.vfp_low_power = 2528,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -1020,7 +1016,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.bit_per_pixel = 128,
 		.pic_height = 2400,
 		.pic_width = 1080,
-		.slice_height = 8,
+		.slice_height = 8,//20
 		.slice_width = 540,
 		.chunk_size = 540,
 		.xmit_delay = 170,
@@ -1042,12 +1038,12 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1054,
+	.data_rate = 1100,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		.switch_en = 1,
-		.vact_timing_fps = 90,
+		.switch_en = 0,
+		.vact_timing_fps = 120,
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
 		.dfps_cmd_table[2] = {0, 2, {0x18, 0x20} },
@@ -1066,8 +1062,8 @@ static struct mtk_panel_params ext_params_90hz = {
 };
 
 static struct mtk_panel_params ext_params_120hz = {
-	.pll_clk = 527,
-	.vfp_low_power = 2540,
+	.pll_clk = 550,
+	.vfp_low_power = 2528,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -1122,11 +1118,11 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1054,
+	.data_rate = 1100,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.vact_timing_fps = 120,
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
@@ -1196,9 +1192,6 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	else
 		ret = 1;
 
-	if (!ret)
-		current_fps = drm_mode_vrefresh(m);
-
 	return ret;
 }
 
@@ -1210,9 +1203,11 @@ static void mode_switch_to_120(struct drm_panel *panel)
 
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	jdi_dcs_write_seq_static(ctx, 0x18, 0x22);
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x22);//120hz
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	//cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
+
 }
 
 static void mode_switch_to_90(struct drm_panel *panel)
@@ -1223,9 +1218,10 @@ static void mode_switch_to_90(struct drm_panel *panel)
 
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	jdi_dcs_write_seq_static(ctx, 0x18, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x20);//90hz
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+
 }
 
 static void mode_switch_to_60(struct drm_panel *panel)
