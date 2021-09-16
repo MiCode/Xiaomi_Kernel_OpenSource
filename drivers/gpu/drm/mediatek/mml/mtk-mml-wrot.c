@@ -1729,9 +1729,6 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
 
-	if (unlikely(mml_racing_wdone_eoc))
-		cmdq_pkt_eoc(pkt, false);
-
 	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
 		if (task->config->dual && !task->config->disp_dual) {
 			/* 2 wrot to 1 disp: wait and trigger 1 wdone */
@@ -1754,6 +1751,9 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 				wrot->irot_base[ccfg->pipe] + INLINEROT_WDONE,
 				1 << wrot_frm->wdone[idx].sram, U32_MAX);
 		}
+
+		if (unlikely(mml_racing_wdone_eoc))
+			cmdq_pkt_eoc(pkt, false);
 	}
 
 	return 0;
