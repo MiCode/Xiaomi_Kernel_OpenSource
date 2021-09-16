@@ -33,7 +33,7 @@
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
-#define pr_fmt(fmt) "[cpu_hvfs]: " fmt
+#define pr_fmt(fmt) "[cpuhvfs]: " fmt
 
 #define PLL_CONFIG_PROP_NAME "pll-con"
 #define TBL_OFF_PROP_NAME "tbl-off"
@@ -231,7 +231,7 @@ unsigned int get_cur_phy_freq(int cluster)
 		pll_to_clk_wrapper = &pll_to_clk_v1;
 		break;
 	default:
-		pr_notice("[cpuhvfs] invalid mcucfg version: %d\n",
+		pr_notice("invalid mcucfg version: %d\n",
 			g_mcucfg_ver);
 		ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
 		pll_to_clk_wrapper = &pll_to_clk_v0;
@@ -320,14 +320,11 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 	dev_pm_opp_find_freq_floor(cpu_dev, &MHz);
 	dev_pm_opp_find_freq_floor(cpu_dev, &mHz);
 
-	pr_info("[DVFS] core%d: (%d %d) -- (%ld %ld)\n", cpu, min, max, mHz, MHz);
-
 	max = (unsigned int)(MHz / 1000);
 	min = (unsigned int)(mHz / 1000);
 
 	policy = cpufreq_cpu_get(cpu);
 	if (policy == NULL) {
-		pr_info("[DVFS] Can not get the policy of cpu%d\n", cpu);
 		return count;
 	}
 	down_write(&policy->rwsem);
@@ -611,17 +608,31 @@ static int mtk_cpuhvfs_init(void)
 
 	hvfs_node = of_find_node_by_name(NULL, "cpuhvfs");
 	if (hvfs_node == NULL) {
-		pr_notice("[cpuhvfs] failed to find node @ %s\n", __func__);
+		pr_notice("failed to find node @ %s\n", __func__);
 		return -ENODEV;
 	}
 
 	pdev = of_find_device_by_node(hvfs_node);
+	if (pdev == NULL) {
+		pr_notice("failed to find pdev @ %s\n", __func__);
+		return -EINVAL;
+	}
+
 	usram_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	usram_base = ioremap(usram_res->start, resource_size(usram_res));
+	if (usram_base == NULL) {
+		pr_notice("failed to map usram_base @ %s\n", __func__);
+		return -EINVAL;
+	}
 	usram_repo_num = (resource_size(usram_res) / sizeof(u32));
 
 	csram_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	csram_base = ioremap(csram_res->start, resource_size(csram_res));
+	if (csram_base == NULL) {
+		pr_notice("failed to map csram_base @ %s\n", __func__);
+		return -EINVAL;
+	}
+
 	dbg_repo_num = (resource_size(csram_res) / sizeof(u32));
 	//Start address from csram
 	of_property_read_u32_index(hvfs_node, CSRAM_DVFS_LOG_RANGE, 0, &repo_i_log_s);
@@ -634,27 +645,27 @@ static int mtk_cpuhvfs_init(void)
 	/* get PLL config & CLKDIV for every cluster */
 	ret = of_property_count_u32_elems(hvfs_node, PLL_CONFIG_PROP_NAME);
 	if (ret < 0) {
-		pr_notice("[cpuhvfs] failed to get num_cluster @ %s\n", __func__);
+		pr_notice("failed to get num_cluster @ %s\n", __func__);
 		return -EINVAL;
 	}
 	g_num_cluster = ret;
 	ret = of_property_count_u32_elems(hvfs_node, CLK_DIV_PROP_NAME);
 	if (ret != g_num_cluster) {
-		pr_notice("[cpuhvfs] clk-div size is not aligned@ %s\n", __func__);
+		pr_notice("clk-div size is not aligned@ %s\n", __func__);
 		return -EINVAL;
 	}
 
 	//get APMIXED_BASE & MCUCFG_BASE
 	apmixed_node = of_parse_phandle(hvfs_node, APMIXED_BASE_PROP_NAME, 0);
 	if (apmixed_node == NULL) {
-		pr_notice("[cpuhvfs] failed to get apmixed base @ %s\n", __func__);
+		pr_notice("failed to get apmixed base @ %s\n", __func__);
 		return -EINVAL;
 	}
 	apmixed_base = of_iomap(apmixed_node, 0);
 
 	mcucfg_node = of_parse_phandle(hvfs_node, MCUCFG_BASE_PROP_NAME, 0);
 	if (mcucfg_node == NULL) {
-		pr_notice("[cpuhvfs] failed to get mcucfg base @ %s\n", __func__);
+		pr_notice("failed to get mcucfg base @ %s\n", __func__);
 		return -EINVAL;
 	}
 	mcucfg_base = of_iomap(mcucfg_node, 0);
@@ -670,12 +681,12 @@ static int mtk_cpuhvfs_init(void)
 	ret = of_property_read_u32(hvfs_node, MCUCFG_VERSION, &mcucfg_ver_tmp);
 	if (ret >= 0 && ret < MAX_MCUCFG_VERSION)
 		g_mcucfg_ver = (enum mcucfg_ver)mcucfg_ver_tmp;
-	pr_notice("[cpuhvfs] mcucfg version: %d", g_mcucfg_ver);
+	pr_notice("mcucfg version: %d", g_mcucfg_ver);
 
 	//Offsets used to fetch OPP table
 	ret = of_property_count_u32_elems(hvfs_node, TBL_OFF_PROP_NAME);
 	if (ret != g_num_cluster) {
-		pr_notice("[cpuhvfs] only get %d opp offset@ %s\n", ret, __func__);
+		pr_notice("only get %d opp offset@ %s\n", ret, __func__);
 		return -EINVAL;
 	}
 	for (i = 0; i < g_num_cluster; i++)
@@ -685,9 +696,9 @@ static int mtk_cpuhvfs_init(void)
 	for (i = 0; i < g_num_cluster; i++) {
 		vprocs[i] = devm_regulator_get_optional(&pdev->dev, vproc_names[i]);
 		if (!IS_ERR(vprocs[i]) && vprocs[i])
-			pr_info("[cpuhvfs] regulator used for %s was found\n", vproc_names[i]);
+			pr_info("regulator used for %s was found\n", vproc_names[i]);
 		else
-			pr_info("[cpuhvfs] regulator used for %s was not found\n", vproc_names[i]);
+			pr_info("regulator used for %s was not found\n", vproc_names[i]);
 	}
 
 	create_cpufreq_debug_fs();
