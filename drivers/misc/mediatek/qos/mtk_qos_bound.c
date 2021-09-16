@@ -14,6 +14,10 @@
 #include <sspm_reservedmem.h>
 #include <sspm_reservedmem_define.h>
 
+#if IS_ENABLED(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON)
+#include <soc/mediatek/mmqos.h>
+#endif /* CONFIG_INTERCONNECT_MTK_MMQOS_COMMON */
+
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
 #include <soc/mediatek/dramc.h>
 #endif /* CONFIG_MTK_DRAMC */
@@ -215,6 +219,10 @@ int qos_notifier_call_chain(unsigned long val, void *v)
 		qos_bound_count++;
 		qos_bound_buf[i]++;
 	}
+
+#if IS_ENABLED(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON)
+	mtk_mmqos_system_qos_update(state);
+#endif
 
 	if (is_qos_bound_log_enabled()) {
 		idx = bound->idx;
