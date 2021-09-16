@@ -131,7 +131,7 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	#if CMDQ_STOP_FUNC
 	for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
 		cmdq_mbox_stop(imgsys_clt[idx]);
-		dev_info(imgsys_dev->dev,
+		dev_dbg(imgsys_dev->dev,
 			"%s: calling cmdq_mbox_stop(%d, 0x%x)\n",
 			__func__, idx, imgsys_clt[idx]);
 	}
@@ -1487,21 +1487,32 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
-		if (IS_ERR_OR_NULL(dvfs_info->reg))
-			dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
-		else
-			regulator_enable(dvfs_info->reg);
-		pm_runtime_get_sync(imgsys_dev->dev);
+		if (user_cnt == 1) {
+			dev_info(dvfs_info->dev,
+				"[%s] isPowerOn(%d) user(%d)\n",
+				__func__, isPowerOn, user_cnt);
+			if (IS_ERR_OR_NULL(dvfs_info->reg))
+				dev_dbg(dvfs_info->dev,
+					"%s: [ERROR] reg is err or null\n", __func__);
+			else
+				regulator_enable(dvfs_info->reg);
+			pm_runtime_get_sync(imgsys_dev->dev);
+		}
 	} else {
-		pm_runtime_put_sync(imgsys_dev->dev);
-		if (IS_ERR_OR_NULL(dvfs_info->reg))
-			dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
-		else
-			regulator_disable(dvfs_info->reg);
 		user_cnt = atomic_dec_return(&imgsys_dev->imgsys_user_cnt);
+		if (user_cnt == 0) {
+			dev_info(dvfs_info->dev,
+				"[%s] isPowerOn(%d) user(%d)\n",
+				__func__, isPowerOn, user_cnt);
+			pm_runtime_put_sync(imgsys_dev->dev);
+			if (IS_ERR_OR_NULL(dvfs_info->reg))
+				dev_dbg(dvfs_info->dev,
+					"%s: [ERROR] reg is err or null\n", __func__);
+			else
+				regulator_disable(dvfs_info->reg);
+		}
 	}
 
-	dev_info(dvfs_info->dev, "[%s] isPowerOn(%d) user(%d)\n", __func__, isPowerOn, user_cnt);
 }
 #endif
 
