@@ -135,4 +135,9 @@ extern struct dma_buf *dma_buf_export(
 
 extern int dma_buf_fd(struct dma_buf *dmabuf, int flags);
 
+extern long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+extern int tee_k_open(struct file *filp);
+extern int tee_k_release(struct file *filp);
+
+extern struct tee_device *isee_get_teedev(void);
 #endif /*TEE_PRIVATE_H*/

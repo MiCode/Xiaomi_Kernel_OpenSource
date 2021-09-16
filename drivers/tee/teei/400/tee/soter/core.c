@@ -149,6 +149,15 @@ static struct tee_desc soter_desc = {
 
 static struct soter_priv *soter_priv;
 
+struct tee_device *isee_get_teedev(void)
+{
+	if (soter_priv != NULL)
+		return soter_priv->teedev;
+
+	IMSG_ERROR("[%s][%d] soter_priv is NULL!\n", __func__, __LINE__);
+	return NULL;
+}
+
 #ifndef TEEI_DTS_RESERVED_MEM
 static size_t teei_get_reserved_mem_size(void)
 {
