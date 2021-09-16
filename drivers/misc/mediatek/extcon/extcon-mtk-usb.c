@@ -108,31 +108,26 @@ static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 	return 0;
 }
 
-static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
-				unsigned long event, void *data)
+static void mtk_usb_extcon_psy_detector(struct work_struct *work)
 {
-	struct power_supply *psy = data;
-	struct mtk_extcon_info *extcon = container_of(nb,
-					struct mtk_extcon_info, psy_nb);
+	struct mtk_extcon_info *extcon = container_of(to_delayed_work(work),
+		struct mtk_extcon_info, wq_psy);
 	union power_supply_propval pval;
 	union power_supply_propval tval;
 	int ret;
 
-	if (event != PSY_EVENT_PROP_CHANGED || psy != extcon->usb_psy)
-		return NOTIFY_DONE;
-
-	ret = power_supply_get_property(psy,
+	ret = power_supply_get_property(extcon->usb_psy,
 				POWER_SUPPLY_PROP_ONLINE, &pval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get online prop\n");
-		return NOTIFY_DONE;
+		return;
 	}
 
-	ret = power_supply_get_property(psy,
+	ret = power_supply_get_property(extcon->usb_psy,
 				POWER_SUPPLY_PROP_TYPE, &tval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get usb type\n");
-		return NOTIFY_DONE;
+		return;
 	}
 
 	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
@@ -140,7 +135,7 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 	/* Workaround for PR_SWAP, Host mode should not come to this function. */
 	if (extcon->c_role == DUAL_PROP_DR_HOST) {
 		dev_info(extcon->dev, "Remain HOST mode\n");
-		return NOTIFY_DONE;
+		return;
 	}
 
 	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
@@ -148,6 +143,19 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 	else
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+}
+
+static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
+				unsigned long event, void *data)
+{
+	struct power_supply *psy = data;
+	struct mtk_extcon_info *extcon = container_of(nb,
+					struct mtk_extcon_info, psy_nb);
+
+	if (event != PSY_EVENT_PROP_CHANGED || psy != extcon->usb_psy)
+		return NOTIFY_DONE;
+
+	queue_delayed_work(system_power_efficient_wq, &extcon->wq_psy, 0);
 
 	return NOTIFY_DONE;
 }
@@ -162,6 +170,8 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 		dev_err(dev, "fail to get usb_psy\n");
 		return -EINVAL;
 	}
+
+	INIT_DELAYED_WORK(&extcon->wq_psy, mtk_usb_extcon_psy_detector);
 
 	extcon->psy_nb.notifier_call = mtk_usb_extcon_psy_notifier;
 	ret = power_supply_reg_notifier(&extcon->psy_nb);
