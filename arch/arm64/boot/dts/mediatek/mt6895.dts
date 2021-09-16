@@ -555,7 +555,10 @@
 					 <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH 0>,
 					 <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&pericfg_ao_clk CLK_PERAOP_1_DMA_BCLK>;
+			clock-names = "apdma";
 			dma-requests = <4>;
+			#dma-cells = <1>;
 		};
 
 		apuart0: serial@11001000 {
@@ -565,6 +568,8 @@
 			dmas = <&apdma 0
 					&apdma 1>;
 			dma-names = "tx", "rx";
+			clocks = <&clk26m>, <&pericfg_ao_clk CLK_PERAOP_0_UART0>;
+			clock-names = "baud", "bus";
 		};
 
 		apuart1: serial@11002000 {
@@ -574,6 +579,8 @@
 			dmas = <&apdma 2
 					&apdma 3>;
 			dma-names = "tx", "rx";
+			clocks = <&clk26m>, <&pericfg_ao_clk CLK_PERAOP_0_UART1>;
+			clock-names = "baud", "bus";
 		};
 
 		topckgen_clk: syscon@10000000 {
