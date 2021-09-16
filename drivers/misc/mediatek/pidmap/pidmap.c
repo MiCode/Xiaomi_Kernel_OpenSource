@@ -47,7 +47,7 @@ struct tracepoints_table {
  *
  * task: current task
  */
-static void mtk_pidmap_update(struct task_struct *task)
+static void mtk_pidmap_update(struct task_struct *task, const char *task_comm)
 {
 	char *name;
 	int len;
@@ -67,7 +67,7 @@ static void mtk_pidmap_update(struct task_struct *task)
 	name = mtk_pidmap + ((pid - 1) * PIDMAP_ENTRY_SIZE);
 
 	/* copy task name */
-	memcpy(name, task->comm, PIDMAP_TASKNAME_SIZE);
+	memcpy(name, task_comm, PIDMAP_TASKNAME_SIZE);
 	*(name + PIDMAP_TASKNAME_SIZE) = '\0';
 
 	/* clear garbage tail chars to help parsers */
@@ -87,13 +87,13 @@ static void mtk_pidmap_update(struct task_struct *task)
 static void probe_task_rename(void *data, struct task_struct *task,
 			      const char *comm)
 {
-	mtk_pidmap_update(task);
+	mtk_pidmap_update(task, comm);
 }
 
 static void probe_task_newtask(void *data, struct task_struct *task,
 			       unsigned long clone_flags)
 {
-	mtk_pidmap_update(task);
+	mtk_pidmap_update(task, task->comm);
 }
 
 static struct tracepoints_table interests[] = {
