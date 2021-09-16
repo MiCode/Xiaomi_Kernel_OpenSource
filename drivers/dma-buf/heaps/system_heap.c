@@ -47,18 +47,18 @@ struct system_heap_buffer {
 	int vmap_cnt;
 	void *vaddr;
 	struct deferred_freelist_item deferred_free;
-
 	bool uncached;
 
-	void *priv;
-	bool                    mapped[BUF_PRIV_MAX_CNT];
+	/* system heap will not strore sgtable here */
+	bool                     mapped[BUF_PRIV_MAX_CNT];
 	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
-	struct sg_table         *mapped_table[BUF_PRIV_MAX_CNT];
-	struct mutex            map_lock; /* map iova lock */
-	pid_t                   pid;
-	pid_t                   tid;
-	char                    pid_name[TASK_COMM_LEN];
-	char                    tid_name[TASK_COMM_LEN];
+	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
+	struct mutex             map_lock; /* map iova lock */
+	pid_t                    pid;
+	pid_t                    tid;
+	char                     pid_name[TASK_COMM_LEN];
+	char                     tid_name[TASK_COMM_LEN];
+	unsigned long long       ts; /* us */
 };
 
 #define HIGH_ORDER_GFP  (((GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN \
@@ -353,7 +353,7 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	if (skip_cache_sync)
-		pr_info_ratelimited("%s [%s]: inode:%ld name:%s dir:%d %s\n",
+		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
 				    __func__, dma_heap_get_name(buffer->heap),
 				    file_inode(dmabuf->file)->i_ino,
 				    dmabuf->name, direction,
@@ -387,7 +387,7 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	if (skip_cache_sync)
-		pr_info_ratelimited("%s [%s]: inode:%ld name:%s dir:%d %s\n",
+		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
 				    __func__, dma_heap_get_name(buffer->heap),
 				    file_inode(dmabuf->file)->i_ino,
 				    dmabuf->name, direction,
@@ -704,6 +704,7 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
+	buffer->ts  = sched_clock() / 1000;
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
@@ -830,25 +831,29 @@ static struct dma_heap_ops mtk_mm_uncached_heap_ops = {
  *
  * return 0 means dump pass
  */
-static int mm_heap_buf_priv_dump(const struct dma_buf *dmabuf,
-				 struct dma_heap *heap,
-				 void *priv)
+static int system_heap_buf_priv_dump(const struct dma_buf *dmabuf,
+				     struct dma_heap *heap,
+				     void *priv)
 {
 	struct system_heap_buffer *buf = dmabuf->priv;
 	struct seq_file *s = priv;
 	int i = 0;
 
 	/* buffer check */
-	if (!is_mtk_mm_heap_dmabuf(dmabuf))
+	if (!is_mtk_mm_heap_dmabuf(dmabuf) && !is_system_heap_dmabuf(dmabuf))
 		return -EINVAL;
 
 	if (heap != buf->heap)
 		return -EINVAL;
 
-	dmabuf_dump(s, "\t\tbuf_priv: uncache:%d alloc-pid:%d[%s]-tid:%d[%s]\n",
+	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
-		    buf->tid, buf->tid_name);
+		    buf->tid, buf->tid_name,
+		    buf->ts);
+
+	if (is_system_heap_dmabuf(dmabuf))
+		return 0;
 
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
 		bool mapped = buf->mapped[i];
@@ -871,8 +876,13 @@ static int mm_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 }
 
 static struct mtk_heap_priv_info mtk_mm_heap_priv = {
-	.buf_priv_dump = mm_heap_buf_priv_dump,
+	.buf_priv_dump = system_heap_buf_priv_dump,
 };
+
+static struct mtk_heap_priv_info system_mm_heap_priv = {
+	.buf_priv_dump = system_heap_buf_priv_dump,
+};
+
 
 static int system_heap_create(void)
 {
@@ -894,7 +904,7 @@ static int system_heap_create(void)
 
 	exp_info.name = "system";
 	exp_info.ops = &system_heap_ops;
-	exp_info.priv = NULL;
+	exp_info.priv = (void *)&system_mm_heap_priv;
 
 	sys_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_heap))
@@ -912,7 +922,7 @@ static int system_heap_create(void)
 
 	exp_info.name = "system-uncached";
 	exp_info.ops = &system_uncached_heap_ops;
-	exp_info.priv = NULL;
+	exp_info.priv = (void *)&system_mm_heap_priv;
 
 	sys_uncached_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_uncached_heap))
@@ -963,6 +973,15 @@ int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(is_mtk_mm_heap_dmabuf);
+
+int is_system_heap_dmabuf(const struct dma_buf *dmabuf)
+{
+	if (dmabuf && dmabuf->ops == &system_heap_buf_ops)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(is_system_heap_dmabuf);
+
 
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");

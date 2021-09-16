@@ -96,22 +96,22 @@ struct mtk_sec_heap_buffer {
 	int vmap_cnt;
 	void *vaddr;
 	struct deferred_freelist_item deferred_free;
-
 	bool uncached;
 
-	void *priv;
-	struct ssheap_buf_info *ssheap; /* for page base */
-
+	/* secure heap will not strore sgtable here */
 	bool                     mapped[BUF_PRIV_MAX_CNT];
 	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
-	/* secure heap will not strore sgtable here */
 	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
 	struct mutex             map_lock; /* map iova lock */
 	pid_t                    pid;
 	pid_t                    tid;
 	char                     pid_name[TASK_COMM_LEN];
 	char                     tid_name[TASK_COMM_LEN];
+	unsigned long long       ts; /* us */
+
+	/* private part for secure heap */
 	u32                      sec_handle;/* keep same type with tmem */
+	struct ssheap_buf_info   *ssheap; /* for page base */
 };
 
 static struct secure_heap_page mtk_sec_heap_page[PAGE_HEAPS_NUM] = {
@@ -1006,6 +1006,7 @@ static void init_buffer_info(struct dma_heap *heap,
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
+	buffer->ts  = sched_clock() / 1000;
 }
 
 static struct dma_buf *alloc_dmabuf(struct dma_heap *heap, struct mtk_sec_heap_buffer *buffer,
@@ -1164,10 +1165,11 @@ static int sec_heap_buf_priv_dump(const struct dma_buf *dmabuf,
 	if (heap != buf->heap)
 		return -EINVAL;
 
-	dmabuf_dump(s, "\t\tbuf_priv: uncache:%d alloc-pid:%d[%s]-tid:%d[%s]\n",
+	dmabuf_dump(s, "\t\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
-		    buf->tid, buf->tid_name);
+		    buf->tid, buf->tid_name,
+		    buf->ts);
 
 	/* region base, only has secure handle */
 	if (dmabuf->ops == &sec_buf_region_ops)
