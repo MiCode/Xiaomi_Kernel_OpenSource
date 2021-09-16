@@ -204,7 +204,7 @@ int conn_pwr_set_level(struct conn_pwr_update_info *info, int radio_power_level[
 
 int conn_pwr_get_drv_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level *level)
 {
-	if (level != NULL && type < CONN_PWR_DRV_MAX) {
+	if (level != NULL && type < CONN_PWR_DRV_MAX && type >= 0) {
 		*level = g_radio_pwr_level[type];
 		return 0;
 	} else {
@@ -215,7 +215,7 @@ EXPORT_SYMBOL(conn_pwr_get_drv_level);
 
 int conn_pwr_get_platform_level(enum conn_pwr_plat_type type, int *level)
 {
-	if (level != NULL && type < CONN_PWR_PLAT_MAX) {
+	if (level != NULL && type < CONN_PWR_PLAT_MAX && type >= 0) {
 		*level = g_platform_pwr_level[type];
 		return 0;
 	} else {
