@@ -4714,6 +4714,9 @@
 			clocks = <&mdpsys_config_clk CLK_MDP_AAL0>;
 			clock-names = "aal0";
 			comp-ids = <MML_AAL0>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R08>;
+			sram_curve_base = /bits/ 32 <4608>;
+			sram_his_base = /bits/ 32 <1536>;
 		};
 
 		mdp_rsz0@1f009000 {
