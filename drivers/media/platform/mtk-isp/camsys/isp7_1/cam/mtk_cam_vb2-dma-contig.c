@@ -73,12 +73,12 @@ static void *mtk_cam_vb2_vaddr(void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
 
-	mtk_cam_systrace_begin_func();
+	MTK_CAM_TRACE_FUNC_BEGIN();
 
 	if (!buf->vaddr && buf->db_attach)
 		buf->vaddr = dma_buf_vmap(buf->db_attach->dmabuf);
 
-	mtk_cam_systrace_end();
+	MTK_CAM_TRACE_END();
 	return buf->vaddr;
 }
 
@@ -131,13 +131,12 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 		return 0;
 	}
 
-	mtk_cam_systrace_begin_func();
+	MTK_CAM_TRACE_FUNC_BEGIN();
 
 	/* get the associated scatterlist for this buffer */
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
 	if (IS_ERR(sgt)) {
 		pr_info("Error getting dmabuf scatterlist\n");
-		mtk_cam_systrace_end();
 		return -EINVAL;
 	}
 
@@ -147,7 +146,6 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 		pr_info("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
-		mtk_cam_systrace_end();
 		return -EFAULT;
 	}
 
@@ -155,7 +153,7 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 	buf->dma_sgt = sgt;
 	buf->vaddr = NULL;
 
-	mtk_cam_systrace_end();
+	MTK_CAM_TRACE_END();
 	return 0;
 }
 
@@ -174,7 +172,7 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 		return;
 	}
 
-	mtk_cam_systrace_begin_func();
+	MTK_CAM_TRACE_FUNC_BEGIN();
 
 	if (buf->vaddr) {
 		dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
@@ -185,7 +183,7 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
 
-	mtk_cam_systrace_end();
+	MTK_CAM_TRACE_END();
 }
 
 static void mtk_cam_vb2_detach_dmabuf(void *mem_priv)

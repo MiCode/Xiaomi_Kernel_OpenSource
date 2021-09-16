@@ -36,15 +36,14 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-feature-mstream.o mtk_cam-feature-smvr.o \
 		    mtk_cam-feature-stagger.o \
 		    mtk_cam-mraw.o\
-		    mtk_cam-seninf-ca.o \
-		    mtk_cam-trace.o
+		    mtk_cam-seninf-ca.o
+
+#mtk-cam-isp-$(CONFIG_TRACING) += mtk_cam-trace.o
 
 mtk-cam-isp-objs +=  mtk_cam-hsf.o
+#mtk-cam-isp-objs += mtk_cam-procdbg.o
 
 include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_2_0/sub_drv.mk
 include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_3_0/sub_drv.mk
-#ifeq ($(CONFIG_DEBUG_FS), y)
-#mtk-cam-isp-objs += mtk_cam-procdbg.o
-#endif
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-isp.o

@@ -1074,7 +1074,7 @@ void apply_cq(struct mtk_raw_device *dev,
 	int trigger = USINGSCQ || initial;
 	dma_addr_t main, sub;
 
-	mtk_cam_systrace_begin_func();
+	MTK_CAM_TRACE_FUNC_BEGIN();
 
 	dev_dbg(dev->dev,
 		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
@@ -1106,7 +1106,7 @@ void apply_cq(struct mtk_raw_device *dev,
 		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
 	}
 
-	mtk_cam_systrace_end();
+	MTK_CAM_TRACE_END();
 }
 
 void reset(struct mtk_raw_device *dev)

@@ -6,32 +6,41 @@
 #ifndef __MTK_CAM_TRACE_H
 #define __MTK_CAM_TRACE_H
 
+#define MTK_CAM_TRACE_ENABLE	0
 
-#if IS_ENABLED(CONFIG_FTRACE) && IS_ENABLED(CONFIG_DEBUG_FS)
-void mtk_cam_systrace_begin(const char *format, ...);
-void mtk_cam_systrace_end(void);
-void mtk_cam_systrace_async(bool is_begin, int val, const char *format, ...);
+#if IS_ENABLED(CONFIG_TRACING) && MTK_CAM_TRACE_ENABLE
 
-#define mtk_cam_systrace_begin_frame(prefix, raw_id, frame_id) \
-	mtk_cam_systrace_begin("%s: raw%d - frame %d", prefix, raw_id, frame_id)
+#include <stdarg.h>
+#include <linux/sched.h>
+#include <linux/kernel.h>
 
-#define mtk_cam_systrace_begin_func(...) \
-	mtk_cam_systrace_begin("%s", __func__)
+bool mtk_cam_trace_enabled(void);
+
+__printf(1, 2)
+void mtk_cam_trace(const char *fmt, ...);
+
+#define MTK_CAM_TRACE_BEGIN(fmt, args...)			\
+do {								\
+	if (unlikely(mtk_cam_trace_enabled()))			\
+		mtk_cam_trace("B|%d|camsys:" fmt "\n",		\
+			      task_tgid_nr(current), ##args);	\
+} while (0)
+
+#define MTK_CAM_TRACE_END()					\
+do {								\
+	if (unlikely(mtk_cam_trace_enabled()))			\
+		mtk_cam_trace("E|%d\n",				\
+			      task_tgid_nr(current));		\
+} while (0)
+
+#define MTK_CAM_TRACE_FUNC_BEGIN()		\
+	MTK_CAM_TRACE_BEGIN("%s", __func__)
 
 #else
-static void mtk_cam_systrace_begin(const char *format, ...)
-{
-}
-static void mtk_cam_systrace_end(void)
-{
-}
 
-static void mtk_cam_systrace_async(bool isBegin, int val, const char *format, ...)
-{
-}
-
-#define mtk_cam_systrace_begin_frame(raw_id, frame_id)
-#define mtk_cam_systrace_begin_func(...)
+#define MTK_CAM_TRACE_BEGIN(fmt, args...)
+#define MTK_CAM_TRACE_END()
+#define MTK_CAM_TRACE_FUNC_BEGIN()
 
 #endif
 
