@@ -2647,7 +2647,7 @@
 			hw_version = <30>;
 			sw_version = <1>;
 			dfd_timeout = <0xc8>;
-			buffer_length = <0x280000>;
+			buf_length = <0x280000>;
 			buf_addr_align = <0x1000000>;
 			nr_max_core = <8>;
 			nr_big_core = <4>;
