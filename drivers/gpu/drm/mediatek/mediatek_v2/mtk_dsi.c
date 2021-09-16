@@ -260,6 +260,15 @@
 #define DSI_BUF_CON1 0x404
 
 #define DSI_TX_BUF_RW_TIMES 0x410
+#define DSI_BUF_SODI_HIGH 0x414
+#define DSI_BUF_SODI_LOW 0x418
+
+#define DSI_BUF_PREULTRA_HIGH 0x424
+#define DSI_BUF_PREULTRA_LOW 0x428
+#define DSI_BUF_ULTRA_HIGH 0x42C
+#define DSI_BUF_ULTRA_LOW 0x430
+#define DSI_BUF_URGENT_HIGH 0x434
+#define DSI_BUF_URGENT_LOW 0x438
 
 //#define DSI_CMDQ0 0x200
 //#define DSI_CMDQ1 0x204
@@ -1395,7 +1404,10 @@ static void mtk_dsi_cmd_type1_hs(struct mtk_dsi *dsi)
 
 static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 {
+	u32 mmsys_clk = 208;
 	u32 width, height, tmp, rw_times;
+	u32 preultra_hi, preultra_lo, ultra_hi, ultra_lo, urgent_hi, urgent_lo;
+	u32 fill_rate, sodi_hi, sodi_lo;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 
@@ -1424,10 +1436,11 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 		else
 			rw_times = (width * 3 / 9 + 1) * height;
 
-		if (dsi->ext->params->is_cphy)
+		if (dsi->ext->params->is_cphy) {
 			tmp = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		else
+		} else {
 			tmp = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
+		}
 	}
 
 	DDPINFO(
@@ -1437,6 +1450,38 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 			DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
+
+	fill_rate = mmsys_clk * 3 / 18;
+	tmp = readl(dsi->regs + DSI_BUF_CON1) >> 16;
+
+	if (dsi->ext->params->is_cphy) {
+		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * 2 * dsi->lanes / 7 / 18) / 10);
+		sodi_lo = (23 + 5) * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		preultra_hi = 26 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		preultra_lo = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		ultra_hi = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		ultra_lo = 23 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		urgent_hi = 12 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+		urgent_lo = 11 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
+	} else {
+		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * dsi->lanes / 8 / 18) / 10);
+		sodi_lo = (23 + 5) * dsi->data_rate * dsi->lanes / 8 / 18;
+		preultra_hi = 26 * dsi->data_rate * dsi->lanes / 8 / 18;
+		preultra_lo = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
+		ultra_hi = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
+		ultra_lo = 23 * dsi->data_rate * dsi->lanes / 8 / 18;
+		urgent_hi = 12 * dsi->data_rate * dsi->lanes / 8 / 18;
+		urgent_lo = 11 * dsi->data_rate * dsi->lanes / 8 / 18;
+	}
+
+	writel((sodi_hi & 0xfffff), dsi->regs + DSI_BUF_SODI_HIGH);
+	writel((sodi_lo & 0xfffff), dsi->regs + DSI_BUF_SODI_LOW);
+	writel((preultra_hi & 0xfffff), dsi->regs + DSI_BUF_PREULTRA_HIGH);
+	writel((preultra_lo & 0xfffff), dsi->regs + DSI_BUF_PREULTRA_LOW);
+	writel((ultra_hi & 0xfffff), dsi->regs + DSI_BUF_ULTRA_HIGH);
+	writel((ultra_lo & 0xfffff), dsi->regs + DSI_BUF_ULTRA_LOW);
+	writel((urgent_hi & 0xfffff), dsi->regs + DSI_BUF_URGENT_HIGH);
+	writel((urgent_lo & 0xfffff), dsi->regs + DSI_BUF_URGENT_LOW);
 	writel(rw_times, dsi->regs + DSI_TX_BUF_RW_TIMES);
 	mtk_dsi_mask(dsi, DSI_BUF_CON0, BUF_BUF_EN, BUF_BUF_EN);
 }
@@ -3085,6 +3130,13 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	for (k = 0; k < 0x200; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(dsi->regs + k),
+			readl(dsi->regs + k + 0x4),
+			readl(dsi->regs + k + 0x8),
+			readl(dsi->regs + k + 0xc));
+	}
+	for (k = 0x400; k < 0x440; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(dsi->regs + k),
 			readl(dsi->regs + k + 0x4),
@@ -5199,7 +5251,7 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	if (mtk_crtc->is_dual_pipe)
 		pixclk /= 2;
 
-	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d, dual=%u\n", __func__,
+	DDPINFO("%s, data_rate =%d, clk=%u pixclk_min=%d, dual=%u\n", __func__,
 			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
