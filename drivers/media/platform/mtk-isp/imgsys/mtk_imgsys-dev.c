@@ -737,7 +737,8 @@ static void mtk_imgsys_desc_fill_dmabuf(struct mtk_imgsys_pipe *pipe,
 			if (IS_ERR(dbuf)) {
 				plane->reserved[0] = 0;
 				plane->reserved[1] = 0;
-				pr_info("%s: dma_buf %lx", __func__, dbuf);
+				pr_info("%s: dma_buf:%lx fd:%d", __func__, dbuf,
+									plane->m.dma_buf.fd);
 				continue;
 			}
 
@@ -821,7 +822,7 @@ static void mtk_imgsys_desc_iova(struct mtk_imgsys_pipe *pipe,
 				continue;
 
 			dmabuf = (struct dma_buf *)fparams->bufs[i].buf.planes[j].reserved[0];
-			if (IS_ERR(dmabuf)) {
+			if (IS_ERR_OR_NULL(dmabuf)) {
 				pr_info("%s bad dmabuf(0x%llx)", __func__,
 									dmabuf);
 				continue;
