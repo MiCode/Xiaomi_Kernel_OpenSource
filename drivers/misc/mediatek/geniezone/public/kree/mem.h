@@ -354,14 +354,6 @@ TZ_RESULT KREE_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 TZ_RESULT KREE_ION_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 				      KREE_SECUREMEM_HANDLE secmHandle, uint32_t cmd);
 
-
-TZ_RESULT KREE_ION_AccessChunkmem(KREE_SESSION_HANDLE session,
-				  union MTEEC_PARAM param[4], uint32_t cmd);
-
-TZ_RESULT KREE_ION_CP_Chm2Shm(KREE_SESSION_HANDLE session,
-			      KREE_SECUREMEM_HANDLE secm_hd,
-			      KREE_SECUREMEM_HANDLE shm_hd, uint32_t size);
-
 /**
  * Secure chunk memory allocation
  *
