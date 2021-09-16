@@ -107,9 +107,14 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 
 void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 {
+	u32 idx = 0;
+
 	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
 	is_stream_off = 0;
 	cmdq_mbox_enable(imgsys_clt[0]->chan);
+	for (idx = IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_START;
+		idx <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END; idx++)
+		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
 }
 
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
