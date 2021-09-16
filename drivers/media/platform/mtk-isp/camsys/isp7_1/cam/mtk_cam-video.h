@@ -74,6 +74,8 @@ struct mtk_cam_pad_ops {
  * @dma_port: the dma ports associated to the node
  * @link_flags: default media link flags
  * @smem_alloc: using the smem_dev as alloc device or not
+ * @need_cache_sync_on_prepare: do cache sync at buf_prepare
+ * @need_cache_sync_on_finish: do cache sync at buf_finish
  * @image: true for image node, false for meta node
  * @num_fmts: the number of supported node formats
  * @default_fmt_idx: default format of this node
@@ -91,6 +93,8 @@ struct mtk_cam_dev_node_desc {
 	u32 dma_port;
 	u32 link_flags;
 	u8 smem_alloc:1;
+	u8 need_cache_sync_on_prepare:1;
+	u8 need_cache_sync_on_finish:1;
 	u8 image:1;
 	u8 num_fmts;
 	u8 default_fmt_idx;

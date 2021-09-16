@@ -141,6 +141,14 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *v4l2_buf = to_vb2_v4l2_buffer(vb);
 	const struct v4l2_format *fmt = &node->active_fmt;
 	unsigned int size;
+	unsigned int plane;
+
+	if (node->desc.need_cache_sync_on_prepare) {
+		dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
+			__func__, node->desc.name);
+		for (plane = 0; plane < vb->num_planes; ++plane)
+			mtk_cam_vb2_sync_for_device(vb->planes[plane].mem_priv);
+	}
 
 	if (vb->vb2_queue->type == V4L2_BUF_TYPE_META_OUTPUT ||
 	    vb->vb2_queue->type == V4L2_BUF_TYPE_META_CAPTURE)
@@ -168,6 +176,19 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 	vb2_set_plane_payload(vb, 0, size);
 
 	return 0;
+}
+
+static void mtk_cam_vb2_buf_finish(struct vb2_buffer *vb)
+{
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	unsigned int plane;
+
+	if (node->desc.need_cache_sync_on_finish) {
+		dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
+			__func__, node->desc.name);
+		for (plane = 0; plane < vb->num_planes; ++plane)
+			mtk_cam_vb2_sync_for_cpu(vb->planes[plane].mem_priv);
+	}
 }
 
 static void mtk_cam_vb2_return_all_buffers(struct mtk_cam_device *cam,
@@ -1194,15 +1215,20 @@ static int mtk_cam_vb2_buf_out_validate(struct vb2_buffer *vb)
 
 static const struct vb2_ops mtk_cam_vb2_ops = {
 	.queue_setup = mtk_cam_vb2_queue_setup,
+
 	.wait_prepare = vb2_ops_wait_prepare,
 	.wait_finish = vb2_ops_wait_finish,
+
+	.buf_out_validate = mtk_cam_vb2_buf_out_validate,
 	.buf_init = mtk_cam_vb2_buf_init,
 	.buf_prepare = mtk_cam_vb2_buf_prepare,
-	.buf_out_validate = mtk_cam_vb2_buf_out_validate,
+	.buf_finish = mtk_cam_vb2_buf_finish,
+	.buf_cleanup = mtk_cam_vb2_buf_cleanup,
+
 	.start_streaming = mtk_cam_vb2_start_streaming,
 	.stop_streaming = mtk_cam_vb2_stop_streaming,
+
 	.buf_queue = mtk_cam_vb2_buf_queue,
-	.buf_cleanup = mtk_cam_vb2_buf_cleanup,
 	.buf_request_complete = mtk_cam_vb2_request_complete,
 };
 
