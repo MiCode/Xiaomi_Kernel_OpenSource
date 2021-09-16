@@ -35,6 +35,8 @@ static struct mtk_devapc_context {
 
 	struct mtk_devapc_soc *soc;
 	struct mutex viocb_list_lock;
+
+	unsigned long mmup_enabled;
 } mtk_devapc_ctx[1];
 
 static LIST_HEAD(viocb_list);
@@ -270,6 +272,9 @@ static void print_vio_mask_sta(bool debug)
 	int slave_type, i;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (slave_type == slave_type_num - 1 &&
+			!mtk_devapc_ctx->mmup_enabled)
+			continue;
 
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(slave_type,
 				VIO_SHIFT_STA, 0);
@@ -717,6 +722,9 @@ static void start_devapc(void)
 	device_info = mtk_devapc_ctx->soc->device_info;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (slave_type == slave_type_num - 1 &&
+			!mtk_devapc_ctx->mmup_enabled)
+			continue;
 
 		pd_apc_con_reg = mtk_devapc_pd_get(slave_type, APC_CON, 0);
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(
@@ -884,6 +892,9 @@ static void devapc_dump_error(void)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (slave_type == slave_type_num - 1 &&
+			!mtk_devapc_ctx->mmup_enabled)
+			continue;
 
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
 			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
@@ -987,6 +998,9 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (slave_type == slave_type_num - 1 &&
+			!mtk_devapc_ctx->mmup_enabled)
+			continue;
 
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
 			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
@@ -1448,6 +1462,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		struct mtk_devapc_soc *soc)
 {
 	struct device_node *node = pdev->dev.of_node;
+	struct arm_smccc_res res;
 	uint32_t slave_type_num;
 	uint32_t irq_type_num = IRQ_TYPE_NUM_DEFAULT;
 	uint32_t dt_index;
@@ -1471,6 +1486,11 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_info(PFX "register android_rvh_do_sea failed!\n");
 #endif
 
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_GET,
+			0, 0, 0, 0, 0, 0, 0, &res);
+	mtk_devapc_ctx->mmup_enabled = res.a0;
+	pr_info(PFX "mmup enabled: %lu\n", mtk_devapc_ctx->mmup_enabled);
+
 	if (IS_ERR(node)) {
 		pr_err(PFX "cannot find device node\n");
 		return -ENODEV;
@@ -1482,6 +1502,9 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		irq_type_num = mtk_devapc_ctx->soc->irq_type_num;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (slave_type == slave_type_num - 1 &&
+			!mtk_devapc_ctx->mmup_enabled)
+			continue;
 		mtk_devapc_ctx->devapc_pd_base[slave_type] = of_iomap(node,
 				slave_type);
 		if (unlikely(mtk_devapc_ctx->devapc_pd_base[slave_type]
@@ -1521,11 +1544,15 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		}
 	}
 
-	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (slave_type == slave_type_num - 1 &&
+			!mtk_devapc_ctx->mmup_enabled)
+			continue;
 		pr_debug(PFX "%s:0x%x %s:%pa\n",
 				"slave_type", slave_type,
 				"devapc_pd_base",
 				mtk_devapc_ctx->devapc_pd_base[slave_type]);
+	}
 
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
 		pr_info(PFX " IRQ[%d]:%d\n", irq_type,
