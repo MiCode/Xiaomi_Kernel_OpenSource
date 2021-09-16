@@ -15,35 +15,253 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
-#ifdef ENC_DVFS
-#undef ENC_DVFS
-#endif
-#define ENC_DVFS 0
-
-#ifdef ENC_EMI_BW
-#undef ENC_EMI_BW
-#endif
-#define ENC_EMI_BW 0
-
+#define USE_GCE 0
 #if ENC_DVFS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include "vcodec_dvfs.h"
-#define STD_VENC_FREQ 249
-#define STD_LUMA_BW 70
-#define STD_CHROMA_BW 35
-
-
-static u64 venc_freq;
-static struct codec_history *venc_hists;
-static struct codec_job *venc_jobs;
-
+#define STD_VENC_FREQ 250000000
 #endif
 
 #if ENC_EMI_BW
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
+#include "vcodec_bw.h"
 #endif
+
+//#define VENC_PRINT_DTS_INFO
+
+static bool mtk_enc_tput_init(struct mtk_vcodec_dev *dev)
+{
+	const int tp_item_num = 4;
+	const int cfg_item_num = 4;
+	const int bw_item_num = 2;
+	int i, larb_cnt, ret;
+	struct platform_device *pdev;
+	u32 nmin, nmax;
+	s32 offset;
+
+	pdev = dev->plat_dev;
+	larb_cnt = 0;
+
+	ret = of_property_read_s32(pdev->dev.of_node, "throughput-op-rate-thresh", &nmax);
+	if (ret)
+		mtk_v4l2_debug(0, "[VENC] Cannot get op rate thresh, default 0");
+
+	dev->venc_dvfs_params.per_frame_adjust_op_rate = nmax;
+	dev->venc_dvfs_params.per_frame_adjust = 1;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "throughput-min", &nmin);
+	if (ret) {
+		nmin = STD_VENC_FREQ;
+		mtk_v4l2_debug(0, "[VENC] Cannot get min, default %u", nmin);
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "throughput-normal-max", &nmax);
+	if (ret) {
+		nmax = STD_VENC_FREQ;
+		mtk_v4l2_debug(0, "[VENC] Cannot get normal max, default %u", nmax);
+	}
+	dev->venc_dvfs_params.codec_type = MTK_INST_ENCODER;
+	dev->venc_dvfs_params.min_freq = nmin;
+	dev->venc_dvfs_params.normal_max_freq = nmax;
+	dev->venc_dvfs_params.allow_oc = 0;
+
+	/* throughput */
+	dev->venc_tput_cnt = of_property_count_u32_elems(pdev->dev.of_node,
+				"throughput-table") / tp_item_num;
+
+	if (!dev->venc_tput_cnt) {
+		mtk_v4l2_debug(0, "[VENC] throughput table not exist");
+		return false;
+	}
+
+	dev->venc_tput = vzalloc(sizeof(struct vcodec_perf) * dev->venc_tput_cnt);
+	if (!dev->venc_tput) {
+		/* mtk_v4l2_debug(0, "[VENC] vzalloc venc_tput table failed"); */
+		return false;
+	}
+
+	ret = of_property_read_s32(pdev->dev.of_node, "throughput-config-offset", &offset);
+	if (ret)
+		mtk_v4l2_debug(0, "[VENC] Cannot get config-offset, default 0");
+
+	for (i = 0; i < dev->venc_tput_cnt; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num, &dev->venc_tput[i].codec_fmt);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get codec_fmt");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 1, (u32 *)&dev->venc_tput[i].config);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get config");
+			return false;
+		}
+		dev->venc_tput[i].config -= offset;
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 2, &dev->venc_tput[i].cy_per_mb_1);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get cycle per mb 1");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 3, &dev->venc_tput[i].cy_per_mb_2);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get cycle per mb 2");
+			return false;
+		}
+		dev->venc_tput[i].codec_type = 1;
+	}
+
+	/* config */
+	dev->venc_cfg_cnt = of_property_count_u32_elems(pdev->dev.of_node,
+				"config-table") / cfg_item_num;
+
+	if (!dev->venc_cfg_cnt) {
+		mtk_v4l2_debug(0, "[VENC] config table not exist");
+		return false;
+	}
+
+	dev->venc_cfg = vzalloc(sizeof(struct vcodec_config) * dev->venc_cfg_cnt);
+	if (!dev->venc_cfg) {
+		/* mtk_v4l2_debug(0, "[VENC] vzalloc venc_cfg table failed"); */
+		return false;
+	}
+
+	ret = of_property_read_s32(pdev->dev.of_node, "throughput-config-offset", &offset);
+	if (ret)
+		mtk_v4l2_debug(0, "[VENC] Cannot get config-offset, default 0");
+
+	for (i = 0; i < dev->venc_cfg_cnt; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node, "config-table",
+				i * cfg_item_num, &dev->venc_cfg[i].codec_fmt);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get cfg codec_fmt");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "config-table",
+				i * cfg_item_num + 1, (u32 *)&dev->venc_cfg[i].mb_thresh);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get mb_thresh");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "config-table",
+				i * cfg_item_num + 2, &dev->venc_cfg[i].config_1);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get config 1");
+			return false;
+		}
+		dev->venc_cfg[i].config_1 -= offset;
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "config-table",
+				i * cfg_item_num + 3, &dev->venc_cfg[i].config_2);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get config 2");
+			return false;
+		}
+		dev->venc_cfg[i].config_2 -= offset;
+		dev->venc_cfg[i].codec_type = 1;
+	}
+
+	/* bw */
+	dev->venc_port_cnt = of_property_count_u32_elems(pdev->dev.of_node,
+				"bandwidth-table") / bw_item_num;
+
+	if (dev->venc_port_cnt > MTK_VENC_PORT_NUM) {
+		mtk_v4l2_debug(0, "[VENC] venc port over limit %d > %d",
+				dev->venc_port_cnt, MTK_VENC_PORT_NUM);
+		dev->venc_port_cnt = MTK_VENC_PORT_NUM;
+	}
+
+	if (!dev->venc_port_cnt) {
+		mtk_v4l2_debug(0, "[VENC] bandwidth table not exist");
+		return false;
+	}
+
+	dev->venc_port_bw = vzalloc(sizeof(struct vcodec_port_bw) * dev->venc_port_cnt);
+	if (!dev->venc_port_bw) {
+		/* mtk_v4l2_debug(0, "[VENC] vzalloc venc_port_bw table failed"); */
+		return false;
+	}
+
+	for (i = 0; i < dev->venc_port_cnt; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
+				i * bw_item_num, (u32 *)&dev->venc_port_bw[i].port_type);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get bw port type");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
+				i * bw_item_num + 1, &dev->venc_port_bw[i].port_base_bw);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get base bw");
+			return false;
+		}
+
+		/* larb port sum placeholder */
+		if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
+			dev->venc_port_bw[i].larb = dev->venc_port_bw[i].port_base_bw;
+			dev->venc_port_bw[i].port_base_bw = 0;
+			if (i + 1 < dev->venc_port_cnt)
+				dev->venc_port_idx[++larb_cnt] = i + 1;
+		}
+	}
+
+#ifdef VENC_PRINT_DTS_INFO
+	mtk_v4l2_debug(0, "[VENC] tput_cnt %d, cfg_cnt %d, port_cnt %d\n",
+		dev->venc_tput_cnt, dev->venc_cfg_cnt, dev->venc_port_cnt);
+
+	for (i = 0; i < dev->venc_tput_cnt; i++) {
+		mtk_v4l2_debug(0, "[VENC] tput fmt %u, cfg %d, cy1 %u, cy2 %u",
+			dev->venc_tput[i].codec_fmt,
+			dev->venc_tput[i].config,
+			dev->venc_tput[i].cy_per_mb_1,
+			dev->venc_tput[i].cy_per_mb_2);
+	}
+
+	for (i = 0; i < dev->venc_cfg_cnt; i++) {
+		mtk_v4l2_debug(0, "[VENC] config fmt %u, mb_thresh %u, cfg1 %d, cfg2 %d",
+			dev->venc_cfg[i].codec_fmt,
+			dev->venc_cfg[i].mb_thresh,
+			dev->venc_cfg[i].config_1,
+			dev->venc_cfg[i].config_2);
+	}
+
+	for (i = 0; i < dev->venc_port_cnt; i++) {
+		mtk_v4l2_debug(0, "[VENC] port[%d] type %d, bw %u, larb %u", i,
+			dev->venc_port_bw[i].port_type,
+			dev->venc_port_bw[i].port_base_bw,
+			dev->venc_port_bw[i].larb);
+	}
+#endif
+	return true;
+}
+
+static void mtk_enc_tput_deinit(struct mtk_vcodec_dev *dev)
+{
+	if (dev->venc_tput) {
+		vfree(dev->venc_tput);
+		dev->venc_tput = 0;
+	}
+
+	if (dev->venc_cfg) {
+		vfree(dev->venc_cfg);
+		dev->venc_cfg = 0;
+	}
+
+	if (dev->venc_port_bw) {
+		vfree(dev->venc_port_bw);
+		dev->venc_port_bw = 0;
+	}
+}
 
 void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 {
@@ -52,17 +270,18 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 	struct dev_pm_opp *opp = 0;
 	unsigned long freq = 0;
 	int i = 0;
+	bool tput_ret;
 
 	ret = dev_pm_opp_of_add_table(&dev->plat_dev->dev);
 	if (ret < 0) {
-		pr_debug("Failed to get opp table (%d)\n", ret);
+		mtk_v4l2_debug(0, "[VENC] Failed to get opp table (%d)", ret);
 		return;
 	}
 
 	dev->venc_reg = devm_regulator_get(&dev->plat_dev->dev,
 						"dvfsrc-vcore");
 	if (dev->venc_reg == 0) {
-		pr_debug("Failed to get regulator\n");
+		mtk_v4l2_debug(0, "[VENC] Failed to get regulator");
 		return;
 	}
 
@@ -76,40 +295,56 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 		dev_pm_opp_put(opp);
 	}
 
-	dev->temp_venc_jobs[0] = 0;
+	INIT_LIST_HEAD(&dev->venc_dvfs_inst);
+	tput_ret = mtk_enc_tput_init(dev);
 #endif
 }
 
 void mtk_unprepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 {
 #if ENC_DVFS
-	/* free_hist(&venc_hists, 0); */
-	/* TODO: jobs error handle */
+	mtk_enc_tput_deinit(dev);
 #endif
 }
 
 void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 {
 #if ENC_EMI_BW
-	int i = 0;
+	int i, ret;
 	struct platform_device *pdev = 0;
+	u32 port_num = 0;
+	const char *path_strs[64];
 
 	pdev = dev->plat_dev;
 	for (i = 0; i < MTK_VENC_PORT_NUM; i++)
 		dev->venc_qos_req[i] = 0;
 
-	i = 0;
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rcpu");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rec");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_bsdma");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sv_comv");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rd_comv");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_cur_luma");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_cur_chroma");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_ref_luma");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_ref_chroma");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sub_r_luma");
-	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sub_w_luma");
+	ret = of_property_read_u32(pdev->dev.of_node, "interconnect-num", &port_num);
+	if (ret) {
+		mtk_v4l2_debug(0, "[VENC] Cannot get interconnect num, skip");
+		return;
+	}
+
+	ret = of_property_read_string_array(pdev->dev.of_node, "interconnect-names",
+						path_strs, port_num);
+
+	if (ret < 0) {
+		mtk_v4l2_debug(0, "[VENC] Cannot get interconnect names, skip");
+		return;
+	} else if (ret != (int)port_num) {
+		mtk_v4l2_debug(0, "[VENC] Interconnect name count not match %u %d", port_num, ret);
+	}
+
+	if (port_num > MTK_VENC_PORT_NUM) {
+		mtk_v4l2_debug(0, "[VENC] venc port over limit %u > %d",
+				port_num, MTK_VENC_PORT_NUM);
+		port_num = MTK_VENC_PORT_NUM;
+	}
+
+	for (i = 0; i < port_num; i++) {
+		dev->venc_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
+		mtk_v4l2_debug(10, "[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
+	}
 #endif
 }
 
@@ -119,260 +354,39 @@ void mtk_unprepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 #endif
 }
 
-
-void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx, int core_id)
+void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 {
-#if ENC_DVFS
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
-	unsigned long target_freq_hz = 0;
-	unsigned long target_freq_mhz = 0;
-	struct codec_job *venc_cur_job = 0;
+	unsigned long freq_64 = (unsigned long)freq;
 
-	mutex_lock(&ctx->dev->enc_dvfs_mutex);
-	venc_cur_job = move_job_to_head(&ctx->id, &venc_jobs);
-	if (venc_cur_job != 0) {
-		venc_cur_job->start = get_time_us();
-		target_freq_mhz = est_freq(venc_cur_job->handle, &venc_jobs,
-					venc_hists);
-		if (ctx->enc_params.operationrate >= 120 &&
-			target_freq_mhz > 458)
-			target_freq_mhz = 458;
-
-		target_freq_hz = target_freq_mhz * 1000000UL;
-		target_freq_hz = match_freq(target_freq_hz, &ctx->dev->venc_freqs[0],
-			ctx->dev->venc_freq_cnt, ctx->dev->venc_freqs[ctx->dev->venc_freq_cnt - 1]);
-		if (ctx->dev->venc_reg != 0) {
-			opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev, &target_freq_hz);
-			volt = dev_pm_opp_get_voltage(opp);
-			dev_pm_opp_put(opp);
-
-			ret = regulator_set_voltage(ctx->dev->venc_reg, volt, INT_MAX);
-			if (ret) {
-				pr_debug("%s Failed to set regulator voltage %d\n",
-					 __func__, volt);
-			}
-		}
-
-		target_freq_mhz = target_freq_hz / 1000000UL;
-		if (target_freq_mhz > 0) {
-			venc_freq = target_freq_mhz;
-			venc_cur_job->mhz = (int)target_freq_mhz;
-		}
-	} else {
-		target_freq_hz = ctx->dev->venc_freqs[ctx->dev->venc_freq_cnt - 1];
-		if (ctx->dev->venc_reg != 0) {
-			opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev, &target_freq_hz);
-			volt = dev_pm_opp_get_voltage(opp);
-			dev_pm_opp_put(opp);
-
-			ret = regulator_set_voltage(ctx->dev->venc_reg, volt, INT_MAX);
-			if (ret) {
-				pr_debug("%s Failed to set regulator voltage %d\n",
-					 __func__, volt);
-			}
-		}
-	}
-	mutex_unlock(&ctx->dev->enc_dvfs_mutex);
-#endif
-}
-
-#if ENC_DVFS
-static int mtk_venc_get_exec_cnt(struct mtk_vcodec_ctx *ctx)
-{
-	return (int)((readl(ctx->dev->enc_reg_base[VENC_SYS] + 0x17C) &
-			0x7FFFFFFF) / 1000);
-}
-#endif
-
-void mtk_venc_dvfs_end(struct mtk_vcodec_ctx *ctx, int core_id)
-{
-#if ENC_DVFS
-	struct dev_pm_opp *opp = 0;
-	int volt = 0;
-	int ret = 0;
-	long long interval = 0;
-	struct codec_job *venc_cur_job = 0;
-	unsigned long target_freq_hz = 0;
-
-	/* venc dvfs */
-	mutex_lock(&ctx->dev->enc_dvfs_mutex);
-	venc_cur_job = venc_jobs;
-	if (venc_cur_job != 0 && (venc_cur_job->handle == &ctx->id)) {
-		venc_cur_job->end = get_time_us();
-		if (ctx->enc_params.operationrate < 120) {
-			if (ctx->enc_params.framerate_denom == 0)
-				ctx->enc_params.framerate_denom = 1;
-
-			if (ctx->enc_params.operationrate == 0 &&
-				ctx->enc_params.framerate_num == 0)
-				ctx->enc_params.framerate_num =
-				ctx->enc_params.framerate_denom * 30;
-
-			if ((ctx->enc_params.operationrate == 60 ||
-				((ctx->enc_params.framerate_num /
-				ctx->enc_params.framerate_denom) >= 59 &&
-				(ctx->enc_params.framerate_num /
-				ctx->enc_params.framerate_denom) <= 60) ||
-				(ctx->q_data[MTK_Q_DATA_SRC].visible_width
-					== 3840 &&
-				ctx->q_data[MTK_Q_DATA_SRC].visible_height
-					== 2160))) {
-				/* Set allowed time for 60fps/4K recording */
-				/* Use clock cycle if single instance */
-				if (venc_hists != 0 && venc_hists->next == 0) {
-					venc_cur_job->hw_kcy =
-						mtk_venc_get_exec_cnt(ctx);
-				}
-				if (ctx->enc_params.operationrate > 0) {
-					interval = (long long)(1000 * 1000 /
-					(int)ctx->enc_params.operationrate);
-				} else {
-					interval = (long long)(1000 * 1000 /
-					(int)(ctx->enc_params.framerate_num /
-					ctx->enc_params.framerate_denom));
-				}
-				update_hist(venc_cur_job, &venc_hists,
-					interval);
-			} else {
-				update_hist(venc_cur_job, &venc_hists, 0);
-			}
-		} else {
-			/* Set allowed time for slowmotion 4 buffer pack */
-			interval = (long long)(1000 * 1000 * 4 /
-					(int)ctx->enc_params.operationrate);
-			update_hist(venc_cur_job, &venc_hists, interval);
-		}
-		venc_jobs = venc_jobs->next;
-		kfree(venc_cur_job);
-	} else {
-		/* print error log */
-		pr_debug("no job at venc_dvfs_end, reset freq only");
-	}
-
-	target_freq_hz = 249000000UL;
-	if (ctx->dev->venc_reg != 0) {
-		opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev, &target_freq_hz);
+	if (dev->venc_reg != 0) {
+		opp = dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq_64);
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		ret = regulator_set_voltage(ctx->dev->venc_reg, volt, INT_MAX);
+		mtk_v4l2_debug(6, "[VENC] freq %lu, voltage %d", freq, volt);
+
+		ret = regulator_set_voltage(dev->venc_reg, volt, INT_MAX);
 		if (ret) {
-			pr_debug("%s Failed to set regulator voltage %d\n",
-				 __func__, volt);
+			mtk_v4l2_debug(0, "[VENC] Failed to set regulator voltage %d", volt);
 		}
 	}
-	mutex_unlock(&ctx->dev->enc_dvfs_mutex);
-#endif
 }
 
-void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
-{
-#if ENC_EMI_BW
-	int f_type = 1; /* TODO */
-	int boost_perc = 0;
-	int rcpu_bw = 5;
-	int rec_bw = 0;
-	int bsdma_bw = 10;
-	int sv_comv_bw = 5;
-	int rd_comv_bw = 10;
-	int cur_luma_bw = 0;
-	int cur_chroma_bw = 0;
-	int ref_luma_bw = 0;
-	int ref_chroma_bw = 0;
-	struct mtk_vcodec_dev *pdev = 0;
-
-	pdev = ctx->dev;
-
-	if (ctx->enc_params.operationrate >= 120 ||
-		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
-		(ctx->q_data[MTK_Q_DATA_SRC].visible_width == 3840 &&
-		ctx->q_data[MTK_Q_DATA_SRC].visible_height == 2160)) {
-		boost_perc = 100;
-	} else if (ctx->enc_params.operationrate == 60) {
-		boost_perc = 30;
-	}
-
-	/* Input BW scaling to venc_freq & config */
-	cur_luma_bw = STD_LUMA_BW * venc_freq * (100 + boost_perc)
-			/ STD_VENC_FREQ / 100;
-	cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc)
-			/ STD_VENC_FREQ / 100;
-
-	/* BW in venc_freq */
-	if (f_type == 0) {
-		rec_bw = cur_luma_bw + cur_chroma_bw;
-	} else {
-		rec_bw = cur_luma_bw + cur_chroma_bw;
-		ref_luma_bw = cur_luma_bw * 4;
-		ref_chroma_bw = cur_chroma_bw * 4;
-	}
-
-	if (1) { /* UFO */
-		ref_chroma_bw += ref_luma_bw;
-		ref_luma_bw = 0;
-	}
-
-	if (pdev->venc_qos_req[0] != 0) {
-		mtk_icc_set_bw(pdev->venc_qos_req[0], MBps_to_icc(rcpu_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[1], MBps_to_icc(rec_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[2], MBps_to_icc(bsdma_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[3], MBps_to_icc(sv_comv_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[4], MBps_to_icc(rd_comv_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[5], MBps_to_icc(cur_luma_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[6], MBps_to_icc(cur_chroma_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[7], MBps_to_icc(ref_luma_bw), 0);
-		mtk_icc_set_bw(pdev->venc_qos_req[8], MBps_to_icc(ref_chroma_bw), 0);
-	}
-#endif
-}
-
-void mtk_venc_emi_bw_end(struct mtk_vcodec_ctx *ctx, struct temp_job *job)
-{
-#if ENC_EMI_BW
-	int i = 0;
-	struct mtk_vcodec_dev *pdev = 0;
-
-	pdev = ctx->dev;
-
-	if (pdev->venc_qos_req[0] != 0) {
-		for (i = 0; i < 11; i++)
-			mtk_icc_set_bw(pdev->venc_qos_req[i], MBps_to_icc(0), 0);
-	}
-#endif
-}
-
-void mtk_venc_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int core_id)
-{
-#if ENC_DVFS
-	mutex_lock(&ctx->dev->enc_dvfs_mutex);
-	add_job(&ctx->id, &venc_jobs);
-	mutex_unlock(&ctx->dev->enc_dvfs_mutex);
-#endif
-}
-
-void mtk_venc_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int core_id)
-{
-	mtk_venc_dvfs_begin(ctx, core_id);
-	mtk_venc_emi_bw_begin(ctx, core_id);
-}
-
-void mtk_venc_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int core_id)
-{
-	mtk_venc_dvfs_end(ctx, core_id);
-	mtk_venc_emi_bw_end(ctx, NULL);
-}
-
-/* Total job count after this one is inserted */
-void mtk_venc_pmqos_gce_flush(struct mtk_vcodec_ctx *ctx, int core_id,
-				int job_cnt)
+void mtk_venc_dvfs_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
 }
 
-/* Remaining job count after this one is done */
-void mtk_venc_pmqos_gce_done(struct mtk_vcodec_ctx *ctx, int core_id,
-				int job_cnt)
+void mtk_venc_dvfs_end_inst(struct mtk_vcodec_ctx *ctx)
 {
 }
 
+void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
+{
+}
+
+void mtk_venc_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
+{
+}

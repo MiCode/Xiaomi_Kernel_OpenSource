@@ -1,83 +1,64 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2018 MediaTek Inc.
- * Author: Cheng-Jung Ho <cheng-jung.ho@mediatek.com>
- */
-
 #ifndef __VCODEC_DVFS_H__
 #define __VCODEC_DVFS_H__
 
-#define MAX_HISTORY 10
-#define MIN_SUBMIT_GAP 2000		/* 2ms */
-#define MAX_SUBMIT_GAP (1000*1000)	/* 1 second */
-#define FREE_HIST_DELAY (5000*1000)	/* Free history delay */
-#define DEFAULT_MHZ 99999
-#define DEC_MODULE 2
+#include <linux/types.h>
+#include <linux/list.h>
 
-struct codec_history {
-	void *handle;
-	int kcy[MAX_HISTORY];
-	long long submit[MAX_HISTORY];
-	long long start[MAX_HISTORY];
-	long long end[MAX_HISTORY];
-	long long sw_time[MAX_HISTORY];
-	long long submit_interval;
-	int cur_idx;
-	int cur_cnt;
-	int tot_kcy;
-	long long tot_time;
-	struct codec_history *next;
+#define DEFAULT_VENC_CONFIG -1000
+#define MAX_VCODEC_FREQ 9999
+
+struct mtk_vcodec_dev;
+struct mtk_vcodec_ctx;
+
+/* performance point per config */
+struct vcodec_perf {
+	u8 codec_type;
+	u32 codec_fmt;
+	s32 config;
+	u32 cy_per_mb_1; /* for I/P */
+	u32 cy_per_mb_2; /* for I/P/B */
 };
 
-struct codec_job {
-	void *handle;
-	long long submit;
-	long long start;
-	long long end;
-	int hw_kcy;
-	int mhz;
-	struct codec_job *next;
+/* config selection criteria */
+struct vcodec_config {
+	u8 codec_type;
+	u32 codec_fmt;
+	u32 mb_thresh; /* applicable mb threshold */
+	s32 config_1; /* low power config */
+	s32 config_2; /* hgih quality config */
 };
 
-struct codec_freq {
-	unsigned long freq[DEC_MODULE];
-	unsigned long active_freq;
+/* instance info for dvfs */
+struct vcodec_inst {
+	int id;
+	u8 codec_type;
+	u32 codec_fmt;
+	u32 core_cnt;
+	s32 config;
+	u32 b_frame;
+	u32 wp;
+	s32 op_rate;
+	u32 width;
+	u32 height;
+	u64 last_access;
+	struct list_head list;
 };
 
-
-/* first scenario based version, will change to loading based */
-struct temp_job {
-	int ctx_id;
-	int format;
-	int type;
-	int module;
-	int visible_width; /* temp usage only, will use kcy */
-	int visible_height; /* temp usage only, will use kcy */
-	int operation_rate;
-	long long submit;
-	int kcy;
-	struct temp_job *next;
+/* dvfs policies  */
+struct dvfs_params {
+	u8 codec_type;
+	u8 allow_oc;		/* allow oc freq */
+	u8 per_frame_adjust;	/* do per frame adjust dvfs / pmqos */
+	u8 per_frame_adjust_op_rate; /* per frame adjust threshold */
+	u32 min_freq;		/* min freq */
+	u32 normal_max_freq;	/*normal max freq (no oc) */
+	u32 target_freq;	/* target freq */
 };
 
-long long get_time_us(void);
+struct vcodec_inst *get_inst(struct mtk_vcodec_ctx *ctx);
+bool need_update(struct mtk_vcodec_ctx *ctx);
+bool remove_update(struct mtk_vcodec_ctx *ctx);
+u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq);
+void update_freq(struct mtk_vcodec_dev *dev, int codec_type);
 
-/* Add a new job to job queue */
-struct codec_job *add_job(void *handle, struct codec_job **head);
-
-/* Move target job to queue head for processing */
-struct codec_job *move_job_to_head(void *handle, struct codec_job **head);
-
-/* Update history with completed job */
-int update_hist(struct codec_job *job, struct codec_history **head,
-		long long submit_interval);
-
-/* Estimate required freq from job queue and previous history */
-int est_freq(void *handle, struct codec_job **job, struct codec_history *head);
-unsigned long match_freq(
-	unsigned long target_hz, unsigned long *freq_list, u32 freq_cnt, unsigned long max_freq_hz);
-u64 match_freq_v2(int target_mhz, u64 *freq_list, u32 freq_cnt);
-
-/* Free unused/all history */
-int free_hist(struct codec_history **head, int only_unused);
-int free_hist_by_handle(void *handle, struct codec_history **head);
 #endif

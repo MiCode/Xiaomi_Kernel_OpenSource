@@ -8,43 +8,198 @@
 #include <linux/of_platform.h>
 #include <soc/mediatek/smi.h>
 #include <linux/slab.h>
+#include <linux/types.h>
+#include <linux/list.h>
 //#include "smi_public.h"
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec_pm_plat.h"
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
-#ifdef DEC_DVFS
-#undef DEC_DVFS
-#endif
-#define DEC_DVFS 0
-
-#ifdef DEC_EMI_BW
-#undef DEC_EMI_BW
-#endif
-#define DEC_EMI_BW 0
-
 #if DEC_DVFS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
-#define STD_VDEC_FREQ 218
-static u64 vdec_freq;
-static struct codec_history *vdec_hists;
-static struct codec_job *vdec_jobs;
+#include "vcodec_dvfs.h"
+#define STD_VDEC_FREQ 218000000
 #endif
 
-#define VDEC_DRV_UFO_ON (1 << 0)
-#define VDEC_DRV_UFO_AUO_ON (1 << 1)
 #if DEC_EMI_BW
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
-static unsigned int h264_frm_scale[4] = {12, 24, 40, 12};
-static unsigned int h265_frm_scale[4] = {12, 24, 40, 12};
-static unsigned int vp9_frm_scale[4] = {12, 24, 40, 12};
-static unsigned int vp8_frm_scale[4] = {12, 24, 40, 12};
-static unsigned int mp24_frm_scale[5] = {16, 20, 32, 50, 16};
-
+#include "vcodec_bw.h"
 #endif
+
+//#define VDEC_PRINT_DTS_INFO
+
+static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
+{
+	const int tp_item_num = 4;
+	const int bw_item_num = 2;
+	struct platform_device *pdev;
+	int i, larb_cnt, ret;
+	u32 nmin, nmax, cnt;
+
+	pdev = dev->plat_dev;
+	larb_cnt = 0;
+
+	ret = of_property_read_s32(pdev->dev.of_node, "throughput-op-rate-thresh", &nmax);
+	if (ret)
+		mtk_v4l2_debug(0, "[VDEC] Cannot get op rate thresh, default 0");
+
+	dev->vdec_dvfs_params.per_frame_adjust_op_rate = nmax;
+	dev->vdec_dvfs_params.per_frame_adjust = 1;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "throughput-min", &nmin);
+	if (ret) {
+		nmin = STD_VDEC_FREQ;
+		mtk_v4l2_debug(0, "[VDEC] Cannot get min, default %u", nmin);
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "throughput-normal-max", &nmax);
+	if (ret)
+		mtk_v4l2_debug(0, "[VDEC] Cannot get normal max, default %u", nmax);
+
+	dev->vdec_dvfs_params.codec_type = MTK_INST_DECODER;
+	dev->vdec_dvfs_params.min_freq = nmin;
+	dev->vdec_dvfs_params.normal_max_freq = nmax;
+	dev->vdec_dvfs_params.allow_oc = 0;
+
+	mtk_v4l2_debug(6, "[VDEC] tput op_th %d, tmin %u, tmax %u",
+		dev->vdec_dvfs_params.per_frame_adjust_op_rate,
+		dev->vdec_dvfs_params.min_freq,
+		dev->vdec_dvfs_params.normal_max_freq);
+
+	/* throughput */
+	cnt = of_property_count_u32_elems(pdev->dev.of_node, "throughput-table");
+	dev->vdec_tput_cnt = cnt / tp_item_num;
+
+	mtk_v4l2_debug(6, "[VDEC] tput table elements %u, %d per line",
+			cnt, tp_item_num, dev->vdec_tput);
+	if (!dev->vdec_tput_cnt) {
+		mtk_v4l2_debug(0, "[VDEC] throughtput table not exist");
+		return false;
+	}
+
+	dev->vdec_tput = vzalloc(sizeof(struct vcodec_perf) * dev->vdec_tput_cnt);
+
+	mtk_v4l2_debug(6, "[VDEC] vzalloc %zu x %d res %p",
+			sizeof(struct vcodec_perf), dev->vdec_tput_cnt, dev->vdec_tput);
+	if (!dev->vdec_tput) {
+		mtk_v4l2_debug(0, "[VDEC] vzalloc vdec_tput table failed");
+		return false;
+	}
+
+	for (i = 0; i < dev->vdec_tput_cnt; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num, &dev->vdec_tput[i].codec_fmt);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get codec_fmt");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 1, (u32 *)&dev->vdec_tput[i].config);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get config");
+			return false;
+		}
+
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 2, &dev->vdec_tput[i].cy_per_mb_1);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get cycle per mb 1");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 3, &dev->vdec_tput[i].cy_per_mb_2);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get cycle per mb 2");
+			return false;
+		}
+		dev->vdec_tput[i].codec_type = 0;
+	}
+
+	/* bw */
+	dev->vdec_port_cnt = of_property_count_u32_elems(pdev->dev.of_node,
+				"bandwidth-table") / bw_item_num;
+
+	if (dev->vdec_port_cnt > MTK_VDEC_PORT_NUM) {
+		mtk_v4l2_debug(0, "[VDEC] vdec port over limit %d > %d",
+			dev->vdec_port_cnt, MTK_VDEC_PORT_NUM);
+		dev->vdec_port_cnt = MTK_VDEC_PORT_NUM;
+	}
+
+	if (!dev->vdec_port_cnt) {
+		mtk_v4l2_debug(0, "[VDEC] bandwidth table not exist");
+		return false;
+	}
+
+	dev->vdec_port_bw = vzalloc(sizeof(struct vcodec_port_bw) * dev->vdec_port_cnt);
+	if (!dev->vdec_port_bw) {
+		/* mtk_v4l2_debug(0, "[VDEC] vzalloc vdec_port_bw table failed"); */
+		return false;
+	}
+
+	for (i = 0; i < dev->vdec_port_cnt; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
+				i * bw_item_num, (u32 *)&dev->vdec_port_bw[i].port_type);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get bw port type");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
+				i * bw_item_num + 1, &dev->vdec_port_bw[i].port_base_bw);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get base bw");
+			return false;
+		}
+
+		/* larb port sum placeholder */
+		if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
+			dev->vdec_port_bw[i].larb = dev->vdec_port_bw[i].port_base_bw;
+			dev->vdec_port_bw[i].port_base_bw = 0;
+			if (i + 1 < dev->vdec_port_cnt)
+				dev->vdec_port_idx[++larb_cnt] = i + 1;
+		}
+	}
+#ifdef VDEC_PRINT_DTS_INFO
+	mtk_v4l2_debug(0, "[VDEC] tput_cnt %d, cfg_cnt %d, port_cnt %d",
+		dev->vdec_tput_cnt, dev->vdec_cfg_cnt, dev->vdec_port_cnt);
+
+	for (i = 0; i < dev->vdec_tput_cnt; i++) {
+		mtk_v4l2_debug(0, "[VDEC] tput fmt %u, cfg %d, cy1 %u, cy2 %u",
+			dev->vdec_tput[i].codec_fmt,
+			dev->vdec_tput[i].config,
+			dev->vdec_tput[i].cy_per_mb_1,
+			dev->vdec_tput[i].cy_per_mb_2);
+	}
+
+	for (i = 0; i < dev->vdec_port_cnt; i++) {
+		mtk_v4l2_debug(0, "[VDEC] port[%d] type %d, bw %u, larb %u",
+			dev->vdec_port_bw[i].port_type,
+			dev->vdec_port_bw[i].port_base_bw,
+			dev->vdec_port_bw[i].larb);
+	}
+#endif
+	return true;
+}
+
+static void mtk_dec_tput_deinit(struct mtk_vcodec_dev *dev)
+{
+	if (dev->vdec_tput) {
+		vfree(dev->vdec_tput);
+		dev->vdec_tput = 0;
+	}
+
+	if (dev->vdec_port_bw) {
+		vfree(dev->vdec_port_bw);
+		dev->vdec_port_bw = 0;
+	}
+}
+
 
 void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 {
@@ -53,17 +208,18 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 	struct dev_pm_opp *opp = 0;
 	unsigned long freq = 0;
 	int i = 0;
+	bool tput_ret = false;
 
 	ret = dev_pm_opp_of_add_table(&dev->plat_dev->dev);
 	if (ret < 0) {
-		pr_debug("Failed to get opp table (%d)\n", ret);
+		mtk_v4l2_debug(0, "[VDEC] Failed to get opp table (%d)", ret);
 		return;
 	}
 
 	dev->vdec_reg = devm_regulator_get(&dev->plat_dev->dev,
 						"dvfsrc-vcore");
 	if (dev->vdec_reg == 0) {
-		pr_debug("Failed to get regulator\n");
+		mtk_v4l2_debug(0, "[VDEC] Failed to get regulator");
 		return;
 	}
 
@@ -76,37 +232,53 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 		i++;
 		dev_pm_opp_put(opp);
 	}
+
+	INIT_LIST_HEAD(&dev->vdec_dvfs_inst);
+	tput_ret = mtk_dec_tput_init(dev);
 #endif
 }
 
 void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 {
+#if DEC_DVFS
 	/* Set to lowest clock before leaving */
+	mtk_dec_tput_deinit(dev);
+#endif
 }
 
 void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
 {
 #if DEC_EMI_BW
-	int i = 0;
+	int i, ret;
 	struct platform_device *pdev = 0;
+	u32 port_num = 0;
+	const char *path_strs[32];
 
 	pdev = dev->plat_dev;
 	for (i = 0; i < MTK_VDEC_PORT_NUM; i++)
 		dev->vdec_qos_req[i] = 0;
 
-	i = 0;
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_mc");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_ufo");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_pp");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_pred_rd");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_pred_wr");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_ppwrap");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_tile");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_vld");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_vld2");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_vdec_avc_mv");
-	dev->vdec_qos_req[i++] = of_mtk_icc_get(&pdev->dev,
-					"path_vdec_rg_ctrl_dma");
+	ret = of_property_read_u32(pdev->dev.of_node, "interconnect-num", &port_num);
+	if (ret) {
+		mtk_v4l2_debug(0, "[VDEC] Cannot get interconnect num, skip");
+		return;
+	}
+
+	ret = of_property_read_string_array(pdev->dev.of_node, "interconnect-names",
+						path_strs, port_num);
+
+	if (ret < 0) {
+		mtk_v4l2_debug(0, "[VDEC] Cannot get interconnect names, skip");
+		return;
+	} else if (ret != (int)port_num) {
+		mtk_v4l2_debug(0, "[VDEC] Interconnect name count not match %u %d",
+			port_num, ret);
+	}
+
+	for (i = 0; i < port_num; i++) {
+		dev->vdec_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
+		mtk_v4l2_debug(10, "[VDEC] qos port[%d] name %s", i, path_strs[i]);
+	}
 #endif
 }
 
@@ -116,247 +288,39 @@ void mtk_unprepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
 #endif
 }
 
-void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
+void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 {
-#if DEC_DVFS
-	unsigned long target_freq_hz = 0;
-	unsigned long target_freq_mhz = 0;
-	struct codec_job *vdec_cur_job = 0;
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
+	unsigned long freq_64 = (unsigned long)freq;
 
-	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	vdec_cur_job = move_job_to_head(&ctx->id, &vdec_jobs);
-
-	if (ctx->dec_params.operating_rate > 0) {
-		target_freq_mhz = 312L *
-				ctx->q_data[MTK_Q_DATA_DST].coded_width *
-				ctx->q_data[MTK_Q_DATA_DST].coded_height *
-				ctx->dec_params.operating_rate /
-				3840L / 2160L / 30L;
-		target_freq_hz = target_freq_mhz * 1000000UL;
-		target_freq_hz = match_freq(target_freq_hz, &ctx->dev->vdec_freqs[0],
-			ctx->dev->vdec_freq_cnt, ctx->dev->vdec_freqs[ctx->dev->vdec_freq_cnt - 1]);
-		if (ctx->dev->vdec_reg != 0) {
-			opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
-						&target_freq_hz);
-			volt = dev_pm_opp_get_voltage(opp);
-			dev_pm_opp_put(opp);
-
-			ret = regulator_set_voltage(ctx->dev->vdec_reg, volt, INT_MAX);
-			if (ret) {
-				pr_debug("%s Failed to set regulator voltage %d\n",
-					 __func__, volt);
-			}
-		}
-		target_freq_mhz = target_freq_hz / 1000000UL;
-		vdec_freq = target_freq_mhz;
-		if (vdec_cur_job != 0)
-			vdec_cur_job->mhz = (int)target_freq_mhz;
-	} else if (vdec_cur_job != 0) {
-		vdec_cur_job->start = get_time_us();
-		target_freq_mhz = est_freq(vdec_cur_job->handle, &vdec_jobs,
-					vdec_hists);
-		target_freq_hz = target_freq_mhz * 1000000UL;
-		target_freq_hz = match_freq(target_freq_hz, &ctx->dev->vdec_freqs[0],
-			ctx->dev->vdec_freq_cnt, ctx->dev->vdec_freqs[ctx->dev->vdec_freq_cnt - 1]);
-		if (ctx->dev->vdec_reg != 0) {
-			opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
-						&target_freq_hz);
-			volt = dev_pm_opp_get_voltage(opp);
-			dev_pm_opp_put(opp);
-
-			ret = regulator_set_voltage(ctx->dev->vdec_reg, volt, INT_MAX);
-			if (ret) {
-				pr_debug("%s Failed to set regulator voltage %d\n",
-					 __func__, volt);
-			}
-		}
-		target_freq_mhz = target_freq_hz / 1000000UL;
-		if (target_freq_mhz > 0) {
-			vdec_freq = target_freq_mhz;
-			if (vdec_cur_job != 0)
-				vdec_cur_job->mhz = (int)target_freq_mhz;
-		}
-	} else {
-		target_freq_hz = ctx->dev->vdec_freqs[ctx->dev->vdec_freq_cnt - 1];
-		if (ctx->dev->vdec_reg != 0) {
-			opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
-						&target_freq_hz);
-			volt = dev_pm_opp_get_voltage(opp);
-			dev_pm_opp_put(opp);
-
-			ret = regulator_set_voltage(ctx->dev->vdec_reg, volt, INT_MAX);
-			if (ret) {
-				pr_debug("%s Failed to set regulator voltage %d\n",
-					 __func__, volt);
-			}
-		}
-	}
-	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
-#endif
-}
-
-void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx, int hw_id)
-{
-#if DEC_DVFS
-	struct dev_pm_opp *opp = 0;
-	int volt = 0;
-	int ret = 0;
-	struct codec_job *vdec_cur_job = 0;
-	unsigned long target_freq_hz = 0;
-
-	/* vdec dvfs */
-	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	vdec_cur_job = vdec_jobs;
-	if (vdec_cur_job->handle == &ctx->id) {
-		vdec_cur_job->end = get_time_us();
-		update_hist(vdec_cur_job, &vdec_hists, 0);
-		vdec_jobs = vdec_jobs->next;
-		kfree(vdec_cur_job);
-	} else {
-		/* print error log */
-	}
-
-	target_freq_hz = 218000000UL;
-
-	if (ctx->dev->vdec_reg != 0) {
-		opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev, &target_freq_hz);
+	if (dev->vdec_reg != 0) {
+		opp = dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq_64);
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		ret = regulator_set_voltage(ctx->dev->vdec_reg, volt, INT_MAX);
+		mtk_v4l2_debug(0, "[VDEC] freq %u, voltage %d", freq, volt);
+
+		ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
 		if (ret) {
-			pr_debug("%s Failed to set regulator voltage %d\n",
-				 __func__, volt);
+			mtk_v4l2_debug(0, "[VDEC] Failed to set regulator voltage %d\n", volt);
 		}
 	}
-	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
-#endif
 }
 
-void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
+void mtk_vdec_dvfs_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
-#if DEC_EMI_BW
-	struct mtk_vcodec_dev *pdev = 0;
-	int f_type = 1; /* TODO */
-	long emi_bw = 0;
-	long emi_bw_input = 0;
-	long emi_bw_output = 0;
-	int is_ufo_on = 0;
-
-	pdev = ctx->dev;
-	emi_bw = 8L * 1920 * 1080 * 2 * 10 * vdec_freq;
-	emi_bw_input = 8 * vdec_freq / STD_VDEC_FREQ;
-	emi_bw_output = 1920 * 1088 * 3 * 20 * 10 * vdec_freq /
-			2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
-
-	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
-	case V4L2_PIX_FMT_H264:
-		emi_bw = emi_bw * h264_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
-		break;
-	case V4L2_PIX_FMT_H265:
-		emi_bw = emi_bw * h265_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
-		break;
-	case V4L2_PIX_FMT_VP8:
-		emi_bw = emi_bw * vp8_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
-		break;
-	case V4L2_PIX_FMT_VP9:
-		emi_bw = emi_bw * vp9_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
-		break;
-	case V4L2_PIX_FMT_MPEG4:
-	case V4L2_PIX_FMT_H263:
-	case V4L2_PIX_FMT_S263:
-	case V4L2_PIX_FMT_XVID:
-	case V4L2_PIX_FMT_MPEG1:
-	case V4L2_PIX_FMT_MPEG2:
-		emi_bw = emi_bw * mp24_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
-		break;
-	}
-
-	is_ufo_on = (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-			V4L2_PIX_FMT_H264 ||
-			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-			V4L2_PIX_FMT_H265 ||
-			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-			V4L2_PIX_FMT_VP9) &&
-			((ctx->q_data[MTK_Q_DATA_DST].coded_width *
-			ctx->q_data[MTK_Q_DATA_DST].coded_height) >=
-			(1920 * 1080)) ? 1 : 0;
-
-	/* bits/s to MBytes/s */
-	emi_bw = emi_bw / (1024 * 1024) / 8;
-
-	if (is_ufo_on == 1) {    /* UFO */
-		emi_bw = emi_bw * 6 / 10;
-		emi_bw_output = emi_bw_output * 6 / 10;
-	}
-
-	emi_bw = emi_bw - emi_bw_output - (emi_bw_input * 2);
-	if (emi_bw < 0)
-		emi_bw = 0;
-
-	if (is_ufo_on == 1) {    /* UFO */
-		mtk_icc_set_bw(pdev->vdec_qos_req[1],
-						MBps_to_icc(emi_bw), 0);
-		mtk_icc_set_bw(pdev->vdec_qos_req[11],
-						MBps_to_icc(emi_bw_output), 0);
-	} else {
-		mtk_icc_set_bw(pdev->vdec_qos_req[2],
-						MBps_to_icc(emi_bw_output), 0);
-	}
-	mtk_icc_set_bw(pdev->vdec_qos_req[0],
-						MBps_to_icc(emi_bw), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[3], MBps_to_icc(1), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[4], MBps_to_icc(1), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[5], MBps_to_icc(0), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[6], MBps_to_icc(0), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[7],
-						MBps_to_icc(emi_bw_input), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[8],
-						MBps_to_icc(0), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[9],
-						MBps_to_icc(emi_bw_input * 2), 0);
-	mtk_icc_set_bw(pdev->vdec_qos_req[10], MBps_to_icc(0), 0);
-#endif
 }
 
-static void mtk_vdec_emi_bw_end(struct mtk_vcodec_ctx *ctx, int hw_id)
+void mtk_vdec_dvfs_end_inst(struct mtk_vcodec_ctx *ctx)
 {
-#if DEC_EMI_BW
-	int i = 0;
-	struct mtk_vcodec_dev *pdev = 0;
-
-	pdev = ctx->dev;
-
-	if (pdev->vdec_qos_req[0] != 0) {
-		for (i = 0; i < 12; i++) {
-			mtk_icc_set_bw(pdev->vdec_qos_req[i],
-				MBps_to_icc(0), 0);
-		}
-	}
-#endif
 }
 
-void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int hw_id)
+void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
-#if DEC_DVFS
-	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	add_job(&ctx->id, &vdec_jobs);
-	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
-#endif
 }
 
-void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
+void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 {
-	mtk_vdec_dvfs_begin(ctx, hw_id);
-	mtk_vdec_emi_bw_begin(ctx, hw_id);
 }
-
-void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
-{
-	mtk_vdec_dvfs_end(ctx, hw_id);
-	mtk_vdec_emi_bw_end(ctx, hw_id);
-}
-

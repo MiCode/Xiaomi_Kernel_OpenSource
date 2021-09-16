@@ -2642,6 +2642,8 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 			mtk_v4l2_err("[%d] Error!! Cannot set param",
 				ctx->id);
 		}
+		mtk_vdec_dvfs_begin_inst(ctx);
+		mtk_vdec_pmqos_begin_inst(ctx);
 	}
 
 	mtk_vdec_set_param(ctx);
@@ -2732,6 +2734,9 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			dstbuf->queued_in_v4l2, dstbuf->used);
 	}
 	mutex_unlock(&ctx->buf_lock);
+
+	mtk_vdec_dvfs_end_inst(ctx);
+	mtk_vdec_pmqos_end_inst(ctx);
 }
 
 static void m2mops_vdec_device_run(void *priv)

@@ -30,13 +30,11 @@ ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V1),y)
 
 	mtk-vcodec-dec-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
 			v1/mtk_vcodec_dec_pm_plat.o \
-			v1/vcodec_dvfs.o \
-			v1/vcodec_bw.o
+			v1/vcodec_dvfs.o
 
 	mtk-vcodec-enc-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
 			v1/mtk_vcodec_enc_pm_plat.o \
-			v1/vcodec_dvfs.o \
-			v1/vcodec_bw.o
+			v1/vcodec_dvfs.o
 
 	mtk-vcodec-dec-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
 	mtk-vcodec-enc-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
@@ -48,13 +46,11 @@ ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V2),y)
 
 	mtk-vcodec-dec-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
 			v2/mtk_vcodec_dec_pm_plat.o \
-			v2/vcodec_dvfs.o \
-			v2/vcodec_bw.o
+			v2/vcodec_dvfs.o
 
 	mtk-vcodec-enc-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
 			v2/mtk_vcodec_enc_pm_plat.o \
-			v2/vcodec_dvfs.o \
-			v2/vcodec_bw.o
+			v2/vcodec_dvfs.o
 
 	mtk-vcodec-dec-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
 	mtk-vcodec-enc-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o

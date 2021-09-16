@@ -1,26 +1,26 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2018 MediaTek Inc.
- * Author: Cheng-Jung Ho <cheng-jung.ho@mediatek.com>
- */
-
 #ifndef __VCODEC_BW_H__
 #define __VCODEC_BW_H__
 
 #include <linux/types.h>
-#include <linux/slab.h>
+#include <linux/list.h>
 
-#define TYPE_CNT 3
+#define DEFAULT_VENC_CONFIG -1000
+#define MAX_VCODEC_FREQ 9999
 
-struct vcodec_bw {
-	int id;
-	unsigned int smi_bw_mon[TYPE_CNT];
-	struct vcodec_bw *next;
+enum vcodec_port_type {
+	VCODEC_PORT_BITSTREAM = 0,
+	VCODEC_PORT_PICTURE_Y = 1,
+	VCODEC_PORT_PICTURE_UV = 2,
+	VCODEC_PORT_PICTURE_ALL = 3,
+	VCODEC_PORT_RCPU = 4,
+	VCODEC_PORT_WORKING = 5,
+	VCODEC_PORT_LARB_SUM = 6
 };
 
-bool validate_bw(struct vcodec_bw *bw, int type);
-struct vcodec_bw *find_bw_by_id(struct vcodec_bw *bw_list, int id);
-struct vcodec_bw *add_bw_by_id(struct vcodec_bw **bw_list, int id);
-struct vcodec_bw *remove_bw_by_id(struct vcodec_bw **bw_list, int id);
-void free_all_bw(struct vcodec_bw **bw_list);
+struct vcodec_port_bw {
+	int port_type;
+	u32 port_base_bw;
+	u32 larb;
+};
+
 #endif

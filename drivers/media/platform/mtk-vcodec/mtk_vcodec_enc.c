@@ -18,6 +18,7 @@
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_util.h"
 #include "mtk_vcodec_enc_pm.h"
+#include "mtk_vcodec_enc_pm_plat.h"
 #include "venc_drv_if.h"
 
 #define MTK_VENC_MIN_W  160U
@@ -2096,16 +2097,19 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		ctx->state = MTK_STATE_INIT;
 	}
 
+	mtk_venc_dvfs_begin_inst(ctx);
+	mtk_venc_pmqos_begin_inst(ctx);
+
 	return 0;
 
 err_set_param:
 	for (i = 0; i < q->num_buffers; ++i) {
 		if (q->bufs[i]->state == VB2_BUF_STATE_ACTIVE) {
 			mtk_v4l2_debug(0, "[%d] id=%d, type=%d, %d -> VB2_BUF_STATE_QUEUED",
-				       ctx->id, i, q->type,
-				       (int)q->bufs[i]->state);
+					ctx->id, i, q->type,
+					(int)q->bufs[i]->state);
 			v4l2_m2m_buf_done(to_vb2_v4l2_buffer(q->bufs[i]),
-					  VB2_BUF_STATE_QUEUED);
+					VB2_BUF_STATE_QUEUED);
 		}
 	}
 
@@ -2146,6 +2150,8 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
 		ctx->enc_flush_buf->lastframe = NON_EOS;
+		mtk_venc_dvfs_end_inst(ctx);
+		mtk_venc_pmqos_end_inst(ctx);
 	}
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&

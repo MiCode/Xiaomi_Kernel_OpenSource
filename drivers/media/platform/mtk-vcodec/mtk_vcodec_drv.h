@@ -13,6 +13,8 @@
 #include <linux/semaphore.h>
 #include <linux/regulator/consumer.h>
 #include <linux/interconnect-provider.h>
+#include <linux/types.h>
+#include <linux/list.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -21,6 +23,7 @@
 #include "vcodec_ipi_msg.h"
 #include "mtk_vcodec_pm.h"
 #include "vcodec_dvfs.h"
+#include "vcodec_bw.h"
 
 #include "mtk_dma_contig.h"
 #ifdef CONFIG_VB2_MEDIATEK_DMA_SG
@@ -42,8 +45,8 @@
 #define V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED 0x02000000
 
 #define MAX_CODEC_FREQ_STEP	10
-#define MTK_VDEC_PORT_NUM	25
-#define MTK_VENC_PORT_NUM	40
+#define MTK_VDEC_PORT_NUM	32
+#define MTK_VENC_PORT_NUM	64
 #define MTK_MAX_METADATA_NUM    8
 
 #define DEBUG_GKI 1
@@ -596,15 +599,6 @@ struct mtk_vcodec_dev {
 	struct share_obj enc_ipi_data;
 	int *dec_mem_slot_stat;
 	int *enc_mem_slot_stat;
-	struct codec_job *vdec_jobs[MTK_VDEC_HW_NUM];
-	struct codec_job *venc_jobs[MTK_VENC_HW_NUM];
-	struct temp_job *temp_venc_jobs[MTK_VENC_HW_NUM];
-
-	struct codec_history *vdec_hists;
-	struct codec_history *venc_hists;
-
-	struct codec_freq vdec_freq;
-	struct codec_freq venc_freq;
 
 	int dec_hw_cnt;
 	int enc_hw_cnt;
@@ -623,6 +617,24 @@ struct mtk_vcodec_dev {
 	struct regulator *venc_reg;
 	struct venc_larb_port venc_ports[MTK_VENC_HW_NUM];
 
+	int vdec_tput_cnt;
+	int venc_tput_cnt;
+	int vdec_cfg_cnt;
+	int venc_cfg_cnt;
+	int vdec_port_cnt;
+	int venc_port_cnt;
+	int vdec_port_idx[MTK_VDEC_HW_NUM];
+	int venc_port_idx[MTK_VENC_HW_NUM];
+	struct vcodec_perf *vdec_tput;
+	struct vcodec_perf *venc_tput;
+	//struct vcodec_config *vdec_cfg;
+	struct vcodec_config *venc_cfg;
+	struct list_head vdec_dvfs_inst;
+	struct list_head venc_dvfs_inst;
+	struct dvfs_params vdec_dvfs_params;
+	struct dvfs_params venc_dvfs_params;
+	struct vcodec_port_bw *vdec_port_bw;
+	struct vcodec_port_bw *venc_port_bw;
 /**
  *	struct ion_client *ion_vdec_client;
  *	struct ion_client *ion_venc_client;

@@ -139,7 +139,6 @@ void venc_encode_prepare(void *ctx_prepare,
 	if (ctx == NULL || core_id >= MTK_VENC_HW_NUM)
 		return;
 
-	mtk_venc_pmqos_prelock(ctx, core_id);
 	mtk_venc_lock(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[core_id] = ctx;
@@ -147,7 +146,6 @@ void venc_encode_prepare(void *ctx_prepare,
 	mtk_vcodec_enc_clock_on(ctx, core_id);
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
 		enable_irq(ctx->dev->enc_irq[core_id]);
-	mtk_venc_pmqos_begin_frame(ctx, core_id);
 	if (core_id == MTK_VENC_CORE_0)
 		vcodec_trace_count("VENC_HW_CORE_0", 1);
 	else
@@ -172,7 +170,6 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VENC_HW_CORE_1", 0);
 
-	mtk_venc_pmqos_end_frame(ctx, core_id);
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
 		disable_irq(ctx->dev->enc_irq[core_id]);
 	mtk_vcodec_enc_clock_off(ctx, core_id);
@@ -185,13 +182,13 @@ void venc_encode_unprepare(void *ctx_unprepare,
 void venc_encode_pmqos_gce_begin(void *ctx_begin,
 	unsigned int core_id, int job_cnt)
 {
-	mtk_venc_pmqos_gce_flush(ctx_begin, core_id, job_cnt);
+	//mtk_venc_pmqos_gce_flush(ctx_begin, core_id, job_cnt);
 }
 
 void venc_encode_pmqos_gce_end(void *ctx_end,
 	unsigned int core_id, int job_cnt)
 {
-	mtk_venc_pmqos_gce_done(ctx_end, core_id, job_cnt);
+	//mtk_venc_pmqos_gce_done(ctx_end, core_id, job_cnt);
 }
 
 int venc_if_encode(struct mtk_vcodec_ctx *ctx,
