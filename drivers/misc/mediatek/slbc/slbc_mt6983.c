@@ -58,6 +58,8 @@ static u32 slbc_cache_used;
 static u32 slbc_pmu_0;
 static u32 slbc_pmu_1;
 static u32 slbc_pmu_2;
+static u32 slbc_pmu_3;
+static u32 slbc_pmu_4;
 static int debug_level;
 static int uid_ref[UID_MAX];
 static int slbc_mic_num = 3;
@@ -638,6 +640,8 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	slbc_pmu_0 = slbc_sram_read(SLBC_PMU_0);
 	slbc_pmu_1 = slbc_sram_read(SLBC_PMU_1);
 	slbc_pmu_2 = slbc_sram_read(SLBC_PMU_2);
+	slbc_pmu_3 = slbc_sram_read(SLBC_PMU_3);
+	slbc_pmu_4 = slbc_sram_read(SLBC_PMU_4);
 
 	for (i = 0; i < UID_MAX; i++) {
 		sid = slbc_get_sid_by_uid(i);
@@ -668,6 +672,8 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "slbc_pmu_0 %x\n", slbc_pmu_0);
 	seq_printf(m, "slbc_pmu_1 %x\n", slbc_pmu_1);
 	seq_printf(m, "slbc_pmu_2 %x\n", slbc_pmu_2);
+	seq_printf(m, "slbc_pmu_3 %x\n", slbc_pmu_3);
+	seq_printf(m, "slbc_pmu_4 %x\n", slbc_pmu_4);
 	seq_printf(m, "mic_num %x\n", slbc_mic_num);
 	seq_printf(m, "inner %x\n", slbc_inner);
 	seq_printf(m, "outer %x\n", slbc_outer);

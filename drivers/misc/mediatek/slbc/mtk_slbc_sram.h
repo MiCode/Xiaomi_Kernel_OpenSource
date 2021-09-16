@@ -48,6 +48,8 @@
 #define SLBC_PMU_0                      0x50
 #define SLBC_PMU_1                      0x54
 #define SLBC_PMU_2                      0x58
+#define SLBC_PMU_3                      0x5C
+#define SLBC_PMU_4                      0x60
 #define SLBC_APU_BW                     0x40
 #define SLBC_MM_BW                      0x44
 #define SLBC_MM_EST_BW                  0x48
@@ -137,6 +139,14 @@
 #define SLBC_PMU_2_LSB                  SLBC_BIT(0)
 #define SLBC_PMU_2_SHIFT                0
 #define SLBC_PMU_2_MASK                 SLBC_BITMASK(31:0)
+/* SLBC_PMU_3 */
+#define SLBC_PMU_3_LSB                  SLBC_BIT(0)
+#define SLBC_PMU_3_SHIFT                0
+#define SLBC_PMU_3_MASK                 SLBC_BITMASK(31:0)
+/* SLBC_PMU_4 */
+#define SLBC_PMU_4_LSB                  SLBC_BIT(0)
+#define SLBC_PMU_4_SHIFT                0
+#define SLBC_PMU_4_MASK                 SLBC_BITMASK(31:0)
 /* SLBC_APU_BW */
 #define SLBC_APU_BW_R_LSB               SLBC_BIT(0)
 #define SLBC_APU_BW_R_SHIFT             0
