@@ -1571,7 +1571,6 @@ static int runtime_suspend(struct device *dev)
 	mutex_lock(&core->mutex);
 
 	core->refcnt--;
-
 	if (core->refcnt == 0) {
 		i = CLK_TOP_SENINF_END;
 		do {
@@ -1580,6 +1579,9 @@ static int runtime_suspend(struct device *dev)
 				clk_disable_unprepare(ctx->core->clk[i]);
 		} while (i);
 		seninf_core_pm_runtime_put(core);
+		if (ctx->core->dfs.reg)
+			regulator_disable(ctx->core->dfs.reg);
+
 	}
 
 	mutex_unlock(&core->mutex);
@@ -1598,6 +1600,8 @@ static int runtime_resume(struct device *dev)
 	core->refcnt++;
 
 	if (core->refcnt == 1) {
+		if (ctx->core->dfs.reg)
+			regulator_enable(ctx->core->dfs.reg);
 		seninf_core_pm_runtime_get_sync(core);
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
 			if (core->clk[i])
