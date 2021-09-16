@@ -73,9 +73,6 @@
 		mtksmmu1 = &mdp_iommu;
 		mtksmmu2 = &apu_iommu0;
 		mtksmmu3 = &apu_iommu1;
-		mtksmmu4 = &peri_iommu_m4;
-		mtksmmu5 = &peri_iommu_m6;
-		mtksmmu6 = &peri_iommu_m7;
 		tdshp0 = &disp_tdshp0;
 		tdshp1 = &disp_tdshp1;
 		color0 = &disp_color0;
