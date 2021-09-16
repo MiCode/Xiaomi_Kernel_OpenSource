@@ -465,18 +465,6 @@ struct mtk_disp_ovl {
 	struct mtk_ovl_backup_info backup_info[MAX_LAYER_NUM];
 };
 
-void mtk_ovl_addon_mml_inlinerotate_config_1st_OVL(
-	struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
-{
-	DDPINFO("%s comp->id:%d", __func__, comp->id);
-	// setting SMI for read SRAM
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
-		0x000F0000, GENMASK(19, 16));
-	DDPINFO("comp->regs_pa:%x", comp->regs_pa);
-	DDPINFO("%s -\n", __func__);
-}
-
 static inline struct mtk_disp_ovl *comp_to_ovl(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_ovl, ddp_comp);
@@ -1554,7 +1542,10 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
 				sram_addr + MML_SRAM_SHIFT,
 				~0);
-			mtk_ovl_addon_mml_inlinerotate_config_1st_OVL(comp, handle);
+			// setting SMI for read SRAM
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
+				0x000F0000, GENMASK(19, 16));
 		} else {
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
 		}
@@ -2063,6 +2054,20 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			lx_fbdc_en << (lye_idx + 4), BIT(lye_idx + 4));
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_CFG(lye_idx), 0,
+		~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF0_ADDR(lye_idx),
+		0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
+		0, ~0);
+	// setting SMI for read SRAM
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
+		0x00000000, GENMASK(19, 16));
 
 	/* if no compress, do common config and return */
 	if (compress == 0 || (pending->mml_mode == MML_MODE_RACING)) {

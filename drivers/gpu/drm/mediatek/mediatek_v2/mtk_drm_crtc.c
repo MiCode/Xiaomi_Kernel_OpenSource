@@ -1757,8 +1757,6 @@ static void _mtk_crtc_lye_addon_module_disconnect(
 
 		if (addon_module->type == ADDON_BETWEEN &&
 		    (addon_module->module == DISP_INLINE_ROTATE_SRAM_ONLY)) {
-			mml_addon_module_disconnect(crtc, ddp_mode, addon_module,
-				addon_data_dual, &addon_config, cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
 		    (addon_module->module == DISP_INLINE_ROTATE)) {
 			mml_addon_module_disconnect(crtc, ddp_mode, addon_module,
@@ -6073,10 +6071,10 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp = NULL;
 
-	if (!crtc || !cmdq_handle)
+	if (!crtc || !cmdq_handle || !mtk_crtc)
 		return;
 
-	if (mtk_crtc && mtk_crtc->is_mml) {
+	if (mtk_crtc->is_mml) {
 		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE];
 		if (comp && comp->funcs && comp->funcs->addon_config)
 			comp->funcs->addon_config(comp, 0, 0, NULL, cmdq_handle);
