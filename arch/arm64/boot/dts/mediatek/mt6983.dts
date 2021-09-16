@@ -13651,3 +13651,4 @@
 
 /* cust.dtsi part */
 #include "mediatek/trusty.dtsi"
+#include "mediatek/mt6983-disable-unused.dtsi"
