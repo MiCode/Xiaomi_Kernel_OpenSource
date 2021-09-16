@@ -635,32 +635,38 @@ SND_SOC_DAILINK_DEFS(hostless_src_aaudio,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless SRC AAudio DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(SKIP_SB)
+
 SND_SOC_DAILINK_DEFS(btcvsd,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("18830000.mtk-btcvsd-snd")));
 #endif
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(SKIP_SB)
+
 SND_SOC_DAILINK_DEFS(vow,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6368_NAME,
 				      "mt6368-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
+
 SND_SOC_DAILINK_DEFS(ultra,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_scp_ultra")));
 #endif
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD))
+#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) \
+&& IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD)) && !defined(SKIP_SB)
+
 SND_SOC_DAILINK_DEFS(dspoffload,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_offload_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("mt_soc_offload_common")));
 #endif
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && !defined(SKIP_SB)
+
 SND_SOC_DAILINK_DEFS(dspvoip,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_voip_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1187,7 +1193,7 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 		SND_SOC_DAILINK_REG(hostless_src_aaudio),
 	},
 	/* BTCVSD */
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(SKIP_SB)
 	{
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
@@ -1195,7 +1201,7 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 	},
 #endif
 	/* VoW */
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(SKIP_SB)
 	{
 		.name = "VOW_Capture",
 		.stream_name = "VOW_Capture",
@@ -1204,21 +1210,22 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 		SND_SOC_DAILINK_REG(vow),
 	},
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
 	{
 		.name = "SCP_ULTRA_Playback",
 		.stream_name = "SCP_ULTRA_Playback",
 		SND_SOC_DAILINK_REG(ultra),
 	},
 #endif
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD))
+#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) \
+&& IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD)) && !defined(SKIP_SB)
 	{
 		.name = "Offload_Playback",
 		.stream_name = "Offload_Playback",
 		SND_SOC_DAILINK_REG(dspoffload),
 	},
 #endif
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && !defined(SKIP_SB)
 	{
 		.name = "DSP_Playback_Voip",
 		.stream_name = "DSP_Playback_Voip",
