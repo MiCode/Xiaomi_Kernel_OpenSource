@@ -42,4 +42,9 @@ int reviser_remote_alloc_mem(void *drvinfo,
 		uint32_t type, uint32_t size, uint64_t session, uint32_t *sid);
 int reviser_remote_free_mem(void *drvinfo, uint64_t session, uint32_t sid, uint32_t type);
 int reviser_remote_get_mem_info(void *drvinfo, uint32_t type);
+int reviser_remote_alloc_external(void *drvinfo, uint32_t addr, uint32_t size,
+		uint64_t session, uint32_t *sid);
+int reviser_remote_free_external(void *drvinfo, uint64_t session, uint32_t sid);
+int reviser_remote_import_external(void *drvinfo, uint64_t session, uint32_t sid);
+int reviser_remote_unimport_external(void *drvinfo, uint64_t session, uint32_t sid);
 #endif

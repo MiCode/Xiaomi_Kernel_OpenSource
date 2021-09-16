@@ -58,6 +58,8 @@ static struct dentry *reviser_dbg_err_reg;
 static struct dentry *reviser_dbg_err_debug;
 
 static uint32_t g_sid;
+static uint32_t g_session_test[5];
+static int g_session_test_count;
 uint32_t g_rvr_klog;
 static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
@@ -535,7 +537,7 @@ static int reviser_dbg_write_debug_op(void *data, u64 val)
 {
 	int ret = 0;
 //	uint32_t i;
-	uint32_t type, size;
+	uint32_t type, size, addr;
 
 	uint64_t session;
 
@@ -558,15 +560,11 @@ static int reviser_dbg_write_debug_op(void *data, u64 val)
 			goto out;
 		}
 
-		LOG_INFO("Pool[%u] allocate size %x\n", type, size);
-
 		ret = reviser_alloc_pool(type, session, size, &g_sid);
 		if (ret) {
 			LOG_ERR("Alloc Session[%x] %u/%x fail %d\n", session, type, size, ret);
 			goto out;
 		}
-
-		LOG_INFO("[%u]%x allocate (%x/%x)\n", type, session, size, g_sid);
 
 
 		break;
@@ -585,8 +583,93 @@ static int reviser_dbg_write_debug_op(void *data, u64 val)
 			LOG_ERR("Free Session[%x][%u] fail %d\n", session, type, ret);
 			goto out;
 		}
-		LOG_INFO("Pool[%u] session %x free sid %x\n", type, session, g_sid);
+
 		g_sid = 0;
+		break;
+	case 2:
+		LOG_INFO("External allocate\n");
+		session = REVISER_SESSION_TEST;
+		if (g_sid) {
+			LOG_ERR("Double Allocate fail %x\n", g_sid);
+			ret = -EINVAL;
+			break;
+		}
+		// 1M for debugging
+		session = REVISER_SESSION_TEST;
+		size = 0x100000;
+		addr = 0x1DC00000;
+
+		ret = reviser_alloc_external(addr, size, session, &g_sid);
+		if (ret) {
+			LOG_ERR("Alloc Session[%x] %u/%x fail %d\n", session, addr, size, ret);
+			goto out;
+		}
+
+		g_session_test_count = 0;
+		g_session_test[g_session_test_count] = session;
+		g_session_test_count++;
+		break;
+	case 3:
+		LOG_INFO("External Free\n");
+		if (g_session_test_count < 0) {
+			LOG_ERR("UnImport test_count zero fail %x\n", g_session_test_count);
+			ret = -EINVAL;
+			break;
+		}
+
+		if (!g_sid) {
+			LOG_ERR("double Free fail %x\n", g_sid);
+			ret = -EINVAL;
+			break;
+		}
+		g_session_test_count--;
+		session = g_session_test[g_session_test_count];
+
+		ret = reviser_free_external(session, g_sid);
+		if (ret) {
+			LOG_ERR("Free Session[%x] fail %d\n", session, ret);
+			goto out;
+		}
+
+		g_sid = 0;
+		break;
+	case 4:
+		LOG_INFO("External Import\n");
+		if (g_session_test_count > 0)
+			session = g_session_test[g_session_test_count-1] + 1;
+		else {
+			LOG_ERR("Import test_count zero fail %x\n", g_session_test_count);
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = reviser_import_external(session, g_sid);
+		if (ret) {
+			LOG_ERR("Import Session[%x] %u fail %d\n", session, ret);
+			goto out;
+		}
+
+		g_session_test[g_session_test_count] = session;
+		g_session_test_count++;
+		break;
+	case 5:
+		LOG_INFO("External UnImport\n");
+		if (g_session_test_count < 0) {
+			LOG_ERR("UnImport test_count zero fail %x\n", g_session_test_count);
+			ret = -EINVAL;
+			break;
+		}
+		g_session_test_count--;
+		session = g_session_test[g_session_test_count];
+
+		LOG_INFO("UnImport Session[%x] sid[%x]\n", session, g_sid);
+
+		ret = reviser_unimport_external(session, g_sid);
+		if (ret) {
+			LOG_ERR("UnImport Session[%x] %u fail %d\n", session, ret);
+			goto out;
+		}
+
 		break;
 	default:
 		ret = -EINVAL;
@@ -660,8 +743,8 @@ static ssize_t reviser_dbg_write_op(struct file *file, const char __user *user_b
 		}
 	}
 
-	for (i = 0; i < MAX_ARG; i++)
-		LOG_INFO("args[%d][%d]\n", i, argv[i]);
+	//for (i = 0; i < MAX_ARG; i++)
+	//	LOG_INFO("args[%d][%d]\n", i, argv[i]);
 
 
 	ret = reviser_remote_set_op(rdv, argv, MAX_ARG);

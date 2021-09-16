@@ -162,9 +162,13 @@ int reviser_alloc_pool(uint32_t type, uint64_t session, uint32_t size, uint32_t 
 	}
 
 	ret = reviser_remote_alloc_mem(g_rdv, type, size, session, sid);
-	if (ret)
+	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
 
+	LOG_DBG_RVR_VLM("Alloc Pool (%u/0x%llx/0x%x/0x%x)\n", type, session, sid, size);
+out:
 	return ret;
 }
 
@@ -179,9 +183,13 @@ int reviser_free_pool(uint64_t session, uint32_t sid, uint32_t type)
 	}
 
 	ret = reviser_remote_free_mem(g_rdv, session, sid, type);
-	if (ret)
+	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
 
+	LOG_DBG_RVR_VLM("Free Pool (%u/0x%llx/0x%x)\n", type, session, sid);
+out:
 	return 0;
 }
 
@@ -197,8 +205,10 @@ int reviser_get_pool_size(uint32_t type, uint32_t *size)
 	}
 
 	ret = reviser_remote_get_mem_info(g_rdv, type);
-	if (ret)
+	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
 
 	switch (type) {
 	case REVISER_MEM_TYPE_TCM:
@@ -210,14 +220,98 @@ int reviser_get_pool_size(uint32_t type, uint32_t *size)
 	default:
 		LOG_ERR("Invalid type\n", type);
 		ret = -EINVAL;
-		break;
+		goto out;
 	}
 
 	*size = ret_size;
 
+	LOG_DBG_RVR_VLM("Get Pool Info (%u/0x%x)\n", type, ret_size);
+out:
 
 	return ret;
 }
 
+int reviser_alloc_external(uint32_t addr, uint32_t size, uint64_t session, uint32_t *sid)
+{
+	int ret = 0;
 
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = reviser_remote_alloc_external(g_rdv, addr, size, session, sid);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+
+	LOG_DBG_RVR_VLM("Alloc Ext_Pool (%lx/0x%llx/0x%x/0x%x)\n", addr, session, sid, size);
+out:
+	return ret;
+}
+
+int reviser_free_external(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = reviser_remote_free_external(g_rdv, session, sid);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+
+	LOG_DBG_RVR_VLM("Free Ext (0x%llx/0x%x)\n", session, sid);
+out:
+	return ret;
+}
+
+int reviser_import_external(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = reviser_remote_import_external(g_rdv, session, sid);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+
+	LOG_DBG_RVR_VLM("Import Ext (0x%llx/0x%x)\n", session, sid);
+out:
+	return ret;
+}
+
+int reviser_unimport_external(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = reviser_remote_unimport_external(g_rdv, session, sid);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+
+	LOG_DBG_RVR_VLM("UnImport Ext (0x%llx/0x%x)\n", session, sid);
+out:
+	return 0;
+}
 

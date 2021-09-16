@@ -21,4 +21,8 @@ int reviser_clear_manual_vlm(uint32_t session);
 int reviser_alloc_pool(uint32_t type, uint64_t session, uint32_t size, uint32_t *sid);
 int reviser_free_pool(uint64_t session, uint32_t sid, uint32_t type);
 int reviser_get_pool_size(uint32_t type, uint32_t *size);
+int reviser_alloc_external(uint32_t addr, uint32_t size, uint64_t session, uint32_t *sid);
+int reviser_free_external(uint64_t session, uint32_t sid);
+int reviser_import_external(uint64_t session, uint32_t sid);
+int reviser_unimport_external(uint64_t session, uint32_t sid);
 #endif
