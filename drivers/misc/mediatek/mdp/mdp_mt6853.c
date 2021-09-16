@@ -3,6 +3,9 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
+
 #include "cmdq_reg.h"
 #include "mdp_common.h"
 #ifdef CMDQ_MET_READY
@@ -29,6 +32,8 @@
 #include "mdp_engine_mt6853.h"
 #include "mdp_base_mt6853.h"
 
+/* iommu larbs */
+struct device *larb2;
 /* support RDMA prebuilt access */
 int gCmdqRdmaPrebuiltSupport;
 /* support register MSB */
@@ -1568,6 +1573,33 @@ static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
 		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
 }
 
+struct device *mdp_init_larb(struct platform_device *pdev, u8 idx)
+{
+	struct device_node *node;
+	struct platform_device *larb_pdev;
+
+	CMDQ_LOG("%s start\n", __func__);
+
+	/* get larb node from dts */
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", idx);
+	if (!node) {
+		CMDQ_ERR("%s fail to parse mediatek,larb\n", __func__);
+		return NULL;
+	}
+
+	larb_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!larb_pdev)) {
+		of_node_put(node);
+		CMDQ_ERR("%s no larb for idx %hhu\n", __func__, idx);
+		return NULL;
+	}
+	of_node_put(node);
+
+	CMDQ_LOG("%s pdev %p idx %hhu\n", __func__, pdev, idx);
+
+	return &larb_pdev->dev;
+}
+
 void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -1613,6 +1645,9 @@ void cmdqMdpInitialSetting(struct platform_device *pdev)
 	m4u_register_fault_callback(M4U_PORT_MDP_WROT1,
 		cmdq_TranslationFault_callback, (void *)data);
 #endif
+
+	/* must porting in dts */
+	larb2 = mdp_init_larb(pdev, 0);
 }
 
 uint32_t cmdq_mdp_rdma_get_reg_offset_src_addr(void)
@@ -1691,12 +1726,9 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 	return gCmdqEngineGroupBits[engine_group];
 }
 
-static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+static void mdp_enable_larb(bool enable, struct device *larb)
 {
 #if IS_ENABLED(CONFIG_MTK_SMI)
-	struct device *larb = mdp_larb_dev_get();
-
-
 	if (!larb) {
 		CMDQ_ERR("%s smi larb not support\n", __func__);
 		return;
@@ -1719,6 +1751,11 @@ static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 #endif
 }
 
+static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+{
+	if (engine_flag & MDP_ENG_LARB2)
+		mdp_enable_larb(enable, larb2);
+}
 
 static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)
 {
