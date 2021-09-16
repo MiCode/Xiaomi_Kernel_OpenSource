@@ -52,7 +52,7 @@
 #define _I2C_BUF_SIZE 4096
 static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
 static unsigned int _size_to_write;
-bool _is_seamless;
+static bool _is_seamless;
 
 #define LOG_INF(format, args...)    \
 	pr_debug(PFX "[%s] " format, __func__, ##args)

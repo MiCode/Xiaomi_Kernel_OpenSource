@@ -871,20 +871,28 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_info(dev, "V4L2_CID_START_SEAMLESS_SWITCH %u\n",
 					info->target_scenario_id);
 
-			dev_info(dev, "shutter[%u %u %u] gain[%u %u %u]\n",
+			dev_info(dev, "shutter[%u %u %u %u %u] gain[%u %u %u %u %u]\n",
 					info->ae_ctrl[0].exposure.arr[0],
 					info->ae_ctrl[0].exposure.arr[1],
 					info->ae_ctrl[0].exposure.arr[2],
+					info->ae_ctrl[0].exposure.arr[3],
+					info->ae_ctrl[0].exposure.arr[4],
 					info->ae_ctrl[0].gain.arr[0],
 					info->ae_ctrl[0].gain.arr[1],
-					info->ae_ctrl[0].gain.arr[2]);
-			dev_info(dev, "shutter[%u %u %u] gain[%u %u %u]\n",
+					info->ae_ctrl[0].gain.arr[2],
+					info->ae_ctrl[0].gain.arr[3],
+					info->ae_ctrl[0].gain.arr[4]);
+			dev_info(dev, "shutter[%u %u %u %u %u] gain[%u %u %u %u %u]\n",
 					info->ae_ctrl[1].exposure.arr[0],
 					info->ae_ctrl[1].exposure.arr[1],
 					info->ae_ctrl[1].exposure.arr[2],
+					info->ae_ctrl[1].exposure.arr[3],
+					info->ae_ctrl[1].exposure.arr[4],
 					info->ae_ctrl[1].gain.arr[0],
 					info->ae_ctrl[1].gain.arr[1],
-					info->ae_ctrl[1].gain.arr[2]);
+					info->ae_ctrl[1].gain.arr[2],
+					info->ae_ctrl[1].gain.arr[3],
+					info->ae_ctrl[1].gain.arr[4]);
 			if (info->target_scenario_id == 0 &&
 				info->ae_ctrl[0].exposure.arr[0] == 0 &&
 				info->ae_ctrl[0].gain.arr[0] == 0 &&

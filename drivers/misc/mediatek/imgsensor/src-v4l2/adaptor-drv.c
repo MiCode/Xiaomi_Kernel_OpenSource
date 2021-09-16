@@ -532,6 +532,7 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 			ctx->is_sensor_inited = 1;
 		}
 #endif
+	if (!ctx->is_streaming)
 		set_sensor_mode(ctx, mode, 1);
 	}
 
