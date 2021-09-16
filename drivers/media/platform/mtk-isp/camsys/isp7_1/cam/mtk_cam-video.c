@@ -461,6 +461,9 @@ int is_mtk_format(u32 pixelformat)
 	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
 	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
 	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
+	case V4L2_PIX_FMT_MTISP_SGRB8F:
+	case V4L2_PIX_FMT_MTISP_SGRB10F:
+	case V4L2_PIX_FMT_MTISP_SGRB12F:
 		return 1;
 	break;
 	default:
@@ -629,7 +632,16 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		{ .format = V4L2_PIX_FMT_MTISP_BAYER14_UFBC, .mem_planes = 1, .comp_planes = 1,
 			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bit_r_num = 7, .bit_r_den = 4 },
-
+		/* Full-G RGB formats */
+		{ .format = V4L2_PIX_FMT_MTISP_SGRB8F, .mem_planes = 1, .comp_planes = 3,
+			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 1, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRB10F, .mem_planes = 1, .comp_planes = 3,
+			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRB12F, .mem_planes = 1, .comp_planes = 3,
+			.bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 3, .bit_r_den = 2 },
 	};
 	unsigned int i;
 
@@ -1558,7 +1570,12 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 		return MTKCAM_IPI_IMG_FMT_UFBC_BAYER12;
 	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
 		return MTKCAM_IPI_IMG_FMT_UFBC_BAYER14;
-
+	case V4L2_PIX_FMT_MTISP_SGRB8F:
+		return MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P;
+	case V4L2_PIX_FMT_MTISP_SGRB10F:
+		return MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED;
+	case V4L2_PIX_FMT_MTISP_SGRB12F:
+		return MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED;
 	default:
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
@@ -1627,7 +1644,10 @@ int mtk_cam_get_plane_num(unsigned int ipi_fmt)
 	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
 	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
 						return 1;
-
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
+						return 3;
 	default:
 		break;
 	}
@@ -1822,6 +1842,9 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER10:
 	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
 		mtk_cam_fill_pixfmt_mp(mp, mp->pixelformat, width, height);
 	default:
 		break;

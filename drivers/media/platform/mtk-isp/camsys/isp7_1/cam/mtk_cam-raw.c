@@ -4192,6 +4192,27 @@ static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
 			.height = YUV_GROUP1_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_12_UFBC,
 		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRB8F,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRB10F,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = YUV_GROUP1_MAX_WIDTH,
+			.height = YUV_GROUP1_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRB12F,
+		},
 	}
 };
 

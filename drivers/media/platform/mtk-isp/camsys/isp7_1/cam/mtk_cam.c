@@ -5275,6 +5275,15 @@ static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char
 	case V4L2_META_FMT_MTISP_PARAMS:
 		*descr = "MTK ISP Tuning Metadata";
 		break;
+	case V4L2_PIX_FMT_MTISP_SGRB8F:
+		*descr = "8-bit 3 plane GRB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRB10F:
+		*descr = "10-bit 3 plane GRB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRB12F:
+		*descr = "12-bit 3 plane GRB Packed";
+		break;
 	default:
 		break;
 	}
