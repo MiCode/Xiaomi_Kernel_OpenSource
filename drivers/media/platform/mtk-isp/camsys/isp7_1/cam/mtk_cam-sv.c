@@ -591,7 +591,7 @@ int mtk_cam_sv_pipeline_config(
 	if (ctx->streaming) {
 		for (i = 0; i < ARRAY_SIZE(sv->devs); i++)
 			if (sv_pipe->enabled_sv & 1<<i)
-				pm_runtime_put(sv->devs[i]);
+				pm_runtime_put_sync(sv->devs[i]);
 	}
 
 	ret = mtk_cam_sv_select(sv_pipe, cfg_in_param);
@@ -611,7 +611,7 @@ int mtk_cam_sv_pipeline_config(
 			dev_driver_string(sv->devs[i]));
 		for (i = i-1; i >= 0; i--)
 			if (sv_pipe->enabled_sv & 1<<i)
-				pm_runtime_put(sv->devs[i]);
+				pm_runtime_put_sync(sv->devs[i]);
 		return ret;
 	}
 
@@ -1508,7 +1508,7 @@ int mtk_cam_sv_dev_stream_on(
 			mtk_cam_sv_fbc_disable(camsv_dev) ||
 			mtk_cam_sv_dmao_disable(camsv_dev) ||
 			mtk_cam_sv_tg_disable(camsv_dev);
-		pm_runtime_put(camsv_dev->dev);
+		pm_runtime_put_sync(camsv_dev->dev);
 	}
 
 	dev_info(dev, "camsv %d %s en(%d)\n", camsv_dev->id, __func__, streaming);
@@ -2174,8 +2174,6 @@ static int mtk_camsv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	pm_runtime_set_autosuspend_delay(dev, 2 * MTK_CAMSV_STOP_HW_TIMEOUT);
-	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
 
 	return component_add(dev, &mtk_camsv_component_ops);

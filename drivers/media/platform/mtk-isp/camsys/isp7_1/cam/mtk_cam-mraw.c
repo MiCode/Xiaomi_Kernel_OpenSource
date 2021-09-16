@@ -966,7 +966,7 @@ int mtk_cam_mraw_pipeline_config(
 	if (ctx->streaming) {
 		for (i = 0; i < ARRAY_SIZE(mraw->devs); i++)
 			if (mraw_pipe->enabled_mraw & 1<<i)
-				pm_runtime_put(mraw->devs[i]);
+				pm_runtime_put_sync(mraw->devs[i]);
 	}
 
 	ret = mtk_cam_mraw_select(mraw_pipe);
@@ -986,7 +986,7 @@ int mtk_cam_mraw_pipeline_config(
 			dev_driver_string(mraw->devs[i]));
 		for (i = i-1; i >= 0; i--)
 			if (mraw_pipe->enabled_mraw & 1<<i)
-				pm_runtime_put(mraw->devs[i]);
+				pm_runtime_put_sync(mraw->devs[i]);
 		return ret;
 	}
 
@@ -1431,7 +1431,7 @@ int mtk_cam_mraw_dev_stream_on(
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);
 
-		pm_runtime_put(mraw_dev->dev);
+		pm_runtime_put_sync(mraw_dev->dev);
 	}
 
 	dev_info(dev, "mraw %d %s en(%d)\n", mraw_dev->id, __func__, streaming);
@@ -2100,8 +2100,6 @@ static int mtk_mraw_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	pm_runtime_set_autosuspend_delay(dev, 2 * MTK_MRAW_STOP_HW_TIMEOUT);
-	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
 
 	return component_add(dev, &mtk_mraw_component_ops);

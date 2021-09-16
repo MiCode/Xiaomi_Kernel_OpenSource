@@ -2686,7 +2686,7 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		for (i = 0; i < ARRAY_SIZE(raw->devs); i++) {
 			if (pipe->enabled_raw & 1 << i) {
 				dev_info(raw->cam_dev, "%s: power off raw (%d)\n", __func__, i);
-				pm_runtime_put(raw->devs[i]);
+				pm_runtime_put_sync(raw->devs[i]);
 			}
 		}
 		pipe->feature_active = 0;

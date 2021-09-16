@@ -257,7 +257,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 
 		for (i = core->pm_domain_cnt - 1; i >= 0; i--) {
 			if (core->pm_domain_devs[i])
-				pm_runtime_put(core->pm_domain_devs[i]);
+				pm_runtime_put_sync(core->pm_domain_devs[i]);
 		}
 	}
 
@@ -679,7 +679,7 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 		if (ctx->core->clk[CLK_TOP_CAMTM])
 			clk_disable_unprepare(ctx->core->clk[CLK_TOP_CAMTM]);
-		pm_runtime_put(ctx->dev);
+		pm_runtime_put_sync(ctx->dev);
 	}
 
 	ctx->streaming = enable;
@@ -1065,7 +1065,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
-		pm_runtime_put(ctx->dev);
+		pm_runtime_put_sync(ctx->dev);
 	}
 
 	ctx->streaming = enable;

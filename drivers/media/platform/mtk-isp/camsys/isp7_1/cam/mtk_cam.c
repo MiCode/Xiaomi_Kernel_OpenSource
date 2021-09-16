@@ -3246,7 +3246,7 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 			if (pipe->enabled_raw & 1 << i) {
 				dev_info(raw->cam_dev, "%s: power off raw (%d) for reset\n",
 						 __func__, i);
-				pm_runtime_put(raw->devs[i]);
+				pm_runtime_put_sync(raw->devs[i]);
 			}
 		}
 	}
@@ -3273,7 +3273,7 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 			if (pipe->enabled_raw & 1 << i) {
 				dev_info(raw->cam_dev, "%s: power off raw (%d)\n",
 						 __func__, i);
-				pm_runtime_put(raw->devs[i]);
+				pm_runtime_put_sync(raw->devs[i]);
 			}
 		return ret;
 	}
@@ -3713,7 +3713,7 @@ fail_uninit_composer:
 fail_shutdown:
 	if (!cam->composer_cnt) {
 		pm_runtime_mark_last_busy(cam->dev);
-		pm_runtime_put_autosuspend(cam->dev);
+		pm_runtime_put_sync_autosuspend(cam->dev);
 		rproc_shutdown(cam->rproc_handle);
 	}
 fail_rproc_put:
@@ -3860,7 +3860,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	if (ctx->cam->rproc_handle && !ctx->cam->composer_cnt) {
 		dev_info(cam->dev, "%s power off camsys\n", __func__);
 		pm_runtime_mark_last_busy(cam->dev);
-		pm_runtime_put_autosuspend(cam->dev);
+		pm_runtime_put_sync_autosuspend(cam->dev);
 #if CCD_READY
 		rproc_shutdown(cam->rproc_handle);
 		rproc_put(cam->rproc_handle);
