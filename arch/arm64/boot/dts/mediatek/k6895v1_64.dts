@@ -493,5 +493,5 @@ initcall_debug=1 ";
 	};
 };
 
-
+#include "mediatek/cust_mt6895_camera_v4l2.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
