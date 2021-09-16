@@ -721,6 +721,13 @@
 		clock-frequency = <13000000>;
 	};
 
+	hwrng: hwrng {
+		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
+	};
+
 	touch_panel: touch_panel {
 			compatible = "mediatek,touch_panel";
 		};
