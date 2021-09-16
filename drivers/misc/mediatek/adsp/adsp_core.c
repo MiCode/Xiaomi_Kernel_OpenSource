@@ -426,6 +426,9 @@ static void adsp_set_dram_remap(void)
 {
 	u32 size = 0, cid = 0;
 
+	if (!adsp_cores[ADSP_A_ID])
+		return;
+
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		if (!adsp_cores[cid])
 			continue;
