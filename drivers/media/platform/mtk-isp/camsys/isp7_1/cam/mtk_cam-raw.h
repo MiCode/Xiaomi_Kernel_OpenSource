@@ -354,9 +354,9 @@ void initialize(struct mtk_raw_device *dev);
 void stream_on(struct mtk_raw_device *dev, int on);
 
 void apply_cq(struct mtk_raw_device *dev,
-	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
-	      int initial, unsigned int sub_cq_size,
-	      unsigned int sub_cq_offset);
+	      int initial, dma_addr_t cq_addr,
+	      unsigned int cq_size, unsigned int cq_offset,
+	      unsigned int sub_cq_size, unsigned int sub_cq_offset);
 
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx);
 
@@ -408,5 +408,15 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
+
+static inline u32 dmaaddr_lsb(dma_addr_t addr)
+{
+	return addr & (BIT_MASK(32) - 1UL);
+}
+
+static inline u32 dmaaddr_msb(dma_addr_t addr)
+{
+	return addr >> 32;
+}
 
 #endif /*__MTK_CAM_RAW_H*/

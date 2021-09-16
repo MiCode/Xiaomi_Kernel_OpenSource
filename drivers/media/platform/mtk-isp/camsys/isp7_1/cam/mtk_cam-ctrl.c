@@ -1538,10 +1538,11 @@ static void mtk_camsys_ts_raw_try_set(struct mtk_raw_device *raw_dev,
 		ctx->processing_buffer_list.cnt++;
 		spin_unlock(&ctx->processing_buffer_list.lock);
 		base_addr = buf_entry->buffer.iova;
-		apply_cq(raw_dev,
-			base_addr,
-			buf_entry->cq_desc_size, buf_entry->cq_desc_offset, 0,
-			buf_entry->sub_cq_desc_size, buf_entry->sub_cq_desc_offset);
+		apply_cq(raw_dev, 0, base_addr,
+			buf_entry->cq_desc_size,
+			buf_entry->cq_desc_offset,
+			buf_entry->sub_cq_desc_size,
+			buf_entry->sub_cq_desc_offset);
 		state_transition(&req_stream_data->state, E_STATE_TS_MEM,
 						E_STATE_TS_CQ);
 		raw_dev->time_shared_busy_ctx_id = ctx->stream_id;
@@ -1781,10 +1782,11 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 		req_stream_data->timestamp = time_boot;
 		req_stream_data->timestamp_mono = time_mono;
 
-		apply_cq(raw_dev,
-			base_addr,
-			buf_entry->cq_desc_size, buf_entry->cq_desc_offset, 0,
-			buf_entry->sub_cq_desc_size, buf_entry->sub_cq_desc_offset);
+		apply_cq(raw_dev, 0, base_addr,
+			buf_entry->cq_desc_size,
+			buf_entry->cq_desc_offset,
+			buf_entry->sub_cq_desc_size,
+			buf_entry->sub_cq_desc_offset);
 		/* Transit state from Sensor -> CQ */
 		if (ctx->sensor) {
 			state_transition(state_sensor, E_STATE_SENSOR, E_STATE_CQ);
@@ -1929,10 +1931,11 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		ctx->processing_buffer_list.cnt++;
 		spin_unlock(&ctx->processing_buffer_list.lock);
 		base_addr = buf_entry->buffer.iova;
-		apply_cq(raw_dev,
-			base_addr,
-			buf_entry->cq_desc_size, buf_entry->cq_desc_offset, 0,
-			buf_entry->sub_cq_desc_size, buf_entry->sub_cq_desc_offset);
+		apply_cq(raw_dev, 0, base_addr,
+			buf_entry->cq_desc_size,
+			buf_entry->cq_desc_offset,
+			buf_entry->sub_cq_desc_size,
+			buf_entry->sub_cq_desc_offset);
 		/* Transit state from Sensor -> CQ */
 		if (ctx->sensor) {
 			if (mtk_cam_is_subsample(ctx))

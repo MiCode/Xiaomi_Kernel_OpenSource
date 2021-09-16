@@ -1066,92 +1066,75 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
 }
 
 void apply_cq(struct mtk_raw_device *dev,
-	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
-	      int initial, unsigned int sub_cq_size, unsigned int sub_cq_offset)
+	      int initial, dma_addr_t cq_addr,
+	      unsigned int cq_size, unsigned int cq_offset,
+	      unsigned int sub_cq_size, unsigned int sub_cq_offset)
 {
-#define CQ_VADDR_MASK 0xffffffff
-	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
-	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
+	/* note: legacy CQ just trigger 1st frame */
+	int trigger = USINGSCQ || initial;
+	dma_addr_t main, sub;
 
 	mtk_cam_systrace_begin_func();
 
 	dev_dbg(dev->dev,
-		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d, REG_CQ_THR0_CTL:0x%8x\n",
-		dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset,
-		readl_relaxed(dev->base + REG_CQ_THR0_CTL));
+		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
+		dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset);
+
 	if (!dev->pipeline->res_config.enable_hsf_raw) {
-		writel_relaxed(cq_addr_lsb, dev->base + REG_CQ_THR0_BASEADDR);
-		writel_relaxed(cq_addr_msb, dev->base + REG_CQ_THR0_BASEADDR_MSB);
-		writel_relaxed(cq_size, dev->base + REG_CQ_THR0_DESC_SIZE);
+		main = cq_addr + cq_offset;
+		sub = cq_addr + sub_cq_offset;
 
-		cq_addr_lsb = (cq_addr + sub_cq_offset) & CQ_VADDR_MASK;
-		cq_addr_msb = ((cq_addr + sub_cq_offset) >> 32);
+		writel_relaxed(dmaaddr_lsb(main),
+			       dev->base + REG_CQ_THR0_BASEADDR);
+		writel_relaxed(dmaaddr_msb(main),
+			       dev->base + REG_CQ_THR0_BASEADDR_MSB);
+		writel_relaxed(cq_size,
+			       dev->base + REG_CQ_THR0_DESC_SIZE);
 
-		writel_relaxed(cq_addr_lsb,
-				dev->base + REG_CQ_SUB_THR0_BASEADDR_2);
-		writel_relaxed(cq_addr_msb,
-				dev->base + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
+		writel_relaxed(dmaaddr_lsb(sub),
+			       dev->base + REG_CQ_SUB_THR0_BASEADDR_2);
+		writel_relaxed(dmaaddr_msb(sub),
+			       dev->base + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
 		writel_relaxed(sub_cq_size,
-				dev->base + REG_CQ_SUB_THR0_DESC_SIZE_2);
+			       dev->base + REG_CQ_SUB_THR0_DESC_SIZE_2);
 
-		wmb(); /* TBC */
-		if (initial) {
-			writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
-				       dev->base + REG_CTL_RAW_INT6_EN);
-			writel_relaxed(BIT(10),
-				       dev->base + REG_CTL_RAW_INT7_EN);
-			writel_relaxed(CTL_CQ_THR0_START,
-				       dev->base + REG_CTL_START);
-			wmb(); /* TBC */
-		} else {
-#if USINGSCQ
-			writel_relaxed(CTL_CQ_THR0_START, dev->base + REG_CTL_START);
-			wmb(); /* TBC */
-#endif
-		}
+		if (trigger)
+			writel(CTL_CQ_THR0_START, dev->base + REG_CTL_START);
+
+		wmb(); /* make sure committed */
 	} else {
 		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
 	}
 
 	mtk_cam_systrace_end();
-	dev_dbg(dev->dev,
-		"apply raw%d scq - addr/size = [main] 0x%x/%d [sub] 0x%x/%d\n",
-		dev->id, cq_addr, cq_size, cq_addr + sub_cq_offset, sub_cq_size);
 }
 
 void reset(struct mtk_raw_device *dev)
 {
-	unsigned long end = jiffies + msecs_to_jiffies(100);
+	int sw_ctl;
+	int ret;
 
 	dev_dbg(dev->dev, "%s\n", __func__);
 
 	/* Disable all DMA DCM before reset */
-	wmb(); /* TBC */
-	writel_relaxed(0x00000fff, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
-	writel_relaxed(0x0007ffff, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
-	writel_relaxed(0xffffffff, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
+	writel(0x00000fff, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
+	writel(0x0007ffff, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
+	writel(0xffffffff, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
-	writel(readl(dev->base + REG_CTL_MOD6_EN) |
-					0x78000, dev->base + REG_CTL_MOD6_EN);
+	writel(readl(dev->base + REG_CTL_MOD6_EN) | 0x78000,
+	       dev->base + REG_CTL_MOD6_EN);
 	toggle_db(dev);
 
-	//writel_relaxed(0, dev->base + REG_CTL_SW_CTL);
 	writel(1, dev->base + REG_CTL_SW_CTL);
+	wmb(); /* make sure committed */
 
-	while (time_before(jiffies, end)) {
-		if (readl(dev->base + REG_CTL_SW_CTL) & 0x2) {
-			/* do hw rst */
-			writel_relaxed(4, dev->base + REG_CTL_SW_CTL);
-			wmb(); /* TBC */
-			writel_relaxed(0, dev->base + REG_CTL_SW_CTL);
-			wmb(); /* TBC */
-			/* Enable all DMA DCM after reset */
-			writel_relaxed(0x0, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
-			writel_relaxed(0x0, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
-			writel_relaxed(0x0, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
-			return;
-		}
+	ret = readx_poll_timeout(readl, dev->base + REG_CTL_SW_CTL, sw_ctl,
+				 sw_ctl & 0x2,
+				 1 /* delay, us */,
+				 100000 /* timeout, us */);
+	if (ret < 0) {
+		dev_info(dev->dev, "%s: hw timeout\n", __func__);
 
 		dev_info(dev->dev,
 			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
@@ -1163,16 +1146,21 @@ void reset(struct mtk_raw_device *dev)
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT),
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
 			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
-		usleep_range(10, 20);
+
+		goto RESET_FAILURE;
 	}
 
-	/* Enable all DMA DCM after reset fail */
-	wmb(); /* TBC */
-	writel_relaxed(0x0, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
-	writel_relaxed(0x0, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
-	writel_relaxed(0x0, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
+	/* do hw rst */
+	writel(4, dev->base + REG_CTL_SW_CTL);
+	writel(0, dev->base + REG_CTL_SW_CTL);
 
-	dev_dbg(dev->dev, "%s: hw timeout\n", __func__);
+RESET_FAILURE:
+	/* Enable all DMA DCM back */
+	writel(0x0, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
+	writel(0x0, dev->base + REG_CTL_RAW_MOD6_DCM_DIS);
+	writel(0x0, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
+
+	wmb(); /* make sure committed */
 }
 
 static void reset_reg(struct mtk_raw_device *dev)
@@ -1188,18 +1176,22 @@ static void reset_reg(struct mtk_raw_device *dev)
 			 readl_relaxed(dev->base + REG_CQ_EN),
 			 readl_relaxed(dev->base + REG_CTL_SW_SUB_CTL),
 			 readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
+
 	cq_en = readl_relaxed(dev->base_inner + REG_CQ_EN);
 	sw_done = readl_relaxed(dev->base_inner + REG_CTL_SW_PASS1_DONE);
 	sw_sub_ctl = readl_relaxed(dev->base_inner + REG_CTL_SW_SUB_CTL);
-	writel_relaxed(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base_inner + REG_CQ_EN);
-	writel_relaxed(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base + REG_CQ_EN);
-	wmb(); /* TBC */
-	writel_relaxed(sw_done & (~SW_DONE_SAMPLE_EN), dev->base_inner + REG_CTL_SW_PASS1_DONE);
-	writel_relaxed(sw_done & (~SW_DONE_SAMPLE_EN), dev->base + REG_CTL_SW_PASS1_DONE);
-	wmb(); /* TBC */
-	writel_relaxed(0, dev->base_inner + REG_CTL_SW_SUB_CTL);
-	writel_relaxed(0, dev->base + REG_CTL_SW_SUB_CTL);
-	wmb(); /* TBC */
+
+	writel(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base_inner + REG_CQ_EN);
+	writel(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base + REG_CQ_EN);
+
+	writel(sw_done & (~SW_DONE_SAMPLE_EN), dev->base_inner + REG_CTL_SW_PASS1_DONE);
+	writel(sw_done & (~SW_DONE_SAMPLE_EN), dev->base + REG_CTL_SW_PASS1_DONE);
+
+	writel(0, dev->base_inner + REG_CTL_SW_SUB_CTL);
+	writel(0, dev->base + REG_CTL_SW_SUB_CTL);
+
+	wmb(); /* make sure committed */
+
 	dev_info(dev->dev,
 			 "[%s--] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
 			 __func__,
@@ -1471,15 +1463,15 @@ void initialize(struct mtk_raw_device *dev)
 
 	//writel_relaxed(0x100010, dev->base + REG_CQ_EN);
 	writel_relaxed(0xffffffff, dev->base + REG_SCQ_START_PERIOD);
-	wmb(); /* TBC */
 #endif
+
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
 		       dev->base + REG_CQ_THR0_CTL);
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
 		       dev->base + REG_CQ_SUB_THR0_CTL);
-	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
-		       dev->base + REG_CTL_RAW_INT6_EN);
-	wmb(); /* TBC */
+	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST, dev->base + REG_CTL_RAW_INT6_EN);
+	writel_relaxed(BIT(10), dev->base + REG_CTL_RAW_INT7_EN);
+
 	dev->sof_count = 0;
 	dev->setting_count = 0;
 	dev->time_shared_busy = 0;

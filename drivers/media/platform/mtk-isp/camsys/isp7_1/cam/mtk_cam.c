@@ -2754,10 +2754,11 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 					s_data->frame_seq_no);
 				mtk_cam_m2m_enter_cq_state(&s_data->state);
 			}
-			apply_cq(raw_dev,
-				buf_entry->buffer.iova, buf_entry->cq_desc_size,
-				buf_entry->cq_desc_offset, 1, buf_entry->sub_cq_desc_size,
-				buf_entry->sub_cq_desc_offset);
+			apply_cq(raw_dev, 1, buf_entry->buffer.iova,
+				 buf_entry->cq_desc_size,
+				 buf_entry->cq_desc_offset,
+				 buf_entry->sub_cq_desc_size,
+				 buf_entry->sub_cq_desc_offset);
 
 			/* apply mraw CQ for all stream */
 			for (i = 0; i < ctx->used_mraw_num; i++) {
