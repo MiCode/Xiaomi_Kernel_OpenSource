@@ -646,7 +646,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 
 	/* create fence for this task */
 	fence.value = task->job.jobid;
-	if (submit->job && ctx->timeline &&
+	if (submit->job && ctx->timeline && submit->info.mode != MML_MODE_RACING &&
 		mtk_sync_fence_create(ctx->timeline, &fence) >= 0) {
 		task->job.fence = fence.fence;
 		task->fence = sync_file_get_fence(task->job.fence);
@@ -943,8 +943,14 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 {
 	struct mml_frame_info *info = &submit->info;
 	struct mml_frame_info *info_pq = &submit_pq->info;
+	u32 i;
 
-	memcpy(submit_pq, submit, sizeof(*submit));
+	submit_pq->info = submit->info;
+	submit_pq->buffer = submit->buffer;
+	*submit_pq->job = *submit->job;
+	for (i = 0; i < MML_MAX_OUTPUTS; i++)
+		if (submit_pq->pq_param[i] && submit->pq_param[i])
+			*submit_pq->pq_param[i] = *submit->pq_param[i];
 
 	if (info->dest[0].rotate == MML_ROT_0 ||
 		info->dest[0].rotate == MML_ROT_180) {
