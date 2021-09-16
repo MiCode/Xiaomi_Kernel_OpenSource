@@ -54,6 +54,8 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 #define CMDQ_PREFETCH_GSIZE		0xC0
 #define CMDQ_TPR_MASK			0xD0
 #define CMDQ_TPR_TIMEOUT_EN		0xDC
+#define CMDQ_ULTRA_EN			BIT(0)
+#define CMDQ_PREULTRA_EN		BIT(1)
 
 #define CMDQ_THR_BASE			0x100
 #define CMDQ_THR_SIZE			0x80
@@ -73,6 +75,7 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 #define CMDQ_THR_INST_THRESX		0x54
 #define CMDQ_THR_SPR			0x60
 
+#define GCE_BUS_GCTL			0x40
 #define GCE_GCTL_VALUE			0x48
 #define GCE_OUTPIN_EVENT		0x4c
 #define GCE_GPR_R0_START		0x80
@@ -413,6 +416,14 @@ static int cmdq_core_reset(struct cmdq *cmdq)
 	cmdq_msg("%s hwid:%d", __func__, cmdq->hwid);
 	writel(CMDQ_THR_DO_HARD_RESET, cmdq->base + CMDQ_CORE_REST);
 	writel(0, cmdq->base + CMDQ_CORE_REST);
+	return 0;
+}
+
+static int cmdq_ultra_en(struct cmdq *cmdq)
+{
+	cmdq_log("%s hwid:%d", __func__, cmdq->hwid);
+
+	writel(CMDQ_ULTRA_EN, cmdq->base + GCE_BUS_GCTL);
 	return 0;
 }
 
@@ -1243,7 +1254,7 @@ static void cmdq_thread_handle_timeout(struct timer_list *t)
 void cmdq_dump_core(struct mbox_chan *chan)
 {
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
-	u32 irq, loaded, cycle, thd_timer, tpr_mask, tpr_en;
+	u32 irq, loaded, cycle, thd_timer, tpr_mask, tpr_en, bus_gctl;
 
 	irq = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
 	loaded = readl(cmdq->base + CMDQ_CURR_LOADED_THR);
@@ -1251,10 +1262,14 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	thd_timer = readl(cmdq->base + CMDQ_THR_TIMEOUT_TIMER);
 	tpr_mask = readl(cmdq->base + CMDQ_TPR_MASK);
 	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
+	bus_gctl = readl(cmdq->base + GCE_BUS_GCTL);
+
 
 	cmdq_util_user_msg(chan,
-		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x notifier_time:%llu:%llu",
-		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en,
+		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x bus:%#x",
+		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en, bus_gctl);
+	cmdq_util_user_msg(chan,
+		"notifier_time:%llu:%llu",
 		cmdq->notifier_time[0], cmdq->notifier_time[1]);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_util_controller->dump_dbg_reg(chan);
@@ -1691,6 +1706,8 @@ static s32 cmdq_notifier_call_impl(struct cmdq *cmdq, unsigned long action)
 		pm_runtime_get_sync(cmdq->mbox.dev);
 		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
 		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
+		if (gce_mminfra)
+			cmdq_ultra_en(cmdq);
 		if (cmdq->prebuilt_enable) {
 			cmdq_init_cpu(cmdq);
 			cmdq_util_prebuilt_enable(cmdq->hwid);
