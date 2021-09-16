@@ -535,12 +535,6 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
-	err = ged_gpufreq_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("Failed to init GPU Freq!\n");
-		goto ERROR;
-	}
-
 #ifdef GED_DCS_POLICY
 	err = ged_dcs_init_platform_info();
 	if (unlikely(err != GED_OK)) {
@@ -548,6 +542,12 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 #endif
+
+	err = ged_gpufreq_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init GPU Freq!\n");
+		goto ERROR;
+	}
 
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {

@@ -148,7 +148,7 @@ int avg_freq;
 unsigned int pre_freq, cur_freq;
 
 #define GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM 4
-#define GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT 70
+#define GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT 30
 static int is_fb_dvfs_triggered;
 static int is_fallback_mode_triggered;
 
@@ -866,6 +866,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		}
 	}
 
+#ifdef GED_DCS_POLICY
+	if (is_dcs_enable() && dcs_get_cur_core_num() <= dcs_get_max_core_num())
+		gx_fb_dvfs_margin = DCS_POLICY_MARGIN;
+#endif /* GED_DCS_POLICY */
+
 	t_gpu_target = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
 
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
@@ -1121,6 +1126,11 @@ static bool ged_dvfs_policy(
 	} else {
 		gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 	}
+
+#ifdef GED_DCS_POLICY
+	if (is_dcs_enable() && dcs_get_cur_core_num() <= dcs_get_max_core_num())
+		gx_tb_dvfs_margin = DCS_POLICY_MARGIN / 10;
+#endif /* GED_DCS_POLICY */
 
 		if (init == 0) {
 			init = 1;

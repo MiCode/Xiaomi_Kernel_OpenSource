@@ -13,11 +13,13 @@
 #include <ged_eb.h>
 
 static int g_max_core_num;             /* core_num */
+static int g_avail_mask_num;           /* mask_num */
+
 static int g_working_oppnum;           /* opp_num */
-static int g_virtual_oppnum;           /* opp_num + core_num - 1 */
+static int g_virtual_oppnum;           /* opp_num + mask_num - 1 */
 static int g_max_working_oppidx;       /* 0 */
 static int g_min_working_oppidx;       /* opp_num - 1 */
-static int g_min_virtual_oppidx;       /* opp_num - 1 + core_num -1 */
+static int g_min_virtual_oppidx;       /* opp_num - 1 + mask_num -1 */
 
 struct gpufreq_core_mask_info *g_mask_table;
 struct gpufreq_opp_info *g_working_table;
@@ -61,32 +63,32 @@ GED_ERROR ged_gpufreq_init(void)
 	}
 #endif /* GED_KPI_DEBUG */
 
-	/* init core mask table */
-	core_mask_table = dcs_init_core_mask_table();
-	core_num = dcs_get_max_core_num();
+	/* init core mask table if support DCS policy*/
+	core_mask_table = dcs_get_avail_mask_table();
+	g_max_core_num = dcs_get_max_core_num();
+	g_avail_mask_num = dcs_get_avail_mask_num();
 
-	g_mask_table = kcalloc(core_num,
+	g_mask_table = kcalloc(g_avail_mask_num,
 					sizeof(struct gpufreq_core_mask_info), GFP_KERNEL);
 
-	for (i = 0; i < core_num; i++)
+	for (i = 0; i < g_avail_mask_num; i++)
 		*(g_mask_table + i) = *(core_mask_table + i);
 
 	if (!core_mask_table || !g_mask_table) {
 		GED_LOGE("%s: Failed to init core mask table");
 		return GED_OK;
 	}
-	g_max_core_num = core_num;
 
 #ifdef GED_KPI_DEBUG
-	for (i = 0; i < g_max_core_num; i++) {
+	for (i = 0; i < g_avail_mask_num; i++) {
 		GED_LOGE("[%02d*] MC0%d : 0x%llX",
 			i, g_mask_table[i].num, g_mask_table[i].mask);
 	}
 #endif /* GED_KPI_DEBUG */
 
-	/* init virtual opp table */
-	g_virtual_oppnum = g_working_oppnum + g_max_core_num - 1;
-	g_min_virtual_oppidx = g_min_working_oppidx + g_max_core_num - 1;
+	/* init virtual opp table by core mask table */
+	g_virtual_oppnum = g_working_oppnum + g_avail_mask_num - 1;
+	g_min_virtual_oppidx = g_min_working_oppidx + g_avail_mask_num - 1;
 
 	g_virtual_table = kcalloc(g_virtual_oppnum,
 						sizeof(struct gpufreq_opp_info), GFP_KERNEL);
@@ -95,17 +97,17 @@ GED_ERROR ged_gpufreq_init(void)
 		GED_LOGE("%s: Failed to init virtual opp table");
 		return GED_ERROR_FAIL;
 	}
-
 	for (i = 0; i < g_working_oppnum; i++)
 		*(g_virtual_table + i) = *(opp_table + i);
+
 
 	min_freq = gpufreq_get_freq_by_idx(TARGET_DEFAULT, g_min_working_oppidx);
 
 	/* construct virtual opp from real freq and core num */
 	for (i = g_working_oppnum ; i < g_virtual_oppnum; i++) {
-		j = i - g_virtual_oppnum + core_num;
+		j = i - g_virtual_oppnum + g_avail_mask_num;
 
-		freq_scale = min_freq * g_mask_table[j].num / core_num;
+		freq_scale = min_freq * g_mask_table[j].num / g_max_core_num;
 
 		g_virtual_table[i].freq =  freq_scale;
 		g_virtual_table[i].volt = 0;
@@ -169,7 +171,7 @@ int ged_get_cur_oppidx(void)
 	if (core_num == g_max_core_num)
 		return oppidx;
 
-	for (i = 0; i < g_max_core_num; i++) {
+	for (i = 0; i < g_avail_mask_num; i++) {
 		if (g_mask_table[i].num == core_num)
 			break;
 	}
@@ -205,7 +207,6 @@ unsigned int ged_get_opp_num(void)
 	else
 		return gpufreq_get_opp_num(TARGET_DEFAULT);
 }
-
 unsigned int ged_get_freq_by_idx(int oppidx)
 {
 	if (is_dcs_enable() && g_virtual_table)
@@ -312,7 +313,7 @@ int ged_gpufreq_commit(int oppidx)
 	int ret = GED_OK;
 	int oppidx_tar = 0;
 	int mask_idx = 0;
-	unsigned int core_mask_tar = 0, core_num_tar = 0;
+	unsigned int freq = 0, core_mask_tar = 0, core_num_tar = 0;
 
 	int fdvfs_enable = 0;
 	int dvfs_state = 0;
@@ -323,7 +324,7 @@ int ged_gpufreq_commit(int oppidx)
 	if (is_dcs_enable()) {
 		/* convert virtual opp to working opp with corresponding core mask */
 		if (oppidx > g_min_working_oppidx) {
-			mask_idx = oppidx - g_virtual_oppnum + g_max_core_num;
+			mask_idx = oppidx - g_virtual_oppnum + g_avail_mask_num;
 			oppidx_tar = g_min_working_oppidx;
 			core_mask_tar = g_mask_table[mask_idx].mask;
 			core_num_tar = g_mask_table[mask_idx].num;
@@ -355,8 +356,12 @@ int ged_gpufreq_commit(int oppidx)
 	}
 	/* DCS policy disabled */
 	else {
+		freq = (g_working_table == NULL) ?
+			gpufreq_get_freq_by_idx(TARGET_DEFAULT, oppidx)
+			: g_working_table[oppidx].freq;
+
 		if (ged_is_gpueb_support() && fdvfs_enable)
-			mtk_gpueb_dvfs_commit(oppidx, GED_DVFS_DEFAULT_COMMIT, &ret);
+			mtk_gpueb_dvfs_dcs_commit(oppidx, GED_DVFS_DEFAULT_COMMIT, freq);
 		else
 			gpufreq_commit(TARGET_DEFAULT, oppidx);
 	}
@@ -377,7 +382,7 @@ void ged_gpufreq_print_tables(void)
 	if (g_mask_table == NULL || g_virtual_table == NULL)
 		GED_LOGE("Failed to print core mask table");
 
-	for (i = 0; i < g_max_core_num; i++)
+	for (i = 0; i < g_avail_mask_num; i++)
 		GED_LOGE("[%02d*] MC0%d : 0x%llX",
 				i, g_mask_table[i].num, g_mask_table[i].mask);
 
