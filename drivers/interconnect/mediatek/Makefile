@@ -2,6 +2,7 @@
 
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos
 obj-$(CONFIG_INTERCONNECT_MTK_EMI) += mtk-emi.o
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos-common.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs

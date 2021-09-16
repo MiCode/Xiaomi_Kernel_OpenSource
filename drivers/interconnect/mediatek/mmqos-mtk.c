@@ -18,6 +18,7 @@
 #include <soc/mediatek/dramc.h>
 #include "mtk_iommu.h"
 #include "mmqos-mtk.h"
+#include "mtk_qos_bound.h"
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
 #define icc_to_MBps(x)	((x) / 1000)
 #define MASK_8(a) ((a) & 0xff)
@@ -60,6 +61,8 @@ struct mtk_mmqos {
 	bool qos_bound; /* Todo: Set qos_bound to true if necessary */
 };
 
+static struct mtk_mmqos *gmmqos;
+
 static u32 log_level;
 enum mmqos_log_level {
 	log_bw = 0,
@@ -86,11 +89,8 @@ static void mmqos_update_comm_bw(struct device *dev,
 			comm_port, comm_bw, freq, qos_bound, value);
 }
 
-static int update_mm_clk(struct notifier_block *nb,
-		unsigned long value, void *v)
+static void mmqos_update_setting(struct mtk_mmqos *mmqos)
 {
-	struct mtk_mmqos *mmqos =
-		container_of(nb, struct mtk_mmqos, nb);
 	struct common_node *comm_node;
 	struct common_port_node *comm_port;
 
@@ -111,8 +111,30 @@ static int update_mm_clk(struct notifier_block *nb,
 			mutex_unlock(&comm_port->bw_lock);
 		}
 	}
+}
+
+
+static int update_mm_clk(struct notifier_block *nb,
+		unsigned long value, void *v)
+{
+	struct mtk_mmqos *mmqos =
+		container_of(nb, struct mtk_mmqos, nb);
+
+	mmqos_update_setting(mmqos);
 	return 0;
 }
+
+
+s32 mtk_mmqos_system_qos_update(unsigned short qos_status)
+{
+	struct mtk_mmqos *mmqos = gmmqos;
+
+	mmqos->qos_bound = !(qos_status > QOS_BOUND_BW_FREE);
+	mmqos_update_setting(mmqos);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_mmqos_system_qos_update);
 
 static void set_chn_bw(u32 *bw_array, u8 chn_id, u32 bw)
 {
@@ -343,6 +365,8 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	mmqos = devm_kzalloc(&pdev->dev, sizeof(*mmqos), GFP_KERNEL);
 	if (!mmqos)
 		return -ENOMEM;
+	gmmqos = mmqos;
+
 	mmqos->dev = &pdev->dev;
 	smi_imu = devm_kzalloc(&pdev->dev, sizeof(*smi_imu), GFP_KERNEL);
 	if (!smi_imu)
