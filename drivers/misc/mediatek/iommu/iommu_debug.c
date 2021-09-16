@@ -2981,6 +2981,8 @@ enum IOMMU_PROFILE_TYPE {
 	IOMMU_UNMAP,
 	IOMMU_SYNC,
 	IOMMU_UNSYNC,
+	IOMMU_SUSPEND,
+	IOMMU_RESUME,
 	IOMMU_EVENT_MAX,
 };
 
@@ -3713,10 +3715,14 @@ static void mtk_iommu_trace_init(struct mtk_m4u_data *data)
 	strncpy(event_mgr[IOMMU_UNMAP].name, "unmap", 10);
 	strncpy(event_mgr[IOMMU_SYNC].name, "sync", 10);
 	strncpy(event_mgr[IOMMU_UNSYNC].name, "unsync", 10);
+	strncpy(event_mgr[IOMMU_SUSPEND].name, "suspend", 10);
+	strncpy(event_mgr[IOMMU_RESUME].name, "resume", 10);
 	event_mgr[IOMMU_ALLOC].dump_trace = 1;
 	event_mgr[IOMMU_FREE].dump_trace = 1;
 	event_mgr[IOMMU_SYNC].dump_trace = 1;
 	event_mgr[IOMMU_UNSYNC].dump_trace = 1;
+	event_mgr[IOMMU_SUSPEND].dump_trace = 1;
+	event_mgr[IOMMU_RESUME].dump_trace = 1;
 
 	iommu_globals.record = vmalloc(total_size);
 	if (!iommu_globals.record) {
@@ -3804,6 +3810,19 @@ void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids)
 				(unsigned long) iommu_ids, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_tlb_sync_trace);
+
+void mtk_iommu_pm_trace(struct device *dev, bool resume)
+{
+	int event;
+
+	if (resume)
+		event = IOMMU_RESUME;
+	else
+		event = IOMMU_SUSPEND;
+
+	mtk_iommu_trace_rec_write(event, 0x0, 0x0, 0x0, dev);
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_pm_trace);
 
 static int m4u_debug_init(struct mtk_m4u_data *data)
 {

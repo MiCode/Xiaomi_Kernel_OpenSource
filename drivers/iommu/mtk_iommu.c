@@ -1993,7 +1993,9 @@ static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
 		assert_b32 = readl_relaxed(base + REG_MMU_MAU_AA_EXT(slave, mau));
 
 		falut_id = (assert_id & F_MMU_MAU_ASRT_ID_VAL) << 2;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		port_name = mtk_iommu_get_port_name(type, id, falut_id);
+#endif
 		pr_notice("%s: ASRT_ID=0x%x, FALUT_ID=0x%x(%s), AA=0x%x, AA_EXT=0x%x\n",
 			  __func__, assert_id, falut_id,
 			  (port_name ? port_name : "port_unknown"),
@@ -2560,6 +2562,10 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 		mtk_iommu_mau_reg_backup(data);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_iommu_pm_trace(dev, false);
+#endif
+
 	clk_disable_unprepare(data->bclk);
 	return 0;
 }
@@ -2606,6 +2612,10 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_MAU_EN))
 		mtk_iommu_mau_reg_restore(data);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_iommu_pm_trace(dev, true);
 #endif
 
 	return 0;
