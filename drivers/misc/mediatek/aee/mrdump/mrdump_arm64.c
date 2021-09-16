@@ -25,5 +25,5 @@ void mrdump_save_control_register(void *creg)
 		      "=r"(cregs->ttbr0_el1), "=r"(cregs->ttbr1_el1),
 		      "=r"(cregs->sp_el[0]), "=r"(cregs->sp_el[1])
 		      : : "memory");
-	cregs->sctlr_el1 = (uint32_t) tmp;
+	cregs->sctlr_el1 = (uint64_t) tmp;
 }

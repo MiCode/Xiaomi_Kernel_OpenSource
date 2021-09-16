@@ -29,7 +29,7 @@
 
 #define MRDUMP_ENABLE_COOKIE 0x590d2ba3
 
-#define MRDUMP_GO_DUMP "MRDUMP10"
+#define MRDUMP_GO_DUMP "MRDUMP11"
 
 #define KSYM_32        1
 #define KSYM_64        2
@@ -45,9 +45,9 @@ struct arm32_ctrl_regs {
 };
 
 struct aarch64_ctrl_regs {
-	uint32_t sctlr_el1;
-	uint32_t sctlr_el2;
-	uint32_t sctlr_el3;
+	uint64_t sctlr_el1;
+	uint64_t sctlr_el2;
+	uint64_t sctlr_el3;
 
 	uint64_t tcr_el1;
 	uint64_t tcr_el2;
