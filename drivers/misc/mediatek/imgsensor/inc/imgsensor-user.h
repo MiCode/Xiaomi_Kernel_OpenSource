@@ -355,6 +355,14 @@ struct mtk_mbus_frame_desc {
 	unsigned short num_entries;
 };
 
+struct mtk_csi_param {
+	__u8 dphy_trail;
+	__u8 dphy_data_settle;
+	__u8 dphy_clk_settle;
+	__u8 cphy_settle;
+};
+
+
 struct mtk_n_1_mode {
 	__u32 n;
 	__u8 en;

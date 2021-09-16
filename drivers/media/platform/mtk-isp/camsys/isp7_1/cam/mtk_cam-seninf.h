@@ -163,6 +163,8 @@ struct seninf_ctx {
 	int dphy_settle_delay_dt;
 	int settle_delay_ck;
 	int hs_trail_parameter;
+	/*sensor mode customized csi params*/
+	struct mtk_csi_param csi_param;
 
 	int open_refcnt;
 	struct mutex mutex;

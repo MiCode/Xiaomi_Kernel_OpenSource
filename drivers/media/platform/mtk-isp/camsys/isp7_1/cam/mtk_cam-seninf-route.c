@@ -280,6 +280,37 @@ static int get_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
+{
+	int ret = 0;
+
+	struct mtk_csi_param *csi_param = &ctx->csi_param;
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	if (!ctx->sensor_sd)
+		return -EINVAL;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_CSI_PARAM);
+	if (!ctrl) {
+		dev_info(ctx->dev, "%s, no V4L2_CID_MTK_CSI_PARAM %s\n",
+			__func__, sensor_sd->name);
+		return -EINVAL;
+	}
+	memset(csi_param, 0, sizeof(struct mtk_csi_param));
+
+	ctrl->p_new.p = csi_param;
+
+	ret = get_ctrl(ctrl);
+	dev_info(ctx->dev, "%s get_ctrl ret:%d 0x%x|0x%x|0x%x|0x%x\n", __func__,
+		ret, csi_param->cphy_settle,
+		csi_param->dphy_clk_settle,
+		csi_param->dphy_data_settle,
+		csi_param->dphy_trail);
+
+	return 0;
+}
+
 int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 {
 	int ret = 0;

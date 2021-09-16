@@ -132,6 +132,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	if (!mode->llp || !mode->fll)
 		return;
 
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_MIPI_PIXEL_RATE,
 		para.u8, &len);
@@ -153,6 +154,8 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	if (!mode->mipi_pixel_rate || !mode->max_framerate || !mode->pclk)
 		return;
 
+	subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
+
 	/* update linetime_in_ns */
 	mode->linetime_in_ns = (u64)mode->llp * 1000000 +
 		(mode->pclk / 1000 - 1);
@@ -169,7 +172,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 static int init_sensor_mode(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT res;
-	int i = 0;
+	unsigned int i = 0;
 
 	memset(&res, 0, sizeof(res));
 	subdrv_call(ctx, get_resolution, &res);

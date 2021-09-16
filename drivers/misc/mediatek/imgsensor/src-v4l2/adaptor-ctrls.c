@@ -526,6 +526,19 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 		_get_frame_desc(ctx, 0, fd);
 	}
 		break;
+
+	case V4L2_CID_MTK_CSI_PARAM:
+	{
+		struct mtk_csi_param *csi_param = ctrl->p_new.p;
+
+		if (csi_param) {
+			csi_param->cphy_settle = mode->csi_param.cphy_settle;
+			csi_param->dphy_clk_settle = mode->csi_param.dphy_clk_settle;
+			csi_param->dphy_data_settle = mode->csi_param.dphy_data_settle;
+			csi_param->dphy_trail = mode->csi_param.dphy_trail;
+		}
+	}
+		break;
 	default:
 		break;
 	}
@@ -1032,6 +1045,19 @@ static struct v4l2_ctrl_config cfg_fd_ctrl = {
 };
 
 
+static struct v4l2_ctrl_config cfg_csi_param_ctrl = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_CSI_PARAM,
+	.name = "mtk_csi_param",
+	.type = V4L2_CTRL_TYPE_U32,
+	//.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_csi_param)},
+};
+
+
 static const struct v4l2_ctrl_config cfg_awb_gain = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_MTK_AWB_GAIN,
@@ -1484,6 +1510,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_seamless_scenario, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fd_ctrl, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_csi_param_ctrl, NULL);
 
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);

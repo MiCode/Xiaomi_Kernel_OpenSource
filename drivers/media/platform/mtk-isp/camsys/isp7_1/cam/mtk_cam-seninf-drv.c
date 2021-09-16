@@ -686,6 +686,8 @@ static int config_hw(struct seninf_ctx *ctx)
 	intf = ctx->seninfIdx;
 	vcinfo = &ctx->vcinfo;
 
+	mtk_cam_seninf_get_csi_param(ctx);
+
 	g_seninf_ops->_reset(ctx, intf);
 
 	g_seninf_ops->_set_vc(ctx, intf, vcinfo);
@@ -1005,6 +1007,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev, "sensor stream-on ret %d\n", ret);
 			return  ret;
 		}
+		//g_seninf_ops->_debug(ctx);
 	} else {
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 0);
 		if (ret) {
