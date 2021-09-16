@@ -39,7 +39,7 @@
 			<&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
 			<&topckgen_clk CLK_TOP_MSDC30_2_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_SEL>,
-			<&topckgen_clk CLK_TOP_ATB_SEL>,
+			<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
 			<&topckgen_clk CLK_TOP_DP_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_USB_TOP_SEL>,
