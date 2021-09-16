@@ -67,6 +67,7 @@ static unsigned long long lastresume_t;
 static struct notifier_block wdt_pm_nb;
 static unsigned long g_nxtKickTime;
 static int g_hang_detected;
+static int g_change_tmo;
 static void __iomem *toprgu_base;
 static void __iomem *systimer_base;
 static unsigned int cpus_kick_bit;
@@ -137,12 +138,6 @@ void dump_wdk_bind_info(void)
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	aee_sram_fiq_log("\n");
 #endif
-
-	if (toprgu_base) {
-		iowrite32((WDT_LENGTH_TIMEOUT(4) << 6) | WDT_LENGTH_KEY,
-			toprgu_base + WDT_LENGTH);
-		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
-	}
 }
 
 void kicker_cpu_bind(int cpu)
@@ -234,9 +229,9 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 
 	if ((g_hang_detected == 0) &&
-		    (r_counter < DEFAULT_INTERVAL)) {
+		    (r_counter < DEFAULT_INTERVAL) && !g_change_tmo) {
 		g_hang_detected = 1;
-		dump_timeout = 1;
+		dump_timeout = 2;
 	}
 
 	wk_tsk_kick_time[cpu] = sched_clock();
@@ -276,6 +271,10 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	if (dump_timeout) {
 		int dump = 0;
 		struct task_struct *g, *t;
+		unsigned int tmo_len = 0;
+
+		if (toprgu_base)
+			tmo_len = ioread32(toprgu_base + WDT_LENGTH);
 
 		if (systimer_base)
 			pr_info("SYST0 CON%x VAL%x\n",
@@ -301,6 +300,14 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			}
 		}
 
+		if (toprgu_base) {
+			spin_lock(&lock);
+			g_change_tmo = 1;
+			spin_unlock(&lock);
+			iowrite32((WDT_LENGTH_TIMEOUT(6) << 6) | WDT_LENGTH_KEY,
+				toprgu_base + WDT_LENGTH);
+			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+		}
 
 		for (i = 0; i < 2000; i++) {
 			mdelay(1);
@@ -320,7 +327,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			dump = 1;
 			spin_unlock(&lock);
 
-			if (r_counter < DEFAULT_INTERVAL)
+			if (dump_timeout == 2)
 				break;
 		}
 
@@ -333,6 +340,12 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				p_mt_aee_dump_irq_info();
 #endif
 			sysrq_sched_debug_show_at_AEE();
+		} else {
+			spin_lock(&lock);
+			g_change_tmo = 0;
+			spin_unlock(&lock);
+			iowrite32(tmo_len | WDT_LENGTH_KEY, toprgu_base + WDT_LENGTH);
+			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 		}
 	}
 }
