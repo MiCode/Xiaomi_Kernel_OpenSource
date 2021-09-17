@@ -261,7 +261,7 @@ int qmp_send(struct qmp *qmp, const void *data, size_t len)
 	/* Read back len to confirm data written in message RAM */
 	readl(qmp->msgram + qmp->offset);
 	qmp_kick(qmp);
-	AOSS_INFO("msg: %.*s\n", tlen, (char *)data);
+	AOSS_INFO("msg: %.*s\n", len, (char *)data);
 
 	time_left = wait_event_interruptible_timeout(qmp->event,
 						     qmp_message_empty(qmp), HZ);
@@ -270,12 +270,12 @@ int qmp_send(struct qmp *qmp, const void *data, size_t len)
 		ret = -ETIMEDOUT;
 
 		/* Clear message from buffer */
-		AOSS_INFO("timed out clearing msg: %.*s\n", tlen, (char *)data);
+		AOSS_INFO("timed out clearing msg: %.*s\n", len, (char *)data);
 		writel(0, qmp->msgram + qmp->offset);
 	} else {
 		ret = 0;
 	}
-	AOSS_INFO("ack: %.*s\n", tlen, (char *)data);
+	AOSS_INFO("ack: %.*s\n", len, (char *)data);
 
 	mutex_unlock(&qmp->tx_lock);
 

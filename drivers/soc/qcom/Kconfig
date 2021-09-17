@@ -218,6 +218,25 @@ config QCOM_SMSM
 	  Say yes here to support the Qualcomm Shared Memory State Machine.
 	  The state machine is represented by bits in shared memory.
 
+config QCOM_SMP2P_SLEEPSTATE
+	tristate "SMP2P Sleepstate notifier"
+	depends on QCOM_SMP2P
+	help
+	  When this option is enabled, notifications are sent to remote procs
+	  for the power state changes on the local processor. The notifications
+	  are sent through the smp2p framework. This driver can also receive
+	  notifications from the remote to prevent suspend on the local
+	  processor.
+
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards
+	  Qualcomm Technologies, Inc. Secure Execution Environment(QSEE) to
+	  userspace. The interrupt will be propagated through a character device
+	  that userspace clients can poll on.
+
 config QCOM_SECURE_BUFFER
 	tristate "Helper functions for secure buffers through TZ"
 	depends on QCOM_SCM
