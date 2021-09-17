@@ -4183,12 +4183,13 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned int ret, cache;
+	unsigned int cache;
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_device *device = dev_priv->device;
+	int ret;
 
 	/* Handle leagacy behavior for memstore */
 

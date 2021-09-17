@@ -2603,6 +2603,7 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 	INIT_WORK(&dev->handle_d3cold_work, handle_d3cold_func);
 
 	if (dev->aggregated_irq) {
+		irq_set_status_flags(dev->irq[EP_PCIE_INT_GLOBAL].num, IRQ_NOAUTOEN);
 		ret = devm_request_irq(pdev,
 			dev->irq[EP_PCIE_INT_GLOBAL].num,
 			ep_pcie_handle_global_irq,
@@ -3446,6 +3447,7 @@ static int ep_pcie_probe(struct platform_device *pdev)
 
 	qcom_edma_init(&pdev->dev);
 
+	enable_irq(ep_pcie_dev.irq[EP_PCIE_INT_GLOBAL].num);
 	return 0;
 
 irq_deinit:

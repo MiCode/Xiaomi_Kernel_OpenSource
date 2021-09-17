@@ -1325,6 +1325,11 @@ int cnss_pci_link_down(struct device *dev)
 		return -ENODEV;
 	}
 
+	if (pci_priv->pci_link_down_ind) {
+		cnss_pr_dbg("PCI link down recovery is already in progress\n");
+		return -EBUSY;
+	}
+
 	if (pci_priv->drv_connected_last &&
 	    of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				  "cnss-enable-self-recovery"))
@@ -1768,6 +1773,12 @@ retry:
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
 		ret = mhi_force_rddm_mode(pci_priv->mhi_ctrl);
+		if (ret) {
+			cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
+
+			cnss_pr_dbg("Sending host reset req\n");
+			ret = mhi_force_reset(pci_priv->mhi_ctrl);
+		}
 		break;
 	case CNSS_MHI_RDDM_DONE:
 		break;

@@ -323,6 +323,9 @@ static bool __disable_cx_regulator_wait(struct regulator *reg,
 
 	regulator_disable(reg);
 
+	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON))
+		return true;
+
 	for (;;) {
 		if (adreno_is_a619_holi(adreno_dev))
 			adreno_read_gmu_wrapper(adreno_dev,

@@ -1339,6 +1339,7 @@ struct dwc3 {
 	unsigned		dis_start_transfer_quirk:1;
 	unsigned		usb3_lpm_capable:1;
 	unsigned		usb2_lpm_disable:1;
+	unsigned		usb2_gadget_lpm_disable:1;
 
 	unsigned		disable_scramble_quirk:1;
 	unsigned		u2exit_lfps_quirk:1;
@@ -1363,7 +1364,6 @@ struct dwc3 {
 	unsigned		tx_de_emphasis:2;
 	unsigned		err_evt_seen:1;
 	unsigned		enable_bus_suspend:1;
-	unsigned		usb2_l1_disable:1;
 
 	atomic_t		in_lpm;
 	bool			b_suspend;
