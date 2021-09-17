@@ -74,7 +74,7 @@
 	(1 << TIMESYNC_CFG_ENABLED_SHIFT) & TIMESYNC_CFG_ENABLED_MASK | \
 	((er_index) << TIMESYNC_CFG_ER_ID_SHIFT) & TIMESYNC_CFG_ER_ID_MASK)
 
-#define MHI_VERB(fmt, ...) do { \
+#define MHI_VERB(dev, fmt, ...) do { \
 	struct mhi_private *mhi_priv = \
 		dev_get_drvdata(&mhi_cntrl->mhi_dev->dev); \
 	dev_dbg(dev, "[D][%s] " fmt, __func__, ##__VA_ARGS__); \
@@ -83,7 +83,7 @@
 			       ##__VA_ARGS__); \
 } while (0)
 
-#define MHI_LOG(fmt, ...) do {	\
+#define MHI_LOG(dev, fmt, ...) do {	\
 	struct mhi_private *mhi_priv = \
 		dev_get_drvdata(&mhi_cntrl->mhi_dev->dev); \
 	dev_dbg(dev, "[I][%s] " fmt, __func__, ##__VA_ARGS__); \
@@ -92,7 +92,7 @@
 			       ##__VA_ARGS__); \
 } while (0)
 
-#define MHI_ERR(fmt, ...) do {	\
+#define MHI_ERR(dev, fmt, ...) do {	\
 	struct mhi_private *mhi_priv = \
 		dev_get_drvdata(&mhi_cntrl->mhi_dev->dev); \
 	dev_err(dev, "[E][%s] " fmt, __func__, ##__VA_ARGS__); \
@@ -101,7 +101,7 @@
 			       ##__VA_ARGS__); \
 } while (0)
 
-#define MHI_CRITICAL(fmt, ...) do { \
+#define MHI_CRITICAL(dev, fmt, ...) do { \
 	struct mhi_private *mhi_priv = \
 		dev_get_drvdata(&mhi_cntrl->mhi_dev->dev); \
 	dev_crit(dev, "[C][%s] " fmt, __func__, ##__VA_ARGS__); \

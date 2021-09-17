@@ -57,7 +57,7 @@ static ssize_t time_show(struct device *dev,
 
 	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
 	if (ret) {
-		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
+		MHI_ERR(dev, "Failed to obtain time, ret:%d\n", ret);
 		return scnprintf(buf, PAGE_SIZE,
 				 "Request failed or feature unsupported\n");
 	}
@@ -73,7 +73,7 @@ static void mhi_time_async_cb(struct mhi_device *mhi_dev, u32 sequence,
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct device *dev = &mhi_dev->dev;
 
-	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (ticks)\n",
+	MHI_LOG(dev, "Time response: seq:%llx local: %llu remote: %llu (ticks)\n",
 		sequence, local_time, remote_time);
 }
 
@@ -91,7 +91,7 @@ static ssize_t time_async_show(struct device *dev,
 
 	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_async_cb);
 	if (ret) {
-		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		MHI_ERR(dev, "Failed to request time, seq:%llx, ret:%d\n", seq, ret);
 		return scnprintf(buf, PAGE_SIZE,
 				 "Request failed or feature unsupported\n");
 	}
@@ -144,7 +144,7 @@ static ssize_t log_level_store(struct device *dev,
 
 	mhi_priv->log_lvl = log_level;
 
-	MHI_LOG("IPC log level changed to: %s\n",
+	MHI_LOG(dev, "IPC log level changed to: %s\n",
 		TO_MHI_LOG_LEVEL_STR(log_level));
 
 	return count;
@@ -187,17 +187,12 @@ void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl)
 static void mhi_reg_write_enqueue(struct mhi_private *mhi_priv,
 	void __iomem *reg_addr, u32 val)
 {
-	struct mhi_controller *mhi_cntrl = mhi_priv->mhi_cntrl;
-	struct device *dev = &mhi_cntrl->mhi_dev->dev;
-
 	u32 q_index = atomic_inc_return(&mhi_priv->write_idx);
 
 	q_index = q_index & (REG_WRITE_QUEUE_LEN - 1);
 
-	if (mhi_priv->reg_write_q[q_index].valid) {
-		MHI_ERR("queue full idx %d", q_index);
+	if (mhi_priv->reg_write_q[q_index].valid)
 		panic("queue full idx %d", q_index);
-	}
 
 	mhi_priv->reg_write_q[q_index].reg_addr = reg_addr;
 	mhi_priv->reg_write_q[q_index].val = val;
@@ -325,11 +320,11 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
 	if (ret)
-		MHI_ERR("Failed to create misc sysfs group\n");
+		MHI_ERR(dev, "Failed to create misc sysfs group\n");
 
 	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
 	if (ret)
-		MHI_ERR("Failed to create time synchronization sysfs group\n");
+		MHI_ERR(dev, "Failed to create time synchronization sysfs group\n");
 
 	return 0;
 
@@ -459,7 +454,7 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 
 	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_SYS_ERR_DETECT);
 	if (cur_state != MHI_PM_SYS_ERR_DETECT) {
-		dev_err(mhi_cntrl->cntrl_dev,
+		MHI_ERR(dev,
 			"Failed to move to state: %s from: %s\n",
 			to_mhi_pm_state_str(MHI_PM_SYS_ERR_DETECT),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
@@ -474,7 +469,7 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 	/* copy subsystem failure reason string if supported */
 	if (sfr_info && sfr_info->buf_addr) {
 		memcpy(sfr_info->str, sfr_info->buf_addr, sfr_info->len);
-		MHI_ERR("mhi: %s sfr: %s\n", dev_name(dev), sfr_info->buf_addr);
+		MHI_ERR(dev, "mhi: %s sfr: %s\n", dev_name(dev), sfr_info->buf_addr);
 	}
 
 	/* Notify fatal error to all client drivers to halt processing */
@@ -518,7 +513,7 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 		if (!strcmp(cfg_tbl->name, "ECA")) {
 			er_ctxt = &mhi_cntrl->mhi_ctxt->er_ctxt[er_index];
 			if (sizeof(*er_ctxt) != cfg_tbl->len) {
-				MHI_ERR(
+				MHI_ERR(dev,
 					"Invalid ECA size, expected:%zu actual%zu\n",
 					sizeof(*er_ctxt), cfg_tbl->len);
 				return -EINVAL;
@@ -531,7 +526,7 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 		if (!strcmp(cfg_tbl->name, "CCA")) {
 			ch_ctxt = &mhi_cntrl->mhi_ctxt->chan_ctxt[chan];
 			if (cfg_tbl->len != sizeof(*ch_ctxt)) {
-				MHI_ERR(
+				MHI_ERR(dev,
 					"Invalid CCA size, expected:%zu actual:%zu\n",
 					sizeof(*ch_ctxt), cfg_tbl->len);
 				return -EINVAL;
@@ -573,7 +568,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
 
-	MHI_VERB("Entered with PM state: %s, MHI state: %s notify: %s\n",
+	MHI_VERB(dev, "Entered with PM state: %s, MHI state: %s notify: %s\n",
 		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 notify_clients ? "true" : "false");
@@ -592,7 +587,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	    && mhi_is_active(mhi_cntrl)) {
 		mhi_cntrl->ee = MHI_EE_RDDM;
 
-		MHI_ERR("RDDM event occurred!\n");
+		MHI_ERR(dev, "RDDM event occurred!\n");
 
 		/* notify critical clients with early notifications */
 		mhi_report_error(mhi_cntrl);
@@ -643,7 +638,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_clients)
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 		break;
 	default:
-		MHI_ERR("Unexpected PM state:%s after restore\n",
+		MHI_ERR(dev, "Unexpected PM state:%s after restore\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 	}
 
@@ -696,7 +691,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 		goto error_suspend;
 	}
 
-	MHI_VERB("Allowing Fast M3 transition with notify: %s\n",
+	MHI_VERB(dev, "Allowing Fast M3 transition with notify: %s\n",
 		notify_clients ? "true" : "false");
 
 	/* save the current states */
@@ -707,7 +702,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	if (mhi_cntrl->pm_state == MHI_PM_M2) {
 		new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M0);
 		if (new_state != MHI_PM_M0) {
-			MHI_ERR("Error setting to PM state: %s from: %s\n",
+			MHI_ERR(dev, "Error setting to PM state: %s from: %s\n",
 				to_mhi_pm_state_str(MHI_PM_M0),
 				to_mhi_pm_state_str(mhi_cntrl->pm_state));
 			ret = -EIO;
@@ -717,7 +712,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 
 	new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M3_ENTER);
 	if (new_state != MHI_PM_M3_ENTER) {
-		MHI_ERR("Error setting to PM state: %s from: %s\n",
+		MHI_ERR(dev, "Error setting to PM state: %s from: %s\n",
 			to_mhi_pm_state_str(MHI_PM_M3_ENTER),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		ret = -EIO;
@@ -727,7 +722,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	/* set dev_state to M3_FAST and host pm_state to M3 */
 	new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M3);
 	if (new_state != MHI_PM_M3) {
-		MHI_ERR("Error setting to PM state: %s from: %s\n",
+		MHI_ERR(dev, "Error setting to PM state: %s from: %s\n",
 			to_mhi_pm_state_str(MHI_PM_M3),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		ret = -EIO;
@@ -805,14 +800,14 @@ static void mhi_process_sfr(struct mhi_controller *mhi_cntrl,
 		rem_seg_len = 0;
 		seg_idx++;
 		if (seg_idx == mhi_cntrl->rddm_image->entries) {
-			MHI_ERR("invalid size for SFR file\n");
+			MHI_ERR(dev, "invalid size for SFR file\n");
 			goto err;
 		}
 	}
 	sfr_buf[info->file_size] = '\0';
 
 	/* force sfr string to log in kernel msg */
-	MHI_ERR("%s\n", sfr_buf);
+	MHI_ERR(dev, "%s\n", sfr_buf);
 err:
 	kfree(sfr_buf);
 }
@@ -836,7 +831,7 @@ static int mhi_find_next_file_offset(struct mhi_controller *mhi_cntrl,
 	while (info->file_size) {
 		info->seg_idx++;
 		if (info->seg_idx == mhi_cntrl->rddm_image->entries) {
-			MHI_ERR("invalid size for file %s\n",
+			MHI_ERR(dev, "invalid size for file %s\n",
 				table_info->file_name);
 			return -EINVAL;
 		}
@@ -868,14 +863,14 @@ void mhi_dump_sfr(struct mhi_controller *mhi_cntrl)
 
 	if (rddm_header->header_size > sizeof(*rddm_header) ||
 			rddm_header->header_size < 8) {
-		MHI_ERR("invalid reported header size %u\n",
+		MHI_ERR(dev, "invalid reported header size %u\n",
 			rddm_header->header_size);
 		return;
 	}
 
 	table_size = (rddm_header->header_size - 8) / sizeof(*table_info);
 	if (!table_size) {
-		MHI_ERR("invalid rddm table size %u\n", table_size);
+		MHI_ERR(dev, "invalid rddm table size %u\n", table_size);
 		return;
 	}
 
@@ -905,7 +900,7 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 	if (!mhi_cntrl->rddm_image || !cookie)
 		return false;
 
-	MHI_VERB("Checking BHI debug register for 0x%x\n", cookie);
+	MHI_VERB(dev, "Checking BHI debug register for 0x%x\n", cookie);
 
 	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		return false;
@@ -914,7 +909,7 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 	if (ret)
 		return false;
 
-	MHI_VERB("BHI_ERRDBG2 value:0x%x\n", val);
+	MHI_VERB(dev, "BHI_ERRDBG2 value:0x%x\n", val);
 	if (val == cookie)
 		return true;
 
@@ -954,7 +949,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		{ NULL },
 	};
 
-	MHI_ERR("host pm_state:%s dev_state:%s ee:%s\n",
+	MHI_ERR(dev, "host pm_state:%s dev_state:%s ee:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		TO_MHI_EXEC_STR(mhi_cntrl->ee));
@@ -962,7 +957,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 	state = mhi_get_mhi_state(mhi_cntrl);
 	ee = mhi_get_exec_env(mhi_cntrl);
 
-	MHI_ERR("device ee: %s dev_state: %s\n", TO_MHI_EXEC_STR(ee),
+	MHI_ERR(dev, "device ee: %s dev_state: %s\n", TO_MHI_EXEC_STR(ee),
 		TO_MHI_STATE_STR(state));
 
 	for (i = 0; debug_reg[i].name; i++) {
@@ -970,7 +965,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 			continue;
 		ret = mhi_read_reg(mhi_cntrl, debug_reg[i].base,
 				   debug_reg[i].offset, &val);
-		MHI_ERR("reg: %s val: 0x%x, ret: %d\n", debug_reg[i].name,
+		MHI_ERR(dev, "reg: %s val: 0x%x, ret: %d\n", debug_reg[i].name,
 			val, ret);
 	}
 }
@@ -998,7 +993,7 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 	/* Return if client doesn't want us to wait */
 	if (!timeout_us) {
 		if (mhi_cntrl->pm_state != MHI_PM_M0)
-			MHI_ERR("Return without waiting for M0\n");
+			MHI_ERR(dev, "Return without waiting for M0\n");
 
 		mhi_cntrl->runtime_put(mhi_cntrl);
 		return 0;
@@ -1021,7 +1016,7 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 	}
 
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) || timeout_us <= 0) {
-		MHI_ERR("Did not enter M0, cur_state: %s pm_state: %s\n",
+		MHI_ERR(dev, "Did not enter M0, cur_state: %s pm_state: %s\n",
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		read_lock_bh(&mhi_cntrl->pm_lock);
@@ -1119,7 +1114,7 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl,
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
 		      MHI_BW_SCALE_SETUP(er_index));
 
-	MHI_VERB("Bandwidth scaling setup complete. Event ring:%d\n",
+	MHI_VERB(dev, "Bandwidth scaling setup complete. Event ring:%d\n",
 		er_index);
 
 	return 0;
@@ -1184,7 +1179,7 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl,
 	mhi_write_reg(mhi_cntrl, mhi_tsync->time_reg, TIMESYNC_CFG_OFFSET,
 		      MHI_TIMESYNC_DB_SETUP(er_index));
 
-	MHI_VERB("Time synchronization DB mode setup complete. Event ring:%d\n",
+	MHI_VERB(dev, "Time synchronization DB mode setup complete. Event ring:%d\n",
 		 er_index);
 
 	return 0;
@@ -1201,19 +1196,19 @@ int mhi_misc_init_mmio(struct mhi_controller *mhi_cntrl)
 				 CHDBOFF_CHDBOFF_MASK,
 				 CHDBOFF_CHDBOFF_SHIFT, &chdb_off);
 	if (ret) {
-		MHI_ERR("Unable to read CHDBOFF register\n");
+		MHI_ERR(dev, "Unable to read CHDBOFF register\n");
 		return -EIO;
 	}
 
 	ret = mhi_init_bw_scale(mhi_cntrl, (mhi_cntrl->regs + chdb_off +
 					    (8 * MHI_BW_SCALE_CHAN_DB)));
 	if (ret)
-		MHI_LOG("BW scale setup failure\n");
+		MHI_LOG(dev, "BW scale setup failure\n");
 
 	ret = mhi_init_timesync(mhi_cntrl, (mhi_cntrl->regs + chdb_off +
 					    (8 * MHI_TIMESYNC_CHAN_DB)));
 	if (ret)
-		MHI_LOG("Time synchronization setup failure\n");
+		MHI_LOG(dev, "Time synchronization setup failure\n");
 
 	return 0;
 }
@@ -1278,7 +1273,7 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
 
 	if (WARN_ON(MHI_TRE_GET_EV_TYPE(dev_rp) != MHI_PKT_TYPE_TSYNC_EVENT)) {
-		MHI_ERR("!TIMESYNC event\n");
+		MHI_ERR(dev, "!TIMESYNC event\n");
 		ret = -EINVAL;
 		spin_unlock_bh(&mhi_event->lock);
 		goto exit_tsync_process;
@@ -1287,7 +1282,7 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	sequence = MHI_TRE_GET_EV_SEQ(dev_rp);
 	remote_time = MHI_TRE_GET_EV_TIME(dev_rp);
 
-	MHI_VERB("Received TSYNC event with seq: 0x%llx time: 0x%llx\n",
+	MHI_VERB(dev, "Received TSYNC event with seq: 0x%llx time: 0x%llx\n",
 		 sequence, remote_time);
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
@@ -1299,7 +1294,7 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_lock(&mhi_tsync->mutex);
 
 	if (WARN_ON(mhi_tsync->int_sequence != sequence)) {
-		MHI_ERR("Unexpected response: 0x%llx Expected: 0x%llx\n",
+		MHI_ERR(dev, "Unexpected response: 0x%llx Expected: 0x%llx\n",
 			sequence, mhi_tsync->int_sequence);
 
 		mhi_cntrl->runtime_put(mhi_cntrl);
@@ -1340,7 +1335,7 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_unlock(&mhi_tsync->mutex);
 
 exit_tsync_process:
-	MHI_VERB("exit er_index: %u, ret: %d\n", mhi_event->er_index, ret);
+	MHI_VERB(dev, "exit er_index: %u, ret: %d\n", mhi_event->er_index, ret);
 
 	return ret;
 }
@@ -1379,7 +1374,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
 
 	if (WARN_ON(MHI_TRE_GET_EV_TYPE(dev_rp) != MHI_PKT_TYPE_BW_REQ_EVENT)) {
-		MHI_ERR("!BW SCALE REQ event\n");
+		MHI_ERR(dev, "!BW SCALE REQ event\n");
 		spin_unlock_bh(&mhi_event->lock);
 		goto exit_bw_scale_process;
 	}
@@ -1388,7 +1383,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	link_info.target_link_width = MHI_TRE_GET_EV_LINKWIDTH(dev_rp);
 	link_info.sequence_num = MHI_TRE_GET_EV_BW_REQ_SEQ(dev_rp);
 
-	MHI_VERB("Received BW_REQ with seq:%d link speed:0x%x width:0x%x\n",
+	MHI_VERB(dev, "Received BW_REQ with seq:%d link speed:0x%x width:0x%x\n",
 		link_info.sequence_num,
 		link_info.target_link_speed,
 		link_info.target_link_width);
@@ -1420,7 +1415,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 			      mhi_priv->bw_response);
 		mhi_priv->bw_response = 0;
 	} else {
-		MHI_VERB("Cached BW response for seq: %u, result: %d\n",
+		MHI_VERB(dev, "Cached BW response for seq: %u, result: %d\n",
 			 link_info.sequence_num, mhi_priv->bw_response);
 	}
 	write_unlock_bh(&mhi_cntrl->pm_lock);
@@ -1431,7 +1426,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 exit_bw_scale_process:
-	MHI_VERB("exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
+	MHI_VERB(dev, "exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
 
 	return ret;
 }
@@ -1444,7 +1439,7 @@ void mhi_misc_dbs_pending(struct mhi_controller *mhi_cntrl)
 	if (mhi_priv->bw_scale && mhi_priv->bw_response) {
 		mhi_write_reg(mhi_cntrl, mhi_priv->bw_scale_db, 0,
 			      mhi_priv->bw_response);
-		MHI_VERB("Completed BW response: %d\n", mhi_priv->bw_response);
+		MHI_VERB(dev, "Completed BW response: %d\n", mhi_priv->bw_response);
 		mhi_priv->bw_response = 0;
 	}
 }
@@ -1566,7 +1561,7 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	/* Attempt to print local and remote SOC time delta for debug */
 	ret = mhi_get_remote_time_sync(mhi_cntrl->mhi_dev, &local, &remote);
 	if (!ret)
-		MHI_LOG("Timesync: local: %llx, remote: %llx\n", local, remote);
+		MHI_LOG(dev, "Timesync: local: %llx, remote: %llx\n", local, remote);
 
 	/* initialize SFR */
 	if (!sfr_info)
@@ -1580,7 +1575,7 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 						&sfr_info->dma_addr,
 						GFP_KERNEL);
 	if (!sfr_info->buf_addr) {
-		MHI_ERR("Failed to allocate memory for sfr\n");
+		MHI_ERR(dev, "Failed to allocate memory for sfr\n");
 		return;
 	}
 
@@ -1588,14 +1583,14 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 
 	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_SFR_CFG);
 	if (ret) {
-		MHI_ERR("Failed to send sfr cfg cmd\n");
+		MHI_ERR(dev, "Failed to send sfr cfg cmd\n");
 		return;
 	}
 
 	ret = wait_for_completion_timeout(&sfr_info->completion,
 			msecs_to_jiffies(mhi_cntrl->timeout_ms));
 	if (!ret || sfr_info->ccs != MHI_EV_CC_SUCCESS)
-		MHI_ERR("Failed to get sfr cfg cmd completion\n");
+		MHI_ERR(dev, "Failed to get sfr cfg cmd completion\n");
 }
 
 void mhi_misc_disable(struct mhi_controller *mhi_cntrl)
@@ -1655,7 +1650,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 		return -EINVAL;
 
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
-		MHI_ERR("MHI is not in active state, pm_state:%s\n",
+		MHI_ERR(dev, "MHI is not in active state, pm_state:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		return -EIO;
 	}
@@ -1670,7 +1665,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 		ret = wait_for_completion_timeout(&mhi_tsync->completion,
 				       msecs_to_jiffies(mhi_cntrl->timeout_ms));
 		if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) || !ret) {
-			MHI_ERR("Pending DB request did not complete, abort\n");
+			MHI_ERR(dev, "Pending DB request did not complete, abort\n");
 			return -EAGAIN;
 		}
 
@@ -1704,12 +1699,12 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	ret = mhi_read_reg(mhi_cntrl, mhi_tsync->time_reg,
 			   TIMESYNC_TIME_LOW_OFFSET, &tdev_lo);
 	if (ret)
-		MHI_ERR("Time LOW register read error\n");
+		MHI_ERR(dev, "Time LOW register read error\n");
 
 	ret = mhi_read_reg(mhi_cntrl, mhi_tsync->time_reg,
 			   TIMESYNC_TIME_HIGH_OFFSET, &tdev_hi);
 	if (ret)
-		MHI_ERR("Time HIGH register read error\n");
+		MHI_ERR(dev, "Time HIGH register read error\n");
 
 	*t_dev = (u64) tdev_hi << 32 | tdev_lo;
 
@@ -1752,7 +1747,7 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 		goto error_unlock;
 	mhi_cntrl->runtime_get(mhi_cntrl);
 
-	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
+	MHI_LOG(dev, "Enter with pm_state:%s MHI_STATE:%s\n",
 		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
@@ -1783,7 +1778,7 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	/* disable link level low power modes */
 	ret = mhi_tsync->lpm_disable(mhi_cntrl);
 	if (ret) {
-		MHI_ERR("LPM disable request failed for %s!\n", mhi_dev->name);
+		MHI_ERR(dev, "LPM disable request failed for %s!\n", mhi_dev->name);
 		goto error_invalid_state;
 	}
 
@@ -1805,7 +1800,7 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 
 	mhi_tsync->lpm_enable(mhi_cntrl);
 
-	MHI_VERB("time DB request with seq:0x%llx\n", mhi_tsync->int_sequence);
+	MHI_VERB(dev, "time DB request with seq:0x%llx\n", mhi_tsync->int_sequence);
 
 	mhi_tsync->db_pending = true;
 	init_completion(&mhi_tsync->completion);
