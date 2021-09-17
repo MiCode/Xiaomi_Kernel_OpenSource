@@ -9,6 +9,7 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 #include <linux/shmem_fs.h>
+#include <linux/sched/signal.h>
 
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
@@ -885,6 +886,9 @@ static int kgsl_alloc_page(int *page_size, struct page **pages,
 	if (pages == NULL)
 		return -EINVAL;
 
+	if (fatal_signal_pending(current))
+		return -ENOMEM;
+
 	page = shmem_read_mapping_page_gfp(shmem_filp->f_mapping, page_off,
 			kgsl_gfp_mask(0));
 	if (IS_ERR(page))
@@ -934,6 +938,9 @@ static int kgsl_alloc_page(int *page_size, struct page **pages,
 			unsigned int page_off, struct file *shmem_filp,
 			struct device *dev)
 {
+	if (fatal_signal_pending(current))
+		return -ENOMEM;
+
 	return kgsl_pool_alloc_page(page_size, pages,
 			pages_len, align, dev);
 }
@@ -1261,7 +1268,11 @@ static int kgsl_system_alloc_pages(u64 size, struct page ***pages,
 		gfp_t gfp = __GFP_ZERO | __GFP_HIGHMEM |
 			GFP_KERNEL | __GFP_NORETRY;
 
-		local[i] = alloc_pages(gfp, get_order(PAGE_SIZE));
+		if (!fatal_signal_pending(current))
+			local[i] = alloc_pages(gfp, get_order(PAGE_SIZE));
+		else
+			local[i] = NULL;
+
 		if (!local[i]) {
 			for (i = i - 1; i >= 0; i--)
 				__free_pages(local[i], get_order(PAGE_SIZE));
