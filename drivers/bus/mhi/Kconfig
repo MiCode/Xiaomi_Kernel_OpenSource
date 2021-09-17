@@ -38,4 +38,5 @@ config MHI_BUS_MISC
 	  other features not present upstream such as Dynamic Resource Vote,
 	  SFR parsing using RDDM dumps, scanning for the RDDM cookie and more.
 
+source "drivers/bus/mhi/devices/Kconfig"
 source "drivers/bus/mhi/controllers/Kconfig"
