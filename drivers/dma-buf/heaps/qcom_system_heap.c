@@ -86,14 +86,99 @@ static bool dynamic_pool_count_below_lowmark(struct dynamic_page_pool *pool)
 	return atomic_read(&pool->count) < get_dynamic_pool_lowmark(pool);
 }
 
+/* Based on gfp_zone() in mm/mmzone.c since it is not exported. */
+static enum zone_type dynamic_pool_gfp_zone(gfp_t flags)
+{
+	enum zone_type z;
+	gfp_t local_flags = flags;
+	int bit;
+
+	bit = (__force int) ((local_flags) & GFP_ZONEMASK);
+
+	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
+					 ((1 << GFP_ZONES_SHIFT) - 1);
+	VM_BUG_ON((GFP_ZONE_BAD >> bit) & 1);
+	return z;
+}
+
+/*
+ * Based on __zone_watermark_ok() in mm/page_alloc.c since it is not exported.
+ *
+ * Return true if free base pages are above 'mark'. For high-order checks it
+ * will return true of the order-0 watermark is reached and there is at least
+ * one free page of a suitable size. Checking now avoids taking the zone lock
+ * to check in the allocation paths if no pages are free.
+ */
+static bool __dynamic_pool_zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
+					     int highest_zoneidx, long free_pages)
+{
+	long min = mark;
+	long unusable_free;
+	int o;
+
+	/*
+	 * Access to high atomic reserves is not required, and CMA should not be
+	 * used, since these allocations are non-movable.
+	 */
+	unusable_free = ((1 << order) - 1) + z->nr_reserved_highatomic;
+#ifdef CONFIG_CMA
+	unusable_free += zone_page_state(z, NR_FREE_CMA_PAGES);
+#endif
+
+	/* free_pages may go negative - that's OK */
+	free_pages -= unusable_free;
+
+	/*
+	 * Check watermarks for an order-0 allocation request. If these
+	 * are not met, then a high-order request also cannot go ahead
+	 * even if a suitable page happened to be free.
+	 *
+	 * 'min' can be taken as 'mark' since we do not expect these allocations
+	 * to require disruptive actions (such as running the OOM killer) or
+	 * a lot of effort.
+	 */
+	if (free_pages <= min + z->lowmem_reserve[highest_zoneidx])
+		return false;
+
+	/* If this is an order-0 request then the watermark is fine */
+	if (!order)
+		return true;
+
+	/* For a high-order request, check at least one suitable page is free */
+	for (o = order; o < MAX_ORDER; o++) {
+		struct free_area *area = &z->free_area[o];
+		int mt;
+
+		if (!area->nr_free)
+			continue;
+
+		for (mt = 0; mt < MIGRATE_PCPTYPES; mt++) {
+			if (!free_area_empty(area, mt))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+/* Based on zone_watermark_ok_safe from mm/page_alloc.c since it is not exported. */
+static bool dynamic_pool_zone_watermark_ok_safe(struct zone *z, unsigned int order,
+						unsigned long mark, int highest_zoneidx)
+{
+	long free_pages = zone_page_state(z, NR_FREE_PAGES);
+
+	if (z->percpu_drift_mark && free_pages < z->percpu_drift_mark)
+		free_pages = zone_page_state_snapshot(z, NR_FREE_PAGES);
+
+	return __dynamic_pool_zone_watermark_ok(z, order, mark, highest_zoneidx, free_pages);
+}
+
 /* do a simple check to see if we are in any low memory situation */
 static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
 {
-	struct zonelist *zonelist;
-	struct zoneref *z;
 	struct zone *zone;
-	int mark;
-	enum zone_type classzone_idx = gfp_zone(pool->gfp_mask);
+	int i, mark;
+	enum zone_type classzone_idx = dynamic_pool_gfp_zone(pool->gfp_mask);
 	s64 delta;
 
 	/* check if we are within the refill defer window */
@@ -101,21 +186,21 @@ static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
 	if (delta < DYNAMIC_POOL_REFILL_DEFER_WINDOW_MS)
 		return false;
 
-	zonelist = node_zonelist(numa_node_id(), pool->gfp_mask);
 	/*
 	 * make sure that if we allocate a pool->order page from buddy,
-	 * we don't put the zone watermarks go below the high threshold.
+	 * we don't put the zone watermarks below the high threshold.
 	 * This makes sure there's no unwanted repetitive refilling and
 	 * reclaiming of buddy pages on the pool.
 	 */
-	for_each_zone_zonelist(zone, z, zonelist, classzone_idx) {
+	for (i = classzone_idx; i >= 0; i--) {
+		zone = &NODE_DATA(numa_node_id())->node_zones[i];
+
 		if (!strcmp(zone->name, "DMA32"))
 			continue;
 
 		mark = high_wmark_pages(zone);
 		mark += 1 << pool->order;
-		if (!zone_watermark_ok_safe(zone, pool->order, mark,
-					    classzone_idx)) {
+		if (!dynamic_pool_zone_watermark_ok_safe(zone, pool->order, mark, classzone_idx)) {
 			pool->last_low_watermark_ktime = ktime_get();
 			return false;
 		}
