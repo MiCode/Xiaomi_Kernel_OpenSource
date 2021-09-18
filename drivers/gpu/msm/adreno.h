@@ -1747,6 +1747,7 @@ static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
 	adreno_dev->dispatch_ops = ops;
 }
 
+#ifdef CONFIG_QCOM_KGSL_FENCE_TRACE
 /**
  * adreno_fence_trace_array_init - Initialize an always on trace array
  * @device: A GPU device handle
@@ -1754,6 +1755,9 @@ static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
  * Register an always-on trace array to for fence timeout debugging
  */
 void adreno_fence_trace_array_init(struct kgsl_device *device);
+#else
+static inline void adreno_fence_trace_array_init(struct kgsl_device *device) {}
+#endif
 
 /*
  * adreno_drawobj_set_constraint - Set a power constraint
