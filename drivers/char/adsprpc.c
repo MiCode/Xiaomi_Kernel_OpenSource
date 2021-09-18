@@ -5201,9 +5201,6 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 		}
 		if (idx >= chan->sesscount) {
 			err = -EUSERS;
-			ADSPRPC_ERR(
-				"max concurrent sessions limit (%d) already reached on %s err %d\n",
-				chan->sesscount, chan->subsys, err);
 			goto bail;
 		}
 		chan->session[idx].smmu.faults = 0;
@@ -5411,6 +5408,11 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 	if (!*session)
 		err = fastrpc_session_alloc_locked(chan, secure, session);
 	mutex_unlock(&chan->smd_mutex);
+	if (err == -EUSERS) {
+		ADSPRPC_WARN(
+			"max concurrent sessions limit (%d) already reached on %s err %d\n",
+			chan->sesscount, chan->subsys, err);
+	}
 	return err;
 }
 
@@ -6067,6 +6069,11 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		err = fastrpc_session_alloc_locked(&fl->apps->channel[cid],
 				0, &fl->sctx);
 		mutex_unlock(&fl->apps->channel[cid].smd_mutex);
+		if (err == -EUSERS) {
+			ADSPRPC_WARN(
+				"max concurrent sessions limit (%d) already reached on %s err %d\n",
+				chan->sesscount, chan->subsys, err);
+		}
 		if (err)
 			goto bail;
 	}
