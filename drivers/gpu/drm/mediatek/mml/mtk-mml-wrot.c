@@ -97,6 +97,8 @@
 /* Inline rot offsets */
 #define DISPSYS_SHADOW_CTRL		0x010
 #define INLINEROT_OVLSEL		0x030
+#define INLINEROT_HEIGHT0		0x034
+#define INLINEROT_HEIGHT1		0x038
 #define INLINEROT_WDONE			0x03C
 
 /* SMI offset */
@@ -1706,17 +1708,73 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 }
 
 static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot,
-	struct cmdq_pkt *pkt, u32 pipe, u32 wdone)
+	struct cmdq_pkt *pkt, u32 pipe, u32 sram, u32 irot_h_off, u32 height)
 {
+	u32 wdone = 1 << sram;
+
 	if (pipe == 0) {
 		/* for pipe 0, wait pipe 1 and trigger wdone */
 		cmdq_pkt_wfe(pkt, wrot->event_pipe_sync);
-		cmdq_pkt_write(pkt, NULL, wrot->irot_base[pipe] + INLINEROT_WDONE,
+		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + irot_h_off,
+			height, U32_MAX);
+		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + INLINEROT_WDONE,
 			wdone, U32_MAX);
 	} else {
 		/* for pipe 1, trigger sw token to notify pipe 0 */
 		cmdq_pkt_set_event(pkt, wrot->event_pipe_sync);
 	}
+}
+
+static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg, u32 idx)
+{
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_tile_engine *tile = config_get_tile(task->config, ccfg, idx);
+	u32 height = tile->out.ye - tile->out.ys + 1;
+	u32 irot_h_off;
+
+	/* config height for current sram buf
+	 * INLINEROT_HEIGHT0 for buf a and
+	 * INLINEROT_HEIGHT1 for buf b
+	 * so assign reg by sram side
+	 */
+	irot_h_off = INLINEROT_HEIGHT0 + 4 * wrot_frm->wdone[idx].sram;
+
+	/* config wdone to trigger inlinerot work */
+	if (task->config->dual && !task->config->disp_dual) {
+		/* 2 wrot to 1 disp: wait and trigger 1 wdone */
+		mml_ir_done_2to1(wrot, pkt, ccfg->pipe,
+			wrot_frm->wdone[idx].sram, irot_h_off, height);
+	} else if (!task->config->dual && task->config->disp_dual) {
+		/* 1 wrot to 2 disp: trigger 2 wdone (dual done) */
+		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + irot_h_off,
+			height, U32_MAX);
+		cmdq_pkt_write(pkt, NULL,
+			wrot->irot_base[0] + INLINEROT_WDONE,
+			1 << wrot_frm->wdone[idx].sram, U32_MAX);
+		cmdq_pkt_write(pkt, NULL, wrot->irot_base[1] + irot_h_off,
+			height, U32_MAX);
+		cmdq_pkt_write(pkt, NULL,
+			wrot->irot_base[1] + INLINEROT_WDONE,
+			1 << wrot_frm->wdone[idx].sram, U32_MAX);
+	} else {
+		/* 1 wrot to 1 disp: trigger 1 wdone (by pipe)
+		 * 2 wrot to 2 disp: trigger 2 wdone (by pipe)
+		 * both case set disp wdone for current pipe
+		 */
+		cmdq_pkt_write(pkt, NULL,
+			wrot->irot_base[wrot_frm->sram_side] + irot_h_off,
+			height, U32_MAX);
+		cmdq_pkt_write(pkt, NULL,
+			wrot->irot_base[wrot_frm->sram_side] + INLINEROT_WDONE,
+			1 << wrot_frm->wdone[idx].sram, U32_MAX);
+	}
+
+	/* debug, make gce send irq to cmdq and mark mmp pulse */
+	if (unlikely(mml_racing_wdone_eoc))
+		cmdq_pkt_eoc(pkt, false);
 }
 
 static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
@@ -1729,32 +1787,8 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
 
-	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
-		if (task->config->dual && !task->config->disp_dual) {
-			/* 2 wrot to 1 disp: wait and trigger 1 wdone */
-			mml_ir_done_2to1(wrot, pkt, ccfg->pipe,
-				1 << wrot_frm->wdone[idx].sram);
-		} else if (!task->config->dual && task->config->disp_dual) {
-			/* 1 wrot to 2 disp: trigger 2 wdone (dual done) */
-			cmdq_pkt_write(pkt, NULL,
-				wrot->irot_base[0] + INLINEROT_WDONE,
-				1 << wrot_frm->wdone[idx].sram, U32_MAX);
-			cmdq_pkt_write(pkt, NULL,
-				wrot->irot_base[1] + INLINEROT_WDONE,
-				1 << wrot_frm->wdone[idx].sram, U32_MAX);
-		} else {
-			/* 1 wrot to 1 disp: trigger 1 wdone (by pipe)
-			 * 2 wrot to 2 disp: trigger 2 wdone (by pipe)
-			 * both case set disp wdone for current pipe
-			 */
-			cmdq_pkt_write(pkt, NULL,
-				wrot->irot_base[ccfg->pipe] + INLINEROT_WDONE,
-				1 << wrot_frm->wdone[idx].sram, U32_MAX);
-		}
-
-		if (unlikely(mml_racing_wdone_eoc))
-			cmdq_pkt_eoc(pkt, false);
-	}
+	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol)
+		wrot_config_inlinerot(comp, task, ccfg, idx);
 
 	return 0;
 }
