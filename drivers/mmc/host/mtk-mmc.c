@@ -150,7 +150,7 @@ static const struct mtk_mmc_compatible common_compat = {
 	.need_gate_cg = true,
 };
 
-static const struct mtk_mmc_compatible mt6879_compat = {
+static const struct mtk_mmc_compatible common_v2_compat = {
 	.clk_div_bits = 12,
 	.recheck_sdio_irq = false,
 	.hs400_tune = false,
@@ -175,7 +175,7 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt7620-mmc", .data = &mt7620_compat},
 	{ .compatible = "mediatek,mt6779-mmc", .data = &mt6779_compat},
 	{ .compatible = "mediatek,common-mmc", .data = &common_compat},
-	{ .compatible = "mediatek,mt6879-mmc", .data = &mt6879_compat},
+	{ .compatible = "mediatek,common-mmc-v2", .data = &common_v2_compat},
 	{}
 };
 MODULE_DEVICE_TABLE(of, msdc_of_ids);
