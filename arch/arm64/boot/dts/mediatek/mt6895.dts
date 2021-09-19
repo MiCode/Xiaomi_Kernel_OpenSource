@@ -6345,10 +6345,10 @@
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		/*vbus-supply = <&mt6375_otg_vbus>;*/
+		vbus-supply = <&mt6375_otg_vbus>;
 		vbus-voltage = <5000000>;
 		vbus-current = <1800000>;
-		/*charger = <&mt6375_chg>;*/
+		charger = <&mt6375_chg>;
 		tcpc = "type_c_port0";
 		mediatek,bypss-typec-sink = <1>;
 		port {
