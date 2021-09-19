@@ -375,30 +375,64 @@ int FDVT_M4U_TranslationFault_callback(int port,
 	return 1;
 }
 #endif
+static void aie_free_dmabuf(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
+{
+	if (bufinfo->dmabuf) {
+		dev_info(fd->dev, "free dmabuf memory (%x)\n", bufinfo->size);
+		dma_heap_buffer_free(bufinfo->dmabuf);
+		bufinfo->dmabuf = NULL;
+	}
+}
 
-struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size)
+static void aie_free_iova(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
+{
+	if (bufinfo->pa) {
+		dev_info(fd->dev, "free iova memory (%x)\n", bufinfo->size);
+		/*free iova*/
+		dma_buf_unmap_attachment(bufinfo->attach, bufinfo->sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach(bufinfo->dmabuf, bufinfo->attach);
+
+		bufinfo->pa = 0;
+	}
+}
+
+static void aie_free_va(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
+{
+	if (bufinfo->va) {
+		dev_info(fd->dev, "free va memory (%x)\n", bufinfo->size);
+		dma_buf_vunmap(bufinfo->dmabuf, bufinfo->va);
+		bufinfo->va = NULL;
+	}
+}
+
+struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecure)
 {
 	struct dma_heap *dma_heap;
 	struct dma_buf *my_dma_buf;
-	//all supported heap name you can find with cmd(ls /dev/dma_heap/) in shell
-	dma_heap = dma_heap_find("mtk_prot_page-uncached");
+
+	if (IsSecure)
+		dma_heap = dma_heap_find("mtk_prot_page-uncached");
+	else
+		dma_heap = dma_heap_find("mtk_mm-uncached");
+
 
 	if (!dma_heap) {
-		pr_info("heap find fail\n");
+		dev_info(fd->dev, "heap find fail\n");
 		return NULL;
 	}
 
 	my_dma_buf = dma_heap_buffer_alloc(dma_heap, size, O_RDWR |
 		O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(my_dma_buf)) {
-		pr_info("buffer alloc fail\n");
+		dev_info(fd->dev, "buffer alloc fail\n");
 		return NULL;
 	}
 	mtk_dma_buf_set_name(my_dma_buf, BUFTAG);
 	return my_dma_buf;
 }
 
-unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf)
+unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
+			  struct imem_buf_info *bufinfo)
 {
 	struct dma_buf_attachment *attach;
 	unsigned long long iova = 0;
@@ -406,19 +440,33 @@ unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_d
 
 	attach = dma_buf_attach(my_dma_buf, fd->dev);
 	if (IS_ERR(attach)) {
-		pr_info("attach fail, return\n");
+		dev_info(fd->dev, "attach fail, return\n");
 		return 0;
 	}
+	bufinfo->attach = attach;
 
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
-		pr_info("map failed, detach and return\n");
+		dev_info(fd->dev, "map failed, detach and return\n");
 		dma_buf_detach(my_dma_buf, attach);
 		return 0;
 	}
+	bufinfo->sgt = sgt;
 
 	iova = sg_dma_address(sgt->sgl);
 	return iova;
+}
+
+void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf)
+{
+	void *buf_ptr = dma_buf_vmap(my_dma_buf);
+
+	if (!buf_ptr) {
+		dev_info(fd->dev, "map failed\n");
+		return NULL;
+	}
+	dev_info(fd->dev, "AIE VA GET: %llx\n", buf_ptr);
+	return buf_ptr;
 }
 
 static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
@@ -851,28 +899,42 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 	int ret = 0;
 	u32 alloc_size = 0;
 	int i, j, pa_off = 0, va_off = 0;
-
-	struct dma_buf *sec_ret = NULL;
+	struct dma_buf *ret_buf = NULL;
 	unsigned long long iova = 0;
+	void *va = NULL;
 
 	for (i = 0; i < PYM_NUM; i++)
 		alloc_size += fd->rs_pym_out_size[i] * 3;
 
 	if (g_user_param.is_secure) {
-		sec_ret = aie_imem_sec_alloc(fd, alloc_size);
-		if (!sec_ret)
+		ret_buf = aie_imem_sec_alloc(fd, alloc_size, true);
+		if (!ret_buf)
 			return -1;
-		fd->sec_dmabuf = sec_ret;
-		iova = aie_get_sec_iova(fd, sec_ret);
+		fd->rs_output_hw.size = alloc_size;
+		fd->rs_output_hw.dmabuf = ret_buf;
+		iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_output_hw);
 		if (!iova)
 			return -1;
+
 		fd->rs_output_hw.pa = iova;
 	} else {
-		ret = aie_imem_alloc(fd, alloc_size, &fd->rs_output_hw);
-	}
+		ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+		if (!ret_buf)
+			return -1;
 
-	if (ret)
-		return ret;
+		fd->rs_output_hw.size = alloc_size;
+		fd->rs_output_hw.dmabuf = ret_buf;
+		iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_output_hw);
+		if (!iova)
+			return -1;
+
+		fd->rs_output_hw.pa = iova;
+		va = aie_get_va(fd, ret_buf);
+		if (!va)
+			return -1;
+
+		fd->rs_output_hw.va = va;
+	}
 
 	for (i = 0; i < PYM_NUM; i++) {
 		for (j = 0; j < COLOR_NUM; j++) {
@@ -1735,7 +1797,8 @@ static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 }
 static void aie_free_sec_buf(struct mtk_aie_dev *fd)
 {
-	dma_heap_buffer_free(fd->sec_dmabuf);
+	aie_free_iova(fd, &fd->rs_output_hw);
+	aie_free_dmabuf(fd, &fd->rs_output_hw);
 }
 
 static void aie_free_dram_buf(struct mtk_aie_dev *fd)
@@ -1747,7 +1810,10 @@ static void aie_free_dram_buf(struct mtk_aie_dev *fd)
 
 static void aie_free_output_buf(struct mtk_aie_dev *fd)
 {
-	aie_imem_free(fd, &fd->rs_output_hw);
+	aie_free_iova(fd, &fd->rs_output_hw);
+	aie_free_va(fd, &fd->rs_output_hw);
+	aie_free_dmabuf(fd, &fd->rs_output_hw);
+
 }
 
 static void aie_free_fddma_buf(struct mtk_aie_dev *fd)
@@ -3903,13 +3969,15 @@ void aie_uninit(struct mtk_aie_dev *fd)
 	fd->fd_state = STATE_NA;
 
 	aie_free_dram_buf(fd);
-	aie_free_output_buf(fd);
 	aie_free_fddma_buf(fd);
 #ifdef FLD
 	aie_free_fld_buf(fd);
 #endif
 	if (g_user_param.is_secure)
 		aie_free_sec_buf(fd);
+	else
+		aie_free_output_buf(fd);
+
 	if (fd->base_para != NULL)
 		kfree(fd->base_para);
 	if (fd->attr_para != NULL)

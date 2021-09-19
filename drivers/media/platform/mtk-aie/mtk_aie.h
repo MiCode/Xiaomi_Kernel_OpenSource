@@ -1064,6 +1064,9 @@ struct imem_buf_info {
 	void *va;
 	dma_addr_t pa;
 	unsigned int size;
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 };
 
 struct fd_buffer {
@@ -1272,5 +1275,9 @@ void aie_disable_secure_domain(struct mtk_aie_dev *fd);
 void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
+struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecure);
+unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
+					struct imem_buf_info *bufinfo);
+void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf);
 
 #endif /*__MTK_AIE_H__*/
