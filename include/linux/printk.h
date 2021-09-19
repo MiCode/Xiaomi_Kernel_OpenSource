@@ -16,14 +16,6 @@ extern int oops_in_progress;	/* If set, an oops, panic(), BUG() or die() is in p
 
 #define PRINTK_MAX_SINGLE_HEADER_LEN 2
 
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME "unknown module"
-#endif
-#define KLOG_MODNAME		"[name:"KBUILD_MODNAME"&]"
-#else
-#define KLOG_MODNAME		""
-#endif
 static inline int printk_get_level(const char *buffer)
 {
 	if (buffer[0] == KERN_SOH_ASCII && buffer[1]) {
@@ -322,34 +314,6 @@ extern int kptr_restrict;
  * This macro expands to a printk with KERN_EMERG loglevel. It uses pr_fmt() to
  * generate the format string.
  */
-#if defined(CONFIG_MTK_PRINTK_DEBUG) && \
-	(defined(CONFIG_DYNAMIC_DEBUG) || \
-	defined(CONFIG_DYNAMIC_DEBUG_CORE))
-#define pr_emerg(fmt, ...) \
-	dynamic_pr_emerg(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_alert(fmt, ...) \
-	dynamic_pr_alert(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_crit(fmt, ...) \
-	dynamic_pr_crit(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_err(fmt, ...) \
-	dynamic_pr_err(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_warning(fmt, ...) \
-	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_warn(fmt, ...) \
-	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_notice(fmt, ...) \
-	dynamic_pr_notice(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#define pr_info(fmt, ...) \
-	dynamic_pr_info(KLOG_MODNAME fmt, ##__VA_ARGS__)
-
-#else
 #define pr_emerg(fmt, ...) \
 	printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
 /**
@@ -412,7 +376,6 @@ extern int kptr_restrict;
  */
 #define pr_info(fmt, ...) \
 	printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
-#endif
 
 /**
  * pr_cont - Continues a previous log message in the same line.
@@ -437,21 +400,11 @@ extern int kptr_restrict;
  * It uses pr_fmt() to generate the format string.
  */
 #ifdef DEBUG
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_devel(fmt, ...) \
-	printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#else
 #define pr_devel(fmt, ...) \
 	printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-#else
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_devel(fmt, ...) \
-	no_printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
 #else
 #define pr_devel(fmt, ...) \
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
 #endif
 
 
@@ -472,29 +425,14 @@ extern int kptr_restrict;
  * It uses pr_fmt() to generate the format string (dynamic_pr_debug() uses
  * pr_fmt() internally).
  */
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_debug(fmt, ...)			\
-	dynamic_pr_debug(KLOG_MODNAME fmt, ##__VA_ARGS__)
-#else
 #define pr_debug(fmt, ...)			\
 	dynamic_pr_debug(fmt, ##__VA_ARGS__)
-#endif
 #elif defined(DEBUG)
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_debug(fmt, ...) \
-	printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#else
 #define pr_debug(fmt, ...) \
 	printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-#else
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_debug(fmt, ...) \
-	no_printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
 #else
 #define pr_debug(fmt, ...) \
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
 #endif
 
 /*
@@ -531,40 +469,6 @@ extern int kptr_restrict;
 	no_printk(fmt, ##__VA_ARGS__)
 #endif
 
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_emerg_once(fmt, ...)					\
-	printk_once(KERN_EMERG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_alert_once(fmt, ...)					\
-	printk_once(KERN_ALERT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_crit_once(fmt, ...)					\
-	printk_once(KERN_CRIT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_err_once(fmt, ...)					\
-	printk_once(KERN_ERR KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_warn_once(fmt, ...)					\
-	printk_once(KERN_WARNING KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_notice_once(fmt, ...)				\
-	printk_once(KERN_NOTICE KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_info_once(fmt, ...)					\
-	printk_once(KERN_INFO KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-
-#if defined(DEBUG)
-#define pr_devel_once(fmt, ...)					\
-	printk_once(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#else
-#define pr_devel_once(fmt, ...)					\
-	no_printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-
-/* If you are writing a driver, please use dev_dbg instead */
-#if defined(DEBUG)
-#define pr_debug_once(fmt, ...)					\
-	printk_once(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#else
-#define pr_debug_once(fmt, ...)					\
-	no_printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-
-#else
 #define pr_emerg_once(fmt, ...)					\
 	printk_once(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
 #define pr_alert_once(fmt, ...)					\
@@ -597,7 +501,7 @@ extern int kptr_restrict;
 #define pr_debug_once(fmt, ...)					\
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
-#endif
+
 /*
  * ratelimited messages with local ratelimit_state,
  * no local ratelimit_state used in the !PRINTK case
@@ -617,31 +521,6 @@ extern int kptr_restrict;
 	no_printk(fmt, ##__VA_ARGS__)
 #endif
 
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_emerg_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_EMERG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_alert_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_ALERT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_crit_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_CRIT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_err_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_ERR KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_warn_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_WARNING KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_notice_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_NOTICE KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_info_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_INFO KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-/* no pr_cont_ratelimited, don't do that... */
-
-#if defined(DEBUG)
-#define pr_devel_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#else
-#define pr_devel_ratelimited(fmt, ...)					\
-	no_printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-#else
 #define pr_emerg_ratelimited(fmt, ...)					\
 	printk_ratelimited(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
 #define pr_alert_ratelimited(fmt, ...)					\
@@ -665,7 +544,6 @@ extern int kptr_restrict;
 #define pr_devel_ratelimited(fmt, ...)					\
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
-#endif
 
 /* If you are writing a driver, please use dev_dbg instead */
 #if defined(CONFIG_DYNAMIC_DEBUG) || \
@@ -682,21 +560,11 @@ do {									\
 		__dynamic_pr_debug(&descriptor, pr_fmt(fmt), ##__VA_ARGS__);	\
 } while (0)
 #elif defined(DEBUG)
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_debug_ratelimited(fmt, ...)					\
-	printk_ratelimited(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
-#else
 #define pr_debug_ratelimited(fmt, ...)					\
 	printk_ratelimited(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
-#else
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define pr_debug_ratelimited(fmt, ...) \
-	no_printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
 #else
 #define pr_debug_ratelimited(fmt, ...) \
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#endif
 #endif
 
 extern const struct file_operations kmsg_fops;
