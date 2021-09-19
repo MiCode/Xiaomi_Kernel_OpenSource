@@ -275,14 +275,13 @@
 #define CLK_PERAOP_SPI5_BCLK				16
 #define CLK_PERAOP_SPI6_BCLK				17
 #define CLK_PERAOP_SPI7_BCLK				18
-#define CLK_PERAOP_IIC					19
-#define CLK_PERAOP_APDMA				20
-#define CLK_PERAOP_USB_FRMCNT				21
-#define CLK_PERAOP_USB_SYS				22
-#define CLK_PERAOP_USB_XHCI				23
-#define CLK_PERAOP_MSDC1				24
-#define CLK_PERAOP_MSDC1_HCLK				25
-#define CLK_PERAO_NR_CLK				26
+#define CLK_PERAOP_APDMA				19
+#define CLK_PERAOP_USB_FRMCNT				20
+#define CLK_PERAOP_USB_SYS				21
+#define CLK_PERAOP_USB_XHCI				22
+#define CLK_PERAOP_MSDC1				23
+#define CLK_PERAOP_MSDC1_HCLK				24
+#define CLK_PERAO_NR_CLK				25
 
 /* IMP_IIC_WRAP_C */
 #define CLK_IMPC_AP_CLOCK_I2C10				0
@@ -419,9 +418,10 @@
 
 /* VDEC_GCON_BASE */
 #define CLK_VDE2_LARB1_CKEN				0
-#define CLK_VDE2_VDEC_CKEN				1
-#define CLK_VDE2_VDEC_ACTIVE				2
-#define CLK_VDE2_NR_CLK					3
+#define CLK_VDE2_MINI_MDP_CKEN_CFG_RG			1
+#define CLK_VDE2_VDEC_CKEN				2
+#define CLK_VDE2_VDEC_ACTIVE				3
+#define CLK_VDE2_NR_CLK					4
 
 /* VENC_GCON */
 #define CLK_VEN1_CKE0_LARB				0
