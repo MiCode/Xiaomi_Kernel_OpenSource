@@ -10,6 +10,8 @@
 #include <mmprofile.h>
 #include <mmprofile_function.h>
 
+#define mmp_data2_fence(c, s)	((c & 0xff) << 24 | s & 0xffffff)
+
 #define mml_mmp(event, flag, v1, v2) \
 	mmprofile_log_ex(mml_mmp_get_event()->event, flag, v1, v2)
 
@@ -17,6 +19,8 @@ struct mml_mmp_events_t {
 	mmp_event mml;
 	mmp_event submit;
 	mmp_event config;
+	mmp_event fence;
+	mmp_event fence_timeout;
 	mmp_event flush;
 	mmp_event submit_cb;
 	mmp_event stop_racing;
@@ -24,6 +28,7 @@ struct mml_mmp_events_t {
 	mmp_event irq_err;
 	mmp_event irq_done;
 	mmp_event irq_stop;
+	mmp_event fence_sig;
 };
 
 void mml_mmp_init(void);

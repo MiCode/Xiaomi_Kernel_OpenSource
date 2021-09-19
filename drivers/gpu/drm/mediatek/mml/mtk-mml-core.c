@@ -550,17 +550,24 @@ static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
 	}
 }
 
+static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
+{
+	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
+
+	return &tp->path_clts[task->config->path[pipe]->clt_id];
+}
+
 static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
-	struct mml_path_client *path_clt =
-		&tp->path_clts[task->config->path[pipe]->clt_id];
+	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_tmp;
 	struct timespec64 curr_time;
 	u32 throughput;
 	u32 max_pixel = task->config->cache[pipe].max_pixel;
 
 	mml_trace_ex_begin("%s", __func__);
+	mutex_lock(&path_clt->clt_mutex);
 
 	ktime_get_real_ts64(&curr_time);
 	mml_msg_qos("task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu clt id %hhu",
@@ -622,19 +629,20 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) pixel %u",
 		task, pipe, throughput, task->throughput, max_pixel);
 done:
+	mutex_unlock(&path_clt->clt_mutex);
 	mml_trace_ex_end();
 }
 
 static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
-	struct mml_path_client *path_clt =
-		&tp->path_clts[task->config->path[pipe]->clt_id];
+	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_cur, *task_pipe_tmp;
 	struct timespec64 curr_time;
 	u32 throughput = 0, max_pixel = 0;
 
 	mml_trace_ex_begin("%s", __func__);
+	mutex_lock(&path_clt->clt_mutex);
 
 	ktime_get_real_ts64(&curr_time);
 	mml_msg_qos("task dvfs end %p pipe %u cur %2u.%03llu end %2u.%03llu clt id %hhu",
@@ -702,14 +710,8 @@ done:
 	if (throughput)
 		mml_core_qos_set(task_pipe_cur->task, pipe, throughput);
 exit:
+	mutex_unlock(&path_clt->clt_mutex);
 	mml_trace_ex_end();
-}
-
-static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
-{
-	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
-
-	return &tp->path_clts[task->config->path[pipe]->clt_id];
 }
 
 static void core_task_comp_done(struct mml_task *task, u32 pipe)
@@ -815,6 +817,8 @@ static void core_taskerr(struct mml_task *task, u32 pipe)
 	if (task->fence) {
 		dma_fence_signal(task->fence);
 		dma_fence_put(task->fence);
+		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
+			mmp_data2_fence(task->fence->context, task->fence->seqno));
 	}
 
 	core_buffer_unmap(task);
@@ -823,7 +827,6 @@ static void core_taskerr(struct mml_task *task, u32 pipe)
 
 static void core_taskdone(struct mml_task *task, u32 pipe)
 {
-	struct mml_path_client *path_clt;
 	u32 cnt, i;
 
 	mml_trace_begin("%s", __func__);
@@ -835,10 +838,8 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	 */
 
 	if (task->pkts[pipe]) {
-		path_clt = core_get_path_clt(task, 0);
-		mutex_lock(&path_clt->clt_mutex);
+		/* remove task in qos list and setup next */
 		mml_core_dvfs_end(task, pipe);
-		mutex_unlock(&path_clt->clt_mutex);
 	} else {
 		core_taskerr(task, pipe);
 		goto done;
@@ -872,6 +873,8 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	if (task->fence) {
 		dma_fence_signal(task->fence);
 		dma_fence_put(task->fence);
+		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
+			mmp_data2_fence(task->fence->context, task->fence->seqno));
 	}
 
 	if (task->pkts[0])
@@ -983,19 +986,25 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
-static void wait_dma_fence(const char *name, struct dma_fence *fence)
+static void wait_dma_fence(const char *name, struct dma_fence *fence, u32 jobid)
 {
 	long ret;
 
 	if (!fence)
 		return;
+
 	mml_trace_ex_begin("%s_%s", __func__, name);
+	mml_mmp(fence, MMPROFILE_FLAG_PULSE, jobid,
+		mmp_data2_fence(fence->context, fence->seqno));
 	ret = dma_fence_wait_timeout(fence, false, msecs_to_jiffies(200));
-	if (ret <= 0)
+	if (ret <= 0) {
 		mml_err("wait fence %s %s-%s%llu-%llu fail %p ret %ld",
 			name, fence->ops->get_driver_name(fence),
 			fence->ops->get_timeline_name(fence),
 			fence->context, fence->seqno, fence, ret);
+		mml_mmp(fence_timeout, MMPROFILE_FLAG_PULSE, jobid,
+			mmp_data2_fence(fence->context, fence->seqno));
+	}
 
 	mml_trace_ex_end();
 }
@@ -1072,9 +1081,9 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	mml_trace_ex_begin("%s", __func__);
 
 	/* before flush, wait buffer fence being signaled */
-	wait_dma_fence("src", task->buf.src.fence);
+	wait_dma_fence("src", task->buf.src.fence, task->job.jobid);
 	for (i = 0; i < task->buf.dest_cnt; i++)
-		wait_dma_fence("dest", task->buf.dest[i].fence);
+		wait_dma_fence("dest", task->buf.dest[i].fence, task->job.jobid);
 
 	/* flush only once for both pipe */
 	mutex_lock(&task->config->pipe_mutex);
@@ -1264,7 +1273,6 @@ static void dump_inout(struct mml_task *task)
 static void core_config_thread(struct work_struct *work)
 {
 	struct mml_task *task;
-	struct mml_path_client *path_clt;
 	s32 err;
 
 	mml_trace_begin("%s", __func__);
@@ -1304,18 +1312,12 @@ static void core_config_thread(struct work_struct *work)
 	 */
 	kref_get(&task->ref);
 
-	/* make sure no other config uses same client for current path */
-	path_clt = core_get_path_clt(task, 0);
-	mutex_lock(&path_clt->clt_mutex);
-
 	core_init_pipe(task, 0);
 
 	/* check single pipe or (dual) pipe 1 done then callback */
 	if (!task->config->dual || flush_work(&task->work_config[1]))
 		task->config->task_ops->submit_done(task);
 
-	/* now both pipe submit done unlock client */
-	mutex_unlock(&path_clt->clt_mutex);
 done:
 	mml_trace_end();
 }
