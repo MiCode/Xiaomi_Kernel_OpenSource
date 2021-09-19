@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+
+&pio {
+	fan53870a_default: state_default_a {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO188__FUNC_GPIO188>;
+		};
+	};
+	// gpio205 pull up to enable dvdd supply
+	fan53870a_reset_high: state_reset_high_a {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO205__FUNC_GPIO205>,
+				<PINMUX_GPIO188__FUNC_GPIO188>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fan53870a_reset_low: state_reset_low_a {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO188__FUNC_GPIO188>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fan53870b_default: state_default_b {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_GPIO204>;
+		};
+	};
+	fan53870b_reset_high: state_reset_high_b {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_GPIO204>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fan53870b_reset_low: state_reset_low_b {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_GPIO204>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+
+&i2c3 {
+	fan53870a@35 {
+		compatible = "fan53870-pmic";
+		reg = <0x35>;
+		//vin12-supply = <&gpio205_regulator>;
+		pinctrl-names = "default", "reset_high", "reset_low";
+		pinctrl-0 = <&fan53870a_default>;
+		pinctrl-1 = <&fan53870a_reset_high>;
+		pinctrl-2 = <&fan53870a_reset_low>;
+		regulators {
+			fan53870_ldo1a:ONLDO1 {
+				regulator-name = "fan53870_ldo1a";
+				regulator-min-microvolt = <809000>;
+				regulator-max-microvolt = <830000>;
+			};
+			fan53870_ldo2a:ONLDO2 {
+				regulator-name = "fan53870_ldo2a";
+				regulator-min-microvolt = <1049000>;
+				regulator-max-microvolt = <1191000>;
+			};
+			fan53870_ldo3a:ONLDO3 {
+				regulator-name = "fan53870_ldo3a";
+				regulator-min-microvolt = <2799000>;
+				regulator-max-microvolt = <2900000>;
+			};
+			fan53870_ldo4a:ONLDO4 {
+				regulator-name = "fan53870_ldo4a";
+				regulator-min-microvolt = <1799000>;
+				regulator-max-microvolt = <1821000>;
+			};
+			fan53870_ldo5a:ONLDO5 {
+				regulator-name = "fan53870_ldo5a";
+				regulator-min-microvolt = <2799000>;
+				regulator-max-microvolt = <2821000>;
+			};
+			fan53870_ldo6a:ONLDO6 {
+				regulator-name = "fan53870_ldo6a";
+				regulator-min-microvolt = <2799000>;
+				regulator-max-microvolt = <2821000>;
+			};
+			fan53870_ldo7a:ONLDO7 {
+				regulator-name = "fan53870_ldo7a";
+				regulator-min-microvolt = <1799000>;
+				regulator-max-microvolt = <2900000>;
+			};
+		};
+	};
+};
+
+&i2c4 {
+	fan53870b@35 {
+		compatible = "fan53870-pmic";
+		reg = <0x35>;
+		pinctrl-names = "default", "reset_high", "reset_low";
+		pinctrl-0 = <&fan53870b_default>;
+		pinctrl-1 = <&fan53870b_reset_high>;
+		pinctrl-2 = <&fan53870b_reset_low>;
+
+		regulators {
+			fan53870_ldo1b:ONLDO1 {
+				regulator-name = "fan53870_ldo1b";
+			};
+			fan53870_ldo2b:ONLDO2 {
+				regulator-name = "fan53870_ldo2b";
+			};
+			fan53870_ldo3b:ONLDO3 {
+				regulator-name = "fan53870_ldo3b";
+				regulator-min-microvolt = <2799000>;
+				regulator-max-microvolt = <2851000>;
+			};
+			fan53870_ldo4b:ONLDO4 {
+				regulator-name = "fan53870_ldo4b";
+				regulator-min-microvolt = <1799000>;
+				regulator-max-microvolt = <1851000>;
+			};
+			fan53870_ldo5b:ONLDO5 {
+				regulator-name = "fan53870_ldo5b";
+				regulator-min-microvolt = <2799000>;
+				regulator-max-microvolt = <2851000>;
+			};
+			fan53870_ldo6b:ONLDO6 {
+				regulator-name = "fan53870_ldo6b";
+				regulator-min-microvolt = <2799000>;
+				regulator-max-microvolt = <2851000>;
+			};
+			fan53870_ldo7b:ONLDO7 {
+				regulator-name = "fan53870_ldo7b";
+				regulator-min-microvolt = <1799000>;
+				regulator-max-microvolt = <1851000>;
+			};
+		};
+	};
+};
