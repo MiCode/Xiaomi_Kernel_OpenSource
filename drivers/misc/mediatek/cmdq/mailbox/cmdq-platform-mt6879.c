@@ -123,10 +123,12 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		case CMDQ_EVENT_IMG_IMGSYS_IPE_ME_DONE:
 			return "ME";
 		case CMDQ_EVENT_IMG_IPE_DUMMY:
-		case CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE:
 		case CMDQ_EVENT_IMG_IMGSYS_IPE_DVS_DONE:
 		case CMDQ_EVENT_IMG_IMGSYS_IPE_DVP_DONE:
+			return "DPE";
+		case CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE:
 		case CMDQ_EVENT_IMG_FDVT1_RESERVED:
+			return "FDVT";
 		case CMDQ_EVENT_IMG_IMG_ENG_EVENT:
 			return "IMGSYS";
 		case CMDQ_EVENT_CAMSYS_CAMSUBA_SW_PASS1_DONE
