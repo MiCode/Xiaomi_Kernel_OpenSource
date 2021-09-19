@@ -316,6 +316,7 @@ struct mtk_imgsys_dev {
 	struct mtk_imgsys_dvfs dvfs_info;
 	struct mtk_imgsys_qos qos_info;
 	struct mutex dvfs_qos_lock;
+	struct mutex power_ctrl_lock;
 	debug_dump dump;
 	atomic_t imgsys_user_cnt;
 };

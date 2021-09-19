@@ -81,6 +81,7 @@ void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev
 	}
 
 	mutex_init(&imgsys_dev->dvfs_qos_lock);
+	mutex_init(&imgsys_dev->power_ctrl_lock);
 
 }
 
@@ -106,6 +107,7 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 	destroy_workqueue(imgsys_cmdq_wq);
 	imgsys_cmdq_wq = NULL;
 	mutex_destroy(&imgsys_dev->dvfs_qos_lock);
+	mutex_destroy(&imgsys_dev->power_ctrl_lock);
 }
 
 void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
@@ -239,6 +241,10 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
+	mutex_lock(&(imgsys_dev->power_ctrl_lock));
+	mtk_imgsys_power_ctrl(imgsys_dev, false);
+	mutex_unlock(&(imgsys_dev->power_ctrl_lock));
+
 	if (imgsys_cmdq_ts_enabled()) {
 		/* Calculating task timestamp */
 		tsSwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1]
@@ -316,7 +322,6 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			#if IMGSYS_QOS_SET_REAL
 			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
 			#endif
-			mtk_imgsys_power_ctrl(imgsys_dev, 0);
 			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 			if (imgsys_cmdq_ts_enabled())
@@ -487,7 +492,6 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		frm_info->request_fd, frm_info->frm_owner);
 	mutex_lock(&(imgsys_dev->dvfs_qos_lock));
 	#if DVFS_QOS_READY
-	mtk_imgsys_power_ctrl(imgsys_dev, 1);
 	mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmdvfs_set(imgsys_dev, frm_info, 1);
 	#if IMGSYS_QOS_SET_REAL
@@ -632,6 +636,10 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				imgsys_cmdq_sec_cmd(pkt);
 			#endif
 			IMGSYS_SYSTRACE_END();
+
+			mutex_lock(&(imgsys_dev->power_ctrl_lock));
+			mtk_imgsys_power_ctrl(imgsys_dev, true);
+			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 
 			/* Prepare cb param */
 			cb_param =

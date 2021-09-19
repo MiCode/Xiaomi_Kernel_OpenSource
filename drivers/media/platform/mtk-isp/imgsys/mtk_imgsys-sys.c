@@ -1727,7 +1727,9 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 			"%s: [ERROR] imgsys user count is not zero(%d)\n",
 			__func__, user_cnt);
 	#if DVFS_QOS_READY
+	mutex_lock(&(imgsys_dev->power_ctrl_lock));
 	mtk_imgsys_power_ctrl(imgsys_dev, true);
+	mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 	#else
 	pm_runtime_get_sync(imgsys_dev->dev);
 	#endif
@@ -1868,7 +1870,9 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	gce_work_pool_uninit(imgsys_dev);
 
 	#if DVFS_QOS_READY
+	mutex_lock(&(imgsys_dev->power_ctrl_lock));
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
+	mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 	#else
 	pm_runtime_put_sync(imgsys_dev->dev);
 	#endif
