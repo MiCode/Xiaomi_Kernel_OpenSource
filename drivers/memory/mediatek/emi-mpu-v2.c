@@ -115,7 +115,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *miu_mpu_base;
 	unsigned int emi_id, i;
 	ssize_t msg_len;
-	int nr_vio;
+	int n, nr_vio;
 	bool violation;
 
 	nr_vio = 0;
@@ -164,33 +164,67 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		}
 
 		/* Dump all violation info*/
-		pr_info("[EMIMPU] emi_id:%d", emi_id);
-		for (i = 0; i < mpu->dump_cnt; i++) {
-			dump_reg[i].value = readl(
-				emi_cen_base + dump_reg[i].offset);
-			pr_info("[0x%x]0x%8x ", dump_reg[i].offset, dump_reg[i].value);
-		}
-
+		//pr_info("[EMIMPU] emi_id:%d", emi_id);
+		msg_len = snprintf(mpu->vio_msg + msg_len,
+				MTK_EMI_MAX_CMD_LEN - msg_len,
+				"\n[EMIMPU] emi id :%d", emi_id);
+		for (i = 0; i < mpu->dump_cnt; i++)
+			if (msg_len < MTK_EMI_MAX_CMD_LEN) {
+				n = snprintf(mpu->vio_msg + msg_len,
+					MTK_EMI_MAX_CMD_LEN - msg_len,
+					"[%x]0x%x;",
+					dump_reg[i].offset,
+					dump_reg[i].value);
+				msg_len += (n < 0) ? 0 : (ssize_t)n;
+			}
 		miu_kp_base = mpu->miu_kp_base[emi_id];
-		pr_info("[MIU] kp");
+		//pr_info("[MIU] kp");
+		if (msg_len < MTK_EMI_MAX_CMD_LEN) {
+			n = snprintf(mpu->vio_msg + msg_len,
+				MTK_EMI_MAX_CMD_LEN - msg_len,
+				"\n[MIU] kp");
+			msg_len += (n < 0) ? 0 : (ssize_t)n;
+		}
 		for (i = 0; i < mpu->miukp_dump_cnt; i++) {
 			miukp_dump_reg[i].value = readl(
 				miu_kp_base + miukp_dump_reg[i].offset);
-			pr_info("[0x%x]0x%8x ", miukp_dump_reg[i].offset, miukp_dump_reg[i].value);
+			if (msg_len < MTK_EMI_MAX_CMD_LEN) {
+				n = snprintf(mpu->vio_msg + msg_len,
+					MTK_EMI_MAX_CMD_LEN - msg_len,
+					"[%x]0x%x;",
+					miukp_dump_reg[i].offset,
+					miukp_dump_reg[i].value);
+				msg_len += (n < 0) ? 0 : (ssize_t)n;
+			}
+		//	pr_info("[0x%x]0x%8x ", miukp_dump_reg[i].offset, miukp_dump_reg[i].value);
 		}
 		miu_mpu_base = mpu->miu_mpu_base[emi_id];
-		pr_info("[MIU] mpu");
+		//pr_info("[MIU] mpu");
+		if (msg_len < MTK_EMI_MAX_CMD_LEN) {
+			n = snprintf(mpu->vio_msg + msg_len,
+					MTK_EMI_MAX_CMD_LEN - msg_len,
+				"\n[MIU] miu");
+			msg_len += (n < 0) ? 0 : (ssize_t)n;
+		}
 		for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 			miumpu_dump_reg[i].value = readl(
 				miu_mpu_base + miumpu_dump_reg[i].offset);
-			pr_info("[0x%x]0x%8x ",
-				miumpu_dump_reg[i].offset, miumpu_dump_reg[i].value);
+			if (msg_len < MTK_EMI_MAX_CMD_LEN) {
+				n = snprintf(mpu->vio_msg + msg_len,
+					MTK_EMI_MAX_CMD_LEN - msg_len,
+					"[%x]0x%x;",
+					miumpu_dump_reg[i].offset,
+					miumpu_dump_reg[i].value);
+				msg_len += (n < 0) ? 0 : (ssize_t)n;
+			}
+		//	pr_info("[0x%x]0x%8x ",
+		//		miumpu_dump_reg[i].offset, miumpu_dump_reg[i].value);
 		}
 
 		clear_violation(mpu, emi_id);
 
 	}
-
+	printk_deferred("%s: %s", __func__, mpu->vio_msg);
 	return IRQ_HANDLED;
 }
 
