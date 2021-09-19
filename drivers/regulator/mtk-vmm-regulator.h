@@ -7,11 +7,18 @@
 #define _ISP_DVFS_H
 #include <linux/mutex.h>
 #include <linux/types.h>
+#include <linux/remoteproc.h>
 
-#define CMD_UPDATE_DVFS_INFO 1
 #define MAX_MUX_NUM (10)
 #define MAX_OPP_STEP 7
-#define DEFAULT_VOLTAGE 550000
+#define DEFAULT_VOLTAGE 650000
+
+enum dvfs_apmcu_task_id {
+	DVFS_CCU_NO_NEED_CB = -1,
+	DVFS_CCU_INIT = 0,
+	DVFS_VOLTAGE_UPDATE = 1,
+	DVFS_CCU_UNINIT = 2,
+};
 
 struct dvfs_clk_data {
 	const char *mux_name;
@@ -31,13 +38,28 @@ struct dvfs_info {
 	u32 opp_level;
 };
 
+struct ccu_handle_info {
+	phandle handle;
+	struct rproc *proc;
+	struct platform_device *ccu_pdev;
+};
+
 struct dvfs_driver_data {
 	struct device *dev;
 	u32 num_muxes;
+	bool mux_is_enable;
 	struct dvfs_clk_data muxes[MAX_MUX_NUM];
 	struct dvfs_table opp_table;
 	struct dvfs_info current_dvfs;
-	u32 support_aging;
+	u32 simulate_aging;
+	u32 en_vb;
+	u32 disable_dvfs;
+	struct ccu_handle_info ccu_handle;
+};
+
+struct dvfs_ipc_init {
+	u32 needVoltageBin;
+	u32 needSimAging;
 };
 
 struct dvfs_ipc_info {
