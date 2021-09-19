@@ -10026,7 +10026,7 @@
 
 	vcp: vcp@1ec00000 {
 		compatible = "mediatek,vcp";
-		vcp-support = <1>;
+		vcp-support = <0>;
 		status = "okay";
 		reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 		      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -10152,29 +10152,28 @@
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
 			      <6 0x400>; /* VENC_VCP_LOG_INFO_ID 1KB */
 
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
 			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D3>;
 		clock-names = "mmup-clk", "mmup-pll";
 	};
 
-	vcp_iommu_vdec {
-		vcp-support = <2>;
+	vcp_io2: vcp_iommu_vdec {
 		compatible =  "mediatek,vcp-io-vdec";
+		vcp-support = <0>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_512MB1>;
 	};
 
-	vcp_iommu_venc {
-		vcp-support = <3>;
+	vcp_io3: vcp_iommu_venc {
 		compatible =  "mediatek,vcp-io-venc";
+		vcp-support = <0>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_512MB2>;
 	};
 
-	vcp_iommu_work {
-		vcp-support = <4>;
+	vcp_io4: vcp_iommu_work {
 		compatible = "mediatek,vcp-io-work";
+		vcp-support = <0>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_256MB2>;
 	};
