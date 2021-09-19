@@ -71,8 +71,8 @@ struct mdw_ipi_handshake {
 };
 
 struct mdw_ipi_param {
-	int type;
-	int dir;
+	uint32_t type;
+	uint32_t dir;
 	uint32_t value;
 };
 
