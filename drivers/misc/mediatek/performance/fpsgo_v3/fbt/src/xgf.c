@@ -47,10 +47,18 @@ int fstb_frame_num;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr;
 EXPORT_SYMBOL(fstb_no_stable_thr);
-int fstb_target_fps_margin_low_FPS;
-EXPORT_SYMBOL(fstb_target_fps_margin_low_FPS);
-int fstb_target_fps_margin_high_FPS;
-EXPORT_SYMBOL(fstb_target_fps_margin_high_FPS);
+int fstb_no_stable_multiple;
+EXPORT_SYMBOL(fstb_no_stable_multiple);
+int fstb_no_stable_multiple_eara;
+EXPORT_SYMBOL(fstb_no_stable_multiple_eara);
+int fstb_is_eara_active;
+EXPORT_SYMBOL(fstb_is_eara_active);
+int fstb_can_update_thr;
+EXPORT_SYMBOL(fstb_can_update_thr);
+int fstb_target_fps_margin_low_fps;
+EXPORT_SYMBOL(fstb_target_fps_margin_low_fps);
+int fstb_target_fps_margin_high_fps;
+EXPORT_SYMBOL(fstb_target_fps_margin_high_fps);
 int fstb_separate_runtime_enable;
 EXPORT_SYMBOL(fstb_separate_runtime_enable);
 int fstb_fps_num;
@@ -81,6 +89,7 @@ int (*fpsgo_xgf2ko_calculate_target_fps_fp)(
 	int pid,
 	unsigned long long bufID,
 	int *target_fps_margin,
+	unsigned long long cur_dequeue_start_ts,
 	unsigned long long cur_queue_end_ts
 	);
 EXPORT_SYMBOL(fpsgo_xgf2ko_calculate_target_fps_fp);
@@ -291,12 +300,6 @@ int xgf_check_specific_pid(int pid)
 	return 0;
 }
 EXPORT_SYMBOL(xgf_check_specific_pid);
-
-int fpsgo_ko2xgf_get_fps_level(int pid, unsigned long long bufID, int target_fps)
-{
-	return -EINVAL;
-}
-EXPORT_SYMBOL(fpsgo_ko2xgf_get_fps_level);
 
 static inline int xgf_is_enable(void)
 {
