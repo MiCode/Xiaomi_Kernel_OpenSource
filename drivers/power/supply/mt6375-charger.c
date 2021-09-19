@@ -740,19 +740,18 @@ static int mt6375_chg_is_charge_done(struct mt6375_chg_data *ddata, bool *done)
 	return 0;
 }
 
-static int mt6375_chg_set_cv(struct mt6375_chg_data *ddata, u32 uV)
+static int mt6375_chg_set_cv(struct mt6375_chg_data *ddata, u32 mV)
 {
 	int ret = 0;
 	bool done = false, enabled = false;
 
-	mt_dbg(ddata->dev, "cv=%d\n", uV);
 	mutex_lock(&ddata->cv_lock);
 	if (ddata->batprotect_en) {
 		dev_notice(ddata->dev,
 			   "batprotect enabled, should not set cv\n");
 		goto out;
 	}
-	if (uV <= ddata->cv || uV >= ddata->cv + RECHG_THRESHOLD)
+	if (mV <= ddata->cv || mV >= ddata->cv + RECHG_THRESHOLD)
 		goto out_cv;
 	ret = mt6375_chg_is_charge_done(ddata, &done);
 	if (ret < 0 || !done)
@@ -763,9 +762,9 @@ static int mt6375_chg_set_cv(struct mt6375_chg_data *ddata, u32 uV)
 	if (mt6375_chg_field_set(ddata, F_CHG_EN, false) < 0)
 		dev_notice(ddata->dev, "failed to disable charging\n");
 out_cv:
-	ret = mt6375_chg_field_set(ddata, F_CV, U_TO_M(uV));
+	ret = mt6375_chg_field_set(ddata, F_CV, mV);
 	if (!ret)
-		ddata->cv = uV;
+		ddata->cv = mV;
 	if (done && enabled)
 		mt6375_chg_field_set(ddata, F_CHG_EN, true);
 out:
@@ -1084,6 +1083,7 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 		if (_val) {
 			ret = -EBUSY;
 			dev_notice(ddata->dev, "vbat_mon is enabled\n");
+			mutex_unlock(&ddata->cv_lock);
 			break;
 		}
 		ret = mt6375_chg_field_set(ddata, F_VBAT_MON_EN, 1);
@@ -1219,7 +1219,8 @@ static int mt6375_set_cv(struct charger_device *chgdev, u32 uV)
 {
 	struct mt6375_chg_data *ddata = charger_get_data(chgdev);
 
-	return mt6375_chg_set_cv(ddata, uV);
+	mt_dbg(ddata->dev, "cv=%d\n", uV);
+	return mt6375_chg_set_cv(ddata, U_TO_M(uV));
 }
 
 static int mt6375_get_cv(struct charger_device *chgdev, u32 *uV)
