@@ -59,12 +59,16 @@ extern int mml_pq_trace;
 struct mml_task;
 
 struct mml_pq_readback_data {
-	struct mml_frame_info info;
-	struct mml_pq_param pq_param[MML_MAX_OUTPUTS];
 	bool is_dual;
 	u32 cut_pos_x;
 	u32 *pipe0_hist;
 	u32 *pipe1_hist;
+};
+
+struct mml_pq_frame_data {
+	struct mml_frame_info info;
+	struct mml_pq_param pq_param[MML_MAX_OUTPUTS];
+	struct mml_frame_size frame_out[MML_MAX_OUTPUTS];
 };
 
 struct mml_pq_sub_task {
@@ -73,6 +77,7 @@ struct mml_pq_sub_task {
 	void *result;
 	atomic_t result_ref;
 	struct mml_pq_readback_data readback_data;
+	struct mml_pq_frame_data frame_data;
 	struct wait_queue_head wq;
 	struct list_head mbox_list;
 	bool job_cancelled;
