@@ -963,6 +963,10 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		struct cmdq_task, list_entry);
 	if (task && task->pkt->loop) {
 		cmdq_log("task loop %p", &task->pkt);
+		if (err)
+			cmdq_err("irq flag:%#x hwid:%hu idx:%u pkt:%p loop",
+				irq_flag, cmdq->hwid, thread->idx, task->pkt);
+
 		cmdq_task_callback(task->pkt, err);
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -974,7 +978,8 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 			MMP_THD(thread, cmdq), (unsigned long)task->pkt);
 #endif
 
-		return;
+		if (!err)
+			return;
 	}
 
 	if (thread->dirty) {
