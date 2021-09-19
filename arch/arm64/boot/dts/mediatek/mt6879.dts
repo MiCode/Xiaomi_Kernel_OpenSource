@@ -2011,10 +2011,8 @@
 			      "ME_CG_IPE_TOP",
 			      "ME_CG",
 			      "ME_CG_LARB12";
-#if 0
 		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 		dvfsrc-vmm-supply = <&vmm_proxy_label>;
-#endif
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_LARB9_PORT0)
 				&mmqos SLAVE_COMMON(0)>,
@@ -8293,10 +8291,8 @@
 
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_MM_INFRA>,
 				<&scpsys MT6879_POWER_DOMAIN_CSI_RX>;
-#if 0
 		operating-points-v2 = <&opp_table_cam>;
 		dvfsrc-vmm-supply = <&vmm_proxy_label>;
-#endif
 		clocks =
 			<&cam_main_r1a_clk CLK_CAM_MAIN_SENINF_CON>,
 			 <&topckgen_clk CLK_TOP_SENINF_SEL>,
@@ -8417,10 +8413,8 @@
 		reg-names = "base";
 		mediatek,ccd = <&remoteproc_ccd>;
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_CAM_MAIN>;
-#if 0
 		operating-points-v2 = <&opp_table_cam>;
 		dvfs-vmm-supply = <&vmm_proxy_label>;
-#endif
 	};
 
 	cam_raw_a@1a030000 {
