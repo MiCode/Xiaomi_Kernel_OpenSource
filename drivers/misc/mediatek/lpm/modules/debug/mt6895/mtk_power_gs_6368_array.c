@@ -299,8 +299,8 @@ const unsigned int AP_PMIC_REG_MT6368_gs_deepidle___lp_mp3_32kless_data[] = {
 	0x1D07, 0x3, 0x0,/* LDO_VEFUSE_CON0 */
 	0x1D08, 0x8, 0x0,/* LDO_VEFUSE_CON1 */
 	0x1D09, 0x80, 0x0,/* LDO_VEFUSE_CON2 */
-	0x1D0E, 0x80, 0x80 /* LDO_VEFUSE_OP_EN2 */
-	0x1ABD, 0xF0, 0x0,/* BUCK_TOP_4PHASE_2_ANA_CON53 */
+	0x1D0E, 0x80, 0x80,/* LDO_VEFUSE_OP_EN2 */
+	0x1ABD, 0xF0, 0x0 /* BUCK_TOP_4PHASE_2_ANA_CON53 */
 };
 
 const unsigned int *AP_PMIC_REG_6368_gs_deepidle___lp_mp3_32kless =
