@@ -359,7 +359,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			enqueue_end_time, f_render->enqueue_length);
 
 		fpsgo_comp2fstb_prepare_calculate_target_fps(pid, f_render->buffer_id,
-			enqueue_end_time);
+			f_render->t_dequeue_start, enqueue_end_time);
 
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,

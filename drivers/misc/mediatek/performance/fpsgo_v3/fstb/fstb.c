@@ -785,6 +785,11 @@ void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff,
 			iter->target_fps_diff = diff;
 			fpsgo_systrace_c_fstb_man(pid, buf_id, diff, "eara_diff");
 
+			if (diff)
+				fpsgo_fstb2xgf_set_no_stable_num(1);
+			else
+				fpsgo_fstb2xgf_set_no_stable_num(0);
+
 			if (iter->target_fps_notifying
 				&& tfps == iter->target_fps_notifying) {
 				iter->target_fps_v2 = iter->target_fps_notifying;
@@ -1012,15 +1017,29 @@ out:
 }
 
 static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_queue_end_ts)
+	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts)
 {
 	int i, target_fps, margin = 0;
 	int target_fps_old = max_fps_limit, target_fps_new = max_fps_limit;
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter;
 
+	mutex_lock(&fstb_lock);
+
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid == pid && iter->bufid == bufID)
+			break;
+	}
+
+	if (iter == NULL)
+		goto out;
+
+	margin = iter->target_fps_margin_v2;
+
+	mutex_unlock(&fstb_lock);
+
 	target_fps = fpsgo_fstb2xgf_get_target_fps(pid, bufID,
-		&margin, cur_queue_end_ts);
+		&margin, cur_dequeue_start_ts, cur_queue_end_ts);
 
 	mutex_lock(&fstb_lock);
 
@@ -1082,13 +1101,13 @@ static void fstb_notifier_wq_cb(struct work_struct *psWork)
 		return;
 
 	fstb_calculate_target_fps(vpPush->pid, vpPush->bufid,
-		vpPush->cur_queue_end_ts);
+		vpPush->cur_dequeue_start_ts, vpPush->cur_queue_end_ts);
 
 	kfree(vpPush);
 }
 
 void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_queue_end_ts)
+	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts)
 {
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_NOTIFIER_PUSH_TAG *vpPush;
@@ -1118,6 +1137,7 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 
 	vpPush->pid = pid;
 	vpPush->bufid = bufID;
+	vpPush->cur_dequeue_start_ts = cur_dequeue_start_ts;
 	vpPush->cur_queue_end_ts = cur_queue_end_ts;
 
 	INIT_WORK(&vpPush->sWork, fstb_notifier_wq_cb);
@@ -1125,41 +1145,6 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 
 out:
 	mutex_unlock(&fstb_lock);
-}
-
-int fpsgo_xgf2fstb_get_fps_level(int pid, unsigned long long bufID, int target_fps)
-{
-	int i, ret_fps = -1;
-	struct FSTB_FRAME_INFO *iter;
-	struct FSTB_RENDER_TARGET_FPS *rtfiter;
-
-	mutex_lock(&fstb_lock);
-
-	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		if (iter->pid == pid && iter->bufid == bufID)
-			break;
-	}
-
-	if (iter == NULL)
-		goto out;
-
-	hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
-		if (!strncmp(iter->proc_name, rtfiter->process_name, 16)
-			|| rtfiter->pid == iter->pid) {
-			for (i = rtfiter->nr_level-1; i >= 0; i--) {
-				if (rtfiter->level[i].start >= target_fps) {
-					ret_fps = rtfiter->level[i].start;
-					break;
-				}
-			}
-			if (ret_fps < 0)
-				ret_fps = rtfiter->level[0].start;
-		}
-	}
-
-out:
-	mutex_unlock(&fstb_lock);
-	return ret_fps;
 }
 
 static long long get_cpu_frame_time(struct FSTB_FRAME_INFO *iter)

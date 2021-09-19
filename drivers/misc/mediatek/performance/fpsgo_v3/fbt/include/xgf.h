@@ -241,6 +241,7 @@ extern int (*xgf_est_runtime_fp)(pid_t r_pid,
 extern int (*fpsgo_xgf2ko_calculate_target_fps_fp)(int pid,
 	unsigned long long bufID,
 	int *target_fps_margin,
+	unsigned long long cur_dequeue_start_ts,
 	unsigned long long cur_queue_end_ts);
 extern void (*fpsgo_xgf2ko_do_recycle_fp)(int pid,
 	unsigned long long bufID);
@@ -287,19 +288,20 @@ int uboost2xgf_get_info(int pid, unsigned long long bufID,
 	unsigned long long *timer_period, int *frame_idx);
 
 int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
-	int *target_fps_margin, unsigned long long cur_queue_end_ts);
+	int *target_fps_margin, unsigned long long cur_dequeue_start_ts,
+	unsigned long long cur_queue_end_ts);
 int fpsgo_xgf2ko_calculate_target_fps(int pid, unsigned long long bufID,
-	int *target_fps_margin, unsigned long long cur_queue_end_ts);
+	int *target_fps_margin, unsigned long long cur_dequeue_start_ts,
+	unsigned long long cur_queue_end_ts);
 int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID);
 void fpsgo_xgf2ko_do_recycle(int pid, unsigned long long bufID);
 void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps);
+void fpsgo_fstb2xgf_set_no_stable_num(int eara_flag);
 void fpsgo_fstb2xgf_set_camera_flag(int camera_flag);
 int xgf_get_display_rate(void);
 int xgf_get_process_id(int pid);
 int xgf_check_main_sf_pid(int pid, int process_id);
 int xgf_check_specific_pid(int pid);
-int fpsgo_ko2xgf_get_fps_level(int pid, unsigned long long bufID,
-	int target_fps);
 void xgf_set_logical_render_runtime(int pid, unsigned long long bufID,
 	unsigned long long l_runtime, unsigned long long r_runtime);
 void xgf_set_logical_render_info(int pid, unsigned long long bufID,
@@ -362,8 +364,12 @@ extern atomic_t fstb_event_data_idx;
 extern int fstb_event_buffer_size;
 extern int fstb_frame_num;
 extern int fstb_no_stable_thr;
-extern int fstb_target_fps_margin_low_FPS;
-extern int fstb_target_fps_margin_high_FPS;
+extern int fstb_no_stable_multiple;
+extern int fstb_no_stable_multiple_eara;
+extern int fstb_is_eara_active;
+extern int fstb_can_update_thr;
+extern int fstb_target_fps_margin_low_fps;
+extern int fstb_target_fps_margin_high_fps;
 extern int fstb_separate_runtime_enable;
 extern int fstb_fps_num;
 extern int fstb_fps_choice[];
