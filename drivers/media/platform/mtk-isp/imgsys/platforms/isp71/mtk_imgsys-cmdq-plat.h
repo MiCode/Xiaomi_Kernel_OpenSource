@@ -37,6 +37,7 @@
 #define LTRAW_SMI_PORT_NUM	7
 #define XTRAW_SMI_PORT_NUM	16
 #define DIP_SMI_PORT_NUM	39
+#define ADL_SMI_PORT_NUM	2
 
 enum mtk_imgsys_event {
 	/* HW event */
@@ -882,6 +883,11 @@ struct dip_bw_t {
 	struct smi_port_t smiport[DIP_SMI_PORT_NUM];
 } __attribute__((__packed__));
 
+struct adl_bw_t {
+	uint32_t totalbw;
+	struct smi_port_t smiport[ADL_SMI_PORT_NUM];
+} __attribute__((__packed__));
+
 struct frame_bw_t {
 	struct wpe_bw_t wpe_eis;
 	struct wpe_bw_t wpe_tnr;
@@ -893,6 +899,7 @@ struct frame_bw_t {
 	struct ltraw_bw_t ltraw;
 	struct xtraw_bw_t xtraw;
 	struct dip_bw_t dip;
+	struct adl_bw_t ad;
 } __attribute__((__packed__));
 
 #endif /* _MTK_IMGSYS_CMDQ_PLAT_H_ */
