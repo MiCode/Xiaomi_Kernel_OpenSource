@@ -431,7 +431,7 @@ void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 	ccd_memory->num_buffers++;
 	mutex_unlock(&ccd_memory->mmap_lock);
 
-	dev_info(ccd_memory->dev,
+	dev_dbg(ccd_memory->dev,
 		"Num_bufs = %d iova = %pad va = %p size = %d priv = %p\n",
 		 ccd_memory->num_buffers, &mem_buff_data->iova,
 		 mem_buff_data->va,
@@ -464,7 +464,7 @@ int mtk_ccd_put_buffer(struct mtk_ccd *ccd,
 
 			if (mem_buff_data->va == va &&
 				mem_buff_data->len == ccd_buffer->size) {
-				dev_info(ccd_memory->dev,
+				dev_dbg(ccd_memory->dev,
 					"Free buff = %d iova = %pad va = %p, queue_num = %d\n",
 					 buffer, &mem_buff_data->iova,
 					 mem_buff_data->va,
@@ -517,8 +517,8 @@ int mtk_ccd_get_fd(struct mtk_ccd *ccd, struct mtk_ccd_buf *buf, int ori_fd)
 		get_kernel_nofault(siglock, &task->sighand->siglock))
 		return -EMFILE;
 
-	dev_info(ccd->dev, "Master pid: %d, tgid: %d\n", task->pid, task->tgid);
-	dev_info(ccd->dev, "Current pid: %d, tgid: %d\n",
+	dev_dbg(ccd->dev, "Master pid: %d, tgid: %d\n", task->pid, task->tgid);
+	dev_dbg(ccd->dev, "Current pid: %d, tgid: %d\n",
 		 current->pid, current->tgid);
 	if (ori_fd > 0 && task->tgid == current->tgid)
 		return ori_fd;
@@ -587,7 +587,7 @@ int mtk_ccd_put_fd(struct mtk_ccd *ccd,
 
 			dma_buf_put(buf->dbuf);
 
-			dev_info(ccd_memory->dev,
+			dev_dbg(ccd_memory->dev,
 					"put dma buf : %d, iova = %p, va = %p, fd = %d",
 					i, &mem_buff_data->iova, mem_buff_data->va, target_fd);
 
@@ -622,7 +622,7 @@ void mtk_ccd_get_service(struct mtk_ccd *ccd,
 			 struct task_struct **task,
 			 struct files_struct **f)
 {
-	dev_info(ccd->dev, "service: %p\n", ccd->ccd_masterservice);
+	dev_dbg(ccd->dev, "service: %p\n", ccd->ccd_masterservice);
 	*task = ccd->ccd_masterservice;
 	*f = ccd->ccd_files;
 }
