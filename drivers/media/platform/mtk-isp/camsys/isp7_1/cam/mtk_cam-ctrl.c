@@ -30,6 +30,9 @@
 
 #define SENSOR_SET_DEADLINE_MS  18
 #define SENSOR_SET_RESERVED_MS  7
+#define SENSOR_SET_DEADLINE_MS_60FPS  7
+#define SENSOR_SET_RESERVED_MS_60FPS  4
+
 #define STATE_NUM_AT_SOF 3
 #define INITIAL_DROP_FRAME_CNT 1
 
@@ -3560,7 +3563,7 @@ static int timer_reqdrained_chk(int fps_ratio, int sub_sample)
 	}
 	/* earlier request drained event*/
 	if (sub_sample == 0 && fps_ratio > 1)
-		timer_ms = timer_ms > 8 ? 8 : timer_ms;
+		timer_ms = SENSOR_SET_DEADLINE_MS_60FPS;
 
 	return timer_ms;
 }
@@ -3581,7 +3584,7 @@ static int timer_setsensor(int fps_ratio, int sub_sample)
 	}
 	/* faster sensor setting*/
 	if (sub_sample == 0 && fps_ratio > 1)
-		timer_ms = timer_ms > 3 ? 3 : timer_ms;
+		timer_ms = SENSOR_SET_RESERVED_MS_60FPS;
 
 	return timer_ms;
 }
