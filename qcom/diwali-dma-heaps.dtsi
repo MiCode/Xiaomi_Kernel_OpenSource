@@ -11,5 +11,22 @@
 			qcom,token = <0x20000000>;
 		};
 
+		qcom,user_contig {
+			qcom,dma-heap-name = "qcom,user-contig";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&user_contig_mem>;
+		};
+
+		qcom,qseecom {
+			qcom,dma-heap-name = "qcom,qseecom";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&qseecom_mem>;
+		};
+
+		qcom,qseecom_ta {
+			qcom,dma-heap-name = "qcom,qseecom-ta";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&qseecom_ta_mem>;
+		};
 	};
 };
