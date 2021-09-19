@@ -332,6 +332,34 @@ static const struct mtk_iommu_iova_region mt6873_multi_dom[] = {
 };
 
 /*
+ * 0,NORMAL: 0x2000_0000~0x3FFF_FFFF & 0x1_0000_0000~0x1_05FF_FFFF & 0x2_0000_0000~0x3_FFFF_FFFF
+ * 1,APU_SECURE:     0x1000~0x1FFF_FFFF
+ * 2,APU_CODE:       0x4000_0000~0xFFFF_FFFF
+ * 3,LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF
+ * 4,CCU0:           0x1_0800_0000~0x1_0BFF_FFFF
+ * 5,CCU1:           0x1_0C00_0000~0x1_0FFF_FFFF
+ * 6,VDO_UP_512MB_1: 0x1_1000_0000~0x1_2FFF_FFFF
+ * 7,VDO_UP_512MB_2: 0x1_3000_0000~0x1_4FFF_FFFF
+ * 8,VDO_UP_256MB_1: 0x1_5000_0000~0x1_5FFF_FFFF
+ * 9,VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
+ * 10,VDEC:          0x1_7000_0000~0x1_FFFF_FFFF
+ */
+static const struct mtk_iommu_iova_region mt6879_multi_dom[] = {
+	/* 0, NORMAL:512MB+96MB+8GB */
+	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL},
+	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = SECURE}, /* 1,APU_SECURE:512M */
+	{ .iova_base = SZ_1G, .size = 0xc0000000, .type = NORMAL}, /* 2,APU_CODE:3GB */
+	{ .iova_base = 0x106000000ULL, .size = 0x2000000, .type = PROTECTED}, /* 3,LK_RESV:32MB */
+	{ .iova_base = 0x108000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 4,CCU0:64MB */
+	{ .iova_base = 0x10C000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 5,CCU1:64MB */
+	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 6,VDO_UP_512MB_1 */
+	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 7,VDO_UP_512MB_2 */
+	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 8,VDO_UP_256MB_1 */
+	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 9,VDO_UP_256MB_1 */
+	{ .iova_base = 0x170000000ULL, .size = 0x90000000, .type = NORMAL}, /* 10,VDEC */
+};
+
+/*
  * 0,NORMAL:
  *   512MB:          0x2000_0000~0x3FFF_FFFF
  *   96MB:           0x1_0000_0000~0x1_05FF_FFFF
@@ -365,41 +393,29 @@ static const struct mtk_iommu_iova_region mt6895_multi_dom[] = {
 /*
  * 0,NORMAL: 0x2000_0000~0x3FFF_FFFF & 0x1_0000_0000~0x1_05FF_FFFF & 0x2_0000_0000~0x3_FFFF_FFFF
  * 1,APU_SECURE:     0x1000~0x1FFF_FFFF
- * 2,APU_CODE:       0x4000_0000~0xFFFF_FFFF
- * 3,LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF
- * 4,CCU0:           0x1_0800_0000~0x1_0BFF_FFFF
- * 5,CCU1:           0x1_0C00_0000~0x1_0FFF_FFFF
- * 6,VDO_UP_512MB_1: 0x1_1000_0000~0x1_2FFF_FFFF
- * 7,VDO_UP_512MB_2: 0x1_3000_0000~0x1_4FFF_FFFF
- * 8,VDO_UP_256MB_1: 0x1_5000_0000~0x1_5FFF_FFFF
- * 9,VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
- * 10,VDEC:          0x1_7000_0000~0x1_FFFF_FFFF
+ * 2.VDEC:           0x2000_0000~0x32BF_FFFF
+ * 3.APU_CODE:       0x4000_0000~0xFFFF_FFFF
+ * 4.LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF
+ * 5.CCU0:           0x1_0800_0000~0x1_0BFF_FFFF
+ * 6.CCU1:           0x1_0C00_0000~0x1_0FFF_FFFF
+ * 7.VDO_UP_512MB_1: 0x1_1000_0000~0x1_2FFF_FFFF
+ * 8.VDO_UP_512MB_2: 0x1_3000_0000~0x1_4FFF_FFFF
+ * 9.VDO_UP_256MB_1: 0x1_5000_0000~0x1_5FFF_FFFF
+ * 10.VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
  */
 static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
 	/* 0, NORMAL:512MB+96MB+8GB */
 	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL},
 	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = SECURE}, /* 1,APU_SECURE:512M */
-	{ .iova_base = SZ_1G, .size = 0xc0000000, .type = NORMAL}, /* 2,APU_CODE:3GB */
-	{ .iova_base = 0x106000000ULL, .size = 0x2000000, .type = PROTECTED}, /* 3,LK_RESV:32MB */
-	{ .iova_base = 0x108000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 4,CCU0:64MB */
-	{ .iova_base = 0x10C000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 5,CCU1:64MB */
-	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 6,VDO_UP_512MB_1 */
-	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 7,VDO_UP_512MB_2 */
-	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 8,VDO_UP_256MB_1 */
-	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 9,VDO_UP_256MB_1 */
-	{ .iova_base = 0x170000000ULL, .size = 0x90000000, .type = NORMAL}, /* 10,VDEC */
-};
-
-static const struct mtk_iommu_iova_region mt6983_multi_dom_test[] = {
-	{ .iova_base = SZ_4K, .size = (SZ_4G * 2 - SZ_4K)}, /* 0,NORMAL: 0x1000~0x1_FFFF_FFFF */
-	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K)}, /* 1,APU_SECURE:0x1000~0x1FFF_FFFF */
-	{ .iova_base = SZ_1G, .size = 0xc0000000}, /* 2,APU_CODE:0x4000_0000~0xFFFF_FFFF */
-	{ .iova_base = 0x100000000ULL, .size = SZ_1G}, /* 3,CCU0:1_0000_0000~0x1_3FFF_FFFF */
-	{ .iova_base = 0x140000000ULL, .size = SZ_1G}, /* 4,CCU1:1_4000_0000~0x1_7FFF_FFFF */
-	{ .iova_base = 0x180000000ULL, .size = SZ_1G}, /* 5,VDO_UP_512MB_1:1_8000_0000~0x1_BFFF_FFFF */
-	{ .iova_base = 0x1C0000000ULL, .size = SZ_512M}, /* 6,VDO_UP_512MB_2: 1_C000_0000~0x1_DFFF_FFFF*/
-	{ .iova_base = 0x1E0000000ULL, .size = SZ_256M}, /* 7,VDO_UP_256MB_1: 1_E000_0000~0x1_EFFF_FFFF */
-	{ .iova_base = 0x1F0000000ULL, .size = (SZ_128M + 0x7400000)}, /* 8,VDO_UP_256MB_1: 1_F000_0000~0x1_FF3F_FFFF */
+	{ .iova_base = 0x20000000ULL, .size = 0x12c00000, .type = NORMAL}, /* 2,VDEC 300MB */
+	{ .iova_base = SZ_1G, .size = 0xc0000000, .type = NORMAL}, /* 3,APU_CODE:3GB */
+	{ .iova_base = 0x106000000ULL, .size = 0x2000000, .type = PROTECTED}, /* 4,LK_RESV:32MB */
+	{ .iova_base = 0x108000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 5,CCU0:64MB */
+	{ .iova_base = 0x10C000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 6,CCU1:64MB */
+	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 7,VDO_UP_512MB_1 */
+	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 8,VDO_UP_512MB_2 */
+	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 9,VDO_UP_256MB_1 */
+	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 10,VDO_UP_256MB_1 */
 };
 
 static int mtee_share_iova(uint64_t iova_start, uint32_t size)
@@ -2852,8 +2868,8 @@ static const struct mtk_iommu_plat_data mt6879_data_disp = {
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6983_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	.iova_region    = mt6879_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2866,8 +2882,8 @@ static const struct mtk_iommu_plat_data mt6879_data_apu0 = {
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6983_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	.iova_region    = mt6879_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2881,8 +2897,8 @@ static const struct mtk_iommu_plat_data mt6879_data_peri_m4 = {
 	.iommu_id	= PERI_IOMMU_M4,
 	.iommu_type     = PERI_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6983_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	.iova_region    = mt6879_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2896,8 +2912,8 @@ static const struct mtk_iommu_plat_data mt6879_data_peri_m6 = {
 	.iommu_id	= PERI_IOMMU_M6,
 	.iommu_type     = PERI_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6983_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	.iova_region    = mt6879_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -2909,8 +2925,8 @@ static const struct mtk_iommu_plat_data mt6879_data_peri_m7 = {
 	.iommu_id	= PERI_IOMMU_M7,
 	.iommu_type     = PERI_IOMMU,
 	.normal_dom	= 0,
-	.iova_region    = mt6983_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	.iova_region    = mt6879_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
 	/* not use larbid_remap */
 };
 
