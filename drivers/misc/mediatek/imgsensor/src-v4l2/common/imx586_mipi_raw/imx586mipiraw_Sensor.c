@@ -5254,9 +5254,15 @@ break;
 	case SENSOR_FEATURE_GET_CUST_PIXEL_RATE:
 			switch (*feature_data) {
 			case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1037400000;
+				//416(clk)*2(pixel)*0.95
+				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 790400000;
 				break;
 			case SENSOR_SCENARIO_ID_CUSTOM3:
+				//416(clk)*4(pixel)*.95
+				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1580800000;
+				break;
+			case SENSOR_SCENARIO_ID_CUSTOM4:
+				//546(clk)*2(pixel)*0.95
 				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1037400000;
 				break;
 			default:

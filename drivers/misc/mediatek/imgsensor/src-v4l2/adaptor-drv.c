@@ -200,7 +200,7 @@ static void control_sensor(struct adaptor_ctx *ctx)
 	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 
-	if (!ctx->is_sensor_scenario_inited) {
+	if (!ctx->is_sensor_scenario_inited && !ctx->is_streaming) {
 		subdrv_call(ctx, control,
 				ctx->cur_mode->id,
 				&image_window,
@@ -532,10 +532,8 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 			ctx->is_sensor_inited = 1;
 		}
 #endif
-	if (!ctx->is_streaming)
 		set_sensor_mode(ctx, mode, 1);
 	}
-
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
