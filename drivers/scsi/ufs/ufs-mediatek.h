@@ -106,6 +106,14 @@ enum {
 #define UFS_MTK_SIP_CRYPTO_CTRL           BIT(2)
 #define UFS_MTK_SIP_REF_CLK_NOTIFICATION  BIT(3)
 #define UFS_MTK_SIP_HOST_PWR_CTRL         BIT(5)
+#define UFS_MTK_SIP_GET_VCC_INFO          BIT(6)
+
+/* Sip UFS GET VCC INFO */
+enum {
+	VCC_NONE = 0,
+	VCC_1,
+	VCC_2
+};
 
 /*
  * VS_DEBUGCLOCKENABLE
@@ -168,6 +176,8 @@ struct ufs_mtk_host {
 	bool qos_allowed;
 	bool qos_enabled;
 	bool boot_device;
+	struct ufs_vreg *vcc1;
+	struct ufs_vreg *vcc2;
 
 	struct mutex rpmb_lock;
 #if defined(CONFIG_UFSFEATURE)

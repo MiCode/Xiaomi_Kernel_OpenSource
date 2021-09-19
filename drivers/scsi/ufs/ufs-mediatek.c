@@ -58,6 +58,9 @@
 #define ufs_mtk_host_pwr_ctrl(on, res) \
 	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, on, res)
 
+#define ufs_mtk_get_vcc_info(res) \
+	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, 0, res)
+
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
@@ -1453,6 +1456,61 @@ ufs_mtk_ioctl(struct scsi_device *dev, unsigned int cmd, void __user *buffer)
 	return err;
 }
 
+/* Same with ufshcd_populate_vreg, should EXPORT for upstream */
+#define MAX_PROP_SIZE 32
+static int ufs_mtk_populate_vreg(struct device *dev, const char *name,
+		struct ufs_vreg **out_vreg)
+{
+	int ret = 0;
+	char prop_name[MAX_PROP_SIZE];
+	struct ufs_vreg *vreg = NULL;
+	struct device_node *np = dev->of_node;
+
+	if (!np)
+		goto out;
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", name);
+	if (!of_parse_phandle(np, prop_name, 0)) {
+		dev_info(dev, "%s: Unable to find %s regulator, assuming enabled\n",
+				__func__, prop_name);
+		goto out;
+	}
+
+	vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
+	if (!vreg)
+		return -ENOMEM;
+
+	vreg->name = kstrdup(name, GFP_KERNEL);
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-max-microamp", name);
+	if (of_property_read_u32(np, prop_name, &vreg->max_uA)) {
+		dev_info(dev, "%s: unable to find %s\n", __func__, prop_name);
+		vreg->max_uA = 0;
+	}
+out:
+	if (!ret)
+		*out_vreg = vreg;
+	return ret;
+}
+
+/* Same with ufshcd_get_vreg, should EXPORT for upstream */
+static int ufs_mtk_get_vreg(struct device *dev, struct ufs_vreg *vreg)
+{
+	int ret = 0;
+
+	if (!vreg)
+		goto out;
+
+	vreg->reg = devm_regulator_get(dev, vreg->name);
+	if (IS_ERR(vreg->reg)) {
+		ret = PTR_ERR(vreg->reg);
+		dev_err(dev, "%s: %s get failed, err=%d\n",
+				__func__, vreg->name, ret);
+	}
+out:
+	return ret;
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -1523,6 +1581,20 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_mphy_power_on(hba, true);
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
+	/* Get vcc-opt */
+	err = ufs_mtk_populate_vreg(dev, "vcc-opt1", &host->vcc1);
+	if (err)
+		goto out_variant_clear;
+	err = ufs_mtk_get_vreg(dev, host->vcc1);
+	if (err)
+		goto out_variant_clear;
+
+	err = ufs_mtk_populate_vreg(dev, "vcc-opt2", &host->vcc2);
+	if (err)
+		goto out_variant_clear;
+	err = ufs_mtk_get_vreg(dev, host->vcc2);
+	if (err)
+		goto out_variant_clear;
 
 	cpu_latency_qos_add_request(&host->pm_qos_req,
 	     	   PM_QOS_DEFAULT_VALUE);
@@ -1909,6 +1981,47 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 	ufs_mtk_dbg_dump(100);
 }
 
+static int ufs_mtk_setup_regulators(struct ufs_hba *hba, bool on)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct ufs_vreg_info *vreg_info = &hba->vreg_info;
+	struct arm_smccc_res res;
+	int ret = 0;
+
+	/* Check which VCC is used in fact */
+	ufs_mtk_get_vcc_info(res);
+
+	if (res.a1 == VCC_1 && host->vcc1) {
+		vreg_info->vcc = host->vcc1;
+		if (on)
+			ret = regulator_enable(host->vcc1->reg);
+		else
+			ret = regulator_disable(host->vcc1->reg);
+		if (!ret)
+			host->vcc1->enabled = on;
+
+		if (host->vcc2) {
+			devm_kfree(hba->dev, host->vcc2);
+			host->vcc2 = NULL;
+		}
+	} else if (res.a1 == VCC_2 && host->vcc2) {
+		vreg_info->vcc = host->vcc2;
+		if (on)
+			ret = regulator_enable(host->vcc2->reg);
+		else
+			ret = regulator_disable(host->vcc2->reg);
+		if (!ret)
+			host->vcc2->enabled = on;
+
+		if (host->vcc1) {
+			devm_kfree(hba->dev, host->vcc1);
+			host->vcc1 = NULL;
+		}
+	}
+
+	return ret;
+}
+
 static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 {
 	struct ufs_dev_info *dev_info = &hba->dev_info;
@@ -2062,6 +2175,7 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.init                = ufs_mtk_init,
 	.get_ufs_hci_version = ufs_mtk_get_ufs_hci_version,
 	.setup_clocks        = ufs_mtk_setup_clocks,
+	.setup_regulators    = ufs_mtk_setup_regulators,
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
