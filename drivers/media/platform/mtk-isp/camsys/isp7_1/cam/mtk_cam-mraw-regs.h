@@ -114,7 +114,7 @@ union MRAW_TG_SEN_MODE {
 		unsigned int TG_EOF_SRC                   :  2;    /* 10..11, 0x00000c00 */
 		unsigned int TG_PXL_CNT_RST_SRC           :  1;    /* 12..12, 0x00001000 */
 		unsigned int rsv_13                       :  1;    /* 13..13, 0x00002000 */
-		unsigned int TG_CMOS_RDY_SEL              :  1;    /* 14..14, 0x00004000 */
+		unsigned int TG_M1_CMOS_RDY_SEL           :  1;    /* 14..14, 0x00004000 */
 		unsigned int TG_FIFO_FULL_CTL_EN          :  1;    /* 15..15, 0x00008000 */
 		unsigned int TG_TIME_STP_EN               :  1;    /* 16..16, 0x00010000 */
 		unsigned int TG_VS_SUB_EN                 :  1;    /* 17..17, 0x00020000 */
@@ -122,7 +122,7 @@ union MRAW_TG_SEN_MODE {
 		unsigned int TG_VSYNC_INT_POL             :  1;    /* 19..19, 0x00080000 */
 		unsigned int TG_EOF_ALS_RDY_EN            :  1;    /* 20..20, 0x00100000 */
 		unsigned int rsv_21                       :  1;    /* 21..21, 0x00200000 */
-		unsigned int TG_STAGGER_EN                :  1;    /* 22..22, 0x00400000 */
+		unsigned int TG_M1_STAGGER_EN             :  1;    /* 22..22, 0x00400000 */
 		unsigned int TG_HDR_EN                    :  1;    /* 23..23, 0x00800000 */
 		unsigned int TG_HDR_SEL                   :  1;    /* 24..24, 0x01000000 */
 		unsigned int TG_SOT_DLY_EN                :  1;    /* 25..25, 0x02000000 */
@@ -139,7 +139,7 @@ union MRAW_TG_SEN_MODE {
 #define REG_MRAW_TG_VF_CON					0x0704
 union MRAW_TG_VF_CON {
 	struct {
-		unsigned int TG_VFDATA_EN           :  1;    /*  0.. 0, 0x00000001 */
+		unsigned int TG_M1_VFDATA_EN        :  1;    /*  0.. 0, 0x00000001 */
 		unsigned int TG_SINGLE_MODE         :  1;    /*  1.. 1, 0x00000002 */
 		unsigned int rsv_2                  :  2;    /*  2.. 3, 0x0000000c */
 		unsigned int TG_FR_CON              :  3;    /*  4.. 6, 0x00000070 */
@@ -167,7 +167,7 @@ union MRAW_TG_PATH_CFG // only for db_load test
 		unsigned int TG_MEMIN_EN          :  1;    /*  5.. 5, 0x00000020 */
 		unsigned int rsv_6                :  1;    /*  6.. 6, 0x00000040 */
 		unsigned int TG_JPG_LINEND_EN     :  1;    /*  7.. 7, 0x00000080 */
-		unsigned int TG_DB_LOAD_DIS       :  1;    /*  8.. 8, 0x00000100 */
+		unsigned int TG_M1_DB_LOAD_DIS    :  1;    /*  8.. 8, 0x00000100 */
 		unsigned int TG_DB_LOAD_SRC       :  1;    /*  9.. 9, 0x00000200 */
 		unsigned int TG_DB_LOAD_VSPOL     :  1;    /* 10..10, 0x00000400 */
 		unsigned int TG_DB_LOAD_HOLD      :  1;    /* 11..11, 0x00000800 */

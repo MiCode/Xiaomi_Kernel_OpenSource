@@ -14,11 +14,9 @@
 #include "mtk_cam-meta.h"
 
 #define MRAW_READY 1
-#define MRAW_PIPELINE_NUM 4 // The total mraw hw num
-#define MAX_MRAW_PIPES_PER_STREAM 4 // The max num that mraw can go into backend
+#define MRAW_PIPELINE_NUM 4
 #define MAX_MRAW_VIDEO_DEV_NUM 2
 #define USING_MRAW_SCQ 1
-#define USING_TESTMODEL_PARAM 0
 
 #define MRAW_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
 	union RegName reg;\
@@ -185,6 +183,7 @@ struct mtk_mraw_pad_config {
 struct mtk_cam_mraw_resource_config {
 	void *vaddr[MAX_MRAW_VIDEO_DEV_NUM];
 	__u64 daddr[MAX_MRAW_VIDEO_DEV_NUM];
+	__u8 is_initial;
 	__u32 enque_num;
 	__u32 width;
 	__u32 height;
@@ -248,6 +247,7 @@ struct mtk_mraw_device {
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
+	unsigned int is_enqueued;
 };
 
 struct mtk_mraw {
@@ -261,6 +261,8 @@ int mtk_mraw_setup_dependencies(struct mtk_mraw *mraw, struct mtk_larb *larb);
 int mtk_mraw_register_entities(
 	struct mtk_mraw *mraw, struct v4l2_device *v4l2_dev);
 void mtk_mraw_unregister_entities(struct mtk_mraw *mraw);
+int mtk_mraw_call_pending_set_fmt(struct v4l2_subdev *sd,
+				 struct v4l2_subdev_format *fmt);
 int mtk_cam_mraw_select(struct mtk_mraw_pipeline *pipe);
 void mraw_reset(struct mtk_mraw_device *dev);
 struct mtk_mraw_pipeline*
@@ -288,12 +290,18 @@ int mtk_cam_mraw_tg_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_dmao_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_fbc_disable(struct mtk_mraw_device *dev);
+int mtk_cam_mraw_vf_on(struct mtk_mraw_device *dev, unsigned int is_on);
+int mtk_cam_mraw_toggle_tg_db(struct mtk_mraw_device *dev);
+int mtk_cam_mraw_toggle_db(struct mtk_mraw_device *dev);
 bool mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_find_mraw_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
 void apply_mraw_cq(struct mtk_mraw_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
 void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb);
+int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
+	unsigned int pipe_id, struct mtk_cam_request_stream_data *s_data,
+	unsigned int is_config);
 
 extern struct platform_driver mtk_cam_mraw_driver;
 

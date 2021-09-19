@@ -188,6 +188,7 @@ struct cam_camsv_params {
 #define MRAW_MAX_IMAGE_OUTPUT (3)
 
 struct mtkcam_ipi_mraw_frame_param {
+	__u8 is_config;
 	__u8 pixel_mode;
 
 	__u32 tg_pos_x;

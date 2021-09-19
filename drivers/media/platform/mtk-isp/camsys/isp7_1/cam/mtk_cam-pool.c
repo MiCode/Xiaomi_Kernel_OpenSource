@@ -441,14 +441,13 @@ int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	spin_lock_init(&ctx->buf_pool.mraw_freelist.lock);
 	ctx->buf_pool.mraw_freelist.cnt = 0;
 
-	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
+	for (i = 0; i < MRAW_WORKING_BUF_NUM; i++) {
 		struct mtk_mraw_working_buf_entry *buf
 				= &ctx->buf_pool.mraw_working_buf[i];
 		int offset;
 
 		offset = i * working_buf_size;
 
-		/* Note: buf_pool is initailized when raw_working_buf_pool init */
 		buf->buffer.va = ctx->buf_pool.working_buf_va + offset;
 		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
 		buf->buffer.size = working_buf_size;

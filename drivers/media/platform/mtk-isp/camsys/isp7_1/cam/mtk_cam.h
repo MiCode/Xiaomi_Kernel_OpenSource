@@ -33,6 +33,7 @@
 #define CQ_BUF_SIZE  0x10000
 #define CAM_CQ_BUF_NUM 16
 #define CAMSV_WORKING_BUF_NUM 64
+#define MRAW_WORKING_BUF_NUM 64
 #define IPI_FRAME_BUF_SIZE 0x10000
 
 /* for time-sharing camsv working buffer, (1inner+2backendprogramming+3backup)*/
@@ -44,6 +45,7 @@
 
 #define MAX_PIPES_PER_STREAM 5
 #define MAX_SV_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM-1)
+#define MAX_MRAW_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM-1)
 
 struct platform_device;
 struct mtk_rpmsg_device;
@@ -146,8 +148,8 @@ struct mtk_mraw_working_buf_entry {
 	struct mtk_mraw_working_buf buffer;
 	struct mtk_cam_request_stream_data *s_data;
 	struct list_head list_entry;
-	int mraw_cq_desc_offset[MAX_MRAW_PIPES_PER_STREAM];
-	int mraw_cq_desc_size[MAX_MRAW_PIPES_PER_STREAM];
+	int mraw_cq_desc_offset;
+	int mraw_cq_desc_size;
 	struct mtk_cam_ctx *ctx;
 };
 
@@ -294,7 +296,7 @@ struct mtk_cam_working_buf_pool {
 	struct mtk_camsv_working_buf_entry sv_working_buf[CAMSV_WORKING_BUF_NUM];
 	struct mtk_camsv_working_buf_list sv_freelist;
 
-	struct mtk_mraw_working_buf_entry mraw_working_buf[CAM_CQ_BUF_NUM];
+	struct mtk_mraw_working_buf_entry mraw_working_buf[MRAW_WORKING_BUF_NUM];
 	struct mtk_mraw_working_buf_list mraw_freelist;
 };
 
@@ -365,9 +367,9 @@ struct mtk_cam_ctx {
 	struct mtk_camsv_working_buf_list sv_using_buffer_list[MAX_SV_PIPES_PER_STREAM];
 	struct mtk_camsv_working_buf_list sv_processing_buffer_list[MAX_SV_PIPES_PER_STREAM];
 
-	struct mtk_mraw_working_buf_list mraw_using_buffer_list;
-	struct mtk_mraw_working_buf_list mraw_composed_buffer_list;
-	struct mtk_mraw_working_buf_list mraw_processing_buffer_list;
+	struct mtk_mraw_working_buf_list mraw_using_buffer_list[MAX_MRAW_PIPES_PER_STREAM];
+	struct mtk_mraw_working_buf_list mraw_composed_buffer_list[MAX_MRAW_PIPES_PER_STREAM];
+	struct mtk_mraw_working_buf_list mraw_processing_buffer_list[MAX_MRAW_PIPES_PER_STREAM];
 
 	/* sensor image buffer pool handling from kernel */
 	struct mtk_cam_img_working_buf_pool img_buf_pool;
@@ -764,6 +766,8 @@ struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
 					struct mtk_camsv_pipeline *pipe);
+struct mtk_mraw_device *get_mraw_dev(struct mtk_cam_device *cam,
+					struct mtk_mraw_pipeline *pipe);
 int isp_composer_create_session(struct mtk_cam_ctx *ctx);
 void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 int PipeIDtoTGIDX(int pipe_id);

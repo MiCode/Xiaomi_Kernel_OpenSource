@@ -19,6 +19,7 @@
 #include "mtk_cam-regs.h"
 #include "mtk_cam-meta.h"
 #include "mtk_cam-sv-regs.h"
+#include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
@@ -421,6 +422,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *camsv_dev;
+	struct mtk_mraw_device *mraw_dev;
 	int i, j, stream_id, val;
 
 	dev_info(cam->dev, "%s, req->ctx_used:0x%x, req->ctx_link_update:0x%x\n",
@@ -447,6 +449,17 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 					camsv_dev->base + REG_CAMSV_TG_VF_CON);
 				dev_info(cam->dev, "%s: pipe(%d): switch seninf: %s--> %s\n",
 					 __func__, ctx->sv_pipe[j]->id,
+					 req_stream_data->seninf_old->name,
+					 req_stream_data->seninf_new->name);
+			}
+
+			for (j = 0; j < ctx->used_mraw_num; j++) {
+				mraw_dev = get_mraw_dev(ctx->cam, ctx->mraw_pipe[j]);
+				val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
+				writel(val & (~MRAW_TG_VF_CON_VFDATA_EN),
+					mraw_dev->base + REG_MRAW_TG_VF_CON);
+				dev_info(cam->dev, "%s: pipe(%d): switch seninf: %s--> %s\n",
+					 __func__, ctx->mraw_pipe[j]->id,
 					 req_stream_data->seninf_old->name,
 					 req_stream_data->seninf_new->name);
 			}
@@ -483,6 +496,19 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 					ctx->sv_pipe[j]->cammux_id);
 			}
 
+			for (j = 0; j < ctx->used_mraw_num; j++) {
+				mtk_cam_seninf_set_pixelmode(req_stream_data->seninf_new,
+					ctx->mraw_pipe[j]->seninf_padidx, 0);
+				mtk_cam_seninf_set_camtg(req_stream_data->seninf_new,
+					ctx->mraw_pipe[j]->seninf_padidx,
+					ctx->mraw_pipe[j]->cammux_id);
+				dev_info(cam->dev,
+					"%s: pipe(%d): seninf_set_camtg, pad(%d) camtg(%d)",
+					__func__, ctx->mraw_pipe[j]->id,
+					ctx->mraw_pipe[j]->seninf_padidx,
+					ctx->mraw_pipe[j]->cammux_id);
+			}
+
 			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
 				 __func__, stream_id, req_stream_data->seninf_new->name);
 			mtk_cam_qos_bw_calc(ctx);
@@ -512,6 +538,13 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 				val = readl(camsv_dev->base + REG_CAMSV_TG_VF_CON);
 				writel(val | CAMSV_TG_VF_CON_VFDATA_EN,
 					camsv_dev->base + REG_CAMSV_TG_VF_CON);
+			}
+
+			for (j = 0; j < ctx->used_mraw_num; j++) {
+				mraw_dev = get_mraw_dev(ctx->cam, ctx->mraw_pipe[j]);
+				val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
+				writel(val | MRAW_TG_VF_CON_VFDATA_EN,
+					mraw_dev->base + REG_MRAW_TG_VF_CON);
 			}
 
 			if (ctx->prev_sensor || ctx->prev_seninf) {
@@ -2178,6 +2211,7 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_seninf_mux_setting mux_settings[
 			MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
 	struct mtk_camsv_device *camsv_dev;
+	struct mtk_mraw_device *mraw_dev;
 	int i, j;
 
 	if (!(req->ctx_used & cam->streaming_ctx & req->ctx_link_update))
@@ -2195,6 +2229,12 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_dev,
 					camsv_dev = get_camsv_dev(cam, cam->ctxs[i].sv_pipe[j]);
 					mtk_cam_sv_toggle_tg_db(camsv_dev);
 					mtk_cam_sv_toggle_db(camsv_dev);
+				}
+
+				for (j = 0; j < cam->ctxs[i].used_mraw_num; j++) {
+					mraw_dev = get_mraw_dev(cam, cam->ctxs[i].mraw_pipe[j]);
+					mtk_cam_mraw_toggle_tg_db(mraw_dev);
+					mtk_cam_mraw_toggle_db(mraw_dev);
 				}
 			}
 		}
@@ -3269,8 +3309,13 @@ static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	/* mraw's CQ done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {
-			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-			mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
+			/* stream on after all pipes' cq done */
+			if (irq_info->frame_idx == 1) {
+				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+				mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
+			} else {
+				mtk_cam_mraw_vf_on(mraw_dev, 1);
+			}
 		}
 	}
 
@@ -3343,10 +3388,9 @@ static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			mtk_camsys_frame_done(ctx, seq, stream_id);
 		}
 		/* camsv's SOF */
-		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START)) {
+		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
 			mtk_camsys_camsv_frame_start(camsv_dev, ctx,
 						     irq_info->frame_inner_idx);
-		}
 	}
 
 	return 0;
