@@ -768,6 +768,7 @@ static kal_uint16 read_cmos_eeprom_8(struct subdrv_ctx *ctx, kal_uint16 addr)
 #define SENSOR_ID_H 0x00
 #define LENS_ID_L 0x48
 #define LENS_ID_H 0x01
+#define SENSOR_ID_L_V2 0x0E
 
 static void read_sensor_Cali(struct subdrv_ctx *ctx)
 {
@@ -780,8 +781,8 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 
 	for (i = 0; i < 7; i++)
 		otp_data[i] = read_cmos_eeprom_8(ctx, 0x0006 + i);
-	/*Internal Module Type*/
-	if ((otp_data[0] == SENSOR_ID_L) &&
+
+	if ((otp_data[0] == SENSOR_ID_L || otp_data[0] == SENSOR_ID_L_V2) &&
 		(otp_data[1] == SENSOR_ID_H) &&
 		(otp_data[2] == LENS_ID_L) &&
 		(otp_data[3] == LENS_ID_H)) {
