@@ -645,6 +645,20 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 }
 #endif
 
+inline bool is_task_latency_sensitive(struct task_struct *p)
+{
+	bool latency_sensitive = false;
+
+	rcu_read_lock();
+	if (!uclamp_min_ls)
+		latency_sensitive = uclamp_latency_sensitive(p);
+	else
+		latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
+	rcu_read_unlock();
+
+	return latency_sensitive;
+}
+
 static int mtk_active_load_balance_cpu_stop(void *data)
 {
 
@@ -675,6 +689,9 @@ static int mtk_active_load_balance_cpu_stop(void *data)
 
 	/* Is there any task to move? */
 	if (busiest_rq->nr_running <= 1)
+		goto out_unlock;
+	if (!per_cpu(cpufreq_idle_cpu, target_cpu) &&
+		is_task_latency_sensitive(target_task))
 		goto out_unlock;
 
 	update_rq_clock(busiest_rq);
