@@ -35,6 +35,7 @@ static unsigned int g_sudo_mode;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
 static unsigned int g_gpm_enable;
+static unsigned int g_debug_power_state;
 static struct gpufreq_debug_status g_debug_gpu;
 static struct gpufreq_debug_status g_debug_stack;
 static DEFINE_MUTEX(gpufreq_debug_lock);
@@ -559,6 +560,62 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
+/* PROCFS: show current power state */
+static int mfgsys_power_control_proc_show(struct seq_file *m, void *v)
+{
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (g_debug_power_state)
+		seq_puts(m, "[GPUFREQ-DEBUG] MFGSYS is DBG_POWER_ON\n");
+	else
+		seq_puts(m, "[GPUFREQ-DEBUG] MFGSYS is DBG_POWER_OFF\n");
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return GPUFREQ_SUCCESS;
+}
+
+/*
+ * PROCFS: additionally control power of MFGSYS once to achieve AO state
+ * power_on: power on once
+ * power_off: power off once
+ */
+static ssize_t mfgsys_power_control_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	int ret = GPUFREQ_SUCCESS;
+	char buf[64];
+	unsigned int len = 0;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len)) {
+		ret = GPUFREQ_EINVAL;
+		goto done;
+	}
+	buf[len] = '\0';
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (sysfs_streq(buf, "power_on") && g_debug_power_state == POWER_OFF) {
+		ret = gpufreq_power_control(POWER_ON);
+		if (ret < 0)
+			GPUFREQ_LOGE("fail to power on MFGSYS (%d)", ret);
+		else
+			g_debug_power_state = POWER_ON;
+	} else if (sysfs_streq(buf, "power_off") && g_debug_power_state == POWER_ON) {
+		ret = gpufreq_power_control(POWER_OFF);
+		if (ret < 0)
+			GPUFREQ_LOGE("fail to power off MFGSYS (%d)", ret);
+		else
+			g_debug_power_state = POWER_OFF;
+	}
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+done:
+	return (ret < 0) ? ret : count;
+}
+
 /* PROCFS: show current state of OPP stress test */
 static int opp_stress_test_proc_show(struct seq_file *m, void *v)
 {
@@ -837,6 +894,7 @@ PROC_FOPS_RO(asensor_info);
 PROC_FOPS_RW(limit_table);
 PROC_FOPS_RW(fix_target_opp_index);
 PROC_FOPS_RW(fix_custom_freq_volt);
+PROC_FOPS_RW(mfgsys_power_control);
 PROC_FOPS_RW(opp_stress_test);
 PROC_FOPS_RW(aging_mode);
 PROC_FOPS_RW(gpm_mode);
@@ -861,6 +919,7 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(limit_table),
 		PROC_ENTRY(fix_target_opp_index),
 		PROC_ENTRY(fix_custom_freq_volt),
+		PROC_ENTRY(mfgsys_power_control),
 		PROC_ENTRY(opp_stress_test),
 		PROC_ENTRY(aging_mode),
 		PROC_ENTRY(gpm_mode),
@@ -926,6 +985,7 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support)
 
 	g_aging_enable = gpu_opp_info.aging_enable;
 	g_gpm_enable = gpu_opp_info.gpm_enable;
+	g_debug_power_state = POWER_OFF;
 
 #if defined(CONFIG_PROC_FS)
 	ret = gpufreq_create_procfs();
