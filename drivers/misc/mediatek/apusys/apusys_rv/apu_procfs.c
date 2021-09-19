@@ -209,7 +209,7 @@ static int xfile_sqopen(struct inode *inode, struct file *file)
 
 static int regdump_sqopen(struct inode *inode, struct file *file)
 {
-	uint8_t is_do_regdump = 0;
+	bool is_do_regdump = false;
 
 	if (is_do_regdump)
 		apu_regdump();

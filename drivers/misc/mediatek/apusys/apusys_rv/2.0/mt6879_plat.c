@@ -615,6 +615,12 @@ static void mt6879_rv_cachedump(struct mtk_apu *apu)
 	spin_unlock_irqrestore(&apu->reg_lock, flags);
 }
 
+static const struct regdump_region_info mt6879_apu_regdump[] = {
+	{"APU_MD32_SYSCTRL", 0x19001000, 0x848},
+	{"APU_RCX_AO_CTRL",  0x190f2000, 0x314},
+	{"APU_MD32_WDT",     0x19002000, 0x10},
+};
+
 const struct mtk_apu_platdata mt6879_platdata = {
 	.flags		= F_PRELOAD_FIRMWARE | F_AUTO_BOOT,
 	.ops		= {
@@ -633,8 +639,8 @@ const struct mtk_apu_platdata mt6879_platdata = {
 	},
 	.configs	= {
 		.apu_regdump = {
-			.region_info = NULL,
-			.region_num = 0,
+			.region_info = mt6879_apu_regdump,
+			.region_num = ARRAY_SIZE(mt6879_apu_regdump),
 		},
 	},
 };
