@@ -899,7 +899,7 @@ static const struct v4l2_ctrl_config raw_path = {
 	.name = "Raw Path",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.min = 0,
-	.max = 1,
+	.max = 7,
 	.step = 1,
 	.def = 1,
 };
