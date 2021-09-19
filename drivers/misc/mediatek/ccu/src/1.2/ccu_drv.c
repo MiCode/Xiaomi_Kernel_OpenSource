@@ -67,6 +67,9 @@
 #define CCU_DEV_NAME            "ccu"
 
 #define CCU_CLK_PWR_NUM 2
+
+static int32_t _user_count;
+
 struct clk *ccu_clk_pwr_ctrl[CCU_CLK_PWR_NUM];
 
 struct ccu_device_s *g_ccu_device;
@@ -409,17 +412,32 @@ static int ccu_open(struct inode *inode, struct file *flip)
 {
 	int ret = 0;
 
-	struct ccu_user_s *user;
+	struct ccu_user_s *user = NULL;
 
-	_clk_count = 0;
+	mutex_lock(&g_ccu_device->dev_mutex);
 
-	ccu_create_user(&user);
+	LOG_INF_MUST("%s pid:%d tid:%d cnt:%d+\n",
+		__func__, current->pid, current->tgid, _user_count);
+
+	ret = ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {
 		LOG_ERR("fail to create user\n");
+		mutex_unlock(&g_ccu_device->dev_mutex);
 		return -ENOMEM;
 	}
 
 	flip->private_data = user;
+	_user_count++;
+
+	if (_user_count > 1) {
+		LOG_INF_MUST("%s clean legacy data flow-\n", __func__);
+		ccu_force_powerdown();
+	}
+
+	LOG_INF_MUST("%s-\n",
+		__func__);
+
+	mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return ret;
 }
@@ -922,13 +940,24 @@ static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
 
-	LOG_INF_MUST("%s +", __func__);
+	mutex_lock(&g_ccu_device->dev_mutex);
 
+	LOG_INF_MUST("%s pid:%d tid:%d cnt:%d+\n",
+		__func__, user->open_pid, user->open_tgid, _user_count);
 	ccu_delete_user(user);
+	_user_count--;
+
+	if (_user_count > 0) {
+		LOG_INF_MUST("%s bypass release flow-", __func__);
+		mutex_unlock(&g_ccu_device->dev_mutex);
+		return 0;
+	}
 
 	ccu_force_powerdown();
 
 	LOG_INF_MUST("%s -", __func__);
+
+	mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return 0;
 }
@@ -1351,6 +1380,7 @@ static int __init CCU_INIT(void)
 
 	INIT_LIST_HEAD(&g_ccu_device->user_list);
 	mutex_init(&g_ccu_device->user_mutex);
+	mutex_init(&g_ccu_device->dev_mutex);
 	mutex_init(&g_ccu_device->clk_mutex);
 	init_waitqueue_head(&g_ccu_device->cmd_wait);
 

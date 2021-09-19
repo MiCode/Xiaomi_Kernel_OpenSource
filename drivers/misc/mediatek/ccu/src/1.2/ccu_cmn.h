@@ -40,6 +40,7 @@ struct ccu_device_s {
 	unsigned long pmem_base;
 	unsigned long n3d_a_base;
 	unsigned int irq_num;
+	struct mutex dev_mutex;
 	struct mutex user_mutex;
 	struct mutex clk_mutex;
 	/* list of vlist_type(struct ccu_user_s) */
