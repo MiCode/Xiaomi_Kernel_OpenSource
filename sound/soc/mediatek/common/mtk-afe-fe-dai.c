@@ -341,6 +341,12 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 		if (memif->use_adsp_share_mem)
 			return mtk_adsp_free_mem(substream);
 #endif
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+		// ultrasound uses reserve dram, ignore free
+		if (memif->scp_ultra_enable)
+			return 0;
+#endif
+
 		return snd_pcm_lib_free_pages(substream);
 	}
 }
