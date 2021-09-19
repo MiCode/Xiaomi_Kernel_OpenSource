@@ -7,7 +7,8 @@
 #include "vdec_fmt_utils.h"
 
 int fmt_dmabuf_get_iova(struct dma_buf *dbuf, u64 *iova,
-	struct device *dev, struct dma_buf_attachment **attach, struct sg_table **sgt)
+	struct device *dev, struct dma_buf_attachment **attach, struct sg_table **sgt,
+	bool cache_sync)
 {
 	*attach = dma_buf_attach(dbuf, dev);
 	if (IS_ERR(*attach)) {
@@ -15,6 +16,9 @@ int fmt_dmabuf_get_iova(struct dma_buf *dbuf, u64 *iova,
 		*attach = NULL;
 		return -1;
 	}
+
+	if (!cache_sync)
+		(*attach)->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	*sgt = dma_buf_map_attachment(*attach, DMA_TO_DEVICE);
 	if (IS_ERR(*sgt)) {
@@ -65,16 +69,6 @@ void fmt_dmabuf_put(struct dma_buf *dbuf)
 	dma_buf_put(dbuf);
 }
 
-void fmt_dmabuf_end_cpu_access(struct dma_buf *dbuf)
-{
-	dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
-}
-
-void fmt_dmabuf_begin_cpu_access(struct dma_buf *dbuf)
-{
-	dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
-}
-
 u64 fmt_translate_fd(u64 fd, u32 offset, struct dmabufmap map[], struct device *dev,
 	struct dma_buf **dbuf, struct dma_buf_attachment **attach, struct sg_table **sgt,
 	bool cache_sync)
@@ -95,10 +89,7 @@ u64 fmt_translate_fd(u64 fd, u32 offset, struct dmabufmap map[], struct device *
 
 	*dbuf = fmt_dmabuf_get(fd);
 
-	ret = fmt_dmabuf_get_iova(*dbuf, &iova, dev, attach, sgt);
-
-	if (cache_sync)
-		fmt_dmabuf_end_cpu_access(*dbuf);
+	ret = fmt_dmabuf_get_iova(*dbuf, &iova, dev, attach, sgt, cache_sync);
 
 	if (ret != 0) {
 		fmt_debug(0, "fd: %d iova get failed", fd);

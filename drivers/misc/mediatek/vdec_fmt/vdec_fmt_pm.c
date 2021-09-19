@@ -19,9 +19,10 @@ void fmt_get_module_clock_by_name(struct mtk_vdec_fmt *fmt,
 	const char *clkName, struct clk **clk_module)
 {
 	*clk_module = of_clk_get_by_name(fmt->dev->of_node, clkName);
-	if (IS_ERR(*clk_module))
+	if (IS_ERR(*clk_module)) {
 		fmt_err("cannot get module clock:%s", clkName);
-	else
+		*clk_module = NULL;
+	} else
 		fmt_debug(0, "get module clock:%s", clkName);
 }
 
@@ -49,20 +50,26 @@ int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
 			return ret;
 		}
 	}
-	ret = clk_prepare_enable(fmt->clk_VDEC);
-	if (ret)
-		fmt_debug(0, "clk_prepare_enable VDEC_SOC failed %d", ret);
-	ret = clk_prepare_enable(fmt->clk_MINI_MDP);
-	if (ret)
-		fmt_debug(0, "clk_prepare_enable VDEC_MINI_MDP failed %d", ret);
+	if (fmt->clk_VDEC) {
+		ret = clk_prepare_enable(fmt->clk_VDEC);
+		if (ret)
+			fmt_debug(0, "clk_prepare_enable VDEC_SOC failed %d", ret);
+	}
+	if (fmt->clk_MINI_MDP) {
+		ret = clk_prepare_enable(fmt->clk_MINI_MDP);
+		if (ret)
+			fmt_debug(0, "clk_prepare_enable VDEC_MINI_MDP failed %d", ret);
+	}
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_VFMT);
 	return ret;
 }
 
 int32_t fmt_clock_off(struct mtk_vdec_fmt *fmt)
 {
-	clk_disable_unprepare(fmt->clk_MINI_MDP);
-	clk_disable_unprepare(fmt->clk_VDEC);
+	if (fmt->clk_MINI_MDP)
+		clk_disable_unprepare(fmt->clk_MINI_MDP);
+	if (fmt->clk_VDEC)
+		clk_disable_unprepare(fmt->clk_VDEC);
 	if (fmt->fmtLarb)
 		mtk_smi_larb_put(fmt->fmtLarb);
 	cmdq_mbox_disable(fmt->clt_fmt[0]->chan);

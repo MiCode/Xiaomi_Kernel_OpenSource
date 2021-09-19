@@ -119,7 +119,7 @@ static int fmt_set_gce_task(struct cmdq_pkt *pkt_ptr, u32 id,
 	return -1;
 }
 
-static void fmt_clear_gce_task(unsigned int taskid, bool secure)
+static void fmt_clear_gce_task(unsigned int taskid)
 {
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 
@@ -132,8 +132,6 @@ static void fmt_clear_gce_task(unsigned int taskid, bool secure)
 		fmt->gce_task[taskid].identifier = 0;
 		fmt_dmabuf_free_iova(fmt->gce_task[taskid].iinfo.dbuf,
 		fmt->gce_task[taskid].iinfo.attach, fmt->gce_task[taskid].iinfo.sgt);
-		if (!secure)
-			fmt_dmabuf_begin_cpu_access(fmt->gce_task[taskid].oinfo.dbuf);
 		fmt_dmabuf_free_iova(fmt->gce_task[taskid].oinfo.dbuf,
 		fmt->gce_task[taskid].oinfo.attach, fmt->gce_task[taskid].oinfo.sgt);
 		fmt_dmabuf_put(fmt->gce_task[taskid].iinfo.dbuf);
@@ -556,7 +554,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 static int fmt_gce_wait_callback(unsigned long arg)
 {
 	int ret;
-	bool secure = false;
 	unsigned int identifier, taskid;
 	unsigned char *user_data_addr = NULL;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
@@ -609,15 +606,13 @@ static int fmt_gce_wait_callback(unsigned long arg)
 			}
 	}
 	mutex_unlock(&fmt->mux_fmt);
-	if (fmt->gce_status[identifier] == GCE_SECURE)
-		secure = true;
 	if (atomic_read(&fmt->gce_job_cnt[identifier]) == 0)
 		fmt_unlock(identifier);
 
 	mutex_unlock(&fmt->mux_gce_th[identifier]);
 
 	cmdq_pkt_destroy(fmt->gce_task[taskid].pkt_ptr);
-	fmt_clear_gce_task(taskid, secure);
+	fmt_clear_gce_task(taskid);
 
 	return ret;
 }
