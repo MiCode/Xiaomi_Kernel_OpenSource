@@ -1503,7 +1503,7 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		list_add_tail(vlist_link(buf_va_info, struct buf_va_info_t),
 		   &kva_list->mylist);
 		mutex_unlock(&(kva_list->mymutex));
-		pr_info("%s: fd(%d) size(%llx) cached\n", __func__,
+		pr_debug("%s: fd(%d) size(%llx) cached\n", __func__,
 					fd_info->fds[i], fd_info->fds_size[i]);
 	}
 
@@ -1647,7 +1647,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		spin_unlock(&pipe->iova_cache.lock);
 		fd_info.fds_size[i] = dmabuf->size;
 		fd_info.fds[i] = kfd[i];
-		pr_info("%s: fd(%d) size (%llx) cache added\n", __func__,
+		pr_debug("%s: fd(%d) size (%llx) cache added\n", __func__,
 					fd_info.fds[i], fd_info.fds_size[i]);
 
 	}
