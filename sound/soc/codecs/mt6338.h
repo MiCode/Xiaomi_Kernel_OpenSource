@@ -22312,6 +22312,7 @@
 				(1<<MT6338_ACCDET_EINT1_EN_STABLE_SHIFT) | \
 				(1<<MT6338_ACCDET_EINT1_CMPEN_STABLE_SHIFT) | \
 				(1<<MT6338_ACCDET_EINT1_CEN_STABLE_SHIFT))
+#define MT6338_NLE_GAIN_STAGE 8
 enum {
 	MT6338_MTKAIF_PROTOCOL_1 = 0,
 	MT6338_MTKAIF_PROTOCOL_2,
@@ -22685,6 +22686,11 @@ enum {
 	AUXADC_AVG_256,
 };
 
+enum {
+	MT6338_DL_GAIN_MUTE = 0,
+	MT6338_DL_GAIN_NORMAL = 0xf74f,
+	/* SA suggest apply -0.3db to audio/speech path */
+};
 struct dc_trim_data {
 	bool calibrated;
 	int mic_vinp_mv;
@@ -22695,6 +22701,13 @@ struct hp_trim_data {
 	unsigned int hp_trim_r;
 	unsigned int hp_fine_trim_l;
 	unsigned int hp_fine_trim_r;
+};
+
+struct nle_trim_data {
+	int L_LN[MT6338_NLE_GAIN_STAGE];
+	int R_LN[MT6338_NLE_GAIN_STAGE];
+	int L_GS[MT6338_NLE_GAIN_STAGE];
+	int R_GS[MT6338_NLE_GAIN_STAGE];
 };
 
 struct mt6338_vow_periodic_on_off_data {
@@ -22753,6 +22766,9 @@ struct mt6338_priv {
 	int hp_impedance;
 	int hp_current_calibrate_val;
 	struct mt6338_codec_ops ops;
+
+	/* NLE */
+	struct nle_trim_data nle_trim;
 
 	/* debugfs */
 	struct dentry *debugfs;
