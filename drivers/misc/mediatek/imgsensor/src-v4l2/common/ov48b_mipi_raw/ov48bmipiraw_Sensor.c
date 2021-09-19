@@ -1605,7 +1605,6 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 		      MSDK_SENSOR_INFO_STRUCT *sensor_info,
 		      MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("scenario_id = %d\n", scenario_id);
 	sensor_info->SensorClockPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	sensor_info->SensorClockFallingPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	sensor_info->SensorHsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
@@ -2849,15 +2848,14 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM4:
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 			*feature_return_para_32 = 2; /*BINNING_SUMMED*/
+			pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+			*feature_return_para_32);
 			break;
 		default:
 			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
 			break;
 		}
-		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
-			*feature_return_para_32);
 		*feature_para_len = 4;
-
 		break;
 	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
 		/*get eeprom preloader data*/

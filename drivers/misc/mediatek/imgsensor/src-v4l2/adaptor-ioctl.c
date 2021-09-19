@@ -1007,9 +1007,6 @@ static int g_exposure_margin_by_scenario(struct adaptor_ctx *ctx, void *arg)
 
 	exp_margin->margin = para.u64[2];
 
-	dev_info(ctx->dev, "scenario %d exp margin %d\n",
-			 exp_margin->scenario_id, exp_margin->margin);
-
 	return 0;
 }
 
@@ -1022,8 +1019,6 @@ static int g_custom_readout(struct adaptor_ctx *ctx, void *arg)
 
 	if (!ctx || !target)
 		return -EINVAL;
-
-	dev_info(ctx->dev, "[%s]scenario %u\n", __func__, target->scenario_id);
 
 	para.u64[0] = target->scenario_id;
 	para.u64[1] = 0;
