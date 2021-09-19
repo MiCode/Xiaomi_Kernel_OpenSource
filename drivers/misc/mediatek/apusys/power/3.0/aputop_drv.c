@@ -210,10 +210,14 @@ const struct apupwr_plat_data mt6983_plat_data;
 #ifndef MT6879_PLAT_DATA
 const struct apupwr_plat_data mt6879_plat_data;
 #endif
+#ifndef MT6895_PLAT_DATA
+const struct apupwr_plat_data mt6895_plat_data;
+#endif
 
 static const struct of_device_id of_match_apu_top[] = {
 	{ .compatible = "mt6983,apu_top_3", .data = &mt6983_plat_data},
 	{ .compatible = "mt6879,apu_top_3", .data = &mt6879_plat_data},
+	{ .compatible = "mt6895,apu_top_3", .data = &mt6895_plat_data},
 	{ /* end of list */},
 };
 
