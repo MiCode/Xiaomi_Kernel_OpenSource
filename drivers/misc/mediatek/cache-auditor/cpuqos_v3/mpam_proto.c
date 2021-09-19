@@ -32,6 +32,12 @@
 #undef CREATE_TRACE_POINTS
 #undef TRACE_INCLUDE_PATH
 
+#define SLC_SYSRAM_BASE         0x00113C00
+#define SLC_CPU_DEBUG0_R_OFS    0x88
+#define SLC_CPU_DEBUG1_R_OFS    0x8C
+#define SLC_SRAM_SIZE           0x100
+static void __iomem *sram_base_addr;
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jing-Ting Wu");
 
@@ -529,6 +535,34 @@ static ssize_t set_cpuqos_mode_debug(struct kobject *kobj,
 	return cnt;
 }
 
+static ssize_t show_cpuqos_status(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+	unsigned int csize = 0, ctnct = 0;
+
+	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
+
+	if (!sram_base_addr) {
+		pr_info("Remap SLC SYSRAM failed\n");
+		return -EIO;
+	}
+
+	csize = ioread32(sram_base_addr + SLC_CPU_DEBUG1_R_OFS);
+	ctnct = ioread32(sram_base_addr + SLC_CPU_DEBUG0_R_OFS);
+	csize &= 0xf;
+	ctnct &= 0xfff;
+
+	len += snprintf(buf+len, max_len-len,
+			"CPUQoS CPPD setting = %d/%d, L3CC total/ct/nct = %d/%d/%d\n",
+			(csize & 0xC)>>2, csize & 0x3, (ctnct & 0xf00)>>8,
+			(ctnct & 0xf0)>>4, (ctnct & 0xf));
+
+	return len;
+}
+
 struct kobj_attribute set_ct_group_ct_attr =
 __ATTR(cpuqos_set_ct_group_ct, 0200, NULL, set_ct_group_ct);
 
@@ -543,6 +577,9 @@ __ATTR(cpuqos_set_ct_task_nct, 0200, NULL, set_ct_task_nct);
 
 struct kobj_attribute set_cpuqos_mode_attr =
 __ATTR(cpuqos_set_cpuqos_mode, 0200, NULL, set_cpuqos_mode_debug);
+
+struct kobj_attribute show_cpuqos_status_attr =
+__ATTR(cpuqos_status_info, 0400, show_cpuqos_status, NULL);
 
 static void mpam_hook_attach(void __always_unused *data,
 			     struct cgroup_subsys *ss, struct cgroup_taskset *tset)

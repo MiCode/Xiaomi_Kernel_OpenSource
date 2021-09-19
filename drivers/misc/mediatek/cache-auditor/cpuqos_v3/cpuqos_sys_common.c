@@ -30,6 +30,7 @@ static struct attribute *cpuqos_attrs[] = {
 	&set_ct_task_ct_attr.attr,
 	&set_ct_task_nct_attr.attr,
 	&set_cpuqos_mode_attr.attr,
+	&show_cpuqos_status_attr.attr,
 	NULL,
 };
 
