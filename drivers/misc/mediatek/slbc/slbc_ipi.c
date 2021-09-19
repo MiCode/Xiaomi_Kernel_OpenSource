@@ -33,7 +33,7 @@ void slbc_set_scmi_enable(int enable)
 }
 EXPORT_SYMBOL_GPL(slbc_set_scmi_enable);
 
-void slbc_sspm_enable(enable)
+int slbc_sspm_enable(enable)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
@@ -42,61 +42,61 @@ void slbc_sspm_enable(enable)
 
 	slbc_ipi_d.cmd = IPI_SLBC_ENABLE;
 	slbc_ipi_d.arg = enable;
-	slbc_scmi_set(&slbc_ipi_d, 2);
+	return slbc_scmi_set(&slbc_ipi_d, 2);
 }
 EXPORT_SYMBOL_GPL(slbc_sspm_enable);
 
-void slbc_force_scmi_cmd(unsigned int force)
+int slbc_force_scmi_cmd(unsigned int force)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
 	slbc_ipi_d.cmd = IPI_SLBC_FORCE;
 	slbc_ipi_d.arg = force;
 
-	slbc_scmi_set(&slbc_ipi_d, 2);
+	return slbc_scmi_set(&slbc_ipi_d, 2);
 }
 EXPORT_SYMBOL_GPL(slbc_force_scmi_cmd);
 
-void slbc_mic_num_cmd(unsigned int num)
+int slbc_mic_num_cmd(unsigned int num)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
 	slbc_ipi_d.cmd = IPI_SLBC_MIC_NUM;
 	slbc_ipi_d.arg = num;
 
-	slbc_scmi_set(&slbc_ipi_d, 2);
+	return slbc_scmi_set(&slbc_ipi_d, 2);
 }
 EXPORT_SYMBOL_GPL(slbc_mic_num_cmd);
 
-void slbc_inner_cmd(unsigned int inner)
+int slbc_inner_cmd(unsigned int inner)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
 	slbc_ipi_d.cmd = IPI_SLBC_INNER;
 	slbc_ipi_d.arg = inner;
 
-	slbc_scmi_set(&slbc_ipi_d, 2);
+	return slbc_scmi_set(&slbc_ipi_d, 2);
 }
 EXPORT_SYMBOL_GPL(slbc_inner_cmd);
 
-void slbc_outer_cmd(unsigned int outer)
+int slbc_outer_cmd(unsigned int outer)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
 	slbc_ipi_d.cmd = IPI_SLBC_OUTER;
 	slbc_ipi_d.arg = outer;
 
-	slbc_scmi_set(&slbc_ipi_d, 2);
+	return slbc_scmi_set(&slbc_ipi_d, 2);
 }
 EXPORT_SYMBOL_GPL(slbc_outer_cmd);
 
-void slbc_suspend_resume_notify(int suspend)
+int slbc_suspend_resume_notify(int suspend)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 
 	slbc_ipi_d.cmd = IPI_SLBC_SUSPEND_RESUME_NOTIFY;
 	slbc_ipi_d.arg = suspend;
-	slbc_scmi_set(&slbc_ipi_d, 2);
+	return slbc_scmi_set(&slbc_ipi_d, 2);
 }
 EXPORT_SYMBOL_GPL(slbc_suspend_resume_notify);
 
@@ -170,7 +170,15 @@ int _slbc_request_buffer_scmi(void *ptr)
 	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_BUFFER_REQUEST_FROM_AP, d->uid);
 	slbc_ipi_d.arg = slbc_data_to_ui(d);
 	if (d->type == TP_BUFFER) {
-		slbc_scmi_set(&slbc_ipi_d, 2);
+		ret = slbc_scmi_set(&slbc_ipi_d, 2);
+		if (ret) {
+			pr_info("#@# %s(%d) return fail(%d)\n",
+					__func__, __LINE__, ret);
+			ret = -1;
+
+			return ret;
+		}
+
 		ret = slbc_scmi_get(&slbc_ipi_d, 1, &rvalue);
 		if (!ret) {
 			d->paddr = (void __iomem *)(long long)rvalue.r1;
@@ -201,7 +209,15 @@ int _slbc_release_buffer_scmi(void *ptr)
 	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_BUFFER_RELEASE_FROM_AP, d->uid);
 	slbc_ipi_d.arg = slbc_data_to_ui(d);
 	if (d->type == TP_BUFFER) {
-		slbc_scmi_set(&slbc_ipi_d, 2);
+		ret = slbc_scmi_set(&slbc_ipi_d, 2);
+		if (ret) {
+			pr_info("#@# %s(%d) return fail(%d)\n",
+					__func__, __LINE__, ret);
+			ret = -1;
+
+			return ret;
+		}
+
 		ret = slbc_scmi_get(&slbc_ipi_d, 1, &rvalue);
 		if (!ret) {
 			d->paddr = (void __iomem *)(long long)rvalue.r1;
@@ -271,7 +287,7 @@ static void slbc_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 	}
 }
 
-unsigned int slbc_scmi_set(void *buffer, int slot)
+int slbc_scmi_set(void *buffer, int slot)
 {
 	int ret;
 	struct slbc_ipi_data *slbc_ipi_d = buffer;
@@ -295,6 +311,8 @@ unsigned int slbc_scmi_set(void *buffer, int slot)
 	if (ret) {
 		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
 				slbc_ipi_d->cmd, ret);
+
+		BUG_ON(1);
 		goto error;
 	}
 
@@ -303,7 +321,7 @@ error:
 	return -1;
 }
 
-unsigned int slbc_scmi_get(void *buffer, int slot, void *ptr)
+int slbc_scmi_get(void *buffer, int slot, void *ptr)
 {
 	int ret;
 	struct slbc_ipi_data *slbc_ipi_d = buffer;
@@ -328,6 +346,8 @@ unsigned int slbc_scmi_get(void *buffer, int slot, void *ptr)
 	if (ret) {
 		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
 				slbc_ipi_d->cmd, ret);
+
+		BUG_ON(1);
 		goto error;
 	}
 

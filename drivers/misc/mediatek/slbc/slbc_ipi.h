@@ -44,23 +44,23 @@ struct slbc_ipi_ops {
 	void (*slbc_mem_barrier)(void);
 };
 
-extern unsigned int slbc_scmi_set(void *buffer, int slot);
-extern unsigned int slbc_scmi_get(void *buffer, int slot, void *ptr);
+extern int slbc_scmi_set(void *buffer, int slot);
+extern int slbc_scmi_get(void *buffer, int slot, void *ptr);
 
 #define SLBC_IPI(x, y)			((x) & 0xffff | ((y) & 0xffff) << 16)
 #define SLBC_IPI_CMD_GET(x)		((x) & 0xffff)
 #define SLBC_IPI_UID_GET(x)		((x) >> 16 & 0xffff)
 
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
-extern void slbc_suspend_resume_notify(int suspend);
+extern int slbc_suspend_resume_notify(int suspend);
 extern int slbc_scmi_init(void);
-extern void slbc_sspm_enable(int enable);
+extern int slbc_sspm_enable(int enable);
 extern int slbc_get_scmi_enable(void);
 extern void slbc_set_scmi_enable(int enable);
-extern void slbc_force_scmi_cmd(unsigned int force);
-extern void slbc_mic_num_cmd(unsigned int num);
-extern void slbc_inner_cmd(unsigned int inner);
-extern void slbc_outer_cmd(unsigned int outer);
+extern int slbc_force_scmi_cmd(unsigned int force);
+extern int slbc_mic_num_cmd(unsigned int num);
+extern int slbc_inner_cmd(unsigned int inner);
+extern int slbc_outer_cmd(unsigned int outer);
 extern int _slbc_request_cache_scmi(void *ptr);
 extern int _slbc_release_cache_scmi(void *ptr);
 extern int _slbc_request_buffer_scmi(void *ptr);
@@ -68,15 +68,15 @@ extern int _slbc_release_buffer_scmi(void *ptr);
 extern void slbc_register_ipi_ops(struct slbc_ipi_ops *ops);
 extern void slbc_unregister_ipi_ops(struct slbc_ipi_ops *ops);
 #else
-__attribute__ ((weak)) void slbc_suspend_resume_notify(int) {}
+__attribute__ ((weak)) int slbc_suspend_resume_notify(int) {}
 __attribute__ ((weak)) int slbc_scmi_init(void) { return 0; }
-__attribute__ ((weak)) void slbc_sspm_enable(int enable) {}
+__attribute__ ((weak)) int slbc_sspm_enable(int enable) {}
 __attribute__ ((weak)) int slbc_get_scmi_enable(void) { return 0; }
 __attribute__ ((weak)) void slbc_set_scmi_enable(int enable) {}
-__attribute__ ((weak)) void slbc_force_scmi_cmd(unsigned int force) {}
-__attribute__ ((weak)) void slbc_mic_num_cmd(unsigned int num) {}
-__attribute__ ((weak)) void slbc_inner_cmd(unsigned int inner) {}
-__attribute__ ((weak)) void slbc_outer_cmd(unsigned int outer) {}
+__attribute__ ((weak)) int slbc_force_scmi_cmd(unsigned int force) {}
+__attribute__ ((weak)) int slbc_mic_num_cmd(unsigned int num) {}
+__attribute__ ((weak)) int slbc_inner_cmd(unsigned int inner) {}
+__attribute__ ((weak)) int slbc_outer_cmd(unsigned int outer) {}
 __attribute__ ((weak)) int _slbc_request_cache_scmi(void *ptr) {}
 __attribute__ ((weak)) int _slbc_release_cache_scmi(void *ptr) {}
 __attribute__ ((weak)) int _slbc_request_buffer_scmi(void *ptr) {}
