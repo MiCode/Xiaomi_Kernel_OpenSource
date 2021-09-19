@@ -15,10 +15,13 @@
 #include <linux/debugfs.h>
 #endif
 
+#include <mt-plat/aee.h>
+
 #include "apu.h"
 #include "apu_config.h"
 #include "apu_mbox.h"
 #include "apu_ipi_config.h"
+#include "apu_excep.h"
 
 static struct lock_class_key ipi_lock_key[APU_IPI_MAX];
 
@@ -304,6 +307,7 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 {
 	struct timespec64 ts, te;
 	struct mtk_apu *apu = priv;
+	struct device *dev = apu->dev;
 	struct apu_ipi_desc *ipi;
 	struct apu_mbox_hdr hdr;
 	struct mtk_share_obj *recv_obj = apu->recv_buf;
@@ -322,38 +326,41 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	id = hdr.id;
 	len = hdr.len;
 
-	dev_info(apu->dev,
+	dev_info(dev,
 		 "%s: ipi_id=%d, len=%d, serial_no=%d ++\n",
 		 __func__, id, len, hdr.serial_no);
 
 	ipi = &apu->ipi_desc[id];
 
 	if (hdr.serial_no != rx_serial_no) {
-		dev_info(apu->dev, "unmatched serial_no: curr=%u, recv=%u\n",
+		dev_info(dev, "unmatched serial_no: curr=%u, recv=%u\n",
 			rx_serial_no, hdr.serial_no);
-		dev_info(apu->dev, "outbox irq=%x\n", ioread32(apu->apu_mbox + 0xc4));
+		dev_info(dev, "outbox irq=%x\n", ioread32(apu->apu_mbox + 0xc4));
 		if (ioread32(apu->apu_mbox + 0xc4) == 0) {
-			dev_info(apu->dev, "abnormal isr call, skip\n");
+			dev_info(dev, "abnormal isr call, skip\n");
 			goto ack_irq;
 		}
+		/* correct the serial no. */
+		rx_serial_no = hdr.serial_no;
+		apusys_rv_aee_warn("APUSYS_RV", "IPI rx_serial_no unmatch");
 	}
 	rx_serial_no++;
 
 	if (len > APU_SHARE_BUFFER_SIZE) {
-		dev_info(apu->dev, "IPI message too long(len %d, max %d)",
+		dev_info(dev, "IPI message too long(len %d, max %d)",
 			len, APU_SHARE_BUFFER_SIZE);
 		goto ack_irq;
 	}
 
 	if (id >= APU_IPI_MAX) {
-		dev_info(apu->dev, "no such IPI id = %d", id);
+		dev_info(dev, "no such IPI id = %d", id);
 		goto ack_irq;
 	}
 
 	mutex_lock(&apu->ipi_desc[id].lock);
 	handler = apu->ipi_desc[id].handler;
 	if (!handler) {
-		dev_info(apu->dev, "IPI id=%d is not registered", id);
+		dev_info(dev, "IPI id=%d is not registered", id);
 		mutex_unlock(&apu->ipi_desc[id].lock);
 		goto ack_irq;
 	}
@@ -362,9 +369,10 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 
 	calc_csum = calculate_csum(temp_buf, len);
 	if (calc_csum != hdr.csum) {
-		dev_info(apu->dev, "csum error: recv=0x%08x, calc=0x%08x\n",
+		dev_info(dev, "csum error: recv=0x%08x, calc=0x%08x\n",
 			hdr.csum, calc_csum);
 		dump_msg_buf(apu, temp_buf, hdr.len);
+		apusys_rv_aee_warn("APUSYS_RV", "IPI rx csum error");
 	}
 
 	handler(temp_buf, len, apu->ipi_desc[id].priv);
@@ -382,7 +390,7 @@ ack_irq:
 	ktime_get_ts64(&te);
 	ts = timespec64_sub(te, ts);
 
-	dev_info(apu->dev,
+	dev_info(dev,
 		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld --\n",
 		 __func__, id, len, hdr.csum, hdr.serial_no,
 		 timespec64_to_ns(&ts));
