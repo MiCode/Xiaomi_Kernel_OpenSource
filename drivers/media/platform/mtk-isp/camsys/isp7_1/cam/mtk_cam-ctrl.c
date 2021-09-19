@@ -660,7 +660,6 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 	struct mtk_raw_device *raw_dev = NULL;
 	unsigned int time_after_sof = 0;
 	int sv_i;
-	int ret;
 	int is_mstream_last_exposure = 0;
 
 	req_stream_data = mtk_cam_sensor_work_to_s_data(work);
@@ -684,30 +683,6 @@ static void mtk_cam_sensor_worker(struct kthread_work *work)
 	if (mtk_cam_is_mstream(ctx))
 		is_mstream_last_exposure =
 			mtk_cam_set_sensor_mstream_exposure(ctx, req_stream_data);
-
-	if (req_stream_data->feature.raw_feature & MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
-		struct v4l2_subdev_format fmt;
-
-		if (!(req_stream_data->pad_fmt_update & 1 << MTK_RAW_SINK)) {
-			dev_dbg(ctx->cam->dev,
-				"%s:%s:ctx(%d):seq(%d), pad_fmt_update(0x%x) no pending MTK_RAW_SINK s_fmt found, can't set senor/seninf fmt for SEAMLESS_SWITCH\n",
-				__func__, req->req.debug_str, ctx->stream_id,
-				req_stream_data->frame_seq_no, req_stream_data->pad_fmt_update);
-		} else {
-			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-			fmt.pad = 0;
-			fmt.format = req_stream_data->seninf_fmt.format;
-			ret = v4l2_subdev_call(ctx->sensor, pad, set_fmt,
-					       NULL, &fmt);
-			dev_dbg(ctx->cam->dev,
-				"%s:ctx(%d) apply sensor fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
-				__func__, ctx->stream_id, ctx->sensor->name,
-				fmt.pad,
-				req_stream_data->seninf_fmt.format.width,
-				req_stream_data->seninf_fmt.format.height,
-				req_stream_data->seninf_fmt.format.code);
-		}
-	}
 
 	/* request setup*/
 	/* 1st frame sensor setting in mstream is treated like normal frame and is set with
@@ -1076,8 +1051,7 @@ static inline bool is_sensor_switch(struct mtk_cam_request_stream_data *s_data)
 	    !mtk_cam_feature_change_is_mstream(s_data->feature.switch_feature_type))
 		return true;
 
-	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE &&
-	    s_data->feature.raw_feature & MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
+	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1) {
 		state_transition(&s_data->state, E_STATE_READY, E_STATE_SENSOR);
 		return true;
 	}
@@ -2096,10 +2070,9 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
-	struct v4l2_ctrl_handler *parent_hdl;
+	char *debug_str;
 	struct v4l2_subdev_format fmt;
-	struct media_request_object *obj;
-	struct media_request_object *pipe_obj = NULL;
+	unsigned int time_after_sof = 0;
 	int ret = 0;
 
 	s_data = mtk_cam_req_work_get_s_data(req_work);
@@ -2115,6 +2088,7 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 			__func__, s_data, req);
 		return;
 	}
+	debug_str = req->req.debug_str;
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	if (!ctx) {
@@ -2126,31 +2100,23 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	fmt.pad = 0;
 	fmt.format = s_data->seninf_fmt.format;
-
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d):sd:%s - start change sensor mode settings\n",
-		__func__, ctx->stream_id, ctx->sensor->name);
 	ret = v4l2_subdev_call(ctx->sensor, pad, set_fmt, NULL, &fmt);
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d) apply sensor fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
-		__func__, ctx->stream_id, ctx->sensor->name,
+	dev_dbg(cam->dev,
+		"%s:ctx(%d):sd(%s):%s:seq(%d): apply sensor fmt, pad:%d set format w/h/code %d/%d/0x%x\n",
+		__func__, ctx->stream_id, ctx->sensor->name, debug_str, s_data->frame_seq_no,
 		fmt.pad, s_data->seninf_fmt.format.width,
 		s_data->seninf_fmt.format.height,
 		s_data->seninf_fmt.format.code);
 
-	list_for_each_entry(obj, &req->req.objects, list) {
-		if (likely(obj))
-			parent_hdl = obj->priv;
-		else
-			continue;
+	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
+		v4l2_ctrl_request_setup(&req->req, s_data->sensor->ctrl_handler);
+		time_after_sof =
+			ktime_get_boottime_ns() / 1000000 - ctx->sensor_ctrl.sof_time;
+		dev_dbg(cam->dev,
+			"%s:ctx(%d):sd(%s):%s:seq(%d):[SOF+%dms] Sensor request setup\n",
+			__func__, ctx->stream_id, ctx->sensor->name, debug_str,
+			s_data->frame_seq_no, time_after_sof);
 
-		if (parent_hdl == ctx->sensor->ctrl_handler ||
-		    (ctx->prev_sensor && parent_hdl ==
-		     ctx->prev_sensor->ctrl_handler))
-			v4l2_ctrl_request_setup(&req->req, parent_hdl);
-
-		if (parent_hdl == &ctx->pipe->ctrl_handler)
-			pipe_obj = obj;
 	}
 
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
@@ -2158,9 +2124,10 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 	fmt.format = s_data->seninf_fmt.format;
 	ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
 			       pad, set_fmt, NULL, &fmt);
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+	dev_dbg(cam->dev,
+		"%s:ctx(%d):sd(%s):%s:seq(%d): apply seninf fmt, pad:%d set format w/h/code %d/%d/0x%x\n",
 		__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
+		debug_str, s_data->frame_seq_no,
 		fmt.pad,
 		s_data->seninf_fmt.format.width,
 		s_data->seninf_fmt.format.height,
@@ -2171,15 +2138,18 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 	fmt.format = s_data->seninf_fmt.format;
 	ret = v4l2_subdev_call(ctx->pipe->res_config.seninf,
 			       pad, set_fmt, NULL, &fmt);
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d) apply seninf fmt, sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
+	dev_dbg(cam->dev,
+		"%s:ctx(%d):sd(%s):%s:seq(%d): apply seninf fmt, pad:%d set format w/h/code %d/%d/0x%x\n",
 		__func__, ctx->stream_id, ctx->pipe->res_config.seninf->name,
-		fmt.pad, s_data->seninf_fmt.format.width,
+		debug_str, s_data->frame_seq_no,
+		fmt.pad,
+		s_data->seninf_fmt.format.width,
 		s_data->seninf_fmt.format.height,
 		s_data->seninf_fmt.format.code);
 
-	dev_info(cam->dev, "%s:%s:ctx(%d):seq(%d):sensor done\n",
-		 __func__, req->req.debug_str, ctx->stream_id,
+	dev_info(cam->dev,
+		 "%s:ctx(%d):sd(%s):%s:seq(%d): sensor done\n", __func__,
+		 ctx->stream_id, ctx->sensor->name, debug_str,
 		 s_data->frame_seq_no);
 
 	mtk_cam_complete_sensor_hdl(s_data);
@@ -2193,8 +2163,7 @@ static void mtk_cam_handle_seamless_switch(struct mtk_cam_request_stream_data *s
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_device *cam = ctx->cam;
 
-	/* TODO: need to check && MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK */
-	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE) {
+	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1) {
 		state_transition(&s_data->state, E_STATE_OUTER, E_STATE_CAMMUX_OUTER_CFG);
 		INIT_WORK(&s_data->seninf_s_fmt_work.work, mtk_cam_seamless_switch_work);
 		queue_work(cam->link_change_wq, &s_data->seninf_s_fmt_work.work);

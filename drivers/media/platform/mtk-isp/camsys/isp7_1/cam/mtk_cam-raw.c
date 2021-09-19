@@ -246,7 +246,10 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 							   user_res,
 							   pipeline->user_res.sink_fmt);
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE) {
-		ctrl->val = pipeline->res_update;
+		ctrl->val = pipeline->sensor_mode_update;
+		dev_info(dev,
+			 "%s:pipe(%d): V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE: %d\n",
+			 __func__, pipeline->id, pipeline->sensor_mode_update);
 	} else if (ctrl->id >= V4L2_CID_MTK_CAM_USED_ENGINE_TRY &&
 		   ctrl->id <= V4L2_CID_MTK_CAM_FRZ_TRY) {
 		/**
@@ -285,6 +288,9 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 		switch (ctrl->id) {
 		case V4L2_CID_MTK_CAM_USED_ENGINE:
 			ctrl->val = pipeline->res_config.raw_num_used;
+			break;
+		case V4L2_CID_MTK_CAM_BIN_LIMIT:
+			ctrl->val = pipeline->res_config.bin_limit;
 			break;
 		case V4L2_CID_MTK_CAM_BIN:
 			ctrl->val = pipeline->res_config.bin_enable;
@@ -479,6 +485,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 res_user->raw_res.raw_min, res_cfg->raw_num_used);
 	}
 
+	res_user->raw_res.pixel_mode = res_cfg->tgo_pxl_mode;
 	res_user->raw_res.raw_used = res_cfg->raw_num_used;
 	if (res_cfg->bin_limit == BIN_AUTO)
 		res_user->raw_res.bin = res_cfg->bin_enable;
@@ -486,9 +493,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		res_user->raw_res.bin = res_cfg->bin_limit;
 
 	dev_info(dev,
-		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/strategy(%d)\n",
+		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)\n",
 		 __func__, pipeline->id, res_user->raw_res.raw_used,
-		 res_user->raw_res.bin, res_user->raw_res.strategy);
+		 res_user->raw_res.bin, res_user->raw_res.pixel_mode,
+		 res_user->raw_res.strategy);
 
 	/**
 	 * Other output not reveal to user now:
@@ -523,9 +531,10 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 
 	ret = mtk_cam_raw_res_store(pipeline, res_user);
 	pipeline->feature_pending = res_user->raw_res.feature;
+	pipeline->user_res = *res_user;
 	if (pipeline->subdev.entity.stream_count) {
-		/* if the pipeline is streaming, pending the change */
-		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported\n",
+		/* If the pipeline is streaming, pending the change */
+		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported except bin\n",
 			__func__, pipeline->id);
 		return ret;
 	}
@@ -657,6 +666,9 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 			pipeline->id);
 			break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
+		dev_info(dev,
+			 "%s:pipe(%d): skip V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE: %d\n",
+			 __func__, pipeline->id, ctrl->val);
 		ret = 0; /* no support */
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
@@ -697,13 +709,13 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
 		/**
-		 * res_update should be reset by driver after the completion of
+		 * sensor_mode_update should be reset by driver after the completion of
 		 * resource updating (seamless switch)
 		 */
-		pipeline->res_update = ctrl->val;
-		dev_dbg(dev, "%s:pipe(%d):streaming(%d), res_update(%d)\n",
-			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-			pipeline->res_update);
+		pipeline->sensor_mode_update = ctrl->val;
+		dev_info(dev, "%s:pipe(%d):streaming(%d), sensor_mode_update(%d)\n",
+			 __func__, pipeline->id, pipeline->subdev.entity.stream_count,
+			 pipeline->sensor_mode_update);
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
@@ -5219,8 +5231,16 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	mutex_init(&pipe->pde_config.pde_info_lock);
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
 
-	v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
-	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_update, NULL);
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_update, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_res_ctrl, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
@@ -5238,7 +5258,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->res_config.res_plan = res_plan_policy.def;
 	pipe->feature_pending = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
-	pipe->res_update = cfg_res_update.def;
+	pipe->sensor_mode_update = cfg_res_update.def;
 	pipe->pde_config.pde_info.pdo_max_size = cfg_pde_info.def;
 	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;
 	pipe->pde_config.pde_info.pd_table_offset = cfg_pde_info.def;

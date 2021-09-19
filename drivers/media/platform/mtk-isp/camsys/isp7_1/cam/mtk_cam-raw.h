@@ -63,9 +63,6 @@ enum raw_module_id {
 #define MTK_CAM_FEATURE_OFFLINE_M2M_MASK	0x00000100
 #define MTK_CAM_FEATURE_TIMESHARE_MASK		0x0000F000
 
-/* flags common to features */
-#define MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK	BIT(31)
-
 enum raw_function_id {
 	/* hdr */
 	STAGGER_2_EXPOSURE_LE_SE	= (1 << 0),
@@ -264,7 +261,7 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_resource user_res;
 	struct mtk_cam_resource_config res_config;
 	struct mtk_cam_resource_config try_res_config;
-	int res_update;
+	int sensor_mode_update;
 	s64 sync_id;
 	/* mstream */
 	struct mtk_cam_mstream_exposure mstream_exposure;

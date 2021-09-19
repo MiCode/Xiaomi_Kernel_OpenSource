@@ -67,7 +67,8 @@ struct mtk_raw_pipeline;
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
 
-#define MTK_CAM_REQ_S_DATA_FLAG_SENINF_FMT_UPDATE	BIT(3)
+/* Apply sensor mode and the timing is 1 vsync before */
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1	BIT(3)
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
 
@@ -211,7 +212,6 @@ struct mtk_cam_request_stream_data {
 	u32 pad_fmt_update;
 	u32 vdev_fmt_update;
 	u32 vdev_selection_update;
-	u32 res_update;
 	struct v4l2_subdev_format seninf_fmt;
 	struct v4l2_subdev_format pad_fmt[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_format vdev_fmt[MTK_RAW_TOTAL_NODES];
@@ -272,7 +272,6 @@ struct mtk_cam_request {
 	struct work_struct link_work;
 	u64 time_syscall_enque;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
-	u8 raw_res_update;
 	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;
 };
@@ -555,15 +554,6 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 	return &s_data->req->raw_res[s_data->pipe_id];
 }
 
-static inline bool
-mtk_cam_s_data_has_res(struct mtk_cam_request_stream_data *s_data)
-{
-	if (!is_raw_subdev(s_data->pipe_id))
-		return false;
-
-	return s_data->req->raw_res_update & s_data->pipe_id;
-}
-
 static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 			    int node_id)
@@ -718,11 +708,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
-
-void
-mtk_cam_req_pending_seninf_s_fmt(struct media_request *req,
-				 struct mtk_raw_pipeline *raw_pipe,
-				 struct v4l2_subdev_format *seninf_fmt);
 
 void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
 				     struct mtk_cam_buffer *buf,

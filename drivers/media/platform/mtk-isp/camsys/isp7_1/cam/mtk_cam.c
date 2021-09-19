@@ -63,20 +63,6 @@ static const struct of_device_id mtk_cam_of_ids[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
-void
-mtk_cam_req_pending_seninf_s_fmt(struct media_request *req,
-				 struct mtk_raw_pipeline *raw_pipe,
-				 struct v4l2_subdev_format *seninf_fmt)
-{
-	struct mtk_cam_request *cam_req;
-	struct mtk_cam_request_stream_data *s_data;
-
-	cam_req = to_mtk_cam_req(req);
-	s_data = mtk_cam_req_get_s_data(cam_req, raw_pipe->id, 0);
-	s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENINF_FMT_UPDATE;
-	s_data->seninf_fmt = *seninf_fmt;
-}
-
 /**
  * All member of mtk_cam_request which may be used after
  * media_request_ioctl_reinit and before next media_request_ioctl_queue
@@ -1308,9 +1294,7 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 	int pipe_id;
 	int pad;
 	struct mtk_cam_request_stream_data *stream_data;
-	struct mtk_cam_resource *res_user;
 	struct v4l2_subdev *sd;
-	struct v4l2_mbus_framefmt *sink_fmt;
 	struct mtk_raw_pipeline *raw_pipeline;
 	int w, h;
 
@@ -1340,8 +1324,8 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 							MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE;
 					}
 
-					if (stream_data->feature.raw_feature &
-						MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK) {
+					if (stream_data->flags &
+						MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1) {
 						stream_data->seninf_fmt.format =
 							stream_data->pad_fmt[pad].format;
 						dev_info(cam->dev,
@@ -1365,16 +1349,6 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 						stream_data->pad_fmt[pad].format =
 							raw_pipeline->cfg[pad].mbus_fmt;
 					}
-				}
-
-				/* Trigger resource calculation and pdate resources */
-				if (stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE &&
-					mtk_cam_s_data_has_res(stream_data)) {
-					res_user = mtk_cam_s_data_get_res(stream_data);
-					sink_fmt = &stream_data->pad_fmt[MTK_RAW_SINK].format;
-					mtk_cam_raw_try_res_ctrl(raw_pipeline, res_user,
-								 &raw_pipeline->res_config,
-								 sink_fmt);
 				}
 
 				/* Set MEDIA_PAD_FL_SOURCE pad's fmt */
@@ -1422,22 +1396,29 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 {
 	s64 raw_fut_pre;
 	char *debug_str = mtk_cam_s_data_get_dbg_str(s_data);
+	struct mtk_cam_request *req;
 
+	req = mtk_cam_s_data_get_req(s_data);
+
+	/* clear seamless switch mode */
+	raw_pipe->sensor_mode_update = 0;
 	raw_fut_pre = raw_pipe->feature_pending;
-	mtk_cam_req_ctrl_setup(raw_pipe, mtk_cam_s_data_get_req(s_data));
+	mtk_cam_req_ctrl_setup(raw_pipe, req);
 	s_data->feature.switch_feature_type =
 		mtk_cam_get_feature_switch(raw_pipe, raw_fut_pre);
 	s_data->feature.raw_feature = raw_pipe->feature_pending;
 	s_data->feature.prev_feature = raw_fut_pre;
-	s_data->res_update = raw_pipe->res_update;
 	dev_dbg(raw_pipe->subdev.v4l2_dev->dev,
-			"%s:%s:%s: raw_feature(0x%0x), prev_feature(0x%0x), switch_feature_type(0x%0x), res_update(0x%0x)\n",
-			__func__, raw_pipe->subdev.name, debug_str,
-			s_data->feature.raw_feature,
-			s_data->feature.prev_feature,
-			s_data->feature.switch_feature_type,
-			s_data->res_update);
+		"%s:%s:%s:raw_feature(0x%0x), prev_feature(0x%0x), switch_feature_type(0x%0x), sensor_mode_update(0x%0x)\n",
+		__func__, raw_pipe->subdev.name, debug_str,
+		s_data->feature.raw_feature,
+		s_data->feature.prev_feature,
+		s_data->feature.switch_feature_type,
+		raw_pipe->sensor_mode_update);
+	if (raw_pipe->sensor_mode_update)
+		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1;
 
+	req->raw_res[raw_pipe->id] = raw_pipe->user_res;
 	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
 
 	return 0;
@@ -2008,7 +1989,6 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		req_stream_data->pipe_id = pipe_id;
 		req_stream_data->state.estate = E_STATE_READY;
 		req_stream_data->index = i;
-		req_stream_data->res_update = 0;
 
 		/**
 		 * req_stream_data->flags is cleaned by
@@ -2826,6 +2806,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtkcam_ipi_meta_output *meta_1_out;
 	struct mtk_cam_buffer *meta1_buf;
 	struct mtk_mraw_device *mraw_dev;
+	struct mtk_cam_resource *res_user;
 	int i;
 
 	req_stream_data = mtk_cam_req_work_get_s_data(req_work);
@@ -2973,25 +2954,32 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		buf_entry->buffer.iova -
 		cam->ctxs[session->session_id].buf_pool.working_buf_iova;
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
-	if (ctx->pipe->res_config.bin_limit == BIN_AUTO)
-		frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_enable;
-	else
-		frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_limit;
 
-	/* Send CAM_CMD_CONFIG if we change sensor */
+	res_user = mtk_cam_s_data_get_res(req_stream_data);
+	if (res_user && res_user->raw_res.bin) {
+		frame_data->raw_param.bin_flag = res_user->raw_res.bin;
+	} else {
+		if (ctx->pipe->res_config.bin_limit == BIN_AUTO)
+			frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_enable;
+		else
+			frame_data->raw_param.bin_flag = ctx->pipe->res_config.bin_limit;
+	}
+
+	/* Send CAM_CMD_CONFIG if the sink pad fmt is changed */
 	if (req->ctx_link_update & 1 << ctx->stream_id ||
 	    req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE)
 		mtk_cam_dev_config(ctx, true, false);
 
 	if (ctx->rpmsg_dev) {
-
 		MTK_CAM_TRACE_BEGIN("ipi_cmd_frame:%d", req_stream_data->frame_seq_no);
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
 		MTK_CAM_TRACE_END();
 
-		dev_info(cam->dev, "rpmsg_send id: %d, ctx:%d, req:%d\n",
-			event.cmd_id, session->session_id,
-			req_stream_data->frame_seq_no);
+		dev_info(cam->dev,
+			 "%s: rpmsg_send id: %d, ctx:%d, seq:%d, bin:(0x%x)\n",
+			 req->req.debug_str, event.cmd_id, session->session_id,
+			 req_stream_data->frame_seq_no,
+			 frame_data->raw_param.bin_flag);
 	} else {
 		dev_dbg(cam->dev, "%s: rpmsg_dev not exist: %d, ctx:%d, req:%d\n",
 			__func__, event.cmd_id, session->session_id,
