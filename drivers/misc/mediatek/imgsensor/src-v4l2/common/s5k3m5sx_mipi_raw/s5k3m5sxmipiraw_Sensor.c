@@ -3677,32 +3677,21 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-		if (ctx->current_fps != imgsensor_info.cap.max_framerate) {
-			LOG_INF(
-				"Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
-				framerate,
-				imgsensor_info.cap.max_framerate/10);
+		frame_length
+			= imgsensor_info.cap.pclk
+			/ framerate * 10
+			/ imgsensor_info.cap.linelength;
 
-			frame_length
-				= imgsensor_info.cap.pclk
-				/ framerate * 10
-				/ imgsensor_info.cap.linelength;
+		ctx->dummy_line
+			= (frame_length > imgsensor_info.cap.framelength)
+			? (frame_length - imgsensor_info.cap.framelength)
+			: 0;
 
+		ctx->frame_length
+			= imgsensor_info.cap.framelength
+			+ ctx->dummy_line;
 
-			ctx->dummy_line
-				= (frame_length
-				   > imgsensor_info.cap.framelength)
-				? (frame_length
-				   - imgsensor_info.cap.framelength)
-				: 0;
-
-			ctx->frame_length
-				= imgsensor_info.cap.framelength
-				+ ctx->dummy_line;
-
-			ctx->min_frame_length = ctx->frame_length;
-		}
-
+		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
 
