@@ -1217,6 +1217,22 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	}
 }
 
+static void mtk_set_first_config(struct drm_device *dev,
+					struct drm_atomic_state *old_state)
+{
+	struct drm_connector *connector;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct drm_connector_state *new_conn_state;
+	int i;
+
+	for_each_new_connector_in_state(old_state, connector, new_conn_state, i) {
+		if (connector->encoder && connector->encoder->crtc) {
+			private->already_first_config = true;
+			DDPMSG("%s, set first config true\n", __func__);
+		}
+	}
+}
+
 static void mtk_atomic_complete(struct mtk_drm_private *private,
 				struct drm_atomic_state *state)
 {
@@ -1251,6 +1267,8 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 
 	drm_atomic_helper_commit_modeset_disables(drm, state);
 	drm_atomic_helper_commit_modeset_enables(drm, state);
+
+	mtk_set_first_config(drm, state);
 
 	mtk_drm_enable_trig(drm, state);
 
@@ -1368,8 +1386,6 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		mtk_atomic_schedule(private, state);
 	else
 		mtk_atomic_complete(private, state);
-
-	private->already_first_config = true;
 
 	mutex_nested_time_end = sched_clock();
 	mutex_nested_time_period =
