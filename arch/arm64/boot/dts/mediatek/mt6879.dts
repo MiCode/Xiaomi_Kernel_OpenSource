@@ -9809,7 +9809,7 @@
 		};
 	};
 
-	mt6685_mfd {
+	mt6685:	mt6685_mfd {
 		compatible = "mediatek,mt6685";
 		reg = <0x9 SPMI_USID>;
 		mt6685_rtc: mt6685_rtc {
