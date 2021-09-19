@@ -37,8 +37,9 @@ int sched_pause_cpu(int cpu)
 	mutex_lock(&sched_core_pause_mutex);
 	cpumask_complement(&cpu_inactive_mask, cpu_active_mask);
 	if (cpumask_test_cpu(cpu, &cpu_inactive_mask)) {
-		pr_info("[Core Pause]Already Pause: cpu=%d, active_mask=0x%lx\n",
-			cpu, cpu_active_mask->bits[0]);
+		pr_info("[Core Pause]Already Pause: cpu=%d, active=0x%lx, online=0x%lx\n",
+			cpu, cpu_active_mask->bits[0],
+			cpu_online_mask->bits[0]);
 		mutex_unlock(&sched_core_pause_mutex);
 		return err;
 	}
@@ -48,14 +49,16 @@ int sched_pause_cpu(int cpu)
 
 	err = pause_cpus(&cpu_pause_mask);
 	if (err) {
-		pr_info("[Core Pause]Pause fail: cpu=%d, pause_mask=0x%lx, active_mask=0x%lx, err=%d\n",
-			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0], err);
+		pr_info("[Core Pause]Pause fail: cpu=%d, pause=0x%lx, active=0x%lx, online=0x%lx, err=%d\n",
+			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0],
+			cpu_online_mask->bits[0], err);
 	} else {
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 		set_cpu_active_bitmask(cpumask_bits(cpu_active_mask)[0]);
 #endif
-		pr_info("[Core Pause]Pause success: cpu=%d, pause_mask=0x%lx, active_mask=0x%lx\n",
-			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0]);
+		pr_info("[Core Pause]Pause success: cpu=%d, pause=0x%lx, active=0x%lx, online=0x%lx\n",
+			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0],
+			cpu_online_mask->bits[0]);
 	}
 	mutex_unlock(&sched_core_pause_mutex);
 
@@ -74,8 +77,8 @@ int sched_resume_cpu(int cpu)
 
 	mutex_lock(&sched_core_pause_mutex);
 	if (cpumask_test_cpu(cpu, cpu_active_mask)) {
-		pr_info("[Core Pause]Already Resume: cpu=%d, active_mask=0x%lx\n",
-				cpu, cpu_active_mask->bits[0]);
+		pr_info("[Core Pause]Already Resume: cpu=%d, active=0x%lx, online=0x%lx\n",
+				cpu, cpu_active_mask->bits[0], cpu_online_mask->bits[0]);
 		mutex_unlock(&sched_core_pause_mutex);
 		return err;
 	}
@@ -84,14 +87,16 @@ int sched_resume_cpu(int cpu)
 	cpumask_set_cpu(cpu, &cpu_resume_mask);
 	err = resume_cpus(&cpu_resume_mask);
 	if (err) {
-		pr_info("[Core Pause]Resume fail: cpu=%d, resume_mask=0x%lx, active_mask=0x%lx, err=%d\n",
-				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0], err);
+		pr_info("[Core Pause]Resume fail: cpu=%d, resume=0x%lx, active=0x%lx, online=0x%lx, err=%d\n",
+				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0],
+				cpu_online_mask->bits[0], err);
 	} else {
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 		set_cpu_active_bitmask(cpumask_bits(cpu_active_mask)[0]);
 #endif
-		pr_info("[Core Pause]Resume success: cpu=%d, resume_mask=0x%lx, active_mask=0x%lx\n",
-				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0]);
+		pr_info("[Core Pause]Resume success: cpu=%d, resume=0x%lx, active=0x%lx, online=0x%lx\n",
+				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0],
+				cpu_online_mask->bits[0]);
 	}
 	mutex_unlock(&sched_core_pause_mutex);
 
