@@ -1199,7 +1199,7 @@ static void try_to_pause(struct cluster_data *cluster, int need)
 again:
 	nr_paused = 0;
 	spin_lock_irqsave(&state_lock, flags);
-	for (cpu = nr_cpu_ids-1; cpu > -1; cpu--) {
+	for (cpu = nr_cpu_ids-1; cpu >= 0; cpu--) {
 		struct cpu_data *c;
 
 		success = false;
@@ -1240,8 +1240,16 @@ again:
 			core_ctl_debug("%s Unable to pause CPU%u\n", TAG, c->cpu);
 		}
 		spin_lock_irqsave(&state_lock, flags);
-		if (success)
-			c->paused_by_cc = true;
+		if (success) {
+			/* check again, prevent a seldom racing issue */
+			if (cpu_online(c->cpu))
+				c->paused_by_cc = true;
+			else {
+				nr_paused--;
+				pr_info("%s: Pause failed because cpu#%d is offline. ",
+					TAG, c->cpu);
+			}
+		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
 	}
 	cluster->nr_paused_cpus += nr_paused;
@@ -1285,7 +1293,10 @@ again:
 		if (c->force_paused)
 			continue;
 
-		if (is_active(c))
+		if (!cpu_online(c->cpu))
+			continue;
+
+		if (cpu_active(c->cpu))
 			continue;
 
 		if (cluster->active_cpus == need)
