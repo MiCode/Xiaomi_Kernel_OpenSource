@@ -1989,14 +1989,21 @@ static int gt9896s_ts_disp_notifier_callback(struct notifier_block *nb,
 	int *data = (int *)v;
 
 	if (core_data && v) {
-		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+		if (value == MTK_DISP_EVENT_BLANK) {
+//resume: touch power on is after display to avoid display disturb
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 				if (!atomic_read(&gt9896s_tui_flag))
 #endif
 					gt9896s_ts_resume(core_data);
-			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
+			}
+			ts_info("%s OUT", __func__);
+		} else if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+//suspend: touch power off is before display to avoid touch report event
+//after screen is off
+			ts_info("%s IN", __func__);
+			if (*data == MTK_DISP_BLANK_POWERDOWN) {
 
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 				if (!atomic_read(&gt9896s_tui_flag))

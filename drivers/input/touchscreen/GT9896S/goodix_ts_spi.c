@@ -1002,7 +1002,7 @@ int gt9896s_hw_reset(struct gt9896s_ts_device *dev)
 	gpio_direction_output(dev->board_data.reset_gpio, 0);
 	udelay(2000);
 	gpio_direction_output(dev->board_data.reset_gpio, 1);
-	msleep(500);
+	msleep(100);
 
 	if (dev->ic_type == IC_TYPE_YELLOWSTONE_SPI) {
 		/* set spi args & remove GIO hold for ES_CHIP*/
