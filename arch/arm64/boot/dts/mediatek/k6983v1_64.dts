@@ -635,10 +635,6 @@
 };
 /* CONNSYS TCXO GPIO end */
 
-&speech_usip_mem {
-	adsp_phone_call_enh_enable = <0x3>;
-};
-
 &pdc {
 	pd_vbus_upper_bound = <12000000>;
 };
