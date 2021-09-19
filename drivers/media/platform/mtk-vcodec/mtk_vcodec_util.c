@@ -487,8 +487,10 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 {
 	if (mem->type == MEM_TYPE_FOR_SW ||
 		mem->type == MEM_TYPE_FOR_HW ||
+		mem->type == MEM_TYPE_FOR_UBE_HW ||
 		mem->type == MEM_TYPE_FOR_SEC_SW ||
-		mem->type == MEM_TYPE_FOR_SEC_HW) {
+		mem->type == MEM_TYPE_FOR_SEC_HW ||
+		mem->type == MEM_TYPE_FOR_SEC_UBE_HW) {
 		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 		dma_buf_detach((struct dma_buf *)mem->va, attach);
 		dma_heap_buffer_free((struct dma_buf *)mem->va);

@@ -2037,6 +2037,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		ret = 0;
 		break;
 	case VCU_MVA_FREE:
+	case VCU_UBE_MVA_FREE:
 	case VCU_PA_FREE:
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
@@ -2051,6 +2052,14 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 
 		if (cmd == VCU_MVA_FREE) {
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
+		} else if (cmd == VCU_UBE_MVA_FREE) {
+			struct device *io_dev = vcu_queue->dev;
+
+			vcu_queue->dev = vcp_get_io_device(VCP_IOMMU_UBE_LAT);
+			if (vcu_queue->dev == NULL)
+				vcu_queue->dev = io_dev;
+			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
+			vcu_queue->dev = io_dev;
 		} else {
 			ret = mtk_vcu_free_page(vcu_queue, &mem_buff_data);
 		}
@@ -2229,6 +2238,7 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 			return err;
 		break;
 	case COMPAT_VCU_MVA_FREE:
+	case COMPAT_VCU_UBE_MVA_FREE:
 	case COMPAT_VCU_PA_FREE:
 		data32 = compat_ptr((uint32_t)arg);
 		data = compat_alloc_user_space(sizeof(struct mem_obj));
@@ -2241,6 +2251,9 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 		if (cmd == COMPAT_VCU_MVA_FREE)
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_MVA_FREE, (unsigned long)data);
+		else if (cmd == COMPAT_VCU_UBE_MVA_FREE)
+			ret = file->f_op->unlocked_ioctl(file,
+				(uint32_t)VCU_UBE_MVA_FREE, (unsigned long)data);
 		else
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_PA_FREE, (unsigned long)data);
