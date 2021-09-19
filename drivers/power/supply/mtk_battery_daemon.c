@@ -3309,9 +3309,13 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		} else {
 			memcpy(&gm->fgd_pid, &msg->fgd_data[0],
 				sizeof(gm->fgd_pid));
-			bm_err("[K]FG_DAEMON_CMD_SET_DAEMON_PID = %d(re-launch)\n",
-				gm->fgd_pid);
-			/* kill daemon dod_init 14 , todo*/
+			bm_err("[K]FG_DAEMON_CMD_SET_DAEMON_PID=%d,kill daemon:%d init_flag:%d (re-launch)\n",
+				gm->fgd_pid,
+				gm->Bat_EC_ctrl.debug_kill_daemontest,
+				gm->init_flag);
+			if (gm->Bat_EC_ctrl.debug_kill_daemontest != 1 &&
+				gm->init_flag == 1)
+				gm->fg_cust_data.dod_init_sel = 14;
 		}
 	}
 	break;
