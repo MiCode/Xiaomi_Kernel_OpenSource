@@ -199,8 +199,20 @@ out:
 
 int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
+	struct mdw_cmd *c = rc->c;
+
 	if (!rc)
 		return -EINVAL;
+
+	/* invalidate */
+	if (mdw_mem_invalidate(c->mpriv, rc->cb))
+		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate rcbs(%u) fail\n",
+			(uint64_t)c->mpriv, c->kid, rc->cb->size);
+
+	if (mdw_mem_invalidate(c->mpriv, c->exec_infos))
+		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate einfos(%u) fail\n",
+			(uint64_t)c->mpriv, c->kid, c->exec_infos->size);
+
 	mdw_mem_unmap(rc->c->mpriv, rc->cb);
 	mdw_mem_free(rc->c->mpriv, rc->cb);
 	vfree(rc);
@@ -211,10 +223,6 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
 {
 	struct mdw_cmd *c = rc->c;
-
-	/* invalidate */
-	apusys_mem_invalidate_kva(rc->cb->vaddr, rc->cb->size);
-	apusys_mem_invalidate_kva(c->exec_infos->vaddr, c->exec_infos->size);
 
 	/* delete rv cmd and complete */
 	mdw_rv_cmd_delete(rc);

@@ -260,10 +260,7 @@ static void mdw_ap_cmd_done(struct kref *ref)
 		mdw_ap_cmd_delete(ac);
 	} else {
 		mdw_ap_cmd_delete(ac);
-		if (mdw_mem_flush(c->mpriv, c->exec_infos))
-			mdw_drv_warn("s(0x%llx) c(0x%llx) flush exec infos(%u) fail\n",
-				(uint64_t)c->mpriv, c->kid,
-				c->exec_infos->size);
+
 		if (c->einfos->c.sc_rets)
 			ret = -EFAULT;
 		c->complete(c, ret);
