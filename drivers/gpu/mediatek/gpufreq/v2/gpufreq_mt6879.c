@@ -969,9 +969,16 @@ void __gpufreq_check_bus_idle(void)
 void __gpufreq_dump_infra_status(void)
 {
 	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
-	GPUFREQ_LOGI("GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
-		g_gpu.cur_oppidx, g_gpu.cur_freq,
-		g_gpu.cur_volt, g_gpu.cur_vsram);
+	if (g_gpueb_support) {
+		GPUFREQ_LOGI("[Regulator] Vgpu: %d, Vsram: %d",
+			__gpufreq_get_real_vgpu(), __gpufreq_get_real_vsram());
+		GPUFREQ_LOGI("[Clock] MFG_PLL: %d, MFGSC_PLL: %d",
+			__gpufreq_get_real_fgpu(), __gpufreq_get_real_fstack());
+	} else {
+		GPUFREQ_LOGI("GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
+			g_gpu.cur_oppidx, g_gpu.cur_freq,
+			g_gpu.cur_volt, g_gpu.cur_vsram);
+	}
 
 	/* 0x1021C000 */
 	if (g_nth_emicfg_base) {
@@ -3688,17 +3695,17 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* probe only init register base and hook function pointer in EB mode */
-	if (g_gpueb_support) {
-		GPUFREQ_LOGI("gpufreq platform probe only init reg base and hook fp in EB mode");
-		goto register_fp;
-	}
-
 	/* init pmic regulator */
 	ret = __gpufreq_init_pmic(pdev);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init pmic (%d)", ret);
 		goto done;
+	}
+
+	/* skip most of probe in EB mode */
+	if (g_gpueb_support) {
+		GPUFREQ_LOGI("gpufreq platform probe only init reg_base/dfd/pmic/fp in EB mode");
+		goto register_fp;
 	}
 
 	/* init clock source */

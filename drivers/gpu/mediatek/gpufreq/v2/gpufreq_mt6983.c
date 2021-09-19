@@ -1256,12 +1256,24 @@ void __gpufreq_check_bus_idle(void)
 void __gpufreq_dump_infra_status(void)
 {
 	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
-	GPUFREQ_LOGI("GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
-		g_gpu.cur_oppidx, g_gpu.cur_freq,
-		g_gpu.cur_volt, g_gpu.cur_vsram);
-	GPUFREQ_LOGI("STACK[%d] Freq: %d, Vgpu: %d, Vsram: %d",
-		g_stack.cur_oppidx, g_stack.cur_freq,
-		g_stack.cur_volt, g_stack.cur_vsram);
+	if (g_gpueb_support) {
+		GPUFREQ_LOGI("[Regulator] Vcore: %d, Vsram: %d, Vstack: %d",
+			__gpufreq_get_real_vgpu(), __gpufreq_get_real_vsram(),
+			__gpufreq_get_real_vstack());
+		GPUFREQ_LOGI("[Clock] MFG_PLL: %d, MFG_SEL_0: 0x%08x",
+			__gpufreq_get_real_fgpu(),
+			readl(g_topckgen_base + 0x1F0) & MFG_SEL_0_MASK);
+		GPUFREQ_LOGI("[Clock] MFGSC_PLL: %d, MFG_SEL_1: 0x%08x",
+			__gpufreq_get_real_fstack(),
+			readl(g_topckgen_base + 0x1F0) & MFG_SEL_1_MASK);
+	} else {
+		GPUFREQ_LOGI("GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
+			g_gpu.cur_oppidx, g_gpu.cur_freq,
+			g_gpu.cur_volt, g_gpu.cur_vsram);
+		GPUFREQ_LOGI("STACK[%d] Freq: %d, Vgpu: %d, Vsram: %d",
+			g_stack.cur_oppidx, g_stack.cur_freq,
+			g_stack.cur_volt, g_stack.cur_vsram);
+	}
 
 	/* 0x13FBF000 */
 	if (g_mfg_top_base) {
@@ -5013,17 +5025,17 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* probe only init register base and hook function pointer in EB mode */
-	if (g_gpueb_support) {
-		GPUFREQ_LOGI("gpufreq platform probe only init reg base and hook fp in EB mode");
-		goto register_fp;
-	}
-
 	/* init pmic regulator */
 	ret = __gpufreq_init_pmic(pdev);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init pmic (%d)", ret);
 		goto done;
+	}
+
+	/* skip most of probe in EB mode */
+	if (g_gpueb_support) {
+		GPUFREQ_LOGI("gpufreq platform probe only init reg_base/dfd/pmic/fp in EB mode");
+		goto register_fp;
 	}
 
 	/* init clock source */
