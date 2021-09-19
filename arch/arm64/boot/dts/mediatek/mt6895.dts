@@ -6836,6 +6836,61 @@
 
 /** audio end **/
 
+	apu_top_3: apu_top_3 {
+		compatible = "mt6895,apu_top_3";
+		vapu-supply = <&mt6368_vbuck4>;
+		vsram_core-supply = <&mt6363_vbuck4>;
+		vcore-supply = <&mt6363_vbuck2>;
+		clocks = <&topckgen_clk CLK_TOP_DSP_SEL>,	// CONN
+			<&topckgen_clk CLK_TOP_DSP1_SEL>,
+			<&topckgen_clk CLK_TOP_DSP2_SEL>,
+			<&topckgen_clk CLK_TOP_DSP3_SEL>,
+			<&topckgen_clk CLK_TOP_DSP4_SEL>,
+			<&topckgen_clk CLK_TOP_DSP5_SEL>,
+			<&topckgen_clk CLK_TOP_DSP6_SEL>,
+			<&topckgen_clk CLK_TOP_DSP7_SEL>;
+		clock-names = "clk_top_dsp_sel",
+			"clk_top_dsp1_sel",
+			"clk_top_dsp2_sel",
+			"clk_top_dsp3_sel",
+			"clk_top_dsp4_sel",
+			"clk_top_dsp5_sel",
+			"clk_top_dsp6_sel",
+			"clk_top_dsp7_sel";
+
+		reg = <0 0x1c000000 0 0x1000>,          // sys_vlp
+			<0 0x1c001000 0 0x1000>,        // sys_spm
+			<0 0x19020000 0 0x1000>,        // apu_rcx
+			<0 0x190e0000 0 0x1000>,        // apu_vcore
+			<0 0x190e1000 0 0x1000>,        // apu_md32_mbox 0
+			<0 0x190f0000 0 0x1000>,        // apu_rpc
+			<0 0x190f1000 0 0x1000>,        // apu_pcu
+			<0 0x190f2000 0 0x1000>,        // apu_ao_ctl
+			<0 0x190f3000 0 0x1000>,        // apu_pll
+			<0 0x190f4000 0 0x1000>,        // apu_acc
+			<0 0x190f6000 0 0x1000>,        // apu_are0
+			<0 0x190f7000 0 0x1000>,        // apu_are1
+			<0 0x190f8000 0 0x1000>,        // apu_are2
+			<0 0x19100000 0 0x40000>,       // apu_acx0
+			<0 0x19140000 0 0x1000>;        // apu_acx0_rpc_lite
+		reg-names =
+			"sys_vlp",
+			"sys_spm",
+			"apu_rcx",
+			"apu_vcore",
+			"apu_md32_mbox",        // apu_mbox0
+			"apu_rpc",
+			"apu_pcu",
+			"apu_ao_ctl",
+			"apu_pll",
+			"apu_acc",
+			"apu_are0",
+			"apu_are1",
+			"apu_are2",
+			"apu_acx0",
+			"apu_acx0_rpc_lite";
+		// consumer = <&apu_iommu0>; // set devlink to iommu
+	   };
 
 	pmic-oc-debug {
 		compatible = "mediatek,mt6895-oc-debug";
