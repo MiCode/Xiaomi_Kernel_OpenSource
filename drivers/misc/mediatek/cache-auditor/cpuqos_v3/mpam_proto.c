@@ -15,7 +15,12 @@
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/cgroup.h>
 #include <sched/sched.h>
+#include "cpuqos_v3.h"
 #include "cpuqos_sys_common.h"
+
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+#include <mtk_slbc_sram.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <cpuqos_v3_trace.h>
@@ -91,6 +96,52 @@ static enum perf_mode cpuqos_perf_mode = BALANCE;
 int task_curr_clone(const struct task_struct *p)
 {
 	return cpu_curr(task_cpu(p)) == p;
+}
+
+void write_mpam_partid(int partid)
+{
+	switch (partid) {
+	case DEF_PARTID:
+		asm volatile (
+			"mrs x0, s3_0_c10_c5_1\n\t"
+			"bic x0, x0, #(0xffffffff)\n\t"
+			"msr s3_0_c10_c5_1, x0\n\t"
+			"mrs x0, s3_0_c10_c5_0\n\t"
+			"bic x0, x0, #(0xffffffff)\n\t"
+			"msr s3_0_c10_c5_0, x0\n\t"
+			: : : "memory");
+		break;
+	case CT_PARTID:
+		asm volatile (
+			"mrs x0, s3_0_c10_c5_1\n\t"
+			"bic x0, x0, #(0xffffffff)\n\t"
+			"orr x0, x0, #(0x2<<16)\n\t"
+			"orr x0, x0, #(0x2)\n\t"
+			"msr s3_0_c10_c5_1, x0\n\t"
+			"mrs x0, s3_0_c10_c5_0\n\t"
+			"bic x0, x0, #(0xffffffff)\n\t"
+			"orr x0, x0, #(0x2<<16)\n\t"
+			"orr x0, x0, #(0x2)\n\t"
+			"msr s3_0_c10_c5_0, x0\n\t"
+			: : : "memory");
+		break;
+	case NCT_PARTID:
+		asm volatile (
+			"mrs x0, s3_0_c10_c5_1\n\t"
+			"bic x0, x0, #(0xffffffff)\n\t"
+			"orr x0, x0, #(0x3<<16)\n\t"
+			"orr x0, x0, #(0x2)\n\t"
+			"msr s3_0_c10_c5_1, x0\n\t"
+			"mrs x0, s3_0_c10_c5_0\n\t"
+			"bic x0, x0, #(0xffffffff)\n\t"
+			"orr x0, x0, #(0x3<<16)\n\t"
+			"orr x0, x0, #(0x2)\n\t"
+			"msr s3_0_c10_c5_0, x0\n\t"
+			: : : "memory");
+		break;
+	}
+	return;
+
 }
 
 unsigned int get_task_partid(struct task_struct *p)
@@ -178,7 +229,7 @@ static void mpam_write_partid(int partid)
 	this_cpu_write(mpam_local_partid, partid);
 
 	/* Write to e.g. MPAM0_EL1.PARTID_D here */
-
+	write_mpam_partid(this_cpu_read(mpam_local_partid));
 }
 
 /*
@@ -372,6 +423,9 @@ EXPORT_SYMBOL_GPL(set_ct_task);
 
 int set_cpuqos_mode(int mode)
 {
+	if (mode > DISABLE || mode < AGGRESSIVE)
+		return -1;
+
 	switch (mode) {
 	case AGGRESSIVE:
 		cpuqos_perf_mode = AGGRESSIVE;
@@ -387,7 +441,12 @@ int set_cpuqos_mode(int mode)
 		break;
 	}
 
-	trace_cpuqos_set_cpuqos_mode(mode);
+	trace_cpuqos_set_cpuqos_mode(cpuqos_perf_mode);
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	slbc_sram_write(CPUQOS_MODE, cpuqos_perf_mode);
+#else
+	pr_info("Set to SLBC fail: config is disable\n");
+#endif
 
 	/*
 	 * Ensure the partid map update is visible before kicking the CPUs.
@@ -612,6 +671,9 @@ static int __init mpam_proto_init(void)
 		goto out;
 	}
 
+	/* Set default cpuqos mode is BALANCE */
+	cpuqos_perf_mode = BALANCE;
+
 	ret = mpam_init_cgroup_partid_map();
 	if (ret) {
 		pr_info("init cpuqos failed\n");
@@ -637,15 +699,15 @@ static int __init mpam_proto_init(void)
 	}
 
 	/*
-	 * Ensure the partid map update is visible before kicking the CPUs.
-	 * Pairs with smp_rmb() in mpam_sync_current_mb().
+	 * Ensure the cpuqos mode/partid map update is visible
+	 * before kicking the CPUs.
 	 */
-	smp_wmb();
-	/*
-	 * Hooks are registered, kick every CPU to force sync currently running
-	 * tasks.
-	 */
-	smp_call_function(mpam_sync_current_mb, NULL, 1);
+	pr_info("init cpuqos mode = %d\n", cpuqos_perf_mode);
+	ret = set_cpuqos_mode(cpuqos_perf_mode);
+	if (ret) {
+		pr_info("init set cpuqos mode failed\n");
+		goto out_attach;
+	}
 
 	return 0;
 
