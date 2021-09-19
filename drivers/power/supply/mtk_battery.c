@@ -27,6 +27,7 @@
 #include <linux/vmalloc.h>
 #include <linux/wait.h>		/* For wait queue*/
 #include <net/sock.h>		/* netlink */
+#include <linux/suspend.h>
 #include "mtk_battery.h"
 #include "mtk_battery_table.h"
 
@@ -2574,7 +2575,7 @@ void fg_nafg_monitor(struct mtk_battery *gm)
 /* ============================================================ */
 /* periodic timer */
 /* ============================================================ */
-void fg_drv_update_hw_status(struct mtk_battery *gm)
+static void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
 
@@ -2617,10 +2618,44 @@ int battery_update_routine(void *arg)
 	while (1) {
 		bm_err("%s\n", __func__);
 		ret = wait_event_interruptible(gm->wait_que, (gm->fg_update_flag > 0));
+		mutex_lock(&gm->fg_update_lock);
+		if (gm->in_sleep)
+			goto in_sleep;
 		gm->fg_update_flag = 0;
-
 		fg_drv_update_hw_status(gm);
+in_sleep:
+		mutex_unlock(&gm->fg_update_lock);
 	}
+}
+
+static int system_pm_notify(struct notifier_block *nb,
+			    unsigned long mode, void *_unused)
+{
+	struct mtk_battery *gm =
+			container_of(nb, struct mtk_battery, pm_nb);
+
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		if (!mutex_trylock(&gm->fg_update_lock))
+			return NOTIFY_STOP;
+		gm->in_sleep = true;
+		mutex_unlock(&gm->fg_update_lock);
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		mutex_lock(&gm->fg_update_lock);
+		gm->in_sleep = false;
+		mutex_unlock(&gm->fg_update_lock);
+		wake_up(&gm->wait_que);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
 }
 
 void fg_update_routine_wakeup(struct mtk_battery *gm)
@@ -3355,6 +3390,8 @@ int battery_init(struct platform_device *pdev)
 	gm->tmp_table = fg_temp_table;
 	gm->log_level = BMLOG_ERROR_LEVEL;
 	gm->sw_iavg_gap = 3000;
+	gm->in_sleep = false;
+	mutex_init(&gm->fg_update_lock);
 
 	init_waitqueue_head(&gm->wait_que);
 
@@ -3388,6 +3425,11 @@ int battery_init(struct platform_device *pdev)
 
 
 	kthread_run(battery_update_routine, gm, "battery_thread");
+	gm->pm_nb.notifier_call = system_pm_notify;
+	ret = register_pm_notifier(&gm->pm_nb);
+	if (ret)
+		bm_err("%s failed to register system pm notify\n", __func__);
+
 	fg_drv_thread_hrtimer_init(gm);
 	battery_sysfs_create_group(gm->bs_data.psy);
 

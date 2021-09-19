@@ -8,6 +8,7 @@
 #define __MTK_BATTERY_INTF_H__
 
 #include <linux/alarmtimer.h>
+#include <linux/atomic.h>
 #include <linux/extcon.h>
 #include <linux/hrtimer.h>
 #include <linux/nvmem-consumer.h>
@@ -662,6 +663,8 @@ struct mtk_coulomb_service {
 	struct wakeup_source *wlock;
 	wait_queue_head_t wait_que;
 	bool coulomb_thread_timeout;
+	atomic_t in_sleep;
+	struct notifier_block pm_nb;
 	int fgclog_level;
 	int pre_coulomb;
 	bool init;
@@ -889,6 +892,7 @@ struct mtk_battery {
 	unsigned int fg_update_flag;
 	struct hrtimer fg_hrtimer;
 	struct mutex ops_lock;
+	struct mutex fg_update_lock;
 
 	struct battery_data bs_data;
 	struct mtk_coulomb_service cs;
@@ -984,6 +988,10 @@ struct mtk_battery {
 	int pl_shutdown_time;
 	int pl_two_sec_reboot;
 	int plug_miss_count;
+
+	/* suspend, resume notify */
+	bool in_sleep;
+	struct notifier_block pm_nb;
 
 	/* gauge timer */
 	struct alarm tracking_timer;
