@@ -84,6 +84,7 @@
 			<&afe_clk CLK_AFE_ETDM_IN1_BCLK>,
 			<&afe_clk CLK_AFE_ETDM_OUT1_BCLK>;
 			power-domains = <&scpsys MT6879_POWER_DOMAIN_AUDIO>;
+			#set-syscore-device;
 	};
 
 	disable-unused-clk-ccu {
@@ -539,17 +540,6 @@
 			<&apu_pll_ctrl_clk CLK_APU_AO_APUPLL1>,
 			<&apu_pll_ctrl_clk CLK_APU_AO_APUPLL2>;
 	};
-	
-
-	disable-unused-pd-md {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6879_POWER_DOMAIN_MD>;
-	};
-
-	disable-unused-pd-conn {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6879_POWER_DOMAIN_CONN>;
-	};
 
 	disable-unused-pd-ufs0_shutdown {
 		compatible = "mediatek,scpsys-disable-unused";
@@ -559,16 +549,19 @@
 	disable-unused-pd-audio {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_AUDIO>;
+		#set-syscore-device;
 	};
 
 	disable-unused-pd-adsp_top_dormant {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_ADSP_TOP_DORMANT>;
+		#set-syscore-device;
 	};
 
 	disable-unused-pd-adsp_infra {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_ADSP_INFRA>;
+		#set-syscore-device;
 	};
 
 	disable-unused-pd-isp_main {
