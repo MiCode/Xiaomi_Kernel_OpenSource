@@ -926,6 +926,27 @@ if (shutter > (imgsensor_info.max_frame_length - imgsensor_info.margin)) {
 		shutter, ctx->frame_length);
 } /*    set_shutter */
 
+static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
+{
+	if (frame_length > 1)
+		ctx->frame_length = frame_length;
+
+	if (ctx->frame_length > imgsensor_info.max_frame_length)
+		ctx->frame_length = imgsensor_info.max_frame_length;
+	if (ctx->min_frame_length > ctx->frame_length)
+		ctx->frame_length = ctx->min_frame_length;
+
+	/* Extend frame length */
+	write_cmos_sensor(ctx, 0x0104, 0x01);
+	write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+	write_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+	write_cmos_sensor(ctx, 0x0104, 0x00);
+
+	LOG_INF("Framelength: set=%d/input=%d/min=%d, auto_extend=%d\n",
+		ctx->frame_length, frame_length, ctx->min_frame_length,
+		read_cmos_sensor(ctx, 0x0350));
+}
+
 static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 			kal_uint16 shutter, kal_uint16 frame_length,
 			kal_bool auto_extend_en)
@@ -3293,6 +3314,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 	}
 	break;
+	case SENSOR_FEATURE_SET_FRAMELENGTH:
+		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
 
 	default:
 		break;

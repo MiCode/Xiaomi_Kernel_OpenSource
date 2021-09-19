@@ -666,6 +666,39 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	return gain;
 }
 
+static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
+{
+	if (frame_length > 1)
+		ctx->frame_length = frame_length;
+
+	if (ctx->frame_length > imgsensor_info.max_frame_length)
+		ctx->frame_length = imgsensor_info.max_frame_length;
+	if (ctx->min_frame_length > ctx->frame_length)
+		ctx->frame_length = ctx->min_frame_length;
+
+	/* Extend frame length */
+	if (!_is_seamless) {
+
+		memset(_i2c_data, 0x0, sizeof(_i2c_data));
+		_size_to_write = 0;
+	}
+
+	_i2c_data[_size_to_write++] = 0x3840;
+	_i2c_data[_size_to_write++] = ctx->frame_length >> 16;
+	_i2c_data[_size_to_write++] = 0x380e;
+	_i2c_data[_size_to_write++] = ctx->frame_length >> 8;
+	_i2c_data[_size_to_write++] = 0x380f;
+	_i2c_data[_size_to_write++] = ctx->frame_length & 0xFF;
+
+	if (!_is_seamless) {
+		table_write_cmos_sensor(ctx, _i2c_data,
+					_size_to_write);
+	}
+
+	pr_debug("Framelength: set=%d/input=%d/min=%d\n",
+		ctx->frame_length, frame_length, ctx->min_frame_length);
+}
+
 /* ITD: Modify Dualcam By Jesse 190924 Start */
 static void set_shutter_frame_length(struct subdrv_ctx *ctx, kal_uint16 shutter,
 					kal_uint16 target_frame_length)
@@ -2863,6 +2896,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		*feature_para_len = 4;
 		if (ctx->is_read_preload_eeprom != 1)
 			read_sensor_Cali(ctx);
+		break;
+	case SENSOR_FEATURE_SET_FRAMELENGTH:
+		set_frame_length(ctx, (UINT16) (*feature_data));
 		break;
 	default:
 	break;

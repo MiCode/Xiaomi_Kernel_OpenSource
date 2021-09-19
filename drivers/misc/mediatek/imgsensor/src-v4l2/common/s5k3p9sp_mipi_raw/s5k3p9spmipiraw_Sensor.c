@@ -305,6 +305,23 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 	write_shutter(ctx, shutter);
 }	/*	set_shutter */
 
+static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
+{
+	if (frame_length > 1)
+		ctx->frame_length = frame_length;
+
+	if (ctx->frame_length > imgsensor_info.max_frame_length)
+		ctx->frame_length = imgsensor_info.max_frame_length;
+	if (ctx->min_frame_length > ctx->frame_length)
+		ctx->frame_length = ctx->min_frame_length;
+
+	/* Extend frame length */
+	write_cmos_sensor_16(ctx, 0x0340, ctx->frame_length & 0xFFFF);
+
+	pr_debug("Framelength: set=%d/input=%d/min=%d\n",
+		ctx->frame_length, frame_length, ctx->min_frame_length);
+}
+
 static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 	kal_uint16 shutter, kal_uint16 frame_length)
 {	kal_uint16 realtime_fps = 0;
@@ -1546,6 +1563,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		*feature_para_len = 4;
 		if (ctx->is_read_four_cell != 1)
 			read_four_cell_from_eeprom(ctx, NULL);
+		break;
+	case SENSOR_FEATURE_SET_FRAMELENGTH:
+		set_frame_length(ctx, (UINT16) (*feature_data));
 		break;
 	default:
 		break;
