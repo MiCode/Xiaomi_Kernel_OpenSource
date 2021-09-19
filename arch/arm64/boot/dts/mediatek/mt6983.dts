@@ -8745,11 +8745,10 @@
 			<&disp_iommu M4U_PORT_L5_VDEC_LAT0_AVC_MV_EXT>,
 			<&disp_iommu M4U_PORT_L5_VDEC_LAT0_PRED_RD_EXT>,
 			<&disp_iommu M4U_PORT_L5_VDEC_LAT0_TILE_EXT>,
-			<&disp_iommu M4U_PORT_L5_VDEC_LAT0_WDMA_EXT>,
 			<&disp_iommu M4U_PORT_L5_VDEC_UFO_ENC_EXT>,
 			<&disp_iommu M4U_PORT_L5_VDEC_UFO_ENC_EXT_C>,
 			<&disp_iommu M4U_PORT_L5_VDEC_MC_EXT_C>;
-		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 	};
 
 	vcu_iommu_venc {
@@ -8809,8 +8808,6 @@
 			<&mdp_iommu M4U_PORT_L4_VDEC_PRED_RD_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_PRED_WR_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_PPWRAP_EXT>,
-			<&mdp_iommu M4U_PORT_L4_VDEC_TILE_EXT>,
-			<&mdp_iommu M4U_PORT_L4_VDEC_VLD_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_VLD2_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_AVC_MV_EXT>,
 			<&mdp_iommu M4U_PORT_L4_VDEC_UFO_EXT_C>;
@@ -10176,6 +10173,22 @@
 		vcp-support = <0>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_256MB2>;
+	};
+
+	vcp_iommu_ube_lat {
+		vcp-support = <5>;
+		compatible =  "mediatek,vcp-io-ube-lat";
+		//dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus = <&disp_iommu M4U_PORT_L5_VDEC_LAT0_WDMA_EXT>;
+	};
+
+	vcp_iommu_ube_core {
+		vcp-support = <6>;
+		compatible =  "mediatek,vcp-io-ube-core";
+		//dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus =
+			<&mdp_iommu M4U_PORT_L4_VDEC_TILE_EXT>,
+			<&mdp_iommu M4U_PORT_L4_VDEC_VLD_EXT>;
 	};
 
 	bt: bt@18000000 {
