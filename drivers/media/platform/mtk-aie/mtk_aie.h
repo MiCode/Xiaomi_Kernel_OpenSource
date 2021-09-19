@@ -825,8 +825,9 @@ enum aie_state {
 
 enum aie_mode { FDMODE = 0, ATTRIBUTEMODE = 1, POSEMODE = 2 };
 enum FLDROP { NORMAL = 0, RIGHT = 1, LEFT = 2 };
-enum FLDRIP { FLD_0 = 0, FLD_M30 = 1, FLD_P30 = 2, FLD_M60 = 3, FLD_P60 = 4, FLD_M90 = 5,
-	      FLD_P90 = 6};
+enum FLDRIP { FLD_0 = 0, FLD_1 = 1, FLD_2 = 2, FLD_3 = 3, FLD_4 = 4, FLD_5 = 5, FLD_6 = 6,
+	FLD_7 = 7, FLD_8 = 8, FLD_9 = 9, FLD_10 = 10, FLD_11 = 11};
+
 
 enum aie_format {
 	FMT_NA = 0,
