@@ -43,6 +43,7 @@
 #include "mtk_vcodec_mem.h"
 #include <linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
+#include "vcp_helper.h"
 
 /**
  * VCU (Video Communication/Controller Unit) is a tiny processor
@@ -1982,6 +1983,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		ret = vcu_log_get(vcu_dev, arg);
 		break;
 	case VCU_MVA_ALLOCATION:
+	case VCU_UBE_MVA_ALLOCATION:
 	case VCU_PA_ALLOCATION:
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
@@ -1993,11 +1995,17 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (cmd == VCU_MVA_ALLOCATION) {
-			mem_priv =
-				mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
+			mem_priv = mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
+		} else if (cmd == VCU_UBE_MVA_ALLOCATION) {
+			struct device *io_dev = vcu_queue->dev;
+
+			vcu_queue->dev = vcp_get_io_device(VCP_IOMMU_UBE_LAT);
+			if (vcu_queue->dev == NULL)
+				vcu_queue->dev = io_dev;
+			mem_priv = mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
+			vcu_queue->dev = io_dev;
 		} else {
-			mem_priv =
-				mtk_vcu_get_page(vcu_queue, &mem_buff_data);
+			mem_priv = mtk_vcu_get_page(vcu_queue, &mem_buff_data);
 		}
 		if (IS_ERR_OR_NULL(mem_priv) == true) {
 			mem_buff_data.va = (unsigned long)-1;
@@ -2194,6 +2202,7 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 			cmd, (unsigned long)share_data32);
 		break;
 	case COMPAT_VCU_MVA_ALLOCATION:
+	case COMPAT_VCU_UBE_MVA_ALLOCATION:
 	case COMPAT_VCU_PA_ALLOCATION:
 		data32 = compat_ptr((uint32_t)arg);
 		data = compat_alloc_user_space(sizeof(struct mem_obj));
@@ -2206,6 +2215,10 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 		if (cmd == COMPAT_VCU_MVA_ALLOCATION)
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_MVA_ALLOCATION,
+				(unsigned long)data);
+		else if (cmd == COMPAT_VCU_UBE_MVA_ALLOCATION)
+			ret = file->f_op->unlocked_ioctl(file,
+				(uint32_t)VCU_UBE_MVA_ALLOCATION,
 				(unsigned long)data);
 		else
 			ret = file->f_op->unlocked_ioctl(file,
@@ -2292,10 +2305,8 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 	// check if need to enable VCU debug log
 	if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 1")) {
 		vcu_ptr->enable_vcu_dbg_log = 1;
-		return 0;
 	} else if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 0")) {
 		vcu_ptr->enable_vcu_dbg_log = 0;
-		return 0;
 	}
 
 	pr_info("[log wakeup VPUD] log_info %p vcu_ptr %p val %p: %s %lu\n",

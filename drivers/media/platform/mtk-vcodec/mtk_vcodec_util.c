@@ -434,9 +434,13 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 		return -EPERM;
 	}
 
-	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_HW) {
+	if (mem->type == MEM_TYPE_FOR_SW ||
+	    mem->type == MEM_TYPE_FOR_HW ||
+	    mem->type == MEM_TYPE_FOR_UBE_HW) {
 		dma_heap = dma_heap_find("mtk_mm");
-	} else if (mem->type == MEM_TYPE_FOR_SEC_SW || mem->type == MEM_TYPE_FOR_SEC_HW) {
+	} else if (mem->type == MEM_TYPE_FOR_SEC_SW ||
+		   mem->type == MEM_TYPE_FOR_SEC_HW ||
+		   mem->type == MEM_TYPE_FOR_SEC_UBE_HW) {
 		dma_heap = dma_heap_find("mtk_svp_page-uncached");
 	} else {
 		mtk_v4l2_err("wrong type %u\n", mem->type);

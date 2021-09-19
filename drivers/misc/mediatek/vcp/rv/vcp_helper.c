@@ -2291,12 +2291,20 @@ static const struct of_device_id vcp_work_of_ids[] = {
 	{ .compatible = "mediatek,vcp-io-work", },
 	{}
 };
+static const struct of_device_id vcp_ube_lat_of_ids[] = {
+	{ .compatible = "mediatek,vcp-io-ube-lat", },
+	{}
+};
+static const struct of_device_id vcp_ube_core_of_ids[] = {
+	{ .compatible = "mediatek,vcp-io-ube-core", },
+	{}
+};
 
 static struct platform_driver mtk_vcp_io_vdec = {
 	.probe = vcp_io_device_probe,
 	.remove = vcp_io_device_remove,
 	.driver = {
-		.name = "vcp_io_vdec ",
+		.name = "vcp_io_vdec",
 		.owner = THIS_MODULE,
 		.of_match_table = vcp_vdec_of_ids,
 	},
@@ -2322,6 +2330,26 @@ static struct platform_driver mtk_vcp_io_work = {
 	},
 };
 
+static struct platform_driver mtk_vcp_io_ube_lat = {
+	.probe = vcp_io_device_probe,
+	.remove = vcp_io_device_remove,
+	.driver = {
+		.name = "vcp_io_ube_lat",
+		.owner = THIS_MODULE,
+		.of_match_table = vcp_ube_lat_of_ids,
+	},
+};
+
+static struct platform_driver mtk_vcp_io_ube_core = {
+	.probe = vcp_io_device_probe,
+	.remove = vcp_io_device_remove,
+	.driver = {
+		.name = "vcp_io_ube_core",
+		.owner = THIS_MODULE,
+		.of_match_table = vcp_ube_core_of_ids,
+	},
+};
+
 /*
  * driver initialization entry point
  */
@@ -2344,12 +2372,19 @@ static int __init vcp_init(void)
 	}
 	vcp_dvfs_cali_ready = 0;
 
+	/* vco io device initialise */
+	for (i = 0; i < VCP_IOMMU_DEV_NUM; i++)
+		vcp_io_devs[i] = NULL;
 	vcp_support = 1;
 	if (platform_driver_register(&mtk_vcp_device)) {
 		pr_info("[VCP] vcp probe fail\n");
 		return -1;
 	}
 
+	if (platform_driver_register(&mtk_vcp_io_ube_lat))
+		pr_info("[VCP] mtk_vcp_io_ube_lat  not exist\n");
+	if (platform_driver_register(&mtk_vcp_io_ube_core))
+		pr_info("[VCP] mtk_vcp_io_ube_core not exist\n");
 	if (platform_driver_register(&mtk_vcp_io_vdec)) {
 		pr_info("[VCP] mtk_vcp_io_vdec probe fail\n");
 		return -1;
