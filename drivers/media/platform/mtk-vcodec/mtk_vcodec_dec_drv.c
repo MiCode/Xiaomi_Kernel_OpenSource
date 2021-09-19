@@ -55,6 +55,10 @@ static int fops_vcodec_open(struct file *file)
 		return -ENOMEM;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	vcp_enable_pm_clk();
+#endif
+
 	mutex_lock(&dev->dev_mutex);
 	ctx->dec_flush_buf = mtk_buf;
 	ctx->id = dev->id_counter++;
@@ -179,6 +183,10 @@ static int fops_vcodec_release(struct file *file)
 		dev->dec_cnt--;
 	mutex_unlock(&dev->ctx_mutex);
 	mutex_unlock(&dev->dev_mutex);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	vcp_disable_pm_clk();
+#endif
+
 	return 0;
 }
 

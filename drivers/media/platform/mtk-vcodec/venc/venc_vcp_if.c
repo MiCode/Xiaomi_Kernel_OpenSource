@@ -99,12 +99,19 @@ static struct device *get_dev_by_mem_type(struct venc_inst *inst, struct vcodec_
 static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is_ack)
 {
 	int ret, ipi_size;
-	unsigned long timeout;
+	unsigned long timeout = 0;
 	struct share_obj obj;
 	unsigned int suspend_block_cnt = 0;
 
-	if (!is_vcp_ready(VCP_A_ID))
-		mtk_vcodec_err(inst, "VCP_A_ID not ready");
+	while (!is_vcp_ready(VCP_A_ID)) {
+		mtk_v4l2_debug(0, "[VCP] wait ready");
+		mdelay(1);
+		timeout++;
+		if (timeout > VCP_SYNC_TIMEOUT_MS) {
+			mtk_vcodec_err(inst, "VCP_A_ID not ready");
+			break;
+		}
+	}
 
 	if (len > sizeof(struct share_obj)) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));

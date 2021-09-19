@@ -710,7 +710,7 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 			break;
 		retrytimes--;
 		udelay(2000);
-	} while (retrytimes > 0);
+	} while (retrytimes > 0 && vcp_A_logger_inited);
 
 	/*enable logger flag*/
 	if (ret == IPI_ACTION_DONE)
@@ -800,7 +800,6 @@ int vcp_logger_init(phys_addr_t start, phys_addr_t limit)
 			&msg_vcp_logger_ctrl);
 
 	vcp_A_register_notify(&vcp_logger_notify);
-	vcp_A_logger_inited = 1;
 
 	return last_ofs;
 

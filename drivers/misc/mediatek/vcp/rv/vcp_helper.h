@@ -16,6 +16,7 @@
 #include "vcp.h"
 
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
+#define VCP_SYNC_TIMEOUT_MS		(100)
 
 /* vcp config reg. definition*/
 #define VCP_TCM_SIZE		(vcpreg.total_tcmsize)
@@ -224,6 +225,8 @@ extern unsigned int vcp_set_reset_status(void);
 extern void vcp_enable_sram(void);
 extern void vcp_reset_awake_counts(void);
 extern void vcp_awake_init(void);
+extern void vcp_enable_pm_clk(void);
+extern void vcp_disable_pm_clk(void);
 
 #if VCP_RECOVERY_SUPPORT
 extern unsigned int vcp_reset_by_cmd;
