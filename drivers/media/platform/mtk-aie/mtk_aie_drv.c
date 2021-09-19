@@ -378,7 +378,6 @@ int FDVT_M4U_TranslationFault_callback(int port,
 static void aie_free_dmabuf(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->dmabuf) {
-		dev_info(fd->dev, "free dmabuf memory (%x)\n", bufinfo->size);
 		dma_heap_buffer_free(bufinfo->dmabuf);
 		bufinfo->dmabuf = NULL;
 	}
@@ -387,11 +386,9 @@ static void aie_free_dmabuf(struct mtk_aie_dev *fd, struct imem_buf_info *bufinf
 static void aie_free_iova(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->pa) {
-		dev_info(fd->dev, "free iova memory (%x)\n", bufinfo->size);
 		/*free iova*/
 		dma_buf_unmap_attachment(bufinfo->attach, bufinfo->sgt, DMA_BIDIRECTIONAL);
 		dma_buf_detach(bufinfo->dmabuf, bufinfo->attach);
-
 		bufinfo->pa = 0;
 	}
 }
@@ -399,7 +396,6 @@ static void aie_free_iova(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 static void aie_free_va(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->va) {
-		dev_info(fd->dev, "free va memory (%x)\n", bufinfo->size);
 		dma_buf_vunmap(bufinfo->dmabuf, bufinfo->va);
 		bufinfo->va = NULL;
 	}
@@ -454,6 +450,7 @@ unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_d
 	bufinfo->sgt = sgt;
 
 	iova = sg_dma_address(sgt->sgl);
+	dev_info(fd->dev, "AIE IOVA GET: %llx\n", iova);
 	return iova;
 }
 
@@ -465,10 +462,9 @@ void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf)
 		dev_info(fd->dev, "map failed\n");
 		return NULL;
 	}
-	dev_info(fd->dev, "AIE VA GET: %llx\n", buf_ptr);
 	return buf_ptr;
 }
-
+#if CHECK_SERVICE_IF_0
 static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
 			  struct imem_buf_info *bufinfo)
 {
@@ -501,7 +497,7 @@ static void aie_imem_free(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 		bufinfo->size = 0;
 	}
 }
-
+#endif
 static void aie_init_table(struct mtk_aie_dev *fd, u16 pym_width,
 			   u16 pym_height)
 {
@@ -798,18 +794,34 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 
 static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 {
-	int ret;
 	u8 i;
 	u32 alloc_size;
 	unsigned long long addr = 0;
 	unsigned int msb_bit = 0;
+	struct dma_buf *ret_buf = NULL;
+	unsigned long long iova = 0;
+	void *va = NULL;
 
 	/* RS DRAM */
 	alloc_size = fd->fd_rs_cfg_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->rs_cfg_data);
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->rs_cfg_data);
 
-	if (ret)
-		goto free_rs;
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->rs_cfg_data.dmabuf = ret_buf;
+	fd->rs_cfg_data.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_cfg_data);
+	if (!iova)
+		return -1;
+
+	fd->rs_cfg_data.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->rs_cfg_data.va = va;
 
 	addr = fd->rs_cfg_data.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
@@ -823,10 +835,23 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	/* FD DRAM */
 	alloc_size =
 		fd->fd_fd_cfg_size + fd->attr_fd_cfg_size * MAX_ENQUE_FRAME_NUM;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_cfg_data);
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_cfg_data);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
 
-	if (ret)
-		goto free_fd;
+	fd->fd_cfg_data.dmabuf = ret_buf;
+	fd->fd_cfg_data.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_cfg_data);
+	if (!iova)
+		return -1;
+
+	fd->fd_cfg_data.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fd_cfg_data.va = va;
 
 	addr = fd->fd_cfg_data.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
@@ -854,10 +879,23 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	/* YUV2RGB DRAM */
 	alloc_size = fd->fd_yuv2rgb_cfg_size +
 		     fd->attr_yuv2rgb_cfg_size * MAX_ENQUE_FRAME_NUM;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->yuv2rgb_cfg_data);
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->yuv2rgb_cfg_data);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
 
-	if (ret)
-		goto free_yuv2rgb;
+	fd->yuv2rgb_cfg_data.dmabuf = ret_buf;
+	fd->yuv2rgb_cfg_data.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->yuv2rgb_cfg_data);
+	if (!iova)
+		return -1;
+
+	fd->yuv2rgb_cfg_data.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->yuv2rgb_cfg_data.va = va;
 
 	addr = fd->yuv2rgb_cfg_data.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
@@ -884,14 +922,8 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 			fd->attr_yuv2rgb_cfg_size;
 	}
 
-	return ret;
+	return 0;
 
-free_yuv2rgb:
-	aie_imem_free(fd, &fd->fd_cfg_data);
-free_fd:
-	aie_imem_free(fd, &fd->rs_cfg_data);
-free_rs:
-	return ret;
 }
 
 static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
@@ -979,54 +1011,121 @@ static void aie_alloc_normal(struct mtk_aie_dev *fd, unsigned int start,
 
 static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 {
-	int ret;
 	u32 alloc_size;
+	struct dma_buf *ret_buf = NULL;
+	unsigned long long iova = 0;
+	void *va = NULL;
+
 
 	alloc_size = fd->fd_dma_max_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_hw);
-	if (ret)
-		return ret;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fd_dma_hw.dmabuf = ret_buf;
+	fd->fd_dma_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_dma_hw);
+	if (!iova)
+		return -1;
+
+	fd->fd_dma_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fd_dma_hw.va = va;
+
 
 	alloc_size = fd->fd_fd_kernel_size + fd->fd_attr_kernel_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_kernel_hw);
-	if (ret)
-		goto free_kernel;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_kernel_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fd_kernel_hw.dmabuf = ret_buf;
+	fd->fd_kernel_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_kernel_hw);
+	if (!iova)
+		return -1;
+
+	fd->fd_kernel_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fd_kernel_hw.va = va;
+
 
 	alloc_size = fd->fd_attr_dma_max_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_attr_dma_hw);
-	if (ret)
-		goto free_attr_dma;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_attr_dma_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fd_attr_dma_hw.dmabuf = ret_buf;
+	fd->fd_attr_dma_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_attr_dma_hw);
+	if (!iova)
+		return -1;
+
+	fd->fd_attr_dma_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fd_attr_dma_hw.va = va;
 
 	alloc_size = fd->fd_dma_rst_max_size + fd->fd_attr_dma_rst_max_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_result_hw);
-	if (ret)
-		goto free_dma_result_hw;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_dma_result_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fd_dma_result_hw.dmabuf = ret_buf;
+	fd->fd_dma_result_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_dma_result_hw);
+	if (!iova)
+		return -1;
+
+	fd->fd_dma_result_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fd_dma_result_hw.va = va;
 
 	return 0;
-
-free_dma_result_hw:
-	aie_imem_free(fd, &fd->fd_attr_dma_hw);
-
-free_attr_dma:
-	aie_imem_free(fd, &fd->fd_kernel_hw);
-
-free_kernel:
-	aie_imem_free(fd, &fd->fd_dma_hw);
-
-	return ret;
 }
 #ifdef FLD
 static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 {
-	int ret;
+
 	u32 alloc_size;
 	unsigned long long addr = 0;
 	unsigned int msb_bit = 0;
+	struct dma_buf *ret_buf = NULL;
+	unsigned long long iova = 0;
+	void *va = NULL;
 
 	alloc_size = fld_blink_weight_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_blink_weight_hw);
-	if (ret)
-		return ret;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_blink_weight_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fld_blink_weight_hw.dmabuf = ret_buf;
+	fd->fld_blink_weight_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_blink_weight_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_blink_weight_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_blink_weight_hw.va = va;
 
 	addr = fd->fld_blink_weight_hw.pa;
 	msb_bit = (addr & 0Xf00000000) >> 8; //MASK MSB-BIT
@@ -1034,61 +1133,126 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 
 
 	alloc_size = fld_fp_size * FLD_MAX_INPUT;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_fp_hw);
-	if (ret)
-		goto free_fld_fp_hw;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_fp_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fld_fp_hw.dmabuf = ret_buf;
+	fd->fld_fp_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_fp_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_fp_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_fp_hw.va = va;
 
 	alloc_size = (fld_cv_size * (FLD_MAX_INPUT-1)) + fld_cv_size_00;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_cv_hw);
-	if (ret)
-		goto free_fld_cv_hw;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_cv_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fld_cv_hw.dmabuf = ret_buf;
+	fd->fld_cv_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_cv_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_cv_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_cv_hw.va = va;
+
 
 	alloc_size = fld_leafnode_size * FLD_MAX_INPUT;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_leafnode_hw);
-	if (ret)
-		goto free_fld_leafnode_hw;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_leafnode_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fld_leafnode_hw.dmabuf = ret_buf;
+	fd->fld_leafnode_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_leafnode_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_leafnode_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_leafnode_hw.va = va;
+
 
 	alloc_size = fld_tree_size * FLD_MAX_INPUT;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_02_hw);
-	if (ret)
-		goto free_fld_tree_02_hw;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_02_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
 
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_13_hw);
-	if (ret)
-		goto free_fld_tree_13_hw;
+	fd->fld_tree_02_hw.dmabuf = ret_buf;
+	fd->fld_tree_02_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_02_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_tree_02_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_tree_02_hw.va = va;
+
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_13_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fld_tree_13_hw.dmabuf = ret_buf;
+	fd->fld_tree_13_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_02_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_tree_13_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_tree_13_hw.va = va;
 
 	alloc_size = fld_result_size;
-	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_output_hw);
-	if (ret)
-		goto free_fld_output_hw;
+	//ret = aie_imem_alloc(fd, alloc_size, &fd->fld_output_hw);
+	ret_buf = aie_imem_sec_alloc(fd, alloc_size, false);
+	if (!ret_buf)
+		return -1;
+
+	fd->fld_output_hw.dmabuf = ret_buf;
+	fd->fld_output_hw.size = alloc_size;
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_output_hw);
+	if (!iova)
+		return -1;
+
+	fd->fld_output_hw.pa = iova;
+	va = aie_get_va(fd, ret_buf);
+	if (!va)
+		return -1;
+
+	fd->fld_output_hw.va = va;
 
 	addr = fd->fld_output_hw.pa;
 	msb_bit = (addr & 0Xf00000000) >> 32;
 	writel(msb_bit, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0_MSB);
-
 	writel(msb_bit, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0_MSB);
 
 	return 0;
-
-free_fld_output_hw:
-		aie_imem_free(fd, &fd->fld_output_hw);
-
-free_fld_tree_13_hw:
-	aie_imem_free(fd, &fd->fld_tree_13_hw);
-
-free_fld_tree_02_hw:
-	aie_imem_free(fd, &fd->fld_tree_02_hw);
-
-free_fld_leafnode_hw:
-	aie_imem_free(fd, &fd->fld_leafnode_hw);
-
-free_fld_cv_hw:
-	aie_imem_free(fd, &fd->fld_cv_hw);
-
-free_fld_fp_hw:
-	aie_imem_free(fd, &fd->fld_fp_hw);
-
-	return ret;
 }
 #endif
 static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
@@ -1803,9 +1967,21 @@ static void aie_free_sec_buf(struct mtk_aie_dev *fd)
 
 static void aie_free_dram_buf(struct mtk_aie_dev *fd)
 {
-	aie_imem_free(fd, &fd->rs_cfg_data);
-	aie_imem_free(fd, &fd->fd_cfg_data);
-	aie_imem_free(fd, &fd->yuv2rgb_cfg_data);
+	//aie_imem_free(fd, &fd->rs_cfg_data);
+	aie_free_iova(fd, &fd->rs_cfg_data);
+	aie_free_va(fd, &fd->rs_cfg_data);
+	aie_free_dmabuf(fd, &fd->rs_cfg_data);
+
+	//aie_imem_free(fd, &fd->fd_cfg_data);
+	aie_free_iova(fd, &fd->fd_cfg_data);
+	aie_free_va(fd, &fd->fd_cfg_data);
+	aie_free_dmabuf(fd, &fd->fd_cfg_data);
+
+	//aie_imem_free(fd, &fd->yuv2rgb_cfg_data);
+	aie_free_iova(fd, &fd->yuv2rgb_cfg_data);
+	aie_free_va(fd, &fd->yuv2rgb_cfg_data);
+	aie_free_dmabuf(fd, &fd->yuv2rgb_cfg_data);
+
 }
 
 static void aie_free_output_buf(struct mtk_aie_dev *fd)
@@ -1818,21 +1994,64 @@ static void aie_free_output_buf(struct mtk_aie_dev *fd)
 
 static void aie_free_fddma_buf(struct mtk_aie_dev *fd)
 {
-	aie_imem_free(fd, &fd->fd_dma_hw);
-	aie_imem_free(fd, &fd->fd_kernel_hw);
-	aie_imem_free(fd, &fd->fd_attr_dma_hw);
-	aie_imem_free(fd, &fd->fd_dma_result_hw);
+	//aie_imem_free(fd, &fd->fd_dma_hw);
+	aie_free_iova(fd, &fd->fd_dma_hw);
+	aie_free_va(fd, &fd->fd_dma_hw);
+	aie_free_dmabuf(fd, &fd->fd_dma_hw);
+
+	//aie_imem_free(fd, &fd->fd_kernel_hw);
+	aie_free_iova(fd, &fd->fd_kernel_hw);
+	aie_free_va(fd, &fd->fd_kernel_hw);
+	aie_free_dmabuf(fd, &fd->fd_kernel_hw);
+
+	//aie_imem_free(fd, &fd->fd_attr_dma_hw);
+	aie_free_iova(fd, &fd->fd_attr_dma_hw);
+	aie_free_va(fd, &fd->fd_attr_dma_hw);
+	aie_free_dmabuf(fd, &fd->fd_attr_dma_hw);
+
+	//aie_imem_free(fd, &fd->fd_dma_result_hw);
+	aie_free_iova(fd, &fd->fd_dma_result_hw);
+	aie_free_va(fd, &fd->fd_dma_result_hw);
+	aie_free_dmabuf(fd, &fd->fd_dma_result_hw);
+
 }
 #ifdef FLD
 static void aie_free_fld_buf(struct mtk_aie_dev *fd)
 {
-	aie_imem_free(fd, &fd->fld_blink_weight_hw);
-	aie_imem_free(fd, &fd->fld_cv_hw);
-	aie_imem_free(fd, &fd->fld_fp_hw);
-	aie_imem_free(fd, &fd->fld_leafnode_hw);
-	aie_imem_free(fd, &fd->fld_tree_02_hw);
-	aie_imem_free(fd, &fd->fld_tree_13_hw);
+	//aie_imem_free(fd, &fd->fld_blink_weight_hw);
+	aie_free_iova(fd, &fd->fld_blink_weight_hw);
+	aie_free_va(fd, &fd->fld_blink_weight_hw);
+	aie_free_dmabuf(fd, &fd->fld_blink_weight_hw);
 
+	//aie_imem_free(fd, &fd->fld_cv_hw);
+	aie_free_iova(fd, &fd->fld_cv_hw);
+	aie_free_va(fd, &fd->fld_cv_hw);
+	aie_free_dmabuf(fd, &fd->fld_cv_hw);
+
+	//aie_imem_free(fd, &fd->fld_fp_hw);
+	aie_free_iova(fd, &fd->fld_fp_hw);
+	aie_free_va(fd, &fd->fld_fp_hw);
+	aie_free_dmabuf(fd, &fd->fld_fp_hw);
+
+	//aie_imem_free(fd, &fd->fld_leafnode_hw);
+	aie_free_iova(fd, &fd->fld_leafnode_hw);
+	aie_free_va(fd, &fd->fld_leafnode_hw);
+	aie_free_dmabuf(fd, &fd->fld_leafnode_hw);
+
+	//aie_imem_free(fd, &fd->fld_tree_02_hw);
+	aie_free_iova(fd, &fd->fld_tree_02_hw);
+	aie_free_va(fd, &fd->fld_tree_02_hw);
+	aie_free_dmabuf(fd, &fd->fld_tree_02_hw);
+
+	//aie_imem_free(fd, &fd->fld_tree_13_hw);
+	aie_free_iova(fd, &fd->fld_tree_13_hw);
+	aie_free_va(fd, &fd->fld_tree_13_hw);
+	aie_free_dmabuf(fd, &fd->fld_tree_13_hw);
+
+	//aie_imem_free(fd, &fd->fld_output_hw);
+	aie_free_iova(fd, &fd->fld_output_hw);
+	aie_free_va(fd, &fd->fld_output_hw);
+	aie_free_dmabuf(fd, &fd->fld_output_hw);
 }
 #endif
 #if CHECK_SERVICE_0

@@ -1225,7 +1225,6 @@ struct mtk_aie_dev {
 
 	/*DMA Buffer*/
 	struct dma_buf *dmabuf;
-	struct dma_buf *sec_dmabuf;
 	unsigned long long kva;
 	int map_count;
 
