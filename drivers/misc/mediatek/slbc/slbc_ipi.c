@@ -312,7 +312,6 @@ int slbc_scmi_set(void *buffer, int slot)
 		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
 				slbc_ipi_d->cmd, ret);
 
-		BUG_ON(1);
 		goto error;
 	}
 
@@ -347,7 +346,6 @@ int slbc_scmi_get(void *buffer, int slot, void *ptr)
 		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
 				slbc_ipi_d->cmd, ret);
 
-		BUG_ON(1);
 		goto error;
 	}
 
