@@ -228,9 +228,10 @@ static int slbc_request_buffer(struct slbc_data *d)
 	}
 
 	ret = _slbc_request_buffer_scmi(d);
-	slbc_set_sram_data(d);
 
 	if (!ret) {
+		slbc_set_sram_data(d);
+
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 		buffer_ref = slbc_sram_read(SLBC_BUFFER_REF);
 #else
@@ -289,18 +290,13 @@ static int slbc_request_acp(void *ptr)
 int slbc_request(struct slbc_data *d)
 {
 	int ret = 0;
-	struct slbc_config *config;
 	u64 begin, val;
 
 	begin = ktime_get_ns();
 
 	if ((d->type) == TP_BUFFER) {
 		ret = slbc_request_buffer(d);
-		if (d->config && (d->size == 0)) {
-			config = (struct slbc_config *)d->config;
-			if (config)
-				d->size = SLBC_WAY_SIZE * popcount(config->res_slot);
-		}
+		d->size = SLBC_WAY_SIZE * popcount(d->slot_used);
 	}
 
 	if ((d->type) == TP_CACHE)
@@ -351,9 +347,10 @@ static int slbc_release_buffer(struct slbc_data *d)
 	/* slbc_debug_log("%s: TP_BUFFER\n", __func__); */
 
 	ret = _slbc_release_buffer_scmi(d);
-	slbc_clr_sram_data(d);
 
 	if (!ret) {
+		slbc_clr_sram_data(d);
+
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 		buffer_ref = slbc_sram_read(SLBC_BUFFER_REF);
 #else
