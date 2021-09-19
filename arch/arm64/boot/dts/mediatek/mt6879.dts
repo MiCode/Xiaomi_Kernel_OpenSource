@@ -7040,7 +7040,7 @@
 			<0>, /*MTK_DRM_OPT_LAYER_REC*/
 			<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
 			<0>, /*MTK_DRM_OPT_LFR*/
-			<1>, /*MTK_DRM_OPT_SF_PF*/
+			<0>, /*MTK_DRM_OPT_SF_PF*/
 			<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 			<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
 			<0>, /*MTK_DRM_OPT_MSYNC2_0*/
@@ -7095,9 +7095,9 @@
 					&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_LARB1_PORT1)
 					&mmqos SLAVE_COMMON(0)>;
-		interconnect-names = "DDP_COMPONENT_OVL1_2L_qos",
-					"DDP_COMPONENT_OVL1_2L_fbdc_qos",
-					"DDP_COMPONENT_OVL1_2L_hrt_qos";
+		interconnect-names = "DDP_COMPONENT_OVL0_2L_qos",
+					"DDP_COMPONENT_OVL0_2L_fbdc_qos",
+					"DDP_COMPONENT_OVL0_2L_hrt_qos";
 	};
 
 	disp_ovl1_2l: disp_ovl1_2l@14004000 {
