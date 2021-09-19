@@ -15,11 +15,11 @@
  *    ecosystem, ex: M-TEE, Trusty, GlobalPlatform, ...)
  */
 
-#ifndef __GZ_UT_H__
-#define __GZ_UT_H__
 
-int simple_ut(void *args);
-int test_gz_syscall(void *arg);
+#ifndef __GZ_SHMEM_UT_H__
+#define __GZ_SHMEM_UT_H__
+
+int gz_test_shm(void *arg);
 
 #endif
 

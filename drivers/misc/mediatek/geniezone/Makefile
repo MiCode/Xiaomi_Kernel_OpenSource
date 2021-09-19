@@ -57,6 +57,7 @@ endif # !CONFIG_MTK_TEE_GP_SUPPORT
 obj-$(CONFIG_MTK_GZ_MAIN) += gz_main_mod.o
 gz_main_mod-objs += gz_main.o \
 			     mtee_ut/gz_ut.o \
+			     mtee_ut/gz_chmem_ut.o mtee_ut/gz_shmem_ut.o mtee_ut/gz_vreg_ut.o \
 			     mtee-kree/tz_mmap.o mtee-kree/tz_system.o mtee-kree/kree_mem.o
 
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += gz-trusty/

@@ -36,6 +36,9 @@
 
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
+#include "mtee_ut/gz_shmem_ut.h"
+#include "mtee_ut/gz_chmem_ut.h"
+#include "mtee_ut/gz_vreg_ut.h"
 #include "unittest.h"
 
 #define enable_code 0 /*replace #if 0*/
@@ -74,7 +77,8 @@ uint32_t sdsp_elf_size[2] = { 0, 0 };
 uint64_t sdsp_elf_pa[2] = { 0, 0 };
 #endif
 
-#define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
+//#define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
+#define KREE_DEBUG(fmt...) pr_info("[KREE]" fmt)
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
 
@@ -130,16 +134,24 @@ static ssize_t gz_test_store(struct device *dev,
 		th = kthread_run(get_gz_version, NULL, "GZ version");
 		break;
 	case '1':
-		KREE_DEBUG("test tipc\n");
-		th = kthread_run(gz_tipc_test, NULL, "GZ tipc test");
+		KREE_DEBUG("test simple ut\n");
+		th = kthread_run(simple_ut, NULL, "Simple test");
 		break;
 	case '2':
-		KREE_DEBUG("test general functions\n");
-		th = kthread_run(gz_test, NULL, "GZ KREE test");
+		KREE_DEBUG("test_gz_syscall\n"); /*ReeServiceCall*/
+		th = kthread_run(test_gz_syscall, NULL, "test_gz_syscall");
+		break;
+	case '3':
+		KREE_DEBUG("gz_test_shm\n");
+		th = kthread_run(gz_test_shm, NULL, "test_shm");
 		break;
 	case '4':
-		KREE_DEBUG("test GenieZone abort\n");
-		th = kthread_run(gz_abort_test, NULL, "GZ KREE test");
+		KREE_DEBUG("gz_test_chm\n");
+		th = kthread_run(gz_test_chm, NULL, "test_chm");
+		break;
+	case '5':
+		KREE_DEBUG("gz_test_vreg\n");
+		th = kthread_run(gz_test_vreg, NULL, "test_vreg");
 		break;
 	default:
 		KREE_DEBUG("err: unknown test case\n");
@@ -1192,10 +1204,6 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, void __user *arg,
 		}
 		break;
 
-	case MTEE_CMD_SHM_UNREG:
-		/* do nothing */
-		break;
-
 	case MTEE_CMD_OPEN_SESSION:
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_OPEN_SESSION(0x%x)\n", __func__,
 			cmd);
@@ -1293,17 +1301,12 @@ static struct devapc_vio_callbacks gz_devapc_vio_handle = {
 #endif
 
 #endif
-uint64_t va_gz_test_store;
-
 /************ kernel module init entry ***************/
 static int __init gz_init(void)
 {
 	int res;
 
 	tz_system_dev = NULL;
-
-	va_gz_test_store = (uint64_t) &gz_test_store;
-	//KREE_DEBUG("[gz_main.c]====> gz_test_store VA=0x%llx\n", va_gz_test_store);
 
 	res = create_files();
 	if (res) {
