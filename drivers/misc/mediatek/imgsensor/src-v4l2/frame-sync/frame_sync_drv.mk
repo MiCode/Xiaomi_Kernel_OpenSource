@@ -9,6 +9,7 @@ imgsensor-objs += \
 	$(FRAME_SYNC)/frame_sync_algo.o \
 	$(FRAME_SYNC)/frame_monitor.o \
 	$(FRAME_SYNC)/frame_sync_util.o \
+	$(FRAME_SYNC)/frame_sync_console.o \
 	$(FRAME_SYNC)/hw_sensor_sync_algo.o \
 	$(FRAME_SYNC)/custom/custom_hw_sync.o \
 

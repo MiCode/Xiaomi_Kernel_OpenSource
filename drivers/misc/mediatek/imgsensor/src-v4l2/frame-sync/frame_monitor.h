@@ -41,8 +41,7 @@ struct vsync_rec {
 	unsigned int tick_factor;
 	struct vsync_time recs[TG_MAX_NUM];
 };
-
-
+/******************************************************************************/
 #define MSG_TO_CCU_RESET_VSYNC_TIMESTAMP 0
 #define MSG_TO_CCU_GET_VSYNC_TIMESTAMP 1
 /******************************************************************************/
@@ -67,6 +66,8 @@ void frm_init_frame_info_st_data(
 
 void frm_reset_frame_info(unsigned int idx);
 
+unsigned int frm_convert_cammux_tg_to_ccu_tg(unsigned int tg);
+
 void frm_update_tg(unsigned int idx, unsigned int tg);
 
 
@@ -85,6 +86,9 @@ void frm_set_frame_measurement(
 	unsigned int idx, unsigned int passed_vsyncs,
 	unsigned int curr_fl_us, unsigned int curr_fl_lc,
 	unsigned int next_fl_us, unsigned int next_fl_lc);
+
+
+int frm_timestamp_checker(unsigned int m_tg, unsigned int s_tg);
 
 
 #ifdef FS_UT

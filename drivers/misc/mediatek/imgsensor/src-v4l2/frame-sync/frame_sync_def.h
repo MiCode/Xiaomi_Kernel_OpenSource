@@ -14,6 +14,7 @@
 
 #define FS_TOLERANCE 1000
 
+#define ALGO_AUTO_LISTEN_VSYNC 0
 
 /*
  * get timestamp by using bellow method
@@ -116,6 +117,15 @@
 #endif // SYNC_WITH_CUSTOM_DIFF
 
 
+#if !defined(FS_UT)
+/*
+ * frame_sync_console
+ */
+#include <linux/device.h>  /* for device structure */
+#endif // FS_UT
+/******************************************************************************/
+
+
 /******************************************************************************/
 // Log message
 /******************************************************************************/
@@ -125,21 +135,33 @@
 #ifdef FS_UT
 #include <stdio.h>
 #define LOG_INF(format, args...) printf(PFX "[%s] " format, __func__, ##args)
+#define LOG_MUST(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_WARN(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_ERR(format, args...) printf(PFX "[%s] " format, __func__, ##args)
-#else
+
+#else // FS_UT
 #include <linux/printk.h>  /* for kernel log reduction */
-#define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
+
+#define LOG_TRACER_DEF 1
+extern unsigned int log_tracer;   /* declare in frame_sync_sysfs_console.c */
+#define LOG_INF(format, args...)                                               \
+do {                                                                           \
+	if (log_tracer) {                                                      \
+		pr_debug(PFX "[%s] " format, __func__, ##args);                \
+	}                                                                      \
+} while (0)
+
+#define LOG_MUST(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_WARN(format, args...) pr_warn(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_ERR(format, args...) pr_err(PFX "[%s] " format, __func__, ##args)
-#endif
+#endif // FS_UT
 /******************************************************************************/
 
 
 /******************************************************************************/
 // frame_record_st (record shutter and framelength settings)
 /******************************************************************************/
-#define RECORDER_DEPTH 3
+#define RECORDER_DEPTH 4
 struct frame_record_st {
 	unsigned int *framelength_lc;
 	unsigned int *shutter_lc;

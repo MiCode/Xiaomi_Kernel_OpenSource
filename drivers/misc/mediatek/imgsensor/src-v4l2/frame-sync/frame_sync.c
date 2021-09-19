@@ -13,7 +13,11 @@
 #include "frame_sync_camsys.h"
 #include "frame_sync_algo.h"
 #include "frame_monitor.h"
+
+#if !defined(FS_UT)
+#include "frame_sync_console.h"
 #include "hw_sensor_sync_algo.h"
+#endif // FS_UT
 
 
 /******************************************************************************/
@@ -151,6 +155,10 @@ struct FrameSyncMgr {
 	enum FS_FEATURE_MODE ft_mode[SENSOR_MAX_NUM];
 	unsigned int frame_cell_size[SENSOR_MAX_NUM];
 	unsigned int frame_tag[SENSOR_MAX_NUM];
+
+
+	/* keep for supporting trigger by ext vsync */
+	struct fs_perframe_st pf_ctrl[SENSOR_MAX_NUM];
 
 
 	/* Frame Settings Recorder */
@@ -579,25 +587,32 @@ static unsigned int fs_register_sensor(
 		/*          1. register successfully; */
 		/*          2. can't register */
 		idx = fs_push_sensor(sensor_info);
-		if (check_idx_valid(idx)) {
-			LOG_INF(
-				"Not found sensor. ID:%#x(sidx:%u), register it (idx:%u), method:%s\n",
-				sensor_info->sensor_id,
-				sensor_info->sensor_idx,
-				idx,
-				REG_INFO);
-		} else
+		if (check_idx_valid(idx) == 0) {
 			LOG_PR_WARN("ERROR: Reach max sensor capacity\n");
+			return idx;
+		}
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_INF(
+			"ID:%#x(sidx:%u), register it (idx:%u), method:%s\n",
+			sensor_info->sensor_id,
+			sensor_info->sensor_idx,
+			idx,
+			REG_INFO);
+#endif // REDUCE_FS_DRV_LOG
 
 	} else {
 		/* 2-2. this sensor has been registered, do nothing */
 		/* log print info */
 		fs_get_reg_sensor_info(idx, &info);
-		LOG_INF("Found sensor. ID:%#x(sidx:%u), idx:%u, method:%s\n",
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_INF("ID:%#x(sidx:%u), idx:%u, method:%s, already registered\n",
 			info.sensor_id,
 			info.sensor_idx,
 			idx,
 			REG_INFO);
+#endif // REDUCE_FS_DRV_LOG
 
 
 		if (method == BY_SENSOR_IDX) {
@@ -996,9 +1011,9 @@ static inline void fs_init(void)
 
 		change_fs_status(FS_INITIALIZED);
 
-		LOG_INF("FrameSync init. (User:%u)\n", fs_mgr.user_counter);
+		LOG_MUST("FrameSync init. (User:%u)\n", fs_mgr.user_counter);
 	} else if (status == FS_INITIALIZED)
-		LOG_INF("Initialized. (User:%u)\n", fs_mgr.user_counter);
+		LOG_MUST("Initialized. (User:%u)\n", fs_mgr.user_counter);
 
 	// else if () => for re-init.
 }
@@ -1116,6 +1131,10 @@ static void fs_update_status(unsigned int idx, unsigned int flag)
 	status = get_fs_status();
 
 
+	/* only 'on' stage print the log */
+	if (!flag)
+		return;
+
 #ifndef USING_CCU
 	LOG_INF(
 		"stat:%u, ready:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d, setup_complete:%d [idx:%u, en:%u]\n",
@@ -1129,7 +1148,7 @@ static void fs_update_status(unsigned int idx, unsigned int flag)
 		idx,
 		flag);
 #else
-	LOG_INF(
+	LOG_MUST(
 		"stat:%u, ready:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d, setup_complete:%d, pw_ccu:%d [idx:%u, en:%u]\n",
 		status,
 		cnt,
@@ -1266,13 +1285,15 @@ static inline void fs_decision_maker(unsigned int idx)
 		FS_ATOMIC_SET(0, &fs_mgr.using_sa_ver);
 
 
-	LOG_INF(
+// #if !defined(FORCE_USING_SA_MODE) || !defined(REDUCE_FS_DRV_LOG)
+	LOG_MUST(
 		"using_sa:%d (user_sa_en:%u), ft_mode:%u, sa_bits:%d [idx:%u]\n",
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
 		user_sa_en,
 		fs_mgr.ft_mode[idx],
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
 		idx);
+// #endif
 }
 
 
@@ -1317,11 +1338,13 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 		if (FS_CHECK_BIT(idx, &fs_mgr.power_on_ccu_bits) == 1) {
 			FS_WRITE_BIT(idx, 0, &fs_mgr.power_on_ccu_bits);
 
+#if !defined(REDUCE_FS_DRV_LOG)
 			LOG_INF("[%u] ID:%#x(sidx:%u), pw_ccu:%d (OFF)\n",
 				idx,
 				info.sensor_id,
 				info.sensor_idx,
 				FS_READ_BITS(&fs_mgr.power_on_ccu_bits));
+#endif // REDUCE_FS_DRV_LOG
 
 			/* power off CCU */
 			frm_power_on_ccu(0);
@@ -1334,11 +1357,13 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 	if (flag > 0 && FS_CHECK_BIT(idx, &fs_mgr.power_on_ccu_bits) == 0) {
 		FS_WRITE_BIT(idx, 1, &fs_mgr.power_on_ccu_bits);
 
+#if !defined(REDUCE_FS_DRV_LOG)
 		LOG_INF("[%u] ID:%#x(sidx:%u), pw_ccu:%d (ON)\n",
 			idx,
 			info.sensor_id,
 			info.sensor_idx,
 			FS_READ_BITS(&fs_mgr.power_on_ccu_bits));
+#endif // REDUCE_FS_DRV_LOG
 
 		/* power on CCU and get device handle */
 		frm_power_on_ccu(1);
@@ -1351,6 +1376,7 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 	fs_set_status_bits(idx, flag, &fs_mgr.enSync_bits);
 
 
+#if !defined(REDUCE_FS_DRV_LOG)
 	/* log print info */
 	LOG_INF("en:%u [%u] ID:%#x(sidx:%u)   [enSync_bits:%d]\n",
 		flag,
@@ -1358,6 +1384,8 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 		info.sensor_id,
 		info.sensor_idx,
 		FS_READ_BITS(&fs_mgr.enSync_bits));
+#endif // REDUCE_FS_DRV_LOG
+
 }
 
 
@@ -1385,6 +1413,18 @@ void fs_set_sync(unsigned int ident, unsigned int flag)
 
 		return;
 	}
+
+
+#if !defined(FS_UT)
+	/* user cmd force disable frame-sync set_sync */
+	if (fs_con_check_usr_disable_sync()) {
+		LOG_MUST(
+			"WARNING: [%u] user set force disable frame-sync set sync, return\n",
+			idx);
+		return;
+	}
+#endif // FS_UT
+
 
 	fs_set_sync_idx(idx, flag);
 }
@@ -1515,7 +1555,7 @@ static inline void fs_check_n_1_status_extra_ctrl(unsigned int idx)
 		fs_mgr.ft_mode[idx] &= ~(FS_FT_MODE_N_1_ON);
 		fs_mgr.ft_mode[idx] |= FS_FT_MODE_N_1_KEEP;
 
-		LOG_INF(
+		LOG_MUST(
 			"[%u] ID:%#x(sidx:%u), feature mode status change (%u->%u), ON:%u/KEEP:%u\n",
 			idx,
 			info.sensor_id,
@@ -1535,7 +1575,7 @@ static inline void fs_check_n_1_status_extra_ctrl(unsigned int idx)
 		fs_mgr.ft_mode[idx] &= ~(FS_FT_MODE_FRAME_TAG);
 		fs_mgr.ft_mode[idx] |= FS_FT_MODE_NORMAL;
 
-		LOG_INF(
+		LOG_MUST(
 			"[%u] ID:%#x(sidx:%u), feature mode status change (%u->%u), OFF:%u/FRAME_TAG:%u/NORMAL:%u\n",
 			idx,
 			info.sensor_id,
@@ -1568,7 +1608,7 @@ void fs_sa_request_switch_master(unsigned int idx)
 	sa_method = FS_ATOMIC_READ(&fs_mgr.sa_method);
 
 	if (sa_method != FS_SA_ADAPTIVE_MASTER) {
-		LOG_INF(
+		LOG_MUST(
 			"ERROR: SA method:%d, but request (from idx:%u) switch master sensor, vdiff will not be adjusted\n",
 			sa_method,
 			idx);
@@ -1642,13 +1682,13 @@ static int fs_try_trigger_frame_sync_sa(unsigned int idx)
 			FS_READ_BITS(&fs_mgr.validSync_bits),
 			FS_READ_BITS(&fs_mgr.streaming_bits),
 			FS_READ_BITS(&fs_mgr.enSync_bits));
-#endif
+#endif // REDUCE_FS_DRV_LOG
 
 		return 0;
 	}
 
 	if (FS_CHECK_BIT(idx, &fs_mgr.pf_ctrl_bits) == 0) {
-		LOG_INF(
+		LOG_MUST(
 			"WARNING: [%u] ID:%#x(sidx:%u), wait for getting pf_ctrl:%d, return\n",
 			idx,
 			info.sensor_id,
@@ -1659,7 +1699,7 @@ static int fs_try_trigger_frame_sync_sa(unsigned int idx)
 	}
 
 	if (FS_CHECK_BIT(idx, &fs_mgr.setup_complete_bits) == 0) {
-		LOG_INF(
+		LOG_MUST(
 			"WARNING: [%u] ID:%#x(sidx:%u), wait for setup_coplete:%d, return\n",
 			idx,
 			info.sensor_id,
@@ -1705,7 +1745,7 @@ static inline void fs_try_set_auto_frame_tag(unsigned int idx)
 		&& (fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG)) {
 		/* N:1 case */
 		if (fs_mgr.frame_cell_size[idx] == 0) {
-			LOG_INF(
+			LOG_MUST(
 				"ERROR: [%u] call set auto frame_tag, feature_mode:%u, but frame_cell_size:%u not valid, return\n",
 				idx,
 				fs_mgr.ft_mode[idx],
@@ -1730,7 +1770,7 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_INF(
+		LOG_MUST(
 			"ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident
 		);
@@ -1747,7 +1787,7 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 		fs_alg_set_frame_tag(idx, fs_mgr.frame_tag[idx]);
 
 	} else {
-		LOG_INF(
+		LOG_MUST(
 			"WARNING: [%u] call set frame_tag:%u, but feature_mode:%u not allow\n",
 			idx,
 			f_tag,
@@ -1763,7 +1803,7 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 	struct SensorInfo info = {0}; // for log using
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_INF(
+		LOG_MUST(
 			"ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident
 		);
@@ -1776,7 +1816,7 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 
 	if (fs_check_n_1_status_ctrl(idx, en) == 0) {
 		/* feature mode status is non valid for this ctrl */
-		LOG_INF(
+		LOG_MUST(
 			"ERROR: [%u] ID:%#x(sidx:%u), set N:%u, but ft ctrl non valid, feature_mode:%u (FRAME_TAG:%u/ON:%u/KEEP:%u/OFF:%u), return  [en:%u]\n",
 			idx,
 			info.sensor_id,
@@ -1815,7 +1855,7 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 	fs_alg_set_n_1_on_off_flag(idx, 1);
 
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), N:%u, feature_mode:%u (FRAME_TAG:%u/ON:%u/OFF:%u)  [en:%u]\n",
 		idx,
 		info.sensor_id,
@@ -1836,7 +1876,7 @@ void fs_mstream_en(unsigned int ident, unsigned int en)
 	struct SensorInfo info = {0}; // for log using
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_INF(
+		LOG_MUST(
 			"ERROR: [%u] %s is not register, ident:%u\n",
 			idx, REG_INFO, ident
 		);
@@ -1858,7 +1898,7 @@ void fs_mstream_en(unsigned int ident, unsigned int en)
 	}
 
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), N:2, feature_mode:%u (ASSIGN_FRAME_TAG:%u)  [en:%u]\n",
 		idx,
 		info.sensor_id,
@@ -1920,6 +1960,10 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 	}
 
 
+	/* 0. convert cammux id to ccu tg id */
+	tg = frm_convert_cammux_tg_to_ccu_tg(tg);
+
+
 	/* 1. update the fs_streaming_st data */
 	fs_alg_update_tg(idx, tg);
 	frm_update_tg(idx, tg);
@@ -1927,7 +1971,7 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 
 	fs_get_reg_sensor_info(idx, &info);
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), updated tg:%u (fs_alg, frm)\n",
 		idx,
 		info.sensor_id,
@@ -2040,6 +2084,10 @@ unsigned int fs_streaming(
 		}
 #endif // USING_CCU && !DELAY_CCU_OP
 
+
+		/* convert cammux id to ccu tg id */
+		sensor_info->tg =
+			frm_convert_cammux_tg_to_ccu_tg(sensor_info->tg);
 
 		/* set data to frm, fs algo, and frame recorder */
 		frm_init_frame_info_st_data(idx,
@@ -2305,7 +2353,7 @@ unsigned int fs_try_trigger_frame_sync(void)
 			? 1 : 0;
 
 		if (fs_act == 0) {
-			LOG_INF(
+			LOG_MUST(
 				"WARNING: sensor ctrl has not been setup yet, validSync:%2d, pf_ctrl:%2d, setup_complete:%2d\n",
 				FS_READ_BITS(&fs_mgr.validSync_bits),
 				FS_READ_BITS(&fs_mgr.pf_ctrl_bits),
@@ -2347,7 +2395,7 @@ unsigned int fs_try_trigger_frame_sync(void)
 		}
 
 	} else {
-		LOG_INF(
+		LOG_MUST(
 			"wait for other pf_ctrl setup, validSync:%2d, pf_ctrl:%2d, setup_complete:%2d\n",
 			FS_READ_BITS(&fs_mgr.validSync_bits),
 			FS_READ_BITS(&fs_mgr.pf_ctrl_bits),
@@ -2469,6 +2517,9 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 	//fs_dump_pf_info(frameCtrl);
 
 
+	fs_mgr.pf_ctrl[idx] = *frameCtrl;
+
+
 #if !defined(FORCE_USING_SA_MODE)
 #if defined(SUPPORT_AUTO_EN_SA_MODE) && !defined(FS_UT)
 	/* check needed SA */
@@ -2519,6 +2570,34 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 }
 
 
+void fs_notify_vsync(unsigned int ident)
+{
+#if !defined(FS_UT)
+	unsigned int listen_vsync_usr = fs_con_get_usr_listen_ext_vsync();
+	unsigned int listen_vsync_alg = fs_con_get_listen_vsync_alg_cfg();
+	unsigned int idx = fs_get_reg_sensor_pos(ident);
+
+
+	if (check_idx_valid(idx) == 0) {
+		/* not register/streaming on */
+		return;
+	}
+
+	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
+		/* no start frame sync, return */
+		return;
+	}
+
+	/* check listen to ext vysnc or not */
+	if (!(listen_vsync_usr || listen_vsync_alg))
+		return;
+
+
+	fs_set_shutter(&fs_mgr.pf_ctrl[idx]);
+#endif // FS_UT
+}
+
+
 /*
  * return:
  *     0 for error,
@@ -2545,13 +2624,20 @@ unsigned int fs_sync_frame(unsigned int flag)
 #endif // ALL_USING_ATOMIC
 
 
+#if !defined(FS_UT)
+	/* user cmd force disable frame-sync set_sync */
+	if (fs_con_check_usr_disable_sync())
+		return 0;
+#endif // FS_UT
+
+
 	/* check sync frame start/end */
 	/*     flag > 0  : start sync frame */
 	/*     flag == 0 : end sync frame */
 	if (flag > 0) {
 		/* check status is ready for starting sync frame or not */
 		if (status < FS_WAIT_FOR_SYNCFRAME_START) {
-			LOG_INF(
+			LOG_MUST(
 				"[Start:%u] ERROR: stat:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d(last:%d), setup_complete:%d(last:%d)\n",
 				flag,
 				status,
@@ -2598,7 +2684,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 
 		/* 1. check fs status */
 		if (status != FS_START_TO_GET_PERFRAME_CTRL) {
-			LOG_INF(
+			LOG_MUST(
 				"[Start:%u] ERROR: stat:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d(%d), setup_complete:%d(%d)\n",
 				flag,
 				status,
@@ -2618,6 +2704,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 		if (FS_ATOMIC_READ(&fs_mgr.using_sa_ver) != 0) {
 			change_fs_status(FS_WAIT_FOR_SYNCFRAME_START);
 
+#if !defined(REDUCE_FS_DRV_LOG)
 			/* (LOG) show new status and pf_ctrl_bits value */
 			LOG_INF(
 				"[Start:%u] stat:%u, pf_ctrl:%d, ctrl_setup_complete:%d [FS SA mode]\n",
@@ -2625,6 +2712,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 				get_fs_status(),
 				FS_READ_BITS(&fs_mgr.pf_ctrl_bits),
 				FS_READ_BITS(&fs_mgr.setup_complete_bits));
+#endif // REDUCE_FS_DRV_LOG
 
 			return 0;
 		}
@@ -2760,6 +2848,7 @@ static struct FrameSync frameSync = {
 	fs_set_frame_tag,
 	fs_n_1_en,
 	fs_mstream_en,
+	fs_notify_vsync,
 	fs_is_set_sync
 };
 
@@ -2772,16 +2861,39 @@ static struct FrameSync frameSync = {
  *
  *    return: (0 / 1) => (no error / error)
  */
+#if !defined(FS_UT)
+unsigned int FrameSyncInit(struct FrameSync **pframeSync, struct device *dev)
+#else // FS_UT
 unsigned int FrameSyncInit(struct FrameSync (**pframeSync))
+#endif // FS_UT
 {
-	if (pframeSync != NULL) {
-		fs_init();
-		*pframeSync = &frameSync;
+	int ret = 0;
 
-		return 0;
+	/* check NULL pointer */
+	if (pframeSync == NULL) {
+		LOG_MUST(
+			"ERROR: pframeSync is NULL, return");
+		ret = 1;
+
+		return ret;
 	}
 
-	// maybe add a correct error type.
-	return 1;
+
+	fs_init();
+	*pframeSync = &frameSync;
+
+#if !defined(FS_UT)
+	ret = fs_con_create_sysfs_file(dev);
+#endif // FS_UT
+
+	return ret;
 }
+
+
+#if !defined(FS_UT)
+void FrameSyncUnInit(struct device *dev)
+{
+	fs_con_remove_sysfs_file(dev);
+}
+#endif // FS_UT
 /******************************************************************************/

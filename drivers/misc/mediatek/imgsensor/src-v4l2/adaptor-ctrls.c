@@ -239,6 +239,15 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
+static void notify_fsync_vsync(struct adaptor_ctx *ctx)
+{
+	/* call frame-sync fs_set_sync() */
+	if (ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_notify_vsync(ctx->idx);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
 static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure *info)
 {
 	union feature_para para;
@@ -657,6 +666,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_VSYNC_NOTIFY:
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
+		notify_fsync_vsync(ctx);
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
 		para.u64[0] = ctrl->val;

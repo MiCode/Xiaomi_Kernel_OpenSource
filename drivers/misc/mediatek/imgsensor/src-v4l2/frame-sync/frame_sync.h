@@ -244,6 +244,9 @@ struct FrameSync {
 	void (*fs_mstream_en)(unsigned int ident, unsigned int en);
 
 
+	void (*fs_notify_vsync)(unsigned int ident);
+
+
 	/**********************************************************************/
 	/* get frame sync status for this sensor_id */
 	/* return: (0 / 1) => (disable / enable) */
@@ -265,7 +268,14 @@ void fs_sa_request_switch_master(unsigned int idx);
  *
  *    return: (0 / 1) => (no error / error)
  */
+#if !defined(FS_UT)
+unsigned int FrameSyncInit(struct FrameSync **pframeSync, struct device *dev);
+void FrameSyncUnInit(struct device *dev);
+#else // FS_UT
 unsigned int FrameSyncInit(struct FrameSync **framesync);
+#endif // FS_UT
+
+
 
 
 #endif

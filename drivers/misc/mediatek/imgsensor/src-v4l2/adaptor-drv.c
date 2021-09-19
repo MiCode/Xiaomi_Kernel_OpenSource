@@ -970,13 +970,19 @@ static const struct thermal_zone_of_device_ops imgsensor_tz_ops = {
 	.get_temp = imgsensor_get_temp,
 };
 
-static int notify_fsync_mgr(struct adaptor_ctx *ctx)
+static int notify_fsync_mgr(struct adaptor_ctx *ctx, int on)
 {
 	int ret, seninf_idx = 0;
 	const char *seninf_port = NULL;
 	char c_ab;
 	struct device_node *seninf_np;
 	struct device *dev = ctx->dev;
+
+	if (!on) {
+		/* imgsensor remove => for remove sysfs file */
+		FrameSyncUnInit(ctx->dev);
+		return 0;
+	}
 
 	seninf_np = of_graph_get_remote_node(dev->of_node, 0, 0);
 	if (!seninf_np) {
@@ -1002,11 +1008,12 @@ static int notify_fsync_mgr(struct adaptor_ctx *ctx)
 		ctx->idx, seninf_port, seninf_idx);
 
 	/* frame-sync init */
-	ret = FrameSyncInit(&ctx->fsync_mgr);
+	ret = FrameSyncInit(&ctx->fsync_mgr, ctx->dev);
 	if (ret != 0) {
 		dev_info(ctx->dev, "frame-sync init failed !\n");
 		ctx->fsync_mgr = NULL;
-	}
+	} else
+		dev_info(dev, "frame-sync init done, ret:%d", ret);
 
 	/* notify frame-sync mgr of sensor-idx and seninf-idx */
 	//TODO
@@ -1117,7 +1124,7 @@ static int imgsensor_probe(struct i2c_client *client)
 			dev_info(dev, "failed to register thermal zone\n");
 	}
 
-	notify_fsync_mgr(ctx);
+	notify_fsync_mgr(ctx, 1);
 
 	return 0;
 
@@ -1139,6 +1146,8 @@ static int imgsensor_remove(struct i2c_client *client)
 	v4l2_async_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
+
+	notify_fsync_mgr(ctx, 0);
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);

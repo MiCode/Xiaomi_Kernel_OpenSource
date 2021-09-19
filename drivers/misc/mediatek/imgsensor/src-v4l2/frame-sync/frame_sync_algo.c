@@ -18,6 +18,10 @@
 #include "frame_sync_algo.h"
 #include "frame_monitor.h"
 
+#if !defined(FS_UT)
+#include "frame_sync_console.h"
+#endif // FS_UT
+
 
 /******************************************************************************/
 // Log message => see frame_sync_def.h
@@ -537,8 +541,6 @@ static inline void calibrate_recs_data_by_vsyncs(unsigned int idx)
 	/* for syncing correct frame settings. */
 	/* EX: [0, 1, 2] -> [1, 2, temp] or [2, 2, temp] */
 	if (fs_inst[idx].vsyncs > 1) {
-		// fs_inst[idx].recs[2] = fs_inst[idx].recs[1];
-
 		*fs_inst[idx].recs[2].framelength_lc =
 				*fs_inst[idx].recs[1].framelength_lc;
 		*fs_inst[idx].recs[2].shutter_lc =
@@ -553,6 +555,20 @@ static inline void calibrate_recs_data_by_vsyncs(unsigned int idx)
 			fs_inst[idx].sensor_idx,
 			fs_inst[idx].vsyncs);
 #endif // REDUCE_FS_ALGO_LOG
+	}
+
+	/* in the same frame case */
+	/* EX: [0, 1, 2, temp] -> [0, 0, 1, temp] */
+	if (fs_inst[idx].vsyncs == 0 && RECORDER_DEPTH == 4) {
+		*fs_inst[idx].recs[1].framelength_lc =
+				*fs_inst[idx].recs[2].framelength_lc;
+		*fs_inst[idx].recs[1].shutter_lc =
+				*fs_inst[idx].recs[2].shutter_lc;
+
+		*fs_inst[idx].recs[2].framelength_lc =
+				*fs_inst[idx].recs[3].framelength_lc;
+		*fs_inst[idx].recs[2].shutter_lc =
+				*fs_inst[idx].recs[3].shutter_lc;
 	}
 
 
@@ -859,7 +875,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		: 0;
 
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), #%u, stable_fl:%u, pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), ts(%u/+%u(%u)/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -1375,7 +1391,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 	}
 
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), ask_switch(%u), s/m adjust_diff(%lld(%u)/%lld), ts(%lld/%lld), delta(%u/%u), sync_delay(%u/%u) [(c:%u/n:%u/s:%u/e:%u/t:%u) / (c:%u/n:%u/s:%u/e:%u/t:%u)], f_cell(%u/%u), fdelay(%u/%u), ts_abs(%u/%u)\n",
 		s_idx,
 		fs_inst[s_idx].sensor_id,
@@ -1567,6 +1583,7 @@ void fs_alg_set_sync_type(unsigned int idx, unsigned int type)
 	fs_inst[idx].sync_type = type;
 
 
+#if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_INF(
 		"[%u] ID:%#x(sidx:%u), set sync type:%u (V:%u, C:%u, L:%u, S:%u)\n",
 		idx,
@@ -1577,6 +1594,7 @@ void fs_alg_set_sync_type(unsigned int idx, unsigned int type)
 		fs_inst[idx].sync_type & FS_SYNC_TYPE_READOUT_CENTER,
 		fs_inst[idx].sync_type & FS_SYNC_TYPE_LE,
 		fs_inst[idx].sync_type & FS_SYNC_TYPE_SE);
+#endif // REDUCE_FS_ALGO_LOG
 
 
 #if defined(SYNC_WITH_CUSTOM_DIFF)
@@ -1917,6 +1935,7 @@ static void fs_alg_set_hdr_exp_st_data(
 	*shutter_lc = fs_inst[idx].shutter_lc;
 
 
+// #ifndef REDUCE_FS_ALGO_LOG
 	LOG_INF(
 		"[%u] ID:%#x(sidx:%u), hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), ctrl(%u/%u/%u/%u/%u, %u/%u) cnt:(mode/ae), shutter:%u(%u) (equiv)\n",
 		idx,
@@ -1947,6 +1966,8 @@ static void fs_alg_set_hdr_exp_st_data(
 			fs_inst[idx].lineTimeInNs,
 			*shutter_lc),
 		*shutter_lc);
+// #endif // REDUCE_FS_ALGO_LOG
+
 }
 
 
@@ -2078,7 +2099,7 @@ void fs_alg_set_frame_record_st_data(
 		fs_inst[idx].predicted_fl_lc[1]);
 
 
-// #ifndef REDUCE_FS_ALGO_LOG
+#ifndef REDUCE_FS_ALGO_LOG
 	LOG_INF(
 		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))(%u), margin_lc:%u, fdelay:%u\n",
 		idx,
@@ -2098,7 +2119,7 @@ void fs_alg_set_frame_record_st_data(
 		fs_inst[idx].lineTimeInNs,
 		fs_inst[idx].margin_lc,
 		fs_inst[idx].fl_active_delay);
-// #endif
+#endif
 }
 /******************************************************************************/
 
@@ -2753,6 +2774,7 @@ static void adjust_vsync_diff_sa(
 	unsigned int out_fl_us = 0, flk_diff = 0;
 	struct FrameSyncDynamicPara m_para = {0};
 	struct FrameSyncDynamicPara *p_para_m = &m_para;
+	unsigned int listen_vsync_alg = 0, auto_listen_ext_vsync = 0;
 
 
 	/* this should be done when fl be updated */
@@ -2797,7 +2819,7 @@ static void adjust_vsync_diff_sa(
 	if (adjust_diff == 0) {
 		fs_sa_request_switch_master(idx);
 
-		LOG_INF(
+		LOG_MUST(
 			"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), request switch to master sensor, out_fl:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
@@ -2815,13 +2837,25 @@ static void adjust_vsync_diff_sa(
 	}
 
 
+#if !defined(FS_UT)
+	auto_listen_ext_vsync =
+		fs_con_get_usr_auto_listen_ext_vsync();
+
+	if (auto_listen_ext_vsync > 0) {
+		/* take tolerance/4 as estimated error */
+		listen_vsync_alg = (adjust_diff > (FS_TOLERANCE/4)) ? 1 : 0;
+		fs_con_set_listen_vsync_alg_cfg(listen_vsync_alg);
+	}
+#endif // FS_UT
+
+
 	out_fl_us = fs_inst[idx].output_fl_us + adjust_diff;
 
 	flk_diff = fs_alg_sa_get_flk_diff_and_fl(idx, &out_fl_us, 0);
 
 
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), out_fl:%u(%u), flk_en:%u(+%u)\n",
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), out_fl:%u(%u), flk_en:%u(+%u), set listen_ext_vsync:%u(auto_listen_ext_vsync:%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -2833,8 +2867,9 @@ static void adjust_vsync_diff_sa(
 			fs_inst[idx].lineTimeInNs,
 			out_fl_us),
 		fs_inst[idx].flicker_en,
-		flk_diff
-	);
+		flk_diff,
+		listen_vsync_alg,
+		auto_listen_ext_vsync);
 
 
 	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
@@ -2887,6 +2922,8 @@ unsigned int fs_alg_solve_frame_length_sa(
 	/* X. update dynamic para for shared to other sensor */
 	fs_alg_sa_update_dynamic_para(idx, &para);
 
+	if (idx != m_idx)
+		frm_timestamp_checker(fs_inst[m_idx].tg, fs_inst[idx].tg);
 
 	return 0;
 }
