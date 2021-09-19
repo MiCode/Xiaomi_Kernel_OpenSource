@@ -244,6 +244,7 @@ static struct regname rn[] = {
 	REGNAME(wpe3_dip1, 0x0, MACRO_CG),
 	/* VDEC_GCON_BASE register */
 	REGNAME(vde2, 0x8, LARB_CKEN_CON),
+	REGNAME(vde2, 0x190, MINI_MDP_CFG_0),
 	REGNAME(vde2, 0x0, VDEC_CKEN),
 	/* VENC_GCON register */
 	REGNAME(ven1, 0x0, VENCSYS_CG),
@@ -416,7 +417,6 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"infracfg", PWR_STA, 0x00000000},
 	{"infracfg_ao", PWR_STA, 0x00000000},
 	{"ipesys", PWR_STA, 0x00000800},
-	{"mcusys_config_reg", PWR_STA, 0x00000000},
 	{"mdpsys", PWR_STA, 0x02000000},
 	{"mfg", XPU_PWR_STA, 0x00000080},
 	{"mminfra_config", PWR_STA, 0x08000000},
