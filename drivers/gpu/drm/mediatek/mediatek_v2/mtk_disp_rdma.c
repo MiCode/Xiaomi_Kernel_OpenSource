@@ -1570,6 +1570,21 @@ static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
 	.has_greq_urg_num = true,
 };
 
+static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
+	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.pre_ultra_low_us = 250,
+	.pre_ultra_high_us = 260,
+	.ultra_low_us = 230,
+	.ultra_high_us = 250,
+	.urgent_low_us = 110,
+	.urgent_high_us = 120,
+	.sodi_config = mt6855_mtk_sodi_config,
+	.shadow_update_reg = 0x00b8,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = true,
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
@@ -1591,6 +1606,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt6833_rdma_driver_data},
 	{.compatible = "mediatek,mt6879-disp-rdma",
 	 .data = &mt6879_rdma_driver_data},
+	{.compatible = "mediatek,mt6855-disp-rdma",
+	 .data = &mt6855_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);

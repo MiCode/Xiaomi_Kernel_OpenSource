@@ -285,6 +285,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	case MMSYS_MT6853:
 	case MMSYS_MT6833:
 	case MMSYS_MT6879:
+	case MMSYS_MT6855:
 		mmsys_config_dump_reg_mt6879(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6879(mtk_crtc->mutex[0]);
 		break;
@@ -446,6 +447,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6879:
 		mmsys_config_dump_analysis_mt6879(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6879(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6855:
+		mmsys_config_dump_analysis_mt6855(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6855(mtk_crtc->mutex[0]);
 		break;
 	default:
 		pr_info("%s mtk drm not support mmsys id %d\n",
@@ -3599,7 +3604,8 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		if (priv->data->mmsys_id == MMSYS_MT6983 ||
 			priv->data->mmsys_id == MMSYS_MT6879 ||
-			priv->data->mmsys_id == MMSYS_MT6895) {
+			priv->data->mmsys_id == MMSYS_MT6895 ||
+			priv->data->mmsys_id == MMSYS_MT6855) {
 			/*set smi_larb_sec_con reg as 1*/
 			mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);
 		}
@@ -4499,6 +4505,9 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 		case MMSYS_MT6879:
 			mtk_ddp_remove_dsc_prim_MT6879(mtk_crtc, handle);
 			break;
+		case MMSYS_MT6855:
+			mtk_ddp_remove_dsc_prim_MT6855(mtk_crtc, handle);
+			break;
 		default:
 			DDPINFO("%s mtk drm not support mmsys id %d\n",
 				__func__, priv->data->mmsys_id);
@@ -4593,6 +4602,9 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 			break;
 		case MMSYS_MT6879:
 			mtk_ddp_insert_dsc_prim_MT6879(mtk_crtc, handle);
+			break;
+		case MMSYS_MT6855:
+			mtk_ddp_insert_dsc_prim_MT6855(mtk_crtc, handle);
 			break;
 		default:
 			DDPINFO("%s mtk drm not support mmsys id %d\n",
@@ -5043,7 +5055,8 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 #ifndef DRM_CMDQ_DISABLE
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
-		priv->data->mmsys_id == MMSYS_MT6895) {
+		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6855) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
@@ -5286,7 +5299,8 @@ static void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
 
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
-		priv->data->mmsys_id == MMSYS_MT6895) {
+		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6855) {
 		handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 		mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);
 		cmdq_pkt_flush(handle);
@@ -5712,7 +5726,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 #ifndef DRM_CMDQ_DISABLE
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
-		priv->data->mmsys_id == MMSYS_MT6895) {
+		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6855) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);

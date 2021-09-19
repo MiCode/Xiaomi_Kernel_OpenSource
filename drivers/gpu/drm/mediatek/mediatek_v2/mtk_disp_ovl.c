@@ -3807,6 +3807,31 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.is_support_34bits = true,
 };
 
+static const struct compress_info compr_info_mt6855  = {
+	.name = "PVRIC_V3_1_MTK_1",
+	.l_config = &compr_l_config_PVRIC_V3_1,
+};
+
+static const struct mtk_disp_ovl_data mt6855_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x10,
+	.fmt_rgb565_is_0 = true,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6855,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0xe0,
+	.fifo_size = 576,
+	.issue_req_th_dl = 383,
+	.issue_req_th_dc = 31,
+	.issue_req_th_urg_dl = 191,
+	.issue_req_th_urg_dc = 31,
+	.greq_num_dl = 0xbbbb,
+	.is_support_34bits = true,
+};
+
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT8173,
 	.el_addr_offset = 0x04,
@@ -3841,6 +3866,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6833_ovl_driver_data},
 	{.compatible = "mediatek,mt6879-disp-ovl",
 	 .data = &mt6879_ovl_driver_data},
+	{.compatible = "mediatek,mt6855-disp-ovl",
+	 .data = &mt6855_ovl_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_ovl_driver_dt_match);

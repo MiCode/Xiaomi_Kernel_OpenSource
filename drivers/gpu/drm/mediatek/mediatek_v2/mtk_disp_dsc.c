@@ -798,6 +798,11 @@ static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
 	.need_bypass_shadow = false,
 };
 
+static const struct mtk_disp_dsc_data mt6855_dsc_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-dsc",
 	  .data = &mt6885_dsc_driver_data},
@@ -811,6 +816,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6853_dsc_driver_data},
 	{ .compatible = "mediatek,mt6879-disp-dsc",
 	  .data = &mt6879_dsc_driver_data},
+	{ .compatible = "mediatek,mt6855-disp-dsc",
+	  .data = &mt6855_dsc_driver_data},
 	{},
 };
 
