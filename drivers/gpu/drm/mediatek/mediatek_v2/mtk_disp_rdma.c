@@ -126,6 +126,8 @@ int disp_met_set(void *data, u64 val);
 #define FLD_HIGH_FOR_URGENT REG_FLD_MSB_LSB(29, 16)
 #define FLD_RG_VALID_THRESHOLD_BLOCK_URGENT REG_FLD_MSB_LSB(30, 30)
 #define FLD_RG_VDE_BLOCK_URGENT REG_FLD_MSB_LSB(31, 31)
+#define DISP_REG_RDMA_MEM_GMC_S4 0x00ec
+
 
 /* TODO: handle pixel/line cnt for other platform */
 #define DISP_REG_RDMA_IN_P_CNT 0x0120
@@ -428,6 +430,7 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
 	bool en = 1;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 
 	mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 			   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
@@ -436,6 +439,11 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	mtk_ddp_write_mask(comp, RDMA_ENGINE_EN, DISP_REG_RDMA_GLOBAL_CON,
 			   RDMA_ENGINE_EN, handle);
+
+	if (priv->data->mmsys_id == MMSYS_MT6879) {
+		mtk_ddp_write_relaxed(comp, 0x01, DISP_REG_RDMA_MEM_GMC_S4,
+			handle);
+	}
 
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,
@@ -447,11 +455,17 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	bool en = 0;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_INT_ENABLE, handle);
 	mtk_ddp_write(comp, RDMA_SOFT_RESET, DISP_REG_RDMA_GLOBAL_CON, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_GLOBAL_CON, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_INT_STATUS, handle);
+
+	if (priv->data->mmsys_id == MMSYS_MT6879) {
+		mtk_ddp_write_relaxed(comp, 0x00, DISP_REG_RDMA_MEM_GMC_S4,
+			handle);
+	}
 
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,

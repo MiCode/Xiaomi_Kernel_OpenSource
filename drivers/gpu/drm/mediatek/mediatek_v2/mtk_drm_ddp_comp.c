@@ -1088,20 +1088,20 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 					1, SODI_REQ_SEL_RDMA0_PD_MODE);
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
 					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, MT6879_DVFS_HALT_MASK_SEL_ALL);
 
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0xFF, MT6879_HRT_URGENT_CTL_SEL_ALL);
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0, MT6879_HRT_URGENT_CTL_VAL_ALL);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, MT6879_DVFS_HALT_MASK_SEL_ALL);
 	} else if (id == DDP_COMPONENT_RDMA0) {
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
 					SODI_REQ_SEL_RDMA0_CG_MODE);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
-					MT6879_HRT_URGENT_CTL_SEL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, en,
 					MT6879_DVFS_HALT_MASK_SEL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6879_HRT_URGENT_CTL_SEL_DSI0);
 	} else if (id == DDP_COMPONENT_WDMA0) {
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
 					MT6879_HRT_URGENT_CTL_SEL_WDMA0);
