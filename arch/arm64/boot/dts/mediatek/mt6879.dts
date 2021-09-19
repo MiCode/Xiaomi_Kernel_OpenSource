@@ -1315,6 +1315,7 @@
 		mediatek,support_micro_processor = <1>;
 		operating-points-v2 = <&opp_table_img>;
 		buck-vmm-supply = <&mt6319_6_vbuck3>;
+		mediatek,disable_dvfs = <0>;
 
 		mediatek,support_mux = "cam",
 					"img", "ipe", "ccu";
