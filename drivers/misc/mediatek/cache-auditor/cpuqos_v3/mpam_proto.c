@@ -465,76 +465,6 @@ int set_cpuqos_mode(int mode)
 }
 EXPORT_SYMBOL_GPL(set_cpuqos_mode);
 
-static ssize_t set_ct_group_ct(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int group_id = -1;
-
-	if (sscanf(ubuf, "%iu", &group_id) != 0) {
-		if (group_id < nr_cpu_ids)
-			set_ct_group(group_id, true);
-	}
-
-	return cnt;
-}
-
-static ssize_t set_ct_group_nct(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int group_id = -1;
-
-	if (sscanf(ubuf, "%iu", &group_id) != 0) {
-		if (group_id < nr_cpu_ids)
-			set_ct_group(group_id, false);
-	}
-	return cnt;
-}
-
-static ssize_t set_ct_task_ct(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int task_pid = -1;
-
-	if (sscanf(ubuf, "%iu", &task_pid) != 0)
-		set_ct_task(task_pid, true);
-
-	return cnt;
-}
-
-static ssize_t set_ct_task_nct(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int task_pid = -1;
-
-	if (sscanf(ubuf, "%iu", &task_pid) != 0)
-		set_ct_task(task_pid, false);
-
-	return cnt;
-}
-
-static ssize_t set_cpuqos_mode_debug(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int mode = -1;
-
-	if (sscanf(ubuf, "%iu", &mode) != 0) {
-		if (mode < nr_cpu_ids)
-			set_cpuqos_mode(mode);
-	}
-
-	return cnt;
-}
-
 static ssize_t show_cpuqos_status(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -562,21 +492,6 @@ static ssize_t show_cpuqos_status(struct kobject *kobj,
 
 	return len;
 }
-
-struct kobj_attribute set_ct_group_ct_attr =
-__ATTR(cpuqos_set_ct_group_ct, 0200, NULL, set_ct_group_ct);
-
-struct kobj_attribute set_ct_group_nct_attr =
-__ATTR(cpuqos_set_ct_group_nct, 0200, NULL, set_ct_group_nct);
-
-struct kobj_attribute set_ct_task_ct_attr =
-__ATTR(cpuqos_set_ct_task_ct, 0200, NULL, set_ct_task_ct);
-
-struct kobj_attribute set_ct_task_nct_attr =
-__ATTR(cpuqos_set_ct_task_nct, 0200, NULL, set_ct_task_nct);
-
-struct kobj_attribute set_cpuqos_mode_attr =
-__ATTR(cpuqos_set_cpuqos_mode, 0200, NULL, set_cpuqos_mode_debug);
 
 struct kobj_attribute show_cpuqos_status_attr =
 __ATTR(cpuqos_status_info, 0400, show_cpuqos_status, NULL);
