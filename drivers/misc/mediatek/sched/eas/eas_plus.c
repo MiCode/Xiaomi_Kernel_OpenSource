@@ -298,17 +298,120 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 #define CSRAM_BASE 0x0011BC00
 #define OFFS_THERMAL_LIMIT_S 0x1208
 #define THERMAL_INFO_SIZE 200
+#define UBUS_BASE   0x0C800000
+#define CLUSTER_MPAM_BASE   0X10000
+#define MPAMCFG_PART_SEL_OFS    0x100
+#define MPAMCFG_CPBM_NS_OFS 0x1000
+#define MPAMF_CPOR_IDR_OFS  0x30
+#define MPAMCFG_PART_SEL    (UBUS_BASE+CLUSTER_MPAM_BASE+MPAMCFG_PART_SEL_OFS)
+#define MPAMCFG_CPBM    (UBUS_BASE+CLUSTER_MPAM_BASE+MPAMCFG_CPBM_NS_OFS)
+#define MPAMF_CPOR_IDR  (UBUS_BASE+CLUSTER_MPAM_BASE+MPAMF_CPOR_IDR_OFS)
+#define MCUSYS_AO_CFG_BASE      0x0C000000
+#define MCUSYS_AO_THROTTLE_OFS  0xFFE8
+#define MINIMUM_PART    6
+#define CSRAM_QOS_BASE 0x00113C00
+#define QOS_INFO_SIZE 0x100
+#define UBUS_MPAM_SIZE  0x10000
+#define SLC_CPU_DEBUG0_R_OFS    0x88
+
+enum {
+	MPAM_RESERVED,
+	MPAM_THROTTLE,
+	MPAM_DETHROTTLE,
+	MPAM_RESET
+};
+
 static void __iomem *sram_base_addr;
+static void __iomem *sram_qos_base_addr;
+static void __iomem *sram_ubus_base_addr;
 int init_sram_info(void)
 {
-	sram_base_addr = ioremap(CSRAM_BASE + OFFS_THERMAL_LIMIT_S, THERMAL_INFO_SIZE);
+	sram_base_addr =
+		ioremap(CSRAM_BASE + OFFS_THERMAL_LIMIT_S, THERMAL_INFO_SIZE);
 
 	if (!sram_base_addr) {
 		pr_info("Remap thermal info failed\n");
 
 		return -EIO;
 	}
+
+	sram_qos_base_addr =
+		ioremap(CSRAM_QOS_BASE, QOS_INFO_SIZE);
+
+	if (!sram_qos_base_addr) {
+		pr_info("Remap qos info failed\n");
+
+		return -EIO;
+	}
+
+	sram_ubus_base_addr =
+		ioremap(UBUS_BASE+CLUSTER_MPAM_BASE, UBUS_MPAM_SIZE);
+
+	if (!sram_ubus_base_addr) {
+		pr_info("Remap ubus info failed\n");
+
+		return -EIO;
+	}
+
 	return 0;
+}
+
+void mtk_cpuqos(void)
+{
+	u32 throttle_action = 0, data = 0;
+	int nct_p_count = 0, write_bit, total_part, i;
+	void __iomem *qos_base = sram_qos_base_addr;
+	void __iomem *ubus_base = sram_ubus_base_addr;
+
+	throttle_action =
+		ioread32((void __iomem *)(qos_base+SLC_CPU_DEBUG0_R_OFS));
+
+	if (throttle_action == 0)
+		return;
+	//MPAM_THROTTLE_IPI, 1b(read) + 1b(write) + 2b(action)
+	write_bit = (throttle_action >> 2) & 0x1;
+
+	//read,write control
+	if (write_bit)
+		return;
+
+	//set read bit
+	iowrite32(throttle_action | (0x1<<3),
+			(void __iomem *)(qos_base+SLC_CPU_DEBUG0_R_OFS));
+
+	//get total part count
+	total_part = ioread32((void __iomem *)(ubus_base+MPAMF_CPOR_IDR_OFS));
+	total_part &= 0xffff;
+	//select pid
+	data = ioread32((void __iomem *)(ubus_base+MPAMCFG_PART_SEL_OFS));
+	data = data & ~(0xffff);
+	data = data | 0x3;
+	iowrite32(data, (void __iomem *)(ubus_base+MPAMCFG_PART_SEL_OFS));
+	//current portion count
+	data = ioread32((void __iomem *)(ubus_base+MPAMCFG_CPBM_NS_OFS));
+
+	while (data) {
+		nct_p_count += data & 1;
+		data >>= 1;
+	}
+	//action
+	if (throttle_action == MPAM_THROTTLE)
+		nct_p_count--;
+	else if (throttle_action == MPAM_DETHROTTLE)
+		nct_p_count++;
+	//out of range
+	if (nct_p_count < MINIMUM_PART)
+		nct_p_count = MINIMUM_PART;
+	else if (nct_p_count > total_part)
+		nct_p_count = total_part;
+	//set portion bit map
+	data = 0;
+	for (i = 0; i < nct_p_count; i++)
+		data = (data << 1) + 1;
+	iowrite32(data, (void __iomem *)(ubus_base+MPAMCFG_CPBM_NS_OFS));
+	//clear read bit
+	iowrite32(0x0, (void __iomem *)(qos_base+SLC_CPU_DEBUG0_R_OFS));
+
 }
 
 void mtk_tick_entry(void *data, struct rq *rq)
@@ -319,6 +422,8 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	unsigned int freq_thermal;
 	unsigned long max_capacity, capacity;
 	u32 opp_ceiling;
+
+	mtk_cpuqos();
 
 	this_cpu = cpu_of(rq);
 	pd = em_cpu_get(this_cpu);
