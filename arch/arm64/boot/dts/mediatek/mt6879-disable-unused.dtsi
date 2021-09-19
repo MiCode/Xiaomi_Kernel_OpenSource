@@ -199,6 +199,7 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
+			<&vdec_gcon_base_clk CLK_VDE2_MINI_MDP_CKEN_CFG_RG>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>;
 			power-domains = <&scpsys MT6879_POWER_DOMAIN_VDE0>;
@@ -392,7 +393,6 @@
 			<&pericfg_ao_clk CLK_PERAOP_SPI5_BCLK>,
 			<&pericfg_ao_clk CLK_PERAOP_SPI6_BCLK>,
 			<&pericfg_ao_clk CLK_PERAOP_SPI7_BCLK>,
-			<&pericfg_ao_clk CLK_PERAOP_IIC>,
 			<&pericfg_ao_clk CLK_PERAOP_APDMA>,
 			<&pericfg_ao_clk CLK_PERAOP_USB_FRMCNT>,
 			<&pericfg_ao_clk CLK_PERAOP_USB_SYS>,
@@ -424,9 +424,7 @@
 	disable-unused-clk-vlp_cksys {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
-			<&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_PWM_VLP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_SYSTIMER_26M_SEL>;
+			<&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>;
 	};
 
 	disable-unused-clk-topckgen {

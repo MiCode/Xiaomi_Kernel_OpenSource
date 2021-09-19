@@ -9,11 +9,7 @@
 	bring-up {
 		compatible = "mediatek,clk-bring-up";
 		clocks =
-			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
-			<&pericfg_ao_clk CLK_PERAOP_IIC>,
-			<&vlp_cksys_clk CLK_VLP_CK_PWM_VLP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_SYSTIMER_26M_SEL>;
+			<&clk26m>;
 	};
 };
 
