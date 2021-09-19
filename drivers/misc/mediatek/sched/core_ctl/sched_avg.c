@@ -240,7 +240,7 @@ EXPORT_SYMBOL(arch_get_cluster_cpus);
 
 unsigned int get_over_threshold(int index)
 {
-	if (index >= 0 || index <= OVER_THRES_SIZE)
+	if (index >= 0 && index <= OVER_THRES_SIZE)
 		return over_thres[index];
 	return 100;
 }
