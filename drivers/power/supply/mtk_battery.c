@@ -1367,7 +1367,7 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 			}
 		}
 
-		bm_err("%s: mah: %d, voltage: %d, resistance: %d, rdc0:%d rdc:%d %d %d %d\n",
+		bm_debug("%s: mah: %d, voltage: %d, resistance: %d, rdc0:%d rdc:%d %d %d %d\n",
 			__func__, mah, voltage, resistance, charge_rdc[0],
 			charge_rdc[1], charge_rdc[2], charge_rdc[3],
 			charge_rdc[4]);
