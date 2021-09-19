@@ -792,11 +792,6 @@ CONFIG_REG:
 		writel(value, dsi->regs + DSI_PHY_TIMECON1);
 	if (handle)
 		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-			comp->regs_pa+DSI_PHY_TIMECON3, value, ~0);
-	else
-		writel(value, dsi->regs + DSI_PHY_TIMECON3);
-	if (handle)
-		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 			comp->regs_pa+DSI_PHY_TIMECON0, 0x012c003, ~0);
 	else
 		writel(0x012c0003, dsi->regs + DSI_CPHY_CON0);
@@ -969,7 +964,6 @@ static int mtk_dsi_is_LFR_Enable(struct mtk_dsi *dsi)
 static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 	void *handle, int en)
 {
-
 	u32 val = 0, mask = 0;
 	//lfr_dbg: setting value form debug mode
 	unsigned int lfr_dbg = mtk_dbg_get_lfr_dbg_value();
