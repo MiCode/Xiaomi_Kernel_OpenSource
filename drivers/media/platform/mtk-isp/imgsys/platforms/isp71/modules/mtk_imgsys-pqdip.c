@@ -503,6 +503,15 @@ void imgsys_pqdip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		iowrite32(0xb0b01, (void *)(pqdipRegBA + PQDIPCTL_DBG_SEL_OFST));
 		dev_info(imgsys_dev->dev, "%s: r2b   sel(0xb0b01): %08X", __func__,
 		(unsigned int)ioread32((void *)(pqdipRegBA + PQDIPCTL_DBG_OUT_OFST)));
+		iowrite32(0x00106, (void *)(pqdipRegBA + PQDIPCTL_DBG_SEL_OFST));
+		dev_info(imgsys_dev->dev, "%s: wif   sel(0x00106): %08X", __func__,
+		(unsigned int)ioread32((void *)(pqdipRegBA + PQDIPCTL_DBG_OUT_OFST)));
+		iowrite32(0x00107, (void *)(pqdipRegBA + PQDIPCTL_DBG_SEL_OFST));
+		dev_info(imgsys_dev->dev, "%s: wif   sel(0x00107): %08X", __func__,
+		(unsigned int)ioread32((void *)(pqdipRegBA + PQDIPCTL_DBG_OUT_OFST)));
+		iowrite32(0x00108, (void *)(pqdipRegBA + PQDIPCTL_DBG_SEL_OFST));
+		dev_info(imgsys_dev->dev, "%s: wif   sel(0x00108): %08X", __func__,
+		(unsigned int)ioread32((void *)(pqdipRegBA + PQDIPCTL_DBG_OUT_OFST)));
 
 		//WROT_DBG
 		dev_info(imgsys_dev->dev, "%s: wrot debug\n", __func__);
