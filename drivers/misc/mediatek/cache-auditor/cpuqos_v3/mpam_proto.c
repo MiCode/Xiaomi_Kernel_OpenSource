@@ -33,6 +33,7 @@
 #undef TRACE_INCLUDE_PATH
 
 #define SLC_SYSRAM_BASE         0x00113C00
+#define CPUQOS_L3CTL_M_OFS      0x84
 #define SLC_CPU_DEBUG0_R_OFS    0x88
 #define SLC_CPU_DEBUG1_R_OFS    0x8C
 #define SLC_SRAM_SIZE           0x100
@@ -493,8 +494,59 @@ static ssize_t show_cpuqos_status(struct kobject *kobj,
 	return len;
 }
 
+static ssize_t set_cache_size(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *ubuf,
+		size_t cnt)
+{
+	unsigned int data = 0, mode = 0, slice = 0, portion = 0;
+
+	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
+
+	if (!sram_base_addr) {
+		pr_info("Remap SLC SYSRAM failed\n");
+		return -EIO;
+	}
+
+	if (sscanf(ubuf, "%d:%d:%d", &mode, &slice, &portion) == 3) {
+		data = (mode << 4) | (slice << 2) | (portion);
+		iowrite32(data, (sram_base_addr + CPUQOS_L3CTL_M_OFS));
+	}
+
+	return cnt;
+}
+
+static ssize_t show_cache_size(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+	unsigned int data = 0, mode = 0, slice = 0, portion = 0;
+
+	sram_base_addr = ioremap(SLC_SYSRAM_BASE, SLC_SRAM_SIZE);
+
+	if (!sram_base_addr) {
+		pr_info("Remap SLC SYSRAM failed\n");
+		return -EIO;
+	}
+	data = ioread32(sram_base_addr + CPUQOS_L3CTL_M_OFS);
+	mode = (data & 0x10) >> 4;
+	slice = (data & 0xc) >> 2;
+	portion = data & 0x3;
+
+	len += snprintf(buf+len, max_len-len,
+			"raw = %x, mode = %d, slice = %d, portion = %d\n",
+			data, mode, slice, portion);
+
+	return len;
+}
+
 struct kobj_attribute show_cpuqos_status_attr =
 __ATTR(cpuqos_status_info, 0400, show_cpuqos_status, NULL);
+
+struct kobj_attribute set_cache_size_attr =
+__ATTR(cpuqos_set_cache_size, 0600, show_cache_size, set_cache_size);
 
 static void mpam_hook_attach(void __always_unused *data,
 			     struct cgroup_subsys *ss, struct cgroup_taskset *tset)

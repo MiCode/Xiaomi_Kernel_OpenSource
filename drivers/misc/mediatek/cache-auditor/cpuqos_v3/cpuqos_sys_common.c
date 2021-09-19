@@ -26,6 +26,7 @@
 
 static struct attribute *cpuqos_attrs[] = {
 	&show_cpuqos_status_attr.attr,
+	&set_cache_size_attr.attr,
 	NULL,
 };
 
