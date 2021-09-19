@@ -6,7 +6,7 @@
 #ifndef __GPUDFD_MT6879_H__
 #define __GPUDFD_MT6879_H__
 
-#define GPUDFD_ENABLE                (1)
+#define GPUDFD_ENABLE                (0)
 
 /*
  * MFGCFG_BASE        : 0x13FB_F000
