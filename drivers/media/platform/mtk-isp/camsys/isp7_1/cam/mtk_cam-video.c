@@ -1725,13 +1725,16 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				for (i = 0; i < info->comp_planes; i++) {
 					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-					plane->sizeimage += info->bpp[i]
+					if (plane->bytesperline > stride) {
+						plane->sizeimage += plane->bytesperline
+						* DIV_ROUND_UP(height, vdiv);
+					} else {
+						plane->sizeimage += info->bpp[i]
 						* DIV_ROUND_UP(aligned_width, hdiv)
 						* DIV_ROUND_UP(height, vdiv);
+					}
 				}
 			}
-
 			pr_debug("%s stride %d sizeimage %d\n", __func__,
 				plane->bytesperline, plane->sizeimage);
 		} else {
