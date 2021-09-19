@@ -9417,7 +9417,7 @@
 				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Q_TABLE_DISP)
 				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Q_TABLE_DISP)
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_BSDMA_DISP)
 				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "path_jpegenc_y_rdma",
 				"path_jpegenc_c_rmda",
