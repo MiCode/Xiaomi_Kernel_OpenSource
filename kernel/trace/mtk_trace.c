@@ -91,10 +91,10 @@ static void ftrace_events_enable(int enable)
 		trace_set_clr_event(NULL, "block_rq_insert", 1);
 		trace_set_clr_event(NULL, "block_rq_complete", 1);
 		trace_set_clr_event(NULL, "block_rq_requeue", 1);
+		trace_set_clr_event("android_fs", NULL, 1);
 		trace_set_clr_event(NULL, "tracing_on", 1);
 
 		if (boot_trace) {
-			trace_set_clr_event("android_fs", NULL, 1);
 			trace_set_clr_event(NULL, "sched_blocked_reason", 1);
 			/*trace_set_clr_event(NULL, "sched_waking", 1);*/
 		} else {
