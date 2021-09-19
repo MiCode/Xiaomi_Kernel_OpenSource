@@ -1548,7 +1548,7 @@
 				<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
-			feature_control_bits = <0x8e703ff>;
+			feature_control_bits = <0x8e783ff>;
 		};
 
 		adsp_core1: adsp_core1@1e090000 {
@@ -1562,7 +1562,7 @@
 				<GIC_SPI 675 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 2>, /*channel 2*/
 				<&adspsys 3>; /*channel 3*/
-			feature_control_bits = <0x1118f00f>;
+			feature_control_bits = <0x1118700f>;
 		};
 
 		gpio_usage_mapping:gpio {
