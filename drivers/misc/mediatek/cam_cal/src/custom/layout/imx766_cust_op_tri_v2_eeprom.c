@@ -79,7 +79,7 @@ static unsigned int do_single_lsc_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 
 	table_size = 1868;
 
-	pr_debug("lsc table_size %d\n", table_size);
+	pr_debug_if(dump_enable, "lsc table_size %d\n", table_size);
 	pCamCalData->SingleLsc.LscTable.MtkLcsData.TableSize = table_size;
 	if (table_size > 0) {
 		pCamCalData->SingleLsc.TableRotation = 0;
@@ -144,7 +144,7 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 	dump_enable = 0;
 #endif
 
-	pr_debug("block_size=%d sensor_id=%x\n", block_size, pCamCalData->sensorID);
+	pr_debug_if(dump_enable, "block_size=%d sensor_id=%x\n", block_size, pCamCalData->sensorID);
 	memset((void *)&pCamCalData->Single2A, 0, sizeof(struct STRUCT_CAM_CAL_SINGLE_2A_STRUCT));
 	/* Check rule */
 	if (pCamCalData->DataVer >= CAM_CAL_TYPE_NUM) {
@@ -206,10 +206,9 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (CalG >> 1)) / CalG);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4B =
 					(unsigned int)((tempMax * 512 + (CalB >> 1)) / CalB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!\n");
-			pr_debug("Unit R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		/* AWB Golden Gain (5100K) */
 		awb_offset = 0x28;
 		read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
@@ -251,10 +250,9 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (FacG >> 1)) / FacG);
 			pCamCalData->Single2A.S2aAwb.rGoldGainu4B =
 					(unsigned int)((tempMax * 512 + (FacB >> 1)) / FacB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!");
-			pr_debug("Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		/* Set AWB to 3A Layer */
 		pCamCalData->Single2A.S2aAwb.rValueR   = CalR;
 		pCamCalData->Single2A.S2aAwb.rValueGr  = CalGr;
@@ -322,10 +320,9 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 				(unsigned int)((tempMax * 512 + (CalG >> 1)) / CalG);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4B_mid =
 				(unsigned int)((tempMax * 512 + (CalB >> 1)) / CalB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!\n");
-			pr_debug("Unit R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		/* AWB Golden Gain (4000K) */
 		FacR = FacGr = FacGb = FacG = FacB = 0;
 		tempMax = 0;
@@ -369,10 +366,9 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 				(unsigned int)((tempMax * 512 + (FacG >> 1)) / FacG);
 			pCamCalData->Single2A.S2aAwb.rGoldGainu4B_mid =
 				(unsigned int)((tempMax * 512 + (FacB >> 1)) / FacB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!");
-			pr_debug("Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		#ifdef DEBUG_CALIBRATION_LOAD
 		pr_debug("AWB Calibration @4000K\n");
 		pr_debug("[CalGain] = 0x%x\n", CalGain);
@@ -431,10 +427,9 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 				(unsigned int)((tempMax * 512 + (CalG >> 1)) / CalG);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4B_low =
 				(unsigned int)((tempMax * 512 + (CalB >> 1)) / CalB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!\n");
-			pr_debug("Unit R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		/* AWB Golden Gain (3100K) */
 		FacR = FacGr = FacGb = FacG = FacB = 0;
 		tempMax = 0;
@@ -478,10 +473,9 @@ static unsigned int do_2a_gain_imx766(struct EEPROM_DRV_FD_DATA *pdata,
 				(unsigned int)((tempMax * 512 + (FacG >> 1)) / FacG);
 			pCamCalData->Single2A.S2aAwb.rGoldGainu4B_low =
 				(unsigned int)((tempMax * 512 + (FacB >> 1)) / FacB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!");
-			pr_debug("Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		#ifdef DEBUG_CALIBRATION_LOAD
 		pr_debug("AWB Calibration @3100K\n");
 		pr_debug("[CalGain] = 0x%x\n", CalGain);

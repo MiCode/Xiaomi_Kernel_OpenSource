@@ -30,6 +30,8 @@
 #define DEV_CLASS_NAME_FMT "camera_eepromdrv%u"
 #define EEPROM_DEVICE_NNUMBER 255
 
+#define pr_debug_if(cond, ...)      do { if ((cond)) pr_debug(__VA_ARGS__); } while (0)
+
 #include "cam_cal_config.h"
 
 static struct EEPROM_DRV ginst_drv[MAX_EEPROM_NUMBER];
@@ -232,7 +234,7 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 	struct EEPROM_DRV_FD_DATA *pdata =
 		(struct EEPROM_DRV_FD_DATA *) a_file->private_data;
 
-	pr_debug("ioctl\n");
+	pr_debug_if(dump_enable, "ioctl\n");
 
 	if (_IOC_DIR(a_cmd) == _IOC_NONE)
 		return -EFAULT;
@@ -260,7 +262,7 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 		       pdata->sensor_info.sensor_id);
 		break;
 	case CAM_CALIOC_G_GKI_QUERY:
-		pr_debug("QUERY\n");
+		pr_debug_if(dump_enable, "QUERY\n");
 		break;
 	case CAM_CALIOC_G_GKI_READ:
 		ret = get_cal_data(pdata, (unsigned int *)pBuff);

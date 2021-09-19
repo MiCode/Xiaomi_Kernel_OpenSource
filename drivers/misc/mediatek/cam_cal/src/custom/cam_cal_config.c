@@ -50,7 +50,7 @@ static unsigned char *mp_eeprom_preload[IDX_MAX_CAM_NUMBER];
 
 unsigned int show_cmd_error_log(enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM cmd)
 {
-	pr_debug("Return ERROR %s\n", CamCalErrString[cmd]);
+	pr_debug_err("Return %s\n", CamCalErrString[cmd]);
 	return 0;
 }
 
@@ -62,9 +62,9 @@ int get_mtk_format_version(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetS
 
 	if (read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 				0xFA3, 1, (unsigned char *) &ret) > 0)
-		pr_debug("MTK format version = 0x%02x\n", ret);
+		pr_debug_if(dump_enable, "MTK format version = 0x%02x\n", ret);
 	else {
-		pr_debug("Read Failed\n");
+		pr_debug_err("Read Failed\n");
 		ret = -1;
 	}
 
@@ -216,7 +216,7 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 #else
 	dump_enable = 0;
 #endif
-	pr_debug("block_size=%d sensor_id=%x\n", block_size, pCamCalData->sensorID);
+	pr_debug_if(dump_enable, "block_size=%d sensor_id=%x\n", block_size, pCamCalData->sensorID);
 	memset((void *)&pCamCalData->Single2A, 0, sizeof(struct STRUCT_CAM_CAL_SINGLE_2A_STRUCT));
 	/* Check rule */
 	if (pCamCalData->DataVer >= CAM_CAL_TYPE_NUM) {
@@ -296,10 +296,9 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (CalG >> 1)) / CalG);
 			pCamCalData->Single2A.S2aAwb.rUnitGainu4B =
 					(unsigned int)((tempMax * 512 + (CalB >> 1)) / CalB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!\n");
-			pr_debug("Unit R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		/* AWB Golden Gain (5100K) */
 		read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 				start_addr + 6, 4, (unsigned char *)&FacGain);
@@ -340,10 +339,9 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (FacG >> 1)) / FacG);
 			pCamCalData->Single2A.S2aAwb.rGoldGainu4B =
 					(unsigned int)((tempMax * 512 + (FacB >> 1)) / FacB);
-		} else {
-			pr_debug("There are something wrong on EEPROM, plz contact module vendor!!");
-			pr_debug("Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
-		}
+		} else
+			pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		/* Set AWB to 3A Layer */
 		pCamCalData->Single2A.S2aAwb.rValueR   = CalR;
 		pCamCalData->Single2A.S2aAwb.rValueGr  = CalGr;
@@ -413,10 +411,9 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (CalG >> 1)) / CalG);
 				pCamCalData->Single2A.S2aAwb.rUnitGainu4B_low =
 					(unsigned int)((tempMax * 512 + (CalB >> 1)) / CalB);
-			} else {
-				pr_debug("There are something wrong on EEPROM, plz contact module vendor!!\n");
-				pr_debug("Unit R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
-			}
+			} else
+				pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 			/* AWB Golden Gain (3100K) */
 			FacR = FacGr = FacGb = FacG = FacB = 0;
 			tempMax = 0;
@@ -460,10 +457,9 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (FacG >> 1)) / FacG);
 				pCamCalData->Single2A.S2aAwb.rGoldGainu4B_low =
 					(unsigned int)((tempMax * 512 + (FacB >> 1)) / FacB);
-			} else {
-				pr_debug("There are something wrong on EEPROM, plz contact module vendor!!");
-				pr_debug("Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
-			}
+			} else
+				pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 			/* AWB Unit Gain (4000K) */
 			pr_debug_if(dump_enable, "4000K AWB\n");
 			CalR = CalGr = CalGb = CalG = CalB = 0;
@@ -511,10 +507,9 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (CalG >> 1)) / CalG);
 				pCamCalData->Single2A.S2aAwb.rUnitGainu4B_mid =
 					(unsigned int)((tempMax * 512 + (CalB >> 1)) / CalB);
-			} else {
-				pr_debug("There are something wrong on EEPROM, plz contact module vendor!!\n");
-				pr_debug("Unit R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
-			}
+			} else
+				pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 			/* AWB Golden Gain (4000K) */
 			FacR = FacGr = FacGb = FacG = FacB = 0;
 			tempMax = 0;
@@ -558,10 +553,9 @@ unsigned int do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 					(unsigned int)((tempMax * 512 + (FacG >> 1)) / FacG);
 				pCamCalData->Single2A.S2aAwb.rGoldGainu4B_mid =
 					(unsigned int)((tempMax * 512 + (FacB >> 1)) / FacB);
-			} else {
-				pr_debug("There are something wrong on EEPROM, plz contact module vendor!!");
-				pr_debug("Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
-			}
+			} else
+				pr_debug_err(
+			"There are something wrong on EEPROM, plz contact module vendor!!\n");
 		}
 	}
 	/* AF Calibration Data*/
@@ -726,7 +720,7 @@ unsigned int do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 	if (read_data_size <= 0)
 		err = CAM_CAL_ERR_NO_SHADING;
 
-	pr_debug("lsc table_size %d\n", table_size);
+	pr_debug_if(dump_enable, "lsc table_size %d\n", table_size);
 	pCamCalData->SingleLsc.LscTable.MtkLcsData.TableSize = table_size;
 	if (table_size > 0) {
 		pCamCalData->SingleLsc.TableRotation = 0;
@@ -893,7 +887,7 @@ unsigned int do_lens_id(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned int err = CamCalReturnErr[pCamCalData->Command];
 
 	if (get_mtk_format_version(pdata, pGetSensorCalData) >= 0x18) {
-		pr_debug("No lens id data\n");
+		pr_debug_if(dump_enable, "No lens id data\n");
 		return err;
 	}
 
@@ -972,14 +966,14 @@ int read_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int sensor_id, unsigned
 			pr_debug("Preloading data %u bytes", bufSize);
 			if (read_data_region(pdata, mp_eeprom_preload[preloadIndex], 0, bufSize)
 					!= bufSize) {
-				pr_debug("Preload data failed");
+				pr_debug_err("Preload data failed");
 				kfree(mp_eeprom_preload[preloadIndex]);
 				mp_eeprom_preload[preloadIndex] = NULL;
 			}
 		}
 		if ((mp_eeprom_preload[preloadIndex] != NULL) &&
 				(offset + length <= bufSize)) {
-			pr_debug("Read data from memory[%d]", preloadIndex);
+			pr_debug_if(dump_enable, "Read data from memory[%d]", preloadIndex);
 			memcpy(data, mp_eeprom_preload[preloadIndex] + offset, length);
 			return length;
 		}
@@ -1003,7 +997,8 @@ unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
 		return 0;
 	}
 	if (cam_cal_config->read_function) {
-		pr_debug("I2C read 0x%02x %d %d\n", cam_cal_config->i2c_write_id, offset, size);
+		pr_debug_if(dump_enable, "i2c read 0x%02x %d %d\n",
+					cam_cal_config->i2c_write_id, offset, size);
 		mutex_lock(&pdata->pdrv->eeprom_mutex);
 		dts_addr = pdata->pdrv->pi2c_client->addr;
 		pdata->pdrv->pi2c_client->addr = (cam_cal_config->i2c_write_id >> 1);
@@ -1012,8 +1007,9 @@ unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
 		pdata->pdrv->pi2c_client->addr = dts_addr;
 		mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	} else {
-		pr_debug("no customized\n");
-		pr_debug("I2C read 0x%02x %d %d\n", (pdata->pdrv->pi2c_client->addr << 1),
+		pr_debug_if(dump_enable, "no customized\n");
+		pr_debug_if(dump_enable, "i2c read 0x%02x %d %d\n",
+					(pdata->pdrv->pi2c_client->addr << 1),
 					offset, size);
 		mutex_lock(&pdata->pdrv->eeprom_mutex);
 		ret = Common_read_region(pdata->pdrv->pi2c_client,

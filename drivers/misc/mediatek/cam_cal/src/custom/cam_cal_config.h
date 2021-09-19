@@ -10,10 +10,10 @@
 #include "kd_imgsensor.h"
 #include "cam_cal_format.h"
 
-#define DEBUG_CALIBRATION_LOAD
-#define MTK_LOAD_DEBUG
+// #define DEBUG_CALIBRATION_LOAD
+// #define MTK_LOAD_DEBUG
 
-static unsigned int dump_enable = 1;
+static unsigned int dump_enable;
 
 /*****************************************************************************
  * Structures
