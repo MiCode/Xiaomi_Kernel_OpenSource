@@ -38,6 +38,9 @@
 
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
+#include "mtee_ut/gz_shmem_ut.h"
+#include "mtee_ut/gz_chmem_ut.h"
+#include "mtee_ut/gz_vreg_ut.h"
 #include "unittest.h"
 
 #define enable_code 0 /*replace #if 0*/
@@ -113,6 +116,18 @@ static ssize_t gz_test_store(struct device *dev,
 	case '2':
 		KREE_DEBUG("test_gz_syscall\n"); /*ReeServiceCall*/
 		th = kthread_run(test_gz_syscall, NULL, "test_gz_syscall");
+		break;
+	case '3':
+		KREE_DEBUG("gz_test_shm\n");
+		th = kthread_run(gz_test_shm, NULL, "test_shm");
+		break;
+	case '4':
+		KREE_DEBUG("gz_test_chm\n");
+		th = kthread_run(gz_test_chm, NULL, "test_chm");
+		break;
+	case '5':
+		KREE_DEBUG("gz_test_vreg\n");
+		th = kthread_run(gz_test_vreg, NULL, "test_vreg");
 		break;
 	default:
 		KREE_DEBUG("err: unknown test case\n");
