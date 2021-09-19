@@ -612,7 +612,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				pr_debug(
 				"%s: parsing idx(%d) with cmd(%d)\n", __func__, cmd_idx,
 					cmd[cmd_idx].opcode);
-				ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx],
+				ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx], hw_comb,
 						(pkt_ts_pa+4*pkt_ts_ofst), &pkt_ts_num);
 				cmd_idx++;
 				if (ret == IMGSYS_CMD_STOP)
@@ -701,7 +701,8 @@ sendtask_done:
 	return ret;
 }
 
-int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, dma_addr_t dma_pa, uint32_t *num)
+int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
+						dma_addr_t dma_pa, uint32_t *num)
 {
 	pr_debug("%s: +, cmd(%d)\n", __func__, cmd->opcode);
 
@@ -724,7 +725,14 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, dma_addr_t dma
 		pr_info(
 		"%s: POLL with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n", __func__,
 						cmd->u.address, cmd->u.value, cmd->u.mask);
-		cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, cmd->u.mask, CMDQ_GPR_R15);
+		/* cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, */
+		/* cmd->u.mask, CMDQ_GPR_R15); */
+		if (hw_comb & REG_MAP_E_PQDIP_A)
+			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT, cmd->u.address,
+				cmd->u.mask, 0xFFFF, CMDQ_GPR_R03);
+		else
+			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT, cmd->u.address,
+				cmd->u.mask, 0xFFFF, CMDQ_GPR_R02);
 		break;
 	case IMGSYS_CMD_WAIT:
 		pr_debug(
