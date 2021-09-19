@@ -93,6 +93,9 @@ void mtk_pe40_reset(struct chg_alg_device *alg)
 		}
 	}
 
+
+	pe4_hal_vbat_mon_en(alg, CHG1, false);
+	pe40->old_cv = 0;
 	pe40->cap.nr = 0;
 	pe40->pe4_input_current_limit = -1;
 	pe40->pe4_input_current_limit_setting = -1;
@@ -1325,17 +1328,34 @@ static int pe4_sc_set_charger(struct chg_alg_device *alg)
 		CHG1, pe4->charger_current1);
 	pe4_hal_set_input_current(alg,
 		CHG1, pe4->input_current1);
-	pe4_hal_set_cv(alg,
-		CHG1, pe4->cv);
 
-	pe4_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d\n", __func__,
+	if (pe4->old_cv == 0 || (pe4->old_cv != pe4->cv) || pe4->pe4_6pin_en == 0) {
+		pe4_hal_vbat_mon_en(alg, CHG1, false);
+		pe4_hal_set_cv(alg, CHG1, pe4->cv);
+		if (pe4->pe4_6pin_en && pe4->stop_6pin_re_en != 1)
+			pe4_hal_vbat_mon_en(alg, CHG1, true);
+
+		pe4_dbg("%s old_cv=%d, new cv=%d, pe4_6pin_en=%d\n", __func__,
+			pe4->old_cv, pe4->cv, pe4->pe4_6pin_en);
+
+		pe4->old_cv = pe4->cv;
+	} else {
+		if (pe4->pe4_6pin_en && pe4->stop_6pin_re_en != 1)
+			pe4_hal_vbat_mon_en(alg, CHG1, true);
+	}
+
+
+	pe4_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d,6pin_en:%d,6pin_re_en=%d\n",
+		__func__,
 		alg->config,
 		pe4->state,
 		pe4->cv,
 		pe4->input_current1,
 		pe4->charger_current1,
 		ichg1_min,
-		aicr1_min);
+		aicr1_min,
+		pe4->pe4_6pin_en,
+		pe4->stop_6pin_re_en);
 
 	return 0;
 }
@@ -1714,9 +1734,11 @@ static int _pe4_notifier_call(struct chg_alg_device *alg,
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:
+		pe4->stop_6pin_re_en = 0;
 		ret_value = pe4_plugout_reset(alg);
 		break;
 	case EVT_FULL:
+		pe4->stop_6pin_re_en = 1;
 		ret_value = pe4_full_evt(alg);
 		break;
 	default:
@@ -1907,23 +1929,25 @@ int _pe4_set_setting(struct chg_alg_device *alg_dev,
 
 	pe4 = dev_get_drvdata(&alg_dev->dev);
 
-	pe4_dbg("%s cv:%d icl:%d,%d cc:%d,%d\n",
+	pe4_dbg("%s cv:%d icl:%d,%d cc:%d,%d, 6pin_en:%d\n",
 		__func__,
 		setting->cv,
 		setting->input_current_limit1,
 		setting->input_current_limit2,
 		setting->charging_current_limit1,
-		setting->charging_current_limit2);
+		setting->charging_current_limit2,
+		setting->vbat_mon_en);
 
 	mutex_lock(&pe4->access_lock);
 	__pm_stay_awake(pe4->suspend_lock);
 	pe4->cv = setting->cv;
+	pe4->pe4_6pin_en = setting->vbat_mon_en;
 	pe4->input_current_limit1 = setting->input_current_limit1;
 	pe4->input_current_limit2 = setting->input_current_limit2;
 	pe4->charging_current_limit1 = setting->charging_current_limit1;
 	pe4->charging_current_limit2 = setting->charging_current_limit2;
 
-	pe4_dbg("%s cv:%d icl1:%d:%d icl2:%d:%d icl:%d:%d cc:%d:%d\n",
+	pe4_dbg("%s cv:%d icl1:%d:%d icl2:%d:%d icl:%d:%d cc:%d:%d, pe4_6pin_en:%d\n",
 		__func__,
 		setting->cv,
 		pe4->input_current1,
@@ -1933,7 +1957,8 @@ int _pe4_set_setting(struct chg_alg_device *alg_dev,
 		pe4->pe4_input_current_limit,
 		pe4->pe4_input_current_limit_setting,
 		pe4->charger_current1,
-		pe4->charger_current2);
+		pe4->charger_current2,
+		pe4->pe4_6pin_en);
 
 	__pm_relax(pe4->suspend_lock);
 	mutex_unlock(&pe4->access_lock);

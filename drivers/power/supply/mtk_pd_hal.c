@@ -385,6 +385,26 @@ int pd_hal_set_input_current(struct chg_alg_device *alg,
 	return 0;
 }
 
+int pd_hal_vbat_mon_en(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool en)
+{
+
+	struct pd_hal *hal;
+	int ret = 0;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+
+	ret = charger_dev_enable_6pin_battery_charging(
+		hal->chg1_dev, en);
+
+	pd_err("%s en=%d ret=%d\n", __func__, en, ret);
+
+	return ret;
+}
+
 int pd_hal_set_cv(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 uv)
 {

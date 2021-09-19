@@ -107,6 +107,7 @@ struct chg_limit_setting {
 	int input_current_limit_dvchg1;
 	int charging_current_limit1;
 	int charging_current_limit2;
+	bool vbat_mon_en;
 };
 
 enum chg_alg_props {

@@ -109,6 +109,9 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 	} else
 		pd->state = PD_HW_READY;
 
+	pd_hal_vbat_mon_en(alg, CHG1, false);
+	pd->old_cv = 0;
+
 	if (alg->config == DUAL_CHARGERS_IN_PARALLEL) {
 		pd_err("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
 			__func__);
@@ -484,6 +487,8 @@ void mtk_pdc_reset(struct chg_alg_device *alg)
 	__mtk_pdc_init_table(alg);
 	__mtk_pdc_get_reset_idx(alg);
 	__mtk_pdc_setup(alg, pd->pd_reset_idx);
+	pd_hal_vbat_mon_en(alg, CHG1, false);
+	pd->old_cv = 0;
 }
 
 
@@ -699,17 +704,21 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 		CHG1, pd->charging_current1);
 	pd_hal_set_input_current(alg,
 		CHG1, pd->input_current1);
-	pd_hal_set_cv(alg,
-		CHG1, pd->cv);
 
-	pd_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d\n", __func__,
-		alg->config,
-		pd->state,
-		pd->cv,
-		pd->input_current1,
-		pd->charging_current1,
-		ichg1_min,
-		aicr1_min);
+	if (pd->old_cv == 0 || (pd->old_cv != pd->cv) || pd->pd_6pin_en == 0) {
+		pd_hal_vbat_mon_en(alg, CHG1, false);
+		pd_hal_set_cv(alg, CHG1, pd->cv);
+		if (pd->pd_6pin_en && pd->stop_6pin_re_en != 1)
+			pd_hal_vbat_mon_en(alg, CHG1, true);
+
+		pd->old_cv = pd->cv;
+	} else {
+		if (pd->pd_6pin_en && pd->stop_6pin_re_en != 1)
+			pd_hal_vbat_mon_en(alg, CHG1, true);
+	}
+
+	pd_dbg("%s old_cv=%d, new_cv=%d, pd_6pin_en=%d 6pin_re_en=%d\n", __func__,
+		pd->old_cv, pd->cv, pd->pd_6pin_en, pd->stop_6pin_re_en);
 
 	return 0;
 }
@@ -1111,9 +1120,11 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:
+		pd->stop_6pin_re_en = 0;
 		ret_value = pd_plugout_reset(alg);
 		break;
 	case EVT_FULL:
+		pd->stop_6pin_re_en = 1;
 		ret_value = pd_full_evt(alg);
 		break;
 	default:
@@ -1272,6 +1283,7 @@ int _pd_set_setting(struct chg_alg_device *alg_dev,
 
 	mutex_lock(&pd->access_lock);
 	pd->cv = setting->cv;
+	pd->pd_6pin_en = setting->vbat_mon_en;
 	pd->input_current_limit1 = setting->input_current_limit1;
 	pd->charging_current_limit1 = setting->charging_current_limit1;
 	pd->input_current_limit2 = setting->input_current_limit2;

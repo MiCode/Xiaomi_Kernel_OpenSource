@@ -98,6 +98,9 @@ struct mtk_pd {
 	int vbat_threshold; /* For checking Ready */
 	int ref_vbat; /* Vbat with cable in */
 	int cv;
+	int old_cv;
+	int pd_6pin_en;
+	int stop_6pin_re_en;
 	int pd_input_current;
 	int pd_charging_current;
 
@@ -188,6 +191,8 @@ extern int pd_hal_get_min_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 *uA);
 extern int pd_hal_safety_check(struct chg_alg_device *alg,
 	int ieoc);
+extern int pd_hal_vbat_mon_en(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool en);
 extern int pd_hal_set_eoc_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 uA);
 extern int pd_hal_enable_termination(struct chg_alg_device *alg,

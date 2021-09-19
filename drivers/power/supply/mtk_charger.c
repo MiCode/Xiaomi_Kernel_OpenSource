@@ -250,6 +250,10 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		chr_err("use default V_CHARGER_MIN:%d\n", V_CHARGER_MIN);
 		info->data.min_charger_voltage = V_CHARGER_MIN;
 	}
+	info->enable_vbat_mon = of_property_read_bool(np, "enable_vbat_mon");
+	if (info->enable_vbat_mon == true)
+		info->setting.vbat_mon_en = true;
+	chr_err("use 6pin bat, enable_vbat_mon:%d\n", info->enable_vbat_mon);
 
 	/* sw jeita */
 	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
@@ -883,6 +887,36 @@ static ssize_t enable_meta_current_limit_store(struct device *dev, struct device
 }
 
 static DEVICE_ATTR_RW(enable_meta_current_limit);
+
+static ssize_t vbat_mon_show(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_debug("%s: %d\n", __func__, pinfo->enable_vbat_mon);
+	return sprintf(buf, "%d\n", pinfo->enable_vbat_mon);
+}
+
+static ssize_t vbat_mon_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	unsigned int temp;
+
+	if (kstrtouint(buf, 10, &temp) == 0) {
+		if (temp == 0)
+			pinfo->enable_vbat_mon = false;
+		else
+			pinfo->enable_vbat_mon = true;
+	} else {
+		chr_err("%s: format error!\n", __func__);
+	}
+
+	_wake_up_charger(pinfo);
+	return size;
+}
+
+static DEVICE_ATTR_RW(vbat_mon);
 
 static ssize_t ADC_Charger_Voltage_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -2088,12 +2122,19 @@ static void charger_check_status(struct mtk_charger *info)
 	bool chg_dev_chgen = true;
 	int temperature;
 	struct battery_thermal_protection_data *thermal;
+	int uisoc = 0;
 
 	if (get_charger_type(info) == POWER_SUPPLY_TYPE_UNKNOWN)
 		return;
 
 	temperature = info->battery_temp;
 	thermal = &info->thermal;
+	uisoc = get_uisoc(info);
+
+	info->setting.vbat_mon_en = true;
+	if (info->enable_sw_jeita == true || info->enable_vbat_mon != true ||
+	    info->batpro_done == true)
+		info->setting.vbat_mon_en = false;
 
 	if (info->enable_sw_jeita == true) {
 		do_sw_jeita_state_machine(info);
@@ -2164,12 +2205,18 @@ static void charger_check_status(struct mtk_charger *info)
 stop_charging:
 	mtk_battery_notify_check(info);
 
-	chr_err("tmp:%d (jeita:%d sm:%d cv:%d en:%d) (sm:%d) en:%d c:%d s:%d ov:%d sc:%d %d %d saf_cmd:%d\n",
+	if (charging && uisoc < 80 && info->batpro_done == true) {
+		info->setting.vbat_mon_en = true;
+		info->batpro_done = false;
+	}
+
+	chr_err("tmp:%d (jeita:%d sm:%d cv:%d en:%d) (sm:%d) en:%d c:%d s:%d ov:%d sc:%d %d %d saf_cmd:%d bat_mon:%d %d\n",
 		temperature, info->enable_sw_jeita, info->sw_jeita.sm,
 		info->sw_jeita.cv, info->sw_jeita.charging, thermal->sm,
 		charging, info->cmd_discharging, info->safety_timeout,
 		info->vbusov_stat, info->sc.disable_charger,
-		info->can_charging, charging, info->safety_timer_cmd);
+		info->can_charging, charging, info->safety_timer_cmd,
+		info->enable_vbat_mon, info->batpro_done);
 
 	charger_dev_is_enabled(info->chg1_dev, &chg_dev_chgen);
 
@@ -2370,6 +2417,8 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 	//info->enable_dynamic_cv = true;
 	info->safety_timeout = false;
 	info->vbusov_stat = false;
+	info->old_cv = 0;
+	info->batpro_done = false;
 
 	chr_err("mtk_is_charger_on plug in, type:%d\n", chr_type);
 
@@ -2504,6 +2553,8 @@ static int charger_routine_thread(void *arg)
 	static bool is_module_init_done;
 	bool is_charger_on;
 	int ret;
+	int vbat_min, vbat_max;
+	u32 chg_cv = 0;
 
 	while (1) {
 		ret = wait_event_interruptible(info->wait_que,
@@ -2530,8 +2581,16 @@ static int charger_routine_thread(void *arg)
 		info->charger_thread_timeout = false;
 
 		info->battery_temp = get_battery_temperature(info);
-		chr_err("Vbat=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d swchg_ibat:%d\n",
+		ret = charger_dev_get_adc(info->chg1_dev,
+			ADC_CHANNEL_VBAT, &vbat_min, &vbat_max);
+		ret = charger_dev_get_constant_voltage(info->chg1_dev, &chg_cv);
+
+		if (vbat_min != 0)
+			vbat_min = vbat_min / 1000;
+
+		chr_err("Vbat=%d vbats=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d swchg_ibat:%d cv:%d\n",
 			get_battery_voltage(info),
+			vbat_min,
 			get_vbus(info),
 			get_ibus(info),
 			get_battery_current(info),
@@ -2539,7 +2598,7 @@ static int charger_routine_thread(void *arg)
 			get_uisoc(info),
 			dump_charger_type(info->chr_type, info->usb_type),
 			dump_charger_type(get_charger_type(info), get_usb_type(info)),
-			info->pd_type, get_ibat(info));
+			info->pd_type, get_ibat(info), chg_cv);
 
 		is_charger_on = mtk_is_charger_on(info);
 
@@ -2684,6 +2743,10 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 		goto _out;
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_fast_chg_indicator);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_vbat_mon);
 	if (ret)
 		goto _out;
 

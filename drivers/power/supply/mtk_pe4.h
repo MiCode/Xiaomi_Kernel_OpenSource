@@ -137,6 +137,9 @@ struct mtk_pe40 {
 
 	/* module parameters */
 	int cv;
+	int old_cv;
+	int pe4_6pin_en;
+	int stop_6pin_re_en;
 	int input_current_limit1;
 	int input_current_limit2;
 	int charging_current_limit1;
@@ -233,6 +236,8 @@ extern int pe4_hal_get_min_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 *uA);
 extern int pe4_hal_safety_check(struct chg_alg_device *alg,
 	int ieoc);
+extern int pe4_hal_vbat_mon_en(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool en);
 extern int pe4_hal_set_cv(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 uv);
 extern int pe4_hal_set_cv(struct chg_alg_device *alg,

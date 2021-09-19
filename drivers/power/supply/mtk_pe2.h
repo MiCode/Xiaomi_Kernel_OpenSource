@@ -123,7 +123,11 @@ struct mtk_pe20 {
 	int cable_imp_threshold;
 	int vbat_cable_imp_threshold;
 
+	/* module parameters*/
 	int cv;
+	int old_cv;
+	int pe2_6pin_en;
+	int stop_6pin_re_en;
 	int input_current_limit1;
 	int input_current_limit2;
 	int charging_current_limit1;
@@ -183,6 +187,8 @@ extern int pe2_hal_get_min_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 *uA);
 extern int pe2_hal_safety_check(struct chg_alg_device *alg,
 	int ieoc);
+extern int pe2_hal_vbat_mon_en(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool en);
 extern int pe2_hal_is_charger_enable(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool *en);
 extern int pe2_hal_get_log_level(struct chg_alg_device *alg);

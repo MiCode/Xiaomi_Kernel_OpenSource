@@ -467,8 +467,27 @@ static int do_algorithm(struct mtk_charger *info)
 			pdata->input_current_limit);
 		charger_dev_set_charging_current(info->chg1_dev,
 			pdata->charging_current_limit);
-		charger_dev_set_constant_voltage(info->chg1_dev,
-			info->setting.cv);
+
+		chr_debug("%s:old_cv=%d,cv=%d, vbat_mon_en=%d\n",
+			__func__,
+			info->old_cv,
+			info->setting.cv,
+			info->setting.vbat_mon_en);
+		if (info->old_cv == 0 || (info->old_cv != info->setting.cv)
+		    || info->setting.vbat_mon_en == 0) {
+			charger_dev_enable_6pin_battery_charging(
+				info->chg1_dev, false);
+			charger_dev_set_constant_voltage(info->chg1_dev,
+				info->setting.cv);
+			if (info->setting.vbat_mon_en)
+				charger_dev_enable_6pin_battery_charging(
+					info->chg1_dev, true);
+			info->old_cv = info->setting.cv;
+		} else {
+			if (info->setting.vbat_mon_en)
+				charger_dev_enable_6pin_battery_charging(
+					info->chg1_dev, true);
+		}
 	}
 
 	if (pdata->input_current_limit == 0 ||
@@ -548,6 +567,10 @@ static int charger_dev_event(struct notifier_block *nb, unsigned long event,
 	case CHARGER_DEV_NOTIFY_VBUS_OVP:
 		info->vbusov_stat = data->vbusov_stat;
 		pr_info("%s: vbus ovp = %d\n", __func__, info->vbusov_stat);
+		break;
+	case CHARGER_DEV_NOTIFY_BATPRO_DONE:
+		info->batpro_done = true;
+		pr_info("%s: batpro_done = %d\n", __func__, info->batpro_done);
 		break;
 	default:
 		return NOTIFY_DONE;

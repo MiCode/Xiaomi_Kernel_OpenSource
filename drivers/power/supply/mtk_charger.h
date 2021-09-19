@@ -327,6 +327,11 @@ struct mtk_charger {
 	bool sw_safety_timer_setting;
 	struct timespec64 charging_begin_time;
 
+	/* vbat monitor, 6pin bat */
+	bool batpro_done;
+	bool enable_vbat_mon;
+	int old_cv;
+
 	/* sw jeita */
 	bool enable_sw_jeita;
 	struct sw_jeita_data sw_jeita;
