@@ -14,6 +14,7 @@
 #include <linux/remoteproc.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <linux/mtk_ccd_controls.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/types.h>
 #include <linux/videodev2.h>
@@ -3502,13 +3503,29 @@ faile_release_msg_dev:
 
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
-	dev_dbg(dev, "- %s\n", __func__);
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
+	struct mtk_camsys_dvfs *dvfs_info =
+				&cam_dev->camsys_ctrl.dvfs_info;
+
+	dev_info(dev, "- %s\n", __func__);
+
+	if (dvfs_info->reg_vmm)
+		regulator_disable(dvfs_info->reg_vmm);
+
 	return 0;
 }
 
 static int mtk_cam_runtime_resume(struct device *dev)
 {
-	dev_dbg(dev, "- %s\n", __func__);
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
+	struct mtk_camsys_dvfs *dvfs_info =
+				&cam_dev->camsys_ctrl.dvfs_info;
+
+	dev_info(dev, "- %s\n", __func__);
+
+	if (dvfs_info->reg_vmm)
+		regulator_enable(dvfs_info->reg_vmm);
+
 	return 0;
 }
 
