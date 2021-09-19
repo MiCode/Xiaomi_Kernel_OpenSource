@@ -760,9 +760,11 @@ static int jdi_unprepare(struct drm_panel *panel)
 	if (!ctx->prepared)
 		return 0;
 
-	jdi_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
 	jdi_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
-	msleep(200);
+	msleep(50);
+	jdi_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
+	msleep(150);
+
 	/*
 	 * ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	 * gpiod_set_value(ctx->reset_gpio, 0);
