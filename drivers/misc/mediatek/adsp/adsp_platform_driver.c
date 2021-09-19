@@ -24,6 +24,8 @@ const struct attribute_group *adsp_core_attr_groups[] = {
 	NULL,
 };
 
+static int slb_memory_control(bool en);
+
 /* adsp operation */
 void adsp_update_c2c_memory_info(struct adsp_priv *pdata)
 {
@@ -42,6 +44,10 @@ int adsp_after_bootup(struct adsp_priv *pdata)
 	/* disable adsp suspend by registering feature */
 	_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0);
 #endif
+	/* force release slb buffer */
+	while (slb_memory_control(false) > 0)
+		;
+
 	return adsp_awake_unlock(pdata->id);
 }
 EXPORT_SYMBOL(adsp_after_bootup);
@@ -338,26 +344,25 @@ EXIT:
 	if (ret)
 		pr_info("%s, fail slbc request %d, ret %d, cnt %d",
 			__func__, en, ret, use_cnt);
-	else
-		pr_info("%s, ok slbc request %d, ret %d, cnt %d",
-			__func__, en, ret, use_cnt);
 	mutex_unlock(&lock);
-	return use_cnt;
+	return ret < 0 ? ret : use_cnt;
 }
 
 static void adsp_slb_init_handler(int id, void *data, unsigned int len)
 {
 	u32 cid = *(u32 *)data;
 	u32 request = *((u32 *)data + 1);
-	unsigned long info[2];
+	unsigned long info[2] = {0};
 	int ret;
 
-	slb_memory_control(request);
+	ret = slb_memory_control(request);
 
-	info[0] = (unsigned long)slb_data.paddr;
-	info[1] = (unsigned long)slb_data.size;
-
-	pr_info("%s 0x%lx, 0x%lx cid %d request %d", __func__, info[0], info[1], cid, request);
+	if (ret >= 0) {
+		info[0] = (unsigned long)slb_data.paddr;
+		info[1] = (unsigned long)slb_data.size;
+	}
+	pr_info("%s(), addr:0x%lx, size:0x%lx, cid %d, request %d, ret %d",
+		__func__, info[0], info[1], cid, request, ret);
 
 	_adsp_register_feature(cid, SYSTEM_FEATURE_ID, 0);
 
