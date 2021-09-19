@@ -452,7 +452,7 @@ int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
 		buf->buffer.size = working_buf_size;
 		buf->s_data = NULL;
-		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
+		dev_dbg(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
 			__func__, ctx->stream_id, i, &buf->buffer.iova);
 
 		list_add_tail(&buf->list_entry,
@@ -460,7 +460,7 @@ int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		ctx->buf_pool.mraw_freelist.cnt++;
 	}
 
-	dev_info(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d)\n", __func__,
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d)\n", __func__,
 		 ctx->stream_id, ctx->buf_pool.mraw_freelist.cnt);
 
 	return 0;
