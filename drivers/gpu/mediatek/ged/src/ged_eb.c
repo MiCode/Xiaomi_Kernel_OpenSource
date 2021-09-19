@@ -50,6 +50,7 @@ int g_is_fastdvfs_enable;
 int g_is_fulltrace_enable;
 
 unsigned int fastdvfs_mode = 1;
+bool need_to_refresh_mode = true;
 static struct hrtimer g_HT_fdvfs_debug;
 #define GED_FDVFS_TIMER_TIMEOUT 1000000 // 1ms
 
@@ -102,16 +103,27 @@ static int fast_dvfs_eb_event_handler(unsigned int id, void *prdata, void *data,
 int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 {
 	int ret = 0;
+	ktime_t cmd_start, cmd_now, cmd_duration;
 
 	if (ipi_data != NULL &&
 		g_fast_dvfs_ipi_channel >= 0 && g_fdvfs_event_ipi_channel >= 0) {
 		ipi_data->cmd = cmd;
 	} else {
-		GPUFDVFS_LOGI("%s(%d), Can't send cmd(%d) ipi_data:%p, ch:(%d)(%d)\n",
-			__func__, __LINE__, cmd, ipi_data,
+		GPUFDVFS_LOGI("(%d), Can't send cmd(%d) ipi_data:%p, ch:(%d)(%d)\n",
+			__LINE__, cmd, ipi_data,
 			g_fast_dvfs_ipi_channel, g_fdvfs_event_ipi_channel);
 		return -ENOENT;
 	}
+
+	GPUFDVFS_LOGD("(%d), send cmd: %d, msg[0]: %d\n",
+		__LINE__,
+		cmd,
+		ipi_data->u.set_para.arg[0]);
+
+	cmd_start = ktime_get();
+	ipi_data->u.set_para.arg[3] = (cmd_start & 0xFFFFFFFF00000000) >> 32;
+	ipi_data->u.set_para.arg[4] = (u32)(cmd_start & 0x00000000FFFFFFFF);
+
 
 	switch (cmd) {
 	// Set +
@@ -128,8 +140,8 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 			FASTDVFS_IPI_TIMEOUT);
 
 		if (ret != 0) {
-			GPUFDVFS_LOGI("%s(%d), cmd: %d, ret: %d, data: %p,"FDVFS_IPI_ATTR"\n",
-				__func__, __LINE__, cmd, ret, ipi_data,
+			GPUFDVFS_LOGI("(%d), cmd: %d, ret: %d, data: %p,"FDVFS_IPI_ATTR"\n",
+				__LINE__, cmd, ret, ipi_data,
 				get_gpueb_ipidev(),
 				g_fast_dvfs_ipi_channel,
 				FDVFS_IPI_DATA_LEN, FASTDVFS_IPI_TIMEOUT);
@@ -142,6 +154,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 	// Get +
 	case GPUFDVFS_IPI_GET_FRAME_LOADING:
 	case GPUFDVFS_IPI_GET_CURR_FREQ:
+	case GPUFDVFS_IPI_GET_MODE:
 		ret = mtk_ipi_send_compl(get_gpueb_ipidev(),
 			g_fast_dvfs_ipi_channel,
 			IPI_SEND_POLLING, ipi_data,
@@ -149,8 +162,8 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 			FASTDVFS_IPI_TIMEOUT);
 
 		if (ret != 0) {
-			GPUFDVFS_LOGI("%s(%d), cmd: %d, mtk_ipi_send_compl, ret: %d\n",
-				__func__, __LINE__, cmd, ret);
+			GPUFDVFS_LOGI("(%d), cmd: %d, mtk_ipi_send_compl, ret: %d\n",
+				__LINE__, cmd, ret);
 		} else {
 			ret = fdvfs_ipi_rcv_msg.u.set_para.arg[0];
 		}
@@ -165,23 +178,28 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 			FASTDVFS_IPI_TIMEOUT);
 
 		if (ret != 0) {
-			GPUFDVFS_LOGI("%s(%d), cmd: %d, mtk_ipi_send_compl, ret: %d\n",
-				__func__, __LINE__, cmd, ret);
+			GPUFDVFS_LOGI("(%d), cmd: %d, mtk_ipi_send_compl, ret: %d\n",
+				__LINE__, cmd, ret);
 		}
 	break;
 
 	default:
-		GPUFDVFS_LOGI("%s(%d), cmd: %d wrong!!!\n",
-			__func__, __LINE__, cmd);
+		GPUFDVFS_LOGI("(%d), cmd: %d wrong!!!\n",
+			__LINE__, cmd);
 	break;
 	}
 
-	GPUFDVFS_LOGD("%s(%d), cmd: %d, ack cmd: %d, msg[0]: %d\n",
-		__func__,
+	cmd_now = ktime_get();
+	cmd_duration = ktime_sub(cmd_now,
+		(((u64)((u64)(fdvfs_ipi_rcv_msg.u.set_para.arg[3]) << 32) & 0xFFFFFFFF00000000) +
+		fdvfs_ipi_rcv_msg.u.set_para.arg[4]));
+
+	GPUFDVFS_LOGD("(%d), cmd: %d, ack cmd: %d, msg[0]: %d. IPI duration: %llu ns(%llu ns)\n",
 		__LINE__,
 		cmd,
 		fdvfs_ipi_rcv_msg.cmd,
-		fdvfs_ipi_rcv_msg.u.set_para.arg[0]);
+		fdvfs_ipi_rcv_msg.u.set_para.arg[0],
+		ktime_to_ns(cmd_duration), ktime_to_ns(ktime_sub(cmd_now, cmd_start)));
 
 	return ret;
 }
@@ -317,6 +335,8 @@ unsigned int mtk_gpueb_dvfs_set_mode(unsigned int action)
 	g_is_fulltrace_enable =
 		((action & (0x1 << ACTION_MAP_FULLTRACE)))>>ACTION_MAP_FULLTRACE;
 
+	need_to_refresh_mode = true;
+
 	return ret;
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_set_mode);
@@ -324,11 +344,23 @@ EXPORT_SYMBOL(mtk_gpueb_dvfs_set_mode);
 unsigned int mtk_gpueb_dvfs_get_mode(unsigned int *pAction)
 {
 	int ret = 0;
+	struct fdvfs_ipi_data ipi_data;
 
-	if (pAction != NULL)
-		*pAction = fastdvfs_mode;
+	if (need_to_refresh_mode)
+		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_GET_MODE, &ipi_data);
 
-	return ret;
+	if (ret > 0) {
+		if (pAction != NULL)
+			*pAction = ret;
+
+		fastdvfs_mode = ret;
+		need_to_refresh_mode = false;
+	} else {
+		if (pAction != NULL)
+			*pAction = fastdvfs_mode;
+	}
+
+	return fastdvfs_mode;
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_get_mode);
 
@@ -457,68 +489,69 @@ EXPORT_SYMBOL(mtk_gpueb_sysram_read);
 static int fastdvfs_proc_show(struct seq_file *m, void *v)
 {
 	char show_string[256];
-	//counter = mtk_gpueb_sysram_read(0xD0);
-	//seq_printf(m, "gpu freq : %u\n", counter);
+	unsigned int ui32FastDVFSMode = 0;
 
-	snprintf(show_string, 256, "FastDVFS enable : %d\n",
-		g_is_fastdvfs_enable);
+	 mtk_gpueb_dvfs_get_mode(&ui32FastDVFSMode);
+
+	scnprintf(show_string, 256, "FastDVFS enable : %d. (%d)\n",
+		g_is_fastdvfs_enable, ui32FastDVFSMode);
 	seq_puts(m, show_string);
 
-	snprintf(show_string, 256, "FullTrace enable : %d\n",
-		g_is_fulltrace_enable);
+	scnprintf(show_string, 256, "FullTrace enable : %d. (%d)\n",
+		g_is_fulltrace_enable, ui32FastDVFSMode);
 	seq_puts(m, show_string);
 
 	if (g_is_fulltrace_enable == 1) {
 		seq_puts(m, "\n#### Frequency ####\n");
 
-		snprintf(show_string, 256, "Current gpu freq       : %d\n",
+		scnprintf(show_string, 256, "Current gpu freq       : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_CURR_FREQ));
 		seq_puts(m, show_string);
 
-		snprintf(show_string, 256, "Predicted gpu freq     : %d\n",
+		scnprintf(show_string, 256, "Predicted gpu freq     : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_PRED_FREQ));
 		seq_puts(m, show_string);
 
-		//snprintf(show_string, 256, "Current gpu 3D loading : %d\n",
+		//scnprintf(show_string, 256, "Current gpu 3D loading : %d\n",
 		//  mtk_gpueb_sysram_read(SYSRAM_GPU_FRAGMENT_LOADING));
 		//seq_puts(m, show_string);
 
 		seq_puts(m, "\n#### Workload ####\n");
-		snprintf(show_string, 256, "Predicted workload     : %d\n",
+		scnprintf(show_string, 256, "Predicted workload     : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_PRED_WORKLOAD));
 		seq_puts(m, show_string);
 
-		snprintf(show_string, 256, "Left workload          : %d\n",
+		scnprintf(show_string, 256, "Left workload          : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_LEFT_WL));
 		seq_puts(m, show_string);
 
-		snprintf(show_string, 256, "Finish workload        : %d\n",
+		scnprintf(show_string, 256, "Finish workload        : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_FINISHED_WORKLOAD));
 		seq_puts(m, show_string);
 
-		snprintf(show_string, 256, "Under Hint WL          : %d\n",
+		scnprintf(show_string, 256, "Under Hint WL          : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_UNDER_HINT_WL));
 		seq_puts(m, show_string);
 
 		seq_puts(m, "\n#### Time Budget ####\n");
-		snprintf(show_string, 256, "Target time            : %d\n",
+		scnprintf(show_string, 256, "Target time            : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_TARGET_TIME));
 		seq_puts(m, show_string);
 
-		//snprintf(show_string, 256, "Elapsed time         : %d\n",
+		//scnprintf(show_string, 256, "Elapsed time         : %d\n",
 		//  mtk_gpueb_sysram_read(SYSRAM_GPU_ELAPSED_TIME));
 		//seq_puts(m, show_string);
 
-		snprintf(show_string, 256, "Left time              : %d\n",
+		scnprintf(show_string, 256, "Left time              : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_LEFT_TIME));
 		seq_puts(m, show_string);
 
 		seq_puts(m, "\n#### Interval ####\n");
-		snprintf(show_string, 256, "Kernel Frame Done Interval     : %d\n",
+		scnprintf(show_string, 256, "Kernel Frame Done Interval     : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_KERNEL_FRAME_DONE_INTERVAL));
 		seq_puts(m, show_string);
 
-		snprintf(show_string, 256, "EB Frame Done Interval         : %d\n",
+		scnprintf(show_string, 256, "EB Frame Done Interval         : %d\n",
 			mtk_gpueb_sysram_read(SYSRAM_GPU_EB_FRAME_DONE_INTERVAL));
 		seq_puts(m, show_string);
 		seq_puts(m, "\n\n\n");
@@ -710,6 +743,10 @@ void fdvfs_init(void)
 
 		mtk_ipi_register(get_gpueb_ipidev(), g_fdvfs_event_ipi_channel,
 				(void *)fast_dvfs_eb_event_handler, NULL, &fdvfs_event_ipi_rcv_msg);
+
+		g_psEBWorkQueue =
+			alloc_ordered_workqueue("ged_eb",
+				WQ_FREEZABLE | WQ_MEM_RECLAIM);
 	}
 
 	GPUFDVFS_LOGI("succeed to register channel: (%d)(%d), ipi_size: %d\n",
@@ -735,10 +772,6 @@ void fdvfs_init(void)
 	if (g_is_fulltrace_enable == 1)
 		hrtimer_start(&g_HT_fdvfs_debug,
 			ns_to_ktime(GED_FDVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
-
-	g_psEBWorkQueue =
-		alloc_ordered_workqueue("ged_eb",
-			WQ_FREEZABLE | WQ_MEM_RECLAIM);
 }
 
 void fdvfs_exit(void)

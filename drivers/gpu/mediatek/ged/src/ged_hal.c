@@ -423,8 +423,14 @@ static ssize_t fastdvfs_mode_show(struct kobject *kobj,
 				"fdvfs is off\n");
 		pos += length;
 	}
-	length = scnprintf(buf + pos, PAGE_SIZE - pos,
-			"%d\n", ui32FastDVFSMode);
+
+	if ((ui32FastDVFSMode & 0x00000001) > 0) {
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
+				"FastDVFS is enabled (%d)\n", ui32FastDVFSMode);
+	} else {
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
+				"FastDVFS is disabled\n");
+	}
 	pos += length;
 
 	return pos;
@@ -436,11 +442,17 @@ static ssize_t fastdvfs_mode_store(struct kobject *kobj,
 {
 	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
 	unsigned int u32Value;
+	unsigned int ui32FastDVFSMode;
 
-	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtouint(acBuffer, 0, &u32Value) == 0)
-				mtk_set_fastdvfs_mode(u32Value);
+	if (true == mtk_get_fastdvfs_mode(&ui32FastDVFSMode)) {
+		ui32FastDVFSMode &= 0xFFFFFFFE;
+		if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+			if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+				if (kstrtouint(acBuffer, 0, &u32Value) == 0) {
+					ui32FastDVFSMode |= (u32Value & 0x1);
+					mtk_set_fastdvfs_mode(ui32FastDVFSMode);
+				}
+			}
 		}
 	}
 
