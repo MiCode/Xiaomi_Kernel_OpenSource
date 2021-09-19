@@ -6841,7 +6841,7 @@
 	sound: sound {
 		compatible = "mediatek,mt6895-mt6368-sound";
 		/* mediatek,snd_audio_dsp = <&snd_audio_dsp>; */
-		/* mediatek,headset-codec = <&accdet>; */
+		mediatek,headset-codec = <&accdet>;
 		mediatek,platform = <&afe>;
 	};
 
