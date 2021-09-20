@@ -167,6 +167,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_HDCP_INVOKE		0x01
 
 #define QCOM_SCM_SVC_LMH			0x13
+#define QCOM_SCM_LMH_LIMIT_PROFILE_CHANGE	0x01
 #define QCOM_SCM_LMH_DEBUG_SET			0x08
 #define QCOM_SCM_LMH_DEBUG_READ_BUF_SIZE	0x09
 #define QCOM_SCM_LMH_LIMIT_DCVSH		0x10

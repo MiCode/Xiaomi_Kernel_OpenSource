@@ -1145,12 +1145,12 @@ static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val)
 	int ret = 0;
 	struct freq_qos_request *qos_req;
 
-	get_online_cpus();
+	cpus_read_lock();
 	if (cpu_online(cpu)) {
 		qos_req = &per_cpu(qos_min_req, cpu);
 		ret = freq_qos_update_request(qos_req, new_val);
 	}
-	put_online_cpus();
+	cpus_read_unlock();
 	return ret;
 }
 
@@ -2516,8 +2516,8 @@ static int tag_to_cpu(struct ufs_hba *hba, unsigned int tag)
 {
 	struct ufshcd_lrb *lrbp = &hba->lrb[tag];
 
-	if (lrbp && lrbp->cmd && lrbp->cmd->request)
-		return blk_mq_rq_cpu(lrbp->cmd->request);
+	if (lrbp && lrbp->cmd && scsi_cmd_to_rq(lrbp->cmd))
+		return blk_mq_rq_cpu(scsi_cmd_to_rq(lrbp->cmd));
 	return -EINVAL;
 }
 
@@ -3944,8 +3944,8 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
-		int sz = lrbp->cmd->request ?
-				blk_rq_sectors(lrbp->cmd->request) : 0;
+		int sz = scsi_cmd_to_rq(lrbp->cmd) ?
+				blk_rq_sectors(scsi_cmd_to_rq(lrbp->cmd)) : 0;
 		ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
 				lrbp->cmd->cmnd[0],
 				lrbp->task_tag,
@@ -3962,8 +3962,8 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (lrbp && lrbp->cmd) {
-		int sz = lrbp->cmd->request ?
-				blk_rq_sectors(lrbp->cmd->request) : 0;
+		int sz = scsi_cmd_to_rq(lrbp->cmd) ?
+				blk_rq_sectors(scsi_cmd_to_rq(lrbp->cmd)) : 0;
 		ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
 				lrbp->cmd->cmnd[0],
 				lrbp->task_tag,
@@ -4142,11 +4142,8 @@ MODULE_DEVICE_TABLE(acpi, ufs_qcom_acpi_match);
 #endif
 
 static const struct dev_pm_ops ufs_qcom_pm_ops = {
-	.suspend	= ufshcd_pltfrm_suspend,
-	.resume		= ufshcd_pltfrm_resume,
-	.runtime_suspend = ufshcd_pltfrm_runtime_suspend,
-	.runtime_resume  = ufshcd_pltfrm_runtime_resume,
-	.runtime_idle    = ufshcd_pltfrm_runtime_idle,
+	SET_SYSTEM_SLEEP_PM_OPS(ufshcd_system_suspend, ufshcd_system_resume)
+	SET_RUNTIME_PM_OPS(ufshcd_runtime_suspend, ufshcd_runtime_resume, NULL)
 	.prepare	 = ufshcd_suspend_prepare,
 	.complete	 = ufshcd_resume_complete,
 };
