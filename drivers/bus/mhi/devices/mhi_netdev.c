@@ -1030,7 +1030,7 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 		return -ENOMEM;
 
 	/* move mhi channels to start state */
-	ret = mhi_prepare_for_transfer(mhi_dev);
+	ret = mhi_prepare_for_transfer(mhi_dev, 0);
 	if (ret) {
 		MSG_ERR("Failed to start channels, ret: %d\n", ret);
 		return ret;

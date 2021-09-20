@@ -526,7 +526,7 @@ iommu_map_cmd_completion:
 			MHI_SAT_ASSERT(sat_dev->chan_started,
 				       "Channel already started!");
 
-			ret = mhi_prepare_for_transfer(sat_dev->mhi_dev);
+			ret = mhi_prepare_for_transfer(sat_dev->mhi_dev, 0);
 			if (!ret) {
 				sat_dev->chan_started = true;
 				code = MHI_EV_CC_SUCCESS;

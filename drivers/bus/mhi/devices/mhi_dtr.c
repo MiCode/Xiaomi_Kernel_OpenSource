@@ -213,7 +213,7 @@ static int mhi_dtr_probe(struct mhi_device *mhi_dev,
 	struct device *dev = &mhi_dev->dev;
 	int ret;
 
-	ret = mhi_prepare_for_transfer(mhi_dev);
+	ret = mhi_prepare_for_transfer(mhi_dev, 0);
 	if (!ret)
 		dtr_info->mhi_dev = mhi_dev;
 
