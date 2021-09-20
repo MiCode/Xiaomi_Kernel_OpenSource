@@ -2452,11 +2452,14 @@ static void arm_smmu_iotlb_sync_map(struct iommu_domain *domain,
 		return;
 
 	arm_smmu_rpm_get(smmu);
+	/* Secure pages may be freed to the secure pool after TLB maintenance. */
+	arm_smmu_secure_domain_lock(smmu_domain);
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	if ((iova_end >= smmu_domain->iotlb_gather.start) &&
 	      (iova <= smmu_domain->iotlb_gather.end))
 		__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_rpm_put(smmu);
 }
 
@@ -2471,9 +2474,12 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 		return;
 
 	arm_smmu_rpm_get(smmu);
+	/* Secure pages may be freed to the secure pool after TLB maintenance. */
+	arm_smmu_secure_domain_lock(smmu_domain);
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_rpm_put(smmu);
 }
 
