@@ -236,6 +236,7 @@ config SERIAL_CLPS711X_CONSOLE
 
 config SERIAL_SAMSUNG
 	tristate "Samsung SoC serial support"
+	depends on PLAT_SAMSUNG || ARCH_S5PV210 || ARCH_EXYNOS || ARCH_APPLE || COMPILE_TEST
 	select SERIAL_CORE
 	help
 	  Support for the on-chip UARTs on the Samsung S3C24XX series CPUs,
@@ -958,7 +959,7 @@ config SERIAL_VT8500_CONSOLE
 
 config SERIAL_OMAP
 	tristate "OMAP serial port support"
-	depends on ARCH_OMAP2PLUS || COMPILE_TEST
+	depends on (ARCH_OMAP2PLUS && !SERIAL_8250_OMAP) || COMPILE_TEST
 	select SERIAL_CORE
 	help
 	  If you have a machine based on an Texas Instruments OMAP CPU you
@@ -1381,7 +1382,7 @@ config SERIAL_ST_ASC
 	select SERIAL_CORE
 	depends on ARM || COMPILE_TEST
 	help
-	  This driver is for the on-chip Asychronous Serial Controller on
+	  This driver is for the on-chip Asynchronous Serial Controller on
 	  STMicroelectronics STi SoCs.
 	  ASC is embedded in ST COMMS IP block. It supports Rx & Tx functionality.
 	  It support all industry standard baud rates.
