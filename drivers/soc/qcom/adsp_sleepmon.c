@@ -49,6 +49,8 @@
 #define ADSPSLEEPMON_SYSMONSTATS_SMEM_ID				634
 #define ADSPSLEEPMON_SYSMONSTATS_EVENTS_FEATURE_ID		2
 #define ADSPSLEEPMON_SYS_CLK_TICKS_PER_SEC			19200000
+#define ADSPSLEEPMON_LPI_WAIT_TIME			15
+#define ADSPSLEEPMON_LPM_WAIT_TIME			5
 
 #define ADSPSLEEPMON_AUDIO_CLIENT			1
 #define ADSPSLEEPMON_DEVICE_NAME_LOCAL			 "msm_adsp_sleepmon"
@@ -433,34 +435,31 @@ static int adspsleepmon_driver_probe(struct platform_device *pdev)
 	g_adspsleepmon.b_config_panic_lpi = of_property_read_bool(dev->of_node,
 			"qcom,enable_panic_lpi");
 
-	if (of_property_read_u32(dev->of_node, "qcom,wait_time_lpm",
-						 &g_adspsleepmon.lpm_wait_time))
-		return -EINVAL;
+	of_property_read_u32(dev->of_node, "qcom,wait_time_lpm",
+						 &g_adspsleepmon.lpm_wait_time);
 
-	if (of_property_read_u32(dev->of_node, "qcom,wait_time_lpi",
-						 &g_adspsleepmon.lpi_wait_time))
-		return -EINVAL;
+	of_property_read_u32(dev->of_node, "qcom,wait_time_lpi",
+						 &g_adspsleepmon.lpi_wait_time);
 
 	g_adspsleepmon.b_panic_lpm = g_adspsleepmon.b_config_panic_lpm;
 	g_adspsleepmon.b_panic_lpi = g_adspsleepmon.b_config_panic_lpi;
 
-	g_adspsleepmon.debugfs_panic_file =
-			debugfs_create_file("panic-state",
-			 0644, g_adspsleepmon.debugfs_dir, NULL, &panic_state_fops);
+	if (g_adspsleepmon.b_config_panic_lpm ||
+			g_adspsleepmon.b_config_panic_lpi) {
+		g_adspsleepmon.debugfs_panic_file =
+				debugfs_create_file("panic-state",
+				 0644, g_adspsleepmon.debugfs_dir, NULL, &panic_state_fops);
 
-	if (!g_adspsleepmon.debugfs_panic_file) {
-		dev_err(dev, "Unable to create file in debugfs\n");
-		result = -ENOMEM;
+		if (!g_adspsleepmon.debugfs_panic_file)
+			pr_err("Unable to create file in debugfs\n");
 	}
 
 	g_adspsleepmon.debugfs_read_panic_state =
 			debugfs_create_file("read_panic_state",
 			 0444, g_adspsleepmon.debugfs_dir, NULL, &read_panic_state_fops);
 
-	if (!g_adspsleepmon.debugfs_panic_file) {
-		dev_err(dev, "Unable to create read panic state file in debugfs\n");
-		result = -ENOMEM;
-	}
+	if (!g_adspsleepmon.debugfs_read_panic_state)
+		pr_err("Unable to create read panic state file in debugfs\n");
 
 	dev_dbg(dev, "ADSP sleep monitor probe called\n");
 
@@ -518,8 +517,9 @@ static int adspsleepmon_worker(void *data)
 			continue;
 
 
-		pr_info("g_adspsleepmon.timer_event = %d\n", g_adspsleepmon.timer_event);
-		pr_info("g_adspsleepmon.suspend_event = %d\n", g_adspsleepmon.suspend_event);
+		pr_info("timer_event = %d,suspend_event = %d\n",
+				g_adspsleepmon.timer_event,
+				g_adspsleepmon.suspend_event);
 
 		/*
 		 * Handle timer event.
@@ -822,12 +822,10 @@ static int adspsleepmon_device_release(struct inode *inode, struct file *fp)
 		mutex_unlock(&g_adspsleepmon.lock);
 
 
-		pr_info("g_adspsleepmon.audio_stats.num_sessions=%d\n",
-						g_adspsleepmon.audio_stats.num_sessions);
-		pr_info("g_adspsleepmon.audio_stats.num_lpi_sessions=%d\n",
-				g_adspsleepmon.audio_stats.num_lpi_sessions);
-		pr_info(" g_adspsleepmon.timer_pending=%d\n",
-				 g_adspsleepmon.timer_pending);
+		pr_info("Audio: num_sessions=%d,num_lpi_sessions=%d,timer_pending=%d\n",
+						g_adspsleepmon.audio_stats.num_sessions,
+						g_adspsleepmon.audio_stats.num_lpi_sessions,
+						g_adspsleepmon.timer_pending);
 		/*
 		 * Critical section Done
 		 */
@@ -1028,12 +1026,10 @@ static long adspsleepmon_device_ioctl(struct file *file,
 		g_adspsleepmon.audio_stats.num_sessions = num_sessions;
 		g_adspsleepmon.audio_stats.num_lpi_sessions = num_lpi_sessions;
 
-		pr_info("g_adspsleepmon.audio_stats.num_sessions=%d\n",
-						g_adspsleepmon.audio_stats.num_sessions);
-		pr_info("g_adspsleepmon.audio_stats.num_lpi_sessions=%d\n",
-				g_adspsleepmon.audio_stats.num_lpi_sessions);
-		pr_info(" g_adspsleepmon.timer_pending=%d\n",
-				 g_adspsleepmon.timer_pending);
+		pr_info("Audio: num_sessions=%d,num_lpi_sessions=%d,timer_pending=%d\n",
+						g_adspsleepmon.audio_stats.num_sessions,
+						g_adspsleepmon.audio_stats.num_lpi_sessions,
+						g_adspsleepmon.timer_pending);
 
 		mutex_unlock(&g_adspsleepmon.lock);
 		/*
@@ -1080,17 +1076,10 @@ static int __init adspsleepmon_init(void)
 	/*
 	 * Initialize dtsi config
 	 */
-	g_adspsleepmon.lpm_wait_time = 5;
-	g_adspsleepmon.lpi_wait_time = 15;
+	g_adspsleepmon.lpm_wait_time = ADSPSLEEPMON_LPM_WAIT_TIME;
+	g_adspsleepmon.lpi_wait_time = ADSPSLEEPMON_LPI_WAIT_TIME;
 	g_adspsleepmon.b_config_panic_lpm = false;
 	g_adspsleepmon.b_config_panic_lpi = false;
-
-	ret = platform_driver_register(&adspsleepmon);
-
-	if (ret) {
-		pr_err("Platform driver registration failed for adsp-sleepmon: %d\n", ret);
-		return ret;
-	}
 
 	g_adspsleepmon.worker_task = kthread_run(adspsleepmon_worker,
 					NULL, "adspsleepmon-worker");
@@ -1139,15 +1128,19 @@ static int __init adspsleepmon_init(void)
 		goto debugfs_bail;
 	}
 
+	ret = platform_driver_register(&adspsleepmon);
+
+	if (ret) {
+		pr_err("Platform driver registration failed for adsp-sleepmon: %d\n", ret);
+		goto debugfs_bail;
+	}
+
 	g_adspsleepmon.debugfs_master_stats =
 			debugfs_create_file("master_stats",
 			 0444, g_adspsleepmon.debugfs_dir, NULL, &master_stats_fops);
 
-	if (!g_adspsleepmon.debugfs_master_stats) {
+	if (!g_adspsleepmon.debugfs_master_stats)
 		pr_err("Failed to create debugfs file for master stats\n");
-		debugfs_remove_recursive(g_adspsleepmon.debugfs_dir);
-		goto debugfs_bail;
-	}
 
 	return 0;
 
@@ -1171,6 +1164,7 @@ static void __exit adspsleepmon_exit(void)
 	cdev_del(&g_adspsleepmon.cdev);
 	unregister_chrdev_region(g_adspsleepmon.devno, 1);
 	platform_driver_unregister(&adspsleepmon);
+	debugfs_remove_recursive(g_adspsleepmon.debugfs_dir);
 	unregister_pm_notifier(&adsp_sleepmon_pm_nb);
 }
 
