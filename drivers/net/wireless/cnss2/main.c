@@ -50,6 +50,8 @@
 #define CNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
 #define CNSS_DAEMON_CONNECT_TIMEOUT_MS  30000
 #define CNSS_CAL_DB_FILE_NAME "wlfw_cal_db.bin"
+#define CNSS_CAL_START_PROBE_WAIT_RETRY_MAX 100
+#define CNSS_CAL_START_PROBE_WAIT_MS	500
 
 enum cnss_cal_db_op {
 	CNSS_CAL_DB_UPLOAD,
@@ -1676,6 +1678,7 @@ EXPORT_SYMBOL(cnss_qmi_send);
 static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
+	u32 retry = 0;
 
 	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
 		cnss_pr_dbg("Calibration complete. Ignore calibration req\n");
@@ -1693,9 +1696,23 @@ static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 		return -EINVAL;
 	}
 
+	while (retry++ < CNSS_CAL_START_PROBE_WAIT_RETRY_MAX) {
+		if (test_bit(CNSS_PCI_PROBE_DONE, &plat_priv->driver_state))
+			break;
+		msleep(CNSS_CAL_START_PROBE_WAIT_MS);
+
+		if (retry == CNSS_CAL_START_PROBE_WAIT_RETRY_MAX) {
+			cnss_pr_err("Calibration start failed as PCI probe not complete\n");
+			CNSS_ASSERT(0);
+			ret = -EINVAL;
+			goto mark_cal_fail;
+		}
+	}
+
 	set_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state);
 	reinit_completion(&plat_priv->cal_complete);
 	ret = cnss_bus_dev_powerup(plat_priv);
+mark_cal_fail:
 	if (ret) {
 		complete(&plat_priv->cal_complete);
 		clear_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state);
