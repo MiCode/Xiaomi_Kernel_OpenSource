@@ -480,8 +480,7 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (ret)
 		goto out;
 
-	if (cnss_wlfw_qdss_dnld_send_sync(plat_priv))
-		cnss_pr_info("Failed to download qdss configuration file");
+	cnss_wlfw_qdss_dnld_send_sync(plat_priv);
 
 	return 0;
 out:

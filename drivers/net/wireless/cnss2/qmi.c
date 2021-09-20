@@ -1047,7 +1047,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
 					   qdss_cfg_filename);
 	if (ret) {
-		cnss_pr_err("Failed to load QDSS: %s\n",
+		cnss_pr_dbg("Unable to load %s\n",
 			    qdss_cfg_filename);
 		goto err_req_fw;
 	}
@@ -1757,7 +1757,7 @@ int cnss_wlfw_antenna_switch_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		cnss_pr_err("Antenna switch request failed, result: %d, err: %d\n",
+		cnss_pr_dbg("Antenna switch request failed, result: %d, err: %d\n",
 			    resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
