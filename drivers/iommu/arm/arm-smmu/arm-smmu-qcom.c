@@ -1128,6 +1128,7 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct qsmmuv500_tbu_device *tbu;
+	struct resource *res;
 	const __be32 *cell;
 	int ret, len;
 
@@ -1154,9 +1155,13 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 
 	spin_lock_init(&tbu->halt_lock);
 
-	tbu->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
-	if (IS_ERR(tbu->base))
-		return PTR_ERR(tbu->base);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -EINVAL;
+
+	tbu->base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!tbu->base)
+		return -ENOMEM;
 
 	cell = of_get_property(dev->of_node, "qcom,stream-id-range", &len);
 	if (!cell || len < 8)
