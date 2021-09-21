@@ -27,7 +27,6 @@
 #include <linux/interconnect.h>
 
 #include "ep_pcie_com.h"
-#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 
 #define PCIE_MHI_STATUS(n)			((n) + 0x148)
@@ -76,6 +75,10 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_ldo", 0, true},
 	{NULL, "pcie_sleep_clk", 0, false},
 	{NULL, "pcie_slv_q2a_axi_clk", 0, false},
+	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false},
+	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false},
+	{NULL, "pcie_phy_refgen_clk", 0, false},
+	{NULL, "pcie_phy_aux_clk", 0, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false},
 	{NULL, "pcie_pipe_clk_ext_src", 0, false},
 	{NULL, "pcie_0_ref_clk_src", 0, false},
@@ -663,8 +666,12 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 
 		EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
 			     dev->rev);
-		ep_pcie_write_reg_field(dev->tcsr_perst_en,
-					TCSR_PCIE_RST_SEPARATION, BIT(5), 0);
+		if (!dev->tcsr_not_supported) {
+			EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
+					dev->rev);
+			ep_pcie_write_reg_field(dev->tcsr_perst_en,
+						TCSR_PCIE_RST_SEPARATION, BIT(5), 0);
+		}
 	}
 
 	if (dev->active_config) {
@@ -2043,10 +2050,12 @@ int ep_pcie_core_disable_endpoint(void)
 	EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE during disable:0x%x\n",
 		dev->rev, (val >> 0xC) & 0x3f);
 
-	EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
-		     dev->rev);
-	ep_pcie_write_reg_field(dev->tcsr_perst_en,
-				TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
+	if (!dev->tcsr_not_supported) {
+		EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
+				dev->rev);
+		ep_pcie_write_reg_field(dev->tcsr_perst_en,
+					TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
+	}
 
 	ep_pcie_pipe_clk_deinit(dev);
 	ep_pcie_clk_deinit(dev);
@@ -3507,7 +3516,7 @@ static int __init ep_pcie_init(void)
 	int ret;
 	char logname[MAX_NAME_LEN];
 
-	pr_debug("%s\n", __func__);
+	pr_err("%s\n", __func__);
 
 	snprintf(logname, MAX_NAME_LEN, "ep-pcie-long");
 	ep_pcie_dev.ipc_log_sel =
