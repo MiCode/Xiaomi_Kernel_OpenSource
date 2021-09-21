@@ -661,6 +661,15 @@ config SM_DEBUGCC_KALAMA
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
 
+config SM_GPUCC_KALAMA
+	tristate "Kalama Graphics Clock Controller"
+	depends on SM_GCC_KALAMA
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  Kalama devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 config MSM_GCC_WAIPIO
           tristate "WAIPIO Global Clock Controller"
 	  depends on COMMON_CLK_QCOM
