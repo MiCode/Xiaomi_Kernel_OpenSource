@@ -90,6 +90,8 @@ struct a6xx_gmu_device {
 	 * which GMU can run at 500 Mhz.
 	 */
 	u32 perf_ddr_bw;
+	/** @num_oob_perfcntr: Number of active oob_perfcntr requests */
+	u32 num_oob_perfcntr;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */
