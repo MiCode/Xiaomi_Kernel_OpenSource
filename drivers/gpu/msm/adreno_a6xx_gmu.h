@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_A6XX_GMU_H
 #define __ADRENO_A6XX_GMU_H
@@ -207,6 +207,8 @@ struct a6xx_gmu_device {
 	void __iomem *rdpm_mx_virt;
 	/** @log_stream_enable: GMU log streaming enable */
 	bool log_stream_enable;
+	/** @num_oob_perfcntr: Number of active oob_perfcntr requests */
+	u32 num_oob_perfcntr;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */
