@@ -170,7 +170,8 @@ int a6xx_init(struct adreno_device *adreno_dev)
 	/* If the memory type is DDR 4, override the existing configuration */
 	if (of_fdt_get_ddrtype() == 0x7) {
 		if (adreno_is_a660_shima(adreno_dev) ||
-			adreno_is_a635(adreno_dev))
+			adreno_is_a635(adreno_dev) ||
+			adreno_is_a662(adreno_dev))
 			adreno_dev->highest_bank_bit = 14;
 		else if ((adreno_is_a650(adreno_dev) ||
 				adreno_is_a660(adreno_dev)))
@@ -258,6 +259,9 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 		return 0x00000022;
 	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000222;
+	/* a662 should be checked before a660 */
+	else if (adreno_is_a662(adreno_dev))
+		return 0x00020200;
 	else if (adreno_is_a660(adreno_dev))
 		return 0x00020000;
 	else
