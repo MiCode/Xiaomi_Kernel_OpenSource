@@ -71,8 +71,8 @@ static int gen7_rb_context_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BOTH;
 	/* Reset context state */
 	cmds[count++] = cp_type7_packet(CP_RESET_CONTEXT_STATE, 1);
-	cmds[count++] = CP_CLEAR_BV_BR_COUNTER | CP_CLEAR_RESOURCE_TABLE |
-			CP_CLEAR_ON_CHIP_TS;
+	cmds[count++] = CP_RESET_GLOBAL_LOCAL_TS | CP_CLEAR_BV_BR_COUNTER |
+			CP_CLEAR_RESOURCE_TABLE | CP_CLEAR_ON_CHIP_TS;
 	/*
 	 * Enable/disable concurrent binning for pagetable switch and
 	 * set the thread to BR since only BR can execute the pagetable
