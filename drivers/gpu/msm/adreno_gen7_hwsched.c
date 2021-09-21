@@ -332,6 +332,8 @@ gdsc_off:
 	/* Poll to make sure that the CX is off */
 	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
+	gen7_rdpm_cx_freq_update(gmu, 0);
+
 	return ret;
 }
 
@@ -391,6 +393,8 @@ clks_gdsc_off:
 gdsc_off:
 	/* Poll to make sure that the CX is off */
 	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+
+	gen7_rdpm_cx_freq_update(gmu, 0);
 
 	return ret;
 }
@@ -464,6 +468,8 @@ static int gen7_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	ret = gen7_rscc_sleep_sequence(adreno_dev);
 
+	gen7_rdpm_mx_freq_update(gmu, 0);
+
 	/* Now that we are done with GMU and GPU, Clear the GBIF */
 	ret = gen7_halt_gbif(adreno_dev);
 
@@ -475,6 +481,8 @@ static int gen7_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	/* Poll to make sure that the CX is off */
 	gen7_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+
+	gen7_rdpm_cx_freq_update(gmu, 0);
 
 	return ret;
 
@@ -883,6 +891,10 @@ static int gen7_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 			adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 	}
 
+	if (req.freq != INVALID_DCVS_IDX)
+		gen7_rdpm_mx_freq_update(gmu,
+			gmu->hfi.dcvs_table.gx_votes[req.freq].freq);
+
 	return ret;
 }
 
@@ -918,6 +930,8 @@ static void scale_gmu_frequency(struct adreno_device *adreno_dev, int buslevel)
 			freq);
 		return;
 	}
+
+	gen7_rdpm_cx_freq_update(gmu, freq / 1000);
 
 	trace_kgsl_gmu_pwrlevel(freq, prev_freq);
 

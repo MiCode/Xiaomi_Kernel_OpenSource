@@ -433,4 +433,22 @@ to_gen7_gpudev(const struct adreno_gpudev *gpudev)
  * Reset the preemption records at the time of hard reset
  */
 void gen7_reset_preempt_records(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_rdpm_mx_freq_update - Update the mx frequency
+ * @gmu: An Adreno GMU handle
+ * @freq: Frequency in KHz
+ *
+ * This function communicates GPU mx frequency(in Mhz) changes to rdpm.
+ */
+void gen7_rdpm_mx_freq_update(struct gen7_gmu_device *gmu, u32 freq);
+
+/**
+ * gen7_rdpm_cx_freq_update - Update the cx frequency
+ * @gmu: An Adreno GMU handle
+ * @freq: Frequency in KHz
+ *
+ * This function communicates GPU cx frequency(in Mhz) changes to rdpm.
+ */
+void gen7_rdpm_cx_freq_update(struct gen7_gmu_device *gmu, u32 freq);
 #endif
