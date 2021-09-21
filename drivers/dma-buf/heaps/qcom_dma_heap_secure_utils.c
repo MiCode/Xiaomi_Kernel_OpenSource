@@ -7,7 +7,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/qcom_dma_heap.h>
 
-static int get_secure_vmid(unsigned long flags)
+int get_secure_vmid(unsigned long flags)
 {
 	if (flags & QCOM_DMA_HEAP_FLAG_CP_TZ)
 		return VMID_TZ;
