@@ -504,14 +504,13 @@ void qcom_icc_rpmh_sync_state(struct device *dev)
 
 		for (i = 0; i < qp->num_bcms; i++) {
 			bcm = qp->bcms[i];
-			if (!bcm->keepalive && !bcm->keepalive_early)
-				continue;
+			if (bcm->keepalive || bcm->keepalive_early) {
+				bcm->keepalive_early = false;
 
-			bcm->keepalive_early = false;
-
-			voter = qp->voters[bcm->voter_idx];
-			qcom_icc_bcm_voter_add(voter, bcm);
-			qcom_icc_bcm_voter_commit(voter);
+				voter = qp->voters[bcm->voter_idx];
+				qcom_icc_bcm_voter_add(voter, bcm);
+				qcom_icc_bcm_voter_commit(voter);
+			}
 		}
 	}
 
