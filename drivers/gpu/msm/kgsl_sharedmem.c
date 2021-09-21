@@ -243,7 +243,6 @@ void kgsl_process_init_sysfs(struct kgsl_device *device,
 		kgsl_driver.prockobj, "%d", pid_nr(private->pid))) {
 		dev_err(device->dev, "Unable to add sysfs for process %d\n",
 			pid_nr(private->pid));
-		kgsl_process_private_put(private);
 	}
 
 	kgsl_reclaim_proc_sysfs_init(private);
