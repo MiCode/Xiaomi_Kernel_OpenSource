@@ -77,8 +77,7 @@ struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt)
 EXPORT_SYMBOL(mem_buf_sgt_to_gh_sgl_desc);
 
 static int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
-				struct mem_buf_lend_kernel_arg *arg,
-				bool *has_lookup_sgl)
+				struct mem_buf_lend_kernel_arg *arg)
 {
 	u32 src_vmid[] = {current_vmid};
 	u32 src_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
@@ -120,29 +119,17 @@ static int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
 	}
 
-	/*
-	 * gh_rm_mem_qcom_lookup_sgl is no longer supported and is replaced with
-	 * gh_rm_mem_share. To ease this transition, fall back to the later on error.
-	 */
-	*has_lookup_sgl = true;
-	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL, arg->label,
-					gh_acl, gh_sgl, NULL,
-					&arg->memparcel_hdl);
-	trace_lookup_sgl(gh_sgl, ret, arg->memparcel_hdl);
-	if (ret) {
-		*has_lookup_sgl = false;
-		pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
-		if (is_lend)
-			ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
-					     arg->label, gh_acl, gh_sgl,
-					     NULL /* Default memory attributes */,
-					     &arg->memparcel_hdl);
-		else
-			ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
-					     arg->label, gh_acl, gh_sgl,
-					     NULL /* Default memory attributes */,
-					     &arg->memparcel_hdl);
-	}
+	pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
+	if (is_lend)
+		ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+				     arg->label, gh_acl, gh_sgl,
+				     NULL /* Default memory attributes */,
+				     &arg->memparcel_hdl);
+	else
+		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+				     arg->label, gh_acl, gh_sgl,
+				     NULL /* Default memory attributes */,
+				     &arg->memparcel_hdl);
 	if (ret < 0) {
 		pr_err("%s: Gunyah lend/share failed rc:%d\n",
 		       __func__, ret);
@@ -168,8 +155,7 @@ err_gh_acl:
 }
 
 int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
-			struct mem_buf_lend_kernel_arg *arg,
-			bool *has_lookup_sgl)
+			struct mem_buf_lend_kernel_arg *arg)
 {
 	u32 src_vmid = current_vmid;
 	int ret;
@@ -183,7 +169,7 @@ int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
 		return -EINVAL;
 
 	if (api == MEM_BUF_API_GUNYAH)
-		return mem_buf_assign_mem_gunyah(is_lend, sgt, arg, has_lookup_sgl);
+		return mem_buf_assign_mem_gunyah(is_lend, sgt, arg);
 
 	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
 	ret = hyp_assign_table(sgt, &src_vmid, 1, arg->vmids, arg->perms,
@@ -200,8 +186,7 @@ EXPORT_SYMBOL(mem_buf_assign_mem);
 
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			 unsigned int nr_acl_entries,
-			 gh_memparcel_handle_t memparcel_hdl,
-			 bool has_lookup_sgl)
+			 gh_memparcel_handle_t memparcel_hdl)
 {
 	int dst_vmid[] = {current_vmid};
 	int dst_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
@@ -214,7 +199,7 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 	if (api < 0)
 		return -EINVAL;
 
-	if (api == MEM_BUF_API_GUNYAH && !has_lookup_sgl) {
+	if (api == MEM_BUF_API_GUNYAH) {
 		pr_debug("%s: Beginning gunyah reclaim\n", __func__);
 		ret = gh_rm_mem_reclaim(memparcel_hdl, 0);
 		if (ret) {

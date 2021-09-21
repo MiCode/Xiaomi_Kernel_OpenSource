@@ -26,12 +26,10 @@ struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt);
 
 /* Hypervisor Interface */
 int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
-		       struct mem_buf_lend_kernel_arg *arg,
-		       bool *has_lookup_sgl);
+		       struct mem_buf_lend_kernel_arg *arg);
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			 unsigned int nr_acl_entries,
-			 gh_memparcel_handle_t hdl,
-			 bool has_lookup_sgl);
+			 gh_memparcel_handle_t hdl);
 struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 					struct gh_acl_desc *acl_desc);
 int mem_buf_unmap_mem_s2(gh_memparcel_handle_t memparcel_hdl);
@@ -70,9 +68,5 @@ int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries);
 /* @Return: A negative number on failure, or vmid on success */
 int mem_buf_fd_to_vmid(int fd);
 
-/* Functions from mem_buf_dma_buf.c */
-int mem_buf_lend_internal(struct dma_buf *dmabuf,
-			struct mem_buf_lend_kernel_arg *arg,
-			bool is_lend);
 #endif
 

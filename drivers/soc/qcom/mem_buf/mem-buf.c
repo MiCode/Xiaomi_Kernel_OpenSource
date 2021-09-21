@@ -124,7 +124,6 @@ struct mem_buf_xfer_mem {
 	u32 nr_acl_entries;
 	int *dst_vmids;
 	int *dst_perms;
-	bool has_lookup_sgl;
 };
 
 /**
@@ -468,8 +467,7 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 		arg.nr_acl_entries = xfer_mem->nr_acl_entries;
 		arg.vmids = xfer_mem->dst_vmids;
 		arg.perms = xfer_mem->dst_perms;
-		ret = mem_buf_assign_mem(is_lend, xfer_mem->mem_sgt, &arg,
-					 &xfer_mem->has_lookup_sgl);
+		ret = mem_buf_assign_mem(is_lend, xfer_mem->mem_sgt, &arg);
 		if (ret < 0)
 			goto err_assign_mem;
 
@@ -498,8 +496,7 @@ static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem)
 		ret = mem_buf_unassign_mem(xfer_mem->mem_sgt,
 					   xfer_mem->dst_vmids,
 					   xfer_mem->nr_acl_entries,
-					   xfer_mem->hdl,
-					   xfer_mem->has_lookup_sgl);
+					   xfer_mem->hdl);
 		if (ret < 0)
 			return;
 	}
@@ -1576,9 +1573,15 @@ static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 	karg.vmids = vmids;
 	karg.perms = perms;
 
-	ret = mem_buf_lend_internal(dmabuf, &karg, is_lend);
-	if (ret)
-		goto err_lend;
+	if (is_lend) {
+		ret = mem_buf_lend(dmabuf, &karg);
+		if (ret)
+			goto err_lend;
+	} else {
+		ret = mem_buf_share(dmabuf, &karg);
+		if (ret)
+			goto err_lend;
+	}
 
 	uarg->memparcel_hdl = karg.memparcel_hdl;
 err_lend:
