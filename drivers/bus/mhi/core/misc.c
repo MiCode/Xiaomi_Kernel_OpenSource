@@ -534,7 +534,19 @@ EXPORT_SYMBOL(mhi_device_configure);
 
 void mhi_set_m2_timeout_ms(struct mhi_controller *mhi_cntrl, u32 timeout)
 {
-	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+	struct mhi_device *mhi_dev;
+	struct mhi_private *mhi_priv;
+
+	if (!mhi_cntrl)
+		return;
+
+	mhi_dev = mhi_cntrl->mhi_dev;
+	if (!mhi_dev)
+		return;
+
+	mhi_priv = dev_get_drvdata(&mhi_dev->dev);
+	if (!mhi_priv)
+		return;
 
 	mhi_priv->m2_timeout_ms = timeout;
 }
