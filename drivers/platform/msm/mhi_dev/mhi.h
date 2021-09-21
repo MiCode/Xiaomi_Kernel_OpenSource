@@ -496,6 +496,23 @@ struct mhi_dev_channel {
 	bool				skip_td;
 };
 
+/* Structure for mhi device operations */
+struct mhi_dev_ops {
+	int	(*register_state_cb)(void (*mhi_state_cb)
+			(struct mhi_dev_client_cb_data *cb_data),
+			void *data, enum mhi_client_channel channel);
+	int	(*ctrl_state_info)(uint32_t idx, uint32_t *info);
+	int	(*open_channel)(uint32_t chan_id,
+			struct mhi_dev_client **handle,
+			void (*mhi_dev_client_cb_reason)
+				(struct mhi_dev_client_cb_reason *cb));
+	void	(*close_channel)(struct mhi_dev_client *handle);
+	int	(*write_channel)(struct mhi_req *mreq);
+	int	(*read_channel)(struct mhi_req *mreq);
+	int	(*is_channel_empty)(struct mhi_dev_client *handle);
+	bool	(*channel_write_pending)(struct mhi_dev_client *handle);
+};
+
 /* Structure device for mhi dev */
 struct mhi_dev {
 	struct platform_device		*pdev;
@@ -1107,7 +1124,7 @@ int mhi_pcie_config_db_routing(struct mhi_dev *mhi);
  *		exposes device nodes for the supported MHI software
  *		channels.
  */
-int mhi_uci_init(void);
+int mhi_uci_init(struct mhi_dev_ops *dev_ops);
 
 /**
  * mhi_dev_net_interface_init() - Initializes the mhi device network interface
@@ -1115,7 +1132,7 @@ int mhi_uci_init(void);
  *		data packets will transfer between MHI host interface (mhi_swip)
  *		and mhi_dev_net interface using software path
  */
-int mhi_dev_net_interface_init(void);
+int mhi_dev_net_interface_init(struct mhi_dev_ops *dev_ops);
 
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 

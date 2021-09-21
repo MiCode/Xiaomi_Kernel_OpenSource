@@ -402,6 +402,7 @@ struct mhi_uci_ctxt_t {
 	atomic_t mhi_enable_notif_wq_active;
 	struct workqueue_struct *at_ctrl_wq;
 	struct work_struct at_ctrl_work;
+	struct mhi_dev_ops *dev_ops;
 };
 
 #define CHAN_TO_CLIENT(_CHAN_NR) (_CHAN_NR / 2)
@@ -442,7 +443,8 @@ static bool mhi_uci_are_channels_connected(struct uci_client *uci_client)
 	 * information is available and in connected state.
 	 * For all other failure conditions return false.
 	 */
-	rc = mhi_ctrl_state_info(uci_client->in_chan, &info_ch_in);
+	rc = uci_ctxt.dev_ops->ctrl_state_info(uci_client->in_chan,
+								&info_ch_in);
 	if (rc) {
 		uci_log(UCI_DBG_DBG,
 			"Channels %d is not available with %d\n",
@@ -450,7 +452,8 @@ static bool mhi_uci_are_channels_connected(struct uci_client *uci_client)
 		return false;
 	}
 
-	rc = mhi_ctrl_state_info(uci_client->out_chan, &info_ch_out);
+	rc = uci_ctxt.dev_ops->ctrl_state_info(uci_client->out_chan,
+								&info_ch_out);
 	if (rc) {
 		uci_log(UCI_DBG_DBG,
 			"Channels %d is not available with %d\n",
@@ -626,7 +629,7 @@ static int mhi_uci_send_sync(struct uci_client *uci_handle,
 	ureq.chan = uci_handle->out_chan;
 	ureq.mode = DMA_SYNC;
 
-	ret_val = mhi_dev_write_channel(&ureq);
+	ret_val = uci_ctxt.dev_ops->write_channel(&ureq);
 
 	if (ret_val == size)
 		kfree(data_loc);
@@ -656,7 +659,7 @@ static int mhi_uci_send_async(struct uci_client *uci_handle,
 	ureq->client_cb = mhi_uci_write_completion_cb;
 	ureq->snd_cmpl = 1;
 
-	bytes_to_write = mhi_dev_write_channel(ureq);
+	bytes_to_write = uci_ctxt.dev_ops->write_channel(ureq);
 	if (bytes_to_write != size)
 		goto error_async_transfer;
 
@@ -685,7 +688,7 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 			if (uci_handle->f_flags & (O_NONBLOCK | O_NDELAY))
 				return -EAGAIN;
 			ret_val = wait_event_interruptible(uci_handle->write_wq,
-					!mhi_dev_channel_isempty(
+					!uci_ctxt.dev_ops->is_channel_empty(
 					uci_handle->out_handle));
 			if (-ERESTARTSYS == ret_val) {
 				uci_log(UCI_DBG_WARNING,
@@ -789,13 +792,13 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
 	}
 	mask = uci_handle->at_ctrl_mask;
 	if (!atomic_read(&uci_ctxt.mhi_disabled) &&
-		!mhi_dev_channel_isempty(uci_handle->in_handle)) {
+		!uci_ctxt.dev_ops->is_channel_empty(uci_handle->in_handle)) {
 		uci_log(UCI_DBG_VERBOSE,
 		"Client can read chan %d\n", uci_handle->in_chan);
 		mask |= POLLIN | POLLRDNORM;
 	}
 	if (!atomic_read(&uci_ctxt.mhi_disabled) &&
-		!mhi_dev_channel_isempty(uci_handle->out_handle)) {
+		!uci_ctxt.dev_ops->is_channel_empty(uci_handle->out_handle)) {
 		uci_log(UCI_DBG_VERBOSE,
 		"Client can write chan %d\n", uci_handle->out_chan);
 		mask |= POLLOUT | POLLWRNORM;
@@ -870,7 +873,7 @@ static int mhi_uci_read_async(struct uci_client *uci_handle, int *bytes_avail)
 
 	reinit_completion(&uci_handle->read_done);
 
-	*bytes_avail = mhi_dev_read_channel(ureq);
+	*bytes_avail = uci_ctxt.dev_ops->read_channel(ureq);
 	if (*bytes_avail < 0) {
 		uci_log(UCI_DBG_ERROR, "Failed to read channel ret %dlu\n",
 			*bytes_avail);
@@ -927,7 +930,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle, int *bytes_avail)
 	ureq.len = uci_handle->in_buf_list[0].buf_size;
 	ureq.mode = DMA_SYNC;
 
-	*bytes_avail = mhi_dev_read_channel(&ureq);
+	*bytes_avail = uci_ctxt.dev_ops->read_channel(&ureq);
 	uci_log(UCI_DBG_VERBOSE, "buf_size = 0x%lx bytes_read = 0x%x\n",
 		ureq.len, *bytes_avail);
 
@@ -993,13 +996,13 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 		goto handle_not_rdy_err;
 	}
 
-	rc = mhi_dev_open_channel(uci_client->out_chan,
+	rc = uci_ctxt.dev_ops->open_channel(uci_client->out_chan,
 			&uci_client->out_handle,
 			uci_ctxt.event_notifier);
 	if (rc < 0)
 		goto handle_not_rdy_err;
 
-	rc = mhi_dev_open_channel(uci_client->in_chan,
+	rc = uci_ctxt.dev_ops->open_channel(uci_client->in_chan,
 			&uci_client->in_handle,
 			uci_ctxt.event_notifier);
 	if (rc < 0) {
@@ -1015,7 +1018,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 	return 0;
 
 handle_in_err:
-	mhi_dev_close_channel(uci_client->out_handle);
+	uci_ctxt.dev_ops->close_channel(uci_client->out_handle);
 handle_not_rdy_err:
 	mutex_unlock(&uci_client->in_chan_lock);
 	mutex_unlock(&uci_client->out_chan_lock);
@@ -1118,7 +1121,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			iminor(mhi_inode));
 
 	do {
-		if (mhi_dev_channel_has_pending_write(uci_handle->out_handle))
+		if (uci_ctxt.dev_ops->channel_write_pending(uci_handle->out_handle))
 			usleep_range(MHI_UCI_RELEASE_TIMEOUT_MIN,
 				MHI_UCI_RELEASE_TIMEOUT_MAX);
 		else
@@ -1133,12 +1136,12 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	if (atomic_read(&uci_handle->mhi_chans_open)) {
 		atomic_set(&uci_handle->mhi_chans_open, 0);
 		mutex_lock(&uci_handle->out_chan_lock);
-		mhi_dev_close_channel(uci_handle->out_handle);
+		uci_ctxt.dev_ops->close_channel(uci_handle->out_handle);
 		wake_up(&uci_handle->write_wq);
 		mutex_unlock(&uci_handle->out_chan_lock);
 
 		mutex_lock(&uci_handle->in_chan_lock);
-		mhi_dev_close_channel(uci_handle->in_handle);
+		uci_ctxt.dev_ops->close_channel(uci_handle->in_handle);
 		wake_up(&uci_handle->read_wq);
 		mutex_unlock(&uci_handle->in_chan_lock);
 		/*
@@ -1309,7 +1312,7 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 				return -EAGAIN;
 
 			ret_val = wait_event_interruptible(uci_handle->read_wq,
-				(!mhi_dev_channel_isempty(
+				(!uci_ctxt.dev_ops->is_channel_empty(
 					uci_handle->in_handle)));
 
 			if (ret_val == -ERESTARTSYS) {
@@ -1685,7 +1688,7 @@ static void mhi_uci_at_ctrl_read(struct work_struct *work)
 	unsigned int chan;
 	unsigned long compl_ret;
 
-	while (!mhi_dev_channel_isempty(ctrl_client->in_handle)) {
+	while (!uci_ctxt.dev_ops->is_channel_empty(ctrl_client->in_handle)) {
 
 		ctrl_client->pkt_loc = NULL;
 		ctrl_client->pkt_size = 0;
@@ -1991,8 +1994,8 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 		}
 		destroy_workqueue(uci_ctxt.at_ctrl_wq);
 		uci_ctxt.at_ctrl_wq = NULL;
-		mhi_dev_close_channel(client->out_handle);
-		mhi_dev_close_channel(client->in_handle);
+		uci_ctxt.dev_ops->close_channel(client->out_handle);
+		uci_ctxt.dev_ops->close_channel(client->in_handle);
 
 		/* Add back reqs for in-use list, if any, to free list */
 		while (!(list_empty(&client->in_use_list))) {
@@ -2046,7 +2049,7 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 			return -ENOMEM;
 		/* Register channel state change cb with MHI if requested */
 		if (client->out_chan_attr->chan_state_cb)
-			mhi_register_state_cb(
+			uci_ctxt->dev_ops->register_state_cb(
 					client->out_chan_attr->chan_state_cb,
 					client,
 					client->out_chan);
@@ -2061,7 +2064,7 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 	return 0;
 }
 
-int mhi_uci_init(void)
+int mhi_uci_init(struct mhi_dev_ops *dev_ops)
 {
 	u32 i = 0;
 	int ret_val = 0;
@@ -2075,6 +2078,7 @@ int mhi_uci_init(void)
 				"Failed to create IPC logging context\n");
 	}
 	uci_ctxt.event_notifier = uci_event_notifier;
+	uci_ctxt.dev_ops = dev_ops;
 
 	uci_log(UCI_DBG_DBG, "Setting up channel attributes.\n");
 

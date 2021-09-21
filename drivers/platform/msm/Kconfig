@@ -34,6 +34,7 @@ config SPS_SUPPORT_NDP_BAM
 
 config EP_PCIE
 	tristate "PCIe Endpoint mode support"
+	depends on QCOM_PCI_EDMA
 	select GENERIC_ALLOCATOR
 	help
 	  PCIe controller is in endpoint mode.
@@ -41,6 +42,25 @@ config EP_PCIE
 	  clients to enable/disable PCIe link, configure the address
 	  mapping for the access to host memory, trigger wake interrupt
 	  on host side to wake up host, and trigger MSI to host side.
+
+config MSM_MHI_DEV
+        tristate "Modem Device Interface Driver"
+	depends on EP_PCIE
+        help
+          This kernel module is used to interact with PCIe Root complex
+          supporting MHI protocol. MHI is a data transmission protocol
+          involving communication between a host and a device over shared
+          memory. MHI interacts with the IPA for supporting transfers
+	  on the HW accelerated channels between Host and device.
+
+config MSM_MHI_NET_DEV
+        tristate "Modem Device Interface Driver"
+	depends on EP_PCIE
+        help
+          This kernel module enables communication over a MHI channel for
+	  clients by creating a network device. This module interacts
+	  with the MHI device driver to send and receive data to/from a
+	  host.
 
 config IPA3
 	tristate "IPA3 support"
