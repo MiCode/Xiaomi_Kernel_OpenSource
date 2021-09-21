@@ -153,7 +153,13 @@
 						"mmw_pa1",
 						"mmw_pa2",
 						"mmw_pa3",
-						"mmw_ific0";
+						"mmw_ific0",
+						"sub1_modem_cfg",
+						"sub1_lte_cc",
+						"sub1_mcg_fr1_cc",
+						"sub1_mcg_fr2_cc",
+						"sub1_scg_fr1_cc",
+						"sub1_scg_fr2_cc";
 		};
 	};
 };
