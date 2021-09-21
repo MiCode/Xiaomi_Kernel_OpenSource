@@ -743,7 +743,8 @@ static struct qmi_msg_handler cnss_plat_ipc_qmi_req_handlers[] = {
 		.decoded_size =
 			CNSS_PLAT_IPC_QMI_FILE_UPLOAD_REQ_MSG_V01_MAX_MSG_LEN,
 		.fn = cnss_plat_ipc_qmi_file_upload_req_handler,
-	}
+	},
+	{}
 };
 
 /**
