@@ -132,6 +132,8 @@ struct ipa_core_data {
 		void *user_data3);
 
 	int (*ipa_unregister_rmnet_ll_cb)(void);
+	int (*ipa_register_notifier)(void *fn_ptr);
+	int (*ipa_unregister_notifier)(void *fn_ptr);
 	int (*ipa_get_default_aggr_time_limit)(enum ipa_client_type client,
 		u32 *default_aggr_time_limit);
 };
