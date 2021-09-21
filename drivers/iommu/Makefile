@@ -37,3 +37,4 @@ qcom_iommu_util-$(CONFIG_IOMMU_IO_PGTABLE_LPAE) += qcom-io-pgtable-arm.o
 obj-$(CONFIG_QTI_IOMMU_SUPPORT) += iommu-logger.o
 obj-$(CONFIG_QCOM_IOMMU_DEBUG) += qcom_iommu_debug.o
 qcom_iommu_debug-y += qcom-iommu-debug.o qcom-iommu-debug-user.o
+obj-$(CONFIG_APPLE_DART) += apple-dart.o

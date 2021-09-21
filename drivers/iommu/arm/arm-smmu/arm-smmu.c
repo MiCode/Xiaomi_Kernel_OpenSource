@@ -578,9 +578,16 @@ static void arm_smmu_tlb_inv_range_s2(unsigned long iova, size_t size,
 static void arm_smmu_tlb_inv_walk_s1(unsigned long iova, size_t size,
 				     size_t granule, void *cookie)
 {
-	arm_smmu_tlb_inv_range_s1(iova, size, granule, cookie,
-				  ARM_SMMU_CB_S1_TLBIVA);
-	arm_smmu_tlb_sync_context(cookie);
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+
+	if (cfg->flush_walk_prefer_tlbiasid) {
+		arm_smmu_tlb_inv_context_s1(cookie);
+	} else {
+		arm_smmu_tlb_inv_range_s1(iova, size, granule, cookie,
+					  ARM_SMMU_CB_S1_TLBIVA);
+		arm_smmu_tlb_sync_context(cookie);
+	}
 }
 
 static void arm_smmu_tlb_add_page_s1(struct iommu_iotlb_gather *gather,
@@ -1156,9 +1163,8 @@ static int arm_smmu_get_dma_cookie(struct device *dev,
 	struct iommu_domain *domain = &smmu_domain->domain;
 	int ret;
 
-	if (domain->type == IOMMU_DOMAIN_DMA)
-		return iommu_get_dma_cookie(domain);
-	else if (smmu_domain->mapping_cfg.fast) {
+	/* DMA cookie is allocated by the IOMMU core for DMA domains. */
+	if (smmu_domain->mapping_cfg.fast) {
 		ret = fast_smmu_init_mapping(dev, domain, pgtbl_ops);
 		if (ret)
 			return ret;
@@ -1171,9 +1177,8 @@ static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	if (domain->type == IOMMU_DOMAIN_DMA)
-		iommu_put_dma_cookie(domain);
-	else if (smmu_domain->mapping_cfg.fast)
+	/* DMA cookie is freed by the IOMMU core for DMA domains. */
+	if (smmu_domain->mapping_cfg.fast)
 		fast_smmu_put_dma_cookie(domain);
 }
 
@@ -1511,9 +1516,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.iommu_dev	= smmu->dev,
 	};
 
-	if (!iommu_get_dma_strict(domain))
-		pgtbl_cfg->quirks |= IO_PGTABLE_QUIRK_NON_STRICT;
-
 	if (smmu->impl && smmu->impl->init_context) {
 		ret = smmu->impl->init_context(smmu_domain, pgtbl_cfg, dev);
 		if (ret)
@@ -1672,10 +1674,11 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 {
 	struct arm_smmu_domain *smmu_domain;
 
-	if (type != IOMMU_DOMAIN_UNMANAGED &&
-	    type != IOMMU_DOMAIN_DMA &&
-	    type != IOMMU_DOMAIN_IDENTITY)
-		return NULL;
+	if (type != IOMMU_DOMAIN_UNMANAGED && type != IOMMU_DOMAIN_IDENTITY) {
+		if (using_legacy_binding ||
+		    (type != IOMMU_DOMAIN_DMA && type != IOMMU_DOMAIN_DMA_FQ))
+			return NULL;
+	}
 	/*
 	 * Allocate the domain and initialise some of its data structures.
 	 * We can't really do anything meaningful until we've added a
@@ -2505,9 +2508,6 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	phys_addr_t phys;
 
-	if (domain->type == IOMMU_DOMAIN_IDENTITY)
-		return iova;
-
 	if (!ops)
 		return 0;
 
@@ -2706,6 +2706,7 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 	struct iommu_group *group = NULL;
 	int i, idx;
 
+	mutex_lock(&smmu->stream_map_mutex);
 	group = of_get_device_group(dev);
 	if (group)
 		goto finish;
@@ -2715,15 +2716,16 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 		    group != smmu->s2crs[idx].group) {
 			dev_err(dev, "ID:%x IDX:%x is already in a group!\n",
 				fwspec->ids[i], idx);
+			mutex_unlock(&smmu->stream_map_mutex);
 			return ERR_PTR(-EINVAL);
 		}
 
 		group = smmu->s2crs[idx].group;
 	}
 
-	if (group)
+	if (group) {
 		iommu_group_ref_get(group);
-	else {
+	} else {
 		if (dev_is_pci(dev))
 			group = pci_device_group(dev);
 		else if (dev_is_fsl_mc(dev))
@@ -2731,13 +2733,16 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 		else
 			group = generic_device_group(dev);
 
-		if (IS_ERR(group))
+		if (IS_ERR(group)) {
+			mutex_unlock(&smmu->stream_map_mutex);
 			return NULL;
+		}
 	}
 finish:
 	if (!IS_ERR(group) && smmu->impl && smmu->impl->device_group &&
 	    smmu->impl->device_group(dev, group)) {
 		iommu_group_put(group);
+		mutex_unlock(&smmu->stream_map_mutex);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -2746,6 +2751,7 @@ finish:
 		for_each_cfg_sme(cfg, fwspec, i, idx)
 			smmu->s2crs[idx].group = group;
 
+	mutex_unlock(&smmu->stream_map_mutex);
 	return group;
 }
 
@@ -3843,15 +3849,21 @@ static int __maybe_unused arm_smmu_runtime_suspend(struct device *dev)
 
 static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 {
-	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
 	int ret;
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	ret = clk_bulk_prepare(smmu->num_clks, smmu->clks);
+	if (ret)
+		return ret;
 
 	if (pm_runtime_suspended(dev))
 		return 0;
 
 	ret = arm_smmu_runtime_resume(dev);
-	if (ret)
+	if (ret) {
+		clk_bulk_unprepare(smmu->num_clks, smmu->clks);
 		return ret;
+	}
 
 	/*
 	 * QCOM HW supports register retention. So we really only need to
@@ -3859,15 +3871,24 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 	 * runtime_resume to avoid latency.
 	 */
 	arm_smmu_device_reset(smmu);
-	return 0;
+	return ret;
 }
 
 static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
 {
-	if (pm_runtime_suspended(dev))
-		return 0;
+	int ret = 0;
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
 
-	return arm_smmu_runtime_suspend(dev);
+	if (pm_runtime_suspended(dev))
+		goto clk_unprepare;
+
+	ret = arm_smmu_runtime_suspend(dev);
+	if (ret)
+		return ret;
+
+clk_unprepare:
+	clk_bulk_unprepare(smmu->num_clks, smmu->clks);
+	return ret;
 }
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {
