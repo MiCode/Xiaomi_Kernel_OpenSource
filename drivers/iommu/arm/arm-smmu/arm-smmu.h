@@ -407,8 +407,6 @@ struct arm_smmu_device {
 	struct clk_bulk_data		*clks;
 	int				num_clks;
 
-	struct list_head		list;
-
 	spinlock_t			global_sync_lock;
 
 	/* IOMMU core code handle */
