@@ -50,6 +50,14 @@
 		status = "disabled";
 	};
 
+	cam_cc_camss_top_gdsc: qcom,gdsc@adf4004 {
+		compatible = "qcom,gdsc";
+		reg = <0xadf4004 0x4>;
+		regulator-name = "cam_cc_camss_top_gdsc";
+		qcom,retain-regs;
+		status = "disabled";
+	};
+
 	/* DISP_CC GDSCs */
 	disp_cc_mdss_core_gdsc: qcom,gdsc@af09000 {
 		compatible = "qcom,gdsc";
@@ -292,6 +300,14 @@
 		compatible = "qcom,gdsc";
 		reg = <0xaaf8124 0x4>;
 		regulator-name = "video_cc_mvs1c_gdsc";
+		qcom,retain-regs;
+		status = "disabled";
+	};
+
+	video_cc_mvsc_gdsc: qcom,gdsc@aaf5004 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf5004 0x4>;
+		regulator-name = "video_cc_mvsc_gdsc";
 		qcom,retain-regs;
 		status = "disabled";
 	};
