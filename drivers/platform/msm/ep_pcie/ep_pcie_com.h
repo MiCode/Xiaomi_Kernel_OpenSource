@@ -359,6 +359,7 @@ struct ep_pcie_dev_t {
 	bool			     m2_autonomous;
 	bool			     mhi_soc_reset_en;
 	bool			     aoss_rst_clear;
+	bool			     avoid_reboot_in_d3hot;
 	u32                          dbi_base_reg;
 	u32                          slv_space_reg;
 	u32                          phy_status_reg;
