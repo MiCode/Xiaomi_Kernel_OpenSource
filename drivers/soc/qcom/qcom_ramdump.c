@@ -61,7 +61,7 @@ static int qcom_devcd_dump(struct device *dev, void *data, size_t datalen, gfp_t
 	desc->data = data;
 	init_completion(&desc->dump_done);
 
-	dev_coredumpm(dev, NULL, &desc, datalen, gfp, qcom_devcd_readv, qcom_devcd_freev);
+	dev_coredumpm(dev, NULL, desc, datalen, gfp, qcom_devcd_readv, qcom_devcd_freev);
 
 	ret = wait_for_completion_timeout(&desc->dump_done, msecs_to_jiffies(RAMDUMP_TIMEOUT));
 	if (!ret)
