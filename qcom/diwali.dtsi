@@ -22,6 +22,8 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
+		stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
+
 		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none";
 	};
 
@@ -32,7 +34,8 @@
 	aliases {
 		serial0 = &qupv3_se5_2uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
-	};
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+	 };
 
 	firmware: firmware { };
 
@@ -51,6 +54,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -74,6 +78,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD1>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 		};
 
 		CPU2: cpu@200 {
@@ -87,6 +92,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD2>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -105,6 +111,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD3>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 		};
 
 		CPU4: cpu@400 {
@@ -118,6 +125,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -136,6 +144,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -154,6 +163,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD6>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -172,6 +182,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -336,12 +347,6 @@
 		linux,cma-default;
 	};
 
-	aop_cmd_db_mem: aop_cmd_db_region@80860000 {
-		compatible = "qcom,cmd-db";
-		no-map;
-		reg = <0x0 0x80860000 0x0 0x20000>;
-	};
-
 	va_md_mem: va_md_mem_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
@@ -426,6 +431,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		wakeup-parent = <&pdc>;
+		qcom,gpios-reserved = <32 33 34 35>;
 	};
 
 	wdog: qcom,wdt@17410000 {
@@ -517,6 +523,8 @@
 	rpmh-sleep-stats@c3f0000 {
 		compatible = "qcom,rpmh-sleep-stats";
 		reg = <0xc3f0000 0x400>;
+		ss-name = "modem", "adsp", "adsp_island",
+			  "cdsp", "apss", "wpss";
 	};
 
 	subsystem-sleep-stats {
@@ -972,6 +980,17 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_wlan_1_in: qcom,smp2p-wlan-1-in {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		smp2p_wlan_1_out: qcom,smp2p-wlan-1-out {
+			qcom,entry-name = "wlan";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
 	qcom,glinkpkt {
@@ -1240,6 +1259,120 @@
 		};
 	};
 
+	wpss_pas: remoteproc-wpss@8A00000 {
+		compatible = "qcom,diwali-wpss-pas";
+		status = "ok";
+
+		memory-region = <&wpss_mem>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "xo";
+
+		cx-supply = <&VDD_CX_LEVEL>;
+		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		mx-supply = <&VDD_MXA_LEVEL>;
+		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		reg-names = "cx","mx";
+
+		qcom,qmp = <&aoss_qmp>;
+
+		/* Inputs from wpss */
+		interrupts-extended = <&intc GIC_SPI 587 IRQ_TYPE_LEVEL_HIGH>,
+				      <&wpss_smp2p_in 0 0>,
+				      <&wpss_smp2p_in 2 0>,
+				      <&wpss_smp2p_in 1 0>,
+				      <&wpss_smp2p_in 3 0>,
+				      <&wpss_smp2p_in 7 0>;
+
+		interrupt-names = "wdog",
+				   "fatal",
+				   "handover",
+				   "ready",
+				   "stop-ack",
+				   "shutdown-ack";
+
+		/* Outputs to wpss */
+		qcom,smem-states = <&wpss_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
+
+		glink_wpss: wpss {
+			qcom,remote-pid = <13>;
+			transport = "smem";
+			mboxes = <&ipcc_mproc IPCC_CLIENT_WPSS
+				  IPCC_MPROC_SIGNAL_GLINK_QMP>;
+			mbox-names = "wpss_smem";
+			interrupt-parent = <&ipcc_mproc>;
+			interrupts = <IPCC_CLIENT_WPSS
+					  IPCC_MPROC_SIGNAL_GLINK_QMP
+					  IRQ_TYPE_EDGE_RISING>;
+
+			label = "wpss";
+			qcom,glink-label = "wpss";
+
+			qcom,wpss_qrtr {
+				qcom,glink-channels = "IPCRTR";
+				qcom,intents = <0x800  5
+						0x2000 3
+						0x4400 2>;
+			};
+
+		};
+	};
+
+	icnss2: qcom,wcn6750 {
+		compatible = "qcom,wcn6750";
+		reg = <0x17110040 0x0>,
+		      <0xb0000000 0x10000>;
+		reg-names = "msi_addr", "smmu_iova_ipa";
+		qcom,rproc-handle = <&wpss_pas>;
+		interrupts = <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 769 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 770 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 771 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 772 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 773 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 774 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 775 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 776 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 777 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 778 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 779 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 780 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 781 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 782 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 783 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 784 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 785 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 786 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 787 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 788 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 789 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 790 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 791 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 792 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 793 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 794 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 795 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 796 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 797 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 798 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 799 IRQ_TYPE_EDGE_RISING>;
+
+		qcom,iommu-dma = "bypass";
+		qcom,fw-prefix;
+		qcom,wlan;
+		qcom,wlan-msa-fixed-region = <&wlan_fw_mem>;
+		qcom,smem-states = <&smp2p_wlan_1_out 0>;
+		qcom,smem-state-names = "wlan-smp2p-out";
+
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
+	};
+
 	eud: qcom,msm-eud@88e0000 {
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
@@ -1358,6 +1491,45 @@
 			<&gcc GCC_UFS_0_CLKREF_EN>;
 		resets = <&ufshc_mem 0>;
 		status = "disabled";
+	};
+
+	sdhc_2: sdhci@8804000 {
+		status = "disabled";
+
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x08804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <4>;
+		no-sdio;
+		no-mmc;
+		qcom,restore-after-cx-collapse;
+
+		clocks = <&gcc GCC_SDCC2_AHB_CLK>,
+			<&gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface", "core";
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0xA800 0x10
+					0x2C010800 0x80040868>;
+
+		iommus = <&apps_smmu 0x540 0x0>;
+		dma-coherent;
+		qcom,iommu-dma = "fastmap";
+
+		qos0 {
+			mask = <0xf0>;
+			vote = <44>;
+		};
+
+		qos1 {
+			mask = <0x0f>;
+			vote = <44>;
+		};
 	};
 
 	ufshc_mem: ufshc@1d84000 {
@@ -1480,15 +1652,30 @@
 			vote = <44>;
 		};
 	};
+
+	thermal_zones: thermal-zones {
+	};
+
+	qcom,mem-buf-msgq {
+		compatible = "qcom,mem-buf-msgq";
+	};
+
+	qcom,mem-buf {
+		compatible = "qcom,mem-buf";
+		qcom,mem-buf-capabilities = "supplier";
+		qcom,vmid = <3>;
+	};
 };
 
 #include "diwali-qupv3.dtsi"
 #include "diwali-debug.dtsi"
+#include "diwali-coresight.dtsi"
 #include "diwali-pinctrl.dtsi"
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 #include "ipcc-test-diwali.dtsi"
 #include "msm-arm-smmu-diwali.dtsi"
+#include "diwali-thermal.dtsi"
 
 &qupv3_se5_2uart {
 	status = "ok";

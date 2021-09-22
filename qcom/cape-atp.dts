@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape.dtsi"
+#include "cape-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape ATP";
+	compatible = "qcom,cape-atp", "qcom,cape", "qcom,atp";
+	qcom,board-id = <33 0>;
+};

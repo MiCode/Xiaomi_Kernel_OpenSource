@@ -171,6 +171,9 @@
 
 &qupv3_se4_spi {
 	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
 	qcom,spi-touch-active = "focaltech,fts_ts";
 	qcom,la-vm;
 
@@ -198,8 +201,10 @@
 		focaltech,touch-environment = "pvm";
 		focaltech,trusted-touch-type = "primary";
 		focaltech,trusted-touch-spi-irq = <754>;
-		focaltech,trusted-touch-io-bases = <0xF110000 0xF111000 0xF112000 0xF113000 0xF114000 0xF115000 0x990000 0x00910000>;
-		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+		focaltech,trusted-touch-io-bases = <0x990000 0x910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x4000>;
+		focaltech,trusted-touch-vm-gpio-list = <&tlmm 16 0 &tlmm 17 0 &tlmm 18 0
+						&tlmm 19 0 &tlmm 20 0 &tlmm 21 0x2008>;
 	};
 };
 
@@ -276,12 +281,4 @@
 			};
 		};
 	};
-};
-
-&ibat_lvl0 {
-	temperature = <9000>;
-};
-
-&ibat_lvl1 {
-	temperature = <10000>;
 };

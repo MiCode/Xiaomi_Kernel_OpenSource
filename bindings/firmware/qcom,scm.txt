@@ -24,6 +24,7 @@ Required properties:
  * "qcom,scm-sm8150"
  and:
  * "qcom,scm"
+ * "qcom,scm-v1.1" for firmwares that support waitqueue-based operation.
  * "android,firmware" for firmware image
  * "android,vbmeta" for setting system properties for verified boot.
 - clocks: Specifies clocks needed by the SCM interface, if any:

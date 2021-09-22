@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "cape.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape SoC";
+	compatible = "qcom,cape";
+	qcom,board-id = <0 0>;
+};

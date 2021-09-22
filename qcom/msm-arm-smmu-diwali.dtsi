@@ -203,6 +203,7 @@
 				<0x151ce200 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x0 0x400>;
+			qcom,micro-idle;
 		};
 
 		anoc_2_tbu: anoc_2_tbu@151d5000 {
@@ -211,6 +212,7 @@
 				<0x151ce208  0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x400 0x400>;
+			qcom,micro-idle;
 		};
 
 		mnoc_hf_0_tbu: mnoc_hf_0_tbu@151d9000 {
@@ -219,6 +221,7 @@
 				<0x151ce210 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x800 0x400>;
+			qcom,micro-idle;
 		};
 
 		mnoc_hf_1_tbu: mnoc_hf_1_tbu@151dd000 {
@@ -227,6 +230,7 @@
 				<0x151ce218 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0xc00 0x400>;
+			qcom,micro-idle;
 		};
 
 		compute_1_tbu: compute_1_tbu@151e1000 {
@@ -235,6 +239,7 @@
 				<0x151ce220 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1000 0x400>;
+			qcom,micro-idle;
 		};
 
 		compute_0_tbu: compute_0_tbu@151e5000 {
@@ -243,6 +248,7 @@
 				<0x151ce228 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1400 0x400>;
+			qcom,micro-idle;
 		};
 
 		lpass_tbu: lpass_tbu@151e9000 {
@@ -251,6 +257,7 @@
 				<0x151ce230 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1800 0x400>;
+			qcom,micro-idle;
 		};
 
 		pcie_tbu: pcie_tbu@151ed000 {
@@ -259,6 +266,7 @@
 				<0x151ce238 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1c00 0x400>;
+			qcom,micro-idle;
 		};
 
 		sf_0_tbu: sf_0_tbu@151f1000 {
@@ -267,6 +275,7 @@
 				<0x151ce240 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2000 0x400>;
+			qcom,micro-idle;
 		};
 
 		sf_1_tbu: sf_1_tbu@151f5000 {
@@ -275,6 +284,7 @@
 				<0x151ce248 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2400 0x400>;
+			qcom,micro-idle;
 		};
 
 		mnoc_hf_2_tbu: mnoc_hf_1_tbu@151f9000 {
@@ -283,6 +293,7 @@
 				<0x151ce250 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2800 0x400>;
+			qcom,micro-idle;
 		};
 
 		mnoc_hf_3_tbu: mnoc_hf_3_tbu@151fd000 {
@@ -291,6 +302,7 @@
 				<0x151ce258 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2c00 0x400>;
+			qcom,micro-idle;
 		};
 	};
 

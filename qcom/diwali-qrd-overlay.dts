@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "diwali-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali QRD";
+	compatible = "qcom,diwali-qrd", "qcom,diwali", "qcom,qrd";
+	qcom,msm-id = <506 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+};

@@ -21,6 +21,7 @@ Properties:
 		    - "qcom,sc7180-pdc": For SC7180
 		    - "qcom,sdm845-pdc": For SDM845
 		    - "qcom,diwali-pdc": For Diwali
+		    - "qcom,cape-pdc": For Cape
 
 - reg:
 	Usage: required

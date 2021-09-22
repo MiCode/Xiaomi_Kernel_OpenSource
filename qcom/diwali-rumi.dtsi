@@ -1,4 +1,5 @@
 #include <dt-bindings/clock/qcom,gcc-diwali.h>
+#include <dt-bindings/gpio/gpio.h>
 
 &soc {
 	timer {
@@ -34,6 +35,26 @@
 		     0x0 0x3c
 		     0x0 0x4>;
 	};
+};
+
+&sdhc_2 {
+	status = "ok";
+	vdd-supply = <&L9C>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6C>;
+	qcom,vdd-io-voltage-level = <2960000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	cap-sd-highspeed;
+	max-frequency = <100000000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
 };
 
 &gcc {
@@ -143,3 +164,12 @@
 
 	status = "ok";
 };
+
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};
+

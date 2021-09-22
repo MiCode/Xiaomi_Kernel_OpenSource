@@ -26,7 +26,8 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 irqaffinity=0-3 ftrace_dump_on_oops pstore.compress=none";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 irqaffinity=0-3 ftrace_dump_on_oops pstore.compress=none fsa4480_i2c.async_probe=1";
+		stdout-path = "/soc/qcom,qup_uart@99c000:115200n8";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -557,6 +558,14 @@
 		reusable;
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 		size = <0x0 0xa400000>;
+		alignment = <0x0 0x400000>;
+	};
+
+	demura_heap_memory: demura_heap_region {
+		compatible = "shared-dma-pool";
+		reusable;
+		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
+		size = <0x0 0x2800000>;
 		alignment = <0x0 0x400000>;
 	};
 
@@ -1236,7 +1245,7 @@
 	tlmm-vm-mem-access {
 		compatible = "qcom,tlmm-vm-mem-access";
 		qcom,master;
-		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388>;
+		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388 317 318 319 320 321 322>;
 	};
 
 	qcom,gh_vm_loader_sec@e0b00000 {
@@ -1674,6 +1683,10 @@
 		};
 	};
 
+	qcom,glink {
+		compatible = "qcom,glink";
+	};
+
 	qcom,qsee_ipc_irq_bridge {
 		compatible = "qcom,qsee-ipc-irq-bridge";
 
@@ -1693,6 +1706,13 @@
 		gunyah-label = <3>;
 		peer-name = <2>;
 		shared-buffer = <&trust_ui_vm_qrtr>;
+	};
+
+	gunyah-vsock {
+		compatible = "qcom,gunyah-vsock";
+		qcom,master;
+		peer-name = <2>;
+		msgq-label = <3>;
 	};
 
 	/* CAM_CC GDSCs */
@@ -3044,8 +3064,6 @@
 		qcom,pmu-events-tbl =
 			< 0x0008 0xFF 0x02 0xFF >,
 			< 0x0011 0xFF 0x01 0xFF >,
-			< 0x0023 0xFF 0xFF 0xFF >,
-			< 0x4005 0xFF 0x03 0xFF >,
 			< 0x0017 0xFF 0xFF 0xFF >,
 			< 0x002A 0xFF 0xFF 0xFF >,
 			< 0x1000 0xFF 0xFF 0xFF >;
@@ -3159,8 +3177,6 @@
 
 	qcom_memlat: qcom,memlat {
 		compatible = "qcom,memlat";
-		qcom,be-stall-ev = <0x4005>;
-		qcom,fe-stall-ev = <0x23>;
 
 		ddr {
 			compatible = "qcom,memlat-grp";
@@ -3399,6 +3415,8 @@
 
 	qcom,msm_gsi {
 		compatible = "qcom,msm_gsi";
+		qcom,num-msi = <2>;
+		msi-parent = <&gic_its 0x5480>;
 	};
 
 	qcom,rmnet-ipa {
@@ -3511,6 +3529,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,platform-type = <1>; /* MSM platform */
 		qcom,ee = <0>;
+		qcom,entire-ipa-block-size = <0x200000>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
@@ -3531,6 +3550,9 @@
 		qcom,ipa-holb-monitor-max-cnt-wlan = <10>;
 		qcom,ipa-holb-monitor-max-cnt-usb = <10>;
 		qcom,ipa-holb-monitor-max-cnt-11ad = <10>;
+		qcom,register-collection-on-crash;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
 		qcom,tx-wrapper-cache-max-size = <400>;
 		qcom,ipa-gpi-event-rp-ddr;
 		qcom,ulso-supported;
