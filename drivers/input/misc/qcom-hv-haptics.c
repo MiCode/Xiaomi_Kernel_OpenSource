@@ -3592,7 +3592,6 @@ static int haptics_create_debugfs(struct haptics_chip *chip)
 
 	debugfs_create_u32("fifo_empty_thresh", 0600, hap_dir,
 			&chip->config.fifo_empty_thresh);
-
 	chip->debugfs_dir = hap_dir;
 	return 0;
 
