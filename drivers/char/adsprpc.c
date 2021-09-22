@@ -947,7 +947,7 @@ static int fastrpc_ramdump(struct device *dev, struct qcom_dump_segment *ramdump
 	INIT_LIST_HEAD(&head);
 	list_add(&ramdump_seg->node, &head);
 	if (type)
-		err = qcom_elf_dump(&head, dev);
+		err = qcom_elf_dump(&head, dev, ELF_CLASS);
 	else
 		err = qcom_dump(&head, dev);
 
@@ -4829,7 +4829,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 					(void *)match->va;
 					ramdump_segments_rh->size = match->size;
 					list_add(&ramdump_segments_rh->node, &head);
-					ret = qcom_elf_dump(&head, me->ramdump_handle);
+					ret = qcom_elf_dump(&head, me->ramdump_handle, ELF_CLASS);
 					if (ret < 0)
 						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 							__func__, ret);
