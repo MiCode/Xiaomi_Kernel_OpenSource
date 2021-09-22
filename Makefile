@@ -418,6 +418,11 @@ ifeq ($(ARCH),sparc64)
        SRCARCH := sparc
 endif
 
+# Additional ARCH settings for parisc
+ifeq ($(ARCH),parisc64)
+       SRCARCH := parisc
+endif
+
 export cross_compiling :=
 ifneq ($(SRCARCH),$(SUBARCH))
 cross_compiling := 1
@@ -856,6 +861,11 @@ endif
 # While VLAs have been removed, GCC produces unreachable stack probes
 # for the randomize_kstack_offset feature. Disable it for all compilers.
 KBUILD_CFLAGS	+= $(call cc-option, -fno-stack-clash-protection)
+
+# Clear used registers at func exit (to reduce data lifetime and ROP gadgets).
+ifdef CONFIG_ZERO_CALL_USED_REGS
+KBUILD_CFLAGS	+= -fzero-call-used-regs=used-gpr
+endif
 
 DEBUG_CFLAGS	:=
 

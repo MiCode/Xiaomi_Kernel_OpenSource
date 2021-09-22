@@ -4,7 +4,8 @@ ifeq (y, $(filter y, $(CONFIG_DRM_MEDIATEK_V2)))
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek_v2/
 else
 
-mediatek-drm-y := mtk_disp_ccorr.o \
+mediatek-drm-y := mtk_disp_aal.o \
+		  mtk_disp_ccorr.o \
 		  mtk_disp_color.o \
 		  mtk_disp_gamma.o \
 		  mtk_disp_ovl.o \

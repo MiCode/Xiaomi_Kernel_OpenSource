@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018 MediaTek Inc.
- *
+ * Copyright (c) 2021 MediaTek Inc.
+ * Author: Jason-JH Lin <jason0jh.lin@mediatek.com>
  */
 
 #ifndef _DT_BINDINGS_GCE_MT8195_H
@@ -53,35 +53,25 @@
 #define SUBSYS_1c60XXXX		25
 #define SUBSYS_NO_SUPPORT	99
 
-/* GCE General Purpose Register (GPR) support
- * Leave note for scenario usage here
- */
-/* GCE: write mask */
-#define GCE_GPR_R00		0x00
-#define GCE_GPR_R01		0x01
-/* MDP: P1: JPEG dest */
-#define GCE_GPR_R02		0x02
-#define GCE_GPR_R03		0x03
-/* MDP: PQ color */
-#define GCE_GPR_R04		0x04
-/* MDP: 2D sharpness */
-#define GCE_GPR_R05		0x05
-/* DISP: poll esd */
-#define GCE_GPR_R06		0x06
-#define GCE_GPR_R07		0x07
-/* MDP: P4: 2D sharpness dst */
-#define GCE_GPR_R08		0x08
-#define GCE_GPR_R09		0x09
-/* VCU: poll with timeout for GPR timer */
-#define GCE_GPR_R10		0x0A
-#define GCE_GPR_R11		0x0B
-/* CMDQ: debug */
-#define GCE_GPR_R12		0x0C
-#define GCE_GPR_R13		0x0D
-/* CMDQ: P7: debug */
-#define GCE_GPR_R14		0x0E
-#define GCE_GPR_R15		0x0F
+/* GCE General Purpose Register (GPR) support */
+#define GCE_GPR_R00		0x0
+#define GCE_GPR_R01		0x1
+#define GCE_GPR_R02		0x2
+#define GCE_GPR_R03		0x3
+#define GCE_GPR_R04		0x4
+#define GCE_GPR_R05		0x5
+#define GCE_GPR_R06		0x6
+#define GCE_GPR_R07		0x7
+#define GCE_GPR_R08		0x8
+#define GCE_GPR_R09		0x9
+#define GCE_GPR_R10		0xa
+#define GCE_GPR_R11		0xb
+#define GCE_GPR_R12		0xc
+#define GCE_GPR_R13		0xd
+#define GCE_GPR_R14		0xe
+#define GCE_GPR_R15		0xf
 
+/* GCE hw event id */
 #define CMDQ_EVENT_CQ_THR_DONE_TRAW0_0	1
 #define CMDQ_EVENT_CQ_THR_DONE_TRAW0_1	2
 #define CMDQ_EVENT_CQ_THR_DONE_TRAW0_2	3
@@ -811,11 +801,11 @@
 #define CMDQ_EVENT_WPE_VPP1_WPE_GCE_FRAME_DONE	969
 #define CMDQ_EVENT_WPE_VPP1_WPE_DONE_SYNC_OUT	970
 
-#define CMDQ_EVENT_DP_TX_VBLANK_FALLING	994 /* exception */
-#define CMDQ_EVENT_DP_TX_VSC_FINISH	995 /* exception */
+#define CMDQ_EVENT_DP_TX_VBLANK_FALLING	994
+#define CMDQ_EVENT_DP_TX_VSC_FINISH	995
 
-#define CMDQ_EVENT_OUTPIN_0	1018 /* exception */
-#define CMDQ_EVENT_OUTPIN_1	1019 /* exception */
+#define CMDQ_EVENT_OUTPIN_0	1018
+#define CMDQ_EVENT_OUTPIN_1	1019
 
 /* end of hw event */
 #define CMDQ_MAX_HW_EVENT				1019
