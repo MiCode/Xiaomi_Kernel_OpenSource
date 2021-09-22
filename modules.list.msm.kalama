@@ -25,7 +25,6 @@ qcom-reboot-reason.ko
 qcom-scm.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
-qcom_iommu_debug.ko
 qcom_iommu_util.ko
 qcom_ipcc.ko
 qcom_rpmh.ko
