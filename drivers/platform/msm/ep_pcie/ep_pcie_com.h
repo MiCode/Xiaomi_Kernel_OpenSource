@@ -411,7 +411,6 @@ struct ep_pcie_dev_t {
 	bool			     conf_ipa_msi_iatu;
 
 	struct ep_pcie_register_event *event_reg;
-	struct work_struct	     handle_perst_work;
 	struct work_struct           handle_bme_work;
 	struct work_struct           handle_d3cold_work;
 
