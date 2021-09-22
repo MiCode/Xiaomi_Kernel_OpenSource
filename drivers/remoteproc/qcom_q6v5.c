@@ -67,6 +67,8 @@ static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 
 	mutex_lock(&rproc->lock);
 
+	rproc->state = RPROC_CRASHED;
+
 	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->stop)
 			subdev->stop(subdev, true);
