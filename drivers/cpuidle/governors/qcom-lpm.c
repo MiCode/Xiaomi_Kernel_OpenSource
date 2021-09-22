@@ -650,8 +650,12 @@ static void lpm_idle_enter(void *unused, int *state, struct cpuidle_device *dev)
  */
 static void lpm_idle_exit(void *unused, int state, struct cpuidle_device *dev)
 {
-	histtimer_cancel();
-	biastimer_cancel();
+	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, dev->cpu);
+
+	if (cpu_gov->enable) {
+		histtimer_cancel();
+		biastimer_cancel();
+	}
 }
 
 /**
