@@ -630,8 +630,6 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 {
 	int rc = 0;
 
-	atomic_set(&fts_data->trusted_touch_transition, 1);
-
 	if (atomic_read(&fts_data->trusted_touch_abort_status)) {
 		fts_ts_trusted_touch_abort_tvm(fts_data);
 		return;
@@ -673,7 +671,6 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 					TVM_IOMEM_RELEASED);
 	}
 	fts_ts_trusted_touch_set_tvm_driver_state(fts_data, TRUSTED_TOUCH_TVM_INIT);
-	atomic_set(&fts_data->trusted_touch_transition, 0);
 	atomic_set(&fts_data->trusted_touch_enabled, 0);
 	pr_info("trusted touch disabled\n");
 	return;
