@@ -160,6 +160,118 @@ static const struct attribute_group mhi_misc_group = {
 	.attrs = mhi_misc_attrs,
 };
 
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_private *mhi_priv =
+				dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+
+	if (!(mhi_cntrl->db_access & MHI_PM_M2))
+		flush_work(&mhi_priv->reg_write_work);
+}
+
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_private *mhi_priv =
+				dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+
+	if (mhi_cntrl->db_access & MHI_PM_M2)
+		return;
+
+	cancel_work_sync(&mhi_priv->reg_write_work);
+	memset(mhi_priv->reg_write_q, 0,
+	       sizeof(struct reg_write_info) * REG_WRITE_QUEUE_LEN);
+	mhi_priv->read_idx = 0;
+	atomic_set(&mhi_priv->write_idx, -1);
+}
+
+static void mhi_reg_write_enqueue(struct mhi_private *mhi_priv,
+	void __iomem *reg_addr, u32 val)
+{
+	struct mhi_controller *mhi_cntrl = mhi_priv->mhi_cntrl;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+
+	u32 q_index = atomic_inc_return(&mhi_priv->write_idx);
+
+	q_index = q_index & (REG_WRITE_QUEUE_LEN - 1);
+
+	if (mhi_priv->reg_write_q[q_index].valid) {
+		MHI_ERR("queue full idx %d", q_index);
+		panic("queue full idx %d", q_index);
+	}
+
+	mhi_priv->reg_write_q[q_index].reg_addr = reg_addr;
+	mhi_priv->reg_write_q[q_index].val = val;
+
+	/*
+	 * prevent reordering to make sure val is set before valid is set to
+	 * true. This prevents offload worker running on another core to write
+	 * stale value to register with valid set to true.
+	 */
+	smp_wmb();
+
+	mhi_priv->reg_write_q[q_index].valid = true;
+
+	/*
+	 * make sure valid value is visible to other cores to prevent offload
+	 * worker from skipping the reg write.
+	 */
+	 smp_wmb();
+}
+
+void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
+		   void __iomem *base,
+		   u32 offset,
+		   u32 val)
+{
+	struct mhi_private *mhi_priv =
+				dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+
+	mhi_reg_write_enqueue(mhi_priv, base + offset, val);
+	queue_work(mhi_cntrl->hiprio_wq, &mhi_priv->reg_write_work);
+}
+
+void mhi_write_offload_wakedb(struct mhi_controller *mhi_cntrl, int db_val)
+{
+	mhi_write_reg_offload(mhi_cntrl, mhi_cntrl->wake_db, 4,
+			      upper_32_bits(db_val));
+	mhi_write_reg_offload(mhi_cntrl, mhi_cntrl->wake_db, 0,
+			      lower_32_bits(db_val));
+}
+
+void mhi_reg_write_work(struct work_struct *w)
+{
+	struct mhi_private *mhi_priv = container_of(w,
+						struct mhi_private,
+						reg_write_work);
+	struct mhi_controller *mhi_cntrl = mhi_priv->mhi_cntrl;
+	struct pci_dev *parent = to_pci_dev(mhi_cntrl->cntrl_dev);
+	struct reg_write_info *info =
+				&mhi_priv->reg_write_q[mhi_priv->read_idx];
+
+	if (!info->valid)
+		return;
+
+	if (!mhi_is_active(mhi_cntrl))
+		return;
+
+	if (msm_pcie_prevent_l1(parent))
+		return;
+
+	while (info->valid) {
+		if (!mhi_is_active(mhi_cntrl))
+			break;
+
+		writel_relaxed(info->val, info->reg_addr);
+		info->valid = false;
+		mhi_priv->read_idx =
+				(mhi_priv->read_idx + 1) &
+						(REG_WRITE_QUEUE_LEN - 1);
+		info = &mhi_priv->reg_write_q[mhi_priv->read_idx];
+	}
+
+	msm_pcie_allow_l1(parent);
+}
+
 int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
@@ -190,6 +302,19 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	dev_set_drvdata(dev, mhi_priv);
 
+	INIT_WORK(&mhi_priv->reg_write_work, mhi_reg_write_work);
+
+	mhi_priv->reg_write_q = kcalloc(REG_WRITE_QUEUE_LEN,
+					sizeof(*mhi_priv->reg_write_q),
+					GFP_KERNEL);
+	if (!mhi_priv->reg_write_q) {
+		if (mhi_priv->log_buf)
+			ipc_log_context_destroy(mhi_priv->log_buf);
+		return -ENOMEM;
+	}
+
+	atomic_set(&mhi_priv->write_idx, -1);
+
 	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
 	if (ret)
 		MHI_ERR("Failed to create misc sysfs group\n");
@@ -215,6 +340,8 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 
 	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
 	sysfs_remove_group(&dev->kobj, &mhi_misc_group);
+
+	kfree(mhi_priv->reg_write_q);
 
 	if (mhi_priv->sfr_info)
 		kfree(mhi_priv->sfr_info->str);
@@ -584,6 +711,9 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	mhi_cntrl->M3_fast++;
 
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* finish reg writes before DRV hand-off to avoid noc err */
+	mhi_force_reg_write(mhi_cntrl);
 
 	/* enable primary event ring processing and check for events */
 	tasklet_enable(&mhi_cntrl->mhi_event->task);

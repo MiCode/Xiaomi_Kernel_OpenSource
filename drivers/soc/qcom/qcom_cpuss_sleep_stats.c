@@ -394,18 +394,23 @@ static const struct file_operations qcom_cpuss_stats_reset_fops = {
 	.write		= qcom_cpuss_stats_reset_write,
 };
 
-static void store_stats_data(struct qcom_target_info *t_info, char *str,
+static int store_stats_data(struct qcom_target_info *t_info, char *str,
 			     void __iomem *reg)
 {
 	struct qcom_cpuss_stats *store_stats_data;
 
 	store_stats_data = devm_kzalloc(&t_info->pdev->dev, sizeof(*store_stats_data),
 					GFP_KERNEL);
+	if (!store_stats_data)
+		return -ENOMEM;
+
 	store_stats_data->reg = reg;
 	strlcpy(store_stats_data->mode_name, str,
 		sizeof(store_stats_data->mode_name));
 
 	list_add_tail(&store_stats_data->node, &t_info->complete_stats.node);
+
+	return 0;
 }
 
 static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_info,
@@ -414,7 +419,7 @@ static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_
 	void __iomem *reg, *base;
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
-	int bit;
+	int bit, ret;
 	char cpu_name[CPUNAME_SZ] = {0}, stats_name[STATS_NAME_SZ] = {0}, *state;
 
 	snprintf(cpu_name, sizeof(cpu_name), "pcpu%u", cpu);
@@ -441,7 +446,9 @@ static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_
 						    &qcom_cpuss_sleep_stats_fops);
 				snprintf(stats_name, sizeof(stats_name),
 					 "pcpu%u: %s", cpu, state);
-				store_stats_data(t_info, stats_name, reg);
+				ret = store_stats_data(t_info, stats_name, reg);
+				if (ret)
+					return ret;
 			}
 		}
 	}
@@ -455,7 +462,7 @@ static int qcom_cpuss_sleep_stats_create_cluster_debugfs(struct qcom_target_info
 	void __iomem *reg, *base;
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
-	int bit;
+	int bit, ret;
 	char *state;
 
 	t_info->cl_rootdir = debugfs_create_dir("L3", t_info->stats_rootdir);
@@ -480,7 +487,9 @@ static int qcom_cpuss_sleep_stats_create_cluster_debugfs(struct qcom_target_info
 						    t_info->cl_rootdir,
 						    (void *) reg,
 						    &qcom_cpuss_sleep_stats_fops);
-				store_stats_data(t_info, state, reg);
+				ret = store_stats_data(t_info, state, reg);
+				if (ret)
+					return ret;
 			}
 		}
 	}
@@ -494,7 +503,7 @@ static int qcom_cpuss_sleep_stats_create_cpu_residency_debugfs(struct qcom_targe
 	void __iomem *reg, *base;
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
-	int bit;
+	int bit, ret;
 	char stats_name[STATS_NAME_SZ] = {0}, *state;
 
 	base = devm_ioremap(&pdev->dev, t_info->apss_seq_mem_base,
@@ -517,7 +526,9 @@ static int qcom_cpuss_sleep_stats_create_cpu_residency_debugfs(struct qcom_targe
 						    &qcom_cpuss_sleep_stats_fops);
 				snprintf(stats_name, sizeof(stats_name),
 					 "pcpu%u: %s", cpu, state);
-				store_stats_data(t_info, stats_name, reg);
+				ret = store_stats_data(t_info, stats_name, reg);
+				if (ret)
+					return ret;
 			}
 		}
 	}
@@ -531,7 +542,7 @@ static int qcom_cpuss_sleep_stats_create_cl_residency_debugfs(struct qcom_target
 	void __iomem *reg;
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
-	int bit;
+	int bit, ret;
 	char *state;
 
 	for (bit = 0; bit < MAX_CL_RESIDENCY_BITS; bit += 2) {
@@ -550,7 +561,9 @@ static int qcom_cpuss_sleep_stats_create_cl_residency_debugfs(struct qcom_target
 			debugfs_create_file(state, 0444, t_info->cl_rootdir,
 					    (void *) reg,
 					    &qcom_cpuss_sleep_stats_fops);
-			store_stats_data(t_info, state, reg);
+			ret = store_stats_data(t_info, state, reg);
+			if (ret)
+				return ret;
 		}
 		}
 	}

@@ -4478,6 +4478,17 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc = host->mmc;
 	msm_host->pdev = pdev;
 
+	/**
+	 * System resume triggers a card detect interrupt even when there's no
+	 * card inserted. Core layer acquires the registered wakeup source for
+	 * 5s thus preventing system suspend for 5s at least.
+	 * Disable this wakesource until this is sorted out.
+	 */
+	if ((host->mmc->ws) && !(host->mmc->caps & MMC_CAP_NONREMOVABLE)) {
+		wakeup_source_unregister(host->mmc->ws);
+		host->mmc->ws = NULL;
+	}
+
 	ret = mmc_of_parse(host->mmc);
 	if (ret)
 		goto pltfm_free;

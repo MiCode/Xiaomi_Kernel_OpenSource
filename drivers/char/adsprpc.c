@@ -1084,6 +1084,13 @@ skip_buf_cache:
 			goto bail;
 		if (fl->sctx->smmu.cb)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
+		VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+		if (err) {
+			ADSPRPC_ERR(
+				"invalid channel 0x%zx set for session\n",
+				fl->cid);
+			goto bail;
+		}
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
 			int srcVM[2] = {VMID_HLOS, vmid};
@@ -1740,6 +1747,12 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_buf *buf = NULL;
 
+	VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
+
 	VERIFY(err, size > 0 && size < me->max_size_limit);
 	if (err) {
 		err = -EFAULT;
@@ -1748,7 +1761,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		goto bail;
 	}
 
-	VERIFY(err, fl->sctx != NULL);
+	VERIFY(err, fl && fl->sctx != NULL);
 	if (err) {
 		err = -EBADR;
 		goto bail;
@@ -2165,9 +2178,18 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
 	int cid = ctx->fl->cid;
-	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
+	int err = 0;
 
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		ADSPRPC_ERR(
+			"invalid channel 0x%zx set for session\n",
+								cid);
+		return;
+	}
+	chan = &me->channel[cid];
 	i = (uint32_t)GET_TABLE_IDX_FROM_CTXID(ctx->ctxid);
 
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
@@ -3465,7 +3487,7 @@ read_async_job:
 		break;
 	}
 	spin_unlock_irqrestore(&fl->aqlock, flags);
-	if (fl->profile)
+	if (fl->profile && ctx)
 		perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
 	if (ctx) {
 		fastrpc_wait_for_completion(ctx, &interrupted, 0, 1,
@@ -4873,7 +4895,7 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 			"user application %s trying to unmap without initialization\n",
 			current->comm);
 		err = -EHOSTDOWN;
-		goto bail;
+		return err;
 	}
 	mutex_lock(&fl->internal_map_mutex);
 
@@ -5402,6 +5424,20 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
+	spin_lock(&me->hlock);
+	if (fl->device) {
+		fl->device->dev_close = true;
+		if (fl->device->refs == 0) {
+			is_driver_closed = true;
+			hlist_del_init(&fl->device->hn);
+		}
+	}
+	spin_unlock(&me->hlock);
+
+	spin_lock(&fl->hlock);
+	fl->file_close = 1;
+	spin_unlock(&fl->hlock);
+
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock(&fl->apps->hlock);
@@ -5424,19 +5460,6 @@ skip_dump_wait:
 		return 0;
 	}
 
-	spin_lock(&me->hlock);
-	if (fl->device) {
-		fl->device->dev_close = true;
-		if (fl->device->refs == 0) {
-			is_driver_closed = true;
-			hlist_del_init(&fl->device->hn);
-		}
-	}
-	spin_unlock(&me->hlock);
-
-	spin_lock(&fl->hlock);
-	fl->file_close = 1;
-	spin_unlock(&fl->hlock);
 	//Dummy wake up to exit Async worker thread
 	spin_lock_irqsave(&fl->aqlock, flags);
 	atomic_add(1, &fl->async_queue_job_count);
@@ -6781,7 +6804,8 @@ static void  fastrpc_print_debug_data(int cid)
 	scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 			MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 			"gmsg_log_rx:\n %s\n", gmsg_log_rx);
-	chan->buf->size = strlen(mini_dump_buff);
+	if (chan)
+		chan->buf->size = strlen(mini_dump_buff);
 	kfree(gmsg_log_tx);
 	kfree(gmsg_log_rx);
 }

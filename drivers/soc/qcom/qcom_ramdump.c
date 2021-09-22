@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -16,6 +16,13 @@
 #include <linux/devcoredump.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
+#define RAMDUMP_TIMEOUT 120000
+
+struct qcom_ramdump_desc {
+	void *data;
+	struct completion dump_done;
+};
+
 static int enable_dump_collection;
 module_param(enable_dump_collection, int, 0644);
 
@@ -24,6 +31,39 @@ bool dump_enabled(void)
 	return enable_dump_collection;
 }
 EXPORT_SYMBOL(dump_enabled);
+
+static ssize_t qcom_devcd_readv(char *buffer, loff_t offset, size_t count,
+			   void *data, size_t datalen)
+{
+	struct qcom_ramdump_desc *desc = data;
+
+	return memory_read_from_buffer(buffer, count, &offset, desc->data, datalen);
+}
+
+static void qcom_devcd_freev(void *data)
+{
+	struct qcom_ramdump_desc *desc = data;
+
+	vfree(desc->data);
+	complete(&desc->dump_done);
+}
+
+static int qcom_devcd_dump(struct device *dev, void *data, size_t datalen, gfp_t gfp)
+{
+	struct qcom_ramdump_desc desc;
+	int ret;
+
+	desc.data = data;
+	init_completion(&desc.dump_done);
+
+	dev_coredumpm(dev, NULL, &desc, datalen, gfp, qcom_devcd_readv, qcom_devcd_freev);
+
+	ret = wait_for_completion_timeout(&desc.dump_done, msecs_to_jiffies(RAMDUMP_TIMEOUT));
+	if (!ret)
+		dev_err(dev, "ramdump collection timed out\n");
+
+	return ret ? 0 : -ETIMEDOUT;
+}
 
 int qcom_dump(struct list_head *segs, struct device *dev)
 {
@@ -62,8 +102,7 @@ int qcom_dump(struct list_head *segs, struct device *dev)
 		offset += segment->size;
 	}
 
-	dev_coredumpv(dev, data, data_size, GFP_KERNEL);
-	return 0;
+	return qcom_devcd_dump(dev, data, data_size, GFP_KERNEL);
 }
 EXPORT_SYMBOL(qcom_dump);
 
@@ -141,8 +180,8 @@ int qcom_elf_dump(struct list_head *segs, struct device *dev)
 		offset += phdr->p_filesz;
 		phdr++;
 	}
-	dev_coredumpv(dev, data, data_size, GFP_KERNEL);
-	return 0;
+
+	return qcom_devcd_dump(dev, data, data_size, GFP_KERNEL);
 }
 EXPORT_SYMBOL(qcom_elf_dump);
 

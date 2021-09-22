@@ -6,6 +6,7 @@
 #include <asm/cacheflush.h>
 #include <linux/debugfs.h>
 #include <linux/highmem.h>
+#include <linux/mempool.h>
 #include <linux/of.h>
 #include <linux/scatterlist.h>
 
@@ -31,6 +32,7 @@ static struct kmem_cache *addr_page_cache;
  * @reserved_pages: Number of pages reserved at init for the pool
  * @list_lock: Spinlock for page list in the pool
  * @pool_rbtree: RB tree with all pages held/reserved in this pool
+ * @mempool: Mempool to pre-allocate tracking structs for pages in this pool
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
@@ -38,15 +40,28 @@ struct kgsl_page_pool {
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct rb_root pool_rbtree;
+	mempool_t *mempool;
 };
+
+static void *_pool_entry_alloc(gfp_t gfp_mask, void *arg)
+{
+	return kmem_cache_alloc(addr_page_cache, gfp_mask);
+}
+
+static void _pool_entry_free(void *element, void *arg)
+{
+	return kmem_cache_free(addr_page_cache, element);
+}
 
 static int
 __kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 {
 	struct rb_node **node, *parent;
 	struct kgsl_pool_page_entry *new_page, *entry;
+	gfp_t gfp_mask = GFP_KERNEL & ~__GFP_DIRECT_RECLAIM;
 
-	new_page = kmem_cache_alloc(addr_page_cache, GFP_KERNEL);
+	new_page = pool->mempool ? mempool_alloc(pool->mempool, gfp_mask) :
+			kmem_cache_alloc(addr_page_cache, gfp_mask);
 	if (new_page == NULL)
 		return -ENOMEM;
 
@@ -87,7 +102,10 @@ __kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	entry = rb_entry(node, struct kgsl_pool_page_entry, node);
 	p = entry->page;
 	rb_erase(&entry->node, &pool->pool_rbtree);
-	kmem_cache_free(addr_page_cache, entry);
+	if (pool->mempool)
+		mempool_free(entry, pool->mempool);
+	else
+		kmem_cache_free(addr_page_cache, entry);
 	pool->page_count--;
 	return p;
 }
@@ -101,6 +119,17 @@ static void kgsl_pool_cache_init(void)
 {
 	addr_page_cache =  KMEM_CACHE(kgsl_pool_page_entry, 0);
 }
+
+static void kgsl_pool_cache_destroy(void)
+{
+	kmem_cache_destroy(addr_page_cache);
+}
+
+static void kgsl_destroy_page_pool(struct kgsl_page_pool *pool)
+{
+	mempool_destroy(pool->mempool);
+}
+
 #else
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
@@ -149,6 +178,14 @@ static void kgsl_pool_list_init(struct kgsl_page_pool *pool)
 }
 
 static void kgsl_pool_cache_init(void)
+{
+}
+
+static void kgsl_pool_cache_destroy(void)
+{
+}
+
+static void kgsl_destroy_page_pool(struct kgsl_page_pool *pool)
 {
 }
 #endif
@@ -563,6 +600,15 @@ static void kgsl_pool_reserve_pages(struct kgsl_page_pool *pool,
 	/* Limit the total number of reserved pages to 4096 */
 	pool->reserved_pages = min_t(u32, reserved, 4096);
 
+#if IS_ENABLED(CONFIG_QCOM_KGSL_SORT_POOL)
+	/*
+	 * Pre-allocate tracking structs for reserved_pages so that
+	 * the pool can hold them even in low memory conditions
+	 */
+	pool->mempool = mempool_create(pool->reserved_pages,
+			_pool_entry_alloc, _pool_entry_free, NULL);
+#endif
+
 	for (i = 0; i < pool->reserved_pages; i++) {
 		gfp_t gfp_mask = kgsl_gfp_mask(pool->pool_order);
 		struct page *page;
@@ -632,10 +678,19 @@ void kgsl_probe_page_pools(void)
 
 void kgsl_exit_page_pools(void)
 {
+	int i;
+
 	/* Release all pages in pools, if any.*/
 	kgsl_pool_reduce(INT_MAX, true);
 
 	/* Unregister shrinker */
 	unregister_shrinker(&kgsl_pool_shrinker);
+
+	/* Destroy helper structures */
+	for (i = 0; i < kgsl_num_pools; i++)
+		kgsl_destroy_page_pool(&kgsl_pools[i]);
+
+	/* Destroy the kmem cache */
+	kgsl_pool_cache_destroy();
 }
 

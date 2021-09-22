@@ -167,7 +167,7 @@ static void limits_dcvsh_poll(struct work_struct *work)
 
 	dcvsh_freq = qcom_cpufreq_hw_get(cpu);
 
-	if (freq_limit != dcvsh_freq) {
+	if (freq_limit < dcvsh_freq) {
 		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
 				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
 	} else {
@@ -478,11 +478,8 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		if (core_count != max_cores)
 			c->table[i].flags  = CPUFREQ_BOOST_FREQ;
 
-		/*
-		 * Two of the same frequencies with the same core counts means
-		 * end of table.
-		 */
-		if (i > 0 && prev_freq == freq && prev_cc == core_count)
+		/* Two of the same frequencies means end of table. */
+		if (i > 0 && prev_freq == freq)
 			break;
 
 		prev_cc = core_count;

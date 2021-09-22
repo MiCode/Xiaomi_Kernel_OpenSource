@@ -25,6 +25,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/soc/qcom/qcom_aoss.h>
+#include <trace/events/rproc_qcom.h>
 
 #include "qcom_common.h"
 #include "qcom_pil_info.h"
@@ -134,10 +135,15 @@ static void adsp_minidump(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "enter");
+
 	if (rproc->dump_conf == RPROC_COREDUMP_DISABLED)
-		return;
+		goto exit;
 
 	qcom_minidump(rproc, adsp->minidump_id, adsp_segment_dump);
+
+exit:
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "exit");
 }
 
 static int adsp_toggle_load_state(struct qmp *qmp, const char *name, bool enable)
@@ -226,10 +232,40 @@ static void scm_pas_disable_bw(void)
 	mutex_unlock(&scm_pas_bw_mutex);
 }
 
+static void adsp_recalibrate_phys_addrs(struct qcom_adsp *adsp, const struct firmware *fw)
+{
+	struct rproc *rproc = adsp->rproc;
+	struct rproc_dump_segment *entry;
+	struct elf32_hdr *ehdr = (struct elf32_hdr *)fw->data;
+	struct elf32_phdr *phdr, *phdrs = (struct elf32_phdr *)(fw->data + ehdr->e_phoff);
+	uint32_t elf_min_addr = U32_MAX;
+	bool relocatable = false;
+	int i;
+
+	for (i = 0; i < ehdr->e_phnum; i++) {
+		phdr = &phdrs[i];
+		if (phdr->p_type != PT_LOAD)
+			continue;
+
+		if (phdr->p_flags & QCOM_MDT_RELOCATABLE)
+			relocatable = true;
+
+		elf_min_addr = min(phdr->p_paddr, elf_min_addr);
+	}
+
+	list_for_each_entry(entry, &rproc->dump_segments, node)
+		entry->da = adsp->mem_phys + entry->da - elf_min_addr;
+
+	if (relocatable)
+		adsp->mem_reloc = adsp->mem_phys + adsp->mem_reloc - elf_min_addr;
+}
+
 static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "enter");
 
 	scm_pas_enable_bw();
 	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
@@ -237,11 +273,15 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 			    &adsp->mem_reloc, adsp->mdata);
 	scm_pas_disable_bw();
 	if (ret)
-		return ret;
+		goto exit;
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
-	return 0;
+	adsp_recalibrate_phys_addrs(adsp, fw);
+
+exit:
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "exit");
+	return ret;
 }
 
 static void disable_regulators(struct qcom_adsp *adsp)
@@ -298,6 +338,8 @@ static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "enter");
 
 	qcom_q6v5_prepare(&adsp->q6v5);
 
@@ -365,6 +407,8 @@ disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 free_metadata:
 	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata, ret);
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
 }
 
@@ -385,6 +429,8 @@ static int adsp_stop(struct rproc *rproc)
 	int handover;
 	int ret;
 
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "enter");
+
 	ret = qcom_q6v5_request_stop(&adsp->q6v5, adsp->sysmon);
 	if (ret == -ETIMEDOUT)
 		dev_err(adsp->dev, "timed out on wait\n");
@@ -401,6 +447,8 @@ static int adsp_stop(struct rproc *rproc)
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
 	if (handover)
 		qcom_pas_handover(&adsp->q6v5);
+
+	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "exit");
 
 	return ret;
 }
@@ -823,6 +871,7 @@ static const struct adsp_data waipio_adsp_resource = {
 	.firmware_name = "adsp.mdt",
 	.pas_id = 1,
 	.minidump_id = 5,
+	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
 	.ssr_name = "lpass",
@@ -913,6 +962,7 @@ static const struct adsp_data waipio_cdsp_resource = {
 	.firmware_name = "cdsp.mdt",
 	.pas_id = 18,
 	.minidump_id = 7,
+	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
 	.ssr_name = "cdsp",
@@ -1072,6 +1122,16 @@ static const struct adsp_data wcss_resource_init = {
 	.ssctl_id = 0x12,
 };
 
+static const struct adsp_data diwali_wpss_resource = {
+	.crash_reason_smem = 626,
+	.firmware_name = "wpss.mdt",
+	.pas_id = 6,
+	.minidump_id = 4,
+	.ssr_name = "wpss",
+	.sysmon_name = "wpss",
+	.ssctl_id = 0x19,
+};
+
 static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,msm8974-adsp-pil", .data = &adsp_resource_init},
 	{ .compatible = "qcom,msm8996-adsp-pil", .data = &adsp_resource_init},
@@ -1098,6 +1158,7 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,diwali-adsp-pas", .data = &diwali_adsp_resource},
 	{ .compatible = "qcom,diwali-cdsp-pas", .data = &diwali_cdsp_resource},
 	{ .compatible = "qcom,diwali-modem-pas", .data = &diwali_mpss_resource},
+	{ .compatible = "qcom,diwali-wpss-pas", .data = &diwali_wpss_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);

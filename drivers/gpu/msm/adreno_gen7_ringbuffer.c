@@ -37,10 +37,10 @@ static int gen7_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = id;
 
 	cmds[count++] = cp_type7_packet(CP_MEM_WRITE, 5);
-	cmds[count++] = lower_32_bits(rb->pagetable_desc->gpuaddr +
-			PT_INFO_OFFSET(ttbr0));
-	cmds[count++] = upper_32_bits(rb->pagetable_desc->gpuaddr +
-			PT_INFO_OFFSET(ttbr0));
+	cmds[count++] = lower_32_bits(SCRATCH_RB_GPU_ADDR(device,
+				rb->id, ttbr0));
+	cmds[count++] = upper_32_bits(SCRATCH_RB_GPU_ADDR(device,
+				rb->id, ttbr0));
 	cmds[count++] = lower_32_bits(ttbr0);
 	cmds[count++] = upper_32_bits(ttbr0);
 	cmds[count++] = id;
@@ -305,6 +305,37 @@ int gen7_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &device->mmu.pfpolicy))
 		cmds[index++] = cp_type7_packet(CP_WAIT_MEM_WRITES, 0);
 
+	if (is_concurrent_binning(drawctxt)) {
+		u64 addr = SCRATCH_RB_GPU_ADDR(device, rb->id, bv_ts);
+
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SET_THREAD_BV;
+
+		/*
+		 * Make sure the timestamp is committed once BV pipe is
+		 * completely done with this submission.
+		 */
+		cmds[index++] = cp_type7_packet(CP_EVENT_WRITE, 4);
+		cmds[index++] = CACHE_CLEAN | BIT(27);
+		cmds[index++] = lower_32_bits(addr);
+		cmds[index++] = upper_32_bits(addr);
+		cmds[index++] = rb->timestamp;
+
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SET_THREAD_BR;
+
+		/*
+		 * This makes sure that BR doesn't race ahead and commit
+		 * timestamp to memstore while BV is still processing
+		 * this submission.
+		 */
+		cmds[index++] = cp_type7_packet(CP_WAIT_TIMESTAMP, 4);
+		cmds[index++] = 0;
+		cmds[index++] = lower_32_bits(addr);
+		cmds[index++] = upper_32_bits(addr);
+		cmds[index++] = rb->timestamp;
+	}
+
 	/*
 	 * If this is an internal command, just write the ringbuffer timestamp,
 	 * otherwise, write both
@@ -431,7 +462,7 @@ static int gen7_drawctxt_switch(struct adreno_device *adreno_dev,
 			ADRENO_DRAWOBJ_PROFILE_OFFSET((cmdobj)->profile_index, \
 				field))
 
-#define GEN7_COMMAND_DWORDS 38
+#define GEN7_COMMAND_DWORDS 52
 
 int gen7_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj, u32 flags,

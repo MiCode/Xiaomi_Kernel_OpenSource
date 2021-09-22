@@ -166,7 +166,7 @@ unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb)
 		kgsl_regread(device, A3XX_CP_RB_RPTR, &rptr);
 	else
 		kgsl_sharedmem_readl(device->scratch, &rptr,
-				SCRATCH_RPTR_OFFSET(rb->id));
+				SCRATCH_RB_OFFSET(rb->id, rptr));
 
 	return rptr;
 }
@@ -1511,14 +1511,16 @@ void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 {
 	int i;
 	struct adreno_ringbuffer *rb;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		if (rb->drawctxt_active)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
 
-		kgsl_sharedmem_writel(rb->pagetable_desc,
-			PT_INFO_OFFSET(current_rb_ptname), 0);
+		kgsl_sharedmem_writel(device->scratch,
+			SCRATCH_RB_OFFSET(rb->id, current_rb_ptname),
+			0);
 	}
 }
 
@@ -1748,8 +1750,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
-
-	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
@@ -2344,9 +2344,6 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
 	adreno_dev->busy_data.bif_starved_ram = 0;
 	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
-
-	/* Set the page table back to the default page table */
-	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	/* Reinitialize the GPU */
 	gpudev->start(adreno_dev);

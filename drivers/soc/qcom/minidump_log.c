@@ -1262,9 +1262,6 @@ static void register_pstore_info(void)
 		total_size = resource_size(&resource);
 	}
 
-	paddr = rmem->base;
-	total_size = rmem->size;
-
 	ret = of_property_read_u32(node, "record-size", &size);
 	if (!ret && size > 0) {
 		strlcpy(md_entry.name, "KDMESG", sizeof(md_entry.name));

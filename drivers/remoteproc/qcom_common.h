@@ -50,6 +50,8 @@ struct qcom_rproc_ssr {
 	struct qcom_ssr_subsystem *info;
 };
 
+extern bool qcom_device_shutdown_in_progress;
+
 typedef void (*rproc_dumpfn_t)(struct rproc *rproc, struct rproc_dump_segment *segment,
 			       void *dest, size_t offset, size_t size);
 

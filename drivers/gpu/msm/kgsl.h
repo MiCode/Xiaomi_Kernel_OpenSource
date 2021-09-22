@@ -61,19 +61,28 @@
  * is mapped into the GPU. This allows for some 'shared' data between
  * the GPU and CPU. For example, it will be used by the GPU to write
  * each updated RPTR for each RB.
- *
- * Used Data:
- * Offset: Length(bytes): What
- * 0x0: 4 * KGSL_PRIORITY_MAX_RB_LEVELS: RB0 RPTR
  */
 
 /* Shadow global helpers */
-#define SCRATCH_RPTR_OFFSET(id) ((id) * sizeof(unsigned int))
-#define SCRATCH_RPTR_GPU_ADDR(dev, id) \
-	((dev)->scratch->gpuaddr + SCRATCH_RPTR_OFFSET(id))
-#define SCRATCH_BV_RPTR_OFFSET(id) (0x40 + (id) * sizeof(unsigned int))
-#define SCRATCH_BV_RPTR_GPU_ADDR(dev, id) \
-	((dev)->scratch->gpuaddr + SCRATCH_BV_RPTR_OFFSET(id))
+struct adreno_rb_shadow {
+	/** @rptr: per ringbuffer address where GPU writes the rptr */
+	u32 rptr;
+	/** @bv_rptr: per ringbuffer address where GPU writes BV rptr */
+	u32 bv_rptr;
+	/** @bv_ts: per ringbuffer address where BV ringbuffer timestamp is written to */
+	u32 bv_ts;
+	/** @current_rb_ptname: The current pagetable active on the given RB */
+	u32 current_rb_ptname;
+	/** @ttbr0: value to program into TTBR0 during pagetable switch */
+	u64 ttbr0;
+	/** @contextidr: value to program into CONTEXTIDR during pagetable switch */
+	u32 contextidr;
+};
+
+#define SCRATCH_RB_OFFSET(id, _field) ((id * sizeof(struct adreno_rb_shadow)) + \
+	offsetof(struct adreno_rb_shadow, _field))
+#define SCRATCH_RB_GPU_ADDR(dev, id, _field) \
+	((dev)->scratch->gpuaddr + SCRATCH_RB_OFFSET(id, _field))
 
 /* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000

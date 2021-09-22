@@ -864,7 +864,7 @@ static ssize_t set_core_ctl_register(struct kobject *kobj,
 	bool old_val = core_ctl_register;
 	int ret;
 
-	ret = sscanf(buf, "%du", &core_ctl_register);
+	ret = kstrtobool(buf, &core_ctl_register);
 	if (ret < 0) {
 		pr_err("msm_perf: getting new core_ctl_register failed, ret=%d\n", ret);
 		return ret;
@@ -1160,7 +1160,7 @@ static ssize_t set_splh_notif(struct kobject *kobj,
 		if (ret < 0)
 			pr_err("msm_perf: splh ipc freq tbl init failed, ret=%d\n", ret);
 
-		return ret;
+		return count;
 	}
 
 	if (!splh_init_done) {

@@ -2991,7 +2991,7 @@ enable_clk_err:
 
 static int __qseecom_cleanup_app(struct qseecom_dev_handle *data)
 {
-	int ret = 1;	/* Set unload app */
+	int ret = 0;	/* Set unload app */
 
 	wake_up_all(&qseecom.send_resp_wq);
 	if (qseecom.qsee_reentrancy_support)
@@ -3075,7 +3075,12 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		goto unload_exit;
 	}
 
-	__qseecom_cleanup_app(data);
+	ret = __qseecom_cleanup_app(data);
+	if (ret && !app_crash) {
+		pr_err("cleanup app failed, pending ioctl:%d\n", data->ioctl_count);
+		return ret;
+	}
+
 	__qseecom_reentrancy_check_if_no_app_blocked(TZ_OS_APP_SHUTDOWN_ID);
 
 	/* ignore app_id 0, it happens when close qseecom_fd if load app fail*/
@@ -3106,6 +3111,16 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 
 	if (!ptr_app->ref_cnt) {
 		ret = __qseecom_unload_app(data, data->client.app_id);
+		if (ret == -EBUSY) {
+			/*
+			 * If unload failed due to EBUSY, don't free mem
+			 * just restore app ref_cnt and return -EBUSY
+			 */
+			pr_warn("unload ta %d(%s) EBUSY\n",
+				data->client.app_id, data->client.app_name);
+			ptr_app->ref_cnt++;
+			return ret;
+		}
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_del(&ptr_app->list);
 		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
@@ -3123,7 +3138,6 @@ unload_exit:
 	data->released = true;
 	return ret;
 }
-
 
 static int qseecom_prepare_unload_app(struct qseecom_dev_handle *data)
 {

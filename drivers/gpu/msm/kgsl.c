@@ -2831,7 +2831,25 @@ static void kgsl_process_add_stats(struct kgsl_process_private *priv,
 		priv->stats[type].max = ret;
 }
 
+u64 kgsl_get_stats(pid_t pid)
+{
+	struct kgsl_process_private *process;
+	u64 ret;
 
+	if (pid < 0)
+		return atomic_long_read(&kgsl_driver.stats.page_alloc);
+
+	process = kgsl_process_private_find(pid);
+
+	if (!process)
+		return 0;
+
+	ret = atomic64_read(&process->stats[KGSL_MEM_ENTRY_KERNEL].cur);
+	kgsl_process_private_put(process);
+
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_get_stats);
 
 long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)

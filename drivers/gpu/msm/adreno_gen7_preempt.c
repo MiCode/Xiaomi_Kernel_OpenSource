@@ -257,16 +257,11 @@ void gen7_preemption_trigger(struct adreno_device *adreno_dev, bool atomic)
 
 	spin_lock_irqsave(&next->preempt_lock, flags);
 
-	/*
-	 * Get the pagetable from the pagetable info.
-	 * The pagetable_desc is allocated and mapped at probe time, and
-	 * preemption_desc at init time, so no need to check if
-	 * sharedmem accesses to these memdescs succeed.
-	 */
-	kgsl_sharedmem_readq(next->pagetable_desc, &ttbr0,
-		PT_INFO_OFFSET(ttbr0));
-	kgsl_sharedmem_readl(next->pagetable_desc, &contextidr,
-		PT_INFO_OFFSET(contextidr));
+	/* Get the pagetable from the pagetable info. */
+	kgsl_sharedmem_readq(device->scratch, &ttbr0,
+		SCRATCH_RB_OFFSET(next->id, ttbr0));
+	kgsl_sharedmem_readl(device->scratch, &contextidr,
+		SCRATCH_RB_OFFSET(next->id, contextidr));
 
 	kgsl_sharedmem_writel(next->preemption_desc,
 		PREEMPT_RECORD(wptr), next->wptr);
@@ -601,7 +596,7 @@ void gen7_preemption_start(struct adreno_device *adreno_dev)
 		kgsl_sharedmem_writel(rb->preemption_desc,
 			PREEMPT_RECORD(wptr), 0);
 
-		adreno_ringbuffer_set_pagetable(rb,
+		adreno_ringbuffer_set_pagetable(device, rb,
 			device->mmu.defaultpagetable);
 	}
 }
@@ -616,13 +611,13 @@ static void reset_rb_preempt_record(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(cntl), GEN7_CP_RB_CNTL_DEFAULT);
 	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(
-		KGSL_DEVICE(adreno_dev), rb->id));
+		PREEMPT_RECORD(rptr_addr), SCRATCH_RB_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id, rptr));
 	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
 	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(bv_rptr_addr), SCRATCH_BV_RPTR_GPU_ADDR(
-		KGSL_DEVICE(adreno_dev), rb->id));
+		PREEMPT_RECORD(bv_rptr_addr), SCRATCH_RB_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id, bv_rptr));
 }
 
 void gen7_reset_preempt_records(struct adreno_device *adreno_dev)

@@ -2135,8 +2135,6 @@ static int gen7_gpu_boot(struct adreno_device *adreno_dev)
 
 	adreno_set_active_ctxs_null(adreno_dev);
 
-	adreno_ringbuffer_set_global(adreno_dev, 0);
-
 	ret = kgsl_mmu_start(device);
 	if (ret)
 		goto err;

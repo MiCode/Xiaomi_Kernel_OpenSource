@@ -23,6 +23,7 @@ static int scmi_pmu_probe(struct scmi_device *sdev)
 
 static const struct scmi_device_id scmi_id_table[] = {
 	{ .protocol_id = SCMI_PMU_PROTOCOL, .name = "scmi_pmu_protocol" },
+	{ },
 };
 MODULE_DEVICE_TABLE(scmi, scmi_id_table);
 

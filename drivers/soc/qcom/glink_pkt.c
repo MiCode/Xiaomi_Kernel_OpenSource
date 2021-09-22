@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -632,7 +632,7 @@ static int glink_pkt_init_rpmsg(struct glink_pkt_device *gpdev)
 	struct rpmsg_device_id *match;
 	char *drv_name;
 
-	match = devm_kzalloc(dev, sizeof(*match), GFP_KERNEL);
+	match = devm_kzalloc(dev, sizeof(*match) * 2, GFP_KERNEL);
 	if (!match)
 		return -ENOMEM;
 	strlcpy(match->name, gpdev->ch_name, RPMSG_NAME_SIZE);

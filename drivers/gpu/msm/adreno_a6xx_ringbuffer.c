@@ -35,10 +35,10 @@ static int a6xx_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	}
 
 	cmds[count++] = cp_type7_packet(CP_MEM_WRITE, 5);
-	cmds[count++] = lower_32_bits(rb->pagetable_desc->gpuaddr +
-			PT_INFO_OFFSET(ttbr0));
-	cmds[count++] = upper_32_bits(rb->pagetable_desc->gpuaddr +
-			PT_INFO_OFFSET(ttbr0));
+	cmds[count++] = lower_32_bits(SCRATCH_RB_GPU_ADDR(device,
+				rb->id, ttbr0));
+	cmds[count++] = upper_32_bits(SCRATCH_RB_GPU_ADDR(device,
+				rb->id, ttbr0));
 	cmds[count++] = lower_32_bits(ttbr0);
 	cmds[count++] = upper_32_bits(ttbr0);
 	cmds[count++] = id;
@@ -119,8 +119,10 @@ int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 			return PTR_ERR(cmds);
 
 		cmds[0] = cp_type7_packet(CP_WHERE_AM_I, 2);
-		cmds[1] = lower_32_bits(SCRATCH_RPTR_GPU_ADDR(device, rb->id));
-		cmds[2] = upper_32_bits(SCRATCH_RPTR_GPU_ADDR(device, rb->id));
+		cmds[1] = lower_32_bits(SCRATCH_RB_GPU_ADDR(device, rb->id,
+				rptr));
+		cmds[2] = upper_32_bits(SCRATCH_RB_GPU_ADDR(device, rb->id,
+				rptr));
 	}
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);

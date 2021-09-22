@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
@@ -67,32 +67,6 @@ struct adreno_submit_time {
 };
 
 /**
- * struct adreno_ringbuffer_pagetable_info - Contains fields used during a
- * pagetable switch.
- * @current_global_ptname: The current pagetable id being used by the GPU.
- * Only the ringbuffers[0] current_global_ptname is used to keep track of
- * the current pagetable id
- * @current_rb_ptname: The current pagetable active on the given RB
- * @incoming_ptname: Contains the incoming pagetable we are switching to. After
- * switching of pagetable this value equals current_rb_ptname.
- * @switch_pt_enable: Flag used during pagetable switch to check if pt
- * switch can be skipped
- * @ttbr0: value to program into TTBR0 during pagetable switch.
- * @contextidr: value to program into CONTEXTIDR during pagetable switch.
- */
-struct adreno_ringbuffer_pagetable_info {
-	int current_global_ptname;
-	int current_rb_ptname;
-	int incoming_ptname;
-	int switch_pt_enable;
-	uint64_t ttbr0;
-	unsigned int contextidr;
-};
-
-#define PT_INFO_OFFSET(_field) \
-	offsetof(struct adreno_ringbuffer_pagetable_info, _field)
-
-/**
  * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
  * @flags: Internal control flags for the ringbuffer
  * @buffer_desc: Pointer to the ringbuffer memory descriptor
@@ -112,7 +86,6 @@ struct adreno_ringbuffer_pagetable_info {
  * preemption info written/read by CP for secure contexts
  * @perfcounter_save_restore_desc: Used by CP to save/restore the perfcounter
  * values across preemption
- * @pagetable_desc: Memory to hold information about the pagetables being used
  * and the commands to switch pagetable on the RB
  * @dispatch_q: The dispatcher side queue for this ringbuffer
  * @ts_expire_waitq: Wait queue to wait for rb timestamp to expire
@@ -139,7 +112,6 @@ struct adreno_ringbuffer {
 	struct kgsl_memdesc *preemption_desc;
 	struct kgsl_memdesc *secure_preemption_desc;
 	struct kgsl_memdesc *perfcounter_save_restore_desc;
-	struct kgsl_memdesc *pagetable_desc;
 	struct adreno_dispatcher_drawqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;
 	unsigned int wptr_preempt_end;

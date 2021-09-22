@@ -70,6 +70,7 @@ int msm_msi_init(struct device *dev);
  * link up with
  * @rc_idx:		root complex port number that endpoint is connected to
  * @target_link_speed:	new target link speed PCIe can link up with
+ * @force:		override DT specified link speed
  *
  * Provide PCIe clients the option to control upper bound of GEN speed PCIe
  * can link up with. Clients may choose only GEN speed within root complex's
@@ -81,7 +82,8 @@ int msm_msi_init(struct device *dev);
  *
  * Return 0 on success, negative value on error
  */
-int msm_pcie_set_target_link_speed(u32 rc_idx, u32 target_link_speed);
+int msm_pcie_set_target_link_speed(u32 rc_idx, u32 target_link_speed,
+				   bool force);
 
 /**
  * msm_pcie_allow_l1 - allow PCIe link to re-enter L1

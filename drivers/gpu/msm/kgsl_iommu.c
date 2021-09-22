@@ -825,7 +825,7 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_mem_entry *prev = NULL, *next = NULL, *entry;
-	const char *fault_type;
+	const char *fault_type = NULL;
 	const char *comm = NULL;
 	u32 ptname = KGSL_MMU_GLOBAL_PT;
 	int id;
@@ -847,6 +847,9 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 		fault_type = "external";
 	else if (flags & IOMMU_FAULT_TRANSACTION_STALLED)
 		fault_type = "transaction stalled";
+	else
+		fault_type = "unknown";
+
 
 	/* FIXME: This seems buggy */
 	if (test_bit(KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE, &mmu->pfpolicy))

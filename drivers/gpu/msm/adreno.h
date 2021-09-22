@@ -1421,28 +1421,22 @@ static inline bool adreno_support_64bit(struct adreno_device *adreno_dev)
 	return (BITS_PER_LONG > 32 && ADRENO_GPUREV(adreno_dev) >= 500);
 }
 
-static inline void adreno_ringbuffer_set_global(
-		struct adreno_device *adreno_dev, int name)
-{
-	kgsl_sharedmem_writel(adreno_dev->ringbuffers[0].pagetable_desc,
-		PT_INFO_OFFSET(current_global_ptname), name);
-}
-
-static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
-		struct kgsl_pagetable *pt)
+static inline void adreno_ringbuffer_set_pagetable(struct kgsl_device *device,
+	struct adreno_ringbuffer *rb, struct kgsl_pagetable *pt)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 
-	kgsl_sharedmem_writel(rb->pagetable_desc,
-		PT_INFO_OFFSET(current_rb_ptname), pt->name);
+	kgsl_sharedmem_writel(device->scratch,
+		SCRATCH_RB_OFFSET(rb->id, current_rb_ptname), pt->name);
 
-	kgsl_sharedmem_writeq(rb->pagetable_desc,
-		PT_INFO_OFFSET(ttbr0), kgsl_mmu_pagetable_get_ttbr0(pt));
+	kgsl_sharedmem_writeq(device->scratch,
+		SCRATCH_RB_OFFSET(rb->id, ttbr0),
+		kgsl_mmu_pagetable_get_ttbr0(pt));
 
-	kgsl_sharedmem_writel(rb->pagetable_desc,
-		PT_INFO_OFFSET(contextidr), 0);
+	kgsl_sharedmem_writel(device->scratch,
+		SCRATCH_RB_OFFSET(rb->id, contextidr), 0);
 
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 }

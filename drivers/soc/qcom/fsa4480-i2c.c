@@ -407,6 +407,7 @@ static struct i2c_driver fsa4480_i2c_driver = {
 	.driver = {
 		.name = FSA4480_I2C_NAME,
 		.of_match_table = fsa4480_i2c_dt_match,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.probe = fsa4480_probe,
 	.remove = fsa4480_remove,

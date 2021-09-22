@@ -81,6 +81,9 @@ extern int scm_legacy_call_atomic(struct device *dev,
 extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 			   struct qcom_scm_res *res);
 
+int qcom_scm_handle_wait(struct device *dev, int scm_ret,
+			struct qcom_scm_res *res);
+
 #define QCOM_SCM_SVC_BOOT		0x01
 #define QCOM_SCM_BOOT_SET_ADDR		0x01
 #define QCOM_SCM_BOOT_TERMINATE_PC	0x02
@@ -187,6 +190,11 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_CAMERA_PROTECT_ALL		0x06
 #define QCOM_SCM_CAMERA_PROTECT_PHY_LANES	0x07
 
+#define QCOM_SCM_SVC_WAITQ			0x24
+#define QCOM_SCM_WAITQ_ACK			0x01
+#define QCOM_SCM_WAITQ_RESUME			0x02
+#define QCOM_SCM_WAITQ_GET_WQ_CTX		0x03
+
 #define QCOM_SCM_SVC_TSENS			0x1E
 #define QCOM_SCM_TSENS_INIT_ID			0x5
 
@@ -223,6 +231,8 @@ extern void __qcom_scm_init(void);
 #define QCOM_SCM_EINVAL_ARG	-2
 #define QCOM_SCM_ERROR		-1
 #define QCOM_SCM_INTERRUPTED	1
+#define QCOM_SCM_WAITQ_SLEEP	2
+#define QCOM_SCM_WAITQ_WAKE	3
 
 static inline int qcom_scm_remap_error(int err)
 {

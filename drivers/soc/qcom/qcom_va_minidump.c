@@ -677,19 +677,23 @@ out:
 
 static int qcom_va_md_driver_remove(struct platform_device *pdev)
 {
-	struct va_md_s_data *va_md_s_data;
-	struct notifier_block_list *nbl;
+	struct va_md_s_data *va_md_s_data, *tmp;
+	struct notifier_block_list *nbl, *tmpnbl;
 
 	mutex_lock(&va_md_lock);
-	list_for_each_entry(va_md_s_data, &va_md_data.va_md_list, va_md_s_list) {
-		list_for_each_entry(nbl, &va_md_s_data->va_md_s_nb_list, nb_list) {
+	list_for_each_entry_safe(va_md_s_data, tmp, &va_md_data.va_md_list, va_md_s_list) {
+		list_for_each_entry_safe(nbl, tmpnbl, &va_md_s_data->va_md_s_nb_list, nb_list) {
 			atomic_notifier_chain_unregister(&va_md_s_data->va_md_s_notif_list,
 								&nbl->nb);
+			list_del(&nbl->nb_list);
 			kfree(nbl);
 		}
 
+		list_del(&va_md_s_data->va_md_s_nb_list);
 		sysfs_remove_group(&va_md_s_data->s_kobj, &va_md_s_attr_group);
 		kobject_put(&va_md_s_data->s_kobj);
+		list_del(&va_md_s_data->va_md_s_list);
+		kfree(va_md_s_data);
 	}
 
 	mutex_unlock(&va_md_lock);

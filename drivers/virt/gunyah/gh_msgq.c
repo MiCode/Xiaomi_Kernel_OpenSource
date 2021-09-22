@@ -56,7 +56,7 @@ struct gh_msgq_cap_table *gh_msgq_alloc_entry(int label)
 	int ret;
 	struct gh_msgq_cap_table *cap_table_entry = NULL;
 
-	cap_table_entry = kzalloc(sizeof(struct gh_msgq_cap_table), GFP_KERNEL);
+	cap_table_entry = kzalloc(sizeof(struct gh_msgq_cap_table), GFP_ATOMIC);
 	if (!cap_table_entry)
 		return ERR_PTR(-ENOMEM);
 
@@ -85,9 +85,7 @@ struct gh_msgq_cap_table *gh_msgq_alloc_entry(int label)
 		goto err;
 	}
 
-	spin_lock(&gh_msgq_cap_list_lock);
 	list_add(&cap_table_entry->entry, &gh_msgq_cap_list);
-	spin_unlock(&gh_msgq_cap_list_lock);
 	return cap_table_entry;
 err:
 	kfree(cap_table_entry->tx_irq_name);
@@ -406,32 +404,35 @@ void *gh_msgq_register(int label)
 			break;
 		}
 	}
-	spin_unlock(&gh_msgq_cap_list_lock);
 
 	if (cap_table_entry == NULL) {
 		cap_table_entry = gh_msgq_alloc_entry(label);
-		if (IS_ERR(cap_table_entry))
+		if (IS_ERR(cap_table_entry)) {
+			spin_unlock(&gh_msgq_cap_list_lock);
 			return cap_table_entry;
+		}
 	}
+	spin_unlock(&gh_msgq_cap_list_lock);
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Multiple clients cannot register to the same label (msgq) */
 	if (cap_table_entry->client_desc) {
 		spin_unlock(&cap_table_entry->cap_entry_lock);
+		pr_err("%s: Client already exists for label %d\n",
+				__func__, label);
 		return ERR_PTR(-EBUSY);
 	}
 
-	spin_unlock(&cap_table_entry->cap_entry_lock);
-
-	client_desc = kzalloc(sizeof(*client_desc), GFP_KERNEL);
-	if (!client_desc)
+	client_desc = kzalloc(sizeof(*client_desc), GFP_ATOMIC);
+	if (!client_desc) {
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 		return ERR_PTR(ENOMEM);
+	}
 
 	client_desc->label = label;
 	client_desc->cap_table = cap_table_entry;
 
-	spin_lock(&cap_table_entry->cap_entry_lock);
 	cap_table_entry->client_desc = client_desc;
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
@@ -503,13 +504,15 @@ int gh_msgq_populate_cap_info(int label, u64 cap_id, int direction, int irq)
 			break;
 		}
 	}
-	spin_unlock(&gh_msgq_cap_list_lock);
 
 	if (cap_table_entry == NULL) {
 		cap_table_entry = gh_msgq_alloc_entry(label);
-		if (IS_ERR(cap_table_entry))
+		if (IS_ERR(cap_table_entry)) {
+			spin_unlock(&gh_msgq_cap_list_lock);
 			return PTR_ERR(cap_table_entry);
+		}
 	}
+	spin_unlock(&gh_msgq_cap_list_lock);
 
 	if (direction == GH_MSGQ_DIRECTION_TX) {
 		ret = request_irq(irq, gh_msgq_tx_isr, 0,
@@ -686,9 +689,10 @@ EXPORT_SYMBOL(gh_msgq_probe);
 static void gh_msgq_cleanup(void)
 {
 	struct gh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *temp;
 
 	spin_lock(&gh_msgq_cap_list_lock);
-	list_for_each_entry(cap_table_entry, &gh_msgq_cap_list, entry) {
+	list_for_each_entry_safe(cap_table_entry, temp, &gh_msgq_cap_list, entry) {
 		kfree(cap_table_entry->tx_irq_name);
 		kfree(cap_table_entry->rx_irq_name);
 		kfree(cap_table_entry);

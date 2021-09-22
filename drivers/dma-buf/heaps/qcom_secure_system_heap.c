@@ -497,6 +497,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	int total_pages = 0, num_non_secure_pages = 0;
 	int ret = -ENOMEM, hyp_ret = 0;
 	int perms;
+	int vmid;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
@@ -561,8 +562,9 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	}
 
 	perms = msm_secure_get_vmid_perms(sys_heap->vmid);
+	vmid = get_secure_vmid(sys_heap->vmid);
 	buffer->vmperm = mem_buf_vmperm_alloc_staticvm(table,
-				&sys_heap->vmid, &perms, 1);
+				&vmid, &perms, 1);
 
 	if (IS_ERR(buffer->vmperm)) {
 		ret = PTR_ERR(buffer->vmperm);
@@ -654,6 +656,12 @@ void qcom_secure_system_heap_create(const char *name, const char *secure_system_
 	struct dma_heap *heap;
 	struct qcom_secure_system_heap *sys_heap;
 	int ret;
+
+	if (get_secure_vmid(vmid) == -EINVAL || hweight_long(vmid) != 1) {
+		pr_err("Invalid VMID or supplied more than one VMID\n");
+		ret = -EINVAL;
+		goto out;
+	}
 
 	ret = dynamic_page_pool_init_shrinker();
 	if (ret)

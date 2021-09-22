@@ -379,6 +379,7 @@ static int mhi_netdev_alloc_pool(struct mhi_netdev *mhi_netdev)
 error_alloc_page:
 	list_for_each_entry_safe(netbuf, tmp, pool, node) {
 		list_del(&netbuf->node);
+		mhi_buf = (struct mhi_buf *)netbuf;
 		dma_unmap_page(dev, mhi_buf->dma_addr, mhi_buf->len,
 			       DMA_FROM_DEVICE);
 		__free_pages(netbuf->page, order);

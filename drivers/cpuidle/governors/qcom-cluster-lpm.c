@@ -400,6 +400,9 @@ static void android_vh_allow_domain_state(void *unused,
 {
 	struct lpm_cluster *cluster_gov = to_cluster(genpd);
 
+	if (!cluster_gov)
+		return;
+
 	*allow = cluster_gov->state_allowed[idx];
 }
 
@@ -423,6 +426,9 @@ static int lpm_cluster_gov_remove(struct platform_device *pdev)
 {
 	struct generic_pm_domain *genpd = pd_to_genpd(pdev->dev.pm_domain);
 	struct lpm_cluster *cluster_gov = to_cluster(genpd);
+
+	if (!cluster_gov)
+		return -ENODEV;
 
 	pm_runtime_disable(&pdev->dev);
 	remove_cluster_sysfs_nodes(cluster_gov);

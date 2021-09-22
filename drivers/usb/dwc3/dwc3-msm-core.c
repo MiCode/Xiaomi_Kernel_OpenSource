@@ -461,7 +461,7 @@ struct dwc3_msm {
 	atomic_t                pm_suspended;
 	struct usb_irq		wakeup_irq[USB_MAX_IRQ];
 	int			core_irq;
-	int			irq_cnt;
+	unsigned int		irq_cnt;
 	struct work_struct	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
@@ -477,6 +477,7 @@ struct dwc3_msm {
 	bool			in_host_mode;
 	bool			in_device_mode;
 	enum usb_device_speed	max_rh_port_speed;
+	bool			perf_mode;
 	unsigned int		tx_fifo_size;
 	bool			check_eud_state;
 	bool			vbus_active;
@@ -2922,8 +2923,7 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 	switch (event) {
 	case DWC3_CONTROLLER_ERROR_EVENT:
 		dev_info(mdwc->dev,
-			"DWC3_CONTROLLER_ERROR_EVENT received, irq cnt %lu\n",
-			mdwc->irq_cnt);
+			"DWC3_CONTROLLER_ERROR_EVENT received\n");
 
 		dwc3_msm_write_reg(mdwc->base, DWC3_DEVTEN, 0x00);
 
@@ -3866,7 +3866,14 @@ static void dwc3_resume_work(struct work_struct *w)
 			goto skip_update;
 	}
 
-	dwc3_msm_set_max_speed(mdwc, mdwc->max_hw_supp_speed);
+	/*
+	 * Do not override speed for consistency as if not present, then
+	 * there is a chance w/ 4LN DP USB data disable case for the DCFG
+	 * programmed w/ SSUSB w/o QMP PHY initialized.  Functionally
+	 * DP mode will still operate as should.
+	 */
+	if (!mdwc->ss_release_called)
+		dwc3_msm_set_max_speed(mdwc, mdwc->max_hw_supp_speed);
 	if (edev && extcon_get_state(edev, extcon_id)) {
 		ret = extcon_get_property(edev, extcon_id,
 				EXTCON_PROP_USB_SS, &val);
@@ -4332,15 +4339,6 @@ static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 		return 0;
 	}
 
-	if (mdwc->ss_release_called) {
-		flush_delayed_work(&mdwc->sm_work);
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		if (role == USB_ROLE_NONE) {
-			dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
-			mdwc->ss_release_called = false;
-		}
-	}
-
 	dwc3_ext_event_notify(mdwc);
 	return 0;
 }
@@ -4582,13 +4580,15 @@ static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 		pm_runtime_get(&mdwc->dwc3->dev);
 
 		flush_work(&mdwc->resume_work);
-		drain_workqueue(mdwc->sm_usb_wq);
+		flush_workqueue(mdwc->sm_usb_wq);
 
 		pm_runtime_put(&mdwc->dwc3->dev);
 		while (test_bit(WAIT_FOR_LPM, &mdwc->inputs))
 			msleep(20);
 
 		dbg_log_string("stop_host_mode completed");
+		if (mdwc->id_state == DWC3_ID_GROUND)
+			return -EBUSY;
 	}
 
 	return 0;
@@ -4617,7 +4617,7 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 		pm_runtime_get(&mdwc->dwc3->dev);
 
 		flush_work(&mdwc->resume_work);
-		drain_workqueue(mdwc->sm_usb_wq);
+		flush_workqueue(mdwc->sm_usb_wq);
 
 		pm_runtime_put(&mdwc->dwc3->dev);
 
@@ -4625,9 +4625,26 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 			msleep(20);
 
 		dbg_log_string("stop_device_mode completed");
+		if (mdwc->vbus_active)
+			return -EBUSY;
 	}
 
 	return 0;
+}
+
+static void dwc3_msm_clear_dp_only_params(struct dwc3_msm *mdwc)
+{
+	mdwc->ss_release_called = false;
+	mdwc->ss_phy->flags &= ~PHY_DP_MODE;
+	dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
+}
+
+static void dwc3_msm_set_dp_only_params(struct dwc3_msm *mdwc)
+{
+	/* restart USB host mode into high speed */
+	mdwc->ss_release_called = true;
+	dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
+	mdwc->ss_phy->flags |= PHY_DP_MODE;
 }
 
 int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
@@ -4640,11 +4657,26 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		return -EAGAIN;
 	}
 
+	/* flush any pending work */
+	flush_work(&mdwc->resume_work);
+	flush_workqueue(mdwc->sm_usb_wq);
+
 	if (!dp_connected) {
 		dbg_event(0xFF, "DP not connected", 0);
-		mdwc->ss_phy->flags &= ~(PHY_DP_MODE|PHY_USB_DP_CONCURRENT_MODE);
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
+		/*
+		 * Special case for HOST mode, as we need to ensure that the DWC3
+		 * max speed is set before moving back into gadget/device mode.
+		 * This is because, dwc3_gadget_init() will set the max speed
+		 * for the USB gadget driver.
+		 */
+		if (mdwc->drd_state == DRD_STATE_HOST)
+			dwc3_start_stop_host(mdwc, false);
+		else
+			dwc3_msm_clear_dp_only_params(mdwc);
+
+		mdwc->ss_phy->flags &= ~PHY_USB_DP_CONCURRENT_MODE;
 		mdwc->ss_release_called = false;
+
 		return 0;
 	}
 
@@ -4657,21 +4689,15 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		return 0;
 	}
 
-	/* flush any pending work */
-	flush_work(&mdwc->resume_work);
-	drain_workqueue(mdwc->sm_usb_wq);
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
-	mdwc->ss_release_called = true;
 	if (mdwc->id_state == DWC3_ID_GROUND) {
 		/* stop USB host mode */
 		ret = dwc3_start_stop_host(mdwc, false);
 		if (ret)
 			return ret;
 
-		/* restart USB host mode into high speed */
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
+		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_host(mdwc, true);
 	} else if (mdwc->vbus_active) {
 		/* stop USB device mode */
@@ -4679,14 +4705,14 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		if (ret)
 			return ret;
 
-		/* restart USB device mode into high speed */
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
+		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_device(mdwc, true);
 	} else {
+		if (mdwc->in_host_mode || mdwc->in_device_mode)
+			return -EBUSY;
+
 		dbg_log_string("USB is not active.\n");
-		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
+		dwc3_msm_set_dp_only_params(mdwc);
 	}
 
 	return 0;
@@ -5265,6 +5291,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	}
 
 	cancel_delayed_work_sync(&mdwc->perf_vote_work);
+	msm_dwc3_perf_vote_update(mdwc, false);
 	cancel_delayed_work_sync(&mdwc->sm_work);
 
 	if (mdwc->hs_phy)
@@ -5374,10 +5401,11 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 
 static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 {
-	static bool curr_perf_mode;
 	int latency = mdwc->pm_qos_latency;
 
-	if ((curr_perf_mode == perf_mode) || !latency)
+	mdwc->irq_cnt = 0;
+
+	if ((mdwc->perf_mode == perf_mode) || !latency)
 		return;
 
 	if (perf_mode)
@@ -5386,7 +5414,7 @@ static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 		cpu_latency_qos_update_request(&mdwc->pm_qos_req_dma,
 						PM_QOS_DEFAULT_VALUE);
 
-	curr_perf_mode = perf_mode;
+	mdwc->perf_mode = perf_mode;
 	pr_debug("%s: latency updated to: %d\n", __func__,
 			perf_mode ? latency : PM_QOS_DEFAULT_VALUE);
 }
@@ -5395,16 +5423,14 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						perf_vote_work.work);
-	static unsigned long	last_irq_cnt;
 	bool in_perf_mode = false;
 
-	if (mdwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
+	if (mdwc->irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
 
-	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (mdwc->irq_cnt - last_irq_cnt));
+	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%u\n",
+		 __func__, in_perf_mode, mdwc->irq_cnt);
 
-	last_irq_cnt = mdwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
 	schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
@@ -5496,6 +5522,14 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
 
+		/*
+		 * Able to set max speed back to UNKNOWN as clk mux still set to
+		 * UTMI during dwc3_msm_resume().  Need to ensure max speed is
+		 * reset before dwc3_gadget_init() is called.  Otherwise, USB
+		 * gadget will be set to HS only.
+		 */
+		dwc3_msm_clear_dp_only_params(mdwc);
+
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
 			flush_work(&dwc->drd_work);
@@ -5555,6 +5589,8 @@ static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
 static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	int timeout = 10;
+	int ret;
 
 	pm_runtime_get_sync(mdwc->dev);
 	dbg_event(0xFF, "StrtGdgt gsync",
@@ -5624,11 +5660,24 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 		dwc3_override_vbus_status(mdwc, false);
-
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 				DWC3_GUSB3PIPECTL_SUSPHY, 0);
 
-		pm_runtime_put(&mdwc->dwc3->dev);
+		/*
+		 * DWC3 core runtime PM may return an error during the put sync
+		 * and nothing else can trigger idle after this point.  If EBUSY
+		 * is detected (i.e. dwc->connected == TRUE) then wait for the
+		 * connected flag to turn FALSE (set to false during disconnect
+		 * or pullup disable), and retry suspend again.
+		 */
+		ret = pm_runtime_put_sync(&mdwc->dwc3->dev);
+		if (ret == -EBUSY) {
+			while (--timeout && dwc->connected)
+				msleep(20);
+			dbg_event(0xFF, "StopGdgt connected", dwc->connected);
+			pm_runtime_suspend(&mdwc->dwc3->dev);
+		}
+
 		/* wait for LPM, to ensure h/w is reset after stop_peripheral */
 		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
 	}

@@ -21,37 +21,10 @@ static u32 kgsl_reclaim_max_page_limit = 7680;
 
 /* Setting this to 0 means we reclaim pages as specified in shrinker call */
 static u32 kgsl_nr_to_scan;
-static atomic_t kgsl_shrinker_active = ATOMIC_INIT(0);
 
-static unsigned long shmem_swap_pages(struct address_space *mapping)
-{
-	struct inode *inode = mapping->host;
-	struct shmem_inode_info *info = SHMEM_I(inode);
-	unsigned long swapped;
+struct work_struct reclaim_work;
 
-	swapped = READ_ONCE(info->swapped);
-	return swapped;
-}
-
-static unsigned long kgsl_process_get_reclaim_count(
-				struct kgsl_process_private *process)
-{
-	struct kgsl_mem_entry *entry;
-	struct kgsl_memdesc *memdesc;
-	unsigned long reclaim_count = 0;
-	int id;
-
-	spin_lock(&process->mem_lock);
-	idr_for_each_entry(&process->mem_idr, entry, id) {
-		memdesc = &entry->memdesc;
-		if (memdesc->shmem_filp)
-			reclaim_count += shmem_swap_pages(
-				memdesc->shmem_filp->f_mapping);
-	}
-	spin_unlock(&process->mem_lock);
-
-	return reclaim_count;
-}
+static atomic_t kgsl_nr_to_reclaim;
 
 static int kgsl_memdesc_get_reclaimed_pages(struct kgsl_mem_entry *entry)
 {
@@ -182,7 +155,7 @@ static ssize_t gpumem_reclaimed_show(struct kobject *kobj,
 		container_of(kobj, struct kgsl_process_private, kobj);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-		kgsl_process_get_reclaim_count(process) << PAGE_SHIFT);
+		atomic_read(&process->unpinned_page_count) << PAGE_SHIFT);
 }
 
 PROCESS_ATTR(state, 0644, kgsl_proc_state_show, kgsl_proc_state_store);
@@ -297,7 +270,6 @@ static u32 kgsl_reclaim_process(struct kgsl_process_private *process,
 
 			for (i = 0; i < memdesc->page_count; i++) {
 				set_page_dirty_lock(memdesc->pages[i]);
-				shmem_mark_page_lazyfree(memdesc->pages[i]);
 				spin_lock(&memdesc->lock);
 				put_page(memdesc->pages[i]);
 				memdesc->pages[i] = NULL;
@@ -306,6 +278,7 @@ static u32 kgsl_reclaim_process(struct kgsl_process_private *process,
 				remaining--;
 			}
 
+			reclaim_shmem_address_space(memdesc->shmem_filp->f_mapping);
 			memdesc->priv |= KGSL_MEMDESC_RECLAIMED;
 		}
 
@@ -318,23 +291,12 @@ static u32 kgsl_reclaim_process(struct kgsl_process_private *process,
 	return (pages_to_reclaim - remaining);
 }
 
-/* Functions for the shrinker */
-
-static unsigned long
-kgsl_reclaim_shrink_scan_objects(struct shrinker *shrinker,
-		struct shrink_control *sc)
+static void kgsl_reclaim_background_work(struct work_struct *work)
 {
-	/* nr_pages represents number of pages to be reclaimed*/
-	u32 nr_pages = kgsl_nr_to_scan ? kgsl_nr_to_scan : sc->nr_to_scan;
-	u32 bg_proc = 0;
+	u32 bg_proc = 0, nr_pages = atomic_read(&kgsl_nr_to_reclaim);
 	u64 pp_nr_pages;
 	struct list_head kgsl_reclaim_process_list;
 	struct kgsl_process_private *process, *next;
-
-	if (atomic_inc_return(&kgsl_shrinker_active) > 1) {
-		atomic_dec(&kgsl_shrinker_active);
-		return 0;
-	}
 
 	INIT_LIST_HEAD(&kgsl_reclaim_process_list);
 	read_lock(&kgsl_driver.proclist_lock);
@@ -362,10 +324,21 @@ kgsl_reclaim_shrink_scan_objects(struct shrinker *shrinker,
 		list_del(&process->reclaim_list);
 		kgsl_process_private_put(process);
 	}
+}
 
-	atomic_dec(&kgsl_shrinker_active);
-	return ((kgsl_nr_to_scan ?
-				kgsl_nr_to_scan : sc->nr_to_scan) - nr_pages);
+/* Shrinker callback functions */
+static unsigned long
+kgsl_reclaim_shrink_scan_objects(struct shrinker *shrinker,
+		struct shrink_control *sc)
+{
+	if (!current_is_kswapd())
+		return 0;
+
+	atomic_set(&kgsl_nr_to_reclaim, kgsl_nr_to_scan ?
+					kgsl_nr_to_scan : sc->nr_to_scan);
+	kgsl_schedule_work(&reclaim_work);
+
+	return atomic_read(&kgsl_nr_to_reclaim);
 }
 
 static unsigned long
@@ -411,6 +384,8 @@ int kgsl_reclaim_init(void)
 	ret = register_shrinker(&kgsl_reclaim_shrinker);
 	if (ret)
 		pr_err("kgsl: reclaim: Failed to register shrinker\n");
+	else
+		INIT_WORK(&reclaim_work, kgsl_reclaim_background_work);
 
 	return ret;
 }

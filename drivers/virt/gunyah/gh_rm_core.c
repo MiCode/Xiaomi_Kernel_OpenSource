@@ -355,6 +355,8 @@ struct gh_rm_connection *gh_rm_process_notif(void *recv_buff, size_t recv_buff_s
 	 * fragments to follow.
 	 */
 	validate_work = kzalloc(sizeof(*validate_work), GFP_KERNEL);
+	if (validate_work == NULL)
+		return ERR_PTR(-ENOMEM);
 	validate_work->recv_buff = recv_buff;
 	validate_work->recv_buff_size = recv_buff_size;
 	validate_work->payload = payload;
@@ -468,6 +470,8 @@ static int gh_rm_process_cont(struct gh_rm_connection *connection,
 		case GH_RM_RPC_TYPE_NOTIF:
 			validate_work = kzalloc(sizeof(*validate_work),
 						GFP_KERNEL);
+			if (validate_work == NULL)
+				return -ENOMEM;
 			validate_work->recv_buff = recv_buff;
 			validate_work->recv_buff_size =
 					connection->recv_buff_size;
@@ -548,7 +552,7 @@ static int gh_rm_send_request(u32 message_id,
 	const void *req_buff_curr = req_buff;
 	struct gh_rm_rpc_hdr *hdr;
 	unsigned long tx_flags;
-	u8 num_fragments = 0;
+	u32 num_fragments = 0;
 	size_t payload_size;
 	void *send_buff;
 	int i, ret;
@@ -971,7 +975,7 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 	struct gh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	gh_label_t label;
 	u32 n_res, i;
-	int ret = 0, irq;
+	int ret = 0, irq = -1;
 
 	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
@@ -1018,7 +1022,9 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 		if (ret < 0)
 			goto out;
 
-		gh_rm_put_irq(&res_entries[i], irq);
+		if (irq >= 0)
+			gh_rm_put_irq(&res_entries[i], irq);
+
 	}
 
 out:

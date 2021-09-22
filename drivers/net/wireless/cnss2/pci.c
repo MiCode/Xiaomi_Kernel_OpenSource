@@ -633,7 +633,7 @@ static int cnss_pci_set_link_bandwidth(struct cnss_pci_data *pci_priv,
 static int cnss_pci_set_max_link_speed(struct cnss_pci_data *pci_priv,
 				       u32 rc_num, u16 link_speed)
 {
-	return msm_pcie_set_target_link_speed(rc_num, link_speed);
+	return msm_pcie_set_target_link_speed(rc_num, link_speed, false);
 }
 
 /**
@@ -3004,12 +3004,12 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EAGAIN;
 	}
 
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv) {
-		cnss_pr_info("pci_priv is not ready for register driver\n");
+	if (!test_bit(CNSS_PCI_PROBE_DONE, &plat_priv->driver_state)) {
+		cnss_pr_info("pci probe not yet done for register driver\n");
 		return -EAGAIN;
 	}
 
+	pci_priv = plat_priv->bus_priv;
 	if (pci_priv->driver_ops) {
 		cnss_pr_err("Driver has already registered\n");
 		return -EEXIST;
@@ -3025,7 +3025,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		 * so check again using local pointer.
 		 */
 		id_table = driver_ops->id_table;
-		while (id_table->vendor) {
+		while (id_table && id_table->vendor) {
 			cnss_pr_info("Host driver is built for PCIe device ID 0x%x\n",
 				     id_table->device);
 			id_table++;
@@ -5940,6 +5940,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
 	cnss_power_off_device(plat_priv);
+	set_bit(CNSS_PCI_PROBE_DONE, &plat_priv->driver_state);
 
 	return 0;
 
@@ -5969,6 +5970,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	struct cnss_plat_data *plat_priv =
 		cnss_bus_dev_to_plat_priv(&pci_dev->dev);
 
+	clear_bit(CNSS_PCI_PROBE_DONE, &plat_priv->driver_state);
 	cnss_pci_free_m3_mem(pci_priv);
 	cnss_pci_free_fw_mem(pci_priv);
 	cnss_pci_free_qdss_mem(pci_priv);

@@ -237,6 +237,16 @@ void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
 	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
+	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
+	int ret;
+
+	/* Set target PCIe link speed as maximum device/link is capable of */
+	ret = msm_pcie_set_target_link_speed(pci_domain_nr(pci_dev->bus), 0,
+					     true);
+	if (ret) {
+		MHI_CNTRL_ERR("Failed to set PCIe target link speed\n");
+		return;
+	}
 
 	if (dev_info->skip_forced_suspend && !dev_info->allow_m1)
 		msm_pcie_l1ss_timeout_enable(to_pci_dev(mhi_cntrl->cntrl_dev));
@@ -458,6 +468,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 						sizeof(*arch_info->bw_cfg_table)
 						* MHI_BUS_BW_CFG_COUNT,
 						GFP_KERNEL);
+		if (!arch_info->bw_cfg_table)
+			return -ENOMEM;
 
 		ret = of_property_read_u32_array(of_node, "qcom,mhi-bus-bw-cfg",
 						 (u32 *)arch_info->bw_cfg_table,
