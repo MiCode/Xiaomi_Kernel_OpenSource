@@ -58,16 +58,23 @@ static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 	struct qcom_q6v5 *q6v5 = container_of(work, struct qcom_q6v5, crash_handler);
 	struct rproc *rproc = q6v5->rproc;
 	struct rproc_subdev *subdev;
+	int votes;
 
 	mutex_lock(&rproc->lock);
 
 	rproc->state = RPROC_CRASHED;
+
+	votes = atomic_xchg(&rproc->power, 0);
+	/* if votes are zero, rproc has already been shutdown */
+	if (votes == 0)
+		goto rproc_unlock;
 
 	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->stop)
 			subdev->stop(subdev, true);
 	}
 
+rproc_unlock:
 	mutex_unlock(&rproc->lock);
 
 	/*
