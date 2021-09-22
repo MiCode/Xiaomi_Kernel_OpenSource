@@ -31,10 +31,13 @@ mac80211.ko
 mem-hooks.ko
 mem-offline.ko
 mem_buf.ko
+mem_buf.ko
+mem_buf_dev.ko
 mem_buf_dev.ko
 memory_dump_v2.ko
 minidump.ko
 msm-geni-se.ko
+msm_dma_iommu_mapping.ko
 msm_dma_iommu_mapping.ko
 msm_geni_serial.ko
 msm_rtb.ko
@@ -58,6 +61,7 @@ qcom-scm.ko
 qcom-spmi-pmic.ko
 qcom_cpu_vendor_hooks.ko
 qcom_dma_heaps.ko
+qcom_dma_heaps.ko
 qcom_gic_intr_routing.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
@@ -77,6 +81,7 @@ rpmh-regulator.ko
 rtc-pm8xxx.ko
 sched-walt-debug.ko
 sched-walt.ko
+secure_buffer.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko
