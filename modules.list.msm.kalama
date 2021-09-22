@@ -19,6 +19,7 @@ phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs.ko
 pinctrl-kalama.ko
 pinctrl-msm.ko
+proxy-consumer.ko
 qcom-dload-mode.ko
 qcom-pdc.ko
 qcom-reboot-reason.ko
@@ -31,6 +32,7 @@ qcom_ipcc.ko
 qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
+rpmh-regulator.ko
 sdhci-msm.ko
 secure_buffer.ko
 smem.ko
