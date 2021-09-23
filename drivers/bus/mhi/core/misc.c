@@ -33,6 +33,10 @@ const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
 				     !mhi_log_level_str[level]) ? \
 				     "Mask all" : mhi_log_level_str[level])
 
+#define MHI_NUMERIC_DEVICE_ID(dev, domain, bus, slot) \
+	((dev & 0xFFFF) << 16 | (domain & 0xF) << 12 | (bus & 0xFF) << 4 | \
+	 (slot & 0xF))
+
 struct mhi_bus mhi_bus;
 
 void mhi_misc_init(void)
@@ -1463,6 +1467,42 @@ void mhi_controller_set_base(struct mhi_controller *mhi_cntrl, phys_addr_t base)
 	mhi_priv->base_addr = base;
 }
 EXPORT_SYMBOL(mhi_controller_set_base);
+
+int mhi_controller_get_base(struct mhi_controller *mhi_cntrl, phys_addr_t *base)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	if (mhi_priv->base_addr) {
+		*base = mhi_priv->base_addr;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(mhi_controller_get_base);
+
+void mhi_controller_set_numeric_id(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(pci_dev->device,
+						    pci_domain_nr(pci_dev->bus),
+						    pci_dev->bus->number,
+						    PCI_SLOT(pci_dev->devfn));
+}
+EXPORT_SYMBOL(mhi_controller_set_numeric_id);
+
+u32 mhi_controller_get_numeric_id(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	return mhi_priv->numeric_id;
+}
+EXPORT_SYMBOL(mhi_controller_get_numeric_id);
 
 int mhi_get_channel_db_base(struct mhi_device *mhi_dev, phys_addr_t *value)
 {

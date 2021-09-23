@@ -181,6 +181,7 @@ struct mhi_private {
 	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			struct mhi_link_info *link_info);
 	phys_addr_t base_addr;
+	u32 numeric_id;
 	u32 bw_response;
 	struct mhi_sfr_info *sfr_info;
 	struct mhi_timesync *timesync;
