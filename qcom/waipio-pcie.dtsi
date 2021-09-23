@@ -293,6 +293,7 @@
 		gdsc-vdd-supply = <&gcc_pcie_1_gdsc>;
 		vreg-1p8-supply = <&pm8350_l6>;
 		vreg-0p9-supply = <&pm8450_l2>;
+		vreg-qref-supply = <&pm8350_l5>;
 		vreg-cx-supply = <&VDD_CX_LEVEL>;
 		vreg-mx-supply = <&VDD_MXA_LEVEL>;
 		qcom,target-link-speed = <3>; /* Set max link speed to Gen3 */
@@ -303,6 +304,7 @@
 						RPMH_REGULATOR_LEVEL_LOW_SVS 0>;
 		qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_LOW_SVS 0>;
+		qcom,vreg-qref-voltage-level = <880000 880000 25700>;
 		qcom,bw-scale = /* Gen1 */
 				<RPMH_REGULATOR_LEVEL_LOW_SVS
 				RPMH_REGULATOR_LEVEL_LOW_SVS
