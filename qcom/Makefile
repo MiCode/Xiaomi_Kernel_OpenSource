@@ -168,8 +168,8 @@ diwali-idp-overlay.dtbo-base := diwali.dtb
 diwali-qrd-overlay.dtbo-base := diwali.dtb
 else
 dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
-	diwali-idp.dtsi \
-	diwali-qrd.dtsi
+	diwali-idp.dtb \
+	diwali-qrd.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
