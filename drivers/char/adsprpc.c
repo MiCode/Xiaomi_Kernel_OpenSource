@@ -1755,6 +1755,12 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_buf *buf = NULL;
 
+	VERIFY(err, fl && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
 	VERIFY(err, VALID_FASTRPC_CID(fl->cid));
 	if (err) {
 		err = -ECHRNG;
@@ -1769,11 +1775,6 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		goto bail;
 	}
 
-	VERIFY(err, fl && fl->sctx != NULL);
-	if (err) {
-		err = -EBADR;
-		goto bail;
-	}
 	VERIFY(err, size > 0 && fl->sctx->smmu.dev);
 	if (err) {
 		err = (fl->sctx->smmu.dev == NULL) ? -ENODEV : err;
@@ -3497,9 +3498,10 @@ read_async_job:
 		break;
 	}
 	spin_unlock_irqrestore(&fl->aqlock, flags);
-	if (fl->profile && ctx)
-		perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
+
 	if (ctx) {
+		if (fl->profile)
+			perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
 		fastrpc_wait_for_completion(ctx, &interrupted, 0, 1,
 							&isworkdone);
 		if (!isworkdone) {//In valid workdone state
@@ -6693,9 +6695,8 @@ static void  fastrpc_print_debug_data(int cid)
 		err = -ENOMEM;
 		return;
 	}
-
 	chan = &me->channel[cid];
-	if (!chan->buf)
+	if ((!chan) || (!chan->buf))
 		return;
 
 	mini_dump_buff = chan->buf->virt;
@@ -6713,7 +6714,7 @@ static void  fastrpc_print_debug_data(int cid)
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -
 					strlen(mini_dump_buff),
-					"\nfastrpc_file: %p\n", fl);
+					"\nfastrpc_file : %p\n", fl);
 			scnprintf(mini_dump_buff +
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -
@@ -6844,8 +6845,7 @@ static void  fastrpc_print_debug_data(int cid)
 	scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 			MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 			"gmsg_log_rx:\n %s\n", gmsg_log_rx);
-	if (chan)
-		chan->buf->size = strlen(mini_dump_buff);
+	chan->buf->size = strlen(mini_dump_buff);
 	kfree(gmsg_log_tx);
 	kfree(gmsg_log_rx);
 }
