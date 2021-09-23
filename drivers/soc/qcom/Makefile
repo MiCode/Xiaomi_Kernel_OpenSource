@@ -42,3 +42,4 @@ obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_QCOM_RUN_QUEUE_STATS) += rq_stats.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
 obj-$(CONFIG_USB_BAM) += usb_bam.o
+obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
