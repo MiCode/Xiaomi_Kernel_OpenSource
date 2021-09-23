@@ -2521,7 +2521,7 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	int ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
-	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s:\n", __func__);
+	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: Start\n", __func__);
 
 	msm_port->startup_in_progress = true;
 
@@ -3104,6 +3104,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 		ret = -ENXIO;
 		goto exit_ver_info;
 	}
+	msm_port->serial_rsc.proto = UART;
 	msm_port->ver_info.m_fw_ver = get_se_m_fw(uport->membase);
 	msm_port->ver_info.s_fw_ver = get_se_s_fw(uport->membase);
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: FW Ver:0x%x%x\n",
@@ -3590,6 +3591,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
 	int ret = 0;
 
+	UART_LOG_DBG(port->ipc_log_pwr, dev, "%s: Start\n", __func__);
 	/*
 	 * Do an unconditional relax followed by a stay awake in case the
 	 * wake source is activated by the wakeup isr.
@@ -3605,6 +3607,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 		port->wakeup_enabled = false;
 	}
 
+	UART_LOG_DBG(port->ipc_log_pwr, dev, "%s: Enabling Resources\n", __func__);
 	/*
 	 * Resources On.
 	 * Start Rx.
@@ -3624,7 +3627,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	/* Enable interrupt */
 	enable_irq(port->uport.irq);
 
-	UART_LOG_DBG(port->ipc_log_pwr, dev, "%s:\n", __func__);
+	UART_LOG_DBG(port->ipc_log_pwr, dev, "%s: End\n", __func__);
 exit_runtime_resume:
 	return ret;
 }
