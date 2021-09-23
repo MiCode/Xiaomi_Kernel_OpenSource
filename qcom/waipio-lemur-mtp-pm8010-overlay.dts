@@ -9,6 +9,6 @@
 / {
 	model = "WAIPIO LEMUR MTP";
 	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
-	qcom,msm-id = <457 0x10000>;
+	qcom,msm-id = <457 0x10000>, <482 0x10000>;
 	qcom,board-id = <0x01010008 0x1>;
 };
