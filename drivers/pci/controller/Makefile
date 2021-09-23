@@ -41,6 +41,8 @@ obj-$(CONFIG_PCIE_HISI_ERR) += pcie-hisi-error.o
 obj-y				+= dwc/
 obj-y				+= mobiveil/
 
+obj-$(CONFIG_PCI_MSM) += pci-msm-drv.o
+pci-msm-drv-y := pci-msm.o pci-msm-msi.o
 
 # The following drivers are for devices that use the generic ACPI
 # pci_root.c driver but don't support standard ECAM config access.
