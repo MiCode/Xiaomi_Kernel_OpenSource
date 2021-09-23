@@ -492,6 +492,8 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	bool reenable_intr = false;
 
+	host->reset_in_progress = true;
+
 	if (!host->core_reset) {
 		dev_warn(hba->dev, "%s: reset control not set\n", __func__);
 		goto out;
@@ -528,6 +530,7 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	}
 
 out:
+	host->reset_in_progress = false;
 	return ret;
 }
 
