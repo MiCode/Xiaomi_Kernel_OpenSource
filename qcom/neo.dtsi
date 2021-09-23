@@ -438,3 +438,5 @@
 	reg = <0xabf8078 0x4>;
 	status = "ok";
 };
+
+#include "neo-usb.dtsi"
