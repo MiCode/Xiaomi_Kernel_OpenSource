@@ -1168,7 +1168,7 @@ static int rproc_handle_resources(struct rproc *rproc,
 
 static int rproc_prepare_subdevices(struct rproc *rproc)
 {
-	struct rproc_subdev *subdev, *itr;
+	struct rproc_subdev *subdev;
 	int ret;
 
 	list_for_each_entry(subdev, &rproc->subdevs, node) {
@@ -1182,11 +1182,9 @@ static int rproc_prepare_subdevices(struct rproc *rproc)
 	return 0;
 
 unroll_preparation:
-	list_for_each_entry(itr, &rproc->subdevs, node) {
-		if (itr == subdev)
-			break;
-		if (itr->unprepare)
-			itr->unprepare(subdev);
+	list_for_each_entry_continue_reverse(subdev, &rproc->subdevs, node) {
+		if (subdev->unprepare)
+			subdev->unprepare(subdev);
 	}
 
 	return ret;
@@ -1194,7 +1192,7 @@ unroll_preparation:
 
 static int rproc_start_subdevices(struct rproc *rproc)
 {
-	struct rproc_subdev *subdev, *itr;
+	struct rproc_subdev *subdev;
 	int ret;
 
 	list_for_each_entry(subdev, &rproc->subdevs, node) {
@@ -1208,11 +1206,9 @@ static int rproc_start_subdevices(struct rproc *rproc)
 	return 0;
 
 unroll_registration:
-	list_for_each_entry(itr, &rproc->subdevs, node) {
-		if (itr == subdev)
-			break;
-		if (itr->stop)
-			itr->stop(itr, true);
+	list_for_each_entry_continue_reverse(subdev, &rproc->subdevs, node) {
+		if (subdev->stop)
+			subdev->stop(subdev, true);
 	}
 
 	return ret;
@@ -1222,7 +1218,7 @@ static void rproc_stop_subdevices(struct rproc *rproc, bool crashed)
 {
 	struct rproc_subdev *subdev;
 
-	list_for_each_entry(subdev, &rproc->subdevs, node) {
+	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->stop)
 			subdev->stop(subdev, crashed);
 	}
@@ -1232,7 +1228,7 @@ static void rproc_unprepare_subdevices(struct rproc *rproc)
 {
 	struct rproc_subdev *subdev;
 
-	list_for_each_entry(subdev, &rproc->subdevs, node) {
+	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->unprepare)
 			subdev->unprepare(subdev);
 	}
