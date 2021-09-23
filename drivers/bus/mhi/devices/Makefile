@@ -9,4 +9,5 @@ obj-$(CONFIG_MHI_NETDEV) += mhi_dev_netdev.o
 mhi_dev_dtr-y := mhi_dtr.o
 obj-$(CONFIG_MHI_DTR) += mhi_dev_dtr.o
 
-obj-$(CONFIG_MHI_SATELLITE) +=mhi_satellite.o
+mhi_dev_satellite-y := mhi_satellite.o
+obj-$(CONFIG_MHI_SATELLITE) += mhi_dev_satellite.o
