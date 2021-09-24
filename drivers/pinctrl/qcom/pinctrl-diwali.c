@@ -29,13 +29,41 @@ static const struct msm_pinctrl_soc_data diwali_pinctrl = {
 	.nwakeirq_map = ARRAY_SIZE(diwali_pdc_map),
 };
 
+static const struct msm_pinctrl_soc_data diwali_vm_pinctrl = {
+	.pins = diwali_pins,
+	.npins = ARRAY_SIZE(diwali_pins),
+	.functions = diwali_functions,
+	.nfunctions = ARRAY_SIZE(diwali_functions),
+	.groups = diwali_groups,
+	.ngroups = ARRAY_SIZE(diwali_groups),
+	.ngpios = 171,
+};
+
+static void qcom_trace_gpio_read(void *unused, struct gpio_device *gdev,
+				 bool *block_gpio_read)
+{
+	*block_gpio_read = true;
+}
+
 static int diwali_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &diwali_pinctrl);
+	const struct msm_pinctrl_soc_data *pinctrl_data;
+	struct device *dev = &pdev->dev;
+
+	pinctrl_data = of_device_get_match_data(&pdev->dev);
+	if (!pinctrl_data)
+		return -EINVAL;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,diwali-vm-pinctrl"))
+		register_trace_android_vh_gpio_block_read(qcom_trace_gpio_read,
+							  NULL);
+
+	return msm_pinctrl_probe(pdev, pinctrl_data);
 }
 
 static const struct of_device_id diwali_pinctrl_of_match[] = {
 	{ .compatible = "qcom,diwali-pinctrl", .data = &diwali_pinctrl},
+	{ .compatible = "qcom,diwali-vm-pinctrl", .data = &diwali_vm_pinctrl},
 	{ },
 };
 
@@ -63,3 +91,4 @@ module_exit(diwali_pinctrl_exit);
 MODULE_DESCRIPTION("QTI diwali pinctrl driver");
 MODULE_LICENSE("GPL v2");
 MODULE_DEVICE_TABLE(of, diwali_pinctrl_of_match);
+MODULE_SOFTDEP("pre: qcom_tlmm_vm_irqchip");
