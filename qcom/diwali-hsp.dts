@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "diwali-hsp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali HSP SoC";
+	compatible = "qcom,diwali";
+	qcom,board-id = <0 2>;
+};

@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "diwali-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali ATP";
+	compatible = "qcom,diwali-atp", "qcom,diwali", "qcom,atp";
+	qcom,msm-id = <506 0x10000>;
+	qcom,board-id = <33 0>;
+};
