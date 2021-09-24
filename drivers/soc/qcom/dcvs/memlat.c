@@ -13,6 +13,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -28,6 +29,7 @@
 #include <trace/hooks/sched.h>
 #include <soc/qcom/dcvs.h>
 #include <soc/qcom/pmu_lib.h>
+#include <linux/scmi_protocol.h>
 #include "trace-dcvs.h"
 
 #define MAX_MEMLAT_GRPS	NUM_DCVS_HW_TYPES
@@ -100,6 +102,7 @@ struct memlat_mon {
 	struct device			*dev;
 	struct memlat_group		*memlat_grp;
 	enum mon_type			type;
+	u32				cpus_mpidr;
 	cpumask_t			cpus;
 	struct cpufreq_memfreq_map	*freq_map;
 	u32				ipm_ceil;
@@ -874,14 +877,22 @@ out:
 	spin_unlock_irqrestore(&stats->ctrs_lock, flags);
 }
 
-static int get_mask_from_dev_handle(struct platform_device *pdev,
-					cpumask_t *mask)
+static void get_mpidr_cpu(void *cpu)
+{
+	u64 mpidr = read_cpuid_mpidr() & MPIDR_HWID_BITMASK;
+
+	*((uint32_t *)cpu) = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+}
+
+static int get_mask_and_mpidr_from_pdev(struct platform_device *pdev,
+					cpumask_t *mask, u32 *cpus_mpidr)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *dev_phandle;
 	struct device *cpu_dev;
 	int cpu, i = 0;
-	int ret = -ENOENT;
+	uint32_t physical_cpu;
+	int ret = -ENODEV;
 
 	dev_phandle = of_parse_phandle(dev->of_node, "qcom,cpulist", i++);
 	while (dev_phandle) {
@@ -889,12 +900,14 @@ static int get_mask_from_dev_handle(struct platform_device *pdev,
 			cpu_dev = get_cpu_device(cpu);
 			if (cpu_dev && cpu_dev->of_node == dev_phandle) {
 				cpumask_set_cpu(cpu, mask);
+				smp_call_function_single(cpu, get_mpidr_cpu,
+							 &physical_cpu, true);
+				*cpus_mpidr |= BIT(physical_cpu);
 				ret = 0;
 				break;
 			}
 		}
-		dev_phandle = of_parse_phandle(dev->of_node,
-						"qcom,cpulist", i++);
+		dev_phandle = of_parse_phandle(dev->of_node, "qcom,cpulist", i++);
 	}
 
 	return ret;
@@ -1266,7 +1279,7 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	mon->memlat_grp = memlat_grp;
 	mon->dev = dev;
 
-	if (get_mask_from_dev_handle(pdev, &mon->cpus)) {
+	if (get_mask_and_mpidr_from_pdev(pdev, &mon->cpus, &mon->cpus_mpidr)) {
 		dev_err(dev, "Mon missing cpulist\n");
 		ret = -ENODEV;
 		goto unlock_out;
