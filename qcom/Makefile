@@ -161,19 +161,28 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo \
 	diwali-idp-overlay.dtbo \
+	diwali-atp-overlay.dtbo \
 	diwali-qrd-overlay.dtbo \
+	diwali-idp-usbc-overlay.dtbo \
+	diwali-idp-hsp-overlay.dtbo \
 	diwali-idp-nopmi-overlay.dtbo \
 	diwali-qrd-nopmi-overlay.dtbo
 
 diwali-rumi-overlay.dtbo-base := diwali.dtb
 diwali-idp-overlay.dtbo-base := diwali.dtb
+diwali-atp-overlay.dtbo-base := diwali.dtb
 diwali-qrd-overlay.dtbo-base := diwali.dtb
+diwali-idp-usbc-overlay.dtbo-base := diwali.dtb
+diwali-idp-hsp-overlay.dtbo-base := diwali-hsp.dtb
 diwali-idp-nopmi-overlay.dtbo-base := diwali.dtb
 diwali-qrd-nopmi-overlay.dtbo-base := diwali.dtb
 else
 dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
 	diwali-idp.dtb \
+	diwali-atp.dtb \
 	diwali-qrd.dtb \
+	diwali-idp-usbc.dtb \
+	diwali-idp-hsp.dtb \
 	diwali-idp-nopmi.dtb \
 	diwali-qrd-nopmi.dtb
 endif
