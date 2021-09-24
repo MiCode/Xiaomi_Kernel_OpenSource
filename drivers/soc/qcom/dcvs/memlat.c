@@ -30,6 +30,7 @@
 #include <soc/qcom/dcvs.h>
 #include <soc/qcom/pmu_lib.h>
 #include <linux/scmi_protocol.h>
+#include <linux/scmi_memlat.h>
 #include "trace-dcvs.h"
 
 #define MAX_MEMLAT_GRPS	NUM_DCVS_HW_TYPES
@@ -105,6 +106,7 @@ struct memlat_mon {
 	u32				cpus_mpidr;
 	cpumask_t			cpus;
 	struct cpufreq_memfreq_map	*freq_map;
+	u32				freq_map_len;
 	u32				ipm_ceil;
 	u32				fe_stall_floor;
 	u32				be_stall_floor;
@@ -119,6 +121,7 @@ struct memlat_mon {
 	u32				cur_freq;
 	struct kobject			kobj;
 	bool				is_compute;
+	u32				index;
 };
 
 struct memlat_group {
@@ -127,6 +130,7 @@ struct memlat_group {
 	enum dcvs_hw_type		hw_type;
 	enum dcvs_path_type		sampling_path_type;
 	enum dcvs_path_type		threadlat_path_type;
+	bool				cpucp_enabled;
 	u32				sampling_cur_freq;
 	u32				adaptive_cur_freq;
 	u32				adaptive_high_freq;
@@ -161,6 +165,8 @@ struct memlat_dev_data {
 	bool				fp_enabled;
 	bool				sampling_enabled;
 	bool				inited;
+	const struct scmi_memlat_vendor_ops *memlat_ops;
+	struct scmi_protocol_handle	*ph;
 };
 
 static struct memlat_dev_data		*memlat_data;
@@ -747,8 +753,8 @@ static void memlat_update_work(struct work_struct *work)
 
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		memlat_grp = memlat_data->groups[grp];
-		if (!memlat_grp || memlat_grp->sampling_cur_freq ==
-							max_freqs[grp])
+		if (!memlat_grp || memlat_grp->sampling_cur_freq == max_freqs[grp] ||
+		    memlat_grp->sampling_path_type == NUM_DCVS_PATHS)
 			continue;
 		memlat_grp->sampling_cur_freq = max_freqs[grp];
 		if (memlat_grp->fp_voting_enabled)
@@ -916,7 +922,8 @@ static int get_mask_and_mpidr_from_pdev(struct platform_device *pdev,
 #define COREDEV_TBL_PROP	"qcom,cpufreq-memfreq-tbl"
 #define NUM_COLS		2
 static struct cpufreq_memfreq_map *init_cpufreq_memfreq_map(struct device *dev,
-					struct device_node *of_node)
+							    struct device_node *of_node,
+							    u32 *cnt)
 {
 	int len, nf, i, j;
 	u32 data;
@@ -951,6 +958,7 @@ static struct cpufreq_memfreq_map *init_cpufreq_memfreq_map(struct device *dev,
 		pr_debug("Entry%d CPU:%u, Mem:%u\n", i, tbl[i].cpufreq_mhz,
 				tbl[i].memfreq_khz);
 	}
+	*cnt = nf;
 	tbl[i].cpufreq_mhz = 0;
 
 	return tbl;
@@ -1024,6 +1032,205 @@ static inline bool should_enable_memlat_fp(void)
 	return false;
 }
 
+static int configure_cpucp_grp(struct memlat_group *grp)
+{
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	int ret = 0, i, j = 0;
+	struct device_node *of_node = grp->dev->of_node;
+	u8 ev_map[MAX_EV_CNTRS];
+
+	ret = ops->set_mem_grp(memlat_data->ph, *cpumask_bits(cpu_possible_mask),
+			       grp->hw_type);
+	if (ret < 0) {
+		pr_err("Failed to configure mem grp %s\n", of_node->name);
+		return ret;
+	}
+
+	memset(ev_map, 0xFF, MAX_EV_CNTRS);
+	for (i = 0; i < NUM_COMMON_EVS; i++, j++) {
+		if (!memlat_data->common_ev_ids[i])
+			continue;
+
+		ret = qcom_get_cpucp_id(memlat_data->common_ev_ids[i], 0);
+		if (ret >= 0 && ret < MAX_CPUCP_EVT)
+			ev_map[j] = ret;
+	}
+
+	for (i = 0; i < NUM_GRP_EVS; i++, j++) {
+		if (!grp->grp_ev_ids[i])
+			continue;
+
+		ret = qcom_get_cpucp_id(grp->grp_ev_ids[i], 0);
+		if (ret >= 0 && ret < MAX_CPUCP_EVT)
+			ev_map[j] = ret;
+	}
+
+	ret = ops->set_ev_map(memlat_data->ph, grp->hw_type, ev_map);
+	if (ret < 0)
+		pr_err("Failed to configure event map for mem grp %s\n",
+							of_node->name);
+	return ret;
+}
+
+static int configure_cpucp_mon(struct memlat_mon *mon)
+{
+	struct memlat_group *grp = mon->memlat_grp;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	struct device_node *of_node = mon->dev->of_node;
+	int ret;
+
+	ret = ops->set_mon(memlat_data->ph, mon->cpus_mpidr, grp->hw_type,
+			   mon->is_compute, mon->index);
+	if (ret < 0) {
+		pr_err("failed to configure monitor %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->ipm_ceil(memlat_data->ph, grp->hw_type, mon->index,
+			    mon->ipm_ceil);
+	if (ret < 0) {
+		pr_err("failed to set ipm ceil for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->fe_stall_floor(memlat_data->ph, grp->hw_type, mon->index,
+				  mon->fe_stall_floor);
+	if (ret < 0) {
+		pr_err("failed to set fe stall floor for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->be_stall_floor(memlat_data->ph, grp->hw_type, mon->index,
+				  mon->be_stall_floor);
+	if (ret < 0) {
+		pr_err("failed to set be stall floor for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->sample_ms(memlat_data->ph, memlat_data->cpucp_sample_ms);
+	if (ret < 0) {
+		pr_err("failed to set cpucp sample_ms for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->wb_pct_thres(memlat_data->ph, grp->hw_type, mon->index,
+				mon->wb_pct_thres);
+	if (ret < 0) {
+		pr_err("failed to set wb pct for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->wb_filter_ipm(memlat_data->ph, grp->hw_type, mon->index,
+				 mon->wb_filter_ipm);
+	if (ret < 0) {
+		pr_err("failed to set wb filter ipm for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->freq_scale_pct(memlat_data->ph, grp->hw_type, mon->index,
+				  mon->freq_scale_pct);
+	if (ret < 0) {
+		pr_err("failed to set freq_scale_pct for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->freq_scale_limit_mhz(memlat_data->ph, grp->hw_type, mon->index,
+					mon->freq_scale_limit_mhz);
+	if (ret < 0) {
+		pr_err("failed to set wb filter ipm for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->freq_map(memlat_data->ph, grp->hw_type, mon->index,
+			    mon->freq_map_len, mon->freq_map);
+	if (ret < 0) {
+		pr_err("failed to configure freq_map for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->min_freq(memlat_data->ph, grp->hw_type, mon->index,
+			    mon->min_freq);
+	if (ret < 0) {
+		pr_err("failed to set min_freq for %s\n", of_node->name);
+		return ret;
+	}
+
+	ret = ops->max_freq(memlat_data->ph, grp->hw_type, mon->index,
+			    mon->max_freq);
+	if (ret < 0)
+		pr_err("failed to set max_freq for %s\n", of_node->name);
+
+	return ret;
+}
+
+int cpucp_memlat_init(struct scmi_device *sdev)
+{
+	int ret = 0, i, j;
+	struct scmi_protocol_handle *ph;
+	const struct scmi_memlat_vendor_ops *ops;
+	struct memlat_group *grp;
+	bool start_cpucp_timer = false;
+
+	if (!memlat_data->inited)
+		return -EPROBE_DEFER;
+
+	if (!sdev || !sdev->handle)
+		return -EINVAL;
+
+	ops = sdev->handle->devm_get_protocol(sdev, SCMI_PROTOCOL_MEMLAT, &ph);
+	if (!ops)
+		return -ENODEV;
+
+	mutex_lock(&memlat_lock);
+	memlat_data->ph = ph;
+	memlat_data->memlat_ops = ops;
+
+	/* Configure group and common parameters */
+	for (i = 0; i < MAX_MEMLAT_GRPS; i++) {
+		grp = memlat_data->groups[i];
+		if (!grp->cpucp_enabled)
+			continue;
+		ret = configure_cpucp_grp(grp);
+		if (ret < 0) {
+			pr_err("Failed to configure mem group: %d\n", ret);
+			ops = NULL;
+			goto memlat_unlock;
+		}
+
+		mutex_lock(&grp->mons_lock);
+		for (j = 0; j < grp->num_inited_mons; j++) {
+			if (grp->mons[j].type != CPUCP_MON)
+				continue;
+			/* Configure per monitor parameters */
+			ret = configure_cpucp_mon(&grp->mons[j]);
+			if (ret < 0) {
+				pr_err("failed to configure mon: %d\n", ret);
+				ops = NULL;
+				goto mons_unlock;
+			}
+			start_cpucp_timer = true;
+		}
+		mutex_unlock(&grp->mons_lock);
+	}
+
+	/* Start sampling and voting timer */
+	if (!start_cpucp_timer)
+		goto memlat_unlock;
+
+	ret = ops->start_timer(memlat_data->ph);
+	if (ret < 0)
+		pr_err("Error in starting the mem group timer %d\n", ret);
+
+	goto memlat_unlock;
+
+mons_unlock:
+	mutex_unlock(&grp->mons_lock);
+memlat_unlock:
+	mutex_unlock(&memlat_lock);
+	return ret;
+}
+EXPORT_SYMBOL(cpucp_memlat_init);
+
 #define INST_EV		0x08
 #define CYC_EV		0x11
 static int memlat_dev_probe(struct platform_device *pdev)
@@ -1040,6 +1247,7 @@ static int memlat_dev_probe(struct platform_device *pdev)
 
 	dev_data->dev = dev;
 	dev_data->sample_ms = 8;
+	dev_data->cpucp_sample_ms = 8;
 
 	dev_data->num_grps = of_get_available_child_count(dev->of_node);
 	if (!dev_data->num_grps) {
@@ -1300,8 +1508,10 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "qcom,threadlat-enabled"))
 		mon->type |= THREADLAT_MON;
 
-	if (of_property_read_bool(dev->of_node, "qcom,cpucp-enabled"))
+	if (of_property_read_bool(dev->of_node, "qcom,cpucp-enabled")) {
 		mon->type |= CPUCP_MON;
+		memlat_grp->cpucp_enabled = true;
+	}
 
 	if (!mon->type) {
 		dev_err(dev, "No types configured for mon!\n");
@@ -1325,7 +1535,8 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	if (of_get_child_count(of_node))
 		of_node = qcom_dcvs_get_ddr_child_node(of_node);
 
-	mon->freq_map = init_cpufreq_memfreq_map(dev, of_node);
+	mon->freq_map = init_cpufreq_memfreq_map(dev, of_node,
+						 &mon->freq_map_len);
 	if (!mon->freq_map) {
 		dev_err(dev, "error importing cpufreq-memfreq table!\n");
 		ret = -EINVAL;
@@ -1348,7 +1559,7 @@ static int memlat_mon_probe(struct platform_device *pdev)
 		goto unlock_out;
 	}
 
-	memlat_grp->num_inited_mons++;
+	mon->index = memlat_grp->num_inited_mons++;
 	if (memlat_grps_and_mons_inited())
 		memlat_data->inited = true;
 
