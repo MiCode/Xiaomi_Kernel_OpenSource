@@ -10,6 +10,7 @@
 #include <linux/usb/typec.h>
 #include <linux/usb/ucsi_glink.h>
 #include <linux/soc/qcom/fsa4480-i2c.h>
+#include <linux/qti-regmap-debugfs.h>
 
 #define FSA4480_I2C_NAME	"fsa4480-driver"
 
@@ -353,6 +354,7 @@ static int fsa4480_probe(struct i2c_client *i2c,
 	}
 
 	fsa4480_update_reg_defaults(fsa_priv->regmap);
+	devm_regmap_qti_debugfs_register(fsa_priv->dev, fsa_priv->regmap);
 
 	fsa_priv->ucsi_nb.notifier_call = fsa4480_usbc_event_changed;
 	fsa_priv->ucsi_nb.priority = 0;
