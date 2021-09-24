@@ -327,26 +327,48 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 	return 0;
 }
 
-int qcom_pmu_event_supported(u32 event_id, int cpu)
+static struct event_data *get_event(u32 event_id, int cpu)
 {
 	struct cpu_data *cpu_data;
 	struct event_data *event;
 	int i;
 
 	if (!qcom_pmu_inited)
-		return -EPROBE_DEFER;
+		return ERR_PTR(-EPROBE_DEFER);
 
 	if (!event_id || cpu >= num_possible_cpus())
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (event->event_id == event_id)
-			return 0;
+			return event;
+	}
+	return ERR_PTR(-ENOENT);
+}
+
+int qcom_get_cpucp_id(u32 event_id, int cpu)
+{
+	struct event_data *event;
+
+	event = get_event(event_id, cpu);
+	if (IS_ERR(event)) {
+		pr_err("error getting event %d\n", PTR_ERR(event));
+		return PTR_ERR(event);
 	}
 
-	return -ENOENT;
+	return event->cid;
+}
+EXPORT_SYMBOL(qcom_get_cpucp_id);
+
+int qcom_pmu_event_supported(u32 event_id, int cpu)
+{
+	struct event_data *event;
+
+	event = get_event(event_id, cpu);
+
+	return PTR_ERR_OR_ZERO(event);
 }
 EXPORT_SYMBOL(qcom_pmu_event_supported);
 
