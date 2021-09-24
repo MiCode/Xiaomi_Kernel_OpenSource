@@ -115,7 +115,7 @@ struct virtio_backend_device {
 	spinlock_t lock;
 	wait_queue_head_t evt_queue;
 	wait_queue_head_t notify_queue;
-	int refcount;
+	u32 refcount;
 	int notify;
 	int ack_driver_ok;
 	int evt_avail;
@@ -150,7 +150,8 @@ vb_dev_get(struct virt_machine *vm, u32 label)
 		goto done;
 	list_for_each_entry(tmp, &vm->vb_dev_list, list) {
 		if (label == tmp->label) {
-			vb_dev = tmp;
+			if (tmp->refcount < U32_MAX)
+				vb_dev = tmp;
 			break;
 		}
 	}
@@ -1158,7 +1159,8 @@ static int __exit gh_virtio_backend_remove(struct platform_device *pdev)
 	struct virtio_backend_device *vb_dev = platform_get_drvdata(pdev);
 	struct virt_machine *vm;
 	u64 isr;
-	int i, refcount;
+	int i;
+	u32 refcount;
 	int empty = 0;
 	int count;
 	unsigned long flags;
@@ -1561,7 +1563,8 @@ int gh_virtio_mmio_exit(gh_vmid_t vmid, const char *vm_name)
 	struct virt_machine *vm;
 	struct virtio_backend_device *vb_dev;
 	unsigned long flags;
-	int ret = -EINVAL, refcount;
+	int ret = -EINVAL;
+	u32 refcount;
 
 	vm = find_vm_by_name(vm_name);
 	if (!vm) {
