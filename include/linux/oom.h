@@ -136,4 +136,5 @@ extern int sysctl_reap_mem_on_sigkill;
 extern void add_to_oom_reaper(struct task_struct *p);
 extern void check_panic_on_foreground_kill(struct task_struct *p);
 #define ULMK_MAGIC "lmkd"
+#define PRE_KILL "PreKillActionT"
 #endif /* _INCLUDE_LINUX_OOM_H */
