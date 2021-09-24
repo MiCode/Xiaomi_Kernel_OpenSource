@@ -16,6 +16,7 @@
 #include <linux/mem-buf.h>
 #include <linux/mman.h>
 #include <linux/mm_types.h>
+#include <linux/msm_kgsl.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/pm_runtime.h>
@@ -23,7 +24,7 @@
 #include <linux/security.h>
 #include <linux/sort.h>
 #include <soc/qcom/of_common.h>
-#include <linux/msm_kgsl.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "kgsl_compat.h"
 #include "kgsl_debugfs.h"
@@ -3050,7 +3051,7 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 
 		/* Check if secure buffer is accessible to CP_PIXEL */
 		for (i = 0; i < nelems; i++) {
-			if  (vmid_list[i] == QCOM_DMA_HEAP_FLAG_CP_PIXEL)
+			if  (vmid_list[i] == VMID_CP_PIXEL)
 				break;
 		}
 
