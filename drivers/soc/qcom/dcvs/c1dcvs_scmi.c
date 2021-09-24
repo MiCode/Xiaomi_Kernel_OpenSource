@@ -188,6 +188,17 @@ static struct kobj_type c1dcvs_settings_ktype = {
 	.default_attrs		= c1dcvs_settings_attr,
 };
 
+int c1dcvs_enable(bool enable)
+{
+	unsigned int data = enable ? 1 : 0;
+
+	if (!ops)
+		return -EPROBE_DEFER;
+
+	return ops->set_enable_c1dcvs(ph, &data);
+}
+EXPORT_SYMBOL(c1dcvs_enable);
+
 static int scmi_c1dcvs_probe(struct scmi_device *sdev)
 {
 	int ret;
