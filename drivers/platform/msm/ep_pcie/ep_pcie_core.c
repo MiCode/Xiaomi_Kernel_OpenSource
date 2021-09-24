@@ -440,7 +440,7 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_clk_deinit(struct ep_pcie_dev_t *dev)
 {
-	int i;
+	int i, rc;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -449,11 +449,10 @@ static void ep_pcie_clk_deinit(struct ep_pcie_dev_t *dev)
 			clk_disable_unprepare(dev->clk[i].hdl);
 
 	if (dev->icc_path) {
-		icc_put(dev->icc_path);
-		dev->icc_path = 0;
-			EP_PCIE_DBG(dev,
-				"PCIe V%d: relinquish bus bandwidth\n",
-				dev->rev);
+		rc = icc_set_bw(dev->icc_path, 0, 0);
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: relinquish bus bandwidth returns %d\n",
+			dev->rev, rc);
 	}
 
 	if (!m2_enabled) {
