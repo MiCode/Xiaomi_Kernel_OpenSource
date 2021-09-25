@@ -15,7 +15,7 @@
 #include "coresight-common.h"
 #include "coresight-tmc.h"
 
-#define USB_BLK_SIZE 131072
+#define USB_BLK_SIZE 65536
 #define USB_SG_NUM (USB_BLK_SIZE / PAGE_SIZE)
 #define USB_BUF_NUM 255
 #define USB_TIME_OUT (5 * HZ)
