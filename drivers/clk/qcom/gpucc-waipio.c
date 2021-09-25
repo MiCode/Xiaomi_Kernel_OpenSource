@@ -63,7 +63,7 @@ static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
-static const struct alpha_pll_config gpu_cc_pll0_config_sm8450_v2 = {
+static const struct alpha_pll_config gpu_cc_pll0_config_waipio_v2 = {
 	.l = 0x1D,
 	.cal_l = 0x44,
 	.alpha = 0xB000,
@@ -790,7 +790,7 @@ MODULE_DEVICE_TABLE(of, gpu_cc_waipio_match_table);
 
 static void gpu_cc_waipio_fixup_waipiov2(struct regmap *regmap)
 {
-	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config_sm8450_v2);
+	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config_waipio_v2);
 	gpu_cc_ff_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
 	gpu_cc_gmu_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
 	gpu_cc_hub_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 150000000;
