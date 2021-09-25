@@ -10,6 +10,14 @@
 	status = "disabled";
 };
 
+&bluetooth {
+	status = "disabled";
+};
+
+&wlan {
+	status = "disabled";
+};
+
 &pcie1 {
 	qcom,target-link-width = <1>; /* force X1 lane width */
 	qcom,no-l0s-supported;
