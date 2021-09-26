@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -43,6 +43,13 @@
 #define REG_LPG_PAUSE_LO_MULTIPLIER	0x54
 #define REG_LPG_HI_INDEX		0x56
 #define REG_LPG_LO_INDEX		0x57
+
+/* PWM module registers */
+#define REG_PWM_STATUS1			0x08
+#define FM_MODE_PRESENT			BIT(0)
+
+#define REG_PWM_FM_MODE			0x50
+#define FM_MODE_ENABLE			BIT(7)
 
 /* REG_LPG_PATTERN_CONFIG */
 #define LPG_PATTERN_EN_PAUSE_LO		BIT(0)
@@ -112,20 +119,17 @@
 #define SDAM_END_INDEX_OFFSET			0x3
 #define SDAM_START_INDEX_OFFSET			0x4
 #define SDAM_PBS_SCRATCH_LUT_COUNTER_OFFSET	0x6
+#define SDAM_PAUSE_START_MULTIPLIER_OFFSET		0x8
+#define SDAM_PAUSE_END_MULTIPLIER_OFFSET		0x9
 
 /* SDAM_REG_LUT_EN */
 #define SDAM_LUT_EN_BIT				BIT(0)
 
 /* SDAM_REG_PATTERN_CONFIG */
 #define SDAM_PATTERN_LOOP_ENABLE		BIT(3)
-#define SDAM_PATTERN_RAMP_TOGGLE		BIT(2)
-#define SDAM_PATTERN_EN_PAUSE_END		BIT(1)
-#define SDAM_PATTERN_EN_PAUSE_START		BIT(0)
-
-/* SDAM_REG_PAUSE_MULTIPLIER */
-#define SDAM_PAUSE_START_SHIFT			4
-#define SDAM_PAUSE_START_MASK			GENMASK(7, 4)
-#define SDAM_PAUSE_END_MASK			GENMASK(3, 0)
+#define SDAM_PATTERN_EN_PAUSE_START		BIT(1)
+#define SDAM_PATTERN_EN_PAUSE_END		BIT(0)
+#define SDAM_PAUSE_COUNT_MAX			(U8_MAX - 1)
 
 #define SDAM_LUT_COUNT_MAX			64
 
@@ -134,8 +138,16 @@ enum lpg_src {
 	PWM_VALUE,
 };
 
+enum ppg_num_nvmems {
+	PPG_NO_NVMEMS,
+	PPG_NVMEMS_1, /* A single nvmem for both LUT and LPG channel config */
+	PPG_NVMEMS_2, /* Two separate nvmems for LUT and LPG channel config */
+};
+
 static const int pwm_size[NUM_PWM_SIZE] = {6, 9};
 static const int clk_freq_hz[NUM_PWM_CLK] = {1024, 32768, 19200000};
+/* clk_period_ns = NSEC_PER_SEC / clk_freq_hz */
+static const int clk_period_ns[NUM_PWM_CLK] = {976562, 30517, 52};
 static const int clk_prediv[NUM_CLK_PREDIV] = {1, 3, 5, 6};
 static const int pwm_exponent[NUM_PWM_EXP] = {0, 1, 2, 3, 4, 5, 6, 7};
 
@@ -164,8 +176,10 @@ struct lpg_pwm_config {
 struct qpnp_lpg_lut {
 	struct qpnp_lpg_chip	*chip;
 	struct mutex		lock;
+	enum ppg_num_nvmems	nvmem_count;
 	u32			reg_base;
 	u32			*pattern; /* patterns in percentage */
+	u32			ramp_step_tick_us;
 };
 
 struct qpnp_lpg_channel {
@@ -179,6 +193,7 @@ struct qpnp_lpg_channel {
 	u8				src_sel;
 	u8				subtype;
 	bool				lut_written;
+	bool				enable_pfm;
 	u64				current_period_ns;
 	u64				current_duty_ns;
 };
@@ -191,7 +206,8 @@ struct qpnp_lpg_chip {
 	struct qpnp_lpg_lut	*lut;
 	struct mutex		bus_lock;
 	u32			*lpg_group;
-	struct nvmem_device	*sdam_nvmem;
+	struct nvmem_device	*lpg_chan_nvmem;
+	struct nvmem_device	*lut_nvmem;
 	struct device_node	*pbs_dev_node;
 	u32			num_lpgs;
 	unsigned long		pbs_en_bitmap;
@@ -275,12 +291,13 @@ static int qpnp_lut_masked_write(struct qpnp_lpg_lut *lut,
 	return rc;
 }
 
-static int qpnp_sdam_write(struct qpnp_lpg_chip *chip, u16 addr, u8 val)
+static int qpnp_lpg_chan_nvmem_write(struct qpnp_lpg_chip *chip, u16 addr,
+				    u8 val)
 {
 	int rc;
 
 	mutex_lock(&chip->bus_lock);
-	rc = nvmem_device_write(chip->sdam_nvmem, addr, 1, &val);
+	rc = nvmem_device_write(chip->lpg_chan_nvmem, addr, 1, &val);
 	if (rc < 0)
 		dev_err(chip->dev, "write SDAM add 0x%x failed, rc=%d\n",
 				addr, rc);
@@ -296,7 +313,7 @@ static int qpnp_lpg_sdam_write(struct qpnp_lpg_channel *lpg, u16 addr, u8 val)
 	int rc;
 
 	mutex_lock(&chip->bus_lock);
-	rc = nvmem_device_write(chip->sdam_nvmem,
+	rc = nvmem_device_write(chip->lpg_chan_nvmem,
 			lpg->lpg_sdam_base + addr, 1, &val);
 	if (rc < 0)
 		dev_err(chip->dev, "write SDAM add 0x%x failed, rc=%d\n",
@@ -316,7 +333,7 @@ static int qpnp_lpg_sdam_masked_write(struct qpnp_lpg_channel *lpg,
 
 	mutex_lock(&chip->bus_lock);
 
-	rc = nvmem_device_read(chip->sdam_nvmem,
+	rc = nvmem_device_read(chip->lpg_chan_nvmem,
 			lpg->lpg_sdam_base + addr, 1, &tmp);
 	if (rc < 0) {
 		dev_err(chip->dev, "Read SDAM addr %d failed, rc=%d\n",
@@ -326,7 +343,7 @@ static int qpnp_lpg_sdam_masked_write(struct qpnp_lpg_channel *lpg,
 
 	tmp = tmp & ~mask;
 	tmp |= val & mask;
-	rc = nvmem_device_write(chip->sdam_nvmem,
+	rc = nvmem_device_write(chip->lpg_chan_nvmem,
 			lpg->lpg_sdam_base + addr, 1, &tmp);
 	if (rc < 0)
 		dev_err(chip->dev, "write SDAM addr %d failed, rc=%d\n",
@@ -348,7 +365,7 @@ static int qpnp_lut_sdam_write(struct qpnp_lpg_lut *lut,
 		return -EINVAL;
 
 	mutex_lock(&chip->bus_lock);
-	rc = nvmem_device_write(chip->sdam_nvmem,
+	rc = nvmem_device_write(chip->lut_nvmem,
 			lut->reg_base + addr, length, val);
 	if (rc < 0)
 		dev_err(chip->dev, "write SDAM addr %d failed, rc=%d\n",
@@ -480,6 +497,61 @@ static int qpnp_lpg_set_pwm_config(struct qpnp_lpg_channel *lpg)
 	return rc;
 }
 
+static int qpnp_lpg_set_pfm_config(struct qpnp_lpg_channel *lpg)
+{
+	int rc;
+	u8 val, mask;
+	int pwm_clk_idx, clk_exp_idx;
+
+	pwm_clk_idx = __find_index_in_array(lpg->pwm_config.pwm_clk,
+			clk_freq_hz, ARRAY_SIZE(clk_freq_hz));
+	clk_exp_idx = __find_index_in_array(lpg->pwm_config.clk_exp,
+			pwm_exponent, ARRAY_SIZE(pwm_exponent));
+
+	if (pwm_clk_idx < 0 || clk_exp_idx < 0)
+		return -EINVAL;
+
+	/* pwm_clk_idx is 1 bit lower than the register value */
+	pwm_clk_idx += 1;
+
+	val = pwm_clk_idx;
+	mask = LPG_PWM_CLK_FREQ_SEL_MASK;
+	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_SIZE_CLK, mask, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write LPG_PWM_SIZE_CLK failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	val = clk_exp_idx;
+	mask = LPG_PWM_FREQ_EXPONENT_MASK;
+	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_FREQ_PREDIV_CLK, mask, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write LPG_PWM_FREQ_PREDIV_CLK failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	val = lpg->pwm_config.pwm_value;
+	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_VALUE_LSB,
+				   LPG_PWM_VALUE_LSB_MASK, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write LPG_PWM_VALUE_LSB failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	val = LPG_PWM_VALUE_SYNC;
+	rc = qpnp_lpg_write(lpg, REG_LPG_PWM_SYNC, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write LPG_PWM_SYNC failed, rc=%d\n",
+							rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int qpnp_lpg_set_sdam_lut_pattern(struct qpnp_lpg_channel *lpg,
 		unsigned int *pattern, unsigned int length)
 {
@@ -513,6 +585,18 @@ unlock:
 	return rc;
 }
 
+#define SDAM_START_BASE			0x40
+static u8 qpnp_lpg_get_sdam_lut_idx(struct qpnp_lpg_channel *lpg, u8 idx)
+{
+	struct qpnp_lpg_chip *chip = lpg->chip;
+	u8 val = idx;
+
+	if (chip->lut->nvmem_count == PPG_NVMEMS_2)
+		val += (chip->lut->reg_base - SDAM_START_BASE);
+
+	return val;
+}
+
 static int qpnp_lpg_set_sdam_ramp_config(struct qpnp_lpg_channel *lpg)
 {
 	struct lpg_ramp_config *ramp = &lpg->ramp_config;
@@ -529,12 +613,12 @@ static int qpnp_lpg_set_sdam_ramp_config(struct qpnp_lpg_channel *lpg)
 		return rc;
 	}
 
-	/* Set ramp step duration, one WAIT_TICK is 7.8ms */
-	val = (ramp->step_ms * 1000 / 7800) & 0xff;
+	/* Set ramp step duration, in ticks */
+	val = (ramp->step_ms * 1000 / lpg->chip->lut->ramp_step_tick_us) & 0xff;
 	if (val > 0)
 		val--;
 	addr = SDAM_REG_RAMP_STEP_DURATION;
-	rc = qpnp_sdam_write(lpg->chip, addr, val);
+	rc = qpnp_lpg_chan_nvmem_write(lpg->chip, addr, val);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write SDAM_REG_RAMP_STEP_DURATION failed, rc=%d\n",
 				rc);
@@ -542,15 +626,16 @@ static int qpnp_lpg_set_sdam_ramp_config(struct qpnp_lpg_channel *lpg)
 	}
 
 	/* Set hi_idx and lo_idx */
-	rc = qpnp_lpg_sdam_write(lpg, SDAM_END_INDEX_OFFSET, ramp->hi_idx);
+	val = qpnp_lpg_get_sdam_lut_idx(lpg, ramp->hi_idx);
+	rc = qpnp_lpg_sdam_write(lpg, SDAM_END_INDEX_OFFSET, val);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write SDAM_REG_END_INDEX failed, rc=%d\n",
 					rc);
 		return rc;
 	}
 
-	rc = qpnp_lpg_sdam_write(lpg, SDAM_START_INDEX_OFFSET,
-						ramp->lo_idx);
+	val = qpnp_lpg_get_sdam_lut_idx(lpg, ramp->lo_idx);
+	rc = qpnp_lpg_sdam_write(lpg, SDAM_START_INDEX_OFFSET, val);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write SDAM_REG_START_INDEX failed, rc=%d\n",
 					rc);
@@ -563,11 +648,36 @@ static int qpnp_lpg_set_sdam_ramp_config(struct qpnp_lpg_channel *lpg)
 	val = 0;
 	if (ramp->pattern_repeat)
 		val |= SDAM_PATTERN_LOOP_ENABLE;
+	if (ramp->pause_hi_count) {
+		val |= SDAM_PATTERN_EN_PAUSE_START;
+		mask |= SDAM_PATTERN_EN_PAUSE_START;
+	}
+	if (ramp->pause_lo_count) {
+		val |= SDAM_PATTERN_EN_PAUSE_END;
+		mask |= SDAM_PATTERN_EN_PAUSE_END;
+	}
 
 	rc = qpnp_lpg_sdam_masked_write(lpg, addr, mask, val);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write SDAM_REG_PATTERN_CONFIG failed, rc=%d\n",
 					rc);
+		return rc;
+	}
+
+	/* Set PAUSE HI and LO */
+	rc = qpnp_lpg_sdam_write(lpg, SDAM_PAUSE_START_MULTIPLIER_OFFSET,
+				 ramp->pause_hi_count);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_REG_PAUSE_START_MULTIPLIER failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = qpnp_lpg_sdam_write(lpg, SDAM_PAUSE_END_MULTIPLIER_OFFSET,
+				 ramp->pause_lo_count);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_REG_PAUSE_END_MULTIPLIER failed, rc=%d\n",
+			rc);
 		return rc;
 	}
 
@@ -719,7 +829,7 @@ static int qpnp_lpg_set_ramp_config(struct qpnp_lpg_channel *lpg)
 	return rc;
 }
 
-static void __qpnp_lpg_calc_pwm_period(u64 period_ns,
+static int __qpnp_lpg_calc_pwm_period(u64 period_ns,
 			struct lpg_pwm_config *pwm_config)
 {
 	struct qpnp_lpg_channel *lpg = container_of(pwm_config,
@@ -804,6 +914,8 @@ static void __qpnp_lpg_calc_pwm_period(u64 period_ns,
 			period_ns, pwm_config->pwm_clk, pwm_config->prediv,
 			pwm_config->clk_exp, pwm_config->pwm_size);
 	pr_debug("Actual period: %lluns\n", pwm_config->best_period_ns);
+
+	return 0;
 }
 
 static void __qpnp_lpg_calc_pwm_duty(u64 period_ns, u64 duty_ns,
@@ -821,6 +933,76 @@ static void __qpnp_lpg_calc_pwm_duty(u64 period_ns, u64 duty_ns,
 	pwm_config->pwm_value = pwm_value;
 }
 
+static int __qpnp_lpg_calc_pfm_period(u64 period_ns,
+				       struct lpg_pwm_config *pwm_config)
+{
+	int clk, exp, lsb;
+	int best_clk = 0, best_exp = 0, best_lsb = -EINVAL;
+	u64 lsb_tmp, period_tmp, curr_p_err, last_p_err = 0;
+	u64 min_p_err = U64_MAX;
+
+	/*
+	 *               2 * (pwm_value_lsb + 1) * (2^pwm_exp) * NSEC_PER_SEC
+	 * pwm_period = ---------------------------------------------------
+	 *                               clk_freq_hz
+	 *
+	 * For each (clk, exp) solve above equation for pwm_value_lsb, and then
+	 * use this pwm_lsb to calculate pwm_period and compare with desired
+	 * period. Store the triplet values that yield the closest value to
+	 * desired period.
+	 */
+	for (clk = 0; clk < NUM_PWM_CLK; clk++) {
+		last_p_err = U64_MAX;
+		for (exp = 0; exp < NUM_PWM_EXP; exp++) {
+			lsb_tmp = div_u64(period_ns, clk_period_ns[clk]);
+			lsb_tmp >>= (exp + 1);
+			lsb = lsb_tmp - 1;
+			if (lsb >= 0 && lsb <= U8_MAX) {
+				period_tmp = (lsb + 1);
+				period_tmp <<= (exp + 1);
+				period_tmp *= clk_period_ns[clk];
+				curr_p_err = abs(period_ns - period_tmp);
+
+				if (curr_p_err < min_p_err) {
+					min_p_err = curr_p_err;
+
+					/* Closest settings found! Save them. */
+					best_clk = clk;
+					best_exp = exp;
+					best_lsb = lsb;
+					/*
+					 * No need to set pwm_size or prediv in
+					 * `struct pwm_config` as they are
+					 * no-ops in PFM mode.
+					 */
+					pwm_config->best_period_ns = period_tmp;
+				}
+
+				if (curr_p_err > last_p_err)
+					/* No need to iterate further */
+					break;
+				last_p_err = curr_p_err;
+			}
+		}
+	}
+
+	if (best_lsb < 0) {
+		pr_err("Cannot generate %llu ns\n", period_ns);
+		return -EINVAL;
+	}
+
+	pwm_config->pwm_clk = clk_freq_hz[best_clk];
+	pwm_config->clk_exp = pwm_exponent[best_exp];
+	pwm_config->pwm_value = best_lsb;
+
+	pr_debug("PFM setting for period_ns %llu: pwm_clk = %d Hz, exponent = %d, pwm_val_lsb = %d\n",
+			period_ns, pwm_config->pwm_clk,
+			pwm_config->clk_exp, pwm_config->pwm_value);
+	pr_debug("Actual PFM period: %llu ns\n", pwm_config->best_period_ns);
+
+	return 0;
+}
+
 static int qpnp_lpg_config(struct qpnp_lpg_channel *lpg,
 		u64 duty_ns, u64 period_ns)
 {
@@ -833,30 +1015,45 @@ static int qpnp_lpg_config(struct qpnp_lpg_channel *lpg,
 	}
 
 	if (period_ns != lpg->current_period_ns) {
-		__qpnp_lpg_calc_pwm_period(period_ns, &lpg->pwm_config);
+		if (lpg->enable_pfm) {
+			rc = __qpnp_lpg_calc_pfm_period(period_ns,
+							&lpg->pwm_config);
+			if (rc)
+				return rc;
+		} else {
+			rc = __qpnp_lpg_calc_pwm_period(period_ns,
+							&lpg->pwm_config);
+			if (rc)
+				return rc;
 
-		/* program LUT if PWM period is changed */
-		if (lpg->src_sel == LUT_PATTERN) {
-			rc = qpnp_lpg_set_lut_pattern(lpg,
+			/* program LUT if PWM period is changed */
+			if (lpg->src_sel == LUT_PATTERN) {
+				rc = qpnp_lpg_set_lut_pattern(lpg,
 					lpg->ramp_config.pattern,
 					lpg->ramp_config.pattern_length);
-			if (rc < 0) {
-				dev_err(lpg->chip->dev, "set LUT pattern failed for LPG%d, rc=%d\n",
-						lpg->lpg_idx, rc);
-				return rc;
+				if (rc < 0) {
+					dev_err(lpg->chip->dev, "set LUT pattern failed for LPG%d, rc=%d\n",
+							lpg->lpg_idx, rc);
+					return rc;
+				}
+				lpg->lut_written = true;
 			}
-			lpg->lut_written = true;
 		}
 	}
 
-	if (period_ns != lpg->current_period_ns ||
-			duty_ns != lpg->current_duty_ns)
+	/* Don't calculate duty cycle for PFM as it is fixed at 50% */
+	if ((period_ns != lpg->current_period_ns ||
+		duty_ns != lpg->current_duty_ns) && !lpg->enable_pfm)
 		__qpnp_lpg_calc_pwm_duty(period_ns, duty_ns, &lpg->pwm_config);
 
-	rc = qpnp_lpg_set_pwm_config(lpg);
+	if (lpg->enable_pfm)
+		rc = qpnp_lpg_set_pfm_config(lpg);
+	else
+		rc = qpnp_lpg_set_pwm_config(lpg);
+
 	if (rc < 0) {
-		dev_err(lpg->chip->dev, "Config PWM failed for channel %d, rc=%d\n",
-						lpg->lpg_idx, rc);
+		dev_err(lpg->chip->dev, "Config %s failed for channel %d, rc=%d\n",
+			lpg->enable_pfm ? "PFM" : "PWM", lpg->lpg_idx, rc);
 		return rc;
 	}
 
@@ -880,6 +1077,63 @@ static int qpnp_lpg_pwm_config(struct pwm_chip *pwm_chip,
 	return qpnp_lpg_config(lpg, duty_ns, period_ns);
 }
 
+#define SDAM_PBS_TRIG_SET			0xe5
+#define SDAM_PBS_TRIG_CLR			0xe6
+static int qpnp_lpg_clear_pbs_trigger(struct qpnp_lpg_chip *chip)
+{
+	int rc;
+
+	rc = qpnp_lpg_chan_nvmem_write(chip,
+			SDAM_REG_PBS_SEQ_EN, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Write SDAM_REG_PBS_SEQ_EN failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (chip->lut->nvmem_count == PPG_NVMEMS_2) {
+		rc = qpnp_lpg_chan_nvmem_write(chip, SDAM_PBS_TRIG_CLR,
+				PBS_SW_TRG_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Failed to fire PBS seq, rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static int qpnp_lpg_set_pbs_trigger(struct qpnp_lpg_chip *chip)
+{
+	int rc;
+
+	rc = qpnp_lpg_chan_nvmem_write(chip,
+			SDAM_REG_PBS_SEQ_EN, PBS_SW_TRG_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Write SDAM_REG_PBS_SEQ_EN failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (chip->lut->nvmem_count == PPG_NVMEMS_1) {
+		if (!chip->pbs_dev_node) {
+			dev_err(chip->dev, "PBS device unavailable\n");
+			return -ENODEV;
+		}
+		rc = qpnp_pbs_trigger_event(chip->pbs_dev_node,
+				PBS_SW_TRG_BIT);
+	} else {
+		rc = qpnp_lpg_chan_nvmem_write(chip, SDAM_PBS_TRIG_SET,
+					      PBS_SW_TRG_BIT);
+	}
+
+	if (rc < 0)
+		dev_err(chip->dev, "Failed to trigger PBS, rc=%d\n", rc);
+
+	return rc;
+}
+
 static int qpnp_lpg_pbs_trigger_enable(struct qpnp_lpg_channel *lpg, bool en)
 {
 	struct qpnp_lpg_chip *chip = lpg->chip;
@@ -887,32 +1141,17 @@ static int qpnp_lpg_pbs_trigger_enable(struct qpnp_lpg_channel *lpg, bool en)
 
 	if (en) {
 		if (chip->pbs_en_bitmap == 0) {
-			rc = qpnp_sdam_write(chip, SDAM_REG_PBS_SEQ_EN,
-					PBS_SW_TRG_BIT);
-			if (rc < 0) {
-				dev_err(chip->dev, "Write SDAM_REG_PBS_SEQ_EN failed, rc=%d\n",
-						rc);
+			rc = qpnp_lpg_set_pbs_trigger(chip);
+			if (rc < 0)
 				return rc;
-			}
-
-			rc = qpnp_pbs_trigger_event(chip->pbs_dev_node,
-					PBS_SW_TRG_BIT);
-			if (rc < 0) {
-				dev_err(chip->dev, "Failed to trigger PBS, rc=%d\n",
-						rc);
-				return rc;
-			}
 		}
 		set_bit(lpg->lpg_idx, &chip->pbs_en_bitmap);
 	} else {
 		clear_bit(lpg->lpg_idx, &chip->pbs_en_bitmap);
 		if (chip->pbs_en_bitmap == 0) {
-			rc = qpnp_sdam_write(chip, SDAM_REG_PBS_SEQ_EN, 0);
-			if (rc < 0) {
-				dev_err(chip->dev, "Write SDAM_REG_PBS_SEQ_EN failed, rc=%d\n",
-						rc);
+			rc = qpnp_lpg_clear_pbs_trigger(chip);
+			if (rc < 0)
 				return rc;
-			}
 		}
 	}
 
@@ -1242,6 +1481,92 @@ static int qpnp_get_lpg_channels(struct qpnp_lpg_chip *chip, u32 *base)
 	return 0;
 }
 
+static int qpnp_lpg_parse_ramp_props_dt(struct device_node *node,
+					struct qpnp_lpg_chip *chip,
+					u32 lpg_chan_id, u32 max_count)
+{
+	int rc;
+	u32 tmp;
+	struct qpnp_lpg_channel *lpg;
+	struct lpg_ramp_config *ramp;
+
+	/* lpg channel id is indexed from 1 in hardware */
+	lpg = &chip->lpgs[lpg_chan_id - 1];
+	ramp = &lpg->ramp_config;
+
+	rc = of_property_read_u32(node, "qcom,ramp-step-ms", &tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "get qcom,ramp-step-ms failed for lpg%d, rc=%d\n",
+				lpg_chan_id, rc);
+		return rc;
+	}
+	ramp->step_ms = (u16)tmp;
+
+	rc = of_property_read_u32(node, "qcom,ramp-low-index", &tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "get qcom,ramp-low-index failed for lpg%d, rc=%d\n",
+				lpg_chan_id, rc);
+		return rc;
+	}
+	ramp->lo_idx = (u8)tmp;
+	if (ramp->lo_idx >= max_count) {
+		dev_err(chip->dev, "qcom,ramp-low-index should less than max %d\n",
+				max_count);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ramp-high-index", &tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "get qcom,ramp-high-index failed for lpg%d, rc=%d\n",
+				lpg_chan_id, rc);
+		return rc;
+	}
+	ramp->hi_idx = (u8)tmp;
+
+	if (ramp->hi_idx > max_count) {
+		dev_err(chip->dev, "qcom,ramp-high-index shouldn't exceed max %d\n",
+				max_count);
+		return -EINVAL;
+	}
+
+	if (chip->use_sdam && ramp->hi_idx <= ramp->lo_idx) {
+		dev_err(chip->dev, "high-index(%d) should be larger than low-index(%d) when SDAM used\n",
+				ramp->hi_idx, ramp->lo_idx);
+		return -EINVAL;
+	}
+
+	ramp->pattern_length = ramp->hi_idx - ramp->lo_idx + 1;
+	ramp->pattern = &chip->lut->pattern[ramp->lo_idx];
+	lpg->max_pattern_length = ramp->pattern_length;
+
+	ramp->pattern_repeat = of_property_read_bool(node,
+			"qcom,ramp-pattern-repeat");
+
+	rc = of_property_read_u32(node, "qcom,ramp-pause-hi-count", &tmp);
+	if (rc < 0)
+		ramp->pause_hi_count = 0;
+	else if (chip->use_sdam && tmp > SDAM_PAUSE_COUNT_MAX)
+		return -EINVAL;
+	ramp->pause_hi_count = (u8)tmp;
+
+	rc = of_property_read_u32(node, "qcom,ramp-pause-lo-count", &tmp);
+	if (rc < 0)
+		ramp->pause_lo_count = 0;
+	else if (chip->use_sdam && tmp > SDAM_PAUSE_COUNT_MAX)
+		return -EINVAL;
+	ramp->pause_lo_count = (u8)tmp;
+
+	if (chip->use_sdam)
+		return 0;
+
+	ramp->ramp_dir_low_to_hi = of_property_read_bool(node,
+			"qcom,ramp-from-low-to-high");
+
+	ramp->toggle =  of_property_read_bool(node, "qcom,ramp-toggle");
+
+	return rc;
+}
+
 static int qpnp_lpg_parse_pattern_dt(struct qpnp_lpg_chip *chip,
 					u32 max_count)
 {
@@ -1302,6 +1627,11 @@ static int qpnp_lpg_parse_pattern_dt(struct qpnp_lpg_chip *chip,
 			return -EINVAL;
 		}
 
+		if (chip->lpgs[lpg_chan_id - 1].enable_pfm) {
+			dev_err(chip->dev, "Cannot configure ramp for PFM-enabled channel %d\n");
+			return -EINVAL;
+		}
+
 		if (chip->use_sdam) {
 			rc = of_property_read_u32(child,
 					"qcom,lpg-sdam-base",
@@ -1314,80 +1644,13 @@ static int qpnp_lpg_parse_pattern_dt(struct qpnp_lpg_chip *chip,
 			chip->lpgs[lpg_chan_id - 1].lpg_sdam_base = tmp;
 		}
 
-		/* lpg channel id is indexed from 1 in hardware */
-		lpg = &chip->lpgs[lpg_chan_id - 1];
-		ramp = &lpg->ramp_config;
-
-		rc = of_property_read_u32(child, "qcom,ramp-step-ms", &tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "get qcom,ramp-step-ms failed for lpg%d, rc=%d\n",
-					lpg_chan_id, rc);
+		rc = qpnp_lpg_parse_ramp_props_dt(child, chip, lpg_chan_id,
+						  max_count);
+		if (rc) {
+			dev_err(chip->dev, "Parsing ramp props failed for lpg%d, rc=%d\n",
+				lpg_chan_id, rc);
 			return rc;
 		}
-		ramp->step_ms = (u16)tmp;
-
-		rc = of_property_read_u32(child, "qcom,ramp-low-index", &tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "get qcom,ramp-low-index failed for lpg%d, rc=%d\n",
-						lpg_chan_id, rc);
-			return rc;
-		}
-		ramp->lo_idx = (u8)tmp;
-		if (ramp->lo_idx >= max_count) {
-			dev_err(chip->dev, "qcom,ramp-low-index should less than max %d\n",
-						max_count);
-			return -EINVAL;
-		}
-
-		rc = of_property_read_u32(child, "qcom,ramp-high-index", &tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "get qcom,ramp-high-index failed for lpg%d, rc=%d\n",
-						lpg_chan_id, rc);
-			return rc;
-		}
-		ramp->hi_idx = (u8)tmp;
-
-		if (ramp->hi_idx > max_count) {
-			dev_err(chip->dev, "qcom,ramp-high-index shouldn't exceed max %d\n",
-						max_count);
-			return -EINVAL;
-		}
-
-		if (chip->use_sdam && ramp->hi_idx <= ramp->lo_idx) {
-			dev_err(chip->dev, "high-index(%d) should be larger than low-index(%d) when SDAM used\n",
-						ramp->hi_idx, ramp->lo_idx);
-			return -EINVAL;
-		}
-
-		ramp->pattern_length = ramp->hi_idx - ramp->lo_idx + 1;
-		ramp->pattern = &chip->lut->pattern[ramp->lo_idx];
-		lpg->max_pattern_length = ramp->pattern_length;
-
-		ramp->pattern_repeat = of_property_read_bool(child,
-				"qcom,ramp-pattern-repeat");
-
-		if (chip->use_sdam)
-			continue;
-
-		rc = of_property_read_u32(child,
-				"qcom,ramp-pause-hi-count", &tmp);
-		if (rc < 0)
-			ramp->pause_hi_count = 0;
-		else
-			ramp->pause_hi_count = (u8)tmp;
-
-		rc = of_property_read_u32(child,
-				"qcom,ramp-pause-lo-count", &tmp);
-		if (rc < 0)
-			ramp->pause_lo_count = 0;
-		else
-			ramp->pause_lo_count = (u8)tmp;
-
-		ramp->ramp_dir_low_to_hi = of_property_read_bool(child,
-				"qcom,ramp-from-low-to-high");
-
-		ramp->toggle =  of_property_read_bool(child,
-				"qcom,ramp-toggle");
 	}
 
 	rc = of_property_count_elems_of_size(chip->dev->of_node,
@@ -1449,6 +1712,97 @@ static bool lut_is_defined(struct qpnp_lpg_chip *chip, const __be32 **addr)
 	return true;
 }
 
+static int qpnp_lpg_get_nvmem_dt(struct qpnp_lpg_chip *chip)
+{
+	int rc = 0;
+	struct nvmem_device *ppg_nv, *lut_nv, *lpg_nv;
+
+	/* Ensure backward compatibility */
+	ppg_nv = devm_nvmem_device_get(chip->dev, "ppg_sdam");
+	if (IS_ERR(ppg_nv)) {
+		lut_nv = devm_nvmem_device_get(chip->dev, "lut_sdam");
+		if (IS_ERR(lut_nv)) {
+			rc = PTR_ERR(lut_nv);
+			goto err;
+		}
+
+		lpg_nv = devm_nvmem_device_get(chip->dev, "lpg_chan_sdam");
+		if (IS_ERR(lpg_nv)) {
+			rc = PTR_ERR(lpg_nv);
+			goto err;
+		}
+
+		chip->lut_nvmem = lut_nv;
+		chip->lpg_chan_nvmem = lpg_nv;
+		chip->lut->nvmem_count = PPG_NVMEMS_2;
+	} else {
+		chip->lut_nvmem = chip->lpg_chan_nvmem = ppg_nv;
+		chip->lut->nvmem_count = PPG_NVMEMS_1;
+	}
+
+	return 0;
+err:
+	if (rc != -EPROBE_DEFER)
+		dev_err(chip->dev, "Failed to get nvmem device, rc=%d\n",
+				rc);
+	return rc;
+}
+
+static int qpnp_lpg_parse_pfm_support(struct qpnp_lpg_chip *chip)
+{
+	u32 chan_idx;
+	u32 num_pfm_channels;
+	u8 val;
+	int i, rc;
+
+	rc = of_property_count_elems_of_size(chip->dev->of_node,
+					     "qcom,pfm-chan-ids",
+					     sizeof(u32));
+	if (rc < 0)
+		return rc;
+
+	if (rc == 0 || rc > chip->num_lpgs)
+		return -EINVAL;
+
+	num_pfm_channels = rc;
+
+	for (i = 0; i < num_pfm_channels; i++) {
+		rc = of_property_read_u32_index(chip->dev->of_node,
+				"qcom,pfm-chan-ids", i, &chan_idx);
+		if (rc) {
+			dev_err(chip->dev, "Read pfm channel %d failed, rc=%d\n",
+					i, rc);
+			return -EINVAL;
+		}
+
+		if (chan_idx < 1 || chan_idx > chip->num_lpgs) {
+			dev_err(chip->dev, "pfm chan id %u is out of range 1~%d\n",
+					chan_idx, chip->num_lpgs);
+			return -EINVAL;
+		}
+
+		chan_idx--; /* zero-based indexing */
+
+		if (chip->lpgs[chan_idx].subtype == SUBTYPE_PWM) {
+			rc = qpnp_lpg_read(&chip->lpgs[chan_idx],
+					   REG_PWM_STATUS1, &val);
+			if (rc < 0) {
+				dev_err(chip->dev, "Read status1 failed, rc=%d\n",
+					rc);
+				return rc;
+			}
+
+			if (val & FM_MODE_PRESENT)
+				chip->lpgs[chan_idx].enable_pfm = true;
+			else
+				return -EOPNOTSUPP;
+		}
+	}
+
+	return rc;
+}
+
+#define DEFAULT_TICK_DURATION_US	7800
 static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 {
 	int rc = 0, i;
@@ -1477,26 +1831,35 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		}
 	}
 
-	chip->lut = devm_kmalloc(chip->dev, sizeof(*chip->lut), GFP_KERNEL);
-	if (!chip->lut)
-		return -ENOMEM;
-
-	if (of_find_property(chip->dev->of_node, "nvmem", NULL)) {
-		chip->sdam_nvmem = devm_nvmem_device_get(chip->dev, "ppg_sdam");
-		if (IS_ERR_OR_NULL(chip->sdam_nvmem)) {
-			rc = PTR_ERR(chip->sdam_nvmem);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chip->dev, "Failed to get nvmem device, rc=%d\n",
-					rc);
+	if (of_find_property(chip->dev->of_node,
+				"qcom,pfm-chan-ids", NULL)) {
+		rc = qpnp_lpg_parse_pfm_support(chip);
+		if (rc < 0) {
+			dev_err(chip->dev, "PFM channels specified incorrectly\n");
 			return rc;
 		}
+	}
+
+	if (of_find_property(chip->dev->of_node, "nvmem", NULL)) {
+		chip->lut = devm_kmalloc(chip->dev, sizeof(*chip->lut),
+				GFP_KERNEL);
+		if (!chip->lut)
+			return -ENOMEM;
+
+		rc = qpnp_lpg_get_nvmem_dt(chip);
+		if (rc < 0)
+			return rc;
 
 		chip->use_sdam = true;
-		chip->pbs_dev_node = of_parse_phandle(chip->dev->of_node,
-				"qcom,pbs-client", 0);
-		if (!chip->pbs_dev_node) {
-			dev_err(chip->dev, "Missing qcom,pbs-client property\n");
-			return -EINVAL;
+		if (of_find_property(chip->dev->of_node, "qcom,pbs-client",
+					NULL)) {
+			chip->pbs_dev_node = of_parse_phandle(
+					chip->dev->of_node,
+					"qcom,pbs-client", 0);
+			if (!chip->pbs_dev_node) {
+				dev_err(chip->dev, "Missing qcom,pbs-client property\n");
+				return -ENODEV;
+			}
 		}
 
 		rc = of_property_read_u32(chip->dev->of_node,
@@ -1508,19 +1871,29 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 			return rc;
 		}
 
+		chip->lut->ramp_step_tick_us = DEFAULT_TICK_DURATION_US;
+		of_property_read_u32(chip->dev->of_node, "qcom,tick-period-us",
+				&chip->lut->ramp_step_tick_us);
+
 		rc = qpnp_lpg_parse_pattern_dt(chip, SDAM_LUT_COUNT_MAX);
 		if (rc < 0) {
 			of_node_put(chip->pbs_dev_node);
 			return rc;
 		}
 	} else if (lut_is_defined(chip, &addr)) {
-		chip->lut->reg_base = be32_to_cpu(*addr);
-		return qpnp_lpg_parse_pattern_dt(chip, LPG_LUT_COUNT_MAX);
-	}
+		chip->lut = devm_kmalloc(chip->dev, sizeof(*chip->lut),
+				GFP_KERNEL);
+		if (!chip->lut)
+			return -ENOMEM;
 
-	pr_debug("Neither SDAM nor LUT specified\n");
-	devm_kfree(chip->dev, chip->lut);
-	chip->lut = NULL;
+		chip->lut->reg_base = be32_to_cpu(*addr);
+
+		rc = qpnp_lpg_parse_pattern_dt(chip, LPG_LUT_COUNT_MAX);
+		if (rc < 0)
+			return rc;
+	} else {
+		pr_debug("Neither SDAM nor LUT specified\n");
+	}
 
 	return 0;
 }
@@ -1557,8 +1930,9 @@ static int qpnp_lpg_sdam_hw_init(struct qpnp_lpg_chip *chip)
 
 static int qpnp_lpg_probe(struct platform_device *pdev)
 {
-	int rc;
+	int rc, i;
 	struct qpnp_lpg_chip *chip;
+	struct qpnp_lpg_channel *lpg;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -1574,7 +1948,8 @@ static int qpnp_lpg_probe(struct platform_device *pdev)
 	mutex_init(&chip->bus_lock);
 	rc = qpnp_lpg_parse_dt(chip);
 	if (rc < 0) {
-		dev_err(chip->dev, "Devicetree properties parsing failed, rc=%d\n",
+		if (rc != -EPROBE_DEFER)
+			dev_err(chip->dev, "Devicetree properties parsing failed, rc=%d\n",
 				rc);
 		goto err_out;
 	}
@@ -1584,6 +1959,19 @@ static int qpnp_lpg_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "SDAM HW init failed, rc=%d\n",
 				rc);
 		goto err_out;
+	}
+
+	for (i = 0; i < chip->num_lpgs; i++) {
+		lpg = &chip->lpgs[i];
+		if (lpg->enable_pfm) {
+			rc = qpnp_lpg_write(lpg, REG_PWM_FM_MODE,
+					FM_MODE_ENABLE);
+			if (rc < 0) {
+				dev_err(chip->dev, "Write fm_mode_enable failed, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
 	}
 
 	dev_set_drvdata(chip->dev, chip);
@@ -1607,16 +1995,13 @@ err_out:
 static int qpnp_lpg_remove(struct platform_device *pdev)
 {
 	struct qpnp_lpg_chip *chip = dev_get_drvdata(&pdev->dev);
-	int rc = 0;
 
-	rc = pwmchip_remove(&chip->pwm_chip);
-	if (rc < 0)
-		dev_err(chip->dev, "Remove pwmchip failed, rc=%d\n", rc);
-
+	of_node_put(chip->pbs_dev_node);
+	pwmchip_remove(&chip->pwm_chip);
 	mutex_destroy(&chip->bus_lock);
 	dev_set_drvdata(chip->dev, NULL);
 
-	return rc;
+	return 0;
 }
 
 static const struct of_device_id qpnp_lpg_of_match[] = {
