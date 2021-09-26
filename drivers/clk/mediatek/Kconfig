@@ -566,41 +566,42 @@ config COMMON_CLK_MT8167
 	bool "Clock driver for MediaTek MT8167"
 	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
+	default ARCH_MEDIATEK
 	help
 	  This driver supports MediaTek MT8167 basic clocks.
 
 config COMMON_CLK_MT8167_AUDSYS
 	bool "Clock driver for MediaTek MT8167 audsys"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-	select COMMON_CLK_MEDIATEK
+	depends on COMMON_CLK_MT8167
+	default COMMON_CLK_MT8167
 	help
 	  This driver supports MediaTek MT8167 audsys clocks.
 
 config COMMON_CLK_MT8167_IMGSYS
 	bool "Clock driver for MediaTek MT8167 imgsys"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-	select COMMON_CLK_MEDIATEK
+	depends on COMMON_CLK_MT8167
+	default COMMON_CLK_MT8167
 	help
 	  This driver supports MediaTek MT8167 imgsys clocks.
 
 config COMMON_CLK_MT8167_MFGCFG
 	bool "Clock driver for MediaTek MT8167 mfgcfg"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-	select COMMON_CLK_MEDIATEK
+	depends on COMMON_CLK_MT8167
+	default COMMON_CLK_MT8167
 	help
 	  This driver supports MediaTek MT8167 mfgcfg clocks.
 
 config COMMON_CLK_MT8167_MMSYS
 	bool "Clock driver for MediaTek MT8167 mmsys"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-	select COMMON_CLK_MEDIATEK
+	depends on COMMON_CLK_MT8167
+	default COMMON_CLK_MT8167
 	help
 	  This driver supports MediaTek MT8167 mmsys clocks.
 
 config COMMON_CLK_MT8167_VDECSYS
 	bool "Clock driver for MediaTek MT8167 vdecsys"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-	select COMMON_CLK_MEDIATEK
+	depends on COMMON_CLK_MT8167
+	default COMMON_CLK_MT8167
 	help
 	  This driver supports MediaTek MT8167 vdecsys clocks.
 
@@ -708,9 +709,6 @@ config COMMON_CLK_MT8192
 	select COMMON_CLK_MEDIATEK
 	help
 	  This driver supports MediaTek MT8192 basic clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_APU0
 	tristate "Clock driver for MediaTek MT8192 apu0"
@@ -762,207 +760,73 @@ config COMMON_CLK_MT8192_AUDSYS
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 audsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_CAMSYS
 	tristate "Clock driver for MediaTek MT8192 camsys"
 	depends on COMMON_CLK_MT8192
 	help
-	  This driver supports MediaTek MT8192 camsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_CAMSYS_RAWA
-	tristate "Clock driver for MediaTek MT8192 camsys_rawa"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 camsys_rawa clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_CAMSYS_RAWB
-	tristate "Clock driver for MediaTek MT8192 camsys_rawb"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 camsys_rawb clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_CAMSYS_RAWC
-	tristate "Clock driver for MediaTek MT8192 camsys_rawc"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 camsys_rawc clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
+	  This driver supports MediaTek MT8192 camsys and camsys_raw clocks.
 
 config COMMON_CLK_MT8192_IMGSYS
 	tristate "Clock driver for MediaTek MT8192 imgsys"
 	depends on COMMON_CLK_MT8192
 	help
-	  This driver supports MediaTek MT8192 imgsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
+	  This driver supports MediaTek MT8192 imgsys and imgsys2 clocks.
 
-config COMMON_CLK_MT8192_IMGSYS2
-	tristate "Clock driver for MediaTek MT8192 imgsys2"
+config COMMON_CLK_MT8192_IMP_IIC_WRAP
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap"
 	depends on COMMON_CLK_MT8192
 	help
-	  This driver supports MediaTek MT8192 imgsys2 clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_IMP_IIC_WRAP_C
-	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_c"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 imp_iic_wrap_c clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_IMP_IIC_WRAP_E
-	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_e"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 imp_iic_wrap_e clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_IMP_IIC_WRAP_N
-	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_n"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 imp_iic_wrap_n clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_IMP_IIC_WRAP_S
-	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_s"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 imp_iic_wrap_s clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_IMP_IIC_WRAP_W
-	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_w"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 imp_iic_wrap_w clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_IMP_IIC_WRAP_WS
-	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_ws"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 imp_iic_wrap_ws clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
+	  This driver supports MediaTek MT8192 imp_iic_wrap clocks.
 
 config COMMON_CLK_MT8192_IPESYS
 	tristate "Clock driver for MediaTek MT8192 ipesys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 ipesys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MDPSYS
 	tristate "Clock driver for MediaTek MT8192 mdpsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mdpsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MFGCFG
+	tristate "Clock driver for MediaTek MT8192 mfgcfg"
 	tristate "Clock driver for MediaTek MT8192 mfgcfg"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mfgcfg clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MMSYS
 	tristate "Clock driver for MediaTek MT8192 mmsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mmsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_MSDC_TOP
-	tristate "Clock driver for MediaTek MT8192 msdc_top"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 msdc_top clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MSDC
 	tristate "Clock driver for MediaTek MT8192 msdc"
 	depends on COMMON_CLK_MT8192
 	help
-	  This driver supports MediaTek MT8192 msdc clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
+	  This driver supports MediaTek MT8192 msdc and msdc_top clocks.
 
 config COMMON_CLK_MT8192_SCP_ADSP
 	tristate "Clock driver for MediaTek MT8192 scp_adsp"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 scp_adsp clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_VDECSYS
 	tristate "Clock driver for MediaTek MT8192 vdecsys"
 	depends on COMMON_CLK_MT8192
 	help
-	  This driver supports MediaTek MT8192 vdecsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
-
-config COMMON_CLK_MT8192_VDECSYS_SOC
-	tristate "Clock driver for MediaTek MT8192 vdecsys_soc"
-	depends on COMMON_CLK_MT8192
-	help
-	  This driver supports MediaTek MT8192 vdecsys_soc clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
+	  This driver supports MediaTek MT8192 vdecsys and vdecsys_soc clocks.
 
 config COMMON_CLK_MT8192_VENCSYS
 	tristate "Clock driver for MediaTek MT8192 vencsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 vencsys clocks.
-          required on MediaTek MT8192 SoC.
-          If you wish to use clock resources from the MT8192 SOC,
-          say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8516
 	bool "Clock driver for MediaTek MT8516"

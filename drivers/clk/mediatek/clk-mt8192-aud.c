@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 //
-// Copyright (c) 2020 MediaTek Inc.
-// Author: Weiyi Lu <weiyi.lu@mediatek.com>
+// Copyright (c) 2021 MediaTek Inc.
+// Author: Chun-Jie Chen <chun-jie.chen@mediatek.com>
 
 #include <linux/clk-provider.h>
 #include <linux/module.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 
 #include "clk-mtk.h"
@@ -30,17 +31,14 @@ static const struct mtk_gate_regs aud2_cg_regs = {
 	.sta_ofs = 0x8,
 };
 
-#define GATE_AUD0(_id, _name, _parent, _shift)			\
-	GATE_MTK(_id, _name, _parent, &aud0_cg_regs, _shift,	\
-		&mtk_clk_gate_ops_no_setclr)
+#define GATE_AUD0(_id, _name, _parent, _shift)	\
+	GATE_MTK(_id, _name, _parent, &aud0_cg_regs, _shift, &mtk_clk_gate_ops_no_setclr)
 
-#define GATE_AUD1(_id, _name, _parent, _shift)			\
-	GATE_MTK(_id, _name, _parent, &aud1_cg_regs, _shift,	\
-		&mtk_clk_gate_ops_no_setclr)
+#define GATE_AUD1(_id, _name, _parent, _shift)	\
+	GATE_MTK(_id, _name, _parent, &aud1_cg_regs, _shift, &mtk_clk_gate_ops_no_setclr)
 
-#define GATE_AUD2(_id, _name, _parent, _shift)			\
-	GATE_MTK(_id, _name, _parent, &aud2_cg_regs, _shift,	\
-		&mtk_clk_gate_ops_no_setclr)
+#define GATE_AUD2(_id, _name, _parent, _shift)	\
+	GATE_MTK(_id, _name, _parent, &aud2_cg_regs, _shift, &mtk_clk_gate_ops_no_setclr)
 
 static const struct mtk_gate aud_clks[] = {
 	/* AUD0 */
@@ -60,23 +58,18 @@ static const struct mtk_gate aud_clks[] = {
 	GATE_AUD1(CLK_AUD_I2S2_B, "aud_i2s2_b", "audio_sel", 5),
 	GATE_AUD1(CLK_AUD_I2S3_B, "aud_i2s3_b", "audio_sel", 6),
 	GATE_AUD1(CLK_AUD_I2S4_B, "aud_i2s4_b", "audio_sel", 7),
-	GATE_AUD1(CLK_AUD_CONNSYS_I2S_ASRC, "aud_connsys_i2s_asrc",
-		"audio_sel", 12),
+	GATE_AUD1(CLK_AUD_CONNSYS_I2S_ASRC, "aud_connsys_i2s_asrc", "audio_sel", 12),
 	GATE_AUD1(CLK_AUD_GENERAL1_ASRC, "aud_general1_asrc", "audio_sel", 13),
 	GATE_AUD1(CLK_AUD_GENERAL2_ASRC, "aud_general2_asrc", "audio_sel", 14),
 	GATE_AUD1(CLK_AUD_DAC_HIRES, "aud_dac_hires", "audio_h_sel", 15),
 	GATE_AUD1(CLK_AUD_ADC_HIRES, "aud_adc_hires", "audio_h_sel", 16),
-	GATE_AUD1(CLK_AUD_ADC_HIRES_TML, "aud_adc_hires_tml",
-		"audio_h_sel", 17),
+	GATE_AUD1(CLK_AUD_ADC_HIRES_TML, "aud_adc_hires_tml", "audio_h_sel", 17),
 	GATE_AUD1(CLK_AUD_ADDA6_ADC, "aud_adda6_adc", "audio_sel", 20),
-	GATE_AUD1(CLK_AUD_ADDA6_ADC_HIRES, "aud_adda6_adc_hires",
-		"audio_h_sel", 21),
+	GATE_AUD1(CLK_AUD_ADDA6_ADC_HIRES, "aud_adda6_adc_hires", "audio_h_sel", 21),
 	GATE_AUD1(CLK_AUD_3RD_DAC, "aud_3rd_dac", "audio_sel", 28),
-	GATE_AUD1(CLK_AUD_3RD_DAC_PREDIS, "aud_3rd_dac_predis",
-		"audio_sel", 29),
+	GATE_AUD1(CLK_AUD_3RD_DAC_PREDIS, "aud_3rd_dac_predis", "audio_sel", 29),
 	GATE_AUD1(CLK_AUD_3RD_DAC_TML, "aud_3rd_dac_tml", "audio_sel", 30),
-	GATE_AUD1(CLK_AUD_3RD_DAC_HIRES, "aud_3rd_dac_hires",
-		"audio_h_sel", 31),
+	GATE_AUD1(CLK_AUD_3RD_DAC_HIRES, "aud_3rd_dac_hires", "audio_h_sel", 31),
 	/* AUD2 */
 	GATE_AUD2(CLK_AUD_I2S5_B, "aud_i2s5_b", "audio_sel", 0),
 	GATE_AUD2(CLK_AUD_I2S6_B, "aud_i2s6_b", "audio_sel", 1),
@@ -89,13 +82,25 @@ static int clk_mt8192_aud_probe(struct platform_device *pdev)
 {
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
+	int r;
 
 	clk_data = mtk_alloc_clk_data(CLK_AUD_NR_CLK);
+	if (!clk_data)
+		return -ENOMEM;
 
-	mtk_clk_register_gates(node, aud_clks, ARRAY_SIZE(aud_clks),
-			clk_data);
+	r = mtk_clk_register_gates(node, aud_clks, ARRAY_SIZE(aud_clks), clk_data);
+	if (r)
+		return r;
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (r)
+		return r;
+
+	r = devm_of_platform_populate(&pdev->dev);
+	if (r)
+		of_clk_del_provider(node);
+
+	return r;
 }
 
 static const struct of_device_id of_match_clk_mt8192_aud[] = {
@@ -111,16 +116,5 @@ static struct platform_driver clk_mt8192_aud_drv = {
 	},
 };
 
-static int __init clk_mt8192_aud_init(void)
-{
-	return platform_driver_register(&clk_mt8192_aud_drv);
-}
-
-static void __exit clk_mt8192_aud_exit(void)
-{
-	platform_driver_unregister(&clk_mt8192_aud_drv);
-}
-
-arch_initcall(clk_mt8192_aud_init);
-module_exit(clk_mt8192_aud_exit);
+module_platform_driver(clk_mt8192_aud_drv);
 MODULE_LICENSE("GPL");
