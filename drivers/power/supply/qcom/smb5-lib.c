@@ -789,6 +789,7 @@ static int smblib_set_usb_pd_fsw(struct smb_charger *chg, int voltage)
 
 #define CONT_AICL_HEADROOM_MV		1000
 #define AICL_THRESHOLD_MV_IN_CC		5000
+#define VSAFE5V_SETTLE_US		40000
 static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 					int min_allowed_uv, int max_allowed_uv)
 {
@@ -813,6 +814,14 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 				min_allowed_uv, max_allowed_uv);
 		return -EINVAL;
 	}
+
+	/*
+	 * usbin-ov interrupt is seen with some USBPD adapters when moving
+	 * from 9V to 5V. To avoid this, add delay here to wait VBUS voltage
+	 * settled before updating VBUS allowance to 5V.
+	 */
+	if (vbus_allowance == FORCE_5V)
+		usleep_range(VSAFE5V_SETTLE_US, VSAFE5V_SETTLE_US + 1);
 
 	rc = smblib_usb_pd_adapter_allowance_override(chg, vbus_allowance);
 	if (rc < 0) {

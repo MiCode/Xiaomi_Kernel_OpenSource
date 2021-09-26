@@ -1003,6 +1003,11 @@ int qcom_wdt_register(struct platform_device *pdev,
 	struct md_region md_entry;
 	int ret;
 
+	if (!pdev || !wdog_dd || !wdog_dd_name) {
+		pr_err("wdt_register input incorrect\n");
+		return -EINVAL;
+	}
+
 	qcom_wdt_dt_to_pdata(pdev, wdog_dd);
 	wdog_data = wdog_dd;
 	wdog_dd->dev = &pdev->dev;

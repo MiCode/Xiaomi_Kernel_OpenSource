@@ -1923,6 +1923,11 @@ static int sec_event_ring_cleanup(struct xhci_hcd *xhci, unsigned int intr_num)
 		return -EINVAL;
 	}
 
+	if (!xhci->sec_erst) {
+		xhci_err(xhci, "secondary ring is NULL or not initialized\n");
+		return -EINVAL;
+	}
+
 	size =
 	sizeof(struct xhci_erst_entry)*(xhci->sec_erst[intr_num].num_entries);
 	if (xhci->sec_erst[intr_num].entries) {
