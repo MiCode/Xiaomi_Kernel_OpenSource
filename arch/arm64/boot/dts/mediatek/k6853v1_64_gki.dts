@@ -8,7 +8,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6853-pinfunc.h>
-#include <dt-bindings/clock/mt6873-clk.h>
+#include <dt-bindings/clock/mt8192-clk.h>
 
 &gpio_usage_mapping {
 	GPIO_FDD_BAND_SUPPORT_DETECT_1ST_PIN = <&pio 37 0>;

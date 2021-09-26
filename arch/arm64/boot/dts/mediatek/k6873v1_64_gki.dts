@@ -8,7 +8,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6873-pinfunc.h>
-#include <dt-bindings/clock/mt6873-clk.h>
+#include <dt-bindings/clock/mt8192-clk.h>
 
 &gpio_usage_mapping {
 	GPIO_SIM1_HOT_PLUG = <&pio 43 0>;
