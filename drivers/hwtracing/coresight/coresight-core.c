@@ -1324,8 +1324,8 @@ int coresight_enable(struct coresight_device *csdev)
 
 	path = coresight_build_path(csdev, sink);
 	if (IS_ERR(path)) {
-		pr_err("building path(s) failed\n");
 		ret = PTR_ERR(path);
+		pr_err("building path(s) failed %d\n", ret);
 		goto out;
 	}
 
