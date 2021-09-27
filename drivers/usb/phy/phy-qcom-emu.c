@@ -15,6 +15,13 @@
 #define HS_PHY_CTRL_REG		0x10
 #define SW_SESSVLD_SEL		BIT(28)
 
+/* HSPHY registers */
+#define HS2_LOCAL_RESET_REG_ADDR	0x04
+#define HS2_CLK_STATUS_ADDR		0x10
+#define HS2_CLK_STATUS_SEL_ADDR		0x14
+#define HS2_USB30_CTRL_ADDR		0x34
+#define HS2_USB30_PHY_POWER_OFF		BIT(25)
+
 struct qcusb_emu_phy {
 	struct usb_phy	phy;
 	struct device	*dev;
@@ -31,6 +38,30 @@ static int qcusb_emu_phy_init(struct usb_phy *phy)
 	u32 tmp;
 	int i;
 
+	/* reset everything */
+	writel_relaxed(0xffffffff, qphy->base + HS2_LOCAL_RESET_REG_ADDR);
+	usleep_range(10000, 12000);
+
+	/* power down HS phy */
+	tmp = readl_relaxed(qphy->base + HS2_USB30_CTRL_ADDR) |
+				HS2_USB30_PHY_POWER_OFF;
+	writel_relaxed(tmp, qphy->base + HS2_USB30_CTRL_ADDR);
+	usleep_range(10000, 12000);
+
+	/* power up HS phy */
+	tmp = readl_relaxed(qphy->base + HS2_USB30_CTRL_ADDR) &
+				(~HS2_USB30_PHY_POWER_OFF);
+	writel_relaxed(tmp, qphy->base + HS2_USB30_CTRL_ADDR);
+	usleep_range(10000, 12000);
+
+	writel_relaxed(0xfffffff3, qphy->base + HS2_LOCAL_RESET_REG_ADDR);
+	usleep_range(10000, 12000);
+
+	/* put phy out of reset */
+	writel_relaxed(0xfffffff0, qphy->base + HS2_LOCAL_RESET_REG_ADDR);
+	usleep_range(10000, 12000);
+
+	/* selection of HS phy clock MMCM value */
 	for (i = 0; i < qphy->emu_init_seq_len; i = i+2) {
 		dev_dbg(phy->dev, "write 0x%02x to 0x%02x\n",
 				qphy->emu_init_seq[i], qphy->emu_init_seq[i+1]);
@@ -39,6 +70,16 @@ static int qcusb_emu_phy_init(struct usb_phy *phy)
 		/* 10ms to ensure write propagates across bus */
 		usleep_range(10000, 12000);
 	}
+
+	/* clear other reset */
+	writel_relaxed(0x0, qphy->base + HS2_LOCAL_RESET_REG_ADDR);
+	usleep_range(10000, 12000);
+
+	/* clock select to read UTMI/ULPI clock */
+	writel_relaxed(0x9, qphy->base + HS2_CLK_STATUS_SEL_ADDR);
+	usleep_range(10000, 12000);
+	dev_info(phy->dev, "PHY UTMI/ULPI CLK frequency:%d MHz\n",
+		(readl_relaxed(qphy->base + HS2_CLK_STATUS_ADDR) / 1000));
 
 	if (qphy->qscratch_base) {
 		/* Use UTMI VBUS signal from HW */
