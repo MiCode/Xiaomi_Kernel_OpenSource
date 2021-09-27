@@ -1067,18 +1067,6 @@ static struct sock_tag *get_sock_stat_nl(const struct sock *sk)
 	return sock_tag_tree_search(&sock_tag_tree, sk);
 }
 
-static struct sock_tag *get_sock_stat(const struct sock *sk)
-{
-	struct sock_tag *sock_tag_entry;
-	MT_DEBUG("qtaguid: get_sock_stat(sk=%p)\n", sk);
-	if (!sk)
-		return NULL;
-	spin_lock_bh(&sock_tag_list_lock);
-	sock_tag_entry = get_sock_stat_nl(sk);
-	spin_unlock_bh(&sock_tag_list_lock);
-	return sock_tag_entry;
-}
-
 static int ipx_proto(const struct sk_buff *skb,
 		     struct xt_action_param *par)
 {
@@ -1313,12 +1301,15 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 	 * Look for a tagged sock.
 	 * It will have an acct_uid.
 	 */
-	sock_tag_entry = get_sock_stat(sk);
+	spin_lock_bh(&sock_tag_list_lock);
+	sock_tag_entry = sk ? get_sock_stat_nl(sk) : NULL;
 	if (sock_tag_entry) {
 		tag = sock_tag_entry->tag;
 		acct_tag = get_atag_from_tag(tag);
 		uid_tag = get_utag_from_tag(tag);
-	} else {
+	}
+	spin_unlock_bh(&sock_tag_list_lock);
+	if (!sock_tag_entry) {
 		acct_tag = make_atag_from_value(0);
 		tag = combine_atag_with_uid(acct_tag, uid);
 		uid_tag = make_tag_from_uid(uid);

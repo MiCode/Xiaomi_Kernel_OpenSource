@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2012-2013,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013,2019,2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -404,7 +404,7 @@ static int smsm_inbound_entry(struct qcom_smsm *smsm,
 
 	ret = devm_request_threaded_irq(smsm->dev, smsm->irq,
 					NULL, smsm_intr,
-					IRQF_ONESHOT,
+					IRQF_NO_SUSPEND | IRQF_ONESHOT,
 					"smsm", (void *)entry);
 	if (ret) {
 		dev_err(smsm->dev, "failed to request interrupt\n");
