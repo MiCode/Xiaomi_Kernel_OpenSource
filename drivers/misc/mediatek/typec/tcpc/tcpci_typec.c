@@ -2884,7 +2884,6 @@ int tcpc_get_charger_type(struct tcpc_device *tcpc_dev)
 {
 	union power_supply_propval prop;
 	static struct power_supply *chg_psy;
-	int ret;
 
 	if (!chg_psy)
 		chg_psy = devm_power_supply_get_by_phandle(tcpc_dev->dev.parent,
@@ -2892,7 +2891,7 @@ int tcpc_get_charger_type(struct tcpc_device *tcpc_dev)
 	if (IS_ERR(chg_psy))
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
 	else
-		ret = power_supply_get_property(chg_psy,
+		power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop);
 	return prop.intval;
 }
