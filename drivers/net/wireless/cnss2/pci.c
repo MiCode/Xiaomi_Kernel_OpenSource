@@ -6021,15 +6021,21 @@ struct pci_driver cnss_pci_driver = {
 static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 {
 	int ret, retry = 0;
+	u32 link_speed;
 
-	/* Always set initial target PCIe link speed to Gen2 for QCA6490 device
-	 * since there may be link issues if it boots up with Gen3 link speed.
-	 * Device is able to change it later at any time. It will be rejected
-	 * if requested speed is higher than the one specified in PCIe DT.
+	/* For qca6490, read dts first to get default gen speed, if valid
+	 * setting existing, then use it, else use gen2.
 	 */
 	if (plat_priv->device_id == QCA6490_DEVICE_ID) {
+		ret = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+					   "default_gen_speed",
+					   &link_speed);
+		if (ret || link_speed < PCI_EXP_LNKSTA_CLS_2_5GB ||
+		    link_speed > PCI_EXP_LNKSTA_CLS_8_0GB)
+			link_speed = PCI_EXP_LNKSTA_CLS_5_0GB;
+		cnss_pr_dbg("Set pci link speed: %u\n", link_speed);
 		ret = cnss_pci_set_max_link_speed(plat_priv->bus_priv, rc_num,
-						  PCI_EXP_LNKSTA_CLS_5_0GB);
+						  link_speed);
 		if (ret && ret != -EPROBE_DEFER)
 			cnss_pr_err("Failed to set max PCIe RC%x link speed to Gen2, err = %d\n",
 				    rc_num, ret);
