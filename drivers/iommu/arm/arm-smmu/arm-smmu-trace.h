@@ -49,29 +49,47 @@ DEFINE_EVENT(iommu_tlbi, tlbi_end,
 	TP_ARGS(domain)
 );
 
-TRACE_EVENT(tlb_add_walk,
+DECLARE_EVENT_CLASS(iommu_pgtable,
 
 	TP_PROTO(struct arm_smmu_domain *domain, unsigned long iova,
-		size_t granule),
+		unsigned long long ipa, size_t granule),
 
-	TP_ARGS(domain, iova, granule),
+	TP_ARGS(domain, iova, ipa, granule),
 
 	TP_STRUCT__entry(
 		__string(group_name, dev_name(domain->dev))
 		__field(unsigned long, iova)
+		__field(unsigned long long, ipa)
 		__field(size_t, granule)
 	),
 
 	TP_fast_assign(
 		__assign_str(group_name, dev_name(domain->dev));
 		__entry->iova = iova;
+		__entry->ipa = ipa;
 		__entry->granule = granule;
 	),
 
-	TP_printk("group=%s iova=%lx size=%zx",
+	TP_printk("group=%s table_base_iova=%lx table_ipa=%llx table_size=%zx",
 		__get_str(group_name), __entry->iova,
-		__entry->granule
+		__entry->ipa, __entry->granule
 	)
+);
+
+DEFINE_EVENT(iommu_pgtable, iommu_pgtable_add,
+
+	TP_PROTO(struct arm_smmu_domain *domain, unsigned long iova,
+		unsigned long long ipa, size_t granule),
+
+	TP_ARGS(domain, iova, ipa, granule)
+);
+
+DEFINE_EVENT(iommu_pgtable, iommu_pgtable_remove,
+
+	TP_PROTO(struct arm_smmu_domain *domain, unsigned long iova,
+		unsigned long long ipa, size_t granule),
+
+	TP_ARGS(domain, iova, ipa, granule)
 );
 
 DECLARE_EVENT_CLASS(iommu_map_pages,

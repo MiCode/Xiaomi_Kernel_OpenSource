@@ -1375,14 +1375,28 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 	gather->end = max(iova + granule - 1, gather->end);
 	list_add(&page->lru, &smmu_domain->iotlb_gather_freelist);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+}
 
-	trace_tlb_add_walk(smmu_domain, iova, granule);
+static void arm_smmu_log_new_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_add(smmu_domain, iova, __pa(virt), granule);
+}
+
+static void arm_smmu_log_remove_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_remove(smmu_domain, iova, __pa(virt), granule);
 }
 
 static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
 	.alloc = arm_smmu_alloc_pgtable,
 	.free = arm_smmu_free_pgtable,
 	.tlb_add_walk = arm_smmu_tlb_add_walk,
+	.log_new_table = arm_smmu_log_new_table,
+	.log_remove_table = arm_smmu_log_remove_table,
 };
 
 static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
