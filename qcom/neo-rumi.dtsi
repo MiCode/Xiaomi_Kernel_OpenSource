@@ -108,3 +108,7 @@
 	clocks = <&bi_tcxo>, <&sleep_clk>,
 		<&gcc GCC_CAMERA_AHB_CLK>;
 };
+
+&qupv3_se11_2uart {
+	qcom,rumi_platform;
+};
