@@ -424,6 +424,11 @@ int slim_stream_disable(struct slim_stream_runtime *stream)
 		return -EINVAL;
 	}
 
+	if (!stream->ports || !stream->num_ports) {
+		pr_err("%s: Stream port is NULL %d\n", __func__, stream->num_ports);
+		return -EINVAL;
+	}
+
 	ctrl = stream->dev->ctrl;
 	if (ctrl->disable_stream)
 		ctrl->disable_stream(stream);
@@ -458,6 +463,11 @@ int slim_stream_unprepare(struct slim_stream_runtime *stream)
 
 	if (!stream) {
 		pr_err("%s: Stream is NULL, Check from client side\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!stream->ports || !stream->num_ports) {
+		pr_err("%s: Stream port is NULL %d\n", __func__, stream->num_ports);
 		return -EINVAL;
 	}
 
