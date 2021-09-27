@@ -67,7 +67,7 @@ static ssize_t show_##name(struct kobject *kobj,			\
 	if (ret < 0)							\
 		return ret;						\
 									\
-	return scnprintf(buf, PAGE_SIZE, "%lu\t", le32_to_cpu(var));	\
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", le32_to_cpu(var));	\
 }									\
 
 store_c1dcvs_attr(enable_trace);
@@ -133,6 +133,7 @@ static ssize_t show_##name(struct kobject *kobj,			\
 			break;						\
 		tot += scnprintf(buf + tot, PAGE_SIZE - tot, "%lu\t", vars[i]);\
 	}								\
+	tot += scnprintf(buf + tot, PAGE_SIZE - tot, "\n");		\
 									\
 	kfree(vars);							\
 	return tot;							\
