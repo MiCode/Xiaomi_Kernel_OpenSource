@@ -1,4 +1,6 @@
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interconnect/qcom,waipio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/spmi/spmi.h>
@@ -395,6 +397,10 @@
 			compatible = "qcom,waipio-rpmh-clk";
 			#clock-cells = <1>;
 		};
+
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
 	};
 
 	cpuss-sleep-stats@17800054 {
@@ -426,6 +432,11 @@
 				  <CONTROL_TCS   0>,
 				  <FAST_PATH_TCS 0>;
 		status = "nok"; /* enable once get clock change*/
+
+		disp_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
+		};
 	};
 
 	memtimer: timer@17420000 {
@@ -715,6 +726,100 @@
 		reg = <0x0 0x280000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+	};
+
+	clk_virt: interconnect@0 {
+		compatible = "qcom,waipio-clk_virt";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	mc_virt: interconnect@1 {
+		compatible = "qcom,waipio-mc_virt";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+	};
+
+	config_noc: interconnect@1500000 {
+		reg = <0x1500000 0x1C000>;
+		compatible = "qcom,waipio-config_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	system_noc: interconnect@1680000 {
+		reg = <0x1680000 0x1E200>;
+		compatible = "qcom,waipio-system_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	pcie_noc: interconnect@16c0000 {
+		reg = <0x16C0000 0xE280>;
+		compatible = "qcom,waipio-pcie_anoc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		reg = <0x16e0000 0x1C080>;
+		compatible = "qcom,waipio-aggre1_noc";
+		#interconnect-cells = <1>;
+		clocks =
+			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		reg = <0x1700000 0x31080>;
+		compatible = "qcom,waipio-aggre2_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+		clocks =
+			<&clock_gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&clock_rpmh RPMH_IPA_CLK>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		reg = <0x1740000 0x1f080>;
+		compatible = "qcom,waipio-mmss_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+	};
+
+	gem_noc: interconnect@19100000 {
+		reg = <0x19100000 0xBB800>;
+		compatible = "qcom,waipio-gem_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+	};
+
+	nsp_noc: interconnect@320C0000 {
+		reg = <0x320C0000 0x10000>;
+		compatible = "qcom,waipio-nsp_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	lpass_ag_noc: interconnect@3c40000 {
+		reg = <0x3c40000 0x17200>;
+		compatible = "qcom,waipio-lpass_ag_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 };
 
