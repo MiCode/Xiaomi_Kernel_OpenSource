@@ -562,7 +562,7 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	for (i = drv->state_count - 1; i > 0; i--) {
 		struct cpuidle_state *s = &drv->states[i];
 
-		if (!i && dev->states_usage[i].disable) {
+		if (i && dev->states_usage[i].disable) {
 			reason |= UPDATE_REASON(i, LPM_SELECT_STATE_DISABLED);
 			continue;
 		}
