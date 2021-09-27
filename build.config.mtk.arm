@@ -4,7 +4,7 @@ LLVM=1
 # DEFCONFIG=defconfig
 BRANCH=android-mainline
 KERNEL_DIR=kernel-common
-CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r428724/bin
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r433403/bin
 BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
 # for check scripts
 #CC=clang
