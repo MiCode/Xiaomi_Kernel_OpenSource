@@ -142,6 +142,7 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 /* #include "../../cmdq/mt6797/cmdq_record.h" */
 /* #include "../../cmdq/mt6797/cmdq_core.h" */
 
+#undef CONFIG_COMPAT
 /* CCF */
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
