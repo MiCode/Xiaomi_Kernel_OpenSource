@@ -109,6 +109,7 @@ int wpe_get_cnt;
 
 #define WPE_CHECK_SERVICE_IF_0    0
 
+#undef CONFIG_COMPAT
 /* CCF */
 #include <linux/clk.h>
 struct WPE_CLK_STRUCT {
