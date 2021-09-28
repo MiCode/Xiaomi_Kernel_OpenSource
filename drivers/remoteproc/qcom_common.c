@@ -85,6 +85,7 @@ struct minidump_global_toc {
 struct qcom_ssr_subsystem {
 	const char *name;
 	struct srcu_notifier_head notifier_list;
+	struct srcu_notifier_head early_notifier_list;
 	struct list_head list;
 };
 
@@ -377,6 +378,7 @@ static struct qcom_ssr_subsystem *qcom_ssr_get_subsys(const char *name)
 	}
 	info->name = kstrdup_const(name, GFP_KERNEL);
 	srcu_init_notifier_head(&info->notifier_list);
+	srcu_init_notifier_head(&info->early_notifier_list);
 
 	/* Add to global notification list */
 	list_add_tail(&info->list, &qcom_ssr_subsystem_list);
@@ -385,6 +387,28 @@ out:
 	mutex_unlock(&qcom_ssr_subsys_lock);
 	return info;
 }
+
+void *qcom_register_early_ssr_notifier(const char *name, struct notifier_block *nb)
+{
+	struct qcom_ssr_subsystem *info;
+
+	info = qcom_ssr_get_subsys(name);
+	if (IS_ERR(info))
+		return info;
+
+	srcu_notifier_chain_register(&info->early_notifier_list, nb);
+
+	return &info->early_notifier_list;
+}
+EXPORT_SYMBOL(qcom_register_early_ssr_notifier);
+
+void qcom_notify_early_ssr_clients(struct rproc_subdev *subdev)
+{
+	struct qcom_rproc_ssr *ssr = to_ssr_subdev(subdev);
+
+	srcu_notifier_call_chain(&ssr->info->early_notifier_list, QCOM_SSR_BEFORE_SHUTDOWN, NULL);
+}
+EXPORT_SYMBOL(qcom_notify_early_ssr_clients);
 
 /**
  * qcom_register_ssr_notifier() - register SSR notification handler
