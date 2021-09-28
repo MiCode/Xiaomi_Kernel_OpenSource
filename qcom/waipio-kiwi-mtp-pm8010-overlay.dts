@@ -9,5 +9,5 @@
 	model = "Qualcomm Technologies, Inc. Waipio with Kiwi";
 	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
 	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>;
-	qcom,board-id = <0x02010008 0>;
+	qcom,board-id = <0x02010008 0>, <0x04010008 0x04>;
 };
