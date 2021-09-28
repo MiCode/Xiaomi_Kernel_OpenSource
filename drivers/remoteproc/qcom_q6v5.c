@@ -111,10 +111,14 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 		dev_err(q6v5->dev, "watchdog without message\n");
 
 	q6v5->running = false;
-	if (q6v5->rproc->recovery_disabled)
+	if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
-	else
+	} else {
+		if (q6v5->ssr_subdev)
+			qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
+
 		rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -137,10 +141,14 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 		dev_err(q6v5->dev, "fatal error without message\n");
 
 	q6v5->running = false;
-	if (q6v5->rproc->recovery_disabled)
+	if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
-	else
+	} else {
+		if (q6v5->ssr_subdev)
+			qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
+
 		rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+	}
 
 	return IRQ_HANDLED;
 }
