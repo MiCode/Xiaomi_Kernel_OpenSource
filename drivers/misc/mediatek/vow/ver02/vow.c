@@ -56,6 +56,7 @@
 #endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
 #include "vow.h"
 #include "vow_assert.h"
+#undef CONFIG_COMPAT
 
 /*****************************************************************************
  * Variable Definition
