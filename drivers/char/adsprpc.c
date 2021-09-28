@@ -820,7 +820,13 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 	uint64_t *fdlist = NULL;
 	uint32_t *crclist = NULL, *poll = NULL;
 	unsigned int inbufs, outbufs, handles;
+	int cid = ctx->fl ? ctx->fl->cid : -1;
 
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		err = -ECHRNG;
+		return err;
+	}
 	/* calculate poll memory location */
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
@@ -843,7 +849,7 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 			ctx->is_work_done = true;
 			ctx->retval = 0;
 			/* Update DSP response history */
-			fastrpc_update_rxmsg_buf(&gfa.channel[ctx->fl->cid],
+			fastrpc_update_rxmsg_buf(&gfa.channel[cid],
 				ctx->msg.invoke.header.ctx, 0, POLL_MODE, 0,
 				FASTRPC_RSP_VERSION2, get_timestamp_in_ns());
 			break;
@@ -2026,6 +2032,11 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
 	spin_lock(&fl->hlock);
 	if (fl->clst.num_active_ctxs > MAX_PENDING_CTX_PER_SESSION &&
 		!(kernel || invoke->handle < FASTRPC_STATIC_HANDLE_MAX)) {
@@ -2185,7 +2196,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
-	int cid = ctx->fl->cid;
+	int cid = ctx->fl ? ctx->fl->cid : -1;
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 	int err = 0;
@@ -2193,8 +2204,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		ADSPRPC_ERR(
-			"invalid channel 0x%zx set for session\n",
-								cid);
+			"invalid channel 0x%zx set for session\n", cid);
 		return;
 	}
 	chan = &me->channel[cid];
@@ -2308,10 +2318,19 @@ static void fastrpc_notif_find_process(int domain, struct smq_notif_rspv3 *notif
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rsp_flags, uint32_t early_wake_time)
 {
-	fastrpc_pm_awake(ctx->fl, gcinfo[ctx->fl->cid].secure);
+	int err = 0;
+	int cid = ctx->fl ? ctx->fl->cid : -1;
+
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		ADSPRPC_ERR(
+			"invalid channel 0x%zx set for context\n", cid);
+		return;
+	}
+	fastrpc_pm_awake(ctx->fl, gcinfo[cid].secure);
 	ctx->retval = retval;
 	ctx->rsp_flags = (enum fastrpc_response_flags)rsp_flags;
-	trace_fastrpc_context_complete(ctx->fl->cid, (uint64_t)ctx, retval,
+	trace_fastrpc_context_complete(cid, (uint64_t)ctx, retval,
 			ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 	switch (rsp_flags) {
 	case NORMAL_RESPONSE:
@@ -2560,6 +2579,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	uint32_t early_hint;
 	uint64_t *perf_counter = NULL;
 	struct fastrpc_dsp_capabilities *dsp_cap_ptr = NULL;
+	int cid = ctx->fl ? ctx->fl->cid : -1;
+
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		ADSPRPC_ERR(
+			"invalid channel 0x%zx set for context\n", cid);
+		err = -ECHRNG;
+		goto bail;
+	}
 
 	if (ctx->fl->profile)
 		perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
@@ -4235,8 +4263,6 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 
 	VERIFY(err, init->filelen < INIT_FILELEN_MAX
 			&& init->memlen < INIT_MEMLEN_MAX);
-	if (err)
-		goto bail;
 	if (err) {
 		ADSPRPC_ERR(
 			"file size 0x%x or init memory 0x%x is more than max allowed file size 0x%x or init len 0x%x\n",
@@ -6125,6 +6151,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 	unsigned int latency;
 	struct fastrpc_apps *me = &gfa;
 	u32 silver_core_count = me->silvercores.corecount, ii = 0, cpu;
+	int cid = fl->cid;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
 	if (err) {
@@ -6196,11 +6223,20 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			err = -EACCES;
 			goto bail;
 		}
+
+		VERIFY(err, VALID_FASTRPC_CID(cid));
+		if (err) {
+			ADSPRPC_ERR(
+				"invalid channel 0x%zx set for context\n", cid);
+			err = -ECHRNG;
+			goto bail;
+		}
+
 		if (cp->pm.timeout > MAX_PM_TIMEOUT_MS)
 			fl->ws_timeout = MAX_PM_TIMEOUT_MS;
 		else
 			fl->ws_timeout = cp->pm.timeout;
-		fastrpc_pm_awake(fl, gcinfo[fl->cid].secure);
+		fastrpc_pm_awake(fl, gcinfo[cid].secure);
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
 		(void)fastrpc_release_current_dsp_process(fl);
