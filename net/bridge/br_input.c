@@ -344,15 +344,17 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
 forward:
 	switch (p->state) {
 	case BR_STATE_DISABLED:
-		if (ether_addr_equal(p->br->dev->dev_addr, dest))
-			skb->pkt_type = PACKET_HOST;
+		if (skb->protocol == htons(ETH_P_PAE)) {
+			if (ether_addr_equal(p->br->dev->dev_addr, dest))
+				skb->pkt_type = PACKET_HOST;
 
-		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING,
-			    dev_net(skb->dev), NULL, skb, skb->dev, NULL,
-			    br_handle_local_finish) == 1) {
-			return RX_HANDLER_PASS;
+			if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING,
+				    dev_net(skb->dev), NULL, skb, skb->dev, NULL,
+				    br_handle_local_finish) == 1) {
+				return RX_HANDLER_PASS;
+			}
 		}
-		break;
+		goto drop;
 
 	case BR_STATE_FORWARDING:
 	case BR_STATE_LEARNING:
