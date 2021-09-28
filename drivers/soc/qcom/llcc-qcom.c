@@ -576,7 +576,7 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 		}
 
 		if (llcc_table[i].activate_on_init) {
-			desc = llcc_slice_getd(llcc_table[i].slice_id);
+			desc = llcc_slice_getd(llcc_table[i].usecase_id);
 			if (PTR_ERR_OR_ZERO(desc)) {
 				dev_err(&pdev->dev,
 					"Failed to get slice=%d\n", llcc_table[i].slice_id);
