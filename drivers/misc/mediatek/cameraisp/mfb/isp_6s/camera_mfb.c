@@ -75,6 +75,7 @@
 #define CMDQ_COMMON
 #define CLK_COMMON
 
+#undef CONFIG_COMPAT
 /* CCF */
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
