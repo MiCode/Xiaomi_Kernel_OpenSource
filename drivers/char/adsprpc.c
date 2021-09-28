@@ -7391,13 +7391,17 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 					p.map->attrs, 0, p.map->size,
 					ADSP_MMAP_DMA_BUFFER, &map);
 		mutex_unlock(&fl->map_mutex);
-		if (err)
+		if (err) {
+			mutex_unlock(&fl->internal_map_mutex);
 			break;
+		}
 		/* Map DMA buffer on DSP*/
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
 			map->flags, 0, map->phys, map->size, &raddr)));
-		if (err)
+		if (err) {
+			mutex_unlock(&fl->internal_map_mutex);
 			break;
+		}
 		map->raddr = raddr;
 		mutex_unlock(&fl->internal_map_mutex);
 		p.map->v_dsp_addr = raddr;
