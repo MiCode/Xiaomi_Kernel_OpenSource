@@ -1469,22 +1469,6 @@ retry_snap:
 		goto out;
 	}
 
-	err = file_remove_privs(file);
-	if (err)
-		goto out;
-
-	err = file_update_time(file);
-	if (err)
-		goto out;
-
-	inode_inc_iversion_raw(inode);
-
-	if (ci->i_inline_version != CEPH_INLINE_NONE) {
-		err = ceph_uninline_data(file, NULL);
-		if (err < 0)
-			goto out;
-	}
-
 	down_read(&osdc->lock);
 	map_flags = osdc->osdmap->flags;
 	pool_flags = ceph_pg_pool_flags(osdc->osdmap, ci->i_layout.pool_id);
@@ -1493,6 +1477,16 @@ retry_snap:
 	    (pool_flags & CEPH_POOL_FLAG_FULL)) {
 		err = -ENOSPC;
 		goto out;
+	}
+
+	err = file_remove_privs(file);
+	if (err)
+		goto out;
+
+	if (ci->i_inline_version != CEPH_INLINE_NONE) {
+		err = ceph_uninline_data(file, NULL);
+		if (err < 0)
+			goto out;
 	}
 
 	dout("aio_write %p %llx.%llx %llu~%zd getting caps. i_size %llu\n",
@@ -1506,6 +1500,12 @@ retry_snap:
 			    &got, NULL);
 	if (err < 0)
 		goto out;
+
+	err = file_update_time(file);
+	if (err)
+		goto out_caps;
+
+	inode_inc_iversion_raw(inode);
 
 	dout("aio_write %p %llx.%llx %llu~%zd got cap refs on %s\n",
 	     inode, ceph_vinop(inode), pos, count, ceph_cap_string(got));
@@ -1590,6 +1590,8 @@ retry_snap:
 	}
 
 	goto out_unlocked;
+out_caps:
+	ceph_put_cap_refs(ci, got);
 out:
 	if (direct_lock)
 		ceph_end_io_direct(inode);
