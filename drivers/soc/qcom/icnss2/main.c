@@ -73,7 +73,14 @@
 #define ICNSS_BDF_TYPE_DEFAULT         ICNSS_BDF_ELF
 
 #define PROBE_TIMEOUT                 15000
-#define WLFW_TIMEOUT			msecs_to_jiffies(3000)
+
+#ifdef CONFIG_ICNSS2_DEBUG
+static unsigned long qmi_timeout = 3000;
+module_param(qmi_timeout, ulong, 0600);
+#define WLFW_TIMEOUT                    msecs_to_jiffies(qmi_timeout)
+#else
+#define WLFW_TIMEOUT                    msecs_to_jiffies(3000)
+#endif
 
 static struct icnss_priv *penv;
 static struct work_struct wpss_loader;
