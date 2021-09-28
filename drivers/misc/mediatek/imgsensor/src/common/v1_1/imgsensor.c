@@ -43,7 +43,7 @@
 #include "imgsensor_oc.h"
 #endif
 #include "imgsensor.h"
-
+#undef CONFIG_COMPAT
 #if defined(CONFIG_MTK_CAM_SECURE_I2C)
 #include "imgsensor_ca.h"
 #endif
