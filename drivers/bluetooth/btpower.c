@@ -487,11 +487,15 @@ static int bt_configure_gpios(int on)
 		msleep(50);
 		/*  Check  if  SW_CTRL  is  asserted  */
 		if  (bt_sw_ctrl_gpio  >=  0)  {
+#ifndef CONFIG_ARCH_JLQ
 			rc  =  gpio_direction_input(bt_sw_ctrl_gpio);
 			if  (rc)  {
 				pr_err("%s:SWCTRL Dir Set Problem:%d\n",
 					__func__, rc);
-			}  else  if  (!gpio_get_value(bt_sw_ctrl_gpio))  {
+			}  else if  (!gpio_get_value(bt_sw_ctrl_gpio))  {
+#else
+			if  (!gpio_get_value(bt_sw_ctrl_gpio))  {
+#endif
 				/* SW_CTRL not asserted, assert debug GPIO */
 				if  (bt_debug_gpio  >=  0)
 					assert_dbg_gpio = 1;
@@ -1117,6 +1121,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/*  Check  if  SW_CTRL  is  asserted  */
 		pr_info("BT_CMD_CHECK_SW_CTRL\n");
 		if (bt_power_pdata->bt_gpio_sw_ctrl > 0) {
+#ifndef CONFIG_ARCH_JLQ
 			PWR_SRC_STATUS_SET(BT_SW_CTRL_GPIO,
 				DEFAULT_INVALID_VALUE);
 			ret  =  gpio_direction_input(
@@ -1126,7 +1131,9 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					 __func__);
 				pr_err("%s:failed for SW_CTRL:%d\n",
 					__func__, ret);
-			} else {
+			} else
+#endif
+			{
 				PWR_SRC_STATUS_SET(BT_SW_CTRL_GPIO,
 					gpio_get_value(
 					bt_power_pdata->bt_gpio_sw_ctrl));
