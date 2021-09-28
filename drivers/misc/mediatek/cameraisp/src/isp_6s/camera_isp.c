@@ -456,6 +456,7 @@ static struct mutex open_isp_mutex;
 #define ISP_CAMSV7_BASE (isp_devs[ISP_CAMSV7_IDX].regs)
 
 #include "inc/cam_regs.h"
+#undef CONFIG_COMPAT
 
 #if (SMI_LARB_MMU_CTL == 1)
 void __iomem *SMI_LARB_BASE[21];
