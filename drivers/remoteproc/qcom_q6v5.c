@@ -53,6 +53,12 @@ int qcom_q6v5_unprepare(struct qcom_q6v5 *q6v5)
 }
 EXPORT_SYMBOL_GPL(qcom_q6v5_unprepare);
 
+void qcom_q6v5_register_ssr_subdev(struct qcom_q6v5 *q6v5, struct rproc_subdev *ssr_subdev)
+{
+	q6v5->ssr_subdev = ssr_subdev;
+}
+EXPORT_SYMBOL(qcom_q6v5_register_ssr_subdev);
+
 static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 {
 	struct qcom_q6v5 *q6v5 = container_of(work, struct qcom_q6v5, crash_handler);
@@ -242,6 +248,7 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 	q6v5->dev = &pdev->dev;
 	q6v5->crash_reason = crash_reason;
 	q6v5->handover = handover;
+	q6v5->ssr_subdev = NULL;
 
 	init_completion(&q6v5->start_done);
 	init_completion(&q6v5->stop_done);
