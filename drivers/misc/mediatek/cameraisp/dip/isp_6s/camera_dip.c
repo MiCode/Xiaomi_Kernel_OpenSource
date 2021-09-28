@@ -476,6 +476,7 @@ static int nr_dip_devs;
 #ifdef AEE_DUMP_REDUCE_MEMORY
 /* ion */
 
+#undef CONFIG_COMPAT
 #ifdef AEE_DUMP_BY_USING_ION_MEMORY
 #include <ion.h>
 #include <mtk/ion_drv.h>
