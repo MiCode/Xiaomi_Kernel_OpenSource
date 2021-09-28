@@ -85,6 +85,7 @@ static wait_queue_head_t wait_queue_deque;
 static wait_queue_head_t wait_queue_enque;
 
 #include <linux/dma-buf.h>
+#undef CONFIG_COMPAT
 struct device *dev;
 
 struct ccu_iova_t ccu_iova[CCU_IOVA_BUFFER_MAX];
