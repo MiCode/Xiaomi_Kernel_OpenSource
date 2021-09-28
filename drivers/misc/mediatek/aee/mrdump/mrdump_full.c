@@ -3,7 +3,6 @@
  * Copyright (C) 2016 MediaTek Inc.
  */
 
-#include <stdarg.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/processor.h>
