@@ -149,6 +149,7 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 
 /*  #include "smi_common.h" */
 
+#undef CONFIG_COMPAT
 #include <linux/pm_wakeup.h>
 /* CCF */
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
