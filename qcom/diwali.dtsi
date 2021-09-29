@@ -477,6 +477,11 @@
 				  <FAST_PATH_TCS	1>;
 		power-domains = <&CLUSTER_PD>;
 
+		rpmhcc: qcom,rpmhclk {
+			compatible = "qcom,diwali-rpmh-clk";
+			#clock-cells = <1>;
+		};
+
 		apps_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
 		};
@@ -657,29 +662,6 @@
 			clock-output-names = "usb3_phy_wrapper_gcc_usb30_pipe_clk";
 			#clock-cells = <0>;
 		};
-	};
-
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <4>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <4>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	rpmhcc: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmhcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	camcc: clock-controller@ad00000 {
