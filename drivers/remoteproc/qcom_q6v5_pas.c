@@ -44,7 +44,9 @@ bool timeout_disabled;
 struct adsp_data {
 	int crash_reason_smem;
 	const char *firmware_name;
+	const char *dtb_firmware_name;
 	int pas_id;
+	int dtb_pas_id;
 	bool free_after_auth_reset;
 	unsigned int minidump_id;
 	bool uses_elf64;
@@ -83,6 +85,8 @@ struct qcom_adsp {
 	int proxy_pd_count;
 
 	int pas_id;
+	int dtb_pas_id;
+	const char *dtb_fw_name;
 	struct qcom_mdt_metadata *mdata;
 	unsigned int minidump_id;
 	bool retry_shutdown;
@@ -699,6 +703,8 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->rproc = rproc;
 	adsp->minidump_id = desc->minidump_id;
 	adsp->pas_id = desc->pas_id;
+	adsp->dtb_pas_id = desc->dtb_pas_id;
+	adsp->dtb_fw_name = desc->dtb_firmware_name;
 	adsp->has_aggre2_clk = desc->has_aggre2_clk;
 	adsp->info_name = desc->sysmon_name;
 	adsp->qmp_name = desc->qmp_name;
