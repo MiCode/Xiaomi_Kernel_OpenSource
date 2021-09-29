@@ -1300,6 +1300,93 @@ static int gh_vm_status_nb_handler(struct notifier_block *this,
 static struct notifier_block gh_vm_status_nb = {
 	.notifier_call = gh_vm_status_nb_handler
 };
+
+
+static void gh_vm_check_peer(struct device *dev, struct device_node *rm_root)
+{
+	int peers_cnt, ret, i;
+	const char **peers_array = NULL;
+	const char *peer, *peer_data;
+	gh_vmid_t vmid;
+	enum gh_vm_names vm_name_index;
+	struct gh_vminfo vm_info;
+	uuid_t vm_guid;
+
+	peers_cnt = of_property_count_strings(rm_root, "qcom,peers");
+	peers_array = kcalloc(peers_cnt, sizeof(char *), GFP_KERNEL);
+
+	ret = of_property_read_string_array(rm_root, "qcom,peers", peers_array,
+					    peers_cnt);
+	if (ret < 0) {
+		dev_err(dev, "Failed to find qcom,peers\n");
+		ret = -ENODEV;
+		goto out;
+	}
+
+	for (i = 0; i < peers_cnt; i++) {
+		peer = peers_array[i];
+		if (peer == NULL)
+			continue;
+		if (strnstr(peer, "vm-name:", strlen("vm-name:")) != NULL) {
+			peer_data = peer + strlen("vm-name:");
+			dev_dbg(dev, "Trying to lookup name %s\n", peer_data);
+			ret = gh_rm_vm_lookup(GH_VM_LOOKUP_NAME, peer_data,
+					      strlen(peer_data), &vmid);
+		} else if (strnstr(peer, "vm-uri:", strlen("vm-uri:")) !=
+			   NULL) {
+			peer_data = peer + strlen("vm-uri:");
+			dev_dbg(dev, "Trying to lookup uri %s\n", peer_data);
+			ret = gh_rm_vm_lookup(GH_VM_LOOKUP_URI, peer_data,
+					      strlen(peer_data), &vmid);
+		} else if (strnstr(peer, "vm-guid:", strlen("vm-guid:")) !=
+			   NULL) {
+			peer_data = peer + strlen("vm-guid:");
+			dev_dbg(dev, "Trying to lookup guid %s\n", peer_data);
+			ret = uuid_parse(peer_data, &vm_guid);
+			if (ret != 0)
+				dev_err(dev, "Invalid GUID:%s\n",
+					peer + strlen("vm-guid:"));
+			else
+				ret = gh_rm_vm_lookup(GH_VM_LOOKUP_GUID,
+						      (char *)&vm_guid,
+						      sizeof(vm_guid), &vmid);
+		} else {
+			dev_err(dev, "Unknown peer type:%s\n", peer);
+			continue;
+		}
+		if (ret < 0) {
+			dev_err(dev,
+				"lookup %s failed, VM is not running ret=%d\n",
+				peer, ret);
+			continue;
+		}
+		ret = gh_rm_get_vm_id_info(vmid);
+		if (ret < 0) {
+			dev_err(dev,
+				"Failed to get vmid info for vmid = %d ret = %d\n",
+				vmid, ret);
+			continue;
+		}
+		ret = gh_rm_get_vm_name(vmid, &vm_name_index);
+		if (ret < 0) {
+			dev_err(dev,
+				"Failed to get vmid info for vmid = %d ret = %d\n",
+				vmid, ret);
+			continue;
+		}
+		gh_rm_get_vminfo(vm_name_index, &vm_info);
+		ret = gh_rm_populate_hyp_res(vmid, vm_info.name);
+		if (ret < 0) {
+			dev_err(dev,
+				"Failed to get hyp resources for vmid = %d ret = %d\n",
+				vmid, ret);
+			continue;
+		}
+	}
+out:
+	kfree(peers_array);
+}
+
 static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 {
 	struct device_node *node;
@@ -1337,6 +1424,8 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 
 		/* Query RM for available resources */
 		schedule_work(&gh_rm_get_svm_res_work);
+		/* check peer to see if any VM has been bootup */
+		gh_vm_check_peer(dev, node);
 		gh_rm_register_notifier(&gh_vm_status_nb);
 	}
 
