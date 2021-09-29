@@ -466,7 +466,7 @@ static struct clk_branch gpu_cc_gx_vsense_clk = {
 
 static struct clk_branch gpu_cc_hlos1_vote_gpu_smmu_clk = {
 	.halt_reg = 0x7000,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x7000,
 		.enable_mask = BIT(0),
