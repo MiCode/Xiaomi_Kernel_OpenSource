@@ -43,7 +43,6 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <linux/fastrpc.h>
-#include <soc/qcom/ramdump.h>
 #include <soc/qcom/qcom_ramdump.h>
 #include <soc/qcom/minidump.h>
 #include <linux/delay.h>
@@ -513,7 +512,6 @@ struct fastrpc_channel_ctx {
 	int issubsystemup;
 	int vmid;
 	struct secure_vm rhvm;
-	int ramdumpenabled;
 	void *rh_dump_dev;
 	/* Indicates, if channel is restricted to secure node only */
 	int secure;
@@ -562,8 +560,6 @@ struct fastrpc_apps {
 	uint32_t max_size_limit;
 	struct hlist_head frpc_devices;
 	struct hlist_head frpc_drivers;
-	void *ramdump_handle;
-	bool enable_ramdump;
 };
 
 struct fastrpc_mmap {
@@ -4672,27 +4668,27 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 						match->size, match->flags);
 			if (err)
 				goto bail;
-			if (me->ramdump_handle && me->enable_ramdump) {
-				ramdump_segments_rh = kcalloc(1,
+
+			ramdump_segments_rh = kcalloc(1,
 				sizeof(struct qcom_dump_segment), GFP_KERNEL);
-				if (ramdump_segments_rh) {
-					ramdump_segments_rh->da =
-					match->phys;
-					ramdump_segments_rh->va =
-					(void *)match->va;
-					ramdump_segments_rh->size = match->size;
-					list_add(&ramdump_segments_rh->node, &head);
-					ret = qcom_elf_dump(&head, me->ramdump_handle);
-					if (ret < 0)
-						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
-							__func__, ret);
-					kfree(ramdump_segments_rh);
-				}
+			if (ramdump_segments_rh) {
+				ramdump_segments_rh->da =
+				match->phys;
+				ramdump_segments_rh->va =
+				(void *)match->va;
+				ramdump_segments_rh->size = match->size;
+				list_add(&ramdump_segments_rh->node, &head);
+				ret = qcom_elf_dump(&head, NULL);
+				if (ret < 0)
+					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
+						__func__, ret);
+				kfree(ramdump_segments_rh);
 			}
+
 			fastrpc_mmap_free(match, 0);
 		}
 	} while (match);
-	me->enable_ramdump = false;
+
 bail:
 	if (err && match)
 		fastrpc_mmap_add(match);
@@ -6688,21 +6684,10 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			me->staticpd_flags = 0;
 		break;
 	case QCOM_SSR_AFTER_SHUTDOWN:
-		if (cid == RH_CID) {
-			if (me->ramdump_handle)
-				me->channel[RH_CID].ramdumpenabled = 1;
-		}
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
 		break;
 	case QCOM_SSR_BEFORE_POWERUP:
-		if (cid == RH_CID && dump_enabled()) {
-			if (me->ramdump_handle && me->channel[RH_CID]
-					.ramdumpenabled) {
-				me->enable_ramdump = true;
-				me->channel[RH_CID].ramdumpenabled = 0;
-			}
-		}
 		if (cid == CDSP_DOMAIN_ID && dump_enabled()) {
 			mutex_lock(&me->channel[cid].smd_mutex);
 			fastrpc_print_debug_data(cid);
@@ -7090,7 +7075,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 			pr_warn("adsprpc: Error: %s: initialization of memory region adsp_mem failed with %d\n",
 				__func__, ret);
 		}
-		me->ramdump_handle = create_ramdump_device("adsp_rh", &pdev->dev);
 		goto bail;
 	}
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
@@ -7499,7 +7483,6 @@ static int __init fastrpc_device_init(void)
 		me->channel[i].ssrcount = 0;
 		me->channel[i].prevssrcount = 0;
 		me->channel[i].issubsystemup = 1;
-		me->channel[i].ramdumpenabled = 0;
 		me->channel[i].rh_dump_dev = NULL;
 		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb;
 		me->channel[i].handle = qcom_register_ssr_notifier(
