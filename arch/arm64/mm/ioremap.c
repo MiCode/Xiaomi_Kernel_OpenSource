@@ -30,6 +30,44 @@ static DEFINE_STATIC_KEY_FALSE(ioremap_guard_key);
 static DEFINE_XARRAY(ioremap_guard_array);
 static DEFINE_MUTEX(ioremap_guard_lock);
 
+static bool ioremap_guard;
+static int __init ioremap_guard_setup(char *str)
+{
+	ioremap_guard = true;
+
+	return 0;
+}
+early_param("ioremap_guard", ioremap_guard_setup);
+
+void kvm_init_ioremap_services(void)
+{
+	struct arm_smccc_res res;
+
+	if (!ioremap_guard)
+		return;
+
+	/* We need all the functions to be implemented */
+	if (!kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD_INFO) ||
+	    !kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD_ENROLL) ||
+	    !kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD_MAP) ||
+	    !kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD_UNMAP))
+		return;
+
+	arm_smccc_1_1_invoke(ARM_SMCCC_VENDOR_HYP_KVM_MMIO_GUARD_INFO_FUNC_ID,
+			     0, 0, 0, &res);
+	if (res.a0 != PAGE_SIZE)
+		return;
+
+	arm_smccc_1_1_invoke(ARM_SMCCC_VENDOR_HYP_KVM_MMIO_GUARD_ENROLL_FUNC_ID,
+			     &res);
+	if (res.a0 == SMCCC_RET_SUCCESS) {
+		static_branch_enable(&ioremap_guard_key);
+		pr_info("Using KVM MMIO guard for ioremap\n");
+	} else {
+		pr_warn("KVM MMIO guard registration failed (%ld)\n", res.a0);
+	}
+}
+
 void ioremap_phys_range_hook(phys_addr_t phys_addr, size_t size, pgprot_t prot)
 {
 	if (!static_branch_unlikely(&ioremap_guard_key))
