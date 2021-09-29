@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/module.h>
 #include "pinctrl-mtk-mt8195.h"
 #include "pinctrl-paris.h"
 
@@ -843,8 +844,6 @@ static struct platform_driver mt8195_pinctrl_driver = {
 	.probe = mt8195_pinctrl_probe,
 };
 
-static int __init mt8195_pinctrl_init(void)
-{
-	return platform_driver_register(&mt8195_pinctrl_driver);
-}
-arch_initcall(mt8195_pinctrl_init);
+module_platform_driver(mt8195_pinctrl_driver);
+
+MODULE_LICENSE("GPL v2");

@@ -156,7 +156,7 @@ config PINCTRL_MT8192
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT8195
-	bool "Mediatek MT8195 pin control"
+	tristate "Mediatek MT8195 pin control"
 	depends on OF
 	depends on ARM64 || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
