@@ -2313,6 +2313,8 @@
 		qcom,smem-state-names = "wlan-smp2p-out",
 					"wlan-soc-wake-smp2p-out",
 					"wlan-ep-powersave-smp2p-out";
+		mboxes = <&qmp_aop 0>;
+		qcom,vreg_ol_cpr ="s7b";
 
 		icnss_cdev_apss: qcom,icnss_cdev1 {
 			#cooling-cells = <2>;
