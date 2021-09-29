@@ -98,6 +98,11 @@ struct qcom_adsp {
 	struct completion start_done;
 	struct completion stop_done;
 
+	phys_addr_t dtb_mem_phys;
+	phys_addr_t dtb_mem_reloc;
+	void *dtb_mem_region;
+	size_t dtb_mem_size;
+
 	phys_addr_t mem_phys;
 	phys_addr_t mem_reloc;
 	void *mem_region;
@@ -653,6 +658,28 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 	if (!adsp->mem_region) {
 		dev_err(adsp->dev, "unable to map memory region: %pa+%zx\n",
 			&r.start, adsp->mem_size);
+		return -EBUSY;
+	}
+
+	if (!adsp->dtb_pas_id)
+		return 0;
+
+	node = of_parse_phandle(adsp->dev->of_node, "memory-region", 1);
+	if (!node) {
+		dev_err(adsp->dev, "no dtb memory-region specified\n");
+		return -EINVAL;
+	}
+
+	ret = of_address_to_resource(node, 0, &r);
+	if (ret)
+		return ret;
+
+	adsp->dtb_mem_phys = adsp->dtb_mem_reloc = r.start;
+	adsp->dtb_mem_size = resource_size(&r);
+	adsp->dtb_mem_region = devm_ioremap_wc(adsp->dev, adsp->dtb_mem_phys, adsp->dtb_mem_size);
+	if (!adsp->dtb_mem_region) {
+		dev_err(adsp->dev, "unable to map memory region: %pa+%zx\n",
+			&r.start, adsp->dtb_mem_size);
 		return -EBUSY;
 	}
 
