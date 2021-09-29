@@ -636,9 +636,10 @@ static void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
 				struct kgsl_syncsource *syncsource)
 {
 	struct kgsl_syncsource_fence *sfence, *next;
+	unsigned long flags;
 
 	/* Signal all fences to release any callbacks */
-	spin_lock(&syncsource->lock);
+	spin_lock_irqsave(&syncsource->lock, flags);
 
 	list_for_each_entry_safe(sfence, next, &syncsource->child_list_head,
 				child_list) {
@@ -646,7 +647,7 @@ static void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
 		list_del_init(&sfence->child_list);
 	}
 
-	spin_unlock(&syncsource->lock);
+	spin_unlock_irqrestore(&syncsource->lock, flags);
 
 	/* put reference from syncsource creation */
 	kgsl_syncsource_put(syncsource);
@@ -686,6 +687,7 @@ long kgsl_ioctl_syncsource_create_fence(struct kgsl_device_private *dev_priv,
 	struct kgsl_syncsource_fence *sfence = NULL;
 	struct sync_file *sync_file = NULL;
 	int fd = -1;
+	unsigned long flags;
 
 	/*
 	 * Take a refcount that is released when the fence is released
@@ -727,9 +729,9 @@ long kgsl_ioctl_syncsource_create_fence(struct kgsl_device_private *dev_priv,
 
 	param->fence_fd = fd;
 
-	spin_lock(&syncsource->lock);
+	spin_lock_irqsave(&syncsource->lock, flags);
 	list_add_tail(&sfence->child_list, &syncsource->child_list_head);
-	spin_unlock(&syncsource->lock);
+	spin_unlock_irqrestore(&syncsource->lock, flags);
 out:
 	/*
 	 * We're transferring ownership of the fence to the sync file.
@@ -756,8 +758,9 @@ static int kgsl_syncsource_signal(struct kgsl_syncsource *syncsource,
 {
 	struct kgsl_syncsource_fence *sfence, *next;
 	int ret = -EINVAL;
+	unsigned long flags;
 
-	spin_lock(&syncsource->lock);
+	spin_lock_irqsave(&syncsource->lock, flags);
 
 	list_for_each_entry_safe(sfence, next, &syncsource->child_list_head,
 				child_list) {
@@ -770,7 +773,7 @@ static int kgsl_syncsource_signal(struct kgsl_syncsource *syncsource,
 		}
 	}
 
-	spin_unlock(&syncsource->lock);
+	spin_unlock_irqrestore(&syncsource->lock, flags);
 
 	return ret;
 }
