@@ -1,0 +1,182 @@
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	hyp_mem: hyp_region@80000000 {
+		no-map;
+		reg = <0x0 0x80000000 0x0 0x600000>;
+	};
+
+	xbl_dtlog_mem: xbl_dtlog_region@80600000 {
+		no-map;
+		reg = <0x0 0x80600000 0x0 0x40000>;
+	};
+
+	xbl_ramdump_mem: xbl_ramdump_region@80640000 {
+		no-map;
+		reg = <0x0 0x80640000 0x0 0x1c0000>;
+	};
+
+	aop_image_mem: aop_image_region@80800000 {
+		no-map;
+		reg = <0x0 0x80800000 0x0 0x60000>;
+	};
+
+	aop_cmd_db_mem: aop_cmd_db_region@80860000 {
+		compatible = "qcom,cmd-db";
+		no-map;
+		reg = <0x0 0x80860000 0x0 0x20000>;
+	};
+
+	aop_config_mem: aop_config_region@80880000 {
+		no-map;
+		reg = <0x0 0x80880000 0x0 0x20000>;
+	};
+
+	tme_crash_dump_mem: tme_crash_dump_region@808a0000 {
+		no-map;
+		reg = <0x0 0x808a0000 0x0 0x40000>;
+	};
+
+	tme_log_mem: tme_log_region@808e0000 {
+		no-map;
+		reg = <0x0 0x808e0000 0x0 0x4000>;
+	};
+
+	uefi_log_mem: uefi_log_region@808e4000 {
+		no-map;
+		reg = <0x0 0x808e4000 0x0 0x10000>;
+	};
+
+	smem_mem: smem_region@80900000 {
+		no-map;
+		reg = <0x0 0x80900000 0x0 0x200000>;
+	};
+
+	cpucp_fw_mem: cpucp_fw_region@80b00000 {
+		no-map;
+		reg = <0x0 0x80b00000 0x0 0x100000>;
+	};
+
+	cdsp_secure_heap_mem: cdsp_secure_heap_region@80c00000 {
+		no-map;
+		reg = <0x0 0x80c00000 0x0 0x1e00000>;
+	};
+
+	wlan_fw_mem: wlan_fw_region@82a00000 {
+		no-map;
+		reg = <0x0 0x82a00000 0x0 0xc00000>;
+	};
+
+	camera_mem: camera_region@84b00000 {
+		no-map;
+		reg = <0x0 0x84b00000 0x0 0x800000>;
+	};
+
+	wpss_mem: wpss_region@85300000 {
+		no-map;
+		reg = <0x0 0x85300000 0x0 0x1900000>;
+	};
+
+	video_mem: video_region@86c00000 {
+		no-map;
+		reg = <0x0 0x86c00000 0x0 0x700000>;
+	};
+
+	adsp_mem: adsp_region@87300000 {
+		no-map;
+		reg = <0x0 0x87300000 0x0 0x2800000>;
+	};
+
+	cdsp_mem: cdsp_region@89b00000 {
+		no-map;
+		reg = <0x0 0x89b00000 0x0 0xf00000>;
+	};
+
+	ipa_fw_mem: ipa_fw_region@8bb00000 {
+		no-map;
+		reg = <0x0 0x8bb00000 0x0 0x10000>;
+	};
+
+	ipa_gsi_mem: ipa_gsi_region@8bb10000 {
+		no-map;
+		reg = <0x0 0x8bb10000 0x0 0xa000>;
+	};
+
+	gpu_microcode_mem: gpu_microcode_region@8bb1a000 {
+		no-map;
+		reg = <0x0 0x8bb1a000 0x0 0x2000>;
+	};
+
+	mpss_mem: mpss_region@8bc00000 {
+		no-map;
+		reg = <0x0 0x8bc00000 0x0 0x13200000>;
+	};
+
+	cvp_mem: cvp_region@9ee00000 {
+		no-map;
+		reg = <0x0 0x9ee00000 0x0 0x700000>;
+	};
+
+	xbl_sc_mem: xbl_sc_region@a6e00000 {
+		no-map;
+		reg = <0x0 0xa6e00000 0x0 0x40000>;
+	};
+
+	global_sync_mem: global_sync_region@a6f00000 {
+		no-map;
+		reg = <0x0 0xa6f00000 0x0 0x100000>;
+	};
+
+	uefi_mem: uefi_region@a7000000 {
+		no-map;
+		reg = <0x0 0xa7000000 0x0 0x1000000>;
+	};
+
+	qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
+		no-map;
+		reg = <0x0 0xe0000000 0x0 0x600000>;
+	};
+
+	debug_vm_mem: debug_vm_region@e0600000 {
+		no-map;
+		reg = <0x0 0xe0600000 0x0 0x400000>;
+	};
+
+	hyp_reserved_mem: hyp_reserved_region@e0a00000 {
+		no-map;
+		reg = <0x0 0xe0a00000 0x0 0x100000>;
+	};
+
+	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
+		no-map;
+		reg = <0x0 0xe0b00000 0x0 0x7d00000>;
+	};
+
+	tz_stat_mem: tz_stat_region@e8800000 {
+		no-map;
+		reg = <0x0 0xe8800000 0x0 0x100000>;
+	};
+
+	tags_mem: tags_region@e8900000 {
+		no-map;
+		reg = <0x0 0xe8900000 0x0 0x1200000>;
+	};
+
+	qtee_mem: qtee_region@e9b00000 {
+		no-map;
+		reg = <0x0 0xe9b00000 0x0 0x500000>;
+	};
+
+	trusted_apps_mem: trusted_apps_region@ea000000 {
+		no-map;
+		reg = <0x0 0xea000000 0x0 0x3900000>;
+	};
+
+	trusted_apps_ext_mem: trusted_apps_ext_region@ed900000 {
+		no-map;
+		reg = <0x0 0xed900000 0x0 0x3b00000>;
+	};
+
+};
