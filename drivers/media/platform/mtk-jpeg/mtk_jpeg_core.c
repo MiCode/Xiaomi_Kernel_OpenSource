@@ -179,7 +179,7 @@ static int mtk_jpeg_enc_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_RESTART_INTERVAL, 0, 100,
 			  1, 0);
-	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_COMPRESSION_QUALITY, 48,
+	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_COMPRESSION_QUALITY, 0,
 			  100, 1, 90);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_ACTIVE_MARKER, 0,
 			  V4L2_JPEG_ACTIVE_MARKER_APP1, 0, 0);

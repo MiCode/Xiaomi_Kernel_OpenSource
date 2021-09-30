@@ -13,19 +13,19 @@
 #include "mtk_jpeg_enc_hw.h"
 
 static const struct mtk_jpeg_enc_qlt mtk_jpeg_enc_quality[] = {
+	{.quality_param = 24, .hardware_value = JPEG_ENC_QUALITY_Q24},
+	{.quality_param = 30, .hardware_value = JPEG_ENC_QUALITY_Q30},
 	{.quality_param = 34, .hardware_value = JPEG_ENC_QUALITY_Q34},
-	{.quality_param = 39, .hardware_value = JPEG_ENC_QUALITY_Q39},
-	{.quality_param = 48, .hardware_value = JPEG_ENC_QUALITY_Q48},
+	{.quality_param = 38, .hardware_value = JPEG_ENC_QUALITY_Q38},
+	{.quality_param = 44, .hardware_value = JPEG_ENC_QUALITY_Q44},
+	{.quality_param = 52, .hardware_value = JPEG_ENC_QUALITY_Q52},
 	{.quality_param = 60, .hardware_value = JPEG_ENC_QUALITY_Q60},
-	{.quality_param = 64, .hardware_value = JPEG_ENC_QUALITY_Q64},
-	{.quality_param = 68, .hardware_value = JPEG_ENC_QUALITY_Q68},
-	{.quality_param = 74, .hardware_value = JPEG_ENC_QUALITY_Q74},
-	{.quality_param = 80, .hardware_value = JPEG_ENC_QUALITY_Q80},
+	{.quality_param = 66, .hardware_value = JPEG_ENC_QUALITY_Q66},
+	{.quality_param = 72, .hardware_value = JPEG_ENC_QUALITY_Q72},
+	{.quality_param = 78, .hardware_value = JPEG_ENC_QUALITY_Q78},
 	{.quality_param = 82, .hardware_value = JPEG_ENC_QUALITY_Q82},
-	{.quality_param = 84, .hardware_value = JPEG_ENC_QUALITY_Q84},
-	{.quality_param = 87, .hardware_value = JPEG_ENC_QUALITY_Q87},
+	{.quality_param = 85, .hardware_value = JPEG_ENC_QUALITY_Q85},
 	{.quality_param = 90, .hardware_value = JPEG_ENC_QUALITY_Q90},
-	{.quality_param = 92, .hardware_value = JPEG_ENC_QUALITY_Q92},
 	{.quality_param = 95, .hardware_value = JPEG_ENC_QUALITY_Q95},
 	{.quality_param = 97, .hardware_value = JPEG_ENC_QUALITY_Q97},
 };
@@ -136,9 +136,9 @@ void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
 	writel(img_stride, base + JPEG_ENC_IMG_STRIDE);
 	writel(mem_stride, base + JPEG_ENC_STRIDE);
 
-	enc_quality = JPEG_ENC_QUALITY_Q97;
-	for (i = 0; i < ARRAY_SIZE(mtk_jpeg_enc_quality); i++) {
-		if (ctx->enc_quality <= mtk_jpeg_enc_quality[i].quality_param) {
+	enc_quality = JPEG_ENC_QUALITY_Q24;
+	for (i = ARRAY_SIZE(mtk_jpeg_enc_quality)-1; i >= 0; i--) {
+		if (ctx->enc_quality >= mtk_jpeg_enc_quality[i].quality_param) {
 			enc_quality = mtk_jpeg_enc_quality[i].hardware_value;
 			break;
 		}
