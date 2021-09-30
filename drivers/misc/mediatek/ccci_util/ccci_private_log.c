@@ -276,12 +276,12 @@ static const struct proc_ops ccci_log_fops = {
 #define CCCI_DUMP_MD_INIT_BUF		(1024 * 16)
 #define CCCI_KE_DUMP_BUF		(1024 * 32)
 
-#define MD3_CCCI_INIT_SETTING_BUF	(4096 * 2)
-#define MD3_CCCI_BOOT_UP_BUF		(4096 * 16)
-#define MD3_CCCI_NORMAL_BUF		(4096 * 2)
-#define MD3_CCCI_REPEAT_BUF		(4096 * 32)
-#define MD3_CCCI_REG_DUMP_BUF		(4096 * 32)
-#define MD3_CCCI_HISTORY_BUF		(4096 * 32)
+#define MD3_CCCI_INIT_SETTING_BUF	(64)
+#define MD3_CCCI_BOOT_UP_BUF		(64)
+#define MD3_CCCI_NORMAL_BUF		(64)
+#define MD3_CCCI_REPEAT_BUF		(64)
+#define MD3_CCCI_REG_DUMP_BUF		(64)
+#define MD3_CCCI_HISTORY_BUF		(64)
 
 struct ccci_dump_buffer {
 	void *buffer;
