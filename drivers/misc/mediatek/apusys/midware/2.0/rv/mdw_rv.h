@@ -29,6 +29,8 @@ struct mdw_rv_dev {
 	unsigned long mem_mask[BITS_TO_LONGS(MDW_MEM_TYPE_MAX)];
 	struct mdw_mem minfos[MDW_MEM_TYPE_MAX];
 	uint8_t meta_data[MDW_DEV_MAX][MDW_DEV_META_SIZE];
+	struct mdw_stat *stat;
+	uint64_t stat_iova;
 };
 
 struct mdw_rv_cmd {

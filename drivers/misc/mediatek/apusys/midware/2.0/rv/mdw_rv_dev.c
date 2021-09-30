@@ -11,6 +11,7 @@
 #include "mdw_rv_tag.h"
 #define CREATE_TRACE_POINTS
 #include "mdw_rv_events.h"
+#include "mdw_mem_rsc.h"
 
 #define MDW_CMD_IPI_TIMEOUT (10*1000) //ms
 
@@ -309,22 +310,35 @@ int mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 	int ret = 0;
 	struct mdw_ipi_msg msg;
 
-	if (type == MDW_INFO_KLOG) {
+	switch (type) {
+	case MDW_INFO_KLOG:
 		*val = g_mdw_klog;
-		goto out;
-	} else if (type >= MDW_INFO_MAX) {
-		ret = -EINVAL;
-		goto out;
-	}
-	msg.id = MDW_IPI_PARAM;
-	msg.p.type = type;
-	msg.p.dir = MDW_INFO_GET;
+		break;
+	case MDW_INFO_NORMAL_TASK_DLA:
+		*val = mrdev->stat->task_num[APUSYS_DEVICE_MDLA];
+		break;
+	case MDW_INFO_NORMAL_TASK_DSP:
+		*val = mrdev->stat->task_num[APUSYS_DEVICE_VPU] +
+		mrdev->stat->task_num[APUSYS_DEVICE_MVPU];
+		break;
+	case MDW_INFO_NORMAL_TASK_DMA:
+		*val = mrdev->stat->task_num[APUSYS_DEVICE_EDMA];
+		break;
+	case MDW_INFO_MIN_DTIME:
+	case MDW_INFO_MIN_ETIME:
+		msg.id = MDW_IPI_PARAM;
+		msg.p.type = type;
+		msg.p.dir = MDW_INFO_GET;
 
-	mdw_drv_debug("get param(%u/%u/%u)\n", msg.p.type, msg.p.dir, msg.p.value);
-	ret = mdw_rv_dev_send_sync(mrdev, &msg);
-	if (!ret)
-		*val = msg.p.value;
-out:
+		mdw_drv_debug("get param(%u/%u/%u)\n", msg.p.type, msg.p.dir, msg.p.value);
+		ret = mdw_rv_dev_send_sync(mrdev, &msg);
+		if (!ret)
+			*val = msg.p.value;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
 	return ret;
 }
 
@@ -338,6 +352,8 @@ static int mdw_rv_dev_handshake(struct mdw_rv_dev *mrdev)
 	memset(&msg, 0, sizeof(msg));
 	msg.id = MDW_IPI_HANDSHAKE;
 	msg.h.h_id = MDW_IPI_HANDSHAKE_BASIC_INFO;
+	msg.h.basic.stat_iova = mrdev->stat_iova;
+	msg.h.basic.stat_size = sizeof(struct mdw_stat);
 	ret = mdw_rv_dev_send_sync(mrdev, &msg);
 	if (ret)
 		goto out;
@@ -437,6 +453,7 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 {
 	struct rpmsg_channel_info chinfo = {};
 	struct mdw_rv_dev *mrdev = NULL;
+	struct device *dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
 	int ret = 0;
 
 	if (!mdev->rpdev || mdev->driver_type != MDW_DRIVER_TYPE_RPMSG) {
@@ -464,6 +481,18 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 		goto free_mrdev;
 	}
 
+	/* Allocate stat buffer */
+
+	dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+	mrdev->stat = dma_alloc_coherent(dev, sizeof(struct mdw_stat),
+			&mrdev->stat_iova, GFP_KERNEL);
+	mdw_drv_info("%llx\n", mrdev->stat_iova);
+
+	if (!mrdev->stat) {
+		ret = -ENOMEM;
+		goto free_mrdev;
+	}
+
 	/* init up dev */
 	mutex_init(&mrdev->msg_mtx);
 	mutex_init(&mrdev->mtx);
@@ -484,10 +513,12 @@ out:
 void mdw_rv_dev_deinit(struct mdw_device *mdev)
 {
 	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)mdev->dev_specific;
+	struct device *dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
 
 	if (mrdev == NULL)
 		return;
 
+	dma_free_coherent(dev, sizeof(struct mdw_stat), mrdev->stat, mrdev->stat_iova);
 	rpmsg_destroy_ept(mrdev->ept);
 	kfree(mrdev);
 	mdev->dev_specific = NULL;

@@ -51,6 +51,8 @@ struct mdw_ipi_handshake {
 			uint32_t version;
 			uint64_t dev_bmp;
 			uint64_t mem_bmp;
+			uint64_t stat_iova;
+			uint32_t stat_size;
 		} basic;
 		struct {
 			uint32_t type;
@@ -74,6 +76,12 @@ struct mdw_ipi_param {
 	uint32_t type;
 	uint32_t dir;
 	uint32_t value;
+};
+
+
+struct mdw_stat {
+	uint32_t task_num[APUSYS_DEVICE_MAX];
+	uint32_t task_loading[APUSYS_DEVICE_MAX];
 };
 
 struct mdw_ipi_msg {
