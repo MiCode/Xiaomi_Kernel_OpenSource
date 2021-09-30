@@ -5233,6 +5233,16 @@
 //			iommus = <&disp_iommu M4U_PORT_L1_DISP_WDMA1>;
 		};
 
+		inlinerot0: inlinerot@14020000 {
+			compatible = "mediatek,inlinerot";
+			reg = <0 0x14020000 0 0x1000>;
+		};
+
+		inlinerot1: inlinerot@14420000 {
+			compatible = "mediatek,inlinerot";
+			reg = <0 0x14420000 0 0x1000>;
+		};
+
 		hcp: hcp@0 {
 			compatible = "mediatek,hcp";
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -6586,8 +6596,8 @@
 				<&mdpsys1_config_clk CLK_MDP1_MDP_RDMA1>;
 			clock-names = "apb_bus", "dli0", "dli1",
 				"dlo0", "dlo1", "rdma0", "rdma1";
-			//operating-points-v2 = <&opp_table_mdp1>;
-			//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			operating-points-v2 = <&opp_table_mdp1>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			/* as mml device */
 			comp-count = <MML_ENGINE_TOTAL>;
 			topology = "mt6895";
@@ -6769,7 +6779,7 @@
 			reg = <0 0x1f803000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_RDMA0>;
 			clock-names = "rdma0";
-			//mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT0)>;
+			mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT0)>;
 			comp-ids = <MML_RDMA0>;
 			event_sw_rst_done = /bits/ 16
 				<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
@@ -6777,10 +6787,10 @@
 				<CMDQ_EVENT_MDPSYS1_MDP_RDMA0_FRAME_DONE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT0>;
-			//interconnects =
-			//	<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT0)
-			//		&mmqos SLAVE_COMMON(1)>;
-			//interconnect-names = "mml_dma";
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT0)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_rdma1@1f804000 {
@@ -6788,7 +6798,7 @@
 			reg = <0 0x1f804000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_RDMA1>;
 			clock-names = "rdma1";
-			//mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT1)>;
+			mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT1)>;
 			comp-ids = <MML_RDMA1>;
 			event_sw_rst_done = /bits/ 16
 				<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_SW_RST_DONE_ENG_EVENT>;
@@ -6796,10 +6806,10 @@
 				<CMDQ_EVENT_MDPSYS1_MDP_RDMA1_FRAME_DONE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT1>;
-			//interconnects =
-			//	<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT1)
-			//		&mmqos SLAVE_COMMON(1)>;
-			//interconnect-names = "mml_dma";
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT1)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_hdr0: mml_hdr0@1f805000 {
@@ -6903,7 +6913,7 @@
 			reg = <0 0x1f80f000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_WROT0>;
 			clock-names = "wrot0";
-			//mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT2)>;
+			mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT2)>;
 			comp-ids = <MML_WROT0>;
 			comp-names = "wrot0";
 			event_sw_rst_done = /bits/ 16
@@ -6913,11 +6923,11 @@
 			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT2>;
-			//interconnects =
-			//	<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT2)
-			//		&mmqos SLAVE_COMMON(1)>;
-			//interconnect-names = "mml_dma";
-			//inlinerot = <&inlinerot0>, <&inlinerot1>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT2)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
+			inlinerot = <&inlinerot0>, <&inlinerot1>;
 		};
 
 		mml_wrot1: mml_wrot1@1f810000 {
@@ -6925,7 +6935,7 @@
 			reg = <0 0x1f810000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_WROT1>;
 			clock-names = "wrot1";
-			//mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT3)>;
+			mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT3)>;
 			comp-ids = <MML_WROT1>;
 			comp-names = "wrot1";
 			event_sw_rst_done = /bits/ 16
@@ -6935,11 +6945,11 @@
 			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT3>;
-			//interconnects =
-			//	<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT3)
-			//		&mmqos SLAVE_COMMON(1)>;
-			//interconnect-names = "mml_dma";
-			//inlinerot = <&inlinerot0>, <&inlinerot1>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT3)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
+			inlinerot = <&inlinerot0>, <&inlinerot1>;
 		};
 
 		mml_rsz2: mml_rsz2@1f813000 {
@@ -6965,7 +6975,7 @@
 			reg = <0 0x1f815000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_WROT2>;
 			clock-names = "wrot2";
-			//mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT7)>;
+			mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT7)>;
 			comp-ids = <MML_WROT2>;
 			comp-names = "wrot2";
 			event_sw_rst_done = /bits/ 16
@@ -6974,10 +6984,10 @@
 				<CMDQ_EVENT_MDPSYS1_MDP_WROT2_FRAME_DONE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT7>;
-			//interconnects =
-			//	<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT7)
-			//		&mmqos SLAVE_COMMON(1)>;
-			//interconnect-names = "mml_dma";
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT7)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		mml_wrot3: mml_wrot3@1f816000 {
@@ -6985,7 +6995,7 @@
 			reg = <0 0x1f816000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_WROT3>;
 			clock-names = "wrot3";
-			//mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT8)>;
+			mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_LARB3_PORT8)>;
 			comp-ids = <MML_WROT3>;
 			comp-names = "wrot3";
 			event_sw_rst_done = /bits/ 16
@@ -6994,10 +7004,10 @@
 				<CMDQ_EVENT_MDPSYS1_MDP_WROT3_FRAME_DONE>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT8>;
-			//interconnects =
-			//	<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT8)
-			//		&mmqos SLAVE_COMMON(1)>;
-			//interconnect-names = "mml_dma";
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB3_PORT8)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "mml_dma";
 		};
 
 		hre_top_mdpsys@1f817000 {
