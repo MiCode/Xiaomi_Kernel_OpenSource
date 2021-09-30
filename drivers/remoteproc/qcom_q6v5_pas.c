@@ -269,20 +269,51 @@ static void adsp_recalibrate_phys_addrs(struct qcom_adsp *adsp, const struct fir
 static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
+	const struct firmware *dtb_firmware;
+	struct qcom_mdt_metadata mdata;
 	int ret;
 
 	scm_pas_enable_bw();
+	if (!adsp->dtb_pas_id || !adsp->dtb_fw_name)
+		goto load_q6_fw;
+
+	ret = request_firmware(&dtb_firmware, adsp->dtb_fw_name, adsp->dev);
+	if (ret) {
+		dev_err(adsp->dev, "request_firmware failed for %s: %d\n", adsp->dtb_fw_name, ret);
+		goto exit;
+	}
+
+	ret = qcom_mdt_load_no_free(adsp->dev, dtb_firmware, adsp->dtb_fw_name, adsp->dtb_pas_id,
+				    adsp->dtb_mem_region, adsp->dtb_mem_phys, adsp->dtb_mem_size,
+				    &adsp->dtb_mem_reloc, &mdata);
+	if (ret) {
+		dev_err(adsp->dev, "failed to load %s: %d\n", adsp->dtb_fw_name, ret);
+		goto release_dtb_fw;
+	}
+
+	ret = qcom_scm_pas_auth_and_reset(adsp->dtb_pas_id);
+	if (ret)
+		panic("Panicking, auth and reset failed for remoteproc %s dtb\n", rproc->name);
+
+load_q6_fw:
 	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 			    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
 			    &adsp->mem_reloc, adsp->mdata);
-	scm_pas_disable_bw();
 	if (ret)
-		return ret;
+		goto free_metadata;
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
 	adsp_recalibrate_phys_addrs(adsp, fw);
 
+free_metadata:
+	if (adsp->dtb_pas_id)
+		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id, &mdata, ret);
+release_dtb_fw:
+	if (adsp->dtb_pas_id)
+		release_firmware(dtb_firmware);
+exit:
+	scm_pas_disable_bw();
 	return ret;
 }
 
