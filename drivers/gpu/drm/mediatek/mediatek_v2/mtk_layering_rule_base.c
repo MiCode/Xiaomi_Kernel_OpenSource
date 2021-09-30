@@ -1587,9 +1587,12 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		else if (HRT_GET_FIRST_SET_BIT(
 				 ovl_mapping_tb -
 				 HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
-			 layer_map_idx)
-			return DDP_COMPONENT_OVL0_2L;
-		else
+			 layer_map_idx) {
+			if (priv->data->mmsys_id == MMSYS_MT6895)
+				return DDP_COMPONENT_OVL1_2L;
+			else
+				return DDP_COMPONENT_OVL0_2L;
+		} else
 			return DDP_COMPONENT_OVL0;
 	} else if (disp_idx == 1) {
 		if (priv->data->mmsys_id == MMSYS_MT6885)
@@ -1789,7 +1792,8 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 		}
 
 		if (disp_idx == 0 &&
-			(comp_state.comp_id == DDP_COMPONENT_OVL0_2L) &&
+			((comp_state.comp_id == DDP_COMPONENT_OVL0_2L) ||
+			(comp_state.comp_id == DDP_COMPONENT_OVL1_2L)) &&
 			!is_extended_layer(layer_info) &&
 			layer_info->compress != 1) {
 
