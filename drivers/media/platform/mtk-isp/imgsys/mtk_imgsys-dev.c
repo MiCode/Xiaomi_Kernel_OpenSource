@@ -666,11 +666,17 @@ ERROR_PUT:
 	return NULL;
 }
 
-static void put_kva(struct dma_buf *dmabuf, void *vaddr)
+static void put_kva(struct buf_va_info_t *buf_va_info)
 {
+	struct dma_buf *dmabuf;
+
+	dmabuf = buf_va_info->dma_buf_putkva;
 	if (!IS_ERR(dmabuf)) {
-		dma_buf_vunmap(dmabuf, vaddr);
+		dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,
+			DMA_BIDIRECTIONAL);
+		dma_buf_detach(dmabuf, buf_va_info->attach);
 		dma_buf_put(dmabuf);
 	}
 }
@@ -685,10 +691,10 @@ void flush_fd_kva_list(struct mtk_imgsys_dev *imgsys_dev)
 		buf_va_info = vlist_node_of(fd_kva_info_list.mylist.next,
 			struct buf_va_info_t);
 		list_del_init(vlist_link(buf_va_info, struct buf_va_info_t));
-		dev_dbg(imgsys_dev->dev, "%s delete fd(%d) kva(0x%lx), dma_buf_putkva(%p)\n",
+		dev_info(imgsys_dev->dev, "%s delete fd(%d) kva(0x%lx), dma_buf_putkva(%p)\n",
 				__func__, buf_va_info->buf_fd, buf_va_info->kva,
 				buf_va_info->dma_buf_putkva);
-		put_kva((struct dma_buf *)buf_va_info->dma_buf_putkva, (void *)buf_va_info->kva);
+		put_kva(buf_va_info);
 		vfree(buf_va_info);
 		buf_va_info = NULL;
 	}
