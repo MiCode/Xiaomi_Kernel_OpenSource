@@ -368,7 +368,7 @@ static inline int alloc_bat_skb(
 }
 
 static int dpmaif_alloc_bat_req(int update_bat_cnt,
-		int request_cnt, int *real_cnt, int blocking)
+		int request_cnt, atomic_t *paused, int blocking)
 {
 	struct dpmaif_bat_request *bat_req = dpmaif_ctrl->bat_req;
 	struct dpmaif_bat_skb_t *bat_skb, *next_skb;
@@ -385,14 +385,13 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt,
 	if (request_cnt > buf_space)
 		request_cnt = buf_space;
 
-	if (request_cnt == 0) {
-		if (real_cnt)
-			(*real_cnt) = count;
+	if (request_cnt == 0)
 		return 0;
-	}
+
 	bat_wr_idx = bat_req->bat_wr_idx;
 
-	while ((!atomic_read(&dpmaif_ctrl->bat_paused_alloc))
+	//while ((!atomic_read(&dpmaif_ctrl->bat_paused_alloc))
+	while (((!paused) || (!atomic_read(paused)))
 			&& (count < request_cnt)) {
 		bat_skb = (struct dpmaif_bat_skb_t *)bat_req->bat_skb_ptr
 					+ bat_wr_idx;
@@ -420,9 +419,6 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt,
 	}
 
 alloc_end:
-	if (real_cnt)
-		(*real_cnt) = count;
-
 	if (count > 0) {
 		/* wait write done */
 		wmb();
@@ -475,7 +471,7 @@ static inline int alloc_bat_page(
 }
 
 static int dpmaif_alloc_bat_frg(int update_bat_cnt,
-		int request_cnt, int *real_cnt, int blocking)
+		int request_cnt, atomic_t *paused, int blocking)
 {
 	struct dpmaif_bat_request *bat_req = dpmaif_ctrl->bat_frag;
 	struct dpmaif_bat_page_t *bat_page, *next_page;
@@ -492,15 +488,13 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt,
 	if (request_cnt > buf_space)
 		request_cnt = buf_space;
 
-	if (request_cnt == 0) {
-		if (real_cnt)
-			(*real_cnt) = count;
+	if (request_cnt == 0)
 		return 0;
-	}
 
 	bat_wr_idx = bat_req->bat_wr_idx;
 
-	while ((!atomic_read(&dpmaif_ctrl->bat_paused_alloc))
+	//while ((!atomic_read(&dpmaif_ctrl->bat_paused_alloc))
+	while (((!paused) || (!atomic_read(paused)))
 			&& (count < request_cnt)) {
 		bat_page = (struct dpmaif_bat_page_t *)bat_req->bat_skb_ptr
 					+ bat_wr_idx;
@@ -529,9 +523,6 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt,
 	}
 
 alloc_end:
-	if (real_cnt)
-		(*real_cnt) = count;
-
 	if (count > 0) {
 		/* wait write done */
 		wmb();
@@ -626,7 +617,6 @@ static void ccci_dpmaif_bat_free(void)
 static int dpmaif_rx_bat_alloc_thread(void *arg)
 {
 	int ret;
-	int req_real_cnt, frg_real_cnt;
 
 	dpmaif_ctrl->bat_alloc_running = 1;
 
@@ -664,10 +654,10 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 		}
 
 		ret = dpmaif_alloc_bat_req(1, MAX_ALLOC_BAT_CNT,
-					&req_real_cnt, 0);
+				&dpmaif_ctrl->bat_paused_alloc, 0);
 
 		ret = dpmaif_alloc_bat_frg(1, MAX_ALLOC_BAT_CNT,
-					&frg_real_cnt, 0);
+				&dpmaif_ctrl->bat_paused_alloc, 0);
 
 		if (atomic_read(&dpmaif_ctrl->bat_need_alloc) > 1)
 			atomic_set(&dpmaif_ctrl->bat_need_alloc, 1);
@@ -773,12 +763,13 @@ static void ccci_dpmaif_bat_paused_thread(void)
 	} while (atomic_read(&dpmaif_ctrl->bat_paused_alloc)
 			== BAT_ALLOC_IS_PAUSED);
 
+	atomic_set(&dpmaif_ctrl->bat_need_alloc, 0);
 	CCCI_MEM_LOG_TAG(0, TAG, "[%s] succ.\n", __func__);
 }
 
 void ccci_dpmaif_bat_stop_v3(void)
 {
-	CCCI_MEM_LOG_TAG(0, TAG, "[%s]\n", __func__);
+	CCCI_NORMAL_LOG(0, TAG, "[%s]\n", __func__);
 
 	ccci_dpmaif_bat_paused_thread();
 
@@ -789,9 +780,7 @@ int ccci_dpmaif_bat_start_v3(void)
 {
 	int ret = 0;
 
-	CCCI_MEM_LOG_TAG(0, TAG, "[%s]\n", __func__);
-
-	atomic_set(&dpmaif_ctrl->bat_paused_alloc, BAT_ALLOC_NO_PAUSED);
+	CCCI_NORMAL_LOG(0, TAG, "[%s]\n", __func__);
 
 	if ((!dpmaif_ctrl->bat_req) ||
 		(!dpmaif_ctrl->bat_req->bat_base) ||
@@ -854,6 +843,7 @@ int ccci_dpmaif_bat_start_v3(void)
 		goto start_err;
 	}
 
+	atomic_set(&dpmaif_ctrl->bat_paused_alloc, BAT_ALLOC_NO_PAUSED);
 	dpmaif_bat_start_thread();
 
 	return 0;
