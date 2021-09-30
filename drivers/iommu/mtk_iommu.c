@@ -239,6 +239,7 @@
 #define HYP_PMM_GET_HYPMMU_TYPE2_EN		(0XBB00FFA4)
 #define HYP_PMM_REG_HYPMMU_SHARE_REGION		(0XBB00FFA5)
 #define HYP_PMM_IOVA_TO_PHYS			(0XBB00FFA6)
+#define HYP_PMM_HYPMMU_TYPE2_INV		(0XBB00FFA7)
 
 struct mtk_iommu_domain {
 	struct io_pgtable_cfg		cfg;
@@ -494,6 +495,23 @@ static bool mtee_hypmmu_type2_enabled(void)
 	return false;
 }
 
+static int mtee_hypmmu_type2_inv(unsigned long iova, size_t size)
+{
+	struct arm_smccc_res smc_res;
+	u32 sa, ea;
+
+	sa = MTK_IOMMU_TLB_ADDR(iova);
+	ea = MTK_IOMMU_TLB_ADDR(iova + size - 1);
+
+	arm_smccc_smc(HYP_PMM_HYPMMU_TYPE2_INV, sa, ea, 0, 0, 0, 0, 0, &smc_res);
+	if (smc_res.a0) {
+		pr_err("%s err ret:%lu", __func__, smc_res.a0);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int mtee_hypmmu_reg_share_region(u32 base_page_no, u32 size_in_pages, u32 reserved)
 {
 	struct arm_smccc_res smc_res;
@@ -550,6 +568,20 @@ static int iova_secure_map(struct mtk_iommu_data *data, unsigned long iova,
 
 	pr_info("%s done, iova:0x%lx ~ 0x%lx, mapped:%d\n",
 		__func__, iova, (iova + size - 1), mapped);
+	return 0;
+}
+
+static int iova_secure_inv(unsigned long iova, size_t size)
+{
+	int ret;
+
+	ret = mtee_hypmmu_type2_inv(iova, size);
+	if (ret) {
+		pr_err("%s err, type2_inv failed, iova:0x%lx ~ 0x%lx\n",
+		       __func__, iova, (iova + size - 1));
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -757,11 +789,9 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 {
 	int iommu_ids = 0;
-	int iommu_cnt = 0;
 
 	for_each_m4u(data) {
 		bool has_pm = !!data->dev->pm_domain;
-		u32 reg_val = F_ALL_INVLD;
 
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 			if ((data->plat_data->iommu_type == MM_IOMMU &&
@@ -777,10 +807,8 @@ static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
-		if (hypmmu_type2_en == true && iommu_cnt++ == 0)
-			reg_val |= 0x8;
 
-		writel_relaxed(reg_val, data->base + REG_MMU_INVALIDATE);
+		writel_relaxed(F_ALL_INVLD, data->base + REG_MMU_INVALIDATE);
 		wmb(); /* Make sure the tlb flush all done */
 
 		if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN)) {
@@ -823,12 +851,10 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 	unsigned long flags;
 	int iommu_ids = 0;
 	int ret;
-	int iommu_cnt = 0;
 	u32 tmp;
 
 	for_each_m4u(data) {
 		bool has_pm = !!data->dev->pm_domain;
-		u32 reg_val = F_MMU_INV_RANGE;
 
 		spin_lock_irqsave(&data->tlb_lock, flags);
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
@@ -851,9 +877,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 			       data->base + REG_MMU_INVLD_START_A);
 		writel_relaxed(MTK_IOMMU_TLB_ADDR(iova + size - 1),
 			       data->base + REG_MMU_INVLD_END_A);
-		if (hypmmu_type2_en == true && iommu_cnt++ == 0)
-			reg_val |= 0x8;
-		writel_relaxed(reg_val, data->base + REG_MMU_INVALIDATE);
+		writel_relaxed(F_MMU_INV_RANGE, data->base + REG_MMU_INVALIDATE);
 
 		/* tlb sync */
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
@@ -1618,6 +1642,10 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 		ret = iova_secure_map(dom->data, gather->start, length, false); /* clean bank1 */
 		if (ret)
 			pr_warn("%s failed\n", __func__);
+	} else {
+		ret = iova_secure_inv(gather->start, length);
+		if (ret)
+			pr_warn("%s failed\n", __func__);
 	}
 
 	mtk_iommu_tlb_flush_range_sync(gather->start, length, gather->pgsize,
@@ -1643,6 +1671,10 @@ static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 
 	if (!hypmmu_type2_en) {
 		ret = iova_secure_map(dom->data, iova, size, true);
+		if (ret)
+			pr_warn("%s failed\n", __func__);
+	} else {
+		ret = iova_secure_inv(iova, size);
 		if (ret)
 			pr_warn("%s failed\n", __func__);
 	}
