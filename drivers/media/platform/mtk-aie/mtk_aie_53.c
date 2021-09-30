@@ -1161,7 +1161,7 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf)
 {
 	struct mtk_aie_dev *fd = video_drvdata(file);
-	dev_info(fd->dev, "[%s] start!:%x %x\n", __func__, buf->length, fd->map_count);
+	/* dev_info(fd->dev, "[%s] start!:%x %x\n", __func__, buf->length, fd->map_count); */
 
 	if (buf->length) {
 		if (!fd->map_count) {
