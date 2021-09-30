@@ -456,8 +456,8 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 
 	if (readl_poll_timeout_atomic(thread->base + CMDQ_THR_CURR_STATUS,
 			status, status & CMDQ_THR_STATUS_SUSPENDED, 0, 100)) {
-		cmdq_err("suspend GCE thread 0x%x failed",
-			(u32)(thread->base - cmdq->base));
+		cmdq_err("suspend GCE %hu thread %u failed",
+			cmdq->hwid, thread->idx);
 		if (thread->chan)
 			cmdq_chan_dump_dbg(thread->chan);
 		return -EFAULT;
@@ -952,12 +952,23 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	task_end_pa = cmdq_thread_get_end(thread);
 
 	if (err < 0) {
+		struct iommu_domain *domain;
+		phys_addr_t pa;
+
 		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx thread:%u",
 			&curr_pa, &task_end_pa, err,
 			(unsigned long)cmdq->base_pa, thread->idx);
 
 		cmdq_util_prebuilt_dump(
 			cmdq->hwid, CMDQ_TOKEN_PREBUILT_DISP_WAIT); // set iova
+
+		domain = iommu_get_domain_for_dev(cmdq->mbox.dev);
+		if (domain) {
+			pa = iommu_iova_to_phys(domain, curr_pa);
+			cmdq_err("iova:%pa iommu pa:%pa", &curr_pa, &pa);
+		} else
+			cmdq_err("cannot get dev:%p domain", cmdq->mbox.dev);
+
 		set_bit(thread->idx, &cmdq->err_irq_idx);
 		// wake_up_interruptible(&cmdq->err_irq_wq);
 	}

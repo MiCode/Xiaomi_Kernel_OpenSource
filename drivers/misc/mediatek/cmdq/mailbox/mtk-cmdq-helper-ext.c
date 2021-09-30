@@ -12,6 +12,8 @@
 #include <linux/dmapool.h>
 #include <linux/sched/clock.h>
 
+#include <iommu_debug.h>
+
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
 struct cmdq_util_helper_fp *cmdq_util_helper;
@@ -487,6 +489,17 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 		cmdq_err("allocate cmd buffer failed");
 		kfree(buf);
 		return ERR_PTR(-ENOMEM);
+	}
+
+	if (use_iommu) {
+		struct iommu_domain *domain;
+
+		domain = iommu_get_domain_for_dev(pkt->dev);
+		if (domain)
+			buf->pa_base =
+				iommu_iova_to_phys(domain, buf->iova_base);
+		else
+			cmdq_err("cannot get dev:%p domain", pkt->dev);
 	}
 
 	list_add_tail(&buf->list_entry, &pkt->buf);
