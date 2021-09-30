@@ -1884,8 +1884,6 @@ static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 
 	CMDQ_LOG("%s opp count:%d\n", __func__, mdp_pmqos_opp_num);
 	if (mdp_pmqos_opp_num > 0) {
-		mdp_volts = kcalloc(mdp_pmqos_opp_num, sizeof(int), GFP_KERNEL);
-
 		mdp_parse_opp(pdev, "mdp-opp", mdp_pmqos_opp_num,
 			&mdp_pmqos_freq, &mdp_volts);
 		mdp_parse_opp(pdev, "isp-opp", mdp_pmqos_opp_num,
