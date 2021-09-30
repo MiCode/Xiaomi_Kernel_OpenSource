@@ -3043,7 +3043,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
 		MTK_CAM_TRACE_END();
 
-		dev_info(cam->dev,
+		dev_dbg(cam->dev,
 			 "%s: rpmsg_send id: %d, ctx:%d, seq:%d, bin:(0x%x)\n",
 			 req->req.debug_str, event.cmd_id, session->session_id,
 			 req_stream_data->frame_seq_no,

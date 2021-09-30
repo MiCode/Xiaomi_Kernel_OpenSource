@@ -1116,7 +1116,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 			    !mtk_cam_is_stagger(ctx)) {
 				state_entry->estate = E_STATE_CQ_SCQ_DELAY;
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
-				dev_info(ctx->cam->dev,
+				dev_dbg(ctx->cam->dev,
 					 "[TimerIRQ] SCQ DELAY STATE at SOF+%dms\n",
 					 time_after_sof);
 				return HRTIMER_NORESTART;
@@ -1129,7 +1129,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 
 			} else if (state_entry->estate <= E_STATE_SENSOR) {
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
-				dev_info(ctx->cam->dev,
+				dev_dbg(ctx->cam->dev,
 					 "[TimerIRQ] wrong state:%d (sensor workqueue delay)\n",
 					 state_entry->estate);
 				return HRTIMER_NORESTART;
@@ -1138,7 +1138,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 			sensor_ctrl->sensor_request_seq_no - 1) {
 			if (state_entry->estate < E_STATE_INNER) {
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
-				dev_info(ctx->cam->dev,
+				dev_dbg(ctx->cam->dev,
 					 "[TimerIRQ] req:%d isn't arrive inner at SOF+%dms\n",
 					 req_stream_data->frame_seq_no, time_after_sof);
 				return HRTIMER_NORESTART;
@@ -1152,7 +1152,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 		req = mtk_cam_s_data_get_req(req_stream_data);
 		if (req_stream_data->state.estate == E_STATE_SENINF &&
 			!(req->flags & MTK_CAM_REQ_FLAG_SENINF_CHANGED)) {
-			dev_info(ctx->cam->dev,
+			dev_dbg(ctx->cam->dev,
 				 "[TimerIRQ] wrong state:%d (seninf change delay)\n",
 				 state_entry->estate);
 			return HRTIMER_NORESTART;
