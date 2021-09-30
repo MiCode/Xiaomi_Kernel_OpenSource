@@ -19,6 +19,7 @@ crypto-qti-hwkm.ko
 dcvs_fp.ko
 debug-regulator.ko
 deferred-free-helper.ko
+dispcc-diwali.ko
 dispcc-waipio.ko
 gcc-diwali.ko
 gdsc-regulator.ko
