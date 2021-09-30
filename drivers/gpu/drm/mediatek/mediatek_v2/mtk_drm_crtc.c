@@ -6720,7 +6720,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int target_fps = 0;
 	unsigned int atomic_fps = 0;
-	static unsigned int msync_need_close;
+	static unsigned int msync_may_close;
 
 	/* When open VDS path switch feature, we will resume VDS crtc
 	 * in it's second atomic commit, and the crtc will be resumed
@@ -6793,13 +6793,13 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 		CRTC_MMP_MARK(index, atomic_begin, 0, 2);
 
-		msync_need_close = 0;
+		msync_may_close = 1;
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 			!msync_is_on(priv, params, crtc_id,
 				state, old_mtk_state) && (index == 0)) {
-		if ((msync_need_close == 0) && (g_msync_debug == 0)) {
+		if ((msync_may_close == 1) && (g_msync_debug == 0)) {
 			mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
-			msync_need_close = 1;
+			msync_may_close = 0;
 		}
 	}
 
