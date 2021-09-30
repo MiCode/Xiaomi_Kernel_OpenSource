@@ -364,8 +364,6 @@ extern atomic_t fstb_event_data_idx;
 extern int fstb_event_buffer_size;
 extern int fstb_frame_num;
 extern int fstb_no_stable_thr;
-extern int fstb_no_stable_multiple;
-extern int fstb_no_stable_multiple_eara;
 extern int fstb_is_eara_active;
 extern int fstb_can_update_thr;
 extern int fstb_target_fps_margin_low_fps;

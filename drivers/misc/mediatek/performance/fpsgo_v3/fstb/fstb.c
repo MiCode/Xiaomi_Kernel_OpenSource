@@ -1071,6 +1071,9 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 				}
 				if (i < 0)
 					target_fps_new = rtfiter->level[0].start;
+
+				if (target_fps_new == rtfiter->level[0].start && margin)
+					margin = 0;
 			}
 		}
 		if (target_fps_old != target_fps_new)
