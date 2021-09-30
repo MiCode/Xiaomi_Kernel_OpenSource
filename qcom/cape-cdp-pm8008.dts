@@ -2,9 +2,10 @@
 
 #include "cape.dtsi"
 #include "cape-cdp.dtsi"
+#include "waipio-pm8008.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Cape CDP";
+	model = "Qualcomm Technologies, Inc. Cape CDP with PM8008";
 	compatible = "qcom,cape-cdp", "qcom,cape", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	qcom,board-id = <0x10001 0>;
 };

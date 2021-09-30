@@ -2,9 +2,10 @@
 
 #include "cape.dtsi"
 #include "cape-qrd.dtsi"
+#include "waipio-pm8008.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Cape QRD";
+	model = "Qualcomm Technologies, Inc. Cape QRD with PM8008";
 	compatible = "qcom,cape-qrd", "qcom,cape", "qcom,qrd";
 	qcom,board-id = <0x1000B 0>;
 };
