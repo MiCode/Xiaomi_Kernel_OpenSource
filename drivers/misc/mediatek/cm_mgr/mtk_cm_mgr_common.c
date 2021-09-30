@@ -96,6 +96,10 @@ unsigned int *debounce_times_down_adb;
 unsigned int *debounce_times_up_adb;
 static int debounce_times_perf_down = 50;
 static int debounce_times_perf_force_down = 100;
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+static int dsu_enable = 1;
+static int dsu_opp_send = 0xff;
+#endif
 int debounce_times_reset_adb;
 int light_load_cps = 1000;
 
@@ -491,7 +495,12 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			debounce_times_perf_down);
 	len += cm_mgr_print("debounce_times_perf_force_down %d\n",
 			debounce_times_perf_force_down);
-
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+	len += cm_mgr_print("dsu_enable %d\n",
+			dsu_enable);
+	len += cm_mgr_print("dsu_opp_send %d\n",
+			dsu_opp_send);
+#endif
 	len += cm_mgr_print("\n");
 
 	len += dbg_cm_mgr_platform_show(buff);
@@ -641,6 +650,14 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_emi_opp")) {
 		cm_mgr_cpu_map_emi_opp = val_1;
 		cm_mgr_cpu_map_update_table();
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+	} else if (!strcmp(cmd, "dsu_enable")) {
+		dsu_enable = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_ENABLE, val_1);
+	} else if (!strcmp(cmd, "dsu_opp_send")) {
+		dsu_opp_send = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_OPP_SEND, val_1);
+#endif
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
