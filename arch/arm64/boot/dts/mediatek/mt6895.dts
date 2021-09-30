@@ -669,9 +669,7 @@
 		reg = <0 0x1b080000 0 0x9000>;
 		interrupts = <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MAIN>;
-#if 0
 		mediatek,larbs = <&smi_larb19>;
-#endif
 		clocks =        <&topckgen_clk CLK_TOP_CCUSYS_SEL>,
 				<&topckgen_clk CLK_TOP_CCU_AHB_SEL>,
 				<&ccu_main_clk CLK_CCU_LARB19>,
@@ -690,18 +688,16 @@
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_LARB19_PORT1>,
 			 <&disp_iommu M4U_LARB19_PORT0>;
-#if 0
 		interconnects =
-		<&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>,
+		<&mmqos SLAVE_LARB(32) &mmqos SLAVE_COMMON(1)>,
 		<&mmqos MASTER_LARB_PORT(M4U_LARB19_PORT1)
-			&mmqos SLAVE_COMMON(0)>,
+			&mmqos SLAVE_COMMON(1)>,
 		<&mmqos MASTER_LARB_PORT(M4U_LARB19_PORT0)
-			&mmqos SLAVE_COMMON(0)>;
+			&mmqos SLAVE_COMMON(1)>;
 		interconnect-names =
 			"ccu_g",
 			"ccu_o",
 			"ccu_i";
-#endif
 		secured = "yes";
 		ccu_sramSize = <0x00020000>;
 		ccu_sramOffset = <0x00020000>;
