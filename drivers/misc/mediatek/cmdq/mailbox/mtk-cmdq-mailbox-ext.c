@@ -163,6 +163,8 @@ struct cmdq {
 	phys_addr_t		base_pa;
 	u8			hwid;
 	u32			irq;
+	struct wait_queue_head	err_irq_wq;
+	unsigned long		err_irq_idx;
 	struct workqueue_struct	*buf_dump_wq;
 	struct cmdq_thread	thread[CMDQ_THR_MAX_COUNT];
 	u32			prefetch;
@@ -953,7 +955,11 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx thread:%u",
 			&curr_pa, &task_end_pa, err,
 			(unsigned long)cmdq->base_pa, thread->idx);
-		cmdq_thread_dump_pkt_by_pc(thread, curr_pa, false);
+
+		cmdq_util_prebuilt_dump(
+			cmdq->hwid, CMDQ_TOKEN_PREBUILT_DISP_WAIT); // set iova
+		set_bit(thread->idx, &cmdq->err_irq_idx);
+		wake_up_interruptible(&cmdq->err_irq_wq);
 	}
 
 	cmdq_log("task status %pa~%pa err:%d",
@@ -1104,6 +1110,36 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	}
 
 	return secure_irq ? IRQ_NONE : IRQ_HANDLED;
+}
+
+static int cmdq_irq_handler_thread(void *data)
+{
+	struct cmdq *cmdq = data;
+	unsigned long irq = cmdq->err_irq_idx, flags;
+	u32 bit;
+
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(cmdq->err_irq_wq, cmdq->err_irq_idx);
+
+		for_each_set_bit(bit, &cmdq->err_irq_idx, fls(CMDQ_IRQ_MASK)) {
+			struct cmdq_thread *thread = &cmdq->thread[bit];
+			dma_addr_t pc = cmdq_thread_get_pc(thread);
+
+			cmdq_err("%s: hwid:%hu irq:%#lx idx:%u pc:%pa",
+				__func__, cmdq->hwid, cmdq->err_irq_idx,
+				thread->idx, pc);
+
+			spin_lock_irqsave(&thread->chan->lock, flags);
+			cmdq_thread_dump_pkt_by_pc(thread, pc, false);
+			spin_unlock_irqrestore(&thread->chan->lock, flags);
+			clear_bit(bit, &cmdq->err_irq_idx);
+		}
+		cmdq_util_dump_smi();
+		cmdq_util_aee("CMDQ", "%s: hwid:%hu irq:%#lx",
+			__func__, cmdq->hwid, irq);
+	}
+
+	return 0;
 }
 
 static bool cmdq_thread_timeout_excceed(struct cmdq_thread *thread)
@@ -1982,6 +2018,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct of_phandle_args args;
 	struct cmdq *cmdq;
+	struct task_struct *kthr;
 	int err, i;
 	struct gce_plat *plat_data;
 	static u8 hwid;
@@ -2008,12 +2045,16 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq_err("failed to get irq");
 		return -EINVAL;
 	}
+
 	err = devm_request_irq(dev, cmdq->irq, cmdq_irq_handler, IRQF_SHARED,
 			       "mtk_cmdq", cmdq);
 	if (err < 0) {
 		cmdq_err("failed to register ISR (%d)", err);
 		return err;
 	}
+
+	init_waitqueue_head(&cmdq->err_irq_wq);
+	kthr = kthread_run(cmdq_irq_handler_thread, cmdq, "cmdq_irq_thread");
 
 	plat_data = (struct gce_plat *)of_device_get_match_data(dev);
 	if (!plat_data) {
