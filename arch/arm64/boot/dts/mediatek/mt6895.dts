@@ -3815,7 +3815,7 @@
 
 			gpio-base = <&scp_gpio>;
 			gpio-vreq = <0x480 0x7 20>; /* SCP_VREQ_VAO */
-			gpio-vreq-mode = <0>;       /* default aux */
+			gpio-vreq-mode = <1>;
 
 			do-ulposc-cali;
 			fmeter_clksys = <&vlp_cksys_clk>;
