@@ -1103,9 +1103,13 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
 	if (!list)
 		SetPageLRU(page_tail);
 
-	if (likely(PageLRU(page)))
+	if (likely(PageLRU(page))) {
 		list_add_tail(&page_tail->lru, &page->lru);
-	else if (list) {
+#ifdef CONFIG_MTK_VM_DEBUG
+		if (!PageLRU(page_tail))
+			BUG();
+#endif
+	} else if (list) {
 		/* page reclaim is reclaiming a huge page */
 		get_page(page_tail);
 		list_add_tail(&page_tail->lru, list);
