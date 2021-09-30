@@ -9,11 +9,11 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 
-#define APU_POWER_INIT		(1)	// 1: init in kernel ; 0: init in lk2
+#define APU_POWER_INIT		(0)	// 1: init in kernel ; 0: init in lk2
 #define APU_POWER_BRING_UP	(1)
-#define APU_PWR_SOC_PATH	(1)	// 1: do not run apu pll/acc init
-#define ENABLE_SW_BUCK_CTL	(1)	// 1: enable regulator in rpm resume
-#define ENABLE_SOC_CLK_MUX	(1)	// 1: enable soc clk in rpm resume
+#define APU_PWR_SOC_PATH	(0)	// 1: do not run apu pll/acc init
+#define ENABLE_SW_BUCK_CTL	(0)	// 1: enable regulator in rpm resume
+#define ENABLE_SOC_CLK_MUX	(0)	// 1: enable soc clk in rpm resume
 #define DEBUG_DUMP_REG		(1)	// dump overall apu registers for debug
 #define APMCU_REQ_RPC_SLEEP	(0)	// rpm suspend trigger sleep req to rpc
 
