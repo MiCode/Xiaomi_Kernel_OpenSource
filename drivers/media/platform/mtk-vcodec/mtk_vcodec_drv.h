@@ -267,11 +267,11 @@ struct mtk_enc_params {
 	unsigned int    svp_mode;
 	unsigned int    tsvc;
 	unsigned int    nonrefpfreq;
-	unsigned int	highquality;
-	unsigned int	max_qp;
-	unsigned int	min_qp;
-	unsigned int	framelvl_qp;
-	unsigned int	ip_qpdelta;
+	unsigned int    highquality;
+	int             max_qp;
+	int             min_qp;
+	int             framelvl_qp;
+	int             ip_qpdelta;
 	unsigned int	qp_control_mode;
 	unsigned int	dummynal;
 };

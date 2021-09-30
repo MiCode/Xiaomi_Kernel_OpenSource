@@ -2056,7 +2056,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, &param);
 
 	mtk_v4l2_debug(0,
-	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d async %d grid size %d/%d b#%d, slbc %d",
+	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d async %d grid size %d/%d b#%d, slbc %d maxqp %d minqp %d",
 	param.input_yuv_fmt, param.profile,
 	param.level, param.width, param.height,
 	param.buf_width, param.buf_height,
@@ -2064,7 +2064,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	param.gop_size, param.intra_period,
 	param.operationrate, ctx->async_mode,
 	(param.heif_grid_size>>16), param.heif_grid_size&0xffff,
-	param.num_b_frame, param.slbc_ready);
+	param.num_b_frame, param.slbc_ready, param.max_qp, param.min_qp);
 
 	if (ret) {
 		mtk_v4l2_err("venc_if_set_param failed=%d", ret);
@@ -2907,15 +2907,17 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	struct v4l2_ctrl_config cfg;
 
 	v4l2_ctrl_handler_init(handler, MTK_MAX_CTRLS_HINT);
-
+	ctx->enc_params.bitrate = 20000000;
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE,
-			  0, 400000000, 1, 20000000);
+			  0, 400000000, 1, ctx->enc_params.bitrate);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_B_FRAMES,
 			  0, 3, 1, 0);
+	ctx->enc_params.rc_frame = 1;
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
-			  0, 1, 1, 1);
+			  0, 1, 1, ctx->enc_params.rc_frame);
+	ctx->enc_params.h264_max_qp = 51;
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
-			  0, 51, 1, 51);
+			  0, 51, 1, ctx->enc_params.h264_max_qp);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
 			  0, 65535, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_GOP_SIZE,
@@ -2943,7 +2945,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	v4l2_ctrl_new_std_menu(handler, ops,
 		V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
 		V4L2_MPEG_VIDEO_HEVC_LEVEL_4,
-		0, V4L2_MPEG_VIDEO_HEVC_LEVEL_4);
+		0, V4L2_MPEG_VIDEO_HEVC_LEVEL_1);
 	v4l2_ctrl_new_std_menu(handler, ops,
 		V4L2_CID_MPEG_VIDEO_HEVC_TIER,
 		V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
@@ -3107,6 +3109,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.i_qp = 51;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_I_FRAME_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3115,10 +3118,11 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = 0;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 51;
+	cfg.def = ctx->enc_params.i_qp;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.p_qp = 51;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_P_FRAME_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3127,10 +3131,11 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = 0;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 51;
+	cfg.def = ctx->enc_params.p_qp;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.b_qp = 51;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_B_FRAME_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3139,7 +3144,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = 0;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 51;
+	cfg.def = ctx->enc_params.b_qp;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
@@ -3208,6 +3213,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.max_qp = -1;
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
@@ -3215,10 +3221,11 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = -1;
+	cfg.def = ctx->enc_params.max_qp;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.min_qp = -1;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_MIN_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3227,10 +3234,11 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = -1;
+	cfg.def = ctx->enc_params.min_qp;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.ip_qpdelta = -1;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_I_P_QP_DELTA;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3239,10 +3247,11 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = -1;
+	cfg.def = ctx->enc_params.ip_qpdelta;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	ctx->enc_params.framelvl_qp = -1;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_FRAME_LEVEL_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -3251,7 +3260,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = -1;
+	cfg.def = ctx->enc_params.framelvl_qp;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
