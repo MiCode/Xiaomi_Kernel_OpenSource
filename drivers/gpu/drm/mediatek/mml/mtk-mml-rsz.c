@@ -336,10 +336,11 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	result = get_tile_init_result(task);
 	if (result) {
 		s32 i;
-		struct mml_pq_reg *regs = result->rsz_regs;
+		struct mml_pq_reg *regs = result->rsz_regs[rsz_frm->out_idx];
 		/* TODO: use different regs */
-		mml_msg("%s:config rsz regs, count: %d", __func__, result->rsz_reg_cnt);
-		for (i = 0; i < result->rsz_reg_cnt; i++) {
+		mml_msg("%s:config rsz regs, count: %d", __func__,
+			result->rsz_reg_cnt[rsz_frm->out_idx]);
+		for (i = 0; i < result->rsz_reg_cnt[rsz_frm->out_idx]; i++) {
 			cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
 				regs[i].value, regs[i].mask);
 			mml_msg("[rsz][config][%x] = %#x mask(%#x)",

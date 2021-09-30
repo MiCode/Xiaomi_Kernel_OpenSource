@@ -36,9 +36,9 @@ struct mml_pq_reg {
 
 struct mml_pq_tile_init_result {
 	u8 rsz_param_cnt;
-	struct mml_pq_rsz_tile_init_param *rsz_param;
-	u32 rsz_reg_cnt;
-	struct mml_pq_reg *rsz_regs;
+	struct mml_pq_rsz_tile_init_param rsz_param[MML_MAX_OUTPUTS];
+	uint32_t rsz_reg_cnt[MML_MAX_OUTPUTS];
+	struct mml_pq_reg *rsz_regs[MML_MAX_OUTPUTS];
 };
 
 struct mml_pq_tile_init_job {

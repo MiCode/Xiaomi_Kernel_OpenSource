@@ -184,8 +184,9 @@ static void release_tile_init_result(void *data)
 
 	if (!result)
 		return;
-	kfree(result->rsz_param);
-	kfree(result->rsz_regs);
+	kfree(result->rsz_regs[0]);
+	if (result->rsz_param_cnt == MML_MAX_OUTPUTS)
+		kfree(result->rsz_regs[1]);
 	kfree(result);
 }
 
@@ -627,8 +628,7 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 {
 	struct mml_pq_sub_task *sub_task = NULL;
 	struct mml_pq_tile_init_result *result;
-	struct mml_pq_rsz_tile_init_param *rsz_param;
-	struct mml_pq_reg *rsz_regs;
+	struct mml_pq_reg *rsz_regs[MML_MAX_OUTPUTS];
 	s32 ret;
 
 	mml_pq_trace_ex_begin("%s", __func__);
@@ -657,45 +657,47 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 		goto free_tile_init_result;
 	}
 
-	rsz_param = kmalloc_array(result->rsz_param_cnt, sizeof(*rsz_param),
-				  GFP_KERNEL);
-	if (unlikely(!rsz_param)) {
-		mml_pq_err("err: create rsz_param failed, size:%d",
-			result->rsz_param_cnt);
+	rsz_regs[0] = kmalloc_array(result->rsz_reg_cnt[0], sizeof(struct mml_pq_reg),
+				GFP_KERNEL);
+	if (unlikely(!rsz_regs[0])) {
+		mml_pq_err("err: create rsz_regs failed, size:%d",
+			result->rsz_reg_cnt[0]);
 		goto free_tile_init_result;
 	}
 
-	ret = copy_from_user(rsz_param, result->rsz_param,
-		result->rsz_param_cnt * sizeof(*rsz_param));
-	if (unlikely(ret)) {
-		mml_pq_err("copy rsz param failed!: %d", ret);
-		goto free_rsz_param;
-	}
-
-	rsz_regs = kmalloc_array(result->rsz_reg_cnt, sizeof(*rsz_regs),
-				 GFP_KERNEL);
-	if (unlikely(!rsz_regs)) {
-		mml_pq_err("err: create rsz_regs failed, size:%d",
-			result->rsz_reg_cnt);
-		goto free_rsz_param;
-	}
-
-	ret = copy_from_user(rsz_regs, result->rsz_regs,
-		result->rsz_reg_cnt * sizeof(*rsz_regs));
+	ret = copy_from_user(rsz_regs[0], result->rsz_regs[0],
+		result->rsz_reg_cnt[0] * sizeof(struct mml_pq_reg));
 	if (unlikely(ret)) {
 		mml_pq_err("copy rsz config failed!: %d", ret);
-		goto free_rsz_regs;
+		goto free_rsz_regs_0;
 	}
+	result->rsz_regs[0] = rsz_regs[0];
 
-	result->rsz_param = rsz_param;
-	result->rsz_regs = rsz_regs;
+	/* second output */
+	if (result->rsz_param_cnt == MML_MAX_OUTPUTS) {
+		rsz_regs[1] = kmalloc_array(result->rsz_reg_cnt[1], sizeof(struct mml_pq_reg),
+					GFP_KERNEL);
+		if (unlikely(!rsz_regs[1])) {
+			mml_pq_err("err: create rsz_regs failed, size:%d",
+				result->rsz_reg_cnt[1]);
+			goto free_rsz_regs_0;
+		}
+
+		ret = copy_from_user(rsz_regs[1], result->rsz_regs[1],
+			result->rsz_reg_cnt[1] * sizeof(struct mml_pq_reg));
+		if (unlikely(ret)) {
+			mml_pq_err("copy rsz config failed!: %d", ret);
+			goto free_rsz_regs_1;
+		}
+		result->rsz_regs[1] = rsz_regs[1];
+	}
 
 	handle_sub_task_result(sub_task, result, release_tile_init_result);
 	goto wake_up_prev_tile_init_task;
-free_rsz_regs:
-	kfree(rsz_regs);
-free_rsz_param:
-	kfree(rsz_param);
+free_rsz_regs_1:
+	kfree(rsz_regs[1]);
+free_rsz_regs_0:
+	kfree(rsz_regs[0]);
 free_tile_init_result:
 	kfree(result);
 wake_up_prev_tile_init_task:
