@@ -269,10 +269,12 @@ static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
 	} else {
 		memcpy(&s_msg->msg, msg, sizeof(*msg));
 		list_del(&s_msg->ud_item);
-		/* complete callback */
-		s_msg->complete(s_msg);
 	}
 	mutex_unlock(&mrdev->msg_mtx);
+
+	/* complete callback */
+	if (s_msg)
+		s_msg->complete(s_msg);
 
 	return 0;
 }
