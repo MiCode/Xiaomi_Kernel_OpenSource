@@ -1062,7 +1062,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			return IRQ_HANDLED;
 
 		cmdq_clk_enable(cmdq);
-		cmdq_thread_dump_all(cmdq);
+		cmdq_thread_dump_all(cmdq, false, false, false);
 
 		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
 			if (cmdq->thread[i].chan) {
@@ -1484,27 +1484,36 @@ void cmdq_chan_dump_dbg(void *chan)
 }
 EXPORT_SYMBOL(cmdq_chan_dump_dbg);
 
-void cmdq_thread_dump_all(void *mbox_cmdq)
+void cmdq_thread_dump_all(void *mbox_cmdq, const bool lock, const bool dump_pkt,
+	const bool dump_prev)
 {
 	struct cmdq *cmdq = mbox_cmdq;
-	u32 i;
-	u32 en;
-	dma_addr_t curr_pa, end_pa;
-	s32 usage = atomic_read(&cmdq->usage);
+	s32 usage = atomic_read(&cmdq->usage), i;
 
-	cmdq_util_msg("cmdq:%#x usage:%d", (u32)cmdq->base_pa, usage);
+	cmdq_util_msg("%s: cmdq:%pa hwid:%hu usage:%d",
+		__func__, &cmdq->base_pa, cmdq->hwid, usage);
+
 	if (usage <= 0)
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
+		unsigned long flags = 0L;
+		dma_addr_t curr_pa, end_pa;
 
-		if (!thread->occupied || list_empty(&thread->task_busy_list))
+		if (!thread->occupied || !thread->chan)
 			continue;
 
-		en = readl(thread->base + CMDQ_THR_ENABLE_TASK);
-		if (!en)
+		if (lock)
+			spin_lock_irqsave(&thread->chan->lock, flags);
+
+		if (list_empty(&thread->task_busy_list) ||
+			!readl(thread->base + CMDQ_THR_ENABLE_TASK)) {
+			if (lock)
+				spin_unlock_irqrestore(
+					&thread->chan->lock, flags);
 			continue;
+		}
 
 		curr_pa = cmdq_thread_get_pc(thread);
 		end_pa = cmdq_thread_get_end(thread);
@@ -1512,6 +1521,12 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 		cmdq_util_msg("thd idx:%u pc:%pa end:%pa",
 			thread->idx, &curr_pa, &end_pa);
 		cmdq_thread_dump_spr(thread);
+
+		if (dump_pkt)
+			cmdq_thread_dump_pkt_by_pc(thread, curr_pa, dump_prev);
+
+		if (lock)
+			spin_unlock_irqrestore(&thread->chan->lock, flags);
 	}
 }
 EXPORT_SYMBOL(cmdq_thread_dump_all);
