@@ -244,6 +244,7 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 			 (unsigned int)i);
 		if (ret < 0 || (size_t)ret >= sizeof(node))
 			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 		len = mtk_lcm_dts_read_u8_array(np, node, &temp[0], 0,
 					sizeof(struct dfps_switch_cmd));
 		if (len < 0 || len > sizeof(struct dfps_switch_cmd)) {
@@ -461,6 +462,7 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 				 "lcm-params-dsi-lcm_esd_check_table%u", i);
 			if (ret < 0 || (size_t)ret >= sizeof(prop))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 			len = mtk_lcm_dts_read_u8_array(np,
 					prop, temp, 0, sizeof(struct esd_check_item));
 			if (len < 0 || len > sizeof(struct esd_check_item)) {
@@ -492,6 +494,7 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 				 "lcm-params-dsi-lane_swap%u", i);
 			if (ret < 0 || (size_t)ret >= sizeof(prop))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 			mtk_lcm_dts_read_u32_array(np, prop,
 					(u32 *)&ext_param->lane_swap[i][0],
 					0, MIPITX_PHY_LANE_NUM);
@@ -510,6 +513,228 @@ static void parse_lcm_dsi_fpga_settings(struct device_node *np,
 #endif
 }
 
+#define LCM_DSI_MSYNC_FPS_DTS_COUNT (2)
+static int parse_lcm_dsi_msync_min_fps_list(struct device_node *np,
+	struct mtk_lcm_mode_dsi *mode_node)
+{
+	struct mtk_lcm_msync_min_fps_switch *node = NULL;
+	u8 *table_dts_buf = NULL, *tmp = NULL;
+	unsigned int table_dts_size = 512, tmp_len = 0;
+	int ret = 0, len = 0;
+
+	INIT_LIST_HEAD(&mode_node->msync_min_fps_switch);
+	mode_node->msync_min_fps_count = 0;
+
+	LCM_KZALLOC(table_dts_buf, table_dts_size, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(table_dts_buf)) {
+		DDPPR_ERR("%s, %d, failed to allocate dts buffer\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	len = mtk_lcm_dts_read_u8_array(np, "lcm-params-dsi-msync_min_fps_list",
+				table_dts_buf, 0, table_dts_size - 1);
+	if (len == 0) {
+		ret = 0;
+		goto end;
+	} else if (len < 0) {
+		DDPINFO("%s, failed to get msync min fps list dts, len:%d\n",
+			__func__, len);
+		ret = 0;
+		goto end;
+	} else if ((unsigned int)len < table_dts_size) {
+		table_dts_buf[len] = '\0';
+		DDPINFO("%s: start to parse msync min fps list, dts_len:%u\n",
+			__func__, len);
+	} else {
+		table_dts_buf[table_dts_size - 1] = '\0';
+		DDPMSG("%s: start to parse msync min fps list, len:%u has out of size:%u\n",
+			__func__, len, table_dts_size);
+		len = table_dts_size;
+	}
+
+	tmp = table_dts_buf;
+	while (len > LCM_DSI_MSYNC_FPS_DTS_COUNT) {
+		LCM_KZALLOC(node,
+			sizeof(struct mtk_lcm_msync_min_fps_switch),
+			GFP_KERNEL);
+		if (IS_ERR_OR_NULL(node)) {
+			DDPPR_ERR("%s, %d, failed to allocate msync min fps node\n",
+				__func__, __LINE__);
+			ret = -ENOMEM;
+			goto end;
+		}
+
+		node->fps = tmp[0];
+		node->count = tmp[1];
+		tmp_len = LCM_DSI_MSYNC_FPS_DTS_COUNT + node->count;
+		if (len < tmp_len) {
+			DDPPR_ERR("%s, %d, invalid fps data count:%u, total:%u\n",
+				__func__, __LINE__, tmp_len, len);
+			LCM_KFREE(node, sizeof(struct mtk_lcm_msync_min_fps_switch));
+			ret = -ENOMEM;
+			goto end;
+		}
+
+		LCM_KZALLOC(node->data, node->count, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(node->data)) {
+			DDPPR_ERR("%s, %d, failed to allocate msync min fps data\n",
+				__func__, __LINE__);
+			LCM_KFREE(node, sizeof(struct mtk_lcm_msync_min_fps_switch));
+			ret = -ENOMEM;
+			goto end;
+		}
+		memcpy(node->data, &tmp[LCM_DSI_MSYNC_FPS_DTS_COUNT], node->count);
+
+		list_add_tail(&node->list, &mode_node->msync_min_fps_switch);
+		mode_node->msync_min_fps_count++;
+
+		if (tmp_len <= len) {
+			tmp = tmp + tmp_len;
+			len = len - tmp_len;
+		} else {
+			DDPMSG("%s: parsing warning of msync min fps list, len:%d, tmp:%d\n",
+				__func__, len, tmp_len);
+			break;
+		}
+	}
+
+end:
+	LCM_KFREE(table_dts_buf, table_dts_size);
+	if (mode_node->msync_min_fps_count > 0 ||
+	    ret < 0)
+		DDPINFO("%s, %d, count:%u, ret:%d\n", __func__, __LINE__,
+			mode_node->msync_min_fps_count, ret);
+
+	return ret;
+}
+
+/* parse dsi msync cmd table: mtk_panel_params */
+#define MTK_LCM_MSYNC_MAX_LEVEL (20)
+static void parse_lcm_dsi_msync_cmd_table(struct device_node *np,
+			struct mtk_panel_params *ext_param)
+{
+	unsigned int i = 0, multi_te_tb_count = 0;
+	int len = 0;
+	unsigned int *level_id = NULL;
+	unsigned int *level_fps = NULL;
+	unsigned int *max_fps = NULL;
+	unsigned int *min_fps = NULL;
+
+	if (IS_ERR_OR_NULL(ext_param) || IS_ERR_OR_NULL(np))
+		return;
+
+	if (ext_param->msync2_enable == 0)
+		return;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-te_type",
+			&ext_param->msync_cmd_table.te_type);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-msync_max_fps",
+			&ext_param->msync_cmd_table.msync_max_fps);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-msync_min_fps",
+			&ext_param->msync_cmd_table.msync_min_fps);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-msync_level_num",
+			&ext_param->msync_cmd_table.msync_level_num);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-multi_te_tb_count",
+			&multi_te_tb_count);
+
+	if (multi_te_tb_count > 0) {
+		struct msync_level_table *table =
+			&ext_param->msync_cmd_table.multi_te_tb.multi_te_level[0];
+
+		multi_te_tb_count = (multi_te_tb_count < MTK_LCM_MSYNC_MAX_LEVEL) ?
+				multi_te_tb_count : MTK_LCM_MSYNC_MAX_LEVEL;
+		DDPINFO("%s, %d, multi_te_tb_count:%u\n",
+			__func__, __LINE__, multi_te_tb_count);
+
+		/* read level_id */
+		LCM_KZALLOC(level_id, multi_te_tb_count * sizeof(unsigned int),
+				GFP_KERNEL);
+		if (IS_ERR_OR_NULL(level_id)) {
+			DDPPR_ERR("%s, %d, failed to allocate level_id\n",
+				__func__, __LINE__);
+			goto end;
+		}
+		len = mtk_lcm_dts_read_u32_array(np,
+			"lcm-params-dsi-multi_te_level_id",
+			&level_id[0], 0, multi_te_tb_count);
+		if (len < 0 || len > multi_te_tb_count)
+			DDPPR_ERR("%s, %d, failed to get level_id\n",
+				__func__, __LINE__);
+
+		/* read level_fps */
+		LCM_KZALLOC(level_fps, multi_te_tb_count * sizeof(unsigned int),
+				GFP_KERNEL);
+		if (IS_ERR_OR_NULL(level_fps)) {
+			DDPPR_ERR("%s, %d, failed to allocate level_fps\n",
+				__func__, __LINE__);
+			goto end;
+		}
+		len = mtk_lcm_dts_read_u32_array(np,
+			"lcm-params-dsi-multi_te_level_fps",
+			&level_fps[0], 0, multi_te_tb_count);
+		if (len < 0 || len > multi_te_tb_count)
+			DDPPR_ERR("%s, %d, failed to get level_fps\n",
+				__func__, __LINE__);
+
+		/* read max_fps */
+		LCM_KZALLOC(max_fps, multi_te_tb_count * sizeof(unsigned int),
+				GFP_KERNEL);
+		if (IS_ERR_OR_NULL(max_fps)) {
+			DDPPR_ERR("%s, %d, failed to allocate max_fps\n",
+				__func__, __LINE__);
+			goto end;
+		}
+		len = mtk_lcm_dts_read_u32_array(np,
+			"lcm-params-dsi-multi_te_max_fps",
+			&max_fps[0], 0, multi_te_tb_count);
+		if (len < 0 || len > multi_te_tb_count)
+			DDPPR_ERR("%s, %d, failed to get max_fps\n",
+				__func__, __LINE__);
+
+		/* read min_fps */
+		LCM_KZALLOC(min_fps, multi_te_tb_count * sizeof(unsigned int),
+				GFP_KERNEL);
+		if (IS_ERR_OR_NULL(min_fps)) {
+			DDPPR_ERR("%s, %d, failed to allocate min_fps\n",
+				__func__, __LINE__);
+			goto end;
+		}
+		len = mtk_lcm_dts_read_u32_array(np,
+			"lcm-params-dsi-multi_te_min_fps",
+			&min_fps[0], 0, multi_te_tb_count);
+		if (len < 0 || len > multi_te_tb_count)
+			DDPPR_ERR("%s, %d, failed to get min_fps\n",
+				__func__, __LINE__);
+
+		/* save parsing result */
+		for (i = 0; i < multi_te_tb_count; i++) {
+			table[i].level_id = level_id[i];
+			table[i].level_fps = level_fps[i];
+			table[i].max_fps = max_fps[i];
+			table[i].min_fps = min_fps[i];
+			DDPMSG("%s, %d >>> table%u, id:%u, fps:%u, max:%u, min:%u\n",
+				__func__, __LINE__, i,
+				table[i].level_id, table[i].level_fps,
+				table[i].max_fps, table[i].min_fps);
+		}
+	}
+
+end:
+	if (level_id != NULL)
+		LCM_KFREE(level_id, multi_te_tb_count * sizeof(unsigned int));
+	if (level_fps != NULL)
+		LCM_KFREE(level_fps, multi_te_tb_count * sizeof(unsigned int));
+	if (max_fps != NULL)
+		LCM_KFREE(max_fps, multi_te_tb_count * sizeof(unsigned int));
+	if (min_fps != NULL)
+		LCM_KFREE(min_fps, multi_te_tb_count * sizeof(unsigned int));
+}
+
 static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	struct mtk_lcm_mode_dsi *mode_node, unsigned int phy_type)
 {
@@ -522,8 +747,11 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-voltage",
 			&mode_node->voltage);
+
 	parse_lcm_dsi_fps_mode(np, mode);
 	parse_lcm_dsi_fps_ext_param(np, ext_param);
+	if (mode_node->ext_param.msync2_enable != 0)
+		parse_lcm_dsi_msync_min_fps_list(np, mode_node);
 
 	if (phy_type == MTK_LCM_MIPI_CPHY)
 		ext_param->is_cphy = 1;
@@ -536,6 +764,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 			"mediatek,lcm-params-dsi-dsc-params");
 		if (ret < 0 || (size_t)ret >= sizeof(child))
 			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -547,6 +776,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 			"mediatek,lcm-params-dsi-phy-timcon");
 		if (ret < 0 || (size_t)ret >= sizeof(child))
 			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -558,6 +788,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 			"mediatek,lcm-params-dsi-dyn");
 		if (ret < 0 || (size_t)ret >= sizeof(child))
 			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
@@ -569,12 +800,27 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 			"mediatek,lcm-params-dsi-dyn-fps");
 		if (ret < 0 || (size_t)ret >= sizeof(child))
 			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 		if (of_device_is_compatible(child_np, child)) {
 			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
 			parse_lcm_dsi_dyn_fps(child_np,
 					&ext_param->dyn_fps);
 		}
+
+		/* msync cmd table */
+		if (mode_node->ext_param.msync2_enable != 0) {
+			ret = snprintf(child, sizeof(child) - 1,
+				"mediatek,lcm-params-dsi-msync-cmd-table");
+			if (ret < 0 || (size_t)ret >= sizeof(child))
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+			if (of_device_is_compatible(child_np, child)) {
+				DDPINFO("%s, parsing child:%s\n",
+					__func__, child);
+				parse_lcm_dsi_msync_cmd_table(child_np, ext_param);
+			}
+		}
+
 		/* fpga settings */
 		ret = snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-dsi-fpga-params");
@@ -732,6 +978,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 			 id, width, height, fps);
 		if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+
 		for_each_available_child_of_node(np, mode_np) {
 			if (of_device_is_compatible(mode_np, mode_name)) {
 				struct mtk_lcm_mode_dsi *mode_node = NULL;
@@ -747,8 +994,8 @@ int parse_lcm_params_dsi(struct device_node *np,
 				if (default_mode == id)
 					params->default_mode = mode_node;
 
-				parse_lcm_dsi_fps_setting(mode_np,
-						mode_node, params->phy_type);
+				parse_lcm_dsi_fps_setting(mode_np, mode_node,
+						params->phy_type);
 			}
 		}
 	}
@@ -835,17 +1082,6 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
 		DDPMSG("%s, %d failed to parsing set_backlight_cmdq_table, ret:%d\n",
-			__func__, __LINE__, ret);
-		return ret;
-	}
-
-	ret = parse_lcm_ops_func(np,
-				&ops->set_backlight_grp_cmdq,
-				"set_backlight_grp_cmdq_table",
-				MTK_LCM_FUNC_DSI, cust,
-				MTK_LCM_PHASE_KERNEL);
-	if (ret < 0) {
-		DDPMSG("%s, %d failed to parsing set_backlight_grp_cmdq_table, ret:%d\n",
 			__func__, __LINE__, ret);
 		return ret;
 	}
@@ -957,7 +1193,37 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
-		DDPMSG("%s, %d failed to parsing operation, ret:%d\n",
+		DDPMSG("%s, %d failed to parsing hbm_set_cmdq, ret:%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	ret = parse_lcm_ops_func(np,
+				&ops->msync_set_min_fps, "msync_set_min_fps_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0) {
+		DDPMSG("%s, %d failed to parsing msync_set_min_fps, ret:%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	ret = parse_lcm_ops_func(np,
+				&ops->msync_close_mte, "msync_close_mte_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0) {
+		DDPMSG("%s, %d failed to parsing msync_close_mte, ret:%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	ret = parse_lcm_ops_func(np,
+				&ops->msync_default_mte, "msync_default_mte_table",
+				MTK_LCM_FUNC_DSI, cust,
+				MTK_LCM_PHASE_KERNEL);
+	if (ret < 0) {
+		DDPMSG("%s, %d failed to parsing msync_default_mte, ret:%d\n",
 			__func__, __LINE__, ret);
 		return ret;
 	}
@@ -973,9 +1239,12 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 					DDPMSG("%s, %d, snprintf failed, ret:%d\n",
 						__func__, __LINE__, ret);
+				ret = 0;
 
+#if MTK_LCM_DEBUG_DUMP
 				DDPMSG("parsing LCM fps switch before power down ops: %s\n",
 					mode_name);
+#endif
 				ret = parse_lcm_ops_func(mode_np,
 						&mode_node->fps_switch_bfoff, mode_name,
 						MTK_LCM_FUNC_DSI, cust,
@@ -998,9 +1267,12 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 					DDPMSG("%s, %d, snprintf failed, ret:%d\n",
 						__func__, __LINE__, ret);
+				ret = 0;
 
+#if MTK_LCM_DEBUG_DUMP
 				DDPMSG("parsing LCM fps switch after power on ops: %s\n",
 					mode_name);
+#endif
 				ret = parse_lcm_ops_func(mode_np,
 						&mode_node->fps_switch_afon, mode_name,
 						MTK_LCM_FUNC_DSI, cust,
@@ -1012,9 +1284,40 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				}
 			}
 		}
+
+		if (of_device_is_compatible(mode_np,
+				"mediatek,lcm-ops-dsi-msync-switch-mte")) {
+			list_for_each_entry(mode_node, &params->mode_list, list) {
+				if (mode_node->ext_param.msync2_enable == 0)
+					continue;
+
+				ret = snprintf(mode_name, sizeof(mode_name),
+					"msync-switch-mte-%u-%u-%u-%u_table",
+					mode_node->id, mode_node->width,
+					mode_node->height, mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+					DDPMSG("%s, %d, snprintf failed, ret:%d\n",
+						__func__, __LINE__, ret);
+				ret = 0;
+
+#if MTK_LCM_DEBUG_DUMP
+				DDPMSG("parsing msync level switch ops: %s\n",
+					mode_name);
+#endif
+				ret = parse_lcm_ops_func(mode_np,
+						&mode_node->msync_switch_mte, mode_name,
+						MTK_LCM_FUNC_DSI, cust,
+						MTK_LCM_PHASE_KERNEL);
+				if (ret < 0) {
+					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
+						__func__, __LINE__, mode_name, ret);
+					return ret;
+				}
+			}
+		}
 	}
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(parse_lcm_ops_dsi);
 
@@ -1237,6 +1540,9 @@ static void dump_lcm_dsi_fps_ext_param(struct mtk_panel_params *ext_param, unsig
 /* dump dsi fps settings*/
 void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode)
 {
+	struct mtk_lcm_msync_min_fps_switch *node = NULL;
+	struct mtk_lcm_msync_min_fps_switch *tmp = NULL;
+
 	if (IS_ERR_OR_NULL(mode)) {
 		DDPPR_ERR("%s, %d, invalid mode\n",
 			__func__, __LINE__);
@@ -1251,6 +1557,18 @@ void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode)
 	dump_lcm_dsi_phy_timcon(&mode->ext_param.phy_timcon, mode->fps);
 	dump_lcm_dsi_dyn(&mode->ext_param.dyn, mode->fps);
 	dump_lcm_dsi_dyn_fps(&mode->ext_param.dyn_fps, mode->fps);
+
+	DDPDUMP("msync_min_fps_count:%u\n", mode->msync_min_fps_count);
+	if (mode->msync_min_fps_count > 0) {
+		list_for_each_entry_safe(node, tmp, &mode->msync_min_fps_switch, list) {
+			DDPDUMP("msync_min_fps_list: fps:%u,count:%u,cmd:0x%x,0x%x,0x%x,0x%x\n",
+				node->fps, node->count,
+				IS_ERR_OR_NULL(node->data) ? 0 : *(node->data),
+				IS_ERR_OR_NULL(node->data + 1) ? 0 : *(node->data + 1),
+				IS_ERR_OR_NULL(node->data + 2) ? 0 : *(node->data + 2),
+				IS_ERR_OR_NULL(node->data + 3) ? 0 : *(node->data + 3));
+		}
+	}
 }
 EXPORT_SYMBOL(dump_lcm_dsi_fps_settings);
 
@@ -1314,8 +1632,6 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	dump_lcm_ops_func(&ops->disable, cust, "disable");
 	dump_lcm_ops_func(&ops->set_backlight_cmdq,
 		cust, "set_backlight_cmdq");
-	dump_lcm_ops_func(&ops->set_backlight_grp_cmdq,
-		cust, "set_backlight_grp_cmdq");
 
 	DDPDUMP("ata_id_value_length=%u\n",
 		ops->ata_id_value_length);
@@ -1345,11 +1661,16 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	dump_lcm_ops_func(&ops->doze_area, cust, "doze_area");
 	dump_lcm_ops_func(&ops->doze_post_disp_on,
 		cust, "doze_post_disp_on");
+	dump_lcm_ops_func(&ops->set_aod_light, cust, "set_aod_light");
 
 	DDPDUMP("hbm_set_cmdq_switch: on=0x%x,off=0x%x\n",
 		ops->hbm_set_cmdq_switch_on,
 		ops->hbm_set_cmdq_switch_off);
 	dump_lcm_ops_func(&ops->hbm_set_cmdq, cust, "hbm_set_cmdq");
+
+	dump_lcm_ops_func(&ops->msync_set_min_fps, cust, "msync_set_min_fps");
+	dump_lcm_ops_func(&ops->msync_close_mte, cust, "msync_close_mte");
+	dump_lcm_ops_func(&ops->msync_default_mte, cust, "msync_default_mte");
 
 	if (params != NULL && params->mode_count > 0) {
 		list_for_each_entry(mode_node, &params->mode_list, list) {
@@ -1368,12 +1689,35 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 			dump_lcm_ops_func(&mode_node->fps_switch_afon,
 				cust, mode_name);
+
+			ret = snprintf(mode_name, sizeof(mode_name),
+				 "msync_switch_mte_%u_%u_%u", mode_node->width,
+				 mode_node->height, mode_node->fps);
+			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
+				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+			dump_lcm_ops_func(&mode_node->msync_switch_mte,
+				cust, mode_name);
 		}
 	}
 
 	DDPDUMP("=============================================\n");
 }
 EXPORT_SYMBOL(dump_lcm_ops_dsi);
+
+void free_lcm_msync_min_fps_list(struct list_head *msync_fps_list)
+{
+	struct mtk_lcm_msync_min_fps_switch *node = NULL;
+	struct mtk_lcm_msync_min_fps_switch *tmp = NULL;
+
+	list_for_each_entry_safe(node, tmp, msync_fps_list, list) {
+		if (node->count > 0) {
+			LCM_KFREE(node->data, node->count);
+			node->count = 0;
+		}
+		list_del(&node->list);
+		LCM_KFREE(node, sizeof(struct mtk_lcm_msync_min_fps_switch));
+	}
+}
 
 void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 {
@@ -1386,10 +1730,22 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 	}
 
 	list_for_each_entry_safe(mode_node, tmp, &params->mode_list, list) {
-		if (mode_node->fps_switch_bfoff.size > 0)
+		if (mode_node->fps_switch_bfoff.size > 0) {
 			free_lcm_ops_table(&mode_node->fps_switch_bfoff);
-		if (mode_node->fps_switch_afon.size > 0)
+			mode_node->fps_switch_bfoff.size = 0;
+		}
+		if (mode_node->fps_switch_afon.size > 0) {
 			free_lcm_ops_table(&mode_node->fps_switch_afon);
+			mode_node->fps_switch_afon.size = 0;
+		}
+		if (mode_node->msync_switch_mte.size > 0) {
+			free_lcm_ops_table(&mode_node->msync_switch_mte);
+			mode_node->msync_switch_mte.size = 0;
+		}
+		if (mode_node->msync_min_fps_count > 0) {
+			free_lcm_msync_min_fps_list(&mode_node->msync_min_fps_switch);
+			mode_node->msync_min_fps_count = 0;
+		}
 		list_del(&mode_node->list);
 		LCM_KFREE(mode_node, sizeof(struct mtk_lcm_mode_dsi));
 	}
@@ -1427,7 +1783,6 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 #endif
 
 	free_lcm_ops_table(&ops->set_backlight_cmdq);
-	free_lcm_ops_table(&ops->set_backlight_grp_cmdq);
 	if (ops->ata_id_value_length > 0 &&
 	    ops->ata_id_value_data != NULL) {
 		LCM_KFREE(ops->ata_id_value_data,
@@ -1442,6 +1797,9 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 	free_lcm_ops_table(&ops->doze_area);
 	free_lcm_ops_table(&ops->doze_post_disp_on);
 	free_lcm_ops_table(&ops->hbm_set_cmdq);
+	free_lcm_ops_table(&ops->msync_set_min_fps);
+	free_lcm_ops_table(&ops->msync_close_mte);
+	free_lcm_ops_table(&ops->msync_default_mte);
 
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dsi));
 }

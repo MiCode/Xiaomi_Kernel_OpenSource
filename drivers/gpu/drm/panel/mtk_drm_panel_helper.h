@@ -33,6 +33,13 @@ struct mtk_lcm_ops_table {
 	unsigned int size;
 };
 
+struct mtk_lcm_msync_min_fps_switch {
+	struct list_head list;
+	unsigned int fps;
+	unsigned int count;
+	u8 *data;
+};
+
 struct mtk_lcm_params_dbi {
 	unsigned int dbi_private_data;
 };
@@ -52,10 +59,12 @@ struct mtk_lcm_mode_dsi {
 /* params */
 	struct drm_display_mode mode;
 	struct mtk_panel_params ext_param;
+	struct list_head msync_min_fps_switch;
+	unsigned int msync_min_fps_count;
 /* ops */
 	struct mtk_lcm_ops_table fps_switch_bfoff;
 	struct mtk_lcm_ops_table fps_switch_afon;
-
+	struct mtk_lcm_ops_table msync_switch_mte;
 };
 
 struct mtk_lcm_params_dsi {
@@ -206,7 +215,6 @@ struct mtk_lcm_ops_dsi {
 	/* panel backlight update*/
 	unsigned int set_backlight_mask;
 	struct mtk_lcm_ops_table set_backlight_cmdq;
-	struct mtk_lcm_ops_table set_backlight_grp_cmdq;
 
 	unsigned int set_aod_light_mask;
 	struct mtk_lcm_ops_table set_aod_light;
@@ -234,6 +242,11 @@ struct mtk_lcm_ops_dsi {
 	unsigned int hbm_set_cmdq_switch_on;
 	unsigned int hbm_set_cmdq_switch_off;
 	struct mtk_lcm_ops_table hbm_set_cmdq;
+
+	/* msync set min fps support*/
+	struct mtk_lcm_ops_table msync_set_min_fps;
+	struct mtk_lcm_ops_table msync_default_mte;
+	struct mtk_lcm_ops_table msync_close_mte;
 
 #if MTK_LCM_DEBUG_DUMP
 	struct mtk_lcm_ops_table gpio_test;
@@ -312,7 +325,35 @@ int parse_lcm_ops_func(struct device_node *np,
 int mtk_panel_execute_operation(void *dev,
 		struct mtk_lcm_ops_table *table,
 		const struct mtk_panel_resource *panel_resource,
-		struct mtk_lcm_ops_input_packet *input, char *owner);
+		struct mtk_lcm_ops_input_packet *input, const char *owner);
+
+/* function: execute lcm operations with callback
+ * input: dsi: the dsi structure of callback function
+ *        cb: callback function
+ *        handle: cmdq handler
+ *        input_data: the runtime input data buffer
+ *        input_count: the runtime input data count
+ *        owner: the owner description
+ *        table: lcm operation list
+ * output: 0 for success, else of failed
+ */
+int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
+	void *handle, u8 *input_data, unsigned int input_count,
+	struct mtk_lcm_ops_table *table, const char *owner);
+
+/* function: execute lcm operations with group callback
+ * input: dsi: the dsi structure of callback function
+ *        cb: callback function
+ *        handle: cmdq handler
+ *        input_data: the runtime input data buffer
+ *        input_count: the runtime input data count
+ *        owner: the owner description
+ *        table: lcm operation list
+ * output: 0 for success, else of failed
+ */
+int mtk_panel_execute_callback_group(void *dsi, dcs_grp_write_gce cb,
+	void *handle, u8 *input_data, unsigned int input_count,
+	struct mtk_lcm_ops_table *table, const char *owner);
 
 void mtk_lcm_dts_read_u32(struct device_node *np, char *prop,
 		u32 *out);
