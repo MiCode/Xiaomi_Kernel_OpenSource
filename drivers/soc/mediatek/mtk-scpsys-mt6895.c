@@ -73,6 +73,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE14,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"audio"},
 		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ADSP_TOP_DORMANT] = {
@@ -93,6 +94,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.name = "adsp_infra",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE1C,
+		.basic_clk_name = {"adsp"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6895_VLP_AXI_PROT_EN_ADSP_INFRA),
@@ -111,6 +113,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE24,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"isp"},
+		.subsys_clk_prefix = "isp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN),
@@ -131,6 +135,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE2C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"ipe"},
 		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_VCORE] = {
@@ -145,6 +150,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE34,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"vde"},
+		.subsys_clk_prefix = "vde0",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_VDE0),
@@ -163,6 +170,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE38,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"vde"},
+		.subsys_clk_prefix = "vde1",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_VDE1),
@@ -181,6 +190,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE3C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"ven"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_VEN0),
@@ -199,6 +209,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE40,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"ven"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_VEN1),
@@ -217,6 +228,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE44,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam",
+		.subsys_lp_clk_prefix = "cam_lp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_CAM_MAIN),
@@ -267,6 +280,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.name = "cam_vcore",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE58,
+		.basic_clk_name = {"cam", "ccu", "ccu_ahb"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
 				MT6895_TOP_AXI_PROT_EN_DRAMC0_CAM_VCORE),
@@ -287,6 +301,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE5C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"mdp"},
+		.subsys_clk_prefix = "mdp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_MDP0),
@@ -301,6 +317,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE60,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"mdp1"},
+		.subsys_clk_prefix = "mdp1",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_MDP1),
@@ -315,6 +333,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE64,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"disp"},
+		.subsys_clk_prefix = "disp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS0_DISP),
@@ -329,6 +349,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE68,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"disp1"},
+		.subsys_clk_prefix = "disp1",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS1_DISP1),
@@ -341,6 +363,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE6C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"mm_infra"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
 				MT6895_TOP_AXI_PROT_EN_INFRASYS1_MM_INFRA),
@@ -365,6 +388,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE70,
 		.sram_slp_bits = GENMASK(9, 9),
 		.sram_slp_ack_bits = GENMASK(13, 13),
+		.basic_clk_name = {"mmup"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6895_VLP_AXI_PROT_EN_MM_PROC),
