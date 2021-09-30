@@ -11,6 +11,7 @@ static const char *chip_name[CLKBUF_CHIP_ID_MAX] __initconst = {
 	[MT6983] = "mediatek,mt6983",
 	[MT6879] = "mediatek,mt6879",
 	[MT6893] = "mediatek,mt6893",
+	[MT6895] = "mediatek,mt6895",
 	[MT6873] = "mediatek,mt6873",
 };
 

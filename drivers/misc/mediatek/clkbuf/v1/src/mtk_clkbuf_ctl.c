@@ -1334,7 +1334,10 @@ static int __clk_buf_dev_pm_dump(void)
 			continue;
 		}
 
-		pr_notice("%s en: %u\n", clkbuf_dcxo_get_xo_name(i), en);
+		if (en)
+			pr_notice("%s en: %u\n",
+				clkbuf_dcxo_get_xo_name(i),
+				en);
 		val |= (en << i);
 	}
 
