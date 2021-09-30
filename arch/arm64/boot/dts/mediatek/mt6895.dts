@@ -1392,6 +1392,47 @@
 			reg = <0 0x1000f000 0 0x1000>;
 		};
 
+		srclken_rc: srclken-rc@1c00d000 {
+			compatible = "mediatek,srclken-rc";
+			reg = <0 0x1c00d000 0 0x100>,
+				<0 0x1c00d100 0 0x700>;
+			mediatek,subsys-ctl = "suspend", "md1", "md2",
+					"md3", "rf", "mmwave",
+					"gps", "bt", "wifi",
+					"conn_mcu", "co-ant", "nfc",
+					"rsv", "ufs";
+			suspend-ctl = "XO_BBCK1";
+			md1-ctl = "XO_RFCK2A";
+			gps-ctl = "XO_RFCK1B";
+			bt-ctl = "XO_RFCK1B";
+			wifi-ctl = "XO_BBCK2";
+			mcu-ctl = "XO_BBCK2";
+			nfc-ctl = "XO_BBCK4";
+			ufs-ctl = "XO_BBCK3";
+
+			mediatek,srclken-rc-broadcast;
+			mediatek,enable;
+		};
+
+		clock_buffer_ctrl: clock_buffer_ctrl {
+			compatible = "mediatek,clock_buffer_ctrl";
+			mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0>,
+						<0 0 0>,
+						<0 0 0>,
+						<0 0>;
+			mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0>,
+						<0 0 0>,
+						<0 0 0>,
+						<0 0>;
+			mediatek,xo-bbck4 = <0>;
+
+			mediatek,enable;
+
+			pmif = <&spmi 0>;
+			srclken_rc = <&srclken_rc>;
+			consys = <&consys>;
+		};
+
 		gps: gps@18c00000 {
 			compatible = "mediatek,mt6895-gps";
 			reg = <0 0x18000000 0 0x100000>,
@@ -9360,6 +9401,33 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		};
 		mt6685_consys: mt6685_consys {
 			compatible = "mediatek,mt6685-consys";
+		};
+		mt6685_clock_buffer: mt6685_clock_buffer {
+			compatible = "mediatek,clock_buffer";
+			mediatek,xo-mode-num = <3>;
+			mediatek,xo-buf-support = <1 1 1 1 0> /* BBCK */,
+						<0 1 0> /* RFCK1 */,
+						<1 0 0> /* RFCK2 */,
+						<0 0> /* CONCK */;
+			mediatek,xo-buf-allow-control = <0 1 1 1 1>,
+						<1 1 1>,
+						<1 1 1>,
+						<1 1>;
+			mediatek,xo-buf-name = "XO_BBCK1", "XO_BBCK2",
+					"XO_BBCK3", "XO_BBCK4", "XO_BBCK5",
+					"XO_RFCK1A", "XO_RFCK1B", "XO_RFCK1C",
+					"XO_RFCK2A", "XO_RFCK2B", "XO_RFCK2C",
+					"XO_CONCK1", "XO_CONCK2";
+			mediatek,bblpm-support;
+			mediatek,xo-voter-support;
+			mediatek,dcxo-de-sense-support;
+			mediatek,dcxo-impedance-support;
+			mediatek,dcxo-spmi-rw;
+			mediatek,pmrc-en-support;
+
+			mediatek,enable;
+
+			clkbuf_ctl = <&clock_buffer_ctrl>;
 		};
 	};
 };
