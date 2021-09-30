@@ -750,6 +750,7 @@ static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 
 	/* always free previous data */
 	vfree(frm->frame);
+	frm->frame = NULL;
 	frm->size = 0;
 
 	/* support only out0 for now, maybe support multi out later */
@@ -758,18 +759,16 @@ static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 		data->width, data->height, data->y_stride);
 	if (ret >= sizeof(frm->name))
 		frm->name[sizeof(frm->name)-1] = 0;
-	mml_log("%s size %u name %s", __func__, size, frm->name);
-
 	for (i = 0; i < MML_MAX_PLANES; i++)
 		size += buf->size[i];
+	mml_log("%s size %u name %s", __func__, size, frm->name);
 
 	frame = vmalloc(size);
 	if (!frame)
 		return;
 
 	/* support only plane 0 for now, maybe support multi plane later */
-	mml_buf_va_get(buf);
-	if (!buf->dma[0].va) {
+	if (mml_buf_va_get(buf) < 0 || !buf->dma[0].va) {
 		mml_err("%s dump fail %s no va", __func__, frm->name);
 		vfree(frame);
 		return;
@@ -862,7 +861,7 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	if (mml_frame_dump) {
+	if (mml_frame_dump == 2) {
 		core_dump_buf(task, &task->config->info.dest[0].data,
 			&task->buf.dest[0], &mml_frm_dumps[1]);
 		mml_frame_dump = 0;
@@ -1113,10 +1112,11 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	/* buffer dump always do in pipe 0 */
-	if (pipe == 0 && mml_frame_dump > 0) {
+	if (pipe == 0 && mml_frame_dump == 1) {
 		mml_buf_invalid(&task->buf.src);
 		core_dump_buf(task, &task->config->info.src,
 			&task->buf.src, &mml_frm_dumps[0]);
+		mml_frame_dump = 0;
 	}
 #endif
 
@@ -1209,52 +1209,45 @@ static void core_buffer_map(struct mml_task *task)
 	mml_trace_end();
 }
 
-static void get_color_fmt_str(char *fmt, size_t sz, u32 format)
+static void get_frame_str(char *frame, size_t sz, struct mml_frame_data *data)
 {
-	snprintf(fmt, sz, "%s%s%s%s%s%s%s",
-		MML_FMT_SWAP(format) ? "s" : "",
-		MML_FMT_BLOCK(format) ? "b" : "",
-		MML_FMT_INTERLACED(format) ? "i" : "",
-		MML_FMT_UFO(format) ? "u" : "",
-		MML_FMT_10BIT_TILE(format) ? "t" :
-		MML_FMT_10BIT_PACKED(format) ? "p" :
-		MML_FMT_10BIT_LOOSE(format) ? "l" : "",
-		MML_FMT_10BIT_JUMP(format) ? "j" : "",
-		MML_FMT_COMPRESS(format) ? "c" : "");
+	snprintf(frame, sz, "%u %u (%u %u) C%#010x%s%s%s%s%s%s%s%s P%hu",
+		data->width, data->height, data->y_stride, data->uv_stride,
+		data->format,
+		MML_FMT_SWAP(data->format) ? "s" : "",
+		MML_FMT_BLOCK(data->format) ? "b" : "",
+		MML_FMT_INTERLACED(data->format) ? "i" : "",
+		MML_FMT_UFO(data->format) ? "u" : "",
+		MML_FMT_10BIT_TILE(data->format) ? "t" :
+		MML_FMT_10BIT_PACKED(data->format) ? "p" :
+		MML_FMT_10BIT_LOOSE(data->format) ? "l" : "",
+		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
+		MML_FMT_COMPRESS(data->format) ? "c" : "",
+		data->secure ? " sec" : "",
+		data->profile);
 }
 
 static void dump_inout(struct mml_task *task)
 {
+	char frame[60];
 	u32 i;
-	char fmt[11];
 
-	get_color_fmt_str(fmt, sizeof(fmt), task->config->info.src.format);
-	mml_log("in:%u %u f:%#010x(%s) stride %u %u fence:%s plane:%hhu%s",
-		task->config->info.src.width,
-		task->config->info.src.height,
-		task->config->info.src.format,
-		fmt,
-		task->config->info.src.y_stride,
-		task->config->info.src.uv_stride,
-		task->buf.src.fence ? "true" : "false",
+	get_frame_str(frame, sizeof(frame), &task->config->info.src);
+	mml_log("in:%s plane:%hhu%s%s",
+		frame,
 		task->buf.src.cnt,
+		task->buf.src.fence ? " fence" : "",
 		task->buf.src.flush ? " flush" : "");
 	for (i = 0; i < task->config->info.dest_cnt; i++) {
-		get_color_fmt_str(fmt, sizeof(fmt),
-			task->config->info.dest[i].data.format);
+		get_frame_str(frame, sizeof(frame), &task->config->info.dest[i].data);
 		mml_log(
-			"out %u:%u %u f:%#010x(%s) stride %u %u rot:%hu f:%hhu fence:%s plane:%hhu%s%s",
+			"out %u:%s r:%hu plane:%hhu%s%s%s%s",
 			i,
-			task->config->info.dest[i].data.width,
-			task->config->info.dest[i].data.height,
-			task->config->info.dest[i].data.format,
-			fmt,
-			task->config->info.dest[i].data.y_stride,
-			task->config->info.dest[i].data.uv_stride,
+			frame,
 			task->config->info.dest[i].rotate,
-			(u8)task->config->info.dest[i].flip,
-			task->buf.dest[i].fence ? "true" : "false",
 			task->buf.dest[i].cnt,
+			task->config->info.dest[i].flip ? " flip" : "",
+			task->buf.dest[i].fence ? " fence" : "",
 			task->buf.dest[i].flush ? " flush" : "",
 			task->buf.dest[i].invalid ? " invalid" : "");
 		mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
@@ -1488,16 +1481,9 @@ void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value)
 	reuse->labels[label_idx].val = value;
 }
 
-static noinline int tracing_mark_write(const char *buf)
+noinline int tracing_mark_write(char *fmt, ...)
 {
 #ifdef CONFIG_TRACING
-	trace_puts(buf);
-#endif
-	return 0;
-}
-
-void mml_print_trace(char *fmt, ...)
-{
 	char buf[MML_TRACE_MSG_LEN];
 	va_list args;
 	int len;
@@ -1508,8 +1494,10 @@ void mml_print_trace(char *fmt, ...)
 
 	if (len >= MML_TRACE_MSG_LEN) {
 		mml_err("%s trace size %u exceed limit", __func__, len);
-		return;
+		return -1;
 	}
 
-	tracing_mark_write(buf);
+	trace_puts(buf);
+#endif
+	return 0;
 }

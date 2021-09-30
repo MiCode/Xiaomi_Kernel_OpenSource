@@ -50,14 +50,14 @@ do { \
 extern int mml_trace;
 #define mml_trace_begin(fmt, args...) do { \
 	preempt_disable(); \
-	mml_print_trace( \
+	tracing_mark_write( \
 		"B|%d|" fmt "\n", current->tgid, ##args); \
 	preempt_enable();\
 } while (0)
 
 #define mml_trace_end() do { \
 	preempt_disable(); \
-	mml_print_trace("E\n"); \
+	tracing_mark_write("E\n"); \
 	preempt_enable(); \
 } while (0)
 
@@ -332,8 +332,8 @@ struct mml_task {
 	enum mml_task_state state;
 	struct kref ref;
 	struct mml_task_pipe pipe[MML_PIPE_CNT];
-
 	u32 throughput;
+	//bool dump_buf;
 
 	/* mml context */
 	void *ctx;
@@ -666,6 +666,6 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
  */
 void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value);
 
-void mml_print_trace(char *fmt, ...);
+int tracing_mark_write(char *fmt, ...);
 
 #endif	/* __MTK_MML_CORE_H__ */
