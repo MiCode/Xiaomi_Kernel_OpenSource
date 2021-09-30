@@ -17,10 +17,6 @@ androidboot.selinux=permissive androidboot.hardware=mt6895 \
 initcall_debug=1 ";
 };
 
-&mtk_gauge {
-	DISABLE_MTKBATTERY = <(1)>;
-};
-
 &odm {
 	vibrator0:vibrator@0 {
 		compatible = "mediatek,vibrator";
