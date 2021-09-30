@@ -580,6 +580,12 @@
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
 	};
 
+	/* Trustonic Mobicore SW IRQ number 186 = 32 + 154 */
+	mobicore: mobicore {
+		compatible = "trustonic,mobicore";
+		interrupts = <GIC_SPI 154 IRQ_TYPE_EDGE_RISING 0>;
+	};
+
 	/* Microtrust SW IRQ number 156(188 - 32) ~ 157(189 - 32) */
 	utos: utos {
 		compatible = "microtrust,utos";
