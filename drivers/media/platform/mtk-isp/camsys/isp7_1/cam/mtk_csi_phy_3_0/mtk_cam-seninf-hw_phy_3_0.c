@@ -2611,7 +2611,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	struct media_link *link;
 	struct media_pad *pad;
 	struct mtk_cam_seninf_mux_meter meter;
-	void *csi2, *rx, *pmux;
+	void *csi2, *rx, *pmux, *pcammux;
 
 	core = dev_get_drvdata(dev);
 	len = 0;
@@ -2676,6 +2676,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
 			pmux = ctx->reg_if_mux[vc->mux];
+			pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
 			SHOW(buf, len,
 			     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
 				i, vc->vc, vc->dt, vc->mux, vc->cam);
@@ -2686,13 +2687,14 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				mtk_cam_seninf_get_top_mux_ctrl(ctx, vc->mux),
 				SENINF_READ_REG(pmux, SENINF_MUX_IRQ_STATUS));
 			SHOW(buf, len,
-			     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x\n",
+			     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
 				vc->cam,
 				_seninf_ops->_is_cammux_used(ctx, vc->cam),
 				_seninf_ops->_get_cammux_ctrl(ctx, vc->cam),
 				mtk_cam_seninf_get_cammux_exp(ctx, vc->cam),
 				mtk_cam_seninf_get_cammux_res(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_err(ctx, vc->cam));
+				mtk_cam_seninf_get_cammux_err(ctx, vc->cam),
+				SENINF_READ_REG(pcammux, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
 
 			if (vc->feature == VC_RAW_DATA ||
 				vc->feature == VC_STAGGER_NE ||
@@ -3149,8 +3151,11 @@ static int mtk_cam_scan_settle(struct seninf_ctx *ctx)
 
 static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 {
+	int i;
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
 	void *csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
+	void *pmux, *pcammux;
+	struct seninf_vc *vc;
 
 	if (!ctx->streaming)
 		return 0;
@@ -3208,6 +3213,23 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 	case REG_KEY_CSI_RESYNC_CYCLE:
 		SENINF_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
 			   RG_CSI2_RESYNC_DMY_CYCLE, val);
+		break;
+	case REG_KEY_MUX_IRQ_STAT:
+		for (i = 0; i < ctx->vcinfo.cnt; i++) {
+			vc = &ctx->vcinfo.vc[i];
+			pmux = ctx->reg_if_mux[vc->mux];
+			SENINF_WRITE_REG(pmux, SENINF_MUX_IRQ_STATUS,
+					val & 0xFFFFFFFF);
+		}
+		break;
+	case REG_KEY_CAMMUX_IRQ_STAT:
+		for (i = 0; i < ctx->vcinfo.cnt; i++) {
+			vc = &ctx->vcinfo.vc[i];
+			pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
+			SENINF_WRITE_REG(pcammux,
+					SENINF_CAM_MUX_PCSR_IRQ_STATUS,
+					val & 0xFFFFFFFF);
+		}
 		break;
 	}
 
