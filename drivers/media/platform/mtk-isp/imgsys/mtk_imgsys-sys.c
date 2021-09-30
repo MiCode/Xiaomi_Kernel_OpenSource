@@ -1712,7 +1712,7 @@ static int mtk_imgsys_hw_flush_pipe_jobs(struct mtk_imgsys_pipe *pipe)
 
 static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 {
-	int ret, i;
+	int ret;
 #ifndef USE_KERNEL_ION_BUFFER
 	struct buf_va_info_t *buf;
 	struct dma_buf *dbuf;
@@ -1746,11 +1746,6 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		struct img_init_info info;
 		struct resource *imgsys_resource = imgsys_dev->imgsys_resource;
 
-		mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
-			imgsys_init_handler, "imgsys_init_handler", imgsys_dev);
-		mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_FRAME_ID,
-			imgsys_scp_handler, "imgsys_scp_handler", imgsys_dev);
-
 		mtk_imgsys_hw_working_buf_pool_reinit(imgsys_dev);
 		/* ALLOCATE IMGSYS WORKING BUFFER FIRST */
 		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev);
@@ -1759,7 +1754,9 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				__func__, ret);
 			return -EBUSY;
 		}
+
 		mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
+
 		/* IMGSYS HW INIT */
 		memset(&info, 0, sizeof(info));
 		info.drv_data = (u64)&imgsys_dev;
@@ -1795,10 +1792,6 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	}
 #endif
 
-	/*set default value for hw module*/
-	for (i = 0; i < (imgsys_dev->num_mods); i++)
-		imgsys_dev->modules[i].init(imgsys_dev);
-
 	if (ret) {
 		dev_dbg(imgsys_dev->dev, "%s: send SCP_IPI_DIP_FRAME failed %d\n",
 			__func__, ret);
@@ -1815,12 +1808,20 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	/* calling cmdq stream on */
 	imgsys_cmdq_streamon(imgsys_dev);
 
+	imgsys_queue_init(&imgsys_dev->runnerque, imgsys_dev->dev, "imgsys-cmdq");
+	imgsys_queue_enable(&imgsys_dev->runnerque);
+
+	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
+		imgsys_init_handler, "imgsys_init_handler", imgsys_dev);
+	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_FRAME_ID,
+		imgsys_scp_handler, "imgsys_scp_handler", imgsys_dev);
+
 	return 0;
 }
 
 static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 {
-	int i, ret;
+	int ret;
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
 
@@ -1837,6 +1838,15 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	struct img_init_info info;
 	u32 user_cnt = 0;
 
+	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
+			(void *)&info, sizeof(info),
+			0, 1);
+
+	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_INIT_ID);
+	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID);
+
+	imgsys_queue_disable(&imgsys_dev->runnerque);
+
 	/* calling cmdq stream off */
 	imgsys_cmdq_streamoff(imgsys_dev);
 
@@ -1848,23 +1858,13 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 			__func__, ret);
 	}
 
-	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
-			(void *)&info, sizeof(info),
-			0, 1);
 #ifdef USE_KERNEL_ION_BUFFER
 	hcp_close_ion_buffer_fd(imgsys_dev->scp_pdev, IMG_MEM_FOR_HW_ID);
 #endif
-
-
-	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_INIT_ID);
-	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID);
 #endif
-	/*set default value for hw module*/
-	for (i = 0; i < (imgsys_dev->num_mods); i++) {
-		if (imgsys_dev->modules[i].uninit)
-			imgsys_dev->modules[i].uninit(imgsys_dev);
-	}
+
 	mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
+
 	gce_work_pool_uninit(imgsys_dev);
 
 	#if DVFS_QOS_READY
@@ -1898,8 +1898,6 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
 
 			return ret;
 		}
-		imgsys_queue_init(&imgsys_dev->runnerque, imgsys_dev->dev, "imgsys-cmdq");
-		imgsys_queue_enable(&imgsys_dev->runnerque);
 	}
 	count = imgsys_dev->imgsys_stream_cnt++;
 	atomic_set(&imgsys_dev->num_composing, 0);
@@ -1955,7 +1953,6 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 
 		dev_info(imgsys_dev->dev, "%s: dip_hw disconnected, stream cnt(%d)\n",
 			__func__, imgsys_dev->imgsys_stream_cnt);
-		imgsys_queue_disable(&imgsys_dev->runnerque);
 
 		flush_fd_kva_list(imgsys_dev);
 
