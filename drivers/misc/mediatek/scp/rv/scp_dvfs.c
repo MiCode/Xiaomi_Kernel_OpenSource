@@ -1791,7 +1791,7 @@ static int __init mt_scp_dts_gpio_check(struct platform_device *pdev)
 		pr_notice("v_req muxpin setting is correct\n");
 	} else {
 		pr_notice("WRONG v_req muxpin setting, func mode: %d\n",
-			vreq_mode);
+			val);
 		return -ESCP_DVFS_GPIO_CONFIG_FAILED;
 		WARN_ON(1);
 	}
@@ -2546,16 +2546,11 @@ static struct notifier_block scp_pm_notifier_func = {
 };
 #endif /* IS_ENABLED(CONFIG_PM) */
 
-struct platform_device mt_scp_dvfs_pdev = {
-	.name = "mt-scpdvfs",
-	.id = -1,
-};
-
 static struct platform_driver mt_scp_dvfs_pdrv __refdata = {
 	.probe = mt_scp_dvfs_pdrv_probe,
 	.remove = mt_scp_dvfs_pdrv_remove,
 	.driver = {
-		.name = "scpdvfs",
+		.name = "scp_dvfs",
 		.owner = THIS_MODULE,
 		.of_match_table = scpdvfs_of_ids,
 	},
@@ -2578,17 +2573,9 @@ int __init scp_dvfs_init(void)
 	}
 #endif /* CONFIG_PROC_FS */
 
-	/* register platform device/driver */
-	ret = platform_device_register(&mt_scp_dvfs_pdev);
-	if (ret) {
-		pr_notice("fail to register scp dvfs device @ %s()\n", __func__);
-		goto fail;
-	}
-
 	ret = platform_driver_register(&mt_scp_dvfs_pdrv);
 	if (ret) {
 		pr_notice("fail to register scp dvfs driver @ %s()\n", __func__);
-		platform_device_unregister(&mt_scp_dvfs_pdev);
 		goto fail;
 	}
 
@@ -2612,6 +2599,5 @@ fail:
 void __exit scp_dvfs_exit(void)
 {
 	platform_driver_unregister(&mt_scp_dvfs_pdrv);
-	platform_device_unregister(&mt_scp_dvfs_pdev);
 }
 
