@@ -30,6 +30,8 @@ enum {
 	IPI_SLBC_INNER,
 	IPI_SLBC_OUTER,
 	IPI_SLBC_MEM_BARRIER,
+	IPI_SLB_DISABLE,
+	IPI_SLC_DISABLE,
 	NR_IPI_SLBC,
 };
 
@@ -54,6 +56,8 @@ extern int slbc_scmi_get(void *buffer, int slot, void *ptr);
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 extern int slbc_suspend_resume_notify(int suspend);
 extern int slbc_scmi_init(void);
+extern int slbc_sspm_slb_disable(int disable);
+extern int slbc_sspm_slc_disable(int disable);
 extern int slbc_sspm_enable(int enable);
 extern int slbc_get_scmi_enable(void);
 extern void slbc_set_scmi_enable(int enable);
@@ -70,6 +74,8 @@ extern void slbc_unregister_ipi_ops(struct slbc_ipi_ops *ops);
 #else
 __attribute__ ((weak)) int slbc_suspend_resume_notify(int) {}
 __attribute__ ((weak)) int slbc_scmi_init(void) { return 0; }
+__attribute__ ((weak)) int slbc_sspm_slb_disable(int disable) {}
+__attribute__ ((weak)) int slbc_sspm_slc_disable(int disable) {}
 __attribute__ ((weak)) int slbc_sspm_enable(int enable) {}
 __attribute__ ((weak)) int slbc_get_scmi_enable(void) { return 0; }
 __attribute__ ((weak)) void slbc_set_scmi_enable(int enable) {}

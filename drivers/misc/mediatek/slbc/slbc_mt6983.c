@@ -44,6 +44,8 @@ static struct pm_qos_request slbc_qos_request;
 
 static struct mtk_slbc *slbc;
 
+static int slb_disable;
+static int slc_disable;
 static int slbc_sram_enable;
 static u32 slbc_force;
 static u32 buffer_ref;
@@ -297,6 +299,8 @@ int slbc_request(struct slbc_data *d)
 	if ((d->type) == TP_BUFFER) {
 		ret = slbc_request_buffer(d);
 		d->size = SLBC_WAY_SIZE * popcount(d->slot_used);
+		if (!d->paddr)
+			ret = -1;
 	}
 
 	if ((d->type) == TP_CACHE)
@@ -648,6 +652,8 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 #endif /* CONFIG_MTK_SLBC_IPI */
 
 	seq_printf(m, "slbc_enable %x\n", slbc_enable);
+	seq_printf(m, "slb_disable %x\n", slb_disable);
+	seq_printf(m, "slc_disable %x\n", slc_disable);
 	seq_printf(m, "slbc_sram_enable %x\n", slbc_sram_enable);
 	seq_printf(m, "slbc_scmi_enable %x\n", slbc_get_scmi_enable());
 	seq_printf(m, "slbc_uid_used 0x%lx\n", slbc_uid_used);
@@ -749,6 +755,14 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 			}
 			mutex_unlock(&slbc_ops_lock);
 		}
+	} else if (!strcmp(cmd, "slb_disable")) {
+		pr_info("slb disable %d\n", val_1);
+		slb_disable = val_1;
+		slbc_sspm_slb_disable((int)!!val_1);
+	} else if (!strcmp(cmd, "slc_disable")) {
+		pr_info("slc disable %d\n", val_1);
+		slc_disable = val_1;
+		slbc_sspm_slc_disable((int)!!val_1);
 	} else if (!strcmp(cmd, "slbc_scmi_enable")) {
 		pr_info("slbc scmi enable %d\n", val_1);
 		slbc_sspm_enable((int)!!val_1);

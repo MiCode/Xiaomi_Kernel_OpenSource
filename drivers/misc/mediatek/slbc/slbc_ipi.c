@@ -33,6 +33,30 @@ void slbc_set_scmi_enable(int enable)
 }
 EXPORT_SYMBOL_GPL(slbc_set_scmi_enable);
 
+int slbc_sspm_slb_disable(int disable)
+{
+	struct slbc_ipi_data slbc_ipi_d;
+
+	pr_info("#@# %s(%d) disable %d\n", __func__, __LINE__, disable);
+
+	slbc_ipi_d.cmd = IPI_SLB_DISABLE;
+	slbc_ipi_d.arg = disable;
+	return slbc_scmi_set(&slbc_ipi_d, 2);
+}
+EXPORT_SYMBOL_GPL(slbc_sspm_slb_disable);
+
+int slbc_sspm_slc_disable(int disable)
+{
+	struct slbc_ipi_data slbc_ipi_d;
+
+	pr_info("#@# %s(%d) disable %d\n", __func__, __LINE__, disable);
+
+	slbc_ipi_d.cmd = IPI_SLC_DISABLE;
+	slbc_ipi_d.arg = disable;
+	return slbc_scmi_set(&slbc_ipi_d, 2);
+}
+EXPORT_SYMBOL_GPL(slbc_sspm_slc_disable);
+
 int slbc_sspm_enable(enable)
 {
 	struct slbc_ipi_data slbc_ipi_d;
