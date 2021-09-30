@@ -335,6 +335,8 @@ EXPORT_SYMBOL_GPL(mt6338_set_mtkaif_protocol);
 
 static void mt6338_set_playback_gpio(struct mt6338_priv *priv)
 {
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_SET, 0x30);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x3);
 #if defined(MTKAIFV4_SUPPORT)
 
 	/* set gpio mosi mode, clk / data mosi */
@@ -342,13 +344,11 @@ static void mt6338_set_playback_gpio(struct mt6338_priv *priv)
 	 * [3:0] 1: AUD_DAT_MOSI0 (I) 2: TDMIN_DATA0 (I)
 	 * [6:4] 1: AUD_DAT_MOSI1 (I) 2: TDMIN_DATA1 (I)
 	 */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE2_CLR, 0xff);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE2_SET, 0x11);
 	/*
 	 * [3:0] 1: AUD_DAT_MISO0 (O)2: TDMOUT_DATA0 (O)
 	 * [6:4] 1: AUD_CLK_MOSI (I) 2: TDMOUT_BCK (I)
 	 */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf0);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x10);
 #else
 	/* set gpio mosi mode, clk / data mosi */
@@ -371,12 +371,16 @@ static void mt6338_set_playback_gpio(struct mt6338_priv *priv)
 
 static void mt6338_reset_playback_gpio(struct mt6338_priv *priv)
 {
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_CLR, 0x30);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x3);
+
 	/* set pad_aud_*_mosi to GPIO mode and dir input
 	 * reason:
 	 * pad_aud_dat_mosi*, because the pin is used as boot strap
 	 * don't clean clk/sync, for mtkaif protocol 2
 	 */
 	regmap_write(priv->regmap, MT6338_GPIO_MODE2_CLR, 0xff);
+	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf0);
 	/*
 	 * [4]: PAD_AUD_DAT_MOSI1 [5]: PAD_AUD_DAT_MOSI0 [6]: PAD_AUD_DAT_MISO0
 	 * [7]: PAD_AUD_CLK_MOSI
@@ -386,6 +390,9 @@ static void mt6338_reset_playback_gpio(struct mt6338_priv *priv)
 
 static void mt6338_set_capture_gpio(struct mt6338_priv *priv)
 {
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_SET, 0x30);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x3);
+
 	/* set gpio miso mode */
 #if defined(MTKAIFV4_SUPPORT)
 	/*
@@ -416,8 +423,12 @@ static void mt6338_reset_capture_gpio(struct mt6338_priv *priv)
 	 * will also have 26m, so will have power leak
 	 * pad_aud_dat_miso*, because the pin is used as boot strap
 	 */
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_CLR, 0x30);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x3);
+
 #if defined(MTKAIFV4_SUPPORT)
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
+	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf0);
 #else
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf0);
@@ -428,6 +439,9 @@ static void mt6338_reset_capture_gpio(struct mt6338_priv *priv)
 
 static void  mt6338_set_vow_gpio(struct mt6338_priv *priv)
 {
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_SET, 0x30);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x3);
+
 	/* vow gpio set (data) */
 	/* [3:0] 4: VOW_DAT_MISO (O) */
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
@@ -442,6 +456,9 @@ static void  mt6338_set_vow_gpio(struct mt6338_priv *priv)
 static void mt6338_reset_vow_gpio(struct mt6338_priv *priv)
 {
 	/* vow gpio clear (data) */
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_CLR, 0x30);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x3);
+
 	/* [3:0] 4: VOW_DAT_MISO (O) */
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
 
@@ -473,8 +490,10 @@ static void mt6338_set_pmu(struct mt6338_priv *priv, bool enable)
 {
 	if (enable) {
 		/* VPLL18 LDO */
-		regmap_write(priv->regmap, MT6338_VPLL18_PMU_CON0,
-			0xC0);
+		regmap_update_bits(priv->regmap, MT6338_VPLL18_PMU_CON0,
+			RG_VPLL18_LDO_PLL208M_EN_VA18_MASK_SFT,
+			0x1 << RG_VPLL18_LDO_PLL208M_EN_VA18_SFT);
+
 		/* PLL208M */
 		regmap_write(priv->regmap, MT6338_PLL208M_PMU_CON5,
 			0x2);
@@ -488,8 +507,9 @@ static void mt6338_set_pmu(struct mt6338_priv *priv, bool enable)
 			0x1);
 
 		/* VPLL18 LDO */
-		regmap_write(priv->regmap, MT6338_VPLL18_PMU_CON0,
-			0x0);
+		regmap_update_bits(priv->regmap, MT6338_VPLL18_PMU_CON0,
+			RG_VPLL18_LDO_PLL208M_EN_VA18_MASK_SFT,
+			0x0 << RG_VPLL18_LDO_PLL208M_EN_VA18_SFT);
 	}
 }
 /* use only when doing mtkaif calibraiton at the boot time */
@@ -4527,8 +4547,9 @@ static int mt_pll208m_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* LDO */
-		regmap_write(priv->regmap, MT6338_VPLL18_PMU_CON0,
-			0xC0);
+		regmap_update_bits(priv->regmap, MT6338_VPLL18_PMU_CON0,
+			RG_VPLL18_LDO_PLL208M_EN_VA18_MASK_SFT,
+			0x1 << RG_VPLL18_LDO_PLL208M_EN_VA18_SFT);
 
 		if (need_pll) {
 			/* regmap_write(priv->regmap, MT6338_VPLL18_PMU_CON2, 0x1);*/
@@ -4554,8 +4575,9 @@ static int mt_pll208m_event(struct snd_soc_dapm_widget *w,
 			0x1);
 
 		/* VPLL18 LDO */
-		regmap_write(priv->regmap, MT6338_VPLL18_PMU_CON0,
-			0x0);
+		regmap_update_bits(priv->regmap, MT6338_VPLL18_PMU_CON0,
+			RG_VPLL18_LDO_PLL208M_EN_VA18_MASK_SFT,
+			0x0 << RG_VPLL18_LDO_PLL208M_EN_VA18_SFT);
 
 		break;
 	default:
@@ -9500,6 +9522,14 @@ static void calculate_lr_trim_code(struct mt6338_priv *priv)
 		goto EXIT;
 	}
 
+	/* prevent divid to 0 */
+	if ((trim_l[0] == trim_l[1]) ||
+		(trim_r[0] == trim_r[1])) {
+		hpl_trim_code = trim_l_code[1];
+		hpr_trim_code = trim_r_code[1];
+		goto EXIT;
+	}
+
 	/* start step2, calculate approximate solution*/
 	/* l-channel, find trim offset per trim code step */
 	trim_l_code[2] = (((abs(trim_l[0]) * 2) /
@@ -10873,7 +10903,12 @@ n += scnprintf(buffer + n, size - n,
 regmap_read(priv->regmap, MT6338_PLL208M_PMU_CON4, &value);
 n += scnprintf(buffer + n, size - n,
 	       "MT6338_PLL208M_PMU_CON4 = 0x%x\n", value);
-
+regmap_read(priv->regmap, MT6338_TOP_CON, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6338_TOP_CON = 0x%x\n", value);
+regmap_read(priv->regmap, MT6338_DA_INTF_STTING1, &value);
+n += scnprintf(buffer + n, size - n,
+		       "MT6338_DA_INTF_STTING1 = 0x%x\n", value);
 #ifdef MT6338_TOP_DEBUG
 	regmap_read(priv->regmap, MT6338_SMT_CON1, &value);
 	n += scnprintf(buffer + n, size - n,
