@@ -474,12 +474,6 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		 * buf->ts_period_keep);
 		 */
 
-		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p\n",
-			 mtk_fence_session_mode_spy(session_id),
-			 MTK_SESSION_DEV(session_id), layer_id, fence,
-			 current_timeline_idx, layer_info->fence_idx,
-			 buf->idx, buf->buf_hnd);
-
 		/* print mmp log for primary display */
 		if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
 			CRTC_MMP_MARK(0, release_fence, layer_id, buf->idx);
