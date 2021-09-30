@@ -429,14 +429,14 @@ int mtk_gpueb_sysram_batch_read(int max_read_count,
 			if (frequency1 > 0) {
 				value_cnt++;
 				avg_freq += frequency1;
-				curr_str_len += snprintf(batch_string + curr_str_len,
+				curr_str_len += scnprintf(batch_string + curr_str_len,
 					batch_str_size, "|%d", frequency1);
 
 				frequency2 = ((read_freq)&0x0000ffff);
 				if (frequency2 > 0) {
 					value_cnt++;
 					avg_freq += frequency2;
-					curr_str_len += snprintf(batch_string + curr_str_len,
+					curr_str_len += scnprintf(batch_string + curr_str_len,
 						batch_str_size, "|%d", frequency2);
 				} else
 					break;
@@ -459,7 +459,7 @@ int mtk_gpueb_sysram_batch_read(int max_read_count,
 			avg_freq /= value_cnt;
 		else {
 			avg_freq = ged_get_cur_freq()/1000;
-			curr_str_len += snprintf(batch_string + curr_str_len,
+			curr_str_len += scnprintf(batch_string + curr_str_len,
 					batch_str_size, "|%d", avg_freq);
 		}
 

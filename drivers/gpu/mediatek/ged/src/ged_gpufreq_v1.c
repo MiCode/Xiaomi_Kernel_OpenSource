@@ -100,7 +100,7 @@ int ged_set_limit_floor(int limiter, int floor)
 	return 0;
 }
 
-int ged_gpufreq_commit(int oppidx)
+int ged_gpufreq_commit(int oppidx, int commit_type)
 {
 	return mt_gpufreq_target(KIR_POLICY, oppidx);
 }

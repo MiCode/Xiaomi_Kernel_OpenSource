@@ -31,13 +31,13 @@
 
 #define GED_DVFS_TIMER_BACKUP          0x5566dead
 
-
-#define GED_DVFS_DEFAULT_COMMIT         0
-#define GED_DVFS_CUSTOM_CEIL_COMMIT     1
-#define GED_DVFS_CUSTOM_BOOST_COMMIT    2
-#define GED_DVFS_SET_BOTTOM_COMMIT      3
-#define GED_DVFS_SET_LIMIT_COMMIT       4
-#define GED_DVFS_INPUT_BOOST_COMMIT     5
+#define GED_DVFS_LOADING_BASE_COMMIT    0
+#define GED_DVFS_FRAME_BASE_COMMIT      1
+#define GED_DVFS_CUSTOM_CEIL_COMMIT     2
+#define GED_DVFS_CUSTOM_BOOST_COMMIT    3
+#define GED_DVFS_SET_BOTTOM_COMMIT      4
+#define GED_DVFS_SET_LIMIT_COMMIT       5
+#define GED_DVFS_INPUT_BOOST_COMMIT     6
 #define GED_DVFS_COMMIT_TYPE            int
 
 #define GED_DVFS_DEFAULT                0
@@ -74,6 +74,8 @@ void mtk_ged_event_notify(int events);
 
 #define GED_VSYNC_OFFSET_NOT_SYNC -2
 #define GED_VSYNC_OFFSET_SYNC     -3
+
+#define GED_LB_SCALE_LIMIT 16
 
 struct GED_DVFS_FREQ_DATA {
 	unsigned int ui32Idx;

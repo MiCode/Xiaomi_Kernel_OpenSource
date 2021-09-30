@@ -138,7 +138,8 @@ static unsigned int g_maxfreq;
 static int g_minfreq_idx;
 static int g_maxfreq_idx;
 
-/* LB down scale count */
+/* LB up/down scale count */
+static unsigned int g_lb_up_count = 1;
 static unsigned int g_lb_down_count = 1;
 
 /* need to sync to EB */
@@ -345,7 +346,8 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 	if (ui32CurFreqID == -1)
 		return bCommited;
 
-	if (eCommitType == GED_DVFS_DEFAULT_COMMIT)
+	if (eCommitType == GED_DVFS_FRAME_BASE_COMMIT ||
+		eCommitType == GED_DVFS_LOADING_BASE_COMMIT)
 		g_last_def_commit_freq_id = ui32NewFreqID;
 
 	/* Delegate to DCS */
@@ -362,18 +364,11 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		ui32CeilingID = ged_get_cur_limit_idx_ceil();
 		ui32FloorID = ged_get_cur_limit_idx_floor();
 
-		if (ui32NewFreqID < ui32CeilingID) {
+		if (ui32NewFreqID < ui32CeilingID)
 			ui32NewFreqID = ui32CeilingID;
-			ged_log_perf_trace_counter("gpufreq_ceiling",
-				(long long)ui32CeilingID,
-				5566, 0, 0);
-		}
-		if (ui32NewFreqID > ui32FloorID) {
+
+		if (ui32NewFreqID > ui32FloorID)
 			ui32NewFreqID = ui32FloorID;
-			ged_log_perf_trace_counter("gpufreq_floor",
-				(long long)ui32FloorID,
-				5566, 0, 0);
-		}
 
 		g_ulCommitFreq = ged_get_freq_by_idx(ui32NewFreqID);
 		ged_commit_freq = ui32NewFreq;
@@ -381,9 +376,9 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 
 		/* do change */
 		if (ui32NewFreqID != ui32CurFreqID) {
-			/* call to DVFS module */
+			/* call to ged gpufreq wrapper module */
 			g_ged_dvfs_commit_idx = ui32NewFreqID;
-			ged_gpufreq_commit(ui32NewFreqID);
+			ged_gpufreq_commit(ui32NewFreqID, eCommitType);
 
 			/*
 			 * To-Do: refine previous freq contributions,
@@ -405,19 +400,20 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
 
-			ged_log_perf_trace_batch_counter("avg_gpu_freq",
+			ged_log_perf_trace_batch_counter("gpu_freq",
 				(long long)(avg_freq),
 				5566, 0, 0, batch_freq);
 		} else {
 			ged_log_perf_trace_counter("gpu_freq",
-				(long long)(ged_get_cur_freq() / 1000),
-				5566, 0, 0);
+				(long long)(ged_get_cur_freq() / 1000), 5566, 0, 0);
 		}
 
 		ged_log_perf_trace_counter("gpu_freq_max",
 			(long long)(ged_get_freq_by_idx(
-			ged_get_cur_limit_idx_ceil())/1000),
-			5566, 0, 0);
+			ged_get_cur_limit_idx_ceil())/1000), 5566, 0, 0);
+
+		ged_log_perf_trace_counter("commit_type",
+			(long long)eCommitType, 5566, 0, 0);
 	}
 	return bCommited;
 }
@@ -651,10 +647,10 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 	if (bFallback == true)
 		ged_dvfs_gpu_freq_commit(ui32NewFreqID,
 				ged_get_freq_by_idx(ui32NewFreqID),
-				GED_DVFS_DEFAULT_COMMIT);
+				GED_DVFS_LOADING_BASE_COMMIT);
 	else
 		ged_dvfs_gpu_freq_commit(ui32NewFreqID, gpu_tar_freq,
-				GED_DVFS_DEFAULT_COMMIT);
+				GED_DVFS_LOADING_BASE_COMMIT);
 
 	mutex_unlock(&gsDVFSLock);
 #endif /* GED_DVFS_UM_CAL */
@@ -762,7 +758,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 			ged_dvfs_gpu_freq_commit((unsigned long)i32NewFreqID
 			, ged_get_freq_by_idx(i32NewFreqID)
-			, GED_DVFS_DEFAULT_COMMIT);
+			, GED_DVFS_LOADING_BASE_COMMIT);
 		}
 
 	}
@@ -872,7 +868,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	}
 
 #ifdef GED_DCS_POLICY
-	if (is_dcs_enable() && dcs_get_cur_core_num() <= dcs_get_max_core_num())
+	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num())
 		gx_fb_dvfs_margin = DCS_POLICY_MARGIN;
 #endif /* GED_DCS_POLICY */
 
@@ -951,7 +947,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	g_CommitType = MTK_GPU_DVFS_TYPE_VSYNCBASED;
 	ged_dvfs_gpu_freq_commit((unsigned long)ui32NewFreqID,
-		gpu_freq_tar, GED_DVFS_DEFAULT_COMMIT);
+		gpu_freq_tar, GED_DVFS_FRAME_BASE_COMMIT);
 
 	ret_freq = gpu_freq_tar;
 FB_RET:
@@ -988,6 +984,7 @@ static bool ged_dvfs_policy(
 
 	int loading_mode;
 	int minfreq_idx;
+	int idx_diff;
 
 	if (ui32GPUFreq == -1)
 		return GED_FALSE;
@@ -1133,7 +1130,7 @@ static bool ged_dvfs_policy(
 	}
 
 #ifdef GED_DCS_POLICY
-	if (is_dcs_enable() && dcs_get_cur_core_num() <= dcs_get_max_core_num())
+	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num())
 		gx_tb_dvfs_margin = DCS_POLICY_MARGIN / 10;
 #endif /* GED_DCS_POLICY */
 
@@ -1170,25 +1167,29 @@ static bool ged_dvfs_policy(
 			|| ui32GPULoading >= 95) {
 			if (dvfs_step_mode == 0)
 				i32NewFreqID = 0;
-			else
-				i32NewFreqID -= (dvfs_step_mode&0xff);
-
-			if (i32NewFreqID < 0)
-				i32NewFreqID = 0;
+			else {
+				idx_diff = (dvfs_step_mode&0xff) * g_lb_up_count;
+				i32NewFreqID -= (dvfs_step_mode&0xff) * g_lb_up_count;
+			}
+			if (idx_diff <= GED_LB_SCALE_LIMIT)
+				g_lb_up_count *= 2;
 
 			g_lb_down_count = 1;
 		} else if (ui32GPULoading < 15) {
 			i32NewFreqID += g_lb_down_count;
 			g_lb_down_count *= 2;
-			if (g_lb_down_count >= 4)
-				g_lb_down_count = 4;
-		} else if (ui32GPULoading_avg >=
+			if (g_lb_down_count >= GED_LB_SCALE_LIMIT)
+				g_lb_down_count = GED_LB_SCALE_LIMIT;
+
+			g_lb_up_count = 1;
+		} else if (ui32GPULoading >=
 			loading_ud_table[ui32GPUFreq].up) {
 			i32NewFreqID -= 1;
 			g_lb_down_count = 1;
 		} else if (ui32GPULoading_avg <=
 			loading_ud_table[ui32GPUFreq].down) {
 			i32NewFreqID += 1;
+			g_lb_up_count = 1;
 		}
 
 		ged_log_buf_print(ghLogBuf_DVFS,
@@ -1692,7 +1693,7 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 				ged_dvfs_gpu_freq_commit(g_ui32FreqIDFromPolicy,
 						ged_get_freq_by_idx(
 						g_ui32FreqIDFromPolicy),
-						GED_DVFS_DEFAULT_COMMIT);
+						GED_DVFS_LOADING_BASE_COMMIT);
 			}
 		}
 	}

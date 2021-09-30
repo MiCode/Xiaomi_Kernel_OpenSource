@@ -509,15 +509,6 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		ged_get_power_by_idx(
 		ged_get_oppidx_by_freq(psKPI->gpu_freq*1000));
 
-	// if (g_gpufreq_v2)
-	// 	psKPI->cpu_gpu_info.gpu.gpu_power =
-	// 		gpufreq_get_power_by_idx(TARGET_DEFAULT,
-	// 		gpufreq_get_oppidx_by_freq(TARGET_DEFAULT, psKPI->gpu_freq*1000));
-	// else
-	// 	psKPI->cpu_gpu_info.gpu.gpu_power =
-	// 		mt_gpufreq_get_power_by_idx(
-	// 		mt_gpufreq_get_opp_idx_by_freq(psKPI->gpu_freq*1000));
-
 	ged_get_gpu_utli_ex(&util_ex);
 
 	psKPI->cpu_gpu_info.gpu.gpu_util =
@@ -1281,6 +1272,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			ged_log_perf_trace_counter("t_gpu",
 				psKPI->t_gpu, psTimeStamp->pid,
 				psTimeStamp->i32FrameID, ulID);
+			ged_log_perf_trace_counter("t_gpu",
+				psKPI->t_gpu, 5566, 0, 0);
 
 			if (psHead->last_TimeStamp1
 				!= psKPI->ullTimeStamp1) {
