@@ -51,6 +51,8 @@ struct mml_pq_video_param {
 	bool ishdr2sdr:1;
 	uint32_t param_table;
 	int32_t xml_mode_id;
+	int32_t buffer_fd;
+	int32_t qpsum;
 };
 
 struct mml_pq_config {

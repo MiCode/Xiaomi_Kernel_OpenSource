@@ -38,6 +38,7 @@ struct mml_pq_mbox {
 	struct mml_pq_chan comp_config_chan;
 	struct mml_pq_chan aal_readback_chan;
 	struct mml_pq_chan hdr_readback_chan;
+	struct mml_pq_chan rsz_callback_chan;
 };
 
 static struct mml_pq_mbox *pq_mbox;
@@ -170,6 +171,7 @@ s32 mml_pq_task_create(struct mml_task *task)
 	init_sub_task(&pq_task->comp_config);
 	init_sub_task(&pq_task->aal_readback);
 	init_sub_task(&pq_task->hdr_readback);
+	init_sub_task(&pq_task->rsz_callback);
 
 	mml_pq_trace_ex_end();
 	return 0;
@@ -247,6 +249,12 @@ static struct mml_pq_task *from_hdr_readback(struct mml_pq_sub_task *sub_task)
 {
 	return container_of(sub_task,
 		struct mml_pq_task, hdr_readback);
+}
+
+static struct mml_pq_task *from_rsz_callback(struct mml_pq_sub_task *sub_task)
+{
+	return container_of(sub_task,
+		struct mml_pq_task, rsz_callback);
 }
 
 static void dump_pq_param(struct mml_pq_param *pq_param)
@@ -523,6 +531,19 @@ int mml_pq_hdr_readback(struct mml_task *task, u8 pipe, u32 *phist)
 	if (set_hist(sub_task, task->config->dual, pipe, phist))
 		ret = set_sub_task(task, sub_task, chan, &task->pq_param[0]);
 
+	mml_pq_msg("%s end\n", __func__);
+	return ret;
+}
+
+int mml_pq_rsz_callback(struct mml_task *task)
+{
+	struct mml_pq_task *pq_task = task->pq_task;
+	struct mml_pq_sub_task *sub_task = &pq_task->rsz_callback;
+	struct mml_pq_chan *chan = &pq_mbox->rsz_callback_chan;
+	int ret = 0;
+
+	mml_pq_msg("%s second outoput done.\n", __func__);
+	ret = set_sub_task(task, sub_task, chan, &task->pq_param[1]);
 	mml_pq_msg("%s end\n", __func__);
 	return ret;
 }
@@ -1272,6 +1293,72 @@ wake_up_hdr_readback_task:
 	return ret;
 }
 
+static int mml_pq_rsz_callback_ioctl(unsigned long data)
+{
+	struct mml_pq_chan *chan = &pq_mbox->rsz_callback_chan;
+	struct mml_pq_sub_task *new_sub_task = NULL;
+	struct mml_pq_sub_task *sub_task = NULL;
+	struct mml_pq_task *new_pq_task = NULL;
+	struct mml_pq_rsz_callback_job *job;
+	struct mml_pq_rsz_callback_job *user_job;
+	u32 new_job_id;
+	s32 ret = 0;
+
+	mml_pq_msg("%s called\n", __func__);
+	user_job = (struct mml_pq_rsz_callback_job *)data;
+	if (unlikely(!user_job))
+		return -EINVAL;
+
+	job = kmalloc(sizeof(*job), GFP_KERNEL);
+	if (unlikely(!job))
+		return -ENOMEM;
+
+	ret = copy_from_user(job, user_job, sizeof(*job));
+	if (unlikely(ret)) {
+		mml_pq_err("copy_from_user failed: %d\n", ret);
+		return -EINVAL;
+	}
+
+	if (job->result_job_id)
+		ret = find_sub_task(chan, job->result_job_id, &sub_task);
+
+	new_sub_task = wait_next_sub_task(chan);
+
+	if (!new_sub_task) {
+		kfree(job);
+		mml_pq_log("%s Get sub task failed", __func__);
+		return -ERESTARTSYS;
+	}
+
+	new_pq_task = from_rsz_callback(new_sub_task);
+	new_job_id = new_sub_task->job_id;
+
+	ret = copy_to_user(&user_job->new_job_id, &new_job_id, sizeof(u32));
+
+	ret = copy_to_user(&user_job->info, &new_sub_task->frame_data.info,
+		sizeof(struct mml_frame_info));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to user frame info: %d\n", ret);
+		goto wake_up_rsz_callback_task;
+	}
+
+	ret = copy_to_user(user_job->param, new_sub_task->frame_data.pq_param,
+		MML_MAX_OUTPUTS * sizeof(struct mml_pq_param));
+	if (unlikely(ret)) {
+		mml_pq_err("err: fail to copy to user pq param: %d\n", ret);
+		goto wake_up_rsz_callback_task;
+	}
+
+	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
+	kfree(job);
+	return 0;
+
+wake_up_rsz_callback_task:
+	cancel_sub_task(new_sub_task);
+	mml_pq_msg("%s end %d\n", __func__, ret);
+	return ret;
+}
+
 static long mml_pq_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -1287,6 +1374,8 @@ static long mml_pq_ioctl(struct file *file, unsigned int cmd,
 		return mml_pq_aal_readback_ioctl(arg);
 	case MML_PQ_IOC_HDR_READBACK:
 		return mml_pq_hdr_readback_ioctl(arg);
+	case MML_PQ_IOC_RSZ_CALLBACK:
+		return mml_pq_rsz_callback_ioctl(arg);
 	default:
 		return -ENOTTY;
 	}
@@ -1323,6 +1412,7 @@ int mml_pq_core_init(void)
 	init_pq_chan(&pq_mbox->comp_config_chan);
 	init_pq_chan(&pq_mbox->aal_readback_chan);
 	init_pq_chan(&pq_mbox->hdr_readback_chan);
+	init_pq_chan(&pq_mbox->rsz_callback_chan);
 
 	ret = misc_register(&mml_pq_dev);
 	mml_pq_log("%s result: %d", __func__, ret);

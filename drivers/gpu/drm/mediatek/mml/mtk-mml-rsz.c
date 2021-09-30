@@ -440,6 +440,29 @@ static s32 rsz_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static void rsz_task_done_callback(struct mml_comp *comp, struct mml_task *task,
+					 struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	/* frame data should not change between each tile */
+	const struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
+	const uint8_t dest_cnt = cfg->info.dest_cnt;
+
+	if (dest_cnt == MML_MAX_OUTPUTS && rsz_frm->out_idx == MML_MAX_OUTPUTS-1) {
+		mml_pq_trace_ex_begin("%s", __func__);
+		mml_msg("%s rsz_frm->out_idx[%d] id[%d]", __func__,
+			rsz_frm->out_idx, comp->id);
+		mml_pq_rsz_callback(task);
+		mml_pq_trace_ex_end();
+	}
+}
+
+static const struct mml_comp_hw_ops rsz_hw_ops = {
+	.clk_enable = &mml_comp_clk_enable,
+	.clk_disable = &mml_comp_clk_disable,
+	.task_done = rsz_task_done_callback,
+};
+
 static const struct mml_comp_config_ops rsz_cfg_ops = {
 	.prepare = rsz_prepare_scale,
 	.init = rsz_init,
@@ -680,6 +703,8 @@ static int probe(struct platform_device *pdev)
 	priv->comp.tile_ops = &rsz_tile_ops;
 	priv->comp.config_ops = &rsz_cfg_ops;
 	priv->comp.debug_ops = &rsz_debug_ops;
+	priv->comp.hw_ops = &rsz_hw_ops;
+
 
 	ret = mml_ddp_comp_init(dev, &priv->ddp_comp, &priv->comp,
 				&ddp_comp_funcs);

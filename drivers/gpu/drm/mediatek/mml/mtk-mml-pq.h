@@ -125,6 +125,16 @@ struct mml_pq_hdr_readback_job {
 	struct mml_pq_param param[MML_MAX_OUTPUTS];
 };
 
+struct mml_pq_rsz_callback_job {
+	/* input from user-space */
+	u32 result_job_id;
+
+	/* output to user-space */
+	u32 new_job_id;
+	struct mml_frame_info info;
+	struct mml_pq_param param[MML_MAX_OUTPUTS];
+};
+
 #define MML_PQ_IOC_MAGIC 'W'
 #define MML_PQ_IOC_TILE_INIT _IOWR(MML_PQ_IOC_MAGIC, 0,\
 		struct mml_pq_tile_init_job)
@@ -134,4 +144,6 @@ struct mml_pq_hdr_readback_job {
 		struct mml_pq_aal_readback_job)
 #define MML_PQ_IOC_HDR_READBACK _IOWR(MML_PQ_IOC_MAGIC, 3,\
 		struct mml_pq_hdr_readback_job)
+#define MML_PQ_IOC_RSZ_CALLBACK _IOWR(MML_PQ_IOC_MAGIC, 4,\
+		struct mml_pq_rsz_callback_job)
 #endif	/* __MTK_MML_PQ_H__ */
