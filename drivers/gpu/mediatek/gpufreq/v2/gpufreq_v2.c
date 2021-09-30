@@ -1719,14 +1719,18 @@ static void gpufreq_dump_dvfs_status(void)
 
 /***********************************************************************************
  * Function Name      : gpufreq_abort
- * Description        : Trigger BUG ON when fatal error and dump DVFS status
+ * Description        : Trigger exception when fatal error and dump infra status
  ***********************************************************************************/
 static void gpufreq_abort(void)
 {
 	gpueb_dump_ipi_status();
 	gpufreq_dump_infra_status();
 
+#if GPUFREQ_FORCE_WDT_ENABLE
+	gpueb_trigger_wdt("GPUFREQ");
+#else
 	BUG_ON(1);
+#endif /* GPUFREQ_FORCE_WDT_ENABLE */
 }
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
