@@ -62,9 +62,6 @@ static void adsp_timesync_update(u32 fz)
 					ADSP_SHAREDMEM_TIMESYNC,
 					infos, sizeof(*infos));
 	}
-
-	pr_debug("%s done(%d) adsp base: ts=%llu, tick=0x%llx, freeze=%u\n",
-		 __func__, ret > 0, ts, tick, fz);
 }
 
 static enum hrtimer_restart adsp_timesync_refresh(struct hrtimer *hrt)
@@ -97,7 +94,7 @@ int adsp_timesync_init(void)
 
 	/* init refresh hr_timer */
 	hrtimer_init(&timesync_ctrl.timer,
-		     CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		     CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);
 	timesync_ctrl.timer.function = adsp_timesync_refresh;
 	timesync_ctrl.period_ms = TIMESYNC_WRAP_TIME_MS;
 
