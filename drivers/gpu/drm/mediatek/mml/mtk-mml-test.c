@@ -602,6 +602,7 @@ static void setup_2out(struct mml_submit *task, struct mml_test_case *cur)
 {
 	/* config dest[1] info data and buf */
 	task->info.dest_cnt = 2;
+	task->buffer.dest_cnt = 2;
 	fillin_info_data(the_case.cfg_dest1_format,
 		the_case.cfg_dest1_w, the_case.cfg_dest1_h,
 		&task->info.dest[1].data);
