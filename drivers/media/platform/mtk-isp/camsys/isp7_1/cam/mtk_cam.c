@@ -534,12 +534,13 @@ static void mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
 
 	s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	dev_dbg(ctx->cam->dev,
-		"%s: %s: removed, req:%d, ctx:(%d/0x%x/0x%x), pipe:(%d/0x%x/0x%x) done_status:0x%x]\n",
+		"%s: %s: removed, req:%d, ctx:(%d/0x%x/0x%x), pipe:(%d/0x%x/0x%x) done_status:0x%x, state:%d)\n",
 		__func__, req->req.debug_str, s_data->frame_seq_no,
 		ctx->stream_id, req->ctx_used, ctx->cam->streaming_ctx,
 		pipe_id, req->pipe_used, ctx->cam->streaming_pipe,
 		req->done_status);
 
+	atomic_set(&req->state, MTK_CAM_REQ_STATE_COMPLETE);
 	spin_lock(&ctx->cam->running_job_lock);
 	list_del(&req->list);
 	spin_unlock(&ctx->cam->running_job_lock);
@@ -822,7 +823,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		else
 			need_clean_s_data = true;
 
-		if (req->done_status == req->pipe_used) {
+		if (atomic_read(&req->state) == MTK_CAM_REQ_STATE_COMPLETE) {
 			need_clean_req = false;
 		} else {
 			/* mark request status to done for release */
@@ -854,6 +855,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				 "%s:%s:pipe(%d):seq(%d): remove req from running list\n",
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
+			atomic_set(&req->state, MTK_CAM_REQ_STATE_COMPLETE);
 			spin_lock(&cam->running_job_lock);
 			list_del(&req->list);
 			media_request_put(&req->req); /* for leave running list*/
@@ -2110,6 +2112,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			return;
 		}
 
+		atomic_set(&req->state, MTK_CAM_REQ_STATE_QUEUED);
 		spin_lock(&cam->running_job_lock);
 		cam->running_job_count++;
 		list_del(&req->list);

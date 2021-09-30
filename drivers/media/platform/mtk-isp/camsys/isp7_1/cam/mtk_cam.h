@@ -242,6 +242,11 @@ struct mtk_cam_req_pipe {
 	struct mtk_cam_request_stream_data s_data[MTK_CAM_REQ_MAX_S_DATA];
 };
 
+enum mtk_cam_request_state {
+	MTK_CAM_REQ_STATE_QUEUED,
+	MTK_CAM_REQ_STATE_COMPLETE,
+	NR_OF_MTK_CAM_REQ_STATE,
+};
 /*
  * struct mtk_cam_request - MTK camera request.
  *
@@ -265,6 +270,7 @@ struct mtk_cam_request {
 	unsigned int flags;
 	unsigned int done_status;
 	spinlock_t done_status_lock;
+	atomic_t state;
 	unsigned int fs_on_cnt; /*0:init X:sensor_fs_on*/
 	struct mutex fs_op_lock;
 	struct list_head list;
