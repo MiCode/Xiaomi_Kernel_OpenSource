@@ -1994,7 +1994,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	struct media_link *link;
 	struct media_pad *pad;
 	struct mtk_cam_seninf_mux_meter meter;
-	void *csi2, *pmux;
+	void *csi2, *rx, *pmux;
 
 	core = dev_get_drvdata(dev);
 	len = 0;
@@ -2024,6 +2024,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 			continue;
 
 		csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
+		rx = ctx->reg_ana_dphy_top[ctx->port];
 		SHOW(buf, len, "csi2 irq_stat 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_IRQ_STATUS));
 		SHOW(buf, len, "csi2 line_frame_num 0x%08x\n",
@@ -2032,6 +2033,17 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		     SENINF_READ_REG(csi2, SENINF_CSI2_PACKET_STATUS));
 		SHOW(buf, len, "csi2 packet_cnt_status 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_PACKET_CNT_STATUS));
+
+		SHOW(buf, len, "rx-ana settle ck 0x%02x dt 0x%02x\n",
+		     SENINF_READ_BITS(rx, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+				      RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER),
+		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+				      RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER));
+		SHOW(buf, len, "rx-ana trail en %u param 0x%02x\n",
+		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+				      RG_DPHY_RX_LD0_HS_TRAIL_EN),
+		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+				      RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER));
 
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
@@ -2566,6 +2578,69 @@ static int mtk_cam_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
 
 }
 
+static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
+{
+	void *base = ctx->reg_ana_dphy_top[ctx->port];
+	void *csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
+
+	if (!ctx->streaming)
+		return 0;
+
+	dev_info(ctx->dev, "%s key = 0x%x, val = 0x%x\n",
+		 __func__, key, val);
+
+	switch (key) {
+	case REG_KEY_SETTLE_CK:
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER,
+			    val);
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LC1_HS_SETTLE_PARAMETER,
+			    val);
+		break;
+	case REG_KEY_SETTLE_DT:
+		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+			    RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER,
+			    val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_CDPHY_RX_LD1_TRIO1_HS_SETTLE_PARAMETER,
+			    val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_CDPHY_RX_LD2_TRIO2_HS_SETTLE_PARAMETER,
+			    val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_CDPHY_RX_LD3_TRIO3_HS_SETTLE_PARAMETER,
+			    val);
+		break;
+	case REG_KEY_HS_TRAIL_EN:
+		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LD0_HS_TRAIL_EN, val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LD1_HS_TRAIL_EN, val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_DPHY_RX_LD2_HS_TRAIL_EN, val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_DPHY_RX_LD3_HS_TRAIL_EN, val);
+		break;
+	case REG_KEY_HS_TRAIL_PARAM:
+		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LD1_HS_TRAIL_PARAMETER, val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_DPHY_RX_LD2_HS_TRAIL_PARAMETER, val);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_DPHY_RX_LD3_HS_TRAIL_PARAMETER, val);
+		break;
+	case REG_KEY_CSI_IRQ_STAT:
+		SENINF_WRITE_REG(csi2, SENINF_CSI2_IRQ_STATUS,
+				 val & 0xFFFFFFFF);
+		break;
+	}
+
+	return 0;
+}
+
 
 struct mtk_cam_seninf_ops mtk_csi_phy_2_0 = {
 	._init_iomem = mtk_cam_seninf_init_iomem,
@@ -2607,6 +2682,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_2_0 = {
 	._enable_cam_mux_vsync_irq = mtk_cam_seninf_enable_cam_mux_vsync_irq,
 	._disable_all_cam_mux_vsync_irq = mtk_cam_seninf_disable_all_cam_mux_vsync_irq,
 	._debug = mtk_cam_seninf_debug,
+	._set_reg = mtk_cam_seninf_set_reg,
 	.seninf_num = 8,
 	.mux_num = 13,
 	.cam_mux_num = 16,

@@ -62,6 +62,10 @@ static const char * const clk_names[] = {
 	SENINF_CLK_NAMES
 };
 
+static const char * const set_reg_names[] = {
+	SET_REG_KEYS_NAMES
+};
+
 static ssize_t status_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
@@ -69,6 +73,103 @@ static ssize_t status_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(status);
+
+static ssize_t debug_ops_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "This is debug ops message\n");
+
+	return len;
+}
+
+enum REG_OPS_CMD {
+	REG_OPS_CMD_ID,
+	REG_OPS_CMD_CSI,
+	REG_OPS_CMD_RG,
+	REG_OPS_CMD_VAL,
+	REG_OPS_CMD_MAX_NUM,
+};
+
+static ssize_t debug_ops_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	char delim[] = " ";
+	char csi_names[20];
+	char *token = NULL;
+	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
+	char *s = sbuf;
+	int ret, i, num_para = 0;
+	char *arg[REG_OPS_CMD_MAX_NUM];
+	struct seninf_core *core = dev_get_drvdata(dev);
+	struct seninf_ctx *ctx;
+	int csi_port = -1;
+	int rg_idx = -1;
+	u32 val;
+
+	if (!sbuf)
+		goto ERR_DEBUG_OPS_STORE;
+
+	memcpy(sbuf, buf, count);
+
+	token = strsep(&s, delim);
+	while (token != NULL && num_para < REG_OPS_CMD_MAX_NUM) {
+		if (strlen(token)) {
+			arg[num_para] = token;
+			num_para++;
+		}
+
+		token = strsep(&s, delim);
+	}
+
+	if (num_para != REG_OPS_CMD_MAX_NUM) {
+		dev_info(dev, "Wrong command parameter number\n");
+		goto ERR_DEBUG_OPS_STORE;
+	}
+
+	if (strncmp("SET_REG", arg[REG_OPS_CMD_ID], sizeof("SET_REG")) == 0) {
+		for (i = 0; i < REG_KEY_MAX_NUM; i++) {
+			if (!strcasecmp(arg[REG_OPS_CMD_RG], set_reg_names[i]))
+				rg_idx = i;
+		}
+		if (rg_idx < 0)
+			goto ERR_DEBUG_OPS_STORE;
+
+		ret = kstrtouint(arg[REG_OPS_CMD_VAL], 0, &val);
+		if (ret)
+			goto ERR_DEBUG_OPS_STORE;
+
+		for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
+			memset(csi_names, 0, ARRAY_SIZE(csi_names));
+			snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+			if (!strcasecmp(arg[REG_OPS_CMD_CSI], csi_names))
+				csi_port = i;
+		}
+
+		if (csi_port < 0)
+			goto ERR_DEBUG_OPS_STORE;
+
+		// reg call
+		mutex_lock(&core->mutex);
+
+		list_for_each_entry(ctx, &core->list, list) {
+			if (csi_port == ctx->port)
+				g_seninf_ops->_set_reg(ctx, rg_idx, val);
+		}
+
+		mutex_unlock(&core->mutex);
+	}
+
+ERR_DEBUG_OPS_STORE:
+
+	kfree(sbuf);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(debug_ops);
 
 #define SENINF_DVFS_READY
 #ifdef SENINF_DVFS_READY
@@ -392,6 +493,10 @@ static int seninf_core_probe(struct platform_device *pdev)
 	if (ret)
 		dev_info(dev, "failed to create sysfs status\n");
 
+	ret = device_create_file(dev, &dev_attr_debug_ops);
+	if (ret)
+		dev_info(dev, "failed to create sysfs debug ops\n");
+
 	seninf_core_pm_runtime_enable(core);
 
 	kthread_init_worker(&core->seninf_worker);
@@ -417,6 +522,7 @@ static int seninf_core_remove(struct platform_device *pdev)
 	of_platform_depopulate(dev);
 	seninf_core_pm_runtime_disable(core);
 	device_remove_file(dev, &dev_attr_status);
+	device_remove_file(dev, &dev_attr_debug_ops);
 
 	if (core->seninf_kworker_task)
 		kthread_stop(core->seninf_kworker_task);

@@ -7,6 +7,25 @@
 //#include <linux/irqreturn.h>
 #include <linux/interrupt.h>
 
+enum SET_REG_KEYS {
+	REG_KEY_MIN = 0,
+	REG_KEY_SETTLE_CK = REG_KEY_MIN,
+	REG_KEY_SETTLE_DT,
+	REG_KEY_HS_TRAIL_EN,
+	REG_KEY_HS_TRAIL_PARAM,
+	REG_KEY_CSI_IRQ_STAT,
+	REG_KEY_CSI_RESYNC_CYCLE,
+	REG_KEY_MAX_NUM
+};
+
+#define SET_REG_KEYS_NAMES \
+	"RG_SETTLE_CK", \
+	"RG_SETTLE_DT", \
+	"RG_HS_TRAIL_EN", \
+	"RG_HS_TRAIL_PARAM", \
+	"RG_CSI_IRQ_STAT", \
+	"RG_CSI_RESYNC_CYCLE", \
+
 struct mtk_cam_seninf_mux_meter {
 	u32 width;
 	u32 height;
@@ -72,6 +91,7 @@ struct mtk_cam_seninf_ops {
 	int (*_enable_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable, int cam_mux);
 	int (*_disable_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx);
 	int (*_debug)(struct seninf_ctx *ctx);
+	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u32 val);
 	unsigned char seninf_num;
 	unsigned char mux_num;
 	unsigned char cam_mux_num;
