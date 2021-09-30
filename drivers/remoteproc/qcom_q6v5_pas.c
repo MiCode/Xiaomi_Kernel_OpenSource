@@ -470,6 +470,12 @@ static int adsp_stop(struct rproc *rproc)
 	if (ret)
 		panic("Panicking, remoteproc %s failed to shutdown.\n", rproc->name);
 
+	if (adsp->dtb_pas_id) {
+		ret = qcom_scm_pas_shutdown(adsp->dtb_pas_id);
+		if (ret)
+			panic("Panicking, remoteproc %s dtb failed to shutdown.\n", rproc->name);
+	}
+
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
 	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
