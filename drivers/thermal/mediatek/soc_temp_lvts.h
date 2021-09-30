@@ -132,6 +132,7 @@ struct tc_settings {
 	unsigned int addr_offset;
 	unsigned int num_sensor;
 	unsigned int sensor_map[ALL_SENSING_POINTS]; /* In sensor ID */
+	unsigned int device_id[ALL_SENSING_POINTS]; /* In LVTS Device ID */
 	struct speed_settings tc_speed;
 	/* HW filter setting
 	 * 000: Get one sample
