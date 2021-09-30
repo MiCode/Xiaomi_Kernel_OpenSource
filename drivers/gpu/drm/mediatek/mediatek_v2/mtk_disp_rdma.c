@@ -227,6 +227,7 @@ struct mtk_disp_rdma_data {
 	bool need_bypass_shadow;
 	bool has_greq_urg_num;
 	bool is_support_34bits;
+	bool dsi_buffer;
 };
 
 struct mtk_rdma_backup_info {
@@ -568,7 +569,8 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	}
 
 	/* DISP_RDMA_FIFO_CON */
-	if (gsc->is_vdo_mode)
+
+	if (gsc->is_vdo_mode || (rdma->data->dsi_buffer))
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
@@ -1489,6 +1491,7 @@ static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
 	.is_support_34bits = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6983_rdma_driver_data = {
@@ -1504,6 +1507,7 @@ static const struct mtk_disp_rdma_data mt6983_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.dsi_buffer = true,
 };
 
 static const struct mtk_disp_rdma_data mt6895_rdma_driver_data = {
@@ -1519,6 +1523,7 @@ static const struct mtk_disp_rdma_data mt6895_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
@@ -1535,6 +1540,7 @@ static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = true,
 	.is_support_34bits = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6853_rdma_driver_data = {
@@ -1551,6 +1557,7 @@ static const struct mtk_disp_rdma_data mt6853_rdma_driver_data = {
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = true,
 	.is_support_34bits = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
@@ -1567,6 +1574,7 @@ static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = false,
 	.is_support_34bits = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
@@ -1582,6 +1590,7 @@ static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
@@ -1597,6 +1606,7 @@ static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.dsi_buffer = false,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {

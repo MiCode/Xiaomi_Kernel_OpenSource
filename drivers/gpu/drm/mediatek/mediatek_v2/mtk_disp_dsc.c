@@ -107,6 +107,7 @@ struct mtk_disp_dsc_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
 	bool need_obuf_sw;
+	bool dsi_buffer;
 };
 
 
@@ -441,7 +442,9 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			dsc_params->slice_width-1) / dsc_params->slice_width;
 		init_delay_height_min =
 			(init_delay_limit > 15) ? 15 : init_delay_limit;
-		if (!mtk_crtc_is_frame_trigger_mode(&comp->mtk_crtc->base))
+		if (dsc->data->dsi_buffer)
+			init_delay_height = 0;
+		else if (!mtk_crtc_is_frame_trigger_mode(&comp->mtk_crtc->base))
 			init_delay_height = 1;
 		else
 			init_delay_height = 4;
@@ -769,38 +772,45 @@ static int mtk_disp_dsc_remove(struct platform_device *pdev)
 static const struct mtk_disp_dsc_data mt6885_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
 	.need_obuf_sw = true,
+	.dsi_buffer = true,
 };
 
 static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
 	.need_obuf_sw = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_dsc_data mt6855_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
+	.dsi_buffer = false,
 };
 
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
