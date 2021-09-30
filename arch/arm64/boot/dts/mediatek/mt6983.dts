@@ -7597,7 +7597,7 @@
 		iommus = <&mdp_iommu M4U_PORT_L15_IMG2_VIP1_D1>;
 	};
 
-	imgsys_fw@15000000 {
+	imgsys_fw: imgsys_fw@15000000 {
 		compatible = "mediatek,imgsys";
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		reg = <0 0x15000000 0 0x4000>,	/* 0 IMGSYS_TOP */
@@ -8160,6 +8160,10 @@
 			 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
 			 <&ipesys_clk CLK_IPESYS_IPESYS_TOP>,
 			 <&ipesys_clk CLK_IPESYS_ME>,
+			 <&ipesys_clk CLK_IPESYS_FDVT>,
+#if 0
+			 <&ipesys_clk CLK_IPESYS_FDVT1>,
+#endif
 			 <&ipesys_clk CLK_IPESYS_SMI_LARB12>;
 		clock-names = "IMGSYS_CG_IMG_TRAW0",
 			      "IMGSYS_CG_IMG_TRAW1",
@@ -8180,6 +8184,10 @@
 			      "ME_CG_IPE",
 			      "ME_CG_IPE_TOP",
 			      "ME_CG",
+			      "IPE_FDVT",
+#if 0
+			      "IPE_FDVT1",
+#endif
 			      "ME_CG_LARB12";
 		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 		dvfsrc-vmm-supply = <&vmm_proxy_label>;
@@ -8720,6 +8728,7 @@
 		mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>,
 				 <&gce_m_sec 11 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		mediatek,larb = <&smi_larb12>;
+		mediatek,imgsys_fw = <&imgsys_fw>;
 		fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_IPE>;
 		iommus = <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDA0>,
