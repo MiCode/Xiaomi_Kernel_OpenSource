@@ -4162,6 +4162,39 @@ err_handle_mtk_drm_get_mml_drm_ctx:
 	return priv->mml_ctx;
 }
 
+static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
+{
+	struct dummy_mapping *table;
+	size_t size;
+	int i;
+
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6983:
+		table = mt6983_dispsys_dummy_register;
+		size = MT6983_DUMMY_REG_CNT;
+		break;
+	default:
+		DDPMSG("no dummy table\n");
+		return;
+	}
+
+	for (i = 0; i < size; i++) {
+		if (table[i].comp_id == DDP_COMPONENT_ID_MAX) {
+			table[i].pa_addr = priv->config_regs_pa;
+			table[i].addr = priv->config_regs;
+		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(31))) {
+			table[i].pa_addr = priv->side_config_regs_pa;
+			table[i].addr = priv->side_config_regs;
+		} else {
+			struct mtk_ddp_comp *comp;
+
+			comp = priv->ddp_comp[table[i].comp_id];
+			table[i].pa_addr = comp->regs_pa;
+			table[i].addr = comp->regs;
+		}
+	}
+}
+
 static int mtk_drm_kms_init(struct drm_device *drm)
 {
 	struct mtk_drm_private *private = drm->dev_private;
@@ -4301,6 +4334,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 			MTK_DRM_OPT_MMDVFS_SUPPORT))
 		mtk_drm_mmdvfs_init(drm->dev);
 	DDPINFO("%s-\n", __func__);
+	mtk_drm_init_dummy_table(private);
 
 	mtk_drm_first_enable(drm);
 

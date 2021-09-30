@@ -27,6 +27,16 @@ struct device;
 struct mtk_disp_mutex;
 struct mtk_mmsys_reg_data;
 
+struct dummy_mapping {
+	resource_size_t pa_addr;
+	void __iomem *addr;
+	enum mtk_ddp_comp_id comp_id;
+	unsigned int offset;
+};
+
+#define MT6983_DUMMY_REG_CNT 56
+extern struct dummy_mapping mt6983_dispsys_dummy_register[MT6983_DUMMY_REG_CNT];
+
 const struct mtk_mmsys_reg_data *
 mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id);
 

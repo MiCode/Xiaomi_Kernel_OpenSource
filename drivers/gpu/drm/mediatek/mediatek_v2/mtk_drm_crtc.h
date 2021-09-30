@@ -86,41 +86,24 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_CONFIG_FENCE_BASE 0x0000
 #define DISP_SLOT_CUR_CONFIG_FENCE(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE_BASE + (0x4 * (n)))
-#define DISP_SLOT_OVL_DSI_SEQ(n)                                          \
-	(DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR) + (0x4 * (n)))
 #define DISP_SLOT_PRESENT_FENCE(n)                                          \
-	(DISP_SLOT_OVL_DSI_SEQ(MAX_CRTC) + (0x4 * (n)))
-#define DISP_SLOT_SF_PRESENT_FENCE(n)                                          \
-	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC) + (0x4 * (n)))
+	(DISP_SLOT_CUR_CONFIG_FENCE(MAX_PLANE_NR) + (0x4 * (n)))
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
-	(DISP_SLOT_SF_PRESENT_FENCE(MAX_CRTC) + 0x4)
+	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC))
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE(n)                                      \
 	(DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE + (0x4 * (n)))
-#define DISP_SLOT_ESD_READ_BASE DISP_SLOT_SUBTRACTOR_WHEN_FREE(OVL_LAYER_NR)
-#define DISP_SLOT_PMQOS_BW_BASE                                                \
-	(DISP_SLOT_ESD_READ_BASE + (ESD_CHECK_NUM * 2 * 0x4))
-#define DISP_SLOT_PMQOS_BW(n) (DISP_SLOT_PMQOS_BW_BASE + ((n)*0x4))
-#define DISP_SLOT_RDMA_FB_IDX_BASE (DISP_SLOT_PMQOS_BW(BW_MODULE))
+#define DISP_SLOT_RDMA_FB_IDX_BASE (DISP_SLOT_SUBTRACTOR_WHEN_FREE(MAX_PLANE_NR))
 #define DISP_SLOT_RDMA_FB_IDX (DISP_SLOT_RDMA_FB_IDX_BASE + 0x4)
 #define DISP_SLOT_RDMA_FB_ID (DISP_SLOT_RDMA_FB_IDX + 0x4)
 #define DISP_SLOT_CUR_HRT_IDX (DISP_SLOT_RDMA_FB_ID + 0x4)
 #define DISP_SLOT_CUR_HRT_LEVEL (DISP_SLOT_CUR_HRT_IDX + 0x4)
 #define DISP_SLOT_CUR_OUTPUT_FENCE (DISP_SLOT_CUR_HRT_LEVEL + 0x4)
 #define DISP_SLOT_CUR_INTERFACE_FENCE (DISP_SLOT_CUR_OUTPUT_FENCE + 0x4)
-#define DISP_SLOT_COLOR_MATRIX_PARAMS(n)                                      \
-	((DISP_SLOT_CUR_INTERFACE_FENCE + 0x4) + (n) * 0x4)
 #define DISP_SLOT_OVL_STATUS						       \
-	(DISP_SLOT_COLOR_MATRIX_PARAMS(COLOR_MATRIX_PARAMS))
-#define DISP_SLOT_LAYER_REC_BASE (DISP_SLOT_OVL_STATUS + 0x4)
-#define DISP_SLOT_LAYER_REC_OVL0_2L (DISP_SLOT_LAYER_REC_BASE)
-#define DISP_SLOT_LAYER_REC_OVL0 (DISP_SLOT_LAYER_REC_OVL0_2L + 0x4 * 14)
-#define DISP_SLOT_LAYER_REC_END (DISP_SLOT_LAYER_REC_OVL0 + 0x4 * 18)
-#define DISP_SLOT_TRIG_CNT (DISP_SLOT_LAYER_REC_END)
-#define DISP_SLOT_READ_DDIC_BASE (DISP_SLOT_TRIG_CNT + 0x4)
+	((DISP_SLOT_CUR_INTERFACE_FENCE + 0x4))
+#define DISP_SLOT_READ_DDIC_BASE (DISP_SLOT_OVL_STATUS + 0x4)
 #define DISP_SLOT_READ_DDIC_BASE_END		\
 	(DISP_SLOT_READ_DDIC_BASE + READ_DDIC_SLOT_NUM * 0x4)
-#define DISP_SLOT_CUR_USER_CMD_IDX (DISP_SLOT_READ_DDIC_BASE_END + 0x4)
-#define DISP_SLOT_CUR_BL_IDX (DISP_SLOT_CUR_USER_CMD_IDX + 0x4)
 
 /* For Dynamic OVL feature */
 #define DISP_OVL_ROI_SIZE 0x20
@@ -128,7 +111,7 @@ enum DISP_PMQOS_SLOT {
 
 /* TODO: figure out Display pipe which need report PMQOS BW */
 /*Msync 2.0*/
-#define DISP_SLOT_VFP_PERIOD (DISP_SLOT_CUR_BL_IDX + 0x4)
+#define DISP_SLOT_VFP_PERIOD (DISP_SLOT_READ_DDIC_BASE_END)
 #define DISP_SLOT_DSI_STATE_DBG7 (DISP_SLOT_VFP_PERIOD + 0x4)
 #define DISP_SLOT_DSI_STATE_DBG7_2 (DISP_SLOT_DSI_STATE_DBG7 + 0x4)
 
@@ -998,6 +981,16 @@ unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id)
 
 int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en);
 int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);
+
+unsigned int mtk_get_mmsys_id(struct drm_crtc *crtc);
+
+unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
+			unsigned int slot_index);
+
+dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
+			unsigned int slot_index);
+
+unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int idx);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);

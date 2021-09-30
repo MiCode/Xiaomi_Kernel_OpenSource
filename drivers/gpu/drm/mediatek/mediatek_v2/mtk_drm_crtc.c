@@ -654,6 +654,20 @@ struct mtk_ddp_comp *mtk_crtc_get_comp(struct drm_crtc *crtc,
 	return ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[path_id][comp_idx];
 }
 
+unsigned int mtk_get_mmsys_id(struct drm_crtc *crtc)
+{
+	struct mtk_drm_private *priv;
+
+	if (crtc && crtc->dev && crtc->dev->dev_private) {
+		priv = crtc->dev->dev_private;
+
+		return priv->data->mmsys_id;
+	}
+
+	DDPPR_ERR("%s no vailid CRTC\n", __func__);
+	return 0;
+}
+
 static void mtk_drm_crtc_lfr_update(struct drm_crtc *crtc,
 					struct cmdq_pkt *cmdq_handle)
 {
@@ -744,18 +758,6 @@ int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc)
 static void bl_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
-	struct drm_crtc *crtc = cb_data->crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-	int id;
-	unsigned int bl_idx = 0;
-
-	id = drm_crtc_index(crtc);
-	if (id == 0) {
-		bl_idx = *(unsigned int *)(cmdq_buf->va_base +
-			DISP_SLOT_CUR_BL_IDX);
-		CRTC_MMP_MARK(id, bl_cb, bl_idx, 0);
-	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -768,7 +770,6 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_cmdq_cb_data *cb_data;
 	static unsigned int bl_cnt;
-	struct cmdq_pkt_buffer *cmdq_buf;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
 	int ret = 0;
@@ -866,13 +867,6 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 	}
-
-	/* add counter to check update frequency */
-	cmdq_buf = &(mtk_crtc->gce_obj.buf);
-	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-			   cmdq_buf->pa_base +
-				   DISP_SLOT_CUR_BL_IDX,
-			   bl_cnt, ~0);
 
 	CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
 	bl_cnt++;
@@ -1303,18 +1297,6 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 static void user_cmd_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
-	struct drm_crtc *crtc = cb_data->crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-	int id;
-	unsigned int user_cmd_idx = 0;
-
-	id = drm_crtc_index(crtc);
-	if (id == 0) {
-		user_cmd_idx = *(unsigned int *)(cmdq_buf->va_base +
-			DISP_SLOT_CUR_USER_CMD_IDX);
-		CRTC_MMP_MARK(id, user_cmd_cb, user_cmd_idx, 0);
-	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -1338,7 +1320,6 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
 	static unsigned int user_cmd_cnt;
-	struct cmdq_pkt_buffer *cmdq_buf;
 	struct DRM_DISP_CCORR_COEF_T *ccorr_config;
 
 	int index = 0;
@@ -1416,11 +1397,6 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 3);
 
 	/* add counter to check update frequency */
-	cmdq_buf = &(mtk_crtc->gce_obj.buf);
-	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-			   cmdq_buf->pa_base +
-				   DISP_SLOT_CUR_USER_CMD_IDX,
-			   user_cmd_cnt, ~0);
 	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 4);
 	user_cmd_cnt++;
 
@@ -2449,7 +2425,6 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int bw = overlap_to_bw(crtc, frame_weight);
 	int crtc_idx = drm_crtc_index(crtc);
 	unsigned int ovl0_2l_no_compress_num;
@@ -2494,6 +2469,10 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 		}
 	}
 
+	/* can't access backup slot since top clk off */
+	if (priv->power_state == false)
+		return;
+
 	/* Only update HRT information on path with HRT comp */
 	if (bw > mtk_crtc->qos_ctx->last_hrt_req) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -2501,18 +2480,18 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 			mtk_disp_set_hrt_bw(mtk_crtc, bw);
 
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
+			       mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_HRT_LEVEL),
 			       NO_PENDING_HRT, ~0);
 	} else if (bw < mtk_crtc->qos_ctx->last_hrt_req) {
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
+			       mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_HRT_LEVEL),
 			       bw, ~0);
 	}
 
 	mtk_crtc->qos_ctx->last_hrt_req = bw;
 
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-		       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_IDX,
+		       mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_HRT_IDX),
 		       crtc_state->prop_val[CRTC_PROP_LYE_IDX], ~0);
 }
 
@@ -3283,7 +3262,6 @@ static void sub_cmdq_cb(struct cmdq_cb_data data)
 	struct mtk_cmdq_cb_data *cb_data = data.data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(cb_data->crtc);
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	int session_id = -1, id = drm_crtc_index(cb_data->crtc), i;
 	unsigned int intr_fence = 0;
 
@@ -3295,8 +3273,9 @@ static void sub_cmdq_cb(struct cmdq_cb_data data)
 	}
 
 	/* Release output buffer fence */
-	intr_fence = *(unsigned int *)(cmdq_buf->va_base +
-			DISP_SLOT_CUR_INTERFACE_FENCE);
+	if (priv->power_state)
+		intr_fence = *(unsigned int *)
+			(mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_INTERFACE_FENCE));
 
 	if (intr_fence >= 1) {
 		DDPINFO("intr fence_idx:%d\n", intr_fence);
@@ -3312,11 +3291,15 @@ void mtk_crtc_release_output_buffer_fence(
 	struct drm_crtc *crtc, int session_id)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	unsigned int fence_idx = 0;
 
-	fence_idx = *(unsigned int *)(cmdq_buf->va_base +
-			DISP_SLOT_CUR_OUTPUT_FENCE);
+	/* fence release already during suspend */
+	if (priv->power_state == false)
+		return;
+
+	fence_idx = *(unsigned int *)
+		mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_OUTPUT_FENCE);
 	if (fence_idx) {
 		DDPINFO("output fence_idx:%d\n", fence_idx);
 		mtk_release_fence(session_id,
@@ -3340,6 +3323,7 @@ struct drm_framebuffer *mtk_drm_framebuffer_lookup(struct drm_device *dev,
 	return fb;
 }
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 				struct cmdq_pkt *cmdq_handle)
 {
@@ -3396,6 +3380,7 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 			DDPPR_ERR("Cannot not find DDP_COMPONENT_CCORR0\n");
 	}
 }
+#endif
 
 void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 {
@@ -3404,7 +3389,6 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	struct mtk_plane_state plane_state;
 	struct drm_framebuffer *fb;
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	struct mtk_cmdq_cb_data *cb_data;
 	unsigned int fb_idx, fb_id;
 	int session_id;
@@ -3422,8 +3406,8 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
 	/* find fb for RDMA */
-	fb_idx = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_RDMA_FB_IDX);
-	fb_id = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_RDMA_FB_ID);
+	fb_idx = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_RDMA_FB_IDX);
+	fb_id = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_RDMA_FB_ID);
 
 	/* 1-to-2*/
 	if (!fb_id)
@@ -3468,7 +3452,8 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	mtk_ddp_comp_layer_config(ddp_ctx->ddp_comp[DDP_SECOND_PATH][0], 0,
 				  &plane_state, cmdq_handle);
 
-	mtk_crtc_dc_config_color_matrix(crtc, cmdq_handle);
+	/* support DC with color matrix no more */
+	/* mtk_crtc_dc_config_color_matrix(crtc, cmdq_handle);*/
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
@@ -3486,18 +3471,23 @@ static void mtk_crtc_release_input_layer_fence(
 	struct drm_crtc *crtc, int session_id)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int i;
 	unsigned int fence_idx = 0;
 
-	cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	/* fence release already during suspend */
+	if (priv->power_state == false)
+		return;
+
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		unsigned int subtractor = 0;
 
-		fence_idx = *(unsigned int *)(cmdq_buf->va_base +
-					DISP_SLOT_CUR_CONFIG_FENCE(i));
-		subtractor = *(unsigned int *)(cmdq_buf->va_base +
-					DISP_SLOT_SUBTRACTOR_WHEN_FREE(i));
+		fence_idx = *(unsigned int *)
+			mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, i)));
+		subtractor = *(unsigned int *)
+			mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_SUBTRACTOR_WHEN_FREE(mtk_get_plane_slot_idx(mtk_crtc, i)));
 		subtractor &= 0xFFFF;
 		if (drm_crtc_index(crtc) == 2)
 			DDPINFO("%d, fence_idx:%d, subtractor:%d\n",
@@ -3510,7 +3500,6 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 		unsigned int ddp_mode)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	struct mtk_drm_private *priv =
 			mtk_crtc->base.dev->dev_private;
 	struct mtk_ddp_comp *comp;
@@ -3524,12 +3513,14 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 	if (drm_crtc_index(crtc) != 0)
 		return;
 
-	hrt_idx = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_CUR_HRT_IDX);
+	if (priv->power_state == false)
+		return;
+
+	hrt_idx = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_HRT_IDX);
 	atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, hrt_idx);
 	atomic_set(&mtk_crtc->qos_ctx->hrt_cond_sig, 1);
 	wake_up(&mtk_crtc->qos_ctx->hrt_cond_wq);
-	cur_hrt_bw = *(unsigned int *)(cmdq_buf->va_base +
-				DISP_SLOT_CUR_HRT_LEVEL);
+	cur_hrt_bw = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_HRT_LEVEL);
 	if (cur_hrt_bw != NO_PENDING_HRT &&
 		cur_hrt_bw <= mtk_crtc->qos_ctx->last_hrt_req) {
 
@@ -3542,7 +3533,7 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 			mtk_disp_set_hrt_bw(mtk_crtc,
 					mtk_crtc->qos_ctx->last_hrt_req);
 
-		*(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_CUR_HRT_LEVEL) =
+		*(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_HRT_LEVEL) =
 				NO_PENDING_HRT;
 	}
 }
@@ -3683,6 +3674,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct drm_atomic_state *atomic_state = crtc_state->state;
 	struct drm_crtc *crtc = crtc_state->crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int session_id, id;
 	unsigned int ovl_status = 0;
 	/*Msync2.0 related*/
@@ -3701,20 +3693,15 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	CRTC_MMP_EVENT_START(id, frame_cfg, 0, 0);
 
-	if (id == 0) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-
-		ovl_status = *(unsigned int *)(cmdq_buf->va_base +
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	if ((id == 0) && (priv->power_state)) {
+		ovl_status = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_OVL_STATUS);
 
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error\n");
-			if (mtk_crtc->enabled) {
-				mtk_drm_crtc_analysis(crtc);
-				mtk_drm_crtc_dump(crtc);
-			} else
-				DDPPR_ERR("crtc%d is disabled so skip dump\n",
-					id);
+			mtk_drm_crtc_analysis(crtc);
+			mtk_drm_crtc_dump(crtc);
 		}
 		/*Msync 2.0 related function*/
 		if (ovl_status & 1) {
@@ -3722,13 +3709,12 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		}
 
 		if (cb_data->msync2_enable) {
-
-			_dsi_state_dbg7 = *(unsigned int *)(cmdq_buf->va_base +
+			_dsi_state_dbg7 = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
 						DISP_SLOT_DSI_STATE_DBG7);
 			DDPDBG("[Msync]_dsi_state_dbg7=0x%x\n", _dsi_state_dbg7);
 			CRTC_MMP_MARK(id, dsi_state_dbg7, _dsi_state_dbg7, 0);
 
-			is_vfp_period = *(unsigned int *)(cmdq_buf->va_base +
+			is_vfp_period = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
 						DISP_SLOT_VFP_PERIOD);
 			DDPDBG("[Msync]is_vfp_period=%d\n", is_vfp_period);
 
@@ -3739,7 +3725,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				CRTC_MMP_MARK(id, vfp_period, 1, 0);
 
 			/*Msync ToDo: for debug*/
-			_dsi_state_dbg7_2 = *(unsigned int *)(cmdq_buf->va_base +
+			_dsi_state_dbg7_2 = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
 						DISP_SLOT_DSI_STATE_DBG7_2);
 			DDPDBG("[Msync]_dsi_state_dbg7 after sof=0x%x\n", _dsi_state_dbg7_2);
 			CRTC_MMP_MARK(id, dsi_dbg7_after_sof, _dsi_state_dbg7_2, 0);
@@ -3751,10 +3737,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
 	// release present fence
-	if (drm_crtc_index(crtc) != 2) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		unsigned int fence_idx = *(unsigned int *)(cmdq_buf->va_base +
-				DISP_SLOT_PRESENT_FENCE(drm_crtc_index(crtc)));
+	if ((drm_crtc_index(crtc) != 2) && (priv->power_state)) {
+		unsigned int fence_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_PRESENT_FENCE(drm_crtc_index(crtc))));
 
 		// only VDO mode panel use CMDQ call
 		if (mtk_crtc &&
@@ -3768,6 +3753,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		}
 	}
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 	/* for wfd latency debug */
 	if (id == 0 || id == 2) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -3781,12 +3767,11 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				mtk_drm_trace_async_end("OVL2-WDMA|%d", ovl_dsi_seq);
 		}
 	}
-
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+#endif
 	if (!mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
-	if (mtk_crtc->enabled)
+	if (priv->power_state)
 		mtk_crtc_update_hrt_qos(crtc, cb_data->misc);
 	else
 		DDPINFO("crtc%d is disabled so skip update hrt qos\n", id);
@@ -3900,7 +3885,6 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	unsigned int ovl_is_busy;
 
 #ifndef DRM_CMDQ_DISABLE
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 #endif
 
@@ -3952,21 +3936,21 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 		mtk_ddp_comp_layer_config(comp, i, plane_state, cmdq_handle);
 
 #ifndef DRM_CMDQ_DISABLE
-		last_fence = *(unsigned int *)(cmdq_buf->va_base +
-					       DISP_SLOT_CUR_CONFIG_FENCE(i));
+		last_fence = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
+			       DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, i)));
 		cur_fence =
 			(unsigned int)plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
 
 		if (cur_fence != -1 && cur_fence > last_fence)
 			cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-				       cmdq_buf->pa_base +
-					       DISP_SLOT_CUR_CONFIG_FENCE(i),
-				       cur_fence, ~0);
+			       mtk_get_gce_backup_slot_pa(mtk_crtc,
+			       DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, i))),
+			       cur_fence, ~0);
 
 		sub = 1;
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-			       cmdq_buf->pa_base +
-				       DISP_SLOT_SUBTRACTOR_WHEN_FREE(i),
+			       mtk_get_gce_backup_slot_pa(mtk_crtc,
+			       DISP_SLOT_SUBTRACTOR_WHEN_FREE(mtk_get_plane_slot_idx(mtk_crtc, i))),
 			       sub, ~0);
 #endif
 		plane_state->pending.config = false;
@@ -4034,6 +4018,7 @@ void mtk_crtc_clear_wait_event(struct drm_crtc *crtc)
 }
 
 #ifndef DRM_CMDQ_DISABLE
+#ifdef IF_ZERO /* not ready for dummy register method */
 static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
 				  struct cmdq_pkt *cmdq_handle)
 {
@@ -4051,6 +4036,7 @@ static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
 				cmdq_buf->pa_base + DISP_SLOT_TRIG_CNT,
 				CMDQ_CPR_DISP_CNT, U32_MAX);
 }
+#endif
 #endif
 
 /* sw workaround to fix gce hw bug */
@@ -4089,7 +4075,6 @@ void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
 static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 		struct mtk_drm_crtc *mtk_crtc)
 {
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	const u16 reg_jump = CMDQ_THR_SPR_IDX2;
 	const u16 te1_en = CMDQ_THR_SPR_IDX3;
 	struct cmdq_operand lop;
@@ -4098,7 +4083,7 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	u64 *inst, jump_pa;
 
 	cmdq_pkt_read(cmdq_handle, NULL,
-		cmdq_buf->pa_base + DISP_SLOT_TE1_EN, te1_en);
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_TE1_EN), te1_en);
 	lop.reg = true;
 	lop.idx = te1_en;
 	rop.reg = false;
@@ -4238,6 +4223,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 		mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle, MTK_TRIG_FLAG_EOF);
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC)) {
 			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
@@ -4249,7 +4235,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		} else {
 			mtk_crtc->layer_rec_en = false;
 		}
-
+#endif
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	} else {
@@ -4303,6 +4289,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_SODI]);
 		}
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC)) {
 			cmdq_pkt_clear_event(cmdq_handle,
@@ -4323,6 +4310,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		} else {
 			mtk_crtc->layer_rec_en = false;
 		}
+#endif
 		/*Msync 2.0 add vfp period token instead of EOF*/
 		if (crtc_id == 0) {
 			if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -6350,8 +6338,6 @@ static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *output_comp;
 	dma_addr_t addr;
 
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-
 	/*0->1*/
 	if ((old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0) &&
 				(crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)) {
@@ -6403,7 +6389,7 @@ static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
 			DSI_ADD_VFP_FOR_MSYNC, NULL);
-	addr = cmdq_buf->pa_base + DISP_SLOT_VFP_PERIOD;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_VFP_PERIOD);
 	/* for debug: first init vfp period slot to 1*/
 	cmdq_pkt_write(cmdq_handle,
 		mtk_crtc->gce_obj.base, addr, 1, ~0);
@@ -6942,7 +6928,6 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 #ifndef DRM_CMDQ_DISABLE
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
 #endif
@@ -7010,11 +6995,12 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 		}
 	}
 #ifndef DRM_CMDQ_DISABLE
-	last_fence = *(unsigned int *)(cmdq_buf->va_base +
-				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
+	last_fence = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
+		       DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, plane_index)));
 	cur_fence = plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_CUR_CONFIG_FENCE(plane_index);
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+		DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, plane_index)));
 	if (cur_fence != -1 && cur_fence > last_fence)
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr,
 			       cur_fence, ~0);
@@ -7024,7 +7010,8 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 		sub = 1;
 	else
 		sub = 0;
-	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+		DISP_SLOT_SUBTRACTOR_WHEN_FREE(mtk_get_plane_slot_idx(mtk_crtc, plane_index)));
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
 #endif
 	DDPINFO("%s-\n", __func__);
@@ -7042,7 +7029,6 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 #ifndef DRM_CMDQ_DISABLE
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
 #endif
@@ -7105,11 +7091,12 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	}
 
 #ifndef DRM_CMDQ_DISABLE
-	last_fence = *(unsigned int *)(cmdq_buf->va_base +
-				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
+	last_fence = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
+		       DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, plane_index)));
 	cur_fence = (unsigned int)plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_CUR_CONFIG_FENCE(plane_index);
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+		DISP_SLOT_CUR_CONFIG_FENCE(mtk_get_plane_slot_idx(mtk_crtc, plane_index)));
 	if (cur_fence != -1 && cur_fence > last_fence)
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr,
 			       cur_fence, ~0);
@@ -7119,7 +7106,8 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		sub = 1;
 	else
 		sub = 0;
-	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc,
+		DISP_SLOT_SUBTRACTOR_WHEN_FREE(mtk_get_plane_slot_idx(mtk_crtc, plane_index)));
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
 #endif
 	DDPINFO("%s-\n", __func__);
@@ -7216,11 +7204,10 @@ static void mtk_crtc_wb_backup_to_slot(struct drm_crtc *crtc,
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_crtc_ddp_ctx *ddp_ctx = NULL;
 	dma_addr_t addr;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_IDX;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_RDMA_FB_IDX);
 	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 			addr, 0, ~0);
@@ -7229,7 +7216,7 @@ static void mtk_crtc_wb_backup_to_slot(struct drm_crtc *crtc,
 			addr, ddp_ctx->dc_fb_idx, ~0);
 	}
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_ID;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_RDMA_FB_ID);
 	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 			addr, state->prop_val[CRTC_PROP_OUTPUT_FB_ID], ~0);
@@ -7238,11 +7225,11 @@ static void mtk_crtc_wb_backup_to_slot(struct drm_crtc *crtc,
 			addr, ddp_ctx->dc_fb->base.id, ~0);
 	}
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_CUR_OUTPUT_FENCE;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_OUTPUT_FENCE);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		addr, state->prop_val[CRTC_PROP_OUTPUT_FENCE_IDX], ~0);
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_CUR_INTERFACE_FENCE;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_INTERFACE_FENCE);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		addr, state->prop_val[CRTC_PROP_INTF_FENCE_IDX], ~0);
 }
@@ -7314,6 +7301,7 @@ end:
 	return ccorr_config;
 }
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 static void mtk_crtc_backup_color_matrix_data(struct drm_crtc *crtc,
 				struct disp_ccorr_config *ccorr_config,
 				struct cmdq_pkt *cmdq_handle)
@@ -7337,6 +7325,7 @@ static void mtk_crtc_backup_color_matrix_data(struct drm_crtc *crtc,
 		addr, ccorr_config->color_matrix[i], ~0);
 	}
 }
+#endif
 
 static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 				struct disp_ccorr_config *ccorr_config,
@@ -7380,10 +7369,14 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 		}
 	}
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 	if (set)
 		mtk_crtc_backup_color_matrix_data(crtc, ccorr_config,
 						cmdq_handle);
 	else
+#else
+	if (!set)
+#endif
 		DDPPR_ERR("Cannot not find DDP_COMPONENT_CCORR0\n");
 }
 
@@ -7452,9 +7445,11 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		mtk_crtc_wb_backup_to_slot(crtc, cmdq_handle);
 
 		/* backup color matrix for DC and DC Mirror for RDMA update*/
+#ifdef IF_ZERO /* not ready for dummy register method */
 		if (mtk_crtc_is_dc_mode(crtc))
 			mtk_crtc_backup_color_matrix_data(crtc, ccorr_config,
 							cmdq_handle);
+#endif
 	}
 
 	/* need to check mml is submit done */
@@ -7651,6 +7646,7 @@ static void mtk_atomic_hbm_bypass_pq(struct drm_crtc *crtc,
 	}
 }
 
+#ifdef IF_ZERO /* not ready for dummy register method */
 static void sf_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
@@ -7658,6 +7654,7 @@ static void sf_cmdq_cb(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 }
+#endif
 
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state)
@@ -7763,10 +7760,9 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	/* backup present fence */
 	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 		dma_addr_t addr =
-			cmdq_buf->pa_base +
-			DISP_SLOT_PRESENT_FENCE(index);
+			mtk_get_gce_backup_slot_pa(mtk_crtc,
+			DISP_SLOT_PRESENT_FENCE(index));
 
 		cmdq_pkt_write(cmdq_handle,
 			mtk_crtc->gce_obj.base, addr,
@@ -7776,6 +7772,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* for wfd latency debug */
+#ifdef IF_ZERO /* not ready for dummy register method */
 	if (index == 0 || index == 2) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 		dma_addr_t addr =
@@ -7795,7 +7792,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
 		}
 	}
-
+#endif
 	atomic_set(&mtk_crtc->delayed_trig, 1);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
@@ -7868,42 +7865,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	ddp_cmdq_cb_blocking(cb_data);
 #endif
 #endif
-
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SF_PF) &&
-	   (state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1)) {
-		struct cmdq_pkt *cmdq_handle;
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		struct mtk_cmdq_cb_data *sf_cb_data;
-		dma_addr_t addr;
-
-		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
-		sf_cb_data = kmalloc(sizeof(*sf_cb_data), GFP_KERNEL);
-		if (!sf_cb_data) {
-			DDPPR_ERR("cb data creation failed\n");
-			CRTC_MMP_MARK(index, atomic_flush, 1, 1);
-			goto end;
-		}
-
-		if (index == 0)
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-
-		addr = cmdq_buf->pa_base + DISP_SLOT_SF_PRESENT_FENCE(index);
-
-		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr,
-			       state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX],
-			       ~0);
-		CRTC_MMP_MARK(index, update_sf_present_fence, 0,
-			      state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX]);
-
-		sf_cb_data->cmdq_handle = cmdq_handle;
-
-		if (cmdq_pkt_flush_threaded(cmdq_handle,
-				sf_cmdq_cb, sf_cb_data) < 0)
-			DDPPR_ERR("failed to flush sf_cmdq_cb\n");
-	}
 
 	/*Msync 2.0*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
@@ -8224,6 +8185,7 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 }
 
 #ifndef DRM_CMDQ_DISABLE
+#ifdef IF_ZERO /* not ready for dummy register method */
 static void mtk_crtc_init_color_matrix_data_slot(
 					struct mtk_drm_crtc *mtk_crtc)
 {
@@ -8243,6 +8205,7 @@ static void mtk_crtc_init_color_matrix_data_slot(
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }
+#endif
 #endif
 
 static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
@@ -8314,11 +8277,111 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 
 	memset(cmdq_buf->va_base, 0, DISP_SLOT_SIZE);
 
-	mtk_crtc_init_color_matrix_data_slot(mtk_crtc);
+	/* support DC with color matrix config no more */
+	/* mtk_crtc_init_color_matrix_data_slot(mtk_crtc); */
 
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
 #endif
 }
+
+unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int idx)
+{
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	if (drm_crtc_index(crtc) > 0)
+		idx += OVL_LAYER_NR;
+	if (drm_crtc_index(crtc) > 1)
+		idx += EXTERNAL_INPUT_LAYER_NR;
+
+	return idx;
+}
+
+unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
+			unsigned int slot_index)
+{
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	size_t size;
+	unsigned int offset = 0;
+	struct dummy_mapping *table;
+	unsigned int idx;
+
+	if (slot_index > DISP_SLOT_SIZE) {
+		DDPPR_ERR("%s invalid slot_index", __func__);
+		return NULL;
+	}
+
+	if (mtk_get_mmsys_id(crtc) != MMSYS_MT6983) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		if (cmdq_buf == NULL) {
+			DDPPR_ERR("%s invalid cmdq_buffer\n", __func__);
+			return NULL;
+		}
+
+		return (cmdq_buf->va_base + slot_index);
+	}
+
+	idx = slot_index / sizeof(unsigned int);
+	table = mt6983_dispsys_dummy_register;
+	size = MT6983_DUMMY_REG_CNT;
+
+	if (idx < size) {
+		offset = table[idx].offset;
+		if (table[idx].addr == NULL) {
+			DDPPR_ERR("NULL pointer\n");
+			return NULL;
+		}
+		return table[idx].addr + offset;
+	}
+
+	DDPPR_ERR("%s exceed avilable register table\n", __func__);
+
+	return NULL;
+}
+
+dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
+			unsigned int slot_index)
+{
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	size_t size;
+	unsigned int offset = 0;
+	struct dummy_mapping *table;
+	unsigned int idx;
+
+	if (slot_index > DISP_SLOT_SIZE) {
+		DDPPR_ERR("%s invalid slot_index", __func__);
+		return 0;
+	}
+
+	if (mtk_get_mmsys_id(crtc) != MMSYS_MT6983) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		if (cmdq_buf == NULL) {
+			DDPPR_ERR("%s invalid cmdq_buffer\n", __func__);
+			return 0;
+		}
+
+		return (cmdq_buf->pa_base + slot_index);
+	}
+
+	idx = slot_index / sizeof(unsigned int);
+	table = mt6983_dispsys_dummy_register;
+	size = MT6983_DUMMY_REG_CNT;
+
+	if (idx < size) {
+		offset = table[idx].offset;
+		if (table[idx].pa_addr == 0) {
+			DDPPR_ERR("NULL pointer\n");
+			return 0;
+		}
+		return table[idx].pa_addr + offset;
+	}
+
+	DDPPR_ERR("%s exceed avilable register table\n", __func__);
+
+	return 0;
+}
+
 
 static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 			  struct mtk_cwb_info *cwb_info,
@@ -8591,11 +8654,7 @@ static int mtk_drm_pf_release_thread(void *data)
 	struct mtk_drm_private *private;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
-	unsigned int crtc_idx;
-#ifndef DRM_CMDQ_DISABLE
-	struct cmdq_pkt_buffer *cmdq_buf;
-	unsigned int fence_idx;
-#endif
+	unsigned int fence_idx = 0, crtc_idx;
 
 	crtc = &mtk_crtc->base;
 	private = crtc->dev->dev_private;
@@ -8609,9 +8668,15 @@ static int mtk_drm_pf_release_thread(void *data)
 
 #ifndef DRM_CMDQ_DISABLE
 		mutex_lock(&private->commit.lock);
-		cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		fence_idx = *(unsigned int *)(cmdq_buf->va_base +
-				DISP_SLOT_PRESENT_FENCE(crtc_idx));
+		if (private->power_state == false) {
+			mtk_release_present_fence(private->session_id[crtc_idx],
+						  atomic_read(&private->crtc_present[crtc_idx]), 0);
+			mutex_unlock(&private->commit.lock);
+			continue;
+		}
+
+		fence_idx = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_PRESENT_FENCE(crtc_idx)));
 
 		mtk_release_present_fence(private->session_id[crtc_idx],
 					  fence_idx, 0);
@@ -8627,16 +8692,10 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 	struct mtk_drm_private *private;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
-	unsigned int crtc_idx;
-#ifndef DRM_CMDQ_DISABLE
-	struct cmdq_pkt_buffer *cmdq_buf;
-	unsigned int fence_idx;
-#endif
 
 
 	crtc = &mtk_crtc->base;
 	private = crtc->dev->dev_private;
-	crtc_idx = drm_crtc_index(crtc);
 	sched_set_normal(current, 19);
 
 	while (!kthread_should_stop()) {
@@ -8646,12 +8705,7 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 
 #ifndef DRM_CMDQ_DISABLE
 		mutex_lock(&private->commit.lock);
-		cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		fence_idx = *(unsigned int *)(cmdq_buf->va_base +
-				DISP_SLOT_SF_PRESENT_FENCE(crtc_idx));
 
-		mtk_release_sf_present_fence(private->session_id[crtc_idx],
-					     fence_idx);
 		mutex_unlock(&private->commit.lock);
 #endif
 	}
@@ -9416,7 +9470,6 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct mtk_ddp_comp *comp;
 	dma_addr_t addr;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	int i;
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
@@ -9466,7 +9519,7 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
-	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_ID;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_RDMA_FB_ID);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		addr, 0, ~0);
 }
@@ -10792,7 +10845,6 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *private = crtc->dev->dev_private;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	struct dual_te *d_te = &mtk_crtc->d_te;
 	struct cmdq_pkt *handle;
 	static bool set_outpin;
@@ -10813,7 +10865,7 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 				true);
 		set_outpin = true;
 	}
-	addr = cmdq_buf->pa_base + DISP_SLOT_TE1_EN;
+	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_TE1_EN);
 	if (te_num == 1) {
 		DDPMSG("switched to te1!\n");
 		atomic_set(&d_te->te_switched, 1);

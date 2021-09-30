@@ -562,6 +562,7 @@ int mtk_ovl_aid_bit(struct mtk_ddp_comp *comp, bool is_ext, int id)
 static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 				 struct mtk_ddp_comp *ovl)
 {
+#ifdef IF_ZERO /* not ready for dummy register method */
 #define LEN 1000
 	struct cmdq_pkt_buffer *cmdq_buf = NULL;
 	u32 offset = 0;
@@ -659,6 +660,7 @@ next:
 
 	n += snprintf(msg + n, LEN - n, "\n");
 	trace_layer_bw(msg);
+#endif
 }
 
 static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
@@ -2710,6 +2712,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	}
 	case PMQOS_SET_BW: {
+#ifdef IF_ZERO /* not ready for dummy register method */
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
 		u32 ovl_bw, slot_num;
@@ -2738,6 +2741,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		__mtk_disp_set_module_bw(comp->qos_req, comp->id, ovl_bw,
 					    DISP_BW_NORMAL_MODE);
+#endif
 		break;
 	}
 	case PMQOS_SET_HRT_BW: {
@@ -2755,8 +2759,6 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case PMQOS_UPDATE_BW: {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
-		struct cmdq_pkt_buffer *cmdq_buf;
-		u32 slot_num;
 
 		if (!mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_MMQOS_SUPPORT))
@@ -2764,23 +2766,14 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
-		cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 		/* process FBDC */
-		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
-					DISP_BW_FBDC_MODE);
-
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       cmdq_buf->pa_base + DISP_SLOT_PMQOS_BW(slot_num),
-			       comp->fbdc_bw, ~0);
+		__mtk_disp_set_module_bw(comp->fbdc_qos_req, comp->id, comp->fbdc_bw,
+					    DISP_BW_FBDC_MODE);
 
 		/* process normal */
-		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
-					DISP_BW_NORMAL_MODE);
-
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       cmdq_buf->pa_base + DISP_SLOT_PMQOS_BW(slot_num),
-			       comp->qos_bw, ~0);
+		__mtk_disp_set_module_bw(comp->qos_req, comp->id, comp->qos_bw,
+					    DISP_BW_NORMAL_MODE);
 
 		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u\n",
 			comp->fbdc_bw, comp->qos_bw);
@@ -2799,8 +2792,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	}
 	case BACKUP_OVL_STATUS: {
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_OVL_STATUS;
+		dma_addr_t slot = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_OVL_STATUS);
 
 		cmdq_pkt_mem_move(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_STA,
@@ -3345,6 +3337,7 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 		       enum mtk_ddp_comp_trigger_flag flag)
 {
 	switch (flag) {
+#ifdef IF_ZERO /* not ready for dummy register method */
 	case MTK_TRIG_FLAG_LAYER_REC:
 	{
 		u32 offset = 0;
@@ -3427,6 +3420,7 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 
 		break;
 	}
+#endif
 	default:
 		break;
 	}

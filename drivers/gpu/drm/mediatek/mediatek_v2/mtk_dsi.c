@@ -2893,10 +2893,15 @@ static int mtk_dsi_trigger(struct mtk_ddp_comp *comp, void *handle)
 }
 
 int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
-			struct DSI_T0_INS *t0, int i, uintptr_t slot)
+			struct DSI_T0_INS *t0, int i, void *ptr)
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-	dma_addr_t read_slot = (dma_addr_t)slot;
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+
+	if (mtk_crtc == NULL) {
+		DDPPR_ERR("%s dsi comp not configure CRTC yet", __func__);
+		return -EAGAIN;
+	}
 
 	if (dsi->slave_dsi) {
 		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
@@ -2921,10 +2926,12 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 		0x0, 0x1);
 
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
-		comp->regs_pa + DSI_RX_DATA0, read_slot + (i * 2) * 0x4,
+		comp->regs_pa + DSI_RX_DATA0,
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_READ_DDIC_BASE + (i * 2) * 0x4),
 		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
-		comp->regs_pa + DSI_RX_DATA1, read_slot + (i * 2 + 1) * 0x4,
+		comp->regs_pa + DSI_RX_DATA1,
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_READ_DDIC_BASE + (i * 2 + 1) * 0x4),
 		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_RACK,
 		0x1, 0x1);
@@ -2941,7 +2948,7 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 	return 0;
 }
 
-int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
+int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
 	int i;
 	struct DSI_T0_INS t0;
@@ -2965,19 +2972,20 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 				     : DSI_GERNERIC_READ_LONG_PACKET_ID;
 		t0.Data1 = 0;
 
-		mtk_dsi_read_gce(comp, handle, &t0, i, slot);
+		mtk_dsi_read_gce(comp, handle, &t0, i, ptr);
 	}
 
 	return 0;
 }
 
-int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *slot)
+int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
 	int i, ret = 0;
 	u32 tmp0, tmp1, chk_val;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct esd_check_item *lcm_esd_tb;
 	struct mtk_panel_params *params;
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
 
 	if (dsi->ext && dsi->ext->params)
 		params = dsi->ext->params;
@@ -2988,9 +2996,11 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *slot)
 		if (dsi->ext->params->lcm_esd_check_table[i].cmd == 0)
 			break;
 
-		if (slot) {
-			tmp0 = AS_UINT32(slot + (i * 2) * 0x4);
-			tmp1 = AS_UINT32(slot + (i * 2 + 1) * 0x4);
+		if (mtk_crtc) {
+			tmp0 = AS_UINT32(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_READ_DDIC_BASE + (i * 2) * 0x4));
+			tmp1 = AS_UINT32(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_READ_DDIC_BASE + (i * 2 + 1) * 0x4));
 		} else if (i == 0) {
 			tmp0 = readl(dsi->regs + DSI_RX_DATA0);
 			tmp1 = readl(dsi->regs + DSI_RX_DATA1);
@@ -4736,11 +4746,14 @@ static void _mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	struct DSI_T0_INS t0, t1;
-	dma_addr_t read_slot = mtk_crtc->gce_obj.buf.pa_base +
-					DISP_SLOT_READ_DDIC_BASE;
 	const char *tx_buf = msg->tx_buf;
 
 	DDPMSG("%s +\n", __func__);
+
+	if (mtk_crtc == NULL) {
+		DDPPR_ERR("%s dsi comp not configure CRTC yet", __func__);
+		return;
+	}
 
 	DDPINFO("%s type=0x%x, tx_len=%d, tx_buf[0]=0x%x, rx_len=%d\n",
 		__func__, msg->type, (int)msg->tx_len,
@@ -4787,16 +4800,20 @@ static void _mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 		0x0, 0x1);
 
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
-		comp->regs_pa + DSI_RX_DATA0, read_slot,
+		comp->regs_pa + DSI_RX_DATA0,
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_READ_DDIC_BASE),
 		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
-		comp->regs_pa + DSI_RX_DATA1, read_slot + 1 * 0x4,
+		comp->regs_pa + DSI_RX_DATA1,
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_READ_DDIC_BASE + 1 * 0x4),
 		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
-		comp->regs_pa + DSI_RX_DATA2, read_slot + 2 * 0x4,
+		comp->regs_pa + DSI_RX_DATA2,
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_READ_DDIC_BASE + 2 * 0x4),
 		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
-		comp->regs_pa + DSI_RX_DATA3, read_slot + 3 * 0x4,
+		comp->regs_pa + DSI_RX_DATA3,
+		mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_READ_DDIC_BASE + 3 * 0x4),
 		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_RACK,
 		0x1, 0x1);
@@ -4921,7 +4938,7 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 	for (i = 0; i < READ_DDIC_SLOT_NUM; i++) {
 		cmdq_pkt_write(cmdq_handle,
 			mtk_crtc->gce_obj.base,
-			(mtk_crtc->gce_obj.buf.pa_base +
+			mtk_get_gce_backup_slot_pa(mtk_crtc,
 				DISP_SLOT_READ_DDIC_BASE + i * 0x4),
 			0xff00ff00, ~0);
 	}
@@ -4981,19 +4998,19 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 
 	/* Copy slot data to data array */
 	memcpy((void *)&read_data0,
-		(mtk_crtc->gce_obj.buf.va_base +
+		mtk_get_gce_backup_slot_va(mtk_crtc,
 			DISP_SLOT_READ_DDIC_BASE + 0 * 0x4),
 			sizeof(unsigned int));
 	memcpy((void *)&read_data1,
-		(mtk_crtc->gce_obj.buf.va_base +
+		mtk_get_gce_backup_slot_va(mtk_crtc,
 			DISP_SLOT_READ_DDIC_BASE + 1 * 0x4),
 			sizeof(unsigned int));
 	memcpy((void *)&read_data2,
-		(mtk_crtc->gce_obj.buf.va_base +
+		mtk_get_gce_backup_slot_va(mtk_crtc,
 			DISP_SLOT_READ_DDIC_BASE + 2 * 0x4),
 			sizeof(unsigned int));
 	memcpy((void *)&read_data3,
-		(mtk_crtc->gce_obj.buf.va_base +
+		mtk_get_gce_backup_slot_va(mtk_crtc,
 			DISP_SLOT_READ_DDIC_BASE + 3 * 0x4),
 			sizeof(unsigned int));
 
@@ -5883,7 +5900,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_stop_vdo_mode(dsi, handle);
 		break;
 	case ESD_CHECK_READ:
-		mtk_dsi_esd_read(comp, handle, (uintptr_t)params);
+		mtk_dsi_esd_read(comp, handle, params);
 		break;
 	case ESD_CHECK_CMP:
 		return mtk_dsi_esd_cmp(comp, handle, params);
@@ -6472,8 +6489,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		unsigned int vfront_porch_temp = 0;
 		//for test
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_DSI_STATE_DBG7_2;
+		dma_addr_t slot = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_DSI_STATE_DBG7_2);
 
 		DDPDBG("[Msync] %s:%d iocmd DSI_RESTORE_VFP_FOR_MSYNC\n", __func__, __LINE__);
 		panel_ext = mtk_dsi_get_panel_ext(comp);
@@ -6503,8 +6519,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		u16 vfp_period_spr = CMDQ_THR_SPR_IDX2;
 		//for test
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_DSI_STATE_DBG7;
+		dma_addr_t slot = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_DSI_STATE_DBG7);
 
 		DDPDBG("[Msync] %s:%d iocmd DSI_READ_VFP_PERIOD\n", __func__, __LINE__);
 		vfp_period_spr = *(u16*)params;
