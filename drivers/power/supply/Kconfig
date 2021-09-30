@@ -890,4 +890,12 @@ config RN5T618_POWER
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
 
+config GAUGE_MT6983_ALPHA_SUPPORT
+	tristate "Specify Alpha Gauge Platform is mt6983"
+	help
+	  Select Alpha Gauge Platform is mt6983.
+	  To compile this dirver for used touch IC.
+	  Set Y or M to select this feature for specific platform-mt6983,
+	  and set N to disable.
+
 endif # POWER_SUPPLY
