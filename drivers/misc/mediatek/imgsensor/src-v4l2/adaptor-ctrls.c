@@ -102,6 +102,16 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 	return ret;
 }
 
+/* notify frame-sync update tg */
+static void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val)
+{
+	/* call frame-sync fs_update_tg() */
+	if (ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_update_tg(ctx->idx, val + 1);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+}
+
 /* notify frame-sync set sensor for doing frame sync */
 static void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)
 {
@@ -738,6 +748,10 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			ctx->idx, ctrl->val);
 
 		notify_fsync_mgr_set_sync(ctx, (u64)ctrl->val);
+		break;
+
+	case V4L2_CID_FSYNC_MAP_ID:
+		notify_fsync_mgr_update_tg(ctx, (u64)ctrl->val);
 		break;
 
 	case V4L2_CID_MTK_AWB_GAIN:
