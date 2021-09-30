@@ -244,6 +244,10 @@ pvr_sync_finalise_fence(PVRSRV_FENCE fence_fd, void *finalise_data)
 	}
 
 	pvr_fence = to_pvr_fence(sync_file->fence);
+	if (!pvr_fence) {
+		pr_err(FILE_NAME ": %s: Fence not a pvr fence\n", __func__);
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
 
 	/* pvr fences can be signalled any time after creation */
 	dma_fence_enable_sw_signaling(&pvr_fence->base);
@@ -487,8 +491,10 @@ pvr_sync_resolve_fence(PSYNC_CHECKPOINT_CONTEXT psSyncCheckpointContext,
 	if (dma_fence_is_array(fence)) {
 		struct dma_fence_array *array = to_dma_fence_array(fence);
 
-		fences = array->fences;
-		num_fences = array->num_fences;
+		if (array) {
+			fences = array->fences;
+			num_fences = array->num_fences;
+		}
 	} else {
 		fences = &fence;
 		num_fences = 1;
@@ -622,8 +628,10 @@ pvr_sync_fence_get_checkpoints(PVRSRV_FENCE fence_to_pdump, u32 *nr_checkpoints,
 	if (dma_fence_is_array(fence)) {
 		struct dma_fence_array *array = to_dma_fence_array(fence);
 
-		fences = array->fences;
-		num_fences = array->num_fences;
+		if (array) {
+			fences = array->fences;
+			num_fences = array->num_fences;
+		}
 	} else {
 		fences = &fence;
 		num_fences = 1;
@@ -1093,15 +1101,18 @@ static void _dump_fence(struct dma_fence *fence,
 		struct dma_fence_array *fence_array = to_dma_fence_array(fence);
 		int i;
 
-		PVR_DUMPDEBUG_LOG(dump_debug_printf,
+		if (fence_array) {
+			PVR_DUMPDEBUG_LOG(dump_debug_printf,
 				  dump_debug_file,
 				  "Fence: [%p] Sync Points:\n",
 				  fence_array);
 
-		for (i = 0; i < fence_array->num_fences; i++)
-			_dump_sync_point(fence_array->fences[i],
+			for (i = 0; i < fence_array->num_fences; i++) {
+				  _dump_sync_point(fence_array->fences[i],
 					 dump_debug_printf,
 					 dump_debug_file);
+			}
+		}
 
 	} else {
 		_dump_sync_point(fence, dump_debug_printf, dump_debug_file);
