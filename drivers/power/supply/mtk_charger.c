@@ -2379,6 +2379,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	chr_err("%s\n", __func__);
 	info->chr_type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->charger_thread_polling = false;
+	info->pd_reset = false;
 
 	pdata1->disable_charging_count = 0;
 	pdata1->input_current_limit_by_aicl = -1;
@@ -3072,6 +3073,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_lock(&pinfo->pd_lock);
 		chr_err("PD Notify Detach\n");
 		pinfo->pd_type = MTK_PD_CONNECT_NONE;
+		pinfo->pd_reset = false;
 		mutex_unlock(&pinfo->pd_lock);
 		mtk_chg_alg_notify_call(pinfo, EVT_DETACH, 0);
 		/* reset PE40 */
@@ -3092,6 +3094,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_lock(&pinfo->pd_lock);
 		chr_err("PD Notify fixe voltage ready\n");
 		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK;
+		pinfo->pd_reset = false;
 		mutex_unlock(&pinfo->pd_lock);
 		/* PD is ready */
 		break;
@@ -3100,6 +3103,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_lock(&pinfo->pd_lock);
 		chr_err("PD Notify PD30 ready\r\n");
 		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_PD30;
+		pinfo->pd_reset = false;
 		mutex_unlock(&pinfo->pd_lock);
 		/* PD30 is ready */
 		break;
@@ -3108,6 +3112,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_lock(&pinfo->pd_lock);
 		chr_err("PD Notify APDO Ready\n");
 		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_APDO;
+		pinfo->pd_reset = false;
 		mutex_unlock(&pinfo->pd_lock);
 		/* PE40 is ready */
 		_wake_up_charger(pinfo);
@@ -3117,6 +3122,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_lock(&pinfo->pd_lock);
 		chr_err("PD Notify Type-C Ready\n");
 		pinfo->pd_type = MTK_PD_CONNECT_TYPEC_ONLY_SNK;
+		pinfo->pd_reset = false;
 		mutex_unlock(&pinfo->pd_lock);
 		/* type C is ready */
 		_wake_up_charger(pinfo);
