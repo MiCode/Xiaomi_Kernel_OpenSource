@@ -414,6 +414,18 @@ static int battery_psy_get_property(struct power_supply *psy,
 			val->intval = q_max_uah;
 		}
 		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+		bs_data = &gm->bs_data;
+		if (IS_ERR_OR_NULL(bs_data->chg_psy)) {
+			bs_data->chg_psy = devm_power_supply_get_by_phandle(
+				&gm->gauge->pdev->dev, "charger");
+			bm_err("%s retry to get chg_psy\n", __func__);
+		}
+		ret = power_supply_get_property(bs_data->chg_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, val);
+		if (ret < 0)
+			bm_err("get CV property fail\n");
+		break;
 
 
 	default:
@@ -764,10 +776,9 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 			dtime = ktime_sub(ctime, pre_time);
 			tmp_time = ktime_to_timespec64(dtime);
 
-			if (((tmp_time.tv_sec <= 20) &&
+			if ((tmp_time.tv_sec <= 20) &&
 				(abs(pre_bat_temperature_val2 -
-				bat_temperature_val) >= 5)) ||
-				bat_temperature_val >= 58) {
+				bat_temperature_val) >= 5)) {
 				bm_err("[%s][err] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d\n",
 					__func__,
 					bat_temperature_volt_temp,
