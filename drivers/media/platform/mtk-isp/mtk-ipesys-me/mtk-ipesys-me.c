@@ -54,10 +54,13 @@ int ME_TranslationFault_callback(int port, dma_addr_t mva, void *data)
 		pr_info("%s Unable to ioremap dip registers\n",
 		__func__);
 	}
-	for (i = ME_CTL_OFFSET; i <= ME_CTL_OFFSET + ME_CTL_RANGE; i += 0x4) {
-		pr_info("%s: 0x%08X %08X", __func__,
+	for (i = ME_CTL_OFFSET; i <= ME_CTL_OFFSET + ME_CTL_RANGE_TF; i += 0x10) {
+		pr_info("%s: 0x%08X %08X, %08X, %08X, %08X", __func__,
 		(unsigned int)(0x15320000 + i),
-		(unsigned int)ioread32((void *)(meRegBA + i)));
+		(unsigned int)ioread32((void *)(meRegBA + i)),
+		(unsigned int)ioread32((void *)(meRegBA + (i+0x4))),
+		(unsigned int)ioread32((void *)(meRegBA + (i+0x8))),
+		(unsigned int)ioread32((void *)(meRegBA + (i+0xC))));
 	}
 
 	return 1;

@@ -22,8 +22,10 @@ struct ipesys_me_device {
 	struct ipesys_me_clocks me_clk;
 };
 
-#define ME_CTL_OFFSET   0x0000
-#define ME_CTL_RANGE    0xA10
+#define ME_CTL_OFFSET      0x0000
+#define ME_CTL_RANGE       0xA10
+#define ME_CTL_RANGE_TF    0x120
+
 
 void ipesys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void ipesys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
