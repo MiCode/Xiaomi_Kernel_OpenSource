@@ -76,12 +76,17 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	uint32_t wp = 0;
 	struct transceiver_device *dev = private_data;
 	struct data_notify *dnotify = (struct data_notify *)n->value;
+	uint64_t start_time = 0, end_time = 0, timeout_ns = 10000000;
+	uint64_t wait_spin_lock_end_time = 0, kfifo_end_time = 0;
+	uint64_t complete_end_time = 0;
 
 	if (n->command != SENS_COMM_NOTIFY_DATA_CMD &&
 	    n->command != SENS_COMM_NOTIFY_FULL_CMD)
 		return;
 
+	start_time = ktime_get_boottime_ns();
 	spin_lock(&transceiver_fifo_lock);
+	wait_spin_lock_end_time = ktime_get_boottime_ns();
 	timesync_filter_set(&dev->filter,
 		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_fifo)) {
@@ -90,8 +95,15 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	}
 	wp = dnotify->write_position;
 	kfifo_in(&transceiver_fifo, &wp, 1);
+	kfifo_end_time = ktime_get_boottime_ns();
 	complete(&transceiver_done);
+	complete_end_time = ktime_get_boottime_ns();
 	spin_unlock(&transceiver_fifo_lock);
+	end_time = ktime_get_boottime_ns();
+	if (end_time - start_time > timeout_ns)
+		pr_err("%s time monitor:%llu, %llu, %llu, %llu, %llu\n",
+			start_time, wait_spin_lock_end_time, kfifo_end_time,
+			complete_end_time, end_time);
 }
 
 static void transceiver_super_notify_func(struct sensor_comm_notify *n,
