@@ -194,6 +194,7 @@ static unsigned long long get_w_ptr(void)
 {
 	unsigned long long st_addr, w_ptr;
 	unsigned int t_size;
+	static bool err_log;
 
 	st_addr = get_st_addr();
 	t_size = get_t_size();
@@ -204,14 +205,24 @@ static unsigned long long get_w_ptr(void)
 		 * return 0 here, it will not pass
 		 * sanity check in __apu_logtop_copy_buf()
 		 */
-		HWLOGR_WARN("st_addr = 0x%x, t_size = 0x%x\n",
-			st_addr, t_size);
+		/* only print the first error */
+		if (!err_log)
+			HWLOGR_WARN("st_addr = 0x%x, t_size = 0x%x\n",
+				st_addr, t_size);
+		err_log = true;
 		return 0;
 	}
 
 	w_ptr = ((2ULL << 34) +
 		((unsigned long long)ioread32(APU_LOG_BUF_W_PTR)
 		<< 2) - st_addr) % t_size + st_addr;
+
+	/* print when back to normal */
+	if (err_log) {
+		HWLOGR_INFO("[ok] w_ptr = 0x%x, st_addr = 0x%x, t_size = 0x%x\n",
+			w_ptr, st_addr, t_size);
+		err_log = false;
+	}
 
 	return w_ptr;
 }
@@ -320,6 +331,7 @@ static int __apu_logtop_copy_buf(unsigned int w_ofs,
 	unsigned int r_size;
 	unsigned int log_w_ofs, log_ov_flg;
 	int ret = 0;
+	static bool err_log;
 
 	if (!apu_logtop || !hw_log_buf || !local_log_buf)
 		return 0;
@@ -354,13 +366,27 @@ static int __apu_logtop_copy_buf(unsigned int w_ofs,
 
 	if (w_ofs + HWLOG_LINE_MAX_LENS > t_size ||
 		r_ofs + HWLOG_LINE_MAX_LENS > t_size || t_size == 0 || t_size > HWLOGR_LOG_SIZE) {
-		HWLOGR_WARN("w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n", w_ofs, r_ofs, t_size);
+		/* only print the first error */
+		if (!err_log)
+			HWLOGR_WARN("w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n",
+				w_ofs, r_ofs, t_size);
+		err_log = true;
 		return 0;
 	}
 
 	if (log_w_ofs + HWLOG_LINE_MAX_LENS > LOCAL_LOG_SIZE) {
-		HWLOGR_WARN("log_w_ofs = 0x%x\n", log_w_ofs);
+		/* only print the first error */
+		if (!err_log)
+			HWLOGR_WARN("log_w_ofs = 0x%x\n", log_w_ofs);
+		err_log = true;
 		return 0;
+	}
+
+	/* print when back to normal */
+	if (err_log) {
+		HWLOGR_INFO("[ok] w_ofs = 0x%x, r_ofs = 0x%x, t_size = 0x%x\n",
+			w_ofs, r_ofs, t_size);
+		err_log = false;
 	}
 
 	/* invalidate hw logger buf */
