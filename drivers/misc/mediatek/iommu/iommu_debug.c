@@ -2963,6 +2963,17 @@ static const struct mtk_iommu_port apu_port_mt6895[] = {
 	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0x1f)
 };
 
+static const struct mau_config_info mau_config_mt6895[] = {
+	MAU_CONFIG_INIT(0, 0, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0),
+	MAU_CONFIG_INIT(0, 1, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0),
+	MAU_CONFIG_INIT(1, 0, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0),
+	MAU_CONFIG_INIT(1, 1, 0, 0, 0x0, (SZ_4K - 1),
+			0xffffffff, 0xffffffff, 0x1, 0x1, 0x0, 0x0, 0x0)
+};
+
 /**********iommu trace**********/
 #define IOMMU_MAX_EVENT_COUNT 3000
 
@@ -4199,6 +4210,8 @@ static const struct mtk_m4u_plat_data mt6895_data = {
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
 	.peri_data	= mt6983_peri_iommu_data,
 	.peri_tf_analyse = mt6983_peri_tf,
+	.mau_config	= mau_config_mt6895,
+	.mau_config_nr = ARRAY_SIZE(mau_config_mt6895),
 };
 
 static const struct of_device_id mtk_m4u_dbg_of_ids[] = {

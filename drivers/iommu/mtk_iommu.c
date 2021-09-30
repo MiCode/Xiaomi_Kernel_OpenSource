@@ -3096,7 +3096,7 @@ static const struct mtk_iommu_plat_data mt6895_data_disp = {
 	.m4u_plat	= M4U_MT6895,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN /*| IOMMU_SEC_BK_EN*/ |
-			  IOMMU_CLK_AO_EN | SKIP_CFG_PORT | IOVA_34_EN |
+			  IOMMU_CLK_AO_EN | SKIP_CFG_PORT | IOVA_34_EN | IOMMU_MAU_EN |
 			  HAS_SMI_SUB_COMM,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
@@ -3104,6 +3104,7 @@ static const struct mtk_iommu_plat_data mt6895_data_disp = {
 	.normal_dom	= 0,
 	.iova_region    = mt6895_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.mau_count	= 4,
 	/* not use larbid_remap */
 };
 
@@ -3111,7 +3112,7 @@ static const struct mtk_iommu_plat_data mt6895_data_mdp = {
 	.m4u_plat	= M4U_MT6895,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN /*| IOMMU_SEC_BK_EN*/ |
-			  IOMMU_CLK_AO_EN | SKIP_CFG_PORT | IOVA_34_EN |
+			  IOMMU_CLK_AO_EN | SKIP_CFG_PORT | IOVA_34_EN | IOMMU_MAU_EN |
 			  HAS_SMI_SUB_COMM,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
@@ -3119,32 +3120,37 @@ static const struct mtk_iommu_plat_data mt6895_data_mdp = {
 	.normal_dom	= 0,
 	.iova_region    = mt6895_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.mau_count	= 4,
 	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6895_data_apu0 = {
 	.m4u_plat	= M4U_MT6895,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN /*| IOMMU_SEC_BK_EN*/ |
-			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | PM_OPS_SKIP,
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
+			  PM_OPS_SKIP,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
 	.normal_dom	= 0,
 	.iova_region    = mt6895_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.mau_count	= 4,
 	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6895_data_apu1 = {
 	.m4u_plat	= M4U_MT6895,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN /*| IOMMU_SEC_BK_EN*/ |
-			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | PM_OPS_SKIP,
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
+			  PM_OPS_SKIP,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU1,
 	.iommu_type     = APU_IOMMU,
 	.normal_dom	= 0,
 	.iova_region    = mt6895_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.mau_count	= 4,
 	/* not use larbid_remap */
 };
 
