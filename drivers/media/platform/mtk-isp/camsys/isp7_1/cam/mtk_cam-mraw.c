@@ -1951,7 +1951,6 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	 * If these two ISRs come together, print warning msg to hint.
 	 */
 	irq_info.irq_type = 0;
-	irq_info.engine_id = CAMSYS_ENGINE_MRAW_BEGIN + mraw_dev->id;
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
@@ -1984,7 +1983,6 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		struct mtk_camsys_irq_info err_info;
 
 		err_info.irq_type = CAMSYS_IRQ_ERROR;
-		err_info.engine_id = irq_info.engine_id;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
 		err_info.frame_idx_inner = irq_info.frame_idx_inner;
@@ -2026,7 +2024,9 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 		/* normal case */
 
 		/* inform interrupt information to camsys controller */
-		mtk_camsys_isr_event(mraw_dev->cam, &irq_info);
+		mtk_camsys_isr_event(mraw_dev->cam,
+				     CAMSYS_ENGINE_MRAW, mraw_dev->id,
+				     &irq_info);
 	}
 
 	return IRQ_HANDLED;

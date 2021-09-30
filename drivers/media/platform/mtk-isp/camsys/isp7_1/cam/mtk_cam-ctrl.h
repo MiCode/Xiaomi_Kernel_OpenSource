@@ -10,51 +10,16 @@
 #include <linux/timer.h>
 #include "mtk_cam-dvfs_qos.h"
 
-#define MAX_STREAM_NUM 12 /* rawx2, mrawx4 camsvx6 */
+#define MTK_CAM_INITIAL_REQ_SYNC 1
+
 struct mtk_cam_device;
 struct mtk_raw_device;
 
-#define MTK_CAMSYS_ENGINE_IDXMASK    0xF0
-#define MTK_CAMSYS_ENGINE_RAW_TAG    0x10
-#define MTK_CAMSYS_ENGINE_MRAW_TAG   0x20
-#define MTK_CAMSYS_ENGINE_CAMSV_TAG  0x30
-#define MTK_CAMSYS_ENGINE_SENINF_TAG	0x40
-#define MTK_CAM_INITIAL_REQ_SYNC 1
-
-
-enum MTK_CAMSYS_ENGINE_IDX {
-	CAMSYS_ENGINE_RAW_BEGIN = MTK_CAMSYS_ENGINE_RAW_TAG,
-	CAMSYS_ENGINE_RAW_A = CAMSYS_ENGINE_RAW_BEGIN,
-	CAMSYS_ENGINE_RAW_B,
-	CAMSYS_ENGINE_RAW_C,
-	CAMSYS_ENGINE_RAW_END,
-	CAMSYS_ENGINE_MRAW_BEGIN = MTK_CAMSYS_ENGINE_MRAW_TAG,
-	CAMSYS_ENGINE_MRAW_0 = CAMSYS_ENGINE_MRAW_BEGIN,
-	CAMSYS_ENGINE_MRAW_1,
-	CAMSYS_ENGINE_MRAW_2,
-	CAMSYS_ENGINE_MRAW_3,
-	CAMSYS_ENGINE_MRAW_END,
-	CAMSYS_ENGINE_CAMSV_BEGIN = MTK_CAMSYS_ENGINE_CAMSV_TAG,
-	CAMSYS_ENGINE_CAMSV_0 = CAMSYS_ENGINE_CAMSV_BEGIN,
-	CAMSYS_ENGINE_CAMSV_1,
-	CAMSYS_ENGINE_CAMSV_2,
-	CAMSYS_ENGINE_CAMSV_3,
-	CAMSYS_ENGINE_CAMSV_4,
-	CAMSYS_ENGINE_CAMSV_5,
-	CAMSYS_ENGINE_CAMSV_6,
-	CAMSYS_ENGINE_CAMSV_7,
-	CAMSYS_ENGINE_CAMSV_8,
-	CAMSYS_ENGINE_CAMSV_9,
-	CAMSYS_ENGINE_CAMSV_10,
-	CAMSYS_ENGINE_CAMSV_11,
-	CAMSYS_ENGINE_CAMSV_12,
-	CAMSYS_ENGINE_CAMSV_13,
-	CAMSYS_ENGINE_CAMSV_14,
-	CAMSYS_ENGINE_CAMSV_15,
-	CAMSYS_ENGINE_CAMSV_END,
-	CAMSYS_ENGINE_SENINF_BEGIN = MTK_CAMSYS_ENGINE_SENINF_TAG,
-	CAMSYS_ENGINE_SENINF = CAMSYS_ENGINE_SENINF_BEGIN,
-	CAMSYS_ENGINE_SENINF_END,
+enum MTK_CAMSYS_ENGINE_TYPE {
+	CAMSYS_ENGINE_RAW,
+	CAMSYS_ENGINE_MRAW,
+	CAMSYS_ENGINE_CAMSV,
+	CAMSYS_ENGINE_SENINF,
 };
 
 enum MTK_CAMSYS_IRQ_EVENT {
@@ -79,7 +44,6 @@ struct mtk_camsys_irq_error_data {
 
 struct mtk_camsys_irq_info {
 	enum MTK_CAMSYS_IRQ_EVENT irq_type;
-	enum MTK_CAMSYS_ENGINE_IDX engine_id;
 	u64 ts_ns;
 	int frame_idx;
 	int frame_idx_inner;
@@ -167,12 +131,6 @@ enum {
 };
 
 struct mtk_camsys_ctrl {
-	struct mtk_raw_device *raw_dev[CAMSYS_ENGINE_RAW_END -
-		CAMSYS_ENGINE_RAW_BEGIN]; /* per hw */
-	struct mtk_camsv_device *camsv_dev[CAMSYS_ENGINE_CAMSV_END -
-		CAMSYS_ENGINE_CAMSV_BEGIN]; /* per hw */
-	struct mtk_mraw_device *mraw_dev[CAMSYS_ENGINE_MRAW_END -
-		CAMSYS_ENGINE_MRAW_BEGIN]; /* per hw */
 	/* resource ctrl */
 	struct mtk_camsys_dvfs dvfs_info;
 };
@@ -184,7 +142,10 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 				  unsigned int pipe_id);
 
 int mtk_camsys_isr_event(struct mtk_cam_device *cam,
+			 enum MTK_CAMSYS_ENGINE_TYPE engine_type,
+			 unsigned int engine_id,
 			 struct mtk_camsys_irq_info *irq_info);
+
 void mtk_cam_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
 void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *req,

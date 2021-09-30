@@ -4232,9 +4232,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						(bDcif && (src_pad_idx == exp_no)) ?
 						2 : src_pad_idx - PAD_SRC_RAW0);
-					cam->camsys_ctrl.camsv_dev[i - MTKCAM_SUBDEV_CAMSV_START] =
-						dev_get_drvdata(
-						cam->sv.devs[i - MTKCAM_SUBDEV_CAMSV_START]);
 					if (ret)
 						goto fail_pipe_off;
 				}
@@ -4261,9 +4258,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ret = mtk_cam_sv_dev_config(
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						0);
-					cam->camsys_ctrl.camsv_dev[i - MTKCAM_SUBDEV_CAMSV_START] =
-						dev_get_drvdata(
-						cam->sv.devs[i - MTKCAM_SUBDEV_CAMSV_START]);
 					if (ret)
 						goto fail_pipe_off;
 					src_pad_idx++;

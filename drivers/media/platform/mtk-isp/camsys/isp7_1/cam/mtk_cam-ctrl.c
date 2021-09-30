@@ -1259,8 +1259,8 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 		drained_res = mtk_cam_request_drained(sensor_ctrl);
 	}
 	for (i = 0; i < ctx->used_sv_num; i++) {
-		camsv_dev = cam->camsys_ctrl.camsv_dev[ctx->sv_pipe[i]->id -
-			MTKCAM_SUBDEV_CAMSV_START];
+		camsv_dev = dev_get_drvdata(cam->sv.devs[ctx->sv_pipe[i]->id -
+					    MTKCAM_SUBDEV_CAMSV_START]);
 		dev_dbg(camsv_dev->dev, "[SOF+%dms]\n", time_after_sof);
 		/* handle V4L2_EVENT_REQUEST_DRAINED event */
 		mtk_cam_sv_request_drained(camsv_dev, sensor_ctrl);
@@ -3292,13 +3292,13 @@ EXIT:
 }
 
 static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
+				   unsigned int engine_id,
 				   struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_raw_device *raw_dev;
 	struct mtk_cam_ctx *ctx;
 
-	raw_dev = cam->camsys_ctrl.raw_dev[irq_info->engine_id -
-		CAMSYS_ENGINE_RAW_BEGIN];
+	raw_dev = dev_get_drvdata(cam->raw.devs[engine_id]);
 	if (raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_TIMESHARE_MASK)
 		ctx = &cam->ctxs[raw_dev->time_shared_busy_ctx_id];
 	else
@@ -3355,6 +3355,7 @@ static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 }
 
 static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
+				    unsigned int engine_id,
 				    struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_mraw_device *mraw_dev;
@@ -3364,15 +3365,13 @@ static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	unsigned int stream_id;
 	unsigned int seq;
 
-	mraw_dev = cam->camsys_ctrl.mraw_dev[irq_info->engine_id -
-		CAMSYS_ENGINE_MRAW_BEGIN];
+	mraw_dev = dev_get_drvdata(cam->mraw.devs[engine_id]);
 	ctx = mtk_cam_find_ctx(cam, &mraw_dev->pipeline->subdev.entity);
 	if (!ctx) {
 		dev_dbg(mraw_dev->dev, "cannot find ctx\n");
 		return -EINVAL;
 	}
-	stream_id = irq_info->engine_id - CAMSYS_ENGINE_MRAW_BEGIN +
-		MTKCAM_SUBDEV_MRAW_START;
+	stream_id = engine_id + MTKCAM_SUBDEV_MRAW_START;
 	/* mraw's SW done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 		mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
@@ -3405,6 +3404,7 @@ static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 }
 
 static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
+				     unsigned int engine_id,
 				     struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_camsv_device *camsv_dev;
@@ -3413,8 +3413,7 @@ static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 	unsigned int stream_id;
 	unsigned int seq;
 
-	camsv_dev = cam->camsys_ctrl.camsv_dev[irq_info->engine_id -
-		CAMSYS_ENGINE_CAMSV_BEGIN];
+	camsv_dev = dev_get_drvdata(cam->sv.devs[engine_id]);
 	if (camsv_dev->pipeline->hw_scen &
 	    MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		struct mtk_raw_pipeline *pipeline = &cam->raw
@@ -3456,8 +3455,7 @@ static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			dev_dbg(camsv_dev->dev, "cannot find ctx\n");
 			return -EINVAL;
 		}
-		stream_id = irq_info->engine_id - CAMSYS_ENGINE_CAMSV_BEGIN +
-			MTKCAM_SUBDEV_CAMSV_START;
+		stream_id = engine_id + MTKCAM_SUBDEV_CAMSV_START;
 		/* camsv's SW done */
 		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
 			sv_dev_index = mtk_cam_find_sv_dev_index(ctx, camsv_dev->id);
@@ -3479,9 +3477,10 @@ static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 }
 
 int mtk_camsys_isr_event(struct mtk_cam_device *cam,
+			 enum MTK_CAMSYS_ENGINE_TYPE engine_type,
+			 unsigned int engine_id,
 			 struct mtk_camsys_irq_info *irq_info)
 {
-	int sub_engine_type = irq_info->engine_id & MTK_CAMSYS_ENGINE_IDXMASK;
 	int ret = 0;
 
 	MTK_CAM_TRACE_BEGIN(BASIC, "irq_type %d, inner %d",
@@ -3496,27 +3495,27 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 	 * stagger - rawx1, camsv x2
 	 * m-stream - rawx1 , camsv x2
 	 */
-	switch (sub_engine_type) {
-	case MTK_CAMSYS_ENGINE_RAW_TAG:
+	switch (engine_type) {
+	case CAMSYS_ENGINE_RAW:
 
-		ret = mtk_camsys_event_handle_raw(cam, irq_info);
-
-		break;
-	case MTK_CAMSYS_ENGINE_MRAW_TAG:
-
-		ret = mtk_camsys_event_handle_mraw(cam, irq_info);
+		ret = mtk_camsys_event_handle_raw(cam, engine_id, irq_info);
 
 		break;
-	case MTK_CAMSYS_ENGINE_CAMSV_TAG:
+	case CAMSYS_ENGINE_MRAW:
 
-		ret = mtk_camsys_event_handle_camsv(cam, irq_info);
+		ret = mtk_camsys_event_handle_mraw(cam, engine_id, irq_info);
 
 		break;
-	case MTK_CAMSYS_ENGINE_SENINF_TAG:
+	case CAMSYS_ENGINE_CAMSV:
+
+		ret = mtk_camsys_event_handle_camsv(cam, engine_id, irq_info);
+
+		break;
+	case CAMSYS_ENGINE_SENINF:
 		/* ToDo - cam mux setting delay handling */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DROP))
 			dev_info(cam->dev, "MTK_CAMSYS_ENGINE_SENINF_TAG engine:%d type:0x%x\n",
-				irq_info->engine_id, irq_info->irq_type);
+				engine_id, irq_info->irq_type);
 		break;
 	default:
 		break;
@@ -3674,11 +3673,8 @@ static int timer_setsensor(int fps_ratio, int sub_sample)
 
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 {
-	struct mtk_camsys_ctrl *camsys_ctrl = &ctx->cam->camsys_ctrl;
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
-	struct mtk_raw_device *raw_dev, *raw_dev_slave, *raw_dev_slave2;
 	struct v4l2_subdev_frame_interval fi;
-	unsigned int i;
 	int fps_factor = 1, sub_ratio = 0;
 
 	if (ctx->used_raw_num) {
@@ -3687,31 +3683,8 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 		fps_factor = (fi.interval.numerator > 0) ?
 				(fi.interval.denominator / fi.interval.numerator / 30) : 1;
-		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-		camsys_ctrl->raw_dev[raw_dev->id] = raw_dev;
-		if (ctx->pipe->res_config.raw_num_used != 1) {
-			raw_dev_slave = get_slave_raw_dev(ctx->cam, ctx->pipe);
-			camsys_ctrl->raw_dev[raw_dev_slave->id] = raw_dev_slave;
-			if (ctx->pipe->res_config.raw_num_used == 3) {
-				raw_dev_slave2 = get_slave2_raw_dev(ctx->cam, ctx->pipe);
-				camsys_ctrl->raw_dev[raw_dev_slave2->id] = raw_dev_slave2;
-			}
-		}
 		sub_ratio =
 			mtk_cam_get_subsample_ratio(ctx->pipe->res_config.raw_feature);
-	}
-	for (i = 0; i < ctx->used_sv_num; i++) {
-		camsys_ctrl->camsv_dev[ctx->sv_pipe[i]->id -
-			MTKCAM_SUBDEV_CAMSV_START] =
-			dev_get_drvdata(ctx->cam->sv.devs[ctx->sv_pipe[i]->id -
-			MTKCAM_SUBDEV_CAMSV_START]);
-	}
-
-	for (i = 0; i < ctx->used_mraw_num; i++) {
-		camsys_ctrl->mraw_dev[ctx->mraw_pipe[i]->id -
-			MTKCAM_SUBDEV_MRAW_START] =
-			dev_get_drvdata(ctx->cam->mraw.devs[ctx->mraw_pipe[i]->id -
-			MTKCAM_SUBDEV_MRAW_START]);
 	}
 
 	camsys_sensor_ctrl->ctx = ctx;

@@ -2018,7 +2018,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	}
 
 	irq_info.irq_type = 0;
-	irq_info.engine_id = CAMSYS_ENGINE_RAW_BEGIN + raw_dev->id;
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frame_idx;
 	irq_info.frame_idx_inner = frame_idx_inner;
@@ -2060,7 +2059,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		struct mtk_camsys_irq_info err_info;
 
 		err_info.irq_type = CAMSYS_IRQ_ERROR;
-		err_info.engine_id = irq_info.engine_id;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
 		err_info.frame_idx_inner = irq_info.frame_idx_inner;
@@ -2122,7 +2120,9 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		/* normal case */
 
 		/* inform interrupt information to camsys controller */
-		mtk_camsys_isr_event(raw_dev->cam, &irq_info);
+		mtk_camsys_isr_event(raw_dev->cam,
+				     CAMSYS_ENGINE_RAW, raw_dev->id,
+				     &irq_info);
 	}
 
 	return IRQ_HANDLED;
