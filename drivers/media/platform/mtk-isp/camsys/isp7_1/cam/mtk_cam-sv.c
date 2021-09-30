@@ -1829,7 +1829,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	 */
 	irq_info.irq_type = 0;
 	irq_info.engine_id = CAMSYS_ENGINE_CAMSV_BEGIN + camsv_dev->id;
-	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
+	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
 	irq_info.n.slave_engine = 0;

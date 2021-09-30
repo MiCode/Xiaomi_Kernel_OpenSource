@@ -16,7 +16,7 @@
 #define SCQ_DEFAULT_CLK_RATE 208 // default 208MHz
 #define USINGSCQ 1
 #define MTK_CAMSYS_RES_STEP_NUM	8
-#define _STAGGER_TRIGGER_CQ_BY_CAMSV_SOF 1
+
 /* FIXME: dynamic config image max/min w/h */
 #define IMG_MAX_WIDTH		8192
 #define IMG_MAX_HEIGHT		6144
@@ -281,7 +281,6 @@ struct mtk_raw_device {
 	void __iomem *yuv_base;
 	unsigned int num_clks;
 	struct clk **clks;
-	struct mtk_raw_pipeline *pipeline;
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notifier;
 #endif
@@ -291,11 +290,16 @@ struct mtk_raw_device {
 	struct kfifo	msg_fifo;
 	atomic_t	is_fifo_overflow;
 
+	struct mtk_raw_pipeline *pipeline;
+
 	u64 sof_count;
-	u64 setting_count;
 	int write_cnt;
-	u64 sof_time;
-	u32 vsync_ori_count;
+
+	/* for subsample, sensor-control */
+	bool sub_sensor_ctrl_en;
+	u64 set_sensor_time_from_sof;
+	u64 last_sof_time;
+
 	u8 time_shared_busy;
 	u8 time_shared_busy_ctx_id;
 	u32 vf_en;

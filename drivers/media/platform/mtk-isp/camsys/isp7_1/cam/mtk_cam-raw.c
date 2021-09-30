@@ -1469,11 +1469,37 @@ void stagger_disable(struct mtk_raw_device *dev)
 			readl_relaxed(dev->base + REG_TG_SEN_MODE));
 }
 
+static void subsample_set_sensor_time(struct mtk_raw_device *dev)
+{
+	u32 sensor_frame_idx; /* which frame to set sensor */
+	u64 sub_frame_time;
+
+	/*
+	 * Use timestamp of vsync to decide whether to set sensor or not.
+	 * Avoid to count vsyncs since we may miss hw irq.
+	 */
+
+	sensor_frame_idx =
+		mtk_cam_get_subsample_ratio(dev->pipeline->feature_active) - 1;
+
+	sub_frame_time = 1000000000ULL *
+		dev->pipeline->res_config.interval.numerator /
+		dev->pipeline->res_config.interval.denominator;
+
+	dev->sub_sensor_ctrl_en = 1;
+	dev->set_sensor_time_from_sof = sensor_frame_idx * sub_frame_time
+					- sub_frame_time / 2;
+	dev_dbg(dev->dev, "%s: %llu\n",
+		__func__, dev->set_sensor_time_from_sof);
+}
+
 void subsample_enable(struct mtk_raw_device *dev)
 {
 	u32 val;
 	u32 sub_ratio = mtk_cam_get_subsample_ratio(
 			dev->pipeline->feature_active);
+
+	subsample_set_sensor_time(dev);
 
 	val = readl_relaxed(dev->base + REG_CQ_EN);
 	writel_relaxed(val | SCQ_SUBSAMPLE_EN, dev->base + REG_CQ_EN);
@@ -1508,7 +1534,7 @@ void initialize(struct mtk_raw_device *dev)
 	writel_relaxed(BIT(10), dev->base + REG_CTL_RAW_INT7_EN);
 
 	dev->sof_count = 0;
-	dev->setting_count = 0;
+	dev->sub_sensor_ctrl_en = 0;
 	dev->time_shared_busy = 0;
 	dev->vf_en = 0;
 	dev->stagger_en = 0;
@@ -1976,36 +2002,9 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 		raw_irq_handle_tg_overrun_err(raw_dev, frame_idx_inner);
 }
 
-static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
+static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev, u64 vsync_ts)
 {
-	int sub_overori_cnt, sub_overori_time, sub_frame_time;
-	int frame_count;
-	int fps = 30;
-	bool res = false;
-
-	sub_overori_cnt = mtk_cam_get_subsample_ratio(
-				dev->pipeline->feature_active) - 1;
-	sub_overori_time = ktime_get_boottime_ns() /
-				1000 - dev->sof_time;
-	fps = dev->pipeline->res_config.interval.denominator /
-			dev->pipeline->res_config.interval.numerator;
-	sub_frame_time = 1000000 / fps;
-	frame_count = (sub_overori_time + (sub_frame_time - 1) / 2) / sub_frame_time;
-	if (dev->vsync_ori_count == frame_count) {
-		res = false;
-	} else if (frame_count == sub_overori_cnt) {
-		res = true;
-		dev_dbg(dev->dev, "[%s] Normal frame sensor set\n", __func__);
-	} else if ((dev->vsync_ori_count < sub_overori_cnt) &&
-		(frame_count == sub_overori_cnt + 1)) {
-		res = true;
-		dev_dbg(dev->dev, "[%s] Last frame sensor set\n", __func__);
-	} else {
-		res = false;
-	}
-	dev->vsync_ori_count = frame_count;
-	return res;
-
+	return vsync_ts - dev->last_sof_time >= dev->set_sensor_time_from_sof;
 }
 
 static irqreturn_t mtk_irq_raw(int irq, void *data)
@@ -2048,14 +2047,13 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 
 	irq_info.irq_type = 0;
 	irq_info.engine_id = CAMSYS_ENGINE_RAW_BEGIN + raw_dev->id;
-	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
+	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frame_idx;
 	irq_info.frame_idx_inner = frame_idx_inner;
 	irq_info.n.slave_engine = mtk_raw_dev_is_slave(raw_dev);
 	/* CQ done */
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
-		raw_dev->setting_count++;
 	}
 	/* DMAO done, only for AFO */
 	if (dmao_done_status & AFO_DONE_ST) {
@@ -2067,34 +2065,18 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
 
 	/* Frame start */
-#if _STAGGER_TRIGGER_CQ_BY_CAMSV_SOF
 	if (irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
-		raw_dev->sof_time = ktime_get_boottime_ns() / 1000;
+
+		raw_dev->last_sof_time = irq_info.ts_ns;
 		raw_dev->write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		dev_dbg(dev, "[SOF] fho wcnt:%d\n", raw_dev->write_cnt);
 		raw_dev->sof_count++;
-		raw_dev->vsync_ori_count = 0;
-	}
-#else
-	if (!raw_dev->pipeline->feature_active && (irq_status & SOF_INT_ST)) {
-		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
-		raw_dev->sof_count++;
-	} else if ((raw_dev->pipeline->feature_active) && (irq_status & VS_INT_ST)) {
-		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
-		raw_dev->sof_count++;
-	}
-#endif
-	if (irq_status & TG_VS_INT_ORG_ST &&
-		raw_dev->pipeline->feature_active & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
-		if (is_sub_sample_sensor_timing(raw_dev))
-			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
 	}
 
-	if (err_status & DMA_ERR_ST &&
-		irq_status & SOF_INT_ST) {
-		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DROP;
-		dev_dbg(dev, "[SOF+DMA_ERR] CAMSYS_IRQ_FRAME_DROP\n");
+	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST) {
+		if (is_sub_sample_sensor_timing(raw_dev, irq_info.ts_ns))
+			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
 	}
 
 	if (irq_info.irq_type && push_msgfifo(raw_dev, &irq_info) == 0)
