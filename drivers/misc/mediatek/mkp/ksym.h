@@ -46,16 +46,8 @@
 #define TT_SIZE		256
 #define NAME_LEN	128
 
-void *mkp_abt_addr(void *ssa);
-unsigned long *mkp_krb_addr(void);
-unsigned int *mkp_km_addr(void);
-u16 *mkp_kti_addr(void);
-int mkp_ka_init(void);
-unsigned int mkp_checking_names(unsigned int off,
-					   char *namebuf, size_t buflen);
-unsigned long mkp_idx2addr(int idx);
-unsigned long mkp_addr_find(const char *name);
-void mkp_get_krn_code(void **p_stext, void **p_etext);
-void mkp_get_krn_rodata(void **p_etext, void **p__init_begin);
-void mkp_get_krn_info(void **p_stext, void **p_etext, void **p__init_begin);
+int __init mkp_ka_init(void);
+void __init mkp_get_krn_code(void **p_stext, void **p_etext);
+void __init mkp_get_krn_rodata(void **p_etext, void **p__init_begin);
+void __init mkp_get_krn_info(void **p_stext, void **p_etext, void **p__init_begin);
 #endif /* _KSYM_H */

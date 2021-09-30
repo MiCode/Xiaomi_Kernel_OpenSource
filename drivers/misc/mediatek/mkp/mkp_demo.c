@@ -180,7 +180,7 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 }
 
 #if !defined(CONFIG_KASAN_GENERIC) && !defined(CONFIG_KASAN_SW_TAGS)
-static int protect_kernel(void)
+static int __init protect_kernel(void)
 {
 	int ret = 0;
 	uint32_t policy = 0;
@@ -237,6 +237,9 @@ static int protect_kernel(void)
 	}
 
 	MKP_DEBUG("%s done\n", __func__);
+	p_stext = NULL;
+	p_etext = NULL;
+	p__init_begin = NULL;
 	return 0;
 }
 #endif

@@ -17,7 +17,7 @@ static unsigned int *mkp_km;
 static u8 *mkp_ktt;
 static u16 *mkp_kti;
 
-void *mkp_abt_addr(void *ssa)
+void __init *mkp_abt_addr(void *ssa)
 {
 	void *pos;
 	u8 abt[SM_SIZE];
@@ -57,7 +57,7 @@ void *mkp_abt_addr(void *ssa)
 	return NULL;
 }
 
-unsigned long *mkp_krb_addr(void)
+unsigned long __init *mkp_krb_addr(void)
 {
 	void *abt_addr = (void *)KV;
 	void *ssa = (void *)KV;
@@ -85,7 +85,7 @@ unsigned long *mkp_krb_addr(void)
 	return NULL;
 }
 
-unsigned int *mkp_km_addr(void)
+unsigned int __init *mkp_km_addr(void)
 {
 	const u8 *name = mkp_kn;
 	unsigned int loop = *mkp_kns;
@@ -96,7 +96,7 @@ unsigned int *mkp_km_addr(void)
 	return (unsigned int *)round_up((unsigned long)name, 8);
 }
 
-u16 *mkp_kti_addr(void)
+u16 __init *mkp_kti_addr(void)
 {
 	const u8 *pch = mkp_ktt;
 	int loop = TT_SIZE;
@@ -110,7 +110,7 @@ u16 *mkp_kti_addr(void)
 	return (u16 *)round_up((unsigned long)pch, 8);
 }
 
-int mkp_ka_init(void)
+int __init mkp_ka_init(void)
 {
 	unsigned int kns;
 
@@ -130,7 +130,7 @@ int mkp_ka_init(void)
 	return 0;
 }
 
-unsigned int mkp_checking_names(unsigned int off,
+unsigned int __init mkp_checking_names(unsigned int off,
 					   char *namebuf, size_t buflen)
 {
 	int len, skipped_first = 0;
@@ -166,7 +166,7 @@ tail:
 	return off;
 }
 
-unsigned long mkp_idx2addr(int idx)
+unsigned long __init mkp_idx2addr(int idx)
 {
 	if (!IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE))
 		return *(mkp_ka + idx);
@@ -180,7 +180,7 @@ unsigned long mkp_idx2addr(int idx)
 	return *mkp_krb - 1 - *(mkp_ko + idx);
 }
 
-unsigned long mkp_addr_find(const char *name)
+unsigned long __init mkp_addr_find(const char *name)
 {
 	char strbuf[NAME_LEN];
 	unsigned long i;
@@ -195,7 +195,7 @@ unsigned long mkp_addr_find(const char *name)
 	return 0;
 }
 
-static void  mkp_addr_find_krn_info(unsigned long *stext,
+static void __init mkp_addr_find_krn_info(unsigned long *stext,
 	unsigned long *etext, unsigned long *init_begin)
 {
 	char strbuf[NAME_LEN];
@@ -218,7 +218,7 @@ static void  mkp_addr_find_krn_info(unsigned long *stext,
 	}
 }
 
-void mkp_get_krn_info(void **p_stext, void **p_etext,
+void __init mkp_get_krn_info(void **p_stext, void **p_etext,
 	void **p__init_begin)
 {
 	unsigned long stext, etext, init_begin;
@@ -231,7 +231,7 @@ void mkp_get_krn_info(void **p_stext, void **p_etext,
 	MKP_DEBUG(" __init_begin: %p\n", *p__init_begin);
 }
 
-void mkp_get_krn_code(void **p_stext, void **p_etext)
+void __init mkp_get_krn_code(void **p_stext, void **p_etext)
 {
 	if (*p_stext && *p_etext)
 		return;
@@ -251,7 +251,7 @@ void mkp_get_krn_code(void **p_stext, void **p_etext)
 	return;
 }
 
-void mkp_get_krn_rodata(void **p_etext, void **p__init_begin)
+void __init mkp_get_krn_rodata(void **p_etext, void **p__init_begin)
 {
 	if (*p_etext && *p__init_begin)
 		return;
