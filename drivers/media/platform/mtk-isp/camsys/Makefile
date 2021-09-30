@@ -8,6 +8,7 @@ else
 # PATH
 KROOT=$(shell expr match $(PWD) '\(.*/kernel-[0-9.]*/\)')
 ROOT_DIR=$(realpath $(KROOT)/..)
+OUT_DIR=$(PWD)/out
 
 srctree=$(KROOT)
 src=$(PWD)
@@ -50,6 +51,7 @@ define kernel-make
 	CC=$(CC) \
 	LD=$(LD) \
 	AR=$(AR) \
+	STRIP=$(STRIP) \
 	OBJCOPY=$(OBJCOPY) \
 	OBJDUMP=$(OBJDUMP) \
 	READELF=$(READELF) \
@@ -60,12 +62,19 @@ define kernel-make
 endef
 
 
-.PHONY: all clean check-env
+.PHONY: all build clean check-env
 
-all: check-env
+all: check-env build install
+build:
 	$(kernel-make) modules
+install:
+	$(kernel-make) modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$(OUT_DIR)
 clean:
 	$(kernel-make) clean
+	# clean *.lds
+	$(shell find -name "*.lds" -exec rm {} \;)
+	# clean out
+	$(shell rm -rf $(OUT_DIR))
 check-env:
 ifndef KDIR
 	$(error KDIR (prebuilt kernel path) is undefined)
