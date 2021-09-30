@@ -189,8 +189,8 @@ static int mt6983_mt6338_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	mtkaif_calib_ok = true;
 	afe_priv->mtkaif_calibration_num_phase = 42;	/* mt6359: 0 ~ 42 */
 	afe_priv->mtkaif_chosen_phase[0] = -1;
-	afe_priv->mtkaif_chosen_phase[1] = -1;
-	afe_priv->mtkaif_chosen_phase[2] = -1;
+	afe_priv->mtkaif_chosen_phase[1] = 0;
+	afe_priv->mtkaif_chosen_phase[2] = 0;
 
 	for (phase = 0;
 	     phase <= afe_priv->mtkaif_calibration_num_phase &&
@@ -270,6 +270,13 @@ static int mt6983_mt6338_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x0);
+		/* break when each MISO has phase */
+		if ((afe_priv->mtkaif_chosen_phase[0] >= 0) &&
+		    (afe_priv->mtkaif_chosen_phase[1] >= 0) &&
+		    (afe_priv->mtkaif_chosen_phase[2] >= 0)) {
+			dev_info(afe->dev, "%s(),  phase chose done\n", __func__);
+			break;
+		}
 	}
 
 	mt6338_set_mtkaif_calibration_phase(codec_component,
