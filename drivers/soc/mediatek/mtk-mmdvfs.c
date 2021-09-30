@@ -232,6 +232,7 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 	struct mmdvfs_drv_data *drv_data;
 	s32 ret = 0;
 	u64 volt = 0;
+	s32 last_force_step;
 
 	if (!dbg_data) {
 		pr_notice("%s: dbg_data is not ready!\n", __func__);
@@ -249,10 +250,12 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 		return -EINVAL;
 	}
 
-	if (is_force)
+	if (is_force) {
+		last_force_step = dbg_data->force_step;
 		dbg_data->force_step = step;
-	else
+	} else {
 		dbg_data->vote_step = step;
+	}
 
 	if (step < 0) {
 		if (is_force && !dbg_data->is_notifier_registered) {
@@ -273,7 +276,8 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 						dbg_data->reg, &drv_data->nb);
 				dbg_data->is_notifier_registered = false;
 			}
-			if (step > drv_data->request_voltage) {
+			if ((last_force_step < 0 && volt > drv_data->request_voltage)
+				|| (last_force_step >= 0 && step < last_force_step)) {
 				regulator_set_voltage(
 					dbg_data->reg, volt, INT_MAX);
 				set_all_clk(drv_data, volt, true);
