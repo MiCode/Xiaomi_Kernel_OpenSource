@@ -7,8 +7,9 @@
 
 
 #ifndef FS_UT
-#ifdef USING_CCU
 #include <linux/of_platform.h>
+
+#ifdef USING_CCU
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/mtk_ccu.h>
 #endif // USING_CCU

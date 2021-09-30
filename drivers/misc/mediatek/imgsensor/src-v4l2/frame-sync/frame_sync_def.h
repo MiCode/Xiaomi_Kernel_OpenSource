@@ -16,6 +16,11 @@
 
 #define ALGO_AUTO_LISTEN_VSYNC 0
 
+#if !defined(FS_UT)
+#define TWO_STAGE_FS 1
+#endif // FS_UT
+
+
 /*
  * get timestamp by using bellow method
  * e.g. CCU / N3D / TSREC / etc.

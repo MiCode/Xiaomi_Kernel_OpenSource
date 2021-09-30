@@ -117,6 +117,7 @@ struct adaptor_ctx {
 
 	/* frame-sync */
 	struct FrameSync *fsync_mgr;
+	unsigned int fsync_out_fl;
 
 	/* flags */
 	unsigned int is_streaming:1;

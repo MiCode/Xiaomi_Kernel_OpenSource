@@ -740,6 +740,50 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 }
 
 
+static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
+				kal_uint16 *shutters, kal_uint16 shutter_cnt,
+				kal_uint16 frame_length)
+{
+	if (shutter_cnt == 1) {
+		ctx->shutter = shutters[0];
+
+		if (shutters[0] > ctx->min_frame_length - imgsensor_info.margin)
+			ctx->frame_length = shutters[0] + imgsensor_info.margin;
+		else
+			ctx->frame_length = ctx->min_frame_length;
+		if (frame_length > ctx->frame_length)
+			ctx->frame_length = frame_length;
+		if (ctx->frame_length > imgsensor_info.max_frame_length)
+			ctx->frame_length = imgsensor_info.max_frame_length;
+		if (shutters[0] < imgsensor_info.min_shutter)
+			shutters[0] = imgsensor_info.min_shutter;
+
+		if (!_is_seamless) {
+			set_cmos_sensor_8(ctx, 0x0104, 0x01);
+			set_cmos_sensor_8(ctx, 0x0340, ctx->frame_length >> 8);
+			set_cmos_sensor_8(ctx, 0x0341, ctx->frame_length & 0xFF);
+
+			set_cmos_sensor_8(ctx, 0x0202, (shutters[0] >> 8) & 0xFF);
+			set_cmos_sensor_8(ctx, 0x0203, shutters[0]  & 0xFF);
+			set_cmos_sensor_8(ctx, 0x0104, 0x00);
+			commit_write_sensor(ctx);
+		} else {
+			_i2c_data[_size_to_write++] = 0x0340;
+			_i2c_data[_size_to_write++] = ctx->frame_length >> 8;
+			_i2c_data[_size_to_write++] = 0x0341;
+			_i2c_data[_size_to_write++] = ctx->frame_length & 0xFF;
+
+			_i2c_data[_size_to_write++] = 0x0202;
+			_i2c_data[_size_to_write++] = (shutters[0] >> 8) & 0xFF;
+			_i2c_data[_size_to_write++] = 0x0203;
+			_i2c_data[_size_to_write++] = shutters[0] & 0xFF;
+		}
+
+		pr_debug("shutter =%d, framelength =%d\n",
+			shutters[0], ctx->frame_length);
+	}
+}
+
 /*************************************************************************
  * FUNCTION
  *	set_shutter_frame_length
@@ -5275,6 +5319,11 @@ break;
 	}
 	case SENSOR_FEATURE_SET_FRAMELENGTH:
 		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
+	case SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME:
+		set_multi_shutter_frame_length(ctx, (UINT16 *)(*feature_data),
+					(UINT16) (*(feature_data + 1)),
+					(UINT16) (*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
 		/*get eeprom preloader data*/

@@ -259,7 +259,7 @@ struct ut_fs_test_sensor_cfg sensor_cfg_05[] = {
 		.mode = imx766_sensor_mode,
 		.mode_idx = 0,
 		//.first_vts_value = 100000,
-		.first_vts_value = 110000,
+		.first_vts_value = 105000,
 	},
 
 	{

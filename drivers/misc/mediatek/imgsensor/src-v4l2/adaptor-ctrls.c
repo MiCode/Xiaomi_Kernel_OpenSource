@@ -83,6 +83,11 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 	cmd = (enum ACDK_SENSOR_FEATURE_ENUM)cmd_id;
 
 	ctx->subctx.frame_length = framelength;
+	ctx->fsync_out_fl = framelength;
+
+#if defined(TWO_STAGE_FS)
+	return ret;
+#endif // TWO_STAGE_FS
 
 	switch (cmd) {
 	/* for set_frame_length() */
@@ -244,7 +249,11 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 	/* call frame-sync fs_set_shutter() */
 	if (ctx->fsync_mgr != NULL)
+#if !defined(TWO_STAGE_FS)
 		ctx->fsync_mgr->fs_set_shutter(&pf_ctrl);
+#else
+		ctx->fsync_mgr->fs_update_shutter(&pf_ctrl);
+#endif // TWO_STAGE_FS
 	else
 		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
@@ -254,8 +263,6 @@ static void notify_fsync_vsync(struct adaptor_ctx *ctx)
 	/* call frame-sync fs_set_sync() */
 	if (ctx->fsync_mgr != NULL)
 		ctx->fsync_mgr->fs_notify_vsync(ctx->idx);
-	else
-		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
 static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure *info)
@@ -371,17 +378,35 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 						ae_ctrl->subsample_tags);
 		}
 
-		para.u64[0] = ae_ctrl->exposure.le_exposure;
-		subdrv_call(ctx, feature_control,
-					SENSOR_FEATURE_SET_ESHUTTER,
-					para.u8, &len);
+#if defined(TWO_STAGE_FS)
+		/* frame-sync no set sync (disable frame-sync) */
+		if (!ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+#endif // TWO_STAGE_FS
+			para.u64[0] = ae_ctrl->exposure.le_exposure;
+			subdrv_call(ctx, feature_control,
+						SENSOR_FEATURE_SET_ESHUTTER,
+						para.u8, &len);
+#if defined(TWO_STAGE_FS)
+		} else {
+			fsync_exp[0] = ae_ctrl->exposure.le_exposure;
 
-		fsync_exp[0] = (u32)para.u64[0];
+			para.u64[0] = (u64)fsync_exp;
+			para.u64[1] = 1; // single exposure
+			para.u64[2] = ctx->fsync_out_fl;
+			subdrv_call(ctx, feature_control,
+					SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME,
+					para.u8, &len);
+		}
+#endif // TWO_STAGE_FS
+
+		fsync_exp[0] = ae_ctrl->exposure.le_exposure;
 		notify_fsync_mgr_set_shutter(ctx,
 					SENSOR_FEATURE_SET_FRAMELENGTH,
 					1, fsync_exp);
 
 		para.u64[0] = ae_ctrl->gain.le_gain;
+		para.u64[1] = 0;
+		para.u64[2] = 0;
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_GAIN,
 					para.u8, &len);

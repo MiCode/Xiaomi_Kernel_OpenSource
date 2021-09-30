@@ -1433,7 +1433,9 @@ void fs_set_sync(unsigned int ident, unsigned int flag)
 unsigned int fs_is_set_sync(unsigned int ident)
 {
 	unsigned int idx = 0, result = 0;
+#if !defined(REDUCE_FS_DRV_LOG)
 	struct SensorInfo info = {0}; // for log using
+#endif // REDUCE_FS_DRV_LOG
 
 	idx = fs_get_reg_sensor_pos(ident);
 
@@ -1448,6 +1450,7 @@ unsigned int fs_is_set_sync(unsigned int ident)
 	result = FS_CHECK_BIT(idx, &fs_mgr.enSync_bits);
 
 
+#if !defined(REDUCE_FS_DRV_LOG)
 	/* log print info */
 	fs_get_reg_sensor_info(idx, &info);
 
@@ -1457,6 +1460,7 @@ unsigned int fs_is_set_sync(unsigned int ident)
 		info.sensor_id,
 		info.sensor_idx,
 		FS_READ_BITS(&fs_mgr.enSync_bits));
+#endif // REDUCE_FS_DRV_LOG
 
 
 	return result;
@@ -1767,6 +1771,10 @@ static inline void fs_try_set_auto_frame_tag(unsigned int idx)
 
 void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 {
+#if defined(TWO_STAGE_FS)
+	unsigned int f_cell;
+#endif // TWO_STAGE_FS
+
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_idx_valid(idx) == 0) {
@@ -1782,7 +1790,21 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 	if ((fs_mgr.ft_mode[idx] & FS_FT_MODE_ASSIGN_FRAME_TAG)
 		&& (fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG)) {
 		/* M-Stream case */
+#if !defined(TWO_STAGE_FS)
 		fs_mgr.frame_tag[idx] = f_tag;
+#else // TWO_STAGE_FS
+		f_cell = fs_mgr.frame_cell_size[idx];
+
+		if (f_cell != 0)
+			fs_mgr.frame_tag[idx] = (f_tag + 1) % f_cell;
+		else {
+			fs_mgr.frame_tag[idx] = 0;
+
+			LOG_MUST(
+				"WARNING: [%u] input f_tag:%u, re-set to %u, because f_cell:%u (TWO_STAGE_FS)\n",
+				idx, f_tag, fs_mgr.frame_tag[idx], f_cell);
+		}
+#endif // TWO_STAGE_FS
 
 		fs_alg_set_frame_tag(idx, fs_mgr.frame_tag[idx]);
 
@@ -2570,6 +2592,59 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 }
 
 
+void fs_update_shutter(struct fs_perframe_st (*frameCtrl))
+{
+	unsigned int ident = 0, idx = 0;
+
+
+	switch (REGISTER_METHOD) {
+	case BY_SENSOR_ID:
+		ident = frameCtrl->sensor_id;
+		break;
+
+	case BY_SENSOR_IDX:
+		ident = frameCtrl->sensor_idx;
+		break;
+
+	default:
+		ident = frameCtrl->sensor_idx;
+		break;
+	}
+
+
+	idx = fs_get_reg_sensor_pos(ident);
+
+	if (check_idx_valid(idx) == 0) {
+		LOG_INF("WARNING: [%u] %s is not register, ident:%u, return\n",
+			idx, REG_INFO, ident);
+
+		return;
+	}
+
+	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
+		/* no start frame sync, return */
+		return;
+	}
+
+	/* check streaming status, due to maybe calling by non-sync flow */
+	if (FS_CHECK_BIT(idx, &fs_mgr.streaming_bits) == 0) {
+		LOG_INF("WARNING: [%u] is stream off. ID:%#x(sidx:%u), return\n",
+			idx,
+			frameCtrl->sensor_id,
+			frameCtrl->sensor_idx);
+
+		return;
+	}
+
+
+	//fs_dump_pf_info(frameCtrl);
+
+
+	fs_mgr.pf_ctrl[idx] = *frameCtrl;
+
+}
+
+
 void fs_notify_vsync(unsigned int ident)
 {
 #if !defined(FS_UT)
@@ -2656,6 +2731,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 		change_fs_status(FS_START_TO_GET_PERFRAME_CTRL);
 
 
+#if !defined(SUPPORT_FS_NEW_METHOD)
 		/* log --- show new status and all bits value */
 		status = get_fs_status();
 
@@ -2670,6 +2746,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 			FS_READ_BITS(&fs_mgr.last_pf_ctrl_bits),
 			FS_READ_BITS(&fs_mgr.setup_complete_bits),
 			FS_READ_BITS(&fs_mgr.last_setup_complete_bits));
+#endif // SUPPORT_FS_NEW_METHOD
 
 
 		/* return the number of valid sync sensors */
@@ -2839,6 +2916,7 @@ static struct FrameSync frameSync = {
 	fs_set_sync,
 	fs_sync_frame,
 	fs_set_shutter,
+	fs_update_shutter,
 	fs_update_tg,
 	fs_update_auto_flicker_mode,
 	fs_update_min_framelength_lc,

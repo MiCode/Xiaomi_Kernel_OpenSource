@@ -195,6 +195,7 @@ struct FrameSync {
 
 	/* frame sync set shutter */
 	void (*fs_set_shutter)(struct fs_perframe_st *perframe_st);
+	void (*fs_update_shutter)(struct fs_perframe_st *frameCtrl);
 
 
 	/* for cam mux switch and sensor streaming on before setup cam mux */

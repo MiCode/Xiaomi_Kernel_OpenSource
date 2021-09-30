@@ -83,6 +83,9 @@ static void set_cmos_sensor_8(struct subdrv_ctx *ctx,
 static kal_uint8 qsc_flag;
 static kal_uint8 otp_flag;
 
+static kal_uint16 previous_exp[3];
+static kal_uint16 previous_exp_cnt;
+
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = IMX766_SENSOR_ID,
 
@@ -997,6 +1000,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 static void set_shutter_w_gph(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool gph)
 {
 	ctx->shutter = shutter;
+	previous_exp_cnt = 1;
+	previous_exp[0] = shutter;
 
 	write_shutter(ctx, shutter, gph);
 }
@@ -1024,6 +1029,100 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 	LOG_INF("Framelength: set=%d/input=%d/min=%d, auto_extend=%d\n",
 		ctx->frame_length, frame_length, ctx->min_frame_length,
 		read_cmos_sensor_8(ctx, 0x0350));
+}
+
+static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
+				kal_uint16 *shutters, kal_uint16 shutter_cnt,
+				kal_uint16 frame_length)
+{
+	int i;
+	kal_uint32 calc_fl = 0;
+	kal_uint32 calc_fl2 = 0;
+	kal_uint16 le, me, se;
+
+	previous_exp_cnt = shutter_cnt;
+	for (i = 0; i < shutter_cnt; i++) {
+		shutters[i] = (kal_uint16)max(imgsensor_info.min_shutter,
+					(kal_uint32)shutters[i]);
+		previous_exp[i] = shutters[i];
+	}
+
+	/* previous se + previous me + current le */
+	switch (previous_exp_cnt) {
+	case 3:
+		calc_fl += previous_exp[2];
+		fallthrough;
+	case 2:
+		calc_fl += previous_exp[1];
+		break;
+	}
+	calc_fl += shutters[0];
+
+	/* current se + current me + current le */
+	switch (shutter_cnt) {
+	case 3:
+		calc_fl2 += shutters[2];
+		fallthrough;
+	case 2:
+		calc_fl2 += shutters[1];
+		break;
+	}
+	calc_fl2 += shutters[0];
+
+	/* using max fl of above value */
+	calc_fl = max(calc_fl, calc_fl2);
+
+	ctx->frame_length = max((kal_uint32)(calc_fl + imgsensor_info.margin),
+		ctx->min_frame_length);
+	ctx->frame_length = max(ctx->frame_length, (kal_uint32)frame_length);
+	ctx->frame_length = min(ctx->frame_length, imgsensor_info.max_frame_length);
+
+	for (i = 0; i < shutter_cnt; i++)
+		shutters[i] = round_up((shutters[i] - 2) / shutter_cnt, 4);
+
+	switch (shutter_cnt) {
+	case 3:
+		le = shutters[0];
+		me = shutters[1];
+		se = shutters[2];
+		break;
+	case 2:
+		le = shutters[0];
+		me = 0;
+		se = shutters[1];
+		break;
+	case 1:
+		le = shutters[0];
+		me = 0;
+		se = 0;
+		break;
+	}
+
+	set_cmos_sensor_8(ctx, 0x0104, 0x01);
+
+	write_frame_len(ctx, ctx->frame_length);
+
+	/* Long exposure */
+	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
+	set_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
+	/* Muddle exposure */
+	if (me != 0) {
+		/*MID_COARSE_INTEG_TIME[15:8]*/
+		set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
+		/*MID_COARSE_INTEG_TIME[7:0]*/
+		set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
+	}
+	/* Short exposure */
+	if (se != 0) {
+		set_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
+		set_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
+	}
+
+	set_cmos_sensor_8(ctx, 0x0104, 0x00);
+
+	commit_write_sensor(ctx);
+
+	LOG_INF("L! le:0x%x, me:0x%x, se:0x%x\n", le, me, se);
 }
 
 static void set_shutter_frame_length(struct subdrv_ctx *ctx,
@@ -1471,6 +1570,24 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		exposure_cnt++;
 
 	le = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)le);
+
+	previous_exp_cnt = exposure_cnt;
+	previous_exp[0] = le;
+	switch (exposure_cnt) {
+	case 3:
+		previous_exp[1] = me;
+		previous_exp[2] = se;
+		break;
+	case 2:
+		previous_exp[1] = se;
+		previous_exp[2] = 0;
+		break;
+	case 1:
+	default:
+		previous_exp[1] = 0;
+		previous_exp[2] = 0;
+		break;
+	}
 
 	ctx->frame_length = max((kal_uint32)(le + me + se + imgsensor_info.margin),
 		ctx->min_frame_length);
@@ -2403,6 +2520,9 @@ static int control(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario
 {
 	LOG_INF("scenario_id = %d\n", scenario_id);
 	ctx->current_scenario_id = scenario_id;
+
+	previous_exp_cnt = 0;
+
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		preview(ctx, image_window, sensor_config_data);
@@ -3711,6 +3831,11 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_FRAMELENGTH:
 		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
+	case SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME:
+		set_multi_shutter_frame_length(ctx, (UINT16 *)(*feature_data),
+					(UINT16) (*(feature_data + 1)),
+					(UINT16) (*(feature_data + 2)));
 		break;
 	default:
 		break;

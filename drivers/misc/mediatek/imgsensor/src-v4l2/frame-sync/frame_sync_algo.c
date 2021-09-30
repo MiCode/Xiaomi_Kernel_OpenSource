@@ -876,12 +876,15 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, stable_fl:%u, pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), ts(%u/+%u(%u)/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, stable_fl:%u(%u), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
 		fs_sa_inst.dynamic_paras[idx].magic_num,
 		fs_sa_inst.dynamic_paras[idx].stable_fl_us,
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			fs_sa_inst.dynamic_paras[idx].stable_fl_us),
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[0],
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[1],
 		fs_sa_inst.dynamic_paras[idx].ts_bias_us,
@@ -890,6 +893,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].f_cell,
 		fs_sa_inst.dynamic_paras[idx].delta,
 		fs_inst[idx].fl_active_delay,
+		fs_inst[idx].flicker_en,
 		fs_sa_inst.dynamic_paras[idx].last_ts,
 		time_after_sof,
 		fs_sa_inst.dynamic_paras[idx].cur_tick,
@@ -944,8 +948,8 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 			p_para_s->magic_num,
 			p_para_m->magic_num,
 			m_idx,
-			fs_sa_inst.dynamic_paras[s_idx].last_ts,
-			fs_sa_inst.dynamic_paras[m_idx].last_ts
+			p_para_s->last_ts,
+			p_para_m->last_ts
 		);
 
 		ret = 1;
@@ -1381,13 +1385,31 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 
 
 	/* check situation for changing master and adjusting this diff or not */
-	if ((adjust_diff_m > 0)	&& (sync_delay_m < sync_delay_s))
+	if ((adjust_diff_s > FS_TOLERANCE) && (adjust_diff_m > 0) && (sync_delay_m < sync_delay_s))
 		request_switch_master = 1;
 
 	if (check_timing_critical_section(
 		adjust_diff_s, (p_para_m->stable_fl_us * f_cell_m))) {
 
 		adjust_or_not = 0;
+	}
+
+
+	/* check adjust diff is reasonable */
+	if (adjust_diff_s > (p_para_m->stable_fl_us * f_cell_m)) {
+		adjust_or_not = 0;
+
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), s/m adjust_diff(%lld(%u)/%lld) is not reasonable, do not adjust frame length\n",
+			s_idx,
+			fs_inst[s_idx].sensor_id,
+			fs_inst[s_idx].sensor_idx,
+			p_para_s->magic_num,
+			p_para_m->magic_num,
+			m_idx,
+			adjust_diff_s,
+			adjust_or_not,
+			adjust_diff_m);
 	}
 
 
@@ -2771,10 +2793,17 @@ static void adjust_vsync_diff_sa(
 	struct FrameSyncDynamicPara *p_para)
 {
 	long long adjust_diff = 0;
-	unsigned int out_fl_us = 0, flk_diff = 0;
+	unsigned int out_fl_us = 0;
 	struct FrameSyncDynamicPara m_para = {0};
 	struct FrameSyncDynamicPara *p_para_m = &m_para;
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	unsigned int flk_diff = 0;
+#endif // REDUCE_FS_ALGO_LOG
+
+#if !defined(FS_UT)
 	unsigned int listen_vsync_alg = 0, auto_listen_ext_vsync = 0;
+#endif // FS_UT
 
 
 	/* this should be done when fl be updated */
@@ -2819,6 +2848,7 @@ static void adjust_vsync_diff_sa(
 	if (adjust_diff == 0) {
 		fs_sa_request_switch_master(idx);
 
+#if !defined(REDUCE_FS_ALGO_LOG)
 		LOG_MUST(
 			"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), request switch to master sensor, out_fl:%u(%u)\n",
 			idx,
@@ -2832,6 +2862,7 @@ static void adjust_vsync_diff_sa(
 				fs_inst[idx].lineTimeInNs,
 				fs_inst[idx].output_fl_us)
 		);
+#endif // REDUCE_FS_ALGO_LOG
 
 		return;
 	}
@@ -2851,9 +2882,15 @@ static void adjust_vsync_diff_sa(
 
 	out_fl_us = fs_inst[idx].output_fl_us + adjust_diff;
 
+
+#if !defined(REDUCE_FS_ALGO_LOG)
 	flk_diff = fs_alg_sa_get_flk_diff_and_fl(idx, &out_fl_us, 0);
+#else
+	fs_alg_sa_get_flk_diff_and_fl(idx, &out_fl_us, 0);
+#endif // REDUCE_FS_ALGO_LOG
 
 
+#if !defined(REDUCE_FS_ALGO_LOG)
 	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), out_fl:%u(%u), flk_en:%u(+%u), set listen_ext_vsync:%u(auto_listen_ext_vsync:%u)\n",
 		idx,
@@ -2870,6 +2907,7 @@ static void adjust_vsync_diff_sa(
 		flk_diff,
 		listen_vsync_alg,
 		auto_listen_ext_vsync);
+#endif // REDUCE_FS_ALGO_LOG
 
 
 	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
@@ -2919,7 +2957,7 @@ unsigned int fs_alg_solve_frame_length_sa(
 	*fl_lc = fs_inst[idx].output_fl_lc;
 
 
-	/* X. update dynamic para for shared to other sensor */
+	/* X. update dynamic para for sharing to other sensor */
 	fs_alg_sa_update_dynamic_para(idx, &para);
 
 	if (idx != m_idx)

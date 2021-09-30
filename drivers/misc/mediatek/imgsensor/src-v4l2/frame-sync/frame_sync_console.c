@@ -84,7 +84,10 @@ static inline void fs_console_init_def_value(void)
 	log_tracer = LOG_TRACER_DEF;
 	force_dis_fs = 0;
 	auto_listen_ext_vsync = ALGO_AUTO_LISTEN_VSYNC;
-	listen_ext_vsync = 0;
+
+	// two stage frame-sync:
+	// => use seninf-worker to trigger frame length calculation
+	listen_ext_vsync = TWO_STAGE_FS;
 	listen_vsync_alg = 0;
 }
 

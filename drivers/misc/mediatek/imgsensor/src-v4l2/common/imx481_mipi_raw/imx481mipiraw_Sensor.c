@@ -459,6 +459,52 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 		read_cmos_sensor(ctx, 0x0350));
 }
 
+static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
+				kal_uint16 *shutters, kal_uint16 shutter_cnt,
+				kal_uint16 frame_length)
+{
+	if (shutter_cnt == 1) {
+		ctx->shutter = shutters[0];
+
+		/* if shutter bigger than frame_length, extend frame length first */
+		if (shutters[0] > ctx->min_frame_length - imgsensor_info.margin)
+			ctx->frame_length = shutters[0] + imgsensor_info.margin;
+		else
+			ctx->frame_length = ctx->min_frame_length;
+
+		if (frame_length > ctx->frame_length)
+			ctx->frame_length = frame_length;
+		if (ctx->frame_length > imgsensor_info.max_frame_length)
+			ctx->frame_length = imgsensor_info.max_frame_length;
+
+
+		shutters[0] = (shutters[0] < imgsensor_info.min_shutter)
+			? imgsensor_info.min_shutter
+			: shutters[0];
+
+		set_cmos_sensor(ctx, 0x0104, 0x01);
+
+		shutters[0] = (shutters[0] > (imgsensor_info.max_frame_length
+				      - imgsensor_info.margin))
+			? (imgsensor_info.max_frame_length - imgsensor_info.margin)
+			: shutters[0];
+
+		/* Update Shutter */
+		set_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+		set_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+		set_cmos_sensor(ctx, 0x0202, (shutters[0] >> 8) & 0xFF);
+		set_cmos_sensor(ctx, 0x0203, shutters[0] & 0xFF);
+		set_cmos_sensor(ctx, 0x0104, 0x00);
+
+		commit_write_sensor(ctx);
+
+		pr_debug(
+		    "Exit! shutters[0] =%d, framelength =%d\n",
+		    shutters[0],
+		    ctx->frame_length);
+	}
+}
+
 /*************************************************************************
  * FUNCTION
  *	set_shutter_frame_length
@@ -2245,6 +2291,11 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_FRAMELENGTH:
 		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
+	case SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME:
+		set_multi_shutter_frame_length(ctx, (UINT16 *)(*feature_data),
+					(UINT16) (*(feature_data + 1)),
+					(UINT16) (*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_PRELOAD_EEPROM_DATA:
 		/*get eeprom preloader data*/
