@@ -738,11 +738,8 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	int i = 0;
 	struct mml_submit *submit_user = (struct mml_submit *)data;
 	struct mtk_drm_private *priv = dev->dev_private;
-	struct platform_device *plat_dev = NULL;
-	struct platform_device *mml_pdev = NULL;// = mml_get_plat_device(pdev);
-	struct mml_drm_ctx *mml_ctx = NULL;// = mml_drm_get_context(mml_pdev);
+	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mml_submit* submit_kernel;
-	struct mml_drm_param disp_param = {};
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY)) {
 		return -EINVAL;
@@ -771,24 +768,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		}
 	}
 
-	plat_dev = of_find_device_by_node(priv->mutex_node);
-	if (!plat_dev)
-	{
-		DDPMSG("mtk_drm_ioctl_mml_gem_submit of_find_device_by_node open fail \n");
-		return ret;
-	}
-
-	mml_pdev = mml_get_plat_device(plat_dev);
-	if (!mml_pdev)
-	{
-		DDPMSG("mtk_drm_ioctl_mml_gem_submit mml_get_plat_device open fail \n");
-		return ret;
-	}
-
-	mml_ctx = mml_drm_get_context(mml_pdev, &disp_param);
-	if (mml_ctx <= 0) {
-		DDPMSG("mml_drm_get_context fail. mml_ctx:%p\n", mml_ctx);
-	}
+	mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
 
 	if (g_mml_debug)
 		print_mml_submit(submit_kernel);

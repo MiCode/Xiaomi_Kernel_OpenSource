@@ -1159,11 +1159,6 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		submit_kernel->info.dest[0].compose.top = 0;
 
 		if (mml_ctx != NULL) {
-			ret = wait_event_interruptible(
-				mtk_crtc->signal_mml_last_job_is_flushed_wq
-				, atomic_read(&mtk_crtc->mml_last_job_is_flushed));
-			atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 0);
-
 			ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));
 
 			mtk_crtc->is_mml = true;
@@ -1196,6 +1191,7 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
 		if (crtc && drm_crtc_index(crtc) == 0) {
 			mtk_crtc = to_mtk_crtc(crtc);
+			mtk_crtc->last_is_mml = mtk_crtc->is_mml;
 			mtk_crtc->is_mml = false;
 			break;
 		}
@@ -1213,6 +1209,23 @@ static void mtk_atomic_mml(struct drm_device *dev,
 			DDPINFO("%s _mtk_atomic_mml_plane +", __func__);
 			_mtk_atomic_mml_plane(dev, mtk_plane_state);
 			DDPINFO("%s _mtk_atomic_mml_plane -", __func__);
+		}
+	}
+
+	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
+		if (!crtc || drm_crtc_index(crtc) != 0)
+			continue;
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (mtk_crtc->is_mml)
+			continue;
+
+		atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
+		if (mtk_crtc->last_is_mml) {
+			struct mml_drm_ctx *mml_ctx = NULL;
+
+			mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+			mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
 		}
 	}
 }
@@ -1367,6 +1380,14 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
 		index = drm_crtc_index(crtc);
+
+		// if last frame is mml, need to wait job done before holding lock
+		if (mtk_crtc->is_mml) {
+			ret = wait_event_interruptible(
+				mtk_crtc->signal_mml_last_job_is_flushed_wq
+				, atomic_read(&mtk_crtc->mml_last_job_is_flushed));
+			atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 0);
+		}
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i);
 
 		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
@@ -1880,7 +1901,7 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 		[MML_SRAM_ONLY] = {
 				.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
 				.module_data = addon_mml_sram_only_data,
-				.hrt_type = HRT_TB_TYPE_GENERAL1,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 };
 

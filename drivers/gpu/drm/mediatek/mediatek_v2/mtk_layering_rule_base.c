@@ -56,6 +56,8 @@ static int g_emi_bound_table[HRT_LEVEL_NUM];
 #define RSZ_IN_MAX_HEIGHT 4096
 #define DISP_RSZ_LAYER_NUM 2
 
+#define DISP_MML_LAYER_LIMIT 1
+
 static struct {
 	enum LYE_HELPER_OPT opt;
 	unsigned int val;
@@ -2611,6 +2613,12 @@ static void check_is_mml_layer(const int disp_idx,
 		c = &disp_info->input_config[disp_idx][i];
 		if (MTK_MML_OVL_LAYER & c->layer_caps) {
 			c->layer_caps |= query_MML(dev, dev->dev_private);
+			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
+				if (i >= DISP_MML_LAYER_LIMIT) {
+					c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+					c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+				}
+			}
 			if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
 				MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 				// if layer can use MML direct link or inline rotate handle,

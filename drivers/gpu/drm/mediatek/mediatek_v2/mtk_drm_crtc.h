@@ -812,6 +812,7 @@ struct mtk_drm_crtc {
 	atomic_t mml_last_job_is_flushed;
 	wait_queue_head_t signal_mml_last_job_is_flushed_wq;
 	bool is_mml;
+	bool last_is_mml;
 
 	unsigned int mml_force_width;
 	unsigned int mml_force_height;
