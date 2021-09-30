@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018 - 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _IPA_FMWK_H_
@@ -207,6 +208,35 @@ struct ipa_wdi3_data {
 	int (*ipa_get_wdi_version)(void);
 
 	bool (*ipa_wdi_is_tx1_used)(void);
+
+	int (*ipa_wdi_get_capabilities)(struct ipa_wdi_capabilities_out_params *out);
+
+	int (*ipa_wdi_init_per_inst)(struct ipa_wdi_init_in_params *in,
+		struct ipa_wdi_init_out_params *out);
+
+	int (*ipa_wdi_cleanup_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_reg_intf_per_inst)(
+		struct ipa_wdi_reg_intf_in_params *in);
+
+	int (*ipa_wdi_dereg_intf_per_inst)(const char *netdev_name, u32 hdl);
+
+	int (*ipa_wdi_conn_pipes_per_inst)(struct ipa_wdi_conn_in_params *in,
+		struct ipa_wdi_conn_out_params *out);
+
+	int (*ipa_wdi_disconn_pipes_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_enable_pipes_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_disable_pipes_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_set_perf_profile_per_inst)(u32 hdl, struct ipa_wdi_perf_profile *profile);
+
+	int (*ipa_wdi_create_smmu_mapping_per_inst)(u32 hdl, u32 num_buffers,
+		struct ipa_wdi_buffer_info *info);
+
+	int (*ipa_wdi_release_smmu_mapping_per_inst)(u32 hdl, u32 num_buffers,
+		struct ipa_wdi_buffer_info *info);
 };
 
 struct ipa_qdss_data {
