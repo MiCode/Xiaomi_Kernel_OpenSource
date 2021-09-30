@@ -1221,6 +1221,22 @@ static int reset_msgfifo(struct mtk_raw_device *dev)
 	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
 }
 
+static int push_msgfifo(struct mtk_raw_device *dev,
+			struct mtk_camsys_irq_info *info)
+{
+	int len;
+
+	if (unlikely(kfifo_avail(&dev->msg_fifo) < sizeof(*info))) {
+		atomic_set(&dev->is_fifo_overflow, 1);
+		return -1;
+	}
+
+	len = kfifo_in(&dev->msg_fifo, info, sizeof(*info));
+	WARN_ON(len != sizeof(*info));
+
+	return 0;
+}
+
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
 	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
 	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
@@ -1925,6 +1941,41 @@ static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev);
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no);
 
+static void raw_handle_error(struct mtk_raw_device *raw_dev,
+			     struct mtk_camsys_irq_info *data)
+{
+	int err_status = data->e.err_status;
+	int frame_inner_idx = data->frame_inner_idx;
+
+	/* Show DMA errors in detail */
+	if (err_status & DMA_ERR_ST) {
+
+		/*
+		 * mtk_cam_dump_topdebug_rdyreq(dev,
+		 *                              raw_dev->base, raw_dev->yuv_base);
+		 */
+
+		raw_irq_handle_dma_err(raw_dev);
+
+		/*
+		 * mtk_cam_dump_req_rdy_status(raw_dev->dev, raw_dev->base,
+		 *		    raw_dev->yuv_base);
+		 */
+
+		/*
+		 * mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+		 *                        "IMGO_R1",
+		 *                        dbg_IMGO_R1, ARRAY_SIZE(dbg_IMGO_R1));
+		 */
+	}
+	/* Show TG register for more error detail*/
+	if (err_status & TG_GBERR_ST)
+		raw_irq_handle_tg_grab_err(raw_dev, frame_inner_idx);
+
+	if (err_status & TG_OVRUN_ST)
+		raw_irq_handle_tg_overrun_err(raw_dev, frame_inner_idx);
+}
+
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 {
 	int sub_overori_cnt, sub_overori_time, sub_frame_time;
@@ -1966,7 +2017,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
 	unsigned int drop_status, dma_ofl_status, cq_done_status, cq2_done_status;
 	unsigned int tg_cfg, cq_en, val_dcif_ctl, val_tg_sen;
-	int wake_thread = 0;
+	bool wake_thread = 0;
 
 	irq_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
 	dmao_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT2_STAT);
@@ -2008,12 +2059,12 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		goto ctx_not_found;
 	}
 
-	irq_info.ts_ns = local_clock();
+	irq_info.irq_type = 0;
 	irq_info.engine_id = CAMSYS_ENGINE_RAW_BEGIN + raw_dev->id;
+	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
 	irq_info.frame_idx = dequeued_frame_seq_no;
 	irq_info.frame_inner_idx = dequeued_frame_seq_no_inner;
-	irq_info.irq_type = 0;
-	irq_info.slave_engine = mtk_raw_dev_is_slave(raw_dev);
+	irq_info.n.slave_engine = mtk_raw_dev_is_slave(raw_dev);
 	/* CQ done */
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
@@ -2059,54 +2110,22 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		dev_dbg(dev, "[SOF+DMA_ERR] CAMSYS_IRQ_FRAME_DROP\n");
 	}
 
-	if (irq_info.irq_type) {
-		int len;
-
-		if (unlikely(kfifo_avail(&raw_dev->msg_fifo) < sizeof(irq_info))) {
-			atomic_set(&raw_dev->is_fifo_overflow, 1);
-			goto no_msgfifo;
-		}
-
-		len = kfifo_in(&raw_dev->msg_fifo, &irq_info, sizeof(irq_info));
-		WARN_ON(len != sizeof(irq_info));
-
+	if (irq_info.irq_type && push_msgfifo(raw_dev, &irq_info) == 0)
 		wake_thread = 1;
-	}
-
-no_msgfifo:
 
 	/* Check ISP error status */
 	if (err_status) {
-		dev_info(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
+		struct mtk_camsys_irq_info err_info;
 
-		/* Show DMA errors in detail */
-		if (err_status & DMA_ERR_ST) {
+		err_info.irq_type = CAMSYS_IRQ_ERROR;
+		err_info.engine_id = irq_info.engine_id;
+		err_info.ts_ns = irq_info.ts_ns;
+		err_info.frame_idx = irq_info.frame_idx;
+		err_info.frame_inner_idx = irq_info.frame_inner_idx;
+		err_info.e.err_status = err_status;
 
-			/*
-			 * mtk_cam_dump_topdebug_rdyreq(dev,
-			 *                              raw_dev->base, raw_dev->yuv_base);
-			 */
-
-			raw_irq_handle_dma_err(raw_dev);
-
-			/*
-			 * mtk_cam_dump_req_rdy_status(raw_dev->dev, raw_dev->base,
-			 *		    raw_dev->yuv_base);
-			 */
-
-			/*
-			 * mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
-			 *                        "IMGO_R1",
-			 *                        dbg_IMGO_R1, ARRAY_SIZE(dbg_IMGO_R1));
-			 */
-		}
-		/* Show TG register for more error detail*/
-		if (err_status & TG_GBERR_ST)
-			raw_irq_handle_tg_grab_err(raw_dev,
-						   dequeued_frame_seq_no_inner);
-		if (err_status & TG_OVRUN_ST)
-			raw_irq_handle_tg_overrun_err(raw_dev,
-						      dequeued_frame_seq_no_inner);
+		if (push_msgfifo(raw_dev, &err_info) == 0)
+			wake_thread = 1;
 	}
 
 	/* enable to debug fbc related */
@@ -2136,6 +2155,14 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			irq_info.irq_type,
 			irq_info.frame_inner_idx,
 			irq_info.frame_idx);
+
+		/* error case */
+		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
+			raw_handle_error(raw_dev, &irq_info);
+			continue;
+		}
+
+		/* normal case */
 
 		/* inform interrupt information to camsys controller */
 		mtk_camsys_isr_event(raw_dev->cam, &irq_info);

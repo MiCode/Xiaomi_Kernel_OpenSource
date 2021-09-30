@@ -992,10 +992,27 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx)
 
 	return 1;
 }
+
 static int reset_msgfifo(struct mtk_mraw_device *dev)
 {
 	atomic_set(&dev->is_fifo_overflow, 0);
 	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
+}
+
+static int push_msgfifo(struct mtk_mraw_device *dev,
+			struct mtk_camsys_irq_info *info)
+{
+	int len;
+
+	if (unlikely(kfifo_avail(&dev->msg_fifo) < sizeof(*info))) {
+		atomic_set(&dev->is_fifo_overflow, 1);
+		return -1;
+	}
+
+	len = kfifo_in(&dev->msg_fifo, info, sizeof(*info));
+	WARN_ON(len != sizeof(*info));
+
+	return 0;
 }
 
 void mraw_reset(struct mtk_mraw_device *dev)
@@ -1841,6 +1858,21 @@ static void mraw_irq_handle_tg_overrun_err(struct mtk_mraw_device *mraw_dev)
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_GRAB_LIN));
 }
 
+static void mraw_handle_error(struct mtk_mraw_device *mraw_dev,
+			     struct mtk_camsys_irq_info *data)
+{
+	int err_status = data->e.err_status;
+
+	/* Show DMA errors in detail */
+	if (err_status & DMA_ST_MASK_MRAW_ERR)
+		mraw_irq_handle_dma_err(mraw_dev);
+	/* Show TG register for more error detail*/
+	if (err_status & MRAWCTL_TG_GBERR_ST)
+		mraw_irq_handle_tg_grab_err(mraw_dev);
+	if (err_status & MRAWCTL_TG_ERR_ST)
+		mraw_irq_handle_tg_overrun_err(mraw_dev);
+}
+
 static irqreturn_t mtk_irq_mraw(int irq, void *data)
 {
 	struct mtk_mraw_device *mraw_dev = (struct mtk_mraw_device *)data;
@@ -1855,7 +1887,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
 	unsigned int fbc_imgbo_status, imgbo_addr, imgbo_addr_msb;
 	unsigned int fbc_cpio_status, cpio_addr, cpio_addr_msb;
-	int wake_thread = 0;
+	bool wake_thread = 0;
 
 	irq_status	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT_STATUS);
 
@@ -1918,11 +1950,12 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
 	 * If these two ISRs come together, print warning msg to hint.
 	 */
+	irq_info.irq_type = 0;
 	irq_info.engine_id = CAMSYS_ENGINE_MRAW_BEGIN + mraw_dev->id;
+	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_inner_idx = dequeued_imgo_seq_no_inner;
-	irq_info.irq_type = 0;
-	irq_info.slave_engine = 0;
+	irq_info.n.slave_engine = 0;
 	if ((irq_status & MRAWCTL_SOF_INT_ST) &&
 		(irq_status & MRAWCTL_PASS1_DONE_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", mraw_dev->sof_count);
@@ -1942,38 +1975,31 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		irq_info.irq_type |= 1<<CAMSYS_IRQ_SETTING_DONE;
 		dev_dbg(dev, "CQ done:%d\n", mraw_dev->sof_count);
 	}
-	if (irq_info.irq_type) {
-		int len;
 
-		if (unlikely(kfifo_avail(&mraw_dev->msg_fifo) < sizeof(irq_info))) {
-			atomic_set(&mraw_dev->is_fifo_overflow, 1);
-			goto no_msgfifo;
-		}
-
-		len = kfifo_in(&mraw_dev->msg_fifo, &irq_info, sizeof(irq_info));
-		WARN_ON(len != sizeof(irq_info));
-
+	if (irq_info.irq_type && push_msgfifo(mraw_dev, &irq_info) == 0)
 		wake_thread = 1;
-	}
 
 	/* Check ISP error status */
 	if (err_status) {
+		struct mtk_camsys_irq_info err_info;
+
+		err_info.irq_type = CAMSYS_IRQ_ERROR;
+		err_info.engine_id = irq_info.engine_id;
+		err_info.ts_ns = irq_info.ts_ns;
+		err_info.frame_idx = irq_info.frame_idx;
+		err_info.frame_inner_idx = irq_info.frame_inner_idx;
+		err_info.e.err_status = err_status;
+
+		if (push_msgfifo(mraw_dev, &err_info) == 0)
+			wake_thread = 1;
+
 		dev_info(dev,
 			"%i status:0x%x(err:0x%x)/0x%x dma_err:0x%x fbc_status(imgo:0x%x, imgbo:0x%x, cpio:0x%x) dma_addr(imgo:0x%x%x, imgbo:0x%x%x, cpio:0x%x%x), seq_num:%d\n",
 			mraw_dev->id, irq_status, err_status, irq_status6, dma_err_status,
 			fbc_imgo_status, fbc_imgbo_status, fbc_cpio_status,
 			imgo_addr_msb, imgo_addr, imgbo_addr_msb, imgbo_addr,
 			cpio_addr_msb, cpio_addr, dequeued_imgo_seq_no_inner);
-		/* Show DMA errors in detail */
-		if (err_status & DMA_ST_MASK_MRAW_ERR)
-			mraw_irq_handle_dma_err(mraw_dev);
-		/* Show TG register for more error detail*/
-		if (err_status & MRAWCTL_TG_GBERR_ST)
-			mraw_irq_handle_tg_grab_err(mraw_dev);
-		if (err_status & MRAWCTL_TG_ERR_ST)
-			mraw_irq_handle_tg_overrun_err(mraw_dev);
 	}
-no_msgfifo:
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
@@ -1990,6 +2016,14 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 		int len = kfifo_out(&mraw_dev->msg_fifo, &irq_info, sizeof(irq_info));
 
 		WARN_ON(len != sizeof(irq_info));
+
+		/* error case */
+		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
+			mraw_handle_error(mraw_dev, &irq_info);
+			continue;
+		}
+
+		/* normal case */
 
 		/* inform interrupt information to camsys controller */
 		mtk_camsys_isr_event(mraw_dev->cam, &irq_info);

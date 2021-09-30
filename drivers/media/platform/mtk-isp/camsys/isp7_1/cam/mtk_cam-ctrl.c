@@ -3309,7 +3309,7 @@ static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	}
 
 	/* Twin: skip all */
-	if (irq_info->slave_engine)
+	if (irq_info->n.slave_engine)
 		return 0;
 
 	/* raw's CQ done */

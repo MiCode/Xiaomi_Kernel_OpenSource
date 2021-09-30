@@ -551,6 +551,22 @@ static int reset_msgfifo(struct mtk_camsv_device *dev)
 	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
 }
 
+static int push_msgfifo(struct mtk_camsv_device *dev,
+			struct mtk_camsys_irq_info *info)
+{
+	int len;
+
+	if (unlikely(kfifo_avail(&dev->msg_fifo) < sizeof(*info))) {
+		atomic_set(&dev->is_fifo_overflow, 1);
+		return -1;
+	}
+
+	len = kfifo_in(&dev->msg_fifo, info, sizeof(*info));
+	WARN_ON(len != sizeof(*info));
+
+	return 0;
+}
+
 void sv_reset(struct mtk_camsv_device *dev)
 {
 	int sw_ctl;
@@ -1774,7 +1790,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	unsigned int drop_status, imgo_err_status, imgo_overr_status;
 	unsigned int fbc_imgo_status, imgo_addr;
 	unsigned int tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg;
-	int wake_thread = 0;
+	bool wake_thread = 0;
 
 	irq_status	= readl_relaxed(camsv_dev->base + REG_CAMSV_INT_STATUS);
 	tg_timestamp = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_TIME_STAMP);
@@ -1811,11 +1827,12 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
 	 * If these two ISRs come together, print warning msg to hint.
 	 */
+	irq_info.irq_type = 0;
 	irq_info.engine_id = CAMSYS_ENGINE_CAMSV_BEGIN + camsv_dev->id;
+	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_inner_idx = dequeued_imgo_seq_no_inner;
-	irq_info.irq_type = 0;
-	irq_info.slave_engine = 0;
+	irq_info.n.slave_engine = 0;
 	if ((irq_status & CAMSV_INT_TG_SOF_INT_ST) &&
 		(irq_status & CAMSV_INT_PASS1_DON_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", camsv_dev->sof_count);
@@ -1828,22 +1845,23 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		camsv_dev->sof_count++;
 	}
 
-	if (irq_info.irq_type) {
-		int len;
-
-		if (unlikely(kfifo_avail(&camsv_dev->msg_fifo) < sizeof(irq_info))) {
-			atomic_set(&camsv_dev->is_fifo_overflow, 1);
-			goto no_msgfifo;
-		}
-
-		len = kfifo_in(&camsv_dev->msg_fifo, &irq_info, sizeof(irq_info));
-		WARN_ON(len != sizeof(irq_info));
-
+	if (irq_info.irq_type && push_msgfifo(camsv_dev, &irq_info) == 0)
 		wake_thread = 1;
-	}
 
 	/* Check ISP error status */
 	if (err_status) {
+		struct mtk_camsys_irq_info err_info;
+
+		err_info.irq_type = CAMSYS_IRQ_ERROR;
+		err_info.engine_id = irq_info.engine_id;
+		err_info.ts_ns = irq_info.ts_ns;
+		err_info.frame_idx = irq_info.frame_idx;
+		err_info.frame_inner_idx = irq_info.frame_inner_idx;
+		err_info.e.err_status = err_status;
+
+		if (push_msgfifo(camsv_dev, &err_info) == 0)
+			wake_thread = 1;
+
 		dev_info(dev,
 			"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
 			camsv_dev->id,
@@ -1851,10 +1869,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 			drop_status, imgo_err_status, imgo_overr_status,
 			fbc_imgo_status, imgo_addr, dequeued_imgo_seq_no_inner,
 			tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
-		camsv_irq_handle_err(camsv_dev, dequeued_imgo_seq_no_inner);
 	}
-
-no_msgfifo:
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
@@ -1871,6 +1886,16 @@ static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 		int len = kfifo_out(&camsv_dev->msg_fifo, &irq_info, sizeof(irq_info));
 
 		WARN_ON(len != sizeof(irq_info));
+
+		/* error case */
+		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
+			int frame_inner_idx = irq_info.frame_inner_idx;
+
+			camsv_irq_handle_err(camsv_dev, frame_inner_idx);
+			continue;
+		}
+
+		/* normal case */
 
 		/* inform interrupt information to camsys controller */
 		mtk_camsys_isr_event(camsv_dev->cam, &irq_info);

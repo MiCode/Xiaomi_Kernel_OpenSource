@@ -58,21 +58,36 @@ enum MTK_CAMSYS_ENGINE_IDX {
 };
 
 enum MTK_CAMSYS_IRQ_EVENT {
+	/* with normal_data */
 	CAMSYS_IRQ_SETTING_DONE = 0,
 	CAMSYS_IRQ_FRAME_START,
 	CAMSYS_IRQ_AFO_DONE,
 	CAMSYS_IRQ_FRAME_DONE,
 	CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET,
 	CAMSYS_IRQ_FRAME_DROP,
+
+	/* with error_data */
+	CAMSYS_IRQ_ERROR,
+};
+
+struct mtk_camsys_irq_normal_data {
+	bool slave_engine;
+};
+
+struct mtk_camsys_irq_error_data {
+	int err_status;
 };
 
 struct mtk_camsys_irq_info {
-	u64 ts_ns;
 	enum MTK_CAMSYS_IRQ_EVENT irq_type;
 	enum MTK_CAMSYS_ENGINE_IDX engine_id;
+	u64 ts_ns;
 	int frame_idx;
 	int frame_inner_idx;
-	bool slave_engine;
+	union {
+		struct mtk_camsys_irq_normal_data	n;
+		struct mtk_camsys_irq_error_data	e;
+	};
 };
 
 /*For state analysis and controlling for request*/
